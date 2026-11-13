@@ -1,6 +1,6 @@
 # 世界觀：緋灣市，2081
 
-> 上層：[GAME_DESIGN](GAME_DESIGN.md)。被依賴：所有文件（用語以本文件第 7 節為準）。細節分在三份文件：[CORPORATIONS](CORPORATIONS.md)（企業）、[GANGS](GANGS.md)（幫派）、[CULTURE](CULTURE.md)（文化）。
+> 上層：[GAME_DESIGN](GAME_DESIGN.md)。被依賴：所有文件（用語以本文件第 7 節為準）。細節分在四份文件：[CORPORATIONS](CORPORATIONS.md)（企業）、[GANGS](GANGS.md)（幫派）、[CULTURE](CULTURE.md)（文化）、[DISTRICTS](DISTRICTS.md)（各區）。
 > 這份是設計用的世界觀摘要；實作時拆成世界書條目（`data/worldbook/`），敘事時依關鍵字注入。
 
 ## 1. 分歧點：快感即協定

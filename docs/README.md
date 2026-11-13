@@ -11,6 +11,7 @@ GAME_DESIGN（總綱：原則、遊戲迴圈、報告、AI 管線、和 ElondiaR
 │   └─ WORLD              世界線、歷史、緋灣市、用語對照
 │       ├─ CORPORATIONS   十二家企業：來歷、部門、怎麼拴住人、帶來哪些案子
 │       ├─ GANGS          十四個幫派與兩個街頭組織
+│       ├─ DISTRICTS      八個區：街區、地標、勢力、區域規則、街頭事件
 │       └─ CULTURE        御宅文化：獸化改造、女僕、偶像、萌的工程學、同人、街頭用語
 │
 ├─ 基礎規則（被所有系統依賴）
@@ -20,7 +21,7 @@ GAME_DESIGN（總綱：原則、遊戲迴圈、報告、AI 管線、和 ElondiaR
 ├─ 三條主玩法
 │   ├─ COMBAT_SYSTEM      戰鬥：行動點、站位與掩體、護甲、重創、戰敗、女武神機甲
 │   ├─ NETRUNNING         竄網：快駭、深潛、蕾絲（LACE）、追蹤、粉牆
-│   ├─ MEDIA              媒體：素材、剪輯、發布、直播、公信力與流量
+│   ├─ MEDIA              媒體：素材、剪輯、發布、直播、公信力與流量；偶像的應援、人氣與親衛隊
 │   └─ FIXER              中間人與案子：一案一團的流程、盤口、名冊、人情、據點
 │
 ├─ 成人向
@@ -30,7 +31,7 @@ GAME_DESIGN（總綱：原則、遊戲迴圈、報告、AI 管線、和 ElondiaR
     └─ ROADMAP            實作階段、待決定的問題
 ```
 
-之後會補的文件（先在總綱與 ROADMAP 佔位）：`NPC_SYSTEM`、`DISTRICTS`（各區地圖與地標）、`ITEMS`、`TRADE`、`EVENTS`、`PROMPTS`、`SAVES`、`CONTENT_EDITOR`。這幾份和 ElondiaRPG 的同名文件差異最小，等核心規則定案後再寫。
+之後會補的文件（先在總綱與 ROADMAP 佔位）：`NPC_SYSTEM`、`ITEMS`、`TRADE`、`EVENTS`、`PROMPTS`、`SAVES`、`CONTENT_EDITOR`。這幾份和 ElondiaRPG 的同名文件差異最小，等核心規則定案後再寫。
 
 ## 2. 依賴關係
 
@@ -44,6 +45,9 @@ flowchart TD
   GA[GANGS] --> CO
   CU[CULTURE] --> CO
   CU --> GA
+  DI[DISTRICTS] --> CO
+  DI --> GA
+  DI --> CU
   CR[CORE_RULES]
   CW[CYBERWARE] --> CR
   CB[COMBAT_SYSTEM] --> CR
