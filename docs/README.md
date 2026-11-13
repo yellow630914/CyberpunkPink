@@ -34,6 +34,8 @@ GAME_DESIGN（總綱：原則、遊戲迴圈、報告、AI 管線、和 ElondiaR
 │   └─ ART_STYLE          視覺方向、顏色語意、圖標規格、繪圖管線（art/、mockups/）
 │
 └─ plan/
+    ├─ WORLD_ITEMS        世界觀項目清單：87 項的狀態、還缺什麼、誰在等
+    ├─ MIGRATION          ElondiaRPG 系統遷移清單：每個模組搬不搬、怎麼改
     └─ ROADMAP            實作階段、待決定的問題
 ```
 
