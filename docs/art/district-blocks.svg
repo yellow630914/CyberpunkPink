@@ -1,0 +1,456 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 2100" width="1600" height="2100" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei','WenQuanYi Zen Hei',sans-serif">
+<title>緋夜城 街區結構 v0</title>
+<defs><pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#fff" stroke-opacity=".03"/></pattern><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<rect width="1600" height="2100" fill="#0d0a14"/><rect width="1600" height="2100" fill="url(#g)"/>
+<text x="40" y="66" font-size="38" font-weight="900" fill="#ff4fa3" letter-spacing="5">街區結構</text>
+<text x="40" y="96" font-size="14" fill="#b8adc9" letter-spacing="2">八個區 · 街區、橋接區、要地與出口　·　示意 v0（位置是連接關係，不是實際方位）</text>
+<rect x="820" y="50" width="34" height="22" fill="#b9a6ff" fill-opacity=".15" stroke="#b9a6ff" stroke-width="1.5"/>
+<text x="862" y="66" font-size="12" fill="#b8adc9">街區（13×9，固定）</text>
+<path d="M1016 50H1038L1044 56V72H1010V56Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="5 3"/>
+<text x="1052" y="66" font-size="12" fill="#b8adc9">要地（多層，任務用）</text>
+<rect x="1200" y="50" width="34" height="22" rx="11" fill="#ffe9a8" fill-opacity=".14" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="1242" y="66" font-size="12" fill="#b8adc9">大區之間的橋接區</text>
+<rect x="1390" y="54" width="34" height="14" rx="7" fill="#0d0a14" stroke="#7d7390"/>
+<text x="1432" y="66" font-size="12" fill="#b8adc9">小區之間的橋接區</text>
+<path d="M828 88l8 13h-16z" fill="#5dffb0" transform="rotate(180 828 94)"/><text x="844" y="100" font-size="12" fill="#b8adc9">地下層入口</text>
+<text x="940" y="100" font-size="12" fill="#b8adc9">◇ 隨機生成</text>
+<rect x="30" y="140" width="760" height="450" fill="#151020" fill-opacity=".7" stroke="#3a2d52"/>
+<path d="M30 140h150v6h-150z" fill="#b9a6ff"/>
+<text x="48" y="182" font-size="26" font-weight="700" fill="#b9a6ff" letter-spacing="3">蜂巢</text>
+<text x="772" y="178" text-anchor="end" font-size="13" fill="#7d7390">街區 5 · 要地 2 · 出口 4 · 區內橋接 1</text>
+<path d="M268.4 361.0L410.0 361.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M410.0 361.0L551.5999999999999 361.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M551.5999999999999 361.0L693.1999999999999 361.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M410.0 361.0L410.0 243.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M693.1999999999999 361.0L693.1999999999999 243.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M551.5999999999999 361.0L551.5999999999999 479.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 361.0L126.8 361.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 361.0L268.4 479.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M410.0 361.0L410.0 479.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M693.1999999999999 361.0L693.1999999999999 479.0" stroke="#7d7390" stroke-width="2.5"/>
+<rect x="351.0" y="214.0" width="118" height="58" fill="#1b1430"/>
+<rect x="351.0" y="214.0" width="118" height="58" fill="#b9a6ff" fill-opacity=".15" stroke="#b9a6ff" stroke-width="2"/>
+<text x="410.0" y="248.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">屋頂村</text>
+<path d="M646.1999999999999 214.0H740.1999999999999L752.1999999999999 226.0V272.0H634.1999999999999V226.0Z" fill="#1b1430"/>
+<path d="M646.1999999999999 214.0H740.1999999999999L752.1999999999999 226.0V272.0H634.1999999999999V226.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="693.1999999999999" y="248.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">九號塔</text>
+<rect x="70.8" y="338.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="70.8" y="338.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="126.8" y="356.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">尾巴口</text>
+<text x="126.8" y="372.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 霓虹腸</text>
+<rect x="209.39999999999998" y="332.0" width="118" height="58" fill="#1b1430"/>
+<rect x="209.39999999999998" y="332.0" width="118" height="58" fill="#b9a6ff" fill-opacity=".15" stroke="#b9a6ff" stroke-width="2"/>
+<text x="268.4" y="366.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">西棟</text>
+<rect x="351.0" y="332.0" width="118" height="58" fill="#1b1430"/>
+<rect x="351.0" y="332.0" width="118" height="58" fill="#b9a6ff" fill-opacity=".15" stroke="#b9a6ff" stroke-width="2"/>
+<text x="410.0" y="366.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">天井市場</text>
+<path d="M457.0 338.0l7 11h-14z" fill="#5dffb0" transform="rotate(180 457.0 343.5)"/>
+<rect x="492.5999999999999" y="332.0" width="118" height="58" fill="#1b1430"/>
+<rect x="492.5999999999999" y="332.0" width="118" height="58" fill="#b9a6ff" fill-opacity=".15" stroke="#b9a6ff" stroke-width="2"/>
+<text x="551.5999999999999" y="366.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">四號塔</text>
+<rect x="634.1999999999999" y="332.0" width="118" height="58" fill="#1b1430"/>
+<rect x="634.1999999999999" y="332.0" width="118" height="58" fill="#b9a6ff" fill-opacity=".15" stroke="#b9a6ff" stroke-width="2"/>
+<text x="693.1999999999999" y="366.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">東側</text>
+<rect x="212.39999999999998" y="456.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="212.39999999999998" y="456.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="268.4" y="474.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">運河橋</text>
+<text x="268.4" y="490.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 舊港</text>
+<rect x="354.0" y="456.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="354.0" y="456.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="410.0" y="474.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">高架橋下</text>
+<text x="410.0" y="490.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 櫻町</text>
+<path d="M504.5999999999999 450.0H598.5999999999999L610.5999999999999 462.0V508.0H492.5999999999999V462.0Z" fill="#1b1430"/>
+<path d="M504.5999999999999 450.0H598.5999999999999L610.5999999999999 462.0V508.0H492.5999999999999V462.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="551.5999999999999" y="484.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">機電層</text>
+<rect x="637.1999999999999" y="456.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="637.1999999999999" y="456.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="693.1999999999999" y="474.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">東門</text>
+<text x="693.1999999999999" y="490.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 鏽帶</text>
+<rect x="375.0" y="292.0" width="70" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="410.0" y="306.5" text-anchor="middle" font-size="12" fill="#b8adc9">外牆樓梯</text>
+<rect x="810" y="140" width="760" height="450" fill="#151020" fill-opacity=".7" stroke="#3a2d52"/>
+<path d="M810 140h150v6h-150z" fill="#ff4fa3"/>
+<text x="828" y="182" font-size="26" font-weight="700" fill="#ff4fa3" letter-spacing="3">霓虹腸</text>
+<text x="1552" y="178" text-anchor="end" font-size="13" fill="#7d7390">街區 6 · 要地 2 · 出口 4 · 區內橋接 2</text>
+<path d="M895.0 243.0L1013.0 243.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1013.0 243.0L1131.0 243.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1131.0 243.0L1249.0 243.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1249.0 243.0L1367.0 243.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1367.0 243.0L1485.0 243.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1013.0 243.0L1013.0 361.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1131.0 243.0L1131.0 361.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1249.0 243.0L1249.0 361.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1367.0 243.0L1367.0 361.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1131.0 361.0L1013.0 479.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1131.0 361.0L1131.0 479.0" stroke="#7d7390" stroke-width="2.5"/>
+<rect x="847.0" y="220.0" width="96.0" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="847.0" y="220.0" width="96.0" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="895.0" y="238.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">冠冕門・南</text>
+<text x="895.0" y="254.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 冠冕區</text>
+<rect x="962.0" y="214.0" width="102.0" height="58" fill="#1b1430"/>
+<rect x="962.0" y="214.0" width="102.0" height="58" fill="#ff4fa3" fill-opacity=".15" stroke="#ff4fa3" stroke-width="2"/>
+<text x="1013.0" y="248.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">頭段</text>
+<rect x="1080.0" y="214.0" width="102.0" height="58" fill="#1b1430"/>
+<rect x="1080.0" y="214.0" width="102.0" height="58" fill="#ff4fa3" fill-opacity=".15" stroke="#ff4fa3" stroke-width="2"/>
+<text x="1131.0" y="248.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">腹段・北</text>
+<rect x="1198.0" y="214.0" width="102.0" height="58" fill="#1b1430"/>
+<rect x="1198.0" y="214.0" width="102.0" height="58" fill="#ff4fa3" fill-opacity=".15" stroke="#ff4fa3" stroke-width="2"/>
+<text x="1249.0" y="248.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">腹段・南</text>
+<path d="M1288.0 220.0l7 11h-14z" fill="#5dffb0" transform="rotate(180 1288.0 225.5)"/>
+<rect x="1316.0" y="214.0" width="102.0" height="58" fill="#1b1430"/>
+<rect x="1316.0" y="214.0" width="102.0" height="58" fill="#ff4fa3" fill-opacity=".15" stroke="#ff4fa3" stroke-width="2"/>
+<text x="1367.0" y="248.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">尾段</text>
+<rect x="1437.0" y="220.0" width="96.0" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="1437.0" y="220.0" width="96.0" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="1485.0" y="238.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">尾巴口</text>
+<text x="1485.0" y="254.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 蜂巢</text>
+<path d="M974.0 332.0H1052.0L1064.0 344.0V390.0H962.0V344.0Z" fill="#1b1430"/>
+<path d="M974.0 332.0H1052.0L1064.0 344.0V390.0H962.0V344.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="1013.0" y="366.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">琉璃宮</text>
+<rect x="1080.0" y="332.0" width="102.0" height="58" fill="#1b1430"/>
+<rect x="1080.0" y="332.0" width="102.0" height="58" fill="#ff4fa3" fill-opacity=".15" stroke="#ff4fa3" stroke-width="2"/>
+<text x="1131.0" y="366.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">刀巷</text>
+<path d="M1210.0 332.0H1288.0L1300.0 344.0V390.0H1198.0V344.0Z" fill="#1b1430"/>
+<path d="M1210.0 332.0H1288.0L1300.0 344.0V390.0H1198.0V344.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="1249.0" y="366.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">井</text>
+<rect x="1316.0" y="332.0" width="102.0" height="58" fill="#1b1430"/>
+<rect x="1316.0" y="332.0" width="102.0" height="58" fill="#ff4fa3" fill-opacity=".15" stroke="#ff4fa3" stroke-width="2"/>
+<text x="1367.0" y="366.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">旅館坡</text>
+<rect x="965.0" y="456.0" width="96.0" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="965.0" y="456.0" width="96.0" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="1013.0" y="474.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">燈籠巷</text>
+<text x="1013.0" y="490.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 櫻町</text>
+<rect x="1083.0" y="456.0" width="96.0" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="1083.0" y="456.0" width="96.0" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="1131.0" y="474.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">鏽梯</text>
+<text x="1131.0" y="490.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 舊港</text>
+<rect x="1110.0" y="292.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="1131.0" y="306.5" text-anchor="middle" font-size="12" fill="#b8adc9">暗巷</text>
+<rect x="1346.0" y="292.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="1367.0" y="306.5" text-anchor="middle" font-size="12" fill="#b8adc9">坡道</text>
+<rect x="30" y="610" width="760" height="450" fill="#151020" fill-opacity=".7" stroke="#3a2d52"/>
+<path d="M30 610h150v6h-150z" fill="#ffb7d5"/>
+<text x="48" y="652" font-size="26" font-weight="700" fill="#ffb7d5" letter-spacing="3">櫻町</text>
+<text x="772" y="648" text-anchor="end" font-size="13" fill="#7d7390">街區 5 · 要地 2 · 出口 4 · 區內橋接 2</text>
+<path d="M126.8 831.0L126.8 713.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M126.8 831.0L268.4 831.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 831.0L268.4 713.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 831.0L410.0 713.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 831.0L551.5999999999999 831.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M551.5999999999999 831.0L551.5999999999999 713.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M551.5999999999999 831.0L693.1999999999999 831.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 831.0L268.4 949.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 949.0L126.8 949.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 949.0L410.0 949.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M79.8 684.0H173.8L185.8 696.0V742.0H67.8V696.0Z" fill="#1b1430"/>
+<path d="M79.8 684.0H173.8L185.8 696.0V742.0H67.8V696.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="126.8" y="718.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">奉公課分館</text>
+<rect x="212.39999999999998" y="690.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="212.39999999999998" y="690.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="268.4" y="708.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">櫻門</text>
+<text x="268.4" y="724.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 冠冕區</text>
+<path d="M363.0 684.0H457.0L469.0 696.0V742.0H351.0V696.0Z" fill="#1b1430"/>
+<path d="M363.0 684.0H457.0L469.0 696.0V742.0H351.0V696.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="410.0" y="711.0" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">緋櫻映</text>
+<text x="410.0" y="729.0" text-anchor="middle" font-size="14" fill="#ffb3c0" fill-opacity=".85">像本社</text>
+<rect x="495.5999999999999" y="690.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="495.5999999999999" y="690.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="551.5999999999999" y="708.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">燈籠巷</text>
+<text x="551.5999999999999" y="724.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 霓虹腸</text>
+<rect x="67.8" y="802.0" width="118" height="58" fill="#1b1430"/>
+<rect x="67.8" y="802.0" width="118" height="58" fill="#ffb7d5" fill-opacity=".15" stroke="#ffb7d5" stroke-width="2"/>
+<text x="126.8" y="836.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">社宅群</text>
+<rect x="209.39999999999998" y="802.0" width="118" height="58" fill="#1b1430"/>
+<rect x="209.39999999999998" y="802.0" width="118" height="58" fill="#ffb7d5" fill-opacity=".15" stroke="#ffb7d5" stroke-width="2"/>
+<text x="268.4" y="836.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">劇場通</text>
+<path d="M315.4 808.0l7 11h-14z" fill="#5dffb0" transform="rotate(180 315.4 813.5)"/>
+<rect x="492.5999999999999" y="802.0" width="118" height="58" fill="#1b1430"/>
+<rect x="492.5999999999999" y="802.0" width="118" height="58" fill="#ffb7d5" fill-opacity=".15" stroke="#ffb7d5" stroke-width="2"/>
+<text x="551.5999999999999" y="836.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">電器街</text>
+<rect x="637.1999999999999" y="808.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="637.1999999999999" y="808.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="693.1999999999999" y="826.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">高架橋下</text>
+<text x="693.1999999999999" y="842.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 蜂巢</text>
+<rect x="67.8" y="920.0" width="118" height="58" fill="#1b1430"/>
+<rect x="67.8" y="920.0" width="118" height="58" fill="#ffb7d5" fill-opacity=".15" stroke="#ffb7d5" stroke-width="2"/>
+<text x="126.8" y="954.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">神社坡</text>
+<rect x="209.39999999999998" y="920.0" width="118" height="58" fill="#1b1430"/>
+<rect x="209.39999999999998" y="920.0" width="118" height="58" fill="#ffb7d5" fill-opacity=".15" stroke="#ffb7d5" stroke-width="2"/>
+<text x="268.4" y="954.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">千本通</text>
+<rect x="354.0" y="926.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="354.0" y="926.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="410.0" y="944.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">千本通南口</text>
+<text x="410.0" y="960.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 舊港</text>
+<rect x="388.99999999999994" y="821.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="409.99999999999994" y="835.5" text-anchor="middle" font-size="12" fill="#b8adc9">拱廊</text>
+<rect x="176.6" y="939.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="197.6" y="953.5" text-anchor="middle" font-size="12" fill="#b8adc9">石階</text>
+<rect x="810" y="610" width="760" height="450" fill="#151020" fill-opacity=".7" stroke="#3a2d52"/>
+<path d="M810 610h150v6h-150z" fill="#ffd66b"/>
+<text x="828" y="652" font-size="26" font-weight="700" fill="#ffd66b" letter-spacing="3">冠冕區</text>
+<text x="1552" y="648" text-anchor="end" font-size="13" fill="#7d7390">街區 4 · 要地 3 · 出口 3 · 區內橋接 2</text>
+<path d="M1190.0 713.0L1190.0 831.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1190.0 713.0L1048.4 713.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1190.0 831.0L1331.6 713.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1190.0 831.0L1048.4 831.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1048.4 831.0L906.8 831.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1190.0 831.0L1331.6 831.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1190.0 831.0L1190.0 949.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1190.0 831.0L1331.6 949.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1190.0 949.0L1048.4 949.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1001.4000000000001 684.0H1095.4L1107.4 696.0V742.0H989.4000000000001V696.0Z" fill="#1b1430"/>
+<path d="M1001.4000000000001 684.0H1095.4L1107.4 696.0V742.0H989.4000000000001V696.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="1048.4" y="718.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">樂園</text>
+<rect x="1131.0" y="684.0" width="118" height="58" fill="#1b1430"/>
+<rect x="1131.0" y="684.0" width="118" height="58" fill="#ffd66b" fill-opacity=".15" stroke="#ffd66b" stroke-width="2"/>
+<text x="1190.0" y="718.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">空中花園</text>
+<path d="M1284.6 684.0H1378.6L1390.6 696.0V742.0H1272.6V696.0Z" fill="#1b1430"/>
+<path d="M1284.6 684.0H1378.6L1390.6 696.0V742.0H1272.6V696.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="1331.6" y="718.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">緋櫻塔</text>
+<rect x="850.8" y="808.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="850.8" y="808.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="906.8" y="826.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">海岸公路</text>
+<text x="906.8" y="842.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 玻璃岸</text>
+<rect x="989.4000000000001" y="802.0" width="118" height="58" fill="#1b1430"/>
+<rect x="989.4000000000001" y="802.0" width="118" height="58" fill="#ffd66b" fill-opacity=".15" stroke="#ffd66b" stroke-width="2"/>
+<text x="1048.4" y="836.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">濱海</text>
+<rect x="1131.0" y="802.0" width="118" height="58" fill="#1b1430"/>
+<rect x="1131.0" y="802.0" width="118" height="58" fill="#ffd66b" fill-opacity=".15" stroke="#ffd66b" stroke-width="2"/>
+<text x="1190.0" y="836.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">中央廣場</text>
+<rect x="1275.6" y="808.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="1275.6" y="808.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="1331.6" y="826.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">冠冕門・南</text>
+<text x="1331.6" y="842.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 霓虹腸</text>
+<path d="M1001.4000000000001 920.0H1095.4L1107.4 932.0V978.0H989.4000000000001V932.0Z" fill="#1b1430"/>
+<path d="M1001.4000000000001 920.0H1095.4L1107.4 932.0V978.0H989.4000000000001V932.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="1048.4" y="947.0" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">夜鶯核</text>
+<text x="1048.4" y="965.0" text-anchor="middle" font-size="14" fill="#ffb3c0" fill-opacity=".85">心機房</text>
+<rect x="1131.0" y="920.0" width="118" height="58" fill="#1b1430"/>
+<rect x="1131.0" y="920.0" width="118" height="58" fill="#ffd66b" fill-opacity=".15" stroke="#ffd66b" stroke-width="2"/>
+<text x="1190.0" y="954.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">服務層</text>
+<path d="M1237.0 926.0l7 11h-14z" fill="#5dffb0" transform="rotate(180 1237.0 931.5)"/>
+<rect x="1275.6" y="926.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="1275.6" y="926.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="1331.6" y="944.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">櫻門</text>
+<text x="1331.6" y="960.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 櫻町</text>
+<rect x="1155.0" y="762.0" width="70" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="1190.0" y="776.5" text-anchor="middle" font-size="12" fill="#b8adc9">空橋電梯</text>
+<rect x="1169.0" y="880.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="1190.0" y="894.5" text-anchor="middle" font-size="12" fill="#b8adc9">貨梯</text>
+<rect x="30" y="1080" width="760" height="450" fill="#151020" fill-opacity=".7" stroke="#3a2d52"/>
+<path d="M30 1080h150v6h-150z" fill="#8fa3bd"/>
+<text x="48" y="1122" font-size="26" font-weight="700" fill="#8fa3bd" letter-spacing="3">舊港</text>
+<text x="772" y="1118" text-anchor="end" font-size="13" fill="#7d7390">街區 5 · 要地 2 · 出口 4 · 區內橋接 1</text>
+<path d="M126.8 1301.0L268.4 1301.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 1301.0L410.0 1301.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M410.0 1301.0L551.5999999999999 1301.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M551.5999999999999 1301.0L693.1999999999999 1301.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M126.8 1301.0L126.8 1183.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 1301.0L268.4 1183.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M551.5999999999999 1301.0L551.5999999999999 1183.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M410.0 1301.0L410.0 1419.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M410.0 1419.0L268.4 1419.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M551.5999999999999 1301.0L551.5999999999999 1419.0" stroke="#7d7390" stroke-width="2.5"/>
+<rect x="70.8" y="1160.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="70.8" y="1160.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="126.8" y="1178.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">千本通南口</text>
+<text x="126.8" y="1194.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 櫻町</text>
+<rect x="212.39999999999998" y="1160.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="212.39999999999998" y="1160.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="268.4" y="1178.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">鏽梯</text>
+<text x="268.4" y="1194.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 霓虹腸</text>
+<rect x="495.5999999999999" y="1160.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="495.5999999999999" y="1160.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="551.5999999999999" y="1178.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">運河橋</text>
+<text x="551.5999999999999" y="1194.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 蜂巢</text>
+<rect x="67.8" y="1272.0" width="118" height="58" fill="#1b1430"/>
+<rect x="67.8" y="1272.0" width="118" height="58" fill="#8fa3bd" fill-opacity=".15" stroke="#8fa3bd" stroke-width="2"/>
+<text x="126.8" y="1306.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">碼頭</text>
+<rect x="209.39999999999998" y="1272.0" width="118" height="58" fill="#1b1430"/>
+<rect x="209.39999999999998" y="1272.0" width="118" height="58" fill="#8fa3bd" fill-opacity=".15" stroke="#8fa3bd" stroke-width="2"/>
+<text x="268.4" y="1306.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">夜市碼頭</text>
+<rect x="351.0" y="1272.0" width="118" height="58" fill="#1b1430"/>
+<rect x="351.0" y="1272.0" width="118" height="58" fill="#8fa3bd" fill-opacity=".15" stroke="#8fa3bd" stroke-width="2"/>
+<text x="410.0" y="1306.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">貨櫃城</text>
+<path d="M457.0 1278.0l7 11h-14z" fill="#5dffb0" transform="rotate(180 457.0 1283.5)"/>
+<rect x="492.5999999999999" y="1272.0" width="118" height="58" fill="#1b1430"/>
+<rect x="492.5999999999999" y="1272.0" width="118" height="58" fill="#8fa3bd" fill-opacity=".15" stroke="#8fa3bd" stroke-width="2"/>
+<text x="551.5999999999999" y="1306.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">倉庫區</text>
+<rect x="637.1999999999999" y="1278.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="637.1999999999999" y="1278.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="693.1999999999999" y="1296.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">南門</text>
+<text x="693.1999999999999" y="1312.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 鏽帶</text>
+<path d="M221.39999999999998 1390.0H315.4L327.4 1402.0V1448.0H209.39999999999998V1402.0Z" fill="#1b1430"/>
+<path d="M221.39999999999998 1390.0H315.4L327.4 1402.0V1448.0H209.39999999999998V1402.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="268.4" y="1424.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">水下殘骸</text>
+<rect x="351.0" y="1390.0" width="118" height="58" fill="#1b1430"/>
+<rect x="351.0" y="1390.0" width="118" height="58" fill="#8fa3bd" fill-opacity=".15" stroke="#8fa3bd" stroke-width="2"/>
+<text x="410.0" y="1424.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">彈坑灣</text>
+<path d="M504.5999999999999 1390.0H598.5999999999999L610.5999999999999 1402.0V1448.0H492.5999999999999V1402.0Z" fill="#1b1430"/>
+<path d="M504.5999999999999 1390.0H598.5999999999999L610.5999999999999 1402.0V1448.0H492.5999999999999V1402.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="551.5999999999999" y="1424.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">熔爐</text>
+<rect x="176.6" y="1291.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="197.6" y="1305.5" text-anchor="middle" font-size="12" fill="#b8adc9">棧橋</text>
+<rect x="810" y="1080" width="760" height="450" fill="#151020" fill-opacity=".7" stroke="#3a2d52"/>
+<path d="M810 1080h150v6h-150z" fill="#9fe8ff"/>
+<text x="828" y="1122" font-size="26" font-weight="700" fill="#9fe8ff" letter-spacing="3">玻璃岸</text>
+<text x="1552" y="1118" text-anchor="end" font-size="13" fill="#7d7390">街區 3 · 要地 2 · 出口 2 · 區內橋接 2</text>
+<path d="M924.5 1301.0L924.5 1183.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M924.5 1301.0L1101.5 1301.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1101.5 1301.0L1278.5 1301.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1278.5 1301.0L1278.5 1183.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1278.5 1301.0L1455.5 1301.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1101.5 1301.0L1101.5 1419.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M877.5 1154.0H971.5L983.5 1166.0V1212.0H865.5V1166.0Z" fill="#1b1430"/>
+<path d="M877.5 1154.0H971.5L983.5 1166.0V1212.0H865.5V1166.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="924.5" y="1188.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">外海平台</text>
+<path d="M1231.5 1154.0H1325.5L1337.5 1166.0V1212.0H1219.5V1166.0Z" fill="#1b1430"/>
+<path d="M1231.5 1154.0H1325.5L1337.5 1166.0V1212.0H1219.5V1166.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="1278.5" y="1188.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">蜜腺療養院</text>
+<rect x="865.5" y="1272.0" width="118" height="58" fill="#1b1430"/>
+<rect x="865.5" y="1272.0" width="118" height="58" fill="#9fe8ff" fill-opacity=".15" stroke="#9fe8ff" stroke-width="2"/>
+<text x="924.5" y="1306.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">遊艇碼頭</text>
+<rect x="1042.5" y="1272.0" width="118" height="58" fill="#1b1430"/>
+<rect x="1042.5" y="1272.0" width="118" height="58" fill="#9fe8ff" fill-opacity=".15" stroke="#9fe8ff" stroke-width="2"/>
+<text x="1101.5" y="1306.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">俱樂部街</text>
+<rect x="1219.5" y="1272.0" width="118" height="58" fill="#1b1430"/>
+<rect x="1219.5" y="1272.0" width="118" height="58" fill="#9fe8ff" fill-opacity=".15" stroke="#9fe8ff" stroke-width="2"/>
+<text x="1278.5" y="1306.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">別墅區</text>
+<rect x="1399.5" y="1278.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="1399.5" y="1278.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="1455.5" y="1296.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">外環公路</text>
+<text x="1455.5" y="1312.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 鏽帶</text>
+<rect x="1045.5" y="1396.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="1045.5" y="1396.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="1101.5" y="1414.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">海岸公路</text>
+<text x="1101.5" y="1430.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 冠冕區</text>
+<rect x="896.5" y="1232.0" width="56" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="924.5" y="1246.5" text-anchor="middle" font-size="12" fill="#b8adc9">接駁船</text>
+<rect x="1162.0" y="1291.0" width="56" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="1190.0" y="1305.5" text-anchor="middle" font-size="12" fill="#b8adc9">林蔭道</text>
+<rect x="30" y="1550" width="760" height="450" fill="#151020" fill-opacity=".7" stroke="#3a2d52"/>
+<path d="M30 1550h150v6h-150z" fill="#e08a45"/>
+<text x="48" y="1592" font-size="26" font-weight="700" fill="#e08a45" letter-spacing="3">鏽帶</text>
+<text x="772" y="1588" text-anchor="end" font-size="13" fill="#7d7390">街區 5 · 要地 2 · 出口 4 · 區內橋接 3</text>
+<path d="M126.8 1771.0L268.4 1771.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 1771.0L268.4 1653.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 1771.0L410.0 1771.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M410.0 1771.0L551.5999999999999 1771.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M551.5999999999999 1771.0L551.5999999999999 1653.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M551.5999999999999 1771.0L693.1999999999999 1771.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 1771.0L268.4 1889.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 1889.0L126.8 1889.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M268.4 1889.0L410.0 1889.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M410.0 1771.0L551.5999999999999 1889.0" stroke="#7d7390" stroke-width="2.5"/>
+<rect x="212.39999999999998" y="1630.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="212.39999999999998" y="1630.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="268.4" y="1648.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">外環公路</text>
+<text x="268.4" y="1664.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 玻璃岸</text>
+<path d="M504.5999999999999 1624.0H598.5999999999999L610.5999999999999 1636.0V1682.0H492.5999999999999V1636.0Z" fill="#1b1430"/>
+<path d="M504.5999999999999 1624.0H598.5999999999999L610.5999999999999 1636.0V1682.0H492.5999999999999V1636.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="551.5999999999999" y="1651.0" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">星旗前</text>
+<text x="551.5999999999999" y="1669.0" text-anchor="middle" font-size="14" fill="#ffb3c0" fill-opacity=".85">進基地</text>
+<rect x="70.8" y="1748.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="70.8" y="1748.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="126.8" y="1766.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">東門</text>
+<text x="126.8" y="1782.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 蜂巢</text>
+<rect x="209.39999999999998" y="1742.0" width="118" height="58" fill="#1b1430"/>
+<rect x="209.39999999999998" y="1742.0" width="118" height="58" fill="#e08a45" fill-opacity=".15" stroke="#e08a45" stroke-width="2"/>
+<text x="268.4" y="1776.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">東門外</text>
+<rect x="351.0" y="1742.0" width="118" height="58" fill="#1b1430"/>
+<rect x="351.0" y="1742.0" width="118" height="58" fill="#e08a45" fill-opacity=".15" stroke="#e08a45" stroke-width="2"/>
+<text x="410.0" y="1776.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">廠前鎮</text>
+<rect x="492.5999999999999" y="1742.0" width="118" height="58" fill="#1b1430"/>
+<rect x="492.5999999999999" y="1742.0" width="118" height="58" fill="#e08a45" fill-opacity=".15" stroke="#e08a45" stroke-width="2"/>
+<text x="551.5999999999999" y="1776.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">機甲墳場</text>
+<rect x="637.1999999999999" y="1748.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="637.1999999999999" y="1748.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="693.1999999999999" y="1766.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">荒地邊緣</text>
+<text x="693.1999999999999" y="1782.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">地圖的盡頭</text>
+<rect x="70.8" y="1866.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="70.8" y="1866.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="126.8" y="1884.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">南門</text>
+<text x="126.8" y="1900.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 舊港</text>
+<rect x="209.39999999999998" y="1860.0" width="118" height="58" fill="#1b1430"/>
+<rect x="209.39999999999998" y="1860.0" width="118" height="58" fill="#e08a45" fill-opacity=".15" stroke="#e08a45" stroke-width="2"/>
+<text x="268.4" y="1894.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">薔薇驛</text>
+<rect x="351.0" y="1860.0" width="118" height="58" fill="#1b1430"/>
+<rect x="351.0" y="1860.0" width="118" height="58" fill="#e08a45" fill-opacity=".15" stroke="#e08a45" stroke-width="2"/>
+<text x="410.0" y="1894.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">骨場</text>
+<text x="461.0" y="1876.0" text-anchor="end" font-size="12" fill="#b8adc9">◇</text>
+<path d="M504.5999999999999 1860.0H598.5999999999999L610.5999999999999 1872.0V1918.0H492.5999999999999V1872.0Z" fill="#1b1430"/>
+<path d="M504.5999999999999 1860.0H598.5999999999999L610.5999999999999 1872.0V1918.0H492.5999999999999V1872.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="551.5999999999999" y="1894.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">精煉廠</text>
+<rect x="318.2" y="1761.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="339.2" y="1775.5" text-anchor="middle" font-size="12" fill="#b8adc9">公路</text>
+<rect x="459.79999999999995" y="1761.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="480.79999999999995" y="1775.5" text-anchor="middle" font-size="12" fill="#b8adc9">公路</text>
+<rect x="247.39999999999998" y="1820.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="268.4" y="1834.5" text-anchor="middle" font-size="12" fill="#b8adc9">公路</text>
+<rect x="810" y="1550" width="760" height="450" fill="#151020" fill-opacity=".7" stroke="#3a2d52"/>
+<path d="M810 1550h150v6h-150z" fill="#5dffb0"/>
+<text x="828" y="1592" font-size="26" font-weight="700" fill="#5dffb0" letter-spacing="3">地下層</text>
+<text x="1552" y="1588" text-anchor="end" font-size="13" fill="#7d7390">街區 6 · 要地 2 · 出口 3 · 區內橋接 6</text>
+<path d="M906.8 1653.0L1048.4 1653.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1473.2 1653.0L1331.6 1653.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1048.4 1653.0L1331.6 1653.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1048.4 1653.0L1048.4 1771.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1331.6 1653.0L1331.6 1771.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1048.4 1771.0L1190.0 1771.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1190.0 1771.0L1331.6 1771.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1048.4 1771.0L1048.4 1889.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1331.6 1771.0L1331.6 1889.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1048.4 1889.0L1331.6 1889.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1331.6 1889.0L1473.2 1889.0" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1048.4 1889.0L906.8 1889.0" stroke="#7d7390" stroke-width="2.5"/>
+<rect x="850.8" y="1630.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="850.8" y="1630.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="906.8" y="1648.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">入口</text>
+<text x="906.8" y="1664.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">蜂巢・霓虹腸</text>
+<rect x="989.4000000000001" y="1624.0" width="118" height="58" fill="#1b1430"/>
+<rect x="989.4000000000001" y="1624.0" width="118" height="58" fill="#5dffb0" fill-opacity=".15" stroke="#5dffb0" stroke-width="2"/>
+<text x="1048.4" y="1658.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">月台市</text>
+<rect x="1272.6" y="1624.0" width="118" height="58" fill="#1b1430"/>
+<rect x="1272.6" y="1624.0" width="118" height="58" fill="#5dffb0" fill-opacity=".15" stroke="#5dffb0" stroke-width="2"/>
+<text x="1331.6" y="1658.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">排水大廳</text>
+<rect x="1417.2" y="1630.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="1417.2" y="1630.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="1473.2" y="1648.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">入口</text>
+<text x="1473.2" y="1664.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">櫻町・舊港・冠冕</text>
+<rect x="989.4000000000001" y="1742.0" width="118" height="58" fill="#1b1430"/>
+<rect x="989.4000000000001" y="1742.0" width="118" height="58" fill="#5dffb0" fill-opacity=".15" stroke="#5dffb0" stroke-width="2"/>
+<text x="1048.4" y="1776.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">轉播站</text>
+<path d="M1143.0 1742.0H1237.0L1249.0 1754.0V1800.0H1131.0V1754.0Z" fill="#1b1430"/>
+<path d="M1143.0 1742.0H1237.0L1249.0 1754.0V1800.0H1131.0V1754.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="1190.0" y="1769.0" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">廢棄資</text>
+<text x="1190.0" y="1787.0" text-anchor="middle" font-size="14" fill="#ffb3c0" fill-opacity=".85">料中心</text>
+<rect x="1272.6" y="1742.0" width="118" height="58" fill="#1b1430"/>
+<rect x="1272.6" y="1742.0" width="118" height="58" fill="#5dffb0" fill-opacity=".15" stroke="#5dffb0" stroke-width="2"/>
+<text x="1331.6" y="1776.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">書店街</text>
+<rect x="850.8" y="1866.0" width="112" height="46" rx="23.0" fill="#1b1430"/>
+<rect x="850.8" y="1866.0" width="112" height="46" rx="23.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="1.5"/>
+<text x="906.8" y="1884.0" text-anchor="middle" font-size="13" font-weight="500" fill="#ffe9a8">門</text>
+<text x="906.8" y="1900.0" text-anchor="middle" font-size="12" fill="#ffe9a8" fill-opacity=".85">→ 粉牆</text>
+<rect x="989.4000000000001" y="1860.0" width="118" height="58" fill="#1b1430"/>
+<rect x="989.4000000000001" y="1860.0" width="118" height="58" fill="#5dffb0" fill-opacity=".15" stroke="#5dffb0" stroke-width="2"/>
+<text x="1048.4" y="1894.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">骨幹</text>
+<rect x="1272.6" y="1860.0" width="118" height="58" fill="#1b1430"/>
+<rect x="1272.6" y="1860.0" width="118" height="58" fill="#5dffb0" fill-opacity=".15" stroke="#5dffb0" stroke-width="2"/>
+<text x="1331.6" y="1894.76" text-anchor="middle" font-size="16" font-weight="700" fill="#efe9f7">聖堂前</text>
+<path d="M1426.2 1860.0H1520.2L1532.2 1872.0V1918.0H1414.2V1872.0Z" fill="#1b1430"/>
+<path d="M1426.2 1860.0H1520.2L1532.2 1872.0V1918.0H1414.2V1872.0Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="1473.2" y="1894.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffb3c0">聖堂</text>
+<rect x="1169.0" y="1643.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="1190.0" y="1657.5" text-anchor="middle" font-size="12" fill="#b8adc9">貓道</text>
+<rect x="1027.4" y="1702.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="1048.4" y="1716.5" text-anchor="middle" font-size="12" fill="#b8adc9">豎井</text>
+<rect x="1310.6" y="1702.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="1331.6" y="1716.5" text-anchor="middle" font-size="12" fill="#b8adc9">豎井</text>
+<rect x="1027.4" y="1820.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="1048.4" y="1834.5" text-anchor="middle" font-size="12" fill="#b8adc9">豎井</text>
+<rect x="1310.6" y="1820.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="1331.6" y="1834.5" text-anchor="middle" font-size="12" fill="#b8adc9">豎井</text>
+<rect x="1169.0" y="1879.0" width="42" height="20" rx="10" fill="#0d0a14" stroke="#7d7390"/>
+<text x="1190.0" y="1893.5" text-anchor="middle" font-size="12" fill="#b8adc9">隧道</text>
+<text x="40" y="2070" font-size="15" fill="#b8adc9">合計：街區 39 塊 · 要地 17 處 · 大區之間的橋接區 12 處 · 小區之間的橋接區 19 處</text>
+</svg>

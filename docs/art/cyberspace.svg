@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 860" width="1600" height="860" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei','WenQuanYi Zen Hei',sans-serif">
+<title>內海 結構 v0</title>
+<defs><pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#fff" stroke-opacity=".03"/></pattern><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<rect width="1600" height="860" fill="#0d0a14"/><rect width="1600" height="860" fill="url(#g)"/>
+<defs><linearGradient id="deep" x1="0" x2="1"><stop offset="0" stop-color="#16243a" stop-opacity=".0"/><stop offset=".72" stop-color="#16243a" stop-opacity=".55"/><stop offset="1" stop-color="#2a0b24" stop-opacity=".9"/></linearGradient></defs>
+<rect x="0" y="120" width="1600" height="660" fill="url(#deep)"/>
+<text x="40" y="66" font-size="38" font-weight="900" fill="#ff4fa3" letter-spacing="5">內海</text>
+<text x="40" y="96" font-size="14" fill="#b8adc9" letter-spacing="2">網路空間的結構 · 越往右越深　·　示意 v0</text>
+<path d="M240 405.0C270.0 405.0 270.0 405.0 300 405.0" fill="none" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M510 405.0C545.0 405.0 545.0 225.0 580 225.0" fill="none" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M510 405.0C545.0 405.0 545.0 405.0 580 405.0" fill="none" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M510 405.0C545.0 405.0 545.0 585.0 580 585.0" fill="none" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M840 225.0C875.0 225.0 875.0 405.0 910 405.0" fill="none" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M840 405.0C875.0 405.0 875.0 405.0 910 405.0" fill="none" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M840 585.0C875.0 585.0 875.0 405.0 910 405.0" fill="none" stroke="#7d7390" stroke-width="2.5"/>
+<path d="M1225 130V770" stroke="#ff4fa3" stroke-width="18" stroke-opacity=".25" filter="url(#glow)"/>
+<path d="M1225 130V770" stroke="#ff4fa3" stroke-width="4"/>
+<path d="M1215 150h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 176h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 202h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 228h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 254h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 280h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 306h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 332h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 358h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 384h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 410h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 436h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 462h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 488h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 514h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 540h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 566h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 592h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 618h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 644h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 670h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 696h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 722h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<path d="M1215 748h20" stroke="#ff4fa3" stroke-opacity=".6"/>
+<text x="1243" y="160" font-size="22" font-weight="700" fill="#ff4fa3" letter-spacing="6">粉牆</text>
+<path d="M1150 405H1213" stroke="#ff4fa3" stroke-width="2.5" stroke-dasharray="5 6"/><path d="M1237 405H1300" stroke="#ff4fa3" stroke-width="2.5" stroke-dasharray="5 6"/>
+<text x="1191" y="394" text-anchor="middle" font-size="14" fill="#ff8fc8">門</text>
+<path d="M70 330H226L240 344V480H84L70 466Z" fill="#151020"/><path d="M70 330H226L240 344V480H84L70 466Z" fill="#b9a6ff" fill-opacity=".13" stroke="#b9a6ff" stroke-width="2"/>
+<text x="88" y="370" font-size="24" font-weight="700" fill="#b9a6ff" letter-spacing="3">港灣</text>
+<text x="88" y="396" font-size="13" fill="#efe9f7">登入點・每個人的房間</text>
+<text x="88" y="464" font-size="12" fill="#b8adc9">■ 固定</text>
+<path d="M300 330H496L510 344V480H314L300 466Z" fill="#151020"/><path d="M300 330H496L510 344V480H314L300 466Z" fill="#4fd8ff" fill-opacity=".13" stroke="#4fd8ff" stroke-width="2"/>
+<text x="318" y="370" font-size="24" font-weight="700" fill="#4fd8ff" letter-spacing="3">大街</text>
+<text x="318" y="396" font-size="13" fill="#efe9f7">商店・牆報廣場・公共服務</text>
+<text x="318" y="464" font-size="12" fill="#b8adc9">■ 固定</text>
+<path d="M580 150H826L840 164V300H594L580 286Z" fill="#151020"/><path d="M580 150H826L840 164V300H594L580 286Z" fill="#ff8fc8" fill-opacity=".13" stroke="#ff8fc8" stroke-width="2"/>
+<text x="598" y="190" font-size="24" font-weight="700" fill="#ff8fc8" letter-spacing="3">樂園島</text>
+<text x="598" y="216" font-size="13" fill="#efe9f7">遊戲館・演唱會場・擂台・主題館</text>
+<text x="598" y="284" font-size="12" fill="#b8adc9">◇ 固定的場館 ＋ 隨機的館內關卡</text>
+<path d="M580 330H826L840 344V480H594L580 466Z" fill="#151020"/><path d="M580 330H826L840 344V480H594L580 466Z" fill="#ffd66b" fill-opacity=".13" stroke="#ffd66b" stroke-width="2"/>
+<text x="598" y="370" font-size="24" font-weight="700" fill="#ffd66b" letter-spacing="3">企業環礁</text>
+<text x="598" y="396" font-size="13" fill="#efe9f7">各企業的子網・禁區</text>
+<text x="598" y="464" font-size="12" fill="#b8adc9">◇ 主線固定；一般案子生成</text>
+<path d="M580 510H826L840 524V660H594L580 646Z" fill="#151020"/><path d="M580 510H826L840 524V660H594L580 646Z" fill="#5dffb0" fill-opacity=".13" stroke="#5dffb0" stroke-width="2"/>
+<text x="598" y="550" font-size="24" font-weight="700" fill="#5dffb0" letter-spacing="3">暗礁</text>
+<text x="598" y="576" font-size="13" fill="#efe9f7">黑市・同人伺服器・駭客的窩</text>
+<text x="598" y="644" font-size="12" fill="#b8adc9">■ 固定的據點 ＋ 會搬家的節點</text>
+<path d="M910 240H1136L1150 254V570H924L910 556Z" fill="#151020"/><path d="M910 240H1136L1150 254V570H924L910 556Z" fill="#8fa3bd" fill-opacity=".13" stroke="#8fa3bd" stroke-width="2"/>
+<text x="928" y="280" font-size="24" font-weight="700" fill="#8fa3bd" letter-spacing="3">沉船帶</text>
+<text x="928" y="306" font-size="13" fill="#efe9f7">大潮崩時留在牆內的舊網殘骸</text>
+<text x="928" y="554" font-size="12" fill="#b8adc9">◇ 隨機生成</text>
+<path d="M1300 190H1536L1550 204V620H1314L1300 606Z" fill="#151020"/><path d="M1300 190H1536L1550 204V620H1314L1300 606Z" fill="#ff4fa3" fill-opacity=".13" stroke="#ff4fa3" stroke-width="2"/>
+<text x="1318" y="230" font-size="24" font-weight="700" fill="#ff4fa3" letter-spacing="3">深海</text>
+<text x="1318" y="256" font-size="13" fill="#efe9f7">牆外。妖精。沒有底</text>
+<text x="1318" y="604" font-size="12" fill="#b8adc9">◇ 隨機生成，規則不同</text>
+<path d="M0 710H1600" stroke="#3a2d52" stroke-dasharray="4 6"/>
+<text x="40" y="742" font-size="16" font-weight="700" fill="#efe9f7" letter-spacing="3">現實的接點</text>
+<circle cx="70" cy="776" r="6" fill="#0d0a14" stroke="#5dffb0" stroke-width="2"/><text x="84" y="781" font-size="13" fill="#b8adc9">自己的床、據點的接入點</text>
+<circle cx="330" cy="776" r="6" fill="#0d0a14" stroke="#5dffb0" stroke-width="2"/><text x="344" y="781" font-size="13" fill="#b8adc9">潛艙店（街上的網咖）</text>
+<circle cx="620" cy="776" r="6" fill="#0d0a14" stroke="#5dffb0" stroke-width="2"/><text x="634" y="781" font-size="13" fill="#b8adc9">設施的資料埠 → 直接進那個設施的子網核心</text>
+<circle cx="1010" cy="776" r="6" fill="#0d0a14" stroke="#5dffb0" stroke-width="2"/><text x="1024" y="781" font-size="13" fill="#b8adc9">地下層的舊網節點 → 沉船帶與「門」</text>
+<text x="40" y="824" font-size="13" fill="#7d7390">淺 ← 訪客就能進、沒有危險　　　　　　要甲板、有蕾絲　　　　　　沒有追蹤度，只有沉溺 → 深</text>
+</svg>

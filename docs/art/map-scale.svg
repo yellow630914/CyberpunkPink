@@ -226,7 +226,7 @@
 <rect x="1308" y="202" width="82" height="46" fill="#b9a6ff" fill-opacity="0.13" stroke="#b9a6ff" stroke-width="1.5"/>
 <text x="1349.0" y="230.0" text-anchor="middle" font-size="12" fill="#efe9f7">屋頂村</text>
 <rect x="1396" y="202" width="82" height="46" fill="#b9a6ff" fill-opacity="0.13" stroke="#b9a6ff" stroke-width="1.5"/>
-<text x="1437.0" y="230.0" text-anchor="middle" font-size="12" fill="#efe9f7">高架橋下</text>
+<text x="1437.0" y="230.0" text-anchor="middle" font-size="12" fill="#efe9f7">西棟</text>
 <text x="960" y="310" font-size="19" font-weight="700" fill="#ff4fa3">霓虹腸</text>
 <text x="960" y="330" font-size="12" fill="#7d7390">6 塊</text>
 <rect x="1044" y="288" width="82" height="46" fill="#ff4fa3" fill-opacity="0.13" stroke="#ff4fa3" stroke-width="1.5"/>
@@ -288,7 +288,7 @@
 <rect x="1044" y="718" width="82" height="46" fill="#e08a45" fill-opacity="0.13" stroke="#e08a45" stroke-width="1.5"/>
 <text x="1085.0" y="746.0" text-anchor="middle" font-size="12" fill="#efe9f7">東門外</text>
 <rect x="1132" y="718" width="82" height="46" fill="#e08a45" fill-opacity="0.13" stroke="#e08a45" stroke-width="1.5"/>
-<text x="1173.0" y="746.0" text-anchor="middle" font-size="12" fill="#efe9f7">精煉廠</text>
+<text x="1173.0" y="746.0" text-anchor="middle" font-size="12" fill="#efe9f7">廠前鎮</text>
 <rect x="1220" y="718" width="82" height="46" fill="#e08a45" fill-opacity="0.13" stroke="#e08a45" stroke-width="1.5"/>
 <text x="1261.0" y="746.0" text-anchor="middle" font-size="12" fill="#efe9f7">薔薇驛</text>
 <rect x="1308" y="718" width="82" height="46" fill="#e08a45" fill-opacity="0.13" stroke="#e08a45" stroke-width="1.5"/>
@@ -298,17 +298,17 @@
 <text x="960" y="826" font-size="19" font-weight="700" fill="#5dffb0">地下層</text>
 <text x="960" y="846" font-size="12" fill="#7d7390">6 塊</text>
 <rect x="1044" y="804" width="82" height="46" fill="#5dffb0" fill-opacity="0.13" stroke="#5dffb0" stroke-width="1.5"/>
-<text x="1085.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">淺・北</text>
+<text x="1085.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">月台市</text>
 <rect x="1132" y="804" width="82" height="46" fill="#5dffb0" fill-opacity="0.13" stroke="#5dffb0" stroke-width="1.5"/>
-<text x="1173.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">淺・南</text>
+<text x="1173.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">排水大廳</text>
 <rect x="1220" y="804" width="82" height="46" fill="#5dffb0" fill-opacity="0.13" stroke="#5dffb0" stroke-width="1.5"/>
-<text x="1261.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">中・月台</text>
+<text x="1261.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">轉播站</text>
 <rect x="1308" y="804" width="82" height="46" fill="#5dffb0" fill-opacity="0.13" stroke="#5dffb0" stroke-width="1.5"/>
-<text x="1349.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">中・機房</text>
+<text x="1349.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">書店街</text>
 <rect x="1396" y="804" width="82" height="46" fill="#5dffb0" fill-opacity="0.13" stroke="#5dffb0" stroke-width="1.5"/>
-<text x="1437.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">深・聖堂</text>
+<text x="1437.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">骨幹</text>
 <rect x="1484" y="804" width="82" height="46" fill="#5dffb0" fill-opacity="0.13" stroke="#5dffb0" stroke-width="1.5"/>
-<text x="1525.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">深・門</text>
+<text x="1525.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">聖堂前</text>
 <text x="960" y="902" font-size="14" fill="#b8adc9">合計 39 塊 × 117 格 ≈ 4,563 格</text>
 <text x="960" y="926" font-size="14" fill="#b8adc9">對照：ElondiaRPG 全大陸 32 個聚落共 85 塊、約 5,000 格</text>
 <text x="960" y="950" font-size="14" fill="#ff8fc8">總量相當，但全部集中在一座城市裡。</text>

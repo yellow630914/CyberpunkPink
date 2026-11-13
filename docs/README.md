@@ -20,8 +20,9 @@ GAME_DESIGN（總綱：原則、遊戲迴圈、報告、AI 管線、和 ElondiaR
 │   ├─ CORE_RULES         屬性、技能、檢定、三條軌（生命／感載／人性）、路數、成長、名聲與熱度
 │   └─ CYBERWARE          義體：部位、人性成本、雙面效應、授權鎖、惡意韌體、溺感症
 │
-├─ 三條主玩法
+├─ 主玩法
 │   ├─ COMBAT_SYSTEM      戰鬥：行動點、站位與掩體、護甲、重創、戰敗、女武神機甲
+│   ├─ CYBERSPACE         網路空間：內海的七個分區、化身與構裝、八條路數的兩面、網內的戰鬥、隨機地圖
 │   ├─ NETRUNNING         竄網：快駭、深潛、蕾絲（LACE）、追蹤、粉牆
 │   ├─ MEDIA              媒體：素材、剪輯、發布、直播、公信力與流量；偶像的應援、人氣與親衛隊
 │   └─ FIXER              中間人與案子：一案一團的流程、盤口、名冊、人情、據點
@@ -65,6 +66,9 @@ flowchart TD
   NR[NETRUNNING] --> CR
   NR --> CW
   NR --> CB
+  CS[CYBERSPACE] --> CR
+  CS --> NR
+  CS --> CB
   LS[LEWD_SYSTEM] --> CR
   LS --> CW
   MD[MEDIA] --> CR
