@@ -8,7 +8,10 @@
 GAME_DESIGN（總綱：原則、遊戲迴圈、報告、AI 管線、和 ElondiaRPG 的對照）
 │
 ├─ 世界
-│   └─ WORLD              世界線、歷史、緋灣市、企業、幫派、用語對照
+│   └─ WORLD              世界線、歷史、緋灣市、用語對照
+│       ├─ CORPORATIONS   十二家企業：來歷、部門、怎麼拴住人、帶來哪些案子
+│       ├─ GANGS          十四個幫派與兩個街頭組織
+│       └─ CULTURE        御宅文化：獸化改造、女僕、偶像、萌的工程學、同人、街頭用語
 │
 ├─ 基礎規則（被所有系統依賴）
 │   ├─ CORE_RULES         屬性、技能、檢定、三條軌（生命／感載／人性）、路數、成長、名聲與熱度
@@ -37,6 +40,10 @@ GAME_DESIGN（總綱：原則、遊戲迴圈、報告、AI 管線、和 ElondiaR
 flowchart TD
   GD[GAME_DESIGN 總綱]
   WD[WORLD]
+  CO[CORPORATIONS] --> WD
+  GA[GANGS] --> CO
+  CU[CULTURE] --> CO
+  CU --> GA
   CR[CORE_RULES]
   CW[CYBERWARE] --> CR
   CB[COMBAT_SYSTEM] --> CR
@@ -59,7 +66,7 @@ flowchart TD
 
 ## 3. 維護規則
 
-1. **一件事只寫在一個地方**，其他文件只放連結。例：感載的公式只寫在 CORE_RULES 第 4 節；蕾絲的種類只寫在 NETRUNNING 第 4 節；用語對照只寫在 WORLD 第 7 節。
+1. **一件事只寫在一個地方**，其他文件只放連結。例：企業的介紹只寫在 CORPORATIONS，WORLD 只列名單；感載的公式只寫在 CORE_RULES 第 4 節；蕾絲的種類只寫在 NETRUNNING 第 4 節；用語對照只寫在 WORLD 第 7 節。
 2. **用語以 WORLD 第 7 節為準**。新造的詞先加進對照表再用。
 3. **還沒決定的事寫進 [plan/ROADMAP](plan/ROADMAP.md) 的「待決定」**，不要散在各文件；決定之後把結論寫回系統文件，再從清單刪掉。
 4. **數值都是初稿**。標了「（初稿）」的公式只是為了說明量級，實作時放進 `data/rules/*.json`，改 JSON 就能調整。

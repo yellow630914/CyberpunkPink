@@ -17,7 +17,8 @@
 |---|---|
 | [`docs/README.md`](docs/README.md) | **文件地圖**：所有設計文件的階層、依賴關係 |
 | [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) | 總綱：核心原則、遊戲迴圈、和 ElondiaRPG 的對照 |
-| [`docs/WORLD.md`](docs/WORLD.md) | 世界觀：歷史、城市、企業、幫派、用語對照 |
+| [`docs/WORLD.md`](docs/WORLD.md) | 世界觀：歷史、城市、用語對照 |
+| [`docs/CORPORATIONS.md`](docs/CORPORATIONS.md)、[`docs/GANGS.md`](docs/GANGS.md)、[`docs/CULTURE.md`](docs/CULTURE.md) | 企業、幫派、御宅文化 |
 | [`docs/plan/ROADMAP.md`](docs/plan/ROADMAP.md) | 實作階段與**待決定的問題** |
 
 ## 內容聲明
