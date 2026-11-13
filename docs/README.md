@@ -12,6 +12,7 @@ GAME_DESIGN（總綱：原則、遊戲迴圈、報告、AI 管線、和 ElondiaR
 │       ├─ CORPORATIONS   十二家企業：來歷、部門、怎麼拴住人、帶來哪些案子
 │       ├─ GANGS          十四個幫派與兩個街頭組織
 │       ├─ DISTRICTS      八個區：街區、地標、勢力、區域規則、街頭事件
+│       ├─ NPCS           五十三位固定 NPC：中間人、鄰居、夥伴、企業與幫派的臉、六條主線
 │       └─ CULTURE        御宅文化：獸化改造、女僕、偶像、萌的工程學、同人、街頭用語
 │
 ├─ 基礎規則（被所有系統依賴）
@@ -26,6 +27,9 @@ GAME_DESIGN（總綱：原則、遊戲迴圈、報告、AI 管線、和 ElondiaR
 │
 ├─ 成人向
 │   └─ LEWD_SYSTEM        橋參數（慾望指標）、調校、豔名、場所、契約與橋權、內容篩選
+│
+├─ 美術
+│   └─ ART_STYLE          視覺方向、顏色語意、圖標規格、繪圖管線（art/、mockups/）
 │
 └─ plan/
     └─ ROADMAP            實作階段、待決定的問題
@@ -48,6 +52,9 @@ flowchart TD
   DI[DISTRICTS] --> CO
   DI --> GA
   DI --> CU
+  NP[NPCS] --> DI
+  NP --> CU
+  AR[ART_STYLE] --> DI
   CR[CORE_RULES]
   CW[CYBERWARE] --> CR
   CB[COMBAT_SYSTEM] --> CR

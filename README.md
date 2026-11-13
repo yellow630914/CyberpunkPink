@@ -19,6 +19,8 @@
 | [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) | 總綱：核心原則、遊戲迴圈、和 ElondiaRPG 的對照 |
 | [`docs/WORLD.md`](docs/WORLD.md) | 世界觀：歷史、城市、用語對照 |
 | [`docs/CORPORATIONS.md`](docs/CORPORATIONS.md)、[`docs/GANGS.md`](docs/GANGS.md)、[`docs/CULTURE.md`](docs/CULTURE.md)、[`docs/DISTRICTS.md`](docs/DISTRICTS.md) | 企業、幫派、御宅文化、各區細節 |
+| [`docs/NPCS.md`](docs/NPCS.md) | 固定 NPC 與六條主線 |
+| [`docs/ART_STYLE.md`](docs/ART_STYLE.md) | 美術風格、地圖預覽、樣式與圖標（預覽圖在 `docs/art/preview/`） |
 | [`docs/plan/ROADMAP.md`](docs/plan/ROADMAP.md) | 實作階段與**待決定的問題** |
 
 ## 內容聲明

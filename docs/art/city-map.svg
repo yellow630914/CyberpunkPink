@@ -1,0 +1,174 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei','WenQuanYi Zen Hei',sans-serif">
+  <title>緋夜城 地圖預覽 v0</title>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#ffffff" stroke-opacity=".035"/>
+    </pattern>
+    <pattern id="waves" width="60" height="22" patternUnits="userSpaceOnUse">
+      <path d="M0 11q15-9 30 0t30 0" fill="none" stroke="#4fd8ff" stroke-opacity=".13" stroke-width="1.5"/>
+    </pattern>
+    <pattern id="fields" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+      <path d="M0 7H14" stroke="#d98a4a" stroke-opacity=".18" stroke-width="2"/>
+    </pattern>
+    <pattern id="blocks" width="26" height="26" patternUnits="userSpaceOnUse">
+      <rect x="3" y="3" width="20" height="20" fill="none" stroke="#b9a6ff" stroke-opacity=".16"/>
+    </pattern>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="land" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a1226"/><stop offset="1" stop-color="#120d1c"/>
+    </linearGradient>
+    <style>
+      .d{stroke-width:2.5;stroke-linejoin:round}
+      .name{font-size:30px;font-weight:700;paint-order:stroke;stroke:#0d0a14;stroke-width:6px;stroke-linejoin:round;letter-spacing:4px}
+      .sub{font-size:13px;fill:#b8adc9;paint-order:stroke;stroke:#0d0a14;stroke-width:4px;letter-spacing:1px}
+      .lm{font-size:13px;fill:#efe9f7;paint-order:stroke;stroke:#0d0a14;stroke-width:4px}
+      .st{font-size:12px;fill:#fff;paint-order:stroke;stroke:#0d0a14;stroke-width:4px}
+      .gate{font-size:13px;font-weight:700;fill:#ffe9a8;paint-order:stroke;stroke:#0d0a14;stroke-width:4px}
+      .lg{font-size:13px;fill:#d9d0e6}
+      .dot{fill:#0d0a14;stroke:#fff;stroke-width:2}
+      .mk{fill:#efe9f7}
+    </style>
+  </defs>
+
+  <!-- 底 -->
+  <rect width="1600" height="1000" fill="#0b1420"/>
+  <rect width="1600" height="1000" fill="url(#waves)"/>
+  <!-- 陸地 -->
+  <path d="M345 0C320 90 365 150 335 235C310 310 380 345 350 440C325 520 290 600 330 690C365 770 300 850 330 1000H1600V0Z" fill="url(#land)"/>
+  <path d="M345 0C320 90 365 150 335 235C310 310 380 345 350 440C325 520 290 600 330 690C365 770 300 850 330 1000" fill="none" stroke="#4fd8ff" stroke-opacity=".5" stroke-width="2"/>
+  <rect x="330" width="1270" height="1000" fill="url(#grid)"/>
+
+  <!-- 鏽帶 -->
+  <path class="d" d="M1250 150L1575 120L1585 972L1250 972Z" fill="#c9763a" fill-opacity=".13" stroke="#e08a45"/>
+  <path d="M1250 150L1575 120L1585 972L1250 972Z" fill="url(#fields)"/>
+  <!-- 玻璃岸 -->
+  <path class="d" d="M372 62L880 52L905 178L610 200L368 212Z" fill="#9fe8ff" fill-opacity=".12" stroke="#9fe8ff"/>
+  <!-- 冠冕區 -->
+  <path class="d" d="M402 242L762 232L782 408L690 428L422 432Z" fill="#ffd66b" fill-opacity=".14" stroke="#ffd66b"/>
+  <!-- 櫻町 -->
+  <path class="d" d="M392 472L690 462L792 566L778 762L412 782Z" fill="#ffb7d5" fill-opacity=".14" stroke="#ffb7d5"/>
+  <!-- 蜂巢 -->
+  <path class="d" d="M950 420L1182 400L1192 772L962 772L902 628Z" fill="#b9a6ff" fill-opacity=".13" stroke="#b9a6ff"/>
+  <path d="M950 420L1182 400L1192 772L962 772L902 628Z" fill="url(#blocks)"/>
+  <!-- 舊港 -->
+  <path class="d" d="M352 822L800 802L1000 792L1182 842L1182 962L340 962Z" fill="#7d8ea3" fill-opacity=".16" stroke="#8fa3bd"/>
+  <circle cx="700" cy="952" r="42" fill="#0b1420" stroke="#4fd8ff" stroke-opacity=".6" stroke-width="2"/>
+
+  <!-- 道路 -->
+  <g fill="none" stroke="#6f6680" stroke-width="5" stroke-linecap="round">
+    <path d="M880 118C1040 100 1230 95 1330 140S1420 260 1410 330" stroke-dasharray="14 8"/>
+    <path d="M520 240V205"/>
+    <path d="M1192 600H1250M1182 900H1250"/>
+    <path d="M845 545C850 640 850 720 860 800" stroke="#ff4fa3" stroke-opacity=".55" stroke-width="3" stroke-dasharray="4 7"/>
+    <path d="M1010 772L990 795M600 780V808M590 432V465" stroke-width="4"/>
+  </g>
+
+  <!-- 霓虹腸 -->
+  <g fill="none" stroke-linecap="round" filter="url(#glow)">
+    <path d="M705 432C745 500 800 505 850 535S905 575 928 590" stroke="#ff4fa3" stroke-opacity=".35" stroke-width="44"/>
+    <path d="M705 432C745 500 800 505 850 535S905 575 928 590" stroke="#ff4fa3" stroke-width="5"/>
+  </g>
+
+  <!-- 城牆 -->
+  <path d="M908 190L1218 322V985" fill="none" stroke="#efe9f7" stroke-opacity=".75" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M908 190L1218 322V985" fill="none" stroke="#0d0a14" stroke-width="2" stroke-dasharray="3 9"/>
+  <g fill="#ffe9a8" stroke="#0d0a14" stroke-width="2">
+    <rect x="1206" y="586" width="24" height="28" rx="3"/><rect x="1206" y="886" width="24" height="28" rx="3"/>
+  </g>
+  <text class="gate" x="1200" y="574" text-anchor="end">東門</text><text class="gate" x="1238" y="932">南門</text>
+  <text class="sub" x="1010" y="262" transform="rotate(23 1010 262)">城　牆</text>
+
+  <!-- 渡輪 -->
+  <path d="M365 880C270 800 285 640 345 520S330 330 400 335M345 520C290 400 300 240 372 150" fill="none" stroke="#4fd8ff" stroke-width="2.5" stroke-dasharray="3 8" stroke-linecap="round"/>
+  <!-- 外環巴士 -->
+  <path d="M1230 600C1300 560 1350 470 1380 420M1380 420C1440 500 1475 580 1470 640S1440 790 1400 840M1380 420C1400 380 1410 350 1410 330" fill="none" stroke="#ff9d4d" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round"/>
+  <!-- 輕軌環線 -->
+  <path d="M1010 530L820 518L740 690L1010 690Z" fill="none" stroke="#5dffb0" stroke-width="3" stroke-dasharray="10 5" stroke-linejoin="round"/>
+  <!-- 地鐵櫻線 -->
+  <path d="M590 330V540L600 700L560 870" fill="none" stroke="#ffffff" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M590 330V540L600 700L560 870" fill="none" stroke="#ff8fc0" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+  <!-- 地鐵紅線 -->
+  <path d="M590 330L715 440L820 518L925 585L1060 600H1205" fill="none" stroke="#ffffff" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M590 330L715 440L820 518L925 585L1060 600H1205" fill="none" stroke="#ff3355" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+
+  <!-- 站 -->
+  <g class="dot">
+    <circle cx="590" cy="330" r="8"/><circle cx="715" cy="440" r="6"/><circle cx="820" cy="518" r="6"/><circle cx="925" cy="585" r="6"/><circle cx="1060" cy="600" r="6"/><circle cx="1205" cy="600" r="6"/>
+    <circle cx="590" cy="540" r="6"/><circle cx="600" cy="700" r="6"/><circle cx="560" cy="870" r="6"/>
+    <circle cx="1010" cy="530" r="4"/><circle cx="740" cy="690" r="4"/><circle cx="1010" cy="690" r="4"/>
+    <circle cx="1380" cy="420" r="5"/><circle cx="1470" cy="640" r="5"/><circle cx="1400" cy="840" r="5"/>
+    <circle cx="365" cy="880" r="5"/><circle cx="400" cy="335" r="5"/><circle cx="372" cy="150" r="5"/>
+  </g>
+  <g class="st">
+    <text x="604" y="322">冠冕中央</text><text x="728" y="432">頭</text><text x="806" y="506">腹</text><text x="914" y="574">尾</text>
+    <text x="1034" y="622">蜂巢天井</text><text x="604" y="560">劇場前</text><text x="614" y="716">千本通</text><text x="574" y="890">舊港碼頭</text>
+  </g>
+
+  <!-- 區名 -->
+  <text class="name" x="640" y="118" fill="#9fe8ff" text-anchor="middle">玻璃岸</text>
+  <text class="name" x="500" y="388" fill="#ffd66b" text-anchor="middle">冠冕區</text>
+  <text class="name" x="520" y="620" fill="#ffb7d5" text-anchor="middle">櫻町</text>
+  <text class="name" x="1090" y="718" fill="#b9a6ff" text-anchor="middle">蜂巢</text>
+  <text class="name" x="880" y="900" fill="#aebfd6" text-anchor="middle">舊港</text>
+  <text class="name" x="1420" y="250" fill="#e08a45" text-anchor="middle">鏽帶</text>
+  <text class="name" x="800" y="478" fill="#ff7dbd" font-size="24" transform="rotate(29 800 478)">霓虹腸</text>
+  <text class="sub" x="1540" y="560" transform="rotate(90 1540 560)" text-anchor="middle">荒地　→　地圖的邊緣</text>
+  <text class="sub" x="150" y="330" text-anchor="middle" fill="#7fd8f5">外　海</text>
+
+  <!-- 地標 -->
+  <g class="mk">
+    <path d="M560 290l7 7-7 7-7-7z"/><path d="M690 282l7 7-7 7-7-7z"/><path d="M660 370l7 7-7 7-7-7z"/>
+    <path d="M500 140l7 7-7 7-7-7z"/><path d="M770 96l7 7-7 7-7-7z"/>
+    <path d="M480 520l7 7-7 7-7-7z"/><path d="M700 612l7 7-7 7-7-7z"/><path d="M470 690l7 7-7 7-7-7z"/><path d="M660 740l7 7-7 7-7-7z"/>
+    <path d="M1040 470l7 7-7 7-7-7z"/><path d="M1140 440l7 7-7 7-7-7z"/><path d="M1130 650l7 7-7 7-7-7z"/>
+    <path d="M450 850l7 7-7 7-7-7z"/><path d="M1060 870l7 7-7 7-7-7z"/><path d="M800 842l7 7-7 7-7-7z"/>
+    <path d="M1500 320l7 7-7 7-7-7z"/><path d="M1320 720l7 7-7 7-7-7z"/><path d="M1500 900l7 7-7 7-7-7z"/>
+    <path d="M770 462l6 6-6 6-6-6z"/><path d="M880 590l6 6-6 6-6-6z"/>
+  </g>
+  <g class="lm">
+    <text x="572" y="302">緋櫻塔</text><text x="702" y="294">萬華鏡球體</text><text x="672" y="382">樂園</text>
+    <text x="512" y="152">鏡廳</text><text x="782" y="108">廢教堂</text>
+    <text x="492" y="532">緋櫻劇場</text><text x="712" y="624">稻荷神社</text><text x="482" y="702">白手套</text><text x="672" y="752">電器街</text>
+    <text x="1052" y="482">四號塔</text><text x="1152" y="452">九號塔</text><text x="1076" y="662" text-anchor="end">巡守站</text>
+    <text x="462" y="862">海棠樓</text><text x="1072" y="882">熔爐</text><text x="812" y="854">貨櫃城</text><text x="700" y="957" text-anchor="middle" fill="#7fd8f5">彈坑灣</text>
+    <text x="1392" y="412">精煉廠</text><text x="1482" y="634">薔薇驛</text><text x="1412" y="862">骨場</text>
+    <text x="1488" y="332" text-anchor="end">機甲墳場</text><text x="1332" y="732">傳教所</text><text x="1488" y="912" text-anchor="end">星旗基地</text>
+    <text x="760" y="456" text-anchor="end">琉璃宮</text><text x="892" y="601">井</text>
+    <text x="1120" y="95" fill="#b8adc9">外環公路</text>
+  </g>
+
+  <!-- 地下層入口 -->
+  <g fill="#5dffb0" stroke="#0d0a14" stroke-width="1.5">
+    <path d="M640 400l8 13h-16z" transform="rotate(180 640 406)"/><path d="M880 500l8 13h-16z" transform="rotate(180 880 506)"/>
+    <path d="M720 560l8 13h-16z" transform="rotate(180 720 566)"/><path d="M990 620l8 13h-16z" transform="rotate(180 990 626)"/>
+    <path d="M960 850l8 13h-16z" transform="rotate(180 960 856)"/>
+  </g>
+
+  <!-- 標題與圖例 -->
+  <g>
+    <text x="28" y="72" font-size="46" font-weight="900" fill="#ff4fa3" filter="url(#glow)" letter-spacing="6">緋夜城</text>
+    <text x="30" y="100" font-size="14" fill="#b8adc9" letter-spacing="3">CYBERPUNKPINK · 2081</text>
+    <text x="30" y="122" font-size="12" fill="#7d7390">地圖預覽 v0（示意，非比例）</text>
+    <g transform="translate(250 70)" fill="none" stroke="#efe9f7" stroke-width="2"><path d="M0 22V-22M-7-12L0-24L7-12"/><text x="0" y="-30" text-anchor="middle" font-size="13" fill="#efe9f7" stroke="none">北</text></g>
+  </g>
+  <g transform="translate(22 640)">
+    <rect width="262" height="332" rx="6" fill="#0d0a14" fill-opacity=".86" stroke="#ff4fa3" stroke-opacity=".6"/>
+    <text x="16" y="28" font-size="15" font-weight="700" fill="#ff7dbd" letter-spacing="2">圖例</text>
+    <g class="lg">
+      <path d="M16 52H56" stroke="#fff" stroke-width="7"/><path d="M16 52H56" stroke="#ff3355" stroke-width="4"/><text x="68" y="57">地鐵紅線</text>
+      <path d="M16 78H56" stroke="#fff" stroke-width="7"/><path d="M16 78H56" stroke="#ff8fc0" stroke-width="4"/><text x="68" y="83">地鐵櫻線</text>
+      <path d="M16 104H56" stroke="#5dffb0" stroke-width="3" stroke-dasharray="10 5"/><text x="68" y="109">輕軌環線</text>
+      <path d="M16 130H56" stroke="#ff9d4d" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round"/><text x="68" y="135">外環巴士</text>
+      <path d="M16 156H56" stroke="#4fd8ff" stroke-width="2.5" stroke-dasharray="3 8" stroke-linecap="round"/><text x="68" y="161">渡輪</text>
+      <path d="M16 182H56" stroke="#6f6680" stroke-width="5" stroke-dasharray="14 8"/><text x="68" y="187">公路</text>
+      <path d="M16 208H56" stroke="#efe9f7" stroke-opacity=".75" stroke-width="6"/><text x="68" y="213">城牆</text>
+      <rect x="26" y="224" width="20" height="22" rx="3" fill="#ffe9a8"/><text x="68" y="240">城門</text>
+      <path d="M36 258l7 7-7 7-7-7z" fill="#efe9f7"/><text x="68" y="270">地標</text>
+      <path d="M36 300l8-13h-16z" fill="#5dffb0"/><text x="68" y="298">地下層入口</text>
+      <circle cx="36" cy="318" r="6" class="dot"/><text x="68" y="323">車站／碼頭</text>
+    </g>
+  </g>
+</svg>

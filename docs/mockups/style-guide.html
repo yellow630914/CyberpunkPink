@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CyberpunkPink 樣式規劃 v0</title>
+<style>
+:root{
+  /* 底色 */
+  --bg-0:#0d0a14; --bg-1:#151020; --bg-2:#1d1630; --line:#3a2d52;
+  /* 文字 */
+  --ink:#efe9f7; --ink-2:#b8adc9; --ink-3:#7d7390;
+  /* 主色：粉 */
+  --pink:#ff4fa3; --pink-hi:#ff8fc8; --pink-lo:#8f2a5c;
+  /* 輔色 */
+  --cyan:#4fd8ff; --mint:#5dffb0; --gold:#ffd66b; --rust:#e08a45; --violet:#b9a6ff; --red:#ff3355;
+  /* 三條軌 */
+  --hp:#ff3355; --load:#ff4fa3; --hum:#4fd8ff; --ram:#5dffb0; --ap:#ffd66b;
+  /* 蕾絲 */
+  --lace-w:#efe9f7; --lace-p:#ff4fa3; --lace-b:#1a0b12;
+  --cut:10px;
+  --font:'Noto Sans TC','PingFang TC','Microsoft JhengHei','WenQuanYi Zen Hei',sans-serif;
+  --mono:'JetBrains Mono','Cascadia Code',Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg-0);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.6;
+  background-image:linear-gradient(#ffffff06 1px,transparent 1px),linear-gradient(90deg,#ffffff06 1px,transparent 1px);background-size:40px 40px}
+.wrap{max-width:1500px;margin:0 auto;padding:36px 32px 60px}
+h1{font-size:44px;margin:0;color:var(--pink);letter-spacing:6px;text-shadow:0 0 18px #ff4fa388}
+.tag{font-family:var(--mono);font-size:12px;color:var(--ink-3);letter-spacing:3px}
+h2{font-size:15px;letter-spacing:4px;color:var(--pink-hi);margin:40px 0 14px;display:flex;align-items:center;gap:12px}
+h2::before{content:"";width:22px;height:2px;background:var(--pink)}
+h2::after{content:"";flex:1;height:1px;background:var(--line)}
+.grid{display:grid;gap:14px}
+.g6{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(420px,1fr))}
+.sw{border:1px solid var(--line);background:var(--bg-1)}
+.sw i{display:block;height:54px}
+.sw b{display:block;padding:6px 10px 0;font-size:13px}
+.sw span{display:block;padding:0 10px 8px;font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+/* 斜切角面板：整個介面的招牌形狀 */
+.panel{background:var(--bg-1);border:1px solid var(--line);padding:16px 18px;position:relative;
+  clip-path:polygon(0 0,calc(100% - var(--cut)) 0,100% var(--cut),100% 100%,var(--cut) 100%,0 calc(100% - var(--cut)))}
+.panel.hot{border-color:var(--pink);box-shadow:inset 0 0 0 1px #ff4fa333}
+.panel h3{margin:0 0 10px;font-size:13px;letter-spacing:3px;color:var(--ink-2);font-weight:500}
+.note{color:var(--ink-2);font-size:13px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+/* 按鈕 */
+.btn{font:inherit;font-size:14px;letter-spacing:2px;padding:8px 18px;border:1px solid var(--line);background:var(--bg-2);color:var(--ink);
+  clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px))}
+.btn.pri{background:var(--pink);border-color:var(--pink);color:#1a0b12;font-weight:700}
+.btn.ghost{background:transparent;border-color:var(--pink);color:var(--pink-hi)}
+.btn.dis{opacity:.4}
+/* 標籤 */
+.chip{font-size:12px;padding:2px 10px;border:1px solid currentColor;border-radius:2px;letter-spacing:1px}
+/* 量條 */
+.bar{display:grid;grid-template-columns:54px 1fr 74px;gap:10px;align-items:center;margin:7px 0;font-size:13px}
+.bar .t{height:12px;background:#ffffff0d;position:relative;overflow:hidden;clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%)}
+.bar .t i{position:absolute;inset:0 auto 0 0;background:var(--c);box-shadow:0 0 10px var(--c)}
+.bar .t.seg{background:repeating-linear-gradient(90deg,#ffffff0d 0 18.5%,transparent 18.5% 20%);clip-path:none}
+.bar .t.seg i{inset:0;background:repeating-linear-gradient(90deg,var(--c) 0 18.5%,transparent 18.5% 20%);box-shadow:none;clip-path:inset(0 calc(100% - var(--w)) 0 0)}
+.bar em{font-style:normal;font-family:var(--mono);font-size:12px;color:var(--ink-2);text-align:right}
+/* 日誌 */
+.log p{margin:0 0 10px}
+.log .sys{font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+.roll{font-family:var(--mono);font-size:12px;border-left:2px solid var(--pink);padding:4px 10px;background:#ff4fa30d;color:var(--ink-2)}
+.roll b{color:var(--mint)}
+/* 圖標 */
+.icons{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.ic{background:var(--bg-1);border:1px solid var(--line);padding:14px 6px 8px;text-align:center;font-size:12px;color:var(--ink-2)}
+.ic svg{width:44px;height:44px;display:block;margin:0 auto 6px;fill:none;stroke:var(--ink);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.ic svg .a{stroke:var(--pink)} .ic svg .f{fill:var(--pink);stroke:none}
+.sizes svg{fill:none;stroke:var(--ink);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.sizes .a{stroke:var(--pink)}
+ul{margin:6px 0 0;padding-left:20px;color:var(--ink-2);font-size:13px}
+code{font-family:var(--mono);font-size:12px;color:var(--pink-hi)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CyberpunkPink</h1>
+  <div class="tag">樣式規劃 v0 · 緋夜城 2081 · 初稿，供討論</div>
+
+  <h2>色彩</h2>
+  <div class="grid g6">
+    <div class="sw"><i style="background:#0d0a14"></i><b>底 0</b><span>#0d0a14</span></div>
+    <div class="sw"><i style="background:#151020"></i><b>底 1（面板）</b><span>#151020</span></div>
+    <div class="sw"><i style="background:#1d1630"></i><b>底 2（浮起）</b><span>#1d1630</span></div>
+    <div class="sw"><i style="background:#3a2d52"></i><b>線</b><span>#3a2d52</span></div>
+    <div class="sw"><i style="background:#efe9f7"></i><b>字</b><span>#efe9f7</span></div>
+    <div class="sw"><i style="background:#b8adc9"></i><b>字 次要</b><span>#b8adc9</span></div>
+    <div class="sw"><i style="background:#ff4fa3"></i><b>粉（主色）</b><span>#ff4fa3</span></div>
+    <div class="sw"><i style="background:#ff8fc8"></i><b>粉 亮</b><span>#ff8fc8</span></div>
+    <div class="sw"><i style="background:#8f2a5c"></i><b>粉 暗</b><span>#8f2a5c</span></div>
+    <div class="sw"><i style="background:#4fd8ff"></i><b>青</b><span>#4fd8ff</span></div>
+    <div class="sw"><i style="background:#5dffb0"></i><b>薄荷</b><span>#5dffb0</span></div>
+    <div class="sw"><i style="background:#ffd66b"></i><b>金</b><span>#ffd66b</span></div>
+    <div class="sw"><i style="background:#ff3355"></i><b>紅</b><span>#ff3355</span></div>
+    <div class="sw"><i style="background:#b9a6ff"></i><b>紫</b><span>#b9a6ff</span></div>
+    <div class="sw"><i style="background:#e08a45"></i><b>鏽</b><span>#e08a45</span></div>
+  </div>
+  <ul>
+    <li>深色底、粉色只用在「現在要看這裡」的地方（主要按鈕、感載、選中的東西）。整個畫面的粉不超過一成，才會亮。</li>
+    <li>八個區各有一個代表色（地圖預覽用的那一組），進入該區時介面的強調色跟著換：冠冕金、櫻町淡粉、蜂巢紫、玻璃岸冰藍、舊港灰藍、鏽帶鏽橘。</li>
+  </ul>
+
+  <h2>三條軌與資源</h2>
+  <div class="grid g2">
+    <div class="panel hot">
+      <h3>角色卡</h3>
+      <div class="bar" style="--c:var(--hp)"><span>生命</span><div class="t"><i style="width:62%"></i></div><em>30 / 48</em></div>
+      <div class="bar" style="--c:var(--load)"><span>感載</span><div class="t"><i style="width:78%"></i></div><em>31 / 40</em></div>
+      <div class="bar" style="--c:var(--hum)"><span>人性</span><div class="t"><i style="width:54%"></i></div><em>54 / 72</em></div>
+      <div class="bar" style="--c:var(--ap)"><span>行動點</span><div class="t seg"><i style="--w:60%"></i></div><em>3 / 5</em></div>
+      <div class="bar" style="--c:var(--ram)"><span>RAM</span><div class="t seg"><i style="--w:40%"></i></div><em>2 / 5</em></div>
+      <div class="row" style="margin-top:12px">
+        <span class="chip" style="color:var(--hp)">重傷</span>
+        <span class="chip" style="color:var(--load)">餘韻 2</span>
+        <span class="chip" style="color:var(--hum)">人性：鈍</span>
+        <span class="chip" style="color:var(--gold)">深同步</span>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>規則</h3>
+      <ul>
+        <li><b style="color:var(--hp)">紅＝肉體</b>。往下掉。</li>
+        <li><b style="color:var(--load)">粉＝神經</b>。往上漲，滿了就過載。它是全畫面唯一用主色的量條。</li>
+        <li><b style="color:var(--hum)">青＝人性</b>。冷色：越少越冷。上限被義體壓低時，右側留一段暗的。</li>
+        <li><b style="color:var(--ap)">金</b>行動點、<b style="color:var(--ram)">薄荷</b> RAM：分格顯示，一格一點。</li>
+        <li>蕾絲三色沿用語意：
+          <span class="chip" style="color:var(--lace-w)">白蕾絲</span>
+          <span class="chip" style="color:var(--lace-p)">粉蕾絲</span>
+          <span class="chip" style="color:#fff;background:#1a0b12;border-color:#ff3355">黑蕾絲</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>元件</h2>
+  <div class="grid g2">
+    <div class="panel">
+      <h3>按鈕與標籤</h3>
+      <div class="row">
+        <button class="btn pri">接下這件案子</button>
+        <button class="btn">踩點</button>
+        <button class="btn ghost">談判</button>
+        <button class="btn dis">深潛（需要接入點）</button>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <span class="chip" style="color:var(--gold)">緋櫻</span>
+        <span class="chip" style="color:var(--pink)">蜜糖會</span>
+        <span class="chip" style="color:var(--violet)">野良</span>
+        <span class="chip" style="color:var(--mint)">已知</span>
+        <span class="chip" style="color:var(--ink-3)">？？？</span>
+        <span class="chip" style="color:var(--red)">熱度 62</span>
+      </div>
+      <p class="note" style="margin:14px 0 0">招牌形狀是<b>斜切一角</b>（右上、左下），面板與按鈕都用。不用圓角。</p>
+    </div>
+    <div class="panel log">
+      <h3>日誌</h3>
+      <p class="sys">第 12 天 23:40 · 霓虹腸 · 腹段 · 夜店「過載」</p>
+      <p>音響的低頻從地板傳上來，順著脊椎爬進後頸。吧檯後面的人沒有抬頭，只把一杯沒點過的酒推到你面前——杯墊底下壓著一張紙。</p>
+      <div class="roll">調查 1d20(<b>14</b>) + 2 + 3 = <b>19</b> 對 DC 16　→　成功　<span style="color:var(--pink-hi)">✦ 出乎預料</span></div>
+    </div>
+  </div>
+
+  <h2>字</h2>
+  <div class="panel">
+    <div style="font-size:34px;font-weight:900;letter-spacing:4px">請問需要打掃嗎</div>
+    <div style="font-size:20px;font-weight:700;margin-top:4px">標題　同步越深，力量越大，回灌越重。</div>
+    <div style="margin-top:4px">內文　緋夜城的日夜分別只剩廣告的顏色。走到地圖邊緣的路口，就進入隔壁那一區。</div>
+    <div class="note">次要　改 JSON 就能調整平衡，不必動程式。</div>
+    <div style="font-family:var(--mono);font-size:13px;color:var(--mint);margin-top:4px">等寬　TRACE 62% · RAM 2/5 · LACE:PINK · 1d20+5 vs DC16</div>
+    <p class="note" style="margin:10px 0 0">內文與介面用黑體（思源黑體 TC）；數字、骰值、網內的文字用等寬字。小說式的敘事正文可以另外選襯線體（和 ElondiaRPG 一樣用思源宋體），待定。</p>
+  </div>
+
+  <h2>圖標風格</h2>
+  <p class="note">24 格、1.6 線寬、圓頭圓角、不填色；每個圖標<b>只有一筆是粉的</b>——那一筆是這個圖標的重點。小到 16px 仍然認得出來。</p>
+
+  <div class="tag" style="margin:14px 0 8px">八條路數</div>
+  <div class="icons">
+    <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/><circle class="f" cx="12" cy="12" r="1.6"/></svg>槍手</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path class="a" d="M6 9v3h12V9M12 12v3"/></svg>潛網者</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 20l9-9"/><path class="a" d="M13 11l5-7c1.5 2 1.5 5-1 8z"/><path d="M4 20l-1 1M8 13l3 3"/></svg>改造師</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/><circle class="f" cx="7" cy="11" r="1.5"/></svg>主播</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="19" r="2.5"/><path class="a" d="M8 7.5l8 0M7 8.5l4 8M17 8.5l-4 8"/></svg>掮客</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 5c5 2 11 2 16 0v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9z"/><path d="M8 11c1 .8 2 .8 3 0M13 11c1 .8 2 .8 3 0"/><path class="a" d="M9 15c2 1.5 4 1.5 6 0"/></svg>伶人</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21M8.5 21h7"/><path class="a" d="M19 3l.7 1.6L21.3 5l-1.6.7L19 7.3l-.7-1.6L16.7 5l1.6-.4z"/></svg>偶像</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M5 14a7 7 0 0114 0v3H5z"/><path class="a" d="M8 14h8"/><path d="M5 17l-2 3M19 17l2 3M12 7V4"/></svg>機師</div>
+  </div>
+
+  <div class="tag" style="margin:18px 0 8px">三條軌與資源</div>
+  <div class="icons">
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 20s-8-4.6-8-10.2A4.3 4.3 0 0112 7a4.3 4.3 0 018 2.8C20 15.4 12 20 12 20z"/><path class="a" d="M7 12h3l1.5-3 2 6 1.5-3h2"/></svg>生命值</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 12h3"/><path class="a" d="M6 12l2-6 3 12 3-14 2.5 11L18 12"/><path d="M18 12h3"/></svg>感載</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.5"/><path d="M5 21c0-4 3-7 7-7"/><path class="a" d="M12 14c4 0 7 3 7 7" stroke-dasharray="2 3"/></svg>人性</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><path class="a" d="M13 2L5 13h6l-1 9 8-11h-6z"/></svg>行動點</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="10" rx="1.5"/><path d="M8 7V4M12 7V4M16 7V4M8 20v-3M12 20v-3M16 20v-3"/><path class="a" d="M9 12h6"/></svg>RAM</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.5 7.5-8 9-4.5-1.5-8-4.5-8-9V6z"/><path class="a" d="M9 12l2 2 4-4.5"/></svg>護甲</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle class="f" cx="12" cy="12" r="1.5"/></svg>同步</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 21c4-2 6-5 6-9 0-2-1-3-2-4 0 2-1 3-2 3 1-3-1-6-3-8 0 3-5 5-5 10 0 3.5 2.5 6.5 6 8z"/><path class="a" d="M12 21c-1.5-1-2.5-2.3-2.5-4 0-1.5 1.5-2.5 2.5-4 1 1.500 2.500 2.500 2.500 4 0 1.700-1 3-2.500 4z"/></svg>熱度</div>
+  </div>
+
+  <div class="tag" style="margin:18px 0 8px">世界</div>
+  <div class="icons">
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 21V5M9 21V5M15 21V5M21 21V5M3 9h18M3 15h18"/><path class="a" d="M9 9h6v6H9z"/></svg>粉牆</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 8c1.5-2 3-2 4.500 0s3 2 4.500 0 3-2 4.500 0 3 2 4.500 0"/><path class="a" d="M3 14c1.500-2 3-2 4.500 0s3 2 4.500 0 3-2 4.500 0 3 2 4.500 0"/><path d="M5 19h14" stroke-dasharray="1 3"/></svg>蕾絲</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M8 3v5a4 4 0 008 0V3"/><path class="a" d="M12 12v4"/><rect x="9" y="16" width="6" height="5" rx="1"/></svg>邊緣橋</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M5 9l1.500-6 4 4h3l4-4L19 9"/><path d="M5 9a7 7 0 0014 0"/><path class="a" d="M10 13l2 1.500 2-1.500"/></svg>獸化</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M5 9c0-3.500 3-5.500 7-5.500s7 2 7 5.500"/><path class="a" d="M4 9h16"/><path d="M7 9v5a5 5 0 0010 0V9M9 20l3-2 3 2"/></svg>女僕</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="8.5" cy="12" r="2.500"/><circle cx="15.500" cy="12" r="2.500"/><path class="a" d="M8.500 14.500h7"/></svg>感官帶</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M7 3h10v6l-2 3 2 3v6H7v-6l2-3-2-3z"/><path class="a" d="M10 7h4M10 17h4"/></svg>契約</div>
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3c-4 2-5 6-4 10 .500 2 0 4-1.500 6M12 3c4 2 5 6 4 10-.500 2 0 4 1.500 6"/><path class="a" d="M9 10h6M9.500 14h5"/></svg>女武神</div>
+  </div>
+
+  <div class="row sizes" style="margin-top:18px;gap:22px;align-items:flex-end">
+    <span class="tag">尺寸</span>
+    <svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 12h3"/><path class="a" d="M6 12l2-6 3 12 3-14 2.500 11L18 12"/><path d="M18 12h3"/></svg>
+    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M3 12h3"/><path class="a" d="M6 12l2-6 3 12 3-14 2.500 11L18 12"/><path d="M18 12h3"/></svg>
+    <svg viewBox="0 0 24 24" width="40" height="40"><path d="M3 12h3"/><path class="a" d="M6 12l2-6 3 12 3-14 2.500 11L18 12"/><path d="M18 12h3"/></svg>
+    <svg viewBox="0 0 24 24" width="72" height="72"><path d="M3 12h3"/><path class="a" d="M6 12l2-6 3 12 3-14 2.500 11L18 12"/><path d="M18 12h3"/></svg>
+  </div>
+</div>
+</body>
+</html>

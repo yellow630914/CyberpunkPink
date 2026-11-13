@@ -34,10 +34,10 @@
 
 核心規則定案後再寫，順序大致如下：
 
-2. `NPC_SYSTEM`：固定 NPC（中間人、各勢力的臉）、生成 NPC、關係與記憶。大部分沿用。
+1. `NPC_SYSTEM`：生成 NPC、互動、關係與記憶的規則（固定 NPC 的設定已在 [NPCS](../NPCS.md)）。大部分沿用。
 3. `ITEMS`：武器、護甲、服裝、義體、程式、藥的目錄。
 4. `ENEMIES`：各勢力的敵人、蕾絲、機甲。
-5. `STORY_QUESTS`：主線骨架（牆、契約、萬華鏡三條）與各路數的任務線。
+1. `STORY_QUESTS`：把 [NPCS](../NPCS.md) 第 7 節的六條線展開成任務鏈，加上各路數的任務線。
 6. `EVENTS`、`TRADE`、`PROMPTS`、`SAVES`、`CONTENT_EDITOR`：和 ElondiaRPG 差異小，照搬後改。
 7. 世界書（`data/worldbook/`）：把 [WORLD](../WORLD.md) 拆成條目。
 
