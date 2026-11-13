@@ -28,6 +28,7 @@ node tools/art/render.mjs
 | 圖 | 原稿 | 預覽 | 說明 |
 |---|---|---|---|
 | 緋夜城地圖 v0 | [`art/city-map.svg`](art/city-map.svg) | [`art/preview/city-map.png`](art/preview/city-map.png) | 八個區的位置、城牆與城門、地鐵兩線、輕軌、巴士、渡輪、主要地標、地下層入口。示意圖，非比例 |
+| 地圖規模 v0 | [`art/map-scale.svg`](art/map-scale.svg)（由 `tools/art/gen_scale.py` 產生） | [`art/preview/map-scale.png`](art/preview/map-scale.png) | 一塊街區的格子樣本（蜂巢・天井市場，13×9）與八個區的 39 塊街區 |
 | 樣式規劃 v0 | [`mockups/style-guide.html`](mockups/style-guide.html) | [`art/preview/style-guide.png`](art/preview/style-guide.png) | 色彩、三條軌的量條、按鈕與標籤、日誌、字、圖標風格（24 個樣本） |
 
 ![緋夜城地圖](art/preview/city-map.png)

@@ -1,0 +1,315 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei','WenQuanYi Zen Hei',sans-serif">
+<title>地圖規模示意 v0</title>
+<rect width="1600" height="1000" fill="#0d0a14"/>
+<defs><pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#fff" stroke-opacity=".03"/></pattern></defs>
+<rect width="1600" height="1000" fill="url(#g)"/>
+<text x="60" y="70" font-size="38" font-weight="900" fill="#ff4fa3" letter-spacing="5">地圖規模</text>
+<text x="60" y="100" font-size="14" fill="#b8adc9" letter-spacing="2">城市 8 區 → 39 塊街區 → 每塊 13 × 9 格　·　示意 v0</text>
+<text x="60" y="168" font-size="18" font-weight="700" fill="#b9a6ff" letter-spacing="3">一塊街區：蜂巢・天井市場（13 × 9）</text>
+<rect x="60" y="190" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M68 244L114 198" stroke="#3a2d52" stroke-width="2"/>
+<rect x="122" y="190" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M130 244L176 198" stroke="#3a2d52" stroke-width="2"/>
+<rect x="184" y="190" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M192 244L238 198" stroke="#3a2d52" stroke-width="2"/>
+<rect x="246" y="190" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M254 244L300 198" stroke="#3a2d52" stroke-width="2"/>
+<rect x="308" y="190" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M316 244L362 198" stroke="#3a2d52" stroke-width="2"/>
+<rect x="370" y="190" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M378 244L424 198" stroke="#3a2d52" stroke-width="2"/>
+<rect x="432" y="190" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="437" y="195" width="52" height="52" fill="#ffe9a8" fill-opacity=".9"/>
+<text x="463.0" y="228.0" text-anchor="middle" font-size="20" font-weight="700" fill="#0d0a14">⇄</text>
+<rect x="494" y="190" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M502 244L548 198" stroke="#3a2d52" stroke-width="2"/>
+<rect x="556" y="190" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M564 244L610 198" stroke="#3a2d52" stroke-width="2"/>
+<rect x="618" y="190" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M626 244L672 198" stroke="#3a2d52" stroke-width="2"/>
+<rect x="680" y="190" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M688 244L734 198" stroke="#3a2d52" stroke-width="2"/>
+<rect x="742" y="190" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M750 244L796 198" stroke="#3a2d52" stroke-width="2"/>
+<rect x="804" y="190" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M812 244L858 198" stroke="#3a2d52" stroke-width="2"/>
+<rect x="60" y="252" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M68 306L114 260" stroke="#3a2d52" stroke-width="2"/>
+<rect x="122" y="252" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="127" y="257" width="52" height="52" fill="#ff4fa3" fill-opacity=".16" stroke="#ff4fa3" stroke-width="2"/>
+<text x="153.0" y="280.0" text-anchor="middle" font-size="13" fill="#ff4fa3">阿蓮</text>
+<text x="153.0" y="296.0" text-anchor="middle" font-size="13" fill="#ff4fa3">雜貨</text>
+<rect x="184" y="252" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="246" y="252" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="251" y="257" width="52" height="52" fill="#ff8fc8" fill-opacity=".16" stroke="#ff8fc8" stroke-width="2"/>
+<text x="277.0" y="288.0" text-anchor="middle" font-size="13" fill="#ff8fc8">桃子屋</text>
+<rect x="308" y="252" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="370" y="252" width="62" height="62" fill="#16243a" stroke="#3a2d52"/>
+<rect x="432" y="252" width="62" height="62" fill="#16243a" stroke="#3a2d52"/>
+<rect x="494" y="252" width="62" height="62" fill="#16243a" stroke="#3a2d52"/>
+<rect x="556" y="252" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="618" y="252" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="623" y="257" width="52" height="52" fill="#e08a45" fill-opacity=".16" stroke="#e08a45" stroke-width="2"/>
+<text x="649.0" y="288.0" text-anchor="middle" font-size="13" fill="#e08a45">黑市攤</text>
+<rect x="680" y="252" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="742" y="252" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="747" y="257" width="52" height="52" fill="#ff3355" fill-opacity=".16" stroke="#ff3355" stroke-width="2"/>
+<text x="773.0" y="288.0" text-anchor="middle" font-size="13" fill="#ff3355">地鐵站</text>
+<rect x="804" y="252" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M812 306L858 260" stroke="#3a2d52" stroke-width="2"/>
+<rect x="60" y="314" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M68 368L114 322" stroke="#3a2d52" stroke-width="2"/>
+<rect x="122" y="314" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="184" y="314" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="246" y="314" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M254 368L300 322" stroke="#3a2d52" stroke-width="2"/>
+<rect x="308" y="314" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="370" y="314" width="62" height="62" fill="#16243a" stroke="#3a2d52"/>
+<rect x="432" y="314" width="62" height="62" fill="#16243a" stroke="#3a2d52"/>
+<rect x="494" y="314" width="62" height="62" fill="#16243a" stroke="#3a2d52"/>
+<rect x="556" y="314" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="618" y="314" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M626 368L672 322" stroke="#3a2d52" stroke-width="2"/>
+<rect x="680" y="314" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="742" y="314" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="804" y="314" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M812 368L858 322" stroke="#3a2d52" stroke-width="2"/>
+<rect x="60" y="376" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M68 430L114 384" stroke="#3a2d52" stroke-width="2"/>
+<rect x="122" y="376" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="184" y="376" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="246" y="376" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="308" y="376" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="370" y="376" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="432" y="376" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="494" y="376" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="556" y="376" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="618" y="376" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="680" y="376" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="742" y="376" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="804" y="376" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="809" y="381" width="52" height="52" fill="#ffe9a8" fill-opacity=".9"/>
+<text x="835.0" y="414.0" text-anchor="middle" font-size="20" font-weight="700" fill="#0d0a14">⇄</text>
+<rect x="60" y="438" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="65" y="443" width="52" height="52" fill="#ffe9a8" fill-opacity=".9"/>
+<text x="91.0" y="476.0" text-anchor="middle" font-size="20" font-weight="700" fill="#0d0a14">⇄</text>
+<rect x="122" y="438" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="184" y="438" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="246" y="438" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="308" y="438" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="313" y="443" width="52" height="52" fill="#ffd66b" fill-opacity=".16" stroke="#ffd66b" stroke-width="2"/>
+<text x="339.0" y="474.0" text-anchor="middle" font-size="13" fill="#ffd66b">攤販</text>
+<rect x="370" y="438" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="432" y="438" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="437" y="443" width="52" height="52" fill="#ffd66b" fill-opacity=".16" stroke="#ffd66b" stroke-width="2"/>
+<text x="463.0" y="474.0" text-anchor="middle" font-size="13" fill="#ffd66b">攤販</text>
+<rect x="494" y="438" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="556" y="438" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="561" y="443" width="52" height="52" fill="#ffd66b" fill-opacity=".16" stroke="#ffd66b" stroke-width="2"/>
+<text x="587.0" y="474.0" text-anchor="middle" font-size="13" fill="#ffd66b">攤販</text>
+<rect x="618" y="438" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="680" y="438" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="742" y="438" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="804" y="438" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M812 492L858 446" stroke="#3a2d52" stroke-width="2"/>
+<rect x="60" y="500" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M68 554L114 508" stroke="#3a2d52" stroke-width="2"/>
+<rect x="122" y="500" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="127" y="505" width="52" height="52" fill="#4fd8ff" fill-opacity=".16" stroke="#4fd8ff" stroke-width="2"/>
+<text x="153.0" y="528.0" text-anchor="middle" font-size="13" fill="#4fd8ff">縫縫</text>
+<text x="153.0" y="544.0" text-anchor="middle" font-size="13" fill="#4fd8ff">診所</text>
+<rect x="184" y="500" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="246" y="500" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="308" y="500" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="370" y="500" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="432" y="500" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="494" y="500" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="556" y="500" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="618" y="500" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="680" y="500" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="742" y="500" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="747" y="505" width="52" height="52" fill="#b9a6ff" fill-opacity=".16" stroke="#b9a6ff" stroke-width="2"/>
+<text x="773.0" y="536.0" text-anchor="middle" font-size="13" fill="#b9a6ff">四號塔</text>
+<rect x="804" y="500" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M812 554L858 508" stroke="#3a2d52" stroke-width="2"/>
+<rect x="60" y="562" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M68 616L114 570" stroke="#3a2d52" stroke-width="2"/>
+<rect x="122" y="562" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="184" y="562" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="246" y="562" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M254 616L300 570" stroke="#3a2d52" stroke-width="2"/>
+<rect x="308" y="562" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="370" y="562" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="432" y="562" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="494" y="562" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="556" y="562" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="618" y="562" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M626 616L672 570" stroke="#3a2d52" stroke-width="2"/>
+<rect x="680" y="562" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="742" y="562" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="804" y="562" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M812 616L858 570" stroke="#3a2d52" stroke-width="2"/>
+<rect x="60" y="624" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M68 678L114 632" stroke="#3a2d52" stroke-width="2"/>
+<rect x="122" y="624" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="127" y="629" width="52" height="52" fill="#b9a6ff" fill-opacity=".16" stroke="#b9a6ff" stroke-width="2"/>
+<text x="153.0" y="652.0" text-anchor="middle" font-size="13" fill="#b9a6ff">膠囊</text>
+<text x="153.0" y="668.0" text-anchor="middle" font-size="13" fill="#b9a6ff">旅館</text>
+<rect x="184" y="624" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="246" y="624" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="251" y="629" width="52" height="52" fill="#ffd66b" fill-opacity=".16" stroke="#ffd66b" stroke-width="2"/>
+<text x="277.0" y="660.0" text-anchor="middle" font-size="13" fill="#ffd66b">扭蛋機</text>
+<rect x="308" y="624" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="370" y="624" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="432" y="624" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="437" y="629" width="52" height="52" fill="#5dffb0" fill-opacity=".16" stroke="#5dffb0" stroke-width="2"/>
+<text x="463.0" y="652.0" text-anchor="middle" font-size="11" fill="#5dffb0">地下層</text>
+<text x="463.0" y="668.0" text-anchor="middle" font-size="11" fill="#5dffb0">入口</text>
+<rect x="494" y="624" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="556" y="624" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="618" y="624" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="623" y="629" width="52" height="52" fill="#5dffb0" fill-opacity=".16" stroke="#5dffb0" stroke-width="2"/>
+<text x="649.0" y="660.0" text-anchor="middle" font-size="13" fill="#5dffb0">輕軌站</text>
+<rect x="680" y="624" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="742" y="624" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="747" y="629" width="52" height="52" fill="#efe9f7" fill-opacity=".16" stroke="#efe9f7" stroke-width="2"/>
+<text x="773.0" y="660.0" text-anchor="middle" font-size="13" fill="#efe9f7">佈告欄</text>
+<rect x="804" y="624" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M812 678L858 632" stroke="#3a2d52" stroke-width="2"/>
+<rect x="60" y="686" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M68 740L114 694" stroke="#3a2d52" stroke-width="2"/>
+<rect x="122" y="686" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M130 740L176 694" stroke="#3a2d52" stroke-width="2"/>
+<rect x="184" y="686" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M192 740L238 694" stroke="#3a2d52" stroke-width="2"/>
+<rect x="246" y="686" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M254 740L300 694" stroke="#3a2d52" stroke-width="2"/>
+<rect x="308" y="686" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M316 740L362 694" stroke="#3a2d52" stroke-width="2"/>
+<rect x="370" y="686" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M378 740L424 694" stroke="#3a2d52" stroke-width="2"/>
+<rect x="432" y="686" width="62" height="62" fill="#151020" stroke="#3a2d52"/>
+<rect x="437" y="691" width="52" height="52" fill="#ffe9a8" fill-opacity=".9"/>
+<text x="463.0" y="724.0" text-anchor="middle" font-size="20" font-weight="700" fill="#0d0a14">⇄</text>
+<rect x="494" y="686" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M502 740L548 694" stroke="#3a2d52" stroke-width="2"/>
+<rect x="556" y="686" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M564 740L610 694" stroke="#3a2d52" stroke-width="2"/>
+<rect x="618" y="686" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M626 740L672 694" stroke="#3a2d52" stroke-width="2"/>
+<rect x="680" y="686" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M688 740L734 694" stroke="#3a2d52" stroke-width="2"/>
+<rect x="742" y="686" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M750 740L796 694" stroke="#3a2d52" stroke-width="2"/>
+<rect x="804" y="686" width="62" height="62" fill="#241b36" stroke="#0d0a14" stroke-width="2"/>
+<path d="M812 740L858 694" stroke="#3a2d52" stroke-width="2"/>
+<text x="463.0" y="320" text-anchor="middle" font-size="15" fill="#4fd8ff" letter-spacing="4">天　井</text>
+<circle cx="463.0" cy="531.0" r="15" fill="#ff4fa3"/><circle cx="463.0" cy="531.0" r="24" fill="none" stroke="#ff4fa3" stroke-opacity=".5"/>
+<text x="463.0" y="573.0" text-anchor="middle" font-size="12" fill="#ff8fc8">你</text>
+<text x="518.8" y="186" font-size="13" fill="#ffe9a8">往屋頂村</text>
+<text x="518.8" y="766" font-size="13" fill="#ffe9a8">往高架橋下</text>
+<text x="64" y="430" font-size="12" fill="#ffe9a8">往霓虹腸・尾</text>
+<text x="862" y="368" text-anchor="end" font-size="12" fill="#ffe9a8">往東側</text>
+<text x="60" y="798" font-size="14" fill="#b8adc9">· 一格 ＝ 一間店面或一段街道，走一格 2 分鐘。橫越這塊約 25 分鐘。</text>
+<text x="60" y="822" font-size="14" fill="#b8adc9">· 黃色是路口：走上去按「前往」換到隔壁的街區或隔壁的區。</text>
+<text x="60" y="846" font-size="14" fill="#b8adc9">· 設施（店、診所、車站）是格子，走到才能用。地標與事件疊在街道格上。</text>
+<text x="60" y="870" font-size="14" fill="#b8adc9">· 案子的行動階段另有「設施內部」地圖（9×9 ～ 15×11，可多層），不算在這裡。</text>
+<text x="960" y="168" font-size="18" font-weight="700" fill="#efe9f7" letter-spacing="3">八個區 · 39 塊街區</text>
+<text x="960" y="224" font-size="19" font-weight="700" fill="#b9a6ff">蜂巢</text>
+<text x="960" y="244" font-size="12" fill="#7d7390">5 塊</text>
+<rect x="1044" y="202" width="82" height="46" fill="#b9a6ff" fill-opacity="0.38" stroke="#b9a6ff" stroke-width="3"/>
+<text x="1085.0" y="230.0" text-anchor="middle" font-size="12" fill="#efe9f7">天井市場</text>
+<rect x="1132" y="202" width="82" height="46" fill="#b9a6ff" fill-opacity="0.13" stroke="#b9a6ff" stroke-width="1.5"/>
+<text x="1173.0" y="230.0" text-anchor="middle" font-size="12" fill="#efe9f7">四號塔</text>
+<rect x="1220" y="202" width="82" height="46" fill="#b9a6ff" fill-opacity="0.13" stroke="#b9a6ff" stroke-width="1.5"/>
+<text x="1261.0" y="230.0" text-anchor="middle" font-size="12" fill="#efe9f7">東側</text>
+<rect x="1308" y="202" width="82" height="46" fill="#b9a6ff" fill-opacity="0.13" stroke="#b9a6ff" stroke-width="1.5"/>
+<text x="1349.0" y="230.0" text-anchor="middle" font-size="12" fill="#efe9f7">屋頂村</text>
+<rect x="1396" y="202" width="82" height="46" fill="#b9a6ff" fill-opacity="0.13" stroke="#b9a6ff" stroke-width="1.5"/>
+<text x="1437.0" y="230.0" text-anchor="middle" font-size="12" fill="#efe9f7">高架橋下</text>
+<text x="960" y="310" font-size="19" font-weight="700" fill="#ff4fa3">霓虹腸</text>
+<text x="960" y="330" font-size="12" fill="#7d7390">6 塊</text>
+<rect x="1044" y="288" width="82" height="46" fill="#ff4fa3" fill-opacity="0.13" stroke="#ff4fa3" stroke-width="1.5"/>
+<text x="1085.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">頭段</text>
+<rect x="1132" y="288" width="82" height="46" fill="#ff4fa3" fill-opacity="0.13" stroke="#ff4fa3" stroke-width="1.5"/>
+<text x="1173.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">腹段・北</text>
+<rect x="1220" y="288" width="82" height="46" fill="#ff4fa3" fill-opacity="0.13" stroke="#ff4fa3" stroke-width="1.5"/>
+<text x="1261.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">腹段・南</text>
+<rect x="1308" y="288" width="82" height="46" fill="#ff4fa3" fill-opacity="0.13" stroke="#ff4fa3" stroke-width="1.5"/>
+<text x="1349.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">刀巷</text>
+<rect x="1396" y="288" width="82" height="46" fill="#ff4fa3" fill-opacity="0.13" stroke="#ff4fa3" stroke-width="1.5"/>
+<text x="1437.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">尾段</text>
+<rect x="1484" y="288" width="82" height="46" fill="#ff4fa3" fill-opacity="0.13" stroke="#ff4fa3" stroke-width="1.5"/>
+<text x="1525.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">旅館坡</text>
+<text x="960" y="396" font-size="19" font-weight="700" fill="#ffb7d5">櫻町</text>
+<text x="960" y="416" font-size="12" fill="#7d7390">5 塊</text>
+<rect x="1044" y="374" width="82" height="46" fill="#ffb7d5" fill-opacity="0.13" stroke="#ffb7d5" stroke-width="1.5"/>
+<text x="1085.0" y="402.0" text-anchor="middle" font-size="12" fill="#efe9f7">劇場通</text>
+<rect x="1132" y="374" width="82" height="46" fill="#ffb7d5" fill-opacity="0.13" stroke="#ffb7d5" stroke-width="1.5"/>
+<text x="1173.0" y="402.0" text-anchor="middle" font-size="12" fill="#efe9f7">千本通</text>
+<rect x="1220" y="374" width="82" height="46" fill="#ffb7d5" fill-opacity="0.13" stroke="#ffb7d5" stroke-width="1.5"/>
+<text x="1261.0" y="402.0" text-anchor="middle" font-size="12" fill="#efe9f7">電器街</text>
+<rect x="1308" y="374" width="82" height="46" fill="#ffb7d5" fill-opacity="0.13" stroke="#ffb7d5" stroke-width="1.5"/>
+<text x="1349.0" y="402.0" text-anchor="middle" font-size="12" fill="#efe9f7">社宅群</text>
+<rect x="1396" y="374" width="82" height="46" fill="#ffb7d5" fill-opacity="0.13" stroke="#ffb7d5" stroke-width="1.5"/>
+<text x="1437.0" y="402.0" text-anchor="middle" font-size="12" fill="#efe9f7">神社坡</text>
+<text x="960" y="482" font-size="19" font-weight="700" fill="#ffd66b">冠冕區</text>
+<text x="960" y="502" font-size="12" fill="#7d7390">4 塊</text>
+<rect x="1044" y="460" width="82" height="46" fill="#ffd66b" fill-opacity="0.13" stroke="#ffd66b" stroke-width="1.5"/>
+<text x="1085.0" y="488.0" text-anchor="middle" font-size="12" fill="#efe9f7">中央廣場</text>
+<rect x="1132" y="460" width="82" height="46" fill="#ffd66b" fill-opacity="0.13" stroke="#ffd66b" stroke-width="1.5"/>
+<text x="1173.0" y="488.0" text-anchor="middle" font-size="12" fill="#efe9f7">空中花園</text>
+<rect x="1220" y="460" width="82" height="46" fill="#ffd66b" fill-opacity="0.13" stroke="#ffd66b" stroke-width="1.5"/>
+<text x="1261.0" y="488.0" text-anchor="middle" font-size="12" fill="#efe9f7">濱海</text>
+<rect x="1308" y="460" width="82" height="46" fill="#ffd66b" fill-opacity="0.13" stroke="#ffd66b" stroke-width="1.5"/>
+<text x="1349.0" y="488.0" text-anchor="middle" font-size="12" fill="#efe9f7">服務層</text>
+<text x="960" y="568" font-size="19" font-weight="700" fill="#8fa3bd">舊港</text>
+<text x="960" y="588" font-size="12" fill="#7d7390">5 塊</text>
+<rect x="1044" y="546" width="82" height="46" fill="#8fa3bd" fill-opacity="0.13" stroke="#8fa3bd" stroke-width="1.5"/>
+<text x="1085.0" y="574.0" text-anchor="middle" font-size="12" fill="#efe9f7">碼頭</text>
+<rect x="1132" y="546" width="82" height="46" fill="#8fa3bd" fill-opacity="0.13" stroke="#8fa3bd" stroke-width="1.5"/>
+<text x="1173.0" y="574.0" text-anchor="middle" font-size="12" fill="#efe9f7">貨櫃城</text>
+<rect x="1220" y="546" width="82" height="46" fill="#8fa3bd" fill-opacity="0.13" stroke="#8fa3bd" stroke-width="1.5"/>
+<text x="1261.0" y="574.0" text-anchor="middle" font-size="12" fill="#efe9f7">倉庫區</text>
+<rect x="1308" y="546" width="82" height="46" fill="#8fa3bd" fill-opacity="0.13" stroke="#8fa3bd" stroke-width="1.5"/>
+<text x="1349.0" y="574.0" text-anchor="middle" font-size="12" fill="#efe9f7">彈坑灣</text>
+<rect x="1396" y="546" width="82" height="46" fill="#8fa3bd" fill-opacity="0.13" stroke="#8fa3bd" stroke-width="1.5"/>
+<text x="1437.0" y="574.0" text-anchor="middle" font-size="12" fill="#efe9f7">夜市碼頭</text>
+<text x="960" y="654" font-size="19" font-weight="700" fill="#9fe8ff">玻璃岸</text>
+<text x="960" y="674" font-size="12" fill="#7d7390">3 塊</text>
+<rect x="1044" y="632" width="82" height="46" fill="#9fe8ff" fill-opacity="0.13" stroke="#9fe8ff" stroke-width="1.5"/>
+<text x="1085.0" y="660.0" text-anchor="middle" font-size="12" fill="#efe9f7">別墅區</text>
+<rect x="1132" y="632" width="82" height="46" fill="#9fe8ff" fill-opacity="0.13" stroke="#9fe8ff" stroke-width="1.5"/>
+<text x="1173.0" y="660.0" text-anchor="middle" font-size="12" fill="#efe9f7">俱樂部街</text>
+<rect x="1220" y="632" width="82" height="46" fill="#9fe8ff" fill-opacity="0.13" stroke="#9fe8ff" stroke-width="1.5"/>
+<text x="1261.0" y="660.0" text-anchor="middle" font-size="12" fill="#efe9f7">遊艇碼頭</text>
+<text x="960" y="740" font-size="19" font-weight="700" fill="#e08a45">鏽帶</text>
+<text x="960" y="760" font-size="12" fill="#7d7390">5 塊</text>
+<rect x="1044" y="718" width="82" height="46" fill="#e08a45" fill-opacity="0.13" stroke="#e08a45" stroke-width="1.5"/>
+<text x="1085.0" y="746.0" text-anchor="middle" font-size="12" fill="#efe9f7">東門外</text>
+<rect x="1132" y="718" width="82" height="46" fill="#e08a45" fill-opacity="0.13" stroke="#e08a45" stroke-width="1.5"/>
+<text x="1173.0" y="746.0" text-anchor="middle" font-size="12" fill="#efe9f7">精煉廠</text>
+<rect x="1220" y="718" width="82" height="46" fill="#e08a45" fill-opacity="0.13" stroke="#e08a45" stroke-width="1.5"/>
+<text x="1261.0" y="746.0" text-anchor="middle" font-size="12" fill="#efe9f7">薔薇驛</text>
+<rect x="1308" y="718" width="82" height="46" fill="#e08a45" fill-opacity="0.13" stroke="#e08a45" stroke-width="1.5"/>
+<text x="1349.0" y="746.0" text-anchor="middle" font-size="12" fill="#efe9f7">骨場</text>
+<rect x="1396" y="718" width="82" height="46" fill="#e08a45" fill-opacity="0.13" stroke="#e08a45" stroke-width="1.5"/>
+<text x="1437.0" y="746.0" text-anchor="middle" font-size="12" fill="#efe9f7">機甲墳場</text>
+<text x="960" y="826" font-size="19" font-weight="700" fill="#5dffb0">地下層</text>
+<text x="960" y="846" font-size="12" fill="#7d7390">6 塊</text>
+<rect x="1044" y="804" width="82" height="46" fill="#5dffb0" fill-opacity="0.13" stroke="#5dffb0" stroke-width="1.5"/>
+<text x="1085.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">淺・北</text>
+<rect x="1132" y="804" width="82" height="46" fill="#5dffb0" fill-opacity="0.13" stroke="#5dffb0" stroke-width="1.5"/>
+<text x="1173.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">淺・南</text>
+<rect x="1220" y="804" width="82" height="46" fill="#5dffb0" fill-opacity="0.13" stroke="#5dffb0" stroke-width="1.5"/>
+<text x="1261.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">中・月台</text>
+<rect x="1308" y="804" width="82" height="46" fill="#5dffb0" fill-opacity="0.13" stroke="#5dffb0" stroke-width="1.5"/>
+<text x="1349.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">中・機房</text>
+<rect x="1396" y="804" width="82" height="46" fill="#5dffb0" fill-opacity="0.13" stroke="#5dffb0" stroke-width="1.5"/>
+<text x="1437.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">深・聖堂</text>
+<rect x="1484" y="804" width="82" height="46" fill="#5dffb0" fill-opacity="0.13" stroke="#5dffb0" stroke-width="1.5"/>
+<text x="1525.0" y="832.0" text-anchor="middle" font-size="12" fill="#efe9f7">深・門</text>
+<text x="960" y="902" font-size="14" fill="#b8adc9">合計 39 塊 × 117 格 ≈ 4,563 格</text>
+<text x="960" y="926" font-size="14" fill="#b8adc9">對照：ElondiaRPG 全大陸 32 個聚落共 85 塊、約 5,000 格</text>
+<text x="960" y="950" font-size="14" fill="#ff8fc8">總量相當，但全部集中在一座城市裡。</text>
+</svg>

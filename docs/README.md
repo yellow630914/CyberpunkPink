@@ -13,6 +13,7 @@ GAME_DESIGN（總綱：原則、遊戲迴圈、報告、AI 管線、和 ElondiaR
 │       ├─ GANGS          十四個幫派與兩個街頭組織
 │       ├─ DISTRICTS      八個區：街區、地標、勢力、區域規則、街頭事件
 │       ├─ NPCS           五十三位固定 NPC：中間人、鄰居、夥伴、企業與幫派的臉、六條主線
+│       ├─ LIFE           日常：兩種錢與物價、身分、法律、品級、牌子、藥、通訊、曆、行規
 │       └─ CULTURE        御宅文化：獸化改造、女僕、偶像、萌的工程學、同人、街頭用語
 │
 ├─ 基礎規則（被所有系統依賴）
@@ -53,6 +54,8 @@ flowchart TD
   DI --> GA
   DI --> CU
   NP[NPCS] --> DI
+  LI[LIFE] --> CO
+  LI --> DI
   NP --> CU
   AR[ART_STYLE] --> DI
   CR[CORE_RULES]
