@@ -20,6 +20,11 @@ GAME_DESIGN（總綱：原則、遊戲迴圈、報告、AI 管線、和 ElondiaR
 │   ├─ CORE_RULES         屬性、技能、檢定、三條軌（生命／感載／人性）、路數、成長、名聲與熱度
 │   └─ CYBERWARE          義體：部位、人性成本、雙面效應、授權鎖、惡意韌體、溺感症
 │
+├─ 三個戰場與委託副本
+│   ├─ DOMAINS            索引：每個系統影響現實戰鬥、內海戰鬥、輿論戰的哪一個
+│   ├─ COMMISSIONS        委託副本：獨立地圖、三個面、三條領域指標、連動、類型
+│   └─ OPINION            輿論戰：主播的 SLG——頻道經營與議題戰役
+│
 ├─ 主玩法
 │   ├─ COMBAT_SYSTEM      戰鬥：行動點、站位與掩體、護甲、重創、戰敗、女武神機甲
 │   ├─ CYBERSPACE         網路空間：內海的七個分區、化身與構裝、八條路數的兩面、網內的戰鬥、隨機地圖
@@ -69,6 +74,12 @@ flowchart TD
   NR --> CW
   NR --> CB
   CS[CYBERSPACE] --> CR
+  OP[OPINION] --> MD
+  CM[COMMISSIONS] --> CB
+  CM --> CS
+  CM --> OP
+  FX --> CM
+  DO[DOMAINS] -.-> CB & CS & OP
   CS --> NR
   CS --> CB
   LS[LEWD_SYSTEM] --> CR

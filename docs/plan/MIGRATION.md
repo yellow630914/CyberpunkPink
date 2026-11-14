@@ -240,7 +240,9 @@
 | 義體、人性、溺感症 | [CYBERWARE](../CYBERWARE.md) | 屬性來源登記（`addAttrProvider`）、刺青的部位圖介面、寄生物的階段 |
 | 內海：化身、構裝、七個分區 | [CYBERSPACE](../CYBERSPACE.md) | 格子引擎、隨機生成器、戰鬥核心（跑第二遍） |
 | 快駭、蕾絲、追蹤度、控制節點 | [NETRUNNING](../NETRUNNING.md) | 法術的資料格式、警戒的量條 |
-| 媒體：素材、發布、直播 | [MEDIA](../MEDIA.md) | 物品（素材是物品）、主動行動（剪輯）、情報（反過來用） |
+| **委託副本**：獨立地圖、三個面、領域指標、連動 | [COMMISSIONS](../COMMISSIONS.md) | 一般委託的生成、特殊地圖（現實面模板）、地下城生成器（內海面）、`deadlines`（節與期限） |
+| **輿論戰**：編輯台的戰役層與經營層 | [OPINION](../OPINION.md) | 物品（素材牌）、主動行動（帶風向）、據點與每週結算（頻道）、`npcLife`（編制的人出事）、情報 |
+| 媒體：素材、直播 | [MEDIA](../MEDIA.md) | 物品、情報（反過來用） |
 | 偶像：應援、人氣、親衛隊 | [MEDIA](../MEDIA.md) 第 9 節 | 增益狀態、聲望 |
 | 掮客：盤口、派工、人情 | [FIXER](../FIXER.md) | 夥伴、`away`、談判、一般委託的生成 |
 | 每週帳單 | [FIXER](../FIXER.md) 第 4 節 | `deadlines` |

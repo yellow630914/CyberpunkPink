@@ -7,7 +7,7 @@
 和 ElondiaRPG 不同的地方，是系統不照搬，而是依世界觀重新推導：
 
 - **世界觀**：另一條世界線的 2069 年，**緋夜城**。整個故事只發生在這一座城市與它的周邊。這條世界線上，腦機介面是從快感迴路突破的——**快感即協定**。所以義體、網路、媒體、戰爭機器全部長在情慾產業上：防火長城叫「粉牆」，入侵對抗電子叫「蕾絲（LACE）」，戰爭機甲是靠全身神經同步駕駛的「女武神機甲」。本質沒變，只是染了色。
-- **三條主玩法**：戰鬥（掩體、護甲、義體）、竄網（快駭與深潛）、媒體／中間人（素材、直播、盤口、名冊）。
+- **三個戰場**：現實的戰鬥（掩體、護甲、義體）、內海的戰鬥（化身、構裝、蕾絲）、輿論戰（媒體人的經營與策略玩法）。案子在**委託副本**裡進行，同一個目標可以從不只一個戰場達成。
 - **一案一團**：一件案子就是一場跑團——接案、踩點、行動、收尾。
 - **成人內容是世界的規則，不是外掛**：神經過載（感載）是和生命值並列的第二條傷害軌，慾望指標就是神經介面的硬體參數。
 
@@ -19,6 +19,9 @@
 | [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) | 總綱：核心原則、遊戲迴圈、和 ElondiaRPG 的對照 |
 | [`docs/WORLD.md`](docs/WORLD.md) | 世界觀：歷史、城市、用語對照 |
 | [`docs/CORPORATIONS.md`](docs/CORPORATIONS.md)、[`docs/GANGS.md`](docs/GANGS.md)、[`docs/CULTURE.md`](docs/CULTURE.md)、[`docs/DISTRICTS.md`](docs/DISTRICTS.md) | 企業、幫派、御宅文化、各區細節 |
+| [`docs/DOMAINS.md`](docs/DOMAINS.md) | 三個戰場（現實、內海、輿論）：哪個系統影響哪裡 |
+| [`docs/COMMISSIONS.md`](docs/COMMISSIONS.md) | 委託副本：獨立地圖、三條領域指標 |
+| [`docs/OPINION.md`](docs/OPINION.md) | 輿論戰：媒體人的經營與策略玩法 |
 | [`docs/CYBERSPACE.md`](docs/CYBERSPACE.md) | 網路空間「內海」：另一座緋夜城；每條路數的現實與網路兩面 |
 | [`docs/LIFE.md`](docs/LIFE.md) | 日常：錢與物價、身分、法律、品級與牌子、藥、通訊、曆、行規 |
 | [`docs/NPCS.md`](docs/NPCS.md) | 固定 NPC 與六條主線 |

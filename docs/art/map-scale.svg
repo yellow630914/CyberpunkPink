@@ -213,7 +213,7 @@
 <text x="60" y="798" font-size="14" fill="#b8adc9">· 一格 ＝ 一間店面或一段街道，走一格 2 分鐘。橫越這塊約 25 分鐘。</text>
 <text x="60" y="822" font-size="14" fill="#b8adc9">· 黃色是路口：走上去按「前往」換到隔壁的街區或隔壁的區。</text>
 <text x="60" y="846" font-size="14" fill="#b8adc9">· 設施（店、診所、車站）是格子，走到才能用。地標與事件疊在街道格上。</text>
-<text x="60" y="870" font-size="14" fill="#b8adc9">· 案子的行動階段另有「設施內部」地圖（9×9 ～ 15×11，可多層），不算在這裡。</text>
+<text x="60" y="870" font-size="14" fill="#b8adc9">· 案子的行動階段進入「委託副本」：獨立於地圖網的地圖，不算在這裡。</text>
 <text x="960" y="168" font-size="18" font-weight="700" fill="#efe9f7" letter-spacing="3">八個區 · 39 塊街區</text>
 <text x="960" y="224" font-size="19" font-weight="700" fill="#b9a6ff">蜂巢</text>
 <text x="960" y="244" font-size="12" fill="#7d7390">5 塊</text>
