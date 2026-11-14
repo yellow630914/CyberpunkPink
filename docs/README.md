@@ -19,6 +19,7 @@ GAME_DESIGN（總綱：原則、遊戲迴圈、報告、AI 管線、和 ElondiaR
 ├─ 基礎規則（被所有系統依賴）
 │   ├─ CORE_RULES         屬性、技能、檢定、三條軌（生命／感載／人性）、路數、成長、名聲與熱度
 │   ├─ CYBERWARE          義體：部位、人性成本、雙面效應、授權鎖、惡意韌體、溺感症、橋的型號
+│   ├─ EQUIPMENT          身上的裝備：穿著 10 格、飾品 5 格、攜帶與快取格；外層蓋內層、藏匿與掃描
 │   └─ CRAFTING           工藝：義體、武器、護甲共用的底材與十二種零件、等級 I～V、機械與生體、屬性與親和、組裝與拆解
 │
 ├─ 三個戰場與委託副本
@@ -71,6 +72,8 @@ flowchart TD
   CW[CYBERWARE] --> CR
   CF[CRAFTING] --> CW
   CF --> CR
+  EQ[EQUIPMENT] --> CF
+  EQ --> CW
   CB[COMBAT_SYSTEM] --> CR
   CB --> CW
   NR[NETRUNNING] --> CR

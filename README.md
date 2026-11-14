@@ -23,6 +23,7 @@
 | [`docs/COMMISSIONS.md`](docs/COMMISSIONS.md) | 委託副本：獨立地圖、三條領域指標 |
 | [`docs/OPINION.md`](docs/OPINION.md) | 輿論戰：媒體人的經營與策略玩法 |
 | [`docs/CYBERSPACE.md`](docs/CYBERSPACE.md) | 網路空間「內海」：另一座緋夜城；每條路數的現實與網路兩面 |
+| [`docs/EQUIPMENT.md`](docs/EQUIPMENT.md) | 身上的裝備：欄位、外套與藏匿、快取格 |
 | [`docs/CRAFTING.md`](docs/CRAFTING.md) | 工藝：義體、武器、護甲的底材與零件；機械與生體 |
 | [`docs/LIFE.md`](docs/LIFE.md) | 日常：錢與物價、身分、法律、等級與牌子、藥、通訊、曆、行規 |
 | [`docs/NPCS.md`](docs/NPCS.md) | 固定 NPC 與六條主線 |
