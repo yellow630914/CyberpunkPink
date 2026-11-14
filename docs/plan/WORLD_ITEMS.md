@@ -96,7 +96,7 @@
 |---|---|---|---|---|
 | 邊緣橋 | ● | [WORLD](../WORLD.md) 1、[LEWD_SYSTEM](../LEWD_SYSTEM.md) 1 | — | — |
 | 橋的型號與等級 | ◐ | [CYBERWARE](../CYBERWARE.md) 7 | 十個型號與品級有了。缺：更多冷門型號、每個型號在世界裡的口碑 | 建角、義體目錄 |
-| 義體目錄 | ◐ | [CYBERWARE](../CYBERWARE.md) | 只有部位、品級、十幾個例子。要完整的目錄（每部位 6～10 件） | 物品 |
+| 義體目錄 | ◐ | [CYBERWARE](../CYBERWARE.md)、[CRAFTING](../CRAFTING.md) | 部位、等級、八種零件、十七個底材的規格有了。要完整的目錄：每個牌子每種零件 I～III 級各一件（約一百多個），加上有名字的特殊件 | 物品 |
 | 獸化改造的目錄 | ◐ | [CULTURE](../CULTURE.md) 2 | 四個系（貓、狐、兔、犬）有方向。缺具體的件 | 物品 |
 | 武器目錄 | ◐ | [COMBAT_SYSTEM](../COMBAT_SYSTEM.md) 5、[LIFE](../LIFE.md) 5.1 | 類型與牌子有了。缺型號（每類每牌 1～2 把，有名字） | 物品 |
 | 護甲與服裝目錄 | ◐ | [LIFE](../LIFE.md) 5.4 | 同上 | 物品 |
