@@ -150,7 +150,7 @@
   <!-- 標題與圖例 -->
   <g>
     <text x="28" y="72" font-size="46" font-weight="900" fill="#ff4fa3" filter="url(#glow)" letter-spacing="6">緋夜城</text>
-    <text x="30" y="100" font-size="14" fill="#b8adc9" letter-spacing="3">CYBERPUNKPINK · 2081</text>
+    <text x="30" y="100" font-size="14" fill="#b8adc9" letter-spacing="3">CYBERPUNKPINK · 2069</text>
     <text x="30" y="122" font-size="12" fill="#7d7390">地圖預覽 v0（示意，非比例）</text>
     <g transform="translate(250 70)" fill="none" stroke="#efe9f7" stroke-width="2"><path d="M0 22V-22M-7-12L0-24L7-12"/><text x="0" y="-30" text-anchor="middle" font-size="13" fill="#efe9f7" stroke="none">北</text></g>
   </g>
