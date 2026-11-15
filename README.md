@@ -28,6 +28,7 @@
 | [`docs/LIFE.md`](docs/LIFE.md) | 日常：錢與物價、身分、法律、等級與牌子、藥、通訊、曆、行規 |
 | [`docs/NPCS.md`](docs/NPCS.md) | 固定 NPC 與六條主線 |
 | [`docs/ART_STYLE.md`](docs/ART_STYLE.md) | 美術風格、地圖預覽、樣式與圖標（預覽圖在 `docs/art/preview/`） |
+| [`docs/plan/SYSTEMS_REVIEW.md`](docs/plan/SYSTEMS_REVIEW.md) | 系統盤點：哪些過過了、哪些還沒 |
 | [`docs/plan/WORLD_ITEMS.md`](docs/plan/WORLD_ITEMS.md) | 世界觀項目清單與進度 |
 | [`docs/plan/MIGRATION.md`](docs/plan/MIGRATION.md) | ElondiaRPG 系統遷移清單 |
 | [`docs/plan/ROADMAP.md`](docs/plan/ROADMAP.md) | 實作階段與**待決定的問題** |
