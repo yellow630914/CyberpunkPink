@@ -2,6 +2,7 @@
 """把 docs/ 的所有文件照閱讀順序編成一個單檔的設計書。
 輸出：docs/book/CyberpunkPink-設計書.html（PDF 由 tools/book/pdf.mjs 另外轉）
 用法：python3 tools/book/build.py
+      python3 tools/book/build.py --artifact <輸出路徑>   產生給 Claude 成品（Artifact）用的版本
 不依賴任何套件：內建一個只支援本專案用到的語法的 Markdown 轉換器。"""
 import base64, html, os, re, subprocess
 
@@ -24,7 +25,7 @@ FIGURES = {  # 在某份文件的標題後面插圖
     'systems/CYBERSPACE.md': [('art/cyberspace.svg', '內海的結構')],
 }
 ALL = [d for _, ds in PARTS for d in ds]
-DOC_ID = {d: 'doc-' + os.path.splitext(os.path.basename(d))[0].lower() for d in ALL}
+DOC_ID = {d: 'doc-' + os.path.splitext(os.path.basename(d))[0].lower().replace('_', '-') for d in ALL}
 
 
 def data_uri(path):
@@ -184,6 +185,86 @@ article{margin-top:60px}
 '''
 
 
+ART_CSS = '''
+/* 版面：左側固定目錄＋右側長文；窄螢幕時目錄收進頂端的摺疊區。深色為主，淺色主題只換色票。 */
+:root{--bg:#0d0a14;--bg1:#151020;--bg2:#1d1630;--line:#3a2d52;--ink:#efe9f7;--ink2:#b8adc9;--ink3:#8a7f9e;--pink:#ff4fa3;--pinkhi:#ff8fc8;--mint:#5dffb0;--strong:#ffffff;--tint:#ff4fa312;--zebra:#ffffff07;
+ --font:'Noto Sans TC','PingFang TC','Microsoft JhengHei','WenQuanYi Zen Hei',sans-serif;--mono:'JetBrains Mono','Cascadia Code',Consolas,monospace;color-scheme:dark}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#fbf7fa;--bg1:#f3ecf2;--bg2:#eadfe8;--line:#d9c9d6;--ink:#231a2c;--ink2:#54485f;--ink3:#7b6f86;--pink:#c2186b;--pinkhi:#a3155b;--mint:#0a6b46;--strong:#120b18;--tint:#c2186b10;--zebra:#00000006;color-scheme:light}}
+:root[data-theme="light"]{--bg:#fbf7fa;--bg1:#f3ecf2;--bg2:#eadfe8;--line:#d9c9d6;--ink:#231a2c;--ink2:#54485f;--ink3:#7b6f86;--pink:#c2186b;--pinkhi:#a3155b;--mint:#0a6b46;--strong:#120b18;--tint:#c2186b10;--zebra:#00000006;color-scheme:light}
+*{box-sizing:border-box}html{scroll-padding-top:16px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15.5px;line-height:1.75}
+nav{position:fixed;top:0;bottom:0;left:0;width:calc(290px + env(safe-area-inset-left, 0px));overflow-y:auto;background:var(--bg1);border-right:1px solid var(--line);
+ padding:calc(22px + env(safe-area-inset-top, 0px)) 0 60px env(safe-area-inset-left, 0px);font-size:13.5px}
+.brand{padding:0 20px 14px;color:var(--pink);font-size:21px;font-weight:900;letter-spacing:3px}
+.brand small{display:block;color:var(--ink3);font-size:11px;font-weight:400;letter-spacing:2px;margin-top:2px}
+.part{margin:16px 20px 4px;color:var(--pinkhi);font-size:12px;letter-spacing:4px;border-top:1px solid var(--line);padding-top:12px}
+.toc a{display:block;color:var(--ink2);text-decoration:none;padding:3px 20px;border:0;border-left:2px solid transparent}
+.toc a.d{color:var(--ink);font-weight:700;margin-top:6px}.toc a.s{padding-left:34px;font-size:12.5px;color:var(--ink3)}
+.toc a:hover,.toc a:focus-visible{color:var(--pinkhi);border-left-color:var(--pink);background:var(--tint);outline:none}
+main{margin-left:calc(290px + env(safe-area-inset-left, 0px));padding-block:40px 120px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));min-width:0}
+.col{max-width:1080px;margin:0 auto;padding:0 32px;min-width:0}
+details.mtoc{display:none;border:1px solid var(--line);background:var(--bg1);margin-bottom:24px}
+details.mtoc summary{padding:12px 16px;color:var(--pinkhi);letter-spacing:3px;cursor:pointer}
+.cover{padding:48px 0 40px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.cover h1{font-size:clamp(38px,7vw,64px);margin:6px 0 12px;color:var(--pink);letter-spacing:6px;border:0;padding:0;overflow-wrap:anywhere}
+.cover p{color:var(--ink2);font-size:17px;max-width:720px}.tag{font-family:var(--mono);font-size:12px;color:var(--ink3);letter-spacing:3px}
+.cover ul{color:var(--ink2);max-width:760px}
+.parthead{margin:80px 0 0;padding:22px 0 8px;border-top:2px solid var(--pink);color:var(--pink);font-size:13px;letter-spacing:8px}
+h1{font-size:32px;margin:28px 0 14px;padding-bottom:10px;border-bottom:1px solid var(--line);letter-spacing:1px;text-wrap:balance}
+h2{font-size:22px;margin:44px 0 12px;color:var(--pinkhi);display:flex;align-items:baseline;gap:12px;text-wrap:balance}
+h2::before{content:"";width:18px;height:2px;background:var(--pink);flex:none;align-self:center}
+h3{font-size:17.5px;margin:30px 0 8px;color:var(--ink)}h4{font-size:15.5px;margin:22px 0 6px;color:var(--ink2)}
+p{margin:10px 0;max-width:46em}li{max-width:46em}a{color:var(--pinkhi);text-decoration:none;border-bottom:1px dotted var(--pinkhi)}a:hover{color:var(--strong)}
+.ext{color:var(--ink2);border-bottom:1px dotted var(--ink3)}
+strong{color:var(--strong)}code{font-family:var(--mono);font-size:.86em;color:var(--mint);background:var(--zebra);padding:1px 5px;border-radius:3px;overflow-wrap:anywhere}
+pre{background:var(--bg1);border:1px solid var(--line);padding:14px 16px;overflow-x:auto;line-height:1.5;font-size:12.5px}
+pre code{background:none;padding:0;color:var(--ink2);overflow-wrap:normal}
+blockquote{margin:14px 0;padding:10px 16px;border-left:3px solid var(--pink);background:var(--tint);color:var(--ink2);font-size:14px}
+ul,ol{padding-left:24px;margin:8px 0}li{margin:4px 0}
+.tw{overflow-x:auto;margin:14px 0}table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th{background:var(--bg2);color:var(--pinkhi);text-align:left;font-weight:700;white-space:nowrap}
+th,td{border:1px solid var(--line);padding:7px 11px;vertical-align:top;min-width:5em}tr:nth-child(even) td{background:var(--zebra)}
+figure{margin:20px 0}figure img,p img{max-width:100%;height:auto;border:1px solid var(--line);display:block}
+figcaption{color:var(--ink3);font-size:12.5px;margin-top:6px;letter-spacing:1px}
+hr{border:0;border-top:1px solid var(--line);margin:30px 0}article{margin-top:56px}
+@media (max-width:900px){nav{display:none}main{margin-left:0;padding-block:20px 80px}.col{padding:0}details.mtoc{display:block}details.mtoc .part{margin-left:16px;margin-right:16px}}
+'''
+
+
+def build():
+    toc_html, body = [], []
+    for part, docs in PARTS:
+        toc_html.append(f'<div class="part">{part}</div>')
+        body.append(f'<div class="parthead">{part}</div>')
+        for doc in docs:
+            toc = []
+            md = open(os.path.join(DOCS, doc), encoding='utf-8').read()
+            body.append(f'<article>{convert(md, doc, toc)}</article>')
+            for level, hid, title in toc:
+                toc_html.append(f'<a class="{"d" if level == 1 else "s"}" href="#{hid}">{html.escape(title)}</a>')
+    return ''.join(toc_html), ''.join(body)
+
+
+def artifact(out):
+    toc, body = build()
+    n_docs = len(ALL)
+    cover = f'''<section class="cover"><div class="tag">設計書 · 緋夜城 2069 · 設計階段</div><h1>CyberpunkPink</h1>
+<p>一款成人向的賽博龐克跑團風格 RPG。這本設計書把 {n_docs} 份設計文件照閱讀順序編在一起：總綱、世界、規則、裝備、美術、計畫。</p>
+<ul><li>所有數值都是初稿；還沒有程式。</li><li>本作是成人向虛構作品，所有登場角色皆為成年人。</li>
+<li>文件之間的連結會跳到這本書裡對應的章節。</li></ul></section>'''
+    page = f'''<title>CyberpunkPink 設計書</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=JetBrains+Mono:wght@400&display=swap">
+<style>{ART_CSS}</style>
+<nav aria-label="目錄"><div class="brand">CyberpunkPink<small>設計書 · 緋夜城 2069</small></div><div class="toc">{toc}</div></nav>
+<main><div class="col">
+<details class="mtoc"><summary>目錄</summary><div class="toc">{toc}</div></details>
+{cover}{body}</div></main>'''
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    open(out, 'w', encoding='utf-8').write(page)
+    print(f'→ {out}  {n_docs} 份文件  {len(page)//1024} KB')
+
+
 def main():
     toc_html, body = [], []
     for part, docs in PARTS:
@@ -215,4 +296,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    if '--artifact' in sys.argv:
+        artifact(sys.argv[sys.argv.index('--artifact') + 1])
+    else:
+        main()
