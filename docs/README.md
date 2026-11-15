@@ -32,7 +32,7 @@ docs/
 │   └─ LEWD_SYSTEM      成人向：橋參數、調校、豔名、場所、契約、內容篩選
 │
 ├─ gear/                裝備：身上有什麼
-│   ├─ CYBERWARE        義體：部位、自持成本、授權鎖、惡意韌體、溺感症、橋的型號
+│   ├─ CYBERWARE        義體：部位、沉溺成本、授權鎖、惡意韌體、溺感症、橋的型號
 │   ├─ CRAFTING         工藝：底材與零件、等級、機械與生體、組裝與拆解
 │   └─ EQUIPMENT        身上的裝備：欄位、外套、藏匿、快取格
 │
@@ -105,7 +105,7 @@ flowchart TD
   CF --> LI
 ```
 
-**樞紐**：[CORE_RULES](systems/CORE_RULES.md) 的三條軌（生命值、感載、自持）、同步原則、三個戰場的矩陣被所有規則用到；改它們要一起看 COMBAT_SYSTEM、CYBERSPACE、CYBERWARE、LEWD_SYSTEM、DOMAINS。
+**樞紐**：[CORE_RULES](systems/CORE_RULES.md) 的三條軌（生命值、感載、沉溺）、同步原則、三個戰場的矩陣被所有規則用到；改它們要一起看 COMBAT_SYSTEM、CYBERSPACE、CYBERWARE、LEWD_SYSTEM、DOMAINS。
 
 ## 4. 維護規則
 
