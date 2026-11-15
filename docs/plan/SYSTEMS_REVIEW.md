@@ -85,13 +85,13 @@
 | **三條軌：生命值、感載、沉溺** | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 4 | 已確認：感載常駐；過載疊餘韻、基礎 3 層、超過倒下；內海裡感載就是血量；沉溺（原「人性」，反過來算，可以超過 100）越高越接近牆外，到 100 成為信徒而不是結束，超過 100 會接到流竄 AI 的委託；親密關係對沉溺的影響由 AI 判定；生命值不成長 | 高 |
 | **同步原則**（接越深越強、回灌越重） | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 5 | 已確認：保留共用的旋鈕、四檔；提高檔位上限只靠沉溺；一般的現實戰鬥不用檔位 | 高 |
 | 逐回合、行動點 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 1 | 沿用 ElondiaRPG | 中 |
-| **不用格子，三種站位** | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 2 | [ROADMAP](ROADMAP.md) 待決定 3。你問過戰鬥怎麼呈現，我答了，你沒有說可不可以 | 高 |
+| **不用格子；雙方各四格縱深，每格有掩體／半掩體／暴露** | ✔ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 2 | 已確認：不用格子、類似《暗黑地牢》的站位、第 1 格貼在一起算近身、內海用同一套。距離的算法、武器的適用距離、推拉是我填的 | 高 |
 | 命中、護甲減傷與耗損、彈藥 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 3～5 | | 中 |
 | 七種傷害類型 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 5 | | 中 |
 | 重創 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 6 | | 低 |
 | 兩種打法（實彈與神經）、制伏 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 7 | | 中 |
 | 戰敗事件（依對手分支） | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 8 | | 中 |
-| 戰鬥畫面 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 10 | 只有文字示意 | 中 |
+| 戰鬥畫面 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 10 | 依四格縱深重畫了文字示意；實際樣稿還沒畫 | 中 |
 | 對峙（開打前比氣勢） | ✗ | [ROADMAP](ROADMAP.md) 2 | 只是一個想法 | 低 |
 | 敵人：種類、數值、AI | ✗ | — | | 高 |
 | 女武神機甲、載具與追逐 | ✗ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 9 | 有骨架；整備、取得、玩家駕駛都沒有。載具與追逐完全沒有 | 中 |
@@ -111,7 +111,7 @@
 | RAM | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 1 | | 中 |
 | 蕾絲三色、追蹤度、控制節點 | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 4～5 | | 中 |
 | 粉牆、深海 | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 7 | | 中 |
-| 流竄 AI：性癖的形象化、牆外的中間人 | ✔ | [NPCS](../world/NPCS.md) 8 | 方向你定的；十個的名字、門檻、門路是我填的 | — |
+| 流竄 AI：性癖的形象化、牆外的中間人 | ✔ | [NPCS](../world/NPCS.md) 8 | 方向你定的（要廣度不只是深度）；十五個的名字、分群、門檻、門路、「誰先找上你」是我填的 | — |
 | 構裝的目錄 | ✗ | — | | 中 |
 | 隨機生成的規則（迷宮館、沉船帶、一般子網） | ✗ | — | 只說「沿用地下城生成器」 | 中 |
 | 內海的固定地圖（大街、樂園島的場館） | ✗ | — | | 低 |
@@ -242,7 +242,6 @@
 
 | # | 系統 | 為什麼要先看 |
 |---|---|---|
-| 3 | **戰鬥不用格子、三種站位**（三、◇） | 決定戰鬥畫面與所有戰鬥技能的寫法 |
 | 4 | **六屬性、十八項基本功、d20 檢定**（二、◇） | 所有檢定與公式 |
 | 5 | **橋參數與成人場景的做法**（八、◇） | 你說要比 ElondiaRPG 濃，但具體做法你沒看過 |
 | 6 | **契約與橋權的尺度**（八、◇） | 影響事件量與內容篩選 |
