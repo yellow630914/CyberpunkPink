@@ -1,7 +1,7 @@
 # 文件地圖
 
 > 設計階段：還沒有程式，文件就是唯一真相。開始實作之後改成和 ElondiaRPG 一樣的規則——程式與資料是唯一真相，文件描述它們現在的行為。
-> 想一口氣讀完：[`book/CyberpunkPink-設計書.html`](book/CyberpunkPink-設計書.html)（或 [PDF](book/CyberpunkPink-設計書.pdf)）是把下面所有文件照閱讀順序編成的單一檔案。
+> 想一口氣讀完：跑 `python3 tools/book/build.py`，在 `book/` 產生把下面所有文件照閱讀順序編成的單一檔案。它是產物，不進版本控制。
 
 ## 1. 目錄
 
@@ -48,7 +48,7 @@ docs/
 │   ├─ WORLD_ITEMS      世界觀項目的盤點
 │   └─ MIGRATION        ElondiaRPG 系統遷移清單
 │
-└─ book/                設計書：全部文件編成的單一檔案（HTML 與 PDF；由 tools/book/ 產生，不要手改）
+└─ book/                設計書：全部文件編成的單一檔案（由 tools/book/ 產生；只在本機，不進版本控制）
 ```
 
 ## 2. 從哪裡開始讀
