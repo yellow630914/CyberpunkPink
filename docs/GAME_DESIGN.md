@@ -113,7 +113,7 @@
 | 中間人、一案四拍、每週帳單、名冊、人情、據點 | [systems/FIXER](systems/FIXER.md) |
 | 成人向：橋參數、調校、豔名、場所、契約、內容篩選 | [systems/LEWD_SYSTEM](systems/LEWD_SYSTEM.md) |
 | **裝備** | |
-| 義體：部位、人性成本、授權鎖、惡意韌體、溺感症、橋的型號 | [gear/CYBERWARE](gear/CYBERWARE.md) |
+| 義體：部位、自持成本、授權鎖、惡意韌體、溺感症、橋的型號 | [gear/CYBERWARE](gear/CYBERWARE.md) |
 | 工藝：底材與零件、等級、機械與生體、組裝 | [gear/CRAFTING](gear/CRAFTING.md) |
 | 身上的裝備：欄位、外套、藏匿、快取格 | [gear/EQUIPMENT](gear/EQUIPMENT.md) |
 | **其他** | |
