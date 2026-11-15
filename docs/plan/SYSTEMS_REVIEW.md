@@ -24,11 +24,11 @@
 | 五、媒體與輿論 | 4 | 5 | 1 |
 | 六、委託與中間人 | 5 | 7 | 2 |
 | 七、裝備與工藝 | 6 | 3 | 3 |
-| 八、成人向 | 2 | 7 | 1 |
+| 八、成人向 | 3 | 6 | 1 |
 | 九、城市生活 | 2 | 9 | 5 |
 | 十、NPC 與夥伴 | 2 | 2 | 5 |
 | 十一、AI、介面與工程 | 2 | 3 | 9 |
-| **合計** | **49** | **59** | **39** |
+| **合計** | **50** | **58** | **39** |
 
 大致上：**骨架你都定過了，骨架裡面的細節多半是我自己填的**。現實戰鬥、成人向、城市生活這三塊，我寫得多、你看得少。
 
@@ -66,8 +66,8 @@
 | 八條路數、四類 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6 | | — |
 | 三個戰場的強弱矩陣 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6.1 | 強中弱的比例（1、⅔、⅓）是我定的 | — |
 | 技能裝在橋裡、四類容量、主動與被動 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6.4 | 五種技能種類、「同一棵樹互相加成」是我加的 | — |
-| 六屬性 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 1 | 已確認六項，並做了一次調整：膽識只管感載；行動點改成反應＋魅力；網內代替體格的改成魅力 | 高 |
-| 十八項基本功 | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 2 | 跟著屬性調整：每項屬性三項；重武器歸體格、操甲歸膽識。**等你看過結果** | 高 |
+| 六屬性 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 1 | 已確認。膽識改名**心防**（待你確認名字）；它只管感載；行動點改成反應＋魅力；網內代替體格的改成魅力 | 高 |
+| 十八項基本功 | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 2 | 跟著屬性調整：每項屬性三項；重武器歸體格、操甲歸心防。**等你看過結果** | 高 |
 | 檢定：d20＋調整值＋基本功 對 DC | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 3 | 維持 d20；基本功與技能兩套並存 | 高 |
 | 取消等級 | ◇ | [ROADMAP](ROADMAP.md) 待決定 2 | 「主角沒有職業」間接支持，但沒有明說 | 高 |
 | 成長：歷練點與花費 | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 7 | | 中 |
@@ -106,7 +106,7 @@
 | 內海只能精神污染 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 6 | 三種形式（過載、蝕、植入）是我分的 | — |
 | 七個分區的內容 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 3 | 港灣、大街、樂園島、企業環礁、暗礁、沉船帶、深海 | 中 |
 | 接入點、投影與潛入、身體留在現實 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 2 | | 中 |
-| 化身、構裝 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 4 | 完整度已取消（內海用感載當血量）。「體格在網內由膽識代替」還沒過 | 高 |
+| 化身、構裝 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 4 | 完整度已取消（內海用感載當血量）。「體格在網內由心防代替」還沒過 | 高 |
 | 快駭（五類） | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 2 | | 中 |
 | RAM | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 1 | | 中 |
 | 蕾絲三色、追蹤度、控制節點 | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 4～5 | | 中 |
@@ -172,8 +172,8 @@
 | 系統 | 狀態 | 在哪 | 備註 | 牽動 |
 |---|---|---|---|---|
 | 色情氛圍比 ElondiaRPG 濃、融入世界觀 | ✔ | — | 方向你定的。下面的做法全是我的 | — |
-| **四項橋參數**（敏感度、耐受、慾求、馴化） | ◇ | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 1 | 取代 ElondiaRPG 的四項慾望指標 | 高 |
-| 成人場景用的就是感載 | ✔ | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 3 | | 高 |
+| **四項橋參數**（敏感度、耐受、慾求、馴化） | ✔ | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 1 | 已確認；成長要慢。另加一組**傾向標籤**（1.1 節），和流竄 AI 一一對應 | 高 |
+| 成人場景：可以操作的回合制場景，進入點由 AI 判定 | ✔ | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 3 | 方向你定的；契合、行動的分類、結算方式是我填的。性經歷記錄照搬 ElondiaRPG | 高 |
 | 調校（取代流派） | ◇ | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 4 | | 中 |
 | 豔名 | ◇ | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 5 | | 中 |
 | 場所與工作（人偶館、感官擂台……） | ◇ | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 6 | | 中 |
@@ -242,7 +242,6 @@
 
 | # | 系統 | 為什麼要先看 |
 |---|---|---|
-| 5 | **橋參數與成人場景的做法**（八、◇） | 你說要比 ElondiaRPG 濃，但具體做法你沒看過 |
 | 6 | **契約與橋權的尺度**（八、◇） | 影響事件量與內容篩選 |
 | 7 | **每週帳單**（六、◇） | 整個遊戲的壓力來源；不喜歡這種壓力的話要早說 |
 | 8 | **名聲與熱度**（九、◇） | 委託、區域、敵人都讀它 |
