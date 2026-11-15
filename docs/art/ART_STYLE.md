@@ -1,6 +1,6 @@
 # 美術風格與繪圖管線
 
-> 上層：[GAME_DESIGN](GAME_DESIGN.md)。依賴：[DISTRICTS](DISTRICTS.md)（地圖）、[CORE_RULES](CORE_RULES.md)（三條軌的顏色語意）。
+> 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[DISTRICTS](../world/DISTRICTS.md)（地圖）、[CORE_RULES](../systems/CORE_RULES.md)（三條軌的顏色語意）。
 > 檔案：`docs/art/`（SVG 原稿）、`docs/mockups/`（HTML 樣稿）、`docs/art/preview/`（轉出來的 PNG，給人看的）、`tools/art/render.mjs`（轉檔）。
 
 設計階段能畫的東西先畫出來：地圖、介面樣式、圖標。**人物圖與背景圖不在這裡做**——那是之後生圖管線的事（ElondiaRPG 的 PORTRAITS、BACKGROUNDS）。
@@ -27,13 +27,13 @@ node tools/art/render.mjs
 
 | 圖 | 原稿 | 預覽 | 說明 |
 |---|---|---|---|
-| 緋夜城地圖 v0 | [`art/city-map.svg`](art/city-map.svg) | [`art/preview/city-map.png`](art/preview/city-map.png) | 八個區的位置、城牆與城門、地鐵兩線、輕軌、巴士、渡輪、主要地標、地下層入口。示意圖，非比例 |
-| 地圖規模 v0 | [`art/map-scale.svg`](art/map-scale.svg)（由 `tools/art/gen_scale.py` 產生） | [`art/preview/map-scale.png`](art/preview/map-scale.png) | 一塊街區的格子樣本（蜂巢・天井市場，13×9）與八個區的 39 塊街區 |
-| 街區結構 v0 | [`art/district-blocks.svg`](art/district-blocks.svg)（由 `tools/art/gen_maps.py` 產生） | [`art/preview/district-blocks.png`](art/preview/district-blocks.png) | 八個區各自的街區、橋接區、要地與出口 |
-| 內海結構 v0 | [`art/cyberspace.svg`](art/cyberspace.svg)（同上） | [`art/preview/cyberspace.png`](art/preview/cyberspace.png) | 網路空間的七個分區、粉牆、現實的接點 |
-| 樣式規劃 v0 | [`mockups/style-guide.html`](mockups/style-guide.html) | [`art/preview/style-guide.png`](art/preview/style-guide.png) | 色彩、三條軌的量條、按鈕與標籤、日誌、字、圖標風格（24 個樣本） |
+| 緋夜城地圖 v0 | [`art/city-map.svg`](city-map.svg) | [`art/preview/city-map.png`](preview/city-map.png) | 八個區的位置、城牆與城門、地鐵兩線、輕軌、巴士、渡輪、主要地標、地下層入口。示意圖，非比例 |
+| 地圖規模 v0 | [`art/map-scale.svg`](map-scale.svg)（由 `tools/art/gen_scale.py` 產生） | [`art/preview/map-scale.png`](preview/map-scale.png) | 一塊街區的格子樣本（蜂巢・天井市場，13×9）與八個區的 39 塊街區 |
+| 街區結構 v0 | [`art/district-blocks.svg`](district-blocks.svg)（由 `tools/art/gen_maps.py` 產生） | [`art/preview/district-blocks.png`](preview/district-blocks.png) | 八個區各自的街區、橋接區、要地與出口 |
+| 內海結構 v0 | [`art/cyberspace.svg`](cyberspace.svg)（同上） | [`art/preview/cyberspace.png`](preview/cyberspace.png) | 網路空間的七個分區、粉牆、現實的接點 |
+| 樣式規劃 v0 | [`mockups/style-guide.html`](../mockups/style-guide.html) | [`art/preview/style-guide.png`](preview/style-guide.png) | 色彩、三條軌的量條、按鈕與標籤、日誌、字、圖標風格（24 個樣本） |
 
-![緋夜城地圖](art/preview/city-map.png)
+![緋夜城地圖](preview/city-map.png)
 
 ## 3. 視覺方向
 

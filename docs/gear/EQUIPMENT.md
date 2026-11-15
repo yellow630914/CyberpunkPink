@@ -1,6 +1,6 @@
 # 身上的裝備：穿著、飾品與攜帶
 
-> 上層：[GAME_DESIGN](GAME_DESIGN.md)。依賴：[CRAFTING](CRAFTING.md)（底材與零件）、[CYBERWARE](CYBERWARE.md) 第 1 節（義體的部位）、[LEWD_SYSTEM](LEWD_SYSTEM.md) 第 2 節（曝露度與風格）、[LIFE](LIFE.md) 第 3 節（合法性）、[COMBAT_SYSTEM](COMBAT_SYSTEM.md)（護甲、用道具）。被依賴：[DISTRICTS](DISTRICTS.md)（各區的掃描與風格）、之後的 `ITEMS`。
+> 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[CRAFTING](CRAFTING.md)（底材與零件）、[CYBERWARE](CYBERWARE.md) 第 1 節（義體的部位）、[LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 2 節（曝露度與風格）、[LIFE](../world/LIFE.md) 第 3 節（合法性）、[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md)（護甲、用道具）。被依賴：[DISTRICTS](../world/DISTRICTS.md)（各區的掃描與風格）、之後的 `ITEMS`。
 > 來源：ElondiaRPG 的裝備欄位（18 格加額外飾品格）、曝露度與真空、NPC 的服裝。預定資料：`data/rules/equipment.json`、`gear.json` 的 `slots`。數值都是初稿。
 
 ElondiaRPG 的欄位是為奇幻設計的：武器看哪隻手拿，護甲就是上身那一件，飾品多是因為要放附魔。這裡重新分。
@@ -100,7 +100,7 @@ ElondiaRPG 的欄位是為奇幻設計的：武器看哪隻手拿，護甲就是
 | **曝露度** | 沿用 ElondiaRPG 的算法（上身、下身、內衣、真空），加上外套：扣上的長外套讓全身算 0～1。穿著歡場的衣服走過冠冕區，披一件大衣就行 |
 | **威脅感** | 看得到的護甲與武器讓人緊張：交涉 −、威嚇 ＋、被盯上的機率 ＋。藏在外套底下就沒有這些 |
 
-各區對風格、曝露度的反應見 [DISTRICTS](DISTRICTS.md) 第 2 節。
+各區對風格、曝露度的反應見 [DISTRICTS](../world/DISTRICTS.md) 第 2 節。
 
 ## 6. 藏匿
 
@@ -161,7 +161,7 @@ ElondiaRPG 的欄位是為奇幻設計的：武器看哪隻手拿，護甲就是
 
 ### 6.4 被發現之後
 
-照合法性（[LIFE](LIFE.md) 3.1 節）：自由的沒事；登記類要查登記；許可類要看執照；違禁的沒收、拘留，並加上那個勢力的熱度。在沒有人執法的地方（舊港），被看到帶著重武器只會讓人躲開你。
+照合法性（[LIFE](../world/LIFE.md) 3.1 節）：自由的沒事；登記類要查登記；許可類要看執照；違禁的沒收、拘留，並加上那個勢力的熱度。在沒有人執法的地方（舊港），被看到帶著重武器只會讓人躲開你。
 
 ### 6.5 繞過的方法
 

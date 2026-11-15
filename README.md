@@ -13,29 +13,24 @@
 
 ## 文件
 
-| 路徑 | 說明 |
+**想一口氣讀完**：[`docs/book/CyberpunkPink-設計書.html`](docs/book/CyberpunkPink-設計書.html)（單一檔案，下載後用瀏覽器開）或 [PDF](docs/book/CyberpunkPink-設計書.pdf)。它是把下面所有文件照閱讀順序編在一起的成品。
+
+| 目錄 | 內容 |
 |---|---|
-| [`docs/README.md`](docs/README.md) | **文件地圖**：所有設計文件的階層、依賴關係 |
-| [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) | 總綱：核心原則、遊戲迴圈、和 ElondiaRPG 的對照 |
-| [`docs/WORLD.md`](docs/WORLD.md) | 世界觀：歷史、城市、用語對照 |
-| [`docs/CORPORATIONS.md`](docs/CORPORATIONS.md)、[`docs/GANGS.md`](docs/GANGS.md)、[`docs/CULTURE.md`](docs/CULTURE.md)、[`docs/DISTRICTS.md`](docs/DISTRICTS.md) | 企業、幫派、御宅文化、各區細節 |
-| [`docs/DOMAINS.md`](docs/DOMAINS.md) | 三個戰場（現實、內海、輿論）：哪個系統影響哪裡 |
-| [`docs/COMMISSIONS.md`](docs/COMMISSIONS.md) | 委託副本：獨立地圖、三條領域指標 |
-| [`docs/OPINION.md`](docs/OPINION.md) | 輿論戰：媒體人的經營與策略玩法 |
-| [`docs/CYBERSPACE.md`](docs/CYBERSPACE.md) | 網路空間「內海」：另一座緋夜城；每條路數的現實與網路兩面 |
-| [`docs/EQUIPMENT.md`](docs/EQUIPMENT.md) | 身上的裝備：欄位、外套與藏匿、快取格 |
-| [`docs/CRAFTING.md`](docs/CRAFTING.md) | 工藝：義體、武器、護甲的底材與零件；機械與生體 |
-| [`docs/LIFE.md`](docs/LIFE.md) | 日常：錢與物價、身分、法律、等級與牌子、藥、通訊、曆、行規 |
-| [`docs/NPCS.md`](docs/NPCS.md) | 固定 NPC 與六條主線 |
-| [`docs/ART_STYLE.md`](docs/ART_STYLE.md) | 美術風格、地圖預覽、樣式與圖標（預覽圖在 `docs/art/preview/`） |
-| [`docs/plan/SYSTEMS_REVIEW.md`](docs/plan/SYSTEMS_REVIEW.md) | 系統盤點：哪些過過了、哪些還沒 |
-| [`docs/plan/WORLD_ITEMS.md`](docs/plan/WORLD_ITEMS.md) | 世界觀項目清單與進度 |
-| [`docs/plan/MIGRATION.md`](docs/plan/MIGRATION.md) | ElondiaRPG 系統遷移清單 |
-| [`docs/plan/ROADMAP.md`](docs/plan/ROADMAP.md) | 實作階段與**待決定的問題** |
+| [`docs/README.md`](docs/README.md) | **文件地圖**：目錄、從哪裡開始讀、依賴關係 |
+| [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) | 總綱：這是什麼遊戲、設計原則、迴圈、系統地圖 |
+| [`docs/DOMAINS.md`](docs/DOMAINS.md) | 三個戰場的索引：哪個系統影響哪裡 |
+| [`docs/world/`](docs/world/WORLD.md) | 世界：世界線、企業、幫派、文化、各區、固定 NPC、日常 |
+| [`docs/systems/`](docs/systems/CORE_RULES.md) | 規則：核心規則、現實戰鬥、內海、竄網、輿論戰、媒體、委託副本、中間人、成人向 |
+| [`docs/gear/`](docs/gear/CRAFTING.md) | 裝備：義體、工藝（底材與零件）、身上的裝備 |
+| [`docs/art/`](docs/art/ART_STYLE.md) | 美術風格、地圖與示意圖 |
+| [`docs/plan/`](docs/plan/ROADMAP.md) | 路線圖、系統盤點、世界觀盤點、ElondiaRPG 遷移清單 |
+
+工具：`python3 tools/book/build.py` 重編設計書；`python3 tools/docs/check.py` 檢查連結與章節引用；`node tools/art/render.mjs` 把圖轉成 PNG。
 
 ## 內容聲明
 
-本作是成人向虛構作品。所有登場角色皆為成年人（18 歲以上），這是引擎與內容檢查的硬性規則，不是可關閉的選項。較重口的題材（非自願、契約支配、NTR 等）都可以在「設定 → 內容篩選」關閉，見 [`docs/LEWD_SYSTEM.md`](docs/LEWD_SYSTEM.md) 第 9 節。
+本作是成人向虛構作品。所有登場角色皆為成年人（18 歲以上），這是引擎與內容檢查的硬性規則，不是可關閉的選項。較重口的題材（非自願、契約支配、NTR 等）都可以在「設定 → 內容篩選」關閉，見 [`docs/LEWD_SYSTEM.md`](docs/systems/LEWD_SYSTEM.md) 第 9 節。
 
 ## 授權
 

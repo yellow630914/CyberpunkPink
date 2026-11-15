@@ -1,6 +1,6 @@
 # 中間人與案子
 
-> 上層：[GAME_DESIGN](GAME_DESIGN.md)。依賴：[CORE_RULES](CORE_RULES.md)（街頭信譽、熱度）、[COMBAT_SYSTEM](COMBAT_SYSTEM.md)、[NETRUNNING](NETRUNNING.md)、[MEDIA](MEDIA.md)。被依賴：無（這是把所有系統串起來的那一份）。
+> 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[CORE_RULES](CORE_RULES.md)（街頭信譽、熱度）、[COMBAT_SYSTEM](COMBAT_SYSTEM.md)、[NETRUNNING](NETRUNNING.md)、[MEDIA](MEDIA.md)。被依賴：無（這是把所有系統串起來的那一份）。
 > 來源：ElondiaRPG 的公會委託與階級、特殊任務與劇情旗標、夥伴與雇傭、交易與談判、情報、派奴隸去工作（→ 派工）、房屋（→ 據點）。預定資料：`data/rules/gigs.json`、`fixers.json`、`favors.json`、`bases.json`。數值都是初稿。
 
 這份文件有兩半：第 1～4 節是**案子**——所有玩家都會經歷的主迴圈；第 5～9 節是**當中間人**——掮客路數的經營玩法。
@@ -11,7 +11,7 @@
 
 每個中間人有自己的**地盤**（區）、**門路**（擅長的案子類型）、**後台**（哪個勢力罩他）與**脾氣**。他們是固定 NPC，各有一條關係線。信譽越高，肯見你的中間人越多。
 
-每個區各有一位，名單與場所見 [DISTRICTS](DISTRICTS.md) 第 12 節。
+每個區各有一位，名單與場所見 [DISTRICTS](../world/DISTRICTS.md) 第 12 節。
 
 ## 2. 一案一團
 
@@ -94,8 +94,8 @@
 | 項目 | 說明 |
 |---|---|
 | 房租 | 依據點等級 |
-| 義體訂閱 | 沒付就鎖（[CYBERWARE](CYBERWARE.md) 第 5 節） |
-| 抑制劑與藥 | 停藥的後果見 [CYBERWARE](CYBERWARE.md) 第 2 節 |
+| 義體訂閱 | 沒付就鎖（[CYBERWARE](../gear/CYBERWARE.md) 第 5 節） |
+| 抑制劑與藥 | 停藥的後果見 [CYBERWARE](../gear/CYBERWARE.md) 第 2 節 |
 | 債的利息 | 胭脂堂與伊甸園的利率不同、催討方式也不同 |
 | 天使急救會費 | 可以不保 |
 | 小隊的薪水與分紅 | |

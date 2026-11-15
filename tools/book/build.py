@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+"""把 docs/ 的所有文件照閱讀順序編成一個單檔的設計書。
+輸出：docs/book/CyberpunkPink-設計書.html（PDF 由 tools/book/pdf.mjs 另外轉）
+用法：python3 tools/book/build.py
+不依賴任何套件：內建一個只支援本專案用到的語法的 Markdown 轉換器。"""
+import base64, html, os, re, subprocess
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+DOCS = os.path.join(ROOT, 'docs')
+OUT = os.path.join(DOCS, 'book', 'CyberpunkPink-設計書.html')
+
+PARTS = [
+    ('總綱', ['GAME_DESIGN.md', 'DOMAINS.md']),
+    ('世界', ['world/WORLD.md', 'world/CORPORATIONS.md', 'world/GANGS.md', 'world/CULTURE.md',
+            'world/DISTRICTS.md', 'world/LIFE.md', 'world/NPCS.md']),
+    ('規則', ['systems/CORE_RULES.md', 'systems/COMBAT_SYSTEM.md', 'systems/CYBERSPACE.md', 'systems/NETRUNNING.md',
+            'systems/OPINION.md', 'systems/MEDIA.md', 'systems/COMMISSIONS.md', 'systems/FIXER.md', 'systems/LEWD_SYSTEM.md']),
+    ('裝備', ['gear/CYBERWARE.md', 'gear/CRAFTING.md', 'gear/EQUIPMENT.md']),
+    ('美術', ['art/ART_STYLE.md']),
+    ('計畫', ['plan/ROADMAP.md', 'plan/SYSTEMS_REVIEW.md', 'plan/WORLD_ITEMS.md', 'plan/MIGRATION.md']),
+]
+FIGURES = {  # 在某份文件的標題後面插圖
+    'world/DISTRICTS.md': [('art/city-map.svg', '緋夜城地圖（示意）'), ('art/district-blocks.svg', '各區的街區結構'), ('art/map-scale.svg', '地圖規模')],
+    'systems/CYBERSPACE.md': [('art/cyberspace.svg', '內海的結構')],
+}
+ALL = [d for _, ds in PARTS for d in ds]
+DOC_ID = {d: 'doc-' + os.path.splitext(os.path.basename(d))[0].lower() for d in ALL}
+
+
+def data_uri(path):
+    ext = os.path.splitext(path)[1].lower()
+    mime = {'.svg': 'image/svg+xml', '.png': 'image/png'}[ext]
+    return f'data:{mime};base64,' + base64.b64encode(open(path, 'rb').read()).decode()
+
+
+def inline(text, doc):
+    """行內語法：`code`、**粗體**、![圖](路徑)、[連結](路徑)。"""
+    codes = []
+    def stash(m):
+        codes.append(m.group(1)); return f'\x00{len(codes)-1}\x00'
+    text = re.sub(r'`([^`]+)`', stash, text)
+    text = html.escape(text, quote=False)
+
+    def img(m):
+        alt, target = m.group(1), m.group(2)
+        p = os.path.normpath(os.path.join(DOCS, os.path.dirname(doc), target))
+        svg = os.path.join(DOCS, 'art', os.path.splitext(os.path.basename(p))[0] + '.svg')
+        src = svg if os.path.exists(svg) else p
+        return f'<img alt="{alt}" src="{data_uri(src)}">' if os.path.exists(src) else alt
+    text = re.sub(r'!\[([^\]]*)\]\(([^)\s]+)\)', img, text)
+
+    def link(m):
+        label, target = m.group(1), m.group(2)
+        if re.match(r'^[a-z]+:', target):
+            return f'<a href="{target}" target="_blank" rel="noopener">{label}</a>'
+        rel = os.path.normpath(os.path.join(os.path.dirname(doc), target.split('#')[0])).replace(os.sep, '/')
+        if rel in DOC_ID:
+            return f'<a href="#{DOC_ID[rel]}">{label}</a>'
+        return f'<span class="ext" title="{rel}">{label}</span>'
+    text = re.sub(r'\[([^\]]+)\]\(([^)\s]+)\)', link, text)
+    text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+    return re.sub(r'\x00(\d+)\x00', lambda m: '<code>' + html.escape(codes[int(m.group(1))], quote=False) + '</code>', text)
+
+
+def convert(md, doc, toc):
+    out, lines, i = [], md.split('\n'), 0
+    did = DOC_ID[doc]
+    para = []
+    def flush():
+        if para:
+            out.append('<p>' + inline(' '.join(para), doc) + '</p>'); para.clear()
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith('```'):
+            flush(); lang = line[3:].strip(); i += 1; buf = []
+            while i < len(lines) and not lines[i].startswith('```'):
+                buf.append(lines[i]); i += 1
+            i += 1
+            if lang != 'mermaid':
+                out.append('<pre><code>' + html.escape('\n'.join(buf), quote=False) + '</code></pre>')
+            continue
+        m = re.match(r'^(#{1,4})\s+(.*)$', line)
+        if m:
+            flush(); level, title = len(m.group(1)), m.group(2)
+            if level == 1:
+                out.append(f'<h1 id="{did}">{inline(title, doc)}</h1>')
+                toc.append((1, did, re.sub(r'<[^>]+>', '', inline(title, doc))))
+                for path, cap in FIGURES.get(doc, []):
+                    out.append(f'<figure><img alt="{cap}" src="{data_uri(os.path.join(DOCS, path))}"><figcaption>{cap}</figcaption></figure>')
+            else:
+                num = re.match(r'^(\d+(?:\.\d+)*)', title)
+                hid = f'{did}-{num.group(1).replace(".", "-")}' if num else f'{did}-h{len(out)}'
+                out.append(f'<h{level} id="{hid}">{inline(title, doc)}</h{level}>')
+                if level == 2:
+                    toc.append((2, hid, re.sub(r'<[^>]+>', '', inline(title, doc))))
+            i += 1; continue
+        if line.startswith('|') and i + 1 < len(lines) and re.match(r'^\|[\s:|-]+\|\s*$', lines[i + 1]):
+            flush()
+            cells = lambda l: [c.strip() for c in re.split(r'(?<!\\)\|', l.strip().strip('|'))]
+            head = cells(line); i += 2; rows = []
+            while i < len(lines) and lines[i].startswith('|'):
+                rows.append(cells(lines[i])); i += 1
+            t = ['<div class="tw"><table><thead><tr>' + ''.join(f'<th>{inline(c, doc)}</th>' for c in head) + '</tr></thead><tbody>']
+            for r in rows:
+                t.append('<tr>' + ''.join(f'<td>{inline(c, doc)}</td>' for c in r) + '</tr>')
+            out.append(''.join(t) + '</tbody></table></div>'); continue
+        if line.startswith('>'):
+            flush(); buf = []
+            while i < len(lines) and lines[i].startswith('>'):
+                buf.append(lines[i][1:].strip()); i += 1
+            out.append('<blockquote>' + '<br>'.join(inline(b, doc) for b in buf if b) + '</blockquote>'); continue
+        m = re.match(r'^(\s*)([-*]|\d+\.)\s+(.*)$', line)
+        if m:
+            flush(); stack = []
+            while i < len(lines):
+                m = re.match(r'^(\s*)([-*]|\d+\.)\s+(.*)$', lines[i])
+                if not m:
+                    if lines[i].strip() and lines[i].startswith('  ') and stack:
+                        out.append(' ' + inline(lines[i].strip(), doc)); i += 1; continue
+                    break
+                ind, tag = len(m.group(1)), 'ol' if m.group(2)[0].isdigit() else 'ul'
+                while stack and stack[-1][0] > ind:
+                    out.append(f'</li></{stack.pop()[1]}>')
+                if stack and stack[-1][0] == ind:
+                    out.append('</li>')
+                else:
+                    out.append(f'<{tag}>'); stack.append((ind, tag))
+                out.append('<li>' + inline(m.group(3), doc)); i += 1
+            while stack:
+                out.append(f'</li></{stack.pop()[1]}>')
+            continue
+        if not line.strip():
+            flush(); i += 1; continue
+        if re.match(r'^-{3,}\s*$', line):
+            flush(); out.append('<hr>'); i += 1; continue
+        para.append(line.strip()); i += 1
+    flush()
+    return '\n'.join(out)
+
+
+CSS = '''
+:root{--bg:#0d0a14;--bg1:#151020;--bg2:#1d1630;--line:#3a2d52;--ink:#efe9f7;--ink2:#b8adc9;--ink3:#7d7390;--pink:#ff4fa3;--pinkhi:#ff8fc8;--mint:#5dffb0;--gold:#ffd66b;
+ --font:'Noto Sans TC','PingFang TC','Microsoft JhengHei','WenQuanYi Zen Hei',sans-serif;--mono:'JetBrains Mono','Cascadia Code',Consolas,monospace}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:16px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15.5px;line-height:1.75}
+nav{position:fixed;inset:0 auto 0 0;width:290px;overflow-y:auto;background:var(--bg1);border-right:1px solid var(--line);padding:22px 0 60px;font-size:13.5px}
+nav .brand{padding:0 20px 14px;color:var(--pink);font-size:21px;font-weight:900;letter-spacing:3px}
+nav .brand small{display:block;color:var(--ink3);font-size:11px;font-weight:400;letter-spacing:2px;margin-top:2px}
+nav .part{margin:16px 20px 4px;color:var(--pinkhi);font-size:12px;letter-spacing:4px;border-top:1px solid var(--line);padding-top:12px}
+nav a{display:block;color:var(--ink2);text-decoration:none;padding:3px 20px;border:0;border-left:2px solid transparent}
+nav a.d{color:var(--ink);font-weight:700;margin-top:6px}
+nav a.s{padding-left:34px;font-size:12.5px;color:var(--ink3)}
+nav a:hover{color:var(--pinkhi);border-left-color:var(--pink);background:#ff4fa30d}
+main{margin-left:290px;padding:40px 56px 120px;max-width:1180px}
+.cover{min-height:70vh;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--line);margin-bottom:40px}
+.cover h1{font-size:64px;margin:0;color:var(--pink);letter-spacing:8px;text-shadow:0 0 28px #ff4fa366;border:0;padding:0}
+.cover p{color:var(--ink2);font-size:17px;max-width:720px}.cover .tag{font-family:var(--mono);font-size:12px;color:var(--ink3);letter-spacing:3px}
+.cover ul{color:var(--ink2);max-width:760px}
+.parthead{margin:90px 0 0;padding:26px 0 8px;border-top:2px solid var(--pink);color:var(--pink);font-size:13px;letter-spacing:8px}
+h1{font-size:34px;margin:28px 0 14px;padding-bottom:10px;border-bottom:1px solid var(--line);letter-spacing:1px}
+h2{font-size:22px;margin:44px 0 12px;color:var(--pinkhi);display:flex;align-items:center;gap:12px}
+h2::before{content:"";width:18px;height:2px;background:var(--pink);flex:none}
+h3{font-size:17.5px;margin:30px 0 8px;color:var(--ink)}h4{font-size:15.5px;margin:22px 0 6px;color:var(--ink2)}
+p{margin:10px 0}a{color:var(--pinkhi);text-decoration:none;border-bottom:1px dotted #ff8fc866}a:hover{color:#fff}
+.ext{color:var(--ink2);border-bottom:1px dotted var(--ink3)}
+strong{color:#fff}code{font-family:var(--mono);font-size:.86em;color:var(--mint);background:#ffffff0a;padding:1px 5px;border-radius:3px}
+pre{background:var(--bg1);border:1px solid var(--line);padding:14px 16px;overflow-x:auto;line-height:1.5;font-size:12.5px}
+pre code{background:none;padding:0;color:var(--ink2)}
+blockquote{margin:14px 0;padding:10px 16px;border-left:3px solid var(--pink);background:#ff4fa30a;color:var(--ink2);font-size:14px}
+ul,ol{padding-left:24px;margin:8px 0}li{margin:4px 0}
+.tw{overflow-x:auto;margin:14px 0}table{border-collapse:collapse;width:100%;font-size:14px}
+th{background:var(--bg2);color:var(--pinkhi);text-align:left;font-weight:700;white-space:nowrap}
+th,td{border:1px solid var(--line);padding:7px 11px;vertical-align:top}tr:nth-child(even) td{background:#ffffff05}
+figure{margin:20px 0}figure img,p img{max-width:100%;border:1px solid var(--line);display:block}
+figcaption{color:var(--ink3);font-size:12.5px;margin-top:6px;letter-spacing:1px}
+hr{border:0;border-top:1px solid var(--line);margin:30px 0}
+article{margin-top:60px}
+@media (max-width:900px){nav{display:none}main{margin-left:0;padding:24px 18px 80px}.cover h1{font-size:42px}}
+@media print{nav{display:none}main{margin:0;padding:0;max-width:none}body{background:#fff;color:#111;font-size:11pt}
+ h1,h2,h3,strong{color:#111}h2{color:#b0206a}th{background:#f1e6ee;color:#7a1447}th,td{border-color:#bbb}tr:nth-child(even) td{background:#faf6f9}
+ code{color:#0a6b46;background:#f2f2f2}pre{background:#f7f7f7;border-color:#ccc}pre code{color:#222}blockquote{background:#fbf1f6;color:#444}
+ a{color:#b0206a;border:0}.cover h1{color:#d81b78;text-shadow:none}.cover p,.cover ul,figcaption,.cover .tag{color:#555}
+ article{page-break-before:always}.parthead{page-break-before:always;margin-top:0}h1,h2,h3{page-break-after:avoid}tr,figure{page-break-inside:avoid}}
+'''
+
+
+def main():
+    toc_html, body = [], []
+    for part, docs in PARTS:
+        toc_html.append(f'<div class="part">{part}</div>')
+        body.append(f'<div class="parthead">{part}</div>')
+        for doc in docs:
+            toc = []
+            md = open(os.path.join(DOCS, doc), encoding='utf-8').read()
+            body.append(f'<article>{convert(md, doc, toc)}</article>')
+            for level, hid, title in toc:
+                toc_html.append(f'<a class="{"d" if level == 1 else "s"}" href="#{hid}">{html.escape(title)}</a>')
+    try:
+        rev = subprocess.check_output(['git', '-C', ROOT, 'rev-parse', '--short', 'HEAD'], text=True).strip()
+    except Exception:
+        rev = ''
+    n_docs = len(ALL)
+    cover = f'''<section class="cover"><div class="tag">設計書 · 緋夜城 2069 · 設計階段</div><h1>CyberpunkPink</h1>
+<p>一款成人向的賽博龐克跑團風格 RPG。這本設計書把 <code>docs/</code> 裡的 {n_docs} 份文件照閱讀順序編在一起：總綱、世界、規則、裝備、美術、計畫。</p>
+<ul><li>所有數值都是初稿；還沒有程式。</li><li>本作是成人向虛構作品，所有登場角色皆為成年人。</li>
+<li>左側是目錄。文件之間的連結在這本書裡會跳到對應的章節。</li><li>這個檔案由 <code>tools/book/build.py</code> 產生，不要手改；改文件後重跑。</li></ul>
+<div class="tag">{("版本 " + rev) if rev else ""}</div></section>'''
+    page = f'''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CyberpunkPink 設計書</title><style>{CSS}</style></head><body>
+<nav><div class="brand">CyberpunkPink<small>設計書 · 緋夜城 2069</small></div>{"".join(toc_html)}</nav>
+<main>{cover}{"".join(body)}</main></body></html>'''
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
+    open(OUT, 'w', encoding='utf-8').write(page)
+    print(f'→ docs/book/{os.path.basename(OUT)}  {n_docs} 份文件  {len(page)//1024} KB')
+
+
+if __name__ == '__main__':
+    main()

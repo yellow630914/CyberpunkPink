@@ -38,20 +38,20 @@
 
 | 系統 | 狀態 | 在哪 | 備註 | 牽動 |
 |---|---|---|---|---|
-| 世界線的前提（快感即協定） | ✔ | [WORLD](../WORLD.md) 1 | 你要「染上性化風格、本質不變」；前提是我提的，你沒有反對 | 高 |
-| 城市：緋夜城、2069、只有一座城市 | ✔ | [WORLD](../WORLD.md) 3 | | — |
-| 八個區與相連的方式、公共交通 | ✔ | [DISTRICTS](../DISTRICTS.md) 1 | | — |
-| 地圖規模（中方案）、要地、橋接區 | ✔ | [DISTRICTS](../DISTRICTS.md) 1.3 | | — |
+| 世界線的前提（快感即協定） | ✔ | [WORLD](../world/WORLD.md) 1 | 你要「染上性化風格、本質不變」；前提是我提的，你沒有反對 | 高 |
+| 城市：緋夜城、2069、只有一座城市 | ✔ | [WORLD](../world/WORLD.md) 3 | | — |
+| 八個區與相連的方式、公共交通 | ✔ | [DISTRICTS](../world/DISTRICTS.md) 1 | | — |
+| 地圖規模（中方案）、要地、橋接區 | ✔ | [DISTRICTS](../world/DISTRICTS.md) 1.3 | | — |
 | 現實地圖多固定、隨機地圖放內海 | ✔ | 同上 | | — |
-| 御宅文化是主流 | ✔ | [CULTURE](../CULTURE.md) | 方向你定的；內容（萌的工程學、同人夜市……）是我填的 | 低 |
-| 內海是另一個空間 | ✔ | [CYBERSPACE](../CYBERSPACE.md) | 分區是我填的 | — |
-| 內海只能精神污染 | ✔ | [CYBERSPACE](../CYBERSPACE.md) 6 | 熔斷器的說法是我補的 | — |
-| 用語的大方向（粉牆、女武神機甲） | ✔ | [WORLD](../WORLD.md) 7 | 你舉的例子照用 | — |
-| 年表 | ◇ | [WORLD](../WORLD.md) 2 | 大潮崩、蕾絲戰爭、重建的年份與內容 | 中 |
-| 十二家企業的名字與設定 | ◇ | [CORPORATIONS](../CORPORATIONS.md) | 我沒有照原型改名，而是重新設計。你沒有回應過這個做法 | 中 |
-| 十四個幫派的名字與設定 | ◇ | [GANGS](../GANGS.md) | 同上 | 中 |
-| 其餘的用語（蕾絲、妖精、感載、溺感症、瑰元、內海、深海……） | ◇ | [WORLD](../WORLD.md) 7 | | 高（之後所有文字） |
-| 53 位固定 NPC 與六條主線骨架 | ◇ | [NPCS](../NPCS.md) | 人名、秘密、主線的問題都是我定的 | 中 |
+| 御宅文化是主流 | ✔ | [CULTURE](../world/CULTURE.md) | 方向你定的；內容（萌的工程學、同人夜市……）是我填的 | 低 |
+| 內海是另一個空間 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) | 分區是我填的 | — |
+| 內海只能精神污染 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 6 | 熔斷器的說法是我補的 | — |
+| 用語的大方向（粉牆、女武神機甲） | ✔ | [WORLD](../world/WORLD.md) 7 | 你舉的例子照用 | — |
+| 年表 | ◇ | [WORLD](../world/WORLD.md) 2 | 大潮崩、蕾絲戰爭、重建的年份與內容 | 中 |
+| 十二家企業的名字與設定 | ◇ | [CORPORATIONS](../world/CORPORATIONS.md) | 我沒有照原型改名，而是重新設計。你沒有回應過這個做法 | 中 |
+| 十四個幫派的名字與設定 | ◇ | [GANGS](../world/GANGS.md) | 同上 | 中 |
+| 其餘的用語（蕾絲、妖精、感載、溺感症、瑰元、內海、深海……） | ◇ | [WORLD](../world/WORLD.md) 7 | | 高（之後所有文字） |
+| 53 位固定 NPC 與六條主線骨架 | ◇ | [NPCS](../world/NPCS.md) | 人名、秘密、主線的問題都是我定的 | 中 |
 | 各區的街區內容（39 塊各有什麼） | ✗ | — | 只有名字 | 中 |
 | 17 處要地的內部 | ✗ | — | 只有名字與層數 | 中 |
 | 主線的真相、階段與結局 | ✗ | — | | 高 |
@@ -61,56 +61,56 @@
 
 | 系統 | 狀態 | 在哪 | 備註 | 牽動 |
 |---|---|---|---|---|
-| 主角沒有職業 | ✔ | [CORE_RULES](../CORE_RULES.md) 6.2 | | — |
-| 夥伴固定職能，最多三條 | ✔ | [CORE_RULES](../CORE_RULES.md) 6.3 | 5／3／2 階的上限是我定的 | — |
-| 八條路數、四類 | ✔ | [CORE_RULES](../CORE_RULES.md) 6 | | — |
-| 三個戰場的強弱矩陣 | ✔ | [CORE_RULES](../CORE_RULES.md) 6.1 | 強中弱的比例（1、⅔、⅓）是我定的 | — |
-| 技能裝在橋裡、四類容量、主動與被動 | ✔ | [CORE_RULES](../CORE_RULES.md) 6.4 | 五種技能種類、「同一棵樹互相加成」是我加的 | — |
-| 六屬性 | ◇ | [CORE_RULES](../CORE_RULES.md) 1 | 體格、反應、技術、智識、膽識、魅力；建角的數值陣列 | 高 |
-| 十八項基本功 | ◇ | [CORE_RULES](../CORE_RULES.md) 2 | 清單與「不佔容量」 | 高 |
-| 檢定：d20＋調整值＋基本功 對 DC | ◇ | [CORE_RULES](../CORE_RULES.md) 3 | 沿用 ElondiaRPG 的骨架。附件的規則是 1d10，我沒有用 | 高 |
+| 主角沒有職業 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6.2 | | — |
+| 夥伴固定職能，最多三條 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6.3 | 5／3／2 階的上限是我定的 | — |
+| 八條路數、四類 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6 | | — |
+| 三個戰場的強弱矩陣 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6.1 | 強中弱的比例（1、⅔、⅓）是我定的 | — |
+| 技能裝在橋裡、四類容量、主動與被動 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6.4 | 五種技能種類、「同一棵樹互相加成」是我加的 | — |
+| 六屬性 | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 1 | 體格、反應、技術、智識、膽識、魅力；建角的數值陣列 | 高 |
+| 十八項基本功 | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 2 | 清單與「不佔容量」 | 高 |
+| 檢定：d20＋調整值＋基本功 對 DC | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 3 | 沿用 ElondiaRPG 的骨架。附件的規則是 1d10，我沒有用 | 高 |
 | 取消等級 | ◇ | [ROADMAP](ROADMAP.md) 待決定 2 | 「主角沒有職業」間接支持，但沒有明說 | 高 |
-| 成長：歷練點與花費 | ◇ | [CORE_RULES](../CORE_RULES.md) 7 | | 中 |
-| 特質與缺陷 | ◇ | [CORE_RULES](../CORE_RULES.md) 7 | 一句話：沿用 ElondiaRPG | 低 |
+| 成長：歷練點與花費 | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 7 | | 中 |
+| 特質與缺陷 | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 7 | 一句話：沿用 ElondiaRPG | 低 |
 | **八棵技能樹的內容** | ✗ | — | 每棵有哪些技能、各佔多少容量、幾階。目前只有零散的例子 | 高 |
-| 建角流程（出身、生命軌跡、起始的橋） | ✗ | [ROADMAP](ROADMAP.md) 1.1 | 出身只有五個名字 | 中 |
+| 建角流程（出身、生命軌跡、起始的橋） | ✗ | [ROADMAP](ROADMAP.md) 2 | 出身只有五個名字 | 中 |
 | 夥伴的成長與配置 | ✗ | — | 只說「由職能與階數決定」 | 低 |
 
 ### 三、現實戰鬥
 
 | 系統 | 狀態 | 在哪 | 備註 | 牽動 |
 |---|---|---|---|---|
-| 除了媒體型，都能影響現實戰鬥 | ✔ | [COMBAT_SYSTEM](../COMBAT_SYSTEM.md) 11 | 各路數具體做什麼是我填的 | — |
-| 殺人只能在現實 | ✔ | [CYBERSPACE](../CYBERSPACE.md) 6 | | — |
-| **三條軌：生命值、感載、人性** | ◇ | [CORE_RULES](../CORE_RULES.md) 4 | 整個設計的地基。感載當第二條傷害軌是我提的，你沒有評論過 | 高 |
-| **同步原則**（接越深越強、回灌越重） | ◇ | [CORE_RULES](../CORE_RULES.md) 5 | 同上 | 高 |
-| 逐回合、行動點 | ◇ | [COMBAT_SYSTEM](../COMBAT_SYSTEM.md) 1 | 沿用 ElondiaRPG | 中 |
-| **不用格子，三種站位** | ◇ | [COMBAT_SYSTEM](../COMBAT_SYSTEM.md) 2 | [ROADMAP](ROADMAP.md) 待決定 3。你問過戰鬥怎麼呈現，我答了，你沒有說可不可以 | 高 |
-| 命中、護甲減傷與耗損、彈藥 | ◇ | [COMBAT_SYSTEM](../COMBAT_SYSTEM.md) 3～5 | | 中 |
-| 七種傷害類型 | ◇ | [COMBAT_SYSTEM](../COMBAT_SYSTEM.md) 5 | | 中 |
-| 重創 | ◇ | [COMBAT_SYSTEM](../COMBAT_SYSTEM.md) 6 | | 低 |
-| 兩種打法（實彈與神經）、制伏 | ◇ | [COMBAT_SYSTEM](../COMBAT_SYSTEM.md) 7 | | 中 |
-| 戰敗事件（依對手分支） | ◇ | [COMBAT_SYSTEM](../COMBAT_SYSTEM.md) 8 | | 中 |
-| 戰鬥畫面 | ◇ | [COMBAT_SYSTEM](../COMBAT_SYSTEM.md) 10 | 只有文字示意 | 中 |
-| 對峙（開打前比氣勢） | ✗ | [ROADMAP](ROADMAP.md) 1.1 | 只是一個想法 | 低 |
+| 除了媒體型，都能影響現實戰鬥 | ✔ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 11 | 各路數具體做什麼是我填的 | — |
+| 殺人只能在現實 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 6 | | — |
+| **三條軌：生命值、感載、人性** | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 4 | 整個設計的地基。感載當第二條傷害軌是我提的，你沒有評論過 | 高 |
+| **同步原則**（接越深越強、回灌越重） | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 5 | 同上 | 高 |
+| 逐回合、行動點 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 1 | 沿用 ElondiaRPG | 中 |
+| **不用格子，三種站位** | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 2 | [ROADMAP](ROADMAP.md) 待決定 3。你問過戰鬥怎麼呈現，我答了，你沒有說可不可以 | 高 |
+| 命中、護甲減傷與耗損、彈藥 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 3～5 | | 中 |
+| 七種傷害類型 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 5 | | 中 |
+| 重創 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 6 | | 低 |
+| 兩種打法（實彈與神經）、制伏 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 7 | | 中 |
+| 戰敗事件（依對手分支） | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 8 | | 中 |
+| 戰鬥畫面 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 10 | 只有文字示意 | 中 |
+| 對峙（開打前比氣勢） | ✗ | [ROADMAP](ROADMAP.md) 2 | 只是一個想法 | 低 |
 | 敵人：種類、數值、AI | ✗ | — | | 高 |
-| 女武神機甲、載具與追逐 | ✗ | [COMBAT_SYSTEM](../COMBAT_SYSTEM.md) 9 | 有骨架；整備、取得、玩家駕駛都沒有。載具與追逐完全沒有 | 中 |
+| 女武神機甲、載具與追逐 | ✗ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 9 | 有骨架；整備、取得、玩家駕駛都沒有。載具與追逐完全沒有 | 中 |
 
 ### 四、內海與竄網
 
 | 系統 | 狀態 | 在哪 | 備註 | 牽動 |
 |---|---|---|---|---|
-| 內海的定位、有民用區／禁區／遊樂設施／牆外 | ✔ | [CYBERSPACE](../CYBERSPACE.md) 3 | | — |
-| 內海大量隨機地圖 | ✔ | [CYBERSPACE](../CYBERSPACE.md) 8 | | — |
-| 每條路數都能進內海；潛網者最強 | ✔ | [CYBERSPACE](../CYBERSPACE.md) 5 | | — |
-| 內海只能精神污染 | ✔ | [CYBERSPACE](../CYBERSPACE.md) 6 | 三種形式（過載、蝕、植入）是我分的 | — |
-| 七個分區的內容 | ◇ | [CYBERSPACE](../CYBERSPACE.md) 3 | 港灣、大街、樂園島、企業環礁、暗礁、沉船帶、深海 | 中 |
-| 接入點、投影與潛入、身體留在現實 | ◇ | [CYBERSPACE](../CYBERSPACE.md) 2 | | 中 |
-| 化身、完整度、構裝 | ◇ | [CYBERSPACE](../CYBERSPACE.md) 4 | 「體格在網內由膽識代替」 | 高 |
-| 快駭（五類） | ◇ | [NETRUNNING](../NETRUNNING.md) 2 | | 中 |
-| RAM | ◇ | [NETRUNNING](../NETRUNNING.md) 1 | | 中 |
-| 蕾絲三色、追蹤度、控制節點 | ◇ | [NETRUNNING](../NETRUNNING.md) 4～5 | | 中 |
-| 粉牆、深海、妖精的交易 | ◇ | [NETRUNNING](../NETRUNNING.md) 7 | | 中 |
+| 內海的定位、有民用區／禁區／遊樂設施／牆外 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 3 | | — |
+| 內海大量隨機地圖 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 8 | | — |
+| 每條路數都能進內海；潛網者最強 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 5 | | — |
+| 內海只能精神污染 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 6 | 三種形式（過載、蝕、植入）是我分的 | — |
+| 七個分區的內容 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 3 | 港灣、大街、樂園島、企業環礁、暗礁、沉船帶、深海 | 中 |
+| 接入點、投影與潛入、身體留在現實 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 2 | | 中 |
+| 化身、完整度、構裝 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 4 | 「體格在網內由膽識代替」 | 高 |
+| 快駭（五類） | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 2 | | 中 |
+| RAM | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 1 | | 中 |
+| 蕾絲三色、追蹤度、控制節點 | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 4～5 | | 中 |
+| 粉牆、深海、妖精的交易 | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 7 | | 中 |
 | 構裝的目錄 | ✗ | — | | 中 |
 | 隨機生成的規則（迷宮館、沉船帶、一般子網） | ✗ | — | 只說「沿用地下城生成器」 | 中 |
 | 內海的固定地圖（大街、樂園島的場館） | ✗ | — | | 低 |
@@ -120,32 +120,32 @@
 | 系統 | 狀態 | 在哪 | 備註 | 牽動 |
 |---|---|---|---|---|
 | 媒體型不影響現實戰鬥 | ✔ | [DOMAINS](../DOMAINS.md) | | — |
-| 媒體人有一個獨立的經營 SLG | ✔ | [OPINION](../OPINION.md) | 你說這個想法有趣；規則是我設計的 | — |
-| 偶像與主播同一類 | ✔ | [MEDIA](../MEDIA.md) 9 | | — |
-| 輿論是委託的三個領域之一 | ✔ | [COMMISSIONS](../COMMISSIONS.md) | | — |
-| 棋盤：六條管道、熱與向、聲量與風向 | ◇ | [OPINION](../OPINION.md) 3 | | 高 |
-| 回合與行動、對手的公關 | ◇ | [OPINION](../OPINION.md) 4～5 | | 中 |
-| 經營層：編制、欄目、設備 | ◇ | [OPINION](../OPINION.md) 2 | | 中 |
-| 素材、觀眾、公信力 | ◇ | [MEDIA](../MEDIA.md) 2～4 | | 中 |
-| 偶像：人氣、親衛隊、簽約或地下、編輯台上的行動 | ◇ | [MEDIA](../MEDIA.md) 9 | | 中 |
+| 媒體人有一個獨立的經營 SLG | ✔ | [OPINION](../systems/OPINION.md) | 你說這個想法有趣；規則是我設計的 | — |
+| 偶像與主播同一類 | ✔ | [MEDIA](../systems/MEDIA.md) 9 | | — |
+| 輿論是委託的三個領域之一 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) | | — |
+| 棋盤：六條管道、熱與向、聲量與風向 | ◇ | [OPINION](../systems/OPINION.md) 3 | | 高 |
+| 回合與行動、對手的公關 | ◇ | [OPINION](../systems/OPINION.md) 4～5 | | 中 |
+| 經營層：編制、欄目、設備 | ◇ | [OPINION](../systems/OPINION.md) 2 | | 中 |
+| 素材、觀眾、公信力 | ◇ | [MEDIA](../systems/MEDIA.md) 2～4 | | 中 |
+| 偶像：人氣、親衛隊、簽約或地下、編輯台上的行動 | ◇ | [MEDIA](../systems/MEDIA.md) 9 | | 中 |
 | 輿論戰的數值與平衡 | ✗ | — | 每個行動給多少熱、對手多強 | 中 |
 
 ### 六、委託與中間人
 
 | 系統 | 狀態 | 在哪 | 備註 | 牽動 |
 |---|---|---|---|---|
-| 委託副本：獨立地圖、三個領域指標 | ✔ | [COMMISSIONS](../COMMISSIONS.md) | | — |
-| 每件委託一個主面，其餘輔助 | ✔ | [COMMISSIONS](../COMMISSIONS.md) 4 | 代勞、減壓、開路三種幫法是我分的 | — |
-| 行動前召集，最多 6 人 | ✔ | [COMMISSIONS](../COMMISSIONS.md) 6 | 「每個面最多 4 人」是我加的 | — |
-| 特殊任務用傳統旗標 | ✔ | [COMMISSIONS](../COMMISSIONS.md) 1 | | — |
-| 心智委託 | ✔ | [COMMISSIONS](../COMMISSIONS.md) 7 | | — |
-| 十六種委託類型 | ◇ | [COMMISSIONS](../COMMISSIONS.md) 7 | | 中 |
-| 里程碑與分數、節 | ◇ | [COMMISSIONS](../COMMISSIONS.md) 3、6.2 | | 中 |
-| 一案四拍：接案、踩點、行動、收尾 | ◇ | [FIXER](../FIXER.md) 2 | | 高 |
-| 踩點與未知清單 | ◇ | [FIXER](../FIXER.md) 2 | | 中 |
-| **每週帳單** | ◇ | [FIXER](../FIXER.md) 4 | 「帳單是敵人」是我定的設計原則 | 高 |
-| 中間人經營：盤口、派工、抽成 | ◇ | [FIXER](../FIXER.md) 5、7 | 你要「中間人玩法」，內容是我填的 | 中 |
-| 名冊、人情 | ◇ | [FIXER](../FIXER.md) 6、8 | | 中 |
+| 委託副本：獨立地圖、三個領域指標 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) | | — |
+| 每件委託一個主面，其餘輔助 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) 4 | 代勞、減壓、開路三種幫法是我分的 | — |
+| 行動前召集，最多 6 人 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) 6 | 「每個面最多 4 人」是我加的 | — |
+| 特殊任務用傳統旗標 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) 1 | | — |
+| 心智委託 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) 7 | | — |
+| 十六種委託類型 | ◇ | [COMMISSIONS](../systems/COMMISSIONS.md) 7 | | 中 |
+| 里程碑與分數、節 | ◇ | [COMMISSIONS](../systems/COMMISSIONS.md) 3、6.2 | | 中 |
+| 一案四拍：接案、踩點、行動、收尾 | ◇ | [FIXER](../systems/FIXER.md) 2 | | 高 |
+| 踩點與未知清單 | ◇ | [FIXER](../systems/FIXER.md) 2 | | 中 |
+| **每週帳單** | ◇ | [FIXER](../systems/FIXER.md) 4 | 「帳單是敵人」是我定的設計原則 | 高 |
+| 中間人經營：盤口、派工、抽成 | ◇ | [FIXER](../systems/FIXER.md) 5、7 | 你要「中間人玩法」，內容是我填的 | 中 |
+| 名冊、人情 | ◇ | [FIXER](../systems/FIXER.md) 6、8 | | 中 |
 | 副本的現實面模板（約 24 張） | ✗ | — | | 中 |
 | 委託的生成規則與報酬 | ✗ | — | 只有報酬的範圍 | 中 |
 
@@ -153,15 +153,15 @@
 
 | 系統 | 狀態 | 在哪 | 備註 | 牽動 |
 |---|---|---|---|---|
-| 不從原料製造，用底材與零件組裝 | ✔ | [CRAFTING](../CRAFTING.md) | | — |
-| 零件類型、底材規定必要零件 | ✔ | [CRAFTING](../CRAFTING.md) 2～3 | 十二種的清單是我定的 | — |
-| 等級區分 | ✔ | [CRAFTING](../CRAFTING.md) 4 | I～V 五級是我定的 | — |
-| 零件帶屬性、有全能型 | ✔ | [CRAFTING](../CRAFTING.md) 5 | | — |
-| 武器與護甲也用零件 | ✔ | [CRAFTING](../CRAFTING.md) 3.2～3.3 | | — |
-| 裝備欄位、藏匿、獸耳不影響穿搭 | ✔ | [EQUIPMENT](../EQUIPMENT.md) | 外套的敞開與扣上、快取格、重量是我加的 | — |
-| 生體是零件的另一種材質 | ◇ | [CRAFTING](../CRAFTING.md) 8 | 你問怎麼融合，我提了方案，你還沒回應。含「會成長」「拆了就死」 | 中 |
-| 牌子的相容與套裝 | ◇ | [CRAFTING](../CRAFTING.md) 6 | | 低 |
-| 橋的十個型號 | ◇ | [CYBERWARE](../CYBERWARE.md) 7 | 緋櫻的數字是你給的，其餘九個是我配的 | 中 |
+| 不從原料製造，用底材與零件組裝 | ✔ | [CRAFTING](../gear/CRAFTING.md) | | — |
+| 零件類型、底材規定必要零件 | ✔ | [CRAFTING](../gear/CRAFTING.md) 2～3 | 十二種的清單是我定的 | — |
+| 等級區分 | ✔ | [CRAFTING](../gear/CRAFTING.md) 4 | I～V 五級是我定的 | — |
+| 零件帶屬性、有全能型 | ✔ | [CRAFTING](../gear/CRAFTING.md) 5 | | — |
+| 武器與護甲也用零件 | ✔ | [CRAFTING](../gear/CRAFTING.md) 3.2～3.3 | | — |
+| 裝備欄位、藏匿、獸耳不影響穿搭 | ✔ | [EQUIPMENT](../gear/EQUIPMENT.md) | 外套的敞開與扣上、快取格、重量是我加的 | — |
+| 生體是零件的另一種材質 | ◇ | [CRAFTING](../gear/CRAFTING.md) 8 | 你問怎麼融合，我提了方案，你還沒回應。含「會成長」「拆了就死」 | 中 |
+| 牌子的相容與套裝 | ◇ | [CRAFTING](../gear/CRAFTING.md) 6 | | 低 |
+| 橋的十個型號 | ◇ | [CYBERWARE](../gear/CYBERWARE.md) 7 | 緋櫻的數字是你給的，其餘九個是我配的 | 中 |
 | 底材與零件的目錄 | ✗ | — | | 高 |
 | 物品目錄（藥、消耗品、工具、飾品） | ✗ | — | 藥有十種的清單 | 中 |
 | 交易與商店（價格、殺價、區與區的價差） | ✗ | — | 只有價格表 | 中 |
@@ -171,13 +171,13 @@
 | 系統 | 狀態 | 在哪 | 備註 | 牽動 |
 |---|---|---|---|---|
 | 色情氛圍比 ElondiaRPG 濃、融入世界觀 | ✔ | — | 方向你定的。下面的做法全是我的 | — |
-| **四項橋參數**（敏感度、耐受、慾求、馴化） | ◇ | [LEWD_SYSTEM](../LEWD_SYSTEM.md) 1 | 取代 ElondiaRPG 的四項慾望指標 | 高 |
-| 成人場景用的就是感載 | ◇ | [LEWD_SYSTEM](../LEWD_SYSTEM.md) 3 | | 高 |
-| 調校（取代流派） | ◇ | [LEWD_SYSTEM](../LEWD_SYSTEM.md) 4 | | 中 |
-| 豔名 | ◇ | [LEWD_SYSTEM](../LEWD_SYSTEM.md) 5 | | 中 |
-| 場所與工作（人偶館、感官擂台……） | ◇ | [LEWD_SYSTEM](../LEWD_SYSTEM.md) 6 | | 中 |
-| **契約與橋權**（取代奴隸契約） | ◇ | [LEWD_SYSTEM](../LEWD_SYSTEM.md) 7 | [ROADMAP](ROADMAP.md) 待決定 6：尺度沒有確認 | 高 |
-| 內容篩選；所有角色皆為成年人 | ◇ | [LEWD_SYSTEM](../LEWD_SYSTEM.md) 9 | 成年人那一條是硬規則，不在討論範圍 | 中 |
+| **四項橋參數**（敏感度、耐受、慾求、馴化） | ◇ | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 1 | 取代 ElondiaRPG 的四項慾望指標 | 高 |
+| 成人場景用的就是感載 | ◇ | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 3 | | 高 |
+| 調校（取代流派） | ◇ | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 4 | | 中 |
+| 豔名 | ◇ | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 5 | | 中 |
+| 場所與工作（人偶館、感官擂台……） | ◇ | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 6 | | 中 |
+| **契約與橋權**（取代奴隸契約） | ◇ | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 7 | [ROADMAP](ROADMAP.md) 待決定 6：尺度沒有確認 | 高 |
+| 內容篩選；所有角色皆為成年人 | ◇ | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 9 | 成年人那一條是硬規則，不在討論範圍 | 中 |
 | 懷孕與家庭系統不做 | ◇ | [ROADMAP](ROADMAP.md) 待決定 7 | | 低 |
 | 成人事件的內容（街頭、戰敗、場所、惡意韌體） | ✗ | — | ElondiaRPG 有幾百件，這裡一件都還沒有 | 中 |
 
@@ -185,19 +185,19 @@
 
 | 系統 | 狀態 | 在哪 | 備註 | 牽動 |
 |---|---|---|---|---|
-| 區與區直接相連、公共交通 | ✔ | [DISTRICTS](../DISTRICTS.md) 1.2 | 路線與站是我排的 | — |
-| 藏匿與掃描 | ✔ | [EQUIPMENT](../EQUIPMENT.md) 6 | | — |
-| 兩種錢（帳戶與瓣）、洗錢 | ◇ | [LIFE](../LIFE.md) 1 | | 中 |
-| 物價表 | ◇ | [LIFE](../LIFE.md) 1.2 | | 中 |
-| 身分（社員、市民、無籍）、假身分 | ◇ | [LIFE](../LIFE.md) 2 | | 中 |
-| 法律與合法性四級、刑罰是契約 | ◇ | [LIFE](../LIFE.md) 3 | | 中 |
-| 藥與成癮 | ◇ | [LIFE](../LIFE.md) 6 | | 低 |
-| 通訊（耳語、靜默）、消息的管線 | ◇ | [LIFE](../LIFE.md) 7 | | 中 |
-| 時間：一週的節奏、年度事件 | ◇ | [LIFE](../LIFE.md) 8 | | 中 |
-| 名聲：街頭信譽、熱度（依勢力） | ◇ | [CORE_RULES](../CORE_RULES.md) 8 | | 高 |
-| 行規 | ◇ | [LIFE](../LIFE.md) 9 | 九條，當成委託的預設值 | 低 |
+| 區與區直接相連、公共交通 | ✔ | [DISTRICTS](../world/DISTRICTS.md) 1.2 | 路線與站是我排的 | — |
+| 藏匿與掃描 | ✔ | [EQUIPMENT](../gear/EQUIPMENT.md) 6 | | — |
+| 兩種錢（帳戶與瓣）、洗錢 | ◇ | [LIFE](../world/LIFE.md) 1 | | 中 |
+| 物價表 | ◇ | [LIFE](../world/LIFE.md) 1.2 | | 中 |
+| 身分（社員、市民、無籍）、假身分 | ◇ | [LIFE](../world/LIFE.md) 2 | | 中 |
+| 法律與合法性四級、刑罰是契約 | ◇ | [LIFE](../world/LIFE.md) 3 | | 中 |
+| 藥與成癮 | ◇ | [LIFE](../world/LIFE.md) 6 | | 低 |
+| 通訊（耳語、靜默）、消息的管線 | ◇ | [LIFE](../world/LIFE.md) 7 | | 中 |
+| 時間：一週的節奏、年度事件 | ◇ | [LIFE](../world/LIFE.md) 8 | | 中 |
+| 名聲：街頭信譽、熱度（依勢力） | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 8 | | 高 |
+| 行規 | ◇ | [LIFE](../world/LIFE.md) 9 | 九條，當成委託的預設值 | 低 |
 | 休息、時間流逝、受傷後的治療 | ✗ | — | 短休長休只在遷移清單提到 | 中 |
-| 據點：升級、家具、店面的經營 | ✗ | [FIXER](../FIXER.md) 9 | 只有四個等級的表 | 中 |
+| 據點：升級、家具、店面的經營 | ✗ | [FIXER](../systems/FIXER.md) 9 | 只有四個等級的表 | 中 |
 | 打工 | ✗ | — | 只有收入的範圍 | 低 |
 | 街頭事件 | ✗ | — | 每區有幾個例子 | 中 |
 | 區域狀態（封鎖、抗議、物價波動怎麼運作） | ✗ | — | 多處提到，沒有規則 | 中 |
@@ -206,10 +206,10 @@
 
 | 系統 | 狀態 | 在哪 | 備註 | 牽動 |
 |---|---|---|---|---|
-| 夥伴的職能固定 | ✔ | [CORE_RULES](../CORE_RULES.md) 6.3 | | — |
-| 行動前從名冊召集 | ✔ | [COMMISSIONS](../COMMISSIONS.md) 6.1 | | — |
-| 九位固定夥伴與他們的職能 | ◇ | [NPCS](../NPCS.md) 4 | | 低 |
-| 名冊的容量、可靠度、忠誠 | ◇ | [FIXER](../FIXER.md) 6 | | 中 |
+| 夥伴的職能固定 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6.3 | | — |
+| 行動前從名冊召集 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) 6.1 | | — |
+| 九位固定夥伴與他們的職能 | ◇ | [NPCS](../world/NPCS.md) 4 | | 低 |
+| 名冊的容量、可靠度、忠誠 | ◇ | [FIXER](../systems/FIXER.md) 6 | | 中 |
 | NPC 的生成（名字、外貌、屬性、職業） | ✗ | — | | 中 |
 | 和 NPC 互動（聊天、送禮、誘惑、偷竊……） | ✗ | — | 只在遷移清單提到「沿用」 | 中 |
 | 關係與記憶、好感 | ✗ | — | 同上 | 中 |
@@ -221,10 +221,10 @@
 | 系統 | 狀態 | 在哪 | 備註 | 牽動 |
 |---|---|---|---|---|
 | 參考 ElondiaRPG 的架構（引擎出報告、AI 寫經過） | ✔ | [GAME_DESIGN](../GAME_DESIGN.md) | | — |
-| 會畫的先畫（地圖、樣式、圖標）；人物與背景圖不做 | ✔ | [ART_STYLE](../ART_STYLE.md) | | — |
-| 視覺方向（深紫黑、粉色、斜切角）與圖標風格 | ◇ | [ART_STYLE](../ART_STYLE.md) | 圖傳給你了，你沒有評論 | 中 |
-| 報告格式的改動 | ◇ | [GAME_DESIGN](../GAME_DESIGN.md) 5 | | 中 |
-| AI 判定的「主持人口吻」、雙層場景的寫法 | ◇ | [GAME_DESIGN](../GAME_DESIGN.md) 6 | | 低 |
+| 會畫的先畫（地圖、樣式、圖標）；人物與背景圖不做 | ✔ | [ART_STYLE](../art/ART_STYLE.md) | | — |
+| 視覺方向（深紫黑、粉色、斜切角）與圖標風格 | ◇ | [ART_STYLE](../art/ART_STYLE.md) | 圖傳給你了，你沒有評論 | 中 |
+| 報告格式的改動 | ◇ | [GAME_DESIGN](../GAME_DESIGN.md) 9 | | 中 |
+| AI 判定的「主持人口吻」、雙層場景的寫法 | ◇ | [GAME_DESIGN](../GAME_DESIGN.md) 10 | | 低 |
 | **程式從哪裡開始**（分支還是搬模組） | ✗ | [ROADMAP](ROADMAP.md) 待決定 1 | 我的假設是開新專案搬模組 | 高 |
 | 主畫面與各個畫面的版面 | ✗ | — | 只有戰鬥與編輯台有文字示意 | 高 |
 | 提示詞、世界書、文風 | ✗ | — | | 中 |

@@ -1,6 +1,6 @@
 # 委託副本
 
-> 上層：[GAME_DESIGN](GAME_DESIGN.md)。依賴：[FIXER](FIXER.md)（接案、踩點、收尾）、[COMBAT_SYSTEM](COMBAT_SYSTEM.md)（現實面）、[CYBERSPACE](CYBERSPACE.md) 與 [NETRUNNING](NETRUNNING.md)（內海面）、[OPINION](OPINION.md)（輿論面）、[CORE_RULES](CORE_RULES.md) 第 6 節（三個領域）。被依賴：[FIXER](FIXER.md) 第 2、3 節。
+> 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[FIXER](FIXER.md)（接案、踩點、收尾）、[COMBAT_SYSTEM](COMBAT_SYSTEM.md)（現實面）、[CYBERSPACE](CYBERSPACE.md) 與 [NETRUNNING](NETRUNNING.md)（內海面）、[OPINION](OPINION.md)（輿論面）、[CORE_RULES](CORE_RULES.md) 第 6 節（三個領域）。被依賴：[FIXER](FIXER.md) 第 2、3 節。
 > 來源：新做。ElondiaRPG 只有特殊任務與事件兩種內容形式；這是第三種。可以借的：一般委託的生成、地下城生成器、特殊地圖。預定資料：`data/rules/commissions.json`、`data/world/commission_maps.json`。數值都是初稿。
 
 ## 1. 三種內容形式
@@ -53,7 +53,7 @@
 
 - **獨立於地圖網**：副本裡的現實面不在城市的街區圖上，內海面不在企業環礁的固定子網裡。它們是「這件案子的那棟樓」「這件案子的那個子網」，做完就消失。
 - 入口在城市裡：接案後，地圖上某個街區出現委託地點的標記，走過去、進去，就進了副本。所以**區還是有意義的**——副本繼承入口所在那一區的治安、增援、物價與勢力。
-- **要地不是副本**。緋櫻塔、九號塔這些地方在地圖網上、是固定的、給特殊任務用（[DISTRICTS](DISTRICTS.md) 1.3 節）。副本的現實面是「緋櫻某間分公司的辦公樓」這種不具名的地方。
+- **要地不是副本**。緋櫻塔、九號塔這些地方在地圖網上、是固定的、給特殊任務用（[DISTRICTS](../world/DISTRICTS.md) 1.3 節）。副本的現實面是「緋櫻某間分公司的辦公樓」這種不具名的地方。
 
 ### 2.2 隔離區
 
@@ -196,7 +196,7 @@
 | **造勢／洗白** | — | ○ | ★ | 聲量與風向到位 | |
 
 - 同一個東西可以是不同的委託：一份機密，要**實體的晶片**是奪取（主面現實），要**裡面的資料**是竊密（主面內海）。委託人要的是哪一個，簡報會說。
-- 中間人的門路決定他給哪些類型（[DISTRICTS](DISTRICTS.md) 第 12 節）：舊港的帳房多半給現實的；地下層的探員給內海的；玻璃岸的製作人給輿論的。
+- 中間人的門路決定他給哪些類型（[DISTRICTS](../world/DISTRICTS.md) 第 12 節）：舊港的帳房多半給現實的；地下層的探員給內海的；玻璃岸的製作人給輿論的。
 - **同一件事可以從兩邊接**：一個中間人發抹黑案，另一個同時發滅火案，對手是另一隊邊緣行者。
 
 ## 8. 路線與後果
@@ -220,7 +220,7 @@
 | 部分 | 來源 |
 |---|---|
 | 現實面模板 | 手工畫的固定地圖，約 24 張起：小辦公室、辦公樓層、倉庫、機房、俱樂部、人偶館、診所、宅邸、片場、碼頭貨櫃區、公寓、停車場……每張標了可以放目標、資料埠、入口的位置 |
-| 現實面的內容 | 依目標勢力放保全（[CORPORATIONS](CORPORATIONS.md) 第 7 節的敵人類型）、依等級定數量 |
+| 現實面的內容 | 依目標勢力放保全（[CORPORATIONS](../world/CORPORATIONS.md) 第 7 節的敵人類型）、依等級定數量 |
 | 內海面 | ElondiaRPG 的地下城生成器（[CYBERSPACE](CYBERSPACE.md) 第 8 節）；蕾絲的風格依企業 |
 | 輿論面 | 議題模板 × 對手的公關強度（[OPINION](OPINION.md) 第 5 節） |
 | 詞條 | 一兩個讓這次不一樣的條件：「今晚有派對」「正在換班」「目標不在預定的位置」「另一隊人也在裡面」 |

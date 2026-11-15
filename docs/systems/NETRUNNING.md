@@ -1,6 +1,6 @@
 # 竄網
 
-> 上層：[GAME_DESIGN](GAME_DESIGN.md)。依賴：[CORE_RULES](CORE_RULES.md)（感載、同步原則、介面技能）、[CYBERWARE](CYBERWARE.md)（甲板、駭入接頭）、[COMBAT_SYSTEM](COMBAT_SYSTEM.md)（回合）。被依賴：[FIXER](FIXER.md)（案子的竄網解法）、[MEDIA](MEDIA.md)（偷素材、推流量）。
+> 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[CORE_RULES](CORE_RULES.md)（感載、同步原則、介面技能）、[CYBERWARE](../gear/CYBERWARE.md)（甲板、駭入接頭）、[COMBAT_SYSTEM](COMBAT_SYSTEM.md)（回合）。被依賴：[FIXER](FIXER.md)（案子的竄網解法）、[MEDIA](MEDIA.md)（偷素材、推流量）。
 > 來源：ElondiaRPG 的法術環（→ RAM）與地下城分層探索（→ 子網）。預定資料：`data/rules/programs.json`、`lace.json`、`subnets.json`。數值都是初稿。
 
 > **網路空間本身**（內海的地理、誰能潛入、化身與構裝、每條路數在網內的位置、網內的戰鬥）寫在 [CYBERSPACE](CYBERSPACE.md)。這份只寫「怎麼駭」。
@@ -114,6 +114,6 @@ RAM 上限 = 3 + mod(智識) + 甲板的加值
   - 沒有追蹤度。取而代之的是**沉溺度**：待得越久，登出的檢定越難。
   - 敵人是**妖精**。它們不攻擊，而是**提出交易**：一個你要的東西（一段失落的資料、一個程式、一個死人的印記），換你的一樣東西（一段記憶、一部分橋權、把它的一小片帶進牆內）。交易用 ElondiaRPG 的談判系統。
   - 妖精給的東西是真的、而且是牆內買不到的。代價也是真的。
-- **妖精的吻**：和妖精連線過留下的惡意韌體（[CYBERWARE](CYBERWARE.md) 第 5 節）。初期只是偶爾聽見它的聲音、得到一些有用的提示；後期它開始替你做決定。可以清除，但清掉就失去它給的能力。
+- **妖精的吻**：和妖精連線過留下的惡意韌體（[CYBERWARE](../gear/CYBERWARE.md) 第 5 節）。初期只是偶爾聽見它的聲音、得到一些有用的提示；後期它開始替你做決定。可以清除，但清掉就失去它給的能力。
 - **貞網局**：越過牆的人會被標記。之後貞網局的熱度永久有一個下限。
 - **牆語者**想把牆打開。主線的其中一條會走到這個選擇。

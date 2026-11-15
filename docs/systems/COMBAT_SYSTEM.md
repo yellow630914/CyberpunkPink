@@ -1,6 +1,6 @@
 # 戰鬥系統
 
-> 上層：[GAME_DESIGN](GAME_DESIGN.md)。依賴：[CORE_RULES](CORE_RULES.md)（屬性、檢定、三條軌、同步原則）、[CYBERWARE](CYBERWARE.md)。被依賴：[NETRUNNING](NETRUNNING.md)（快駭在戰鬥中的行動）、[FIXER](FIXER.md)（案子的行動階段）。
+> 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[CORE_RULES](CORE_RULES.md)（屬性、檢定、三條軌、同步原則）、[CYBERWARE](../gear/CYBERWARE.md)。被依賴：[NETRUNNING](NETRUNNING.md)（快駭在戰鬥中的行動）、[FIXER](FIXER.md)（案子的行動階段）。
 > 來源：ElondiaRPG 的逐回合行動點戰鬥，加上槍戰需要的站位、護甲與彈藥。預定資料：`data/rules/combat.json`、`weapons.json`、`armor.json`、`enemies.json`、`statuses.json`。數值都是初稿。
 
 目標是跑團的槍戰感：**開槍很快、很痛、很少打第二輪**。有掩體的人活，沒掩體的人死；想活捉就換一種打法。
@@ -24,7 +24,7 @@
 | 換站位 | 1 |
 | 換彈 | 1 |
 | 換武器（主武器、副武器、近戰之間） | 1 |
-| 使用道具／急救 | 1～2。**只能用快取格裡的道具**（[EQUIPMENT](EQUIPMENT.md) 4.1 節） |
+| 使用道具／急救 | 1～2。**只能用快取格裡的道具**（[EQUIPMENT](../gear/EQUIPMENT.md) 4.1 節） |
 | 快駭 | 0～1，另花 RAM（[NETRUNNING](NETRUNNING.md) 第 2 節） |
 | 壓制、掩護、待命（反應射擊） | 2 |
 | 撤退 | 2，全隊檢定 |
@@ -56,7 +56,7 @@
 
 ## 4. 護甲
 
-護甲與武器都由底材與零件組裝而成（[CRAFTING](CRAFTING.md) 第 3 節）：護甲值來自板材與纖維，風格來自外皮；槍的傷害與射程來自槍管，射速與彈匣來自機構，智慧功能來自晶片與軟體。下面寫的是組好之後怎麼算。
+護甲與武器都由底材與零件組裝而成（[CRAFTING](../gear/CRAFTING.md) 第 3 節）：護甲值來自板材與纖維，風格來自外皮；槍的傷害與射程來自槍管，射速與彈匣來自機構，智慧功能來自晶片與軟體。下面寫的是組好之後怎麼算。
 
 護甲是服裝與義體給的**護甲值**，每次受到傷害時直接減掉。
 
@@ -180,7 +180,7 @@
 - **手機版**：三欄改成上下堆疊，一次看一方。
 - 戰鬥結束產生一份 `combat` 報告，AI 寫成一段；AI 關閉時顯示戰報。這一點和 ElondiaRPG 完全相同。
 
-實際的版面樣稿之後畫（[ART_STYLE](ART_STYLE.md) 第 6 節）。
+實際的版面樣稿之後畫（[ART_STYLE](../art/ART_STYLE.md) 第 6 節）。
 
 ## 11. 每條路數在現實的戰鬥裡做什麼
 
