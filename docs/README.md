@@ -47,7 +47,10 @@ docs/
 │   ├─ SYSTEMS_REVIEW   系統盤點：哪些設計決定過過了、哪些還沒
 │   ├─ WORLD_ITEMS      世界觀項目的盤點
 │   ├─ MIGRATION        ElondiaRPG 系統遷移清單
-│   └─ IMPLEMENTATION   實作的起點：Agent 模式、程式掃描、減熵清單
+│   ├─ IMPLEMENTATION   實作的起點：Agent 模式、程式掃描、減熵清單
+│   ├─ CODESCAN         ElondiaRPG 程式掃描的結論
+│   ├─ AI_TASKS         AI 任務與工具（Agent 模式）
+│   └─ scan/            掃描的六份原始報告（不進設計書）
 │
 └─ book/                設計書：全部文件編成的單一檔案（由 tools/book/ 產生；只在本機，不進版本控制）
 ```

@@ -1,7 +1,7 @@
 # 實作的起點與做法
 
 > 上層：[README](../README.md)。相關：[ROADMAP](ROADMAP.md)（階段 M0～M7）、[MIGRATION](MIGRATION.md)（ElondiaRPG 的模組怎麼搬）、[GAME_DESIGN](../GAME_DESIGN.md)（報告與 AI 管線）。
-> **這份只訂做法，還沒有動手。** 掃描與拆分都等你說開始才做。
+> 做法已定；**程式掃描已完成**（2026-11-16），結論在 [CODESCAN](CODESCAN.md)，AI 任務的規格在 [AI_TASKS](AI_TASKS.md)。程式還沒有動手。
 
 ## 1. 已經定的
 
@@ -52,9 +52,9 @@
 - 每個任務的提示詞各自一份檔案，可以單獨測試、單獨換模型。
 - 成人內容的分流照舊：要不要走成人向的敘事，由引擎的狀態決定，不由 AI 決定。
 
-### 2.3 還不知道的
+### 2.3 掃描後的修正
 
-**ElondiaRPG 那邊的 Agent 模式原本打算怎麼做，我還沒看過**（照你的要求，現在不掃描）。上面是依這個專案的文件推出來的初稿。掃描時第一件事是找出那邊已有的規劃與已經拆開的呼叫，以那邊的設計為準，再對照這張表補差異。
+ElondiaRPG 那邊的 Agent 模式計畫（還沒開始）重點是**工具調用**，不只是拆任務：查詢工具取代把資料塞進提示詞，寫入工具取代事後解析，寫入在正文之後套用、可以回退。這邊以那份為準，任務與工具的定稿在 [AI_TASKS](AI_TASKS.md)。上面的表是動工前的初稿，和 [AI_TASKS](AI_TASKS.md) 不一致時以後者為準。
 
 ## 3. 程式掃描：預計怎麼做
 
@@ -115,8 +115,8 @@
 | 步 | 做什麼 | 什麼時候 |
 |---|---|---|
 | 1 | 設計文件過完剩下的待確認項目 | 現在 |
-| 2 | 程式掃描（第 3 節），產出 `CODESCAN` 與 `AI_TASKS` 的初稿 | 你說開始 |
-| 3 | 依掃描結果修正 [MIGRATION](MIGRATION.md) 與 [ROADMAP](ROADMAP.md) | 掃描後 |
-| 4 | M0：專案骨架，先搬共用的管道，AI 呼叫一開始就照任務拆 | 掃描後 |
+| 2 | 程式掃描（第 3 節），產出 `CODESCAN` 與 `AI_TASKS` 的初稿 | **已完成**（[CODESCAN](CODESCAN.md)、[AI_TASKS](AI_TASKS.md)） |
+| 3 | 依掃描結果修正 [MIGRATION](MIGRATION.md) 與 [ROADMAP](ROADMAP.md) | **已完成** |
+| 4 | M0：照 [CODESCAN](CODESCAN.md) 第 3、4 節的分層與順序；AI 呼叫一開始就照任務拆 | 設計文件定版後 |
 | 5 | M1～M7 | 依 [ROADMAP](ROADMAP.md) |
 | 6 | 交出 `ELONDIA_CLEANUP` | 共用管道搬完、整理好之後（預計 M2 結束時交第一版，之後補） |

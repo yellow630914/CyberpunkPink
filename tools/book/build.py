@@ -18,7 +18,7 @@ PARTS = [
             'systems/OPINION.md', 'systems/MEDIA.md', 'systems/COMMISSIONS.md', 'systems/FIXER.md', 'systems/LEWD_SYSTEM.md']),
     ('裝備', ['gear/CYBERWARE.md', 'gear/CRAFTING.md', 'gear/EQUIPMENT.md']),
     ('美術', ['art/ART_STYLE.md']),
-    ('計畫', ['plan/ROADMAP.md', 'plan/SYSTEMS_REVIEW.md', 'plan/WORLD_ITEMS.md', 'plan/MIGRATION.md', 'plan/IMPLEMENTATION.md']),
+    ('計畫', ['plan/ROADMAP.md', 'plan/SYSTEMS_REVIEW.md', 'plan/WORLD_ITEMS.md', 'plan/MIGRATION.md', 'plan/IMPLEMENTATION.md', 'plan/CODESCAN.md', 'plan/AI_TASKS.md']),
 ]
 FIGURES = {  # 在某份文件的標題後面插圖
     'world/DISTRICTS.md': [('art/city-map.svg', '緋夜城地圖（示意）'), ('art/district-blocks.svg', '各區的街區結構'), ('art/map-scale.svg', '地圖規模')],
