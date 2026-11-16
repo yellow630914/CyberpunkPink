@@ -1,11 +1,11 @@
 # 竄網
 
-> 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[CORE_RULES](CORE_RULES.md)（感載、同步原則、介面技能）、[CYBERWARE](../gear/CYBERWARE.md)（甲板、駭入接頭）、[COMBAT_SYSTEM](COMBAT_SYSTEM.md)（回合）。被依賴：[FIXER](FIXER.md)（委託的竄網解法）、[MEDIA](MEDIA.md)（偷素材、推流量）。
+> 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[CORE_RULES](CORE_RULES.md)（感載、同步原則、潛網者的主控技能）、[CYBERWARE](../gear/CYBERWARE.md)（甲板、駭入接頭）、[COMBAT_SYSTEM](COMBAT_SYSTEM.md)（回合）。被依賴：[FIXER](FIXER.md)（委託的竄網解法）、[MEDIA](MEDIA.md)（偷素材、推流量）。
 > 來源：ElondiaRPG 的法術環（→ RAM）與地下城分層探索（→ 子網）。預定資料：`data/rules/programs.json`、`lace.json`、`subnets.json`。數值都是初稿。
 
 > **網路空間本身**（內海的地理、誰能潛入、化身與構裝、每條路數在網內的位置、網內的戰鬥）寫在 [CYBERSPACE](CYBERSPACE.md)。這份只寫「怎麼駭」。
 
-竄網分兩種：站在現實裡丟程式的**快駭**，和把意識送進去的**潛入**。兩者人人都能做；**潛網者的專業是「介面」**——破解、接管、改寫，那是只有他們做得到的事。
+竄網分兩種：站在現實裡丟程式的**快駭**，和把意識送進去的**潛入**。兩者人人都能做；**潛網者的專業是「主控」**——破解、接管、改寫，那是只有他們做得到的事。
 
 ## 1. 資源：RAM
 

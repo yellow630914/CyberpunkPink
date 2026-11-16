@@ -66,7 +66,7 @@
 | 八條路數、四類 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6 | | — |
 | 三個戰場的強弱矩陣 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6.1 | 強中弱的比例（1、⅔、⅓）是我定的 | — |
 | 技能裝在橋裡、四類容量、主動與被動 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6.4 | 五種技能種類、「同一棵樹互相加成」是我加的 | — |
-| 六屬性 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 1 | 已確認。膽識改名**心防**（名字已確認）；它只管感載；行動點改成反應＋魅力；網內代替體格的改成魅力 | 高 |
+| 六屬性 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 1 | 已確認。膽識改名**心防**（名字已確認）；它只管感載；行動點改成反應＋魅力；網內由心防代替體格、魅力決定傷害 | 高 |
 | 十八項基本功 | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 2 | 跟著屬性調整：每項屬性三項；重武器歸體格、操甲歸心防。**等你看過結果** | 高 |
 | 檢定：d20＋調整值＋基本功 對 DC | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 3 | 維持 d20；基本功與技能兩套並存 | 高 |
 | 取消等級 | ✔ | [ROADMAP](ROADMAP.md) 待決定 2 | 已確認 | — |
@@ -83,7 +83,7 @@
 | 除了媒體型，都能影響現實戰鬥 | ✔ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 11 | 各路數具體做什麼是我填的 | — |
 | 殺人只能在現實 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 6 | | — |
 | **三條軌：生命值、感載、沉溺** | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 4 | 已確認：感載常駐；過載疊餘韻、基礎 3 層、超過倒下；內海裡感載就是血量；沉溺（原「人性」，反過來算，可以超過 100）越高越接近牆外，到 100 成為信徒而不是結束，超過 100 會接到流竄 AI 的委託；親密關係對沉溺的影響由 AI 判定；生命值不成長 | 高 |
-| **同步原則**（接越深越強、回灌越重） | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 5 | 已確認：保留共用的旋鈕、四檔；提高檔位上限只靠沉溺；一般的現實戰鬥不用檔位 | 高 |
+| **同步原則**（接越深越強、回灌越重） | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 5 | 已確認：保留共用的旋鈕、四檔；提高檔位上限的來源不設限（沉溺、橋、義體、藥、技能都可以）；一般的現實戰鬥不用檔位 | 高 |
 | 逐回合、行動點 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 1 | 沿用 ElondiaRPG | 中 |
 | **不用格子；雙方各四格縱深，每格有掩體／半掩體／暴露** | ✔ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 2 | 已確認：不用格子、類似《暗黑地牢》的站位、第 1 格貼在一起算近身、內海用同一套。距離的算法、武器的適用距離、推拉是我填的 | 高 |
 | 命中、護甲減傷與耗損、彈藥 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 3～5 | | 中 |
@@ -106,7 +106,7 @@
 | 內海只能精神污染 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 6 | 三種形式（過載、蝕、植入）是我分的 | — |
 | 七個分區的內容 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 3 | 港灣、大街、樂園島、企業環礁、暗礁、沉船帶、深海 | 中 |
 | 接入點、投影與潛入、身體留在現實 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 2 | | 中 |
-| 化身、構裝 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 4 | 完整度已取消（內海用感載當血量）。「體格在網內由心防代替」還沒過 | 高 |
+| 化身、構裝 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 4 | 完整度已取消（內海用感載當血量）。已確認：體格在網內由心防代替，傷害加值用魅力 | 高 |
 | 快駭（五類） | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 2 | | 中 |
 | RAM | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 1 | | 中 |
 | 蕾絲三色、追蹤度、控制節點 | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 4～5 | | 中 |

@@ -130,7 +130,7 @@
 | 系統 | 模組 | 處理 | 怎麼改 |
 |---|---|---|---|
 | 主動行動（擲骰 → AI 判定 → 夾住後果） | `actions` | 照搬 | 行動種類重列：踩點的各種手段、剪輯、談判、勒索、偽裝。這是「主持人」層，一行邏輯都不用改 |
-| 效果模板 | `effects` | 照搬 | 加效果種類：`heat`、`cred`、`fame`、`favor`、`humanity`、`load`、`footage`、`audience`、`district_state` |
+| 效果模板 | `effects` | 照搬 | 加效果種類：`heat`、`cred`、`fame`、`favor`、`sink`、`load`、`footage`、`audience`、`district_state` |
 | 談判 | `negotiation` | 照搬 | 標的多一種：人情 |
 | 和人互動：聊天、送禮、獻媚、誘惑、偷竊、偷襲 | `interactions` | 換皮 | 加兩種：對人快駭（讀他的橋）、採訪 |
 | 在酒館打聽 | `askAround` | 換皮 | 踩點的「打聽」 |
