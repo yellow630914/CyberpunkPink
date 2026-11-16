@@ -85,9 +85,9 @@
 | 殺人只能在現實 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 6 | | — |
 | **三條軌：生命值、感載、沉溺** | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 4 | 已確認：感載常駐；過載疊餘韻、基礎 3 層、超過倒下；內海裡感載就是血量；沉溺（原「人性」，反過來算，可以超過 100）越高越接近牆外，到 100 成為信徒而不是結束，超過 100 會接到流竄 AI 的委託；親密關係對沉溺的影響由 AI 判定；生命值不成長 | 高 |
 | **同步原則**（接越深越強、回灌越重） | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 5 | 已確認：保留共用的旋鈕、四檔；提高檔位上限的來源不設限（沉溺、橋、義體、藥、技能都可以）；一般的現實戰鬥不用檔位 | 高 |
-| 逐回合、行動點 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 1 | 沿用 ElondiaRPG | 中 |
+| 逐回合、行動點 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 1 | 已確認：每回合回復 4；瞄準 +3；節奏目標（雜兵 3～4 下、精英 8～9、首領約 20）。行動的花費表還沒逐項過 | 中 |
 | **不用格子；雙方各四格縱深，每格有掩體／半掩體／暴露** | ✔ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 2 | 已確認：不用格子、類似《暗黑地牢》的站位、第 1 格貼在一起算近身、內海用同一套。距離的算法、武器的適用距離、推拉是我填的 | 高 |
-| 命中、護甲減傷與耗損、彈藥 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 3～5 | | 中 |
+| 命中、護甲減傷與耗損、彈藥 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 3～5 | 護甲已確認維持直接減、數值砍半（1～2／3～4／5～6／8 以上）；遮蔽可破壞、空格無遮蔽才補位。命中公式、耗損、彈藥還沒過 | 中 |
 | 七種傷害類型 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 5 | | 中 |
 | 重創 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 6 | | 低 |
 | 兩種打法（實彈與神經）、制伏 | ◇ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 7 | | 中 |
