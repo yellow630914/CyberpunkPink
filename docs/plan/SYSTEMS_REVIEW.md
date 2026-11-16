@@ -50,7 +50,7 @@
 | 年表 | ◇ | [WORLD](../world/WORLD.md) 2 | 大潮崩、蕾絲戰爭、重建的年份與內容 | 中 |
 | 十二家企業的名字與設定 | ◇ | [CORPORATIONS](../world/CORPORATIONS.md) | 我沒有照原型改名，而是重新設計。你沒有回應過這個做法 | 中 |
 | 十四個幫派的名字與設定 | ◇ | [GANGS](../world/GANGS.md) | 同上 | 中 |
-| 其餘的用語 | ✔ | [WORLD](../world/WORLD.md) 7、7.1 | 已過：你改了藝人、多巴胺奇點、快感漩渦、信用點、設計圖；路數改用竄網使、媒體人；其餘照用。企業、幫派、各區的名字留到重新過勢力 | — |
+| 其餘的用語 | ✔ | [WORLD](../world/WORLD.md) 7、7.1 | 已過：你改了藝人、多巴胺奇點、快感漩渦、信用點、設計圖；路數名維持潛網者、主播、掮客；其餘照用。企業、幫派、各區的名字留到重新過勢力 | — |
 | 53 位固定 NPC 與六條主線骨架 | ◇ | [NPCS](../world/NPCS.md) | 人名、秘密、主線的問題都是我定的 | 中 |
 | 各區的街區內容（39 塊各有什麼） | ✗ | — | 只有名字 | 中 |
 | 17 處要地的內部 | ✗ | — | 只有名字與層數 | 中 |
@@ -102,7 +102,7 @@
 |---|---|---|---|---|
 | 內海的定位、有民用區／禁區／遊樂設施／牆外 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 3 | | — |
 | 內海大量隨機地圖 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 8 | | — |
-| 每條路數都能進內海；竄網使最強 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 5 | | — |
+| 每條路數都能進內海；潛網者最強 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 5 | | — |
 | 內海只能精神污染 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 6 | 三種形式（過載、蝕、植入）是我分的 | — |
 | 七個分區的內容 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 3 | 港灣、大街、樂園島、企業環礁、暗礁、沉船帶、深海 | 中 |
 | 接入點、投影與潛入、身體留在現實 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 2 | | 中 |
@@ -122,7 +122,7 @@
 |---|---|---|---|---|
 | 媒體型不影響現實戰鬥 | ✔ | [DOMAINS](../DOMAINS.md) | | — |
 | 媒體人有一個獨立的經營 SLG | ✔ | [OPINION](../systems/OPINION.md) | 你說這個想法有趣；規則是我設計的 | — |
-| 偶像與媒體人同一類 | ✔ | [MEDIA](../systems/MEDIA.md) 9 | | — |
+| 偶像與主播同一類 | ✔ | [MEDIA](../systems/MEDIA.md) 9 | | — |
 | 輿論是委託的三個領域之一 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) | | — |
 | 棋盤：六條管道、熱與向、聲量與風向 | ◇ | [OPINION](../systems/OPINION.md) 3 | | 高 |
 | 回合與行動、對手的公關 | ◇ | [OPINION](../systems/OPINION.md) 4～5 | | 中 |
