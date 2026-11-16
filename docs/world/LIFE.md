@@ -1,6 +1,6 @@
 # 日常：錢、身分、法律、貨與行規
 
-> 上層：[WORLD](WORLD.md)。依賴：[CORPORATIONS](CORPORATIONS.md)、[GANGS](GANGS.md)、[DISTRICTS](DISTRICTS.md)。被依賴：之後的 `ITEMS`（物品目錄）、`TRADE`、`STORY_QUESTS`、`EVENTS`；[FIXER](../systems/FIXER.md)（委託的行規）、[CYBERWARE](../gear/CYBERWARE.md)（品級與品牌）。
+> 上層：[WORLD](WORLD.md)。依賴：[CORPORATIONS](CORPORATIONS.md)、[GANGS](GANGS.md)、[DISTRICTS](DISTRICTS.md)。被依賴：[ITEMS](../gear/ITEMS.md)（物品目錄）、[TRADE](../systems/TRADE.md)、[STORY_QUESTS](STORY_QUESTS.md)、[EVENTS](../systems/EVENTS.md)；[FIXER](../systems/FIXER.md)（委託的行規）、[CYBERWARE](../gear/CYBERWARE.md)（品級與品牌）。
 > 這份是世界觀文件，目的是**讓物品、系統、任務有東西可以依據**：一把槍多少錢、什麼東西犯法、同一種東西為什麼有五種牌子、一年裡什麼時候會發生什麼。價格與數值都是初稿。
 
 ## 1. 錢

@@ -1,6 +1,6 @@
 # 文化：霓虹底下的御宅城市
 
-> 上層：[WORLD](WORLD.md)。依賴：[CORPORATIONS](CORPORATIONS.md)（緋櫻）、[GANGS](GANGS.md)。被依賴：之後的 `DISTRICTS`、`ITEMS`、`NPC_SYSTEM`、世界書。
+> 上層：[WORLD](WORLD.md)。依賴：[CORPORATIONS](CORPORATIONS.md)（緋櫻）、[GANGS](GANGS.md)。被依賴：[DISTRICTS](DISTRICTS.md)、[ITEMS](../gear/ITEMS.md)、[NPC_SYSTEM](../systems/NPC_SYSTEM.md)、世界書。
 > 這份是世界觀文件。第 9 節列出每個文化元素在系統上的落點，規則細節回到各系統文件。
 
 緋夜城的主流文化是日本的御宅文化——動畫、偶像、女僕、獸耳、同人。不是因為這座城市在日本，而是因為重建它的錢是日本財閥出的（[CORPORATIONS](CORPORATIONS.md) 第 2 節）。

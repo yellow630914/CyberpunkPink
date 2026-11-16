@@ -1,6 +1,6 @@
 # 敵人
 
-> 上層：[COMBAT_SYSTEM](COMBAT_SYSTEM.md)。依賴：[CORE_RULES](CORE_RULES.md)（三條軌、承受層數、沉溺）、[COMBAT_SYSTEM](COMBAT_SYSTEM.md)（站位、命中、武器、戰敗）、[CYBERSPACE](CYBERSPACE.md) 與 [NETRUNNING](NETRUNNING.md)（網內戰鬥、蕾絲）、[CRAFTING](../gear/CRAFTING.md)（零件）、[CORPORATIONS](../world/CORPORATIONS.md)、[GANGS](../world/GANGS.md)、[FACTIONS](../world/FACTIONS.md)。被依賴：[COMMISSIONS](COMMISSIONS.md)（副本裡放誰）、之後的 `EVENTS`、`SITES`。
+> 上層：[COMBAT_SYSTEM](COMBAT_SYSTEM.md)。依賴：[CORE_RULES](CORE_RULES.md)（三條軌、承受層數、沉溺）、[COMBAT_SYSTEM](COMBAT_SYSTEM.md)（站位、命中、武器、戰敗）、[CYBERSPACE](CYBERSPACE.md) 與 [NETRUNNING](NETRUNNING.md)（網內戰鬥、蕾絲）、[CRAFTING](../gear/CRAFTING.md)（零件）、[CORPORATIONS](../world/CORPORATIONS.md)、[GANGS](../world/GANGS.md)、[FACTIONS](../world/FACTIONS.md)。被依賴：[COMMISSIONS](COMMISSIONS.md)（副本裡放誰）、[EVENTS](EVENTS.md)、[SITES](../world/SITES.md)。
 > 來源：ElondiaRPG 的 `data/rules/enemies.json`（敵人資料）、`monster_traits.json`（開戰時擲的特徵與 AI 參數）、`combat.ts` 的 `pickByThreat`／`chooseAction`／`wantsToFlee`（敵方 AI 的打分骨架）、層主規則與戰敗事件。預定資料：`data/rules/enemies.json`、`enemy_traits.json`、`enemy_ai.json`。數值都是初稿。
 
 目標和戰鬥系統一樣：**槍很痛、很少打第二輪**。敵人不是一袋血，而是一組站位、一種打法、一個打輸之後的下場。

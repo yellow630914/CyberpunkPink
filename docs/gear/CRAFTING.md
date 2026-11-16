@@ -1,6 +1,6 @@
 # 工藝：設計圖與零件
 
-> 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[CYBERWARE](CYBERWARE.md)（部位、沉溺成本、授權鎖、橋的型號）、[CORE_RULES](../systems/CORE_RULES.md) 6.4 節（技能容量）、[LIFE](../world/LIFE.md) 第 3～5 節（合法性、牌子）、[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md)（武器與護甲的數值）、[CULTURE](../world/CULTURE.md) 第 2 節（獸化改造）。被依賴：之後的 `ITEMS`（設計圖與零件的目錄）。
+> 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[CYBERWARE](CYBERWARE.md)（部位、沉溺成本、授權鎖、橋的型號）、[CORE_RULES](../systems/CORE_RULES.md) 6.4 節（技能容量）、[LIFE](../world/LIFE.md) 第 3～5 節（合法性、牌子）、[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md)（武器與護甲的數值）、[CULTURE](../world/CULTURE.md) 第 2 節（獸化改造）。被依賴：[ITEMS](ITEMS.md)（設計圖與零件的目錄）。
 > 來源：ElondiaRPG 的裝備「底材 × 材料」與工藝、委託打造、自創配方（[plan/MIGRATION](../plan/MIGRATION.md) H、I 組）。預定資料：`data/rules/blueprints.json`（設計圖）、`parts.json`（零件）、`brands.json`。數值都是初稿。
 
 在一座企業把專利看得比人命重的城市，沒有人用廢鐵「搓」出一條義臂或一把槍。這裡的工藝不是製造，是**組裝**：**義體、武器、護甲**都由一個**設計圖**與幾個**零件**構成，零件是買來的、拆來的、訂做的、偷來的——或者養出來的。玩家做的事是挑零件、配零件、把它們裝進設計圖。

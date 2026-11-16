@@ -1,6 +1,6 @@
 # 各區
 
-> 上層：[WORLD](WORLD.md)。依賴：[CORPORATIONS](CORPORATIONS.md)、[GANGS](GANGS.md)、[CULTURE](CULTURE.md)。被依賴：之後的 `NPC_SYSTEM`、`EVENTS`、`STORY_QUESTS`、區域資料（`data/world/`）。
+> 上層：[WORLD](WORLD.md)。依賴：[CORPORATIONS](CORPORATIONS.md)、[GANGS](GANGS.md)、[CULTURE](CULTURE.md)。被依賴：[NPC_SYSTEM](../systems/NPC_SYSTEM.md)、[EVENTS](../systems/EVENTS.md)、[STORY_QUESTS](STORY_QUESTS.md)、區域資料（`data/world/`）。
 > 來源：ElondiaRPG 的聚落（固定格子地圖）、城鎮地標、特殊地圖、旅途事件。這份寫每個區「有什麼、誰管、進去會怎樣」，格子地圖本身實作時再畫。數值都是初稿。
 
 緋夜城有八個區。它們不只是背景不同：**同一個人、穿同一套衣服、做同一件事，在每個區的後果不一樣**。

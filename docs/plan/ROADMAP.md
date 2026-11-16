@@ -35,21 +35,15 @@
 
 ## 3. 還沒寫的文件
 
+原本列的十二份都已經有**第一版草稿**（2026-11-16）：[SKILLS](../systems/SKILLS.md)、[ENEMIES](../systems/ENEMIES.md)、[NPC_SYSTEM](../systems/NPC_SYSTEM.md)、[EVENTS](../systems/EVENTS.md)、[DOWNTIME](../systems/DOWNTIME.md)、[TRADE](../systems/TRADE.md)、[PROMPTS](../systems/PROMPTS.md)、[ITEMS](../gear/ITEMS.md)、[STORY_QUESTS](../world/STORY_QUESTS.md)、[SITES](../world/SITES.md)、[FACTIONS](../world/FACTIONS.md)、[UI](../art/UI.md)。每份最後有一節「待確認」，接下來逐份過。
+
+還沒寫的：
+
 | 文件 | 內容 | 放在 |
 |---|---|---|
-| `SKILLS` | 八棵技能樹：每個技能的類別、容量、種類、階數 | `systems/` |
-| `ENEMIES` | 各勢力的敵人、蕾絲、無人機、機甲 | `systems/` |
-| `NPC_SYSTEM` | NPC 的生成、互動、關係與記憶；夥伴的關係線 | `systems/` |
-| `EVENTS` | 街頭事件、要地與子網的事件、成人事件 | `systems/` |
-| `DOWNTIME` | 休息、治療、打工、據點的經營、區域狀態 | `systems/` |
-| `TRADE` | 商店、價格、殺價、區與區的價差 | `systems/` |
-| `ITEMS` | 設計圖與零件的目錄；藥、工具、飾品 | `gear/` |
-| `STORY_QUESTS` | 六條主線的真相與階段；各路數、各中間人、各夥伴的線 | `world/` |
-| `SITES` | 39 塊街區的內容、17 處要地的內部、副本的現實面模板 | `world/` |
-| `FACTIONS` | 勢力關係表、熱度的連動 | `world/` |
-| `UI` | 主畫面與各畫面的版面 | `art/` |
-| `PROMPTS`、`SAVES`、`CONTENT_EDITOR` | 和 ElondiaRPG 差異小，照搬後改 | `systems/` |
-| 世界書 | 把 `world/` 的文件拆成條目 | `data/worldbook/` |
+| `SAVES`、`CONTENT_EDITOR` | 和 ElondiaRPG 差異小，照搬後改 | `systems/` |
+| 構裝的目錄 | 網內的裝備與程式 | `gear/` |
+| 世界書 | 把 `world/` 的文件拆成條目（格式見 [PROMPTS](../systems/PROMPTS.md)） | `data/worldbook/` |
 
 ## 4. 實作階段
 

@@ -1,6 +1,6 @@
 # 幫派與街頭勢力
 
-> 上層：[WORLD](WORLD.md)。依賴：[CORPORATIONS](CORPORATIONS.md)（後台與對手）、[CULTURE](CULTURE.md)（風格的由來）。被依賴：之後的 `DISTRICTS`、`ENEMIES`、`STORY_QUESTS`。
+> 上層：[WORLD](WORLD.md)。依賴：[CORPORATIONS](CORPORATIONS.md)（後台與對手）、[CULTURE](CULTURE.md)（風格的由來）。被依賴：[DISTRICTS](DISTRICTS.md)、[ENEMIES](../systems/ENEMIES.md)、[STORY_QUESTS](STORY_QUESTS.md)。
 > 這份是世界觀文件，沒有規則數值。
 
 企業管塔，幫派管街。緋夜城的幫派有一個共通點：**每一個都是一種「造型」**。在一座外表決定你是誰的城市，加入幫派的第一步是穿上它的衣服、改成它的樣子。很多幫派本來只是一群喜歡同一種東西的人，後來有了地盤，後來有了槍。

@@ -1,6 +1,6 @@
 # 固定 NPC
 
-> 上層：[WORLD](WORLD.md)。依賴：[DISTRICTS](DISTRICTS.md)（在哪裡）、[CORPORATIONS](CORPORATIONS.md)、[GANGS](GANGS.md)、[CULTURE](CULTURE.md)（屬性）、[CORE_RULES](../systems/CORE_RULES.md)（路數）。被依賴：之後的 `NPC_SYSTEM`（生成 NPC、互動規則）、`STORY_QUESTS`、世界書。
+> 上層：[WORLD](WORLD.md)。依賴：[DISTRICTS](DISTRICTS.md)（在哪裡）、[CORPORATIONS](CORPORATIONS.md)、[GANGS](GANGS.md)、[CULTURE](CULTURE.md)（屬性）、[CORE_RULES](../systems/CORE_RULES.md)（路數）。被依賴：[NPC_SYSTEM](../systems/NPC_SYSTEM.md)（生成 NPC、互動規則）、[STORY_QUESTS](STORY_QUESTS.md)、世界書。
 > 這份是人物設定，不是規則。實作時每個人是 `data/world/npcs.json` 的一筆，外貌與性格交給 AI 當描寫依據。
 > **所有人物都是成年人**，括號裡是年齡。
 

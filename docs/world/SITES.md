@@ -1,6 +1,6 @@
 # 街區與要地
 
-> 上層：[DISTRICTS](DISTRICTS.md)。依賴：[DISTRICTS](DISTRICTS.md) 1.3 節（地圖規模）、[CORPORATIONS](CORPORATIONS.md)、[GANGS](GANGS.md)、[NPCS](NPCS.md)、[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 2.1 節（遮蔽）、[NETRUNNING](../systems/NETRUNNING.md) 第 4 節（子網）、[EVENTS](../systems/EVENTS.md) 3.5 節（事件的類型）。被依賴：[STORY_QUESTS](STORY_QUESTS.md)（任務點的地點）、[COMMISSIONS](../systems/COMMISSIONS.md) 第 9 節（現實面模板）、[EVENTS](../systems/EVENTS.md) 4.2 節（要地的事件）、[ENEMIES](../systems/ENEMIES.md)、`TRADE`。
+> 上層：[DISTRICTS](DISTRICTS.md)。依賴：[DISTRICTS](DISTRICTS.md) 1.3 節（地圖規模）、[CORPORATIONS](CORPORATIONS.md)、[GANGS](GANGS.md)、[NPCS](NPCS.md)、[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 2.1 節（遮蔽）、[NETRUNNING](../systems/NETRUNNING.md) 第 4 節（子網）、[EVENTS](../systems/EVENTS.md) 3.5 節（事件的類型）。被依賴：[STORY_QUESTS](STORY_QUESTS.md)（任務點的地點）、[COMMISSIONS](../systems/COMMISSIONS.md) 第 9 節（現實面模板）、[EVENTS](../systems/EVENTS.md) 4.2 節（要地的事件）、[ENEMIES](../systems/ENEMIES.md)、[TRADE](../systems/TRADE.md)。
 > 來源：ElondiaRPG 的城鎮地標（一格一個地標、類型決定聚來的人）、特殊地圖（固定版面、通道、刷新）、地下城分層探索（層、光線、陷阱、安全房）。預定資料：`data/world/blocks.json`、`sites.json`、`areas.json`、`commission_maps.json`。數值都是初稿。
 
 [DISTRICTS](DISTRICTS.md) 寫每一區「誰管、有什麼規矩」；這份寫**地圖上實際有什麼**：39 塊街區、17 處要地的內部、每區的地下城式任務區域，以及委託副本的現實面模板。格子本身（ASCII 版面）實作時再畫，這裡定的是每張圖要放進去的東西。

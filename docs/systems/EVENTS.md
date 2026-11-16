@@ -1,6 +1,6 @@
 # 事件：一個統一的事件導演
 
-> 上層：[GAME_DESIGN](../GAME_DESIGN.md)（第 6 節的三種內容形式之一）。依賴：[CORE_RULES](CORE_RULES.md)（檢定、三條軌）、[DISTRICTS](../world/DISTRICTS.md)（各區、橋接區、日與夜）、[LIFE](../world/LIFE.md)（星期、年度事件、行規）、[NPC_SYSTEM](NPC_SYSTEM.md)（登場角色、NPC 自己的日子）、[LEWD_SYSTEM](LEWD_SYSTEM.md)（第 7 節契約、第 9 節內容篩選）、[COMMISSIONS](COMMISSIONS.md)、[CYBERSPACE](CYBERSPACE.md)、[FIXER](FIXER.md)。被依賴：之後的 `DOWNTIME`（家園）、`STORY_QUESTS`（事件可以開出特殊任務）、`SITES`（要地的事件表）。
+> 上層：[GAME_DESIGN](../GAME_DESIGN.md)（第 6 節的三種內容形式之一）。依賴：[CORE_RULES](CORE_RULES.md)（檢定、三條軌）、[DISTRICTS](../world/DISTRICTS.md)（各區、橋接區、日與夜）、[LIFE](../world/LIFE.md)（星期、年度事件、行規）、[NPC_SYSTEM](NPC_SYSTEM.md)（登場角色、NPC 自己的日子）、[LEWD_SYSTEM](LEWD_SYSTEM.md)（第 7 節契約、第 9 節內容篩選）、[COMMISSIONS](COMMISSIONS.md)、[CYBERSPACE](CYBERSPACE.md)、[FIXER](FIXER.md)。被依賴：[DOWNTIME](DOWNTIME.md)（家園）、[STORY_QUESTS](../world/STORY_QUESTS.md)（事件可以開出特殊任務）、[SITES](../world/SITES.md)（要地的事件表）。
 > 來源：ElondiaRPG 的 EVENTS（事件視窗）、TRAVEL_EVENTS（旅途、城鎮事件與事件導演）、ADULT_EVENTS（地下城與寄生物的事件），以及主人事件（`slavery`）。那邊有五套結構相同的事件導演（`townEvents`、`dungeonEvents`、`leadEvents`、`parasiteEvents`、`pregnancyEvents`），掃描建議合併（[scan/03](../plan/scan/03-map-npc.md) 第 6 節 E7、[scan/05](../plan/scan/05-adult-home.md) 7.2 節）。這裡從一開始就只做一個。預定資料：`data/rules/events.json`（導演的設定）、`data/events/<範圍>.json`（模板，依範圍分檔）。數值都是初稿。
 > **所有登場角色都是成年人。** 成人事件這份只寫機制與性質，不寫描寫。
 
@@ -232,7 +232,7 @@
 
 ### 4.2 要地
 
-17 處要地（[DISTRICTS](../world/DISTRICTS.md) 1.3 節）的事件。每一處一張表，再依層分；內容等之後的 `SITES` 寫。
+17 處要地（[DISTRICTS](../world/DISTRICTS.md) 1.3 節）的事件。每一處一張表，再依層分；內容等[SITES](../world/SITES.md) 寫。
 
 - **要地記得你**：每一處有自己的旗標（上次從哪一層進來、殺過誰、被誰看到）。事件的條件可以看它——這是固定地圖比隨機地圖好的地方。
 - 要地裡的事件用那一層的難度：每深一層 DC +1（最多 +4）。
@@ -330,7 +330,7 @@ DC = 12 ＋ 4（管理級）＋ ⌊馴化 ÷ 10⌋ ＋ 沉溺的懲罰（迷醉 
 
 ### 4.6 家園
 
-據點（[FIXER](FIXER.md) 第 9 節）裡的事：**住戶**與**訪客**。規格細節等之後的 `DOWNTIME`。
+據點（[FIXER](FIXER.md) 第 9 節）裡的事：**住戶**與**訪客**。規格細節見 [DOWNTIME](DOWNTIME.md) 7.10 節。
 
 - **住戶**：同居的人（親密度 80 以上的夥伴或戀人，[NPC_SYSTEM](NPC_SYSTEM.md) 10.3 節；據點 1 級以上、有空床）、住在據點的名冊成員（據點 2 級以上）、主角持約而安排住在這裡的契約人。
 - **訪客**：鄰居（蜂巢的鄰里，[DISTRICTS](../world/DISTRICTS.md) 第 3 節）、名冊上出了事的人（受傷、逃出來、借錢）、討債的人（帳單的下坡路，[FIXER](FIXER.md) 第 4 節）、找上門的勢力（熱度 60 以上、據點被找到時街頭事件變成上門事件）、偶爾是中間人。
@@ -409,7 +409,7 @@ DC = 12 ＋ 4（管理級）＋ ⌊馴化 ÷ 10⌋ ＋ 沉溺的懲罰（迷醉 
 
 - **條件**：夜或深夜；獨自（隊上沒有人在身邊）或人很少的地方；10 月假面夜機率 ×3。委託副本裡也可能出現（現場多出來的一顆氣球）。
 - **基本機率**：符合條件的 `walk` 2%、`transit_stop`（末班車）5%、副本的 `beat` 1%。
-- **目擊數**：程式記一個隱藏的數字，每次目擊 +1。到 3、6、10 各立一個旗標，給吉祥物的長任務線用（之後的 `STORY_QUESTS`）。玩家看不到這個數字。
+- **目擊數**：程式記一個隱藏的數字，每次目擊 +1。到 3、6、10 各立一個旗標，給吉祥物的長任務線用（[STORY_QUESTS](../world/STORY_QUESTS.md)）。玩家看不到這個數字。
 - 選項多半只有三種：**不回頭**、**拍下來**、**跟上去**。「看到氣球就不要回頭」是街上的說法——回頭的選項有代價。
 - 真的打起來是罕見的分支：不會被誘惑，過載了也不停。
 

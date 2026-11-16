@@ -1,7 +1,7 @@
 # 企業
 
-> 上層：[WORLD](WORLD.md)。依賴：[WORLD](WORLD.md)（歷史、用語）。被依賴：[GANGS](GANGS.md)、[CULTURE](CULTURE.md)、之後的 `DISTRICTS`、`ENEMIES`、`STORY_QUESTS`。
-> 這份是世界觀文件，沒有規則數值。每家企業的「玩法」一欄只寫它會帶來哪一類委託與敵人，細節等 `ENEMIES` 與 `STORY_QUESTS`。
+> 上層：[WORLD](WORLD.md)。依賴：[WORLD](WORLD.md)（歷史、用語）。被依賴：[GANGS](GANGS.md)、[CULTURE](CULTURE.md)、[DISTRICTS](DISTRICTS.md)、[ENEMIES](../systems/ENEMIES.md)、[STORY_QUESTS](STORY_QUESTS.md)。
+> 這份是世界觀文件，沒有規則數值。每家企業的「玩法」一欄只寫它會帶來哪一類委託與敵人，細節等 [ENEMIES](../systems/ENEMIES.md) 與 [STORY_QUESTS](STORY_QUESTS.md)。
 
 賽博龐克題材裡該有的企業位置，這裡每個都有一家：軍工財閥、傭兵承包商、新興軍火、武裝急救、生技、硬體、網路警察、媒體、食品、能源。但每一家都是從這條世界線自己的歷史長出來的——**橋是從快感迴路突破的，而打贏最後一場戰爭的是日本財閥**。這兩件事決定了它們的樣子。
 
