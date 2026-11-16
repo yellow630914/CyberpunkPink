@@ -36,6 +36,7 @@ PARTS = [  # 依 plan/DESIGN_ORDER 的分層編排：(標題, 這一層的說明
 FIGURES = {  # 在某份文件的標題後面插圖
     'world/DISTRICTS.md': [('art/city-map.svg', '緋夜城地圖（示意）'), ('art/district-blocks.svg', '各區的街區結構'), ('art/map-scale.svg', '地圖規模')],
     'systems/CYBERSPACE.md': [('art/cyberspace.svg', '內海的結構')],
+    'world/FACTIONS.md': [('art/factions.svg', '勢力關係圖（草稿）')],
 }
 ALL = [d for _, _, ds in PARTS for d in ds]
 DOC_ID = {d: 'doc-' + os.path.splitext(os.path.basename(d))[0].lower().replace('_', '-') for d in ALL}

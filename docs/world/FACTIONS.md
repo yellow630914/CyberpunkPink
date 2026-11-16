@@ -61,6 +61,8 @@
 
 ## 3. 關係表
 
+關係圖：[`art/factions.svg`](../art/factions.svg)（預覽 [`preview/factions.png`](../art/preview/factions.png)），由 `tools/art/gen_factions.py` 照下面三張表產生。改了表要跟著改腳本裡的資料再重畫。
+
 ### 3.1 企業之間
 
 | | 緋櫻 | 星旗 | 崑崙 | 蜜腺 | 夜鶯 | 萬華 | 伊甸 | 黑泉 | 天使 | 織女 | 貞網 | 甜心 |
