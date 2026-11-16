@@ -13,7 +13,7 @@
 - **三個戰場**：現實的戰鬥、內海（網路空間）的戰鬥、輿論戰（第 5 節）。
 - **主食是委託副本**：獨立於城市地圖的一組地圖，每件委託有一個主戰場，其餘的戰場起輔助作用（第 6 節）。
 - **主角沒有職業**：技能想學什麼學什麼，限制在邊緣橋的容量。夥伴的職能固定（第 7 節）。
-- **裝備是組裝的**：義體、武器、護甲都由底材與零件構成（[gear/](gear/CRAFTING.md)）。
+- **裝備是組裝的**：義體、武器、護甲都由設計圖與零件構成（[gear/](gear/CRAFTING.md)）。
 
 ## 3. 設計原則
 
@@ -56,7 +56,7 @@
 
 | 戰場 | 是什麼 | 規則 |
 |---|---|---|
-| **現實** | 街上與樓裡的槍戰、潛入、交涉。**只有這裡能殺人** | [COMBAT_SYSTEM](systems/COMBAT_SYSTEM.md) |
+| **現實** | 街上與樓裡的槍戰、滲透、交涉。**只有這裡能殺人** | [COMBAT_SYSTEM](systems/COMBAT_SYSTEM.md) |
 | **內海** | 網路空間。化身對化身、對蕾絲。最重只能造成精神污染 | [CYBERSPACE](systems/CYBERSPACE.md)、[NETRUNNING](systems/NETRUNNING.md) |
 | **輿論** | 編輯台上的議題戰役，媒體型的獨立玩法 | [OPINION](systems/OPINION.md) |
 
@@ -65,9 +65,9 @@
 | 類 | 路數 | 現實 | 內海 | 輿論 |
 |---|---|---|---|---|
 | 戰鬥型 | 槍手、機師、改造師 | 強 | 弱 | 無 |
-| 竄網型 | 潛網者 | 中 | 強 | 無 |
-| 社交型 | 伶人、掮客 | 弱 | 中 | 中 |
-| 媒體型 | 主播、偶像 | 無 | 中 | 強 |
+| 竄網型 | 竄網使 | 中 | 強 | 無 |
+| 社交型 | 藝人、掮客 | 弱 | 中 | 中 |
+| 媒體型 | 媒體人、偶像 | 無 | 中 | 強 |
 
 定義在 [CORE_RULES](systems/CORE_RULES.md) 6.1 節；每個系統影響哪個戰場的索引在 [DOMAINS](DOMAINS.md)。
 
@@ -114,7 +114,7 @@
 | 成人向：橋參數、調校、豔名、場所、契約、內容篩選 | [systems/LEWD_SYSTEM](systems/LEWD_SYSTEM.md) |
 | **裝備** | |
 | 義體：部位、沉溺成本、授權鎖、惡意韌體、溺感症、橋的型號 | [gear/CYBERWARE](gear/CYBERWARE.md) |
-| 工藝：底材與零件、等級、機械與生體、組裝 | [gear/CRAFTING](gear/CRAFTING.md) |
+| 工藝：設計圖與零件、等級、機械與生體、組裝 | [gear/CRAFTING](gear/CRAFTING.md) |
 | 身上的裝備：欄位、外套、藏匿、快取格 | [gear/EQUIPMENT](gear/EQUIPMENT.md) |
 | **其他** | |
 | 三個戰場的索引 | [DOMAINS](DOMAINS.md) |
@@ -127,7 +127,7 @@
 
 | 欄位 | 改動 |
 |---|---|
-| `kind` | `gig`（案子的階段結算）／`combat`／`netrun`／`action`／`event`／`broadcast`（發布與直播）／`deal`（交易與談判）／`social`／`downtime`（生活、改造、治療） |
+| `kind` | `gig`（委託的階段結算）／`combat`／`netrun`／`action`／`event`／`broadcast`（發布與直播）／`deal`（交易與談判）／`social`／`downtime`（生活、改造、治療） |
 | `time` | 第幾天、幾點（以小時計） |
 | `location` | 區、街區、設施、場景格；竄網時另有 `subnet`（子網 id 與層） |
 | `party` | 快照改成 `hp`、`load`（感載）、`humanity` 各一組 `[前, 後, 上限]` |

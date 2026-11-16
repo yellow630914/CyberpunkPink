@@ -57,7 +57,7 @@
 <path d="M580 330H826L840 344V480H594L580 466Z" fill="#151020"/><path d="M580 330H826L840 344V480H594L580 466Z" fill="#ffd66b" fill-opacity=".13" stroke="#ffd66b" stroke-width="2"/>
 <text x="598" y="370" font-size="24" font-weight="700" fill="#ffd66b" letter-spacing="3">企業環礁</text>
 <text x="598" y="396" font-size="13" fill="#efe9f7">各企業的子網・禁區</text>
-<text x="598" y="464" font-size="12" fill="#b8adc9">◇ 主線固定；一般案子生成</text>
+<text x="598" y="464" font-size="12" fill="#b8adc9">◇ 主線固定；一般委託生成</text>
 <path d="M580 510H826L840 524V660H594L580 646Z" fill="#151020"/><path d="M580 510H826L840 524V660H594L580 646Z" fill="#5dffb0" fill-opacity=".13" stroke="#5dffb0" stroke-width="2"/>
 <text x="598" y="550" font-size="24" font-weight="700" fill="#5dffb0" letter-spacing="3">暗礁</text>
 <text x="598" y="576" font-size="13" fill="#efe9f7">黑市・同人伺服器・駭客的窩</text>

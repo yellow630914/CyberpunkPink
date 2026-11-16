@@ -33,7 +33,7 @@ docs/
 │
 ├─ gear/                裝備：身上有什麼
 │   ├─ CYBERWARE        義體：部位、沉溺成本、授權鎖、惡意韌體、溺感症、橋的型號
-│   ├─ CRAFTING         工藝：底材與零件、等級、機械與生體、組裝與拆解
+│   ├─ CRAFTING         工藝：設計圖與零件、等級、機械與生體、組裝與拆解
 │   └─ EQUIPMENT        身上的裝備：欄位、外套、藏匿、快取格
 │
 ├─ art/                 美術
@@ -109,7 +109,7 @@ flowchart TD
 
 ## 4. 維護規則
 
-1. **一件事只寫在一個地方**，其他文件只放連結。企業的介紹只寫在 CORPORATIONS；感載的公式只寫在 CORE_RULES 第 4 節；三個戰場的等級只寫在 CORE_RULES 6.1 節；底材與零件只寫在 CRAFTING。
+1. **一件事只寫在一個地方**，其他文件只放連結。企業的介紹只寫在 CORPORATIONS；感載的公式只寫在 CORE_RULES 第 4 節；三個戰場的等級只寫在 CORE_RULES 6.1 節；設計圖與零件只寫在 CRAFTING。
 2. **用語以 [WORLD](world/WORLD.md) 第 7 節為準**。新造的詞先加進對照表再用。
 3. **還沒決定的事寫進 [plan/](plan/ROADMAP.md)**，不要散在各文件；決定之後把結論寫回系統文件。新寫的系統先在 [SYSTEMS_REVIEW](plan/SYSTEMS_REVIEW.md) 標成「寫了沒過」。
 4. **數值都是初稿**。公式只是為了說明量級，實作時放進 `data/rules/*.json`。

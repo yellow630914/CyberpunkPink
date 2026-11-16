@@ -1,6 +1,6 @@
 # 身上的裝備：穿著、飾品與攜帶
 
-> 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[CRAFTING](CRAFTING.md)（底材與零件）、[CYBERWARE](CYBERWARE.md) 第 1 節（義體的部位）、[LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 2 節（曝露度與風格）、[LIFE](../world/LIFE.md) 第 3 節（合法性）、[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md)（護甲、用道具）。被依賴：[DISTRICTS](../world/DISTRICTS.md)（各區的掃描與風格）、之後的 `ITEMS`。
+> 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[CRAFTING](CRAFTING.md)（設計圖與零件）、[CYBERWARE](CYBERWARE.md) 第 1 節（義體的部位）、[LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 2 節（曝露度與風格）、[LIFE](../world/LIFE.md) 第 3 節（合法性）、[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md)（護甲、用道具）。被依賴：[DISTRICTS](../world/DISTRICTS.md)（各區的掃描與風格）、之後的 `ITEMS`。
 > 來源：ElondiaRPG 的裝備欄位（18 格加額外飾品格）、曝露度與真空、NPC 的服裝。預定資料：`data/rules/equipment.json`、`gear.json` 的 `slots`。數值都是初稿。
 
 ElondiaRPG 的欄位是為奇幻設計的：武器看哪隻手拿，護甲就是上身那一件，飾品多是因為要放附魔。這裡重新分。
@@ -33,7 +33,7 @@ ElondiaRPG 的欄位是為奇幻設計的：武器看哪隻手拿，護甲就是
 | 內衣 | | 現成 | |
 | 內褲 | | 現成 | |
 
-- 「組裝」的格子裡放的是用底材與零件組出來的成品（[CRAFTING](CRAFTING.md) 3.3 節）；「現成」的是單件物品。
+- 「組裝」的格子裡放的是用設計圖與零件組出來的成品（[CRAFTING](CRAFTING.md) 3.3 節）；「現成」的是單件物品。
 - 裝甲制服（女僕服、執事服、高訂）是連身類，佔上身與下身；它自帶護甲，所以通常不另外穿護甲格。
 - 重甲佔護甲格，而且**不能再穿外套**。
 - **獸耳與尾巴不影響穿搭。** 這個世界的衣服預設都有可以開的孔（拉鍊、暗扣）——獸化改造太普遍，成衣業早就這樣做了。所以帽子不擋耳朵，褲子與裙子不擋尾巴，不需要為此另外處理。義肢同理：手套與鞋預設相容。
@@ -168,9 +168,9 @@ ElondiaRPG 的欄位是為奇幻設計的：武器看哪隻手拿，護甲就是
 | 方法 | 靠誰 |
 |---|---|
 | 假的執照、假的登記 | 掮客、同人夜市 |
-| 讓掃描器瞎掉、竄改它的結果 | 潛網者 |
-| 把東西交給不會被掃的人帶（內應、送貨的、機娘） | 掮客、伶人 |
-| 偽裝成有資格帶的人（保全、警備） | 伶人 |
+| 讓掃描器瞎掉、竄改它的結果 | 竄網使 |
+| 把東西交給不會被掃的人帶（內應、送貨的、機娘） | 掮客、藝人 |
+| 偽裝成有資格帶的人（保全、警備） | 藝人 |
 | 全身都是掃不到的東西 | 生體派；組裝的功夫 |
 | 走不經過掃描的路 | 地下層；野良帶路 |
 
