@@ -10,22 +10,34 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 DOCS = os.path.join(ROOT, 'docs')
 OUT = os.path.join(DOCS, 'book', 'CyberpunkPink-設計書.html')
 
-PARTS = [
-    ('總綱', ['GAME_DESIGN.md', 'DOMAINS.md']),
-    ('世界', ['world/WORLD.md', 'world/CORPORATIONS.md', 'world/GANGS.md', 'world/CULTURE.md',
-            'world/DISTRICTS.md', 'world/LIFE.md', 'world/NPCS.md', 'world/FACTIONS.md', 'world/SITES.md', 'world/STORY_QUESTS.md']),
-    ('規則', ['systems/CORE_RULES.md', 'systems/COMBAT_SYSTEM.md', 'systems/CYBERSPACE.md', 'systems/NETRUNNING.md',
-            'systems/OPINION.md', 'systems/MEDIA.md', 'systems/COMMISSIONS.md', 'systems/FIXER.md', 'systems/LEWD_SYSTEM.md',
-            'systems/SKILLS.md', 'systems/ENEMIES.md', 'systems/NPC_SYSTEM.md', 'systems/EVENTS.md', 'systems/SERIES.md', 'systems/DOWNTIME.md', 'systems/TRADE.md', 'systems/PROMPTS.md']),
-    ('裝備', ['gear/CYBERWARE.md', 'gear/CRAFTING.md', 'gear/EQUIPMENT.md', 'gear/ITEMS.md']),
-    ('美術', ['art/ART_STYLE.md', 'art/UI.md']),
-    ('計畫', ['plan/DESIGN_ORDER.md', 'plan/ROADMAP.md', 'plan/SYSTEMS_REVIEW.md', 'plan/WORLD_ITEMS.md', 'plan/MIGRATION.md', 'plan/IMPLEMENTATION.md', 'plan/CODESCAN.md', 'plan/AI_TASKS.md']),
+PARTS = [  # 依 plan/DESIGN_ORDER 的分層編排：(標題, 這一層的說明, 文件)
+    ('總綱', '這是什麼遊戲，以及系統分成哪幾層、照什麼順序設計。',
+     ['GAME_DESIGN.md', 'plan/DESIGN_ORDER.md']),
+    ('L0 世界', '這座城市是什麼、用什麼詞。大致定了；勢力與流竄 AI 會再加。',
+     ['world/WORLD.md', 'world/CORPORATIONS.md', 'world/GANGS.md', 'world/CULTURE.md',
+      'world/DISTRICTS.md', 'world/LIFE.md', 'world/NPCS.md', 'world/FACTIONS.md']),
+    ('L1 核心規則', '一個角色由哪些數字組成、怎麼擲骰。多數已確認。',
+     ['systems/CORE_RULES.md', 'DOMAINS.md']),
+    ('L2 核心玩法', '三個戰場怎麼打。下一步要過的一層。',
+     ['systems/COMBAT_SYSTEM.md', 'systems/CYBERSPACE.md', 'systems/NETRUNNING.md',
+      'systems/OPINION.md', 'systems/MEDIA.md']),
+    ('L3 框架', '內容的格式與規則，不含內容本身。部分已確認。',
+     ['systems/SKILLS.md', 'gear/CYBERWARE.md', 'gear/CRAFTING.md', 'gear/EQUIPMENT.md', 'systems/ENEMIES.md',
+      'systems/NPC_SYSTEM.md', 'systems/EVENTS.md', 'systems/SERIES.md', 'systems/COMMISSIONS.md', 'systems/FIXER.md',
+      'systems/TRADE.md', 'systems/DOWNTIME.md', 'systems/LEWD_SYSTEM.md']),
+    ('L4 內容（素材）', '實際的條目。暫停：第一版草稿當素材留著，等 L1～L3 定了再生成。',
+     ['gear/ITEMS.md', 'world/SITES.md', 'world/STORY_QUESTS.md']),
+    ('L5 呈現', '給玩家看的畫面與給 AI 讀的提示詞。跟著 L2、L3 調。',
+     ['art/ART_STYLE.md', 'art/UI.md', 'systems/PROMPTS.md', 'plan/AI_TASKS.md']),
+    ('附錄：計畫', '盤點、路線圖、ElondiaRPG 的遷移與掃描。',
+     ['plan/SYSTEMS_REVIEW.md', 'plan/ROADMAP.md', 'plan/WORLD_ITEMS.md', 'plan/MIGRATION.md',
+      'plan/IMPLEMENTATION.md', 'plan/CODESCAN.md']),
 ]
 FIGURES = {  # 在某份文件的標題後面插圖
     'world/DISTRICTS.md': [('art/city-map.svg', '緋夜城地圖（示意）'), ('art/district-blocks.svg', '各區的街區結構'), ('art/map-scale.svg', '地圖規模')],
     'systems/CYBERSPACE.md': [('art/cyberspace.svg', '內海的結構')],
 }
-ALL = [d for _, ds in PARTS for d in ds]
+ALL = [d for _, _, ds in PARTS for d in ds]
 DOC_ID = {d: 'doc-' + os.path.splitext(os.path.basename(d))[0].lower().replace('_', '-') for d in ALL}
 
 
@@ -159,6 +171,7 @@ main{margin-left:290px;padding:40px 56px 120px;max-width:1180px}
 .cover p{color:var(--ink2);font-size:17px;max-width:720px}.cover .tag{font-family:var(--mono);font-size:12px;color:var(--ink3);letter-spacing:3px}
 .cover ul{color:var(--ink2);max-width:760px}
 .parthead{margin:90px 0 0;padding:26px 0 8px;border-top:2px solid var(--pink);color:var(--pink);font-size:13px;letter-spacing:8px}
+.partdesc{color:var(--ink2);margin:4px 0 0;font-size:15px}
 h1{font-size:34px;margin:28px 0 14px;padding-bottom:10px;border-bottom:1px solid var(--line);letter-spacing:1px}
 h2{font-size:22px;margin:44px 0 12px;color:var(--pinkhi);display:flex;align-items:center;gap:12px}
 h2::before{content:"";width:18px;height:2px;background:var(--pink);flex:none}
@@ -211,6 +224,7 @@ details.mtoc summary{padding:12px 16px;color:var(--pinkhi);letter-spacing:3px;cu
 .cover p{color:var(--ink2);font-size:17px;max-width:720px}.tag{font-family:var(--mono);font-size:12px;color:var(--ink3);letter-spacing:3px}
 .cover ul{color:var(--ink2);max-width:760px}
 .parthead{margin:80px 0 0;padding:22px 0 8px;border-top:2px solid var(--pink);color:var(--pink);font-size:13px;letter-spacing:8px}
+.partdesc{color:var(--ink2);margin:4px 0 0;font-size:15px}
 h1{font-size:32px;margin:28px 0 14px;padding-bottom:10px;border-bottom:1px solid var(--line);letter-spacing:1px;text-wrap:balance}
 h2{font-size:22px;margin:44px 0 12px;color:var(--pinkhi);display:flex;align-items:baseline;gap:12px;text-wrap:balance}
 h2::before{content:"";width:18px;height:2px;background:var(--pink);flex:none;align-self:center}
@@ -234,9 +248,9 @@ hr{border:0;border-top:1px solid var(--line);margin:30px 0}article{margin-top:56
 
 def build():
     toc_html, body = [], []
-    for part, docs in PARTS:
+    for part, desc, docs in PARTS:
         toc_html.append(f'<div class="part">{part}</div>')
-        body.append(f'<div class="parthead">{part}</div>')
+        body.append(f'<div class="parthead">{part}</div><p class="partdesc">{html.escape(desc)}</p>')
         for doc in docs:
             toc = []
             md = open(os.path.join(DOCS, doc), encoding='utf-8').read()
@@ -250,7 +264,7 @@ def artifact(out):
     toc, body = build()
     n_docs = len(ALL)
     cover = f'''<section class="cover"><div class="tag">設計書 · 緋夜城 2069 · 設計階段</div><h1>CyberpunkPink</h1>
-<p>一款成人向的賽博龐克跑團風格 RPG。這本設計書把 {n_docs} 份設計文件照閱讀順序編在一起：總綱、世界、規則、裝備、美術、計畫。</p>
+<p>一款成人向的賽博龐克跑團風格 RPG。這本設計書把 {n_docs} 份設計文件依設計的分層編在一起：L0 世界、L1 核心規則、L2 核心玩法、L3 框架、L4 內容、L5 呈現。下層定了，上層才展開。</p>
 <ul><li>所有數值都是初稿；還沒有程式。</li><li>本作是成人向虛構作品，所有登場角色皆為成年人。</li>
 <li>文件之間的連結會跳到這本書裡對應的章節。</li></ul></section>'''
     page = f'''<title>CyberpunkPink 設計書</title>
@@ -268,9 +282,9 @@ def artifact(out):
 
 def main():
     toc_html, body = [], []
-    for part, docs in PARTS:
+    for part, desc, docs in PARTS:
         toc_html.append(f'<div class="part">{part}</div>')
-        body.append(f'<div class="parthead">{part}</div>')
+        body.append(f'<div class="parthead">{part}</div><p class="partdesc">{html.escape(desc)}</p>')
         for doc in docs:
             toc = []
             md = open(os.path.join(DOCS, doc), encoding='utf-8').read()
@@ -283,7 +297,7 @@ def main():
         rev = ''
     n_docs = len(ALL)
     cover = f'''<section class="cover"><div class="tag">設計書 · 緋夜城 2069 · 設計階段</div><h1>CyberpunkPink</h1>
-<p>一款成人向的賽博龐克跑團風格 RPG。這本設計書把 <code>docs/</code> 裡的 {n_docs} 份文件照閱讀順序編在一起：總綱、世界、規則、裝備、美術、計畫。</p>
+<p>一款成人向的賽博龐克跑團風格 RPG。這本設計書把 <code>docs/</code> 裡的 {n_docs} 份文件依設計的分層編在一起：L0 世界、L1 核心規則、L2 核心玩法、L3 框架、L4 內容、L5 呈現。下層定了，上層才展開。</p>
 <ul><li>所有數值都是初稿；還沒有程式。</li><li>本作是成人向虛構作品，所有登場角色皆為成年人。</li>
 <li>左側是目錄。文件之間的連結在這本書裡會跳到對應的章節。</li><li>這個檔案由 <code>tools/book/build.py</code> 產生，不要手改；改文件後重跑。</li></ul>
 <div class="tag">{("版本 " + rev) if rev else ""}</div></section>'''

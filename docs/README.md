@@ -1,7 +1,7 @@
 # 文件地圖
 
 > 設計階段：還沒有程式，文件就是唯一真相。開始實作之後改成和 ElondiaRPG 一樣的規則——程式與資料是唯一真相，文件描述它們現在的行為。
-> 想一口氣讀完：跑 `python3 tools/book/build.py`，在 `book/` 產生把下面所有文件照閱讀順序編成的單一檔案。它是產物，不進版本控制。
+> 想一口氣讀完：跑 `python3 tools/book/build.py`，在 `book/` 產生把下面所有文件依設計的分層（L0～L5，見 [DESIGN_ORDER](plan/DESIGN_ORDER.md)）編成的單一檔案。它是產物，不進版本控制。
 
 ## 1. 目錄
 

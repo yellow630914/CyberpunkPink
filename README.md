@@ -13,7 +13,7 @@
 
 ## 文件
 
-**想一口氣讀完**：跑 `python3 tools/book/build.py`，會在 `docs/book/` 產生一本把所有文件照閱讀順序編在一起的設計書（單一 HTML 檔；`node tools/book/pdf.mjs` 再轉 PDF）。設計書是產物，不進版本控制。
+**想一口氣讀完**：跑 `python3 tools/book/build.py`，會在 `docs/book/` 產生一本把所有文件依設計的分層（L0～L5）編在一起的設計書（單一 HTML 檔；`node tools/book/pdf.mjs` 再轉 PDF）。設計書是產物，不進版本控制。
 
 | 目錄 | 內容 |
 |---|---|
