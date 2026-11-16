@@ -62,6 +62,7 @@ docs/
 │   ├─ WORLD_ITEMS      世界觀項目的盤點
 │   ├─ MIGRATION        ElondiaRPG 系統遷移清單
 │   ├─ IMPLEMENTATION   實作的起點：Agent 模式、程式掃描、減熵清單
+│   ├─ IDEAS            點子庫：還沒決定要不要做的想法
 │   ├─ DESIGN_ORDER     系統的依賴與設計順序：先底層、後內容
 │   ├─ CODESCAN         ElondiaRPG 程式掃描的結論
 │   ├─ AI_TASKS         AI 任務與工具（Agent 模式）

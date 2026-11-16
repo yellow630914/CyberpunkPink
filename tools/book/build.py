@@ -31,7 +31,7 @@ PARTS = [  # 依 plan/DESIGN_ORDER 的分層編排：(標題, 這一層的說明
      ['art/ART_STYLE.md', 'art/UI.md', 'systems/PROMPTS.md', 'plan/AI_TASKS.md']),
     ('附錄：計畫', '盤點、路線圖、ElondiaRPG 的遷移與掃描。',
      ['plan/SYSTEMS_REVIEW.md', 'plan/ROADMAP.md', 'plan/WORLD_ITEMS.md', 'plan/MIGRATION.md',
-      'plan/IMPLEMENTATION.md', 'plan/CODESCAN.md']),
+      'plan/IMPLEMENTATION.md', 'plan/CODESCAN.md', 'plan/IDEAS.md']),
 ]
 FIGURES = {  # 在某份文件的標題後面插圖
     'world/DISTRICTS.md': [('art/city-map.svg', '緋夜城地圖（示意）'), ('art/district-blocks.svg', '各區的街區結構'), ('art/map-scale.svg', '地圖規模')],
