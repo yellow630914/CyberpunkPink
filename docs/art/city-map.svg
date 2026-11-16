@@ -66,7 +66,7 @@
     <path d="M1010 772L990 795M600 780V808M590 432V465" stroke-width="4"/>
   </g>
 
-  <!-- 艷舞伎町 -->
+  <!-- 四十二番街 -->
   <g fill="none" stroke-linecap="round" filter="url(#glow)">
     <path d="M705 432C745 500 800 505 850 535S905 575 928 590" stroke="#ff4fa3" stroke-opacity=".35" stroke-width="44"/>
     <path d="M705 432C745 500 800 505 850 535S905 575 928 590" stroke="#ff4fa3" stroke-width="5"/>
@@ -103,7 +103,7 @@
     <circle cx="365" cy="880" r="5"/><circle cx="400" cy="335" r="5"/><circle cx="372" cy="150" r="5"/>
   </g>
   <g class="st">
-    <text x="604" y="322">冠冕中央</text><text x="728" y="432">頭</text><text x="806" y="506">腹</text><text x="914" y="574">尾</text>
+    <text x="604" y="322">冠冕中央</text><text x="728" y="432">上城</text><text x="806" y="506">中城</text><text x="914" y="574">下城</text>
     <text x="1034" y="622">蜂巢天井</text><text x="604" y="560">劇場前</text><text x="614" y="716">千本通</text><text x="574" y="890">舊港碼頭</text>
   </g>
 
@@ -114,7 +114,7 @@
   <text class="name" x="1090" y="718" fill="#b9a6ff" text-anchor="middle">蜂巢</text>
   <text class="name" x="880" y="900" fill="#aebfd6" text-anchor="middle">舊港</text>
   <text class="name" x="1420" y="250" fill="#e08a45" text-anchor="middle">鏽帶</text>
-  <text class="name" x="800" y="478" fill="#ff7dbd" font-size="24" transform="rotate(29 800 478)">艷舞伎町</text>
+  <text class="name" x="800" y="478" fill="#ff7dbd" font-size="24" transform="rotate(29 800 478)">四十二番街</text>
   <text class="sub" x="1540" y="560" transform="rotate(90 1540 560)" text-anchor="middle">荒地　→　地圖的邊緣</text>
   <text class="sub" x="150" y="330" text-anchor="middle" fill="#7fd8f5">外　海</text>
 

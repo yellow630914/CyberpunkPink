@@ -208,7 +208,7 @@
 <text x="463.0" y="573.0" text-anchor="middle" font-size="12" fill="#ff8fc8">你</text>
 <text x="518.8" y="186" font-size="13" fill="#ffe9a8">往屋頂村</text>
 <text x="518.8" y="766" font-size="13" fill="#ffe9a8">往高架橋下</text>
-<text x="64" y="430" font-size="12" fill="#ffe9a8">往艷舞伎町・尾</text>
+<text x="64" y="430" font-size="12" fill="#ffe9a8">往四十二番街・下城</text>
 <text x="862" y="368" text-anchor="end" font-size="12" fill="#ffe9a8">往東側</text>
 <text x="60" y="798" font-size="14" fill="#b8adc9">· 一格 ＝ 一間店面或一段街道，走一格 2 分鐘。橫越這塊約 25 分鐘。</text>
 <text x="60" y="822" font-size="14" fill="#b8adc9">· 黃色是路口：走上去按「前往」換到隔壁的街區或隔壁的區。</text>
@@ -227,18 +227,18 @@
 <text x="1349.0" y="230.0" text-anchor="middle" font-size="12" fill="#efe9f7">屋頂村</text>
 <rect x="1396" y="202" width="82" height="46" fill="#b9a6ff" fill-opacity="0.13" stroke="#b9a6ff" stroke-width="1.5"/>
 <text x="1437.0" y="230.0" text-anchor="middle" font-size="12" fill="#efe9f7">西棟</text>
-<text x="960" y="310" font-size="19" font-weight="700" fill="#ff4fa3">艷舞伎町</text>
+<text x="960" y="310" font-size="19" font-weight="700" fill="#ff4fa3">四十二番街</text>
 <text x="960" y="330" font-size="12" fill="#7d7390">6 塊</text>
 <rect x="1044" y="288" width="82" height="46" fill="#ff4fa3" fill-opacity="0.13" stroke="#ff4fa3" stroke-width="1.5"/>
-<text x="1085.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">頭段</text>
+<text x="1085.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">上城段</text>
 <rect x="1132" y="288" width="82" height="46" fill="#ff4fa3" fill-opacity="0.13" stroke="#ff4fa3" stroke-width="1.5"/>
-<text x="1173.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">腹段・北</text>
+<text x="1173.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">中城段・北</text>
 <rect x="1220" y="288" width="82" height="46" fill="#ff4fa3" fill-opacity="0.13" stroke="#ff4fa3" stroke-width="1.5"/>
-<text x="1261.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">腹段・南</text>
+<text x="1261.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">中城段・南</text>
 <rect x="1308" y="288" width="82" height="46" fill="#ff4fa3" fill-opacity="0.13" stroke="#ff4fa3" stroke-width="1.5"/>
 <text x="1349.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">刀巷</text>
 <rect x="1396" y="288" width="82" height="46" fill="#ff4fa3" fill-opacity="0.13" stroke="#ff4fa3" stroke-width="1.5"/>
-<text x="1437.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">尾段</text>
+<text x="1437.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">下城段</text>
 <rect x="1484" y="288" width="82" height="46" fill="#ff4fa3" fill-opacity="0.13" stroke="#ff4fa3" stroke-width="1.5"/>
 <text x="1525.0" y="316.0" text-anchor="middle" font-size="12" fill="#efe9f7">旅館坡</text>
 <text x="960" y="396" font-size="19" font-weight="700" fill="#ffb7d5">櫻町</text>
