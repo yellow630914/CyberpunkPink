@@ -18,7 +18,7 @@
 | 區塊 | ✔ | ◇ | ✗ |
 |---|---|---|---|
 | 一、世界與內容 | 12 | 6 | 0 |
-| 二、角色與成長 | 9 | 5 | 1 |
+| 二、角色與成長 | 9 | 6 | 0 |
 | 三、現實戰鬥 | 5 | 8 | 2 |
 | 四、內海與竄網 | 5 | 7 | 3 |
 | 五、媒體與輿論 | 4 | 5 | 1 |
@@ -28,7 +28,7 @@
 | 九、城市生活 | 3 | 13 | 0 |
 | 十、NPC 與夥伴 | 2 | 7 | 0 |
 | 十一、AI、介面與工程 | 4 | 7 | 5 |
-| **合計** | **63** | **75** | **13** |
+| **合計** | **63** | **76** | **12** |
 
 大致上：**骨架你都定過了，骨架裡面的細節多半是我自己填的**。現實戰鬥、成人向、城市生活這三塊，我寫得多、你看得少。
 
@@ -66,15 +66,15 @@
 | 八條路數、四類 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6 | | — |
 | 三個戰場的強弱矩陣 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6.1 | 強中弱的比例（1、⅔、⅓）是我定的 | — |
 | 技能裝在橋裡、四類容量、主動與被動 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6.4 | 五種技能種類、「同一棵樹互相加成」是我加的 | — |
-| 六屬性 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 1 | 已確認。膽識改名**心防**（名字已確認）；它只管感載；行動點改成反應＋魅力；網內由心防代替體格、魅力決定傷害 | 高 |
+| 六屬性 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 1 | 已確認。膽識改名**意志**（先叫心防，後來改定為意志）；它只管感載；行動點改成反應＋魅力；網內由意志代替體格、魅力決定傷害 | 高 |
 | **設計順序：先底層、後內容** | ✔ | [DESIGN_ORDER](DESIGN_ORDER.md) | 已確認：L1 核心規則 → L2 核心玩法 → L3 框架 → L4 內容（物品、技能、事件、任務）→ L5 呈現 | — |
-| 十八項基本功 | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 2 | 跟著屬性調整：每項屬性三項；重武器歸體格、操甲歸心防。**等你看過結果** | 高 |
+| 十八項基本功 | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 2 | 跟著屬性調整：每項屬性三項；重武器歸體格、操甲歸意志。**等你看過結果** | 高 |
 | 檢定：d20＋調整值＋基本功 對 DC | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 3 | 維持 d20；基本功與技能兩套並存 | 高 |
 | 取消等級 | ✔ | [ROADMAP](ROADMAP.md) 待決定 2 | 已確認 | — |
 | 成長：歷練點與花費 | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 7 | | 中 |
-| 特質與缺陷 | ◇ | [CORE_RULES](../systems/CORE_RULES.md) 7 | 一句話：沿用 ElondiaRPG | 低 |
+| 特質與缺陷 | ◇ | [CHARACTER](../systems/CHARACTER.md) 4 | 草稿：不佔容量、分類、機會、缺陷；清單屬於內容層 | 低 |
 | **八棵技能樹的內容** | ◇ | [SKILLS](../systems/SKILLS.md) | 框架已確認（前置擋人、樹階靠累計點數、共鳴照階、起始 200）；實際技能是素材，等核心戰鬥定了再生成 | 高 |
-| 建角流程（出身、生命軌跡、起始的橋） | ✗ | [ROADMAP](ROADMAP.md) 2 | 出身只有五個名字 | 中 |
+| 建角流程（出身、生命軌跡、起始的橋） | ◇ | [CHARACTER](../systems/CHARACTER.md) 1～3 | 草稿：九步、七個出身、六張生命軌跡表 | 中 |
 | 夥伴的成長與配置 | ◇ | [SKILLS](../systems/SKILLS.md) 11、[NPC_SYSTEM](../systems/NPC_SYSTEM.md) | 第一版草稿，還沒過 | 低 |
 
 ### 三、現實戰鬥
@@ -107,7 +107,7 @@
 | 內海只能精神污染 | ✔ | [CYBERSPACE](../systems/CYBERSPACE.md) 6 | 三種形式（過載、蝕、植入）是我分的 | — |
 | 七個分區的內容 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 3 | 港灣、大街、樂園島、企業環礁、暗礁、沉船帶、深海 | 中 |
 | 接入點、投影與潛入、身體留在現實 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 2 | | 中 |
-| 化身、構裝 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 4 | 完整度已取消（內海用感載當血量）。已確認：體格在網內由心防代替，傷害加值用魅力 | 高 |
+| 化身、構裝 | ◇ | [CYBERSPACE](../systems/CYBERSPACE.md) 4 | 完整度已取消（內海用感載當血量）。已確認：體格在網內由意志代替，傷害加值用魅力 | 高 |
 | 快駭（五類） | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 2 | | 中 |
 | RAM | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 1 | | 中 |
 | 蕾絲三色、追蹤度、控制節點 | ◇ | [NETRUNNING](../systems/NETRUNNING.md) 4～5 | | 中 |

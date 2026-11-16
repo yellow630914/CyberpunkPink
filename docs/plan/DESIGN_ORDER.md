@@ -27,6 +27,7 @@
 | 系統 | 依賴 | 被誰依賴 | 文件 |
 |---|---|---|---|
 | 屬性、基本功、檢定 | — | 幾乎全部 | [CORE_RULES](../systems/CORE_RULES.md) 1～3 |
+| 建角、出身、特質與缺陷 | 屬性、基本功 | NPC 的生成、建角畫面 | [CHARACTER](../systems/CHARACTER.md) |
 | 三條軌（生命、感載、沉溺） | 屬性 | 戰鬥、內海、成人場景、義體、藥 | [CORE_RULES](../systems/CORE_RULES.md) 4 |
 | 同步原則 | 三條軌 | 內海、機甲、加速義體 | [CORE_RULES](../systems/CORE_RULES.md) 5 |
 | 名聲（信譽、豔名、好感、熱度……） | — | 中間人、事件、價格、勢力 | [CORE_RULES](../systems/CORE_RULES.md) 8 |

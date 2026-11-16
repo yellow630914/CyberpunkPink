@@ -17,7 +17,7 @@ PARTS = [  # 依 plan/DESIGN_ORDER 的分層編排：(標題, 這一層的說明
      ['world/WORLD.md', 'world/CORPORATIONS.md', 'world/GANGS.md', 'world/CULTURE.md',
       'world/DISTRICTS.md', 'world/LIFE.md', 'world/NPCS.md', 'world/FACTIONS.md']),
     ('L1 核心規則', '一個角色由哪些數字組成、怎麼擲骰。多數已確認。',
-     ['systems/CORE_RULES.md', 'DOMAINS.md']),
+     ['systems/CORE_RULES.md', 'systems/CHARACTER.md', 'DOMAINS.md']),
     ('L2 核心玩法', '三個戰場怎麼打。下一步要過的一層。',
      ['systems/COMBAT_SYSTEM.md', 'systems/CYBERSPACE.md', 'systems/NETRUNNING.md',
       'systems/OPINION.md', 'systems/MEDIA.md']),
