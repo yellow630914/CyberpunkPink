@@ -16,7 +16,7 @@ PARTS = [
             'world/DISTRICTS.md', 'world/LIFE.md', 'world/NPCS.md', 'world/FACTIONS.md', 'world/SITES.md', 'world/STORY_QUESTS.md']),
     ('規則', ['systems/CORE_RULES.md', 'systems/COMBAT_SYSTEM.md', 'systems/CYBERSPACE.md', 'systems/NETRUNNING.md',
             'systems/OPINION.md', 'systems/MEDIA.md', 'systems/COMMISSIONS.md', 'systems/FIXER.md', 'systems/LEWD_SYSTEM.md',
-            'systems/SKILLS.md', 'systems/ENEMIES.md', 'systems/NPC_SYSTEM.md', 'systems/EVENTS.md', 'systems/DOWNTIME.md', 'systems/TRADE.md', 'systems/PROMPTS.md']),
+            'systems/SKILLS.md', 'systems/ENEMIES.md', 'systems/NPC_SYSTEM.md', 'systems/EVENTS.md', 'systems/SERIES.md', 'systems/DOWNTIME.md', 'systems/TRADE.md', 'systems/PROMPTS.md']),
     ('裝備', ['gear/CYBERWARE.md', 'gear/CRAFTING.md', 'gear/EQUIPMENT.md', 'gear/ITEMS.md']),
     ('美術', ['art/ART_STYLE.md', 'art/UI.md']),
     ('計畫', ['plan/ROADMAP.md', 'plan/SYSTEMS_REVIEW.md', 'plan/WORLD_ITEMS.md', 'plan/MIGRATION.md', 'plan/IMPLEMENTATION.md', 'plan/CODESCAN.md', 'plan/AI_TASKS.md']),
