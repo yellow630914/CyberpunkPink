@@ -25,7 +25,7 @@ docs/
 │
 ├─ systems/             規則：遊戲怎麼玩
 │   ├─ CORE_RULES       屬性、基本功、檢定、三條軌、同步、路數、技能與容量、成長、名聲
-│   ├─ COMBAT_SYSTEM    現實戰鬥、戰敗、女武神機甲
+│   ├─ COMBAT_SYSTEM    現實戰鬥、戰敗、召喚與機甲
 │   ├─ CYBERSPACE       內海：分區、化身、構裝、網內戰鬥、精神污染
 │   ├─ NETRUNNING       竄網：快駭、蕾絲、追蹤度、粉牆
 │   ├─ OPINION          輿論戰：頻道經營與議題戰役
@@ -61,6 +61,7 @@ docs/
 │   ├─ WORLD_ITEMS      世界觀項目的盤點
 │   ├─ MIGRATION        ElondiaRPG 系統遷移清單
 │   ├─ IMPLEMENTATION   實作的起點：Agent 模式、程式掃描、減熵清單
+│   ├─ DESIGN_ORDER     系統的依賴與設計順序：先底層、後內容
 │   ├─ CODESCAN         ElondiaRPG 程式掃描的結論
 │   ├─ AI_TASKS         AI 任務與工具（Agent 模式）
 │   └─ scan/            掃描的六份原始報告（不進設計書）

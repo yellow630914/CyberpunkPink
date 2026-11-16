@@ -104,7 +104,7 @@
 | 錢、身分、法律、等級、牌子、藥、通訊、曆、行規 | [world/LIFE](world/LIFE.md) |
 | **規則** | |
 | 屬性、基本功、檢定、三條軌、同步、路數、技能與容量、成長、名聲 | [systems/CORE_RULES](systems/CORE_RULES.md) |
-| 現實戰鬥、戰敗、女武神機甲 | [systems/COMBAT_SYSTEM](systems/COMBAT_SYSTEM.md) |
+| 現實戰鬥、戰敗、機甲 | [systems/COMBAT_SYSTEM](systems/COMBAT_SYSTEM.md) |
 | 內海：分區、化身、構裝、網內戰鬥、精神污染 | [systems/CYBERSPACE](systems/CYBERSPACE.md) |
 | 竄網：快駭、蕾絲、追蹤度、粉牆 | [systems/NETRUNNING](systems/NETRUNNING.md) |
 | 輿論戰：頻道經營與議題戰役 | [systems/OPINION](systems/OPINION.md) |

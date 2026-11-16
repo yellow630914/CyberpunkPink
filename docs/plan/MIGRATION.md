@@ -48,7 +48,7 @@
 | 只有特殊任務與事件兩種內容形式 | 多一種：**委託副本**（獨立地圖、三個面、三條指標，[COMMISSIONS](../systems/COMMISSIONS.md)） | 新做 | 可以一直玩下去的主食 |
 | — | **媒體**（素材、直播）與**輿論戰**（主播的 SLG：頻道經營＋議題戰役，[OPINION](../systems/OPINION.md)） | 新做 | |
 | — | **中間人經營**（盤口、派工、抽成） | 新做 | |
-| — | **女武神機甲** | 新做 | 排在後期 |
+| — | **機甲** | 新做 | 排在後期 |
 | — | **每週帳單** | 新做 | |
 
 ## 1. 五種處理方式
@@ -292,7 +292,7 @@
 | 偶像：應援、人氣、親衛隊 | [MEDIA](../systems/MEDIA.md) 第 9 節 | 增益狀態、聲望 |
 | 掮客：盤口、派工、人情 | [FIXER](../systems/FIXER.md) | 夥伴、`away`、談判、一般委託的生成 |
 | 每週帳單 | [FIXER](../systems/FIXER.md) 第 4 節 | `deadlines` |
-| 女武神機甲 | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 第 9 節 | 戰鬥核心（機甲是一個有自己數值的單位） |
+| 機甲 | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 第 9 節 | 戰鬥核心（機甲是一個有自己數值的單位） |
 | 身分、合法性、兩種錢 | [LIFE](../world/LIFE.md) | `security`、`money` |
 | 公共交通 | [DISTRICTS](../world/DISTRICTS.md) 1.2.1 節 | 旅途地圖 |
 

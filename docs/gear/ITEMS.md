@@ -2,6 +2,7 @@
 
 > 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[CRAFTING](CRAFTING.md)（資料格式、零件的類型、材質、等級）、[CYBERWARE](CYBERWARE.md)（部位、沉溺成本）、[EQUIPMENT](EQUIPMENT.md)（欄位、大小、藏匿）、[LIFE](../world/LIFE.md)（價格表、合法性、牌子、藥）、[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 第 4、5 節（護甲與武器）。被依賴：[TRADE](../systems/TRADE.md)（目錄價）、[DOWNTIME](../systems/DOWNTIME.md)（藥與治療）。
 > 來源：ElondiaRPG 的物品目錄（`items.json` 680 項）與制式裝備；全部重寫。預定資料：`data/rules/parts.json`、`blueprints.json`、`items.json`。數值都是初稿。
+> **內容層（L4）的草稿，現在不過。** 已確認：等底層的系統定了，才開始生成內容（[DESIGN_ORDER](../plan/DESIGN_ORDER.md)）。這份裡的條目是暫存的素材，之後整批重寫；格式與規則的部分照常有效。
 
 這是**第一版目錄**：每一類先給代表性的條目，夠拿來做第一批商店、戰利品與起始裝備，不窮舉。V 級（原型）不列：它們每一件有名字，跟著特殊任務寫。
 
@@ -410,7 +411,7 @@
 
 ## 8. 不在這份目錄的
 
-家具與儲物在 [DOWNTIME](../systems/DOWNTIME.md) 7.5、7.7 節；構裝在 [CYBERSPACE](../systems/CYBERSPACE.md) 4.2 節；素材與感官帶在 [MEDIA](../systems/MEDIA.md) 第 2 節；調校在 [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 4 節；女武神機甲與載具見 [CRAFTING](CRAFTING.md) 第 13 節，價格見 [LIFE](../world/LIFE.md) 1.2 節；V 級原型跟著特殊任務。內衣、內褲、鞋是現成的單件，第一版照 ElondiaRPG 的服裝清單換皮，加上風格標籤。
+家具與儲物在 [DOWNTIME](../systems/DOWNTIME.md) 7.5、7.7 節；構裝在 [CYBERSPACE](../systems/CYBERSPACE.md) 4.2 節；素材與感官帶在 [MEDIA](../systems/MEDIA.md) 第 2 節；調校在 [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 4 節；機甲與載具見 [CRAFTING](CRAFTING.md) 第 13 節，價格見 [LIFE](../world/LIFE.md) 1.2 節；V 級原型跟著特殊任務。內衣、內褲、鞋是現成的單件，第一版照 ElondiaRPG 的服裝清單換皮，加上風格標籤。
 
 ## 9. 待確認
 
