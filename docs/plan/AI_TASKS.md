@@ -138,7 +138,7 @@
 | `design_part` | 零件類型、材質、等級、屬性、特性 | 夾在那個等級允許的範圍內（[CRAFTING](../gear/CRAFTING.md) 第 11 節） |
 | `record_sex` | 參與者、類型、次數、一句話、第一次、偏好 | 參與者只能是在場的人；沿用那邊的驗證 |
 | `adjust_sink` | `delta`（−4～+4）、性質、理由 | 只在 scene_settle |
-| `add_tendency` | 傾向標籤、量 | 只能是這一場碰到的 |
+| `add_tendency` | 這一場碰到的標籤與風格 | 只能是這一場碰到的；程式照 [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 1.1 節加到軸上、把標籤設成「有」 |
 | `submit_*` | 各批次任務的結果 | 各自的格式 |
 
 ## 4. 服務商這一層要加的

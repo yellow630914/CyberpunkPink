@@ -229,7 +229,7 @@
 | **荒地** | 車族的防塵衣與護目鏡 |
 | **工裝** | 蜂巢與鏽帶的日常 |
 
-風格標籤見 [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 2 節；各區的主場風格見 [DISTRICTS](DISTRICTS.md) 第 2 節。
+完整的風格標籤（含女僕、偶像、護士、巫女等，同時是「扮相」的傾向）見 [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 2 節；各區的主場風格見 [DISTRICTS](DISTRICTS.md) 第 2 節。
 
 ### 5.5 吃的與開的
 
