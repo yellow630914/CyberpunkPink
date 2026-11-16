@@ -46,7 +46,8 @@ docs/
 │   ├─ ROADMAP          待決定的問題、還沒寫的文件、實作階段
 │   ├─ SYSTEMS_REVIEW   系統盤點：哪些設計決定過過了、哪些還沒
 │   ├─ WORLD_ITEMS      世界觀項目的盤點
-│   └─ MIGRATION        ElondiaRPG 系統遷移清單
+│   ├─ MIGRATION        ElondiaRPG 系統遷移清單
+│   └─ IMPLEMENTATION   實作的起點：Agent 模式、程式掃描、減熵清單
 │
 └─ book/                設計書：全部文件編成的單一檔案（由 tools/book/ 產生；只在本機，不進版本控制）
 ```
