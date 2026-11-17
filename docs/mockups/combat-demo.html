@@ -7,8 +7,10 @@ body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-famil
 </style></head><body>
 <!--demo:start-->
 <style>
-.cd{--hp:#ff3355;--ld:#ff4fa3;--ap:#ffd66b;--cv:#4fd8ff;border:1px solid var(--line);background:var(--bg1);padding:14px;margin:18px 0;font-size:13px;line-height:1.5}
+.cd{--hp:#ff3355;--ld:#ff4fa3;--ap:#ffd66b;--apc:#ffd66b;--cv:#4fd8ff;border:1px solid var(--line);background:var(--bg1);padding:14px;margin:18px 0;font-size:13px;line-height:1.5}
 .cd *{box-sizing:border-box}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .cd{--hp:#c81e3a;--ld:#c2186b;--ap:#b07a00;--apc:#6b4200;--cv:#0a6f96}}
+:root[data-theme="light"] .cd{--hp:#c81e3a;--ld:#c2186b;--ap:#b07a00;--apc:#6b4200;--cv:#0a6f96}
 .cd-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .cd-top b{color:var(--pinkhi);letter-spacing:2px}.cd-top .sp{flex:1}
 .cd-order{display:flex;gap:4px;flex-wrap:wrap}
@@ -34,22 +36,27 @@ body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-famil
 .cd-pips.m i{border-color:var(--ink2);border-radius:50%}.cd-pips.m i.f{background:var(--ink2)}
 .cd-pips.l i{border-color:var(--ld);transform:rotate(45deg);width:7px;height:7px;margin:0 2px}.cd-pips.l i.f{background:var(--ld)}
 .cd-st{display:flex;gap:3px;flex-wrap:wrap;min-height:16px}.cd-st span{font-size:10.5px;padding:0 4px;border:1px solid var(--line);color:var(--pinkhi)}
-.cd-act{display:flex;gap:16px;flex-wrap:wrap;margin:12px 0 6px;align-items:flex-start}
-.cd-w{width:348px;max-width:100%;height:auto;flex:none;touch-action:manipulation}
-.cd-w path,.cd-w circle{fill:var(--bg2);stroke:var(--line);stroke-width:1}
-.cd-w .r-atk path{fill:color-mix(in srgb,var(--hp) 16%,var(--bg2))}
-.cd-w .r-res path{fill:color-mix(in srgb,var(--ap) 14%,var(--bg2))}
-.cd-w .r-tac path{fill:color-mix(in srgb,var(--cv) 14%,var(--bg2))}
-.cd-w .r-skl circle{fill:color-mix(in srgb,var(--mint) 16%,var(--bg2))}
-.cd-w g{cursor:pointer;outline:none}.cd-w g.dis{opacity:.32;cursor:not-allowed}
-.cd-w g:not(.dis):hover path,.cd-w g:not(.dis):focus-visible path,.cd-w g:hover circle,.cd-w g:focus-visible circle{stroke:var(--pink);stroke-width:2}
-.cd-w g.sel path,.cd-w g.sel circle{stroke:var(--mint);stroke-width:2.5}
-.cd-w text{fill:var(--ink);font-size:13px;text-anchor:middle;pointer-events:none}.cd-w text.c{fill:var(--ap);font-size:11px}
-.cd-side{flex:1;min-width:200px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
-.cd-leg{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--ink2)}
-.cd-leg span::before{content:"";display:inline-block;width:9px;height:9px;margin-right:6px;border:1px solid var(--line)}
-.cd-leg .k-skl::before{background:var(--mint)}.cd-leg .k-res::before{background:var(--ap)}.cd-leg .k-atk::before{background:var(--hp)}.cd-leg .k-tac::before{background:var(--cv)}
-.cd-skl{border:1px solid var(--line);padding:8px 10px;background:var(--bg);font-size:12.5px;color:var(--ink2)}.cd-skl b{color:var(--mint)}.cd-skl p{margin:4px 0 0}
+.cd-act{display:flex;gap:16px;margin:12px 0 6px;align-items:flex-start;min-height:176px}
+.cd-wbox{position:relative;width:176px;height:176px;flex:none;z-index:5}
+.cd-w{position:absolute;left:0;top:0;width:348px;height:348px;transform-origin:0 50%;top:-86px;transform:scale(.5);transition:transform .22s cubic-bezier(.2,.8,.2,1),filter .22s;touch-action:manipulation;border-radius:50%;pointer-events:none}
+.cd-wbox:hover .cd-w,.cd-wbox:focus-within .cd-w,.cd-wbox.open .cd-w{transform:scale(1);filter:drop-shadow(0 6px 18px #0009)}
+@media (prefers-reduced-motion:reduce){.cd-w{transition:none}}
+.cd-w path,.cd-w circle.bg{fill:var(--bg2);stroke:var(--line);stroke-width:1}
+.cd-w .r-atk path{fill:color-mix(in srgb,var(--hp) 18%,var(--bg2))}
+.cd-w .r-res path{fill:color-mix(in srgb,var(--ap) 16%,var(--bg2))}
+.cd-w .r-tac path{fill:color-mix(in srgb,var(--cv) 16%,var(--bg2))}
+.cd-w .r-skl circle.bg{fill:color-mix(in srgb,var(--mint) 18%,var(--bg2))}
+.cd-w g[data-a]{cursor:pointer;outline:none;color:var(--ink);pointer-events:none}
+.cd-wbox.ready .cd-w g[data-a]{pointer-events:auto}.cd-w g.dis{cursor:not-allowed}.cd-w g.dis .ic,.cd-w g.dis text{opacity:.28}
+.cd-w g:not(.dis):hover path,.cd-w g:not(.dis):focus-visible path,.cd-w g:not(.dis):hover circle.bg,.cd-w g:not(.dis):focus-visible circle.bg{stroke:var(--pink);stroke-width:2.5}
+.cd-w g.sel path,.cd-w g.sel circle.bg{stroke:var(--mint);stroke-width:3}
+.cd-w .ic{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}.cd-w .ic .f{fill:currentColor;stroke:none}
+.cd-w text{fill:var(--apc);font-size:12px;font-weight:700;text-anchor:middle;pointer-events:none}
+.cd-act.off .cd-wbox{pointer-events:none;opacity:.45}
+.cd-side{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.cd-info{border:1px solid var(--line);background:var(--bg);padding:8px 10px;font-size:12.5px;color:var(--ink2);min-height:64px;width:100%;max-width:420px}
+.cd-info b{color:var(--strong);font-size:14px}.cd-info i{font-style:normal;color:var(--apc);font-weight:700;margin-left:8px}.cd-info p{margin:3px 0 0}.cd-info .no{color:var(--hp)}
+.cd-skl{border:1px solid var(--line);padding:8px 10px;background:var(--bg);font-size:12.5px;color:var(--ink2);max-width:420px}.cd-skl b{color:var(--mint)}.cd-skl p{margin:4px 0 0}
 .cd-btn{font:inherit;color:var(--ink);background:var(--bg2);border:1px solid var(--line);padding:6px 11px;cursor:pointer;min-height:36px}
 .cd-btn:hover:not(:disabled){border-color:var(--pink);color:var(--pinkhi)}
 .cd-btn:disabled{opacity:.35;cursor:not-allowed}.cd-btn.sel{border-color:var(--mint);color:var(--mint)}
@@ -64,7 +71,7 @@ body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-famil
   <div class="cd-top"><b>現實戰鬥 DEMO</b><span id="cd-round"></span><div class="cd-order" id="cd-order"></div><span class="sp"></span><button class="cd-btn" id="cd-reset">重新開始</button></div>
   <div class="cd-scroll"><div class="cd-field" id="cd-field"></div></div>
   <div class="cd-end" id="cd-end"></div>
-  <div class="cd-act" id="cd-act"></div>
+  <div class="cd-act" id="cd-act"><div class="cd-wbox" id="cd-wbox"></div><div class="cd-side"><button class="cd-btn" data-a="end" id="cd-endbtn">結束回合</button><div class="cd-info" id="cd-info"></div><div class="cd-skl" id="cd-skl" hidden><b>技能清單</b><p>這個 Demo 還沒有技能。正式版這裡列出這個角色裝著的主動技能與姿態，點了才展開，不佔圓環的位置。</p></div></div></div>
   <div class="cd-hint" id="cd-hint"></div>
   <div class="cd-log" id="cd-log" aria-live="polite"></div>
   <div class="cd-note">照已確認的規則：雙方各四格縱深，距離＝我的格數＋對方格數−1；每次攻擊都會照武器的倍率傷到目標那一格的遮蔽（掩體→半掩體→暴露）；前面那格沒有人也沒有遮蔽時，後排連同自己的遮蔽往前補；行動點每回合回 3；彈匣 1～4 格，連射打空彈匣並自帶壓制；神經傷害打感載，過載失去一回合並疊一層餘韻；制伏要在近身。沒有做的：技能、無人機與機甲、快駭、場地效果。數值都是初稿。</div>
@@ -176,18 +183,18 @@ function ai(u,n){if(S.over||u.down||n>6||u.ap<=0){S.busy=false;return next()}
 }
 /* ---- 玩家行動 ---- */
 const ACTS=[
- {k:'shoot',g:'atk',n:'射擊',c:2,ok:u=>!wp(u).melee&&u.ws[u.wi].mag>=1,tg:'foe'},
- {k:'burst',g:'atk',n:'連射',c:3,ok:u=>!wp(u).melee&&wp(u).mag>=2&&u.ws[u.wi].mag>=2,tg:'foe'},
- {k:'melee',g:'atk',n:'近戰',c:2,ok:u=>wp(u).melee,tg:'melee'},
- {k:'aim',g:'atk',n:'瞄準',c:1,ok:u=>!u.aim},
- {k:'move',g:'tac',n:'換位',c:1,ok:u=>canMove(u,u.slot-1)||canMove(u,u.slot+1),tg:'slot'},
- {k:'reload',g:'res',n:'換彈',c:1,ok:u=>wp(u).mag&&u.ws[u.wi].mag<wp(u).mag},
- {k:'swap',g:'res',n:'換武器',c:1,ok:u=>u.ws.length>1},
- {k:'cover',g:'tac',n:'打遮蔽',c:2,ok:u=>!wp(u).melee&&u.ws[u.wi].mag>=1,tg:'ecov'},
- {k:'watch',g:'tac',n:'待命',c:1,ok:u=>!u.watch},
- {k:'subdue',g:'tac',n:'制伏',c:2,ok:u=>alive('E').some(t=>canSubdue(u,t)),tg:'sub'},
- {k:'item',g:'res',n:'道具',c:1,ok:()=>false},
- {k:'flee',g:'tac',n:'脫離',c:2,ok:()=>false},
+ {k:'shoot',d:'花彈匣 1 格，朝一個敵人開槍。',w:'手上是近戰武器，或彈匣空了',g:'atk',n:'射擊',c:2,ok:u=>!wp(u).melee&&u.ws[u.wi].mag>=1,tg:'foe'},
+ {k:'burst',d:'打空彈匣：傷害骰加顆，並壓制目標。彈匣至少要有 2 格。',w:'彈匣不到 2 格',g:'atk',n:'連射',c:3,ok:u=>!wp(u).melee&&wp(u).mag>=2&&u.ws[u.wi].mag>=2,tg:'foe'},
+ {k:'melee',d:'打近身（雙方第 1 格）的敵人。',w:'手上不是近戰武器',g:'atk',n:'近戰',c:2,ok:u=>wp(u).melee,tg:'melee'},
+ {k:'aim',d:'下一次射擊 +3；瞄準後打出要害會造成重創。',w:'已經瞄準了',g:'atk',n:'瞄準',c:1,ok:u=>!u.aim},
+ {k:'move',d:'和相鄰的隊友交換，或移到相鄰的空格。',w:'沒有可以換的格，或被壓制',g:'tac',n:'換位',c:1,ok:u=>canMove(u,u.slot-1)||canMove(u,u.slot+1),tg:'slot'},
+ {k:'reload',d:'把彈匣補滿。',w:'彈匣是滿的，或手上是近戰武器',g:'res',n:'換彈',c:1,ok:u=>wp(u).mag&&u.ws[u.wi].mag<wp(u).mag},
+ {k:'swap',d:'換成另一把武器。',w:'只有一把武器',g:'res',n:'換武器',c:1,ok:u=>u.ws.length>1},
+ {k:'cover',d:'不打人，直接打敵方一格的遮蔽；倍率加倍。',w:'手上是近戰武器，或彈匣空了',g:'tac',n:'打遮蔽',c:2,ok:u=>!wp(u).melee&&u.ws[u.wi].mag>=1,tg:'ecov'},
+ {k:'watch',d:'待命：敵人換位時立刻反擊一次（另花 2 點）。',w:'已經在待命',g:'tac',n:'待命',c:1,ok:u=>!u.watch},
+ {k:'subdue',d:'把正在過載的近身敵人綁起來，讓他退出戰鬥。要過格鬥檢定。',w:'沒有可以制伏的目標（要在近身、對方正在過載；精英要餘韻疊滿）',g:'tac',n:'制伏',c:2,ok:u=>alive('E').some(t=>canSubdue(u,t)),tg:'sub'},
+ {k:'item',d:'使用快取格裡的道具。',w:'這個 Demo 沒有做',g:'res',n:'道具',c:1,ok:()=>false},
+ {k:'flee',d:'全隊檢定，成功就離開這場戰鬥。',w:'這個 Demo 沒有做',g:'tac',n:'脫離',c:2,ok:()=>false},
  {k:'end',g:'end',n:'結束回合',c:0,ok:()=>true}
 ];
 function act(k){if(S.busy||S.over)return;if(k==='skill'){S.skill=!S.skill;return render()}const u=cur(),a=ACTS.find(x=>x.k===k);if(!a)return;if(u.ap<a.c||!a.ok(u))return;
@@ -230,19 +237,50 @@ function render(){const u=cur(),m=S.mode,F=$('cd-field');let h='';
  $('cd-round').textContent='第 '+S.round+' 回合';
  $('cd-order').innerHTML=S.order.map((id,i)=>{const x=S.units[id];return x.down?'':'<span class="cd-chip'+(i===S.idx?' on':'')+(x.side==='E'?' e':'')+'">'+x.name+'</span>'}).join('');
  const A=$('cd-act');
- if(S.over||u.side==='E'){A.innerHTML=S.over?'':'<span class="cd-hint">敵方行動中……</span>'}
- else{const CX=174,CY=174,pt=(r,a)=>{const t=(a-90)*Math.PI/180;return [(CX+r*Math.cos(t)).toFixed(1),(CY+r*Math.sin(t)).toFixed(1)]};
-  const arc=(r0,r1,a0,a1)=>{const A0=pt(r1,a0),A1=pt(r1,a1),B1=pt(r0,a1),B0=pt(r0,a0);return 'M'+A0+'A'+r1+' '+r1+' 0 0 1 '+A1+'L'+B1+'A'+r0+' '+r0+' 0 0 0 '+B0+'Z'};
-  const ring=(g,r0,r1,off)=>{const L=ACTS.filter(a=>a.g===g),st=360/L.length;return L.map((a,i)=>{const a0=off+i*st+1.2,a1=off+(i+1)*st-1.2,dis=u.ap<a.c||!a.ok(u),c=pt((r0+r1)/2,(a0+a1)/2);
-   return '<g class="r-'+g+(dis?' dis':'')+(m===a.k?' sel':'')+'" data-a="'+a.k+'" role="button" tabindex="'+(dis?-1:0)+'" aria-disabled="'+dis+'" aria-label="'+a.n+'，'+a.c+' 點行動點"><path d="'+arc(r0,r1,a0,a1)+'"/><text x="'+c[0]+'" y="'+(+c[1]-2)+'">'+a.n+'</text><text class="c" x="'+c[0]+'" y="'+(+c[1]+12)+'">'+a.c+'</text></g>'}).join('')};
-  A.innerHTML='<svg class="cd-w" viewBox="0 0 348 348" role="group" aria-label="行動圓環">'+ring('tac',130,170,-36)+ring('atk',86,126,-45)+ring('res',44,82,-60)
-   +'<g class="r-skl'+(S.skill?' sel':'')+'" data-a="skill" role="button" tabindex="0" aria-label="技能清單"><circle cx="174" cy="174" r="40"/><text x="174" y="179">技能</text></g></svg>'
-   +'<div class="cd-side"><div class="cd-leg"><span class="k-skl">中心　技能</span><span class="k-res">內環　補充與切換</span><span class="k-atk">中環　攻擊</span><span class="k-tac">外環　戰術</span></div>'
-   +'<button class="cd-btn" data-a="end">結束回合</button>'
-   +(S.skill?'<div class="cd-skl"><b>技能清單</b><p>這個 Demo 還沒有技能。正式版這裡列出這個角色裝著的主動技能與姿態，點了才展開，不佔圓環的位置。</p></div>':'')+'</div>'}
+ updWheel(u,m);
 }
-$('cd-act').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b&&!b.classList.contains('dis'))act(b.getAttribute('data-a'))});
+const IC={
+ shoot:'<circle r="5"/><path d="M0-9V-4M0 4V9M-9 0H-4M4 0H9"/>',
+ burst:'<path d="M-8-5L-3 0L-8 5M-2-5L3 0L-2 5M4-5L9 0L4 5"/>',
+ melee:'<path d="M-7 7L6-6L8-8L7-3L-4 8ZM-8 3L-3 8"/>',
+ aim:'<circle r="7"/><circle class="f" r="2"/>',
+ move:'<path d="M-9 0H9M-9 0L-5-4M-9 0L-5 4M9 0L5-4M9 0L5 4"/>',
+ reload:'<path d="M5.5-4.5A7 7 0 1 0 7 1M7-8V-4H3"/>',
+ swap:'<path d="M-4-8V6L-7 3M-4 6L-1 3M4 8V-6L1-3M4-6L7-3"/>',
+ item:'<rect x="-7" y="-4" width="14" height="10"/><path d="M-3-4V-7H3V-4M-7 1H7"/>',
+ cover:'<rect x="-8" y="-6" width="16" height="12"/><path d="M-1-6L1-2L-2 1L0 6"/>',
+ watch:'<path d="M-9 0Q0-8 9 0Q0 8-9 0Z"/><circle class="f" r="2.2"/>',
+ subdue:'<circle cx="-4" r="4"/><circle cx="4" r="4"/>',
+ flee:'<path d="M-8-8H0V8H-8ZM3 0H10M10 0L7-3M10 0L7 3"/>',
+ skill:'<path d="M0-10L2.6-2.6L10 0L2.6 2.6L0 10L-2.6 2.6L-10 0L-2.6-2.6Z"/>'
+};
+(function buildWheel(){const CX=174,CY=174,pt=(r,a)=>{const t=(a-90)*Math.PI/180;return [(CX+r*Math.cos(t)).toFixed(1),(CY+r*Math.sin(t)).toFixed(1)]};
+ const arc=(r0,r1,a0,a1)=>{const A0=pt(r1,a0),A1=pt(r1,a1),B1=pt(r0,a1),B0=pt(r0,a0);return 'M'+A0+'A'+r1+' '+r1+' 0 0 1 '+A1+'L'+B1+'A'+r0+' '+r0+' 0 0 0 '+B0+'Z'};
+ const ring=(g,r0,r1,off)=>{const L=ACTS.filter(a=>a.g===g),st=360/L.length;return L.map((a,i)=>{const a0=off+i*st+1.2,a1=off+(i+1)*st-1.2,c=pt((r0+r1)/2,(a0+a1)/2);
+  return '<g class="r-'+g+'" data-a="'+a.k+'" role="button" tabindex="0" aria-label="'+a.n+'，'+a.c+' 點行動點。'+a.d+'"><path d="'+arc(r0,r1,a0,a1)+'"/><g class="ic" transform="translate('+c[0]+' '+(+c[1]-5)+') scale(1.15)">'+IC[a.k]+'</g><text x="'+c[0]+'" y="'+(+c[1]+17)+'">'+a.c+'</text></g>'}).join('')};
+ $('cd-wbox').innerHTML='<svg class="cd-w" viewBox="0 0 348 348" role="group" aria-label="行動圓環">'+ring('tac',130,170,-36)+ring('atk',86,126,-45)+ring('res',44,82,-60)
+  +'<g class="r-skl" data-a="skill" role="button" tabindex="0" aria-label="技能清單"><circle class="bg" cx="174" cy="174" r="40"/><g class="ic" transform="translate(174 174) scale(1.5)">'+IC.skill+'</g></g></svg>';
+})();
+function info(k){const I=$('cd-info');if(!k||S.over){I.innerHTML='<p>把滑鼠移到圓環上會放大；移到每一格上看說明。由內到外：技能、補充與切換、攻擊、戰術。</p>';return}
+ if(k==='skill'){I.innerHTML='<b>技能</b><p>打開技能清單。</p>';return}
+ const a=ACTS.find(x=>x.k===k),u=cur();if(!a)return;const no=u.side==='P'&&(u.ap<a.c?'行動點不夠':(!a.ok(u)?a.w:''));
+ I.innerHTML='<b>'+a.n+'</b><i>'+a.c+' 點</i><p>'+a.d+'</p>'+(no?'<p class="no">現在做不到：'+no+'。</p>':'')}
+function updWheel(u,m){const off=S.over||u.side==='E';$('cd-act').classList.toggle('off',off);$('cd-endbtn').disabled=off;$('cd-endbtn').classList.toggle('dis',off);
+ $('cd-wbox').querySelectorAll('g[data-a]').forEach(g=>{const k=g.getAttribute('data-a'),a=ACTS.find(x=>x.k===k);
+  const dis=off||(a?(u.ap<a.c||!a.ok(u)):false);g.classList.toggle('dis',dis);g.classList.toggle('sel',k==='skill'?!!S.skill:m===k);g.setAttribute('aria-disabled',dis);g.setAttribute('tabindex',dis?-1:0)});
+ $('cd-skl').hidden=!S.skill;if(off)info(null)}
+let rt=0;const ready=on=>{clearTimeout(rt);if(on)rt=setTimeout(()=>$('cd-wbox').classList.add('ready'),200);else $('cd-wbox').classList.remove('ready')};
+$('cd-wbox').addEventListener('mouseenter',()=>ready(true));$('cd-wbox').addEventListener('mouseleave',()=>ready(false));$('cd-wbox').addEventListener('focusin',()=>$('cd-wbox').classList.add('ready'));
+const WB=$('cd-wbox'),touch=window.matchMedia&&window.matchMedia('(hover: none)').matches;
+$('cd-act').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;
+ 
+ info(b.getAttribute('data-a'));if(b.classList.contains('dis'))return;act(b.getAttribute('data-a'));if(touch){WB.classList.remove('open');ready(false)}});
+WB.addEventListener('click',()=>{if(touch&&!WB.classList.contains('open')){WB.classList.add('open');ready(true)}});
+document.addEventListener('click',e=>{if(touch&&!WB.contains(e.target)){WB.classList.remove('open');ready(false)}});
 $('cd-act').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const b=e.target.closest('g[data-a]');if(b&&!b.classList.contains('dis')){e.preventDefault();act(b.getAttribute('data-a'))}});
+WB.addEventListener('mouseover',e=>{const b=e.target.closest('g[data-a]');if(b)info(b.getAttribute('data-a'))});
+WB.addEventListener('focusin',e=>{const b=e.target.closest('g[data-a]');if(b)info(b.getAttribute('data-a'))});
+WB.addEventListener('mouseleave',()=>info(null));
 $('cd-field').addEventListener('click',e=>{const x=e.target.closest('.cd-u.tg');if(x)return pick('unit',+x.dataset.u);const s=e.target.closest('.cd-slot.tg');if(s)pick('slot',[s.dataset.s[0],+s.dataset.s[1]])});
 $('cd-reset').addEventListener('click',init);
 init();
