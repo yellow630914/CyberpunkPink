@@ -54,7 +54,7 @@ docs/
 │   ├─ UI               各畫面的版面（草稿）
 │   ├─ *.svg            地圖與示意圖的原稿
 │   └─ preview/         轉出來的 PNG
-├─ mockups/             介面樣稿（HTML）
+├─ mockups/             介面樣稿與可以操作的 Demo（HTML）
 │
 ├─ plan/                計畫：還沒做完的事
 │   ├─ ROADMAP          待決定的問題、還沒寫的文件、實作階段

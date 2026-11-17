@@ -38,6 +38,9 @@ FIGURES = {  # 在某份文件的標題後面插圖
     'systems/CYBERSPACE.md': [('art/cyberspace.svg', '內海的結構')],
     'world/FACTIONS.md': [('art/factions.svg', '勢力關係圖（草稿）')],
 }
+DEMOS = {  # 在某份文件的標題後面嵌入可以操作的 Demo（取檔案裡 <!--demo:start--> 到 <!--demo:end--> 之間的內容）
+    'systems/COMBAT_SYSTEM.md': ('mockups/combat-demo.html', '可以直接操作的 Demo：四對四的現實戰鬥'),
+}
 ALL = [d for _, _, ds in PARTS for d in ds]
 DOC_ID = {d: 'doc-' + os.path.splitext(os.path.basename(d))[0].lower().replace('_', '-') for d in ALL}
 
@@ -102,6 +105,11 @@ def convert(md, doc, toc):
                 toc.append((1, did, re.sub(r'<[^>]+>', '', inline(title, doc))))
                 for path, cap in FIGURES.get(doc, []):
                     out.append(f'<figure><img alt="{cap}" src="{data_uri(os.path.join(DOCS, path))}"><figcaption>{cap}</figcaption></figure>')
+                if doc in DEMOS:
+                    path, cap = DEMOS[doc]
+                    src = open(os.path.join(DOCS, path), encoding='utf-8').read()
+                    frag = src.split('<!--demo:start-->', 1)[1].split('<!--demo:end-->', 1)[0]
+                    out.append(f'<p><strong>{cap}</strong></p>{frag}')
             else:
                 num = re.match(r'^(\d+(?:\.\d+)*)', title)
                 hid = f'{did}-{num.group(1).replace(".", "-")}' if num else f'{did}-h{len(out)}'
