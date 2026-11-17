@@ -41,6 +41,7 @@ FIGURES = {  # 在某份文件的標題後面插圖
 DEMOS = {  # 在某份文件的標題後面嵌入可以操作的 Demo（取檔案裡 <!--demo:start--> 到 <!--demo:end--> 之間的內容）
     'systems/COMBAT_SYSTEM.md': ('mockups/combat-demo.html', '可以直接操作的 Demo：四對四的現實戰鬥'),
     'systems/CYBERSPACE.md': ('mockups/net-demo.html', '可以直接操作的 Demo：內海戰鬥'),
+    'systems/OPINION.md': ('mockups/opinion-demo.html', '可以直接操作的 Demo：輿論戰（搶地盤）'),
 }
 ALL = [d for _, _, ds in PARTS for d in ds]
 DOC_ID = {d: 'doc-' + os.path.splitext(os.path.basename(d))[0].lower().replace('_', '-') for d in ALL}

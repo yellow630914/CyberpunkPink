@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>輿論戰 Demo</title>
+<style>
+:root{--bg:#0d0a14;--bg1:#151020;--bg2:#1d1630;--line:#3a2d52;--ink:#efe9f7;--ink2:#b8adc9;--ink3:#8a7f9e;--pink:#ff4fa3;--pinkhi:#ff8fc8;--mint:#5dffb0;--strong:#fff;--tint:#ff4fa312;--font:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;--mono:Consolas,monospace}
+body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-family:var(--font)}
+</style></head><body>
+<!--demo:start-->
+<style>
+.od{--me:#4fd8ff;--foe:#ff3355;--ap:#ffd66b;--apc:#ffd66b;border:1px solid var(--line);background:var(--bg1);padding:14px;margin:18px 0;font-size:13px;line-height:1.5}
+.od *{box-sizing:border-box}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .od{--me:#0a6f96;--foe:#c81e3a;--ap:#b07a00;--apc:#6b4200}}
+:root[data-theme="light"] .od{--me:#0a6f96;--foe:#c81e3a;--ap:#b07a00;--apc:#6b4200}
+.od-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.od-top b{color:var(--pinkhi);letter-spacing:2px}.od-top .sp{flex:1}
+.od-topic{border:1px solid var(--line);padding:1px 8px;color:var(--ink2)}
+.od-slots{display:flex;gap:3px}.od-slots i{font-style:normal;font-size:11px;padding:0 6px;border:1px solid var(--line);color:var(--ink3)}.od-slots i.on{border-color:var(--ap);color:var(--apc);font-weight:700}.od-slots i.done{opacity:.4}
+.od-main{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px}
+@media (max-width:720px){.od-main{grid-template-columns:1fr}}
+.od-board{display:grid;grid-template-columns:auto repeat(3,1fr);gap:6px;align-items:stretch}
+.od-rl{writing-mode:vertical-rl;font-size:11px;color:var(--ink3);letter-spacing:3px;display:flex;align-items:center;justify-content:center}
+.od-c{border:1px solid var(--line);background:var(--bg);min-height:92px;padding:7px 8px;display:flex;flex-direction:column;gap:2px;position:relative;text-align:left;font:inherit;color:var(--ink)}
+.od-c b{font-size:14px;color:var(--strong)}
+.od-c .pt{position:absolute;top:6px;right:8px;font-family:var(--mono);font-size:18px;font-weight:700;color:var(--ap)}.od-c .pt.z{color:var(--ink3)}
+.od-c .ow{font-size:11.5px;color:var(--ink3)}.od-c .df{font-size:11px;color:var(--ink3);margin-top:auto}
+.od-c.me{border-color:var(--me);background:color-mix(in srgb,var(--me) 16%,var(--bg))}.od-c.me .ow{color:var(--me)}
+.od-c.foe{border-color:var(--foe);background:color-mix(in srgb,var(--foe) 16%,var(--bg))}.od-c.foe .ow{color:var(--foe)}
+.od-c.tg{outline:2px solid var(--mint);cursor:pointer}.od-c.tg:hover{background:color-mix(in srgb,var(--mint) 14%,var(--bg))}
+.od-c.sh::after{content:"設防";position:absolute;bottom:6px;right:8px;font-size:10.5px;border:1px solid var(--me);color:var(--me);padding:0 4px}
+.od-c:disabled{cursor:default;opacity:1}
+.od-met{display:flex;flex-direction:column;gap:9px}
+.od-m{display:grid;grid-template-columns:76px 1fr 30px;gap:8px;align-items:center;font-size:12px;color:var(--ink2)}
+.od-m span:last-child{font-family:var(--mono);text-align:right;color:var(--strong)}
+.od-pp{display:flex;gap:2px}.od-pp i{flex:1;height:10px;border:1px solid var(--me);display:block}.od-pp i.f{background:var(--me)}
+.od-pp.foe i{border-color:var(--foe)}.od-pp.foe i.f{background:var(--foe)}
+.od-pp.ap i{border-color:var(--ap);max-width:16px}.od-pp.ap i.f{background:var(--ap)}
+.od-wind{height:10px;background:linear-gradient(90deg,var(--foe),var(--bg2) 50%,var(--me));position:relative;border:1px solid var(--line)}
+.od-wind i{position:absolute;top:-4px;width:4px;height:16px;background:var(--strong);transform:translateX(-2px)}
+.od-score{display:flex;gap:10px;font-family:var(--mono);font-size:22px;font-weight:700;align-items:baseline}.od-score .a{color:var(--me)}.od-score .b{color:var(--foe)}.od-score small{font-size:12px;color:var(--ink3);font-family:var(--font);font-weight:400}
+.od-h{font-size:12px;color:var(--ink3);margin:12px 0 6px}
+.od-hand{display:flex;gap:6px;flex-wrap:wrap}
+.od-card{font:inherit;text-align:left;width:118px;min-height:92px;border:1px solid var(--line);background:var(--bg2);color:var(--ink);padding:6px 7px;cursor:pointer;display:flex;flex-direction:column;gap:2px;position:relative}
+.od-card b{font-size:13px;color:var(--strong);padding-right:16px}.od-card small{color:var(--ink2);font-size:11.5px;line-height:1.35}
+.od-card .co{position:absolute;top:5px;right:6px;font-family:var(--mono);font-weight:700;color:var(--apc)}
+.od-card.t1{border-top:3px solid var(--me)}.od-card.t2{border-top:3px solid var(--pink)}.od-card.t3{border-top:3px solid var(--mint)}
+.od-card:hover:not(:disabled){border-color:var(--pink)}.od-card:disabled{opacity:.4;cursor:not-allowed}.od-card.sel{outline:2px solid var(--mint)}
+.od-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.od-btn{font:inherit;color:var(--ink);background:var(--bg2);border:1px solid var(--line);padding:6px 11px;cursor:pointer;min-height:36px}
+.od-btn:hover:not(:disabled){border-color:var(--pink);color:var(--pinkhi)}.od-btn:disabled{opacity:.35;cursor:not-allowed}.od-btn.sel{border-color:var(--mint);color:var(--mint)}
+.od-btn small{color:var(--apc);margin-left:4px}
+.od-hint{color:var(--ink2);min-height:20px;margin:10px 0 8px}
+.od-log{height:150px;overflow-y:auto;border:1px solid var(--line);background:var(--bg);padding:8px 10px;font-size:12.5px;color:var(--ink2)}
+.od-log p{margin:0 0 3px;max-width:none}.od-log .h{color:var(--pinkhi)}.od-log .g{color:var(--me)}.od-log .r{color:var(--foe)}
+.od-end{padding:12px;border:1px solid var(--pink);color:var(--pinkhi);margin:10px 0;display:none}
+.od-note{color:var(--ink3);font-size:12px;margin-top:8px}
+</style>
+<div class="od" id="odemo">
+  <div class="od-top"><b>輿論戰 DEMO</b><span class="od-topic" id="od-topic"></span><div class="od-slots" id="od-slots"></div><span class="sp"></span><button class="od-btn" id="od-reset">換一個議題重來</button></div>
+  <div class="od-main">
+    <div>
+      <div class="od-board" id="od-board"></div>
+    </div>
+    <div class="od-met">
+      <div class="od-score"><span class="a" id="od-sa"></span><small>你的分數　對</small><span class="b" id="od-sb"></span><small>對手</small></div>
+      <div class="od-m"><span>你的聲量</span><div class="od-pp" id="od-va"></div><span id="od-van"></span></div>
+      <div class="od-m"><span>風向</span><div class="od-wind"><i id="od-w"></i></div><span id="od-wn"></span></div>
+      <div class="od-m"><span>對手聲量</span><div class="od-pp foe" id="od-vb"></div><span id="od-vbn"></span></div>
+      <div class="od-m"><span>編輯點</span><div class="od-pp ap" id="od-ap"></div><span id="od-apn"></span></div>
+      <div class="od-btns"><button class="od-btn" id="od-s1">帶風向<small>1 點</small></button><button class="od-btn" id="od-s2">追擊<small>2 點</small></button><button class="od-btn" id="od-cap">佔領</button><button class="od-btn" id="od-endt">結束回合</button></div>
+    </div>
+  </div>
+  <div class="od-end" id="od-end"></div>
+  <div class="od-h">手牌（藍邊是料、粉邊是說法、綠邊是手段；右上角是要花的編輯點）</div>
+  <div class="od-hand" id="od-hand"></div>
+  <div class="od-hint" id="od-hint"></div>
+  <div class="od-log" id="od-log" aria-live="polite"></div>
+  <div class="od-note">照已確認的規則：九個格子的佈局固定，分數由議題決定（右上角的數字）；六回合，一回合是一天裡的一個時段；每回合抽 2 張、手牌上限 5；編輯點每回合固定、不累積；聲量是進攻（佔格子時花掉），風向是防守。只能佔和自己相鄰的格子：沒人的防守 2，對手的防守 3 減風向，對手搶你的是 3 加風向。佔領每回合一次，「追擊」可以多佔一次。對手是強度 2 的公關：每回合聲量 +3、風向往它那邊推 1，並照性格先搶主流那一排。這裡的你是一個編輯點 4 的主播；牌與數字是為了試手感臨時填的。</div>
+</div>
+<script>
+(function(){
+const $=id=>document.getElementById(id),d20=()=>1+Math.floor(Math.random()*20),cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+const CELLS=['萬華鏡','緋櫻映畫','夜鶯直播','帶子街','同人圈','應援圈','街上的耳語','牆報','地下轉播站'];
+const ROWS=['主流','圈子','街頭'],SLOT=['清晨','上午','中午','下午','黃金時段','深夜'];
+const TOPICS=[
+ {n:'大眾議題：企業醜聞',s:[3,2,1,1,1,1,1,1,0]},
+ {n:'小眾議題：同人社團的糾紛',s:[0,0,2,1,3,2,1,1,1]},
+ {n:'街頭的事：幫派的地盤',s:[0,1,0,2,0,0,3,2,2]},
+ {n:'偶像的醜聞',s:[2,1,2,1,2,3,0,1,0]}];
+const CARDS={
+ clip:{n:'街頭影片',t:1,c:1,d:'聲量 +2',v:2},
+ tape:{n:'感官帶',t:1,c:1,d:'聲量 +2',v:2},
+ doc:{n:'內部文件',t:1,c:2,d:'聲量 +4',v:4},
+ fake:{n:'假料',t:1,c:1,d:'聲量 +4。擲骰 6 以下被拆穿：風向 −2',v:4,risk:6,back:2},
+ talk:{n:'當事人訪談',t:2,c:1,d:'風向 +1',w:1},
+ fact:{n:'查證過的報導',t:2,c:2,d:'風向 +2',w:2},
+ army:{n:'水軍',t:3,c:1,d:'聲量 +3。擲骰 5 以下被拆穿：風向 −1',v:3,risk:5,back:1},
+ guard:{n:'設防',t:3,c:1,d:'你的一格到下回合前不能被搶',pick:1},
+ mute:{n:'降流',t:3,c:1,d:'對手聲量 −2',ev:-2},
+ shift:{n:'轉移焦點',t:3,c:1,d:'雙方聲量各 −2',v:-2,ev:-2}};
+const DECK=['clip','clip','clip','tape','tape','doc','doc','fake','talk','talk','fact','fact','army','army','guard','guard','mute','shift'];
+const ADJ=i=>[i-3,i+3,i%3?i-1:-1,i%3<2?i+1:-1].filter(j=>j>=0&&j<9);
+let S;
+function log(t,c){const p=document.createElement('p');if(c)p.className=c;p.textContent=t;const L=$('od-log');L.appendChild(p);L.scrollTop=L.scrollHeight}
+function hint(t){$('od-hint').textContent=t}
+function init(){const tp=TOPICS[Math.floor(Math.random()*TOPICS.length)],deck=DECK.slice();
+ for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]]}
+ S={tp,own:Array(9).fill(0),sh:Array(9).fill(false),round:1,va:2,vb:2,w:0,ap:4,apMax:4,deck,hand:[],caps:1,s1:false,s2:false,mode:null,busy:false,over:false};
+ S.own[6+Math.floor(Math.random()*3)]=1;S.own[Math.floor(Math.random()*3)]=2;
+ $('od-log').innerHTML='';$('od-end').style.display='none';
+ log('議題：'+tp.n+'。你從街頭起家，對手佔著主流。','h');draw(3);startTurn()}
+function draw(n){for(let i=0;i<n&&S.hand.length<5&&S.deck.length;i++)S.hand.push(S.deck.pop())}
+function startTurn(){S.ap=S.apMax;S.caps=1;S.s1=S.s2=false;S.mode=null;S.busy=false;draw(2);log('—— 第 '+S.round+' 回合・'+SLOT[S.round-1]+' ——','h');hint('出牌或用技能累積聲量與風向，然後佔領一格。');render()}
+const def=(i,who)=>S.own[i]===0?2:Math.max(1,who===1?3-S.w:3+S.w);
+function canCap(i,who){if(S.own[i]===who)return false;if(who===2&&S.sh[i])return false;if(!ADJ(i).some(j=>S.own[j]===who))return false;return (who===1?S.va:S.vb)>=def(i,who)}
+function score(who){return S.own.reduce((a,o,i)=>a+(o===who?S.tp.s[i]:0),0)}
+function play(idx){if(S.busy||S.over)return;const k=S.hand[idx],c=CARDS[k];if(S.ap<c.c)return;
+ if(c.pick){S.mode=S.mode&&S.mode.idx===idx?null:{k:'guard',idx};hint(S.mode?'選你的一格設防（綠框）。':'');return render()}
+ S.ap-=c.c;S.hand.splice(idx,1);S.mode=null;let m='你打出「'+c.n+'」：';
+ if(c.v){S.va=cl(S.va+c.v,0,10);m+='聲量 '+(c.v>0?'+':'')+c.v+'。'}
+ if(c.w){S.w=cl(S.w+c.w,-5,5);m+='風向 +'+c.w+'。'}
+ if(c.ev){S.vb=cl(S.vb+c.ev,0,10);m+='對手聲量 '+c.ev+'。'}
+ log(m,'g');
+ if(c.risk){const r=d20();if(r<=c.risk){S.w=cl(S.w-c.back,-5,5);log('被拆穿了（擲出 '+r+'）：風向 −'+c.back+'。','r')}else log('沒被拆穿（擲出 '+r+'）。')}
+ render()}
+function capture(i){if(!canCap(i,1)||S.caps<1)return;const d=def(i,1),was=S.own[i];S.va-=d;S.own[i]=1;S.caps--;S.mode=null;log('你'+(was?'從對手手上搶下':'佔領')+'「'+CELLS[i]+'」（花聲量 '+d+'，'+S.tp.s[i]+' 分）。','g');hint('');render()}
+function foeTurn(){S.busy=true;render();const steps=[
+ ()=>{S.vb=cl(S.vb+3,0,10);S.w=cl(S.w-1,-5,5);log('對手的公關發稿：聲量 +3，風向往它那邊 1。','r')},
+ ()=>{if(S.round===2){S.va=cl(S.va-2,0,10);log('對手降流：你的聲量 −2。','r')}else if(S.round===4){S.w=cl(S.w-2,-5,5);log('對手反爆料：風向 −2。','r')}else if(S.round===5&&S.vb<6){S.vb=cl(S.vb+2,0,10);log('對手買推廣：聲量 +2。','r')}},
+ ()=>{const c=[...Array(9).keys()].filter(i=>canCap(i,2)).sort((a,b)=>(S.tp.s[b]*(S.own[b]===1?2:1)-S.tp.s[a]*(S.own[a]===1?2:1))||(a-b))[0];
+  if(c==null)log('對手這回合搶不到格子。');else{const d=def(c,2),was=S.own[c];S.vb-=d;S.own[c]=2;log('對手'+(was?'搶走你的':'佔領')+'「'+CELLS[c]+'」（'+S.tp.s[c]+' 分）。','r')}}];
+ let n=0;(function go(){if(n<steps.length){steps[n++]();render();setTimeout(go,650)}else{S.sh.fill(false);if(S.round>=6)return finish();S.round++;startTurn()}})()}
+function finish(){S.over=true;S.busy=false;const a=score(1),b=score(2),el=$('od-end');el.style.display='block';
+ el.textContent=(a>b?'你贏了':a<b?'對手贏了':'平手')+'：'+a+' 分對 '+b+' 分。'+(a>b?(a-b>=4?'大勝：在正式的遊戲裡，目標勢力的名聲會重挫。':'小勝：事情傳開了，但對方還撐得住。'):a<b?'這件事被壓下去了。':'各說各話。');log('結算：'+a+' 對 '+b+'。','h');render()}
+function render(){const B=$('od-board');let h='';const can=!S.busy&&!S.over;
+ for(let r=0;r<3;r++){h+='<div class="od-rl">'+ROWS[r]+'</div>';for(let c=0;c<3;c++){const i=r*3+c,o=S.own[i],tg=can&&((S.mode&&S.mode.k==='cap'&&canCap(i,1))||(S.mode&&S.mode.k==='guard'&&o===1&&!S.sh[i]));
+  h+='<button class="od-c'+(o===1?' me':o===2?' foe':'')+(tg?' tg':'')+(S.sh[i]?' sh':'')+'" data-i="'+i+'"'+(tg?'':' disabled')+' aria-label="'+CELLS[i]+'，'+S.tp.s[i]+' 分，'+(o===1?'你的':o===2?'對手的':'沒人的')+'"><b>'+CELLS[i]+'</b><span class="pt'+(S.tp.s[i]?'':' z')+'">'+S.tp.s[i]+'</span><span class="ow">'+(o===1?'你的':o===2?'對手的':'沒人的')+'</span>'+(o!==1?'<span class="df">防守 '+def(i,1)+'</span>':'<span class="df">對手要 '+def(i,2)+'</span>')+'</button>'}}
+ B.innerHTML=h;
+ const pp=(n,m)=>{let s='';for(let i=0;i<m;i++)s+='<i class="'+(i<n?'f':'')+'"></i>';return s};
+ $('od-va').innerHTML=pp(S.va,10);$('od-van').textContent=S.va;$('od-vb').innerHTML=pp(S.vb,10);$('od-vbn').textContent=S.vb;
+ $('od-ap').innerHTML=pp(S.ap,S.apMax);$('od-apn').textContent=S.ap;
+ $('od-w').style.left=((S.w+5)*10)+'%';$('od-wn').textContent=(S.w>0?'+':'')+S.w;
+ $('od-sa').textContent=score(1);$('od-sb').textContent=score(2);
+ $('od-topic').textContent=S.tp.n;
+ $('od-slots').innerHTML=SLOT.map((s,i)=>'<i class="'+(i===S.round-1&&!S.over?'on':i<S.round-1||S.over?'done':'')+'">'+s+'</i>').join('');
+ $('od-hand').innerHTML=S.hand.map((k,i)=>{const c=CARDS[k];return '<button class="od-card t'+c.t+(S.mode&&S.mode.idx===i?' sel':'')+'" data-h="'+i+'"'+(can&&S.ap>=c.c?'':' disabled')+'><b>'+c.n+'</b><span class="co">'+c.c+'</span><small>'+c.d+'</small></button>'}).join('')||'<span style="color:var(--ink3)">沒有手牌。</span>';
+ $('od-s1').disabled=!can||S.s1||S.ap<1;$('od-s2').disabled=!can||S.s2||S.ap<2;
+ const anyCap=[...Array(9).keys()].some(i=>canCap(i,1));
+ $('od-cap').disabled=!can||S.caps<1||!anyCap;$('od-cap').classList.toggle('sel',!!(S.mode&&S.mode.k==='cap'));$('od-cap').textContent='佔領'+(S.caps>1?'（'+S.caps+' 次）':S.caps<1?'（已用）':'');
+ $('od-endt').disabled=!can}
+$('od-hand').addEventListener('click',e=>{const b=e.target.closest('[data-h]');if(b&&!b.disabled)play(+b.dataset.h)});
+$('od-board').addEventListener('click',e=>{const b=e.target.closest('.od-c.tg');if(!b||S.busy||S.over||!S.mode)return;const i=+b.dataset.i;
+ if(S.mode.k==='cap')return capture(i);
+ if(S.mode.k==='guard'){const idx=S.mode.idx;S.ap-=CARDS.guard.c;S.hand.splice(idx,1);S.sh[i]=true;S.mode=null;log('你替「'+CELLS[i]+'」設防：到下回合前不能被搶。','g');hint('');render()}});
+$('od-cap').addEventListener('click',()=>{if(S.busy||S.over)return;S.mode=S.mode&&S.mode.k==='cap'?null:{k:'cap'};hint(S.mode?'選一個相鄰、而且你的聲量夠的格子（綠框）。':'');render()});
+$('od-s1').addEventListener('click',()=>{if(S.busy||S.over||S.s1||S.ap<1)return;S.ap--;S.s1=true;S.w=cl(S.w+1,-5,5);log('你帶風向：風向 +1。','g');render()});
+$('od-s2').addEventListener('click',()=>{if(S.busy||S.over||S.s2||S.ap<2)return;S.ap-=2;S.s2=true;S.caps++;log('你追擊：這回合可以多佔一格。','g');render()});
+$('od-endt').addEventListener('click',()=>{if(S.busy||S.over)return;S.mode=null;hint('');foeTurn()});
+$('od-reset').addEventListener('click',init);
+init();
+})();
+</script>
+<!--demo:end-->
+</body></html>
