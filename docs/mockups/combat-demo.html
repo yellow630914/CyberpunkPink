@@ -34,7 +34,9 @@ body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-famil
 .cd-pips.m i{border-color:var(--ink2);border-radius:50%}.cd-pips.m i.f{background:var(--ink2)}
 .cd-pips.l i{border-color:var(--ld);transform:rotate(45deg);width:7px;height:7px;margin:0 2px}.cd-pips.l i.f{background:var(--ld)}
 .cd-st{display:flex;gap:3px;flex-wrap:wrap;min-height:16px}.cd-st span{font-size:10.5px;padding:0 4px;border:1px solid var(--line);color:var(--pinkhi)}
-.cd-act{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 6px}
+.cd-act{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 6px;align-items:flex-end}
+.cd-grp{border:1px solid var(--line);padding:5px 6px 6px}.cd-grp>span{display:block;font-size:11px;color:var(--ink3);letter-spacing:2px;margin-bottom:4px;min-height:14px}.cd-grp>div{display:flex;gap:5px;flex-wrap:wrap}
+.cd-grp:last-child{border-color:transparent}
 .cd-btn{font:inherit;color:var(--ink);background:var(--bg2);border:1px solid var(--line);padding:6px 11px;cursor:pointer;min-height:36px}
 .cd-btn:hover:not(:disabled){border-color:var(--pink);color:var(--pinkhi)}
 .cd-btn:disabled{opacity:.35;cursor:not-allowed}.cd-btn.sel{border-color:var(--mint);color:var(--mint)}
@@ -52,19 +54,19 @@ body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-famil
   <div class="cd-act" id="cd-act"></div>
   <div class="cd-hint" id="cd-hint"></div>
   <div class="cd-log" id="cd-log" aria-live="polite"></div>
-  <div class="cd-note">照已確認的規則：雙方各四格縱深，距離＝我的格數＋對方格數−1；遮蔽可破壞（掩體→半掩體→暴露），前面那格沒有人也沒有遮蔽時後排往前補；行動點每回合回 3；彈匣 1～4 格，連射打空彈匣並自帶壓制；神經傷害打感載，過載失去一回合並疊一層餘韻；制伏要在近身。沒有做的：技能、無人機與機甲、快駭、場地效果。數值都是初稿。</div>
+  <div class="cd-note">照已確認的規則：雙方各四格縱深，距離＝我的格數＋對方格數−1；每次攻擊都會照武器的倍率傷到目標那一格的遮蔽（掩體→半掩體→暴露）；前面那格沒有人也沒有遮蔽時，後排連同自己的遮蔽往前補；行動點每回合回 3；彈匣 1～4 格，連射打空彈匣並自帶壓制；神經傷害打感載，過載失去一回合並疊一層餘韻；制伏要在近身。沒有做的：技能、無人機與機甲、快駭、場地效果。數值都是初稿。</div>
 </div>
 <script>
 (function(){
 const $=id=>document.getElementById(id), d6=n=>{let s=0;for(let i=0;i<n;i++)s+=1+Math.floor(Math.random()*6);return s}, d20=()=>1+Math.floor(Math.random()*20);
 const W={
- rifle:{n:'步槍',dice:4,r:[3,7],mag:3,pen:2,t:'p',long:1},
- shotgun:{n:'霰彈槍',dice:5,far:3,r:[1,3],mag:2,pen:0,t:'p',brk:1,push:1},
- pistol:{n:'手槍',dice:3,r:[1,4],mag:2,pen:0,t:'p'},
- smg:{n:'衝鋒槍',dice:3,r:[2,5],mag:3,pen:0,t:'p'},
- sniper:{n:'狙擊槍',dice:6,r:[5,7],mag:1,pen:4,t:'p',long:1},
- stun:{n:'感官彈槍',dice:3,r:[2,5],mag:2,pen:0,t:'n'},
- knife:{n:'刀',dice:3,r:[1,1],mag:0,pen:1,t:'p',melee:1}
+ rifle:{n:'步槍',dice:4,r:[3,7],mag:3,pen:2,t:'p',long:1,cm:.5},
+ shotgun:{n:'霰彈槍',dice:5,far:3,r:[1,3],mag:2,pen:0,t:'p',push:1,cm:1.5},
+ pistol:{n:'手槍',dice:3,r:[1,4],mag:2,pen:0,t:'p',cm:.25},
+ smg:{n:'衝鋒槍',dice:3,r:[2,5],mag:3,pen:0,t:'p',cm:.5},
+ sniper:{n:'狙擊槍',dice:6,r:[5,7],mag:1,pen:4,t:'p',long:1,cm:.25},
+ stun:{n:'感官彈槍',dice:3,r:[2,5],mag:2,pen:0,t:'n',cm:0},
+ knife:{n:'刀',dice:3,r:[1,1],mag:0,pen:1,t:'p',melee:1,cm:0}
 };
 const COVN=['暴露','半掩體','掩體'], COVB=[0,2,4], COVD=[0,15,30];
 let S;
@@ -98,8 +100,8 @@ const tag=u=>(u.side==='P'?'':'敵・')+u.name;
 function dodge(u){return 10+u.refl+COVB[S.cov[u.side][u.slot].l]-u.layers}
 function rmod(a,t,w){const d=dist(a,t);let m=0;if(d<w.r[0])m=-2*(w.r[0]-d);if(d>w.r[1])m=-2*(d-w.r[1]);if(w.long&&a.slot===1)m-=4;return m}
 function hitChance(a,t,w){const b=(w.melee?a.mel:a.gun)+rmod(a,t,w)+(a.aim?3:0)-(a.supp?2:0)-a.layers;return Math.max(5,Math.min(95,(21-(dodge(t)-b))*5))}
-function compact(side){let moved=true;while(moved){moved=false;for(let s=1;s<=3;s++){if(!at(side,s)&&S.cov[side][s].l===0){const back=S.units.filter(u=>u.side===side&&!u.down&&u.slot>s);if(back.length){back.forEach(u=>u.slot--);log((side==='P'?'我方':'敵方')+'後排往前補位。');moved=true;break}}}}}
-function hurtCover(side,slot,dmg,brk){const c=S.cov[side][slot];if(c.l===0)return;if(!at(side,slot))dmg*=2;c.d-=dmg;if(brk||c.d<=0){c.l--;c.d=COVD[c.l];log((side==='P'?'我方':'敵方')+'第 '+slot+' 格的遮蔽被打成'+COVN[c.l]+'。','h')}compact(side)}
+function compact(side){let moved=true;while(moved){moved=false;for(let s=1;s<=3;s++){if(!at(side,s)&&S.cov[side][s].l===0){const back=S.units.filter(u=>u.side===side&&!u.down&&u.slot>s);if(back.length){back.forEach(u=>u.slot--);const c=S.cov[side];for(let k=s;k<4;k++)c[k]=c[k+1];c[4]={l:0,d:0};log((side==='P'?'我方':'敵方')+'後排連同遮蔽往前補位。');moved=true;break}}}}}
+function hurtCover(side,slot,dmg){const c=S.cov[side][slot];dmg=Math.round(dmg);if(c.l===0||dmg<=0)return;if(!at(side,slot))dmg*=2;c.d-=dmg;while(c.l>0&&c.d<=0){c.l--;c.d+=COVD[c.l];if(c.l===0)c.d=0;log((side==='P'?'我方':'敵方')+'第 '+slot+' 格的遮蔽被打成'+COVN[c.l]+'。','h')}compact(side)}
 function fall(u,how){u.down=true;u.stun=false;log(tag(u)+how,u.side==='P'?'r':'g');compact(u.side);check()}
 function neural(t,n){t.load+=n;if(t.load>=t.loadMax){t.load=0;t.layers++;if(t.layers>t.layersMax){fall(t,' 餘韻疊滿後再過載：倒下。')}else{t.stun=true;log(tag(t)+' 過載！失去下一回合，餘韻 '+t.layers+' 層。','h')}}}
 function attack(a,t,o){o=o||{};const w=o.w||wp(a),slotW=a.ws[a.wi],n=o.burst?slotW.mag:1;
@@ -110,11 +112,12 @@ function attack(a,t,o){o=o||{};const w=o.w||wp(a),slotW=a.ws[a.wi],n=o.burst?slo
  const hit=r===20||(r!==1&&tot>=dg), crit=hit&&tot-dg>=5;
  let msg=tag(a)+(o.burst?' 用'+w.n+'連射（'+n+' 格）':' 用'+w.n+'攻擊')+' '+tag(t)+'：d20='+r+(bonus>=0?'+':'')+bonus+'='+tot+' 對迴避 '+dg+'，';
  if(!hit){
-  if(r!==1&&cb&&tot>=dg-cb){const dm=d6(dice);log(msg+'被遮蔽擋下（遮蔽受 '+dm+'）。');hurtCover(t.side,t.slot,dm,w.brk)}
-  else log(msg+(r===1?'自然 1，':'')+'沒打中。');
+  log(msg+(r===1?'自然 1，':'')+(r!==1&&cb&&tot>=dg-cb?'被遮蔽擋下。':'沒打中。'));
+  if(cb&&w.cm){const cs=t.side,sl=t.slot,dm=d6(dice)*w.cm;log('遮蔽受 '+Math.round(dm)+'（'+w.n+' ×'+w.cm+'）。');hurtCover(cs,sl,dm)}
  }else{
   if(crit)dice++;const wound=r===20||(crit&&aimed);if(wound&&!t.elite&&t.side==='E')dice++;
   const raw=d6(dice);
+  if(cb&&w.cm){log('遮蔽受 '+Math.round(raw*w.cm)+'（'+w.n+' ×'+w.cm+'）。');hurtCover(t.side,t.slot,raw*w.cm)}
   if(w.t==='n'){log(msg+(crit?'要害！':'命中，')+'感載 +'+raw+'。');neural(t,raw)}
   else{const dm=Math.max(0,raw-Math.max(0,t.armor-w.pen));t.hp-=dm;log(msg+(r===20?'自然 20！':crit?'要害！':'命中，')+'傷害 '+raw+'，扣護甲後 '+dm+'。');
    if(wound&&(t.elite||t.side==='P')&&t.hp>0){if(Math.random()<.5){t.bleed=true;log(tag(t)+' 重創（軀幹）：流血。','h')}else{t.daze=true;log(tag(t)+' 重創（頭）：暈眩，下回合行動點 −2。','h')}}
@@ -160,17 +163,17 @@ function ai(u,n){if(S.over||u.down||n>6||u.ap<=0){S.busy=false;return next()}
 }
 /* ---- 玩家行動 ---- */
 const ACTS=[
- {k:'shoot',n:'射擊',c:2,ok:u=>!wp(u).melee&&u.ws[u.wi].mag>=1,tg:'foe'},
- {k:'burst',n:'連射',c:3,ok:u=>!wp(u).melee&&wp(u).mag>=2&&u.ws[u.wi].mag>=2,tg:'foe'},
- {k:'melee',n:'近戰',c:2,ok:u=>wp(u).melee,tg:'melee'},
- {k:'aim',n:'瞄準',c:1,ok:u=>!u.aim},
- {k:'move',n:'換位',c:1,ok:u=>canMove(u,u.slot-1)||canMove(u,u.slot+1),tg:'slot'},
- {k:'reload',n:'換彈',c:1,ok:u=>wp(u).mag&&u.ws[u.wi].mag<wp(u).mag},
- {k:'swap',n:'換武器',c:1,ok:u=>u.ws.length>1},
- {k:'cover',n:'打遮蔽',c:2,ok:u=>!wp(u).melee&&u.ws[u.wi].mag>=1,tg:'ecov'},
- {k:'watch',n:'待命',c:1,ok:u=>!u.watch},
- {k:'subdue',n:'制伏',c:2,ok:u=>alive('E').some(t=>canSubdue(u,t)),tg:'sub'},
- {k:'end',n:'結束回合',c:0,ok:()=>true}
+ {k:'shoot',g:'atk',n:'射擊',c:2,ok:u=>!wp(u).melee&&u.ws[u.wi].mag>=1,tg:'foe'},
+ {k:'burst',g:'atk',n:'連射',c:3,ok:u=>!wp(u).melee&&wp(u).mag>=2&&u.ws[u.wi].mag>=2,tg:'foe'},
+ {k:'melee',g:'atk',n:'近戰',c:2,ok:u=>wp(u).melee,tg:'melee'},
+ {k:'aim',g:'atk',n:'瞄準',c:1,ok:u=>!u.aim},
+ {k:'move',g:'tac',n:'換位',c:1,ok:u=>canMove(u,u.slot-1)||canMove(u,u.slot+1),tg:'slot'},
+ {k:'reload',g:'res',n:'換彈',c:1,ok:u=>wp(u).mag&&u.ws[u.wi].mag<wp(u).mag},
+ {k:'swap',g:'res',n:'換武器',c:1,ok:u=>u.ws.length>1},
+ {k:'cover',g:'tac',n:'打遮蔽',c:2,ok:u=>!wp(u).melee&&u.ws[u.wi].mag>=1,tg:'ecov'},
+ {k:'watch',g:'tac',n:'待命',c:1,ok:u=>!u.watch},
+ {k:'subdue',g:'tac',n:'制伏',c:2,ok:u=>alive('E').some(t=>canSubdue(u,t)),tg:'sub'},
+ {k:'end',g:'end',n:'結束回合',c:0,ok:()=>true}
 ];
 function act(k){if(S.busy||S.over)return;const u=cur(),a=ACTS.find(x=>x.k===k);if(u.ap<a.c||!a.ok(u))return;
  if(a.tg){S.mode=S.mode===k?null:k;hint(S.mode?({foe:'選一個敵人（綠框）。括號裡是命中率。',melee:'選近身的敵人。',slot:'選要換到哪一格（綠框）。往後退、讓前面空著，前面那一格要有遮蔽。',ecov:'選敵方的一格，打它的遮蔽。沒人站的格子，遮蔽耐久減半。',sub:'選一個正在過載的近身敵人。精英要餘韻疊滿。'})[a.tg]:'');return render()}
@@ -189,7 +192,7 @@ function pick(kind,v){if(S.busy||S.over||!S.mode)return;const u=cur(),k=S.mode;
   else if(k==='sub'){if(!canSubdue(u,t))return;u.ap-=2;subdue(u,t)}else return}
  else if(kind==='slot'){const [side,slot]=v;
   if(k==='move'&&side==='P'){if(Math.abs(slot-u.slot)!==1||!canMove(u,slot))return;u.ap--;move(u,slot)}
-  else if(k==='cover'&&side==='E'){if(S.cov.E[slot].l===0)return;u.ap-=2;u.ws[u.wi].mag--;const w=wp(u),dm=d6(w.dice);log(u.name+' 打敵方第 '+slot+' 格的遮蔽（'+dm+'）。');hurtCover('E',slot,dm,w.brk)}else return}
+  else if(k==='cover'&&side==='E'){if(S.cov.E[slot].l===0)return;u.ap-=2;u.ws[u.wi].mag--;const w=wp(u),dm=Math.round(d6(w.dice)*Math.max(1,w.cm*2));log(u.name+' 打敵方第 '+slot+' 格的遮蔽（'+dm+'）。');hurtCover('E',slot,dm)}else return}
  S.mode=null;hint('');render()
 }
 /* ---- 畫面 ---- */
@@ -213,7 +216,9 @@ function render(){const u=cur(),m=S.mode,F=$('cd-field');let h='';
  $('cd-order').innerHTML=S.order.map((id,i)=>{const x=S.units[id];return x.down?'':'<span class="cd-chip'+(i===S.idx?' on':'')+(x.side==='E'?' e':'')+'">'+x.name+'</span>'}).join('');
  const A=$('cd-act');
  if(S.over||u.side==='E'){A.innerHTML=S.over?'':'<span class="cd-hint">敵方行動中……</span>'}
- else A.innerHTML=ACTS.map(a=>'<button class="cd-btn'+(m===a.k?' sel':'')+'" data-a="'+a.k+'"'+(u.ap<a.c||!a.ok(u)?' disabled':'')+'>'+a.n+(a.c?'<small>'+a.c+'</small>':'')+'</button>').join('');
+ else{const btn=a=>'<button class="cd-btn'+(m===a.k?' sel':'')+'" data-a="'+a.k+'"'+(u.ap<a.c||!a.ok(u)?' disabled':'')+'>'+a.n+(a.c?'<small>'+a.c+'</small>':'')+'</button>';
+  const grp=(g,t)=>'<div class="cd-grp"><span>'+t+'</span><div>'+ACTS.filter(a=>a.g===g).map(btn).join('')+'</div></div>';
+  A.innerHTML=grp('atk','攻擊')+grp('res','補充與切換')+grp('tac','戰術')+'<div class="cd-grp"><span>技能</span><div><button class="cd-btn" disabled>（之後放這裡）</button></div></div>'+grp('end','')}
 }
 $('cd-act').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b)act(b.dataset.a)});
 $('cd-field').addEventListener('click',e=>{const x=e.target.closest('.cd-u.tg');if(x)return pick('unit',+x.dataset.u);const s=e.target.closest('.cd-slot.tg');if(s)pick('slot',[s.dataset.s[0],+s.dataset.s[1]])});
