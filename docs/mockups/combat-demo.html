@@ -34,9 +34,22 @@ body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-famil
 .cd-pips.m i{border-color:var(--ink2);border-radius:50%}.cd-pips.m i.f{background:var(--ink2)}
 .cd-pips.l i{border-color:var(--ld);transform:rotate(45deg);width:7px;height:7px;margin:0 2px}.cd-pips.l i.f{background:var(--ld)}
 .cd-st{display:flex;gap:3px;flex-wrap:wrap;min-height:16px}.cd-st span{font-size:10.5px;padding:0 4px;border:1px solid var(--line);color:var(--pinkhi)}
-.cd-act{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 6px;align-items:flex-end}
-.cd-grp{border:1px solid var(--line);padding:5px 6px 6px}.cd-grp>span{display:block;font-size:11px;color:var(--ink3);letter-spacing:2px;margin-bottom:4px;min-height:14px}.cd-grp>div{display:flex;gap:5px;flex-wrap:wrap}
-.cd-grp:last-child{border-color:transparent}
+.cd-act{display:flex;gap:16px;flex-wrap:wrap;margin:12px 0 6px;align-items:flex-start}
+.cd-w{width:348px;max-width:100%;height:auto;flex:none;touch-action:manipulation}
+.cd-w path,.cd-w circle{fill:var(--bg2);stroke:var(--line);stroke-width:1}
+.cd-w .r-atk path{fill:color-mix(in srgb,var(--hp) 16%,var(--bg2))}
+.cd-w .r-res path{fill:color-mix(in srgb,var(--ap) 14%,var(--bg2))}
+.cd-w .r-tac path{fill:color-mix(in srgb,var(--cv) 14%,var(--bg2))}
+.cd-w .r-skl circle{fill:color-mix(in srgb,var(--mint) 16%,var(--bg2))}
+.cd-w g{cursor:pointer;outline:none}.cd-w g.dis{opacity:.32;cursor:not-allowed}
+.cd-w g:not(.dis):hover path,.cd-w g:not(.dis):focus-visible path,.cd-w g:hover circle,.cd-w g:focus-visible circle{stroke:var(--pink);stroke-width:2}
+.cd-w g.sel path,.cd-w g.sel circle{stroke:var(--mint);stroke-width:2.5}
+.cd-w text{fill:var(--ink);font-size:13px;text-anchor:middle;pointer-events:none}.cd-w text.c{fill:var(--ap);font-size:11px}
+.cd-side{flex:1;min-width:200px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.cd-leg{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--ink2)}
+.cd-leg span::before{content:"";display:inline-block;width:9px;height:9px;margin-right:6px;border:1px solid var(--line)}
+.cd-leg .k-skl::before{background:var(--mint)}.cd-leg .k-res::before{background:var(--ap)}.cd-leg .k-atk::before{background:var(--hp)}.cd-leg .k-tac::before{background:var(--cv)}
+.cd-skl{border:1px solid var(--line);padding:8px 10px;background:var(--bg);font-size:12.5px;color:var(--ink2)}.cd-skl b{color:var(--mint)}.cd-skl p{margin:4px 0 0}
 .cd-btn{font:inherit;color:var(--ink);background:var(--bg2);border:1px solid var(--line);padding:6px 11px;cursor:pointer;min-height:36px}
 .cd-btn:hover:not(:disabled){border-color:var(--pink);color:var(--pinkhi)}
 .cd-btn:disabled{opacity:.35;cursor:not-allowed}.cd-btn.sel{border-color:var(--mint);color:var(--mint)}
@@ -173,9 +186,11 @@ const ACTS=[
  {k:'cover',g:'tac',n:'打遮蔽',c:2,ok:u=>!wp(u).melee&&u.ws[u.wi].mag>=1,tg:'ecov'},
  {k:'watch',g:'tac',n:'待命',c:1,ok:u=>!u.watch},
  {k:'subdue',g:'tac',n:'制伏',c:2,ok:u=>alive('E').some(t=>canSubdue(u,t)),tg:'sub'},
+ {k:'item',g:'res',n:'道具',c:1,ok:()=>false},
+ {k:'flee',g:'tac',n:'脫離',c:2,ok:()=>false},
  {k:'end',g:'end',n:'結束回合',c:0,ok:()=>true}
 ];
-function act(k){if(S.busy||S.over)return;const u=cur(),a=ACTS.find(x=>x.k===k);if(u.ap<a.c||!a.ok(u))return;
+function act(k){if(S.busy||S.over)return;if(k==='skill'){S.skill=!S.skill;return render()}const u=cur(),a=ACTS.find(x=>x.k===k);if(!a)return;if(u.ap<a.c||!a.ok(u))return;
  if(a.tg){S.mode=S.mode===k?null:k;hint(S.mode?({foe:'選一個敵人（綠框）。括號裡是命中率。',melee:'選近身的敵人。',slot:'選要換到哪一格（綠框）。往後退、讓前面空著，前面那一格要有遮蔽。',ecov:'選敵方的一格，打它的遮蔽。沒人站的格子，遮蔽耐久減半。',sub:'選一個正在過載的近身敵人。精英要餘韻疊滿。'})[a.tg]:'');return render()}
  S.mode=null;
  if(k==='aim'){u.ap--;u.aim=true;log(u.name+' 瞄準：下一次射擊 +3。')}
@@ -216,11 +231,18 @@ function render(){const u=cur(),m=S.mode,F=$('cd-field');let h='';
  $('cd-order').innerHTML=S.order.map((id,i)=>{const x=S.units[id];return x.down?'':'<span class="cd-chip'+(i===S.idx?' on':'')+(x.side==='E'?' e':'')+'">'+x.name+'</span>'}).join('');
  const A=$('cd-act');
  if(S.over||u.side==='E'){A.innerHTML=S.over?'':'<span class="cd-hint">敵方行動中……</span>'}
- else{const btn=a=>'<button class="cd-btn'+(m===a.k?' sel':'')+'" data-a="'+a.k+'"'+(u.ap<a.c||!a.ok(u)?' disabled':'')+'>'+a.n+(a.c?'<small>'+a.c+'</small>':'')+'</button>';
-  const grp=(g,t)=>'<div class="cd-grp"><span>'+t+'</span><div>'+ACTS.filter(a=>a.g===g).map(btn).join('')+'</div></div>';
-  A.innerHTML=grp('atk','攻擊')+grp('res','補充與切換')+grp('tac','戰術')+'<div class="cd-grp"><span>技能</span><div><button class="cd-btn" disabled>（之後放這裡）</button></div></div>'+grp('end','')}
+ else{const CX=174,CY=174,pt=(r,a)=>{const t=(a-90)*Math.PI/180;return [(CX+r*Math.cos(t)).toFixed(1),(CY+r*Math.sin(t)).toFixed(1)]};
+  const arc=(r0,r1,a0,a1)=>{const A0=pt(r1,a0),A1=pt(r1,a1),B1=pt(r0,a1),B0=pt(r0,a0);return 'M'+A0+'A'+r1+' '+r1+' 0 0 1 '+A1+'L'+B1+'A'+r0+' '+r0+' 0 0 0 '+B0+'Z'};
+  const ring=(g,r0,r1,off)=>{const L=ACTS.filter(a=>a.g===g),st=360/L.length;return L.map((a,i)=>{const a0=off+i*st+1.2,a1=off+(i+1)*st-1.2,dis=u.ap<a.c||!a.ok(u),c=pt((r0+r1)/2,(a0+a1)/2);
+   return '<g class="r-'+g+(dis?' dis':'')+(m===a.k?' sel':'')+'" data-a="'+a.k+'" role="button" tabindex="'+(dis?-1:0)+'" aria-disabled="'+dis+'" aria-label="'+a.n+'，'+a.c+' 點行動點"><path d="'+arc(r0,r1,a0,a1)+'"/><text x="'+c[0]+'" y="'+(+c[1]-2)+'">'+a.n+'</text><text class="c" x="'+c[0]+'" y="'+(+c[1]+12)+'">'+a.c+'</text></g>'}).join('')};
+  A.innerHTML='<svg class="cd-w" viewBox="0 0 348 348" role="group" aria-label="行動圓環">'+ring('tac',130,170,-36)+ring('atk',86,126,-45)+ring('res',44,82,-60)
+   +'<g class="r-skl'+(S.skill?' sel':'')+'" data-a="skill" role="button" tabindex="0" aria-label="技能清單"><circle cx="174" cy="174" r="40"/><text x="174" y="179">技能</text></g></svg>'
+   +'<div class="cd-side"><div class="cd-leg"><span class="k-skl">中心　技能</span><span class="k-res">內環　補充與切換</span><span class="k-atk">中環　攻擊</span><span class="k-tac">外環　戰術</span></div>'
+   +'<button class="cd-btn" data-a="end">結束回合</button>'
+   +(S.skill?'<div class="cd-skl"><b>技能清單</b><p>這個 Demo 還沒有技能。正式版這裡列出這個角色裝著的主動技能與姿態，點了才展開，不佔圓環的位置。</p></div>':'')+'</div>'}
 }
-$('cd-act').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b)act(b.dataset.a)});
+$('cd-act').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b&&!b.classList.contains('dis'))act(b.getAttribute('data-a'))});
+$('cd-act').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const b=e.target.closest('g[data-a]');if(b&&!b.classList.contains('dis')){e.preventDefault();act(b.getAttribute('data-a'))}});
 $('cd-field').addEventListener('click',e=>{const x=e.target.closest('.cd-u.tg');if(x)return pick('unit',+x.dataset.u);const s=e.target.closest('.cd-slot.tg');if(s)pick('slot',[s.dataset.s[0],+s.dataset.s[1]])});
 $('cd-reset').addEventListener('click',init);
 init();
