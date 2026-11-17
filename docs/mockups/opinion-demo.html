@@ -55,7 +55,7 @@ body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-famil
 .od-note{color:var(--ink3);font-size:12px;margin-top:8px}
 </style>
 <div class="od" id="odemo">
-  <div class="od-top"><b>輿論戰 DEMO</b><span class="od-topic" id="od-topic"></span><div class="od-slots" id="od-slots"></div><span class="sp"></span><button class="od-btn" id="od-reset">換一個議題重來</button></div>
+  <div class="od-top"><b>輿論戰 DEMO</b><span class="od-topic" id="od-topic"></span><div class="od-slots" id="od-slots"></div><span class="sp"></span><div class="od-btns" id="od-st" style="margin:0;align-items:center"><span style="color:var(--ink3);font-size:12px">對手強度</span><button class="od-btn" data-st="1">1</button><button class="od-btn" data-st="2">2</button><button class="od-btn" data-st="3">3</button></div><button class="od-btn" id="od-reset">換一個議題重來</button></div>
   <div class="od-main">
     <div>
       <div class="od-board" id="od-board"></div>
@@ -74,7 +74,7 @@ body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-famil
   <div class="od-hand" id="od-hand"></div>
   <div class="od-hint" id="od-hint"></div>
   <div class="od-log" id="od-log" aria-live="polite"></div>
-  <div class="od-note">照已確認的規則：九個格子的佈局固定，分數由議題決定（右上角的數字）；六回合，一回合是一天裡的一個時段；每回合抽 2 張、手牌上限 5；編輯點每回合固定、不累積；聲量是進攻（佔格子時花掉），風向是防守。只能佔和自己相鄰的格子：沒人的防守 2，對手的防守 3 減風向，對手搶你的是 3 加風向。佔領每回合一次，「追擊」可以多佔一次。對手是強度 2 的公關：每回合聲量 +3、風向往它那邊推 1，並照性格先搶主流那一排。這裡的你是一個編輯點 4 的主播；牌與數字是為了試手感臨時填的。</div>
+  <div class="od-note">照已確認的規則：九個格子的佈局固定，分數由議題決定（右上角的數字）；六回合，一回合是一天裡的一個時段；每回合抽 2 張、手牌上限 5；編輯點每回合固定、不累積；聲量是進攻（佔格子時花掉），風向是防守。只能佔和自己相鄰的格子：沒人的防守 2，對手的防守 3 減風向，對手搶你的是 3 加風向。佔領每回合一次，「追擊」可以多佔一次。一方的格子被清空就立刻結束。對手每回合有「強度×2」點公關點，花在發稿（1 點，聲量 +2）、否認（1 點）、降流（1 點）、反爆料（2 點）、律師函（2 點，強度 3）、追擊（2 點，強度 2 以上）上，單位和你的編輯點相同；上方可以切換強度，切換會重開一場。這裡的你是一個編輯點 4 的起步主播，大約和強度 2 勢均力敵；牌與數字是為了試手感臨時填的。</div>
 </div>
 <script>
 (function(){
@@ -99,17 +99,17 @@ const CARDS={
  shift:{n:'轉移焦點',t:3,c:1,d:'雙方聲量各 −2',v:-2,ev:-2}};
 const DECK=['clip','clip','clip','tape','tape','doc','doc','fake','talk','talk','fact','fact','army','army','guard','guard','mute','shift'];
 const ADJ=i=>[i-3,i+3,i%3?i-1:-1,i%3<2?i+1:-1].filter(j=>j>=0&&j<9);
-let S;
+let S,ST=2;
 function log(t,c){const p=document.createElement('p');if(c)p.className=c;p.textContent=t;const L=$('od-log');L.appendChild(p);L.scrollTop=L.scrollHeight}
 function hint(t){$('od-hint').textContent=t}
 function init(){const tp=TOPICS[Math.floor(Math.random()*TOPICS.length)],deck=DECK.slice();
  for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]]}
- S={tp,own:Array(9).fill(0),sh:Array(9).fill(false),round:1,va:2,vb:2,w:0,ap:4,apMax:4,deck,hand:[],caps:1,s1:false,s2:false,mode:null,busy:false,over:false};
+ S={tp,own:Array(9).fill(0),sh:Array(9).fill(false),round:1,va:2,vb:2,w:0,ap:4,apMax:4,deck,hand:[],caps:1,s1:false,s2:false,mode:null,busy:false,over:false,st:ST,cut:0};
  S.own[6+Math.floor(Math.random()*3)]=1;S.own[Math.floor(Math.random()*3)]=2;
  $('od-log').innerHTML='';$('od-end').style.display='none';
- log('議題：'+tp.n+'。你從街頭起家，對手佔著主流。','h');draw(3);startTurn()}
+ log('議題：'+tp.n+'。你從街頭起家，對手佔著主流（強度 '+ST+'，每回合 '+ST*2+' 點公關點）。','h');draw(3);startTurn()}
 function draw(n){for(let i=0;i<n&&S.hand.length<5&&S.deck.length;i++)S.hand.push(S.deck.pop())}
-function startTurn(){S.ap=S.apMax;S.caps=1;S.s1=S.s2=false;S.mode=null;S.busy=false;draw(2);log('—— 第 '+S.round+' 回合・'+SLOT[S.round-1]+' ——','h');hint('出牌或用技能累積聲量與風向，然後佔領一格。');render()}
+function startTurn(){S.ap=Math.max(0,S.apMax-S.cut);if(S.cut)log('律師函：這回合編輯點 −'+S.cut+'。','r');S.cut=0;S.caps=1;S.s1=S.s2=false;S.mode=null;S.busy=false;draw(2);log('—— 第 '+S.round+' 回合・'+SLOT[S.round-1]+' ——','h');hint('出牌或用技能累積聲量與風向，然後佔領一格。');render()}
 const def=(i,who)=>S.own[i]===0?2:Math.max(1,who===1?3-S.w:3+S.w);
 function canCap(i,who){if(S.own[i]===who)return false;if(who===2&&S.sh[i])return false;if(!ADJ(i).some(j=>S.own[j]===who))return false;return (who===1?S.va:S.vb)>=def(i,who)}
 function score(who){return S.own.reduce((a,o,i)=>a+(o===who?S.tp.s[i]:0),0)}
@@ -122,14 +122,23 @@ function play(idx){if(S.busy||S.over)return;const k=S.hand[idx],c=CARDS[k];if(S.
  log(m,'g');
  if(c.risk){const r=d20();if(r<=c.risk){S.w=cl(S.w-c.back,-5,5);log('被拆穿了（擲出 '+r+'）：風向 −'+c.back+'。','r')}else log('沒被拆穿（擲出 '+r+'）。')}
  render()}
-function capture(i){if(!canCap(i,1)||S.caps<1)return;const d=def(i,1),was=S.own[i];S.va-=d;S.own[i]=1;S.caps--;S.mode=null;log('你'+(was?'從對手手上搶下':'佔領')+'「'+CELLS[i]+'」（花聲量 '+d+'，'+S.tp.s[i]+' 分）。','g');hint('');render()}
-function foeTurn(){S.busy=true;render();const steps=[
- ()=>{S.vb=cl(S.vb+3,0,10);S.w=cl(S.w-1,-5,5);log('對手的公關發稿：聲量 +3，風向往它那邊 1。','r')},
- ()=>{if(S.round===2){S.va=cl(S.va-2,0,10);log('對手降流：你的聲量 −2。','r')}else if(S.round===4){S.w=cl(S.w-2,-5,5);log('對手反爆料：風向 −2。','r')}else if(S.round===5&&S.vb<6){S.vb=cl(S.vb+2,0,10);log('對手買推廣：聲量 +2。','r')}},
- ()=>{const c=[...Array(9).keys()].filter(i=>canCap(i,2)).sort((a,b)=>(S.tp.s[b]*(S.own[b]===1?2:1)-S.tp.s[a]*(S.own[a]===1?2:1))||(a-b))[0];
-  if(c==null)log('對手這回合搶不到格子。');else{const d=def(c,2),was=S.own[c];S.vb-=d;S.own[c]=2;log('對手'+(was?'搶走你的':'佔領')+'「'+CELLS[c]+'」（'+S.tp.s[c]+' 分）。','r')}}];
- let n=0;(function go(){if(n<steps.length){steps[n++]();render();setTimeout(go,650)}else{S.sh.fill(false);if(S.round>=6)return finish();S.round++;startTurn()}})()}
-function finish(){S.over=true;S.busy=false;const a=score(1),b=score(2),el=$('od-end');el.style.display='block';
+function capture(i){if(!canCap(i,1)||S.caps<1)return;const d=def(i,1),was=S.own[i];S.va-=d;S.own[i]=1;S.caps--;S.mode=null;log('你'+(was?'從對手手上搶下':'佔領')+'「'+CELLS[i]+'」（花聲量 '+d+'，'+S.tp.s[i]+' 分）。','g');hint('');if(!S.own.includes(2))return finish(1);render()}
+function foeTurn(){S.busy=true;render();let pts=S.st*2,capsLeft=1,did=0;
+ const targets=()=>[...Array(9).keys()].filter(i=>S.own[i]!==2&&!S.sh[i]&&ADJ(i).some(j=>S.own[j]===2)).sort((a,b)=>(S.tp.s[b]*(S.own[b]===1?2:1)-S.tp.s[a]*(S.own[a]===1?2:1))||(a-b));
+ function cap(){const c=targets().filter(i=>S.vb>=def(i,2))[0];if(c==null)return false;const d=def(c,2),was=S.own[c];S.vb-=d;S.own[c]=2;log('對手'+(was?'搶走你的':'佔領')+'「'+CELLS[c]+'」（'+S.tp.s[c]+' 分）。','r');return true}
+ function step(){if(S.over)return;const t=targets()[0],need=t==null?99:def(t,2),keep=S.st>=2&&targets().length>1?2:0;
+  if(pts>keep&&S.va>=5&&!S.muted){pts--;S.muted=true;S.va=cl(S.va-2,0,10);log('對手降流：你的聲量 −2。','r')}
+  else if(pts>keep&&S.vb<need&&S.vb<10){pts--;S.vb=cl(S.vb+2,0,10);log('對手發稿：聲量 +2。','r')}
+  else if(pts>=keep+2&&S.st===3&&!S.cutUsed&&S.round<6){pts-=2;S.cutUsed=true;S.cut=1;log('對手寄律師函：你下回合的編輯點 −1。','r')}
+  else if(pts>=keep+2&&S.w>0){pts-=2;S.w=cl(S.w-2,-5,5);log('對手反爆料：風向往它那邊 2。','r')}
+  else if(pts>keep&&S.w>-3){pts--;S.w=cl(S.w-1,-5,5);log('對手否認：風向往它那邊 1。','r')}
+  else if(capsLeft>0){capsLeft--;if(!cap()&&!did)log('對手這回合搶不到格子。');did=1;if(!S.own.includes(1)){render();return finish(2)}
+   if(pts>=2&&S.st>=2&&targets().some(i=>S.vb>=def(i,2))){pts-=2;capsLeft++;log('對手追擊。','r')}else if(pts>0&&S.vb<10){S.vb=cl(S.vb+2*pts,0,10);log('對手把剩下的 '+pts+' 點拿去發稿。','r');pts=0}}
+  else{S.sh.fill(false);S.muted=false;S.cutUsed=false;if(S.round>=6)return finish();S.round++;return startTurn()}
+  render();setTimeout(step,600)}
+ step()}
+function finish(wipe){S.over=true;S.busy=false;const a=score(1),b=score(2),el=$('od-end');el.style.display='block';
+ if(wipe){el.textContent=wipe===1?'大勝：對手的格子被清空，戰役提前結束（'+a+' 分對 '+b+' 分）。':'敗：你的格子被清空，戰役提前結束。這件事被壓下去了。';log(wipe===1?'對手被清空。':'你被清空。','h');return render()}
  el.textContent=(a>b?'你贏了':a<b?'對手贏了':'平手')+'：'+a+' 分對 '+b+' 分。'+(a>b?(a-b>=4?'大勝：在正式的遊戲裡，目標勢力的名聲會重挫。':'小勝：事情傳開了，但對方還撐得住。'):a<b?'這件事被壓下去了。':'各說各話。');log('結算：'+a+' 對 '+b+'。','h');render()}
 function render(){const B=$('od-board');let h='';const can=!S.busy&&!S.over;
  for(let r=0;r<3;r++){h+='<div class="od-rl">'+ROWS[r]+'</div>';for(let c=0;c<3;c++){const i=r*3+c,o=S.own[i],tg=can&&((S.mode&&S.mode.k==='cap'&&canCap(i,1))||(S.mode&&S.mode.k==='guard'&&o===1&&!S.sh[i]));
@@ -146,7 +155,8 @@ function render(){const B=$('od-board');let h='';const can=!S.busy&&!S.over;
  $('od-s1').disabled=!can||S.s1||S.ap<1;$('od-s2').disabled=!can||S.s2||S.ap<2;
  const anyCap=[...Array(9).keys()].some(i=>canCap(i,1));
  $('od-cap').disabled=!can||S.caps<1||!anyCap;$('od-cap').classList.toggle('sel',!!(S.mode&&S.mode.k==='cap'));$('od-cap').textContent='佔領'+(S.caps>1?'（'+S.caps+' 次）':S.caps<1?'（已用）':'');
- $('od-endt').disabled=!can}
+ $('od-endt').disabled=!can;
+ $('od-st').querySelectorAll('button').forEach(b=>b.classList.toggle('sel',+b.dataset.st===ST))}
 $('od-hand').addEventListener('click',e=>{const b=e.target.closest('[data-h]');if(b&&!b.disabled)play(+b.dataset.h)});
 $('od-board').addEventListener('click',e=>{const b=e.target.closest('.od-c.tg');if(!b||S.busy||S.over||!S.mode)return;const i=+b.dataset.i;
  if(S.mode.k==='cap')return capture(i);
@@ -156,6 +166,7 @@ $('od-s1').addEventListener('click',()=>{if(S.busy||S.over||S.s1||S.ap<1)return;
 $('od-s2').addEventListener('click',()=>{if(S.busy||S.over||S.s2||S.ap<2)return;S.ap-=2;S.s2=true;S.caps++;log('你追擊：這回合可以多佔一格。','g');render()});
 $('od-endt').addEventListener('click',()=>{if(S.busy||S.over)return;S.mode=null;hint('');foeTurn()});
 $('od-reset').addEventListener('click',init);
+$('od-st').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;ST=+b.dataset.st;init()});
 init();
 })();
 </script>
