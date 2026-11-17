@@ -132,7 +132,7 @@ function startTurn(){if(S.over){render();return}const u=cur();
  u.watch=false;
  if(u.stun){u.stun=false;log(tag(u)+' 還在過載中，失去這一回合。');render();return setTimeout(next,500)}
  S.mode=null;render();
- if(u.side==='E'){S.busy=true;setTimeout(()=>ai(u,0),550)}else{S.busy=false;hint('輪到 '+u.name+'。選一個行動。')}
+ if(u.side==='E'){S.busy=true;hint('');setTimeout(()=>ai(u,0),550)}else{S.busy=false;hint('輪到 '+u.name+'。選一個行動。')}
 }
 function next(){const u=cur();if(u&&u.supp>0)u.supp--;S.idx++;if(S.idx>=S.order.length){S.idx=0;S.round++;log('—— 第 '+S.round+' 回合 ——','h')}startTurn()}
 function hint(t){$('cd-hint').textContent=t}
