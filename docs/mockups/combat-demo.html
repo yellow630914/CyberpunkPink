@@ -14,8 +14,8 @@ body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-famil
 .cd-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .cd-top b{color:var(--pinkhi);letter-spacing:2px}.cd-top .sp{flex:1}
 .cd-order{display:flex;gap:4px;flex-wrap:wrap}
-.cd-chip{padding:1px 7px;border:1px solid var(--line);color:var(--ink3);font-size:12px}
-.cd-chip.on{border-color:var(--pink);color:var(--pinkhi)}.cd-chip.e{border-style:dashed}
+.cd-chip{padding:1px 7px;border:1px solid var(--cv);color:var(--cv);font-size:12px}
+.cd-chip.e{border-color:var(--hp);color:var(--hp)}.cd-chip.on{border-color:var(--ap);color:var(--apc);background:color-mix(in srgb,var(--ap) 18%,transparent);font-weight:700}
 .cd-scroll{overflow-x:auto}
 .cd-field{display:grid;grid-template-columns:repeat(4,1fr) 26px repeat(4,1fr);gap:6px;min-width:760px}
 .cd-mid{display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:11px;writing-mode:vertical-rl;letter-spacing:4px}
@@ -24,6 +24,7 @@ body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-famil
 .cd-sh{display:flex;align-items:center;gap:5px;color:var(--cv);font-size:11px;min-height:16px}.cd-sh .cd-bar{flex:1}
 .cd-i{width:14px;height:14px;flex:none;fill:currentColor;display:block}
 .cd-bar i.half{background:repeating-linear-gradient(135deg,var(--cv) 0 4px,transparent 4px 8px)!important}
+.cd-bv{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}.cd-bv span{font-size:10.5px;line-height:1.1;text-align:right;color:var(--ink2)}
 .cd-row.lay{padding-left:19px;min-height:11px}
 .cd-dir{display:grid;grid-template-columns:repeat(4,1fr) 26px repeat(4,1fr);gap:6px;min-width:760px;margin-top:6px;color:var(--ink3);font-size:11px}
 .cd-dir div{grid-column:span 4;display:flex;align-items:center;gap:8px}.cd-dir div.e{grid-column:6/span 4;flex-direction:row-reverse}
@@ -77,7 +78,7 @@ body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-famil
 </style>
 <div class="cd" id="cdemo">
   <div class="cd-top"><b>現實戰鬥 DEMO</b><span id="cd-round"></span><div class="cd-order" id="cd-order"></div><span class="sp"></span><button class="cd-btn" id="cd-reset">重新開始</button></div>
-  <div class="cd-scroll"><div class="cd-field" id="cd-field"></div><div class="cd-dir" aria-hidden="true"><div class="p"><span>後排</span><svg><defs><pattern id="cd-chv" width="12" height="12" patternUnits="userSpaceOnUse"><polyline points="2,1 7,6 2,11"/></pattern></defs><rect width="100%" height="12" fill="url(#cd-chv)"/></svg><span>前排</span></div><div class="e"><span>後排</span><svg><rect width="100%" height="12" fill="url(#cd-chv)"/></svg><span>前排</span></div></div></div>
+  <div class="cd-scroll"><div class="cd-field" id="cd-field"></div><div class="cd-dir" aria-hidden="true"><div class="p"><svg><defs><pattern id="cd-chv" width="12" height="12" patternUnits="userSpaceOnUse"><polyline points="2,1 7,6 2,11"/></pattern></defs><rect width="100%" height="12" fill="url(#cd-chv)"/></svg></div><div class="e"><svg><rect width="100%" height="12" fill="url(#cd-chv)"/></svg></div></div></div>
   <div class="cd-end" id="cd-end"></div>
   <div class="cd-act" id="cd-act"><div class="cd-tip" id="cd-tip" hidden></div><div class="cd-wbox" id="cd-wbox"></div><div class="cd-side"><button class="cd-btn" data-a="end" id="cd-endbtn">結束回合</button><div class="cd-skl" id="cd-skl" hidden><b>技能清單</b><p>這個 Demo 還沒有技能。正式版這裡列出這個角色裝著的主動技能與姿態，點了才展開，不佔圓環的位置。</p></div></div></div>
   <div class="cd-hint" id="cd-hint"></div>
@@ -235,8 +236,8 @@ function render(){const u=cur(),m=S.mode,F=$('cd-field');let h='';
   let s='<div class="cd-slot'+(tg?' tg':'')+'" data-s="'+side+slot+'"><div class="cd-sh" aria-label="第 '+slot+' 格，'+COVN[c.l]+'">'+(c.l?ico(c.l===2?'cov':'half',COVN[c.l])+bar(c.d,COVD[c.l],'--cv',c.l===1?'half':'')+Math.max(0,c.d):'')+'</div>';
   if(x){const w=wp(x),ut=m&&x.side==='E'&&((m==='shoot'||m==='burst')||(m==='melee'&&dist(u,x)===1)||(m==='sub'&&canSubdue(u,x)));
    s+='<div class="cd-u'+(x.id===u.id&&!S.over?' act':'')+(ut?' tg':'')+'" data-u="'+x.id+'"><div class="cd-nm"><span>'+x.name+'</span><small>'+x.role+(ut&&m!=='sub'?' '+hitChance(u,x,wp(u))+'%':'')+'</small></div>'
-    +'<div class="cd-row" style="color:var(--hp)">'+ico('hp','生命')+bar(x.hp,x.hpMax,'--hp')+'<span style="color:var(--ink2)">'+x.hp+'</span></div>'
-    +'<div class="cd-row" style="color:var(--ld)">'+ico('load','感載')+bar(x.load,x.loadMax,'--ld')+'<span style="color:var(--ink2)">'+x.load+'/'+x.loadMax+'</span></div>'
+    +'<div class="cd-row" style="color:var(--hp)">'+ico('hp','生命')+'<div class="cd-bv"><span>'+x.hp+'</span>'+bar(x.hp,x.hpMax,'--hp')+'</div></div>'
+    +'<div class="cd-row" style="color:var(--ld)">'+ico('load','感載')+'<div class="cd-bv"><span>'+x.load+'</span>'+bar(x.load,x.loadMax,'--ld')+'</div></div>'
     +'<div class="cd-row lay" title="餘韻層數（疊滿後再過載就倒下）">'+pips(x.layers,x.layersMax,'l')+'</div>'
     +'<div class="cd-row" style="color:var(--ap)">'+ico('ap','行動點')+pips(x.ap,x.apMax)+'</div>'
     +'<div class="cd-row">'+w.n+' '+(w.mag?pips(x.ws[x.wi].mag,w.mag,'m'):'')+'</div>'
