@@ -12,7 +12,7 @@ OUT = os.path.join(DOCS, 'book', 'CyberpunkPink-設計書.html')
 
 PARTS = [  # 依 plan/DESIGN_ORDER 的分層編排：(標題, 這一層的說明, 文件)
     ('總綱', '這是什麼遊戲，以及系統分成哪幾層、照什麼順序設計。',
-     ['GAME_DESIGN.md', 'plan/DESIGN_ORDER.md']),
+     ['GAME_DESIGN.md', 'plan/DESIGN_ORDER.md', 'plan/AUDIT.md']),
     ('L0 世界', '這座城市是什麼、用什麼詞。大致定了；勢力與流竄 AI 會再加。',
      ['world/WORLD.md', 'world/CORPORATIONS.md', 'world/GANGS.md', 'world/CULTURE.md',
       'world/DISTRICTS.md', 'world/LIFE.md', 'world/NPCS.md', 'world/FACTIONS.md']),
