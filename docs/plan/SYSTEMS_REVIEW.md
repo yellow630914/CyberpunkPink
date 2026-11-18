@@ -26,9 +26,9 @@
 | 七、裝備與工藝 | 7 | 5 | 0 |
 | 八、成人向 | 7 | 5 | 0 |
 | 九、城市生活 | 4 | 12 | 0 |
-| 十、NPC 與夥伴 | 2 | 7 | 0 |
+| 十、NPC 與夥伴 | 9 | 0 | 0 |
 | 十一、AI、介面與工程 | 4 | 7 | 6 |
-| **合計** | **79** | **64** | **12** |
+| **合計** | **86** | **57** | **12** |
 
 大致上：**骨架你都定過了，骨架裡面的細節多半是我自己填的**。現實戰鬥、成人向、城市生活這三塊，我寫得多、你看得少。
 
@@ -144,7 +144,7 @@
 | 心智委託 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) 7 | | — |
 | **系列**：事件、線索、特殊任務、委託副本的分組 | ✔ | [SERIES](../systems/SERIES.md) | 已確認：只管分組與分類，邏輯靠旗標與計數器；單發並存；旗標以系列為命名空間；委託副本進行中封閉；線索池參考 ElondiaRPG；AI 的線索是指引，生成的事件以單發為主 | — |
 | 十六種委託類型 | ◇ | [COMMISSIONS](../systems/COMMISSIONS.md) 7 | | 中 |
-| 里程碑與分數、節 | ◇ | [COMMISSIONS](../systems/COMMISSIONS.md) 3、6.2 | | 中 |
+| 階段、每階段可選的面、分支、輔助面結算 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) 2.3、6.4 | 已確認：三到五個階段；主面只決定最後階段；輔助面部署在沒選的面；每階段擲一次 | — |
 | 一案四拍：接案、踩點、行動、收尾 | ◇ | [FIXER](../systems/FIXER.md) 2 | | 高 |
 | 踩點與未知清單 | ◇ | [FIXER](../systems/FIXER.md) 2 | | 中 |
 | **每週帳單** | ✔ | [FIXER](../systems/FIXER.md) 4 | 已確認：保留、每週結算、付不出來最後走到簽契約、訂閱制義體保留；壓力做成可調的存檔規則（關閉、寬鬆、標準、嚴苛） | 高 |
@@ -214,13 +214,13 @@
 |---|---|---|---|---|
 | 夥伴的職能固定 | ✔ | [CORE_RULES](../systems/CORE_RULES.md) 6.3 | | — |
 | 行動前從名冊召集 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) 6.1 | | — |
-| 九位固定夥伴與他們的職能 | ◇ | [NPCS](../world/NPCS.md) 4 | | 低 |
-| 名冊的容量、可靠度、忠誠 | ◇ | [FIXER](../systems/FIXER.md) 6 | | 中 |
-| NPC 的生成（名字、外貌、屬性、職業） | ◇ | [NPC_SYSTEM](../systems/NPC_SYSTEM.md) | 第一版草稿，還沒過；文件最後有「待確認」 | 中 |
-| 和 NPC 互動（聊天、送禮、誘惑、偷竊……） | ◇ | [NPC_SYSTEM](../systems/NPC_SYSTEM.md) | 第一版草稿，還沒過；文件最後有「待確認」 | 中 |
-| 關係與記憶、好感 | ◇ | [NPC_SYSTEM](../systems/NPC_SYSTEM.md) | 第一版草稿，還沒過；文件最後有「待確認」 | 中 |
-| 夥伴的關係線、親密關係 | ◇ | [NPC_SYSTEM](../systems/NPC_SYSTEM.md)、[STORY_QUESTS](../world/STORY_QUESTS.md) | 第一版草稿，還沒過；文件最後有「待確認」 | 中 |
-| NPC 自己的日子（名冊上的人出事） | ◇ | [NPC_SYSTEM](../systems/NPC_SYSTEM.md) | 第一版草稿，還沒過；文件最後有「待確認」 | 低 |
+| 九位固定夥伴與他們的職能 | ✔ | [NPCS](../world/NPCS.md) 4 | | — |
+| 名冊的容量、可靠度、忠誠 | ✔ | [FIXER](../systems/FIXER.md) 6 | | — |
+| NPC 的生成（名字、外貌、屬性、職業） | ✔ | [NPC_SYSTEM](../systems/NPC_SYSTEM.md) | 已確認（2026-11-18），見文件第 12 節 | — |
+| 和 NPC 互動（聊天、送禮、誘惑、偷竊……） | ✔ | [NPC_SYSTEM](../systems/NPC_SYSTEM.md) | 已確認（2026-11-18），見文件第 12 節 | — |
+| 關係與記憶、好感 | ✔ | [NPC_SYSTEM](../systems/NPC_SYSTEM.md) | 已確認（2026-11-18），見文件第 12 節 | — |
+| 夥伴的關係線、親密關係 | ✔ | [NPC_SYSTEM](../systems/NPC_SYSTEM.md)、[STORY_QUESTS](../world/STORY_QUESTS.md) | 已確認（2026-11-18），見文件第 12 節 | — |
+| NPC 自己的日子（名冊上的人出事） | ✔ | [NPC_SYSTEM](../systems/NPC_SYSTEM.md) | 已確認（2026-11-18），見文件第 12 節 | — |
 
 ### 十一、AI、介面與工程
 
