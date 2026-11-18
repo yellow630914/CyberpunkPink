@@ -60,7 +60,7 @@
 - **每個敵人回答三個問題**：站哪裡、怎麼打（實彈還是神經、要不要活的）、打贏了你會怎樣。後兩個大多由勢力決定（第 8 節的預設表），個體只寫例外。
 - **一場遭遇的組成看等級與位階**：敵人的等級在委託的等級 ±1 之內；一場的位階組合照第 13 節（例如四個雜兵、兩個雜兵加一個精英、一個首領加兩個雜兵）。
 - **固定 NPC 不直接上場。** 特殊任務要和有名有姓的人交手時，用一個專用的替身敵人：打倒了不會讓那個人死掉，數值照首領的規則調。
-- **制伏與釘住的難度**（提案）：10＋等級 × 2，精英再 +2，首領再 +4。
+- **制伏與釘住的難度**（已確認）：10＋等級 × 2，精英再 +2，首領再 +4（[COMBAT_SYSTEM](COMBAT_SYSTEM.md) 第 7 節）。
 
 ## 2. 資料格式
 
@@ -75,7 +75,7 @@
 | `attrs`、`basics` | 六屬性與用得到的基本功（檢定與豁免用） |
 | `hp`、`armor`、`evade_mod`、`ap` | 生命、護甲值、迴避的額外修正、行動點上限（每回合回復 3） |
 | `load_max`、`layers`、`sensitivity`、`sink` | 感載上限、承受層數、敏感度、沉溺。`unbridged` 與 `machine` 沒有這四欄 |
-| `weapons[]` | 每把：傷害骰、類型（[COMBAT_SYSTEM](COMBAT_SYSTEM.md) 第 5 節的五種）、適用距離 `[近, 遠]`、穿甲、行動點、彈匣 |
+| `weapons[]` | 每把：傷害骰、傷害類型（五種：`physical` 物理、`thermal` 熱能、`em` 電磁、`neural` 神經、`pleasure` 快感）、適用距離 `[近, 遠]`、穿甲、彈匣（1～4 格）。行動點照 [COMBAT_SYSTEM](COMBAT_SYSTEM.md) 1.3 節的行動表，不另外寫 |
 | `position` | `prefer`（偏好的格，例 `[1, 2]`）、`size`（1 格；無人機是 `overlay`，和人重疊、不佔格）、`cover_use`（0～1，多在乎掩體） |
 | `signature[]` | 招牌行動的 id（`abilities.json` 裡標了 `enemy` 的項目） |
 | `ai` | `focus`、`prefer`、`mode`、`flee_below`、`morale`、`never_flee`（第 4 節） |
@@ -129,7 +129,7 @@
 
 - `floor`、`focus` 的意思和 ElondiaRPG 相同：`focus` 越低，越不受仇恨牽引（發狂的、溺感的、吉祥物是 0.3）。
 - **打法 `mode`** 決定看哪一條軌：`lethal` 看生命，`neural` 看感載，`capture` 看感載並且優先制伏。企業保全預設 `capture`——死人不能簽契約（[CORE_RULES](CORE_RULES.md) 4.2 節）。
-- **打法會換**：同伴被打死、警戒到 100、首領下令時，`capture` 換成 `lethal`；委託的輿論指標過 60 時（[COMMISSIONS](COMMISSIONS.md) 第 5 節），全場鎖在 `neural`。
+- **打法會換**：同伴被打死、警戒到 100、首領下令時，`capture` 換成 `lethal`；副本前面的輿論階段大勝時（[COMMISSIONS](COMMISSIONS.md) 第 5 節），全場鎖在 `neural`。
 
 ### 4.2 位置分
 
@@ -140,7 +140,7 @@
        − 在第 1 格而不是近戰型 2
 ```
 
-- 換位要花 1 點，離開第 1 格要過運動檢定（[COMBAT_SYSTEM](COMBAT_SYSTEM.md) 2.3 節）——AI 照算這個風險：檢定成功率低於一半時，這一格的分數 −1。
+- 換位要花 1 點。離開第 1 格往後退不用檢定，但要有人替他撐著線（[COMBAT_SYSTEM](COMBAT_SYSTEM.md) 2.3 節）。AI 照算這一條：沒有人能接手第 1 格時，後面那一格的分數 −1。
 - 近戰型在第 1 格以外沒事可做時，位置分直接把它往前推；狙擊在第 1 格時，第一個動作幾乎一定是往後換。
 
 ### 4.3 挑行動
@@ -148,10 +148,9 @@
 | 行動 | 分數 |
 |---|---|
 | 武器攻擊 | 2（基準）；命中率低於 35% 時 1；目標在掩體裡而自己有霰彈或重武器 +0.5 |
-| 連射 | 2.2；目標在暴露格 +0.5；彈不夠 10 發不列 |
-| 連射（自帶壓制） | 2.5，彈匣容量 2 以上、目標在遮蔽裡、而且我方有人要換位時 |
+| 連射（自帶壓制） | 2.2，彈匣容量 2 以上而且彈匣還沒空才列；目標在暴露格 +0.5；目標在遮蔽裡而且我方有人要換位時 +0.3 |
 | **制伏** | 4，`capture` 的敵人、目標正在失去回合、自己在近身、手上有束帶或鎖橋器（精英與首領的目標要餘韻疊滿） |
-| 換彈 | 3（空了）；1（不到三成） |
+| 換彈 | 3（彈匣空了）；1（只剩 1 格） |
 | 治療、冷卻 | 3 ＋（1 − 對象比例）× 4，對象低於六成才列（同 ElondiaRPG） |
 | 增益 | 1.6；第一、二回合 +0.8 |
 | 範圍攻擊（榴彈、霧、彈幕） | 2 ＋ 0.7 ×（多打到的人數） |
@@ -244,8 +243,8 @@
 
 ## 7. 掉落
 
-- **零件**：每個敵人的 `loot` 列出零件的類型、牌子、等級、材質與機率。等級照 1.3 節（III 級的敵人 → II～III 級）；V 級只出現在特殊任務的具名首領身上。件數：雜兵 0～1、精英 1～2、首領 2～3 並保證一件最高級的。
-- **現金晶片**：等級 × 40～120。企業的人身上多半沒有現金，有的是**憑證**——可以當內海面的員工憑證用（[COMMISSIONS](COMMISSIONS.md) 第 5 節的「活捉一名主管」是它的大號版本）。
+- **零件**：每個敵人的 `loot` 列出零件的類型、牌子、等級、材質與機率。等級照 1.3 節（III 級的敵人 → II～III 級）；V 級的零件不從一般的掉落來，只從特殊任務與流竄 AI 來。件數：雜兵 0～1、精英 1～2、首領 2～3 並保證一件最高級的。
+- **現金晶片**：照等級，每級約 3.2 倍（初稿：I 級 40～120、II 級 130～380、III 級 400～1,200、IV 級 1,300～3,900、V 級 4,000～12,000）。企業的人身上多半沒有現金，有的是**憑證**——可以當內海面的員工憑證用（[COMMISSIONS](COMMISSIONS.md) 第 5 節的「活捉一名主管」是它的大號版本）。
 - **整件撿或拆**：敵人的武器與護甲可以整件撿走，也可以拆成零件（輕；[CRAFTING](../gear/CRAFTING.md) 10.4 節）。III 級以上的企業貨有**授權鎖**，撿到不等於能用（[CYBERWARE](../gear/CYBERWARE.md) 第 5 節）。
 - **義體**要改造師拆，拆出來是二手、可能有殘響。**拆活人**：沉溺 +1、那個勢力的敵對值 +5；殺過載倒地的人另有行規的代價（[LIFE](../world/LIFE.md) 第 9 節）。
 - **生體件**拆了就死：一小時內有改造師與移植的對象才拿得到，否則只剩「生體樣本」（賣給蜜腺或車庫生技，或交給委託人）。
@@ -560,9 +559,9 @@ M6 先做**徒步小隊對機甲**，玩家駕駛最後做（[ROADMAP](../plan/R
 | 機甲 | 8 |
 | 小型無人機 | 0.5 |
 
-- 一場一般遭遇的預算＝ 3 ＋ 委託的 `tier`；首領戰＝ 7 ＋ 委託的 `tier`。對四人以下的面算的，人越少預算越少（每少一人 −1.5）。
+- 一場一般遭遇的預算＝ 3 ＋ 委託的等級（`grade`）；首領戰＝ 7 ＋ 委託的等級。對四人以下的面算的，人越少預算越少（每少一人 −1.5）。
 - 敵人的等級在委託的等級 ±1 之內。
-- **警戒**（[FIXER](FIXER.md) 第 2 節）：每到 50，之後的遭遇預算 +1；到 100 時來一波增援（預算的一半），從後方補位。
+- **警戒**（[COMMISSIONS](COMMISSIONS.md) 2.3 節）：到 60 時，增援（預算的一半）加入下一場遭遇，從後方補位；到 100 時目標轉移或逃走，最後一個階段的遭遇預算 +2。
 - **區**修正：冠冕區的增援兩回合內到、預算 +2；舊港沒有企業增援、但有拆體客在外面等（戰後事件）。
 - 存檔規則的難度乘在生命與傷害上，和 ElondiaRPG 一樣；調整敵人時只對「普通」負責。
 
@@ -572,7 +571,7 @@ M6 先做**徒步小隊對機甲**，玩家駕駛最後做（[ROADMAP](../plan/R
 2. **雜兵的生命不照主角的公式**（20 ＋ 體格 × 2），而是按角色打折（雜兵約六成）。這讓槍戰快，但「人人都是同一套規則」的感覺弱一點。
 3. ~~雜兵要過載幾次~~ **已確認**：不限定次數，每個單位的承受層數各自設定（只有主角基礎固定 3）。下面的數值照這個原則，逐個單位可以再調？
 4. 一般遭遇讓隊伍掉 **15～25%** 的生命（比 ElondiaRPG 重）。
-5. 企業保全預設 `capture`（要活的）；輿論指標過 60 時全場鎖 `neural`；同伴被殺或警戒滿了換 `lethal`。
+5. 企業保全預設 `capture`（要活的）；前面的輿論階段大勝時全場鎖 `neural`；同伴被殺或警戒滿了換 `lethal`。
 6. **二十八種戰敗事件**的分法（第 6 節），尤其 `tuning`、`fed`、`drained`、`tinkered`、`taken` 這幾個是新的。
 7. 溺感者「過載也不停、而是把餘韻分出去」；吉祥物「過載了也不停、餘韻只有正面」——兩者都破了現實的過載規則，是刻意的特例。
 8. 鎮溺隊「每三回合補一個班、沒有上限」：真的設計成打不贏。
@@ -588,24 +587,24 @@ M6 先做**徒步小隊對機甲**，玩家駕駛最後做（[ROADMAP](../plan/R
   "id": "hz_housekeeper",
   "name": "家政課女僕",
   "faction": "hizakura", "branch": "service",
-  "tier": 4, "role": "elite", "kind": "human",
+  "grade": 4, "rank": "elite", "kind": "human",
   "attrs": { "body": 14, "reflex": 16, "tech": 10, "intellect": 10, "resolve": 14, "charm": 14 },
   "basics": { "melee": 5, "firearms": 3, "stealth": 4, "willpower": 3 },
-  "hp": 48, "armor": 6, "evade_mod": 0, "ap": 6,
-  "load_max": 30, "layers": 4, "sensitivity": 40, "sink": 35,
+  "hp": 48, "armor": 6, "evade_mod": 0, "ap": 5,
+  "load_max": 30, "layers": 2, "sensitivity": 40, "sink": 35,
   "weapons": [
-    { "id": "hz_monoblade", "dice": "2d6+body", "type": "slash", "range": [1, 1], "pierce": 3, "ap": 2 },
-    { "id": "hz_holdout", "dice": "2d6", "type": "kinetic", "range": [1, 4], "ap": 2, "mag": 8 }
+    { "id": "hz_monoblade", "dice": "2d6+body", "type": "physical", "range": [1, 1], "pierce": 3 },
+    { "id": "hz_holdout", "dice": "2d6", "type": "physical", "range": [1, 4], "mag": 2 }
   ],
   "position": { "prefer": [1, 2], "size": 1, "cover_use": 0.4 },
-  "signature": ["sweep_flank", "stand_guard"],
+  "signature": ["sweep_cut", "stand_guard"],
   "ai": { "focus": 1, "prefer": "leader", "mode": "capture", "flee_below": 0.2, "morale": "elite" },
   "traits": [],
   "angel": "none",
   "defeat": "tuning",
   "loot": [
-    { "part": "blade", "brand": "hizakura", "tier": 4, "chance": 0.5, "locked": true },
-    { "part": "fiber", "material": "bio", "tier": 3, "chance": 0.3 },
+    { "part": "blade", "brand": "hizakura", "grade": 4, "chance": 0.5, "locked": true },
+    { "part": "fiber", "material": "bio", "grade": 3, "chance": 0.3 },
     { "cash": [0, 0] }
   ],
   "desc": "一絲不亂的女僕服，白手套。圍裙底下是裝甲，裙擺底下是刀。"
@@ -614,15 +613,15 @@ M6 先做**徒步小隊對機甲**，玩家駕駛最後做（[ROADMAP](../plan/R
 
 ```json
 {
-  "id": "lace_pink_t3",
+  "id": "lace_pink_g3",
   "name": "粉蕾絲（標準型）",
-  "faction": "nightingale", "tier": 3, "role": "special", "kind": "lace",
-  "load_max": 30, "layers": 4, "firewall": 15,
+  "faction": "nightingale", "grade": 3, "rank": "elite", "kind": "lace",
+  "load_max": 30, "layers": 2, "firewall": 15,
   "position": { "prefer": [2, 3], "size": 1 },
   "programs": [ { "id": "flood", "dice": "4d6", "type": "neural", "ram": 2 } ],
   "signature": ["persuade", "pin", "implant"],
   "ai": { "focus": 1, "prefer": "overloaded", "mode": "capture", "prefer_deep_sync": true },
   "defeat": "pinned",
-  "loot": [ { "construct": "random", "tier": 3, "chance": 0.4, "needs": "dissect" } ]
+  "loot": [ { "construct": "random", "grade": 3, "chance": 0.4, "needs": "dissect" } ]
 }
 ```
