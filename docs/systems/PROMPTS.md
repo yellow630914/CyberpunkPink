@@ -1,6 +1,6 @@
 # 提示詞、世界書與文風
 
-> 上層：[AI_TASKS](../plan/AI_TASKS.md)（任務與工具）。依賴：[GAME_DESIGN](../GAME_DESIGN.md) 第 9、10 節（報告與 AI 管線）、[LEWD_SYSTEM](LEWD_SYSTEM.md) 第 9 節（內容篩選）、[WORLD](../world/WORLD.md) 第 7 節（用語）、[CORE_RULES](CORE_RULES.md) 第 3 節（成功程度）。被依賴：[UI](../art/UI.md)（日誌、設定）、之後的 `data/worldbook/`。
+> 上層：[AI_TASKS](../plan/AI_TASKS.md)（任務與工具）。依賴：[GAME_DESIGN](../GAME_DESIGN.md) 第 9、10 節（報告與 AI 管線）、[LEWD_SYSTEM](LEWD_SYSTEM.md) 第 9 節（內容篩選）、[WORLD](../world/WORLD.md) 第 7 節（用語）、[CORE_RULES](CORE_RULES.md) 第 3 節（成功程度）。被依賴：[UI](../art/UI.md)（紀錄、設定）、之後的 `data/worldbook/`。
 > 來源：ElondiaRPG 的提示詞組合、世界書、文風與正文正則（那邊的 `docs/PROMPTS.md`；掃描見 [scan/02-ai](../plan/scan/02-ai.md) 第 3 節）。結構沿用，內容重寫。預定資料：`data/prompts/tasks.json`（每個任務的區塊與設定）、`data/prompts/rules/*.md`（規則全文）、`data/prompts/styles.json`（文風）、`data/worldbook/*.json`（世界書）。數值都是初稿。
 
 這份寫每個 AI 任務送出去的東西長什麼樣：哪些放在固定的前段、哪些放在每次不同的後段、世界書怎麼挑、文風怎麼寫、成人內容怎麼分流、內容篩選怎麼進到提示詞，以及預設不能改的硬規則。任務本身與工具的參數在 [AI_TASKS](../plan/AI_TASKS.md)，這裡不重複。
@@ -136,7 +136,7 @@ messages
           用一句話帶過關鍵時刻、把介面的名詞寫進正文（「行動點」「檢定」）。</negative>
 ```
 
-**變動後段**：`<protagonist>`、`<cast>`、`<worldbook>`、`<continuity>`（上一段結尾約 300 字、之後沒寫成正文的日誌最多 8 行、走過的地方）、`<bystanders>`（最多 4 人，只當背景）、`<report>`（id 換成名字；`changes` 保留，讓 AI 知道結果）、`<allowed_tools>`、`<notes>`、本次要求。
+**變動後段**：`<protagonist>`、`<cast>`、`<worldbook>`、`<continuity>`（上一段結尾約 300 字、之後沒寫成正文的紀錄最多 8 行、走過的地方）、`<bystanders>`（最多 4 人，只當背景）、`<report>`（id 換成名字；`changes` 保留，讓 AI 知道結果）、`<allowed_tools>`、`<notes>`、本次要求。
 
 - **三種模式**：`new`（寫新的一段）、`continue`（續寫，附 `<written>` 已寫的正文）、`rewrite`（依玩家意圖重寫）。後兩種不開寫入工具（[AI_TASKS](../plan/AI_TASKS.md) 2.1 節）。
 - **可以用的寫入**：`update_relationship`（取代那邊正文尾端的 `<relationship_updates>`）、`add_hook`、成人路由的 `record_sex`。寫入排隊，正文結束後在同一個回合套用。
@@ -256,7 +256,7 @@ H4 不准寫數字，所以給 AI 一份「感覺的詞彙」，當成常駐世�
 |---|---|---|
 | ① 模型來源 | `narrate`、`judge`、各批次任務的來源 | `narrate_adult`、`scene`（scene_gate／turn／settle 共用）、`npc_news_adult`；預設和一般同一個，玩家可以分開 |
 | ② 條目 | 文風、自訂、世界書標成「成人向」的不送 | 送；放在 system 最後（2.1 節第 6 項） |
-| ③ 銜接資料 | 成人場景的日誌在 `<continuity>` 裡換成「（一段私下的時間，已經結束）」 | 原文 |
+| ③ 銜接資料 | 成人場景的紀錄在 `<continuity>` 裡換成「（一段私下的時間，已經結束）」 | 原文 |
 | ④ 工具 | `get_sex_record`、`record_sex` 不列在 `<allowed_tools>`；`get_character` 不回傳傾向與橋參數的細節 | 都開 |
 
 **什麼時候走成人路由**由引擎決定：報告帶 `narration.adult_scene`、scene_* 三個任務、以及引擎判定「可能進入場景」的判定（誘惑、蜜罐、戰敗事件的回應、契約的侍奉事件）。自由行動的判定不走成人路由；它不會開啟場景——要不要進場景是 scene_gate 的事。
@@ -386,7 +386,7 @@ H4 不准寫數字，所以給 AI 一份「感覺的詞彙」，當成常駐世�
 | 正文正則（照搬，內建一條刪 `<think…>`、一條把 `<net>` 換成段落標記） | `extensions.cpp.topics` 與 `gate`（在提示詞頁籤只讀；內容編輯器裡才能改） |
 | 匯入 SillyTavern 預設（照搬） | |
 
-- **預覽**照搬：提示詞頁籤依選的日誌或行動，顯示每個區塊、每個世界書條目的狀態（常駐、觸發、未觸發、停用、成人、題材被篩掉、未揭露、超出預算）。
+- **預覽**照搬：提示詞頁籤依選的紀錄或行動，顯示每個區塊、每個世界書條目的狀態（常駐、觸發、未觸發、停用、成人、題材被篩掉、未揭露、超出預算）。
 - 匯入的條目若含 H5 違反的內容（例如把角色寫成未成年），內容編輯器的檢查擋下，不只是提示詞擋。
 
 ## 10. AI 關閉、逾時與失敗

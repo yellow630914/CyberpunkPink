@@ -91,7 +91,7 @@
 
 | 任務 | 什麼時候 | 說明 |
 |---|---|---|
-| **image_prompt**、**storyboard** | 生成立繪、日誌插圖 | 照搬；分鏡改用 `submit_storyboard`，不再寬鬆解析 |
+| **image_prompt**、**storyboard** | 生成立繪、紀錄插圖 | 照搬；分鏡改用 `submit_storyboard`，不再寬鬆解析 |
 | **quest_designer**（特殊任務生成） | 世界編輯器 | 照搬，改用 `search_catalog` 查目錄、`validate_quest` 取代「把錯誤交回去再送一次」 |
 | **connection_test** | 設定頁 | 加一項「工具調用測試」 |
 

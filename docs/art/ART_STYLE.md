@@ -31,7 +31,7 @@ node tools/art/render.mjs
 | 地圖規模 v0 | [`art/map-scale.svg`](map-scale.svg)（由 `tools/art/gen_scale.py` 產生） | [`art/preview/map-scale.png`](preview/map-scale.png) | 一塊街區的格子樣本（蜂巢・天井市場，13×9）與八個區的 39 塊街區 |
 | 街區結構 v0 | [`art/district-blocks.svg`](district-blocks.svg)（由 `tools/art/gen_maps.py` 產生） | [`art/preview/district-blocks.png`](preview/district-blocks.png) | 八個區各自的街區、橋接區、要地與出口 |
 | 內海結構 v0 | [`art/cyberspace.svg`](cyberspace.svg)（同上） | [`art/preview/cyberspace.png`](preview/cyberspace.png) | 網路空間的七個分區、粉牆、現實的接點 |
-| 樣式規劃 v0 | [`mockups/style-guide.html`](../mockups/style-guide.html) | [`art/preview/style-guide.png`](preview/style-guide.png) | 色彩、三條軌的量條、按鈕與標籤、日誌、字、圖標風格（24 個樣本） |
+| 樣式規劃 v0 | [`mockups/style-guide.html`](../mockups/style-guide.html) | [`art/preview/style-guide.png`](preview/style-guide.png) | 色彩、三條軌的量條、按鈕與標籤、紀錄、字、圖標風格（24 個樣本） |
 
 ![緋夜城地圖](preview/city-map.png)
 
@@ -42,7 +42,7 @@ node tools/art/render.mjs
 - **深色底**。緋夜城沒有白天，介面也沒有淺色模式（至少第一版沒有）。
 - **粉是訊號，不是底色**。整個畫面的粉不超過一成。它只出現在三種地方：玩家現在該看的東西、感載、被選中的東西。到處都粉就等於沒有粉。
 - **斜切一角**。面板與按鈕切掉右上與左下，不用圓角。這是整個介面的招牌形狀，也是賽博龐克題材的共通語言。
-- **格線**。底圖有很淡的方格，像設計圖。地圖、面板、日誌都坐在同一張格線上。
+- **格線**。底圖有很淡的方格，像設計圖。地圖、面板、紀錄都坐在同一張格線上。
 - **霓虹只給重要的東西**。發光（外暈）只用在標題、感載條、四十二番街。
 - **不可愛**。世界裡滿是可愛的東西（吉祥物、女僕、偶像），但介面本身是冷的、工具性的——玩家是隔著一層終端機在看這座城市。可愛留給內容。
 
@@ -75,7 +75,7 @@ node tools/art/render.mjs
 |---|---|
 | 各區的街區圖 | 每區一張，比城市地圖細一級：街道、地標的實際位置、路口 |
 | 地鐵路線圖 | 遊戲內的車站介面 |
-| 主畫面樣稿 | 三欄佈局：地圖、日誌、設施與人 |
+| 主畫面樣稿 | 三欄佈局：地圖、紀錄、設施與人 |
 | 戰鬥畫面樣稿 | 站位（掩體／暴露／近身）怎麼呈現；兩條傷害軌 |
 | 潛入畫面樣稿 | 子網的節點圖；網內與現實交錯的回合 |
 | 義體部位圖 | 人形輪廓與九個部位的槽 |
