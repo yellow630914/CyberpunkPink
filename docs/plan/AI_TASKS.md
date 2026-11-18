@@ -2,6 +2,8 @@
 
 > 上層：[IMPLEMENTATION](IMPLEMENTATION.md) 第 2 節。依據：ElondiaRPG 的 Agent 模式計畫（那邊的 `docs/plan/roadmap/AGENT_MODE_PLAN.md`，狀態是還沒開始）與它現有 AI 呼叫的盤點（[scan/02-ai](scan/02-ai.md)）。
 > 這是規格的初稿。數值上限都是暫定，動工後依實際的費用與穩定度調。
+>
+> **2026-11-18 的狀態**：原則、兩種模式、工具的做法和已確認的規則相容，可以留用。任務鏈（1.1 節）與任務表（2.1、2.2 節）裡，成人場景的三個任務、pr_move、commission_gen 還是照舊的流程寫的，直播也還沒有任務；這幾處的開頭各有說明，之後照新流程重列（[AUDIT](AUDIT.md) 第 6 節）。
 
 ## 1. 原則
 
@@ -23,6 +25,8 @@
 ### 1.1 任務鏈
 
 **每一種流程都有一條明確的任務鏈**（不只成人場景）：依序叫哪幾個任務、每一步能用哪些工具、每一步失敗時怎麼走。鏈寫在資料裡（預定 `data/ai/chains.json`），不散在程式各處。
+
+> **下表有三列還是舊的寫法，之後要重寫。** 「成人場景」那一列沒有體位、主動權與部位的連接，也沒有寫明場景由玩家自己結束（[LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 3.5 節）。「輿論戰的一回合」那一列寫的是對手出牌；現行的對手不抽牌，它每回合用公關點行動並佔一格（[OPINION](../systems/OPINION.md) 4.4 節，流程可以看 `mockups/opinion-demo.html`）。「接委託」那一列建立的是舊的副本；現行的副本是三到五個階段，每個階段選一面來玩，輔助面每個階段擲一次（[COMMISSIONS](../systems/COMMISSIONS.md) 2.3 節、6.4 節）。另外還缺這幾條鏈：直播（開播時定目標、面板上的彈幕、收播結算，[MEDIA](../systems/MEDIA.md) 1.2 節）、把紀錄做成素材（[MEDIA](../systems/MEDIA.md) 1.1 節）、分階段的打工、戰敗事件的兩段式、事件的自由回應。之後照這些文件重列。
 
 | 流程 | 任務鏈 |
 |---|---|
@@ -61,6 +65,8 @@
 
 ### 2.1 每回合的任務
 
+> **下表 scene_gate、scene_turn、scene_settle 三列還是舊的寫法，之後要重寫。** 它們是照舊的成人場景寫的：整場一條契合，scene_turn 只從可用的行動裡選一個。現行的場景有十種行動、體位、主動權、部位的連接與多人分圈，契合與主動權是每一對各一個，場景由玩家自己結束，體悟由程式結算（[LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 3.3 節、3.5 節）。之後照那兩節重寫這三列的輸入與輸出；細節的說明在 [PROMPTS](../systems/PROMPTS.md) 4.3 節開頭。
+
 | 任務 | 什麼時候 | 輸出 | 可用的工具 | 模型 | 退路 |
 |---|---|---|---|---|---|
 | **judge**（判定） | 自由行動擲骰之後 | 終結工具 `submit_judgment` | 查詢全部；寫入：`grant_reward`、`update_relationship`、`set_flag`、`add_hook`、`add_rumor`、`apply_condition`、`recruit`、`meet_npc`、`design_part` | 中 | 照規則結算，或讓玩家重試 |
@@ -75,11 +81,13 @@
 
 ### 2.2 遊戲中按需的任務
 
+> **下表 pr_move 與 commission_gen 兩列還是舊的寫法，之後要重寫。** pr_move 寫的是「從可用的牌選一張」；現行的對手不抽牌，它用公關點（強度×2）在一張固定的行動表上行動，每回合佔一格（[OPINION](../systems/OPINION.md) 4.4 節）。commission_gen 的輸出還是「主面與輔助面、里程碑」；現行的副本要生成三到五個階段、每個階段可選的面、分支與連動、戰敗事件與直播目標，強度用等級 I～V 表示（[COMMISSIONS](../systems/COMMISSIONS.md) 第 9 節）。發委託的流竄 AI 只有當中間人的那五個。這張表也還沒有直播的任務（面板上的彈幕、替直播目標換一個說法）與「替素材寫標題與說明」的任務（[MEDIA](../systems/MEDIA.md) 第 1 節）。
+
 | 任務 | 什麼時候 | 輸出 | 退路 |
 |---|---|---|---|
 | **npc_act**（NPC 在對話、交涉時選行動） | 談判開始、對峙 | `submit_options`：一組選項 | 用模板的選項 |
 | **pr_move**（對手公關在輿論戰出牌） | 輿論戰輪到對手 | `submit_pr_move`：從可用的牌選一張，附理由 | 依權重抽 |
-| **commission_gen**（委託的內容） | 中間人或流竄 AI 發委託時 | `submit_commission`：目標、主面與輔助面、里程碑、未知清單 | 用模板生成 |
+| **commission_gen**（委託的內容） | 中間人發委託時（包括當中間人的五個流竄 AI） | `submit_commission`：目標、主面與輔助面、里程碑、未知清單 | 用模板生成 |
 | **flavor_roster**（新 NPC 的細節） | 第一次見到生成的 NPC | `submit_roster` | 用模板 |
 | **flavor_shop**（店裡今天的貨與優惠） | 每間店每天第一次進 | `propose_deal`，每筆單獨驗證 | 用模板 |
 | **npc_news**（NPC 的近況） | NPC 的日常有變化或重逢 | `submit_news` | 不寫 |
@@ -115,7 +123,7 @@
 | `search_memories` | `participants?`、`location?`、`limit ≤ 6` | 相關的記憶 |
 | `get_inventory` | `category?` | 行囊與裝備 |
 | `get_faction` | `faction_id` | 這個勢力對主角的好感與敵對值、文化分支 |
-| `get_commission` | `id?` | 進行中的委託：目標、三個面的指標、里程碑 |
+| `get_commission` | `id?` | 進行中的委託：目標、主面、現在是第幾個階段、每個階段可選的面、已經拿到的連動 |
 | `get_net` | — | 在內海時：這個子網的節點、追蹤度、控制節點 |
 | `get_sex_record` | `id` | 性經歷（只在成人路由） |
 | `search_lore` | `query`、`limit` | 世界書的關鍵字比對；常駐的條目仍放在固定的那一段 |
@@ -132,7 +140,7 @@
 | `add_hook` | 誰（在場或認識的人，或「新的人」由程式產生）、在哪（只能是 `get_here` 給的地點）、何時、一句話 | 一區同時最多一則；有期限。掛在系列上時只能放在標了 `ai_hook` 的成員，性質是**指引**：指向已經存在、條件已成立的內容（[SERIES](../systems/SERIES.md) 第 7 節） |
 | `add_rumor` | 標題、內容、地點 | |
 | `propose_event` | 一件符合事件格式的事件：範圍、選項、檢定、效果（只在 Agent 模式開著時） | 事件格式的驗證、封閉的效果清單、內容篩選；交給事件導演排程，受每回合與每天的上限 |
-| `apply_condition` | 生命、感載的變化 | 單次上限 |
+| `apply_condition` | 生命值、感載的變化 | 單次上限 |
 | `recruit` | `npc_id` | 要成功程度夠 |
 | `meet_npc` | 外觀、性格、背景（名字由程式產生） | |
 | `design_part` | 零件類型、材質、等級、屬性、特性 | 夾在那個等級允許的範圍內（[CRAFTING](../gear/CRAFTING.md) 第 11 節） |
