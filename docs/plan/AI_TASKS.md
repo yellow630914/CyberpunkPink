@@ -114,7 +114,7 @@
 | `get_relationship` | `npc_id`、`memories ≤ 6` | 關係、好感、共同記憶 |
 | `search_memories` | `participants?`、`location?`、`limit ≤ 6` | 相關的記憶 |
 | `get_inventory` | `category?` | 行囊與裝備 |
-| `get_faction` | `faction_id` | 這個勢力對主角的好感與熱度、文化分支 |
+| `get_faction` | `faction_id` | 這個勢力對主角的好感與敵對值、文化分支 |
 | `get_commission` | `id?` | 進行中的委託：目標、三個面的指標、里程碑 |
 | `get_net` | — | 在內海時：這個子網的節點、追蹤度、控制節點 |
 | `get_sex_record` | `id` | 性經歷（只在成人路由） |
@@ -127,7 +127,7 @@
 | `submit_judgment`（終結） | 成功程度、用的屬性與基本功、DC、理由、轉折、摘要、要花的時間 | 封閉清單與上限，沿用那邊判定的清理；**要先於其他依賴成功程度的寫入** |
 | `grant_reward` | 信用點、物品、零件、**取代或加上**、理由 | 依成功程度與委託的報酬上限 |
 | `update_relationship` | `npc_id`、好感變化、一句話的關係描述、理由 | 單次上限；描述仍是提議，玩家確認 |
-| `adjust_faction` | `faction_id`、好感或熱度的變化、理由 | 單次上限 |
+| `adjust_faction` | `faction_id`、好感或敵對值的變化、理由 | 單次上限 |
 | `set_flag` | `key`、`value` | 只能寫 `ai:` 開頭的旗標 |
 | `add_hook` | 誰（在場或認識的人，或「新的人」由程式產生）、在哪（只能是 `get_here` 給的地點）、何時、一句話 | 一區同時最多一則；有期限。掛在系列上時只能放在標了 `ai_hook` 的成員，性質是**指引**：指向已經存在、條件已成立的內容（[SERIES](../systems/SERIES.md) 第 7 節） |
 | `add_rumor` | 標題、內容、地點 | |

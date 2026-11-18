@@ -30,7 +30,7 @@
 | 建角、出身、特質與缺陷 | 屬性、基本功 | NPC 的生成、建角畫面 | [CHARACTER](../systems/CHARACTER.md) |
 | 三條軌（生命、感載、沉溺） | 屬性 | 戰鬥、內海、成人場景、義體、藥 | [CORE_RULES](../systems/CORE_RULES.md) 4 |
 | 同步原則 | 三條軌 | 內海、機甲、加速義體 | [CORE_RULES](../systems/CORE_RULES.md) 5 |
-| 名聲（信譽、豔名、好感、熱度……） | — | 中間人、事件、價格、勢力 | [CORE_RULES](../systems/CORE_RULES.md) 8 |
+| 名聲（信譽、豔名、好感、敵對值……） | — | 中間人、事件、價格、勢力 | [CORE_RULES](../systems/CORE_RULES.md) 8 |
 | **現實戰鬥** | 屬性、三條軌、站位 | 技能、敵人、裝備、委託副本的現實面 | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) |
 | **內海戰鬥** | 現實戰鬥（同一套站位）、同步、三條軌 | 竄網、技能的內海效果、構裝 | [CYBERSPACE](../systems/CYBERSPACE.md) 4～6 |
 | **竄網**（快駭、蕾絲、追蹤度） | 內海戰鬥、檢定 | 潛網者的技能、敵人的蕾絲 | [NETRUNNING](../systems/NETRUNNING.md) |
