@@ -1,6 +1,6 @@
 # 事件：一個統一的事件導演
 
-> 上層：[GAME_DESIGN](../GAME_DESIGN.md)（第 6 節的三種內容形式之一）。依賴：[CORE_RULES](CORE_RULES.md)（檢定、三條軌）、[DISTRICTS](../world/DISTRICTS.md)（各區、橋接區、日與夜）、[LIFE](../world/LIFE.md)（星期、年度事件、行規）、[NPC_SYSTEM](NPC_SYSTEM.md)（登場角色、NPC 自己的日子）、[LEWD_SYSTEM](LEWD_SYSTEM.md)（第 7 節契約、第 9 節內容篩選）、[COMMISSIONS](COMMISSIONS.md)、[CYBERSPACE](CYBERSPACE.md)、[FIXER](FIXER.md)。被依賴：[DOWNTIME](DOWNTIME.md)（家園）、[STORY_QUESTS](../world/STORY_QUESTS.md)（事件可以開出特殊任務）、[SITES](../world/SITES.md)（要地的事件表）。
+> 上層：[GAME_DESIGN](../GAME_DESIGN.md)（第 6 節的三種內容形式之一）。依賴：[CORE_RULES](CORE_RULES.md)（檢定、三條軌）、[DISTRICTS](../world/DISTRICTS.md)（各區、橋接區、日與夜）、[LIFE](../world/LIFE.md)（星期、城市的大事、行規）、[NPC_SYSTEM](NPC_SYSTEM.md)（登場角色、NPC 自己的日子）、[LEWD_SYSTEM](LEWD_SYSTEM.md)（第 7 節契約、第 9 節內容篩選）、[COMMISSIONS](COMMISSIONS.md)、[CYBERSPACE](CYBERSPACE.md)、[FIXER](FIXER.md)。被依賴：[DOWNTIME](DOWNTIME.md)（家園）、[STORY_QUESTS](../world/STORY_QUESTS.md)（事件可以開出特殊任務）、[SITES](../world/SITES.md)（要地的事件表）。
 > 來源：ElondiaRPG 的 EVENTS（事件視窗）、TRAVEL_EVENTS（旅途、城鎮事件與事件導演）、ADULT_EVENTS（地下城與寄生物的事件），以及主人事件（`slavery`）。那邊有五套結構相同的事件導演（`townEvents`、`dungeonEvents`、`leadEvents`、`parasiteEvents`、`pregnancyEvents`），掃描建議合併（[scan/03](../plan/scan/03-map-npc.md) 第 6 節 E7、[scan/05](../plan/scan/05-adult-home.md) 7.2 節）。這裡從一開始就只做一個。預定資料：`data/rules/events.json`（導演的設定）、`data/events/<範圍>.json`（模板，依範圍分檔）。數值都是初稿。
 > **所有登場角色都是成年人。** 成人事件這份只寫機制與性質，不寫描寫。
 
@@ -101,6 +101,10 @@
 | `link` | 只在委託副本裡：給一個連動（後面的階段多一條分支、少一些敵人） | [COMMISSIONS](COMMISSIONS.md) 第 3 節 |
 | `city_event` | 開始一件城市的大事（先預告三天） | [LIFE](../world/LIFE.md) 8.2 節 |
 | `insight` | 體悟，一件最多 5 點 | 夜課的經驗（[LEWD_SYSTEM](LEWD_SYSTEM.md) 第 10 節） |
+| `neighborhood` | 鄰里 ±3 | 蜂巢的鄰里（[DISTRICTS](../world/DISTRICTS.md) 第 3 節） |
+| `satisfaction` | 持約人的滿意 ±5 | [LEWD_SYSTEM](LEWD_SYSTEM.md) 7.4 節 |
+| `bill` | 這一週的帳單增減，不超過那一項金額的一半 | 罰單、減免、多出來的一筆費用（[DOWNTIME](DOWNTIME.md) 第 5 節） |
+| `grace` | 寬限：一項欠款延後，最多 7 天 | 欠繳的週數在寬限期間不往上加 |
 | `memory`、`flag` | 共同記憶、劇情旗標 | |
 
 ## 3. 導演
@@ -118,7 +122,7 @@
 | `transit_stop` | 公共交通每過一站 |
 | `enter_floor` | 進要地的一層，或內海的一個區、子網的一層 |
 | `open` | 開鎖、開檔案庫、搜索 |
-| `beat` | 委託副本的每個階段開始；壓力條跨過 60 |
+| `stage` | 委託副本的每個階段開始；壓力條跨過 60 |
 | `rest` | 短休、長休醒來 |
 | `work` | 打工每做完一班 |
 | `sleep_out` | 露宿醒來（算街頭範圍，機率 25%） |
@@ -151,13 +155,13 @@
 | 街頭 | `enter_block`、`walk`、`enter_bridge`、`enter_facility`、`transit_stop` | 12%、6%、25%、8%、6% | 2 小時 | 3 天 | 5 件 |
 | 要地 | `enter_floor`、`open`、`rest` | 25%、10%、20% | 1 小時 | 同一處 7 天 | — |
 | 子網與內海 | `enter_floor`、`open`、登入與登出 | 20%、10%、10% | 1 小時 | 3 天 | — |
-| 委託副本內 | `beat` | 每個階段 30%；壓力條 15% | 每個階段最多一件 | 同一件委託不重複 | — |
+| 委託副本內 | `stage` | 每個階段 30%；壓力條 15% | 每個階段最多一件 | 同一件委託不重複 | — |
 | 契約指令 | `daily`、走到持約人那裡 | 4.5 節 | — | 2 天 | 佇列最多 3 條 |
-| 家園 | `home`、`rest`、`weekly` | 15%、20%、依帳單 | 6 小時 | 7 天 | 2 件 |
+| 家園 | `home`、`rest`、`weekly` | 10%、20%、依帳單 | 6 小時 | 7 天 | 2 件 |
 | 成人事件 | 見 4.7 節 | 依觸發點 | 4 小時 | 5 天 | — |
 | 流竄 AI 的接觸 | 在內海時的 `enter_floor` 與登入、`rest`、`daily` | 4.8 節 | 24 小時 | — | 1 件 |
 | 打工 | `work`：每做完一班 | 15% | 每班最多一件 | 3 天 | — |
-| 吉祥物的目擊 | `walk`、`transit_stop`、`beat` | 4.9 節 | 72 小時 | — | 1 件 |
+| 吉祥物的目擊 | `walk`、`transit_stop`、`stage` | 4.9 節 | 72 小時 | — | 1 件 |
 
 - **存檔規則**可以調每個範圍的倍率（0～3），以及成人事件的比重（1～8 倍，沿用 ElondiaRPG 的 `adultDungeonMult`：成人向模板的權重乘上它，觸發機率依可抽模板的平均倍率拉高，最高 100%）。
 - **敵對值、豔名、曝露度**是共通的修正：敵對值 40 以上的勢力，它的「找麻煩」類模板權重 ×2；這一區的豔名每 20 點，「被認出來」類 ×1.2；曝露度超過這一區的容忍（[DISTRICTS](../world/DISTRICTS.md) 1.1 節）時，街頭的觸發機率 ×1.5。
@@ -212,8 +216,8 @@
 | 成人場景的進入點 | 結果帶 `adult_scene` 時送 `scene_gate` | 不進 |
 | `start_commission` | `commission_gen` 寫委託的內容 | 模板生成 |
 | 新登場的人 | `meet_npc`；名字由程式產生 | 模板 |
-| **鉤子** | judge 用 `add_hook` 留下「誰、在哪、何時、一句話」（一區同時最多一則、有期限）。導演把它變成一件街頭範圍的事件，在那裡、那時候放行，優先序同街頭但**不吃冷卻、不擲機率** | 沒有鉤子 |
-| **AI 生成的事件** | **只在 Agent 模式開著時**（[AI_TASKS](../plan/AI_TASKS.md) 1.2 節），**以單發為主**；對系列只是調味或指引，不寫系列的旗標（[SERIES](SERIES.md) 第 7 節）。AI 用 `propose_event` 交出一件符合第 2 節格式的事件。導演驗證格式、效果清單與內容篩選後排進佇列，和資料裡的事件吃同一套上限與優先序；每天有件數上限。Agent 模式關著時沒有這條路，事件只來自資料 | 沒有 |
+| **鉤子** | judge 用 `add_hook` 留下「誰、在哪、何時、一句話」（一區同時最多一則、有期限）。導演把它變成一件街頭範圍的事件，在那裡、那時候放行。它和街頭的事件一樣不排優先序，但**不吃冷卻、不擲機率** | 沒有鉤子 |
+| **AI 生成的事件** | **只在 Agent 模式開著時**（[AI_TASKS](../plan/AI_TASKS.md) 1.2 節），**以單發為主**；對系列只是調味或指引，不寫系列的旗標（[SERIES](SERIES.md) 第 7 節）。AI 用 `propose_event` 交出一件符合第 2 節格式的事件。導演驗證格式、效果清單與內容篩選後排進佇列。AI 提出的事件算街頭範圍，不擲機率、不吃範圍的冷卻；它照樣受每回合一件、城裡每天 8 件的上限限制，另外每天有自己的件數上限。Agent 模式關著時沒有這條路，事件只來自資料 | 沒有 |
 
 > **第 4 節各範圍裡的事件例子是內容層（L4）的素材**（[DESIGN_ORDER](../plan/DESIGN_ORDER.md)）；範圍的規則照常有效。
 
@@ -407,8 +411,8 @@ DC = 12 ＋ 4（管理級）＋ ⌊馴化 ÷ 10⌋ ＋ 沉溺的懲罰（迷醉 
 
 吉祥物不是勢力，沒有好感、敵對值、地盤，不能交涉（[GANGS](../world/GANGS.md) 第 3 節）。它只以**目擊**出現。
 
-- **條件**：夜或深夜；獨自（隊上沒有人在身邊）或人很少的地方；10 月假面夜機率 ×3。委託副本裡也可能出現（現場多出來的一顆氣球）。
-- **基本機率**：符合條件的 `walk` 2%、`transit_stop`（末班車）5%、副本的 `beat` 1%。
+- **條件**：夜或深夜；獨自（隊上沒有人在身邊）或人很少的地方；城市的大事「假面夜」發生時機率 ×3。委託副本裡也可能出現（現場多出來的一顆氣球）。
+- **基本機率**：符合條件的 `walk` 2%、`transit_stop`（末班車）5%、副本的 `stage` 1%。
 - **目擊數**：程式記一個隱藏的數字，每次目擊 +1。到 3、6、10 各立一個旗標，給吉祥物的長任務線用（[STORY_QUESTS](../world/STORY_QUESTS.md)）。玩家看不到這個數字。
 - 選項多半只有三種：**不回頭**、**拍下來**、**跟上去**。「看到氣球就不要回頭」是街上的說法——回頭的選項有代價。
 - 真的打起來是罕見的分支：不會被誘惑，過載了也不停。
@@ -433,7 +437,6 @@ DC = 12 ＋ 4（管理級）＋ ⌊馴化 ÷ 10⌋ ＋ 沉溺的懲罰（迷醉 
 
 | 標籤 | 關掉時 |
 |---|---|
-| `adult` | 成人向的模板都不抽；帶 `adult_scene` 的結果不送 `scene_gate` |
 | `pc_unwilling` | 這類模板與分支不抽；有替代分支的走替代 |
 | `contract_dom` | 契約指令只剩差事、工作、回報、規矩（4.5 節） |
 | `ntr`、`puppet_amnesia`、`blacktape` | 對應的模板不抽 |
@@ -441,7 +444,7 @@ DC = 12 ＋ 4（管理級）＋ ⌊馴化 ÷ 10⌋ ＋ 沉溺的懲罰（迷醉 
 | `ai:<自稱>`、`tendency:<標籤>` | 那一個流竄 AI 不接觸、不發委託；那個題材不進事件 |
 
 - 篩選關掉的只有內容；機制（感載、橋參數、敵對值）照算，因為它們同時是戰鬥與竄網的規則。
-- 模板必須能在 `adult` 關掉時整件不出現，或有一個不含成人內容的分支。內容編輯器會檢查。
+- **沒有成人內容的總開關**，所以沒有 `adult` 這個篩選標籤。`adult_scene` 只是交給成人場景模型的記號。用到某個細項題材的模板，必須能在那個細項關掉時整件不出現，或有一個不含那個題材的分支。內容編輯器會檢查。
 
 ## 7. 已確認的事項
 
@@ -458,7 +461,7 @@ DC = 12 ＋ 4（管理級）＋ ⌊馴化 ÷ 10⌋ ＋ 沉溺的懲罰（迷醉 
 9. 契約指令：佇列最多 3 條、可以抗拒、逾期時橋自己動手；在委託副本裡期限暫停。
 10. 吉祥物：用隱藏的目擊次數推進牠的長任務線，門檻是 3、6、10 次。
 11. 流竄 AI 的蠱惑：一天最多一件；有標籤的順著牠沉溺 +2～+3；沉溺超過 65 之後沒有標籤的也會來，順著牠得到標籤、沉溺 +1～+2；每個標籤預計兩種蠱惑事件。
-12. Agent 模式下 AI 提出的事件算街頭範圍，不擲機率、不吃冷卻。
+12. Agent 模式下 AI 提出的事件算街頭範圍，不擲機率、不吃範圍的冷卻，但照樣受每回合與每天的上限限制。
 
 ## 8. 資料的樣子
 
@@ -471,7 +474,6 @@ DC = 12 ＋ 4（管理級）＋ ⌊馴化 ÷ 10⌋ ＋ 沉溺的懲罰（迷醉 
   "category_recent": 6, "category_penalty": 0.35,
   "scopes": {
     "street": {
-      "priority": 8,
       "triggers": { "enter_block": 0.12, "walk": 0.06, "enter_bridge": 0.25, "enter_facility": 0.08, "transit_stop": 0.06 },
       "cooldown_hours": 2, "repeat_days": 3, "daily_cap": 5, "lost": "drop"
     },
@@ -481,7 +483,7 @@ DC = 12 ＋ 4（管理級）＋ ⌊馴化 ÷ 10⌋ ＋ 沉溺的懲罰（迷醉 
       "satisfaction_mult": [[0, 1.5], [30, 1.0], [70, 0.6]],
       "queue_max": 3, "lost": "defer"
     },
-    "mascot": { "priority": 5, "triggers": { "walk": 0.02, "transit_stop": 0.05, "beat": 0.01 }, "cooldown_hours": 72, "flags_at": [3, 6, 10], "lost": "drop" }
+    "mascot": { "triggers": { "walk": 0.02, "transit_stop": 0.05, "stage": 0.01 }, "cooldown_hours": 72, "flags_at": [3, 6, 10], "lost": "drop" }
   }
 }
 ```
