@@ -41,10 +41,10 @@
 | | 這一場碰到了哪些傾向 | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 1.1 節 |
 | **扮演** | NPC 在對話、交涉、成人場景裡選哪個行動 | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 3 節 |
 | | 對手公關在輿論戰裡出什麼牌 | [OPINION](../systems/OPINION.md) |
-| **生成** | 委託的內容（目標、里程碑、未知清單） | [COMMISSIONS](../systems/COMMISSIONS.md) |
+| **生成** | 委託的內容（目標、三到五個階段、每個階段可選的面、連動） | [COMMISSIONS](../systems/COMMISSIONS.md) |
 | | 街頭事件、訂做的零件、NPC 的細節 | [CRAFTING](../gear/CRAFTING.md) 第 11 節 |
 | **敘事** | 把報告寫成文字（戰鬥、探索、對話、成人場景各一種） | [GAME_DESIGN](../GAME_DESIGN.md) |
-| **記憶** | 摘要一段經過、更新 NPC 對主角的印象、挑出要帶進下一次的世界書條目 | — |
+| **記憶** | 摘要一段經過、更新 NPC 對主角的印象、挑出要帶進下一次的世界書條目 | 掃描後改成由程式照規則合併，不算 AI 任務（[AI_TASKS](AI_TASKS.md) 2.4 節） |
 | **編排** | 決定這一回合要叫哪幾個任務、順序與並行 | 這一層是程式，不是 AI |
 
 - 一次玩家行動通常是：**判定 →（引擎結算）→ 敘事**，旁邊並行跑記憶類。判定與敘事分開，是為了讓擲骰與後果不被文字帶著走。
@@ -54,7 +54,7 @@
 
 ### 2.3 掃描後的修正
 
-ElondiaRPG 那邊的 Agent 模式計畫（還沒開始）重點是**工具調用**，不只是拆任務：查詢工具取代把資料塞進提示詞，寫入工具取代事後解析，寫入在正文之後套用、可以回退。這邊以那份為準，任務與工具的定稿在 [AI_TASKS](AI_TASKS.md)。上面的表是動工前的初稿，和 [AI_TASKS](AI_TASKS.md) 不一致時以後者為準。
+ElondiaRPG 那邊的 Agent 模式計畫（還沒開始）重點是**工具調用**，不只是拆任務：查詢工具取代把資料塞進提示詞，寫入工具取代事後解析，寫入在正文之後套用、可以回退。這邊以那份為準，任務與工具的定稿在 [AI_TASKS](AI_TASKS.md)。上面的表是動工前的初稿，和 [AI_TASKS](AI_TASKS.md) 不一致時以後者為準。[AI_TASKS](AI_TASKS.md) 自己也還沒跟上輿論戰、委託副本、成人場景與直播的新規則，舊的地方已經在各節開頭標明，之後照新流程重列（[AUDIT](AUDIT.md) 第 6 節）。
 
 ## 3. 程式掃描：預計怎麼做
 
@@ -114,9 +114,9 @@ ElondiaRPG 那邊的 Agent 模式計畫（還沒開始）重點是**工具調用
 
 | 步 | 做什麼 | 什麼時候 |
 |---|---|---|
-| 1 | 設計文件過完剩下的待確認項目 | 現在 |
+| 1 | 設計文件收尾：照 [AUDIT](AUDIT.md) 第 8 節修正舊文件、補資料格式、過牽動大的未定事項、生成 L4、重寫 L5（[DESIGN_ORDER](DESIGN_ORDER.md) 第 4 節） | 現在 |
 | 2 | 程式掃描（第 3 節），產出 `CODESCAN` 與 `AI_TASKS` 的初稿 | **已完成**（[CODESCAN](CODESCAN.md)、[AI_TASKS](AI_TASKS.md)） |
-| 3 | 依掃描結果修正 [MIGRATION](MIGRATION.md) 與 [ROADMAP](ROADMAP.md) | **已完成** |
-| 4 | M0：照 [CODESCAN](CODESCAN.md) 第 3、4 節的分層與順序；AI 呼叫一開始就照任務拆 | 設計文件定版後 |
+| 3 | 依掃描結果修正 [MIGRATION](MIGRATION.md) 與 [ROADMAP](ROADMAP.md) | **已完成**；2026-11-18 全書檢查之後，兩份又照已確認的規則對齊了一次 |
+| 4 | M0：照 [CODESCAN](CODESCAN.md) 第 3、4 節的分層與順序；AI 呼叫一開始就照任務拆。三個戰場的畫面與規則以 `mockups/` 的三個 Demo 當實作的參考 | 設計文件定版後 |
 | 5 | M1～M7 | 依 [ROADMAP](ROADMAP.md) |
 | 6 | 交出 `ELONDIA_CLEANUP` | 共用管道搬完、整理好之後（預計 M2 結束時交第一版，之後補） |

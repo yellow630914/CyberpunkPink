@@ -1,7 +1,7 @@
 # 美術風格與繪圖管線
 
 > 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[DISTRICTS](../world/DISTRICTS.md)（地圖）、[CORE_RULES](../systems/CORE_RULES.md)（三條軌的顏色語意）。
-> 檔案：`docs/art/`（SVG 原稿）、`docs/mockups/`（HTML 樣稿）、`docs/art/preview/`（轉出來的 PNG，給人看的）、`tools/art/render.mjs`（轉檔）。
+> 檔案：`docs/art/`（SVG 原稿）、`docs/mockups/`（HTML 樣稿與可以操作的 Demo）、`docs/art/preview/`（轉出來的 PNG，給人看的）、`tools/art/render.mjs`（轉檔）。
 
 設計階段能畫的東西先畫出來：地圖、介面樣式、圖標。**人物圖與背景圖不在這裡做**——那是之後生圖管線的事（ElondiaRPG 的 PORTRAITS、BACKGROUNDS）。
 
@@ -32,6 +32,15 @@ node tools/art/render.mjs
 | 街區結構 v0 | [`art/district-blocks.svg`](district-blocks.svg)（由 `tools/art/gen_maps.py` 產生） | [`art/preview/district-blocks.png`](preview/district-blocks.png) | 八個區各自的街區、橋接區、要地與出口 |
 | 內海結構 v0 | [`art/cyberspace.svg`](cyberspace.svg)（同上） | [`art/preview/cyberspace.png`](preview/cyberspace.png) | 網路空間的七個分區、粉牆、現實的接點 |
 | 樣式規劃 v0 | [`mockups/style-guide.html`](../mockups/style-guide.html) | [`art/preview/style-guide.png`](preview/style-guide.png) | 色彩、三條軌的量條、按鈕與標籤、紀錄、字、圖標風格（24 個樣本） |
+| 勢力圖 v0 | [`art/factions.svg`](factions.svg) | [`art/preview/factions.png`](preview/factions.png) | 勢力之間的關係示意，對應 [FACTIONS](../world/FACTIONS.md) 的草稿 |
+
+**可以操作的 Demo**（HTML，直接用瀏覽器打開；它們是三個戰場畫面的現行參考，[UI](UI.md) 之後照它們重寫）：
+
+| Demo | 檔案 | 內容 | 規則在哪 |
+|---|---|---|---|
+| 現實戰鬥 | [`mockups/combat-demo.html`](../mockups/combat-demo.html) | 四格對四格的站位、行動圓環、生命值與感載兩條量條 | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 第 10 節 |
+| 內海戰鬥 | [`mockups/net-demo.html`](../mockups/net-demo.html) | 同一個站位版面，加上同步檔位與管理行動的按鈕 | [CYBERSPACE](../systems/CYBERSPACE.md) 第 6 節 |
+| 輿論戰 | [`mockups/opinion-demo.html`](../mockups/opinion-demo.html) | 3×3 的棋盤、手牌、聲量與風向 | [OPINION](../systems/OPINION.md) 第 3、4、10 節 |
 
 ![緋夜城地圖](preview/city-map.png)
 
@@ -67,7 +76,7 @@ node tools/art/render.mjs
 - 24 格、線寬 1.6、圓頭圓角、不填色。
 - **每個圖標只有一筆是粉的**：那一筆是它的重點（槍手的準星中心、感載的波形、契約的鎖扣）。
 - 16px 要認得出來，所以形狀要簡單：一個主體、最多兩個細節。
-- 之後的圖標照這個規格補：技能 18 個、義體部位 9 個、傷害類型 7 個、勢力徽記 26 個、設施。勢力徽記可以稍微破格（填色、用勢力自己的顏色）。
+- 之後的圖標照這個規格補：基本功 18 個、義體部位 9 個、傷害類型 5 個（物理、熱能、電磁、神經、快感）、勢力徽記 29 個、設施。勢力徽記可以稍微破格（填色、用勢力自己的顏色）。
 
 ## 6. 之後要畫的
 
@@ -76,7 +85,7 @@ node tools/art/render.mjs
 | 各區的街區圖 | 每區一張，比城市地圖細一級：街道、地標的實際位置、路口 |
 | 地鐵路線圖 | 遊戲內的車站介面 |
 | 主畫面樣稿 | 三欄佈局：地圖、紀錄、設施與人 |
-| 戰鬥畫面樣稿 | 站位（掩體／暴露／近身）怎麼呈現；兩條傷害軌 |
-| 潛入畫面樣稿 | 子網的節點圖；網內與現實交錯的回合 |
+| 潛入畫面樣稿 | 子網的節點圖。現實戰鬥、內海戰鬥與輿論戰的畫面已經有可以操作的 Demo（第 2 節），這三個不必另外畫靜態樣稿 |
+| 成人場景、委託副本、技能樹的樣稿 | 這三個畫面還沒有 Demo；[UI](UI.md) 重寫時一起畫 |
 | 義體部位圖 | 人形輪廓與九個部位的槽 |
-| 勢力徽記 | 主要勢力（八家企業、七個幫派）優先，次要的之後 |
+| 勢力徽記 | 二十九個勢力各一個（十二家企業、十五個街頭勢力、市警、鎮溺隊）；主要勢力（八家企業、七個街頭勢力）優先，次要的之後。輿論戰棋盤的格子要用佔著它的勢力的圖案，所以這一項排在棋盤的樣式之前 |

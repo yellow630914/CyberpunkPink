@@ -3,6 +3,7 @@
 > 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[CRAFTING](CRAFTING.md)（資料格式、零件的類型、材質、等級）、[CYBERWARE](CYBERWARE.md)（部位、沉溺成本）、[EQUIPMENT](EQUIPMENT.md)（欄位、大小、藏匿）、[LIFE](../world/LIFE.md)（價格表、合法性、牌子、藥）、[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 第 4、5 節（護甲與武器）。被依賴：[TRADE](../systems/TRADE.md)（目錄價）、[DOWNTIME](../systems/DOWNTIME.md)（藥與治療）。
 > 來源：ElondiaRPG 的物品目錄（`items.json` 680 項）與制式裝備；全部重寫。預定資料：`data/rules/parts.json`、`blueprints.json`、`items.json`。數值都是初稿。
 > **內容層（L4）的草稿，現在不過。** 已確認：等底層的系統定了，才開始生成內容（[DESIGN_ORDER](../plan/DESIGN_ORDER.md)）。這份裡的條目是暫存的素材，之後整批重寫；格式與規則的部分照常有效。
+> **哪些可以先用**：牌子與係數（1.2 節）、價格公式（1.3～1.5 節）、成癮規則（4.1 節）、工具（第 6 節）、飾品（第 7 節）與貨物（第 5 節後半）只需要小修，可以先拿來用。零件的數值（第 2 節）、設計圖（第 3 節）與彈藥（第 5 節前半）是舊規則下的數字，要照 [CRAFTING](CRAFTING.md) 5.5 節重算之後才能用。
 
 這是**第一版目錄**：每一類先給代表性的條目，夠拿來做第一批商店、戰利品與起始裝備，不窮舉。V 級（原型）不列：它們每一件有名字，跟著特殊任務寫。
 
@@ -276,7 +277,7 @@
 | 電擊鞭 | 織女 | II | 電源＋晶片＋板材 | 2d6 感載；距離 1～2；把人拉近一格 | 1 | 自由 | 900 | 1,360 |
 | 柳葉刀 | 胭脂堂的師傅 | II | 刃＋板材 | 近戰；沒有電子 | 1 | 自由 | 1,500 | 720 |
 | 散華 | 緋櫻（刀工） | IV | 刃（單分子）＋板材＋電源 | 近戰；家政課的制式 | 2 | 違禁 | — | 15,120 |
-| 甩棍 | 星旗 | I | 板材 ×2 | 近戰，動能 | 1 | 自由 | 270 | 130 |
+| 甩棍 | 星旗 | I | 板材 ×2 | 近戰，物理 | 1 | 自由 | 270 | 130 |
 | 小蜂 | 織女 | II | 晶片＋軟體＋致動器＋電源＋感測器 | 偵察無人機；加槍管＋機構可以武裝（2d6） | 2 | 登記 | 900 | 2,760 |
 
 ### 3.3 護甲與服裝
@@ -295,7 +296,7 @@
 | 執事服 | 緋櫻 | III | 上身＋下身 | 纖維＋外皮＋板材 | 內藏槽 | 7 | 風格 +2（櫻町系） | 4,800 | 4,610 |
 | 高訂禮服 | 玻璃岸的工坊 | III | 上身＋下身 | 纖維＋外皮 | 板材 | 3 | 風格 +4（高訂） | 4,800 | 3,460 |
 | 面具 | 同人 | I | 面部 | 板材或纖維 | 感測器；晶片；外皮 | — | 偽裝 +1；板材只擋打頭的重創 | 210 | 50 |
-| 密封服 | 織女 | II | 上身＋下身 | 纖維＋外皮＋電源 | 板材 | 2 | 擋化學 | 900 | 970 |
+| 密封服 | 織女 | II | 上身＋下身 | 纖維＋外皮＋電源 | 板材 | 2 | 擋毒與酸這類狀態 | 900 | 970 |
 
 ### 3.4 起始的設計圖
 
@@ -341,7 +342,7 @@
 | 空尖彈（一匣） | 對護甲 2 以下的目標傷害 +3；護甲照算兩倍 | 登記 | 40 |
 | 感官彈（一匣） | 改成神經傷害（感載），傷害骰少一顆 | 自由 | 40 |
 | 電磁彈（一匣） | 改成電磁傷害：義體失效 1 回合 | 許可 | 80 |
-| 破片手榴彈 | 4d6 動能，相鄰兩格 | 違禁 | 200 |
+| 破片手榴彈 | 4d6 物理，相鄰兩格 | 違禁 | 200 |
 | 閃光彈 | 那一格的人定力 DC 13，失敗失去下一回合的 2 點行動點 | 自由 | 80 |
 | 費洛蒙霧彈 | 那一格每回合 2d6 感載，兩回合 | 自由 | 120 |
 | EMP | 那一格的義體與智慧武器失效 2 回合，自己也算 | 違禁 | 400 |
@@ -430,14 +431,14 @@
 {
   "part": {
     "id": "barrel_starbelle_longtongue_2", "name": "長舌", "type": "barrel", "material": "mech",
-    "brand": "starbelle", "tier": 2, "price": 140,
+    "brand": "starbelle", "grade": 2, "price": 140,
     "stats": { "range_band": 1, "accuracy": -1 }, "affinity": {}, "traits": [],
     "legality": "registered", "trade_category": "weapon"
   },
   "blueprint": {
     "id": "pistol_orihime_2", "kind": "weapon", "name": "通用手槍框", "slot": "sidearm",
-    "brand": "orihime", "tier": 2, "license_price": 900, "size": 1,
-    "base": { "dice": "2d6", "range": [1, 4], "mag": 12, "damage_type": "kinetic" },
+    "brand": "orihime", "grade": 2, "license_price": 900, "size": 1,
+    "base": { "dice": "2d6", "range": [1, 4], "mag": 12, "damage_type": "physical" },
     "require": [
       { "type": "barrel", "material": "mech" },
       { "type": "mechanism", "material": "mech" },
