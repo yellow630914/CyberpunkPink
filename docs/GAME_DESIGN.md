@@ -11,7 +11,7 @@
 - **成人向的賽博龐克跑團風格 RPG**，網頁遊戲，架構沿用 [ElondiaRPG](https://github.com/yellow630914/ElondiaRPG)：玩家用介面操作，引擎負責所有擲骰與數值，每次行動後輸出一份報告，交給 AI 寫成小說式的經過。AI 可以關閉。
 - **世界**：另一條世界線的 2069 年，緋夜城。腦機介面是從快感迴路突破的，所以義體、網路、媒體、戰爭機器都長在情慾產業上。主流文化是日本的御宅文化。故事只發生在這一座城市（[world/](world/WORLD.md)）。
 - **三個戰場**：現實的戰鬥、內海（網路空間）的戰鬥、輿論戰（第 5 節）。
-- **主食是委託副本**：獨立於城市地圖的一組地圖，每件委託有一個主戰場，其餘的戰場起輔助作用（第 6 節）。
+- **主食是委託副本**：獨立於城市地圖的一組地圖。每件委託分成三到五個階段，玩家每個階段從可選的面裡選一面來玩；主面只決定最後一個階段在哪個戰場（第 6 節）。
 - **主角沒有職業**：技能想學什麼學什麼，限制在邊緣橋的容量。夥伴的職能固定（第 7 節）。
 - **裝備是組裝的**：義體、武器、護甲都由設計圖與零件構成（[gear/](gear/CRAFTING.md)）。
 
@@ -46,11 +46,11 @@
      └─ 接案（中間人、牆報）                                                  │
            └─▶ 踩點（打聽、勘查、預先駭入、收買）                              │
                  └─▶ 召集同伴、配技能                                         │
-                       └─▶ 行動（委託副本：主面＋輔助面）                      │
+                       └─▶ 行動（委託副本：三到五個階段）                      │
                              └─▶ 收尾（報酬、敵對值、素材、餘波）────────────────┘
 ```
 
-- 時間以**小時**推進。城市裡走路穿過一個區只要幾十分鐘；壓力來自期限與每週帳單，不是路程。
+- 時間以**小時**推進。城市裡走路穿過一個區只要幾十分鐘；壓力來自每週帳單與副本裡的壓力條，不是路程。委託副本裡沒有期限，時間的單位是階段。
 
 ## 5. 三個戰場
 
@@ -75,9 +75,9 @@
 
 | 形式 | 是什麼 | 規則 |
 |---|---|---|
-| **委託副本** | 一件委託的行動階段：獨立於城市地圖的一組地圖，最多三個面（現實、內海、輿論），各有一條領域指標。**每件委託有一個主面，目標只能在主面完成，其餘的面輔助** | [COMMISSIONS](systems/COMMISSIONS.md) |
+| **委託副本** | 一件委託的行動那一拍：獨立於城市地圖的一組地圖，分成三到五個階段。每個階段寫明可以選哪些面（現實、內海、輿論），玩家選一面來玩，其餘可選的面可以派人去當輔助，每個階段擲一次。**主面只決定最後一個階段；做完最後一個階段，委託就達成**。副本是封閉的，撤退等於回退到進副本之前 | [COMMISSIONS](systems/COMMISSIONS.md) |
 | **特殊任務** | 人工編寫的任務鏈，發生在城市的地圖上。用傳統的劇情旗標，沒有主面的限制 | [FIXER](systems/FIXER.md) 第 3 節 |
-| **事件** | 走在路上、待在某處時發生的一件事 | （待寫） |
+| **事件** | 走在路上、待在某處時發生的一件事。一個事件導演統一觸發，分成十種範圍 | [EVENTS](systems/EVENTS.md) |
 
 ## 7. 主角與夥伴
 
@@ -85,10 +85,10 @@
 |---|---|---|
 | 職業 | 沒有 | 固定的一到三條路數（主職 5 階、副職 3 階、第三職 2 階） |
 | 學技能 | 沒有限制 | 只在自己的路數裡升階 |
-| 限制在哪 | **邊緣橋的容量**：現實、內海、社交、媒體四類各自計算；每個技能佔的容量不同，有主動有被動 | 職能與階數 |
+| 限制在哪 | **邊緣橋的容量**：現實、內海、社交、媒體四類各自計算；每個技能佔的容量不同；技能的種類有六種（主動、被動、反應、姿態、預備、日常） | 職能與階數 |
 | 怎麼決定打法 | 裝哪一座橋、這一趟裝哪些技能 | 召集誰 |
 
-規則在 [CORE_RULES](systems/CORE_RULES.md) 6.2～6.4 節；橋的型號在 [CYBERWARE](gear/CYBERWARE.md) 第 7 節。一件委託最多召集 6 人（含主角）。
+規則在 [CORE_RULES](systems/CORE_RULES.md) 6.2～6.4 節；橋的型號在 [CYBERWARE](gear/CYBERWARE.md) 第 7 節。一件委託最多召集 6 人（含主角），每個面最多 4 人。八棵技能樹之外還有第九棵「夜課」，它的經驗是體悟，寫在 [LEWD_SYSTEM](systems/LEWD_SYSTEM.md) 第 10 節。
 
 ## 8. 系統地圖
 
@@ -101,15 +101,24 @@
 | 御宅文化、獸化、女僕、偶像、街頭用語 | [world/CULTURE](world/CULTURE.md) |
 | 八個區、地圖規模、要地、橋接區、交通 | [world/DISTRICTS](world/DISTRICTS.md) |
 | 固定 NPC、夥伴、主線骨架 | [world/NPCS](world/NPCS.md) |
-| 錢、身分、法律、等級、牌子、藥、通訊、曆、行規 | [world/LIFE](world/LIFE.md) |
+| 錢、身分、法律、等級、牌子、藥、通訊、時間與城市的大事、行規 | [world/LIFE](world/LIFE.md) |
+| 勢力的名單、關係、好感與敵對值 | [world/FACTIONS](world/FACTIONS.md) |
 | **規則** | |
 | 屬性、基本功、檢定、三條軌、同步、路數、技能與容量、成長、名聲 | [systems/CORE_RULES](systems/CORE_RULES.md) |
+| 建角、出身、生命軌跡、特質與缺陷 | [systems/CHARACTER](systems/CHARACTER.md) |
+| 技能：八棵技能樹、六種種類、效果清單與強度預算 | [systems/SKILLS](systems/SKILLS.md) |
 | 現實戰鬥、戰敗、機甲 | [systems/COMBAT_SYSTEM](systems/COMBAT_SYSTEM.md) |
+| 敵人：等級與位階、AI、戰敗事件的種類、各勢力的敵人 | [systems/ENEMIES](systems/ENEMIES.md) |
 | 內海：分區、化身、構裝、網內戰鬥、精神污染 | [systems/CYBERSPACE](systems/CYBERSPACE.md) |
 | 竄網：快駭、蕾絲、追蹤度、粉牆 | [systems/NETRUNNING](systems/NETRUNNING.md) |
 | 輿論戰：頻道經營與議題戰役 | [systems/OPINION](systems/OPINION.md) |
-| 媒體的基礎：素材、觀眾、公信力、直播；偶像 | [systems/MEDIA](systems/MEDIA.md) |
-| 委託副本 | [systems/COMMISSIONS](systems/COMMISSIONS.md) |
+| 媒體：拍片與直播、素材與片、訂閱、黏著與公信力；偶像 | [systems/MEDIA](systems/MEDIA.md) |
+| 委託副本：階段、面、連動、輔助面的結算 | [systems/COMMISSIONS](systems/COMMISSIONS.md) |
+| 系列：把事件、線索、特殊任務、委託副本分組 | [systems/SERIES](systems/SERIES.md) |
+| 事件：一個事件導演與它的範圍 | [systems/EVENTS](systems/EVENTS.md) |
+| NPC：名單、生成、互動、關係與夥伴 | [systems/NPC_SYSTEM](systems/NPC_SYSTEM.md) |
+| 生活：休息、治療、打工、帳單、區域狀態與家園 | [systems/DOWNTIME](systems/DOWNTIME.md) |
+| 交易：商店、價格、殺價與黑市 | [systems/TRADE](systems/TRADE.md) |
 | 中間人、一案四拍、每週帳單、名冊、人情、據點 | [systems/FIXER](systems/FIXER.md) |
 | 成人向：橋參數、調校、豔名、場所、契約、內容篩選 | [systems/LEWD_SYSTEM](systems/LEWD_SYSTEM.md) |
 | **裝備** | |
@@ -130,16 +139,16 @@
 | `kind` | `gig`（委託的階段結算）／`combat`／`netrun`／`action`／`event`／`broadcast`（發布與直播）／`deal`（交易與談判）／`social`／`downtime`（生活、改造、治療） |
 | `time` | 第幾天、幾點（以小時計） |
 | `location` | 區、街區、設施、場景格；竄網時另有 `subnet`（子網 id 與層） |
-| `party` | 快照改成 `hp`、`load`（感載）、`sink`（沉溺）各一組 `[前, 後, 上限]` |
-| `timeline` | 竄網的節拍標 `layer: "net"`，和現實（`meat`）的節拍照時間順序排在一起 |
-| `changes` | 新增 `cred`、`fame`（豔名）、`heat`（依勢力）、`favors`（人情）、`footage`（素材）、`audience`、`cyberware`、`humanity_cap` |
-| `narration` | 新增 `stream`（這一幕正在直播：觀眾數、彈幕的氣氛） |
+| `party` | 快照改成 `hp`、`load`（感載）、`sink`（沉溺）各一組 `[前, 後, 上限]`，另外記 `afterglow`（餘韻的層數） |
+| `timeline` | 竄網的節拍標 `layer: "net"`，現實的節拍標 `meat`。現實與內海的戰鬥不同場；現實的戰鬥裡用快駭時，兩種節拍照時間順序排在一起 |
+| `changes` | 新增 `cred`、`fame`（豔名）、`heat`（敵對值，依勢力）、`favors`（人情）、`footage`（從紀錄轉出來的素材）、訂閱與黏著（取代原本的 `audience`，欄位名待定）、`cyberware`、沉溺的下限（取代原本的 `humanity_cap`，欄位名待定） |
+| `narration` | 新增 `stream`（這一幕正在直播：觀看數、熱度、彈幕的氣氛） |
 
 ## 10. AI 敘事管線
 
 和 ElondiaRPG 相同：挑世界書條目 → 組提示詞（不變的在前，可快取）→ 呼叫模型。差異只有兩點：
 
-- **雙層場景**：竄網與現實同時發生時，提示詞要求把兩邊交錯著寫（一段網內、一段現實），靠 `timeline` 的 `layer` 判斷。
+- **兩層的節拍**：現實的戰鬥裡有人用快駭時，一份報告會同時有網內與現實的節拍。提示詞要求把兩邊交錯著寫（一段網內、一段現實），靠 `timeline` 的 `layer` 判斷。
 - **主持人口吻**：判定請求（自由行動）的規則加一條——像跑團主持人一樣給出「是，而且／是／是，但是／不，但是／不，而且」的走向，對應大成功、成功（差距 3 以上）、成功（差距不到 3）、失敗、大失敗（[CORE_RULES](systems/CORE_RULES.md) 第 3 節），並在 `twist` 寫出代價或轉機。
 
 ## 11. 預定的專案結構
