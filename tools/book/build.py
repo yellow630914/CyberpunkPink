@@ -253,7 +253,52 @@ th,td{border:1px solid var(--line);padding:7px 11px;vertical-align:top;min-width
 figure{margin:20px 0}figure img,p img{max-width:100%;height:auto;border:1px solid var(--line);display:block}
 figcaption{color:var(--ink3);font-size:12.5px;margin-top:6px;letter-spacing:1px}
 hr{border:0;border-top:1px solid var(--line);margin:30px 0}article{margin-top:56px}
-@media (max-width:900px){nav{display:none}main{margin-left:0;padding-block:20px 80px}.col{padding:0}details.mtoc{display:block}details.mtoc .part{margin-left:16px;margin-right:16px}}
+.toc a.cur{color:var(--pinkhi);border-left-color:var(--pink)}
+.navbtn,.scrim,.navhead button{display:none}
+@media (max-width:900px){
+ nav{transform:translateX(-102%);transition:transform .22s ease;z-index:50;width:min(88vw,360px);box-shadow:8px 0 30px #0008;padding-bottom:calc(90px + env(safe-area-inset-bottom, 0px));overscroll-behavior:contain}
+ body.nav-open nav{transform:none}
+ body.nav-open{overflow:hidden}
+ .scrim{position:fixed;inset:0;background:#000a;z-index:40}body.nav-open .scrim{display:block}
+ .navbtn{display:flex;align-items:center;gap:8px;position:fixed;z-index:60;right:calc(14px + env(safe-area-inset-right, 0px));bottom:calc(14px + env(safe-area-inset-bottom, 0px));height:50px;padding:0 18px;
+  font:inherit;font-weight:700;letter-spacing:3px;color:var(--bg);background:var(--pink);border:0;border-radius:25px;box-shadow:0 4px 16px #0008;cursor:pointer}
+ .navbtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
+ .navhead{display:flex;align-items:center;gap:8px;padding:0 20px 10px}
+ .navhead button{display:block;font:inherit;font-size:12.5px;color:var(--ink);background:var(--bg2);border:1px solid var(--line);padding:8px 12px;min-height:40px;cursor:pointer}
+ .navhead button[aria-pressed="true"]{border-color:var(--pink);color:var(--pinkhi)}
+ .toc a{padding:10px 20px}.toc a.d{margin-top:0;border-top:1px solid var(--line)}
+ .toc a.s{display:none;padding:8px 20px 8px 34px}
+ nav.all .toc a.s,.toc a.s.open{display:block}
+ main{margin-left:0;padding-block:20px 110px}.col{padding:0}
+ body{font-size:15px}h1{font-size:26px}h2{font-size:19.5px}h3{font-size:16.5px}
+ table{font-size:13px}th,td{padding:6px 8px;min-width:4.5em}
+ html{scroll-padding-top:8px}
+}
+@media (prefers-reduced-motion:reduce){nav{transition:none}}
+'''
+
+NAV_JS = r'''
+(function(){
+ var nav=document.getElementById('booknav'),btn=document.getElementById('navbtn'),scrim=document.getElementById('scrim'),all=document.getElementById('navall');
+ if(!nav||!btn)return;
+ var docs=[].slice.call(nav.querySelectorAll('.toc a.d'));
+ function current(){var best=docs[0];for(var i=0;i<docs.length;i++){var el=document.getElementById(docs[i].getAttribute('href').slice(1));if(el&&el.getBoundingClientRect().top<=120)best=docs[i];else if(el)break}return best}
+ function mark(){var c=current();nav.querySelectorAll('.cur').forEach(function(a){a.classList.remove('cur')});nav.querySelectorAll('.open').forEach(function(a){a.classList.remove('open')});
+  if(!c)return c;c.classList.add('cur');for(var n=c.nextElementSibling;n&&n.classList.contains('s');n=n.nextElementSibling)n.classList.add('open');return c}
+ function open(){var c=mark();document.body.classList.add('nav-open');btn.setAttribute('aria-expanded','true');if(c)nav.scrollTop=Math.max(0,c.offsetTop-90)}
+ function close(){document.body.classList.remove('nav-open');btn.setAttribute('aria-expanded','false')}
+ btn.addEventListener('click',function(){document.body.classList.contains('nav-open')?close():open()});
+ scrim.addEventListener('click',close);
+ document.addEventListener('keydown',function(e){if(e.key==='Escape')close()});
+ nav.addEventListener('click',function(e){var a=e.target.closest('a');if(!a)return;
+  if(a.classList.contains('d')&&window.matchMedia('(max-width:900px)').matches&&!a.classList.contains('cur')&&!nav.classList.contains('all')){
+   var has=a.nextElementSibling&&a.nextElementSibling.classList.contains('s');
+   if(has&&!a.nextElementSibling.classList.contains('open')){e.preventDefault();nav.querySelectorAll('.open').forEach(function(x){x.classList.remove('open')});
+    for(var n=a.nextElementSibling;n&&n.classList.contains('s');n=n.nextElementSibling)n.classList.add('open');a.insertAdjacentHTML;return}}
+  close()});
+ if(all)all.addEventListener('click',function(){var on=nav.classList.toggle('all');all.setAttribute('aria-pressed',on);all.textContent=on?'只看文件':'展開全部章節'});
+ var t;window.addEventListener('scroll',function(){clearTimeout(t);t=setTimeout(function(){if(!document.body.classList.contains('nav-open')){var c=current();nav.querySelectorAll('.cur').forEach(function(a){a.classList.remove('cur')});if(c)c.classList.add('cur')}},150)},{passive:true});
+})();
 '''
 
 
@@ -282,10 +327,13 @@ def artifact(out):
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=JetBrains+Mono:wght@400&display=swap">
 <style>{ART_CSS}</style>
-<nav aria-label="目錄"><div class="brand">CyberpunkPink<small>設計書 · 緋夜城 2069</small></div><div class="toc">{toc}</div></nav>
+<nav aria-label="目錄" id="booknav"><div class="brand">CyberpunkPink<small>設計書 · 緋夜城 2069</small></div>
+<div class="navhead"><button type="button" id="navall" aria-pressed="false">展開全部章節</button></div><div class="toc">{toc}</div></nav>
+<div class="scrim" id="scrim"></div>
+<button type="button" class="navbtn" id="navbtn" aria-controls="booknav" aria-expanded="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg>目錄</button>
 <main><div class="col">
-<details class="mtoc"><summary>目錄</summary><div class="toc">{toc}</div></details>
-{cover}{body}</div></main>'''
+{cover}{body}</div></main>
+<script>{NAV_JS}</script>'''
     os.makedirs(os.path.dirname(out), exist_ok=True)
     open(out, 'w', encoding='utf-8').write(page)
     print(f'→ {out}  {n_docs} 份文件  {len(page)//1024} KB')
