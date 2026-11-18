@@ -44,7 +44,7 @@
 | 技能 | 三個戰場的玩法、橋的容量 | 樹與階、前置、種類、容量、共鳴 | [SKILLS](../systems/SKILLS.md) 第 1 節 |
 | 橋與義體 | 技能（容量）、三條軌（沉溺） | 橋的型號、部位、沉溺成本 | [CYBERWARE](../gear/CYBERWARE.md) |
 | 裝備（設計圖與零件） | 戰鬥用的數字、技能的親和 | 零件的屬性、等級、材質、欄位 | [CRAFTING](../gear/CRAFTING.md)、[EQUIPMENT](../gear/EQUIPMENT.md) |
-| 敵人 | 戰鬥、技能、裝備 | 威脅階、資料格式、站位、敵人 AI、戰敗、掉落、遭遇怎麼組 | [ENEMIES](../systems/ENEMIES.md) 第 1～7、13 節 |
+| 敵人 | 戰鬥、技能、裝備 | 等級與位階、資料格式、站位、敵人 AI、戰敗、掉落、遭遇怎麼組 | [ENEMIES](../systems/ENEMIES.md) 第 1～7、13 節 |
 | NPC 與夥伴 | 核心規則、技能、名聲 | 生成、互動、關係、夥伴的成長 | [NPC_SYSTEM](../systems/NPC_SYSTEM.md) |
 | 事件 | 檢定、名聲、NPC | 導演、格式、範圍、上限 | [EVENTS](../systems/EVENTS.md) 第 1～3 節 |
 | 系列與線索 | 事件、委託副本、特殊任務的格式 | 分組、旗標的命名空間、線索池 | [SERIES](../systems/SERIES.md) |
