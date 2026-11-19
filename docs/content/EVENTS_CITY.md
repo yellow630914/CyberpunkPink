@@ -3576,7 +3576,7 @@
   - 照她的節奏吃（表演 13）：成功：現金晶片 C$200，一段素材，體悟 +2；失敗：現金晶片 C$100。
   - 反過來餵她（誘惑 16）：成功：現金晶片 C$200，她的親密度 +5，體悟 +3；失敗：她說這不是廣告要的，現金晶片 C$80。
   - 吃到一半說不舒服（不擲）：現金晶片 C$80。
-- **篩選**：`tendency:口與吞嚥` 或 `tendency:餵養` 被關掉時，這一件改成普通的甜點廣告拍攝，不進場景。選項一、選項二成功 `adult_scene`（when：success，gate：ai，nature：work，role：worker，goal：please，circles：[[$pc, $a]]）。
+- **篩選**：`tendency:口與吞嚥` 或 `tendency:溺愛` 被關掉時，這一件改成普通的甜點廣告拍攝，不進場景。選項一、選項二成功 `adult_scene`（when：success，gate：ai，nature：work，role：worker，goal：please，circles：[[$pc, $a]]）。
 
 ### 經理的私人訂單（`wk_peach_s3_private`）
 - **在哪、條件**：打工；桃子屋；夜班階段三；經理的親密度 20 以上。

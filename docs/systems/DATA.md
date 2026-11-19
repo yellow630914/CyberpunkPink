@@ -13,7 +13,7 @@
 | `tier` | 只用在技能：樹的第幾階，1～5 |
 | `rank` | 只用在敵人：`minion`、`elite`、`boss` |
 | `cells` | 這筆內容的份量是幾格（[CORE_RULES](CORE_RULES.md) 7.4 節）。資料檢查用它對強度預算 |
-| `tags` | 內容篩選的標籤：流竄 AI 的題材、`noncon`（主角非自願）、`contract`（契約支配）、`ntr`、`amnesia`（人偶晶片的失憶工作）。玩家關掉的標籤，帶著它的內容不出現 |
+| `tags` | 內容篩選的標籤：流竄 AI 的題材、`pc_unwilling`（主角非自願）、`target_unwilling`（對象非自願）、`contract_dom`（契約支配）、`ntr`、`puppet_amnesia`（人偶晶片的失憶工作）、`blacktape`，以及對象的性別 `male_partner`、`female_partner`、`femboy_partner`（男娘與偽娘）、`trans_partner`、`futa_partner`（已確認，全書統一用這組名字）。玩家關掉的標籤，帶著它的內容不出現 |
 | `adult` | 布林值。只給三個地方用：交給 AI 寫正文、產圖的預處理、產圖。規則不因為它而不同 |
 | 文字欄位 | `name`、`desc`、`text` 是給玩家與 AI 看的中文，都要寫成完整的句子 |
 | 基本功與屬性 | 用英文 id。屬性：`body` 體格、`reflex` 反應、`tech` 技術、`intellect` 智識、`resolve` 意志、`charm` 魅力。基本功的 id 表在 [CORE_RULES](CORE_RULES.md) 第 2 節 |
@@ -284,7 +284,7 @@
 {
   "id": "df_contract_eden", "scope": "defeat", "kind": "contract",
   "factions": ["eden"], "fails_commission": true,
-  "tags": ["contract", "noncon"], "adult": true,
+  "tags": ["contract_dom", "pc_unwilling"], "adult": true,
   "fallback": "df_contract_eden_plain",
   "versions": {
     "default": {
