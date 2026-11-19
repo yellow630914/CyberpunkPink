@@ -258,7 +258,7 @@
   "lifepath_entry": {
     "table": "enemy", "id": "took_the_fall",
     "text": "你替人頂過一次罪，那個人現在過得很好",
-    "result": { "npc": { "role": "enemy", "faction_from": "origin" }, "heat": 15 }
+    "result": { "npc": { "role": "enemy", "faction_from": "origin" }, "hostility": 15 }
   },
   "perk": {
     "id": "smooth_talker", "name": "能言善道", "category": "social",

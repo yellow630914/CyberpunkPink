@@ -45,6 +45,8 @@
 
 市警與鎮溺隊的好感與敵對值怎麼算，以及不在名單上、但會碰到的（吉祥物、流竄 AI、企業的部門、中間人），見第 8 節。
 
+**市警與鎮溺隊要加進關係矩陣**（已確認方向）：市警對企業友好、對多數幫派敵對；鎮溺隊敵對牆語者與鉻娘子。每一格的細節和第 10 節的待確認事項一起過。
+
 ## 2. 關係的種類
 
 | 記號 | 關係 | 意思 | 現在在系統裡做什麼 |
@@ -349,13 +351,13 @@
 ```json
 {
   "factions": [
-    { "id": "lonestar", "name": "孤星連", "kind": "street", "rank": "minor", "patron": "starbelle",
+    { "id": "lonestar", "name": "孤星連", "kind": "street", "major": false, "patron": "starbelle",
       "branch": "hardboiled", "turf": ["hive_east"],
       "favor_start": 10, "origin_bonus": { "hive": 15 },
       "favor_sources": [ { "on": "pay_protection", "delta": 2, "weekly_cap": 2 } ],
       "favor_effects": [ { "at": 60, "effect": "home_guard" } ],
-      "heat_sources": [ { "on": "crime_in_turf", "delta": [3, 10] } ],
-      "heat_effects": [ { "at": 40, "effect": "checkpoint_stop", "where": "hive_east" } ],
+      "hostility_sources": [ { "on": "crime_in_turf", "delta": [3, 10] } ],
+      "hostility_effects": [ { "at": 40, "effect": "checkpoint_stop", "where": "hive_east" } ],
       "rules": [] },
     { "id": "police", "name": "市警", "kind": "public" }
   ],
@@ -376,7 +378,7 @@
                  { "min": 40, "name": "友好", "buy": -0.1, "sell": 0.05 },
                  { "min": 60, "name": "信任", "buy": -0.2, "sell": 0.1, "grade_max": 3 },
                  { "min": 80, "name": "自己人", "grade_max": 4 } ] },
-    "heat": { "min": 0, "max": 100, "decay_weekly": 5, "decay_quiet_bonus": 10,
+    "hostility": { "min": 0, "max": 100, "decay_weekly": 5, "decay_quiet_bonus": 10,
       "bands": [ { "min": 20, "name": "記名" }, { "min": 40, "name": "找麻煩" }, { "min": 60, "name": "追捕" },
                  { "min": 80, "name": "懸賞" }, { "min": 100, "name": "通緝" } ],
       "district_mult": { "crown": 2, "street42": 0.5, "old_port_corp": 0 } },

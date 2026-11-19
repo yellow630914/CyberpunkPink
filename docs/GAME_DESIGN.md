@@ -141,7 +141,7 @@
 | `location` | 區、街區、設施、場景格；竄網時另有 `subnet`（子網 id 與層） |
 | `party` | 快照改成 `hp`、`load`（感載）、`sink`（沉溺）各一組 `[前, 後, 上限]`，另外記 `afterglow`（餘韻的層數） |
 | `timeline` | 竄網的節拍標 `layer: "net"`，現實的節拍標 `meat`。現實與內海的戰鬥不同場；現實的戰鬥裡用快駭時，兩種節拍照時間順序排在一起 |
-| `changes` | 新增 `cred`、`fame`（豔名）、`heat`（敵對值，依勢力）、`favors`（人情）、`footage`（從紀錄轉出來的素材）、訂閱與黏著（取代原本的 `audience`，欄位名待定）、`cyberware`、沉溺的下限（取代原本的 `humanity_cap`，欄位名待定） |
+| `changes` | 新增 `cred`、`fame`（豔名）、`hostility`（敵對值，依勢力）、`favors`（人情）、`footage`（從紀錄轉出來的素材）、訂閱與黏著（取代原本的 `audience`，欄位名待定）、`cyberware`、沉溺的下限（取代原本的 `humanity_cap`，欄位名待定） |
 | `narration` | 新增 `stream`（這一幕正在直播：觀看數、熱度、彈幕的氣氛） |
 
 ## 10. AI 敘事管線

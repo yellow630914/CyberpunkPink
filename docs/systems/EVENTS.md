@@ -80,7 +80,7 @@
 | `sink` | ±3；流竄 AI 的接觸 ±5 | 成人場景的沉溺只由 `scene_settle` 改 |
 | `bridge` | 一項 +1 | 橋參數慢慢長（[LEWD_SYSTEM](LEWD_SYSTEM.md) 第 1 節） |
 | `tendency` | 一個標籤一點 | |
-| `heat`、`favor`（勢力） | ±10、±5 | 每個勢力各記各的 |
+| `hostility`、`favor`（勢力） | ±10、±5 | 每個勢力各記各的 |
 | `affinity`、`loyalty`（個人） | ±8、±10 | [NPC_SYSTEM](NPC_SYSTEM.md) 第 7 節、10.4 節 |
 | `owed`（人情） | 一個小或中人情 | [FIXER](FIXER.md) 第 8 節 |
 | `fame`（豔名） | 這一區 ±5 | |
@@ -504,7 +504,7 @@ DC = 12 ＋ 4（管理級）＋ ⌊馴化 ÷ 10⌋ ＋ 沉溺的懲罰（迷醉 
     { "text": "把憑證還給他", "check": ["negotiation", "normal"],
       "outcomes": { "success": [["favor", "hizakura", 2], ["owed", "$a", "small"]], "fail": [["affinity", "$a", -2]] } },
     { "text": "收進口袋", "check": ["stealth", "normal"],
-      "outcomes": { "success": [["item", "pass_crown_once"]], "fail": [["heat", "hizakura", 3]] } },
+      "outcomes": { "success": [["item", "pass_crown_once"]], "fail": [["hostility", "hizakura", 3]] } },
     { "text": "拿去賣", "outcomes": { "any": [["cash", 300], ["flag", "sold_crown_pass"]] } }
   ]
 }
