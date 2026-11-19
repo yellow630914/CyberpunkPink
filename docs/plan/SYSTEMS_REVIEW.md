@@ -148,7 +148,7 @@
 |---|---|---|---|---|
 | 委託副本：獨立地圖、封閉、三個面 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) | 已確認：原本每個面一條 0～100 的指標拿掉了，進度看做到第幾個階段；沒有節、期限與部分完成；撤退等於回到進副本前；每個副本要設定戰敗事件與直播目標 | — |
 | 每件委託一個主面，其餘輔助 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) 4 | 主面只決定最後一個階段。連動的三種幫法（代勞、減壓、開路）是我分的 | — |
-| 隊伍：主角加最多 4 位夥伴、最多 2 位同行 | ✔ | [NPC_SYSTEM](../systems/NPC_SYSTEM.md) 10.0 | 已確認：夥伴一定是行者；同行不限種類、不參與戰鬥；第五人當後備 | — |
+| 隊伍：最多 4 人含主角、最多 2 位同行；輔助面另外從名冊找人 | ✔ | [NPC_SYSTEM](../systems/NPC_SYSTEM.md) 10.0、[COMMISSIONS](../systems/COMMISSIONS.md) 6.5 | 已確認：夥伴一定是行者；同行不限種類、不參與戰鬥；輔助面用錢、人情、交情找人 | — |
 | 特殊任務用傳統旗標 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) 1 | | — |
 | 心智委託 | ✔ | [COMMISSIONS](../systems/COMMISSIONS.md) 7 | | — |
 | **系列**：事件、線索、特殊任務、委託副本的分組 | ✔ | [SERIES](../systems/SERIES.md) | 已確認：只管分組與分類，邏輯靠旗標與計數器；單發並存；旗標以系列為命名空間；委託副本進行中封閉；線索池參考 ElondiaRPG；AI 的線索是指引，生成的事件以單發為主 | — |

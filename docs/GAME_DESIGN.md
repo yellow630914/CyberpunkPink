@@ -88,7 +88,7 @@
 | 限制在哪 | **邊緣橋的容量**：現實、內海、社交、媒體四類各自計算；每個技能佔的容量不同；技能的種類有六種（主動、被動、反應、姿態、預備、日常） | 職能與階數 |
 | 怎麼決定打法 | 裝哪一座橋、這一趟裝哪些技能 | 召集誰 |
 
-規則在 [CORE_RULES](systems/CORE_RULES.md) 6.2～6.4 節；橋的型號在 [CYBERWARE](gear/CYBERWARE.md) 第 7 節。一件委託帶主角加上最多 4 位夥伴，另外最多 2 位不打仗的同行（[NPC_SYSTEM](systems/NPC_SYSTEM.md) 10.0 節）。八棵技能樹之外還有第九棵「夜課」，它的經驗是體悟，寫在 [LEWD_SYSTEM](systems/LEWD_SYSTEM.md) 第 10 節。
+規則在 [CORE_RULES](systems/CORE_RULES.md) 6.2～6.4 節；橋的型號在 [CYBERWARE](gear/CYBERWARE.md) 第 7 節。一件委託的隊伍最多 4 人含主角，另外最多 2 位不打仗的同行；委託副本的輔助面另外從名冊找人（[NPC_SYSTEM](systems/NPC_SYSTEM.md) 10.0 節）。八棵技能樹之外還有第九棵「夜課」，它的經驗是體悟，寫在 [LEWD_SYSTEM](systems/LEWD_SYSTEM.md) 第 10 節。
 
 ## 8. 系統地圖
 
