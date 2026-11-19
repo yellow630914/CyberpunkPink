@@ -65,8 +65,8 @@
 | 零件、設計圖、藥、工具 | 戰鬥、技能、裝備框架、經濟 | 已生成：[ITEMS](../gear/ITEMS.md)，I～IV 級的系列；V 級留到 3.4 節 |
 | 敵人名單 | 戰鬥、技能、敵人框架 | 已生成：[ENEMY_ROSTER](../content/ENEMY_ROSTER.md)（制式敵人）；具名敵人留到 3.4 節 |
 | 事件 | 事件框架、NPC、名聲 | 已生成：[EVENTS_CITY](../content/EVENTS_CITY.md)、[ADULT_EVENTS](../content/ADULT_EVENTS.md)、[LURE_EVENTS](../content/LURE_EVENTS.md)、[DEFEAT_EVENTS](../content/DEFEAT_EVENTS.md)；待平衡 |
-| 特殊任務與系列 | 系列、委託副本、事件 | [STORY_QUESTS](../world/STORY_QUESTS.md)（素材） |
-| 街區與要地的內容、委託模板 | 委託副本、事件、敵人 | [SITES](../world/SITES.md)（素材） |
+| 特殊任務與系列 | 系列、委託副本、事件 | 已生成：[QUESTS](../content/QUESTS.md)；史詩還沒寫 |
+| 街區與要地的內容、委託模板 | 委託副本、事件、敵人 | 委託模板已生成：[COMMISSION_TEMPLATES](../content/COMMISSION_TEMPLATES.md)；街區與要地見 [SITES](../world/SITES.md) |
 | 勢力關係表的細格 | 勢力名單定案 | [FACTIONS](../world/FACTIONS.md) |
 
 ### 3.4 最後回來做的（使用者交代，2026-11-19）

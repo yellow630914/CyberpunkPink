@@ -3273,6 +3273,114 @@
 
 ---
 
+## 七、具名敵人
+
+特殊任務裡的具名敵人（[ENEMIES](../systems/ENEMIES.md) 2.1 節），照它們出現的線分組。等級照那個任務點所在區的等級；詳細的資料寫在 [QUESTS](QUESTS.md) 各條線裡。
+
+### 出身與路數的線
+
+| 名字 | 線與任務點 | base | 等級與位階 | 戰場 | 招牌行動（格） | 戰敗事件 | 掉落 |
+|---|---|---|---|---|---|---|---|
+| 迷路的遺魂 | 地下層的開場 ③ | `en_ghost_wreck` | I 雜兵 | 內海 | 繞路（1） | `polluted`（不算失敗） | — |
+| 烙鐵 | 槍手 ② | `en_chrome_roadhunter` | II 精英 | 現實 | 借火（2）、熱身（1） | `chrome` | 槍管「烙鐵」 |
+| 柊（家政課第二席） | 槍手 ⑤ | `en_hz_hk_seat` | II 首領（一對一修正） | 現實 | 完璧（3）、一閃（3）、一發（6） | 自訂：收刀、留名片 | 刃「柊」 |
+| 老鴉 | 機師 ⑤ | `en_pilot_contract` | III 精英 | 現實 | 撿來的手（2）、焊補（3） | `stripped` | 致動器「老鴉的腿」 |
+| 剪刀 | 改造師 ③ | `en_strp_cutter` | II 精英 | 現實 | 估價（2）、剪線（3） | `stripped` | 刃「剪刀」 |
+| 點名簿 | 潛網者 ⑤ | `en_ng_netrunner` | III 精英 | 內海 | 點名（2）、簽到（3） | `pinned` | — |
+| 陶三 | 掮客 ③ | `en_police_marksman` | II 精英 | 現實 | 老江湖（2）、拖延（2） | `ransom` | 機構「懷錶」 |
+| 首頁值班 | 主播 ③ | `pr_kaleido` | II 精英（強度 2） | 輿論 | 降權（2）、熱門取代（3） | 不適用 | — |
+| 鐵板 | 偶像 ③ | `en_grd_undercap` | I 首領（屋頂村）／II 首領（緋夜祭） | 現實 | 應援口號（2）、剪線（3）、死忠（6） | `lesson` | — |
+
+### 中間人、夥伴與奪的線
+
+| 名字 | 線、任務點 | base | 等級與位階 | 戰場 | 戰敗事件 |
+|---|---|---|---|---|---|
+| 稽核蕾絲「朱筆」 | 阿蓮 ③ | `en_hz_lace_maid` | I 級、精英 | 內海 | `pinned` |
+| 回收組長「白線」 | 夢露 ② | `en_ed_collector` | II 級、精英 | 現實 | `contract` |
+| 放水的一番（橘靜的替身） | 千早 ③ | `en_hz_hk_seat` | II 級、首領 | 現實 | `tuning` |
+| 紅棍「阿豹」 | 陸伯 ② | `en_rouge_redpole` | II 級、精英 | 現實 | `debt_work` |
+| 直播導演「九十秒」 | 薇薇安 ③ | `en_kd_director` | III 級、首領 | 輿論 | `exposed` |
+| 騎士長「灰十字」 | 瑪拉 ③ | `en_bs_knight_captain` | III 級、首領 | 現實 | `farm` |
+| 閘門守衛「門房」 | 伊萊莎 ④ | `en_lace_gatekeeper` | III 級、首領 | 內海 | `polluted` |
+| 玩偶熊「氣球熊」 | 小麥 ② | 自寫（`mascot`） | II 級、精英 | 現實 | `taken`（無成人場景） |
+| 回收官「哈洛威」 | 喬 ① | `en_sb_sergeant` | I 級、精英 | 現實 | `pow` |
+| 回聲的化身（替身） | 零 ② | `en_whisper_hearer` | III 級、首領 | 內海 | `communion` |
+| 拆件師傅「老溫」 | 澄 ① | `en_strp_cutter` | II 級、精英 | 現實 | `stripped` |
+| 家政課第七席 | 真白 ③ | `en_hz_hk_seat` | II 級、首領 | 現實 | `tuning` |
+| 採樣主任「沃斯」 | 雷 ② | `en_nc_physician` | III 級、精英 | 現實 | `lab` |
+| 樓面經理「蜜價」 | 柚 ② | `en_ed_floor_manager` | II 級、精英 | 現實 | `contract` |
+
+### 流竄 AI 的線（關係與感官）
+
+| 名字 | 線 | 任務點 | base | 等級與位階 | 戰場 | 戰敗事件 |
+|---|---|---|---|---|---|---|
+| 封網令 | 大家 | ② 副歌之前 | `en_netvigil_censor` | II 首領 | 內海 | `bridge_lock` |
+| 六指琴 | 這杯我請 | ② 老船工阿海 | `en_rouge_collector` | II 精英 | 現實 | `debt_work` |
+| 收線的薇拉 | 絲 | ② 糖罐裡的小椿 | `en_ed_collector` | II 精英 | 現實 | `contract`（篩選關掉走 `ransom`） |
+| 登記簿 | 陛下 | ② 改成誓約（副本第三階段） | `en_ed_lace_concierge` | IV 首領 | 內海 | `pinned` |
+| 第三號鎖 | 鎖匠 | ② 解開一個人的橋 | `en_netvigil_agent` | II 精英 | 內海 | `bridge_lock` |
+| 晚間頭條 | 本台 | ② 全城的晚間節目 | `en_kd_director` | II 首領（強度 3） | 輿論 | — |
+| 啞鐘 | 噓 | ② 安靜的一刻鐘 | `en_ng_silencer` | II 精英 | 內海 | `pinned` |
+| 回頭彎 | 到哪算哪 | ② 送雅各出城（副本第三階段） | `en_chrome_roadhunter` | III 精英 | 現實 | `stranded` |
+| 第二料理長 | 再一口 | ② 料理長 | `en_sweetheart_chef` | II 首領 | 現實 | `fed` |
+| 館方的濾鏡 | 好多手 | ② 生根 | `en_kd_lace_filter` | II 精英 | 內海 | `polluted` |
+
+- 等級照任務點所在的區（DISTRICTS 的等級表）；伺服器在哪一區，內海的戰鬥就照那一區。陛下那一件在冠冕區，所以是 IV。
+- 四個從雜兵的 base 改成精英或首領（六指琴、登記簿、館方的濾鏡；封網令從 IV～V 的首領降到 II），數值照 1.5 節那一格重算，base 只沿用樣子、武器與招牌行動。
+
+### 流竄 AI 的線（身體、扮相與夜后）
+
+| 名字 | 線（任務點） | base | 等級與位階 | 戰場 | 在哪 | 戰敗事件 |
+|---|---|---|---|---|---|---|
+| 灰爪 | 嗷 ② | `en_nora_packleader` | II 首領 | 現實 | 地下層淺層・貓道迷宮 | `robbed` |
+| 柊 | 還沒好 ② | `en_nc_shifter` | III 精英 | 現實 | 鏽帶・蜜腺試驗田 | `lab` |
+| 葛蘿莉亞中士 | Miss 七月 ③ | `en_sb_sergeant` | III 精英 | 現實 | 鏽帶・星旗前進基地 | `pow` |
+| 鐵蘭 | 嘶—— ② | `en_chrome_brawler` | II 精英 | 現實 | 舊港・熔爐 | `chrome` |
+| 莉莉絲 | Ａ子 ② | `en_kd_double` | III 精英 | 現實 | 玻璃岸・鏡廳 | `exposed` |
+| 凌霄 | 小仙 ② | `en_kl_senior` | IV 首領 | 現實 | 冠冕區・崑崙的宴會廳 | `arrest` |
+| 朝霧 | 女僕長 ② | `en_hz_hk_seat` | II 精英 | 現實 | 櫻町・白手套 | `tuning` |
+| 黑鐵・薇拉 | 夜露死苦 ③ | `en_chrome_roadhunter` | III 精英 | 現實 | 鏽帶・外環公路 | `chrome` |
+| 鐵門・葛瑞絲 | 寧死不屈 ② | `en_suppress_leader` | II 首領 | 現實 | 地下層淺層・月台市 | `quarantine` |
+| 註解的守門人 | 夜后 ① | `en_lace_gatekeeper` | III 首領 | 內海 | 深海最底層 | `polluted` |
+| 霜（替身） | 夜后 ② | `en_netvigil_agent` | III 首領 | 內海 | 地下層・聖堂的子網 | `bridge_lock` |
+
+### 勢力與其他的線
+
+| 名字 | 線（任務點） | base | 等級與位階 | 戰場 | 替身 | 戰敗事件 |
+|---|---|---|---|---|---|---|
+| 第五席「柊」 | `fc_hizakura` ② | `en_hz_hk_seat` | III 首領 | 現實 | — | 考核（醒在客房） |
+| 軍需官「鐵帳」布魯克少校 | `fc_starbelle` ③ | `en_sb_sergeant` | III 首領 | 現實 | — | `pow` |
+| 師姐蘇凝 | `fc_kunlun` ③ | `en_kl_senior` | IV 首領 | 現實 | — | 考核（醒在休息室） |
+| 採樣長柯緹 | `fc_nectar` ②③ | `en_nc_shifter` | III 精英 | 現實 | — | `lab` |
+| 機房主任「夜啼」 | `fc_nightingale` ③ | `en_ng_chief` | IV 首領 | 內海 | — | `pinned` |
+| 導播瑪歌 | `fc_kaleido` ③ | `en_kd_director` | IV 首領（強度 3） | 輿論 | — | `exposed` |
+| 回收員蘭姆 | `fc_eden` ① | `en_ed_collector` | II 精英 | 現實 | — | `contract` |
+| 騎士長瑪德蓮 | `fc_blackspring` ③ | `en_bs_knight_captain` | IV 首領 | 現實 | — | `farm` |
+| 「辣椒」 | `fc_honey` ③ | `en_honey_firebrand` | II 首領 | 現實 | 金恩雅 | `lesson` |
+| 紅棍「鐵扇」 | `fc_rouge` ⑤ | `en_rouge_redpole` | II 首領 | 現實 | — | `ransom` |
+| 黑拳王「齒輪」 | `fc_chrome` ① | `en_chrome_brawler` | III 精英 | 現實 | — | `chrome` |
+| 「熔爐」 | `fc_chrome` ③ | `en_chrome_officer` | III 首領 | 現實 | 葛蕾塔 | `chrome` |
+| 副長「霞」 | `fc_tokko` ④ | `en_tokko_captain` | II 首領 | 現實 | — | `lesson` |
+| 「第七代」 | `fc_tokko` ④ | `en_tokko_captain` | II 首領 | 現實 | 鬼塚凜 | `lesson` |
+| 「回聲」 | `fc_whisper` ③ | `en_whisper_ferryman` | III 首領 | 內海 | 回聲 | `communion` |
+| 「沙蝮」 | `fc_rose` ② | `en_chrome_roadhunter` | III 精英 | 現實 | — | `chrome` |
+| 「狐面」 | `fc_festival` ③ | `en_fest_pyro` | II 首領 | 現實 | 狐面 | `afterparty` |
+| 金章女僕玖月 | `fc_maids` ② | `en_maid_gold` | II 首領 | 現實 | — | 考核（醒在休息室） |
+| 攤主「抽屜」 | `fc_strippers` ③ | `en_strp_boss` | III 首領 | 現實 | — | `stripped` |
+| 紫苑 | `fc_guard` ③ | `en_grd_captain` | II 首領 | 現實 | — | `exposed` |
+| 范恩中尉 | `fc_lonestar` ③ | `en_sb_gunner` | I 精英 | 現實 | — | `pow` |
+| 大祓巫女白砂 | `fc_bare` ② | `en_bare_high` | II 首領 | 現實 | — | `unbridged` |
+| 宴主莫爾迪 | `fc_banquet` ③ | `en_bnq_host` | III 首領 | 現實 | — | `drained` |
+| 展示機「織姬」 | `fc_orihime` ② | `en_orihime_premier` | II 首領（人形機器） | 現實 | — | 織女的預設 |
+| 越牆者「白鴿」 | `fc_netvigil` ① | `en_whisper_hearer` | III 精英 | 內海 | — | `polluted` |
+| 料理長「糖霜夫人」 | `fc_sweetheart` ② | `en_sweetheart_chef` | II 首領 | 現實 | — | `fed` |
+| 分局督察樊 | `fc_police` ② | `en_police_inspector` | II 首領 | 現實 | — | `police` |
+| 首席淨化官白百合 | `fc_suppress` ② | `en_suppress_ace` | II 首領（中途換成溺感者規則） | 現實 | — | `quarantine`／`spread` |
+| 兔子 | `oth_balloon` ⑤ | `en_masc_bear` | III 首領（吉祥物） | 現實 | — | `taken` |
+| 回收機娘「奏」 | `oth_peach7` ② | `en_orihime_guardroid` | I 精英（人形機器） | 現實 | — | 織女的預設 |
+
+---
+
 ## 生成時補上的規則（已確認，已寫回框架）
 
 1. 效果的價錢：灌或排 4 點感載、不花行動點的移動、推或拉一格、追蹤度 ±5 各 1 格；餘韻 ±1 層、退還或扣 1 點行動點各 2 格（CORE_RULES 7.4 節）。推拉一格加進了 SKILLS 1.8 節的效果清單。
