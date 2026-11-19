@@ -26,7 +26,7 @@ PARTS = [  # 依 plan/DESIGN_ORDER 的分層編排：(標題, 這一層的說明
       'systems/NPC_SYSTEM.md', 'systems/EVENTS.md', 'systems/SERIES.md', 'systems/COMMISSIONS.md', 'systems/FIXER.md',
       'systems/TRADE.md', 'systems/DOWNTIME.md', 'systems/LEWD_SYSTEM.md', 'systems/DATA.md']),
     ('L4 內容（素材）', '實際的條目。暫停：第一版草稿當素材留著，等 L1～L3 定了再生成。',
-     ['gear/ITEMS.md', 'world/SITES.md', 'world/STORY_QUESTS.md']),
+     ['content/ENEMY_ROSTER.md', 'gear/ITEMS.md', 'world/SITES.md', 'world/STORY_QUESTS.md']),
     ('L5 呈現', '給玩家看的畫面與給 AI 讀的提示詞。跟著 L2、L3 調。',
      ['art/ART_STYLE.md', 'art/UI.md', 'systems/PROMPTS.md', 'plan/AI_TASKS.md']),
     ('附錄：計畫', '盤點、路線圖、ElondiaRPG 的遷移與掃描。',
