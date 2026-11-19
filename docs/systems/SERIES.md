@@ -113,7 +113,7 @@
 
 ## 7. AI：指引與調味
 
-照 [AI_TASKS](../plan/AI_TASKS.md) 1.2 節的兩種模式：
+照 [AI_TASKS](../plan/AI_TASKS.md) 1.1 節、第 6 節的兩種模式：
 
 - **Agent 模式關**：系列與線索完全照資料走。
 - **Agent 模式開**：
