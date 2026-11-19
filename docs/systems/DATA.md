@@ -425,7 +425,7 @@
 {
   "id": "bp_maid_armored_hizakura_3", "kind": "armor", "name": "緋櫻裝甲女僕服",
   "brand": "hizakura", "grade": 3, "legal": "permit", "price": 3200, "size": 3, "weight": 3,
-  "armor": 3, "covers": ["upper", "lower", "outer"], "weight_class": "medium",
+  "armor": 1, "covers": ["upper", "lower", "outer"], "weight_class": "medium",
   "style": "from_skin", "exposure": "from_skin",
   "require": [ { "type": "fiber", "grade_min": 3 }, { "type": "skin", "grade_min": 3 }, { "type": "plate" } ],
   "optional": [ { "type": "hidden_slot" } ]
