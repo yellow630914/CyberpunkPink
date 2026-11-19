@@ -31,6 +31,9 @@ E = [
  ('崑崙','胭脂堂','生'),('蜜腺','素體教','敵'),('夜鶯','牆語者','敵'),('萬華鏡','親衛隊','主'),('萬華鏡','夜宴社','主'),
  ('伊甸園','蜜糖會','敵'),('伊甸園','胭脂堂','競'),('伊甸園','素體教','敵'),('黑泉','野薔薇','競'),('黑泉','素體教','金'),
  ('織女','同人眾','生'),('貞網局','牆語者','敵'),
+ ('市警','緋櫻','競'),('市警','星旗','生'),('市警','崑崙','生'),('市警','蜜腺','生'),('市警','夜鶯','生'),('市警','萬華鏡','生'),
+ ('市警','伊甸園','生'),('市警','黑泉','生'),('市警','胭脂堂','生'),('市警','特攻姬','競'),('市警','鉻娘子','敵'),('市警','拆體客','敵'),
+ ('鎮溺隊','蜜腺','生'),('鎮溺隊','貞網局','生'),('鎮溺隊','牆語者','敵'),('鎮溺隊','鉻娘子','敵'),('鎮溺隊','天使急救','競'),('鎮溺隊','素體教','競'),
 ]
 STYLE = {  # 關係 → (顏色, 線寬, 虛線, 透明度)
  '敵': ('#ff3355', 3.2, '', .95), '競': ('#ffb347', 2.2, '9 6', .85), '生': ('#7fd7ff', 1.3, '', .38),
@@ -91,7 +94,7 @@ for i, (k, t) in enumerate(legend_rows):
               f'<text x="{lg_x+66}" y="{y+5}" font-size="14" fill="#d9d0e6">{t}</text>')
 y0 = lg_y + 34 + 6 * 30 + 14
 samples = [('#ffd66b', '#241c12', 2.6, '', '企業（內圈）・粗框是主要勢力'), ('#b9a6ff', '#1b1630', 2.6, '', '街頭勢力（外圈）・粗框是主要勢力'),
-           ('#b9a6ff', '#1b1630', 1.4, '', '細框是次要勢力'), ('#b8adc9', '#1c1626', 1.4, ' stroke-dasharray="5 4"', '公家機關（關係還沒寫）')]
+           ('#b9a6ff', '#1b1630', 1.4, '', '細框是次要勢力'), ('#b8adc9', '#1c1626', 1.4, ' stroke-dasharray="5 4"', '公家機關')]
 for i, (c, f, sw, d, t) in enumerate(samples):
     y = y0 + i * 28
     lg.append(f'<rect x="{lg_x}" y="{y-11}" width="50" height="20" fill="{f}" stroke="{c}" stroke-width="{sw}"{d}/><text x="{lg_x+66}" y="{y+5}" font-size="13.5" fill="#d9d0e6">{t}</text>')
@@ -106,7 +109,7 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{
 <circle cx="{CX}" cy="{CY}" r="{R_IN}" fill="none" stroke="#ffd66b" stroke-opacity=".10" stroke-width="1.5"/>
 <circle cx="{CX}" cy="{CY}" r="{R_OUT}" fill="none" stroke="#b9a6ff" stroke-opacity=".10" stroke-width="1.5"/>
 <text x="60" y="78" font-size="40" font-weight="900" fill="#ff4fa3" letter-spacing="8">勢力關係圖</text>
-<text x="62" y="110" font-size="14" fill="#b8adc9" letter-spacing="3">CYBERPUNKPINK · 緋夜城 2069 · 草稿（關係還沒逐一確認）</text>
+<text x="62" y="110" font-size="14" fill="#b8adc9" letter-spacing="3">CYBERPUNKPINK · 緋夜城 2069 · 關係已確認（2026-11-19）</text>
 <text x="62" y="134" font-size="13" fill="#8f84a3">內圈是十二家企業，外圈是十五個街頭勢力與兩個公家機關</text>
 {edges}
 {nodes}
