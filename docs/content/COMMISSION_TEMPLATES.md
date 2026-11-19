@@ -2674,18 +2674,18 @@ DATA 9.1 節的 `topic` 加一欄 `category`，其餘照舊。議題模板存在
 
 | id | 是什麼 | 用在哪條線 |
 |---|---|---|
-| `tp_graveyard_claim` | 輿論戰的議題（ignite），九格的分數寫在那件委託的 opinion_setup 裡 | 機師「再開一次」 |
-| `tp_penny_pact` | 輿論戰的議題（ignite），九格的分數寫在那件委託的 opinion_setup 裡 | 潘妮「證據不夠」 |
-| `tp_pth_idol_bigstage` | 輿論戰的議題（ignite），九格的分數寫在那件委託的 opinion_setup 裡 | 偶像「讓歌被聽到」 |
-| `tp_pth_streamer_scoop` | 輿論戰的議題（ignite），九格的分數寫在那件委託的 opinion_setup 裡 | 主播「真的那種」 |
-| `tp_viv_journalist` | 輿論戰的議題（ignite），九格的分數寫在那件委託的 opinion_setup 裡 | 薇薇安·柯爾「回去或毀了它」 |
+| `tp_graveyard_claim` | 輿論戰的議題（ignite）；九格的分數寫在那件委託的 opinion_setup 裡 | 機師「再開一次」 |
+| `tp_penny_pact` | 輿論戰的議題（ignite）；九格的分數寫在那件委託的 opinion_setup 裡 | 潘妮「證據不夠」 |
+| `tp_pth_idol_bigstage` | 輿論戰的議題（ignite）；九格的分數寫在那件委託的 opinion_setup 裡 | 偶像「讓歌被聽到」 |
+| `tp_pth_streamer_scoop` | 輿論戰的議題（ignite）；九格的分數寫在那件委託的 opinion_setup 裡 | 主播「真的那種」 |
+| `tp_viv_journalist` | 輿論戰的議題（ignite）；九格的分數寫在那件委託的 opinion_setup 裡 | 薇薇安·柯爾「回去或毀了它」 |
 
 **牌**：前面的階段拿到的料，進輿論戰的牌庫（OPINION 4.3a 節）。通常比基本牌的數字高，有些對手不能下架。
 
 | id | 是什麼 | 用在哪條線 |
 |---|---|---|
-| `card_backup_30s` | 「備份的前三十秒」，說法牌，數字 3；沒有 `verified` 時對手可以打「否認」說它是合成的，一次讓它失效 | 薇薇安·柯爾「回去或毀了它」 |
-| `card_gasoline_cam` | 「後門巷子的監視畫面」，一張高數字的料（第 3 階段那一場才用得到 | 夢露「第四次」 |
+| `card_backup_30s` | 「備份的前三十秒」：說法牌，數字 3；沒有查證時，對手可以用「否認」讓它失效一次 | 薇薇安·柯爾「回去或毀了它」 |
+| `card_gasoline_cam` | 「後門巷子的監視畫面」：一張高數字的料，只在第 3 階段那一場用得到 | 夢露「第四次」 |
 | `card_ledger_page` | 「退伍金只付了一半的那一頁」，一張高數字的料 | 星旗防務：重新徵召 |
 | `card_master_30s` | 「母帶的前三十秒」，說法牌，數字 5，對手不能下架 | 薇薇安·柯爾「回去或毀了它」 |
 | `card_old_ad` | 「二十年前的那張廣告」，一張高數字的料 | 野良：沒有主人 |
@@ -2696,9 +2696,9 @@ DATA 9.1 節的 `topic` 加一欄 `category`，其餘照舊。議題模板存在
 
 | id | 是什麼 | 用在哪條線 |
 |---|---|---|
-| `goal_face_hidden` | 整趟沒有拍到他的臉」（熱度 3，每級打賞 160；妹妹不要他上新聞，拍到時收尾她的謝意少一半，`neighborhood` 只 +1 | 一起掉下去 |
-| `goal_first_stand` |  | 機師「再開一次」 |
-| `goal_last_tile` | 沒有任何一名鎮溺隊員踏進最後一格」（熱度 3，每級打賞 200，頻道 `underground` | 再守一夜 |
-| `goal_mike_heard` | 三毛的那一場短輿論戰大勝」（熱度 3，每級打賞 150，頻道 `news` | 野良：沒有主人 |
-| `goal_photo_shown` | 在她倒下之前給她看了照片」（熱度 3，每級打賞 220 | 鉻娘子：更多 |
-| `goal_still_smiling` | 整趟沒有被笑容考核程式提醒過一次」（掛著員工版的考核程式才算；熱度 3，每級打賞 120，頻道 `gossip` | 甜心食品：我們很遺憾 |
+| `goal_face_hidden` | 「整趟沒有拍到他的臉」：熱度 3，每級打賞 160 | 一起掉下去 |
+| `goal_first_stand` | 「機甲站起來的那一刻」：機甲醒過來的那一回合沒有隊友倒下，畫面拍到它站起來 | 機師「再開一次」 |
+| `goal_last_tile` | 「沒有任何一名鎮溺隊員踏進最後一格」：熱度 3，每級打賞 200，地下頻道 | 再守一夜 |
+| `goal_mike_heard` | 「三毛的那一場短輿論戰大勝」：熱度 3，每級打賞 150，新聞頻道 | 野良：沒有主人 |
+| `goal_photo_shown` | 「在她倒下之前給她看了照片」：熱度 3，每級打賞 220 | 鉻娘子：更多 |
+| `goal_still_smiling` | 「整趟沒有被笑容考核程式提醒過一次」：熱度 3，每級打賞 120，八卦頻道 | 甜心食品：我們很遺憾 |
