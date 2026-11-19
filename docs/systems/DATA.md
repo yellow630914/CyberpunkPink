@@ -19,7 +19,7 @@
 | 基本功與屬性 | 用英文 id。屬性：`body` 體格、`reflex` 反應、`tech` 技術、`intellect` 智識、`resolve` 意志、`charm` 魅力。基本功的 id 表在 [CORE_RULES](CORE_RULES.md) 第 2 節 |
 | 身體的部位 | `mouth` 口、`hand_l` 左手、`hand_r` 右手、`chest` 胸、`front` 前、`back` 後、`legs` 腿足；義體與化身多出來的部位自己取 id（`tail`、`tentacle_1`） |
 | 體型 | `masc` 陽剛、`fem` 陰柔、`andro` 中性 |
-| 性別 | `female`、`male`、`femboy` 男娘、`trans_f` 與 `trans_m`（TS）、`futa` 扶他 |
+| 性別 | `female`、`male`、`femboy` 偽娘與男娘、`trans_f` 與 `trans_m`（TS）、`futa` 扶他。版本照性別分：`male` 只走 `masc`；`female` 走 `default` 與 `yuri`；其他完全不限 |
 
 ## 2. 技能（八棵樹）
 
@@ -267,7 +267,7 @@
 
 - 檢定寫成三個值：基本功、屬性、難度。
 - 新加的效果：`neighborhood` 鄰里、`satisfaction` 滿意、`bill` 帳單、`grace` 寬限、`insight` 體悟、`link` 連動、`city_event` 城市的大事。
-- `requires` 可以看主角的體型：`"body": ["masc"]`。
+- `requires` 可以看主角的性別：`"gender": ["male"]`；也可以看體型（只影響描寫）。
 
 ## 5. 戰敗事件
 
@@ -278,7 +278,7 @@
 | `kind` | 二十九種預設裡的哪一種（[ENEMIES](ENEMIES.md) 第 6 節） |
 | `factions` | 哪些勢力用它 |
 | `fails_commission` | 預設值：戰敗算不算委託失敗。委託副本可以蓋掉它 |
-| `versions` | 三個版本：`default` 給陰柔與中性的體型；`masc` 給陽剛的體型（男性處於被動）；`yuri` 給陰柔與中性的體型，主角被動、由女性主導，抽中的機率預設 30%（[ENEMIES](ENEMIES.md) 第 6 節）。每個版本各有自己的 `text` 與 `stages`。設定裡手動指定版本時，照設定 |
+| `versions` | 三個版本：`default` 一般的寫法；`masc` 男性處於被動；`yuri` 主角被動、由女性主導。照主角的**性別**抽（[ENEMIES](ENEMIES.md) 第 6 節）：男只走 `masc`，女七成 `default` 三成 `yuri`，偽娘、TS、扶他三個都會抽到。每個版本各有自己的 `text` 與 `stages`。設定裡手動指定版本時，照設定 |
 | `stages` | 戰敗事件可以有幾段，每一段的寫法和事件的選項相同 |
 | `fallback` | 這個版本用到的標籤被關掉時，改走哪一個不含它的版本 |
 
@@ -382,7 +382,7 @@
   "id": "pr_hizakura", "name": "緋櫻的公關室", "faction": "hizakura",
   "strength": 2, "start": "opposite",
   "cell_priority": { "sakura": 3, "kaleido": 2, "nightingale": 1, "tape": 1, "fanclub": 2,
-                     "doujin": 1, "wall": 0, "whisper": 0, "relay": 0 },
+                     "doujin": 1, "wall": 0, "murmur": 0, "relay": 0 },
   "actions": [
     { "do": "release", "when": "round <= 3" },
     { "do": "chase",   "when": "round >= 4 and can_capture >= 2" },
@@ -507,9 +507,9 @@
   "topic": { "id": "tp_scandal_starbelle", "kind": "smear", "rounds": 6,
              "involves": { "factions": ["starbelle"], "people": ["npc_kate_walker"], "types": ["scandal", "crime"] },
              "scores": { "kaleido": 3, "sakura": 2, "nightingale": 1, "tape": 1, "doujin": 0,
-                         "fanclub": 0, "wall": 1, "whisper": 2, "relay": 1 } },
+                         "fanclub": 0, "wall": 1, "murmur": 2, "relay": 1 } },
   "opponent": { "id": "pr_starbelle", "strength": 2 },
-  "base": { "voice": 2, "wind": 0, "cells": ["whisper"] },
+  "base": { "voice": 2, "wind": 0, "cells": ["murmur"] },
   "from_links": [
     { "link": "inside_mail",   "add_card": "card_inside_scoop" },
     { "link": "live_footage",  "voice": 3 },

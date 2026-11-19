@@ -2384,7 +2384,7 @@ V 級的藥之後和 V 級零件一起設計（[DESIGN_ORDER](../plan/DESIGN_ORD
 
 ## 13. V 級
 
-V 級不賣，只從特殊任務的重要結局與流竄 AI 來（[DESIGN_ORDER](../plan/DESIGN_ORDER.md) 3.4 節）。份量 3 格、3 條屬性。
+V 級不賣，只從特殊任務的重要結局與流竄 AI 來（[DESIGN_ORDER](../plan/DESIGN_ORDER.md) 3.4 節）。零件份量 3 格、3 條屬性；藥照 4.2 節的份量表（持續型 4 格、立即型 8 格）。
 
 ### 出身與路數的線
 

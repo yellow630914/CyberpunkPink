@@ -1132,7 +1132,7 @@
 - **牆外的沉溺**：待在牆外本來就慢慢上升（NETRUNNING 第 7 節），所以這裡的事件給的沉溺小，多半是 +1。
 - **給的東西**（補）：牆外沒有區的等級，物品與零件不超過主角去過的區裡最高的那一級。
 - **篩選**：登場的每一個流竄 AI 的 `ai:` 與它的 `tendency:` 都要開著；有兩位的事件，任一位關掉就不抽，除非那一件寫了替代。
-- **任務線**：`start_quest wa_line_<id>` 開那個居民的任務線，或推進到下一個階段（任務線本身在 STORY_QUESTS 寫）。
+- **任務線**：`start_quest rg_<id>` 開那個居民的任務線，或推進到下一個階段（任務線本身在 STORY_QUESTS 寫）。
 
 ### 門牌上有你的名字（`wa_col_welcome`）
 
@@ -1140,7 +1140,7 @@
 - **類型**：人情；權重 10（只出現一次）。
 - **開場**：門町是一條往上走的坡道，兩邊全是家門，每一扇都掛著門牌。走到一半，你看見一扇門牌上寫著你的名字，門縫裡透出燈光，有人在裡面說你終於來了。
 - **選項**：
-  - 敲門：`sink +1`、`affinity $a +5`、`start_quest wa_line_$a`。
+  - 敲門：`sink +1`、`affinity $a +5`、`start_quest rg_$a`。
   - 先在坡道上問路（街頭直覺 13）：成功 `flag colony_map:門町`（之後在門町不會迷路），`memory`；失敗 `time +1`。
   - 轉身離開：沒有效果，門牌一直留著，下次走進門町還可以敲。
 - **篩選**：照 `$a`；`$a` 被關掉時改抽下一位，全部關掉時門牌上沒有字、只剩問路與離開。
@@ -1187,7 +1187,7 @@
 - **開場**：酒館裡只有一盞燈，這杯我請翻開一本厚帳本，上面記著城裡誰欠誰。她指著一行說，城裡有個人欠你一次，你要的話，她替你去討。
 - **選項**：
   - 請她去討：`owed` 一個小人情（AI 從主角認識的人裡挑），`flag ai:這杯我請:owed_cup`。
-  - 替她跑一趟腿（`start_quest wa_line_treat`）：`affinity 這杯我請 +3`。
+  - 替她跑一趟腿（`start_quest rg_treat`）：`affinity 這杯我請 +3`。
   - 只喝一杯：`sink +1`、`load −10`。
 - **篩選**：`ai:這杯我請`、`tendency:恩與債`。
 
@@ -1222,7 +1222,7 @@
 - **選項**：
   - 鎖一個衝動：`condition 鎖著`（七天：沉溺的衝動事件不發生；七天後 `sink +2`）。
   - 鎖一段記憶（定力 13）：成功 一個「受驚」類的狀態解除、`affinity 鎖匠 +3`；失敗 `sink +1`。
-  - 問她門後面有什麼：`sink +1`、揭開「鎖匠」的一格；`start_quest wa_line_lock`。
+  - 問她門後面有什麼：`sink +1`、揭開「鎖匠」的一格；`start_quest rg_lock`。
 - **篩選**：`ai:鎖匠`、`tendency:禁慾`。
 
 ### 落款的筆停在半空（`wa_col_signet_brush`）
@@ -1232,7 +1232,7 @@
 - **開場**：落款的筆尖停在你手臂上方一寸，墨快要滴下來。她說你身上已經有一個別人的記號，她可以把它描深，也可以把它洗掉。
 - **選項**：
   - 描深：`sink +1`、`affinity 落款 +3`、`condition 印很深`（一天：對那個記號的主人交涉 +2）。
-  - 洗掉（定力 16）：成功 `affinity 落款 +2`、`start_quest wa_line_signet`；失敗 `sink +1`、印還在。
+  - 洗掉（定力 16）：成功 `affinity 落款 +2`、`start_quest rg_signet`；失敗 `sink +1`、印還在。
   - 讓她寫上她自己的名字：`sink +2`、`affinity 落款 +6`。`adult_scene`：always／ai／mutual／none／none／[[$pc, $a]]。
 - **篩選**：`ai:落款`、`tendency:標記`；`contract_dom` 關掉時條件不看契約。
 
@@ -1277,7 +1277,7 @@
 - **選項**：
   - 坐下來當模特兒：`affinity 到哪算哪 +3`、`affinity 新刊 +3`、`sink +1`、`item` 一張畫著你的速寫（I 級）。
   - 一起彈一首（表演 13）：成功 `affinity 到哪算哪 +5`、`insight +2`；失敗 `affinity 到哪算哪 +1`。
-  - 聽她們講外面的路：`memory`、`start_quest wa_line_roam`。
+  - 聽她們講外面的路：`memory`、`start_quest rg_roam`。
 - **篩選**：`ai:到哪算哪`、`ai:新刊`、`tendency:野外`、`tendency:妄想`；只關掉一位時，另一位一個人在火邊，選項照留下的那一位。
 
 ### 一桌吃不完的菜（`wa_col_onemore_feast`）
@@ -1299,7 +1299,7 @@
 - **選項**：
   - 留下來：`sink +2`、`affinity 好多手 +5`、`afterglow −1`。`adult_scene`：always／ai／mutual／none／none／[[$pc, $a]]。另擲 10%：`malware` 妖精的吻（潛伏，來源好多手）。
   - 上岸（運動 13）：成功 沒事；失敗 `time +1`、`sink +1`。
-  - 問她這池水通到哪裡：`sink +1`、`start_quest wa_line_hands`。
+  - 問她這池水通到哪裡：`sink +1`、`start_quest rg_hands`。
 - **篩選**：`ai:好多手`、`tendency:觸手`。
 
 ### 兩隻手伸向同一個抽屜（`wa_col_curio_unfinished`）
@@ -1332,7 +1332,7 @@
 - **選項**：
   - 挑一面走出去：`sink +1`、`condition 換一邊`（一天）、`affinity 都可以 +3`。
   - 找出原本的那一面（調查 16）：成功 照原樣出去、`affinity 都可以 +2`；失敗 `time +1`。
-  - 請牠帶你出去：`affinity 都可以 +2`、`start_quest wa_line_either`。
+  - 請牠帶你出去：`affinity 都可以 +2`、`start_quest rg_either`。
 - **篩選**：`ai:都可以`、`tendency:性別流動`。
 
 ### 下個月的那一張（`wa_col_july_shoot`）
@@ -1366,7 +1366,7 @@
   - 換上她準備的那一身（表演 13）：成功 `affinity 請入座 +4`、`condition 穿對了`（一天）；失敗 `affinity 請入座 +1`。
   - 幫女僕長上茶（操縱 13）：成功 `affinity 女僕長 +4`、她說一聲辛苦了；失敗 茶灑了，`affinity 女僕長 −1`。
   - 照原本的樣子坐下：`affinity 請入座 −2`、`affinity 女僕長 +1`。
-  - 問她們這場茶會在等誰：`memory`、`start_quest wa_line_atelier`。
+  - 問她們這場茶會在等誰：`memory`、`start_quest rg_atelier`。
 - **篩選**：`ai:女僕長`、`tendency:女僕`、`ai:請入座`、`tendency:哥德`；關掉的那一位不在場，它的選項不出現。
 
 ### 少一個觀眾的公演（`wa_col_encore_show`）
@@ -1377,7 +1377,7 @@
 - **選項**：
   - 坐到第一排：`sink +1`、`affinity 安可 +4`、`time +2`。
   - 上台幫她伴舞（表演 16）：成功 `footage` 一段、`affinity 安可 +5`；失敗 `affinity 安可 +1`、`load +10`。
-  - 喊一聲謝幕：`affinity 安可 −3`；她第一次停下來看你，`start_quest wa_line_encore`。
+  - 喊一聲謝幕：`affinity 安可 −3`；她第一次停下來看你，`start_quest rg_encore`。
 - **篩選**：`ai:安可`、`tendency:偶像`。
 
 ### 有人來砸場（`wa_col_lounge_outlaw`）
@@ -1400,7 +1400,7 @@
   - 幫寧死不屈守住（定力 16）：成功 `affinity 寧死不屈 +5`；失敗 `affinity 寧死不屈 +2`、`load +10`。
   - 幫請低頭進去（隱匿 16）：成功 `affinity 請低頭 +5`、`memory` 門後是什麼；失敗 `affinity 寧死不屈 −3`。
   - 低頭讓請低頭替你祓一祓：`afterglow −1`、`affinity 請低頭 +3`。
-  - 問門後到底是什麼：`sink +1`、`start_quest wa_line_paladin`。
+  - 問門後到底是什麼：`sink +1`、`start_quest rg_paladin`。
 - **篩選**：`ai:寧死不屈`、`tendency:騎士`、`ai:請低頭`、`tendency:巫女`；關掉的那一位不在場，它的選項不出現；兩位都關掉不抽。
 
 ### 走錯路的溺感者（`wa_col_justice_rescue`）
@@ -1422,7 +1422,7 @@
 - **選項**：
   - 聽完：`sink +1`、一則情報（一個黑泉或素體教的人的秘密）。
   - 換你也說一件（表演 13）：成功 `affinity 神父不在 +5`、`insight +2`；失敗 `affinity 神父不在 +2`、`condition 心虛`。
-  - 問她這些秘密要送到誰手上：`start_quest wa_line_absolve`。
+  - 問她這些秘密要送到誰手上：`start_quest rg_absolve`。
 - **篩選**：`ai:神父不在`、`tendency:修女`。
 
 ### 雲梯與皮（`wa_col_xian_firstsight`）
@@ -1433,7 +1433,7 @@
 - **選項**：
   - 爬上去（運動 16）：成功 `affinity 小仙 +5`、`footage` 一段；失敗 `load +10`、`affinity 初見 +2`（摔下來那一段很好看）。
   - 替初見擋鏡頭，不讓小仙被拍（隱匿 13）：成功 `affinity 小仙 +4`、`affinity 初見 −2`；失敗 沒有效果。
-  - 問初見皮的後面是誰：`sink +1`、`start_quest wa_line_firstsight`。
+  - 問初見皮的後面是誰：`sink +1`、`start_quest rg_firstsight`。
 - **篩選**：`ai:小仙`、`tendency:仙俠`、`ai:初見`、`tendency:虛擬主播`；關掉的那一位不在場，它的選項不出現；兩位都關掉不抽。
 
 ### 不想走了（`wa_col_stay`）

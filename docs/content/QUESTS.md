@@ -1660,7 +1660,7 @@
 
 ### 這一批共用的寫法（補）
 
-- **任務 id 與系列**：任務 id 是 `rg_<id>`，系列 id 也是 `rg_<id>`（種類「故事」），旗標都用 `rg_<id>_` 開頭。LURE_EVENTS 裡的 `start_quest wa_line_<id>` 指的就是這一條（`wa_line_<id>` 當別名，彙整時二選一）。`<id>` 沿用 LURE_EVENTS 的事件 id：mommy、bigsis、tail、excuse、everyone、treat、silk、thorn、majesty、yours、lock、signet、alleyes、onair、hush、haze、roam、newissue、onemore、hands。
+- **任務 id 與系列**：任務 id 是 `rg_<id>`，系列 id 也是 `rg_<id>`（種類「故事」），旗標都用 `rg_<id>_` 開頭。LURE_EVENTS 裡的 `start_quest rg_<id>` 指的就是這一條（`rg_<id>` 當別名，彙整時二選一）。`<id>` 沿用 LURE_EVENTS 的事件 id：mommy、bigsis、tail、excuse、everyone、treat、silk、thorn、majesty、yours、lock、signet、alleyes、onair、hush、haze、roam、newissue、onemore、hands。
 - **開頭的共同條件**：`start.kind: rogue`；`flags: [wall_crossed]`；`immersion` 至少 50（居民）或 100（中間人：陛下、@all_eyes）；那個標籤是「有」或「深」（`tendency`）。沒有標籤的玩家在群落裡自己去敲牠的門也開得了線（LURE 的 `wa_col_welcome` 等事件給 `start_quest`），這時第一個任務點把標籤設成「有」。信譽門檻：居民「有號」，中間人「搶手」。
 - **地點**：關係的群落「門町」（`colony: gate_town`）、感官的群落「湯屋街」（`colony: bath_street`）、中間人待的「無燈海」（`colony: lightless_sea`）。① 寫在「牠的區域」：從群落出發、走一段隨機的深海路之後到的一間手工地圖（`at.where: net`、`area: deep`、`zone: rg_<id>_origin`）。這一間地圖每條線一張，是補的。
 - **每完成一階段**：`sink +3`、`affinity <牠> +5`。三個階段都完成時，那個標籤變成「深」（`tendency <標籤> → 深`），寫在每條的結局裡就不再重寫。
@@ -2516,7 +2516,7 @@
 
 ### 本批共用的寫法
 
-- **系列與 id**：每一條是一個故事系列，系列 id `rg_<id>`，特殊任務的 id `rg_<id>_line`，旗標前綴 `rg_<id>_`（存成 `story:rg_<id>_<名稱>`；在系列裡自動加 `s:rg_<id>:`）。`<id>` 沿用 LURE_EVENTS 的英文代號：curio、awoo、unfinished、either、july、unit07、hiss、ako、next、xian、absolve、headmaid、encore、lounge、outlaw、firstsight、paladin、purify、justice、sarge、atelier、queen。LURE_EVENTS 的群落事件寫的 `start_quest wa_line_<id>` 指的就是這裡的 `rg_<id>_line`（補：兩邊的 id 要對齊，見回報）。
+- **系列與 id**：每一條是一個故事系列，系列 id `rg_<id>`，特殊任務的 id `rg_<id>_line`，旗標前綴 `rg_<id>_`（存成 `story:rg_<id>_<名稱>`；在系列裡自動加 `s:rg_<id>:`）。`<id>` 沿用 LURE_EVENTS 的英文代號：curio、awoo、unfinished、either、july、unit07、hiss、ako、next、xian、absolve、headmaid、encore、lounge、outlaw、firstsight、paladin、purify、justice、sarge、atelier、queen。LURE_EVENTS 的群落事件寫的 `start_quest rg_<id>` 指的就是這裡的 `rg_<id>_line`（補：兩邊的 id 要對齊，見回報）。
 - **居民的開頭**（身體六個、扮相十三個）：`start.kind: rogue`，在牠的群落（身體是「標本館」，扮相是「後台」，群落的名字照 LURE_EVENTS 的暫定）。條件：`wall_crossed`、沉溺 50 以上、主角身上牠的標籤是「有」或「深」、街頭信譽「有號」以上。**補**：主角沒有那個標籤、但在群落裡和牠的親密度已經到 20 時，牠也會開口；這時開頭先把標籤從「沒有」變成「有」。
 - **中間人的開頭**（還沒好、Ａ子）：沉溺 100 以上、街頭信譽「搶手」以上，在「無燈海」。牠們同時在發每日的委託（LURE_EVENTS 第三節），任務線是另外一條。
 - **夜后**：條件寫在那一條裡。

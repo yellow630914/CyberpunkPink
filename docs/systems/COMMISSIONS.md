@@ -281,7 +281,7 @@
 
 | 類型 | 現實 | 內海 | 輿論 | 決定性的一步 | 前面的階段在別的面通常拿到什麼 |
 |---|---|---|---|---|---|
-| **暗殺** | ★ | ◐ | ○ | 殺掉目標 | 內海：定位他、關掉他的保全系統。輿論：把他引到公開場合 |
+| **暗殺** | ★ | ◐ | ○ | 打倒目標；了結由一段事件文字交代，不寫過程（已確認） | 內海：定位他、關掉他的保全系統。輿論：把他引到公開場合 |
 | **破壞** | ★ | ◐ | ○ | 毀掉那樣東西 | 內海：關閉安全系統、解鎖 |
 | **奪取（實體）** | ★ | ◐ | — | 把東西拿到手 | 內海：門禁、位置、密碼 |
 | **挖角／綁架** | ★ | ◐ | ○ | 把人帶出來 | 內海：處理他的橋權，不然帶出來也會被遠端鎖死 |
@@ -429,7 +429,7 @@
     {
       "faces": {
         "meat": {
-          "map": "tpl_lab_small",
+          "map": "map_lab_small",
           "branches": [
             { "id": "assault", "kind": "assault" },
             { "id": "staff_door", "kind": "stealth", "need": { "basic": "stealth", "level": 3 } },
@@ -452,7 +452,7 @@
     {
       "faces": {
         "meat": {
-          "map": "tpl_lab_small",
+          "map": "map_lab_small",
           "branches": [
             { "id": "assault", "kind": "assault" },
             { "id": "keycard_door", "kind": "linked", "need": { "link": "keycard" } }
@@ -475,7 +475,7 @@
       "required": true,
       "faces": {
         "meat": {
-          "map": "tpl_server_room",
+          "map": "map_server_room",
           "branches": [
             { "id": "assault", "kind": "assault" },
             { "id": "open_doors", "kind": "linked", "need": { "link": "doors_unlocked" } }
