@@ -434,7 +434,7 @@
 | 女僕公會 | 名冊的高級來源；一個中間人（[FIXER](../systems/FIXER.md)） |
 | 女僕咖啡廳 | 場所；據點的店面類型（[FIXER](../systems/FIXER.md) 第 9 節） |
 | 偶像、演唱會 | 媒體玩法的延伸（[MEDIA](../systems/MEDIA.md)）；大型場景地圖 |
-| 親衛隊 | 幫派；危險度可變的敵人 |
+| 親衛隊 | 幫派；等級隨偶像而變的敵人 |
 | 戰姬 | 機甲線的敵人與 NPC（[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 第 9 節） |
 | 屬性 | NPC 性格標籤；人格面具的型號 |
 | 槍靈 | 智慧武器的附屬 NPC |
