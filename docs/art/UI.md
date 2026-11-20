@@ -853,7 +853,7 @@
 | AI 開關 | 判定、敘事、各批次任務、記下性經歷；每項的逾時。判定依種類各有開關（自由行動、打工的一班、事件的「我要做別的」，預設全開）；夾值後要不要重寫相關的句子（預設不重寫）；Agent 模式每種掛點每天的上限（[AI_TASKS](../plan/AI_TASKS.md) 2.5、3.13、6.1 節） | `AiToggles`、`JudgeToggle` |
 | 提示詞 | 提示詞組、文風、自訂、世界書、正則（[PROMPTS](../systems/PROMPTS.md) 第 2 節的 AI 工坊） | `PromptsView`、`PromptEntryList`、`PromptSetBar`、`RegexPanel`、`TavernPresetDialog` |
 | **內容篩選** | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 9 節的每個開關；頂端固定一行不可關閉的規則（所有角色皆為成年人） | 新頁；開關列借 `ContentTagChips` |
-| 遊戲 | 存檔規則：難度（五檔）與各項倍率，完整清單見 15.1 節 | `CustomDifficultyEditor`、`RuleFields` |
+| 遊戲 | 存檔規則：難度（五檔與自訂，只調敵人與 DC）與各項倍率、戰敗的設定，完整清單見 15.1 節 | `CustomDifficultyEditor`、`RuleFields` |
 | **顯示** | 字級（三檔）、正文字型（黑體／宋體）、減少動態、霓虹強度（關、弱、標準）、區的強調色（開／關）、成人報告卡摺疊（預設展開）、跳出指南（開／關，3.6 節） | 新頁 |
 | 存檔 | 存讀檔、匯出入 | `SaveDialog`、`SettingsFilePanel` |
 
@@ -868,24 +868,30 @@
 
 | 項目 | 預設 | 範圍 | 出處 |
 |---|---|---|---|
-| 難度 | 普通 | 故事、簡單、普通、困難、傳奇 | [BALANCE](../systems/BALANCE.md) 的難度一節 |
-| 歷練倍率 | 照難度 | 0.5～2 | [CORE_RULES](../systems/CORE_RULES.md) 第 7 節 |
-| 每週帳單 | 照難度 | 四檔 | [FIXER](../systems/FIXER.md) 第 4 節 |
+| 難度 | 普通 | 故事、簡單、普通、困難、傳奇、自訂。只調敵人（生命、傷害、感載上限的係數，輿論戰對手的公關點）與檢定的 DC；自訂只能改這些 | [BALANCE](../systems/BALANCE.md) 第 7 節 |
+| 歷練倍率 | ×1 | ×0.5～2；和難度無關 | [CORE_RULES](../systems/CORE_RULES.md) 第 7 節 |
+| 每週帳單 | ×1 | ×0～2（×0 就是不結算），另有關閉、寬鬆、標準、嚴苛四個快捷的檔位；和難度無關 | [FIXER](../systems/FIXER.md) 第 4 節 |
 | 建角的特質點 | 4 | 0～8 | [CHARACTER](../systems/CHARACTER.md) 第 5 節 |
 | 額外飾品格 | 關 | 開／關 | [EQUIPMENT](../gear/EQUIPMENT.md) |
 | 快速移動 | 開 | 開／關（關掉時一律用走的）；沒去過的站也能搭 | [DISTRICTS](../world/DISTRICTS.md) 1.2.1 節 |
-| 戰敗一律進事件 | 開 | 開／關 | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 第 8 節 |
+| 名冊 NPC 會死（硬派） | 關 | 開／關；和難度無關 | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 8.2 節 |
+| 戰敗事件要不要看 | 一律看 | 一律看、可以跳過、不看 | COMBAT_SYSTEM 8.3 節 |
+| 戰敗拿走義體與裝備 | 開 | 開／關 | 同上 |
+| 戰敗扣多少錢 | 照事件，最多身上現金的 100% | 身上現金的 0～100%；可以另設金額的上限 | 同上 |
 | 收購比例 | 40% | 10～90% | [TRADE](../systems/TRADE.md) 第 9 節 |
 | 各區行情的幅度 | 標準 | 關、減半、標準、加倍 | 同上 |
 | 折扣合計上限 | 30% | 0～60% | 同上 |
 | 生成的人的性別比例 | 女性四成（其餘照 NPC_SYSTEM） | 每一種性別 0～100% | [NPC_SYSTEM](../systems/NPC_SYSTEM.md) 第 4 節 |
 | 戰敗事件的版本 | 照主角的性別 | 指定一個版本，或調三個版本的比例 | [ENEMIES](../systems/ENEMIES.md) 第 6 節 |
 
+- **重來與回退一律可以**：任何難度、任何設定下，戰敗之後都可以重來這場戰鬥，或回到這個階段開始時（[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 8.4 節）。這一條不是設定，設定頁上不放開關。
+- 難度與歷練、帳單、報酬、戰敗的設定彼此獨立：換難度不會改到這些格子（[BALANCE](../systems/BALANCE.md) 7.4 節）。
+
 **參考 ElondiaRPG 的存檔規則補上的**（那邊 `gameRules.ts` 開放的項目，對到這個遊戲的系統；也跟著存檔走）
 
 | 項目 | 預設 | 範圍 | 對到 ElondiaRPG 的 |
 |---|---|---|---|
-| 報酬與戰利品的錢 | 照難度 | ×0.1～3 | `moneyMult` |
+| 報酬與戰利品的錢 | ×1 | ×0.1～3；和難度無關 | `moneyMult` |
 | 委託的期限 | ×1 | ×0.5～3 | `deadlineMult` |
 | 短休、長休的時間 | 照 [DOWNTIME](../systems/DOWNTIME.md) | 小時數 | `shortRestHours`、`longRestHours` |
 | 在外面過夜被找麻煩的機率 | ×1 | ×0～3 | `ambushMult` |
