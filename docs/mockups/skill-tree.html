@@ -402,8 +402,8 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
       <div class="kv"><span>學它要</span><b class="mono" style="color:var(--ap)">40 歷練</b></div>
       <div class="kv"><span>這條線</span><b>要害線</b></div>
       <p class="h" style="margin-top:12px">三個戰場</p>
-      <div class="arena"><span class="w" style="color:#C9B8E8">現實<small>強</small></span><span>瞄準再射擊，兩件事一共只花 2 行動點（原本 3）。這一槍照瞄準的規則命中 +3，可以指定部位。</span></div>
-      <div class="arena"><span class="w" style="color:#45D6C5">內海<small>弱</small></span><span>每場 1 次，瞄準不花行動點。</span></div>
+      <div class="arena"><span class="w" style="color:#C9B8E8">現實<small>強</small></span><span>要害射擊只花 2 行動點（原本 3），效果相同：命中 +3，可以指定部位，打出要害時擲重創。狙擊槍的一槍也一樣只花 2 行動點。</span></div>
+      <div class="arena"><span class="w" style="color:#45D6C5">內海<small>弱</small></span><span>每場 1 次，要害射擊只花 2 行動點。</span></div>
       <div class="arena off"><span class="w" style="color:#B39DF0">輿論<small>無</small></span><span>沒有效果。</span></div>
       <div class="learn">
         <button class="btn dis wide cut-sm">學（40 歷練）</button>
@@ -434,9 +434,9 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 <script>
 const S=[ // [名字,階,層,線,種類,容量,前置,狀態]
 ['戰鬥直覺',1,'sig',0,'被動',3,'','got'],
-['要害射擊',1,'f',1,'主動',1,'戰鬥直覺','got'],['掩護射擊',1,'f',2,'反應',1,'戰鬥直覺','got'],['點放',1,'f',3,'主動',1,'戰鬥直覺','got'],
-['看我的！',1,'b',1,'主動',1,'要害射擊','can'],['連射控制',1,'b',3,'被動',2,'點放','can'],
-['定點射',2,'f',1,'主動',1,'要害射擊','can sel'],['壓制姿態',2,'f',2,'姿態',1,'掩護射擊','got'],['構裝精通',2,'f',3,'被動',3,'點放','can'],
+['要害射擊',1,'f',1,'主動',1,'戰鬥直覺','got'],['掩護射擊',1,'f',2,'反應',1,'戰鬥直覺','got'],['連射控制',1,'f',3,'主動',1,'戰鬥直覺','got'],
+['看我的！',1,'b',1,'主動',1,'要害射擊','can'],['點放',1,'b',3,'被動',2,'連射控制','can'],
+['定點射',2,'f',1,'主動',1,'要害射擊','can sel'],['壓制姿態',2,'f',2,'姿態',1,'掩護射擊','got'],['構裝精通',2,'f',3,'被動',3,'連射控制','can'],
 ['就是你了',2,'b',1,'主動',1,'定點射','need'],['走開啦',2,'b',2,'主動',1,'壓制姿態','can'],['幫槍槍保養',2,'b',3,'預備',1,'構裝精通','need'],
 ['穿透',3,'f',1,'主動',2,'定點射','need'],['跑位射擊',3,'f',2,'主動',2,'壓制姿態','can'],['死線',3,'f',3,'反應',2,'構裝精通','need'],
 ['獵眼',3,'b',1,'被動',4,'穿透','need'],['掩護撤退',3,'b',2,'主動',2,'跑位射擊','need'],
