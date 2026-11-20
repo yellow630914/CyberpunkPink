@@ -77,12 +77,11 @@ starbelle = (f'<g fill="#6F95E8"><path d="{star_pts(60, 42, 30, 12)}"/>'
              '<path d="M20 74L60 92L100 74V84L60 102L20 84Z"/><path d="M28 64L60 78L92 64V70L60 84L28 70Z"/></g>'
              f'<g stroke="{G}" stroke-width="3"><path d="M60 12V72M30 42H90"/><path d="M60 88V104M60 74V86"/></g>')
 
-# 崑崙智造：篆刻方印，玉綠底，白字（唯一用字的徽記）
-kunlun = ('<rect x="14" y="14" width="92" height="92" rx="8" fill="#2FB59A"/>'
-          '<rect x="22" y="22" width="76" height="76" rx="3" fill="none" stroke="#F3E9FF" stroke-width="3"/>'
-          '<text x="60" y="58" text-anchor="middle" font-size="34" font-weight="900" fill="#F3E9FF" font-family="serif">崑</text>'
-          '<text x="60" y="92" text-anchor="middle" font-size="34" font-weight="900" fill="#F3E9FF" font-family="serif">崙</text>'
-          f'<path d="M14 40h4M102 70h4M50 14v4M76 102v4" stroke="{G}" stroke-width="4"/>')
+# 崑崙智造：玉璧，中間挖出崑崙的山峰，山頂一點雪。玉綠與淺玉。
+kunlun = ('<circle cx="60" cy="60" r="52" fill="#2FB59A"/>'
+          '<circle cx="60" cy="60" r="26" fill="#17111F"/>'
+          '<path d="M34 66L46 48L53 57L62 40L74 58L80 52L86 66A26 26 0 0 1 34 66Z" fill="#C9F5E8"/>'
+          '<circle cx="60" cy="60" r="44" fill="none" stroke="#17111F" stroke-width="2" stroke-dasharray="2 5"/>')
 
 def hexp(cx, cy, r):
     return 'M' + 'L'.join(f'{cx + r * math.cos(math.radians(a)):.1f} {cy + r * math.sin(math.radians(a)):.1f}' for a in range(-90, 270, 60)) + 'Z'
@@ -110,11 +109,10 @@ wing = ''.join(f'<rect x="{6 + k * 4}" y="{40 + k * 12}" width="{40 - k * 8}" he
 angel = (wing + f'<g transform="translate(120 0) scale(-1 1)">{wing}</g>'
          '<path d="M52 30h16v20h20v16H68v20H52V66H32V50h20z" fill="#E8455B" stroke="#17111F" stroke-width="3" stroke-linejoin="round" transform="translate(0 2)"/>')
 
-# 織女電子：消費電子的極簡細線。一支梭子，一條穿過的線，一顆星點。單色。
-orihime = ('<g fill="none" stroke="#C9B8E8" stroke-width="4" stroke-linecap="round">'
-           '<path d="M14 64C38 40 82 40 106 64C82 88 38 88 14 64Z"/>'
-           '<path d="M8 76C40 60 80 52 112 52"/></g>'
-           '<circle cx="60" cy="64" r="6" fill="#C9B8E8"/><circle cx="92" cy="30" r="4" fill="#C9B8E8"/>')
+# 織女電子：織女星。一顆柔和的四芒星，一條絲線斜斜穿過（挖空），單色薰衣草。
+orihime = ('<path d="M60 8C63 40 80 57 112 60C80 63 63 80 60 112C57 80 40 63 8 60C40 57 57 40 60 8Z" fill="#C9B8E8"/>'
+           '<path d="M30 84C46 74 74 50 90 36" fill="none" stroke="#17111F" stroke-width="6" stroke-linecap="round"/>'
+           '<circle cx="96" cy="94" r="5" fill="#C9B8E8"/>')
 
 # 貞網局：公文體的盾，挖出一隻眼，下面三道橫槓。單色鋼藍。
 netvigil = ('<path d="M60 10L100 22V56C100 82 84 100 60 110C36 100 20 82 20 56V22Z" fill="#6E9AE0"/>'
@@ -135,12 +133,10 @@ honey = ('<defs><filter id="neon" x="-30%" y="-30%" width="160%" height="160%"><
          f'<g filter="url(#neon)" fill="none" stroke="#FF4FA3" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"><path d="{lips}"/><path d="M14 60C40 64 80 64 106 60"/></g>'
          '<g fill="none" stroke="#FFD0E6" stroke-width="1.6"><path d="M14 60C26 44 42 38 52 46C56 42 64 42 68 46C78 38 94 44 106 60"/></g>')
 
-# 特攻姬：刺繡臂章。紫色的盾形布章、金色縫線的邊、交叉的木刀與一道閃電。
-tokko = ('<path d="M60 8L104 22V60C104 86 86 104 60 112C34 104 16 86 16 60V22Z" fill="#6A3FB5"/>'
-         '<path d="M60 16L96 28V60C96 82 81 97 60 104C39 97 24 82 24 60V28Z" fill="none" stroke="#F2C14E" stroke-width="2.4" stroke-dasharray="4 3"/>'
-         '<path d="M34 92L82 36M86 92L38 36" stroke="#F2C14E" stroke-width="7" stroke-linecap="round"/>'
-         '<path d="M38 36l-6-6M82 36l6-6" stroke="#F2C14E" stroke-width="10" stroke-linecap="round"/>'
-         '<path d="M66 22L50 58H62L54 92L76 50H64L72 22Z" fill="#F3E9FF" stroke="#6A3FB5" stroke-width="3" stroke-linejoin="round"/>')
+# 特攻姬：尖角的紫色菱盾，一道金色閃電從中間劈下來。雙色。
+tokko = ('<path d="M60 6L104 34L88 104L60 92L32 104L16 34Z" fill="#7A45D6"/>'
+         '<path d="M60 18L94 40L81 94L60 84L39 94L26 40Z" fill="none" stroke="#17111F" stroke-width="3"/>'
+         '<path d="M70 20L46 62H62L48 100L82 52H64L78 20Z" fill="#F2C14E" stroke="#17111F" stroke-width="4" stroke-linejoin="round"/>')
 
 # 牆語者：細線的秘儀符號。圓、倒三角、一道往裡捲的耳形螺旋、放射的短線。單色暗紫（提亮一點才看得見）。
 spiral = 'M60 40c12 0 20 8 20 18s-8 16-16 16-12-6-12-12 4-8 8-8 6 3 6 6'
@@ -201,13 +197,9 @@ bare = ('<g fill="none" stroke="#F3E9FF" stroke-width="7" stroke-linecap="round"
         '<path d="M42 104V62M42 62V30M54 60V22M66 60V24M78 64V34M42 76C36 70 28 66 24 72L40 98C46 106 54 108 66 108C80 108 86 98 86 84V66"/></g>'
         '<circle cx="62" cy="80" r="10" fill="#E8455B"/>')
 
-# 夜宴社：哥德的華麗紋章。深紅的聖杯，兩側蝙蝠翼，下方捲草。黑底深紅與亮紅。
-banquet = ('<path d="M40 24H80C80 48 72 60 60 60S40 48 40 24Z" fill="#B0263F" stroke="#E8455B" stroke-width="2.4"/>'
-           '<path d="M60 60V84M44 92H76" stroke="#E8455B" stroke-width="5" stroke-linecap="round"/><path d="M50 86h20l4 6H46z" fill="#B0263F"/>'
-           '<path d="M38 34C26 20 10 22 6 32c8-2 12 4 10 8 4-4 10-4 12 0 2-4 6-6 10-6z" fill="#B0263F" stroke="#E8455B" stroke-width="2"/>'
-           '<path d="M82 34C94 20 110 22 114 32c-8-2-12 4-10 8-4-4-10-4-12 0-2-4-6-6-10-6z" fill="#B0263F" stroke="#E8455B" stroke-width="2"/>'
-           '<path d="M30 104c6-10 18-8 20 0M90 104c-6-10-18-8-20 0" fill="none" stroke="#E8455B" stroke-width="2.4" stroke-linecap="round"/>'
-           '<path d="M60 30l3 6-3 6-3-6z" fill="#F3E9FF"/>')
+# 夜宴社：深紅的新月，月彎裡飛著一隻蝙蝠。兩種紅。
+banquet = ('<path d="M74 10A50 50 0 1 0 110 74A40 40 0 1 1 74 10Z" fill="#B0263F"/>'
+           '<g transform="translate(64 58) scale(1.7) translate(-60 -56)"><path d="M38 56C44 50 48 50 52 54L54 46L58 52H62L66 46L68 54C72 50 76 50 82 56C76 56 74 60 74 64C70 60 66 62 64 66L60 62L56 66C54 62 50 60 46 64C46 60 44 56 38 56Z" fill="#E8455B" stroke="#17111F" stroke-width="1.6" stroke-linejoin="round"/></g>')
 
 # 市警：警徽。金色的徽章盾，藏青的五角星。
 police = ('<path d="M60 8C72 18 88 20 102 18C104 60 92 92 60 112C28 92 16 60 18 18C32 20 48 18 60 8Z" fill="#E2B13C" stroke="#17111F" stroke-width="3"/>'
@@ -224,20 +216,20 @@ suppress = ('<defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop off
 ALL = [  # (id, 名字, 一句方向, 內容)
     ('hizakura', '緋櫻重工', '戰國家紋：丸に櫻', hizakura),
     ('starbelle', '星旗防務', '模板噴漆的星與 V 形', starbelle),
-    ('kunlun', '崑崙智造', '篆刻方印（唯一有字）', kunlun),
+    ('kunlun', '崑崙智造', '玉璧與崑崙的山峰', kunlun),
     ('nectar', '蜜腺生技', '六角環與一滴蜜', nectar),
     ('nightingale', '夜鶯系統', '粗硬的幾何翼，讀成 N', nightingale),
     ('kaleido', '萬華鏡', '六重對稱的萬花筒', kaleido),
     ('eden', '伊甸園', '細線的蘋果與鑰匙孔', eden),
     ('blackspring', '黑泉能源', '金色方塊挖出油滴', blackspring),
     ('angel', '天使急救', '一對翼與紅十字', angel),
-    ('orihime', '織女電子', '極簡細線的梭子', orihime),
+    ('orihime', '織女電子', '四芒星與穿過的絲線（織女星）', orihime),
     ('netvigil', '貞網局', '盾、眼與三道槓', netvigil),
     ('sweetheart', '甜心食品', '桃子吉祥物', sweetheart),
     ('honey', '蜜糖會', '霓虹燈管的唇印', honey),
     ('rouge', '胭脂堂', '花牌的梅', rouge),
     ('chrome', '鉻娘子', '半機娘側臉與齒輪', chrome),
-    ('tokko', '特攻姬', '刺繡臂章：木刀與閃電', tokko),
+    ('tokko', '特攻姬', '尖角菱盾與金色閃電', tokko),
     ('nora', '野良', '噴漆模板的貓', nora),
     ('whisper', '牆語者', '細線的秘儀符號', whisper),
     ('rose', '野薔薇', '鏽鐵板挖空的薔薇', rose),
@@ -248,7 +240,7 @@ ALL = [  # (id, 名字, 一句方向, 內容)
     ('guard', '親衛隊', '愛心與交叉的螢光棒', guard),
     ('lonestar', '孤星連', '警長星徽', lonestar),
     ('bare', '素體教', '墨線的手掌與紅圓', bare),
-    ('banquet', '夜宴社', '聖杯與蝙蝠翼的紋章', banquet),
+    ('banquet', '夜宴社', '新月與蝙蝠', banquet),
     ('police', '市警', '金色警徽與藏青星', police),
     ('suppress', '鎮溺隊', '魔法少女的愛心翼徽章', suppress),
 ]
@@ -280,7 +272,7 @@ def main():
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 {Wd} {Hd}" width="{Wd}" height="{Hd}" font-family="\'Noto Sans TC\',\'PingFang TC\',sans-serif">'
            f'<defs>{syms}</defs><rect width="{Wd}" height="{Hd}" fill="#17111F"/>'
            f'<text x="20" y="46" font-size="28" font-weight="900" fill="#F06AA0" letter-spacing="3">勢力徽記 v1</text>'
-           f'<text x="20" y="72" font-size="13" fill="#8C7AA6">每個勢力用自己的風格；企業多半單色或雙色，花俏的才用多色；除了崑崙的印章不用字。右下是 28px 的樣子。</text>'
+           f'<text x="20" y="72" font-size="13" fill="#8C7AA6">每個勢力用自己的風格；企業多半單色或雙色，花俏的才用多色；一律不用字。右下是 28px 的樣子。</text>'
            + ''.join(cells) + '</svg>')
     open(os.path.join(os.path.dirname(OUT), 'emblems-v1.svg'), 'w', encoding='utf-8').write(svg)
     print('→ emblems-v1.svg, emblems-sprite.svg', len(ALL))
