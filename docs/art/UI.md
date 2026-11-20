@@ -853,12 +853,78 @@
 | AI 開關 | 判定、敘事、各批次任務、記下性經歷；每項的逾時。判定依種類各有開關（自由行動、打工的一班、事件的「我要做別的」，預設全開）；夾值後要不要重寫相關的句子（預設不重寫）；Agent 模式每種掛點每天的上限（[AI_TASKS](../plan/AI_TASKS.md) 2.5、3.13、6.1 節） | `AiToggles`、`JudgeToggle` |
 | 提示詞 | 提示詞組、文風、自訂、世界書、正則（[PROMPTS](../systems/PROMPTS.md) 第 2 節的 AI 工坊） | `PromptsView`、`PromptEntryList`、`PromptSetBar`、`RegexPanel`、`TavernPresetDialog` |
 | **內容篩選** | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 9 節的每個開關；頂端固定一行不可關閉的規則（所有角色皆為成年人） | 新頁；開關列借 `ContentTagChips` |
-| 遊戲 | 存檔規則：帳單四檔、額外飾品格、難度 | `CustomDifficultyEditor`、`RuleFields` |
+| 遊戲 | 存檔規則：難度（五檔）與各項倍率，完整清單見 15.1 節 | `CustomDifficultyEditor`、`RuleFields` |
 | **顯示** | 字級（三檔）、正文字型（黑體／宋體）、減少動態、霓虹強度（關、弱、標準）、區的強調色（開／關）、成人報告卡摺疊（預設展開）、跳出指南（開／關，3.6 節） | 新頁 |
 | 存檔 | 存讀檔、匯出入 | `SaveDialog`、`SettingsFilePanel` |
 
 - 內容篩選存在**存檔**裡（那邊是模組層級的變數，不在存檔裡）；設定頁改的是目前這一局，開新局時以上一次的選擇當預設。
 - **手機版**：照那邊，每列「名稱＋值」一排、說明換到下一排。
+
+### 15.1 可以調的東西一覽（盤點，2026-11-20）
+
+各文件說過「交給玩家在設定裡調」的東西，全部收在這裡；每一項寫預設值與出處。**存檔規則**跟著存檔走（開新局時選，之後可以在「遊戲」分頁改）；其餘是這台機器的偏好，所有存檔共用。
+
+**遊戲（存檔規則）**
+
+| 項目 | 預設 | 範圍 | 出處 |
+|---|---|---|---|
+| 難度 | 普通 | 故事、簡單、普通、困難、傳奇 | [BALANCE](../systems/BALANCE.md) 的難度一節 |
+| 歷練倍率 | 照難度 | 0.5～2 | [CORE_RULES](../systems/CORE_RULES.md) 第 7 節 |
+| 每週帳單 | 照難度 | 四檔 | [FIXER](../systems/FIXER.md) 第 4 節 |
+| 建角的特質點 | 4 | 0～8 | [CHARACTER](../systems/CHARACTER.md) 第 5 節 |
+| 額外飾品格 | 關 | 開／關 | [EQUIPMENT](../gear/EQUIPMENT.md) |
+| 快速移動 | 開 | 開／關（關掉時一律用走的）；沒去過的站也能搭 | [DISTRICTS](../world/DISTRICTS.md) 1.2.1 節 |
+| 戰敗一律進事件 | 開 | 開／關 | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 第 8 節 |
+| 收購比例 | 40% | 10～90% | [TRADE](../systems/TRADE.md) 第 9 節 |
+| 各區行情的幅度 | 標準 | 關、減半、標準、加倍 | 同上 |
+| 折扣合計上限 | 30% | 0～60% | 同上 |
+| 生成的人的性別比例 | 女性四成（其餘照 NPC_SYSTEM） | 每一種性別 0～100% | [NPC_SYSTEM](../systems/NPC_SYSTEM.md) 第 4 節 |
+| 戰敗事件的版本 | 照主角的性別 | 指定一個版本，或調三個版本的比例 | [ENEMIES](../systems/ENEMIES.md) 第 6 節 |
+
+**參考 ElondiaRPG 的存檔規則補上的**（那邊 `gameRules.ts` 開放的項目，對到這個遊戲的系統；也跟著存檔走）
+
+| 項目 | 預設 | 範圍 | 對到 ElondiaRPG 的 |
+|---|---|---|---|
+| 報酬與戰利品的錢 | 照難度 | ×0.1～3 | `moneyMult` |
+| 委託的期限 | ×1 | ×0.5～3 | `deadlineMult` |
+| 短休、長休的時間 | 照 [DOWNTIME](../systems/DOWNTIME.md) | 小時數 | `shortRestHours`、`longRestHours` |
+| 在外面過夜被找麻煩的機率 | ×1 | ×0～3 | `ambushMult` |
+| 街頭事件的頻率 | ×1 | ×0～3 | `travelEventMult` |
+| 地下城式區域與子網裡的事件頻率 | ×1 | ×0～3 | `dungeonEventMult` |
+| 事件檢定的難度 | ±0 | −5～+5 | `eventDc` |
+| 脫離的難度 | ±0 | −5～+5 | `escapeDc` |
+| 敵對值多久回落一級 | 照 [FACTIONS](../world/FACTIONS.md) 第 6 節 | 天數 | `alertDecayDays` |
+| 同一間店收購同一類東西的遞減 | 關 | 每件遞減 0～20% | `sellGlutPct` |
+| 黑市每天的特別貨 | 照 [TRADE](../systems/TRADE.md) | 0～8 件 | `blackMarketGear` |
+| 戰鬥中感載的倍率 | ×1 | ×0.25～3 | `lustMult` |
+| 豔名每天淡掉多少 | 照 [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) | 點數 | `exposureDecay` |
+| 橋參數的回落 | 照 LEWD_SYSTEM 第 1 節 | 點數 | `submissionDecay`、`lewdnessDecay`、`sensitivityDecay` |
+| 成人事件的機率：契約指令、流竄 AI 的蠱惑、惡意韌體發作、打工後的事件 | 各 ×1 | 各 ×0～3 | `masterEventMult`、`parasiteMult`、`brothelEventMult` 等 |
+| 成人事件在地下城式區域的比重 | ×1 | ×0～3 | `adultDungeonMult` |
+
+那邊有、這裡不收的：受孕與孕期（這個遊戲不寫懷孕）、技能攜帶上限（這裡用橋的容量）、職業武器限制（這裡沒有職業限制武器）、採集量（沒有採集）。
+
+**內容篩選**（也跟著存檔走）：[LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 9 節的每一個開關。頂端固定一行「所有角色皆為成年人」，不能關。
+
+**AI**
+
+| 項目 | 預設 | 出處 |
+|---|---|---|
+| 每一種支線的開關；只開查詢 | 全開 | [AI_TASKS](../plan/AI_TASKS.md) 第 1 節 |
+| 判定依種類的開關（自由行動、打工的一班、事件的「我要做別的」） | 全開 | AI_TASKS 3.13 節 |
+| 夾值後重寫相關的句子 | 不重寫 | AI_TASKS 2.5 節 |
+| 每一種掛點每天的件數上限（提出事件、鉤子、其他） | 3、1、10 | AI_TASKS 6.2 節 |
+| 交易要不要寫正文 | 寫 | AI_TASKS 3.3 節 |
+| 戰鬥正文 | 結束時整場寫一次（可以改成每回合一小段） | AI_TASKS 3.9 節 |
+| 任務鏈列 | 出錯時展開（可以一直展開或隱藏） | AI_TASKS 第 7 節 |
+| 自動重試的次數 | 照 AI_TASKS 5.3 節 | AI_TASKS 5.3 節 |
+| 潤色步驟 | 關 | [PROMPTS](../systems/PROMPTS.md) 第 2 節 |
+| 注入配方的數量與字數上限 | 照 PROMPTS 的表 | PROMPTS 第 2 節 |
+
+**顯示**：字級、正文字型、減少動態、霓虹強度、區的強調色、成人報告卡（預設展開）、跳出指南。見上表的「顯示」分頁。
+
+- 新的「可以調」要寫進這張表，否則就是沒有做成設定。
+- 照 [GAME_DESIGN](../GAME_DESIGN.md) 第 3 節第 13 條，限制玩家的東西優先考慮做成這裡的一項，而不是寫死。
 
 ## 16. 通用元件
 
