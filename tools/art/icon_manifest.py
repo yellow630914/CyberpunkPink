@@ -180,7 +180,7 @@ def items():
 
 
 TREE = {'槍手': ('gun', 'crosshair'), '機師': ('pilot', 'drone and mech'), '改造師': ('surgeon', 'scalpel and cybernetics'), '潛網者': ('runner', 'cat-ear netrunner headset and circuits'),
-        '藝人': ('actor', 'theater mask'), '掮客': ('broker', 'handshake and coins'), '主播': ('streamer', 'live camera'), '偶像': ('idol', 'microphone and star'),
+        '名媛': ('actor', 'theater mask'), '掮客': ('broker', 'handshake and coins'), '主播': ('streamer', 'live camera'), '偶像': ('idol', 'microphone and star'),
         '夜課': ('night', 'crescent moon and heart')}
 KIND = {'主動': 'active', '被動': 'passive', '反應': 'reaction', '姿態': 'stance', '預備': 'prep', '日常': 'daily'}
 SKW = [('射擊', 'a gunshot muzzle flash'), ('要害', 'a crosshair on a weak point'), ('掩護', 'a protective shield'), ('換位', 'two swapping arrows'), ('彈匣', 'an ammo magazine'),

@@ -110,7 +110,7 @@ K = {
 # 九棵樹的底框：形狀照容量的類（現實方、內海圓、社交菱、媒體星形、夜課心），顏色照 ART_STYLE 第 4 節
 TREES = [
     ('gun', '槍手', 'square', '#C9B8E8'), ('pilot', '機師', 'square', '#C9B8E8'), ('surgeon', '改造師', 'square', '#C9B8E8'),
-    ('runner', '潛網者', 'circle', '#45D6C5'), ('actor', '藝人', 'diamond', '#F2C14E'), ('broker', '掮客', 'diamond', '#F2C14E'),
+    ('runner', '潛網者', 'circle', '#45D6C5'), ('actor', '名媛', 'diamond', '#F2C14E'), ('broker', '掮客', 'diamond', '#F2C14E'),
     ('streamer', '主播', 'burst', '#B39DF0'), ('idol', '偶像', 'burst', '#B39DF0'), ('night', '夜課', 'heart', '#F06AA0'),
 ]
 FRAME = {
