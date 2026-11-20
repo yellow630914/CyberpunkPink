@@ -47,7 +47,24 @@ body{background:var(--bg);background-image:var(--grid);color:var(--ink);font-fam
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 /* 小隊 */
 .party{padding:12px}
-.mem{display:grid;grid-template-columns:38px 1fr;gap:10px;align-items:center;padding:6px 0}
+.mem{display:grid;grid-template-columns:38px 1fr;gap:10px;align-items:center;padding:7px 0}
+.nm{display:flex;align-items:center;gap:6px;font-weight:800;font-size:13px}
+.nm .role{margin-left:auto;color:var(--ink-3);font-weight:700;font-size:11px}
+.sink{width:36px;height:7px;border-radius:4px;background:#3A2D47;overflow:hidden;position:relative}
+.sink b{position:absolute;inset:0 auto 0 0;border-radius:4px;background:repeating-linear-gradient(110deg,#5FB8E8 0 5px,#9AD8F7 5px 8px);background-size:16px 100%;animation:flow 1.1s linear infinite}
+.sv{font:800 10px var(--mono);color:var(--sink)}
+.hb{height:8px;border-radius:4px;background:#2E2339;margin-top:5px;position:relative;overflow:hidden}
+.hb b{position:absolute;inset:0 auto 0 0;border-radius:4px;overflow:hidden}
+.hb.hp b{background:linear-gradient(90deg,#FF4A4A,#FF8A5C)}
+.hb.ld b{background:repeating-linear-gradient(120deg,#F06AA0 0 6px,#F58DBA 6px 9px);box-shadow:0 0 8px #F06AA066}
+.hb b::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 0 40%,#ffffff70 50%,transparent 60%);background-size:250% 100%;animation:sheen 2.6s linear infinite}
+.hb.ld b::after{animation-duration:1.8s}
+.ldrow{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}
+.ldrow .ag{margin-top:5px}
+@keyframes sheen{from{background-position:160% 0}to{background-position:-60% 0}}
+@keyframes flow{to{background-position:16px 0}}
+@media (prefers-reduced-motion:reduce){.sink b,.hb b::after{animation:none}}
+
 .ava{width:38px;height:38px;border-radius:10px;background:var(--bg-2);position:relative;overflow:hidden}
 .ava::before{content:"";position:absolute;left:10px;top:7px;width:18px;height:18px;border-radius:50%;background:var(--b)}
 .ava::after{content:"";position:absolute;left:4px;top:24px;width:30px;height:20px;border-radius:12px 12px 0 0;background:var(--b)}
@@ -218,15 +235,18 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
     </div>
     <div class="panel cut party">
       <div class="h">小隊</div>
-      <div class="mem"><div class="ava me"></div><div><div class="nm">你<span>槍手／掮客</span></div>
-        <div class="mini"><i><b style="width:72%;background:var(--hp)"></b></i><i><b style="width:45%;background:var(--load)"></b></i><i><b style="width:58%;background:var(--sink)"></b></i></div>
-        <div class="ag"><i class="on"></i><i></i><i></i></div></div></div>
-      <div class="mem"><div class="ava"></div><div><div class="nm">零<span>潛網者</span></div>
-        <div class="mini"><i><b style="width:90%;background:var(--hp)"></b></i><i><b style="width:70%;background:var(--load)"></b></i><i><b style="width:81%;background:var(--sink)"></b></i></div>
-        <div class="ag"><i class="on"></i><i class="on"></i><i></i></div></div></div>
-      <div class="mem"><div class="ava"></div><div><div class="nm">奈奈<span>掮客</span></div>
-        <div class="mini"><i><b style="width:100%;background:var(--hp)"></b></i><i><b style="width:10%;background:var(--load)"></b></i><i><b style="width:30%;background:var(--sink)"></b></i></div>
-        <div class="ag"><i></i><i></i><i></i></div></div></div>
+      <div class="mem"><div class="ava me"></div><div>
+        <div class="nm">你<span class="sink" title="沉溺 58"><b style="width:58%"></b></span><span class="sv">58</span><span class="role">槍手／掮客</span></div>
+        <div class="hb hp" title="生命"><b style="width:72%"></b></div>
+        <div class="ldrow"><div class="hb ld" title="感載"><b style="width:45%"></b></div><div class="ag"><i class="on"></i><i></i><i></i></div></div></div></div>
+      <div class="mem"><div class="ava"></div><div>
+        <div class="nm">零<span class="sink" title="沉溺 81"><b style="width:81%"></b></span><span class="sv">81</span><span class="role">潛網者</span></div>
+        <div class="hb hp" title="生命"><b style="width:90%"></b></div>
+        <div class="ldrow"><div class="hb ld" title="感載"><b style="width:70%"></b></div><div class="ag"><i class="on"></i><i class="on"></i><i></i></div></div></div></div>
+      <div class="mem"><div class="ava"></div><div>
+        <div class="nm">奈奈<span class="sink" title="沉溺 30"><b style="width:30%"></b></span><span class="sv">30</span><span class="role">掮客</span></div>
+        <div class="hb hp" title="生命"><b style="width:100%"></b></div>
+        <div class="ldrow"><div class="hb ld" title="感載"><b style="width:10%"></b></div><div class="ag"><i></i><i></i><i></i></div></div></div></div>
     </div>
     <div class="panel cut job">
       <div class="h">委託</div>
