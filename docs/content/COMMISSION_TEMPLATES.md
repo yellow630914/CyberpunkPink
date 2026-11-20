@@ -2662,7 +2662,7 @@ DATA 9.1 節的 `topic` 加一欄 `category`，其餘照舊。議題模板存在
 | `filter` | `vivian_watched`、`expose_win`、`expose_lost`（給薇薇安的關係線讀） | 沒有 |
 | `empty_truck` | `runaway_back`、`runaway_stayed`、`rescue_failed`（給瑪拉的關係線讀） | 沒有 |
 | `orphan_node` | `gave_frost`、`kept_node`（給伊萊莎與霜的線讀） | 沒有 |
-| `understudy` | `debut_win`、`debut_lost`、`original_back`、`original_lost`（只用來結束整組） | `rogue:a_ko:met`（第一次見到Ａ子的事件還沒寫，要在那裡立） |
+| `understudy` | `debut_win`、`debut_lost`、`original_back`、`original_lost`（只用來結束整組） | `rogue:a_ko:met`（[LURE_EVENTS](LURE_EVENTS.md) 的「空白的範本」`wa_ako_firstsight` 立） |
 
 ---
 

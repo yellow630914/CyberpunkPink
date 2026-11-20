@@ -93,6 +93,10 @@
 | `move` | 帶到一個固定的地點或場景地圖 | 現實不用隨機地圖 |
 | `fight` | 開一場戰鬥，敵人照當下的區與勢力 | |
 | `start_commission` | 生成一件委託，`commission_gen` 寫內容 | |
+| `tuning` | 一個調校 | 強制裝上一個調校（[LEWD_SYSTEM](LEWD_SYSTEM.md) 第 4 節）。拆要手術：義體學 DC 19，或付錢給原廠卸載。只有戰敗事件與流竄 AI 的事件能用（2026-11-20 從戰敗事件補進來） |
+| `hostility_floor` | 一個勢力 +5 | 那個勢力的敵對值**下限**加 N（[FACTIONS](../world/FACTIONS.md) 6.3 節） |
+| `record_leak` | 一個勢力 | 病歷或審訊紀錄流到那個勢力手上：之後它的事件與委託讀得到你的橋參數 |
+| `condition` 的 `habit:<傾向>` | 一個，一週 | 暫時的習慣：一週內那個傾向標籤視為「有」，那一類的蠱惑與事件權重 ×2，定力 −1；一週後消退 |
 | `start_quest` | 開一條特殊任務 | |
 | `roster_add` | 一位登場角色進名冊候選 | [NPC_SYSTEM](NPC_SYSTEM.md) 10.7 節 |
 | `order` | 一條契約指令進佇列 | 4.5 節 |
