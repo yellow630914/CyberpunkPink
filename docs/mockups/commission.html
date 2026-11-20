@@ -288,12 +288,12 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 .chip .w{font-size:10px;color:var(--ram)}
 .chip.add{padding:4px 10px;color:var(--ink-3);background:transparent;border:1px dashed var(--line)}
 .pay4{display:flex;gap:4px}
-.pay4 span{font-size:11px;font-weight:800;padding:3px 8px;border-radius:6px;background:#120D19;color:var(--ink-3)}
-.pay4 span.on{background:var(--a);color:#fff}
+.pay4>span{font-size:11px;font-weight:800;padding:3px 8px;border-radius:6px;background:#120D19;color:var(--ink-3)}
+.pay4>span.on .money{color:#fff}.pay4>span.on{background:var(--a);color:#fff}
 .odds{font:800 11px var(--mono);color:var(--ink-2);text-align:right}
 .odds b{display:block;font-size:15px;color:var(--ram)}
 .split{display:flex;height:22px;border-radius:6px;overflow:hidden;font:800 10px var(--mono)}
-.split div{display:grid;place-items:center;color:#17111F}
+.split div{display:flex;align-items:center;justify-content:center;gap:3px;color:#17111F;white-space:nowrap;overflow:hidden}
 .locked{display:flex;gap:6px;flex-wrap:wrap}
 .locked span{font-size:12px;font-weight:800;padding:5px 10px;background:var(--bg-2);border-radius:6px}
 
@@ -376,11 +376,15 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
   .lane{grid-template-columns:auto 1fr}.lane .odds{grid-column:1/-1;text-align:left}
 }
 
+.money{display:inline-flex;align-items:center;gap:5px;font:800 13px var(--mono);white-space:nowrap}.money svg{display:block;flex:none}.money.acc{color:#E7DCFA}.money.cash{color:#F58DBA}.money.fav{color:var(--ap)}
 </style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute">
   <defs>
+  <symbol id="c-acc" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3" fill="#C9B8E8"/><rect x="2" y="8.5" width="20" height="3" fill="#8E7CC3"/><rect x="5" y="14" width="6" height="2.4" rx="1.2" fill="#F3E9FF"/><circle cx="17.5" cy="15.2" r="1.8" fill="#F06AA0"/></symbol>
+  <symbol id="c-cash" viewBox="0 0 24 24"><path d="M7 3h10l4 4v10l-4 4H7l-4-4V7z" fill="#F06AA0"/><rect x="8" y="8" width="8" height="8" rx="1.5" fill="#F2C14E"/><path d="M8 11h8M8 13h8M11 8v8M13 8v8" stroke="#F06AA0" stroke-width="1.1"/></symbol>
+  <symbol id="c-fav" viewBox="0 0 24 24"><path d="M3 6h14l4 6-4 6H3z" fill="#F2C14E"/><circle cx="16" cy="12" r="1.8" fill="#17111F"/><rect x="6" y="9.5" width="6" height="2" rx="1" fill="#17111F"/><rect x="6" y="13" width="4" height="2" rx="1" fill="#17111F"/></symbol>
     <symbol id="f-m" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M3 21V8l7-4v17zM11 21V9h10v12zM5.5 9h2v2h-2zM5.5 13h2v2h-2zM13.5 12h2v2h-2zM17 12h2v2h-2zM13.5 16h2v2h-2zM17 16h2v2h-2z"/></symbol>
     <symbol id="f-n" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M4 10 5.5 3l4.5 4h4l4.5-4L20 10v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4zM8 12h3v3H8zM13 12h3v3h-3z"/></symbol>
     <symbol id="f-o" viewBox="0 0 24 24"><path fill="currentColor" d="M2.5 9.5h4l9-5v15l-9-5h-4zM7 15.5h3l1 4.5H8z"/><path fill="currentColor" d="M17.5 8.2a5 5 0 0 1 0 7.6l-1.3-1.5a3 3 0 0 0 0-4.6zM19.8 5.6a8.6 8.6 0 0 1 0 12.8l-1.3-1.5a6.6 6.6 0 0 0 0-9.8z"/></symbol>
@@ -396,7 +400,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
   <div class="sep hide-m"></div>
   <div class="st hide-m"><span class="pill hot">四十二番街</span> 夢露的店・後場</div>
   <div class="sep hide-m"></div>
-  <div class="st"><b>C$ 3,420</b></div>
+  <div class="st"><span class="money acc"><svg width="18" height="18"><use href="#c-acc"/></svg>3,420</span><span class="money cash"><svg width="18" height="18"><use href="#c-cash"/></svg>800</span></div>
   <div class="st hide-m"><span class="pill">帳單 3 天</span></div>
   <div class="st hide-m">敵對值 <span class="pill" style="color:#FF5A6E">緋櫻 62</span><span class="pill">野良 30</span></div>
   <div class="grow"></div>
@@ -417,19 +421,19 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 <section class="view" id="v-take">
   <div class="panel cut pad scroll">
     <p class="h">夢露手上的案子</p>
-    <div class="card cut-sm on"><span class="pay">C$ 6,800</span>
+    <div class="card cut-sm on"><span class="pay"><span class="money cash"><svg width="14" height="14"><use href="#c-cash"/></svg>6,800</span></span>
       <div class="row"><span class="grade">II</span><span class="face n main"><svg width="14" height="14"><use href="#f-n"/></svg>內海</span><span class="tag">竊密</span></div>
       <div class="t">藍鯨物流的帳本</div>
       <div class="sub"><span class="tag">中型・4 階段</span><span class="tag warn">不准死人</span></div></div>
-    <div class="card cut-sm"><span class="pay">C$ 5,200</span>
+    <div class="card cut-sm"><span class="pay"><span class="money cash"><svg width="14" height="14"><use href="#c-cash"/></svg>5,200</span></span>
       <div class="row"><span class="grade">II</span><span class="face m main"><svg width="14" height="14"><use href="#f-m"/></svg>現實</span><span class="tag">挖角</span></div>
       <div class="t">把她從片場帶出來</div>
       <div class="sub"><span class="tag">小型・3 階段</span><span class="tag warn">要活的</span></div></div>
-    <div class="card cut-sm"><span class="pay">C$ 3,100</span>
+    <div class="card cut-sm"><span class="pay"><span class="money cash"><svg width="14" height="14"><use href="#c-cash"/></svg>3,100</span></span>
       <div class="row"><span class="grade">I</span><span class="face o main"><svg width="14" height="14"><use href="#f-o"/></svg>輿論</span><span class="tag">滅火</span></div>
       <div class="t">偶像社團的那段直播</div>
       <div class="sub"><span class="tag">小型・3 階段</span><span class="tag warn">不准曝光</span></div></div>
-    <div class="card cut-sm lock"><span class="pay">C$ ？？</span>
+    <div class="card cut-sm lock"><span class="pay"><span class="money cash"><svg width="14" height="14"><use href="#c-cash"/></svg>？？</span></span>
       <div class="row"><span class="grade">III</span><span class="face q">？</span><span class="tag">抹除</span></div>
       <div class="t">夢露說你還不夠格</div>
       <div class="sub"><span class="tag">街頭信譽 50 以上</span></div></div>
@@ -458,10 +462,16 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
     <div class="hr"></div>
     <p class="h">談判</p>
     <div class="neg">
-      <div class="slot cut-sm"><span class="k">報酬</span><div class="v">C$ 7,400</div><div class="bar"><b style="width:62%"></b><i style="left:75%"></i></div><small>她的底線大概在白線那裡</small></div>
-      <div class="slot cut-sm"><span class="k">預付</span><div class="v">30%</div><div class="bar"><b style="width:30%"></b><i style="left:40%"></i></div><small>接案時先拿 C$ 2,220</small></div>
-      <div class="slot cut-sm"><span class="k">裝備補助</span><div class="v">C$ 400</div><div class="bar"><b style="width:40%"></b><i style="left:50%"></i></div><small>只能在她的店裡用</small></div>
+      <div class="slot cut-sm"><span class="k">報酬</span><div class="v">7,400</div><div class="bar"><b style="width:62%"></b><i style="left:75%"></i></div><small>她的底線大概在白線那裡</small></div>
+      <div class="slot cut-sm"><span class="k">預付</span><div class="v">30%</div><div class="bar"><b style="width:30%"></b><i style="left:40%"></i></div><small>接案時先拿 <span class="money cash" style="font:inherit;gap:3px"><svg width="12" height="12"><use href="#c-cash"/></svg>2,220</span></small></div>
+      <div class="slot cut-sm"><span class="k">裝備補助</span><div class="v"><span class="money cash" style="font:inherit;gap:3px"><svg width="12" height="12"><use href="#c-cash"/></svg>400</span></div><div class="bar"><b style="width:40%"></b><i style="left:50%"></i></div><small>只能在她的店裡用</small></div>
       <div class="slot cut-sm"><span class="k">她抽成</span><div class="v">15%</div><div class="bar"><b style="width:15%"></b><i style="left:12%"></i></div><small>壓到白線以下她會不高興</small></div>
+    </div>
+    <p class="h" style="margin-top:14px">怎麼付</p>
+    <div class="neg" style="grid-template-columns:repeat(3,1fr)">
+      <div class="slot cut-sm" style="box-shadow:inset 0 0 0 2px var(--a);background:#3A2B47"><span class="k">現金晶片</span><div class="v"><span class="money cash" style="font-size:16px"><svg width="16" height="16"><use href="#c-cash"/></svg>7,400</span></div><small>查不到。付房租前要先洗。</small></div>
+      <div class="slot cut-sm"><span class="k">匯進帳戶</span><div class="v"><span class="money acc" style="font-size:16px"><svg width="16" height="16"><use href="#c-acc"/></svg>6,290</span></div><small>雇主替你洗，−15%。<span style="color:#FF8A5C">藍鯨敵對值 +2</span></small></div>
+      <div class="slot cut-sm"><span class="k">三成換人情</span><div class="v"><span class="money cash" style="font-size:16px"><svg width="16" height="16"><use href="#c-cash"/></svg>5,180</span> <span class="money fav">＋小</span></div><small>夢露欠你一個小人情，這部分她不抽成。</small></div>
     </div>
     <div class="go"><button class="btn ghost cut-sm">不接</button><button class="btn cut-sm">再談一輪（交涉）</button><button class="btn pri cut-sm">接案</button></div>
   </div>
@@ -473,13 +483,13 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
       <div class="hr"></div>
       <div class="kv"><span>街頭信譽</span><b>38</b></div>
       <div class="kv"><span>跟她接過的案</span><b>4 件・全數達成</b></div>
-      <div class="kv"><span>她欠你的人情</span><b>小 ×1</b></div>
+      <div class="kv"><span>她欠你的人情</span><b><span class="money fav"><svg width="14" height="14"><use href="#c-fav"/></svg>小 ×1</span></b></div>
       <div class="kv"><span>你手上進行中的</span><b>0 件</b></div>
     </div>
     <div class="panel cut pad">
       <p class="h">這件事對你的帳</p>
-      <div class="kv"><span>帳單</span><b>3 天後 C$ 1,800</b></div>
-      <div class="kv"><span>扣掉她的抽成後（估）</span><b class="mono" style="color:var(--ap)">C$ 6,290</b></div>
+      <div class="kv"><span>帳單（從帳戶扣）</span><b>3 天後 <span class="money acc"><svg width="14" height="14"><use href="#c-acc"/></svg>1,800</span></b></div>
+      <div class="kv"><span>扣掉她的抽成後（估）</span><b><span class="money cash"><svg width="14" height="14"><use href="#c-cash"/></svg>6,290</span></b></div>
       <div class="kv"><span>會惹到的人</span><b style="color:#FF5A6E">藍鯨・夜鶯</b></div>
     </div>
   </div>
@@ -521,13 +531,13 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
         <div class="mean cut-sm"><b>收買或色誘內線</b><div class="dc">+7<small>成功 70%</small></div><div class="s">交涉或誘惑・路、守備；成功另多一個入口</div></div>
         <div class="mean cut-sm"><b>以採訪為名</b><div class="dc">+2<small>成功 45%</small></div><div class="s">表演・目標、詞條</div></div>
         <div class="mean cut-sm" style="opacity:.45"><b>進人偶館當班</b><div class="dc">—<small>要藝人</small></div><div class="s">誘惑・目標、雇主；隊上沒有藝人，可以派名冊的人去</div></div>
-        <div class="mean cut-sm"><b>買情報</b><div class="dc" style="color:var(--ap)">C$ 600<small>不擲骰</small></div><div class="s">指定一項，直接揭開</div></div>
+        <div class="mean cut-sm"><b>買情報</b><div class="dc" style="color:var(--ap)"><span class="money cash" style="font:inherit;gap:3px"><svg width="12" height="12"><use href="#c-cash"/></svg>600</span><small>不擲骰</small></div><div class="s">指定一項，直接揭開</div></div>
       </div>
     </div>
     <div class="panel cut pad">
       <p class="h">誰去</p>
       <div class="kv"><span>自己去</span><b>花一個時段：23:40 → 03:40</b></div>
-      <div class="kv"><span>派名冊的人（派工）</span><b>喬・隱匿 +6・C$ 250</b></div>
+      <div class="kv"><span>派名冊的人（派工）</span><b>喬・隱匿 +6・<span class="money cash" style="font:inherit;gap:3px"><svg width="12" height="12"><use href="#c-cash"/></svg>250</span></b></div>
       <div class="go"><button class="btn ghost cut-sm">不踩了，去召集</button><button class="btn pri cut-sm">去踩點</button></div>
     </div>
   </div>
@@ -552,10 +562,10 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
       <div class="go"><button class="btn cut-sm">回據點換配置</button></div>
     </div>
     <div class="panel cut pad">
-      <p class="h">分帳（估）・只分報酬 C$ 7,400，戰利品全部歸你</p>
-      <div class="split"><div style="flex:1110;background:var(--ink-3)">夢露 15%</div><div style="flex:450;background:var(--ap)">喬</div><div style="flex:2920;background:var(--a)">你・兩份</div><div style="flex:1460;background:var(--net)">零</div><div style="flex:1460;background:var(--ep)">奈奈</div></div>
-      <div class="kv" style="margin-top:8px"><span>先扣：夢露抽成 C$ 1,110、喬的出場費 C$ 450；潘妮用人情請的，不分</span><b></b></div>
-      <div class="kv"><span>剩下 C$ 5,840 在場的人均分，你多拿一份當老闆</span><b class="mono" style="color:var(--ap)">你實拿 C$ 2,920</b></div>
+      <p class="h">分帳（估）・只分報酬 7,400 晶片，戰利品全部歸你</p>
+      <div class="split"><div style="flex:1110;background:var(--ink-3)"><svg width="12" height="12" style="vertical-align:-2px"><use href="#c-cash"/></svg>夢露 15%</div><div style="flex:450;background:var(--ap)"><svg width="12" height="12" style="vertical-align:-2px"><use href="#c-cash"/></svg>喬</div><div style="flex:2920;background:var(--a)"><svg width="12" height="12" style="vertical-align:-2px"><use href="#c-cash"/></svg>你・兩份</div><div style="flex:1460;background:var(--net)"><svg width="12" height="12" style="vertical-align:-2px"><use href="#c-cash"/></svg>零</div><div style="flex:1460;background:var(--ep)"><svg width="12" height="12" style="vertical-align:-2px"><use href="#c-cash"/></svg>奈奈</div></div>
+      <div class="kv" style="margin-top:8px"><span>先扣：夢露抽成 <span class="money cash" style="font:inherit;gap:3px"><svg width="12" height="12"><use href="#c-cash"/></svg>1,110</span>、喬的出場費 <span class="money cash" style="font:inherit;gap:3px"><svg width="12" height="12"><use href="#c-cash"/></svg>450</span>；<span class="money fav"><svg width="12" height="12"><use href="#c-fav"/></svg>潘妮</span> 用人情請的，不分</span><b></b></div>
+      <div class="kv"><span>剩下 <span class="money cash" style="font:inherit;gap:3px"><svg width="12" height="12"><use href="#c-cash"/></svg>5,840</span> 在場的人均分，你多拿一份當老闆</span><b>你實拿 <span class="money cash"><svg width="14" height="14"><use href="#c-cash"/></svg>2,920</span></b></div>
     </div>
   </div>
   <div class="col">
@@ -564,7 +574,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
       <p style="font-size:12.5px;color:var(--ink-3);margin:-2px 0 12px;line-height:1.7">每個階段，你沒選、但這個階段開著的面，派去的人擲一次。你選的那一面那個階段不擲。</p>
       <div class="lane cut-sm"><span class="face m"><svg width="14" height="14"><use href="#f-m"/></svg>現實</span>
         <div><div class="who"><span class="chip"><span class="dot"></span>喬<span class="w">戰鬥型・強 +4</span></span><span class="chip add">＋</span></div>
-          <div class="pay4" style="margin-top:6px"><span class="on">付錢 C$ 450</span><span>用人情</span><span>欠人情</span><span>靠交情</span></div></div>
+          <div class="pay4" style="margin-top:6px"><span class="on">付錢 <span class="money cash" style="font:inherit;gap:3px"><svg width="12" height="12"><use href="#c-cash"/></svg>450</span></span><span>用人情</span><span>欠人情</span><span>靠交情</span></div></div>
         <div class="odds">1d20 + 3 + 4 對 14<b>70%</b></div></div>
       <div class="lane cut-sm"><span class="face n"><svg width="14" height="14"><use href="#f-n"/></svg>內海</span>
         <div><div class="who"><span class="chip add">＋ 從名冊找人</span></div>
@@ -572,7 +582,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
         <div class="odds">—</div></div>
       <div class="lane cut-sm"><span class="face o"><svg width="14" height="14"><use href="#f-o"/></svg>輿論</span>
         <div><div class="who"><span class="chip"><span class="dot" style="background:var(--a)"></span>潘妮<span class="w">記者・強 +4</span></span></div>
-          <div class="pay4" style="margin-top:6px"><span>付錢 C$ 380</span><span class="on">用人情</span><span>欠人情</span><span>靠交情</span></div></div>
+          <div class="pay4" style="margin-top:6px"><span>付錢 <span class="money cash" style="font:inherit;gap:3px"><svg width="12" height="12"><use href="#c-cash"/></svg>380</span></span><span class="on">用人情</span><span>欠人情</span><span>靠交情</span></div></div>
         <div class="odds">1d20 + 2 + 4 對 14<b>65%</b></div></div>
       <div class="hr"></div>
       <div class="kv"><span>名冊上沒有合適的人</span><b>向夢露借一位行者：出場費 ×1.5，沒有分量修正</b></div>
@@ -633,7 +643,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
       <div class="branches">
         <div class="br cut-sm"><span class="ic">攻</span><div><b>強攻：硬破閘門</b><div class="s">沒有條件。管理層的守門程式會全部醒來</div></div><div class="eff"><span class="up">追蹤度 +20</span><br>遭遇：兩個雜兵＋一個精英</div></div>
         <div class="br cut-sm"><span class="ic">潛</span><div><b>潛行：混進排程流量</b><div class="s">介面 4 以上；直播中不能選</div></div><div class="eff"><span class="up">追蹤度 +8</span><br>不留紀錄</div></div>
-        <div class="br cut-sm"><span class="ic">談</span><div><b>交涉：買通值班的網管</b><div class="s">交涉，或花 C$ 800</div></div><div class="eff"><span class="up">追蹤度 +4</span><br>遭遇少一個雜兵</div></div>
+        <div class="br cut-sm"><span class="ic">談</span><div><b>交涉：買通值班的網管</b><div class="s">交涉，或花 <span class="money cash" style="font:inherit;gap:3px"><svg width="12" height="12"><use href="#c-cash"/></svg>800</span></div></div><div class="eff"><span class="up">追蹤度 +4</span><br>遭遇少一個雜兵</div></div>
         <div class="br cut-sm on"><span class="ic" style="background:var(--net);color:#17111F">連</span><div><b>用員工憑證直接登入<span class="src lk">連動</span></b><div class="s">第一階段你在內海偷到的憑證</div></div><div class="eff"><span class="down">追蹤度 +0</span><br>不必探索，直接到遭遇</div></div>
         <div class="br cut-sm no"><span class="ic">？</span><div><b>？？？<span class="src sc">踩點</span></b><div class="s">這個階段還有一條路，踩點沒有揭開，所以不存在</div></div><div class="eff">—</div></div>
       </div>

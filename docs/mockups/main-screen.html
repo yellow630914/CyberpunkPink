@@ -187,12 +187,16 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 @keyframes ack{0%{opacity:0;transform:translate(10px,-6px)}20%{opacity:1}100%{opacity:0;transform:translate(16px,-18px)}}
 @media (prefers-reduced-motion:reduce){[data-skin="real"] .panel,[data-skin="real"] .panel::after,.ecg .beat{animation:none}.fxl{display:none}}
 
+.money{display:inline-flex;align-items:center;gap:5px;font:800 13px var(--mono);white-space:nowrap}.money svg{display:block;flex:none}.money.acc{color:#E7DCFA}.money.cash{color:#F58DBA}.money.fav{color:var(--ap)}
 </style>
 </head>
 <body>
 <!-- 圖標（剪影＋扁平；現實皮） -->
 <svg width="0" height="0" style="position:absolute">
   <defs>
+  <symbol id="c-acc" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3" fill="#C9B8E8"/><rect x="2" y="8.5" width="20" height="3" fill="#8E7CC3"/><rect x="5" y="14" width="6" height="2.4" rx="1.2" fill="#F3E9FF"/><circle cx="17.5" cy="15.2" r="1.8" fill="#F06AA0"/></symbol>
+  <symbol id="c-cash" viewBox="0 0 24 24"><path d="M7 3h10l4 4v10l-4 4H7l-4-4V7z" fill="#F06AA0"/><rect x="8" y="8" width="8" height="8" rx="1.5" fill="#F2C14E"/><path d="M8 11h8M8 13h8M11 8v8M13 8v8" stroke="#F06AA0" stroke-width="1.1"/></symbol>
+  <symbol id="c-fav" viewBox="0 0 24 24"><path d="M3 6h14l4 6-4 6H3z" fill="#F2C14E"/><circle cx="16" cy="12" r="1.8" fill="#17111F"/><rect x="6" y="9.5" width="6" height="2" rx="1" fill="#17111F"/><rect x="6" y="13" width="4" height="2" rx="1" fill="#17111F"/></symbol>
     <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4.5" fill="#F3E9FF"/><path d="M3.5 21c0-4.5 3.8-7.5 8.5-7.5s8.5 3 8.5 7.5z" fill="#8E7CC3"/><rect x="10" y="17" width="4" height="2" rx="1" fill="#F06AA0"/></symbol>
     <symbol id="i-bag" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="4" fill="#8E7CC3"/><path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7" fill="none" stroke="#F3E9FF" stroke-width="2.4"/><rect x="9" y="11" width="6" height="3" rx="1.5" fill="#F06AA0"/></symbol>
     <symbol id="i-roster" viewBox="0 0 24 24"><rect x="4" y="2.5" width="16" height="19" rx="3" fill="#F3E9FF"/><rect x="7" y="6" width="10" height="2.4" rx="1.2" fill="#8E7CC3"/><rect x="7" y="10.5" width="10" height="2.4" rx="1.2" fill="#8E7CC3"/><rect x="7" y="15" width="6" height="2.4" rx="1.2" fill="#F06AA0"/></symbol>
@@ -218,7 +222,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
   <div class="sep hide-m"></div>
   <div class="st hide-m"><span class="pill hot">四十二番街</span> 中城段・夜店「過載」</div>
   <div class="sep hide-m"></div>
-  <div class="st"><b>C$ 3,420</b><span class="hide-m">・晶片 800</span></div>
+  <div class="st"><span class="money acc"><svg width="18" height="18"><use href="#c-acc"/></svg>3,420</span><span class="money cash"><svg width="18" height="18"><use href="#c-cash"/></svg>800</span></div>
   <div class="st hide-m"><span class="pill">帳單 3 天</span></div>
   <div class="st hide-m">敵對值 <span class="pill" style="color:#FF5A6E">緋櫻 62</span><span class="pill">野良 30</span></div>
   <div class="grow"></div>
@@ -309,9 +313,9 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
     </div>
     <div class="panel cut here">
       <div class="h">地點：夜店「過載」</div>
-      <div class="svc">表演一晚 <span>+C$ 180～</span></div>
-      <div class="svc">打聽消息 <span>C$ 50</span></div>
-      <div class="svc">點一杯 <span>C$ 25</span></div>
+      <div class="svc">表演一晚 <span><span class="money cash" style="font:inherit;gap:3px">+<svg width="12" height="12"><use href="#c-cash"/></svg>180</span>～</span></div>
+      <div class="svc">打聽消息 <span><span class="money cash" style="font:inherit;gap:3px"><svg width="12" height="12"><use href="#c-cash"/></svg>50</span></span></div>
+      <div class="svc">點一杯 <span><span class="money cash" style="font:inherit;gap:3px"><svg width="12" height="12"><use href="#c-cash"/></svg>25</span></span></div>
       <div class="svc">打工：舞台助理 <span>階段 1/3</span></div>
     </div>
     <div class="panel cut here">
