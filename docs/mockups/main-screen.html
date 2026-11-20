@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="zh-Hant" data-skin="real">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>主畫面 v1</title>
+<style>
+:root{--cut:12px;--cut-sm:7px;--font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",Arial,sans-serif;--mono:ui-monospace,Menlo,Consolas,monospace}
+[data-skin="real"]{--bg:#17111F;--bg-1:#211829;--bg-2:#2C2136;--line:#3A2D47;--ink:#F3E9FF;--ink-2:#C9B8E8;--ink-3:#8C7AA6;
+  --a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF;--o:#17111F;--hp:#FF5A6E;--load:#F06AA0;--sink:#5FB8E8;--ap:#F2C14E;--ram:#45D6C5;--ep:#B39DF0;--net:#45D6C5;
+  --accent:#F06AA0;
+  --grid:linear-gradient(#ffffff06 1px,transparent 1px) 0 0/16px 16px,linear-gradient(90deg,#ffffff06 1px,transparent 1px) 0 0/16px 16px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);background-image:var(--grid);color:var(--ink);font-family:var(--font);font-size:14px}
+.cut{clip-path:polygon(0 0,calc(100% - var(--cut)) 0,100% var(--cut),100% 100%,var(--cut) 100%,0 calc(100% - var(--cut)))}
+.cut-sm{clip-path:polygon(0 0,calc(100% - var(--cut-sm)) 0,100% var(--cut-sm),100% 100%,var(--cut-sm) 100%,0 calc(100% - var(--cut-sm)))}
+.panel{background:var(--bg-1);box-shadow:inset 0 0 0 2px var(--line)}
+.h{font-size:11px;letter-spacing:2px;color:var(--ink-3);font-weight:800;margin:0 0 8px}
+/* 狀態列 */
+.status{height:52px;display:flex;align-items:center;gap:14px;padding:0 16px;background:#120D19;border-bottom:2px solid var(--line)}
+.logo{display:flex;align-items:center;gap:8px;font-weight:900;letter-spacing:1px}
+.logo svg{display:block}
+.st{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);white-space:nowrap}
+.st b{color:var(--ink);font-weight:800}
+.sep{width:2px;height:22px;background:var(--line)}
+.pill{padding:3px 9px;border-radius:999px;background:var(--bg-2);font-size:12px;font-weight:800}
+.pill.hot{background:var(--a);color:#fff}
+.grow{flex:1}
+.ibtn{width:34px;height:34px;display:grid;place-items:center;background:var(--bg-2);position:relative}
+.badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:var(--a);color:#fff;font-size:10px;font-weight:900;display:grid;place-items:center;padding:0 4px}
+/* 三欄 */
+.main{display:grid;grid-template-columns:340px 1fr 330px;gap:12px;padding:12px;height:calc(100% - 52px)}
+.col{display:flex;flex-direction:column;gap:12px;min-height:0}
+/* 地圖 */
+.map{padding:12px 16px 12px 12px}
+.grid{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:2px;width:100%}
+.tile{aspect-ratio:1;border-radius:4px;background:#1A1322;position:relative;min-width:0}
+.tile.st{background:#33274A}
+.tile.bd{background:#1E1627}
+.tile.fac{background:#5B4675;box-shadow:inset 0 -3px 0 #8E7CC3}
+.tile.exit{background:#33274A;box-shadow:inset 0 0 0 2px var(--b)}
+.tile.me{background:var(--a);box-shadow:0 0 10px var(--a)}
+.tile.job::after{content:"";position:absolute;inset:4px;background:var(--ap);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.tile.npc::after{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--c)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--ink-3)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+/* 小隊 */
+.party{padding:12px}
+.mem{display:grid;grid-template-columns:38px 1fr;gap:10px;align-items:center;padding:6px 0}
+.ava{width:38px;height:38px;border-radius:10px;background:var(--bg-2);position:relative;overflow:hidden}
+.ava::before{content:"";position:absolute;left:10px;top:7px;width:18px;height:18px;border-radius:50%;background:var(--b)}
+.ava::after{content:"";position:absolute;left:4px;top:24px;width:30px;height:20px;border-radius:12px 12px 0 0;background:var(--b)}
+.ava.me::before,.ava.me::after{background:var(--a)}
+.nm{display:flex;justify-content:space-between;font-weight:800;font-size:13px}
+.nm span{color:var(--ink-3);font-weight:700;font-size:11px}
+.mini{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:4px}
+.mini i{height:6px;border-radius:3px;background:var(--bg-2);position:relative;overflow:hidden}
+.mini i b{position:absolute;inset:0;border-radius:3px}
+.ag{display:flex;gap:3px;margin-top:4px}
+.ag i{width:9px;height:6px;border-radius:2px;background:var(--bg-2)}
+.ag i.on{background:var(--load)}
+/* 委託條 */
+.job{padding:12px}
+.job .t{font-weight:900}
+.stages{display:flex;gap:6px;margin-top:8px}
+.stage{flex:1;padding:6px 6px 7px;background:var(--bg-2);font-size:11px;color:var(--ink-3);font-weight:700}
+.stage.done{background:#3A2B47;color:var(--ink-2)}
+.stage.now{background:var(--a);color:#fff}
+.faces{display:flex;gap:4px;margin-top:4px}
+.faces i{width:16px;height:5px;border-radius:2px;background:#ffffff22}
+.faces i.m{background:var(--ink-2)}.faces i.n{background:var(--net)}.faces i.o{background:var(--ep)}
+/* 中欄 */
+.tools{display:flex;gap:6px;padding:8px;flex-wrap:wrap}
+.tool{display:flex;align-items:center;gap:6px;padding:7px 12px;background:var(--bg-2);font-weight:800;font-size:13px;color:var(--ink-2);position:relative}
+.tool svg{display:block}
+.tool .badge{top:-5px;right:-5px}
+.log{flex:1;overflow:auto;padding:4px 18px 10px}
+.entry{padding:14px 0 16px;border-bottom:2px solid var(--line)}
+.sys{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-bottom:8px}
+.sys b{color:var(--accent)}
+.prose{line-height:1.9;font-size:15px;max-width:720px}
+.prose p{margin:0 0 10px}
+.prose .netp{border-left:3px solid var(--net);padding-left:12px;font-family:var(--mono);font-size:13.5px;color:var(--ink-2)}
+.check{display:flex;align-items:stretch;border-radius:12px;overflow:hidden;background:var(--bg-2);max-width:520px;margin:10px 0}
+.check .d{background:var(--a);color:#fff;font-weight:900;font-size:20px;padding:6px 14px;display:grid;place-items:center}
+.check .info{padding:7px 12px;font-size:12.5px}
+.grade{display:inline-block;padding:1px 8px;border-radius:6px;background:var(--c);color:var(--bg);font-weight:800}
+.twist{color:var(--a);font-weight:800}
+.chg{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chg span{font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:var(--bg-2);color:var(--ink-2)}
+.chg .plus{color:var(--ram)} .chg .minus{color:var(--hp)}
+.chain{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;font-weight:800;margin-top:10px}
+.step{padding:3px 9px;border-radius:999px;background:var(--bg-2);color:var(--ink-3)}
+.step.ok{background:#3A2B47;color:var(--ink-2)}
+.step.run{background:var(--bg-1);color:var(--ink);box-shadow:inset 0 0 0 2px var(--a)}
+.arrow{color:var(--ink-3)}
+.thin{height:6px;border-radius:3px;background:var(--bg-2);display:flex;gap:3px;margin-top:10px;max-width:220px;overflow:hidden}
+.thin i{flex:1;background:#3A2B47}
+.entry-tools{display:flex;gap:6px;margin-top:10px}
+.mini-btn{font-size:11px;font-weight:800;padding:4px 10px;background:var(--bg-2);color:var(--ink-3)}
+/* 行動列 */
+.act{padding:10px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.input{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#120D19;box-shadow:inset 0 0 0 2px var(--line);color:var(--ink-3)}
+.input .die{width:26px;height:26px;background:var(--a);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.ctx{display:flex;gap:6px}
+.btn{font:800 13px var(--font);border:0;padding:11px 14px;cursor:pointer;background:var(--bg-2);color:var(--ink)}
+.btn.pri{background:var(--a);color:#fff}
+/* 右欄 */
+.here{padding:12px}
+.person{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center;padding:8px;background:var(--bg-2);border-radius:12px;margin-bottom:8px}
+.person .ava{width:44px;height:44px}
+.person .r{font-size:11px;color:var(--ink-3)}
+.heart{color:var(--a);font-size:11px;font-weight:800}
+.fac-tag{font-size:10px;font-weight:800;padding:1px 6px;border-radius:5px;background:#3A2B47;color:var(--ink-2);margin-left:4px}
+.acts{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.acts span{font-size:11px;font-weight:800;padding:3px 8px;border-radius:7px;background:var(--bg-1);color:var(--ink-2)}
+.acts span.hot{background:var(--a);color:#fff}
+.svc{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg-2);border-radius:10px;margin-bottom:6px;font-weight:700}
+.svc span{font-family:var(--mono);font-size:12px;color:var(--ap)}
+.ong{padding:8px 10px;background:var(--bg-2);border-radius:10px;margin-bottom:6px;font-size:13px}
+.ong small{display:block;color:var(--ink-3);font-size:11px;margin-top:2px}
+.ong .k{font-size:10px;font-weight:900;padding:1px 6px;border-radius:5px;margin-right:6px;color:#17111F}
+.tick{position:absolute;top:7px;right:20px;width:16px;height:4px;background:var(--a)}
+.rel{position:relative}
+
+/* ===== 手機版 ===== */
+.mobile{display:none}
+@media (max-width:720px){
+  .status .hide-m,.main{display:none}
+  .status{height:48px;gap:10px;padding:0 12px}
+  .mobile{display:flex;flex-direction:column;height:calc(100% - 48px)}
+  .m-map{padding:8px 40px 6px}
+  .m-map .grid{gap:2px}
+  .m-log{flex:1;overflow:auto;padding:0 14px}
+  .m-log .prose{font-size:15px}
+  .m-ctx{padding:8px 12px;display:grid;gap:8px}
+  .tabs{display:grid;grid-template-columns:repeat(5,1fr);background:#120D19;border-top:2px solid var(--line)}
+  .tab{display:grid;place-items:center;gap:3px;padding:8px 0 10px;font-size:11px;font-weight:800;color:var(--ink-3);position:relative}
+  .tab.on{color:var(--a)}
+  .tab.on::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;background:var(--a);border-radius:0 0 3px 3px}
+}
+</style>
+</head>
+<body>
+<!-- 圖標（剪影＋扁平；現實皮） -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4.5" fill="#F3E9FF"/><path d="M3.5 21c0-4.5 3.8-7.5 8.5-7.5s8.5 3 8.5 7.5z" fill="#8E7CC3"/><rect x="10" y="17" width="4" height="2" rx="1" fill="#F06AA0"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="4" fill="#8E7CC3"/><path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7" fill="none" stroke="#F3E9FF" stroke-width="2.4"/><rect x="9" y="11" width="6" height="3" rx="1.5" fill="#F06AA0"/></symbol>
+    <symbol id="i-roster" viewBox="0 0 24 24"><rect x="4" y="2.5" width="16" height="19" rx="3" fill="#F3E9FF"/><rect x="7" y="6" width="10" height="2.4" rx="1.2" fill="#8E7CC3"/><rect x="7" y="10.5" width="10" height="2.4" rx="1.2" fill="#8E7CC3"/><rect x="7" y="15" width="6" height="2.4" rx="1.2" fill="#F06AA0"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 21C5 16.5 2.5 12.5 2.5 8.8 2.5 5.9 4.7 4 7.2 4c1.9 0 3.6 1.1 4.8 2.9C13.2 5.1 14.9 4 16.8 4c2.5 0 4.7 1.9 4.7 4.8 0 3.7-2.5 7.7-9.5 12.2z" fill="#F06AA0"/><path d="M6 8.5a2 2 0 0 1 2-2" stroke="#F3E9FF" stroke-width="1.8" fill="none" stroke-linecap="round"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z" fill="#F3E9FF"/><path d="M16 3v3h3z" fill="#8E7CC3"/><rect x="8" y="10" width="8" height="2" rx="1" fill="#8E7CC3"/><rect x="8" y="14" width="5" height="2" rx="1" fill="#F06AA0"/></symbol>
+    <symbol id="i-craft" viewBox="0 0 24 24"><path d="M14.5 3.5a5 5 0 0 0-5.7 6.6L3.5 15.4a2.1 2.1 0 0 0 3 3l5.3-5.3a5 5 0 0 0 6.6-5.7l-3 3-2.8-.6-.6-2.8z" fill="#8E7CC3"/><circle cx="5" cy="17" r="1.4" fill="#F06AA0"/></symbol>
+    <symbol id="i-live" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="13" rx="3.5" fill="#8E7CC3"/><circle cx="7" cy="9" r="2" fill="#F06AA0"/><rect x="9" y="19.5" width="6" height="2" rx="1" fill="#F3E9FF"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 3l9 8v10H3z" fill="#F3E9FF"/><rect x="9.5" y="14" width="5" height="7" rx="1" fill="#F06AA0"/><path d="M6 6.5V3.5h2.5v1" fill="#8E7CC3"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6z" fill="#F3E9FF"/><circle cx="12" cy="19.5" r="2.2" fill="#F06AA0"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="3" rx="1.5" fill="#F3E9FF"/><rect x="4" y="10.5" width="16" height="3" rx="1.5" fill="#F3E9FF"/><rect x="4" y="16" width="10" height="3" rx="1.5" fill="#F06AA0"/></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24"><path d="M3 6l6-2.5 6 2.5 6-2.5v15L15 21l-6-2.5L3 21z" fill="#8E7CC3"/><path d="M9 3.5v15M15 6v15" stroke="#17111F" stroke-width="1.6"/><circle cx="12" cy="11" r="2.2" fill="#F06AA0"/></symbol>
+    <symbol id="i-team" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3.5" fill="#F3E9FF"/><circle cx="16.5" cy="9" r="3" fill="#8E7CC3"/><path d="M1.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6z" fill="#F3E9FF"/><path d="M13 20c.4-3 2-4.8 4-4.8 2.8 0 5 1.9 5 4.8z" fill="#8E7CC3"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 22s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12z" fill="#8E7CC3"/><circle cx="12" cy="10" r="2.8" fill="#F06AA0"/></symbol>
+    <symbol id="i-job" viewBox="0 0 24 24"><path d="M12 2 22 12 12 22 2 12z" fill="#F2C14E"/><path d="M12 7l5 5-5 5-5-5z" fill="#17111F"/><circle cx="12" cy="12" r="1.8" fill="#F06AA0"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.4" fill="#F3E9FF"/><circle cx="12" cy="12" r="2.4" fill="#F3E9FF"/><circle cx="19" cy="12" r="2.4" fill="#F06AA0"/></symbol>
+  </defs>
+</svg>
+
+<header class="status">
+  <div class="logo"><svg width="30" height="30" viewBox="0 0 600 600"><path fill="#45D6C5" stroke="#F3E9FF" stroke-width="22" d="M222 170 H388 L422 204 V338 Q422 382 378 382 H222 Q178 382 178 338 V214 Q178 170 222 170 Z"/><path fill="#F06AA0" stroke="#F3E9FF" stroke-width="20" d="M196 214 L214 102 L282 176 Z M404 214 L386 102 L318 176 Z"/><path fill="#F06AA0" d="M300 334 C 236 292 236 222 276 222 C 290 222 298 232 300 242 C 302 232 310 222 324 222 C 364 222 364 292 300 334 Z"/></svg><span class="hide-m">CYBERPUNK PINK</span></div>
+  <div class="sep hide-m"></div>
+  <div class="st"><b>第 12 天</b> 週五 <b>23:40</b></div>
+  <div class="sep hide-m"></div>
+  <div class="st hide-m"><span class="pill hot">四十二番街</span> 中城段・夜店「過載」</div>
+  <div class="sep hide-m"></div>
+  <div class="st"><b>C$ 3,420</b><span class="hide-m">・晶片 800</span></div>
+  <div class="st hide-m"><span class="pill">帳單 3 天</span></div>
+  <div class="st hide-m">敵對值 <span class="pill" style="color:#FF5A6E">緋櫻 62</span><span class="pill">野良 30</span></div>
+  <div class="grow"></div>
+  <div class="ibtn cut-sm"><svg width="20" height="20"><use href="#i-bell"/></svg><span class="badge">2</span></div>
+  <div class="ibtn cut-sm"><svg width="20" height="20"><use href="#i-menu"/></svg></div>
+</header>
+
+<main class="main">
+  <!-- 左欄 -->
+  <section class="col">
+    <div class="panel cut map rel"><span class="tick"></span>
+      <div class="h">地圖・中城段 13×9</div>
+      <div class="grid" id="grid"></div>
+      <div class="legend"><span><i style="background:#F06AA0"></i>你</span><span><i style="background:#3A2B47"></i>設施</span><span><i style="background:#F2C14E;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)"></i>委託</span><span><i style="background:#F3E9FF;border-radius:50%"></i>人</span><span><i style="box-shadow:inset 0 0 0 2px #8E7CC3"></i>出口</span></div>
+    </div>
+    <div class="panel cut party">
+      <div class="h">小隊</div>
+      <div class="mem"><div class="ava me"></div><div><div class="nm">你<span>槍手／掮客</span></div>
+        <div class="mini"><i><b style="width:72%;background:var(--hp)"></b></i><i><b style="width:45%;background:var(--load)"></b></i><i><b style="width:58%;background:var(--sink)"></b></i></div>
+        <div class="ag"><i class="on"></i><i></i><i></i></div></div></div>
+      <div class="mem"><div class="ava"></div><div><div class="nm">零<span>潛網者</span></div>
+        <div class="mini"><i><b style="width:90%;background:var(--hp)"></b></i><i><b style="width:70%;background:var(--load)"></b></i><i><b style="width:81%;background:var(--sink)"></b></i></div>
+        <div class="ag"><i class="on"></i><i class="on"></i><i></i></div></div></div>
+      <div class="mem"><div class="ava"></div><div><div class="nm">奈奈<span>掮客</span></div>
+        <div class="mini"><i><b style="width:100%;background:var(--hp)"></b></i><i><b style="width:10%;background:var(--load)"></b></i><i><b style="width:30%;background:var(--sink)"></b></i></div>
+        <div class="ag"><i></i><i></i><i></i></div></div></div>
+    </div>
+    <div class="panel cut job">
+      <div class="h">委託</div>
+      <div class="t">藍鯨的帳本 <span class="fac-tag">竊密・中型</span></div>
+      <div style="font-size:12px;color:var(--ink-3);margin-top:2px">陸伯發出・目標 胭脂堂・主面 內海</div>
+      <div class="stages">
+        <div class="stage done cut-sm">① 拿到入口<div class="faces"><i class="m"></i></div></div>
+        <div class="stage now cut-sm">② 往下一層<div class="faces"><i class="n"></i><i class="m"></i></div></div>
+        <div class="stage cut-sm">③ 隔離區<div class="faces"><i class="m"></i></div></div>
+        <div class="stage cut-sm">④ 下載<div class="faces"><i class="n"></i></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 中欄 -->
+  <section class="col">
+    <div class="panel cut tools">
+      <div class="tool cut-sm"><svg width="18" height="18"><use href="#i-person"/></svg>角色</div>
+      <div class="tool cut-sm"><svg width="18" height="18"><use href="#i-bag"/></svg>行囊</div>
+      <div class="tool cut-sm"><svg width="18" height="18"><use href="#i-roster"/></svg>名冊<span class="badge">1</span></div>
+      <div class="tool cut-sm"><svg width="18" height="18"><use href="#i-heart"/></svg>關係</div>
+      <div class="tool cut-sm"><svg width="18" height="18"><use href="#i-note"/></svg>筆記</div>
+      <div class="tool cut-sm"><svg width="18" height="18"><use href="#i-craft"/></svg>工藝</div>
+      <div class="tool cut-sm"><svg width="18" height="18"><use href="#i-live"/></svg>頻道</div>
+      <div class="tool cut-sm"><svg width="18" height="18"><use href="#i-home"/></svg>家園</div>
+    </div>
+    <div class="panel cut log">
+      <article class="entry">
+        <div class="sys">第 12 天 23:10 ・ <b>四十二番街</b> ・ 中城段</div>
+        <div class="prose"><p>雨停了，招牌的霓虹在積水裡碎成一片一片。奈奈把兩支通訊器收進同一個口袋，說今晚的料在過載的二樓。</p></div>
+        <div class="thin"><i></i><i></i><i></i><i></i></div>
+      </article>
+      <article class="entry">
+        <div class="sys">第 12 天 23:40 ・ <b>四十二番街</b> ・ 夜店「過載」</div>
+        <div class="prose">
+          <p>音響的低頻從地板傳上來，舞池的燈每打一拍就換一種顏色。你沿著吧台走到二樓的樓梯口，看門的人抬手攔住你，指了指自己的耳機。</p>
+          <p class="netp">零的聲音從你的耳機裡傳出來：「二樓的門禁是一隻白蕾絲，牠在數進出的人。給我三十秒。」</p>
+        </div>
+        <div class="check cut-sm"><div class="d">19</div><div class="info">交涉 DC 16 → <span class="grade">成功</span>　<span class="twist">✦ 他要你下次替他帶一瓶好酒</span><div style="color:var(--ink-3);margin-top:2px">1d20(14) ＋ 魅力 2 ＋ 交涉 3</div></div></div>
+        <div class="chg"><span class="plus">敵對值 胭脂堂 不變</span><span>欠下 小人情：看門的</span><span class="minus">時間 +20 分</span></div>
+        <div class="chain"><span class="step ok">擲骰</span><span class="arrow">›</span><span class="step ok">判定</span><span class="arrow">›</span><span class="step ok">上限</span><span class="arrow">›</span><span class="step ok">寫正文</span><span class="arrow">›</span><span class="step run">算關係…</span><span class="arrow">›</span><span class="step">套用</span></div>
+        <div class="entry-tools"><span class="mini-btn cut-sm">續寫</span><span class="mini-btn cut-sm">帶意圖重寫</span><span class="mini-btn cut-sm">回退</span><span class="mini-btn cut-sm">看提示詞</span></div>
+      </article>
+    </div>
+    <div class="panel cut act">
+      <div class="input cut-sm"><span class="die"></span>自由行動：想做什麼……</div>
+      <div class="ctx"><button class="btn cut-sm">走</button><button class="btn cut-sm">休息</button><button class="btn cut-sm">潛入</button><button class="btn pri cut-sm">● 直播</button></div>
+    </div>
+  </section>
+
+  <!-- 右欄 -->
+  <section class="col">
+    <div class="panel cut here rel"><span class="tick"></span>
+      <div class="h">這裡的人</div>
+      <div class="person"><div class="ava"></div><div><b>奈奈</b><span class="fac-tag">胭脂堂</span><div class="r">吧台的那一頭・跑腿</div><div class="heart">♥ 親密度 42</div>
+        <div class="acts"><span class="hot">談</span><span>主動行動</span><span>誘惑</span><span>交易</span></div></div></div>
+      <div class="person"><div class="ava"></div><div><b>看門的</b><span class="fac-tag">蜜糖會</span><div class="r">二樓的樓梯口</div><div class="heart" style="color:var(--ink-3)">初次見面</div>
+        <div class="acts"><span>談</span><span>主動行動</span></div></div></div>
+    </div>
+    <div class="panel cut here">
+      <div class="h">地點：夜店「過載」</div>
+      <div class="svc">表演一晚 <span>+C$ 180～</span></div>
+      <div class="svc">打聽消息 <span>C$ 50</span></div>
+      <div class="svc">點一杯 <span>C$ 25</span></div>
+      <div class="svc">打工：舞台助理 <span>階段 1/3</span></div>
+    </div>
+    <div class="panel cut here">
+      <div class="h">進行中</div>
+      <div class="ong"><span class="k" style="background:var(--ap)">委託</span>藍鯨的帳本<small>第 2 個階段・你選了內海</small></div>
+      <div class="ong"><span class="k" style="background:var(--ep)">線</span>奈奈「兩邊押注」<small>第 3 段・親密度 42 / 60</small></div>
+      <div class="ong"><span class="k" style="background:var(--c)">人情</span>看門的欠你 0・你欠他 1<small>小人情</small></div>
+    </div>
+  </section>
+</main>
+
+<!-- 手機版 -->
+<div class="mobile">
+  <div class="panel m-map"><div class="grid" id="grid2"></div></div>
+  <div class="m-log">
+    <article class="entry">
+      <div class="sys">23:40 ・ <b>四十二番街</b> ・ 夜店「過載」</div>
+      <div class="prose"><p>音響的低頻從地板傳上來。你沿著吧台走到二樓的樓梯口，看門的人抬手攔住你。</p>
+        <p class="netp">零：「二樓的門禁是一隻白蕾絲。給我三十秒。」</p></div>
+      <div class="check cut-sm"><div class="d">19</div><div class="info">交涉 DC 16 → <span class="grade">成功</span><br><span class="twist">✦ 下次替他帶一瓶好酒</span></div></div>
+      <div class="thin"><i style="background:#8E7CC3"></i><i style="background:#8E7CC3"></i><i style="background:#8E7CC3"></i><i style="background:#F06AA0"></i><i></i></div>
+    </article>
+  </div>
+  <div class="m-ctx">
+    <div class="input cut-sm"><span class="die"></span>自由行動：想做什麼……</div>
+    <button class="btn pri cut-sm" style="width:100%">上二樓</button>
+  </div>
+  <nav class="tabs">
+    <div class="tab on"><svg width="22" height="22"><use href="#i-map"/></svg>地圖</div>
+    <div class="tab"><svg width="22" height="22"><use href="#i-team"/></svg>小隊</div>
+    <div class="tab"><svg width="22" height="22"><use href="#i-pin"/></svg>這裡</div>
+    <div class="tab"><svg width="22" height="22"><use href="#i-job"/></svg>委託</div>
+    <div class="tab"><svg width="22" height="22"><use href="#i-more"/></svg>更多</div>
+  </nav>
+</div>
+
+<script>
+// 13×9 的街區格子
+const L=[
+"bbbbsbbbbbfbb",
+"bffbsbffbbsbb",
+"sssssssssssse",
+"bbfbsbbjbbsbb",
+"bbbbsbffbbsbb",
+"essssssMssssb",
+"bbfbsbbnbbsbb",
+"bbbbsbbbfbsbb",
+"bbbbebbbbbebb"];
+const cls={b:'bd',s:'st',f:'fac',e:'exit',j:'st job',n:'st npc',M:'me'};
+for(const id of ['grid','grid2']){
+  const g=document.getElementById(id);
+  L.join('').split('').forEach(ch=>{const d=document.createElement('i');d.className='tile '+cls[ch];g.appendChild(d)});
+}
+</script>
+</body>
+</html>
