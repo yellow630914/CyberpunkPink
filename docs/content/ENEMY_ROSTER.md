@@ -4230,7 +4230,7 @@
 
 | 名字 | 線（任務點） | base | 等級與位階 | 戰場 | 替身 | 戰敗事件 |
 |---|---|---|---|---|---|---|
-| 第五席「柊」 | `fc_hizakura` ② | `en_hz_hk_seat` | III 首領 | 現實 | — | 考核（醒在客房） |
+| 第五席「椿」 | `fc_hizakura` ② | `en_hz_hk_seat` | III 首領 | 現實 | — | 考核（醒在客房） |
 | 軍需官「鐵帳」布魯克少校 | `fc_starbelle` ③ | `en_sb_sergeant` | III 首領 | 現實 | — | `pow` |
 | 師姐蘇凝 | `fc_kunlun` ③ | `en_kl_senior` | IV 首領 | 現實 | — | 考核（醒在休息室） |
 | 採樣長柯緹 | `fc_nectar` ②③ | `en_nc_shifter` | III 精英 | 現實 | — | `lab` |
