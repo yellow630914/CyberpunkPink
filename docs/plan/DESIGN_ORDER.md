@@ -61,7 +61,7 @@
 | 內容 | 依賴哪些框架 | 現在的草稿 |
 |---|---|---|
 | 技能清單（九棵樹，每棵 25～27 個） | 三個戰場的玩法、技能框架、夜課 | 已生成：[SKILL_TREES](../content/SKILL_TREES.md)（八棵樹）、[NIGHT_LESSONS](../content/NIGHT_LESSONS.md)（夜課）；待平衡 |
-| 共鳴的內容 | 同上 | 還沒寫 |
+| 共鳴的內容 | 同上 | 已生成：八棵樹各 5 個，在 [SKILL_TREES](../content/SKILL_TREES.md) 每棵樹的開頭；夜課沒有共鳴（見 3.5 節） |
 | 零件、設計圖、藥、工具 | 戰鬥、技能、裝備框架、經濟 | 已生成：[ITEMS](../gear/ITEMS.md)，I～IV 級的系列；V 級留到 3.4 節 |
 | 敵人名單 | 戰鬥、技能、敵人框架 | 已生成：[ENEMY_ROSTER](../content/ENEMY_ROSTER.md)（制式敵人）；具名敵人留到 3.4 節 |
 | 事件 | 事件框架、NPC、名聲 | 已生成：[EVENTS_CITY](../content/EVENTS_CITY.md)、[ADULT_EVENTS](../content/ADULT_EVENTS.md)、[LURE_EVENTS](../content/LURE_EVENTS.md)、[DEFEAT_EVENTS](../content/DEFEAT_EVENTS.md)；待平衡 |
@@ -71,40 +71,49 @@
 
 ### 3.4 最後回來做的（使用者交代，2026-11-19）
 
-這幾樣先不做，但一定要回來做：
+這兩樣已經跟著特殊任務做了一大半：[QUESTS](../content/QUESTS.md) 每條線寫了自己的具名敵人（流竄 AI 的線另有「具名敵人的資料」一節），[ITEMS](../gear/ITEMS.md) 第 12、13 節的獨特零件與 V 級都標了是哪條線的報酬。L4 的其他內容都生成完之後，委託模板與事件裡還缺的再整批補：
 
 1. **V 級的零件、設計圖與藥**：每一件有名字，只從特殊任務與流竄 AI 來（[ITEMS](../gear/ITEMS.md)）。
 2. **具名敵人**（[ENEMIES](../systems/ENEMIES.md) 2.1 節）：特殊任務、委託副本、事件自己放的特別敵人。
 3. 這兩樣可以在設計特殊任務與委託副本的時候順便做；L4 的其他內容都生成完之後，沒做到的整批補上。
 
-### 3.5 漏掉的內容（盤點，2026-11-20）
+### 3.5 漏掉的內容（盤點，2026-11-20，逐項對過文件）
 
-規則定了、內容還沒寫的，照影響排：
+**規則定了、內容還沒寫的**
 
-| 內容 | 現在的狀態 | 擋著誰 |
+| 內容 | 現在的狀態 | 在哪 |
 |---|---|---|
-| **構裝的目錄** | 2026-11-20 寫了初稿（[ITEMS](../gear/ITEMS.md) 11.1～11.7 節），還沒過 | — |
-| **SKIN 的目錄** | 2026-11-20 寫了初稿（[ITEMS](../gear/ITEMS.md) 11.8 節）：風格值與曝露度直接當全身的值，還沒過 | — |
-| **快駭程式的完整清單** | 五類各有例子（[NETRUNNING](../systems/NETRUNNING.md) 第 2 節）；一次性的腳本在 ITEMS 5.2 節 | 潛網者、敵人的蕾絲 |
-| **機甲的型號、載具的目錄** | 規則已確認（[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 9.2、9.3 節），型號與目錄沒有 | 機師 |
-| 共鳴的內容 | 規則已確認（[SKILLS](../systems/SKILLS.md) 1.4 節），內容沒寫 | 技能 |
-| 具名敵人 | 只在 ENEMY_ROSTER 的掉落裡提到（3.4 節） | 特殊任務、委託副本 |
-| V 級 | 已寫 16 件；其餘照 3.4 節跟著特殊任務補 | 特殊任務 |
-| 史詩（主線的終局） | 結構有了（[STORY_QUESTS](../world/STORY_QUESTS.md) 第 2 節），內容沒寫 | 終局 |
-| 隨機生成的規則與詞條 | 迷宮館的主題、沉船帶的船型、一般子網的企業風格都沒寫 | 內海、委託副本的內海面 |
-| 內海的固定地圖 | 大街與樂園島的店家、場館沒寫 | 內海、SKIN 的來源 |
-| 輿論戰的數值 | 每張牌、每個行動的數字與對手的強度沒寫 | 平衡 |
-| 委託的生成規則與報酬 | 只有報酬的範圍 | 委託 |
-| 對峙 | 只是一個想法（[ROADMAP](ROADMAP.md) 2 節） | 可以晚一點 |
-| 存檔規則與難度、新手教學與開場 | 沒談 | 動工前 |
-| 指南 | 寫了樣板幾張，其餘 49 張實作時寫 | 實作 |
-| 搭車的癡漢與貼身事件 | 範圍與條件有了，內文沒寫 | 搭車 |
+| 快駭程式的完整清單 | 五類各只有幾個例子；價格只有範圍（300～3,000） | [NETRUNNING](../systems/NETRUNNING.md) 第 2 節、[LIFE](../world/LIFE.md) 1.2 節 |
+| 機甲的型號、載具的目錄、機甲的整備 | 規則已確認；型號、目錄與整備系統都寫「之後再說」。無人機已有目錄 | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 9.2、9.3 節、[CRAFTING](../gear/CRAFTING.md) 第 13 節 |
+| 建角的起始裝備 | 只寫「依出身給一包」，每個出身給什麼沒寫 | [CHARACTER](../systems/CHARACTER.md) 第 5 節 |
+| 隨機地圖的主題與詞條表 | 只有一句話：迷宮館、沉船帶、一般子網、深海各自的主題與詞條沒有表 | [CYBERSPACE](../systems/CYBERSPACE.md) 第 8 節 |
+| 內海的固定地圖 | 大街 3 塊、樂園島 3 塊、暗礁 2 處、企業環礁的前台 7 塊：店家、場館與佈置都沒寫 | 同上 |
+| 搭車的癡漢與貼身事件 | 範圍與條件有了，事件本身沒寫（交通事件現在只有掃橋、扒手團這幾件） | [EVENTS](../systems/EVENTS.md) 4.10 節、[EVENTS_CITY](../content/EVENTS_CITY.md) |
+| Ａ子的初見事件 | 一條委託模板要讀它的旗標，事件本身沒寫 | [COMMISSION_TEMPLATES](../content/COMMISSION_TEMPLATES.md) |
+| 對象非自願關掉時的俘虜 | 俘虜改成只問話或放人，敵人那邊的分支沒寫 | [ENEMIES](../systems/ENEMIES.md) 6.1 節 |
+| 戰敗事件用到的效果 | 有幾個效果暫時用旗標代替，還沒補進事件效果的封閉清單 | [DEFEAT_EVENTS](../content/DEFEAT_EVENTS.md) 開頭、[EVENTS](../systems/EVENTS.md) 2.4 節 |
+| 指南 | 樣板 6 張，其餘 49 張實作時寫 | [GUIDES](../content/GUIDES.md) |
+| 對峙 | 只是一個想法 | [ROADMAP](ROADMAP.md) 第 2 節 |
+| 存檔規則與難度、新手教學 | 沒談（開場已經有：七個出身各一段） | — |
+| 史詩 | 結構有了，內容先不急 | [STORY_QUESTS](../world/STORY_QUESTS.md) 第 2 節 |
 
-世界觀還缺的（[WORLD_ITEMS](WORLD_ITEMS.md) 標 ◐ 的）：年表的細節、城市以外的世界、十一家企業的內部結構、緋櫻家、固定 NPC 的台詞與行程、完整的人物關係表、屬性表、信仰的總整理、十種時尚的代表單品、AI 種類的總整理、獸化各系的目錄、一般人的勞動。
+**要你決定的設計問題**
 
-畫面還沒有示意頁的：設定（[UI](../art/UI.md) 第 15 節）、標題與存檔、和 NPC 說話、甲板的構裝槽與 SKIN 欄位（角色畫面現在沒有）、世界編輯器。
+- **夜課要不要有共鳴**：八棵樹各有 5 個共鳴，夜課一個都沒有。規則（[SKILLS](../systems/SKILLS.md) 1.4 節）寫的是「每棵樹」。
+- 甜心要不要加進牌子表（[ITEMS](../gear/ITEMS.md) 1.2 節）：桃子屋的 SKIN 暫用 0.9。
+- 武器構裝的合法性照等級分，還是照 ITEMS 5.2 節一律違禁。
 
-圖還沒畫的：基本功 18 個、傷害類型 5 個、設施的圖標；各區的街區圖、地鐵路線圖、義體部位圖（[ART_STYLE](../art/ART_STYLE.md) 第 6 節）；構裝與 SKIN 的圖標已補（2026-11-20）。
+**寫了、等你過的（各文件最後的「待確認」）**
+
+[SKILLS](../systems/SKILLS.md) 第 13 節（樹階門檻、共鳴要不要裝著才生效、夥伴技能佔不佔容量、媒體指標）；[ENEMIES](../systems/ENEMIES.md) 第 14 節（十一項）；[SITES](../world/SITES.md) 第 13 節（七項）；[STORY_QUESTS](../world/STORY_QUESTS.md) 第 10 節；[UI](../art/UI.md) 第 17 節；[PROMPTS](../systems/PROMPTS.md) 第 12 節；[OPINION](../systems/OPINION.md) 4.3c 節（豔名在棋盤上的用處）；[COMMISSION_TEMPLATES](../content/COMMISSION_TEMPLATES.md) 的遮蔽材質；[NIGHT_LESSONS](../content/NIGHT_LESSONS.md) 的體位數字；[FACTIONS](../world/FACTIONS.md) 各勢力的好感來源（留到 L4）。構裝與 SKIN 的目錄（[ITEMS](../gear/ITEMS.md) 第 11 節）也還沒過。
+
+**世界觀還缺的**（[WORLD_ITEMS](WORLD_ITEMS.md) 標 ◐ 的，抽查過年表與 NPC 台詞，屬實）：年表的細節、城市以外的世界、十一家企業的內部結構、緋櫻家、固定 NPC 的台詞與行程、完整的人物關係表、屬性表、信仰的總整理、十種時尚的代表單品、AI 種類的總整理、獸化各系的目錄、一般人的勞動。
+
+**畫面還沒有示意頁的**：設定（[UI](../art/UI.md) 第 15 節）、標題與存檔、和 NPC 說話、世界編輯器。
+
+**圖還沒畫的**：基本功 18 個、傷害類型 5 個、設施的圖標；各區的街區圖、地鐵路線圖、義體部位圖（[ART_STYLE](../art/ART_STYLE.md) 第 6 節）。
+
+**這次對過、其實已經寫了的**（舊的追蹤表沒跟上，已改）：共鳴（八棵樹各 5 個）、具名敵人（每條特殊任務的線裡）、V 級與獨特零件（標了來源的線）、委託的生成規則與報酬、雷與柚的關係線、次要勢力的線。
 
 ## 4. 現在的順序
 
