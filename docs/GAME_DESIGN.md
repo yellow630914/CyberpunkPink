@@ -117,7 +117,7 @@
 | 內海：分區、化身、構裝、網內戰鬥、精神污染 | [systems/CYBERSPACE](systems/CYBERSPACE.md) |
 | 竄網：快駭、蕾絲、追蹤度、粉牆 | [systems/NETRUNNING](systems/NETRUNNING.md) |
 | 輿論戰：頻道經營與議題戰役 | [systems/OPINION](systems/OPINION.md) |
-| 媒體：拍片與直播、素材與片、訂閱、黏著與公信力；偶像 | [systems/MEDIA](systems/MEDIA.md) |
+| 媒體：拍片與直播、素材與片、訂閱與公信力；偶像 | [systems/MEDIA](systems/MEDIA.md) |
 | 委託副本：階段、面、連動、輔助面的結算 | [systems/COMMISSIONS](systems/COMMISSIONS.md) |
 | 系列：把事件、線索、特殊任務、委託副本分組 | [systems/SERIES](systems/SERIES.md) |
 | 事件：一個事件導演與它的範圍 | [systems/EVENTS](systems/EVENTS.md) |
@@ -146,7 +146,7 @@
 | `location` | 區、街區、設施、場景格；竄網時另有 `subnet`（子網 id 與層） |
 | `party` | 快照改成 `hp`、`load`（感載）、`sink`（沉溺）各一組 `[前, 後, 上限]`，另外記 `afterglow`（餘韻的層數） |
 | `timeline` | 竄網的節拍標 `layer: "net"`，現實的節拍標 `meat`。現實與內海的戰鬥不同場；現實的戰鬥裡用快駭時，兩種節拍照時間順序排在一起 |
-| `changes` | 新增 `cred`、`fame`（豔名）、`hostility`（敵對值，依勢力）、`favors`（人情）、`footage`（從紀錄轉出來的素材）、訂閱與黏著（取代原本的 `audience`，欄位名待定）、`cyberware`、沉溺的下限（取代原本的 `humanity_cap`，欄位名待定） |
+| `changes` | 新增 `cred`、`fame`（豔名）、`hostility`（敵對值，依勢力）、`favors`（人情）、`footage`（從紀錄轉出來的素材）、訂閱（取代原本的 `audience`，欄位名待定）、`cyberware`、沉溺的下限（取代原本的 `humanity_cap`，欄位名待定） |
 | `narration` | 新增 `stream`（這一幕正在直播：觀看數、熱度、彈幕的氣氛） |
 
 ## 10. AI 敘事管線
