@@ -33,6 +33,9 @@ node tools/art/render.mjs
 | 內海結構 v0 | [`art/cyberspace.svg`](cyberspace.svg)（同上） | [`art/preview/cyberspace.png`](preview/cyberspace.png) | 網路空間的七個分區、粉牆、現實的接點 |
 | 樣式規劃 v0 | [`mockups/style-guide.html`](../mockups/style-guide.html) | [`art/preview/style-guide.png`](preview/style-guide.png) | 色彩、三條軌的量條、按鈕與標籤、紀錄、字、圖標風格（24 個樣本） |
 | 勢力圖 v0 | [`art/factions.svg`](factions.svg) | [`art/preview/factions.png`](preview/factions.png) | 勢力之間的關係示意，對應 [FACTIONS](../world/FACTIONS.md) 的草稿 |
+| 各區的街區圖 v0 | `art/street-<區>.svg` 八張：[蜂巢](street-hive.svg)、[四十二番街](street-banchi.svg)、[櫻町](street-sakuramachi.svg)、[冠冕區](street-crown.svg)、[舊港](street-oldport.svg)、[玻璃岸](street-glassshore.svg)、[鏽帶](street-rustbelt.svg)、[地下層](street-underlayer.svg)（由 `tools/art/gen_district_maps.py` 產生） | `art/preview/street-<區>.png`，例：[蜂巢](preview/street-hive.png) | 比街區結構圖細一級：每塊街區畫成 13 × 9 格，一條大街、兩條巷子與路口，六塊店面裡放 [SITES](../world/SITES.md) 第 2～9 節列的設施（配設施圖標，粗名是地標）；車站與地下層入口放在店面，往隔壁街區、要地、出口的畫成街道。位置照街區結構圖的欄與列，店面的位置是排版、不是定案 |
+| 路線圖 v0 | [`art/transit-map.svg`](transit-map.svg)（由 `tools/art/gen_transit.py` 產生） | [`art/preview/transit-map.png`](preview/transit-map.png) | 車站介面用：地鐵紅線、櫻線、輕軌環線、外環巴士、渡輪，18 站，轉乘站與出站步行轉乘，下方是每條線的每站時間、班距、付錢與特性（[DISTRICTS](../world/DISTRICTS.md) 1.2.1 節）。外環巴士照城市地圖在精煉廠分兩支 |
+| 義體部位圖 v0 | [`art/body-slots.svg`](body-slots.svg)（由 `tools/art/gen_body.py` 產生） | [`art/preview/body-slots.png`](preview/body-slots.png) | 中性的人體模型與九個部位的熱點、每個部位的槽與典型義體（[CYBERWARE](../gear/CYBERWARE.md) 第 1 節），左下角是背面的後頸（橋）。熱點的位置照[角色與義體](../mockups/character.html)的身體分頁，左右也照它（畫面的左邊是左） |
 
 **可以操作的 Demo**（HTML，直接用瀏覽器打開；它們是三個戰場畫面的現行參考，[UI](UI.md) 之後照它們重寫）：
 
@@ -187,7 +190,7 @@ node tools/art/render.mjs
 - 一份圖標原稿，用 CSS 變數（`--o` 輪廓或縫、`--a` 重點色、`--b`、`--c` 主體）換兩套皮，不畫兩次。
 - 16px 要認得出來：一個主體、最多兩個細節。
 - **標誌**是一枚貼紙徽章：貓耳終端機、愛心接頭、資料鰭、訊號波，加上「CYBERPUNK」橫幅與「PINK」膠囊。參考的是妄想天使那種風格，符號全部原創，不用它的翅膀、愛心頭盔與光環。
-- 之後照這個規格補：基本功 18 個、義體部位 9 個、傷害類型 5 個、勢力徽記 29 個、設施。勢力徽記可以用勢力自己的顏色。
+- ~~之後照這個規格補：基本功 18 個、義體部位 9 個、傷害類型 5 個、勢力徽記 29 個、設施。~~ 都已畫好（2026-11-20）：義體部位在第 2 層裡，勢力徽記見第 3 節，基本功、傷害類型、設施見 5.1 節。勢力徽記可以用勢力自己的顏色。
 
 **物品圖標分三層**（已確認，2026-11-20；第 1、2 層已畫好）：
 
@@ -205,6 +208,7 @@ node tools/art/render.mjs
 ### 5.1 已經畫好的圖標與第 3 層的生成清單
 
 - [第 1、2 層與技能的備用圖標](style/icons-l2.svg)（[預覽](preview/icons-l2.png)）：物品 53 個（含內海的七個：武器、防護、工具構裝，駭入程式、構裝體、專屬構裝、SKIN）、技能 54 個，由 `tools/art/gen_icons.py` 產生。畫面引用 [icons-sprite.svg](style/icons-sprite.svg) 裡的 `ic-<id>`。
+- **基本功、傷害類型、設施**（2026-11-20，同一張總覽的「基本功・傷害類型・設施」段，同一份 sprite）：基本功 18 個（`ic-bs_…`，[CORE_RULES](../systems/CORE_RULES.md) 第 2 節）、傷害類型 5 個（`ic-dmg_…`，[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 第 5 節）、設施 31 個（`ic-fac_…`：[TRADE](../systems/TRADE.md) 第 2 節的 17 種商店，加上從 [DOWNTIME](../systems/DOWNTIME.md) 第 4 節與 [SITES](../world/SITES.md) 的設施歸出來的 14 種：酒吧、潛艙店、旅館、住處、餐館、擂台、片場、修車廠、神社、地鐵站、渡輪碼頭、巴士站、地下層入口、橋接區）。向量原稿在 `tools/art/subjects/basics.py`；那裡的 `FACILITY_KEYWORDS` 把街區設施的名字對到設施圖標，街區圖用它。清單在 [glyphs.csv](icons/glyphs.csv)（`icon_manifest.py` 產生，會拿三份規則文件的表來對，對不上會印出來）。這三組是通用圖標，沒有第 3 層。
 - **一律置中**：產生器先用瀏覽器量每個圖標的幾何外框（存在 `style/icon-centers.json`），再把外框的中心對到 (100, 100)。技能的符號另外縮到 84 以內；心形底框的視覺中心比較低，符號往下放 6。改了圖形就跑一次 `python3 tools/art/gen_icons.py --measure`。
 - **第 3 層已經畫好**（[總覽](../mockups/icons-l3.html)）：物品 1645 個（含構裝與 SKIN 132 個，左下角一個青色游標表示是網內的東西）、技能 280 個，由 `tools/art/gen_icons_l3.py` 產生，輸出 [icons-l3-sprite.svg](style/icons-l3-sprite.svg)，id 與下面兩份清單一致。這台機器沒有 GPU，所以沒用 ComfyUI，改成向量拼裝：
   - 主體圖庫在 `tools/art/subjects/`：武器與工具 39 種、服裝飾品與成人道具 68 種、義體零件與藥品 35 種、技能符號 226 種，一個主體畫一次。成人道具只畫物件，露骨的一律用愛心禮盒；夜課只用抽象符號。
@@ -221,9 +225,9 @@ node tools/art/render.mjs
 
 | 圖 | 用途 |
 |---|---|
-| 各區的街區圖 | 每區一張，比城市地圖細一級：街道、地標的實際位置、路口 |
-| 地鐵路線圖 | 遊戲內的車站介面 |
+| ~~各區的街區圖~~ | 已畫 v0（2026-11-20，第 2 節）。之後照每塊街區實際的格子地圖改店面的位置 |
+| ~~地鐵路線圖~~ | 已畫 v0（2026-11-20，第 2 節），含輕軌、巴士與渡輪 |
 | 潛入畫面樣稿 | 子網的節點圖。現實戰鬥、內海戰鬥與輿論戰的畫面已經有可以操作的 Demo（第 2 節），這三個不必另外畫靜態樣稿 |
-| 義體部位圖 | 人形輪廓與九個部位的槽；[角色與義體](../mockups/character.html)的身體分頁有一版剪影與熱點的位置，正式的圖照它重畫 |
+| ~~義體部位圖~~ | 已畫 v0（2026-11-20，第 2 節），照[角色與義體](../mockups/character.html)身體分頁的剪影與熱點重畫 |
 | 物品圖標 | 三層都已畫好（5.1 節）；之後可以照清單的提示詞用 ComfyUI 換成更精緻的版本 |
 | 技能圖標 | 備用圖標與每個技能自己的圖都已畫好（5.1 節） |

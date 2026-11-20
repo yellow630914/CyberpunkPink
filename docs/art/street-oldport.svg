@@ -55,15 +55,12 @@
 <use href="#ic-fac_ferry" x="68" y="620" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#c9a54a;--c:#F3E9FF"/>
 <text x="103" y="631" font-size="13" font-weight="500" fill="#ffe9a8">渡輪「舊港碼</text>
 <text x="103" y="647" font-size="13" font-weight="500" fill="#ffe9a8">頭」</text>
-<use href="#ic-fac_ferry" x="356" y="558" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#c9a54a;--c:#F3E9FF"/>
-<text x="391" y="570" font-size="13" font-weight="500" fill="#ffe9a8">棧橋（夜市碼</text>
-<text x="391" y="586" font-size="13" font-weight="500" fill="#ffe9a8">頭）</text>
-<use href="#ic-fac_arena" x="356" y="620" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8fa3bd;--c:#FFF6FB"/>
-<text x="391" y="639" font-size="13" font-weight="800" fill="#8fa3bd">賭船「福星」</text>
-<use href="#ic-fac_barter" x="68" y="718" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
-<text x="103" y="738" font-size="13" font-weight="500" fill="#efe9f7">胭脂堂的倉庫</text>
-<use href="#ic-fac_garage" x="68" y="780" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8fa3bd;--c:#FFF6FB"/>
-<text x="103" y="799" font-size="13" font-weight="800" fill="#8fa3bd">真白的車廠</text>
+<use href="#ic-fac_arena" x="356" y="558" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8fa3bd;--c:#FFF6FB"/>
+<text x="391" y="578" font-size="13" font-weight="800" fill="#8fa3bd">賭船「福星」</text>
+<use href="#ic-fac_barter" x="356" y="620" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="391" y="639" font-size="13" font-weight="500" fill="#efe9f7">胭脂堂的倉庫</text>
+<use href="#ic-fac_garage" x="68" y="747" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8fa3bd;--c:#FFF6FB"/>
+<text x="107" y="768" font-size="13" font-weight="800" fill="#8fa3bd">真白的車廠</text>
 <use href="#ic-fac_bar" x="356" y="747" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8fa3bd;--c:#FFF6FB"/>
 <text x="395" y="768" font-size="13" font-weight="800" fill="#8fa3bd">海棠樓</text>
 <use href="#ic-fac_ferry" x="228" y="587" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
@@ -92,10 +89,8 @@
 <text x="669" y="586" font-size="13" font-weight="800" fill="#8fa3bd">」</text>
 <use href="#ic-fac_blackmarket" x="634" y="620" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
 <text x="669" y="639" font-size="13" font-weight="500" fill="#efe9f7">現金晶片兌換</text>
-<use href="#ic-fac_ferry" x="922" y="558" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#c9a54a;--c:#F3E9FF"/>
-<text x="957" y="578" font-size="13" font-weight="500" fill="#ffe9a8">棧橋（碼頭）</text>
-<use href="#ic-fac_gunshop" x="922" y="620" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
-<text x="957" y="639" font-size="13" font-weight="500" fill="#efe9f7">二手武器攤</text>
+<use href="#ic-fac_gunshop" x="922" y="587" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="961" y="608" font-size="13" font-weight="500" fill="#efe9f7">二手武器攤</text>
 <use href="#ic-fac_doujin" x="634" y="747" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
 <text x="673" y="768" font-size="13" font-weight="500" fill="#efe9f7">同人程式攤</text>
 <use href="#ic-fac_blackmarket" x="922" y="747" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>

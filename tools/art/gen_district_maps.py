@@ -214,7 +214,7 @@ def district_map(name, col, ncols, nodes, edges, blocks, sites):
             for f, bold in facs:
                 if f.startswith('→'):
                     t = f[1:].strip()
-                    ic = facility_icon(t)
+                    ic = facility_icon(re.sub(r'（.*?）', '', t))
                     if ic not in ('fac_metro', 'fac_ferry', 'fac_bus', 'fac_under') and any(wd and (wd in t or t in wd) for wd in edge_words.get(k, [])):
                         continue
                     if ic not in ('fac_metro', 'fac_ferry', 'fac_bus', 'fac_under'):
@@ -358,6 +358,8 @@ def main():
         svg = district_map(name, col, ncols, nodes, edges, blocks, sites)
         path = os.path.join(OUT, 'street-' + SLUG[name] + '.svg')
         open(path, 'w', encoding='utf-8').write(svg)
+        os.makedirs(os.path.join(ROOT, 'docs', 'mockups', 'maps'), exist_ok=True)   # 原型的導覽頁讀 mockups/maps 的副本
+        open(os.path.join(os.path.join(ROOT, 'docs', 'mockups', 'maps'), os.path.basename(path)), 'w', encoding='utf-8').write(svg)
         print('→', os.path.relpath(path, ROOT))
 
 

@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1120" width="1600" height="1120" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei','WenQuanYi Zen Hei',sans-serif">
+<title>緋夜城 路線圖 v0</title>
+<defs><pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#fff" stroke-opacity=".03"/></pattern><linearGradient id="sea" x1="0" x2="1"><stop offset="0" stop-color="#123a52"/><stop offset="1" stop-color="#0b1a2c"/></linearGradient><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<rect width="1600" height="1120" fill="#0d0a14"/><rect width="1600" height="1120" fill="url(#g)"/>
+<path d="M0 120H330Q300 200 340 260Q360 330 320 420Q300 520 340 620Q380 720 360 830H0Z" fill="url(#sea)" opacity=".85"/>
+<path d="M330 120Q300 200 340 260Q360 330 320 420Q300 520 340 620Q380 720 360 830" fill="none" stroke="#5fb8e8" stroke-opacity=".5" stroke-width="2"/>
+<g font-size="15" font-weight="700" fill="#9fe8ff" fill-opacity=".55" letter-spacing="6"><text x="70" y="300">外　海</text><text x="80" y="700">鏡　灣</text></g>
+<path d="M1210 200V840" stroke="#efe9f7" stroke-opacity=".5" stroke-width="5"/><path d="M1210 200V840" stroke="#0d0a14" stroke-width="2" stroke-dasharray="3 9"/>
+<text x="1222" y="222" font-size="12" fill="#7d7390" letter-spacing="4">城牆</text>
+<text x="520" y="250" font-size="20" font-weight="800" fill="#9fe8ff" fill-opacity=".22" letter-spacing="6">玻璃岸</text>
+<text x="470" y="300" font-size="20" font-weight="800" fill="#ffd66b" fill-opacity=".22" letter-spacing="6">冠冕區</text>
+<text x="700" y="445" font-size="20" font-weight="800" fill="#ff4fa3" fill-opacity=".22" letter-spacing="6">四十二番街</text>
+<text x="545" y="760" font-size="20" font-weight="800" fill="#ffb7d5" fill-opacity=".22" letter-spacing="6">櫻町</text>
+<text x="700" y="800" font-size="20" font-weight="800" fill="#8fa3bd" fill-opacity=".22" letter-spacing="6">舊港</text>
+<text x="1030" y="770" font-size="20" font-weight="800" fill="#b9a6ff" fill-opacity=".22" letter-spacing="6">蜂巢</text>
+<text x="1300" y="640" font-size="20" font-weight="800" fill="#e08a45" fill-opacity=".22" letter-spacing="6">鏽帶</text>
+<path d="M400 330L520 410L600 490H1120" fill="none" stroke="#ff3355" stroke-opacity=".25" stroke-width="24" stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)"/>
+<path d="M400 330L520 410L600 490H1120" fill="none" stroke="#ff3355" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M400 330V680L490 770" fill="none" stroke="#ff8fc0" stroke-opacity=".25" stroke-width="24" stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)"/>
+<path d="M400 330V680L490 770" fill="none" stroke="#ff8fc0" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M560 570H950Q990 570 990 610V670Q990 710 950 710H560Q520 710 520 670V610Q520 570 560 570Z" fill="none" stroke="#5dffb0" stroke-width="14"/><path d="M560 570H950Q990 570 990 610V670Q990 710 950 710H560Q520 710 520 670V610Q520 570 560 570Z" fill="none" stroke="#0d0a14" stroke-width="5"/>
+<path d="M1300 490L1390 400L1480 490V760" fill="none" stroke="#ff9d4d" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="2 12"/>
+<path d="M1390 400V210Q1390 180 1360 180H720" fill="none" stroke="#ff9d4d" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="2 12"/>
+<path d="M490 770C330 790 210 640 250 390C270 270 220 220 300 170" fill="none" stroke="#4fd8ff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="14 9"/>
+<path d="M940 490L990 640" stroke="#b8adc9" stroke-width="3" stroke-dasharray="2 6" stroke-linecap="round"/>
+<text x="979.0" y="551.0" font-size="11.5" fill="#b8adc9" paint-order="stroke" stroke="#0d0a14" stroke-width="4">步行・西棟</text>
+<path d="M1120 490L1300 490" stroke="#b8adc9" stroke-width="3" stroke-dasharray="2 6" stroke-linecap="round"/>
+<text x="1210.0" y="478.0" text-anchor="middle" font-size="11.5" fill="#b8adc9" paint-order="stroke" stroke="#0d0a14" stroke-width="4">步行・過東門</text>
+<rect x="626" y="476" width="28" height="108" rx="14" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<circle cx="400" cy="330" r="16" fill="#0d0a14" stroke="#fff" stroke-width="5"/><circle cx="400" cy="330" r="6" fill="#fff"/>
+<text x="378" y="316" text-anchor="end" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">冠冕中央</text>
+<circle cx="520" cy="410" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="538" y="398" text-anchor="start" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">番街上城</text>
+<circle cx="640" cy="490" r="7" fill="#fff"/>
+<circle cx="790" cy="490" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="790" y="466" text-anchor="middle" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">番街下城</text>
+<circle cx="940" cy="490" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="940" y="466" text-anchor="middle" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">蜂巢天井</text>
+<circle cx="1120" cy="490" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="1120" y="466" text-anchor="middle" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">東門</text>
+<circle cx="400" cy="560" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="378" y="565" text-anchor="end" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">櫻町劇場前</text>
+<circle cx="400" cy="680" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="378" y="685" text-anchor="end" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">千本通</text>
+<circle cx="490" cy="770" r="16" fill="#0d0a14" stroke="#fff" stroke-width="5"/><circle cx="490" cy="770" r="6" fill="#fff"/>
+<text x="510" y="800" text-anchor="start" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">舊港碼頭</text>
+<circle cx="640" cy="570" r="7" fill="#fff"/>
+<circle cx="990" cy="640" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="1012" y="645" text-anchor="start" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">蜂巢</text>
+<circle cx="520" cy="640" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="498" y="645" text-anchor="end" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">櫻町</text>
+<circle cx="1300" cy="490" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="1318" y="524" text-anchor="start" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">東門（東門外）</text>
+<circle cx="1390" cy="400" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="1412" y="405" text-anchor="start" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">精煉廠</text>
+<circle cx="1480" cy="620" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="1502" y="625" text-anchor="start" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">薔薇驛</text>
+<circle cx="1480" cy="760" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="1502" y="765" text-anchor="start" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">骨場</text>
+<circle cx="720" cy="180" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="720" y="158" text-anchor="middle" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">玻璃岸</text>
+<circle cx="250" cy="390" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="270" y="395" text-anchor="start" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">冠冕濱海</text>
+<circle cx="300" cy="170" r="10" fill="#0d0a14" stroke="#fff" stroke-width="4"/>
+<text x="320" y="156" text-anchor="start" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5" stroke-linejoin="round">玻璃岸遊艇碼頭</text>
+<text x="660" y="474" font-size="17" font-weight="800" fill="#efe9f7" paint-order="stroke" stroke="#0d0a14" stroke-width="5">番街中城</text>
+<text x="660" y="532" font-size="11.5" fill="#b8adc9" paint-order="stroke" stroke="#0d0a14" stroke-width="4">站內轉輕軌</text>
+<text x="378" y="338" text-anchor="end" font-size="11.5" fill="#b8adc9" paint-order="stroke" stroke="#0d0a14" stroke-width="4">轉櫻線</text>
+<text x="510" y="820" text-anchor="start" font-size="11.5" fill="#b8adc9" paint-order="stroke" stroke="#0d0a14" stroke-width="4">入夜後沒有站務員・轉渡輪</text>
+<text x="1120" y="520" text-anchor="middle" font-size="11.5" fill="#b8adc9" paint-order="stroke" stroke="#0d0a14" stroke-width="4">紅線終點</text>
+<text x="320" y="178" text-anchor="start" font-size="11.5" fill="#b8adc9" paint-order="stroke" stroke="#0d0a14" stroke-width="4">胭脂堂的渡輪</text>
+<text x="1360" y="172" text-anchor="end" font-size="11.5" fill="#b8adc9">外環公路</text>
+<text x="1530" y="480" font-size="11.5" fill="#b8adc9" transform="rotate(90 1530 480)">往荒地 →</text>
+<text x="40" y="70" font-size="40" font-weight="900" fill="#ff4fa3" letter-spacing="6" filter="url(#glow)">路線圖</text><text x="210" y="56" font-size="15" fill="#b8adc9" letter-spacing="2">地鐵兩線・輕軌環線・外環巴士・渡輪　·　18 站</text><text x="210" y="80" font-size="13" fill="#7d7390" letter-spacing="1">車站介面用，示意 v0（方位照城市地圖，距離不照比例）</text>
+<g transform="translate(850 46)"><path d="M0 0H44" stroke="#ff3355" stroke-width="10" stroke-linecap="round"/><text x="58" y="5" font-size="13" fill="#b8adc9">地鐵紅線</text></g>
+<g transform="translate(1100 46)"><path d="M0 0H44" stroke="#ff8fc0" stroke-width="10" stroke-linecap="round"/><text x="58" y="5" font-size="13" fill="#b8adc9">地鐵櫻線</text></g>
+<g transform="translate(1350 46)"><path d="M0 0H44" stroke="#5dffb0" stroke-width="14"/><path d="M0 0H44" stroke="#0d0a14" stroke-width="5"/><text x="58" y="5" font-size="13" fill="#b8adc9">輕軌環線</text></g>
+<g transform="translate(850 74)"><path d="M0 0H44" stroke="#ff9d4d" stroke-width="6" stroke-linecap="round" stroke-dasharray="2 12"/><text x="58" y="5" font-size="13" fill="#b8adc9">外環巴士</text></g>
+<g transform="translate(1100 74)"><path d="M0 0H44" stroke="#4fd8ff" stroke-width="5" stroke-linecap="round" stroke-dasharray="14 9"/><text x="58" y="5" font-size="13" fill="#b8adc9">渡輪</text></g>
+<g transform="translate(1350 74)"><circle cx="22" cy="0" r="9" fill="#0d0a14" stroke="#fff" stroke-width="4"/><text x="58" y="5" font-size="13" fill="#b8adc9">車站</text></g>
+<g transform="translate(850 102)"><circle cx="22" cy="0" r="13" fill="#0d0a14" stroke="#fff" stroke-width="5"/><circle cx="22" cy="0" r="5" fill="#fff"/><text x="58" y="5" font-size="13" fill="#b8adc9">轉乘站</text></g>
+<g transform="translate(1100 102)"><path d="M0 0H44" stroke="#b8adc9" stroke-width="3" stroke-dasharray="2 6" stroke-linecap="round"/><text x="58" y="5" font-size="13" fill="#b8adc9">出站步行轉乘</text></g>
+<g transform="translate(1350 102)"><circle cx="22" cy="0" r="9" fill="#0d0a14" stroke="#7d7390" stroke-width="4" stroke-dasharray="3 3"/><text x="58" y="5" font-size="13" fill="#b8adc9">還沒去過（介面：灰、不能搭）</text></g>
+<rect x="30" y="860" width="1540" height="230" fill="#151020" stroke="#3a2d52"/>
+<text x="56" y="888" font-size="12.5" font-weight="700" fill="#7d7390" letter-spacing="2">線</text>
+<text x="220" y="888" font-size="12.5" font-weight="700" fill="#7d7390" letter-spacing="2">路線</text>
+<text x="700" y="888" font-size="12.5" font-weight="700" fill="#7d7390" letter-spacing="2">每站</text>
+<text x="790" y="888" font-size="12.5" font-weight="700" fill="#7d7390" letter-spacing="2">班距</text>
+<text x="880" y="888" font-size="12.5" font-weight="700" fill="#7d7390" letter-spacing="2">付錢</text>
+<text x="1130" y="888" font-size="12.5" font-weight="700" fill="#7d7390" letter-spacing="2">特性</text>
+<rect x="56" y="907" width="10" height="18" rx="2" fill="#ff3355"/><text x="76" y="921" font-size="14" font-weight="800" fill="#ff3355">地鐵紅線</text>
+<text x="220" y="921" font-size="13" fill="#efe9f7">冠冕中央 — 番街上城 — 番街中城 — 番街下城 — 蜂巢天井 — 東門</text>
+<text x="700" y="921" font-size="13" fill="#efe9f7">5 分</text>
+<text x="790" y="921" font-size="13" fill="#efe9f7">2～6 分</text>
+<text x="880" y="921" font-size="13" fill="#efe9f7">刷卡留紀錄／現金單程票</text>
+<text x="1130" y="921" font-size="13" fill="#efe9f7">進站掃橋（敵對值高時有風險）；深夜停駛</text>
+<rect x="56" y="937" width="10" height="18" rx="2" fill="#ff8fc0"/><text x="76" y="951" font-size="14" font-weight="800" fill="#ff8fc0">地鐵櫻線</text>
+<text x="220" y="951" font-size="13" fill="#efe9f7">冠冕中央 — 櫻町劇場前 — 千本通 — 舊港碼頭</text>
+<text x="700" y="951" font-size="13" fill="#efe9f7">5 分</text>
+<text x="790" y="951" font-size="13" fill="#efe9f7">2～6 分</text>
+<text x="880" y="951" font-size="13" fill="#efe9f7">刷卡留紀錄／現金單程票</text>
+<text x="1130" y="951" font-size="13" fill="#efe9f7">同紅線；舊港碼頭站入夜後沒有站務員</text>
+<rect x="56" y="967" width="10" height="18" rx="2" fill="#5dffb0"/><text x="76" y="981" font-size="14" font-weight="800" fill="#5dffb0">輕軌環線</text>
+<text x="220" y="981" font-size="13" fill="#efe9f7">蜂巢 — 櫻町 — 番街中城 — 蜂巢（高架，繞一圈）</text>
+<text x="700" y="981" font-size="13" fill="#efe9f7">8 分</text>
+<text x="790" y="981" font-size="13" fill="#efe9f7">2～6 分</text>
+<text x="880" y="981" font-size="13" fill="#efe9f7">帳戶或現金</text>
+<text x="1130" y="981" font-size="13" fill="#efe9f7">不掃橋；擠，扒手多；看得到窗外</text>
+<rect x="56" y="997" width="10" height="18" rx="2" fill="#ff9d4d"/><text x="76" y="1011" font-size="14" font-weight="800" fill="#ff9d4d">外環巴士</text>
+<text x="220" y="1011" font-size="13" fill="#efe9f7">東門 — 精煉廠 — 薔薇驛 — 骨場；精煉廠 — 玻璃岸（外環公路）</text>
+<text x="700" y="1011" font-size="13" fill="#efe9f7">20 分</text>
+<text x="790" y="1011" font-size="13" fill="#efe9f7">20 分</text>
+<text x="880" y="1011" font-size="13" fill="#efe9f7">只收現金</text>
+<text x="1130" y="1011" font-size="13" fill="#efe9f7">班次少；鏽帶區內唯一的大眾運輸</text>
+<rect x="56" y="1027" width="10" height="18" rx="2" fill="#4fd8ff"/><text x="76" y="1041" font-size="14" font-weight="800" fill="#4fd8ff">渡輪</text>
+<text x="220" y="1041" font-size="13" fill="#efe9f7">舊港碼頭 — 冠冕濱海 — 玻璃岸遊艇碼頭</text>
+<text x="700" y="1041" font-size="13" fill="#efe9f7">15 分</text>
+<text x="790" y="1041" font-size="13" fill="#efe9f7">30 分</text>
+<text x="880" y="1041" font-size="13" fill="#efe9f7">現金或人情</text>
+<text x="1130" y="1041" font-size="13" fill="#efe9f7">胭脂堂經營；不問身分；可以帶貨；看得到窗外</text>
+<text x="56" y="1092" font-size="12" fill="#7d7390">浮空計程車不在圖上：任意兩個地面站點，10 分鐘，點到點，不進舊港與鏽帶深處。地下層沒有公共交通。資料：DISTRICTS 1.2.1 節。由 tools/art/gen_transit.py 產生。</text>
+</svg>

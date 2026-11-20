@@ -117,9 +117,9 @@
 <circle cx="1736.0" cy="384.0" r="7" fill="#0d0a14" stroke="#ff4fa3" stroke-width="2.5"/>
 <path d="M1864.0 240.0V528.0" stroke="#7d7390" stroke-width="1.2" stroke-dasharray="4 7"/>
 <circle cx="1864.0" cy="384.0" r="7" fill="#0d0a14" stroke="#ff4fa3" stroke-width="2.5"/>
-<use href="#ic-fac_metro" x="1600" y="258" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#c9a54a;--c:#F3E9FF"/>
-<text x="1635" y="270" font-size="13" font-weight="500" fill="#ffe9a8">地下層入口（</text>
-<text x="1635" y="286" font-size="13" font-weight="500" fill="#ffe9a8">地鐵的廢支…</text>
+<use href="#ic-fac_under" x="1600" y="258" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#5dffb0;--c:#F3E9FF"/>
+<text x="1635" y="270" font-size="13" font-weight="500" fill="#5dffb0">地下層入口（</text>
+<text x="1635" y="286" font-size="13" font-weight="500" fill="#5dffb0">地鐵的廢支…</text>
 <use href="#ic-fac_arena" x="1600" y="320" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
 <text x="1635" y="331" font-size="13" font-weight="500" fill="#efe9f7">胭脂堂的小賭</text>
 <text x="1635" y="347" font-size="13" font-weight="500" fill="#efe9f7">場</text>

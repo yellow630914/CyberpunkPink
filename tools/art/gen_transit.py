@@ -151,7 +151,9 @@ def main():
             o.append(f'<text x="{x}" y="{y + 1}" font-size="13" fill="{INK}">{t}</text>')
     o.append(f'<text x="56" y="{H - 28}" font-size="12" fill="{INK3}">浮空計程車不在圖上：任意兩個地面站點，10 分鐘，點到點，不進舊港與鏽帶深處。地下層沒有公共交通。資料：DISTRICTS 1.2.1 節。由 tools/art/gen_transit.py 產生。</text>')
     o.append('</svg>')
-    open(OUT, 'w', encoding='utf-8').write('\n'.join(o))
+    for p in (OUT, os.path.join(os.path.join(ROOT, 'docs', 'mockups', 'maps'), os.path.basename(OUT))):   # 原型的導覽頁讀 mockups/maps 的副本
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        open(p, 'w', encoding='utf-8').write('\n'.join(o))
     print('→', os.path.relpath(OUT, ROOT), len(ST) - 1, 'stations')
 
 
