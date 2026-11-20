@@ -48,6 +48,7 @@ node tools/art/render.mjs
 | 技能樹 | [`mockups/skill-tree.html`](../mockups/skill-tree.html) | 八棵樹（以槍手為例）與夜課 | [UI](UI.md) 8.4 節 |
 | 頻道 | [`mockups/channel.html`](../mockups/channel.html) | 頻道的經營層：預算與額度、開一集與預覽、編制、集數、設備、事件 | [UI](UI.md) 6.2 節 |
 | 成人場景 | [`mockups/adult-scene.html`](../mockups/adult-scene.html) | 參與者、部位與連接、體位、契合與主動權、行動列與預覽；`#gate` 是開場的確認框 | [UI](UI.md) 第 10 節 |
+| 行囊與日常 | [`mockups/daily.html`](../mockups/daily.html) | 行囊、商店、關係、待處理事件、每週帳單 | [UI](UI.md) 3.3、3.7～3.10 節 |
 | 三種錢 | [`mockups/currency.html`](../mockups/currency.html) | 帳戶、現金晶片、人情在狀態列、談判、分帳、人情帳、商店的樣子 | [UI](UI.md) 3.5 節 |
 
 ![緋夜城地圖](preview/city-map.png)
