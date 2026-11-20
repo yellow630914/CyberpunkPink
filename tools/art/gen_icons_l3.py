@@ -129,6 +129,8 @@ def build_item(r, subs, centers, item_map):
     motif = next((v for t, v in MOTIF if t in name), None)
     if motif:
         parts.append(f'<g transform="translate(160 160) scale(1.15)">{MOTIF_SVG[motif]}</g>')
+    if r['分類'].startswith('ITEMS 11'):  # 網內的東西：左下角一個青色的游標
+        parts.append('<g transform="translate(30 168)"><path d="M-12-16L14 2L2 4L8 16L2 19L-4 7L-12 14Z" fill="#45D6C5" stroke="#17111F" stroke-width="3.5" stroke-linejoin="round"/></g>')
     if grade in ('IV', 'V'):
         parts.append(f'<g transform="translate(36 36)">{SPARK}</g>')
     if grade == 'V':

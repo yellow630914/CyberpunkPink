@@ -64,13 +64,24 @@ PART = [('橋', 'cw_bridge'), ('腦', 'cw_brain'), ('眼', 'cw_eye'), ('耳', 'c
 SECTION_L2 = {'2.1': 'part_chip', '2.2': 'part_neuron', '2.3': 'part_software', '2.4': 'part_plate', '2.5': 'part_actuator', '2.6': 'part_sensor',
               '2.7': 'part_power', '2.8': 'part_skin', '2.9': 'part_barrel', '2.10': 'part_mech', '2.11': 'part_blade', '2.12': 'part_fiber',
               '3.1': 'bp', '3.2': 'carry_main', '3.3': 'slot_armor', '3.4': 'bp', '4': 'drug', '4.1': 'drug', '4.2': 'drug', '5.1': 'ammo', '5.2': 'consumable',
-              '5.3': 'cargo', '6': 'tool', '7.1': 'slot_top', '7.2': 'acc_ring', '7.3': 'adult'}
+              '5.3': 'cargo', '6': 'tool', '7.1': 'slot_top', '7.2': 'acc_ring', '7.3': 'adult',
+              '11.2': 'net_weapon', '11.3': 'net_defense', '11.4': 'net_tool', '11.5': 'net_hack', '11.6': 'net_body', '11.8': 'skin'}
 WEAR = [('內褲', 'slot_panties'), ('丁字', 'slot_panties'), ('胸罩', 'slot_bra'), ('內衣', 'slot_bra'), ('外套', 'slot_coat'), ('大衣', 'slot_coat'),
         ('夾克', 'slot_coat'), ('風衣', 'slot_coat'), ('披肩', 'slot_coat'), ('裙', 'slot_bottom'), ('褲', 'slot_bottom'), ('腰卷', 'slot_bottom'), ('袴', 'slot_bottom'),
         ('靴', 'slot_shoes'), ('鞋', 'slot_shoes'), ('帽', 'slot_head'), ('頭帶', 'slot_head'), ('盔', 'slot_head'), ('髮', 'slot_head'), ('眼鏡', 'slot_face'),
         ('面罩', 'slot_face'), ('面具', 'slot_face'), ('口罩', 'slot_face'), ('面紗', 'slot_face'), ('手套', 'slot_hands')]
 ITEM_HEADS = {'零件', '道具', '名字', '名稱', '飾品', '設計圖', '型號', '藥（街名）', '彈種', '東西', '貨物', '工具'}
 GRADES = {'I', 'II', 'III', 'IV', 'V'}
+NET_ARCH = {'近戰': 'a sword', '鞭': 'a whip', '手槍': 'a handgun', '衝鋒槍': 'a compact submachine gun', '霰彈槍': 'a shotgun', '步槍': 'a rifle',
+            '狙擊槍': 'a sniper rifle', '輕機槍': 'a heavy machine gun', '重型': 'a rocket launcher', '干擾': 'an antenna'}
+NET_NAME = {'客服窗': 'an armor plate', '散熱罩': 'a power cell', '聖盾': 'an armor plate', '誘餌': 'a heart-shaped gift box with a ribbon', '懺悔室': 'a padlock',
+            '貞潔鎖': 'a heart-shaped lock', '光學迷彩': 'a veil', '探針': 'a sensor lens', '後門鑰匙': 'a padlock', '雜訊產生器': 'an antenna',
+            '冷卻扇': 'a battery', '鏡像': 'glasses', '拆釘鉗': 'a tool', '回填器': 'a memory chip', '熔斷保險': 'a power cell', '鉤索': 'a coil of rope',
+            '破城槌': 'a wrench', '泥瓦匠': 'a crate', '拆遷隊': 'a grenade', '斷路器': 'a microchip', '王座': 'a cyberdeck', '拖把': 'a feather',
+            '紅點': 'a sensor lens', '改寫': 'a rolled blueprint', '執事・家政課': 'a shirt', '夜禮服': 'a dress', '泳裝・樂園島': 'a swimsuit', '薄紗': 'a veil', '守門人': 'a helmet', '巨大少女': 'a small drone', '天使像': 'a small bell', '鐵處女': 'a cybernetic arm'}
+SKIN_STYLE = {'企業': 'a uniform', '街頭': 'a hood', '霓虹龐克': 'a jacket', '虛擬主播': 'headphones', '偶像': 'a dress', '女僕': 'a maid uniform',
+              '櫻町系': 'a kimono', '仙俠': 'a qipao dress', '護士': 'a one-piece outfit', '修女': 'a veil', '騎士': 'a helmet', '巫女': 'a kimono',
+              '魔法少女': 'a skirt', '歡場': 'a swimsuit', '特攻': 'a long coat', '哥德': 'a dress', '角色扮演': 'a mask', '自選': 'a clothes hanger'}
 
 
 def tables(path):
@@ -148,14 +159,19 @@ def items():
                 if not name or name in seen:
                     continue
                 seen.add(name)
-                grade = next((c for c in r if c in GRADES), '')
+                grade = next((c for c in r if c in GRADES), '') or next((c.split('～')[-1] for c in r if '～' in c and c.split('～')[-1] in GRADES), '')
                 brand = r[hi['牌子']] if '牌子' in hi and hi['牌子'] < len(r) else ''
                 unique = sec.startswith('12') or sec.startswith('13')
+                net = sec.startswith('11.')
                 l2 = l2_for(sec, head, r, name)
                 subj = subject_for(name, l2)
+                if sec.startswith('11.'):
+                    bare = re.sub(r'^(構裝|構裝體|程式)「|」$', '', name)
+                    subj = (NET_ARCH.get(r[hi['原型']]) if '原型' in hi else None) or NET_NAME.get(bare) or \
+                           (SKIN_STYLE.get(r[hi['風格']]) if '風格' in hi else None) or subj
                 bstyle = next((v for k, v in BRAND if k in brand or k in name), '')
                 detail = {'I': 'very simple', 'II': 'simple', 'III': 'moderately detailed', 'IV': 'detailed', 'V': 'intricate'}.get(grade, 'simple')
-                prompt = ', '.join(x for x in [STYLE, f'{subj}', bstyle, f'{detail} shape', 'ornate one-of-a-kind artifact with a faint violet glow' if unique else '', PALETTE] if x)
+                prompt = ', '.join(x for x in [STYLE, f'{subj}', bstyle, f'{detail} shape', 'ornate one-of-a-kind artifact with a faint violet glow' if unique else '', 'holographic digital program look with pixel edges and a cyan glow' if net else '', PALETTE] if x)
                 out.append({'id': sid('it', name), '名字': name, '分類': f'ITEMS {sec}', '第2層': f'ic-{l2}', '等級': grade, '牌子': brand,
                             '獨特': '是' if unique else '', 'prompt': prompt, '備註': ''})
     return out

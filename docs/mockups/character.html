@@ -404,9 +404,9 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
     <div class="traits"><span class="tag good">巷子裡的眼睛</span><span class="tag good">手穩</span><span class="tag bad">欠阿蓮一筆</span></div>
   </aside>
 
-  <!-- 右：五個分頁 -->
+  <!-- 右：六個分頁 -->
   <section class="panel cut pad scroll">
-    <div class="tabsx"><span data-t="sum">概要</span><span data-t="body" class="on">身體</span><span data-t="gear">裝備</span><span data-t="bridge">橋</span><span data-t="adult">成人</span></div>
+    <div class="tabsx"><span data-t="sum">概要</span><span data-t="body" class="on">身體</span><span data-t="gear">裝備</span><span data-t="net">內海</span><span data-t="bridge">橋</span><span data-t="adult">成人</span></div>
 
     <!-- 概要 -->
     <div class="tab-v" id="t-sum">
@@ -561,6 +561,52 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
     </div>
 
     <!-- 橋 -->
+    <!-- 內海：甲板、構裝、SKIN -->
+    <div class="tab-v" id="t-net">
+      <div class="equip">
+        <div>
+          <div class="eg"><p class="h">甲板</p>
+            <div class="cell cut-sm" style="aspect-ratio:auto;padding:12px 14px;text-align:left"><span class="mk">II</span><span class="sl">腦・甲板</span><span class="it">織女入門甲板-200</span>
+              <div class="k" style="margin-top:6px">構裝槽 4・防火牆 12・散熱好，潛入時每回合感載多消退 1 點</div></div></div>
+          <div class="eg"><p class="h">構裝・4 槽（存在甲板裡）</p>
+            <div class="egrid" style="grid-template-columns:repeat(4,1fr)">
+              <div class="cell cut-sm" style="aspect-ratio:1.4"><span class="mk">II</span><span class="sl">武器</span><span class="it">客服專線</span></div>
+              <div class="cell cut-sm" style="aspect-ratio:1.4"><span class="mk">I</span><span class="sl">武器</span><span class="it">網線</span></div>
+              <div class="cell cut-sm" style="aspect-ratio:1.4"><span class="mk">II</span><span class="sl">防護</span><span class="it">散熱罩</span></div>
+              <div class="cell cut-sm" style="aspect-ratio:1.4"><span class="mk">I</span><span class="sl">工具</span><span class="it">冷卻扇</span></div>
+            </div>
+            <div class="k" style="margin-top:10px">防護構裝同時只能開一個。專屬構裝在招牌能力 1 階時自動取得，也佔一槽；潛網者的「主控台」另外多給 2 槽</div>
+            <div class="k" style="margin-top:6px">腳本放快取格：回填包、本子橡皮擦</div></div>
+          <div class="eg"><p class="h">SKIN・存了 3 套（戰鬥中不能換）</p>
+            <div class="egrid" style="grid-template-columns:repeat(3,1fr)">
+              <div class="cell cut-sm" style="aspect-ratio:1.6;box-shadow:inset 0 0 0 2px var(--a)"><span class="sl">穿著中</span><span class="it">霓虹雨衣</span></div>
+              <div class="cell cut-sm" style="aspect-ratio:1.6"><span class="sl">存著</span><span class="it">預設化身</span></div>
+              <div class="cell cut-sm" style="aspect-ratio:1.6"><span class="sl">存著</span><span class="it">女僕・家政課</span></div>
+            </div>
+            <div class="k" style="margin-top:10px">在任何接入點都能換。SKIN 只給風格與曝露度，不給防護</div></div>
+        </div>
+        <div>
+          <p class="h">網內的數字</p>
+          <div class="kv"><span>RAM 上限</span><b class="mono">6</b></div>
+          <div class="k">4 ＋ 智識的調整值 2</div>
+          <div class="kv"><span>RAM 回復</span><b class="mono">2／回合</b></div>
+          <div class="kv"><span>防護</span><b class="mono">3</b></div>
+          <div class="k">散熱罩 II</div>
+          <div class="kv"><span>感載上限</span><b class="mono">38・3 層</b></div>
+          <div class="kv"><span>網內的傷害加值</span><b class="mono">+2</b></div>
+          <div class="k">一律用魅力</div>
+          <div class="hr"></div>
+          <div class="kv"><span>風格</span><b>霓虹龐克</b></div>
+          <div class="kv"><span>風格值</span><b class="mono">2</b></div>
+          <div class="kv"><span>曝露度</span><b class="mono">1</b></div>
+          <div class="k">SKIN 的值直接當全身的值。防護 5 以上的構裝讓風格值 −1</div>
+          <div class="hr"></div>
+          <div class="kv"><span>掃橋看得到</span><b>登記 1・許可 1</b></div>
+          <div class="k">甲板裡存的構裝照合法性算；武器構裝 II 級要許可</div>
+        </div>
+      </div>
+    </div>
+
     <div class="tab-v" id="t-bridge">
       <div class="bhead"><h3>織女 標準</h3><span class="tag">晶片 II</span><span class="tag">換配置只要半小時</span><span class="tune e">調校槽 空</span><span class="tune e">調校槽 空</span></div>
       <div class="caps">
