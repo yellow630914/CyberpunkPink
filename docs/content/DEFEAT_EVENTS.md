@@ -261,8 +261,8 @@
 - **kind**：`pinned`
 - **factions**：`nightingale`（粉蕾絲・客服型、值班潛網者的化身、機房主任・台柱；崑崙、萬華鏡這些向夜鶯買蕾絲的子網，沒寫自己的 `pinned` 時也用這一筆）。
 - **在哪**：內海，夜鶯的子網；等級 II～V。身體留在潛入的位置。
-- **登場**：default：`$a` 粉蕾絲・客服型；masc：`$a` 值班潛網者的化身（貓耳的虛擬主播，皮底下是一個值夜班的男員工）；yuri：`$a` 機房主任・台柱的化身。第三段的 `$b` 是來收身體的機房靜音者（男）。
-- **tags**：`pc_unwilling`、`contract_dom`（處置的契約）、`tendency:聲音`、`tendency:服從`、`tendency:窺視`（masc）、`male_partner`（masc 的皮底下、第三段的靜音者）、`female_partner`。`male_partner` 關掉時 masc 改用 yuri 的台柱，第三段的靜音者只押人、不進圈子。
+- **登場**：default：`$a` 粉蕾絲・客服型；masc：`$a` 值班潛網者的化身（貓耳的虛擬主播，SKIN 底下是一個值夜班的男員工）；yuri：`$a` 機房主任・台柱的化身。第三段的 `$b` 是來收身體的機房靜音者（男）。
+- **tags**：`pc_unwilling`、`contract_dom`（處置的契約）、`tendency:聲音`、`tendency:服從`、`tendency:窺視`（masc）、`male_partner`（masc 的 SKIN 底下、第三段的靜音者）、`female_partner`。`male_partner` 關掉時 masc 改用 yuri 的台柱，第三段的靜音者只押人、不進圈子。
 - **fails_commission**：true；搶回身體時 false。
 - **fallback**：`df_pinned_nightingale_plain`：你被留在一段放不完的等候音樂裡，醒來時人已經在夜鶯的機房，處置照第三段。
 
@@ -295,9 +295,9 @@
 
 ##### masc
 
-**開場**：你的化身被蕾絲纏在一張客服櫃台上，值班潛網者的貓耳化身坐在櫃台邊晃著腳，頭頂掛著她的皮的名字。她的聲音被變聲器調得很可愛，但你聽得出底下是一個熬夜熬到很煩的男人。
+**開場**：你的化身被蕾絲纏在一張客服櫃台上，值班潛網者的貓耳化身坐在櫃台邊晃著腳，頭頂掛著她的 SKIN 的名字。她的聲音被變聲器調得很可愛，但你聽得出底下是一個熬夜熬到很煩的男人。
 
-**第一段**：他說值夜班很無聊，你剛好讓他有事做；他一邊開著錄影一邊下手。選項同 default 第一段，場景的 circles [[$pc, $a]]；「跟她聊」改成「拆穿他的皮」，表演 DC 16，成功時他關掉錄影，`trace −10`。
+**第一段**：他說值夜班很無聊，你剛好讓他有事做；他一邊開著錄影一邊下手。選項同 default 第一段，場景的 circles [[$pc, $a]]；「跟她聊」改成「拆穿他的 SKIN」，表演 DC 16，成功時他關掉錄影，`trace −10`。
 
 **第二段**、**第三段**：同 default。
 
