@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+  <defs>
+    <style>
+      .gap{fill:none;stroke:#F8C3D8;stroke-width:24;stroke-linejoin:round;stroke-linecap:round}
+      .o{stroke:#1E2346;stroke-width:10;stroke-linejoin:round;stroke-linecap:round}
+    </style>
+    <g id="finL">
+      <rect x="92" y="200" width="170" height="36" rx="18"/>
+      <rect x="112" y="246" width="150" height="32" rx="16"/>
+      <rect x="134" y="288" width="128" height="28" rx="14"/>
+    </g>
+  </defs>
+  <rect width="600" height="600" fill="#F3A9C6"/>
+  <circle cx="300" cy="300" r="282" fill="#F8C3D8"/>
+  <!-- data fins (behind) -->
+  <g transform="rotate(-16 262 270)">
+    <use href="#finL" class="gap"/><use href="#finL" class="o" fill="#FFF4E8"/>
+    <rect x="200" y="210" width="10" height="16" rx="3" fill="#45D6C5"/><rect x="216" y="210" width="10" height="16" rx="3" fill="#45D6C5"/>
+  </g>
+  <g transform="translate(600,0) scale(-1,1) rotate(-16 262 270)">
+    <use href="#finL" class="gap"/><use href="#finL" class="o" fill="#FFF4E8"/>
+    <rect x="200" y="210" width="10" height="16" rx="3" fill="#45D6C5"/><rect x="216" y="210" width="10" height="16" rx="3" fill="#45D6C5"/>
+  </g>
+  <!-- cat ears -->
+  <g>
+    <path class="gap" d="M196 214 L214 102 L282 176 Z"/>
+    <path class="o" fill="#F06AA0" d="M196 214 L214 102 L282 176 Z"/>
+    <path fill="#FFF4E8" d="M214 186 L222 134 L254 170 Z"/>
+    <path class="gap" d="M404 214 L386 102 L318 176 Z"/>
+    <path class="o" fill="#F06AA0" d="M404 214 L386 102 L318 176 Z"/>
+    <path fill="#FFF4E8" d="M386 186 L378 134 L346 170 Z"/>
+  </g>
+  <!-- signal arcs -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M276 146 Q300 128 324 146" stroke="#1E2346" stroke-width="16"/>
+    <path d="M276 146 Q300 128 324 146" stroke="#45D6C5" stroke-width="7"/>
+    <path d="M260 124 Q300 94 340 124" stroke="#1E2346" stroke-width="16"/>
+    <path d="M260 124 Q300 94 340 124" stroke="#45D6C5" stroke-width="7"/>
+  </g>
+  <!-- terminal body with chamfered corner -->
+  <path class="gap" d="M222 170 H388 L422 204 V338 Q422 382 378 382 H222 Q178 382 178 338 V214 Q178 170 222 170 Z"/>
+  <path class="o" fill="#45D6C5" d="M222 170 H388 L422 204 V338 Q422 382 378 382 H222 Q178 382 178 338 V214 Q178 170 222 170 Z"/>
+  <!-- screen -->
+  <path fill="#1E2346" d="M228 196 H380 L398 214 V334 Q398 356 376 356 H228 Q204 356 204 334 V220 Q204 196 228 196 Z"/>
+  <g stroke="#2E3566" stroke-width="3">
+    <line x1="212" y1="226" x2="390" y2="226"/><line x1="212" y1="250" x2="390" y2="250"/>
+    <line x1="212" y1="274" x2="390" y2="274"/><line x1="212" y1="298" x2="390" y2="298"/>
+    <line x1="212" y1="322" x2="390" y2="322"/>
+  </g>
+  <!-- heart connector -->
+  <path fill="none" stroke="#1E2346" stroke-width="14" stroke-linejoin="round" d="M300 334 C 236 292 236 222 276 222 C 290 222 298 232 300 242 C 302 232 310 222 324 222 C 364 222 364 292 300 334 Z"/>
+  <path fill="#F06AA0" d="M300 334 C 236 292 236 222 276 222 C 290 222 298 232 300 242 C 302 232 310 222 324 222 C 364 222 364 292 300 334 Z"/>
+  <path fill="#FFF4E8" d="M262 246 Q264 236 276 236 Q270 244 270 256 Z"/>
+  <!-- connector pins below heart -->
+  <rect x="282" y="340" width="10" height="12" rx="2" fill="#45D6C5"/><rect x="296" y="340" width="10" height="12" rx="2" fill="#45D6C5"/><rect x="310" y="340" width="10" height="12" rx="2" fill="#45D6C5"/>
+  <!-- glitch offset ticks -->
+  <rect x="404" y="250" width="22" height="8" fill="#F06AA0"/><rect x="174" y="300" width="18" height="8" fill="#F06AA0"/>
+  <!-- banner -->
+  <path class="gap" d="M118 404 H482 L506 436 L482 468 H118 L94 436 Z"/>
+  <path class="o" fill="#F06AA0" d="M118 404 H482 L506 436 L482 468 H118 L94 436 Z"/>
+  <path fill="#C94B84" d="M104 436 L118 412 V460 Z"/><path fill="#C94B84" d="M496 436 L482 412 V460 Z"/>
+  <g transform="translate(300 452) skewX(-10)">
+    <text text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="50" letter-spacing="1" fill="#45D6C5" stroke="#1E2346" stroke-width="9" paint-order="stroke" stroke-linejoin="round">CYBERPUNK</text>
+  </g>
+  <rect x="236" y="474" width="128" height="38" rx="19" fill="#1E2346"/>
+  <text x="300" y="502" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-size="24" fill="#F8C3D8" letter-spacing="6">PINK</text>
+  <!-- barcode tag -->
+  <g fill="#1E2346"><rect x="384" y="482" width="3" height="18"/><rect x="390" y="482" width="2" height="18"/><rect x="395" y="482" width="4" height="18"/><rect x="402" y="482" width="2" height="18"/><rect x="407" y="482" width="3" height="18"/></g>
+</svg>

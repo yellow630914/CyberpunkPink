@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="560" viewBox="0 0 1000 560">
+  <defs>
+    <style>
+      .s{stroke:var(--o);stroke-width:9;stroke-linejoin:round;stroke-linecap:round;paint-order:stroke}
+      text{font-family:Arial, sans-serif}
+    </style>
+    <!-- 槍手：手槍 -->
+    <symbol id="gun" viewBox="0 0 200 200">
+      <path class="s" fill="var(--b)" d="M58 104 H104 L114 168 Q116 182 102 182 H74 Q60 182 58 168 Z"/>
+      <path class="s" fill="none" stroke="var(--o)" d="M96 110 Q96 140 122 140"/>
+      <path class="s" fill="var(--c)" d="M26 64 Q26 50 40 50 H160 Q174 50 174 64 V92 Q174 106 160 106 H40 Q26 106 26 92 Z"/>
+      <rect x="150" y="62" width="30" height="16" rx="5" class="s" fill="var(--b)"/>
+      <rect x="44" y="64" width="80" height="10" rx="5" fill="var(--a)"/>
+      <path fill="var(--c)" d="M80 140 C70 132 70 122 77 122 C80 122 82 125 82 127 C82 125 84 122 87 122 C94 122 94 132 84 140 Z"/>
+    </symbol>
+    <!-- 偶像：麥克風 -->
+    <symbol id="mic" viewBox="0 0 200 200">
+      <path class="s" fill="var(--b)" d="M78 108 H122 L112 178 Q110 186 102 186 H98 Q90 186 88 178 Z"/>
+      <circle class="s" cx="100" cy="72" r="44" fill="var(--c)"/>
+      <path fill="var(--b)" opacity=".55" d="M70 60 H130 M66 76 H134 M70 92 H130" stroke="var(--b)" stroke-width="6"/>
+      <rect class="s" x="72" y="104" width="56" height="14" rx="7" fill="var(--a)"/>
+      <path class="s" fill="var(--a)" d="M160 30 L166 46 L182 48 L170 58 L174 74 L160 66 L146 74 L150 58 L138 48 L154 46 Z"/>
+    </symbol>
+    <!-- 潛網者：貓耳耳機 -->
+    <symbol id="phones" viewBox="0 0 200 200">
+      <path class="s" fill="var(--c)" d="M54 66 L46 24 L82 46 Z"/>
+      <path class="s" fill="var(--c)" d="M146 66 L154 24 L118 46 Z"/>
+      <path class="s" fill="none" stroke-width="22" stroke="var(--o)" d="M44 122 Q44 50 100 50 Q156 50 156 122"/>
+      <path fill="none" stroke-width="12" stroke="var(--b)" stroke-linecap="round" d="M44 122 Q44 50 100 50 Q156 50 156 122"/>
+      <rect class="s" x="26" y="104" width="40" height="64" rx="18" fill="var(--a)"/>
+      <rect class="s" x="134" y="104" width="40" height="64" rx="18" fill="var(--c)"/>
+      <path class="s" fill="none" stroke-width="7" stroke="var(--b)" d="M154 168 Q154 188 128 186 H112"/>
+      <rect class="s" x="92" y="178" width="22" height="14" rx="3" fill="var(--b)"/>
+    </symbol>
+    <!-- 契約：愛心鎖項圈 -->
+    <symbol id="collar" viewBox="0 0 200 200">
+      <path class="s" fill="none" stroke-width="30" stroke="var(--o)" d="M30 70 Q100 138 170 70"/>
+      <path fill="none" stroke-width="18" stroke="var(--c)" stroke-linecap="round" d="M30 70 Q100 138 170 70"/>
+      <circle cx="58" cy="94" r="4" fill="var(--b)"/><circle cx="142" cy="94" r="4" fill="var(--b)"/>
+      <rect class="s" x="92" y="104" width="16" height="16" rx="4" fill="var(--b)"/>
+      <path class="s" fill="var(--a)" d="M100 186 C60 160 60 120 84 120 C93 120 98 126 100 132 C102 126 107 120 116 120 C140 120 140 160 100 186 Z"/>
+      <path fill="var(--o)" d="M96 146 a6 6 0 1 1 8 0 l3 16 h-14 Z"/>
+    </symbol>
+  </defs>
+  <!-- 現實：深紫黑底，粉只當訊號 -->
+  <rect width="1000" height="280" fill="#17111F"/>
+  <g fill="#2A2034"><rect x="0" y="0" width="1000" height="1"/></g>
+  <text x="24" y="34" fill="#C9B8E8" font-size="18" font-weight="700">現實｜深紫黑底・粉只當訊號・可愛</text>
+  <g style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF">
+    <use href="#gun" x="40" y="60" width="200" height="200"/>
+    <use href="#mic" x="280" y="60" width="200" height="200"/>
+    <use href="#phones" x="520" y="60" width="200" height="200"/>
+    <use href="#collar" x="760" y="60" width="200" height="200"/>
+  </g>
+  <!-- 內海：糖果偶像 -->
+  <rect y="280" width="1000" height="280" fill="#F8C3D8"/>
+  <text x="24" y="314" fill="#1E2346" font-size="18" font-weight="700">內海｜糖果偶像 × 賽博朋克</text>
+  <g style="--o:#1E2346;--a:#F06AA0;--b:#1E2346;--c:#45D6C5">
+    <use href="#gun" x="40" y="340" width="200" height="200"/>
+    <use href="#mic" x="280" y="340" width="200" height="200"/>
+    <use href="#phones" x="520" y="340" width="200" height="200"/>
+    <use href="#collar" x="760" y="340" width="200" height="200"/>
+  </g>
+</svg>
