@@ -83,15 +83,15 @@
 
 | 內容 | 現在的狀態 | 在哪 |
 |---|---|---|
-| 快駭程式的完整清單 | 五類各只有幾個例子；價格只有範圍（300～3,000） | [NETRUNNING](../systems/NETRUNNING.md) 第 2 節、[LIFE](../world/LIFE.md) 1.2 節 |
-| 機甲的型號、載具的目錄、機甲的整備 | 規則已確認；型號、目錄與整備系統都寫「之後再說」。無人機已有目錄 | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 9.2、9.3 節、[CRAFTING](../gear/CRAFTING.md) 第 13 節 |
-| 建角的起始裝備 | 只寫「依出身給一包」，每個出身給什麼沒寫 | [CHARACTER](../systems/CHARACTER.md) 第 5 節 |
-| 隨機地圖的主題與詞條表 | 只有一句話：迷宮館、沉船帶、一般子網、深海各自的主題與詞條沒有表 | [CYBERSPACE](../systems/CYBERSPACE.md) 第 8 節 |
-| 內海的固定地圖 | 大街 3 塊、樂園島 3 塊、暗礁 2 處、企業環礁的前台 7 塊：店家、場館與佈置都沒寫 | 同上 |
+| 快駭程式的完整清單 | **等你決定**：快駭要維持「有甲板的人都能用、潛網者最強」，還是改成潛網者的技能 | [NETRUNNING](../systems/NETRUNNING.md) 第 2 節 |
+| ~~機甲的型號、載具的目錄、機甲的整備~~ | 初稿已寫（2026-11-20）：[ITEMS](../gear/ITEMS.md) 第 14 節、[CRAFTING](../gear/CRAFTING.md) 第 15 節、[UI](../art/UI.md) 9.1 節。ENEMIES 第 11 節的敵方機甲數字要照新型號重算 | — |
+| ~~建角的起始裝備~~ | 已寫：點數制，12 點，I～II 級（[CHARACTER](../systems/CHARACTER.md) 5.4 節） | — |
+| ~~隨機地圖的主題與詞條表~~ | 初稿已寫：[CYBERSPACE](../systems/CYBERSPACE.md) 8.1～8.6 節（迷宮館、一般子網、暗礁的通路、沉船帶、深海的八個群落），網內敵人 54 種在 [ENEMY_ROSTER](../content/ENEMY_ROSTER.md) | — |
+| ~~內海的固定地圖~~ | 初稿已寫：[SITES](../world/SITES.md) 第 15 節 | — |
 | 搭車的癡漢與貼身事件 | 範圍與條件有了，事件本身沒寫（交通事件現在只有掃橋、扒手團這幾件） | [EVENTS](../systems/EVENTS.md) 4.10 節、[EVENTS_CITY](../content/EVENTS_CITY.md) |
-| Ａ子的初見事件 | 一條委託模板要讀它的旗標，事件本身沒寫 | [COMMISSION_TEMPLATES](../content/COMMISSION_TEMPLATES.md) |
-| 對象非自願關掉時的俘虜 | 俘虜改成只問話或放人，敵人那邊的分支沒寫 | [ENEMIES](../systems/ENEMIES.md) 6.1 節 |
-| 戰敗事件用到的效果 | 有幾個效果暫時用旗標代替，還沒補進事件效果的封閉清單 | [DEFEAT_EVENTS](../content/DEFEAT_EVENTS.md) 開頭、[EVENTS](../systems/EVENTS.md) 2.4 節 |
+| ~~Ａ子的初見事件~~ | 已寫：[LURE_EVENTS](../content/LURE_EVENTS.md)「空白的範本」 | — |
+| ~~對象非自願關掉時的俘虜~~ | 已寫：[ENEMIES](../systems/ENEMIES.md) 6.1 節 | — |
+| ~~戰敗事件用到的效果~~ | 已補進 [EVENTS](../systems/EVENTS.md) 2.4 節 | — |
 | 指南 | 樣板 6 張，其餘 49 張實作時寫 | [GUIDES](../content/GUIDES.md) |
 | 對峙 | 只是一個想法 | [ROADMAP](ROADMAP.md) 第 2 節 |
 | 存檔規則與難度、新手教學 | 沒談（開場已經有：七個出身各一段） | — |
@@ -99,9 +99,17 @@
 
 **要你決定的設計問題**
 
-- **夜課要不要有共鳴**：八棵樹各有 5 個共鳴，夜課一個都沒有。規則（[SKILLS](../systems/SKILLS.md) 1.4 節）寫的是「每棵樹」。
-- 甜心要不要加進牌子表（[ITEMS](../gear/ITEMS.md) 1.2 節）：桃子屋的 SKIN 暫用 0.9。
-- 武器構裝的合法性照等級分，還是照 ITEMS 5.2 節一律違禁。
+- ~~夜課要不要有共鳴~~ 要：每個分支 5 個，共 25 個。
+- ~~甜心要不要加進牌子表~~ 不加：桃子屋的 SKIN 改成和現實那幾件同一個牌子。
+- ~~武器構裝的合法性~~ 照等級分。
+- 快駭的定位（見上表）。
+
+**接下來的順序**（2026-11-20）
+
+1. 搭車的癡漢與貼身事件。
+2. 快駭（等你決定定位之後）。
+3. ENEMIES 第 11 節的敵方機甲照 ITEMS 第 14 節重算。
+4. 史詩、指南的其餘 49 張、對峙、存檔與難度、新手教學：輪到時再看。
 
 **寫了、等你過的（各文件最後的「待確認」）**
 
