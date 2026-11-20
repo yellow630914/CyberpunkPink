@@ -969,7 +969,7 @@
 - **kind**：`farm`
 - **factions**：`blackspring`（騎士長、莊園管事、禮拜衛隊）。
 - **在哪**：玻璃岸外海的黑泉平台；等級 III～IV。
-- **登場**：default：`$a` 莊園管事（男）；masc：`$a` 莊園管事（女）、`$b` 騎士長（女）；yuri：`$a` 莊園管事（女）。管事是那個「藏著的橋」的人（[ENEMIES](../systems/ENEMIES.md) 8.2 節）。
+- **登場**：default：`$a` 莊園管事（男）；masc：`$a` 莊園管事（女）、`$b` 騎士長（女）；yuri：`$a` 莊園管事（女）。管事是那個「藏著的橋」的人（[ENEMY_ROSTER](ENEMY_ROSTER.md) 黑泉的莊園管事）。
 - **tags**：`pc_unwilling`、`tendency:禁慾`、`tendency:窺視`、`tendency:痛`（masc 的騎士長）、`male_partner`（default）、`female_partner`（masc、yuri）。`male_partner` 關掉時 default 改用 yuri 的管事。
 - **fails_commission**：true。
 - **fallback**：`df_farm_platform_plain`：你在平台上刷了五天的油槽；管事每晚來巡，你發現他的後頸有一道不該有的疤。
@@ -1245,8 +1245,8 @@
 ### 印記認錯的人（`df_polluted_imprint`）
 
 - **kind**：`polluted`
-- **factions**：沒有（遺魂、印記；沉船帶與深海）。遺魂打敗全隊時沒有對應的事件，只有斷線與沉溺 +1（[ENEMY_ROSTER](../content/ENEMY_ROSTER.md) 遺魂的共用規則）；這一筆只給「印記」，或特殊任務指定的遺魂。
-- **在哪**：內海，沉船帶；等級 IV～V。
+- **factions**：沒有（遺魂、印記、殘留的程式；沉船帶）。遺魂與殘留的程式打敗全隊時一律走 `polluted`（[ENEMIES](../systems/ENEMIES.md) 第 9 節，2026-11-20 統一）：在沉船帶倒下時抽這一筆，在深海倒下時抽 `df_polluted_deep`。贏的不是印記時，那段記憶來自同一艘船上的印記。
+- **在哪**：內海，沉船帶；等級 II～V。
 - **登場**：第一段沒有；第二段的 `$a`：default 是印記等的那個人留下的人（生成，性別照篩選）；masc 與 yuri 是那個人的姐姐（女，生成）。
 - **tags**：`tendency:<印記的標籤>`（印記生成時抽一個：溺愛、恩與債、聲音、標記）、`male_partner` 或 `female_partner`（看 `$a`）。不用 `pc_unwilling`；成人分支全部是 `gate: ai`、`nature: mutual`。
 - **fails_commission**：false（同 `df_polluted_blacklace`）。
@@ -1285,6 +1285,64 @@
 **第一段**：同 default 第一段。
 
 **第二段**：同 masc 的第二段；姐姐握住你的手，說她想知道妹妹喜歡的人是什麼樣子，今晚由她來確認。選項同 default 第二段；場景的主動權從她開始。
+
+### 浮上來的那一晚（`df_polluted_deep`）
+
+- **kind**：`polluted`
+- **factions**：沒有（深海的生物；[ENEMY_ROSTER](../content/ENEMY_ROSTER.md) 深海的生物那一類）。深海的生物不收人，也不釘線；牠們只想讓你留下來。
+- **在哪**：內海，深海；等級 IV～V（深度 1～2 是 IV，深度 3 起是 V）。斷線之後，醒在潛入的位置。
+- **登場**：第一段沒有登場角色；第二段的 `$a` 依版本生成：default 是一個也下過深海的潛網者（生成，性別照篩選），你在暗礁的酒吧碰到他；masc 是牆語者的一位引渡人（女，生成），她的工作是陪潛水回來的人過第一個晚上；yuri 是同一位引渡人，主動權在她。
+- **tags**：`tendency:<群落的標籤>`、`male_partner` 或 `female_partner`（看 `$a`）。不用 `pc_unwilling`；成人分支全部是 `gate: ai`、`nature: mutual`。群落的標籤被關掉時改抽同一軸的另一個標籤；那一軸全部關掉時走 fallback。
+- **fails_commission**：false（同 `df_polluted_blacklace`）。
+- **fallback**：`df_polluted_deep_plain`：你醒來時手指還記得水的溫度。這一週你常常坐在潛入的椅子旁邊，最後沒有接上去。
+- **共通的結果**：`sink +[1d4+2]`（3～6；倒下時另外的沉溺 +2 照 [CYBERSPACE](../systems/CYBERSPACE.md) 8.6 節先算）；`condition habit:<群落的標籤>`（7 天）。習慣的樣子照 CYBERSPACE 8.6 節群落表的最後一欄，標籤照下表：
+
+| 群落 | 標籤 |
+|---|---|
+| 繫泊林 | 束縛 |
+| 回聲廳 | 聲音 |
+| 溫水灣 | 溺愛 |
+| 無聲帶 | 妄想 |
+| 軟珊瑚原 | 變形 |
+| 溫室 | 野外 |
+| 千衣迴廊 | 迴廊換給你的那一套 SKIN 的風格 |
+| 鏡潮 | 暴露 |
+
+- 這一筆的危險是沉溺。深海的生物沒有傷害你，文字照「那個人自己不想走」的方向寫，不寫成被困住（CYBERSPACE 8.6 節）。
+
+##### default
+
+**開場**：你在潛入的椅子上醒來，房間的冷氣很冷，你的皮膚還記得深海的溫度。最後打倒你的那個東西沒有傷你，牠一直抱著你，等你自己不想走。你回來了，可是有一部分的你還想回去。
+
+**第一段：還想回去**。習慣還沒發作，你可以先處理它。
+
+- 「拔掉接頭，把甲板鎖進抽屜。」定力 DC 16｜成功：這一週你不潛深海，習慣縮成三天；失敗：你半夜又坐回椅子上，`sink +1`，習慣照樣。
+- 「去找牆語者聊聊。」`favor whisper +3`；聽見者告訴你那個群落叫什麼、牠們為什麼想留人，第二段的定力 +2。
+- 「順著它，再潛一次。」`sink +2`、`load −10`；習慣延長兩天。沉溺 60 以上的人，這一次牆不攔他。
+
+**第二段：浮上來的那一晚**。當天晚上，那段習慣開始找你：你在暗礁的酒吧裡坐到很晚，手一直貼著冰涼的杯子。有一個人在你旁邊坐下來，說他認得那個表情，他也剛從下面上來。
+
+- 「讓他陪你把它用掉。」誘惑 DC 13｜成功：`tendency <群落的標籤>`（一點）、`load −10`，習慣縮成三天；失敗：他說今晚還是各自回家比較好，`load +6`，習慣延長兩天。
+  - `adult_scene`：when success、gate ai、nature mutual、role none、goal none、circles [[$pc, $a]]
+- 「一個人撐到天亮。」意志 DC 16｜成功：你撐到天亮，習慣縮成三天；失敗：你在天亮之前又接上了線，`sink +1`。
+- 「找一個你信任的人。」需要一位親密度 40 以上的夥伴或名冊上的人（`$partner`）：`affinity $partner +3`、`load −10`，習慣縮成三天。
+  - `adult_scene`：when always、gate ai、nature mutual、role none、goal none、circles [[$pc, $partner]]
+
+##### masc
+
+**開場**：你在潛入的椅子上醒來，手心是濕的，耳朵裡還有水聲。你記得自己在下面很舒服，舒服到不太想回來，這件事比打輸還讓你不安。
+
+**第一段**：同 default 第一段。
+
+**第二段**：當天晚上，一位牆語者的引渡人來敲你的門。她穿著白兜帽，手上提著一壺熱茶，說潛水回來的人第一個晚上最難熬，她的工作就是陪你過完。選項同 default 第二段，`$a` 是她；場景的主動權從她開始。
+
+##### yuri
+
+**開場**：你在潛入的椅子上醒來，身上還留著被輕輕抱住的感覺。你閉上眼睛，就能看見那片粉色的光。
+
+**第一段**：同 default 第一段。
+
+**第二段**：同 masc 的第二段；引渡人替你倒了茶，在你旁邊坐下來，說今晚由她決定怎麼讓你留在上面。選項同 default 第二段；場景的主動權從她開始。
 
 ---
 

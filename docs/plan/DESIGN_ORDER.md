@@ -86,8 +86,8 @@
 | 快駭程式的完整清單 | **等你決定**：快駭要維持「有甲板的人都能用、潛網者最強」，還是改成潛網者的技能 | [NETRUNNING](../systems/NETRUNNING.md) 第 2 節 |
 | ~~機甲的型號、載具的目錄、機甲的整備~~ | 初稿已寫（2026-11-20）：[ITEMS](../gear/ITEMS.md) 第 14 節、[CRAFTING](../gear/CRAFTING.md) 第 15 節、[UI](../art/UI.md) 9.1 節。ENEMIES 第 11 節的敵方機甲數字要照新型號重算 | — |
 | ~~建角的起始裝備~~ | 已寫：點數制，12 點，I～II 級（[CHARACTER](../systems/CHARACTER.md) 5.4 節） | — |
-| ~~隨機地圖的主題與詞條表~~ | 初稿已寫：[CYBERSPACE](../systems/CYBERSPACE.md) 8.1～8.6 節（迷宮館、一般子網、暗礁的通路、沉船帶、深海的八個群落），網內敵人 54 種在 [ENEMY_ROSTER](../content/ENEMY_ROSTER.md) | — |
-| ~~內海的固定地圖~~ | 初稿已寫：[SITES](../world/SITES.md) 第 15 節 | — |
+| ~~隨機地圖的主題與詞條表~~ | 初稿已寫：[CYBERSPACE](../systems/CYBERSPACE.md) 8.1～8.6 節（迷宮館、一般子網、暗礁的通路、沉船帶、深海的八個海域），網內敵人 54 種在 [ENEMY_ROSTER](../content/ENEMY_ROSTER.md) | — |
+| ~~內海的固定地圖~~ | 已寫：[SITES](../world/SITES.md) 第 13 節（結構與名字已確認，2026-11-20；數字待平衡） | — |
 | 搭車的癡漢與貼身事件 | 範圍與條件有了，事件本身沒寫（交通事件現在只有掃橋、扒手團這幾件） | [EVENTS](../systems/EVENTS.md) 4.10 節、[EVENTS_CITY](../content/EVENTS_CITY.md) |
 | ~~Ａ子的初見事件~~ | 已寫：[LURE_EVENTS](../content/LURE_EVENTS.md)「空白的範本」 | — |
 | ~~對象非自願關掉時的俘虜~~ | 已寫：[ENEMIES](../systems/ENEMIES.md) 6.1 節 | — |
@@ -113,7 +113,7 @@
 
 **寫了、等你過的（各文件最後的「待確認」）**
 
-[SKILLS](../systems/SKILLS.md) 第 13 節（樹階門檻、共鳴要不要裝著才生效、夥伴技能佔不佔容量、媒體指標）；[ENEMIES](../systems/ENEMIES.md) 第 14 節（十一項）；[SITES](../world/SITES.md) 第 13 節（七項）；[STORY_QUESTS](../world/STORY_QUESTS.md) 第 10 節；[UI](../art/UI.md) 第 17 節；[PROMPTS](../systems/PROMPTS.md) 第 12 節；[OPINION](../systems/OPINION.md) 4.3c 節（豔名在棋盤上的用處）；[COMMISSION_TEMPLATES](../content/COMMISSION_TEMPLATES.md) 的遮蔽材質；[NIGHT_LESSONS](../content/NIGHT_LESSONS.md) 的體位數字；[FACTIONS](../world/FACTIONS.md) 各勢力的好感來源（留到 L4）。構裝與 SKIN 的目錄（[ITEMS](../gear/ITEMS.md) 第 11 節）也還沒過。
+[SKILLS](../systems/SKILLS.md) 第 13 節（樹階門檻、共鳴要不要裝著才生效、夥伴技能佔不佔容量、媒體指標）；[ENEMIES](../systems/ENEMIES.md) 第 14 節（十一項）；[SITES](../world/SITES.md) 第 14 節（剩三項：模板張數、事件傾向、夏季活動）；[STORY_QUESTS](../world/STORY_QUESTS.md) 第 10 節；[UI](../art/UI.md) 第 17 節；[PROMPTS](../systems/PROMPTS.md) 第 12 節；[OPINION](../systems/OPINION.md) 4.3c 節（豔名在棋盤上的用處）；[COMMISSION_TEMPLATES](../content/COMMISSION_TEMPLATES.md) 的遮蔽材質；[NIGHT_LESSONS](../content/NIGHT_LESSONS.md) 的體位數字；[FACTIONS](../world/FACTIONS.md) 各勢力的好感來源（留到 L4，見第 4 節第 4 項）。構裝與 SKIN 的目錄（[ITEMS](../gear/ITEMS.md) 第 11 節）也還沒過。
 
 **世界觀還缺的**（[WORLD_ITEMS](WORLD_ITEMS.md) 標 ◐ 的，抽查過年表與 NPC 台詞，屬實）：年表的細節、城市以外的世界、十一家企業的內部結構、緋櫻家、固定 NPC 的台詞與行程、完整的人物關係表、屬性表、信仰的總整理、十種時尚的代表單品、AI 種類的總整理、獸化各系的目錄、一般人的勞動。
 
@@ -130,10 +130,12 @@ L1、L2、L3 都已經確認，三個戰場各有可以操作的 Demo。2026-11-
 1. **修正舊文件**：把早寫的段落改到和已確認的規則一致（[AUDIT](AUDIT.md) 第 4 節）。這一步不新增設計，只讓所有文件說同一套話。L5 的三份文件這一步只改用語與數字，並在舊的章節開頭標明它之後要重寫。
 2. **補資料格式**：技能、夜課的技能與體位、事件裡的成人場景、戰敗事件、敵人、裝備、NPC、委託副本，每一種內容各寫一筆完整的樣本（[AUDIT](AUDIT.md) 第 3 節）。等級的欄位一律叫 `grade`，`tier` 只留給技能的階。
 3. **過牽動大的未定事項**：勢力關係表、十九種委託類型、踩點與未知清單（[AUDIT](AUDIT.md) 第 7 節；完整的清單在 [SYSTEMS_REVIEW](SYSTEMS_REVIEW.md) 第 3 節）。
-4. **生成 L4 內容**：照 3.3 節一份一份生成。技能、敵人的數值、零件與設計圖、流竄 AI 的名單整批重寫；街區與要地、事件的例子、區域狀態、打工表小修。
+4. **生成 L4 內容**：照 3.3 節一份一份生成。技能、敵人的數值、零件與設計圖、流竄 AI 的名單整批重寫；街區與要地、事件的例子、區域狀態、打工表小修。勢力線動工之前，先逐家過 [FACTIONS](../world/FACTIONS.md) 第 7 節各勢力特有的好感來源與效果（已確認，2026-11-20）。
 5. **重寫 L5 呈現**：畫面以三個 Demo 為準重寫編輯台、委託副本、成人場景、技能四個畫面，並補上技能樹、直播面板、把紀錄做成素材、打工、掃橋、戰敗事件的畫面；提示詞與 AI 任務照新的流程重列任務鏈（[AUDIT](AUDIT.md) 第 6 節）。
 
 所有數字（等級之間的倍數、傷害與生命、價格）等整套系統完成後一起平衡。
+
+**平衡時先看的初稿數字**（2026-11-20 確認先照初稿動工的）：[SITES](../world/SITES.md) 2.1 節九號塔的合唱（每個階段感載 +10、定力 DC 14、失敗沉溺 +2）與 6.2 節水下殘骸的氧氣（每格 1、一瓶 60 格）；SITES 第 13 節內海固定地點的數字（大街各窗口的費用、迷宮館的入場費與押金、蚌殼市的 × 1.3 與後門的 1d6、窩的租金、看門狗的感載、動手被踢出時的敵對值 +5、各店的好感門檻），其中敵對值與好感門檻先對 [FACTIONS](../world/FACTIONS.md) 的 20／40／60／80。
 
 **世界編輯器排在框架之後、匯入內容之前**（已確認，2026-11-19）：
 - 框架（L1～L3 與 L5 的規格）做完後，先做世界編輯器，再匯入內容。

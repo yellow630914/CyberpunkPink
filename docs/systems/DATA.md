@@ -8,7 +8,7 @@
 
 | 約定 | 內容 |
 |---|---|
-| `id` | 小寫英文加底線，前面帶種類的縮寫（`sk_` 技能、`nt_` 夜課、`pos_` 體位、`ev_` 事件、`df_` 戰敗事件、`en_` 敵人、`pr_` 輿論對手、`bp_` 設計圖、`pt_` 零件、`cm_` 委託副本） |
+| `id` | 小寫英文加底線，前面帶種類的縮寫（`sk_` 技能、`nt_` 夜課、`pos_` 體位、`ev_` 事件、`df_` 戰敗事件、`en_` 敵人、`pr_` 輿論對手、`bp_` 設計圖、`pt_` 零件、`cm_` 委託副本、`nm_` 網內的生成地圖） |
 | `grade` | 等級 I～V，寫成 1～5。敵人、裝備、委託、要地都用它 |
 | `tier` | 只用在技能：樹的第幾階，1～5 |
 | `rank` | 只用在敵人：`minion`、`elite`、`boss` |
@@ -544,7 +544,53 @@
 | `heat`、`tip_per_grade` | 達成時加的熱度與打賞（乘上等級） |
 | `channel` | 不寫就是都可以；寫了的話只有那種定位的頻道會抽到（`adult`、`news`、`gossip`、`underground`） |
 
-## 10. 素材、片與直播模板
+## 10. 網內的生成地圖
+
+已確認（2026-11-20）。規則在 [CYBERSPACE](CYBERSPACE.md) 8.1～8.6 節，這裡只定存檔裡的一筆長什麼樣。生成的結果存在存檔裡，同一座子網、同一艘船離開再回來還是同一張圖：版面由 `seed` 重新生成，`state` 記玩家改變過的東西。迷宮館與深海每一趟重新生成，這一筆只在那一趟裡有效。
+
+```json
+{
+  "id": "nm_cm0412_net",
+  "region": "subnet",
+  "grade": 3,
+  "theme": "nectar_clinic",
+  "layers": ["staff", "control", "core"],
+  "affixes": ["shift_change", "rival_crew"],
+  "objective": { "kind": "download", "layer": "core", "turns": 3 },
+  "seed": 81427,
+  "state": { "layer": "control", "looted": ["n07"], "beaten": ["n03", "n05"], "broken_links": ["n02-n04"] },
+  "faction": "nectar",
+  "facility": "lab",
+  "entry": "commission",
+  "airgap": { "layer": "core", "open_by": "airgap_open" }
+}
+```
+
+**每一區都有的欄位**
+
+| 欄位 | 內容 |
+|---|---|
+| `id` | `nm_` 開頭。委託副本的內海面用 `nm_<委託副本的 id>_net` |
+| `region` | `maze`（迷宮館）、`subnet`（一般子網）、`reef`（暗礁的通路）、`wreck`（沉船帶）、`deep`（深海） |
+| `grade` | 地圖的等級，1～5 |
+| `theme` | 主題的 id，要在那一區的主題表裡（`reef` 沒有） |
+| `layers` | 每一層的名字，照順序。子網寫權限層（`guest`、`staff`、`control`、`core`）；其他區寫那一區的層名 |
+| `affixes` | 詞條的 id。資料檢查要對每一個 id 是否在那一區的詞條表或 8.1 節的共通詞條表裡 |
+| `objective` | 有委託或任務時才有：`kind`（`download`、`seize`、`find`、`defeat`、`plant`、`extract`）、放在哪一層、需要的回合或對象 |
+| `seed` | 生成用的種子。特殊任務的區域可以寫死一個 |
+| `state` | 玩家改變過的東西：現在在哪一層、拿走的寶、打倒的遭遇、斷掉的鏈路（節點 id 由生成器編號） |
+
+**各區多出來的欄位**
+
+| 區 | 欄位 | 內容 |
+|---|---|---|
+| `maze` | `bracket`、`overtime`、`bonus_taken` | 組別（`rookie`、`open`、`unlimited`）；延長賽開了沒有；接受了幾次「加碼」（8.2 節） |
+| `subnet` | `faction`、`facility`、`entry`、`airgap` | 哪一家企業；設施類型（`office`、`logistics`、`lab`、`server`、`store`、`estate`）；`commission`（委託）或 `dig`（自己去挖）；隔離區在哪一層、由哪個連動打開（8.3 節） |
+| `reef` | `reach`、`legs`、`chart` | 去哪一段（`near`、`mid`、`wall`）；每一段的檢定結果與過礁事件；水道圖的來源與失效的日子。這一區沒有格子圖，`layers` 與 `theme` 留空（8.4 節） |
+| `wreck` | `ship`、`reach`、`signal` | 船的種類；位置（`near`、`mid`、`wall`）；目前的登出訊號（8.5 節） |
+| `deep` | `biomes`、`depth`、`sea` | 走過的海域 id，照順序；現在的深度；每個海域擲到的海況（8.6 節） |
+
+## 11. 素材、片與直播模板
 
 ```json
 {
@@ -565,7 +611,7 @@
 
 - 片的 `card` 是它進輿論戰牌庫時的樣子：`angle` 是揭弊或英雄時是 `line`（說法），數字用 `trust`；是煽情或抹黑時是 `fuel`（料），數字用 `draw`。和議題無關的片進不了牌庫（[OPINION](OPINION.md) 4.3a 節）。
 
-## 11. 這份文件補上了什麼
+## 12. 這份文件補上了什麼
 
 | 檢查時列出的缺口 | 補在哪裡 |
 |---|---|
@@ -578,4 +624,5 @@
 | 武器與護甲的設計圖沒有樣本；零件沒有份量等欄位 | 第 7 節 |
 | NPC 沒有特質、性經歷、夜課技能；性別的值沒列全 | 第 8 節 |
 | 委託副本的輿論開場表與直播目標沒有格式 | 第 9 節 |
+| 網內的生成地圖沒有存檔的格式 | 第 10 節 |
 | 等級的欄位名不統一 | 第 1 節 |
