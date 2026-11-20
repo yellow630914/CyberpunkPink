@@ -6,7 +6,7 @@
 
 所有曲線都寫在這個檔案的 CURVES 裡，和 BALANCE.md 的表一一對應。
 current 是第一輪夾值之前文件寫的數字（2026-11-20），proposed 是 BALANCE.md 的曲線；兩組只在 DIFF 列出的欄位不同。
-DIFF 裡除了 budget 與 boss_budget（待使用者確認），都已經寫回 ENEMIES 1.5 節與 COMBAT_SYSTEM 1.1、第 5 節。
+DIFF 都已經寫回 ENEMIES 1.5、第 13 節與 COMBAT_SYSTEM 1.1、第 5 節；遭遇的預算固定一般 4、首領戰 8（2026-11-20 確認）。
 current 這一組已經假設主角的武器也吃敵人表上的「武器骰」；照當時的文件主角沒有這一條，IV、V 級還會更慢。
 """
 import argparse, copy, math, os, random, re, sys
@@ -41,12 +41,13 @@ CURRENT = {
     'e_dmg_mult': {'雜兵': 1.0, '精英': 1.0, '首領': 1.0},
     'e_net_dice': 1,                      # 網內敵人多 1 顆（CYBERSPACE 6.2 節）
     'net_guard': [1, 2, 3, 5, 6],         # 網內的防護（同護甲）
-    # 遭遇（ENEMIES 第 13 節）
-    'budget':   [4, 5, 6, 7, 8],          # 一般遭遇＝ 3 ＋ 等級
-    'boss_budget': [8, 9, 10, 11, 12],    # 首領戰＝ 7 ＋ 等級
+    # 遭遇（夾值之前的 ENEMIES 第 13 節）
+    'budget':   [4, 5, 6, 7, 8],          # 舊的一般遭遇＝ 3 ＋ 等級
+    'boss_budget': [8, 9, 10, 11, 12],    # 舊的首領戰＝ 7 ＋ 等級
     'points': {'雜兵': 1, '精英': 2.5, '首領': 5},
     # 檢定（COMMISSION_TEMPLATES 共通的約定）
     'dc_std':   [10, 13, 16, 19, 22],
+    'dc_max':   22,                       # DC 階梯的最高一檔
     'p_check':  [6, 8, 10, 12, 14],       # 專精者：mod ＋ 基本功 ＋ 裝備
     # 錢（LIFE 1.3 節）
     'income_mid': [400, 1200, 4000, 13000, 40000],
@@ -70,28 +71,32 @@ DIFF = {
     'e_dmg_mult': {'雜兵': 0.4, '精英': 0.6, '首領': 1.0},
     'e_load':  {'雜兵': [22, 27, 33, 40, 49], '精英': [37, 45, 55, 67, 82], '首領': [52, 63, 77, 94, 115]},
     'net_guard': [1, 2, 3, 4, 5],
-    'budget':  [4, 4, 4, 4, 4],           # 一般遭遇的預算不隨等級長（建議，待使用者確認）
-    'boss_budget': [8, 8, 8, 8, 8],
+    'budget':  [4, 4, 4, 4, 4],           # 一般遭遇固定 4 點，不隨等級長（2026-11-20 確認）
+    'boss_budget': [8, 8, 8, 8, 8],       # 首領戰固定 8 點
+    'dc_max':  25,                        # DC 階梯加一檔 25（2026-11-20 確認）
 }
 PROPOSED = copy.deepcopy(CURRENT)
 PROPOSED.update(copy.deepcopy(DIFF))
 CURVES = {'current': CURRENT, 'proposed': PROPOSED}
 
-# 難度（BALANCE.md 第 7 節）。係數乘在敵人上：hp 生命、dmg 傷害、load 感載上限；普通 = 1。
+# 難度（BALANCE.md 第 7 節）。難度只調敵人與 DC：係數乘在敵人上（hp 生命、dmg 傷害、load 感載上限；普通 = 1），
+# dc 加在寫成檔位的 DC 上，pr 加在輿論戰對手每回合的公關點上。歷練、帳單、報酬不看難度，是存檔規則裡各自的倍率。
 # 首領一組；雜兵與精英照敵人的等級分三段：低（I～II）、中（III）、高（IV～V）。
 BANDS = ['低', '中', '高']
 BAND_OF = [0, 0, 1, 2, 2]
-def _d(boss, low, mid, high):
+def _d(boss, low, mid, high, dc=0, pr=0):
     return {'boss': dict(zip(('hp', 'dmg', 'load'), boss)),
-            'minions': [dict(zip(('hp', 'dmg', 'load'), x)) for x in (low, mid, high)]}
+            'minions': [dict(zip(('hp', 'dmg', 'load'), x)) for x in (low, mid, high)],
+            'dc': dc, 'pr': pr}
 DIFFICULTY = {
-    '故事': _d((0.6, 0.5, 0.6), (0.6, 0.4, 0.6), (0.6, 0.4, 0.6), (0.6, 0.4, 0.6)),
-    '簡單': _d((0.85, 0.8, 0.85), (0.85, 0.75, 0.85), (0.85, 0.75, 0.85), (0.85, 0.75, 0.85)),
+    '故事': _d((0.6, 0.5, 0.6), (0.6, 0.4, 0.6), (0.6, 0.4, 0.6), (0.6, 0.4, 0.6), dc=-2, pr=-1),
+    '簡單': _d((0.85, 0.8, 0.85), (0.85, 0.75, 0.85), (0.85, 0.75, 0.85), (0.85, 0.75, 0.85), dc=-1, pr=-1),
     '普通': _d((1, 1, 1), (1, 1, 1), (1, 1, 1), (1, 1, 1)),
-    '困難': _d((1.15, 1.35, 1.15), (1.15, 1.35, 1.15), (1.15, 1.35, 1.15), (1.15, 1.35, 1.15)),
-    '傳奇': _d((1.3, 1.5, 1.3), (1.3, 1.7, 1.3), (1.3, 1.7, 1.3), (1.3, 1.7, 1.3)),
+    '困難': _d((1.15, 1.35, 1.15), (1.15, 1.35, 1.15), (1.15, 1.35, 1.15), (1.15, 1.35, 1.15), dc=1, pr=1),
+    '傳奇': _d((1.3, 1.5, 1.3), (1.3, 1.7, 1.3), (1.3, 1.7, 1.3), (1.3, 1.7, 1.3), dc=2, pr=2),
 }
-CUSTOM_COEF = (0.25, 5.0)   # 自訂難度每一格的範圍
+CUSTOM_COEF = (0.25, 5.0)   # 自訂難度每一格係數的範圍
+CUSTOM_DC = (-4, 4)         # 自訂難度的 DC 偏移
 
 
 # 目標（BALANCE.md 1.2 節）
@@ -305,7 +310,8 @@ def check_table(C):
     for g in range(5):
         std = C['dc_std'][g]
         b = C['p_check'][g]
-        rows.append((G[g], b, {k: (dc, p_success(b, dc)) for k, dc in
+        cap = lambda x: max(10, min(C['dc_max'], x))
+        rows.append((G[g], b, {k: (cap(dc), p_success(b, cap(dc))) for k, dc in
                                 (('易', std - 3), ('標準', std), ('難', std + 3), ('極難', std + 6))},
                      p_success(b - 4, std)))
     return rows
@@ -440,6 +446,7 @@ def show_difficulty(C, rng, trials):
     print('■ 難度：同級四人；一般遭遇＝ 4 雜兵與 2 雜兵＋1 精英的平均，首領戰＝ 3 雜兵＋1 首領與 1 精英＋1 首領的平均')
     print('難度 | 等級 | 一般遭遇掉血 | 首領戰掉血 | 首領戰勝率 | 首領戰倒下的人數')
     for name, d in DIFFICULTY.items():
+        print(f'{name}：DC {d["dc"]:+d}，輿論對手的公關點 {d["pr"]:+d}')
         D = dict(C, difficulty=d)
         for g in range(5):
             n = [encounter(D, g, g, c, rng, trials) for c in (['雜兵'] * 4, ['精英', '雜兵', '雜兵'])]
@@ -496,7 +503,7 @@ def main():
     ap.add_argument('--set', default='proposed', choices=list(CURVES))
     ap.add_argument('--trials', type=int, default=2000)
     ap.add_argument('--seed', type=int, default=7)
-    ap.add_argument('--doc-budget', action='store_true', help='遭遇預算照 ENEMIES 第 13 節現行的「3＋等級」與「7＋等級」')
+    ap.add_argument('--doc-budget', action='store_true', help='遭遇預算照夾值之前的「3＋等級」與「7＋等級」，對照用')
     a = ap.parse_args()
     C = copy.deepcopy(CURVES[a.set])
     if a.doc_budget:
