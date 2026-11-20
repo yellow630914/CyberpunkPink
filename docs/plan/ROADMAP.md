@@ -43,7 +43,7 @@
 |---|---|
 | 框架已經確認，文件裡的內容是素材 | SKILLS、ENEMIES、EVENTS、NPC_SYSTEM、DOWNTIME、TRADE |
 | 內容層的素材，等資料格式補齊後重新生成或小修 | ITEMS、STORY_QUESTS、SITES |
-| 還沒過，或之後要照新框架重寫 | FACTIONS（十二項待確認）、UI、PROMPTS |
+| 還沒過，或之後要照新框架重寫 | UI、PROMPTS（FACTIONS 的十二項已在 2026-11-19 確認） |
 
 每一列的確認狀態以 [SYSTEMS_REVIEW](SYSTEMS_REVIEW.md) 為準，現有內容能留用多少見 [AUDIT](AUDIT.md) 第 5、6 節。
 

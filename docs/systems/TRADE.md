@@ -283,7 +283,7 @@ DC = 13 − ⌊店主親密度 ÷ 25⌋ ＋ 店的脾氣
 
 ## 10. AI 的當日優惠
 
-AI 任務 `flavor_shop`（[AI_TASKS](../plan/AI_TASKS.md) 2.2 節）：每間店每天第一次進去時，AI 依店的種類、區、店主的性格、目前的區域狀態，提出今天的特別交易。**每一筆用一次 `propose_deal`，程式逐筆驗證**；不合法的回傳錯誤讓 AI 改（[AI_TASKS](../plan/AI_TASKS.md) 第 1 節）。
+AI 任務 `flavor_shop`（[AI_TASKS](../plan/AI_TASKS.md) 2.2 節）：每間店每天第一次進去時（只加貨，不換掉架上已經有的東西），AI 依店的種類、區、店主的性格、目前的區域狀態，提出今天的特別交易。**每一筆用一次 `propose_deal`，程式逐筆驗證**；不合法的回傳錯誤讓 AI 改（[AI_TASKS](../plan/AI_TASKS.md) 第 1 節）。
 
 `propose_deal` 的參數：
 

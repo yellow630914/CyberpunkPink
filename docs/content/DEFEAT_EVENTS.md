@@ -1,6 +1,6 @@
 # 戰敗事件
 
-> 上層：[EVENTS](../systems/EVENTS.md)（事件導演、範圍、格式、效果的封閉清單、篩選）；資料格式：[DATA](../systems/DATA.md) 第 4、5 節。L4 的內容。數字待平衡；生成時補上的規則寫在各節開頭，待確認的列在設計書的回報裡。
+> 上層：[EVENTS](../systems/EVENTS.md)（事件導演、範圍、格式、效果的封閉清單、篩選）；資料格式：[DATA](../systems/DATA.md) 第 4、5 節。L4 的內容。數字待平衡；生成時補上的規則寫在各節開頭，待確認的寫在 [DESIGN_ORDER](../plan/DESIGN_ORDER.md) 3.5 節。
 
 29 種戰敗事件的內容，每一筆有 default（陰柔與中性，七成）、masc（陽剛，男性被動）、yuri（陰柔與中性，三成）三個版本，以及篩選關掉時的 fallback。所有登場角色都是成年人。
 
