@@ -102,7 +102,7 @@
 | 武器目錄 | ◐ | [CRAFTING](../gear/CRAFTING.md) 3.2、[LIFE](../world/LIFE.md) 5.1、[ITEMS](../gear/ITEMS.md) 第 3 節 | 設計圖的規格與牌子有了，目錄是素材。彈匣要改成一到四格，設計圖與零件的分工要重排 | 物品 |
 | 護甲與服裝目錄 | ◐ | [CRAFTING](../gear/CRAFTING.md) 3.3、[LIFE](../world/LIFE.md) 5.4 | 七種設計圖的規格有了。缺：各風格的面料（外皮）、纖維與板材的零件目錄 | 物品 |
 | 藥 | ◐ | [LIFE](../world/LIFE.md) 6、[ITEMS](../gear/ITEMS.md) 第 4 節 | 十種有了，成癮與戒斷的規則也寫了（[DOWNTIME](../systems/DOWNTIME.md) 3.5 節）；兩邊都還沒過 | 物品 |
-| 甲板與構裝 | ◐ | [CYBERSPACE](../systems/CYBERSPACE.md) 4 | 類別有了。缺目錄 | 物品 |
+| 甲板與構裝 | ● | [CYBERSPACE](../systems/CYBERSPACE.md) 4、[ITEMS](../gear/ITEMS.md) 第 11 節 | 目錄的初稿有了，還沒過 | 物品 |
 | 快駭程式 | ◐ | [NETRUNNING](../systems/NETRUNNING.md) 2 | 五類有例子，還沒過。缺完整的清單 | 能力 |
 | 載具 | ◐ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 9.2、[LIFE](../world/LIFE.md) 5.5 | 規則已確認：載具在戰鬥裡是叫來的掩體，追逐用檢定。缺：車、機車、浮空車的型號 | 鏽帶、走私 |
 | 機甲的型號 | ◐ | [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 9.3、[ENEMIES](../systems/ENEMIES.md) 第 11 節 | 規則已確認：機甲是機師本人的強化狀態，每場一次。敵方的機甲有素材，要照這條規則重寫。缺：緋櫻的、星旗的、殘骸拼的各一兩型 | 機師線 |
