@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """夾值用的模擬器（docs/systems/BALANCE.md）。不依賴任何套件。
 
-用法：python3 tools/balance/sim.py [主題 ...] [--set current|proposed] [--trials N] [--seed N]
+用法：python3 tools/balance/sim.py [主題 ...] [--set current|proposed] [--doc-budget] [--trials N] [--seed N]
 主題：summary（預設）、hits、encounter、cross、net、check、economy、xp、opinion、roster、all
 
 所有曲線都寫在這個檔案的 CURVES 裡，和 BALANCE.md 的表一一對應。
-current 是文件目前寫的數字，proposed 是 BALANCE.md 提出的數字；兩組只在 DIFF 列出的欄位不同。
+current 是第一輪夾值之前文件寫的數字（2026-11-20），proposed 是 BALANCE.md 的曲線；兩組只在 DIFF 列出的欄位不同。
+DIFF 裡除了 budget 與 boss_budget（待使用者確認），都已經寫回 ENEMIES 1.5 節與 COMBAT_SYSTEM 1.1、第 5 節。
+current 這一組已經假設主角的武器也吃敵人表上的「武器骰」；照當時的文件主角沒有這一條，IV、V 級還會更慢。
 """
 import argparse, copy, math, os, random, re, sys
 
@@ -60,14 +62,16 @@ CURRENT = {
 
 # BALANCE.md 提出、並且已經改進核心規則表的數字
 DIFF = {
+    'grade_dice': [0, 0, 1, 2, 3],        # 設計圖的等級骰：IV、V 各多一顆，讓傷害跟上血量
     'e_ev':    [10, 12, 14, 16, 18],      # 迴避跟著主角的命中走，每級 +2
     'e_atk':   [3, 4, 5, 6, 7],           # 攻擊跟著主角的迴避走，每級 +1
     'e_armor': [1, 2, 3, 4, 5],           # 每級 +1，拿掉 IV 的跳級
-    'e_hp':    {'雜兵': [40, 50, 65, 85, 110], '精英': [100, 125, 160, 210, 275], '首領': [240, 300, 390, 510, 660]},
-    'e_dmg_mult': {'雜兵': 0.6, '精英': 0.8, '首領': 1.0},
-    'e_load':  {'雜兵': [20, 22, 25, 28, 32], '精英': [28, 31, 35, 40, 46], '首領': [38, 42, 47, 53, 60]},
+    'e_hp':    {'雜兵': [45, 55, 67, 82, 100], '精英': [110, 130, 165, 205, 250], '首領': [260, 300, 380, 470, 580]},
+    'e_dmg_mult': {'雜兵': 0.4, '精英': 0.6, '首領': 1.0},
+    'e_load':  {'雜兵': [22, 27, 33, 40, 49], '精英': [37, 45, 55, 67, 82], '首領': [52, 63, 77, 94, 115]},
     'net_guard': [1, 2, 3, 4, 5],
-    'part_base': [150, 500, 1600, 5100, None],
+    'budget':  [4, 4, 4, 4, 4],           # 一般遭遇的預算不隨等級長（建議，待使用者確認）
+    'boss_budget': [8, 8, 8, 8, 8],
 }
 PROPOSED = copy.deepcopy(CURRENT)
 PROPOSED.update(copy.deepcopy(DIFF))
@@ -143,7 +147,7 @@ def net_table(C):
         edice = 3 + C['grade_dice'][g] + C['e_net_dice']
         eres = [(w, swing(C['e_atk'][g], C['p_ev'][g] + c, edice, 0, C['p_armor'][g])) for c, w in COVER]
         eph = sum(w * r[0] for w, r in eres)
-        edm = sum(w * r[0] * r[1] for w, r in eres) / eph * C['e_dmg_mult']['雜兵']
+        edm = sum(w * r[0] * r[1] for w, r in eres) / eph   # 網內不打折（BALANCE.md 2.5 節）
         pool = C['p_load'][g] * (C['p_layers'][g] + 1)
         rows.append((G[g], ph, dm, hits, pool / edm))
     return rows
@@ -351,7 +355,8 @@ def parse_roster(path):
 def roster_audit(C, path):
     """每個兵種在它等級範圍的每一級：同級主角幾下打倒（現實、實彈），落在目標 ±25% 之外的列出來。"""
     out = []
-    for name, rank, lo, hi, md, s in parse_roster(path):
+    units = parse_roster(path)
+    for name, rank, lo, hi, md, s in units:
         lo_t, hi_t = TARGET_HITS[rank]
         worst = None
         for g in range(lo, hi + 1):
@@ -362,16 +367,17 @@ def roster_audit(C, path):
             ph = sum(w * r[0] for w, r in res)
             dm = sum(w * r[0] * r[1] for w, r in res) / ph
             hits = C['e_hp'][rank][g] * md['hp'] / dm
-            # 用「命中所需的攻擊次數」比較，迴避的修正才算得進去
-            base_ph, _ = player_hit(C, g)
+            # 用「命中所需的攻擊次數」和同一級照表的兵種比，迴避的修正才算得進去；
+            # 曲線本身的偏差不算在兵種頭上
+            base_ph, base_dm = player_hit(C, g)
             swings = hits / ph * base_ph
-            dev = swings / ((lo_t + hi_t) / 2) - 1
+            dev = swings / (C['e_hp'][rank][g] / base_dm) - 1
             if worst is None or abs(dev) > abs(worst[1]):
                 worst = (G[g], dev, swings)
         if abs(worst[1]) > 0.25:
             out.append((name, rank, worst, s[:40]))
     out.sort(key=lambda r: -abs(r[2][1]))
-    return out
+    return out, len(units)
 
 
 # ───────────────────────── 輸出 ─────────────────────────
@@ -403,7 +409,8 @@ def show_net(C):
 
 def show_encounter(C, rng, trials):
     for boss in (False, True):
-        print('■ ' + ('首領戰' if boss else '一般遭遇') + f'：同級四人，{trials} 次的平均（目標：一般遭遇掉 10～15% 的生命）')
+        goal = '掉 30～50% 的生命、勝率 90% 以上' if boss else '掉 10～15% 的生命'
+        print('■ ' + ('首領戰' if boss else '一般遭遇') + f'：同級四人，{trials} 次的平均（目標：{goal}）')
         for g, budget, res in encounter_table(C, rng, trials, boss):
             for comp, (loss, rounds, win, down) in res:
                 desc = '＋'.join(f'{comp.count(r)}{r}' for r in RANKS if comp.count(r))
@@ -446,8 +453,8 @@ def show_opinion(C):
 
 def show_roster(C):
     path = os.path.join(ROOT, 'docs/content/ENEMY_ROSTER.md')
-    rows = roster_audit(C, path)
-    print(f'■ 名單：同級主角要攻擊幾次（換算成標準命中率）偏離目標 25% 以上的兵種，共 {len(rows)} 個')
+    rows, n = roster_audit(C, path)
+    print(f'■ 名單：讀到 {n} 個兵種；同級主角要攻擊的次數比照表的兵種多或少 25% 以上的，共 {len(rows)} 個')
     for name, rank, (g, dev, sw), s in rows:
         print(f'  {name}｜{rank}｜最偏的一級 {g}：{sw:.1f} 下（{dev:+.0%}）｜{s}')
 
@@ -458,8 +465,11 @@ def main():
     ap.add_argument('--set', default='proposed', choices=list(CURVES))
     ap.add_argument('--trials', type=int, default=2000)
     ap.add_argument('--seed', type=int, default=7)
+    ap.add_argument('--doc-budget', action='store_true', help='遭遇預算照 ENEMIES 第 13 節現行的「3＋等級」與「7＋等級」')
     a = ap.parse_args()
-    C = CURVES[a.set]
+    C = copy.deepcopy(CURVES[a.set])
+    if a.doc_budget:
+        C['budget'], C['boss_budget'] = CURRENT['budget'][:], CURRENT['boss_budget'][:]
     rng = random.Random(a.seed)
     topics = a.topics
     if 'all' in topics:
