@@ -1,0 +1,236 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2634 1456" width="2634" height="1456" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei','WenQuanYi Zen Hei',sans-serif">
+<title>舊港 街區圖 v0</title>
+<defs><style>.s{stroke:var(--o);stroke-width:9;stroke-linejoin:round;stroke-linecap:round;paint-order:stroke}</style><pattern id="g" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#fff" stroke-opacity=".025"/></pattern><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><symbol id="ic-fac_arena" viewBox="0 0 200 200"><title>擂台</title><g transform="translate(0.0 -7.0)"><rect class="s" x="18" y="140" width="164" height="38" rx="4" fill="var(--b)"/><rect class="s" x="24" y="48" width="16" height="96" rx="4" fill="var(--c)"/><rect class="s" x="160" y="48" width="16" height="96" rx="4" fill="var(--c)"/><path d="M40 70H160M40 94H160M40 118H160" fill="none" stroke="var(--o)" stroke-width="18" stroke-linecap="butt" stroke-linejoin="round"/><path d="M40 70H160M40 94H160M40 118H160" fill="none" stroke="var(--c)" stroke-width="6" stroke-linecap="butt" stroke-linejoin="round"/><rect class="s" x="20" y="36" width="24" height="22" rx="5" fill="var(--a)"/><rect class="s" x="156" y="36" width="24" height="22" rx="5" fill="var(--b)"/></g></symbol><symbol id="ic-fac_bar" viewBox="0 0 200 200"><title>酒吧</title><g transform="translate(0.0 4.0)"><path d="M100 112V166" fill="none" stroke="var(--o)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/><path d="M100 112V166" fill="none" stroke="var(--c)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><ellipse class="s" cx="100" cy="172" rx="42" ry="10" fill="var(--b)"/><path class="s" fill="var(--c)" d="M30 38H170L100 116Z"/><path fill="var(--b)" d="M50 52H150L100 104Z"/><path d="M126 24L146 64" stroke="var(--o)" stroke-width="5"/><circle class="s" cx="124" cy="22" r="12" fill="var(--a)"/></g></symbol><symbol id="ic-fac_barter" viewBox="0 0 200 200"><title>月台市</title><g transform="translate(0.0 -1.0)"><rect class="s" x="64" y="70" width="72" height="62" rx="6" fill="var(--b)"/><rect x="64" y="94" width="72" height="12" fill="var(--a)"/><path d="M34 92Q40 40 100 36Q144 36 160 62" fill="none" stroke="var(--o)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/><path d="M34 92Q40 40 100 36Q144 36 160 62" fill="none" stroke="var(--c)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><path class="s" fill="var(--c)" d="M146 46L176 66L144 82Z"/><path d="M166 110Q160 162 100 166Q56 166 40 140" fill="none" stroke="var(--o)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/><path d="M166 110Q160 162 100 166Q56 166 40 140" fill="none" stroke="var(--c)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><path class="s" fill="var(--c)" d="M54 156L24 136L56 120Z"/></g></symbol><symbol id="ic-fac_blackmarket" viewBox="0 0 200 200"><title>黑市</title><g transform="translate(0.0 -4.0)"><path d="M74 66V54Q74 40 88 40H112Q126 40 126 54V66" fill="none" stroke="var(--o)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><path d="M74 66V54Q74 40 88 40H112Q126 40 126 54V66" fill="none" stroke="var(--c)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><rect class="s" x="22" y="64" width="156" height="104" rx="14" fill="var(--b)"/><rect x="22" y="104" width="156" height="14" fill="var(--o)"/><rect x="40" y="64" width="12" height="104" fill="var(--c)" opacity=".7"/><rect x="148" y="64" width="12" height="104" fill="var(--c)" opacity=".7"/><rect class="s" x="86" y="98" width="28" height="26" rx="4" fill="var(--a)"/></g></symbol><symbol id="ic-fac_clinic" viewBox="0 0 200 200"><title>診所</title><g transform="translate(0.0 -2.0)"><rect class="s" x="34" y="72" width="132" height="106" fill="var(--b)"/><path class="s" fill="var(--c)" d="M22 78L100 26L178 78Z"/><rect x="86" y="128" width="28" height="50" fill="var(--o)"/><rect x="48" y="128" width="26" height="24" rx="3" fill="var(--c)"/><rect x="126" y="128" width="26" height="24" rx="3" fill="var(--c)"/><circle class="s" cx="100" cy="98" r="22" fill="var(--c)"/><path fill="var(--a)" d="M94 84H106V92H114V104H106V112H94V104H86V92H94Z"/></g></symbol><symbol id="ic-fac_coldstore" viewBox="0 0 200 200"><title>冷庫</title><g transform="translate(0.0 -1.0)"><rect class="s" x="46" y="18" width="108" height="166" rx="14" fill="var(--c)"/><path d="M46 74H154" stroke="var(--o)" stroke-width="8"/><rect x="132" y="34" width="10" height="26" rx="4" fill="var(--b)"/><rect x="132" y="88" width="10" height="34" rx="4" fill="var(--b)"/><g stroke="var(--b)" stroke-width="9" stroke-linecap="round"><path d="M96 98V160M69 113L123 145M69 145L123 113"/></g><circle cx="64" cy="40" r="7" fill="var(--a)"/></g></symbol><symbol id="ic-fac_conv" viewBox="0 0 200 200"><title>超商</title><g transform="translate(0.0 -4.0)"><rect class="s" x="32" y="76" width="136" height="98" fill="var(--b)"/><rect x="44" y="104" width="38" height="30" rx="3" fill="var(--c)"/><rect x="92" y="108" width="30" height="66" fill="var(--o)"/><rect x="128" y="104" width="28" height="30" rx="3" fill="var(--c)"/><path class="s" fill="var(--c)" d="M24 34H176V78Q163.3 94 150.7 78Q138.0 94 125.3 78Q112.7 94 100.0 78Q87.3 94 74.7 78Q62.0 94 49.3 78Q36.7 94 24.0 78Z"/><rect x="24.0" y="34" width="25" height="44" fill="var(--b)" opacity=".55"/><rect x="74.7" y="34" width="25" height="44" fill="var(--b)" opacity=".55"/><rect x="125.4" y="34" width="25" height="44" fill="var(--b)" opacity=".55"/><circle cx="116" cy="142" r="4" fill="var(--a)"/></g></symbol><symbol id="ic-fac_doujin" viewBox="0 0 200 200"><title>同人攤</title><g transform="translate(0.0 -7.5)"><path class="s" fill="var(--b)" d="M18 58Q60 42 100 58Q140 42 182 58V164Q140 150 100 166Q60 150 18 164Z"/><path fill="var(--c)" d="M30 56Q64 42 96 56V152Q64 140 30 152Z"/><path fill="var(--c)" d="M104 56Q136 42 170 56V152Q136 140 104 152Z"/><path d="M42 78Q64 70 84 78M42 98Q64 90 84 98M42 118Q64 110 84 118" fill="none" stroke="var(--o)" stroke-width="5" stroke-linecap="round"/><path class="s" fill="var(--a)" d="M137 132C112 116 110 98 120 92Q130 88 137 98Q144 88 154 92Q164 98 137 132Z"/></g></symbol><symbol id="ic-fac_ferry" viewBox="0 0 200 200"><title>渡輪碼頭</title><g transform="translate(0.0 -7.0)"><rect class="s" x="112" y="34" width="24" height="40" rx="3" fill="var(--b)"/><path d="M72 30V70" stroke="var(--o)" stroke-width="5"/><path fill="var(--a)" d="M72 30L98 40L72 50Z"/><rect class="s" x="48" y="68" width="100" height="46" rx="6" fill="var(--c)"/><rect x="60" y="80" width="18" height="16" rx="3" fill="var(--o)"/><rect x="88" y="80" width="18" height="16" rx="3" fill="var(--o)"/><rect x="116" y="80" width="18" height="16" rx="3" fill="var(--o)"/><path class="s" fill="var(--b)" d="M16 112H184L158 158H42Z"/><path d="M24 178Q40 166 56 178T88 178T120 178T152 178T184 178" fill="none" stroke="var(--c)" stroke-width="7" stroke-linecap="round"/></g></symbol><symbol id="ic-fac_garage" viewBox="0 0 200 200"><title>修車廠</title><g transform="translate(0.0 -7.0)"><rect class="s" x="84" y="36" width="32" height="16" rx="5" fill="var(--a)"/><rect x="32" y="150" width="30" height="28" rx="6" fill="var(--o)"/><rect x="138" y="150" width="30" height="28" rx="6" fill="var(--o)"/><path class="s" fill="var(--b)" d="M36 110L56 62Q60 52 72 52H128Q140 52 144 62L164 110Q178 114 178 130V160H22V130Q22 114 36 110Z"/><path fill="var(--c)" d="M66 66H134L148 104H52Z"/><circle cx="50" cy="132" r="12" fill="var(--c)"/><circle cx="150" cy="132" r="12" fill="var(--c)"/><rect x="76" y="124" width="48" height="18" rx="4" fill="var(--o)"/></g></symbol><symbol id="ic-fac_gate" viewBox="0 0 200 200"><title>橋接區</title><g transform="translate(-1.0 -9.0)"><rect class="s" x="66" y="100" width="118" height="18" rx="5" fill="var(--c)"/><rect x="92" y="100" width="12" height="18" fill="var(--b)"/><rect x="124" y="100" width="12" height="18" fill="var(--b)"/><rect x="156" y="100" width="12" height="18" fill="var(--b)"/><rect class="s" x="18" y="64" width="54" height="114" rx="6" fill="var(--b)"/><rect x="28" y="80" width="34" height="28" rx="3" fill="var(--c)"/><circle class="s" cx="45" cy="50" r="10" fill="var(--a)"/><rect class="s" x="164" y="114" width="12" height="64" fill="var(--b)"/></g></symbol><symbol id="ic-fac_gunshop" viewBox="0 0 200 200"><title>槍店</title><rect class="s" x="20" y="36" width="160" height="128" rx="16" fill="var(--b)"/><circle cx="38" cy="54" r="5" fill="var(--o)"/><circle cx="162" cy="54" r="5" fill="var(--o)"/><circle cx="38" cy="146" r="5" fill="var(--o)"/><circle cx="162" cy="146" r="5" fill="var(--o)"/><path class="s" fill="var(--c)" d="M44 70H156V98H112L104 106V110L112 142H80L74 98H44Z"/><path d="M92 104Q92 120 104 120" fill="none" stroke="var(--o)" stroke-width="6"/><rect x="56" y="78" width="88" height="7" rx="3" fill="var(--a)"/></symbol><symbol id="ic-fac_home" viewBox="0 0 200 200"><title>住處</title><g transform="translate(0.0 -2.0)"><rect class="s" x="128" y="34" width="20" height="40" fill="var(--b)"/><rect class="s" x="40" y="88" width="120" height="90" fill="var(--c)"/><path class="s" fill="var(--b)" d="M16 98L100 26L184 98Z"/><rect x="58" y="120" width="30" height="58" fill="var(--b)"/><path fill="var(--a)" d="M128 150C108 138 106 122 114 118Q122 114 128 124Q134 114 142 118Q150 122 128 150Z"/></g></symbol><symbol id="ic-fac_market" viewBox="0 0 200 200"><title>市場攤販</title><g transform="translate(0.0 -3.0)"><path d="M40 76V176M160 76V176" fill="none" stroke="var(--o)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/><path d="M40 76V176M160 76V176" fill="none" stroke="var(--b)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path class="s" fill="var(--c)" d="M46 30H154L182 76Q168.3 90 154.7 76Q141.0 90 127.3 76Q113.7 90 100.0 76Q86.3 90 72.7 76Q59.0 90 45.3 76Q31.7 90 18.0 76Z"/><path d="M73 30L64 80M127 30L136 80M100 30V80" stroke="var(--b)" stroke-width="10" opacity=".7"/><rect class="s" x="26" y="124" width="148" height="26" rx="4" fill="var(--b)"/><circle class="s" cx="58" cy="112" r="13" fill="var(--c)"/><circle class="s" cx="86" cy="112" r="13" fill="var(--c)"/><circle class="s" cx="114" cy="112" r="13" fill="var(--a)"/><circle class="s" cx="142" cy="112" r="13" fill="var(--c)"/></g></symbol><symbol id="ic-fac_metro" viewBox="0 0 200 200"><title>地鐵站</title><g transform="translate(0.0 -3.0)"><path d="M40 186L64 160M160 186L136 160" stroke="var(--o)" stroke-width="10" stroke-linecap="round"/><rect class="s" x="42" y="20" width="116" height="140" rx="28" fill="var(--c)"/><rect x="56" y="38" width="88" height="54" rx="10" fill="var(--b)"/><rect x="42" y="104" width="116" height="12" fill="var(--b)"/><circle cx="70" cy="136" r="10" fill="var(--a)"/><circle cx="130" cy="136" r="10" fill="var(--a)"/></g></symbol><symbol id="ic-fac_scrapyard" viewBox="0 0 200 200"><title>骨場</title><g transform="translate(0.0 3.0)"><path d="M100 14V58" fill="none" stroke="var(--o)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/><path d="M100 14V58" fill="none" stroke="var(--c)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path class="s" fill="var(--b)" d="M14 180Q30 128 70 134Q90 108 124 124Q168 116 186 180Z"/><circle cx="74" cy="152" r="16" fill="var(--c)"/><circle cx="74" cy="152" r="6" fill="var(--o)"/><rect x="118" y="140" width="40" height="14" rx="3" fill="var(--c)" transform="rotate(-18 138 147)"/><rect class="s" x="84" y="54" width="32" height="20" rx="5" fill="var(--a)"/><path d="M88 74L70 96L80 112M112 74L130 96L120 112" fill="none" stroke="var(--o)" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/><path d="M88 74L70 96L80 112M112 74L130 96L120 112" fill="none" stroke="var(--c)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g></symbol><symbol id="ic-fac_shrine" viewBox="0 0 200 200"><title>神社</title><g transform="translate(0.0 -11.0)"><rect class="s" x="48" y="58" width="22" height="124" fill="var(--b)"/><rect class="s" x="130" y="58" width="22" height="124" fill="var(--b)"/><rect class="s" x="34" y="84" width="132" height="16" fill="var(--b)"/><path class="s" fill="var(--c)" d="M12 40Q100 56 188 40L182 66Q100 78 18 66Z"/><rect class="s" x="89" y="66" width="22" height="26" rx="2" fill="var(--a)"/></g></symbol><symbol id="ic-fac_under" viewBox="0 0 200 200"><title>地下層入口</title><g transform="translate(0.0 -31.0)"><path class="s" fill="var(--b)" d="M26 182V84Q26 34 100 34Q174 34 174 84V182Z"/><path fill="var(--o)" d="M48 182V88Q48 56 100 56Q152 56 152 88V182Z"/><rect x="48" y="216" width="104" height="12" fill="var(--c)"/><rect x="56" y="194" width="88" height="12" fill="var(--c)"/><rect x="64" y="172" width="72" height="12" fill="var(--c)"/><path fill="var(--a)" d="M88 72H112V100H126L100 126L74 100H88Z"/></g></symbol></defs>
+<rect width="2634" height="1456" fill="#0d0a14"/><rect width="2634" height="1456" fill="url(#g)"/>
+<path d="M0 0H2634V6H0Z" fill="#8fa3bd"/>
+<text x="60" y="78" font-size="42" font-weight="900" fill="#8fa3bd" letter-spacing="6" filter="url(#glow)">舊港</text>
+<text x="176" y="78" font-size="22" font-weight="700" fill="#efe9f7" letter-spacing="3">街區圖</text>
+<text x="60" y="110" font-size="14" fill="#b8adc9" letter-spacing="1">街區 5 · 要地 2 · 出口 4　·　一塊街區 13 × 9 格，一格是一間店面或一段街，走一格 2 分鐘　·　位置照街區結構圖（連接關係，不是實際方位）　·　示意 v0</text>
+<g transform="translate(1874 54)"><rect x="0" y="-9" width="40" height="18" fill="#2a2140" stroke="#8fa3bd" stroke-opacity=".6" stroke-width="2"/><text x="52" y="5" font-size="13" fill="#b8adc9">街道</text></g>
+<g transform="translate(2114 54)"><circle cx="20" cy="0" r="8" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="20" cy="0" r="3" fill="#8fa3bd"/><text x="52" y="5" font-size="13" fill="#b8adc9">路口</text></g>
+<g transform="translate(2354 54)"><rect x="0" y="-11" width="40" height="22" rx="11" fill="#0d0a14" stroke="#b8adc9" stroke-width="1.5"/><text x="52" y="5" font-size="13" fill="#b8adc9">區內的橋接區</text></g>
+<g transform="translate(1874 88)"><rect x="0" y="-11" width="40" height="22" rx="11" fill="#ffe9a8" fill-opacity=".14" stroke="#ffe9a8" stroke-width="1.5"/><text x="52" y="5" font-size="13" fill="#b8adc9">大區之間的出口</text></g>
+<g transform="translate(2114 88)"><path d="M6 -11H34L40 -5V11H0V-5Z" fill="#ff3355" fill-opacity=".14" stroke="#ff3355" stroke-width="2" stroke-dasharray="5 3"/><text x="52" y="5" font-size="13" fill="#b8adc9">要地</text></g>
+<g transform="translate(2354 88)"><text x="0" y="5" font-size="13" font-weight="800" fill="#8fa3bd">粗名</text><text x="52" y="5" font-size="13" fill="#b8adc9">有名字的地標</text></g>
+<text x="1874" y="132" font-size="12" fill="#7d7390">店面裡的小圖是設施的種類（圖標與 ART_STYLE 5.1 節的設施圖標同一套）</text>
+<path d="M476 684L551 684L551 684L626 684" fill="none" stroke="#8fa3bd" stroke-opacity=".45" stroke-width="22" stroke-linejoin="round"/><path d="M476 684L551 684L551 684L626 684" fill="none" stroke="#2a2140" stroke-width="18" stroke-linejoin="round"/><path d="M476 684L551 684L551 684L626 684" fill="none" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<path d="M1042 684L1117 684L1117 684L1192 684" fill="none" stroke="#8fa3bd" stroke-opacity=".45" stroke-width="22" stroke-linejoin="round"/><path d="M1042 684L1117 684L1117 684L1192 684" fill="none" stroke="#2a2140" stroke-width="18" stroke-linejoin="round"/><path d="M1042 684L1117 684L1117 684L1192 684" fill="none" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<path d="M1608 684L1683 684L1683 684L1758 684" fill="none" stroke="#8fa3bd" stroke-opacity=".45" stroke-width="22" stroke-linejoin="round"/><path d="M1608 684L1683 684L1683 684L1758 684" fill="none" stroke="#2a2140" stroke-width="18" stroke-linejoin="round"/><path d="M1608 684L1683 684L1683 684L1758 684" fill="none" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<path d="M2174 684L2259 684L2259 684L2344 684" fill="none" stroke="#8fa3bd" stroke-opacity=".45" stroke-width="22" stroke-linejoin="round"/><path d="M2174 684L2259 684L2259 684L2344 684" fill="none" stroke="#2a2140" stroke-width="18" stroke-linejoin="round"/><path d="M2174 684L2259 684L2259 684L2344 684" fill="none" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<path d="M332 540L332 424L332 424L332 307" fill="none" stroke="#8fa3bd" stroke-opacity=".45" stroke-width="22" stroke-linejoin="round"/><path d="M332 540L332 424L332 424L332 307" fill="none" stroke="#2a2140" stroke-width="18" stroke-linejoin="round"/><path d="M332 540L332 424L332 424L332 307" fill="none" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<path d="M898 540L898 424L898 424L898 307" fill="none" stroke="#8fa3bd" stroke-opacity=".45" stroke-width="22" stroke-linejoin="round"/><path d="M898 540L898 424L898 424L898 307" fill="none" stroke="#2a2140" stroke-width="18" stroke-linejoin="round"/><path d="M898 540L898 424L898 424L898 307" fill="none" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<path d="M2030 540L2030 424L2030 424L2030 307" fill="none" stroke="#8fa3bd" stroke-opacity=".45" stroke-width="22" stroke-linejoin="round"/><path d="M2030 540L2030 424L2030 424L2030 307" fill="none" stroke="#2a2140" stroke-width="18" stroke-linejoin="round"/><path d="M2030 540L2030 424L2030 424L2030 307" fill="none" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<path d="M1464 828L1464 923L1464 923L1464 1018" fill="none" stroke="#8fa3bd" stroke-opacity=".45" stroke-width="22" stroke-linejoin="round"/><path d="M1464 828L1464 923L1464 923L1464 1018" fill="none" stroke="#2a2140" stroke-width="18" stroke-linejoin="round"/><path d="M1464 828L1464 923L1464 923L1464 1018" fill="none" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<path d="M1192 1162L1070 1162L1070 1162L949 1162" fill="none" stroke="#8fa3bd" stroke-opacity=".45" stroke-width="22" stroke-linejoin="round"/><path d="M1192 1162L1070 1162L1070 1162L949 1162" fill="none" stroke="#2a2140" stroke-width="18" stroke-linejoin="round"/><path d="M1192 1162L1070 1162L1070 1162L949 1162" fill="none" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<path d="M2030 828L2030 965L2030 965L2030 1102" fill="none" stroke="#8fa3bd" stroke-opacity=".45" stroke-width="22" stroke-linejoin="round"/><path d="M2030 828L2030 965L2030 965L2030 1102" fill="none" stroke="#2a2140" stroke-width="18" stroke-linejoin="round"/><path d="M2030 828L2030 965L2030 965L2030 1102" fill="none" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<rect x="163.0" y="243.0" width="210" height="64" rx="32.0" fill="#1b1430"/><rect x="163.0" y="243.0" width="210" height="64" rx="32.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="2"/>
+<use href="#ic-fac_gate" x="177.0" y="259.0" width="32" height="32" style="--o:#17111F;--a:#F06AA0;--b:#c9a54a;--c:#ffe9a8"/>
+<text x="217.0" y="271.0" font-size="15" font-weight="800" fill="#ffe9a8">千本通南口</text>
+<text x="217.0" y="290.0" font-size="12" fill="#ffe9a8" fill-opacity=".8">→ 櫻町</text>
+<rect x="729.0" y="243.0" width="210" height="64" rx="32.0" fill="#1b1430"/><rect x="729.0" y="243.0" width="210" height="64" rx="32.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="2"/>
+<use href="#ic-fac_gate" x="743.0" y="259.0" width="32" height="32" style="--o:#17111F;--a:#F06AA0;--b:#c9a54a;--c:#ffe9a8"/>
+<text x="783.0" y="271.0" font-size="15" font-weight="800" fill="#ffe9a8">鏽梯</text>
+<text x="783.0" y="290.0" font-size="12" fill="#ffe9a8" fill-opacity=".8">→ 四十二番街</text>
+<rect x="1861.0" y="243.0" width="210" height="64" rx="32.0" fill="#1b1430"/><rect x="1861.0" y="243.0" width="210" height="64" rx="32.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="2"/>
+<use href="#ic-fac_gate" x="1875.0" y="259.0" width="32" height="32" style="--o:#17111F;--a:#F06AA0;--b:#c9a54a;--c:#ffe9a8"/>
+<text x="1915.0" y="271.0" font-size="15" font-weight="800" fill="#ffe9a8">運河橋</text>
+<text x="1915.0" y="290.0" font-size="12" fill="#ffe9a8" fill-opacity=".8">→ 蜂巢</text>
+<g>
+<rect x="56.0" y="536.0" width="424" height="296" fill="none" stroke="#8fa3bd" stroke-opacity=".5" stroke-width="2"/>
+<rect x="60.0" y="540.0" width="416" height="288" fill="#2a2140"/>
+<rect x="63.0" y="543.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="223.0" y="543.0" width="90" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="351.0" y="543.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="63.0" y="703.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="223.0" y="703.0" width="90" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="351.0" y="703.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<path d="M60.0 684.0H476.0" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<path d="M204.0 540.0V828.0" stroke="#7d7390" stroke-width="1.2" stroke-dasharray="4 7"/>
+<circle cx="204.0" cy="684.0" r="7" fill="#0d0a14" stroke="#8fa3bd" stroke-width="2.5"/>
+<path d="M332.0 540.0V828.0" stroke="#7d7390" stroke-width="1.2" stroke-dasharray="4 7"/>
+<circle cx="332.0" cy="684.0" r="7" fill="#0d0a14" stroke="#8fa3bd" stroke-width="2.5"/>
+<use href="#ic-fac_metro" x="68" y="558" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#c9a54a;--c:#F3E9FF"/>
+<text x="103" y="570" font-size="13" font-weight="500" fill="#ffe9a8">地鐵櫻線「舊</text>
+<text x="103" y="586" font-size="13" font-weight="500" fill="#ffe9a8">港碼頭」</text>
+<use href="#ic-fac_ferry" x="68" y="620" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#c9a54a;--c:#F3E9FF"/>
+<text x="103" y="631" font-size="13" font-weight="500" fill="#ffe9a8">渡輪「舊港碼</text>
+<text x="103" y="647" font-size="13" font-weight="500" fill="#ffe9a8">頭」</text>
+<use href="#ic-fac_ferry" x="356" y="558" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#c9a54a;--c:#F3E9FF"/>
+<text x="391" y="570" font-size="13" font-weight="500" fill="#ffe9a8">棧橋（夜市碼</text>
+<text x="391" y="586" font-size="13" font-weight="500" fill="#ffe9a8">頭）</text>
+<use href="#ic-fac_arena" x="356" y="620" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8fa3bd;--c:#FFF6FB"/>
+<text x="391" y="639" font-size="13" font-weight="800" fill="#8fa3bd">賭船「福星」</text>
+<use href="#ic-fac_barter" x="68" y="718" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="103" y="738" font-size="13" font-weight="500" fill="#efe9f7">胭脂堂的倉庫</text>
+<use href="#ic-fac_garage" x="68" y="780" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8fa3bd;--c:#FFF6FB"/>
+<text x="103" y="799" font-size="13" font-weight="800" fill="#8fa3bd">真白的車廠</text>
+<use href="#ic-fac_bar" x="356" y="747" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8fa3bd;--c:#FFF6FB"/>
+<text x="395" y="768" font-size="13" font-weight="800" fill="#8fa3bd">海棠樓</text>
+<use href="#ic-fac_ferry" x="228" y="587" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="267" y="608" font-size="13" font-weight="500" fill="#efe9f7">修船廠</text>
+<use href="#ic-fac_market" x="228" y="747" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="267" y="768" font-size="13" font-weight="500" fill="#efe9f7">魚市</text>
+</g>
+<text x="60.0" y="510.0" font-size="22" font-weight="800" fill="#8fa3bd" letter-spacing="2">碼頭</text>
+<text x="60.0" y="530.0" font-size="12.5" fill="#b8adc9">胭脂堂的碼頭</text>
+<g>
+<rect x="622.0" y="536.0" width="424" height="296" fill="none" stroke="#8fa3bd" stroke-opacity=".5" stroke-width="2"/>
+<rect x="626.0" y="540.0" width="416" height="288" fill="#2a2140"/>
+<rect x="629.0" y="543.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="789.0" y="543.0" width="90" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="917.0" y="543.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="629.0" y="703.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="789.0" y="703.0" width="90" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="917.0" y="703.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<path d="M626.0 684.0H1042.0" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<path d="M770.0 540.0V828.0" stroke="#7d7390" stroke-width="1.2" stroke-dasharray="4 7"/>
+<circle cx="770.0" cy="684.0" r="7" fill="#0d0a14" stroke="#8fa3bd" stroke-width="2.5"/>
+<path d="M898.0 540.0V828.0" stroke="#7d7390" stroke-width="1.2" stroke-dasharray="4 7"/>
+<circle cx="898.0" cy="684.0" r="7" fill="#0d0a14" stroke="#8fa3bd" stroke-width="2.5"/>
+<use href="#ic-fac_clinic" x="634" y="558" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8fa3bd;--c:#FFF6FB"/>
+<text x="669" y="570" font-size="13" font-weight="800" fill="#8fa3bd">黑診所「無名</text>
+<text x="669" y="586" font-size="13" font-weight="800" fill="#8fa3bd">」</text>
+<use href="#ic-fac_blackmarket" x="634" y="620" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="669" y="639" font-size="13" font-weight="500" fill="#efe9f7">現金晶片兌換</text>
+<use href="#ic-fac_ferry" x="922" y="558" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#c9a54a;--c:#F3E9FF"/>
+<text x="957" y="578" font-size="13" font-weight="500" fill="#ffe9a8">棧橋（碼頭）</text>
+<use href="#ic-fac_gunshop" x="922" y="620" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="957" y="639" font-size="13" font-weight="500" fill="#efe9f7">二手武器攤</text>
+<use href="#ic-fac_doujin" x="634" y="747" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="673" y="768" font-size="13" font-weight="500" fill="#efe9f7">同人程式攤</text>
+<use href="#ic-fac_blackmarket" x="922" y="747" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="961" y="768" font-size="13" font-weight="500" fill="#efe9f7">撈貨攤</text>
+<use href="#ic-fac_blackmarket" x="794" y="587" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="833" y="608" font-size="13" font-weight="500" fill="#efe9f7">洗錢攤</text>
+<use href="#ic-fac_market" x="794" y="747" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8fa3bd;--c:#FFF6FB"/>
+<text x="833" y="768" font-size="13" font-weight="800" fill="#8fa3bd">夜市</text>
+</g>
+<text x="626.0" y="510.0" font-size="22" font-weight="800" fill="#8fa3bd" letter-spacing="2">夜市碼頭</text>
+<text x="626.0" y="530.0" font-size="12.5" fill="#b8adc9">每晚的黑市</text>
+<g>
+<rect x="1188.0" y="536.0" width="424" height="296" fill="none" stroke="#8fa3bd" stroke-opacity=".5" stroke-width="2"/>
+<rect x="1192.0" y="540.0" width="416" height="288" fill="#2a2140"/>
+<rect x="1195.0" y="543.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="1355.0" y="543.0" width="90" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="1483.0" y="543.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="1195.0" y="703.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="1355.0" y="703.0" width="90" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="1483.0" y="703.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<path d="M1192.0 684.0H1608.0" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<path d="M1336.0 540.0V828.0" stroke="#7d7390" stroke-width="1.2" stroke-dasharray="4 7"/>
+<circle cx="1336.0" cy="684.0" r="7" fill="#0d0a14" stroke="#8fa3bd" stroke-width="2.5"/>
+<path d="M1464.0 540.0V828.0" stroke="#7d7390" stroke-width="1.2" stroke-dasharray="4 7"/>
+<circle cx="1464.0" cy="684.0" r="7" fill="#0d0a14" stroke="#8fa3bd" stroke-width="2.5"/>
+<use href="#ic-fac_home" x="1200" y="558" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="1235" y="578" font-size="13" font-weight="500" fill="#efe9f7">便宜的安全屋</text>
+<use href="#ic-fac_under" x="1200" y="620" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#5dffb0;--c:#F3E9FF"/>
+<text x="1235" y="639" font-size="13" font-weight="500" fill="#5dffb0">地下層入口</text>
+<use href="#ic-fac_home" x="1488" y="587" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="1527" y="608" font-size="13" font-weight="500" fill="#efe9f7">貨櫃住宅</text>
+<use href="#ic-fac_under" x="1200" y="747" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#5dffb0;--c:#F3E9FF"/>
+<text x="1239" y="768" font-size="13" font-weight="500" fill="#5dffb0">貨櫃迷宮</text>
+<rect x="1490" y="754" width="20" height="20" rx="3" fill="none" stroke="#7d7390" stroke-dasharray="3 3"/>
+<text x="1527" y="768" font-size="13" font-weight="800" fill="#8fa3bd">貨櫃場</text>
+<use href="#ic-fac_clinic" x="1360" y="587" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="1399" y="608" font-size="13" font-weight="500" fill="#efe9f7">小診所</text>
+<use href="#ic-fac_conv" x="1360" y="747" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="1399" y="768" font-size="13" font-weight="500" fill="#efe9f7">雜貨</text>
+</g>
+<text x="1192.0" y="510.0" font-size="22" font-weight="800" fill="#8fa3bd" letter-spacing="2">貨櫃城</text>
+<text x="1192.0" y="530.0" font-size="12.5" fill="#b8adc9">貨櫃疊成的住宅</text>
+<g>
+<rect x="1754.0" y="536.0" width="424" height="296" fill="none" stroke="#8fa3bd" stroke-opacity=".5" stroke-width="2"/>
+<rect x="1758.0" y="540.0" width="416" height="288" fill="#2a2140"/>
+<rect x="1761.0" y="543.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="1921.0" y="543.0" width="90" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="2049.0" y="543.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="1761.0" y="703.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="1921.0" y="703.0" width="90" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="2049.0" y="703.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<path d="M1758.0 684.0H2174.0" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<path d="M1902.0 540.0V828.0" stroke="#7d7390" stroke-width="1.2" stroke-dasharray="4 7"/>
+<circle cx="1902.0" cy="684.0" r="7" fill="#0d0a14" stroke="#8fa3bd" stroke-width="2.5"/>
+<path d="M2030.0 540.0V828.0" stroke="#7d7390" stroke-width="1.2" stroke-dasharray="4 7"/>
+<circle cx="2030.0" cy="684.0" r="7" fill="#0d0a14" stroke="#8fa3bd" stroke-width="2.5"/>
+<use href="#ic-fac_garage" x="1766" y="558" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="1801" y="570" font-size="13" font-weight="500" fill="#efe9f7">拆體客的廂型</text>
+<text x="1801" y="586" font-size="13" font-weight="500" fill="#efe9f7">車停車場</text>
+<use href="#ic-fac_blackmarket" x="1766" y="620" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="1801" y="631" font-size="13" font-weight="500" fill="#efe9f7">鉻娘子的收費</text>
+<text x="1801" y="647" font-size="13" font-weight="500" fill="#efe9f7">站</text>
+<use href="#ic-fac_arena" x="2054" y="587" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="2093" y="600" font-size="13" font-weight="500" fill="#efe9f7">黑拳的報名</text>
+<text x="2093" y="616" font-size="13" font-weight="500" fill="#efe9f7">處</text>
+<use href="#ic-fac_gate" x="1766" y="747" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8fa3bd;--c:#FFF6FB"/>
+<text x="1805" y="768" font-size="13" font-weight="800" fill="#8fa3bd">熔爐的大門</text>
+<use href="#ic-fac_scrapyard" x="2054" y="747" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="2093" y="768" font-size="13" font-weight="500" fill="#efe9f7">二手零件倉</text>
+<use href="#ic-fac_barter" x="1926" y="587" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="1965" y="600" font-size="13" font-weight="500" fill="#efe9f7">廢倉庫</text>
+<text x="1965" y="616" font-size="13" font-weight="500" fill="#efe9f7">群</text>
+<use href="#ic-fac_coldstore" x="1926" y="747" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8fa3bd;--c:#FFF6FB"/>
+<text x="1965" y="768" font-size="13" font-weight="800" fill="#8fa3bd">冷庫</text>
+</g>
+<text x="1758.0" y="510.0" font-size="22" font-weight="800" fill="#8fa3bd" letter-spacing="2">倉庫區</text>
+<text x="1758.0" y="530.0" font-size="12.5" fill="#b8adc9">鉻娘子的路</text>
+<rect x="2344.0" y="652.0" width="210" height="64" rx="32.0" fill="#1b1430"/><rect x="2344.0" y="652.0" width="210" height="64" rx="32.0" fill="#ffe9a8" fill-opacity=".12" stroke="#ffe9a8" stroke-width="2"/>
+<use href="#ic-fac_gate" x="2358.0" y="668.0" width="32" height="32" style="--o:#17111F;--a:#F06AA0;--b:#c9a54a;--c:#ffe9a8"/>
+<text x="2398.0" y="680.0" font-size="15" font-weight="800" fill="#ffe9a8">南門</text>
+<text x="2398.0" y="699.0" font-size="12" fill="#ffe9a8" fill-opacity=".8">→ 鏽帶</text>
+<path d="M735.0 1102.0H933.0L949.0 1118.0V1222.0H719.0V1118.0Z" fill="#1b1430"/><path d="M735.0 1102.0H933.0L949.0 1118.0V1222.0H719.0V1118.0Z" fill="#ff3355" fill-opacity=".12" stroke="#ff3355" stroke-width="2" stroke-dasharray="7 4"/>
+<text x="834.0" y="1146.0" text-anchor="middle" font-size="19" font-weight="800" fill="#ffb3c0">水下殘骸</text>
+<text x="834.0" y="1172.0" text-anchor="middle" font-size="12" fill="#b8adc9">彈坑灣底，要潛水，3 層</text>
+<text x="731.0" y="1212.0" font-size="10.5" fill="#ff3355" fill-opacity=".8" letter-spacing="1">要地</text>
+<g>
+<rect x="1188.0" y="1014.0" width="424" height="296" fill="none" stroke="#8fa3bd" stroke-opacity=".5" stroke-width="2"/>
+<rect x="1192.0" y="1018.0" width="416" height="288" fill="#2a2140"/>
+<rect x="1195.0" y="1021.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="1355.0" y="1021.0" width="90" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="1483.0" y="1021.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="1195.0" y="1181.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="1355.0" y="1181.0" width="90" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<rect x="1483.0" y="1181.0" width="122" height="122" fill="#1b1430" stroke="#8fa3bd" stroke-opacity=".22"/>
+<path d="M1192.0 1162.0H1608.0" stroke="#7d7390" stroke-width="1.5" stroke-dasharray="6 8"/>
+<path d="M1336.0 1018.0V1306.0" stroke="#7d7390" stroke-width="1.2" stroke-dasharray="4 7"/>
+<circle cx="1336.0" cy="1162.0" r="7" fill="#0d0a14" stroke="#8fa3bd" stroke-width="2.5"/>
+<path d="M1464.0 1018.0V1306.0" stroke="#7d7390" stroke-width="1.2" stroke-dasharray="4 7"/>
+<circle cx="1464.0" cy="1162.0" r="7" fill="#0d0a14" stroke="#8fa3bd" stroke-width="2.5"/>
+<use href="#ic-fac_under" x="1200" y="1036" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#5dffb0;--c:#F3E9FF"/>
+<text x="1235" y="1048" font-size="13" font-weight="500" fill="#5dffb0">水下殘骸的入</text>
+<text x="1235" y="1064" font-size="13" font-weight="500" fill="#5dffb0">水點</text>
+<use href="#ic-fac_scrapyard" x="1200" y="1098" width="30" height="30" style="--o:#17111F;--a:#F06AA0;--b:#8fa3bd;--c:#FFF6FB"/>
+<text x="1235" y="1117" font-size="13" font-weight="800" fill="#8fa3bd">沉沒的機甲</text>
+<use href="#ic-fac_ferry" x="1488" y="1065" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="1527" y="1086" font-size="13" font-weight="500" fill="#efe9f7">潛水用品攤</text>
+<use href="#ic-fac_blackmarket" x="1200" y="1225" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="1239" y="1246" font-size="13" font-weight="500" fill="#efe9f7">撈貨的人</text>
+<use href="#ic-fac_shrine" x="1488" y="1225" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="1527" y="1246" font-size="13" font-weight="500" fill="#efe9f7">獻花台</text>
+<use href="#ic-fac_scrapyard" x="1360" y="1065" width="34" height="34" style="--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF"/>
+<text x="1399" y="1086" font-size="13" font-weight="500" fill="#efe9f7">廢燈塔</text>
+<rect x="1362" y="1232" width="20" height="20" rx="3" fill="none" stroke="#7d7390" stroke-dasharray="3 3"/>
+<text x="1399" y="1246" font-size="13" font-weight="500" fill="#efe9f7">泥灘</text>
+</g>
+<text x="1192.0" y="988.0" font-size="22" font-weight="800" fill="#8fa3bd" letter-spacing="2">彈坑灣</text>
+<text x="1192.0" y="1008.0" font-size="12.5" fill="#b8adc9">2046 年炸出來的圓形海灣</text>
+<path d="M1867.0 1102.0H2065.0L2081.0 1118.0V1222.0H1851.0V1118.0Z" fill="#1b1430"/><path d="M1867.0 1102.0H2065.0L2081.0 1118.0V1222.0H1851.0V1118.0Z" fill="#ff3355" fill-opacity=".12" stroke="#ff3355" stroke-width="2" stroke-dasharray="7 4"/>
+<text x="1966.0" y="1146.0" text-anchor="middle" font-size="19" font-weight="800" fill="#ffb3c0">熔爐</text>
+<text x="1966.0" y="1172.0" text-anchor="middle" font-size="12" fill="#b8adc9">鉻娘子的本部，4 層</text>
+<text x="1863.0" y="1212.0" font-size="10.5" fill="#ff3355" fill-opacity=".8" letter-spacing="1">要地</text>
+<circle cx="476" cy="684" r="9" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="476" cy="684" r="3" fill="#8fa3bd"/>
+<circle cx="626" cy="684" r="9" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="626" cy="684" r="3" fill="#8fa3bd"/>
+<circle cx="1042" cy="684" r="9" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="1042" cy="684" r="3" fill="#8fa3bd"/>
+<circle cx="1192" cy="684" r="9" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="1192" cy="684" r="3" fill="#8fa3bd"/>
+<circle cx="1608" cy="684" r="9" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="1608" cy="684" r="3" fill="#8fa3bd"/>
+<circle cx="1758" cy="684" r="9" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="1758" cy="684" r="3" fill="#8fa3bd"/>
+<circle cx="2174" cy="684" r="9" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="2174" cy="684" r="3" fill="#8fa3bd"/>
+<circle cx="332" cy="540" r="9" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="332" cy="540" r="3" fill="#8fa3bd"/>
+<circle cx="898" cy="540" r="9" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="898" cy="540" r="3" fill="#8fa3bd"/>
+<circle cx="2030" cy="540" r="9" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="2030" cy="540" r="3" fill="#8fa3bd"/>
+<circle cx="1464" cy="828" r="9" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="1464" cy="828" r="3" fill="#8fa3bd"/>
+<circle cx="1464" cy="1018" r="9" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="1464" cy="1018" r="3" fill="#8fa3bd"/>
+<circle cx="1192" cy="1162" r="9" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="1192" cy="1162" r="3" fill="#8fa3bd"/>
+<circle cx="2030" cy="828" r="9" fill="#0d0a14" stroke="#8fa3bd" stroke-width="3"/><circle cx="2030" cy="828" r="3" fill="#8fa3bd"/>
+<rect x="488" y="672" width="50" height="24" rx="12" fill="#0d0a14" stroke="#b8adc9" stroke-width="1.5"/><text x="514" y="689" text-anchor="middle" font-size="13" fill="#efe9f7">棧橋</text>
+<text x="60" y="1416" font-size="13" fill="#7d7390">資料：SITES 第 6 節（每塊街區的設施）、DISTRICTS 1.3 節（要地與區內的橋接區）。由 tools/art/gen_district_maps.py 產生。</text>
+</svg>

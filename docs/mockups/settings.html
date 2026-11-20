@@ -218,6 +218,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 .ln.on{background:#3A2B47;box-shadow:inset 3px 0 0 var(--a)}
 .ln.no{opacity:.45}
 @media (max-width:720px){.v.on{display:flex;flex-direction:column;height:auto}.tabsx{flex-wrap:nowrap;overflow-x:auto}.tabsx span{flex:none}}
+.status .btn{white-space:nowrap}
 /* 設定 */
 .sgrp{font-size:12px;font-weight:900;letter-spacing:2px;color:var(--ink-2);margin:18px 0 8px;display:flex;align-items:center;gap:10px}
 .sgrp::after{content:"";flex:1;height:2px;background:var(--line)}
@@ -371,7 +372,7 @@ select.sel{font:800 12.5px var(--font);padding:6px 8px;background:#120D19;border
     <div class="kv"><span>判定</span><b class="mono">30 秒</b></div>
     <div class="kv"><span>寫正文</span><b class="mono">90 秒</b></div>
     <div class="kv"><span>批次任務</span><b class="mono">120 秒</b></div>
-    <div class="note">逾時之後改用備用模型重試；重試的次數在下面的列表裡。</div>
+    <div class="note">數字是示意，預設值還沒有定。逾時之後改用備用模型重試；重試的次數在左邊的列表裡。</div>
   </aside>
 </section>
 
@@ -548,9 +549,9 @@ document.querySelectorAll('[data-go]').forEach(l=>l.onclick=()=>{document.queryS
 drawDiff();sum();
 // AI 開關
 const A=[['判定'],
- ['自由行動的判定','開','關掉時，自由行動照規則表結算，不交給 AI。','AI_TASKS 3.13 節',1],
- ['打工的一班','開','關掉時，打工的一班照規則表結算。','AI_TASKS 3.13 節',1],
- ['事件的「我要做別的」','開','關掉時，事件裡不再出現「我要做別的」。','AI_TASKS 3.13 節',1],
+ ['自由行動的判定','開','關掉時，自由行動照骰值與參考 DC 由程式判定，玩家寫了做法也一樣。','AI_TASKS 3.13 節',1],
+ ['打工的一班','開','關掉時，打工的一班照骰值與參考 DC 由程式判定。','AI_TASKS 3.13 節',1],
+ ['事件的「我要做別的」','開','關掉時，「我要做別的」照骰值與參考 DC 由程式判定，選項照樣在。','AI_TASKS 3.13 節',1],
  ['夾值後重寫相關的句子','不重寫','AI 自己給的後果被夾住時，要不要把正文裡對應的句子改寫成夾過的數字。','AI_TASKS 2.5 節',0],
  ['正文'],
  ['敘事','開','關掉時，紀錄只寫戰報。','AI_TASKS 第 1 節',1],

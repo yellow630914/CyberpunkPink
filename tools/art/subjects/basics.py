@@ -324,6 +324,7 @@ GROUPS = [('基本功', BASICS), ('傷害類型', DAMAGE), ('設施', FACILITIES
 
 # 街區設施的名字 → 設施圖標（gen_district_maps.py 用；先比對的先用）
 FACILITY_KEYWORDS = [
+    ('檢查哨', 'fac_gate'), ('教堂', 'fac_shrine'), ('水塔', ''), ('繩橋', 'fac_gate'), ('封鎖', 'fac_gate'), ('倉庫', 'fac_barter'),
     ('地鐵', 'fac_metro'), ('輕軌', 'fac_metro'), ('渡輪', 'fac_ferry'), ('接駁船', 'fac_ferry'), ('巴士', 'fac_bus'), ('計程車', 'fac_bus'),
     ('地下層入口', 'fac_under'), ('豎井', 'fac_under'), ('防空洞', 'fac_under'), ('入水點', 'fac_under'), ('檢修門', 'fac_under'), ('走私洞', 'fac_under'),
     ('迷宮', 'fac_under'), ('入口', 'fac_under'), ('排水道', 'fac_under'), ('隧道', 'fac_under'),
