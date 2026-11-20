@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberpunkPink 原型</title>
+<style>
+:root{--bg:#120D19;--bg-1:#1A1322;--bg-2:#241B2E;--line:#3A2D47;--ink:#F3E9FF;--ink-2:#C9B8E8;--ink-3:#8C7AA6;--a:#F06AA0;--font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",Arial,sans-serif}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);display:grid;grid-template-columns:250px 1fr;height:100vh}
+nav{background:var(--bg-1);border-right:2px solid var(--line);overflow:auto;padding:14px 10px}
+.brand{font-weight:900;letter-spacing:1px;padding:0 6px 4px}
+.brand small{display:block;font-size:11px;color:var(--ink-3);font-weight:700;letter-spacing:0;margin-top:2px}
+.grp{font-size:10.5px;font-weight:900;color:var(--ink-3);letter-spacing:2px;margin:14px 6px 6px}
+a.s{display:block;padding:7px 10px;border-radius:7px;color:var(--ink-2);text-decoration:none;font-size:13px;font-weight:700}
+a.s small{display:block;font-size:10.5px;color:var(--ink-3);font-weight:600;margin-top:1px}
+a.s:hover{background:var(--bg-2)}
+a.s.on{background:var(--a);color:#fff}a.s.on small{color:#fff}
+a.s .old{font-size:9.5px;font-weight:900;color:#FF8A5C;margin-left:6px}
+a.s.on .old{color:#fff}
+main{position:relative;min-width:0}
+iframe{border:0;width:100%;height:100%;display:block;background:#17111F}
+.tip{position:absolute;right:12px;bottom:10px;font-size:11px;color:var(--ink-3);background:#120D19cc;padding:4px 8px;border-radius:6px;pointer-events:none}
+.mbtn{display:none}
+@media (max-width:720px){body{grid-template-columns:1fr;grid-template-rows:auto 1fr}nav{display:flex;gap:6px;overflow-x:auto;padding:8px;border-right:0;border-bottom:2px solid var(--line)}.brand,.grp{display:none}a.s{flex:none;white-space:nowrap}a.s small{display:none}}
+</style>
+</head>
+<body>
+<nav id="nav">
+  <div class="brand">CyberpunkPink 原型<small>所有畫面的示意頁，照遊玩的順序排</small></div>
+  <div class="grp">風格</div>
+  <a class="s" href="#style-board.html">兩套皮<small>現實與內海</small></a>
+  <a class="s" href="#currency.html">三種錢<small>帳戶、現金晶片、人情</small></a>
+  <div class="grp">城市</div>
+  <a class="s" href="#main-screen.html">主畫面<small>地圖、小隊、紀錄、這裡</small></a>
+  <a class="s" href="#daily.html">行囊與日常<small>行囊、商店、關係、待處理、帳單</small></a>
+  <a class="s" href="#overlays.html#scan">掃橋與打工<small>還有直播、素材、戰敗</small></a>
+  <div class="grp">角色</div>
+  <a class="s" href="#character.html">角色與義體<small>概要、身體、裝備、橋、成人</small></a>
+  <a class="s" href="#skill-tree.html">技能樹<small>八棵樹與夜課</small></a>
+  <div class="grp">委託</div>
+  <a class="s" href="#commission.html">委託<small>接案、踩點、召集、副本</small></a>
+  <a class="s" href="#combat-demo.html">現實戰鬥<span class="old">舊風格</span><small>可以操作的 Demo</small></a>
+  <a class="s" href="#net-demo.html">內海戰鬥<span class="old">舊風格</span><small>可以操作的 Demo</small></a>
+  <a class="s" href="#overlays.html#defeat">戰敗事件<small>全隊倒下之後</small></a>
+  <div class="grp">媒體</div>
+  <a class="s" href="#opinion-demo.html">輿論戰<span class="old">舊風格</span><small>可以操作的 Demo</small></a>
+  <a class="s" href="#channel.html">頻道<small>預算、開一集</small></a>
+  <a class="s" href="#overlays.html#live">直播面板<small>疊在別的畫面上</small></a>
+  <a class="s" href="#overlays.html#cut">素材與剪片<small>紀錄 → 素材 → 片</small></a>
+  <div class="grp">成人</div>
+  <a class="s" href="#adult-scene.html">成人場景<small>部位、連接、體位</small></a>
+  <a class="s" href="#adult-scene.html#gate">開場確認框<small>進入或略過</small></a>
+</nav>
+<main><iframe id="f" title="畫面"></iframe><div class="tip">畫面裡的分頁可以點；左邊切換畫面</div></main>
+<script>
+const f=document.getElementById('f'),links=[...document.querySelectorAll('a.s')];
+function go(){const h=location.hash.slice(1)||'main-screen.html';const [file,sub]=h.split('#');
+  f.src=file+(sub?'#'+sub:'');links.forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+h));}
+addEventListener('hashchange',go);go();
+</script>
+</body>
+</html>
