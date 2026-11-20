@@ -27,7 +27,7 @@ node tools/art/render.mjs
 
 | 圖 | 原稿 | 預覽 | 說明 |
 |---|---|---|---|
-| 緋夜城地圖 v0 | [`art/city-map.svg`](city-map.svg) | [`art/preview/city-map.png`](preview/city-map.png) | 八個區的位置、城牆與城門、地鐵兩線、輕軌、巴士、渡輪、主要地標、地下層入口。示意圖，非比例 |
+| 緋夜城地圖 v1 | [`art/city-map.svg`](city-map.svg)（由 `tools/art/gen_city.py` 產生） | [`art/preview/city-map.png`](preview/city-map.png) | 八個區、海岸線與海灣（鏡灣、櫻堀、彈坑灣）、城牆以內整片的街道網、各區自己的街道（冠冕區放射、蜂巢密格、舊港碼頭、玻璃岸彎路、鏽帶地形線）、主幹道、地鐵兩線、輕軌、巴士、渡輪、地標、地下層入口。示意圖，非比例 |
 | 地圖規模 v0 | [`art/map-scale.svg`](map-scale.svg)（由 `tools/art/gen_scale.py` 產生） | [`art/preview/map-scale.png`](preview/map-scale.png) | 一塊街區的格子樣本（蜂巢・天井市場，13×9）與八個區的 39 塊街區 |
 | 街區結構 v0 | [`art/district-blocks.svg`](district-blocks.svg)（由 `tools/art/gen_maps.py` 產生） | [`art/preview/district-blocks.png`](preview/district-blocks.png) | 八個區各自的街區、橋接區、要地與出口 |
 | 內海結構 v0 | [`art/cyberspace.svg`](cyberspace.svg)（同上） | [`art/preview/cyberspace.png`](preview/cyberspace.png) | 網路空間的七個分區、粉牆、現實的接點 |
