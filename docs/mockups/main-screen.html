@@ -140,6 +140,34 @@ body{background:var(--bg);background-image:var(--grid);color:var(--ink);font-fam
   .tab.on{color:var(--a)}
   .tab.on::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;background:var(--a);border-radius:0 0 3px 3px}
 }
+/* ==== FX：邊框、呼吸燈、心跳背景、滑鼠特效 ==== */
+@property --fr{syntax:'<color>';inherits:true;initial-value:#4A3560}
+@keyframes breathe{0%,100%{--fr:#45305C}50%{--fr:#B0508A}}
+@keyframes bracket{0%,100%{opacity:.45}50%{opacity:1}}
+[data-skin="real"] .panel{position:relative;background:var(--fr)!important;box-shadow:none!important;isolation:isolate;animation:breathe 3.6s ease-in-out infinite}
+[data-skin="real"] .panel::before{content:"";position:absolute;inset:2px;z-index:-1;background:color-mix(in srgb,var(--bg-1) 86%,transparent);backdrop-filter:blur(1px);
+  clip-path:polygon(0 0,calc(100% - var(--cut) + 1px) 0,100% calc(var(--cut) - 1px),100% 100%,calc(var(--cut) - 1px) 100%,0 calc(100% - var(--cut) + 1px))}
+[data-skin="real"] .panel::after{content:"";position:absolute;inset:6px;pointer-events:none;z-index:2;animation:bracket 3.6s ease-in-out infinite;
+  background:
+   linear-gradient(var(--a),var(--a)) left top/16px 2px no-repeat,
+   linear-gradient(var(--a),var(--a)) left top/2px 16px no-repeat,
+   linear-gradient(var(--a),var(--a)) right bottom/16px 2px no-repeat,
+   linear-gradient(var(--a),var(--a)) right bottom/2px 16px no-repeat,
+   repeating-linear-gradient(90deg,var(--b) 0 6px,transparent 6px 10px) left 26px top 0/44px 2px no-repeat}
+.ecg{position:fixed;left:0;right:0;top:50%;height:240px;transform:translateY(-50%);width:100%;pointer-events:none;z-index:0}
+.ecg .base{fill:none;stroke-width:2;opacity:.28}
+.ecg .beat{fill:none;stroke-width:3;stroke-dasharray:260 2400;animation:ecg 3.2s linear infinite;filter:drop-shadow(0 0 6px currentColor)}
+@keyframes ecg{from{stroke-dashoffset:2660}to{stroke-dashoffset:0}}
+body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
+.fxl{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden}
+.fxp{position:absolute;will-change:transform,opacity}
+@keyframes px{to{transform:translate(var(--dx),var(--dy)) scale(.3);opacity:0}}
+@keyframes rise{to{transform:translate(var(--dx),-46px) rotate(var(--r)) scale(.6);opacity:0}}
+@keyframes ring{from{transform:translate(-50%,-50%) scale(.2);opacity:1}to{transform:translate(-50%,-50%) scale(1);opacity:0}}
+@keyframes burst{to{transform:translate(var(--dx),var(--dy)) rotate(var(--r)) scale(.5);opacity:0}}
+@keyframes ack{0%{opacity:0;transform:translate(10px,-6px)}20%{opacity:1}100%{opacity:0;transform:translate(16px,-18px)}}
+@media (prefers-reduced-motion:reduce){[data-skin="real"] .panel,[data-skin="real"] .panel::after,.ecg .beat{animation:none}.fxl{display:none}}
+
 </style>
 </head>
 <body>
@@ -315,6 +343,52 @@ for(const id of ['grid','grid2']){
   const g=document.getElementById(id);
   L.join('').split('').forEach(ch=>{const d=document.createElement('i');d.className='tile '+cls[ch];g.appendChild(d)});
 }
+</script>
+<script>
+(()=>{
+if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+const NS='http://www.w3.org/2000/svg';
+// 心跳背景：每個 data-skin 區塊一條；整頁只有一種皮時鋪滿
+const ecgPath=()=>{let d='M0 120',x=0;while(x<1200){d+=` L${x+60} 120 L${x+75} 110 L${x+85} 120 L${x+100} 120 L${x+108} 60 L${x+118} 175 L${x+128} 100 L${x+140} 120 L${x+200} 120`;x+=200}return d};
+function addEcg(host,color,base){
+  const s=document.createElementNS(NS,'svg');s.setAttribute('class','ecg');s.setAttribute('viewBox','0 0 1200 240');s.setAttribute('preserveAspectRatio','none');
+  if(host!==document.body){s.style.position='absolute';}
+  s.innerHTML=`<path class="base" stroke="${base}" d="${ecgPath()}"/><path class="beat" stroke="${color}" style="color:${color}" d="${ecgPath()}"/>`;
+  host.prepend(s);
+}
+const skins=[...document.querySelectorAll('[data-skin]')];
+if(skins.length===1&&skins[0]===document.documentElement){addEcg(document.body,skins[0].dataset.skin==='net'?'#F06AA0':'#F06AA0',skins[0].dataset.skin==='net'?'#1E2346':'#8E7CC3');}
+else skins.forEach(el=>{if(getComputedStyle(el).position==='static')el.style.position='relative';el.style.overflow='hidden';
+  addEcg(el,el.dataset.skin==='net'?'#F06AA0':'#F06AA0',el.dataset.skin==='net'?'#1E2346':'#8E7CC3');
+  [...el.children].forEach(c=>{if(!c.classList.contains('ecg')){c.style.position=c.style.position||'relative';c.style.zIndex=1}})});
+// 特效層
+const L=document.createElement('div');L.className='fxl';document.body.appendChild(L);
+const skinAt=(x,y)=>{const e=document.elementFromPoint(x,y);const s=e&&e.closest('[data-skin]');return s?s.dataset.skin:'real'};
+const spawn=(html,x,y,anim,ms,vars)=>{const p=document.createElement('span');p.className='fxp';p.innerHTML=html;p.style.left=x+'px';p.style.top=y+'px';
+  for(const k in vars)p.style.setProperty(k,vars[k]);p.style.animation=`${anim} ${ms}ms ease-out forwards`;L.appendChild(p);setTimeout(()=>p.remove(),ms)};
+const R=(a,b)=>a+Math.random()*(b-a);
+let last=0;
+addEventListener('pointermove',e=>{const t=performance.now();if(t-last<28)return;last=t;const sk=skinAt(e.clientX,e.clientY);
+  if(sk==='real'){
+    const c=Math.random()<.7?'#F06AA0':'#8E7CC3';
+    spawn(`<i style="display:block;width:4px;height:4px;background:${c};box-shadow:0 0 6px ${c}"></i>`,e.clientX+R(-6,6),e.clientY+R(-6,6),'px',520,{'--dx':R(-14,14)+'px','--dy':R(-14,14)+'px'});
+    if(Math.random()<.18)spawn(`<i style="display:block;width:${R(14,34)|0}px;height:2px;background:#45D6C5;opacity:.8"></i>`,e.clientX+R(-20,6),e.clientY+R(-10,10),'px',380,{'--dx':R(8,24)+'px','--dy':'0px'});
+  }else{
+    const g=Math.random()<.6?'♥':'✦',c=Math.random()<.5?'#F06AA0':'#45D6C5';
+    spawn(`<b style="font:900 ${R(12,20)|0}px Arial;color:${c};-webkit-text-stroke:1.5px #1E2346;paint-order:stroke">${g}</b>`,e.clientX+R(-8,8),e.clientY+R(-6,6),'rise',720,{'--dx':R(-14,14)+'px','--r':R(-40,40)+'deg'});
+  }},{passive:true});
+addEventListener('pointerdown',e=>{const x=e.clientX,y=e.clientY,sk=skinAt(x,y);
+  if(sk==='real'){
+    spawn(`<i style="display:block;width:70px;height:70px;border:2px solid #F06AA0;box-shadow:0 0 10px #F06AA0;clip-path:polygon(0 0,80% 0,100% 20%,100% 100%,20% 100%,0 80%)"></i>`,x,y,'ring',460,{});
+    spawn(`<b style="font:800 11px ui-monospace,Menlo,monospace;color:#45D6C5;letter-spacing:1px">ACK//0x${(Math.random()*65535|0).toString(16).toUpperCase()}</b>`,x,y,'ack',700,{});
+    for(let i=0;i<3;i++)spawn(`<i style="display:block;width:${R(20,50)|0}px;height:3px;background:${i%2?'#F06AA0':'#45D6C5'}"></i>`,x+R(-30,10),y+R(-16,16),'px',300,{'--dx':R(10,30)+'px','--dy':'0px'});
+  }else{
+    spawn(`<i style="display:block;width:64px;height:64px;border-radius:50%;border:4px solid #1E2346;background:#45D6C540"></i>`,x,y,'ring',480,{});
+    for(let i=0;i<10;i++){const a=i/10*Math.PI*2,d=R(36,60),g=i%3?'♥':'✦',c=['#F06AA0','#45D6C5','#FFF4E8'][i%3];
+      spawn(`<b style="font:900 ${R(14,22)|0}px Arial;color:${c};-webkit-text-stroke:1.5px #1E2346;paint-order:stroke">${g}</b>`,x-6,y-10,'burst',620,{'--dx':Math.cos(a)*d+'px','--dy':Math.sin(a)*d+'px','--r':R(-90,90)+'deg'})}
+  }},{passive:true});
+})();
+
 </script>
 </body>
 </html>
