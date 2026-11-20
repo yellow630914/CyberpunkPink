@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>風格板 v1</title>
+<style>
+:root{
+  --cut:12px; --cut-sm:7px;
+  --font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",Arial,sans-serif;
+}
+/* 現實：深紫黑底、粉只當訊號、可愛 */
+[data-skin="real"]{
+  --bg:#17111F; --bg-1:#211829; --bg-2:#2C2136; --line:#3A2D47;
+  --ink:#F3E9FF; --ink-2:#C9B8E8; --ink-3:#8C7AA6;
+  --a:#F06AA0; --b:#8E7CC3; --c:#F3E9FF; --o:#17111F;
+  --hp:#FF5A6E; --load:#F06AA0; --sink:#5FB8E8; --ap:#F2C14E; --ram:#45D6C5; --ep:#B39DF0;
+  --panel-border:transparent; --outline:0px; --shadow:4px 4px 0 #0E0A14;
+  --grid:linear-gradient(#ffffff06 1px,transparent 1px) 0 0/16px 16px,linear-gradient(90deg,#ffffff06 1px,transparent 1px) 0 0/16px 16px;
+}
+/* 內海：糖果偶像 × 賽博朋克 */
+[data-skin="net"]{
+  --bg:#F8C3D8; --bg-1:#FFF4E8; --bg-2:#FFE6F0; --line:#1E2346;
+  --ink:#1E2346; --ink-2:#3B4170; --ink-3:#6D6F94;
+  --a:#F06AA0; --b:#1E2346; --c:#45D6C5; --o:#1E2346;
+  --hp:#FF5A6E; --load:#F06AA0; --sink:#3B8FD9; --ap:#F2B33D; --ram:#2EC2B0; --ep:#8A6FE0;
+  --panel-border:#1E2346; --outline:3px; --shadow:5px 5px 0 #1E2346;
+  --grid:radial-gradient(#1E234614 1.2px,transparent 1.3px) 0 0/10px 10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#0d0a12;font-family:var(--font)}
+.wrap{display:grid;grid-template-columns:1fr 1fr;gap:0;min-height:100vh}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}}
+.skin{background:var(--bg);background-image:var(--grid);color:var(--ink);padding:24px 20px 40px}
+h1{font-size:20px;margin:0 0 4px;letter-spacing:.5px}
+.sub{color:var(--ink-2);font-size:13px;margin-bottom:20px}
+h2{font-size:12px;letter-spacing:2px;color:var(--ink-3);margin:22px 0 10px;text-transform:uppercase}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+/* 斜切面板 */
+.panel{position:relative;background:var(--bg-1);padding:14px 16px;border:var(--outline) solid var(--panel-border);
+  clip-path:polygon(0 0,calc(100% - var(--cut)) 0,100% var(--cut),100% 100%,var(--cut) 100%,0 calc(100% - var(--cut)));}
+[data-skin="net"] .panel-wrap{filter:drop-shadow(5px 5px 0 #1E2346)}
+[data-skin="real"] .panel-wrap{filter:drop-shadow(4px 4px 0 #0E0A14)}
+.tick{position:absolute;top:8px;right:22px;width:18px;height:5px;background:var(--a)}
+.tick2{position:absolute;bottom:9px;left:26px;width:10px;height:4px;background:var(--c);opacity:.7}
+/* 色票 */
+.sw{width:64px}
+.sw i{display:block;height:44px;border-radius:10px;border:var(--outline) solid var(--o);box-shadow:inset 0 0 0 1px #ffffff10}
+.sw b{display:block;font-size:11px;margin-top:4px;color:var(--ink-2);font-weight:600}
+/* 按鈕 */
+.btn{font:700 14px var(--font);border:var(--outline) solid var(--o);padding:10px 18px;cursor:pointer;
+  clip-path:polygon(0 0,calc(100% - var(--cut-sm)) 0,100% var(--cut-sm),100% 100%,var(--cut-sm) 100%,0 calc(100% - var(--cut-sm)))}
+.btn.pri{background:var(--a);color:#fff}
+.btn.sec{background:var(--bg-2);color:var(--ink)}
+.btn.ghost{background:transparent;color:var(--ink-2);border:2px dashed var(--ink-3)}
+.btn.dis{background:var(--bg-2);color:var(--ink-3);opacity:.6}
+[data-skin="real"] .btn.sec{box-shadow:inset 0 0 0 2px var(--line)}
+/* 標籤 */
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--bg-2);border:var(--outline) solid var(--o)}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.chip.hot{background:var(--a);color:#fff}
+.chip.hot .dot{background:#fff}
+/* 量條 */
+.bar{margin:6px 0}
+.bar .lab{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2);margin-bottom:3px;font-weight:600}
+.bar .tr{height:14px;background:var(--bg-2);border:var(--outline) solid var(--o);border-radius:8px;overflow:hidden;position:relative}
+.bar .fi{height:100%;border-radius:6px}
+.bar .seg{position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(25% - 2px),var(--bg) calc(25% - 2px) 25%)}
+.layers{display:flex;gap:4px;margin-top:4px}
+.layers i{width:16px;height:10px;border-radius:3px;background:var(--bg-2);border:var(--outline) solid var(--o)}
+.layers i.on{background:var(--load)}
+/* 資源點 */
+.pips{display:flex;gap:5px;align-items:center}
+.pip{width:16px;height:16px;transform:rotate(45deg);border-radius:3px;border:var(--outline) solid var(--o)}
+.pip.off{background:var(--bg-2)!important}
+.res{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;color:var(--ink-2);margin:6px 0}
+.res span{width:56px}
+/* 卡片 */
+.card{width:150px;background:var(--bg-1);border:var(--outline) solid var(--o);border-radius:14px;padding:10px;position:relative}
+[data-skin="real"] .card{box-shadow:inset 0 0 0 2px var(--line)}
+.card .art{height:70px;border-radius:10px;background:var(--bg-2);display:grid;place-items:center;margin-bottom:8px}
+.card .t{font-weight:800;font-size:14px}
+.card .m{font-size:11px;color:var(--ink-2);margin-top:2px}
+.card .cost{position:absolute;top:-8px;left:-8px;width:28px;height:28px;border-radius:50%;background:var(--a);color:#fff;font-weight:900;display:grid;place-items:center;border:var(--outline) solid var(--o);font-size:13px}
+.card .tier{position:absolute;top:8px;right:8px;font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;background:var(--c);color:var(--bg)}
+[data-skin="net"] .card .tier{color:#1E2346}
+/* 人物卡 */
+.who{display:flex;gap:10px;align-items:center;background:var(--bg-1);border:var(--outline) solid var(--o);border-radius:14px;padding:8px 12px 8px 8px;width:260px}
+[data-skin="real"] .who{box-shadow:inset 0 0 0 2px var(--line)}
+.ava{width:52px;height:52px;border-radius:12px;background:var(--bg-2);border:var(--outline) solid var(--o);position:relative;overflow:hidden}
+.ava::before{content:"";position:absolute;left:12px;top:10px;width:28px;height:28px;border-radius:50%;background:var(--b)}
+.ava::after{content:"";position:absolute;left:4px;top:34px;width:44px;height:30px;border-radius:18px 18px 0 0;background:var(--b)}
+.who .n{font-weight:800}
+.who .r{font-size:11px;color:var(--ink-2)}
+.heart{color:var(--a);font-size:12px;font-weight:800}
+/* 檢定條 */
+.check{display:flex;align-items:stretch;border:var(--outline) solid var(--o);border-radius:12px;overflow:hidden;background:var(--bg-1);max-width:420px}
+[data-skin="real"] .check{box-shadow:inset 0 0 0 2px var(--line)}
+.check .d{background:var(--a);color:#fff;font-weight:900;font-size:22px;padding:8px 14px;display:grid;place-items:center}
+.check .info{padding:8px 12px;font-size:12px;flex:1}
+.check .res{margin:0;color:var(--ink)}
+.grade{display:inline-block;padding:2px 8px;border-radius:6px;background:var(--c);color:var(--bg);font-weight:800;font-size:12px}
+[data-skin="net"] .grade{color:#1E2346}
+/* 選項 */
+.opt{display:flex;gap:10px;align-items:center;padding:10px 12px;background:var(--bg-1);border:var(--outline) solid var(--o);border-radius:12px;margin:6px 0;font-size:14px;max-width:420px}
+[data-skin="real"] .opt{box-shadow:inset 0 0 0 2px var(--line)}
+.opt .k{font-size:11px;font-weight:800;padding:2px 7px;border-radius:6px;background:var(--bg-2);color:var(--ink-2)}
+.opt.sel{outline:3px solid var(--a);outline-offset:-3px}
+/* 任務鏈列 */
+.chain{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;font-weight:700}
+.step{padding:4px 9px;border-radius:999px;background:var(--bg-2);color:var(--ink-2);border:var(--outline) solid var(--o)}
+.step.ok{background:var(--c);color:var(--bg)}
+[data-skin="net"] .step.ok{color:#1E2346}
+.step.run{background:var(--bg-1);color:var(--ink);box-shadow:inset 0 0 0 2px var(--a)}
+.step.err{background:var(--hp);color:#fff}
+.step.fb{background:var(--ap);color:#1E2346}
+.arrow{color:var(--ink-3)}
+.prose{font-size:14px;line-height:1.85;max-width:440px}
+.net-prose{font-family:ui-monospace,Menlo,monospace;font-size:13px}
+.tag-glitch{position:relative;display:inline-block;font-weight:900;font-size:22px;letter-spacing:1px}
+.tag-glitch::before{content:attr(data-t);position:absolute;left:2px;top:2px;color:var(--c);z-index:-1}
+</style>
+</head>
+<body>
+<div class="wrap">
+<!-- ===================== 現實 ===================== -->
+<section class="skin" data-skin="real">
+  <h1 class="tag-glitch" data-t="現實｜REALITY">現實｜REALITY</h1>
+  <div class="sub">深紫黑的底，粉只當訊號，介面可愛，像隔著終端機看城市</div>
+
+  <h2>色票</h2>
+  <div class="row">
+    <div class="sw"><i style="background:#17111F"></i><b>底 深紫黑</b></div>
+    <div class="sw"><i style="background:#F3E9FF"></i><b>奶白</b></div>
+    <div class="sw"><i style="background:#8E7CC3"></i><b>淡紫</b></div>
+    <div class="sw"><i style="background:#F06AA0"></i><b>粉（訊號）</b></div>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <div class="sw"><i style="background:#FF5A6E"></i><b>生命</b></div>
+    <div class="sw"><i style="background:#5FB8E8"></i><b>沉溺</b></div>
+    <div class="sw"><i style="background:#F2C14E"></i><b>行動點</b></div>
+    <div class="sw"><i style="background:#45D6C5"></i><b>RAM</b></div>
+    <div class="sw"><i style="background:#B39DF0"></i><b>編輯點</b></div>
+  </div>
+
+  <h2>面板與按鈕</h2>
+  <div class="panel-wrap"><div class="panel">
+    <span class="tick"></span><span class="tick2"></span>
+    <div style="font-weight:800;margin-bottom:6px">蜂巢・天井市場</div>
+    <div class="prose" style="color:var(--ink-2)">雨從排水管的縫裡滴下來，阿蓮的雜貨店還亮著。她抬頭看你一眼，把一碗麵推到櫃檯的這一邊。</div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn pri">接下委託</button><button class="btn sec">打聽消息</button><button class="btn ghost">離開</button><button class="btn dis">已鎖定</button>
+    </div>
+  </div></div>
+
+  <h2>標籤</h2>
+  <div class="row">
+    <span class="chip hot"><span class="dot"></span>現在該看</span>
+    <span class="chip"><span class="dot"></span>槍手 2 階</span>
+    <span class="chip"><span class="dot" style="background:#F2C14E"></span>等級 II</span>
+    <span class="chip"><span class="dot" style="background:#FF5A6E"></span>敵對值 42</span>
+  </div>
+
+  <h2>三條軌與資源</h2>
+  <div style="max-width:420px">
+    <div class="bar"><div class="lab"><span>生命</span><span>34 / 48</span></div><div class="tr"><div class="fi" style="width:70%;background:var(--hp)"></div></div></div>
+    <div class="bar"><div class="lab"><span>感載</span><span>21 / 40</span></div><div class="tr"><div class="fi" style="width:52%;background:var(--load);box-shadow:0 0 10px var(--load)"></div><div class="seg"></div></div>
+      <div class="layers"><i class="on"></i><i class="on"></i><i></i></div></div>
+    <div class="bar"><div class="lab"><span>沉溺</span><span>58</span></div><div class="tr"><div class="fi" style="width:58%;background:var(--sink)"></div></div></div>
+    <div class="res"><span>行動點</span><div class="pips"><i class="pip" style="background:var(--ap)"></i><i class="pip" style="background:var(--ap)"></i><i class="pip" style="background:var(--ap)"></i><i class="pip off"></i><i class="pip off"></i></div></div>
+  </div>
+
+  <h2>卡片與人物</h2>
+  <div class="row" style="align-items:flex-start">
+    <div class="card"><span class="cost">2</span><span class="tier">前層</span><div class="art"><svg width="54" height="54" viewBox="0 0 200 200"><path fill="#8E7CC3" stroke="#211829" stroke-width="9" paint-order="stroke" d="M58 104 H104 L114 168 Q116 182 102 182 H74 Q60 182 58 168 Z"/><path fill="#F3E9FF" stroke="#211829" stroke-width="9" paint-order="stroke" d="M26 64 Q26 50 40 50 H160 Q174 50 174 64 V92 Q174 106 160 106 H40 Q26 106 26 92 Z"/><rect x="44" y="64" width="80" height="10" rx="5" fill="#F06AA0"/></svg></div><div class="t">看我的！</div><div class="m">第一回合射擊只花 1 行動點，命中 +1</div></div>
+    <div style="display:grid;gap:10px">
+      <div class="who"><div class="ava"></div><div><div class="n">小麥</div><div class="r">信差｜掮客／藝人</div><div class="heart">♥ 親密度 42</div></div></div>
+      <div class="who"><div class="ava"></div><div><div class="n">阿蓮</div><div class="r">蜂巢的中間人</div><div class="heart">♥ 親密度 20</div></div></div>
+    </div>
+  </div>
+
+  <h2>檢定、選項、任務鏈列</h2>
+  <div class="check"><div class="d">17</div><div class="info"><div class="res">交涉 DC 13 → <span class="grade">成功</span></div><div style="color:var(--ink-2)">差 4：是。阿蓮答應先記帳。</div></div></div>
+  <div class="opt sel"><span class="k">交涉 13</span>請她先記帳，下週再還。</div>
+  <div class="opt"><span class="k">威嚇 16</span>把欠條拍在櫃檯上。</div>
+  <div class="chain" style="margin-top:12px">
+    <span class="step ok">擲骰</span><span class="arrow">›</span><span class="step ok">判定</span><span class="arrow">›</span><span class="step ok">上限</span><span class="arrow">›</span><span class="step run">寫正文…</span><span class="arrow">›</span><span class="step">算回報</span><span class="arrow">›</span><span class="step">套用</span>
+  </div>
+</section>
+
+<!-- ===================== 內海 ===================== -->
+<section class="skin" data-skin="net">
+  <h1 class="tag-glitch" data-t="內海｜DEEP NET">內海｜DEEP NET</h1>
+  <div class="sub">糖果偶像 × 賽博朋克</div>
+
+  <h2>色票</h2>
+  <div class="row">
+    <div class="sw"><i style="background:#F8C3D8"></i><b>底 糖粉</b></div>
+    <div class="sw"><i style="background:#45D6C5"></i><b>薄荷青</b></div>
+    <div class="sw"><i style="background:#1E2346"></i><b>深藏青</b></div>
+    <div class="sw"><i style="background:#FFF4E8"></i><b>奶白</b></div>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <div class="sw"><i style="background:#F06AA0"></i><b>粉</b></div>
+    <div class="sw"><i style="background:#3B8FD9"></i><b>沉溺</b></div>
+    <div class="sw"><i style="background:#F2B33D"></i><b>行動點</b></div>
+    <div class="sw"><i style="background:#2EC2B0"></i><b>RAM</b></div>
+    <div class="sw"><i style="background:#8A6FE0"></i><b>編輯點</b></div>
+  </div>
+
+  <h2>面板與按鈕</h2>
+  <div class="panel-wrap"><div class="panel">
+    <span class="tick"></span><span class="tick2"></span>
+    <div style="font-weight:800;margin-bottom:6px">樂園島・溫泉館子網 B2</div>
+    <div class="prose net-prose" style="color:var(--ink-2)">粉色的蕾絲在走廊的盡頭轉過身，裙襬上的程式碼一行一行亮起來。追蹤度 34。</div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn pri">潛入下一層</button><button class="btn sec">管理行動</button><button class="btn ghost">登出</button><button class="btn dis">閃斷中</button>
+    </div>
+  </div></div>
+
+  <h2>標籤</h2>
+  <div class="row">
+    <span class="chip hot"><span class="dot"></span>現在該看</span>
+    <span class="chip"><span class="dot"></span>同步：深</span>
+    <span class="chip"><span class="dot" style="background:#F06AA0"></span>粉蕾絲</span>
+    <span class="chip"><span class="dot" style="background:#FF5A6E"></span>追蹤度 34</span>
+  </div>
+
+  <h2>感載與資源</h2>
+  <div style="max-width:420px">
+    <div class="bar"><div class="lab"><span>感載</span><span>21 / 40</span></div><div class="tr"><div class="fi" style="width:52%;background:var(--load)"></div><div class="seg"></div></div>
+      <div class="layers"><i class="on"></i><i class="on"></i><i></i></div></div>
+    <div class="bar"><div class="lab"><span>追蹤度</span><span>34 / 90</span></div><div class="tr"><div class="fi" style="width:38%;background:var(--hp)"></div></div></div>
+    <div class="res"><span>RAM</span><div class="pips"><i class="pip" style="background:var(--ram)"></i><i class="pip" style="background:var(--ram)"></i><i class="pip" style="background:var(--ram)"></i><i class="pip" style="background:var(--ram)"></i><i class="pip off"></i><i class="pip off"></i></div></div>
+    <div class="res"><span>行動點</span><div class="pips"><i class="pip" style="background:var(--ap)"></i><i class="pip" style="background:var(--ap)"></i><i class="pip off"></i><i class="pip off"></i></div></div>
+  </div>
+
+  <h2>卡片與人物</h2>
+  <div class="row" style="align-items:flex-start">
+    <div class="card"><span class="cost">1</span><span class="tier">構裝</span><div class="art"><svg width="54" height="54" viewBox="0 0 200 200"><path fill="#45D6C5" stroke="#1E2346" stroke-width="9" paint-order="stroke" d="M54 66 L46 24 L82 46 Z"/><path fill="#45D6C5" stroke="#1E2346" stroke-width="9" paint-order="stroke" d="M146 66 L154 24 L118 46 Z"/><path fill="none" stroke="#1E2346" stroke-width="14" stroke-linecap="round" d="M44 122 Q44 50 100 50 Q156 50 156 122"/><rect x="26" y="104" width="40" height="64" rx="18" fill="#F06AA0" stroke="#1E2346" stroke-width="9" paint-order="stroke"/><rect x="134" y="104" width="40" height="64" rx="18" fill="#45D6C5" stroke="#1E2346" stroke-width="9" paint-order="stroke"/></svg></div><div class="t">我不在家喔</div><div class="m">追蹤度 −10，這一層的白蕾絲看不到你</div></div>
+    <div style="display:grid;gap:10px">
+      <div class="who"><div class="ava"></div><div><div class="n">媽咪</div><div class="r">流竄 AI｜溺愛</div><div class="heart">♥ 沉溺門檻 50</div></div></div>
+      <div class="who"><div class="ava"></div><div><div class="n">零</div><div class="r">潛網者／改造師</div><div class="heart">♥ 親密度 60</div></div></div>
+    </div>
+  </div>
+
+  <h2>檢定、選項、任務鏈列</h2>
+  <div class="check"><div class="d">9</div><div class="info"><div class="res">介面 DC 16 → <span class="grade" style="background:#FF5A6E;color:#fff">失敗</span></div><div style="color:var(--ink-2)">不，但是：閘門沒開，你記下了它的節奏。</div></div></div>
+  <div class="opt sel"><span class="k">介面 16</span>破解這一層的閘門。</div>
+  <div class="opt"><span class="k">誘惑 13</span>對白蕾絲說你是來修東西的。</div>
+  <div class="chain" style="margin-top:12px">
+    <span class="step ok">擲骰</span><span class="arrow">›</span><span class="step ok">判定</span><span class="arrow">›</span><span class="step err">寫正文 ✕</span><span class="arrow">›</span><span class="step fb">算回報（規則）</span><span class="arrow">›</span><span class="step">套用</span>
+  </div>
+</section>
+</div>
+</body>
+</html>
