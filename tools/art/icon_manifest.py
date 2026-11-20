@@ -8,7 +8,12 @@
 提示詞的寫法與負向提示詞在 ART_STYLE 5.1 節。英文主體是照中文名字裡的關鍵字推的，推不出來的用分類的主體；
 要改某一筆，直接改 CSV 的 prompt 欄（重跑會蓋掉；手改的寫在 icons/overrides.csv，同樣的欄位，只放要改的列，重跑時會套上去）。
 用法：python3 tools/art/icon_manifest.py"""
-import csv, os, re
+import csv, hashlib, os, re
+
+
+def sid(prefix, name):
+    """由名字算出固定的 id，順序變了也不會跑掉。"""
+    return f'{prefix}_{hashlib.sha1(name.encode()).hexdigest()[:6]}'
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 DOCS = os.path.join(ROOT, 'docs')
@@ -151,7 +156,7 @@ def items():
                 bstyle = next((v for k, v in BRAND if k in brand or k in name), '')
                 detail = {'I': 'very simple', 'II': 'simple', 'III': 'moderately detailed', 'IV': 'detailed', 'V': 'intricate'}.get(grade, 'simple')
                 prompt = ', '.join(x for x in [STYLE, f'{subj}', bstyle, f'{detail} shape', 'ornate one-of-a-kind artifact with a faint violet glow' if unique else '', PALETTE] if x)
-                out.append({'id': f'it_{len(out) + 1:04d}', '名字': name, '分類': f'ITEMS {sec}', '第2層': f'ic-{l2}', '等級': grade, '牌子': brand,
+                out.append({'id': sid('it', name), '名字': name, '分類': f'ITEMS {sec}', '第2層': f'ic-{l2}', '等級': grade, '牌子': brand,
                             '獨特': '是' if unique else '', 'prompt': prompt, '備註': ''})
     return out
 
@@ -202,7 +207,7 @@ def skills():
             effect = ' '.join(r[7:10]) if len(r) > 9 else ' '.join(r)
             subj = next((v for k, v in SKW if k in effect or k in name), 'an abstract power symbol')
             prompt = ', '.join([STYLE.replace('game icon', 'game skill icon').replace('single object', 'single symbol'), f'{subj}', f'{motif} theme', f'{KIND.get(kind, "active")} ability', PALETTE])
-            out.append({'id': f'sk_{tid}_{len(out) + 1:03d}', '名字': name, '分類': f'{tname} {tier} 階', '第2層': f'ic-sk_{tid}_{KIND.get(kind, "active")}',
+            out.append({'id': sid(f'sk_{tid}', tname + name), '名字': name, '分類': f'{tname} {tier} 階', '第2層': f'ic-sk_{tid}_{KIND.get(kind, "active")}',
                         '等級': tier, '牌子': '', '獨特': '招牌' if '招牌' in r[1] else '', 'prompt': prompt, '備註': ''})
     # 夜課：提示詞只用抽象的符號，不畫人體
     path = os.path.join(DOCS, 'content', 'NIGHT_LESSONS.md')
@@ -233,7 +238,7 @@ def skills():
                                             ('綁', 'a silk ribbon bow'), ('標記', 'a small heart stamp'), ('穿', 'a dress on a hanger'), ('鏡頭', 'a camera with a heart')] if k in name + ' ' + ' '.join(r[1:2])), 'an abstract heart symbol')
             prompt = ', '.join([STYLE.replace('game icon', 'game skill icon').replace('single object', 'single symbol'), subj, 'crescent moon and heart theme', f'{kind} ability',
                                 'tasteful, non-explicit, symbolic only', PALETTE])
-            out.append({'id': f'sk_night_{len(out) + 1:03d}', '名字': name, '分類': f'夜課・{branch} {tier} 階', '第2層': f'ic-sk_night_{kind}', '等級': tier,
+            out.append({'id': sid('sk_night', name), '名字': name, '分類': f'夜課・{branch} {tier} 階', '第2層': f'ic-sk_night_{kind}', '等級': tier,
                         '牌子': '', '獨特': '', 'prompt': prompt, '備註': '只用抽象符號，不畫人體'})
     return out
 

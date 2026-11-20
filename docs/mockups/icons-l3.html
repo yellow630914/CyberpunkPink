@@ -1,0 +1,34 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>第 3 層圖標</title>
+<style>
+:root{--bg:#17111F;--bg1:#211829;--line:#3A2D47;--ink:#F3E9FF;--ink2:#C9B8E8;--ink3:#8C7AA6;--pink:#F06AA0}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;padding:16px}
+h1{font-size:20px;margin:0 0 4px;color:var(--pink)} p{margin:0 0 12px;color:var(--ink3);font-size:12.5px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;position:sticky;top:0;background:var(--bg);padding:6px 0;z-index:2}
+input{flex:1;min-width:160px;background:var(--bg1);border:0;box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);padding:8px 10px;border-radius:8px;font:inherit}
+button{background:var(--bg1);border:0;color:var(--ink2);padding:6px 12px;border-radius:999px;font:inherit;font-weight:700;cursor:pointer} button.on{background:var(--pink);color:#fff}
+.skin button{padding:6px 10px}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.c{text-align:center;font-size:11px;min-width:0} .c b{display:block;font-size:11.5px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .c small{color:var(--ink3);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.f{position:relative;aspect-ratio:1;background:#120D19;border-radius:10px;box-shadow:inset 0 0 0 2px var(--gc,#3A2D47);display:grid;place-items:center}
+.f svg{width:72%;height:72%}
+.g1{--gc:#E9E3F2} .g2{--gc:#5DD37A} .g3{--gc:#5C9DFF} .g4{--gc:#F2C14E} .g5{--gc:#FF8A3D} .gs .f{box-shadow:none}
+.u{position:absolute;right:-3px;top:-3px;width:14px;height:14px;background:#9A6FD6;border-radius:3px;box-shadow:0 0 0 2px var(--bg)}
+body.net{--bg:#F8C3D8;--bg1:#FFF4E8;--line:#1E2346;--ink:#1E2346;--ink2:#3B4170;--ink3:#6D6F94} body.net .f{background:#FFE6F0}
+#grid{--o:#17111F;--a:#F06AA0} body.net #grid{--o:#1E2346}
+.n{color:var(--ink3);font-size:12px;margin:0 0 8px}
+</style></head><body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none"><defs><style>.s{stroke:var(--o);stroke-width:9;stroke-linejoin:round;stroke-linecap:round;paint-order:stroke}</style></defs>
+
+</svg>
+
+<h1>第 3 層圖標</h1><p>每一件物品、每一個技能各一個。格子的框色是等級（白、綠、藍、金、橘），右上角紫色小標是獨特物品；主體一樣的物品靠牌子與名字裡的顏色、花紋分開，IV、V 級多一兩顆星光。</p>
+<div class="bar"><input id="q" placeholder="搜尋名字、分類、牌子"><button class="on" data-f="">全部</button><button data-f="物品">物品</button><button data-f="技能">技能</button><span class="skin"><button class="on" data-s="">現實皮</button><button data-s="net">內海皮</button></span></div>
+<div class="n" id="n"></div>
+<div id="grid"></div>
+<script>
+const cs=[...document.querySelectorAll('.c')],q=document.getElementById('q'),n=document.getElementById('n');let f='';
+function run(){const t=q.value.trim();let k=0;cs.forEach(c=>{const ok=(!f||c.dataset.k===f)&&(!t||c.dataset.t.includes(t));c.style.display=ok?'':'none';if(ok)k++;});n.textContent=k+' 個';}
+document.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-f]').forEach(x=>x.classList.remove('on'));b.classList.add('on');f=b.dataset.f;run();});
+document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-s]').forEach(x=>x.classList.remove('on'));b.classList.add('on');document.body.className=b.dataset.s;});
+q.oninput=run;run();
+</script></body></html>
