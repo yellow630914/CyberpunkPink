@@ -66,7 +66,7 @@ def main():
     o.append('<path d="M1210 200V840" stroke="#efe9f7" stroke-opacity=".5" stroke-width="5"/><path d="M1210 200V840" stroke="#0d0a14" stroke-width="2" stroke-dasharray="3 9"/>')
     o.append(f'<text x="1222" y="222" font-size="12" fill="{INK3}" letter-spacing="4">城牆</text>')
     # 區名（淡）
-    for t, x, y in [('玻璃岸', 520, 250), ('冠冕區', 470, 300), ('四十二番街', 700, 445), ('櫻町', 545, 760), ('舊港', 700, 800), ('蜂巢', 1040, 560), ('鏽帶', 1300, 640)]:
+    for t, x, y in [('玻璃岸', 520, 250), ('冠冕區', 470, 300), ('四十二番街', 700, 445), ('櫻町', 545, 760), ('舊港', 700, 800), ('蜂巢', 1030, 770), ('鏽帶', 1300, 640)]:
         o.append(f'<text x="{x}" y="{y}" font-size="20" font-weight="800" fill="{DCOL[t]}" fill-opacity=".22" letter-spacing="6">{t}</text>')
     # 路線
     for lid, d in ROUTES:
@@ -112,7 +112,8 @@ def main():
     o.append(f'<text x="1530" y="480" font-size="11.5" fill="{INK2}" transform="rotate(90 1530 480)">往荒地 →</text>')
     # 標題
     o.append('<text x="40" y="70" font-size="40" font-weight="900" fill="#ff4fa3" letter-spacing="6" filter="url(#glow)">路線圖</text>'
-             f'<text x="210" y="70" font-size="15" fill="{INK2}" letter-spacing="2">地鐵兩線・輕軌環線・外環巴士・渡輪　·　18 站　·　車站介面用，示意 v0（方位照城市地圖，距離不照比例）</text>')
+             f'<text x="210" y="56" font-size="15" fill="{INK2}" letter-spacing="2">地鐵兩線・輕軌環線・外環巴士・渡輪　·　18 站</text>'
+             f'<text x="210" y="80" font-size="13" fill="{INK3}" letter-spacing="1">車站介面用，示意 v0（方位照城市地圖，距離不照比例）</text>')
     # 圖例（右上）
     lx, ly = 850, 40
     leg = []
