@@ -75,15 +75,20 @@ body{margin:0;padding:24px 16px;background:#17111F;color:var(--ink);font-family:
 .cd-log p{margin:0 0 3px;max-width:none}.cd-log .h{color:var(--pinkhi)}.cd-log .g{color:var(--mint)}.cd-log .r{color:var(--hp)}
 .cd-end{padding:12px;border:1px solid var(--pink);color:var(--pinkhi);margin:10px 0;display:none}
 .cd-note{color:var(--ink3);font-size:12px;margin-top:8px}
+.cd-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cd-hold{position:relative;overflow:hidden;color:var(--hp);box-shadow:inset 0 0 0 1px var(--hp);-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:none}
+.cd-btns .cd-hold:first-of-type{margin-left:10px}
+.cd-hold i{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--hp);display:block}
+.cd-hold.on i{width:100%;transition:width .6s linear}
 </style>
 <div class="cd" id="cdemo">
   <div class="cd-top"><b>現實戰鬥 DEMO</b><span id="cd-round"></span><div class="cd-order" id="cd-order"></div><span class="sp"></span><button class="cd-btn" id="cd-reset">重新開始</button></div>
   <div class="cd-scroll"><div class="cd-field" id="cd-field"></div><div class="cd-dir" aria-hidden="true"><div class="p"><svg><defs><pattern id="cd-chv" width="12" height="12" patternUnits="userSpaceOnUse"><polyline points="2,1 7,6 2,11"/></pattern></defs><rect width="100%" height="12" fill="url(#cd-chv)"/></svg></div><div class="e"><svg><rect width="100%" height="12" fill="url(#cd-chv)"/></svg></div></div></div>
   <div class="cd-end" id="cd-end"></div>
-  <div class="cd-act" id="cd-act"><div class="cd-tip" id="cd-tip" hidden></div><div class="cd-wbox" id="cd-wbox"></div><div class="cd-side"><button class="cd-btn" data-a="end" id="cd-endbtn">結束回合</button><div class="cd-skl" id="cd-skl" hidden><b>技能清單</b><p>這個 Demo 還沒有技能。正式版這裡列出這個角色裝著的主動技能與姿態，點了才展開，不佔圓環的位置。</p></div></div></div>
+  <div class="cd-act" id="cd-act"><div class="cd-tip" id="cd-tip" hidden></div><div class="cd-wbox" id="cd-wbox"></div><div class="cd-side"><div class="cd-btns"><button class="cd-btn" data-a="end" id="cd-endbtn">結束回合</button><button class="cd-btn cd-hold" id="cd-flee" title="長按：全隊擲一次，成功就離開這場戰鬥">脫離<small>2</small><i></i></button><button class="cd-btn cd-hold" id="cd-give" title="長按：結束這場戰鬥，算戰敗">投降<small>0</small><i></i></button></div><div class="cd-skl" id="cd-skl" hidden><b>技能清單</b><p>這個 Demo 還沒有技能。正式版這裡列出這個角色裝著的主動技能與姿態，點了才展開，不佔圓環的位置。</p></div></div></div>
   <div class="cd-hint" id="cd-hint"></div>
   <div class="cd-log" id="cd-log" aria-live="polite"></div>
-  <div class="cd-note">照已確認的規則：雙方各四格縱深，距離＝我的格數＋對方格數−1；每次攻擊都會照武器的倍率傷到目標那一格的遮蔽（掩體→半掩體→暴露）；前面那格沒有人也沒有遮蔽時，後排連同自己的遮蔽往前補；行動點每回合回 3；彈匣 1～4 格，連射打空彈匣並自帶壓制；神經傷害打感載，過載失去一回合並疊一層餘韻；制伏要在近身。沒有做的：技能、無人機與機甲、快駭、場地效果。數值都是初稿。行動圓環的圖示來自 game-icons.net（CC BY 3.0）。</div>
+  <div class="cd-note">照已確認的規則：雙方各四格縱深，距離＝我的格數＋對方格數−1；每次攻擊都會照武器的倍率傷到目標那一格的遮蔽（掩體→半掩體→暴露）；前面那格沒有人也沒有遮蔽時，後排連同自己的遮蔽往前補；行動點每回合回 3；彈匣 1～4 格；狙擊槍一槍 3 點，已經包含瞄準；監視花 2 點，敵人一站上暴露的格子就自動開一槍；神經傷害打感載，過載失去一回合並疊一層餘韻；制伏要在近身；脫離與投降在結束回合旁邊，要長按。瞄準與連射是槍手的技能，這個 Demo 沒有做技能，所以只有敵人會用。沒有做的：技能、無人機與機甲、快駭、場地效果。數值都是初稿。行動圓環的圖示來自 game-icons.net（CC BY 3.0）。</div>
 </div>
 <script>
 (function(){
@@ -93,7 +98,7 @@ const W={
  shotgun:{n:'霰彈槍',dice:5,far:3,r:[1,3],mag:2,pen:0,t:'p',push:1,cm:1.5},
  pistol:{n:'手槍',dice:3,r:[1,4],mag:2,pen:0,t:'p',cm:.25},
  smg:{n:'衝鋒槍',dice:3,r:[2,5],mag:3,pen:0,t:'p',cm:.5},
- sniper:{n:'狙擊槍',dice:6,r:[5,7],mag:1,pen:4,t:'p',long:1,cm:.25},
+ sniper:{n:'狙擊槍',dice:6,r:[5,7],mag:1,pen:4,t:'p',long:1,cm:.25,snipe:1},
  stun:{n:'感官彈槍',dice:3,r:[2,5],mag:2,pen:0,t:'n',cm:0},
  knife:{n:'刀',dice:3,r:[1,1],mag:0,pen:1,t:'p',melee:1,cm:0}
 };
@@ -101,9 +106,9 @@ const COVN=['暴露','半掩體','掩體'], COVB=[0,2,4], COVD=[0,15,30];
 let S;
 function unit(side,slot,name,role,o){return Object.assign({side,slot,name,role,hp:o.hp,hpMax:o.hp,armor:o.armor,load:0,loadMax:o.lm,layers:0,layersMax:o.lay,
   ap:o.ap,apMax:o.ap,refl:o.refl,gun:o.gun,mel:o.mel||0,will:o.will||0,tier:o.tier||1,elite:!!o.elite,
-  ws:o.ws.map(k=>({k,mag:W[k].mag})),wi:0,aim:false,stun:false,supp:0,watch:false,daze:false,bleed:false,down:false,out:false},{})}
+  ws:o.ws.map(k=>({k,mag:W[k].mag})),wi:0,aim:false,stun:false,supp:0,watch:false,mv:false,daze:false,bleed:false,down:false,out:false},{})}
 function init(){
- S={round:1,idx:0,busy:false,mode:null,over:false,
+ S={round:1,idx:0,busy:false,mode:null,over:false,exq:[],
   cov:{P:[null,{l:1,d:15},{l:2,d:30},{l:2,d:30},{l:1,d:15}],E:[null,{l:1,d:15},{l:2,d:30},{l:1,d:15},{l:2,d:30}]},
   units:[
    unit('P',1,'前鋒','',{hp:48,armor:4,lm:36,lay:3,ap:5,refl:1,gun:3,mel:5,will:2,ws:['shotgun','knife']}),
@@ -128,18 +133,19 @@ function log(t,c){const p=document.createElement('p');if(c)p.className=c;p.textC
 const tag=u=>(u.side==='P'?'':'敵・')+u.name;
 function dodge(u){return 10+u.refl+COVB[S.cov[u.side][u.slot].l]-u.layers}
 function rmod(a,t,w){const d=dist(a,t);let m=0;if(d<w.r[0])m=-2*(w.r[0]-d);if(d>w.r[1])m=-2*(d-w.r[1]);if(w.long&&a.slot===1)m-=4;return m}
-function hitChance(a,t,w){const b=(w.melee?a.mel:a.gun)+rmod(a,t,w)+(a.aim?3:0)-(a.supp?2:0)-a.layers;return Math.max(5,Math.min(95,(21-(dodge(t)-b))*5))}
-function compact(side){let moved=true;while(moved){moved=false;for(let s=1;s<=3;s++){if(!at(side,s)&&S.cov[side][s].l===0){const back=S.units.filter(u=>u.side===side&&!u.down&&u.slot>s);if(back.length){back.forEach(u=>u.slot--);const c=S.cov[side];for(let k=s;k<4;k++)c[k]=c[k+1];c[4]={l:0,d:0};log((side==='P'?'我方':'敵方')+'後排連同遮蔽往前補位。');moved=true;break}}}}}
-function hurtCover(side,slot,dmg){const c=S.cov[side][slot];dmg=Math.round(dmg);if(c.l===0||dmg<=0)return;if(!at(side,slot))dmg*=2;c.d-=dmg;while(c.l>0&&c.d<=0){c.l--;c.d+=COVD[c.l];if(c.l===0)c.d=0;log((side==='P'?'我方':'敵方')+'第 '+slot+' 格的遮蔽被打成'+COVN[c.l]+'。','h')}compact(side)}
+const aimB=(a,w)=>(a.aim||w.snipe)?3:0;
+function hitChance(a,t,w){const b=(w.melee?a.mel:a.gun)+rmod(a,t,w)+aimB(a,w)-(a.supp?2:0)-a.layers;return Math.max(5,Math.min(95,(21-(dodge(t)-b))*5))}
+function compact(side){let moved=true;while(moved){moved=false;for(let s=1;s<=3;s++){if(!at(side,s)&&S.cov[side][s].l===0){const back=S.units.filter(u=>u.side===side&&!u.down&&u.slot>s);if(back.length){back.forEach(u=>u.slot--);const c=S.cov[side];for(let k=s;k<4;k++)c[k]=c[k+1];c[4]={l:0,d:0};log((side==='P'?'我方':'敵方')+'後排連同遮蔽往前補位。');back.forEach(exposed);moved=true;break}}}}}
+function hurtCover(side,slot,dmg){const c=S.cov[side][slot];dmg=Math.round(dmg);if(c.l===0||dmg<=0)return;if(!at(side,slot))dmg*=2;c.d-=dmg;while(c.l>0&&c.d<=0){c.l--;c.d+=COVD[c.l];if(c.l===0){c.d=0;exposed(at(side,slot))}log((side==='P'?'我方':'敵方')+'第 '+slot+' 格的遮蔽被打成'+COVN[c.l]+'。','h')}compact(side)}
 function fall(u,how){u.down=true;u.stun=false;log(tag(u)+how,u.side==='P'?'r':'g');compact(u.side);check()}
 function neural(t,n){t.load+=n;if(t.load>=t.loadMax){t.load=0;t.layers++;if(t.layers>t.layersMax){fall(t,' 餘韻疊滿後再過載：倒下。')}else{t.stun=true;log(tag(t)+' 過載！失去下一回合，餘韻 '+t.layers+' 層。','h')}}}
 function attack(a,t,o){o=o||{};const w=o.w||wp(a),slotW=a.ws[a.wi],n=o.burst?slotW.mag:1;
  if(w.mag){slotW.mag-=n}
- const r=d20(),bonus=(w.melee?a.mel:a.gun)+rmod(a,t,w)+(a.aim?3:0)-(a.supp?2:0)-a.layers,tot=r+bonus,dg=dodge(t),cb=COVB[S.cov[t.side][t.slot].l];
- const aimed=a.aim;a.aim=false;
+ const r=d20(),bonus=(w.melee?a.mel:a.gun)+rmod(a,t,w)+aimB(a,w)-(a.supp?2:0)-a.layers,tot=r+bonus,dg=dodge(t),cb=COVB[S.cov[t.side][t.slot].l];
+ const aimed=a.aim||!!w.snipe;a.aim=false;
  let dice=(w.far&&dist(a,t)>2?w.far:w.dice)+(o.burst?n-1:0);
  const hit=r===20||(r!==1&&tot>=dg), crit=hit&&tot-dg>=5;
- let msg=tag(a)+(o.burst?' 用'+w.n+'連射（'+n+' 格）':' 用'+w.n+'攻擊')+' '+tag(t)+'：d20='+r+(bonus>=0?'+':'')+bonus+'='+tot+' 對迴避 '+dg+'，';
+ let msg=tag(a)+(o.burst?' 用'+w.n+'連射（'+n+' 格）':' 用'+w.n+(w.snipe?'瞄準射擊':'攻擊'))+' '+tag(t)+'：d20='+r+(bonus>=0?'+':'')+bonus+'='+tot+' 對迴避 '+dg+'，';
  if(!hit){
   log(msg+(r===1?'自然 1，':'')+(r!==1&&cb&&tot>=dg-cb?'被遮蔽擋下。':'沒打中。'));
   if(cb&&w.cm){const cs=t.side,sl=t.slot,dm=d6(dice)*w.cm;log('遮蔽受 '+Math.round(dm)+'（'+w.n+' ×'+w.cm+'）。');hurtCover(cs,sl,dm)}
@@ -151,7 +157,7 @@ function attack(a,t,o){o=o||{};const w=o.w||wp(a),slotW=a.ws[a.wi],n=o.burst?slo
   else{const dm=Math.max(0,raw-Math.max(0,t.armor-w.pen));t.hp-=dm;log(msg+(r===20?'自然 20！':crit?'要害！':'命中，')+'傷害 '+raw+'，扣護甲後 '+dm+'。');
    if(wound&&(t.elite||t.side==='P')&&t.hp>0){if(Math.random()<.5){t.bleed=true;log(tag(t)+' 重創（軀幹）：流血。','h')}else{t.daze=true;log(tag(t)+' 重創（頭）：暈眩，下回合行動點 −2。','h')}}
    if(t.hp<=0){t.hp=0;fall(t,t.side==='E'?' 被打倒。':' 倒下。')}
-   else if(w.push&&t.slot<4){const b=at(t.side,t.slot+1),os=t.slot;if(b)b.slot=os;t.slot=os+1;log(tag(t)+' 被轟退一格。');compact(t.side)}}
+   else if(w.push&&t.slot<4){const b=at(t.side,t.slot+1),os=t.slot;if(b)b.slot=os;t.slot=os+1;log(tag(t)+' 被轟退一格。');exposed(t);exposed(b);compact(t.side)}}
  }
  if(o.burst&&!t.down){const sv=d20()+t.will,dc=10+n*2;if(sv<dc){t.supp=1;log(tag(t)+' 被壓制（定力 '+sv+' 對 '+dc+'）：不能換位、攻擊 −2。','h')}else log(tag(t)+' 撐住了壓制（定力 '+sv+' 對 '+dc+'）。')}
 }
@@ -161,15 +167,19 @@ function startTurn(){if(S.over){render();return}const u=cur();
  if(S.round>1){u.ap=Math.min(u.apMax,u.ap+3)}
  if(u.daze){u.ap=Math.max(0,u.ap-2);u.daze=false}
  if(u.bleed){u.hp-=2;log(tag(u)+' 流血 −2。');if(u.hp<=0){u.hp=0;fall(u,' 失血倒下。');if(S.over){render();return}return next()}}
- u.watch=false;
+ u.watch=false;u.mv=false;
  if(u.stun){u.stun=false;log(tag(u)+' 還在過載中，失去這一回合。');render();return setTimeout(next,500)}
  S.mode=null;render();
  if(u.side==='E'){S.busy=true;hint('');setTimeout(()=>ai(u,0),550)}else{S.busy=false;hint('輪到 '+u.name+'。選一個行動。')}
 }
 function next(){const u=cur();if(u&&u.supp>0)u.supp--;S.idx++;if(S.idx>=S.order.length){S.idx=0;S.round++;log('—— 第 '+S.round+' 回合 ——','h')}startTurn()}
 function hint(t){$('cd-hint').textContent=t}
-function watchers(mover){S.units.filter(u=>u.side!==mover.side&&!u.down&&u.watch&&u.ap>=2).forEach(u=>{const w=wp(u),s=u.ws[u.wi];if(mover.down)return;if(w.melee?dist(u,mover)!==1:s.mag<1)return;u.ap-=2;u.watch=false;log(tag(u)+' 待命觸發！','h');attack(u,mover)})}
-function move(u,to){const o=at(u.side,to),from=u.slot;if(o)o.slot=from;u.slot=to;log(tag(u)+(o?' 和 '+o.name+' 換位。':' 移到第 '+to+' 格。'));compact(u.side);watchers(u)}
+/* 監視：有人站上暴露的格子時記下來，等這個動作結算完再開槍 */
+function exposed(t){if(t&&!t.down&&S.cov[t.side][t.slot].l===0)S.exq.push(t.id)}
+function canHit(u,t){const w=wp(u);return !u.stun&&(w.melee?dist(u,t)===1:u.ws[u.wi].mag>=1)}
+function flushWatch(){let g=0;while(S.exq.length&&!S.over&&g++<24){const t=S.units[S.exq.shift()];if(!t||t.down||S.cov[t.side][t.slot].l!==0)continue;
+  const u=S.units.find(x=>x.side!==t.side&&!x.down&&x.watch&&canHit(x,t));if(!u)continue;u.watch=false;log(tag(u)+' 監視觸發：'+tag(t)+' 站上了暴露的格子。','h');attack(u,t)}S.exq.length=0}
+function move(u,to){const o=at(u.side,to),from=u.slot;if(o)o.slot=from;u.slot=to;log(tag(u)+(o?' 和 '+o.name+' 換位。':' 移到第 '+to+' 格。'));exposed(u);exposed(o);compact(u.side)}
 function canMove(u,to){if(to<1||to>4||u.supp)return false;if(at(u.side,to))return true;if(to>u.slot)return S.cov[u.side][u.slot].l>0;return true}
 function canSubdue(a,t){return a.slot===1&&t.slot===1&&t.stun&&!t.down&&(!(t.elite||t.side==='P')||t.layers>=t.layersMax)}
 function subdue(a,t){const r=d20()+a.mel,dc=10+t.tier*2;if(r>=dc){t.out=true;fall(t,' 被制伏，退出戰鬥（格鬥 '+r+' 對 '+dc+'）。')}else log(tag(a)+' 想制伏 '+tag(t)+'，沒壓住（格鬥 '+r+' 對 '+dc+'）。')}
@@ -183,48 +193,47 @@ function ai(u,n){if(S.over||u.down||n>6||u.ap<=0){S.busy=false;return next()}
   else if(!t&&u.ws.length>1&&u.ap>=1){u.ap--;u.wi=1;log(tag(u)+' 換成'+wp(u).n+'。');did=true}}
  else if(s.mag<1){if(u.ap>=1){u.ap--;s.mag=w.mag;log(tag(u)+' 換彈。');did=true}}
  else{const t=foes.slice().sort((a,b)=>hitChance(u,b,w)-hitChance(u,a,w)||a.hp-b.hp)[0];
+  const to=!u.mv&&u.ap>=3&&S.cov.E[u.slot].l===0?[u.slot+1,u.slot-1].find(x=>x>=1&&x<=4&&S.cov.E[x].l>0&&canMove(u,x)):0;
   if(u.slot===1&&u.ws.some(x=>W[x.k].melee)&&foes.some(t=>dist(u,t)===1)&&u.ap>=1&&!w.melee){u.ap--;u.wi=u.ws.findIndex(x=>W[x.k].melee);log(tag(u)+' 換成'+wp(u).n+'。');did=true}
+  else if(to){u.ap--;u.mv=true;move(u,to);did=true}
   else if(u.ap>=3&&s.mag>=2&&Math.random()<.35){u.ap-=3;attack(u,t,{burst:true});did=true}
   else if(u.ap>=2){u.ap-=2;attack(u,t);did=true}
   else if(u.ap===1&&!u.aim){u.ap--;u.aim=true;log(tag(u)+' 瞄準。');did=true}}
- render();if(!did||S.over){S.busy=false;return S.over?null:next()}
+ flushWatch();render();if(!did||S.over){S.busy=false;return S.over?null:next()}
  setTimeout(()=>ai(u,n+1),650)
 }
 /* ---- 玩家行動 ---- */
+const cost=(a,u)=>a.k==='shoot'&&wp(u).snipe?3:a.c;
 const ACTS=[
- {k:'shoot',d:'花彈匣 1 格，朝一個敵人開槍。',w:'手上是近戰武器，或彈匣空了',g:'atk',n:'射擊',c:2,ok:u=>!wp(u).melee&&u.ws[u.wi].mag>=1,tg:'foe'},
- {k:'burst',d:'打空彈匣：傷害骰加顆，並壓制目標。彈匣至少要有 2 格。',w:'彈匣不到 2 格',g:'atk',n:'連射',c:3,ok:u=>!wp(u).melee&&wp(u).mag>=2&&u.ws[u.wi].mag>=2,tg:'foe'},
+ {k:'shoot',d:'花彈匣 1 格，朝一個敵人開槍。狙擊槍的一槍花 3 點，已經包含瞄準：命中 +3，要害時重創。',w:'手上是近戰武器，或彈匣空了',g:'atk',n:'射擊',c:2,ok:u=>!wp(u).melee&&u.ws[u.wi].mag>=1,tg:'foe'},
  {k:'melee',d:'打近身（雙方第 1 格）的敵人。',w:'手上不是近戰武器',g:'atk',n:'近戰',c:2,ok:u=>wp(u).melee,tg:'melee'},
- {k:'aim',d:'下一次射擊 +3；瞄準後打出要害會造成重創。',w:'已經瞄準了',g:'atk',n:'瞄準',c:1,ok:u=>!u.aim},
  {k:'move',d:'和相鄰的隊友交換，或移到相鄰的空格。',w:'沒有可以換的格，或被壓制',g:'tac',n:'換位',c:1,ok:u=>canMove(u,u.slot-1)||canMove(u,u.slot+1),tg:'slot'},
  {k:'reload',d:'把彈匣補滿。',w:'彈匣是滿的，或手上是近戰武器',g:'res',n:'換彈',c:1,ok:u=>wp(u).mag&&u.ws[u.wi].mag<wp(u).mag},
  {k:'swap',d:'換成另一把武器。',w:'只有一把武器',g:'res',n:'換武器',c:1,ok:u=>u.ws.length>1},
  {k:'cover',d:'不打人，直接打敵方一格的遮蔽；倍率加倍。',w:'手上是近戰武器，或彈匣空了',g:'tac',n:'打遮蔽',c:2,ok:u=>!wp(u).melee&&u.ws[u.wi].mag>=1,tg:'ecov'},
- {k:'watch',d:'待命：敵人換位時立刻反擊一次（另花 2 點）。',w:'已經在待命',g:'tac',n:'待命',c:1,ok:u=>!u.watch},
+ {k:'watch',d:'到你的下一回合開始前，第一次有敵人站上暴露的格子（換位、補位、被推過去，或遮蔽被打成暴露），自動朝他開一槍，不另花行動點，彈匣照扣。',w:'已經在監視',g:'tac',n:'監視',c:2,ok:u=>!u.watch},
  {k:'subdue',d:'把正在過載的近身敵人綁起來，讓他退出戰鬥。要過格鬥檢定。',w:'沒有可以制伏的目標（要在近身、對方正在過載；精英要餘韻疊滿）',g:'tac',n:'制伏',c:2,ok:u=>alive('E').some(t=>canSubdue(u,t)),tg:'sub'},
  {k:'item',d:'使用快取格裡的道具。',w:'這個 Demo 沒有做',g:'res',n:'道具',c:1,ok:()=>false},
- {k:'flee',d:'全隊檢定，成功就離開這場戰鬥。',w:'這個 Demo 沒有做',g:'tac',n:'脫離',c:2,ok:()=>false},
  {k:'end',g:'end',n:'結束回合',c:0,ok:()=>true}
 ];
-function act(k){if(S.busy||S.over)return;if(k==='skill'){S.skill=!S.skill;return render()}const u=cur(),a=ACTS.find(x=>x.k===k);if(!a)return;if(u.ap<a.c||!a.ok(u))return;
+function act(k){if(S.busy||S.over)return;if(k==='skill'){S.skill=!S.skill;return render()}const u=cur(),a=ACTS.find(x=>x.k===k);if(!a)return;if(u.ap<cost(a,u)||!a.ok(u))return;
  if(a.tg){S.mode=S.mode===k?null:k;hint(S.mode?({foe:'選一個敵人（綠框）。括號裡是命中率。',melee:'選近身的敵人。',slot:'選要換到哪一格（綠框）。往後退、讓前面空著，前面那一格要有遮蔽。',ecov:'選敵方的一格，打它的遮蔽。沒人站的格子，遮蔽耐久減半。',sub:'選一個正在過載的近身敵人。精英要餘韻疊滿。'})[a.tg]:'');return render()}
  S.mode=null;
- if(k==='aim'){u.ap--;u.aim=true;log(u.name+' 瞄準：下一次射擊 +3。')}
- else if(k==='reload'){u.ap--;u.ws[u.wi].mag=wp(u).mag;log(u.name+' 換彈。')}
+ if(k==='reload'){u.ap--;u.ws[u.wi].mag=wp(u).mag;log(u.name+' 換彈。')}
  else if(k==='swap'){u.ap--;u.wi=(u.wi+1)%u.ws.length;log(u.name+' 換成'+wp(u).n+'。')}
- else if(k==='watch'){u.ap--;u.watch=true;log(u.name+' 待命：敵人換位時反擊（另花 2 點）。')}
+ else if(k==='watch'){u.ap-=2;u.watch=true;log(u.name+' 監視：敵人一站上暴露的格子就開槍。')}
  else if(k==='end'){return next()}
  render()
 }
 function pick(kind,v){if(S.busy||S.over||!S.mode)return;const u=cur(),k=S.mode;
  if(kind==='unit'){const t=S.units[v];if(t.side==='P'||t.down)return;
-  if(k==='shoot'){u.ap-=2;attack(u,t)}else if(k==='burst'){u.ap-=3;attack(u,t,{burst:true})}
+  if(k==='shoot'){u.ap-=cost(ACTS[0],u);attack(u,t)}
   else if(k==='melee'){if(dist(u,t)!==1)return;u.ap-=2;attack(u,t)}
   else if(k==='sub'){if(!canSubdue(u,t))return;u.ap-=2;subdue(u,t)}else return}
  else if(kind==='slot'){const [side,slot]=v;
   if(k==='move'&&side==='P'){if(Math.abs(slot-u.slot)!==1||!canMove(u,slot))return;u.ap--;move(u,slot)}
   else if(k==='cover'&&side==='E'){if(S.cov.E[slot].l===0)return;u.ap-=2;u.ws[u.wi].mag--;const w=wp(u),dm=Math.round(d6(w.dice)*Math.max(1,w.cm*2));log(u.name+' 打敵方第 '+slot+' 格的遮蔽（'+dm+'）。');hurtCover('E',slot,dm)}else return}
- S.mode=null;hint('');render()
+ S.mode=null;hint('');flushWatch();render()
 }
 /* ---- 畫面 ---- */
 function ico(k,t){return '<svg class="cd-i" viewBox="0 0 512 512" role="img" aria-label="'+t+'"><title>'+t+'</title><path d="'+IC[k]+'"/></svg>'}
@@ -234,14 +243,14 @@ function render(){const u=cur(),m=S.mode,F=$('cd-field');let h='';
  const col=(side,slot)=>{const c=S.cov[side][slot],x=S.units.find(z=>z.side===side&&z.slot===slot&&!z.down);
   let tg=false;if(m==='move'&&side==='P'&&Math.abs(slot-u.slot)===1&&canMove(u,slot))tg=true;if(m==='cover'&&side==='E'&&c.l>0)tg=true;
   let s='<div class="cd-slot'+(tg?' tg':'')+'" data-s="'+side+slot+'"><div class="cd-sh" aria-label="第 '+slot+' 格，'+COVN[c.l]+'">'+(c.l?ico(c.l===2?'cov':'half',COVN[c.l])+bar(c.d,COVD[c.l],'--cv',c.l===1?'half':'')+Math.max(0,c.d):'')+'</div>';
-  if(x){const w=wp(x),ut=m&&x.side==='E'&&((m==='shoot'||m==='burst')||(m==='melee'&&dist(u,x)===1)||(m==='sub'&&canSubdue(u,x)));
+  if(x){const w=wp(x),ut=m&&x.side==='E'&&((m==='shoot')||(m==='melee'&&dist(u,x)===1)||(m==='sub'&&canSubdue(u,x)));
    s+='<div class="cd-u'+(x.id===u.id&&!S.over?' act':'')+(ut?' tg':'')+'" data-u="'+x.id+'"><div class="cd-nm"><span>'+x.name+'</span><small>'+x.role+(ut&&m!=='sub'?' '+hitChance(u,x,wp(u))+'%':'')+'</small></div>'
     +'<div class="cd-row" style="color:var(--hp)">'+ico('hp','生命')+'<div class="cd-bv"><span>'+x.hp+'</span>'+bar(x.hp,x.hpMax,'--hp')+'</div></div>'
     +'<div class="cd-row" style="color:var(--ld)">'+ico('load','感載')+'<div class="cd-bv"><span>'+x.load+'</span>'+bar(x.load,x.loadMax,'--ld')+'</div></div>'
     +'<div class="cd-row lay" title="餘韻層數（疊滿後再過載就倒下）">'+pips(x.layers,x.layersMax,'l')+'</div>'
     +'<div class="cd-row" style="color:var(--ap)">'+ico('ap','行動點')+pips(x.ap,x.apMax)+'</div>'
     +'<div class="cd-row">'+w.n+' '+(w.mag?pips(x.ws[x.wi].mag,w.mag,'m'):'')+'</div>'
-    +'<div class="cd-st">'+(x.aim?'<span>瞄準</span>':'')+(x.stun?'<span>過載</span>':'')+(x.supp?'<span>被壓制</span>':'')+(x.watch?'<span>待命</span>':'')+(x.bleed?'<span>流血</span>':'')+(x.daze?'<span>暈眩</span>':'')+'</div></div>'}
+    +'<div class="cd-st">'+(x.aim?'<span>瞄準</span>':'')+(x.stun?'<span>過載</span>':'')+(x.supp?'<span>被壓制</span>':'')+(x.watch?'<span>監視</span>':'')+(x.bleed?'<span>流血</span>':'')+(x.daze?'<span>暈眩</span>':'')+'</div></div>'}
   return s+'</div>'};
  for(let s=4;s>=1;s--)h+=col('P',s);h+='<div class="cd-mid">近身</div>';for(let s=1;s<=4;s++)h+=col('E',s);F.innerHTML=h;
  $('cd-round').textContent='第 '+S.round+' 回合';
@@ -255,14 +264,15 @@ const IC={"shoot": "m79.238 115.768l-28.51 67.863h406.15l-.273-67.862h-263.83v55
  const arc=(r0,r1,a0,a1)=>{const A0=pt(r1,a0),A1=pt(r1,a1),B1=pt(r0,a1),B0=pt(r0,a0);return 'M'+A0+'A'+r1+' '+r1+' 0 0 1 '+A1+'L'+B1+'A'+r0+' '+r0+' 0 0 0 '+B0+'Z'};
  const ring=(g,r0,r1,off)=>{const L=ACTS.filter(a=>a.g===g),st=360/L.length;return L.map((a,i)=>{const a0=off+i*st+1,a1=off+(i+1)*st-1,c=pt((r0+r1)/2,(a0+a1)/2);
   return '<g class="r-'+g+'" data-a="'+a.k+'" role="button" tabindex="0" aria-label="'+a.n+'，'+a.c+' 點行動點。'+a.d+'"><path d="'+arc(r0,r1,a0,a1)+'"/><path class="ic" transform="translate('+(+c[0]-15)+' '+(+c[1]-21)+') scale(.0586)" d="'+IC[a.k]+'"/><text class="c" x="'+c[0]+'" y="'+(+c[1]+20)+'">'+a.c+'</text></g>'}).join('')};
- $('cd-wbox').innerHTML='<svg class="cd-w" viewBox="0 0 348 348" role="group" aria-label="行動圓環"><circle class="hit" cx="174" cy="174" r="173"/>'+ring('tac',128,172,-36)+ring('atk',84,126,-45)+ring('res',42,82,-60)
+ $('cd-wbox').innerHTML='<svg class="cd-w" viewBox="0 0 348 348" role="group" aria-label="行動圓環"><circle class="hit" cx="174" cy="174" r="173"/>'+ring('tac',128,172,-45)+ring('res',84,126,-60)+ring('atk',42,82,0)
   +'<g class="r-skl" data-a="skill" role="button" tabindex="0" aria-label="技能清單"><circle class="bg" cx="174" cy="174" r="40"/><path class="ic" transform="translate(148 148) scale(.1016)" d="'+IC.skill+'"/></g></svg>';
 })();
 function tipHTML(k){if(k==='skill')return '<b>技能</b><p>打開技能清單。</p>';const a=ACTS.find(x=>x.k===k),u=cur();if(!a)return '';
- const no=u.side==='P'&&(u.ap<a.c?'行動點不夠':(!a.ok(u)?a.w:''));return '<b>'+a.n+'</b><i>'+a.c+' 點</i><p>'+a.d+'</p>'+(no?'<p class="no">現在做不到：'+no+'。</p>':'')}
+ const c=cost(a,u),no=u.side==='P'&&(u.ap<c?'行動點不夠':(!a.ok(u)?a.w:''));return '<b>'+a.n+'</b><i>'+c+' 點</i><p>'+a.d+'</p>'+(no?'<p class="no">現在做不到：'+no+'。</p>':'')}
 function updWheel(u,m){const off=S.over||u.side==='E';$('cd-act').classList.toggle('off',off);$('cd-endbtn').disabled=off;$('cd-endbtn').classList.toggle('dis',off);
  $('cd-wbox').querySelectorAll('g[data-a]').forEach(g=>{const k=g.getAttribute('data-a'),a=ACTS.find(x=>x.k===k);
-  const dis=off||(a?(u.ap<a.c||!a.ok(u)):false);g.classList.toggle('dis',dis);g.classList.toggle('sel',k==='skill'?!!S.skill:m===k);g.setAttribute('aria-disabled',dis);g.setAttribute('tabindex',dis?-1:0)});
+  const dis=off||(a?(u.ap<cost(a,u)||!a.ok(u)):false);g.classList.toggle('dis',dis);if(a){const tx=g.querySelector('text.c');if(tx)tx.textContent=cost(a,u)}g.classList.toggle('sel',k==='skill'?!!S.skill:m===k);g.setAttribute('aria-disabled',dis);g.setAttribute('tabindex',dis?-1:0)});
+ $('cd-flee').disabled=off||u.ap<2;$('cd-give').disabled=off;
  $('cd-skl').hidden=!S.skill;if(off)hov(null)}
 const WB=$('cd-wbox'),TIP=$('cd-tip'),touch=window.matchMedia&&window.matchMedia('(hover: none)').matches;let HV=null;
 function hov(g,x,y){if(HV&&HV!==g)HV.classList.remove('hov');HV=g;if(!g){TIP.hidden=true;return}
@@ -281,6 +291,18 @@ $('cd-act').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if
 document.addEventListener('click',e=>{if(touch&&!WB.contains(e.target))hov(null)});
 $('cd-act').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const b=e.target.closest('g[data-a]');if(b&&!b.classList.contains('dis')){e.preventDefault();act(b.getAttribute('data-a'))}});
 $('cd-field').addEventListener('click',e=>{const x=e.target.closest('.cd-u.tg');if(x)return pick('unit',+x.dataset.u);const s=e.target.closest('.cd-slot.tg');if(s)pick('slot',[s.dataset.s[0],+s.dataset.s[1]])});
+/* 脫離與投降：長按 0.6 秒才生效，放開就取消 */
+function hold(btn,fn){let t=null,fired=false;const go=()=>{if(btn.disabled||S.busy||S.over)return;btn.classList.add('on');t=setTimeout(()=>{t=null;fired=true;btn.classList.remove('on');fn()},600)},
+ stop=()=>{if(t){clearTimeout(t);t=null}btn.classList.remove('on')};
+ btn.addEventListener('pointerdown',e=>{e.preventDefault();go()});['pointerup','pointerleave','pointercancel'].forEach(v=>btn.addEventListener(v,stop));
+ btn.addEventListener('contextmenu',e=>e.preventDefault());
+ btn.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')){e.preventDefault();if(!e.repeat)go()}});btn.addEventListener('keyup',e=>{if(e.key==='Enter'||e.key===' ')stop()});
+ btn.addEventListener('click',()=>{if(fired){fired=false;return}if(!btn.disabled)hint(btn.textContent.replace(/\d/g,'')+'要長按，免得誤觸。')})}
+function flee(){const u=cur();if(u.ap<2)return;u.ap-=2;const r=d20()+3,dc=10+Math.max(...alive('E').map(x=>x.tier))*2;
+ if(r>=dc){S.over=true;const el=$('cd-end');el.style.display='block';el.textContent='脫離成功：全隊離開這場戰鬥，回到地圖上。敵人還在原地。';log('脫離成功（'+r+' 對 '+dc+'）。','h')}
+ else{log('脫離失敗（'+r+' 對 '+dc+'）：這 2 點行動點不退，沒有別的懲罰。','r')}render()}
+function giveUp(){S.over=true;S.mode=null;const el=$('cd-end');el.style.display='block';el.textContent='投降：戰鬥結束，算戰敗。之後不再受傷害，每個人停在現在的生命與感載。在正式的遊戲裡，這裡直接進戰敗事件（和全隊倒下時是同一個，依贏的是誰）。';log('投降。','h');render()}
+hold($('cd-flee'),flee);hold($('cd-give'),giveUp);
 $('cd-reset').addEventListener('click',init);
 init();
 })();

@@ -75,6 +75,12 @@ body{margin:0;padding:24px 16px;background:#17111F;color:var(--ink);font-family:
 .nd-log p{margin:0 0 3px;max-width:none}.nd-log .h{color:var(--pinkhi)}.nd-log .g{color:var(--mint)}.nd-log .r{color:var(--hp)}
 .nd-end{padding:12px;border:1px solid var(--pink);color:var(--pinkhi);margin:10px 0;display:none}
 .nd-note{color:var(--ink3);font-size:12px;margin-top:8px}
+.nd-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.nd-hold{position:relative;overflow:hidden;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:none}
+.nd .nd-btn.nd-hold{color:var(--hp);border-color:var(--hp)}
+.nd-btns .nd-hold:first-of-type{margin-left:10px}
+.nd-hold i{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--hp);display:block}
+.nd-hold.on i{width:100%;transition:width .6s linear}
 
 .nd{position:relative;overflow:hidden;background-color:var(--bg1);background-image:linear-gradient(color-mix(in srgb,var(--cv) 10%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--cv) 10%,transparent) 1px,transparent 1px);background-size:24px 24px;border-color:var(--pink);box-shadow:0 0 0 1px color-mix(in srgb,var(--pink) 30%,transparent),0 0 24px color-mix(in srgb,var(--pink) 18%,transparent)}
 .nd::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 2px,color-mix(in srgb,var(--ink) 4%,transparent) 2px 3px)}
@@ -104,13 +110,13 @@ body{margin:0;padding:24px 16px;background:#17111F;color:var(--ink);font-family:
   <div class="nd-top"><div class="nd-order" id="nd-order"></div></div>
   <div class="nd-scroll"><div class="nd-fw"><div class="nd-dm" id="nd-dm" aria-hidden="true"></div><div class="nd-field" id="nd-field"></div><div class="nd-dir" aria-hidden="true"><div class="p"><svg><defs><pattern id="nd-chv" width="12" height="12" patternUnits="userSpaceOnUse"><polyline points="2,1 7,6 2,11"/></pattern></defs><rect width="100%" height="12" fill="url(#nd-chv)"/></svg></div><div class="e"><svg><rect width="100%" height="12" fill="url(#nd-chv)"/></svg></div></div></div></div>
   <div class="nd-end" id="nd-end"></div>
-  <div class="nd-act" id="nd-act"><div class="nd-tip" id="nd-tip" hidden></div><div class="nd-wbox" id="nd-wbox"></div><div class="nd-side"><button class="nd-btn" data-a="end" id="nd-endbtn">結束回合</button>
+  <div class="nd-act" id="nd-act"><div class="nd-tip" id="nd-tip" hidden></div><div class="nd-wbox" id="nd-wbox"></div><div class="nd-side"><div class="nd-btns"><button class="nd-btn" data-a="end" id="nd-endbtn">結束回合</button><button class="nd-btn nd-hold" id="nd-flee" title="長按：這個人登出，退出這場戰鬥">拔線<small>1</small><i></i></button><button class="nd-btn nd-hold" id="nd-give" title="長按：結束這場戰鬥，算戰敗">投降<small>0</small><i></i></button></div>
     <div class="nd-grp" id="nd-sync"><span>同步檔位（每回合換一次；檢定／受到的感載）</span><button class="nd-btn" data-sy="0">淺<small>−2 ×0.5</small></button><button class="nd-btn" data-sy="1">標準<small>±0 ×1</small></button><button class="nd-btn" data-sy="2">深<small>+2 ×1.5</small></button><button class="nd-btn" data-sy="3">全<small>+4 ×2.5</small></button></div>
     <div class="nd-grp" id="nd-adm" hidden><span id="nd-admn"></span><button class="nd-btn" data-ad="wall">造牆<small>RAM 2</small></button><button class="nd-btn" data-ad="breach">拆牆<small>RAM 2</small></button><button class="nd-btn" data-ad="cut">斷路<small>RAM 2</small></button><button class="nd-btn" data-ad="mark">標記<small>RAM 1</small></button><button class="nd-btn" data-ad="wipe">擦痕跡<small>RAM 1</small></button></div>
     <div class="nd-skl" id="nd-skl" hidden><b>技能清單</b><p>這個 Demo 還沒有技能。正式版這裡列出這個角色裝著的主動技能與專屬構裝。</p></div></div></div>
   <div class="nd-hint" id="nd-hint"></div>
   <div class="nd-log" id="nd-log" aria-live="polite"></div>
-  <div class="nd-note">照已確認的規則：站位、距離、命中、防火牆（遮蔽）都和現實戰鬥一樣；只有感載一條，過載不失去回合但會閃斷（RAM 歸零），每層餘韻檢定 +1、傷害 +10%；攻擊花 RAM，每回合回 2（潛網者 3）；同步檔位只能在自己的回合換；餘韻疊滿的近身目標可以釘住；追蹤度每回合 +3，到 30、60、90 各有東西來。只有潛網者有管理行動（不花行動點，每回合 2 次，全檔 3 次）。化身的 SKIN、彈幕與觀看數只是氣氛，不影響數值；角色的數字是為了試手感臨時填的。圖示來自 game-icons.net（CC BY 3.0）。</div>
+  <div class="nd-note">照已確認的規則：站位、距離、命中、防火牆（遮蔽）都和現實戰鬥一樣；只有感載一條，過載不失去回合但會閃斷（RAM 歸零），每層餘韻檢定 +1、傷害 +10%；攻擊花 RAM，每回合回 2（潛網者 3）；同步檔位只能在自己的回合換；餘韻疊滿的近身目標可以釘住；長矛（狙擊型）一擊 3 點，已經包含瞄準；監視花 2 點，敵人一站上暴露的格子就自動攻擊；拔線與投降在結束回合旁邊，要長按；瞄準與超頻是槍手的技能，這個 Demo 沒有做技能，所以只有敵人會用；追蹤度每回合 +3，到 30、60、90 各有東西來。只有潛網者有管理行動（不花行動點，每回合 2 次，全檔 3 次）。化身的 SKIN、彈幕與觀看數只是氣氛，不影響數值；角色的數字是為了試手感臨時填的。圖示來自 game-icons.net（CC BY 3.0）。</div>
 </div>
 <script>
 (function(){
@@ -120,7 +126,7 @@ const W={
  scatter:{n:'散射炮',dice:5,far:3,r:[1,3],cost:1,pen:0,push:1,cm:1.5},
  needle:{n:'光針',dice:3,r:[1,4],cost:1,pen:0,cm:.25},
  stream:{n:'連流',dice:3,r:[2,5],cost:1,pen:0,cm:.5},
- lance:{n:'長矛',dice:6,r:[5,7],cost:2,pen:4,long:1,cm:.25},
+ lance:{n:'長矛',dice:6,r:[5,7],cost:2,pen:4,long:1,cm:.25,snipe:1},
  jam:{n:'干擾針',dice:3,r:[2,5],cost:1,pen:0,jam:1,cm:2},
  blade:{n:'光刃',dice:3,r:[1,1],cost:1,pen:1,melee:1,cm:0}
 };
@@ -139,9 +145,9 @@ let S;
 function unit(side,slot,name,skin,av,o){return Object.assign({side,slot,name,skin,av,load:0,loadMax:o.lm,layers:0,layersMax:o.lay,
   ap:o.ap,apMax:o.ap,ram:o.ram,ramMax:o.ram,rr:o.rr||2,prot:o.prot||0,refl:o.refl,gun:o.gun||0,mel:o.mel||0,will:o.will||0,intf:o.intf||0,
   tier:o.tier||1,elite:!!o.elite,xd:o.xd||0,sync:o.sync==null?1:o.sync,syncMax:o.sm==null?1:o.sm,admin:o.admin||0,white:!!o.white,
-  ws:o.ws,wi:0,aim:false,supp:0,watch:false,flash:false,mark:false,cut:false,jam:false,down:false,out:false,shifted:false,adm:0},{})}
+  ws:o.ws,wi:0,aim:false,supp:0,watch:false,mv:false,unp:false,flash:false,mark:false,cut:false,jam:false,down:false,out:false,shifted:false,adm:0},{})}
 function init(){
- S={round:1,idx:0,busy:false,mode:null,over:false,trace:15,t30:false,t60:false,loc:-1,view:12480,
+ S={round:1,idx:0,busy:false,mode:null,over:false,exq:[],trace:15,t30:false,t60:false,loc:-1,view:12480,
   cov:{P:[null,{l:1,d:15},{l:2,d:30},{l:2,d:30},{l:1,d:15}],E:[null,{l:1,d:15},{l:2,d:30},{l:1,d:15},{l:2,d:30}]},
   units:[
    unit('P',1,'前鋒','特攻服','cat',{lm:36,lay:3,ap:5,ram:4,prot:3,refl:1,gun:3,mel:5,will:2,intf:1,sm:2,tier:2,ws:['scatter','blade']}),
@@ -168,17 +174,17 @@ function dm(kind){const a=DM[kind];if(!a)return;const B=$('nd-dm');if(B.children
 const tag=u=>(u.side==='P'?'':'敵・')+u.name;
 function dodge(u){return 10+u.refl+COVB[S.cov[u.side][u.slot].l]}
 function rmod(a,t,w){const d=dist(a,t);let m=0;if(d<w.r[0])m=-2*(w.r[0]-d);if(d>w.r[1])m=-2*(d-w.r[1]);if(w.long&&a.slot===1)m-=4;return m}
-function abonus(a,t,w){return (w.melee?a.mel:a.gun)+rmod(a,t,w)+(a.aim?3:0)-(a.supp?2:0)+a.layers+SY[a.sync].c+(t.mark?2:0)}
+function abonus(a,t,w){return (w.melee?a.mel:a.gun)+rmod(a,t,w)+((a.aim||w.snipe)?3:0)-(a.supp?2:0)+a.layers+SY[a.sync].c+(t.mark?2:0)}
 function hitChance(a,t,w){return Math.max(5,Math.min(95,(21-(dodge(t)-abonus(a,t,w)))*5))}
-function compact(side){let moved=true;while(moved){moved=false;for(let s=1;s<=3;s++){if(!at(side,s)&&S.cov[side][s].l===0){const back=S.units.filter(u=>u.side===side&&!u.down&&u.slot>s);if(back.length){back.forEach(u=>u.slot--);const c=S.cov[side];for(let k=s;k<4;k++)c[k]=c[k+1];c[4]={l:0,d:0};log((side==='P'?'我方':'敵方')+'後排連同防火牆往前補位。');moved=true;break}}}}}
-function hurtCover(side,slot,dmg){const c=S.cov[side][slot];dmg=Math.round(dmg);if(c.l===0||dmg<=0)return;if(!at(side,slot))dmg*=2;c.d-=dmg;while(c.l>0&&c.d<=0){c.l--;c.d+=COVD[c.l];if(c.l===0)c.d=0;log((side==='P'?'我方':'敵方')+'第 '+slot+' 格的防火牆被打成'+COVN[c.l]+'。','h')}compact(side)}
+function compact(side){let moved=true;while(moved){moved=false;for(let s=1;s<=3;s++){if(!at(side,s)&&S.cov[side][s].l===0){const back=S.units.filter(u=>u.side===side&&!u.down&&u.slot>s);if(back.length){back.forEach(u=>u.slot--);const c=S.cov[side];for(let k=s;k<4;k++)c[k]=c[k+1];c[4]={l:0,d:0};log((side==='P'?'我方':'敵方')+'後排連同防火牆往前補位。');back.forEach(exposed);moved=true;break}}}}}
+function hurtCover(side,slot,dmg){const c=S.cov[side][slot];dmg=Math.round(dmg);if(c.l===0||dmg<=0)return;if(!at(side,slot))dmg*=2;c.d-=dmg;while(c.l>0&&c.d<=0){c.l--;c.d+=COVD[c.l];if(c.l===0){c.d=0;exposed(at(side,slot))}log((side==='P'?'我方':'敵方')+'第 '+slot+' 格的防火牆被打成'+COVN[c.l]+'。','h')}compact(side)}
 function fall(u,how){u.down=true;log(tag(u)+how,u.side==='P'?'r':'g');compact(u.side);check()}
 function addLoad(t,n){t.load+=n;if(t.load>=t.loadMax){t.load=0;t.layers++;t.mark=false;
  if(t.layers>t.layersMax){dm('fall');fall(t,' 餘韻疊滿後再過載：斷線。')}
  else{t.ram=0;t.flash=true;dm('over');log(tag(t)+' 過載！閃斷：RAM 歸零。餘韻 '+t.layers+' 層（檢定 +'+t.layers+'、傷害 +'+t.layers*10+'%）。','h')}}}
 function attack(a,t,o){o=o||{};const w=wp(a),n=o.burst?a.ram:w.cost;a.ram-=n;
  const r=d20(),bonus=abonus(a,t,w),tot=r+bonus,dg=dodge(t),cb=COVB[S.cov[t.side][t.slot].l];
- const aimed=a.aim;a.aim=false;
+ const aimed=a.aim||!!w.snipe;a.aim=false;
  let dice=(w.far&&dist(a,t)>2?w.far:w.dice)+(o.burst?n-1:0)+a.xd;
  const hit=r===20||(r!==1&&tot>=dg), crit=hit&&tot-dg>=5;
  let msg=tag(a)+(o.burst?' 用'+w.n+'超頻（RAM '+n+'）':' 用'+w.n+'攻擊')+' '+tag(t)+'：d20='+r+(bonus>=0?'+':'')+bonus+'='+tot+' 對迴避 '+dg+'，';
@@ -194,13 +200,14 @@ function attack(a,t,o){o=o||{};const w=wp(a),n=o.burst?a.ram:w.cost;a.ram-=n;
    log(msg+(r===20?'自然 20！':crit?'要害！':'命中，')+'感載 '+raw+'，扣防護、乘'+SY[t.sync].n+'檔後 +'+v+'。');
    if(wound&&(t.elite||t.side==='P')&&t.prot>0){t.prot=0;log(tag(t)+' 破損：防護構裝失效。','h')}
    addLoad(t,v);
-   if(!t.down&&w.push&&t.slot<4){const b=at(t.side,t.slot+1),os=t.slot;if(b)b.slot=os;t.slot=os+1;log(tag(t)+' 被轟退一格。');compact(t.side)}}
+   if(!t.down&&w.push&&t.slot<4){const b=at(t.side,t.slot+1),os=t.slot;if(b)b.slot=os;t.slot=os+1;log(tag(t)+' 被轟退一格。');exposed(t);exposed(b);compact(t.side)}}
  }
  if(o.burst&&!t.down){const sv=d20()+t.will,dc=10+n*2;if(sv<dc){t.supp=1;log(tag(t)+' 被壓制（定力 '+sv+' 對 '+dc+'）：不能換位、攻擊 −2。','h')}else log(tag(t)+' 撐住了壓制（定力 '+sv+' 對 '+dc+'）。')}
 }
 function end(txt,l){S.over=true;const el=$('nd-end');el.style.display='block';el.textContent=txt;log(l,'h')}
 function check(){if(S.over)return;const p=alive('P').length,e=alive('E').filter(u=>!u.white).length;
- if(!p)end('全隊斷線或被釘住：戰敗。贏的是粉蕾絲，所以正式的遊戲裡這裡會接「被釘在線上」的活捉事件。','戰敗。');
+ if(!p&&S.units.filter(u=>u.side==='P').every(u=>u.unp))end('全隊拔線：等於撤退。委託副本裡是回退到進副本之前。','撤退。');
+ else if(!p)end('全隊斷線或被釘住：戰敗。贏的是粉蕾絲，所以正式的遊戲裡這裡會接「被釘在線上」的活捉事件。','戰敗。');
  else if(!e)end('敵人全部斷線或被釘住：勝利。餘韻會跟著回到現實（每層全屬性 −2）。','勝利。')}
 function spawn(u){for(let s=1;s<=4;s++){if(!at('E',s)){u.slot=s;u.id=S.units.length;S.units.push(u);S.order.push(u.id);return true}}return false}
 function traceCheck(){if(S.over)return;
@@ -210,7 +217,7 @@ function traceCheck(){if(S.over)return;
 function startTurn(){if(S.over){render();return}const u=cur();
  if(u.down){return next()}
  if(S.round>1){u.ap=Math.min(u.apMax,u.ap+3+(u.sync===3?1:0));u.ram=Math.min(u.ramMax,u.ram+u.rr)}
- u.watch=false;u.shifted=false;u.adm=0;
+ u.watch=false;u.mv=false;u.shifted=false;u.adm=0;
  if(u.white){S.trace+=5;log('白蕾絲拉警報：追蹤度 +5。','r');traceCheck();render();return setTimeout(next,450)}
  S.mode=null;render();
  if(u.side==='E'){S.busy=true;hint('');setTimeout(()=>ai(u,0),550)}else{S.busy=false;hint('輪到 '+u.name+'。先決定同步檔位，再選行動。')}
@@ -221,8 +228,12 @@ function next(){const u=cur();if(u){if(u.supp>0)u.supp--;u.cut=false;u.jam=false
   traceCheck()}
  startTurn()}
 function hint(t){$('nd-hint').textContent=t}
-function watchers(mover){S.units.filter(u=>u.side!==mover.side&&!u.down&&u.watch&&u.ap>=2).forEach(u=>{const w=wp(u);if(mover.down||u.jam)return;if(w.melee?dist(u,mover)!==1:u.ram<w.cost)return;u.ap-=2;u.watch=false;log(tag(u)+' 待命觸發！','h');attack(u,mover)})}
-function move(u,to){const o=at(u.side,to),from=u.slot;if(o)o.slot=from;u.slot=to;log(tag(u)+(o?' 和 '+o.name+' 換位。':' 移到第 '+to+' 格。'));compact(u.side);watchers(u)}
+/* 監視：有人站上暴露的格子時記下來，等這個動作結算完再攻擊 */
+function exposed(t){if(t&&!t.down&&S.cov[t.side][t.slot].l===0)S.exq.push(t.id)}
+function canHit(u,t){const w=wp(u);return !u.jam&&u.ram>=w.cost&&(!w.melee||dist(u,t)===1)}
+function flushWatch(){let g=0;while(S.exq.length&&!S.over&&g++<24){const t=S.units[S.exq.shift()];if(!t||t.down||S.cov[t.side][t.slot].l!==0)continue;
+  const u=S.units.find(x=>x.side!==t.side&&!x.down&&x.watch&&canHit(x,t));if(!u)continue;u.watch=false;log(tag(u)+' 監視觸發：'+tag(t)+' 站上了暴露的格子。','h');attack(u,t)}S.exq.length=0}
+function move(u,to){const o=at(u.side,to),from=u.slot;if(o)o.slot=from;u.slot=to;log(tag(u)+(o?' 和 '+o.name+' 換位。':' 移到第 '+to+' 格。'));exposed(u);exposed(o);compact(u.side)}
 function canMove(u,to){if(to<1||to>4||u.supp||u.cut)return false;if(at(u.side,to))return true;if(to>u.slot)return S.cov[u.side][u.slot].l>0;return true}
 function canPin(a,t){return a.slot===1&&t.slot===1&&!t.down&&t.layers>=t.layersMax}
 function pin(a,t){a.ram--;const r=d20()+Math.max(a.mel,a.intf)+SY[a.sync].c+a.layers,dc=10+t.tier*2;if(r>=dc){t.out=true;dm('pin');fall(t,' 被釘在線上，退出戰鬥（'+r+' 對 '+dc+'）。')}else log(tag(a)+' 想釘住 '+tag(t)+'，沒釘牢（'+r+' 對 '+dc+'）。')}
@@ -237,28 +248,28 @@ function ai(u,n){if(S.over||u.down||n>6||u.ap<=0){S.busy=false;return next()}
   if(t&&u.ap>=2){u.ap-=2;attack(u,t);did=true}
   else if(!t&&u.ws.length>1&&u.ap>=1){u.ap--;u.wi=1;log(tag(u)+' 換成'+wp(u).n+'。');did=true}}
  else{const t=foes.slice().sort((a,b)=>hitChance(u,b,w)-hitChance(u,a,w)||b.layers-a.layers)[0];
+  const to=!u.mv&&!u.cut&&!u.supp&&u.ap>=3&&S.cov.E[u.slot].l===0?[u.slot+1,u.slot-1].find(x=>x>=1&&x<=4&&S.cov.E[x].l>0&&canMove(u,x)):0;
   if(u.slot===1&&u.ws.some(x=>W[x].melee)&&foes.some(t=>dist(u,t)===1)&&u.ap>=1){u.ap--;u.wi=u.ws.findIndex(x=>W[x].melee);log(tag(u)+' 換成'+wp(u).n+'。');did=true}
+  else if(to){u.ap--;u.mv=true;move(u,to);did=true}
   else if(u.ap>=3&&u.ram>=2&&u.sync>0&&Math.random()<.35){u.ap-=3;attack(u,t,{burst:true});did=true}
   else if(u.ap>=2){u.ap-=2;attack(u,t);did=true}
   else if(u.ap===1&&!u.aim){u.ap--;u.aim=true;log(tag(u)+' 瞄準。');did=true}}
- render();if(!did||S.over){S.busy=false;return S.over?null:next()}
+ flushWatch();render();if(!did||S.over){S.busy=false;return S.over?null:next()}
  setTimeout(()=>ai(u,n+1),650)
 }
 /* ---- 玩家行動 ---- */
 const canAtk=u=>!u.jam&&u.ram>=wp(u).cost;
+const cost=(a,u)=>a.k==='shoot'&&wp(u).snipe?3:a.c;
 const ACTS=[
- {k:'shoot',d:'用手上的武器構裝攻擊一個敵人。',r:'1（長矛 2）',w:'手上是近戰構裝、RAM 不夠，或武器被干擾',g:'atk',n:'攻擊',c:2,ok:u=>!wp(u).melee&&canAtk(u),tg:'foe'},
- {k:'burst',d:'把手上的 RAM 全灌進去：每多 1 點，傷害骰多 1 顆，並壓制目標。淺檔不能用。',r:'全部，至少 2',w:'RAM 不到 2、在淺檔，或武器被干擾',g:'atk',n:'超頻',c:3,ok:u=>!wp(u).melee&&!u.jam&&u.ram>=2&&u.sync>0,tg:'foe'},
+ {k:'shoot',d:'用手上的武器構裝攻擊一個敵人。長矛（狙擊型）一擊 3 點，已經包含瞄準：命中 +3，要害時破損。',r:'1（長矛 2）',w:'手上是近戰構裝、RAM 不夠，或武器被干擾',g:'atk',n:'攻擊',c:2,ok:u=>!wp(u).melee&&canAtk(u),tg:'foe'},
  {k:'melee',d:'打近身（雙方第 1 格）的敵人。',r:'1',w:'手上不是近戰構裝，或 RAM 不夠',g:'atk',n:'近戰',c:2,ok:u=>wp(u).melee&&canAtk(u),tg:'melee'},
- {k:'aim',d:'下一次攻擊 +3；瞄準後打出要害會造成破損。',r:'0',w:'已經瞄準了',g:'atk',n:'瞄準',c:1,ok:u=>!u.aim},
  {k:'move',d:'和相鄰的隊友交換，或移到相鄰的空格。',r:'0',w:'沒有可以換的格，或被壓制、被斷路',g:'tac',n:'換位',c:1,ok:u=>canMove(u,u.slot-1)||canMove(u,u.slot+1),tg:'slot'},
  {k:'reload',d:'RAM +2（潛網者 +3）。',r:'—',w:'RAM 是滿的',g:'res',n:'回填',c:1,ok:u=>u.ram<u.ramMax},
  {k:'swap',d:'換成另一個武器構裝。',r:'0',w:'只有一個武器構裝',g:'res',n:'換構裝',c:1,ok:u=>u.ws.length>1},
  {k:'cover',d:'不打人，直接打敵方一格的防火牆；倍率加倍。',r:'1',w:'手上是近戰構裝，或 RAM 不夠',g:'tac',n:'打牆',c:2,ok:u=>!wp(u).melee&&canAtk(u),tg:'ecov'},
- {k:'watch',d:'待命：敵人換位時立刻反擊一次（另花 2 點行動點與 RAM）。',r:'0',w:'已經在待命',g:'tac',n:'待命',c:1,ok:u=>!u.watch},
+ {k:'watch',d:'到你的下一回合開始前，第一次有敵人站上暴露的格子（換位、補位、被推過去，或防火牆被打成暴露），自動攻擊他一次，不另花行動點，RAM 照扣。',r:'0（觸發時照扣）',w:'已經在監視',g:'tac',n:'監視',c:2,ok:u=>!u.watch},
  {k:'subdue',d:'把餘韻疊滿的近身敵人釘在線上，讓他退出戰鬥。要過檢定。',r:'1',w:'沒有可以釘的目標（要在近身、對方餘韻疊滿），或 RAM 不夠',g:'tac',n:'釘住',c:2,ok:u=>u.ram>=1&&alive('E').some(t=>canPin(u,t)),tg:'sub'},
  {k:'item',d:'用一次性的腳本。',r:'0',w:'這個 Demo 沒有做',g:'res',n:'腳本',c:1,ok:()=>false},
- {k:'flee',d:'自己登出，退出這場戰鬥。',r:'0',w:'這個 Demo 沒有做',g:'tac',n:'拔線',c:1,ok:()=>false},
  {k:'end',g:'end',n:'結束回合',c:0,ok:()=>true}
 ];
 const ADM={wall:{n:'造牆',c:2,d:'我方一格的防火牆升一級，耐久補滿。',tg:1},breach:{n:'拆牆',c:2,d:'敵方一格的防火牆降一級。',tg:1},cut:{n:'斷路',c:2,d:'一個敵人這一回合不能換位。',tg:1},mark:{n:'標記',c:1,d:'全隊打他 +2，直到他下次過載。',tg:1},wipe:{n:'擦痕跡',c:1,d:'追蹤度 −5。'}};
@@ -271,19 +282,18 @@ function admin(k,v){const u=cur(),a=ADM[k];if(u.ram<a.c||admLeft(u)<1)return;u.r
   else if(k==='mark'){v.mark=true;log(u.name+' 標記 '+tag(v)+'：全隊打他 +2。','g')}
   else if(k==='wipe'){S.trace=Math.max(0,S.trace-6);log(u.name+' 擦痕跡：追蹤度 −5。','g')}}
  S.mode=null;hint('');render()}
-function act(k){if(S.busy||S.over)return;if(k==='skill'){S.skill=!S.skill;return render()}const u=cur(),a=ACTS.find(x=>x.k===k);if(!a)return;if(u.ap<a.c||!a.ok(u))return;
+function act(k){if(S.busy||S.over)return;if(k==='skill'){S.skill=!S.skill;return render()}const u=cur(),a=ACTS.find(x=>x.k===k);if(!a)return;if(u.ap<cost(a,u)||!a.ok(u))return;
  if(a.tg){S.mode=S.mode===k?null:k;hint(S.mode?({foe:'選一個敵人（綠框）。括號裡是命中率。',melee:'選近身的敵人。',slot:'選要換到哪一格（綠框）。',ecov:'選敵方的一格，打它的防火牆。',sub:'選一個餘韻疊滿的近身敵人。'})[a.tg]:'');return render()}
  S.mode=null;
- if(k==='aim'){u.ap--;u.aim=true;log(u.name+' 瞄準：下一次攻擊 +3。')}
- else if(k==='reload'){u.ap--;refill(u)}
+ if(k==='reload'){u.ap--;refill(u)}
  else if(k==='swap'){u.ap--;u.wi=(u.wi+1)%u.ws.length;log(u.name+' 換成'+wp(u).n+'。')}
- else if(k==='watch'){u.ap--;u.watch=true;log(u.name+' 待命。')}
+ else if(k==='watch'){u.ap-=2;u.watch=true;log(u.name+' 監視：敵人一站上暴露的格子就攻擊。')}
  else if(k==='end'){return next()}
  render()
 }
 function pick(kind,v){if(S.busy||S.over||!S.mode)return;const u=cur(),k=S.mode;
  if(kind==='unit'){const t=S.units[v];if(t.side==='P'||t.down)return;
-  if(k==='shoot'){u.ap-=2;attack(u,t)}else if(k==='burst'){u.ap-=3;attack(u,t,{burst:true})}
+  if(k==='shoot'){u.ap-=cost(ACTS[0],u);attack(u,t)}
   else if(k==='melee'){if(dist(u,t)!==1)return;u.ap-=2;attack(u,t)}
   else if(k==='sub'){if(!canPin(u,t))return;u.ap-=2;pin(u,t)}
   else if(k==='ad-cut'||k==='ad-mark')return admin(k.slice(3),t);else return}
@@ -292,7 +302,7 @@ function pick(kind,v){if(S.busy||S.over||!S.mode)return;const u=cur(),k=S.mode;
   else if(k==='cover'&&side==='E'){if(S.cov.E[slot].l===0)return;u.ap-=2;const w=wp(u);u.ram-=w.cost;const v2=Math.round(d6(w.dice)*Math.max(1,w.cm*2));log(u.name+' 打敵方第 '+slot+' 格的防火牆（'+v2+'）。');hurtCover('E',slot,v2)}
   else if(k==='ad-wall'&&side==='P')return admin('wall',slot);
   else if(k==='ad-breach'&&side==='E')return admin('breach',slot);else return}
- S.mode=null;hint('');render()
+ S.mode=null;hint('');flushWatch();render()
 }
 /* ---- 畫面 ---- */
 const AV={cat:'<path d="M4 13L7 2l5 6h4l5-6 3 11a10 10 0 1 1-20 0z"/><path d="M10 15v2M18 15v2"/>',lace:'<circle cx="14" cy="16" r="9"/><path d="M4 10q10-11 20 0l-2 2q-8-7-16 0z"/><path d="M10 16v2M18 16v2"/>',bot:'<rect x="5" y="8" width="18" height="16" rx="3"/><path d="M14 8V3M11 3h6M10 15h2M16 15h2"/>'};
@@ -303,14 +313,14 @@ function render(){const u=cur(),m=S.mode,F=$('nd-field');let h='';
  const col=(side,slot)=>{const c=S.cov[side][slot],x=S.units.find(z=>z.side===side&&z.slot===slot&&!z.down);
   let tg=false;if(m==='move'&&side==='P'&&Math.abs(slot-u.slot)===1&&canMove(u,slot))tg=true;if((m==='cover'||m==='ad-breach')&&side==='E'&&c.l>0)tg=true;if(m==='ad-wall'&&side==='P'&&c.l<2)tg=true;
   let s='<div class="nd-slot'+(tg?' tg':'')+'" data-s="'+side+slot+'"><div class="nd-sh" aria-label="第 '+slot+' 格，'+COVN[c.l]+'">'+(c.l?ico(c.l===2?'cov':'half',COVN[c.l])+bar(c.d,COVD[c.l],'--cv',c.l===1?'half':'')+Math.max(0,c.d):'')+'</div>';
-  if(x){const w=wp(x),ut=m&&x.side==='E'&&((m==='shoot'||m==='burst'||m==='ad-cut'||m==='ad-mark')||(m==='melee'&&dist(u,x)===1)||(m==='sub'&&canPin(u,x)));
+  if(x){const w=wp(x),ut=m&&x.side==='E'&&((m==='shoot'||m==='ad-cut'||m==='ad-mark')||(m==='melee'&&dist(u,x)===1)||(m==='sub'&&canPin(u,x)));
    s+='<div class="nd-u '+(x.side==='P'?'p':'e')+(x.id===u.id&&!S.over?' act':'')+(ut?' tg':'')+'" data-u="'+x.id+'"><div class="nd-nm"><svg class="nd-av" viewBox="0 0 28 28" aria-hidden="true">'+AV[x.av]+'</svg><span>'+x.name+'<small>'+x.skin+(ut&&m!=='sub'&&m.slice(0,2)!=='ad'?' '+hitChance(u,x,wp(u))+'%':'')+'</small></span></div>'
     +'<div class="nd-row" style="color:var(--ld)">'+ico('load','感載')+'<div class="nd-bv"><span>'+x.load+'</span>'+bar(x.load,x.loadMax,'--ld')+'</div></div>'
     +'<div class="nd-row lay" title="餘韻層數（每層檢定 +1、傷害 +10%；疊滿後再過載就斷線）">'+pips(x.layers,x.layersMax,'l')+'</div>'
     +(x.white?'':'<div class="nd-row" style="color:var(--ap)">'+ico('ap','行動點')+pips(x.ap,x.apMax)+'</div>'
     +'<div class="nd-row" style="color:var(--mint)">'+ico('ram','RAM')+pips(x.ram,x.ramMax,'m')+'</div>'
     +'<div class="nd-row">'+w.n+'</div>')
-    +'<div class="nd-st"><span class="sy s'+x.sync+'">'+SY[x.sync].n+'檔</span>'+(x.aim?'<span>瞄準</span>':'')+(x.flash?'<span>閃斷</span>':'')+(x.supp?'<span>被壓制</span>':'')+(x.watch?'<span>待命</span>':'')+(x.jam?'<span>干擾</span>':'')+(x.cut?'<span>斷路</span>':'')+(x.mark?'<span>標記</span>':'')+(!x.prot&&(x.elite||x.side==='P')?'<span>破損</span>':'')+'</div></div>'}
+    +'<div class="nd-st"><span class="sy s'+x.sync+'">'+SY[x.sync].n+'檔</span>'+(x.aim?'<span>瞄準</span>':'')+(x.flash?'<span>閃斷</span>':'')+(x.supp?'<span>被壓制</span>':'')+(x.watch?'<span>監視</span>':'')+(x.jam?'<span>干擾</span>':'')+(x.cut?'<span>斷路</span>':'')+(x.mark?'<span>標記</span>':'')+(!x.prot&&(x.elite||x.side==='P')?'<span>破損</span>':'')+'</div></div>'}
   return s+'</div>'};
  for(let s=4;s>=1;s--)h+=col('P',s);h+='<div class="nd-mid">近身</div>';for(let s=1;s<=4;s++)h+=col('E',s);F.innerHTML=h;
  $('nd-round').textContent='第 '+S.round+' 回合';
@@ -327,15 +337,16 @@ const IC={"shoot": "m79.238 115.768l-28.51 67.863h406.15l-.273-67.862h-263.83v55
  const arc=(r0,r1,a0,a1)=>{const A0=pt(r1,a0),A1=pt(r1,a1),B1=pt(r0,a1),B0=pt(r0,a0);return 'M'+A0+'A'+r1+' '+r1+' 0 0 1 '+A1+'L'+B1+'A'+r0+' '+r0+' 0 0 0 '+B0+'Z'};
  const ring=(g,r0,r1,off)=>{const L=ACTS.filter(a=>a.g===g),st=360/L.length;return L.map((a,i)=>{const a0=off+i*st+1,a1=off+(i+1)*st-1,c=pt((r0+r1)/2,(a0+a1)/2);
   return '<g class="r-'+g+'" data-a="'+a.k+'" role="button" tabindex="0" aria-label="'+a.n+'，'+a.c+' 點行動點。'+a.d+'"><path d="'+arc(r0,r1,a0,a1)+'"/><path class="ic" transform="translate('+(+c[0]-15)+' '+(+c[1]-21)+') scale(.0586)" d="'+IC[a.k]+'"/><text class="c" x="'+c[0]+'" y="'+(+c[1]+20)+'">'+a.c+'</text></g>'}).join('')};
- $('nd-wbox').innerHTML='<svg class="nd-w" viewBox="0 0 348 348" role="group" aria-label="行動圓環"><circle class="hit" cx="174" cy="174" r="173"/>'+ring('tac',128,172,-36)+ring('atk',84,126,-45)+ring('res',42,82,-60)
+ $('nd-wbox').innerHTML='<svg class="nd-w" viewBox="0 0 348 348" role="group" aria-label="行動圓環"><circle class="hit" cx="174" cy="174" r="173"/>'+ring('tac',128,172,-45)+ring('res',84,126,-60)+ring('atk',42,82,0)
   +'<g class="r-skl" data-a="skill" role="button" tabindex="0" aria-label="技能清單"><circle class="bg" cx="174" cy="174" r="40"/><path class="ic" transform="translate(148 148) scale(.1016)" d="'+IC.skill+'"/></g></svg>';
 })();
 
 function tipHTML(k){if(k==='skill')return '<b>技能</b><p>打開技能清單。</p>';const a=ACTS.find(x=>x.k===k),u=cur();if(!a)return '';
- const no=u.side==='P'&&(u.ap<a.c?'行動點不夠':(!a.ok(u)?a.w:''));return '<b>'+a.n+'</b><i>'+a.c+' 點</i><i class="rm">RAM '+a.r+'</i><p>'+a.d+'</p>'+(no?'<p class="no">現在做不到：'+no+'。</p>':'')}
+ const c=cost(a,u),no=u.side==='P'&&(u.ap<c?'行動點不夠':(!a.ok(u)?a.w:''));return '<b>'+a.n+'</b><i>'+c+' 點</i><i class="rm">RAM '+a.r+'</i><p>'+a.d+'</p>'+(no?'<p class="no">現在做不到：'+no+'。</p>':'')}
 function updWheel(u,m){const off=S.over||u.side==='E';$('nd-act').classList.toggle('off',off);$('nd-endbtn').disabled=off;$('nd-endbtn').classList.toggle('dis',off);
  $('nd-wbox').querySelectorAll('g[data-a]').forEach(g=>{const k=g.getAttribute('data-a'),a=ACTS.find(x=>x.k===k);
-  const dis=off||(a?(u.ap<a.c||!a.ok(u)):false);g.classList.toggle('dis',dis);g.classList.toggle('sel',k==='skill'?!!S.skill:m===k);g.setAttribute('aria-disabled',dis);g.setAttribute('tabindex',dis?-1:0)});
+  const dis=off||(a?(u.ap<cost(a,u)||!a.ok(u)):false);g.classList.toggle('dis',dis);if(a){const tx=g.querySelector('text.c');if(tx)tx.textContent=cost(a,u)}g.classList.toggle('sel',k==='skill'?!!S.skill:m===k);g.setAttribute('aria-disabled',dis);g.setAttribute('tabindex',dis?-1:0)});
+ $('nd-flee').disabled=off||u.ap<1;$('nd-give').disabled=off;
  $('nd-skl').hidden=!S.skill;if(off)hov(null)}
 const WB=$('nd-wbox'),TIP=$('nd-tip'),touch=window.matchMedia&&window.matchMedia('(hover: none)').matches;let HV=null;
 function hov(g,x,y){if(HV&&HV!==g)HV.classList.remove('hov');HV=g;if(!g){TIP.hidden=true;return}
@@ -358,6 +369,16 @@ $('nd-sync').addEventListener('click',e=>{const b=e.target.closest('button');if(
 $('nd-adm').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled||S.busy||S.over)return;const k=b.dataset.ad,a=ADM[k];
  if(!a.tg)return admin(k);S.mode=S.mode==='ad-'+k?null:'ad-'+k;hint(S.mode?a.n+'（RAM '+a.c+'）：'+a.d+' 選目標（綠框）。':'');render()});
 $('nd-field').addEventListener('click',e=>{const x=e.target.closest('.nd-u.tg');if(x)return pick('unit',+x.dataset.u);const s=e.target.closest('.nd-slot.tg');if(s)pick('slot',[s.dataset.s[0],+s.dataset.s[1]])});
+/* 拔線與投降：長按 0.6 秒才生效，放開就取消 */
+function hold(btn,fn){let t=null,fired=false;const go=()=>{if(btn.disabled||S.busy||S.over)return;btn.classList.add('on');t=setTimeout(()=>{t=null;fired=true;btn.classList.remove('on');fn()},600)},
+ stop=()=>{if(t){clearTimeout(t);t=null}btn.classList.remove('on')};
+ btn.addEventListener('pointerdown',e=>{e.preventDefault();go()});['pointerup','pointerleave','pointercancel'].forEach(v=>btn.addEventListener(v,stop));
+ btn.addEventListener('contextmenu',e=>e.preventDefault());
+ btn.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')){e.preventDefault();if(!e.repeat)go()}});btn.addEventListener('keyup',e=>{if(e.key==='Enter'||e.key===' ')stop()});
+ btn.addEventListener('click',()=>{if(fired){fired=false;return}if(!btn.disabled)hint(btn.textContent.replace(/\d/g,'')+'要長按，免得誤觸。')})}
+function unplug(){const u=cur();if(u.ap<1)return;u.ap--;u.unp=true;u.out=true;log(u.name+' 拔線：登出，退出這場戰鬥。','h');fall(u,' 離開了內海。');if(!S.over)next();else render()}
+function giveUp(){S.over=true;S.mode=null;const el=$('nd-end');el.style.display='block';el.textContent='投降：戰鬥結束，算戰敗。之後不再受感載，還站著的人不算倒下。贏的是粉蕾絲，所以正式的遊戲裡這裡直接接「被釘在線上」的活捉事件，和全隊倒下時是同一個。';log('投降。','h');render()}
+hold($('nd-flee'),unplug);hold($('nd-give'),giveUp);
 $('nd-reset').addEventListener('click',init);
 init();
 })();
