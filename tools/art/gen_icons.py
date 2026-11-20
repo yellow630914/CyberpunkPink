@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""物品與技能的圖標：第 1 層（未知）、第 2 層（類型與部位的通用圖標）、技能的備用圖標（種類 × 樹）。
+"""物品與技能的圖標：第 1 層（未知）、第 2 層（類型與部位的通用圖標）、技能的備用圖標（種類 × 樹），
+以及基本功 18、傷害類型 5、設施 31 的通用圖標（畫在 subjects/basics.py）。
 規格照 ART_STYLE 第 5 節：剪影＋扁平、3～4 色、形狀之間留縫；顏色用 CSS 變數，同一份原稿換兩套皮：
   --o 縫與輪廓　--a 重點（現實皮只有一個粉）　--b 主體　--c 亮部
 輸出：
@@ -98,6 +99,14 @@ add('net_body', '構裝體', G, f'<path {S} fill="var(--b)" d="M66 26H134L146 60
 add('net_unique', '專屬構裝', G, f'<path {S} fill="var(--b)" d="M100 18L122 72L180 76L136 114L150 172L100 140L50 172L64 114L20 76L78 72Z"/><rect {S} x="74" y="78" width="52" height="52" rx="6" fill="var(--c)"/><path fill="var(--o)" d="M86 90H114V118H86Z"/><rect x="94" y="98" width="12" height="12" fill="var(--a)"/>')
 add('skin', 'SKIN', G, f'<path fill="none" stroke="var(--o)" stroke-width="16" stroke-linecap="round" d="M100 46V30Q100 20 112 22"/><path fill="none" stroke="var(--c)" stroke-width="7" stroke-linecap="round" d="M100 46V30Q100 20 112 22"/><path {S} fill="var(--b)" d="M100 46L170 86H30Z"/><path {S} fill="var(--c)" d="M64 86H136L150 176H50Z"/><path fill="none" stroke="var(--o)" stroke-width="6" stroke-dasharray="10 8" d="M60 116H140M58 146H142"/><rect x="92" y="100" width="16" height="16" fill="var(--a)"/>')
 
+# ---------- 基本功、傷害類型、設施（subjects/basics.py） ----------
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from subjects.basics import GROUPS as GLYPH_GROUPS  # noqa: E402
+NEW_GROUPS = [g for g, _ in GLYPH_GROUPS]
+for _g, _rows in GLYPH_GROUPS:
+    for _r in _rows:
+        add(_r[0], _r[1], _g, _r[-1])
+
 # ---------- 技能：六種種類的符號（疊在樹的底框上） ----------
 K = {
     'active': ('主動', '<path fill="var(--c)" stroke="var(--o)" stroke-width="7" stroke-linejoin="round" d="M112 38L64 108H96L84 162L136 88H104Z"/>'),
@@ -188,17 +197,33 @@ def main():
 
     # 總覽：物品（兩套皮）＋技能
     cols, cw, ch = 12, 100, 112
-    rows_i = (len(I) + cols - 1) // cols
+    items_only = [t for t in I if t[2] not in NEW_GROUPS]
+    rows_i = (len(items_only) + cols - 1) // cols
     skins = [('現實', '#17111F', '--o:#17111F;--a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF', '#F3E9FF'),
              ('內海', '#F8C3D8', '--o:#1E2346;--a:#F06AA0;--b:#45D6C5;--c:#FFF4E8', '#1E2346')]
     W = cols * cw + 40
     parts, y = [], 70
     for sname, bg, vars_, ink in skins:
         h = rows_i * ch + 50
-        parts.append(f'<rect x="0" y="{y}" width="{W}" height="{h}" fill="{bg}"/><text x="20" y="{y + 30}" font-size="16" font-weight="800" fill="{ink}">物品・{sname}皮（第 1、2 層，{len(I)} 個）</text><g style="{vars_}">')
-        for k, (i, n, g, b) in enumerate(I):
+        parts.append(f'<rect x="0" y="{y}" width="{W}" height="{h}" fill="{bg}"/><text x="20" y="{y + 30}" font-size="16" font-weight="800" fill="{ink}">物品・{sname}皮（第 1、2 層，{len(items_only)} 個）</text><g style="{vars_}">')
+        for k, (i, n, g, b) in enumerate(items_only):
             x, yy = 20 + (k % cols) * cw, y + 46 + (k // cols) * ch
             parts.append(f'<use href="#ic-{i}" x="{x + 18}" y="{yy}" width="64" height="64"/><text x="{x + 50}" y="{yy + 84}" text-anchor="middle" font-size="11" fill="{ink}">{n}</text>')
+        parts.append('</g>')
+        y += h
+    # 基本功、傷害類型、設施：每一組一段，兩套皮各一份
+    for sname, bg, vars_, ink in skins:
+        groups = [(g, [t for t in I if t[2] == g]) for g in NEW_GROUPS]
+        h = 50 + sum(30 + ((len(ts) + cols - 1) // cols) * ch for g, ts in groups)
+        parts.append(f'<rect x="0" y="{y}" width="{W}" height="{h}" fill="{bg}"/><text x="20" y="{y + 30}" font-size="16" font-weight="800" fill="{ink}">基本功・傷害類型・設施・{sname}皮（{sum(len(ts) for g, ts in groups)} 個）</text><g style="{vars_}">')
+        yy0 = y + 50
+        for g, ts in groups:
+            parts.append(f'<text x="20" y="{yy0 + 14}" font-size="12" font-weight="700" fill="{ink}" fill-opacity=".7">{g}（{len(ts)}）</text>')
+            yy0 += 30
+            for k, (i, n, gg, b) in enumerate(ts):
+                x, yy = 20 + (k % cols) * cw, yy0 + (k // cols) * ch
+                parts.append(f'<use href="#ic-{i}" x="{x + 18}" y="{yy}" width="64" height="64"/><text x="{x + 50}" y="{yy + 84}" text-anchor="middle" font-size="11" fill="{ink}">{n}</text>')
+            yy0 += ((len(ts) + cols - 1) // cols) * ch
         parts.append('</g>')
         y += h
     sk = skill_icons()
@@ -212,10 +237,10 @@ def main():
     y += h
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {y}" width="{W}" height="{y}" font-family="\'Noto Sans TC\',sans-serif">'
            f'<defs>{style}{"".join(items + skills)}</defs><rect width="{W}" height="70" fill="#17111F"/>'
-           f'<text x="20" y="44" font-size="26" font-weight="900" fill="#F06AA0">圖標・第 1、2 層與技能的備用圖標</text>' + ''.join(parts) + '</svg>')
+           f'<text x="20" y="44" font-size="26" font-weight="900" fill="#F06AA0">圖標・第 1、2 層、技能的備用圖標、基本功・傷害類型・設施</text>' + ''.join(parts) + '</svg>')
     open(os.path.join(OUT, 'icons-l2.svg'), 'w', encoding='utf-8').write(svg)
     open(os.path.join(ROOT, 'docs', 'mockups', 'icons-l2.svg'), 'w', encoding='utf-8').write(svg)  # 原型的總覽頁用
-    print('→ icons-sprite.svg, icons-l2.svg', len(I), 'item icons,', len(sk), 'skill icons')
+    print('→ icons-sprite.svg, icons-l2.svg', len(items_only), 'item icons,', len(I) - len(items_only), 'basic/damage/facility icons,', len(sk), 'skill icons')
 
 
 if __name__ == '__main__':

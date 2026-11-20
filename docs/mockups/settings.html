@@ -217,6 +217,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 .ln .r{grid-row:span 2;align-self:center;font:800 11.5px var(--mono);color:var(--ink-2);text-align:right}
 .ln.on{background:#3A2B47;box-shadow:inset 3px 0 0 var(--a)}
 .ln.no{opacity:.45}
+@media (max-width:720px){.v.on{display:flex;flex-direction:column;height:auto}.tabsx{flex-wrap:nowrap;overflow-x:auto}.tabsx span{flex:none}}
 /* 設定 */
 .sgrp{font-size:12px;font-weight:900;letter-spacing:2px;color:var(--ink-2);margin:18px 0 8px;display:flex;align-items:center;gap:10px}
 .sgrp::after{content:"";flex:1;height:2px;background:var(--line)}
@@ -281,6 +282,7 @@ select.sel{font:800 12.5px var(--font);padding:6px 8px;background:#120D19;border
   .diffs{grid-template-columns:repeat(2,minmax(0,1fr))}
   .coef th,.coef td{padding:5px 4px}
   .rt .hm{display:none}
+  #v-game>aside:first-child .ln{display:inline-block;margin:0 4px 5px 0;padding:6px 10px}#v-game>aside:first-child .ln small,#v-game>aside:first-child .note{display:none}
 }
 </style>
 <svg width="0" height="0" style="position:absolute"><defs>
@@ -308,7 +310,7 @@ select.sel{font:800 12.5px var(--font);padding:6px 8px;background:#120D19;border
     <div class="ln" data-go="g-city"><b>城市、事件與檢定</b><small>八項</small></div>
     <div class="ln" data-go="g-trade"><b>交易</b><small>六項</small></div>
     <div class="ln" data-go="g-adult"><b>成人事件與橋</b><small>八項</small></div>
-    <div class="ln" data-go="g-gen"><b>生成的人與建角</b><small>三項</small></div>
+    <div class="ln" data-go="g-gen"><b>生成的人與建角</b><small>兩項</small></div>
     <div class="note">這一頁的每一項都跟著存檔走。開新局時在「標題與存檔」選一次，之後隨時可以在這裡改，改了只影響之後的事。</div>
   </aside>
   <div class="panel cut pad scroll" id="gameBody">

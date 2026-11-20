@@ -4,6 +4,7 @@
 輸出：
   docs/art/icons/items.csv    物品
   docs/art/icons/skills.csv   技能（八棵樹＋夜課）
+  docs/art/icons/glyphs.csv   基本功、傷害類型、設施的通用圖標（第 2 層就是成品；向量原稿在 subjects/basics.py）
 欄位：id, 名字, 分類, 第2層, 等級, 牌子, 獨特, prompt, 備註
 提示詞的寫法與負向提示詞在 ART_STYLE 5.1 節。英文主體是照中文名字裡的關鍵字推的，推不出來的用分類的主體；
 要改某一筆，直接改 CSV 的 prompt 欄（重跑會蓋掉；手改的寫在 icons/overrides.csv，同樣的欄位，只放要改的列，重跑時會套上去）。
@@ -259,6 +260,35 @@ def skills():
     return out
 
 
+def glyphs():
+    """基本功、傷害類型、設施。先拿規則文件的表對 subjects/basics.py 的清單，對不上就印出來。"""
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from subjects.basics import BASICS, DAMAGE, FACILITIES
+    want = {
+        '基本功': ('systems/CORE_RULES.md', '基本功', BASICS),
+        '傷害類型': ('systems/COMBAT_SYSTEM.md', '類型', DAMAGE),
+        '設施': ('systems/TRADE.md', '種類', [r for r in FACILITIES if r[3] == 'TRADE']),
+    }
+    for g, (doc, col, rows) in want.items():
+        names = []
+        for sec, head, trs, idx in tables(os.path.join(DOCS, doc)):
+            if head and col in head and (g != '設施' or sec == '2') and (g != '傷害類型' or '打哪一條' in head):
+                k = head.index(col)
+                names += [re.sub(r'（.*?）', '', plain(r[k])) for r in trs if len(r) > k and plain(r[k])]
+        have = {r[1] for r in rows}
+        miss, extra = [n for n in names if n not in have], [n for n in have if n not in names]
+        if miss or extra:
+            print(f'  {g}：文件有、圖標沒有 {miss}；圖標有、文件沒有 {extra}')
+    out = []
+    for g, src, rows in (('基本功', 'CORE_RULES 第 2 節', BASICS), ('傷害類型', 'COMBAT_SYSTEM 第 5 節', DAMAGE), ('設施', None, FACILITIES)):
+        for r in rows:
+            note = src or ('TRADE 第 2 節的商店種類' if r[3] == 'TRADE' else '從 DOWNTIME 第 4 節與 SITES 的街區設施歸出來的')
+            out.append({'id': r[0], '名字': r[1], '分類': g, '第2層': f'ic-{r[0]}', '等級': '', '牌子': '', '獨特': '',
+                        'prompt': ', '.join([STYLE.replace('single object', 'single symbol'), r[2], PALETTE]), '備註': note})
+    return out
+
+
 def overrides():
     path = os.path.join(OUT, 'overrides.csv')
     if not os.path.exists(path):
@@ -280,3 +310,4 @@ def write(name, rows):
 if __name__ == '__main__':
     write('items.csv', items())
     write('skills.csv', skills())
+    write('glyphs.csv', glyphs())
