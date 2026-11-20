@@ -2147,7 +2147,7 @@ V 級的藥之後和 V 級零件一起設計（[DESIGN_ORDER](../plan/DESIGN_ORD
 
 ## 8. 不在這份目錄的
 
-服裝在 7.1 節，成人道具在 7.3 節。家具與儲物在 [DOWNTIME](../systems/DOWNTIME.md) 7.5、7.7 節；構裝與 SKIN 在第 11 節，規則在 [CYBERSPACE](../systems/CYBERSPACE.md) 4.2、4.3 節；素材與感官帶在 [MEDIA](../systems/MEDIA.md) 第 2 節；調校在 [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 4 節；機甲與載具見 [CRAFTING](CRAFTING.md) 第 13 節，價格見 [LIFE](../world/LIFE.md) 1.2 節；V 級原型跟著特殊任務。
+服裝在 7.1 節，成人道具在 7.3 節。家具與儲物在 [DOWNTIME](../systems/DOWNTIME.md) 7.5、7.7 節；構裝與 SKIN 在第 11 節，規則在 [CYBERSPACE](../systems/CYBERSPACE.md) 4.2、4.3 節；素材與感官帶在 [MEDIA](../systems/MEDIA.md) 第 2 節；調校在 [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 4 節；機甲與載具在第 14 節，整備見 [CRAFTING](CRAFTING.md) 第 15 節；V 級原型跟著特殊任務。
 
 ## 9. 生成時補上的規則（已確認）
 
