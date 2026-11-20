@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="zh-Hant" data-skin="real">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>設定 v1</title>
+<style>
+:root{--cut:12px;--cut-sm:7px;--font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",Arial,sans-serif;--mono:ui-monospace,Menlo,Consolas,monospace}
+[data-skin="real"]{--bg:#17111F;--bg-1:#211829;--bg-2:#2C2136;--line:#3A2D47;--ink:#F3E9FF;--ink-2:#C9B8E8;--ink-3:#8C7AA6;
+  --a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF;--o:#17111F;--hp:#FF5A6E;--load:#F06AA0;--sink:#5FB8E8;--ap:#F2C14E;--ram:#45D6C5;--ep:#B39DF0;--net:#45D6C5;
+  --accent:#F06AA0;
+  --grid:linear-gradient(#ffffff06 1px,transparent 1px) 0 0/16px 16px,linear-gradient(90deg,#ffffff06 1px,transparent 1px) 0 0/16px 16px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);background-image:var(--grid);color:var(--ink);font-family:var(--font);font-size:14px}
+.cut{clip-path:polygon(0 0,calc(100% - var(--cut)) 0,100% var(--cut),100% 100%,var(--cut) 100%,0 calc(100% - var(--cut)))}
+.cut-sm{clip-path:polygon(0 0,calc(100% - var(--cut-sm)) 0,100% var(--cut-sm),100% 100%,var(--cut-sm) 100%,0 calc(100% - var(--cut-sm)))}
+.panel{background:var(--bg-1);box-shadow:inset 0 0 0 2px var(--line)}
+.h{font-size:11px;letter-spacing:2px;color:var(--ink-3);font-weight:800;margin:0 0 8px}
+/* 狀態列 */
+.status{height:52px;display:flex;align-items:center;gap:14px;padding:0 16px;background:#120D19;border-bottom:2px solid var(--line)}
+.logo{display:flex;align-items:center;gap:8px;font-weight:900;letter-spacing:1px}
+.logo svg{display:block}
+.st{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);white-space:nowrap}
+.st b{color:var(--ink);font-weight:800}
+.sep{width:2px;height:22px;background:var(--line)}
+.pill{padding:3px 9px;border-radius:999px;background:var(--bg-2);font-size:12px;font-weight:800}
+.pill.hot{background:var(--a);color:#fff}
+.grow{flex:1}
+.ibtn{width:34px;height:34px;display:grid;place-items:center;background:var(--bg-2);position:relative}
+.badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:var(--a);color:#fff;font-size:10px;font-weight:900;display:grid;place-items:center;padding:0 4px}
+/* 三欄 */
+.main{display:grid;grid-template-columns:340px 1fr 330px;gap:12px;padding:12px;height:calc(100% - 52px)}
+.col{display:flex;flex-direction:column;gap:12px;min-height:0}
+/* 地圖 */
+.map{padding:12px 16px 12px 12px}
+.grid{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:2px;width:100%}
+.tile{aspect-ratio:1;border-radius:4px;background:#1A1322;position:relative;min-width:0}
+.tile.st{background:#33274A}
+.tile.bd{background:#1E1627}
+.tile.fac{background:#5B4675;box-shadow:inset 0 -3px 0 #8E7CC3}
+.tile.exit{background:#33274A;box-shadow:inset 0 0 0 2px var(--b)}
+.tile.me{background:var(--a);box-shadow:0 0 10px var(--a)}
+.tile.job::after{content:"";position:absolute;inset:4px;background:var(--ap);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.tile.npc::after{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--c)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--ink-3)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+/* 小隊 */
+.party{padding:12px}
+.mem{display:grid;grid-template-columns:38px 1fr;gap:10px;align-items:center;padding:7px 0}
+.nm{display:flex;align-items:center;gap:6px;font-weight:800;font-size:13px}
+.nm .role{margin-left:auto;color:var(--ink-3);font-weight:700;font-size:11px}
+.sink{width:46px;height:10px;position:relative;border-left:1px solid #F06AA0;border-right:1px solid #F06AA0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cg fill='none' stroke='%23F06AA0' stroke-width='1.4' stroke-linecap='round' opacity='0.22'%3E%3Cpath d='M0 5Q3 0 6 5T12 5'/%3E%3Cpath d='M3 2.6V5.4M9 7.4V4.6'/%3E%3C/g%3E%3C/svg%3E") 0 0/12px 10px repeat-x}
+.sink b{position:absolute;inset:0 auto 0 0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cg fill='none' stroke='%23F06AA0' stroke-width='1.4' stroke-linecap='round' opacity='1'%3E%3Cpath d='M0 5Q3 0 6 5T12 5'/%3E%3Cpath d='M3 2.6V5.4M9 7.4V4.6'/%3E%3C/g%3E%3C/svg%3E") 0 0/12px 10px repeat-x;animation:flow 1.1s linear infinite;filter:drop-shadow(0 0 3px #F06AA088)}
+.sv{font:800 10px var(--mono);color:#F58DBA}
+.hb{height:8px;border-radius:4px;background:#2E2339;margin-top:5px;position:relative;overflow:hidden}
+.hb b{position:absolute;inset:0 auto 0 0;border-radius:4px 0 0 4px}
+.hb.hp b{background:linear-gradient(90deg,#FF4A4A,#FF8A5C);--end:#FF8A5C}
+.hb.ld b{background:repeating-linear-gradient(120deg,#F06AA0 0 6px,#F58DBA 6px 9px);--end:#F58DBA}
+.hb b::after{content:"";position:absolute;left:100%;top:0;bottom:0;width:5px;background:var(--end);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='8'%3E%3Cpath d='M0 0H2.5Q5 2 2.5 4Q0 6 2.5 8H0Z'/%3E%3C/svg%3E") 0 0/5px 8px repeat-y;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='8'%3E%3Cpath d='M0 0H2.5Q5 2 2.5 4Q0 6 2.5 8H0Z'/%3E%3C/svg%3E") 0 0/5px 8px repeat-y;animation:wave 1.8s linear infinite}
+.hb.ld b::after{animation-duration:1.4s}
+.hb b[style*="100%"]{border-radius:4px}.hb b[style*="100%"]::after{display:none}
+.ldrow{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}
+.ldrow .ag{margin-top:5px}
+@keyframes wave{to{-webkit-mask-position:0 8px;mask-position:0 8px}}
+@keyframes flow{to{background-position:12px 0}}
+@media (prefers-reduced-motion:reduce){.sink b,.hb b::after{animation:none}}
+
+.ava{width:38px;height:38px;border-radius:10px;background:var(--bg-2);position:relative;overflow:hidden}
+.ava::before{content:"";position:absolute;left:10px;top:7px;width:18px;height:18px;border-radius:50%;background:var(--b)}
+.ava::after{content:"";position:absolute;left:4px;top:24px;width:30px;height:20px;border-radius:12px 12px 0 0;background:var(--b)}
+.ava.me::before,.ava.me::after{background:var(--a)}
+.nm{display:flex;justify-content:space-between;font-weight:800;font-size:13px}
+.nm span{color:var(--ink-3);font-weight:700;font-size:11px}
+.mini{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:4px}
+.mini i{height:6px;border-radius:3px;background:var(--bg-2);position:relative;overflow:hidden}
+.mini i b{position:absolute;inset:0;border-radius:3px}
+.ag{display:flex;gap:3px;margin-top:4px}
+.ag i{width:9px;height:6px;border-radius:2px;background:var(--bg-2)}
+.ag i.on{background:var(--load)}
+/* 委託條 */
+.job{padding:12px}
+.job .t{font-weight:900}
+.stages{display:flex;gap:6px;margin-top:8px}
+.stage{flex:1;padding:6px 6px 7px;background:var(--bg-2);font-size:11px;color:var(--ink-3);font-weight:700}
+.stage.done{background:#3A2B47;color:var(--ink-2)}
+.stage.now{background:var(--a);color:#fff}
+.faces{display:flex;gap:4px;margin-top:4px}
+.faces i{width:16px;height:5px;border-radius:2px;background:#ffffff22}
+.faces i.m{background:var(--ink-2)}.faces i.n{background:var(--net)}.faces i.o{background:var(--ep)}
+/* 中欄 */
+.tools{display:flex;gap:6px;padding:8px;flex-wrap:wrap}
+.tool{display:flex;align-items:center;gap:6px;padding:7px 12px;background:var(--bg-2);font-weight:800;font-size:13px;color:var(--ink-2);position:relative}
+.tool svg{display:block}
+.tool .badge{top:-5px;right:-5px}
+.log{flex:1;overflow:auto;padding:4px 18px 10px}
+.entry{padding:14px 0 16px;border-bottom:2px solid var(--line)}
+.sys{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-bottom:8px}
+.sys b{color:var(--accent)}
+.prose{line-height:1.9;font-size:15px;max-width:720px}
+.prose p{margin:0 0 10px}
+.prose .netp{border-left:3px solid var(--net);padding-left:12px;font-family:var(--mono);font-size:13.5px;color:var(--ink-2)}
+.check{display:flex;align-items:stretch;border-radius:12px;overflow:hidden;background:var(--bg-2);max-width:520px;margin:10px 0}
+.check .d{background:var(--a);color:#fff;font-weight:900;font-size:20px;padding:6px 14px;display:grid;place-items:center}
+.check .info{padding:7px 12px;font-size:12.5px}
+.grade{display:inline-block;padding:1px 8px;border-radius:6px;background:var(--c);color:var(--bg);font-weight:800}
+.twist{color:var(--a);font-weight:800}
+.chg{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chg span{font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:var(--bg-2);color:var(--ink-2)}
+.chg .plus{color:var(--ram)} .chg .minus{color:var(--hp)}
+.chain{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;font-weight:800;margin-top:10px}
+.step{padding:3px 9px;border-radius:999px;background:var(--bg-2);color:var(--ink-3)}
+.step.ok{background:#3A2B47;color:var(--ink-2)}
+.step.run{background:var(--bg-1);color:var(--ink);box-shadow:inset 0 0 0 2px var(--a)}
+.arrow{color:var(--ink-3)}
+.thin{height:6px;border-radius:3px;background:var(--bg-2);display:flex;gap:3px;margin-top:10px;max-width:220px;overflow:hidden}
+.thin i{flex:1;background:#3A2B47}
+.entry-tools{display:flex;gap:6px;margin-top:10px}
+.mini-btn{font-size:11px;font-weight:800;padding:4px 10px;background:var(--bg-2);color:var(--ink-3)}
+/* 行動列 */
+.act{padding:10px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.input{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#120D19;box-shadow:inset 0 0 0 2px var(--line);color:var(--ink-3)}
+.input .die{width:26px;height:26px;background:var(--a);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.ctx{display:flex;gap:6px}
+.btn{font:800 13px var(--font);border:0;padding:11px 14px;cursor:pointer;background:var(--bg-2);color:var(--ink)}
+.btn.pri{background:var(--a);color:#fff}
+/* 右欄 */
+.here{padding:12px}
+.person{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center;padding:8px;background:var(--bg-2);border-radius:12px;margin-bottom:8px}
+.person .ava{width:44px;height:44px}
+.person .r{font-size:11px;color:var(--ink-3)}
+.heart{color:var(--a);font-size:11px;font-weight:800}
+.fac-tag{font-size:10px;font-weight:800;padding:1px 6px;border-radius:5px;background:#3A2B47;color:var(--ink-2);margin-left:4px}
+.acts{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.acts span{font-size:11px;font-weight:800;padding:3px 8px;border-radius:7px;background:var(--bg-1);color:var(--ink-2)}
+.acts span.hot{background:var(--a);color:#fff}
+.svc{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg-2);border-radius:10px;margin-bottom:6px;font-weight:700}
+.svc span{font-family:var(--mono);font-size:12px;color:var(--ap)}
+.ong{padding:8px 10px;background:var(--bg-2);border-radius:10px;margin-bottom:6px;font-size:13px}
+.ong small{display:block;color:var(--ink-3);font-size:11px;margin-top:2px}
+.ong .k{font-size:10px;font-weight:900;padding:1px 6px;border-radius:5px;margin-right:6px;color:#17111F}
+.tick{position:absolute;top:7px;right:20px;width:16px;height:4px;background:var(--a)}
+.rel{position:relative}
+
+/* ===== 手機版 ===== */
+.mobile{display:none}
+@media (max-width:720px){
+  .status .hide-m,.main{display:none}
+  .status{height:48px;gap:10px;padding:0 12px}
+  .mobile{display:flex;flex-direction:column;height:calc(100% - 48px)}
+  .m-map{padding:8px 40px 6px}
+  .m-map .grid{gap:2px}
+  .m-log{flex:1;overflow:auto;padding:0 14px}
+  .m-log .prose{font-size:15px}
+  .m-ctx{padding:8px 12px;display:grid;gap:8px}
+  .tabs{display:grid;grid-template-columns:repeat(5,1fr);background:#120D19;border-top:2px solid var(--line)}
+  .tab{display:grid;place-items:center;gap:3px;padding:8px 0 10px;font-size:11px;font-weight:800;color:var(--ink-3);position:relative}
+  .tab.on{color:var(--a)}
+  .tab.on::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;background:var(--a);border-radius:0 0 3px 3px}
+}
+/* ==== FX：邊框、呼吸燈、心跳背景、滑鼠特效 ==== */
+@property --fr{syntax:'<color>';inherits:true;initial-value:#4A3560}
+@keyframes breathe{0%,100%{--fr:#45305C}50%{--fr:#B0508A}}
+@keyframes bracket{0%,100%{opacity:.45}50%{opacity:1}}
+[data-skin="real"] .panel{position:relative;background:var(--fr)!important;box-shadow:none!important;isolation:isolate;animation:breathe 3.6s ease-in-out infinite}
+[data-skin="real"] .panel::before{content:"";position:absolute;inset:2px;z-index:-1;background:color-mix(in srgb,var(--bg-1) 86%,transparent);backdrop-filter:blur(1px);
+  clip-path:polygon(0 0,calc(100% - var(--cut) + 1px) 0,100% calc(var(--cut) - 1px),100% 100%,calc(var(--cut) - 1px) 100%,0 calc(100% - var(--cut) + 1px))}
+[data-skin="real"] .panel::after{content:"";position:absolute;inset:6px;pointer-events:none;z-index:2;animation:bracket 3.6s ease-in-out infinite;
+  background:
+   linear-gradient(var(--a),var(--a)) left top/16px 2px no-repeat,
+   linear-gradient(var(--a),var(--a)) left top/2px 16px no-repeat,
+   linear-gradient(var(--a),var(--a)) right bottom/16px 2px no-repeat,
+   linear-gradient(var(--a),var(--a)) right bottom/2px 16px no-repeat,
+   repeating-linear-gradient(90deg,var(--b) 0 6px,transparent 6px 10px) left 26px top 0/44px 2px no-repeat}
+.ecg{position:fixed;left:0;right:0;top:50%;height:360px;transform:translateY(-50%);width:100%;pointer-events:none;z-index:5}
+[data-skin="real"] .ecg,[data-skin="real"]>.ecg,html[data-skin="real"] .ecg{mix-blend-mode:screen}
+.ecg .base{fill:none;stroke-width:2.5;stroke-linejoin:round;opacity:.16}
+.ecg .beat{fill:none;stroke-width:4;stroke-linejoin:round;filter:drop-shadow(0 0 8px currentColor)}
+@keyframes ecg{from{stroke-dashoffset:2660}to{stroke-dashoffset:0}}
+body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
+.fxl{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden}
+.fxp{position:absolute;will-change:transform,opacity}
+@keyframes px{to{transform:translate(var(--dx),var(--dy)) scale(.3);opacity:0}}
+@keyframes rise{to{transform:translate(var(--dx),-46px) rotate(var(--r)) scale(.6);opacity:0}}
+@keyframes ring{from{transform:translate(-50%,-50%) scale(.2);opacity:1}to{transform:translate(-50%,-50%) scale(1);opacity:0}}
+@keyframes burst{to{transform:translate(var(--dx),var(--dy)) rotate(var(--r)) scale(.5);opacity:0}}
+@keyframes ack{0%{opacity:0;transform:translate(10px,-6px)}20%{opacity:1}100%{opacity:0;transform:translate(16px,-18px)}}
+@media (prefers-reduced-motion:reduce){[data-skin="real"] .panel,[data-skin="real"] .panel::after,.ecg .beat{animation:none}.fxl{display:none}}
+
+.money{display:inline-flex;align-items:center;gap:5px;font:800 13px var(--mono);white-space:nowrap}.money svg{display:block;flex:none}.money.acc{color:#E7DCFA}.money.cash{color:#F58DBA}.money.fav{color:var(--ap)}
+</style>
+</head>
+<body>
+<style>
+:root{--g1:#F3E9FF;--g2:#6FD08C;--g3:#5FA8FF;--g4:#F2C14E;--g5:#FF8A3D;--uq:#A77BFF}
+.tabsx{display:flex;gap:4px;padding:10px 12px 0;flex-wrap:wrap}
+.tabsx span{font-weight:800;font-size:13px;padding:8px 16px;background:var(--bg-2);color:var(--ink-3);cursor:pointer;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)}
+.tabsx span.on{background:var(--a);color:#fff}
+.v{display:none;gap:12px;padding:12px;height:calc(100% - 52px - 46px)}
+.v.on{display:grid}
+.pad{padding:14px 16px}.scroll{overflow:auto;min-height:0}
+.k{font-size:11px;color:var(--ink-3);font-weight:800;letter-spacing:1px}
+.hr{height:2px;background:var(--line);margin:12px 0}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;background:var(--bg-2);color:var(--ink-2);white-space:nowrap}
+.kv{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
+.kv span{color:var(--ink-3)}
+.btn.sm{font-size:12px;padding:7px 11px}
+.go{display:flex;gap:6px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
+.note{font-size:12px;color:var(--ink-3);line-height:1.7;margin-top:8px}
+.filters{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.filters span{font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--bg-2);color:var(--ink-3)}
+.filters span.on{background:var(--a);color:#fff}
+.bar{height:8px;border-radius:4px;background:#2E2339;position:relative;overflow:hidden;margin-top:5px}.bar b{position:absolute;inset:0 auto 0 0;border-radius:4px}
+.g1{--gc:var(--g1)}.g2{--gc:var(--g2)}.g3{--gc:var(--g3)}.g4{--gc:var(--g4)}
+.ln{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:8px 10px;background:var(--bg-2);margin-bottom:5px;cursor:pointer;font-size:12.5px}
+.ln b{font-size:13px}.ln small{grid-column:1;font-size:11px;color:var(--ink-3)}
+.ln .r{grid-row:span 2;align-self:center;font:800 11.5px var(--mono);color:var(--ink-2);text-align:right}
+.ln.on{background:#3A2B47;box-shadow:inset 3px 0 0 var(--a)}
+.ln.no{opacity:.45}
+/* 設定 */
+.sgrp{font-size:12px;font-weight:900;letter-spacing:2px;color:var(--ink-2);margin:18px 0 8px;display:flex;align-items:center;gap:10px}
+.sgrp::after{content:"";flex:1;height:2px;background:var(--line)}
+.sgrp:first-child{margin-top:0}
+.srow{display:grid;grid-template-columns:minmax(150px,220px) 1fr 150px;gap:6px 14px;align-items:center;padding:10px 12px;background:var(--bg-2);margin-bottom:5px;font-size:12.5px}
+.srow .nm2{font-weight:800;font-size:13px}
+.srow .ds{grid-column:1/-1;font-size:11.5px;color:var(--ink-3);line-height:1.6}
+.srow .df{font-size:11px;color:var(--ink-3);text-align:right;line-height:1.5}
+.srow .df b{color:var(--ink-2);font-weight:800}
+.srow.chg{box-shadow:inset 3px 0 0 var(--a)}
+.srow.off{opacity:.5}
+.ctl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.seg{display:inline-flex;gap:3px;flex-wrap:wrap}
+.seg span{font-size:12px;font-weight:800;padding:6px 11px;background:#120D19;color:var(--ink-3);cursor:pointer;white-space:nowrap}
+.seg span.on{background:var(--a);color:#fff}
+.sw{width:42px;height:22px;border-radius:11px;background:#120D19;box-shadow:inset 0 0 0 2px var(--line);position:relative;cursor:pointer;flex:none}
+.sw::after{content:"";position:absolute;top:4px;left:4px;width:14px;height:14px;border-radius:50%;background:var(--ink-3);transition:left .15s}
+.sw.on{background:var(--a);box-shadow:none}.sw.on::after{left:24px;background:#fff}
+.swl{font-size:12px;font-weight:800;color:var(--ink-2)}
+input[type=range]{accent-color:#F06AA0;width:min(260px,100%);flex:1 1 140px;min-width:0}
+.val{font:900 13px var(--mono);color:var(--ink);min-width:54px}
+.num{font:800 12.5px var(--mono);width:74px;padding:6px 8px;background:#120D19;border:0;box-shadow:inset 0 0 0 2px var(--line);color:var(--ink)}
+.num::placeholder{color:var(--ink-3)}
+select.sel{font:800 12.5px var(--font);padding:6px 8px;background:#120D19;border:0;box-shadow:inset 0 0 0 2px var(--line);color:var(--ink);max-width:100%}
+/* 難度 */
+.diffs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.dcard{padding:10px;background:var(--bg-2);cursor:pointer;display:grid;gap:4px;align-content:start}
+.dcard b{font-size:14px}
+.dcard small{font-size:11px;color:var(--ink-3);line-height:1.55}
+.dcard .fig{font:800 11px var(--mono);color:var(--ink-2)}
+.dcard.on{background:#3A2B47;box-shadow:inset 0 0 0 2px var(--a)}
+.coef{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+.coef th{font-size:11px;color:var(--ink-3);font-weight:800;text-align:left;padding:6px 8px;border-bottom:2px solid var(--line)}
+.coef td{padding:6px 8px;border-bottom:1px dashed var(--line);font:800 12.5px var(--mono)}
+.coef td:first-child{font:800 12px var(--font);color:var(--ink-2)}
+.coef input{font:800 12px var(--mono);width:58px;padding:4px 6px;background:#120D19;border:0;box-shadow:inset 0 0 0 2px var(--a);color:var(--ink)}
+.lock{display:flex;gap:10px;align-items:center;padding:10px 12px;background:#2A1A2A;box-shadow:inset 3px 0 0 var(--hp);font-size:13px;font-weight:800;margin-bottom:6px}
+.lock small{display:block;font-size:11px;color:var(--ink-3);font-weight:700}
+.lock .lk{font:900 10px var(--mono);color:var(--hp);border:1px solid var(--hp);padding:1px 5px;border-radius:4px;flex:none}
+.info{padding:10px 12px;background:#1E2A33;box-shadow:inset 3px 0 0 var(--ram);font-size:12.5px;line-height:1.75;color:var(--ink-2);margin-bottom:8px}
+.info b{color:var(--ink)}
+.topics{display:flex;gap:5px;flex-wrap:wrap}
+.topics span{font-size:12px;font-weight:800;padding:5px 11px;border-radius:999px;background:var(--a);color:#fff;cursor:pointer}
+.topics span.no{background:#120D19;color:var(--ink-3);text-decoration:line-through}
+.src{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 12px;background:var(--bg-2);margin-bottom:6px;font-size:12.5px}
+.src b{font-size:13px}.src small{grid-column:1;font-size:11px;color:var(--ink-3)}
+.src .ok{font:800 11px var(--mono);color:var(--ram);text-align:right}
+.rt{width:100%;border-collapse:collapse;font-size:12px}
+.rt th{font-size:11px;color:var(--ink-3);text-align:left;padding:6px 8px;border-bottom:2px solid var(--line)}
+.rt td{padding:7px 8px;border-bottom:1px dashed var(--line)}
+.rt td.m{font:800 11.5px var(--mono);color:var(--ink-2)}
+.rt .ad{font-size:10px;font-weight:900;padding:1px 6px;border-radius:5px;background:var(--a);color:#fff;margin-left:4px}
+.pv{padding:14px 16px;background:#120D19;line-height:1.9}
+.pv .sys{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-bottom:6px}
+.slot2{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 10px;background:var(--bg-2);margin-bottom:5px;font-size:12.5px}
+.slot2 b{font-size:13px}.slot2 small{grid-column:1;font-size:11px;color:var(--ink-3)}
+.slot2 .r{grid-row:span 2;align-self:center;display:flex;gap:5px}
+.wide{overflow-x:auto}
+@media (max-width:720px){
+  .srow{grid-template-columns:1fr;padding:10px}
+  .srow .df{text-align:left}
+  .diffs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .coef th,.coef td{padding:5px 4px}
+  .rt .hm{display:none}
+}
+</style>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="c-acc" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3" fill="#C9B8E8"/><rect x="2" y="8.5" width="20" height="3" fill="#8E7CC3"/><rect x="5" y="14" width="6" height="2.4" rx="1.2" fill="#F3E9FF"/><circle cx="17.5" cy="15.2" r="1.8" fill="#F06AA0"/></symbol>
+  <symbol id="c-cash" viewBox="0 0 24 24"><path d="M7 3h10l4 4v10l-4 4H7l-4-4V7z" fill="#F06AA0"/><rect x="8" y="8" width="8" height="8" rx="1.5" fill="#F2C14E"/><path d="M8 11h8M8 13h8M11 8v8M13 8v8" stroke="#F06AA0" stroke-width="1.1"/></symbol>
+  <symbol id="c-fav" viewBox="0 0 24 24"><path d="M3 6h14l4 6-4 6H3z" fill="#F2C14E"/><circle cx="16" cy="12" r="1.8" fill="#17111F"/><rect x="6" y="9.5" width="6" height="2" rx="1" fill="#17111F"/><rect x="6" y="13" width="4" height="2" rx="1" fill="#17111F"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="3" rx="1.5" fill="#F3E9FF"/><rect x="4" y="10.5" width="16" height="3" rx="1.5" fill="#F3E9FF"/><rect x="4" y="16" width="10" height="3" rx="1.5" fill="#F06AA0"/></symbol>
+</defs></svg>
+<header class="status">
+  <div class="logo"><svg width="30" height="30" viewBox="0 0 600 600"><path fill="#45D6C5" stroke="#F3E9FF" stroke-width="22" d="M222 170 H388 L422 204 V338 Q422 382 378 382 H222 Q178 382 178 338 V214 Q178 170 222 170 Z"/><path fill="#F06AA0" stroke="#F3E9FF" stroke-width="20" d="M196 214 L214 102 L282 176 Z M404 214 L386 102 L318 176 Z"/><path fill="#F06AA0" d="M300 334 C 236 292 236 222 276 222 C 290 222 298 232 300 242 C 302 232 310 222 324 222 C 364 222 364 292 300 334 Z"/></svg><span class="hide-m">CYBERPUNK PINK</span></div>
+  <div class="sep hide-m"></div>
+  <div class="st"><b>設定</b><span class="hide-m">・存檔「夜班之後」・第 14 天</span></div>
+  <div class="grow"></div>
+  <button class="btn sm cut-sm">返回遊戲</button>
+</header>
+<nav class="tabsx"><span data-v="src">AI 來源</span><span data-v="ai">AI 開關</span><span data-v="prompt">提示詞</span><span data-v="filter">內容篩選</span><span data-v="game" class="on">遊戲</span><span data-v="disp">顯示</span><span data-v="save">存檔</span></nav>
+
+<!-- 遊戲 -->
+<section class="v on" id="v-game" style="grid-template-columns:210px 1fr 300px">
+  <aside class="panel cut pad scroll">
+    <p class="h">存檔規則・分組</p>
+    <div class="ln on" data-go="g-diff"><b>難度</b><small>只調敵人與 DC</small></div>
+    <div class="ln" data-go="g-prog"><b>歷練、帳單與報酬</b><small>四項倍率</small></div>
+    <div class="ln" data-go="g-defeat"><b>戰敗與名冊</b><small>五項</small></div>
+    <div class="ln" data-go="g-city"><b>城市、事件與檢定</b><small>八項</small></div>
+    <div class="ln" data-go="g-trade"><b>交易</b><small>六項</small></div>
+    <div class="ln" data-go="g-adult"><b>成人事件與橋</b><small>八項</small></div>
+    <div class="ln" data-go="g-gen"><b>生成的人與建角</b><small>三項</small></div>
+    <div class="note">這一頁的每一項都跟著存檔走。開新局時在「標題與存檔」選一次，之後隨時可以在這裡改，改了只影響之後的事。</div>
+  </aside>
+  <div class="panel cut pad scroll" id="gameBody">
+    <div class="sgrp" id="g-diff">難度</div>
+    <div class="diffs" id="diffs"></div>
+    <div class="wide"><table class="coef" id="coef"></table></div>
+    <div class="note" id="diffNote">難度只調兩件事：敵人的生命、傷害與感載上限（輿論戰則是對手的公關點），以及寫成檔位的檢定 DC。歷練、帳單、報酬與戰敗的設定在下面，換難度不會動到它們。</div>
+    <div id="rows"></div>
+  </div>
+  <aside class="panel cut pad scroll">
+    <p class="h">這一局的存檔規則</p>
+    <div class="kv"><span>存檔</span><b>夜班之後</b></div>
+    <div class="kv"><span>難度</span><b id="sumDiff">普通</b></div>
+    <div class="kv"><span>和預設不一樣的</span><b id="sumN">2 項</b></div>
+    <div id="sumList" style="margin-top:8px"></div>
+    <div class="go"><button class="btn sm cut-sm">全部恢復預設</button><button class="btn sm pri cut-sm">存下來</button></div>
+    <div class="hr"></div>
+    <div class="info"><b>重來與回退一律可以。</b>任何難度、任何設定下，戰敗之後都可以重來這場戰鬥，或回到這個階段開始時。這一條不是設定，所以這裡沒有它的開關。</div>
+    <div class="info" style="box-shadow:inset 3px 0 0 var(--ap);background:#2A2418"><b>想要完全沒有後果的玩法</b>，可以把戰敗的三格關掉（不看、不拿走義體與裝備、扣 0%），再選故事難度。</div>
+    <div class="note">主角與固定的人在任何設定下都不會死在戰鬥裡。只有打開「名冊 NPC 會死」時，名冊上生成的行者才會死。</div>
+  </aside>
+</section>
+
+<!-- AI 來源 -->
+<section class="v" id="v-src" style="grid-template-columns:340px 1fr">
+  <aside class="panel cut pad scroll">
+    <p class="h">模型來源・3／8</p>
+    <div class="src"><b>主力</b><span class="ok">連線 ✓</span><small>Anthropic・金鑰只存在這台機器</small></div>
+    <div class="src"><b>便宜的小模型</b><span class="ok">連線 ✓</span><small>相容 OpenAI 的服務・本機的伺服器</small></div>
+    <div class="src"><b>成人路由</b><span class="ok" style="color:var(--ap)">工具調用 ✕</span><small>相容 OpenAI 的服務・結構化輸出 ✓、工具調用沒有通過</small></div>
+    <div class="go" style="justify-content:flex-start"><button class="btn sm cut-sm">新增來源</button><button class="btn sm cut-sm">全部測一次</button></div>
+    <div class="note">連線測試除了送一句話，還測結構化輸出與工具調用。工具調用沒有通過的來源，不能用在要開 Agent 的任務上。</div>
+  </aside>
+  <div class="panel cut pad scroll">
+    <p class="h">每個任務用哪一個來源</p>
+    <table class="rt">
+      <tr><th>任務</th><th>來源</th><th class="hm">模型</th><th>備用</th></tr>
+      <tr><td>判定 judge</td><td>主力</td><td class="m hm">大</td><td>便宜的小模型</td></tr>
+      <tr><td>寫正文 narrate</td><td>主力</td><td class="m hm">大</td><td>—</td></tr>
+      <tr><td>算回報 reward</td><td>便宜的小模型</td><td class="m hm">小</td><td>主力</td></tr>
+      <tr><td>算關係 relate</td><td>便宜的小模型</td><td class="m hm">小</td><td>主力</td></tr>
+      <tr><td>寫成人正文 narrate_adult<span class="ad">成人</span></td><td>成人路由</td><td class="m hm">大</td><td>—</td></tr>
+      <tr><td>成人場景 scene<span class="ad">成人</span></td><td>成人路由</td><td class="m hm">中</td><td>—</td></tr>
+      <tr><td>事後 aftercare<span class="ad">成人</span></td><td>成人路由</td><td class="m hm">小</td><td>—</td></tr>
+      <tr><td>今天的貨 flavor_shop</td><td>便宜的小模型</td><td class="m hm">小</td><td>—</td></tr>
+    </table>
+    <div class="note">預設照每個任務的大小（大、中、小）給。成人路由的五個項目預設和一般的來源相同，可以分開。被服務商拒絕時不換備用模型，以免把被拒的內容送到你沒選的服務商；逾時與網路錯誤才換。完整的設定在 AI 工坊的「模型與路由」。</div>
+  </div>
+</section>
+
+<!-- AI 開關 -->
+<section class="v" id="v-ai" style="grid-template-columns:1fr 320px">
+  <div class="panel cut pad scroll" id="aiRows"></div>
+  <aside class="panel cut pad scroll">
+    <p class="h">AI 全部關掉的時候</p>
+    <div class="note" style="margin-top:0">判定照規則表結算，正文換成戰報，事件一律當成固定進入成人場景。遊戲照樣能玩完。</div>
+    <p class="h" style="margin-top:16px">每項的逾時</p>
+    <div class="kv"><span>判定</span><b class="mono">30 秒</b></div>
+    <div class="kv"><span>寫正文</span><b class="mono">90 秒</b></div>
+    <div class="kv"><span>批次任務</span><b class="mono">120 秒</b></div>
+    <div class="note">逾時之後改用備用模型重試；重試的次數在下面的列表裡。</div>
+  </aside>
+</section>
+
+<!-- 提示詞 -->
+<section class="v" id="v-prompt" style="grid-template-columns:1fr">
+  <div class="panel cut pad scroll">
+    <p class="h">提示詞都在 AI 工坊</p>
+    <div class="info">提示詞組、文風、自訂的段落、世界書與正文正則，全部在 <b>AI 工坊</b>裡管理。AI 工坊和世界編輯器用同一套三欄的殼：左邊是樹，中間編輯，右邊預覽一份請求實際的樣子。</div>
+    <div class="slot2"><b>目前的提示詞組</b><span class="r"><button class="btn sm cut-sm">切換</button></span><small>預設組・改過 3 處（文風一處、世界書兩條）</small></div>
+    <div class="slot2"><b>文風</b><span class="r"><button class="btn sm cut-sm">編輯</button></span><small>終端紀錄：第二人稱、現在式、每段一個畫面</small></div>
+    <div class="slot2"><b>正文正則</b><span class="r"><button class="btn sm cut-sm">編輯</button></span><small>4 條，全部開著</small></div>
+    <div class="go" style="justify-content:flex-start"><button class="btn pri cut-sm">打開 AI 工坊</button><button class="btn cut-sm">匯入提示詞組</button></div>
+    <div class="note">硬規則與由內容篩選產生的內容界線在 AI 工坊裡看得到，但是鎖住，不能改。</div>
+  </div>
+</section>
+
+<!-- 內容篩選 -->
+<section class="v" id="v-filter" style="grid-template-columns:1fr 320px">
+  <div class="panel cut pad scroll">
+    <div class="lock"><span class="lk">LOCK</span><div>所有角色皆為成年人。<small>這一條不能關。生成的人年齡下限是 18；建角、匯入與世界編輯器都會擋下低於 18 的年齡。</small></div></div>
+    <div class="lock"><span class="lk">LOCK</span><div>不寫血腥，不寫懷孕。<small>這是內容的底線，不是篩選的選項，所以沒有開關。</small></div></div>
+    <div class="sgrp" style="margin-top:14px">情境</div>
+    <div id="fRows"></div>
+    <div class="sgrp">對象的性別</div>
+    <div id="gRows"></div>
+    <div class="sgrp">流竄 AI 的題材</div>
+    <div class="topics" id="topics"></div>
+    <div class="note">點一下切換。關掉的題材，那個流竄 AI 不出現、不發委託，題材也不進事件。</div>
+  </div>
+  <aside class="panel cut pad scroll">
+    <p class="h">這一頁怎麼運作</p>
+    <div class="note" style="margin-top:0">內容篩選存在存檔裡。這一頁改的是目前這一局；開新局時，以上一次的選擇當預設。</div>
+    <div class="note">沒有成人內容的總開關。這是一款成人向的遊戲，能調的只有這些細項。</div>
+    <div class="note">關掉一項時，相關的事件不觸發，戰敗事件改走不含那個題材的分支。感載與橋參數同時是戰鬥與竄網的規則，所以不受篩選影響。</div>
+    <div class="note">篩選也會寫進送給 AI 的內容界線；那一段在 AI 工坊裡是唯讀的。</div>
+  </aside>
+</section>
+
+<!-- 顯示 -->
+<section class="v" id="v-disp" style="grid-template-columns:1fr 1fr">
+  <div class="panel cut pad scroll" id="dRows"></div>
+  <aside class="panel cut pad scroll">
+    <p class="h">預覽</p>
+    <div class="pv" id="pv"><div class="sys">第 14 天 14:00 · 四十二番街 · 中城段 · 夜店「過載」</div><p style="margin:0" id="pvt">吧檯後面的人沒有抬頭，只把一杯你沒點過的酒推到你面前。杯墊底下壓著一張摺成四折的紙，紙上寫著一個時間和一個樓層。</p></div>
+    <div class="note">字級、字型與強調色的變化會直接反映在這段預覽上。這一頁的設定是這台機器的偏好，所有存檔共用。</div>
+  </aside>
+</section>
+
+<!-- 存檔 -->
+<section class="v" id="v-save" style="grid-template-columns:1fr 320px">
+  <div class="panel cut pad scroll">
+    <p class="h">存檔槽・這台機器</p>
+    <div class="slot2"><b>1・夜班之後</b><span class="r"><button class="btn sm cut-sm">讀取</button><button class="btn sm pri cut-sm">存到這裡</button></span><small>第 14 天 14:00・四十二番街・普通・目前這一局</small></div>
+    <div class="slot2"><b>2・櫻町的那一晚</b><span class="r"><button class="btn sm cut-sm">讀取</button><button class="btn sm cut-sm">存到這裡</button></span><small>第 9 天 23:10・櫻町・普通</small></div>
+    <div class="slot2"><b>自動・抵達鏽帶</b><span class="r"><button class="btn sm cut-sm">讀取</button></span><small>第 12 天 08:00・自動存檔（長休、抵達新的區時）</small></div>
+    <div class="go" style="justify-content:flex-start"><button class="btn sm cut-sm">匯出這一局</button><button class="btn sm cut-sm">匯入存檔</button><button class="btn sm cut-sm">匯出設定檔</button></div>
+    <div class="note">完整的存讀檔畫面（存檔槽的細節、快照、匯入的檢查）見「標題與存檔」示意頁。</div>
+  </div>
+  <aside class="panel cut pad scroll">
+    <p class="h">匯入時檢查什麼</p>
+    <div class="note" style="margin-top:0">匯入的存檔只檢查格式：欄位、id 與引用。資料裡有低於 18 的年齡時，整筆拒絕，不會自動改成 18。</div>
+  </aside>
+</section>
+
+<script>
+const show=v=>{document.querySelectorAll('.v').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));document.querySelectorAll('.tabsx span').forEach(x=>x.classList.toggle('on',x.dataset.v===v))};
+document.querySelectorAll('.tabsx span').forEach(t=>t.onclick=()=>{show(t.dataset.v);history.replaceState(null,'','#'+t.dataset.v)});
+if(location.hash)show(location.hash.slice(1));addEventListener('hashchange',()=>show(location.hash.slice(1)));
+</script>
+<script>
+// 難度
+const D=[
+ {n:'故事',t:'看故事用的。敵人又脆又不痛，幾乎不會輸。',f:'首領戰掉血 11～14%',c:[[.6,.5,.6],[.6,.4,.6],-1,-2]},
+ {n:'簡單',t:'留一點餘裕。同級的首領戰幾乎都能過。',f:'首領戰掉血 26～31%',c:[[.85,.8,.85],[.85,.75,.85],-1,-1]},
+ {n:'普通',t:'設計的基準。內建的內容只對這一檔平衡。',f:'首領戰掉血 38～45%',c:[[1,1,1],[1,1,1],0,0]},
+ {n:'困難',t:'敵人更耐打也更痛。同級的首領戰大約十場輸一兩場。',f:'首領戰掉血 58～69%',c:[[1.15,1.35,1.15],[1.15,1.35,1.15],1,1]},
+ {n:'傳奇',t:'每一場都要算。同級的首領戰大約三場輸一場。',f:'首領戰掉血 74～84%',c:[[1.3,1.5,1.3],[1.3,1.7,1.3],2,2]},
+ {n:'自訂',t:'從任何一個難度複製全部的數字，再逐格改。',f:'只能改敵人與 DC',c:null}];
+let cur=2,base=2;
+const sg=n=>(n>0?'+':n<0?'−':'±')+Math.abs(n);
+function drawDiff(){
+  diffs.innerHTML=D.map((d,i)=>`<div class="dcard cut-sm${i===cur?' on':''}" data-i="${i}"><b>${d.n}</b><small>${d.t}</small><span class="fig">${d.f}</span></div>`).join('');
+  diffs.querySelectorAll('.dcard').forEach(e=>e.onclick=()=>{cur=+e.dataset.i;if(cur<5)base=cur;drawDiff();sum()});
+  const c=D[cur===5?base:cur].c,ed=cur===5;
+  const cell=v=>ed?`<input value="${v}">`:v;
+  if(!ed){coef.innerHTML=`<tr><th>係數</th><th>生命</th><th>傷害</th><th>感載上限</th></tr>
+   <tr><td>首領</td><td>${c[0][0]}</td><td>${c[0][1]}</td><td>${c[0][2]}</td></tr>
+   <tr><td>雜兵與精英</td><td>${c[1][0]}</td><td>${c[1][1]}</td><td>${c[1][2]}</td></tr>
+   <tr><td>輿論戰對手的公關點</td><td colspan="3">${sg(c[2])}</td></tr>
+   <tr><td>檢定的 DC</td><td colspan="3">${sg(c[3])}</td></tr>`;}
+  else{coef.innerHTML=`<tr><th>從「<select class="sel" id="cp">${D.slice(0,5).map((d,i)=>`<option${i===base?' selected':''}>${d.n}</option>`).join('')}</select>」複製</th><th>生命</th><th>傷害</th><th>感載上限</th></tr>
+   <tr><td>首領</td><td>${cell(c[0][0])}</td><td>${cell(c[0][1])}</td><td>${cell(c[0][2])}</td></tr>
+   <tr><td>雜兵與精英・I～II 級</td><td>${cell(c[1][0])}</td><td>${cell(c[1][1])}</td><td>${cell(c[1][2])}</td></tr>
+   <tr><td>雜兵與精英・III 級</td><td>${cell(c[1][0])}</td><td>${cell(c[1][1])}</td><td>${cell(c[1][2])}</td></tr>
+   <tr><td>雜兵與精英・IV～V 級</td><td>${cell(c[1][0])}</td><td>${cell(c[1][1])}</td><td>${cell(c[1][2])}</td></tr>
+   <tr><td>輿論戰對手的公關點</td><td colspan="3">${cell(c[2])}　<span class="k">−3～+3</span></td></tr>
+   <tr><td>檢定的 DC 偏移</td><td colspan="3">${cell(c[3])}　<span class="k">−4～+4</span></td></tr>`;
+   cp.onchange=()=>{base=cp.selectedIndex;drawDiff()};}
+  diffNote.textContent=ed?'每格的範圍是 0.25～5，步進 0.01。分段看的是敵人的等級，不看區的等級。壞掉的格子用普通的數字補，超出範圍的夾回範圍。自訂只能改敵人的係數與 DC 的偏移，其他設定在下面。':'難度只調兩件事：敵人的生命、傷害與感載上限（輿論戰則是對手的公關點），以及寫成檔位的檢定 DC。歷練、帳單、報酬與戰敗的設定在下面，換難度不會動到它們。';
+}
+// 存檔規則的列
+const G=[
+ ['g-prog','歷練、帳單與報酬'],
+ {n:'歷練倍率',k:'r',min:.5,max:2,st:.1,v:1,f:'x',d:'×1',s:'CORE_RULES 第 7 節',ds:'主角拿到的歷練點乘上這個數。和難度無關。'},
+ {n:'每週帳單',k:'bill',min:0,max:2,st:.1,v:1,f:'x',d:'×1・標準',s:'FIXER 第 4 節',ds:'×0 就是不結算。四個快捷檔位一次設好倍率與付不出來時往下走的節奏，選了以後倍率還可以再改。'},
+ {n:'報酬與戰利品的錢',k:'r',min:.1,max:3,st:.1,v:1,f:'x',d:'×1',s:'BALANCE 7.4 節',ds:'委託的報酬與戰利品裡的錢乘上這個數。和難度無關。'},
+ {n:'委託的期限',k:'r',min:.5,max:3,st:.1,v:1,f:'x',d:'×1',s:'ElondiaRPG 的 deadlineMult',ds:'有期限的委託，期限乘上這個數。委託副本本身沒有期限。'},
+ ['g-defeat','戰敗與名冊'],
+ {n:'名冊 NPC 會死（硬派）',k:'sw',v:0,d:'關',s:'COMBAT_SYSTEM 8.2 節',ds:'打開時，名冊上生成的行者可能死在戰鬥裡。和難度無關，傳奇也不會自動打開它。'},
+ {n:'戰敗事件要不要看',k:'seg',o:['一律看','可以跳過','不看'],v:0,d:'一律看',s:'COMBAT_SYSTEM 8.3 節',ds:'「可以跳過」會在戰敗時先問你要不要看；「不看」只列出結果，再讓你選要不要接受。'},
+ {n:'戰敗拿走義體與裝備',k:'sw',v:1,d:'開',s:'COMBAT_SYSTEM 8.3 節',ds:'關掉時，戰敗事件不會拿走身上的義體與裝備。'},
+ {n:'戰敗扣多少錢',k:'r',min:0,max:100,st:5,v:100,f:'%',d:'照事件，最多 100%',s:'COMBAT_SYSTEM 8.3 節',ds:'上限是身上現金晶片的百分比。右邊的格子可以另外設一個金額的上限，留空就是不設。',extra:'<input class="num" placeholder="金額上限">'},
+ {n:'戰敗事件的版本',k:'sel',o:['照主角的性別','指定一個版本','調三個版本的比例'],d:'照主角的性別',s:'ENEMIES 第 6 節',ds:'戰敗事件分三個版本。預設照主角的性別選，也可以固定一個，或照比例抽。'},
+ ['g-city','城市、事件與檢定'],
+ {n:'快速移動',k:'sw',v:1,d:'開',s:'DISTRICTS 1.2.1 節',ds:'關掉時一律用走的。開著時，沒去過的站也能搭車過去。'},
+ {n:'短休、長休的時間',k:'num2',d:'照 DOWNTIME',s:'ElondiaRPG 的 rest',ds:'留空就是照 DOWNTIME 的時數。'},
+ {n:'在外面過夜被找麻煩',k:'r',min:0,max:3,st:.1,v:1,f:'x',d:'×1',s:'ambushMult',ds:'不在自己的住處過夜時，被找麻煩的機率乘上這個數。'},
+ {n:'街頭事件的頻率',k:'r',min:0,max:3,st:.1,v:1,f:'x',d:'×1',s:'travelEventMult',ds:'在街上走動時遇到事件的機率乘上這個數。'},
+ {n:'要地與子網裡的事件',k:'r',min:0,max:3,st:.1,v:1,f:'x',d:'×1',s:'dungeonEventMult',ds:'地下城式的區域與子網裡遇到事件的機率乘上這個數。'},
+ {n:'事件檢定的難度',k:'r',min:-5,max:5,st:1,v:0,f:'pm',d:'±0',s:'eventDc',ds:'加在事件的檢定上，和難度的 DC 偏移相加。'},
+ {n:'脫離的難度',k:'r',min:-5,max:5,st:1,v:0,f:'pm',d:'±0',s:'escapeDc',ds:'加在戰鬥中脫離的檢定上。委託副本裡不能脫離，只能投降。'},
+ {n:'敵對值多久回落一級',k:'num',d:'照 FACTIONS',s:'FACTIONS 第 6 節',ds:'填天數；留空就是照勢力文件的預設。'},
+ ['g-trade','交易'],
+ {n:'收購比例',k:'r',min:10,max:90,st:5,v:40,f:'%',d:'40%',s:'TRADE 第 9 節',ds:'店家收你的東西時，照目錄價的這個比例付錢。'},
+ {n:'各區行情的幅度',k:'seg',o:['關','減半','標準','加倍'],v:2,d:'標準',s:'TRADE 第 9 節',ds:'各區價格浮動的幅度。關掉時每一區都照目錄價。'},
+ {n:'折扣合計上限',k:'r',min:0,max:60,st:5,v:30,f:'%',d:'30%',s:'TRADE 第 9 節',ds:'好感、人情與技能給的折扣加起來最多到這裡。'},
+ {n:'同類東西收購的遞減',k:'r',min:0,max:20,st:1,v:0,f:'%',d:'關（0%）',s:'sellGlutPct',ds:'同一間店連續收同一類東西時，每一件少付的比例。'},
+ {n:'黑市每天的特別貨',k:'num',d:'照 TRADE',s:'blackMarketGear',ds:'填 0～8 件；留空就是照交易文件的預設。'},
+ {n:'額外飾品格',k:'sw',v:0,d:'關',s:'EQUIPMENT',ds:'打開時多一格飾品。'},
+ ['g-adult','成人事件與橋'],
+ {n:'戰鬥中感載的倍率',k:'r',min:.25,max:3,st:.05,v:1,f:'x',d:'×1',s:'lustMult',ds:'戰鬥中所有感載的增減乘上這個數。'},
+ {n:'契約指令的事件',k:'r',min:0,max:3,st:.1,v:1,f:'x',d:'×1',s:'masterEventMult',ds:'持約人下指令的事件出現的機率。'},
+ {n:'流竄 AI 的蠱惑',k:'r',min:0,max:3,st:.1,v:1,f:'x',d:'×1',s:'parasiteMult',ds:'流竄 AI 找上門的機率。'},
+ {n:'惡意韌體發作',k:'r',min:0,max:3,st:.1,v:1,f:'x',d:'×1',s:'ElondiaRPG 的對應項',ds:'身上的惡意韌體發作的機率。'},
+ {n:'打工後的事件',k:'r',min:0,max:3,st:.1,v:1,f:'x',d:'×1',s:'brothelEventMult',ds:'下班之後接著發生事件的機率。'},
+ {n:'成人事件在要地裡的比重',k:'r',min:0,max:3,st:.1,v:1,f:'x',d:'×1',s:'adultDungeonMult',ds:'地下城式的區域裡，成人事件在事件表上的比重。'},
+ {n:'豔名每天淡掉多少',k:'num',d:'照 LEWD_SYSTEM',s:'exposureDecay',ds:'填點數；留空就是照預設。'},
+ {n:'橋參數的回落',k:'num',d:'照 LEWD_SYSTEM',s:'LEWD_SYSTEM 第 1 節',ds:'順從、淫度與敏感每天回落的點數；留空就是照預設。'},
+ ['g-gen','生成的人與建角'],
+ {n:'生成的人的性別比例',k:'gender',d:'女性 40%・男性 40%・其他合計 20%',s:'NPC_SYSTEM 第 4 節',ds:'男娘與偽娘、TS、扶他合計兩成，三者怎麼分照 NPC_SYSTEM。內容篩選關掉的類型不會生成。'},
+ {n:'建角的特質點',k:'r',min:0,max:8,st:1,v:4,f:'n',d:'4',s:'CHARACTER 第 5 節',ds:'只在開新局建角時用得到。這一局的角色已經建好，所以這裡改了沒有效果。',off:1},
+];
+const fmt=(v,f)=>f==='x'?'×'+(+v).toFixed(v%1&&String(v).length>3?2:(v%1?1:0)).replace(/\.0$/,''):f==='%'?v+'%':f==='pm'?sg(+v):String(v);
+function row(r){
+  let c='';
+  if(r.k==='r'||r.k==='bill'){c=(r.k==='bill'?'<span class="seg" data-bill>'+['關閉','寬鬆','標準','嚴苛'].map((x,i)=>`<span${i===2?' class="on"':''} data-v="${[0,.5,1,1.5][i]}">${x}</span>`).join('')+'</span>':'')+`<input type="range" min="${r.min}" max="${r.max}" step="${r.st}" value="${r.v}" data-f="${r.f}" data-d="${r.v}"><span class="val">${fmt(r.v,r.f)}</span>`+(r.extra||'');}
+  else if(r.k==='sw')c=`<span class="sw${r.v?' on':''}" data-d="${r.v}"></span><span class="swl">${r.v?'開':'關'}</span>`;
+  else if(r.k==='seg')c=`<span class="seg" data-def="${r.v}">${r.o.map((x,i)=>`<span${i===r.v?' class="on"':''}>${x}</span>`).join('')}</span>`;
+  else if(r.k==='sel')c=`<select class="sel">${r.o.map(x=>`<option>${x}</option>`).join('')}</select>`;
+  else if(r.k==='num')c=`<input class="num" placeholder="照預設">`;
+  else if(r.k==='num2')c=`<span class="swl">短休</span><input class="num" placeholder="照預設"><span class="swl">長休</span><input class="num" placeholder="照預設">`;
+  else if(r.k==='gender')c=`<span class="swl">女性</span><input class="num" value="40%"><span class="swl">男性</span><input class="num" value="40%"><span class="swl">其他</span><input class="num" value="20%">`;
+  return `<div class="srow${r.off?' off':''}"><span class="nm2">${r.n}</span><div class="ctl">${c}</div><span class="df">預設 <b>${r.d}</b><br>${r.s}</span><span class="ds">${r.ds}</span></div>`;
+}
+rows.innerHTML=G.map(r=>Array.isArray(r)?`<div class="sgrp" id="${r[0]}">${r[1]}</div>`:row(r)).join('');
+function wire(root){
+  root.querySelectorAll('input[type=range]').forEach(i=>i.oninput=()=>{i.nextElementSibling.textContent=fmt(i.value,i.dataset.f);i.closest('.srow').classList.toggle('chg',i.value!=i.dataset.d);sum()});
+  root.querySelectorAll('.sw').forEach(s=>s.onclick=()=>{s.classList.toggle('on');const sl=s.nextElementSibling;if(sl&&sl.classList.contains('swl'))sl.textContent=s.classList.contains('on')?'開':'關';const r=s.closest('.srow');if(r&&s.dataset.d!==undefined)r.classList.toggle('chg',(s.classList.contains('on')?1:0)!=s.dataset.d);sum()});
+  root.querySelectorAll('.seg').forEach(g=>g.querySelectorAll('span').forEach(x=>x.onclick=()=>{g.querySelectorAll('span').forEach(y=>y.classList.toggle('on',y===x));
+    if(g.hasAttribute('data-bill')){const i=g.parentElement.querySelector('input');i.value=x.dataset.v;i.oninput();}
+    if(g.closest('#rows')&&g.dataset.def!==undefined){g.closest('.srow').classList.toggle('chg',[...g.children].indexOf(x)!=g.dataset.def);sum()}
+    if(g.dataset.disp)disp();}));
+}
+wire(rows);
+// 預設就改了兩項，示範「和預設不一樣」
+(()=>{const ins=rows.querySelectorAll('.srow');ins[0].querySelector('input').value=1.5;ins[0].querySelector('input').oninput();
+  const s=[...ins].find(r=>r.textContent.includes('名冊 NPC 會死')).querySelector('.sw');s.onclick();})();
+function sum(){
+  sumDiff.textContent=D[cur].n+(cur===5?'（從'+D[base].n+'複製）':'');
+  const ch=[...rows.querySelectorAll('.srow.chg')].map(r=>`<div class="kv"><span>${r.querySelector('.nm2').textContent}</span><b>${(r.querySelector('.val')||r.querySelector('.swl')||{}).textContent||'改過'}</b></div>`);
+  sumN.textContent=ch.length+' 項';sumList.innerHTML=ch.join('')||'<div class="k">全部照預設。</div>';
+}
+document.querySelectorAll('[data-go]').forEach(l=>l.onclick=()=>{document.querySelectorAll('[data-go]').forEach(x=>x.classList.toggle('on',x===l));const t=document.getElementById(l.dataset.go);gameBody.scrollTo({top:t.offsetTop-gameBody.offsetTop-14,behavior:'smooth'});if(getComputedStyle(gameBody).overflow==='visible'||innerWidth<=720)t.scrollIntoView({behavior:'smooth'})});
+drawDiff();sum();
+// AI 開關
+const A=[['判定'],
+ ['自由行動的判定','開','關掉時，自由行動照規則表結算，不交給 AI。','AI_TASKS 3.13 節',1],
+ ['打工的一班','開','關掉時，打工的一班照規則表結算。','AI_TASKS 3.13 節',1],
+ ['事件的「我要做別的」','開','關掉時，事件裡不再出現「我要做別的」。','AI_TASKS 3.13 節',1],
+ ['夾值後重寫相關的句子','不重寫','AI 自己給的後果被夾住時，要不要把正文裡對應的句子改寫成夾過的數字。','AI_TASKS 2.5 節',0],
+ ['正文'],
+ ['敘事','開','關掉時，紀錄只寫戰報。','AI_TASKS 第 1 節',1],
+ ['交易要不要寫正文','寫','關掉時，買賣只留一行系統紀錄。','AI_TASKS 3.3 節',1],
+ ['潤色步驟','關','寫完正文之後多跑一次潤色。','PROMPTS 第 2 節',0],
+ ['記下性經歷','開','成人場景結束後，把這一場記進雙方的性經歷記錄。','AI_TASKS 第 1 節',1],
+ ['Agent 支線'],
+ ['Agent 模式','開','關掉時只跑主鏈，不跑任何支線；需要的資料改成程式預取。','AI_TASKS 第 1 節',1],
+ ['只開查詢','關','打開時，Agent 只能查資料，不能提出事件或鉤子。','AI_TASKS 第 1 節',0],
+];
+aiRows.innerHTML=A.map(a=>a.length===1?`<div class="sgrp">${a[0]}</div>`:`<div class="srow"><span class="nm2">${a[0]}</span><div class="ctl"><span class="sw${a[4]?' on':''}"></span><span class="swl">${a[4]?'開':'關'}</span></div><span class="df">預設 <b>${a[1]}</b><br>${a[3]}</span><span class="ds">${a[2]}</span></div>`).join('')+
+ `<div class="sgrp">上限與顯示</div>
+ <div class="srow"><span class="nm2">每種掛點每天的件數</span><div class="ctl"><span class="swl">提出事件</span><input class="num" value="3"><span class="swl">鉤子</span><input class="num" value="1"><span class="swl">其他</span><input class="num" value="10"></div><span class="df">預設 <b>3、1、10</b><br>AI_TASKS 6.2 節</span><span class="ds">Agent 支線一天最多跑幾次。到了上限之後當天不再跑，主鏈不受影響。</span></div>
+ <div class="srow"><span class="nm2">戰鬥正文</span><div class="ctl"><span class="seg"><span class="on">結束時寫一次</span><span>每回合一小段</span></span></div><span class="df">預設 <b>結束時寫一次</b><br>AI_TASKS 3.9 節</span><span class="ds">每回合寫一小段比較熱鬧，也比較慢。</span></div>
+ <div class="srow"><span class="nm2">任務鏈列</span><div class="ctl"><span class="seg"><span class="on">出錯時展開</span><span>一直展開</span><span>隱藏</span></span></div><span class="df">預設 <b>出錯時展開</b><br>AI_TASKS 第 7 節</span><span class="ds">每則紀錄下方那一列，顯示這一次跑了哪些步驟。</span></div>
+ <div class="srow"><span class="nm2">自動重試的次數</span><div class="ctl"><input class="num" placeholder="照預設"></div><span class="df">預設 <b>照 AI_TASKS</b><br>AI_TASKS 5.3 節</span><span class="ds">最後一次重試改用備用模型。</span></div>
+ <div class="srow"><span class="nm2">注入配方的數量與字數</span><div class="ctl"><button class="btn sm cut-sm">在 AI 工坊裡調</button></div><span class="df">預設 <b>照 PROMPTS 的表</b><br>PROMPTS 第 2 節</span><span class="ds">每一類資料最多附幾筆、每筆最多幾個字。</span></div>`;
+wire(aiRows);
+// 內容篩選
+const F=[['主角非自願','主角在非自願的情況下被捲進成人場景。'],['對象非自願','主角對俘虜或被迫的對象用的夜課技能。'],['契約支配','關掉時，契約只剩經濟與法律層面的效果。'],['NTR','夥伴或戀人和別人發生關係的事件。'],['人偶晶片的失憶工作','戴著人偶晶片工作、事後不記得的內容。'],['黑帶相關的任務','和黑帶的製作、買賣有關的任務。']];
+fRows.innerHTML=F.map((f,i)=>`<div class="srow"><span class="nm2">${f[0]}</span><div class="ctl"><span class="sw${i===3?'':' on'}"></span><span class="swl">${i===3?'關':'開'}</span></div><span class="df">預設 <b>開</b></span><span class="ds">${f[1]}</span></div>`).join('');
+gRows.innerHTML=['男性對象','女性對象','男娘與偽娘對象','TS 對象','扶他對象'].map(g=>`<div class="srow"><span class="nm2">${g}</span><div class="ctl"><span class="sw on"></span><span class="swl">開</span></div><span class="df">預設 <b>開</b></span></div>`).join('');
+wire(fRows);wire(gRows);
+topics.innerHTML=['溺愛','御姐','妹系','NTR','窺視','暴露','束縛','痛','支配','服從','戀物','獸化','變形','觸手','群交'].map((t,i)=>`<span${i===3||i===13?' class="no"':''}>${t}</span>`).join('');
+topics.querySelectorAll('span').forEach(s=>s.onclick=()=>s.classList.toggle('no'));
+// 顯示
+dRows.innerHTML=`
+ <div class="srow"><span class="nm2">字級</span><div class="ctl"><span class="seg" data-disp="fs"><span>小</span><span class="on">標準</span><span>大</span></span></div><span class="df">預設 <b>標準</b></span></div>
+ <div class="srow"><span class="nm2">正文字型</span><div class="ctl"><span class="seg" data-disp="ff"><span class="on">黑體</span><span>宋體</span></span></div><span class="df">預設 <b>黑體</b></span><span class="ds">只換紀錄的正文；介面一律用黑體。</span></div>
+ <div class="srow"><span class="nm2">減少動態</span><div class="ctl"><span class="sw"></span><span class="swl">關</span></div><span class="df">預設 <b>跟系統</b></span><span class="ds">打開時，呼吸燈、心跳背景與滑鼠特效全部停掉。</span></div>
+ <div class="srow"><span class="nm2">霓虹強度</span><div class="ctl"><span class="seg" data-disp="neon"><span>關</span><span>弱</span><span class="on">標準</span></span></div><span class="df">預設 <b>標準</b></span><span class="ds">面板外框的發光與四十二番街的霓虹。</span></div>
+ <div class="srow"><span class="nm2">區的強調色</span><div class="ctl"><span class="seg" data-disp="acc"><span class="on">開</span><span>關</span></span></div><span class="df">預設 <b>開</b></span><span class="ds">開著時，介面的強調色跟著所在的區換；關掉時全程用蜂巢的紫。</span></div>
+ <div class="srow"><span class="nm2">成人報告卡</span><div class="ctl"><span class="seg"><span class="on">展開</span><span>摺疊</span></span></div><span class="df">預設 <b>展開</b></span><span class="ds">成人場景結束後那張報告卡，在紀錄裡預設是展開還是摺疊。</span></div>
+ <div class="srow"><span class="nm2">跳出指南</span><div class="ctl"><span class="sw on"></span><span class="swl">開</span></div><span class="df">預設 <b>開</b></span><span class="ds">關掉時，第一次碰到一個系統的指南不再跳出來，直接收進備忘錄。</span></div>`;
+wire(dRows);
+function disp(){const on=k=>[...dRows.querySelector(`[data-disp="${k}"]`).children].findIndex(x=>x.classList.contains('on'));
+  pv.style.fontSize=[13,15,17][on('fs')]+'px';pvt.style.fontFamily=on('ff')?'"Noto Serif TC","Songti TC",serif':'';
+  pv.style.boxShadow=['none','0 0 8px #F06AA044','0 0 16px #F06AA088'][on('neon')];pv.style.borderLeft='3px solid '+(on('acc')?'#B39DF0':'#FF7DBD');}
+disp();
+</script>
+
+
+<script>
+(()=>{
+if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+const NS='http://www.w3.org/2000/svg';
+// 心跳背景：一個波峰一個波谷，中間偏右；0.2 秒掃過，掃過的地方漸漸淡回原色；閒置 5 秒一跳，按鍵時跳一次，冷卻 1 秒
+const ECG_D='M0 180 H690 L725 30 L765 330 L800 180 H1200';
+function addEcg(host,color,base){
+  const s=document.createElementNS(NS,'svg');s.setAttribute('class','ecg');s.setAttribute('viewBox','0 0 1200 360');s.setAttribute('preserveAspectRatio','none');
+  if(host!==document.body){s.style.position='absolute';}
+  s.innerHTML=`<path class="base" stroke="${base}" d="${ECG_D}"/><path class="beat" stroke="${color}" style="color:${color}" d="${ECG_D}"/>`;
+  host.prepend(s);
+  const b=s.querySelector('.beat'),len=b.getTotalLength(),seg=320;
+  b.style.strokeDasharray=`${len} ${len}`;b.style.strokeDashoffset=len;b.style.opacity=0;
+  BEATS.push({b,len,seg});
+}
+const BEATS=[];
+let lastBeat=0;
+function beat(){const t=performance.now();if(t-lastBeat<1000)return;lastBeat=t;
+  for(const {b,len} of BEATS){b.getAnimations().forEach(a=>a.cancel());
+    b.animate([{strokeDashoffset:len},{strokeDashoffset:0}],{duration:200,easing:'linear',fill:'forwards'});
+    b.animate([{opacity:1},{opacity:1,offset:.15},{opacity:0}],{duration:1400,easing:'ease-out',fill:'forwards'});}}
+setInterval(()=>{if(performance.now()-lastBeat>=5000)beat()},250);
+addEventListener('keydown',beat,{passive:true});
+const skins=[...document.querySelectorAll('[data-skin]')];
+if(skins.length===1&&skins[0]===document.documentElement){addEcg(document.body,skins[0].dataset.skin==='net'?'#F06AA0':'#F06AA0',skins[0].dataset.skin==='net'?'#1E2346':'#8E7CC3');}
+else skins.forEach(el=>{if(getComputedStyle(el).position==='static')el.style.position='relative';el.style.overflow='hidden';
+  addEcg(el,el.dataset.skin==='net'?'#F06AA0':'#F06AA0',el.dataset.skin==='net'?'#1E2346':'#8E7CC3');
+  [...el.children].forEach(c=>{if(!c.classList.contains('ecg')){c.style.position=c.style.position||'relative';c.style.zIndex=1}}); el.querySelector('.ecg').style.zIndex=5;});
+// 特效層
+const L=document.createElement('div');L.className='fxl';document.body.appendChild(L);
+const skinAt=(x,y)=>{const e=document.elementFromPoint(x,y);const s=e&&e.closest('[data-skin]');return s?s.dataset.skin:'real'};
+const spawn=(html,x,y,anim,ms,vars)=>{const p=document.createElement('span');p.className='fxp';p.innerHTML=html;p.style.left=x+'px';p.style.top=y+'px';
+  for(const k in vars)p.style.setProperty(k,vars[k]);p.style.animation=`${anim} ${ms}ms ease-out forwards`;L.appendChild(p);setTimeout(()=>p.remove(),ms)};
+const R=(a,b)=>a+Math.random()*(b-a);
+let last=0;
+addEventListener('pointermove',e=>{const t=performance.now();if(t-last<28)return;last=t;const sk=skinAt(e.clientX,e.clientY);
+  if(sk==='real'){
+    const c=Math.random()<.7?'#F06AA0':'#8E7CC3';
+    spawn(`<i style="display:block;width:4px;height:4px;background:${c};box-shadow:0 0 6px ${c}"></i>`,e.clientX+R(-6,6),e.clientY+R(-6,6),'px',520,{'--dx':R(-14,14)+'px','--dy':R(-14,14)+'px'});
+    if(Math.random()<.18)spawn(`<i style="display:block;width:${R(14,34)|0}px;height:2px;background:#45D6C5;opacity:.8"></i>`,e.clientX+R(-20,6),e.clientY+R(-10,10),'px',380,{'--dx':R(8,24)+'px','--dy':'0px'});
+  }else{
+    const g=Math.random()<.6?'♥':'✦',c=Math.random()<.5?'#F06AA0':'#45D6C5';
+    spawn(`<b style="font:900 ${R(12,20)|0}px Arial;color:${c};-webkit-text-stroke:1.5px #1E2346;paint-order:stroke">${g}</b>`,e.clientX+R(-8,8),e.clientY+R(-6,6),'rise',720,{'--dx':R(-14,14)+'px','--r':R(-40,40)+'deg'});
+  }},{passive:true});
+addEventListener('pointerdown',e=>{const x=e.clientX,y=e.clientY,sk=skinAt(x,y);
+  if(sk==='real'){
+    spawn(`<i style="display:block;width:70px;height:70px;border:2px solid #F06AA0;box-shadow:0 0 10px #F06AA0;clip-path:polygon(0 0,80% 0,100% 20%,100% 100%,20% 100%,0 80%)"></i>`,x,y,'ring',460,{});
+    spawn(`<b style="font:800 11px ui-monospace,Menlo,monospace;color:#45D6C5;letter-spacing:1px">ACK//0x${(Math.random()*65535|0).toString(16).toUpperCase()}</b>`,x,y,'ack',700,{});
+    for(let i=0;i<3;i++)spawn(`<i style="display:block;width:${R(20,50)|0}px;height:3px;background:${i%2?'#F06AA0':'#45D6C5'}"></i>`,x+R(-30,10),y+R(-16,16),'px',300,{'--dx':R(10,30)+'px','--dy':'0px'});
+  }else{
+    spawn(`<i style="display:block;width:64px;height:64px;border-radius:50%;border:4px solid #1E2346;background:#45D6C540"></i>`,x,y,'ring',480,{});
+    for(let i=0;i<10;i++){const a=i/10*Math.PI*2,d=R(36,60),g=i%3?'♥':'✦',c=['#F06AA0','#45D6C5','#FFF4E8'][i%3];
+      spawn(`<b style="font:900 ${R(14,22)|0}px Arial;color:${c};-webkit-text-stroke:1.5px #1E2346;paint-order:stroke">${g}</b>`,x-6,y-10,'burst',620,{'--dx':Math.cos(a)*d+'px','--dy':Math.sin(a)*d+'px','--r':R(-90,90)+'deg'})}
+  }},{passive:true});
+})();
+
+</script>
+</body>
+</html>
