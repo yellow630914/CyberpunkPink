@@ -286,7 +286,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 (()=>{
 if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 const NS='http://www.w3.org/2000/svg';
-// 心跳背景：一個波峰一個波谷，中間偏右；0.2 秒掃過；閒置 5 秒一跳，操作時跳一次，冷卻 1 秒
+// 心跳背景：一個波峰一個波谷，中間偏右；0.2 秒掃過，掃過的地方漸漸淡回原色；閒置 5 秒一跳，按鍵時跳一次，冷卻 1 秒
 const ECG_D='M0 180 H690 L725 30 L765 330 L800 180 H1200';
 function addEcg(host,color,base){
   const s=document.createElementNS(NS,'svg');s.setAttribute('class','ecg');s.setAttribute('viewBox','0 0 1200 360');s.setAttribute('preserveAspectRatio','none');
@@ -294,15 +294,17 @@ function addEcg(host,color,base){
   s.innerHTML=`<path class="base" stroke="${base}" d="${ECG_D}"/><path class="beat" stroke="${color}" style="color:${color}" d="${ECG_D}"/>`;
   host.prepend(s);
   const b=s.querySelector('.beat'),len=b.getTotalLength(),seg=320;
-  b.style.strokeDasharray=`${seg} ${len+seg}`;b.style.strokeDashoffset=seg;
+  b.style.strokeDasharray=`${len} ${len}`;b.style.strokeDashoffset=len;b.style.opacity=0;
   BEATS.push({b,len,seg});
 }
 const BEATS=[];
 let lastBeat=0;
 function beat(){const t=performance.now();if(t-lastBeat<1000)return;lastBeat=t;
-  for(const {b,len,seg} of BEATS)b.animate([{strokeDashoffset:seg},{strokeDashoffset:-len}],{duration:200,easing:'linear'});}
+  for(const {b,len} of BEATS){b.getAnimations().forEach(a=>a.cancel());
+    b.animate([{strokeDashoffset:len},{strokeDashoffset:0}],{duration:200,easing:'linear',fill:'forwards'});
+    b.animate([{opacity:1},{opacity:1,offset:.15},{opacity:0}],{duration:1400,easing:'ease-out',fill:'forwards'});}}
 setInterval(()=>{if(performance.now()-lastBeat>=5000)beat()},250);
-['pointerdown','keydown','wheel','pointermove'].forEach(ev=>addEventListener(ev,beat,{passive:true}));
+addEventListener('keydown',beat,{passive:true});
 const skins=[...document.querySelectorAll('[data-skin]')];
 if(skins.length===1&&skins[0]===document.documentElement){addEcg(document.body,skins[0].dataset.skin==='net'?'#F06AA0':'#F06AA0',skins[0].dataset.skin==='net'?'#1E2346':'#8E7CC3');}
 else skins.forEach(el=>{if(getComputedStyle(el).position==='static')el.style.position='relative';el.style.overflow='hidden';
