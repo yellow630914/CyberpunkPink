@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="zh-Hant" data-skin="real">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>角色與義體 v1</title>
+<style>
+:root{--cut:12px;--cut-sm:7px;--font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",Arial,sans-serif;--mono:ui-monospace,Menlo,Consolas,monospace}
+[data-skin="real"]{--bg:#17111F;--bg-1:#211829;--bg-2:#2C2136;--line:#3A2D47;--ink:#F3E9FF;--ink-2:#C9B8E8;--ink-3:#8C7AA6;
+  --a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF;--o:#17111F;--hp:#FF5A6E;--load:#F06AA0;--sink:#5FB8E8;--ap:#F2C14E;--ram:#45D6C5;--ep:#B39DF0;--net:#45D6C5;
+  --accent:#F06AA0;
+  --grid:linear-gradient(#ffffff06 1px,transparent 1px) 0 0/16px 16px,linear-gradient(90deg,#ffffff06 1px,transparent 1px) 0 0/16px 16px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);background-image:var(--grid);color:var(--ink);font-family:var(--font);font-size:14px}
+.cut{clip-path:polygon(0 0,calc(100% - var(--cut)) 0,100% var(--cut),100% 100%,var(--cut) 100%,0 calc(100% - var(--cut)))}
+.cut-sm{clip-path:polygon(0 0,calc(100% - var(--cut-sm)) 0,100% var(--cut-sm),100% 100%,var(--cut-sm) 100%,0 calc(100% - var(--cut-sm)))}
+.panel{background:var(--bg-1);box-shadow:inset 0 0 0 2px var(--line)}
+.h{font-size:11px;letter-spacing:2px;color:var(--ink-3);font-weight:800;margin:0 0 8px}
+/* 狀態列 */
+.status{height:52px;display:flex;align-items:center;gap:14px;padding:0 16px;background:#120D19;border-bottom:2px solid var(--line)}
+.logo{display:flex;align-items:center;gap:8px;font-weight:900;letter-spacing:1px}
+.logo svg{display:block}
+.st{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);white-space:nowrap}
+.st b{color:var(--ink);font-weight:800}
+.sep{width:2px;height:22px;background:var(--line)}
+.pill{padding:3px 9px;border-radius:999px;background:var(--bg-2);font-size:12px;font-weight:800}
+.pill.hot{background:var(--a);color:#fff}
+.grow{flex:1}
+.ibtn{width:34px;height:34px;display:grid;place-items:center;background:var(--bg-2);position:relative}
+.badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:var(--a);color:#fff;font-size:10px;font-weight:900;display:grid;place-items:center;padding:0 4px}
+/* 三欄 */
+.main{display:grid;grid-template-columns:340px 1fr 330px;gap:12px;padding:12px;height:calc(100% - 52px)}
+.col{display:flex;flex-direction:column;gap:12px;min-height:0}
+/* 地圖 */
+.map{padding:12px 16px 12px 12px}
+.grid{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:2px;width:100%}
+.tile{aspect-ratio:1;border-radius:4px;background:#1A1322;position:relative;min-width:0}
+.tile.st{background:#33274A}
+.tile.bd{background:#1E1627}
+.tile.fac{background:#5B4675;box-shadow:inset 0 -3px 0 #8E7CC3}
+.tile.exit{background:#33274A;box-shadow:inset 0 0 0 2px var(--b)}
+.tile.me{background:var(--a);box-shadow:0 0 10px var(--a)}
+.tile.job::after{content:"";position:absolute;inset:4px;background:var(--ap);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.tile.npc::after{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--c)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--ink-3)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+/* 小隊 */
+.party{padding:12px}
+.mem{display:grid;grid-template-columns:38px 1fr;gap:10px;align-items:center;padding:7px 0}
+.nm{display:flex;align-items:center;gap:6px;font-weight:800;font-size:13px}
+.nm .role{margin-left:auto;color:var(--ink-3);font-weight:700;font-size:11px}
+.sink{width:46px;height:10px;position:relative;border-left:1px solid #F06AA0;border-right:1px solid #F06AA0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cg fill='none' stroke='%23F06AA0' stroke-width='1.4' stroke-linecap='round' opacity='0.22'%3E%3Cpath d='M0 5Q3 0 6 5T12 5'/%3E%3Cpath d='M3 2.6V5.4M9 7.4V4.6'/%3E%3C/g%3E%3C/svg%3E") 0 0/12px 10px repeat-x}
+.sink b{position:absolute;inset:0 auto 0 0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cg fill='none' stroke='%23F06AA0' stroke-width='1.4' stroke-linecap='round' opacity='1'%3E%3Cpath d='M0 5Q3 0 6 5T12 5'/%3E%3Cpath d='M3 2.6V5.4M9 7.4V4.6'/%3E%3C/g%3E%3C/svg%3E") 0 0/12px 10px repeat-x;animation:flow 1.1s linear infinite;filter:drop-shadow(0 0 3px #F06AA088)}
+.sv{font:800 10px var(--mono);color:#F58DBA}
+.hb{height:8px;border-radius:4px;background:#2E2339;margin-top:5px;position:relative;overflow:hidden}
+.hb b{position:absolute;inset:0 auto 0 0;border-radius:4px 0 0 4px}
+.hb.hp b{background:linear-gradient(90deg,#FF4A4A,#FF8A5C);--end:#FF8A5C}
+.hb.ld b{background:repeating-linear-gradient(120deg,#F06AA0 0 6px,#F58DBA 6px 9px);--end:#F58DBA}
+.hb b::after{content:"";position:absolute;left:100%;top:0;bottom:0;width:5px;background:var(--end);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='8'%3E%3Cpath d='M0 0H2.5Q5 2 2.5 4Q0 6 2.5 8H0Z'/%3E%3C/svg%3E") 0 0/5px 8px repeat-y;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='8'%3E%3Cpath d='M0 0H2.5Q5 2 2.5 4Q0 6 2.5 8H0Z'/%3E%3C/svg%3E") 0 0/5px 8px repeat-y;animation:wave 1.8s linear infinite}
+.hb.ld b::after{animation-duration:1.4s}
+.hb b[style*="100%"]{border-radius:4px}.hb b[style*="100%"]::after{display:none}
+.ldrow{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}
+.ldrow .ag{margin-top:5px}
+@keyframes wave{to{-webkit-mask-position:0 8px;mask-position:0 8px}}
+@keyframes flow{to{background-position:12px 0}}
+@media (prefers-reduced-motion:reduce){.sink b,.hb b::after{animation:none}}
+
+.ava{width:38px;height:38px;border-radius:10px;background:var(--bg-2);position:relative;overflow:hidden}
+.ava::before{content:"";position:absolute;left:10px;top:7px;width:18px;height:18px;border-radius:50%;background:var(--b)}
+.ava::after{content:"";position:absolute;left:4px;top:24px;width:30px;height:20px;border-radius:12px 12px 0 0;background:var(--b)}
+.ava.me::before,.ava.me::after{background:var(--a)}
+.nm{display:flex;justify-content:space-between;font-weight:800;font-size:13px}
+.nm span{color:var(--ink-3);font-weight:700;font-size:11px}
+.mini{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:4px}
+.mini i{height:6px;border-radius:3px;background:var(--bg-2);position:relative;overflow:hidden}
+.mini i b{position:absolute;inset:0;border-radius:3px}
+.ag{display:flex;gap:3px;margin-top:4px}
+.ag i{width:9px;height:6px;border-radius:2px;background:var(--bg-2)}
+.ag i.on{background:var(--load)}
+/* 委託條 */
+.job{padding:12px}
+.job .t{font-weight:900}
+.stages{display:flex;gap:6px;margin-top:8px}
+.stage{flex:1;padding:6px 6px 7px;background:var(--bg-2);font-size:11px;color:var(--ink-3);font-weight:700}
+.stage.done{background:#3A2B47;color:var(--ink-2)}
+.stage.now{background:var(--a);color:#fff}
+.faces{display:flex;gap:4px;margin-top:4px}
+.faces i{width:16px;height:5px;border-radius:2px;background:#ffffff22}
+.faces i.m{background:var(--ink-2)}.faces i.n{background:var(--net)}.faces i.o{background:var(--ep)}
+/* 中欄 */
+.tools{display:flex;gap:6px;padding:8px;flex-wrap:wrap}
+.tool{display:flex;align-items:center;gap:6px;padding:7px 12px;background:var(--bg-2);font-weight:800;font-size:13px;color:var(--ink-2);position:relative}
+.tool svg{display:block}
+.tool .badge{top:-5px;right:-5px}
+.log{flex:1;overflow:auto;padding:4px 18px 10px}
+.entry{padding:14px 0 16px;border-bottom:2px solid var(--line)}
+.sys{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-bottom:8px}
+.sys b{color:var(--accent)}
+.prose{line-height:1.9;font-size:15px;max-width:720px}
+.prose p{margin:0 0 10px}
+.prose .netp{border-left:3px solid var(--net);padding-left:12px;font-family:var(--mono);font-size:13.5px;color:var(--ink-2)}
+.check{display:flex;align-items:stretch;border-radius:12px;overflow:hidden;background:var(--bg-2);max-width:520px;margin:10px 0}
+.check .d{background:var(--a);color:#fff;font-weight:900;font-size:20px;padding:6px 14px;display:grid;place-items:center}
+.check .info{padding:7px 12px;font-size:12.5px}
+.grade{display:inline-block;padding:1px 8px;border-radius:6px;background:var(--c);color:var(--bg);font-weight:800}
+.twist{color:var(--a);font-weight:800}
+.chg{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chg span{font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:var(--bg-2);color:var(--ink-2)}
+.chg .plus{color:var(--ram)} .chg .minus{color:var(--hp)}
+.chain{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;font-weight:800;margin-top:10px}
+.step{padding:3px 9px;border-radius:999px;background:var(--bg-2);color:var(--ink-3)}
+.step.ok{background:#3A2B47;color:var(--ink-2)}
+.step.run{background:var(--bg-1);color:var(--ink);box-shadow:inset 0 0 0 2px var(--a)}
+.arrow{color:var(--ink-3)}
+.thin{height:6px;border-radius:3px;background:var(--bg-2);display:flex;gap:3px;margin-top:10px;max-width:220px;overflow:hidden}
+.thin i{flex:1;background:#3A2B47}
+.entry-tools{display:flex;gap:6px;margin-top:10px}
+.mini-btn{font-size:11px;font-weight:800;padding:4px 10px;background:var(--bg-2);color:var(--ink-3)}
+/* 行動列 */
+.act{padding:10px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.input{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#120D19;box-shadow:inset 0 0 0 2px var(--line);color:var(--ink-3)}
+.input .die{width:26px;height:26px;background:var(--a);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.ctx{display:flex;gap:6px}
+.btn{font:800 13px var(--font);border:0;padding:11px 14px;cursor:pointer;background:var(--bg-2);color:var(--ink)}
+.btn.pri{background:var(--a);color:#fff}
+/* 右欄 */
+.here{padding:12px}
+.person{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center;padding:8px;background:var(--bg-2);border-radius:12px;margin-bottom:8px}
+.person .ava{width:44px;height:44px}
+.person .r{font-size:11px;color:var(--ink-3)}
+.heart{color:var(--a);font-size:11px;font-weight:800}
+.fac-tag{font-size:10px;font-weight:800;padding:1px 6px;border-radius:5px;background:#3A2B47;color:var(--ink-2);margin-left:4px}
+.acts{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.acts span{font-size:11px;font-weight:800;padding:3px 8px;border-radius:7px;background:var(--bg-1);color:var(--ink-2)}
+.acts span.hs{background:var(--a);color:#fff}
+.svc{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg-2);border-radius:10px;margin-bottom:6px;font-weight:700}
+.svc span{font-family:var(--mono);font-size:12px;color:var(--ap)}
+.ong{padding:8px 10px;background:var(--bg-2);border-radius:10px;margin-bottom:6px;font-size:13px}
+.ong small{display:block;color:var(--ink-3);font-size:11px;margin-top:2px}
+.ong .k{font-size:10px;font-weight:900;padding:1px 6px;border-radius:5px;margin-right:6px;color:#17111F}
+.tick{position:absolute;top:7px;right:20px;width:16px;height:4px;background:var(--a)}
+.rel{position:relative}
+
+/* ===== 手機版 ===== */
+.mobile{display:none}
+@media (max-width:720px){
+  .status .hide-m,.main{display:none}
+  .status{height:48px;gap:10px;padding:0 12px}
+  .mobile{display:flex;flex-direction:column;height:calc(100% - 48px)}
+  .m-map{padding:8px 40px 6px}
+  .m-map .grid{gap:2px}
+  .m-log{flex:1;overflow:auto;padding:0 14px}
+  .m-log .prose{font-size:15px}
+  .m-ctx{padding:8px 12px;display:grid;gap:8px}
+  .tabs{display:grid;grid-template-columns:repeat(5,1fr);background:#120D19;border-top:2px solid var(--line)}
+  .tab{display:grid;place-items:center;gap:3px;padding:8px 0 10px;font-size:11px;font-weight:800;color:var(--ink-3);position:relative}
+  .tab.on{color:var(--a)}
+  .tab.on::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;background:var(--a);border-radius:0 0 3px 3px}
+}
+/* ==== FX：邊框、呼吸燈、心跳背景、滑鼠特效 ==== */
+@property --fr{syntax:'<color>';inherits:true;initial-value:#4A3560}
+@keyframes breathe{0%,100%{--fr:#45305C}50%{--fr:#B0508A}}
+@keyframes bracket{0%,100%{opacity:.45}50%{opacity:1}}
+[data-skin="real"] .panel{position:relative;background:var(--fr)!important;box-shadow:none!important;isolation:isolate;animation:breathe 3.6s ease-in-out infinite}
+[data-skin="real"] .panel::before{content:"";position:absolute;inset:2px;z-index:-1;background:color-mix(in srgb,var(--bg-1) 86%,transparent);backdrop-filter:blur(1px);
+  clip-path:polygon(0 0,calc(100% - var(--cut) + 1px) 0,100% calc(var(--cut) - 1px),100% 100%,calc(var(--cut) - 1px) 100%,0 calc(100% - var(--cut) + 1px))}
+[data-skin="real"] .panel::after{content:"";position:absolute;inset:6px;pointer-events:none;z-index:2;animation:bracket 3.6s ease-in-out infinite;
+  background:
+   linear-gradient(var(--a),var(--a)) left top/16px 2px no-repeat,
+   linear-gradient(var(--a),var(--a)) left top/2px 16px no-repeat,
+   linear-gradient(var(--a),var(--a)) right bottom/16px 2px no-repeat,
+   linear-gradient(var(--a),var(--a)) right bottom/2px 16px no-repeat,
+   repeating-linear-gradient(90deg,var(--b) 0 6px,transparent 6px 10px) left 26px top 0/44px 2px no-repeat}
+.ecg{position:fixed;left:0;right:0;top:50%;height:360px;transform:translateY(-50%);width:100%;pointer-events:none;z-index:5}
+[data-skin="real"] .ecg,[data-skin="real"]>.ecg,html[data-skin="real"] .ecg{mix-blend-mode:screen}
+.ecg .base{fill:none;stroke-width:2.5;stroke-linejoin:round;opacity:.16}
+.ecg .beat{fill:none;stroke-width:4;stroke-linejoin:round;filter:drop-shadow(0 0 8px currentColor)}
+@keyframes ecg{from{stroke-dashoffset:2660}to{stroke-dashoffset:0}}
+body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
+.fxl{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden}
+.fxp{position:absolute;will-change:transform,opacity}
+@keyframes px{to{transform:translate(var(--dx),var(--dy)) scale(.3);opacity:0}}
+@keyframes rise{to{transform:translate(var(--dx),-46px) rotate(var(--r)) scale(.6);opacity:0}}
+@keyframes ring{from{transform:translate(-50%,-50%) scale(.2);opacity:1}to{transform:translate(-50%,-50%) scale(1);opacity:0}}
+@keyframes burst{to{transform:translate(var(--dx),var(--dy)) rotate(var(--r)) scale(.5);opacity:0}}
+@keyframes ack{0%{opacity:0;transform:translate(10px,-6px)}20%{opacity:1}100%{opacity:0;transform:translate(16px,-18px)}}
+@media (prefers-reduced-motion:reduce){[data-skin="real"] .panel,[data-skin="real"] .panel::after,.ecg .beat{animation:none}.fxl{display:none}}
+
+.money{display:inline-flex;align-items:center;gap:5px;font:800 13px var(--mono);white-space:nowrap}.money svg{display:block;flex:none}.money.acc{color:#E7DCFA}.money.cash{color:#F58DBA}.money.fav{color:var(--ap)}
+</style>
+</head>
+<body>
+<style>
+.cwrap{display:grid;grid-template-columns:300px 1fr;gap:12px;padding:12px;height:calc(100% - 52px)}
+.pad{padding:14px 16px}
+.scroll{overflow:auto;min-height:0}
+.k{font-size:11px;color:var(--ink-3);font-weight:800;letter-spacing:1px}
+.hr{height:2px;background:var(--line);margin:12px 0}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;background:var(--bg-2);color:var(--ink-2);white-space:nowrap}
+.tag.good{color:var(--ram)}.tag.bad{color:#FF8A5C}
+/* 左：角色卡 */
+.who{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:center}
+.who .ava{width:72px;height:72px;border-radius:16px}
+.who .ava::before{left:20px;top:11px;width:32px;height:32px}.who .ava::after{left:8px;top:46px;width:56px;height:34px}
+.who h2{margin:0;font-size:20px}
+.trk{margin-top:12px}
+.trk .top{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:800}
+.trk .top b{font:900 14px var(--mono)}
+.trk .hb{height:10px;margin-top:4px}
+.layers{display:flex;gap:4px;margin-top:6px}
+.layers i{width:18px;height:8px;border-radius:2px;background:#45375A}
+.layers i.on{background:var(--load)}
+/* 大 DNA */
+.dna{--dna:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cg fill='none' stroke='%23F06AA0' stroke-width='1.4' stroke-linecap='round' opacity='1'%3E%3Cpath d='M0 5Q3 0 6 5T12 5'/%3E%3Cpath d='M3 2.6V5.4M9 7.4V4.6'/%3E%3C/g%3E%3C/svg%3E");--dna-dim:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cg fill='none' stroke='%23F06AA0' stroke-width='1.4' stroke-linecap='round' opacity='0.22'%3E%3Cpath d='M0 5Q3 0 6 5T12 5'/%3E%3Cpath d='M3 2.6V5.4M9 7.4V4.6'/%3E%3C/g%3E%3C/svg%3E");position:relative;height:22px;margin-top:6px;border-left:1px solid #F06AA0;border-right:1px solid #F06AA0;background:var(--dna-dim) 0 50%/24px 20px repeat-x}
+.dna .fill{position:absolute;inset:0 auto 0 0;background:var(--dna) 0 50%/24px 20px repeat-x;animation:flow2 2.2s linear infinite;filter:drop-shadow(0 0 4px #F06AA088)}
+.dna .floor{position:absolute;inset:0 auto 0 0;background:repeating-linear-gradient(135deg,#F06AA022 0 4px,transparent 4px 8px);border-right:2px solid #F06AA0}
+.dna .floor::after{content:"🔒";position:absolute;right:2px;top:-16px;font-size:10px}
+.dna .seg{position:absolute;top:-3px;bottom:-3px;width:1px;background:#ffffff30}
+@keyframes flow2{to{background-position:24px 50%}}
+.seglbl{display:flex;justify-content:space-between;font-size:10px;color:var(--ink-3);margin-top:3px;font-family:var(--mono)}
+.traits{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+/* 分頁 */
+.tabsx{display:flex;gap:4px;margin-bottom:12px}
+.tabsx span{font-weight:800;font-size:13px;padding:8px 16px;background:var(--bg-2);color:var(--ink-3);cursor:pointer;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)}
+.tabsx span.on{background:var(--a);color:#fff}
+.tab-v{display:none}.tab-v.on{display:block}
+/* 概要 */
+.attrs{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.at{padding:10px;background:var(--bg-2);text-align:center}
+.at .n{font-size:12px;font-weight:800;color:var(--ink-2)}
+.at .v{font:900 26px var(--mono);margin:2px 0}
+.at .v small{font-size:12px;color:var(--ink-3)}
+.at .v.up{color:var(--ram)}
+.at .src{font-size:10px;color:var(--ink-3)}
+.at .lead{font-size:10.5px;color:var(--ink-3);margin-top:4px}
+.basics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.bg{padding:10px 12px;background:var(--bg-2)}
+.bg .gh{font-size:11px;font-weight:900;color:var(--ink-3);letter-spacing:1px;margin-bottom:6px}
+.bs{display:grid;grid-template-columns:64px 1fr 22px 52px;gap:8px;align-items:center;padding:4px 0}
+.bs b{font-size:13px}
+.pips{display:flex;gap:3px}
+.pips i{flex:1;height:8px;border-radius:2px;background:#45375A}
+.pips i.on{background:var(--ink-2)}
+.pips i.t{box-shadow:inset 0 0 0 1px #F2C14E66}
+.bs .lv{font:900 13px var(--mono);text-align:right}
+.up-btn{font:800 10.5px var(--mono);padding:3px 6px;border-radius:5px;background:#120D19;color:var(--ap);text-align:center}
+.up-btn.lock{color:var(--ink-3)}
+.sinkbox{display:grid;grid-template-columns:auto 1fr 1fr;gap:10px;margin-top:12px;padding:12px;background:var(--bg-2);align-items:start}
+.sinkbox .st{font-size:18px;font-weight:900;color:var(--a)}
+.sinkbox ul{margin:4px 0 0;padding-left:16px;font-size:12.5px;line-height:1.7;color:var(--ink-2)}
+/* 身體 */
+.body{display:grid;grid-template-columns:260px 1fr;gap:14px}
+.fig{position:relative;height:440px;background:#120D19}
+.fig svg{position:absolute;inset:0;margin:auto}
+.hs{position:absolute;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font:900 10px var(--mono);background:var(--bg-2);color:var(--ink-2);box-shadow:0 0 0 2px var(--line);cursor:pointer}
+.hs.has{background:var(--b);color:#17111F}
+.hs.on{background:var(--a);color:#fff;box-shadow:0 0 0 3px #F06AA066,0 0 12px var(--a)}
+.hs.warn::after{content:"";position:absolute;right:-3px;top:-3px;width:8px;height:8px;border-radius:50%;background:#FF8A5C}
+.parts{display:grid;gap:6px}
+.part{display:grid;grid-template-columns:86px 1fr auto;gap:10px;align-items:center;padding:8px 10px;background:var(--bg-2);cursor:pointer}
+.part .pn{font-weight:900;font-size:13px}
+.part .pn small{display:block;font-size:10px;color:var(--ink-3);font-weight:700}
+.slots2{display:flex;gap:5px;flex-wrap:wrap}
+.cw{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:7px;background:#120D19;font-size:12px;font-weight:800}
+.cw .g{font:900 10px var(--mono);padding:0 5px;border-radius:4px;background:var(--c);color:var(--bg)}
+.cw .sc{font:800 10.5px var(--mono);color:#F58DBA}
+.cw.empty{background:transparent;border:1px dashed var(--line);color:var(--ink-3);font-weight:700}
+.cw.lock{box-shadow:inset 0 0 0 1px var(--ap)}
+.cw.mal{box-shadow:inset 0 0 0 1px #FF8A5C}
+.part .sum{font:800 11px var(--mono);color:#F58DBA}
+.part.on{background:#3A2B47;box-shadow:inset 3px 0 0 var(--a)}
+.detail{margin-top:10px;padding:12px;background:#120D19}
+.detail h3{margin:0 0 6px;font-size:15px}
+.drow{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
+.drow .s{color:var(--ink-3)}
+.floorbar{display:flex;height:22px;margin-top:8px;border-radius:5px;overflow:hidden;font:800 10px var(--mono)}
+.floorbar div{display:flex;align-items:center;justify-content:center;color:#17111F;border-right:2px solid #17111F;white-space:nowrap;overflow:hidden}
+/* 裝備 */
+.equip{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:14px}
+.eg{margin-bottom:12px}
+.egrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.cell{aspect-ratio:1.7;min-width:0;background:var(--bg-2);padding:7px;display:flex;flex-direction:column;justify-content:space-between;position:relative}
+.cell .sl{font-size:10px;font-weight:900;color:var(--ink-3);letter-spacing:1px}
+.cell .it{font-size:12px;font-weight:800;line-height:1.35}
+.cell .mk{position:absolute;right:6px;top:6px;font:900 9px var(--mono);padding:0 4px;border-radius:3px;background:var(--c);color:var(--bg)}
+.cell.empty .it{color:var(--ink-3);font-weight:700}
+.cell.cov{opacity:.55}
+.cell.cov::after{content:"被外套蓋住";position:absolute;left:7px;bottom:6px;font-size:9.5px;color:var(--ink-3)}
+.cell.cov .it{visibility:hidden}
+.cache{display:flex;gap:6px;margin-top:6px}
+.cache div{width:64px;height:52px;background:var(--bg-2);display:grid;place-items:center;font-size:11px;font-weight:800;text-align:center;padding:4px}
+.cache div.e{background:transparent;border:1px dashed var(--line);color:var(--ink-3)}
+.cache div.x{background:repeating-linear-gradient(135deg,#221A2B 0 6px,#261D30 6px 12px);color:var(--ink-3);font-size:10px}
+.seg2{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px}
+.seg2 span{text-align:center;font-size:12px;font-weight:800;padding:7px;background:var(--bg-2);color:var(--ink-3)}
+.seg2 span.on{background:var(--a);color:#fff}
+.meter{height:8px;border-radius:4px;background:#2E2339;position:relative;margin-top:6px;overflow:hidden}
+.meter b{position:absolute;inset:0 auto 0 0;border-radius:4px}
+.kv{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.kv span{color:var(--ink-3)}
+/* 橋 */
+.bhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.bhead h3{margin:0;font-size:16px}
+.tune{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:7px;background:#120D19;font-size:12px;font-weight:800}
+.tune.e{border:1px dashed var(--line);background:transparent;color:var(--ink-3)}
+.caps{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin-top:12px}
+.cap .top{display:flex;justify-content:space-between;font-size:12px;font-weight:800}
+.cap .top b{font:900 13px var(--mono)}
+.capbar{display:flex;gap:2px;margin-top:5px}
+.capbar i{flex:1;height:10px;background:#2E2339}
+.capbar i.on{background:var(--cc)}
+.capbar i.pv{background:transparent;box-shadow:inset 0 0 0 2px var(--cc)}
+.capbar i.over{background:transparent;box-shadow:inset 0 0 0 2px #FF4A4A}
+.filters{display:flex;gap:5px;flex-wrap:wrap;margin:14px 0 8px}
+.filters span{font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--bg-2);color:var(--ink-3)}
+.filters span.on{background:var(--a);color:#fff}
+.filters span.night{box-shadow:inset 0 0 0 1px var(--a)}
+.sk{display:grid;grid-template-columns:22px 1fr 110px 64px 50px 1fr;gap:10px;align-items:center;padding:8px 10px;background:var(--bg-2);margin-bottom:5px;font-size:12.5px}
+.sk .ck{width:18px;height:18px;border-radius:5px;background:#120D19;box-shadow:inset 0 0 0 2px var(--line);display:grid;place-items:center;font-size:12px;font-weight:900}
+.sk .ck.on{background:var(--a);box-shadow:none;color:#fff}
+.sk .ck.no{opacity:.4}
+.sk b{font-size:13.5px}
+.sk .tr{color:var(--ink-2);font-weight:700}
+.sk .kd{font-size:11px;font-weight:800;padding:2px 7px;border-radius:5px;background:#120D19;color:var(--ink-2);text-align:center}
+.sk .cs{font:900 13px var(--mono);text-align:center}
+.sk .nt{font-size:11.5px;color:var(--ink-3)}
+.sk .nt.bad{color:#FF8A5C}.sk .nt.pv{color:var(--ram)}
+.sk.hover{box-shadow:inset 0 0 0 2px var(--ram)}
+.sk.res{background:#221A2B}
+.sk.res b{color:var(--ink-2)}
+.lockline{margin-top:10px;padding:9px 12px;background:#120D19;font-size:12.5px;color:var(--ink-3);display:flex;justify-content:space-between;align-items:center}
+/* 成人 */
+.adult{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.par{margin-bottom:10px}
+.par .top{display:flex;justify-content:space-between;font-size:12.5px;font-weight:800}
+.par .top b{font:900 13px var(--mono)}
+.par .use{font-size:11px;color:var(--ink-3);margin-top:3px}
+.axis{padding:10px 12px;background:var(--bg-2);margin-bottom:8px}
+.axis .top{display:flex;justify-content:space-between;align-items:center}
+.axis .top b{font-size:13.5px}
+.lvl{display:flex;gap:3px}
+.lvl i{width:16px;height:8px;border-radius:2px;background:#45375A}
+.lvl i.on{background:var(--a)}
+.tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.tg{font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:999px;background:#120D19;color:var(--ink-2)}
+.tg.deep{background:var(--a);color:#fff}
+.tg.deep::after{content:" 深";font-size:10px;opacity:.85}
+.tg.off{color:var(--ink-3);text-decoration:line-through}
+.fame{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.fame div{padding:8px;background:var(--bg-2);font-size:11.5px;font-weight:800;color:var(--ink-3)}
+.fame div b{display:block;font:900 16px var(--mono);color:var(--ink)}
+.fame div.here{box-shadow:inset 0 0 0 2px var(--a)}
+.btn.sm{font-size:12px;padding:7px 11px}
+@media (max-width:720px){
+  .cwrap{grid-template-columns:1fr;height:auto}
+  .attrs{grid-template-columns:repeat(3,1fr)}.basics,.body,.equip,.adult,.caps{grid-template-columns:1fr}
+  .sinkbox{grid-template-columns:1fr}
+  .tabsx{overflow-x:auto}.tabsx span{flex:none}
+  .sk{grid-template-columns:22px 1fr 50px}.sk .tr,.sk .kd,.sk .nt{display:none}
+  .egrid{grid-template-columns:repeat(3,1fr)}
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="c-acc" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3" fill="#C9B8E8"/><rect x="2" y="8.5" width="20" height="3" fill="#8E7CC3"/><rect x="5" y="14" width="6" height="2.4" rx="1.2" fill="#F3E9FF"/><circle cx="17.5" cy="15.2" r="1.8" fill="#F06AA0"/></symbol>
+  <symbol id="c-cash" viewBox="0 0 24 24"><path d="M7 3h10l4 4v10l-4 4H7l-4-4V7z" fill="#F06AA0"/><rect x="8" y="8" width="8" height="8" rx="1.5" fill="#F2C14E"/><path d="M8 11h8M8 13h8M11 8v8M13 8v8" stroke="#F06AA0" stroke-width="1.1"/></symbol>
+  <symbol id="c-fav" viewBox="0 0 24 24"><path d="M3 6h14l4 6-4 6H3z" fill="#F2C14E"/><circle cx="16" cy="12" r="1.8" fill="#17111F"/><rect x="6" y="9.5" width="6" height="2" rx="1" fill="#17111F"/><rect x="6" y="13" width="4" height="2" rx="1" fill="#17111F"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6z" fill="#F3E9FF"/><circle cx="12" cy="19.5" r="2.2" fill="#F06AA0"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="3" rx="1.5" fill="#F3E9FF"/><rect x="4" y="10.5" width="16" height="3" rx="1.5" fill="#F3E9FF"/><rect x="4" y="16" width="10" height="3" rx="1.5" fill="#F06AA0"/></symbol>
+</defs></svg>
+
+<header class="status">
+  <div class="logo"><svg width="30" height="30" viewBox="0 0 600 600"><path fill="#45D6C5" stroke="#F3E9FF" stroke-width="22" d="M222 170 H388 L422 204 V338 Q422 382 378 382 H222 Q178 382 178 338 V214 Q178 170 222 170 Z"/><path fill="#F06AA0" stroke="#F3E9FF" stroke-width="20" d="M196 214 L214 102 L282 176 Z M404 214 L386 102 L318 176 Z"/><path fill="#F06AA0" d="M300 334 C 236 292 236 222 276 222 C 290 222 298 232 300 242 C 302 232 310 222 324 222 C 364 222 364 292 300 334 Z"/></svg><span class="hide-m">CYBERPUNK PINK</span></div>
+  <div class="sep hide-m"></div>
+  <div class="st"><b>第 12 天</b> 週五 <b>23:40</b></div>
+  <div class="sep hide-m"></div>
+  <div class="st hide-m"><span class="pill hot">四十二番街</span> 安全屋</div>
+  <div class="sep hide-m"></div>
+  <div class="st"><span class="money acc"><svg width="18" height="18"><use href="#c-acc"/></svg>3,420</span><span class="money cash"><svg width="18" height="18"><use href="#c-cash"/></svg>800</span></div>
+  <div class="grow"></div>
+  <div class="ibtn cut-sm"><svg width="20" height="20"><use href="#i-bell"/></svg><span class="badge">2</span></div>
+  <div class="ibtn cut-sm"><svg width="20" height="20"><use href="#i-menu"/></svg></div>
+</header>
+
+<div class="cwrap">
+  <!-- 左：角色卡（每個分頁都在） -->
+  <aside class="panel cut pad scroll">
+    <div class="who"><div class="ava me"></div><div><h2>你</h2><div class="k" style="margin-top:3px">出身・蜂巢的巷子</div><div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap"><span class="tag">槍手 2</span><span class="tag">掮客 2</span></div></div></div>
+    <div class="hr"></div>
+    <div class="kv"><span>歷練點</span><b class="mono" style="color:var(--ap)">26 未用</b></div>
+    <div class="kv"><span>體悟（夜課）</span><b class="mono" style="color:var(--a)">4</b></div>
+    <div class="kv"><span>街頭信譽</span><b>38・熟面孔</b></div>
+
+    <div class="trk"><div class="top"><span>生命</span><b>38<span style="color:var(--ink-3);font-size:11px">／44</span></b></div><div class="hb hp"><b style="width:86%"></b></div></div>
+    <div class="trk"><div class="top"><span>感載</span><b>11<span style="color:var(--ink-3);font-size:11px">／38</span></b></div><div class="hb ld"><b style="width:29%"></b></div>
+      <div class="top" style="margin-top:8px"><span class="k">承受層數</span><span class="k">餘韻 1</span></div><div class="layers"><i class="on"></i><i></i><i></i><i></i></div></div>
+    <div class="trk"><div class="top"><span>沉溺</span><b style="color:#F58DBA">58</b></div>
+      <div class="dna"><div class="fill" style="width:58%"></div><div class="floor" style="width:31%"></div>
+        <span class="seg" style="left:20%"></span><span class="seg" style="left:40%"></span><span class="seg" style="left:60%"></span><span class="seg" style="left:80%"></span></div>
+      <div class="seglbl"><span>0</span><span>下限 31</span><span>貪歡</span><span>100</span></div></div>
+    <div class="hr"></div>
+    <div class="k">特質</div>
+    <div class="traits"><span class="tag good">巷子裡的眼睛</span><span class="tag good">手穩</span><span class="tag bad">欠阿蓮一筆</span></div>
+  </aside>
+
+  <!-- 右：五個分頁 -->
+  <section class="panel cut pad scroll">
+    <div class="tabsx"><span data-t="sum">概要</span><span data-t="body" class="on">身體</span><span data-t="gear">裝備</span><span data-t="bridge">橋</span><span data-t="adult">成人</span></div>
+
+    <!-- 概要 -->
+    <div class="tab-v" id="t-sum">
+      <p class="h">六屬性・基礎 → 有效</p>
+      <div class="attrs">
+        <div class="at cut-sm"><div class="n">體格</div><div class="v">12</div><div class="src">—</div><div class="lead">生命、近戰、負重</div></div>
+        <div class="at cut-sm"><div class="n">反應</div><div class="v up">17<small> ←15</small></div><div class="src">反射加速器 +2</div><div class="lead">槍、迴避、先攻、行動點</div></div>
+        <div class="at cut-sm"><div class="n">技術</div><div class="v">8</div><div class="src">—</div><div class="lead">組裝、義體、醫療</div></div>
+        <div class="at cut-sm"><div class="n">智識</div><div class="v up">14<small> ←13</small></div><div class="src">甲板 +1</div><div class="lead">竄網、RAM、調查</div></div>
+        <div class="at cut-sm"><div class="n">意志</div><div class="v">12</div><div class="src">—</div><div class="lead">感載上限、豁免</div></div>
+        <div class="at cut-sm"><div class="n">魅力</div><div class="v">14</div><div class="src">—</div><div class="lead">交涉、行動點、網內傷害</div></div>
+      </div>
+      <div class="row" style="justify-content:space-between;margin-top:16px"><p class="h" style="margin:0">十八項基本功・0～4 級直接升，5、6 級要有人教</p><span class="k">升到 N 級花 N × 10</span></div>
+      <div class="basics">
+        <div class="bg cut-sm"><div class="gh">體格</div>
+          <div class="bs"><b>格鬥</b><div class="pips"><i class="on"></i><i></i><i></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">1</span><span class="up-btn">+ 20</span></div>
+          <div class="bs"><b>運動</b><div class="pips"><i class="on"></i><i class="on"></i><i></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">2</span><span class="up-btn">+ 30</span></div>
+          <div class="bs"><b>重裝</b><div class="pips"><i></i><i></i><i></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">0</span><span class="up-btn">+ 10</span></div></div>
+        <div class="bg cut-sm"><div class="gh">反應</div>
+          <div class="bs"><b>槍械</b><div class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="t"></i><i class="t"></i></div><span class="lv">4</span><span class="up-btn lock">要老師</span></div>
+          <div class="bs"><b>操縱</b><div class="pips"><i class="on"></i><i></i><i></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">1</span><span class="up-btn">+ 20</span></div>
+          <div class="bs"><b>隱匿</b><div class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">3</span><span class="up-btn">+ 40</span></div></div>
+        <div class="bg cut-sm"><div class="gh">技術</div>
+          <div class="bs"><b>機械</b><div class="pips"><i class="on"></i><i></i><i></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">1</span><span class="up-btn">+ 20</span></div>
+          <div class="bs"><b>義體學</b><div class="pips"><i></i><i></i><i></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">0</span><span class="up-btn">+ 10</span></div>
+          <div class="bs"><b>醫療</b><div class="pips"><i class="on"></i><i></i><i></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">1</span><span class="up-btn">+ 20</span></div></div>
+        <div class="bg cut-sm"><div class="gh">智識</div>
+          <div class="bs"><b>介面</b><div class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">3</span><span class="up-btn">+ 40</span></div>
+          <div class="bs"><b>調查</b><div class="pips"><i class="on"></i><i class="on"></i><i></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">2</span><span class="up-btn">+ 30</span></div>
+          <div class="bs"><b>街頭直覺</b><div class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">3</span><span class="up-btn">+ 40</span></div></div>
+        <div class="bg cut-sm"><div class="gh">意志</div>
+          <div class="bs"><b>威嚇</b><div class="pips"><i class="on"></i><i></i><i></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">1</span><span class="up-btn">+ 20</span></div>
+          <div class="bs"><b>定力</b><div class="pips"><i class="on"></i><i class="on"></i><i></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">2</span><span class="up-btn">+ 30</span></div>
+          <div class="bs"><b>同步</b><div class="pips"><i></i><i></i><i></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">0</span><span class="up-btn">+ 10</span></div></div>
+        <div class="bg cut-sm"><div class="gh">魅力</div>
+          <div class="bs"><b>交涉</b><div class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">3</span><span class="up-btn">+ 40</span></div>
+          <div class="bs"><b>誘惑</b><div class="pips"><i class="on"></i><i class="on"></i><i></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">2</span><span class="up-btn">+ 30</span></div>
+          <div class="bs"><b>表演</b><div class="pips"><i class="on"></i><i></i><i></i><i></i><i class="t"></i><i class="t"></i></div><span class="lv">1</span><span class="up-btn">+ 20</span></div></div>
+      </div>
+      <div class="sinkbox cut-sm">
+        <div><div class="k">沉溺 58</div><div class="st">貪歡</div><div class="k" style="margin-top:4px">40～59</div></div>
+        <div><div class="k" style="color:var(--ram)">得到</div><ul><li>承受層數 +1</li><li>自己造成的感載 +10%</li><li>聽得懂遺魂在說什麼</li><li>到 50，粉牆會讓你過去</li></ul></div>
+        <div><div class="k" style="color:#FF8A5C">失去</div><ul><li>定力 −1</li><li>每週可能發生衝動事件</li></ul><div class="k" style="margin-top:6px">再 2 點進入迷醉</div></div>
+      </div>
+    </div>
+
+    <!-- 身體 -->
+    <div class="tab-v on" id="t-body">
+      <div class="body">
+        <div>
+          <div class="fig cut-sm">
+            <svg width="180" height="400" viewBox="0 0 180 400"><g fill="#2C2136"><circle cx="90" cy="44" r="30"/><rect x="78" y="70" width="24" height="16" rx="4"/><path d="M48 92h84l10 120H38z"/><path d="M42 96 18 210l14 4 26-100zM138 96l24 114-14 4-26-100z"/><path d="M50 212h38l-4 170H60zM92 212h38l-10 170H96z"/></g><rect x="84" y="72" width="12" height="9" rx="2" fill="#F06AA0"/></svg>
+            <span class="hs has" style="left:57%;top:19.5%">橋</span>
+            <span class="hs has on" style="left:50%;top:9%">腦</span>
+            <span class="hs has" style="left:41%;top:11%">眼</span>
+            <span class="hs has" style="left:62%;top:11%">耳</span>
+            <span class="hs has" style="left:50%;top:36%">軀</span>
+            <span class="hs has" style="left:35%;top:30%">皮</span>
+            <span class="hs has warn" style="left:20%;top:44%">左</span>
+            <span class="hs" style="left:80%;top:44%">右</span>
+            <span class="hs" style="left:40%;top:75%">腿</span>
+            <span class="hs" style="left:54%;top:55%">私</span>
+          </div>
+          <div class="k" style="margin-top:8px">點部位看詳情。橘點：有警示（惡意韌體、欠費）</div>
+        </div>
+        <div>
+          <div class="parts">
+            <div class="part cut-sm"><div class="pn">橋<small>後頸・1＋調校 2</small></div><div class="slots2"><span class="cw"><span class="g">II</span>織女 標準<span class="sc">4</span></span><span class="cw empty">調校槽</span><span class="cw empty">調校槽</span></div><span class="sum">4</span></div>
+            <div class="part cut-sm on"><div class="pn">腦<small>3 槽</small></div><div class="slots2"><span class="cw lock"><span class="g">II</span>反射加速器<span class="sc">10</span></span><span class="cw"><span class="g">II</span>甲板「夜航」<span class="sc">6</span></span><span class="cw empty">空</span></div><span class="sum">16</span></div>
+            <div class="part cut-sm"><div class="pn">眼<small>2 槽</small></div><div class="slots2"><span class="cw"><span class="g">I</span>義眼・瞄準<span class="sc">3</span></span><span class="cw empty">空</span></div><span class="sum">3</span></div>
+            <div class="part cut-sm"><div class="pn">耳與喉<small>2 槽</small></div><div class="slots2"><span class="cw"><span class="g">I</span>聲紋偽裝<span class="sc">2</span></span><span class="cw empty">空</span></div><span class="sum">2</span></div>
+            <div class="part cut-sm"><div class="pn">軀幹<small>3 槽</small></div><div class="slots2"><span class="cw"><span class="g">I</span>藥泵<span class="sc">2</span></span><span class="cw empty">空</span><span class="cw empty">空</span></div><span class="sum">2</span></div>
+            <div class="part cut-sm"><div class="pn">皮膚<small>2 槽</small></div><div class="slots2"><span class="cw"><span class="g">I</span>光紋刺青・蝶<span class="sc">1</span></span><span class="cw empty">空</span></div><span class="sum">1</span></div>
+            <div class="part cut-sm"><div class="pn">臂<small>左 2・右 2</small></div><div class="slots2"><span class="cw mal"><span class="g">I</span>駭入接頭（二手）<span class="sc">3</span></span><span class="cw empty">左</span><span class="cw empty">右</span><span class="cw empty">右</span></div><span class="sum">3</span></div>
+            <div class="part cut-sm"><div class="pn">腿<small>左 2・右 2</small></div><div class="slots2"><span class="cw empty">沒有義體</span></div><span class="sum">0</span></div>
+            <div class="part cut-sm"><div class="pn">私密<small>2 槽</small></div><div class="slots2"><span class="cw empty">沒有義體</span></div><span class="sum">0</span></div>
+          </div>
+          <div class="detail cut-sm">
+            <h3>腦・反射加速器</h3>
+            <div class="drow"><span class="s">等級／材質／侵入度</span><b>II・機・重度</b></div>
+            <div class="drow"><span class="s">效果</span><b>反應 +2；先攻 +2</b></div>
+            <div class="drow"><span class="s">雙面效應</span><b style="color:#FF8A5C">受到驚嚇時多一次感載判定</b></div>
+            <div class="drow"><span class="s">沉溺成本</span><b style="color:#F58DBA">10（墊高下限）</b></div>
+            <div class="drow"><span class="s">授權</span><b style="color:var(--ap)">緋櫻・訂閱中，每週扣帳戶 <span class="money acc" style="font:inherit;gap:3px"><svg width="12" height="12"><use href="#c-acc"/></svg>210</span>，下次 2 天後；沒付就鎖住，成本照算</b></div>
+            <div style="display:flex;gap:6px;margin-top:10px"><button class="btn sm cut-sm">拆下（要在診所）</button><button class="btn sm cut-sm">送修</button><button class="btn sm cut-sm">付清買斷</button></div>
+          </div>
+          <p class="h" style="margin-top:14px">沉溺的下限 31・由這些墊起來</p>
+          <div class="floorbar"><div style="flex:10;background:#F06AA0">反射加速器 10</div><div style="flex:6;background:#F58DBA">甲板 6</div><div style="flex:4;background:#E7DCFA">橋 4</div><div style="flex:3;background:#C9B8E8">義眼 3</div><div style="flex:3;background:#C9B8E8">接頭 3</div><div style="flex:2;background:#8E7CC3">聲紋 2</div><div style="flex:2;background:#8E7CC3">藥泵 2</div><div style="flex:1;background:#5B4675"></div></div>
+          <div class="k" style="margin-top:6px">抑制劑：沒有服用。服用時下限暫時 −10</div>
+          <div class="detail cut-sm" style="box-shadow:inset 3px 0 0 #FF8A5C">
+            <h3>左臂・駭入接頭（二手）</h3>
+            <div class="drow"><span class="s">惡意韌體</span><b style="color:#FF8A5C">「搭便車」・潛伏中，約 5 天後發作</b></div>
+            <div class="drow"><span class="s">殘響</span><b>偶爾聞到不屬於你的菸味</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 裝備 -->
+    <div class="tab-v" id="t-gear">
+      <div class="equip">
+        <div>
+          <div class="eg"><p class="h">穿著・10 格</p>
+            <div class="egrid">
+              <div class="cell cut-sm empty"><span class="sl">頭部</span><span class="it">空</span></div>
+              <div class="cell cut-sm"><span class="mk">II</span><span class="sl">面部</span><span class="it">霧面口罩</span></div>
+              <div class="cell cut-sm"><span class="mk">II</span><span class="sl">外套</span><span class="it">夜行雨衣</span></div>
+              <div class="cell cut-sm"><span class="mk">I</span><span class="sl">護甲</span><span class="it">輕型戰術背心</span></div>
+              <div class="cell cut-sm"><span class="mk">I</span><span class="sl">手</span><span class="it">露指手套</span></div>
+              <div class="cell cut-sm cov"><span class="sl">上身</span><span class="it">機能背心</span></div>
+              <div class="cell cut-sm"><span class="mk">I</span><span class="sl">下身</span><span class="it">工裝短褲</span></div>
+              <div class="cell cut-sm"><span class="sl">鞋</span><span class="it">厚底短靴</span></div>
+              <div class="cell cut-sm cov"><span class="sl">內衣</span><span class="it">運動內衣</span></div>
+              <div class="cell cut-sm"><span class="sl">內褲</span><span class="it">平口褲</span></div>
+            </div></div>
+          <div class="eg"><p class="h">飾品・5 格</p>
+            <div class="egrid">
+              <div class="cell cut-sm"><span class="sl">頸</span><span class="it">皮質頸圈</span></div>
+              <div class="cell cut-sm empty"><span class="sl">腿</span><span class="it">空</span></div>
+              <div class="cell cut-sm"><span class="sl">通用</span><span class="it">耳骨夾（麥克風）</span></div>
+              <div class="cell cut-sm"><span class="sl">通用</span><span class="it">舊錶（板子）</span></div>
+              <div class="cell cut-sm empty"><span class="sl">通用</span><span class="it">空</span></div>
+            </div></div>
+          <div class="eg"><p class="h">攜帶・3 格加快取</p>
+            <div class="egrid" style="grid-template-columns:repeat(3,1fr)">
+              <div class="cell cut-sm empty" style="aspect-ratio:2.2"><span class="sl">主武器</span><span class="it">空</span></div>
+              <div class="cell cut-sm" style="aspect-ratio:2.2"><span class="mk">II</span><span class="sl">副武器</span><span class="it">量產手槍「點放」</span></div>
+              <div class="cell cut-sm" style="aspect-ratio:2.2"><span class="mk">I</span><span class="sl">近戰</span><span class="it">摺疊刀</span></div>
+            </div>
+            <div class="k" style="margin-top:10px">快取格 4／8：本來 2、腰帶 +1、戰術背心 +1。戰鬥中只能用這裡的東西</div>
+            <div class="cache"><div>彈匣</div><div>彈匣</div><div>止痛貼</div><div class="e">空</div><div class="x">要更多格<br>換腰帶或背心</div></div>
+          </div>
+        </div>
+        <div>
+          <p class="h">外套</p>
+          <div class="seg2"><span>敞開</span><span class="on">扣上</span></div>
+          <div class="k" style="margin-top:6px">扣上：蓋住上身與內衣，藏匿量變大，曝露度變低</div>
+          <div class="hr"></div>
+          <div class="kv"><span>曝露度</span><b class="mono">2／5</b></div>
+          <div class="meter"><b style="width:40%;background:var(--a)"></b></div>
+          <div class="kv" style="margin-top:6px"><span>藏匿量</span><b class="mono">2／3</b></div>
+          <div class="meter"><b style="width:66%;background:var(--ram)"></b></div>
+          <div class="kv" style="margin-top:6px"><span>重量</span><b class="mono">9／24 kg</b></div>
+          <div class="hr"></div>
+          <div class="k">風格</div>
+          <div class="traits"><span class="tag">街頭</span><span class="tag">機能</span><span class="tag">夜行</span></div>
+          <div class="k" style="margin-top:12px">被掃到時</div>
+          <div class="kv"><span>手槍</span><b style="color:#FF8A5C">登記類・掃得到</b></div>
+          <div class="kv"><span>摺疊刀</span><b style="color:var(--ram)">藏在雨衣內袋</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 橋 -->
+    <div class="tab-v" id="t-bridge">
+      <div class="bhead"><h3>織女 標準</h3><span class="tag">晶片 II</span><span class="tag">換配置只要半小時</span><span class="tune e">調校槽 空</span><span class="tune e">調校槽 空</span></div>
+      <div class="caps">
+        <div class="cap" style="--cc:#C9B8E8"><div class="top"><span>現實</span><b>6／13 <span style="color:var(--ram)">→ 7</span></b></div><div class="capbar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="pv"></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+        <div class="cap" style="--cc:#45D6C5"><div class="top"><span>內海</span><b>4／13</b></div><div class="capbar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+        <div class="cap" style="--cc:#F2C14E"><div class="top"><span>社交</span><b>6／13 <span style="color:var(--ram)">→ 9</span></b></div><div class="capbar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="pv"></i><i class="pv"></i><i class="pv"></i><i></i><i></i><i></i><i></i></div></div>
+        <div class="cap" style="--cc:#B39DF0"><div class="top"><span>媒體</span><b>0／13</b></div><div class="capbar"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      </div>
+      <div class="filters"><span class="on">全部</span><span>槍手</span><span>機師</span><span>改造師</span><span>潛網者</span><span>藝人</span><span>掮客</span><span>主播</span><span>偶像</span><span class="night">夜課</span><span>只看裝著的</span></div>
+            <div class="sk res"><span class="ck on">✓</span><div><b>槍手的共鳴</b></div><span class="tr">槍手・2 階</span><span class="kd">被動</span><span class="cs">0</span><span class="nt">開了一階就多一個，不佔容量</span></div>
+      <div class="sk"><span class="ck on">✓</span><div><b>戰鬥直覺</b></div><span class="tr">槍手 1 階・招牌</span><span class="kd">被動</span><span class="cs">3</span><span class="nt">同樹已裝 4 個</span></div>
+      <div class="sk"><span class="ck on">✓</span><div><b>要害射擊</b></div><span class="tr">槍手 1 階</span><span class="kd">主動</span><span class="cs">1</span><span class="nt"></span></div>
+      <div class="sk"><span class="ck on">✓</span><div><b>掩護射擊</b></div><span class="tr">槍手 1 階</span><span class="kd">反應</span><span class="cs">1</span><span class="nt"></span></div>
+      <div class="sk"><span class="ck on">✓</span><div><b>點放</b></div><span class="tr">槍手 1 階</span><span class="kd">主動</span><span class="cs">1</span><span class="nt"></span></div>
+      <div class="sk"><span class="ck">　</span><div><b>壓制姿態</b></div><span class="tr">槍手 2 階</span><span class="kd">姿態</span><span class="cs">1</span><span class="nt pv">裝上去：現實 7／13</span></div>
+      <div class="sk"><span class="ck on">✓</span><div><b>人面</b></div><span class="tr">掮客 1 階・招牌</span><span class="kd">被動</span><span class="cs">3</span><span class="nt"></span></div>
+      <div class="sk"><span class="ck on">✓</span><div><b>集火</b></div><span class="tr">掮客 1 階</span><span class="kd">主動</span><span class="cs">1</span><span class="nt"></span></div>
+      <div class="sk"><span class="ck on">✓</span><div><b>戰前佈置</b></div><span class="tr">掮客 1 階</span><span class="kd">預備</span><span class="cs">1</span><span class="nt"></span></div>
+      <div class="sk"><span class="ck on">✓</span><div><b>勸降</b></div><span class="tr">掮客 2 階</span><span class="kd">主動</span><span class="cs">1</span><span class="nt"></span></div>
+      <div class="sk hover"><span class="ck">　</span><div><b>黑市門路</b></div><span class="tr">掮客 2 階</span><span class="kd">被動</span><span class="cs">3</span><span class="nt pv">裝上去：社交 9／13</span></div>
+      <div class="sk"><span class="ck on">✓</span><div><b>主控</b></div><span class="tr">潛網者 1 階・招牌</span><span class="kd">被動</span><span class="cs">3</span><span class="nt"></span></div>
+      <div class="sk"><span class="ck on">✓</span><div><b>破冰</b></div><span class="tr">潛網者 1 階</span><span class="kd">主動</span><span class="cs">1</span><span class="nt"></span></div>
+      <div class="sk res"><span class="ck on">✓</span><div><b>借過一下</b></div><span class="tr">夜課</span><span class="kd">主動</span><span class="cs">0</span><span class="nt">只在成人場景用，不佔容量</span></div>
+      <div class="lockline"><span>換配置：在據點或調校診所，花半小時（織女的機能）。現在在安全屋，可以換。</span><button class="btn sm pri cut-sm">套用</button></div>
+    </div>
+
+    <!-- 成人 -->
+    <div class="tab-v" id="t-adult">
+      <div class="adult">
+        <div>
+          <p class="h">橋參數・0～100（硬體）</p>
+          <div class="par"><div class="top"><span>敏感度</span><b>46</b></div><div class="meter"><b style="width:46%;background:var(--a)"></b></div><div class="use">受到的感載 ×0.98；可以開「深」同步（要 40）</div></div>
+          <div class="par"><div class="top"><span>耐受</span><b>30</b></div><div class="meter"><b style="width:30%;background:var(--ram)"></b></div><div class="use">感載上限 +15</div></div>
+          <div class="par"><div class="top"><span>慾求</span><b>38</b></div><div class="meter"><b style="width:38%;background:var(--ap)"></b></div><div class="use">感載消退 −1</div></div>
+          <div class="par"><div class="top"><span>馴化</span><b>12</b></div><div class="meter"><b style="width:12%;background:var(--ep)"></b></div><div class="use">抵抗控制與契約指令不受影響</div></div>
+          <p class="h" style="margin-top:16px">豔名・各區分開算</p>
+          <div class="fame"><div class="here">四十二番街<b>22</b></div><div>蜂巢<b>9</b></div><div>櫻町<b>3</b></div><div>舊港<b>0</b></div></div>
+          <p class="h" style="margin-top:16px">紀錄</p>
+          <div class="kv"><span>親密過的人</span><b>3 位</b></div>
+          <div class="kv"><span>契約</span><b>沒有</b></div>
+          <div class="kv"><span>體悟（夜課的經驗）</span><b class="mono" style="color:var(--a)">4</b></div>
+          <div class="kv"><span>內容篩選關掉的標籤</span><b>2 個（在設定裡改）</b></div>
+        </div>
+        <div>
+          <p class="h">傾向・四條軸 0～5，標籤只有沒有、有、深</p>
+          <div class="axis cut-sm"><div class="top"><b>關係</b><div class="lvl"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div></div><div class="tags"><span class="tg">恩與債</span><span class="tg deep">奪與被奪</span><span class="tg">標記</span></div></div>
+          <div class="axis cut-sm"><div class="top"><b>感官</b><div class="lvl"><i class="on"></i><i></i><i></i><i></i><i></i></div></div><div class="tags"><span class="tg">聲音</span><span class="tg">窺視</span></div></div>
+          <div class="axis cut-sm"><div class="top"><b>身體</b><div class="lvl"><i class="on"></i><i></i><i></i><i></i><i></i></div></div><div class="tags"><span class="tg">戀物</span></div></div>
+          <div class="axis cut-sm"><div class="top"><b>扮相</b><div class="lvl"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div></div><div class="tags"><span class="tg">街頭</span><span class="tg">夜行</span><span class="tg">制服</span></div></div>
+          <p class="note" style="font-size:12px;color:var(--ink-3);line-height:1.7">潛在的標籤不顯示，第一次碰到時才出現。被內容篩選關掉的標籤不列出來。有標籤時，對應的流竄 AI 會在內海來找你。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+document.querySelectorAll('.tabsx span').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tabsx span').forEach(x=>x.classList.toggle('on',x===t));
+  document.querySelectorAll('.tab-v').forEach(v=>v.classList.toggle('on',v.id==='t-'+t.dataset.t));
+  history.replaceState(null,'','#'+t.dataset.t)});
+const go=h=>{const t=document.querySelector(`.tabsx span[data-t="${h}"]`);if(t)t.click()};
+if(location.hash)go(location.hash.slice(1));addEventListener('hashchange',()=>go(location.hash.slice(1)));
+</script>
+
+<script>
+(()=>{
+if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+const NS='http://www.w3.org/2000/svg';
+// 心跳背景：一個波峰一個波谷，中間偏右；0.2 秒掃過，掃過的地方漸漸淡回原色；閒置 5 秒一跳，按鍵時跳一次，冷卻 1 秒
+const ECG_D='M0 180 H690 L725 30 L765 330 L800 180 H1200';
+function addEcg(host,color,base){
+  const s=document.createElementNS(NS,'svg');s.setAttribute('class','ecg');s.setAttribute('viewBox','0 0 1200 360');s.setAttribute('preserveAspectRatio','none');
+  if(host!==document.body){s.style.position='absolute';}
+  s.innerHTML=`<path class="base" stroke="${base}" d="${ECG_D}"/><path class="beat" stroke="${color}" style="color:${color}" d="${ECG_D}"/>`;
+  host.prepend(s);
+  const b=s.querySelector('.beat'),len=b.getTotalLength(),seg=320;
+  b.style.strokeDasharray=`${len} ${len}`;b.style.strokeDashoffset=len;b.style.opacity=0;
+  BEATS.push({b,len,seg});
+}
+const BEATS=[];
+let lastBeat=0;
+function beat(){const t=performance.now();if(t-lastBeat<1000)return;lastBeat=t;
+  for(const {b,len} of BEATS){b.getAnimations().forEach(a=>a.cancel());
+    b.animate([{strokeDashoffset:len},{strokeDashoffset:0}],{duration:200,easing:'linear',fill:'forwards'});
+    b.animate([{opacity:1},{opacity:1,offset:.15},{opacity:0}],{duration:1400,easing:'ease-out',fill:'forwards'});}}
+setInterval(()=>{if(performance.now()-lastBeat>=5000)beat()},250);
+addEventListener('keydown',beat,{passive:true});
+const skins=[...document.querySelectorAll('[data-skin]')];
+if(skins.length===1&&skins[0]===document.documentElement){addEcg(document.body,skins[0].dataset.skin==='net'?'#F06AA0':'#F06AA0',skins[0].dataset.skin==='net'?'#1E2346':'#8E7CC3');}
+else skins.forEach(el=>{if(getComputedStyle(el).position==='static')el.style.position='relative';el.style.overflow='hidden';
+  addEcg(el,el.dataset.skin==='net'?'#F06AA0':'#F06AA0',el.dataset.skin==='net'?'#1E2346':'#8E7CC3');
+  [...el.children].forEach(c=>{if(!c.classList.contains('ecg')){c.style.position=c.style.position||'relative';c.style.zIndex=1}}); el.querySelector('.ecg').style.zIndex=5;});
+// 特效層
+const L=document.createElement('div');L.className='fxl';document.body.appendChild(L);
+const skinAt=(x,y)=>{const e=document.elementFromPoint(x,y);const s=e&&e.closest('[data-skin]');return s?s.dataset.skin:'real'};
+const spawn=(html,x,y,anim,ms,vars)=>{const p=document.createElement('span');p.className='fxp';p.innerHTML=html;p.style.left=x+'px';p.style.top=y+'px';
+  for(const k in vars)p.style.setProperty(k,vars[k]);p.style.animation=`${anim} ${ms}ms ease-out forwards`;L.appendChild(p);setTimeout(()=>p.remove(),ms)};
+const R=(a,b)=>a+Math.random()*(b-a);
+let last=0;
+addEventListener('pointermove',e=>{const t=performance.now();if(t-last<28)return;last=t;const sk=skinAt(e.clientX,e.clientY);
+  if(sk==='real'){
+    const c=Math.random()<.7?'#F06AA0':'#8E7CC3';
+    spawn(`<i style="display:block;width:4px;height:4px;background:${c};box-shadow:0 0 6px ${c}"></i>`,e.clientX+R(-6,6),e.clientY+R(-6,6),'px',520,{'--dx':R(-14,14)+'px','--dy':R(-14,14)+'px'});
+    if(Math.random()<.18)spawn(`<i style="display:block;width:${R(14,34)|0}px;height:2px;background:#45D6C5;opacity:.8"></i>`,e.clientX+R(-20,6),e.clientY+R(-10,10),'px',380,{'--dx':R(8,24)+'px','--dy':'0px'});
+  }else{
+    const g=Math.random()<.6?'♥':'✦',c=Math.random()<.5?'#F06AA0':'#45D6C5';
+    spawn(`<b style="font:900 ${R(12,20)|0}px Arial;color:${c};-webkit-text-stroke:1.5px #1E2346;paint-order:stroke">${g}</b>`,e.clientX+R(-8,8),e.clientY+R(-6,6),'rise',720,{'--dx':R(-14,14)+'px','--r':R(-40,40)+'deg'});
+  }},{passive:true});
+addEventListener('pointerdown',e=>{const x=e.clientX,y=e.clientY,sk=skinAt(x,y);
+  if(sk==='real'){
+    spawn(`<i style="display:block;width:70px;height:70px;border:2px solid #F06AA0;box-shadow:0 0 10px #F06AA0;clip-path:polygon(0 0,80% 0,100% 20%,100% 100%,20% 100%,0 80%)"></i>`,x,y,'ring',460,{});
+    spawn(`<b style="font:800 11px ui-monospace,Menlo,monospace;color:#45D6C5;letter-spacing:1px">ACK//0x${(Math.random()*65535|0).toString(16).toUpperCase()}</b>`,x,y,'ack',700,{});
+    for(let i=0;i<3;i++)spawn(`<i style="display:block;width:${R(20,50)|0}px;height:3px;background:${i%2?'#F06AA0':'#45D6C5'}"></i>`,x+R(-30,10),y+R(-16,16),'px',300,{'--dx':R(10,30)+'px','--dy':'0px'});
+  }else{
+    spawn(`<i style="display:block;width:64px;height:64px;border-radius:50%;border:4px solid #1E2346;background:#45D6C540"></i>`,x,y,'ring',480,{});
+    for(let i=0;i<10;i++){const a=i/10*Math.PI*2,d=R(36,60),g=i%3?'♥':'✦',c=['#F06AA0','#45D6C5','#FFF4E8'][i%3];
+      spawn(`<b style="font:900 ${R(14,22)|0}px Arial;color:${c};-webkit-text-stroke:1.5px #1E2346;paint-order:stroke">${g}</b>`,x-6,y-10,'burst',620,{'--dx':Math.cos(a)*d+'px','--dy':Math.sin(a)*d+'px','--r':R(-90,90)+'deg'})}
+  }},{passive:true});
+})();
+
+</script>
+</body>
+</html>

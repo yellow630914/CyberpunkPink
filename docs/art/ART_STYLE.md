@@ -44,6 +44,7 @@ node tools/art/render.mjs
 | 兩套皮 | [`mockups/style-board.html`](../mockups/style-board.html) | 現實與內海兩套皮並排 | 第 3 節 |
 | 主畫面 | [`mockups/main-screen.html`](../mockups/main-screen.html) | 現實皮的主畫面（桌面三欄、手機版），含第 3.1 節的動態與第 4.1 節的小隊列 | [UI](UI.md) 第 3 節 |
 | 委託 | [`mockups/commission.html`](../mockups/commission.html) | 接案、踩點、召集、副本四個分頁 | [UI](UI.md) 第 7 節 |
+| 角色與義體 | [`mockups/character.html`](../mockups/character.html) | 角色卡與概要、身體、裝備、橋、成人五個分頁 | [UI](UI.md) 第 8 節 |
 | 三種錢 | [`mockups/currency.html`](../mockups/currency.html) | 帳戶、現金晶片、人情在狀態列、談判、分帳、人情帳、商店的樣子 | [UI](UI.md) 3.5 節 |
 
 ![緋夜城地圖](preview/city-map.png)
