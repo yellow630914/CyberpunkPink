@@ -8,7 +8,7 @@
 
 | 約定 | 內容 |
 |---|---|
-| `id` | 小寫英文加底線，前面帶種類的縮寫（`sk_` 技能、`nt_` 夜課、`pos_` 體位、`ev_` 事件、`df_` 戰敗事件、`en_` 敵人、`pr_` 輿論對手、`bp_` 設計圖、`pt_` 零件、`cm_` 委託副本、`nm_` 網內的生成地圖） |
+| `id` | 小寫英文加底線，前面帶種類的縮寫（`sk_` 技能、`nt_` 夜課、`pos_` 體位、`ev_` 事件、`df_` 戰敗事件、`en_` 敵人、`pr_` 輿論對手、`bp_` 設計圖、`pt_` 零件、`cm_` 委託副本、`nm_` 網內的生成地圖、`cs_` 構裝、`skin_` SKIN、`qh_` 快駭程式、`sc_` 腳本、`mf_` 機甲骨架、`mw_` 機甲武器、`vh_` 載具） |
 | `grade` | 等級 I～V，寫成 1～5。敵人、裝備、委託、要地都用它 |
 | `tier` | 只用在技能：樹的第幾階，1～5 |
 | `rank` | 只用在敵人：`minion`、`elite`、`boss` |
@@ -460,6 +460,134 @@
 
 這一筆的算法：射程 +1 是 1 格，穿甲 +1 是 1 格，準度 −1 退 1 格，合計 1 格，符合 II 級的份量。
 
+### 7.3 構裝（2026-11-20）
+
+構裝是程式，不走設計圖與零件，一筆就是一件成品。同一個系列的每一級各一筆，用 `series` 串起來（[ITEMS](../gear/ITEMS.md) 11.1～11.7 節）。
+
+| 欄位 | 內容 |
+|---|---|
+| `class` | `weapon`、`defense`、`tool`、`hack`（駭入程式，要主控）、`body`（構裝體）、`unique`（專屬構裝，不賣） |
+| `series`、`grade`、`brand`、`legal`、`price` | 系列、等級、牌子、合法性、價錢 |
+| `slots` | 佔幾個構裝槽（構裝體 2，其餘 1） |
+| 武器 | `archetype` 原型、`dice`、`range`、`ram`、`cover_mult`、`type`（`neural`、`pleasure`、`jam`）、`traits` |
+| 防護 | `guard` 防護值；`heavy`：防護 5 以上時 SKIN 風格值 −1、追蹤度多加 |
+| 工具 | `ap`、`ram`、`passive`（被動的寫 true）、`effect` |
+| 構裝體 | `durability` 耐久、`guard_bonus`、`weapon`、`needs`（`["unique:cockpit"]`）、`repair_fee` |
+| 共通 | `quirk`（同人的怪癖）、`advanced`（深檔的進階效果，III 起）、`ultimate`（全檔的終極效果，IV） |
+
+```json
+{
+  "id": "cs_nightpatrol_3", "kind": "construct", "class": "weapon", "name": "夜巡",
+  "series": "cs_nightpatrol", "grade": 3, "brand": "nightingale", "legal": "banned", "price": 4160, "slots": 1,
+  "archetype": "rifle", "dice": "4d6", "type": "neural", "range": [3, 7], "ram": 1, "cover_mult": 0.5,
+  "traits": [ { "pierce_guard": 2 }, { "close_penalty": 4 }, { "report_back": "nightingale" } ],
+  "advanced": { "when": "sync>=deep", "effect": { "node_damage_mult": 2 } },
+  "ultimate": null
+}
+```
+
+```json
+{
+  "id": "cs_gatekeeper_4", "kind": "construct", "class": "body", "name": "守門人",
+  "series": "cs_gatekeeper", "grade": 4, "brand": "nightingale", "legal": "permit", "price": 62400, "slots": 2,
+  "durability": 70, "guard_bonus": 4, "needs": ["unique:cockpit", "sync>=4"],
+  "weapon": { "name": "閘", "dice": "4d6", "type": "neural", "range": [1, 4], "ram": 1 },
+  "traits": [ { "on_activate": { "trace": 5 } } ],
+  "repair_fee": 21840
+}
+```
+
+### 7.4 SKIN（2026-11-20）
+
+| 欄位 | 內容 |
+|---|---|
+| `style` | 風格標籤（[LEWD_SYSTEM](LEWD_SYSTEM.md) 第 2 節）；`custom` 是空白 SKIN 自己定 |
+| `style_value` | 1～5，直接當全身的風格值 |
+| `exposure` | 0～3，直接當全身的曝露度；空白 SKIN 寫 `custom` |
+| `cut` | `female`、`male`、`femboy`、`neutral`、`custom`。只是版型，任何化身都能穿 |
+| `adult` | 成人向的寫 true；內容篩選關掉成人時不出現在店裡 |
+| `forms` | 有兩個樣子的（例：魔法少女・變身）列出每個樣子；都算同一套 |
+| `real_twin` | 照現實哪一套畫的（「網內版」才有），寫現實那幾件的 id |
+| `source`、`brand`、`price` | 哪裡拿、牌子、價錢；不賣的 `price` 寫 null |
+
+```json
+{
+  "id": "skin_maid_homeec", "kind": "skin", "name": "家政課女僕服（網內版）",
+  "brand": "hizakura", "style": "maid", "style_value": 3, "exposure": 0, "cut": "female", "adult": false,
+  "real_twin": ["cl_maid_homeec"], "source": "net_avenue_skinshop", "price": 900
+}
+```
+
+```json
+{
+  "id": "skin_magical_transform", "kind": "skin", "name": "魔法少女・變身",
+  "brand": "kaleido", "style": "magical_girl", "style_value": 4, "exposure": 1, "cut": "female", "adult": false,
+  "forms": [ { "id": "school", "name": "學生制服" }, { "id": "battle", "name": "戰鬥服", "on": "login" } ],
+  "source": "net_avenue_skinshop", "price": 2300
+}
+```
+
+### 7.5 快駭程式（2026-11-20）
+
+只有主控能用（[ITEMS](../gear/ITEMS.md) 11.9 節）。存在甲板的程式槽裡，主控的樹階決定跑得動幾級。
+
+| 欄位 | 內容 |
+|---|---|
+| `class` | `device`、`cyberware`、`neural`、`control`、`support` |
+| `ram`、`ap`、`trace` | RAM、行動點、追蹤度（被發現時也是加給那個勢力的敵對值） |
+| `check` | 預設 `1d20 + mod(int) + interface` 對目標的防火牆；控制類對精英 +2、首領 +4 |
+| `effect`、`by_grade` | 效果；各級不同的地方寫在 `by_grade` |
+| `script_twin` | 有腳本版時寫腳本的 id（[ITEMS](../gear/ITEMS.md) 5.2 節） |
+
+```json
+{
+  "id": "qh_cam_loop", "kind": "quickhack", "class": "device", "name": "迴圈攝影機",
+  "brand": "kaleido", "grades": [1, 2, 3], "ram": 1, "ap": 1, "trace": 0,
+  "legal": ["register", "register", "permit"], "price": [180, 600, 1920],
+  "effect": { "target": "camera", "loop": "scene", "stealth_bonus": 2 },
+  "by_grade": { "3": { "targets": 2, "stealth_bonus": 3 } },
+  "script_twin": "sc_cam_loop"
+}
+```
+
+快駭程式的價錢與合法性照等級寫成陣列，因為效果幾乎不變；構裝的每一級差得多，所以一級一筆。
+
+### 7.6 機甲與載具（2026-11-20）
+
+機甲是骨架加掛件（[ITEMS](../gear/ITEMS.md) 第 14 節、[CRAFTING](../gear/CRAFTING.md) 第 15 節）。骨架一級一筆；掛上去的武器、板材與輔助零件寫在存檔的那一具機甲上，不寫在骨架上。
+
+| 欄位 | 內容 |
+|---|---|
+| `durability`、`armor_bonus`、`ap_bonus`、`duration` | 機體耐久、護甲加值、每回合多回的行動點、持續（`2+sync` 這種寫法是公式） |
+| `hardpoints` | `[武器, 板, 輔助]` 三種槽的數目 |
+| `backlash` | 四個檔位的回灌百分比；`sync_cap` 最高開到哪一檔 |
+| `repair_coef` | 修理係數（CRAFTING 15.2 節） |
+| `stock` | 出廠的武器 id |
+
+存檔裡的一具機甲另外有：`frame`（骨架 id）、`durability_now`、`state`（`intact`、`damaged`、`heavy`、`wrecked`）、`mounts`（每一格裝了什麼）、`upkeep_owed`（欠了幾週）。
+
+```json
+{
+  "id": "mf_mustang_3", "kind": "mech_frame", "name": "野馬",
+  "brand": "starbelle", "grade": 3, "legal": "banned", "price": 3240000, "frame_price": 6480,
+  "durability": 55, "armor_bonus": 4, "ap_bonus": 2, "duration": "2+sync",
+  "hardpoints": [2, 3, 1], "backlash": [5, 15, 25, null], "sync_cap": "pilot-1",
+  "repair_coef": 0.7, "stock": ["mw_twin_lmg_3", "mw_rocket_pod_3"],
+  "traits": [ { "id": "tough", "per_battle": 1, "effect": "crit_to_hit" }, { "unhackable_frame": true } ]
+}
+```
+
+載具在戰鬥裡是叫來的掩體（[COMBAT_SYSTEM](COMBAT_SYSTEM.md) 9.2 節），一筆只寫城裡與戰鬥要用的數字：
+
+```json
+{
+  "id": "vh_yozakura_2", "kind": "vehicle", "class": "motorcycle", "name": "夜櫻",
+  "brand": "hizakura", "grade": 2, "price": 11250,
+  "seats": 2, "cargo": 2, "cover_hp": 35, "summon_ap": 1, "leg_time_min": 5, "chase": 2,
+  "traits": [ { "license_lock": true }, { "district_bonus": { "sakura": { "perform": 1, "intimidate": 1 } } } ]
+}
+```
+
 ## 8. NPC
 
 照 [NPC_SYSTEM](NPC_SYSTEM.md) 第 13 節的樣本，改兩處、加四樣：
@@ -620,6 +748,7 @@
 | 義體的部位和成人場景的部位沒有對應表 | 3.4 節 |
 | 事件裡的成人場景只有一個欄位；條件沒有體型 | 第 4 節 |
 | 戰敗事件沒有格式，分兩版沒有地方標 | 第 5 節 |
+| 構裝、SKIN、快駭程式、機甲與載具沒有資料樣本（2026-11-20） | 7.3～7.6 節 |
 | 敵人缺內海的欄位；輿論對手沒有格式 | 第 6 節 |
 | 武器與護甲的設計圖沒有樣本；零件沒有份量等欄位 | 第 7 節 |
 | NPC 沒有特質、性經歷、夜課技能；性別的值沒列全 | 第 8 節 |
