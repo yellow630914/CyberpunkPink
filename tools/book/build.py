@@ -24,7 +24,7 @@ PARTS = [  # 依 plan/DESIGN_ORDER 的分層編排：(標題, 這一層的說明
     ('L3 框架', '內容的格式與規則，不含內容本身。部分已確認。',
      ['systems/SKILLS.md', 'gear/CYBERWARE.md', 'gear/CRAFTING.md', 'gear/EQUIPMENT.md', 'systems/ENEMIES.md',
       'systems/NPC_SYSTEM.md', 'systems/EVENTS.md', 'systems/SERIES.md', 'systems/COMMISSIONS.md', 'systems/FIXER.md',
-      'systems/TRADE.md', 'systems/DOWNTIME.md', 'systems/LEWD_SYSTEM.md', 'systems/DATA.md']),
+      'systems/TRADE.md', 'systems/DOWNTIME.md', 'systems/LEWD_SYSTEM.md', 'systems/DATA.md', 'systems/BALANCE.md']),
     ('L4 內容（素材）', '實際的條目。暫停：第一版草稿當素材留著，等 L1～L3 定了再生成。',
      ['content/ENEMY_ROSTER.md', 'content/SKILL_TREES.md', 'content/NIGHT_LESSONS.md', 'content/EVENTS_CITY.md', 'content/ADULT_EVENTS.md', 'content/LURE_EVENTS.md', 'content/DEFEAT_EVENTS.md', 'content/QUESTS.md', 'content/COMMISSION_TEMPLATES.md', 'content/GUIDES.md', 'gear/ITEMS.md', 'world/SITES.md', 'world/STORY_QUESTS.md']),
     ('L5 呈現', '給玩家看的畫面與給 AI 讀的提示詞。跟著 L2、L3 調。',

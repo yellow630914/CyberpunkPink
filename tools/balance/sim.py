@@ -2,7 +2,7 @@
 """夾值用的模擬器（docs/systems/BALANCE.md）。不依賴任何套件。
 
 用法：python3 tools/balance/sim.py [主題 ...] [--set current|proposed] [--doc-budget] [--trials N] [--seed N]
-主題：summary（預設）、hits、encounter、cross、net、check、economy、xp、opinion、roster、all
+主題：summary（預設）、hits、encounter、cross、difficulty、net、check、economy、xp、opinion、roster、all
 
 所有曲線都寫在這個檔案的 CURVES 裡，和 BALANCE.md 的表一一對應。
 current 是第一輪夾值之前文件寫的數字（2026-11-20），proposed 是 BALANCE.md 的曲線；兩組只在 DIFF 列出的欄位不同。
@@ -76,6 +76,23 @@ DIFF = {
 PROPOSED = copy.deepcopy(CURRENT)
 PROPOSED.update(copy.deepcopy(DIFF))
 CURVES = {'current': CURRENT, 'proposed': PROPOSED}
+
+# 難度（BALANCE.md 第 7 節）。係數乘在敵人上：hp 生命、dmg 傷害、load 感載上限；普通 = 1。
+# 首領一組；雜兵與精英照敵人的等級分三段：低（I～II）、中（III）、高（IV～V）。
+BANDS = ['低', '中', '高']
+BAND_OF = [0, 0, 1, 2, 2]
+def _d(boss, low, mid, high):
+    return {'boss': dict(zip(('hp', 'dmg', 'load'), boss)),
+            'minions': [dict(zip(('hp', 'dmg', 'load'), x)) for x in (low, mid, high)]}
+DIFFICULTY = {
+    '故事': _d((0.6, 0.5, 0.6), (0.6, 0.4, 0.6), (0.6, 0.4, 0.6), (0.6, 0.4, 0.6)),
+    '簡單': _d((0.85, 0.8, 0.85), (0.85, 0.75, 0.85), (0.85, 0.75, 0.85), (0.85, 0.75, 0.85)),
+    '普通': _d((1, 1, 1), (1, 1, 1), (1, 1, 1), (1, 1, 1)),
+    '困難': _d((1.15, 1.35, 1.15), (1.15, 1.35, 1.15), (1.15, 1.35, 1.15), (1.15, 1.35, 1.15)),
+    '傳奇': _d((1.3, 1.5, 1.3), (1.3, 1.7, 1.3), (1.3, 1.7, 1.3), (1.3, 1.7, 1.3)),
+}
+CUSTOM_COEF = (0.25, 5.0)   # 自訂難度每一格的範圍
+
 
 # 目標（BALANCE.md 1.2 節）
 TARGET_HITS = {'雜兵': (3, 4), '精英': (8, 9.5), '首領': (18, 22)}
@@ -207,9 +224,11 @@ def make_party(C, g):
 
 
 def make_enemy(C, eg, rank):
-    return Unit(hp=C['e_hp'][rank][eg], apmax=C['e_apmax'][rank][eg], regen=3, mag=2, magmax=2,
+    d = C.get('difficulty')
+    k = (d['boss'] if rank == '首領' else d['minions'][BAND_OF[eg]]) if d else {'hp': 1, 'dmg': 1}
+    return Unit(hp=round(C['e_hp'][rank][eg] * k['hp']), apmax=C['e_apmax'][rank][eg], regen=3, mag=2, magmax=2,
                 atk=C['e_atk'][eg], ev=C['e_ev'][eg], armor=C['e_armor'][eg], dice=3 + C['grade_dice'][eg],
-                flat=0, mult=C['e_dmg_mult'][rank], minion=(rank == '雜兵'))
+                flat=0, mult=C['e_dmg_mult'][rank] * k['dmg'], minion=(rank == '雜兵'))
 
 
 def compositions(C, budget, boss=False):
@@ -417,6 +436,18 @@ def show_encounter(C, rng, trials):
                 print(f'{g:>3} 預算 {budget:>4} {desc:<14} 掉 {pct(loss):>4}  {rounds:4.1f} 回合  勝 {pct(win):>4}  倒下 {down:.2f} 人')
 
 
+def show_difficulty(C, rng, trials):
+    print('■ 難度：同級四人；一般遭遇＝ 4 雜兵與 2 雜兵＋1 精英的平均，首領戰＝ 3 雜兵＋1 首領與 1 精英＋1 首領的平均')
+    print('難度 | 等級 | 一般遭遇掉血 | 首領戰掉血 | 首領戰勝率 | 首領戰倒下的人數')
+    for name, d in DIFFICULTY.items():
+        D = dict(C, difficulty=d)
+        for g in range(5):
+            n = [encounter(D, g, g, c, rng, trials) for c in (['雜兵'] * 4, ['精英', '雜兵', '雜兵'])]
+            b = [encounter(D, g, g, c, rng, trials) for c in (['首領', '雜兵', '雜兵', '雜兵'], ['首領', '精英'])]
+            avg = lambda xs, i: sum(x[i] for x in xs) / len(xs)
+            print(f'{name} | {G[g]:>3} | {pct(avg(n, 0)):>4} | {pct(avg(b, 0)):>4} | {pct(avg(b, 2)):>4} | {avg(b, 3):.2f}')
+
+
 def show_cross(C, rng, trials):
     print('■ 跨級：g 級的隊伍打 e 級的四個雜兵（掉血％／回合）')
     print('隊伍＼敵人 | ' + ' | '.join(G))
@@ -473,7 +504,7 @@ def main():
     rng = random.Random(a.seed)
     topics = a.topics
     if 'all' in topics:
-        topics = ['hits', 'net', 'encounter', 'cross', 'check', 'economy', 'xp', 'opinion', 'roster']
+        topics = ['hits', 'net', 'encounter', 'cross', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster']
     if 'summary' in topics:
         topics = ['hits', 'encounter', 'cross']
     print(f'曲線：{a.set}')
@@ -481,7 +512,8 @@ def main():
         {'hits': lambda: show_hits(C), 'net': lambda: show_net(C),
          'encounter': lambda: show_encounter(C, rng, a.trials), 'cross': lambda: show_cross(C, rng, max(200, a.trials // 4)),
          'check': lambda: show_check(C), 'economy': lambda: show_economy(C), 'xp': lambda: show_xp(C),
-         'opinion': lambda: show_opinion(C), 'roster': lambda: show_roster(C)}[t]()
+         'opinion': lambda: show_opinion(C), 'roster': lambda: show_roster(C),
+         'difficulty': lambda: show_difficulty(C, rng, max(300, a.trials // 4))}[t]()
         print()
 
 
