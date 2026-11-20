@@ -297,6 +297,18 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 .nb .gl small{display:block;font-size:11px;color:var(--ink-3)}
 .nb .gl .rd{width:8px;height:8px;border-radius:50%;background:#FF4A4A}
 .nb .grp{font-size:11px;font-weight:900;color:var(--ink-3);letter-spacing:1px;margin:10px 0 5px}
+/* 子網 */
+.netv{background:#F8C3D8;background-image:radial-gradient(#ffffff70 1.2px,transparent 1.6px);background-size:14px 14px;border:3px solid #1E2346;border-radius:16px;box-shadow:6px 6px 0 #1E2346;color:#1E2346;padding:14px 16px}
+.netv .k{color:#6D6F94}
+.netv h2{color:#1E2346}
+.ncard{background:#FFF4E8;border:2px solid #1E2346;border-radius:12px;box-shadow:3px 3px 0 #1E2346;padding:10px 12px;margin-bottom:10px;color:#1E2346}
+.ncard .kv{border-bottom:1px dashed #1E234633}.ncard .kv span{color:#6D6F94}
+.trace{height:12px;border-radius:6px;background:#fff;border:2px solid #1E2346;position:relative;overflow:hidden;margin-top:6px}
+.trace b{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#45D6C5,#F2B33D 60%,#FF4A4A)}
+.trace i{position:absolute;top:0;bottom:0;width:2px;background:#1E2346}
+.ramp{display:flex;gap:3px}.ramp i{width:16px;height:10px;border-radius:3px;border:2px solid #1E2346;background:#fff}.ramp i.on{background:#45D6C5}
+.syncs{display:flex;gap:4px}.syncs span{flex:1;text-align:center;font-size:12px;font-weight:800;padding:6px;border:2px solid #1E2346;border-radius:999px;background:#fff}.syncs span.on{background:#F06AA0;color:#fff}.syncs span.no{opacity:.4}
+.mgmt{display:grid;grid-template-columns:1fr 1fr;gap:5px}.mgmt span{font-size:12px;font-weight:800;padding:6px 8px;border:2px solid #1E2346;border-radius:10px;background:#fff;display:flex;justify-content:space-between}.mgmt span small{color:#2EC2B0}
 /* 搭車 */
 .line{display:flex;align-items:center;gap:0;margin:8px 0 4px;overflow-x:auto;padding-bottom:6px}
 .stn{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:96px;position:relative;font-size:12px;font-weight:800;color:var(--ink-3)}
@@ -329,7 +341,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
   <div class="grow"></div>
   <div class="ibtn cut-sm"><svg width="20" height="20"><use href="#i-menu"/></svg></div>
 </header>
-<nav class="tabsx"><span data-v="craft" class="on">組裝</span><span data-v="home">家園</span><span data-v="roster">名冊</span><span data-v="contract">契約</span><span data-v="new">建角</span><span data-v="map">城市地圖</span><span data-v="ride">搭車</span><span data-v="guide">指南</span></nav>
+<nav class="tabsx"><span data-v="craft" class="on">組裝</span><span data-v="home">家園</span><span data-v="roster">名冊</span><span data-v="contract">契約</span><span data-v="new">建角</span><span data-v="map">城市地圖</span><span data-v="ride">搭車</span><span data-v="subnet">子網</span><span data-v="guide">指南</span></nav>
 
 <!-- 組裝 -->
 <section class="v on" id="v-craft" style="grid-template-columns:240px 1fr 280px">
@@ -530,6 +542,22 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
     <div class="kv"><span>這一趟</span><b>蜂巢天井 → 冠冕中央</b></div>
     <div class="go"><button class="btn cut-sm">這站下車</button><button class="btn pri cut-sm">坐到目的地</button></div>
     <div class="note">坐到目的地會快轉，照樣逐站擲事件，觸發了才停。到站提醒，不強制下車。</div>
+  </aside>
+</section>
+
+<!-- 子網 -->
+<section class="v" id="v-subnet" style="grid-template-columns:1fr 320px;background:#F8C3D8">
+  <div class="netv scroll">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px"><div><div class="k">子網・藍鯨物流・委託副本第二階段</div><h2 style="margin:2px 0 0;font-size:19px">員工層（2／4）</h2></div><span class="tag" style="background:#fff;border:2px solid #1E2346;color:#1E2346">粉蕾絲・大樓斷電：降一級</span></div>
+    <div class="ncard" style="margin-top:12px;padding:6px 8px"><svg viewBox="0 0 1020 420" style="width:100%;height:auto;display:block"><text x="90" y="30" text-anchor="middle" font-size="13" font-weight="900" fill="#6D6F94">訪客層</text><text x="380" y="30" text-anchor="middle" font-size="13" font-weight="900" fill="#6D6F94">員工層・現在</text><text x="660" y="30" text-anchor="middle" font-size="13" font-weight="900" fill="#6D6F94">管理層</text><text x="870" y="30" text-anchor="middle" font-size="13" font-weight="900" fill="#6D6F94">核心・隔離區</text><line x1="300" y1="40" x2="300" y2="400" stroke="#1E234633" stroke-dasharray="4 6"/><line x1="590" y1="40" x2="590" y2="400" stroke="#1E234633" stroke-dasharray="4 6"/><line x1="730" y1="40" x2="730" y2="400" stroke="#1E234633" stroke-dasharray="4 6"/><line x1="90" y1="140" x2="230" y2="220" stroke="#1E2346" stroke-width="4" stroke-dasharray="0" opacity="1"/><line x1="90" y1="300" x2="230" y2="220" stroke="#1E2346" stroke-width="4" stroke-dasharray="0" opacity="1"/><line x1="230" y1="220" x2="380" y2="110" stroke="#1E2346" stroke-width="4" stroke-dasharray="0" opacity="1"/><line x1="230" y1="220" x2="380" y2="320" stroke="#1E2346" stroke-width="4" stroke-dasharray="0" opacity="1"/><line x1="380" y1="110" x2="520" y2="220" stroke="#1E2346" stroke-width="4" stroke-dasharray="0" opacity="1"/><line x1="380" y1="320" x2="520" y2="220" stroke="#1E2346" stroke-width="4" stroke-dasharray="0" opacity="1"/><line x1="520" y1="220" x2="660" y2="140" stroke="#1E2346" stroke-width="2" stroke-dasharray="6 6" opacity="0.45"/><line x1="520" y1="220" x2="660" y2="330" stroke="#1E2346" stroke-width="2" stroke-dasharray="6 6" opacity="0.45"/><line x1="660" y1="140" x2="800" y2="220" stroke="#1E2346" stroke-width="2" stroke-dasharray="6 6" opacity="0.45"/><line x1="800" y1="220" x2="940" y2="220" stroke="#1E2346" stroke-width="2" stroke-dasharray="6 6" opacity="0.45"/><g opacity="1"><circle cx="90" cy="140" r="26" fill="#B39DF0" stroke="#1E2346" stroke-width="3"/><text x="90" y="184" text-anchor="middle" font-size="13" font-weight="800" fill="#1E2346">閘門</text></g><g opacity="1"><circle cx="90" cy="300" r="26" fill="#FFF4E8" stroke="#1E2346" stroke-width="3"/><text x="90" y="344" text-anchor="middle" font-size="13" font-weight="800" fill="#1E2346">人</text></g><g opacity="1"><circle cx="230" cy="220" r="30" fill="#F06AA0" stroke="#F06AA0" stroke-width="3"/><text x="230" y="268" text-anchor="middle" font-size="13" font-weight="800" fill="#1E2346">你</text></g><g opacity="1"><circle cx="380" cy="110" r="26" fill="#F2B33D" stroke="#1E2346" stroke-width="3"/><text x="380" y="154" text-anchor="middle" font-size="13" font-weight="800" fill="#1E2346">檔案庫</text></g><g opacity="1"><circle cx="380" cy="320" r="26" fill="#45D6C5" stroke="#1E2346" stroke-width="3"/><text x="380" y="364" text-anchor="middle" font-size="13" font-weight="800" fill="#1E2346">控制節點<tspan x="380" dy="15">3F 門禁</tspan></text></g><g opacity="1"><circle cx="520" cy="220" r="26" fill="#FF7DBD" stroke="#1E2346" stroke-width="3"/><text x="520" y="264" text-anchor="middle" font-size="13" font-weight="800" fill="#1E2346">粉蕾絲</text></g><g opacity="0.45"><circle cx="660" cy="140" r="26" fill="#B39DF0" stroke="#1E2346" stroke-width="3"/><text x="660" y="184" text-anchor="middle" font-size="13" font-weight="800" fill="#1E2346">閘門</text></g><g opacity="0.45"><circle cx="660" cy="330" r="26" fill="#C9DCF7" stroke="#1E2346" stroke-width="3"/><text x="660" y="374" text-anchor="middle" font-size="13" font-weight="800" fill="#1E2346">後門</text></g><g opacity="0.45"><circle cx="800" cy="220" r="26" fill="#E8E2F0" stroke="#1E2346" stroke-width="3"/><text x="800" y="264" text-anchor="middle" font-size="13" font-weight="800" fill="#1E2346">？</text></g><g opacity="0.45"><circle cx="940" cy="220" r="26" fill="#2A2233" stroke="#1E2346" stroke-width="3"/><rect x="929" y="214" width="22" height="16" rx="3" fill="#F2B33D"/><path d="M933 214v-5a7 7 0 0 1 14 0v5" fill="none" stroke="#F2B33D" stroke-width="3"/><text x="940" y="264" text-anchor="middle" font-size="13" font-weight="800" fill="#1E2346">隔離區</text></g><text x="660" y="400" text-anchor="middle" font-size="11" fill="#6D6F94">虛線：還沒探索</text></svg></div>
+    <div class="ncard"><b>控制節點・3F 門禁</b><div class="kv"><span>連到現實</span><b>第三倉 3 樓的門禁與兩支攝影機</b></div><div class="kv"><span>接管之後</span><b>後面的現實階段：開門、關攝影機（連動）</b></div><div class="kv"><span>守著它的</span><b>粉蕾絲（雜兵）</b></div></div>
+  </div>
+  <aside class="scroll" style="display:flex;flex-direction:column;gap:0">
+    <div class="ncard"><div class="k" style="display:flex;justify-content:space-between"><span>追蹤度</span><b style="color:#1E2346">34</b></div><div class="trace"><b style="width:34%"></b><i style="left:30%"></i><i style="left:60%"></i><i style="left:90%"></i></div><div class="k" style="margin-top:4px;letter-spacing:0">30 起疑：白蕾絲加入　60 確認入侵　90 定位</div></div>
+    <div class="ncard"><div class="k">同步檔位・每回合換一次</div><div class="syncs" style="margin-top:6px"><span>淺</span><span class="on">標準</span><span>深</span><span class="no">全</span></div><div class="k" style="margin-top:4px;letter-spacing:0">「全」要敏感度 70</div></div>
+    <div class="ncard"><b>你的化身</b><div class="kv"><span>感載</span><b>14／38</b></div><div class="kv"><span>餘韻</span><b>0</b></div><div class="kv"><span>RAM</span><div class="ramp"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div></div><div class="kv"><span>構裝</span><b>破冰・護盾</b></div></div>
+    <div class="ncard"><div class="k">管理行動・這回合還能 1 次</div><div class="mgmt" style="margin-top:6px"><span>接管<small>3</small></span><span>破解<small>2</small></span><span>擦痕跡<small>1</small></span><span>斷路<small>2</small></span><span>造牆<small>2</small></span><span>拆牆<small>2</small></span><span>標記<small>1</small></span></div><div class="k" style="margin-top:4px;letter-spacing:0">數字是 RAM；次數等於主控的階數</div></div>
+    <div class="ncard"><div class="go" style="margin:0"><button class="btn sm cut-sm">拔線</button><button class="btn sm pri cut-sm">走到控制節點</button></div></div>
   </aside>
 </section>
 

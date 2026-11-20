@@ -3,7 +3,7 @@
 <title>輿論戰 Demo</title>
 <style>
 :root{--bg:#0d0a14;--bg1:#151020;--bg2:#1d1630;--line:#3a2d52;--ink:#efe9f7;--ink2:#b8adc9;--ink3:#8a7f9e;--pink:#ff4fa3;--pinkhi:#ff8fc8;--mint:#5dffb0;--strong:#fff;--tint:#ff4fa312;--font:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;--mono:Consolas,monospace}
-body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-family:var(--font)}
+body{margin:0;padding:24px 16px;background:#17111F;color:var(--ink);font-family:var(--font)}
 </style></head><body>
 <!--demo:start-->
 <style>
@@ -70,7 +70,7 @@ body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-famil
     </div>
   </div>
   <div class="od-end" id="od-end"></div>
-  <div class="od-h">手牌（藍邊是料、粉邊是說法、綠邊是手段；右上角是要花的編輯點）</div>
+  <div class="od-h">手牌（金邊是料、紫邊是說法、薄荷邊是手段；右上角是要花的編輯點）</div>
   <div class="od-hand" id="od-hand"></div>
   <div class="od-hint" id="od-hint"></div>
   <div class="od-log" id="od-log" aria-live="polite"></div>
@@ -170,5 +170,36 @@ $('od-st').addEventListener('click',e=>{const b=e.target.closest('button');if(!b
 init();
 })();
 </script>
+<!--skin:start--><style>/* 新風格（tools/art/restyle_demos.py 產生） */
+.od.od.od{--bg:#17111F;--bg1:#211829;--bg2:#2C2136;--line:#3A2D47;--ink:#F3E9FF;--ink2:#C9B8E8;--ink3:#8C7AA6;--pink:#F06AA0;--pinkhi:#F58DBA;--mint:#45D6C5;--strong:#FFFFFF;--tint:#F06AA014;--zebra:#ffffff06;--hp:#FF4A4A;--ld:#F06AA0;--ap:#F2C14E;--apc:#F2C14E;--cv:#5FB8E8;--me:#F06AA0;--foe:#FF8A3D;border:0;background:#211829;background-image:linear-gradient(#ffffff05 1px,transparent 1px),linear-gradient(90deg,#ffffff05 1px,transparent 1px);background-size:16px 16px;box-shadow:inset 0 0 0 2px #45305C;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));padding:16px}
+.od.od::before{content:"";position:absolute;pointer-events:none}
+.od .od-top b{color:var(--pink);font-weight:900}
+.od .od-slot,.od .od-u,.od .od-log,.od .od-skl,.od .od-c,.od .od-card,.od .od-topic{border:0;box-shadow:inset 0 0 0 1px var(--line);clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px))}
+.od .od-slot{background:#1A1322}
+.od .od-u{background:var(--bg2)}
+.od .od-u.act{box-shadow:inset 0 0 0 2px var(--pink),0 0 14px #F06AA055}
+.od .od-btn{border:0;background:var(--bg2);clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));font-weight:800}
+.od .od-btn:hover:not(:disabled){background:#3A2B47;color:var(--ink)}
+.od .od-chip{border-radius:999px;border:0;background:var(--bg2);font-weight:800;padding:2px 9px}
+.od .od-chip.on{background:var(--pink);color:#fff}
+.od .od-bar{height:8px;border-radius:4px;background:#2E2339;overflow:hidden}
+.od .od-bar i{border-radius:4px 0 0 4px}
+.od .od-bar i[style*="--hp"]{background:linear-gradient(90deg,#FF4A4A,#FF8A5C)!important}
+.od .od-bar i[style*="--ld"]{background:repeating-linear-gradient(120deg,#F06AA0 0 6px,#F58DBA 6px 9px)!important;box-shadow:0 0 6px #F06AA066}
+.od .od-log{background:#120D19}
+.od .od-end{border:0;box-shadow:inset 3px 0 0 var(--pink);background:#120D19}
+
+.od .od-c{background:#1A1322;min-height:96px}
+.od .od-c.me{background:color-mix(in srgb,#F06AA0 18%,#1A1322);box-shadow:inset 0 0 0 2px #F06AA0}
+.od .od-c.foe{background:color-mix(in srgb,#FF8A3D 16%,#1A1322);box-shadow:inset 0 0 0 2px #FF8A3D}
+.od .od-c.tg{outline:0;box-shadow:inset 0 0 0 2px var(--mint),0 0 12px #45D6C566}
+.od .od-c .pt{color:var(--ap)}
+.od .od-card{background:var(--bg2)}
+.od .od-card.t1{box-shadow:inset 0 3px 0 #F2C14E,inset 0 0 0 1px var(--line)}
+.od .od-card.t2{box-shadow:inset 0 3px 0 #B39DF0,inset 0 0 0 1px var(--line)}
+.od .od-card.t3{box-shadow:inset 0 3px 0 #45D6C5,inset 0 0 0 1px var(--line)}
+.od .od-wind{border:0;border-radius:5px;background:linear-gradient(90deg,#FF8A3D,#2E2339 50%,#F06AA0)}
+.od .od-pp i{border-radius:2px}
+</style><!--skin:end-->
 <!--demo:end-->
 </body></html>

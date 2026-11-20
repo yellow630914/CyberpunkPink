@@ -3,7 +3,7 @@
 <title>現實戰鬥 Demo</title>
 <style>
 :root{--bg:#0d0a14;--bg1:#151020;--bg2:#1d1630;--line:#3a2d52;--ink:#efe9f7;--ink2:#b8adc9;--ink3:#8a7f9e;--pink:#ff4fa3;--pinkhi:#ff8fc8;--mint:#5dffb0;--strong:#fff;--tint:#ff4fa312;--zebra:#ffffff07;--font:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;--mono:Consolas,monospace}
-body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font-family:var(--font)}
+body{margin:0;padding:24px 16px;background:#17111F;color:var(--ink);font-family:var(--font)}
 </style></head><body>
 <!--demo:start-->
 <style>
@@ -285,5 +285,30 @@ $('cd-reset').addEventListener('click',init);
 init();
 })();
 </script>
+<!--skin:start--><style>/* 新風格（tools/art/restyle_demos.py 產生） */
+.cd.cd.cd{--bg:#17111F;--bg1:#211829;--bg2:#2C2136;--line:#3A2D47;--ink:#F3E9FF;--ink2:#C9B8E8;--ink3:#8C7AA6;--pink:#F06AA0;--pinkhi:#F58DBA;--mint:#45D6C5;--strong:#FFFFFF;--tint:#F06AA014;--zebra:#ffffff06;--hp:#FF4A4A;--ld:#F06AA0;--ap:#F2C14E;--apc:#F2C14E;--cv:#5FB8E8;--me:#F06AA0;--foe:#FF8A3D;border:0;background:#211829;background-image:linear-gradient(#ffffff05 1px,transparent 1px),linear-gradient(90deg,#ffffff05 1px,transparent 1px);background-size:16px 16px;box-shadow:inset 0 0 0 2px #45305C;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));padding:16px}
+.cd.cd::before{content:"";position:absolute;pointer-events:none}
+.cd .cd-top b{color:var(--pink);font-weight:900}
+.cd .cd-slot,.cd .cd-u,.cd .cd-log,.cd .cd-skl,.cd .cd-c,.cd .cd-card,.cd .cd-topic{border:0;box-shadow:inset 0 0 0 1px var(--line);clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px))}
+.cd .cd-slot{background:#1A1322}
+.cd .cd-u{background:var(--bg2)}
+.cd .cd-u.act{box-shadow:inset 0 0 0 2px var(--pink),0 0 14px #F06AA055}
+.cd .cd-btn{border:0;background:var(--bg2);clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));font-weight:800}
+.cd .cd-btn:hover:not(:disabled){background:#3A2B47;color:var(--ink)}
+.cd .cd-chip{border-radius:999px;border:0;background:var(--bg2);font-weight:800;padding:2px 9px}
+.cd .cd-chip.on{background:var(--pink);color:#fff}
+.cd .cd-bar{height:8px;border-radius:4px;background:#2E2339;overflow:hidden}
+.cd .cd-bar i{border-radius:4px 0 0 4px}
+.cd .cd-bar i[style*="--hp"]{background:linear-gradient(90deg,#FF4A4A,#FF8A5C)!important}
+.cd .cd-bar i[style*="--ld"]{background:repeating-linear-gradient(120deg,#F06AA0 0 6px,#F58DBA 6px 9px)!important;box-shadow:0 0 6px #F06AA066}
+.cd .cd-log{background:#120D19}
+.cd .cd-end{border:0;box-shadow:inset 3px 0 0 var(--pink);background:#120D19}
+
+.cd .cd-w path:not(.ic),.cd .cd-w circle.bg{stroke:#17111F;stroke-width:2.5}
+.cd .cd-w .r-atk path:not(.ic){fill:color-mix(in srgb,#FF4A4A 22%,#2C2136)}
+.cd .cd-w .r-res path:not(.ic){fill:color-mix(in srgb,#F2C14E 18%,#2C2136)}
+.cd .cd-w .r-tac path:not(.ic){fill:color-mix(in srgb,#8E7CC3 30%,#2C2136)}
+.cd .cd-w .r-skl circle.bg{fill:color-mix(in srgb,#F06AA0 26%,#2C2136)}
+</style><!--skin:end-->
 <!--demo:end-->
 </body></html>
