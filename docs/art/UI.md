@@ -470,7 +470,7 @@
 | **技能** | 不在牌庫裡、隨時能用的能力，寫花費 | 用技能 |
 | **紀錄** | 每一步雙方做了什麼 | — |
 
-- 格子的圖示用佔著它的勢力的徽記（[ART_STYLE](ART_STYLE.md) 第 5 節的勢力徽記 v0，`art/style/emblems-sprite.svg`）；Demo 還沒接上徽記，實作時接。
+- 格子的圖示用佔著它的勢力的徽記（[ART_STYLE](ART_STYLE.md) 第 5 節的勢力徽記 v1，`art/style/emblems-sprite.svg`）；Demo 還沒接上徽記，實作時接。
 - **手機版**：棋盤全寬在上；數字縮成一行；手牌是底下一條可以橫向捲動的列；技能收進一個 `BottomSheet`。
 
 ### 6.2 頻道（經營層）
