@@ -154,9 +154,10 @@ body{background:var(--bg);background-image:var(--grid);color:var(--ink);font-fam
    linear-gradient(var(--a),var(--a)) right bottom/16px 2px no-repeat,
    linear-gradient(var(--a),var(--a)) right bottom/2px 16px no-repeat,
    repeating-linear-gradient(90deg,var(--b) 0 6px,transparent 6px 10px) left 26px top 0/44px 2px no-repeat}
-.ecg{position:fixed;left:0;right:0;top:50%;height:240px;transform:translateY(-50%);width:100%;pointer-events:none;z-index:0}
-.ecg .base{fill:none;stroke-width:2;opacity:.28}
-.ecg .beat{fill:none;stroke-width:3;stroke-dasharray:260 2400;animation:ecg 3.2s linear infinite;filter:drop-shadow(0 0 6px currentColor)}
+.ecg{position:fixed;left:0;right:0;top:50%;height:360px;transform:translateY(-50%);width:100%;pointer-events:none;z-index:5}
+[data-skin="real"] .ecg,[data-skin="real"]>.ecg,html[data-skin="real"] .ecg{mix-blend-mode:screen}
+.ecg .base{fill:none;stroke-width:2.5;stroke-linejoin:round;opacity:.16}
+.ecg .beat{fill:none;stroke-width:4;stroke-linejoin:round;filter:drop-shadow(0 0 8px currentColor)}
 @keyframes ecg{from{stroke-dashoffset:2660}to{stroke-dashoffset:0}}
 body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 .fxl{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden}
@@ -348,19 +349,28 @@ for(const id of ['grid','grid2']){
 (()=>{
 if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 const NS='http://www.w3.org/2000/svg';
-// 心跳背景：每個 data-skin 區塊一條；整頁只有一種皮時鋪滿
-const ecgPath=()=>{let d='M0 120',x=0;while(x<1200){d+=` L${x+60} 120 L${x+75} 110 L${x+85} 120 L${x+100} 120 L${x+108} 60 L${x+118} 175 L${x+128} 100 L${x+140} 120 L${x+200} 120`;x+=200}return d};
+// 心跳背景：一個波峰一個波谷，中間偏右；0.2 秒掃過；閒置 5 秒一跳，操作時跳一次，冷卻 1 秒
+const ECG_D='M0 180 H690 L725 30 L765 330 L800 180 H1200';
 function addEcg(host,color,base){
-  const s=document.createElementNS(NS,'svg');s.setAttribute('class','ecg');s.setAttribute('viewBox','0 0 1200 240');s.setAttribute('preserveAspectRatio','none');
+  const s=document.createElementNS(NS,'svg');s.setAttribute('class','ecg');s.setAttribute('viewBox','0 0 1200 360');s.setAttribute('preserveAspectRatio','none');
   if(host!==document.body){s.style.position='absolute';}
-  s.innerHTML=`<path class="base" stroke="${base}" d="${ecgPath()}"/><path class="beat" stroke="${color}" style="color:${color}" d="${ecgPath()}"/>`;
+  s.innerHTML=`<path class="base" stroke="${base}" d="${ECG_D}"/><path class="beat" stroke="${color}" style="color:${color}" d="${ECG_D}"/>`;
   host.prepend(s);
+  const b=s.querySelector('.beat'),len=b.getTotalLength(),seg=320;
+  b.style.strokeDasharray=`${seg} ${len+seg}`;b.style.strokeDashoffset=seg;
+  BEATS.push({b,len,seg});
 }
+const BEATS=[];
+let lastBeat=0;
+function beat(){const t=performance.now();if(t-lastBeat<1000)return;lastBeat=t;
+  for(const {b,len,seg} of BEATS)b.animate([{strokeDashoffset:seg},{strokeDashoffset:-len}],{duration:200,easing:'linear'});}
+setInterval(()=>{if(performance.now()-lastBeat>=5000)beat()},250);
+['pointerdown','keydown','wheel','pointermove'].forEach(ev=>addEventListener(ev,beat,{passive:true}));
 const skins=[...document.querySelectorAll('[data-skin]')];
 if(skins.length===1&&skins[0]===document.documentElement){addEcg(document.body,skins[0].dataset.skin==='net'?'#F06AA0':'#F06AA0',skins[0].dataset.skin==='net'?'#1E2346':'#8E7CC3');}
 else skins.forEach(el=>{if(getComputedStyle(el).position==='static')el.style.position='relative';el.style.overflow='hidden';
   addEcg(el,el.dataset.skin==='net'?'#F06AA0':'#F06AA0',el.dataset.skin==='net'?'#1E2346':'#8E7CC3');
-  [...el.children].forEach(c=>{if(!c.classList.contains('ecg')){c.style.position=c.style.position||'relative';c.style.zIndex=1}})});
+  [...el.children].forEach(c=>{if(!c.classList.contains('ecg')){c.style.position=c.style.position||'relative';c.style.zIndex=1}}); el.querySelector('.ecg').style.zIndex=5;});
 // 特效層
 const L=document.createElement('div');L.className='fxl';document.body.appendChild(L);
 const skinAt=(x,y)=>{const e=document.elementFromPoint(x,y);const s=e&&e.closest('[data-skin]');return s?s.dataset.skin:'real'};
