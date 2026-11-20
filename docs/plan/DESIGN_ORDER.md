@@ -83,7 +83,7 @@
 
 | 內容 | 現在的狀態 | 在哪 |
 |---|---|---|
-| 快駭程式的完整清單 | **等你決定**：快駭要維持「有甲板的人都能用、潛網者最強」，還是改成潛網者的技能 | [NETRUNNING](../systems/NETRUNNING.md) 第 2 節 |
+| ~~快駭程式的完整清單~~ | 已定（2026-11-20）：快駭是潛網者限定，主控的現實那一面；16 個程式照主控的階解鎖（[ITEMS](../gear/ITEMS.md) 11.9 節） | — |
 | ~~機甲的型號、載具的目錄、機甲的整備~~ | 初稿已寫（2026-11-20）：[ITEMS](../gear/ITEMS.md) 第 14 節、[CRAFTING](../gear/CRAFTING.md) 第 15 節、[UI](../art/UI.md) 9.1 節。ENEMIES 第 11 節的敵方機甲數字要照新型號重算 | — |
 | ~~建角的起始裝備~~ | 已寫：點數制，12 點，I～II 級（[CHARACTER](../systems/CHARACTER.md) 5.4 節） | — |
 | ~~隨機地圖的主題與詞條表~~ | 初稿已寫：[CYBERSPACE](../systems/CYBERSPACE.md) 8.1～8.6 節（迷宮館、一般子網、暗礁的通路、沉船帶、深海的八個海域），網內敵人 54 種在 [ENEMY_ROSTER](../content/ENEMY_ROSTER.md) | — |
@@ -102,18 +102,23 @@
 - ~~夜課要不要有共鳴~~ 要：每個分支 5 個，共 25 個。
 - ~~甜心要不要加進牌子表~~ 不加：桃子屋的 SKIN 改成和現實那幾件同一個牌子。
 - ~~武器構裝的合法性~~ 照等級分。
-- 快駭的定位（見上表）。
+- ~~快駭的定位~~ 潛網者限定。
 
 **接下來的順序**（2026-11-20）
 
 1. 搭車的癡漢與貼身事件。
-2. 快駭（等你決定定位之後）。
+2. ~~快駭~~ 已改成潛網者限定。
 3. ENEMIES 第 11 節的敵方機甲照 ITEMS 第 14 節重算。
 4. 史詩、指南的其餘 49 張、對峙、存檔與難度、新手教學：輪到時再看。
 
 **寫了、等你過的（各文件最後的「待確認」）**
 
-[SKILLS](../systems/SKILLS.md) 第 13 節（樹階門檻、共鳴要不要裝著才生效、夥伴技能佔不佔容量、媒體指標）；[ENEMIES](../systems/ENEMIES.md) 第 14 節（十一項）；[SITES](../world/SITES.md) 第 14 節（剩三項：模板張數、事件傾向、夏季活動）；[STORY_QUESTS](../world/STORY_QUESTS.md) 第 10 節；[UI](../art/UI.md) 第 17 節；[PROMPTS](../systems/PROMPTS.md) 第 12 節；[OPINION](../systems/OPINION.md) 4.3c 節（豔名在棋盤上的用處）；[COMMISSION_TEMPLATES](../content/COMMISSION_TEMPLATES.md) 的遮蔽材質；[NIGHT_LESSONS](../content/NIGHT_LESSONS.md) 的體位數字；[FACTIONS](../world/FACTIONS.md) 各勢力的好感來源（留到 L4，見第 4 節第 4 項）。構裝與 SKIN 的目錄（[ITEMS](../gear/ITEMS.md) 第 11 節）也還沒過。
+2026-11-20 整理過一輪：87 題逐條核對、你作答，已經套進各文件並劃掉（[待確認總整理](https://claude.ai/artifact/V4axvwxU5sH7u4hnNXBjD6)）。還開著的：
+
+- NET-5 與 ENEMY_ROSTER-2 互相衝突：黑蕾絲能不能出現在蜜腺子網的管理層。
+- SITES 第 14 節的第 5、6、13 項。
+- 審閱頁「文件前後不一致」裡還沒修的幾條。
+- 商店的背景任務會在開店後換掉貨，要不要加「已經買的不換」。
 
 **世界觀還缺的**（[WORLD_ITEMS](WORLD_ITEMS.md) 標 ◐ 的，抽查過年表與 NPC 台詞，屬實）：年表的細節、城市以外的世界、十一家企業的內部結構、緋櫻家、固定 NPC 的台詞與行程、完整的人物關係表、屬性表、信仰的總整理、十種時尚的代表單品、AI 種類的總整理、獸化各系的目錄、一般人的勞動。
 
