@@ -113,7 +113,7 @@
   3. 跟她們走（誘惑 13）。大成功：蜜糖會好感 +3、四十二番街豔名 +2、體悟 +3；成功：蜜糖會好感 +2；失敗：只有一位跟你上樓，另外兩位先走了（circles 縮成兩人）。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a,$b]]（三人版本再加一圈 [[$c]] 或併進同一圈，最多四人）、`start_position`=夾在中間。
      百合（yuri）：陰柔與中性的主角在中間，由她們主導。陽剛（masc）：主角在中間被動，`start_position`=夾在中間（主角是 B）。
-- **篩選**：`tendency:群與融合` 關掉時只剩一位，circles 是兩人。`futa_partner`、`femboy_partner` 關掉時 $c 不登場。夜課的「四人圈」「一手一個」在這一場用得到。
+- **篩選**：`tendency:群與融合` 關掉時只剩一位，circles 是兩人。`futa_partner`、`femboy_partner` 關掉時 $c 不登場。夜課的「三王一后」「一手一個」在這一場用得到。
 
 ### 伊甸園的星探（`ev_ad_recog_eden_scout`）
 
@@ -679,7 +679,7 @@
   1. 吸一口，跟著跳（同步 10）。成功：感載 +15、festival 好感 +2；失敗：感載 +25、狀態「暈」。
   2. 吐掉吸管，在旁邊看（定力 13）。成功：一則傳聞；失敗：泡泡太多了，照選項 1 的失敗。
   3. 跟她們上屋頂（誘惑 10）。成功：festival 好感 +3、體悟 +3。
-     `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a,$b,$c]]、`start_position`=四人圈。
+     `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a,$b,$c]]、`start_position`=三王一后・騎乘。
      陽剛（masc）：$c 換成女性，主角被動。百合（yuri）：$b、$c 換成女性。
   4. 趁亂找人（街頭直覺 13）。成功：找到一個你在找的人，一則情報；失敗：時間 +4。
 - **篩選**：`tendency:群與融合` 關掉時 circles 只剩 [[$pc,$a]]；`tendency:藥` 相合時權重加成。
