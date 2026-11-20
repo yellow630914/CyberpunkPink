@@ -48,7 +48,7 @@ node tools/art/render.mjs
 | 技能樹 | [`mockups/skill-tree.html`](../mockups/skill-tree.html) | 八棵樹（以槍手為例）與夜課 | [UI](UI.md) 8.4 節 |
 | 頻道 | [`mockups/channel.html`](../mockups/channel.html) | 頻道的經營層：預算與額度、開一集與預覽、編制、集數、設備、事件 | [UI](UI.md) 6.2 節 |
 | 成人場景 | [`mockups/adult-scene.html`](../mockups/adult-scene.html) | 參與者、部位與連接、體位、契合與主動權、行動列與預覽；`#gate` 是開場的確認框 | [UI](UI.md) 第 10 節 |
-| 行囊與日常 | [`mockups/daily.html`](../mockups/daily.html) | 行囊、商店、關係、待處理事件、每週帳單 | [UI](UI.md) 3.3、3.7～3.10 節 |
+| 背包與日常 | [`mockups/daily.html`](../mockups/daily.html) | 背包、商店、關係、待處理事件、每週帳單 | [UI](UI.md) 3.3、3.7～3.10 節 |
 | 媒體與事件 | [`mockups/overlays.html`](../mockups/overlays.html) | 直播面板、素材與剪片、戰敗事件、掃橋、打工 | [UI](UI.md) 3.11、3.12、4.1、6.3、6.4 節 |
 | 據點與其他 | [`mockups/workshop.html`](../mockups/workshop.html) | 組裝、家園、名冊、契約、建角、城市地圖、指南 | [UI](UI.md) 3.6、3.13、第 9、11～14 節 |
 | 原型 | [`mockups/index.html`](../mockups/index.html) | 所有示意頁合在一起，左邊切換 | — |

@@ -274,7 +274,7 @@ messages
 | `memories` | 相關的記憶：照參與者、地點、關鍵字挑 | `search_memories` |
 | `here` | 這一格附近的文字地圖、在場的人、可去的地方 | `get_here` |
 | `faction` | 勢力對主角的好感與敵對值、文化分支、一句公開面貌 | `get_faction` |
-| `inventory` | 行囊與裝備的摘要，可以只取某一類 | `get_inventory` |
+| `inventory` | 背包與裝備的摘要，可以只取某一類 | `get_inventory` |
 | `commission` | 進行中的委託：階段、面、分支、連動、壓力條 | `get_commission` |
 | `net` | 子網的節點、追蹤度、控制節點 | `get_net` |
 | `scene` | 成人場景這一圈的狀態 | `get_scene` |
