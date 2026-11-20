@@ -206,7 +206,7 @@ node tools/art/render.mjs
 
 - [第 1、2 層與技能的備用圖標](style/icons-l2.svg)（[預覽](preview/icons-l2.png)）：物品 53 個（含內海的七個：武器、防護、工具構裝，駭入程式、構裝體、專屬構裝、SKIN）、技能 54 個，由 `tools/art/gen_icons.py` 產生。畫面引用 [icons-sprite.svg](style/icons-sprite.svg) 裡的 `ic-<id>`。
 - **一律置中**：產生器先用瀏覽器量每個圖標的幾何外框（存在 `style/icon-centers.json`），再把外框的中心對到 (100, 100)。技能的符號另外縮到 84 以內；心形底框的視覺中心比較低，符號往下放 6。改了圖形就跑一次 `python3 tools/art/gen_icons.py --measure`。
-- **第 3 層已經畫好**（[總覽](../mockups/icons-l3.html)）：物品 1579 個（含構裝與 SKIN 66 個，左下角一個青色游標表示是網內的東西）、技能 280 個，由 `tools/art/gen_icons_l3.py` 產生，輸出 [icons-l3-sprite.svg](style/icons-l3-sprite.svg)，id 與下面兩份清單一致。這台機器沒有 GPU，所以沒用 ComfyUI，改成向量拼裝：
+- **第 3 層已經畫好**（[總覽](../mockups/icons-l3.html)）：物品 1645 個（含構裝與 SKIN 132 個，左下角一個青色游標表示是網內的東西）、技能 280 個，由 `tools/art/gen_icons_l3.py` 產生，輸出 [icons-l3-sprite.svg](style/icons-l3-sprite.svg)，id 與下面兩份清單一致。這台機器沒有 GPU，所以沒用 ComfyUI，改成向量拼裝：
   - 主體圖庫在 `tools/art/subjects/`：武器與工具 39 種、服裝飾品與成人道具 68 種、義體零件與藥品 35 種、技能符號 226 種，一個主體畫一次。成人道具只畫物件，露骨的一律用愛心禮盒；夜課只用抽象符號。
   - 每件物品的配色先看名字裡的顏色字（黑、白、粉、櫻、金、銀……），再看牌子，都沒有就照名字固定挑一組；名字裡有櫻、蕾絲、心、星、月、蝶、貓、雪、火的，右下角加一個小花紋；IV 級加一顆星光、V 級兩顆；獨特物品背後一圈淡紫的光。
   - 技能放在樹的底框裡，右下角是樹的徽記，招牌技能頂上多一顆星。

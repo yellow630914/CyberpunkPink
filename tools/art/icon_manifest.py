@@ -35,7 +35,7 @@ KW = [  # 中文關鍵字 → 英文主體（先比對的先用）
     ('火箭', 'a rocket launcher'), ('手槍', 'a handgun'), ('彈槍', 'a sensory dart pistol'), ('電擊', 'a stun baton'), ('劍', 'a sword'), ('刀', 'a blade knife'),
     ('鞭', 'a whip'), ('棍', 'a baton'), ('爪', 'cyber claws'), ('彈', 'a cartridge round'), ('手榴', 'a grenade'), ('煙霧', 'a smoke grenade'), ('閃光', 'a flashbang'),
     ('外套', 'a jacket'), ('大衣', 'a long coat'), ('風衣', 'a trench coat'), ('夾克', 'a jacket'), ('披肩', 'a shawl'), ('裙', 'a skirt'), ('褲', 'trousers'),
-    ('襯衫', 'a shirt'), ('背心', 'a vest top'), ('上衣', 'a top'), ('洋裝', 'a dress'), ('連身', 'a one-piece outfit'), ('旗袍', 'a qipao dress'), ('和服', 'a kimono'),
+    ('襯衫', 'a shirt'), ('背心', 'a vest top'), ('上衣', 'a top'), ('洋裝', 'a dress'), ('連身', 'a one-piece outfit'), ('旗袍', 'a qipao dress'), ('皮帶裝', 'a vest top'), ('針織', 'a top'), ('兔女郎', 'a swimsuit'), ('兔男郎', 'a vest top'), ('總管', 'a maid uniform'), ('浴衣', 'a kimono'), ('水手', 'a shirt'), ('比基尼', 'a swimsuit'), ('盔甲', 'a helmet'), ('全甲', 'a helmet'), ('束衣', 'a dress'), ('圍裙', 'a frilly apron'), ('禮服', 'a dress'), ('睡裙', 'a dress'), ('帽T', 'a hood'), ('吉祥物', 'a mask'), ('刺青', 'a glowing skin tattoo patch'), ('胸帶', 'a vest top'), ('西裝', 'a shirt'), ('燕尾', 'a shirt'), ('飛行', 'a jacket'), ('和服', 'a kimono'),
     ('女僕', 'a maid uniform'), ('制服', 'a uniform'), ('泳裝', 'a swimsuit'), ('靴', 'boots'), ('鞋', 'shoes'), ('襪', 'stockings'), ('手套', 'gloves'),
     ('帽', 'a cap'), ('兜帽', 'a hood'), ('盔', 'a helmet'), ('面具', 'a mask'), ('口罩', 'a face mask'), ('眼鏡', 'glasses'), ('面紗', 'a veil'),
     ('內衣', 'a bra'), ('內褲', 'panties'), ('項圈', 'a choker collar'), ('項鍊', 'a necklace'), ('戒指', 'a ring'), ('耳環', 'earrings'), ('手環', 'a bracelet'),
@@ -81,7 +81,8 @@ NET_NAME = {'客服窗': 'an armor plate', '散熱罩': 'a power cell', '聖盾'
             '紅點': 'a sensor lens', '改寫': 'a rolled blueprint', '執事・家政課': 'a shirt', '夜禮服': 'a dress', '泳裝・樂園島': 'a swimsuit', '薄紗': 'a veil', '守門人': 'a helmet', '巨大少女': 'a small drone', '天使像': 'a small bell', '鐵處女': 'a cybernetic arm'}
 SKIN_STYLE = {'企業': 'a uniform', '街頭': 'a hood', '霓虹龐克': 'a jacket', '虛擬主播': 'headphones', '偶像': 'a dress', '女僕': 'a maid uniform',
               '櫻町系': 'a kimono', '仙俠': 'a qipao dress', '護士': 'a one-piece outfit', '修女': 'a veil', '騎士': 'a helmet', '巫女': 'a kimono',
-              '魔法少女': 'a skirt', '歡場': 'a swimsuit', '特攻': 'a long coat', '哥德': 'a dress', '角色扮演': 'a mask', '自選': 'a clothes hanger'}
+              '魔法少女': 'a skirt', '歡場': 'a swimsuit', '特攻': 'a long coat', '哥德': 'a dress', '角色扮演': 'a mask', '自選': 'a clothes hanger',
+              '畫報系': 'a jacket', '工裝': 'a one-piece outfit', '荒地': 'a hood', '任俠': 'a jacket', '高訂': 'a dress'}
 
 
 def tables(path):
@@ -167,7 +168,8 @@ def items():
                 subj = subject_for(name, l2)
                 if sec.startswith('11.'):
                     bare = re.sub(r'^(構裝|構裝體|程式)「|」$', '', name)
-                    subj = (NET_ARCH.get(r[hi['原型']]) if '原型' in hi else None) or NET_NAME.get(bare) or \
+                    kw = next((v for k, v in KW if k in bare), None)
+                    subj = (NET_ARCH.get(r[hi['原型']]) if '原型' in hi else None) or NET_NAME.get(bare) or kw or \
                            (SKIN_STYLE.get(r[hi['風格']]) if '風格' in hi else None) or subj
                 bstyle = next((v for k, v in BRAND if k in brand or k in name), '')
                 detail = {'I': 'very simple', 'II': 'simple', 'III': 'moderately detailed', 'IV': 'detailed', 'V': 'intricate'}.get(grade, 'simple')
