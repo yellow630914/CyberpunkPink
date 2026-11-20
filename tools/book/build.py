@@ -2,7 +2,7 @@
 """把 docs/ 的所有文件照閱讀順序編成一個單檔的設計書。
 輸出：docs/book/CyberpunkPink-設計書.html（PDF 由 tools/book/pdf.mjs 另外轉）
 用法：python3 tools/book/build.py
-      python3 tools/book/build.py --artifact <輸出路徑>   產生給 Claude 成品（Artifact）用的版本
+      python3 tools/book/build.py --artifact <輸出路徑>   產生給 Claude 成品（Artifact）用的四本（設計、內容・任務、內容・事件、內容・目錄；網址記在 tools/book/books.json）
 不依賴任何套件：內建一個只支援本專案用到的語法的 Markdown 轉換器。"""
 import base64, html, os, re, subprocess
 
@@ -44,6 +44,23 @@ DEMOS = {  # 在某份文件的標題後面嵌入可以操作的 Demo（取檔�
     'systems/OPINION.md': ('mockups/opinion-demo.html', '可以直接操作的 Demo：輿論戰（搶地盤）'),
 }
 ALL = [d for _, _, ds in PARTS for d in ds]
+# Artifact 版拆成四本（L4 太大，拖慢整本）。本地的 docs/book 單檔版照舊是完整的一本。
+L4 = next(ds for t, _, ds in PARTS if t.startswith('L4'))
+BOOKS = [  # (代號, 書名, 檔名, 這本收哪些部分)
+    ('design', '設計', None, [p for p in PARTS if not p[0].startswith('L4')]),
+    ('quests', '內容・任務', 'content-quests.html', [('L4 內容・任務', '特殊任務、委託模板、主線、要地與指南。',
+        ['content/QUESTS.md', 'content/COMMISSION_TEMPLATES.md', 'world/STORY_QUESTS.md', 'world/SITES.md', 'content/GUIDES.md'])]),
+    ('events', '內容・事件', 'content-events.html', [('L4 內容・事件', '城市事件、成人事件、誘惑與戰敗。',
+        ['content/EVENTS_CITY.md', 'content/ADULT_EVENTS.md', 'content/LURE_EVENTS.md', 'content/DEFEAT_EVENTS.md'])]),
+    ('catalog', '內容・目錄', 'content-catalog.html', [('L4 內容・目錄', '物品、敵人、技能樹與夜課。',
+        ['gear/ITEMS.md', 'content/ENEMY_ROSTER.md', 'content/SKILL_TREES.md', 'content/NIGHT_LESSONS.md'])]),
+]
+_in_books = sorted(d for b in BOOKS for _, _, ds in b[3] for d in ds)
+assert _in_books == sorted(ALL), set(ALL) ^ set(_in_books)
+BOOK_OF = {d: b[0] for b in BOOKS for _, _, ds in b[3] for d in ds}
+BOOK_URLS_FILE = os.path.join(os.path.dirname(__file__), 'books.json')
+BOOK_URLS = __import__('json').load(open(BOOK_URLS_FILE, encoding='utf-8')) if os.path.exists(BOOK_URLS_FILE) else {}
+CUR_BOOK = None  # 產生某一本時設成它的代號；None 是完整的單檔版
 DOC_ID = {d: 'doc-' + os.path.splitext(os.path.basename(d))[0].lower().replace('_', '-') for d in ALL}
 
 
@@ -75,7 +92,13 @@ def inline(text, doc):
             return f'<a href="{target}" target="_blank" rel="noopener">{label}</a>'
         rel = os.path.normpath(os.path.join(os.path.dirname(doc), target.split('#')[0])).replace(os.sep, '/')
         if rel in DOC_ID:
-            return f'<a href="#{DOC_ID[rel]}">{label}</a>'
+            other = BOOK_OF[rel]
+            if CUR_BOOK is None or other == CUR_BOOK:
+                return f'<a href="#{DOC_ID[rel]}">{label}</a>'
+            name = next(b[1] for b in BOOKS if b[0] == other)
+            if other in BOOK_URLS:
+                return f'<a href="{BOOK_URLS[other]}#{DOC_ID[rel]}" target="_blank" rel="noopener" title="在《{name}》">{label}</a>'
+            return f'<span class="ext" title="在《{name}》">{label}</span>'
         return f'<span class="ext" title="{rel}">{label}</span>'
     text = re.sub(r'\[([^\]]+)\]\(([^)\s]+)\)', link, text)
     text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
@@ -302,9 +325,9 @@ NAV_JS = r'''
 '''
 
 
-def build():
+def build(parts=None):
     toc_html, body = [], []
-    for part, desc, docs in PARTS:
+    for part, desc, docs in (parts or PARTS):
         toc_html.append(f'<div class="part">{part}</div>')
         body.append(f'<div class="parthead">{part}</div><p class="partdesc">{html.escape(desc)}</p>')
         for doc in docs:
@@ -317,17 +340,38 @@ def build():
 
 
 def artifact(out):
-    toc, body = build()
-    n_docs = len(ALL)
-    cover = f'''<section class="cover"><div class="tag">設計書 · 緋夜城 2069 · 設計階段</div><h1>CyberpunkPink</h1>
-<p>一款成人向的賽博龐克跑團風格 RPG。這本設計書把 {n_docs} 份設計文件依設計的分層編在一起：L0 世界、L1 核心規則、L2 核心玩法、L3 框架、L4 內容、L5 呈現。下層定了，上層才展開。</p>
+    """產生四本：out 是「設計」那一本的路徑，其餘三本放在同一個資料夾。"""
+    global CUR_BOOK
+    folder = os.path.dirname(out)
+    for key, name, fname, parts in BOOKS:
+        CUR_BOOK = key
+        path = out if fname is None else os.path.join(folder, fname)
+        artifact_one(path, key, name, parts)
+    CUR_BOOK = None
+
+
+def artifact_one(out, key, name, parts):
+    toc, body = build(parts)
+    docs = [d for _, _, ds in parts for d in ds]
+    n_docs = len(docs)
+    switch = ''.join((f'<span class="on">{n}</span>' if k == key else
+                      (f'<a href="{BOOK_URLS[k]}" target="_blank" rel="noopener">{n}</a>' if k in BOOK_URLS else f'<span>{n}</span>'))
+                     for k, n, _, _ in BOOKS)
+    if key == 'design':
+        intro = f'一款成人向的賽博龐克跑團風格 RPG。這一本收 {n_docs} 份設計文件：L0 世界、L1 核心規則、L2 核心玩法、L3 框架、L5 呈現與附錄。L4 的內容分成另外三本（任務、事件、目錄），從目錄最上面那一排切換。'
+    else:
+        intro = f'CyberpunkPink 設計書的 L4 內容，這一本是「{name}」，收 {n_docs} 份文件。規則在「設計」那一本；連到別本的連結會開新分頁。'
+    cover = f'''<section class="cover"><div class="tag">設計書 · {name} · 緋夜城 2069</div><h1>CyberpunkPink</h1>
+<p>{intro}</p>
 <ul><li>所有數值都是初稿；還沒有程式。</li><li>本作是成人向虛構作品，所有登場角色皆為成年人。</li>
-<li>文件之間的連結會跳到這本書裡對應的章節。</li></ul></section>'''
-    page = f'''<title>CyberpunkPink 設計書</title>
+<li>同一本裡的連結跳到對應的章節；連到別本的連結會開那一本。</li></ul></section>'''
+    title = 'CyberpunkPink 設計書' if key == 'design' else f'CyberpunkPink {name}'
+    page = f'''<title>{title}</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=JetBrains+Mono:wght@400&display=swap">
-<style>{ART_CSS}</style>
-<nav aria-label="目錄" id="booknav"><div class="brand">CyberpunkPink<small>設計書 · 緋夜城 2069</small></div>
+<style>{ART_CSS}
+.books{{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 10px}}.books a,.books span{{font-size:12px;font-weight:700;padding:3px 8px;border-radius:6px;text-decoration:none;border:1px solid currentColor;opacity:.75}}.books .on{{opacity:1;font-weight:900}}</style>
+<nav aria-label="目錄" id="booknav"><div class="brand">CyberpunkPink<small>設計書 · {name}</small></div><div class="books">{switch}</div>
 <div class="navhead"><button type="button" id="navall" aria-pressed="false">展開全部章節</button></div><div class="toc">{toc}</div></nav>
 <div class="scrim" id="scrim"></div>
 <button type="button" class="navbtn" id="navbtn" aria-controls="booknav" aria-expanded="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg>目錄</button>
