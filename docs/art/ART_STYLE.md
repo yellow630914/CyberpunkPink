@@ -47,6 +47,7 @@ node tools/art/render.mjs
 | 角色與義體 | [`mockups/character.html`](../mockups/character.html) | 角色卡與概要、身體、裝備、橋、成人五個分頁 | [UI](UI.md) 第 8 節 |
 | 技能樹 | [`mockups/skill-tree.html`](../mockups/skill-tree.html) | 八棵樹（以槍手為例）與夜課 | [UI](UI.md) 8.4 節 |
 | 頻道 | [`mockups/channel.html`](../mockups/channel.html) | 頻道的經營層：預算與額度、開一集與預覽、編制、集數、設備、事件 | [UI](UI.md) 6.2 節 |
+| 成人場景 | [`mockups/adult-scene.html`](../mockups/adult-scene.html) | 參與者、部位與連接、體位、契合與主動權、行動列與預覽；`#gate` 是開場的確認框 | [UI](UI.md) 第 10 節 |
 | 三種錢 | [`mockups/currency.html`](../mockups/currency.html) | 帳戶、現金晶片、人情在狀態列、談判、分帳、人情帳、商店的樣子 | [UI](UI.md) 3.5 節 |
 
 ![緋夜城地圖](preview/city-map.png)
@@ -166,7 +167,6 @@ node tools/art/render.mjs
 | 各區的街區圖 | 每區一張，比城市地圖細一級：街道、地標的實際位置、路口 |
 | 地鐵路線圖 | 遊戲內的車站介面 |
 | 潛入畫面樣稿 | 子網的節點圖。現實戰鬥、內海戰鬥與輿論戰的畫面已經有可以操作的 Demo（第 2 節），這三個不必另外畫靜態樣稿 |
-| 成人場景的樣稿 | 還沒有示意頁；[UI](UI.md) 第 10 節重寫時一起畫 |
 | **現實、內海與輿論戰的 Demo 換上新風格** | `combat-demo.html`、`net-demo.html`、`opinion-demo.html` 是在定風格之前做的。照第 3～5 節再過一次：兩套皮、斜切面板與呼吸燈（現實）、4.2 節的量條、物品與技能的等級色與圖標。排在其他畫面之後 |
 | 義體部位圖 | 人形輪廓與九個部位的槽；[角色與義體](../mockups/character.html)的身體分頁有一版剪影與熱點的位置，正式的圖照它重畫 |
 | 物品圖標 | 三層（第 5 節）：先畫第 1 層的未知方塊與第 2 層的通用圖標，再一件一件補第 3 層 |
