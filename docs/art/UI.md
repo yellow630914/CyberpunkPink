@@ -140,7 +140,7 @@
 ### 3.2 紀錄的細節
 
 - **擲骰行**用等寬字，左邊一條粉線（樣稿的 `.roll`）：`基本功 1d20(14)+調整值+等級=19 對 DC16 → 成功`，主持人的轉折（`twist`）跟在後面，用 `--pink-hi` 標一個 ✦。
-- **雙層場景**：正文裡網內的段落（[PROMPTS](../systems/PROMPTS.md) 5.2 節的 `<net>` 標記）左邊多一條 `--layer-net` 的細線、字改成等寬體的次要色；現實的段落照常。沒有標記時整段照常顯示。
+- **雙層場景**：正文裡網內的段落（[PROMPTS](../systems/PROMPTS.md) 6.3 節的 `<net>` 標記）左邊多一條 `--layer-net` 的細線、字改成等寬體的次要色；現實的段落照常。沒有標記時整段照常顯示。
 - **直播中**的報告卡右上角一個「● LIVE 1,240」標籤，正文裡的彈幕句用次要色。
 - **成人場景**的報告卡預設摺疊成一行「（私密的場景）」，點開才顯示；設定可以改成直接展開（第 15 節）。
 - **AI 關閉**時顯示戰報：`describe` 依報告產生的條列，和那邊相同。
@@ -382,7 +382,7 @@
 
 - **開始前**一律先出一個確認框：「進入場景／略過（AI 寫成一段並自動結算）」。略過是預設按鈕以外的那一顆，不加粉。
 - 粉只在感載條上；契合用紫，行動按鈕用一般樣式，避免整個畫面變成粉色。
-- 不畫任何露骨的圖。場景的描寫全在 AI 正文裡，由 [PROMPTS](../systems/PROMPTS.md) 第 6 節的成人分流處理。
+- 不畫任何露骨的圖。場景的描寫全在 AI 正文裡，由 [PROMPTS](../systems/PROMPTS.md) 第 7 節的成人分流處理。
 - **手機版**：和戰鬥一樣，對方在上、你在下，契合夾在中間；行動列兩排。
 
 ## 11. 契約面板
@@ -475,9 +475,9 @@
 
 | 分頁 | 內容 | ElondiaRPG |
 |---|---|---|
-| AI 來源 | 模型來源（最多 8 個）、每個任務用哪一個（[PROMPTS](../systems/PROMPTS.md) 第 6 節的路由）、連線測試（加工具調用測試） | `ModelSourceEditor`、`SettingsView` |
+| AI 來源 | 模型來源（最多 8 個）、每個任務用哪一個（[PROMPTS](../systems/PROMPTS.md) 2.13 節的路由）、連線測試（加工具調用測試） | `ModelSourceEditor`、`SettingsView` |
 | AI 開關 | 判定、敘事、各批次任務、記下性經歷；每項的逾時 | `AiToggles`、`JudgeToggle` |
-| 提示詞 | 提示詞組、文風、自訂、世界書、正則（[PROMPTS](../systems/PROMPTS.md) 第 9 節） | `PromptsView`、`PromptEntryList`、`PromptSetBar`、`RegexPanel`、`TavernPresetDialog` |
+| 提示詞 | 提示詞組、文風、自訂、世界書、正則（[PROMPTS](../systems/PROMPTS.md) 第 2 節的 AI 工坊） | `PromptsView`、`PromptEntryList`、`PromptSetBar`、`RegexPanel`、`TavernPresetDialog` |
 | **內容篩選** | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 9 節的每個開關；頂端固定一行不可關閉的規則（所有角色皆為成年人） | 新頁；開關列借 `ContentTagChips` |
 | 遊戲 | 存檔規則：帳單四檔、非主角的面自動進行、額外飾品格、難度 | `CustomDifficultyEditor`、`RuleFields` |
 | **顯示** | 字級（三檔）、正文字型（黑體／宋體）、減少動態、霓虹強度（關、弱、標準）、區的強調色（開／關）、成人報告卡預設摺疊 | 新頁 |
