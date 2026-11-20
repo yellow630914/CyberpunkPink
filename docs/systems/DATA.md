@@ -529,7 +529,7 @@
 
 ### 7.5 快駭程式（2026-11-20）
 
-只有主控能用（[ITEMS](../gear/ITEMS.md) 11.9 節）。存在甲板的程式槽裡，主控的樹階決定跑得動幾級。
+只有主控能用（[ITEMS](../gear/ITEMS.md) 11.9 節）。裝在甲板的構裝槽裡（和構裝共用），主控的樹階決定跑得動幾級。
 
 | 欄位 | 內容 |
 |---|---|
@@ -715,7 +715,7 @@
 | `maze` | `bracket`、`overtime`、`bonus_taken` | 組別（`rookie`、`open`、`unlimited`）；延長賽開了沒有；接受了幾次「加碼」（8.2 節） |
 | `subnet` | `faction`、`facility`、`entry`、`airgap` | 哪一家企業；設施類型（`office`、`logistics`、`lab`、`server`、`store`、`estate`）；`commission`（委託）或 `dig`（自己去挖）；隔離區在哪一層、由哪個連動打開（8.3 節） |
 | `reef` | `reach`、`legs`、`chart` | 去哪一段（`near`、`mid`、`wall`）；每一段的檢定結果與過礁事件；水道圖的來源與失效的日子。這一區沒有格子圖，`layers` 與 `theme` 留空（8.4 節） |
-| `wreck` | `ship`、`reach`、`signal` | 船的種類；位置（`near`、`mid`、`wall`）；目前的登出訊號（8.5 節） |
+| `wreck` | `ship`、`reach`、`signal` | 船的種類；位置（`near`、`mid`、`wall`）；目前的追蹤度（8.5 節） |
 | `deep` | `biomes`、`depth`、`sea` | 走過的海域 id，照順序；現在的深度；每個海域擲到的海況（8.6 節） |
 
 ## 11. 素材、片與直播模板
