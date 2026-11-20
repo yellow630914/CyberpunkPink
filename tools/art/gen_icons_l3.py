@@ -101,8 +101,11 @@ def palette(name, brand):
     return FALLBACK[h(name, len(FALLBACK))]
 
 
+EXTRA_ITEM = [('兔女郎', 'a swimsuit'), ('兔男郎', 'a vest top'), ('逆兔', 'a swimsuit'), ('蜜裁', 'a dress')]  # 主體檔沒對到的補在這裡
+
+
 def subject_of_item(r, subs, item_map):
-    k = item_map.get(r['名字'])
+    k = item_map.get(r['名字']) or next((v for t, v in EXTRA_ITEM if t in r['名字']), None)
     if k and k in subs:
         return k
     k = r['prompt'].split('no letters, ')[1].split(',')[0]

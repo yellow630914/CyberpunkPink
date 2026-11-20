@@ -88,7 +88,7 @@ def tables(path):
             while j < len(lines) and lines[j].startswith('|'):
                 rows.append([x.strip() for x in lines[j].strip().strip('|').split('|')])
                 j += 1
-            yield sec, head, rows, l
+            yield sec, head, rows, i
             i = j
             continue
         i += 1
@@ -137,7 +137,7 @@ def l2_for(sec, head, row, name):
 
 def items():
     out, seen = [], set()
-    for sec, head, rows, raw in tables(os.path.join(DOCS, 'gear', 'ITEMS.md')):
+    for sec, head, rows, idx in tables(os.path.join(DOCS, 'gear', 'ITEMS.md')):
         if head[0] not in ITEM_HEADS:
             continue
         hi = {h: k for k, h in enumerate(head)}
@@ -190,10 +190,9 @@ def skills():
     for i in range(len(text)):
         cur = tree_at.get(i, cur)
         lines_tree.append(cur)
-    for sec, head, rows, raw in tables(path):
+    for sec, head, rows, idx in tables(path):
         if head[:3] != ['技能', '層', '種類']:
             continue
-        idx = text.index(raw)
         tname = lines_tree[idx]
         tier = ''
         for k in range(idx, 0, -1):
@@ -212,10 +211,9 @@ def skills():
     # 夜課：提示詞只用抽象的符號，不畫人體
     path = os.path.join(DOCS, 'content', 'NIGHT_LESSONS.md')
     text = open(path, encoding='utf-8').read().split('\n')
-    for sec, head, rows, raw in tables(path):
+    for sec, head, rows, idx in tables(path):
         if head[0] != '技能' or '掛在' not in head:
             continue
-        idx = text.index(raw)
         branch, tier = '', ''
         for k in range(idx, 0, -1):
             if not tier:

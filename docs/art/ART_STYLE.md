@@ -206,6 +206,11 @@ node tools/art/render.mjs
 
 - [第 1、2 層與技能的備用圖標](style/icons-l2.svg)（[預覽](preview/icons-l2.png)）：物品 46 個、技能 54 個，由 `tools/art/gen_icons.py` 產生。畫面引用 [icons-sprite.svg](style/icons-sprite.svg) 裡的 `ic-<id>`。
 - **一律置中**：產生器先用瀏覽器量每個圖標的幾何外框（存在 `style/icon-centers.json`），再把外框的中心對到 (100, 100)。技能的符號另外縮到 84 以內；心形底框的視覺中心比較低，符號往下放 6。改了圖形就跑一次 `python3 tools/art/gen_icons.py --measure`。
+- **第 3 層已經畫好**（[總覽](../mockups/icons-l3.html)）：物品 1513 個、技能 280 個，由 `tools/art/gen_icons_l3.py` 產生，輸出 [icons-l3-sprite.svg](style/icons-l3-sprite.svg)，id 與下面兩份清單一致。這台機器沒有 GPU，所以沒用 ComfyUI，改成向量拼裝：
+  - 主體圖庫在 `tools/art/subjects/`：武器與工具 39 種、服裝飾品與成人道具 68 種、義體零件與藥品 35 種、技能符號 226 種，一個主體畫一次。成人道具只畫物件，露骨的一律用愛心禮盒；夜課只用抽象符號。
+  - 每件物品的配色先看名字裡的顏色字（黑、白、粉、櫻、金、銀……），再看牌子，都沒有就照名字固定挑一組；名字裡有櫻、蕾絲、心、星、月、蝶、貓、雪、火的，右下角加一個小花紋；IV 級加一顆星光、V 級兩顆；獨特物品背後一圈淡紫的光。
+  - 技能放在樹的底框裡，右下角是樹的徽記，招牌技能頂上多一顆星。
+  - 主體一樣的物品（例如同一系列的晶片）只靠配色、花紋與星光分開；要換成更獨特的圖，在 `subjects/wear.py` 的 `ITEM_SUBJECT` 或 `subjects/skills.py` 的 `SKILL_SUBJECT` 改對應，或加新的主體，再跑 `python3 tools/art/gen_icons_l3.py --measure`。
 - **第 3 層的清單**：`python3 tools/art/icon_manifest.py` 從 ITEMS、SKILL_TREES、NIGHT_LESSONS 讀出每一筆，寫成 [items.csv](icons/items.csv)（物品）與 [skills.csv](icons/skills.csv)（技能與夜課）。每一列有名字、分類、等級、牌子、退回用的第 2 層圖標，以及一段英文提示詞。
 - **提示詞**由這幾段組成：共同的風格句（扁平向量、粗剪影、3～4 色、深色粗輪廓與縫、單一物件置中、純色底、不要文字）、照中文名字推的主體、牌子的設計語言、照等級調的細節量（I 很簡單到 V 很精緻）、獨特物品加一圈淡紫的光，最後是現實皮的配色。夜課的技能只用抽象的符號，不畫人體。
 - **負向提示詞**（全部共用）：`text, letters, watermark, signature, photo, realistic, 3d render, gradient background, multiple objects, cropped, blurry, noisy, nsfw, nudity, gore, blood`。
@@ -220,5 +225,5 @@ node tools/art/render.mjs
 | 地鐵路線圖 | 遊戲內的車站介面 |
 | 潛入畫面樣稿 | 子網的節點圖。現實戰鬥、內海戰鬥與輿論戰的畫面已經有可以操作的 Demo（第 2 節），這三個不必另外畫靜態樣稿 |
 | 義體部位圖 | 人形輪廓與九個部位的槽；[角色與義體](../mockups/character.html)的身體分頁有一版剪影與熱點的位置，正式的圖照它重畫 |
-| 物品圖標 | 第 1、2 層已畫好；第 3 層照 5.1 節的清單用 ComfyUI 一件一件生 |
-| 技能圖標 | 備用圖標已畫好；每個技能自己的圖照 5.1 節的清單生 |
+| 物品圖標 | 三層都已畫好（5.1 節）；之後可以照清單的提示詞用 ComfyUI 換成更精緻的版本 |
+| 技能圖標 | 備用圖標與每個技能自己的圖都已畫好（5.1 節） |
