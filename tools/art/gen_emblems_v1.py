@@ -133,10 +133,17 @@ honey = ('<defs><filter id="neon" x="-30%" y="-30%" width="160%" height="160%"><
          f'<g filter="url(#neon)" fill="none" stroke="#FF4FA3" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"><path d="{lips}"/><path d="M14 60C40 64 80 64 106 60"/></g>'
          '<g fill="none" stroke="#FFD0E6" stroke-width="1.6"><path d="M14 60C26 44 42 38 52 46C56 42 64 42 68 46C78 38 94 44 106 60"/></g>')
 
-# 特攻姬：尖角的紫色菱盾，金線框，裡面是金色的「夜露死苦」。暴走族的味道，所以這一個用字。
-tokko = ('<path d="M60 4L108 32L92 108L60 96L28 108L12 32Z" fill="#7A45D6"/>'
-         '<path d="M60 14L98 36L84 98L60 88L36 98L22 36Z" fill="none" stroke="#F2C14E" stroke-width="2.4"/>'
-         '<text x="47" y="52" fill="#F2C14E" stroke="#17111F" stroke-width="3" paint-order="stroke" font-family="Noto Serif TC, Noto Sans TC, serif" font-weight="900" font-size="26" text-anchor="middle">夜</text><text x="73" y="52" fill="#F2C14E" stroke="#17111F" stroke-width="3" paint-order="stroke" font-family="Noto Serif TC, Noto Sans TC, serif" font-weight="900" font-size="26" text-anchor="middle">露</text><text x="47" y="82" fill="#F2C14E" stroke="#17111F" stroke-width="3" paint-order="stroke" font-family="Noto Serif TC, Noto Sans TC, serif" font-weight="900" font-size="26" text-anchor="middle">死</text><text x="73" y="82" fill="#F2C14E" stroke="#17111F" stroke-width="3" paint-order="stroke" font-family="Noto Serif TC, Noto Sans TC, serif" font-weight="900" font-size="26" text-anchor="middle">苦</text>')
+# 特攻姬：黑色的尖角菱盾，金線框，裡面是白色毛筆字的「夜露死苦」。暴走族的味道，所以這一個用字。
+_G = __import__('json').load(open(__import__('os').path.join(__import__('os').path.dirname(__file__), 'yoroshiku-glyphs.json'), encoding='utf-8'))
+def brush(ch, x, y, size):
+    """毛筆字（Yuji Boku，OFL；tools/art/yoroshiku-glyphs.json）轉成路徑，(x, y) 是字的左上角。"""
+    k = size / 1000
+    return f'<path transform="translate({x} {y}) scale({k})" d="{_G[ch]["d"]}"/>'
+
+tokko = ('<path d="M60 4L108 32L92 108L60 96L28 108L12 32Z" fill="#141018" stroke="#E2B13C" stroke-width="3"/>'
+         '<path d="M60 14L98 36L84 98L60 88L36 98L22 36Z" fill="none" stroke="#E2B13C" stroke-width="1.4"/>'
+         + ''.join(f'<g fill="{f}" stroke="{c}" stroke-width="{w}" stroke-linejoin="round">' + brush('夜', 30, 26, 30) + brush('露', 60, 26, 30) + brush('死', 30, 58, 30) + brush('苦', 60, 58, 30) + '</g>' for f, c, w in (('#141018', '#141018', 70), ('#F3E9FF', '#F3E9FF', 22))) +
+         '<path d="M54 96L60 104L66 96" fill="#E2B13C"/>')
 
 # 牆語者：細線的秘儀符號。圓、倒三角、一道往裡捲的耳形螺旋、放射的短線。單色暗紫（提亮一點才看得見）。
 spiral = 'M60 40c12 0 20 8 20 18s-8 16-16 16-12-6-12-12 4-8 8-8 6 3 6 6'
