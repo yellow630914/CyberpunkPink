@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="zh-Hant" data-skin="real">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>委託畫面 v1</title>
+<style>
+:root{--cut:12px;--cut-sm:7px;--font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",Arial,sans-serif;--mono:ui-monospace,Menlo,Consolas,monospace}
+[data-skin="real"]{--bg:#17111F;--bg-1:#211829;--bg-2:#2C2136;--line:#3A2D47;--ink:#F3E9FF;--ink-2:#C9B8E8;--ink-3:#8C7AA6;
+  --a:#F06AA0;--b:#8E7CC3;--c:#F3E9FF;--o:#17111F;--hp:#FF5A6E;--load:#F06AA0;--sink:#5FB8E8;--ap:#F2C14E;--ram:#45D6C5;--ep:#B39DF0;--net:#45D6C5;
+  --accent:#F06AA0;
+  --grid:linear-gradient(#ffffff06 1px,transparent 1px) 0 0/16px 16px,linear-gradient(90deg,#ffffff06 1px,transparent 1px) 0 0/16px 16px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);background-image:var(--grid);color:var(--ink);font-family:var(--font);font-size:14px}
+.cut{clip-path:polygon(0 0,calc(100% - var(--cut)) 0,100% var(--cut),100% 100%,var(--cut) 100%,0 calc(100% - var(--cut)))}
+.cut-sm{clip-path:polygon(0 0,calc(100% - var(--cut-sm)) 0,100% var(--cut-sm),100% 100%,var(--cut-sm) 100%,0 calc(100% - var(--cut-sm)))}
+.panel{background:var(--bg-1);box-shadow:inset 0 0 0 2px var(--line)}
+.h{font-size:11px;letter-spacing:2px;color:var(--ink-3);font-weight:800;margin:0 0 8px}
+/* 狀態列 */
+.status{height:52px;display:flex;align-items:center;gap:14px;padding:0 16px;background:#120D19;border-bottom:2px solid var(--line)}
+.logo{display:flex;align-items:center;gap:8px;font-weight:900;letter-spacing:1px}
+.logo svg{display:block}
+.st{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);white-space:nowrap}
+.st b{color:var(--ink);font-weight:800}
+.sep{width:2px;height:22px;background:var(--line)}
+.pill{padding:3px 9px;border-radius:999px;background:var(--bg-2);font-size:12px;font-weight:800}
+.pill.hot{background:var(--a);color:#fff}
+.grow{flex:1}
+.ibtn{width:34px;height:34px;display:grid;place-items:center;background:var(--bg-2);position:relative}
+.badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:var(--a);color:#fff;font-size:10px;font-weight:900;display:grid;place-items:center;padding:0 4px}
+/* 三欄 */
+.main{display:grid;grid-template-columns:340px 1fr 330px;gap:12px;padding:12px;height:calc(100% - 52px)}
+.col{display:flex;flex-direction:column;gap:12px;min-height:0}
+/* 地圖 */
+.map{padding:12px 16px 12px 12px}
+.grid{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:2px;width:100%}
+.tile{aspect-ratio:1;border-radius:4px;background:#1A1322;position:relative;min-width:0}
+.tile.st{background:#33274A}
+.tile.bd{background:#1E1627}
+.tile.fac{background:#5B4675;box-shadow:inset 0 -3px 0 #8E7CC3}
+.tile.exit{background:#33274A;box-shadow:inset 0 0 0 2px var(--b)}
+.tile.me{background:var(--a);box-shadow:0 0 10px var(--a)}
+.tile.job::after{content:"";position:absolute;inset:4px;background:var(--ap);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.tile.npc::after{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--c)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--ink-3)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+/* 小隊 */
+.party{padding:12px}
+.mem{display:grid;grid-template-columns:38px 1fr;gap:10px;align-items:center;padding:7px 0}
+.nm{display:flex;align-items:center;gap:6px;font-weight:800;font-size:13px}
+.nm .role{margin-left:auto;color:var(--ink-3);font-weight:700;font-size:11px}
+.sink{width:46px;height:10px;position:relative;border-left:1px solid #F06AA0;border-right:1px solid #F06AA0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cg fill='none' stroke='%23F06AA0' stroke-width='1.4' stroke-linecap='round' opacity='0.22'%3E%3Cpath d='M0 5Q3 0 6 5T12 5'/%3E%3Cpath d='M3 2.6V5.4M9 7.4V4.6'/%3E%3C/g%3E%3C/svg%3E") 0 0/12px 10px repeat-x}
+.sink b{position:absolute;inset:0 auto 0 0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cg fill='none' stroke='%23F06AA0' stroke-width='1.4' stroke-linecap='round' opacity='1'%3E%3Cpath d='M0 5Q3 0 6 5T12 5'/%3E%3Cpath d='M3 2.6V5.4M9 7.4V4.6'/%3E%3C/g%3E%3C/svg%3E") 0 0/12px 10px repeat-x;animation:flow 1.1s linear infinite;filter:drop-shadow(0 0 3px #F06AA088)}
+.sv{font:800 10px var(--mono);color:#F58DBA}
+.hb{height:8px;border-radius:4px;background:#2E2339;margin-top:5px;position:relative;overflow:hidden}
+.hb b{position:absolute;inset:0 auto 0 0;border-radius:4px 0 0 4px}
+.hb.hp b{background:linear-gradient(90deg,#FF4A4A,#FF8A5C);--end:#FF8A5C}
+.hb.ld b{background:repeating-linear-gradient(120deg,#F06AA0 0 6px,#F58DBA 6px 9px);--end:#F58DBA}
+.hb b::after{content:"";position:absolute;left:100%;top:0;bottom:0;width:5px;background:var(--end);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='8'%3E%3Cpath d='M0 0H2.5Q5 2 2.5 4Q0 6 2.5 8H0Z'/%3E%3C/svg%3E") 0 0/5px 8px repeat-y;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='8'%3E%3Cpath d='M0 0H2.5Q5 2 2.5 4Q0 6 2.5 8H0Z'/%3E%3C/svg%3E") 0 0/5px 8px repeat-y;animation:wave 1.8s linear infinite}
+.hb.ld b::after{animation-duration:1.4s}
+.hb b[style*="100%"]{border-radius:4px}.hb b[style*="100%"]::after{display:none}
+.ldrow{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}
+.ldrow .ag{margin-top:5px}
+@keyframes wave{to{-webkit-mask-position:0 8px;mask-position:0 8px}}
+@keyframes flow{to{background-position:12px 0}}
+@media (prefers-reduced-motion:reduce){.sink b,.hb b::after{animation:none}}
+
+.ava{width:38px;height:38px;border-radius:10px;background:var(--bg-2);position:relative;overflow:hidden}
+.ava::before{content:"";position:absolute;left:10px;top:7px;width:18px;height:18px;border-radius:50%;background:var(--b)}
+.ava::after{content:"";position:absolute;left:4px;top:24px;width:30px;height:20px;border-radius:12px 12px 0 0;background:var(--b)}
+.ava.me::before,.ava.me::after{background:var(--a)}
+.nm{display:flex;justify-content:space-between;font-weight:800;font-size:13px}
+.nm span{color:var(--ink-3);font-weight:700;font-size:11px}
+.mini{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:4px}
+.mini i{height:6px;border-radius:3px;background:var(--bg-2);position:relative;overflow:hidden}
+.mini i b{position:absolute;inset:0;border-radius:3px}
+.ag{display:flex;gap:3px;margin-top:4px}
+.ag i{width:9px;height:6px;border-radius:2px;background:var(--bg-2)}
+.ag i.on{background:var(--load)}
+/* 委託條 */
+.job{padding:12px}
+.job .t{font-weight:900}
+.stages{display:flex;gap:6px;margin-top:8px}
+.stage{flex:1;padding:6px 6px 7px;background:var(--bg-2);font-size:11px;color:var(--ink-3);font-weight:700}
+.stage.done{background:#3A2B47;color:var(--ink-2)}
+.stage.now{background:var(--a);color:#fff}
+.faces{display:flex;gap:4px;margin-top:4px}
+.faces i{width:16px;height:5px;border-radius:2px;background:#ffffff22}
+.faces i.m{background:var(--ink-2)}.faces i.n{background:var(--net)}.faces i.o{background:var(--ep)}
+/* 中欄 */
+.tools{display:flex;gap:6px;padding:8px;flex-wrap:wrap}
+.tool{display:flex;align-items:center;gap:6px;padding:7px 12px;background:var(--bg-2);font-weight:800;font-size:13px;color:var(--ink-2);position:relative}
+.tool svg{display:block}
+.tool .badge{top:-5px;right:-5px}
+.log{flex:1;overflow:auto;padding:4px 18px 10px}
+.entry{padding:14px 0 16px;border-bottom:2px solid var(--line)}
+.sys{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-bottom:8px}
+.sys b{color:var(--accent)}
+.prose{line-height:1.9;font-size:15px;max-width:720px}
+.prose p{margin:0 0 10px}
+.prose .netp{border-left:3px solid var(--net);padding-left:12px;font-family:var(--mono);font-size:13.5px;color:var(--ink-2)}
+.check{display:flex;align-items:stretch;border-radius:12px;overflow:hidden;background:var(--bg-2);max-width:520px;margin:10px 0}
+.check .d{background:var(--a);color:#fff;font-weight:900;font-size:20px;padding:6px 14px;display:grid;place-items:center}
+.check .info{padding:7px 12px;font-size:12.5px}
+.grade{display:inline-block;padding:1px 8px;border-radius:6px;background:var(--c);color:var(--bg);font-weight:800}
+.twist{color:var(--a);font-weight:800}
+.chg{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chg span{font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:var(--bg-2);color:var(--ink-2)}
+.chg .plus{color:var(--ram)} .chg .minus{color:var(--hp)}
+.chain{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;font-weight:800;margin-top:10px}
+.step{padding:3px 9px;border-radius:999px;background:var(--bg-2);color:var(--ink-3)}
+.step.ok{background:#3A2B47;color:var(--ink-2)}
+.step.run{background:var(--bg-1);color:var(--ink);box-shadow:inset 0 0 0 2px var(--a)}
+.arrow{color:var(--ink-3)}
+.thin{height:6px;border-radius:3px;background:var(--bg-2);display:flex;gap:3px;margin-top:10px;max-width:220px;overflow:hidden}
+.thin i{flex:1;background:#3A2B47}
+.entry-tools{display:flex;gap:6px;margin-top:10px}
+.mini-btn{font-size:11px;font-weight:800;padding:4px 10px;background:var(--bg-2);color:var(--ink-3)}
+/* 行動列 */
+.act{padding:10px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.input{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#120D19;box-shadow:inset 0 0 0 2px var(--line);color:var(--ink-3)}
+.input .die{width:26px;height:26px;background:var(--a);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.ctx{display:flex;gap:6px}
+.btn{font:800 13px var(--font);border:0;padding:11px 14px;cursor:pointer;background:var(--bg-2);color:var(--ink)}
+.btn.pri{background:var(--a);color:#fff}
+/* 右欄 */
+.here{padding:12px}
+.person{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center;padding:8px;background:var(--bg-2);border-radius:12px;margin-bottom:8px}
+.person .ava{width:44px;height:44px}
+.person .r{font-size:11px;color:var(--ink-3)}
+.heart{color:var(--a);font-size:11px;font-weight:800}
+.fac-tag{font-size:10px;font-weight:800;padding:1px 6px;border-radius:5px;background:#3A2B47;color:var(--ink-2);margin-left:4px}
+.acts{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.acts span{font-size:11px;font-weight:800;padding:3px 8px;border-radius:7px;background:var(--bg-1);color:var(--ink-2)}
+.acts span.hot{background:var(--a);color:#fff}
+.svc{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg-2);border-radius:10px;margin-bottom:6px;font-weight:700}
+.svc span{font-family:var(--mono);font-size:12px;color:var(--ap)}
+.ong{padding:8px 10px;background:var(--bg-2);border-radius:10px;margin-bottom:6px;font-size:13px}
+.ong small{display:block;color:var(--ink-3);font-size:11px;margin-top:2px}
+.ong .k{font-size:10px;font-weight:900;padding:1px 6px;border-radius:5px;margin-right:6px;color:#17111F}
+.tick{position:absolute;top:7px;right:20px;width:16px;height:4px;background:var(--a)}
+.rel{position:relative}
+
+/* ===== 手機版 ===== */
+.mobile{display:none}
+@media (max-width:720px){
+  .status .hide-m,.main{display:none}
+  .status{height:48px;gap:10px;padding:0 12px}
+  .mobile{display:flex;flex-direction:column;height:calc(100% - 48px)}
+  .m-map{padding:8px 40px 6px}
+  .m-map .grid{gap:2px}
+  .m-log{flex:1;overflow:auto;padding:0 14px}
+  .m-log .prose{font-size:15px}
+  .m-ctx{padding:8px 12px;display:grid;gap:8px}
+  .tabs{display:grid;grid-template-columns:repeat(5,1fr);background:#120D19;border-top:2px solid var(--line)}
+  .tab{display:grid;place-items:center;gap:3px;padding:8px 0 10px;font-size:11px;font-weight:800;color:var(--ink-3);position:relative}
+  .tab.on{color:var(--a)}
+  .tab.on::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;background:var(--a);border-radius:0 0 3px 3px}
+}
+/* ==== FX：邊框、呼吸燈、心跳背景、滑鼠特效 ==== */
+@property --fr{syntax:'<color>';inherits:true;initial-value:#4A3560}
+@keyframes breathe{0%,100%{--fr:#45305C}50%{--fr:#B0508A}}
+@keyframes bracket{0%,100%{opacity:.45}50%{opacity:1}}
+[data-skin="real"] .panel{position:relative;background:var(--fr)!important;box-shadow:none!important;isolation:isolate;animation:breathe 3.6s ease-in-out infinite}
+[data-skin="real"] .panel::before{content:"";position:absolute;inset:2px;z-index:-1;background:color-mix(in srgb,var(--bg-1) 86%,transparent);backdrop-filter:blur(1px);
+  clip-path:polygon(0 0,calc(100% - var(--cut) + 1px) 0,100% calc(var(--cut) - 1px),100% 100%,calc(var(--cut) - 1px) 100%,0 calc(100% - var(--cut) + 1px))}
+[data-skin="real"] .panel::after{content:"";position:absolute;inset:6px;pointer-events:none;z-index:2;animation:bracket 3.6s ease-in-out infinite;
+  background:
+   linear-gradient(var(--a),var(--a)) left top/16px 2px no-repeat,
+   linear-gradient(var(--a),var(--a)) left top/2px 16px no-repeat,
+   linear-gradient(var(--a),var(--a)) right bottom/16px 2px no-repeat,
+   linear-gradient(var(--a),var(--a)) right bottom/2px 16px no-repeat,
+   repeating-linear-gradient(90deg,var(--b) 0 6px,transparent 6px 10px) left 26px top 0/44px 2px no-repeat}
+.ecg{position:fixed;left:0;right:0;top:50%;height:360px;transform:translateY(-50%);width:100%;pointer-events:none;z-index:5}
+[data-skin="real"] .ecg,[data-skin="real"]>.ecg,html[data-skin="real"] .ecg{mix-blend-mode:screen}
+.ecg .base{fill:none;stroke-width:2.5;stroke-linejoin:round;opacity:.16}
+.ecg .beat{fill:none;stroke-width:4;stroke-linejoin:round;filter:drop-shadow(0 0 8px currentColor)}
+@keyframes ecg{from{stroke-dashoffset:2660}to{stroke-dashoffset:0}}
+body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
+.fxl{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden}
+.fxp{position:absolute;will-change:transform,opacity}
+@keyframes px{to{transform:translate(var(--dx),var(--dy)) scale(.3);opacity:0}}
+@keyframes rise{to{transform:translate(var(--dx),-46px) rotate(var(--r)) scale(.6);opacity:0}}
+@keyframes ring{from{transform:translate(-50%,-50%) scale(.2);opacity:1}to{transform:translate(-50%,-50%) scale(1);opacity:0}}
+@keyframes burst{to{transform:translate(var(--dx),var(--dy)) rotate(var(--r)) scale(.5);opacity:0}}
+@keyframes ack{0%{opacity:0;transform:translate(10px,-6px)}20%{opacity:1}100%{opacity:0;transform:translate(16px,-18px)}}
+@media (prefers-reduced-motion:reduce){[data-skin="real"] .panel,[data-skin="real"] .panel::after,.ecg .beat{animation:none}.fxl{display:none}}
+
+/* ===== 委託畫面 ===== */
+[data-skin="real"]{--meat:#C9B8E8;--net:#45D6C5;--media:#B39DF0}
+.flow{display:flex;align-items:center;gap:0;padding:10px 16px 0}
+.fstep{display:flex;align-items:center;gap:8px;padding:9px 18px 9px 14px;background:var(--bg-2);color:var(--ink-3);font-weight:800;font-size:13px;cursor:pointer;margin-right:-6px;
+  clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%,12px 50%)}
+.fstep:first-child{clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%)}
+.fstep .n{font:900 11px var(--mono);width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:#ffffff14}
+.fstep.done{background:#3A2B47;color:var(--ink-2)}
+.fstep.on{background:var(--a);color:#fff}.fstep.on .n{background:#fff;color:var(--a)}
+.flow .fill{flex:1}
+.flow .meta{font-size:12px;color:var(--ink-3);font-weight:700}
+.flow .meta b{color:var(--ink)}
+.view{display:none;padding:12px;gap:12px;height:calc(100% - 52px - 48px)}
+.view.on{display:grid}
+.pad{padding:14px 16px}
+.scroll{overflow:auto;min-height:0}
+.row{display:flex;align-items:center;gap:8px}
+.k{font-size:11px;color:var(--ink-3);font-weight:800;letter-spacing:1px}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;background:var(--bg-2);color:var(--ink-2);white-space:nowrap}
+.tag.warn{color:#FF8A5C}.tag.pink{background:var(--a);color:#fff}
+.face{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:900;padding:2px 7px 2px 4px;border-radius:6px;color:#17111F}
+.face svg{display:block}
+.face.m{background:var(--meat)}.face.n{background:var(--net)}.face.o{background:var(--media)}
+.face.q{background:var(--bg-2);color:var(--ink-3);padding:2px 7px}
+.face.main{box-shadow:0 0 0 2px var(--ap)}
+.star{color:var(--ap);font-weight:900}
+.mono{font-family:var(--mono)}
+.hr{height:2px;background:var(--line);margin:12px 0}
+.grade{display:inline-block;padding:1px 7px;border-radius:6px;background:var(--c);color:var(--bg);font:900 11px var(--mono)}
+
+/* 接案 */
+#v-take{grid-template-columns:330px 1fr 300px}
+.card{padding:12px;background:var(--bg-2);margin-bottom:8px;cursor:pointer;position:relative}
+.card.on{background:#3A2B47;box-shadow:inset 3px 0 0 var(--a)}
+.card .t{font-weight:900;font-size:14px;margin:4px 0 6px}
+.card .pay{position:absolute;right:12px;top:12px;font:800 13px var(--mono);color:var(--ap)}
+.card .sub{display:flex;gap:6px;flex-wrap:wrap}
+.card.lock{opacity:.5}
+.brief h2{margin:2px 0 4px;font-size:22px;font-weight:900}
+.brief .say{margin:12px 0;padding:12px 14px;background:#120D19;border-left:3px solid var(--a);line-height:1.9;font-size:14.5px}
+.brief .say .who{font-size:11px;font-weight:900;color:var(--a);letter-spacing:1px;display:block;margin-bottom:4px}
+.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.fact{padding:9px 11px;background:var(--bg-2)}
+.fact b{display:block;font-size:15px;margin-top:3px}
+.stg-pre{display:flex;gap:6px;margin-top:6px}
+.stg-pre div{flex:1;padding:8px;background:var(--bg-2);font-size:12px;font-weight:800;color:var(--ink-3)}
+.stg-pre div .faces{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.flaw{margin-top:10px;padding:9px 12px;background:#2A1A2A;font-size:13px;display:flex;gap:10px;align-items:center}
+.flaw .d{background:var(--a);color:#fff;font:900 13px var(--mono);padding:3px 8px;border-radius:6px}
+.neg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.slot{padding:10px;background:var(--bg-2)}
+.slot .v{font:900 16px var(--mono);margin:4px 0 6px}
+.slot .bar{height:6px;border-radius:3px;background:#120D19;position:relative}
+.slot .bar b{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--a)}
+.slot .bar i{position:absolute;top:-4px;width:2px;height:14px;background:var(--ink)}
+.slot small{display:block;margin-top:6px;font-size:11px;color:var(--ink-3)}
+.fixer{display:grid;grid-template-columns:64px 1fr;gap:12px;align-items:center}
+.fixer .ava{width:64px;height:64px;border-radius:14px}
+.fixer .ava::before{left:18px;top:10px;width:28px;height:28px}.fixer .ava::after{left:7px;top:40px;width:50px;height:30px}
+.kv{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.kv span{color:var(--ink-3)}
+
+/* 踩點 */
+#v-scout{grid-template-columns:1fr 360px}
+.unk{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.u{padding:11px 12px;background:var(--bg-2);display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:start}
+.u .c{font-size:10px;font-weight:900;padding:2px 6px;border-radius:5px;background:#120D19;color:var(--ink-2);letter-spacing:1px}
+.u .x{font-size:13px;font-weight:700;line-height:1.6}
+.u .g{grid-column:2;font-size:11px;color:var(--ram);font-weight:800}
+.u.hid{background:repeating-linear-gradient(135deg,#221A2B 0 8px,#261D30 8px 16px)}
+.u.hid .x{font-family:var(--mono);color:var(--ink-3);letter-spacing:3px}
+.u.hid .g{color:var(--ink-3)}
+.u.new{box-shadow:inset 0 0 0 2px var(--a)}
+.means{display:grid;gap:6px}
+.mean{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 12px;background:var(--bg-2);cursor:pointer}
+.mean b{font-size:14px}
+.mean .dc{grid-row:span 2;align-self:center;text-align:right;font:900 15px var(--mono);color:var(--ink)}
+.mean .dc small{display:block;font:700 10px var(--font);color:var(--ink-3)}
+.mean .s{font-size:11.5px;color:var(--ink-3)}
+.mean.on{background:#3A2B47;box-shadow:inset 3px 0 0 var(--a)}
+.mean.risk .s::after{content:" · 第 4 次起難度 +1";color:#FF8A5C}
+.tries{display:flex;gap:5px;align-items:center}
+.tries i{width:26px;height:8px;border-radius:2px;background:var(--bg-2)}
+.tries i.used{background:var(--a)}
+.tries i.warn{box-shadow:inset 0 0 0 2px #FF8A5C}
+
+/* 召集 */
+#v-call{grid-template-columns:1fr 1fr}
+.slots{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.mslot{padding:10px;background:var(--bg-2);min-height:116px;display:flex;flex-direction:column;gap:6px}
+.mslot .ava{width:44px;height:44px}
+.mslot .nmx{font-weight:900;font-size:14px}
+.mslot .r{font-size:11px;color:var(--ink-3);font-weight:700}
+.mslot.empty{background:transparent;border:2px dashed var(--line);align-items:center;justify-content:center;color:var(--ink-3);font-weight:800;font-size:12px}
+.lane{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 12px;background:var(--bg-2);margin-bottom:8px}
+.lane .who{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border-radius:999px;background:#120D19;font-size:12px;font-weight:800}
+.chip .dot{width:20px;height:20px;border-radius:50%;background:var(--b)}
+.chip .w{font-size:10px;color:var(--ram)}
+.chip.add{padding:4px 10px;color:var(--ink-3);background:transparent;border:1px dashed var(--line)}
+.pay4{display:flex;gap:4px}
+.pay4 span{font-size:11px;font-weight:800;padding:3px 8px;border-radius:6px;background:#120D19;color:var(--ink-3)}
+.pay4 span.on{background:var(--a);color:#fff}
+.odds{font:800 11px var(--mono);color:var(--ink-2);text-align:right}
+.odds b{display:block;font-size:15px;color:var(--ram)}
+.split{display:flex;height:22px;border-radius:6px;overflow:hidden;font:800 10px var(--mono)}
+.split div{display:grid;place-items:center;color:#17111F}
+.locked{display:flex;gap:6px;flex-wrap:wrap}
+.locked span{font-size:12px;font-weight:800;padding:5px 10px;background:var(--bg-2);border-radius:6px}
+
+/* 副本 */
+#v-run{grid-template-columns:1fr 330px;grid-template-rows:auto 1fr}
+.runhead{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr auto auto;gap:18px;align-items:center}
+.runhead h2{margin:0;font-size:18px;font-weight:900}
+.press{display:grid;grid-template-columns:auto 150px auto;gap:4px 8px;align-items:center;font-size:12px;font-weight:800}
+.press .pb{height:8px;border-radius:4px;background:#2E2339;position:relative;overflow:hidden}
+.press .pb b{position:absolute;inset:0 auto 0 0;border-radius:4px 0 0 4px}
+.press .pb i{position:absolute;top:0;bottom:0;width:2px;background:#17111F}
+.press .v{font-family:var(--mono)}
+/* 階段軌 */
+.track{display:grid;grid-template-columns:repeat(4,1fr);gap:0;position:relative;margin:4px 0 2px}
+.track::before{content:"";position:absolute;left:12.5%;right:12.5%;top:21px;height:3px;background:var(--line)}
+.track .prog{position:absolute;left:12.5%;top:21px;height:3px;width:25%;background:linear-gradient(90deg,var(--a),#F58DBA);box-shadow:0 0 8px var(--a)}
+.node{display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;text-align:center}
+.node .dia{width:44px;height:44px;display:grid;place-items:center;background:#3A2D47;font:900 15px var(--mono);color:var(--ink-3);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.node.done .dia{background:#5B4675;color:var(--ink)}
+.node.now .dia{background:var(--a);color:#fff;filter:drop-shadow(0 0 8px var(--a))}
+.node.final .dia{background:#4A3A2A;color:var(--ap);font-size:18px}
+.node .nt{font-size:12px;font-weight:900}
+.node .nf{display:flex;gap:3px;flex-wrap:wrap;justify-content:center}
+.node .pick{font-size:10.5px;color:var(--ink-3);font-weight:700}
+.node.now .nt{color:var(--a)}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+.node.now .dia{animation:pulse 2.4s ease-in-out infinite}
+/* 階段內 */
+.phase{display:flex;gap:6px;margin:4px 0 12px;flex-wrap:wrap}
+.phase span{font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--bg-2);color:var(--ink-3)}
+.phase span.ok{background:#3A2B47;color:var(--ink-2)}
+.phase span.on{background:var(--bg-1);color:var(--ink);box-shadow:inset 0 0 0 2px var(--a)}
+.fcards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.fc{padding:12px;background:var(--bg-2);position:relative;cursor:pointer;display:flex;flex-direction:column;gap:8px;min-height:150px}
+.fc .top{display:flex;align-items:center;gap:8px}
+.fc .top .big{width:34px;height:34px;display:grid;place-items:center;border-radius:9px}
+.fc .top b{font-size:16px}
+.fc .d{font-size:12.5px;line-height:1.7;color:var(--ink-2)}
+.fc .role{margin-top:auto;font-size:11px;font-weight:800;padding:6px 8px;background:#120D19;display:flex;justify-content:space-between;align-items:center}
+.fc.play{background:#33213F;box-shadow:inset 0 0 0 2px var(--a)}
+.fc.play .role{background:var(--a);color:#fff}
+.fc.sup .role{color:var(--ram)}
+.fc.off{opacity:.38;cursor:default;background:repeating-linear-gradient(135deg,#221A2B 0 8px,#261D30 8px 16px)}
+.fc .seal{position:absolute;right:10px;top:10px;font-size:10px;font-weight:900;letter-spacing:1px;color:var(--a)}
+.rolls{display:flex;align-items:center;gap:10px;padding:8px 10px;background:#120D19;margin-top:10px;font-size:12.5px}
+.rolls .d20{width:30px;height:30px;display:grid;place-items:center;background:var(--net);color:#17111F;font:900 13px var(--mono);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.rolls .res{margin-left:auto;font-weight:900;color:var(--ram)}
+.branches{display:grid;gap:6px;margin-top:6px}
+.br{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:10px 12px;background:var(--bg-2);cursor:pointer}
+.br .ic{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;background:#120D19;font:900 12px var(--mono)}
+.br b{font-size:14px}
+.br .s{font-size:12px;color:var(--ink-3);margin-top:2px}
+.br .eff{text-align:right;font-size:11px;font-weight:800;line-height:1.6}
+.br .src{font-size:10px;font-weight:900;padding:1px 6px;border-radius:5px;margin-left:6px;vertical-align:1px}
+.src.lk{background:var(--net);color:#17111F}.src.sc{background:var(--ap);color:#17111F}
+.br.on{background:#3A2B47;box-shadow:inset 3px 0 0 var(--a)}
+.br.no{opacity:.4;cursor:default}
+.up{color:#FF8A5C}.down{color:var(--ram)}
+.go{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+/* 右欄：連動 */
+.link{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;padding:9px 10px;background:var(--bg-2);margin-bottom:6px}
+.link .kind{grid-row:span 2;font-size:10px;font-weight:900;padding:3px 6px;border-radius:5px;align-self:start;color:#17111F}
+.kind.dai{background:var(--ram)}.kind.jian{background:var(--ep)}.kind.kai{background:var(--ap)}
+.link b{font-size:13px}
+.link small{font-size:11px;color:var(--ink-3)}
+.link.used{opacity:.45}
+.link.hid b{font-family:var(--mono);color:var(--ink-3);letter-spacing:2px}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 2px var(--line);color:var(--ink-3)}
+
+@media (max-width:720px){
+  .flow{overflow-x:auto;padding:8px 10px 0}.flow .meta{display:none}
+  .fstep{padding:8px 14px 8px 10px;font-size:12px;flex:none}
+  .view.on{display:flex;flex-direction:column;height:auto;padding:10px}
+  .facts,.neg,.slots{grid-template-columns:1fr 1fr}
+  .unk,.fcards{grid-template-columns:1fr}
+  .fc{min-height:0}.fc.off{display:none}
+  .runhead{grid-template-columns:1fr;gap:8px}
+  .track::before{top:17px}.track .prog{top:17px}
+  .node .dia{width:36px;height:36px}.node .pick{display:none}
+  .lane{grid-template-columns:auto 1fr}.lane .odds{grid-column:1/-1;text-align:left}
+}
+
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="f-m" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M3 21V8l7-4v17zM11 21V9h10v12zM5.5 9h2v2h-2zM5.5 13h2v2h-2zM13.5 12h2v2h-2zM17 12h2v2h-2zM13.5 16h2v2h-2zM17 16h2v2h-2z"/></symbol>
+    <symbol id="f-n" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M4 10 5.5 3l4.5 4h4l4.5-4L20 10v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4zM8 12h3v3H8zM13 12h3v3h-3z"/></symbol>
+    <symbol id="f-o" viewBox="0 0 24 24"><path fill="currentColor" d="M2.5 9.5h4l9-5v15l-9-5h-4zM7 15.5h3l1 4.5H8z"/><path fill="currentColor" d="M17.5 8.2a5 5 0 0 1 0 7.6l-1.3-1.5a3 3 0 0 0 0-4.6zM19.8 5.6a8.6 8.6 0 0 1 0 12.8l-1.3-1.5a6.6 6.6 0 0 0 0-9.8z"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6z" fill="#F3E9FF"/><circle cx="12" cy="19.5" r="2.2" fill="#F06AA0"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="3" rx="1.5" fill="#F3E9FF"/><rect x="4" y="10.5" width="16" height="3" rx="1.5" fill="#F3E9FF"/><rect x="4" y="16" width="10" height="3" rx="1.5" fill="#F06AA0"/></symbol>
+  </defs>
+</svg>
+
+<header class="status">
+  <div class="logo"><svg width="30" height="30" viewBox="0 0 600 600"><path fill="#45D6C5" stroke="#F3E9FF" stroke-width="22" d="M222 170 H388 L422 204 V338 Q422 382 378 382 H222 Q178 382 178 338 V214 Q178 170 222 170 Z"/><path fill="#F06AA0" stroke="#F3E9FF" stroke-width="20" d="M196 214 L214 102 L282 176 Z M404 214 L386 102 L318 176 Z"/><path fill="#F06AA0" d="M300 334 C 236 292 236 222 276 222 C 290 222 298 232 300 242 C 302 232 310 222 324 222 C 364 222 364 292 300 334 Z"/></svg><span class="hide-m">CYBERPUNK PINK</span></div>
+  <div class="sep hide-m"></div>
+  <div class="st"><b>第 12 天</b> 週五 <b>23:40</b></div>
+  <div class="sep hide-m"></div>
+  <div class="st hide-m"><span class="pill hot">四十二番街</span> 夢露的店・後場</div>
+  <div class="sep hide-m"></div>
+  <div class="st"><b>C$ 3,420</b></div>
+  <div class="st hide-m"><span class="pill">帳單 3 天</span></div>
+  <div class="st hide-m">敵對值 <span class="pill" style="color:#FF5A6E">緋櫻 62</span><span class="pill">野良 30</span></div>
+  <div class="grow"></div>
+  <div class="ibtn cut-sm"><svg width="20" height="20"><use href="#i-bell"/></svg><span class="badge">2</span></div>
+  <div class="ibtn cut-sm"><svg width="20" height="20"><use href="#i-menu"/></svg></div>
+</header>
+
+<nav class="flow">
+  <div class="fstep done" data-v="take"><span class="n">1</span>接案</div>
+  <div class="fstep done" data-v="scout"><span class="n">2</span>踩點</div>
+  <div class="fstep done" data-v="call"><span class="n">3</span>召集</div>
+  <div class="fstep on" data-v="run"><span class="n">4</span>副本</div>
+  <div class="fill"></div>
+  <div class="meta">委託：<b>藍鯨物流的帳本</b>　竊密・主面 <span class="face n"><svg width="14" height="14"><use href="#f-n"/></svg>內海</span>　<span class="grade">II</span></div>
+</nav>
+
+<!-- ============ ① 接案 ============ -->
+<section class="view" id="v-take">
+  <div class="panel cut pad scroll">
+    <p class="h">夢露手上的案子</p>
+    <div class="card cut-sm on"><span class="pay">C$ 6,800</span>
+      <div class="row"><span class="grade">II</span><span class="face n main"><svg width="14" height="14"><use href="#f-n"/></svg>內海</span><span class="tag">竊密</span></div>
+      <div class="t">藍鯨物流的帳本</div>
+      <div class="sub"><span class="tag">中型・4 階段</span><span class="tag warn">不准死人</span></div></div>
+    <div class="card cut-sm"><span class="pay">C$ 5,200</span>
+      <div class="row"><span class="grade">II</span><span class="face m main"><svg width="14" height="14"><use href="#f-m"/></svg>現實</span><span class="tag">挖角</span></div>
+      <div class="t">把她從片場帶出來</div>
+      <div class="sub"><span class="tag">小型・3 階段</span><span class="tag warn">要活的</span></div></div>
+    <div class="card cut-sm"><span class="pay">C$ 3,100</span>
+      <div class="row"><span class="grade">I</span><span class="face o main"><svg width="14" height="14"><use href="#f-o"/></svg>輿論</span><span class="tag">滅火</span></div>
+      <div class="t">偶像社團的那段直播</div>
+      <div class="sub"><span class="tag">小型・3 階段</span><span class="tag warn">不准曝光</span></div></div>
+    <div class="card cut-sm lock"><span class="pay">C$ ？？</span>
+      <div class="row"><span class="grade">III</span><span class="face q">？</span><span class="tag">抹除</span></div>
+      <div class="t">夢露說你還不夠格</div>
+      <div class="sub"><span class="tag">街頭信譽 50 以上</span></div></div>
+  </div>
+
+  <div class="panel cut pad scroll brief">
+    <p class="h">簡報</p>
+    <div class="row"><span class="grade">II</span><span class="tag">竊密（資料）</span><span class="tag">中型・4 階段</span><span class="tag">歷練 35</span></div>
+    <h2>藍鯨物流的帳本</h2>
+    <div class="facts">
+      <div class="fact"><span class="k">目標</span><b>一份加密的內帳</b></div>
+      <div class="fact"><span class="k">地點</span><b>舊港・第三倉辦公層</b></div>
+      <div class="fact"><span class="k">主面</span><b><span class="face n main"><svg width="14" height="14"><use href="#f-n"/></svg>內海</span> 下載檔案</b></div>
+      <div class="fact"><span class="k">條件</span><b style="color:#FF8A5C">不准死人</b></div>
+    </div>
+    <div class="say"><span class="who">夢露願意說的</span>藍鯨這陣子帳目亂得很，有人想在他們發現之前先看一眼。東西在第三倉樓上的機房，聽說那間機房沒接外網，你大概得先進樓。別殺人，雇主特別交代過，屍體會讓警察比你先翻到帳本。</div>
+    <div class="flaw cut-sm"><span class="d">街頭直覺 17</span><span>你注意到一個破綻：雇主說自己是同業，付的訂金卻是緋櫻系的晶片。</span></div>
+    <div class="hr"></div>
+    <p class="h">後面的階段（要踩點才知道）</p>
+    <div class="stg-pre">
+      <div class="cut-sm">第一階段<div class="faces"><span class="face q">？</span></div></div>
+      <div class="cut-sm">第二階段<div class="faces"><span class="face q">？</span></div></div>
+      <div class="cut-sm">第三階段<div class="faces"><span class="face q">？</span></div></div>
+      <div class="cut-sm" style="color:var(--ink-2)">第四階段 <span class="star">★</span><div class="faces"><span class="face n main"><svg width="14" height="14"><use href="#f-n"/></svg>內海</span></div></div>
+    </div>
+    <div class="hr"></div>
+    <p class="h">談判</p>
+    <div class="neg">
+      <div class="slot cut-sm"><span class="k">報酬</span><div class="v">C$ 7,400</div><div class="bar"><b style="width:62%"></b><i style="left:75%"></i></div><small>她的底線大概在白線那裡</small></div>
+      <div class="slot cut-sm"><span class="k">預付</span><div class="v">30%</div><div class="bar"><b style="width:30%"></b><i style="left:40%"></i></div><small>接案時先拿 C$ 2,220</small></div>
+      <div class="slot cut-sm"><span class="k">裝備補助</span><div class="v">C$ 400</div><div class="bar"><b style="width:40%"></b><i style="left:50%"></i></div><small>只能在她的店裡用</small></div>
+      <div class="slot cut-sm"><span class="k">她抽成</span><div class="v">15%</div><div class="bar"><b style="width:15%"></b><i style="left:12%"></i></div><small>壓到白線以下她會不高興</small></div>
+    </div>
+    <div class="go"><button class="btn ghost cut-sm">不接</button><button class="btn cut-sm">再談一輪（交涉）</button><button class="btn pri cut-sm">接案</button></div>
+  </div>
+
+  <div class="col">
+    <div class="panel cut pad">
+      <p class="h">中間人</p>
+      <div class="fixer"><div class="ava"></div><div><b style="font-size:16px">夢露</b><div class="k" style="margin-top:2px">四十二番街的中間人・39</div><div class="heart" style="margin-top:6px">親密 42・信任</div></div></div>
+      <div class="hr"></div>
+      <div class="kv"><span>街頭信譽</span><b>38</b></div>
+      <div class="kv"><span>跟她接過的案</span><b>4 件・全數達成</b></div>
+      <div class="kv"><span>她欠你的人情</span><b>小 ×1</b></div>
+      <div class="kv"><span>你手上進行中的</span><b>0 件</b></div>
+    </div>
+    <div class="panel cut pad">
+      <p class="h">這件事對你的帳</p>
+      <div class="kv"><span>帳單</span><b>3 天後 C$ 1,800</b></div>
+      <div class="kv"><span>談成後的分帳（估）</span><b class="mono" style="color:var(--ap)">C$ 6,290</b></div>
+      <div class="kv"><span>會惹到的人</span><b style="color:#FF5A6E">藍鯨・夜鶯</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ② 踩點 ============ -->
+<section class="view" id="v-scout">
+  <div class="panel cut pad scroll">
+    <div class="row" style="justify-content:space-between"><p class="h" style="margin:0">未知清單・已揭開 3／7</p>
+      <div class="tries"><span class="k">踩點次數</span><i class="used"></i><i class="used"></i><i></i><i class="warn"></i><span class="mono" style="font-size:12px;color:var(--ink-2)">2／4</span></div></div>
+    <div class="hr"></div>
+    <div class="unk">
+      <div class="u cut-sm"><span class="c">階段</span><span class="x">第一階段可以選：現實、內海、輿論</span><span class="g">實地勘查 揭開</span></div>
+      <div class="u cut-sm new"><span class="c">階段</span><span class="x">第二階段可以選：現實、內海</span><span class="g">淺層駭入 揭開・剛剛</span></div>
+      <div class="u cut-sm new"><span class="c">蕾絲</span><span class="x">子網三層，藍蕾絲；最底下一層不在網上</span><span class="g">淺層駭入 揭開・剛剛</span></div>
+      <div class="u cut-sm hid"><span class="c">階段</span><span class="x">？？？？</span><span class="g">實地勘查・淺層駭入 可以揭開</span></div>
+      <div class="u cut-sm hid"><span class="c">守備</span><span class="x">？？？？</span><span class="g">實地勘查・淺層駭入・收買內線</span></div>
+      <div class="u cut-sm hid"><span class="c">路</span><span class="x">？？？？</span><span class="g">實地勘查・收買內線</span></div>
+      <div class="u cut-sm hid"><span class="c">雇主</span><span class="x">？？？？</span><span class="g">打聽・進人偶館當班</span></div>
+    </div>
+    <div class="hr"></div>
+    <p class="h">揭開之後，副本長這樣</p>
+    <div class="stg-pre">
+      <div class="cut-sm" style="color:var(--ink-2)">第一階段<div class="faces"><span class="face m"><svg width="14" height="14"><use href="#f-m"/></svg>現實</span><span class="face n"><svg width="14" height="14"><use href="#f-n"/></svg>內海</span><span class="face o"><svg width="14" height="14"><use href="#f-o"/></svg>輿論</span></div></div>
+      <div class="cut-sm" style="color:var(--ink-2)">第二階段<div class="faces"><span class="face m"><svg width="14" height="14"><use href="#f-m"/></svg>現實</span><span class="face n"><svg width="14" height="14"><use href="#f-n"/></svg>內海</span></div></div>
+      <div class="cut-sm">第三階段<div class="faces"><span class="face q">？</span></div></div>
+      <div class="cut-sm" style="color:var(--ink-2)">第四階段 <span class="star">★</span><div class="faces"><span class="face n main"><svg width="14" height="14"><use href="#f-n"/></svg>內海</span></div></div>
+    </div>
+    <div class="check" style="max-width:none;margin-top:14px"><div class="d">20</div><div class="info"><b>上一次：淺層駭入</b>　1d20 17 ＋ 介面 3 ＝ 20，對 14，超過 5 以上，揭開兩項：第二階段的面、蕾絲。<br><span style="color:var(--ink-3)">擲出自然 1 會驚動目標（駭入：內海的追蹤度起始值 +15）。第 4 次起難度 +1。</span></div></div>
+  </div>
+
+  <div class="col">
+    <div class="panel cut pad scroll" style="flex:1">
+      <p class="h">選一種手段・對 14（10 ＋ II × 2）</p>
+      <div class="means">
+        <div class="mean cut-sm on"><b>實地勘查</b><div class="dc">+5<small>成功 60%</small></div><div class="s">隱匿或調查・可揭開：路、守備、階段</div></div>
+        <div class="mean cut-sm"><b>打聽</b><div class="dc">+6<small>成功 65%</small></div><div class="s">街頭直覺或交涉・目標、雇主、詞條</div></div>
+        <div class="mean cut-sm"><b>淺層駭入</b><div class="dc">+3<small>成功 50%</small></div><div class="s">介面・蕾絲、階段、守備；可以預埋後門</div></div>
+        <div class="mean cut-sm"><b>收買或色誘內線</b><div class="dc">+7<small>成功 70%</small></div><div class="s">交涉或誘惑・路、守備；成功另多一個入口</div></div>
+        <div class="mean cut-sm"><b>以採訪為名</b><div class="dc">+2<small>成功 45%</small></div><div class="s">表演・目標、詞條</div></div>
+        <div class="mean cut-sm" style="opacity:.45"><b>進人偶館當班</b><div class="dc">—<small>要藝人</small></div><div class="s">誘惑・目標、雇主；隊上沒有藝人，可以派名冊的人去</div></div>
+        <div class="mean cut-sm"><b>買情報</b><div class="dc" style="color:var(--ap)">C$ 600<small>不擲骰</small></div><div class="s">指定一項，直接揭開</div></div>
+      </div>
+    </div>
+    <div class="panel cut pad">
+      <p class="h">誰去</p>
+      <div class="kv"><span>自己去</span><b>花一個時段：23:40 → 03:40</b></div>
+      <div class="kv"><span>派名冊的人（派工）</span><b>喬・隱匿 +6・C$ 250</b></div>
+      <div class="go"><button class="btn ghost cut-sm">不踩了，去召集</button><button class="btn pri cut-sm">去踩點</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ③ 召集 ============ -->
+<section class="view" id="v-call">
+  <div class="col">
+    <div class="panel cut pad">
+      <p class="h">隊伍・跟著你玩的那一面走（最多 4 人）</p>
+      <div class="slots">
+        <div class="mslot cut-sm"><div class="ava me"></div><div class="nmx">你</div><div class="r">槍手／掮客</div></div>
+        <div class="mslot cut-sm"><div class="ava"></div><div class="nmx">零</div><div class="r">潛網者・內海 強</div></div>
+        <div class="mslot cut-sm"><div class="ava"></div><div class="nmx">奈奈</div><div class="r">掮客・現實 強</div></div>
+        <div class="mslot empty">＋ 從名冊加人</div>
+      </div>
+      <div class="kv" style="margin-top:10px"><span>不打仗的同行</span><b>0／2</b></div>
+    </div>
+    <div class="panel cut pad">
+      <p class="h">技能配置・進去之後不能換</p>
+      <div class="locked"><span>點射</span><span>掩護射擊</span><span>假證件</span><span>借過一下</span><span>落款</span><span>快駭・斷線</span></div>
+      <div class="go"><button class="btn cut-sm">回據點換配置</button></div>
+    </div>
+    <div class="panel cut pad">
+      <p class="h">分帳（估，以 C$ 7,400 計）</p>
+      <div class="split"><div style="flex:40;background:var(--a)">你 40%</div><div style="flex:15;background:var(--net)">零</div><div style="flex:15;background:var(--ep)">奈奈</div><div style="flex:15;background:var(--ink-3)">夢露</div><div style="flex:6;background:var(--ap)">喬</div><div style="flex:9;background:#5B4675;color:var(--ink)">預留</div></div>
+      <div class="kv" style="margin-top:8px"><span>你實拿</span><b class="mono" style="color:var(--ap)">C$ 2,960</b></div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="panel cut pad scroll" style="flex:1">
+      <p class="h">輔助面・從名冊另外找人</p>
+      <p style="font-size:12.5px;color:var(--ink-3);margin:-2px 0 12px;line-height:1.7">每個階段，你沒選、但這個階段開著的面，派去的人擲一次。你選的那一面那個階段不擲。</p>
+      <div class="lane cut-sm"><span class="face m"><svg width="14" height="14"><use href="#f-m"/></svg>現實</span>
+        <div><div class="who"><span class="chip"><span class="dot"></span>喬<span class="w">戰鬥型・強 +4</span></span><span class="chip add">＋</span></div>
+          <div class="pay4" style="margin-top:6px"><span class="on">付錢 C$ 450</span><span>用人情</span><span>欠人情</span><span>靠交情</span></div></div>
+        <div class="odds">1d20 + 3 + 4 對 14<b>70%</b></div></div>
+      <div class="lane cut-sm"><span class="face n"><svg width="14" height="14"><use href="#f-n"/></svg>內海</span>
+        <div><div class="who"><span class="chip add">＋ 從名冊找人</span></div>
+          <div style="font-size:11.5px;color:var(--ink-3);margin-top:6px">零在隊上，打算每個階段都自己進內海的話可以不派</div></div>
+        <div class="odds">—</div></div>
+      <div class="lane cut-sm"><span class="face o"><svg width="14" height="14"><use href="#f-o"/></svg>輿論</span>
+        <div><div class="who"><span class="chip"><span class="dot" style="background:var(--a)"></span>潘妮<span class="w">記者・強 +4</span></span></div>
+          <div class="pay4" style="margin-top:6px"><span>付錢 C$ 380</span><span class="on">用人情</span><span>欠人情</span><span>靠交情</span></div></div>
+        <div class="odds">1d20 + 2 + 4 對 14<b>65%</b></div></div>
+      <div class="hr"></div>
+      <div class="kv"><span>名冊上沒有合適的人</span><b>向夢露借一位行者：出場費 ×1.5，沒有分量修正</b></div>
+    </div>
+    <div class="panel cut pad">
+      <div class="kv"><span>委託地點</span><b>舊港・藍鯨第三倉（地圖上的 ◆）</b></div>
+      <div class="kv"><span>進去之後</span><b style="color:#FF8A5C">城裡的事全部暫停，撤退會回到現在</b></div>
+      <div class="go"><button class="btn pri cut-sm">出發</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ④ 副本 ============ -->
+<section class="view on" id="v-run">
+  <div class="panel cut pad runhead">
+    <div><div class="k">委託副本・舊港 藍鯨第三倉</div><h2>藍鯨物流的帳本</h2></div>
+    <div class="row" style="flex-wrap:wrap"><span class="grade">II</span><span class="tag">竊密</span><span class="face n main"><svg width="14" height="14"><use href="#f-n"/></svg>主面 內海</span><span class="tag warn">不准死人</span><span class="tag">直播：關</span></div>
+    <div class="press">
+      <span>警戒</span><div class="pb"><b style="width:18%;background:linear-gradient(90deg,#C9B8E8,#E7DCFA)"></b><i style="left:60%"></i></div><span class="v">18</span>
+      <span>追蹤度</span><div class="pb"><b style="width:34%;background:linear-gradient(90deg,#2FB5A6,#45D6C5)"></b><i style="left:30%"></i><i style="left:60%"></i><i style="left:90%"></i></div><span class="v" style="color:var(--net)">34</span>
+    </div>
+    <div class="row"><button class="btn cut-sm" title="每兩個階段之間一次">喘口氣</button><button class="btn ghost cut-sm" title="回退到進副本之前，委託還在手上">撤退</button></div>
+  </div>
+
+  <div class="col" style="min-height:0">
+    <div class="panel cut pad">
+      <div class="track"><div class="prog"></div>
+        <div class="node done"><div class="dia">1</div><div class="nt">拿到入口</div><div class="nf"><span class="face m"><svg width="12" height="12"><use href="#f-m"/></svg></span><span class="face n"><svg width="12" height="12"><use href="#f-n"/></svg></span><span class="face o"><svg width="12" height="12"><use href="#f-o"/></svg></span></div><div class="pick">你：內海・潛行</div></div>
+        <div class="node now"><div class="dia">2</div><div class="nt">往下一層</div><div class="nf"><span class="face m"><svg width="12" height="12"><use href="#f-m"/></svg></span><span class="face n"><svg width="12" height="12"><use href="#f-n"/></svg></span></div><div class="pick">現在</div></div>
+        <div class="node"><div class="dia">?</div><div class="nt">？？？</div><div class="nf"><span class="face q">？</span></div><div class="pick">沒踩到點，到了才知道</div></div>
+        <div class="node final"><div class="dia">★</div><div class="nt">下載</div><div class="nf"><span class="face n main"><svg width="12" height="12"><use href="#f-n"/></svg></span></div><div class="pick">決定性的一步</div></div>
+      </div>
+    </div>
+
+    <div class="panel cut pad scroll" style="flex:1">
+      <div class="row" style="justify-content:space-between"><p class="h" style="margin:0">第二階段・往下一層</p><span class="k">城裡的時間 +2 小時</span></div>
+      <div class="phase"><span class="ok">① 選面 ✓</span><span class="ok">② 輔助結算 ✓</span><span class="on">③ 選分支</span><span>④ 玩這一段</span><span>⑤ 里程碑</span></div>
+      <div class="fcards">
+        <div class="fc cut-sm sup">
+          <div class="top"><span class="big" style="background:var(--meat);color:#17111F"><svg width="22" height="22"><use href="#f-m"/></svg></span><b>現實</b></div>
+          <div class="d">從貨梯上到辦公層，找到機房那一層的門。</div>
+          <div class="role"><span>輔助・喬</span><span>強 +4</span></div>
+        </div>
+        <div class="fc cut-sm play"><span class="seal">你在這裡</span>
+          <div class="top"><span class="big" style="background:var(--net);color:#17111F"><svg width="22" height="22"><use href="#f-n"/></svg></span><b>內海</b></div>
+          <div class="d">子網的第二層：員工層到管理層。身體留在第三倉的接入點，奈奈守著。</div>
+          <div class="role"><span>你・零・奈奈</span><span>藍蕾絲</span></div>
+        </div>
+        <div class="fc cut-sm off">
+          <div class="top"><span class="big" style="background:var(--media);color:#17111F"><svg width="22" height="22"><use href="#f-o"/></svg></span><b>輿論</b></div>
+          <div class="d">這個階段沒有開這一面。</div>
+          <div class="role"><span>潘妮待命</span><span>不擲</span></div>
+        </div>
+      </div>
+      <div class="rolls cut-sm"><span class="d20">12</span><span>輔助・現實：喬　1d20 12 ＋ 3 ＋ 4 ＝ <b>19</b>，對 14，超過 5 以上</span><span class="res">拿到連動「大樓斷電」，警戒不漲</span></div>
+
+      <p class="h" style="margin-top:16px">在內海怎麼走</p>
+      <div class="branches">
+        <div class="br cut-sm"><span class="ic">攻</span><div><b>強攻：硬破閘門</b><div class="s">沒有條件。管理層的守門程式會全部醒來</div></div><div class="eff"><span class="up">追蹤度 +20</span><br>遭遇：兩個雜兵＋一個精英</div></div>
+        <div class="br cut-sm"><span class="ic">潛</span><div><b>潛行：混進排程流量</b><div class="s">介面 4 以上；直播中不能選</div></div><div class="eff"><span class="up">追蹤度 +8</span><br>不留紀錄</div></div>
+        <div class="br cut-sm"><span class="ic">談</span><div><b>交涉：買通值班的網管</b><div class="s">交涉，或花 C$ 800</div></div><div class="eff"><span class="up">追蹤度 +4</span><br>遭遇少一個雜兵</div></div>
+        <div class="br cut-sm on"><span class="ic" style="background:var(--net);color:#17111F">連</span><div><b>用員工憑證直接登入<span class="src lk">連動</span></b><div class="s">第一階段你在內海偷到的憑證</div></div><div class="eff"><span class="down">追蹤度 +0</span><br>不必探索，直接到遭遇</div></div>
+        <div class="br cut-sm no"><span class="ic">？</span><div><b>？？？<span class="src sc">踩點</span></b><div class="s">這個階段還有一條路，踩點沒有揭開，所以不存在</div></div><div class="eff">—</div></div>
+      </div>
+      <div class="go"><span class="k" style="align-self:center;margin-right:auto">選了就不能換；走過的分支會記到收尾</span><button class="btn pri cut-sm">進入這一段</button></div>
+    </div>
+  </div>
+
+  <div class="col scroll">
+    <div class="panel cut pad">
+      <p class="h">拿到的連動</p>
+      <div class="link"><span class="kind dai">代勞</span><b>員工憑證</b><small>第一階段・內海（你）→ 第二階段 內海：不必探索</small></div>
+      <div class="link"><span class="kind jian">減壓</span><b>大樓斷電</b><small>第二階段・現實（喬）→ 現在：蕾絲降一級，追蹤度上升減半</small></div>
+      <div class="link used"><span class="kind" style="background:var(--ink-3)">失敗</span><b>沒拿到</b><small>第一階段・輿論（潘妮）擲 9 對 14；輿論沒有壓力條，不加</small></div>
+      <div class="link hid"><span class="kind kai">開路</span><b>？？？？</b><small>這件委託還有一個連動，在第三階段</small></div>
+    </div>
+    <div class="panel cut party">
+      <p class="h">小隊</p>
+      <div class="mem"><div class="ava me"></div><div>
+        <div class="nm">你<span class="sink" title="沉溺 58"><b style="width:58%"></b></span><span class="sv">58</span><span class="role">槍手／掮客</span></div>
+        <div class="hb hp" title="生命"><b style="width:88%"></b></div>
+        <div class="ldrow"><div class="hb ld" title="感載"><b style="width:30%"></b></div><div class="ag"><i class="on"></i><i></i><i></i></div></div></div></div>
+      <div class="mem"><div class="ava"></div><div>
+        <div class="nm">零<span class="sink" title="沉溺 81"><b style="width:81%"></b></span><span class="sv">81</span><span class="role">潛網者</span></div>
+        <div class="hb hp" title="生命"><b style="width:100%"></b></div>
+        <div class="ldrow"><div class="hb ld" title="感載"><b style="width:55%"></b></div><div class="ag"><i class="on"></i><i class="on"></i><i></i></div></div></div></div>
+      <div class="mem"><div class="ava"></div><div>
+        <div class="nm">奈奈<span class="sink" title="沉溺 30"><b style="width:30%"></b></span><span class="sv">30</span><span class="role">掮客・守接入點</span></div>
+        <div class="hb hp" title="生命"><b style="width:100%"></b></div>
+        <div class="ldrow"><div class="hb ld" title="感載"><b style="width:10%"></b></div><div class="ag"><i></i><i></i><i></i></div></div></div></div>
+    </div>
+    <div class="panel cut pad">
+      <p class="h">輔助面的人</p>
+      <div class="kv"><span><span class="face m"><svg width="12" height="12"><use href="#f-m"/></svg></span> 喬</span><b>樓梯間待命</b></div>
+      <div class="kv"><span><span class="face o"><svg width="12" height="12"><use href="#f-o"/></svg></span> 潘妮</span><b>轉播站，下次開輿論再擲</b></div>
+    </div>
+  </div>
+</section>
+
+<script>
+const show=v=>{document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));
+  document.querySelectorAll('.fstep').forEach(x=>x.classList.toggle('on',x.dataset.v===v))};
+document.querySelectorAll('.fstep').forEach(x=>x.onclick=()=>{show(x.dataset.v);history.replaceState(null,'','#'+x.dataset.v)});
+if(location.hash)show(location.hash.slice(1));
+addEventListener('hashchange',()=>show(location.hash.slice(1)));
+const pick=(sel)=>document.querySelectorAll(sel).forEach(el=>el.onclick=()=>{if(el.classList.contains('no')||el.classList.contains('lock'))return;
+  el.parentElement.querySelectorAll(':scope>'+sel.split(' ').pop()).forEach(s=>s.classList.remove('on'));el.classList.add('on')});
+pick('.means .mean');pick('.branches .br');pick('#v-take .card');
+</script>
+<script>
+(()=>{
+if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+const NS='http://www.w3.org/2000/svg';
+// 心跳背景：一個波峰一個波谷，中間偏右；0.2 秒掃過，掃過的地方漸漸淡回原色；閒置 5 秒一跳，按鍵時跳一次，冷卻 1 秒
+const ECG_D='M0 180 H690 L725 30 L765 330 L800 180 H1200';
+function addEcg(host,color,base){
+  const s=document.createElementNS(NS,'svg');s.setAttribute('class','ecg');s.setAttribute('viewBox','0 0 1200 360');s.setAttribute('preserveAspectRatio','none');
+  if(host!==document.body){s.style.position='absolute';}
+  s.innerHTML=`<path class="base" stroke="${base}" d="${ECG_D}"/><path class="beat" stroke="${color}" style="color:${color}" d="${ECG_D}"/>`;
+  host.prepend(s);
+  const b=s.querySelector('.beat'),len=b.getTotalLength(),seg=320;
+  b.style.strokeDasharray=`${len} ${len}`;b.style.strokeDashoffset=len;b.style.opacity=0;
+  BEATS.push({b,len,seg});
+}
+const BEATS=[];
+let lastBeat=0;
+function beat(){const t=performance.now();if(t-lastBeat<1000)return;lastBeat=t;
+  for(const {b,len} of BEATS){b.getAnimations().forEach(a=>a.cancel());
+    b.animate([{strokeDashoffset:len},{strokeDashoffset:0}],{duration:200,easing:'linear',fill:'forwards'});
+    b.animate([{opacity:1},{opacity:1,offset:.15},{opacity:0}],{duration:1400,easing:'ease-out',fill:'forwards'});}}
+setInterval(()=>{if(performance.now()-lastBeat>=5000)beat()},250);
+addEventListener('keydown',beat,{passive:true});
+const skins=[...document.querySelectorAll('[data-skin]')];
+if(skins.length===1&&skins[0]===document.documentElement){addEcg(document.body,skins[0].dataset.skin==='net'?'#F06AA0':'#F06AA0',skins[0].dataset.skin==='net'?'#1E2346':'#8E7CC3');}
+else skins.forEach(el=>{if(getComputedStyle(el).position==='static')el.style.position='relative';el.style.overflow='hidden';
+  addEcg(el,el.dataset.skin==='net'?'#F06AA0':'#F06AA0',el.dataset.skin==='net'?'#1E2346':'#8E7CC3');
+  [...el.children].forEach(c=>{if(!c.classList.contains('ecg')){c.style.position=c.style.position||'relative';c.style.zIndex=1}}); el.querySelector('.ecg').style.zIndex=5;});
+// 特效層
+const L=document.createElement('div');L.className='fxl';document.body.appendChild(L);
+const skinAt=(x,y)=>{const e=document.elementFromPoint(x,y);const s=e&&e.closest('[data-skin]');return s?s.dataset.skin:'real'};
+const spawn=(html,x,y,anim,ms,vars)=>{const p=document.createElement('span');p.className='fxp';p.innerHTML=html;p.style.left=x+'px';p.style.top=y+'px';
+  for(const k in vars)p.style.setProperty(k,vars[k]);p.style.animation=`${anim} ${ms}ms ease-out forwards`;L.appendChild(p);setTimeout(()=>p.remove(),ms)};
+const R=(a,b)=>a+Math.random()*(b-a);
+let last=0;
+addEventListener('pointermove',e=>{const t=performance.now();if(t-last<28)return;last=t;const sk=skinAt(e.clientX,e.clientY);
+  if(sk==='real'){
+    const c=Math.random()<.7?'#F06AA0':'#8E7CC3';
+    spawn(`<i style="display:block;width:4px;height:4px;background:${c};box-shadow:0 0 6px ${c}"></i>`,e.clientX+R(-6,6),e.clientY+R(-6,6),'px',520,{'--dx':R(-14,14)+'px','--dy':R(-14,14)+'px'});
+    if(Math.random()<.18)spawn(`<i style="display:block;width:${R(14,34)|0}px;height:2px;background:#45D6C5;opacity:.8"></i>`,e.clientX+R(-20,6),e.clientY+R(-10,10),'px',380,{'--dx':R(8,24)+'px','--dy':'0px'});
+  }else{
+    const g=Math.random()<.6?'♥':'✦',c=Math.random()<.5?'#F06AA0':'#45D6C5';
+    spawn(`<b style="font:900 ${R(12,20)|0}px Arial;color:${c};-webkit-text-stroke:1.5px #1E2346;paint-order:stroke">${g}</b>`,e.clientX+R(-8,8),e.clientY+R(-6,6),'rise',720,{'--dx':R(-14,14)+'px','--r':R(-40,40)+'deg'});
+  }},{passive:true});
+addEventListener('pointerdown',e=>{const x=e.clientX,y=e.clientY,sk=skinAt(x,y);
+  if(sk==='real'){
+    spawn(`<i style="display:block;width:70px;height:70px;border:2px solid #F06AA0;box-shadow:0 0 10px #F06AA0;clip-path:polygon(0 0,80% 0,100% 20%,100% 100%,20% 100%,0 80%)"></i>`,x,y,'ring',460,{});
+    spawn(`<b style="font:800 11px ui-monospace,Menlo,monospace;color:#45D6C5;letter-spacing:1px">ACK//0x${(Math.random()*65535|0).toString(16).toUpperCase()}</b>`,x,y,'ack',700,{});
+    for(let i=0;i<3;i++)spawn(`<i style="display:block;width:${R(20,50)|0}px;height:3px;background:${i%2?'#F06AA0':'#45D6C5'}"></i>`,x+R(-30,10),y+R(-16,16),'px',300,{'--dx':R(10,30)+'px','--dy':'0px'});
+  }else{
+    spawn(`<i style="display:block;width:64px;height:64px;border-radius:50%;border:4px solid #1E2346;background:#45D6C540"></i>`,x,y,'ring',480,{});
+    for(let i=0;i<10;i++){const a=i/10*Math.PI*2,d=R(36,60),g=i%3?'♥':'✦',c=['#F06AA0','#45D6C5','#FFF4E8'][i%3];
+      spawn(`<b style="font:900 ${R(14,22)|0}px Arial;color:${c};-webkit-text-stroke:1.5px #1E2346;paint-order:stroke">${g}</b>`,x-6,y-10,'burst',620,{'--dx':Math.cos(a)*d+'px','--dy':Math.sin(a)*d+'px','--r':R(-90,90)+'deg'})}
+  }},{passive:true});
+})();
+
+</script>
+</body>
+</html>
