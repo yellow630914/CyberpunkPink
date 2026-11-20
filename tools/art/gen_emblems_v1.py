@@ -38,16 +38,14 @@ rouge = ('<rect x="22" y="6" width="76" height="108" rx="6" fill="#C2264B"/>'
          + blossom(78, 34) + blossom(50, 40, .8) + blossom(64, 70, .9) + blossom(40, 84, .7) +
          '<rect x="34" y="16" width="14" height="40" rx="2" fill="#F3E9FF"/><path d="M41 22v28" stroke="#C2264B" stroke-width="2.4"/>')
 
-# 鉻娘子：車隊的背章。上弧的橫幅、鉻色的半機娘臉、下弧的地名。金屬漸層＋黑。
-chrome = ('<defs><linearGradient id="chr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".45" stop-color="#9AA3B5"/><stop offset=".55" stop-color="#5A6275"/><stop offset="1" stop-color="#D5DBE6"/></linearGradient>'
-          '<path id="arcT" d="M18 52A42 42 0 0 1 102 52"/><path id="arcB" d="M22 86A40 40 0 0 0 98 86"/></defs>'
-          '<path d="M8 54A52 52 0 0 1 112 54L98 56A38 38 0 0 0 22 56Z" fill="#17111F" stroke="url(#chr)" stroke-width="3"/>'
-          '<text font-size="14" font-weight="900" letter-spacing="4" fill="url(#chr)"><textPath href="#arcT" startOffset="50%" text-anchor="middle">鉻 娘 子</textPath></text>'
-          '<path d="M60 36C44 36 36 50 36 64c0 14 8 24 24 30 16-6 24-16 24-30 0-14-8-28-24-28z" fill="url(#chr)" stroke="#17111F" stroke-width="3"/>'
-          '<path d="M60 36v58" stroke="#17111F" stroke-width="3"/><path d="M62 52h16M62 60h18M62 68h14" stroke="#17111F" stroke-width="2.4"/>'
-          '<path d="M44 60l8 0" stroke="#17111F" stroke-width="5" stroke-linecap="round"/><circle cx="70" cy="60" r="4" fill="#F06AA0"/>'
-          '<path d="M14 84A48 48 0 0 0 106 84L94 82A36 36 0 0 1 26 82Z" fill="#17111F" stroke="url(#chr)" stroke-width="3"/>'
-          '<text font-size="10" font-weight="900" letter-spacing="3" fill="url(#chr)"><textPath href="#arcB" startOffset="50%" text-anchor="middle">舊港・南門</textPath></text>')
+# 鉻娘子：不用字。半張女性側臉，後腦是齒輪，鉻色加一點粉。
+chrome = ('<defs><linearGradient id="chr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".45" stop-color="#9AA3B5"/><stop offset=".55" stop-color="#5A6275"/><stop offset="1" stop-color="#D5DBE6"/></linearGradient></defs>'
+          '<rect x="-5" y="-38" width="10" height="12" rx="2" fill="url(#chr)" transform="translate(78 54) rotate(-40)"/><rect x="-5" y="-38" width="10" height="12" rx="2" fill="url(#chr)" transform="translate(78 54) rotate(-18)"/><rect x="-5" y="-38" width="10" height="12" rx="2" fill="url(#chr)" transform="translate(78 54) rotate(4)"/><rect x="-5" y="-38" width="10" height="12" rx="2" fill="url(#chr)" transform="translate(78 54) rotate(26)"/><rect x="-5" y="-38" width="10" height="12" rx="2" fill="url(#chr)" transform="translate(78 54) rotate(48)"/><rect x="-5" y="-38" width="10" height="12" rx="2" fill="url(#chr)" transform="translate(78 54) rotate(70)"/><rect x="-5" y="-38" width="10" height="12" rx="2" fill="url(#chr)" transform="translate(78 54) rotate(92)"/><rect x="-5" y="-38" width="10" height="12" rx="2" fill="url(#chr)" transform="translate(78 54) rotate(114)"/>'
+          '<path d="M72 18C52 18 40 32 40 48L32 60L40 62L38 70L42 72L40 78C42 86 50 88 58 86L60 104H90L88 86C100 78 106 64 104 48C102 30 90 18 72 18Z" fill="url(#chr)" stroke="#17111F" stroke-width="3"/>'
+          '<circle cx="78" cy="54" r="15" fill="none" stroke="#17111F" stroke-width="3"/><circle cx="78" cy="54" r="5" fill="#17111F"/>'
+          '<path d="M66 22C64 40 64 70 70 90" fill="none" stroke="#17111F" stroke-width="3"/>'
+          '<path d="M44 46h10" stroke="#F06AA0" stroke-width="5" stroke-linecap="round"/>'
+          '<path d="M64 96v10M72 96v10M80 96v10" stroke="#17111F" stroke-width="2.4"/>')
 
 # 野良：噴漆的模板貓，橘色，有滴下來的漆與飛沫。
 nora = ('<g fill="#FF9D4D"><path d="M28 86V44L36 22L50 38H70L84 22L92 44V86Z"/>'
@@ -67,7 +65,7 @@ SAMPLES = [
     ('緋櫻重工', '戰國家紋：丸に櫻，單色', hizakura),
     ('夜鶯系統', '粗硬的幾何標誌，單色；兩片翼讀成 N', nightingale),
     ('胭脂堂', '花牌的梅，三色（緋、黑、白）', rouge),
-    ('鉻娘子', '車隊背章，鉻色金屬＋黑', chrome),
+    ('鉻娘子', '半機娘側臉，後腦是齒輪；鉻色＋一點粉', chrome),
     ('野良', '噴漆模板貓，單色加漆滴', nora),
     ('萬華鏡', '花俏：六重對稱的萬花筒', kaleido),
 ]
