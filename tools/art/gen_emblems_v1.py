@@ -133,10 +133,10 @@ honey = ('<defs><filter id="neon" x="-30%" y="-30%" width="160%" height="160%"><
          f'<g filter="url(#neon)" fill="none" stroke="#FF4FA3" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"><path d="{lips}"/><path d="M14 60C40 64 80 64 106 60"/></g>'
          '<g fill="none" stroke="#FFD0E6" stroke-width="1.6"><path d="M14 60C26 44 42 38 52 46C56 42 64 42 68 46C78 38 94 44 106 60"/></g>')
 
-# 特攻姬：尖角的紫色菱盾，一道金色閃電從中間劈下來。雙色。
-tokko = ('<path d="M60 6L104 34L88 104L60 92L32 104L16 34Z" fill="#7A45D6"/>'
-         '<path d="M60 18L94 40L81 94L60 84L39 94L26 40Z" fill="none" stroke="#17111F" stroke-width="3"/>'
-         '<path d="M70 20L46 62H62L48 100L82 52H64L78 20Z" fill="#F2C14E" stroke="#17111F" stroke-width="4" stroke-linejoin="round"/>')
+# 特攻姬：尖角的紫色菱盾，金線框，裡面是金色的「夜露死苦」。暴走族的味道，所以這一個用字。
+tokko = ('<path d="M60 4L108 32L92 108L60 96L28 108L12 32Z" fill="#7A45D6"/>'
+         '<path d="M60 14L98 36L84 98L60 88L36 98L22 36Z" fill="none" stroke="#F2C14E" stroke-width="2.4"/>'
+         '<text x="47" y="52" fill="#F2C14E" stroke="#17111F" stroke-width="3" paint-order="stroke" font-family="Noto Serif TC, Noto Sans TC, serif" font-weight="900" font-size="26" text-anchor="middle">夜</text><text x="73" y="52" fill="#F2C14E" stroke="#17111F" stroke-width="3" paint-order="stroke" font-family="Noto Serif TC, Noto Sans TC, serif" font-weight="900" font-size="26" text-anchor="middle">露</text><text x="47" y="82" fill="#F2C14E" stroke="#17111F" stroke-width="3" paint-order="stroke" font-family="Noto Serif TC, Noto Sans TC, serif" font-weight="900" font-size="26" text-anchor="middle">死</text><text x="73" y="82" fill="#F2C14E" stroke="#17111F" stroke-width="3" paint-order="stroke" font-family="Noto Serif TC, Noto Sans TC, serif" font-weight="900" font-size="26" text-anchor="middle">苦</text>')
 
 # 牆語者：細線的秘儀符號。圓、倒三角、一道往裡捲的耳形螺旋、放射的短線。單色暗紫（提亮一點才看得見）。
 spiral = 'M60 40c12 0 20 8 20 18s-8 16-16 16-12-6-12-12 4-8 8-8 6 3 6 6'
@@ -229,7 +229,7 @@ ALL = [  # (id, 名字, 一句方向, 內容)
     ('honey', '蜜糖會', '霓虹燈管的唇印', honey),
     ('rouge', '胭脂堂', '花牌的梅', rouge),
     ('chrome', '鉻娘子', '半機娘側臉與齒輪', chrome),
-    ('tokko', '特攻姬', '尖角菱盾與金色閃電', tokko),
+    ('tokko', '特攻姬', '菱盾與「夜露死苦」', tokko),
     ('nora', '野良', '噴漆模板的貓', nora),
     ('whisper', '牆語者', '細線的秘儀符號', whisper),
     ('rose', '野薔薇', '鏽鐵板挖空的薔薇', rose),
@@ -272,7 +272,7 @@ def main():
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 {Wd} {Hd}" width="{Wd}" height="{Hd}" font-family="\'Noto Sans TC\',\'PingFang TC\',sans-serif">'
            f'<defs>{syms}</defs><rect width="{Wd}" height="{Hd}" fill="#17111F"/>'
            f'<text x="20" y="46" font-size="28" font-weight="900" fill="#F06AA0" letter-spacing="3">勢力徽記 v1</text>'
-           f'<text x="20" y="72" font-size="13" fill="#8C7AA6">每個勢力用自己的風格；企業多半單色或雙色，花俏的才用多色；一律不用字。右下是 28px 的樣子。</text>'
+           f'<text x="20" y="72" font-size="13" fill="#8C7AA6">每個勢力用自己的風格；企業多半單色或雙色，花俏的才用多色；除了特攻姬的「夜露死苦」不用字。右下是 28px 的樣子。</text>'
            + ''.join(cells) + '</svg>')
     open(os.path.join(os.path.dirname(OUT), 'emblems-v1.svg'), 'w', encoding='utf-8').write(svg)
     print('→ emblems-v1.svg, emblems-sprite.svg', len(ALL))
