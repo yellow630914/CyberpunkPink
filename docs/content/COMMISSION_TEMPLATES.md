@@ -2002,7 +2002,7 @@ SITES 12.4 節的權重表照舊，新的六張加在後面：
 | 鏽帶 | 工廠、倉庫、檢查哨、碼頭貨櫃區（陸運版）、**驛站** |
 | 地下層 | 排水道、地鐵、機房（舊網的）、倉庫 |
 
-資料的樣子照 SITES 第 14 節的 `commission_maps`，id 用這一份的 `map_` 前綴，另外加兩欄：`entries` 的每一個寫 `need`（基本功與 DC 的加值，或 `link`、`scouted`、`item`），`spots` 的每一個寫 `cover`（四種配置之一，或八格逐格寫）與 `material`。
+資料的樣子照 SITES 第 15 節的 `commission_maps`，id 用這一份的 `map_` 前綴，另外加兩欄：`entries` 的每一個寫 `need`（基本功與 DC 的加值，或 `link`、`scouted`、`item`），`spots` 的每一個寫 `cover`（四種配置之一，或八格逐格寫）與 `material`。
 
 ```json
 { "id": "map_maid_cafe", "kind": "maid_cafe", "size": [11, 9], "max_maps": 1,
