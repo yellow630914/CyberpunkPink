@@ -297,6 +297,21 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 .nb .gl small{display:block;font-size:11px;color:var(--ink-3)}
 .nb .gl .rd{width:8px;height:8px;border-radius:50%;background:#FF4A4A}
 .nb .grp{font-size:11px;font-weight:900;color:var(--ink-3);letter-spacing:1px;margin:10px 0 5px}
+/* 搭車 */
+.line{display:flex;align-items:center;gap:0;margin:8px 0 4px;overflow-x:auto;padding-bottom:6px}
+.stn{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:96px;position:relative;font-size:12px;font-weight:800;color:var(--ink-3)}
+.stn i{width:16px;height:16px;border-radius:50%;background:#17111F;border:3px solid var(--lc,#FF3355);z-index:1}
+.stn::before{content:"";position:absolute;top:7px;left:-50%;width:100%;height:4px;background:var(--lc,#FF3355);opacity:.6}
+.stn:first-child::before{display:none}
+.stn.past{opacity:.45}.stn.now i{background:var(--lc,#FF3355);box-shadow:0 0 10px var(--lc,#FF3355)}.stn.now{color:var(--ink)}
+.stn.dest i{border-color:var(--ap)}.stn.dest{color:var(--ap)}
+.stn small{font-size:10px;font-weight:700}
+.car{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.pax{padding:10px;background:var(--bg-2);font-size:12.5px}
+.pax b{display:block;font-size:13px}.pax small{color:var(--ink-3);font-size:11px}
+.pax .acts2{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}.pax .acts2 span{font-size:10.5px;font-weight:800;padding:3px 7px;border-radius:5px;background:#120D19;color:var(--ink-2)}
+.evc b{display:block;font-size:14px;margin-bottom:2px}
+.evc{padding:12px;background:#2A1A2A;box-shadow:inset 3px 0 0 #FF8A5C;font-size:13px;line-height:1.8}
 @media (max-width:720px){.v.on{display:flex;flex-direction:column;height:auto}.tabsx{flex-wrap:nowrap;overflow-x:auto}.tabsx span{flex:none}.rooms,.prev{grid-template-columns:1fr 1fr}.slot{grid-template-columns:1fr auto}}
 </style>
 <svg width="0" height="0" style="position:absolute"><defs>
@@ -314,7 +329,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
   <div class="grow"></div>
   <div class="ibtn cut-sm"><svg width="20" height="20"><use href="#i-menu"/></svg></div>
 </header>
-<nav class="tabsx"><span data-v="craft" class="on">組裝</span><span data-v="home">家園</span><span data-v="roster">名冊</span><span data-v="contract">契約</span><span data-v="new">建角</span><span data-v="map">城市地圖</span><span data-v="guide">指南</span></nav>
+<nav class="tabsx"><span data-v="craft" class="on">組裝</span><span data-v="home">家園</span><span data-v="roster">名冊</span><span data-v="contract">契約</span><span data-v="new">建角</span><span data-v="map">城市地圖</span><span data-v="ride">搭車</span><span data-v="guide">指南</span></nav>
 
 <!-- 組裝 -->
 <section class="v on" id="v-craft" style="grid-template-columns:240px 1fr 280px">
@@ -482,6 +497,39 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
     <div class="kv"><span>去過的站</span><b>9／22</b></div>
     <div class="kv"><span>現在的區</span><b>四十二番街・治安：店家自己顧</b></div>
     <div class="note">點地圖上的區看那一區的街區圖；點站名設成目的地。</div>
+  </aside>
+</section>
+
+<!-- 搭車 -->
+<section class="v" id="v-ride" style="grid-template-columns:1fr 320px">
+  <div class="panel cut pad scroll">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px"><div><div class="k">地鐵紅線・往冠冕中央・第 3 節車廂・下午 14:00</div><h2 style="margin:2px 0 0;font-size:19px">紅線的車廂</h2></div>
+      <div style="display:flex;gap:5px"><span class="tag">每站 5 分鐘</span><span class="tag">刷卡：留下紀錄</span></div></div>
+    <div class="line">
+      <div class="stn past"><i></i>蜂巢天井<small>上車</small></div>
+      <div class="stn past"><i></i>番街下城</div>
+      <div class="stn now"><i></i>番街中城<small>停靠中</small></div>
+      <div class="stn"><i></i>番街上城</div>
+      <div class="stn dest"><i></i>冠冕中央<small>目的地・轉櫻線</small></div>
+    </div>
+    <p class="h" style="margin-top:12px">同一節車廂的人</p>
+    <div class="car">
+      <div class="pax cut-sm"><b>下班的社員</b><small>緋櫻・盯著手上的螢幕</small><div class="acts2"><span>談</span><span>主動行動</span></div></div>
+      <div class="pax cut-sm"><b>夜店的舞者</b><small>要去過載上班</small><div class="acts2"><span>談</span><span>主動行動</span></div></div>
+      <div class="pax cut-sm"><b>潘妮</b><small>熟人・剛在中城上車</small><div class="acts2"><span>談</span><span>一起下車</span></div></div>
+      <div class="pax cut-sm"><b>穿制服的兩個人</b><small>警備局・在看每個人的臉</small><div class="acts2"><span>觀察</span></div></div>
+    </div>
+    <div class="go" style="justify-content:flex-start"><button class="btn sm cut-sm">打聽</button><button class="btn sm cut-sm">整理行囊</button><button class="btn sm cut-sm">開直播</button></div>
+    <div class="note">地鐵在地底，沒有「看窗外」；輕軌與渡輪才有。</div>
+  </div>
+  <aside class="panel cut pad scroll">
+    <p class="h">番街中城・停靠中</p>
+    <div class="evc cut-sm"><b>臨檢</b>車門關上前，兩個警備局的人走進這節車廂，要大家把橋亮出來。你身上帶著 M3 步槍。<div class="go" style="justify-content:flex-start"><button class="btn sm cut-sm">配合</button><button class="btn sm cut-sm">混過去（表演 16）</button><button class="btn sm cut-sm">這站下車</button></div></div>
+    <div class="hr"></div>
+    <div class="kv"><span>到目的地</span><b>還有 2 站・10 分鐘</b></div>
+    <div class="kv"><span>這一趟</span><b>蜂巢天井 → 冠冕中央</b></div>
+    <div class="go"><button class="btn cut-sm">這站下車</button><button class="btn pri cut-sm">坐到目的地</button></div>
+    <div class="note">坐到目的地會快轉，照樣逐站擲事件，觸發了才停。到站提醒，不強制下車。</div>
   </aside>
 </section>
 
