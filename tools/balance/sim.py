@@ -231,6 +231,8 @@ def make_party(C, g):
 def make_enemy(C, eg, rank):
     d = C.get('difficulty')
     k = (d['boss'] if rank == '首領' else d['minions'][BAND_OF[eg]]) if d else {'hp': 1, 'dmg': 1}
+    key = C.get('key_mult', 1.0) if rank != '雜兵' else 1.0   # 任務關鍵節點 ×1.1～1.2、具名 ×1.3～1.5：精英與首領的生命與傷害
+    k = {'hp': k['hp'] * key, 'dmg': k['dmg'] * key}
     return Unit(hp=round(C['e_hp'][rank][eg] * k['hp']), apmax=C['e_apmax'][rank][eg], regen=3, mag=2, magmax=2,
                 atk=C['e_atk'][eg], ev=C['e_ev'][eg], armor=C['e_armor'][eg], dice=3 + C['grade_dice'][eg],
                 flat=0, mult=C['e_dmg_mult'][rank] * k['dmg'], minion=(rank == '雜兵'))
@@ -455,6 +457,22 @@ def show_difficulty(C, rng, trials):
             print(f'{name} | {G[g]:>3} | {pct(avg(n, 0)):>4} | {pct(avg(b, 0)):>4} | {pct(avg(b, 2)):>4} | {avg(b, 3):.2f}')
 
 
+def show_key(C, rng, trials):
+    """精英與首領的強度：任務的關鍵節點 ×1.1～1.2，具名的 ×1.3～1.5（2026-11-20）。"""
+    for m in (1.0, 1.1, 1.2, 1.3, 1.4, 1.5):
+        K = dict(C, key_mult=m)
+        print(f'■ 精英與首領 ×{m}：同級四人，{trials} 次的平均')
+        for boss in (False, True):
+            for g, budget, res in encounter_table(K, rng, trials, boss):
+                cells = []
+                for comp, (loss, rnds, win, downs) in res:
+                    if '精英' not in comp and '首領' not in comp:
+                        continue
+                    desc = '＋'.join(f'{comp.count(r)}{r}' for r in RANKS if comp.count(r))
+                    cells.append(f'{desc} {pct(loss)} 勝{pct(win)}')
+                print(f'  {"首領戰" if boss else "一般"} {g}：' + '｜'.join(cells))
+
+
 def show_cross(C, rng, trials):
     print('■ 跨級：g 級的隊伍打 e 級的四個雜兵（掉血％／回合）')
     print('隊伍＼敵人 | ' + ' | '.join(G))
@@ -511,7 +529,7 @@ def main():
     rng = random.Random(a.seed)
     topics = a.topics
     if 'all' in topics:
-        topics = ['hits', 'net', 'encounter', 'cross', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster']
+        topics = ['hits', 'net', 'encounter', 'cross', 'key', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster']
     if 'summary' in topics:
         topics = ['hits', 'encounter', 'cross']
     print(f'曲線：{a.set}')
@@ -520,6 +538,7 @@ def main():
          'encounter': lambda: show_encounter(C, rng, a.trials), 'cross': lambda: show_cross(C, rng, max(200, a.trials // 4)),
          'check': lambda: show_check(C), 'economy': lambda: show_economy(C), 'xp': lambda: show_xp(C),
          'opinion': lambda: show_opinion(C), 'roster': lambda: show_roster(C),
+         'key': lambda: show_key(C, rng, max(300, a.trials // 2)),
          'difficulty': lambda: show_difficulty(C, rng, max(300, a.trials // 4))}[t]()
         print()
 
