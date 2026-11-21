@@ -1,0 +1,60 @@
+/* 設計代幣（docs/art/UI.md 第 2 節、docs/mockups/style-board.html 的 v1 皮）。
+   元件只用這裡的變數，不寫色碼。兩套皮：data-skin="real"（現實）與 data-skin="net"（內海）。 */
+:root {
+  --font: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "WenQuanYi Zen Hei", Arial, sans-serif;
+  --mono: ui-monospace, Menlo, Consolas, monospace;
+  --cut-sm: 7px; --cut: 12px; --cut-lg: 14px;
+  --space-1: 2px; --space-2: 4px; --space-3: 8px; --space-4: 12px; --space-5: 16px; --space-6: 24px; --space-7: 32px; --space-8: 48px;
+  --fs-scale: 1;
+  --fs-xs: calc(11px * var(--fs-scale)); --fs-sm: calc(12.5px * var(--fs-scale)); --fs-md: calc(14px * var(--fs-scale));
+  --fs-lg: calc(17px * var(--fs-scale)); --fs-xl: calc(20px * var(--fs-scale)); --fs-2xl: calc(30px * var(--fs-scale));
+  --lh-ui: 1.45; --lh-prose: 1.9;
+  --dur-fast: 120ms; --dur: 240ms;
+  --z-sheet: 20; --z-dialog: 30; --z-hint: 50; --z-toast: 60;
+  /* 物品的等級色（ART_STYLE 4.1 節）：只用在物品上 */
+  --g1: #F3E9FF; --g2: #6FD08C; --g3: #5FA8FF; --g4: #F2C14E; --g5: #FF8A3D; --uq: #A77BFF;
+  /* 錢（ART_STYLE 第 4 節） */
+  --money-acc: #E7DCFA; --money-cash: #F58DBA; --money-fav: #F2C14E;
+  /* 蕾絲三色 */
+  --lace-w: #efe9f7; --lace-p: #ff4fa3; --lace-b: #1a0b12;
+}
+:root[data-font-size="small"] { --fs-scale: .92; }
+:root[data-font-size="large"] { --fs-scale: 1.12; }
+:root[data-reduce-motion="true"] { --dur-fast: 0ms; --dur: 0ms; }
+
+[data-skin="real"] {
+  --bg: #17111F; --bg-1: #211829; --bg-2: #2C2136; --bg-3: #3A2B47; --bg-term: #120D19; --line: #3A2D47; --line-2: #45375A;
+  --ink: #F3E9FF; --ink-2: #C9B8E8; --ink-3: #8C7AA6;
+  --a: #F06AA0; --a-hi: #F58DBA; --b: #8E7CC3; --c: #F3E9FF; --o: #17111F; --on-a: #ffffff;
+  --hp: #FF5A6E; --load: #F06AA0; --sink: #5FB8E8; --ap: #F2C14E; --ram: #45D6C5; --ep: #B39DF0; --net: #45D6C5;
+  --warn: #FF8A5C; --danger: #FF4A4A; --ok: #45D6C5;
+  --accent: #F06AA0;
+  --shadow: 4px 4px 0 #0E0A14; --outline: 0px;
+  --grid: linear-gradient(#ffffff06 1px, transparent 1px) 0 0/16px 16px, linear-gradient(90deg, #ffffff06 1px, transparent 1px) 0 0/16px 16px;
+  /* 格子地圖 */
+  --tile-void: #120D19; --tile-floor: #2A1F36; --tile-wall: #0E0A14; --tile-street: #33274A; --tile-building: #1E1627;
+  --tile-door: #5B4675; --tile-fac: #5B4675; --fog: #0b0810;
+}
+[data-skin="net"] {
+  --bg: #F8C3D8; --bg-1: #FFF4E8; --bg-2: #FFE6F0; --bg-3: #FFD3E6; --bg-term: #FFF9F3; --line: #1E2346; --line-2: #3B4170;
+  --ink: #1E2346; --ink-2: #3B4170; --ink-3: #6D6F94;
+  --a: #F06AA0; --a-hi: #D94C88; --b: #1E2346; --c: #45D6C5; --o: #1E2346; --on-a: #ffffff;
+  --hp: #FF5A6E; --load: #F06AA0; --sink: #3B8FD9; --ap: #F2B33D; --ram: #2EC2B0; --ep: #8A6FE0; --net: #2EC2B0;
+  --warn: #E0642E; --danger: #E0334A; --ok: #2EC2B0;
+  --accent: #2EC2B0;
+  --shadow: 5px 5px 0 #1E2346; --outline: 3px;
+  --grid: radial-gradient(#1E234614 1.2px, transparent 1.3px) 0 0/10px 10px;
+  --tile-void: #F3B5CD; --tile-floor: #FFF4E8; --tile-wall: #1E2346; --tile-street: #FFE6F0; --tile-building: #F3B5CD;
+  --tile-door: #45D6C5; --tile-fac: #FFD3E6; --fog: #E9A9C2;
+  --g1: #6D6F94; /* 內海皮的底色是亮的：I 級改用深一點的灰紫才看得到 */
+}
+/* 區的強調色（UI.md 2.5 節） */
+[data-district="hive"] { --accent: #b9a6ff; }
+[data-district="ave42"] { --accent: #ff7dbd; }
+[data-district="sakura"] { --accent: #ffb7d5; }
+[data-district="crown"] { --accent: #ffd66b; }
+[data-district="oldport"] { --accent: #aebfd6; }
+[data-district="glass"] { --accent: #9fe8ff; }
+[data-district="rust"] { --accent: #e08a45; }
+[data-district="under"] { --accent: #5dffb0; }
+[data-accent="off"] [data-district], [data-accent="off"][data-district] { --accent: #b9a6ff; }

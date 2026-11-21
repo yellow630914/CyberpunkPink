@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 
 // base './'：建出來的 dist/ 放在任何路徑底下都能用（路由用 hash，不需要伺服器改寫）。

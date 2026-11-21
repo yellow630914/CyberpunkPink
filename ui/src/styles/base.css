@@ -1,0 +1,65 @@
+/* 共用的基本樣式：斜切角、面板、按鈕、標籤、量條。 */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg); background-image: var(--grid); color: var(--ink);
+  font-family: var(--font); font-size: var(--fs-md); line-height: var(--lh-ui);
+  overflow-x: hidden;
+}
+#app { min-height: 100%; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--a); outline-offset: 2px; }
+
+.cut { clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut))); }
+.cut-sm { clip-path: polygon(0 0, calc(100% - var(--cut-sm)) 0, 100% var(--cut-sm), 100% 100%, var(--cut-sm) 100%, 0 calc(100% - var(--cut-sm))); }
+.panel { background: var(--bg-1); box-shadow: inset 0 0 0 2px var(--line); position: relative; min-width: 0; }
+[data-skin="net"] .panel { box-shadow: inset 0 0 0 3px var(--line), var(--shadow); }
+.pad { padding: var(--space-4) var(--space-5); }
+.scroll { overflow: auto; min-height: 0; }
+.h { font-size: var(--fs-xs); letter-spacing: 2px; color: var(--ink-3); font-weight: 800; margin: 0 0 var(--space-3); display: flex; align-items: center; gap: var(--space-2); }
+.k { font-size: var(--fs-xs); color: var(--ink-3); font-weight: 800; letter-spacing: 1px; }
+.mono { font-family: var(--mono); }
+.hr { height: 2px; background: var(--line); margin: var(--space-4) 0; border: 0; }
+.tick { position: absolute; top: 7px; right: 20px; width: 16px; height: 4px; background: var(--a); }
+
+.btn {
+  font: 800 var(--fs-sm) var(--font); border: 0; padding: 10px 14px; cursor: pointer; background: var(--bg-2); color: var(--ink);
+  clip-path: polygon(0 0, calc(100% - var(--cut-sm)) 0, 100% var(--cut-sm), 100% 100%, var(--cut-sm) 100%, 0 calc(100% - var(--cut-sm)));
+  white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+}
+.btn:hover { background: var(--bg-3); }
+.btn.pri { background: var(--a); color: var(--on-a); }
+.btn.pri:hover { filter: brightness(1.08); }
+.btn.sm { font-size: var(--fs-xs); padding: 7px 11px; }
+.btn.ghost { background: transparent; box-shadow: inset 0 0 0 2px var(--line); }
+.btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+[data-skin="net"] .btn { box-shadow: inset 0 0 0 2px var(--o); }
+
+.tag { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); font-weight: 800; padding: 2px 8px; border-radius: 6px; background: var(--bg-2); color: var(--ink-2); white-space: nowrap; }
+.tag.hot { background: var(--a); color: var(--on-a); }
+.tag.warn { color: var(--warn); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { padding: 3px 9px; border-radius: 999px; background: var(--bg-2); font-size: var(--fs-xs); font-weight: 800; }
+.pill.hot { background: var(--a); color: var(--on-a); }
+
+.kv { display: flex; justify-content: space-between; gap: var(--space-3); padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: var(--fs-sm); align-items: center; }
+.kv > span:first-child { color: var(--ink-3); display: inline-flex; align-items: center; gap: 4px; }
+.kv b { text-align: right; }
+
+.filters { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: var(--space-4); }
+.filters button { font-size: var(--fs-xs); font-weight: 800; padding: 5px 11px; border-radius: 999px; background: var(--bg-2); color: var(--ink-3); border: 0; cursor: pointer; }
+.filters button.on { background: var(--a); color: var(--on-a); }
+
+.bar { height: 8px; border-radius: 4px; background: #2E2339; position: relative; overflow: hidden; margin-top: 5px; }
+[data-skin="net"] .bar { background: var(--bg-2); box-shadow: inset 0 0 0 2px var(--o); }
+.bar > b { position: absolute; inset: 0 auto 0 0; border-radius: 4px; }
+
+.go { display: flex; gap: 6px; justify-content: flex-end; margin-top: var(--space-4); flex-wrap: wrap; }
+.empty-note { color: var(--ink-3); font-size: var(--fs-sm); }
+.blocking { padding: 8px 12px; background: #2A1A2A; box-shadow: inset 3px 0 0 var(--danger); font-size: var(--fs-sm); font-weight: 800; color: var(--ink); }
+[data-skin="net"] .blocking { background: #ffe0e6; }
+.g1 { --gc: var(--g1); } .g2 { --gc: var(--g2); } .g3 { --gc: var(--g3); } .g4 { --gc: var(--g4); } .g5 { --gc: var(--g5); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) { :root { --dur-fast: 0ms; --dur: 0ms; } }
