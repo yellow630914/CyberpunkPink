@@ -155,7 +155,7 @@ describe('讀檔', () => {
     const before = json(e.state)
     expect(s.loadRaw(json(raw))).toMatch(/低於 18/)
     expect(json(e.state)).toBe(before)
-    expect(g.party.some((p: { age?: number }) => p.age === 16)).toBe(false)
+    expect(json(g.party)).not.toContain('"age":16')
   })
 
   it('讀檔之後只有引擎存檔裡的報告：舊系統的錢和引擎一致時，讀檔不多出一份帳', () => {

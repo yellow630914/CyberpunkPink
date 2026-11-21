@@ -113,7 +113,7 @@ describe('addLog：舊系統寫一則紀錄，交給引擎提交成一份報告'
 
 describe('存檔的形狀（M0-ui-engine 第五節第 3 步：引擎的那幾樣不再放進假存檔）', () => {
   it('serialize 不放時間與紀錄', () => {
-    const s = useGame().serialize() as Record<string, unknown>
+    const s = useGame().serialize() as unknown as Record<string, unknown>
     expect('day' in s).toBe(false)
     expect('minutes' in s).toBe(false)
     expect('log' in s).toBe(false)
