@@ -1,0 +1,163 @@
+[
+  {
+    "id": "hive",
+    "name": "蜂巢",
+    "line": "巨型公寓裡長大的孩子，現在是大人了",
+    "skill_bonus": {
+      "streetwise": 1
+    },
+    "status": "citizen",
+    "home": "蜂巢四號塔的單位",
+    "favor": {
+      "choose_one": [
+        "孤星連",
+        "野良"
+      ],
+      "value": 25
+    },
+    "perk": "origin_hive",
+    "roster": [
+      "小麥",
+      "雷"
+    ]
+  },
+  {
+    "id": "corp",
+    "name": "企業",
+    "line": "社宅出身，離開了公司，或被公司離開",
+    "skill_bonus": {
+      "negotiate": 1
+    },
+    "status": "citizen",
+    "home": "蜂巢四號塔的單位",
+    "favor": {
+      "choose_one": [
+        "緋櫻",
+        "星旗",
+        "崑崙",
+        "蜜腺",
+        "夜鶯",
+        "萬華鏡",
+        "伊甸園",
+        "黑泉",
+        "天使急救",
+        "織女",
+        "貞網局",
+        "甜心食品"
+      ],
+      "value": 25
+    },
+    "perk": "origin_corp",
+    "roster": [
+      "潘妮",
+      "雷"
+    ]
+  },
+  {
+    "id": "nomad",
+    "name": "車族",
+    "line": "荒地上的車隊，進城討生活",
+    "skill_bonus": {
+      "piloting": 1
+    },
+    "status": "unregistered",
+    "home": "一台能住的車，停在舊港的車廠",
+    "favor": {
+      "choose_one": [
+        "野薔薇"
+      ],
+      "value": 25
+    },
+    "perk": "origin_nomad",
+    "roster": [
+      "真白",
+      "雷"
+    ]
+  },
+  {
+    "id": "pleasure",
+    "name": "歡場",
+    "line": "四十二番街的店裡長大、工作過",
+    "skill_bonus": {
+      "seduce": 1
+    },
+    "status": "citizen",
+    "home": "番街的隔間",
+    "favor": {
+      "choose_one": [
+        "蜜糖會"
+      ],
+      "value": 25
+    },
+    "perk": "origin_pleasure",
+    "roster": [
+      "琥珀",
+      "雷"
+    ]
+  },
+  {
+    "id": "oldport",
+    "name": "舊港",
+    "line": "碼頭與黑市的人",
+    "skill_bonus": {
+      "stealth": 1
+    },
+    "status": "unregistered",
+    "home": "舊港的倉庫隔間",
+    "favor": {
+      "choose_one": [
+        "胭脂堂"
+      ],
+      "value": 25
+    },
+    "perk": "origin_oldport",
+    "roster": [
+      "奈奈",
+      "雷"
+    ]
+  },
+  {
+    "id": "sakura",
+    "name": "櫻町",
+    "line": "同人圈、女僕咖啡、劇場後台的人",
+    "skill_bonus": {
+      "perform": 1
+    },
+    "status": "citizen",
+    "home": "櫻町的合租屋",
+    "favor": {
+      "choose_one": [
+        "特攻姬",
+        "女僕公會"
+      ],
+      "value": 25
+    },
+    "perk": "origin_sakura",
+    "roster": [
+      "燈",
+      "雷"
+    ]
+  },
+  {
+    "id": "under",
+    "name": "地下層",
+    "line": "沒有登記的人，從下面上來的",
+    "skill_bonus": {
+      "mechanics": 1
+    },
+    "status": "unregistered",
+    "home": "月台市的鋪位",
+    "favor": {
+      "choose_one": [
+        "野良",
+        "牆語者"
+      ],
+      "value": 25
+    },
+    "perk": "origin_under",
+    "roster": [
+      "零",
+      "雷"
+    ]
+  }
+]

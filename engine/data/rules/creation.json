@@ -1,0 +1,23 @@
+[
+  {
+    "id": "default",
+    "attr_array": [
+      15,
+      14,
+      13,
+      12,
+      10,
+      8
+    ],
+    "attr_free": 2,
+    "attr_max": 18,
+    "attr_min": 4,
+    "skill_points": 10,
+    "skill_max": 3,
+    "perk_points": 4,
+    "perk_max": 8,
+    "flaw_max": 2,
+    "min_age": 18,
+    "start_money": 1500
+  }
+]

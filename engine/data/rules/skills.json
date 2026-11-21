@@ -1,0 +1,110 @@
+[
+  {
+    "id": "brawl",
+    "name": "格鬥",
+    "attr": "body",
+    "desc": "近身的命中與擒拿"
+  },
+  {
+    "id": "athletics",
+    "name": "運動",
+    "attr": "body",
+    "desc": "攀爬、衝刺、破門、負重"
+  },
+  {
+    "id": "heavy",
+    "name": "重裝",
+    "attr": "body",
+    "desc": "重的東西都算：重武器（機槍、火箭、重型電漿劍）的命中，以及重型防具（動力護甲、重甲）穿不穿得動"
+  },
+  {
+    "id": "firearms",
+    "name": "槍械",
+    "attr": "reflex",
+    "desc": "手槍到步槍的命中"
+  },
+  {
+    "id": "piloting",
+    "name": "操縱",
+    "attr": "reflex",
+    "desc": "車、無人機、機甲的移動與射擊：你把它們開得多好"
+  },
+  {
+    "id": "stealth",
+    "name": "隱匿",
+    "attr": "reflex",
+    "desc": "潛行、藏東西、扒竊"
+  },
+  {
+    "id": "mechanics",
+    "name": "機械",
+    "attr": "tech",
+    "desc": "武器與護甲的組裝與修理、陷阱、開鎖"
+  },
+  {
+    "id": "cyberware",
+    "name": "義體學",
+    "attr": "tech",
+    "desc": "義體的組裝、安裝、拆卸"
+  },
+  {
+    "id": "medicine",
+    "name": "醫療",
+    "attr": "tech",
+    "desc": "急救、手術、生體件"
+  },
+  {
+    "id": "interface",
+    "name": "介面",
+    "attr": "intellect",
+    "desc": "快駭、破解、網內的操作"
+  },
+  {
+    "id": "investigate",
+    "name": "調查",
+    "attr": "intellect",
+    "desc": "主動找：搜索、踩點、查證、看穿謊言"
+  },
+  {
+    "id": "streetwise",
+    "name": "街頭直覺",
+    "attr": "intellect",
+    "desc": "被動察覺：嗅得到麻煩、埋伏與跟蹤；認人、認勢力、打聽、黑市的行情"
+  },
+  {
+    "id": "intimidate",
+    "name": "威嚇",
+    "attr": "resolve",
+    "desc": "恐嚇、對峙、審問"
+  },
+  {
+    "id": "composure",
+    "name": "定力",
+    "attr": "resolve",
+    "desc": "抵抗誘惑、控制、契約指令"
+  },
+  {
+    "id": "sync",
+    "name": "同步",
+    "attr": "resolve",
+    "desc": "撐住回灌；擴充率：同時連得住幾台無人機、多大的機甲"
+  },
+  {
+    "id": "negotiate",
+    "name": "交涉",
+    "attr": "charm",
+    "desc": "談判、殺價、說服"
+  },
+  {
+    "id": "seduce",
+    "name": "誘惑",
+    "attr": "charm",
+    "desc": "勾引、成人場景、感載的社交攻擊"
+  },
+  {
+    "id": "perform",
+    "name": "表演",
+    "attr": "charm",
+    "desc": "演戲、偽裝、唱歌、直播"
+  }
+]

@@ -1,0 +1,345 @@
+[
+  {
+    "id": "smooth_talker",
+    "name": "能言善道",
+    "category": "social",
+    "cost": 2,
+    "flaw": false,
+    "desc": "交涉檢定 +2。",
+    "checks": {
+      "skills": [
+        "negotiate"
+      ],
+      "bonus": 2
+    }
+  },
+  {
+    "id": "well_connected",
+    "name": "人面廣",
+    "category": "street",
+    "cost": 2,
+    "flaw": false,
+    "desc": "街頭直覺檢定 +2。",
+    "checks": {
+      "skills": [
+        "streetwise"
+      ],
+      "bonus": 2
+    },
+    "provisional": true
+  },
+  {
+    "id": "smells_trouble",
+    "name": "嗅得到麻煩",
+    "category": "street",
+    "cost": 2,
+    "flaw": false,
+    "desc": "先攻 +3。",
+    "stats": {
+      "initiative": 3
+    },
+    "provisional": true
+  },
+  {
+    "id": "black_market_regular",
+    "name": "黑市熟客",
+    "category": "street",
+    "cost": 1,
+    "flaw": false,
+    "desc": "黑市的交易收入 +15%。",
+    "provisional": true
+  },
+  {
+    "id": "looks_reliable",
+    "name": "看起來可靠",
+    "category": "social",
+    "cost": 2,
+    "flaw": false,
+    "desc": "對市警與企業的人，所有社交檢定 +2。",
+    "provisional": true
+  },
+  {
+    "id": "straight_faced_liar",
+    "name": "撒謊不眨眼",
+    "category": "social",
+    "cost": 2,
+    "flaw": false,
+    "desc": "表演檢定 +2。",
+    "checks": {
+      "skills": [
+        "perform"
+      ],
+      "bonus": 2
+    },
+    "provisional": true
+  },
+  {
+    "id": "tough",
+    "name": "耐打",
+    "category": "body",
+    "cost": 2,
+    "flaw": false,
+    "desc": "生命值上限 +5。",
+    "stats": {
+      "max_hp": 5
+    },
+    "provisional": true
+  },
+  {
+    "id": "steady_hands",
+    "name": "手穩",
+    "category": "body",
+    "cost": 2,
+    "flaw": false,
+    "desc": "現實的命中 +1。",
+    "stats": {
+      "hit": 1
+    },
+    "provisional": true
+  },
+  {
+    "id": "holds_liquor",
+    "name": "酒量好",
+    "category": "body",
+    "cost": 1,
+    "flaw": false,
+    "desc": "酒與藥的成癮檢定 +2。",
+    "provisional": true
+  },
+  {
+    "id": "high_tolerance",
+    "name": "天生耐受高",
+    "category": "bridge",
+    "cost": 2,
+    "flaw": false,
+    "desc": "感載上限 +4。",
+    "stats": {
+      "load_cap": 4
+    },
+    "provisional": true
+  },
+  {
+    "id": "sync_native",
+    "name": "同步體質",
+    "category": "bridge",
+    "cost": 2,
+    "flaw": false,
+    "desc": "同步檢定 +2。",
+    "checks": {
+      "skills": [
+        "sync"
+      ],
+      "bonus": 2
+    },
+    "provisional": true
+  },
+  {
+    "id": "deft_hands",
+    "name": "巧手",
+    "category": "craft",
+    "cost": 2,
+    "flaw": false,
+    "desc": "機械檢定 +2。",
+    "checks": {
+      "skills": [
+        "mechanics"
+      ],
+      "bonus": 2
+    },
+    "provisional": true
+  },
+  {
+    "id": "old_net_kid",
+    "name": "舊網的孩子",
+    "category": "net",
+    "cost": 2,
+    "flaw": false,
+    "desc": "介面檢定 +2。",
+    "checks": {
+      "skills": [
+        "interface"
+      ],
+      "bonus": 2
+    },
+    "provisional": true
+  },
+  {
+    "id": "photogenic",
+    "name": "上鏡",
+    "category": "media",
+    "cost": 2,
+    "flaw": false,
+    "desc": "直播的打賞 +15%。",
+    "provisional": true
+  },
+  {
+    "id": "good_voice",
+    "name": "聲音好聽",
+    "category": "media",
+    "cost": 1,
+    "flaw": false,
+    "desc": "唱歌與直播的表演檢定 +2。",
+    "provisional": true
+  },
+  {
+    "id": "sensitive_body",
+    "name": "敏感體質",
+    "category": "desire",
+    "cost": 2,
+    "flaw": false,
+    "desc": "成人場景裡的契合 +2。",
+    "adult": true,
+    "provisional": true
+  },
+  {
+    "id": "afraid_of_pain",
+    "name": "怕痛",
+    "category": "body",
+    "cost": 1,
+    "flaw": true,
+    "desc": "重傷檢定 −2。",
+    "provisional": true
+  },
+  {
+    "id": "loose_lips",
+    "name": "口無遮攔",
+    "category": "social",
+    "cost": 2,
+    "flaw": true,
+    "desc": "交涉檢定 −2。",
+    "checks": {
+      "skills": [
+        "negotiate"
+      ],
+      "bonus": -2
+    },
+    "provisional": true
+  },
+  {
+    "id": "old_wound",
+    "name": "舊傷",
+    "category": "body",
+    "cost": 2,
+    "flaw": true,
+    "desc": "生命值上限 −5。",
+    "stats": {
+      "max_hp": -5
+    },
+    "provisional": true
+  },
+  {
+    "id": "picky_sleeper",
+    "name": "認床",
+    "category": "body",
+    "cost": 1,
+    "flaw": true,
+    "desc": "不在自己的床上睡覺時，感載少退一半。",
+    "provisional": true
+  },
+  {
+    "id": "weak_to_pink_lace",
+    "name": "對粉蕾絲沒抵抗力",
+    "category": "desire",
+    "cost": 2,
+    "flaw": true,
+    "desc": "面對粉蕾絲時，定力檢定 −2。",
+    "adult": true,
+    "provisional": true
+  },
+  {
+    "id": "owes_a_favor",
+    "name": "欠著人情",
+    "category": "social",
+    "cost": 1,
+    "flaw": true,
+    "desc": "開場就欠阿蓮一個小人情。",
+    "provisional": true
+  },
+  {
+    "id": "origin_hive",
+    "name": "巷子裡的眼睛",
+    "category": "origin",
+    "cost": 2,
+    "flaw": false,
+    "desc": "在蜂巢的街頭直覺檢定 +2。",
+    "checks": {
+      "skills": [
+        "streetwise"
+      ],
+      "tags": [
+        "place:hive"
+      ],
+      "bonus": 2
+    },
+    "provisional": true
+  },
+  {
+    "id": "origin_corp",
+    "name": "看得懂合約",
+    "category": "origin",
+    "cost": 2,
+    "flaw": false,
+    "desc": "對企業的人，所有社交檢定 +2。",
+    "provisional": true
+  },
+  {
+    "id": "origin_nomad",
+    "name": "方向盤長在手上",
+    "category": "origin",
+    "cost": 2,
+    "flaw": false,
+    "desc": "操縱檢定 +2。",
+    "checks": {
+      "skills": [
+        "piloting"
+      ],
+      "bonus": 2
+    },
+    "provisional": true
+  },
+  {
+    "id": "origin_pleasure",
+    "name": "看人臉色",
+    "category": "origin",
+    "cost": 2,
+    "flaw": false,
+    "desc": "在歡場工作的收入 +15%。",
+    "provisional": true
+  },
+  {
+    "id": "origin_oldport",
+    "name": "黑市熟客",
+    "category": "origin",
+    "cost": 2,
+    "flaw": false,
+    "desc": "黑市的交易收入 +15%。",
+    "provisional": true
+  },
+  {
+    "id": "origin_sakura",
+    "name": "後台的人",
+    "category": "origin",
+    "cost": 2,
+    "flaw": false,
+    "desc": "在櫻町的表演檢定 +2。",
+    "checks": {
+      "skills": [
+        "perform"
+      ],
+      "tags": [
+        "place:sakura"
+      ],
+      "bonus": 2
+    },
+    "provisional": true
+  },
+  {
+    "id": "origin_under",
+    "name": "沒有登記的臉",
+    "category": "origin",
+    "cost": 2,
+    "flaw": false,
+    "desc": "被掃到時，認出你的臉的檢定 −2。",
+    "provisional": true
+  }
+]
