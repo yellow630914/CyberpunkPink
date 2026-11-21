@@ -16,7 +16,7 @@ export const FULL_PAGES: FullPage[] = [
   { path: '/combat', name: '現實戰鬥' },
   { path: '/netcombat', name: '內海戰鬥' },
   { path: '/opinion', name: '輿論戰' },
-  { path: '/demo/adult', name: '成人場景', legacy: 'adult-scene.html' },
+  { path: '/scene', name: '成人場景' },
   { path: '/newgame', name: '開新局與建角' },
   { path: '/editor', name: '世界編輯器' },
   { path: '/workshop', name: 'AI 工坊' },
@@ -37,11 +37,12 @@ export const router = createRouter({
     { path: '/combat', component: () => import('./screens/CombatScreen.vue') },
     { path: '/netcombat', component: () => import('./screens/NetCombatScreen.vue') },
     { path: '/opinion', component: () => import('./screens/OpinionScreen.vue') },
-    // 第三版把三個戰場重做成元件；舊的 iframe 路由轉到新的畫面（public/legacy/ 的檔案還在，只是不再連過去）
+    { path: '/scene', component: () => import('./screens/AdultSceneScreen.vue') },
+    // 第三版把三個戰場、第四版把成人場景重做成元件；舊的 iframe 路由轉到新的畫面（public/legacy/ 的檔案還在，只是不再連過去）
     { path: '/demo/combat', redirect: '/combat' },
     { path: '/demo/net', redirect: '/netcombat' },
     { path: '/demo/opinion', redirect: '/opinion' },
-    { path: '/demo/:demo(adult)', component: () => import('./screens/LegacyScreen.vue'), props: true },
+    { path: '/demo/adult', redirect: '/scene' },
     { path: '/:rest(.*)*', redirect: '/' },
   ],
   scrollBehavior: () => ({ top: 0 }),

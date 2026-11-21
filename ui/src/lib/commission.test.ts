@@ -81,3 +81,54 @@ describe('機甲整備', () => {
     expect(repairQuote(START_MECH, 21, true).money).toBe(Math.round(q.money / 2))
   })
 })
+
+describe('委託・第四版：模板、連動的效果、直播目標', async () => {
+  const { linkMods, stagePressure, branchDc, LINKS, pickGoals, goalPayout } = await import('./commission')
+  const { TEMPLATES, facesKnownOf } = await import('../data/templates')
+  it('七種模板，每一型都有決定性的一步、而且只有主面', () => {
+    expect(TEMPLATES.length).toBeGreaterThanOrEqual(7)
+    for (const t of TEMPLATES) {
+      const key = t.stages.filter(s => s.key)
+      expect(key).toHaveLength(1)
+      expect(key[0].faces).toEqual([t.offer.face])
+      for (const s of t.stages) for (const f of s.faces) for (const b of s.branches[f] ?? []) {
+        expect(b.check || b.free || s.go[f] || b.go, `${t.id}/${s.id}/${b.id}`).toBeTruthy()
+        for (const id of b.gives ?? []) expect(LINKS[id], id).toBeTruthy()
+      }
+    }
+  })
+  it('連動照「用在哪一段」生效、用掉就沒了；不必探索時壓力不漲', () => {
+    const links = [{ id: 'located' }, { id: 'cams_off' }, { id: 'power_cut' }, { id: 'source_destroyed' }]
+    const m = linkMods(links, { face: 'm', decisive: false })
+    expect(m.skip).toBe(true)
+    expect(m.used).toEqual(['located', 'cams_off'])
+    expect(stagePressure({ alert: 20, trace: 0 }, m).alert).toBe(0)
+    const n = linkMods(links, { face: 'n', decisive: false })
+    expect(n.traceMult).toBe(0.5)
+    expect(n.used).toEqual([])
+    expect(stagePressure({ alert: 0, trace: 10 }, n).trace).toBe(5)
+    expect(linkMods(links, { face: 'o', decisive: true }).pr).toBe(-1)
+    expect(linkMods([{ id: 'located', used: true }], { face: 'm', decisive: false }).skip).toBe(false)
+  })
+  it('分支檢定的標準 DC 照等級，低一檔是 −3，夾在 10～25', () => {
+    expect(branchDc('II')).toBe(13)
+    expect(branchDc('II', -1)).toBe(10)
+    expect(branchDc('I', -1)).toBe(10)
+    expect(branchDc('V', 2)).toBe(25)
+  })
+  it('直播目標：抽一到三個；收尾時照整趟的統計檢查', () => {
+    const goals = pickGoals(['goal_alert_under_60', 'goal_two_crits'], () => 0)
+    expect(goals.length).toBeGreaterThanOrEqual(2)
+    expect(goals.length).toBeLessThanOrEqual(3)
+    const p = goalPayout(['goal_alert_under_60', 'goal_no_one_down'], { alertMax: 40, traceMax: 0, noLink: 0, opResult: null, decisiveRounds: 3, downs: 1 }, 2)
+    expect(p.done).toEqual(['goal_alert_under_60'])
+    expect(p.heat).toBe(3)
+    expect(p.tips).toBe(360)
+  })
+  it('踩點揭開某一階段的面', () => {
+    const t = TEMPLATES.find(x => x.id === 'rescue')!
+    expect(facesKnownOf(t, 0, t.unknowns)).toBe(false)
+    expect(facesKnownOf(t, 0, t.unknowns.map(u => ({ ...u, open: u.stage === 0 })))).toBe(true)
+    expect(facesKnownOf(t, 2, t.unknowns)).toBe(true)
+  })
+})

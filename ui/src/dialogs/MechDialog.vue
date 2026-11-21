@@ -6,7 +6,7 @@ import MoneyTag from '../components/MoneyTag.vue'
 import ReasonButton from '../components/ReasonButton.vue'
 import { useGame } from '../stores/game'
 import { useUi } from '../stores/ui'
-import { MECH_WEAPONS, PLATE_HP, AUX_PARTS, UPKEEP_WEEK, BACKLASH, mechMax, mechStatus, repairQuote, vehicleById } from '../data/garage'
+import { MECH_WEAPONS, PLATE_HP, AUX_PARTS, UPKEEP_WEEK, BACKLASH, MECH_CAP, OVERHAUL_PARTS, mechMax, mechStatus, repairQuote, overhaulQuote, upgradeQuote, carRepairQuote, applyOverhaul, applyUpgrade, vehicleById } from '../data/garage'
 import { chance } from '../lib/commission'
 import { fmt } from '../lib/price'
 
@@ -61,6 +61,9 @@ const selfPct = computed(() => chance(4, qSelf.value.dc))
 function repair(self: boolean) {
   const q = self ? qSelf.value : qShop.value
   if (pts.value <= 0) { ui.toast('沒有要修的。', 'warn'); return }
+  if (needsOverhaul.value) { ui.toast('損毀的機甲要先大修。', 'warn'); return }
+  if ((m.parts?.['板材'] ?? 0) < q.plates) { ui.toast(`板材不夠：要 ${q.plates} 件。`, 'warn'); return }
+  if (m.parts) m.parts['板材'] -= q.plates
   if (g.money.acc < q.money) { ui.toast('帳戶不夠。', 'warn'); return }
   g.money.acc -= q.money
   g.advance(q.hours * 60)
@@ -74,8 +77,65 @@ function repair(self: boolean) {
   pts.value = Math.max(0, max.value - m.hp)
 }
 const weekly = computed(() => Math.round(UPKEEP_WEEK[m.grade] * m.repairMult))
-const upgradeCost = computed(() => Math.round(5040 * 3))
-const cars = computed(() => g.vehicles.map(id => vehicleById(id.replace(/:used$/, ''))).filter(Boolean))
+
+// ---- 大修（CRAFTING 15.3 節）：損毀或剛買的骨架 ----
+const needsOverhaul = computed(() => m.hp <= 0 || !!m.needsOverhaul)
+const ohShop = computed(() => overhaulQuote(m, false))
+const ohSelf = computed(() => overhaulQuote(m, true))
+const ohReason = (self: boolean) => {
+  const q = self ? ohSelf.value : ohShop.value
+  if (!needsOverhaul.value) return '還沒損毀：損毀的機甲或剛買的骨架才要大修。'
+  if (!q.enoughParts) return `零件不夠：缺 ${q.missing.join('、')}，殘件也不夠抵。`
+  if (g.money.acc < q.money) return `帳戶不夠：要 ${fmt(q.money)}。`
+  return null
+}
+function overhaul(self: boolean) {
+  const q = self ? ohSelf.value : ohShop.value
+  g.money.acc -= q.money
+  g.advance(q.days * 24 * 60)
+  applyOverhaul(m)
+  g.addLog({ prose: [`野馬大修完了（${self ? '自己修' : '送修車廠'}，${q.days} 天）。核心接回骨架，機體耐久修滿。`], changes: [{ text: `帳戶 −${fmt(q.money)}`, kind: 'minus' }] })
+  ui.toast('大修完了：可以啟動了。')
+}
+/** 示範用：讓機甲損毀（像是上一場被打爛），看大修的流程 */
+function wreck() { m.hp = 0; m.needsOverhaul = true; ui.toast('野馬的機體歸零了：要大修才能再啟動。', 'warn') }
+
+// ---- 升級骨架（CRAFTING 15.4 節） ----
+const up = computed(() => upgradeQuote(m))
+const upReason = computed(() => {
+  const q = up.value
+  if (!q) return '野馬最高到 IV 級。'
+  if (needsOverhaul.value) return '先大修。'
+  const miss = q.parts.filter(p => !((m.parts?.[p] ?? 0) > 0))
+  if (miss.length) return `零件不夠：缺 ${miss.join('、')}。`
+  if (g.money.acc < q.money) return `帳戶不夠：要 ${fmt(q.money)}。`
+  return null
+})
+function upgrade() {
+  const q = up.value!
+  g.money.acc -= q.money
+  g.advance(q.days * 24 * 60)
+  applyUpgrade(m)
+  g.addLog({ prose: [`野馬升到 ${GR[q.grade]} 級：骨架 ${q.base}，要同步 ${q.sync} 級才開得動。`], changes: [{ text: `帳戶 −${fmt(q.money)}`, kind: 'minus' }] })
+  ui.toast(`升級完成：野馬 ${GR[q.grade]}。`)
+}
+
+// ---- 載具被打爛（CRAFTING 15.6 節） ----
+const carWrecked = (id: string) => (m.wrecked ?? []).includes(id)
+function carReason(c: { price: number; grade: number }, self: boolean) { const q = carRepairQuote(c, self); return g.money.acc < q.money + q.tow ? `帳戶不夠：要 ${fmt(q.money + q.tow)}。` : null }
+function repairCar(c: { id: string; name: string; price: number; grade: number }, self: boolean) {
+  const q = carRepairQuote(c, self)
+  if (self) {
+    const die = 1 + Math.floor(Math.random() * 20)
+    if (die + 4 < q.dc) { g.money.acc -= q.tow; g.advance(q.days * 24 * 60); ui.toast(`機械 1d20(${die}) + 4 對 ${q.dc}：失敗，多花一天。`, 'warn'); return }
+  }
+  g.money.acc -= q.money + q.tow
+  g.advance(q.days * 24 * 60)
+  m.wrecked = (m.wrecked ?? []).filter(x => x !== c.id)
+  g.addLog({ prose: [`${c.name}拖回來修好了（${self ? '自己修' : '送修車廠'}，${q.days} 天）。`], changes: [{ text: `帳戶 −${fmt(q.money + q.tow)}`, kind: 'minus' }] })
+  ui.toast(`${c.name}修好了，城市地圖可以自己開車。`)
+}
+const cars = computed(() => g.vehicles.map(id => vehicleById(id.replace(/:used$/, ''))).filter(Boolean) as NonNullable<ReturnType<typeof vehicleById>>[])
 </script>
 
 <template>
@@ -94,7 +154,8 @@ const cars = computed(() => g.vehicles.map(id => vehicleById(id.replace(/:used$/
       <section class="panel cut pad stack">
         <div class="hp"><span class="k">機體耐久</span><b class="big-num">{{ m.hp }}</b><span class="mono">／{{ max }}</span><span class="tag" :class="{ warn: status !== '完好' }">{{ status }}</span></div>
         <div class="dur"><i class="base" :style="{ width: pct(Math.min(m.hp, m.base)) }" /><i class="plate" :style="{ left: pct(m.base), width: pct(Math.max(0, m.hp - m.base)) }" /><em :style="{ left: pct(m.base) }" /></div>
-        <p class="t-fine">骨架 {{ m.base }}＋板材 {{ plateSum }}（上限是同級精英生命 × 0.4 ＝ 52）{{ owedCut ? `−欠整備費 ${owedCut}` : '' }}</p>
+        <p class="t-fine">骨架 {{ m.base }}＋板材 {{ plateSum }}（上限是同級精英生命 × 0.4 ＝ {{ MECH_CAP[m.grade] }}）{{ owedCut ? `−欠整備費 ${owedCut}` : '' }}</p>
+        <div class="chips"><span v-for="(n, p) in m.parts ?? {}" :key="p" class="tag">{{ p }} ×{{ n }}</span><span class="tag">機甲殘件 ×{{ m.salvage ?? 0 }}</span></div>
 
         <p class="h">武器掛點</p>
         <div class="slots"><button v-for="(w, i) in m.weapons" :key="'w' + i" type="button" class="ms" :class="{ on: sel?.kind === 'weapon' && sel.i === i, empty: !w }" @click="pickSlot('weapon', i)"><small>{{ i === 0 ? '主武器' : '副武器' }}</small>{{ w ?? '空' }}</button></div>
@@ -130,16 +191,37 @@ const cars = computed(() => g.vehicles.map(id => vehicleById(id.replace(/:used$/
           <p class="h">每週的帳</p>
           <div class="kv"><span>整備費</span><b><MoneyTag kind="acc" :amount="weekly" :size="12" /></b></div>
           <div class="kv"><span>欠了</span><b>{{ m.owedWeeks }} 週</b></div>
-          <p class="h">升級</p>
-          <p class="t-fine">野馬 III：下一級的骨架價 × 3 ＝ {{ fmt(upgradeCost) }}；板材、致動器、電源各一件（III）；修車廠 3 天；要同步 3 級。</p>
-          <ReasonButton sm :reason="mySync < 3 ? '升上去之後要同步 3 級才開得動。' : null" @go="ui.toast('升級在第四版接上。')">升級</ReasonButton>
+          <p class="h">升級骨架<Hint>同系列往上一級：下一級的骨架價 × 3；板材、致動器、電源各一件；修車廠 3 天。升上去之後要有對應的同步才開得動（CRAFTING 15.4 節）。</Hint></p>
+          <template v-if="up">
+            <p class="t-fine">野馬 {{ GR[up.grade] }}：骨架 {{ up.base }}；{{ fmt(up.money) }}；{{ up.parts.join('、') }}各一件；{{ up.days }} 天；要同步 {{ up.sync }} 級{{ mySync < up.sync ? `（你 ${mySync} 級，升上去之後開不動）` : '' }}。</p>
+            <ReasonButton sm :reason="upReason" data-upgrade @go="upgrade">升級到 {{ GR[up.grade] }}</ReasonButton>
+          </template>
+          <p v-else class="t-fine">野馬最高到 IV 級。</p>
+        </section>
+        <section class="panel cut pad" data-overhaul>
+          <p class="h">大修<Hint>損毀的機甲與剛買來的骨架要大修一次才能啟動：修滿的修理費 × 2（自己修減半）；致動器、電源、機械神經元各一件（一件機甲殘件抵兩件）；修車廠 3 天、自己修 7 天（CRAFTING 15.3 節）。</Hint></p>
+          <div class="kv"><span>狀態</span><b>{{ needsOverhaul ? '損毀：要大修' : '不用大修' }}</b></div>
+          <div class="kv"><span>零件</span><b>{{ OVERHAUL_PARTS.map(p => `${(m.parts?.[p] ?? 0) > 0 ? '✓' : '✗'} ${p}`).join('　') }}</b></div>
+          <div v-if="needsOverhaul && ohShop.missing.length" class="kv"><span>殘件抵</span><b>缺的 {{ ohShop.missing.length }} 件要 {{ ohShop.salvageNeed }} 件殘件</b></div>
+          <div class="grid2" style="--col-min: 120px; margin-top: 8px">
+            <div class="q"><b>自己修</b><small>{{ fmt(ohSelf.money) }}・{{ ohSelf.days }} 天・機械 DC {{ ohSelf.dc }}</small><ReasonButton sm :reason="ohReason(true)" @go="overhaul(true)">自己大修</ReasonButton></div>
+            <div class="q"><b>送修</b><small>{{ fmt(ohShop.money) }}・{{ ohShop.days }} 天</small><ReasonButton sm pri :reason="ohReason(false)" data-overhaul-go @go="overhaul(false)">送修大修</ReasonButton></div>
+          </div>
+          <div class="go left"><button type="button" class="btn sm ghost" data-wreck @click="wreck">示範：讓它損毀</button></div>
         </section>
       </aside>
     </div>
     <section class="panel cut pad cars">
       <p class="h">載具</p>
       <div v-if="!cars.length" class="empty-note">沒有車。修車廠買得到。</div>
-      <div v-for="c in cars" :key="c!.id" class="kv"><span>{{ c!.name }}</span><b>掩體 {{ c!.cover }}・完好・養車費 {{ c!.upkeep }}／週</b></div>
+      <div v-for="c in cars" :key="c.id" class="carrow" :data-car="c.id">
+        <span class="grow"><b>{{ c.name }}</b><small>掩體 {{ c.cover }}・{{ carWrecked(c.id) ? '被打爛了，開不走' : '完好' }}・養車費 {{ c.upkeep }}／週</small></span>
+        <template v-if="carWrecked(c.id)">
+          <ReasonButton sm :reason="carReason(c, true)" @go="repairCar(c, true)">自己修 {{ fmt(carRepairQuote(c, true).money + 200) }}・2 天</ReasonButton>
+          <ReasonButton sm pri :reason="carReason(c, false)" data-car-repair @go="repairCar(c, false)">拖車＋送修 {{ fmt(carRepairQuote(c, false).money + 200) }}・1 天</ReasonButton>
+          <Hint>拖車 C$200；修理費是目錄價的 15%，修車廠一天；在自己的工作台或整備架修是半價、兩天，機械 DC 10 ＋ 級 × 2（CRAFTING 15.6 節）。</Hint>
+        </template>
+      </div>
     </section>
   </Dialog>
 </template>
@@ -165,4 +247,7 @@ const cars = computed(() => g.vehicles.map(id => vehicleById(id.replace(/:used$/
 .cars { margin-top: var(--space-4); }
 @media (max-width: 1100px) { .mech { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .mech > :first-child { grid-column: 1 / -1; } }
 @media (max-width: 720px) { .mech { grid-template-columns: minmax(0, 1fr); } }
+.carrow { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px dashed var(--line); max-width: 880px; }
+.carrow small { display: block; color: var(--ink-3); font-size: var(--fs-fine); }
+.grow { flex: 1; min-width: 0; }
 </style>

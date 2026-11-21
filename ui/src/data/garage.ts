@@ -40,17 +40,66 @@ export const BACKLASH = [{ n: '淺', p: 10 }, { n: '標準', p: 20 }, { n: '深'
 export interface MechState {
   model: string; brand: string; grade: number; base: number; hp: number; repairMult: number; brandNote: string
   weapons: Array<string | null>; plates: number[]; aux: Array<string | null>; owedWeeks: number; where: string; sync: number
+  /** 第四版：損毀或剛買的骨架要大修一次才能啟動；機甲用的零件與殘件；被打爛、開不走的車 */
+  needsOverhaul?: boolean
+  parts?: Record<string, number>
+  salvage?: number
+  wrecked?: string[]
+}
+/** 野馬的骨架（ITEMS 14.2 節）：機體 43／54／68、骨架價 5,040／6,480／8,280 */
+export const MUSTANG_FRAME: Record<number, { base: number; price: number }> = { 2: { base: 43, price: 5040 }, 3: { base: 54, price: 6480 }, 4: { base: 68, price: 8280 } }
+export const OVERHAUL_PARTS = ['致動器', '電源', '機械神經元'] as const
+/**
+ * 大修（CRAFTING 15.3 節）：損毀的機甲與剛買來的骨架。錢是修滿的修理費 × 2（自己修減半）；
+ * 致動器、電源、機械神經元各一件（一件機甲殘件抵兩件）；修滿要的板材另外照算；修車廠 3 天、自己修 7 天。
+ */
+export function overhaulQuote(m: MechState, self: boolean) {
+  const full = repairQuote(m, mechMax(m), self)
+  const have = m.parts ?? {}
+  const missing = OVERHAUL_PARTS.filter(p => !(have[p] > 0))
+  const salvageNeed = Math.ceil(missing.length / 2)
+  return { money: full.money * 2, plates: full.plates, days: self ? 7 : 3, dc: full.dc, missing, salvageNeed, enoughParts: salvageNeed <= (m.salvage ?? 0) }
+}
+/** 升級骨架（15.4 節）：同系列往上一級；下一級的骨架價 × 3；板材、致動器、電源各一件；修車廠 3 天；要對應的同步 */
+export function upgradeQuote(m: MechState) {
+  const next = MUSTANG_FRAME[m.grade + 1]
+  if (!next) return null
+  return { grade: m.grade + 1, money: next.price * 3, parts: ['板材', '致動器', '電源'], days: 3, sync: m.grade + 1, base: next.base }
+}
+/** 載具被打爛（15.6 節）：拖車 200；修理費目錄價的 15%，修車廠一天；自己修半價、兩天，機械 DC 10 ＋ 級 × 2 */
+export function carRepairQuote(v: { price: number; grade: number }, self: boolean) {
+  return { tow: 200, money: Math.round(v.price * 0.15 * (self ? 0.5 : 1)), days: self ? 2 : 1, dc: 10 + v.grade * 2 }
 }
 /** 假存檔：薔薇驛的車庫裡一具除役的星旗野馬 II（骨架 43，三個板槽、兩個武器掛點、一個輔助槽） */
 export const START_MECH: MechState = {
   model: '野馬', brand: '星旗', grade: 2, base: 43, hp: 26, repairMult: 0.7, brandNote: '星旗 ×0.7：修得起，零件在蜂巢東側買得到',
   weapons: ['雙聯輕機槍', null], plates: [2, 0, 0], aux: ['感測器'], owedWeeks: 0, where: '薔薇驛的車庫', sync: 2,
+  needsOverhaul: false, parts: { 板材: 3, 致動器: 1, 電源: 1, 機械神經元: 0 }, salvage: 1, wrecked: ['veh_street'],
 }
 export function mechMax(m: MechState) {
   const raw = m.base + m.plates.reduce((s, g) => s + PLATE_HP[g], 0)
   return Math.max(0, Math.min(MECH_CAP[m.grade], raw) - Math.min(15, m.owedWeeks * 5))
 }
 export function mechStatus(hp: number, max: number) { return hp <= 0 ? '損毀' : hp >= max ? '完好' : hp >= max / 2 ? '受損' : '重損' }
+/** 大修做完：耐久修滿、零件扣掉（缺的用殘件抵） */
+export function applyOverhaul(m: MechState) {
+  const q = overhaulQuote(m, false)
+  const parts = m.parts ?? (m.parts = {})
+  for (const p of OVERHAUL_PARTS) if (parts[p] > 0) parts[p]--
+  m.salvage = Math.max(0, (m.salvage ?? 0) - q.salvageNeed)
+  parts['板材'] = Math.max(0, (parts['板材'] ?? 0) - q.plates)
+  m.needsOverhaul = false
+  m.hp = mechMax(m)
+}
+/** 升級做完：級 +1、骨架換成下一級、要的同步 +1、耐久修滿；零件扣掉 */
+export function applyUpgrade(m: MechState) {
+  const q = upgradeQuote(m)
+  if (!q) return
+  const parts = m.parts ?? (m.parts = {})
+  for (const p of q.parts) parts[p] = Math.max(0, (parts[p] ?? 0) - 1)
+  m.grade = q.grade; m.base = q.base; m.sync = q.sync
+  m.hp = mechMax(m)
+}
 /** 修理的估價：送修（修車廠）照修理費 ×1、每 20 點 4 小時；自己修照 ×0.5、每 20 點 8 小時、機械 DC 10 ＋ 級 × 2 */
 export function repairQuote(m: MechState, pts: number, self: boolean) {
   const per = Math.round(REPAIR_PER_PT[m.grade] * m.repairMult)

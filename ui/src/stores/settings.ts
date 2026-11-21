@@ -16,7 +16,7 @@ const defaults = {
   /** 身體的私密描寫：建角的「私處」與角色的成人分頁（第三版） */
   filterIntimateBody: true,
   // 遊戲
-  difficulty: '普通' as '故事' | '輕鬆' | '普通' | '困難' | '殘酷' | '自訂',
+  difficulty: '普通' as '故事' | '簡單' | '普通' | '困難' | '傳奇' | '自訂',
   /** 自訂難度的係數表（BALANCE 7.3 節）；選自訂時從一個預設複製 */
   customDiff: copyPreset('普通') as DiffTable,
   billRule: '標準' as '關閉' | '寬鬆' | '標準' | '嚴苛',
@@ -56,7 +56,13 @@ export type Settings = typeof defaults
 function load(): Settings {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return { ...structuredClone(defaults), ...JSON.parse(raw) }
+    if (raw) {
+      const v = { ...structuredClone(defaults), ...JSON.parse(raw) } as Settings
+      // 第四版：難度照 BALANCE 的名字（原本「輕鬆」「殘酷」）
+      const OLD: Record<string, Settings['difficulty']> = { 輕鬆: '簡單', 殘酷: '傳奇' }
+      if (OLD[v.difficulty as string]) v.difficulty = OLD[v.difficulty as string]
+      return v
+    }
   } catch { /* 私密視窗或被擋：用預設值 */ }
   return structuredClone(defaults)
 }

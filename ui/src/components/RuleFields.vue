@@ -13,7 +13,7 @@ const props = withDefaults(defineProps<{ showTraitPoints?: boolean; compact?: bo
 const st = useSettings()
 const s = st.s
 const ui = useUi()
-const DIFFS = ['故事', '輕鬆', '普通', '困難', '殘酷', '自訂'] as const
+const DIFFS = ['故事', '簡單', '普通', '困難', '傳奇', '自訂'] as const
 const PRESETS: BillPreset[] = ['關閉', '寬鬆', '標準', '嚴苛']
 function preset(p: BillPreset) { s.billRule = p; s.billMult = PRESET_MULT[p] }
 const round = (n: number) => Math.round(n * 100) / 100

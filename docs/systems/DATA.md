@@ -410,7 +410,7 @@
 | 武器 | `dice` 基礎的傷害骰、`range` 適用距離、`mag` 彈匣格數、`cover_mult` 遮蔽倍率、`type` 傷害類型、`pierce` 基礎穿甲、`traits`（無聲、轟退、近身不扣等）、`skill` 用哪一項基本功 |
 | 護甲與服裝 | `armor` 基礎護甲值、`covers` 蓋住哪些穿著的欄位、`weight_class` 重量級、`style` 與 `exposure`（由外皮零件決定時寫 `from_skin`） |
 | 義體 | `slot` 部位、`invasiveness` 侵入度、`sink_cost` 沉溺成本、`scene_parts`（3.4 節） |
-| 三種共通 | `grade`、`brand`、`require` 必要的零件、`optional` 選配、`legal` 合法性、`price`、`size` 大小、`weight` |
+| 三種共通 | `grade`、`brand`、`require` 必要的零件、`optional` 選配、`legal` 合法性、`price`、`size` 大小、`weight`；武器與護甲、服裝另有 `primary_color`、`secondary_color`（目錄上的預設顏色，7.7 節） |
 
 ```json
 {
@@ -509,6 +509,7 @@
 | `forms` | 有兩個樣子的（例：魔法少女・變身）列出每個樣子；都算同一套 |
 | `real_twin` | 照現實哪一套畫的（「網內版」才有），寫現實那幾件的 id |
 | `source`、`brand`、`price` | 哪裡拿、牌子、價錢；不賣的 `price` 寫 null |
+| `primary_color`、`secondary_color` | 預設的主色調與副色調（7.7 節）；化身可以自己重染 |
 
 ```json
 {
@@ -586,6 +587,23 @@
   "seats": 2, "cargo": 2, "cover_hp": 35, "summon_ap": 1, "leg_time_min": 5, "chase": 2,
   "traits": [ { "license_lock": true }, { "district_bonus": { "sakura": { "perform": 1, "intimidate": 1 } } } ]
 }
+```
+
+### 7.7 染色
+
+武器、衣服、護甲、飾品與內海的 SKIN 都可以染兩個顏色（規則在 [EQUIPMENT](../gear/EQUIPMENT.md) 第 9 節）。介面上的名字是**主色調**與**副色調**。
+
+| 欄位 | 內容 |
+|---|---|
+| `primary_color` | 主色調：整件的主要顏色（外殼、布料、槍身） |
+| `secondary_color` | 副色調：滾邊、配件、握把、扣環與接縫 |
+
+- 值是色票的 id（`dye_black`、`dye_pink`、`dye_olive`……，共 16 色，色票表在 `data/ui/dyes.json`）或 `#RRGGBB`。不認得的值讀檔時丟掉，退回預設。
+- 物品、設計圖、SKIN 上寫的是**目錄上的預設顏色**；沒寫時照牌子的外觀（[NPC_SYSTEM](NPC_SYSTEM.md) 13.11 節：織女白配藍、緋櫻櫻粉配白、星旗橄欖綠配黑……）。設計圖做出來的成品照設計圖的預設。
+- 存檔裡的一件東西（背包的一疊、穿著的一格、一套 SKIN）染過了才另外存一筆，沒染過的不存：
+
+```json
+{ "dyes": { "uid:u104": { "primary_color": "dye_mint", "secondary_color": "#1A1520" }, "slot:coat": { "primary_color": "dye_pink", "secondary_color": "dye_black" }, "skin:skin_neon_raincoat": { "primary_color": "dye_violet", "secondary_color": "dye_chrome" } } }
 ```
 
 ## 8. NPC

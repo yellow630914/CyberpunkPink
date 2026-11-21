@@ -52,3 +52,19 @@ describe('第三版的種類照欄位表檢查', () => {
     expect(e).toMatchObject({ id: 'en_new', kind: 'lace', rank: 'mook', load_max: 22 })
   })
 })
+
+describe('用在哪（第四版，所有種類）', async () => {
+  const { whereUsed } = await import('./worldCheck')
+  it('找出它引用的與引用它的，連欄位的位置', () => {
+    const all = [
+      { id: 'npc_a', kind: 'npc', name: '阿蓮' },
+      { id: 'shop_a', kind: 'shop', name: '雜貨店', owner: 'npc_a', stock: [{ item: 'it_x' }] },
+      { id: 'it_x', kind: 'item', name: '急救噴劑' },
+      { id: 'ev_1', kind: 'event', name: '收攤', options: [{ any: { npc: 'npc_a' } }] },
+    ]
+    const r = whereUsed(all[1], all)
+    expect(r.refs.map(x => [x.id, x.where])).toEqual([['npc_a', 'owner'], ['it_x', 'stock[0].item']])
+    const u = whereUsed(all[0], all)
+    expect(u.usedBy.map(x => [x.id, x.where])).toEqual([['shop_a', 'owner'], ['ev_1', 'options[0].any.npc']])
+  })
+})

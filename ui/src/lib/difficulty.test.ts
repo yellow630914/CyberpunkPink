@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest'
 import { DIFF_PRESETS, copyPreset, clampCoef, clampInt, tableFor, scaleEnemy, prPoints, dcWith, DC_RANGE, PR_RANGE } from './difficulty'
 
 describe('難度的係數（BALANCE 7.2、7.3 節）', () => {
-  it('普通全部是 1、偏移 0；困難與殘酷照表', () => {
+  it('普通全部是 1、偏移 0；困難與傳奇照表', () => {
     const n = DIFF_PRESETS.普通
     expect([n.boss.hp, n.low12.dmg, n.low45.load, n.pr, n.dc]).toEqual([1, 1, 1, 0, 0])
     expect(DIFF_PRESETS.困難.low3.dmg).toBe(1.35)
-    expect(DIFF_PRESETS.殘酷.low12.dmg).toBe(1.7)
+    expect(DIFF_PRESETS.傳奇.low12.dmg).toBe(1.7)
     expect(DIFF_PRESETS.故事.dc).toBe(-2)
   })
   it('自訂從預設複製，改了不影響預設', () => {
@@ -29,7 +29,7 @@ describe('難度的係數（BALANCE 7.2、7.3 節）', () => {
     expect(scaleEnemy(t, 3, false, { hp: 45, load: 22 }).hp).toBe(90)
     expect(scaleEnemy(t, 2, false, { hp: 45, load: 22 }).hp).toBe(45)
     expect(prPoints(1, DIFF_PRESETS.故事)).toBe(1)
-    expect(prPoints(3, DIFF_PRESETS.殘酷)).toBe(8)
+    expect(prPoints(3, DIFF_PRESETS.傳奇)).toBe(8)
     expect(dcWith(10, DIFF_PRESETS.故事)).toBe(8)
   })
 })

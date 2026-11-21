@@ -31,7 +31,9 @@ const tSpec = computed(() => (target.value ? blockSpec(target.value.district, ta
 const tLines = computed(() => (target.value ? linesAt(target.value.block) : []))
 const quote = computed(() => (target.value ? taxiQuote(DISTRICTS, here.value, target.value) : null))
 const taxiWhy = computed(() => (!st.s.fastTravel ? NO_FAST : target.value && quote.value ? taxiBlock(here.value, target.value, g.money.acc, quote.value.fare) : '先選一個街區。'))
-const driveWhy = computed(() => (!st.s.fastTravel ? NO_FAST : target.value ? driveBlock(g.vehicles, here.value, target.value) : '先選一個街區。'))
+/** 被打爛、還沒修的車開不了（CRAFTING 15.6 節） */
+const usableCars = computed(() => g.vehicles.filter(id => !(g.mech.wrecked ?? []).includes(id.replace(/:used$/, ''))))
+const driveWhy = computed(() => (!st.s.fastTravel ? NO_FAST : g.vehicles.length && !usableCars.value.length ? '你的車上一場被打爛了：先在修車廠或整備架修好。' : target.value ? driveBlock(usableCars.value, here.value, target.value) : '先選一個街區。'))
 
 function arrive(how: string, mins: number) {
   const t = target.value!
@@ -47,7 +49,7 @@ function taxi() {
   g.money.acc -= q.fare
   arrive(`你叫了一台浮空計程車（帳戶付 C$${q.fare}，乘客紀錄會留下）`, q.minutes)
 }
-function drive() { arrive(`你開自己的${vehicleById(g.vehicles[0].replace(/:used$/, ''))?.name ?? g.vehicles[0]}過去`, driveMinutes(here.value, target.value!)) }
+function drive() { arrive(`你開自己的${vehicleById(usableCars.value[0].replace(/:used$/, ''))?.name ?? usableCars.value[0]}過去`, driveMinutes(here.value, target.value!)) }
 </script>
 
 <template>

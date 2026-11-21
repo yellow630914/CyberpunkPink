@@ -43,7 +43,18 @@ export interface NetUnitSpec {
   name: string; skin: string; av: NetUnit['av']; lm: number; lay: number; ap: number; ram: number; rr?: number; prot?: number; refl: number
   gun?: number; mel?: number; will?: number; intf?: number; tier?: number; elite?: boolean; xd?: number; sync?: number; sm?: number; admin?: number; white?: boolean; dmg?: number; ws: string[]
 }
-export interface NetSetup { party: NetUnitSpec[]; foes: NetUnitSpec[]; covP?: Cover[]; covE?: Cover[]; trace?: number; view?: number }
+export interface NetSetup {
+  party: NetUnitSpec[]; foes: NetUnitSpec[]; covP?: Cover[]; covE?: Cover[]; trace?: number; view?: number
+  /** 第四版：在節點上下載（CYBERSPACE 8.3 節：待在節點上 2～4 回合，期間不能離開；每回合追蹤度 +2）。holder 是守著節點的那個人 */
+  download?: { rounds: number; holder: string; what: string; wave?: NetUnitSpec }
+  /** 子網是誰的：60 的時候上線的是誰（對方的潛網者或精英蕾絲）、定位之後幾回合斷線（星旗 2，其他 3） */
+  owner?: string
+}
+/** 追蹤度到 60 的增援（CYBERSPACE 6.8 節：對方的潛網者或一隻精英蕾絲）；格子滿了就排隊，空出來再上線 */
+export const T60_UNITS: Record<string, NetUnitSpec> = {
+  runner: { name: '企業潛網者', skin: '制服型', av: 'cat', lm: 37, lay: 2, ap: 5, ram: 6, rr: 3, prot: 1, refl: 0, gun: 3, will: 3, tier: 2, elite: true, xd: 1, sync: 2, sm: 2, ws: ['pulse'] },
+  lace: { name: '粉蕾絲・女僕長', skin: '女僕長', av: 'lace', lm: 37, lay: 2, ap: 5, ram: 6, rr: 3, prot: 1, refl: 0, gun: 3, will: 3, tier: 2, elite: true, xd: 1, sync: 2, sm: 2, ws: ['pulse', 'needle'] },
+}
 
 export const NET_ACTIONS: RingAction[] = [
   { k: 'shoot', n: '攻擊', c: 2, g: 'atk', icon: 'shoot', tg: 'foe', ram: '1（長矛 2）', d: '用手上的武器構裝攻擊一個敵人。長矛（狙擊型）一擊 3 點，已經包含瞄準：命中 +3，要害時破損。', w: '手上是近戰構裝、RAM 不夠，或武器被干擾' },
@@ -87,6 +98,11 @@ export class NetBattle extends SlotBattle<NetUnit> {
   danmaku: Array<{ id: number; text: string }> = []
   scripts: Record<number, number> = {}
   private dmSeq = 1
+  /** 第四版：下載（剩幾回合、誰守著、斷了沒）與排隊的增援、現實的保全有沒有進入警戒 */
+  dl: { left: number; total: number; holder: number; what: string; broken: boolean; wave?: NetUnitSpec } | null = null
+  queue: NetUnitSpec[] = []
+  realAlert = false
+  owner: string
 
   constructor(setup: NetSetup, rng: Rng) {
     super(rng, setup.covP ?? [cover(1), cover(2), cover(2), cover(1)], setup.covE ?? [cover(1), cover(2), cover(1), cover(2)])
@@ -96,6 +112,12 @@ export class NetBattle extends SlotBattle<NetUnit> {
     this.view = setup.view ?? 12480
     this.rollInitiative()
     this.units.filter(u => u.side === 'P').forEach(u => { this.scripts[u.id] = 1 })
+    this.owner = setup.owner ?? '藍鯨物流'
+    if (setup.download) {
+      const h = this.units.find(u => u.side === 'P' && u.name === setup.download!.holder) ?? this.units.find(u => u.side === 'P')!
+      this.dl = { left: setup.download.rounds, total: setup.download.rounds, holder: h.id, what: setup.download.what, broken: false, wave: setup.download.wave }
+      this.log(`${h.name}守在節點上下載${setup.download.what}：要撐 ${setup.download.rounds} 回合，期間不能離開這一格。`, 'h')
+    }
     this.log('潛入完成。第一回合所有人的行動點與 RAM 都從上限開始。', 'h')
   }
 
@@ -168,10 +190,10 @@ export class NetBattle extends SlotBattle<NetUnit> {
     const p = this.alive('P').length, e = this.alive('E').filter(u => !u.white).length
     if (!p && this.units.filter(u => u.side === 'P').every(u => u.unp)) this.finish('retreat', '全隊拔線：等於撤退。委託副本裡是回退到進副本之前。', '撤退。')
     else if (!p) this.finish('lose', '全隊斷線或被釘住：戰敗。贏的是粉蕾絲，所以正式的遊戲裡這裡會接「被釘在線上」的活捉事件。', '戰敗。')
-    else if (!e) this.finish('win', '敵人全部斷線或被釘住：勝利。餘韻會跟著回到現實（每層全屬性 −2）。', '勝利。')
+    else if (!e && !(this.dl && !this.dl.broken && this.dl.left > 0 && this.queue.length)) this.finish('win', `敵人全部斷線或被釘住：勝利。${this.dl && !this.dl.broken && this.dl.left > 0 ? `下載還差 ${this.dl.left} 回合，你們守住了節點，把它跑完。` : ''}餘韻會跟著回到現實（每層全屬性 −2）。`, '勝利。')
   }
   /** 追蹤度到了門檻就上線新的敵人：30 白蕾絲（不打人，每回合追蹤度 +5）、60 對方的潛網者；90 被定位，三回合後強制斷線 */
-  spawn(o: NetUnitSpec): boolean {
+  spawn(o: NetUnitSpec, queue = false): boolean {
     for (let s = 1; s <= 4; s++) {
       if (!this.at('E', s)) {
         const u = makeUnit('E', s, o)
@@ -181,17 +203,29 @@ export class NetBattle extends SlotBattle<NetUnit> {
         return true
       }
     }
+    if (queue) { this.queue.push(o); this.log(`${o.name}在線外排隊：前面空出一格就上線。`, 'r'); return true }
     return false
+  }
+  /** 排隊的增援：前面有空格就上線 */
+  drainQueue() {
+    while (this.queue.length && [1, 2, 3, 4].some(s => !this.at('E', s))) {
+      const o = this.queue.shift()!
+      this.spawn(o)
+      this.log(`增援上線：${o.name}。`, 'r')
+    }
   }
   traceCheck() {
     if (this.end) return
     if (this.trace >= 30 && !this.t30 && this.spawn({ name: '白蕾絲', skin: '警報型', av: 'lace', lm: 22, lay: 1, ap: 0, ram: 0, refl: 0, white: true, ws: ['needle'] })) {
       this.t30 = true; this.dm('trace'); this.log('追蹤度到 30：白蕾絲上線。牠不打人，每回合讓追蹤度 +5。', 'r')
     }
-    if (this.trace >= 60 && !this.t60 && this.spawn({ name: '企業潛網者', skin: '制服型', av: 'cat', lm: 37, lay: 2, ap: 5, ram: 6, rr: 3, prot: 1, refl: 0, gun: 3, will: 3, tier: 2, elite: true, xd: 1, sync: 2, sm: 2, ws: ['pulse'] })) {
-      this.t60 = true; this.dm('trace'); this.log('追蹤度到 60：對方的潛網者上線。', 'r')
+    if (this.trace >= 60 && !this.t60) {
+      // 對方的潛網者或一隻精英蕾絲（照子網是誰的）；格子滿了就排隊。現實的保全同時進入警戒（NETRUNNING 第 5 節）
+      const o = this.owner === '星旗防務' || this.owner === '天使急救' ? T60_UNITS.lace : T60_UNITS.runner
+      this.t60 = true; this.realAlert = true; this.spawn(o, true); this.dm('trace')
+      this.log(`追蹤度到 60：確認入侵。${o.name}上線；現實的保全進入警戒。`, 'r')
     }
-    if (this.trace >= 90 && this.loc < 0) { this.loc = 3; this.dm('trace'); this.log('追蹤度到 90：被定位。三回合後全隊強制斷線。', 'r') }
+    if (this.trace >= 90 && this.loc < 0) { this.loc = this.owner === '星旗防務' ? 2 : 3; this.dm('trace'); this.log(`追蹤度到 90：被定位。${this.loc} 回合後全隊強制斷線。`, 'r') }
   }
   beginTurn(): Phase {
     for (let guard = 0; guard < 64; guard++) {
@@ -216,6 +250,9 @@ export class NetBattle extends SlotBattle<NetUnit> {
       this.round++
       this.trace += 3
       this.log(`—— 第 ${this.round} 回合 ——（追蹤度 +3）`, 'h')
+      this.downloadTick()
+      if (this.end) return
+      this.drainQueue()
       if (this.loc > 0) {
         this.loc--
         if (this.loc === 0) { this.finish('located', '被定位：全隊被強制斷線。現實的增援已經在去接入點的路上。', '被定位。'); return }
@@ -227,7 +264,21 @@ export class NetBattle extends SlotBattle<NetUnit> {
   endTurn(): Phase { if (this.end) return 'over'; this.mode = null; this.advance(); return this.beginTurn() }
 
   canHit(u: NetUnit, t: NetUnit) { const w = this.wp(u); return !u.jam && u.ram >= w.cost && (!w.melee || this.dist(u, t) === 1) }
-  canMove(u: NetUnit, to: number) { return !u.cut && this.canMoveBase(u, to) }
+  /** 守著節點下載的人不能換位（CYBERSPACE 8.3 節：期間不能離開） */
+  canMove(u: NetUnit, to: number) { return !u.cut && !this.holding(u) && this.canMoveBase(u, to) }
+  holding(u: NetUnit) { return !!this.dl && !this.dl.broken && this.dl.left > 0 && this.dl.holder === u.id }
+  /** 每回合結束：守著的人還在就下載一回合（追蹤度 +2）；每兩回合一波守衛程式；跑完就結束這一場 */
+  downloadTick() {
+    const d = this.dl
+    if (!d || d.broken || d.left <= 0) return
+    const h = this.units[d.holder]
+    if (h.down) { d.broken = true; this.log(`${h.name}離開了節點：下載中斷。`, 'r'); return }
+    d.left--
+    this.trace += 2
+    this.log(`下載 ${d.total - d.left}／${d.total}：追蹤度 +2。`, 'h')
+    if (d.left <= 0) { this.finish('win', `下載完成：${d.what}到手了。${h.name}守住了節點，全隊從後門登出。`, '下載完成。'); return }
+    if (d.wave && (d.total - d.left) % 2 === 0) { this.spawn({ ...d.wave }, true); this.log(`下載的流量被察覺：${d.wave.name}趕過來。`, 'r') }
+  }
   canPin(a: NetUnit, t: NetUnit) { return a.slot === 1 && t.slot === 1 && !t.down && t.layers >= t.layersMax }
   pin(a: NetUnit, t: NetUnit) {
     a.ram--
@@ -403,6 +454,7 @@ export class NetBattle extends SlotBattle<NetUnit> {
     u.ap--
     u.unp = true
     u.out = true
+    if (this.holding(u)) { this.dl!.broken = true; this.log(`${u.name}拔線：下載中斷。`, 'r') }
     this.log(`${u.name} 拔線：登出，退出這場戰鬥。`, 'h')
     this.fall(u, ' 離開了內海。')
     return true

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, reactive, ref } from 'vue'
+import { LOOK_GROUPS } from '../../data/creation'
+import { useUi } from '../../stores/ui'
 import TrackBar from '../../components/TrackBar.vue'
 import Hint from '../../components/Hint.vue'
 import { useGame } from '../../stores/game'
@@ -12,6 +14,17 @@ import { DISTRICTS } from '../../data/districts'
  */
 const g = useGame()
 const st = useSettings()
+const ui = useUi()
+/** 建角之後也能改私處的描述（第四版）：選項和建角第 1 步同一份，另有一格自己寫 */
+const PRIVATE_OPTS = LOOK_GROUPS.flatMap(x => x.fields).find(f => f.k === 'privates')!.opts
+const editing = ref(false)
+const draft = reactive({ look: '', note: '' })
+function startEdit() { draft.look = g.character.privates?.look ?? PRIVATE_OPTS[0]; draft.note = g.character.privates?.note ?? ''; editing.value = true }
+function saveEdit() {
+  g.character.privates = { look: draft.look, note: draft.note.trim() }
+  editing.value = false
+  ui.toast('私處的描述改好了。之後的場景與正文照新的寫。')
+}
 const P = computed(() => g.params)
 /** 每一項參數現在的效果（LEWD_SYSTEM 第 1 節的公式）。 */
 const effects = computed(() => ({
@@ -41,10 +54,18 @@ const tagsOf = (axis: string) => AXIS_TAGS[axis].filter(t => g.tendency.tags[t] 
           <small>{{ effects[k] }}</small>
         </div>
       </div>
-      <div v-if="st.s.filterIntimateBody && g.character.privates" class="panel cut pad" data-privates>
-        <p class="h">私處<Hint>建角第 1 步寫的樣子；成人場景與 AI 寫正文時用。內容篩選關掉「身體的私密描寫」時這一格不顯示。</Hint></p>
-        <div class="chips"><span class="tag">{{ g.character.privates.look }}</span></div>
-        <p v-if="g.character.privates.note" class="t-fine">{{ g.character.privates.note }}</p>
+      <div v-if="st.s.filterIntimateBody" class="panel cut pad" data-privates>
+        <p class="h">私處<Hint>建角第 1 步寫的樣子，之後也能在這裡改（例：做過手術、換了私密義體、剃了）；成人場景與 AI 寫正文時用。所有角色都是成年人。內容篩選關掉「身體的私密描寫」時這一格不顯示。</Hint></p>
+        <template v-if="!editing">
+          <div class="chips"><span class="tag">{{ g.character.privates?.look ?? '（不寫）' }}</span></div>
+          <p v-if="g.character.privates?.note" class="t-fine">{{ g.character.privates.note }}</p>
+          <div class="go left"><button type="button" class="btn sm" data-edit-privates @click="startEdit">改描述</button></div>
+        </template>
+        <div v-else class="pedit">
+          <label class="fld"><span class="k">樣子</span><select v-model="draft.look" class="inp" aria-label="私處的樣子"><option v-for="o in PRIVATE_OPTS" :key="o">{{ o }}</option></select></label>
+          <label class="fld"><span class="k">補充（選用）</span><input v-model="draft.note" class="inp" placeholder="用自己的話寫，例：左邊大腿內側有一顆小痣" data-privates-input></label>
+          <div class="go left"><button type="button" class="btn sm" @click="editing = false">取消</button><button type="button" class="btn sm pri" data-save-privates @click="saveEdit">存下來</button></div>
+        </div>
       </div>
       <div class="panel cut pad">
         <p class="h">豔名<Hint>每一區各自記，0～100：這一區有多少人看過你、認得你的身體。和街頭信譽分開。誘惑與表演有加值；被認出來的機率也跟著高。</Hint></p>
@@ -95,4 +116,7 @@ const tagsOf = (axis: string) => AXIS_TAGS[axis].filter(t => g.tendency.tags[t] 
 .pips i.on { background: var(--a); }
 @media (max-width: 1100px) { .ad { grid-template-columns: 1fr; } }
 @media (max-width: 480px) { .fame { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pedit { display: grid; gap: var(--space-3); }
+.pedit .fld { display: grid; gap: 4px; max-width: 640px; }
+.pedit .inp { width: 100%; background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 8px 10px; font: 600 var(--fs-md) var(--font); }
 </style>

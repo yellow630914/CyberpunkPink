@@ -20,6 +20,7 @@ import { START_MECH, type MechState } from '../data/garage'
 import { useHome } from './home'
 import { useSubnet } from './subnet'
 import { packSave, rollbackKeeping, type Snapshot, type SnapshotKind } from '../lib/save'
+import { sanitizeDyes, type Dye } from '../lib/dye'
 
 /**
  * 假存檔：主角、背包、義體、裝備、所在地、時間、錢、紀錄。
@@ -42,6 +43,8 @@ export interface SaveShape {
   /** 第 3 版：家園與子網的 store（null 是 v2 升上來的存檔，讀的時候不動） */
   home?: Record<string, unknown> | null
   subnet?: Record<string, unknown> | null
+  /** 第 4 版：染色（key 是「uid:背包那一疊」或「slot:穿著的格子」） */
+  dyes?: Record<string, Dye>
 }
 
 const WEEKDAYS = ['週一', '週二', '週三', '週四', '週五', '週六', '週日']
@@ -70,7 +73,8 @@ export const useGame = defineStore('game', () => {
   const fame = reactive({ ...START_FAME })
   const sexRecord = reactive(structuredClone(START_SEX))
   /** 自己的車（ITEMS 第 14 節）：有的話城市地圖可以直接開過去，不要錢。假存檔沒有車。 */
-  const vehicles = ref<string[]>([])
+  // 第四版：假存檔有一台二手街車，上一場被打爛了（機甲整備的「載具」一列可以拖車與修）
+  const vehicles = ref<string[]>(['veh_street:used'])
   const deck = reactive(structuredClone(START_DECK))
   const roster = ref(structuredClone(ROSTER))
   const channel = reactive(structuredClone(START_CHANNEL))
@@ -87,7 +91,9 @@ export const useGame = defineStore('game', () => {
   /** 機甲（ITEMS 14.2 節、CRAFTING 第 15 節）：假存檔有一具除役的野馬 II */
   const mech = reactive<MechState>(structuredClone(START_MECH))
   /** 最近一場戰鬥的結果：戰鬥畫面離開時寫，委託頁讀了推進階段（不進存檔） */
-  const lastBattle = ref<{ kind: 'real' | 'net' | 'opinion' | 'subnet'; result: string; text: string } | null>(null)
+  const lastBattle = ref<{ kind: 'real' | 'net' | 'opinion' | 'subnet' | 'scene'; result: string; text: string; rounds?: number; crits?: number; downs?: number; lethal?: number } | null>(null)
+  /** 染色（EQUIPMENT 第 9 節）：背包裡的一疊或穿著的一格染成的主色調與副色調；沒有就是預設的顏色 */
+  const dyes = reactive<Record<string, Dye>>({})
   const snapshots = ref<Snapshot[]>([])
   const inRun = ref(false)
   const loc = reactive<{ district: DistrictId; block: string; pos: Point; facility: string | null }>({ district: 'hive', block: '四號塔', pos: { x: 3, y: 1 }, facility: 'rooftop' })
@@ -153,16 +159,20 @@ export const useGame = defineStore('game', () => {
   }
   function setFacility(id: string | null) { loc.facility = id }
 
-  function addItem(def: string, qty = 1, condition: Condition = '全新') {
-    const st = inventory.value.find(s => s.def === def && s.condition === condition && !s.unknown)
-    if (st) st.qty += qty
-    else inventory.value.push({ uid: `u${uidSeq++}`, def, qty, condition })
+  function addItem(def: string, qty = 1, condition: Condition = '全新', dye?: Dye | null) {
+    // 染過的那一疊不和沒染的合併
+    const st = dye ? null : inventory.value.find(s => s.def === def && s.condition === condition && !s.unknown && !dyes[`uid:${s.uid}`])
+    if (st) { st.qty += qty; return st.uid }
+    const uid = `u${uidSeq++}`
+    inventory.value.push({ uid, def, qty, condition })
+    if (dye) dyes[`uid:${uid}`] = { ...dye }
+    return uid
   }
   function removeItem(uid: string, qty = 1) {
     const i = inventory.value.findIndex(s => s.uid === uid)
     if (i < 0) return
     inventory.value[i].qty -= qty
-    if (inventory.value[i].qty <= 0) inventory.value.splice(i, 1)
+    if (inventory.value[i].qty <= 0) { delete dyes[`uid:${uid}`]; inventory.value.splice(i, 1) }
   }
   function stackOf(uid: string) { return inventory.value.find(s => s.uid === uid) ?? null }
 
@@ -171,15 +181,26 @@ export const useGame = defineStore('game', () => {
     const st = stackOf(uid)
     if (!st) return
     const prev = equip[slot]
+    const prevDye = dyes[`slot:${slot}`] ?? null
+    const newDye = dyes[`uid:${uid}`] ?? null
     equip[slot] = st.def
     removeItem(uid)
-    if (prev) addItem(prev)
+    if (newDye) dyes[`slot:${slot}`] = { ...newDye }
+    else delete dyes[`slot:${slot}`]
+    if (prev) addItem(prev, 1, '全新', prevDye)
   }
   function unequip(slot: EquipSlotId) {
     const prev = equip[slot]
     if (!prev) return
+    const d = dyes[`slot:${slot}`] ?? null
     delete equip[slot]
-    addItem(prev)
+    delete dyes[`slot:${slot}`]
+    addItem(prev, 1, '全新', d)
+  }
+  /** 染一疊或一格（key：「uid:…」或「slot:…」）；null 是換回預設的顏色 */
+  function setDye(key: string, d: Dye | null) {
+    if (d) dyes[key] = { primary: d.primary, secondary: d.secondary }
+    else delete dyes[key]
   }
   /** 義體要在診所拆裝；這裡只給「拆下」的預覽，不真的動 */
   function cyberAt(part: BodyPartId) { return cyber[part] }
@@ -234,7 +255,7 @@ export const useGame = defineStore('game', () => {
       basics: { ...basics }, learned: learned.value, loadout: loadout.value, nightLearned: nightLearned.value, params: { ...params }, tendency: { ...tendency },
       fame: { ...fame }, sexRecord: { ...sexRecord }, deck: { ...deck }, roster: roster.value, channel: { ...channel }, contracts: { ...contracts }, bills: { ...bills },
       pending: pending.value, craftFill: { ...craftFill }, guides: { ...guides }, dungeonSeed: dungeonSeed.value, vehicles: vehicles.value, media: { ...media }, job: { ...job }, mech: { ...mech },
-      home: useHome().serialize(), subnet: useSubnet().serialize(),
+      home: useHome().serialize(), subnet: useSubnet().serialize(), dyes: { ...dyes },
     })) as SaveShape
   }
   type SaveState = SaveShape
@@ -278,6 +299,7 @@ export const useGame = defineStore('game', () => {
     if (d.mech) Object.assign(mech, structuredClone(d.mech))
     if (d.home) useHome().hydrate(d.home)
     if (d.subnet) useSubnet().hydrate(d.subnet)
+    if (d.dyes) { for (const k of Object.keys(dyes)) delete dyes[k]; Object.assign(dyes, sanitizeDyes(d.dyes)) }
     logSeq = Math.max(logSeq, ...log.value.map(e => e.id + 1))
   }
   function saveMeta(kind: '手動' | '自動' | '快照' = '手動') {
@@ -310,6 +332,6 @@ export const useGame = defineStore('game', () => {
     timeLabel, weekday, billIn, district, block, blockMap, facility, placeLabel, topHostility, carriedWeight, sinkFloor, quickCap, coveredSlots,
     advance, addLog, moveBlock, setFacility, addItem, removeItem, stackOf, equipItem, unequip, cyberAt, changeAffinity, itemName,
     basics, learned, loadout, nightLearned, params, tendency, fame, sexRecord, deck, roster, channel, contracts, bills, pending, craftFill, guides, dungeonSeed, vehicles, media, job, mech, lastBattle, snapshots, inRun,
-    learnSkill, syncTrees, learnNight, setQuick, serialize, hydrate, saveMeta, packed, takeSnapshot, rollback,
+    dyes, setDye, learnSkill, syncTrees, learnNight, setQuick, serialize, hydrate, saveMeta, packed, takeSnapshot, rollback,
   }
 })

@@ -1,4 +1,4 @@
-# CyberpunkPink 互動介面（第三版）
+# CyberpunkPink 互動介面（第四版）
 
 這是遊戲介面的**參考實作**：Vue 3 + Pinia + Vite + TypeScript，和引擎預定的技術相同（[IMPLEMENTATION](../docs/plan/IMPLEMENTATION.md) 第 1 節）。它取代 `docs/mockups/` 的靜態樣稿，當作寫引擎時的介面依據；兩者不一致時以這裡為準（規則寫在 [UI](../docs/art/UI.md) 的「互動版介面」一節）。
 
@@ -10,7 +10,7 @@
 cd ui
 npm install
 npm run dev       # 開發伺服器，http://localhost:5173
-npm test          # Vitest：格子、家具、價格、技能樹、建角的點數（含屬性往下壓）、組裝、帳單、存檔（含第 3 版的升級）、世界編輯器的檢查（含欄位表）、街區、地下城的刷新、快捷鍵（含戰鬥的鍵）、搭車與計程車、三個戰場（命中、傷害、遮蔽、先攻、過載、整場打完）、委託、診所、機甲、難度、世界書
+npm test          # Vitest：格子、家具、價格、技能樹、建角（點數、外觀推出來的三樣）、組裝、帳單、存檔（到第 4 版）、世界編輯器（檢查、用在哪）、街區、地下城、快捷鍵、到達的選單、搭車、三個戰場（第四版的技能、機甲、無人機、下載撐回合、城市事件、收買、找上門、片進牌庫）、成人場景、委託（模板、連動、直播目標）、診所、機甲（大修、升級、修車）、住處的地圖與搬家、商店的事件、染色、難度、世界書、任務鏈
 npm run build     # 從文件產生內容＋抽圖標＋型別檢查＋建置到 ui/dist/
 npm run content   # 只重新產生 src/data/content.generated.ts
 npm run preview   # 在本機看建置結果
@@ -18,7 +18,7 @@ npm run preview   # 在本機看建置結果
 
 - `vite.config.ts` 設了 `base: './'`，路由用 hash，所以 `dist/` 放在任何路徑底下、用任何靜態伺服器打開都能用。瀏覽器不讓 `file://` 跑模組腳本，直接雙擊 `index.html` 打不開，要經過伺服器（`npm run preview` 或 `python3 -m http.server`）。
 - 直接打開某個對話框：`#/?dialog=shop&shopId=gunshop`、`#/?dialog=character&tab=bridge`、`#/?dialog=skills&tree=night`、`#/?dialog=saves&tab=snap`、`#/?dialog=mech`、`#/?dialog=clinic`（測試與截圖用；對話框的名字見 `src/stores/ui.ts` 的 `DialogName`）。
-- 戰鬥畫面：`#/combat?enc=warehouse|chute|capture`、`#/netcombat?enc=bluewhale|patrol`、`#/opinion?topic=idol&foe=pr_jess`；`from=` 是打完回哪一頁，`seed=` 固定亂數，`fast=1` 讓敵人的回合不等（自動測試用）。
+- 戰鬥畫面：`#/combat?enc=warehouse|chute|capture|mech`、`#/netcombat?enc=bluewhale|patrol|download`、`#/opinion?topic=idol&foe=pr_jess|pr_starbelle|pr_kunlun|pr_nightingale`；成人場景 `#/scene?scene=amber|rin`（`gate=0` 跳過確認框）；`from=` 是打完回哪一頁，`seed=` 固定亂數，`fast=1` 讓敵人的回合不等（自動測試用）；委託帶過來的 `minus=`（少幾個敵人）、`va=`、`cells=`、`inside=`、`pr=`、`rounds=`（輿論戰的開場）、`goal0=`（場景目的的起始）。
 - `npm run build` 先跑 `scripts/build-content.mjs`：從 `docs/content/SKILL_TREES.md`、`NIGHT_LESSONS.md`、`GUIDES.md`、`docs/art/UI.md` 3.6 節與 `docs/art/icons/skills.csv` 抽出技能樹、夜課、指南，寫成 `src/data/content.generated.ts`（不要手改）。表格的格式對不上的那一列印出警告並略過，建置照樣成功；找不到文件時保留現有的輸出。
 - `npm run build` 會先跑 `scripts/build-icons.mjs`：從 `docs/art/style/icons-l3-sprite.svg` 抽出資料用到的第 3 層圖標，攤平成 `public/icons-items.svg`（外部 sprite 裡巢狀的 `<use>` 瀏覽器不畫，原檔也有幾個重複的屬性，當成外部 SVG 讀時是 XML 錯誤）。資料加了新的物品，重新建置就會帶進來。
 
@@ -26,18 +26,18 @@ npm run preview   # 在本機看建置結果
 
 | 位置 | 放什麼 |
 |---|---|
-| `src/components/` | 通用元件：`combat/ActionRing`（行動圓環，1～9）、`combat/HoldButton`（長按的脫離、投降、拔線）、`LivePanel`（直播面板）、`SchemaForm`（世界編輯器照欄位表畫的表單）、`ChainFlow`（任務鏈的流程圖）、`Dialog`（對話框的外框）、`DialogHost`（對話框層、Esc）、`Hint`（「?」提示）、`ItemSlot`（物品格：等級色＋圖標；放在別的按鈕裡時加 `inert`）、`GradeBadge`、`Icon`（sprite 圖標）、`Tabs`、`GridMap`（共用的格子地圖與方向鈕；掛上時登記成這一頁的移動目標）、`SkillTreeView`（技能樹的本體：對話框與建角第 8 步共用）、`TrackBar`、`MoneyTag`、`ReasonButton`（做不到的按鈕說原因）、`RuleFields`（存檔規則：設定、建角第 10 步共用）、`PartyRow`、`BodyFigure`、`CityMap`、`LogView`、`StatusBar` |
-| `src/screens/` | 全頁：標題、主畫面、委託、現實戰鬥、內海戰鬥、輿論戰、開新局與建角、世界編輯器、AI 工坊、家園地圖、子網地圖、地下城、舊 Demo 的外框（只剩成人場景） |
-| `src/dialogs/` | 對話框：背包、角色與義體（`character/` 是內海、橋、成人三個分頁）、和 NPC 說話、商店、設定、名冊、關係、技能樹、組裝、頻道、契約、每週帳單、指南、備忘錄、待處理、讀檔與存檔、城市地圖、搭車、中間人的店、直播、素材與剪片、機甲整備、診所、修車廠、自訂難度 |
+| `src/components/` | 通用元件：`HereOptions`（「這裡」的選單：預設黃框、帶 E）、`combat/ActionRing`（行動圓環，1～9）、`combat/HoldButton`（長按的脫離、投降、拔線）、`LivePanel`（直播面板）、`SchemaForm`（世界編輯器照欄位表畫的表單）、`ChainFlow`（任務鏈的流程圖）、`Dialog`（對話框的外框）、`DialogHost`（對話框層、Esc）、`Hint`（「?」提示）、`ItemSlot`（物品格：等級色＋圖標；放在別的按鈕裡時加 `inert`）、`GradeBadge`、`Icon`（sprite 圖標）、`Tabs`、`GridMap`（共用的格子地圖與方向鈕；掛上時登記成這一頁的移動目標）、`SkillTreeView`（技能樹的本體：對話框與建角第 8 步共用）、`TrackBar`、`MoneyTag`、`ReasonButton`（做不到的按鈕說原因）、`RuleFields`（存檔規則：設定、建角第 10 步共用）、`PartyRow`、`BodyFigure`、`CityMap`、`LogView`、`StatusBar` |
+| `src/screens/` | 全頁：標題、主畫面、委託、現實戰鬥、內海戰鬥、輿論戰、成人場景（`AdultSceneScreen`）、開新局與建角、世界編輯器、AI 工坊、家園地圖、子網地圖、地下城 |
+| `src/dialogs/` | 對話框：背包、角色與義體（`character/` 是內海、橋、成人三個分頁）、和 NPC 說話、商店、設定、名冊、關係、技能樹、組裝、頻道、契約、每週帳單、指南、備忘錄、待處理、讀檔與存檔、城市地圖、搭車、中間人的店、直播、素材與剪片、機甲整備、診所、修車廠、自訂難度、染色 |
 | `src/stores/` | Pinia：`game`（假存檔；`serialize()`／`hydrate()` 是存檔的進出口，第 3 版起連 `home` 與 `subnet` 一起存；另有進行中的委託 `job`、媒體 `media`、機甲 `mech`）、`saves`（存檔的格子）、`ui`（對話框堆疊、提示訊息）、`home`、`subnet`、`settings`（設定與 AI 工坊共用） |
 | `src/data/` | 有型別的假資料：物品（ITEMS；`items2.ts` 是零件、設計圖、構裝、SKIN）、主角與部位、主角第二版的資料（`profile.ts`）、NPC 與名冊、區與街區、商店、家具與家園版面、子網、地下城、建角、組裝、頻道、契約、帳單與待處理、世界編輯器、AI 工坊；`content.generated.ts` 由文件產生 |
-| `src/lib/` | 純邏輯，有測試：`combat/`（`field` 兩排四格的共用部分、`real` 現實戰鬥、`net` 內海戰鬥、`opinion` 輿論戰、`rng` 有種子的擲骰）、`useBattle`（戰鬥的回合節奏與按鍵）、`commission`（怎麼付、分帳、踩點、輔助面）、`clinic`（手術費、沉溺成本、休養）、`difficulty`（難度的係數表）、`schemas`（世界編輯器的欄位表）、`lorebook`（世界書的預算、逐行差異）、`keys`（全域快捷鍵）、`transit`（搭車與計程車的車資）、`grid`（尋路、視野）、`home`（佔地、轉向、擺放的檢查、用途、舒適度、儲物）、`grade`、`price`、`skills`（學技能的條件、階、橋的容量、夜課）、`creation`（建角的點數預算、年齡）、`crafting`（槽、難度、成功率）、`bills`（帳單的結算與下坡路）、`save`（存檔的格式、回退、快照）、`worldCheck`（世界編輯器的檢查）、`dungeon`（地下城的刷新）、`useWalk`、`useGuides` |
+| `src/lib/` | 純邏輯，有測試：`scene/`（成人場景：部位、連接、體位、感載、契合、主動權、結算）、`here`（到達的選單與 E）、`dye`（染色的顏色、價錢、外觀的一句）、`shopEvents`（殺價、特別交易、店內事件）、`combat/`（`field` 兩排四格的共用部分、`real` 現實戰鬥、`net` 內海戰鬥、`opinion` 輿論戰、`rng` 有種子的擲骰）、`useBattle`（戰鬥的回合節奏與按鍵）、`commission`（怎麼付、分帳、踩點、輔助面、連動的效果 `linkMods`、直播目標）、`clinic`（手術費、沉溺成本、休養）、`difficulty`（難度的係數表）、`schemas`（世界編輯器的欄位表）、`lorebook`（世界書的預算、逐行差異）、`keys`（全域快捷鍵）、`transit`（搭車與計程車的車資）、`grid`（尋路、視野）、`home`（佔地、轉向、擺放的檢查、用途、舒適度、儲物）、`grade`、`price`、`skills`（學技能的條件、階、橋的容量、夜課）、`creation`（建角的點數預算、年齡、外觀推出來的三樣 `derivedLooks`）、`crafting`（槽、難度、成功率）、`bills`（帳單的結算與下坡路）、`save`（存檔的格式、回退、快照）、`worldCheck`（世界編輯器的檢查、所有種類的「用在哪」`whereUsed`）、`dungeon`（地下城的刷新）、`useWalk`、`useGuides` |
 | `src/styles/` | `tokens.css`（顏色、兩套皮、等級色、間距、字級）、`base.css`（斜切角、面板、按鈕、標籤） |
-| `public/` | `icons-sprite.svg`（第 1、2 層）、`icons-items.svg`（第 3 層的子集）、`icon-centers.json`、`city-map.svg`、`legacy/`（四個可以操作的舊 Demo） |
+| `public/` | `icons-sprite.svg`（第 1、2 層）、`icons-items.svg`（第 3 層的子集）、`icon-centers.json`、`city-map.svg`、`legacy/`（四個舊 Demo 的原檔，第四版起都不再連過去） |
 
 ## 做了什麼
 
-**全頁**：標題畫面（`#/title`）、主畫面與城市地圖、開新局與建角（世界 → 內容篩選 → 建角十步，最後一頁是總覽）、世界編輯器（三級頁簽、設施、劇情計數器、匯入與匯出）、AI 工坊（任務、任務鏈、模型與路由、紀錄與回報、變數字典、提示詞組）、家園地圖、子網地圖、地下城（垃圾滑道，離開後重新擺放）、現實戰鬥、內海戰鬥、輿論戰、委託（第三版，見下）；成人場景（`public/legacy/` 的舊 Demo，用 iframe 接上）。
+**全頁**：標題畫面（`#/title`）、主畫面與城市地圖、開新局與建角（世界 → 內容篩選 → 建角十步，最後一頁是總覽）、世界編輯器（三級頁簽、設施、劇情計數器、匯入與匯出）、AI 工坊（任務、任務鏈、模型與路由、紀錄與回報、變數字典、提示詞組）、家園地圖、子網地圖、地下城（垃圾滑道，離開後重新擺放）、現實戰鬥、內海戰鬥、輿論戰、委託（第三版，見下）、成人場景（第四版重做成元件）。
 
 **對話框**：背包、角色與義體（概要含基本功、身體、裝備含快取格、內海、橋、成人）、和 NPC 說話、商店、設定、名冊、關係、技能樹（八棵樹與夜課）、組裝、頻道、契約（持約人與契約人兩面）、每週帳單、指南、備忘錄（筆記與指南）、待處理、讀檔與存檔（三個手動格、兩個自動格、匯出與匯入、委託副本的快照、紀錄的回退）。
 
@@ -62,11 +62,21 @@ npm run preview   # 在本機看建置結果
 - **家園**：住處（搬到高樓層的打通戶）、三級的一樓店面（另一張圖、每週營收）、安全屋（最多兩處）。**子網**：巡邏（你走一步牠走一步、遭遇、斷路）。
 - **世界編輯器**其餘十七種內容照 DATA.md 的欄位表畫表單並檢查；**AI 工坊**的世界書（條目、注入方式、字數預算）、生圖、和預設比較、任務鏈的流程圖。
 - **存檔第 3 版**：存檔與快照帶著家園與子網；第 2 版的存檔照樣讀得回來（`migrateSave`）。
-- **到了就是互動**：走到設施、出口、車站、節點上就互動，一個選項直接做、出口直接換地圖、好幾個列在「這裡」；E 再觸發一次。方向鈕只在手機與觸控。鍵值列與清單列不再撐滿整列。建角可以寫私處（成人內容，受內容篩選控制）。
+- 方向鈕只在手機與觸控。鍵值列與清單列不再撐滿整列。建角可以寫私處（成人內容，受內容篩選控制）。
 
-## 還沒做（第四版）
+**第四版**（2026-11-21）：
 
-- 成人場景從舊 Demo 重做成元件。
-- 戰鬥的主動技能、機甲與無人機、場地效果；輿論戰的城市事件、收買、找上門、片進牌庫。
-- 委託其餘的模板與連動的完整效果；機甲的升級與大修；其他住處的地圖；世界編輯器的引用關係（目前只有事件）；任務鏈其餘 13 條的流程圖。
+- **先修的三件事**：建角外觀的「改造與風格」不再自己選，由第 6 步裝的義體（牌子的外觀照 NPC_SYSTEM 13.11 節）、獸耳與尾巴、第 9 步的穿著推出來，第 1 步只顯示結果；**到了就看得到選單、按 E 才做**（「這裡」立刻列出能做的事，不自動執行；E 在出口換地圖、其他地方做預設選項；預設選項黃框、帶 E 的鍵帽；街區、家園、子網、地下城都一樣）；鈴鐺與工具列的角標整個露在按鈕外面（`.cut-bg`、`.badge-n`、`.badge-dot`）。
+- **使用者的決定**：輿論戰的數字照 OPINION 3.3、4.3b、4.3c 節（防守最少 0、編輯點照路數、豔名）；難度名稱照 BALANCE（故事、簡單、普通、困難、傳奇、自訂）；**染色**（主色調與副色調，`DyeDialog`、`lib/dye.ts`，存檔第 4 版）。
+- **成人場景**重做成元件（`#/scene`）：scene_gate 的確認框（進入或略過）、部位與連接（一個部位一條、換部位或換體位就斷）、體位與主動權、感載與餘韻（過載就是高潮）、契合與目的、說話、道具、同步檔位、停下之後的戰報（契合的評價、體悟、關係）；內容篩選關掉的技能不出現。
+- **戰鬥**：技能清單（要害射擊、連射、看我的！、快駭的標記、短路、癱瘓、奪取控制節點，關燈與防爆門、接管砲塔、煙霧彈）、機甲（玩家啟動、敵方第 2 回合啟動，機體耐久、回灌、損毀）、無人機（攻擊型、護盾型，和人重疊、永遠暴露、擊落時感載 +5）；新的遭遇 `mech`（夜裡的試射場，黑暗）。**內海**：`download`（守著節點撐三回合，每兩回合一波），追蹤度 60 的增援排隊、現實警戒。**輿論戰**：城市事件、收買、找上門（留守的隊友擋人，直播中擋住多一張料）、片進牌庫（全額、減半、無關）、星旗、崑崙、夜鶯的招牌。
+- **委託**照模板跑（`src/data/templates.ts`）：竊密（藍鯨的帳本）、暗殺、蜜罐（決定性的一步是成人場景）、救援、網內打撈（決定性的一步是下載撐回合）、滅火（決定性的一步是六回合的輿論戰）、破壞；連動的效果（不必探索、壓力減半、少一個敵人、輿論戰的開場……）；副本直播的目標。
+- **其他**：機甲的大修與升級、載具被打爛之後的修理；其他住處的地圖、請人搬家、打包的家具；世界編輯器所有種類的「用在哪」；任務鏈 23 條的流程圖；商店的殺價（TRADE 第 5 節）、當日特別交易、店內事件；角色成人分頁可以改私處的描述。
+
+## 還沒做（第五版）
+
+- 成人場景的多人（分圈、換圈）、場景裡的直播、結束後寫進性經歷與傾向。
+- 戰鬥其餘的主動技能、機甲的部位與開艙、載具叫來當掩體、其他三種無人機；輿論戰其餘的對手與城市事件、公信力。
+- 委託其餘十二型、中型與大型的 2a／2b 階段、附帶條件與報酬公式、詞條、踩點開出來的路。
+- 機甲武器與零件的買賣；另外三處住處、買斷與假身分；商店的長期折扣；染色接上 AI 的外觀描述。
 - 紀錄的逐樓回退要等引擎存每一樓的快照。

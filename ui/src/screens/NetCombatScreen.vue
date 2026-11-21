@@ -31,7 +31,7 @@ const st = useSettings()
 const sub = useSubnet()
 const enc = computed(() => NET_ENCOUNTERS.find(e => e.id === route.query.enc) ?? NET_ENCOUNTERS[0])
 const from = computed(() => (typeof route.query.from === 'string' ? route.query.from : enc.value.from))
-const fromSubnet = computed(() => from.value === '/subnet')
+const fromSubnet = computed(() => from.value.startsWith('/subnet'))
 const speed = () => (route.query.fast ? 0.02 : 1)
 const seed = Number(route.query.seed) || 0
 const hint = ref('')
@@ -40,12 +40,15 @@ const skillOpen = ref(false)
 const { b, phase, isFocused, targets, endTurn, after, restart, pick } = useBattle(
   () => {
     const setup = structuredClone(enc.value.setup)
+    const minus = Number(route.query.minus) || 0
+    if (minus > 0) setup.foes = setup.foes.slice(0, Math.max(1, setup.foes.length - minus))
     if (fromSubnet.value) setup.trace = Math.max(setup.trace ?? 0, sub.trace)
     setup.foes = applyDifficulty(setup.foes, tableFor(st.s.difficulty, st.s.customDiff))
     return new NetBattle(setup, seed ? seeded(seed) : mathRng)
   },
   { speed, onRing: i => act(RING_KEYS[i]) },
 )
+watch(() => route.query.enc, () => restart())
 const cur = computed(() => b.value.cur())
 const myTurn = computed(() => phase.value === 'player' && !b.value.end)
 const items = computed<RingItem[]>(() => NET_ACTIONS.map(a => ({ ...a, cost: b.value.cost(a.k, cur.value), reason: myTurn.value ? b.value.reason(a.k) : '現在是敵人的回合', key: RING_KEYS.indexOf(a.k) + 1 })))
@@ -105,7 +108,7 @@ function leave() {
   if (fromSubnet.value) sub.trace = Math.min(100, b.value.trace)
   g.advance(b.value.round)
   g.addLog({ prose: [`${enc.value.place}：${enc.value.name}。${e.text}`], net: [`追蹤度 ${b.value.trace}，觀看 ${b.value.view.toLocaleString('en-US')}。`], changes: [{ text: `${RESULT[e.result]}・${b.value.round} 回合`, kind: e.result === 'win' ? 'plus' : 'minus' }] })
-  g.lastBattle = { kind: 'net', result: e.result, text: e.text }
+  g.lastBattle = { kind: 'net', result: e.result, text: e.text, rounds: b.value.round, downs: b.value.units.filter(u => u.side === 'P' && u.down && !u.unp).length }
   router.push(from.value === '/commission' || !(e.result === 'located' || e.result === 'lose' || e.result === 'surrender') ? from.value : '/')
 }
 </script>
@@ -119,6 +122,11 @@ function leave() {
         <span class="tag hot">第 {{ b.round }} 回合</span>
         <span class="live mono">● LIVE　觀看 {{ b.view.toLocaleString('en-US') }}</span>
         <div class="trace"><span class="k">追蹤度</span><b class="mono">{{ b.trace }}</b><TrackBar :value="Math.min(100, b.trace)" :max="100" color="var(--hp)" :marks="[30, 60, 90]" /><span v-if="b.loc > 0" class="tag warn">定位 {{ b.loc }}</span></div>
+        <div v-if="b.dl" class="dl" data-download><span class="k">下載・{{ b.dl.what }}</span><b class="mono">{{ b.dl.total - b.dl.left }}／{{ b.dl.total }}</b>
+          <span class="tag" :class="b.dl.broken ? 'warn' : 'hot'">{{ b.dl.broken ? '中斷了' : `${b.units[b.dl.holder].name}守著節點` }}</span>
+          <Hint title="守住節點">守著節點的人不能換位、拔線就中斷；他倒下也中斷。每回合結束下載一回合（追蹤度 +2），每兩回合一波守衛程式趕過來。撐完就從後門登出。</Hint></div>
+        <span v-if="b.queue.length" class="tag warn" data-queue>線外排隊的增援 {{ b.queue.length }}</span>
+        <span v-if="b.realAlert" class="tag warn">現實的保全警戒中</span>
         <span class="grow" />
         <button type="button" class="btn sm" @click="restart(); hint = ''">重新潛入</button>
         <Hint title="內海戰鬥">和現實同一個版面：卡片上只有感載一條，遮蔽換成防火牆。攻擊花 RAM；每回合回 3 點行動點與 RAM。同步檔位每回合換一次：越深檢定越高、受到的感載越重。餘韻在內海裡是加成（每層檢定 +1、傷害 +10%）。追蹤度每回合 +3：30 白蕾絲上線、60 對方的潛網者上線、90 被定位，三回合後強制斷線。拔線（長按）讓這個人登出；全隊都拔線就是撤退。</Hint>
@@ -146,7 +154,7 @@ function leave() {
               <div v-if="unitAt(s)" class="bt-u" :class="{ e: s.side === 'E', act: unitAt(s)!.id === cur.id && !b.end, tg: isTarget({ kind: 'unit', id: unitAt(s)!.id }), foc: isFocused({ kind: 'unit', id: unitAt(s)!.id }) }"
                 :role="isTarget({ kind: 'unit', id: unitAt(s)!.id }) ? 'button' : undefined" :tabindex="isTarget({ kind: 'unit', id: unitAt(s)!.id }) ? 0 : undefined"
                 :data-unit="unitAt(s)!.id" :aria-label="`${unitAt(s)!.name}，感載 ${unitAt(s)!.load}`"
-                @click.stop="isTarget({ kind: 'unit', id: unitAt(s)!.id }) && clickTarget({ kind: 'unit', id: unitAt(s)!.id })"
+                @click.stop="isTarget({ kind: 'unit', id: unitAt(s)!.id }) ? clickTarget({ kind: 'unit', id: unitAt(s)!.id }) : isTarget({ kind: 'slot', side: s.side, slot: s.slot }) && clickTarget({ kind: 'slot', side: s.side, slot: s.slot })"
                 @keydown.enter.stop.prevent="isTarget({ kind: 'unit', id: unitAt(s)!.id }) && clickTarget({ kind: 'unit', id: unitAt(s)!.id })">
                 <div class="bt-nm"><b><svg class="av" viewBox="0 0 28 28" aria-hidden="true"><path :d="AV[unitAt(s)!.av]" /></svg>{{ unitAt(s)!.name }}</b><small><template v-if="hcOf(unitAt(s)!) !== null"><span class="hc">{{ hcOf(unitAt(s)!) }}%</span> </template>{{ unitAt(s)!.skin }}</small></div>
                 <div class="bt-row" style="color: var(--load)"><svg class="bt-i" viewBox="0 0 512 512" aria-label="感載"><path :d="COMBAT_ICONS.load" /></svg><span class="bt-bar"><i :style="{ width: pct(unitAt(s)!.load, unitAt(s)!.loadMax), background: 'var(--load)' }" /></span><span class="num">{{ unitAt(s)!.load }}</span></div>
@@ -212,6 +220,7 @@ function leave() {
 
 <style scoped>
 .live { color: var(--hp); font-weight: 900; font-size: var(--fs-sm); }
+.dl { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .trace { display: flex; align-items: center; gap: var(--space-3); min-width: 220px; flex: 0 1 320px; }
 .trace :deep(.track) { flex: 1; }
 .trace > :nth-child(3) { flex: 1; }

@@ -108,7 +108,8 @@ function service(f: Facility, s: NonNullable<Facility['services']>[number]) {
     case 'home': router.push('/home'); break
     case 'dungeon': router.push('/dungeon'); break
     case 'transit': ui.openRoot('transit'); break
-    case 'garage': case 'mech': case 'clinic': case 'fixer': case 'cut': ui.openRoot(s.action, s.props ?? {}); break
+    case 'garage': case 'mech': case 'clinic': case 'fixer': case 'cut': case 'dye': ui.openRoot(s.action, s.props ?? {}); break
+    case 'scene': router.push({ path: '/scene', query: { scene: String(s.props?.scene ?? ''), from: '/' } }); break
     case 'rest': g.advance(60); g.addLog({ prose: [`你在${f.name}待了一個小時，感載退了一些。`], changes: [{ text: '感載 −3', kind: 'plus' }] }); g.character.load[0] = Math.max(0, g.character.load[0] - 3); break
     default: ui.toast(`「${s.name}」的畫面在第四版做。`)
   }

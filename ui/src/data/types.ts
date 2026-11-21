@@ -46,6 +46,8 @@ export interface ItemDef {
   /** 家具 */
   furniture?: string
   gift?: { value: number; preview: string }
+  /** 目錄上的預設顏色（主色調、副色調；色票 id 或 #RRGGBB）。沒寫就照牌子（lib/dye.ts） */
+  colors?: [string, string]
   /** 零件（CRAFTING 第 2、5 節）：類型、材質 */
   part?: { type: PartType; material: '機' | '生' }
   /** 構裝（ITEMS 11 節）：類別、RAM；SKIN：風格、風格值、曝露度 */
@@ -136,7 +138,7 @@ export interface Facility {
   kind: FacilityKind
   shopId?: string
   npcIds?: string[]
-  services?: Array<{ name: string; price?: number; action?: 'shop' | 'home' | 'dungeon' | 'talk' | 'rest' | 'transit' | 'garage' | 'mech' | 'clinic' | 'fixer' | 'cut' | 'none'; props?: Record<string, unknown> }>
+  services?: Array<{ name: string; price?: number; action?: 'shop' | 'home' | 'dungeon' | 'talk' | 'rest' | 'transit' | 'garage' | 'mech' | 'clinic' | 'fixer' | 'cut' | 'dye' | 'scene' | 'none'; props?: Record<string, unknown> }>
 }
 
 export interface Shop {

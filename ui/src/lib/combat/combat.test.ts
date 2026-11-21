@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { RealBattle, REAL_WEAPONS, RING_KEYS, REAL_ACTIONS, type RealSetup } from './real'
 import { NetBattle, SYNC } from './net'
-import { OpinionWar, adj, CELLS } from './opinion'
+import { OpinionWar, adj, CELLS, editPoints, fameLevel } from './opinion'
 import { cover, COVER_BONUS } from './field'
 import { seeded, sequence, face20, face6, d6 } from './rng'
 import { REAL_ENCOUNTERS, NET_ENCOUNTERS, REAL_PARTY } from '../../data/encounters'
@@ -308,7 +308,7 @@ describe('輿論戰', () => {
     expect(adj(0).sort()).toEqual([1, 3])
     expect(CELLS[4]).toBe('萬華鏡')
   })
-  it('防守：沒人的 2；對手的 3 − 風向（最少 1）；對手搶你的 3 ＋ 風向', () => {
+  it('防守：沒人的 2；對手的 3 − 風向（最少 0，OPINION 3.3 節）；對手搶你的 3 ＋ 風向', () => {
     const o = new OpinionWar({ topic: 'scandal', foe: 'pr_2' }, seeded(1))
     const empty = o.own.indexOf(0), foe = o.own.indexOf(2), mine = o.own.indexOf(1)
     expect(o.def(empty, 1)).toBe(2)
@@ -316,7 +316,23 @@ describe('輿論戰', () => {
     expect(o.def(foe, 1)).toBe(2)
     expect(o.def(mine, 2)).toBe(4)
     o.w = 5
-    expect(o.def(foe, 1)).toBe(1)
+    expect(o.def(foe, 1)).toBe(0)
+    o.w = -5
+    expect(o.def(mine, 2)).toBe(0)
+  })
+  it('豔名：每 30 點一級、最多 2 級，只減看臉的三格（OPINION 4.3c 節）', () => {
+    expect(fameLevel(29)).toBe(0); expect(fameLevel(31)).toBe(1); expect(fameLevel(95)).toBe(2)
+    const o = new OpinionWar({ topic: 'scandal', foe: 'pr_2', fame: 60 }, seeded(1))
+    o.own[1] = 0; o.own[3] = 0
+    expect(o.def(1, 1)).toBe(0)
+    expect(o.def(3, 1)).toBe(2)
+    expect(o.def(1, 2)).toBe(2)
+  })
+  it('編輯點照 OPINION 4.3b 節：任何人 2，主播與偶像加階數的一半進位，名媛與掮客捨去，製作 +1', () => {
+    expect(editPoints([])).toBe(2)
+    expect(editPoints(['槍手 3', '掮客 2'])).toBe(3)
+    expect(editPoints(['主播 3'])).toBe(4)
+    expect(editPoints(['名媛 3'], true)).toBe(4)
   })
   it('萬華鏡從中央開場；其他對手從你的對面', () => {
     const k = new OpinionWar({ topic: 'scandal', foe: 'pr_kaleido' }, seeded(2))
@@ -325,8 +341,9 @@ describe('輿論戰', () => {
     const me = g.own.indexOf(1)
     expect(g.own[8 - me]).toBe(2)
   })
-  it('開場 5 張手牌、4 點編輯點；出牌加聲量', () => {
-    const o = new OpinionWar({ topic: 'scandal', foe: 'pr_1' }, seeded(5))
+  it('開場 3 張再抽 2 張；編輯點照給的（沒給是 2）；出牌加聲量', () => {
+    expect(new OpinionWar({ topic: 'scandal', foe: 'pr_1' }, seeded(5)).ap).toBe(2)
+    const o = new OpinionWar({ topic: 'scandal', foe: 'pr_1', edit: 4 }, seeded(5))
     expect(o.hand).toHaveLength(5)
     expect(o.ap).toBe(4)
     const i = o.hand.findIndex(k => k === 'clip' || k === 'tape')

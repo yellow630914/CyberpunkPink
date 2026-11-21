@@ -6,7 +6,7 @@
  * - 回退（重來這場戰鬥、回到這個階段開始時、撤退）把狀態換回快照，但保留三樣：紀錄、性經歷記錄、共同記憶。
  */
 export const SAVE_FORMAT = 'cyberpunkpink-save'
-export const SAVE_VERSION = 3
+export const SAVE_VERSION = 4
 
 export interface SaveMeta { label: string; day: number; time: string; place: string; savedAt: string; kind?: '手動' | '自動' | '快照' }
 export interface SaveFile<S = Record<string, unknown>> { format: string; version: number; meta: SaveMeta; state: S }
@@ -53,7 +53,7 @@ export function unpackSave<S>(raw: string): Unpacked<S> {
 
 /**
  * 舊版的存檔升到現在的版本。v1 → v2 欄位相同（少的欄位讀的時候保留現在的值）；
- * v2 → v3 補上 home 與 subnet（null：讀的時候不動現在的家園與子網）。
+ * v2 → v3 補上 home 與 subnet（null：讀的時候不動現在的家園與子網）；v3 → v4 補上空的染色表 dyes。
  */
 export function migrateSave<S>(file: SaveFile<Partial<S>>): SaveFile<Partial<S>> {
   const out = { ...file, state: { ...file.state } as Record<string, unknown> }
@@ -61,6 +61,10 @@ export function migrateSave<S>(file: SaveFile<Partial<S>>): SaveFile<Partial<S>>
     if (!('home' in out.state)) out.state.home = null
     if (!('subnet' in out.state)) out.state.subnet = null
     out.version = 3
+  }
+  if (out.version < 4) {
+    if (!('dyes' in out.state)) out.state.dyes = {}
+    out.version = 4
   }
   return out as SaveFile<Partial<S>>
 }

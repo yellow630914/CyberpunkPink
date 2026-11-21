@@ -95,15 +95,47 @@ export const SHOP_FLOOR_LAYOUT: HomeLayout = {
   rooms: { F: { name: '前場', cap: 8, fixedUse: '店面・前場' }, K: { name: '後場', cap: 6, fixedUse: '店面・後場' } },
 }
 
+/**
+ * 其他住處的地圖（第四版，DOWNTIME 7.2、7.4 節）：每一處照它的起始等級與上限畫一級與二級（三級是樓上沿用二級、一樓是店面）。
+ * G 是放得下機甲的房間（貨櫃屋、防空室、薔薇驛的車庫、臨海的別墅各一間）。版面與大小照 7.4 節的表：1 級 11 × 8、2 級 15 × 10。
+ */
+const L1 = (rows: string[], rooms: HomeLayout['rooms']): HomeLayout => ({ tier: 1, rows, rooms })
+const L2 = (rows: string[], rooms: HomeLayout['rooms']): HomeLayout => ({ tier: 2, rows, rooms })
+export const RESIDENCE_LAYOUTS: Record<string, Partial<Record<1 | 2, HomeLayout>>> = {
+  tower4: TOWER4_LAYOUTS,
+  loft: { 2: TOWER4_LAYOUTS[2] },
+  shack: {
+    1: L1(['###########', '#MMMMMMMMM#', '#MMMMMMMMM#', '#MMMMMMMMM#', '#MMMMMMMM+#', '#MMMMMMM#B#', '#MMMMMMM#B#', '###E#######'], { M: { name: '鐵皮屋', cap: 5 }, B: { name: '浴廁', cap: 2, fixedUse: '浴廁' } }),
+    2: L2(['###############', '#MMMMMMMMM#CCC#', '#MMMMMMMMM#CCC#', '#MMMMMMMMM+CCC#', '#MMMMMMM+###+##', '#MMMMMMM#B#DDD#', '#MMMMMMM#B#DDD#', '#MMMMMMMMM+DDD#', '#MMMMMMMMM#DDD#', '###E###########'], { M: { name: '鐵皮屋', cap: 5 }, B: { name: '浴廁', cap: 2, fixedUse: '浴廁' }, C: { name: '加蓋的一間', cap: 5 }, D: { name: '晾衣間改的房間', cap: 5 } }),
+  },
+  container: {
+    1: L1(['###########', '#MMMMM#GGG#', '#MMMMM#GGG#', '#MMMMM+GGG#', '#MMMMM#GGG#', '#MMMMM#GGG#', '#MMM+B#GGG#', '###E#######'], { M: { name: '貨櫃', cap: 5 }, B: { name: '浴廁', cap: 2, fixedUse: '浴廁' }, G: { name: '大貨櫃（放得下機甲）', cap: 4, garage: true } }),
+    2: L2(['###############', '#MMMMM#GGGGGGG#', '#MMMMM#GGGGGGG#', '#MMMMM+GGGGGGG#', '#MMMMM#GGGGGGG#', '#MMM+##GGGGGGG#', '#MM#B###+######', '#MMMMMM#CCCCCC#', '#MMMMMM+CCCCCC#', '###E###########'], { M: { name: '貨櫃', cap: 5 }, B: { name: '浴廁', cap: 2, fixedUse: '浴廁' }, G: { name: '大貨櫃（放得下機甲）', cap: 5, garage: true }, C: { name: '疊上去的貨櫃', cap: 5 } }),
+  },
+  bunker: {
+    2: L2(['###############', '#MMMMMMM#GGGGG#', '#MMMMMMM#GGGGG#', '#MMMMMMM+GGGGG#', '#MMMMMMM#GGGGG#', '###+######+####', '#CCCCCC#B#DDDD#', '#CCCCCC+B+DDDD#', '#CCCCCC###DDDD#', '###E###########'], { M: { name: '主室', cap: 6 }, G: { name: '舊車庫（放得下機甲）', cap: 4, garage: true }, B: { name: '浴廁', cap: 2, fixedUse: '浴廁' }, C: { name: '發電機房改的房間', cap: 5 }, D: { name: '儲藏室', cap: 5 } }),
+  },
+  rosegarage: {
+    2: L2(['###############', '#GGGGGGGG#MMMM#', '#GGGGGGGG#MMMM#', '#GGGGGGGG+MMMM#', '#GGGGGGGG#MMMM#', '#GGGGGGGG#+####', '#GGGGGGGG#B#CC#', '#GGGGGGGG#B+CC#', '#GGGGGGGG###CC#', '###E###########'], { G: { name: '車庫（放得下機甲）', cap: 6, garage: true }, M: { name: '閣樓', cap: 5 }, B: { name: '浴廁', cap: 2, fixedUse: '浴廁' }, C: { name: '工具間', cap: 4 } }),
+  },
+}
+/** 住處的這一級用哪一張圖（沒有一級圖的從二級開始；三級樓上沿用二級） */
+export function layoutFor(residence: string, tier: number): HomeLayout {
+  const set = RESIDENCE_LAYOUTS[residence] ?? TOWER4_LAYOUTS
+  return (tier <= 1 ? set[1] ?? set[2] : set[2] ?? set[1]) ?? TOWER4_LAYOUTS[2]
+}
+/** 請人搬家（DOWNTIME 7.2 節）：每件家具 50，半天；自己搬 8 小時不要錢 */
+export const MOVE_PER_ITEM = 50
+
 /** 住處（DOWNTIME 7.2 節）。家只有一個；安全屋最多兩處，只能睡、存東西、躲。每一處都付房租。 */
 export interface Residence { id: string; name: string; district: string; tiers: [number, number]; rent: number; buy: number | null; cash: string; hide: number; note: string; layout?: boolean }
 export const RESIDENCES: Residence[] = [
   { id: 'tower4', name: '四號塔的單位', district: '蜂巢', tiers: [1, 2], rent: 150, buy: 9000, cash: '樓長收', hide: 1, note: '起點；鄰里', layout: true },
   { id: 'loft', name: '高樓層的打通戶', district: '蜂巢', tiers: [2, 3], rent: 450, buy: 27000, cash: '樓長收', hide: 1, note: '一樓可以頂一間天井市場的店面', layout: true },
-  { id: 'shack', name: '屋頂村的鐵皮屋', district: '蜂巢', tiers: [1, 2], rent: 90, buy: null, cash: '只收現金', hide: 2, note: '違建；野良好感 20 以上才租得到' },
-  { id: 'container', name: '貨櫃屋', district: '舊港', tiers: [1, 2], rent: 120, buy: 7000, cash: '只收現金', hide: 3, note: '拆體客事件 +；有一間放得下機甲' },
-  { id: 'bunker', name: '防空室', district: '地下層', tiers: [2, 2], rent: 300, buy: null, cash: '現金、人情', hide: 5, note: '自帶獨立電源；沒有天使急救' },
-  { id: 'rosegarage', name: '薔薇驛的車庫', district: '鏽帶', tiers: [2, 3], rent: 300, buy: 18000, cash: '只收現金', hide: 3, note: '店面只能開工坊；有一間放得下機甲' },
+  { id: 'shack', name: '屋頂村的鐵皮屋', district: '蜂巢', tiers: [1, 2], rent: 90, buy: null, cash: '只收現金', hide: 2, note: '違建；野良好感 20 以上才租得到', layout: true },
+  { id: 'container', name: '貨櫃屋', district: '舊港', tiers: [1, 2], rent: 120, buy: 7000, cash: '只收現金', hide: 3, note: '拆體客事件 +；有一間放得下機甲', layout: true },
+  { id: 'bunker', name: '防空室', district: '地下層', tiers: [2, 2], rent: 300, buy: null, cash: '現金、人情', hide: 5, note: '自帶獨立電源；沒有天使急救；有一間放得下機甲', layout: true },
+  { id: 'rosegarage', name: '薔薇驛的車庫', district: '鏽帶', tiers: [2, 3], rent: 300, buy: 18000, cash: '只收現金', hide: 3, note: '店面只能開工坊；有一間放得下機甲', layout: true },
 ]
 
 /** 店面的五種（DOWNTIME 7.11 節） */

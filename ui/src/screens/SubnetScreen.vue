@@ -1,7 +1,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
 import GridMap, { type CellView, type FogState, type MapToken } from '../components/GridMap.vue'
 import Hint from '../components/Hint.vue'
@@ -27,6 +27,7 @@ const s = useSubnet()
 const g = useGame()
 const ui = useUi()
 const router = useRouter()
+const route = useRoute()
 const log = ref<string[]>(['你從藍鯨物流的前台接縫溜進員工層。'])
 function note(t: string) { log.value.unshift(t); if (log.value.length > 8) log.value.pop() }
 
@@ -62,8 +63,20 @@ function patrolCut() {
   s.patrols.find(x => x.id === s.meeting)!.frozen = 3
   s.meeting = null
 }
+/** 下載帳本要守著節點三回合（第四版）：開內海戰鬥，守衛程式一波一波來；撐完才拿到 */
+function holdDownload() {
+  g.takeSnapshot('戰鬥', `下載開始前・${here.value!.name}`)
+  router.push({ path: '/netcombat', query: { enc: 'download', from: '/subnet?dl=target' } })
+}
 // 從巡邏的那一場回來：贏了牠就不見了
 onMounted(() => {
+  if (route.query.dl && g.lastBattle?.kind === 'net') {
+    // 回來時化身還站在目標節點上（子網的 store 跟著存）
+    if (g.lastBattle.result === 'win') { s.loot.push('藍鯨的帳本'); if (s.here) s.done.add(s.here.key); note('你們守住了節點：帳本下載完成。') }
+    else note('下載中斷了：帳本還在節點上。')
+    g.lastBattle = null
+    router.replace('/subnet')
+  }
   if (g.lastBattle?.kind === 'net' && s.meeting) {
     const won = g.lastBattle.result === 'win'
     if (won) { s.patrols.find(x => x.id === s.meeting)!.gone = true; note(`${PATROLS.find(p => p.id === s.meeting)?.name}被打斷線了。`) }
@@ -187,7 +200,7 @@ const hereOpts = computed<HereOption[]>(() => {
   const dn = s.done.has(n.key)
   switch (n.kind) {
     case 'archive': return [{ id: 'dl', name: '下載', sub: '2 回合', reason: dn ? '已經下載過了。' : null, run: () => download(2, '提貨單 ×1') }]
-    case 'target': return [{ id: 'dl', name: '下載帳本', sub: '3 回合', reason: dn ? '帳本已經在你手上。' : null, run: () => download(3, '藍鯨的帳本') }]
+    case 'target': return [{ id: 'dl', name: '下載帳本', sub: '3 回合・要守住節點', reason: dn ? '帳本已經在你手上。' : null, run: holdDownload }]
     case 'control': return [{ id: 'take', name: '接管', sub: 'RAM 3', reason: dn ? '已經接管了。' : null, run: takeover }]
     case 'gate': return s.unlocked < 2 ? [{ id: 'crack', name: '破解', sub: 'RAM 2', run: crack }] : [{ id: 'down', name: '往下一層', exit: true, run: () => s.setFloor(1) }]
     case 'lace': return [

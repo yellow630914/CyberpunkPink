@@ -56,7 +56,8 @@ export const START_MEDIA = {
     { id: 'f1', name: '碼頭的交貨', kind: '罪證', quality: 4, who: ['藍鯨物流', '緋櫻系的晶片'], truth: '真的', exclusive: true },
     { id: 'f2', name: '熔爐的黑拳', kind: '日常', quality: 2, who: ['鉻娘子'], truth: '真的', exclusive: false },
   ] as Footage[],
-  cuts: [] as Cut[],
+  // 第四版：一支已經剪好的片（揭弊，用碼頭的交貨），輿論戰的牌庫會多一張「片」
+  cuts: [{ id: 'c1', name: '碼頭的交貨', parts: ['f1'], angle: '揭弊', looks: 4, cred: 4, risk: 2, forged: false }] as Cut[],
 }
 export type MediaState = typeof START_MEDIA
 

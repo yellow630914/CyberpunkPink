@@ -77,8 +77,9 @@ const legal = computed(() => g.deck.slots.filter(Boolean).map(id => ITEMS[id!]).
       </div>
       <p class="h mt">SKIN・{{ g.deck.skins.length }} 套</p>
       <div class="cgrid">
-        <ItemSlot v-for="id in g.deck.skins" :key="id" :item="ITEMS[id]" slot-icon="ic-skin" show-name :selected="g.deck.skinWorn === id" :label="g.deck.skinWorn === id ? '穿著' : undefined" @select="skinBlock ? ui.toast(skinBlock, 'warn') : (g.deck.skinWorn = id)" />
+        <ItemSlot v-for="id in g.deck.skins" :key="id" :item="ITEMS[id]" slot-icon="ic-skin" show-name :selected="g.deck.skinWorn === id" :label="g.deck.skinWorn === id ? '穿著' : undefined" :dye="g.dyes[`skin:${id}`] ?? null" @select="skinBlock ? ui.toast(skinBlock, 'warn') : (g.deck.skinWorn = id)" />
       </div>
+      <div class="go left"><ReasonButton sm :reason="g.deck.skinWorn ? null : '沒有穿著的 SKIN。'" data-open-dye @go="ui.open('dye', { dyeKey: `skin:${g.deck.skinWorn}`, where: 'net', place: '化身編輯' })">染 SKIN 的顏色</ReasonButton></div>
     </div>
     <aside class="panel cut pad">
       <p class="h">網內的數字<Hint>RAM 上限是 4 加智識的調整值；傷害加值是魅力的調整值（CYBERSPACE 4.1 節）。外觀不改數值。</Hint></p>

@@ -85,3 +85,28 @@ export function planImport(incoming: WorldEntry[], existing: WorldEntry[], built
   const load = incoming.filter(e => !blockedIds.has(e.id))
   return { issues, load, skipped: incoming.length - load.length, clashes }
 }
+
+/**
+ * 「用在哪」（第四版，所有種類）：掃過每一筆內容的每一個欄位（巢狀的也算），
+ * 找出它引用的其他內容（值等於某一筆的 id）與引用它的內容，連欄位的位置一起列出來。
+ */
+export interface UseRef { id: string; name: string; kind: string; where: string }
+function walk(v: unknown, path: string, out: Array<[string, string]>) {
+  if (typeof v === 'string') out.push([path, v])
+  else if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${path}[${i}]`, out))
+  else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { walk(k, `${path}.${k}（鍵）`, out); walk(x, path ? `${path}.${k}` : k, out) }
+}
+export function whereUsed(e: { id: string }, all: Array<{ id: string; name?: unknown; kind?: unknown }>): { refs: UseRef[]; usedBy: UseRef[] } {
+  const byId = new Map(all.map(x => [x.id, x]))
+  const strs: Array<[string, string]> = []
+  for (const [k, v] of Object.entries(e)) if (k !== 'id') walk(v, k, strs)
+  const refs = strs.filter(([, s]) => s !== e.id && byId.has(s)).map(([where, s]) => { const x = byId.get(s)!; return { id: s, name: String(x.name ?? s), kind: String(x.kind ?? ''), where } })
+  const usedBy: UseRef[] = []
+  for (const x of all) {
+    if (x.id === e.id) continue
+    const ss: Array<[string, string]> = []
+    for (const [k, v] of Object.entries(x)) if (k !== 'id') walk(v, k, ss)
+    for (const [where, s] of ss) if (s === e.id) usedBy.push({ id: x.id, name: String(x.name ?? x.id), kind: String(x.kind ?? ''), where })
+  }
+  return { refs, usedBy }
+}

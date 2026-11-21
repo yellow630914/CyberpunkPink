@@ -10,8 +10,9 @@ import ReasonButton from '../components/ReasonButton.vue'
 import PartyRow from '../components/PartyRow.vue'
 import { useGame } from '../stores/game'
 import { useUi } from '../stores/ui'
-import { OFFERS, BRIEFS, DEAL, MEANS, STAGES, CREW, LINK_KIND, START_JOB, type Stage } from '../data/commission'
-import { FACE_NAME, payOptions, negotiate, split, scoutDc, scoutRoll, chance, supportRoll, WEIGHT, type Face } from '../lib/commission'
+import { OFFERS, DEAL, MEANS, CREW, LINK_KIND, START_JOB, type Stage, type Branch } from '../data/commission'
+import { TEMPLATES, templateById, facesKnownOf } from '../data/templates'
+import { FACE_NAME, payOptions, negotiate, split, scoutDc, scoutRoll, chance, supportRoll, WEIGHT, LINKS, linkMods, stagePressure, branchDc, pickGoals, goalPayout, JOB_GOALS, type Face } from '../lib/commission'
 import { mathRng, d20 } from '../lib/combat/rng'
 import { SKILL_TREES } from '../data/content.generated'
 import { fmt } from '../lib/price'
@@ -34,8 +35,14 @@ const tabs = computed(() => [
   { id: 'call', label: '3 召集', disabled: !reached('call') }, { id: 'run', label: '4 副本', disabled: !reached('run') },
 ])
 const sel = ref(job.offer ?? 'bluewhale')
-const offer = computed(() => OFFERS.find(o => o.id === sel.value)!)
-const brief = computed(() => BRIEFS[sel.value])
+/** 夢露手上的案子：七種模板（第四版）＋信譽不夠的那一件 */
+const OFFER_LIST = [...TEMPLATES.map(t => t.offer), OFFERS.find(o => o.id === 'erase')!]
+const tpl = computed(() => templateById(sel.value))
+const runTpl = computed(() => templateById(job.offer ?? sel.value))
+const STAGES = computed(() => runTpl.value.stages)
+const offer = computed(() => OFFER_LIST.find(o => o.id === sel.value) ?? tpl.value.offer)
+const brief = computed(() => tpl.value.brief)
+const GRADE_N: Record<string, number> = { I: 1, II: 2, III: 3, IV: 4, V: 5 }
 const fixer = computed(() => g.npcs.monroe)
 const faceIcon: Record<Face, string> = { m: '現', n: '內', o: '輿' }
 const rng = mathRng
@@ -52,22 +59,15 @@ function talk() {
   negoDone.value = r.done || job.talks >= 2
 }
 const offerReason = computed(() => (offer.value.need ? `門檻：${offer.value.need}。` : job.offer && job.offer !== sel.value ? '手上已經有一件進行中的委託。' : null))
+/** 接案：每一型都走完四拍（第四版）。預付三成；未知清單照模板 */
 function accept() {
-  if (sel.value !== 'bluewhale') {
-    // 小型的兩件：這一版不做踩點與召集，直接開打那一場
-    const go = sel.value === 'idol' ? { path: '/opinion', query: { topic: 'tape_leak', foe: 'pr_jess', from: '/commission' } } : { path: '/combat', query: { enc: 'capture', from: '/commission' } }
-    g.addLog({ prose: [`你接下夢露手上的「${offer.value.name}」。`] })
-    job.offer = sel.value
-    job.step = 'run'
-    job.waiting = true
-    router.push(go)
-    return
-  }
-  job.offer = 'bluewhale'
+  const t = tpl.value
+  job.offer = t.id
   job.step = 'scout'
+  if (t.id !== 'bluewhale') { job.reward = t.offer.reward; job.unknowns = structuredClone(t.unknowns); job.scouts = 0; job.lastScout = null; job.pressure = { alert: 0, trace: 0 } }
   const pre = Math.round(job.reward * DEAL.prepay)
   g.money.cash += pre
-  g.addLog({ prose: ['你接下藍鯨物流的帳本。夢露把預付款推過來，提醒你別殺人。'], changes: [{ text: `現金晶片 +${fmt(pre)}（預付三成）`, kind: 'plus' }] })
+  g.addLog({ prose: [`你接下夢露手上的「${t.offer.name}」。她把預付款推過來，提醒你：${t.offer.cond}。`], changes: [{ text: `現金晶片 +${fmt(pre)}（預付三成）`, kind: 'plus' }] })
   tab.value = 'scout'
 }
 const net = computed(() => split({ reward: job.reward, cut: DEAL.cut, pay: job.pay, fees: 0, members: 0 }).base - (job.pay === 'fav' ? 0 : Math.round(payOptions(job.reward).find(p => p.id === job.pay)!.get * DEAL.cut)))
@@ -113,9 +113,8 @@ function scout() {
   if (r.alarm) { job.alarm += 15; job.pressure.trace += m.id === 'hack' ? 15 : 0; job.pressure.alert += m.id === 'hack' ? 0 : 15 }
   job.lastScout = `上一次：${m.name}　1d20 ${r.die} ＋ ${bonusOf(m.id)} ＝ ${r.tot}，對 ${r.dc}，${r.alarm ? '自然 1：驚動了目標（起始的壓力 +15）。' : got.length ? `揭開${got.length === 2 ? '兩' : '一'}項：${got.map(u => u.cat).join('、')}。` : '沒有揭開什麼。'}`
 }
-const stageKnown = (s: Stage) => !s.hidden || !!job.unknowns.find(u => u.id === 'u_stage3')?.open || STAGES.indexOf(s) <= job.stage
-const STAGE_UNK = ['u_stage1', 'u_stage2', 'u_stage3']
-const facesKnown = (i: number) => STAGES[i].key || !!job.unknowns.find(u => u.id === STAGE_UNK[i])?.open
+const stageKnown = (s: Stage) => !s.hidden || !!job.unknowns.find(u => u.id === 'u_stage3')?.open || STAGES.value.indexOf(s) <= job.stage
+const facesKnown = (i: number) => facesKnownOf(runTpl.value, i, job.unknowns)
 
 // ---- 3 召集 ----
 const ROSTER_ADD = ['joe', 'penny']
@@ -132,6 +131,8 @@ const HOW = ['付錢', '用人情', '欠人情', '靠交情'] as const
 const supportPct = (f: Face) => { const s = job.support[f]; return s ? chance(s.skill + WEIGHT[s.weight], 14) : 0 }
 function depart() {
   job.step = 'run'
+  job.stats = { alertMax: job.pressure.alert, traceMax: job.pressure.trace, noLink: 0, opResult: null, decisiveRounds: null, downs: 0 }
+  if (job.live && !job.goals?.length) job.goals = pickGoals(runTpl.value.goals, rng)
   g.inRun = true
   g.snapshots = []
   g.takeSnapshot('入口', '進入入口的那一刻')
@@ -141,7 +142,23 @@ function depart() {
 }
 
 // ---- 4 副本 ----
-const stage = computed(() => STAGES[Math.min(job.stage, STAGES.length - 1)])
+const stage = computed(() => STAGES.value[Math.min(job.stage, STAGES.value.length - 1)])
+/** 副本直播（MEDIA 1.2 節）：開播時抽一到三個目標；委託人不同意的開播算違反「不准曝光」 */
+function toggleLive() {
+  job.live = !job.live
+  if (job.live && !job.goals?.length) job.goals = pickGoals(runTpl.value.goals, rng)
+  if (job.live && !runTpl.value.liveOk) ui.toast('委託人沒有同意直播：開播算違反「不准曝光」。', 'warn')
+}
+function bump(alert: number, trace: number) {
+  job.pressure.alert = Math.max(0, Math.min(100, job.pressure.alert + alert))
+  job.pressure.trace = Math.max(0, Math.min(100, job.pressure.trace + trace))
+  if (job.stats) { job.stats.alertMax = Math.max(job.stats.alertMax, job.pressure.alert); job.stats.traceMax = Math.max(job.stats.traceMax, job.pressure.trace) }
+}
+function giveLink(id: string, from: string) {
+  const d = LINKS[id]
+  if (!d || job.links.some(l => l.id === id && !l.used)) return
+  job.links.push({ id, kind: d.kind, name: d.name, from, effect: d.effect })
+}
 const stepNow = computed(() => (job.waiting ? 4 : !job.face ? 1 : !job.rolled ? 2 : !job.branch ? 3 : 4))
 const supportFaces = computed(() => (job.face ? stage.value.faces.filter(f => f !== job.face && job.support[f]) : []))
 const rolls = ref<string[]>([])
@@ -157,32 +174,79 @@ function rollSupport() {
     const r = supportRoll(rng, s.skill, s.weight, 2)
     rolls.value.push(`輔助・${FACE_NAME[f]}：${s.who}　1d20 ${r.die} ＋ ${s.skill} ＋ ${WEIGHT[s.weight]} ＝ ${r.tot}，對 ${r.dc}：${r.result}。`)
     if (r.result === '大成功' || r.result === '成功') {
-      const name = f === 'm' ? '大樓斷電' : f === 'o' ? '輿論分心' : '後門'
-      job.links.push({ kind: f === 'm' ? '減壓' : '開路', name, from: `第${job.stage + 1}階段・${FACE_NAME[f]}（${s.who}）`, effect: f === 'm' ? '蕾絲降一級，追蹤度上升減半' : '後面的階段多一條路' })
+      // 輔助面成功給的連動（COMMISSIONS 6.4 節）：現實切斷電力、內海接管控制節點、輿論放假消息
+      giveLink(f === 'm' ? 'power_cut' : f === 'n' ? 'doors_unlocked' : 'decoy_news', `第${job.stage + 1}階段・${FACE_NAME[f]}（${s.who}）`)
     } else {
       job.links.push({ kind: '失敗', name: '沒拿到', from: `第${job.stage + 1}階段・${FACE_NAME[f]}（${s.who}）`, effect: f === 'o' ? '輿論沒有壓力條，不加' : '這一面的壓力 +10' })
-      if (f === 'm') job.pressure.alert += 10
+      if (f === 'm') bump(10, 0)
+      if (f === 'n') bump(0, 10)
     }
   }
   job.rolled = true
 }
 const branches = computed(() => (job.face ? stage.value.branches[job.face] ?? [] : []))
-const hasLink = (id?: string) => !id || (id === 'staff_cred' && job.done.some(d => d.stage === 's1' && d.face === 'n')) || job.links.some(l => l.name === id)
-function branchReason(b: { link?: string; tag: string; need: string }) {
-  if (b.link && !hasLink(b.link)) return '要第一階段在內海偷到的員工憑證。'
+const hasLink = (id?: string) => !id || job.links.some(l => l.id === id || l.name === id)
+const failedChecks = ref<string[]>([])
+function branchReason(b: Branch) {
+  if (b.link && !hasLink(b.link)) return `要連動：${LINKS[b.link]?.name ?? b.link}。`
   if (b.tag === '潛' && job.live) return '直播中不能走潛行的路。'
+  if (failedChecks.value.includes(b.id)) return '這條路的檢定失敗了：換一條。'
+  if (b.cost && g.money.cash < b.cost) return `現金不夠：要 ${fmt(b.cost)}。`
   return null
 }
+/** 現在這一段用得到的連動（畫面上列出來） */
+const modsNow = computed(() => (job.face ? linkMods(job.links, { face: job.face, decisive: !!stage.value.key }) : null))
+const checkLine = ref('')
+/**
+ * 進入這一段（第四版）：先套連動（不必探索、壓力減半、少一個敵人、輿論的開場……），再看分支：
+ * 不擲的直接過；檢定的當場擲（基本功＋3 對標準 DC）；其他的連到戰鬥、子網、輿論戰或成人場景，打完回來推進。
+ */
 function enter() {
   const f = job.face!
-  const go = stage.value.go[f]!
+  const br = branches.value.find(b => b.id === job.branch)!
+  const m = linkMods(job.links, { face: f, decisive: !!stage.value.key })
+  const base = { alert: Number(br.effect.match(/警戒 \+(\d+)/)?.[1] ?? 0), trace: Number(br.effect.match(/追蹤度 \+(\d+)/)?.[1] ?? 0) }
+  const p = stagePressure(base, m)
+  bump(p.alert, p.trace)
+  job.links.forEach(l => { if (l.id && m.used.includes(l.id)) l.used = true })
+  if (br.cost) g.money.cash -= br.cost
+  if (br.free || (m.skip && br.check)) { complete(`${br.name}：${br.free ? '不擲，直接過了' : '連動讓這一段不必探索'}。`); return }
+  if (br.check) {
+    const mod = (g.basics[br.check.skill] ?? 0) + 3, dc = branchDc(offer.value.grade, (br.check.shift ?? 0) + m.dc), die = d20(rng)
+    const ok = die !== 1 && (die === 20 || die + mod >= dc)
+    checkLine.value = `${br.check.skill} 1d20 ${die} ＋ ${mod} ＝ ${die + mod}，對 ${dc}：${ok ? '成功' : '失敗'}。`
+    if (ok) { complete(`${br.name}：${checkLine.value}`); return }
+    failedChecks.value.push(br.id)
+    bump(10, f === 'n' ? 5 : 0)
+    job.branch = null
+    ui.toast(`檢定失敗：警戒 +10。換一條路，或強攻。`, 'warn')
+    return
+  }
+  const go = br.go ?? stage.value.go[f]!
   job.waiting = true
   g.takeSnapshot('戰鬥', `戰鬥開打前・${stage.value.name}`)
-  const br = branches.value.find(b => b.id === job.branch)
-  if (br?.effect.includes('追蹤度 +')) job.pressure.trace += Number(br.effect.match(/追蹤度 \+(\d+)/)?.[1] ?? 0)
-  if (br?.effect.includes('警戒 +')) job.pressure.alert += Number(br.effect.match(/警戒 \+(\d+)/)?.[1] ?? 0)
   g.lastBattle = null
-  router.push({ path: go.path, query: { ...go.query, from: '/commission', ...(route.query.fast ? { fast: '1', seed: '4' } : {}) } })
+  const extra: Record<string, string> = {}
+  if (m.minus) extra.minus = String(m.minus)
+  if (go.path === '/opinion') { if (m.voice) extra.va = String(m.voice); if (m.cells.length) extra.cells = m.cells.join(','); if (m.inside) extra.inside = '1'; if (m.pr) extra.pr = String(m.pr) }
+  if (go.path === '/scene' && m.voice) extra.goal0 = String(m.voice)
+  router.push({ path: go.path, query: { ...go.query, ...extra, from: '/commission', ...(route.query.fast ? { fast: '1', seed: '4' } : {}) } })
+}
+/** 這一段做完：記下來、給連動、推進到下一段；決定性的一步做完就收尾 */
+function complete(result: string, extraLinks: string[] = [], branchGives = true) {
+  const br = branchGives ? branches.value.find(b => b.id === job.branch) : undefined
+  job.done.push({ stage: stage.value.id, face: job.face!, branch: job.branch ?? '', result })
+  const from = `第${job.stage + 1}階段・${FACE_NAME[job.face!]}`
+  const gives = [...(br?.gives ?? []), ...extraLinks]
+  gives.forEach(id => giveLink(id, from))
+  if (!stage.value.key && !gives.length && job.stats) job.stats.noLink++
+  job.waiting = false; job.face = null; job.branch = null; job.rolled = false; rolls.value = []; failedChecks.value = []
+  tab.value = 'run'
+  if (stage.value.key) { finish(true); return }
+  job.stage++
+  g.advance(120)
+  g.takeSnapshot('階段', `第${job.stage + 1}階段開始時`)
+  ui.toast(`里程碑：第${job.stage}階段完成。`)
 }
 /** 從戰鬥或子網回來：贏了就是里程碑，推進階段；輸了停在這一段，可以回到這個階段開始時 */
 const failed = ref<string | null>(null)
@@ -190,32 +254,37 @@ onMounted(() => {
   if (!job.waiting || !g.lastBattle) return
   const lb = g.lastBattle
   g.lastBattle = null
-  const ok = lb.result === 'win' || lb.result === 'draw' || lb.kind === 'subnet'
-  if (job.offer !== 'bluewhale') {
-    job.waiting = false
-    if (ok) finish(true)
-    else { failed.value = lb.text; job.step = 'done' }
-    tab.value = 'run'
-    return
+  if (job.stats) { job.stats.downs += lb.downs ?? 0; job.stats.crits = (job.stats.crits ?? 0) + (lb.crits ?? 0); job.stats.lethal = (job.stats.lethal ?? 0) + (lb.lethal ?? 0) }
+  // 輿論的結果換成連動（OPINION 第 6 節）：大勝 op_major、小勝 op_minor、敗 op_lost；平手什麼都不給
+  const opLinks: string[] = []
+  if (lb.kind === 'opinion') {
+    const r = lb.text.includes('大勝') ? '大勝' : lb.text.includes('小勝') || lb.text.startsWith('你贏了') ? '小勝' : lb.result === 'lose' ? '敗' : '平手'
+    if (stage.value.key) { if (job.stats) job.stats.opResult = r }
+    else opLinks.push(...(r === '大勝' ? ['op_major'] : r === '小勝' ? ['op_minor'] : r === '敗' ? ['op_lost'] : []))
   }
-  if (!ok) { failed.value = lb.text; job.waiting = false; tab.value = 'run'; return }
-  job.done.push({ stage: stage.value.id, face: job.face!, branch: job.branch ?? '', result: lb.text })
-  if (job.face === 'n' && stage.value.id === 's1') job.links.push({ kind: '代勞', name: '員工憑證', from: '第一階段・內海（你）', effect: '第二階段 內海：不必探索' })
-  job.waiting = false; job.face = null; job.branch = null; job.rolled = false; rolls.value = []
-  tab.value = 'run'
-  if (stage.value.key) { finish(true); return }
-  job.stage++
-  g.advance(120)
-  g.takeSnapshot('階段', `第${job.stage + 1}階段開始時`)
-  ui.toast(`里程碑：第${job.stage}階段完成。`)
+  const ok = lb.result === 'win' || lb.kind === 'subnet' || (lb.kind === 'opinion' && !stage.value.key && lb.result !== 'lose') || (lb.kind === 'opinion' && lb.result === 'draw' && !stage.value.key)
+  if (stage.value.key && job.stats && lb.rounds) job.stats.decisiveRounds = lb.rounds
+  if (!ok && !(lb.kind === 'opinion' && !stage.value.key)) { failed.value = lb.text; job.waiting = false; tab.value = 'run'; return }
+  // 短的輿論戰輸了也算走完這一段（照結果給 op_lost）；分支本來給的連動只有小勝以上才給
+  const brGives = !(lb.kind === 'opinion' && !opLinks.some(x => x !== 'op_lost'))
+  complete(lb.text, opLinks, brGives)
 })
 function finish(win: boolean) {
   const r = payOptions(job.reward).find(p => p.id === job.pay)!
-  const got = job.offer === 'bluewhale' ? sp.value.mine : Math.round(OFFERS.find(o => o.id === job.offer)!.reward * 0.5)
+  const got = sp.value.mine
   if (win) {
     if (job.pay === 'acc') g.money.acc += got; else g.money.cash += got
     if (job.pay === 'fav') g.money.fav += 1
-    g.addLog({ prose: [`收尾：${OFFERS.find(o => o.id === job.offer)?.name}完成了。夢露清點完，把你那一份推過來。`], changes: [{ text: `${r.name} +${fmt(got)}`, kind: 'plus' }] })
+    const changes: Array<{ text: string; kind: 'plus' | 'minus' }> = [{ text: `${r.name} +${fmt(got)}`, kind: 'plus' }]
+    // 副本直播的目標（MEDIA 1.2 節）：達成的每個熱度 +3、打賞照等級
+    if (job.live && job.goals?.length && job.stats) {
+      const pay = goalPayout(job.goals, job.stats, GRADE_N[runTpl.value.offer.grade] ?? 2)
+      goalResult.value = job.goals.map(id => `${pay.done.includes(id) ? '✓' : '✗'} ${JOB_GOALS[id]?.text ?? id}`)
+      g.channel.subs += pay.heat * 6
+      g.money.cash += pay.tips
+      changes.push({ text: `直播目標 ${pay.done.length}／${job.goals.length}・訂閱 +${pay.heat * 6}・打賞 +${fmt(pay.tips)}`, kind: 'plus' })
+    }
+    g.addLog({ prose: [`收尾：${runTpl.value.offer.name}完成了。夢露清點完，把你那一份推過來。`], changes })
   }
   job.step = 'done'
   g.inRun = false
@@ -225,7 +294,7 @@ function breathe() { job.breathe = false; g.party.forEach(p => { p.load[0] = Mat
 function retreat() {
   const s = g.snapshots.find(x => x.kind === '入口')
   if (s) g.rollback(s.id)
-  Object.assign(job, structuredClone({ ...START_JOB, offer: 'bluewhale', step: 'call', reward: job.reward, pay: job.pay, unknowns: job.unknowns, scouts: job.scouts }))
+  Object.assign(job, structuredClone({ ...START_JOB, offer: job.offer, step: 'call', reward: job.reward, pay: job.pay, unknowns: job.unknowns, scouts: job.scouts, pressure: job.offer === 'bluewhale' ? START_JOB.pressure : { alert: 0, trace: 0 } }))
   failed.value = null
   tab.value = 'call'
   ui.toast('撤退：回到進副本之前。')
@@ -236,7 +305,8 @@ function retryStage() {
   failed.value = null
   job.face = null; job.branch = null; job.rolled = false; job.waiting = false
 }
-function newJob() { Object.assign(job, structuredClone(START_JOB)); sel.value = 'bluewhale'; tab.value = 'take'; failed.value = null }
+function newJob() { Object.assign(job, structuredClone(START_JOB)); sel.value = 'bluewhale'; tab.value = 'take'; failed.value = null; goalResult.value = [] }
+const goalResult = ref<string[]>([])
 </script>
 
 <template>
@@ -254,7 +324,7 @@ function newJob() { Object.assign(job, structuredClone(START_JOB)); sel.value = 
         <section class="panel cut pad">
           <p class="h">夢露手上的案子<Hint>信譽不夠的卡變淡並寫門檻。點卡看簡報。</Hint></p>
           <div class="row-list">
-            <button v-for="o in OFFERS" :key="o.id" type="button" class="lrow offer" :class="{ on: sel === o.id, 'is-unavailable': !!o.need }" :aria-disabled="!!o.need || undefined" :data-offer="o.id" @click="o.need ? ui.toast(`門檻：${o.need}。`, 'warn') : (sel = o.id)">
+            <button v-for="o in OFFER_LIST" :key="o.id" type="button" class="lrow offer" :class="{ on: sel === o.id, 'is-unavailable': !!o.need }" :aria-disabled="!!o.need || undefined" :data-offer="o.id" @click="o.need ? ui.toast(`門檻：${o.need}。`, 'warn') : (sel = o.id)">
               <span class="fc" :class="o.face ?? 'x'">{{ o.face ? faceIcon[o.face] : '？' }}</span>
               <span class="grow"><b>{{ o.name }}</b><small>{{ o.grade }}・{{ o.type }}・{{ o.size }}・{{ o.cond }}</small><small v-if="o.need" class="warn-t">{{ o.need }}</small></span>
               <MoneyTag v-if="o.reward" kind="cash" :amount="o.reward" :size="13" /><span v-else class="mono">？？</span>
@@ -272,6 +342,14 @@ function newJob() { Object.assign(job, structuredClone(START_JOB)); sel.value = 
           <template v-if="sel === 'bluewhale'">
             <p class="h">後面的階段（要踩點才知道）</p>
             <div class="track"><span v-for="(s, i) in STAGES" :key="s.id" class="node" :class="{ key: s.key }">{{ s.key ? '★ ' + FACE_NAME[s.faces[0]] : `第${i + 1}階段 ？` }}</span></div>
+          </template>
+          <template v-else>
+            <p class="h">後面的階段（要踩點才知道）<Hint>{{ tpl.ct }}：小型三階段（第 1、2、★）。決定性的一步只有主面可選。</Hint></p>
+            <div class="track"><span v-for="(s, i) in tpl.stages" :key="s.id" class="node" :class="{ key: s.key }">{{ s.key ? '★ ' + FACE_NAME[s.faces[0]] : `第${i + 1}階段 ？` }}</span></div>
+            <div class="kv"><span>報酬</span><b><MoneyTag kind="cash" :amount="tpl.offer.reward" :size="14" /></b></div>
+            <div class="kv"><span>直播</span><b>{{ tpl.liveOk ? '委託人同意' : '委託人不同意：開播算違反不准曝光' }}</b></div>
+          </template>
+          <template v-if="sel === 'bluewhale'">
             <p class="h">談判<Hint title="談判">報酬、預付、裝備補助、抽成。白線是她大概的底線；壓到白線以下她會不高興。再談一輪是一次交涉（對 13），最多兩輪。</Hint></p>
             <div class="deal">
               <div class="kv"><span>報酬</span><b><MoneyTag kind="cash" :amount="job.reward" :size="14" /></b></div>
@@ -290,7 +368,7 @@ function newJob() { Object.assign(job, structuredClone(START_JOB)); sel.value = 
             <template v-if="job.step === 'take' || job.offer !== sel">
               <button type="button" class="btn" @click="router.push('/')">不接</button>
               <ReasonButton v-if="sel === 'bluewhale'" :reason="negoDone ? '她不想再談了。' : null" @go="talk">再談一輪（交涉）</ReasonButton>
-              <ReasonButton pri :reason="offerReason" data-accept @go="accept">{{ sel === 'bluewhale' ? '接案' : '接案（小型：直接開打）' }}</ReasonButton>
+              <ReasonButton pri :reason="offerReason" data-accept @go="accept">接案</ReasonButton>
             </template>
             <span v-else class="tag hot">已經接了</span>
           </div>
@@ -377,7 +455,7 @@ function newJob() { Object.assign(job, structuredClone(START_JOB)); sel.value = 
         <aside class="stack">
           <section class="panel cut pad">
             <p class="h">委託地點</p>
-            <b>舊港・藍鯨第三倉</b><p class="t-fine">進去之後城裡的事全部暫停，撤退會回到現在。</p>
+            <b>{{ runTpl.site }}</b><p class="t-fine">進去之後城裡的事全部暫停，撤退會回到現在。</p>
             <div class="go"><ReasonButton pri :reason="job.step === 'run' || job.step === 'done' ? '已經出發了。' : null" data-depart @go="depart">出發</ReasonButton></div>
           </section>
         </aside>
@@ -386,8 +464,8 @@ function newJob() { Object.assign(job, structuredClone(START_JOB)); sel.value = 
       <!-- 4 副本 -->
       <div v-else class="run">
         <section class="panel cut pad rh">
-          <b>舊港 藍鯨第三倉・{{ offer.name }}</b><span class="tag">{{ offer.grade }}</span><span class="tag">{{ offer.type }}</span><span v-if="offer.face" class="tag hot">主面 {{ FACE_NAME[offer.face] }}</span><span class="tag warn">{{ offer.cond }}</span>
-          <button type="button" class="switch" :class="{ on: job.live }" :aria-pressed="job.live" aria-label="副本直播" @click="job.live = !job.live" /><span class="t-fine">直播</span>
+          <b>{{ runTpl.site }}・{{ runTpl.offer.name }}</b><span class="tag">{{ runTpl.offer.grade }}</span><span class="tag">{{ runTpl.offer.type }}</span><span v-if="runTpl.offer.face" class="tag hot">主面 {{ FACE_NAME[runTpl.offer.face] }}</span><span class="tag warn">{{ runTpl.offer.cond }}</span>
+          <button type="button" class="switch" :class="{ on: job.live }" :aria-pressed="job.live" aria-label="副本直播" data-live @click="toggleLive" /><span class="t-fine">直播</span>
           <span class="grow" />
           <div class="pres"><span class="k">警戒 {{ job.pressure.alert }}</span><TrackBar :value="job.pressure.alert" :max="100" color="var(--warn)" :marks="[60]" /></div>
           <div class="pres"><span class="k">追蹤度 {{ job.pressure.trace }}</span><TrackBar :value="job.pressure.trace" :max="100" color="var(--hp)" :marks="[30, 60, 90]" /></div>
@@ -409,6 +487,7 @@ function newJob() { Object.assign(job, structuredClone(START_JOB)); sel.value = 
             <section v-if="job.step === 'done'" class="panel cut pad stack" data-job-done>
               <h3>{{ failed ? '委託失敗' : '收尾' }}</h3>
               <p>{{ failed ?? '委託完成了。收尾的報告寫進了紀錄。' }}</p>
+              <div v-if="goalResult.length" class="goals"><b>直播目標</b><span v-for="x in goalResult" :key="x" class="t-fine">{{ x }}</span></div>
               <div class="go left"><button type="button" class="btn pri" @click="router.push('/')">回主畫面</button><button type="button" class="btn" @click="newJob">再接一件</button></div>
             </section>
             <section v-else class="panel cut pad stack">
@@ -435,18 +514,24 @@ function newJob() { Object.assign(job, structuredClone(START_JOB)); sel.value = 
                   </button>
                 </div>
                 <p class="t-fine">選了就不能換；走過的分支會記到收尾。</p>
+                <div v-if="modsNow && modsNow.notes.length" class="mods" data-mods><b>這一段用得到的連動</b><span v-for="n in modsNow.notes" :key="n" class="t-fine">{{ n }}</span></div>
+                <div v-if="checkLine" class="roll mono">{{ checkLine }}</div>
                 <div class="go"><ReasonButton pri :reason="!job.branch ? '先選一條路。' : null" data-enter @go="enter">進入這一段</ReasonButton></div>
               </template>
             </section>
           </div>
           <aside class="stack">
+            <section v-if="job.live && job.goals?.length" class="panel cut pad" data-goals>
+              <p class="h">直播目標<Hint>開播時從這一型的目標與共用的目標裡抽一到三個；收尾時逐條檢查，達成的每個熱度 +3，打賞照等級。直播中不能走潛行的路。</Hint></p>
+              <div v-for="id in job.goals" :key="id" class="t-fine">・{{ JOB_GOALS[id]?.text ?? id }}</div>
+            </section>
             <section class="panel cut pad">
               <p class="h">拿到的連動</p>
               <div v-if="!job.links.length" class="empty-note">還沒有。</div>
-              <div v-for="(l, i) in job.links" :key="i" class="link"><span class="kc" :style="{ '--c': LINK_KIND[l.kind] }">{{ l.kind }}</span><b>{{ l.name }}</b><small>{{ l.from }} → {{ l.effect }}</small></div>
+              <div v-for="(l, i) in job.links" :key="i" class="link" :class="{ used: l.used }"><span class="kc" :style="{ '--c': LINK_KIND[l.kind] }">{{ l.kind }}</span><b>{{ l.name }}</b><small>{{ l.from }} → {{ l.effect }}{{ l.used ? '（用掉了）' : '' }}</small></div>
             </section>
             <section class="panel cut pad"><p class="h">小隊</p><PartyRow v-for="m in g.party" :key="m.id" :m="m" /></section>
-            <section class="panel cut pad"><p class="h">輔助面的人</p><div v-for="f in (['m', 'o'] as Face[])" :key="f" class="kv"><span>{{ job.support[f]?.who ?? '—' }}</span><b>{{ FACE_NAME[f] }}・待命</b></div></section>
+            <section class="panel cut pad"> <p class="h">輔助面的人</p><div v-for="f in (['m', 'o'] as Face[])" :key="f" class="kv"><span>{{ job.support[f]?.who ?? '—' }}</span><b>{{ FACE_NAME[f] }}・待命</b></div></section>
           </aside>
         </div>
       </div>
@@ -525,4 +610,6 @@ function newJob() { Object.assign(job, structuredClone(START_JOB)); sel.value = 
   .br { flex-wrap: wrap; }
   .br > .t-fine { max-width: none; text-align: left; flex-basis: 100%; }
 }
+.mods, .goals { display: grid; gap: 2px; padding: 8px 12px; background: var(--bg-term); box-shadow: inset 3px 0 0 var(--ram); }
+.link.used { opacity: .55; }
 </style>

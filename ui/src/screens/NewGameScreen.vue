@@ -15,11 +15,11 @@ import { ITEMS } from '../data/items'
 import { SKILL_TREES } from '../data/content.generated'
 import {
   ATTRS, ATTR_ARRAY, ATTR_FREE, ATTR_MIN, ATTR_MAX, BASIC_SKILLS, BASIC_POINTS, BASIC_MAX, ORIGINS, CORPS, CYBER_OPTIONS, CYBER_POINTS, CYBER_POINT_MONEY,
-  TRAITS, LIFE_TABLES, GEAR_CATALOG, GEAR_POINTS, GEAR_POINT_MONEY, SUGGESTED_KITS, LOOKS, LOOK_GROUPS, ORIGIN_STYLE, LIFE_BY_ORIGIN, QUICK_STARTS, START_MONEY, type AttrName, type CyberOption, type TraitOption,
+  TRAITS, LIFE_TABLES, GEAR_CATALOG, GEAR_POINTS, GEAR_POINT_MONEY, SUGGESTED_KITS, LOOKS, LOOK_GROUPS, ORIGIN_STYLE, BEAST_LINES, LIFE_BY_ORIGIN, QUICK_STARTS, START_MONEY, type AttrName, type CyberOption, type TraitOption,
 } from '../data/creation'
 import {
   ageBlock, freeValues, attrTotals, attrBlock, attrMod, attrBudget, attrStepBlock, fmtMod, basicLeft, basicStepBlock, cyberSummary, cyberPickBlock, cyberBlock,
-  traitSummary, traitPickBlock, traitBlock, gearPoints, gearSummary, gearAddBlock, fitKit, type AttrPick,
+  traitSummary, traitPickBlock, traitBlock, gearPoints, gearSummary, gearAddBlock, fitKit, derivedLooks, type AttrPick,
 } from '../lib/creation'
 import { skillXp, TIER_THRESHOLDS } from '../lib/skills'
 import { unavailable } from '../lib/unavailable'
@@ -58,7 +58,6 @@ const basic = reactive<Record<string, string>>({
   face: '鵝蛋臉', eyeShape: '有神的雙眼皮', eyes: '褐', mark: '沒有',
   hair: '耳下的短髮', hairColor: '黑', hairTexture: '一般',
   chest: '大小適中', waist: '結實', hips: '圓而翹', legs: '修長', hands: '指節分明、手指細長', privates: '（不寫）',
-  cyber: '後頸的橋露在外面', cyberLook: '織女的白色樹脂', beast: '沒有', beastPart: '只有耳朵', beastKind: '生體派（真的毛）', style: '工裝',
   looks: '', background: '', privatesNote: '',
 })
 /** 外觀的一格現在用不到（例：沒有獸化時的「派別」）：灰掉、不能選（UI.md 1.1 節）。 */
@@ -72,7 +71,7 @@ const originId = ref('hive')
 const origin = computed(() => ORIGINS.find(o => o.id === originId.value)!)
 const corp = ref<string>('緋櫻')
 const favor = ref<string>('孤星連')
-function pickOrigin(id: string) { originId.value = id; favor.value = ORIGINS.find(o => o.id === id)!.favor[0]; picks.cyber = picks.cyber.filter(c => !c.corpOnly); basic.style = ORIGIN_STYLE[id] ?? basic.style }
+function pickOrigin(id: string) { originId.value = id; favor.value = ORIGINS.find(o => o.id === id)!.favor[0]; picks.cyber = picks.cyber.filter(c => !c.corpOnly) }
 
 // ---- 3 屬性 ----
 const attrs = reactive<AttrPick>({ 體格: 12, 反應: 15, 技術: 8, 智識: 13, 意志: 10, 魅力: 14 })
@@ -173,6 +172,12 @@ function addGear(d: ItemDef) {
 function removeGear(i: number) { picks.gear = picks.gear.filter((_, k) => k !== i) }
 function suggest() { picks.gear = fitKit(SUGGESTED_KITS[originId.value].map(id => ITEMS[id])) }
 const money = computed(() => START_MONEY + origin.value.money + cy.value.money + gr.value.money)
+
+// ---- 外觀裡推出來的三樣（第四版）：外露的義體看第 6 步、獸化看第 6 步的耳與尾、風格看第 9 步的穿著 ----
+const beastLine = ref('貓')
+const hasBeast = computed(() => picks.cyber.some(c => c.beast))
+const derived = computed(() => derivedLooks({ cyber: picks.cyber, gear: picks.gear, pronoun: basic.pronoun, baseStyle: ORIGIN_STYLE[originId.value] ?? '工裝', line: beastLine.value }))
+const stepOf = (n: number) => STEPS.findIndex(x => x.id === n)
 
 // ---- 每一步擋住「下一步」的原因 ----
 const block = computed<string | null>(() => {
@@ -293,6 +298,16 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${fmtM
                 <label v-if="grp.id === 'detail' && st.s.filterIntimateBody" class="fld wide"><span>私處的補充（選用・成人）<Hint>用自己的話寫，例：左邊大腿內側有一顆痣。所有角色都是成年人。</Hint></span><input v-model="basic.privatesNote" class="inp" placeholder="例：剃得很乾淨，左邊大腿內側有一顆小痣" data-privates-note></label>
               </div>
             </section>
+            <section class="lgrp cut-sm derived" data-derived>
+              <h4>改造與風格<Hint>這三樣不在這裡選，由你身上真的有的東西推出來（NPC_SYSTEM 13.11 節的模板）：外露的義體看第 6 步裝的義體與牌子，獸化看第 6 步裝的獸耳與尾巴（系也在那裡選），風格看第 9 步的穿著（加上出身白給的那一套日常服裝）。要改，回那兩步改。</Hint></h4>
+              <div class="dl"><span class="k">外露的義體</span>
+                <p v-for="(t, i) in derived.cyber" :key="i">{{ t }}</p><p v-if="!derived.cyber.length" class="empty-note">看不出來：沒有裝看得見的義體。</p></div>
+              <div class="dl"><span class="k">獸化</span>
+                <p v-for="(t, i) in derived.beast" :key="i">{{ t }}</p><p v-if="!derived.beast.length" class="empty-note">沒有：沒有裝獸耳或尾巴。</p></div>
+              <div class="dl"><span class="k">風格</span>
+                <p><span v-for="[t, n] in derived.style.tags" :key="t" class="tag" :class="{ hot: t === derived.style.main }">{{ t }} {{ n }}</span></p><p>{{ derived.style.line }}</p></div>
+              <div class="go left"><button type="button" class="btn sm" @click="go(stepOf(6))">改義體與獸化（第 6 步）</button><button type="button" class="btn sm" @click="go(stepOf(9))">改穿著（第 9 步）</button></div>
+            </section>
           </div>
           <div class="go left"><button type="button" class="btn sm" @click="randomLooks">外觀全部隨機</button></div>
           <div class="form mt">
@@ -390,6 +405,7 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${fmtM
             <Hint :text="o.note" /><b class="pt mono">{{ o.points }}</b>
           </button>
           </div>
+          <label v-if="hasBeast" class="fld beastline"><span>獸化的系<Hint>機械派的系看外形與韌體，生體派的系看基因譜（CULTURE 第 2 節）。寫進外觀，也決定耳朵在什麼情緒下怎麼動。</Hint></span><select v-model="beastLine" class="inp"><option v-for="(_, k) in BEAST_LINES" :key="k" :value="k">{{ k }}</option></select></label>
           <div class="kv"><span>沒花完的點數換錢<Hint>每點 {{ CYBER_POINT_MONEY }}。</Hint></span><b>+{{ cy.money }}</b></div>
           <div v-if="block" class="blocking">{{ block }}</div>
         </template>
@@ -542,6 +558,10 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${fmtM
 .pick { margin-bottom: 4px; }
 .pick .why { color: var(--warn); }
 .looks { --col-min: 360px; }
+.derived .dl { display: grid; gap: var(--space-2); }
+.derived .dl p { margin: 0; line-height: 1.6; }
+.derived .tag { margin-right: 4px; }
+.beastline { max-width: 320px; margin: var(--space-4) 0; }
 .lgrp { background: var(--bg-2); padding: var(--space-4) var(--space-5) var(--space-5); display: grid; gap: var(--space-4); align-content: start; }
 .lgrp h4 { margin: 0; display: flex; gap: var(--space-2); align-items: center; }
 .lgrp .form { grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: var(--space-4); }

@@ -29,7 +29,7 @@ describe('存檔的打包與讀回', () => {
     const r = unpackSave(v1)
     expect(r.ok).toBe(true)
     // 讀進來時照 migrateSave 升到現在的版本：家園與子網補成 null（不動現在的）
-    if (r.ok) { expect(r.file.version).toBe(3); expect((r.file.state as Record<string, unknown>).home).toBeNull() }
+    if (r.ok) { expect(r.file.version).toBe(4); expect((r.file.state as Record<string, unknown>).home).toBeNull() }
   })
   it('有低於 18 的年齡，整筆拒絕', () => {
     const bad = packSave({ npcs: { a: { age: 30 }, b: { age: 17 } } }, { label: '', day: 1, time: '', place: '', savedAt: '' })
@@ -81,11 +81,11 @@ describe('回退（SERIES 第 6 節）', () => {
 
 describe('第 3 版：家園與子網跟著存檔與快照走', () => {
   beforeEach(() => setActivePinia(createPinia()))
-  it('v2 的存檔升到 v3：補上 home 與 subnet', () => {
+  it('v2 的存檔升到現在（v4）：補上 home、subnet 與空的染色表', () => {
     const f = migrateSave({ format: 'cyberpunkpink-save', version: 2, meta: { label: '', day: 1, time: '', place: '', savedAt: '' }, state: { day: 3 } as Record<string, unknown> })
-    expect(SAVE_VERSION).toBe(3)
-    expect(f.version).toBe(3)
-    expect(f.state).toMatchObject({ day: 3, home: null, subnet: null })
+    expect(SAVE_VERSION).toBe(4)
+    expect(f.version).toBe(4)
+    expect(f.state).toMatchObject({ day: 3, home: null, subnet: null, dyes: {} })
   })
   it('家園的等級、家具與子網的追蹤度存了再讀回來', () => {
     const g = useGame(), h = useHome(), s = useSubnet()

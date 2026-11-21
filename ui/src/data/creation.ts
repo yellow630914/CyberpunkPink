@@ -64,24 +64,33 @@ export const ORIGINS: Origin[] = [
 export const START_MONEY = 1500
 
 /** 起始的橋與義體（CHARACTER 2.1 節、CYBERWARE 7.1 節）。cap 是四類容量：現實／內海／社交／媒體。 */
-export interface CyberOption { id: string; name: string; brand: string; grade: number; points: number; kind: 'bridge' | 'light' | 'invasive'; part: string; sink: number; cap?: [number, number, number, number]; note: string; corpOnly?: string }
+export interface CyberOption {
+  id: string; name: string; brand: string; grade: number; points: number; kind: 'bridge' | 'light' | 'invasive'; part: string; sink: number; cap?: [number, number, number, number]; note: string; corpOnly?: string
+  /** 看得見的義體：寫進外觀的部位（NPC_SYSTEM 13.11 節的模板）；line 換掉牌子的外觀那一句 */
+  visible?: { at: string; line?: string }
+  /** 獸化零件（CULTURE 第 2 節、ITEMS 的耳與尾）：機械派或生體派、耳或尾 */
+  beast?: { school: 'mech' | 'bio'; part: 'ears' | 'tail' }
+}
 export const CYBER_OPTIONS: CyberOption[] = [
-  { id: 'br_hive', name: '蜂巢通用型', brand: '織女（二手）', grade: 1, points: 2, kind: 'bridge', part: '橋', sink: 5, cap: [10, 10, 10, 10], note: '便宜、到處能修。' },
-  { id: 'br_junk', name: '拼裝橋', brand: '同人／黑市', grade: 1, points: 3, kind: 'bridge', part: '橋', sink: 6, cap: [12, 9, 13, 10], note: '一個隨機的怪癖；可能有後門，不在任何登記上。' },
-  { id: 'br_std', name: '織女 標準', brand: '織女', grade: 2, points: 5, kind: 'bridge', part: '橋', sink: 6, cap: [13, 13, 13, 13], note: '換配置只要半小時。' },
-  { id: 'br_field', name: '星旗 野戰', brand: '星旗', grade: 2, points: 5, kind: 'bridge', part: '橋', sink: 6, cap: [24, 8, 8, 8], note: '耐受 +15；敏感度 −15，開不了深同步。', corpOnly: '星旗' },
-  { id: 'br_deep', name: '夜鶯 深水', brand: '夜鶯', grade: 2, points: 6, kind: 'bridge', part: '橋', sink: 6, cap: [9, 24, 11, 10], note: 'RAM +2；回報後門。', corpOnly: '夜鶯' },
-  { id: 'br_hizakura', name: '緋櫻 奉公', brand: '緋櫻', grade: 2, points: 6, kind: 'bridge', part: '橋', sink: 7, cap: [20, 15, 10, 10], note: '授權鎖；出廠帶「忠犬」調校槽。', corpOnly: '緋櫻' },
-  { id: 'br_rei', name: '伊甸園 伶', brand: '伊甸園', grade: 2, points: 6, kind: 'bridge', part: '橋', sink: 6, cap: [9, 13, 22, 11], note: '人格面具切換不花行動；多半綁契約條款。', corpOnly: '伊甸園' },
-  { id: 'br_spot', name: '萬華鏡 聚光', brand: '萬華鏡', grade: 2, points: 6, kind: 'bridge', part: '橋', sink: 6, cap: [8, 12, 12, 22], note: '編輯點 +1；內建錄影。', corpOnly: '萬華鏡' },
-  { id: 'cw_eye', name: '標準義眼-100', brand: '織女', grade: 1, points: 2, kind: 'light', part: '眼', sink: 3, note: '視野裡顯示距離與對方的護甲類別。' },
-  { id: 'cw_voice', name: '囀・微糖', brand: '伊甸園', grade: 1, points: 1, kind: 'light', part: '喉', sink: 3, note: '聲帶：體格類加值改加在表演與誘惑。' },
-  { id: 'cw_ears', name: '同人通用獸耳', brand: '同人', grade: 1, points: 1, kind: 'light', part: '耳', sink: 2, note: '可以選系，高頻聽得比較清楚。' },
+  { id: 'br_hive', name: '蜂巢通用型', brand: '織女（二手）', grade: 1, points: 2, kind: 'bridge', part: '橋', sink: 5, cap: [10, 10, 10, 10], note: '便宜、到處能修。', visible: { at: '後頸' } },
+  { id: 'br_junk', name: '拼裝橋', brand: '同人／黑市', grade: 1, points: 3, kind: 'bridge', part: '橋', sink: 6, cap: [12, 9, 13, 10], note: '一個隨機的怪癖；可能有後門，不在任何登記上。' , visible: { at: '後頸' } },
+  { id: 'br_std', name: '織女 標準', brand: '織女', grade: 2, points: 5, kind: 'bridge', part: '橋', sink: 6, cap: [13, 13, 13, 13], note: '換配置只要半小時。' , visible: { at: '後頸' } },
+  { id: 'br_field', name: '星旗 野戰', brand: '星旗', grade: 2, points: 5, kind: 'bridge', part: '橋', sink: 6, cap: [24, 8, 8, 8], note: '耐受 +15；敏感度 −15，開不了深同步。', corpOnly: '星旗' , visible: { at: '後頸' } },
+  { id: 'br_deep', name: '夜鶯 深水', brand: '夜鶯', grade: 2, points: 6, kind: 'bridge', part: '橋', sink: 6, cap: [9, 24, 11, 10], note: 'RAM +2；回報後門。', corpOnly: '夜鶯' , visible: { at: '後頸' } },
+  { id: 'br_hizakura', name: '緋櫻 奉公', brand: '緋櫻', grade: 2, points: 6, kind: 'bridge', part: '橋', sink: 7, cap: [20, 15, 10, 10], note: '授權鎖；出廠帶「忠犬」調校槽。', corpOnly: '緋櫻' , visible: { at: '後頸' } },
+  { id: 'br_rei', name: '伊甸園 伶', brand: '伊甸園', grade: 2, points: 6, kind: 'bridge', part: '橋', sink: 6, cap: [9, 13, 22, 11], note: '人格面具切換不花行動；多半綁契約條款。', corpOnly: '伊甸園' , visible: { at: '後頸' } },
+  { id: 'br_spot', name: '萬華鏡 聚光', brand: '萬華鏡', grade: 2, points: 6, kind: 'bridge', part: '橋', sink: 6, cap: [8, 12, 12, 22], note: '編輯點 +1；內建錄影。', corpOnly: '萬華鏡' , visible: { at: '後頸' } },
+  { id: 'cw_eye', name: '標準義眼-100', brand: '織女', grade: 1, points: 2, kind: 'light', part: '眼', sink: 3, note: '視野裡顯示距離與對方的護甲類別。' , visible: { at: '左眼' } },
+  { id: 'cw_voice', name: '囀・微糖', brand: '伊甸園', grade: 1, points: 1, kind: 'light', part: '喉', sink: 3, note: '聲帶：體格類加值改加在表演與誘惑。' , visible: { at: '喉嚨', line: '喉結底下有一圈細細的接縫，說話時會微微發亮' } },
+  { id: 'cw_ears', name: '同人通用獸耳', brand: '同人', grade: 1, points: 1, kind: 'light', part: '耳', sink: 2, note: '可以選系，高頻聽得比較清楚。' , beast: { school: 'mech', part: 'ears' } },
+  { id: 'cw_ears_bio', name: '生體獸耳・芽', brand: '蜜腺', grade: 2, points: 7, kind: 'light', part: '耳', sink: 0, note: '真的軟骨與毛；情緒外洩鎖不住；掃描器不當它是義體；每週營養劑 40。', beast: { school: 'bio', part: 'ears' } },
+  { id: 'cw_tail', name: '通用尾 初版', brand: '同人', grade: 1, points: 1, kind: 'light', part: '尾', sink: 2, note: '平衡：落地與平衡的運動檢定 +1；情緒外洩。成人場景多一個「尾」部位。', beast: { school: 'mech', part: 'tail' } },
+  { id: 'cw_tail_bio', name: '生體尾・芽', brand: '蜜腺', grade: 2, points: 7, kind: 'light', part: '尾', sink: 0, note: '同通用尾，情緒外洩鎖不住；每週營養劑 40。', beast: { school: 'bio', part: 'tail' } },
   { id: 'cw_pump', name: '藥泵-100', brand: '織女', grade: 1, points: 1, kind: 'light', part: '軀幹', sink: 3, note: '每場一次從藥泵用藥不花行動點。' },
   { id: 'cw_deck', name: '入門甲板-100', brand: '織女', grade: 1, points: 2, kind: 'light', part: '腦', sink: 5, note: '構裝槽 3；防火牆 10。' },
-  { id: 'cw_arm', name: 'M1 義臂', brand: '星旗', grade: 1, points: 3, kind: 'invasive', part: '臂', sink: 7, note: '義臂；內藏槽 1。' },
-  { id: 'cw_leg', name: '花道・一分咲', brand: '緋櫻', grade: 1, points: 3, kind: 'invasive', part: '腿', sink: 6, note: '義腿：移動 +1。' },
-  { id: 'cw_armor', name: '皮下裝甲-100', brand: '織女', grade: 1, points: 4, kind: 'invasive', part: '軀幹', sink: 6, note: '生命值上限 +5；護甲 +1。' },
+  { id: 'cw_arm', name: 'M1 義臂', brand: '星旗', grade: 1, points: 3, kind: 'invasive', part: '臂', sink: 7, note: '義臂；內藏槽 1。' , visible: { at: '左臂' } },
+  { id: 'cw_leg', name: '花道・一分咲', brand: '緋櫻', grade: 1, points: 3, kind: 'invasive', part: '腿', sink: 6, note: '義腿：移動 +1。' , visible: { at: '左腿' } },
+  { id: 'cw_armor', name: '皮下裝甲-100', brand: '織女', grade: 1, points: 4, kind: 'invasive', part: '軀幹', sink: 6, note: '生命值上限 +5；護甲 +1。' , visible: { at: '腰側', line: '皮膚底下摸得到一片一片的硬板，彎腰時看得到接縫' } },
 ]
 export const CYBER_POINTS = 10
 export const CYBER_POINT_MONEY = 500
@@ -196,7 +205,8 @@ export const SUGGESTED_KITS: Record<string, string[]> = {
 
 /**
  * 外觀（CHARACTER 1.1 節、NPC_SYSTEM 4.3 節與 13.9～13.11 節的詞條）。和 NPC 用同一套部位：
- * 身形（身高、體型、身材帶、體態、膚色）、臉與眼、髮、身體的細節（胸、腰、臀、腿、手），再加外露的義體、獸化、風格。
+ * 身形（身高、體型、身材帶、體態、膚色）、臉與眼、髮、身體的細節（胸、腰、臀、腿、手）。
+ * 外露的義體、獸化、風格不在這裡選：由裝的義體與穿的衣服推出來（第四版）。
  * 每一格都是下拉；選項照 13.10 節的句子濃縮成詞條，程式組字時照身材帶抽那一格的句子。詞庫不收任何幼態的描述。
  */
 export interface LookField { k: string; name: string; opts: string[]; hint?: string; /** 成人內容：內容篩選關掉「身體的私密描寫」時不顯示 */ adult?: boolean; /** 這一格只有在另一格不是「沒有」時才有意義 */ needs?: { k: string; not: string } }
@@ -233,16 +243,26 @@ export const LOOK_GROUPS: LookGroup[] = [
     { k: 'hands', name: '手', opts: ['指節分明、手指細長', '厚實、指腹有繭', '柔軟、手背有小窩', '指甲修長塗色', '手背有舊疤'] },
     { k: 'privates', name: '私處', adult: true, hint: '成人內容。場景的部位照 LEWD_SYSTEM 的 front（DATA 3.4 節的 scene_parts）；性別照第一格，扶他與做過的兩邊都可以選。', opts: ['（不寫）', '陰唇小而緊，顏色淺', '陰唇飽滿，顏色深', '陰蒂敏感、微微突起', '陰莖不大、包皮蓋著龜頭', '陰莖粗長，龜頭露在外面', '陰莖細長、微微上翹', '扶他：陰莖之下還有一道縫', '做過的（換了的）', '剃得乾乾淨淨', '修成一小撮', '自然、毛很多', '雷射除過毛、光滑', '私處有光紋刺青', '私密義體（感官強化）'] },
   ] },
-  { id: 'mod', name: '改造與風格', hint: '外露的義體、獸化與風格照 NPC_SYSTEM 13.11 節的模板寫進外觀。義體與獸化的實際部件在第 6 步「橋與義體」選；這裡只寫看起來的樣子。', fields: [
-    { k: 'cyber', name: '外露的義體', opts: ['看不出來', '義眼', '一隻義臂', '兩隻都是義臂', '義腿', '皮下裝甲的接縫', '後頸的橋露在外面', '臉上的光紋', '喉嚨的聲帶接縫'] },
-    { k: 'cyberLook', name: '義體的樣子', needs: { k: 'cyber', not: '看不出來' }, opts: ['織女的白色樹脂', '緋櫻的櫻粉烤漆', '星旗的橄欖綠外殼', '蜜腺的仿生皮膚', '伊甸園的蕾絲蝕刻', '鉻娘子改的裸露液壓管', '同人的貼紙拼裝', '二手、上一任刻的字還在'] },
-    { k: 'beast', name: '獸化', opts: ['沒有', '貓', '狐', '兔', '犬'], hint: '在櫻町，看到獸耳的人會多看一眼；各區對獸化的態度不同（DISTRICTS 第 2 節）。' },
-    { k: 'beastPart', name: '獸化的部位', needs: { k: 'beast', not: '沒有' }, opts: ['只有耳朵', '耳朵與尾巴'] },
-    { k: 'beastKind', name: '派別', needs: { k: 'beast', not: '沒有' }, opts: ['機械派（外殼與接縫）', '生體派（真的毛）'] },
-    { k: 'style', name: '穿著風格', opts: ['工裝', '櫻町系', '畫報系', '霓虹龐克', '歡場', '高訂', '企業', '特攻', '哥德', '荒地'], hint: 'LIFE 5.4 節的十種風格；在主場風格的區穿對了有加成、穿錯了被盯上。' },
-  ] },
 ]
-/** 每個出身預設的穿著風格（換出身時跟著換，還可以改） */
+/**
+ * 外露的義體的外觀，照牌子抽一句（NPC_SYSTEM 13.11 節）。建角的「改造與風格」不再自己選，
+ * 由第 6 步裝的義體與獸化零件、第 9 步的穿著推出來（lib/creation.ts 的 derivedLooks）。
+ */
+export const BRAND_LOOK: Record<string, string> = {
+  織女: '白色的樹脂外殼，接縫裡透著一條細細的藍光',
+  緋櫻: '櫻粉色的烤漆，關節旁邊印著一朵小小的櫻紋，表面亮得照得出人影',
+  星旗: '橄欖綠的外殼，序號與財產編號都打在看得見的地方，漆掉了一半',
+  蜜腺: '看起來是皮膚，摸起來比別處的皮膚涼一點，接縫是一圈淡粉色的疤',
+  伊甸園: '仿真的皮膚做得比原生的還細，關節的地方蝕刻著一圈蕾絲的花紋',
+  鉻娘子改: '鉻與液壓管全露在外面，焊痕沒有磨平，散熱孔一直在吐熱氣',
+  同人: '外殼貼滿了貼紙，螺絲有三種顏色，看得出是好幾台東西拼起來的',
+  二手: '上一任主人刻的字還在，有一塊外殼的顏色和其他地方不一樣',
+}
+/** 獸化的系（CULTURE 第 2 節）：機械派看外形與韌體、生體派看基因譜；在第 6 步跟著零件選。情緒與動作照系抽（NPC_SYSTEM 13.11 節）。 */
+export const BEAST_LINES: Record<string, { mood: string; move: string }> = {
+  貓: { mood: '不高興', move: '往後貼平' }, 狐: { mood: '在想事情', move: '慢慢轉向一邊' }, 兔: { mood: '緊張', move: '豎得筆直' }, 犬: { mood: '高興', move: '往兩邊垮下來' },
+}
+/** 每個出身白給的那一套日常服裝的風格（CHARACTER 5.4 節：一套出身那一區的日常服裝，風格對） */
 export const ORIGIN_STYLE: Record<string, string> = { hive: '工裝', corp: '企業', nomad: '荒地', pleasure: '歡場', oldport: '特攻', sakura: '櫻町系', under: '工裝' }
 
 /**

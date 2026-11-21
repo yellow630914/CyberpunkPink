@@ -14,7 +14,7 @@ import ReasonButton from '../components/ReasonButton.vue'
 import { useHome } from '../stores/home'
 import { useGame } from '../stores/game'
 import { useUi } from '../stores/ui'
-import { FURNITURE, FURNITURE_ITEM, HOME_TIER_SIZE, RESIDENCES, SHOP_KINDS, type ShopKind } from '../data/home'
+import { FURNITURE, FURNITURE_ITEM, HOME_TIER_SIZE, RESIDENCES, SHOP_KINDS, MOVE_PER_ITEM, type ShopKind } from '../data/home'
 import { ITEMS } from '../data/items'
 import { ROOM_USES, COMFORT_TIERS, footprint, shopWeek, type Rotation } from '../lib/home'
 import { findPath } from '../lib/grid'
@@ -33,10 +33,10 @@ const router = useRouter()
 const mode = ref<'walk' | 'build'>('walk')
 const selected = ref<string | null>(null)
 /** 正在擺的東西：新的（來自背包的一疊）或搬動中的那一件 */
-const placing = ref<{ kind: 'new'; uid: string; def: string; rot: Rotation } | { kind: 'move'; furn: string; def: string; rot: Rotation } | null>(null)
+const placing = ref<{ kind: 'new'; uid: string; def: string; rot: Rotation } | { kind: 'move'; furn: string; def: string; rot: Rotation } | { kind: 'boxed'; i: number; def: string; rot: Rotation } | null>(null)
 const hover = ref<Point | null>(null)
 const lastReason = ref<string | null>(null)
-const ROOM_COLORS: Record<string, string> = { M: '#8E7CC3', B: '#45D6C5', C: '#F2C14E', D: '#F06AA0', F: '#F06AA0', K: '#F2C14E' }
+const ROOM_COLORS: Record<string, string> = { M: '#8E7CC3', B: '#45D6C5', C: '#F2C14E', D: '#F06AA0', F: '#F06AA0', K: '#F2C14E', G: '#5FB8E8' }
 const useName = (id: string | null) => ROOM_USES.find(u => u.id === id)?.name ?? null
 
 // ---- 走路 ----
@@ -139,7 +139,7 @@ function onCell(p: Point) {
   }
   if (placing.value) {
     const pl = placing.value
-    const r = pl.kind === 'new' ? h.place(pl.def, p.x, p.y, pl.rot) : h.move(pl.furn, p.x, p.y, pl.rot)
+    const r = pl.kind === 'new' ? h.place(pl.def, p.x, p.y, pl.rot) : pl.kind === 'boxed' ? h.placeBoxed(pl.i, p.x, p.y, pl.rot) : h.move(pl.furn, p.x, p.y, pl.rot)
     if (!r.ok) { lastReason.value = r.reason; ui.toast(r.reason, 'warn'); return }
     if (pl.kind === 'new') g.removeItem(pl.uid, 1)
     ui.toast(`${FURNITURE[pl.def].name}擺好了（${h.map.layout.rooms[r.room].name}）。`)
@@ -169,6 +169,8 @@ const ROOM_ACTS: Record<string, { name: string; run: () => void }> = {
   bedroom: { name: '睡一覺', run: () => { g.advance(480); g.character.load[0] = 0; g.addLog({ prose: ['你在自己的床上睡了一覺，感載退光了。'], changes: [{ text: '感載歸零', kind: 'plus' }] }); ui.toast('睡了八小時。') } },
   guest: { name: '在客房坐一會', run: () => { g.advance(30); ui.toast('你在客房和住戶聊了半小時。') } },
   workshop: { name: '組裝', run: () => ui.openRoot('craft') },
+  // 工作間也是自己染色的地方（EQUIPMENT 第 9 節）：選單裡的第二個選項，見 hereOpts
+
   netroom: { name: '從家裡潛入', run: () => router.push('/subnet') },
   studio: { name: '開直播', run: () => ui.openRoot('live') },
   clinic: { name: '診療', run: () => ui.openRoot('clinic') },
@@ -185,7 +187,9 @@ const hereOpts = computed<HereOption[]>(() => {
   const rid = h.map.roomAt(p.x, p.y)
   const room = rid ? h.rooms.find(r => r.id === rid) : null
   const act = room?.use ? ROOM_ACTS[room.use] : null
-  return act ? [{ id: `use-${room!.use}`, name: act.name, run: act.run }] : []
+  const out: HereOption[] = act ? [{ id: `use-${room!.use}`, name: act.name, run: act.run }] : []
+  if (room?.use === 'workshop') out.push({ id: 'dye', name: '自己染色', sub: '每個顏色一份染料', run: () => ui.openRoot('dye', { where: 'home', place: '家・工作間' }) })
+  return out
 })
 function onObject(id: string) {
   if (mode.value === 'walk') { const f = h.placed.find(p => p.uid === id); if (f) ui.toast(`${FURNITURE[f.def].name}：切到「擺設」才能動它。`); return }
@@ -239,16 +243,20 @@ function openShop() {
 function moveReason(id: string) {
   const r = RESIDENCES.find(x => x.id === id)!
   if (id === h.residence) return '你住在這裡。'
-  if (!r.layout) return '這一版只有四號塔的單位與高樓層的打通戶畫了地圖；其他住處可以租成安全屋。'
+  if (!r.layout) return '這一處還沒有畫地圖。'
   if (g.money.acc < r.rent * 2) return '押金（兩週房租）不夠。'
   return null
 }
-function moveHome(id: string) {
+/** 請人搬（DOWNTIME 7.2 節）：每件家具 50，半天；自己搬 8 小時不要錢 */
+const furnCount = computed(() => h.floors.up.filter(f => !FURNITURE[f.def].fixed).length + h.boxed.length)
+const hireCost = computed(() => MOVE_PER_ITEM * furnCount.value)
+function moveHome(id: string, hire = false) {
   const r = RESIDENCES.find(x => x.id === id)!
-  g.money.acc -= r.rent * 2
-  h.moveTo(id)
-  g.advance(8 * 60)
-  g.addLog({ prose: [`你搬到${r.name}。自己搬花了 8 小時，箱子裡的東西都跟著走。`], changes: [{ text: `押金 −${(r.rent * 2).toLocaleString('en-US')}`, kind: 'minus' }] })
+  if (hire && g.money.acc < r.rent * 2 + hireCost.value) { ui.toast(`帳戶不夠：押金加搬家要 ${(r.rent * 2 + hireCost.value).toLocaleString('en-US')}。`, 'warn'); return }
+  g.money.acc -= r.rent * 2 + (hire ? hireCost.value : 0)
+  const boxed = h.moveTo(id)
+  g.advance(hire ? 4 * 60 : 8 * 60)
+  g.addLog({ prose: [`你搬到${r.name}。${hire ? `請了人搬，${furnCount.value} 件家具花了半天` : '自己搬花了 8 小時'}，箱子裡的東西都跟著走。${boxed.length ? `新家原位擺不下的 ${boxed.length} 件先打包，在「家具」分頁擺出來。` : ''}`], changes: [{ text: `押金 −${(r.rent * 2).toLocaleString('en-US')}`, kind: 'minus' }, ...(hire ? [{ text: `搬家 −${hireCost.value.toLocaleString('en-US')}`, kind: 'minus' as const }] : [])] })
   ui.toast(`搬到${r.name}了（${h.tier} 級，上限 ${r.tiers[1]}）。`)
 }
 function safeReason(id: string) {
@@ -369,7 +377,8 @@ const sideTab = ref('rooms')
               <div class="rh"><b>{{ r.name }}</b><span class="k">{{ r.district }}・{{ r.tiers[0] }}→{{ r.tiers[1] }} 級・隱蔽 {{ r.hide }}</span></div>
               <small class="t-fine">週租 {{ r.rent }}（{{ r.cash }}）{{ r.buy ? `・買斷 ${r.buy.toLocaleString('en-US')}` : '' }}・{{ r.note }}</small>
               <div class="go left">
-                <ReasonButton sm :reason="moveReason(r.id)" :data-move="r.id" @go="moveHome(r.id)">{{ r.id === h.residence ? '你的家' : '搬過去' }}</ReasonButton>
+                <ReasonButton sm :reason="moveReason(r.id)" :data-move="r.id" @go="moveHome(r.id)">{{ r.id === h.residence ? '你的家' : '自己搬（8 小時）' }}</ReasonButton>
+                <ReasonButton v-if="r.id !== h.residence" sm :reason="moveReason(r.id)" :data-move-hire="r.id" @go="moveHome(r.id, true)">請人搬 {{ hireCost.toLocaleString('en-US') }}（半天）</ReasonButton>
                 <ReasonButton sm :reason="safeReason(r.id)" :data-safe="r.id" @go="toggleSafe(r.id)">{{ h.safehouses.includes(r.id) ? '退租安全屋' : '租成安全屋' }}</ReasonButton>
               </div>
             </div>
@@ -398,7 +407,12 @@ const sideTab = ref('rooms')
             </template>
           </div>
           <div v-else-if="sideTab === 'bag'" class="fbag">
-            <div v-if="!furnitureInBag.length" class="empty-note">背包裡沒有家具。</div>
+            <div v-if="!furnitureInBag.length && !h.boxed.length" class="empty-note">背包裡沒有家具。</div>
+            <div v-for="(d, i) in h.boxed" :key="'bx' + i" class="fb" data-boxed>
+              <span class="bxi" aria-hidden="true">箱</span>
+              <div><b>{{ FURNITURE[d].name }}</b><small>搬家時打包的・{{ FURNITURE[d].w }} × {{ FURNITURE[d].h }}</small></div>
+              <button type="button" class="btn sm" @click="mode = 'build'; selected = null; placing = { kind: 'boxed', i, def: d, rot: 0 }">擺放</button>
+            </div>
             <div v-for="st in furnitureInBag" :key="st.uid" class="fb">
               <ItemSlot :item="ITEMS[st.def]" :qty="st.qty" size="sm" @select="startNew(st.uid)" />
               <div><b>{{ ITEMS[st.def].name }}</b><small>{{ FURNITURE[FURNITURE_ITEM[st.def]].w }} × {{ FURNITURE[FURNITURE_ITEM[st.def]].h }}・舒適 {{ FURNITURE[FURNITURE_ITEM[st.def]].comfort }}</small></div>
@@ -451,4 +465,5 @@ h2 { margin: 2px 0 8px; font-size: var(--fs-section); }
 .dot.me { background: var(--a); } .dot.ally { background: var(--ram); } .dot.visitor { background: var(--ap); }
 @media (max-width: 1100px) { .home { grid-template-columns: 1fr; } }
 @media (max-width: 720px) { .home { padding: 8px; } .stats { grid-template-columns: 1fr 1fr 1fr; } }
+.bxi { width: 44px; height: 44px; display: grid; place-items: center; background: var(--bg-term); box-shadow: inset 0 0 0 2px var(--line-2); font-weight: 900; color: var(--ink-3); }
 </style>

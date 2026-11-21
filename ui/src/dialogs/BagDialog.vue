@@ -3,6 +3,7 @@
 import { computed, ref } from 'vue'
 import Dialog from '../components/Dialog.vue'
 import ItemSlot from '../components/ItemSlot.vue'
+import { dyeable } from '../lib/dye'
 import GradeBadge from '../components/GradeBadge.vue'
 import Hint from '../components/Hint.vue'
 import MoneyTag from '../components/MoneyTag.vue'
@@ -40,6 +41,9 @@ const list = computed(() => g.inventory.filter(st => {
   if (props.targetSlot) return fitsSlot(d, props.targetSlot)
   return filter.value === 'all' || KIND_FILTER[d.kind] === filter.value
 }))
+/** 染色（EQUIPMENT 第 9 節）：要在槍店、修車廠（代染）或家裡的工作間（自己染）；假資料裡從背包直接開，照在家的價錢算 */
+const dyeWhere = 'home' as const
+const dyeReason = null
 const sel = computed<ItemStack | null>(() => g.inventory.find(s => s.uid === selUid.value) ?? list.value[0] ?? null)
 const def = computed(() => (sel.value ? ITEMS[sel.value.def] : null))
 const slotName = (s: EquipSlotId) => EQUIP_SLOTS.find(x => x.id === s)!.name
@@ -85,7 +89,7 @@ const reasonEquip = computed(() => (def.value?.kind === 'cyberware' ? '義體要
         </div>
         <div v-if="!list.length" class="empty-note">沒有可以放進這一格的東西。</div>
         <div class="items">
-          <ItemSlot v-for="st in list" :key="st.uid" :item="ITEMS[st.def]" :qty="st.qty" :unknown="st.unknown" show-name size="lg" :selected="sel?.uid === st.uid" @select="selUid = st.uid" />
+          <ItemSlot v-for="st in list" :key="st.uid" :item="ITEMS[st.def]" :qty="st.qty" :unknown="st.unknown" :dye="g.dyes[`uid:${st.uid}`] ?? null" show-name size="lg" :selected="sel?.uid === st.uid" @select="selUid = st.uid" />
         </div>
         <div class="legendg">
           <span v-for="n in [1, 2, 3, 4, 5] as const" :key="n"><i :style="{ borderColor: `var(--g${n})` }" />{{ GRADE_LABEL[n] }}</span>
@@ -111,7 +115,7 @@ const reasonEquip = computed(() => (def.value?.kind === 'cyberware' ? '義體要
         </template>
         <template v-else>
           <div class="head">
-            <ItemSlot :item="def" size="lg" />
+            <ItemSlot :item="def" size="lg" :dye="g.dyes[`uid:${sel.uid}`] ?? null" />
             <div>
               <div class="k">{{ def.type }}・{{ def.brand }}</div>
               <h3>{{ def.name }}</h3>
@@ -137,6 +141,7 @@ const reasonEquip = computed(() => (def.value?.kind === 'cyberware' ? '義體要
             <ReasonButton v-else-if="equipTarget" sm pri :reason="reasonEquip" @go="doEquip">裝到{{ slotName(equipTarget) }}</ReasonButton>
             <ReasonButton v-if="['drug', 'consumable'].includes(def.kind)" sm pri @go="useIt">用掉</ReasonButton>
             <ReasonButton v-if="def.kind === 'part' || def.kind === 'weapon'" sm reason="拆解要有工作台：在家的工作間，或組裝店。">拆解</ReasonButton>
+            <ReasonButton v-if="dyeable(def)" sm :reason="dyeReason" data-open-dye @go="ui.open('dye', { dyeKey: `uid:${sel.uid}`, where: dyeWhere })">染色</ReasonButton>
             <ReasonButton sm @go="drop">丟掉</ReasonButton>
           </div>
         </template>

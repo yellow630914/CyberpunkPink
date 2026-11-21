@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, triggerRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, triggerRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
 import Hint from '../components/Hint.vue'
 import ReasonButton from '../components/ReasonButton.vue'
-import { OpinionWar, CELLS, ROWS, TIME_SLOTS, CARDS, CARD_KIND, TOPICS, OPPONENTS } from '../lib/combat/opinion'
+import { OpinionWar, CELLS, ROWS, TIME_SLOTS, CARD_KIND, TOPICS, OPPONENTS, editPoints, type ClipInput } from '../lib/combat/opinion'
 import { mathRng, seeded } from '../lib/combat/rng'
 import { combatKey, isTyping } from '../lib/keys'
 import { useGame } from '../stores/game'
@@ -31,18 +31,27 @@ const seed = Number(route.query.seed) || 0
 const hint = ref('')
 const busy = ref(false)
 const focus = ref(0)
-const make = () => reactive(new OpinionWar({ topic: topic.value, foe: foe.value, pr: tableFor(st.s.difficulty, st.s.customDiff).pr }, seed ? seeded(seed) : mathRng)) as OpinionWar
+/** 剪好的片進牌庫（OPINION 4.3a 節）：片的勢力與人、類型取自它用到的素材 */
+const clips = computed<ClipInput[]>(() => g.media.cuts.map(c => {
+  const parts = g.media.footage.filter(f => c.parts.includes(f.id))
+  return { id: c.id, name: c.name, angle: c.angle, looks: c.looks, cred: c.cred, who: parts.flatMap(f => f.who), types: parts.map(f => f.kind) }
+}))
+const liveOn = ref(false)
+/** 委託前面的階段換成的開場（OPINION 4.5 節；COMMISSION_TEMPLATES 的 from_links）：?va= 開場聲量、cells= 開場佔的格子、inside=1 多一張內幕、pr= 對手公關點、rounds= 回合數 */
+const boost = { va: Number(q('va')) || 0, cells: q('cells') ? q('cells').split(',').map(Number) : [], inside: q('inside') === '1', pr: Number(q('pr')) || 0 }
+const make = () => reactive(new OpinionWar({ topic: topic.value, foe: foe.value, rounds: Number(q('rounds')) || undefined, start: boost, pr: tableFor(st.s.difficulty, st.s.customDiff).pr + boost.pr, edit: editPoints(g.character.trees), fame: Math.max(0, ...Object.values(g.fame)), clips: clips.value, live: liveOn.value, events: route.query.events !== '0' }, seed ? seeded(seed) : mathRng)) as OpinionWar
 const o = shallowRef<OpinionWar>(make())
 let timer: ReturnType<typeof setTimeout> | null = null
 function restart() { if (timer) clearTimeout(timer); busy.value = false; o.value = make(); triggerRef(o); hint.value = ''; focus.value = 0 }
 
+watch(() => [route.query.topic, route.query.foe], () => { topic.value = q('topic') || 'scandal'; foe.value = q('foe') || 'pr_2'; restart() })
 const can = computed(() => !busy.value && !o.value.end)
 const targets = computed(() => o.value.targets())
 const focused = computed(() => (targets.value.length ? targets.value[((focus.value % targets.value.length) + targets.value.length) % targets.value.length] : -1))
 function play(i: number) {
   if (!can.value) return
   const r = o.value.cardReason(i)
-  if (r) { hint.value = `${o.value.hand[i] ? CARDS[o.value.hand[i]].n : '這張牌'}：${r}。`; return }
+  if (r) { hint.value = `${o.value.hand[i] ? o.value.card(o.value.hand[i]).n : '這張牌'}：${r}。`; return }
   o.value.play(i)
   focus.value = 0
   hint.value = o.value.mode?.k === 'guard' ? '選你的一格設防（綠框）。Tab 換格子，Enter 確定。' : ''
@@ -93,6 +102,7 @@ const wind = computed(() => `${(o.value.w + 5) * 10}%`)
 function leave() {
   const e = o.value.end!
   g.advance(o.value.round * 60)
+  if (o.value.bribed) g.money.acc += o.value.bribed
   g.addLog({ prose: [`輿論戰：${o.value.topic.n}，對上${o.value.foe.name}。${e.text}`], changes: [{ text: `${e.result}・${e.a} 對 ${e.b}`, kind: e.result === '敗' ? 'minus' : 'plus' }] })
   g.lastBattle = { kind: 'opinion', result: e.result === '敗' ? 'lose' : e.result === '平手' ? 'draw' : 'win', text: e.text }
   router.push(from.value)
@@ -110,9 +120,16 @@ function leave() {
         <label class="sel"><span class="k">議題</span><select v-model="topic" @change="restart"><option v-for="t in TOPICS" :key="t.id" :value="t.id">{{ t.n }}</option></select></label>
         <label class="sel"><span class="k">對手</span><select v-model="foe" data-foe @change="restart"><option v-for="x in OPPONENTS" :key="x.id" :value="x.id">{{ x.name }}（強度 {{ x.st }}）</option></select></label>
         <button type="button" class="btn sm" @click="restart">重新開始</button>
-        <Hint title="輿論戰">一場六回合（六個時段）。每回合抽 2 張、用編輯點出牌或用技能，累積聲量與風向，然後佔領一格：只能佔和自己的格子相鄰的格子，聲量要 ≥ 那一格的防守（沒人的 2；對手的 3 − 風向，最少 1）。結算時你的格子的分數加起來對上對手的；一方的格子被清空，戰役立刻結束。鍵盤：1～5 出手牌，Tab 換格子、Enter 確定，空白鍵結束回合。</Hint>
+        <Hint title="輿論戰">一場六回合（六個時段）。每回合抽 2 張、用編輯點出牌或用技能，累積聲量與風向，然後佔領一格：只能佔和自己的格子相鄰的格子，聲量要 ≥ 那一格的防守（沒人的 2；對手的 3 − 風向，最少 0；豔名高時看臉的三格再減）。編輯點照你的路數：任何人 2，主播與偶像加階數的一半。結算時你的格子的分數加起來對上對手的；一方的格子被清空，戰役立刻結束。鍵盤：1～5 出手牌，Tab 換格子、Enter 確定，空白鍵結束回合。</Hint>
       </section>
-      <section class="panel cut pad foe"><b>{{ o.foe.name }}</b><span class="t-fine">{{ o.foe.note }}</span><span v-if="busy" class="tag warn">對手的回合……</span></section>
+      <section class="panel cut pad foe"><b>{{ o.foe.name }}</b><span class="t-fine">{{ o.foe.note }}</span><span v-if="o.foe.sig" class="tag hot" data-sig>招牌：{{ o.foe.sig }}</span><span v-if="busy" class="tag warn">對手的回合……</span>
+        <span class="grow" /><button type="button" class="btn sm" :class="{ pri: liveOn }" :aria-pressed="liveOn" @click="liveOn = !liveOn; o.live = liveOn">編輯台直播：{{ liveOn ? '開' : '關' }}</button>
+        <Hint title="收買與找上門">對手落後時會開價收買（每場一次，伊甸園兩次）：接受就拿錢，戰役算敗、公信力掉。落後更多時找上門：一隊人往編輯台去，留守的隊友擋人（數值結算）。擋住了而且編輯台在直播，整段過程變成一張最好的料；擋不住時，星旗與幫派會把你帶走，其他的讓你下一回合不能行動。</Hint></section>
+      <section v-if="o.event" class="panel cut pad evt" data-event><span class="k">城市事件・{{ TIME_SLOTS[o.round - 1] }}</span><b>{{ o.event.n }}</b><span class="t-fine">{{ o.event.d }}</span><Hint>每回合開始翻一張，只影響這一回合（偶像的畢業公演影響整場）。OPINION 5.3 節。</Hint></section>
+      <section v-if="o.offer && !o.end" class="panel cut pad offer" data-offer>
+        <b>{{ o.foe.name }}開價收買：C${{ o.offer.price.toLocaleString('en-US') }}</b><span class="t-fine">接受就拿錢，這一場算敗，公信力掉。這是一個選擇，不是攻擊。</span>
+        <span class="grow" /><button type="button" class="btn sm" data-bribe-accept @click="o.acceptBribe()">收下</button><button type="button" class="btn sm pri" data-bribe-decline @click="o.declineBribe()">回絕</button>
+      </section>
 
       <div class="main">
         <section class="panel cut pad">
@@ -121,10 +138,10 @@ function leave() {
               <div class="rl">{{ ROWS[r - 1] }}</div>
               <button v-for="c in 3" :key="c" type="button" class="cell" :data-cell="(r - 1) * 3 + c - 1"
                 :class="{ me: o.own[(r - 1) * 3 + c - 1] === 1, foe: o.own[(r - 1) * 3 + c - 1] === 2, tg: can && targets.includes((r - 1) * 3 + c - 1), foc: can && focused === (r - 1) * 3 + c - 1, sh: o.sh[(r - 1) * 3 + c - 1] }"
-                :aria-label="`${CELLS[(r - 1) * 3 + c - 1]}，${o.topic.s[(r - 1) * 3 + c - 1]} 分，${owner((r - 1) * 3 + c - 1)}`"
+                :aria-label="`${CELLS[(r - 1) * 3 + c - 1]}，${o.cellScore((r - 1) * 3 + c - 1)} 分，${owner((r - 1) * 3 + c - 1)}`"
                 @click="targets.includes((r - 1) * 3 + c - 1) ? cell((r - 1) * 3 + c - 1) : undefined">
                 <b>{{ CELLS[(r - 1) * 3 + c - 1] }}</b>
-                <span class="pt" :class="{ z: !o.topic.s[(r - 1) * 3 + c - 1] }">{{ o.topic.s[(r - 1) * 3 + c - 1] }}</span>
+                <span class="pt" :class="{ z: !o.cellScore((r - 1) * 3 + c - 1) }">{{ o.cellScore((r - 1) * 3 + c - 1) }}</span>
                 <span class="ow">{{ owner((r - 1) * 3 + c - 1) }}{{ o.sh[(r - 1) * 3 + c - 1] ? '・設防' : '' }}</span>
                 <span class="df">{{ o.own[(r - 1) * 3 + c - 1] === 1 ? `對手要 ${o.def((r - 1) * 3 + c - 1, 2)}` : `防守 ${o.def((r - 1) * 3 + c - 1, 1)}` }}</span>
               </button>
@@ -156,9 +173,9 @@ function leave() {
       <section class="panel cut pad">
         <p class="h">手牌（{{ o.hand.length }}／5）・牌庫 {{ o.deck.length }}・棄牌 {{ o.discard.length }}</p>
         <div class="hand">
-          <button v-for="(k, i) in o.hand" :key="i + k" type="button" class="card" :class="[`t${CARDS[k].t}`, { sel: o.mode?.k === 'guard' && o.mode.idx === i, 'is-unavailable': !can || !!o.cardReason(i) }]"
+          <button v-for="(k, i) in o.hand" :key="i + k" type="button" class="card" :class="[`t${o.card(k).t}`, { clip: !!o.card(k).clip, sel: o.mode?.k === 'guard' && o.mode.idx === i, 'is-unavailable': !can || !!o.cardReason(i) }]"
             :aria-disabled="!can || !!o.cardReason(i) || undefined" :data-card="i" @click="play(i)">
-            <span class="kn"><kbd>{{ i + 1 }}</kbd>{{ CARD_KIND[CARDS[k].t] }}</span><b>{{ CARDS[k].n }}</b><span class="co">{{ CARDS[k].c }}</span><small>{{ CARDS[k].d }}</small>
+            <span class="kn"><kbd>{{ i + 1 }}</kbd>{{ CARD_KIND[o.card(k).t] }}</span><b>{{ o.card(k).n }}</b><span class="co">{{ o.card(k).c }}</span><small>{{ o.card(k).d }}</small>
           </button>
           <span v-if="!o.hand.length" class="empty-note">沒有手牌。</span>
         </div>
@@ -183,7 +200,10 @@ function leave() {
 .slots i.done { color: var(--ink-2); text-decoration: line-through; }
 .sel { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .sel select { font: 800 var(--fs-sm) var(--font); padding: 5px 8px; background: var(--bg-term); border: 0; box-shadow: inset 0 0 0 2px var(--line); color: var(--ink); max-width: 220px; }
-.foe { display: flex; gap: var(--space-3); align-items: baseline; flex-wrap: wrap; }
+.foe, .evt, .offer { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
+.evt { box-shadow: inset 3px 0 0 var(--ap), inset 0 0 0 2px var(--line); }
+.offer { box-shadow: inset 3px 0 0 var(--warn), inset 0 0 0 2px var(--line); }
+.card.clip { box-shadow: inset 3px 0 0 var(--tc), inset 0 0 0 1px var(--ram); }
 .main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
 .board { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
 .rl { writing-mode: vertical-rl; font-size: var(--fs-fine); color: var(--ink-3); letter-spacing: 3px; display: flex; align-items: center; justify-content: center; }

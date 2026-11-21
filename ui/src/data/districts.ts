@@ -58,7 +58,7 @@ export const BLOCKS: Record<string, BlockSpec> = {
       '######>######',
     ],
     facilities: [
-      { id: 'rooftop', name: '屋頂的晾衣場', icon: 'ic-fac_home', kind: 'talk', npcIds: ['xiaomai'], services: [{ name: '吹風', action: 'rest' }] },
+      { id: 'rooftop', name: '屋頂的晾衣場', icon: 'ic-fac_home', kind: 'talk', npcIds: ['xiaomai'], services: [{ name: '吹風', action: 'rest' }, { name: '和小麥待到天黑（成人場景）', action: 'scene', props: { scene: 'rin' } }] },
       { id: 'myhome', name: '你的單位（7 樓）', icon: 'ic-fac_home', kind: 'home', services: [{ name: '回家', action: 'home' }, { name: '睡一覺', action: 'rest' }] },
       { id: 'hebo', name: '何伯的樓長室', icon: 'ic-fac_home', kind: 'talk', npcIds: ['hebo'], services: [{ name: '付房租', price: 150, action: 'none' }] },
       { id: 'clinic', name: '縫縫診所（地下室）', icon: 'ic-fac_clinic', kind: 'clinic', services: [{ name: '處理傷口', price: 120, action: 'none' }, { name: '裝義體與調校', action: 'clinic', props: { clinic: '縫縫診所', black: true } }] },
@@ -96,7 +96,7 @@ export const BLOCKS: Record<string, BlockSpec> = {
       '#############',
     ],
     facilities: [
-      { id: 'gunshop', name: '熔爐・槍店「回火」', icon: 'ic-fac_gunshop', kind: 'shop', shopId: 'gunshop', npcIds: ['laotie'], services: [{ name: '買賣', action: 'shop' }] },
+      { id: 'gunshop', name: '熔爐・槍店「回火」', icon: 'ic-fac_gunshop', kind: 'shop', shopId: 'gunshop', npcIds: ['laotie'], services: [{ name: '買賣', action: 'shop' }, { name: '烤漆與染色', action: 'dye', props: { where: 'shop', place: '熔爐・槍店「回火」' } }] },
       svc('coldstore', '冷庫', 'ic-fac_coldstore'),
       svc('toll', '鉻娘子的收費站', 'ic-fac_gate', [{ name: '過路費', price: 20, action: 'none' }]),
       svc('usedparts', '二手零件倉', 'ic-fac_scrapyard'),
@@ -215,7 +215,7 @@ export const BLOCKS: Record<string, BlockSpec> = {
       svc('mara', '瑪拉的卡車', 'ic-fac_garage', [{ name: '找瑪拉', action: 'none' }]),
       svc('fuel', '加油站', 'ic-fac_garage'),
       svc('trade', '交易棚', 'ic-fac_barter'),
-      svc('repair', '修車廠', 'ic-fac_garage', [{ name: '買車', action: 'garage', props: { place: '薔薇驛・修車廠' } }, { name: '機甲整備', action: 'mech' }, { name: '修車', price: 320, action: 'none' }]),
+      svc('repair', '修車廠', 'ic-fac_garage', [{ name: '買車', action: 'garage', props: { place: '薔薇驛・修車廠' } }, { name: '機甲整備', action: 'mech' }, { name: '烤漆與染色', action: 'dye', props: { where: 'shop', place: '薔薇驛・修車廠' } }, { name: '修車', price: 320, action: 'none' }]),
       svc('camp', '宿營地', 'ic-fac_home', [{ name: '在營火邊睡', action: 'rest' }]),
       svc('mods', '載具改裝', 'ic-fac_scrapyard'),
     ],

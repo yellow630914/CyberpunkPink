@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
 import Hint from '../components/Hint.vue'
@@ -39,10 +39,18 @@ const { b, phase, isFocused, targets, endTurn, after, restart, pick } = useBattl
   () => {
     const setup = structuredClone(enc.value.setup)
     setup.foes = applyDifficulty(setup.foes, tableFor(st.s.difficulty, st.s.customDiff))
+    // 委託的連動（第四版）：minus=N 讓這一場少 N 個敵人（從後排拿掉，至少留一個）
+    const minus = Number(route.query.minus) || 0
+    if (minus > 0) setup.foes = setup.foes.slice(0, Math.max(1, setup.foes.length - minus))
+    // 你的主動技能照橋裡裝著的技能（SKILLS 1.3 節）：沒裝的不能用
+    const loaded = g.loadout.map(id => id.split(':')[1])
+    setup.party = setup.party.map(p => (p.name === '你' ? { ...p, skills: (p.skills ?? []).filter(n => loaded.includes(n)) } : p))
     return new RealBattle(setup, seed ? seeded(seed) : mathRng)
   },
   { speed, onRing: i => act(RING_KEYS[i]) },
 )
+// 同一個全頁換了遭遇（只有網址的參數變）：重新開始
+watch(() => route.query.enc, () => { restart(); hint.value = '' })
 const cur = computed(() => b.value.cur())
 const myTurn = computed(() => phase.value === 'player' && !b.value.end)
 const items = computed<RingItem[]>(() => REAL_ACTIONS.map(a => ({ ...a, cost: b.value.cost(a.k, cur.value), reason: myTurn.value ? b.value.reason(a.k) : '現在是敵人的回合', key: RING_KEYS.indexOf(a.k) + 1 })))
@@ -56,6 +64,17 @@ function act(k: string) {
   after()
 }
 function clickTarget(t: Target) { if (pick(t)) hint.value = '' }
+/** 行動圓環中心的技能清單（第四版）：瞄準、連射、快駭、機甲、無人機、控制節點 */
+const skillList = computed(() => (myTurn.value ? b.value.skillList(cur.value) : []))
+function useSkill(k: string) {
+  const r = b.value.skillReason(k)
+  const s = skillList.value.find(x => x.k === k)
+  if (r) { hint.value = `${s?.n ?? '技能'}：${r}。`; return }
+  b.value.skillAct(k)
+  hint.value = b.value.mode ? (s?.tg === 'pslot' ? '選我方的一格（綠框）。' : s?.tg === 'marked' ? '選一個被標記的敵人。' : TARGET_HINT.foe) : ''
+  after()
+}
+const dronesAt = (s: { side: Side; slot: number }) => b.value.drones.filter(d => !d.down && d.side === s.side && d.slot === s.slot)
 const isTarget = (t: Target) => targets.value.some(x => (x.kind === 'unit' && t.kind === 'unit' && x.id === t.id) || (x.kind === 'slot' && t.kind === 'slot' && x.side === t.side && x.slot === t.slot))
 
 const SLOTS: Array<{ side: Side; slot: number }> = [4, 3, 2, 1].map(slot => ({ side: 'P' as Side, slot })).concat([1, 2, 3, 4].map(slot => ({ side: 'E' as Side, slot })))
@@ -64,7 +83,7 @@ const unitAt = (s: { side: Side; slot: number }) => b.value.at(s.side, s.slot)
 const pct = (v: number, m: number) => `${Math.max(0, Math.min(100, (v / m) * 100))}%`
 const hcOf = (u: RealUnit) => (b.value.mode === 'shoot' || b.value.mode === 'melee') && u.side === 'E' && isTarget({ kind: 'unit', id: u.id }) ? b.value.hitChance(cur.value, u) : null
 function statuses(u: RealUnit) {
-  return [u.aim && '瞄準', u.stun && '過載', u.supp && '被壓制', u.watch && '監視', u.bleed && '流血', u.daze && '暈眩', u.id === b.value.captureId && '要活的'].filter(Boolean) as string[]
+  return [u.mechOn && `機甲 ${u.mechDur}・剩 ${u.mechLeft} 回合`, u.mark !== null && '被標記', u.aim && '瞄準', u.stun && '過載', u.supp && '被壓制', u.watch && '監視', u.bleed && '流血', u.daze && '暈眩', u.id === b.value.captureId && '要活的'].filter(Boolean) as string[]
 }
 const distances = computed(() => cur.value.side === 'P' ? b.value.alive('E').sort((x, y) => x.slot - y.slot).map(t => `${t.name} ${b.value.dist(cur.value, t)}`).join('・') : '')
 const skills = computed(() => g.loadout.map(id => SKILL_TREES.flatMap(t => t.skills).find(s => s.id === id)?.name).filter(Boolean) as string[])
@@ -85,7 +104,12 @@ function writeBack() {
   g.advance(b.value.round * 2)
   g.addLog({ prose: [`${enc.value.place}：${enc.value.name}。${e.text}`], changes: [{ text: `${RESULT[e.result]}・${b.value.round} 回合`, kind: e.result === 'win' || e.result === 'fled' ? 'plus' : 'minus' }] })
 }
-function leave() { writeBack(); g.lastBattle = { kind: 'real', result: b.value.end!.result, text: b.value.end!.text }; router.push(from.value) }
+function leave() {
+  writeBack()
+  const lines = b.value.lines.map(l => l.t)
+  g.lastBattle = { kind: 'real', result: b.value.end!.result, text: b.value.end!.text, rounds: b.value.round, crits: lines.filter(t => /^(?!敵・).*要害/.test(t)).length, downs: b.value.units.filter(u => u.side === 'P' && u.down).length, lethal: b.value.units.filter(u => u.side === 'E' && u.down && !u.out).length }
+  router.push(from.value)
+}
 </script>
 
 <template>
@@ -99,6 +123,9 @@ function leave() { writeBack(); g.lastBattle = { kind: 'real', result: b.value.e
           <span v-for="o in b.orderView()" :key="o.u.id" class="bt-chip" :class="{ e: o.u.side === 'E', now: o.now }">{{ o.u.name }}</span>
         </div>
         <span class="grow" />
+        <span v-if="b.dark" class="tag warn" data-field="dark">黑暗<Hint>全場迴避 +2；有夜視的單位攻擊時不受影響（COMBAT_SYSTEM 2.5 節）。</Hint></span>
+        <span v-for="n in b.nodes" :key="n.id" class="tag" :class="{ hot: n.taken && !n.used }" :data-node="n.kind">{{ n.name }}・{{ n.used ? '用過了' : n.taken ? '拿下了' : '沒拿下' }}</span>
+        <Hint v-if="b.nodes.length" title="控制節點">潛網者用快駭拿下控制節點，之後從技能清單用：關燈（場地變成黑暗）、放下防爆門（替我方一格造出掩體）、接管砲塔（照無人機的規則掛在我方一格）。</Hint>
         <button type="button" class="btn sm" :class="{ pri: liveOn }" @click="liveOn = !liveOn">直播面板</button>
         <button type="button" class="btn sm" @click="restart(); hint = ''">重新開始</button>
         <Hint title="現實戰鬥">雙方各一排四格，面對面；格子底下是那一格的遮蔽（掩體 +4、半掩體 +2）。每回合回 3 點行動點。卡片上紅的是生命、粉的是感載，圓點是餘韻（疊滿之後再過載就倒下）。鍵盤：1～9 按圓環的格，Tab 換目標、Enter 確定、Esc 取消，空白鍵結束回合。脫離與投降要長按。</Hint>
@@ -124,7 +151,7 @@ function leave() { writeBack(); g.lastBattle = { kind: 'real', result: b.value.e
               <div v-if="unitAt(s)" class="bt-u" :class="{ e: s.side === 'E', act: unitAt(s)!.id === cur.id && !b.end, tg: isTarget({ kind: 'unit', id: unitAt(s)!.id }), foc: isFocused({ kind: 'unit', id: unitAt(s)!.id }) }"
                 :role="isTarget({ kind: 'unit', id: unitAt(s)!.id }) ? 'button' : undefined" :tabindex="isTarget({ kind: 'unit', id: unitAt(s)!.id }) ? 0 : undefined"
                 :data-unit="unitAt(s)!.id" :aria-label="`${unitAt(s)!.name}，生命 ${unitAt(s)!.hp}，感載 ${unitAt(s)!.load}`"
-                @click.stop="isTarget({ kind: 'unit', id: unitAt(s)!.id }) && clickTarget({ kind: 'unit', id: unitAt(s)!.id })"
+                @click.stop="isTarget({ kind: 'unit', id: unitAt(s)!.id }) ? clickTarget({ kind: 'unit', id: unitAt(s)!.id }) : isTarget({ kind: 'slot', side: s.side, slot: s.slot }) && clickTarget({ kind: 'slot', side: s.side, slot: s.slot })"
                 @keydown.enter.stop.prevent="isTarget({ kind: 'unit', id: unitAt(s)!.id }) && clickTarget({ kind: 'unit', id: unitAt(s)!.id })">
                 <div class="bt-nm"><b>{{ unitAt(s)!.name }}</b><small><template v-if="hcOf(unitAt(s)!) !== null"><span class="hc">{{ hcOf(unitAt(s)!) }}%</span> </template>{{ unitAt(s)!.role }}</small></div>
                 <div class="bt-row" style="color: var(--hp)"><svg class="bt-i" viewBox="0 0 512 512" aria-label="生命"><path :d="COMBAT_ICONS.hp" /></svg><span class="bt-bar"><i :style="{ width: pct(unitAt(s)!.hp, unitAt(s)!.hpMax), background: 'var(--hp)' }" /></span><span class="num">{{ unitAt(s)!.hp }}</span></div>
@@ -135,6 +162,9 @@ function leave() { writeBack(); g.lastBattle = { kind: 'real', result: b.value.e
                 <div class="bt-st"><span v-for="t in statuses(unitAt(s)!)" :key="t" :class="{ w: t === '過載' || t === '流血' || t === '要活的' }">{{ t }}</span></div>
               </div>
               <div v-else class="bt-down">空格</div>
+              <div v-for="d in dronesAt(s)" :key="d.id" class="bt-drone" :data-drone="d.kind" :title="`${d.name}：耐久 ${d.hp}／${d.hpMax}，護甲 ${d.armor}；永遠暴露`">
+                <b>{{ d.turret ? '砲塔' : d.kind === 'atk' ? '攻擊機' : '護盾機' }}</b><span class="bt-bar"><i :style="{ width: pct(d.hp, d.hpMax), background: 'var(--ram)' }" /></span>{{ d.hp }}<small v-if="d.kind === 'shield' && d.guard">護盾</small>
+              </div>
             </div>
           </template>
           <div class="bt-mid">近身</div>
@@ -163,7 +193,13 @@ function leave() { writeBack(); g.lastBattle = { kind: 'real', result: b.value.e
               <HoldButton :reason="b.end ? '戰鬥已經結束' : null" @fire="b.surrender(); after()" @hint="t => (hint = t)">投降</HoldButton>
             </div>
             <div class="bt-hint" aria-live="polite">{{ myTurn ? hint || `輪到 ${cur.name}。選一個行動。` : b.end ? '' : '敵人的回合……' }}</div>
-            <div v-if="skillOpen" class="bt-skl"><b>技能清單</b><p class="t-fine">裝著的技能：{{ skills.join('、') || '沒有' }}。戰鬥中的主動技能（瞄準、連射、快駭）在第四版接上，這一版先用圓環上的行動。</p></div>
+            <div v-if="skillOpen" class="bt-skl" data-skills>
+              <b>技能清單・{{ cur.name }}<template v-if="cur.hack">・RAM {{ cur.ram }}／{{ cur.hack.ram }}</template></b>
+              <div v-if="!skillList.length" class="t-fine">{{ myTurn ? `${cur.name}沒有可以在戰鬥裡用的主動技能。` : '現在不是你的回合。' }}裝著的技能：{{ skills.join('、') || '沒有' }}。</div>
+              <button v-for="sk in skillList" :key="sk.k" type="button" class="bt-sk" :class="{ on: b.mode === `sk:${sk.k}`, 'is-unavailable': !!b.skillReason(sk.k) }" :title="b.skillReason(sk.k) ?? sk.d" :data-skill="sk.k" @click="useSkill(sk.k)">
+                <b>{{ sk.n }}</b><small class="mono">{{ sk.c }} 點{{ sk.ram ? `・RAM ${sk.ram}` : '' }}</small><span class="t-fine sd">{{ sk.d }}</span>
+              </button>
+            </div>
           </div>
         </section>
         <section class="panel cut bt-logp">

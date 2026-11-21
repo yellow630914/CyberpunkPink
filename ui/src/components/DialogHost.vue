@@ -26,13 +26,14 @@ import MechDialog from '../dialogs/MechDialog.vue'
 import ClinicDialog from '../dialogs/ClinicDialog.vue'
 import GarageDialog from '../dialogs/GarageDialog.vue'
 import DifficultyDialog from '../dialogs/DifficultyDialog.vue'
+import DyeDialog from '../dialogs/DyeDialog.vue'
 
 /** 對話框層：照 ui.stack 的順序畫。Esc 關最上面那一個（App.vue 的全域快捷鍵）。 */
 const REGISTRY: Record<DialogName, Component> = {
   bag: BagDialog, character: CharacterDialog, talk: TalkDialog, shop: ShopDialog, settings: SettingsDialog,
   roster: RosterDialog, relations: RelationsDialog, skills: SkillTreeDialog, craft: CraftDialog, channel: ChannelDialog, contract: ContractDialog,
   bills: BillsDialog, guide: GuideDialog, memo: MemoDialog, pending: PendingDialog, saves: SaveDialog, city: CityDialog, transit: TransitDialog,
-  fixer: FixerDialog, live: LiveDialog, cut: CutDialog, mech: MechDialog, clinic: ClinicDialog, garage: GarageDialog, difficulty: DifficultyDialog,
+  fixer: FixerDialog, live: LiveDialog, cut: CutDialog, mech: MechDialog, clinic: ClinicDialog, garage: GarageDialog, difficulty: DifficultyDialog, dye: DyeDialog,
 }
 const ui = useUi()
 </script>

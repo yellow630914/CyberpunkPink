@@ -54,7 +54,16 @@
 .bt-who b { font-size: var(--fs-section); }
 .bt-btns { display: flex; gap: var(--space-3); flex-wrap: wrap; }
 .bt-hint { color: var(--ink-2); font-size: var(--fs-sm); min-height: 1.5em; }
-.bt-skl { background: var(--bg-term); padding: var(--space-3) var(--space-4); font-size: var(--fs-sm); }
+.bt-skl { background: var(--bg-term); padding: var(--space-3) var(--space-4); font-size: var(--fs-sm); display: grid; gap: var(--space-2); grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); }
+.bt-skl > b, .bt-skl > div { grid-column: 1 / -1; }
+.bt-sk { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: 6px 10px; background: var(--bg-2); border: 0; cursor: pointer; color: var(--ink); text-align: left; font: inherit; }
+.bt-sk small { color: var(--ap); }
+.bt-sk .sd { flex-basis: 100%; line-height: 1.5; }
+.bt-sk.on { box-shadow: inset 0 0 0 2px var(--a); }
+/* 第四版：無人機與砲塔掛在格子上，和人重疊 */
+.bt-drone { display: flex; align-items: center; gap: 4px; padding: 2px 6px; background: color-mix(in srgb, var(--ram) 16%, var(--bg-2)); box-shadow: inset 0 0 0 1px var(--ram); font-size: var(--fs-fine); }
+.bt-drone .bt-bar { flex: 1; }
+.bt-drone small { color: var(--ram); font-weight: 800; }
 .bt-logp { padding: var(--space-3) var(--space-4); max-height: 360px; overflow: auto; }
 .bt-log p { margin: 0 0 var(--space-2); font: var(--fs-xs)/1.6 var(--mono); color: var(--ink-2); }
 .bt-log p.h { color: var(--ap); font-weight: 800; }

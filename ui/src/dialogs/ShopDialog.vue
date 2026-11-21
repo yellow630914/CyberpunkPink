@@ -14,6 +14,11 @@ import { SHOPS } from '../data/shops'
 import { ITEMS } from '../data/items'
 import { buyPrice, sellPrice, fmt, type PriceQuote } from '../lib/price'
 import type { Condition } from '../data/types'
+import { reactive } from 'vue'
+import { bargainDc, bargainResult, bargainWayReason, BARGAIN_WAYS, BARGAIN_MULT, BARGAIN_AFFINITY, SHOP_DEALS, validateDeal, rollShopEvent, shopDaySeed, type BargainWay, type BargainResult, type Deal, type ShopEventOpt } from '../lib/shopEvents'
+import { seeded } from '../lib/combat/rng'
+/** 一天之內已經處理過的店內事件、已經買走的特別交易（不進存檔：換一天就重來） */
+const doneToday = reactive(new Set<string>())
 
 /**
  * 商店（UI.md 3.8 節、TRADE 第 3 節）：抬頭、買／賣兩個分頁、右邊是購物車（買賣一起結）、價格拆解、付款方式、殺價。
@@ -28,7 +33,8 @@ interface Line { key: string; mode: 'buy' | 'sell'; def: string; qty: number; co
 const cart = ref<Line[]>([])
 const focus = ref<{ def: string; mode: 'buy' | 'sell'; condition: Condition } | null>(null)
 const pay = ref<'cash' | 'acc'>('cash')
-const bargain = ref<'none' | 'ok' | 'fail'>('none')
+const bargain = ref<'none' | BargainResult>('none')
+const way = ref<BargainWay>('talk')
 const stock = ref(shop.value.stock.map(s => ({ ...s })))
 
 const sellables = computed(() => g.inventory.filter(s => !s.unknown && ITEMS[s.def].price > 0))
@@ -37,7 +43,8 @@ const quote = computed<PriceQuote | null>(() => {
   const d = ITEMS[focus.value.def]
   return focus.value.mode === 'buy' ? buyPrice(d, shop.value, focus.value.condition) : sellPrice(d, shop.value, focus.value.condition)
 })
-const bargainMult = computed(() => (bargain.value === 'ok' ? 0.9 : 1))
+const blackout = computed(() => doneToday.has(`${props.shopId}:${g.day}:blackout`))
+const bargainMult = computed(() => (bargain.value === 'none' ? 1 : BARGAIN_MULT[bargain.value]) * (blackout.value ? 0.9 : 1))
 const buyTotal = computed(() => Math.round(cart.value.filter(l => l.mode === 'buy').reduce((s, l) => s + l.unit * l.qty, 0) * bargainMult.value))
 const sellTotal = computed(() => cart.value.filter(l => l.mode === 'sell').reduce((s, l) => s + l.unit * l.qty, 0))
 const total = computed(() => buyTotal.value - sellTotal.value)
@@ -78,11 +85,50 @@ function addSell(uid: string) {
   focus.value = { def: st.def, mode: 'sell', condition: st.condition }
 }
 function remove(key: string) { cart.value = cart.value.filter(l => l.key !== key) }
+// ---- 殺價（TRADE 第 5 節）：DC = 13 − ⌊店主親密度 ÷ 25⌋ ＋ 店的脾氣；結果 ×0.8／0.9／1／1.1 ----
+const dc = computed(() => bargainDc(shop.value.keeperAffinity, shop.value.temper, way.value))
+const WAY_MOD: Record<BargainWay, () => number> = { talk: () => (g.basics['交涉'] ?? 0) + 2, charm: () => (g.basics['誘惑'] ?? 0) + 2, flaw: () => (g.basics['街頭直覺'] ?? 0) + 1, press: () => (g.basics['威嚇'] ?? 0) + 1, favor: () => 0 }
+const wayReason = (w: BargainWay) => bargainWayReason(w, { fame: g.fame[shop.value.district] ?? 0, usedOnly: cart.value.filter(l => l.mode === 'buy').every(l => l.condition === '二手'), blackOrGang: /黑市|幫派|冷庫/.test(shop.value.type) || ['鉻娘子', '孤星連', '野良'].includes(shop.value.backer), favors: g.money.fav })
 function doBargain() {
-  const die = 1 + Math.floor(Math.random() * 20)
-  const ok = die + 5 >= 15
-  bargain.value = ok ? 'ok' : 'fail'
-  ui.toast(ok ? `殺價成功（1d20 ${die} + 5 對 DC 15）：買的部分 −10%。` : `殺價失敗（1d20 ${die} + 5 對 DC 15）：今天不能再殺。`, ok ? 'info' : 'warn')
+  const r0 = wayReason(way.value)
+  if (r0) { ui.toast(r0, 'warn'); return }
+  if (dc.value === null) { ui.toast('原廠直營不能殺價。', 'warn'); return }
+  let res: BargainResult, line: string
+  if (way.value === 'favor') { g.money.fav--; res = '大成功'; line = '用掉一個人情：當成大成功' }
+  else { const die = 1 + Math.floor(Math.random() * 20), mod = WAY_MOD[way.value](); res = bargainResult(die, mod, dc.value); line = `1d20 ${die} ＋ ${mod} 對 DC ${dc.value}：${res}` }
+  bargain.value = res
+  shop.value.keeperAffinity += BARGAIN_AFFINITY[res]
+  ui.toast(`殺價（${BARGAIN_WAYS.find(x => x.id === way.value)!.name}）${line}：買的部分 ×${BARGAIN_MULT[res]}。${BARGAIN_AFFINITY[res] ? `${shop.value.keeper}的親密度 ${BARGAIN_AFFINITY[res] > 0 ? '+' : ''}${BARGAIN_AFFINITY[res]}。` : ''}`, res === '失敗' || res === '大失敗' ? 'warn' : 'info')
+}
+
+// ---- 當日特別交易（TRADE 第 10 節，AI 關著時用模板） ----
+const deals = computed(() => (SHOP_DEALS[props.shopId] ?? []).map(d => { const value = d.item ? buyPrice(ITEMS[d.item], shop.value, '全新').total * (d.qty ?? 1) : 0; const v = validateDeal(d, value); return { d, price: Math.round(v.price * (blackout.value ? 0.9 : 1)), notes: v.notes } }))
+const dealKey = (d: Deal) => `${props.shopId}:${g.day}:${d.id}`
+function dealReason(d: Deal, price: number) { if (doneToday.has(dealKey(d))) return '今天已經買走了。'; if ((d.pay === 'cash' ? g.money.cash : g.money.acc) < price) return '錢不夠。'; return null }
+function takeDeal(d: Deal, price: number) {
+  if (d.pay === 'cash') g.money.cash -= price; else g.money.acc -= price
+  if (d.item) g.addItem(d.item, d.qty ?? 1)
+  if (d.affinity) shop.value.keeperAffinity += d.affinity
+  doneToday.add(dealKey(d))
+  g.addLog({ prose: [`${shop.value.name}的特別交易：${d.title}。${d.rumor ? `你聽到：${d.rumor}` : d.desc}`], changes: [...(price ? [{ text: `${d.pay === 'cash' ? '現金' : '帳戶'} −${fmt(price)}`, kind: 'minus' as const }] : []), ...(d.affinity ? [{ text: `${shop.value.keeper}的親密度 +${d.affinity}`, kind: 'plus' as const }] : [])] })
+  ui.toast(`成交：${d.title}。`)
+}
+
+// ---- 走進店裡的事件（EVENTS 3.1 節 enter_facility；同一天同一間店只擲一次） ----
+const evt = computed(() => rollShopEvent(props.shopId, seeded(shopDaySeed(props.shopId, g.day))))
+const evtDone = computed(() => !!evt.value && doneToday.has(`${props.shopId}:${g.day}:evt`))
+const evtLine = ref('')
+function evtReason(o: ShopEventOpt) { return o.price && o.price > 0 && g.money.cash < o.price ? '現金不夠。' : null }
+function pickEvt(o: ShopEventOpt) {
+  doneToday.add(`${props.shopId}:${g.day}:evt`)
+  let ok = true, roll = ''
+  if (o.check) { const die = 1 + Math.floor(Math.random() * 20), mod = (g.basics[o.check.skill] ?? 0) + 2; ok = die + mod >= o.check.dc; roll = `${o.check.skill} 1d20 ${die} ＋ ${mod} 對 ${o.check.dc}：${ok ? '成功' : '失敗'}。` }
+  if (o.price && o.price > 0) g.money.cash -= o.price
+  if (o.price === -1) doneToday.add(`${props.shopId}:${g.day}:blackout`)
+  if (ok && o.affinity) shop.value.keeperAffinity += o.affinity
+  if (!ok && o.hostility) g.hostility[shop.value.backer] = (g.hostility[shop.value.backer] ?? 0) + o.hostility
+  evtLine.value = `${roll}${ok ? o.win : o.lose ?? o.win}`
+  g.addLog({ prose: [evt.value!.text, evtLine.value] })
 }
 function checkout() {
   for (const l of cart.value) {
@@ -115,7 +161,20 @@ function checkout() {
     </template>
     <div class="shop">
       <section class="panel cut pad">
+        <div v-if="evt && !evtDone" class="sevt" data-shop-event>
+          <b>店裡出了一件事</b><p>{{ evt.text }}</p>
+          <div class="go left"><ReasonButton v-for="o in evt.opts" :key="o.id" sm :reason="evtReason(o)" @go="pickEvt(o)">{{ o.name }}{{ o.check ? `（${o.check.skill} DC ${o.check.dc}）` : o.price && o.price > 0 ? `（${o.price}）` : '' }}</ReasonButton></div>
+        </div>
+        <p v-else-if="evtLine" class="sevt done">{{ evtLine }}</p>
         <Tabs v-model="tab" :tabs="[{ id: 'buy', label: '買' }, { id: 'sell', label: '賣' }]" />
+        <div v-if="tab === 'buy' && deals.length" class="deals" data-deals>
+          <p class="h">今天的特別交易<Hint>每間店每天第一次進來時，店主提出今天的特別交易（AI 關著時用模板）。每一筆只有一份；價格不會低於內容價值的 80%；氣氛交易只有氣氛，沒有隱藏的效果（TRADE 第 10 節）。</Hint></p>
+          <div v-for="x in deals" :key="x.d.id" class="deal" :class="{ 'is-unavailable': !!dealReason(x.d, x.price) }">
+            <span class="grow"><b>{{ x.d.title }}</b><small>{{ x.d.desc }}</small></span>
+            <MoneyTag v-if="x.price" :kind="x.d.pay" :amount="x.price" :size="13" /><span v-else class="tag">不要錢</span>
+            <ReasonButton sm :reason="dealReason(x.d, x.price)" :data-deal="x.d.id" @go="takeDeal(x.d, x.price)">{{ x.d.flavor ? '好啊' : '成交' }}</ReasonButton>
+          </div>
+        </div>
         <div v-if="tab === 'buy'" class="goods">
           <div v-for="(s, i) in stock" :key="s.def" class="gd" :class="{ special: s.special, 'is-unavailable': !!buyReason(i) }" :style="{ '--gc': `var(--g${ITEMS[s.def].grade})` }">
             <ItemSlot :item="ITEMS[s.def]" size="sm" @select="focus = { def: s.def, mode: 'buy', condition: s.condition ?? '全新' }" />
@@ -154,9 +213,10 @@ function checkout() {
           </div>
         </template>
         <div class="go left">
-          <ReasonButton sm :reason="bargain !== 'none' ? '每間店每天只能殺價一次。' : !buyTotal ? '車裡沒有要買的東西。' : null" @go="doBargain">殺價（整車）</ReasonButton>
-          <span v-if="bargain === 'ok'" class="tag" style="color: var(--ram)">−10%</span>
-          <Hint>交涉 1d20 ＋ 5 對 DC 15。成功：這一車買的部分 −10%。原廠直營不能殺價。</Hint>
+          <select v-model="way" class="waysel" aria-label="怎麼殺"><option v-for="w in BARGAIN_WAYS" :key="w.id" :value="w.id">{{ w.name }}（{{ w.check }}）</option></select>
+          <ReasonButton sm :reason="bargain !== 'none' ? '每間店每天只能殺價一次。' : !buyTotal ? '車裡沒有要買的東西。' : dc === null ? '原廠直營不能殺價。' : wayReason(way)" data-bargain @go="doBargain">殺價（整車）</ReasonButton>
+          <span v-if="bargain !== 'none'" class="tag" :style="{ color: BARGAIN_MULT[bargain] < 1 ? 'var(--ram)' : 'var(--warn)' }">{{ bargain }} ×{{ BARGAIN_MULT[bargain] }}</span>
+          <Hint>DC ＝ 13 − ⌊店主親密度 ÷ 25⌋ ＋ 店的脾氣（現在 {{ dc ?? '不能殺' }}）。大成功 ×0.8、親密度 +2；成功 ×0.9；失敗不變；大失敗 ×1.1、親密度 −3。每間店每天一次（TRADE 第 5 節）。</Hint>
         </div>
         <div class="payseg" role="radiogroup" aria-label="付款">
           <button type="button" role="radio" :aria-checked="pay === 'cash'" :class="{ on: pay === 'cash' }" @click="pay = 'cash'">現金晶片<small><MoneyTag kind="cash" :amount="g.money.cash" :size="11" /></small></button>
@@ -173,6 +233,14 @@ function checkout() {
 </template>
 
 <style scoped>
+.sevt { padding: 10px 12px; margin-bottom: 10px; background: var(--bg-term); box-shadow: inset 3px 0 0 var(--ap); }
+.sevt p { margin: 4px 0; }
+.sevt.done { color: var(--ink-2); font-size: var(--fs-sm); }
+.deals { margin-top: 10px; display: grid; gap: 6px; }
+.deal { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 8px 10px; background: var(--bg-2); box-shadow: inset 3px 0 0 var(--a); max-width: 880px; }
+.deal small { display: block; color: var(--ink-3); font-size: var(--fs-fine); }
+.grow { flex: 1; min-width: 0; }
+.waysel { max-width: 200px; background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 5px 6px; font: 700 var(--fs-sm) var(--font); }
 .shop { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 12px; align-items: start; }
 .goods { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, max(360px, calc(50% - 6px))), 1fr)); gap: 6px; margin-top: 10px; }
 .gd { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 10px; background: var(--bg-2); border-left: 3px solid var(--gc); }

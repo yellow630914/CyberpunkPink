@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 import Dialog from '../components/Dialog.vue'
 import Tabs from '../components/Tabs.vue'
 import ItemSlot from '../components/ItemSlot.vue'
+import { dyeable } from '../lib/dye'
 import GradeBadge from '../components/GradeBadge.vue'
 import Hint from '../components/Hint.vue'
 import Icon from '../components/Icon.vue'
@@ -176,7 +177,7 @@ const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e4
           <template v-for="grp in groups" :key="grp">
             <p class="h">{{ grp }}・{{ EQUIP_SLOTS.filter(s => s.group === grp).length }} 格</p>
             <div class="eqgrid">
-              <ItemSlot v-for="s in EQUIP_SLOTS.filter(x => x.group === grp)" :key="s.id" :item="g.equip[s.id] ? ITEMS[g.equip[s.id]!] : null" :slot-icon="s.icon" :label="s.name"
+              <ItemSlot v-for="s in EQUIP_SLOTS.filter(x => x.group === grp)" :key="s.id" :item="g.equip[s.id] ? ITEMS[g.equip[s.id]!] : null" :slot-icon="s.icon" :label="s.name" :dye="g.dyes[`slot:${s.id}`] ?? null"
                 show-name :selected="eqSel === s.id && quickSel === null" :covered="g.coveredSlots.has(s.id)" @select="eqSel = s.id; quickSel = null" />
             </div>
           </template>
@@ -201,11 +202,11 @@ const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e4
         <aside v-else class="panel cut pad">
           <p class="h">{{ slotDef(eqSel).group }}・{{ slotDef(eqSel).name }}</p>
           <template v-if="eqDef">
-            <div class="dh"><ItemSlot :item="eqDef" size="md" /><div><div class="k">{{ eqDef.type }}・{{ eqDef.brand }}</div><h3 :style="{ color: `var(--g${eqDef.grade})` }">{{ eqDef.name }}</h3><div class="chips"><GradeBadge :grade="eqDef.grade" /><span v-if="eqDef.legality !== '自由'" class="tag warn">{{ eqDef.legality }}</span><span v-if="g.coveredSlots.has(eqSel)" class="tag">被外套蓋住</span></div></div></div>
+            <div class="dh"><ItemSlot :item="eqDef" size="md" :dye="g.dyes[`slot:${eqSel}`] ?? null" /><div><div class="k">{{ eqDef.type }}・{{ eqDef.brand }}</div><h3 :style="{ color: `var(--g${eqDef.grade})` }">{{ eqDef.name }}</h3><div class="chips"><GradeBadge :grade="eqDef.grade" /><span v-if="eqDef.legality !== '自由'" class="tag warn">{{ eqDef.legality }}</span><span v-if="g.coveredSlots.has(eqSel)" class="tag">被外套蓋住</span></div></div></div>
             <div v-for="[k, v] in eqDef.stats ?? []" :key="k" class="kv"><span>{{ k }}</span><b>{{ v }}</b></div>
           </template>
           <div v-else class="empty-note">這一格是空的。</div>
-          <div class="go"><button type="button" class="btn sm pri" @click="change">換裝</button><ReasonButton sm :reason="eqDef ? null : '這一格沒有東西。'" @go="g.unequip(eqSel)">卸下</ReasonButton></div>
+          <div class="go"><button type="button" class="btn sm pri" @click="change">換裝</button><ReasonButton sm :reason="eqDef ? null : '這一格沒有東西。'" @go="g.unequip(eqSel)">卸下</ReasonButton><ReasonButton sm :reason="!eqDef ? '這一格沒有東西。' : !dyeable(eqDef) ? '這一件不能染。' : null" data-open-dye @go="ui.open('dye', { dyeKey: `slot:${eqSel}`, where: 'home' })">染色</ReasonButton></div>
           <hr class="hr">
           <p class="h">外套<Hint title="外套">扣上時蓋住護甲、上身與內衣：藏匿量變大，曝露度變低。重甲不能再穿外套。</Hint></p>
           <div class="seg"><button type="button" :class="{ on: !g.coatClosed }" @click="g.coatClosed = false">敞開</button><button type="button" :class="{ on: g.coatClosed }" @click="g.coatClosed = true">扣上</button></div>

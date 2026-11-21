@@ -14,7 +14,23 @@ export const REAL_WEAPONS: Record<string, RealWeapon> = {
   sniper: { n: '狙擊槍', dice: 6, r: [5, 7], mag: 1, pen: 4, t: 'p', long: true, cm: 0.25, snipe: true },
   stun: { n: '感官彈槍', dice: 3, r: [2, 5], mag: 2, pen: 0, t: 'n', cm: 0 },
   knife: { n: '刀', dice: 3, r: [1, 1], mag: 0, pen: 1, t: 'p', melee: true, cm: 0 },
+  // 第四版：機甲的武器（ITEMS 14.4 節的 I 級）與無人機（傷害比手槍低一級，COMBAT_SYSTEM 9.1 節）
+  mech_gun: { n: '機甲機砲', dice: 4, r: [1, 6], mag: 4, pen: 2, t: 'p', cm: 1 },
+  drone_gun: { n: '無人機的機槍', dice: 2, r: [1, 5], mag: 0, pen: 0, t: 'p', cm: 0.25 },
 }
+/** 機甲（COMBAT_SYSTEM 9.3 節、ENEMIES 11.1 節）：機師的強化狀態，只佔自己那一格 */
+export interface MechSpec { name: string; dur: number; armor: number; turns: number; weapon: string }
+/** 無人機（COMBAT_SYSTEM 9.1 節）：掛在我方某一格、和人重疊、永遠暴露；生命與護甲照等級（I 14／1） */
+export type DroneKind = 'atk' | 'shield'
+export interface Drone { id: number; owner: number; side: Side; slot: number; kind: DroneKind; name: string; hp: number; hpMax: number; armor: number; used: boolean; down: boolean; guard: boolean; turret?: boolean }
+export const DRONE_NAMES: Record<DroneKind, string> = { atk: '攻擊型無人機', shield: '護盾型無人機' }
+/** 控制節點（COMBAT_SYSTEM 2.4 節）：潛網者拿下之後可以關燈、放防爆門、接管砲塔 */
+export interface ControlNode { id: string; kind: 'light' | 'door' | 'turret'; name: string; taken: boolean; used: boolean }
+export const NODE_NAMES: Record<ControlNode['kind'], string> = { light: '燈光控制', door: '防爆門', turret: '砲塔' }
+/** 同步原則的回灌倍率（CORE_RULES 第 5 節）：機甲的回灌 20% × 這個 */
+export const SYNC_BACKLASH = { 淺: 0.5, 標準: 1, 深: 1.5, 全: 2.5 } as const
+/** 行動圓環中心的技能清單的一列 */
+export interface SkillAction { k: string; n: string; c: number; ram?: number; tg?: 'foe' | 'marked' | 'pslot'; d: string; why: string | null }
 export const REAL_COVER_NAMES = ['暴露', '半掩體', '掩體'] as const
 
 export interface RealUnit extends BaseUnit {
@@ -25,10 +41,45 @@ export interface RealUnit extends BaseUnit {
   /** 難度的傷害係數（BALANCE 7.2 節），只用在敵人 */
   dmgMult: number
   ws: Array<{ k: string; mag: number }>
+  // ---- 第四版 ----
+  skills: string[]
+  hack: { bonus: number; ram: number } | null
+  ram: number
+  fw: number
+  sync: number
+  nv: boolean
+  smoke: number
+  /** 被「就是你了」或快駭的標記指定：全隊打他命中 +2；markBy 是誰標的（他的下一回合開始時清掉） */
+  mark: number | null
+  /** 這一場用過的每場一次的東西 */
+  once: string[]
+  /** 支援類快駭每回合一次 */
+  qhSupport: boolean
+  mech: MechSpec | null
+  mechOn: boolean
+  mechDur: number
+  mechLeft: number
+  mechUsed: boolean
+  baseArmor: number
+  dronesKit: DroneKind[]
 }
 export interface RealUnitSpec {
   name: string; role?: string; hp: number; armor: number; lm: number; lay: number; ap: number; refl: number; gun: number
   mel?: number; will?: number; tier?: number; elite?: boolean; boss?: boolean; kit?: number; dmg?: number; ws: string[]
+  /** 第四版：學會的主動技能（技能樹的名字：要害射擊、定點射、連射控制、看我的！、就是你了） */
+  skills?: string[]
+  /** 快駭（ITEMS 11.9 節，潛網者限定）：檢定加值（智識＋介面＋主控）與 RAM */
+  hack?: { bonus: number; ram: number }
+  /** 防火牆（快駭的目標值）；沒寫是 10 ＋ 等級 × 2 */
+  fw?: number
+  /** 同步（基本功）：無人機連得住幾台、機甲的持續 */
+  sync?: number
+  mech?: MechSpec
+  drones?: DroneKind[]
+  /** 夜視：黑暗裡攻擊不受影響 */
+  nv?: boolean
+  /** 煙霧彈的數量 */
+  smoke?: number
 }
 export interface RealSetup {
   party: RealUnitSpec[]
@@ -37,6 +88,9 @@ export interface RealSetup {
   covE?: Cover[]
   /** 要活的：敵方第幾個（0 起算）要制伏，不能打死 */
   capture?: number
+  /** 第四版：場上的控制節點與場地效果 */
+  nodes?: Array<ControlNode['kind']>
+  dark?: boolean
 }
 
 /** 行動圓環的一格（COMBAT_SYSTEM 第 10 節）：內環攻擊、中環補充與切換、外環戰術；中心是技能 */
@@ -72,6 +126,8 @@ function makeUnit(side: Side, slot: number, o: RealUnitSpec): RealUnit {
     id: 0, side, slot, name: o.name, role: o.role ?? '', hp: o.hp, hpMax: o.hp, armor: o.armor, load: 0, loadMax: o.lm, layers: 0, layersMax: o.lay,
     ap: o.ap, apMax: o.ap, refl: o.refl, gun: o.gun, mel: o.mel ?? 0, will: o.will ?? 0, tier: o.tier ?? 1, elite: !!o.elite, boss: !!o.boss, kit: o.kit ?? 0, dmgMult: o.dmg ?? 1,
     ws: o.ws.map(k => ({ k, mag: REAL_WEAPONS[k].mag })), wi: 0, aim: false, stun: false, supp: 0, watch: false, mv: false, daze: false, bleed: false, down: false, out: false, ini: 0,
+    skills: o.skills ?? [], hack: o.hack ?? null, ram: o.hack?.ram ?? 0, fw: o.fw ?? 10 + (o.tier ?? 1) * 2, sync: o.sync ?? 0, nv: !!o.nv, smoke: o.smoke ?? 0,
+    mark: null, once: [], qhSupport: false, mech: o.mech ?? null, mechOn: false, mechDur: 0, mechLeft: 0, mechUsed: false, baseArmor: o.armor, dronesKit: [...(o.drones ?? [])],
   }
 }
 
@@ -80,23 +136,37 @@ export class RealBattle extends SlotBattle<RealUnit> {
   readonly wallWord = '遮蔽'
   captureId: number | null = null
   kills = 0
+  /** 第四版：無人機（和人重疊）、控制節點、場地效果 */
+  drones: Drone[] = []
+  nodes: ControlNode[] = []
+  dark = false
+  private droneSeq = 1
 
   constructor(setup: RealSetup, rng: Rng) {
     super(rng, setup.covP ?? [cover(1), cover(2), cover(2), cover(1)], setup.covE ?? [cover(1), cover(2), cover(1), cover(2)])
     setup.party.forEach((p, i) => this.units.push(makeUnit('P', i + 1, p)))
     setup.foes.forEach((p, i) => this.units.push(makeUnit('E', i + 1, p)))
     this.rollInitiative()
+    this.nodes = (setup.nodes ?? []).map((k, i) => ({ id: `n${i}`, kind: k, name: NODE_NAMES[k], taken: false, used: false }))
+    this.dark = !!setup.dark
     if (setup.capture != null) this.captureId = this.units.filter(u => u.side === 'E')[setup.capture]?.id ?? null
     this.log('戰鬥開始。第一回合所有人從行動點上限開始。', 'h')
     if (this.captureId != null) this.log(`委託的條件：要活的。${this.units[this.captureId].name}要制伏，不能打死。`, 'h')
   }
 
   wp(u: RealUnit) { return REAL_WEAPONS[u.ws[u.wi].k] }
-  /** 迴避 = 10 ＋ 反應 ＋ 遮蔽（半掩體 +2、掩體 +4）− 餘韻 */
-  dodge(u: RealUnit) { return 10 + u.refl + COVER_BONUS[this.coverOf(u).l] - u.layers }
-  /** 命中的加值 = 槍械或格鬥 ＋ 距離 ＋ 瞄準 +3 − 被壓制 2 − 餘韻 */
-  bonus(a: RealUnit, t: RealUnit, w: RealWeapon) { return (w.melee ? a.mel : a.gun) + this.rangeMod(a, t, w) + (a.aim || w.snipe ? 3 : 0) - (a.supp ? 2 : 0) - a.layers }
-  hitChance(a: RealUnit, t: RealUnit, w = this.wp(a)) { return clamp((21 - (this.dodge(t) - this.bonus(a, t, w))) * 5, 5, 95) }
+  /**
+   * 迴避 = 10 ＋ 反應 ＋ 遮蔽（半掩體 +2、掩體 +4；機甲用不了遮蔽）＋ 同一格的護盾型無人機 +2 − 餘韻；
+   * 黑暗時全場 +2，攻擊的一方有夜視就不算（COMBAT_SYSTEM 2.5 節）
+   */
+  dodge(u: RealUnit, by?: RealUnit) {
+    const cov = u.mechOn ? 0 : COVER_BONUS[this.coverOf(u).l]
+    const shield = this.drones.some(d => !d.down && d.side === u.side && d.slot === u.slot && d.kind === 'shield') ? 2 : 0
+    return 10 + u.refl + cov + shield + (this.dark && !(by?.nv) ? 2 : 0) - u.layers
+  }
+  /** 命中的加值 = 槍械或格鬥 ＋ 距離 ＋ 瞄準 +3 ＋ 被標記 +2 − 被壓制 2 − 餘韻 */
+  bonus(a: RealUnit, t: RealUnit, w: RealWeapon) { return (w.melee ? a.mel : a.gun) + this.rangeMod(a, t, w) + (a.aim || w.snipe ? 3 : 0) + (t.mark !== null && a.side !== t.side ? 2 : 0) + (a.once.includes('看我的！:now') ? 1 : 0) - (a.supp ? 2 : 0) - a.layers }
+  hitChance(a: RealUnit, t: RealUnit, w = this.wp(a)) { return clamp((21 - (this.dodge(t, a) - this.bonus(a, t, w))) * 5, 5, 95) }
   /** 位階的傷害倍率：雜兵 ×0.4、精英 ×0.6、首領 ×1（ENEMIES 1.5 節）。只用在敵人打我方 */
   tierMult(a: RealUnit) { return a.boss ? 1 : a.elite ? 0.6 : 0.4 }
   /** 實彈傷害：骰數扣掉（護甲 − 穿透），敵人打我方再乘位階倍率，至少 1 */
@@ -109,6 +179,8 @@ export class RealBattle extends SlotBattle<RealUnit> {
   fall(u: RealUnit, how: string) {
     u.down = true
     u.stun = false
+    // 操作者倒下，所有無人機停機（COMBAT_SYSTEM 9.1 節）
+    for (const d of this.drones) if (d.owner === u.id && !d.down) { d.down = true; this.log(`${d.name}停機了。`) }
     this.log(this.tag(u) + how, u.side === 'P' ? 'r' : 'g')
     if (u.side === 'E' && !u.out) {
       this.kills++
@@ -130,7 +202,7 @@ export class RealBattle extends SlotBattle<RealUnit> {
   attack(a: RealUnit, t: RealUnit, o: { burst?: boolean } = {}) {
     const w = this.wp(a), slotW = a.ws[a.wi], n = o.burst ? slotW.mag : 1
     if (w.mag) slotW.mag -= n
-    const r = d20(this.rng), bonus = this.bonus(a, t, w), tot = r + bonus, dg = this.dodge(t), cb = COVER_BONUS[this.coverOf(t).l]
+    const r = d20(this.rng), bonus = this.bonus(a, t, w), tot = r + bonus, dg = this.dodge(t, a), cb = t.mechOn ? 0 : COVER_BONUS[this.coverOf(t).l]
     const aimed = a.aim || !!w.snipe
     a.aim = false
     /* 敵人打感載的神經武器：雜兵 4d6、精英 6d6（ENEMIES 1.5 節） */
@@ -148,6 +220,8 @@ export class RealBattle extends SlotBattle<RealUnit> {
       const raw = d6(this.rng, dice)
       if (cb && w.cm) { this.log(`遮蔽受 ${Math.round(raw * w.cm)}（${w.n} ×${w.cm}）。`); this.hurtCover(t.side, t.slot, raw * w.cm) }
       if (w.t === 'n') { const v = a.side === 'E' ? Math.round(raw * a.dmgMult) : raw; this.log(`${msg}${crit ? '要害！' : '命中，'}感載 +${v}。`); this.neural(t, v) }
+      else if (this.shieldBlock(t)) { this.log(`${msg}命中，可是護盾型無人機替 ${this.tag(t)} 擋下了這一擊。`, 'g') }
+      else if (t.mechOn) { this.log(`${msg}${crit ? '要害！' : '命中，'}打在機體上。`); this.mechHit(t, Math.max(0, raw - Math.max(0, t.armor - w.pen))) }
       else {
         const dm = this.damage(a, t, raw, w)
         t.hp -= dm
@@ -189,6 +263,8 @@ export class RealBattle extends SlotBattle<RealUnit> {
       this.aiN = 0
       if (u.down) { this.advance(); continue }
       if (this.round > 1) u.ap = Math.min(u.apMax, u.ap + 3)
+      this.turnStart(u)
+      if (u.down) { this.advance(); continue }
       if (u.daze) { u.ap = Math.max(0, u.ap - 2); u.daze = false }
       if (u.bleed) {
         u.hp -= 2
@@ -228,6 +304,10 @@ export class RealBattle extends SlotBattle<RealUnit> {
     const u = this.cur()
     if (this.end || u.down || this.aiN > 6 || u.ap <= 0) return false
     this.aiN++
+    // 第四版：敵方的機師照 ENEMIES 11.3 節啟動機甲（精英第 2 回合、首領第 1 回合）；偶爾先打掉一台無人機
+    if (u.mech && !u.mechUsed && u.ap >= 3 && (this.round >= 2 || u.boss)) { this.mechStart(u); return true }
+    const dr = this.drones.filter(d => !d.down && d.side !== u.side)
+    if (dr.length && !this.wp(u).melee && u.ws[u.wi].mag >= 1 && u.ap >= 2 && this.rng() < 0.3) { u.ap -= 2; this.shootDrone(u, dr[0]); this.flushWatch(); return !this.end }
     const foes = this.alive('P'), w = this.wp(u), s = u.ws[u.wi]
     let did = false
     const sub = foes.find(t => this.canSubdue(u, t))
@@ -301,6 +381,7 @@ export class RealBattle extends SlotBattle<RealUnit> {
   targets(): Target[] {
     const m = this.mode, u = this.cur()
     if (!m || this.end) return []
+    if (m.startsWith('sk:')) return this.skillTargets(m.slice(3), u)
     const foes = this.alive('E').sort((a, b) => a.slot - b.slot)
     if (m === 'shoot') return foes.map(t => ({ kind: 'unit', id: t.id }))
     if (m === 'melee') return foes.filter(t => this.dist(u, t) === 1).map(t => ({ kind: 'unit', id: t.id }))
@@ -314,6 +395,7 @@ export class RealBattle extends SlotBattle<RealUnit> {
     const u = this.cur(), k = this.mode
     const ok = this.targets().some(x => sameTarget(x, t))
     if (!ok) return false
+    if (k.startsWith('sk:')) { this.skillPick(k.slice(3), u, t); this.mode = null; this.flushWatch(); return true }
     if (t.kind === 'unit') {
       const tu = this.units[t.id]
       if (k === 'shoot') { u.ap -= this.cost('shoot', u); this.attack(u, tu) }
@@ -346,5 +428,207 @@ export class RealBattle extends SlotBattle<RealUnit> {
   surrender() {
     if (this.end) return
     this.finish('surrender', '投降：戰鬥結束，算戰敗。之後不再受傷害，每個人停在現在的生命與感載。在正式的遊戲裡，這裡直接進戰敗事件（和全隊倒下時是同一個，依贏的是誰）。', '投降。')
+  }
+
+  // ======================================================================
+  // 第四版：主動技能、快駭、機甲、無人機、控制節點、場地效果
+  // ======================================================================
+  /** 每個人的回合開始時：清掉他下的標記、RAM 回 1、無人機可以再指揮、機甲多回 2 點並倒數 */
+  turnStart(u: RealUnit) {
+    for (const t of this.units) if (t.mark === u.id) t.mark = null
+    u.qhSupport = false
+    if (u.hack && this.round > 1) u.ram = Math.min(u.hack.ram, u.ram + 1)
+    for (const d of this.drones) if (d.owner === u.id) d.used = false
+    if (u.mechOn) {
+      if (this.round > 1) u.ap = Math.min(u.apMax + 2, u.ap + 2)
+      u.mechLeft--
+      if (u.mechLeft <= 0) this.mechOff(u, '時間到，機甲解除。')
+    }
+  }
+  /** 煙霧那一格打不破（COMBAT_SYSTEM 2.5 節） */
+  smokeAt: string[] = []
+  hurtCover(side: Side, slot: number, dmg: number) { if (this.smokeAt.includes(`${side}${slot}`)) return; super.hurtCover(side, slot, dmg) }
+
+  // ---- 機甲 ----
+  mechStart(u: RealUnit) {
+    const m = u.mech!
+    u.ap -= 3
+    u.mechUsed = true; u.mechOn = true; u.mechDur = m.dur; u.mechLeft = m.turns
+    u.armor = Math.min(8, u.baseArmor + m.armor)
+    u.ws.push({ k: m.weapon, mag: REAL_WEAPONS[m.weapon].mag }); u.wi = u.ws.length - 1
+    this.log(`${this.tag(u)} 啟動${m.name}：機體 ${m.dur}、護甲 +${m.armor}、每回合多回 2 點行動點，持續 ${m.turns} 回合；用不了遮蔽。`, 'h')
+  }
+  mechOff(u: RealUnit, why: string) {
+    if (!u.mechOn) return
+    u.mechOn = false; u.mechDur = 0; u.armor = u.baseArmor
+    const i = u.ws.findIndex(w => w.k === u.mech!.weapon)
+    if (i >= 0) u.ws.splice(i, 1)
+    u.wi = 0
+    this.log(`${this.tag(u)}：${why}`, 'h')
+  }
+  /** 實彈打在機體上：先扣機體耐久；20% 回灌成機師的感載（標準檔）；機體歸零損毀，感載 +15 */
+  mechHit(t: RealUnit, dm: number) {
+    if (dm <= 0) { this.log(`${this.tag(t)} 的機體沒受傷。`); return }
+    t.mechDur -= dm
+    const back = Math.max(1, Math.round(dm * 0.2 * SYNC_BACKLASH['標準']))
+    this.log(`機體 −${dm}（剩 ${Math.max(0, t.mechDur)}），回灌：${this.tag(t)} 感載 +${back}。`)
+    this.neural(t, back)
+    if (t.mechDur <= 0 && !t.down) { this.mechOff(t, '機體損毀，機甲解除。機師感載 +15。'); this.neural(t, 15) }
+  }
+
+  // ---- 無人機 ----
+  droneCap(u: RealUnit) { return u.sync <= 1 ? 1 : u.sync <= 3 ? 2 : u.sync <= 5 ? 3 : 4 }
+  dronesOf(u: RealUnit) { return this.drones.filter(d => d.owner === u.id && !d.down && !d.turret) }
+  droneAt(side: Side, slot: number) { return this.drones.find(d => !d.down && d.side === side && d.slot === slot) ?? null }
+  /** 護盾型無人機替同一格的人擋下一次攻擊 */
+  shieldBlock(t: RealUnit) {
+    const d = this.drones.find(x => !x.down && x.side === t.side && x.slot === t.slot && x.kind === 'shield' && x.guard)
+    if (!d) return false
+    d.guard = false
+    return true
+  }
+  addDrone(owner: RealUnit, kind: DroneKind, slot: number, turret = false) {
+    const d: Drone = { id: this.droneSeq++, owner: owner.id, side: owner.side, slot, kind, name: turret ? '接管的砲塔' : DRONE_NAMES[kind], hp: turret ? 20 : 14, hpMax: turret ? 20 : 14, armor: 1, used: false, down: false, guard: kind === 'shield', turret }
+    this.drones.push(d)
+    return d
+  }
+  /** 無人機開槍：命中用操作者的槍械，距離照無人機那一格算；傷害 2d6（比手槍低一級） */
+  droneShoot(d: Drone, owner: RealUnit, t: RealUnit) {
+    const w = REAL_WEAPONS.drone_gun, r = d20(this.rng)
+    const b = owner.gun + this.rangeMod({ ...owner, slot: d.slot } as RealUnit, t, w) + (t.mark !== null ? 2 : 0), dg = this.dodge(t, owner)
+    if (r === 20 || (r !== 1 && r + b >= dg)) {
+      if (this.shieldBlock(t)) { this.log(`${d.name}打中了，可是護盾擋下了。`); return }
+      if (t.mechOn) { this.log(`${d.name}命中 ${this.tag(t)} 的機體。`); this.mechHit(t, Math.max(0, d6(this.rng, w.dice) - t.armor)); return }
+      const dm = Math.max(0, d6(this.rng, w.dice) - t.armor)
+      t.hp -= dm
+      this.log(`${d.name}（${owner.name}指揮）射擊 ${this.tag(t)}：${r}${b >= 0 ? '+' : ''}${b} 對 ${dg}，命中，傷害 ${dm}。`)
+      if (t.hp <= 0) { t.hp = 0; this.fall(t, ' 被打倒。') }
+    } else this.log(`${d.name}（${owner.name}指揮）射擊 ${this.tag(t)}：${r}${b >= 0 ? '+' : ''}${b} 對 ${dg}，沒打中。`)
+  }
+  /** 敵人單獨瞄準一台無人機：永遠暴露（迴避 10）；擊落時操作者感載 +5 */
+  shootDrone(a: RealUnit, d: Drone) {
+    const w = this.wp(a)
+    if (w.mag) a.ws[a.wi].mag--
+    const r = d20(this.rng), tot = r + a.gun
+    if (r !== 1 && tot >= 10) {
+      const dm = Math.max(1, Math.round(Math.max(0, d6(this.rng, w.dice) - d.armor) * this.tierMult(a)))
+      d.hp -= dm
+      this.log(`${this.tag(a)} 瞄準${d.name}：${tot} 對 10，命中，耐久 −${dm}。`)
+      if (d.hp <= 0) {
+        d.down = true
+        const o = this.units[d.owner]
+        this.log(`${d.name}被擊落了。${d.turret ? '' : `${o.name}感載 +5（回灌）。`}`, 'r')
+        if (!d.turret && !o.down) this.neural(o, 5)
+      }
+    } else this.log(`${this.tag(a)} 瞄準${d.name}：${tot} 對 10，沒打中。`)
+  }
+
+  // ---- 技能清單（行動圓環的中心） ----
+  skillList(u = this.cur()): SkillAction[] {
+    if (u.side !== 'P') return []
+    const out: SkillAction[] = []
+    const has = (n: string) => u.skills.includes(n)
+    const w = this.wp(u), mag = u.ws[u.wi].mag
+    if (has('要害射擊')) out.push({ k: 'aim', n: '要害射擊', c: has('定點射') ? 2 : 3, tg: 'foe', d: '瞄準再射擊一次（花彈匣 1 格）：命中 +3，打出要害時擲重創。', why: w.melee ? '手上是近戰武器' : mag < 1 ? '彈匣空了' : null })
+    if (has('連射控制')) out.push({ k: 'burst', n: '連射', c: 3, tg: 'foe', d: '花掉彈匣裡剩下的全部（至少 2 格）：傷害骰多「格數 − 1」顆；目標過定力（DC 10＋格數×2），失敗被壓制。', why: w.melee ? '手上是近戰武器' : w.mag < 2 ? '彈匣容量不到 2' : mag < 2 ? '彈匣剩不到 2 格' : null })
+    if (has('看我的！')) out.push({ k: 'first', n: '看我的！', c: 1, tg: 'foe', d: '只能在第一回合：射擊一次只花 1 點，命中 +1。每場一次。', why: this.round !== 1 ? '只能在第一回合用' : u.once.includes('看我的！') ? '這一場用過了' : w.melee || mag < 1 ? '要有子彈的槍' : null })
+    if (has('就是你了')) out.push({ k: 'mark', n: '就是你了', c: 1, tg: 'foe', d: '指定一個敵人：到你的下一回合開始前，全隊打他命中 +2。', why: null })
+    if (u.hack) {
+      out.push({ k: 'qh_tag', n: '快駭・標記', c: 0, ram: 1, tg: 'foe', d: '支援類：不用檢定，標記一個看得到的敵人（全隊打他 +2；控制類快駭要先標記）。每回合一次。', why: u.qhSupport ? '支援類快駭這回合用過了' : null })
+      out.push({ k: 'qh_short', n: '快駭・短路', c: 1, ram: 2, tg: 'foe', d: '神經類：快駭檢定對目標的防火牆，成功感載 +2d6（機甲擋不住，直接打在機師身上）。', why: null })
+      out.push({ k: 'qh_freeze', n: '快駭・癱瘓', c: 1, ram: 3, tg: 'marked', d: '控制類：目標要先被標記；防火牆精英 +2、首領 +4。成功他失去下一回合。', why: this.alive('E').some(t => t.mark !== null) ? null : '沒有被標記的敵人' })
+      for (const n of this.nodes.filter(x => !x.taken)) out.push({ k: `node:${n.id}`, n: `奪取${n.name}`, c: 1, ram: 2, d: '快駭檢定對 DC 13：拿下這個控制節點。', why: null })
+    }
+    for (const n of this.nodes.filter(x => x.taken && !x.used)) {
+      if (n.kind === 'light') out.push({ k: `use:${n.id}`, n: this.dark ? '開燈' : '關燈', c: 1, d: '黑暗：全場迴避 +2，有夜視的攻擊不受影響。', why: null })
+      if (n.kind === 'door') out.push({ k: `use:${n.id}`, n: '放下防爆門', c: 1, tg: 'pslot', d: '替我方一格造出掩體。', why: null })
+      if (n.kind === 'turret') out.push({ k: `use:${n.id}`, n: '接管砲塔', c: 1, tg: 'pslot', d: '砲塔照無人機的規則掛在我方一格，你可以指揮它開槍。', why: this.droneAtFree() ? null : '我方每一格都掛著東西了' })
+    }
+    if (u.mech) out.push({ k: 'mech', n: `啟動${u.mech.name}`, c: 3, d: `機甲是大招：機體 ${u.mech.dur}、護甲 +${u.mech.armor}、每回合多回 2 點，持續 ${u.mech.turns} 回合；用不了遮蔽；機體受傷的 20% 變成你的感載。每場一次。`, why: u.mechUsed ? '這一場用過了' : null })
+    if (u.dronesKit.length) out.push({ k: 'drone', n: `放出${DRONE_NAMES[u.dronesKit[0]]}`, c: 1, tg: 'pslot', d: `掛在我方一格，和人重疊、永遠暴露。同步 ${u.sync} 連得住 ${this.droneCap(u)} 台。`, why: this.dronesOf(u).length >= this.droneCap(u) ? `同步 ${u.sync} 只連得住 ${this.droneCap(u)} 台` : this.droneAtFree() ? null : '我方每一格都掛著東西了' })
+    for (const d of this.drones.filter(x => x.owner === u.id && !x.down)) {
+      if (d.kind === 'atk') out.push({ k: `cmd:${d.id}`, n: `指揮${d.name}（第 ${d.slot} 格）`, c: 1, tg: 'foe', d: '讓它射擊一次：命中用你的槍械，傷害 2d6。每台每回合一次。', why: d.used ? '這一台這回合動過了' : null })
+      else out.push({ k: `cmd:${d.id}`, n: `${d.name}：架起護盾`, c: 1, d: '替同一格的人擋下一次攻擊；同一格的人迴避 +2。', why: d.used ? '這一台這回合動過了' : d.guard ? '護盾已經架著' : null })
+    }
+    if (u.smoke > 0) out.push({ k: 'smoke', n: `煙霧彈（${u.smoke}）`, c: 1, tg: 'pslot', d: '我方一格變成打不破的半掩體。', why: null })
+    return out
+  }
+  private droneAtFree() { return [1, 2, 3, 4].some(sl => !this.droneAt('P', sl)) }
+  skillReason(k: string): string | null {
+    if (this.end) return '戰鬥已經結束'
+    const u = this.cur()
+    if (u.side !== 'P') return '現在是敵人的回合'
+    const s = this.skillList(u).find(x => x.k === k)
+    if (!s) return '沒有這個技能'
+    if (u.ap < s.c) return '行動點不夠'
+    if (s.ram && u.ram < s.ram) return `RAM 不夠（要 ${s.ram}）`
+    return s.why
+  }
+  /** 按技能：要選目標的進入選目標（mode = 'sk:…'），其他的直接做 */
+  skillAct(k: string): boolean {
+    if (this.skillReason(k)) return false
+    const u = this.cur(), s = this.skillList(u).find(x => x.k === k)!
+    if (s.tg) { this.mode = `sk:${k}`; return true }
+    this.mode = null
+    u.ap -= s.c
+    if (s.ram) u.ram -= s.ram
+    if (k === 'mech') { u.ap += 3; this.mechStart(u) }
+    else if (k.startsWith('node:')) {
+      const n = this.nodes.find(x => `node:${x.id}` === k)!, r = d20(this.rng) + u.hack!.bonus
+      if (r >= 13) { n.taken = true; this.log(`${u.name} 快駭${n.name}（${r} 對 13）：拿下了。`, 'g') }
+      else this.log(`${u.name} 快駭${n.name}（${r} 對 13）：沒拿下。`, 'r')
+    } else if (k.startsWith('use:')) {
+      const n = this.nodes.find(x => `use:${x.id}` === k)!
+      if (n.kind === 'light') { this.dark = !this.dark; this.log(this.dark ? `${u.name} 關了燈：場地變成黑暗，全場迴避 +2。` : `${u.name} 把燈打開。`, 'h') }
+    } else if (k.startsWith('cmd:')) {
+      const d = this.drones.find(x => `cmd:${x.id}` === k)!
+      d.used = true; d.guard = true
+      this.log(`${u.name} 讓${d.name}架起護盾。`)
+    }
+    this.flushWatch()
+    return true
+  }
+  private skillTargets(k: string, u: RealUnit): Target[] {
+    const foes = this.alive('E').sort((a, b) => a.slot - b.slot)
+    const s = this.skillList(u).find(x => x.k === k)
+    if (!s) return []
+    if (s.tg === 'foe') return foes.map(t => ({ kind: 'unit', id: t.id }))
+    if (s.tg === 'marked') return foes.filter(t => t.mark !== null).map(t => ({ kind: 'unit', id: t.id }))
+    if (s.tg === 'pslot') return [1, 2, 3, 4].filter(sl => (k === 'smoke' || k.startsWith('use:') && this.nodes.find(n => `use:${n.id}` === k)?.kind === 'door') ? true : !this.droneAt('P', sl)).map(slot => ({ kind: 'slot', side: 'P', slot }))
+    return []
+  }
+  private skillPick(k: string, u: RealUnit, t: Target) {
+    const s = this.skillList(u).find(x => x.k === k)!
+    u.ap -= s.c
+    if (s.ram) u.ram -= s.ram
+    if (t.kind === 'unit') {
+      const tu = this.units[t.id]
+      if (k === 'aim') { u.aim = true; this.log(`${u.name} 要害射擊：瞄準。`); this.attack(u, tu) }
+      else if (k === 'burst') this.attack(u, tu, { burst: true })
+      else if (k === 'first') { u.once.push('看我的！', '看我的！:now'); this.attack(u, tu); u.once = u.once.filter(x => x !== '看我的！:now') }
+      else if (k === 'mark' || k === 'qh_tag') { tu.mark = u.id; if (k === 'qh_tag') u.qhSupport = true; this.log(`${u.name} ${k === 'mark' ? '指定' : '快駭標記'} ${this.tag(tu)}：全隊打他命中 +2。`, 'h') }
+      else if (k === 'qh_short') {
+        const r = d20(this.rng) + u.hack!.bonus
+        if (r >= tu.fw) { const v = d6(this.rng, 2); this.log(`${u.name} 快駭・短路 ${this.tag(tu)}（${r} 對防火牆 ${tu.fw}）：感載 +${v}。`); this.neural(tu, v) }
+        else this.log(`${u.name} 快駭・短路 ${this.tag(tu)}（${r} 對防火牆 ${tu.fw}）：被擋下。`, 'r')
+      } else if (k === 'qh_freeze') {
+        const fw = tu.fw + (tu.boss ? 4 : tu.elite ? 2 : 0), r = d20(this.rng) + u.hack!.bonus
+        if (r >= fw) { tu.stun = true; this.log(`${u.name} 快駭・癱瘓 ${this.tag(tu)}（${r} 對 ${fw}）：他失去下一回合。`, 'g') }
+        else this.log(`${u.name} 快駭・癱瘓 ${this.tag(tu)}（${r} 對 ${fw}）：被擋下。`, 'r')
+      } else if (k.startsWith('cmd:')) {
+        const d = this.drones.find(x => `cmd:${x.id}` === k)!
+        d.used = true
+        this.droneShoot(d, u, tu)
+      }
+    } else {
+      if (k === 'drone') { const kind = u.dronesKit.shift()!; const d = this.addDrone(u, kind, t.slot); this.log(`${u.name} 放出${d.name}，掛在我方第 ${t.slot} 格。`) }
+      else if (k === 'smoke') { u.smoke--; this.cov.P[t.slot] = { l: 1, d: 99 }; this.smokeAt.push(`P${t.slot}`); this.log(`${u.name} 丟出煙霧彈：我方第 ${t.slot} 格變成打不破的半掩體。`, 'h') }
+      else if (k.startsWith('use:')) {
+        const n = this.nodes.find(x => `use:${x.id}` === k)!
+        n.used = true
+        if (n.kind === 'door') { this.cov.P[t.slot] = { l: 2, d: 30 }; this.log(`${u.name} 放下防爆門：我方第 ${t.slot} 格變成掩體。`, 'h') }
+        if (n.kind === 'turret') { this.addDrone(u, 'atk', t.slot, true); this.log(`${u.name} 接管了砲塔，掛在我方第 ${t.slot} 格。`, 'h') }
+      }
+    }
   }
 }

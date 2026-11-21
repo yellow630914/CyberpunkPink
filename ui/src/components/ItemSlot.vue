@@ -5,6 +5,7 @@ import Icon from './Icon.vue'
 import GradeBadge from './GradeBadge.vue'
 import { gradeColorVar } from '../lib/grade'
 import { useUi } from '../stores/ui'
+import { hexOf, type Dye } from '../lib/dye'
 
 /**
  * 物品格（UI 規則 1）：有東西時，邊框與等級標用那個等級的顏色，裡面是物品自己的圖標（第 3 層，沒有就退回第 2 層）；
@@ -29,6 +30,8 @@ const props = withDefaults(defineProps<{
   unavailable?: string | null
   /** 放在另一個按鈕裡時用 span（按鈕不能套按鈕） */
   inert?: boolean
+  /** 染過的顏色（EQUIPMENT 第 9 節）：格子底色帶主色調、下緣一條副色調，右上兩個小色塊 */
+  dye?: Dye | null
 }>(), { size: 'md', showName: false, inert: false })
 const emit = defineEmits<{ (e: 'select'): void }>()
 const ui = useUi()
@@ -46,17 +49,19 @@ const iconId = computed(() => {
 })
 const color = computed(() => (props.item && !props.unknown ? gradeColorVar(props.item.grade) : 'var(--line-2)'))
 const name = computed(() => (props.unknown ? '包著的盒子' : props.item?.name ?? '空'))
+const dyeStyle = computed(() => (props.dye && props.item ? { '--dye-p': hexOf(props.dye.primary), '--dye-s': hexOf(props.dye.secondary) } : {}))
 const aria = computed(() => [props.label, name.value, props.item && !props.unknown ? `等級 ${props.item.grade}` : ''].filter(Boolean).join('，'))
 </script>
 
 <template>
-  <component :is="inert ? 'span' : 'button'" :type="inert ? undefined : 'button'" class="slot" :class="[size, { empty: !item, sel: selected, covered, unknown, locked, 'is-unavailable': !!unavailable }]" :style="{ '--gc': color }" :aria-label="inert ? undefined : aria" :aria-pressed="inert ? undefined : selected" :aria-disabled="unavailable ? 'true' : undefined" :title="unavailable || undefined" @click="click">
+  <component :is="inert ? 'span' : 'button'" :type="inert ? undefined : 'button'" class="slot" :class="[size, { empty: !item, sel: selected, covered, unknown, locked, 'is-unavailable': !!unavailable }]" :style="{ '--gc': color, ...dyeStyle }" :aria-label="inert ? undefined : aria" :aria-pressed="inert ? undefined : selected" :aria-disabled="unavailable ? 'true' : undefined" :title="unavailable || undefined" @click="click">
     <span class="frame">
       <Icon :id="iconId" :size="size === 'sm' ? '74%' : '64%'" :fit="!item || iconId.startsWith('ic-')" />
       <GradeBadge v-if="item && !unknown" class="badge" :grade="item.grade" small />
       <span v-if="item?.unique && !unknown" class="uq" title="非制式的獨特物品" />
       <span v-if="item?.legality === '登記' && !unknown && size !== 'sm'" class="reg">登記</span>
       <span v-if="qty && qty > 1" class="qty">×{{ qty }}</span>
+      <span v-if="dye && item" class="dye" aria-hidden="true" data-dye><i class="p" /><i class="s" /></span>
     </span>
     <span v-if="showName || label" class="nm">
       <small v-if="label">{{ label }}</small>
@@ -85,4 +90,10 @@ const aria = computed(() => [props.label, name.value, props.item && !props.unkno
 .nm b { font-size: var(--fs-fine); color: var(--gc); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
 .empty .nm b { color: var(--ink-3); font-weight: 700; }
 .slot:hover .frame { filter: brightness(1.15); }
+.slot[style*="--dye-p"] .frame { background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--dye-p) 42%, var(--bg-term)) 0 48%, var(--bg-term) 78%); }
+.slot[style*="--dye-p"] .frame::after { content: ""; position: absolute; left: 18%; right: 18%; bottom: 5px; height: 3px; border-radius: 2px; background: var(--dye-s); }
+.dye { position: absolute; top: 3px; right: 12px; display: flex; gap: 2px; }
+.dye i { width: 9px; height: 9px; border-radius: 2px; box-shadow: 0 0 0 1px #0008; }
+.dye .p { background: var(--dye-p); } .dye .s { background: var(--dye-s); }
+.sm .dye i { width: 7px; height: 7px; }
 </style>

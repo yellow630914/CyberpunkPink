@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, reactive } from 'vue'
 import { HomeMap, deriveRooms, comfort, storage, validatePlacement, walkGrid, cellsOf, type PlacedFurniture, type Rotation } from '../lib/home'
-import { FURNITURE, TOWER4_LAYOUTS, START_FURNITURE, SHOP_FLOOR_LAYOUT, RESIDENCES, type ShopKind } from '../data/home'
+import { FURNITURE, START_FURNITURE, SHOP_FLOOR_LAYOUT, RESIDENCES, layoutFor, type ShopKind } from '../data/home'
 import type { Point } from '../data/types'
 
 /**
@@ -32,13 +32,15 @@ export const useHome = defineStore('home', () => {
   const shop = reactive<{ kind: ShopKind | null; manager: string | null; last: string | null; open: boolean }>({ kind: null, manager: null, last: null, open: true })
   /** 安全屋：住處的 id（最多兩處） */
   const safehouses = ref<string[]>([])
+  /** 搬家時新家擺不下、打包起來的家具（家具 id）：從「家具」分頁再擺出來 */
+  const boxed = ref<string[]>([])
   let seq = 100
 
-  const map = computed(() => new HomeMap(floor.value === 'shop' && tier.value === 3 ? SHOP_FLOOR_LAYOUT : TOWER4_LAYOUTS[tier.value === 1 ? 1 : 2]))
+  const map = computed(() => new HomeMap(floor.value === 'shop' && tier.value === 3 ? SHOP_FLOOR_LAYOUT : layoutFor(residence.value, tier.value)))
   const residentRooms = computed(() => people.value.filter(p => p.kind === 'ally' && p.room).map(p => p.room!))
   const rooms = computed(() => deriveRooms(map.value, FURNITURE, placed.value, { chosen, residentRooms: residentRooms.value }))
   const sleepers = computed(() => people.value.filter(p => p.sleeps).length)
-  const comfortInfo = computed(() => comfort(FURNITURE, floors.up, floor.value === 'up' ? rooms.value : deriveRooms(new HomeMap(TOWER4_LAYOUTS[tier.value === 1 ? 1 : 2]), FURNITURE, floors.up, { chosen, residentRooms: residentRooms.value }), { sleepers: sleepers.value, built: 0, peopleBonus: 0 }))
+  const comfortInfo = computed(() => comfort(FURNITURE, floors.up, floor.value === 'up' ? rooms.value : deriveRooms(new HomeMap(layoutFor(residence.value, tier.value)), FURNITURE, floors.up, { chosen, residentRooms: residentRooms.value }), { sleepers: sleepers.value, built: 0, peopleBonus: 0 }))
   const storageInfo = computed(() => storage(FURNITURE, rooms.value))
   const residents = computed(() => people.value.filter(p => p.kind === 'ally'))
   /** 店面讓名冊上的人有地方待：住戶上限另 +2 */
@@ -81,28 +83,56 @@ export const useHome = defineStore('home', () => {
   function upgrade() { if (tier.value < maxTier.value) tier.value = (tier.value + 1) as 2 | 3 }
   /** 升到三級：選店面的種類（頂讓 10,000＋裝潢） */
   function openShop(kind: ShopKind) { tier.value = 3; shop.kind = kind; setFloor('shop') }
-  /** 搬家：家具與箱子裡的東西跟著走（店面的裝潢搬不走）；新住處從它的起始等級開始 */
-  function moveTo(id: string) {
+  /**
+   * 搬家（DOWNTIME 7.2 節，第四版每一處都有圖）：家具與箱子裡的東西跟著走，店面的裝潢搬不走；新住處從它的起始等級開始。
+   * 在新的圖上原位擺得下的家具照原位，擺不下的打包回背包（回傳它們的家具 id）；浴廁的固定設備每一處自己有。
+   */
+  function moveTo(id: string): string[] {
     const r = RESIDENCES.find(x => x.id === id)
-    if (!r || !r.layout) return
+    if (!r || !r.layout) return []
     residence.value = id
     tier.value = Math.max(r.tiers[0], Math.min(tier.value, r.tiers[1])) as 1 | 2 | 3
     if (tier.value < 3) { shop.kind = null; floors.shop = [] }
     floor.value = 'up'
     safehouses.value = safehouses.value.filter(s => s !== id)
+    const m = new HomeMap(layoutFor(id, tier.value))
+    const keep: PlacedFurniture[] = [], boxed_: string[] = []
+    for (const f of floors.up) {
+      if (FURNITURE[f.def].fixed) continue
+      const ok = validatePlacement(m, FURNITURE, keep, f, { people: [], roomUse: {} }).ok
+      if (ok) keep.push(f); else boxed_.push(f.def)
+    }
+    // 浴廁的淋浴間：放在新住處浴廁的第一格
+    const by = m.layout.rows.findIndex(row => row.includes('B'))
+    if (by >= 0) keep.push({ uid: `f${seq++}`, def: 'shower', x: m.layout.rows[by].indexOf('B'), y: by, rot: 0 })
+    floors.up = keep
+    boxed.value.push(...boxed_)
+    const me = people.value.find(p => p.id === 'me')
+    if (me) me.pos = m.entrance()
+    for (const p of people.value) if (p.id !== 'me') p.pos = m.entrance()
+    return boxed_
+  }
+  /** 把一件打包的家具擺出來 */
+  function placeBoxed(i: number, x: number, y: number, rot: Rotation) {
+    const def = boxed.value[i]
+    if (!def) return { ok: false as const, reason: '沒有這件。' }
+    const r = place(def, x, y, rot)
+    if (r.ok) boxed.value.splice(i, 1)
+    return r
   }
   function addSafehouse(id: string) { if (safehouses.value.length < 2 && !safehouses.value.includes(id) && id !== residence.value) safehouses.value.push(id) }
   function dropSafehouse(id: string) { safehouses.value = safehouses.value.filter(s => s !== id) }
 
   // ---- 存檔（第 3 版起家園跟著存檔與快照走） ----
   function serialize() {
-    return JSON.parse(JSON.stringify({ tier: tier.value, residence: residence.value, floors, chosen, people: people.value, staff: staff.value, shop, safehouses: safehouses.value }))
+    return JSON.parse(JSON.stringify({ tier: tier.value, residence: residence.value, floors, chosen, people: people.value, staff: staff.value, shop, safehouses: safehouses.value, boxed: boxed.value }))
   }
   function hydrate(d: Record<string, unknown> | null | undefined) {
     if (!d || typeof d !== 'object') return
     const v = d as ReturnType<typeof serialize>
     if (v.tier === 1 || v.tier === 2 || v.tier === 3) tier.value = v.tier
     if (typeof v.residence === 'string') residence.value = v.residence
+    if (Array.isArray(v.boxed)) boxed.value = [...v.boxed]
     if (v.floors) { floors.up = structuredClone(v.floors.up ?? []); floors.shop = structuredClone(v.floors.shop ?? []) }
     if (v.chosen) { for (const k of Object.keys(chosen)) delete chosen[k]; Object.assign(chosen, v.chosen) }
     if (Array.isArray(v.people)) people.value = structuredClone(v.people)
@@ -113,7 +143,7 @@ export const useHome = defineStore('home', () => {
   }
 
   return {
-    tier, residence, maxTier, floor, floors, placed, chosen, people, staff, shop, safehouses, map, rooms, comfortInfo, storageInfo, residents, sleepers, caps, grid, visible,
+    tier, residence, boxed, placeBoxed, maxTier, floor, floors, placed, chosen, people, staff, shop, safehouses, map, rooms, comfortInfo, storageInfo, residents, sleepers, caps, grid, visible,
     check, place, move, remove, furnitureAt, setFloor, upgrade, openShop, moveTo, addSafehouse, dropSafehouse, serialize, hydrate,
   }
 })

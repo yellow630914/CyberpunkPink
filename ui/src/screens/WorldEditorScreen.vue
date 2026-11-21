@@ -7,7 +7,7 @@ import Hint from '../components/Hint.vue'
 import ReasonButton from '../components/ReasonButton.vue'
 import { useUi } from '../stores/ui'
 import { CATEGORIES, PACK, START_ENTRIES, BUILTIN, COUNTERS, LEGEND } from '../data/editor'
-import { checkWorld, planImport, type WorldEntry, type Issue } from '../lib/worldCheck'
+import { checkWorld, planImport, whereUsed, type WorldEntry, type Issue } from '../lib/worldCheck'
 import { SCHEMAS, SCHEMA_SAMPLES, blankEntry } from '../lib/schemas'
 import SchemaForm from '../components/SchemaForm.vue'
 import { useGuides } from '../lib/useGuides'
@@ -90,6 +90,8 @@ const uses = computed(() => {
   const series = entries.value.find(x => x.kind === 'series' && (x.members as string[]).includes(e.id))
   return { reads: [...(req.flags ?? []), ...Object.keys(req.counters ?? {})], writes, readers, series }
 })
+/** 所有種類的「用在哪」（第四版）：它引用的與引用它的 */
+const refs = computed(() => (sel.value ? whereUsed(sel.value, entries.value) : null))
 const ISSUE_COLOR: Record<string, string> = { FIELD: 'var(--danger)', DUP: 'var(--danger)', REF: 'var(--danger)', AGE: 'var(--hp)', FLOOR: 'var(--hp)', WARN: 'var(--warn)' }
 
 // ---- 匯入與匯出 ----
@@ -223,7 +225,14 @@ void issueLine
               <p class="h">在系列裡的位置</p>
               <div v-if="uses.series" class="series"><span v-for="m in (uses.series.members as string[])" :key="m" class="tag" :class="{ hot: m === sel?.id }">{{ entries.find(e => e.id === m)?.name ?? m }}</span></div>
             </template>
-            <div v-else class="empty-note">這一種內容的引用關係在第四版接上（現在只有事件）。</div>
+            <template v-if="refs">
+              <p class="h">它引用的<Hint>這一筆的欄位裡，值是另一筆內容的 id 的地方。所有種類都看。</Hint></p>
+              <div v-if="!refs.refs.length" class="empty-note">沒有引用別的內容。</div>
+              <button v-for="r in refs.refs" :key="r.where + r.id" type="button" class="iss btnish" data-ref @click="selIdx = Math.max(0, entries.findIndex(x => x.id === r.id))"><span class="code mono">{{ KIND_NAME[r.kind] ?? r.kind }}</span>{{ r.name }}<small class="mono">{{ r.where }}</small></button>
+              <p class="h">引用它的</p>
+              <div v-if="!refs.usedBy.length" class="empty-note">沒有別的內容用到它。</div>
+              <button v-for="r in refs.usedBy" :key="r.id + r.where" type="button" class="iss btnish" data-used-by @click="selIdx = Math.max(0, entries.findIndex(x => x.id === r.id))"><span class="code mono">{{ KIND_NAME[r.kind] ?? r.kind }}</span>{{ r.name }}<small class="mono">{{ r.where }}</small></button>
+            </template>
           </template>
         </aside>
       </div>

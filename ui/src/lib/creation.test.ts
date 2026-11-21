@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ageBlock, freeValues, attrBlock, attrMod, attrBudget, attrStepBlock, fmtMod, basicLeft, basicStepBlock, cyberSummary, cyberPickBlock, cyberBlock, traitSummary, traitPickBlock, gearPoints, gearSummary, gearAddBlock, fitKit } from './creation'
+import { ageBlock, freeValues, attrBlock, attrMod, attrBudget, attrStepBlock, fmtMod, basicLeft, basicStepBlock, cyberSummary, cyberPickBlock, cyberBlock, traitSummary, traitPickBlock, gearPoints, gearSummary, gearAddBlock, fitKit, derivedLooks, styleTags } from './creation'
 import { CYBER_OPTIONS, TRAITS, SUGGESTED_KITS } from '../data/creation'
 import { ITEMS } from '../data/items'
 
@@ -101,5 +101,32 @@ describe('起始裝備：12 點，只能買 I～II 級', () => {
   it('建議組合超過 12 點時從最後一件拿掉', () => {
     for (const ids of Object.values(SUGGESTED_KITS)) expect(gearSummary(fitKit(ids.map(i => ITEMS[i]))).left).toBeGreaterThanOrEqual(0)
     expect(fitKit([ITEMS.it_6fa4e8, ITEMS.it_7eb6ee, ITEMS.it_7eb6ee]).length).toBe(2)
+  })
+})
+
+describe('外觀裡推出來的三樣（第四版）', () => {
+  it('風格標籤照物品的「風格」那一格', () => {
+    expect(styleTags({ stats: [['風格', '街頭 +2']] })).toEqual([['街頭', 2]])
+    expect(styleTags({ stats: [['風格', '櫻町系'], ['媒體', '+1']] })).toEqual([['櫻町系', 1]])
+    expect(styleTags({ stats: [['風格', '+1']] })).toEqual([])
+  })
+  it('外露的義體照裝的義體與牌子的外觀；看不見的不寫', () => {
+    const d = derivedLooks({ cyber: [opt('br_std'), opt('cw_eye'), opt('cw_pump')], gear: [], pronoun: '她', baseStyle: '工裝', line: '貓' })
+    expect(d.cyber).toHaveLength(2)
+    expect(d.cyber[1]).toContain('她的左眼是織女的標準義眼-100，白色的樹脂外殼')
+    expect(d.beast).toEqual([])
+  })
+  it('獸化照裝的耳與尾；系照第 6 步選的', () => {
+    const d = derivedLooks({ cyber: [opt('br_hive'), opt('cw_ears'), opt('cw_tail_bio')], gear: [], pronoun: '他', baseStyle: '工裝', line: '狐' })
+    expect(d.beast[0]).toContain('他的頭上有一對狐耳')
+    expect(d.beast[0]).toContain('慢慢轉向一邊')
+    expect(d.beast[1]).toContain('狐尾，毛是真的')
+    expect(d.cyber[0]).toContain('上一任主人刻的字')
+  })
+  it('風格：出身那套日常服裝加上穿的衣服，取最高的', () => {
+    const d = derivedLooks({ cyber: [], gear: [ITEMS.it_f359b2, ITEMS.it_ccbaca], pronoun: '她', baseStyle: '工裝', line: '貓' })
+    expect(d.style.main).toBe('街頭')
+    expect(d.style.tags.find(t => t[0] === '霓虹龐克')![1]).toBe(2)
+    expect(d.style.line).toContain('巷口機能夾克')
   })
 })
