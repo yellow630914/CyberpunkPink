@@ -1,0 +1,12 @@
+{
+  "repoRoot": ".",
+  "specRoot": "docs",
+  "workDir": "dev",
+  "elondiaRef": "/home/user/yellow630914/elondiarpg",
+  "coreDirs": ["engine/src/core", "engine/schemas"],
+  "featureDirs": ["engine/src/features"],
+  "dataDirs": ["engine/data"],
+  "uiDirs": ["ui/src", "ui/scripts"],
+  "testDirs": ["engine/tests", "ui/tests", "**/__tests__"],
+  "testFilePatterns": [".test.ts", ".spec.ts"]
+}
