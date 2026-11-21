@@ -356,7 +356,7 @@ select.sel{font:800 12.5px var(--font);padding:6px 8px;background:#120D19;border
     <div class="wide"><table class="rt" id="srcTbl"></table></div>
     <p class="h" style="margin-top:16px">成人路由的來源・五個</p>
     <div class="wide"><table class="rt" id="adultTbl"></table></div>
-    <div class="note">預設照每個任務的大小（大、中、小）給。成人路由的五個來源預設和一般的來源相同，可以分開；這一局把它們分到了「成人路由」。被服務商拒絕時不換備用模型，以免把被拒的內容送到你沒選的服務商；逾時與網路錯誤才換。</div>
+    <div class="note">預設照每個任務的大小（大、中、小）給。成人路由的五個來源預設和一般的來源相同，可以分開；這一局把它們分到了「成人路由」。成人路由的五個來源先不設備用模型，重試與逾時都用同一個成人來源。被服務商拒絕時不換備用模型，以免把被拒的內容送到你沒選的服務商；逾時與網路錯誤才換。</div>
   </div>
 </section>
 
@@ -548,7 +548,7 @@ document.querySelectorAll('[data-go]').forEach(l=>l.onclick=()=>{document.queryS
 drawDiff();sum();
 // AI：和 AI 工坊共用同一份設定（同一個 localStorage 鍵；改一邊，另一邊重新整理或切回來就看得到）
 const AIK='cpp-ai-v1';
-const AI0={ai:1,judge_free:1,judge_work:1,judge_other:1,clamp_rewrite:0,narrate:1,trade_text:1,combat_text:0,polish:{},sexrec:1,
+const AI0={ai:1,judge_free:1,judge_work:1,judge_other:1,clamp_asked:1,narrate:1,trade_text:1,combat_text:0,polish:{},sexrec:1,
  bg_flavor_shop:1,bg_flavor_roster:1,bg_npc_news:1,bg_stream_goal:1,bg_stream_chat:1,bg_footage_caption:1,
  agent:0,query_only:0,hook_text:1,hook_block:1,hook_night:1,hook_comm:1,hook_shop:1,
  lim_hook:1,lim_visit:10,lim_event:3,lim_night:10,lim_comm:10,lim_shop:10,chainbar:0,retry:{},src:{},fb:{},adult:{}};
@@ -572,16 +572,16 @@ const allEq=a=>a.every(v=>v===a[0]);
 const RET=()=>TASKS.map(t=>AI.retry[t]??1),PO=()=>POLISH.map(c=>AI.polish[c]?1:0),OTH=()=>['lim_visit','lim_night','lim_comm','lim_shop'].map(k=>AI[k]);
 const A=[['總開關'],
  {n:'使用 AI',k:'ai',d:'開',s:'AI_TASKS 1.1 節',ds:'關掉時每一步都走程式的退路，見右邊。'},
- ['判定'],
+ ['判定與夾值'],
  {n:'自由行動的判定',k:'judge_free',d:'開',s:'AI_TASKS 3.13 節',ds:'關掉時，自由行動照骰值與參考 DC 由程式判定，玩家寫了做法也一樣。'},
  {n:'打工的一班',k:'judge_work',d:'開',s:'AI_TASKS 3.13 節',ds:'關掉時，打工的一班照骰值與參考 DC 由程式判定。'},
  {n:'事件的「我要做別的」',k:'judge_other',d:'開',s:'AI_TASKS 3.13 節',ds:'關掉時，「我要做別的」照骰值與參考 DC 由程式判定，選項照樣在。'},
+ {n:'玩家要求的結果也夾值',k:'clamp_asked',d:'開',s:'AI_TASKS 2.5 節',ds:'你在自由行動、「我要做別的」或打工的做法裡要的東西，和 AI 自己給的一樣夾在這一區的上限內。想作弊就關掉：關掉之後，你明說要的只檢查格式。內容底線不論開關都擋。'},
  ['正文'],
  {n:'敘事',k:'narrate',d:'開',s:'AI_TASKS 4.1 節',ds:'所有的正文一起。關掉時，紀錄只寫戰報。'},
  {n:'交易要不要寫正文',k:'trade_text',d:'寫',on:'寫',off:'不寫',s:'AI_TASKS 3.3 節',ds:'不寫時，買賣只留一行系統紀錄。'},
  {n:'戰鬥正文',k:'combat_text',t:'seg',o:['結束時寫一次','每回合一小段'],d:'結束時寫一次',s:'AI_TASKS 3.9 節',ds:'每回合寫一小段比較熱鬧，也比較慢。內海戰鬥用同一個設定。'},
  {n:'潤色',k:'polish',t:'polish',d:'關',s:'PROMPTS 2.4 節',ds:'寫完正文之後再跑一次文風的修飾。這裡一次開關全部的鏈；每條鏈各自開在 AI 工坊。'},
- {n:'夾值後重寫相關的句子',k:'clamp_rewrite',d:'不重寫',on:'重寫',off:'不重寫',s:'AI_TASKS 2.5 節',ds:'AI 自己給的後果被夾住時，要不要把正文裡對應的句子改寫成夾過的數字。'},
  ['其他任務：用 AI 還是照規則'],
  {n:'記下性經歷',k:'sexrec',d:'開',s:'AI_TASKS 4.2 節',ds:'關掉時，程式照場景紀錄記下這一場，一句話用模板。'},
  {n:'今天的貨',k:'bg_flavor_shop',d:'開',s:'AI_TASKS 4.4 節',ds:'關掉時照候選與目錄價上架。'},
