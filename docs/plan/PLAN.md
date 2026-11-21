@@ -14,7 +14,7 @@
 | 3 | **潤色** | 配合平衡後的數字、去 AI 味；在純文件上做 |
 | 4 | **匯入** | 把潤色過的內容經世界編輯器的路徑匯進引擎 |
 
-- **平衡另開一個工作階段**，必須在引擎核心與世界編輯器完成之前做完。要做的事是 [BALANCE](../systems/BALANCE.md) 第 6 節的七項，加上第 5.1 節列的數字。
+- **平衡另開一個工作階段**，必須在引擎核心與世界編輯器完成之前做完。要做的事是 [BALANCE](../systems/BALANCE.md) 第 6 節的四項，加上第 5.1 節列的數字。
 - 給 ElondiaRPG 的減熵清單在共用管道搬完、整理好之後交第一版（[IMPLEMENTATION](IMPLEMENTATION.md) 第 4 節）。
 
 ## 2. 世界編輯器與匯入
@@ -51,18 +51,14 @@
 
 ### 5.1 平衡（交給平衡的工作階段）
 
-- [BALANCE](../systems/BALANCE.md) 第 6 節第 1 項：機甲的機體耐久改成同級精英生命的倍數，機體與機師本人各佔多少（ENEMIES 第 11 節、ITEMS 第 14 節、[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 9.3 節）；機甲疊全檔同步時的回灌。
-- BALANCE 第 6 節第 2 項：名媛的換臉比預算弱；[SKILLS](../systems/SKILLS.md) 1.3、1.10 節樹的階的門檻。
-- BALANCE 第 6 節第 3 項：錢與家：高等級的住處與帳單對不上（DOWNTIME 7.2 節、[LIFE](../world/LIFE.md) 1.3 節）；片的收入、價差、區的倍率、價格表照 2.8 節對一次；[CHARACTER](../systems/CHARACTER.md) 2.1 節、5.4 節的起始義體點數（暫定 10 點）與起始的錢 C$3,000。
-- BALANCE 第 6 節第 4 項：輿論戰的牌面與對手的發稿怎麼隨等級長，之後給模擬器加輿論戰的主題，再定對手的數值；[OPINION](../systems/OPINION.md) 第 2 節頻道經營與第 3 節棋盤的數字一起定。
-- BALANCE 第 6 節第 5 項：內容裡寫的 DC 算不算檔位、吃不吃難度的偏移；報酬照 COMMISSION_TEMPLATES 的公式。
-- BALANCE 第 6 節第 6 項：[CYBERSPACE](../systems/CYBERSPACE.md) 第 8 節隨機地圖每層的遭遇數與陷阱的感載，照「不補給打得完」對一次；8.2 節迷宮館的延長賽（每層等級 +1、獎金加倍）。
-- BALANCE 第 6 節第 7 項：傳奇級的戰鬥，真的要寫時另外配隊伍的準備並用 `legend` 主題確認勝率。
-- [ENEMIES](../systems/ENEMIES.md) 第 14 節第 1、3、4 項：雜兵的生命不照主角的公式（措辭已經過期）；鎮溺隊（12.2 節）還是舊的絕對數字（階、生命 48、甲 10）與「每三回合補一個班、沒有上限」；機甲的解法表與換檔的分歧。
+- [BALANCE](../systems/BALANCE.md) 第 6 節第 1 項：輿論戰的模擬加上風向、說法牌、降流與否認、多佔一次的技能，再對一次對手的數值與 [OPINION](../systems/OPINION.md) 第 2、3 節的數字。
+- BALANCE 第 6 節第 2 項：事件與任務裡寫死的錢照 COMMISSION_TEMPLATES 的公式對一次。
+- BALANCE 第 6 節第 3 項：[CYBERSPACE](../systems/CYBERSPACE.md) 第 8 節隨機地圖每層的遭遇數與陷阱的感載，照「不補給打得完」對一次。
+- BALANCE 第 6 節第 4 項：傳奇級的戰鬥，真的要寫時另外配隊伍的準備並用 `legend` 主題確認勝率。
 
 ### 5.2 系統
 
-- [ENEMIES](../systems/ENEMIES.md) 第 14 節第 2 項：二十九種戰敗事件的分法（第 6 節），尤其 `tuning`、`fed`、`drained`、`tinkered`、`taken`。
+- [ENEMIES](../systems/ENEMIES.md) 第 14 節第 1 項：二十九種戰敗事件的分法（第 6 節），尤其 `tuning`、`fed`、`drained`、`tinkered`、`taken`。
 - [CHARACTER](../systems/CHARACTER.md) 第 4 節：特質的清單之後生成（現在只有例子）。
 - [GAME_DESIGN](../GAME_DESIGN.md) 第 9 節：報告裡訂閱（取代 `audience`）與沉溺的下限（取代 `humanity_cap`）的欄位名。
 - 風格影響街頭信譽的成長（「行頭勝於實力」）：現在只體現在風格上，要不要讓風格直接影響信譽的成長還沒決定。

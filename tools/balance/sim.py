@@ -215,12 +215,12 @@ def mech_tick(u):
         if u.mturns == 0 or u.dur <= 0:
             u.mturns = 0
             u.dur = 0
-            u.armor, u.dice, u.regen, u.magmax, u.exposed = m['base']
+            u.armor, u.dice, u.regen, u.magmax, u.exposed, u.mult = m['base']
             u.mag = min(u.mag, u.magmax)
     elif not m.get('used') and u.turn >= m['start'] and u.ap >= 3:
         u.ap -= 3
         m['used'] = True
-        m['base'] = (u.armor, u.dice, u.regen, u.magmax, u.exposed)
+        m['base'] = (u.armor, u.dice, u.regen, u.magmax, u.exposed, u.mult)
         u.armor = min(m['armor_cap'], u.armor + m['armor'])
         u.dice = m['dice']
         u.regen += m['ap']
@@ -268,6 +268,8 @@ def make_party(C, g):
 def make_enemy(C, eg, rank):
     if rank == '機師':
         return make_pilot(C, eg)
+    if rank == '首領機師':
+        return make_pilot(C, eg, {'start': 1}, rank='首領')
     d = C.get('difficulty')
     k = (d['boss'] if rank == '首領' else d['minions'][BAND_OF[eg]]) if d else {'hp': 1, 'dmg': 1}
     key = C.get('key_mult', 1.0) if rank != '雜兵' else 1.0   # 任務關鍵節點 ×1.1～1.2、具名 ×1.3～1.5：精英與首領的生命與傷害
@@ -282,16 +284,17 @@ def make_enemy(C, eg, rank):
 
 # 敵方的機甲（ENEMIES 第 11 節）：精英機師的強化狀態，2.5 點。耐久＝同級精英生命 × dur；護甲 +4、上限 8；每回合多回 2 點行動點；
 # 武器換成機甲的武器（4d6 加等級骰，彈匣 4）；永遠暴露；同步＝機甲的等級，持續 2 ＋ 同步回合；精英在第 2 回合啟動。
-MECH = {'dur': 0.4, 'pilot_hp': 1.0, 'dmg': 1.0, 'armor': 4, 'armor_cap': 8, 'ap': 2, 'dice': 4, 'mag': 4, 'start': 2}
+# 定案（2026-11-21）：機體＝同級精英生命 ×0.3（型號再乘修正）；機師本人的生命 ×0.7、傷害 ×0.8（精英的倍率 0.6 變成約 0.5）
+MECH = {'dur': 0.3, 'pilot_hp': 0.7, 'dmg': 0.8, 'armor': 4, 'armor_cap': 8, 'ap': 2, 'dice': 4, 'mag': 4, 'start': 2}
 
 
-def make_pilot(C, eg, cfg=None):
+def make_pilot(C, eg, cfg=None, rank='精英'):
     m = dict(MECH, **(C.get('mech') or {}), **(cfg or {}))
-    u = make_enemy(C, eg, '精英')
+    u = make_enemy(C, eg, rank)
     u.hp = u.max = round(u.hp * m['pilot_hp'])
     u.mult *= m['dmg']
     arm = m['armor'][eg] if isinstance(m['armor'], (list, tuple)) else m['armor']
-    u.mech = {'dur': round(C['e_hp']['精英'][eg] * m['dur']), 'armor': arm, 'armor_cap': m['armor_cap'], 'ap': m['ap'],
+    u.mech = {'dmg': m['dmg'], 'dur': round(C['e_hp']['精英'][eg] * m['dur']), 'armor': arm, 'armor_cap': m['armor_cap'], 'ap': m['ap'],
               'dice': m['dice'] + C['grade_dice'][eg], 'mag': m['mag'], 'start': m['start'], 'turns': 2 + (eg + 1)}
     return u
 
@@ -845,11 +848,10 @@ def show_legend(C, rng, trials):
 
 # 機甲的幾種寫法（BALANCE 第 6 節第 1 項）：(說明, 設定)。耐久＝同級精英生命 × dur，機師本人的生命 × pilot_hp
 MECH_OPTIONS = [
-    ('機體 ×0.4、機師 ×1（BALANCE 原本的建議）', {'dur': 0.4, 'pilot_hp': 1.0}),
-    ('機體 ×0.3、機師 ×1（接近現在的 III 50、IV 62、V 75）', {'dur': 0.3, 'pilot_hp': 1.0}),
-    ('機體 ×0.3、機師 ×0.6', {'dur': 0.3, 'pilot_hp': 0.6}),
-    ('機體 ×0.2、機師 ×0.6', {'dur': 0.2, 'pilot_hp': 0.6}),
-    ('機體 ×0.3、機師 ×0.7、機甲的傷害 ×0.8', {'dur': 0.3, 'pilot_hp': 0.7, 'dmg': 0.8}),
+    ('定案：機體 ×0.3、機師的生命 ×0.7、傷害 ×0.8', {}),
+    ('對照：機體 ×0.4、機師 ×1、傷害 ×1（原本的建議）', {'dur': 0.4, 'pilot_hp': 1.0, 'dmg': 1.0}),
+    ('對照：機體 ×0.3、機師 ×1、傷害 ×1', {'dur': 0.3, 'pilot_hp': 1.0, 'dmg': 1.0}),
+    ('對照：機體 ×0.2、機師 ×0.6、傷害 ×1', {'dur': 0.2, 'pilot_hp': 0.6, 'dmg': 1.0}),
 ]
 
 
@@ -865,6 +867,9 @@ def show_mech(C, rng, trials):
         b = [encounter(D, g, g, ['首領', '機師', '雜兵'], rng, trials) for g in range(5)]
         print(f'  {label}：' + '｜'.join(f'{G[g]} {pct(x[0])}（{x[0] / y[0] - 1:+.0%}）' for g, (x, y) in enumerate(zip(r, base)))
               + '；首領戰 ' + '｜'.join(f'{G[g]} {pct(x[0])} 勝{pct(x[2])}' for g, x in enumerate(b)))
+    bp = [encounter(C, g, g, ['首領機師', '雜兵', '雜兵', '雜兵'], rng, trials) for g in range(2, 5)]
+    bo = [encounter(C, g, g, ['首領', '雜兵', '雜兵', '雜兵'], rng, trials) for g in range(2, 5)]
+    print('  首領機師（第 1 回合啟動）＋3 雜兵，定案的寫法：' + '｜'.join(f'{G[g + 2]} {pct(x[0])} 勝{pct(x[2])}（首領 {pct(y[0])}）' for g, (x, y) in enumerate(zip(bp, bo))))
 
 
 # 技能樹的份量與容量（SKILLS 1.9 節）：被動 1／1.5／2／2.5／3 格、容量 2～6；主動 1～5 格；每場一次的主動 3／4／6／8／10 格；
@@ -966,10 +971,62 @@ def show_xp(C):
         print(f'{g:>3} 第 {lo:>2}～{hi:>2} 件  累計 {a:>5}～{b:>5}')
 
 
+# 輿論戰（OPINION 第 3、4 節）的簡化模擬：九格、六回合、聲量上限 10、佔沒人的格子花 2、佔對方的格子花 3（風向當 0）。
+# 你：每點編輯點聲量 2（±1），料牌在 III 級的戰役 +1、V 級 +2（2026-11-21 定案；每回合約「編輯點 ÷ 1.5」張料牌）。
+# 對手：每點公關點發稿一次，聲量照 ENEMIES 1.5 節（I～II +2、III～V +3，±1）。分數照大眾議題的量級：中央 3、兩格 2、其他 1。
+OP_SCORES = [[1, 1, 2], [1, 3, 1], [2, 1, 1]]
+OP_CARD_BONUS = [0, 0, 1, 1, 2]
+OP_PR = {1: 2, 2: 4, 3: 6}
+
+
+def opinion_war(C, g, strength, rng, trials, bonus=True, turns=6):
+    wins = 0.0
+    adj = lambda c: [(c[0] + dx, c[1] + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)) if 0 <= c[0] + dx < 3 and 0 <= c[1] + dy < 3]
+    ep = C['op_player_ep'][g]
+    for _ in range(trials):
+        own = {(2, 0): 'P', (0, 2): 'O'}
+        vol = {'P': 0, 'O': 0}
+        over = None
+        for t in range(turns):
+            order = ['P', 'O'] if rng.random() < 0.5 else ['O', 'P']
+            for side in order:
+                if side == 'P':
+                    gain = sum(2 + rng.randint(-1, 1) for _ in range(ep))
+                    if bonus:
+                        gain += math.ceil(ep / 1.5) * OP_CARD_BONUS[g]
+                else:
+                    gain = sum(C['op_release'][g] + rng.randint(-1, 1) for _ in range(OP_PR[strength]))
+                vol[side] = min(10, vol[side] + gain)
+                other = 'O' if side == 'P' else 'P'
+                cand = {n for c, o in own.items() if o == side for n in adj(c) if own.get(n) != side}
+                opts = [((3 if own.get(n) == other else 2), n) for n in cand]
+                opts = [(cost, n) for cost, n in opts if vol[side] >= cost]
+                if opts:
+                    cost, n = max(opts, key=lambda x: (OP_SCORES[x[1][0]][x[1][1]] + (1 if own.get(x[1]) == other else 0), -x[0]))
+                    vol[side] -= cost
+                    own[n] = side
+                    if other not in own.values():
+                        over = side
+                        break
+            if over:
+                break
+        if over:
+            wins += over == 'P'
+        else:
+            sc = {k: sum(OP_SCORES[c[0]][c[1]] for c, o in own.items() if o == k) for k in ('P', 'O')}
+            wins += 1 if sc['P'] > sc['O'] else 0.5 if sc['P'] == sc['O'] else 0
+    return wins / trials
+
+
 def show_opinion(C):
     print('■ 輿論（粗估）：一回合能推的聲量')
     for g, ep, you, opp in opinion_table(C):
         print(f'{g:>3} 你 {ep} 點 → {you} 聲量  對手 強度1/2/3 → {opp[1]}/{opp[2]}/{opp[3]}')
+    rng = random.Random(7)
+    print('■ 輿論戰的簡化模擬（媒體型主力對一個對手，勝率；和局算一半）：料牌照等級加值／不加')
+    for g in range(5):
+        cells = [f'強度 {k}：{pct(opinion_war(C, g, k, rng, 2000))}／{pct(opinion_war(C, g, k, rng, 2000, bonus=False))}' for k in (1, 2, 3)]
+        print(f'  {G[g]:>3}（編輯點 {C["op_player_ep"][g]}）：' + '｜'.join(cells))
 
 
 def show_roster(C, limit=0.15):
