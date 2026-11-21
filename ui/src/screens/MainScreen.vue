@@ -8,7 +8,6 @@ import LogView from '../components/LogView.vue'
 import PartyRow from '../components/PartyRow.vue'
 import Hint from '../components/Hint.vue'
 import Icon from '../components/Icon.vue'
-import MoneyTag from '../components/MoneyTag.vue'
 import { useGame } from '../stores/game'
 import { useUi, PENDING_DIALOGS, type DialogName } from '../stores/ui'
 import { useSettings } from '../stores/settings'
@@ -19,6 +18,8 @@ import { useWalk } from '../lib/useWalk'
 import type { Point, Facility } from '../data/types'
 import { KEY_OF } from '../lib/keys'
 import { NPCS } from '../data/npcs'
+import HereOptions from '../components/HereOptions.vue'
+import { pressE, type HereOption } from '../lib/here'
 
 /**
  * 主畫面（UI.md 第 3 節）：左欄現在這一塊的街區圖（城市地圖是對話框，工具列「城市」或 M）、小隊、委託條；中欄工具列、紀錄、行動列；右欄這裡的人、地點、進行中。
@@ -73,33 +74,31 @@ function onStep(d: Point) {
   arrive(n)
 }
 /**
- * 到了就是互動（UI.md 1.1 節，第三版）：走到設施上，只有一個選項就直接做；有好幾個就列在右欄「這裡」等你點；
- * 走到出口直接換街區。E 是「再觸發一次現在這一格」。
+ * 到了就看得到選單、按 E 才做（UI.md 1.1 節，第四版）：走到設施上，右欄「這裡」立刻列出能做的事，但不自動執行；
+ * 走到出口也只列出「往某某」。E 做這一格的預設選項：出口就換街區，設施就做第一個服務（黃框、帶 E）。點任何一個選項照樣能做。
  */
-function optionsOf(f: Facility) {
-  const svcs = (f.services ?? []).map(s => ({ name: s.name, run: () => service(f, s) }))
-  const talks = (f.npcIds ?? []).map(id => ({ name: `和${g.npcs[id]?.name ?? id}說話`, run: () => ui.openRoot('talk', { npcId: id }) }))
+function optionsOf(f: Facility): HereOption[] {
+  const svcs = (f.services ?? []).map((s, i) => ({ id: `svc${i}`, name: s.name, sub: s.price ? `現金 ${fmt(s.price)}` : undefined, run: () => service(f, s) }))
+  const talks = (f.npcIds ?? []).map(id => ({ id: `talk-${id}`, name: `和${g.npcs[id]?.name ?? id}說話`, run: () => ui.openRoot('talk', { npcId: id }) }))
   return [...svcs, ...talks]
 }
+const hereExit = computed(() => bm.value.exitAt.get(`${g.loc.pos.x},${g.loc.pos.y}`) ?? null)
+const hereOpts = computed<HereOption[]>(() => {
+  if (hereExit.value) { const to = hereExit.value; return [{ id: 'exit', name: `往${to}`, exit: true, run: () => g.moveBlock(g.loc.district, to, g.loc.block) }] }
+  return g.facility ? optionsOf(g.facility) : []
+})
 function arrive(p: Point) {
-  const k = `${p.x},${p.y}`
-  const f = bm.value.facilityAt.get(k)
-  const ex = bm.value.exitAt.get(k)
-  if (ex) { g.moveBlock(g.loc.district, ex, g.loc.block); return }
-  if (!f) return
-  g.setFacility(f.id)
-  const opts = optionsOf(f)
-  if (opts.length === 1) opts[0].run()
-  else if (window.innerWidth <= 720) mobileTab.value = 'here'
+  const f = bm.value.facilityAt.get(`${p.x},${p.y}`)
+  g.setFacility(f?.id ?? null)
+  if ((f || bm.value.exitAt.get(`${p.x},${p.y}`)) && window.innerWidth <= 720) mobileTab.value = 'here'
 }
 function onEnter() {
-  const k = `${g.loc.pos.x},${g.loc.pos.y}`
-  if (!bm.value.facilityAt.get(k) && !bm.value.exitAt.get(k)) { ui.toast('腳下沒有可以互動的東西。'); return }
-  arrive(g.loc.pos)
+  const msg = pressE(hereOpts.value)
+  if (msg) ui.toast(msg, 'warn')
 }
-/** 這一塊街區的出口（右欄「這裡」裡的換地圖按鈕） */
+/** 這一塊街區的出口（右欄「這裡」裡的換地圖按鈕）：點了是明確的選擇，走過去就換街區 */
 const exits = computed(() => [...bm.value.exitAt.entries()].map(([k, to]) => { const [x, y] = k.split(',').map(Number); return { to, x, y } }))
-function goExit(e: { to: string; x: number; y: number }) { g.setFacility(null); walkTo({ x: e.x, y: e.y }, () => arrive({ x: e.x, y: e.y })) }
+function goExit(e: { to: string; x: number; y: number }) { g.setFacility(null); walkTo({ x: e.x, y: e.y }, () => g.moveBlock(g.loc.district, e.to, g.loc.block)) }
 
 // ---- 這裡 ----
 const people = computed(() => (g.facility?.npcIds ?? []).map(id => g.npcs[id]))
@@ -171,7 +170,7 @@ const stages = [
             <p class="h">{{ g.district.name }}・{{ g.loc.block }}</p>
             <span class="grow" />
             <button type="button" class="btn sm" title="城市地圖（M）" @click="ui.openRoot('city')"><Icon id="ic-fac_metro" :size="16" fit />城市<kbd>M</kbd></button>
-            <Hint title="地圖">街區是 13 × 9 的格子：點設施走過去：到了就是互動，只有一個選項就直接做，有好幾個就列在右欄「這裡」；走到邊上的箭頭直接換街區（出口也列在「這裡」）。車站也是設施：走上去就開選站。城市地圖（M）看你在哪裡，從那裡只能叫計程車或開自己的車。鍵盤：方向鍵或 WASD 走一格，E 再觸發一次腳下的設施；不必先點地圖。</Hint>
+            <Hint title="地圖">街區是 13 × 9 的格子：點設施走過去：到了右欄「這裡」就列出能做的事，不會自動做；黃框、帶 E 的是預設，按 E 做它。走到邊上的箭頭再按 E 換街區（出口也列在「這裡」，點了直接走過去換）。車站也是設施：走上去按 E 開選站。城市地圖（M）看你在哪裡，從那裡只能叫計程車或開自己的車。鍵盤：方向鍵或 WASD 走一格，E 做腳下的預設選項；不必先點地圖。</Hint>
           </div>
           <GridMap :w="bm.w" :h="bm.h" :cell="cellView" :tokens="tokens" :path="path" :max-cell="30" :label="`${g.loc.block}的街區圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
           <div class="legend"><span><i class="lg fac" />設施</span><span><i class="lg exit" />出口</span><span><i class="lg me" />你</span><span><i class="lg npc" />人</span></div>
@@ -194,8 +193,8 @@ const stages = [
       <!-- 中欄 -->
       <div class="col center">
         <nav class="panel cut tools" aria-label="工具列">
-          <button v-for="t in tools" :key="t.id" type="button" class="tool" :title="KEY_OF[t.id] ? `${t.name}（${KEY_OF[t.id]}）` : t.name" :aria-keyshortcuts="KEY_OF[t.id]" @click="tool(t.id)">
-            <Icon :id="t.icon" :size="18" fit />{{ t.name }}<kbd v-if="KEY_OF[t.id]">{{ KEY_OF[t.id] }}</kbd><span v-if="t.badge" class="badge">{{ t.badge }}</span><i v-if="t.dot" class="rdot" aria-label="有沒看過的指南" />
+          <button v-for="t in tools" :key="t.id" type="button" class="tool cut-bg" :title="KEY_OF[t.id] ? `${t.name}（${KEY_OF[t.id]}）` : t.name" :aria-keyshortcuts="KEY_OF[t.id]" @click="tool(t.id)">
+            <Icon :id="t.icon" :size="18" fit />{{ t.name }}<kbd v-if="KEY_OF[t.id]">{{ KEY_OF[t.id] }}</kbd><span v-if="t.badge" class="badge-n" data-badge>{{ t.badge }}</span><i v-if="t.dot" class="badge-dot" data-badge aria-label="有沒看過的指南" />
           </button>
         </nav>
         <section class="panel cut logp"><LogView :entries="g.log" /></section>
@@ -233,13 +232,11 @@ const stages = [
           </div>
         </section>
         <section class="panel cut pad">
-          <p class="h">地點<template v-if="g.facility">：{{ g.facility.name }}</template></p>
-          <div v-if="!g.facility" class="empty-note">在街區圖上點一個設施走過去。</div>
+          <p class="h">地點<template v-if="g.facility">：{{ g.facility.name }}</template><template v-else-if="hereExit">：往{{ hereExit }}的出口</template><Hint>到了就列出能做的事，不會自動做。黃框、帶 E 的是預設：按 E 做它（出口是換街區）；點任何一個也可以。</Hint></p>
+          <div v-if="!g.facility && !hereExit" class="empty-note">在街區圖上點一個設施走過去。</div>
           <template v-else>
-            <button v-for="s in g.facility.services ?? []" :key="s.name" type="button" class="svc" @click="service(g.facility!, s)">
-              <span>{{ s.name }}</span><MoneyTag v-if="s.price" kind="cash" :amount="s.price" :size="13" />
-            </button>
-            <div v-if="!(g.facility.services ?? []).length" class="empty-note">這個設施沒有可以用的服務。</div>
+            <HereOptions :options="hereOpts" data-here />
+            <div v-if="g.facility && !hereOpts.length" class="empty-note">這個設施沒有可以用的服務。</div>
           </template>
           <p class="h" style="margin-top: 10px">出口<Hint>走到出口直接換街區；也可以點這裡，你會走過去。</Hint></p>
           <div class="exits"><button v-for="e in exits" :key="e.to" type="button" class="svc" :data-exit="e.to" @click="goExit(e)"><span>往{{ e.to }}</span><span aria-hidden="true">→</span></button></div>
@@ -257,12 +254,12 @@ const stages = [
         <section class="panel cut pad">
           <p class="h">工具</p>
           <div class="tgrid">
-            <button v-for="t in tools" :key="t.id" type="button" class="tool" @click="tool(t.id)"><Icon :id="t.icon" :size="22" fit />{{ t.name }}<i v-if="t.dot" class="rdot" aria-label="有沒看過的指南" /></button>
-            <button type="button" class="tool" @click="ui.openRoot('bills')"><Icon id="ic-fac_barter" :size="22" fit />帳單</button>
-            <button type="button" class="tool" @click="ui.openRoot('saves')"><Icon id="ic-footage" :size="22" fit />存檔</button>
-            <button type="button" class="tool" @click="router.push('/subnet')"><Icon id="ic-net_hack" :size="22" fit />子網</button>
-            <button type="button" class="tool" @click="router.push('/dungeon')"><Icon id="ic-fac_under" :size="22" fit />地下城</button>
-            <button type="button" class="tool" @click="ui.openRoot('settings')"><Icon id="ic-tool" :size="22" fit />設定</button>
+            <button v-for="t in tools" :key="t.id" type="button" class="tool cut-bg" @click="tool(t.id)"><Icon :id="t.icon" :size="22" fit />{{ t.name }}<span v-if="t.badge" class="badge-n" data-badge>{{ t.badge }}</span><i v-if="t.dot" class="badge-dot" data-badge aria-label="有沒看過的指南" /></button>
+            <button type="button" class="tool cut-bg" @click="ui.openRoot('bills')"><Icon id="ic-fac_barter" :size="22" fit />帳單</button>
+            <button type="button" class="tool cut-bg" @click="ui.openRoot('saves')"><Icon id="ic-footage" :size="22" fit />存檔</button>
+            <button type="button" class="tool cut-bg" @click="router.push('/subnet')"><Icon id="ic-net_hack" :size="22" fit />子網</button>
+            <button type="button" class="tool cut-bg" @click="router.push('/dungeon')"><Icon id="ic-fac_under" :size="22" fit />地下城</button>
+            <button type="button" class="tool cut-bg" @click="ui.openRoot('settings')"><Icon id="ic-tool" :size="22" fit />設定</button>
           </div>
         </section>
       </div>
@@ -291,13 +288,11 @@ const stages = [
 .faces { display: flex; gap: 4px; margin-top: 4px; }
 .faces i { width: 16px; height: 5px; border-radius: 2px; background: #ffffff22; }
 .faces i.m { background: var(--ink-2); } .faces i.n { background: var(--net); } .faces i.o { background: var(--ep); }
-.tools { display: flex; gap: 6px; padding: 8px; flex-wrap: wrap; flex: none; }
-.tool { display: flex; align-items: center; gap: 6px; padding: 7px 12px; background: var(--bg-2); font-weight: 800; font-size: var(--fs-ui); color: var(--ink-2); position: relative; border: 0; cursor: pointer; clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px)); }
-.tool:hover { background: var(--bg-3); color: var(--ink); }
-.rdot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+.tools { display: flex; gap: 10px 8px; padding: 12px 20px 12px 12px; flex-wrap: wrap; flex: none; }
+.tool { display: flex; align-items: center; gap: 6px; padding: 7px 12px; font-weight: 800; font-size: var(--fs-ui); color: var(--ink-2); position: relative; border: 0; cursor: pointer; }
+.tool:hover { color: var(--ink); }
 .ongb { display: block; width: 100%; text-align: left; border: 0; color: var(--ink); font: inherit; font-size: var(--fs-ui); cursor: pointer; }
 .ongb:hover { background: var(--bg-3); }
-.tool .badge { min-width: 16px; height: 16px; border-radius: 8px; background: var(--a); color: #fff; font-size: var(--fs-tiny); font-weight: 900; display: grid; place-items: center; padding: 0 4px; }
 .logp { flex: 1; min-height: 0; overflow: auto; padding: 4px 18px 10px; }
 .act { padding: 10px; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; flex: none; }
 .input { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--bg-term); box-shadow: inset 0 0 0 2px var(--line); min-width: 0; }
@@ -321,7 +316,7 @@ const stages = [
 .ong small { display: block; color: var(--ink-3); font-size: var(--fs-fine); margin-top: 2px; }
 .k2 { font-size: var(--fs-tiny); font-weight: 900; padding: 1px 6px; border-radius: 5px; margin-right: 6px; color: #17111F; }
 .mtabs { display: none; }
-.tgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.tgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 10px; padding-top: 6px; }
 .tgrid .tool { flex-direction: column; padding: 12px 6px; justify-content: center; }
 
 @media (max-width: 1380px) { .main { grid-template-columns: 320px minmax(0, 1fr) 300px; } }

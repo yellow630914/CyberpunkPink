@@ -16,6 +16,8 @@ import { BLUEWHALE, NODE_INFO, PATROLS } from '../data/subnet'
 import { key } from '../lib/grid'
 import { useWalk } from '../lib/useWalk'
 import type { Point } from '../data/types'
+import HereOptions from '../components/HereOptions.vue'
+import { pressE, type HereOption } from '../lib/here'
 
 /**
  * 子網地圖（UI 規則 4、UI.md 第 5 節）：同一個 GridMap，一層 11 × 9，節點是格子上的設施；
@@ -82,7 +84,7 @@ function onCell(p: Point) {
   if (s.meeting) { ui.toast('巡邏就在旁邊：先處理牠。', 'warn'); return }
   if (!s.walkable(p.x, p.y)) return
   if (fog(p.x, p.y) === 'hidden') { ui.toast('那裡還沒探索過。', 'warn'); return }
-  if (!walkTo(p, () => arrive(p))) ui.toast('走不到那裡。', 'warn')
+  if (!walkTo(p)) ui.toast('走不到那裡。', 'warn')
 }
 /** 鍵盤：方向鍵或 WASD 走一格（沒探索過的也能走，走了就看到）；E 把焦點移到這個節點的行動。 */
 function onStep(d: { x: number; y: number }) {
@@ -92,24 +94,13 @@ function onStep(d: { x: number; y: number }) {
   if (!s.walkable(n.x, n.y)) return
   path.value = []
   s.stepTo(n); enter(n)
-  if (!s.meeting) arrive(n)
 }
-function onEnter() { if (!s.here) { ui.toast('這一格沒有節點。'); return } arrive(s.pos, true) }
-/**
- * 到了就是互動（UI.md 1.1 節，第三版）：節點只有一個選項就直接做（檔案庫、目標的下載、控制節點的接管、閘門、回上一層）；
- * 有好幾個（蕾絲、人、後門）就列在右欄「這裡」。E 再觸發一次。
- */
-function arrive(p: Point, again = false) {
-  if (s.meeting) return
-  const n = s.nodeAt(p)
-  if (!n || (s.done.has(n.key) && !again && n.kind !== 'gate' && n.kind !== 'entrance')) return
-  if (s.done.has(n.key) && n.kind !== 'gate' && n.kind !== 'entrance') { (document.querySelector('.node-acts .btn') as HTMLElement | null)?.focus(); return }
-  if (n.kind === 'archive') download(2, '提貨單 ×1')
-  else if (n.kind === 'target') download(3, '藍鯨的帳本')
-  else if (n.kind === 'control') takeover()
-  else if (n.kind === 'gate') { if (s.unlocked < 2) crack(); else s.setFloor(1) }
-  else if (n.kind === 'entrance' && s.floorIdx > 0) s.setFloor(0)
-  else (document.querySelector('.node-acts .btn') as HTMLElement | null)?.focus()
+function onEnter() { if (!s.here) { ui.toast('這一格沒有節點。'); return } onEnterNode() }
+/** 到了就看得到選單、按 E 才做（UI.md 1.1 節，第四版）：右欄「這裡」列出節點能做的事，不自動執行；E 做預設（黃框）。 */
+function onEnterNode() {
+  if (s.meeting) { ui.toast('巡邏就在旁邊：先處理牠。', 'warn'); return }
+  const msg = pressE(hereOpts.value)
+  if (msg) ui.toast(msg, 'warn')
 }
 /** 走進一格時會發生的事：陷阱與遭遇。 */
 function enter(p: Point) {
@@ -189,6 +180,32 @@ function admin(a: typeof ADMIN[number]) {
   if (a.name === '斷路') { const near = s.patrolNear() ?? s.activePatrols.find(d => { const q = s.patrolPos(d.id)!; return Math.abs(q.x - s.pos.x) + Math.abs(q.y - s.pos.y) <= 2 }); if (!near) { ui.toast('附近沒有巡邏可以斷路。', 'warn'); return } if (spend(2, `你對${near.name}斷路：牠卡住三步。`)) { s.patrols.find(x => x.id === near.id)!.frozen = 3; if (s.meeting === near.id) s.meeting = null } return }
   ui.toast(`「${a.name}」在內海戰鬥裡用：戰鬥畫面右邊的「管理行動」。`)
 }
+/** 這個節點的選項（「這裡」與 E 共用）：第一個是預設。 */
+const hereOpts = computed<HereOption[]>(() => {
+  const n = here.value
+  if (!n) return []
+  const dn = s.done.has(n.key)
+  switch (n.kind) {
+    case 'archive': return [{ id: 'dl', name: '下載', sub: '2 回合', reason: dn ? '已經下載過了。' : null, run: () => download(2, '提貨單 ×1') }]
+    case 'target': return [{ id: 'dl', name: '下載帳本', sub: '3 回合', reason: dn ? '帳本已經在你手上。' : null, run: () => download(3, '藍鯨的帳本') }]
+    case 'control': return [{ id: 'take', name: '接管', sub: 'RAM 3', reason: dn ? '已經接管了。' : null, run: takeover }]
+    case 'gate': return s.unlocked < 2 ? [{ id: 'crack', name: '破解', sub: 'RAM 2', run: crack }] : [{ id: 'down', name: '往下一層', exit: true, run: () => s.setFloor(1) }]
+    case 'lace': return [
+      { id: 'fight', name: '開戰（內海戰鬥）', reason: dn ? '已經過去了。' : null, run: fight },
+      { id: 'sneak', name: '潛行繞過', reason: dn ? '已經過去了。' : null, run: sneak },
+    ]
+    case 'person': return [
+      { id: 'hack', name: '快駭', sub: 'RAM 1', reason: dn ? '已經拿到門禁卡號了。' : null, run: () => { if (spend(1, `你快駭了${n.name}，拿到他的門禁卡號。`)) s.done.add(n.key) } },
+      { id: 'talk', name: '談', reason: '網內的對話在第五版做。', run: () => {} },
+    ]
+    case 'backdoor': return [
+      { id: 'out', name: '從這裡登出', exit: true, run: () => logout('你從預埋的後門登出，拔線回到現實。') },
+      { id: 'rest', name: '短休', sub: '感載 −5', run: () => { s.load = Math.max(0, s.load - 5); note('你在後門短休：感載 −5。') } },
+    ]
+    case 'entrance': return s.floorIdx > 0 ? [{ id: 'up', name: '回員工層', exit: true, run: () => s.setFloor(0) }] : []
+    default: return []
+  }
+})
 const floorTabs = computed(() => s.floors.map((f, i) => ({ id: String(i), label: `${f.name}（${i + 1}／${s.floors.length}）`, disabled: i >= s.unlocked })))
 const floorModel = computed({ get: () => String(s.floorIdx), set: v => s.setFloor(Number(v)) })
 const traceStage = computed(() => [...TRACE_MARKS].reverse().find(m => s.trace >= m.at))
@@ -201,7 +218,7 @@ const traceStage = computed(() => [...TRACE_MARKS].reverse().find(m => s.trace >
       <section class="panel cut pad mapp">
         <div class="mh">
           <Tabs v-model="floorModel" :tabs="floorTabs" @blocked="ui.toast('先打開這一層的閘門。', 'warn')" />
-          <Hint title="子網地圖">一層 11 × 9。點看得到或看過的格子，化身照最短的路走過去；沒探索的格子在迷霧裡。節點是格子上的設施：走到上面，右欄出現能做的事。警報節點與迴圈碎片是陷阱。鍵盤：方向鍵或 WASD 走一格，E 再觸發一次這一格。</Hint>
+          <Hint title="子網地圖">一層 11 × 9。點看得到或看過的格子，化身照最短的路走過去；沒探索的格子在迷霧裡。節點是格子上的設施：走到上面，右欄「這裡」列出能做的事，不會自動做；黃框、帶 E 的是預設，按 E 做它。警報節點與迴圈碎片是陷阱。鍵盤：方向鍵或 WASD 走一格，E 做這一格的預設選項。</Hint>
         </div>
         <GridMap :w="s.w" :h="s.h" :cell="cellView" :fog="fog" :tokens="tokens" :path="path" :max-cell="64" :label="`${s.floor.name}的子網圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
         <div class="legend">
@@ -239,22 +256,8 @@ const traceStage = computed(() => [...TRACE_MARKS].reverse().find(m => s.trace >
           </div>
           <template v-if="here && hereInfo">
             <div class="nodeh"><Icon :id="hereInfo.icon" :size="28" fit /><b>{{ here.name }}</b><span v-if="s.done.has(here.key)" class="tag">處理過了</span><Hint :text="hereInfo.hint" /></div>
-            <div class="go left node-acts">
-              <template v-if="here.kind === 'archive'"><ReasonButton sm pri :reason="s.done.has(here.key) ? '已經下載過了。' : null" @go="download(2, '提貨單 ×1')">下載（2 回合）</ReasonButton></template>
-              <template v-else-if="here.kind === 'target'"><ReasonButton sm pri :reason="s.done.has(here.key) ? '帳本已經在你手上。' : null" @go="download(3, '藍鯨的帳本')">下載帳本（3 回合）</ReasonButton></template>
-              <template v-else-if="here.kind === 'control'"><ReasonButton sm pri :reason="s.done.has(here.key) ? '已經接管了。' : null" @go="takeover">接管（RAM 3）</ReasonButton></template>
-              <template v-else-if="here.kind === 'gate'">
-                <ReasonButton v-if="s.unlocked < 2" sm pri @go="crack">破解（RAM 2）</ReasonButton>
-                <button v-else type="button" class="btn sm pri" @click="s.setFloor(1)">往下一層</button>
-              </template>
-              <template v-else-if="here.kind === 'lace'">
-                <ReasonButton sm pri :reason="s.done.has(here.key) ? '已經過去了。' : null" @go="fight">開戰（內海戰鬥）</ReasonButton>
-                <ReasonButton sm :reason="s.done.has(here.key) ? '已經過去了。' : null" @go="sneak">潛行繞過</ReasonButton>
-              </template>
-              <template v-else-if="here.kind === 'person'"><ReasonButton sm @go="spend(1, `你快駭了${here!.name}，拿到他的門禁卡號。`) && s.done.add(here!.key)">快駭（RAM 1）</ReasonButton><ReasonButton sm reason="網內的對話在第三版做。">談</ReasonButton></template>
-              <template v-else-if="here.kind === 'backdoor'"><button type="button" class="btn sm pri" @click="logout('你從預埋的後門登出，拔線回到現實。')">從這裡登出</button><button type="button" class="btn sm" @click="s.load = Math.max(0, s.load - 5); note('你在後門短休：感載 −5。')">短休</button></template>
-              <template v-else-if="here.kind === 'entrance' && s.floorIdx > 0"><button type="button" class="btn sm" @click="s.setFloor(0)">回員工層</button></template>
-            </div>
+            <HereOptions class="node-acts" :options="hereOpts" />
+            <div v-if="!hereOpts.length" class="empty-note">這個節點沒有能做的事。</div>
           </template>
           <div v-else class="empty-note">站在鏈路上。走到節點上才有事可做。</div>
         </section>

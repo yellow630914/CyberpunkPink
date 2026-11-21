@@ -1,5 +1,7 @@
 
 <script setup lang="ts">
+import HereOptions from '../components/HereOptions.vue'
+import { pressE, type HereOption } from '../lib/here'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
@@ -60,8 +62,7 @@ onMounted(() => {
       path.shift()
       if (!path.length) {
         paths.delete(id)
-        // 到了就是互動（UI.md 1.1 節）：走到大門就出門，回到街區
-        if (id === 'me' && mode.value === 'walk' && h.map.kind(next.x, next.y) === 'entrance') { ui.toast('你出門了。'); router.push('/') }
+        // 到了看得到選單、按 E 才做（UI.md 1.1 節，第四版）：走到大門不會自己出門，側欄「這裡」列出「出門」，E 出門
       }
     }
   }, 160)
@@ -160,8 +161,32 @@ function onStep(d: Point) {
 }
 function onEnter() {
   if (mode.value === 'build') { if (hover.value) onCell(hover.value); return }
-  (document.querySelector('.side .btn') as HTMLElement | null)?.focus()
+  const msg = pressE(hereOpts.value)
+  if (msg) ui.toast(msg, 'warn')
 }
+/** 你站的那一格能做的事：大門是出口（E 出門）；房間照它的用途給一個預設的動作。 */
+const ROOM_ACTS: Record<string, { name: string; run: () => void }> = {
+  bedroom: { name: '睡一覺', run: () => { g.advance(480); g.character.load[0] = 0; g.addLog({ prose: ['你在自己的床上睡了一覺，感載退光了。'], changes: [{ text: '感載歸零', kind: 'plus' }] }); ui.toast('睡了八小時。') } },
+  guest: { name: '在客房坐一會', run: () => { g.advance(30); ui.toast('你在客房和住戶聊了半小時。') } },
+  workshop: { name: '組裝', run: () => ui.openRoot('craft') },
+  netroom: { name: '從家裡潛入', run: () => router.push('/subnet') },
+  studio: { name: '開直播', run: () => ui.openRoot('live') },
+  clinic: { name: '診療', run: () => ui.openRoot('clinic') },
+  garage: { name: '機甲整備', run: () => ui.openRoot('mech') },
+  storeroom: { name: '翻儲物', run: () => ui.openRoot('bag') },
+  playroom: { name: '契約面板', run: () => ui.openRoot('contract') },
+}
+const mePos = computed(() => h.people.find(p => p.id === 'me')?.pos ?? null)
+const hereName = computed(() => { const p = mePos.value; if (!p) return null; if (h.map.kind(p.x, p.y) === 'entrance') return '大門'; const r = h.map.roomAt(p.x, p.y); return r ? h.rooms.find(x => x.id === r)?.name ?? null : null })
+const hereOpts = computed<HereOption[]>(() => {
+  const p = mePos.value
+  if (!p || mode.value !== 'walk') return []
+  if (h.map.kind(p.x, p.y) === 'entrance') return [{ id: 'out', name: '出門', exit: true, run: () => { ui.toast('你出門了。'); router.push('/') } }]
+  const rid = h.map.roomAt(p.x, p.y)
+  const room = rid ? h.rooms.find(r => r.id === rid) : null
+  const act = room?.use ? ROOM_ACTS[room.use] : null
+  return act ? [{ id: `use-${room!.use}`, name: act.name, run: act.run }] : []
+})
 function onObject(id: string) {
   if (mode.value === 'walk') { const f = h.placed.find(p => p.uid === id); if (f) ui.toast(`${FURNITURE[f.def].name}：切到「擺設」才能動它。`); return }
   if (placing.value) return
@@ -270,7 +295,7 @@ const sideTab = ref('rooms')
           <Tabs v-model="mode" :tabs="[{ id: 'walk', label: '走路' }, { id: 'build', label: '擺設' }]" @update:model-value="placing = null; selected = null" />
           <Tabs v-if="h.tier === 3" :model-value="h.floor" :tabs="[{ id: 'up', label: '樓上' }, { id: 'shop', label: `店面・${h.shop.kind}` }]" data-floor @update:model-value="v => { h.setFloor(v as 'up' | 'shop'); placing = null; selected = null }" />
           <span class="k">{{ h.map.w }} × {{ h.map.h }}</span>
-          <Hint title="家園地圖">走路：點地板，你會照最短的路走過去；走到大門就出門。住戶與訪客自己走動。擺設：點家具選取，可以轉向（R）、移動、收起；從右欄背包裡的家具擺新的。家具不能壓牆、擋門、跨兩間房、疊在一起，也不能把路堵死。鍵盤：方向鍵或 WASD 走一格（擺設時移動游標），E 互動或放下；不必先點地圖。</Hint>
+          <Hint title="家園地圖">走路：點地板，你會照最短的路走過去；走到大門或有用途的房間，側欄「這裡」列出能做的事（黃框、帶 E 的是預設，按 E 做它，大門是出門）。住戶與訪客自己走動。擺設：點家具選取，可以轉向（R）、移動、收起；從右欄背包裡的家具擺新的。家具不能壓牆、擋門、跨兩間房、疊在一起，也不能把路堵死。鍵盤：方向鍵或 WASD 走一格（擺設時移動游標），E 互動或放下；不必先點地圖。</Hint>
         </div>
         <GridMap :w="h.map.w" :h="h.map.h" :cell="cellView" :objects="objects" :tokens="tokens" :areas="areas" :max-cell="62" label="家園的格子地圖"
           @cell="onCell" @object="onObject" @hover="p => (hover = p)" @step="onStep" @enter="onEnter" />
@@ -302,6 +327,11 @@ const sideTab = ref('rooms')
             <ReasonButton v-if="h.tier < 2" sm pri :reason="h.tier >= h.maxTier ? '這個住處的上限是一級；要更大得搬家。' : g.money.acc < upgradeCost ? '帳戶不夠。' : null" @go="doUpgrade">升級（二級）<MoneyTag kind="acc" :amount="upgradeCost" :size="12" /></ReasonButton>
             <button type="button" class="btn sm" @click="sideTab = 'place'">住處與安全屋</button>
           </div>
+        </section>
+        <section v-if="mode === 'walk'" class="panel cut pad" data-home-here>
+          <p class="h">這裡<template v-if="hereName">：{{ hereName }}</template></p>
+          <HereOptions v-if="hereOpts.length" :options="hereOpts" />
+          <div v-else class="empty-note">走到大門或有用途的房間（臥室、工作間、接入室……），這裡會列出能做的事。</div>
         </section>
         <section class="panel cut pad stats">
           <div class="stat"><span class="k">舒適度</span><b>{{ h.comfortInfo.total }}</b><small>{{ h.comfortInfo.tier ?? '—' }}</small>

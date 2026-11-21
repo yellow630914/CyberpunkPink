@@ -33,12 +33,12 @@ void props
     <div class="st hide-m">帳單 <b>{{ g.billIn }} 天</b><Hint title="每週帳單">每週一收租日結算房租、義體訂閱、債的利息與薪水。付不起的那幾項照順序走下坡路。</Hint></div>
     <div class="st hide-t">敵對值<span v-for="[f, v] in g.topHostility" :key="f" class="hos">▲{{ f }} {{ v }}</span></div>
     <div class="grow" />
-    <button type="button" class="ibtn cut-sm" :aria-label="`待處理 ${g.pending.length} 件`" title="待處理（N）" @click="ui.openRoot('pending')">
+    <button type="button" class="ibtn cut-bg" :aria-label="`待處理 ${g.pending.length} 件`" title="待處理（N）" @click="ui.openRoot('pending')">
       <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6z" fill="#F3E9FF" /><circle cx="12" cy="19.5" r="2.2" fill="#F06AA0" /></svg>
-      <span v-if="g.pending.length" class="badge">{{ g.pending.length }}</span>
+      <span v-if="g.pending.length" class="badge-n" data-badge>{{ g.pending.length }}</span>
     </button>
     <div class="menu-wrap">
-      <button type="button" class="ibtn cut-sm" aria-label="選單" title="選單（Esc）" :aria-expanded="ui.menuOpen" @click="ui.menuOpen = !ui.menuOpen">
+      <button type="button" class="ibtn cut-bg" aria-label="選單" title="選單（Esc）" :aria-expanded="ui.menuOpen" @click="ui.menuOpen = !ui.menuOpen">
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="3" rx="1.5" fill="#F3E9FF" /><rect x="4" y="10.5" width="16" height="3" rx="1.5" fill="#F3E9FF" /><rect x="4" y="16" width="10" height="3" rx="1.5" fill="#F06AA0" /></svg>
       </button>
       <div v-if="ui.menuOpen" class="menu panel" @click.self="ui.menuOpen = false">
@@ -62,8 +62,7 @@ void props
 .hos { font: 800 var(--fs-sm) var(--mono); color: var(--warn); }
 .sep { width: 2px; height: 22px; background: var(--line); flex: none; }
 .grow { flex: 1; }
-.ibtn { width: 34px; height: 34px; display: grid; place-items: center; background: var(--bg-2); position: relative; border: 0; cursor: pointer; flex: none; }
-.badge { position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--a); color: #fff; font-size: var(--fs-tiny); font-weight: 900; display: grid; place-items: center; padding: 0 4px; }
+.ibtn { width: 34px; height: 34px; display: grid; place-items: center; position: relative; border: 0; cursor: pointer; flex: none; }
 .menu-wrap { position: relative; }
 .menu { position: absolute; right: 0; top: 42px; width: 240px; max-height: calc(100dvh - 64px); overflow: auto; padding: 12px; display: grid; gap: 4px; background: var(--bg-1); z-index: var(--z-sheet); box-shadow: inset 0 0 0 2px var(--a), var(--shadow); }
 .menu .h { margin: 6px 0 2px; }
@@ -71,7 +70,7 @@ void props
 .mi:hover { background: var(--a); color: #fff; }
 .mi small { font: 800 var(--fs-tiny) var(--mono); color: var(--ink-3); }
 [data-skin="net"] .status { background: var(--bg-1); border-bottom: 3px solid var(--o); }
-[data-skin="net"] .ibtn { box-shadow: inset 0 0 0 2px var(--o); background: var(--o); }
+[data-skin="net"] .ibtn { --cut-bg: var(--o); --cut-bg-hover: var(--o); }
 @media (max-width: 1100px) { .hide-t { display: none; } }
 @media (max-width: 720px) { .hide-m { display: none; } .status { gap: 8px; padding: 0 10px; height: 48px; } .status.back .money-st { display: none; } }
 @media (max-width: 400px) { .hide-xs { display: none; } }
