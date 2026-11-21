@@ -1,0 +1,14 @@
+{
+  "id": "B004-undo-non-integer",
+  "note": "Game.undoSteps(n) 的 n 不是整數時丟 RangeError（Invalid array length），不是回 false。狀態與堆疊都沒變。",
+  "seed": 7,
+  "setup": { "scenario": "emptyRoom" },
+  "inputs": [
+    { "type": "act", "input": { "kind": "free", "text": "我看看四周" } },
+    { "type": "act", "input": { "kind": "free", "text": "我敲敲牆" } },
+    { "type": "undo_raw", "n": 1.5 },
+    { "type": "undo_raw", "n": "NaN" }
+  ],
+  "expect": { "undoReturns": false, "throws": null, "undoSize": 2 },
+  "actual": { "throws": "RangeError: Invalid array length", "undoSize": 2 }
+}

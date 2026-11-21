@@ -1,0 +1,17 @@
+{
+  "id": "B003-undo-full-stack-failure",
+  "note": "回退的堆疊滿了（5 步）的時候，一個被擋下或出錯的動作擠掉最舊的一步：失敗的動作什麼都沒改，回退卻只剩 4 步。不是 Repro 格式（Repro 的輸入在丟錯之後就停，看不到後面的回退）。",
+  "seed": 7,
+  "setup": { "scenario": "emptyRoom" },
+  "inputs": [
+    { "type": "act", "input": { "kind": "free", "text": "我看看四周" } },
+    { "type": "act", "input": { "kind": "free", "text": "我敲敲牆" } },
+    { "type": "act", "input": { "kind": "free", "text": "我坐下來" } },
+    { "type": "act", "input": { "kind": "free", "text": "我翻垃圾桶" } },
+    { "type": "act", "input": { "kind": "free", "text": "我對著鏡子練習微笑" } },
+    { "type": "commit_fails", "draft": { "kind": "system", "location": {}, "party": [], "timeline": [], "changes": [{ "op": "cash", "delta": -1 }], "outcome": { "result": "x", "summary": "付不出來的錢" } } },
+    { "type": "undo", "n": 5 }
+  ],
+  "expect": { "undoSizeBeforeUndo": 5, "undoReturns": true, "stateAfterUndo": "和開局（第一個 act 之前）一模一樣：rng.cursor 0、seq.report 1、time 08:00" },
+  "actual": { "undoSizeBeforeUndo": 4, "undoReturns": false }
+}

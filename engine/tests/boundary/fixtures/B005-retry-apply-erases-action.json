@@ -1,0 +1,14 @@
+{
+  "id": "B005-retry-apply-erases-action",
+  "note": "重試套用被拒絕（套用不能單獨重試），但拒絕之前已經用套用前的快照把最新一樓回退掉：丟錯之後狀態回到行動之前。期望：請求被拒絕時狀態不變（seq.report 2、seq.chain 1、rng.cursor 1）。",
+  "seed": 7,
+  "setup": { "scenario": "emptyRoom", "ai": { "ai": 1 }, "fake": {} },
+  "inputs": [
+    { "type": "act", "input": { "kind": "free", "text": "我看看四周" } },
+    { "type": "retry", "step": "apply" }
+  ],
+  "expect": {
+    "throws": "套用不能單獨重試",
+    "paths": { "seq.report": 2, "seq.chain": 1, "rng.cursor": 1, "time": { "day": 1, "hour": 8, "minute": 30 } }
+  }
+}

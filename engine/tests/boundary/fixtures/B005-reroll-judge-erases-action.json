@@ -1,0 +1,14 @@
+{
+  "id": "B005-reroll-judge-erases-action",
+  "note": "重擲判定（不是擲骰）被拒絕，但拒絕之前已經把最新一樓的套用回退掉。期望：請求被拒絕時狀態不變。",
+  "seed": 7,
+  "setup": { "scenario": "emptyRoom", "ai": { "ai": 1 }, "fake": {} },
+  "inputs": [
+    { "type": "act", "input": { "kind": "free", "text": "我看看四周" } },
+    { "type": "reroll", "step": "judge" }
+  ],
+  "expect": {
+    "throws": "不是擲骰",
+    "paths": { "seq.report": 2, "seq.chain": 1, "rng.cursor": 1, "time": { "day": 1, "hour": 8, "minute": 30 } }
+  }
+}

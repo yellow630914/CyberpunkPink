@@ -1,0 +1,15 @@
+{
+  "id": "B006-template-judge-narrate",
+  "note": "validateTemplate 的說明寫「判定與寫正文之間隔著程式」，但沒有檢查：下面這個模板（寫正文直接依賴判定，整條鏈沒有程式步驟）被收下。不是 Repro 格式（模板的檢查，沒有種子；seed 只是照格式填）。",
+  "seed": 7,
+  "template": {
+    "chain": "no_code_between",
+    "steps": [
+      { "id": "judge", "kind": "ai", "task": "judge" },
+      { "id": "text", "kind": "ai", "task": "narrate", "needs": ["judge"] },
+      { "id": "apply", "kind": "apply" }
+    ]
+  },
+  "expect": { "validateTemplate": "throws" },
+  "actual": { "validateTemplate": "accepted" }
+}
