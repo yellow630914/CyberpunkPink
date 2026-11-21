@@ -15,7 +15,7 @@
 | 4 | **匯入** | 把潤色過的內容經世界編輯器的路徑匯進引擎 |
 
 - **互動介面第一版已經有了**（2026-11-21）：[`ui/`](../../ui/README.md)，Vue 3＋Pinia＋Vite＋TypeScript，資料是假的。做了主畫面與城市地圖、家園地圖、子網地圖、地下城（垃圾滑道），對話框有背包、角色與義體（概要、身體、裝備）、和 NPC 說話、商店、設定；戰鬥、輿論戰與成人場景先用舊 Demo 接上。它取代 `mockups/` 的樣稿當寫引擎時的介面依據，規則見 [UI](../art/UI.md) 1.1 節。第二版要做的列在 5.5 節。
-- **平衡另開一個工作階段**，必須在引擎核心與世界編輯器完成之前做完。要做的事是 [BALANCE](../systems/BALANCE.md) 第 6 節的七項，加上第 5.1 節列的數字。
+- **平衡另開一個工作階段**，必須在引擎核心與世界編輯器完成之前做完。要做的事是 [BALANCE](../systems/BALANCE.md) 第 6 節剩下的一項，加上第 5.1 節列的數字。
 - 給 ElondiaRPG 的減熵清單在共用管道搬完、整理好之後交第一版（[IMPLEMENTATION](IMPLEMENTATION.md) 第 4 節）。
 
 ## 2. 世界編輯器與匯入
@@ -52,27 +52,11 @@
 
 ### 5.1 平衡（交給平衡的工作階段）
 
-- [BALANCE](../systems/BALANCE.md) 第 6 節第 1 項：特殊單位改成「位階 ＋ 修正」：機甲（ENEMIES 第 11 節、ITEMS 第 14 節）、吉祥物（ENEMIES 12.3 節）、大型的機器（重型無人機、神轎）。
-- BALANCE 第 6 節第 2 項：技能樹給模擬器加解析的主題，檢查每一階的格數（SKILLS 1.9 節）；敵人招牌行動裡寫死點數的感載照位階與等級逐級換算。
-- BALANCE 第 6 節第 3 項：錢與家：高等級的住處與帳單對不上（DOWNTIME 7.2 節、[LIFE](../world/LIFE.md) 1.3 節）；片的收入、價差、區的倍率、價格表照 2.8 節對一次。
-- BALANCE 第 6 節第 4 項：輿論戰的牌面與對手的發稿怎麼隨等級長，之後給模擬器加輿論戰的主題，再定對手的數值；[OPINION](../systems/OPINION.md) 第 2 節頻道經營與第 3 節棋盤的數字一起定。
-- BALANCE 第 6 節第 5 項：事件、任務、要地裡寫死的 DC 改成檔位的寫法，報酬照 COMMISSION_TEMPLATES 的公式。
-- BALANCE 第 6 節第 6 項：`combat-demo.html` 與 `net-demo.html` 換成夾值之後的數字。
-- BALANCE 第 6 節第 7 項：傳奇級的戰鬥，真的要寫時另外配隊伍的準備並用 `legend` 主題確認勝率。
-- [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 9.3 節：機甲疊全檔同步時回灌更高，數字待平衡；2.1 節遮蔽的耐久暫定掩體 30、半掩體 15。
-- [CORE_RULES](../systems/CORE_RULES.md) 6.4 節：一套打法的大小與橋的容量，要照每棵樹 25～27 個技能重算。
-- [CHARACTER](../systems/CHARACTER.md) 2.1 節、5.4 節：起始的義體點數與價目（暫定 10 點）、起始的錢 C$3,000、各出身的建議組合，等經濟定了再對一次。
-- [SKILLS](../systems/SKILLS.md) 1.3 節、1.10 節：樹的階的門檻（每階技能變多，照舊門檻會開得比較快）；1.9 節強度預算的斜率。
-- [CRAFTING](../gear/CRAFTING.md) 5.5 節：裝備強度預算的數字，特別是等級之間差距要多大。
-- [CYBERSPACE](../systems/CYBERSPACE.md) 第 8 節、8.2 節：隨機地圖的數字，迷宮館第四層以後的延長賽。
-- [SITES](../world/SITES.md) 第 10 節：要地的時期對應到等級 I～V；第 13 節內海固定地點的數字（各窗口的費用、迷宮館的入場費與押金、蚌殼市的倍率、窩的租金、看門狗的感載、好感門檻等）；2.1 節九號塔的合唱（每個階段感載 +10、定力 DC 14、失敗沉溺 +2）與 6.2 節水下殘骸的氧氣。
+- [BALANCE](../systems/BALANCE.md) 第 6 節：傳奇級的戰鬥，真的要寫時另外配隊伍的準備並用 `legend` 主題確認勝率。
 
 ### 5.2 系統
 
-- [ENEMIES](../systems/ENEMIES.md) 第 14 節第 1 項：雜兵的生命不照主角的公式（20 ＋ 體格 × 2）。這一句的「雜兵約六成」是舊的寫法，現在雜兵的生命照 [BALANCE](../systems/BALANCE.md) 2.4 節的表；要不要保留「不照主角公式」這條，連同措辭一起定。
-- ENEMIES 第 14 節第 2 項：二十九種戰敗事件的分法（第 6 節），尤其 `tuning`、`fed`、`drained`、`tinkered`、`taken`。
-- ENEMIES 第 14 節第 3 項：鎮溺隊「每三回合補一個班、沒有上限」，設計成打不贏。
-- ENEMIES 第 14 節第 4 項：機甲的解法表（11.2 節）與「緋櫻開全檔、星旗退淺檔」的分歧。
+- [ENEMIES](../systems/ENEMIES.md) 第 14 節第 1 項：二十九種戰敗事件的分法（第 6 節），尤其 `tuning`、`fed`、`drained`、`tinkered`、`taken`。
 - [CHARACTER](../systems/CHARACTER.md) 第 4 節：特質的清單之後生成（現在只有例子）。
 - [GAME_DESIGN](../GAME_DESIGN.md) 第 9 節：報告裡訂閱（取代 `audience`）與沉溺的下限（取代 `humanity_cap`）的欄位名。
 - 風格影響街頭信譽的成長（「行頭勝於實力」）：現在只體現在風格上，要不要讓風格直接影響信譽的成長還沒決定。

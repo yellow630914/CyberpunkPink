@@ -2,7 +2,7 @@
 """夾值用的模擬器（docs/systems/BALANCE.md）。不依賴任何套件。
 
 用法：python3 tools/balance/sim.py [主題 ...] [--set current|proposed] [--doc-budget] [--trials N] [--seed N]
-主題：summary（預設）、hits、encounter、cross、capture、key、quests、grade、duel、legend、difficulty、net、check、economy、xp、opinion、roster、items、all
+主題：summary（預設）、hits、encounter、cross、capture、key、quests、grade、duel、legend、difficulty、net、check、economy、xp、opinion、roster、items、skills、mech、netrun、all
 
 所有曲線都寫在這個檔案的 CURVES 裡，和 BALANCE.md 的表一一對應。
 current 是第一輪夾值之前文件寫的數字（2026-11-20），proposed 是 BALANCE.md 的曲線；兩組只在 DIFF 列出的欄位不同。
@@ -181,7 +181,8 @@ def net_table(C):
 
 # ───────────────────────── 遭遇（蒙地卡羅） ─────────────────────────
 class Unit:
-    __slots__ = ('hp', 'max', 'ap', 'apmax', 'regen', 'acc', 'mag', 'magmax', 'atk', 'ev', 'armor', 'dice', 'flat', 'pierce', 'mult', 'minion')
+    __slots__ = ('hp', 'max', 'ap', 'apmax', 'regen', 'acc', 'mag', 'magmax', 'atk', 'ev', 'armor', 'dice', 'flat', 'pierce', 'mult', 'minion',
+                 'mech', 'dur', 'mturns', 'exposed', 'turn')   # mech：機甲的設定（dict）；dur：機體耐久；mturns：啟動剩幾回合
 
     def __init__(self, **k):
         for a in self.__slots__:
@@ -196,6 +197,8 @@ def attack(rng, a, d):
     if r == 1:
         return 0
     total = r + a.atk
+    if d.exposed:
+        cover = 0                      # 機甲啟動期間永遠暴露（COMBAT_SYSTEM 9.3 節）
     de = d.ev + cover
     if r != 20 and total < de:
         return 0
@@ -204,11 +207,37 @@ def attack(rng, a, d):
     return max(0, raw - max(0, d.armor - a.pierce)) * a.mult
 
 
+def mech_tick(u):
+    """敵方機師（ENEMIES 第 11 節）：照 m['start'] 那一回合啟動（3 點行動點），持續 2 ＋ 同步回合；機體歸零或時間到就解除。"""
+    m = u.mech
+    if u.mturns > 0:
+        u.mturns -= 1
+        if u.mturns == 0 or u.dur <= 0:
+            u.mturns = 0
+            u.dur = 0
+            u.armor, u.dice, u.regen, u.magmax, u.exposed, u.mult = m['base']
+            u.mag = min(u.mag, u.magmax)
+    elif not m.get('used') and u.turn >= m['start'] and u.ap >= 3:
+        u.ap -= 3
+        m['used'] = True
+        m['base'] = (u.armor, u.dice, u.regen, u.magmax, u.exposed, u.mult)
+        u.armor = min(m['armor_cap'], u.armor + m['armor'])
+        u.dice = m['dice']
+        u.regen += m['ap']
+        u.magmax = u.mag = m['mag']
+        u.exposed = True
+        u.dur = m['dur']
+        u.mturns = m['turns']
+
+
 def take_turn(rng, u, foes, focus, other=0.0):
+    u.turn += 1
     u.acc += u.regen
     gain = int(u.acc)
     u.acc -= gain
-    u.ap = min(u.apmax, u.ap + gain)
+    u.ap = min(u.apmax + (u.mech['ap'] if u.mech and u.mturns else 0), u.ap + gain)
+    if u.mech:
+        mech_tick(u)
     if other and rng.random() < other and u.ap >= 1:
         u.ap -= 1                      # 移動、招牌行動、瞄準這類不直接打血的事
     while u.ap >= 2:
@@ -223,6 +252,10 @@ def take_turn(rng, u, foes, focus, other=0.0):
         u.ap -= 2
         u.mag -= 1
         dmg = attack(rng, u, t)
+        if t.dur > 0:                  # 傷害先打在機體上，多的打到機師
+            soak = min(t.dur, dmg)
+            t.dur -= soak
+            dmg -= soak
         t.hp = max(0, t.hp - dmg)
 
 
@@ -233,6 +266,10 @@ def make_party(C, g):
 
 
 def make_enemy(C, eg, rank):
+    if rank == '機師':
+        return make_pilot(C, eg)
+    if rank == '首領機師':
+        return make_pilot(C, eg, {'start': 1}, rank='首領')
     d = C.get('difficulty')
     k = (d['boss'] if rank == '首領' else d['minions'][BAND_OF[eg]]) if d else {'hp': 1, 'dmg': 1}
     key = C.get('key_mult', 1.0) if rank != '雜兵' else 1.0   # 任務關鍵節點 ×1.1～1.2、具名 ×1.3～1.5：精英與首領的生命與傷害
@@ -243,6 +280,23 @@ def make_enemy(C, eg, rank):
     return Unit(hp=round(C['e_hp'][rank][eg] * k['hp']), apmax=C['e_apmax'][rank][eg], regen=3, mag=2, magmax=2,
                 atk=C['e_atk'][eg], ev=C['e_ev'][eg], armor=C['e_armor'][eg], dice=3 + C['grade_dice'][eg],
                 flat=0, mult=C['e_dmg_mult'][rank] * k['dmg'], minion=(rank == '雜兵'))
+
+
+# 敵方的機甲（ENEMIES 第 11 節）：精英機師的強化狀態，2.5 點。耐久＝同級精英生命 × dur；護甲 +4、上限 8；每回合多回 2 點行動點；
+# 武器換成機甲的武器（4d6 加等級骰，彈匣 4）；永遠暴露；同步＝機甲的等級，持續 2 ＋ 同步回合；精英在第 2 回合啟動。
+# 定案（2026-11-21）：機體＝同級精英生命 ×0.3（型號再乘修正）；機師本人的生命 ×0.7、傷害 ×0.8（精英的倍率 0.6 變成約 0.5）
+MECH = {'dur': 0.3, 'pilot_hp': 0.7, 'dmg': 0.8, 'armor': 4, 'armor_cap': 8, 'ap': 2, 'dice': 4, 'mag': 4, 'start': 2}
+
+
+def make_pilot(C, eg, cfg=None, rank='精英'):
+    m = dict(MECH, **(C.get('mech') or {}), **(cfg or {}))
+    u = make_enemy(C, eg, rank)
+    u.hp = u.max = round(u.hp * m['pilot_hp'])
+    u.mult *= m['dmg']
+    arm = m['armor'][eg] if isinstance(m['armor'], (list, tuple)) else m['armor']
+    u.mech = {'dmg': m['dmg'], 'dur': round(C['e_hp']['精英'][eg] * m['dur']), 'armor': arm, 'armor_cap': m['armor_cap'], 'ap': m['ap'],
+              'dice': m['dice'] + C['grade_dice'][eg], 'mag': m['mag'], 'start': m['start'], 'turns': 2 + (eg + 1)}
+    return u
 
 
 def compositions(C, budget, boss=False):
@@ -396,6 +450,141 @@ def capture_encounter(C, g, eg, comp, rng, trials, other=0.25, rounds=20, decay=
     n_p = C.get('party_n', 4)
     return (loss / trials, rnds / trials, wins / trials, downs / trials, overloads / trials / n_p,
             any_down / trials, multi_down / trials)
+
+
+# 網內的一層連打幾場（CYBERSPACE 8.1 節）：感載與餘韻跨場帶著走。場與場之間走 between 個節點，每個探索回合感載消退 3，
+# 餘韻不消；休息點（每層一個，2026-11-21）把感載歸零、餘韻全消、RAM 回滿。網內的傷害不打折，敵人多 1 顆骰，扣主角的防護。
+def net_fight(C, g, comp, rng, st, decay=P_DECAY, other=0.25, rounds=20):
+    lmax, lcap = C['p_load'][g], C['p_layers'][g]
+    party = make_party(C, g)
+    foes = []
+    for r in comp:
+        f = make_enemy(C, g, r)
+        f.hp = f.max = C['e_load'][r][g] * (C['e_layers'][r] + 1)
+        f.armor = C['net_guard'][g]
+        f.dice = 3 + C['grade_dice'][g] + C['e_net_dice']
+        f.mult = 1.0
+        foes.append(f)
+    alive_p = lambda: [i for i, s_ in enumerate(st) if not s_['down']]
+    n = 0
+    while n < rounds and any(f.hp > 0 for f in foes) and alive_p():
+        n += 1
+        order = ['party', 'foes'] if rng.random() < 0.5 else ['foes', 'party']
+        for side in order:
+            if side == 'party':
+                for i, u in enumerate(party):
+                    s_ = st[i]
+                    if s_['down']:
+                        continue
+                    s_['load'] = max(0.0, s_['load'] - decay)
+                    if s_['skip']:
+                        s_['skip'] = False
+                        continue
+                    take_turn(rng, u, foes, True, 0.0)
+            else:
+                for f in foes:
+                    if f.hp <= 0:
+                        continue
+                    f.acc += f.regen
+                    gain = int(f.acc); f.acc -= gain; f.ap = min(f.apmax, f.ap + gain)
+                    if rng.random() < other and f.ap >= 1:
+                        f.ap -= 1
+                    while f.ap >= 2:
+                        live = alive_p()
+                        if not live:
+                            break
+                        if f.mag == 0:
+                            f.ap -= 1; f.mag = f.magmax; continue
+                        i = rng.choice(live)
+                        f.ap -= 2; f.mag -= 1
+                        s_ = st[i]
+                        s_['load'] += attack(rng, f, party[i])
+                        if s_['load'] >= lmax:
+                            s_['load'] = 0.0
+                            s_['over'] += 1
+                            if s_['lay'] >= lcap:
+                                s_['down'] = True
+                            else:
+                                s_['lay'] += 1
+                                s_['skip'] = True
+    return all(f.hp <= 0 for f in foes)
+
+
+def net_layer(C, g, fights, rng, trials, rest_after=None, between=3):
+    """fights：這一層依序的遭遇；rest_after：第幾場之後經過休息點（None＝沒有）。回傳（有人倒下的比例、平均倒下的人數、
+    最後一場開打前每人平均帶著的餘韻、全部打完的比例）。"""
+    any_down = downs = carried = done = 0.0
+    for _ in range(trials):
+        st = [{'load': 0.0, 'lay': 0, 'skip': False, 'down': False, 'over': 0} for _ in range(4)]
+        ok = True
+        for k, comp in enumerate(fights):
+            if k == len(fights) - 1:
+                carried += sum(s_['lay'] for s_ in st if not s_['down']) / 4
+            if not net_fight(C, g, comp, rng, st):
+                ok = False
+                break
+            for s_ in st:
+                s_['load'] = max(0.0, s_['load'] - P_DECAY * between)
+                s_['skip'] = False
+            if rest_after is not None and k == rest_after:
+                for s_ in st:
+                    s_['load'], s_['lay'] = 0.0, 0
+        nd = sum(s_['down'] for s_ in st)
+        any_down += nd >= 1
+        downs += nd
+        done += ok and nd < 4
+    return any_down / trials, downs / trials, carried / trials, done / trials
+
+
+NET_MAPS = {
+    '一般子網 3 層（每層 2 場＋層主，最後一層是首領戰）': [['N', 'E', 'G'], ['N', 'E', 'G'], ['N', 'E', 'B']],
+    '沉船帶 4 層（每層 3 場＋層主）': [['N', 'E', 'N', 'G']] * 3 + [['N', 'E', 'N', 'B']],
+    '沉船帶 4 層（每層 4 場＋層主，最多的）': [['N', 'E', 'N', 'E', 'G']] * 3 + [['N', 'E', 'N', 'E', 'B']],
+    '深海一個海域 2 層': [['N', 'E', 'N'], ['N', 'E', 'B']],
+}
+NET_COMPS = {'N': ['雜兵'] * 4, 'E': ['精英', '雜兵', '雜兵'], 'G': ['首領', '雜兵'], 'B': ['首領', '雜兵', '雜兵', '雜兵']}
+
+
+def net_run(C, g, layers, rng, trials, mode='layer', between=3):
+    """一整張隨機地圖：mode＝'layer' 每層一個休息點（在那一層的一半），'map' 整張只有一個（在一半），'none' 沒有。"""
+    fights, rests = [], set()
+    for L in layers:
+        if mode == 'layer':
+            rests.add(len(fights) + len(L) // 2 - 1)
+        fights += [NET_COMPS[k] for k in L]
+    if mode == 'map':
+        rests.add(len(fights) // 2 - 1)
+    any_down = downs = done = 0.0
+    for _ in range(trials):
+        st = [{'load': 0.0, 'lay': 0, 'skip': False, 'down': False, 'over': 0} for _ in range(4)]
+        ok = True
+        for k, comp in enumerate(fights):
+            if not net_fight(C, g, comp, rng, st):
+                ok = False
+                break
+            for s_ in st:
+                s_['load'] = max(0.0, s_['load'] - P_DECAY * between)
+                s_['skip'] = False
+            if k in rests:
+                for s_ in st:
+                    s_['load'], s_['lay'] = 0.0, 0
+        nd = sum(s_['down'] for s_ in st)
+        any_down += nd >= 1
+        downs += nd
+        done += ok
+    return any_down / trials, downs / trials, done / trials
+
+
+def show_netrun(C, rng, trials):
+    print(f'■ 網內的隨機地圖連打（CYBERSPACE 8.1 節）：同級四人，{trials} 次；感載與餘韻跨場帶著走，場與場之間走 3 個節點（每個探索回合感載 −3，餘韻不消）')
+    print('  休息點：感載歸零、餘韻全消。欄位是 有人倒下的比例／平均倒下幾人／打完的比例')
+    for label, layers in NET_MAPS.items():
+        for mode, name in (('layer', '每層一個休息點'), ('map', '整張只有一個'), ('none', '沒有')):
+            cells = []
+            for g in (0, 2, 4):
+                a, d, ok = net_run(C, g, layers, rng, trials, mode)
+                cells.append(f'{G[g]} {pct(a)}／{d:.2f}／{pct(ok)}')
+            print(f'  {label}，{name}：' + '｜'.join(cells))
 
 
 def capture_table(C, rng, trials, budget=None):
@@ -792,6 +981,103 @@ def show_legend(C, rng, trials):
     print(f'  故事難度，V 級四人對傳奇人物 ×{LEGEND_MULT:g}：勝 {pct(win)}，掉 {pct(loss)}，倒下 {downs:.2f} 人')
 
 
+# 機甲的幾種寫法（BALANCE 第 6 節第 1 項）：(說明, 設定)。耐久＝同級精英生命 × dur，機師本人的生命 × pilot_hp
+MECH_OPTIONS = [
+    ('定案：機體 ×0.3、機師的生命 ×0.7、傷害 ×0.8', {}),
+    ('對照：機體 ×0.4、機師 ×1、傷害 ×1（原本的建議）', {'dur': 0.4, 'pilot_hp': 1.0, 'dmg': 1.0}),
+    ('對照：機體 ×0.3、機師 ×1、傷害 ×1', {'dur': 0.3, 'pilot_hp': 1.0, 'dmg': 1.0}),
+    ('對照：機體 ×0.2、機師 ×0.6、傷害 ×1', {'dur': 0.2, 'pilot_hp': 0.6, 'dmg': 1.0}),
+]
+
+
+def show_mech(C, rng, trials):
+    print(f'■ 敵方的機甲（2.5 點，照精英）：同級四人，{trials} 次的平均；一般遭遇＝機師＋2 雜兵，比的是精英＋2 雜兵；首領戰＝首領＋機師＋1 雜兵')
+    print('  機甲：護甲 +4（上限 8）、每回合多回 2 點行動點、武器 4d6 加等級骰、永遠暴露、持續 2 ＋ 同步（＝等級）回合、第 2 回合啟動')
+    base = [encounter(C, g, g, ['精英', '雜兵', '雜兵'], rng, trials) for g in range(5)]
+    bb = [encounter(C, g, g, ['首領', '精英', '雜兵'], rng, trials) for g in range(5)]
+    print('  對照（精英）：' + '｜'.join(f'{G[g]} {pct(x[0])}' for g, x in enumerate(base)) + '；首領戰 ' + '｜'.join(f'{G[g]} {pct(x[0])}' for g, x in enumerate(bb)))
+    for label, cfg in MECH_OPTIONS:
+        D = dict(C, mech=cfg)
+        r = [encounter(D, g, g, ['機師', '雜兵', '雜兵'], rng, trials) for g in range(5)]
+        b = [encounter(D, g, g, ['首領', '機師', '雜兵'], rng, trials) for g in range(5)]
+        print(f'  {label}：' + '｜'.join(f'{G[g]} {pct(x[0])}（{x[0] / y[0] - 1:+.0%}）' for g, (x, y) in enumerate(zip(r, base)))
+              + '；首領戰 ' + '｜'.join(f'{G[g]} {pct(x[0])} 勝{pct(x[2])}' for g, x in enumerate(b)))
+    bp = [encounter(C, g, g, ['首領機師', '雜兵', '雜兵', '雜兵'], rng, trials) for g in range(2, 5)]
+    bo = [encounter(C, g, g, ['首領', '雜兵', '雜兵', '雜兵'], rng, trials) for g in range(2, 5)]
+    print('  首領機師（第 1 回合啟動）＋3 雜兵，定案的寫法：' + '｜'.join(f'{G[g + 2]} {pct(x[0])} 勝{pct(x[2])}（首領 {pct(y[0])}）' for g, (x, y) in enumerate(zip(bp, bo))))
+
+
+# 技能樹的份量與容量（SKILLS 1.9 節）：被動 1／1.5／2／2.5／3 格、容量 2～6；主動 1～5 格；每場一次的主動 3／4／6／8／10 格；
+# 反應照主動 ＋1 格；姿態照被動 ＋0.5 格；主動、反應、姿態、預備、日常的容量 1／1／2／2／3。招牌不照表。誤差 ±0.5 格。
+SK_PASSIVE = {1: 1, 2: 1.5, 3: 2, 4: 2.5, 5: 3}
+SK_ACTIVE = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5}
+SK_ONCE = {1: 3, 2: 4, 3: 6, 4: 8, 5: 10}
+SK_CAP_PASSIVE = {1: 2, 2: 3, 3: 4, 4: 5, 5: 6}
+SK_CAP_OTHER = {1: 1, 2: 1, 3: 2, 4: 2, 5: 3}
+
+
+def parse_skill_trees(path):
+    tree = tier = None
+    rows = []
+    for line in open(path, encoding='utf-8'):
+        m = re.match(r'^## (\S+)：', line)
+        if m:
+            tree, tier = m.group(1), None
+            continue
+        m = re.match(r'^### (\d) 階', line)
+        if m:
+            tier = int(m.group(1))
+            continue
+        if line.startswith('|') and tree and tier:
+            c = [x.strip() for x in line.strip().strip('|').split('|')]
+            if len(c) > 7 and re.match(r'^\d+$', c[3]):
+                rows.append({'tree': tree, 'tier': tier, 'name': c[0].strip('*'), 'layer': c[1], 'kind': c[2],
+                             'cap': int(c[3]), 'pre': c[4], 'cost': c[5], 'w': c[6]})
+    return rows
+
+
+def skills_audit(path):
+    rows, bad = parse_skill_trees(path), []
+    for r in rows:
+        if r['layer'] == '招牌':
+            continue
+        t, k = r['tier'], r['kind']
+        m = re.match(r'([\d.]+) 格', r['w'])
+        once = '每場 1' in r['cost'] and '每回合' not in r['cost']
+        if k == '被動':
+            exp, cap = SK_PASSIVE[t], SK_CAP_PASSIVE[t]
+        elif k == '姿態':
+            exp, cap = SK_PASSIVE[t] + 0.5, SK_CAP_OTHER[t]
+        elif k in ('主動', '反應'):
+            exp, cap = (SK_ONCE[t] if once else SK_ACTIVE[t]) + (1 if k == '反應' else 0), SK_CAP_OTHER[t]
+        else:
+            exp, cap = None, SK_CAP_OTHER[t]
+        msg = []
+        if exp is not None and m and abs(float(m.group(1)) - exp) > 0.5:
+            msg.append(f'份量 {m.group(1)} 格，表是 {exp:g}')
+        if r['cap'] != cap:
+            msg.append(f'容量 {r["cap"]}，表是 {cap}')
+        if msg:
+            bad.append((r, '；'.join(msg)))
+    return rows, bad
+
+
+def show_skills():
+    path = os.path.join(ROOT, 'docs/content/SKILL_TREES.md')
+    rows, bad = skills_audit(path)
+    trees = {}
+    for r in rows:
+        trees.setdefault(r['tree'], []).append(r)
+    print(f'■ 技能樹：讀到 {len(trees)} 棵樹、{len(rows)} 個技能；份量與容量照 SKILLS 1.9 節（誤差 ±0.5 格，招牌不算），不合的 {len(bad)} 個')
+    for r, msg in bad:
+        print(f'  {r["tree"]} {r["tier"]} 階 {r["name"]}（{r["kind"]}，{r["cost"]}）：{msg}')
+    print('  每棵樹的容量（全裝／每一階／只裝招牌與前層）：')
+    for t, rs in trees.items():
+        per = [sum(r['cap'] for r in rs if r['tier'] == k) for k in range(1, 6)]
+        front = sum(r['cap'] for r in rs if r['layer'] in ('前', '招牌'))
+        print(f'    {t}：{sum(r["cap"] for r in rs)}／{"、".join(map(str, per))}／{front}')
+
+
 def show_cross(C, rng, trials):
     print('■ 跨級：g 級的隊伍打 e 級的四個雜兵（掉血％／回合）')
     print('隊伍＼敵人 | ' + ' | '.join(G))
@@ -820,10 +1106,165 @@ def show_xp(C):
         print(f'{g:>3} 第 {lo:>2}～{hi:>2} 件  累計 {a:>5}～{b:>5}')
 
 
+# 輿論戰（OPINION 第 3、4 節）的簡化模擬：九格、六回合、聲量上限 10、佔沒人的格子花 2、佔對方的格子花 3（風向當 0）。
+# 你：每點編輯點聲量 2（±1），料牌在 III 級的戰役 +1、V 級 +2（2026-11-21 定案；每回合約「編輯點 ÷ 1.5」張料牌）。
+# 對手：每點公關點發稿一次，聲量照 ENEMIES 1.5 節（I～II +2、III～V +3，±1）。分數照大眾議題的量級：中央 3、兩格 2、其他 1。
+OP_SCORES = [[1, 1, 2], [1, 3, 1], [2, 1, 1]]
+OP_CARD_BONUS = [0, 0, 1, 1, 2]
+OP_PR = {1: 2, 2: 4, 3: 6}
+
+
+def opinion_war(C, g, strength, rng, trials, bonus=True, turns=6):
+    wins = 0.0
+    adj = lambda c: [(c[0] + dx, c[1] + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)) if 0 <= c[0] + dx < 3 and 0 <= c[1] + dy < 3]
+    ep = C['op_player_ep'][g]
+    for _ in range(trials):
+        own = {(2, 0): 'P', (0, 2): 'O'}
+        vol = {'P': 0, 'O': 0}
+        over = None
+        for t in range(turns):
+            order = ['P', 'O'] if rng.random() < 0.5 else ['O', 'P']
+            for side in order:
+                if side == 'P':
+                    gain = sum(2 + rng.randint(-1, 1) for _ in range(ep))
+                    if bonus:
+                        gain += math.ceil(ep / 1.5) * OP_CARD_BONUS[g]
+                else:
+                    gain = sum(C['op_release'][g] + rng.randint(-1, 1) for _ in range(OP_PR[strength]))
+                vol[side] = min(10, vol[side] + gain)
+                other = 'O' if side == 'P' else 'P'
+                cand = {n for c, o in own.items() if o == side for n in adj(c) if own.get(n) != side}
+                opts = [((3 if own.get(n) == other else 2), n) for n in cand]
+                opts = [(cost, n) for cost, n in opts if vol[side] >= cost]
+                if opts:
+                    cost, n = max(opts, key=lambda x: (OP_SCORES[x[1][0]][x[1][1]] + (1 if own.get(x[1]) == other else 0), -x[0]))
+                    vol[side] -= cost
+                    own[n] = side
+                    if other not in own.values():
+                        over = side
+                        break
+            if over:
+                break
+        if over:
+            wins += over == 'P'
+        else:
+            sc = {k: sum(OP_SCORES[c[0]][c[1]] for c, o in own.items() if o == k) for k in ('P', 'O')}
+            wins += 1 if sc['P'] > sc['O'] else 0.5 if sc['P'] == sc['O'] else 0
+    return wins / trials
+
+
+# 完整一點的輿論戰（OPINION 4.2、5.2 節）：雙方每回合先花點數，再佔一格（對手強度 2 以上可以花 2 點追擊多佔一格）。
+# 你（主播）：編輯點 4 起每回合用追擊（1 點，多佔一格），5 起再用頭條（2 點，聲量 +5、多佔一格）（SKILL_TREES 主播）。
+# 你的一點編輯點：料（聲量 +2，三分之二的機會再加料牌的等級加值）、說法（風向 +1）、降流（對手的聲量 −2）。
+# 對手的一點公關點：發稿（聲量照 ENEMIES 1.5 節的 +2／+3）、否認（風向 1）、降流（你的聲量 −2）；反爆料 2 點（風向照表 2／3）。
+# 佔沒人的格子花 2；搶對方的格子：你花 3 − 風向，對手花 3 ＋ 風向（最少 0）。風向 −5～+5，正的偏你。
+OP_DENY = [1, 1, 1, 1, 2]        # 否認推的風向（ENEMIES 1.5 節）
+OP_COUNTER = [2, 2, 2, 2, 3]     # 反爆料推的風向
+
+
+def opinion_war2(C, g, ep, strength, rng, trials, bonus=True, turns=6):
+    adj = lambda c: [(c[0] + dx, c[1] + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)) if 0 <= c[0] + dx < 3 and 0 <= c[1] + dy < 3]
+    res = {'win': 0.0, 'big': 0.0, 'lose': 0.0}
+    for _ in range(trials):
+        own = {(2, 0): 'P', (0, 2): 'O'}
+        vol = {'P': 0, 'O': 0}
+        wind = 0
+        over = None
+
+        def cost(side, n):
+            o = own.get(n)
+            if o is None:
+                return 2
+            return max(0, 3 - wind) if side == 'P' else max(0, 3 + wind)
+
+        def best(side):
+            cand = {n for c, o in own.items() if o == side for n in adj(c) if own.get(n) != side}
+            if not cand:
+                return None
+            return max(cand, key=lambda n: (OP_SCORES[n[0]][n[1]] + (1.5 if own.get(n) else 0)) - 0.3 * cost(side, n))
+
+        def occupy(side):
+            n = best(side)
+            if n is not None and vol[side] >= cost(side, n):
+                vol[side] -= cost(side, n)
+                own[n] = side
+                return 'O' if side == 'P' else 'P' not in own.values() or None
+            return None
+
+        for t in range(turns):
+            for side in (['P', 'O'] if rng.random() < 0.5 else ['O', 'P']):
+                other = 'O' if side == 'P' else 'P'
+                n = best(side)
+                need = cost(side, n) if n else 99
+                extra = 0
+                if side == 'P':
+                    left = ep
+                    if ep >= 5:                  # 主播 4 階的頭條：2 點，聲量 +5，多佔一格（每回合一次）
+                        left -= 2; vol['P'] += 5; extra += 1
+                    if ep >= 4:                  # 主播 3 階的追擊：1 點，多佔一格（每回合一次）
+                        left -= 1; extra += 1
+                    for _ in range(left):
+                        if wind < 0 and rng.random() < 0.6:
+                            wind = min(5, wind + 1)
+                        elif vol['P'] < need or rng.random() < 0.7:
+                            vol['P'] += 2 + (OP_CARD_BONUS[g] if bonus and rng.random() < 2 / 3 else 0)
+                        else:
+                            vol['O'] = max(0, vol['O'] - 2)
+                else:
+                    pr = OP_PR[strength]
+                    while pr > 0:
+                        if strength >= C.get('op_chase_min', 3) and pr >= 2 and extra == 0 and vol['O'] >= 2 * need + 2:
+                            pr -= 2; extra = 1
+                        elif wind > 0 and pr >= 2 and rng.random() < 0.5:
+                            pr -= 2; wind = max(-5, wind - OP_COUNTER[g])
+                        elif wind > 0:
+                            pr -= 1; wind = max(-5, wind - OP_DENY[g])
+                        elif vol['O'] < need or rng.random() < 0.6:
+                            pr -= 1; vol['O'] += C['op_release'][g] + 0
+                        else:
+                            pr -= 1; vol['P'] = max(0, vol['P'] - 2)
+                vol[side] = min(10, vol[side])
+                vol[other] = min(10, vol[other])
+                for _ in range(1 + extra):
+                    n = best(side)
+                    if n is not None and vol[side] >= cost(side, n):
+                        vol[side] -= cost(side, n)
+                        own[n] = side
+                        if other not in own.values():
+                            over = side
+                            break
+                if over:
+                    break
+            if over:
+                break
+        sc = {k: sum(OP_SCORES[c[0]][c[1]] for c, o in own.items() if o == k) for k in ('P', 'O')}
+        if over == 'P' or (not over and sc['P'] - sc['O'] >= 4):
+            res['big'] += 1
+        if over == 'P' or (not over and sc['P'] > sc['O']):
+            res['win'] += 1
+        elif over == 'O' or (not over and sc['P'] < sc['O']):
+            res['lose'] += 1
+    return {k: v / trials for k, v in res.items()}
+
+
 def show_opinion(C):
     print('■ 輿論（粗估）：一回合能推的聲量')
     for g, ep, you, opp in opinion_table(C):
         print(f'{g:>3} 你 {ep} 點 → {you} 聲量  對手 強度1/2/3 → {opp[1]}/{opp[2]}/{opp[3]}')
+    rng = random.Random(7)
+    print('■ 輿論戰（風向、說法、降流、否認、反爆料、追擊）：你的編輯點對對手的強度，勝率（和局另計）；OPINION 5.2 節的勢均力敵：2 點對強度 1、3～4 點對強度 2、5～6 點對強度 3')
+    for g in range(5):
+        cells = []
+        for ep, k in ((2, 1), (3, 2), (4, 2), (5, 3), (6, 3), (4, 3), (6, 2)):
+            r = opinion_war2(C, g, ep, k, rng, 1000)
+            cells.append(f'{ep} 點對強度 {k}：{pct(r["win"])}')
+        print(f'  {G[g]:>3}：' + '｜'.join(cells))
+    r1 = [opinion_war2(C, g, 4, 2, rng, 1000, bonus=False)['win'] for g in range(5)]
+    print('  對照：料牌不加等級加值，4 點對強度 2：' + '｜'.join(f'{G[g]} {pct(x)}' for g, x in enumerate(r1)))
+    print('■ 輿論戰的簡化模擬（媒體型主力對一個對手，勝率；和局算一半）：料牌照等級加值／不加')
+    for g in range(5):
+        cells = [f'強度 {k}：{pct(opinion_war(C, g, k, rng, 2000))}／{pct(opinion_war(C, g, k, rng, 2000, bonus=False))}' for k in (1, 2, 3)]
+        print(f'  {G[g]:>3}（編輯點 {C["op_player_ep"][g]}）：' + '｜'.join(cells))
 
 
 def show_roster(C, limit=0.15):
@@ -865,7 +1306,7 @@ def main():
     rng = random.Random(a.seed)
     topics = a.topics
     if 'all' in topics:
-        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'quests', 'grade', 'duel', 'legend', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items']
+        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'quests', 'grade', 'duel', 'legend', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items', 'skills', 'mech', 'netrun']
     if 'summary' in topics:
         topics = ['hits', 'encounter', 'cross']
     print(f'曲線：{a.set}')
@@ -873,7 +1314,9 @@ def main():
         {'hits': lambda: show_hits(C), 'net': lambda: show_net(C),
          'encounter': lambda: show_encounter(C, rng, a.trials), 'cross': lambda: show_cross(C, rng, max(200, a.trials // 4)),
          'check': lambda: show_check(C), 'economy': lambda: show_economy(C), 'xp': lambda: show_xp(C),
-         'opinion': lambda: show_opinion(C), 'roster': lambda: show_roster(C), 'items': show_items,
+         'opinion': lambda: show_opinion(C), 'roster': lambda: show_roster(C), 'items': show_items, 'skills': show_skills,
+         'mech': lambda: show_mech(C, rng, max(500, a.trials // 2)),
+         'netrun': lambda: show_netrun(C, rng, max(200, a.trials // 10)),
          'key': lambda: show_key(C, rng, max(300, a.trials // 2)),
          'capture': lambda: show_capture(C, rng, max(500, a.trials // 2)),
          'quests': lambda: show_quest_layouts(C, rng, max(300, a.trials // 4)),
