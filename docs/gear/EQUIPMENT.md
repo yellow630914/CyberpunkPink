@@ -1,7 +1,7 @@
 # 身上的裝備：穿著、飾品與攜帶
 
 > 上層：[GAME_DESIGN](../GAME_DESIGN.md)。依賴：[CRAFTING](CRAFTING.md)（設計圖與零件）、[CYBERWARE](CYBERWARE.md) 第 1 節（義體的部位）、[LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 2 節（曝露度與風格）、[LIFE](../world/LIFE.md) 第 3 節（合法性）、[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md)（護甲、用道具）。被依賴：[DISTRICTS](../world/DISTRICTS.md)（各區的掃描與風格）、[ITEMS](ITEMS.md)。
-> 來源：ElondiaRPG 的裝備欄位（18 格加額外飾品格）、曝露度與真空、NPC 的服裝。預定資料：`data/rules/equipment.json`、`gear.json` 的 `slots`。數值都是初稿。
+> 來源：ElondiaRPG 的裝備欄位（18 格加額外飾品格）、曝露度與真空、NPC 的服裝。預定資料：`data/rules/equipment.json`、`gear.json` 的 `slots`。數字待平衡。
 
 ElondiaRPG 的欄位是為奇幻設計的：武器看哪隻手拿，護甲就是上身那一件，飾品多是因為要放附魔。這裡重新分。
 

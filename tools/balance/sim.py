@@ -515,7 +515,7 @@ def neural_swings(C, rank, g, md):
     return pool / per_swing(md['ev']), base / per_swing(0)
 
 
-# 勢力共通的修正可以超過 ±15%（ENEMIES 1.3 節）：要有描述撐著、要帶反向的代價，並且寫在這裡（BALANCE 第 8 節第 15 項）
+# 勢力共通的修正可以超過 ±15%（ENEMIES 1.3 節）：要有描述撐著、要帶反向的代價，並且寫在這裡（BALANCE 第 3 節）
 ROSTER_EXCEPTIONS = {'蜜糖會': {'load': 1.3, 'why': '勢力共通的感載 ×1.3（耐灌），代價是她們不追著人打、多半只教訓人（2026-11-21 確認）'}}
 
 
@@ -846,7 +846,7 @@ def show_items():
     rows = items_audit.audit(path)
     print(f'■ 物品：零件的份量與價、設計圖的授權與成品、藥、飾品、SKIN 的價，照 ITEMS 各節自己寫的公式；不合的共 {len(rows)} 筆')
     print(f'  允許的誤差：價 {items_audit.PRICE_TOL:.0%}；IV 級的基準 {items_audit.BASE["IV"]:,} ±{items_audit.BASE_TOL["IV"]:,}；'
-          f'效果折成的格與份量差 ±{items_audit.WEIGHT_TOL:g} 格（BALANCE 第 8 節第 9、14 項）')
+          f'效果折成的格與份量差 ±{items_audit.WEIGHT_TOL:g} 格（BALANCE 第 3 節）')
     for line, kind, name, msg in rows:
         print(f'  第 {line} 行｜{kind}｜{name}｜{msg}')
 

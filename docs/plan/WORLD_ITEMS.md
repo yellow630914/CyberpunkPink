@@ -129,7 +129,7 @@
 
 | 項目 | 狀態 | 在哪 | 還缺 | 誰在等 |
 |---|---|---|---|---|
-| 各企業的兵種 | ● | [ENEMY_ROSTER](../content/ENEMY_ROSTER.md) | 照等級 I～V 與位階寫成相對目標表的修正，平衡第二階段重算過（[BALANCE](../systems/BALANCE.md) 第 3 節）（2026-11-21 對過） | 戰鬥 |
+| 各企業的兵種 | ● | [ENEMY_ROSTER](../content/ENEMY_ROSTER.md) | 照等級 I～V 與位階寫成相對目標表的修正，照 BALANCE 的曲線重算過（[BALANCE](../systems/BALANCE.md) 第 5 節）（2026-11-21 對過） | 戰鬥 |
 | 各幫派的兵種 | ● | 同上 | 同上 | 戰鬥 |
 | 蕾絲的種類 | ● | [NETRUNNING](../systems/NETRUNNING.md) 4、[ENEMIES](../systems/ENEMIES.md) 第 9 節、[ENEMY_ROSTER](../content/ENEMY_ROSTER.md) 蕾絲 | 每色兩型加閘門守衛；高階的粉蕾絲（管家）會說話、會勸降；具名的是蕾諾拉（2026-11-21 對過） | 網內戰鬥 |
 | 無人機與機器 | ● | [ENEMIES](../systems/ENEMIES.md) 第 10 節、[ENEMY_ROSTER](../content/ENEMY_ROSTER.md) 無人機與砲塔 | 已寫（2026-11-21），等你過：ENEMIES 第 10 節的舊表換成和名單同一套「和人重疊、不佔格」的規則，兵種一律連到名單 | 戰鬥 |

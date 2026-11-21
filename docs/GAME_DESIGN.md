@@ -34,7 +34,7 @@
 10. **一座城市，兩個世界。** 現實的緋夜城幾乎全是固定地圖，給的是熟悉；內海大量隨機生成，給的是未知。沒有世界地圖，沒有別的城市可以去。
 11. **機械是買的，生體是養的；什麼都不是搓出來的。** 這裡只有組裝，沒有製造（[CRAFTING](gear/CRAFTING.md)）。
 12. **帳單是敵人。** 房租、義體訂閱、藥、債每週到期。高科技、低生活要用數字感受到。
-13. **預設要平衡，玩家選擇作弊不攔**（已確認，2026-11-20，重要；2026-11-21 改成一個設定）。我們自己做的東西（事件、敵人、物品、價格、AI 自己生成的內容）都要平衡，預設的遊戲也要平衡。但玩家**自己選擇**用 AI 作弊時（在自由行動裡口胡、要 AI 給他想要的結果、要 AI 多給一點），不攔他：會選一款靠 AI 的遊戲，就是不想被限制太多。所以：
+13. **預設要平衡，玩家選擇作弊不攔**（重要）。我們自己做的東西（事件、敵人、物品、價格、AI 自己生成的內容）都要平衡，預設的遊戲也要平衡。但玩家**自己選擇**用 AI 作弊時（在自由行動裡口胡、要 AI 給他想要的結果、要 AI 多給一點），不攔他：會選一款靠 AI 的遊戲，就是不想被限制太多。所以：
     - 夾值一律管 **AI 自己生成的東西**（Agent 提出的事件、AI 判定時自己給的後果）。
     - 玩家主動要求的結果**預設也夾值**：設定「玩家要求的結果也夾值」預設開（[AI_TASKS](plan/AI_TASKS.md) 2.5 節）。玩家要求天降一把神劍，劍照給，但等級與數值夾到這一區的上限。
     - 想作弊的玩家把這個設定關掉：那之後，玩家明說要的結果**只擋格式錯誤**（欄位不對、id 重複、引用到不存在的東西）。這把神劍只要照物品的格式寫、id 沒有重複，就照給，新的物品直接加進存檔。
@@ -107,7 +107,9 @@
 | 幫派與街頭組織 | [world/GANGS](world/GANGS.md) |
 | 御宅文化、獸化、女僕、偶像、街頭用語 | [world/CULTURE](world/CULTURE.md) |
 | 八個區、地圖規模、要地、橋接區、交通 | [world/DISTRICTS](world/DISTRICTS.md) |
-| 固定 NPC、夥伴、主線骨架 | [world/NPCS](world/NPCS.md) |
+| 固定 NPC、夥伴、穿過很多人的線 | [world/NPCS](world/NPCS.md) |
+| 特殊任務：各條線的骨架、旗標與劇情計數器 | [world/STORY_QUESTS](world/STORY_QUESTS.md) |
+| 街區、要地、任務區域、委託副本的現實面模板、設施 | [world/SITES](world/SITES.md) |
 | 錢、身分、法律、等級、牌子、藥、通訊、時間與城市的大事、行規 | [world/LIFE](world/LIFE.md) |
 | 勢力的名單、關係、好感與敵對值 | [world/FACTIONS](world/FACTIONS.md) |
 | **規則** | |
@@ -135,7 +137,9 @@
 | **其他** | |
 | 三個戰場的索引 | [DOMAINS](DOMAINS.md) |
 | 美術風格、地圖與樣式的圖 | [art/ART_STYLE](art/ART_STYLE.md) |
-| 路線圖、系統盤點、世界觀盤點、ElondiaRPG 遷移清單 | [plan/](plan/ROADMAP.md) |
+| 現在的計畫與還沒決定的事 | [plan/PLAN](plan/PLAN.md) |
+| 已經定案的決定（紀錄） | [log/DECISIONS](log/DECISIONS.md) |
+| ElondiaRPG 遷移清單 | [plan/MIGRATION](plan/MIGRATION.md) |
 
 ## 9. 報告
 
@@ -172,4 +176,4 @@ src/stores/       狀態與存檔
 src/components/   Vue 介面
 ```
 
-技術選型沿用 ElondiaRPG（Vue 3、Pinia、Vite、Vitest）。要直接從 ElondiaRPG 分支出來改，還是開新專案把模組一個個搬過來，見 [plan/ROADMAP](plan/ROADMAP.md) 的待決定第 1 項。
+技術選型沿用 ElondiaRPG（Vue 3、Pinia、Vite、Vitest）。要直接從 ElondiaRPG 分支出來改，還是開新專案把模組一個個搬過來，還沒決定（[plan/PLAN](plan/PLAN.md)）。
