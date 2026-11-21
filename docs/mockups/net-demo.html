@@ -116,7 +116,7 @@ body{margin:0;padding:24px 16px;background:#17111F;color:var(--ink);font-family:
     <div class="nd-skl" id="nd-skl" hidden><b>技能清單</b><p>這個 Demo 還沒有技能。正式版這裡列出這個角色裝著的主動技能與專屬構裝。</p></div></div></div>
   <div class="nd-hint" id="nd-hint"></div>
   <div class="nd-log" id="nd-log" aria-live="polite"></div>
-  <div class="nd-note">照已確認的規則：站位、距離、命中、防火牆（遮蔽）都和現實戰鬥一樣；只有感載一條，過載不失去回合但會閃斷（RAM 歸零），每層餘韻檢定 +1、傷害 +10%；攻擊花 RAM，每回合回 2（潛網者 3）；同步檔位只能在自己的回合換；餘韻疊滿的近身目標可以釘住；長矛（狙擊型）一擊 3 點，已經包含瞄準；監視花 2 點，敵人一站上暴露的格子就自動攻擊；拔線與投降在結束回合旁邊，要長按；瞄準與超頻是槍手的技能，這個 Demo 沒有做技能，所以只有敵人會用；追蹤度每回合 +3，到 30、60、90 各有東西來。只有潛網者有管理行動（不花行動點，每回合 2 次，全檔 3 次）。化身的 SKIN、彈幕與觀看數只是氣氛，不影響數值；角色的數字是為了試手感臨時填的。圖示來自 game-icons.net（CC BY 3.0）。</div>
+  <div class="nd-note">照已確認的規則：站位、距離、命中、防火牆（遮蔽）都和現實戰鬥一樣；只有感載一條，過載不失去回合但會閃斷（RAM 歸零），每層餘韻檢定 +1、傷害 +10%；攻擊花 RAM，每回合回 2（潛網者 3）；同步檔位只能在自己的回合換；餘韻疊滿的近身目標可以釘住；長矛（狙擊型）一擊 3 點，已經包含瞄準；監視花 2 點，敵人一站上暴露的格子就自動攻擊；拔線與投降在結束回合旁邊，要長按；瞄準與超頻是槍手的技能，這個 Demo 沒有做技能，所以只有敵人會用；追蹤度每回合 +3，到 30、60、90 各有東西來。只有潛網者有管理行動（不花行動點，每回合 2 次，全檔 3 次）。化身的 SKIN、彈幕與觀看數只是氣氛，不影響數值；角色的數字照 BALANCE 第 2 節的 I 級（網內的敵人不打折，武器構裝多 1 顆骰）。圖示來自 game-icons.net（CC BY 3.0）。</div>
 </div>
 <script>
 (function(){
@@ -150,14 +150,14 @@ function init(){
  S={round:1,idx:0,busy:false,mode:null,over:false,exq:[],trace:15,t30:false,t60:false,loc:-1,view:12480,
   cov:{P:[null,{l:1,d:15},{l:2,d:30},{l:2,d:30},{l:1,d:15}],E:[null,{l:1,d:15},{l:2,d:30},{l:1,d:15},{l:2,d:30}]},
   units:[
-   unit('P',1,'前鋒','特攻服','cat',{lm:36,lay:3,ap:5,ram:4,prot:3,refl:1,gun:3,mel:5,will:2,intf:1,sm:2,tier:2,ws:['scatter','blade']}),
+   unit('P',1,'前鋒','特攻服','cat',{lm:38,lay:3,ap:5,ram:4,prot:3,refl:1,gun:3,mel:5,will:2,intf:1,sm:2,tier:2,ws:['scatter','blade']}),
    unit('P',2,'潛網者','魔法少女','cat',{lm:40,lay:3,ap:6,ram:8,rr:3,prot:2,refl:2,gun:4,will:3,intf:6,sm:3,admin:2,tier:2,ws:['needle','jam']}),
-   unit('P',3,'槍手','畫報女郎','cat',{lm:38,lay:3,ap:5,ram:4,prot:3,refl:3,gun:5,will:1,intf:0,sm:2,tier:2,ws:['pulse','needle']}),
+   unit('P',3,'槍手','畫報女郎','cat',{lm:38,lay:3,ap:5,ram:4,prot:2,refl:3,gun:5,will:1,intf:0,sm:2,tier:2,ws:['pulse','needle']}),
    unit('P',4,'狙擊手','哥德羅莉','cat',{lm:38,lay:3,ap:5,ram:5,prot:2,refl:2,gun:5,will:2,intf:1,sm:2,tier:2,ws:['lance','needle']}),
-   unit('E',1,'守衛程式','吉祥物型','bot',{lm:20,lay:1,ap:4,ram:4,prot:1,refl:1,gun:2,mel:4,xd:1,ws:['blade','needle']}),
-   unit('E',2,'粉蕾絲','女僕型','lace',{lm:22,lay:1,ap:4,ram:4,prot:2,refl:1,gun:3,mel:3,will:1,xd:1,ws:['stream']}),
-   unit('E',3,'粉蕾絲','女僕型','lace',{lm:22,lay:1,ap:4,ram:4,prot:2,refl:1,gun:3,mel:3,will:1,xd:1,ws:['stream']}),
-   unit('E',4,'粉蕾絲','女僕長','lace',{lm:30,lay:2,ap:5,ram:6,rr:3,prot:3,refl:2,gun:5,mel:4,will:3,tier:2,elite:true,xd:1,sync:2,sm:2,ws:['pulse','needle']})
+   unit('E',1,'守衛程式','吉祥物型','bot',{lm:22,lay:1,ap:4,ram:4,prot:1,refl:0,gun:3,mel:3,xd:1,ws:['blade','needle']}),
+   unit('E',2,'粉蕾絲','女僕型','lace',{lm:22,lay:1,ap:4,ram:4,prot:1,refl:0,gun:3,mel:3,will:1,xd:1,ws:['stream']}),
+   unit('E',3,'粉蕾絲','女僕型','lace',{lm:22,lay:1,ap:4,ram:4,prot:1,refl:0,gun:3,mel:3,will:1,xd:1,ws:['stream']}),
+   unit('E',4,'粉蕾絲','女僕長','lace',{lm:37,lay:2,ap:5,ram:6,rr:3,prot:1,refl:0,gun:3,mel:3,will:3,tier:2,elite:true,xd:1,sync:2,sm:2,ws:['pulse','needle']})
   ],order:[]};
  S.units.forEach((u,i)=>{u.id=i;u.ini=d20()+u.refl});
  S.order=S.units.slice().sort((a,b)=>b.ini-a.ini).map(u=>u.id);
@@ -211,8 +211,8 @@ function check(){if(S.over)return;const p=alive('P').length,e=alive('E').filter(
  else if(!e)end('敵人全部斷線或被釘住：勝利。餘韻會跟著回到現實（每層全屬性 −2）。','勝利。')}
 function spawn(u){for(let s=1;s<=4;s++){if(!at('E',s)){u.slot=s;u.id=S.units.length;S.units.push(u);S.order.push(u.id);return true}}return false}
 function traceCheck(){if(S.over)return;
- if(S.trace>=30&&!S.t30&&spawn(unit('E',0,'白蕾絲','警報型','lace',{lm:20,lay:1,ap:0,ram:0,refl:1,white:true,ws:['needle']}))){S.t30=true;dm('trace');log('追蹤度到 30：白蕾絲上線。牠不打人，每回合讓追蹤度 +5。','r')}
- if(S.trace>=60&&!S.t60&&spawn(unit('E',0,'企業潛網者','制服型','cat',{lm:30,lay:2,ap:5,ram:7,rr:3,prot:3,refl:2,gun:5,will:3,tier:2,elite:true,xd:1,sync:2,sm:2,ws:['pulse']}))){S.t60=true;dm('trace');log('追蹤度到 60：對方的潛網者上線。','r')}
+ if(S.trace>=30&&!S.t30&&spawn(unit('E',0,'白蕾絲','警報型','lace',{lm:22,lay:1,ap:0,ram:0,refl:0,white:true,ws:['needle']}))){S.t30=true;dm('trace');log('追蹤度到 30：白蕾絲上線。牠不打人，每回合讓追蹤度 +5。','r')}
+ if(S.trace>=60&&!S.t60&&spawn(unit('E',0,'企業潛網者','制服型','cat',{lm:37,lay:2,ap:5,ram:6,rr:3,prot:1,refl:0,gun:3,will:3,tier:2,elite:true,xd:1,sync:2,sm:2,ws:['pulse']}))){S.t60=true;dm('trace');log('追蹤度到 60：對方的潛網者上線。','r')}
  if(S.trace>=90&&S.loc<0){S.loc=3;dm('trace');log('追蹤度到 90：被定位。三回合後全隊強制斷線。','r')}}
 function startTurn(){if(S.over){render();return}const u=cur();
  if(u.down){return next()}

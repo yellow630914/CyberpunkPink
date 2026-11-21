@@ -88,7 +88,7 @@ body{margin:0;padding:24px 16px;background:#17111F;color:var(--ink);font-family:
   <div class="cd-act" id="cd-act"><div class="cd-tip" id="cd-tip" hidden></div><div class="cd-wbox" id="cd-wbox"></div><div class="cd-side"><div class="cd-btns"><button class="cd-btn" data-a="end" id="cd-endbtn">結束回合</button><button class="cd-btn cd-hold" id="cd-flee" title="長按：全隊擲一次，成功就離開這場戰鬥">脫離<small>2</small><i></i></button><button class="cd-btn cd-hold" id="cd-give" title="長按：結束這場戰鬥，算戰敗">投降<small>0</small><i></i></button></div><div class="cd-skl" id="cd-skl" hidden><b>技能清單</b><p>這個 Demo 還沒有技能。正式版這裡列出這個角色裝著的主動技能與姿態，點了才展開，不佔圓環的位置。</p></div></div></div>
   <div class="cd-hint" id="cd-hint"></div>
   <div class="cd-log" id="cd-log" aria-live="polite"></div>
-  <div class="cd-note">照已確認的規則：雙方各四格縱深，距離＝我的格數＋對方格數−1；每次攻擊都會照武器的倍率傷到目標那一格的遮蔽（掩體→半掩體→暴露）；前面那格沒有人也沒有遮蔽時，後排連同自己的遮蔽往前補；行動點每回合回 3；彈匣 1～4 格；狙擊槍一槍 3 點，已經包含瞄準；監視花 2 點，敵人一站上暴露的格子就自動開一槍；神經傷害打感載，過載失去一回合並疊一層餘韻；制伏要在近身；脫離與投降在結束回合旁邊，要長按。瞄準與連射是槍手的技能，這個 Demo 沒有做技能，所以只有敵人會用。沒有做的：技能、無人機與機甲、快駭、場地效果。數值都是初稿。行動圓環的圖示來自 game-icons.net（CC BY 3.0）。</div>
+  <div class="cd-note">照已確認的規則：雙方各四格縱深，距離＝我的格數＋對方格數−1；每次攻擊都會照武器的倍率傷到目標那一格的遮蔽（掩體→半掩體→暴露）；前面那格沒有人也沒有遮蔽時，後排連同自己的遮蔽往前補；行動點每回合回 3；彈匣 1～4 格；狙擊槍一槍 3 點，已經包含瞄準；監視花 2 點，敵人一站上暴露的格子就自動開一槍；神經傷害打感載，過載失去一回合並疊一層餘韻；制伏要在近身；脫離與投降在結束回合旁邊，要長按。瞄準與連射是槍手的技能，這個 Demo 沒有做技能，所以只有敵人會用。沒有做的：技能、無人機與機甲、快駭、場地效果。數值照 BALANCE 第 2 節的 I 級，敵人的傷害照位階打折（雜兵 ×0.4、精英 ×0.6）。行動圓環的圖示來自 game-icons.net（CC BY 3.0）。</div>
 </div>
 <script>
 (function(){
@@ -111,14 +111,14 @@ function init(){
  S={round:1,idx:0,busy:false,mode:null,over:false,exq:[],
   cov:{P:[null,{l:1,d:15},{l:2,d:30},{l:2,d:30},{l:1,d:15}],E:[null,{l:1,d:15},{l:2,d:30},{l:1,d:15},{l:2,d:30}]},
   units:[
-   unit('P',1,'前鋒','',{hp:48,armor:4,lm:36,lay:3,ap:5,refl:1,gun:3,mel:5,will:2,ws:['shotgun','knife']}),
-   unit('P',2,'灌手','',{hp:40,armor:3,lm:40,lay:3,ap:6,refl:2,gun:4,will:3,ws:['stun','pistol']}),
-   unit('P',3,'槍手','',{hp:44,armor:3,lm:38,lay:3,ap:5,refl:3,gun:5,will:1,ws:['rifle','pistol']}),
-   unit('P',4,'狙擊手','',{hp:38,armor:2,lm:38,lay:3,ap:5,refl:2,gun:5,will:2,ws:['sniper','pistol']}),
-   unit('E',1,'打手','雜兵',{hp:32,armor:1,lm:20,lay:1,ap:4,refl:1,gun:2,mel:4,will:0,ws:['knife','pistol']}),
-   unit('E',2,'保全','雜兵',{hp:32,armor:2,lm:22,lay:1,ap:4,refl:1,gun:3,will:1,ws:['stun','pistol']}),
-   unit('E',3,'保全','雜兵',{hp:34,armor:2,lm:22,lay:1,ap:4,refl:1,gun:3,will:1,ws:['smg']}),
-   unit('E',4,'小隊長','精英',{hp:85,armor:3,lm:30,lay:2,ap:5,refl:2,gun:5,will:3,tier:2,elite:true,ws:['rifle','pistol']})
+   unit('P',1,'前鋒','',{hp:50,armor:3,lm:36,lay:3,ap:5,refl:1,gun:3,mel:5,will:2,ws:['shotgun','knife']}),
+   unit('P',2,'灌手','',{hp:44,armor:2,lm:40,lay:3,ap:6,refl:2,gun:4,will:3,ws:['stun','pistol']}),
+   unit('P',3,'槍手','',{hp:46,armor:2,lm:38,lay:3,ap:5,refl:3,gun:5,will:1,ws:['rifle','pistol']}),
+   unit('P',4,'狙擊手','',{hp:44,armor:2,lm:38,lay:3,ap:5,refl:2,gun:5,will:2,ws:['sniper','pistol']}),
+   unit('E',1,'打手','雜兵',{hp:45,armor:1,lm:22,lay:1,ap:4,refl:0,gun:3,mel:3,will:0,ws:['knife','pistol']}),
+   unit('E',2,'保全','雜兵',{hp:45,armor:1,lm:22,lay:1,ap:4,refl:0,gun:3,will:1,ws:['stun','pistol']}),
+   unit('E',3,'保全','雜兵',{hp:45,armor:1,lm:22,lay:1,ap:4,refl:0,gun:3,will:1,ws:['smg']}),
+   unit('E',4,'小隊長','精英',{hp:110,armor:1,lm:37,lay:2,ap:5,refl:0,gun:3,will:3,tier:2,elite:true,ws:['rifle','pistol']})
   ],order:[]};
  S.units.forEach((u,i)=>{u.id=i;u.ini=d20()+u.refl});
  S.order=S.units.slice().sort((a,b)=>b.ini-a.ini).map(u=>u.id);
@@ -143,7 +143,8 @@ function attack(a,t,o){o=o||{};const w=o.w||wp(a),slotW=a.ws[a.wi],n=o.burst?slo
  if(w.mag){slotW.mag-=n}
  const r=d20(),bonus=(w.melee?a.mel:a.gun)+rmod(a,t,w)+aimB(a,w)-(a.supp?2:0)-a.layers,tot=r+bonus,dg=dodge(t),cb=COVB[S.cov[t.side][t.slot].l];
  const aimed=a.aim||!!w.snipe;a.aim=false;
- let dice=(w.far&&dist(a,t)>2?w.far:w.dice)+(o.burst?n-1:0);
+ const nd=(w.t==='n'&&a.side==='E')?(a.elite?6:4):0; /* 敵人打感載的神經武器：雜兵 4d6、精英 6d6（ENEMIES 1.5 節） */
+ let dice=(nd||(w.far&&dist(a,t)>2?w.far:w.dice))+(o.burst?n-1:0);
  const hit=r===20||(r!==1&&tot>=dg), crit=hit&&tot-dg>=5;
  let msg=tag(a)+(o.burst?' 用'+w.n+'連射（'+n+' 格）':' 用'+w.n+(w.snipe?'瞄準射擊':'攻擊'))+' '+tag(t)+'：d20='+r+(bonus>=0?'+':'')+bonus+'='+tot+' 對迴避 '+dg+'，';
  if(!hit){
@@ -154,7 +155,7 @@ function attack(a,t,o){o=o||{};const w=o.w||wp(a),slotW=a.ws[a.wi],n=o.burst?slo
   const raw=d6(dice);
   if(cb&&w.cm){log('遮蔽受 '+Math.round(raw*w.cm)+'（'+w.n+' ×'+w.cm+'）。');hurtCover(t.side,t.slot,raw*w.cm)}
   if(w.t==='n'){log(msg+(crit?'要害！':'命中，')+'感載 +'+raw+'。');neural(t,raw)}
-  else{const dm=Math.max(0,raw-Math.max(0,t.armor-w.pen));t.hp-=dm;log(msg+(r===20?'自然 20！':crit?'要害！':'命中，')+'傷害 '+raw+'，扣護甲後 '+dm+'。');
+  else{let dm=Math.max(0,raw-Math.max(0,t.armor-w.pen));if(a.side==='E'&&dm>0)dm=Math.max(1,Math.round(dm*(a.elite?.6:.4))); /* 位階的傷害倍率：雜兵 ×0.4、精英 ×0.6（ENEMIES 1.5 節） */t.hp-=dm;log(msg+(r===20?'自然 20！':crit?'要害！':'命中，')+'傷害 '+raw+'，扣護甲後 '+dm+'。');
    if(wound&&(t.elite||t.side==='P')&&t.hp>0){if(Math.random()<.5){t.bleed=true;log(tag(t)+' 重創（軀幹）：流血。','h')}else{t.daze=true;log(tag(t)+' 重創（頭）：暈眩，下回合行動點 −2。','h')}}
    if(t.hp<=0){t.hp=0;fall(t,t.side==='E'?' 被打倒。':' 倒下。')}
    else if(w.push&&t.slot<4){const b=at(t.side,t.slot+1),os=t.slot;if(b)b.slot=os;t.slot=os+1;log(tag(t)+' 被轟退一格。');exposed(t);exposed(b);compact(t.side)}}
