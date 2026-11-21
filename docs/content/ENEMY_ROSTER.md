@@ -4193,6 +4193,7 @@
 | 家政課第七席 | 真白 ③ | `en_hz_hk_seat` | II 級、首領 | 現實 | `tuning` |
 | 採樣主任「沃斯」 | 雷 ② | `en_nc_physician` | III 級、精英 | 現實 | `lab` |
 | 樓面經理「蜜價」 | 柚 ② | `en_ed_floor_manager` | II 級、精英 | 現實 | `contract` |
+| 安全顧問「柏木」 | 詩織 ② | `en_hz_patrol`（升為精英） | II 級、精英 | 現實 | `arrest` |
 
 ### 流竄 AI 的線（關係與感官）
 

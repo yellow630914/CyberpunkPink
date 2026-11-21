@@ -2,7 +2,7 @@
 """夾值用的模擬器（docs/systems/BALANCE.md）。不依賴任何套件。
 
 用法：python3 tools/balance/sim.py [主題 ...] [--set current|proposed] [--doc-budget] [--trials N] [--seed N]
-主題：summary（預設）、hits、encounter、cross、capture、key、quests、grade、duel、difficulty、net、check、economy、xp、opinion、roster、items、all
+主題：summary（預設）、hits、encounter、cross、capture、key、quests、grade、duel、legend、difficulty、net、check、economy、xp、opinion、roster、items、all
 
 所有曲線都寫在這個檔案的 CURVES 裡，和 BALANCE.md 的表一一對應。
 current 是第一輪夾值之前文件寫的數字（2026-11-20），proposed 是 BALANCE.md 的曲線；兩組只在 DIFF 列出的欄位不同。
@@ -764,6 +764,34 @@ def show_duel(C, rng, trials):
         print(f'    {label}，{G[g]} 級：勝 {pct(win)}，掉 {pct(loss)}，{rnds:.1f} 回合')
 
 
+# 傳奇人物（NPCS 第 10 節，2026-11-21）：V 級的具名首領 ×2，點數也乘（10 點），刻意超過首領戰的 8 點；不吃對決的修正
+LEGEND_MULT = 2.0
+LEGEND_LAYOUTS = [
+    ('對照：具名 ×1.5 的首領單挑（7.5 點）', 1.5, ['首領'], 4),
+    ('傳奇人物 ×2 單挑（10 點）', LEGEND_MULT, ['首領'], 4),
+    ('傳奇人物 ×2＋2 雜兵（12 點）', LEGEND_MULT, ['首領', '雜兵', '雜兵'], 4),
+    ('傳奇人物 ×2＋1 精英（12.5 點）', LEGEND_MULT, ['首領', '精英'], 4),
+    ('傳奇人物 ×2.5 單挑（12.5 點，對照）', 2.5, ['首領'], 4),
+    ('三個人對傳奇人物 ×2', LEGEND_MULT, ['首領'], 3),
+    ('兩個人對傳奇人物 ×2', LEGEND_MULT, ['首領'], 2),
+    ('一個人對傳奇人物 ×2', LEGEND_MULT, ['首領'], 1),
+]
+
+
+def show_legend(C, rng, trials):
+    print(f'■ 傳奇人物：V 級的隊伍打 V 級的具名首領 ×{LEGEND_MULT:g}（點數也乘），{trials} 次的平均，回合上限 30；刻意打不太贏（BALANCE 2.7 節）')
+    for label, m, comp, n in LEGEND_LAYOUTS:
+        K = dict(C, key_mult=m, party_n=n)
+        loss, rnds, win, downs = encounter(K, 4, 4, comp, rng, trials, rounds=30)
+        print(f'  {label}：勝 {pct(win)}，掉 {pct(loss)}，{rnds:.1f} 回合，倒下 {downs:.2f} 人')
+    K = dict(C, key_mult=LEGEND_MULT)
+    loss, rnds, win, downs = encounter(K, 3, 4, ['首領'], rng, trials, rounds=30)
+    print(f'  IV 級的隊伍（低一級）對傳奇人物 ×{LEGEND_MULT:g}：勝 {pct(win)}，掉 {pct(loss)}，倒下 {downs:.2f} 人')
+    D = dict(C, key_mult=LEGEND_MULT, difficulty=DIFFICULTY['故事'])
+    loss, rnds, win, downs = encounter(D, 4, 4, ['首領'], rng, trials, rounds=30)
+    print(f'  故事難度，V 級四人對傳奇人物 ×{LEGEND_MULT:g}：勝 {pct(win)}，掉 {pct(loss)}，倒下 {downs:.2f} 人')
+
+
 def show_cross(C, rng, trials):
     print('■ 跨級：g 級的隊伍打 e 級的四個雜兵（掉血％／回合）')
     print('隊伍＼敵人 | ' + ' | '.join(G))
@@ -837,7 +865,7 @@ def main():
     rng = random.Random(a.seed)
     topics = a.topics
     if 'all' in topics:
-        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'quests', 'grade', 'duel', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items']
+        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'quests', 'grade', 'duel', 'legend', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items']
     if 'summary' in topics:
         topics = ['hits', 'encounter', 'cross']
     print(f'曲線：{a.set}')
@@ -851,6 +879,7 @@ def main():
          'quests': lambda: show_quest_layouts(C, rng, max(300, a.trials // 4)),
          'grade': lambda: show_grade(C, rng, max(300, a.trials // 4)),
          'duel': lambda: show_duel(C, rng, max(500, a.trials // 2)),
+         'legend': lambda: show_legend(C, rng, max(500, a.trials // 2)),
          'difficulty': lambda: show_difficulty(C, rng, max(300, a.trials // 4))}[t]()
         print()
 
