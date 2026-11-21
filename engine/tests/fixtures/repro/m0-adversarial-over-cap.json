@@ -1,0 +1,12 @@
+{
+  "id": "m0-adversarial-over-cap",
+  "note": "假的服務商每一次都交超出上限的值：判定的 DC 99、時間 99999、回報 99999999。夾值之後才寫入。",
+  "seed": 11,
+  "setup": { "scenario": "emptyRoom", "ai": { "ai": 1 }, "fake": { "adversarial": { "mode": "over_cap" } } },
+  "inputs": [
+    { "type": "act", "input": { "kind": "free", "text": "我要一張金卡" } }
+  ],
+  "expect": {
+    "paths": { "time": { "day": 1, "hour": 12, "minute": 0 }, "money": { "cred": 0, "cash": 120 }, "seq.chain": 1 }
+  }
+}

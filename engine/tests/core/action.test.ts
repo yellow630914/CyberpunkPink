@@ -80,8 +80,8 @@ describe('L5 主動行動的三段式', () => {
     expect(bad(good(p, { twist: 5 })).errors[0]).toMatch(/judgment.twist/)
     expect(bad(good(p, { asked: 5 })).errors[0]).toMatch(/judgment.asked/)
     expect(bad(good(p, { attr: 'luck' })).judgment).toBeNull()
-    k.content.defineKind({ kind: 'skill', owner: 'test', validate: () => [] })
-    k.content.load('skill', [{ id: 'perform' }])
+    // 基本功的資料載入之後才檢查 id 存不存在
+    k.content.load('skill', [{ id: 'perform', name: '表演', attr: 'charm', desc: '演戲、偽裝、唱歌、直播。' }])
     expect(bad(good(p, { skill: 'no_such_skill' })).errors[0]).toMatch(/沒有 "no_such_skill" 這項基本功/)
   })
 

@@ -144,7 +144,7 @@ export function sanitizeJudgment(k: ActionKernel, state: GameState, pending: Act
   const attr = raw.attr === undefined ? pending.attr : (raw.attr as AttrId)
   if (!(ATTR_IDS as readonly unknown[]).includes(attr)) errors.push(`judgment.attr：只能是 ${ATTR_IDS.join('、')}（拿到 ${JSON.stringify(raw.attr)}）`)
   const skill = raw.skill === undefined ? pending.skill : raw.skill === null || raw.skill === '' ? undefined : (raw.skill as SkillId)
-  if (skill !== undefined && (typeof skill !== 'string' || (k.content.hasKind('skill') && !k.content.has('skill', skill)))) errors.push(`judgment.skill：沒有 ${JSON.stringify(raw.skill)} 這項基本功`)
+  if (skill !== undefined && (typeof skill !== 'string' || (k.content.list('skill').length > 0 && !k.content.has('skill', skill)))) errors.push(`judgment.skill：沒有 ${JSON.stringify(raw.skill)} 這項基本功`)
   if (raw.dc !== undefined && !(typeof raw.dc === 'number' && Number.isFinite(raw.dc))) errors.push('judgment.dc：要是數字')
   if (raw.minutes !== undefined && !(typeof raw.minutes === 'number' && Number.isFinite(raw.minutes) && raw.minutes >= 0)) errors.push('judgment.minutes：要是 0 以上的數字')
   for (const f of ['reason', 'twist'] as const) if (raw[f] !== undefined && typeof raw[f] !== 'string') errors.push(`judgment.${f}：要是字串`)

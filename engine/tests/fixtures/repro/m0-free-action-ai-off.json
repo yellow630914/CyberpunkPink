@@ -1,0 +1,16 @@
+{
+  "id": "m0-free-action-ai-off",
+  "note": "基準：AI 關閉、固定種子，空房間做兩次自由行動、存檔讀檔、回退一步。不是 bug，是重播機制自己的樣本。",
+  "seed": 7,
+  "setup": { "scenario": "emptyRoom" },
+  "inputs": [
+    { "type": "act", "input": { "kind": "free", "text": "我看看四周" } },
+    { "type": "act", "input": { "kind": "free", "text": "我敲敲牆" } },
+    { "type": "save_load" },
+    { "type": "act", "input": { "kind": "free", "text": "我坐下來" } },
+    { "type": "undo" }
+  ],
+  "expect": {
+    "paths": { "rng.cursor": 2, "seq.chain": 2, "seq.report": 3, "time": { "day": 1, "hour": 9, "minute": 0 }, "money": { "cred": 0, "cash": 0 } }
+  }
+}

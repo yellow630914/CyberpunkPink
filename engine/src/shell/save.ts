@@ -87,7 +87,15 @@ export function validateState(s: unknown): string[] {
   return p
 }
 
-export function unpackSave(raw: string): Unpacked {
+export interface UnpackOpts {
+  /** 遷移步驟表與現在的版本；測試用。正式的程式不用給 */
+  migrations?: Migration[]
+  version?: number
+}
+
+export function unpackSave(raw: string, opts: UnpackOpts = {}): Unpacked {
+  const current = opts.version ?? SAVE_VERSION
+  const migrations = opts.migrations ?? MIGRATIONS
   let d: unknown
   try {
     d = JSON.parse(raw)
@@ -96,20 +104,20 @@ export function unpackSave(raw: string): Unpacked {
   }
   if (!isRecord(d) || d.format !== SAVE_FORMAT) return { ok: false, error: '這不是存檔：缺了格式標記。' }
   if (typeof d.version !== 'number' || !Number.isInteger(d.version) || d.version < 1) return { ok: false, error: '存檔的版本號不對。' }
-  if (d.version > SAVE_VERSION) return { ok: false, error: `存檔格式 ${d.version} 比這個版本新，讀不了。` }
+  if (d.version > current) return { ok: false, error: `存檔格式 ${d.version} 比這個版本新，讀不了。` }
   if (!isRecord(d.state)) return { ok: false, error: '存檔裡沒有狀態。' }
 
   const fromVersion = d.version
   let state = clone(d.state) as Record<string, unknown>
-  for (let v = fromVersion; v < SAVE_VERSION; v++) {
-    const step = MIGRATIONS.find((m) => m.from === v)
+  for (let v = fromVersion; v < current; v++) {
+    const step = migrations.find((m) => m.from === v)
     if (!step) return { ok: false, error: `沒有從第 ${v} 版升上來的遷移步驟。` }
     state = step.run(state)
   }
   // 補缺的欄位（新版多出來、舊存檔沒有的），存檔規則另外清一次
   const blank = blankState(0) as unknown as Record<string, unknown>
   for (const [k, v] of Object.entries(blank)) if (state[k] === undefined) state[k] = v
-  state.version = SAVE_VERSION
+  state.version = current
   state.rules = sanitizeRules(state.rules)
   state.seq = { ...(blank.seq as object), ...(isRecord(state.seq) ? state.seq : {}) }
 
@@ -118,5 +126,5 @@ export function unpackSave(raw: string): Unpacked {
   const young = underageAt(state)
   if (young.length) return { ok: false, error: `存檔裡有低於 18 的年齡（${young.slice(0, 3).join('、')}）：所有角色都是成年人，整筆不讀。` }
   const meta = isRecord(d.meta) ? (d.meta as unknown as SaveMeta) : saveMeta(state as unknown as GameState, 'manual', '')
-  return { ok: true, fromVersion, file: { format: SAVE_FORMAT, version: SAVE_VERSION, meta, state: state as unknown as GameState } }
+  return { ok: true, fromVersion, file: { format: SAVE_FORMAT, version: current, meta, state: state as unknown as GameState } }
 }

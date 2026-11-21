@@ -22,6 +22,8 @@ export function layerOf(path: string): { layer: number; feature?: string } | nul
   if (p.startsWith('core/state/')) return { layer: 3 }
   if (p.startsWith('core/rules/')) return { layer: 4 }
   if (p.startsWith('core/action/') || p === 'core/kernel.ts' || p === 'core/index.ts') return { layer: 5 }
+  // 功能的總表：把所有功能列在一起的那一個檔，算在外殼（它可以 import 每個功能；功能不可以 import 它）
+  if (p === 'features/index.ts') return { layer: 7 }
   const f = /^features\/([^/]+)(\/|\.ts$)/.exec(p)
   if (f) return { layer: 6, feature: f[1]!.replace(/\.ts$/, '') }
   if (p.startsWith('shell/')) return { layer: 7 }

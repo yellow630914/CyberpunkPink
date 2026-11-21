@@ -16,6 +16,6 @@
     "lib": ["ES2022", "DOM"],
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.d.ts", "vitest.config.ts", "vitest.pending.config.ts"],
+  "include": ["src/**/*.ts", "data/**/*.ts", "tests/**/*.ts", "scripts/**/*.d.ts", "vitest.config.ts", "vitest.pending.config.ts"],
   "exclude": ["tests/pending/**"]
 }
