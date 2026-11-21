@@ -1,11 +1,12 @@
 /**
  * 存檔的打包、讀回與回退（UI 第 15 節、SERIES 第 6 節、COMBAT_SYSTEM 8.4 節）。純函式。
  * - 存檔是一份 JSON：{ format, version, meta, state }。v1 的格式（沒有 format，欄位直接在最外層）照樣讀得回來。
+ * - 第 3 版：state 多了家園（home）與子網（subnet）兩個 store 的狀態，委託副本的快照也帶著它們。v2 的存檔讀進來時照 migrateSave 補上空的欄位（讀的時候保留現在的家園與子網）。
  * - 匯入時有低於 18 的年齡，整筆拒絕，不自動改成 18（UI 第 14 節）。
  * - 回退（重來這場戰鬥、回到這個階段開始時、撤退）把狀態換回快照，但保留三樣：紀錄、性經歷記錄、共同記憶。
  */
 export const SAVE_FORMAT = 'cyberpunkpink-save'
-export const SAVE_VERSION = 2
+export const SAVE_VERSION = 3
 
 export interface SaveMeta { label: string; day: number; time: string; place: string; savedAt: string; kind?: '手動' | '自動' | '快照' }
 export interface SaveFile<S = Record<string, unknown>> { format: string; version: number; meta: SaveMeta; state: S }
@@ -44,9 +45,24 @@ export function unpackSave<S>(raw: string): Unpacked<S> {
     // v1：設定頁存的假存檔，欄位在最外層
     file = { format: SAVE_FORMAT, version: 1, meta: { label: `第 ${String(o.day)} 天`, day: Number(o.day), time: '', place: '', savedAt: '' }, state: o as Partial<S> }
   } else return { ok: false, error: '這不是存檔：缺了格式標記。' }
+  file = migrateSave(file)
   const young = underageAt(file.state)
   if (young.length) return { ok: false, error: `存檔裡有低於 18 的年齡（${young.slice(0, 3).join('、')}）：所有角色都是成年人，整筆不讀。` }
   return { ok: true, file }
+}
+
+/**
+ * 舊版的存檔升到現在的版本。v1 → v2 欄位相同（少的欄位讀的時候保留現在的值）；
+ * v2 → v3 補上 home 與 subnet（null：讀的時候不動現在的家園與子網）。
+ */
+export function migrateSave<S>(file: SaveFile<Partial<S>>): SaveFile<Partial<S>> {
+  const out = { ...file, state: { ...file.state } as Record<string, unknown> }
+  if (out.version < 3) {
+    if (!('home' in out.state)) out.state.home = null
+    if (!('subnet' in out.state)) out.state.subnet = null
+    out.version = 3
+  }
+  return out as SaveFile<Partial<S>>
 }
 
 /** 回退時保留的三樣東西（SERIES 第 6 節）。 */

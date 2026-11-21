@@ -5,6 +5,7 @@ import CityMap from '../components/CityMap.vue'
 import Hint from '../components/Hint.vue'
 import ReasonButton from '../components/ReasonButton.vue'
 import MoneyTag from '../components/MoneyTag.vue'
+import { vehicleById } from '../data/garage'
 import { useGame } from '../stores/game'
 import { useUi } from '../stores/ui'
 import { useSettings } from '../stores/settings'
@@ -46,7 +47,7 @@ function taxi() {
   g.money.acc -= q.fare
   arrive(`你叫了一台浮空計程車（帳戶付 C$${q.fare}，乘客紀錄會留下）`, q.minutes)
 }
-function drive() { arrive(`你開自己的${g.vehicles[0]}過去`, driveMinutes(here.value, target.value!)) }
+function drive() { arrive(`你開自己的${vehicleById(g.vehicles[0].replace(/:used$/, ''))?.name ?? g.vehicles[0]}過去`, driveMinutes(here.value, target.value!)) }
 </script>
 
 <template>

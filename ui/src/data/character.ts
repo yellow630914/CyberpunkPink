@@ -87,6 +87,8 @@ export const START_INVENTORY: ItemStack[] = [
   { uid: 's17', def: 'it_5e3de4', qty: 1, condition: '全新' },
   { uid: 's18', def: 'it_d6c14d', qty: 1, condition: '二手' },
   { uid: 's19', def: 'box_unknown', qty: 1, condition: '全新', unknown: true },
+  { uid: 's90', def: 'it_844ea8', qty: 1, condition: '全新' },
+  { uid: 's91', def: 'tu_still', qty: 1, condition: '全新' },
   { uid: 's20', def: 'it_39841b', qty: 1, condition: '全新' },
   { uid: 's21', def: 'fu_plant', qty: 1, condition: '全新' },
   { uid: 's22', def: 'fu_workbench', qty: 1, condition: '二手' },

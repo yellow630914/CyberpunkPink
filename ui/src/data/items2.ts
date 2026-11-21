@@ -31,6 +31,16 @@ export const EXTRA_ITEMS: ItemDef[] = [
   { id: 'it_844ea8', name: '義臂「三分咲」', kind: 'cyberware', type: '臂的義體', grade: 2, brand: '緋櫻', l2: 'ic-cw_arm', price: 2610, weight: 0, legality: '自由', trade: '機械義體與零件',
     cyber: { part: 'armL', invasive: '侵入', sink: 6, material: '皆', effect: '義臂：力量 +2、速度 +1；內藏槽 1' }, note: '自己組的；裝到身上要在診所。' },
 
+  // ---- 調校（LEWD_SYSTEM 第 4 節）：裝在橋的調校槽裡的韌體設定檔，在調校診所裝卸 ----
+  { id: 'tu_pain', name: '調校「痛覺轉譯」', kind: 'cyberware', type: '調校', grade: 2, brand: '鉻娘子改', l2: 'ic-cw_bridge', price: 900, weight: 0, legality: '許可', trade: '電子',
+    cyber: { part: 'bridge', invasive: '表層', sink: 1, material: '機', effect: '受到的生命值傷害有 20% 改成感載；代價：重傷時更容易過載' } },
+  { id: 'tu_spot', name: '調校「聚光」', kind: 'cyberware', type: '調校', grade: 2, brand: '萬華鏡', l2: 'ic-cw_bridge', price: 1200, weight: 0, legality: '自由', trade: '電子',
+    cyber: { part: 'bridge', invasive: '表層', sink: 1, material: '機', effect: '被注視時檢定 +2；代價：沒人看的時候定力 −2，豔名成長加倍' } },
+  { id: 'tu_ice', name: '調校「冰后」', kind: 'cyberware', type: '調校', grade: 3, brand: '貞網局', l2: 'ic-cw_bridge', price: 2600, weight: 0, legality: '許可', trade: '電子',
+    cyber: { part: 'bridge', invasive: '表層', sink: 0, material: '機', effect: '抵抗誘惑、勸降、粉蕾絲 +4；代價：親密關係不降低沉溺，餘韻沒有正面效果' } },
+  { id: 'tu_still', name: '調校「靜水」', kind: 'cyberware', type: '調校', grade: 2, brand: '正規診所', l2: 'ic-cw_bridge', price: 800, weight: 0, legality: '自由', trade: '電子',
+    cyber: { part: 'bridge', invasive: '表層', sink: 0, material: '機', effect: '每回合感載自然消退加倍；代價：開不了全同步' } },
+
   // ---- 構裝（ITEMS 11.2～11.4） ----
   { id: 'cs_kefu1', name: '構裝「客服專線」I', kind: 'construct', type: '武器構裝・手槍', grade: 1, brand: '夜鶯', l2: 'ic-net_weapon', icon: 'it_051f1d', price: 200, weight: 0, legality: '登記', trade: '電子', net: { cls: '武器', ram: 1 }, stats: [['傷害', '3d6 神經'], ['距離', '1～4'], ['RAM', '1']], note: '回報後門：在夜鶯的子網裡每次攻擊追蹤度 +1。' },
   { id: 'cs_line1', name: '構裝「網線」I', kind: 'construct', type: '武器構裝・鞭', grade: 1, brand: '同人', l2: 'ic-net_weapon', icon: 'it_d1ad4d', price: 100, weight: 0, legality: '登記', trade: '電子', net: { cls: '武器', ram: 1 }, stats: [['傷害', '2d6 神經'], ['距離', '1～2']], note: '命中時把目標拉近一格。怪癖：自然 1 時纏住自己。' },

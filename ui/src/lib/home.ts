@@ -265,3 +265,15 @@ export function storage(defs: Record<string, FurnitureDef>, rooms: RoomInfo[]): 
   }
   return { kinds, safe }
 }
+
+/**
+ * 店面每週的營收（DOWNTIME 7.11 節）：基礎 × 區倍率 × 經營結果 × 區域狀態 − 營運費（基礎 × 0.4）。
+ * 經營結果：店長（或這週在店裡待滿 8 小時的你）擲一次 DC 13：大成功 1.5、成功 1、失敗 0.6、大失敗 0.3（並觸發一件店面事件）。
+ */
+export function shopWeek(base: number, districtMult: number, die: number, mod: number, area = 1) {
+  const tot = die + mod
+  const grade = die === 20 || tot >= 18 ? '大成功' : die === 1 || tot <= 8 ? '大失敗' : tot >= 13 ? '成功' : '失敗'
+  const mult = { 大成功: 1.5, 成功: 1, 失敗: 0.6, 大失敗: 0.3 }[grade]
+  const net = Math.round(base * districtMult * mult * area - base * 0.4)
+  return { grade, mult, net, upkeep: Math.round(base * 0.4), event: grade === '大失敗' }
+}

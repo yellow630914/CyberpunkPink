@@ -8,7 +8,7 @@ import { useUi, DIALOG_TITLES, type DialogName } from './stores/ui'
 import { useSaves } from './stores/saves'
 import { keyAction, isTyping } from './lib/keys'
 
-/** 外殼：全頁由路由切換，對話框層蓋在上面。子網的全頁換成內海皮。 */
+/** 外殼：全頁由路由切換，對話框層蓋在上面。子網與內海戰鬥的全頁換成內海皮。 */
 const route = useRoute()
 const g = useGame()
 const settings = useSettings()
@@ -53,10 +53,11 @@ function onKey(e: KeyboardEvent) {
 }
 onMounted(() => window.addEventListener('keydown', onKey))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
-const skin = computed(() => (route.path === '/subnet' ? 'net' : 'real'))
+const NET_PAGES = new Set(['/subnet', '/netcombat'])
+const skin = computed(() => (NET_PAGES.has(route.path) ? 'net' : 'real'))
 watchEffect(() => {
   document.documentElement.dataset.skin = skin.value
-  document.documentElement.dataset.district = route.path === '/subnet' ? 'net' : g.loc.district
+  document.documentElement.dataset.district = NET_PAGES.has(route.path) ? 'net' : g.loc.district
 })
 </script>
 

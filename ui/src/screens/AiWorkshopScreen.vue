@@ -10,6 +10,7 @@ import { useGame } from '../stores/game'
 import { useUi } from '../stores/ui'
 import { TASK_GROUPS, ALL_TASKS, SOURCES, CHAINS, VARIABLES, SETS, RECENT, defaultSource } from '../data/workshop'
 import { useGuides } from '../lib/useGuides'
+import { LORE_DEFAULTS, LORE_MODES, BUDGET_DEFAULTS, BUDGET_NAMES, IMAGE_DEFAULTS, LOCKED_NEGATIVE, IMAGE_ROUTES, budgetUse, lineDiff, loreChanges, type LoreEntry, type BudgetKey } from '../lib/lorebook'
 
 /**
  * AI 工坊（PROMPTS 第 2 節、樣稿 docs/mockups/ai-workshop.html）。和世界編輯器同一套殼：左樹、中編輯、右預覽與用在哪。
@@ -63,7 +64,7 @@ const preview = computed(() => {
     { n: '城市常駐條目', len: 1460, cache: true, src: '預設' },
     { n: `任務規則・${task.value.name}`, len: 640, cache: true, src: '預設' },
     { n: '前段自訂', len: blk.value.pre.length, cache: true, src: blk.value.pre ? '改過' : '空' },
-    { n: '世界書：四十二番街、露露餐館', len: 820, cache: false, src: '觸發' },
+    { n: `世界書：依區、依層、關鍵字（${lore.entries.filter(e => loreUse.value.state[e.uid] === '送' && e.mode !== 'constant').length} 條）`, len: loreUse.value.used.place + loreUse.value.used.keyword, cache: false, src: '觸發' },
     { n: '紀錄：最近五樓', len: 2100, cache: false, src: '注入配方' },
     { n: '後段自訂', len: blk.value.post.length, cache: false, src: blk.value.post ? '改過' : '空' },
     { n: `這一次：${recent.value}`, len: 260, cache: false, src: '存檔' },
@@ -81,6 +82,32 @@ const CHAIN_TOGGLES: Array<{ k: BoolKey; name: string; inSettings: boolean }> = 
 const RECORD_NAMES: Record<string, string> = { sexRecord: '記下性經歷', todayGoods: '今天的貨', newPeople: '新的人的細節', npcNews: 'NPC 的近況', streamGoal: '直播目標的說法', danmaku: '彈幕', footageTitle: '素材的標題' }
 const HOOK_NAMES: Record<string, string> = { agent_hook: '寫完正文之後', agent_event: '走進一個街區', agent_night: '長休醒來', agent_commission: '接委託時', agent_flavor: '進店與見到新的人' }
 const varValue = (v: string) => ({ '{{city}}': '緋夜城', '{{language}}': '繁體中文', '{{style}}': '霓虹黑色', '{{time}}': `第 ${g.day} 天 ${g.timeLabel}`, '{{place}}': g.placeLabel, '{{actor.name}}': g.character.name, '{{actor.attrs.charm}}': String(g.character.attrs.find(a => a.name === '魅力')?.eff), '{{cast[0].name}}': g.facility?.npcIds?.[0] ? g.npcs[g.facility.npcIds[0]].name : '（沒有）', '{{cap.cash_max}}': '120' } as Record<string, string>)[v] ?? '（只讀）'
+// ---- 世界書（PROMPTS 第 9 節）：條目、注入方式、字數預算；存在這個瀏覽器（提示詞組的一部分） ----
+const LKEY = 'cpp-ui-lore-v1'
+const loadLS = <T,>(k: string, def: T): T => { try { const r = localStorage.getItem(k); if (r) return JSON.parse(r) } catch { /* 用預設 */ } return structuredClone(def) }
+const lore = reactive<{ entries: LoreEntry[]; budgets: Record<BudgetKey, number> }>(loadLS(LKEY, { entries: LORE_DEFAULTS, budgets: BUDGET_DEFAULTS }))
+watch(lore, v => { try { localStorage.setItem(LKEY, JSON.stringify(v)) } catch { /* 存不了就算了 */ } }, { deep: true })
+const loreId = ref(lore.entries[0]?.uid ?? '')
+const loreSel = computed(() => lore.entries.find(e => e.uid === loreId.value) ?? null)
+const loreUse = computed(() => budgetUse(lore.entries, lore.budgets))
+const DISTRICT_IDS = ['hive', 'ave42', 'sakura', 'crown', 'oldport', 'glass', 'rust', 'under']
+function addLore() { const uid = `wb_new_${lore.entries.length + 1}`; lore.entries.push({ uid, comment: '新的條目', key: [], content: '', order: 50, mode: 'keyword' }); loreId.value = uid }
+function resetLore(uid: string) { const d = LORE_DEFAULTS.find(x => x.uid === uid); const i = lore.entries.findIndex(x => x.uid === uid); if (d && i >= 0) lore.entries[i] = structuredClone(d); else if (i >= 0) { lore.entries.splice(i, 1); loreId.value = lore.entries[0]?.uid ?? '' } }
+function stepBudget(k: BudgetKey, d: number) { lore.budgets[k] = Math.max(0, Math.min(40000, lore.budgets[k] + d)) }
+const keysText = computed({ get: () => loreSel.value?.key.join('、') ?? '', set: v => { if (loreSel.value) loreSel.value.key = v.split(/[,，、]/).map(x => x.trim()).filter(Boolean) } })
+// ---- 生圖（PROMPTS 第 10 節） ----
+const IKEY = 'cpp-ui-image-v1'
+const img = reactive(loadLS(IKEY, IMAGE_DEFAULTS))
+watch(img, v => { try { localStorage.setItem(IKEY, JSON.stringify(v)) } catch { /* 存不了就算了 */ } }, { deep: true })
+function resetImage() { Object.assign(img, structuredClone(IMAGE_DEFAULTS)); ui.toast('生圖恢復預設了。') }
+// ---- 和預設比較（提示詞組與匯入） ----
+const showDiff = ref(false)
+const taskDiffs = computed(() => Object.entries(custom).filter(([, b]) => b.pre || b.post || b.temp !== 0.8).map(([id, b]) => ({ id, name: ALL_TASKS.find(t => t.id === id)?.name ?? id, pre: lineDiff('', b.pre), post: lineDiff('', b.post), temp: b.temp })))
+const loreDiffs = computed(() => loreChanges(lore.entries))
+const imageDiffs = computed(() => (['preprocess', 'storyboard', 'negative', 'negativeAdult'] as const).filter(k => img[k] !== IMAGE_DEFAULTS[k]).map(k => ({ k, lines: lineDiff(IMAGE_DEFAULTS[k], img[k]) })))
+const settingDiffs = computed(() => (['useAi', 'judgeFree', 'judgeShift', 'judgeEvent', 'narrate', 'polish', 'clampRequested', 'agentMode', 'tradeProse', 'onlyQuery', 'combatProse', 'retries', 'chainRow'] as const).filter(k => !st.isDefault(k)).map(k => ({ k, now: String(s[k]), def: String(st.defaults[k]) })))
+const budgetDiffs = computed(() => (Object.keys(BUDGET_DEFAULTS) as BudgetKey[]).filter(k => lore.budgets[k] !== BUDGET_DEFAULTS[k]))
+const diffCount = computed(() => taskDiffs.value.length + loreDiffs.value.length + imageDiffs.value.length + settingDiffs.value.length + budgetDiffs.value.length)
 function stepLimit(k: 'event' | 'hook' | 'other', d: number) { const v = s.hookLimits[k] + d; if (v < 0 || v > 20) return; s.hookLimits[k] = v }
 </script>
 
@@ -101,6 +128,13 @@ function stepLimit(k: 'event' | 'hook' | 'other', d: number) { const v = s.hookL
       <!-- 左：樹 -->
       <nav class="panel cut pad tree" aria-label="AI 工坊的分類">
         <button v-for="[c, n] in CAT_NAMES" :key="c" type="button" class="lrow" :class="{ on: cat === c }" @click="cat = c">{{ n }}</button>
+        <template v-if="cat === 'lore'">
+          <p class="h grp">條目 {{ lore.entries.length }}</p>
+          <button v-for="e in [...lore.entries].sort((a, b) => a.order - b.order)" :key="e.uid" type="button" class="lrow sub" :class="{ on: loreId === e.uid, 'is-off': e.mode === 'off' }" :data-lore="e.uid" @click="loreId = e.uid">
+            <span class="grow">{{ e.comment }}</span><small>{{ LORE_MODES.find(m => m.id === e.mode)?.name }}</small><small v-if="loreUse.state[e.uid] === '超出預算'" class="warn-t">超出</small>
+          </button>
+          <button type="button" class="btn sm" data-addlore @click="addLore">新增條目</button>
+        </template>
         <template v-if="cat === 'task'">
           <template v-for="grp in TASK_GROUPS" :key="grp.name">
             <p class="h grp">{{ grp.name }}</p>
@@ -155,6 +189,46 @@ function stepLimit(k: 'event' | 'hook' | 'other', d: number) { const v = s.hookL
           <p class="setgrp">用量統計</p>
           <div class="empty-note">這個參考實作沒有送出過請求。</div>
         </template>
+        <template v-else-if="cat === 'lore'">
+          <h3>世界書<Hint title="世界書">只寫散文：氣氛、歷史、用語、人物與勢力的公開面貌、地方的樣子。規則與數字不放世界書。格式照 SillyTavern 的世界書，本遊戲的欄位放在 extensions.cpp。秘密靠 gate 保護：拆成「公開」與「揭露後」兩條，後者要旗標或沉溺才存在。</Hint></h3>
+          <template v-if="loreSel">
+            <label class="fld"><span>名稱（comment）</span><input v-model="loreSel.comment" class="inp"></label>
+            <div class="setrow"><span class="nm">注入方式<Hint><p v-for="m in LORE_MODES" :key="m.id"><b>{{ m.name }}</b>：{{ m.when }}。</p></Hint></span><span class="segs"><button v-for="m in LORE_MODES" :key="m.id" type="button" :class="{ on: loreSel.mode === m.id }" :data-mode="m.id" @click="loreSel.mode = m.id">{{ m.name }}</button></span></div>
+            <label v-if="loreSel.mode === 'keyword'" class="fld"><span>關鍵字（key）<Hint>比對前繁簡兩種寫法都比。用逗號或頓號分開。</Hint></span><input v-model="keysText" class="inp"></label>
+            <div v-if="loreSel.mode === 'district'" class="setrow"><span class="nm">哪些區</span><span class="segs"><button v-for="d in DISTRICT_IDS" :key="d" type="button" :class="{ on: loreSel.districts?.includes(d) }" @click="loreSel.districts = loreSel.districts?.includes(d) ? loreSel.districts.filter(x => x !== d) : [...(loreSel.districts ?? []), d]">{{ d }}</button></span></div>
+            <div v-if="loreSel.mode === 'layer'" class="setrow"><span class="nm">哪一層</span><span class="segs"><button v-for="l in (['net', 'meat'] as const)" :key="l" type="button" :class="{ on: loreSel.layer === l }" @click="loreSel.layer = l">{{ l === 'net' ? '內海' : '現實' }}</button></span></div>
+            <div class="grid2" style="--col-min: 200px">
+              <div class="setrow"><span class="nm">排序（order）</span><input v-model.number="loreSel.order" class="inp sel" type="number" min="0" max="999"></div>
+              <div class="setrow"><span class="nm">成人向<Hint>只在成人路由送。</Hint></span><button type="button" class="switch" :class="{ on: loreSel.adult }" :aria-pressed="!!loreSel.adult" aria-label="成人向" @click="loreSel.adult = !loreSel.adult" /></div>
+            </div>
+            <div class="setrow" :class="{ off: loreSel.builtin }"><span class="nm">揭露條件（gate）<Hint>內建條目的 topics 與 gate 只讀；玩家新增的條目可以設。</Hint></span><span class="val">{{ loreSel.gate ? `旗標 ${(loreSel.gate.flags ?? []).join('、') || '—'}・沉溺 ${loreSel.gate.minSink ?? 0} 以上` : '沒有（一直存在）' }}</span><span class="df">{{ loreSel.builtin ? '只讀' : '可改' }}</span></div>
+            <label class="fld"><span>內容（content）・{{ loreSel.content.length }} 字・{{ loreUse.state[loreSel.uid] }}</span><textarea v-model="loreSel.content" class="inp" rows="7" /></label>
+            <div class="go"><button type="button" class="btn sm" @click="resetLore(loreSel.uid)">{{ LORE_DEFAULTS.some(x => x.uid === loreSel!.uid) ? '恢復預設' : '刪掉這一條' }}</button><button type="button" class="btn sm" @click="loreSel.mode = loreSel.mode === 'off' ? 'keyword' : 'off'">{{ loreSel.mode === 'off' ? '啟用' : '停用' }}</button></div>
+          </template>
+          <p class="setgrp">字數預算<Hint>超過時依 order 保留前面的；超出的標「超出預算」，預覽裡看得到。城市常駐超過只警告、不截。成人常駐另計，只在成人路由。</Hint></p>
+          <div v-for="(n, k) in lore.budgets" :key="k" class="setrow budget" :class="{ chg: n !== BUDGET_DEFAULTS[k] }">
+            <span class="nm">{{ BUDGET_NAMES[k] }}</span>
+            <span class="val"><span class="bbar"><i :style="{ width: `${Math.min(100, (loreUse.used[k] / Math.max(1, n)) * 100)}%` }" :class="{ over: loreUse.used[k] > n }" /></span>{{ loreUse.used[k].toLocaleString('en-US') }}／{{ n.toLocaleString('en-US') }}</span>
+            <span class="stepper"><button type="button" :aria-label="`${BUDGET_NAMES[k]}減少`" @click="stepBudget(k, -500)">−</button><button type="button" :aria-label="`${BUDGET_NAMES[k]}增加`" @click="stepBudget(k, 500)">＋</button></span>
+          </div>
+        </template>
+        <template v-else-if="cat === 'image'">
+          <h3>生圖<Hint title="生圖">照搬那邊的兩個任務（image_prompt、storyboard）。介面本身的美術不畫露骨的圖；這一頁只管玩家自己用生圖產生的紀錄插圖與立繪。</Hint></h3>
+          <label class="fld"><span>預處理（image_prompt）</span><textarea v-model="img.preprocess" class="inp" rows="3" /></label>
+          <div class="locked"><b>所有人物都是成年人</b><span class="k">鎖住：H5</span></div>
+          <label class="fld"><span>分鏡（storyboard）</span><textarea v-model="img.storyboard" class="inp" rows="3" /></label>
+          <p class="setgrp">畫風預設</p>
+          <div class="row-list"><button v-for="x in img.styles" :key="x.id" type="button" class="lrow" :class="{ on: img.style === x.id }" @click="img.style = x.id"><span class="grow"><b>{{ x.name }}</b><small class="mono">{{ x.tags }}</small></span></button></div>
+          <p class="setgrp">標籤對照<Hint>義體、獸化、服裝的風格、體型對應到生圖的標籤。內容篩選關掉的題材的標籤不出現在對照表裡。</Hint></p>
+          <div v-for="(t, i) in img.tagMap" :key="i" class="setrow"><span class="nm">{{ t.k }}</span><input v-model="t.v" class="inp" :aria-label="`${t.k}的標籤`"></div>
+          <p class="setgrp">負面提示詞</p>
+          <div class="locked"><span class="mono">{{ LOCKED_NEGATIVE }}</span><span class="k">鎖住：年齡相關，只能往後加</span></div>
+          <label class="fld"><span>一般（往後加）</span><input v-model="img.negative" class="inp"></label>
+          <label class="fld"><span>成人（往後加）</span><input v-model="img.negativeAdult" class="inp"></label>
+          <p class="setgrp">路由<Hint>只讀。</Hint></p>
+          <div v-for="r in IMAGE_ROUTES" :key="r.what" class="kv"><span>{{ r.what }}</span><b>{{ r.route }}</b></div>
+          <div class="go"><button type="button" class="btn sm" @click="resetImage">恢復預設</button></div>
+        </template>
         <template v-else>
           <h3>{{ CAT_NAMES.find(c => c[0] === cat)![1] }}</h3>
           <template v-if="cat === 'shared'">
@@ -164,7 +238,7 @@ function stepLimit(k: 'event' | 'hook' | 'other', d: number) { const v = s.hookL
             <div class="setrow"><span class="nm">城市常駐條目</span><span class="val">城市總覽、用語、氛圍・合計 1,460／1,500 字</span><span class="df">可改</span></div>
             <div class="setrow"><span class="nm">正文正則</span><span class="val">4 條，全部開著</span><span class="df">可改</span></div>
           </template>
-          <div v-else class="empty-note">{{ cat === 'lore' ? '世界書只寫散文：氣氛、歷史、用語、人物與勢力的公開面貌；規則與數字不放這裡。' : '生圖：預處理、分鏡、畫風預設、成人與非成人的路由、負面提示詞。' }}這一頁的編輯在第三版。</div>
+
         </template>
       </section>
 
@@ -191,7 +265,30 @@ function stepLimit(k: 'event' | 'hook' | 'other', d: number) { const v = s.hookL
       <section class="panel cut pad">
         <p class="h">提示詞組<Hint>存在這個瀏覽器，所有存檔共用；存檔只記用哪一組。</Hint></p>
         <div v-for="x in SETS" :key="x.name" class="setrow" :class="{ chg: s.promptSet === x.name }"><span class="nm">{{ x.name }}</span><span class="val">{{ x.note }}</span><ReasonButton sm :pri="s.promptSet !== x.name" :reason="s.promptSet === x.name ? '已經在用這一組。' : null" @go="s.promptSet = x.name">{{ s.promptSet === x.name ? '使用中' : '切換' }}</ReasonButton></div>
-        <div class="go"><button type="button" class="btn sm" @click="ui.toast('複製了一份。')">複製目前這一組</button><button type="button" class="btn sm" @click="ui.toast('和預設比較在第三版。')">和預設比較</button><button type="button" class="btn sm" @click="ui.toast('匯出時會自動拿掉 API 金鑰與服務商的私人網址。')">匯出這一組</button></div>
+        <div class="go"><button type="button" class="btn sm" @click="ui.toast('複製了一份。')">複製目前這一組</button><button type="button" class="btn sm" :class="{ pri: showDiff }" data-diff @click="showDiff = !showDiff">和預設比較（{{ diffCount }} 處）</button><button type="button" class="btn sm" @click="ui.toast('匯出時會自動拿掉 API 金鑰與服務商的私人網址。')">匯出這一組</button></div>
+        <div v-if="showDiff" class="diff" data-diffview>
+          <p class="setgrp">和預設比較・{{ diffCount }} 處<Hint>綠色的 + 是這一組加的，紅色的 − 是預設有、這一組拿掉的。</Hint></p>
+          <div v-if="!diffCount" class="empty-note">和預設一模一樣。</div>
+          <template v-for="t in taskDiffs" :key="t.id">
+            <p class="h">任務・{{ t.name }}<small class="mono k">{{ t.id }}</small></p>
+            <pre class="dl"><template v-for="(l, i) in [...t.pre.map(x => ({ ...x, text: `前段：${x.text}` })), ...t.post.map(x => ({ ...x, text: `後段：${x.text}` }))]" :key="i"><span :class="l.op === '+' ? 'add' : l.op === '-' ? 'del' : ''">{{ l.op }} {{ l.text }}</span>
+</template><span v-if="t.temp !== 0.8" class="add">+ 溫度：0.8 → {{ t.temp }}</span></pre>
+          </template>
+          <template v-if="loreDiffs.length">
+            <p class="h">世界書</p>
+            <div v-for="c in loreDiffs" :key="c.uid" class="kv"><span>{{ c.name }}</span><b :class="c.kind === '刪除' ? 'warn-t' : c.kind === '新增' ? 'ok-t' : ''">{{ c.kind }}{{ c.fields.length ? `：${c.fields.join('、')}` : '' }}</b></div>
+          </template>
+          <div v-for="k in budgetDiffs" :key="k" class="kv"><span>預算・{{ BUDGET_NAMES[k] }}</span><b>{{ BUDGET_DEFAULTS[k] }} → {{ lore.budgets[k] }}</b></div>
+          <template v-for="d in imageDiffs" :key="d.k">
+            <p class="h">生圖・{{ d.k }}</p>
+            <pre class="dl"><span v-for="(l, i) in d.lines" :key="i" :class="l.op === '+' ? 'add' : l.op === '-' ? 'del' : ''">{{ l.op }} {{ l.text }}
+</span></pre>
+          </template>
+          <template v-if="settingDiffs.length">
+            <p class="h">任務鏈的開關（和設定共用）</p>
+            <div v-for="d in settingDiffs" :key="d.k" class="kv"><span class="mono">{{ d.k }}</span><b>{{ d.def }} → {{ d.now }}</b></div>
+          </template>
+        </div>
         <p class="setgrp">匯入 SillyTavern 的預設<Hint>只匯入預設裡的提示詞條目、取樣參數與正則。酒館助手的腳本與其他擴充的腳本不能在這款遊戲裡執行，匯入時會被略過。和本遊戲硬規則、內容界線衝突的寫法不會生效。</Hint></p>
         <div class="kv"><span>提示詞條目</span><b>變成前段或後段的自訂，標「匯入」</b></div>
         <div class="kv"><span>取樣參數</span><b>放進模型與路由</b></div>
@@ -231,6 +328,14 @@ textarea.inp { font-family: var(--mono); font-size: var(--fs-sm); }
 .iss { padding: 6px 8px; background: var(--bg-2); box-shadow: inset 3px 0 0 var(--warn); font-size: var(--fs-sm); display: grid; gap: 2px; }
 .code { font-size: var(--fs-tiny); font-weight: 900; color: var(--warn); }
 .setrow .nm small { margin-left: 6px; font-size: var(--fs-tiny); }
+.is-off { opacity: .55; }
+.budget .val { display: flex; align-items: center; gap: 8px; }
+.bbar { flex: 1; height: 8px; background: var(--bg-term); position: relative; min-width: 60px; }
+.bbar i { position: absolute; inset: 0 auto 0 0; background: var(--ram); }
+.bbar i.over { background: var(--warn); }
+.diff { margin-top: 12px; }
+.dl { margin: 4px 0 8px; padding: 8px 10px; background: var(--bg-term); font: var(--fs-xs)/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.dl .add { color: var(--ok); } .dl .del { color: var(--danger); text-decoration: line-through; }
 @media (max-width: 1200px) { .cols { grid-template-columns: 220px minmax(0, 1fr); } .pv { grid-column: 1 / -1; } }
 @media (max-width: 720px) { .cols { grid-template-columns: minmax(0, 1fr); padding: 8px; } .tree { max-height: 260px; overflow: auto; } }
 </style>

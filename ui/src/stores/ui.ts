@@ -9,12 +9,14 @@ import type { Point } from '../data/types'
 export type DialogName =
   | 'bag' | 'character' | 'talk' | 'shop' | 'settings'
   | 'roster' | 'relations' | 'skills' | 'craft' | 'channel' | 'contract' | 'bills' | 'guide' | 'memo' | 'pending' | 'saves' | 'city' | 'transit'
+  | 'fixer' | 'live' | 'cut' | 'mech' | 'clinic' | 'garage' | 'difficulty'
 export interface DialogEntry { id: number; name: DialogName; props: Record<string, unknown> }
 
 export const DIALOG_TITLES: Record<DialogName, string> = {
   bag: '背包', character: '角色與義體', talk: '和 NPC 說話', shop: '商店', settings: '設定',
   roster: '名冊', relations: '關係', skills: '技能樹', craft: '組裝', channel: '頻道', contract: '契約', bills: '每週帳單',
   guide: '指南', memo: '備忘錄', pending: '待處理', saves: '讀檔與存檔', city: '城市地圖', transit: '搭車',
+  fixer: '中間人的店', live: '直播', cut: '素材與剪片', mech: '機甲整備', clinic: '診所', garage: '修車廠', difficulty: '自訂難度',
 }
 /** 這一頁可以走的格子地圖（GridMap 掛上時登記）：全域的方向鍵、WASD、E 與螢幕上的方向鈕都送到這裡。 */
 export interface Mover { step: (d: Point) => void; interact: () => void }

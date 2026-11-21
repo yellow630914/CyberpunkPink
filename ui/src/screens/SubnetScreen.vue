@@ -1,6 +1,6 @@
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
 import GridMap, { type CellView, type FogState, type MapToken } from '../components/GridMap.vue'
@@ -12,7 +12,7 @@ import Icon from '../components/Icon.vue'
 import { useSubnet, TRACE_MARKS } from '../stores/subnet'
 import { useGame } from '../stores/game'
 import { useUi } from '../stores/ui'
-import { BLUEWHALE, NODE_INFO } from '../data/subnet'
+import { BLUEWHALE, NODE_INFO, PATROLS } from '../data/subnet'
 import { key } from '../lib/grid'
 import { useWalk } from '../lib/useWalk'
 import type { Point } from '../data/types'
@@ -37,16 +37,49 @@ function cellView(x: number, y: number): CellView {
   const cleared = s.done.has(n.key)
   return { kind: 'node', icon: info.icon, tint: info.color, title: `${info.name}・${n.name}${cleared ? '（處理過了）' : ''}`, mark: cleared ? '✓' : undefined }
 }
-const tokens = computed<MapToken[]>(() => [{ id: 'me', x: s.pos.x, y: s.pos.y, label: '你', kind: 'me', title: '你的化身' }])
+const tokens = computed<MapToken[]>(() => [
+  ...s.activePatrols.map(d => ({ d, p: s.patrolPos(d.id)! })).filter(({ p }) => fog(p.x, p.y) === 'visible')
+    .map(({ d, p }) => ({ id: d.id, x: p.x, y: p.y, label: '巡', kind: 'enemy' as const, title: `${d.name}${s.patrols.find(x => x.id === d.id)!.frozen ? `（被斷路卡住 ${s.patrols.find(x => x.id === d.id)!.frozen} 步）` : ''}` })),
+  { id: 'me', x: s.pos.x, y: s.pos.y, label: '你', kind: 'me', title: '你的化身' },
+])
+// ---- 巡邏（CYBERSPACE 8.4 節）：你走一步牠走一步；走到你旁邊就是遭遇 ----
+const meetingDef = computed(() => PATROLS.find(p => p.id === s.meeting) ?? null)
+function patrolFight() {
+  g.takeSnapshot('戰鬥', `戰鬥開打前・${meetingDef.value!.name}`)
+  s.addTrace(3)
+  note(`你和${meetingDef.value!.name}打了起來：追蹤度 +3。`)
+  router.push({ path: '/netcombat', query: { enc: 'patrol', from: '/subnet' } })
+}
+function patrolSneak() {
+  const die = 1 + Math.floor(Math.random() * 20), dc = s.trace >= 30 ? 16 : 14
+  if (die + 6 >= dc) { note(`潛行 1d20(${die}) + 6 對 DC ${dc}：成功，${meetingDef.value!.name}從你旁邊掃過去。`); s.patrols.find(x => x.id === s.meeting)!.frozen = 2; s.meeting = null }
+  else { s.addTrace(5); note(`潛行 1d20(${die}) + 6 對 DC ${dc}：失敗，追蹤度 +5，牠發現你了。`); patrolFight() }
+}
+function patrolCut() {
+  if (!spend(2, `你對${meetingDef.value!.name}斷路：牠卡住三步。`)) return
+  s.patrols.find(x => x.id === s.meeting)!.frozen = 3
+  s.meeting = null
+}
+// 從巡邏的那一場回來：贏了牠就不見了
+onMounted(() => {
+  if (g.lastBattle?.kind === 'net' && s.meeting) {
+    const won = g.lastBattle.result === 'win'
+    if (won) { s.patrols.find(x => x.id === s.meeting)!.gone = true; note(`${PATROLS.find(p => p.id === s.meeting)?.name}被打斷線了。`) }
+    else note('你從那一場退了出來，巡邏還在。')
+    if (won || g.lastBattle.result === 'retreat') s.meeting = null
+    g.lastBattle = null
+  }
+})
 
 const { path, walkTo } = useWalk({
   grid: () => ({ w: s.w, h: s.h, passable: (x, y) => s.walkable(x, y) && (s.isExplored({ x, y }) || fog(x, y) === 'visible') }),
   pos: () => s.pos,
-  step: p => { s.stepTo(p); enter(p) },
+  step: p => { s.stepTo(p); enter(p); if (s.meeting) { path.value = []; ui.toast('巡邏！', 'warn') } },
   ms: 140,
 })
 function onCell(p: Point) {
   if (s.located) { ui.toast('已經被定位了：只能拔線。', 'warn'); return }
+  if (s.meeting) { ui.toast('巡邏就在旁邊：先處理牠。', 'warn'); return }
   if (!s.walkable(p.x, p.y)) return
   if (fog(p.x, p.y) === 'hidden') { ui.toast('那裡還沒探索過。', 'warn'); return }
   if (!walkTo(p)) ui.toast('走不到那裡。', 'warn')
@@ -54,6 +87,7 @@ function onCell(p: Point) {
 /** 鍵盤：方向鍵或 WASD 走一格（沒探索過的也能走，走了就看到）；E 把焦點移到這個節點的行動。 */
 function onStep(d: { x: number; y: number }) {
   if (s.located) { ui.toast('已經被定位了：只能拔線。', 'warn'); return }
+  if (s.meeting) { ui.toast('巡邏就在旁邊：先處理牠。', 'warn'); return }
   const n = { x: s.pos.x + d.x, y: s.pos.y + d.y }
   if (!s.walkable(n.x, n.y)) return
   path.value = []
@@ -111,7 +145,7 @@ function fight() {
   g.takeSnapshot('戰鬥', `戰鬥開打前・${here.value!.name}`)
   s.addTrace(9); s.done.add(here.value!.key)
   note(`你和${here.value!.name}打了三個回合：追蹤度 +9。`)
-  router.push('/demo/net')
+  router.push({ path: '/netcombat', query: { enc: 'bluewhale', from: '/subnet' } })
 }
 function sneak() {
   const die = 1 + Math.floor(Math.random() * 20)
@@ -119,9 +153,11 @@ function sneak() {
   else { s.addTrace(5); note(`潛行 1d20(${die}) + 6 對 DC 14：失敗，追蹤度 +5，它發現你了。`) }
 }
 function logout(reason: string) {
+  g.addLog({ prose: [reason], net: [`子網・藍鯨物流：追蹤度 ${s.trace}${s.loot.length ? `；帶出來的：${s.loot.join('、')}` : ''}。`] })
+  // 委託副本的一段：登出之後回到委託頁，推進階段
+  if (g.job.waiting) { g.lastBattle = { kind: 'subnet', result: 'win', text: reason }; g.job.pressure.trace = s.trace; router.push('/commission'); return }
   g.inRun = false
   g.snapshots = []
-  g.addLog({ prose: [reason], net: [`子網・藍鯨物流：追蹤度 ${s.trace}${s.loot.length ? `；帶出來的：${s.loot.join('、')}` : ''}。`] })
   router.push('/')
 }
 const ADMIN = [
@@ -133,7 +169,8 @@ function admin(a: typeof ADMIN[number]) {
   if (a.where && here.value?.kind !== a.where) { ui.toast(`要站在${NODE_INFO[a.where as 'control'].name}上。`, 'warn'); return }
   if (a.name === '接管') return takeover()
   if (a.name === '破解') return crack()
-  ui.toast(`「${a.name}」要在戰鬥裡用；內海戰鬥先看 Demo。`)
+  if (a.name === '斷路') { const near = s.patrolNear() ?? s.activePatrols.find(d => { const q = s.patrolPos(d.id)!; return Math.abs(q.x - s.pos.x) + Math.abs(q.y - s.pos.y) <= 2 }); if (!near) { ui.toast('附近沒有巡邏可以斷路。', 'warn'); return } if (spend(2, `你對${near.name}斷路：牠卡住三步。`)) { s.patrols.find(x => x.id === near.id)!.frozen = 3; if (s.meeting === near.id) s.meeting = null } return }
+  ui.toast(`「${a.name}」在內海戰鬥裡用：戰鬥畫面右邊的「管理行動」。`)
 }
 const floorTabs = computed(() => s.floors.map((f, i) => ({ id: String(i), label: `${f.name}（${i + 1}／${s.floors.length}）`, disabled: i >= s.unlocked })))
 const floorModel = computed({ get: () => String(s.floorIdx), set: v => s.setFloor(Number(v)) })
@@ -174,6 +211,15 @@ const traceStage = computed(() => [...TRACE_MARKS].reverse().find(m => s.trace >
         </section>
         <section class="panel cut pad">
           <p class="h">這裡<template v-if="here">：{{ hereInfo!.name }}</template></p>
+          <div v-if="meetingDef" class="blocking meet" data-meeting>
+            <b>遭遇：{{ meetingDef.name }}</b>
+            <p>巡邏走到你旁邊了。</p>
+            <div class="go left">
+              <button type="button" class="btn sm pri" @click="patrolFight">開戰（內海戰鬥）</button>
+              <button type="button" class="btn sm" @click="patrolSneak">潛行（DC {{ s.trace >= 30 ? 16 : 14 }}）</button>
+              <ReasonButton sm :reason="s.ram < 2 ? 'RAM 不夠：要 2。' : s.actionsLeft <= 0 ? '這一回合的管理行動用完了。' : null" @go="patrolCut">斷路（RAM 2）</ReasonButton>
+            </div>
+          </div>
           <template v-if="here && hereInfo">
             <div class="nodeh"><Icon :id="hereInfo.icon" :size="28" fit /><b>{{ here.name }}</b><span v-if="s.done.has(here.key)" class="tag">處理過了</span><Hint :text="hereInfo.hint" /></div>
             <div class="go left node-acts">
@@ -233,6 +279,8 @@ const traceStage = computed(() => [...TRACE_MARKS].reverse().find(m => s.trace >
 .admin { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
 .ad { display: grid; justify-items: center; padding: 6px 2px; background: var(--bg-2); border: 0; box-shadow: inset 0 0 0 2px var(--o); font-weight: 800; font-size: var(--fs-sm); cursor: pointer; color: var(--ink); }
 .ad small { font: 800 var(--fs-tiny) var(--mono); color: var(--ram); }
+.meet { display: grid; gap: 4px; margin-bottom: 10px; }
+.meet p { margin: 0; }
 .ln { margin: 0 0 6px; font: 12.5px/1.6 var(--mono); color: var(--ink-2); }
 @media (max-width: 1100px) { .sub { grid-template-columns: 1fr; } }
 @media (max-width: 720px) { .sub { padding: 8px; } }

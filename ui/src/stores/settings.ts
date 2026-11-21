@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { reactive, watch } from 'vue'
+import { copyPreset, type DiffTable } from '../lib/difficulty'
 
 /**
  * 設定（UI.md 第 15 節）。「顯示」那一頁是這台機器的偏好，存在 localStorage；
@@ -14,6 +15,8 @@ const defaults = {
   filterRestraint: true, filterDollChip: true, filterPublic: true, filterContract: true,
   // 遊戲
   difficulty: '普通' as '故事' | '輕鬆' | '普通' | '困難' | '殘酷' | '自訂',
+  /** 自訂難度的係數表（BALANCE 7.3 節）；選自訂時從一個預設複製 */
+  customDiff: copyPreset('普通') as DiffTable,
   billRule: '標準' as '關閉' | '寬鬆' | '標準' | '嚴苛',
   /** 帳單倍率 ×0～2（FIXER 第 4 節）；選快捷檔位時一起設好 */
   billMult: 1,

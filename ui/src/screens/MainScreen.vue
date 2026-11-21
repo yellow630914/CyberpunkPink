@@ -98,6 +98,7 @@ function service(f: Facility, s: NonNullable<Facility['services']>[number]) {
     case 'home': router.push('/home'); break
     case 'dungeon': router.push('/dungeon'); break
     case 'transit': ui.openRoot('transit'); break
+    case 'garage': case 'mech': case 'clinic': case 'fixer': case 'cut': ui.openRoot(s.action, s.props ?? {}); break
     case 'rest': g.advance(60); g.addLog({ prose: [`你在${f.name}待了一個小時，感載退了一些。`], changes: [{ text: '感載 −3', kind: 'plus' }] }); g.character.load[0] = Math.max(0, g.character.load[0] - 3); break
     default: ui.toast(`「${s.name}」的畫面在第三版做。`)
   }
@@ -169,10 +170,10 @@ const stages = [
           <PartyRow v-for="m in g.party" :key="m.id" :m="m" />
         </section>
         <section class="panel cut pad job">
-          <p class="h">委託<Hint title="委託條">進行中的委託與它的階段。每一格寫階段名與可選的面（灰是現實、薄荷是內海、紫是輿論），現在的那格是粉色。點「潛入子網」進子網地圖。</Hint></p>
+          <p class="h">委託<Hint title="委託條">進行中的委託與它的階段。每一格寫階段名與可選的面（灰是現實、薄荷是內海、紫是輿論），現在的那格是粉色。點任一格打開委託頁（接案、踩點、召集、副本）。</Hint></p>
           <b>藍鯨的帳本</b> <span class="tag">竊取・中型</span> <span class="tag">夢露</span>
           <div class="stages">
-            <button v-for="s in stages" :key="s.name" type="button" class="stage" :class="s.state" @click="s.name === '潛入子網' ? router.push('/subnet') : ui.toast(`「${s.name}」的委託頁在第三版做。`)">
+            <button v-for="s in stages" :key="s.name" type="button" class="stage" :class="s.state" @click="router.push('/commission')">
               {{ s.name }}<span class="faces"><i v-for="f in s.face" :key="f" :class="f" /></span>
             </button>
           </div>
@@ -197,7 +198,7 @@ const stages = [
           <div class="ctx">
             <button type="button" class="btn" @click="g.advance(60); g.addLog({ prose: ['你找個地方坐下來喘口氣。'] })">休息</button>
             <button type="button" class="btn" @click="router.push('/subnet')">潛入</button>
-            <button type="button" class="btn" @click="ui.openRoot('channel')">直播</button>
+            <button type="button" class="btn" @click="ui.openRoot('live')">直播</button>
           </div>
         </section>
       </div>
@@ -232,7 +233,7 @@ const stages = [
         </section>
         <section class="panel cut pad">
           <p class="h">進行中</p>
-          <div class="ong"><span class="k2" style="background: var(--ap)">委託</span>藍鯨的帳本<small>第 2 階段・期限 2 天</small></div>
+          <button type="button" class="ong ongb" @click="router.push('/commission')"><span class="k2" style="background: var(--ap)">委託</span>藍鯨的帳本<small>{{ g.job.offer ? `第 ${g.job.stage + 1} 階段` : '還沒接・夢露手上' }}</small></button>
           <button type="button" class="ong ongb" @click="ui.openRoot('relations', { npcId: 'xiaomai' })"><span class="k2" style="background: var(--ep)">人情</span>小麥欠你 1<small>小人情</small></button>
           <button type="button" class="ong ongb" @click="ui.openRoot('bills')"><span class="k2" style="background: var(--warn)">帳單</span>{{ g.billIn }} 天後收租<small>帳戶要付 {{ fmt(billDue.dueAcc) }}</small></button>
         </section>

@@ -54,6 +54,22 @@ export function keyAction(e: KeyLike, ctx: KeyContext): KeyAction | null {
   return d ? { type: 'dialog', name: d } : null
 }
 
+/**
+ * 戰鬥畫面的鍵（現實戰鬥、內海戰鬥、輿論戰）：1～9 按行動圓環的格（輿論戰是手牌），空白鍵結束回合，
+ * Tab／Shift+Tab 換目標，Enter 對選中的目標執行，Esc 取消選目標（沒在選目標時交給全域的 Esc）。
+ */
+export type CombatKey = { type: 'ring'; i: number } | { type: 'end' } | { type: 'cycle'; dir: 1 | -1 } | { type: 'confirm' } | { type: 'cancel' }
+export function combatKey(e: KeyLike, ctx: { typing: boolean; dialogOpen: boolean; targeting: boolean }): CombatKey | null {
+  if (ctx.typing || ctx.dialogOpen || e.ctrlKey || e.metaKey || e.altKey) return null
+  const k = e.key
+  if (/^[1-9]$/.test(k)) return e.repeat ? null : { type: 'ring', i: Number(k) - 1 }
+  if (k === ' ' || k === 'Spacebar') return e.repeat ? null : { type: 'end' }
+  if (k === 'Tab') return { type: 'cycle', dir: e.shiftKey ? -1 : 1 }
+  if (k === 'Enter') return ctx.targeting ? { type: 'confirm' } : null
+  if (k === 'Escape') return ctx.targeting ? { type: 'cancel' } : null
+  return null
+}
+
 /** 目標是不是在打字（輸入框、下拉、多行、可編輯）。 */
 export function isTyping(t: EventTarget | null): boolean {
   const el = t as HTMLElement | null
@@ -81,6 +97,11 @@ export const SHORTCUTS: Array<{ keys: string[]; name: string }> = [
   { keys: ['F5', 'Ctrl+S'], name: '快速存檔（存進自動格）' },
   { keys: ['F9'], name: '快速讀檔（讀最新的自動格）' },
   { keys: ['Esc'], name: '關掉最上面的對話框；沒有對話框時打開選單' },
+  { keys: ['1～9'], name: '戰鬥：行動圓環的第 1～9 格（內環攻擊、中環補充、外環戰術）；輿論戰：第 1～5 張手牌' },
+  { keys: ['Space'], name: '戰鬥：結束回合' },
+  { keys: ['Tab', 'Shift+Tab'], name: '戰鬥：換目標（選目標的時候）' },
+  { keys: ['Enter'], name: '戰鬥：對選中的目標執行' },
+  { keys: ['Esc'], name: '戰鬥：取消選目標' },
 ]
 /** 對話框 → 顯示用的鍵（工具列的提示）。 */
 export const KEY_OF: Record<string, string> = { ...Object.fromEntries(Object.entries(DIALOG_KEYS).map(([k, d]) => [d, k.toUpperCase()])), home: 'H', city: 'M' }

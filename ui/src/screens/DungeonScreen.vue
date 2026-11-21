@@ -98,7 +98,7 @@ function changeFloor(d: number) {
   reveal()
   note(d > 0 ? `你沿著滑道往下，到了${floor.value.name}。` : `你爬回${floor.value.name}。`)
 }
-function fight() { done.add(here.value!.k); g.takeSnapshot('戰鬥', `戰鬥開打前・${here.value!.name}`); note(`你和${here.value!.name}打了起來。`); router.push('/demo/combat') }
+function fight() { done.add(here.value!.k); g.takeSnapshot('戰鬥', `戰鬥開打前・${here.value!.name}`); note(`你和${here.value!.name}打了起來。`); router.push({ path: '/combat', query: { enc: 'chute', from: '/dungeon' } }) }
 function leave() {
   g.dungeonSeed++
   g.addLog({ prose: ['你從垃圾滑道爬回四號塔，身上全是灰。下次下來，遭遇與藏貨會換地方。'] })

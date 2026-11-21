@@ -134,7 +134,7 @@ export interface Facility {
   kind: FacilityKind
   shopId?: string
   npcIds?: string[]
-  services?: Array<{ name: string; price?: number; action?: 'shop' | 'home' | 'dungeon' | 'talk' | 'rest' | 'transit' | 'none' }>
+  services?: Array<{ name: string; price?: number; action?: 'shop' | 'home' | 'dungeon' | 'talk' | 'rest' | 'transit' | 'garage' | 'mech' | 'clinic' | 'fixer' | 'cut' | 'none'; props?: Record<string, unknown> }>
 }
 
 export interface Shop {

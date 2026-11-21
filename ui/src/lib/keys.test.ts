@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { keyAction, type KeyContext } from './keys'
+import { keyAction, combatKey, type KeyContext } from './keys'
 
 const MAIN: KeyContext = { typing: false, dialogOpen: false, canMove: true, inGame: true, onMain: true }
 
@@ -31,5 +31,26 @@ describe('全域快捷鍵', () => {
     expect(keyAction({ key: 's', ctrlKey: true }, { ...MAIN, typing: true })).toEqual({ type: 'quicksave' })
     expect(keyAction({ key: 'F9' }, MAIN)).toEqual({ type: 'quickload' })
     expect(keyAction({ key: 'F5' }, { ...MAIN, inGame: false })).toBeNull()
+  })
+})
+
+describe('戰鬥的鍵', () => {
+  const C = { typing: false, dialogOpen: false, targeting: false }
+  it('1～9 是圓環的格、空白鍵結束回合、Tab 換目標', () => {
+    expect(combatKey({ key: '1' }, C)).toEqual({ type: 'ring', i: 0 })
+    expect(combatKey({ key: '9' }, C)).toEqual({ type: 'ring', i: 8 })
+    expect(combatKey({ key: '0' }, C)).toBeNull()
+    expect(combatKey({ key: ' ' }, C)).toEqual({ type: 'end' })
+    expect(combatKey({ key: 'Tab' }, C)).toEqual({ type: 'cycle', dir: 1 })
+    expect(combatKey({ key: 'Tab', shiftKey: true }, C)).toEqual({ type: 'cycle', dir: -1 })
+  })
+  it('Enter 與 Esc 只在選目標時接；打字、對話框開著、按住不放時不作用', () => {
+    expect(combatKey({ key: 'Enter' }, C)).toBeNull()
+    expect(combatKey({ key: 'Enter' }, { ...C, targeting: true })).toEqual({ type: 'confirm' })
+    expect(combatKey({ key: 'Escape' }, C)).toBeNull()
+    expect(combatKey({ key: 'Escape' }, { ...C, targeting: true })).toEqual({ type: 'cancel' })
+    expect(combatKey({ key: '1' }, { ...C, typing: true })).toBeNull()
+    expect(combatKey({ key: '1' }, { ...C, dialogOpen: true })).toBeNull()
+    expect(combatKey({ key: ' ', repeat: true }, C)).toBeNull()
   })
 })

@@ -61,3 +61,17 @@ export const BLUEWHALE: { name: string; facility: string; grade: string; floors:
     },
   ],
 }
+
+/**
+ * 巡邏（CYBERSPACE 8.4 節、NETRUNNING 第 5 節）：守衛程式沿著一條路來回走，你每走一步牠走一步。
+ * 走到你旁邊（上下左右一格）就是遭遇：開戰、潛行，或用「斷路」把牠卡住三步。追蹤度到 30（起疑）起，每一層多一隊（extra）。
+ */
+export interface PatrolDef { id: string; floor: number; name: string; route: Array<[number, number]>; extra?: boolean }
+const line = (y: number, x0: number, x1: number): Array<[number, number]> => Array.from({ length: x1 - x0 + 1 }, (_, i) => [x0 + i, y])
+const col = (x: number, y0: number, y1: number): Array<[number, number]> => Array.from({ length: y1 - y0 + 1 }, (_, i) => [x, y0 + i])
+export const PATROLS: PatrolDef[] = [
+  { id: 'p1', floor: 0, name: '守衛程式・甲', route: line(8, 5, 9) },
+  { id: 'p2', floor: 0, name: '守衛程式・乙', route: col(3, 0, 4), extra: true },
+  { id: 'p3', floor: 1, name: '守衛程式・丙', route: line(3, 3, 7) },
+  { id: 'p4', floor: 1, name: '守衛程式・丁', route: line(5, 1, 3), extra: true },
+]

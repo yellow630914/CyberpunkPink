@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { packSave, unpackSave, rollbackKeeping, underageAt, snapshotUse, type Snapshot } from './save'
+import { packSave, unpackSave, rollbackKeeping, underageAt, snapshotUse, migrateSave, SAVE_VERSION, type Snapshot } from './save'
+import { useHome } from '../stores/home'
+import { useSubnet } from '../stores/subnet'
 import { useGame } from '../stores/game'
 
 describe('存檔的打包與讀回', () => {
@@ -26,7 +28,8 @@ describe('存檔的打包與讀回', () => {
     const v1 = JSON.stringify({ day: 20, minutes: 600, money: { acc: 1, cash: 2, fav: 3 }, inventory: [], equip: {}, loc: { district: 'hive', block: '四號塔', pos: { x: 1, y: 2 }, facility: null }, npcs: {}, log: [] })
     const r = unpackSave(v1)
     expect(r.ok).toBe(true)
-    if (r.ok) expect(r.file.version).toBe(1)
+    // 讀進來時照 migrateSave 升到現在的版本：家園與子網補成 null（不動現在的）
+    if (r.ok) { expect(r.file.version).toBe(3); expect((r.file.state as Record<string, unknown>).home).toBeNull() }
   })
   it('有低於 18 的年齡，整筆拒絕', () => {
     const bad = packSave({ npcs: { a: { age: 30 }, b: { age: 17 } } }, { label: '', day: 1, time: '', place: '', savedAt: '' })
@@ -73,5 +76,40 @@ describe('回退（SERIES 第 6 節）', () => {
     expect(g.money.acc).toBe(acc)
     expect(g.log.length).toBe(n + 1)
     expect(g.log[0].prose[0]).toContain('收回')
+  })
+})
+
+describe('第 3 版：家園與子網跟著存檔與快照走', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+  it('v2 的存檔升到 v3：補上 home 與 subnet', () => {
+    const f = migrateSave({ format: 'cyberpunkpink-save', version: 2, meta: { label: '', day: 1, time: '', place: '', savedAt: '' }, state: { day: 3 } as Record<string, unknown> })
+    expect(SAVE_VERSION).toBe(3)
+    expect(f.version).toBe(3)
+    expect(f.state).toMatchObject({ day: 3, home: null, subnet: null })
+  })
+  it('家園的等級、家具與子網的追蹤度存了再讀回來', () => {
+    const g = useGame(), h = useHome(), s = useSubnet()
+    h.upgrade()
+    h.addSafehouse('container')
+    s.addTrace(20)
+    s.stepTo({ x: 1, y: 0 })
+    const raw = packSave(g.serialize(), g.saveMeta())
+    setActivePinia(createPinia())
+    const g2 = useGame(), h2 = useHome(), s2 = useSubnet()
+    expect(h2.tier).toBe(1)
+    const r = unpackSave<ReturnType<typeof g2.serialize>>(raw)
+    if (r.ok) g2.hydrate(r.file.state)
+    expect(h2.tier).toBe(2)
+    expect(h2.safehouses).toEqual(['container'])
+    expect(s2.trace).toBe(54)
+    expect(s2.pos).toEqual({ x: 1, y: 0 })
+    expect(s2.isExplored({ x: 0, y: 0 })).toBe(true)
+  })
+  it('委託副本的快照帶著子網：回退時追蹤度也回去', () => {
+    const g = useGame(), s = useSubnet()
+    const snap = g.takeSnapshot('階段', '階段開始時')
+    s.addTrace(30)
+    g.rollback(snap.id)
+    expect(s.trace).toBe(34)
   })
 })

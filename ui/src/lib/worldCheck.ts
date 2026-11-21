@@ -3,7 +3,10 @@
  * 格式錯誤：欄位不對、id 重複、引用到不存在的東西。內容的底線：所有角色都是成年人（年齡低於 18）、不寫血腥、不寫懷孕。
  * 另外列兩種提醒（不擋）：宣告了卻沒有人推的計數器、寫了卻沒有人讀的旗標。純函式。
  */
+import { SCHEMAS, fieldError } from './schemas'
+
 export type EntryKind = 'event' | 'npc' | 'enemy' | 'item' | 'counter' | 'facility' | 'series' | 'site'
+  | 'block' | 'faction' | 'citynews' | 'subnet' | 'lace' | 'bp' | 'drug' | 'cloth' | 'acc' | 'adult' | 'skin' | 'tree' | 'trait' | 'opponent' | 'tmpl' | 'run' | 'guide'
 export interface WorldEntry {
   id: string
   kind: EntryKind
@@ -14,7 +17,7 @@ export interface WorldEntry {
 export type IssueCode = 'FIELD' | 'DUP' | 'REF' | 'AGE' | 'FLOOR' | 'WARN'
 export interface Issue { code: IssueCode; id: string; where: string; text: string; blocking: boolean }
 
-const REQUIRED: Record<EntryKind, string[]> = {
+const REQUIRED: Partial<Record<EntryKind, string[]>> = {
   event: ['id', 'name', 'text', 'options'], npc: ['id', 'name', 'age'], enemy: ['id', 'name', 'grade'], item: ['id', 'name', 'grade'],
   counter: ['id', 'name', 'range'], facility: ['id', 'name', 'functions'], series: ['id', 'name', 'members'], site: ['id', 'name'],
 }
@@ -42,6 +45,11 @@ export function checkWorld(entries: WorldEntry[], builtin: { items: Set<string>;
   for (const e of entries) {
     for (const f of REQUIRED[e.kind] ?? []) {
       if (e[f] === undefined || e[f] === '' || e[f] === null) out.push({ code: 'FIELD', id: e.id || '（沒有 id）', where: f, text: `少了必填的欄位 ${f}`, blocking: true })
+    }
+    // 第三版的種類照欄位表（lib/schemas.ts）擋必填、型別、範圍與選項
+    for (const f of SCHEMAS[e.kind]?.fields ?? []) {
+      const err = fieldError(f, e[f.k])
+      if (err) out.push({ code: 'FIELD', id: e.id || '（沒有 id）', where: f.k, text: err, blocking: true })
     }
     if (e.kind === 'npc' && typeof e.age === 'number' && e.age < 18) out.push({ code: 'AGE', id: e.id, where: 'age', text: `年齡低於 18：「${e.name}」age ${e.age}。所有角色都是成年人，這一筆不能存進遊戲`, blocking: true })
     if (e.kind === 'npc' && e.age !== undefined && (typeof e.age !== 'number' || !Number.isInteger(e.age))) out.push({ code: 'FIELD', id: e.id, where: 'age', text: '年齡要是整數', blocking: true })

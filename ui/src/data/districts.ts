@@ -61,7 +61,7 @@ export const BLOCKS: Record<string, BlockSpec> = {
       { id: 'rooftop', name: '屋頂的晾衣場', icon: 'ic-fac_home', kind: 'talk', npcIds: ['xiaomai'], services: [{ name: '吹風', action: 'rest' }] },
       { id: 'myhome', name: '你的單位（7 樓）', icon: 'ic-fac_home', kind: 'home', services: [{ name: '回家', action: 'home' }, { name: '睡一覺', action: 'rest' }] },
       { id: 'hebo', name: '何伯的樓長室', icon: 'ic-fac_home', kind: 'talk', npcIds: ['hebo'], services: [{ name: '付房租', price: 150, action: 'none' }] },
-      { id: 'clinic', name: '縫縫診所（地下室）', icon: 'ic-fac_clinic', kind: 'clinic', services: [{ name: '處理傷口', price: 120, action: 'none' }, { name: '裝義體', action: 'none' }] },
+      { id: 'clinic', name: '縫縫診所（地下室）', icon: 'ic-fac_clinic', kind: 'clinic', services: [{ name: '處理傷口', price: 120, action: 'none' }, { name: '裝義體與調校', action: 'clinic', props: { clinic: '縫縫診所', black: true } }] },
       { id: 'print', name: '午夜印刷（7 樓）', icon: 'ic-fac_doujin', kind: 'service', services: [{ name: '印海報', price: 40, action: 'none' }] },
       { id: 'bath', name: '公共浴室', icon: 'ic-fac_hotel', kind: 'service', services: [{ name: '洗澡', price: 5, action: 'rest' }] },
       { id: 'chute', name: '垃圾滑道的投口', icon: 'ic-fac_under', kind: 'dungeon', services: [{ name: '下去探索', action: 'dungeon' }] },
@@ -72,7 +72,7 @@ export const BLOCKS: Record<string, BlockSpec> = {
   '天井市場': {
     district: 'hive', name: '天井市場',
     facilities: [
-      { id: 'alian', name: '阿蓮雜貨', icon: 'ic-fac_conv', kind: 'shop', shopId: 'alian', npcIds: ['alian'], services: [{ name: '買賣', action: 'shop' }] },
+      { id: 'alian', name: '阿蓮雜貨', icon: 'ic-fac_conv', kind: 'shop', shopId: 'alian', npcIds: ['alian'], services: [{ name: '買賣', action: 'shop' }, { name: '中間人的店', action: 'fixer', props: { fixerId: 'alian' } }] },
       svc('peach', '桃子屋蜂巢店', 'ic-fac_food', [{ name: '便當', price: 12, action: 'none' }]),
       svc('parts', '零件攤', 'ic-fac_scrapyard'),
       svc('gacha', '義體扭蛋攤', 'ic-fac_gacha', [{ name: '轉一次', price: 30, action: 'none' }]),
@@ -119,8 +119,8 @@ export const BLOCKS: Record<string, BlockSpec> = {
     ],
     facilities: [
       { id: 'cybershop', name: '義體零件行', icon: 'ic-fac_cybershop', kind: 'shop', shopId: 'cybershop', services: [{ name: '買賣', action: 'shop' }] },
-      svc('qinghe', '正規診所「清和」', 'ic-fac_clinic', [{ name: '裝義體', action: 'none' }]),
-      svc('backalley', '黑診所「後巷」', 'ic-fac_clinic'),
+      svc('qinghe', '正規診所「清和」', 'ic-fac_clinic', [{ name: '裝義體與調校', action: 'clinic', props: { clinic: '正規診所「清和」', black: false } }]),
+      svc('backalley', '黑診所「後巷」', 'ic-fac_clinic', [{ name: '裝義體（黑的）', action: 'clinic', props: { clinic: '黑診所「後巷」', black: true } }]),
       svc('bio', '生體件專賣', 'ic-fac_pharmacy'),
       svc('unlock', '授權鎖解鎖攤', 'ic-fac_electro'),
     ],
@@ -215,7 +215,7 @@ export const BLOCKS: Record<string, BlockSpec> = {
       svc('mara', '瑪拉的卡車', 'ic-fac_garage', [{ name: '找瑪拉', action: 'none' }]),
       svc('fuel', '加油站', 'ic-fac_garage'),
       svc('trade', '交易棚', 'ic-fac_barter'),
-      svc('repair', '修車廠', 'ic-fac_garage', [{ name: '修車', price: 320, action: 'none' }]),
+      svc('repair', '修車廠', 'ic-fac_garage', [{ name: '買車', action: 'garage', props: { place: '薔薇驛・修車廠' } }, { name: '機甲整備', action: 'mech' }, { name: '修車', price: 320, action: 'none' }]),
       svc('camp', '宿營地', 'ic-fac_home', [{ name: '在營火邊睡', action: 'rest' }]),
       svc('mods', '載具改裝', 'ic-fac_scrapyard'),
     ],
@@ -246,12 +246,17 @@ export const BLOCKS: Record<string, BlockSpec> = {
 }
 
 /** 沒有寫資料的街區：用通用的設施名，只能看、不能用。 */
+/** 通用版面的街區另外加的設施（第三版：夢露的店在中城段・北；舊港碼頭邊真白的車廠） */
+const GENERIC_EXTRA: Record<string, Facility[]> = {
+  '中城段・北': [svc('monroe', '夢露的店・後場', 'ic-fac_bar', [{ name: '中間人的店', action: 'fixer', props: { fixerId: 'monroe' } }])],
+  '碼頭': [svc('mashiro', '真白的車廠', 'ic-fac_garage', [{ name: '買車', action: 'garage', props: { place: '舊港・真白的車廠' } }, { name: '機甲整備', action: 'mech' }])],
+}
 export function blockSpec(district: DistrictId, name: string): BlockSpec {
   if (BLOCKS[name]) return BLOCKS[name]
   const d = DISTRICTS.find(x => x.id === district)!
   return {
     district, name,
-    facilities: [svc(`${name}-1`, `${name}的店`, 'ic-fac_conv'), svc(`${name}-2`, `${name}的酒吧`, 'ic-fac_bar'), svc(`${name}-3`, '牆報板', 'ic-fac_tapes')],
+    facilities: [...(GENERIC_EXTRA[name] ?? []), svc(`${name}-1`, `${name}的店`, 'ic-fac_conv'), svc(`${name}-2`, `${name}的酒吧`, 'ic-fac_bar'), svc(`${name}-3`, '牆報板', 'ic-fac_tapes')],
     exits: d.blocks.filter(b => b !== name).slice(0, 3),
   }
 }

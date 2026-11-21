@@ -8,6 +8,8 @@ import ReasonButton from '../components/ReasonButton.vue'
 import { useUi } from '../stores/ui'
 import { CATEGORIES, PACK, START_ENTRIES, BUILTIN, COUNTERS, LEGEND } from '../data/editor'
 import { checkWorld, planImport, type WorldEntry, type Issue } from '../lib/worldCheck'
+import { SCHEMAS, SCHEMA_SAMPLES, blankEntry } from '../lib/schemas'
+import SchemaForm from '../components/SchemaForm.vue'
 import { useGuides } from '../lib/useGuides'
 
 /**
@@ -19,7 +21,9 @@ const router = useRouter()
 const ui = useUi()
 useGuides().trigger('g_editor')
 const KEY = 'cpp-ui-worldpack-v2'
-function loadPack(): WorldEntry[] { try { const r = localStorage.getItem(KEY); if (r) return JSON.parse(r) } catch { /* 用預設 */ } return structuredClone(START_ENTRIES) }
+/** 第三版的種類：樣本是基本世界裡的那幾筆（內建）；舊的世界包讀進來時補上 */
+function withSamples(list: WorldEntry[]): WorldEntry[] { const have = new Set(list.map(e => e.id)); return [...list, ...(structuredClone(SCHEMA_SAMPLES) as WorldEntry[]).filter(e => !have.has(e.id))] }
+function loadPack(): WorldEntry[] { try { const r = localStorage.getItem(KEY); if (r) return withSamples(JSON.parse(r)) } catch { /* 用預設 */ } return withSamples(structuredClone(START_ENTRIES)) }
 const entries = ref<WorldEntry[]>(loadPack())
 watch(entries, v => { try { localStorage.setItem(KEY, JSON.stringify(v)) } catch { /* 存不了就算了 */ } }, { deep: true })
 const issues = computed(() => checkWorld(entries.value, BUILTIN))
@@ -68,13 +72,13 @@ function saveJson() {
 }
 function addNew() {
   const k = kind.value.kind
-  if (!k) { ui.toast('這一種在第三版才能新增。', 'warn'); return }
+  if (!k) { ui.toast('這一種還不能新增。', 'warn'); return }
   const id = `${k}_new_${entries.value.length + 1}`
-  entries.value.push({ id, kind: k, name: '新的一筆' })
+  entries.value.push((SCHEMAS[k] ? blankEntry(k, id) : { id, kind: k, name: '新的一筆' }) as WorldEntry)
   selIdx.value = entries.value.length - 1
 }
 function duplicate() { if (sel.value) { entries.value.push({ ...structuredClone(sel.value), id: `${sel.value.id}_copy` }); selIdx.value = entries.value.length - 1 } }
-function reset() { entries.value = structuredClone(START_ENTRIES); ui.toast('還原成樣本的世界包。') }
+function reset() { entries.value = withSamples(structuredClone(START_ENTRIES)); ui.toast('還原成樣本的世界包。') }
 /** 它讀的與它寫的（旗標與計數器），給「用在哪」。 */
 const uses = computed(() => {
   const e = sel.value
@@ -116,7 +120,7 @@ function exportPack(only?: string) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 }
 const kindCount = computed(() => Object.entries(entries.value.reduce<Record<string, number>>((m, e) => { m[e.kind] = (m[e.kind] ?? 0) + 1; return m }, {})))
-const KIND_NAME: Record<string, string> = { event: '事件', npc: '人物', enemy: '敵人', item: '物品', counter: '計數器', facility: '設施', series: '系列', site: '地點' }
+const KIND_NAME: Record<string, string> = { event: '事件', npc: '人物', enemy: '敵人', item: '物品', counter: '計數器', facility: '設施', series: '系列', site: '地點', ...Object.fromEntries(Object.values(SCHEMAS).map(x => [x.kind, x.name])) }
 const issueLine = (i: Issue) => `${i.code} ${i.text}`
 void issueLine
 </script>
@@ -142,7 +146,7 @@ void issueLine
       </div>
       <div class="lockline frame"><span class="lk">LOCK</span><b>框架裡的設定不能在這裡改。</b><Hint>現實與內海兩層世界、粉牆與牆外、橋與沉溺、大潮崩、城市的基本氛圍與題材底線，是系統的骨架，改了規則就不成立，所以不開放。提示詞、世界書與用語對照在 AI 工坊調整。</Hint></div>
 
-      <div v-if="!kind.kind" class="panel cut pad empty-wrap"><p class="empty-note">「{{ kind.name }}」在基本世界裡有內容；這一版的編輯器還不能編輯這一種（第三版）。</p></div>
+      <div v-if="!kind.kind" class="panel cut pad empty-wrap"><p class="empty-note">「{{ kind.name }}」在基本世界裡有內容；這一版的編輯器還不能編輯這一種。</p></div>
       <div v-else-if="kind.id === 'counter'" class="cols">
         <section class="panel cut pad span2">
           <p class="h">劇情計數器・目前的值取自存檔「夜班之後」<Hint>遊戲裡不直接顯示這些數字，玩家只能從城市的新聞與事件看出往哪邊走。內建的四個也能在世界包裡改範圍；超出範圍的推動停在邊界。</Hint></p>
@@ -174,7 +178,8 @@ void issueLine
         <section class="panel cut pad ed">
           <template v-if="sel">
             <div class="edh"><div class="grow"><b>{{ sel.name }}</b><small class="mono">{{ sel.id }}・{{ KIND_NAME[sel.kind] }}<template v-if="sel.series">・系列：{{ sel.series }}</template></small></div><Tabs v-model="mode" :tabs="[{ id: 'form', label: '表單' }, { id: 'json', label: 'JSON' }]" /></div>
-            <template v-if="mode === 'form'">
+            <SchemaForm v-if="mode === 'form' && SCHEMAS[sel.kind]" :schema="SCHEMAS[sel.kind]" :entry="sel" />
+            <template v-else-if="mode === 'form'">
               <div v-for="(v, k) in sel" :key="k" class="frow" :class="{ bad: selIssues.some(i => i.where.startsWith(String(k)) && i.blocking) }">
                 <span class="fk">{{ k }}</span>
                 <input v-if="simple(v) && k !== 'kind'" class="inp" :value="v" :aria-label="String(k)" @change="setField(String(k), ($event.target as HTMLInputElement).value)">
@@ -218,7 +223,7 @@ void issueLine
               <p class="h">在系列裡的位置</p>
               <div v-if="uses.series" class="series"><span v-for="m in (uses.series.members as string[])" :key="m" class="tag" :class="{ hot: m === sel?.id }">{{ entries.find(e => e.id === m)?.name ?? m }}</span></div>
             </template>
-            <div v-else class="empty-note">這一種內容的引用關係在第三版接上。</div>
+            <div v-else class="empty-note">這一種內容的引用關係在第四版接上（現在只有事件）。</div>
           </template>
         </aside>
       </div>

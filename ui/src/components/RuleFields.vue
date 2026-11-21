@@ -39,8 +39,9 @@ void props
   <div class="rules" :class="{ compact }">
     <p class="setgrp">難度<Hint>難度只調兩件事：敵人的生命、傷害與感載上限，以及寫成檔位的檢定 DC。下面的設定和難度分開，換難度不會動到它們。</Hint></p>
     <div class="diffs">
-      <button v-for="d in DIFFS" :key="d" type="button" class="dcard" :class="{ on: s.difficulty === d }" :aria-pressed="s.difficulty === d" @click="d === '自訂' ? ui.toast('自訂的係數表在第三版做。', 'warn') : (s.difficulty = d)">{{ d }}</button>
+      <button v-for="d in DIFFS" :key="d" type="button" class="dcard" :class="{ on: s.difficulty === d }" :aria-pressed="s.difficulty === d" @click="s.difficulty = d; if (d === '自訂') ui.open('difficulty')">{{ d }}</button>
     </div>
+    <div v-if="s.difficulty === '自訂'" class="go left"><button type="button" class="btn sm" @click="ui.open('difficulty')">編輯自訂的係數表</button><span class="t-fine">首領 生命 ×{{ s.customDiff.boss.hp }}・DC {{ s.customDiff.dc >= 0 ? '+' : '' }}{{ s.customDiff.dc }}・公關點 {{ s.customDiff.pr >= 0 ? '+' : '' }}{{ s.customDiff.pr }}</span></div>
     <p class="setgrp">倍率</p>
     <div class="grid2">
     <div v-for="r in multRows" :key="r.k" class="setrow" :class="{ chg: !st.isDefault(r.k) }">

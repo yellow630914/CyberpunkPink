@@ -14,6 +14,11 @@ import { BILL_ITEMS, PENDING } from '../data/weekly'
 import { START_FILL } from '../data/crafting'
 import { SKILL_TREES } from '../data/content.generated'
 import { skillXp } from '../lib/skills'
+import { START_MEDIA } from '../data/media'
+import { START_JOB, type JobState } from '../data/commission'
+import { START_MECH, type MechState } from '../data/garage'
+import { useHome } from './home'
+import { useSubnet } from './subnet'
 import { packSave, rollbackKeeping, type Snapshot, type SnapshotKind } from '../lib/save'
 
 /**
@@ -31,6 +36,12 @@ export interface SaveShape {
   basics: Record<string, number>; learned: string[]; loadout: string[]; nightLearned: string[]; params: typeof START_PARAMS; tendency: typeof START_TENDENCY
   fame: Record<string, number>; sexRecord: typeof START_SEX; deck: typeof START_DECK; roster: typeof ROSTER; channel: typeof START_CHANNEL; contracts: { held: typeof HELD }
   bills: { items: typeof BILL_ITEMS; overdueWeeks: number }; pending: typeof PENDING; craftFill: Record<string, Record<string, string>>; guides: typeof START_GUIDES; dungeonSeed: number; vehicles?: string[]
+  media?: typeof START_MEDIA
+  job?: JobState
+  mech?: MechState
+  /** 第 3 版：家園與子網的 store（null 是 v2 升上來的存檔，讀的時候不動） */
+  home?: Record<string, unknown> | null
+  subnet?: Record<string, unknown> | null
 }
 
 const WEEKDAYS = ['週一', '週二', '週三', '週四', '週五', '週六', '週日']
@@ -69,6 +80,14 @@ export const useGame = defineStore('game', () => {
   const craftFill = reactive<Record<string, Record<string, string>>>(structuredClone(START_FILL))
   const guides = reactive(structuredClone(START_GUIDES))
   const dungeonSeed = ref(1)
+  /** 紀錄、素材、片（MEDIA 第 1～5 節） */
+  const media = reactive(structuredClone(START_MEDIA))
+  /** 進行中的委託（FIXER 第 2 節的四拍；UI.md 第 7 節的委託頁） */
+  const job = reactive<JobState>(structuredClone(START_JOB))
+  /** 機甲（ITEMS 14.2 節、CRAFTING 第 15 節）：假存檔有一具除役的野馬 II */
+  const mech = reactive<MechState>(structuredClone(START_MECH))
+  /** 最近一場戰鬥的結果：戰鬥畫面離開時寫，委託頁讀了推進階段（不進存檔） */
+  const lastBattle = ref<{ kind: 'real' | 'net' | 'opinion' | 'subnet'; result: string; text: string } | null>(null)
   const snapshots = ref<Snapshot[]>([])
   const inRun = ref(false)
   const loc = reactive<{ district: DistrictId; block: string; pos: Point; facility: string | null }>({ district: 'hive', block: '四號塔', pos: { x: 3, y: 1 }, facility: 'rooftop' })
@@ -214,7 +233,8 @@ export const useGame = defineStore('game', () => {
       inventory: inventory.value, cyber: { ...cyber }, equip: { ...equip }, quick: quick.value, coatClosed: coatClosed.value, npcs: { ...npcs }, loc: { ...loc }, log: log.value,
       basics: { ...basics }, learned: learned.value, loadout: loadout.value, nightLearned: nightLearned.value, params: { ...params }, tendency: { ...tendency },
       fame: { ...fame }, sexRecord: { ...sexRecord }, deck: { ...deck }, roster: roster.value, channel: { ...channel }, contracts: { ...contracts }, bills: { ...bills },
-      pending: pending.value, craftFill: { ...craftFill }, guides: { ...guides }, dungeonSeed: dungeonSeed.value, vehicles: vehicles.value,
+      pending: pending.value, craftFill: { ...craftFill }, guides: { ...guides }, dungeonSeed: dungeonSeed.value, vehicles: vehicles.value, media: { ...media }, job: { ...job }, mech: { ...mech },
+      home: useHome().serialize(), subnet: useSubnet().serialize(),
     })) as SaveShape
   }
   type SaveState = SaveShape
@@ -253,6 +273,11 @@ export const useGame = defineStore('game', () => {
     if (d.guides) Object.assign(guides, structuredClone(d.guides))
     if (typeof d.dungeonSeed === 'number') dungeonSeed.value = d.dungeonSeed
     if (Array.isArray(d.vehicles)) vehicles.value = [...d.vehicles]
+    if (d.media) Object.assign(media, structuredClone(d.media))
+    if (d.job) Object.assign(job, structuredClone(d.job))
+    if (d.mech) Object.assign(mech, structuredClone(d.mech))
+    if (d.home) useHome().hydrate(d.home)
+    if (d.subnet) useSubnet().hydrate(d.subnet)
     logSeq = Math.max(logSeq, ...log.value.map(e => e.id + 1))
   }
   function saveMeta(kind: '手動' | '自動' | '快照' = '手動') {
@@ -284,7 +309,7 @@ export const useGame = defineStore('game', () => {
     day, minutes, money, hostility, character, party, inventory, cyber, equip, quick, coatClosed, npcs, loc, log,
     timeLabel, weekday, billIn, district, block, blockMap, facility, placeLabel, topHostility, carriedWeight, sinkFloor, quickCap, coveredSlots,
     advance, addLog, moveBlock, setFacility, addItem, removeItem, stackOf, equipItem, unequip, cyberAt, changeAffinity, itemName,
-    basics, learned, loadout, nightLearned, params, tendency, fame, sexRecord, deck, roster, channel, contracts, bills, pending, craftFill, guides, dungeonSeed, vehicles, snapshots, inRun,
+    basics, learned, loadout, nightLearned, params, tendency, fame, sexRecord, deck, roster, channel, contracts, bills, pending, craftFill, guides, dungeonSeed, vehicles, media, job, mech, lastBattle, snapshots, inRun,
     learnSkill, syncTrees, learnNight, setQuick, serialize, hydrate, saveMeta, packed, takeSnapshot, rollback,
   }
 })

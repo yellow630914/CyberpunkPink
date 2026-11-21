@@ -5,15 +5,15 @@ import type { WorldEntry } from '../lib/worldCheck'
  * 故意留了幾個錯（樣稿裡的那四個格式錯誤與一個年齡），檢查要抓得到。
  */
 export const CATEGORIES: Array<{ id: string; name: string; kinds: Array<{ id: string; name: string; kind?: WorldEntry['kind'] }> }> = [
-  { id: 'world', name: '世界', kinds: [{ id: 'site', name: '地點', kind: 'site' }, { id: 'blocks', name: '區與街區' }, { id: 'facility', name: '設施', kind: 'facility' }, { id: 'faction', name: '勢力' }, { id: 'citynews', name: '城市的大事' }] },
-  { id: 'net', name: '內海', kinds: [{ id: 'subnet', name: '子網' }, { id: 'lace', name: '蕾絲' }] },
+  { id: 'world', name: '世界', kinds: [{ id: 'site', name: '地點', kind: 'site' }, { id: 'blocks', name: '區與街區', kind: 'block' }, { id: 'facility', name: '設施', kind: 'facility' }, { id: 'faction', name: '勢力', kind: 'faction' }, { id: 'citynews', name: '城市的大事', kind: 'citynews' }] },
+  { id: 'net', name: '內海', kinds: [{ id: 'subnet', name: '子網', kind: 'subnet' }, { id: 'lace', name: '蕾絲', kind: 'lace' }] },
   { id: 'people', name: '人物', kinds: [{ id: 'npc', name: '人物', kind: 'npc' }] },
-  { id: 'items', name: '物品', kinds: [{ id: 'item', name: '零件', kind: 'item' }, { id: 'bp', name: '設計圖' }, { id: 'drug', name: '藥' }, { id: 'cloth', name: '服裝' }, { id: 'acc', name: '飾品' }, { id: 'adult', name: '成人道具' }, { id: 'skin', name: 'SKIN' }] },
-  { id: 'skills', name: '技能', kinds: [{ id: 'tree', name: '技能樹' }, { id: 'trait', name: '特質' }] },
-  { id: 'enemies', name: '敵人', kinds: [{ id: 'enemy', name: '敵人', kind: 'enemy' }] },
+  { id: 'items', name: '物品', kinds: [{ id: 'item', name: '零件', kind: 'item' }, { id: 'bp', name: '設計圖', kind: 'bp' }, { id: 'drug', name: '藥', kind: 'drug' }, { id: 'cloth', name: '服裝', kind: 'cloth' }, { id: 'acc', name: '飾品', kind: 'acc' }, { id: 'adult', name: '成人道具', kind: 'adult' }, { id: 'skin', name: 'SKIN', kind: 'skin' }] },
+  { id: 'skills', name: '技能', kinds: [{ id: 'tree', name: '技能樹', kind: 'tree' }, { id: 'trait', name: '特質', kind: 'trait' }] },
+  { id: 'enemies', name: '敵人', kinds: [{ id: 'enemy', name: '敵人', kind: 'enemy' }, { id: 'opponent', name: '輿論戰的對手', kind: 'opponent' }] },
   { id: 'events', name: '事件', kinds: [{ id: 'event', name: '事件', kind: 'event' }] },
-  { id: 'quests', name: '任務', kinds: [{ id: 'series', name: '特殊任務與系列', kind: 'series' }, { id: 'tmpl', name: '委託模板' }, { id: 'run', name: '委託副本' }, { id: 'counter', name: '劇情計數器', kind: 'counter' }] },
-  { id: 'guides', name: '指南', kinds: [{ id: 'guide', name: '指南' }] },
+  { id: 'quests', name: '任務', kinds: [{ id: 'series', name: '特殊任務與系列', kind: 'series' }, { id: 'tmpl', name: '委託模板', kind: 'tmpl' }, { id: 'run', name: '委託副本', kind: 'run' }, { id: 'counter', name: '劇情計數器', kind: 'counter' }] },
+  { id: 'guides', name: '指南', kinds: [{ id: 'guide', name: '指南', kind: 'guide' }] },
 ]
 
 export const PACK = { id: 'ledger_side', name: '帳本外傳', base: '基本世界' }
