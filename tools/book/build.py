@@ -26,7 +26,7 @@ PARTS = [  # 依 docs/README 第 1 節的分層編排：(標題, 這一層的說
       'systems/NPC_SYSTEM.md', 'systems/EVENTS.md', 'systems/SERIES.md', 'systems/COMMISSIONS.md', 'systems/FIXER.md',
       'systems/TRADE.md', 'systems/DOWNTIME.md', 'systems/LEWD_SYSTEM.md', 'systems/DATA.md', 'systems/BALANCE.md']),
     ('L4 內容', '實際的條目：照框架寫成的技能、物品、敵人、事件、任務與地點。數字待平衡。',
-     ['content/ENEMY_ROSTER.md', 'content/SKILL_TREES.md', 'content/NIGHT_LESSONS.md', 'content/EVENTS_CITY.md', 'content/ADULT_EVENTS.md', 'content/LURE_EVENTS.md', 'content/DEFEAT_EVENTS.md', 'content/QUESTS.md', 'content/COMMISSION_TEMPLATES.md', 'content/GUIDES.md', 'gear/ITEMS.md', 'world/SITES.md', 'world/STORY_QUESTS.md']),
+     ['content/ENEMY_ROSTER.md', 'content/SKILL_TREES.md', 'content/NIGHT_LESSONS.md', 'content/EVENTS_CITY.md', 'content/ADULT_EVENTS.md', 'content/LURE_EVENTS.md', 'content/DEFEAT_EVENTS.md', 'content/QUESTS.md', 'content/COMMISSION_TEMPLATES.md', 'content/COMMISSION_MAPS.md', 'content/GUIDES.md', 'gear/ITEMS.md', 'world/SITES.md', 'world/STORY_QUESTS.md']),
     ('L5 呈現', '給玩家看的畫面與給 AI 讀的提示詞。',
      ['art/ART_STYLE.md', 'art/UI.md', 'systems/PROMPTS.md', 'plan/AI_TASKS.md']),
     ('附錄：實作與紀錄', '實作的做法、ElondiaRPG 的掃描與遷移，以及已經定案的決定。',
@@ -47,8 +47,8 @@ ALL = [d for _, _, ds in PARTS for d in ds]
 L4 = next(ds for t, _, ds in PARTS if t.startswith('L4'))
 BOOKS = [  # (代號, 書名, 檔名, 這本收哪些部分)
     ('design', '設計', None, [p for p in PARTS if not p[0].startswith('L4')]),
-    ('quests', '內容・任務', 'content-quests.html', [('L4 內容・任務', '特殊任務、委託模板、任務的骨架、要地與指南。',
-        ['content/QUESTS.md', 'content/COMMISSION_TEMPLATES.md', 'world/STORY_QUESTS.md', 'world/SITES.md', 'content/GUIDES.md'])]),
+    ('quests', '內容・任務', 'content-quests.html', [('L4 內容・任務', '特殊任務、委託模板與地圖版面、任務的骨架、要地與指南。',
+        ['content/QUESTS.md', 'content/COMMISSION_TEMPLATES.md', 'content/COMMISSION_MAPS.md', 'world/STORY_QUESTS.md', 'world/SITES.md', 'content/GUIDES.md'])]),
     ('events', '內容・事件', 'content-events.html', [('L4 內容・事件', '城市事件、成人事件、誘惑與戰敗。',
         ['content/EVENTS_CITY.md', 'content/ADULT_EVENTS.md', 'content/LURE_EVENTS.md', 'content/DEFEAT_EVENTS.md'])]),
     ('catalog', '內容・目錄', 'content-catalog.html', [('L4 內容・目錄', '物品、敵人、技能樹與夜課。',

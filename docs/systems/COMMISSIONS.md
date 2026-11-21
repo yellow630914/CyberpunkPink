@@ -126,6 +126,8 @@
 | 內海 | 追蹤度（[CYBERSPACE](CYBERSPACE.md) 6.8 節） | 30、60、90 各有東西來；90 被定位 |
 | 輿論 | 沒有。輿論戰本身有回合數的限制 | — |
 
+- 現實面探索中警戒怎麼上升（監視器、被看到）、門鎖與巡邏，見 [SITES](../world/SITES.md) 12.5 節。
+
 **每個副本要寫的欄位：**
 
 | 欄位 | 內容 |
@@ -427,7 +429,7 @@
     {
       "faces": {
         "meat": {
-          "map": "map_lab_small",
+          "map": "map_lab",
           "branches": [
             { "id": "assault", "kind": "assault" },
             { "id": "staff_door", "kind": "stealth", "need": { "basic": "stealth", "level": 3 } },
@@ -450,7 +452,7 @@
     {
       "faces": {
         "meat": {
-          "map": "map_lab_small",
+          "map": "map_lab",
           "branches": [
             { "id": "assault", "kind": "assault" },
             { "id": "keycard_door", "kind": "linked", "need": { "link": "keycard" } }

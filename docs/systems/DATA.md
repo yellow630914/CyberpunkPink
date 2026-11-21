@@ -642,7 +642,7 @@
 
 ## 9. 委託副本
 
-完整的樣本在 [COMMISSIONS](COMMISSIONS.md) 第 11 節，那一筆已經是階段制的。這裡補兩樣它引用到、但還沒有格式的東西。
+完整的樣本在 [COMMISSIONS](COMMISSIONS.md) 第 11 節，那一筆已經是階段制的。這裡補三樣它引用到、但還沒有格式的東西。
 
 ### 9.1 輿論戰的開場表
 
@@ -689,6 +689,124 @@
 | `check` | 怎麼算達成：看哪一種引擎事件、最少或最多幾次 |
 | `heat`、`tip_per_grade` | 達成時加的熱度與打賞（乘上等級） |
 | `channel` | 不寫就是都可以；寫了的話只有那種定位的頻道會抽到（`adult`、`news`、`gossip`、`underground`） |
+
+### 9.3 現實面的地圖版面
+
+[SITES](../world/SITES.md) 第 15 節的 `commission_maps` 是一個模板一筆；這裡加上版面。每一張圖寫進 `sheets`，一張一筆。圖例、座標與記法在 [COMMISSION_MAPS](../content/COMMISSION_MAPS.md) 第 1 節，三十個模板的版面都在那一份。
+
+| 欄位 | 內容 |
+|---|---|
+| `sheets` | 這個模板的每一張圖，照一個副本串的順序（例：大廳、目標樓層、頂層）。單張的模板只有一筆 |
+| `sheets[].id`、`name`、`size` | 這一張的 id（模板裡不重複）、名字、寬與高。`size` 和模板的 `size` 一樣 |
+| `layout` | 字串陣列，一列一個字串，每個字串的長度都是寬；一格一個字元，字元照 `legend` |
+| `legend` | 選填。字元到種類的對照，只寫和預設不同的；預設的對照是 COMMISSION_MAPS 1.1 節的表（`#` 牆、`.` 地板、`,` 戶外、`~` 水、`+` 門、`%` 要條件的門、`=` 窗、`^` 通風口、`<` `>` 樓梯、`H` 電梯、`O` 掩體、`o` 半掩體、`*` 人群、`$` 保險箱、`&` 人質、`E T D C G S K X` 標記、`1`～`9` 遭遇點） |
+| `zones`、`zone_names` | 和 `layout` 一樣大的字串陣列；小寫字母是區塊，`#` 是牆，`~` 是水。`zone_names` 是每個字母的名字 |
+| `cells` | 每個標記一筆：`id`（照「由上到下、由左到右」編號，`E1`、`T2`、`$1`、`&1`）、`at`（[x, y]，左上角是 [0, 0]）、`mark`、`name`。入口另外有 `kind` 與 `need`（寫法同 COMMISSION_TEMPLATES 的 `entries[].need`：基本功與 `dc_plus`、`item`、`scouted`、`any`） |
+| `spots` | 遭遇點：`id` 是模板的編號（`!1`）、`at`、`cover`（`dense`、`medium`、`sparse`、`one_sided`，或八格逐格寫） |
+| `controls` | 控制區：`id`（`C1`）、`at`（面板的格）、`zones`（範圍是哪幾個區塊）、`node`（子網裡對應的控制節點 id，`cn_` 開頭，[NETRUNNING](NETRUNNING.md) 第 4 節）、`devices`（門、攝影機、燈、砲塔、防爆門……） |
+| `patrols` | 選填。`guard`（哪一個 `G`）、`route`（照順序走過的區塊） |
+| `links` | 串多張時這一張接到哪裡：`at`（一格或幾格，樓梯、電梯、相通的門）、`to`（另一張的 `id`） |
+| `scout` | 選填。踩點揭開的東西在哪：`reveal`（FIXER 第 2 節的七類之一）、`at`（標記的 `id` 或區塊字母） |
+
+- 有 `sheets` 的模板，模板層的 `markers`、`entries`、`spots` 由 `sheets` 算出來；兩邊都寫時資料檢查要對一致。
+- 資料檢查：每一列的長度等於寬、列數等於高；每個標記與地板從入口或連接格走得到；`E T D C G K X` 的數量到 SITES 12.1 節的下限（以模板算）、遭遇點每張至少 2；`cells` 的數量和 `layout` 裡的字元一致。
+
+```json
+{
+  "id": "map_office_small",
+  "kind": "office_small",
+  "size": [9, 9],
+  "max_maps": 1,
+  "district_weight": {"sakura": 3, "hive": 1, "kabuki42": 1},
+  "fits": [
+    "steal_data",
+    "erase",
+    "tamper",
+    "honeypot",
+    "collect"
+  ],
+  "sheets": [
+    {
+      "id": "office",
+      "name": "二樓的辦公室",
+      "size": [9, 9],
+      "layout": [
+        "####=E###",
+        "#TOT#..S#",
+        "#.2.%G1.#",
+        "#DC.#oOo#",
+        "######+##",
+        "#T&.#.GS#",
+        "E...%.O.#",
+        "#X..#C.K#",
+        "######E##"
+      ],
+      "zones": [
+        "####bb###",
+        "#ccc#bbb#",
+        "#ccccbbb#",
+        "#ccc#bbb#",
+        "######a##",
+        "#ddd#aaa#",
+        "dddddaaa#",
+        "#ddd#aaa#",
+        "######a##"
+      ],
+      "zone_names": {"a": "接待區", "b": "開放座位", "c": "主管室", "d": "茶水間與後門"},
+      "cells": [
+        {
+          "id": "E1",
+          "at": [5, 0],
+          "mark": "E",
+          "kind": "window",
+          "name": "二樓的窗",
+          "need": {"basic": "athletics", "dc_plus": 3, "each": true, "fail_alert": 10, "time": "night"}
+        },
+        {
+          "id": "E2",
+          "at": [0, 6],
+          "mark": "E",
+          "kind": "back",
+          "name": "後門（茶水間旁的防火門）",
+          "need": {"any": [{"basic": "mechanics", "dc_plus": 0}, {"item": "K"}]}
+        },
+        {
+          "id": "E3",
+          "at": [6, 8],
+          "mark": "E",
+          "kind": "front",
+          "name": "正門",
+          "need": {"open_hours": {"basic": "performance", "dc_plus": 0, "fail": "force"}}
+        },
+        {"id": "T1", "at": [1, 1], "mark": "T", "name": "牆上的保險櫃"},
+        {"id": "T2", "at": [3, 1], "mark": "T", "name": "主管室的辦公桌"},
+        {"id": "T3", "at": [1, 5], "mark": "T", "name": "茶水間後面的檔案間"},
+        {"id": "D1", "at": [1, 3], "mark": "D", "name": "主管室的終端下方的網路孔"},
+        {"id": "&1", "at": [2, 5], "mark": "&", "name": "檔案間（人質放在這裡）"},
+        {"id": "K1", "at": [7, 7], "mark": "K", "name": "接待區的員工外套掛架"},
+        {"id": "G1", "at": [5, 2], "mark": "G", "name": "主管室門口"},
+        {"id": "G2", "at": [6, 5], "mark": "G", "name": "接待櫃檯"},
+        {"id": "X1", "at": [1, 7], "mark": "X", "name": "後門"},
+        {"id": "S1", "at": [7, 1], "mark": "S", "name": "開放座位的監視器"},
+        {"id": "S2", "at": [7, 5], "mark": "S", "name": "接待區的監視器"}
+      ],
+      "spots": [{"id": "!1", "at": [6, 2], "cover": "dense"}, {"id": "!2", "at": [2, 2], "cover": "one_sided"}],
+      "controls": [
+        {"id": "C1", "at": [2, 3], "zones": ["c", "d"], "node": "cn_back_half", "devices": ["light", "safe_lock"]},
+        {"id": "C2", "at": [5, 7], "zones": ["a", "b"], "node": "cn_front_half", "devices": ["door", "camera"]}
+      ],
+      "patrols": [{"guard": "G2", "route": ["a", "b", "a", "d"]}],
+      "scout": [
+        {"reveal": "路", "at": "E2"},
+        {"reveal": "路", "at": "E1"},
+        {"reveal": "守備", "at": "G2"},
+        {"reveal": "目標", "at": "T2"},
+        {"reveal": "詞條", "at": "b"}
+      ]
+    }
+  ]
+}
+```
 
 ## 10. 網內的生成地圖
 
