@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import type { ActionInput, Actor, AttributeEntry, Change, CreationRuleEntry, GameState, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
-import { ActionBlocked, FakeProvider, Game, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
+import { ActionBlocked, FakeProvider, Game, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
 import type { StepRecord } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
 import { allFeatures } from '@engine/src/features'
@@ -83,7 +83,7 @@ export const useEngine = defineStore('engine', () => {
     get limits() {
       const r = game.k.content.get<CreationRuleEntry>('creation_rule', 'default')
       const rules = cstate().rules
-      return { attrArray: r?.attr_array ?? [], attrFree: r?.attr_free ?? 0, attrMax: r?.attr_max ?? 18, attrMin: r?.attr_min ?? 4, skillPoints: rules.startSkillPoints, skillMax: rules.startSkillMax, perkPoints: rules.startPerkPoints, perkMax: r?.perk_max ?? 8, flawMax: r?.flaw_max ?? 2 }
+      return { attrArray: r?.attr_array ?? [], attrFree: r?.attr_free ?? 0, attrMax: r?.attr_max ?? 18, attrMin: r?.attr_min ?? 4, skillPoints: rules.startSkillPoints, skillMax: rules.startSkillMax, perkPoints: rules.startPerkPoints, perkMax: r?.perk_max ?? 8, startMoney: rules.startMoney, flawMax: r?.flaw_max ?? 2 }
     },
     /** 按一下屬性的 ± 會不會被擋（問引擎的自由點數與上下限）；null 是可以 */
     attrStepBlock(pick: Parameters<typeof attrTotals>[0], bonus: Parameters<typeof attrTotals>[1], a: string, delta: 1 | -1): string | null {
@@ -106,6 +106,8 @@ export const useEngine = defineStore('engine', () => {
   }
 
   async function run(f: () => Promise<{ status: string }>): Promise<ActOutcome> {
+    // 上一條鏈還在跑：這一次不送進引擎，也不碰 busy（第一條鏈結束時才由它放開）
+    if (busy.value) return { status: 'busy', reason: '上一條任務鏈還在跑。' }
     busy.value = true
     const timer = setInterval(refreshSteps, 120)
     try {
@@ -130,6 +132,11 @@ export const useEngine = defineStore('engine', () => {
   }
   function save(): string {
     return game.save('manual', new Date().toISOString())
+  }
+  /** 只驗證、不套用：引擎的存檔讀得進來嗎（錯誤訊息；null 是可以）。 */
+  function checkSave(raw: string): string | null {
+    const r = unpackSave(raw)
+    return r.ok ? null : r.error
   }
   function load(raw: string): string | null {
     const err = game.load(raw)
@@ -158,5 +165,5 @@ export const useEngine = defineStore('engine', () => {
     if (real.length) commit({ summary: '帳', action: 'ui.money', changes: real })
   }
 
-  return { state, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, newGame, createCharacter, creation, act, retryStep, useRules, reroll, setAi, save, load, undo, commit, ledger }
+  return { state, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, newGame, createCharacter, creation, act, retryStep, useRules, reroll, setAi, save, checkSave, load, undo, commit, ledger }
 })

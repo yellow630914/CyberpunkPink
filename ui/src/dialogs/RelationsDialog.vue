@@ -17,12 +17,12 @@ const g = useGame()
 const ui = useUi()
 const FILTERS = ['全部', '夥伴', '名冊', '中間人', '熟人', '只看關注的'] as const
 const filter = ref<typeof FILTERS[number]>('全部')
-const FALLBACK: Record<string, Npc['group']> = { xiaomai: '夥伴', alian: '中間人', hebo: '熟人', laotie: '熟人' }
+const FALLBACK: Record<string, Npc['group']> = { npc_xiaomai: '夥伴', npc_lian: '中間人', npc_hebo: '熟人', npc_laotie: '熟人' }
 const groupOf = (n: Npc) => n.group ?? FALLBACK[n.id] ?? '熟人'
 const inRoster = (id: string) => g.roster.some(r => r.npc === id)
 const all = computed(() => Object.values(g.npcs).sort((a, b) => b.affinity - a.affinity))
 const list = computed(() => all.value.filter(n => filter.value === '全部' || (filter.value === '只看關注的' ? n.watch : groupOf(n) === filter.value)))
-const selId = ref(props.npcId ?? 'xiaomai')
+const selId = ref(props.npcId ?? 'npc_xiaomai')
 const sel = computed(() => g.npcs[selId.value] ?? all.value[0])
 const favorText = (n: Npc) => (n.favor ? (n.favor > 0 ? `欠你 ${n.favor}` : `你欠 ${-n.favor}`) : '')
 const lineIdx = computed(() => sel.value.lineStage)
@@ -31,7 +31,7 @@ const draft = ref('')
 function edit() { draft.value = sel.value.relation; editing.value = true }
 function saveRel() { sel.value.relation = draft.value.trim() || sel.value.relation; editing.value = false }
 function meet(n: Npc) {
-  if (n.id === 'xiaomai') ui.open('talk', { npcId: 'xiaomai' })
+  if (n.id === 'npc_xiaomai') ui.open('talk', { npcId: 'npc_xiaomai' })
   else ui.toast(`約${n.name}要先知道她在哪裡：互動選單在和她說話的畫面。`, 'warn')
 }
 </script>

@@ -27,14 +27,14 @@ const showId = ref('live')
 const tierId = ref<'all' | 'edge' | 'adult'>('all')
 const mode = ref<'錄播' | '直播'>('直播')
 const where = ref<'棚內' | '出門'>('出門')
-const host = ref<'me' | 'penny' | 'xiaomai'>('me')
+const host = ref<'me' | 'npc_penny' | 'npc_xiaomai'>('me')
 const bringProducer = ref(true)
 const sponsorAd = ref(false)
 /** 上鏡的人：主要基本功與有沒有媒體型技能。 */
 const HOSTS = computed(() => ({
   me: { name: '你', skills: { 街頭直覺: g.basics.街頭直覺, 表演: g.basics.表演, 調查: g.basics.調查, 交涉: g.basics.交涉, 誘惑: g.basics.誘惑 }, media: false },
-  penny: { name: '潘妮', skills: { 街頭直覺: 2, 表演: 3, 調查: 4, 交涉: 2, 誘惑: 1 }, media: true },
-  xiaomai: { name: '小麥', skills: { 街頭直覺: 3, 表演: 2, 調查: 1, 交涉: 4, 誘惑: 2 }, media: false },
+  npc_penny: { name: '潘妮', skills: { 街頭直覺: 2, 表演: 3, 調查: 4, 交涉: 2, 誘惑: 1 }, media: true },
+  npc_xiaomai: { name: '小麥', skills: { 街頭直覺: 3, 表演: 2, 調查: 1, 交涉: 4, 誘惑: 2 }, media: false },
 }))
 const CHECKS: Record<string, string[]> = { live: ['街頭直覺', '表演'], feature: ['調查'], gossip: ['交涉', '表演'], stream: ['表演', '誘惑'], scoop: ['調查', '表演'] }
 const show = computed(() => SHOWS.find(s => s.id === showId.value)!)
@@ -54,6 +54,13 @@ const gearSum = computed(() => Math.min(6, gearUsed.value.reduce((s, e) => s + e
 const pv = computed(() => episodePreview({ skill: skill.value, gear: gearSum.value, staff: bringProducer.value ? 2 : 0, quality: 0, weight: ch.weight, mediaSkill: h.value.media }))
 const sponsor = computed(() => ch.budget.sponsors[0])
 const publicLeft = computed(() => sponsor.value ? sponsor.value.paid - sponsor.value.used : 0)
+/** 先檢查帳戶夠不夠再動：不夠就提示並整件不做（引擎不讓錢變負數，不能先加自有資金再扣帳戶）。 */
+function subsidize() {
+  if (g.money.acc < 500) { ui.toast('帳戶不到 500，補貼不了。', 'warn'); return }
+  g.money.acc -= 500
+  ch.budget.ownAcc += 500
+  ui.toast('從帳戶補貼了 500。')
+}
 const budgetTotal = computed(() => ch.budget.ownAcc + ch.budget.ownCash + publicLeft.value)
 const quota = computed(() => sponsor.value ? Math.round(sponsor.value.paid * 0.2) : 0)
 const showBlock = (id: string) => {
@@ -126,7 +133,7 @@ const gradeOf = (id: string) => GRADES.find(x => x.id === id)!
             <TrackBar label="可支領額度" :value="Math.min(quota, sp.used)" :max="quota" color="var(--ep)" striped :height="6" />
             <div class="terms">{{ sp.terms }}<Hint>每一次撥款進來，額度增加撥款的 20%。超過額度拿出來，每超過 500，那個勢力的好感 −1、敵對值 +1。</Hint></div>
           </template>
-          <div class="go"><button type="button" class="btn sm" @click="ch.budget.ownAcc += 500; g.money.acc -= 500; ui.toast('從帳戶補貼了 500。')">補貼 500</button><ReasonButton sm :reason="ch.budget.ownAcc < 500 ? '自有資金不到 500。' : null" @go="ch.budget.ownAcc -= 500; g.money.acc += 500; ui.toast('拿出來 500：自有資金沒有代價。')">拿出來 500</ReasonButton></div>
+          <div class="go"><ReasonButton sm :reason="g.money.acc < 500 ? '帳戶不到 500。' : null" @go="subsidize">補貼 500</ReasonButton><ReasonButton sm :reason="ch.budget.ownAcc < 500 ? '自有資金不到 500。' : null" @go="ch.budget.ownAcc -= 500; g.money.acc += 500; ui.toast('拿出來 500：自有資金沒有代價。')">拿出來 500</ReasonButton></div>
         </section>
       </aside>
 

@@ -285,9 +285,9 @@ function runWeek() {
   if (r.event) ui.toast('大失敗：觸發一件店面事件（客人鬧事）。', 'warn')
 }
 function inviteZero() {
-  if (h.people.some(p => p.id === 'zero')) return
+  if (h.people.some(p => p.id === 'npc_zero')) return
   const bedRoom = h.rooms.find(r => r.id !== 'M' && r.furniture.some(f => FURNITURE[f.def].beds))
-  h.people.push({ id: 'zero', name: '零', kind: 'ally', role: '留宿・忠誠 +1／週', pos: h.map.entrance(), sleeps: true, room: bedRoom?.id })
+  h.people.push({ id: 'npc_zero', name: '零', kind: 'ally', role: '留宿・忠誠 +1／週', pos: h.map.entrance(), sleeps: true, room: bedRoom?.id })
   ui.toast('零搬進來留宿了。')
 }
 const zeroReason = computed(() => (h.tier < 2 ? '留宿要二級以上的據點。' : h.residents.length >= caps.value.residents ? '住戶滿了。' : null))

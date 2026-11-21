@@ -57,7 +57,7 @@ const selfMod = computed(() => attrMod(tech.value) + (g.basics[skillName.value] 
 const mod = computed(() => (crafter.value.id === 'self' ? selfMod.value : crafter.value.skill ?? 0))
 const chance = computed(() => (crafter.value.skill === undefined ? 100 : successChance(mod.value, check.value.dc)))
 const whoBlock = computed(() => crafterBlock(crafter.value, check.value))
-const placeBlock = computed(() => (['myhome', 'clinic'].includes(g.loc.facility ?? '') || crafter.value.id === 'fengfeng' ? null : '組裝要在有工作台的據點、診所、槍店或同人社團的攤位。'))
+const placeBlock = computed(() => (['myhome', 'clinic'].includes(g.loc.facility ?? '') || crafter.value.id === 'npc_fengfeng' ? null : '組裝要在有工作台的據點、診所、槍店或同人社團的攤位。'))
 const assembleBlock = computed(() => {
   if (check.value.missing.length) return `還缺必要的零件：${check.value.missing.join('、')}。`
   const bad = Object.values(check.value.bad)[0]

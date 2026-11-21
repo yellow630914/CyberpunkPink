@@ -30,3 +30,17 @@ export function unpackBundle(raw: string): Unbundled {
   if (bad.length) return { ok: false, error: `存檔裡有低於 18 歲的角色（${bad[0]}），整筆不讀。` }
   return { ok: true, bundle: b as Bundle }
 }
+
+/** 假存檔那一半的形狀檢查（只驗證、不套用）：每個欄位要是對的種類，不然整份不讀。回傳錯誤訊息，null 是可以。 */
+export function legacyProblem(legacy: Record<string, unknown>): string | null {
+  const OBJ = ['hostility', 'character', 'cyber', 'equip', 'npcs', 'loc', 'basics', 'params', 'tendency', 'fame', 'sexRecord', 'deck', 'channel', 'contracts', 'bills', 'craftFill', 'guides', 'media', 'job', 'mech', 'dyes', 'money']
+  const ARR = ['party', 'inventory', 'quick', 'learned', 'loadout', 'nightLearned', 'roster', 'pending', 'vehicles']
+  const isObj = (v: unknown): boolean => !!v && typeof v === 'object' && !Array.isArray(v)
+  for (const k of OBJ) if (legacy[k] !== undefined && !isObj(legacy[k])) return `存檔的「${k}」格式不對。`
+  for (const k of ARR) if (legacy[k] !== undefined && !Array.isArray(legacy[k])) return `存檔的「${k}」格式不對。`
+  const m = legacy.money as { fav?: unknown } | undefined
+  if (m && m.fav !== undefined && typeof m.fav !== 'number') return '存檔的「money」格式不對。'
+  if (legacy.coatClosed !== undefined && typeof legacy.coatClosed !== 'boolean') return '存檔的「coatClosed」格式不對。'
+  if (legacy.dungeonSeed !== undefined && typeof legacy.dungeonSeed !== 'number') return '存檔的「dungeonSeed」格式不對。'
+  return null
+}

@@ -2,13 +2,13 @@
 // 每一份重現資料在 ui/tests/fixtures/repro/，bug 報告在 dev/bugs/2026-11-21-ui-*.md。
 // 修好之前照預期失敗，所以放在 pending（不在 npm test 裡）。跑法：在 ui/ 跑
 //   npx vitest run --config vitest.pending.config.ts M0-ui-engine-bugs
-// 全部修好之後把這個檔搬到 src/stores/repro.test.ts（import 的路徑跟著改），它就成為回歸測試。
+// 已經修好的搬到 src/stores/repro.test.ts 了；這裡只剩 ui-undo-ledger-steps（要引擎給「併進最新一樓」的提交入口）。修好之後把它也搬過去。
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { at, runUiRepro, type UiRepro } from '../helpers/uiRepro'
 
 const files = import.meta.glob<UiRepro>('../fixtures/repro/*.json', { eager: true, import: 'default' })
-const fixtures: UiRepro[] = Object.keys(files).sort().map((k) => files[k]!)
+const fixtures: UiRepro[] = Object.keys(files).sort().map((k) => files[k]!).filter((f) => f.id === 'ui-undo-ledger-steps')
 
 afterEach(() => { delete (globalThis as { localStorage?: unknown }).localStorage })
 

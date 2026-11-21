@@ -59,7 +59,7 @@ export const START_FILL: Record<string, Record<string, string>> = {
 /** 這一份假存檔裡找得到的人（UI 第 9 節「誰來做」只列這個據點或設施有的）。 */
 export const CRAFTERS: Crafter[] = [
   { id: 'self', name: '自己', skill: 0, fee: 0, hours: 2 },
-  { id: 'zero', name: '零（夥伴）', skill: 2, fee: 0, hours: 3 },
-  { id: 'fengfeng', name: '縫縫診所', fee: 600, hours: 2, quality: '穩定的成功，會登記', noOverspec: true },
+  { id: 'npc_zero', name: '零（夥伴）', skill: 2, fee: 0, hours: 3 },
+  { id: 'npc_fengfeng', name: '縫縫診所', fee: 600, hours: 2, quality: '穩定的成功，會登記', noOverspec: true },
   { id: 'doujin', name: '午夜印刷的社團', skill: 6, fee: 200, hours: 4, quality: '願意超規，成品可能多一個怪癖' },
 ]

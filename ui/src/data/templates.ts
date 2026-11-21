@@ -32,7 +32,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'assassinate', ct: 'ct_type_assassinate', site: '鏽帶・星旗的試射場',
-    offer: { id: 'assassinate', name: '試射場的軍需官', grade: 'II', face: 'm', type: '暗殺', size: '小型・3 階段', cond: '不准留痕跡', reward: 3500, fixer: 'monroe' },
+    offer: { id: 'assassinate', name: '試射場的軍需官', grade: 'II', face: 'm', type: '暗殺', size: '小型・3 階段', cond: '不准留痕跡', reward: 3500, fixer: 'npc_monroe' },
     brief: { target: '星旗的軍需官（開野馬的機師）', place: '鏽帶・星旗的試射場', main: '現實・在最後一場打倒他', cond: '不准留痕跡', says: '他把一批機甲的零件賣給了不該賣的人，雇主要他從帳上消失。他晚上會親自開那台野馬試射。戰鬥裡沒有人會死，打倒之後的事交給雇主。', spotted: '你注意到雇主給的照片是去年的，他最近換了護衛。' },
     unknowns: [u('a_route', '路', '他每晚走同一條路去試射場，司機會在加油站停一次', ['survey', 'ask'], 0), u('a_guard', '守備', '試射場有兩個警衛，其中一個有夜視', ['survey', 'hack'], 1), u('a_mech', '敵人', '他會在第二回合開機甲：野馬，機體 33', ['ask', 'insider'], 2)],
     goals: ['goal_decisive_fast', 'goal_two_crits'], liveOk: false,
@@ -57,7 +57,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'honeypot', ct: 'ct_type_honeypot', site: '櫻町・半夢',
-    offer: { id: 'honeypot', name: '三樓的常客', grade: 'II', face: 'm', type: '蜜罐', size: '小型・3 階段', cond: '不准曝光', reward: 3000, fixer: 'monroe' },
+    offer: { id: 'honeypot', name: '三樓的常客', grade: 'II', face: 'm', type: '蜜罐', size: '小型・3 階段', cond: '不准曝光', reward: 3000, fixer: 'npc_monroe' },
     brief: { target: '每週四來半夢的企業主管（成年人）', place: '櫻町・半夢', main: '現實・一場有目的的成人場景，套出他說過的話', cond: '不准曝光', says: '他每週四都在半夢的三樓待到天亮，嘴巴很鬆。雇主要的是他說過的一個倉庫名字。琥珀是那裡的人，她可以幫你，也可以不幫。', spotted: '你注意到雇主說的倉庫，和藍鯨的帳本是同一間。' },
     unknowns: [u('h_seat', '目標', '他固定坐在三樓靠窗那一桌，十一點到', ['ask', 'doll'], 0), u('h_guard', '守備', '他的保鑣會在一點去樓下抽菸', ['survey', 'insider'], 1), u('h_amber', '人', '琥珀知道他的事，她要的是一張離開櫻町的車票', ['ask', 'doll'], 2)],
     goals: ['goal_never_suspected'], liveOk: false,
@@ -80,7 +80,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'rescue', ct: 'ct_type_rescue', site: '舊港・藍鯨第三倉',
-    offer: { id: 'rescue', name: '把她從片場帶出來', grade: 'II', face: 'm', type: '救援', size: '小型・3 階段', cond: '要活的', reward: 5200, fixer: 'monroe' },
+    offer: { id: 'rescue', name: '把她從片場帶出來', grade: 'II', face: 'm', type: '救援', size: '小型・3 階段', cond: '要活的', reward: 5200, fixer: 'npc_monroe' },
     brief: { ...BRIEFS.studio, place: '舊港・藍鯨第三倉', target: '被扣在倉庫的新人演員（成年人）' },
     unknowns: [u('r_cell', '路', '她被關在第三倉二樓的會計室', ['survey', 'ask'], 0), u('r_status', '人', '她沒受傷，只是被收走了橋的權限', ['hack', 'insider'], 1), u('r_guard', '守備', '會計手上有合約，活著比較有用', ['ask', 'insider'], 2)],
     goals: ['goal_no_lethal', 'goal_no_one_down'], liveOk: true,
@@ -104,7 +104,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'salvage', ct: 'ct_type_salvage', site: '內海・沉船帶',
-    offer: { id: 'salvage', name: '沉船帶的舊印記', grade: 'II', face: 'n', type: '網內打撈', size: '小型・3 階段', cond: '東西要完整', reward: 3300, fixer: 'monroe' },
+    offer: { id: 'salvage', name: '沉船帶的舊印記', grade: 'II', face: 'n', type: '網內打撈', size: '小型・3 階段', cond: '東西要完整', reward: 3300, fixer: 'npc_monroe' },
     brief: { target: '大潮崩之前的一個印記', place: '內海・沉船帶', main: '內海・把東西帶出來', cond: '東西要完整', says: '地下層的書店要一個印記，主人十年前死在沉船帶。那裡沒有人在追，但越往下越接不到外面。最後一段要有人守著它下載完。', spotted: '你注意到書店老闆說到印記的主人時停了一下，他們認識。' },
     unknowns: [u('s_chart', '路', '舊的航圖還能用，第二段可以不必探索', ['hack', 'buy'], 0), u('s_wreck', '敵人', '另一艘船的殘骸上有野生的蕾絲', ['hack'], 1)],
     goals: ['goal_no_one_down', 'goal_decisive_fast'], liveOk: true,
@@ -122,7 +122,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'firefight', ct: 'ct_type_firefight', site: '櫻町・應援圈',
-    offer: { id: 'firefight', name: '偶像社團的那段直播', grade: 'II', face: 'o', type: '滅火', size: '小型・3 階段', cond: '不准曝光', reward: 3100, fixer: 'monroe' },
+    offer: { id: 'firefight', name: '偶像社團的那段直播', grade: 'II', face: 'o', type: '滅火', size: '小型・3 階段', cond: '不准曝光', reward: 3100, fixer: 'npc_monroe' },
     brief: { ...BRIEFS.idol, place: '櫻町・應援圈' },
     unknowns: [u('f_who', '人', '拍的人是帶子街的一個狗仔，住在千本通', ['ask', 'survey'], 0), u('f_copy', '目標', '帶子只有一份副本，存在他的雲端', ['hack'], 1), u('f_jess', '對手', '第一手的潔絲在爆料的那一邊', ['ask', 'press'], 2)],
     goals: ['goal_op_major'], liveOk: false,
@@ -147,7 +147,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'sabotage', ct: 'ct_type_sabotage', site: '舊港・藍鯨第三倉',
-    offer: { id: 'sabotage', name: '第三倉的走私貨', grade: 'II', face: 'm', type: '破壞', size: '小型・3 階段', cond: '不准傷到旁人', reward: 3400, fixer: 'monroe' },
+    offer: { id: 'sabotage', name: '第三倉的走私貨', grade: 'II', face: 'm', type: '破壞', size: '小型・3 階段', cond: '不准傷到旁人', reward: 3400, fixer: 'npc_monroe' },
     brief: { target: '一批走私的機甲零件', place: '舊港・藍鯨第三倉', main: '現實・毀掉那批貨', cond: '不准傷到旁人', says: '那批零件明天一早就要上船。毀掉它，別燒到旁邊的倉。值夜的工程師是無辜的，別動他。', spotted: '你注意到貨櫃上的編號是星旗的。' },
     unknowns: [u('b_weak', '目標', '貨櫃的冷卻管是弱點，打它不必炸藥', ['survey', 'hack'], 0), u('b_night', '守備', '值夜的只有兩個保全和一個工程師', ['survey', 'insider'], 1)],
     goals: ['goal_alert_under_60', 'goal_two_crits'], liveOk: true,

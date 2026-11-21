@@ -5,10 +5,10 @@ import type { Face, PayMode, JobStats } from '../lib/commission'
  */
 export interface Offer { id: string; name: string; grade: string; face: Face | null; type: string; size: string; cond: string; reward: number; need?: string; fixer: string }
 export const OFFERS: Offer[] = [
-  { id: 'bluewhale', name: '藍鯨物流的帳本', grade: 'II', face: 'n', type: '竊密', size: '中型・4 階段', cond: '不准死人', reward: 6800, fixer: 'monroe' },
-  { id: 'studio', name: '把她從片場帶出來', grade: 'II', face: 'm', type: '挖角', size: '小型・3 階段', cond: '要活的', reward: 5200, fixer: 'monroe' },
-  { id: 'idol', name: '偶像社團的那段直播', grade: 'I', face: 'o', type: '滅火', size: '小型・3 階段', cond: '不准曝光', reward: 3100, fixer: 'monroe' },
-  { id: 'erase', name: '夢露說你還不夠格', grade: 'III', face: null, type: '抹除', size: '？', cond: '？', reward: 0, need: '街頭信譽 50 以上', fixer: 'monroe' },
+  { id: 'bluewhale', name: '藍鯨物流的帳本', grade: 'II', face: 'n', type: '竊密', size: '中型・4 階段', cond: '不准死人', reward: 6800, fixer: 'npc_monroe' },
+  { id: 'studio', name: '把她從片場帶出來', grade: 'II', face: 'm', type: '挖角', size: '小型・3 階段', cond: '要活的', reward: 5200, fixer: 'npc_monroe' },
+  { id: 'idol', name: '偶像社團的那段直播', grade: 'I', face: 'o', type: '滅火', size: '小型・3 階段', cond: '不准曝光', reward: 3100, fixer: 'npc_monroe' },
+  { id: 'erase', name: '夢露說你還不夠格', grade: 'III', face: null, type: '抹除', size: '？', cond: '？', reward: 0, need: '街頭信譽 50 以上', fixer: 'npc_monroe' },
 ]
 
 export interface Brief { target: string; place: string; main: string; cond: string; says: string; spotted: string }
@@ -140,15 +140,15 @@ export interface JobState {
 export const START_JOB: JobState = {
   offer: null, step: 'take', reward: DEAL.reward.value, pay: 'cash', talks: 0,
   unknowns: START_UNKNOWNS, scouts: 2, lastScout: '上一次：淺層駭入　1d20 17 ＋ 介面 3 ＝ 20，對 14，超過 5 以上，揭開兩項：第二階段的面、蕾絲。', alarm: 0,
-  party: ['me', 'zero', 'nana'],
+  party: ['me', 'npc_zero', 'npc_nana'],
   support: { m: { who: '喬', skill: 3, weight: '強', how: '付錢' }, n: null, o: { who: '潘妮', skill: 2, weight: '強', how: '付錢' } },
   stage: 0, done: [], face: null, branch: null, rolled: false, links: [], pressure: { alert: 18, trace: 34 }, breathe: true, live: false, waiting: false,
 }
 /** 召集的人（名冊的一部分）：出場費、職能、強在哪個面 */
 export const CREW: Record<string, { name: string; role: string; strong: string; fee: number; fav?: boolean }> = {
   me: { name: '你', role: '槍手／掮客', strong: '現實', fee: 0 },
-  zero: { name: '零', role: '潛網者', strong: '內海・強', fee: 0 },
-  nana: { name: '奈奈', role: '掮客', strong: '現實・強', fee: 0 },
-  joe: { name: '喬', role: '戰鬥型', strong: '現實・強', fee: 450 },
-  penny: { name: '潘妮', role: '記者', strong: '輿論・強', fee: 0, fav: true },
+  npc_zero: { name: '零', role: '潛網者', strong: '內海・強', fee: 0 },
+  npc_nana: { name: '奈奈', role: '掮客', strong: '現實・強', fee: 0 },
+  npc_jo: { name: '喬', role: '戰鬥型', strong: '現實・強', fee: 450 },
+  npc_penny: { name: '潘妮', role: '記者', strong: '輿論・強', fee: 0, fav: true },
 }

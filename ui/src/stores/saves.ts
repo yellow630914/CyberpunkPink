@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useGame } from './game'
 import { useEngine } from './engine'
-import { packBundle, unpackBundle } from '../lib/engineSave'
+import { legacyProblem, packBundle, unpackBundle } from '../lib/engineSave'
 
 /**
  * 存檔的格子（localStorage）。設定的「存檔」分頁與「讀檔與存檔」對話框共用這一份，所以兩邊看到的是同一組格子。
@@ -48,10 +48,21 @@ export const useSaves = defineStore('saves', () => {
   function loadRaw(raw: string): string | null {
     const r = unpackBundle(raw)
     if (!r.ok) return r.error
-    const err = e.load(r.bundle.engine)
-    if (err) return err
-    g.hydrate(r.bundle.legacy as unknown as Parameters<typeof g.hydrate>[0])
-    return null
+    // 原子：兩半都先驗證（不動現在的狀態），都過了才套用；套用到一半出事就退回原本的樣子
+    const bad = e.checkSave(r.bundle.engine) ?? legacyProblem(r.bundle.legacy)
+    if (bad) return bad
+    const prevEngine = e.save()
+    const prevLegacy = g.serialize()
+    try {
+      const err = e.load(r.bundle.engine)
+      if (err) return err
+      g.hydrate(r.bundle.legacy as unknown as Parameters<typeof g.hydrate>[0])
+      return null
+    } catch {
+      e.load(prevEngine)
+      g.hydrate(prevLegacy)
+      return '存檔讀不進來，已經退回原本的狀態。'
+    }
   }
   function loadFrom(list: 'slots' | 'autos', i: number): string | null {
     const sv = (list === 'slots' ? slots : autos).value[i]

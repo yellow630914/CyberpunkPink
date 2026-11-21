@@ -10,3 +10,5 @@
   2. 把 legacy 的 `acc` 改成 −1（或字串）再讀：`e.load` 已經把引擎換成存檔的狀態（時間從 18:20 回到 17:20），接著 `g.hydrate` 經過錢的 setter 提交 −4621 的帳，引擎拒絕並丟 `ChangeError`；`loadRaw` 把例外丟到元件，舊系統只換了一半。
 - 重現：`ui/tests/fixtures/repro/ui-legacy-money-in-save.json`、`ui/tests/fixtures/repro/ui-load-not-atomic.json`；會失敗的測試：`ui/tests/pending/M0-ui-engine-bugs.test.ts`。
 - 可能的位置（推測）：`ui/src/stores/game.ts` 的 `serialize`（`money: { ...money }` 帶到 getter 的值）與 `hydrate`（`Object.assign(money, d.money)` 觸發 setter）；`ui/src/stores/saves.ts` 的 `loadRaw`（先 `e.load` 再 `g.hydrate`，中間沒有退路）。
+
+- 狀態：已修（2026-11-21，cpp-ui；測試在 ui/src/stores/repro.test.ts）

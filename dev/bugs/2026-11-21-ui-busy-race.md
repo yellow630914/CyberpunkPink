@@ -7,3 +7,5 @@
 - 實際行為：AI 開（假的服務商）、種子 7、建角之後，先呼叫 `e.act(...)` 不等它，再呼叫一次 `e.act(...)`：第二次被引擎拒絕（`Error: 上一條任務鏈還在跑。`，不是 `ActionBlocked`，所以照原樣丟到元件），`run()` 的 `finally` 把 `busy` 設成 false 並停掉重新整理任務鏈列的計時器；這時第一條鏈還沒跑完。`retryStep`、`useRules`、`reroll` 在鏈跑到一半時呼叫也是同一條路。
 - 重現：`ui/tests/fixtures/repro/ui-busy-race.json`；會失敗的測試：`ui/tests/pending/M0-ui-engine-bugs.test.ts`。
 - 可能的位置（推測）：`ui/src/stores/engine.ts` 的 `run()`（`busy` 是一個布林，不是計數；`finally` 一律設成 false）。可以在 `busy` 已經是 true 時直接回傳一個狀態（例如 `{ status: 'busy' }`）而不呼叫引擎。
+
+- 狀態：已修（2026-11-21，cpp-ui；測試在 ui/src/stores/repro.test.ts）

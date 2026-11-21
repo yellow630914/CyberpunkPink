@@ -66,7 +66,7 @@ export interface EngineLogEntry {
   time: string
   place: string
   prose: string[]
-  roll?: { skill: string; die: number; mod: number; dc: number; result: '大成功' | '成功' | '失敗' | '大失敗'; twist?: string }
+  roll?: { skill: string; die: number; mod: number; dc: number; result: '大成功' | '成功' | '失敗' | '大失敗'; twist?: string; rerolls?: number }
   /** LogView 與舊的紀錄共用的欄位；引擎的報告沒有這兩種，永遠不放 */
   quotes?: string[]
   net?: string[]
@@ -110,6 +110,8 @@ export function logEntryOf(report: Report, describe: (changes: Change[]) => stri
     entry.roll = {
       skill: label, die: r.natural, mod: r.parts.reduce((s, p) => s + p.value, 0), dc: r.dc,
       result: DEGREE_NAME[r.degree] as '大成功' | '成功' | '失敗' | '大失敗',
+      // 重擲過幾次不能藏（UI 3.2 節）：有才帶
+      ...(r.rerolls ? { rerolls: r.rerolls } : {}),
     }
   }
   return entry

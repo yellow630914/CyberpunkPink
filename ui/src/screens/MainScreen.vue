@@ -248,7 +248,7 @@ const stages = [
         <section class="panel cut pad">
           <p class="h">進行中</p>
           <button type="button" class="ong ongb" @click="router.push('/commission')"><span class="k2" style="background: var(--ap)">委託</span>藍鯨的帳本<small>{{ g.job.offer ? `第 ${g.job.stage + 1} 階段` : '還沒接・夢露手上' }}</small></button>
-          <button type="button" class="ong ongb" @click="ui.openRoot('relations', { npcId: 'xiaomai' })"><span class="k2" style="background: var(--ep)">人情</span>小麥欠你 1<small>小人情</small></button>
+          <button type="button" class="ong ongb" @click="ui.openRoot('relations', { npcId: 'npc_xiaomai' })"><span class="k2" style="background: var(--ep)">人情</span>小麥欠你 1<small>小人情</small></button>
           <button type="button" class="ong ongb" @click="ui.openRoot('bills')"><span class="k2" style="background: var(--warn)">帳單</span>{{ g.billIn }} 天後收租<small>帳戶要付 {{ fmt(billDue.dueAcc) }}</small></button>
         </section>
       </div>

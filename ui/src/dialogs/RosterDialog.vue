@@ -44,7 +44,7 @@ function bail(r: RosterEntry) {
   g.addLog({ prose: [`你到第七分局把${g.npcs[r.npc].name}保了出來。她點了一根菸，說下次她請。`], changes: [{ text: '現金 −1,200', kind: 'minus' }, { text: '忠誠 +10', kind: 'plus' }] })
 }
 function contact(r: RosterEntry) {
-  if (r.npc === 'xiaomai') { ui.open('talk', { npcId: 'xiaomai' }); return }
+  if (r.npc === 'npc_xiaomai') { ui.open('talk', { npcId: 'npc_xiaomai' }); return }
   ui.toast(`你用耳語聯絡了${g.npcs[r.npc].name}。`)
 }
 const busyReason = (r: RosterEntry) => (r.status === '有空' ? null : `${g.npcs[r.npc].name}現在${r.status}。`)

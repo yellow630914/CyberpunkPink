@@ -37,7 +37,7 @@ export const START_CHANNEL = {
     ],
   },
   staff: [
-    { role: '製作', who: 'penny', hired: false, loyalty: 58, wage: 0 },
+    { role: '製作', who: 'npc_penny', hired: false, loyalty: 58, wage: 0 },
     { role: '線人', who: null, hired: false, loyalty: 0, wage: 0, how: '牆報徵人，或用一個小人情向阿蓮要人。' },
   ] as Array<{ role: string; who: string | null; hired: boolean; loyalty: number; wage: number; how?: string }>,
   equipment: [

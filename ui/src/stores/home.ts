@@ -25,7 +25,7 @@ export const useHome = defineStore('home', () => {
   const chosen = reactive<Record<string, string | undefined>>({ M: 'bedroom' })
   const people = ref<HomePerson[]>([
     { id: 'me', name: '你', kind: 'me', role: '屋主', pos: { x: 3, y: 4 }, sleeps: true },
-    { id: 'nana', name: '奈奈', kind: 'visitor', role: '訪客・約好了 20:00', pos: { x: 6, y: 2 }, sleeps: false },
+    { id: 'npc_nana', name: '奈奈', kind: 'visitor', role: '訪客・約好了 20:00', pos: { x: 6, y: 2 }, sleeps: false },
   ])
   const staff = ref([{ role: '看門的', who: '孤星連', wage: 200 }])
   /** 三級的店面（DOWNTIME 7.11 節）：種類、店長、上一週的結算 */

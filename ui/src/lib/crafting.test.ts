@@ -43,7 +43,7 @@ describe('整張設計圖的檢查與難度', () => {
     expect(successChance(-5, 25)).toBe(5)
     expect(successChance(30, 10)).toBe(95)
     const a = checkAssembly(arm, { plate: ITEMS.it_b86505, act: ITEMS.it_3fe2b1, neuron: ITEMS.it_303b76 })
-    expect(crafterBlock(CRAFTERS.find(c => c.id === 'fengfeng')!, a)).toBe('縫縫診所不做超規。')
+    expect(crafterBlock(CRAFTERS.find(c => c.id === 'npc_fengfeng')!, a)).toBe('縫縫診所不做超規。')
     expect(crafterBlock(CRAFTERS.find(c => c.id === 'doujin')!, a)).toBeNull()
   })
 })

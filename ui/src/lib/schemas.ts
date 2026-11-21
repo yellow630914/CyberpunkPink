@@ -81,6 +81,6 @@ export const SCHEMA_SAMPLES: Array<Record<string, unknown>> = [
   { id: 'trait_smooth_talker', kind: 'trait', name: '嘴甜', good: true, cost: 1, effect: { negotiate: 1 }, text: '交涉的檢定 +1。', builtin: true },
   { id: 'pr_jess', kind: 'opponent', name: '第一手的潔絲', faction: 'none', strength: 3, start: 'opposite', mimic: true, actions: [{ do: 'counter', when: 'you_captured' }, { do: 'deny', when: 'wind >= 2' }, { do: 'capture', when: 'not_own(kaleido)' }, { do: 'release', when: 'always' }], signature: { id: 'front_page', text: '第一回合她的第一個行動一定是搶萬華鏡那一格。' }, builtin: true },
   { id: 'ct_type_steal_data', kind: 'tmpl', name: '竊密（資料）', type: '竊密', main: 'net', stages: [{ name: '拿到入口', faces: ['meat', 'net'] }, { name: '往下一層', faces: ['net'] }, { name: '下載', faces: ['net'], key: true }], conditions: ['no_trace', 'no_kill'], reward_coef: 1, builtin: true },
-  { id: 'cm_0412', kind: 'run', name: '藍鯨物流的帳本', template: 'ct_type_steal_data', grade: 2, size: 'medium', reward: 6800, fixer: 'monroe', opinion_setup: null, builtin: true },
+  { id: 'cm_0412', kind: 'run', name: '藍鯨物流的帳本', template: 'ct_type_steal_data', grade: 2, size: 'medium', reward: 6800, fixer: 'npc_monroe', opinion_setup: null, builtin: true },
   { id: 'g_commission', kind: 'guide', name: '委託', title: '委託副本：階段、面與分支', trigger: '第一次進委託副本', pages: ['一個副本有三到五個階段。', '每個階段寫明可以選哪些面，你選一個自己玩，其餘的面可以派人去當輔助。'], builtin: true },
 ]

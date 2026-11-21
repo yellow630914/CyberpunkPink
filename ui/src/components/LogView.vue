@@ -19,6 +19,7 @@ defineProps<{ entries: Array<LogEntry | EngineLogEntry> }>()
         <div class="info">
           <b>{{ e.roll.skill }}</b> 1d20(<b>{{ e.roll.die }}</b>) + {{ e.roll.mod }} = {{ e.roll.die + e.roll.mod }} 對 DC {{ e.roll.dc }}
           <span class="grade" :class="{ fail: e.roll.result.includes('失敗') }">{{ e.roll.result }}</span>
+          <span v-if="e.roll.rerolls" class="twist">重擲 ×{{ e.roll.rerolls }}</span>
           <span v-if="e.roll.twist" class="twist">✦ {{ e.roll.twist }}</span>
         </div>
       </div>

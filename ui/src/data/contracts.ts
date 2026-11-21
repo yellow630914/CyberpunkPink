@@ -24,7 +24,7 @@ export interface HeldContract {
 }
 export const HELD: HeldContract[] = [
   {
-    npc: 'xiaoqi', origin: '欠胭脂堂的債，債權轉給你', kind: '債務契約', level: '管理', relation: '名實相符', debt: 8400,
+    npc: 'npc_xiaoqi', origin: '欠胭脂堂的債，債權轉給你', kind: '債務契約', level: '管理', relation: '名實相符', debt: 8400,
     home: '四號塔（你的家）', job: '夜店「過載」的吧台', split: '她七成、你三成', tame: 38,
     params: { 敏感度: 41, 耐受: 33, 慾求: 27, 馴化: 38 }, rules: ['宵禁 02:00'], cyber: 2,
     orders: ['差事', '工作', '規矩', '回報', '侍奉'],

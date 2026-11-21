@@ -26,5 +26,5 @@ export const PENDING: PendingItem[] = [
   { id: 'p_joe', kind: '名冊', title: '喬被市警帶走了', body: '昨晚在蜂巢東側被帶進第七分局。保釋金 1,200，或用一個人情。', due: '2 天', action: { label: '打開名冊', dialog: 'roster' } },
   { id: 'p_scoop', kind: '頻道', title: '萬華鏡搶先播了清查公告', body: '對手頻道搶了七號塔的料。可以回應，或當作沒看到。', due: '2 天', action: { label: '打開頻道', dialog: 'channel' } },
   { id: 'p_bill', kind: '帳單', title: '下週一收租', body: '帳戶要付 2,061；現金 180。', due: '7 天', action: { label: '看帳單', dialog: 'bills' } },
-  { id: 'p_favor', kind: '人情', title: '奈奈要討那個人情', body: '她要你下週替海棠樓跑一趟渡輪。', due: '5 天', action: { label: '打開關係', dialog: 'relations', props: { npcId: 'nana' } } },
+  { id: 'p_favor', kind: '人情', title: '奈奈要討那個人情', body: '她要你下週替海棠樓跑一趟渡輪。', due: '5 天', action: { label: '打開關係', dialog: 'relations', props: { npcId: 'npc_nana' } } },
 ]

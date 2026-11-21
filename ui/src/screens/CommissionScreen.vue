@@ -43,7 +43,7 @@ const STAGES = computed(() => runTpl.value.stages)
 const offer = computed(() => OFFER_LIST.find(o => o.id === sel.value) ?? tpl.value.offer)
 const brief = computed(() => tpl.value.brief)
 const GRADE_N: Record<string, number> = { I: 1, II: 2, III: 3, IV: 4, V: 5 }
-const fixer = computed(() => g.npcs.monroe)
+const fixer = computed(() => g.npcs.npc_monroe)
 const faceIcon: Record<Face, string> = { m: '現', n: '內', o: '輿' }
 const rng = mathRng
 
@@ -75,13 +75,13 @@ const net = computed(() => split({ reward: job.reward, cut: DEAL.cut, pay: job.p
 // ---- 2 踩點 ----
 const MAX_SCOUT = 4
 const means = ref('survey')
-const who = ref<'me' | 'joe'>('me')
+const who = ref<'me' | 'npc_jo'>('me')
 const buyTarget = ref<string>('')
 const nth = computed(() => job.scouts + 1)
 const dc = computed(() => scoutDc(2, nth.value))
 const meansOf = (id: string) => MEANS.find(m => m.id === id)!
 const meansReason = (id: string) => (meansOf(id).need ? meansOf(id).need! : null)
-const bonusOf = (id: string) => meansOf(id).bonus + (who.value === 'joe' && id === 'survey' ? 1 : 0)
+const bonusOf = (id: string) => meansOf(id).bonus + (who.value === 'npc_jo' && id === 'survey' ? 1 : 0)
 const openCount = computed(() => job.unknowns.filter(u => u.open).length)
 const scoutReason = computed(() => {
   if (job.scouts >= MAX_SCOUT) return '踩點的次數用完了（中型 4 次）。'
@@ -97,7 +97,7 @@ function scout() {
   const dcNow = dc.value
   job.scouts++
   g.advance(240)
-  if (who.value === 'joe') g.money.acc -= 250
+  if (who.value === 'npc_jo') g.money.acc -= 250
   if (m.id === 'buy') {
     g.money.cash -= 600
     const u = job.unknowns.find(x => x.id === buyTarget.value)!
@@ -117,7 +117,7 @@ const stageKnown = (s: Stage) => !s.hidden || !!job.unknowns.find(u => u.id === 
 const facesKnown = (i: number) => facesKnownOf(runTpl.value, i, job.unknowns)
 
 // ---- 3 召集 ----
-const ROSTER_ADD = ['joe', 'penny']
+const ROSTER_ADD = ['npc_jo', 'npc_penny']
 function toggleCrew(id: string) {
   const i = job.party.indexOf(id)
   if (i >= 0) { if (id !== 'me') job.party.splice(i, 1) }
@@ -420,7 +420,7 @@ const goalResult = ref<string[]>([])
           </section>
           <section class="panel cut pad">
             <p class="h">誰去</p>
-            <div class="segs"><button type="button" :class="{ on: who === 'me' }" @click="who = 'me'">自己去</button><button type="button" :class="{ on: who === 'joe' }" @click="who = 'joe'">派喬（250）</button></div>
+            <div class="segs"><button type="button" :class="{ on: who === 'me' }" @click="who = 'me'">自己去</button><button type="button" :class="{ on: who === 'npc_jo' }" @click="who = 'npc_jo'">派喬（250）</button></div>
             <p class="t-fine">{{ who === 'me' ? `花一個時段：${g.timeLabel} 起 4 小時` : '喬：隱匿 +6；出場費從帳戶付' }}</p>
           </section>
         </aside>

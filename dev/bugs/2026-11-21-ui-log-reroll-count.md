@@ -8,3 +8,5 @@
 - 重現：`ui/tests/fixtures/repro/ui-log-reroll-count.json`；會失敗的測試：`ui/tests/pending/M0-ui-engine-bugs.test.ts`（期望欄位名 `rerolls`，和引擎的 `CheckRoll` 同名；用別的名字的話改重現資料的 `rollRerolls` 取值處，`ui/tests/helpers/uiRepro.ts`）。
 - 可能的位置（推測）：`ui/src/lib/engineView.ts` 的 `logEntryOf` 與 `EngineLogEntry`；`ui/src/components/LogView.vue` 的擲骰行。工單 M0-ui-engine 第二節的 `roll` 欄位表也沒列這一項，工單本身漏了，請 cpp-architect 一起補。
 - 附帶看到的（不在這份 bug 裡）：UI 第 3.2 節要的 `twist`（判定的「但是／而且」）也到不了紀錄：引擎的判定有 `twist`，但沒有寫進報告，`logEntryOf` 拿不到。這是引擎那一側的缺口。
+
+- 狀態：已修（2026-11-21，cpp-ui；測試在 ui/src/stores/repro.test.ts）

@@ -58,9 +58,9 @@ export const BLOCKS: Record<string, BlockSpec> = {
       '######>######',
     ],
     facilities: [
-      { id: 'rooftop', name: '屋頂的晾衣場', icon: 'ic-fac_home', kind: 'talk', npcIds: ['xiaomai'], services: [{ name: '吹風', action: 'rest' }, { name: '和小麥待到天黑（成人場景）', action: 'scene', props: { scene: 'rin' } }] },
+      { id: 'rooftop', name: '屋頂的晾衣場', icon: 'ic-fac_home', kind: 'talk', npcIds: ['npc_xiaomai'], services: [{ name: '吹風', action: 'rest' }, { name: '和小麥待到天黑（成人場景）', action: 'scene', props: { scene: 'rin' } }] },
       { id: 'myhome', name: '你的單位（7 樓）', icon: 'ic-fac_home', kind: 'home', services: [{ name: '回家', action: 'home' }, { name: '睡一覺', action: 'rest' }] },
-      { id: 'hebo', name: '何伯的樓長室', icon: 'ic-fac_home', kind: 'talk', npcIds: ['hebo'], services: [{ name: '付房租', price: 150, action: 'none' }] },
+      { id: 'hebo', name: '何伯的樓長室', icon: 'ic-fac_home', kind: 'talk', npcIds: ['npc_hebo'], services: [{ name: '付房租', price: 150, action: 'none' }] },
       { id: 'clinic', name: '縫縫診所（地下室）', icon: 'ic-fac_clinic', kind: 'clinic', services: [{ name: '處理傷口', price: 120, action: 'none' }, { name: '裝義體與調校', action: 'clinic', props: { clinic: '縫縫診所', black: true } }] },
       { id: 'print', name: '午夜印刷（7 樓）', icon: 'ic-fac_doujin', kind: 'service', services: [{ name: '印海報', price: 40, action: 'none' }] },
       { id: 'bath', name: '公共浴室', icon: 'ic-fac_hotel', kind: 'service', services: [{ name: '洗澡', price: 5, action: 'rest' }] },
@@ -72,7 +72,7 @@ export const BLOCKS: Record<string, BlockSpec> = {
   '天井市場': {
     district: 'hive', name: '天井市場',
     facilities: [
-      { id: 'alian', name: '阿蓮雜貨', icon: 'ic-fac_conv', kind: 'shop', shopId: 'alian', npcIds: ['alian'], services: [{ name: '買賣', action: 'shop' }, { name: '中間人的店', action: 'fixer', props: { fixerId: 'alian' } }] },
+      { id: 'alian', name: '阿蓮雜貨', icon: 'ic-fac_conv', kind: 'shop', shopId: 'alian', npcIds: ['npc_lian'], services: [{ name: '買賣', action: 'shop' }, { name: '中間人的店', action: 'fixer', props: { fixerId: 'alian' } }] },
       svc('peach', '桃子屋蜂巢店', 'ic-fac_food', [{ name: '便當', price: 12, action: 'none' }]),
       svc('parts', '零件攤', 'ic-fac_scrapyard'),
       svc('gacha', '義體扭蛋攤', 'ic-fac_gacha', [{ name: '轉一次', price: 30, action: 'none' }]),
@@ -96,7 +96,7 @@ export const BLOCKS: Record<string, BlockSpec> = {
       '#############',
     ],
     facilities: [
-      { id: 'gunshop', name: '熔爐・槍店「回火」', icon: 'ic-fac_gunshop', kind: 'shop', shopId: 'gunshop', npcIds: ['laotie'], services: [{ name: '買賣', action: 'shop' }, { name: '烤漆與染色', action: 'dye', props: { where: 'shop', place: '熔爐・槍店「回火」' } }] },
+      { id: 'gunshop', name: '熔爐・槍店「回火」', icon: 'ic-fac_gunshop', kind: 'shop', shopId: 'gunshop', npcIds: ['npc_laotie'], services: [{ name: '買賣', action: 'shop' }, { name: '烤漆與染色', action: 'dye', props: { where: 'shop', place: '熔爐・槍店「回火」' } }] },
       svc('coldstore', '冷庫', 'ic-fac_coldstore'),
       svc('toll', '鉻娘子的收費站', 'ic-fac_gate', [{ name: '過路費', price: 20, action: 'none' }]),
       svc('usedparts', '二手零件倉', 'ic-fac_scrapyard'),
@@ -248,7 +248,7 @@ export const BLOCKS: Record<string, BlockSpec> = {
 /** 沒有寫資料的街區：用通用的設施名，只能看、不能用。 */
 /** 通用版面的街區另外加的設施（第三版：夢露的店在中城段・北；舊港碼頭邊真白的車廠） */
 const GENERIC_EXTRA: Record<string, Facility[]> = {
-  '中城段・北': [svc('monroe', '夢露的店・後場', 'ic-fac_bar', [{ name: '中間人的店', action: 'fixer', props: { fixerId: 'monroe' } }])],
+  '中城段・北': [svc('monroe', '夢露的店・後場', 'ic-fac_bar', [{ name: '中間人的店', action: 'fixer', props: { fixerId: 'npc_monroe' } }])],
   '碼頭': [svc('mashiro', '真白的車廠', 'ic-fac_garage', [{ name: '買車', action: 'garage', props: { place: '舊港・真白的車廠' } }, { name: '機甲整備', action: 'mech' }])],
 }
 export function blockSpec(district: DistrictId, name: string): BlockSpec {

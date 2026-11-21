@@ -111,7 +111,7 @@ export const DEMO_SCENES: SceneSetup[] = [
     them: { name: '琥珀', role: '「半夢」的人偶・名媛・29 歲', load: 0, loadMax: 36, after: 0, layers: 3, sens: 58, will: 1, tame: 30, tags: ['御姐', '服從'], knows: ['side', 'face', 'ride', 'kneel'] },
   },
   {
-    id: 'rin', place: '四號塔的屋頂', nature: '兩情相悅', goal: null, pos: 'face', opening: '小麥把郵差包放下，往你身邊靠過來', npcId: 'xiaomai',
+    id: 'rin', place: '四號塔的屋頂', nature: '兩情相悅', goal: null, pos: 'face', opening: '小麥把郵差包放下，往你身邊靠過來', npcId: 'npc_xiaomai',
     me: { name: '你', role: '槍手', load: 0, loadMax: 38, after: 0, layers: 3, sens: 46, will: 0, tame: 10, tags: ['主導'], knows: ['side', 'face', 'behind'] },
     them: { name: '小麥', role: '蜂巢的信差・26 歲', load: 0, loadMax: 30, after: 0, layers: 2, sens: 52, will: 0, tame: 15, tags: ['獸'], extraParts: ['尾'], knows: ['side', 'face', 'behind'] },
   },

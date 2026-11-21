@@ -91,7 +91,7 @@ export function rollbackKeeping<S extends RollbackState>(current: S, snapshot: S
 
 /** 委託副本的快照（SERIES 第 6 節）：每個階段開始時與每場戰鬥開打前各存一個；進入入口那一刻是撤退的點。 */
 export type SnapshotKind = '入口' | '階段' | '戰鬥'
-export interface Snapshot { id: string; kind: SnapshotKind; label: string; at: string; state: string }
+export interface Snapshot { id: string; kind: SnapshotKind; label: string; at: string; state: string; /** 引擎的存檔（時間、錢、紀錄）；撤退與重來時用引擎的讀檔回去，時間才倒得回來 */ engine?: string }
 
 /** 哪些快照現在能用：戰鬥的那個（重來）、目前這個階段的（回到開始時）、入口（撤退）一律可以；更早的階段只留著。 */
 export function snapshotUse(list: Snapshot[], s: Snapshot): { action: string; reason: string | null } {

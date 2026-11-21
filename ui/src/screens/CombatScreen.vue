@@ -104,7 +104,7 @@ const RESULT: Record<string, string> = { win: '勝利', lose: '戰敗', fled: '�
 function writeBack() {
   const you = b.value.units.find(u => u.side === 'P' && u.name === '你')
   const zero = b.value.units.find(u => u.side === 'P' && u.name === '零')
-  for (const [id, u] of [['me', you], ['zero', zero]] as const) {
+  for (const [id, u] of [['me', you], ['npc_zero', zero]] as const) {
     const m = g.party.find(p => p.id === id)
     if (!m || !u) continue
     m.hp[0] = Math.max(1, Math.round((u.hp / u.hpMax) * m.hp[1]))

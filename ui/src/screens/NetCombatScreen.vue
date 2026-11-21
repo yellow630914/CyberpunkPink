@@ -99,7 +99,7 @@ const RESULT: Record<string, string> = { win: '勝利', lose: '戰敗', retreat:
 function leave() {
   const e = b.value.end!
   const zero = b.value.units.find(u => u.side === 'P' && u.name === '零')
-  const m = g.party.find(p => p.id === 'zero')
+  const m = g.party.find(p => p.id === 'npc_zero')
   if (m && zero) { m.load[0] = Math.min(m.load[1], Math.round((zero.load / zero.loadMax) * m.load[1])); m.afterglow = Math.min(5, m.afterglow + zero.layers) }
   if (fromSubnet.value) sub.trace = Math.min(100, b.value.trace)
   g.advance(b.value.round)

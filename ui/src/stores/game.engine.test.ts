@@ -4,7 +4,6 @@
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { ChangeError } from '@engine/src'
 import { useGame } from './game'
 import { useEngine } from './engine'
 
@@ -87,7 +86,7 @@ describe('時間與錢是引擎的投影', () => {
     const g = useGame()
     const e = useEngine()
     const before = json(e.state)
-    expect(() => { g.money.cash -= 3701 }).toThrow(ChangeError)
+    expect(() => { g.money.cash -= 3701 }).not.toThrow() // E5：不丟錯，整筆不套
     expect(json(e.state)).toBe(before)
     expect(g.money.cash).toBe(3700)
   })

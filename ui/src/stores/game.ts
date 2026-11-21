@@ -20,6 +20,7 @@ import { START_MECH, type MechState } from '../data/garage'
 import { useHome } from './home'
 import { useSubnet } from './subnet'
 import { useEngine } from './engine'
+import { useUi } from './ui'
 import { packSave, rollbackKeeping, type Snapshot, type SnapshotKind } from '../lib/save'
 import { sanitizeDyes, type Dye } from '../lib/dye'
 
@@ -27,12 +28,12 @@ import { sanitizeDyes, type Dye } from '../lib/dye'
  * 假存檔：主角、背包、義體、裝備、所在地、時間、錢、紀錄。
  * 引擎做好之後，這個 store 換成引擎狀態的唯讀投影，動作改成呼叫引擎。
  */
-export interface Roll { skill: string; die: number; mod: number; dc: number; result: '成功' | '失敗' | '大成功' | '大失敗'; twist?: string }
+export interface Roll { skill: string; die: number; mod: number; dc: number; result: '成功' | '失敗' | '大成功' | '大失敗'; twist?: string; rerolls?: number }
 export interface LogEntry { id: number | string; time: string; place: string; prose: string[]; quotes?: string[]; net?: string[]; roll?: Roll; changes?: Array<{ text: string; kind?: 'plus' | 'minus' }> }
 
 /** 存檔裡的狀態的樣子（serialize() 回傳的）。 */
 export interface SaveShape {
-  day: number; minutes: number; money: { acc: number; cash: number; fav: number }; hostility: Record<string, number>
+  day: number; minutes: number; money: { fav: number }; hostility: Record<string, number>
   character: typeof PROTAGONIST; party: typeof PARTY; inventory: ItemStack[]; cyber: typeof START_CYBER; equip: Partial<Record<EquipSlotId, string>>
   quick: Array<string | null>; coatClosed: boolean; npcs: Record<string, import('../data/types').Npc>; loc: { district: DistrictId; block: string; pos: Point; facility: string | null }; log: LogEntry[]
   basics: Record<string, number>; learned: string[]; loadout: string[]; nightLearned: string[]; params: typeof START_PARAMS; tendency: typeof START_TENDENCY
@@ -62,9 +63,15 @@ export const useGame = defineStore('game', () => {
   const minutes = computed(() => eng.state.time.hour * 60 + eng.state.time.minute)
   const fav = ref(2)
   /** 帳戶（cred）與現金（cash）讀寫引擎：改一下就是一筆帳（不進紀錄）。fav 還在這裡。 */
+  // 錢不夠（引擎不讓錢變負數）時不丟錯、不改：提示一聲就算了。呼叫端要整件事一起不做的，先自己檢查再動。
+  const pay = (op: 'cred' | 'cash', v: number): void => {
+    const delta = v - (op === 'cred' ? eng.money.cred : eng.money.cash)
+    if (delta === 0) return
+    try { eng.ledger([{ op, delta }]) } catch { useUi().toast('錢不夠。', 'warn') }
+  }
   const money = reactive({
-    get acc() { return eng.money.cred }, set acc(v: number) { eng.ledger([{ op: 'cred', delta: v - eng.money.cred }]) },
-    get cash() { return eng.money.cash }, set cash(v: number) { eng.ledger([{ op: 'cash', delta: v - eng.money.cash }]) },
+    get acc() { return eng.money.cred }, set acc(v: number) { pay('cred', v) },
+    get cash() { return eng.money.cash }, set cash(v: number) { pay('cash', v) },
     get fav() { return fav.value }, set fav(v: number) { fav.value = v },
   })
   const hostility = reactive<Record<string, number>>({ 緋櫻: 62, 野良: 30, 伊甸園: 18 })
@@ -118,9 +125,11 @@ export const useGame = defineStore('game', () => {
     const h = Math.floor(minutes.value / 60) % 24, m = minutes.value % 60
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
   })
-  const weekday = computed(() => WEEKDAYS[day.value % 7]) // 第 14 天是週一（收租日）
+  // 暫時的小函式：第 1 天週二，第 7、14 天週一（CORE_RULES 時間一節）。引擎已有 weekdayOf，之後換成引擎的。
+  const weekdayIndex = (d: number): number => ((d % 7) + 7) % 7 // 0 是週一
+  const weekday = computed(() => WEEKDAYS[weekdayIndex(day.value)])
   /** 到下一個週一收租日還有幾天 */
-  const billIn = computed(() => { const d = (7 - (day.value % 7)) % 7; return d === 0 ? 7 : d })
+  const billIn = computed(() => { const d = (7 - weekdayIndex(day.value)) % 7; return d === 0 ? 7 : d })
   const district = computed(() => DISTRICTS.find(d => d.id === loc.district)!)
   const block = computed(() => blockSpec(loc.district, loc.block))
   const blockMap = computed(() => buildBlockMap(block.value))
@@ -255,7 +264,7 @@ export const useGame = defineStore('game', () => {
   /** 存檔裡的狀態：全部是可以 JSON 化的東西。 */
   function serialize() {
     return JSON.parse(JSON.stringify({
-      money: { ...money }, hostility: { ...hostility }, character: { ...character }, party: [...party],
+      money: { fav: money.fav }, hostility: { ...hostility }, character: { ...character }, party: [...party],
       inventory: inventory.value, cyber: { ...cyber }, equip: { ...equip }, quick: quick.value, coatClosed: coatClosed.value, npcs: { ...npcs }, loc: { ...loc },
       basics: { ...basics }, learned: learned.value, loadout: loadout.value, nightLearned: nightLearned.value, params: { ...params }, tendency: { ...tendency },
       fame: { ...fame }, sexRecord: { ...sexRecord }, deck: { ...deck }, roster: roster.value, channel: { ...channel }, contracts: { ...contracts }, bills: { ...bills },
@@ -267,7 +276,8 @@ export const useGame = defineStore('game', () => {
   /** 讀回一份狀態。v1 的存檔少了第二版的欄位：少的保留現在的值。 */
   function hydrate(d: Partial<SaveState>) {
     const put = <T extends object>(target: T, v: unknown) => { if (v && typeof v === 'object') { for (const k of Object.keys(target)) if (!(k in (v as object))) delete (target as Record<string, unknown>)[k]; Object.assign(target, structuredClone(v)) } }
-    if (d.money) Object.assign(money, d.money)
+    // 帳戶與現金是引擎管的，讀檔不碰（舊存檔裡的 acc、cash 忽略）；這裡只有好感點
+    if (typeof d.money?.fav === 'number') money.fav = d.money.fav
     if (d.hostility) Object.assign(hostility, d.hostility)
     if (d.character) Object.assign(character, structuredClone(d.character))
     if (d.party) party.splice(0, party.length, ...structuredClone(d.party))
@@ -311,7 +321,7 @@ export const useGame = defineStore('game', () => {
   /** 委託副本的快照：每個階段開始時與每場戰鬥開打前各存一個（SERIES 第 6 節）。 */
   let snapSeq = 1
   function takeSnapshot(kind: SnapshotKind, label: string) {
-    const s: Snapshot = { id: `snap${snapSeq++}`, kind, label, at: `第 ${day.value} 天 ${timeLabel.value}`, state: JSON.stringify(serialize()) }
+    const s: Snapshot = { id: `snap${snapSeq++}`, kind, label, at: `第 ${day.value} 天 ${timeLabel.value}`, state: JSON.stringify(serialize()), engine: eng.save() }
     if (kind === '戰鬥') snapshots.value = snapshots.value.filter(x => x.kind !== '戰鬥')
     snapshots.value.push(s)
     return s
@@ -324,6 +334,16 @@ export const useGame = defineStore('game', () => {
     const snap = { ...(JSON.parse(s.state) as SaveState), log: [] as unknown[] }
     const note = { prose: [`這一段經歷被收回了：時間回到${s.label}（${s.at}）。發生過的事你還記得。`] }
     hydrate(rollbackKeeping(now as never, snap as never, note) as Partial<SaveState>)
+    // 時間、錢、紀錄在引擎：引擎的時間只往前，所以用快照裡的引擎存檔讀回去（連回退的堆疊一起清掉）
+    if (s.engine) {
+      // 引擎讀回快照時，紀錄也跟著回到那時候；「發生過的事你還記得」，所以收回的那幾則紀錄再補上去（時間記號是現在的；
+      // 擲骰行不帶回來，要完整保留得引擎提供「回退但保留報告」的介面）。
+      let had = new Set<string>()
+      try { had = new Set((JSON.parse(s.engine) as { state: { reports: Array<{ id: string }> } }).state.reports.map(r => r.id)) } catch { /* 讀不出來就全部補回 */ }
+      const lost = eng.log.filter(x => !had.has(x.id)).reverse()
+      eng.load(s.engine)
+      for (const x of lost) eng.commit({ summary: x.prose[0] ?? '', prose: x.prose, results: x.changes.map(c => c.text), place: x.place })
+    }
     addLog(note)
     if (s.kind === '入口') { snapshots.value = []; inRun.value = false }
     else if (s.kind === '階段') snapshots.value = snapshots.value.filter(x => x.kind !== '戰鬥' || snapshots.value.indexOf(x) < snapshots.value.indexOf(s))

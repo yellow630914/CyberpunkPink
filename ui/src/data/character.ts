@@ -64,7 +64,7 @@ export const PROTAGONIST: Character = {
 
 export const PARTY: PartyMember[] = [
   { id: 'me', name: '你', role: '槍手', sink: 58, hp: [38, 44], load: [11, 38], afterglow: 1, me: true },
-  { id: 'zero', name: '零', role: '潛網者', sink: 81, hp: [30, 36], load: [24, 40], afterglow: 2 },
+  { id: 'npc_zero', name: '零', role: '潛網者', sink: 81, hp: [30, 36], load: [24, 40], afterglow: 2 },
 ]
 
 /** 開局的背包。uid 只在這一局裡唯一。 */

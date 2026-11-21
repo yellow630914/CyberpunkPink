@@ -16,8 +16,8 @@ import { ITEMS } from '../data/items'
 import { SKILL_TREES } from '../data/content.generated'
 import type { AttrId } from '@engine/src'
 import {
-  ORIGINS, CYBER_OPTIONS, CYBER_POINTS, CYBER_POINT_MONEY,
-  LIFE_TABLES, GEAR_CATALOG, GEAR_POINTS, GEAR_POINT_MONEY, SUGGESTED_KITS, LOOKS, LOOK_GROUPS, ORIGIN_STYLE, BEAST_LINES, LIFE_BY_ORIGIN, QUICK_STARTS, START_MONEY, type CyberOption,
+  ORIGINS, CYBER_OPTIONS, CYBER_POINTS,
+  LIFE_TABLES, GEAR_CATALOG, GEAR_POINTS, SUGGESTED_KITS, LOOKS, LOOK_GROUPS, ORIGIN_STYLE, BEAST_LINES, LIFE_BY_ORIGIN, QUICK_STARTS, type CyberOption,
 } from '../data/creation'
 import {
   fmtMod, cyberSummary, cyberPickBlock, cyberBlock, gearPoints, gearSummary, gearAddBlock, fitKit, derivedLooks,
@@ -193,7 +193,8 @@ function addGear(d: ItemDef) {
 }
 function removeGear(i: number) { picks.gear = picks.gear.filter((_, k) => k !== i) }
 function suggest() { picks.gear = fitKit(SUGGESTED_KITS[originId.value].map(id => ITEMS[id])) }
-const money = computed(() => START_MONEY + origin.value.money + cy.value.money + gr.value.money)
+// 起始的錢照引擎給的（全部是現金、出身不加減，CHARACTER 5.4 節）；畫面只顯示，不自己算。
+const money = computed(() => e.creation.limits.startMoney)
 
 // ---- 外觀裡推出來的三樣（第四版）：外露的義體看第 6 步、獸化看第 6 步的耳與尾、風格看第 9 步的穿著 ----
 const beastLine = ref('貓')
@@ -272,7 +273,6 @@ function start() {
   g.learned = [...learned.value]
   g.loadout = []
   g.syncTrees()
-  g.money.acc = money.value; g.money.cash = 0
   for (const d of picks.gear) g.addItem(d.id)
   g.addLog({ prose: [`${basic.name.trim()}，${basic.age} 歲，${origin.value.line}。故事從${origin.value.home}開始。`], place: origin.value.home })
   ui.toast('角色建好了。')
@@ -375,7 +375,6 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
               <div class="kv"><span>起始身分</span><b>{{ origin.status }}</b></div>
               <div class="kv"><span>起始住處</span><b>{{ origin.home }}</b></div>
               <div class="kv"><span>開場就在名冊上</span><b>{{ origin.partner }}</b></div>
-              <div class="kv"><span>起始的錢</span><b>{{ origin.money >= 0 ? '+' : '−' }}{{ Math.abs(origin.money) }}</b></div>
             </div>
             <div>
               <label v-if="origin.id === 'corp'" class="fld"><span>原本那家企業<Hint>選的那一家決定好感給誰、買得到哪一家的橋。企業出身不帶債。</Hint></span><select v-model="corp" class="inp" @change="favor = corp"><option v-for="c in eo.favor.choose_one" :key="c">{{ c }}</option></select></label>
@@ -453,7 +452,6 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
           </button>
           </div>
           <label v-if="hasBeast" class="fld beastline"><span>獸化的系<Hint>機械派的系看外形與韌體，生體派的系看基因譜（CULTURE 第 2 節）。寫進外觀，也決定耳朵在什麼情緒下怎麼動。</Hint></span><select v-model="beastLine" class="inp"><option v-for="(_, k) in BEAST_LINES" :key="k" :value="k">{{ k }}</option></select></label>
-          <div class="kv"><span>沒花完的點數換錢<Hint>每點 {{ CYBER_POINT_MONEY }}。</Hint></span><b>+{{ cy.money }}</b></div>
           <div v-if="block" class="blocking">{{ block }}</div>
         </template>
 
@@ -480,7 +478,7 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
         <!-- 9 錢與裝備 -->
         <template v-else-if="step === 9">
           <h2>錢與裝備・剩 {{ gr.left }}／{{ GEAR_POINTS }} 點</h2>
-          <p class="setgrp">只能買 I～II 級<Hint>一件的點數＝目錄價 ÷ 250，無條件進位，最少 1 點。不能買義體（義體走上一步的點數）、藥、成人道具。沒花完的點數每點換 {{ GEAR_POINT_MONEY }}。另外白給一套出身那一區的日常服裝、一支板子、兩個彈匣的普通彈藥、預設化身的 SKIN。</Hint></p>
+          <p class="setgrp">只能買 I～II 級<Hint>一件的點數＝目錄價 ÷ 250，無條件進位，最少 1 點。不能買義體（義體走上一步的點數）、藥、成人道具。另外白給一套出身那一區的日常服裝、一支板子、兩個彈匣的普通彈藥、預設化身的 SKIN。</Hint></p>
           <div class="go left"><button type="button" class="btn sm pri" @click="suggest">出身的建議組合</button></div>
           <div class="gearl">
             <div>
@@ -498,7 +496,7 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
               <p class="h">已選</p>
               <div v-if="!picks.gear.length" class="empty-note">還沒選。點左邊的物品加進來。</div>
               <div v-for="(d, i) in picks.gear" :key="i" class="lrow"><ItemSlot :item="d" size="sm" /><span class="grow"><b :style="{ color: `var(--g${d.grade})` }">{{ d.name }}</b><small>{{ gearPoints(d) }} 點</small></span><button type="button" class="btn sm ghost" :aria-label="`拿掉${d.name}`" @click="removeGear(i)">✕</button></div>
-              <div class="kv"><span>起始的錢</span><b><MoneyTag kind="acc" :amount="money" /></b></div>
+              <div class="kv"><span>起始的錢</span><b><MoneyTag kind="cash" :amount="money" /></b></div>
             </div>
           </div>
           <div v-if="block" class="blocking">{{ block }}</div>
@@ -521,7 +519,7 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
               <div class="kv"><span>特質</span><b>{{ [origin.trait.name, ...picks.perks.map(id => ePerks.find(p => p.id === id)?.name)].join('、') }}</b></div>
               <div class="kv"><span>技能</span><b>{{ learned.length }} 個・剩 {{ xpLeft }} 歷練點</b></div>
               <div class="kv"><span>裝備</span><b>{{ picks.gear.length }} 件</b></div>
-              <div class="kv"><span>起始的錢</span><b><MoneyTag kind="acc" :amount="money" /></b></div>
+              <div class="kv"><span>起始的錢</span><b><MoneyTag kind="cash" :amount="money" /></b></div>
             </div>
           </div>
           <div v-if="firstBlocked" class="blocking">第 {{ STEPS[firstBlocked[0]].id }} 步：{{ firstBlocked[1] }}</div>
@@ -542,7 +540,7 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
         <div class="kv"><span>特質點</span><b>剩 {{ tr.left }}</b></div>
         <div class="kv"><span>歷練點</span><b>剩 {{ xpLeft }}</b></div>
         <div class="kv"><span>裝備點數</span><b>剩 {{ gr.left }}</b></div>
-        <div class="kv"><span>起始的錢</span><b>{{ money }}</b></div>
+        <div class="kv"><span>起始的錢（現金）</span><b>{{ money }}</b></div>
         <p class="empty-note mt">{{ attrMods.join('、') }}</p>
       </aside>
     </div>

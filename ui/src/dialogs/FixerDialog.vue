@@ -23,7 +23,7 @@ const g = useGame()
 const st = useSettings()
 const ui = useUi()
 const router = useRouter()
-const fixer = computed(() => g.npcs[props.fixerId ?? 'monroe'] ?? g.npcs.monroe)
+const fixer = computed(() => g.npcs[props.fixerId ?? 'npc_monroe'] ?? g.npcs.npc_monroe)
 const job = g.job
 const STEP_NAME: Record<string, string> = { take: '接案', scout: '踩點', call: '召集', run: '副本', done: '收尾' }
 const owes = computed(() => Object.values(g.npcs).filter(n => n.favor).map(n => ({ id: n.id, name: n.name, favor: n.favor!, why: n.relation })))
