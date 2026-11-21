@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>內海戰鬥 Demo</title>
+<style>
+:root{--bg:#0d0a14;--bg1:#151020;--bg2:#1d1630;--line:#3a2d52;--ink:#efe9f7;--ink2:#b8adc9;--ink3:#8a7f9e;--pink:#ff4fa3;--pinkhi:#ff8fc8;--mint:#5dffb0;--strong:#fff;--tint:#ff4fa312;--zebra:#ffffff07;--font:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;--mono:Consolas,monospace}
+body{margin:0;padding:24px 16px;background:#17111F;color:var(--ink);font-family:var(--font)}
+</style></head><body>
+<!--demo:start-->
+<style>
+.nd{--hp:#ff3355;--ld:#ff4fa3;--ap:#ffd66b;--apc:#ffd66b;--cv:#4fd8ff;border:1px solid var(--line);background:var(--bg1);padding:14px;margin:18px 0;font-size:13px;line-height:1.5}
+.nd *{box-sizing:border-box}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .nd{--hp:#c81e3a;--ld:#c2186b;--ap:#b07a00;--apc:#6b4200;--cv:#0a6f96}}
+:root[data-theme="light"] .nd{--hp:#c81e3a;--ld:#c2186b;--ap:#b07a00;--apc:#6b4200;--cv:#0a6f96}
+.nd-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.nd-top b{color:var(--pinkhi);letter-spacing:2px}.nd-top .sp{flex:1}
+.nd-order{display:flex;gap:4px;flex-wrap:wrap}
+.nd-chip{padding:1px 7px;border:1px solid var(--cv);color:var(--cv);font-size:12px}
+.nd-chip.e{border-color:var(--hp);color:var(--hp)}.nd-chip.on{border-color:var(--ap);color:var(--apc);background:color-mix(in srgb,var(--ap) 18%,transparent);font-weight:700}
+.nd-scroll{overflow-x:auto}
+.nd-field{display:grid;grid-template-columns:repeat(4,1fr) 26px repeat(4,1fr);gap:6px;min-width:760px}
+.nd-mid{display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:11px;writing-mode:vertical-rl;letter-spacing:4px}
+.nd-slot{border:1px solid var(--line);background:var(--bg);min-height:196px;padding:6px;display:flex;flex-direction:column;gap:6px;position:relative}
+.nd-slot.tg{outline:2px solid var(--mint);cursor:pointer}.nd-slot.tg:hover{background:var(--tint)}
+.nd-sh{display:flex;align-items:center;gap:5px;color:var(--cv);font-size:11px;min-height:16px}.nd-sh .nd-bar{flex:1}
+.nd-i{width:14px;height:14px;flex:none;fill:currentColor;display:block}
+.nd-bar i.half{background:repeating-linear-gradient(135deg,var(--cv) 0 4px,transparent 4px 8px)!important}
+.nd-bv{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}.nd-row .nd-bv .nd-bar{flex:none}.nd-bv span{font-size:10.5px;line-height:1.1;text-align:right;color:var(--ink2)}
+.nd-row.lay{padding-left:19px;min-height:11px}
+.nd-dir{display:grid;grid-template-columns:repeat(4,1fr) 26px repeat(4,1fr);gap:6px;min-width:760px;margin-top:6px;color:var(--ink3);font-size:11px}
+.nd-dir div{grid-column:span 4;display:flex;align-items:center;gap:8px}.nd-dir div.e{grid-column:6/span 4;flex-direction:row-reverse}
+.nd-dir svg{flex:1;height:12px;min-width:0}.nd-dir div.p svg{-webkit-mask:linear-gradient(90deg,#0003,#000);mask:linear-gradient(90deg,#0003,#000)}.nd-dir div.e svg{transform:scaleX(-1);-webkit-mask:linear-gradient(90deg,#0003,#000);mask:linear-gradient(90deg,#0003,#000)}
+.nd-dir polyline{fill:none;stroke:var(--pink);stroke-width:1.6}.nd-dir div.e polyline{stroke:var(--hp)}
+.nd-bar{height:5px;background:var(--bg2);position:relative}.nd-bar i{position:absolute;inset:0 auto 0 0;display:block}
+.nd-u{border:1px solid var(--line);padding:6px;background:var(--bg1);flex:1;display:flex;flex-direction:column;gap:4px}
+.nd-u.act{border-color:var(--pink);box-shadow:0 0 0 1px var(--pink) inset}
+.nd-u.dn{opacity:.35}
+.nd-u.tg{outline:2px solid var(--mint);cursor:pointer}.nd-u.tg:hover{background:var(--tint)}
+.nd-nm{font-weight:700;color:var(--strong);display:flex;justify-content:space-between;gap:4px}
+.nd-nm small{color:var(--ink3);font-weight:400}
+.nd-row{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink2)}
+.nd-row .nd-bar{flex:1}
+.nd-pips{display:flex;gap:2px}.nd-pips i{width:8px;height:8px;border:1px solid var(--ap);display:block}.nd-pips i.f{background:var(--ap)}
+.nd-pips.m i{border-color:var(--ink2);border-radius:50%}.nd-pips.m i.f{background:var(--ink2)}
+.nd-pips.l i{border-color:var(--ld);transform:rotate(45deg);width:7px;height:7px;margin:0 2px}.nd-pips.l i.f{background:var(--ld)}
+.nd-st{display:flex;gap:3px;flex-wrap:wrap;min-height:16px}.nd-st span{font-size:10.5px;padding:0 4px;border:1px solid var(--line);color:var(--pinkhi)}
+.nd-act{display:flex;gap:22px;margin:22px 0 14px;align-items:center;position:relative}
+.nd-wbox{position:relative;width:276px;height:276px;flex:none;margin:8px 0 8px 12px}
+.nd-w{width:100%;height:100%;overflow:visible;display:block;touch-action:manipulation}
+.nd-w .hit{fill:transparent;stroke:none}
+.nd-w path:not(.ic),.nd-w circle.bg{fill:var(--bg2);stroke:var(--line);stroke-width:1.2}
+.nd-w path.ic{fill:var(--ink);stroke:none;pointer-events:none}
+.nd-w .r-atk path:not(.ic){fill:color-mix(in srgb,var(--hp) 18%,var(--bg2))}
+.nd-w .r-res path:not(.ic){fill:color-mix(in srgb,var(--ap) 16%,var(--bg2))}
+.nd-w .r-tac path:not(.ic){fill:color-mix(in srgb,var(--cv) 16%,var(--bg2))}
+.nd-w .r-skl circle.bg{fill:color-mix(in srgb,var(--mint) 18%,var(--bg2))}
+.nd-w g[data-a]{cursor:pointer;outline:none;transform-box:fill-box;transform-origin:center;transition:transform .16s cubic-bezier(.2,.8,.2,1)}
+.nd-w g.hov{transform:scale(1.42)}
+@media (prefers-reduced-motion:reduce){.nd-w g[data-a]{transition:none}}
+.nd-w g.dis{cursor:not-allowed}.nd-w g.dis text,.nd-w g.dis .ic{opacity:.28}
+.nd-w g.hov:not(.dis) path:not(.ic),.nd-w g.hov:not(.dis) circle.bg,.nd-w g:focus-visible path:not(.ic),.nd-w g:focus-visible circle.bg{stroke:var(--pink);stroke-width:2.2}
+.nd-w g.sel path:not(.ic),.nd-w g.sel circle.bg{stroke:var(--mint);stroke-width:3}
+.nd-w text{fill:var(--ink);font-size:21px;font-weight:700;text-anchor:middle;pointer-events:none}
+.nd-w text.c{fill:var(--apc);font-size:12px}
+.nd-act.off .nd-wbox{pointer-events:none;opacity:.45}
+.nd-side{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.nd-tip{position:absolute;z-index:20;max-width:240px;border:1px solid var(--pink);background:var(--bg);padding:7px 10px;font-size:12.5px;color:var(--ink2);pointer-events:none;box-shadow:0 6px 18px #0008}
+.nd-tip[hidden]{display:none}.nd-tip b{color:var(--strong);font-size:14px}.nd-tip i{font-style:normal;color:var(--apc);font-weight:700;margin-left:8px}.nd-tip p{margin:3px 0 0}.nd-tip .no{color:var(--hp)}
+.nd-skl{border:1px solid var(--line);padding:8px 10px;background:var(--bg);font-size:12.5px;color:var(--ink2);max-width:420px}.nd-skl b{color:var(--mint)}.nd-skl p{margin:4px 0 0}
+.nd-btn{font:inherit;color:var(--ink);background:var(--bg2);border:1px solid var(--line);padding:6px 11px;cursor:pointer;min-height:36px}
+.nd-btn:hover:not(:disabled){border-color:var(--pink);color:var(--pinkhi)}
+.nd-btn:disabled{opacity:.35;cursor:not-allowed}.nd-btn.sel{border-color:var(--mint);color:var(--mint)}
+.nd-btn small{color:var(--ap);margin-left:4px}
+.nd-hint{color:var(--ink2);min-height:20px;margin-bottom:8px}
+.nd-log{height:170px;overflow-y:auto;border:1px solid var(--line);background:var(--bg);padding:8px 10px;font-size:12.5px;color:var(--ink2)}
+.nd-log p{margin:0 0 3px;max-width:none}.nd-log .h{color:var(--pinkhi)}.nd-log .g{color:var(--mint)}.nd-log .r{color:var(--hp)}
+.nd-end{padding:12px;border:1px solid var(--pink);color:var(--pinkhi);margin:10px 0;display:none}
+.nd-note{color:var(--ink3);font-size:12px;margin-top:8px}
+.nd-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.nd-hold{position:relative;overflow:hidden;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:none}
+.nd .nd-btn.nd-hold{color:var(--hp);border-color:var(--hp)}
+.nd-btns .nd-hold:first-of-type{margin-left:10px}
+.nd-hold i{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--hp);display:block}
+.nd-hold.on i{width:100%;transition:width .6s linear}
+
+.nd{position:relative;overflow:hidden;background-color:var(--bg1);background-image:linear-gradient(color-mix(in srgb,var(--cv) 10%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--cv) 10%,transparent) 1px,transparent 1px);background-size:24px 24px;border-color:var(--pink);box-shadow:0 0 0 1px color-mix(in srgb,var(--pink) 30%,transparent),0 0 24px color-mix(in srgb,var(--pink) 18%,transparent)}
+.nd::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 2px,color-mix(in srgb,var(--ink) 4%,transparent) 2px 3px)}
+.nd-top b{font-family:var(--mono);text-shadow:1.5px 0 var(--cv),-1.5px 0 var(--pink)}
+.nd-view{font-family:var(--mono);font-size:11.5px;color:var(--hp)}
+.nd-trace{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2);min-width:170px}.nd-trace .nd-bar{flex:1;min-width:70px}.nd-trace b{color:var(--hp);letter-spacing:0}
+.nd-fw{position:relative}
+.nd-dm{position:absolute;inset:0 0 auto 0;height:120px;pointer-events:none;overflow:hidden;z-index:3}
+.nd-dm span{position:absolute;left:100%;white-space:nowrap;font-weight:700;font-size:14px;color:var(--strong);text-shadow:0 0 4px var(--pink),1px 1px 0 var(--bg);animation:nd-fly 6s linear forwards}
+@keyframes nd-fly{to{transform:translateX(calc(-100% - 1000px))}}
+@media (prefers-reduced-motion:reduce){.nd-dm{display:none}}
+.nd-slot{background:color-mix(in srgb,var(--bg) 82%,transparent)}
+.nd-u{border-left:3px solid var(--cv)}.nd-u.e{border-left-color:var(--pink)}
+.nd-u.act{box-shadow:0 0 0 1px var(--pink) inset,0 0 12px color-mix(in srgb,var(--pink) 45%,transparent)}
+.nd-nm{justify-content:flex-start;align-items:center;gap:6px}.nd-nm span{display:flex;flex-direction:column;line-height:1.2}.nd-nm small{font-size:10.5px}
+.nd-av{width:26px;height:26px;flex:none;fill:none;stroke:var(--cv);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 0 3px var(--cv))}
+.nd-u.e .nd-av{stroke:var(--pink);filter:drop-shadow(0 0 3px var(--pink))}
+.nd-pips.m i{border-color:var(--mint);border-radius:0;width:6px;height:10px}.nd-pips.m i.f{background:var(--mint)}
+.nd-st span.sy{color:var(--ink2)}.nd-st span.s2{color:var(--ap);border-color:var(--ap)}.nd-st span.s3{color:var(--hp);border-color:var(--hp)}.nd-st span.s0{color:var(--cv);border-color:var(--cv)}
+.nd-grp{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.nd-grp>span{font-size:12px;color:var(--ink3);width:100%}
+.nd-grp[hidden]{display:none}
+.nd-btn small{color:var(--mint)}
+.nd-tip i.rm{color:var(--mint)}
+</style>
+<div class="nd" id="ndemo">
+  <div class="nd-top"><b>INNER SEA // 內海戰鬥 DEMO</b><span id="nd-round"></span><span class="nd-view" id="nd-view"></span><div class="nd-trace" id="nd-trace"></div><span class="sp"></span><button class="nd-btn" id="nd-reset">重新潛入</button></div>
+  <div class="nd-top"><div class="nd-order" id="nd-order"></div></div>
+  <div class="nd-scroll"><div class="nd-fw"><div class="nd-dm" id="nd-dm" aria-hidden="true"></div><div class="nd-field" id="nd-field"></div><div class="nd-dir" aria-hidden="true"><div class="p"><svg><defs><pattern id="nd-chv" width="12" height="12" patternUnits="userSpaceOnUse"><polyline points="2,1 7,6 2,11"/></pattern></defs><rect width="100%" height="12" fill="url(#nd-chv)"/></svg></div><div class="e"><svg><rect width="100%" height="12" fill="url(#nd-chv)"/></svg></div></div></div></div>
+  <div class="nd-end" id="nd-end"></div>
+  <div class="nd-act" id="nd-act"><div class="nd-tip" id="nd-tip" hidden></div><div class="nd-wbox" id="nd-wbox"></div><div class="nd-side"><div class="nd-btns"><button class="nd-btn" data-a="end" id="nd-endbtn">結束回合</button><button class="nd-btn nd-hold" id="nd-flee" title="長按：這個人登出，退出這場戰鬥">拔線<small>1</small><i></i></button><button class="nd-btn nd-hold" id="nd-give" title="長按：結束這場戰鬥，算戰敗">投降<small>0</small><i></i></button></div>
+    <div class="nd-grp" id="nd-sync"><span>同步檔位（每回合換一次；檢定／受到的感載）</span><button class="nd-btn" data-sy="0">淺<small>−2 ×0.5</small></button><button class="nd-btn" data-sy="1">標準<small>±0 ×1</small></button><button class="nd-btn" data-sy="2">深<small>+2 ×1.5</small></button><button class="nd-btn" data-sy="3">全<small>+4 ×2.5</small></button></div>
+    <div class="nd-grp" id="nd-adm" hidden><span id="nd-admn"></span><button class="nd-btn" data-ad="wall">造牆<small>RAM 2</small></button><button class="nd-btn" data-ad="breach">拆牆<small>RAM 2</small></button><button class="nd-btn" data-ad="cut">斷路<small>RAM 2</small></button><button class="nd-btn" data-ad="mark">標記<small>RAM 1</small></button><button class="nd-btn" data-ad="wipe">擦痕跡<small>RAM 1</small></button></div>
+    <div class="nd-skl" id="nd-skl" hidden><b>技能清單</b><p>這個 Demo 還沒有技能。正式版這裡列出這個角色裝著的主動技能與專屬構裝。</p></div></div></div>
+  <div class="nd-hint" id="nd-hint"></div>
+  <div class="nd-log" id="nd-log" aria-live="polite"></div>
+  <div class="nd-note">照已確認的規則：站位、距離、命中、防火牆（遮蔽）都和現實戰鬥一樣；只有感載一條，過載不失去回合但會閃斷（RAM 歸零），每層餘韻檢定 +1、傷害 +10%；攻擊花 RAM，每回合回 2（潛網者 3）；同步檔位只能在自己的回合換；餘韻疊滿的近身目標可以釘住；長矛（狙擊型）一擊 3 點，已經包含瞄準；監視花 2 點，敵人一站上暴露的格子就自動攻擊；拔線與投降在結束回合旁邊，要長按；瞄準與超頻是槍手的技能，這個 Demo 沒有做技能，所以只有敵人會用；追蹤度每回合 +3，到 30、60、90 各有東西來。只有潛網者有管理行動（不花行動點，每回合 2 次，全檔 3 次）。化身的 SKIN、彈幕與觀看數只是氣氛，不影響數值；角色的數字是為了試手感臨時填的。圖示來自 game-icons.net（CC BY 3.0）。</div>
+</div>
+<script>
+(function(){
+const $=id=>document.getElementById(id), d6=n=>{let s=0;for(let i=0;i<n;i++)s+=1+Math.floor(Math.random()*6);return s}, d20=()=>1+Math.floor(Math.random()*20);
+const W={
+ pulse:{n:'脈衝槍',dice:4,r:[3,7],cost:1,pen:2,long:1,cm:.5},
+ scatter:{n:'散射炮',dice:5,far:3,r:[1,3],cost:1,pen:0,push:1,cm:1.5},
+ needle:{n:'光針',dice:3,r:[1,4],cost:1,pen:0,cm:.25},
+ stream:{n:'連流',dice:3,r:[2,5],cost:1,pen:0,cm:.5},
+ lance:{n:'長矛',dice:6,r:[5,7],cost:2,pen:4,long:1,cm:.25,snipe:1},
+ jam:{n:'干擾針',dice:3,r:[2,5],cost:1,pen:0,jam:1,cm:2},
+ blade:{n:'光刃',dice:3,r:[1,1],cost:1,pen:1,melee:1,cm:0}
+};
+const COVN=['暴露','半牆','防火牆'], COVB=[0,2,4], COVD=[0,15,30];
+const SY=[{n:'淺',c:-2,m:.5},{n:'標準',c:0,m:1},{n:'深',c:2,m:1.5},{n:'全',c:4,m:2.5}];
+const DM={
+ crit:['要害ｷﾀ━(ﾟ∀ﾟ)━!','這發神了','8888888','好準'],
+ over:['過載了ww','草','臉紅了臉紅了','尊い……','再來一發！'],
+ fall:['斷線了','GG','辛苦了～','下一位'],
+ pin:['釘住了！！','逮到','這個可以截圖嗎','太色了吧'],
+ wall:['牆來了','管理員大人','駭客好帥'],
+ trace:['警報響了','快跑啊','保全來了ww','要被抓包了'],
+ flash:['RAM 空了','沒電ww','破綻！']
+};
+let S;
+function unit(side,slot,name,skin,av,o){return Object.assign({side,slot,name,skin,av,load:0,loadMax:o.lm,layers:0,layersMax:o.lay,
+  ap:o.ap,apMax:o.ap,ram:o.ram,ramMax:o.ram,rr:o.rr||2,prot:o.prot||0,refl:o.refl,gun:o.gun||0,mel:o.mel||0,will:o.will||0,intf:o.intf||0,
+  tier:o.tier||1,elite:!!o.elite,xd:o.xd||0,sync:o.sync==null?1:o.sync,syncMax:o.sm==null?1:o.sm,admin:o.admin||0,white:!!o.white,
+  ws:o.ws,wi:0,aim:false,supp:0,watch:false,mv:false,unp:false,flash:false,mark:false,cut:false,jam:false,down:false,out:false,shifted:false,adm:0},{})}
+function init(){
+ S={round:1,idx:0,busy:false,mode:null,over:false,exq:[],trace:15,t30:false,t60:false,loc:-1,view:12480,
+  cov:{P:[null,{l:1,d:15},{l:2,d:30},{l:2,d:30},{l:1,d:15}],E:[null,{l:1,d:15},{l:2,d:30},{l:1,d:15},{l:2,d:30}]},
+  units:[
+   unit('P',1,'前鋒','特攻服','cat',{lm:36,lay:3,ap:5,ram:4,prot:3,refl:1,gun:3,mel:5,will:2,intf:1,sm:2,tier:2,ws:['scatter','blade']}),
+   unit('P',2,'潛網者','魔法少女','cat',{lm:40,lay:3,ap:6,ram:8,rr:3,prot:2,refl:2,gun:4,will:3,intf:6,sm:3,admin:2,tier:2,ws:['needle','jam']}),
+   unit('P',3,'槍手','畫報女郎','cat',{lm:38,lay:3,ap:5,ram:4,prot:3,refl:3,gun:5,will:1,intf:0,sm:2,tier:2,ws:['pulse','needle']}),
+   unit('P',4,'狙擊手','哥德羅莉','cat',{lm:38,lay:3,ap:5,ram:5,prot:2,refl:2,gun:5,will:2,intf:1,sm:2,tier:2,ws:['lance','needle']}),
+   unit('E',1,'守衛程式','吉祥物型','bot',{lm:20,lay:1,ap:4,ram:4,prot:1,refl:1,gun:2,mel:4,xd:1,ws:['blade','needle']}),
+   unit('E',2,'粉蕾絲','女僕型','lace',{lm:22,lay:1,ap:4,ram:4,prot:2,refl:1,gun:3,mel:3,will:1,xd:1,ws:['stream']}),
+   unit('E',3,'粉蕾絲','女僕型','lace',{lm:22,lay:1,ap:4,ram:4,prot:2,refl:1,gun:3,mel:3,will:1,xd:1,ws:['stream']}),
+   unit('E',4,'粉蕾絲','女僕長','lace',{lm:30,lay:2,ap:5,ram:6,rr:3,prot:3,refl:2,gun:5,mel:4,will:3,tier:2,elite:true,xd:1,sync:2,sm:2,ws:['pulse','needle']})
+  ],order:[]};
+ S.units.forEach((u,i)=>{u.id=i;u.ini=d20()+u.refl});
+ S.order=S.units.slice().sort((a,b)=>b.ini-a.ini).map(u=>u.id);
+ $('nd-log').innerHTML='';$('nd-end').style.display='none';$('nd-dm').innerHTML='';
+ log('潛入完成。第一回合所有人的行動點與 RAM 都從上限開始。','h');
+ startTurn();
+}
+const cur=()=>S.units[S.order[S.idx]], alive=side=>S.units.filter(u=>u.side===side&&!u.down);
+const at=(side,slot)=>S.units.find(u=>u.side===side&&u.slot===slot&&!u.down);
+const wp=u=>W[u.ws[u.wi]], dist=(a,b)=>a.slot+b.slot-1;
+function log(t,c){const p=document.createElement('p');if(c)p.className=c;p.textContent=t;const L=$('nd-log');L.appendChild(p);L.scrollTop=L.scrollHeight}
+function dm(kind){const a=DM[kind];if(!a)return;const B=$('nd-dm');if(B.children.length>7)return;const s=document.createElement('span');s.textContent=a[Math.floor(Math.random()*a.length)];
+ s.style.top=(4+Math.floor(Math.random()*5)*22)+'px';s.style.animationDuration=(5+Math.random()*3)+'s';B.appendChild(s);s.addEventListener('animationend',()=>s.remove());setTimeout(()=>s.remove(),9000);S.view+=Math.floor(200+Math.random()*900)}
+const tag=u=>(u.side==='P'?'':'敵・')+u.name;
+function dodge(u){return 10+u.refl+COVB[S.cov[u.side][u.slot].l]}
+function rmod(a,t,w){const d=dist(a,t);let m=0;if(d<w.r[0])m=-2*(w.r[0]-d);if(d>w.r[1])m=-2*(d-w.r[1]);if(w.long&&a.slot===1)m-=4;return m}
+function abonus(a,t,w){return (w.melee?a.mel:a.gun)+rmod(a,t,w)+((a.aim||w.snipe)?3:0)-(a.supp?2:0)+a.layers+SY[a.sync].c+(t.mark?2:0)}
+function hitChance(a,t,w){return Math.max(5,Math.min(95,(21-(dodge(t)-abonus(a,t,w)))*5))}
+function compact(side){let moved=true;while(moved){moved=false;for(let s=1;s<=3;s++){if(!at(side,s)&&S.cov[side][s].l===0){const back=S.units.filter(u=>u.side===side&&!u.down&&u.slot>s);if(back.length){back.forEach(u=>u.slot--);const c=S.cov[side];for(let k=s;k<4;k++)c[k]=c[k+1];c[4]={l:0,d:0};log((side==='P'?'我方':'敵方')+'後排連同防火牆往前補位。');back.forEach(exposed);moved=true;break}}}}}
+function hurtCover(side,slot,dmg){const c=S.cov[side][slot];dmg=Math.round(dmg);if(c.l===0||dmg<=0)return;if(!at(side,slot))dmg*=2;c.d-=dmg;while(c.l>0&&c.d<=0){c.l--;c.d+=COVD[c.l];if(c.l===0){c.d=0;exposed(at(side,slot))}log((side==='P'?'我方':'敵方')+'第 '+slot+' 格的防火牆被打成'+COVN[c.l]+'。','h')}compact(side)}
+function fall(u,how){u.down=true;log(tag(u)+how,u.side==='P'?'r':'g');compact(u.side);check()}
+function addLoad(t,n){t.load+=n;if(t.load>=t.loadMax){t.load=0;t.layers++;t.mark=false;
+ if(t.layers>t.layersMax){dm('fall');fall(t,' 餘韻疊滿後再過載：斷線。')}
+ else{t.ram=0;t.flash=true;dm('over');log(tag(t)+' 過載！閃斷：RAM 歸零。餘韻 '+t.layers+' 層（檢定 +'+t.layers+'、傷害 +'+t.layers*10+'%）。','h')}}}
+function attack(a,t,o){o=o||{};const w=wp(a),n=o.burst?a.ram:w.cost;a.ram-=n;
+ const r=d20(),bonus=abonus(a,t,w),tot=r+bonus,dg=dodge(t),cb=COVB[S.cov[t.side][t.slot].l];
+ const aimed=a.aim||!!w.snipe;a.aim=false;
+ let dice=(w.far&&dist(a,t)>2?w.far:w.dice)+(o.burst?n-1:0)+a.xd;
+ const hit=r===20||(r!==1&&tot>=dg), crit=hit&&tot-dg>=5;
+ let msg=tag(a)+(o.burst?' 用'+w.n+'超頻（RAM '+n+'）':' 用'+w.n+'攻擊')+' '+tag(t)+'：d20='+r+(bonus>=0?'+':'')+bonus+'='+tot+' 對迴避 '+dg+'，';
+ if(!hit){
+  log(msg+(r===1?'自然 1，':'')+(r!==1&&cb&&tot>=dg-cb?'被防火牆擋下。':'沒打中。'));
+  if(cb&&w.cm){const cs=t.side,sl=t.slot,v=d6(dice)*w.cm;log('防火牆受 '+Math.round(v)+'（'+w.n+' ×'+w.cm+'）。');hurtCover(cs,sl,v)}
+ }else{
+  if(crit){dice++;dm('crit')}const wound=r===20||(crit&&aimed);if(wound&&!t.elite&&t.side==='E')dice++;
+  const raw=d6(dice);
+  if(cb&&w.cm){log('防火牆受 '+Math.round(raw*w.cm)+'（'+w.n+' ×'+w.cm+'）。');hurtCover(t.side,t.slot,raw*w.cm)}
+  if(w.jam){t.jam=true;log(msg+'命中：干擾。'+tag(t)+' 的武器構裝停用一回合。','h')}
+  else{const base=Math.max(0,raw-Math.max(0,t.prot-w.pen)),v=Math.round(base*(1+.1*a.layers)*SY[t.sync].m);
+   log(msg+(r===20?'自然 20！':crit?'要害！':'命中，')+'感載 '+raw+'，扣防護、乘'+SY[t.sync].n+'檔後 +'+v+'。');
+   if(wound&&(t.elite||t.side==='P')&&t.prot>0){t.prot=0;log(tag(t)+' 破損：防護構裝失效。','h')}
+   addLoad(t,v);
+   if(!t.down&&w.push&&t.slot<4){const b=at(t.side,t.slot+1),os=t.slot;if(b)b.slot=os;t.slot=os+1;log(tag(t)+' 被轟退一格。');exposed(t);exposed(b);compact(t.side)}}
+ }
+ if(o.burst&&!t.down){const sv=d20()+t.will,dc=10+n*2;if(sv<dc){t.supp=1;log(tag(t)+' 被壓制（定力 '+sv+' 對 '+dc+'）：不能換位、攻擊 −2。','h')}else log(tag(t)+' 撐住了壓制（定力 '+sv+' 對 '+dc+'）。')}
+}
+function end(txt,l){S.over=true;const el=$('nd-end');el.style.display='block';el.textContent=txt;log(l,'h')}
+function check(){if(S.over)return;const p=alive('P').length,e=alive('E').filter(u=>!u.white).length;
+ if(!p&&S.units.filter(u=>u.side==='P').every(u=>u.unp))end('全隊拔線：等於撤退。委託副本裡是回退到進副本之前。','撤退。');
+ else if(!p)end('全隊斷線或被釘住：戰敗。贏的是粉蕾絲，所以正式的遊戲裡這裡會接「被釘在線上」的活捉事件。','戰敗。');
+ else if(!e)end('敵人全部斷線或被釘住：勝利。餘韻會跟著回到現實（每層全屬性 −2）。','勝利。')}
+function spawn(u){for(let s=1;s<=4;s++){if(!at('E',s)){u.slot=s;u.id=S.units.length;S.units.push(u);S.order.push(u.id);return true}}return false}
+function traceCheck(){if(S.over)return;
+ if(S.trace>=30&&!S.t30&&spawn(unit('E',0,'白蕾絲','警報型','lace',{lm:20,lay:1,ap:0,ram:0,refl:1,white:true,ws:['needle']}))){S.t30=true;dm('trace');log('追蹤度到 30：白蕾絲上線。牠不打人，每回合讓追蹤度 +5。','r')}
+ if(S.trace>=60&&!S.t60&&spawn(unit('E',0,'企業潛網者','制服型','cat',{lm:30,lay:2,ap:5,ram:7,rr:3,prot:3,refl:2,gun:5,will:3,tier:2,elite:true,xd:1,sync:2,sm:2,ws:['pulse']}))){S.t60=true;dm('trace');log('追蹤度到 60：對方的潛網者上線。','r')}
+ if(S.trace>=90&&S.loc<0){S.loc=3;dm('trace');log('追蹤度到 90：被定位。三回合後全隊強制斷線。','r')}}
+function startTurn(){if(S.over){render();return}const u=cur();
+ if(u.down){return next()}
+ if(S.round>1){u.ap=Math.min(u.apMax,u.ap+3+(u.sync===3?1:0));u.ram=Math.min(u.ramMax,u.ram+u.rr)}
+ u.watch=false;u.mv=false;u.shifted=false;u.adm=0;
+ if(u.white){S.trace+=5;log('白蕾絲拉警報：追蹤度 +5。','r');traceCheck();render();return setTimeout(next,450)}
+ S.mode=null;render();
+ if(u.side==='E'){S.busy=true;hint('');setTimeout(()=>ai(u,0),550)}else{S.busy=false;hint('輪到 '+u.name+'。先決定同步檔位，再選行動。')}
+}
+function next(){const u=cur();if(u){if(u.supp>0)u.supp--;u.cut=false;u.jam=false;u.flash=false}S.idx++;
+ if(S.idx>=S.order.length){S.idx=0;S.round++;S.trace+=3;log('—— 第 '+S.round+' 回合 ——（追蹤度 +3）','h');
+  if(S.loc>0){S.loc--;if(S.loc===0&&!S.over){end('被定位：全隊被強制斷線。現實的增援已經在去接入點的路上。','被定位。');return render()}}
+  traceCheck()}
+ startTurn()}
+function hint(t){$('nd-hint').textContent=t}
+/* 監視：有人站上暴露的格子時記下來，等這個動作結算完再攻擊 */
+function exposed(t){if(t&&!t.down&&S.cov[t.side][t.slot].l===0)S.exq.push(t.id)}
+function canHit(u,t){const w=wp(u);return !u.jam&&u.ram>=w.cost&&(!w.melee||dist(u,t)===1)}
+function flushWatch(){let g=0;while(S.exq.length&&!S.over&&g++<24){const t=S.units[S.exq.shift()];if(!t||t.down||S.cov[t.side][t.slot].l!==0)continue;
+  const u=S.units.find(x=>x.side!==t.side&&!x.down&&x.watch&&canHit(x,t));if(!u)continue;u.watch=false;log(tag(u)+' 監視觸發：'+tag(t)+' 站上了暴露的格子。','h');attack(u,t)}S.exq.length=0}
+function move(u,to){const o=at(u.side,to),from=u.slot;if(o)o.slot=from;u.slot=to;log(tag(u)+(o?' 和 '+o.name+' 換位。':' 移到第 '+to+' 格。'));exposed(u);exposed(o);compact(u.side)}
+function canMove(u,to){if(to<1||to>4||u.supp||u.cut)return false;if(at(u.side,to))return true;if(to>u.slot)return S.cov[u.side][u.slot].l>0;return true}
+function canPin(a,t){return a.slot===1&&t.slot===1&&!t.down&&t.layers>=t.layersMax}
+function pin(a,t){a.ram--;const r=d20()+Math.max(a.mel,a.intf)+SY[a.sync].c+a.layers,dc=10+t.tier*2;if(r>=dc){t.out=true;dm('pin');fall(t,' 被釘在線上，退出戰鬥（'+r+' 對 '+dc+'）。')}else log(tag(a)+' 想釘住 '+tag(t)+'，沒釘牢（'+r+' 對 '+dc+'）。')}
+function refill(u){u.ram=Math.min(u.ramMax,u.ram+(u.admin?3:2));log(tag(u)+' 回填 RAM。')}
+/* ---- 敵人 AI ---- */
+function ai(u,n){if(S.over||u.down||n>6||u.ap<=0){S.busy=false;return next()}
+ const foes=alive('P'),w=wp(u);let did=false;
+ const sub=foes.find(t=>canPin(u,t));
+ if(sub&&u.ap>=2&&u.ram>=1){u.ap-=2;pin(u,sub);did=true}
+ else if(u.jam||u.ram<w.cost){if(u.ram<u.ramMax&&u.ap>=1){u.ap--;refill(u);did=true}}
+ else if(w.melee){const t=foes.find(t=>dist(u,t)===1);
+  if(t&&u.ap>=2){u.ap-=2;attack(u,t);did=true}
+  else if(!t&&u.ws.length>1&&u.ap>=1){u.ap--;u.wi=1;log(tag(u)+' 換成'+wp(u).n+'。');did=true}}
+ else{const t=foes.slice().sort((a,b)=>hitChance(u,b,w)-hitChance(u,a,w)||b.layers-a.layers)[0];
+  const to=!u.mv&&!u.cut&&!u.supp&&u.ap>=3&&S.cov.E[u.slot].l===0?[u.slot+1,u.slot-1].find(x=>x>=1&&x<=4&&S.cov.E[x].l>0&&canMove(u,x)):0;
+  if(u.slot===1&&u.ws.some(x=>W[x].melee)&&foes.some(t=>dist(u,t)===1)&&u.ap>=1){u.ap--;u.wi=u.ws.findIndex(x=>W[x].melee);log(tag(u)+' 換成'+wp(u).n+'。');did=true}
+  else if(to){u.ap--;u.mv=true;move(u,to);did=true}
+  else if(u.ap>=3&&u.ram>=2&&u.sync>0&&Math.random()<.35){u.ap-=3;attack(u,t,{burst:true});did=true}
+  else if(u.ap>=2){u.ap-=2;attack(u,t);did=true}
+  else if(u.ap===1&&!u.aim){u.ap--;u.aim=true;log(tag(u)+' 瞄準。');did=true}}
+ flushWatch();render();if(!did||S.over){S.busy=false;return S.over?null:next()}
+ setTimeout(()=>ai(u,n+1),650)
+}
+/* ---- 玩家行動 ---- */
+const canAtk=u=>!u.jam&&u.ram>=wp(u).cost;
+const cost=(a,u)=>a.k==='shoot'&&wp(u).snipe?3:a.c;
+const ACTS=[
+ {k:'shoot',d:'用手上的武器構裝攻擊一個敵人。長矛（狙擊型）一擊 3 點，已經包含瞄準：命中 +3，要害時破損。',r:'1（長矛 2）',w:'手上是近戰構裝、RAM 不夠，或武器被干擾',g:'atk',n:'攻擊',c:2,ok:u=>!wp(u).melee&&canAtk(u),tg:'foe'},
+ {k:'melee',d:'打近身（雙方第 1 格）的敵人。',r:'1',w:'手上不是近戰構裝，或 RAM 不夠',g:'atk',n:'近戰',c:2,ok:u=>wp(u).melee&&canAtk(u),tg:'melee'},
+ {k:'move',d:'和相鄰的隊友交換，或移到相鄰的空格。',r:'0',w:'沒有可以換的格，或被壓制、被斷路',g:'tac',n:'換位',c:1,ok:u=>canMove(u,u.slot-1)||canMove(u,u.slot+1),tg:'slot'},
+ {k:'reload',d:'RAM +2（潛網者 +3）。',r:'—',w:'RAM 是滿的',g:'res',n:'回填',c:1,ok:u=>u.ram<u.ramMax},
+ {k:'swap',d:'換成另一個武器構裝。',r:'0',w:'只有一個武器構裝',g:'res',n:'換構裝',c:1,ok:u=>u.ws.length>1},
+ {k:'cover',d:'不打人，直接打敵方一格的防火牆；倍率加倍。',r:'1',w:'手上是近戰構裝，或 RAM 不夠',g:'tac',n:'打牆',c:2,ok:u=>!wp(u).melee&&canAtk(u),tg:'ecov'},
+ {k:'watch',d:'到你的下一回合開始前，第一次有敵人站上暴露的格子（換位、補位、被推過去，或防火牆被打成暴露），自動攻擊他一次，不另花行動點，RAM 照扣。',r:'0（觸發時照扣）',w:'已經在監視',g:'tac',n:'監視',c:2,ok:u=>!u.watch},
+ {k:'subdue',d:'把餘韻疊滿的近身敵人釘在線上，讓他退出戰鬥。要過檢定。',r:'1',w:'沒有可以釘的目標（要在近身、對方餘韻疊滿），或 RAM 不夠',g:'tac',n:'釘住',c:2,ok:u=>u.ram>=1&&alive('E').some(t=>canPin(u,t)),tg:'sub'},
+ {k:'item',d:'用一次性的腳本。',r:'0',w:'這個 Demo 沒有做',g:'res',n:'腳本',c:1,ok:()=>false},
+ {k:'end',g:'end',n:'結束回合',c:0,ok:()=>true}
+];
+const ADM={wall:{n:'造牆',c:2,d:'我方一格的防火牆升一級，耐久補滿。',tg:1},breach:{n:'拆牆',c:2,d:'敵方一格的防火牆降一級。',tg:1},cut:{n:'斷路',c:2,d:'一個敵人這一回合不能換位。',tg:1},mark:{n:'標記',c:1,d:'全隊打他 +2，直到他下次過載。',tg:1},wipe:{n:'擦痕跡',c:1,d:'追蹤度 −5。'}};
+const admLeft=u=>u.admin?u.admin+(u.sync===3?1:0)-u.adm:0;
+function admRoll(u){u.adm++;S.trace+=1;const r=d20()+u.intf+SY[u.sync].c+u.layers;if(r<12){S.trace+=5;log(u.name+' 的管理行動失敗（介面 '+r+' 對 12）：追蹤度 +5。','r');traceCheck();return false}return true}
+function admin(k,v){const u=cur(),a=ADM[k];if(u.ram<a.c||admLeft(u)<1)return;u.ram-=a.c;const ok=admRoll(u);
+ if(ok){if(k==='wall'){const c=S.cov.P[v];c.l++;c.d=COVD[c.l];dm('wall');log(u.name+' 造牆：我方第 '+v+' 格變成'+COVN[c.l]+'。','g')}
+  else if(k==='breach'){const c=S.cov.E[v];c.l--;c.d=COVD[c.l];log(u.name+' 拆牆：敵方第 '+v+' 格變成'+COVN[c.l]+'。','g');compact('E')}
+  else if(k==='cut'){v.cut=true;log(u.name+' 斷路：'+tag(v)+' 這一回合不能換位。','g')}
+  else if(k==='mark'){v.mark=true;log(u.name+' 標記 '+tag(v)+'：全隊打他 +2。','g')}
+  else if(k==='wipe'){S.trace=Math.max(0,S.trace-6);log(u.name+' 擦痕跡：追蹤度 −5。','g')}}
+ S.mode=null;hint('');render()}
+function act(k){if(S.busy||S.over)return;if(k==='skill'){S.skill=!S.skill;return render()}const u=cur(),a=ACTS.find(x=>x.k===k);if(!a)return;if(u.ap<cost(a,u)||!a.ok(u))return;
+ if(a.tg){S.mode=S.mode===k?null:k;hint(S.mode?({foe:'選一個敵人（綠框）。括號裡是命中率。',melee:'選近身的敵人。',slot:'選要換到哪一格（綠框）。',ecov:'選敵方的一格，打它的防火牆。',sub:'選一個餘韻疊滿的近身敵人。'})[a.tg]:'');return render()}
+ S.mode=null;
+ if(k==='reload'){u.ap--;refill(u)}
+ else if(k==='swap'){u.ap--;u.wi=(u.wi+1)%u.ws.length;log(u.name+' 換成'+wp(u).n+'。')}
+ else if(k==='watch'){u.ap-=2;u.watch=true;log(u.name+' 監視：敵人一站上暴露的格子就攻擊。')}
+ else if(k==='end'){return next()}
+ render()
+}
+function pick(kind,v){if(S.busy||S.over||!S.mode)return;const u=cur(),k=S.mode;
+ if(kind==='unit'){const t=S.units[v];if(t.side==='P'||t.down)return;
+  if(k==='shoot'){u.ap-=cost(ACTS[0],u);attack(u,t)}
+  else if(k==='melee'){if(dist(u,t)!==1)return;u.ap-=2;attack(u,t)}
+  else if(k==='sub'){if(!canPin(u,t))return;u.ap-=2;pin(u,t)}
+  else if(k==='ad-cut'||k==='ad-mark')return admin(k.slice(3),t);else return}
+ else if(kind==='slot'){const [side,slot]=v;
+  if(k==='move'&&side==='P'){if(Math.abs(slot-u.slot)!==1||!canMove(u,slot))return;u.ap--;move(u,slot)}
+  else if(k==='cover'&&side==='E'){if(S.cov.E[slot].l===0)return;u.ap-=2;const w=wp(u);u.ram-=w.cost;const v2=Math.round(d6(w.dice)*Math.max(1,w.cm*2));log(u.name+' 打敵方第 '+slot+' 格的防火牆（'+v2+'）。');hurtCover('E',slot,v2)}
+  else if(k==='ad-wall'&&side==='P')return admin('wall',slot);
+  else if(k==='ad-breach'&&side==='E')return admin('breach',slot);else return}
+ S.mode=null;hint('');flushWatch();render()
+}
+/* ---- 畫面 ---- */
+const AV={cat:'<path d="M4 13L7 2l5 6h4l5-6 3 11a10 10 0 1 1-20 0z"/><path d="M10 15v2M18 15v2"/>',lace:'<circle cx="14" cy="16" r="9"/><path d="M4 10q10-11 20 0l-2 2q-8-7-16 0z"/><path d="M10 16v2M18 16v2"/>',bot:'<rect x="5" y="8" width="18" height="16" rx="3"/><path d="M14 8V3M11 3h6M10 15h2M16 15h2"/>'};
+function ico(k,t){return '<svg class="nd-i" viewBox="0 0 512 512" role="img" aria-label="'+t+'"><title>'+t+'</title><path d="'+IC[k]+'"/></svg>'}
+function bar(v,m,c,cls){return '<div class="nd-bar"><i class="'+(cls||'')+'" style="width:'+Math.max(0,Math.min(100,v/m*100))+'%;background:var('+c+')"></i></div>'}
+function pips(n,m,cls){let s='<span class="nd-pips '+(cls||'')+'">';for(let i=0;i<m;i++)s+='<i class="'+(i<n?'f':'')+'"></i>';return s+'</span>'}
+function render(){const u=cur(),m=S.mode,F=$('nd-field');let h='';
+ const col=(side,slot)=>{const c=S.cov[side][slot],x=S.units.find(z=>z.side===side&&z.slot===slot&&!z.down);
+  let tg=false;if(m==='move'&&side==='P'&&Math.abs(slot-u.slot)===1&&canMove(u,slot))tg=true;if((m==='cover'||m==='ad-breach')&&side==='E'&&c.l>0)tg=true;if(m==='ad-wall'&&side==='P'&&c.l<2)tg=true;
+  let s='<div class="nd-slot'+(tg?' tg':'')+'" data-s="'+side+slot+'"><div class="nd-sh" aria-label="第 '+slot+' 格，'+COVN[c.l]+'">'+(c.l?ico(c.l===2?'cov':'half',COVN[c.l])+bar(c.d,COVD[c.l],'--cv',c.l===1?'half':'')+Math.max(0,c.d):'')+'</div>';
+  if(x){const w=wp(x),ut=m&&x.side==='E'&&((m==='shoot'||m==='ad-cut'||m==='ad-mark')||(m==='melee'&&dist(u,x)===1)||(m==='sub'&&canPin(u,x)));
+   s+='<div class="nd-u '+(x.side==='P'?'p':'e')+(x.id===u.id&&!S.over?' act':'')+(ut?' tg':'')+'" data-u="'+x.id+'"><div class="nd-nm"><svg class="nd-av" viewBox="0 0 28 28" aria-hidden="true">'+AV[x.av]+'</svg><span>'+x.name+'<small>'+x.skin+(ut&&m!=='sub'&&m.slice(0,2)!=='ad'?' '+hitChance(u,x,wp(u))+'%':'')+'</small></span></div>'
+    +'<div class="nd-row" style="color:var(--ld)">'+ico('load','感載')+'<div class="nd-bv"><span>'+x.load+'</span>'+bar(x.load,x.loadMax,'--ld')+'</div></div>'
+    +'<div class="nd-row lay" title="餘韻層數（每層檢定 +1、傷害 +10%；疊滿後再過載就斷線）">'+pips(x.layers,x.layersMax,'l')+'</div>'
+    +(x.white?'':'<div class="nd-row" style="color:var(--ap)">'+ico('ap','行動點')+pips(x.ap,x.apMax)+'</div>'
+    +'<div class="nd-row" style="color:var(--mint)">'+ico('ram','RAM')+pips(x.ram,x.ramMax,'m')+'</div>'
+    +'<div class="nd-row">'+w.n+'</div>')
+    +'<div class="nd-st"><span class="sy s'+x.sync+'">'+SY[x.sync].n+'檔</span>'+(x.aim?'<span>瞄準</span>':'')+(x.flash?'<span>閃斷</span>':'')+(x.supp?'<span>被壓制</span>':'')+(x.watch?'<span>監視</span>':'')+(x.jam?'<span>干擾</span>':'')+(x.cut?'<span>斷路</span>':'')+(x.mark?'<span>標記</span>':'')+(!x.prot&&(x.elite||x.side==='P')?'<span>破損</span>':'')+'</div></div>'}
+  return s+'</div>'};
+ for(let s=4;s>=1;s--)h+=col('P',s);h+='<div class="nd-mid">近身</div>';for(let s=1;s<=4;s++)h+=col('E',s);F.innerHTML=h;
+ $('nd-round').textContent='第 '+S.round+' 回合';
+ $('nd-trace').innerHTML='追蹤度 '+S.trace+bar(S.trace,100,'--hp')+(S.loc>0?'<b>定位 '+S.loc+'</b>':'');
+ $('nd-view').textContent='● LIVE　觀看 '+S.view.toLocaleString();
+ $('nd-order').innerHTML=S.order.map((id,i)=>{const x=S.units[id];return x.down?'':'<span class="nd-chip'+(i===S.idx?' on':'')+(x.side==='E'?' e':'')+'">'+x.name+'</span>'}).join('');
+ updWheel(u,m);
+ const off=S.over||u.side==='E';
+ $('nd-sync').querySelectorAll('button').forEach(b=>{const i=+b.dataset.sy;b.classList.toggle('sel',!off&&u.sync===i);b.disabled=off||u.sync===i||u.shifted||i>u.syncMax});
+ const A=$('nd-adm');A.hidden=off||!u.admin;if(!A.hidden){$('nd-admn').textContent='管理行動（剩 '+admLeft(u)+' 次）';A.querySelectorAll('button').forEach(b=>{const a=ADM[b.dataset.ad];b.disabled=admLeft(u)<1||u.ram<a.c;b.classList.toggle('sel',m==='ad-'+b.dataset.ad)})}
+}
+const IC={"shoot": "m79.238 115.768l-28.51 67.863h406.15l-.273-67.862h-263.83v55.605h-15v-55.605h-16.68v55.605H146.1v-55.605h-17.434v55.605h-15v-55.605H79.238zm387.834 15.96v40.66h18.688v-40.66zM56.768 198.63l20.566 32.015L28.894 406.5l101.68 7.174l21.54-97.996h115.74l14.664-80.252l174.55-3.873l-.13-32.922H56.767zm206.672 37.22l-11.17 61.142h-96.05l12.98-59.05l12.53-.278l-2.224 35.5l14.262 13.576l1.003-33.65l24.69-16.264l43.98-.976z", "burst": "M96 36.61L41.21 173.6c.26.6.84 1.4 2.15 2.5c2.16 1.8 6.2 4 11.49 5.8c10.57 3.5 25.9 5.5 41.15 5.5c15.2 0 30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c1.3-1.2 1.9-1.9 2.2-2.5zm160 0L201.2 173.6c.3.6.9 1.3 2.2 2.5c2.1 1.8 6.2 4 11.4 5.8c10.6 3.5 26 5.5 41.2 5.5c15.3 0 30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c1.3-1.2 1.9-1.9 2.2-2.5zm160 0L361.2 173.6c.3.6.9 1.3 2.2 2.5c2.1 1.8 6.2 4 11.4 5.8c10.6 3.5 26 5.5 41.2 5.5s30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c1.3-1.2 1.9-1.9 2.2-2.5zM41 195.7v17c0 1 .2 1.8 2.36 3.7c2.16 1.8 6.2 4 11.49 5.8c10.57 3.5 25.9 5.5 41.15 5.5c15.2 0 30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c2.2-1.9 2.4-2.7 2.4-3.7v-17c-2.6 1.2-5.3 2.3-8.2 3.2c-13.4 4.5-30 6.5-46.8 6.5c-16.75 0-33.42-2-46.85-6.5c-2.87-.9-5.59-2-8.15-3.2m160 0v17c0 1 .2 1.8 2.4 3.7c2.1 1.8 6.2 4 11.4 5.8c10.6 3.5 26 5.5 41.2 5.5c15.3 0 30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c2.2-1.9 2.4-2.7 2.4-3.7v-17c-2.6 1.2-5.3 2.3-8.2 3.2c-13.4 4.5-30 6.5-46.8 6.5s-33.4-2-46.8-6.5c-2.9-.9-5.6-2-8.2-3.2m160 0v17c0 1 .2 1.8 2.4 3.7c2.1 1.8 6.2 4 11.4 5.8c10.6 3.5 26 5.5 41.2 5.5s30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c2.2-1.9 2.4-2.7 2.4-3.7v-17c-2.6 1.2-5.3 2.3-8.2 3.2c-13.4 4.5-30 6.5-46.8 6.5s-33.4-2-46.8-6.5c-2.9-.9-5.6-2-8.2-3.2M41 236v158.3l17.06 34.1l-16.71 33.4c.3.6.87 1.3 2.01 2.3c2.16 1.8 6.2 4 11.49 5.8c10.57 3.5 25.9 5.5 41.15 5.5c15.2 0 30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c1.2-1 1.7-1.7 2.1-2.3l-16.8-33.4l17.1-34.1V236c-2.6 1.2-5.3 2.3-8.2 3.2c-13.4 4.5-30 6.5-46.8 6.5c-16.75 0-33.42-2-46.85-6.5c-2.87-.9-5.59-2-8.15-3.2m160 0v158.3l17.1 34.1l-16.8 33.4c.4.6.9 1.3 2.1 2.3c2.1 1.8 6.2 4 11.4 5.8c10.6 3.5 26 5.5 41.2 5.5c15.3 0 30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c1.2-1 1.7-1.7 2.1-2.3l-16.8-33.4l17.1-34.1V236c-2.6 1.2-5.3 2.3-8.2 3.2c-13.4 4.5-30 6.5-46.8 6.5s-33.4-2-46.8-6.5c-2.9-.9-5.6-2-8.2-3.2m160 0v158.3l17.1 34.1l-16.8 33.4c.4.6.9 1.3 2.1 2.3c2.1 1.8 6.2 4 11.4 5.8c10.6 3.5 26 5.5 41.2 5.5s30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c1.2-1 1.7-1.7 2.1-2.3l-16.8-33.4l17.1-34.1V236c-2.6 1.2-5.3 2.3-8.2 3.2c-13.4 4.5-30 6.5-46.8 6.5s-33.4-2-46.8-6.5c-2.9-.9-5.6-2-8.2-3.2", "melee": "M416.833 424.997a51.54 51.54 0 0 0-13.354 22.973l-78.98-78.98l44.972-44.97l78.98 78.978a51.54 51.54 0 0 0-22.974 13.354zm-209.087-202.24l-86.28-97.65l97.653 86.277l90.77 80.19l14.927-14.927c-90.534-99.383-137.713-167.87-176.19-212.085c0 0-39.608 13.795-122.627-38.08c0 0 7.062 120.442 252.034 296.948l9.913-9.913zm155.22 82.16a14.43 14.43 0 0 0-20.37-20.37l-57.57 57.567a14.43 14.43 0 0 0 20.37 20.37zM486 429.15a33.746 33.746 0 0 0-47.722 0l-8.646 8.647a33.746 33.746 0 0 0 0 47.722z", "aim": "M247 32v23.21C143.25 59.8 59.798 143.25 55.21 247H32v18h23.21C59.8 368.75 143.25 452.202 247 456.79V480h18v-23.21C368.75 452.2 452.202 368.75 456.79 265H480v-18h-23.21C452.2 143.25 368.75 59.798 265 55.21V32zm0 41.223V128h18V73.223C359 77.76 434.24 153 438.777 247H384v18h54.777C434.24 359 359 434.24 265 438.777V384h-18v54.777C153 434.24 77.76 359 73.223 265H128v-18H73.223C77.76 153 153 77.76 247 73.223M247 224v23h-23v18h23v23h18v-23h23v-18h-23v-23z", "move": "m241.844 28.625l-21.188 5.063L33.25 78.53l-9.594 2.282l2.813 9.47l54.718 184.03l6.156 20.782l10.875-18.75l36.624-63.125l39.344 22.655l9.375-16.188l-47.47-27.312L128 187.72l-4.656 8.06l-30.406 52.47l-45.75-153.844l156.625-37.47l-30.344 52.345l-4.69 8.126l8.126 4.656L332.75 211.75l-17.594 30.344l16.22 9.312l22.25-38.375l4.687-8.124l-8.125-4.656l-155.844-89.688l36.594-63.093zm-28.25 176.47l-57.438 99.31l155.22 89.5l8.093 4.658l-4.69 8.093l-44.06 76.25l218.81-52.5l-63.874-215.47l-44.094 76.25l-4.656 8.064l-8.094-4.656l-155.218-89.5z", "reload": "M230.218 16c-14.245 0-51.563 11.946-51.563 26.718v26.718h-51.093C99.072 69.436 76 93.326 76 122.874V442.56C76 472.11 99.072 496 127.563 496h256.875c28.49-.002 51.562-23.892 51.562-53.44V122.874c0-29.547-23.072-53.437-51.563-53.437h-51.093V42.718c0-14.774-37.317-26.718-51.562-26.718H230.22zM256 122.875V256h102.657L256 442.563V309.438H153.343z", "swap": "m83.5 25l-32 64v87c-.67 15.934 3.847 27.945 13.793 37.816c3.442 3.367 7.892 6.805 13.102 10.227L83.5 89l5.344 141.326c7.778 4.3 16.61 8.477 26.064 12.344c.194.08.397.155.592.234V89zm216.666 0C281.833 25 263.5 61.667 263.5 98.334c0 17.585 4.223 35.16 10.635 48.7c9.11 1.493 18.938 3.565 29.187 6.19c4.395-7.873 14.92-14.213 40.178-16.87V72.577C319.173 60.896 300.166 38.2 300.166 25m146.668 0c0 13.2-19.007 35.896-43.334 47.576v63.78c43.31 4.554 43.334 19.928 43.334 35.31c18.333 0 36.666-36.665 36.666-73.332S465.167 25 446.834 25M361.5 50v122.852a370 370 0 0 1 24 11.148V50zm-127 72.92l-58.45 61.9l58.45 58.453V208h9c34.25 0 90.23 12.187 135.408 30.67c22.59 9.24 42.344 19.89 55.385 32.646c6.52 6.38 11.518 13.45 13.514 21.65c.867 3.562.914 7.297.414 11.014c7.95-19.23 4.975-35.52-5.345-51.625c-11.208-17.49-31.88-33.91-56.424-47.478C337.367 177.743 272.5 162 243.5 162h-9zm-195.72 71.1c-7.95 19.23-4.975 35.52 5.345 51.625c11.208 17.49 31.88 33.91 56.424 47.478C149.633 320.257 214.5 336 243.5 336h9v39.08l58.45-61.9l-58.45-58.453V290h-9c-34.25 0-90.23-12.187-135.408-30.67c-22.59-9.24-42.344-19.89-55.385-32.646c-6.52-6.38-11.518-13.45-13.514-21.65c-.867-3.562-.914-7.297-.414-11.014zm322.72 57.212V368h24V261.23a277 277 0 0 0-13.408-5.9c-3.446-1.41-7-2.766-10.592-4.098m-310 29.862v41.44h23.17l.885-23.39c-8.66-5.593-16.772-11.594-24.055-18.05m40.313 27.767l.517 13.675h23.17v-1.777c-8.056-3.678-15.987-7.64-23.66-11.88l-.028-.017zM28.5 340.536V360h110v-19.465zM63.5 375v80c-8 0-28 32 20 32s28-32 20-32v-80zm298 11v94h24v-94z", "item": "M256.23 29.742c-17.72 0-35.439 3.314-51.443 9.944c-13.634 5.647-25.485 18.372-35.219 29.693A283 283 0 0 0 155.625 87h22.7c9.04-10.028 21.336-25.336 33.35-30.686c27.12-11.233 61.992-11.233 89.112 0c13.899 8.59 24.041 19.18 33.35 30.686h22.699a283 283 0 0 0-13.941-17.621c-9.734-11.32-21.585-24.046-35.22-29.693c-16.003-6.63-33.725-9.944-51.445-9.944M144.23 105c-16.23 2.136-38.662 23-39 39v.02c-.109 52.992 25.641 85.63 57.801 106.422c21.377 13.82 45.768 21.86 66.2 25.715V231h54v45.154c20.407-3.855 44.758-11.894 66.11-25.71C381.475 229.651 407.232 197 407.232 144c-.123-16-25.018-37.725-39-39zm-39.232 110.178L105.225 487h301.998l-.225-271.18c-12.145 21.258-29.246 37.681-47.877 49.737c-25.077 16.226-52.67 25.127-75.89 29.017V329h-54v-34.424c-23.242-3.889-50.87-12.788-75.973-29.017c-18.834-12.177-36.106-28.808-48.26-50.381M247.23 249v62h18v-62zm-124 106h114v114h-114zm152 0h114v114h-114zm-134 18v20.203c14.631 21.212 27.883 29.797 39 29.797s24.37-8.585 39-29.795V373zm152 0v20.203c14.631 21.212 27.883 29.797 39 29.797s24.37-8.585 39-29.795V373zm-152 48.736V451h78v-29.264c-12.116 12.358-25.028 19.264-39 19.264c-13.971 0-26.884-6.906-39-19.264m152 0V451h78v-29.264c-12.116 12.358-25.028 19.264-39 19.264c-13.971 0-26.884-6.906-39-19.264", "cover": "m494 18.02l-101 .103V119h101zm-119 .12l-56.29 12.065l-31.01 64.361l-101.534-35.952L137 119h238zM18 137v61.63l12.416 31.981L62.575 247H247V137zm247 0v110h229V137zM76.294 322.591L18 332.203V375h101V265H65.317zM137 265v110h238c-48.428-109.932-.057-1.24-48.222-110zM18 393v100.98l199-.236L247 393zm247 0v55.79c66.067 45.222-.134-.028 65.798 44.869L494 493.49V393z", "watch": "M256 105c-60.25 0-124.749 38.39-167.945 77.66c-34.931 31.756-58.722 62.36-66.88 73.34c8.158 10.98 31.949 41.584 66.88 73.34C131.25 368.61 195.75 407 256 407s124.749-38.39 167.945-77.66c34.931-31.756 58.722-62.36 66.88-73.34c-8.158-10.98-31.949-41.584-66.88-73.34C380.75 143.39 316.25 105 256 105m0 23a128 128 0 0 1 63.486 16.969A48 48 0 0 0 288 190l.023.453A72.4 72.4 0 0 0 265 183.576V160h-18v23.576c-33.034 4.095-59.33 30.39-63.424 63.424H160v18h23.576c4.095 33.034 30.39 59.33 63.424 63.424V352h18v-23.576c33.034-4.095 59.33-30.39 63.424-63.424H352v-18h-23.576a72 72 0 0 0-1.98-10.014A48 48 0 0 0 336 238a48 48 0 0 0 41.023-23.195A128 128 0 0 1 384 256a128 128 0 0 1-128 128a128 128 0 0 1-128-128a128 128 0 0 1 128-128m-9 73.738V224h18v-22.262c23.237 3.792 41.47 22.025 45.262 45.262H288v18h22.262c-3.792 23.237-22.025 41.47-45.262 45.262V288h-18v22.262c-23.237-3.792-41.47-22.025-45.262-45.262H224v-18h-22.262c3.792-23.237 22.025-41.47 45.262-45.262", "subdue": "M326.953 22.87L306.68 83.685l20.273 20.273l-115.428 115.427c-16.39-8-34.277-14.452-51.84-18.502c-14.247-3.285-28.136-4.902-40.802-4.772c-16.84.173-31.505 3.44-41.975 9.973L305.914 435.09c11.447-18.345 12.853-49.592 5.2-82.776c-4.05-17.564-10.502-35.45-18.5-51.84l115.427-115.43l20.274 20.274l60.817-20.273L326.954 22.87zM159.207 313.84L22.87 489.13l175.29-136.337z", "flee": "M217 28.098v455.804l142-42.597V70.697zm159.938 26.88l.062 2.327V87h16V55zM119 55v117.27h18V73h62V55zm258 50v16h16v-16zm0 34v236h16V139zm-240 58.727V233H41v46h96v35.273L195.273 256zM244 232c6.627 0 12 10.745 12 24s-5.373 24-12 24s-12-10.745-12-24s5.373-24 12-24M137 339.73h-18V448h18zM377 393v14h16v-14zm0 32v23h16v-23zM32 471v18h167v-18zm290.652 0l-60 18H480v-18z", "skill": "M228.844 32.22v114.218h17.687V32.218h-17.686zm-108.25.624c-15.507 0-28.094 12.586-28.094 28.093S105.087 89 120.594 89c12.655 0 23.34-8.372 26.844-19.875h44.937v77.313h17.688v-95H147.03c-3.888-10.837-14.262-18.593-26.436-18.593zm193.25 0c-15.507 0-28.063 12.586-28.063 28.093c0 12.124 7.677 22.45 18.44 26.376v59.124h17.655V87.844c11.596-3.452 20.063-14.193 20.063-26.906c0-15.508-12.587-28.094-28.094-28.094zM266.124 92.5v53.938h17.657V92.5h-17.655zm188.532 4.03c-15.507 0-28.094 12.588-28.094 28.095c0 13.083 8.948 24.074 21.063 27.188v27.468h-92.938v17.657h110.624v-46.342c10.223-4.192 17.407-14.233 17.407-25.97c0-15.507-12.557-28.094-28.064-28.094zM30.187 123.657v17.688H96.75v55.594h62.814V179.28h-45.126v-55.624zm147.032 40.47v159.718h159.81v-159.72H177.22zm17.56 15.655h17.657v78.595l32.407 32.406h75.28v17.658H237.5l-2.594-2.594l-10.75-10.75c-1.033 7.385-7.36 13.062-15.03 13.062c-8.392 0-15.19-6.796-15.19-15.187c0-7.682 5.696-13.98 13.095-15l-9.655-9.658l-2.594-2.593V179.78zm54.94.157h17.686v55.313h52.53l.002 17.688H249.72v-73zM53.124 217.375v89.969c-11.49 3.512-19.844 14.198-19.844 26.844c0 15.505 12.557 28.093 28.064 28.093s28.093-12.587 28.093-28.092c0-12.195-7.79-22.564-18.656-26.438v-72.72h88.782v-17.655H53.124zm301.563 0v17.656h53.968v-17.655h-53.97zm99.968 21.97c-10.898 0-20.342 6.21-25 15.28h-74.97l.002 17.688H427c2.325 13.168 13.824 23.187 27.656 23.187c15.507 0 28.063-12.588 28.063-28.094s-12.557-28.062-28.064-28.062zm-349.062 15.28v17.688h53.97v-17.688zm17.156 36.47v84.217c-11.498 3.513-19.875 14.2-19.875 26.844c0 15.506 12.587 28.094 28.094 28.094c15.506 0 28.06-12.588 28.06-28.094c0-12.194-7.766-22.564-18.624-26.437v-66.94h19.156v-17.686h-36.81zm231.938 0v17.686h45.156v95.283c-11.323 3.624-19.53 14.26-19.53 26.78c-.002 15.506 12.585 28.063 28.092 28.063s28.063-12.557 28.063-28.062c0-12.32-7.935-22.778-18.97-26.563V291.095h-62.814zM192.375 341.53v54.033h17.688V341.53zm36.47 0v86.564c-11.013 3.794-18.94 14.233-18.94 26.53c0 15.506 12.588 28.095 28.095 28.095s28.063-12.59 28.063-28.095c0-12.53-8.203-23.14-19.532-26.75V341.53zm37.28 0v54.033h17.688l-.032-54.032h-17.655zm38.094 0v140.064h17.655V341.53H304.22z", "cov": "m494 18.02l-101 .103V119h101zm-119 .12l-238 .247V119h238zm-256 .266L18 18.51V119h101zM18 137v110h229V137zm247 0v110h229V137zM18 265v110h101V265zm119 0v110h238V265zm256 0v110h101V265zM18 393v100.98l229-.236V393zm247 0v100.727l229-.237V393z", "half": "m494 18.02l-101 .103V119h101zm-119 .12l-56.29 12.065l-31.01 64.361l-101.534-35.952L137 119h238zM18 137v61.63l12.416 31.981L62.575 247H247V137zm247 0v110h229V137zM76.294 322.591L18 332.203V375h101V265H65.317zM137 265v110h238c-48.428-109.932-.057-1.24-48.222-110zM18 393v100.98l199-.236L247 393zm247 0v55.79c66.067 45.222-.134-.028 65.798 44.869L494 493.49V393z", "hp": "M480.25 156.355c0 161.24-224.25 324.43-224.25 324.43S31.75 317.595 31.75 156.355c0-91.41 70.63-125.13 107.77-125.13c77.65 0 116.48 65.72 116.48 65.72s38.83-65.73 116.48-65.73c37.14.01 107.77 33.72 107.77 125.14", "load": "M256 16c-120 0-135 105-60 195c0-165 135-45 135-135c0-30-45-60-75-60m146.25 134.532C370.61 152.554 334.75 167.875 301 196c165 0 45 135 135 135c30 0 60-45 60-75c0-75-41.016-108.838-93.75-105.468M76 181c-30 0-60 45-60 75c0 120 105 135 195 60c-165 0-45-135-135-135m175.782 15A60 60 0 0 0 196 256a60 60 0 0 0 120 0a60 60 0 0 0-64.218-60M316 301c0 165-135 45-135 135c0 30 45 60 75 60c120 0 135-105 60-195", "ap": "M29.805 29.777L242.14 209.55H118.712l112.54 86.784H95.995l225.656 174.012l-81.537-116.05l66.487.143l179.185 138.175l-171.96-244.746h84.568L248.082 29.776z", "ram": "m169.5 38.97l-2.406 9l-4.313 16.093l-34.936-9.344l-3.375 12.53l-26.75-7.156l-4.845 18.03l26.78 7.19l-2.874 10.655l34.94 9.343l-12.25 45.718l-34.94-9.343l-3.31 12.282l-26.75-7.157l-4.845 18.062l26.75 7.156l-2.906 10.907l34.936 9.344l-12.53 46.69l-34.907-9.345L78 240.75l-26.78-7.188l-4.845 18.032l26.78 7.187l-3.25 12.095l34.907 9.344l-12 44.75l-34.906-9.345l-2.875 10.75l-26.78-7.188l-4.813 18.032l26.75 7.155l-3.343 12.53l34.906 9.345l-4.47 16.688l-2.405 9.03l9.03 2.407l254.845 68.28l9.03 2.408l2.408-9.032l4.468-16.655l34.813 9.313l3.342-12.5l27.032 7.25l4.844-18.032l-27.032-7.25l2.875-10.75l-34.81-9.312l12-44.75l34.81 9.312l3.25-12.094l27.033 7.25l4.812-18.03l-27.03-7.25l3-11.157l-34.814-9.313l12.5-46.656l34.814 9.313L439 263.843l27.03 7.25l4.845-18.063l-27.03-7.25l3.28-12.31l-34.78-9.314l12.25-45.72l34.78 9.314l2.844-10.625l27.06 7.25l4.845-18.063l-27.063-7.25l3.375-12.593l-34.78-9.314l4.312-16.062l2.436-9.03l-9.03-2.44l-254.845-68.25l-9.03-2.405zm13.188 22.874L419.53 125.28l-84.966 316.91L97.75 378.75zM375.28 132.78L305.5 393.22l-175.313-47l-4.843 18.06l184.376 49.41l9 2.406l2.436-9.03l72.188-269.44l-18.063-4.843z"};
+(function buildWheel(){const CX=174,CY=174,pt=(r,a)=>{const t=(a-90)*Math.PI/180;return [(CX+r*Math.cos(t)).toFixed(1),(CY+r*Math.sin(t)).toFixed(1)]};
+ const arc=(r0,r1,a0,a1)=>{const A0=pt(r1,a0),A1=pt(r1,a1),B1=pt(r0,a1),B0=pt(r0,a0);return 'M'+A0+'A'+r1+' '+r1+' 0 0 1 '+A1+'L'+B1+'A'+r0+' '+r0+' 0 0 0 '+B0+'Z'};
+ const ring=(g,r0,r1,off)=>{const L=ACTS.filter(a=>a.g===g),st=360/L.length;return L.map((a,i)=>{const a0=off+i*st+1,a1=off+(i+1)*st-1,c=pt((r0+r1)/2,(a0+a1)/2);
+  return '<g class="r-'+g+'" data-a="'+a.k+'" role="button" tabindex="0" aria-label="'+a.n+'，'+a.c+' 點行動點。'+a.d+'"><path d="'+arc(r0,r1,a0,a1)+'"/><path class="ic" transform="translate('+(+c[0]-15)+' '+(+c[1]-21)+') scale(.0586)" d="'+IC[a.k]+'"/><text class="c" x="'+c[0]+'" y="'+(+c[1]+20)+'">'+a.c+'</text></g>'}).join('')};
+ $('nd-wbox').innerHTML='<svg class="nd-w" viewBox="0 0 348 348" role="group" aria-label="行動圓環"><circle class="hit" cx="174" cy="174" r="173"/>'+ring('tac',128,172,-45)+ring('res',84,126,-60)+ring('atk',42,82,0)
+  +'<g class="r-skl" data-a="skill" role="button" tabindex="0" aria-label="技能清單"><circle class="bg" cx="174" cy="174" r="40"/><path class="ic" transform="translate(148 148) scale(.1016)" d="'+IC.skill+'"/></g></svg>';
+})();
+
+function tipHTML(k){if(k==='skill')return '<b>技能</b><p>打開技能清單。</p>';const a=ACTS.find(x=>x.k===k),u=cur();if(!a)return '';
+ const c=cost(a,u),no=u.side==='P'&&(u.ap<c?'行動點不夠':(!a.ok(u)?a.w:''));return '<b>'+a.n+'</b><i>'+c+' 點</i><i class="rm">RAM '+a.r+'</i><p>'+a.d+'</p>'+(no?'<p class="no">現在做不到：'+no+'。</p>':'')}
+function updWheel(u,m){const off=S.over||u.side==='E';$('nd-act').classList.toggle('off',off);$('nd-endbtn').disabled=off;$('nd-endbtn').classList.toggle('dis',off);
+ $('nd-wbox').querySelectorAll('g[data-a]').forEach(g=>{const k=g.getAttribute('data-a'),a=ACTS.find(x=>x.k===k);
+  const dis=off||(a?(u.ap<cost(a,u)||!a.ok(u)):false);g.classList.toggle('dis',dis);if(a){const tx=g.querySelector('text.c');if(tx)tx.textContent=cost(a,u)}g.classList.toggle('sel',k==='skill'?!!S.skill:m===k);g.setAttribute('aria-disabled',dis);g.setAttribute('tabindex',dis?-1:0)});
+ $('nd-flee').disabled=off||u.ap<1;$('nd-give').disabled=off;
+ $('nd-skl').hidden=!S.skill;if(off)hov(null)}
+const WB=$('nd-wbox'),TIP=$('nd-tip'),touch=window.matchMedia&&window.matchMedia('(hover: none)').matches;let HV=null;
+function hov(g,x,y){if(HV&&HV!==g)HV.classList.remove('hov');HV=g;if(!g){TIP.hidden=true;return}
+ if(!g.classList.contains('hov')){g.parentNode.appendChild(g);g.classList.add('hov')}
+ TIP.innerHTML=tipHTML(g.getAttribute('data-a'));TIP.hidden=false;const R=$('nd-act').getBoundingClientRect();
+ if(x==null){const b=g.getBoundingClientRect();x=b.right;y=b.top}
+ let L=x-R.left+18,T=y-R.top+18;const w=TIP.offsetWidth,h=TIP.offsetHeight;if(L+w>R.width)L=Math.max(0,x-R.left-w-18);if(y+18+h>window.innerHeight)T=y-R.top-h-14;
+ TIP.style.left=L+'px';TIP.style.top=T+'px'}
+WB.addEventListener('mousemove',e=>{const g=e.target.closest('g[data-a]');if(g)hov(g,e.clientX,e.clientY);else if(HV)hov(HV,e.clientX,e.clientY)});
+WB.addEventListener('mouseleave',()=>hov(null));
+WB.addEventListener('focusin',e=>{const g=e.target.closest('g[data-a]');if(g)hov(g)});
+WB.addEventListener('focusout',()=>hov(null));
+$('nd-act').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const inW=WB.contains(b);
+ if(touch&&inW&&HV!==b){hov(b);return}
+ if(b.classList.contains('dis'))return;act(b.getAttribute('data-a'));if(touch)hov(null)});
+document.addEventListener('click',e=>{if(touch&&!WB.contains(e.target))hov(null)});
+$('nd-act').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const b=e.target.closest('g[data-a]');if(b&&!b.classList.contains('dis')){e.preventDefault();act(b.getAttribute('data-a'))}});
+
+$('nd-sync').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled||S.busy||S.over)return;const u=cur();u.sync=+b.dataset.sy;u.shifted=true;log(u.name+' 換到'+SY[u.sync].n+'檔：檢定 '+(SY[u.sync].c>=0?'+':'')+SY[u.sync].c+'、受到的感載 ×'+SY[u.sync].m+(u.sync===3?'、每回合多回 1 點行動點':'')+'。');render()});
+$('nd-adm').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled||S.busy||S.over)return;const k=b.dataset.ad,a=ADM[k];
+ if(!a.tg)return admin(k);S.mode=S.mode==='ad-'+k?null:'ad-'+k;hint(S.mode?a.n+'（RAM '+a.c+'）：'+a.d+' 選目標（綠框）。':'');render()});
+$('nd-field').addEventListener('click',e=>{const x=e.target.closest('.nd-u.tg');if(x)return pick('unit',+x.dataset.u);const s=e.target.closest('.nd-slot.tg');if(s)pick('slot',[s.dataset.s[0],+s.dataset.s[1]])});
+/* 拔線與投降：長按 0.6 秒才生效，放開就取消 */
+function hold(btn,fn){let t=null,fired=false;const go=()=>{if(btn.disabled||S.busy||S.over)return;btn.classList.add('on');t=setTimeout(()=>{t=null;fired=true;btn.classList.remove('on');fn()},600)},
+ stop=()=>{if(t){clearTimeout(t);t=null}btn.classList.remove('on')};
+ btn.addEventListener('pointerdown',e=>{e.preventDefault();go()});['pointerup','pointerleave','pointercancel'].forEach(v=>btn.addEventListener(v,stop));
+ btn.addEventListener('contextmenu',e=>e.preventDefault());
+ btn.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')){e.preventDefault();if(!e.repeat)go()}});btn.addEventListener('keyup',e=>{if(e.key==='Enter'||e.key===' ')stop()});
+ btn.addEventListener('click',()=>{if(fired){fired=false;return}if(!btn.disabled)hint(btn.textContent.replace(/\d/g,'')+'要長按，免得誤觸。')})}
+function unplug(){const u=cur();if(u.ap<1)return;u.ap--;u.unp=true;u.out=true;log(u.name+' 拔線：登出，退出這場戰鬥。','h');fall(u,' 離開了內海。');if(!S.over)next();else render()}
+function giveUp(){S.over=true;S.mode=null;const el=$('nd-end');el.style.display='block';el.textContent='投降：戰鬥結束，算戰敗。之後不再受感載，還站著的人不算倒下。贏的是粉蕾絲，所以正式的遊戲裡這裡直接接「被釘在線上」的活捉事件，和全隊倒下時是同一個。';log('投降。','h');render()}
+hold($('nd-flee'),unplug);hold($('nd-give'),giveUp);
+$('nd-reset').addEventListener('click',init);
+init();
+})();
+</script>
+<!--skin:start--><style>/* 新風格（tools/art/restyle_demos.py 產生） */
+.nd.nd.nd{--bg:#FFE6F0;--bg1:#F8C3D8;--bg2:#FFF4E8;--line:#1E2346;--ink:#1E2346;--ink2:#3B4170;--ink3:#6D6F94;--pink:#F06AA0;--pinkhi:#D9307A;--mint:#2EC2B0;--strong:#1E2346;--tint:#45D6C522;--zebra:#1E234608;
+  --hp:#FF4A4A;--ld:#F06AA0;--ap:#F2B33D;--apc:#B07A00;--cv:#2EC2B0;
+  border:3px solid #1E2346;border-radius:16px;background-color:#F8C3D8;background-image:radial-gradient(#ffffff70 1.2px,transparent 1.6px);background-size:14px 14px;box-shadow:6px 6px 0 #1E2346;padding:16px}
+.nd .nd-top b{color:#1E2346;font-weight:900;background:#45D6C5;padding:2px 10px;border-radius:999px;border:2px solid #1E2346}
+.nd .nd-slot{background:#FFF4E8cc;border:2px solid #1E2346;border-radius:12px}
+.nd .nd-u{background:#FFF4E8;border:2px solid #1E2346;border-left:6px solid #45D6C5;border-radius:10px;box-shadow:3px 3px 0 #1E2346}
+.nd .nd-u.act{border-color:#F06AA0;box-shadow:3px 3px 0 #F06AA0}
+.nd .nd-btn{border:2px solid #1E2346;border-radius:999px;background:#FFF4E8;font-weight:800;box-shadow:2px 2px 0 #1E2346}
+.nd .nd-btn:hover:not(:disabled){background:#45D6C5;color:#1E2346}
+.nd .nd-chip{border:2px solid #1E2346;border-radius:999px;background:#FFF4E8;color:#1E2346;font-weight:800}
+.nd .nd-chip.on{background:#F06AA0;color:#fff}
+.nd .nd-bar{height:9px;border-radius:5px;background:#FFFFFF;border:2px solid #1E2346;overflow:hidden}
+.nd .nd-bar i[style*="--hp"]{background:linear-gradient(90deg,#FF4A4A,#FF8A5C)!important}
+.nd .nd-bar i[style*="--ld"]{background:repeating-linear-gradient(120deg,#F06AA0 0 6px,#F58DBA 6px 9px)!important}
+.nd .nd-log,.nd .nd-skl{background:#FFF4E8;border:2px solid #1E2346;border-radius:12px;color:#3B4170}
+.nd .nd-tip{background:#FFF4E8;border:2px solid #1E2346;border-radius:10px;color:#3B4170;box-shadow:3px 3px 0 #1E2346}
+.nd .nd-end{border:2px solid #1E2346;border-radius:12px;background:#FFF4E8;color:#D9307A}
+.nd .nd-w path:not(.ic),.nd .nd-w circle.bg{stroke:#1E2346;stroke-width:2}
+.nd .nd-w path.ic{fill:#1E2346}
+.nd .nd-w text{fill:#1E2346}
+</style><!--skin:end-->
+<!--demo:end-->
+</body></html>

@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>現實戰鬥 Demo</title>
+<style>
+:root{--bg:#0d0a14;--bg1:#151020;--bg2:#1d1630;--line:#3a2d52;--ink:#efe9f7;--ink2:#b8adc9;--ink3:#8a7f9e;--pink:#ff4fa3;--pinkhi:#ff8fc8;--mint:#5dffb0;--strong:#fff;--tint:#ff4fa312;--zebra:#ffffff07;--font:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;--mono:Consolas,monospace}
+body{margin:0;padding:24px 16px;background:#17111F;color:var(--ink);font-family:var(--font)}
+</style></head><body>
+<!--demo:start-->
+<style>
+.cd{--hp:#ff3355;--ld:#ff4fa3;--ap:#ffd66b;--apc:#ffd66b;--cv:#4fd8ff;border:1px solid var(--line);background:var(--bg1);padding:14px;margin:18px 0;font-size:13px;line-height:1.5}
+.cd *{box-sizing:border-box}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .cd{--hp:#c81e3a;--ld:#c2186b;--ap:#b07a00;--apc:#6b4200;--cv:#0a6f96}}
+:root[data-theme="light"] .cd{--hp:#c81e3a;--ld:#c2186b;--ap:#b07a00;--apc:#6b4200;--cv:#0a6f96}
+.cd-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.cd-top b{color:var(--pinkhi);letter-spacing:2px}.cd-top .sp{flex:1}
+.cd-order{display:flex;gap:4px;flex-wrap:wrap}
+.cd-chip{padding:1px 7px;border:1px solid var(--cv);color:var(--cv);font-size:12px}
+.cd-chip.e{border-color:var(--hp);color:var(--hp)}.cd-chip.on{border-color:var(--ap);color:var(--apc);background:color-mix(in srgb,var(--ap) 18%,transparent);font-weight:700}
+.cd-scroll{overflow-x:auto}
+.cd-field{display:grid;grid-template-columns:repeat(4,1fr) 26px repeat(4,1fr);gap:6px;min-width:760px}
+.cd-mid{display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:11px;writing-mode:vertical-rl;letter-spacing:4px}
+.cd-slot{border:1px solid var(--line);background:var(--bg);min-height:196px;padding:6px;display:flex;flex-direction:column;gap:6px;position:relative}
+.cd-slot.tg{outline:2px solid var(--mint);cursor:pointer}.cd-slot.tg:hover{background:var(--tint)}
+.cd-sh{display:flex;align-items:center;gap:5px;color:var(--cv);font-size:11px;min-height:16px}.cd-sh .cd-bar{flex:1}
+.cd-i{width:14px;height:14px;flex:none;fill:currentColor;display:block}
+.cd-bar i.half{background:repeating-linear-gradient(135deg,var(--cv) 0 4px,transparent 4px 8px)!important}
+.cd-bv{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}.cd-row .cd-bv .cd-bar{flex:none}.cd-bv span{font-size:10.5px;line-height:1.1;text-align:right;color:var(--ink2)}
+.cd-row.lay{padding-left:19px;min-height:11px}
+.cd-dir{display:grid;grid-template-columns:repeat(4,1fr) 26px repeat(4,1fr);gap:6px;min-width:760px;margin-top:6px;color:var(--ink3);font-size:11px}
+.cd-dir div{grid-column:span 4;display:flex;align-items:center;gap:8px}.cd-dir div.e{grid-column:6/span 4;flex-direction:row-reverse}
+.cd-dir svg{flex:1;height:12px;min-width:0}.cd-dir div.p svg{-webkit-mask:linear-gradient(90deg,#0003,#000);mask:linear-gradient(90deg,#0003,#000)}.cd-dir div.e svg{transform:scaleX(-1);-webkit-mask:linear-gradient(90deg,#0003,#000);mask:linear-gradient(90deg,#0003,#000)}
+.cd-dir polyline{fill:none;stroke:var(--pink);stroke-width:1.6}.cd-dir div.e polyline{stroke:var(--hp)}
+.cd-bar{height:5px;background:var(--bg2);position:relative}.cd-bar i{position:absolute;inset:0 auto 0 0;display:block}
+.cd-u{border:1px solid var(--line);padding:6px;background:var(--bg1);flex:1;display:flex;flex-direction:column;gap:4px}
+.cd-u.act{border-color:var(--pink);box-shadow:0 0 0 1px var(--pink) inset}
+.cd-u.dn{opacity:.35}
+.cd-u.tg{outline:2px solid var(--mint);cursor:pointer}.cd-u.tg:hover{background:var(--tint)}
+.cd-nm{font-weight:700;color:var(--strong);display:flex;justify-content:space-between;gap:4px}
+.cd-nm small{color:var(--ink3);font-weight:400}
+.cd-row{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink2)}
+.cd-row .cd-bar{flex:1}
+.cd-pips{display:flex;gap:2px}.cd-pips i{width:8px;height:8px;border:1px solid var(--ap);display:block}.cd-pips i.f{background:var(--ap)}
+.cd-pips.m i{border-color:var(--ink2);border-radius:50%}.cd-pips.m i.f{background:var(--ink2)}
+.cd-pips.l i{border-color:var(--ld);transform:rotate(45deg);width:7px;height:7px;margin:0 2px}.cd-pips.l i.f{background:var(--ld)}
+.cd-st{display:flex;gap:3px;flex-wrap:wrap;min-height:16px}.cd-st span{font-size:10.5px;padding:0 4px;border:1px solid var(--line);color:var(--pinkhi)}
+.cd-act{display:flex;gap:22px;margin:22px 0 14px;align-items:center;position:relative}
+.cd-wbox{position:relative;width:276px;height:276px;flex:none;margin:8px 0 8px 12px}
+.cd-w{width:100%;height:100%;overflow:visible;display:block;touch-action:manipulation}
+.cd-w .hit{fill:transparent;stroke:none}
+.cd-w path:not(.ic),.cd-w circle.bg{fill:var(--bg2);stroke:var(--line);stroke-width:1.2}
+.cd-w path.ic{fill:var(--ink);stroke:none;pointer-events:none}
+.cd-w .r-atk path:not(.ic){fill:color-mix(in srgb,var(--hp) 18%,var(--bg2))}
+.cd-w .r-res path:not(.ic){fill:color-mix(in srgb,var(--ap) 16%,var(--bg2))}
+.cd-w .r-tac path:not(.ic){fill:color-mix(in srgb,var(--cv) 16%,var(--bg2))}
+.cd-w .r-skl circle.bg{fill:color-mix(in srgb,var(--mint) 18%,var(--bg2))}
+.cd-w g[data-a]{cursor:pointer;outline:none;transform-box:fill-box;transform-origin:center;transition:transform .16s cubic-bezier(.2,.8,.2,1)}
+.cd-w g.hov{transform:scale(1.42)}
+@media (prefers-reduced-motion:reduce){.cd-w g[data-a]{transition:none}}
+.cd-w g.dis{cursor:not-allowed}.cd-w g.dis text,.cd-w g.dis .ic{opacity:.28}
+.cd-w g.hov:not(.dis) path:not(.ic),.cd-w g.hov:not(.dis) circle.bg,.cd-w g:focus-visible path:not(.ic),.cd-w g:focus-visible circle.bg{stroke:var(--pink);stroke-width:2.2}
+.cd-w g.sel path:not(.ic),.cd-w g.sel circle.bg{stroke:var(--mint);stroke-width:3}
+.cd-w text{fill:var(--ink);font-size:21px;font-weight:700;text-anchor:middle;pointer-events:none}
+.cd-w text.c{fill:var(--apc);font-size:12px}
+.cd-act.off .cd-wbox{pointer-events:none;opacity:.45}
+.cd-side{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.cd-tip{position:absolute;z-index:20;max-width:240px;border:1px solid var(--pink);background:var(--bg);padding:7px 10px;font-size:12.5px;color:var(--ink2);pointer-events:none;box-shadow:0 6px 18px #0008}
+.cd-tip[hidden]{display:none}.cd-tip b{color:var(--strong);font-size:14px}.cd-tip i{font-style:normal;color:var(--apc);font-weight:700;margin-left:8px}.cd-tip p{margin:3px 0 0}.cd-tip .no{color:var(--hp)}
+.cd-skl{border:1px solid var(--line);padding:8px 10px;background:var(--bg);font-size:12.5px;color:var(--ink2);max-width:420px}.cd-skl b{color:var(--mint)}.cd-skl p{margin:4px 0 0}
+.cd-btn{font:inherit;color:var(--ink);background:var(--bg2);border:1px solid var(--line);padding:6px 11px;cursor:pointer;min-height:36px}
+.cd-btn:hover:not(:disabled){border-color:var(--pink);color:var(--pinkhi)}
+.cd-btn:disabled{opacity:.35;cursor:not-allowed}.cd-btn.sel{border-color:var(--mint);color:var(--mint)}
+.cd-btn small{color:var(--ap);margin-left:4px}
+.cd-hint{color:var(--ink2);min-height:20px;margin-bottom:8px}
+.cd-log{height:170px;overflow-y:auto;border:1px solid var(--line);background:var(--bg);padding:8px 10px;font-size:12.5px;color:var(--ink2)}
+.cd-log p{margin:0 0 3px;max-width:none}.cd-log .h{color:var(--pinkhi)}.cd-log .g{color:var(--mint)}.cd-log .r{color:var(--hp)}
+.cd-end{padding:12px;border:1px solid var(--pink);color:var(--pinkhi);margin:10px 0;display:none}
+.cd-note{color:var(--ink3);font-size:12px;margin-top:8px}
+.cd-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cd-hold{position:relative;overflow:hidden;color:var(--hp);box-shadow:inset 0 0 0 1px var(--hp);-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;touch-action:none}
+.cd-btns .cd-hold:first-of-type{margin-left:10px}
+.cd-hold i{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--hp);display:block}
+.cd-hold.on i{width:100%;transition:width .6s linear}
+</style>
+<div class="cd" id="cdemo">
+  <div class="cd-top"><b>現實戰鬥 DEMO</b><span id="cd-round"></span><div class="cd-order" id="cd-order"></div><span class="sp"></span><button class="cd-btn" id="cd-reset">重新開始</button></div>
+  <div class="cd-scroll"><div class="cd-field" id="cd-field"></div><div class="cd-dir" aria-hidden="true"><div class="p"><svg><defs><pattern id="cd-chv" width="12" height="12" patternUnits="userSpaceOnUse"><polyline points="2,1 7,6 2,11"/></pattern></defs><rect width="100%" height="12" fill="url(#cd-chv)"/></svg></div><div class="e"><svg><rect width="100%" height="12" fill="url(#cd-chv)"/></svg></div></div></div>
+  <div class="cd-end" id="cd-end"></div>
+  <div class="cd-act" id="cd-act"><div class="cd-tip" id="cd-tip" hidden></div><div class="cd-wbox" id="cd-wbox"></div><div class="cd-side"><div class="cd-btns"><button class="cd-btn" data-a="end" id="cd-endbtn">結束回合</button><button class="cd-btn cd-hold" id="cd-flee" title="長按：全隊擲一次，成功就離開這場戰鬥">脫離<small>2</small><i></i></button><button class="cd-btn cd-hold" id="cd-give" title="長按：結束這場戰鬥，算戰敗">投降<small>0</small><i></i></button></div><div class="cd-skl" id="cd-skl" hidden><b>技能清單</b><p>這個 Demo 還沒有技能。正式版這裡列出這個角色裝著的主動技能與姿態，點了才展開，不佔圓環的位置。</p></div></div></div>
+  <div class="cd-hint" id="cd-hint"></div>
+  <div class="cd-log" id="cd-log" aria-live="polite"></div>
+  <div class="cd-note">照已確認的規則：雙方各四格縱深，距離＝我的格數＋對方格數−1；每次攻擊都會照武器的倍率傷到目標那一格的遮蔽（掩體→半掩體→暴露）；前面那格沒有人也沒有遮蔽時，後排連同自己的遮蔽往前補；行動點每回合回 3；彈匣 1～4 格；狙擊槍一槍 3 點，已經包含瞄準；監視花 2 點，敵人一站上暴露的格子就自動開一槍；神經傷害打感載，過載失去一回合並疊一層餘韻；制伏要在近身；脫離與投降在結束回合旁邊，要長按。瞄準與連射是槍手的技能，這個 Demo 沒有做技能，所以只有敵人會用。沒有做的：技能、無人機與機甲、快駭、場地效果。數值都是初稿。行動圓環的圖示來自 game-icons.net（CC BY 3.0）。</div>
+</div>
+<script>
+(function(){
+const $=id=>document.getElementById(id), d6=n=>{let s=0;for(let i=0;i<n;i++)s+=1+Math.floor(Math.random()*6);return s}, d20=()=>1+Math.floor(Math.random()*20);
+const W={
+ rifle:{n:'步槍',dice:4,r:[3,7],mag:3,pen:2,t:'p',long:1,cm:.5},
+ shotgun:{n:'霰彈槍',dice:5,far:3,r:[1,3],mag:2,pen:0,t:'p',push:1,cm:1.5},
+ pistol:{n:'手槍',dice:3,r:[1,4],mag:2,pen:0,t:'p',cm:.25},
+ smg:{n:'衝鋒槍',dice:3,r:[2,5],mag:3,pen:0,t:'p',cm:.5},
+ sniper:{n:'狙擊槍',dice:6,r:[5,7],mag:1,pen:4,t:'p',long:1,cm:.25,snipe:1},
+ stun:{n:'感官彈槍',dice:3,r:[2,5],mag:2,pen:0,t:'n',cm:0},
+ knife:{n:'刀',dice:3,r:[1,1],mag:0,pen:1,t:'p',melee:1,cm:0}
+};
+const COVN=['暴露','半掩體','掩體'], COVB=[0,2,4], COVD=[0,15,30];
+let S;
+function unit(side,slot,name,role,o){return Object.assign({side,slot,name,role,hp:o.hp,hpMax:o.hp,armor:o.armor,load:0,loadMax:o.lm,layers:0,layersMax:o.lay,
+  ap:o.ap,apMax:o.ap,refl:o.refl,gun:o.gun,mel:o.mel||0,will:o.will||0,tier:o.tier||1,elite:!!o.elite,
+  ws:o.ws.map(k=>({k,mag:W[k].mag})),wi:0,aim:false,stun:false,supp:0,watch:false,mv:false,daze:false,bleed:false,down:false,out:false},{})}
+function init(){
+ S={round:1,idx:0,busy:false,mode:null,over:false,exq:[],
+  cov:{P:[null,{l:1,d:15},{l:2,d:30},{l:2,d:30},{l:1,d:15}],E:[null,{l:1,d:15},{l:2,d:30},{l:1,d:15},{l:2,d:30}]},
+  units:[
+   unit('P',1,'前鋒','',{hp:48,armor:4,lm:36,lay:3,ap:5,refl:1,gun:3,mel:5,will:2,ws:['shotgun','knife']}),
+   unit('P',2,'灌手','',{hp:40,armor:3,lm:40,lay:3,ap:6,refl:2,gun:4,will:3,ws:['stun','pistol']}),
+   unit('P',3,'槍手','',{hp:44,armor:3,lm:38,lay:3,ap:5,refl:3,gun:5,will:1,ws:['rifle','pistol']}),
+   unit('P',4,'狙擊手','',{hp:38,armor:2,lm:38,lay:3,ap:5,refl:2,gun:5,will:2,ws:['sniper','pistol']}),
+   unit('E',1,'打手','雜兵',{hp:32,armor:1,lm:20,lay:1,ap:4,refl:1,gun:2,mel:4,will:0,ws:['knife','pistol']}),
+   unit('E',2,'保全','雜兵',{hp:32,armor:2,lm:22,lay:1,ap:4,refl:1,gun:3,will:1,ws:['stun','pistol']}),
+   unit('E',3,'保全','雜兵',{hp:34,armor:2,lm:22,lay:1,ap:4,refl:1,gun:3,will:1,ws:['smg']}),
+   unit('E',4,'小隊長','精英',{hp:85,armor:3,lm:30,lay:2,ap:5,refl:2,gun:5,will:3,tier:2,elite:true,ws:['rifle','pistol']})
+  ],order:[]};
+ S.units.forEach((u,i)=>{u.id=i;u.ini=d20()+u.refl});
+ S.order=S.units.slice().sort((a,b)=>b.ini-a.ini).map(u=>u.id);
+ $('cd-log').innerHTML='';$('cd-end').style.display='none';
+ log('戰鬥開始。第一回合所有人從行動點上限開始。','h');
+ startTurn();
+}
+const cur=()=>S.units[S.order[S.idx]], alive=side=>S.units.filter(u=>u.side===side&&!u.down);
+const at=(side,slot)=>S.units.find(u=>u.side===side&&u.slot===slot&&!u.down);
+const wp=u=>W[u.ws[u.wi].k], foe=s=>s==='P'?'E':'P', dist=(a,b)=>a.slot+b.slot-1;
+function log(t,c){const p=document.createElement('p');if(c)p.className=c;p.textContent=t;const L=$('cd-log');L.appendChild(p);L.scrollTop=L.scrollHeight}
+const tag=u=>(u.side==='P'?'':'敵・')+u.name;
+function dodge(u){return 10+u.refl+COVB[S.cov[u.side][u.slot].l]-u.layers}
+function rmod(a,t,w){const d=dist(a,t);let m=0;if(d<w.r[0])m=-2*(w.r[0]-d);if(d>w.r[1])m=-2*(d-w.r[1]);if(w.long&&a.slot===1)m-=4;return m}
+const aimB=(a,w)=>(a.aim||w.snipe)?3:0;
+function hitChance(a,t,w){const b=(w.melee?a.mel:a.gun)+rmod(a,t,w)+aimB(a,w)-(a.supp?2:0)-a.layers;return Math.max(5,Math.min(95,(21-(dodge(t)-b))*5))}
+function compact(side){let moved=true;while(moved){moved=false;for(let s=1;s<=3;s++){if(!at(side,s)&&S.cov[side][s].l===0){const back=S.units.filter(u=>u.side===side&&!u.down&&u.slot>s);if(back.length){back.forEach(u=>u.slot--);const c=S.cov[side];for(let k=s;k<4;k++)c[k]=c[k+1];c[4]={l:0,d:0};log((side==='P'?'我方':'敵方')+'後排連同遮蔽往前補位。');back.forEach(exposed);moved=true;break}}}}}
+function hurtCover(side,slot,dmg){const c=S.cov[side][slot];dmg=Math.round(dmg);if(c.l===0||dmg<=0)return;if(!at(side,slot))dmg*=2;c.d-=dmg;while(c.l>0&&c.d<=0){c.l--;c.d+=COVD[c.l];if(c.l===0){c.d=0;exposed(at(side,slot))}log((side==='P'?'我方':'敵方')+'第 '+slot+' 格的遮蔽被打成'+COVN[c.l]+'。','h')}compact(side)}
+function fall(u,how){u.down=true;u.stun=false;log(tag(u)+how,u.side==='P'?'r':'g');compact(u.side);check()}
+function neural(t,n){t.load+=n;if(t.load>=t.loadMax){t.load=0;t.layers++;if(t.layers>t.layersMax){fall(t,' 餘韻疊滿後再過載：倒下。')}else{t.stun=true;log(tag(t)+' 過載！失去下一回合，餘韻 '+t.layers+' 層。','h')}}}
+function attack(a,t,o){o=o||{};const w=o.w||wp(a),slotW=a.ws[a.wi],n=o.burst?slotW.mag:1;
+ if(w.mag){slotW.mag-=n}
+ const r=d20(),bonus=(w.melee?a.mel:a.gun)+rmod(a,t,w)+aimB(a,w)-(a.supp?2:0)-a.layers,tot=r+bonus,dg=dodge(t),cb=COVB[S.cov[t.side][t.slot].l];
+ const aimed=a.aim||!!w.snipe;a.aim=false;
+ let dice=(w.far&&dist(a,t)>2?w.far:w.dice)+(o.burst?n-1:0);
+ const hit=r===20||(r!==1&&tot>=dg), crit=hit&&tot-dg>=5;
+ let msg=tag(a)+(o.burst?' 用'+w.n+'連射（'+n+' 格）':' 用'+w.n+(w.snipe?'瞄準射擊':'攻擊'))+' '+tag(t)+'：d20='+r+(bonus>=0?'+':'')+bonus+'='+tot+' 對迴避 '+dg+'，';
+ if(!hit){
+  log(msg+(r===1?'自然 1，':'')+(r!==1&&cb&&tot>=dg-cb?'被遮蔽擋下。':'沒打中。'));
+  if(cb&&w.cm){const cs=t.side,sl=t.slot,dm=d6(dice)*w.cm;log('遮蔽受 '+Math.round(dm)+'（'+w.n+' ×'+w.cm+'）。');hurtCover(cs,sl,dm)}
+ }else{
+  if(crit)dice++;const wound=r===20||(crit&&aimed);if(wound&&!t.elite&&t.side==='E')dice++;
+  const raw=d6(dice);
+  if(cb&&w.cm){log('遮蔽受 '+Math.round(raw*w.cm)+'（'+w.n+' ×'+w.cm+'）。');hurtCover(t.side,t.slot,raw*w.cm)}
+  if(w.t==='n'){log(msg+(crit?'要害！':'命中，')+'感載 +'+raw+'。');neural(t,raw)}
+  else{const dm=Math.max(0,raw-Math.max(0,t.armor-w.pen));t.hp-=dm;log(msg+(r===20?'自然 20！':crit?'要害！':'命中，')+'傷害 '+raw+'，扣護甲後 '+dm+'。');
+   if(wound&&(t.elite||t.side==='P')&&t.hp>0){if(Math.random()<.5){t.bleed=true;log(tag(t)+' 重創（軀幹）：流血。','h')}else{t.daze=true;log(tag(t)+' 重創（頭）：暈眩，下回合行動點 −2。','h')}}
+   if(t.hp<=0){t.hp=0;fall(t,t.side==='E'?' 被打倒。':' 倒下。')}
+   else if(w.push&&t.slot<4){const b=at(t.side,t.slot+1),os=t.slot;if(b)b.slot=os;t.slot=os+1;log(tag(t)+' 被轟退一格。');exposed(t);exposed(b);compact(t.side)}}
+ }
+ if(o.burst&&!t.down){const sv=d20()+t.will,dc=10+n*2;if(sv<dc){t.supp=1;log(tag(t)+' 被壓制（定力 '+sv+' 對 '+dc+'）：不能換位、攻擊 −2。','h')}else log(tag(t)+' 撐住了壓制（定力 '+sv+' 對 '+dc+'）。')}
+}
+function check(){if(S.over)return;const p=alive('P').length,e=alive('E').length;if(!p||!e){S.over=true;const el=$('cd-end');el.style.display='block';el.textContent=e?'全隊倒下：戰敗。在正式的遊戲裡，這裡會進入戰敗事件（依贏的是誰）。':'敵人全部倒下或被制伏：勝利。';log(e?'戰敗。':'勝利。','h')}}
+function startTurn(){if(S.over){render();return}const u=cur();
+ if(u.down){return next()}
+ if(S.round>1){u.ap=Math.min(u.apMax,u.ap+3)}
+ if(u.daze){u.ap=Math.max(0,u.ap-2);u.daze=false}
+ if(u.bleed){u.hp-=2;log(tag(u)+' 流血 −2。');if(u.hp<=0){u.hp=0;fall(u,' 失血倒下。');if(S.over){render();return}return next()}}
+ u.watch=false;u.mv=false;
+ if(u.stun){u.stun=false;log(tag(u)+' 還在過載中，失去這一回合。');render();return setTimeout(next,500)}
+ S.mode=null;render();
+ if(u.side==='E'){S.busy=true;hint('');setTimeout(()=>ai(u,0),550)}else{S.busy=false;hint('輪到 '+u.name+'。選一個行動。')}
+}
+function next(){const u=cur();if(u&&u.supp>0)u.supp--;S.idx++;if(S.idx>=S.order.length){S.idx=0;S.round++;log('—— 第 '+S.round+' 回合 ——','h')}startTurn()}
+function hint(t){$('cd-hint').textContent=t}
+/* 監視：有人站上暴露的格子時記下來，等這個動作結算完再開槍 */
+function exposed(t){if(t&&!t.down&&S.cov[t.side][t.slot].l===0)S.exq.push(t.id)}
+function canHit(u,t){const w=wp(u);return !u.stun&&(w.melee?dist(u,t)===1:u.ws[u.wi].mag>=1)}
+function flushWatch(){let g=0;while(S.exq.length&&!S.over&&g++<24){const t=S.units[S.exq.shift()];if(!t||t.down||S.cov[t.side][t.slot].l!==0)continue;
+  const u=S.units.find(x=>x.side!==t.side&&!x.down&&x.watch&&canHit(x,t));if(!u)continue;u.watch=false;log(tag(u)+' 監視觸發：'+tag(t)+' 站上了暴露的格子。','h');attack(u,t)}S.exq.length=0}
+function move(u,to){const o=at(u.side,to),from=u.slot;if(o)o.slot=from;u.slot=to;log(tag(u)+(o?' 和 '+o.name+' 換位。':' 移到第 '+to+' 格。'));exposed(u);exposed(o);compact(u.side)}
+function canMove(u,to){if(to<1||to>4||u.supp)return false;if(at(u.side,to))return true;if(to>u.slot)return S.cov[u.side][u.slot].l>0;return true}
+function canSubdue(a,t){return a.slot===1&&t.slot===1&&t.stun&&!t.down&&(!(t.elite||t.side==='P')||t.layers>=t.layersMax)}
+function subdue(a,t){const r=d20()+a.mel,dc=10+t.tier*2;if(r>=dc){t.out=true;fall(t,' 被制伏，退出戰鬥（格鬥 '+r+' 對 '+dc+'）。')}else log(tag(a)+' 想制伏 '+tag(t)+'，沒壓住（格鬥 '+r+' 對 '+dc+'）。')}
+/* ---- 敵人 AI ---- */
+function ai(u,n){if(S.over||u.down||n>6||u.ap<=0){S.busy=false;return next()}
+ const foes=alive('P'),w=wp(u),s=u.ws[u.wi];let did=false;
+ const sub=foes.find(t=>canSubdue(u,t));
+ if(sub&&u.ap>=2){u.ap-=2;subdue(u,sub);did=true}
+ else if(w.melee){const t=foes.find(t=>dist(u,t)===1);
+  if(t&&u.ap>=2){u.ap-=2;attack(u,t);did=true}
+  else if(!t&&u.ws.length>1&&u.ap>=1){u.ap--;u.wi=1;log(tag(u)+' 換成'+wp(u).n+'。');did=true}}
+ else if(s.mag<1){if(u.ap>=1){u.ap--;s.mag=w.mag;log(tag(u)+' 換彈。');did=true}}
+ else{const t=foes.slice().sort((a,b)=>hitChance(u,b,w)-hitChance(u,a,w)||a.hp-b.hp)[0];
+  const to=!u.mv&&u.ap>=3&&S.cov.E[u.slot].l===0?[u.slot+1,u.slot-1].find(x=>x>=1&&x<=4&&S.cov.E[x].l>0&&canMove(u,x)):0;
+  if(u.slot===1&&u.ws.some(x=>W[x.k].melee)&&foes.some(t=>dist(u,t)===1)&&u.ap>=1&&!w.melee){u.ap--;u.wi=u.ws.findIndex(x=>W[x.k].melee);log(tag(u)+' 換成'+wp(u).n+'。');did=true}
+  else if(to){u.ap--;u.mv=true;move(u,to);did=true}
+  else if(u.ap>=3&&s.mag>=2&&Math.random()<.35){u.ap-=3;attack(u,t,{burst:true});did=true}
+  else if(u.ap>=2){u.ap-=2;attack(u,t);did=true}
+  else if(u.ap===1&&!u.aim){u.ap--;u.aim=true;log(tag(u)+' 瞄準。');did=true}}
+ flushWatch();render();if(!did||S.over){S.busy=false;return S.over?null:next()}
+ setTimeout(()=>ai(u,n+1),650)
+}
+/* ---- 玩家行動 ---- */
+const cost=(a,u)=>a.k==='shoot'&&wp(u).snipe?3:a.c;
+const ACTS=[
+ {k:'shoot',d:'花彈匣 1 格，朝一個敵人開槍。狙擊槍的一槍花 3 點，已經包含瞄準：命中 +3，要害時重創。',w:'手上是近戰武器，或彈匣空了',g:'atk',n:'射擊',c:2,ok:u=>!wp(u).melee&&u.ws[u.wi].mag>=1,tg:'foe'},
+ {k:'melee',d:'打近身（雙方第 1 格）的敵人。',w:'手上不是近戰武器',g:'atk',n:'近戰',c:2,ok:u=>wp(u).melee,tg:'melee'},
+ {k:'move',d:'和相鄰的隊友交換，或移到相鄰的空格。',w:'沒有可以換的格，或被壓制',g:'tac',n:'換位',c:1,ok:u=>canMove(u,u.slot-1)||canMove(u,u.slot+1),tg:'slot'},
+ {k:'reload',d:'把彈匣補滿。',w:'彈匣是滿的，或手上是近戰武器',g:'res',n:'換彈',c:1,ok:u=>wp(u).mag&&u.ws[u.wi].mag<wp(u).mag},
+ {k:'swap',d:'換成另一把武器。',w:'只有一把武器',g:'res',n:'換武器',c:1,ok:u=>u.ws.length>1},
+ {k:'cover',d:'不打人，直接打敵方一格的遮蔽；倍率加倍。',w:'手上是近戰武器，或彈匣空了',g:'tac',n:'打遮蔽',c:2,ok:u=>!wp(u).melee&&u.ws[u.wi].mag>=1,tg:'ecov'},
+ {k:'watch',d:'到你的下一回合開始前，第一次有敵人站上暴露的格子（換位、補位、被推過去，或遮蔽被打成暴露），自動朝他開一槍，不另花行動點，彈匣照扣。',w:'已經在監視',g:'tac',n:'監視',c:2,ok:u=>!u.watch},
+ {k:'subdue',d:'把正在過載的近身敵人綁起來，讓他退出戰鬥。要過格鬥檢定。',w:'沒有可以制伏的目標（要在近身、對方正在過載；精英要餘韻疊滿）',g:'tac',n:'制伏',c:2,ok:u=>alive('E').some(t=>canSubdue(u,t)),tg:'sub'},
+ {k:'item',d:'使用快取格裡的道具。',w:'這個 Demo 沒有做',g:'res',n:'道具',c:1,ok:()=>false},
+ {k:'end',g:'end',n:'結束回合',c:0,ok:()=>true}
+];
+function act(k){if(S.busy||S.over)return;if(k==='skill'){S.skill=!S.skill;return render()}const u=cur(),a=ACTS.find(x=>x.k===k);if(!a)return;if(u.ap<cost(a,u)||!a.ok(u))return;
+ if(a.tg){S.mode=S.mode===k?null:k;hint(S.mode?({foe:'選一個敵人（綠框）。括號裡是命中率。',melee:'選近身的敵人。',slot:'選要換到哪一格（綠框）。往後退、讓前面空著，前面那一格要有遮蔽。',ecov:'選敵方的一格，打它的遮蔽。沒人站的格子，遮蔽耐久減半。',sub:'選一個正在過載的近身敵人。精英要餘韻疊滿。'})[a.tg]:'');return render()}
+ S.mode=null;
+ if(k==='reload'){u.ap--;u.ws[u.wi].mag=wp(u).mag;log(u.name+' 換彈。')}
+ else if(k==='swap'){u.ap--;u.wi=(u.wi+1)%u.ws.length;log(u.name+' 換成'+wp(u).n+'。')}
+ else if(k==='watch'){u.ap-=2;u.watch=true;log(u.name+' 監視：敵人一站上暴露的格子就開槍。')}
+ else if(k==='end'){return next()}
+ render()
+}
+function pick(kind,v){if(S.busy||S.over||!S.mode)return;const u=cur(),k=S.mode;
+ if(kind==='unit'){const t=S.units[v];if(t.side==='P'||t.down)return;
+  if(k==='shoot'){u.ap-=cost(ACTS[0],u);attack(u,t)}
+  else if(k==='melee'){if(dist(u,t)!==1)return;u.ap-=2;attack(u,t)}
+  else if(k==='sub'){if(!canSubdue(u,t))return;u.ap-=2;subdue(u,t)}else return}
+ else if(kind==='slot'){const [side,slot]=v;
+  if(k==='move'&&side==='P'){if(Math.abs(slot-u.slot)!==1||!canMove(u,slot))return;u.ap--;move(u,slot)}
+  else if(k==='cover'&&side==='E'){if(S.cov.E[slot].l===0)return;u.ap-=2;u.ws[u.wi].mag--;const w=wp(u),dm=Math.round(d6(w.dice)*Math.max(1,w.cm*2));log(u.name+' 打敵方第 '+slot+' 格的遮蔽（'+dm+'）。');hurtCover('E',slot,dm)}else return}
+ S.mode=null;hint('');flushWatch();render()
+}
+/* ---- 畫面 ---- */
+function ico(k,t){return '<svg class="cd-i" viewBox="0 0 512 512" role="img" aria-label="'+t+'"><title>'+t+'</title><path d="'+IC[k]+'"/></svg>'}
+function bar(v,m,c,cls){return '<div class="cd-bar"><i class="'+(cls||'')+'" style="width:'+Math.max(0,Math.min(100,v/m*100))+'%;background:var('+c+')"></i></div>'}
+function pips(n,m,cls){let s='<span class="cd-pips '+(cls||'')+'">';for(let i=0;i<m;i++)s+='<i class="'+(i<n?'f':'')+'"></i>';return s+'</span>'}
+function render(){const u=cur(),m=S.mode,F=$('cd-field');let h='';
+ const col=(side,slot)=>{const c=S.cov[side][slot],x=S.units.find(z=>z.side===side&&z.slot===slot&&!z.down);
+  let tg=false;if(m==='move'&&side==='P'&&Math.abs(slot-u.slot)===1&&canMove(u,slot))tg=true;if(m==='cover'&&side==='E'&&c.l>0)tg=true;
+  let s='<div class="cd-slot'+(tg?' tg':'')+'" data-s="'+side+slot+'"><div class="cd-sh" aria-label="第 '+slot+' 格，'+COVN[c.l]+'">'+(c.l?ico(c.l===2?'cov':'half',COVN[c.l])+bar(c.d,COVD[c.l],'--cv',c.l===1?'half':'')+Math.max(0,c.d):'')+'</div>';
+  if(x){const w=wp(x),ut=m&&x.side==='E'&&((m==='shoot')||(m==='melee'&&dist(u,x)===1)||(m==='sub'&&canSubdue(u,x)));
+   s+='<div class="cd-u'+(x.id===u.id&&!S.over?' act':'')+(ut?' tg':'')+'" data-u="'+x.id+'"><div class="cd-nm"><span>'+x.name+'</span><small>'+x.role+(ut&&m!=='sub'?' '+hitChance(u,x,wp(u))+'%':'')+'</small></div>'
+    +'<div class="cd-row" style="color:var(--hp)">'+ico('hp','生命')+'<div class="cd-bv"><span>'+x.hp+'</span>'+bar(x.hp,x.hpMax,'--hp')+'</div></div>'
+    +'<div class="cd-row" style="color:var(--ld)">'+ico('load','感載')+'<div class="cd-bv"><span>'+x.load+'</span>'+bar(x.load,x.loadMax,'--ld')+'</div></div>'
+    +'<div class="cd-row lay" title="餘韻層數（疊滿後再過載就倒下）">'+pips(x.layers,x.layersMax,'l')+'</div>'
+    +'<div class="cd-row" style="color:var(--ap)">'+ico('ap','行動點')+pips(x.ap,x.apMax)+'</div>'
+    +'<div class="cd-row">'+w.n+' '+(w.mag?pips(x.ws[x.wi].mag,w.mag,'m'):'')+'</div>'
+    +'<div class="cd-st">'+(x.aim?'<span>瞄準</span>':'')+(x.stun?'<span>過載</span>':'')+(x.supp?'<span>被壓制</span>':'')+(x.watch?'<span>監視</span>':'')+(x.bleed?'<span>流血</span>':'')+(x.daze?'<span>暈眩</span>':'')+'</div></div>'}
+  return s+'</div>'};
+ for(let s=4;s>=1;s--)h+=col('P',s);h+='<div class="cd-mid">近身</div>';for(let s=1;s<=4;s++)h+=col('E',s);F.innerHTML=h;
+ $('cd-round').textContent='第 '+S.round+' 回合';
+ $('cd-order').innerHTML=S.order.map((id,i)=>{const x=S.units[id];return x.down?'':'<span class="cd-chip'+(i===S.idx?' on':'')+(x.side==='E'?' e':'')+'">'+x.name+'</span>'}).join('');
+ const A=$('cd-act');
+ updWheel(u,m);
+}
+/* 行動圖示：game-icons.net（CC BY 3.0，作者 Lorc、Delapouite、Skoll 等）。每個是 512×512 的單一路徑。 */
+const IC={"shoot": "m79.238 115.768l-28.51 67.863h406.15l-.273-67.862h-263.83v55.605h-15v-55.605h-16.68v55.605H146.1v-55.605h-17.434v55.605h-15v-55.605H79.238zm387.834 15.96v40.66h18.688v-40.66zM56.768 198.63l20.566 32.015L28.894 406.5l101.68 7.174l21.54-97.996h115.74l14.664-80.252l174.55-3.873l-.13-32.922H56.767zm206.672 37.22l-11.17 61.142h-96.05l12.98-59.05l12.53-.278l-2.224 35.5l14.262 13.576l1.003-33.65l24.69-16.264l43.98-.976z", "burst": "M96 36.61L41.21 173.6c.26.6.84 1.4 2.15 2.5c2.16 1.8 6.2 4 11.49 5.8c10.57 3.5 25.9 5.5 41.15 5.5c15.2 0 30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c1.3-1.2 1.9-1.9 2.2-2.5zm160 0L201.2 173.6c.3.6.9 1.3 2.2 2.5c2.1 1.8 6.2 4 11.4 5.8c10.6 3.5 26 5.5 41.2 5.5c15.3 0 30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c1.3-1.2 1.9-1.9 2.2-2.5zm160 0L361.2 173.6c.3.6.9 1.3 2.2 2.5c2.1 1.8 6.2 4 11.4 5.8c10.6 3.5 26 5.5 41.2 5.5s30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c1.3-1.2 1.9-1.9 2.2-2.5zM41 195.7v17c0 1 .2 1.8 2.36 3.7c2.16 1.8 6.2 4 11.49 5.8c10.57 3.5 25.9 5.5 41.15 5.5c15.2 0 30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c2.2-1.9 2.4-2.7 2.4-3.7v-17c-2.6 1.2-5.3 2.3-8.2 3.2c-13.4 4.5-30 6.5-46.8 6.5c-16.75 0-33.42-2-46.85-6.5c-2.87-.9-5.59-2-8.15-3.2m160 0v17c0 1 .2 1.8 2.4 3.7c2.1 1.8 6.2 4 11.4 5.8c10.6 3.5 26 5.5 41.2 5.5c15.3 0 30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c2.2-1.9 2.4-2.7 2.4-3.7v-17c-2.6 1.2-5.3 2.3-8.2 3.2c-13.4 4.5-30 6.5-46.8 6.5s-33.4-2-46.8-6.5c-2.9-.9-5.6-2-8.2-3.2m160 0v17c0 1 .2 1.8 2.4 3.7c2.1 1.8 6.2 4 11.4 5.8c10.6 3.5 26 5.5 41.2 5.5s30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c2.2-1.9 2.4-2.7 2.4-3.7v-17c-2.6 1.2-5.3 2.3-8.2 3.2c-13.4 4.5-30 6.5-46.8 6.5s-33.4-2-46.8-6.5c-2.9-.9-5.6-2-8.2-3.2M41 236v158.3l17.06 34.1l-16.71 33.4c.3.6.87 1.3 2.01 2.3c2.16 1.8 6.2 4 11.49 5.8c10.57 3.5 25.9 5.5 41.15 5.5c15.2 0 30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c1.2-1 1.7-1.7 2.1-2.3l-16.8-33.4l17.1-34.1V236c-2.6 1.2-5.3 2.3-8.2 3.2c-13.4 4.5-30 6.5-46.8 6.5c-16.75 0-33.42-2-46.85-6.5c-2.87-.9-5.59-2-8.15-3.2m160 0v158.3l17.1 34.1l-16.8 33.4c.4.6.9 1.3 2.1 2.3c2.1 1.8 6.2 4 11.4 5.8c10.6 3.5 26 5.5 41.2 5.5c15.3 0 30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c1.2-1 1.7-1.7 2.1-2.3l-16.8-33.4l17.1-34.1V236c-2.6 1.2-5.3 2.3-8.2 3.2c-13.4 4.5-30 6.5-46.8 6.5s-33.4-2-46.8-6.5c-2.9-.9-5.6-2-8.2-3.2m160 0v158.3l17.1 34.1l-16.8 33.4c.4.6.9 1.3 2.1 2.3c2.1 1.8 6.2 4 11.4 5.8c10.6 3.5 26 5.5 41.2 5.5s30.6-2 41.2-5.5c5.2-1.8 9.3-4 11.4-5.8c1.2-1 1.7-1.7 2.1-2.3l-16.8-33.4l17.1-34.1V236c-2.6 1.2-5.3 2.3-8.2 3.2c-13.4 4.5-30 6.5-46.8 6.5s-33.4-2-46.8-6.5c-2.9-.9-5.6-2-8.2-3.2", "melee": "M416.833 424.997a51.54 51.54 0 0 0-13.354 22.973l-78.98-78.98l44.972-44.97l78.98 78.978a51.54 51.54 0 0 0-22.974 13.354zm-209.087-202.24l-86.28-97.65l97.653 86.277l90.77 80.19l14.927-14.927c-90.534-99.383-137.713-167.87-176.19-212.085c0 0-39.608 13.795-122.627-38.08c0 0 7.062 120.442 252.034 296.948l9.913-9.913zm155.22 82.16a14.43 14.43 0 0 0-20.37-20.37l-57.57 57.567a14.43 14.43 0 0 0 20.37 20.37zM486 429.15a33.746 33.746 0 0 0-47.722 0l-8.646 8.647a33.746 33.746 0 0 0 0 47.722z", "aim": "M247 32v23.21C143.25 59.8 59.798 143.25 55.21 247H32v18h23.21C59.8 368.75 143.25 452.202 247 456.79V480h18v-23.21C368.75 452.2 452.202 368.75 456.79 265H480v-18h-23.21C452.2 143.25 368.75 59.798 265 55.21V32zm0 41.223V128h18V73.223C359 77.76 434.24 153 438.777 247H384v18h54.777C434.24 359 359 434.24 265 438.777V384h-18v54.777C153 434.24 77.76 359 73.223 265H128v-18H73.223C77.76 153 153 77.76 247 73.223M247 224v23h-23v18h23v23h18v-23h23v-18h-23v-23z", "move": "m241.844 28.625l-21.188 5.063L33.25 78.53l-9.594 2.282l2.813 9.47l54.718 184.03l6.156 20.782l10.875-18.75l36.624-63.125l39.344 22.655l9.375-16.188l-47.47-27.312L128 187.72l-4.656 8.06l-30.406 52.47l-45.75-153.844l156.625-37.47l-30.344 52.345l-4.69 8.126l8.126 4.656L332.75 211.75l-17.594 30.344l16.22 9.312l22.25-38.375l4.687-8.124l-8.125-4.656l-155.844-89.688l36.594-63.093zm-28.25 176.47l-57.438 99.31l155.22 89.5l8.093 4.658l-4.69 8.093l-44.06 76.25l218.81-52.5l-63.874-215.47l-44.094 76.25l-4.656 8.064l-8.094-4.656l-155.218-89.5z", "reload": "M146.8 41c-.2 10.26-.6 20.25-1.3 30h175.3c.3-9.83.4-19.82.2-30zM144 89C131.1 214.5 76.78 297.9 21.96 367.2L137.3 482.6C239.3 357.1 310.3 244.5 320 89h-29.2c-2.2 49-22 109.8-48.6 168.7c-26.9 59.5-60.9 117-92.2 157.6l-12.8-12.8c29.7-39.1 62.7-94.9 88.6-152.2c25.9-57.4 44.7-116.6 47-161.3h-30c-2.2 49-22 109.8-48.6 168.7c-21.2 46.9-46.8 92.6-72.1 129.7l-12.9-13c23.9-35.6 48.4-79.4 68.6-124.1c25.9-57.4 44.7-116.6 47-161.3h-30c-2.2 49-22 109.8-48.6 168.7c-15.9 35.3-34.3 69.8-53.2 100.5l-13.1-13.1c17.6-29.2 35-61.7 49.9-94.8c25.9-57.4 44.7-116.6 47-161.3zm192 149c-1 2.4-2.1 5.2-3.2 8.7c-3.5 11.3-7 27.1-10 43c-4 21.3-6.9 41.8-8.5 53.3h43.4c-1.6-11.5-4.5-32-8.5-53.3c-3-15.9-6.5-31.7-10-43c-1.1-3.5-2.2-6.3-3.2-8.7m64 0c-1 2.4-2.1 5.2-3.2 8.7c-3.5 11.3-7 27.1-10 43c-4 21.3-6.9 41.8-8.5 53.3h43.4c-1.6-11.5-4.5-32-8.5-53.3c-3-15.9-6.5-31.7-10-43c-1.1-3.5-2.2-6.3-3.2-8.7m64 0c-1 2.4-2.1 5.2-3.2 8.7c-3.5 11.3-7 27.1-10 43c-4 21.3-6.9 41.8-8.5 53.3h43.4c-1.6-11.5-4.5-32-8.5-53.3c-3-15.9-6.5-31.7-10-43c-1.1-3.5-2.2-6.3-3.2-8.7M313 361v126h46V361zm64 0v126h46V361zm64 0v126h46V361z", "swap": "m83.5 25l-32 64v87c-.67 15.934 3.847 27.945 13.793 37.816c3.442 3.367 7.892 6.805 13.102 10.227L83.5 89l5.344 141.326c7.778 4.3 16.61 8.477 26.064 12.344c.194.08.397.155.592.234V89zm216.666 0C281.833 25 263.5 61.667 263.5 98.334c0 17.585 4.223 35.16 10.635 48.7c9.11 1.493 18.938 3.565 29.187 6.19c4.395-7.873 14.92-14.213 40.178-16.87V72.577C319.173 60.896 300.166 38.2 300.166 25m146.668 0c0 13.2-19.007 35.896-43.334 47.576v63.78c43.31 4.554 43.334 19.928 43.334 35.31c18.333 0 36.666-36.665 36.666-73.332S465.167 25 446.834 25M361.5 50v122.852a370 370 0 0 1 24 11.148V50zm-127 72.92l-58.45 61.9l58.45 58.453V208h9c34.25 0 90.23 12.187 135.408 30.67c22.59 9.24 42.344 19.89 55.385 32.646c6.52 6.38 11.518 13.45 13.514 21.65c.867 3.562.914 7.297.414 11.014c7.95-19.23 4.975-35.52-5.345-51.625c-11.208-17.49-31.88-33.91-56.424-47.478C337.367 177.743 272.5 162 243.5 162h-9zm-195.72 71.1c-7.95 19.23-4.975 35.52 5.345 51.625c11.208 17.49 31.88 33.91 56.424 47.478C149.633 320.257 214.5 336 243.5 336h9v39.08l58.45-61.9l-58.45-58.453V290h-9c-34.25 0-90.23-12.187-135.408-30.67c-22.59-9.24-42.344-19.89-55.385-32.646c-6.52-6.38-11.518-13.45-13.514-21.65c-.867-3.562-.914-7.297-.414-11.014zm322.72 57.212V368h24V261.23a277 277 0 0 0-13.408-5.9c-3.446-1.41-7-2.766-10.592-4.098m-310 29.862v41.44h23.17l.885-23.39c-8.66-5.593-16.772-11.594-24.055-18.05m40.313 27.767l.517 13.675h23.17v-1.777c-8.056-3.678-15.987-7.64-23.66-11.88l-.028-.017zM28.5 340.536V360h110v-19.465zM63.5 375v80c-8 0-28 32 20 32s28-32 20-32v-80zm298 11v94h24v-94z", "item": "M256.23 29.742c-17.72 0-35.439 3.314-51.443 9.944c-13.634 5.647-25.485 18.372-35.219 29.693A283 283 0 0 0 155.625 87h22.7c9.04-10.028 21.336-25.336 33.35-30.686c27.12-11.233 61.992-11.233 89.112 0c13.899 8.59 24.041 19.18 33.35 30.686h22.699a283 283 0 0 0-13.941-17.621c-9.734-11.32-21.585-24.046-35.22-29.693c-16.003-6.63-33.725-9.944-51.445-9.944M144.23 105c-16.23 2.136-38.662 23-39 39v.02c-.109 52.992 25.641 85.63 57.801 106.422c21.377 13.82 45.768 21.86 66.2 25.715V231h54v45.154c20.407-3.855 44.758-11.894 66.11-25.71C381.475 229.651 407.232 197 407.232 144c-.123-16-25.018-37.725-39-39zm-39.232 110.178L105.225 487h301.998l-.225-271.18c-12.145 21.258-29.246 37.681-47.877 49.737c-25.077 16.226-52.67 25.127-75.89 29.017V329h-54v-34.424c-23.242-3.889-50.87-12.788-75.973-29.017c-18.834-12.177-36.106-28.808-48.26-50.381M247.23 249v62h18v-62zm-124 106h114v114h-114zm152 0h114v114h-114zm-134 18v20.203c14.631 21.212 27.883 29.797 39 29.797s24.37-8.585 39-29.795V373zm152 0v20.203c14.631 21.212 27.883 29.797 39 29.797s24.37-8.585 39-29.795V373zm-152 48.736V451h78v-29.264c-12.116 12.358-25.028 19.264-39 19.264c-13.971 0-26.884-6.906-39-19.264m152 0V451h78v-29.264c-12.116 12.358-25.028 19.264-39 19.264c-13.971 0-26.884-6.906-39-19.264", "cover": "m494 18.02l-101 .103V119h101zm-119 .12l-56.29 12.065l-31.01 64.361l-101.534-35.952L137 119h238zM18 137v61.63l12.416 31.981L62.575 247H247V137zm247 0v110h229V137zM76.294 322.591L18 332.203V375h101V265H65.317zM137 265v110h238c-48.428-109.932-.057-1.24-48.222-110zM18 393v100.98l199-.236L247 393zm247 0v55.79c66.067 45.222-.134-.028 65.798 44.869L494 493.49V393z", "watch": "M256 105c-60.25 0-124.749 38.39-167.945 77.66c-34.931 31.756-58.722 62.36-66.88 73.34c8.158 10.98 31.949 41.584 66.88 73.34C131.25 368.61 195.75 407 256 407s124.749-38.39 167.945-77.66c34.931-31.756 58.722-62.36 66.88-73.34c-8.158-10.98-31.949-41.584-66.88-73.34C380.75 143.39 316.25 105 256 105m0 23a128 128 0 0 1 63.486 16.969A48 48 0 0 0 288 190l.023.453A72.4 72.4 0 0 0 265 183.576V160h-18v23.576c-33.034 4.095-59.33 30.39-63.424 63.424H160v18h23.576c4.095 33.034 30.39 59.33 63.424 63.424V352h18v-23.576c33.034-4.095 59.33-30.39 63.424-63.424H352v-18h-23.576a72 72 0 0 0-1.98-10.014A48 48 0 0 0 336 238a48 48 0 0 0 41.023-23.195A128 128 0 0 1 384 256a128 128 0 0 1-128 128a128 128 0 0 1-128-128a128 128 0 0 1 128-128m-9 73.738V224h18v-22.262c23.237 3.792 41.47 22.025 45.262 45.262H288v18h22.262c-3.792 23.237-22.025 41.47-45.262 45.262V288h-18v22.262c-23.237-3.792-41.47-22.025-45.262-45.262H224v-18h-22.262c3.792-23.237 22.025-41.47 45.262-45.262", "subdue": "M147.406 20.03a31 31 0 0 0-3.156.157c-4.238.433-8.576 1.774-12.656 4.125c-.008.005-.023-.004-.03 0l-29.783 17.22c-7.858 4.534-12.662 12.15-13.874 19.78s.62 15.126 4.22 21.47c.11.197.227.397.343.593l-11.72 40.22a36.5 36.5 0 0 0-5 4.124c-5.196 5.117-9.01 11.83-9.844 19.56c-.835 7.732 1.923 16.39 8.406 22.876L98.626 194.5c6.633 6.63 15.296 9.602 23.188 9.03c4.63-.333 8.935-1.755 12.78-3.905l7.095 6.688a29.4 29.4 0 0 0-5.157 10.437l-1.624 6.03l18.063 4.845l1.624-6.063c1.06-3.953 2.712-5.37 5.125-6.437c1.205-.533 2.67-.867 4.28-.938s3.366.126 5.063.594c3.393.938 6.375 2.963 7.968 5.157c1.594 2.195 2.284 4.266 1.282 8l-1.625 6.032l18.063 4.843l1.625-6.032c2.35-8.762.32-17.56-4.22-23.81c-4.537-6.253-11.093-10.28-18.124-12.22a35.1 35.1 0 0 0-10.905-1.25c-1.67.075-3.34.28-5 .625l-10.344-9.75c2.06-3.75 3.42-7.944 3.75-12.438c.586-7.917-2.42-16.574-9.093-23.25l-24.343-24.312c-4.677-4.68-10.516-7.357-16.313-8.156l6.157-21.095c.177.072.353.15.532.22c7.25 2.806 16.336 2.394 24.28-2.19l29.813-17.186c6.104-3.528 10.526-8.694 12.968-14.345l21.095 5.938c-.88 3.745-1.122 7.688-.5 11.687c1.194 7.683 6.06 15.35 14 19.938l29.813 17.218a31.3 31.3 0 0 0 11.78 3.97L255 140.78c-2.735 1.553-5.224 3.477-7.438 5.657c-5.195 5.12-8.977 11.833-9.812 19.563s1.89 16.39 8.375 22.875l4.22 4.22l13.218-13.22l-4.22-4.22c-2.893-2.893-3.314-5.032-3.03-7.655c.283-2.623 1.867-5.78 4.375-8.25s5.77-4.06 8.468-4.344c.337-.035.68-.052 1-.062c2.252-.07 4.17.544 6.563 2.937v.032l4.217 4.188l13.188-13.188l-4.188-4.218a28.68 28.68 0 0 0-16.656-8.188l-3.25-18.28c4.92-2.895 8.87-7.066 11.658-11.845c3.74-6.412 5.516-14.137 4.03-21.936c-1.484-7.8-6.637-15.374-14.812-20.094l-29.78-17.188c-3.93-2.27-8.145-3.506-12.282-3.812s-8.206.305-11.813 1.688c-4.304 1.65-8.01 4.21-11.093 7.343l-29.093-8.186a34 34 0 0 0-3.47-8.594c-3.684-6.445-9.47-11.856-16.968-14.47c-2.81-.98-5.862-1.488-9-1.5zm-.187 18.564c1.063.03 2.05.252 3.03.593c2.614.912 5.225 3.153 6.906 6.094s2.312 6.365 1.78 9.126c-.528 2.756-1.805 5.11-5.717 7.375c-.01.006-.024-.004-.032 0l-29.782 17.19c-3.545 2.044-5.726 1.89-8.187.936a10.7 10.7 0 0 1-1.97-1.03l.094-.345l-.906-.25c-1.53-1.183-2.977-2.804-4.063-4.718c-1.737-3.06-2.425-6.634-2-9.312s1.4-4.598 4.75-6.53v-.032l29.78-17.188h.032c2.02-1.166 3.688-1.72 5.188-1.875c.375-.038.74-.04 1.094-.03zM226.5 62.22c.31-.02.618-.024.938 0c1.276.09 2.637.53 4.312 1.5v.03l29.813 17.188c4.04 2.332 5.294 4.686 5.812 7.406s-.138 6.105-1.844 9.03c-1.705 2.927-4.343 5.174-7 6.095c-2.654.92-5.316 1.02-9.25-1.25L219.47 85c-3.544-2.048-4.47-3.985-4.876-6.594c-.406-2.608.28-6.09 2.062-9.125c1.783-3.034 4.532-5.435 7.063-6.405c.948-.364 1.85-.598 2.78-.656zM98.344 136.624c2.246-.065 4.14.575 6.53 2.97l24.345 24.31c3.296 3.3 3.89 5.896 3.686 8.657s-1.688 5.865-4.094 8.25c-2.405 2.386-5.54 3.892-8.343 4.094c-2.805.203-5.415-.415-8.626-3.625L87.53 156.97c-2.89-2.895-3.313-5.065-3.03-7.69c.283-2.622 1.867-5.778 4.375-8.25c2.508-2.47 5.773-4.06 8.47-4.343c.336-.035.678-.053 1-.062zM320 149.875l-62.094 62.094l48.844 48.843l26.938-26.938l.343.344a71 71 0 0 1 3.033-3.25c27.69-27.693 72.59-27.693 100.28 0c27.205 27.203 27.684 71.022 1.438 98.81c-.004.014-.025.02-.03.033c-1.03 2.514-1.372 4.965-1.28 7.343c.18 4.757 2.415 9.505 5.936 13.063c3.52 3.556 8.17 5.75 12.875 5.936c3.614.144 7.41-.73 11.47-3.625c37.58-42.338 36.114-107.29-4.438-147.842c-29.2-29.2-71.177-37.894-108.062-26.563l-5.375 1.656l-3.97-3.968zm-11.75 40.688l18.313 18.312l-13.22 13.22l-18.312-18.314zm-186.53 48l-17.876 66.78l36.78 9.844l-.124.47c1.445.292 2.9.612 4.344 1c37.828 10.135 60.26 49.015 50.125 86.843c-9.962 37.175-47.675 59.485-84.876 50.625c-2.695.375-4.986 1.326-7 2.594c-4.03 2.533-7.024 6.796-8.344 11.624s-.908 9.988 1.28 14.156c1.686 3.206 4.35 6.085 8.907 8.156c55.445 11.366 110.96-22.407 125.813-77.78c.003-.01-.003-.022 0-.032c10.673-39.878-2.783-80.572-31.03-106.844l-4.126-3.844l1.437-5.437l9.5-35.44l-84.81-22.717zm159.655 23.28c-6.083 33.48 3.736 69.08 29.72 95.063c36.204 36.205 91.507 41.554 133.06 15.625c-5.342-2.01-10.13-5.214-14.06-9.186c-5.135-5.186-8.89-11.79-10.47-19.156c-26.67 13.713-60.22 9.406-82.563-12.938c-14.735-14.735-21.633-34.33-20.687-53.625l-3 3l-6.625 6.625l-6.594-6.625l-18.78-18.78zm-131.656 4.094l18.06 4.844l-6.686 25.033l-18.063-4.844l6.69-25.033zm-59.47 17.938c-32.02 11.48-57.93 37.8-67.438 73.28c-13.252 49.46 9.77 100.012 53 123.033c-.936-5.626-.568-11.36.907-16.75c1.923-7.036 5.783-13.63 11.374-18.688C62.872 428.512 49.82 397.34 58 366.812c5.395-20.134 18.935-35.924 36.125-44.75L90 320.97l-9.03-2.44l2.405-9.03l6.875-25.625z", "flee": "M217 28.098v455.804l142-42.597V70.697zm159.938 26.88l.062 2.327V87h16V55zM119 55v117.27h18V73h62V55zm258 50v16h16v-16zm0 34v236h16V139zm-240 58.727V233H41v46h96v35.273L195.273 256zM244 232c6.627 0 12 10.745 12 24s-5.373 24-12 24s-12-10.745-12-24s5.373-24 12-24M137 339.73h-18V448h18zM377 393v14h16v-14zm0 32v23h16v-23zM32 471v18h167v-18zm290.652 0l-60 18H480v-18z", "skill": "M228.844 32.22v114.218h17.687V32.218h-17.686zm-108.25.624c-15.507 0-28.094 12.586-28.094 28.093S105.087 89 120.594 89c12.655 0 23.34-8.372 26.844-19.875h44.937v77.313h17.688v-95H147.03c-3.888-10.837-14.262-18.593-26.436-18.593zm193.25 0c-15.507 0-28.063 12.586-28.063 28.093c0 12.124 7.677 22.45 18.44 26.376v59.124h17.655V87.844c11.596-3.452 20.063-14.193 20.063-26.906c0-15.508-12.587-28.094-28.094-28.094zM266.124 92.5v53.938h17.657V92.5h-17.655zm188.532 4.03c-15.507 0-28.094 12.588-28.094 28.095c0 13.083 8.948 24.074 21.063 27.188v27.468h-92.938v17.657h110.624v-46.342c10.223-4.192 17.407-14.233 17.407-25.97c0-15.507-12.557-28.094-28.064-28.094zM30.187 123.657v17.688H96.75v55.594h62.814V179.28h-45.126v-55.624zm147.032 40.47v159.718h159.81v-159.72H177.22zm17.56 15.655h17.657v78.595l32.407 32.406h75.28v17.658H237.5l-2.594-2.594l-10.75-10.75c-1.033 7.385-7.36 13.062-15.03 13.062c-8.392 0-15.19-6.796-15.19-15.187c0-7.682 5.696-13.98 13.095-15l-9.655-9.658l-2.594-2.593V179.78zm54.94.157h17.686v55.313h52.53l.002 17.688H249.72v-73zM53.124 217.375v89.969c-11.49 3.512-19.844 14.198-19.844 26.844c0 15.505 12.557 28.093 28.064 28.093s28.093-12.587 28.093-28.092c0-12.195-7.79-22.564-18.656-26.438v-72.72h88.782v-17.655H53.124zm301.563 0v17.656h53.968v-17.655h-53.97zm99.968 21.97c-10.898 0-20.342 6.21-25 15.28h-74.97l.002 17.688H427c2.325 13.168 13.824 23.187 27.656 23.187c15.507 0 28.063-12.588 28.063-28.094s-12.557-28.062-28.064-28.062zm-349.062 15.28v17.688h53.97v-17.688zm17.156 36.47v84.217c-11.498 3.513-19.875 14.2-19.875 26.844c0 15.506 12.587 28.094 28.094 28.094c15.506 0 28.06-12.588 28.06-28.094c0-12.194-7.766-22.564-18.624-26.437v-66.94h19.156v-17.686h-36.81zm231.938 0v17.686h45.156v95.283c-11.323 3.624-19.53 14.26-19.53 26.78c-.002 15.506 12.585 28.063 28.092 28.063s28.063-12.557 28.063-28.062c0-12.32-7.935-22.778-18.97-26.563V291.095h-62.814zM192.375 341.53v54.033h17.688V341.53zm36.47 0v86.564c-11.013 3.794-18.94 14.233-18.94 26.53c0 15.506 12.588 28.095 28.095 28.095s28.063-12.59 28.063-28.095c0-12.53-8.203-23.14-19.532-26.75V341.53zm37.28 0v54.033h17.688l-.032-54.032h-17.655zm38.094 0v140.064h17.655V341.53H304.22z", "cov": "m494 18.02l-101 .103V119h101zm-119 .12l-238 .247V119h238zm-256 .266L18 18.51V119h101zM18 137v110h229V137zm247 0v110h229V137zM18 265v110h101V265zm119 0v110h238V265zm256 0v110h101V265zM18 393v100.98l229-.236V393zm247 0v100.727l229-.237V393z", "half": "m494 18.02l-101 .103V119h101zm-119 .12l-56.29 12.065l-31.01 64.361l-101.534-35.952L137 119h238zM18 137v61.63l12.416 31.981L62.575 247H247V137zm247 0v110h229V137zM76.294 322.591L18 332.203V375h101V265H65.317zM137 265v110h238c-48.428-109.932-.057-1.24-48.222-110zM18 393v100.98l199-.236L247 393zm247 0v55.79c66.067 45.222-.134-.028 65.798 44.869L494 493.49V393z", "hp": "M480.25 156.355c0 161.24-224.25 324.43-224.25 324.43S31.75 317.595 31.75 156.355c0-91.41 70.63-125.13 107.77-125.13c77.65 0 116.48 65.72 116.48 65.72s38.83-65.73 116.48-65.73c37.14.01 107.77 33.72 107.77 125.14", "load": "M256 16c-120 0-135 105-60 195c0-165 135-45 135-135c0-30-45-60-75-60m146.25 134.532C370.61 152.554 334.75 167.875 301 196c165 0 45 135 135 135c30 0 60-45 60-75c0-75-41.016-108.838-93.75-105.468M76 181c-30 0-60 45-60 75c0 120 105 135 195 60c-165 0-45-135-135-135m175.782 15A60 60 0 0 0 196 256a60 60 0 0 0 120 0a60 60 0 0 0-64.218-60M316 301c0 165-135 45-135 135c0 30 45 60 75 60c120 0 135-105 60-195", "ap": "M29.805 29.777L242.14 209.55H118.712l112.54 86.784H95.995l225.656 174.012l-81.537-116.05l66.487.143l179.185 138.175l-171.96-244.746h84.568L248.082 29.776z"};
+(function buildWheel(){const CX=174,CY=174,pt=(r,a)=>{const t=(a-90)*Math.PI/180;return [(CX+r*Math.cos(t)).toFixed(1),(CY+r*Math.sin(t)).toFixed(1)]};
+ const arc=(r0,r1,a0,a1)=>{const A0=pt(r1,a0),A1=pt(r1,a1),B1=pt(r0,a1),B0=pt(r0,a0);return 'M'+A0+'A'+r1+' '+r1+' 0 0 1 '+A1+'L'+B1+'A'+r0+' '+r0+' 0 0 0 '+B0+'Z'};
+ const ring=(g,r0,r1,off)=>{const L=ACTS.filter(a=>a.g===g),st=360/L.length;return L.map((a,i)=>{const a0=off+i*st+1,a1=off+(i+1)*st-1,c=pt((r0+r1)/2,(a0+a1)/2);
+  return '<g class="r-'+g+'" data-a="'+a.k+'" role="button" tabindex="0" aria-label="'+a.n+'，'+a.c+' 點行動點。'+a.d+'"><path d="'+arc(r0,r1,a0,a1)+'"/><path class="ic" transform="translate('+(+c[0]-15)+' '+(+c[1]-21)+') scale(.0586)" d="'+IC[a.k]+'"/><text class="c" x="'+c[0]+'" y="'+(+c[1]+20)+'">'+a.c+'</text></g>'}).join('')};
+ $('cd-wbox').innerHTML='<svg class="cd-w" viewBox="0 0 348 348" role="group" aria-label="行動圓環"><circle class="hit" cx="174" cy="174" r="173"/>'+ring('tac',128,172,-45)+ring('res',84,126,-60)+ring('atk',42,82,0)
+  +'<g class="r-skl" data-a="skill" role="button" tabindex="0" aria-label="技能清單"><circle class="bg" cx="174" cy="174" r="40"/><path class="ic" transform="translate(148 148) scale(.1016)" d="'+IC.skill+'"/></g></svg>';
+})();
+function tipHTML(k){if(k==='skill')return '<b>技能</b><p>打開技能清單。</p>';const a=ACTS.find(x=>x.k===k),u=cur();if(!a)return '';
+ const c=cost(a,u),no=u.side==='P'&&(u.ap<c?'行動點不夠':(!a.ok(u)?a.w:''));return '<b>'+a.n+'</b><i>'+c+' 點</i><p>'+a.d+'</p>'+(no?'<p class="no">現在做不到：'+no+'。</p>':'')}
+function updWheel(u,m){const off=S.over||u.side==='E';$('cd-act').classList.toggle('off',off);$('cd-endbtn').disabled=off;$('cd-endbtn').classList.toggle('dis',off);
+ $('cd-wbox').querySelectorAll('g[data-a]').forEach(g=>{const k=g.getAttribute('data-a'),a=ACTS.find(x=>x.k===k);
+  const dis=off||(a?(u.ap<cost(a,u)||!a.ok(u)):false);g.classList.toggle('dis',dis);if(a){const tx=g.querySelector('text.c');if(tx)tx.textContent=cost(a,u)}g.classList.toggle('sel',k==='skill'?!!S.skill:m===k);g.setAttribute('aria-disabled',dis);g.setAttribute('tabindex',dis?-1:0)});
+ $('cd-flee').disabled=off||u.ap<2;$('cd-give').disabled=off;
+ $('cd-skl').hidden=!S.skill;if(off)hov(null)}
+const WB=$('cd-wbox'),TIP=$('cd-tip'),touch=window.matchMedia&&window.matchMedia('(hover: none)').matches;let HV=null;
+function hov(g,x,y){if(HV&&HV!==g)HV.classList.remove('hov');HV=g;if(!g){TIP.hidden=true;return}
+ if(!g.classList.contains('hov')){g.parentNode.appendChild(g);g.classList.add('hov')}
+ TIP.innerHTML=tipHTML(g.getAttribute('data-a'));TIP.hidden=false;const R=$('cd-act').getBoundingClientRect();
+ if(x==null){const b=g.getBoundingClientRect();x=b.right;y=b.top}
+ let L=x-R.left+18,T=y-R.top+18;const w=TIP.offsetWidth,h=TIP.offsetHeight;if(L+w>R.width)L=Math.max(0,x-R.left-w-18);if(y+18+h>window.innerHeight)T=y-R.top-h-14;
+ TIP.style.left=L+'px';TIP.style.top=T+'px'}
+WB.addEventListener('mousemove',e=>{const g=e.target.closest('g[data-a]');if(g)hov(g,e.clientX,e.clientY);else if(HV)hov(HV,e.clientX,e.clientY)});
+WB.addEventListener('mouseleave',()=>hov(null));
+WB.addEventListener('focusin',e=>{const g=e.target.closest('g[data-a]');if(g)hov(g)});
+WB.addEventListener('focusout',()=>hov(null));
+$('cd-act').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const inW=WB.contains(b);
+ if(touch&&inW&&HV!==b){hov(b);return}
+ if(b.classList.contains('dis'))return;act(b.getAttribute('data-a'));if(touch)hov(null)});
+document.addEventListener('click',e=>{if(touch&&!WB.contains(e.target))hov(null)});
+$('cd-act').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const b=e.target.closest('g[data-a]');if(b&&!b.classList.contains('dis')){e.preventDefault();act(b.getAttribute('data-a'))}});
+$('cd-field').addEventListener('click',e=>{const x=e.target.closest('.cd-u.tg');if(x)return pick('unit',+x.dataset.u);const s=e.target.closest('.cd-slot.tg');if(s)pick('slot',[s.dataset.s[0],+s.dataset.s[1]])});
+/* 脫離與投降：長按 0.6 秒才生效，放開就取消 */
+function hold(btn,fn){let t=null,fired=false;const go=()=>{if(btn.disabled||S.busy||S.over)return;btn.classList.add('on');t=setTimeout(()=>{t=null;fired=true;btn.classList.remove('on');fn()},600)},
+ stop=()=>{if(t){clearTimeout(t);t=null}btn.classList.remove('on')};
+ btn.addEventListener('pointerdown',e=>{e.preventDefault();go()});['pointerup','pointerleave','pointercancel'].forEach(v=>btn.addEventListener(v,stop));
+ btn.addEventListener('contextmenu',e=>e.preventDefault());
+ btn.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')){e.preventDefault();if(!e.repeat)go()}});btn.addEventListener('keyup',e=>{if(e.key==='Enter'||e.key===' ')stop()});
+ btn.addEventListener('click',()=>{if(fired){fired=false;return}if(!btn.disabled)hint(btn.textContent.replace(/\d/g,'')+'要長按，免得誤觸。')})}
+function flee(){const u=cur();if(u.ap<2)return;u.ap-=2;const r=d20()+3,dc=10+Math.max(...alive('E').map(x=>x.tier))*2;
+ if(r>=dc){S.over=true;const el=$('cd-end');el.style.display='block';el.textContent='脫離成功：全隊離開這場戰鬥，回到地圖上。敵人還在原地。';log('脫離成功（'+r+' 對 '+dc+'）。','h')}
+ else{log('脫離失敗（'+r+' 對 '+dc+'）：這 2 點行動點不退，沒有別的懲罰。','r')}render()}
+function giveUp(){S.over=true;S.mode=null;const el=$('cd-end');el.style.display='block';el.textContent='投降：戰鬥結束，算戰敗。之後不再受傷害，每個人停在現在的生命與感載。在正式的遊戲裡，這裡直接進戰敗事件（和全隊倒下時是同一個，依贏的是誰）。';log('投降。','h');render()}
+hold($('cd-flee'),flee);hold($('cd-give'),giveUp);
+$('cd-reset').addEventListener('click',init);
+init();
+})();
+</script>
+<!--skin:start--><style>/* 新風格（tools/art/restyle_demos.py 產生） */
+.cd.cd.cd{--bg:#17111F;--bg1:#211829;--bg2:#2C2136;--line:#3A2D47;--ink:#F3E9FF;--ink2:#C9B8E8;--ink3:#8C7AA6;--pink:#F06AA0;--pinkhi:#F58DBA;--mint:#45D6C5;--strong:#FFFFFF;--tint:#F06AA014;--zebra:#ffffff06;--hp:#FF4A4A;--ld:#F06AA0;--ap:#F2C14E;--apc:#F2C14E;--cv:#5FB8E8;--me:#F06AA0;--foe:#FF8A3D;border:0;background:#211829;background-image:linear-gradient(#ffffff05 1px,transparent 1px),linear-gradient(90deg,#ffffff05 1px,transparent 1px);background-size:16px 16px;box-shadow:inset 0 0 0 2px #45305C;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));padding:16px}
+.cd.cd::before{content:"";position:absolute;pointer-events:none}
+.cd .cd-top b{color:var(--pink);font-weight:900}
+.cd .cd-slot,.cd .cd-u,.cd .cd-log,.cd .cd-skl,.cd .cd-c,.cd .cd-card,.cd .cd-topic{border:0;box-shadow:inset 0 0 0 1px var(--line);clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px))}
+.cd .cd-slot{background:#1A1322}
+.cd .cd-u{background:var(--bg2)}
+.cd .cd-u.act{box-shadow:inset 0 0 0 2px var(--pink),0 0 14px #F06AA055}
+.cd .cd-btn{border:0;background:var(--bg2);clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));font-weight:800}
+.cd .cd-btn:hover:not(:disabled){background:#3A2B47;color:var(--ink)}
+.cd .cd-chip{border-radius:999px;border:0;background:var(--bg2);font-weight:800;padding:2px 9px}
+.cd .cd-chip.on{background:var(--pink);color:#fff}
+.cd .cd-bar{height:8px;border-radius:4px;background:#2E2339;overflow:hidden}
+.cd .cd-bar i{border-radius:4px 0 0 4px}
+.cd .cd-bar i[style*="--hp"]{background:linear-gradient(90deg,#FF4A4A,#FF8A5C)!important}
+.cd .cd-bar i[style*="--ld"]{background:repeating-linear-gradient(120deg,#F06AA0 0 6px,#F58DBA 6px 9px)!important;box-shadow:0 0 6px #F06AA066}
+.cd .cd-log{background:#120D19}
+.cd .cd-end{border:0;box-shadow:inset 3px 0 0 var(--pink);background:#120D19}
+
+.cd .cd-w path:not(.ic),.cd .cd-w circle.bg{stroke:#17111F;stroke-width:2.5}
+.cd .cd-w .r-atk path:not(.ic){fill:color-mix(in srgb,#FF4A4A 22%,#2C2136)}
+.cd .cd-w .r-res path:not(.ic){fill:color-mix(in srgb,#F2C14E 18%,#2C2136)}
+.cd .cd-w .r-tac path:not(.ic){fill:color-mix(in srgb,#8E7CC3 30%,#2C2136)}
+.cd .cd-w .r-skl circle.bg{fill:color-mix(in srgb,#F06AA0 26%,#2C2136)}
+</style><!--skin:end-->
+<!--demo:end-->
+</body></html>
