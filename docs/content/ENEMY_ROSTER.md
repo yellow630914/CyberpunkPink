@@ -4260,7 +4260,6 @@
 | 料理長「糖霜夫人」 | `fc_sweetheart` ② | `en_sweetheart_chef` | II 首領 | 現實 | — | `fed` |
 | 分局督察樊 | `fc_police` ② | `en_police_inspector` | II 首領 | 現實 | — | `police` |
 | 首席淨化官白百合 | `fc_suppress` ② | `en_suppress_ace` | II 首領（中途換成溺感者規則） | 現實 | — | `quarantine`／`spread` |
-| 兔子 | `oth_balloon` ⑤ | `en_masc_bear` | III 首領（吉祥物） | 現實 | — | `taken` |
 | 回收機娘「奏」 | `oth_peach7` ② | `en_orihime_guardroid` | I 精英（人形機器） | 現實 | — | 織女的預設 |
 
 ---
