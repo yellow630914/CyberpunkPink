@@ -51,6 +51,15 @@ function onCell(p: Point) {
   if (fog(p.x, p.y) === 'hidden') { ui.toast('那裡還沒探索過。', 'warn'); return }
   if (!walkTo(p)) ui.toast('走不到那裡。', 'warn')
 }
+/** 鍵盤：方向鍵走一格（沒探索過的也能走，走了就看到）；Enter 把焦點移到這個節點的行動。 */
+function onStep(d: { x: number; y: number }) {
+  if (s.located) { ui.toast('已經被定位了：只能拔線。', 'warn'); return }
+  const n = { x: s.pos.x + d.x, y: s.pos.y + d.y }
+  if (!s.walkable(n.x, n.y)) return
+  path.value = []
+  s.stepTo(n); enter(n)
+}
+function onEnter() { (document.querySelector('.node-acts .btn') as HTMLElement | null)?.focus() ?? ui.toast('這一格沒有節點。') }
 /** 走進一格時會發生的事：陷阱與遭遇。 */
 function enter(p: Point) {
   const n = s.nodeAt(p)
@@ -96,7 +105,10 @@ function crack() {
   s.unlocked = 2
   s.setFloor(1)
 }
+// 委託副本（SERIES 第 6 節）：進入入口的那一刻與這個階段開始時各存一個快照；每場戰鬥開打前再存一個
+if (!g.inRun) { g.inRun = true; g.takeSnapshot('入口', '進入入口的那一刻'); g.takeSnapshot('階段', '階段 ② 開始時') }
 function fight() {
+  g.takeSnapshot('戰鬥', `戰鬥開打前・${here.value!.name}`)
   s.addTrace(9); s.done.add(here.value!.key)
   note(`你和${here.value!.name}打了三個回合：追蹤度 +9。`)
   router.push('/demo/net')
@@ -107,6 +119,8 @@ function sneak() {
   else { s.addTrace(5); note(`潛行 1d20(${die}) + 6 對 DC 14：失敗，追蹤度 +5，它發現你了。`) }
 }
 function logout(reason: string) {
+  g.inRun = false
+  g.snapshots = []
   g.addLog({ prose: [reason], net: [`子網・藍鯨物流：追蹤度 ${s.trace}${s.loot.length ? `；帶出來的：${s.loot.join('、')}` : ''}。`] })
   router.push('/')
 }
@@ -135,7 +149,7 @@ const traceStage = computed(() => [...TRACE_MARKS].reverse().find(m => s.trace >
           <Tabs v-model="floorModel" :tabs="floorTabs" @blocked="ui.toast('先打開這一層的閘門。', 'warn')" />
           <Hint title="子網地圖">一層 11 × 9。點看得到或看過的格子，化身照最短的路走過去；沒探索的格子在迷霧裡。節點是格子上的設施：走到上面，右欄出現能做的事。警報節點與迴圈碎片是陷阱。</Hint>
         </div>
-        <GridMap :w="s.w" :h="s.h" :cell="cellView" :fog="fog" :tokens="tokens" :path="path" :max-cell="64" :label="`${s.floor.name}的子網圖`" @cell="onCell" />
+        <GridMap :w="s.w" :h="s.h" :cell="cellView" :fog="fog" :tokens="tokens" :path="path" :max-cell="64" :label="`${s.floor.name}的子網圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
         <div class="legend">
           <span v-for="(info, k) in NODE_INFO" :key="k"><Icon :id="info.icon" :size="14" fit />{{ info.name }}<Hint :text="info.hint" /></span>
         </div>
@@ -162,7 +176,7 @@ const traceStage = computed(() => [...TRACE_MARKS].reverse().find(m => s.trace >
           <p class="h">這裡<template v-if="here">：{{ hereInfo!.name }}</template></p>
           <template v-if="here && hereInfo">
             <div class="nodeh"><Icon :id="hereInfo.icon" :size="28" fit /><b>{{ here.name }}</b><span v-if="s.done.has(here.key)" class="tag">處理過了</span><Hint :text="hereInfo.hint" /></div>
-            <div class="go left">
+            <div class="go left node-acts">
               <template v-if="here.kind === 'archive'"><ReasonButton sm pri :reason="s.done.has(here.key) ? '已經下載過了。' : null" @go="download(2, '提貨單 ×1')">下載（2 回合）</ReasonButton></template>
               <template v-else-if="here.kind === 'target'"><ReasonButton sm pri :reason="s.done.has(here.key) ? '帳本已經在你手上。' : null" @go="download(3, '藍鯨的帳本')">下載帳本（3 回合）</ReasonButton></template>
               <template v-else-if="here.kind === 'control'"><ReasonButton sm pri :reason="s.done.has(here.key) ? '已經接管了。' : null" @go="takeover">接管（RAM 3）</ReasonButton></template>
@@ -174,7 +188,7 @@ const traceStage = computed(() => [...TRACE_MARKS].reverse().find(m => s.trace >
                 <ReasonButton sm pri :reason="s.done.has(here.key) ? '已經過去了。' : null" @go="fight">開戰（內海戰鬥）</ReasonButton>
                 <ReasonButton sm :reason="s.done.has(here.key) ? '已經過去了。' : null" @go="sneak">潛行繞過</ReasonButton>
               </template>
-              <template v-else-if="here.kind === 'person'"><ReasonButton sm @go="spend(1, `你快駭了${here!.name}，拿到他的門禁卡號。`) && s.done.add(here!.key)">快駭（RAM 1）</ReasonButton><ReasonButton sm reason="網內的對話在第二版做。">談</ReasonButton></template>
+              <template v-else-if="here.kind === 'person'"><ReasonButton sm @go="spend(1, `你快駭了${here!.name}，拿到他的門禁卡號。`) && s.done.add(here!.key)">快駭（RAM 1）</ReasonButton><ReasonButton sm reason="網內的對話在第三版做。">談</ReasonButton></template>
               <template v-else-if="here.kind === 'backdoor'"><button type="button" class="btn sm pri" @click="logout('你從預埋的後門登出，拔線回到現實。')">從這裡登出</button><button type="button" class="btn sm" @click="s.load = Math.max(0, s.load - 5); note('你在後門短休：感載 −5。')">短休</button></template>
               <template v-else-if="here.kind === 'entrance' && s.floorIdx > 0"><button type="button" class="btn sm" @click="s.setFloor(0)">回員工層</button></template>
             </div>

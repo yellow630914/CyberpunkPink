@@ -8,12 +8,18 @@ import ReasonButton from '../components/ReasonButton.vue'
 import { useSettings, type Settings } from '../stores/settings'
 import { useGame } from '../stores/game'
 import { useUi } from '../stores/ui'
+import { useSaves } from '../stores/saves'
+import { useRouter } from 'vue-router'
+import RuleFields from '../components/RuleFields.vue'
 
 /**
  * 設定（UI.md 第 15 節，樣稿 docs/mockups/settings.html 的七個分頁）。這是簡單版：每頁放幾列，說明都收進「?」。
  * 「存檔」頁真的把這份假存檔存進瀏覽器（localStorage），讀得回來。
  */
 const props = defineProps<{ entryId: number; stacked?: boolean; tab?: string }>()
+void ReasonButton
+const router = useRouter()
+function toWorkshop(cat: string) { ui.closeAll(); router.push({ path: '/workshop', query: { cat } }) }
 const st = useSettings()
 const s = st.s
 const g = useGame()
@@ -40,31 +46,9 @@ const FILTER_ROWS: Array<{ k: BoolKey; name: string; hint: string }> = [
   { k: 'filterPublic', name: '公開場合', hint: '關掉時發生在公開場合的成人事件不觸發。' },
   { k: 'filterContract', name: '契約', hint: '關掉時契約面板與契約人的事件不出現。' },
 ]
-const SAVE_KEY = 'cpp-ui-saves-v1'
-function readSaves(): Array<{ slot: number; label: string; data: string } | null> {
-  try { const raw = localStorage.getItem(SAVE_KEY); if (raw) return JSON.parse(raw) } catch { /* 讀不到就當沒有 */ }
-  return [null, null, null]
-}
-const saves = ref(readSaves())
-function snapshot() {
-  return JSON.stringify({ day: g.day, minutes: g.minutes, money: g.money, inventory: g.inventory, equip: g.equip, loc: g.loc, npcs: g.npcs, log: g.log.slice(0, 20) })
-}
-function save(i: number) {
-  saves.value[i] = { slot: i, label: `第 ${g.day} 天 ${g.timeLabel}・${g.placeLabel}`, data: snapshot() }
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(saves.value)); ui.toast(`存到了第 ${i + 1} 格。`) } catch { ui.toast('這個瀏覽器存不了（私密視窗或空間不夠）。', 'warn') }
-}
-function load(i: number) {
-  const sv = saves.value[i]
-  if (!sv) return
-  const d = JSON.parse(sv.data)
-  g.$patch(state => {
-    state.day = d.day; state.minutes = d.minutes; Object.assign(state.money, d.money); state.inventory = d.inventory
-    for (const k of Object.keys(state.equip)) delete (state.equip as Record<string, unknown>)[k]
-    Object.assign(state.equip, d.equip); Object.assign(state.loc, d.loc); Object.assign(state.npcs, d.npcs); state.log = d.log
-  })
-  ui.toast(`讀了第 ${i + 1} 格。`)
-}
-const DIFFS = ['故事', '輕鬆', '普通', '困難', '殘酷', '自訂'] as const
+const sv = useSaves()
+function save(i: number) { const err = sv.saveTo(i); ui.toast(err ?? `存到了第 ${i + 1} 格。`, err ? 'warn' : 'info') }
+function load(i: number) { const err = sv.loadFrom('slots', i); ui.toast(err ?? `讀了第 ${i + 1} 格。`, err ? 'warn' : 'info') }
 </script>
 
 <template>
@@ -76,7 +60,7 @@ const DIFFS = ['故事', '輕鬆', '普通', '困難', '殘酷', '自訂'] as co
         <div class="src"><b>主力</b><small>Anthropic・金鑰只存在這台機器</small><span class="ok">連線 ✓</span></div>
         <div class="src"><b>便宜的小模型</b><small>相容 OpenAI 的服務・本機的伺服器</small><span class="ok">連線 ✓</span></div>
         <div class="src"><b>成人路由</b><small>相容 OpenAI 的服務</small><span class="bad">工具調用 ✕</span></div>
-        <div class="go"><ReasonButton sm reason="AI 的設定在第二版接上；這一版沒有 AI 呼叫。">新增來源</ReasonButton><ReasonButton sm reason="AI 的設定在第二版接上；這一版沒有 AI 呼叫。">全部測一次</ReasonButton></div>
+        <div class="go"><ReasonButton sm reason="這個參考實作沒有 AI 呼叫，來源只是假資料。">新增來源</ReasonButton><ReasonButton sm reason="這個參考實作沒有 AI 呼叫，連不出去。">全部測一次</ReasonButton><button type="button" class="btn sm" @click="toWorkshop('route')">更細的在 AI 工坊</button></div>
       </template>
 
       <template v-else-if="tab === 'ai'">
@@ -86,14 +70,16 @@ const DIFFS = ['故事', '輕鬆', '普通', '困難', '殘酷', '自訂'] as co
           <button type="button" class="sw" role="switch" :aria-checked="s[r.k]" :aria-label="r.name" :class="{ on: s[r.k] }" @click="s[r.k] = !s[r.k]" />
           <span class="df">預設 <b>{{ st.defaults[r.k] ? '開' : '關' }}</b></span>
         </div>
+        <div class="srow"><span class="nm2">自動重試<Hint>每個任務出錯時自動重試幾次；這一格一次設全部，AI 工坊裡可以每個任務各自設。</Hint></span><span class="val">{{ s.retries }} 次</span><span class="seg"><button v-for="n in [0, 1, 2, 3]" :key="n" type="button" :class="{ on: s.retries === n }" @click="s.retries = n">{{ n }}</button></span></div>
+        <div class="go"><button type="button" class="btn sm" @click="toWorkshop('chains')">更細的在 AI 工坊</button></div>
         <div class="srow"><span class="nm2">逾時<Hint>收到文字、思考或工具呼叫就重新計時。這一項不能調。</Hint></span><span class="val">閒置 3 分鐘</span><span class="df">固定</span></div>
       </template>
 
       <template v-else-if="tab === 'prompt'">
         <p class="sgrp">提示詞都在 AI 工坊</p>
-        <div class="srow"><span class="nm2">目前的提示詞組</span><span class="val">預設組・改過 6 處</span><ReasonButton sm reason="AI 工坊在第二版做。">切換</ReasonButton></div>
-        <div class="srow"><span class="nm2">文風</span><span class="val">霓虹黑色</span><ReasonButton sm reason="AI 工坊在第二版做。">編輯</ReasonButton></div>
-        <div class="srow"><span class="nm2">正文正則</span><span class="val">4 條，全部開著</span><ReasonButton sm reason="AI 工坊在第二版做。">編輯</ReasonButton></div>
+        <div class="srow"><span class="nm2">目前的提示詞組</span><span class="val">{{ s.promptSet }}</span><button type="button" class="btn sm" @click="toWorkshop('sets')">切換</button></div>
+        <div class="srow"><span class="nm2">文風</span><span class="val">霓虹黑色</span><button type="button" class="btn sm" @click="toWorkshop('shared')">編輯</button></div>
+        <div class="srow"><span class="nm2">正文正則</span><span class="val">4 條，全部開著</span><button type="button" class="btn sm" @click="toWorkshop('shared')">編輯</button></div>
       </template>
 
       <template v-else-if="tab === 'filter'">
@@ -108,26 +94,7 @@ const DIFFS = ['故事', '輕鬆', '普通', '困難', '殘酷', '自訂'] as co
       </template>
 
       <template v-else-if="tab === 'game'">
-        <p class="sgrp">難度<Hint>難度只調兩件事：敵人的生命、傷害與感載上限，以及寫成檔位的檢定 DC。歷練、帳單、報酬與戰敗的設定在下面，換難度不會動到它們。任何難度下，戰敗之後都可以重來這場戰鬥。</Hint></p>
-        <div class="diffs">
-          <button v-for="d in DIFFS" :key="d" type="button" class="dcard" :class="{ on: s.difficulty === d }" @click="d === '自訂' ? ui.toast('自訂的係數表在第二版做。') : (s.difficulty = d)">{{ d }}</button>
-        </div>
-        <p class="sgrp">存檔規則</p>
-        <div class="srow" :class="{ chg: !st.isDefault('billRule') }">
-          <span class="nm2">每週帳單<Hint>寬鬆：付不出來的那幾項延一週。標準：照順序走下坡路。嚴苛：第一週就鎖義體。</Hint></span>
-          <span class="seg"><button v-for="b in ['寬鬆', '標準', '嚴苛'] as const" :key="b" type="button" :class="{ on: s.billRule === b }" @click="s.billRule = b">{{ b }}</button></span>
-          <span class="df">預設 <b>標準</b></span>
-        </div>
-        <div class="srow" :class="{ chg: !st.isDefault('rosterDeath') }">
-          <span class="nm2">名冊 NPC 會死<Hint>只有打開時，名冊上生成的行者才會死在戰鬥裡。主角與固定的人在任何設定下都不會。</Hint></span>
-          <button type="button" class="sw" role="switch" aria-label="名冊 NPC 會死" :aria-checked="s.rosterDeath" :class="{ on: s.rosterDeath }" @click="s.rosterDeath = !s.rosterDeath" />
-          <span class="df">預設 <b>關</b></span>
-        </div>
-        <div class="srow" :class="{ chg: !st.isDefault('fastTravel') }">
-          <span class="nm2">快速移動<Hint>城市地圖上點街區直接過去。關掉時只能用走的或搭車。</Hint></span>
-          <button type="button" class="sw" role="switch" aria-label="快速移動" :aria-checked="s.fastTravel" :class="{ on: s.fastTravel }" @click="s.fastTravel = !s.fastTravel" />
-          <span class="df">預設 <b>開</b></span>
-        </div>
+        <RuleFields />
       </template>
 
       <template v-else-if="tab === 'display'">
@@ -156,12 +123,13 @@ const DIFFS = ['故事', '輕鬆', '普通', '困難', '殘酷', '自訂'] as co
       </template>
 
       <template v-else>
-        <p class="sgrp">讀檔與存檔<Hint>這一版把假存檔存在瀏覽器裡（localStorage），換一台機器或清掉網站資料就沒了。匯出、匯入與委託副本的快照在第二版。</Hint></p>
-        <div v-for="(sv, i) in saves" :key="i" class="srow">
+        <p class="sgrp">讀檔與存檔<Hint>存檔只存在這台機器的瀏覽器裡（localStorage）；要換機器就用「讀檔與存檔」裡的匯出。委託副本的快照與回退也在那裡。</Hint></p>
+        <div v-for="(slot, i) in sv.slots" :key="i" class="srow">
           <span class="nm2">第 {{ i + 1 }} 格</span>
-          <span class="val">{{ sv ? sv.label : '空' }}</span>
-          <span class="seg"><button type="button" @click="save(i)">存到這裡</button><button type="button" :aria-disabled="!sv || undefined" @click="sv ? load(i) : ui.toast('這一格是空的。', 'warn')">讀取</button></span>
+          <span class="val">{{ slot ? slot.label : '空' }}</span>
+          <span class="seg"><button type="button" @click="save(i)">存到這裡</button><button type="button" :aria-disabled="!slot || undefined" @click="slot ? load(i) : ui.toast('這一格是空的。', 'warn')">讀取</button></span>
         </div>
+        <div class="go"><button type="button" class="btn sm pri" @click="ui.open('saves')">打開讀檔與存檔</button></div>
       </template>
     </section>
   </Dialog>

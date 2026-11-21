@@ -15,9 +15,14 @@ import { useUi } from '../stores/ui'
 import { ITEMS } from '../data/items'
 import { BODY_PARTS, EQUIP_SLOTS } from '../data/character'
 import type { BodyPartId, EquipSlotId } from '../data/types'
+import NetTab from './character/NetTab.vue'
+import BridgeTab from './character/BridgeTab.vue'
+import AdultTab from './character/AdultTab.vue'
+import { BASIC_SKILLS, ATTRS } from '../data/creation'
+import { useGuides } from '../lib/useGuides'
 
 /**
- * 角色與義體（UI.md 第 8 節）。左欄角色卡；右邊分頁。v1 做「概要」「身體」「裝備」，其餘三頁在第二版。
+ * 角色與義體（UI.md 第 8 節）。左欄角色卡；右邊六個分頁：概要、身體、裝備、內海、橋、成人（後三頁在 character/）。
  * 身體：人形與十一個部位的槽（CYBERWARE 第 1 節），每一槽是一個物品格。
  * 裝備：穿著 10、飾品 5、攜帶 3＋快取格（EQUIPMENT 第 2～4 節）；「換裝」疊開背包。
  */
@@ -27,8 +32,41 @@ const ui = useUi()
 const tab = ref(props.tab ?? 'body')
 const TABS = [
   { id: 'sum', label: '概要' }, { id: 'body', label: '身體' }, { id: 'gear', label: '裝備' },
-  { id: 'net', label: '內海', disabled: true }, { id: 'bridge', label: '橋', disabled: true }, { id: 'adult', label: '成人', disabled: true },
+  { id: 'net', label: '內海' }, { id: 'bridge', label: '橋' }, { id: 'adult', label: '成人' },
 ]
+const guides = useGuides()
+if (tab.value === 'gear') guides.trigger('g_gear')
+
+// ---- 概要：基本功（CORE_RULES 7.2 節）：升到 N 級花 N × 10；5、6 級要有人教 ----
+function basicBlock(name: string) {
+  const lv = g.basics[name] ?? 0
+  if (lv >= 6) return '已經 6 級了。'
+  if (lv >= 4) return `${name}的 ${lv + 1} 級要有人教：先找到一位 5 級以上的老師。`
+  const cost = (lv + 1) * 10
+  if (g.character.xp < cost) return `要 ${cost} 歷練點，你有 ${g.character.xp} 點。`
+  return null
+}
+function raiseBasic(name: string) {
+  const lv = g.basics[name] ?? 0
+  g.character.xp -= (lv + 1) * 10
+  g.basics[name] = lv + 1
+  ui.toast(`${name}升到 ${lv + 1} 級。`)
+}
+
+// ---- 快取格（EQUIPMENT 4.1 節）：戰鬥中只能用這裡的道具 ----
+const quickSel = ref<number | null>(null)
+const quickable = computed(() => g.inventory.filter(st => ['consumable', 'drug', 'ammo'].includes(ITEMS[st.def].kind)))
+function quickBlock(def: string): string | null {
+  const inQuick = g.quick.filter((x, i) => x === def && i !== quickSel.value).length
+  const have = g.inventory.filter(st => st.def === def).reduce((a, st) => a + st.qty, 0)
+  return inQuick >= have ? `背包裡只有 ${have} 個，快取格已經放了 ${inQuick} 個。` : null
+}
+function putQuick(def: string) {
+  if (quickSel.value === null) return
+  const b = quickBlock(def)
+  if (b) { ui.toast(b, 'warn'); return }
+  g.setQuick(quickSel.value, def)
+}
 
 // ---- 身體 ----
 const part = ref<BodyPartId>('brain')
@@ -52,7 +90,7 @@ const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e4
 
 <template>
   <Dialog :entry-id="entryId" :stacked="stacked" title="角色與義體" :sub="`${g.character.origin}・${g.character.trees.join('・')}`" size="xl">
-    <template #header><Tabs v-model="tab" :tabs="TABS" @blocked="ui.toast('這一頁在第二版做。')" /></template>
+    <template #header><Tabs v-model="tab" :tabs="TABS" @update:model-value="v => v === 'gear' && guides.trigger('g_gear')" /></template>
     <div class="ch">
       <!-- 角色卡 -->
       <aside class="panel cut pad card">
@@ -77,6 +115,19 @@ const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e4
             <div class="k">{{ a.name }}</div>
             <div class="v" :class="{ up: a.eff > a.base }">{{ a.eff }}<small v-if="a.eff !== a.base"> ←{{ a.base }}</small></div>
             <div class="src">{{ a.src ?? '—' }}</div>
+          </div>
+        </div>
+        <p class="h mt">基本功<Hint>十八項，每項 0～6 級。升到 N 級花 N × 10 歷練點；0 到 4 級可以直接升，5 級與 6 級要有人教（金色細框）。基本功不佔橋的容量。</Hint></p>
+        <div class="basics">
+          <div v-for="a in ATTRS" :key="a" class="bgrp">
+            <div class="k">{{ a }}</div>
+            <div v-for="b in BASIC_SKILLS.filter(x => x.attr === a)" :key="b.name" class="brow">
+              <Icon :id="b.icon" :size="18" fit />
+              <span class="bn">{{ b.name }}<Hint :text="b.hint" /></span>
+              <span class="bpips"><i v-for="n in 6" :key="n" :class="{ on: n <= (g.basics[b.name] ?? 0), teach: n >= 5 }" /></span>
+              <span class="bc mono">{{ (g.basics[b.name] ?? 0) >= 4 ? '要老師' : `${((g.basics[b.name] ?? 0) + 1) * 10}` }}</span>
+              <ReasonButton sm :reason="basicBlock(b.name)" @go="raiseBasic(b.name)">＋</ReasonButton>
+            </div>
           </div>
         </div>
         <p class="h mt">沉溺 {{ g.character.sink }}・貪歡<Hint title="貪歡（40～59）">得到：承受層數 +1；自己造成的感載 +10%；聽得懂遺魂在說什麼。失去：定力 −1；每週可能發生衝動事件。再 2 點進入迷醉。</Hint></p>
@@ -126,15 +177,28 @@ const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e4
             <p class="h">{{ grp }}・{{ EQUIP_SLOTS.filter(s => s.group === grp).length }} 格</p>
             <div class="eqgrid">
               <ItemSlot v-for="s in EQUIP_SLOTS.filter(x => x.group === grp)" :key="s.id" :item="g.equip[s.id] ? ITEMS[g.equip[s.id]!] : null" :slot-icon="s.icon" :label="s.name"
-                show-name :selected="eqSel === s.id" :covered="g.coveredSlots.has(s.id)" @select="eqSel = s.id" />
+                show-name :selected="eqSel === s.id && quickSel === null" :covered="g.coveredSlots.has(s.id)" @select="eqSel = s.id; quickSel = null" />
             </div>
           </template>
           <p class="h">快取格 {{ g.quick.filter(Boolean).length }}／{{ g.quickCap }}<Hint title="快取格">戰鬥中只能用這裡的道具（1 點行動點）。每個人 2 格，腰帶 +1，戰術背心 +2，上限 8。</Hint></p>
           <div class="eqgrid">
-            <ItemSlot v-for="(id, i) in Array.from({ length: g.quickCap }, (_, k) => g.quick[k] ?? null)" :key="i" :item="id ? ITEMS[id] : null" slot-icon="ic-consumable" label="快取" show-name size="sm" @select="ui.toast('快取格的換裝在第二版做。')" />
+            <ItemSlot v-for="(id, i) in Array.from({ length: g.quickCap }, (_, k) => g.quick[k] ?? null)" :key="i" :item="id ? ITEMS[id] : null" slot-icon="ic-consumable" label="快取" show-name size="sm" :selected="quickSel === i" @select="quickSel = i" />
           </div>
         </div>
-        <aside class="panel cut pad">
+        <aside v-if="quickSel !== null" class="panel cut pad">
+          <p class="h">快取格・第 {{ quickSel + 1 }} 格<Hint>點背包裡的消耗品放進這一格。快取格只是記著要帶哪些，東西還在背包裡算。</Hint></p>
+          <template v-if="g.quick[quickSel]">
+            <div class="dh"><ItemSlot :item="ITEMS[g.quick[quickSel]!]" size="md" /><div><div class="k">{{ ITEMS[g.quick[quickSel]!].type }}</div><h3 :style="{ color: `var(--g${ITEMS[g.quick[quickSel]!].grade})` }">{{ ITEMS[g.quick[quickSel]!].name }}</h3></div></div>
+            <div v-for="[k, v] in ITEMS[g.quick[quickSel]!].stats ?? []" :key="k" class="kv"><span>{{ k }}</span><b>{{ v }}</b></div>
+          </template>
+          <div v-else class="empty-note">這一格是空的。</div>
+          <p class="h mt">背包裡的消耗品</p>
+          <div class="qgrid">
+            <ItemSlot v-for="st in quickable" :key="st.uid" :item="ITEMS[st.def]" :qty="st.qty" size="sm" show-name :locked="!!quickBlock(st.def)" @select="putQuick(st.def)" />
+          </div>
+          <div class="go"><ReasonButton sm :reason="g.quick[quickSel] ? null : '這一格是空的。'" @go="g.setQuick(quickSel!, null)">清空</ReasonButton><button type="button" class="btn sm" @click="quickSel = null">回到裝備</button></div>
+        </aside>
+        <aside v-else class="panel cut pad">
           <p class="h">{{ slotDef(eqSel).group }}・{{ slotDef(eqSel).name }}</p>
           <template v-if="eqDef">
             <div class="dh"><ItemSlot :item="eqDef" size="md" /><div><div class="k">{{ eqDef.type }}・{{ eqDef.brand }}</div><h3 :style="{ color: `var(--g${eqDef.grade})` }">{{ eqDef.name }}</h3><div class="chips"><GradeBadge :grade="eqDef.grade" /><span v-if="eqDef.legality !== '自由'" class="tag warn">{{ eqDef.legality }}</span><span v-if="g.coveredSlots.has(eqSel)" class="tag">被外套蓋住</span></div></div></div>
@@ -151,6 +215,9 @@ const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e4
           <div class="kv"><span>被掃到時</span><b class="warn-t">手槍：登記類，掃得到</b></div>
         </aside>
       </section>
+      <NetTab v-else-if="tab === 'net'" />
+      <BridgeTab v-else-if="tab === 'bridge'" />
+      <AdultTab v-else-if="tab === 'adult'" />
     </div>
   </Dialog>
 </template>
@@ -193,6 +260,16 @@ const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e4
 .seg button { font-size: 12px; font-weight: 800; padding: 6px 12px; background: var(--bg-term); color: var(--ink-3); border: 0; cursor: pointer; }
 .seg button.on { background: var(--a); color: #fff; }
 .warn-t { color: var(--warn); }
+.basics { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 16px; }
+.bgrp .k { margin: 4px 0 2px; }
+.brow { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto 44px auto; gap: 6px; align-items: center; padding: 3px 0; font-size: 12.5px; }
+.bn { display: inline-flex; gap: 4px; align-items: center; font-weight: 700; }
+.bpips { display: flex; gap: 2px; }
+.bpips i { width: 12px; height: 10px; border-radius: 2px; background: var(--bg-2); }
+.bpips i.on { background: var(--a); }
+.bpips i.teach { box-shadow: inset 0 0 0 1px var(--g4); }
+.bc { font-size: 11px; color: var(--ap); text-align: right; }
+.qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
 @media (max-width: 1100px) { .gear-tab { grid-template-columns: 1fr; } }
 @media (max-width: 900px) {
   .ch { grid-template-columns: 1fr; }

@@ -6,10 +6,23 @@ import CharacterDialog from '../dialogs/CharacterDialog.vue'
 import TalkDialog from '../dialogs/TalkDialog.vue'
 import ShopDialog from '../dialogs/ShopDialog.vue'
 import SettingsDialog from '../dialogs/SettingsDialog.vue'
+import RosterDialog from '../dialogs/RosterDialog.vue'
+import RelationsDialog from '../dialogs/RelationsDialog.vue'
+import SkillTreeDialog from '../dialogs/SkillTreeDialog.vue'
+import CraftDialog from '../dialogs/CraftDialog.vue'
+import ChannelDialog from '../dialogs/ChannelDialog.vue'
+import ContractDialog from '../dialogs/ContractDialog.vue'
+import BillsDialog from '../dialogs/BillsDialog.vue'
+import GuideDialog from '../dialogs/GuideDialog.vue'
+import MemoDialog from '../dialogs/MemoDialog.vue'
+import PendingDialog from '../dialogs/PendingDialog.vue'
+import SaveDialog from '../dialogs/SaveDialog.vue'
 
 /** 對話框層：照 ui.stack 的順序畫，Esc 關最上面那一個。 */
 const REGISTRY: Record<DialogName, Component> = {
   bag: BagDialog, character: CharacterDialog, talk: TalkDialog, shop: ShopDialog, settings: SettingsDialog,
+  roster: RosterDialog, relations: RelationsDialog, skills: SkillTreeDialog, craft: CraftDialog, channel: ChannelDialog, contract: ContractDialog,
+  bills: BillsDialog, guide: GuideDialog, memo: MemoDialog, pending: PendingDialog, saves: SaveDialog,
 }
 const ui = useUi()
 function onKey(e: KeyboardEvent) {

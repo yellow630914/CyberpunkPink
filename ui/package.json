@@ -3,14 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "CyberpunkPink 的互動介面 v1（Vue 3 + Pinia + Vite）。引擎的介面參考實作，資料是假的。",
+  "description": "CyberpunkPink 的互動介面（Vue 3 + Pinia + Vite）。引擎的介面參考實作，資料是假的。",
   "scripts": {
     "dev": "vite",
     "icons": "node scripts/build-icons.mjs",
-    "build": "node scripts/build-icons.mjs && vue-tsc --noEmit && vite build",
+    "build": "node scripts/build-content.mjs && node scripts/build-icons.mjs && vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "content": "node scripts/build-content.mjs"
   },
   "dependencies": {
     "pinia": "^3.0.3",

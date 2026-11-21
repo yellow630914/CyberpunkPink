@@ -28,7 +28,14 @@ const props = withDefaults(defineProps<{
   label: string
 }>(), { objects: () => [], tokens: () => [], areas: () => [], path: () => [], maxCell: 56 })
 
-const emit = defineEmits<{ (e: 'cell', p: Point): void; (e: 'object', id: string): void; (e: 'token', id: string): void; (e: 'hover', p: Point | null): void }>()
+const emit = defineEmits<{ (e: 'cell', p: Point): void; (e: 'object', id: string): void; (e: 'token', id: string): void; (e: 'hover', p: Point | null): void; (e: 'step', d: Point): void; (e: 'enter'): void }>()
+/** 鍵盤：地圖拿到焦點時，方向鍵走一格（step），Enter 或空白鍵和腳下的東西互動（enter）。由畫面決定怎麼做。 */
+const KEYS: Record<string, Point> = { ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 }, ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 } }
+function key(e: KeyboardEvent) {
+  const d = KEYS[e.key]
+  if (d) { e.preventDefault(); emit('step', d); return }
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emit('enter') }
+}
 
 const cells = computed(() => {
   const out: Array<{ x: number; y: number; v: CellView; f: FogState }> = []
@@ -56,7 +63,7 @@ function over(e: MouseEvent) {
 </script>
 
 <template>
-  <div class="gm-wrap" :style="{ maxWidth: w * maxCell + 'px' }">
+  <div class="gm-wrap" :style="{ maxWidth: w * maxCell + 'px' }" tabindex="0" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Enter" :aria-label="`${label}：方向鍵走一格，Enter 互動`" @keydown="key">
     <div class="gm" role="grid" :aria-label="label" :style="{ aspectRatio: `${w} / ${h}`, gridTemplateColumns: `repeat(${w}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${h}, minmax(0, 1fr))` }" @click="pick" @mousemove="over" @mouseleave="emit('hover', null)">
       <div v-for="c in cells" :key="c.x + ',' + c.y" class="c" role="gridcell" :class="['k-' + c.v.kind, 'f-' + c.f, { path: pathSet.has(c.x + ',' + c.y) }]" :style="c.v.tint && c.f !== 'hidden' ? { '--tint': c.v.tint } : undefined" :data-x="c.x" :data-y="c.y" :title="c.f !== 'hidden' ? c.v.title : undefined">
         <template v-if="c.f !== 'hidden'">
@@ -77,7 +84,8 @@ function over(e: MouseEvent) {
 </template>
 
 <style scoped>
-.gm-wrap { width: 100%; margin: 0 auto; }
+.gm-wrap { width: 100%; margin: 0 auto; border-radius: 4px; }
+.gm-wrap:focus-visible { outline: 2px solid var(--a); outline-offset: 3px; }
 .gm { position: relative; display: grid; gap: 2px; width: 100%; user-select: none; cursor: pointer; }
 .c { position: relative; border-radius: 3px; background: var(--tile-floor); min-width: 0; min-height: 0; overflow: hidden; display: grid; place-items: center; }
 .c::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--tint, transparent); opacity: .22; pointer-events: none; }

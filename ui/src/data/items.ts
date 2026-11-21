@@ -1,4 +1,5 @@
 import type { ItemDef } from './types'
+import { EXTRA_ITEMS, PART_OF } from './items2'
 
 /**
  * 物品目錄（假資料，取自 docs/gear/ITEMS.md）。id 就是第 3 層圖標的 id（docs/art/icons/items.csv），
@@ -10,7 +11,7 @@ const list: ItemDef[] = [
     cyber: { part: 'bridge', invasive: '侵入', sink: 6, material: '機', effect: '現實／內海／社交／媒體 13／13／13／13；換配置半小時' },
     note: '最不挑零件的橋，是混搭的基底。' },
   { id: 'it_d553bd', name: '早咲・五分咲', kind: 'cyberware', type: '腦的義體', grade: 3, brand: '緋櫻', l2: 'ic-cw_brain', price: 14690, weight: 0, legality: '許可', trade: '機械義體與零件',
-    cyber: { part: 'brain', invasive: '重度', sink: 12, material: '機', effect: '反射加速器：啟動後每回合多回 1 點行動點；開著時每回合自己受 4 點感載', license: '緋櫻・訂閱中，每週扣帳戶 210' },
+    cyber: { part: 'brain', invasive: '重度', sink: 12, material: '機', effect: '反射加速器：啟動後每回合多回 1 點行動點；開著時每回合自己受 4 點感載', license: '緋櫻・訂閱中，每週扣帳戶 441（售價的 3%）' },
     note: '過載時斷開；每場能啟動的次數是電量。' },
   { id: 'it_91ec53', name: '入門甲板-200', kind: 'cyberware', type: '腦的義體', grade: 2, brand: '織女', l2: 'ic-cw_brain', price: 2480, weight: 0, legality: '自由', trade: '電子',
     cyber: { part: 'brain', invasive: '侵入', sink: 5, material: '機', effect: '構裝槽 4；防火牆 12' } },
@@ -117,6 +118,9 @@ const list: ItemDef[] = [
   { id: 'fu_doublebed', name: '雙人床', kind: 'furniture', type: '家具・床', grade: 1, brand: '—', l2: 'ic-fac_furniture', price: 600, weight: 30, legality: '自由', trade: '家具', furniture: 'double_bed' },
   { id: 'fu_netpod', name: '接入艙', kind: 'furniture', type: '家具・接入點', grade: 1, brand: '—', l2: 'ic-fac_furniture', price: 4000, weight: 40, legality: '自由', trade: '家具', furniture: 'netpod' },
 ]
+
+for (const it of list) if (PART_OF[it.id]) it.part = PART_OF[it.id]
+list.push(...EXTRA_ITEMS)
 
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(list.map(i => [i.id, i]))
 export const itemDef = (id: string): ItemDef => {

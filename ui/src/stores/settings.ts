@@ -14,7 +14,15 @@ const defaults = {
   filterRestraint: true, filterDollChip: true, filterPublic: true, filterContract: true,
   // 遊戲
   difficulty: '普通' as '故事' | '輕鬆' | '普通' | '困難' | '殘酷' | '自訂',
-  billRule: '標準' as '寬鬆' | '標準' | '嚴苛',
+  billRule: '標準' as '關閉' | '寬鬆' | '標準' | '嚴苛',
+  /** 帳單倍率 ×0～2（FIXER 第 4 節）；選快捷檔位時一起設好 */
+  billMult: 1,
+  xpMult: 1,
+  moneyMult: 1,
+  traitPoints: 4,
+  defeatView: '一律看' as '一律看' | '可以跳過' | '不看',
+  defeatTakeGear: true,
+  extraAccessory: false,
   rosterDeath: false,
   fastTravel: true,
   // 顯示
@@ -25,15 +33,27 @@ const defaults = {
   districtAccent: true,
   foldAdult: false,
   guidePopups: true,
+  // AI 工坊（PROMPTS 2.14 節）：設定裡也有的項目和這裡是同一個值
+  tradeProse: true,
+  combatProse: '結束時整場寫一次' as '結束時整場寫一次' | '每回合一小段',
+  aiRecord: { sexRecord: true, todayGoods: true, newPeople: true, npcNews: true, streamGoal: true, danmaku: true, footageTitle: true } as Record<string, boolean>,
+  onlyQuery: false,
+  hooks: { agent_hook: true, agent_event: true, agent_night: true, agent_commission: true, agent_flavor: true } as Record<string, boolean>,
+  hookLimits: { event: 3, hook: 1, other: 10 },
+  retries: 1,
+  chainRow: '出錯時展開' as '出錯時展開' | '一直展開' | '隱藏',
+  /** 每個任務用哪個來源（AI_TASKS 第 4 節的 30 個任務） */
+  taskSource: {} as Record<string, string>,
+  promptSet: '預設組',
 }
 export type Settings = typeof defaults
 
 function load(): Settings {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return { ...defaults, ...JSON.parse(raw) }
+    if (raw) return { ...structuredClone(defaults), ...JSON.parse(raw) }
   } catch { /* 私密視窗或被擋：用預設值 */ }
-  return { ...defaults }
+  return structuredClone(defaults)
 }
 
 export const useSettings = defineStore('settings', () => {
@@ -50,7 +70,7 @@ export const useSettings = defineStore('settings', () => {
     apply()
     try { localStorage.setItem(KEY, JSON.stringify(s)) } catch { /* 存不了就算了 */ }
   }, { deep: true })
-  function reset() { Object.assign(s, defaults) }
-  function isDefault<K extends keyof Settings>(k: K) { return s[k] === defaults[k] }
+  function reset() { Object.assign(s, structuredClone(defaults)) }
+  function isDefault<K extends keyof Settings>(k: K) { return JSON.stringify(s[k]) === JSON.stringify(defaults[k]) }
   return { s, apply, reset, isDefault, defaults }
 })

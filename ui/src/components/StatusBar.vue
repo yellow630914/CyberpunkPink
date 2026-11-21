@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGame } from '../stores/game'
-import { useUi } from '../stores/ui'
+import { useUi, type DialogName } from '../stores/ui'
 import MoneyTag from './MoneyTag.vue'
 import Logo from './Logo.vue'
 import Hint from './Hint.vue'
@@ -15,6 +15,9 @@ const ui = useUi()
 const router = useRouter()
 const menu = ref(false)
 function go(path: string) { menu.value = false; router.push(path) }
+const MENU_DIALOGS: Array<{ id: DialogName; name: string }> = [
+  { id: 'settings', name: '設定' }, { id: 'saves', name: '讀檔與存檔' }, { id: 'pending', name: '待處理' }, { id: 'bills', name: '每週帳單' }, { id: 'memo', name: '備忘錄' },
+]
 void props
 </script>
 
@@ -32,9 +35,9 @@ void props
     <div class="st hide-m">帳單 <b>{{ g.billIn }} 天</b><Hint title="每週帳單">每週一收租日結算房租、義體訂閱、債的利息與薪水。付不起的那幾項照順序走下坡路。</Hint></div>
     <div class="st hide-t">敵對值<span v-for="[f, v] in g.topHostility" :key="f" class="hos">▲{{ f }} {{ v }}</span></div>
     <div class="grow" />
-    <button type="button" class="ibtn cut-sm" aria-label="待處理 3 件" @click="ui.toast('待處理事件的對話框在第二版做。')">
+    <button type="button" class="ibtn cut-sm" :aria-label="`待處理 ${g.pending.length} 件`" @click="ui.openRoot('pending')">
       <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6z" fill="#F3E9FF" /><circle cx="12" cy="19.5" r="2.2" fill="#F06AA0" /></svg>
-      <span class="badge">3</span>
+      <span v-if="g.pending.length" class="badge">{{ g.pending.length }}</span>
     </button>
     <div class="menu-wrap">
       <button type="button" class="ibtn cut-sm" aria-label="選單" :aria-expanded="menu" @click="menu = !menu">
@@ -43,11 +46,10 @@ void props
       <div v-if="menu" class="menu panel" @click.self="menu = false">
         <p class="h">全頁</p>
         <button v-for="p in FULL_PAGES" :key="p.path" type="button" class="mi" :aria-disabled="p.pending ? 'true' : undefined" @click="p.pending ? ui.toast(p.pending, 'warn') : go(p.path)">
-          <span>{{ p.name }}</span><small v-if="p.legacy">Demo</small><small v-else-if="p.pending">v2</small>
+          <span>{{ p.name }}</span><small v-if="p.legacy">Demo</small><small v-else-if="p.pending">v3</small>
         </button>
         <p class="h">對話框</p>
-        <button type="button" class="mi" @click="menu = false; ui.openRoot('settings')"><span>設定</span></button>
-        <button type="button" class="mi" @click="menu = false; ui.openRoot('settings', { tab: 'save' })"><span>讀檔與存檔</span></button>
+        <button v-for="d in MENU_DIALOGS" :key="d.id" type="button" class="mi" @click="menu = false; ui.openRoot(d.id)"><span>{{ d.name }}</span></button>
       </div>
     </div>
   </header>
@@ -65,7 +67,7 @@ void props
 .ibtn { width: 34px; height: 34px; display: grid; place-items: center; background: var(--bg-2); position: relative; border: 0; cursor: pointer; flex: none; }
 .badge { position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--a); color: #fff; font-size: 10px; font-weight: 900; display: grid; place-items: center; padding: 0 4px; }
 .menu-wrap { position: relative; }
-.menu { position: absolute; right: 0; top: 42px; width: 240px; padding: 12px; display: grid; gap: 4px; background: var(--bg-1); z-index: var(--z-sheet); box-shadow: inset 0 0 0 2px var(--a), var(--shadow); }
+.menu { position: absolute; right: 0; top: 42px; width: 240px; max-height: calc(100dvh - 64px); overflow: auto; padding: 12px; display: grid; gap: 4px; background: var(--bg-1); z-index: var(--z-sheet); box-shadow: inset 0 0 0 2px var(--a), var(--shadow); }
 .menu .h { margin: 6px 0 2px; }
 .mi { display: flex; justify-content: space-between; align-items: center; background: var(--bg-2); border: 0; padding: 8px 10px; font-weight: 800; font-size: 13px; cursor: pointer; color: var(--ink); text-align: left; }
 .mi:hover { background: var(--a); color: #fff; }

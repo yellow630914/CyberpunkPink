@@ -24,7 +24,7 @@ const g = useGame()
 const ui = useUi()
 const router = useRouter()
 const FILTERS: Array<{ id: BagFilter; name: string }> = [
-  { id: 'all', name: '全部' }, { id: 'gear', name: '裝備' }, { id: 'cyberware', name: '義體' }, { id: 'part', name: '零件' },
+  { id: 'all', name: '全部' }, { id: 'gear', name: '裝備' }, { id: 'cyberware', name: '義體' }, { id: 'part', name: '零件' }, { id: 'blueprint', name: '設計圖' },
   { id: 'consumable', name: '消耗品' }, { id: 'cargo', name: '貨物' }, { id: 'misc', name: '雜物' },
 ]
 const filter = ref<BagFilter>('all')
@@ -32,7 +32,7 @@ const selUid = ref<string | null>(null)
 
 const KIND_FILTER: Record<string, BagFilter> = {
   weapon: 'gear', armor: 'gear', clothing: 'gear', accessory: 'gear', cyberware: 'cyberware', part: 'part', blueprint: 'blueprint',
-  drug: 'consumable', consumable: 'consumable', ammo: 'consumable', cargo: 'cargo', tool: 'misc', furniture: 'misc', misc: 'misc',
+  drug: 'consumable', consumable: 'consumable', ammo: 'consumable', cargo: 'cargo', tool: 'misc', furniture: 'misc', misc: 'misc', construct: 'gear', skin: 'gear',
 }
 const fitsSlot = (d: ItemDef, s: EquipSlotId) => (Array.isArray(d.slot) ? d.slot.includes(s) : d.slot === s)
 const list = computed(() => g.inventory.filter(st => {

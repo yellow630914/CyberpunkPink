@@ -140,6 +140,20 @@ function onCell(p: Point) {
   }
   selected.value = h.furnitureAt(p)?.uid ?? null
 }
+/** 鍵盤：走路時方向鍵走一格、Enter 跳到側欄的行動；擺設時方向鍵移動游標、Enter 放下或選取。 */
+function onStep(d: Point) {
+  if (mode.value === 'walk') {
+    const me = h.people.find(p => p.id === 'me')!
+    walk('me', { x: me.pos.x + d.x, y: me.pos.y + d.y })
+    return
+  }
+  const cur = hover.value ?? h.map.entrance()
+  hover.value = { x: Math.max(0, Math.min(h.map.w - 1, cur.x + d.x)), y: Math.max(0, Math.min(h.map.h - 1, cur.y + d.y)) }
+}
+function onEnter() {
+  if (mode.value === 'build') { if (hover.value) onCell(hover.value); return }
+  (document.querySelector('.side .btn') as HTMLElement | null)?.focus()
+}
 function onObject(id: string) {
   if (mode.value === 'walk') { const f = h.placed.find(p => p.uid === id); if (f) ui.toast(`${FURNITURE[f.def].name}：切到「擺設」才能動它。`); return }
   if (placing.value) return
@@ -195,10 +209,10 @@ const sideTab = ref('rooms')
         <div class="mh">
           <Tabs v-model="mode" :tabs="[{ id: 'walk', label: '走路' }, { id: 'build', label: '擺設' }]" @update:model-value="placing = null; selected = null" />
           <span class="k">{{ h.map.w }} × {{ h.map.h }}</span>
-          <Hint title="家園地圖">走路：點地板，你會照最短的路走過去；住戶與訪客自己走動。擺設：點家具選取，可以轉向（R）、移動、收起；從右欄背包裡的家具擺新的。家具不能壓牆、擋門、跨兩間房、疊在一起，也不能把路堵死。</Hint>
+          <Hint title="家園地圖">走路：點地板，你會照最短的路走過去；住戶與訪客自己走動。擺設：點家具選取，可以轉向（R）、移動、收起；從右欄背包裡的家具擺新的。家具不能壓牆、擋門、跨兩間房、疊在一起，也不能把路堵死。鍵盤：地圖拿到焦點時，方向鍵走一格（擺設時移動游標），Enter 互動或放下。</Hint>
         </div>
         <GridMap :w="h.map.w" :h="h.map.h" :cell="cellView" :objects="objects" :tokens="tokens" :areas="areas" :max-cell="62" label="家園的格子地圖"
-          @cell="onCell" @object="onObject" @hover="p => (hover = p)" />
+          @cell="onCell" @object="onObject" @hover="p => (hover = p)" @step="onStep" @enter="onEnter" />
         <div v-if="mode === 'build'" class="buildbar">
           <template v-if="placing">
             <span class="tag hot">擺放：{{ FURNITURE[placing.def].name }}</span>
@@ -225,7 +239,7 @@ const sideTab = ref('rooms')
             <Hint title="等級與地圖大小">0 級 7 × 5（不能擺設）、1 級 11 × 8、2 級 15 × 10、3 級是樓上 15 × 10 加一樓的店面。升級時地圖往外長，原本的房間與家具不動；工期 5 天，這一版直接完成。</Hint></div>
           <div class="go left">
             <ReasonButton sm pri :reason="h.tier >= h.maxTier ? '這個住處的上限是二級；要更大得搬家。' : g.money.acc < upgradeCost ? '帳戶不夠。' : null" @go="doUpgrade">升級（二級）<MoneyTag kind="acc" :amount="upgradeCost" :size="12" /></ReasonButton>
-            <ReasonButton sm reason="搬家的畫面在第二版做。">搬家</ReasonButton>
+            <ReasonButton sm reason="搬家的畫面在第三版做。">搬家</ReasonButton>
           </div>
         </section>
         <section class="panel cut pad stats">

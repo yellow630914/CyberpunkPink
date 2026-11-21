@@ -7,6 +7,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 export interface FullPage { path: string; name: string; legacy?: string; pending?: string }
 
 export const FULL_PAGES: FullPage[] = [
+  { path: '/title', name: '標題畫面' },
   { path: '/', name: '主畫面與城市地圖' },
   { path: '/home', name: '家園地圖' },
   { path: '/subnet', name: '子網地圖' },
@@ -15,15 +16,19 @@ export const FULL_PAGES: FullPage[] = [
   { path: '/demo/net', name: '內海戰鬥', legacy: 'net-demo.html' },
   { path: '/demo/opinion', name: '輿論戰', legacy: 'opinion-demo.html' },
   { path: '/demo/adult', name: '成人場景', legacy: 'adult-scene.html' },
-  { path: '/editor', name: '世界編輯器', pending: '世界編輯器在第二版做；先看 docs/mockups/world-editor.html。' },
-  { path: '/workshop', name: 'AI 工坊', pending: 'AI 工坊在第二版做；先看 docs/mockups/ai-workshop.html。' },
-  { path: '/newgame', name: '建角', pending: '建角在第二版做；先看 docs/mockups/workshop.html 的「建角」分頁。' },
+  { path: '/newgame', name: '開新局與建角' },
+  { path: '/editor', name: '世界編輯器' },
+  { path: '/workshop', name: 'AI 工坊' },
 ]
 
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: '/', component: () => import('./screens/MainScreen.vue') },
+    { path: '/title', component: () => import('./screens/TitleScreen.vue') },
+    { path: '/newgame', component: () => import('./screens/NewGameScreen.vue') },
+    { path: '/editor', component: () => import('./screens/WorldEditorScreen.vue') },
+    { path: '/workshop', component: () => import('./screens/AiWorkshopScreen.vue') },
     { path: '/home', component: () => import('./screens/HomeScreen.vue') },
     { path: '/subnet', component: () => import('./screens/SubnetScreen.vue') },
     { path: '/dungeon', component: () => import('./screens/DungeonScreen.vue') },

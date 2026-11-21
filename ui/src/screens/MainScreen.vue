@@ -12,7 +12,11 @@ import Icon from '../components/Icon.vue'
 import Tabs from '../components/Tabs.vue'
 import MoneyTag from '../components/MoneyTag.vue'
 import { useGame } from '../stores/game'
-import { useUi, PENDING_DIALOGS } from '../stores/ui'
+import { useUi, PENDING_DIALOGS, type DialogName } from '../stores/ui'
+import { useSettings } from '../stores/settings'
+import { useGuides } from '../lib/useGuides'
+import { settleBills, billMultiplier } from '../lib/bills'
+import { fmt } from '../lib/price'
 import { useWalk } from '../lib/useWalk'
 import type { DistrictId, Point, Facility } from '../data/types'
 import { NPCS } from '../data/npcs'
@@ -23,6 +27,8 @@ import { NPCS } from '../data/npcs'
  */
 const g = useGame()
 const ui = useUi()
+const st = useSettings()
+void PENDING_DIALOGS
 const router = useRouter()
 const mapTab = ref<'block' | 'city'>('block')
 const mobileTab = ref<'map' | 'log' | 'here' | 'tools'>('log')
@@ -69,6 +75,22 @@ function onCell(p: Point) {
     }
   })
 }
+/** 鍵盤：方向鍵走一格，Enter 和腳下的設施或出口互動。 */
+function onStep(d: Point) {
+  const n = { x: g.loc.pos.x + d.x, y: g.loc.pos.y + d.y }
+  if (!passable(n.x, n.y)) return
+  g.setFacility(null)
+  g.loc.pos = n
+  g.advance(1)
+}
+function onEnter() {
+  const k = `${g.loc.pos.x},${g.loc.pos.y}`
+  const f = bm.value.facilityAt.get(k)
+  const ex = bm.value.exitAt.get(k)
+  if (f) { g.setFacility(f.id); if (window.innerWidth <= 720) mobileTab.value = 'here' }
+  else if (ex) g.moveBlock(g.loc.district, ex, g.loc.block)
+  else ui.toast('腳下沒有可以互動的東西。')
+}
 function goCity(d: DistrictId, block: string) {
   const from = g.loc.block
   if (d !== g.loc.district || block !== g.loc.block) { g.advance(d === g.loc.district ? 8 : 20); g.moveBlock(d, block, from) }
@@ -83,27 +105,29 @@ function service(f: Facility, s: NonNullable<Facility['services']>[number]) {
     case 'home': router.push('/home'); break
     case 'dungeon': router.push('/dungeon'); break
     case 'rest': g.advance(60); g.addLog({ prose: [`你在${f.name}待了一個小時，感載退了一些。`], changes: [{ text: '感載 −3', kind: 'plus' }] }); g.character.load[0] = Math.max(0, g.character.load[0] - 3); break
-    default: ui.toast(`「${s.name}」的畫面在第二版做。`)
+    default: ui.toast(`「${s.name}」的畫面在第三版做。`)
   }
 }
 
 // ---- 工具列 ----
-const tools = [
+const guides = useGuides()
+const tools = computed(() => [
   { id: 'character', name: '角色', icon: 'ic-bs_resolve' },
   { id: 'bag', name: '背包', icon: 'ic-cargo' },
-  { id: '名冊', name: '名冊', icon: 'ic-bs_negotiate' },
-  { id: '關係', name: '關係', icon: 'ic-bs_seduce', badge: 1 },
-  { id: '備忘錄', name: '備忘錄', icon: 'ic-bs_investigate' },
-  { id: '組裝', name: '組裝', icon: 'ic-tool' },
-  { id: '頻道', name: '頻道', icon: 'ic-footage', badge: 2 },
+  { id: 'skills', name: '技能樹', icon: 'ic-sk_gun_passive' },
+  { id: 'roster', name: '名冊', icon: 'ic-bs_negotiate' },
+  { id: 'relations', name: '關係', icon: 'ic-bs_seduce', badge: 1 },
+  { id: 'memo', name: '備忘錄', icon: 'ic-bs_investigate', dot: guides.unseen.value.length > 0 },
+  { id: 'craft', name: '組裝', icon: 'ic-tool' },
+  { id: 'channel', name: '頻道', icon: 'ic-footage', badge: g.channel.events.length },
   { id: 'home', name: '家園', icon: 'ic-fac_home' },
-  { id: '契約', name: '契約', icon: 'ic-bs_perform' },
-]
+  { id: 'contract', name: '契約', icon: 'ic-bs_perform' },
+] as Array<{ id: string; name: string; icon: string; badge?: number; dot?: boolean }>)
 function tool(id: string) {
-  if (id === 'character' || id === 'bag') ui.openRoot(id)
-  else if (id === 'home') router.push('/home')
-  else if ((PENDING_DIALOGS as readonly string[]).includes(id)) ui.toast(`「${id}」的對話框在第二版做。`, 'warn')
+  if (id === 'home') router.push('/home')
+  else ui.openRoot(id as DialogName)
 }
+const billDue = computed(() => settleBills(g.bills.items, [], { acc: g.money.acc, cash: g.money.cash }, billMultiplier(st.s.billRule, st.s.billMult)))
 
 // ---- 行動列 ----
 function freeAction() {
@@ -114,6 +138,7 @@ function freeAction() {
   const res = die === 20 ? '大成功' : die === 1 ? '大失敗' : die + mod >= dc ? '成功' : '失敗'
   g.advance(20)
   g.addLog({ prose: [`你決定：${text}`, 'AI 關著，這裡先用戰報代替正文。'], roll: { skill: '街頭直覺', die, mod, dc, result: res }, changes: res.includes('成功') ? [{ text: '傳聞 +1', kind: 'plus' }] : [] })
+  guides.trigger('g_check')
   freeText.value = ''
   mobileTab.value = 'log'
 }
@@ -136,11 +161,11 @@ const stages = [
           <span class="tick" />
           <div class="maphd">
             <Tabs v-model="mapTab" :tabs="[{ id: 'block', label: '街區' }, { id: 'city', label: '城市' }]" />
-            <Hint title="地圖">街區是 13 × 9 的格子：點設施走過去，到了右欄「這裡」換成那個設施；點邊上的箭頭換街區。城市地圖點區、再點街區就過去。</Hint>
+            <Hint title="地圖">街區是 13 × 9 的格子：點設施走過去，到了右欄「這裡」換成那個設施；點邊上的箭頭換街區。城市地圖點區、再點街區就過去。鍵盤：地圖拿到焦點時，方向鍵走一格，Enter 走進腳下的設施或出口。</Hint>
           </div>
           <template v-if="mapTab === 'block'">
             <p class="h">{{ g.district.name }}・{{ g.loc.block }}</p>
-            <GridMap :w="bm.w" :h="bm.h" :cell="cellView" :tokens="tokens" :path="path" :max-cell="30" :label="`${g.loc.block}的街區圖`" @cell="onCell" />
+            <GridMap :w="bm.w" :h="bm.h" :cell="cellView" :tokens="tokens" :path="path" :max-cell="30" :label="`${g.loc.block}的街區圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
             <div class="legend"><span><i class="lg fac" />設施</span><span><i class="lg exit" />出口</span><span><i class="lg me" />你</span><span><i class="lg npc" />人</span></div>
           </template>
           <CityMap v-else :current="g.loc.district" :current-block="g.loc.block" @go="goCity" />
@@ -153,7 +178,7 @@ const stages = [
           <p class="h">委託<Hint title="委託條">進行中的委託與它的階段。每一格寫階段名與可選的面（灰是現實、薄荷是內海、紫是輿論），現在的那格是粉色。點「潛入子網」進子網地圖。</Hint></p>
           <b>藍鯨的帳本</b> <span class="tag">竊取・中型</span> <span class="tag">夢露</span>
           <div class="stages">
-            <button v-for="s in stages" :key="s.name" type="button" class="stage" :class="s.state" @click="s.name === '潛入子網' ? router.push('/subnet') : ui.toast(`「${s.name}」的委託頁在第二版做。`)">
+            <button v-for="s in stages" :key="s.name" type="button" class="stage" :class="s.state" @click="s.name === '潛入子網' ? router.push('/subnet') : ui.toast(`「${s.name}」的委託頁在第三版做。`)">
               {{ s.name }}<span class="faces"><i v-for="f in s.face" :key="f" :class="f" /></span>
             </button>
           </div>
@@ -163,8 +188,8 @@ const stages = [
       <!-- 中欄 -->
       <div class="col center">
         <nav class="panel cut tools" aria-label="工具列">
-          <button v-for="t in tools" :key="t.id" type="button" class="tool" :aria-disabled="(PENDING_DIALOGS as readonly string[]).includes(t.id) || undefined" @click="tool(t.id)">
-            <Icon :id="t.icon" :size="18" fit />{{ t.name }}<span v-if="t.badge" class="badge">{{ t.badge }}</span>
+          <button v-for="t in tools" :key="t.id" type="button" class="tool" @click="tool(t.id)">
+            <Icon :id="t.icon" :size="18" fit />{{ t.name }}<span v-if="t.badge" class="badge">{{ t.badge }}</span><i v-if="t.dot" class="rdot" aria-label="有沒看過的指南" />
           </button>
         </nav>
         <section class="panel cut logp"><LogView :entries="g.log" /></section>
@@ -178,7 +203,7 @@ const stages = [
           <div class="ctx">
             <button type="button" class="btn" @click="g.advance(60); g.addLog({ prose: ['你找個地方坐下來喘口氣。'] })">休息</button>
             <button type="button" class="btn" @click="router.push('/subnet')">潛入</button>
-            <button type="button" class="btn" aria-disabled="true" @click="ui.toast('要在據點或有訊號的地方才能直播；頻道的畫面在第二版做。', 'warn')">直播</button>
+            <button type="button" class="btn" @click="ui.openRoot('channel')">直播</button>
           </div>
         </section>
       </div>
@@ -196,7 +221,7 @@ const stages = [
               <div class="heart">♥ {{ n.affinity }} {{ n.stage }}</div>
               <div class="acts">
                 <button type="button" class="hot" @click="ui.openRoot('talk', { npcId: n.id })">談</button>
-                <button type="button" @click="ui.toast('主動行動在第二版做。')">主動行動</button>
+                <button type="button" @click="ui.openRoot('relations', { npcId: n.id })">關係</button>
               </div>
             </div>
           </div>
@@ -214,8 +239,8 @@ const stages = [
         <section class="panel cut pad">
           <p class="h">進行中</p>
           <div class="ong"><span class="k2" style="background: var(--ap)">委託</span>藍鯨的帳本<small>第 2 階段・期限 2 天</small></div>
-          <div class="ong"><span class="k2" style="background: var(--ep)">人情</span>小麥欠你 1<small>小人情</small></div>
-          <div class="ong"><span class="k2" style="background: var(--warn)">帳單</span>{{ g.billIn }} 天後收租<small>帳戶要付 2,060</small></div>
+          <button type="button" class="ong ongb" @click="ui.openRoot('relations', { npcId: 'xiaomai' })"><span class="k2" style="background: var(--ep)">人情</span>小麥欠你 1<small>小人情</small></button>
+          <button type="button" class="ong ongb" @click="ui.openRoot('bills')"><span class="k2" style="background: var(--warn)">帳單</span>{{ g.billIn }} 天後收租<small>帳戶要付 {{ fmt(billDue.dueAcc) }}</small></button>
         </section>
       </div>
 
@@ -224,7 +249,9 @@ const stages = [
         <section class="panel cut pad">
           <p class="h">工具</p>
           <div class="tgrid">
-            <button v-for="t in tools" :key="t.id" type="button" class="tool" :aria-disabled="(PENDING_DIALOGS as readonly string[]).includes(t.id) || undefined" @click="tool(t.id)"><Icon :id="t.icon" :size="22" fit />{{ t.name }}</button>
+            <button v-for="t in tools" :key="t.id" type="button" class="tool" @click="tool(t.id)"><Icon :id="t.icon" :size="22" fit />{{ t.name }}<i v-if="t.dot" class="rdot" aria-label="有沒看過的指南" /></button>
+            <button type="button" class="tool" @click="ui.openRoot('bills')"><Icon id="ic-fac_barter" :size="22" fit />帳單</button>
+            <button type="button" class="tool" @click="ui.openRoot('saves')"><Icon id="ic-footage" :size="22" fit />存檔</button>
             <button type="button" class="tool" @click="router.push('/subnet')"><Icon id="ic-net_hack" :size="22" fit />子網</button>
             <button type="button" class="tool" @click="router.push('/dungeon')"><Icon id="ic-fac_under" :size="22" fit />地下城</button>
             <button type="button" class="tool" @click="ui.openRoot('settings')"><Icon id="ic-tool" :size="22" fit />設定</button>
@@ -258,6 +285,9 @@ const stages = [
 .tool { display: flex; align-items: center; gap: 6px; padding: 7px 12px; background: var(--bg-2); font-weight: 800; font-size: 13px; color: var(--ink-2); position: relative; border: 0; cursor: pointer; clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px)); }
 .tool:hover { background: var(--bg-3); color: var(--ink); }
 .tool[aria-disabled="true"] { opacity: .5; }
+.rdot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+.ongb { display: block; width: 100%; text-align: left; border: 0; color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+.ongb:hover { background: var(--bg-3); }
 .tool .badge { min-width: 16px; height: 16px; border-radius: 8px; background: var(--a); color: #fff; font-size: 10px; font-weight: 900; display: grid; place-items: center; padding: 0 4px; }
 .logp { flex: 1; min-height: 0; overflow: auto; padding: 4px 18px 10px; }
 .act { padding: 10px; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; flex: none; }

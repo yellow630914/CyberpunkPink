@@ -7,6 +7,7 @@ export type Grade = 1 | 2 | 3 | 4 | 5
 export type ItemKind =
   | 'cyberware' | 'weapon' | 'armor' | 'clothing' | 'accessory' | 'part'
   | 'blueprint' | 'drug' | 'consumable' | 'ammo' | 'cargo' | 'tool' | 'furniture' | 'misc'
+  | 'construct' | 'skin'
 
 /** 背包的篩選（UI.md 3.7 節）。 */
 export type BagFilter = 'all' | 'gear' | 'cyberware' | 'part' | 'blueprint' | 'consumable' | 'material' | 'cargo' | 'misc'
@@ -45,7 +46,13 @@ export interface ItemDef {
   /** 家具 */
   furniture?: string
   gift?: { value: number; preview: string }
+  /** 零件（CRAFTING 第 2、5 節）：類型、材質 */
+  part?: { type: PartType; material: '機' | '生' }
+  /** 構裝（ITEMS 11 節）：類別、RAM；SKIN：風格、風格值、曝露度 */
+  net?: { cls: '武器' | '防護' | '工具' | '駭入' | '構裝體'; ram?: number } | { cls: 'SKIN'; style: string; styleValue: number; exposure: number }
 }
+
+export type PartType = '晶片' | '機械神經元' | '軟體' | '板材' | '致動器' | '感測器' | '電源' | '外皮' | '槍管' | '機構' | '刃' | '纖維'
 
 export interface ItemStack {
   uid: string
@@ -103,6 +110,14 @@ export interface Npc {
   known: Array<{ k: string; v: string; unknown?: boolean }>
   memories: Array<{ when: string; text: string; weight: number }>
   mood: string
+  /** 關係頁的分類（UI 3.9 節）：夥伴、名冊（生成的行者與契約人）、中間人、熟人 */
+  group?: '夥伴' | '名冊' | '中間人' | '熟人'
+  faction?: string
+  /** 人情：正的是他欠你，負的是你欠他 */
+  favor?: number
+  watch?: boolean
+  want?: string
+  lastJob?: string
 }
 
 // ---- 地方 ----

@@ -81,7 +81,7 @@ function freeSay() {
 }
 function invite(name: string) {
   if (name === '帶她回據點') { ui.closeAll(); router.push('/home'); return }
-  ui.toast(`「${name}」的畫面在第二版做。`)
+  ui.toast(`「${name}」的畫面在第三版做。`)
 }
 </script>
 

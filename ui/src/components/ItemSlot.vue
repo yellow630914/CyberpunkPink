@@ -23,7 +23,9 @@ const props = withDefaults(defineProps<{
   unknown?: boolean
   showName?: boolean
   locked?: boolean
-}>(), { size: 'md', showName: false })
+  /** 放在另一個按鈕裡時用 span（按鈕不能套按鈕） */
+  inert?: boolean
+}>(), { size: 'md', showName: false, inert: false })
 defineEmits<{ (e: 'select'): void }>()
 
 const iconId = computed(() => {
@@ -38,7 +40,7 @@ const aria = computed(() => [props.label, name.value, props.item && !props.unkno
 </script>
 
 <template>
-  <button type="button" class="slot" :class="[size, { empty: !item, sel: selected, covered, unknown, locked }]" :style="{ '--gc': color }" :aria-label="aria" :aria-pressed="selected" @click="$emit('select')">
+  <component :is="inert ? 'span' : 'button'" :type="inert ? undefined : 'button'" class="slot" :class="[size, { empty: !item, sel: selected, covered, unknown, locked }]" :style="{ '--gc': color }" :aria-label="inert ? undefined : aria" :aria-pressed="inert ? undefined : selected" @click="!inert && $emit('select')">
     <span class="frame">
       <Icon :id="iconId" :size="size === 'sm' ? '74%' : '64%'" :fit="!item || iconId.startsWith('ic-')" />
       <GradeBadge v-if="item && !unknown" class="badge" :grade="item.grade" small />
@@ -50,7 +52,7 @@ const aria = computed(() => [props.label, name.value, props.item && !props.unkno
       <small v-if="label">{{ label }}</small>
       <b v-if="showName">{{ name }}</b>
     </span>
-  </button>
+  </component>
 </template>
 
 <style scoped>

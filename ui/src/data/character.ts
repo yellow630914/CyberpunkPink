@@ -92,6 +92,26 @@ export const START_INVENTORY: ItemStack[] = [
   { uid: 's22', def: 'fu_workbench', qty: 1, condition: '二手' },
   { uid: 's23', def: 'fu_box', qty: 2, condition: '全新' },
   { uid: 's24', def: 'it_5b44cf', qty: 1, condition: '全新' },
+  // 第二版：組裝用的設計圖與零件
+  { uid: 's25', def: 'bp_sanbu', qty: 1, condition: '全新' },
+  { uid: 's26', def: 'bp_m3rifle', qty: 1, condition: '全新' },
+  { uid: 's27', def: 'bp_vest', qty: 1, condition: '全新' },
+  { uid: 's28', def: 'bp_meshtop', qty: 1, condition: '全新' },
+  { uid: 's29', def: 'it_70a527', qty: 1, condition: '全新' },
+  { uid: 's30', def: 'it_3fe2b1', qty: 1, condition: '二手' },
+  { uid: 's31', def: 'it_398b67', qty: 1, condition: '全新' },
+  { uid: 's32', def: 'it_303b76', qty: 1, condition: '全新' },
+  { uid: 's33', def: 'it_e7b262', qty: 1, condition: '全新' },
+  { uid: 's34', def: 'it_7efcd5', qty: 2, condition: '全新' },
+  { uid: 's35', def: 'it_dce350', qty: 1, condition: '全新' },
+  { uid: 's36', def: 'it_9f910c', qty: 1, condition: '全新' },
+  { uid: 's37', def: 'it_739e7c', qty: 1, condition: '二手' },
+  { uid: 's38', def: 'it_0377b8', qty: 1, condition: '全新' },
+  { uid: 's39', def: 'it_78acc1', qty: 1, condition: '全新' },
+  { uid: 's40', def: 'it_d46a7e', qty: 1, condition: '全新' },
+  { uid: 's41', def: 'cg_gel1', qty: 2, condition: '全新' },
+  { uid: 's42', def: 'cs_cool1', qty: 1, condition: '全新' },
+  { uid: 's43', def: 'cs_pistol1', qty: 1, condition: '二手' },
 ]
 
 /** 裝在身上的義體：部位 → 每一槽的物品 id（null 是空槽）。橋的調校槽另算。 */
