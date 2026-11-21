@@ -854,14 +854,15 @@
 
 | 分頁 | 內容 | ElondiaRPG |
 |---|---|---|
-| AI 來源 | 模型來源（最多 8 個）、每個任務用哪一個（[PROMPTS](../systems/PROMPTS.md) 2.13 節的路由）、連線測試（加工具調用測試） | `ModelSourceEditor`、`SettingsView` |
-| AI 開關 | 判定、敘事、各批次任務、記下性經歷；每項的逾時。判定依種類各有開關（自由行動、打工的一班、事件的「我要做別的」，預設全開）；夾值後要不要重寫相關的句子（預設不重寫）；Agent 模式每種掛點每天的上限（[AI_TASKS](../plan/AI_TASKS.md) 2.5、3.13、6.1 節） | `AiToggles`、`JudgeToggle` |
-| 提示詞 | 提示詞組、文風、自訂、世界書、正則（[PROMPTS](../systems/PROMPTS.md) 第 2 節的 AI 工坊） | `PromptsView`、`PromptEntryList`、`PromptSetBar`、`RegexPanel`、`TavernPresetDialog` |
+| AI 來源 | 模型來源（最多 8 個）、主要五個任務用哪一個與備用、成人路由的五個來源（[PROMPTS](../systems/PROMPTS.md) 2.13 節的路由）、連線測試（加工具調用測試）；全部 30 個任務在 AI 工坊（PROMPTS 2.14 節） | `ModelSourceEditor`、`SettingsView` |
+| AI 開關 | 使用 AI；判定依種類各有開關（自由行動、打工的一班、事件的「我要做別的」，預設全開）；敘事、交易與戰鬥的正文、潤色、夾值後要不要重寫相關的句子（預設不重寫）；記下性經歷與六個背景任務用 AI 還是照規則；Agent 模式（預設關）、五種掛點的開關與每天的上限；自動重試、任務鏈列；逾時只讀（[AI_TASKS](../plan/AI_TASKS.md) 2.5、2.6、3.13、6.1 節）。每一項在 AI 工坊也改得到（PROMPTS 2.14 節） | `AiToggles`、`JudgeToggle` |
+| 提示詞 | 目前的提示詞組、文風與正則的摘要，和打開 AI 工坊的入口；內容都在 AI 工坊（[PROMPTS](../systems/PROMPTS.md) 第 2 節） | `PromptsView`、`PromptEntryList`、`PromptSetBar`、`RegexPanel`、`TavernPresetDialog` |
 | **內容篩選** | [LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 9 節的每個開關；頂端固定一行不可關閉的規則（所有角色皆為成年人） | 新頁；開關列借 `ContentTagChips` |
 | 遊戲 | 存檔規則：難度（五檔與自訂，只調敵人與 DC）與各項倍率、戰敗的設定，完整清單見 15.1 節 | `CustomDifficultyEditor`、`RuleFields` |
 | **顯示** | 字級（三檔）、正文字型（黑體／宋體）、減少動態、霓虹強度（關、弱、標準）、區的強調色（開／關）、成人報告卡摺疊（預設展開）、跳出指南（開／關，3.6 節） | 新頁 |
 | 存檔 | 存讀檔、匯出入 | `SaveDialog`、`SettingsFilePanel` |
 
+- **AI 的三個分頁只放簡單的**，複雜的在 AI 工坊；工坊涵蓋這三頁的每一項，兩邊是同一個值。分工的表見 [PROMPTS](../systems/PROMPTS.md) 2.14 節；每頁頂端一行「更細的在 AI 工坊」。
 - 內容篩選存在**存檔**裡（那邊是模組層級的變數，不在存檔裡）；設定頁改的是目前這一局，開新局時以上一次的選擇當預設。
 - **手機版**：照那邊，每列「名稱＋值」一排、說明換到下一排。
 - **標題與存檔**還沒有自己的一節：標題畫面、開新局的三步（世界、內容篩選、建角；難度與存檔規則是建角的第 10 步）、讀檔與委託副本的快照，先看示意頁 [標題與存檔](../mockups/title.html)（四個分頁）。快照與回退的規則見 [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 8.4 節與 [SERIES](../systems/SERIES.md) 第 6 節。
@@ -927,16 +928,22 @@
 
 | 項目 | 預設 | 出處 |
 |---|---|---|
-| 每一種支線的開關；只開查詢 | 全開 | [AI_TASKS](../plan/AI_TASKS.md) 第 1 節 |
+| 使用 AI（總開關） | 開 | [AI_TASKS](../plan/AI_TASKS.md) 1.1 節 |
 | 判定依種類的開關（自由行動、打工的一班、事件的「我要做別的」） | 全開 | AI_TASKS 3.13 節 |
-| 夾值後重寫相關的句子 | 不重寫 | AI_TASKS 2.5 節 |
-| 每一種掛點每天的件數上限（提出事件、鉤子、其他） | 3、1、10 | AI_TASKS 6.2 節 |
+| 敘事（所有的正文） | 開 | AI_TASKS 4.1 節 |
 | 交易要不要寫正文 | 寫 | AI_TASKS 3.3 節 |
 | 戰鬥正文 | 結束時整場寫一次（可以改成每回合一小段） | AI_TASKS 3.9 節 |
-| 任務鏈列 | 出錯時展開（可以一直展開或隱藏） | AI_TASKS 第 7 節 |
-| 自動重試的次數 | 照 AI_TASKS 5.3 節 | AI_TASKS 5.3 節 |
-| 潤色步驟 | 關 | [PROMPTS](../systems/PROMPTS.md) 第 2 節 |
-| 注入配方的數量與字數上限 | 照 PROMPTS 的表 | PROMPTS 第 2 節 |
+| 潤色 | 關；設定一次開關全部，AI 工坊每條鏈各自開 | [PROMPTS](../systems/PROMPTS.md) 2.4 節 |
+| 夾值後重寫相關的句子 | 不重寫 | AI_TASKS 2.5 節 |
+| 記下性經歷；今天的貨、新的人的細節、NPC 的近況、直播目標的說法、彈幕、素材的標題用 AI 還是照規則 | 全部用 AI | AI_TASKS 4.2、4.4、4.5 節 |
+| Agent 模式 | 關 | AI_TASKS 1.1 節 |
+| 只開查詢 | 關 | AI_TASKS 1.1 節 |
+| 每一種掛點的開關 | 全開 | AI_TASKS 6.1 節 |
+| 每一種掛點每天的件數上限（提出事件、鉤子、其他） | 3、1、10 | AI_TASKS 6.2 節 |
+| 任務鏈列 | 出錯時展開（可以一直展開或隱藏） | AI_TASKS 5.1 節 |
+| 自動重試的次數 | 每個任務 1 次（0～3）；設定一次設全部 | AI_TASKS 5.3 節 |
+| 逾時 | 閒置 3 分鐘，所有任務一致；只讀 | AI_TASKS 2.6 節 |
+| 注入配方的數量與字數上限 | 照 PROMPTS 的表；只在 AI 工坊 | PROMPTS 2.3 節 |
 
 **顯示**：字級、正文字型、減少動態、霓虹強度、區的強調色、成人報告卡（預設展開）、跳出指南。見上表的「顯示」分頁。
 
