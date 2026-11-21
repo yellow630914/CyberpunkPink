@@ -7,7 +7,9 @@
 - 藥（4.2 節）：份量的前一半是持續型或立即型的預算；價＝基準 × 0.2 × 牌子，取整到 5 或 10。
 - 飾品（7.2 節）：價＝基準（記號 40、功能 250、0.5 格 80、1 格 320，貴金屬 +300）× 牌子 × 合法係數。
 - SKIN（11.8 節）：價＝風格值的基準（40／150／500／1,600）× 1.2 × 牌子；風格值 5 不賣。
-允許的誤差：價 6%（取整），份量 0。
+允許的誤差（2026-11-21 確認，BALANCE 第 8 節第 9、14 項；ITEMS 1.3 節與第 2 節開頭）：
+- 價 6%（取整）。IV 級的等級基準是 6,000 ±1,000：IV 級的價照 5,000～7,000 之間的任何一個基準算都算合（曲線是 5,100）。
+- 份量：寫的份量要等於那一級的預算（不打折）；效果折成的格和寫的份量可以差 ±0.5 格（沒有算格的小特性落在這裡）。
 """
 import re
 
@@ -25,6 +27,19 @@ WEAPON_TYPE = {'衝鋒槍': 1.5, '霰彈槍': 1.5, '步槍': 2.8, '狙擊': 2.8,
 BUDGET = {'I': .5, 'II': 1, 'III': 1.5, 'IV': 2, 'V': 3}
 BIO_BUDGET = {'I': .5, 'II': .5, 'III': 1, 'IV': 1.5, 'V': 2}
 PRICE_TOL = 0.06
+BASE_TOL = {'IV': 1000}    # IV 級的基準 6,000 ±1,000（2026-11-21 確認）
+WEIGHT_TOL = 0.5           # 效果折成的格與寫的份量之間，允許差半格（2026-11-21 確認）
+
+
+def base_range(g):
+    t = BASE_TOL.get(g, 0)
+    return BASE[g] - t, BASE[g] + t
+
+
+def price_ok(price, g, factor, tol=PRICE_TOL, slack=10):
+    """價＝基準 × factor，基準可以在 base_range 之內，再加 tol 的取整誤差（或 slack 元以內）。"""
+    lo, hi = (b * factor for b in base_range(g))
+    return lo * (1 - tol) - slack <= price <= hi * (1 + tol) + slack
 
 
 def brand(b):
@@ -118,15 +133,15 @@ def audit(path):
         if sec in ('2.9', '2.10', '2.11'):
             v, cst = weapon_part_value(attrs)
             v += sum(vals)   # 換算表沒有的效果，條目自己在括號裡寫了格數
-            if abs(v - cst - w) > 1e-9:
+            if abs(v - cst - w) > WEIGHT_TOL + 1e-9:
                 out.append((i + 1, '零件', name, f'照 2.9 節的換算是 {v:g} − {cst:g} ＝ {v - cst:g} 格，寫 {w:g}'))
-        elif vals and abs(sum(vals) - w) > 1e-9 and '價錢 ×' not in attrs:
+        elif vals and abs(sum(vals) - w) > WEIGHT_TOL + 1e-9 and '價錢 ×' not in attrs:
             out.append((i + 1, '零件', name, f'括號的格合計 {sum(vals):g}，份量寫 {w:g}'))
         b = brand(br)
         if b and g in BASE and price and '價錢 ×' not in attrs:
-            exp = BASE[g] * PART_TYPE[sec] * b * (2 if bio else 1)
-            if abs(price - exp) / exp > PRICE_TOL and abs(price - exp) > 10:
-                out.append((i + 1, '零件', name, f'價 {price:g}，公式 {exp:.0f}'))
+            factor = PART_TYPE[sec] * b * (2 if bio else 1)
+            if not price_ok(price, g, factor):
+                out.append((i + 1, '零件', name, f'價 {price:g}，公式 {BASE[g] * factor:.0f}'))
     # 設計圖
     sec, wt, hdr = None, 1, []
     for i, l in enumerate(lines):
@@ -175,8 +190,8 @@ def audit(path):
                 tcoef = 1.4
             if sec == '3.1' and '甲板' in r['設計圖'] and g in ('III', 'IV'):
                 tcoef = 1.75
-            parts = sum(BASE[g] * tc * b * (2 if bio_slot else 1) * n for tc, bio_slot, n in slots)
-            exp = parts * 1.2 * tcoef
+            parts = sum(base_range(g)[1] * tc * b * (2 if bio_slot else 1) * n for tc, bio_slot, n in slots)
+            exp = parts * 1.2 * tcoef   # 成品只在高於公式時才列，所以 IV 級用基準的上限
             if g != 'IV' and a and abs(a - BASE[g] * 2 * b) / (BASE[g] * 2 * b) > PRICE_TOL:
                 out.append((i, '設計圖', r['設計圖'], f'{g} 授權 {a:g}，公式 {BASE[g] * 2 * b:.0f}'))
             # 外皮（生）在非生體的牌子上照蜜腺的生體外皮算，所以成品只在高於公式時才列
@@ -191,9 +206,10 @@ def audit(path):
         bud = float(m.group(2) or m.group(1))
         if bud not in (dur[g], ins[g]):
             out.append((i, '藥', r['藥（街名）'], f'份量的預算 {bud:g} 不是 {g} 級的 {dur[g]}（持續）或 {ins[g]}（立即）'))
-        raw = BASE[g] * .2 * b
-        exp = round(raw / 5) * 5 if raw < 100 else round(raw / 10) * 10
-        if abs(num(r['價']) - exp) > 0.5:
+        rnd = lambda raw: round(raw / 5) * 5 if raw < 100 else round(raw / 10) * 10
+        exp = rnd(BASE[g] * .2 * b)
+        lo, hi = (rnd(x * .2 * b) for x in base_range(g))
+        if not (lo - 0.5 <= num(r['價']) <= hi + 0.5):
             out.append((i, '藥', r['藥（街名）'], f'價 {num(r["價"]):g}，公式 {exp:g}'))
     # 飾品
     legal = {'自由': 1, '登記': 1.5, '許可': 2, '違禁': 3}

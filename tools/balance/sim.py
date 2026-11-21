@@ -2,7 +2,7 @@
 """夾值用的模擬器（docs/systems/BALANCE.md）。不依賴任何套件。
 
 用法：python3 tools/balance/sim.py [主題 ...] [--set current|proposed] [--doc-budget] [--trials N] [--seed N]
-主題：summary（預設）、hits、encounter、cross、capture、key、quests、difficulty、net、check、economy、xp、opinion、roster、items、all
+主題：summary（預設）、hits、encounter、cross、capture、key、quests、grade、duel、difficulty、net、check、economy、xp、opinion、roster、items、all
 
 所有曲線都寫在這個檔案的 CURVES 裡，和 BALANCE.md 的表一一對應。
 current 是第一輪夾值之前文件寫的數字（2026-11-20），proposed 是 BALANCE.md 的曲線；兩組只在 DIFF 列出的欄位不同。
@@ -75,8 +75,9 @@ DIFF = {
     'budget':  [4, 4, 4, 4, 4],           # 一般遭遇固定 4 點，不隨等級長（2026-11-20 確認）
     'boss_budget': [8, 8, 8, 8, 8],       # 首領戰固定 8 點
     'dc_max':  25,                        # DC 階梯加一檔 25（2026-11-20 確認）
-    # capture 的神經武器：雜兵 4d6、精英與首領 6d6（第二階段，2026-11-21；BALANCE 2.7 節）
-    'cap_dice': {'雜兵': 4, '精英': 6, '首領': 6},
+    # capture 的神經武器：雜兵 4d6、精英 6d6、首領 11d6（第二階段，2026-11-21；BALANCE 2.7 節）。
+    # 照「主角挨幾下倒」（雜兵約 10 下、精英約 7 下、首領約 4 下）換到感載的總量：首領一下約等於一次過載。
+    'cap_dice': {'雜兵': 4, '精英': 6, '首領': 11},
 }
 PROPOSED = copy.deepcopy(CURRENT)
 PROPOSED.update(copy.deepcopy(DIFF))
@@ -466,8 +467,13 @@ def parse_roster(path):
     """讀 ENEMY_ROSTER.md：每個兵種的（名字, 位階, 最低級, 最高級, 修正, 修正的原文, 是不是網內的）。"""
     text = open(path, encoding='utf-8').read()
     units = []
+    faction = None
     for block in re.split(r'\n#### ', text)[1:]:
         name = block.split('\n', 1)[0].strip()
+        prev_faction = faction
+        heads = re.findall(r'\n### ([^\n（]+)', '\n' + block)   # 這一塊裡出現的勢力標題，屬於下一個兵種
+        if heads:
+            faction = heads[-1].strip()
         m = re.search(r'\n\| (雜兵|精英|首領) \| ([IV]+)(?:～([IV]+))? \| ([^|]*) \|', block)
         mod = re.search(r'數值修正\*\*：([^\n]*)', block)
         if not m or not mod:
@@ -488,8 +494,29 @@ def parse_roster(path):
         # 無人機與守衛程式和人重疊、永遠暴露，規則給的迴避（防火牆）+3 補回遮蔽（ENEMIES 第 10 節、CYBERSPACE 9 節）
         md['overlay'] = ('無人機的規則' in s) or ('守衛程式的規則' in s)
         md['layers'] = 1 if re.search(r'承受層數(?:照位階 )?\+1', s) else 0   # 溺感邊緣、溺感者的規則
+        x = re.search(r'敏感度 (\d+)', s)
+        md['sens'] = (0.75 + int(x.group(1)) / 200) if x else 1.0   # 受到的感載 × (0.75 ＋ 敏感度 ÷ 200)（CORE_RULES 4.2 節）
+        md['faction'] = prev_faction
+        md['bridge'] = '有橋' in m.group(4)
         units.append((name, m.group(1), lo, hi, md, s, net))
     return units
+
+
+def neural_swings(C, rank, g, md):
+    """現實裡有橋的兵種，用神經打法（不扣護甲）灌倒要攻擊幾次、照表的兵種要幾次。"""
+    dice = 3 + C['grade_dice'][g]
+    flat = C['p_flat'][g] + C['p_skill'][g]
+
+    def per_swing(ev_mod):
+        res = [(w, swing(C['p_atk'][g], C['e_ev'][g] + ev_mod + c, dice, flat, 0, 0, rank == '雜兵')) for c, w in COVER]
+        return sum(w * r[0] * r[1] for w, r in res)
+    base = C['e_load'][rank][g] * (C['e_layers'][rank] + 1)
+    pool = base * (1 + md.get('layers', 0) / (C['e_layers'][rank] + 1)) * md['load'] / md.get('sens', 1.0)
+    return pool / per_swing(md['ev']), base / per_swing(0)
+
+
+# 勢力共通的修正可以超過 ±15%（ENEMIES 1.3 節）：要有描述撐著、要帶反向的代價，並且寫在這裡（BALANCE 第 8 節第 15 項）
+ROSTER_EXCEPTIONS = {'蜜糖會': {'load': 1.3, 'why': '勢力共通的感載 ×1.3（耐灌），代價是她們不追著人打、多半只教訓人（2026-11-21 確認）'}}
 
 
 def unit_swings(C, rank, g, md, net=False):
@@ -515,23 +542,32 @@ def roster_audit(C, path, limit=0.15):
     """每個兵種在它等級範圍的每一級：同級主力要攻擊幾次才打倒，和同一級照表的兵種比；偏差超過 limit 的列出來。
     迴避與護甲的修正都算進去；曲線本身的偏差不算在兵種頭上（ENEMIES 1.3 節的 ±15%）。
     無人機與守衛程式照 0.5 點算，下限放寬到 OVERLAY_FLOOR，上限一樣是 +limit。"""
-    out = []
+    out, excused = [], []
     units = parse_roster(path)
     for name, rank, lo, hi, md, s, net in units:
-        worst = None
-        devs = []
-        for g in range(lo, hi + 1):
-            sw, base = unit_swings(C, rank, g, md, net)
-            dev = sw / base - 1
-            devs.append(dev)
-            if worst is None or abs(dev) > abs(worst[1]):
-                worst = (G[g], dev, sw)
-        lo_lim = OVERLAY_FLOOR if md.get('overlay') else -limit
-        bad = [d for d in devs if d > limit or d < lo_lim]
-        if bad:
-            out.append((name, rank, worst, s[:40], net))
+        paths = [('hp', unit_swings)]
+        if not net and md['bridge'] and md['load'] != 1.0:   # 只有敏感度的差別是個性（×0.9～1.1），不另外查
+            paths.append(('load', lambda C_, r_, g_, md_, net_: neural_swings(C_, r_, g_, md_)))   # 現實的神經打法
+        for kind, fn in paths:
+            worst = None
+            devs = []
+            for g in range(lo, hi + 1):
+                sw, base = fn(C, rank, g, md, net)
+                dev = sw / base - 1
+                devs.append(dev)
+                if worst is None or abs(dev) > abs(worst[1]):
+                    worst = (G[g], dev, sw)
+            lo_lim = OVERLAY_FLOOR if md.get('overlay') else -limit
+            bad = [d for d in devs if d > limit or d < lo_lim]
+            if not bad:
+                continue
+            ex = ROSTER_EXCEPTIONS.get(md.get('faction') or '', {})
+            if kind == 'load' and md['load'] <= ex.get('load', 0) + 1e-9:
+                excused.append((name, rank, worst, md['faction']))
+                continue
+            out.append((name, rank, worst, s[:40], net or kind == 'load'))
     out.sort(key=lambda r: -abs(r[2][1]))
-    return out, len(units)
+    return out, len(units), excused
 
 
 # ───────────────────────── 輸出 ─────────────────────────
@@ -593,6 +629,12 @@ def show_capture(C, rng, trials):
             loss, rounds, win, down, ol, anyd, multi = capture_encounter(C, g, g, comp, rng, max(200, trials // 2))
             print(f'{G[g]:>3} {desc:<14} 掉 {pct(loss):>4}  {rounds:4.1f} 回合  勝 {pct(win):>4}  每人過載 {ol:.2f} 次  '
                   f'倒下 {down:.2f} 人（兩人以上 {pct(multi)}）')
+    K = dict(C, key_mult=1.3)
+    cells = []
+    for g in range(5):
+        loss, rounds, win, down, ol, anyd, multi = capture_encounter(K, g, g, ['首領', '雜兵'], rng, max(200, trials // 2))
+        cells.append(f'{G[g]} 過載 {ol:.2f} 倒 {down:.2f} 勝{pct(win)}')
+    print('  具名 ×1.3 的首領＋1 雜兵（7.5 點）：' + '｜'.join(cells))
     print('  重的遭遇（5.5 點）與輕的（2 點）：')
     for b in (2, 5.5):
         cells = []
@@ -638,6 +680,8 @@ QUEST_LAYOUTS = [
     ('具名 ×1.3：首領＋1 雜兵（7.5 點，首領戰）', 1.3, ['首領', '雜兵']),
     ('具名 ×1.3：精英＋2 雜兵（5.25 點，重）', 1.3, ['精英', '雜兵', '雜兵']),
     ('具名 ×1.3：精英＋1 雜兵（4.25 點，一般）', 1.3, ['精英', '雜兵']),
+    ('詞條「車庫裡有機甲」：首領＋機甲（精英）＋3 雜兵（10.5 點，接受的例外）', 1.0, ['首領', '精英', '雜兵', '雜兵', '雜兵']),
+    ('對照：首領＋機甲（精英）＋1 雜兵（8.5 點，預算內）', 1.0, ['首領', '精英', '雜兵']),
 ]
 
 
@@ -650,6 +694,74 @@ def show_quest_layouts(C, rng, trials):
             loss, rnds, win, downs = encounter(K, g, g, comp, rng, trials)
             cells.append(f'{G[g]} {pct(loss)} 勝{pct(win)}')
         print(f'  {label}：' + '｜'.join(cells))
+
+
+# 高一級的敵人（ENEMIES 第 13 節，2026-11-21）：點數 ×1.5～2，預設 ×1.75
+GRADE_UP = 1.75
+GRADE_LAYOUTS = [
+    ('同級：4 雜兵（4 點，對照）', lambda g: ['雜兵'] * 4),
+    ('同級：5 雜兵（5 點，對照）', lambda g: ['雜兵'] * 5),
+    ('高一級 1 雜兵＋2 同級雜兵', lambda g: [('雜兵', g + 1)] + ['雜兵'] * 2),
+    ('高一級 2 雜兵', lambda g: [('雜兵', g + 1)] * 2),
+    ('高一級 2 雜兵＋1 同級雜兵', lambda g: [('雜兵', g + 1)] * 2 + ['雜兵']),
+    ('高一級 1 精英', lambda g: [('精英', g + 1)]),
+    ('高一級 1 雜兵＋3 同級雜兵', lambda g: [('雜兵', g + 1)] + ['雜兵'] * 3),
+    ('高一級 3 雜兵', lambda g: [('雜兵', g + 1)] * 3),
+    ('高一級 1 精英＋1 同級雜兵', lambda g: [('精英', g + 1), '雜兵']),
+    ('首領＋高一級 1 雜兵＋1 同級雜兵', lambda g: ['首領', ('雜兵', g + 1), '雜兵']),
+]
+
+
+def comp_points(C, comp, g, up=GRADE_UP):
+    return sum(C['points'][unit_of(r, g)[1]] * (up if unit_of(r, g)[0] > g else 1) for r in comp)
+
+
+def show_grade(C, rng, trials):
+    print(f'■ 高一級的敵人：g 級的隊伍（四人）在 g 級的副本裡遇到 g＋1 級的敵人，{trials} 次的平均；點數照 ×{GRADE_UP}（×1.5 與 ×2 一併列出）')
+    for label, fn in GRADE_LAYOUTS:
+        comp = fn(0)
+        pts = [comp_points(C, comp, 0, up) for up in (1.5, GRADE_UP, 2)]
+        cells = []
+        for g in range(4):
+            loss, rnds, win, downs = encounter(C, g, g, fn(g), rng, trials)
+            cells.append(f'{G[g]} {pct(loss)} {rnds:.1f} 回合')
+        print(f'  {label}（×1.5 {pts[0]:g}／×{GRADE_UP} {pts[1]:g}／×2 {pts[2]:g} 點）：' + '｜'.join(cells))
+
+
+# 對決的修正（ENEMIES 第 13 節，2026-11-21）：少於四人打具名的精英與首領時不乘 ×1.3，改乘這一張表（生命, 傷害）
+DUEL_MOD = {1: {'精英': (0.8, 0.8), '首領': (0.35, 0.5)},
+            2: {'精英': (1.0, 1.0), '首領': (0.8, 0.8)},
+            3: {'精英': (1.0, 1.0), '首領': (1.0, 1.0)}}
+DUEL_TARGET = '勝率 80% 以上（多半 85～95%），掉 50～70% 的生命'
+# QUESTS 與 EVENTS_CITY 裡的對決：(名字, 人數, 等級, 位階, 主角的命中修正)；命中修正是她的被動對一個人特別有效的部分
+DUELS = [
+    ('柊（槍手 ⑤，一個人；完璧讓大約三分之二的攻擊命中 −3）', 1, 1, '首領', -2),
+    ('鐵蘭（嘶—— ②，一個人）', 1, 1, '精英', 0),
+    ('齒輪（鉻娘子 ①，一個人）', 1, 2, '精英', 0),
+    ('凌霄（小仙 ②，主角＋一名隊員）', 2, 3, '首領', 0),
+    ('蘇凝（崑崙 ③，一個人）', 1, 3, '首領', 0),
+    ('熔爐的精英（城市事件，一個人，制式）', 1, 1, '精英', 0),
+]
+
+
+def show_duel(C, rng, trials):
+    print(f'■ 對決：少於四人打一個精英或首領，{trials} 次的平均，回合上限 30（目標：{DUEL_TARGET}）')
+    for n in (1, 2, 3):
+        for rank in (('精英', '首領') if n < 3 else ('首領',)):
+            for label, mod in (('不修正', (1.0, 1.0)), ('具名 ×1.3', (1.3, 1.3)), ('對決的修正', DUEL_MOD[n][rank])):
+                D = dict(C, party_n=n, duel={'hp': mod[0], 'dmg': mod[1]})
+                cells = []
+                for g in range(5):
+                    loss, rnds, win, downs = encounter(D, g, g, [rank], rng, trials, rounds=30)
+                    cells.append(f'{G[g]} 勝{pct(win)} 掉{pct(loss)}')
+                print(f'  {n} 人對{rank}，{label}（生命 ×{mod[0]:g}、傷害 ×{mod[1]:g}）：' + '｜'.join(cells))
+    print('  任務裡的對決（照對決的修正）：')
+    for label, n, g, rank, atk in DUELS:
+        mod = DUEL_MOD[n][rank]
+        D = copy.deepcopy(dict(C, party_n=n, duel={'hp': mod[0], 'dmg': mod[1]}))
+        D['p_atk'] = [x + atk for x in D['p_atk']]
+        loss, rnds, win, downs = encounter(D, g, g, [rank], rng, trials, rounds=30)
+        print(f'    {label}，{G[g]} 級：勝 {pct(win)}，掉 {pct(loss)}，{rnds:.1f} 回合')
 
 
 def show_cross(C, rng, trials):
@@ -688,10 +800,16 @@ def show_opinion(C):
 
 def show_roster(C, limit=0.15):
     path = os.path.join(ROOT, 'docs/content/ENEMY_ROSTER.md')
-    rows, n = roster_audit(C, path, limit)
+    rows, n, excused = roster_audit(C, path, limit)
     print(f'■ 名單：讀到 {n} 個兵種；同級主力要攻擊的次數比照表的兵種多或少 {limit:.0%} 以上的，共 {len(rows)} 個（ENEMIES 1.3 節）')
+    print('  現實的兵種查生命這一條路；有橋又寫了感載倍率的，另外查神經打法那一條路（不扣護甲，算進敏感度）；網內的兵種查感載')
     for name, rank, (g, dev, sw), s, net in rows:
-        print(f'  {name}｜{rank}{"｜網內" if net else ""}｜最偏的一級 {g}：{sw:.1f} 次（{dev:+.0%}）｜{s}')
+        print(f'  {name}｜{rank}{"｜感載" if net else ""}｜最偏的一級 {g}：{sw:.1f} 次（{dev:+.0%}）｜{s}')
+    for fac, ex in ROSTER_EXCEPTIONS.items():
+        mine = [r for r in excused if r[3] == fac]
+        if mine:
+            devs = [r[2][1] for r in mine]
+            print(f'  例外：{fac} {len(mine)} 個兵種的神經打法多 {min(devs):+.0%}～{max(devs):+.0%}，照 ROSTER_EXCEPTIONS 放行（{ex["why"]}）')
 
 
 def show_items():
@@ -699,6 +817,8 @@ def show_items():
     path = os.path.join(ROOT, 'docs/gear/ITEMS.md')
     rows = items_audit.audit(path)
     print(f'■ 物品：零件的份量與價、設計圖的授權與成品、藥、飾品、SKIN 的價，照 ITEMS 各節自己寫的公式；不合的共 {len(rows)} 筆')
+    print(f'  允許的誤差：價 {items_audit.PRICE_TOL:.0%}；IV 級的基準 {items_audit.BASE["IV"]:,} ±{items_audit.BASE_TOL["IV"]:,}；'
+          f'效果折成的格與份量差 ±{items_audit.WEIGHT_TOL:g} 格（BALANCE 第 8 節第 9、14 項）')
     for line, kind, name, msg in rows:
         print(f'  第 {line} 行｜{kind}｜{name}｜{msg}')
 
@@ -717,7 +837,7 @@ def main():
     rng = random.Random(a.seed)
     topics = a.topics
     if 'all' in topics:
-        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'quests', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items']
+        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'quests', 'grade', 'duel', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items']
     if 'summary' in topics:
         topics = ['hits', 'encounter', 'cross']
     print(f'曲線：{a.set}')
@@ -729,6 +849,8 @@ def main():
          'key': lambda: show_key(C, rng, max(300, a.trials // 2)),
          'capture': lambda: show_capture(C, rng, max(500, a.trials // 2)),
          'quests': lambda: show_quest_layouts(C, rng, max(300, a.trials // 4)),
+         'grade': lambda: show_grade(C, rng, max(300, a.trials // 4)),
+         'duel': lambda: show_duel(C, rng, max(500, a.trials // 2)),
          'difficulty': lambda: show_difficulty(C, rng, max(300, a.trials // 4))}[t]()
         print()
 
