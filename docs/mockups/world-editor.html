@@ -219,6 +219,24 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 .ln.no{opacity:.45}
 @media (max-width:720px){.v.on{display:flex;flex-direction:column;height:auto}.tabsx{flex-wrap:nowrap;overflow-x:auto}.tabsx span{flex:none}}
 .status .btn{white-space:nowrap}
+/* 次級與三級頁簽 */
+.sub2{grid-column:1/-1;display:flex;gap:2px;overflow-x:auto;background:#120D19;box-shadow:inset 0 -2px 0 var(--line)}
+.sub2 span{flex:none;font-weight:800;font-size:12.5px;padding:8px 14px;color:var(--ink-3);cursor:pointer;white-space:nowrap}
+.sub2 span small{font:700 10.5px var(--mono);margin-left:6px;color:var(--ink-3)}
+.sub2 span.on{color:var(--ink);box-shadow:inset 0 -3px 0 var(--a)}
+.sub2 span .d{display:inline-block;width:7px;height:7px;border-radius:50%;background:#FF4A4A;margin-left:5px;vertical-align:1px}
+.sub3{grid-column:1/-1;display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:-4px}
+.sub3 span{font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--bg-2);color:var(--ink-3);cursor:pointer;white-space:nowrap}
+.sub3 span small{font:700 10px var(--mono);margin-left:5px}
+.sub3 span.on{background:#3A2B47;color:var(--ink);box-shadow:inset 0 0 0 2px var(--a)}
+.sub3 .scope{margin-left:auto;display:flex;gap:2px}
+.sub3 .scope span{border-radius:0;background:#120D19}
+.sub3 .scope span.on{background:var(--a);color:#fff;box-shadow:none}
+.crumb{font-size:11px;color:var(--ink-3);font-weight:800;margin-bottom:8px}
+.crumb b{color:var(--ink-2)}
+.more{font-size:11px;color:var(--ink-3);padding:8px;text-align:center}
+@media (max-width:720px){.sub3{flex-wrap:nowrap;overflow-x:auto}.sub3 .scope{margin-left:0}}
+
 
 /* 樹 */
 .pack{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:9px 10px;background:#3A2B47;box-shadow:inset 3px 0 0 var(--a);margin-bottom:10px;font-size:12.5px}
@@ -325,10 +343,13 @@ pre.json .s{color:#F58DBA}pre.json .nu{color:var(--ap)}
 <nav class="tabsx"><span data-v="edit" class="on">內容</span><span data-v="ctr">劇情計數器</span><span data-v="io">匯入與匯出</span></nav>
 
 <!-- 內容 -->
-<section class="v on" id="v-edit" style="grid-template-columns:250px 1fr 330px">
+<section class="v on" id="v-edit" style="grid-template-columns:250px 1fr 330px;grid-template-rows:auto auto minmax(0,1fr)">
+  <nav class="sub2" id="sub2"></nav>
+  <nav class="sub3" id="sub3"></nav>
   <aside class="panel cut pad scroll">
     <div class="pack"><b>帳本外傳</b><span class="tag">世界包</span><small>疊在基本世界上・改內建的內容會存成這個包裡的覆寫</small></div>
-    <div class="search">⌕ 找名字、id 或內文</div>
+    <div class="crumb" id="crumb"></div>
+    <div class="search">⌕ 在這一類裡找名字、id 或內文（⌘K 找全部）</div>
     <div class="tree" id="tree"></div>
     <div class="go" style="justify-content:flex-start"><button class="btn sm cut-sm">新增</button><button class="btn sm cut-sm">用 AI 生成</button></div>
   </aside>
@@ -455,15 +476,42 @@ document.querySelectorAll('.tabsx span').forEach(t=>t.onclick=()=>{show(t.datase
 if(location.hash)show(location.hash.slice(1));addEventListener('hashchange',()=>show(location.hash.slice(1)));
 </script>
 <script>
-const T=[
- ['系列',3,[['帳本','ledger','',''],['碼頭工會','dock_union','wrn','']]],
- ['事件',18,[['碼頭上看到搬帳本的人','ev_ledger_dock_carrier','err','3',1],['倉庫的位置','clue_ledger_warehouse','mod',''],['三號碼頭的夜班','ev_dock_night_shift','','']]],
- ['委託副本',2,[['偷帳本','cm_ledger_steal','mod',''],['清空倉庫','cm_ledger_raid','wrn','']]],
- ['敵人',6,[['碼頭的保全','en_dock_guard','err','1'],['三號碼頭的守衛','en_dock_guard','err','1']]],
- ['NPC',5,[['阿柴','npc_dock_runner','err','1']]],
- ['物品',9,[['藍鯨的封條','pt_bluewhale_seal','','']]],
- ['戰敗事件',1,[]],['地點',2,[]],['劇情計數器',1,[]]];
-tree.innerHTML=T.map(k=>`<div class="kind">${k[0]}<span>${k[1]}</span></div>`+k[2].map(i=>`<div class="it${i[4]?' on':''}"><i class="${i[2]?'d-'+i[2]:''}"></i><div>${i[0]}<code>${i[1]}</code></div><span class="n">${i[3]}</span></div>`).join('')).join('');
+// 二級：內容的大類；三級：每一類底下的種類。數字是基本世界＋這個世界包的筆數（示意）
+const CAT=[
+ ['世界','world',[['地點','site',312],['區與街區','district',51],['勢力','faction',29],['城市的大事','city_event',12],['用語','term',140]]],
+ ['人物','people',[['固定 NPC','npc',63],['流竄 AI','rogue',42],['名字池','namepool',18],['外貌詞條','look',260]]],
+ ['物品','items',[['零件','part',640],['設計圖','blueprint',410],['藥','drug',48],['彈藥與消耗品','consumable',90],['服裝','clothes',280],['飾品','accessory',70],['成人道具','toy',120],['SKIN','skin',95],['構裝與快駭','construct',60],['機甲與載具','vehicle',30]],1],
+ ['技能','skills',[['八棵樹','tree',280],['夜課','lesson',125],['特質與缺陷','perk',80]]],
+ ['敵人','enemies',[['現實','foe_real',220],['內海','foe_net',90],['具名','foe_named',75]],1],
+ ['事件','events',[['街頭','ev_street',410],['成人','ev_adult',160],['蠱惑','ev_lure',84],['戰敗','ev_defeat',58],['打工','ev_work',120],['系列','series',40]],1],
+ ['任務','quests',[['特殊任務','quest',95],['委託模板','commission',60],['委託副本','dungeon',24]],1],
+ ['內海','net',[['固定子網','subnet',30],['隨機地圖詞條','netgen',110],['海域','sea',8]]],
+ ['文字','text',[['指南','guide',55],['提示詞','prompt',40],['世界書','lore',300]]]];
+// 每一種裡的筆，只示意幾筆；第 6 欄 1 表示目前開著的那一件
+const ITEMS={
+ ev_street:[['帳本','ledger 系列',[['碼頭上看到搬帳本的人','ev_ledger_dock_carrier','err','3',1],['倉庫的位置','clue_ledger_warehouse','mod',''],['帳本被搬去哪了','clue_ledger_lost','','']]],
+  ['舊港','區',[['三號碼頭的夜班','ev_dock_night_shift','',''],['貨櫃城的停電','ev_oldport_blackout','','']]],
+  ['蜂巢','區',[['露露餐館的最後一個月','ev_st_hive_diner','',''],['機鼻畫報','ev_st_hive_nose_art','','']]]],
+ foe_real:[['舊港','區',[['碼頭的保全','en_dock_guard','err','1'],['三號碼頭的守衛','en_dock_guard','err','1']]],['緋櫻','勢力',[['家政課第二席','en_hz_hk_seat','','']]]],
+ part:[['2.3 軟體與基因譜','',[['兔系基因譜・芽','pt_gene_rabbit_1','mod',''],['犬系基因譜・芽','pt_gene_dog_1','mod','']]],['2.6 感測器','',[['嗅探器-100','pt_sniffer_100','mod',''],['藍鯨的封條','pt_bluewhale_seal','','']]]],
+ npc:[['舊港','',[['阿柴','npc_dock_runner','err','1']]],['蜂巢','',[['露露','npc_lulu','',''],['瑪姬','npc_maggie','','']]]],
+ series:[['這個世界包','',[['帳本','ledger','',''],['碼頭工會','dock_union','wrn','']]]],
+ commission:[['這個世界包','',[['偷帳本','cm_ledger_steal','mod',''],['清空倉庫','cm_ledger_raid','wrn','']]]]};
+const ERR={items:1,enemies:1,events:1,quests:1,people:1};
+let c2='events',c3='ev_street',scope='all';
+function render(){
+ const cat=CAT.find(c=>c[1]===c2);
+ sub2.innerHTML=CAT.map(c=>`<span data-c="${c[1]}" class="${c[1]===c2?'on':''}">${c[0]}<small>${c[2].reduce((a,x)=>a+x[2],0)}</small>${ERR[c[1]]?'<i class="d"></i>':''}</span>`).join('');
+ sub3.innerHTML=cat[2].map(x=>`<span data-c="${x[1]}" class="${x[1]===c3?'on':''}">${x[0]}<small>${scope==='pack'?Math.max(0,Math.round(x[2]/40)):x[2]}</small></span>`).join('')+`<div class="scope"><span data-s="all" class="${scope==='all'?'on':''}">全部</span><span data-s="pack" class="${scope==='pack'?'on':''}">只看這個世界包</span><span data-s="err" class="${scope==='err'?'on':''}">只看有錯的</span></div>`;
+ const sc=cat[2].find(x=>x[1]===c3);
+ crumb.innerHTML=`內容 › ${cat[0]} › <b>${sc[0]}</b>・${sc[2]} 筆`;
+ const g=ITEMS[c3]||[['依名稱排序','',[['（這一種的內容照同樣的方式列出）','—','','']]]];
+ tree.innerHTML=g.map(k=>`<div class="kind">${k[0]}<span>${k[1]}</span></div>`+k[2].filter(i=>scope!=='err'||i[2]==='err').map(i=>`<div class="it${i[4]?' on':''}"><i class="${i[2]?'d-'+i[2]:''}"></i><div>${i[0]}<code>${i[1]}</code></div><span class="n">${i[3]}</span></div>`).join('')).join('')+`<div class="more">一次載入 50 筆，往下捲再載入；分組可以改成依區、勢力、等級或系列</div>`;
+ sub2.querySelectorAll('span').forEach(t=>t.onclick=()=>{c2=t.dataset.c;c3=CAT.find(c=>c[1]===c2)[2][0][1];render()});
+ sub3.querySelectorAll('[data-c]').forEach(t=>t.onclick=()=>{c3=t.dataset.c;render()});
+ sub3.querySelectorAll('[data-s]').forEach(t=>t.onclick=()=>{scope=t.dataset.s;render()});
+}
+render();
 const J=`{
   "id": "ev_ledger_dock_carrier", "series": "ledger", "scope": "city",
   "triggers": ["enter", "wait"],
