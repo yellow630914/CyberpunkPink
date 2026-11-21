@@ -52,7 +52,6 @@
 ### 5.1 平衡（交給平衡的工作階段）
 
 - [BALANCE](../systems/BALANCE.md) 第 6 節：傳奇級的戰鬥，真的要寫時另外配隊伍的準備並用 `legend` 主題確認勝率。
-- 契約的買斷價：[LIFE](../world/LIFE.md) 1.2 節寫「買斷一份普通的契約 30,000 起」，但 [EVENTS_CITY](../content/EVENTS_CITY.md) 的樂園（`si_eden_catalog` 12,000、`si_eden_buy_me` 8,000）與 [QUESTS](../content/QUESTS.md) 柚的線（買下來 8,000）都低於這個數字；要提高事件的價，還是改 LIFE 的寫法，等你決定。
 
 ### 5.2 系統
 
