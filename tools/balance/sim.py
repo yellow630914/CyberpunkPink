@@ -2,7 +2,7 @@
 """夾值用的模擬器（docs/systems/BALANCE.md）。不依賴任何套件。
 
 用法：python3 tools/balance/sim.py [主題 ...] [--set current|proposed] [--doc-budget] [--trials N] [--seed N]
-主題：summary（預設）、hits、encounter、cross、capture、key、difficulty、net、check、economy、xp、opinion、roster、all
+主題：summary（預設）、hits、encounter、cross、capture、key、difficulty、net、check、economy、xp、opinion、roster、items、all
 
 所有曲線都寫在這個檔案的 CURVES 裡，和 BALANCE.md 的表一一對應。
 current 是第一輪夾值之前文件寫的數字（2026-11-20），proposed 是 BALANCE.md 的曲線；兩組只在 DIFF 列出的欄位不同。
@@ -650,6 +650,15 @@ def show_roster(C, limit=0.15):
         print(f'  {name}｜{rank}{"｜網內" if net else ""}｜最偏的一級 {g}：{sw:.1f} 次（{dev:+.0%}）｜{s}')
 
 
+def show_items():
+    import items_audit
+    path = os.path.join(ROOT, 'docs/gear/ITEMS.md')
+    rows = items_audit.audit(path)
+    print(f'■ 物品：零件的份量與價、設計圖的授權與成品、藥、飾品、SKIN 的價，照 ITEMS 各節自己寫的公式；不合的共 {len(rows)} 筆')
+    for line, kind, name, msg in rows:
+        print(f'  第 {line} 行｜{kind}｜{name}｜{msg}')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('topics', nargs='*', default=['summary'])
@@ -664,7 +673,7 @@ def main():
     rng = random.Random(a.seed)
     topics = a.topics
     if 'all' in topics:
-        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster']
+        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items']
     if 'summary' in topics:
         topics = ['hits', 'encounter', 'cross']
     print(f'曲線：{a.set}')
@@ -672,7 +681,7 @@ def main():
         {'hits': lambda: show_hits(C), 'net': lambda: show_net(C),
          'encounter': lambda: show_encounter(C, rng, a.trials), 'cross': lambda: show_cross(C, rng, max(200, a.trials // 4)),
          'check': lambda: show_check(C), 'economy': lambda: show_economy(C), 'xp': lambda: show_xp(C),
-         'opinion': lambda: show_opinion(C), 'roster': lambda: show_roster(C),
+         'opinion': lambda: show_opinion(C), 'roster': lambda: show_roster(C), 'items': show_items,
          'key': lambda: show_key(C, rng, max(300, a.trials // 2)),
          'capture': lambda: show_capture(C, rng, max(500, a.trials // 2)),
          'difficulty': lambda: show_difficulty(C, rng, max(300, a.trials // 4))}[t]()
