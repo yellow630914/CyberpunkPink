@@ -1,7 +1,7 @@
 # 建角、出身、特質與缺陷
 
 > 上層：[CORE_RULES](CORE_RULES.md)。依賴：[CORE_RULES](CORE_RULES.md)（屬性、基本功、三條軌、路數）、[LIFE](../world/LIFE.md)（身分、錢）、[CYBERWARE](../gear/CYBERWARE.md) 第 7 節（橋的型號）、[LEWD_SYSTEM](LEWD_SYSTEM.md) 第 1 節（橋參數、傾向）、[FACTIONS](../world/FACTIONS.md)（好感）、[SERIES](SERIES.md)（線索與系列）。被依賴：[NPC_SYSTEM](NPC_SYSTEM.md)（NPC 用同一套特質）、[UI](../art/UI.md)（建角畫面）。
-> 來源：ElondiaRPG 的特質與缺陷（`perks`：情境修正、取得的機會、受訓、老師）；附件的入門規則裡的「生命軌跡」。預定資料：`data/rules/origins.json`、`lifepath.json`、`perks.json`。還標著暫定的只有義體點數的價目（2.1 節）與起始的錢和建議的裝備組合（5.4 節），它們等裝備與經濟的框架定了再對一次。特質的實際清單屬於內容層（L4），等底層定了再生成（[DESIGN_ORDER](../plan/DESIGN_ORDER.md)）。
+> 來源：ElondiaRPG 的特質與缺陷（`perks`：情境修正、取得的機會、受訓、老師）；附件的入門規則裡的「生命軌跡」。預定資料：`data/rules/origins.json`、`lifepath.json`、`perks.json`。還標著暫定的只有義體點數的價目（2.1 節）與起始的錢和建議的裝備組合（5.4 節），它們等裝備與經濟的框架定了再對一次。特質的實際清單屬於內容層（L4），還沒生成（[PLAN](../plan/PLAN.md)）。
 
 ## 1. 建角的步驟
 
@@ -82,7 +82,7 @@
 - 所以可以選「好橋、身體沒改」或「普通的橋、多幾件義體」。
 - 每一件照常算沉溺的下限（[CYBERWARE](../gear/CYBERWARE.md)）：開場改得越多，沉溺的起點越高。
 - 出身不限制選擇，只影響有些型號買不買得到（企業出身才選得到那家企業的橋）。
-- 實際的型號與點數等裝備的框架定了再寫（[DESIGN_ORDER](../plan/DESIGN_ORDER.md)）。冷門的五個型號已經寫了點數與誰買得到（[CYBERWARE](../gear/CYBERWARE.md) 7.5 節）。
+- 冷門的五個型號的點數與誰買得到在 [CYBERWARE](../gear/CYBERWARE.md) 7.5 節。
 
 ## 3. 生命軌跡
 

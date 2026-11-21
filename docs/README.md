@@ -1,7 +1,7 @@
 # 文件地圖
 
 > 設計階段：還沒有程式，文件就是唯一真相。開始實作之後改成和 ElondiaRPG 一樣的規則——程式與資料是唯一真相，文件描述它們現在的行為。
-> 想一口氣讀完：跑 `python3 tools/book/build.py`，在 `book/` 產生把下面所有文件依設計的分層（L0～L5，見 [DESIGN_ORDER](plan/DESIGN_ORDER.md)）編成的單一檔案。它是產物，不進版本控制。
+> 想一口氣讀完：跑 `python3 tools/book/build.py`，在 `book/` 產生把下面所有文件依設計的分層（L0～L5，見第 1 節最後）編成的單一檔案。它是產物，不進版本控制。
 
 ## 1. 目錄
 
@@ -69,7 +69,6 @@ docs/
 │
 ├─ plan/                計畫：還沒做完的事
 │   ├─ PLAN             現在的計畫與還沒解決的事
-│   ├─ DESIGN_ORDER     系統的依賴與設計順序：先底層、後內容
 │   ├─ IMPLEMENTATION   實作的起點：Agent 模式、程式掃描、減熵清單
 │   ├─ MIGRATION        ElondiaRPG 系統遷移清單
 │   ├─ CODESCAN         ElondiaRPG 程式掃描的結論
@@ -81,6 +80,17 @@ docs/
 │
 └─ book/                設計書：全部文件編成的單一檔案（由 tools/book/ 產生；只在本機，不進版本控制）
 ```
+
+**設計的分層**：下層的規則是上層的前提，文件裡說的「L3 框架」「L4 的內容」指的是這一張表。設計書也照它編排。
+
+| 層 | 是什麼 | 包含 |
+|---|---|---|
+| L0 世界 | 這座城市是什麼、用什麼詞 | 世界線與年表、用語、八區、勢力與文化分支、固定 NPC、流竄 AI |
+| L1 核心規則 | 一個角色由哪些數字組成、怎麼擲骰 | 六屬性、十八項基本功、檢定、三條軌、同步原則、名聲、成長 |
+| L2 核心玩法 | 三個戰場怎麼打 | 現實戰鬥、內海戰鬥、輿論戰、召喚 |
+| L3 框架 | 內容的格式與規則，不含內容本身 | 技能、裝備、敵人、NPC、事件、系列、委託副本、經濟、家園、成人場景與契約、資料格式、平衡 |
+| L4 內容 | 實際的條目 | 技能清單、物品目錄、敵人名單、事件、特殊任務、委託模板、街區與要地 |
+| L5 呈現 | 給玩家看與給 AI 讀的 | 畫面、提示詞與世界書、AI 任務與工具 |
 
 ## 2. 從哪裡開始讀
 
@@ -94,7 +104,7 @@ docs/
 | 裝備怎麼來 | [gear/CRAFTING](gear/CRAFTING.md) → [gear/EQUIPMENT](gear/EQUIPMENT.md) |
 | 成人向的部分 | [systems/LEWD_SYSTEM](systems/LEWD_SYSTEM.md) |
 | 一條特殊任務的完整寫法 | [world/STORY_QUESTS](world/STORY_QUESTS.md) → [content/QUESTS](content/QUESTS.md) |
-| 還有什麼沒決定、接下來做什麼 | [plan/PLAN](plan/PLAN.md)、[plan/DESIGN_ORDER](plan/DESIGN_ORDER.md) 第 4 節 |
+| 還有什麼沒決定、接下來做什麼 | [plan/PLAN](plan/PLAN.md) |
 | 一件事是什麼時候、為什麼這樣定的 | [log/DECISIONS](log/DECISIONS.md) |
 
 ## 3. 依賴關係

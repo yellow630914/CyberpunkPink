@@ -2006,7 +2006,7 @@ SITES 12.4 節的權重表照舊，新的六張加在後面：
 | 鏽帶 | 工廠、倉庫、檢查哨、碼頭貨櫃區（陸運版）、**驛站** |
 | 地下層 | 排水道、地鐵、機房（舊網的）、倉庫 |
 
-資料的樣子照 SITES 第 15 節的 `commission_maps`，id 用這裡的 `map_` 前綴，另外加兩欄：`entries` 的每一個寫 `need`（基本功與 DC 的加值，或 `link`、`scouted`、`item`），`spots` 的每一個寫 `cover`（四種配置之一，或八格逐格寫）與 `material`。
+資料的樣子照 SITES 第 15 節的 `commission_maps`，id 用這裡的 `map_` 前綴，另外加兩欄：`entries` 的每一個寫 `need`（基本功與 DC 的加值，或 `link`、`scouted`、`item`），`spots` 的每一個寫 `cover`（四種配置之一，或八格逐格寫）。
 
 ```json
 { "id": "map_maid_cafe", "kind": "maid_cafe", "size": [11, 9], "max_maps": 1,
@@ -2017,7 +2017,7 @@ SITES 12.4 節的權重表照舊，新的六張加在後面：
   ],
   "markers": { "T": 3, "D": 1, "C": 1, "G": 2, "K": 1, "X": 1 },
   "spots": [
-    { "id": "floor",   "cover": "medium",     "crowd": true, "material": { "dessert_case": "fragile" } },
+    { "id": "floor",   "cover": "medium",     "crowd": true },
     { "id": "kitchen", "cover": "dense",      "hazard": "stove_fire" },
     { "id": "office",  "cover": "one_sided" }
   ],
@@ -2571,7 +2571,7 @@ DATA 9.1 節的 `topic` 加一欄 `category`，其餘照舊。議題模板存在
 |---|---|---|---|
 | `e_frost` | 探員的書店（白天） | 伊萊莎不在，霜坐在櫃檯後面翻一本書，說她知道你下去過，問你拿到了什麼 | 交給霜（`gave_frost`，貞網局的敵對值 −1，伊萊莎的好感 −15）；說要先給伊萊莎（`gave_eliza`）；說什麼都沒拿到，自己留著（定力對 DC 16，不管成敗都立 `kept_node`；失敗的話霜不相信，貞網局的敵對值 +1） |
 
-- 節點裡的東西是什麼由伊萊莎的關係線與粉牆線決定，這個系列只寫它落到誰手上。
+- 節點裡的東西是什麼由伊萊莎的關係線決定，這個系列只寫它落到誰手上。
 - `kept_node` 讓主角拿到一份「沒有人認領的資料」（素材，類型罪證，品質 4），可以賣、可以當料。
 
 ### 替身（`understudy`）

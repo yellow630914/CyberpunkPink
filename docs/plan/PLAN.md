@@ -1,0 +1,111 @@
+# 計畫與待處理
+
+> 上層：[README](../README.md)。相關：[IMPLEMENTATION](IMPLEMENTATION.md)（實作的做法）、[MIGRATION](MIGRATION.md)（ElondiaRPG 的模組怎麼搬）、[BALANCE](../systems/BALANCE.md)（數值平衡）、[IDEAS](IDEAS.md)（還沒決定要不要做的想法）、[DECISIONS](../log/DECISIONS.md)（已經定案的決定與經過）。
+> 這份只放接下來的順序、刻意擱置的事與還沒解決的事。解決了的從這裡拿掉，把結論寫回對應的文件，經過記進 DECISIONS。
+
+## 1. 順序
+
+設計文件已經是寫遊戲核心用的規格。接下來照這個順序：
+
+| 步 | 做什麼 | 說明 |
+|---|---|---|
+| 1 | **遊戲引擎核心** | 照 [IMPLEMENTATION](IMPLEMENTATION.md) 第 5 節、[CODESCAN](CODESCAN.md) 第 3、4 節的分層與 [MIGRATION](MIGRATION.md) 第 6 節的批次（M0～M7）。三個戰場以 `mockups/` 的三個 Demo 當畫面與規則的參考 |
+| 2 | **世界編輯器**（接口） | 內容進引擎的接口與編輯器（第 2 節） |
+| 3 | **潤色** | 配合平衡後的數字、去 AI 味；在純文件上做 |
+| 4 | **匯入** | 把潤色過的內容經世界編輯器的路徑匯進引擎 |
+
+- **平衡另開一個工作階段**，必須在引擎核心與世界編輯器完成之前做完。要做的事是 [BALANCE](../systems/BALANCE.md) 第 6 節的七項，加上第 5.1 節列的數字。
+- 給 ElondiaRPG 的減熵清單在共用管道搬完、整理好之後交第一版（[IMPLEMENTATION](IMPLEMENTATION.md) 第 4 節）。
+
+## 2. 世界編輯器與匯入
+
+- 所有內容一律走編輯器的路徑匯入：`content/`、`world/` 與 `gear/ITEMS` 這些文件的本質是一個**世界包**（基本世界），匯入時和玩家做的世界包走同一套驗證、同一套資料格式（[DATA](../systems/DATA.md)）。
+- 編輯器的資料層同時是 AI 的資料來源：Agent 查的是動態的世界資料，不是世界書的文字（[AI_TASKS](AI_TASKS.md)）。
+- 世界書的條目由 `world/` 的文件拆出來（[PROMPTS](../systems/PROMPTS.md) 9.2 節），和匯入一起做。
+- AI 可以分階段生成一整個系列（例：一位夥伴 → 她的特殊任務與委託 → 相關的事件），一個階段一個階段和玩家互動，每個階段都留下可用的成果；不開 Agent 時只能單項生成。
+- **潤色**：事件、特殊任務、委託模板、NPC、物品說明、指南、示意頁裡的示意文字，一律照 [NPCS](../world/NPCS.md) 1.3 節的文字規則逐條過一次。重點是沒頭沒尾的短句、省略受詞假裝是金句的句子、用逗號硬切出來的餘韻、結尾的感嘆。數字在這一步照平衡的結果對一次。
+
+## 3. 刻意擱置的
+
+這些是決定了「現在不做」，不是漏掉的：
+
+| 事 | 現況 |
+|---|---|
+| **終章** | 遊戲能玩之後再規劃。`end_` 前綴與劇情計數器保留（[STORY_QUESTS](../world/STORY_QUESTS.md) 1.2 節、第 2 節） |
+| **傳奇** | 結構有了：照劇情計數器收尾（[STORY_QUESTS](../world/STORY_QUESTS.md) 第 2 節）；內容到時候照計數器加 |
+| **吉祥物的真相** | 先不揭露。吉祥物線停在前期（冷庫的玩偶裝），之後要寫時重新定真相（[QUESTS](../content/QUESTS.md) 的吉祥物線） |
+| **傳奇人物的 `lg_` 鉤子** | 只記錄旗標與目擊、傳聞（[NPCS](../world/NPCS.md) 第 10 節），不寫和他們有關的任務 |
+| **指南剩下的 49 張** | 樣板 6 張已寫，其餘實作時寫（[GUIDES](../content/GUIDES.md)） |
+| **圖標用 ComfyUI 精修** | 現在的第 3 層是向量拼裝，之後照提示詞生圖換掉（[ART_STYLE](../art/ART_STYLE.md) 第 6 節） |
+
+## 4. 工作的規則
+
+- **文字的規則**：所有描述都不寫沒頭沒尾的短句，不用 AI 常見的套話與句式（[NPCS](../world/NPCS.md) 1.3 節）。
+- **數字直接寫，不用符號**。內容表的數字照 [BALANCE](../systems/BALANCE.md) 的曲線寫，只寫相對於曲線的修正；曲線改了就回頭對一次。正文的文字與潤色排在數字之後（第 1 節第 3 步）。
+- **內建的要平衡，玩家主動作弊照設定**（[GAME_DESIGN](../GAME_DESIGN.md) 第 3 節第 13 條）：審規則時，凡是只為了防玩家太強、防玩家亂來的限制，先問能不能拿掉。
+- **還沒決定的事只寫在這裡**；各文件最後的「待確認」只放那一份自己的細項，並在下面列一行。
+
+## 5. 待處理
+
+每一行：在哪、問題、目前的假設（有的話）。有假設的可以照假設動工。
+
+### 5.1 平衡（交給平衡的工作階段）
+
+- [BALANCE](../systems/BALANCE.md) 第 6 節第 1 項：特殊單位改成「位階 ＋ 修正」：機甲（ENEMIES 第 11 節、ITEMS 第 14 節）、吉祥物（ENEMIES 12.3 節）、大型的機器（重型無人機、神轎）。
+- BALANCE 第 6 節第 2 項：技能樹給模擬器加解析的主題，檢查每一階的格數（SKILLS 1.9 節）；敵人招牌行動裡寫死點數的感載照位階與等級逐級換算。
+- BALANCE 第 6 節第 3 項：錢與家：高等級的住處與帳單對不上（DOWNTIME 7.2 節、[LIFE](../world/LIFE.md) 1.3 節）；片的收入、價差、區的倍率、價格表照 2.8 節對一次。
+- BALANCE 第 6 節第 4 項：輿論戰的牌面與對手的發稿怎麼隨等級長，之後給模擬器加輿論戰的主題，再定對手的數值；[OPINION](../systems/OPINION.md) 第 2 節頻道經營與第 3 節棋盤的數字一起定。
+- BALANCE 第 6 節第 5 項：事件、任務、要地裡寫死的 DC 改成檔位的寫法，報酬照 COMMISSION_TEMPLATES 的公式。
+- BALANCE 第 6 節第 6 項：`combat-demo.html` 與 `net-demo.html` 換成夾值之後的數字。
+- BALANCE 第 6 節第 7 項：傳奇級的戰鬥，真的要寫時另外配隊伍的準備並用 `legend` 主題確認勝率。
+- [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 9.3 節：機甲疊全檔同步時回灌更高，數字待平衡；2.1 節遮蔽的耐久暫定掩體 30、半掩體 15。
+- [CORE_RULES](../systems/CORE_RULES.md) 6.4 節：一套打法的大小與橋的容量，要照每棵樹 25～27 個技能重算。
+- [CHARACTER](../systems/CHARACTER.md) 2.1 節、5.4 節：起始的義體點數與價目（暫定 10 點）、起始的錢 C$3,000、各出身的建議組合，等經濟定了再對一次。
+- [SKILLS](../systems/SKILLS.md) 1.3 節、1.10 節：樹的階的門檻（每階技能變多，照舊門檻會開得比較快）；1.9 節強度預算的斜率。
+- [CRAFTING](../gear/CRAFTING.md) 5.5 節：裝備強度預算的數字，特別是等級之間差距要多大。
+- [CYBERSPACE](../systems/CYBERSPACE.md) 第 8 節、8.2 節：隨機地圖的數字，迷宮館第四層以後的延長賽。
+- [SITES](../world/SITES.md) 第 10 節：要地的時期對應到等級 I～V；第 13 節內海固定地點的數字（各窗口的費用、迷宮館的入場費與押金、蚌殼市的倍率、窩的租金、看門狗的感載、好感門檻等）；2.1 節九號塔的合唱（每個階段感載 +10、定力 DC 14、失敗沉溺 +2）與 6.2 節水下殘骸的氧氣。
+
+### 5.2 系統
+
+- [ENEMIES](../systems/ENEMIES.md) 第 14 節第 1 項：雜兵的生命不照主角的公式（20 ＋ 體格 × 2）。這一句的「雜兵約六成」是舊的寫法，現在雜兵的生命照 [BALANCE](../systems/BALANCE.md) 2.4 節的表；要不要保留「不照主角公式」這條，連同措辭一起定。
+- ENEMIES 第 14 節第 2 項：二十九種戰敗事件的分法（第 6 節），尤其 `tuning`、`fed`、`drained`、`tinkered`、`taken`。
+- ENEMIES 第 14 節第 3 項：鎮溺隊「每三回合補一個班、沒有上限」，設計成打不贏。
+- ENEMIES 第 14 節第 4 項：機甲的解法表（11.2 節）與「緋櫻開全檔、星旗退淺檔」的分歧。
+- [CHARACTER](../systems/CHARACTER.md) 第 4 節：特質的清單之後生成（現在只有例子）。
+- [GAME_DESIGN](../GAME_DESIGN.md) 第 9 節：報告裡訂閱（取代 `audience`）與沉溺的下限（取代 `humanity_cap`）的欄位名。
+- 風格影響街頭信譽的成長（「行頭勝於實力」）：現在只體現在風格上，要不要讓風格直接影響信譽的成長還沒決定。
+
+### 5.3 世界
+
+- [FACTIONS](../world/FACTIONS.md) 第 7 節：各勢力特有的好感來源與效果，要和 [QUESTS](../content/QUESTS.md) 的勢力線逐家再對一次。
+- [STORY_QUESTS](../world/STORY_QUESTS.md) 1.2 節：劇情計數器 `truth` 的範圍 0～6 是照六條主線定的，主線不採用之後要不要改。
+- STORY_QUESTS 第 9 節的「期限」一欄全是「—」（「其他的線沒有期限」），但 [QUESTS](../content/QUESTS.md) 有幾條線用了 ⏳（偶像 ⑤、幾條夥伴線、勢力線的祭典），兩邊要對齊。
+
+### 5.4 物品與內容
+
+- [CYBERWARE](../gear/CYBERWARE.md) 7.5 節：劇情取得的原型與牆外來的橋，等傳奇寫到時再加。
+- [ITEMS](../gear/ITEMS.md) 4.2 節、第 13 節：V 級的藥還沒有。
+- [QUESTS](../content/QUESTS.md)：傳奇還沒寫、吉祥物線冷庫之後故意不寫（都見第 3 節）；「路數的線」裡偶像線的親衛隊隊長，關係線「之後寫」。
+- [COMMISSION_TEMPLATES](../content/COMMISSION_TEMPLATES.md) 的輿論議題：「另一個主播」用暫時的 id `pr_rival_streamer`。詞條「有名字的對頭」說第一手的潔絲（base `pr_kaleido`，[ENEMY_ROSTER](../content/ENEMY_ROSTER.md)）就是那個主播，但直接換成 `pr_kaleido` 會讓 `tp_tape_leak`（滅火）違反「滅火的議題不能以萬華鏡當對手」；要給潔絲自己的 id，或另定 base。
+- [EVENTS_CITY](../content/EVENTS_CITY.md) 的要地事件還用舊主線的旗標命名空間（`t9:`、`grad:`、`blast:`）；「艦載網在叫」（`si_wreck_signal`）要的 `blast:b6_open` 已經沒有任何東西會設，這件事件出不來；`t9:inspection_week` 由誰設也要確認。
+
+### 5.5 美術與介面
+
+- [UI](../art/UI.md) 第 17 節第 1 項：手機的戰鬥敵上我下，和 ElondiaRPG 相反；假設照 COMBAT_SYSTEM 第 10 節，兩排的第 1 格都在左邊。
+- UI 第 4 節：「行動列」那一列與手機版裡的行動列是行動圓環之前的寫法，要照 Demo 整理。
+- UI 第 15 節：標題與存檔、世界編輯器還沒有自己的一節（示意頁有了）。
+- UI 6.1 節：輿論戰 Demo 的格子還沒接上勢力徽記，實作時接。
+- [ART_STYLE](../art/ART_STYLE.md) 第 6 節，**等你回答**：「潛入畫面樣稿」與「街區圖把店家擺到格子上」這兩項之前從「之後要畫的」拿掉了，要不要留。
+
+### 5.6 AI 與實作
+
+- [AI_TASKS](AI_TASKS.md) 第 10 節第 1 項：NPC 在成人場景裡能不能選「停下」；假設不能，場景由玩家結束（對方失神時照規則退出）。
+- [PROMPTS](../systems/PROMPTS.md) 第 12 節第 1 項：對象非自願關掉時的俘虜；假設不進成人場景，問話、交出去、放走三選一（ENEMIES 6.1 節）。
+- PROMPTS 第 12 節第 2 項：試跑只用最近五樓，更早的用內建的樣本情境。
+- PROMPTS 第 12 節第 3 項：提示詞組存在瀏覽器，所有存檔共用；存檔只記用哪一組。
+- PROMPTS 第 12 節第 4 項：簡體輸出時先不把提示詞轉成簡體，只改 `{{language}}`，看混進繁體字的比例再決定。
+- PROMPTS 第 12 節第 5 項：世界書用繁體寫。
+- PROMPTS 第 12 節第 6 項：匯出的提示詞組含世界書的覆寫；內建條目只存差異，玩家新增的存全文。
+- PROMPTS 7.2 節：試跑時記下 reward 與 relate 兩個任務 H14 驗證失敗的比例；太高就改走成人路由讀完整的紀錄。
+- [CODESCAN](CODESCAN.md) 第 5 節：給 ElondiaRPG 的減熵清單。六份原始的掃描報告（約 110 條細的整理建議）已經從 `plan/scan/` 刪掉，需要時從 git 的歷史找。

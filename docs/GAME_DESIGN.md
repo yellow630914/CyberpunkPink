@@ -176,4 +176,4 @@ src/stores/       狀態與存檔
 src/components/   Vue 介面
 ```
 
-技術選型沿用 ElondiaRPG（Vue 3、Pinia、Vite、Vitest）。要直接從 ElondiaRPG 分支出來改，還是開新專案把模組一個個搬過來，還沒決定（[plan/PLAN](plan/PLAN.md)）。
+技術選型沿用 ElondiaRPG（Vue 3、Pinia、Vite、Vitest）。開新專案，把模組一個個搬過來，不從 ElondiaRPG 分支（[plan/IMPLEMENTATION](plan/IMPLEMENTATION.md) 第 1 節）。

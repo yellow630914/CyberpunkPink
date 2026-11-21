@@ -1,9 +1,9 @@
 # 介面：主畫面與各畫面的版面
 
 > 上層：[ART_STYLE](ART_STYLE.md)。依賴：[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 第 10 節（戰鬥畫面）、[OPINION](../systems/OPINION.md) 第 10 節（編輯台）、[COMMISSIONS](../systems/COMMISSIONS.md)、[CORE_RULES](../systems/CORE_RULES.md) 6.4 節（橋的容量）、[CRAFTING](../gear/CRAFTING.md)、[EQUIPMENT](../gear/EQUIPMENT.md)、[LEWD_SYSTEM](../systems/LEWD_SYSTEM.md)、[FIXER](../systems/FIXER.md)。被依賴：`docs/mockups/` 的樣稿與之後的 `src/components/`。三個戰場已經有可以操作的 Demo（`mockups/combat-demo.html`、`mockups/net-demo.html`、`mockups/opinion-demo.html`），這份和 Demo 不一致時以 Demo 為準。
-> 來源：ElondiaRPG 的元件結構（掃描見 [scan/06-ui-tests](../plan/scan/06-ui-tests.md) 第 1、4 節）與它的手機版文件 `docs/MOBILE_UI.md`。預定資料：`data/ui/tokens.json`（由它產生 `src/styles/tokens.css` 與 `src/ui/breakpoints.ts`）。
+> 來源：ElondiaRPG 的元件結構（掃描的結論見 [CODESCAN](../plan/CODESCAN.md)）與它的手機版文件 `docs/MOBILE_UI.md`。預定資料：`data/ui/tokens.json`（由它產生 `src/styles/tokens.css` 與 `src/ui/breakpoints.ts`）。
 
-已定案：**介面沿用 ElondiaRPG 的元件結構，換樣式**（[ROADMAP](../plan/ROADMAP.md) 第 1 節）；建角以**下拉選單**為主。這份寫每個畫面的區塊、資訊、操作、手機版的排法，並註明對應那邊的哪個元件。
+**介面沿用 ElondiaRPG 的元件結構，換樣式**（[IMPLEMENTATION](../plan/IMPLEMENTATION.md) 第 1 節）；建角以**下拉選單**為主。這份寫每個畫面的區塊、資訊、操作、手機版的排法，並註明對應那邊的哪個元件。
 
 > 第 3～10 節（主畫面、委託、角色、技能樹、輿論戰與頻道、成人場景）各有示意頁。樣式照 [ART_STYLE](ART_STYLE.md) 第 3～5 節與 [樣式規劃](../mockups/style-guide.html)。
 
@@ -39,7 +39,7 @@
 
 ## 2. 設計代幣
 
-那邊約七成的顏色有變數，間距完全沒有，斷點有七種（[scan/06-ui-tests](../plan/scan/06-ui-tests.md) 第 3 節）。這邊從第一天全部變數化，來源是一份 `data/ui/tokens.json`，建置時產生 CSS 與 TS。
+那邊約七成的顏色有變數，間距完全沒有，斷點有七種（[CODESCAN](../plan/CODESCAN.md)）。這邊從第一天全部變數化，來源是一份 `data/ui/tokens.json`，建置時產生 CSS 與 TS。
 
 ### 2.1 顏色
 
@@ -55,7 +55,7 @@
 | `--danger`／`--ok`／`--warn` | `--red`／`--mint`／`--gold` | 警告、成功、注意 |
 | `--track-hp`／`-load`／`-sink` | `--red`／`--pink`／`--cyan` | 三條軌 |
 | `--res-ap`／`-ram`／`-edit` | `--gold`／`--mint`／`--violet` | 行動點、RAM、編輯點 |
-| `--layer-meat`／`-net`／`-media` | `--ink-2`／`--mint`／`--violet` | 現實、內海、輿論三個面（紀錄、委託總覽、先攻條的底色） |
+| `--layer-meat`／`-net`／`-media` | `--ink-2`／`--mint`／`--violet` | 現實、內海、輿論三個面（紀錄、委託總覽） |
 | `--lace-w`／`-p`／`-b` | 樣稿原值 | 蕾絲三色 |
 | `--fit` | `--violet` | 成人場景的契合 |
 
@@ -396,7 +396,7 @@
 
 | 區塊 | 資訊 | 操作 |
 |---|---|---|
-| **先攻條** | 這一輪的順序，敵我混排；底色用 `--layer-meat`／`--layer-net` 分現實與網內 | 點頭像 → 那張卡片捲進畫面 |
+| **先攻條** | 這一輪的順序，敵我混排 | 點頭像 → 那張卡片捲進畫面 |
 | **雙方四格** | 每格一張卡：名字、紅的生命值、粉的感載、餘韻點數、最多兩個狀態（其餘 +N）；格子底下是遮蔽（掩體、半掩、暴露），掩體的耐久用小格 | 點卡片看詳情；換位時點相鄰格 |
 | **場景條** | 環境、警報、可用的控制節點（拿下時變成按鈕） | 按控制節點（關燈、放防爆門） |
 | **行動者面板** | 目前行動的人、到每個敵人的距離、行動點（金色分格）、彈藥、RAM | — |
@@ -825,7 +825,7 @@
 
 ## 14. 建角
 
-示意頁：[據點與其他](../mockups/workshop.html) 的「建角」分頁（第 6 步：橋與義體，右邊是目前的角色摘要）。**下拉選單為主，自由輸入為輔**（已定案，[ROADMAP](../plan/ROADMAP.md) 第 1 節第 5 項）。步驟照 [CHARACTER](../systems/CHARACTER.md) 第 1 節，一共九步；一頁一步，上方是步驟條，每一步都可以回頭改。內容篩選在建角之前先設定，關掉的題材不會出現在選項裡。
+示意頁：[據點與其他](../mockups/workshop.html) 的「建角」分頁（第 6 步：橋與義體，右邊是目前的角色摘要）。**下拉選單為主，自由輸入為輔**。步驟照 [CHARACTER](../systems/CHARACTER.md) 第 1 節，一共九步；一頁一步，上方是步驟條，每一步都可以回頭改。內容篩選在建角之前先設定，關掉的題材不會出現在選項裡。
 
 | 步 | 選什麼 | 控制項 |
 |---|---|---|

@@ -24,7 +24,8 @@
 | [`docs/systems/`](docs/systems/CORE_RULES.md) | 規則：核心規則、現實戰鬥、內海、竄網、輿論戰、媒體、委託副本、中間人、成人向 |
 | [`docs/gear/`](docs/gear/CRAFTING.md) | 裝備：義體、工藝（設計圖與零件）、身上的裝備 |
 | [`docs/art/`](docs/art/ART_STYLE.md) | 美術風格、地圖與示意圖 |
-| [`docs/plan/`](docs/plan/ROADMAP.md) | 路線圖、系統盤點、世界觀盤點、ElondiaRPG 遷移清單 |
+| [`docs/plan/`](docs/plan/PLAN.md) | 計畫與待處理、實作的做法、ElondiaRPG 的掃描與遷移清單、AI 任務 |
+| [`docs/log/`](docs/log/DECISIONS.md) | 決策紀錄：已經定案的決定與經過 |
 
 工具：`python3 tools/book/build.py` 重編設計書；`python3 tools/docs/check.py` 檢查連結與章節引用；`node tools/art/render.mjs` 把圖轉成 PNG。
 

@@ -10,28 +10,27 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 DOCS = os.path.join(ROOT, 'docs')
 OUT = os.path.join(DOCS, 'book', 'CyberpunkPink-設計書.html')
 
-PARTS = [  # 依 plan/DESIGN_ORDER 的分層編排：(標題, 這一層的說明, 文件)
-    ('總綱', '這是什麼遊戲，以及系統分成哪幾層、照什麼順序設計。',
-     ['GAME_DESIGN.md', 'plan/DESIGN_ORDER.md', 'plan/AUDIT.md']),
+PARTS = [  # 依 docs/README 第 1 節的分層編排：(標題, 這一層的說明, 文件)
+    ('總綱', '這是什麼遊戲，以及現在的計畫與還沒解決的事。',
+     ['GAME_DESIGN.md', 'plan/PLAN.md']),
     ('L0 世界', '這座城市是什麼、用什麼詞。大致定了；勢力與流竄 AI 會再加。',
      ['world/WORLD.md', 'world/CORPORATIONS.md', 'world/GANGS.md', 'world/CULTURE.md',
       'world/DISTRICTS.md', 'world/LIFE.md', 'world/NPCS.md', 'world/FACTIONS.md']),
-    ('L1 核心規則', '一個角色由哪些數字組成、怎麼擲骰。多數已確認。',
+    ('L1 核心規則', '一個角色由哪些數字組成、怎麼擲骰。',
      ['systems/CORE_RULES.md', 'systems/CHARACTER.md', 'DOMAINS.md']),
-    ('L2 核心玩法', '三個戰場怎麼打。下一步要過的一層。',
+    ('L2 核心玩法', '三個戰場怎麼打。',
      ['systems/COMBAT_SYSTEM.md', 'systems/CYBERSPACE.md', 'systems/NETRUNNING.md',
       'systems/OPINION.md', 'systems/MEDIA.md']),
-    ('L3 框架', '內容的格式與規則，不含內容本身。部分已確認。',
+    ('L3 框架', '內容的格式與規則，不含內容本身。',
      ['systems/SKILLS.md', 'gear/CYBERWARE.md', 'gear/CRAFTING.md', 'gear/EQUIPMENT.md', 'systems/ENEMIES.md',
       'systems/NPC_SYSTEM.md', 'systems/EVENTS.md', 'systems/SERIES.md', 'systems/COMMISSIONS.md', 'systems/FIXER.md',
       'systems/TRADE.md', 'systems/DOWNTIME.md', 'systems/LEWD_SYSTEM.md', 'systems/DATA.md', 'systems/BALANCE.md']),
-    ('L4 內容（素材）', '實際的條目。暫停：第一版草稿當素材留著，等 L1～L3 定了再生成。',
+    ('L4 內容', '實際的條目：照框架寫成的技能、物品、敵人、事件、任務與地點。數字待平衡。',
      ['content/ENEMY_ROSTER.md', 'content/SKILL_TREES.md', 'content/NIGHT_LESSONS.md', 'content/EVENTS_CITY.md', 'content/ADULT_EVENTS.md', 'content/LURE_EVENTS.md', 'content/DEFEAT_EVENTS.md', 'content/QUESTS.md', 'content/COMMISSION_TEMPLATES.md', 'content/GUIDES.md', 'gear/ITEMS.md', 'world/SITES.md', 'world/STORY_QUESTS.md']),
-    ('L5 呈現', '給玩家看的畫面與給 AI 讀的提示詞。跟著 L2、L3 調。',
+    ('L5 呈現', '給玩家看的畫面與給 AI 讀的提示詞。',
      ['art/ART_STYLE.md', 'art/UI.md', 'systems/PROMPTS.md', 'plan/AI_TASKS.md']),
-    ('附錄：計畫', '盤點、路線圖、ElondiaRPG 的遷移與掃描。',
-     ['plan/SYSTEMS_REVIEW.md', 'plan/ROADMAP.md', 'plan/WORLD_ITEMS.md', 'plan/MIGRATION.md',
-      'plan/IMPLEMENTATION.md', 'plan/CODESCAN.md', 'plan/IDEAS.md']),
+    ('附錄：實作與紀錄', '實作的做法、ElondiaRPG 的掃描與遷移，以及已經定案的決定。',
+     ['plan/IMPLEMENTATION.md', 'plan/MIGRATION.md', 'plan/CODESCAN.md', 'log/DECISIONS.md']),
 ]
 FIGURES = {  # 在某份文件的標題後面插圖
     'world/DISTRICTS.md': [('art/city-map.svg', '緋夜城地圖（示意）'), ('art/district-blocks.svg', '各區的街區結構'), ('art/map-scale.svg', '地圖規模')],
@@ -48,7 +47,7 @@ ALL = [d for _, _, ds in PARTS for d in ds]
 L4 = next(ds for t, _, ds in PARTS if t.startswith('L4'))
 BOOKS = [  # (代號, 書名, 檔名, 這本收哪些部分)
     ('design', '設計', None, [p for p in PARTS if not p[0].startswith('L4')]),
-    ('quests', '內容・任務', 'content-quests.html', [('L4 內容・任務', '特殊任務、委託模板、主線、要地與指南。',
+    ('quests', '內容・任務', 'content-quests.html', [('L4 內容・任務', '特殊任務、委託模板、任務的骨架、要地與指南。',
         ['content/QUESTS.md', 'content/COMMISSION_TEMPLATES.md', 'world/STORY_QUESTS.md', 'world/SITES.md', 'content/GUIDES.md'])]),
     ('events', '內容・事件', 'content-events.html', [('L4 內容・事件', '城市事件、成人事件、誘惑與戰敗。',
         ['content/EVENTS_CITY.md', 'content/ADULT_EVENTS.md', 'content/LURE_EVENTS.md', 'content/DEFEAT_EVENTS.md'])]),
