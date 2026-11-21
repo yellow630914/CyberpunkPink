@@ -46,6 +46,7 @@ const FILTER_ROWS: Array<{ k: BoolKey; name: string; hint: string }> = [
   { k: 'filterDollChip', name: '人偶晶片的失憶工作', hint: '關掉時人偶館只能開清醒的店，相關打工的階段不顯示。' },
   { k: 'filterPublic', name: '公開場合', hint: '關掉時發生在公開場合的成人事件不觸發。' },
   { k: 'filterContract', name: '契約', hint: '關掉時契約面板與契約人的事件不出現。' },
+  { k: 'filterIntimateBody', name: '身體的私密描寫', hint: '關掉時建角不問私處的樣子，角色的成人分頁也不顯示。' },
 ]
 const sv = useSaves()
 function save(i: number) { const err = sv.saveTo(i); ui.toast(err ?? `存到了第 ${i + 1} 格。`, err ? 'warn' : 'info') }

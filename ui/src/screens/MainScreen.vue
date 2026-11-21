@@ -59,36 +59,47 @@ const tokens = computed<MapToken[]>(() => {
   return t
 })
 function onCell(p: Point) {
-  const k = `${p.x},${p.y}`
-  const f = bm.value.facilityAt.get(k)
-  const ex = bm.value.exitAt.get(k)
   if (!passable(p.x, p.y)) return
   g.setFacility(null)
-  const from = g.loc.block
-  walkTo(p, () => {
-    if (f) { g.setFacility(f.id); mobileTab.value = window.innerWidth <= 720 ? 'here' : mobileTab.value }
-    else if (ex) {
-      const d = g.district.blocks.includes(ex) ? g.loc.district : g.loc.district
-      g.moveBlock(d, ex, from)
-    }
-  })
+  walkTo(p, () => arrive(p))
 }
-/** 鍵盤：方向鍵或 WASD 走一格，E 和腳下的設施或出口互動（App.vue 的全域快捷鍵，不必先點地圖）。 */
+/** 鍵盤：方向鍵或 WASD 走一格（App.vue 的全域快捷鍵，不必先點地圖）；走到哪裡就和那裡互動。 */
 function onStep(d: Point) {
   const n = { x: g.loc.pos.x + d.x, y: g.loc.pos.y + d.y }
   if (!passable(n.x, n.y)) return
   g.setFacility(null)
   g.loc.pos = n
   g.advance(1)
+  arrive(n)
+}
+/**
+ * 到了就是互動（UI.md 1.1 節，第三版）：走到設施上，只有一個選項就直接做；有好幾個就列在右欄「這裡」等你點；
+ * 走到出口直接換街區。E 是「再觸發一次現在這一格」。
+ */
+function optionsOf(f: Facility) {
+  const svcs = (f.services ?? []).map(s => ({ name: s.name, run: () => service(f, s) }))
+  const talks = (f.npcIds ?? []).map(id => ({ name: `和${g.npcs[id]?.name ?? id}說話`, run: () => ui.openRoot('talk', { npcId: id }) }))
+  return [...svcs, ...talks]
+}
+function arrive(p: Point) {
+  const k = `${p.x},${p.y}`
+  const f = bm.value.facilityAt.get(k)
+  const ex = bm.value.exitAt.get(k)
+  if (ex) { g.moveBlock(g.loc.district, ex, g.loc.block); return }
+  if (!f) return
+  g.setFacility(f.id)
+  const opts = optionsOf(f)
+  if (opts.length === 1) opts[0].run()
+  else if (window.innerWidth <= 720) mobileTab.value = 'here'
 }
 function onEnter() {
   const k = `${g.loc.pos.x},${g.loc.pos.y}`
-  const f = bm.value.facilityAt.get(k)
-  const ex = bm.value.exitAt.get(k)
-  if (f) { g.setFacility(f.id); if (f.kind === 'transit') ui.openRoot('transit'); else if (window.innerWidth <= 720) mobileTab.value = 'here' }
-  else if (ex) g.moveBlock(g.loc.district, ex, g.loc.block)
-  else ui.toast('腳下沒有可以互動的東西。')
+  if (!bm.value.facilityAt.get(k) && !bm.value.exitAt.get(k)) { ui.toast('腳下沒有可以互動的東西。'); return }
+  arrive(g.loc.pos)
 }
+/** 這一塊街區的出口（右欄「這裡」裡的換地圖按鈕） */
+const exits = computed(() => [...bm.value.exitAt.entries()].map(([k, to]) => { const [x, y] = k.split(',').map(Number); return { to, x, y } }))
+function goExit(e: { to: string; x: number; y: number }) { g.setFacility(null); walkTo({ x: e.x, y: e.y }, () => arrive({ x: e.x, y: e.y })) }
 
 // ---- 這裡 ----
 const people = computed(() => (g.facility?.npcIds ?? []).map(id => g.npcs[id]))
@@ -100,7 +111,7 @@ function service(f: Facility, s: NonNullable<Facility['services']>[number]) {
     case 'transit': ui.openRoot('transit'); break
     case 'garage': case 'mech': case 'clinic': case 'fixer': case 'cut': ui.openRoot(s.action, s.props ?? {}); break
     case 'rest': g.advance(60); g.addLog({ prose: [`你在${f.name}待了一個小時，感載退了一些。`], changes: [{ text: '感載 −3', kind: 'plus' }] }); g.character.load[0] = Math.max(0, g.character.load[0] - 3); break
-    default: ui.toast(`「${s.name}」的畫面在第三版做。`)
+    default: ui.toast(`「${s.name}」的畫面在第四版做。`)
   }
 }
 
@@ -160,7 +171,7 @@ const stages = [
             <p class="h">{{ g.district.name }}・{{ g.loc.block }}</p>
             <span class="grow" />
             <button type="button" class="btn sm" title="城市地圖（M）" @click="ui.openRoot('city')"><Icon id="ic-fac_metro" :size="16" fit />城市<kbd>M</kbd></button>
-            <Hint title="地圖">街區是 13 × 9 的格子：點設施走過去，到了右欄「這裡」換成那個設施；點邊上的箭頭換街區。車站（地鐵、輕軌、巴士、渡輪）也是設施：走上去按 E 選一站。城市地圖（M）看你在哪裡，從那裡只能叫計程車或開自己的車。鍵盤：方向鍵或 WASD 走一格，E 走進腳下的設施或出口；不必先點地圖。</Hint>
+            <Hint title="地圖">街區是 13 × 9 的格子：點設施走過去：到了就是互動，只有一個選項就直接做，有好幾個就列在右欄「這裡」；走到邊上的箭頭直接換街區（出口也列在「這裡」）。車站也是設施：走上去就開選站。城市地圖（M）看你在哪裡，從那裡只能叫計程車或開自己的車。鍵盤：方向鍵或 WASD 走一格，E 再觸發一次腳下的設施；不必先點地圖。</Hint>
           </div>
           <GridMap :w="bm.w" :h="bm.h" :cell="cellView" :tokens="tokens" :path="path" :max-cell="30" :label="`${g.loc.block}的街區圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
           <div class="legend"><span><i class="lg fac" />設施</span><span><i class="lg exit" />出口</span><span><i class="lg me" />你</span><span><i class="lg npc" />人</span></div>
@@ -230,6 +241,8 @@ const stages = [
             </button>
             <div v-if="!(g.facility.services ?? []).length" class="empty-note">這個設施沒有可以用的服務。</div>
           </template>
+          <p class="h" style="margin-top: 10px">出口<Hint>走到出口直接換街區；也可以點這裡，你會走過去。</Hint></p>
+          <div class="exits"><button v-for="e in exits" :key="e.to" type="button" class="svc" :data-exit="e.to" @click="goExit(e)"><span>往{{ e.to }}</span><span aria-hidden="true">→</span></button></div>
         </section>
         <section class="panel cut pad">
           <p class="h">進行中</p>

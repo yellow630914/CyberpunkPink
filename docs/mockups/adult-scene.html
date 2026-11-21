@@ -229,10 +229,12 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 .pos b{font-size:16px;display:block}
 .pos small{font-size:11px;color:var(--ink-3);display:block;line-height:1.6}
 .links{margin-top:12px}
-.lk{display:grid;grid-template-columns:1fr auto 1fr 1fr;gap:10px;align-items:center;padding:8px 10px;background:var(--bg-2);margin-bottom:5px;font-size:12.5px}
+.lks{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:6px;max-width:760px}
+.lk{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;padding:7px 10px;background:var(--bg-2);font-size:12.5px;min-width:0}
 .lk .ar{font:900 14px var(--mono);color:var(--a)}
 .lk .sk{font-weight:800}
-.lk .per{font:700 11.5px var(--mono);color:var(--ink-2);text-align:right}
+.lk .per{font:700 11.5px var(--mono);color:var(--ink-2);flex-basis:100%}
+.lk .per::before{content:'｜ ';color:var(--ink-3)}
 .lk.new{box-shadow:inset 3px 0 0 var(--ram)}
 /* 行動列 */
 .panel.acts{grid-column:1/-1;display:block;margin-top:0}
@@ -257,7 +259,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 .gate .kv{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px dashed var(--line)}
 .gate .kv span{color:var(--ink-3)}
 .gate .go{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
-@media (max-width:720px){.sw{grid-template-columns:1fr;height:auto}.stage{grid-template-columns:1fr}.lk{grid-template-columns:1fr auto 1fr}.lk .per{grid-column:1/-1;text-align:left}.gate .box{width:92%}}
+@media (max-width:720px){.sw{grid-template-columns:1fr;height:auto}.stage{grid-template-columns:1fr}.gate .box{width:92%}}
 </style>
 <svg width="0" height="0" style="position:absolute"><defs>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6z" fill="#F3E9FF"/><circle cx="12" cy="19.5" r="2.2" fill="#F06AA0"/></symbol>
@@ -308,9 +310,11 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
     </div>
     <div class="links">
       <p class="h">連接・每條每回合自動生效一次</p>
+      <div class="lks">
       <div class="lk cut-sm"><span>你 <b>右手</b></span><span class="ar">→</span><span>琥珀 <b>胸</b></span><span class="per"><span class="sk">慢慢摸</span>　對方 +1d3・契合 +2</span></div>
       <div class="lk cut-sm"><span>你 <b>口</b></span><span class="ar">↔</span><span>琥珀 <b>口</b></span><span class="per"><span class="sk">說話</span>　問三樓的常客・目的 +5～10</span></div>
       <div class="lk cut-sm new"><span>琥珀 <b>左手</b></span><span class="ar">→</span><span>你 <b>胸</b></span><span class="per"><span class="sk">慢慢摸</span>　你 +1d3・契合 +2</span></div>
+      </div>
     </div>
   </section>
 

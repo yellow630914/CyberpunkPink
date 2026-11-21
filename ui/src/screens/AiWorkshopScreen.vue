@@ -8,7 +8,8 @@ import ReasonButton from '../components/ReasonButton.vue'
 import { useSettings, type Settings } from '../stores/settings'
 import { useGame } from '../stores/game'
 import { useUi } from '../stores/ui'
-import { TASK_GROUPS, ALL_TASKS, SOURCES, CHAINS, VARIABLES, SETS, RECENT, defaultSource } from '../data/workshop'
+import { TASK_GROUPS, ALL_TASKS, SOURCES, CHAINS, VARIABLES, SETS, RECENT, defaultSource, CHAIN_FLOWS, type ChainStep } from '../data/workshop'
+import ChainFlow from '../components/ChainFlow.vue'
 import { useGuides } from '../lib/useGuides'
 import { LORE_DEFAULTS, LORE_MODES, BUDGET_DEFAULTS, BUDGET_NAMES, IMAGE_DEFAULTS, LOCKED_NEGATIVE, IMAGE_ROUTES, budgetUse, lineDiff, loreChanges, type LoreEntry, type BudgetKey } from '../lib/lorebook'
 
@@ -108,6 +109,22 @@ const imageDiffs = computed(() => (['preprocess', 'storyboard', 'negative', 'neg
 const settingDiffs = computed(() => (['useAi', 'judgeFree', 'judgeShift', 'judgeEvent', 'narrate', 'polish', 'clampRequested', 'agentMode', 'tradeProse', 'onlyQuery', 'combatProse', 'retries', 'chainRow'] as const).filter(k => !st.isDefault(k)).map(k => ({ k, now: String(s[k]), def: String(st.defaults[k]) })))
 const budgetDiffs = computed(() => (Object.keys(BUDGET_DEFAULTS) as BudgetKey[]).filter(k => lore.budgets[k] !== BUDGET_DEFAULTS[k]))
 const diffCount = computed(() => taskDiffs.value.length + loreDiffs.value.length + imageDiffs.value.length + settingDiffs.value.length + budgetDiffs.value.length)
+// ---- 任務鏈的流程圖 ----
+const chainName = ref('自由行動')
+const chainSteps = computed(() => CHAIN_FLOWS[chainName.value] ?? [])
+function stepOn(x: ChainStep): boolean {
+  if (!x.opt) return true
+  if (x.opt === 'combatProse') return s.combatProse === '每回合一小段'
+  if (x.opt.startsWith('aiRecord.')) return !!s.aiRecord[x.opt.slice(9)]
+  return !!(s as unknown as Record<string, unknown>)[x.opt]
+}
+function toggleStep(x: ChainStep) {
+  if (!x.opt) return
+  if (x.opt === 'combatProse') s.combatProse = s.combatProse === '每回合一小段' ? '結束時整場寫一次' : '每回合一小段'
+  else if (x.opt.startsWith('aiRecord.')) { const k = x.opt.slice(9); s.aiRecord[k] = !s.aiRecord[k] }
+  else (s as unknown as Record<string, boolean>)[x.opt] = !stepOn(x)
+  ui.toast(`「${x.n}」${stepOn(x) ? '打開了' : '關掉了：改由程式照規則結算'}。`)
+}
 function stepLimit(k: 'event' | 'hook' | 'other', d: number) { const v = s.hookLimits[k] + d; if (v < 0 || v > 20) return; s.hookLimits[k] = v }
 </script>
 
@@ -161,19 +178,28 @@ function stepLimit(k: 'event' | 'hook' | 'other', d: number) { const v = s.hookL
         </template>
         <template v-else-if="cat === 'chains'">
           <h3>任務鏈・總覽<Hint>「關掉」的意思是那一步改由程式照規則結算（任務鏈列上標「用了退路」或「略過」），步驟本身還在鏈上。</Hint></h3>
+          <p class="setgrp">二十三條鏈<Hint>每一條鏈的步驟與依賴（AI_TASKS 第 3 節）。灰掉的那幾條的流程圖在第四版補上。</Hint></p>
+          <div class="chips"><button v-for="c in CHAINS" :key="c" type="button" class="tag chainbtn" :class="{ hot: chainName === c, 'is-unavailable': !CHAIN_FLOWS[c] }" :aria-disabled="!CHAIN_FLOWS[c] || undefined" :data-chain="c" @click="CHAIN_FLOWS[c] ? (chainName = c) : ui.toast(`「${c}」的流程圖在第四版補上。`, 'warn')">{{ c }}</button></div>
+          <div class="cflow"><ChainFlow :steps="chainSteps" :on="stepOn" @toggle="toggleStep" /></div>
+          <ol class="clist">
+            <li v-for="(x, i) in chainSteps" :key="i" :class="x.kind"><b>{{ x.n }}</b><small>{{ { code: '程式', ai: 'AI', wait: '等玩家', apply: '套用' }[x.kind] }}{{ x.task ? `・${x.task}` : '' }}{{ x.deps.length ? `・接在 ${x.deps.join('、')} 之後` : '' }}</small>
+              <button v-if="x.opt" type="button" class="switch" :class="{ on: stepOn(x) }" :aria-pressed="stepOn(x)" :aria-label="x.n" @click="toggleStep(x)" /><span v-if="x.inSettings" class="t-fine">設定裡也有</span></li>
+          </ol>
+          <p class="setgrp">開關</p>
+          <div class="grid2" style="--col-min: 300px">
           <div v-for="r in CHAIN_TOGGLES" :key="r.k" class="setrow" :class="{ chg: !st.isDefault(r.k), off: r.k !== 'useAi' && !s.useAi }">
             <span class="nm">{{ r.name }}</span>
             <button type="button" class="switch" role="switch" :aria-label="r.name" :aria-checked="s[r.k]" :class="{ on: s[r.k] }" @click="s[r.k] = !s[r.k]" />
             <span class="df">{{ r.inSettings ? '設定裡也有' : '只在工坊' }}</span>
           </div>
           <div class="setrow"><span class="nm">戰鬥正文</span><span class="segs"><button v-for="v in ['結束時整場寫一次', '每回合一小段'] as const" :key="v" type="button" :class="{ on: s.combatProse === v }" @click="s.combatProse = v">{{ v }}</button></span><span class="df">只在工坊</span></div>
+          </div>
           <p class="setgrp">用 AI 還是照規則</p>
-          <div v-for="(v, k) in s.aiRecord" :key="k" class="setrow"><span class="nm">{{ RECORD_NAMES[k] }}</span><button type="button" class="switch" role="switch" :aria-label="RECORD_NAMES[k]" :aria-checked="v" :class="{ on: v }" @click="s.aiRecord[k] = !v" /><span class="df">{{ v ? '用 AI' : '照規則' }}</span></div>
+          <div class="grid2" style="--col-min: 300px"><div v-for="(v, k) in s.aiRecord" :key="k" class="setrow"><span class="nm">{{ RECORD_NAMES[k] }}</span><button type="button" class="switch" role="switch" :aria-label="RECORD_NAMES[k]" :aria-checked="v" :class="{ on: v }" @click="s.aiRecord[k] = !v" /><span class="df">{{ v ? '用 AI' : '照規則' }}</span></div></div>
           <p class="setgrp">Agent 掛點<Hint>五種掛點各自的開關與每天的件數上限。設定裡的三格（提出事件、鉤子、其他）是同一組值。</Hint></p>
           <div v-for="(v, k) in s.hooks" :key="k" class="setrow" :class="{ off: !s.agentMode }"><span class="nm">{{ HOOK_NAMES[k] }}</span><button type="button" class="switch" role="switch" :aria-label="HOOK_NAMES[k]" :aria-checked="v" :class="{ on: v }" @click="s.hooks[k] = !v" /><span class="df mono">{{ k }}</span></div>
           <div v-for="[k, n] in ([['event', '提出事件'], ['hook', '鉤子'], ['other', '其他']] as const)" :key="k" class="setrow"><span class="nm">每天的上限・{{ n }}</span><span class="stepper"><button type="button" :aria-label="`${n}減一`" @click="stepLimit(k, -1)">−</button><b>{{ s.hookLimits[k] }}</b><button type="button" :aria-label="`${n}加一`" @click="stepLimit(k, 1)">＋</button></span><span class="df">設定裡也有</span></div>
-          <p class="setgrp">二十三條鏈</p>
-          <div class="chips"><span v-for="c in CHAINS" :key="c" class="tag">{{ c }}</span></div>
+
         </template>
         <template v-else-if="cat === 'route'">
           <h3>模型與路由</h3>
@@ -314,7 +340,7 @@ function stepLimit(k: 'event' | 'hook' | 'other', d: number) { const v = s.hookL
 .cdot { width: 6px; height: 6px; border-radius: 50%; background: var(--a); flex: none; }
 .ed h3 { margin: 0 0 10px; font-size: var(--fs-section); display: flex; gap: 8px; align-items: center; }
 .ed h3 small { color: var(--ink-3); font-size: var(--fs-sm); }
-.locked { display: flex; justify-content: space-between; padding: 10px 12px; margin: 8px 0; background: repeating-linear-gradient(135deg, var(--bg-2) 0 8px, var(--bg-1) 8px 12px); font-size: var(--fs-ui); }
+.locked { display: flex; justify-content: space-between; max-width: 880px; padding: 10px 12px; margin: 8px 0; background: repeating-linear-gradient(135deg, var(--bg-2) 0 8px, var(--bg-1) 8px 12px); font-size: var(--fs-ui); }
 .fld { display: grid; gap: 4px; font-size: var(--fs-sm); font-weight: 800; color: var(--ink-2); margin-bottom: 8px; }
 .fld > span { display: inline-flex; gap: 4px; align-items: center; }
 .inp { width: 100%; min-width: 0; background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 7px 9px; font: 500 var(--fs-ui) var(--font); }
@@ -329,6 +355,13 @@ textarea.inp { font-family: var(--mono); font-size: var(--fs-sm); }
 .code { font-size: var(--fs-tiny); font-weight: 900; color: var(--warn); }
 .setrow .nm small { margin-left: 6px; font-size: var(--fs-tiny); }
 .is-off { opacity: .55; }
+.chainbtn { border: 0; cursor: pointer; }
+.cflow { margin-top: 10px; }
+.clist { display: none; margin: 10px 0 0; padding-left: 20px; }
+.clist li { margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.clist li small { color: var(--ink-3); font-size: var(--fs-fine); }
+.clist li.ai b { color: var(--a); } .clist li.apply b { color: var(--ok); } .clist li.wait b { color: var(--ap); }
+@media (max-width: 720px) { .cflow { display: none; } .clist { display: block; } }
 .budget .val { display: flex; align-items: center; gap: 8px; }
 .bbar { flex: 1; height: 8px; background: var(--bg-term); position: relative; min-width: 60px; }
 .bbar i { position: absolute; inset: 0 auto 0 0; background: var(--ram); }

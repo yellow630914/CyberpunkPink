@@ -51,6 +51,7 @@ export const PROTAGONIST: Character = {
   afterglow: 1,
   sink: 58,
   traits: { good: ['巷子裡的眼睛', '手穩'], bad: ['欠阿蓮一筆'] },
+  privates: { look: '剃得乾乾淨淨', note: '左邊大腿內側有一顆小痣。' },
   attrs: [
     { name: '體格', base: 12, eff: 12 },
     { name: '反應', base: 15, eff: 17, src: '早咲・五分咲 +2' },

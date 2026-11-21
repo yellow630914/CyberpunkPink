@@ -82,7 +82,7 @@ function onCell(p: Point) {
   if (s.meeting) { ui.toast('巡邏就在旁邊：先處理牠。', 'warn'); return }
   if (!s.walkable(p.x, p.y)) return
   if (fog(p.x, p.y) === 'hidden') { ui.toast('那裡還沒探索過。', 'warn'); return }
-  if (!walkTo(p)) ui.toast('走不到那裡。', 'warn')
+  if (!walkTo(p, () => arrive(p))) ui.toast('走不到那裡。', 'warn')
 }
 /** 鍵盤：方向鍵或 WASD 走一格（沒探索過的也能走，走了就看到）；E 把焦點移到這個節點的行動。 */
 function onStep(d: { x: number; y: number }) {
@@ -92,8 +92,25 @@ function onStep(d: { x: number; y: number }) {
   if (!s.walkable(n.x, n.y)) return
   path.value = []
   s.stepTo(n); enter(n)
+  if (!s.meeting) arrive(n)
 }
-function onEnter() { (document.querySelector('.node-acts .btn') as HTMLElement | null)?.focus() ?? ui.toast('這一格沒有節點。') }
+function onEnter() { if (!s.here) { ui.toast('這一格沒有節點。'); return } arrive(s.pos, true) }
+/**
+ * 到了就是互動（UI.md 1.1 節，第三版）：節點只有一個選項就直接做（檔案庫、目標的下載、控制節點的接管、閘門、回上一層）；
+ * 有好幾個（蕾絲、人、後門）就列在右欄「這裡」。E 再觸發一次。
+ */
+function arrive(p: Point, again = false) {
+  if (s.meeting) return
+  const n = s.nodeAt(p)
+  if (!n || (s.done.has(n.key) && !again && n.kind !== 'gate' && n.kind !== 'entrance')) return
+  if (s.done.has(n.key) && n.kind !== 'gate' && n.kind !== 'entrance') { (document.querySelector('.node-acts .btn') as HTMLElement | null)?.focus(); return }
+  if (n.kind === 'archive') download(2, '提貨單 ×1')
+  else if (n.kind === 'target') download(3, '藍鯨的帳本')
+  else if (n.kind === 'control') takeover()
+  else if (n.kind === 'gate') { if (s.unlocked < 2) crack(); else s.setFloor(1) }
+  else if (n.kind === 'entrance' && s.floorIdx > 0) s.setFloor(0)
+  else (document.querySelector('.node-acts .btn') as HTMLElement | null)?.focus()
+}
 /** 走進一格時會發生的事：陷阱與遭遇。 */
 function enter(p: Point) {
   const n = s.nodeAt(p)
@@ -184,7 +201,7 @@ const traceStage = computed(() => [...TRACE_MARKS].reverse().find(m => s.trace >
       <section class="panel cut pad mapp">
         <div class="mh">
           <Tabs v-model="floorModel" :tabs="floorTabs" @blocked="ui.toast('先打開這一層的閘門。', 'warn')" />
-          <Hint title="子網地圖">一層 11 × 9。點看得到或看過的格子，化身照最短的路走過去；沒探索的格子在迷霧裡。節點是格子上的設施：走到上面，右欄出現能做的事。警報節點與迴圈碎片是陷阱。鍵盤：方向鍵或 WASD 走一格，E 跳到這一格的行動。</Hint>
+          <Hint title="子網地圖">一層 11 × 9。點看得到或看過的格子，化身照最短的路走過去；沒探索的格子在迷霧裡。節點是格子上的設施：走到上面，右欄出現能做的事。警報節點與迴圈碎片是陷阱。鍵盤：方向鍵或 WASD 走一格，E 再觸發一次這一格。</Hint>
         </div>
         <GridMap :w="s.w" :h="s.h" :cell="cellView" :fog="fog" :tokens="tokens" :path="path" :max-cell="64" :label="`${s.floor.name}的子網圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
         <div class="legend">

@@ -84,3 +84,90 @@ export const SETS = [
   { name: '從 SillyTavern 匯入的預設', note: '匯入 9 個條目與 3 條正則；正則都還停用著' },
 ]
 export const RECENT = ['第 42 樓・自由行動：在露露餐館打聽緋櫻的人', '第 41 樓・移動：走進四十二番街的「井」', '第 39 樓・接委託：中間人的開場', '樣本情境：乞討（蜂巢，成功）', '樣本情境：撬鎖（舊港，大失敗）']
+
+/**
+ * 任務鏈的流程圖（AI_TASKS 第 2、3 節）：每一步是程式、AI 任務、等玩家或套用；deps 是依賴（步驟的序號，從 1 起算）。
+ * 同一層（依賴都在前面）的步驟並排畫。opt 是可以關掉的那一步對應的設定（點節點切換）；inSettings 標「設定裡也有」。
+ */
+export type StepKind = 'code' | 'ai' | 'wait' | 'apply'
+export interface ChainStep { n: string; kind: StepKind; task?: string; deps: number[]; opt?: string; inSettings?: boolean; note?: string }
+export const CHAIN_FLOWS: Record<string, ChainStep[]> = {
+  自由行動: [
+    { n: '擲骰', kind: 'code', deps: [] },
+    { n: '判定', kind: 'ai', task: 'judge', deps: [1], opt: 'judgeFree', inSettings: true },
+    { n: '參考範圍', kind: 'code', deps: [2] },
+    { n: '新的人', kind: 'ai', task: 'flavor_roster', deps: [2], opt: 'aiRecord.newPeople', note: '帶出新的人時才跑' },
+    { n: '算回報', kind: 'ai', task: 'reward', deps: [2, 3] },
+    { n: '算關係', kind: 'ai', task: 'relate', deps: [2, 4], note: '在場有具名的 NPC 時' },
+    { n: '寫正文', kind: 'ai', task: 'narrate', deps: [4, 5, 6], opt: 'narrate', inSettings: true },
+    { n: '套用', kind: 'apply', deps: [7] },
+  ],
+  移動: [
+    { n: '移動結算', kind: 'code', deps: [] },
+    { n: '事件導演', kind: 'code', deps: [1] },
+    { n: '寫正文', kind: 'ai', task: 'narrate', deps: [1, 2], opt: 'narrate', inSettings: true, note: '只在走進新的街區或設施時' },
+    { n: '套用', kind: 'apply', deps: [3] },
+  ],
+  交易: [
+    { n: '交易結算', kind: 'code', deps: [] },
+    { n: '寫正文', kind: 'ai', task: 'narrate', deps: [1], opt: 'tradeProse' },
+    { n: '套用', kind: 'apply', deps: [2] },
+  ],
+  喘口氣: [
+    { n: '休息結算', kind: 'code', deps: [] },
+    { n: '套用', kind: 'apply', deps: [1] },
+  ],
+  長休: [
+    { n: '休息結算', kind: 'code', deps: [] },
+    { n: '事件導演', kind: 'code', deps: [1] },
+    { n: 'NPC 的近況', kind: 'ai', task: 'npc_news', deps: [1], opt: 'aiRecord.npcNews' },
+    { n: '寫正文', kind: 'ai', task: 'narrate', deps: [1, 2, 3], opt: 'narrate', inSettings: true },
+    { n: '套用', kind: 'apply', deps: [4] },
+  ],
+  戰鬥: [
+    { n: '玩家與隊友的行動', kind: 'wait', deps: [] },
+    { n: '結算', kind: 'code', deps: [1] },
+    { n: '直播', kind: 'code', deps: [2], note: '開著直播時算亮點' },
+    { n: '寫正文（每回合）', kind: 'ai', task: 'narrate', deps: [2], opt: 'combatProse', note: '預設不跑：戰鬥結束時整場寫一次' },
+    { n: '套用（戰鬥狀態）', kind: 'apply', deps: [3, 4] },
+  ],
+  輿論戰的對手: [
+    { n: '城市事件', kind: 'code', deps: [] },
+    { n: '抽牌', kind: 'code', deps: [1] },
+    { n: '玩家出牌與技能', kind: 'wait', deps: [2] },
+    { n: '累積', kind: 'code', deps: [3] },
+    { n: '玩家佔領', kind: 'wait', deps: [4] },
+    { n: '對手的行動', kind: 'ai', task: 'pr_move', deps: [5] },
+    { n: '驗證並結算對手', kind: 'code', deps: [6] },
+    { n: '收買的回應', kind: 'wait', deps: [7] },
+    { n: '結束的檢查', kind: 'code', deps: [7, 8] },
+    { n: '套用（戰役狀態）', kind: 'apply', deps: [9] },
+  ],
+  接案: [
+    { n: '組骨架', kind: 'code', deps: [] },
+    { n: '寫委託的內容', kind: 'ai', task: 'commission_gen', deps: [1] },
+    { n: '驗證並建立副本', kind: 'code', deps: [2] },
+    { n: '寫中間人的開場', kind: 'ai', task: 'narrate', deps: [3], opt: 'narrate', inSettings: true },
+    { n: '套用', kind: 'apply', deps: [4] },
+  ],
+  直播: [
+    { n: '亮點', kind: 'code', deps: [] },
+    { n: '彈幕', kind: 'ai', task: 'stream_chat', deps: [1], opt: 'aiRecord.danmaku' },
+    { n: '驗證', kind: 'code', deps: [2] },
+    { n: '套用', kind: 'apply', deps: [3] },
+  ],
+  素材: [
+    { n: '素材的數值', kind: 'code', deps: [] },
+    { n: '標題與說明', kind: 'ai', task: 'footage_caption', deps: [1], opt: 'aiRecord.footageTitle' },
+    { n: '套用', kind: 'apply', deps: [2] },
+  ],
+}
+/** 流程圖的版面：每一步的層（依賴都在前一層以前）與在那一層的第幾個 */
+export function chainLayout(steps: ChainStep[]) {
+  const level: number[] = []
+  steps.forEach((s, i) => { level[i] = s.deps.length ? Math.max(...s.deps.map(d => level[d - 1] + 1)) : 0 })
+  const rowIn: number[] = []
+  const count: Record<number, number> = {}
+  steps.forEach((_, i) => { rowIn[i] = count[level[i]] ?? 0; count[level[i]] = rowIn[i] + 1 })
+  return { level, rowIn, cols: Math.max(...level) + 1, rows: Math.max(...Object.values(count)) }
+}

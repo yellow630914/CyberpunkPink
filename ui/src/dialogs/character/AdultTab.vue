@@ -41,6 +41,11 @@ const tagsOf = (axis: string) => AXIS_TAGS[axis].filter(t => g.tendency.tags[t] 
           <small>{{ effects[k] }}</small>
         </div>
       </div>
+      <div v-if="st.s.filterIntimateBody && g.character.privates" class="panel cut pad" data-privates>
+        <p class="h">私處<Hint>建角第 1 步寫的樣子；成人場景與 AI 寫正文時用。內容篩選關掉「身體的私密描寫」時這一格不顯示。</Hint></p>
+        <div class="chips"><span class="tag">{{ g.character.privates.look }}</span></div>
+        <p v-if="g.character.privates.note" class="t-fine">{{ g.character.privates.note }}</p>
+      </div>
       <div class="panel cut pad">
         <p class="h">豔名<Hint>每一區各自記，0～100：這一區有多少人看過你、認得你的身體。和街頭信譽分開。誘惑與表演有加值；被認出來的機率也跟著高。</Hint></p>
         <div class="fame">

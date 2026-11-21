@@ -49,9 +49,10 @@ h4 { font-size: var(--fs-card); font-weight: var(--fw-title); }
 .pill { padding: 3px 9px; border-radius: 999px; background: var(--bg-2); font-size: var(--fs-xs); font-weight: 800; }
 .pill.hot { background: var(--a); color: var(--on-a); }
 
-.kv { display: flex; justify-content: space-between; gap: var(--space-3); padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: var(--fs-sm); align-items: center; }
-.kv > span:first-child { color: var(--ink-3); display: inline-flex; align-items: center; gap: 4px; flex: none; max-width: 55%; }
-.kv b { text-align: right; }
+/* 標籤與值靠在一起（UI.md 1.1 節：不做撐滿整列、兩頭分開的列）：標籤一欄，值緊跟在後面，整列最寬 640 px */
+.kv { display: grid; grid-template-columns: fit-content(45%) minmax(0, 1fr); gap: var(--space-3); padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: var(--fs-sm); align-items: center; max-width: 640px; }
+.kv > span:first-child { color: var(--ink-3); display: inline-flex; align-items: center; gap: 4px; min-width: 5em; }
+.kv b { text-align: left; min-width: 0; }
 
 .filters { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: var(--space-4); }
 .filters button { font-size: var(--fs-xs); font-weight: 800; padding: 5px 11px; border-radius: 999px; background: var(--bg-2); color: var(--ink-3); border: 0; cursor: pointer; }
@@ -135,3 +136,7 @@ button.lrow:hover { background: var(--bg-3); }
 /* 快捷鍵的鍵帽 */
 kbd, .kbd { display: inline-grid; place-items: center; min-width: 1.6em; padding: 0 5px; height: 1.6em; border-radius: 4px; background: var(--bg-term); box-shadow: inset 0 0 0 1px var(--line-2), 0 2px 0 var(--line); font: 800 var(--fs-tiny) var(--mono); color: var(--ink-2); line-height: 1; white-space: nowrap; }
 .go.left { justify-content: flex-start; }
+
+/* 不做撐滿整列的列（UI.md 1.1 節）：設定列、清單列在很寬的畫面上最寬 880 px，內容聚在一起；兩欄的清單本來就窄 */
+.setrow, .lrow { max-width: 880px; }
+.grid2 > .setrow, .grid2 > .lrow { max-width: none; }

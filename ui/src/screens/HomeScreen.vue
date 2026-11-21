@@ -1,7 +1,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
 import GridMap, { type CellView, type MapObject, type MapToken, type MapArea } from '../components/GridMap.vue'
 import Hint from '../components/Hint.vue'
@@ -27,6 +27,7 @@ const h = useHome()
 const g = useGame()
 const ui = useUi()
 const route = useRoute()
+const router = useRouter()
 const mode = ref<'walk' | 'build'>('walk')
 const selected = ref<string | null>(null)
 /** 正在擺的東西：新的（來自背包的一疊）或搬動中的那一件 */
@@ -57,7 +58,11 @@ onMounted(() => {
       if (occupiedByOther(id, next)) { if (id !== 'me') paths.delete(id); continue }
       p.pos = next
       path.shift()
-      if (!path.length) paths.delete(id)
+      if (!path.length) {
+        paths.delete(id)
+        // 到了就是互動（UI.md 1.1 節）：走到大門就出門，回到街區
+        if (id === 'me' && mode.value === 'walk' && h.map.kind(next.x, next.y) === 'entrance') { ui.toast('你出門了。'); router.push('/') }
+      }
     }
   }, 160)
   wander = setInterval(() => {
@@ -265,7 +270,7 @@ const sideTab = ref('rooms')
           <Tabs v-model="mode" :tabs="[{ id: 'walk', label: '走路' }, { id: 'build', label: '擺設' }]" @update:model-value="placing = null; selected = null" />
           <Tabs v-if="h.tier === 3" :model-value="h.floor" :tabs="[{ id: 'up', label: '樓上' }, { id: 'shop', label: `店面・${h.shop.kind}` }]" data-floor @update:model-value="v => { h.setFloor(v as 'up' | 'shop'); placing = null; selected = null }" />
           <span class="k">{{ h.map.w }} × {{ h.map.h }}</span>
-          <Hint title="家園地圖">走路：點地板，你會照最短的路走過去；住戶與訪客自己走動。擺設：點家具選取，可以轉向（R）、移動、收起；從右欄背包裡的家具擺新的。家具不能壓牆、擋門、跨兩間房、疊在一起，也不能把路堵死。鍵盤：方向鍵或 WASD 走一格（擺設時移動游標），E 互動或放下；不必先點地圖。</Hint>
+          <Hint title="家園地圖">走路：點地板，你會照最短的路走過去；走到大門就出門。住戶與訪客自己走動。擺設：點家具選取，可以轉向（R）、移動、收起；從右欄背包裡的家具擺新的。家具不能壓牆、擋門、跨兩間房、疊在一起，也不能把路堵死。鍵盤：方向鍵或 WASD 走一格（擺設時移動游標），E 互動或放下；不必先點地圖。</Hint>
         </div>
         <GridMap :w="h.map.w" :h="h.map.h" :cell="cellView" :objects="objects" :tokens="tokens" :areas="areas" :max-cell="62" label="家園的格子地圖"
           @cell="onCell" @object="onObject" @hover="p => (hover = p)" @step="onStep" @enter="onEnter" />

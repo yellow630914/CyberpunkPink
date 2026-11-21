@@ -90,6 +90,8 @@ export interface Character {
   afterglow: number
   sink: number
   traits: { good: string[]; bad: string[] }
+  /** 私處的樣子（建角第 1 步；成人內容） */
+  privates?: { look: string; note: string }
   attrs: Array<{ name: string; base: number; eff: number; src?: string }>
 }
 

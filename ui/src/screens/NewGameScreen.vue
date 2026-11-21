@@ -57,9 +57,9 @@ const basic = reactive<Record<string, string>>({
   height: '160～169 公分', build: '中性', figure: '勻稱', posture: '步子大、手臂擺得穩', skin: '小麥色',
   face: '鵝蛋臉', eyeShape: '有神的雙眼皮', eyes: '褐', mark: '沒有',
   hair: '耳下的短髮', hairColor: '黑', hairTexture: '一般',
-  chest: '大小適中', waist: '結實', hips: '圓而翹', legs: '修長', hands: '指節分明、手指細長',
+  chest: '大小適中', waist: '結實', hips: '圓而翹', legs: '修長', hands: '指節分明、手指細長', privates: '（不寫）',
   cyber: '後頸的橋露在外面', cyberLook: '織女的白色樹脂', beast: '沒有', beastPart: '只有耳朵', beastKind: '生體派（真的毛）', style: '工裝',
-  looks: '', background: '',
+  looks: '', background: '', privatesNote: '',
 })
 /** 外觀的一格現在用不到（例：沒有獸化時的「派別」）：灰掉、不能選（UI.md 1.1 節）。 */
 const lookOff = (f: { needs?: { k: string; not: string } }) => !!f.needs && basic[f.needs.k] === f.needs.not
@@ -209,6 +209,7 @@ function quick(q: typeof QUICK_STARTS[number]) {
 function start() {
   if (firstBlocked.value) { stepIdx.value = firstBlocked.value[0]; ui.toast(firstBlocked.value[1]!, 'warn'); return }
   g.character.name = basic.name.trim()
+  g.character.privates = st.s.filterIntimateBody ? { look: String(basic.privates ?? ''), note: String(basic.privatesNote ?? '').trim() } : undefined
   g.character.origin = `${origin.value.name}出身`
   g.character.attrs = ATTRS.map(a => ({ name: a, base: totals.value[a], eff: totals.value[a] }))
   g.character.traits = { good: [origin.value.trait.name, ...picks.traits.filter(t => !t.flaw).map(t => t.name)], bad: picks.traits.filter(t => t.flaw).map(t => t.name) }
@@ -260,7 +261,7 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${fmtM
           <div class="lockline"><span class="lk">LOCK</span><b>不寫血腥，不寫懷孕。</b><Hint>這是內容的底線，不是篩選的選項，所以沒有開關。</Hint></div>
           <p class="setgrp">題材<Hint>內容篩選排在建角之前，關掉的題材不會出現在建角的選項裡（生命軌跡的性經歷與潛在性癖、特質）。篩選跟著存檔走；開新局時預設是上一次的選擇。</Hint></p>
           <div class="grid2">
-          <div v-for="[k, n] in ([['filterRestraint', '拘束'], ['filterDollChip', '人偶晶片的失憶工作'], ['filterPublic', '公開場合'], ['filterContract', '契約']] as const)" :key="k" class="setrow">
+          <div v-for="[k, n] in ([['filterRestraint', '拘束'], ['filterDollChip', '人偶晶片的失憶工作'], ['filterPublic', '公開場合'], ['filterContract', '契約'], ['filterIntimateBody', '身體的私密描寫']] as const)" :key="k" class="setrow">
             <span class="nm">{{ n }}</span><span />
             <button type="button" class="switch" role="switch" :aria-label="n" :aria-checked="st.s[k]" :class="{ on: st.s[k] }" @click="st.s[k] = !st.s[k]" />
           </div>
@@ -285,10 +286,11 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${fmtM
             <section v-for="grp in LOOK_GROUPS" :key="grp.id" class="lgrp cut-sm">
               <h4>{{ grp.name }}<Hint v-if="grp.hint" :text="grp.hint" /></h4>
               <div class="form">
-                <label v-for="f in grp.fields" :key="f.k" class="fld" :class="{ 'is-unavailable': lookOff(f) }" :title="lookOff(f) ? `先選「${grp.fields.find(x => x.k === f.needs!.k)!.name}」` : undefined">
+                <label v-for="f in grp.fields.filter(x => !x.adult || st.s.filterIntimateBody)" :key="f.k" class="fld" :class="{ 'is-unavailable': lookOff(f) }" :title="lookOff(f) ? `先選「${grp.fields.find(x => x.k === f.needs!.k)!.name}」` : undefined">
                   <span>{{ f.name }}<Hint v-if="f.hint" :text="f.hint" /></span>
                   <select v-model="basic[f.k]" class="inp" :disabled="lookOff(f)"><option v-for="o in f.opts" :key="o">{{ o }}</option></select>
                 </label>
+                <label v-if="grp.id === 'detail' && st.s.filterIntimateBody" class="fld wide"><span>私處的補充（選用・成人）<Hint>用自己的話寫，例：左邊大腿內側有一顆痣。所有角色都是成年人。</Hint></span><input v-model="basic.privatesNote" class="inp" placeholder="例：剃得很乾淨，左邊大腿內側有一顆小痣" data-privates-note></label>
               </div>
             </section>
           </div>

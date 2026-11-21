@@ -102,7 +102,10 @@ function over(e: MouseEvent) {
 
 <style scoped>
 .gm-wrap { width: 100%; margin: 0 auto; border-radius: 4px; }
-.pad { display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 34px); gap: 4px; justify-content: center; margin-top: var(--space-3); }
+/* 方向鈕只在手機與觸控（窄螢幕或粗指標）顯示；桌面用鍵盤 */
+.pad { display: none; }
+@media (max-width: 720px), (pointer: coarse) { .pad { display: grid; } }
+.pad { grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 34px); gap: 4px; justify-content: center; margin-top: var(--space-3); }
 .pb { border: 0; background: var(--bg-2); color: var(--ink); font: 900 var(--fs-md) var(--font); cursor: pointer; padding: 0; border-radius: 6px; box-shadow: inset 0 0 0 1px var(--line-2); touch-action: manipulation; }
 .pb:hover { background: var(--bg-3); }
 .pb:active { background: var(--a); color: var(--on-a); }

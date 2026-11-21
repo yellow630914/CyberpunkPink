@@ -13,6 +13,8 @@ const defaults = {
   useAi: true, judgeFree: true, judgeShift: true, judgeEvent: true, narrate: true, polish: false, clampRequested: true, agentMode: false,
   // 內容篩選（LEWD_SYSTEM 第 9 節的一部分）
   filterRestraint: true, filterDollChip: true, filterPublic: true, filterContract: true,
+  /** 身體的私密描寫：建角的「私處」與角色的成人分頁（第三版） */
+  filterIntimateBody: true,
   // 遊戲
   difficulty: '普通' as '故事' | '輕鬆' | '普通' | '困難' | '殘酷' | '自訂',
   /** 自訂難度的係數表（BALANCE 7.3 節）；選自訂時從一個預設複製 */

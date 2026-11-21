@@ -199,7 +199,7 @@ export const SUGGESTED_KITS: Record<string, string[]> = {
  * 身形（身高、體型、身材帶、體態、膚色）、臉與眼、髮、身體的細節（胸、腰、臀、腿、手），再加外露的義體、獸化、風格。
  * 每一格都是下拉；選項照 13.10 節的句子濃縮成詞條，程式組字時照身材帶抽那一格的句子。詞庫不收任何幼態的描述。
  */
-export interface LookField { k: string; name: string; opts: string[]; hint?: string; /** 這一格只有在另一格不是「沒有」時才有意義 */ needs?: { k: string; not: string } }
+export interface LookField { k: string; name: string; opts: string[]; hint?: string; /** 成人內容：內容篩選關掉「身體的私密描寫」時不顯示 */ adult?: boolean; /** 這一格只有在另一格不是「沒有」時才有意義 */ needs?: { k: string; not: string } }
 export interface LookGroup { id: string; name: string; hint?: string; fields: LookField[] }
 export const LOOKS = {
   gender: ['男', '女', '偽娘（含男娘）', 'TS', '扶他'],
@@ -231,6 +231,7 @@ export const LOOK_GROUPS: LookGroup[] = [
     { k: 'hips', name: '臀', opts: ['小而緊', '窄而高', '圓而翹', '寬而豐滿', '大而結實'] },
     { k: 'legs', name: '腿', opts: ['細而直', '修長', '結實有力', '大腿豐滿', '粗壯結實'] },
     { k: 'hands', name: '手', opts: ['指節分明、手指細長', '厚實、指腹有繭', '柔軟、手背有小窩', '指甲修長塗色', '手背有舊疤'] },
+    { k: 'privates', name: '私處', adult: true, hint: '成人內容。場景的部位照 LEWD_SYSTEM 的 front（DATA 3.4 節的 scene_parts）；性別照第一格，扶他與做過的兩邊都可以選。', opts: ['（不寫）', '陰唇小而緊，顏色淺', '陰唇飽滿，顏色深', '陰蒂敏感、微微突起', '陰莖不大、包皮蓋著龜頭', '陰莖粗長，龜頭露在外面', '陰莖細長、微微上翹', '扶他：陰莖之下還有一道縫', '做過的（換了的）', '剃得乾乾淨淨', '修成一小撮', '自然、毛很多', '雷射除過毛、光滑', '私處有光紋刺青', '私密義體（感官強化）'] },
   ] },
   { id: 'mod', name: '改造與風格', hint: '外露的義體、獸化與風格照 NPC_SYSTEM 13.11 節的模板寫進外觀。義體與獸化的實際部件在第 6 步「橋與義體」選；這裡只寫看起來的樣子。', fields: [
     { k: 'cyber', name: '外露的義體', opts: ['看不出來', '義眼', '一隻義臂', '兩隻都是義臂', '義腿', '皮下裝甲的接縫', '後頸的橋露在外面', '臉上的光紋', '喉嚨的聲帶接縫'] },

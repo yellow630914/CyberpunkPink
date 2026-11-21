@@ -62,16 +62,28 @@ const { path, walkTo } = useWalk({
 function onCell(p: Point) {
   if (!walkable(p.x, p.y)) return
   if (fog(p.x, p.y) === 'hidden') { ui.toast('那裡黑得什麼都看不到。', 'warn'); return }
-  if (!walkTo(p)) ui.toast('走不到那裡。', 'warn')
+  if (!walkTo(p, () => arrive(p))) ui.toast('走不到那裡。', 'warn')
 }
 /** 鍵盤：方向鍵或 WASD 走一格；E 把焦點移到這裡的行動（App.vue 的全域快捷鍵）。 */
 function onStep(d: Point) {
   const n = { x: pos.value.x + d.x, y: pos.value.y + d.y }
   if (!walkable(n.x, n.y)) return
   path.value = []
-  pos.value = n; reveal(); g.advance(1); enter(n)
+  pos.value = n; reveal(); g.advance(1); enter(n); arrive(n)
 }
-function onEnter() { (document.querySelector('.here-acts .btn') as HTMLElement | null)?.focus() ?? ui.toast('這裡沒有可以做的事。') }
+function onEnter() { if (!here.value) { ui.toast('這裡沒有可以做的事。'); return } arrive(pos.value, true) }
+/** 到了就是互動（UI.md 1.1 節，第三版）：每一種東西只有一個選項，走到就做；樓梯與投口是換地圖，直接換。E 再觸發一次。 */
+function arrive(p: Point, again = false) {
+  const ft = featAt(p)
+  if (!ft) return
+  if (done.has(ft.k) && !again) return
+  if (ft.f === 'loot' && !done.has(ft.k)) loot()
+  else if (ft.f === 'enemy' && !done.has(ft.k)) fight()
+  else if (ft.f === 'down') changeFloor(1)
+  else if (ft.f === 'up' && fi.value > 0) changeFloor(-1)
+  else if (ft.f === 'rest') { g.advance(30); note('你在這裡短休了半小時。') }
+  else if (ft.f === 'start' && (again || fi.value === 0)) leave()
+}
 function enter(p: Point) {
   const ft = featAt(p)
   if (!ft || done.has(ft.k) || ft.f !== 'trap') return
@@ -116,7 +128,7 @@ const floorModel = computed({ get: () => String(fi.value), set: v => { const n =
         <div class="mh">
           <Tabs v-model="floorModel" :tabs="floorTabs" @blocked="ui.toast('還沒走到這一層。', 'warn')" />
           <span class="k">第 {{ g.dungeonSeed }} 次下來</span>
-          <Hint title="垃圾滑道">蜂巢的地下城式區域：3 層、黑、離開後重新擺放遭遇與藏貨（版面不變）。方向鍵或 WASD 走一格（也可以按地圖下面的方向鈕），E 跳到這裡的行動。每層 11 × 9，往下要找到通道。點看得到或看過的格子走過去。</Hint>
+          <Hint title="垃圾滑道">蜂巢的地下城式區域：3 層、黑、離開後重新擺放遭遇與藏貨（版面不變）。方向鍵或 WASD 走一格（手機上用地圖下面的方向鈕）；走到東西上就是互動，E 再觸發一次。每層 11 × 9，往下要找到通道。點看得到或看過的格子走過去。</Hint>
         </div>
         <GridMap :w="W" :h="H" :cell="cellView" :fog="fog" :tokens="tokens" :path="path" :max-cell="64" :label="`${floor.name}的地圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
         <div class="legend"><span v-for="(info, k) in FEATURE_INFO" :key="k"><Icon :id="info.icon" :size="14" fit />{{ info.name }}<Hint :text="info.hint" /></span></div>

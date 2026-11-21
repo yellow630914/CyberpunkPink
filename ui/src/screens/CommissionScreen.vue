@@ -94,6 +94,7 @@ const scoutReason = computed(() => {
 function scout() {
   job.unknowns.forEach(u => { u.fresh = false })
   const m = meansOf(means.value)
+  const dcNow = dc.value
   job.scouts++
   g.advance(240)
   if (who.value === 'joe') g.money.acc -= 250
@@ -104,7 +105,7 @@ function scout() {
     job.lastScout = `買情報：600，直接揭開「${u.cat}」。`
     return
   }
-  const r = scoutRoll(rng, bonusOf(m.id), dc.value)
+  const r = scoutRoll(rng, bonusOf(m.id), dcNow)
   const cand = job.unknowns.filter(u => !u.open && u.by.includes(m.id))
   const pool = cand.length ? cand : job.unknowns.filter(u => !u.open)
   const got = pool.slice(0, r.reveal)
@@ -181,7 +182,7 @@ function enter() {
   if (br?.effect.includes('追蹤度 +')) job.pressure.trace += Number(br.effect.match(/追蹤度 \+(\d+)/)?.[1] ?? 0)
   if (br?.effect.includes('警戒 +')) job.pressure.alert += Number(br.effect.match(/警戒 \+(\d+)/)?.[1] ?? 0)
   g.lastBattle = null
-  router.push({ path: go.path, query: { ...go.query, from: '/commission' } })
+  router.push({ path: go.path, query: { ...go.query, from: '/commission', ...(route.query.fast ? { fast: '1', seed: '4' } : {}) } })
 }
 /** 從戰鬥或子網回來：贏了就是里程碑，推進階段；輸了停在這一段，可以回到這個階段開始時 */
 const failed = ref<string | null>(null)
