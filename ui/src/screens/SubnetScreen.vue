@@ -225,7 +225,6 @@ const traceStage = computed(() => [...TRACE_MARKS].reverse().find(m => s.trace >
 .seg { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .seg button { font-size: var(--fs-sm); font-weight: 800; padding: 6px 12px; background: var(--bg-2); color: var(--ink-2); border: 0; cursor: pointer; box-shadow: inset 0 0 0 2px var(--o); }
 .seg button.on { background: var(--a); color: #fff; }
-.seg button[aria-disabled="true"] { opacity: .45; }
 .ramrow { display: flex; align-items: center; gap: 5px; margin: 8px 0; }
 .pip { width: 13px; height: 13px; transform: rotate(45deg); border-radius: 3px; background: var(--bg-2); box-shadow: inset 0 0 0 2px var(--o); }
 .pip.on { background: var(--ram); }

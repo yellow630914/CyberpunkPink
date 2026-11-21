@@ -1,4 +1,4 @@
-import { ATTRS, ATTR_ARRAY, ATTR_FREE, ATTR_MAX, BASIC_MAX, BASIC_POINTS, CYBER_POINTS, CYBER_POINT_MONEY, GEAR_POINTS, GEAR_POINT_MONEY, TRAIT_MAX, FLAW_MAX, type AttrName, type CyberOption, type TraitOption } from '../data/creation'
+import { ATTRS, ATTR_ARRAY, ATTR_FREE, ATTR_MAX, ATTR_MIN, BASIC_MAX, BASIC_POINTS, CYBER_POINTS, CYBER_POINT_MONEY, GEAR_POINTS, GEAR_POINT_MONEY, TRAIT_MAX, FLAW_MAX, type AttrName, type CyberOption, type TraitOption } from '../data/creation'
 import type { ItemDef } from '../data/types'
 
 /**
@@ -16,6 +16,8 @@ export function ageBlock(raw: string | number): string | null {
 }
 
 // ---- 屬性：15、14、13、12、10、8 分到六項，再加 2 點自由點數，單項最高 18 ----
+// 分完之後可以把任何一項往下壓（最低 4，調整值 −3），每壓 1 點多 1 點自由點數，拿去加別的項（CHARACTER 5.1 節）。
+// bonus 是每一項的增減：正的花自由點數，負的是壓下去、換回自由點數。
 export type AttrPick = Partial<Record<AttrName, number>>
 
 /** 還沒被選走的數字（每一項的下拉只列這些，加上它自己現在的值）。 */
@@ -28,19 +30,42 @@ export function freeValues(pick: AttrPick, self?: AttrName): number[] {
 export function attrTotals(pick: AttrPick, bonus: Partial<Record<AttrName, number>>): Record<AttrName, number> {
   return Object.fromEntries(ATTRS.map(a => [a, (pick[a] ?? 0) + (bonus[a] ?? 0)])) as Record<AttrName, number>
 }
+/** 自由點數：總共有幾點（2 ＋ 壓下去的點數）、花了幾點、剩幾點。 */
+export function attrBudget(bonus: Partial<Record<AttrName, number>>) {
+  const lowered = ATTRS.reduce((s, a) => s + Math.max(0, -(bonus[a] ?? 0)), 0)
+  const spent = ATTRS.reduce((s, a) => s + Math.max(0, bonus[a] ?? 0), 0)
+  const total = ATTR_FREE + lowered
+  return { total, lowered, spent, left: total - spent }
+}
+/** 按一下 ± 會不會被擋：加要有剩的自由點數、不超過 18；減不低於 4。 */
+export function attrStepBlock(pick: AttrPick, bonus: Partial<Record<AttrName, number>>, a: AttrName, delta: 1 | -1): string | null {
+  if (pick[a] === undefined) return '先選這一項的數字。'
+  const v = pick[a]! + (bonus[a] ?? 0)
+  if (delta > 0) {
+    if (v >= ATTR_MAX) return `單項最高 ${ATTR_MAX}。`
+    if ((bonus[a] ?? 0) < 0) return null // 把壓下去的加回來，不花自由點數
+    if (attrBudget(bonus).left <= 0) return '自由點數用完了：先把別的屬性往下壓，一點換一點。'
+    return null
+  }
+  if (v <= ATTR_MIN) return `最低 ${ATTR_MIN}（調整值 ${attrMod(ATTR_MIN)}）。`
+  return null
+}
 export function attrBlock(pick: AttrPick, bonus: Partial<Record<AttrName, number>>): string | null {
   const unset = ATTRS.filter(a => pick[a] === undefined)
   if (unset.length) return `還有 ${unset.length} 項屬性沒有分配。`
   const pool = [...ATTR_ARRAY] as number[]
   for (const a of ATTRS) { const i = pool.indexOf(pick[a]!); if (i < 0) return '每個數字只能用一次。'; pool.splice(i, 1) }
-  const spent = ATTRS.reduce((s, a) => s + (bonus[a] ?? 0), 0)
-  if (ATTRS.some(a => (bonus[a] ?? 0) < 0)) return '自由點數不能是負的。'
-  if (spent > ATTR_FREE) return `自由點數只有 ${ATTR_FREE} 點。`
-  if (spent < ATTR_FREE) return `還有 ${ATTR_FREE - spent} 點自由點數沒有用。`
+  const b = attrBudget(bonus)
+  if (b.spent > b.total) return `自由點數只有 ${b.total} 點。`
+  if (b.left > 0) return `還有 ${b.left} 點自由點數沒有用。`
   const over = ATTRS.find(a => pick[a]! + (bonus[a] ?? 0) > ATTR_MAX)
   if (over) return `${over}最高 ${ATTR_MAX}。`
+  const under = ATTRS.find(a => pick[a]! + (bonus[a] ?? 0) < ATTR_MIN)
+  if (under) return `${under}最低 ${ATTR_MIN}。`
   return null
 }
+/** 調整值帶正負號（−2、+0、+3）。 */
+export const fmtMod = (m: number) => (m < 0 ? `−${-m}` : `+${m}`)
 /** 調整值：（屬性 − 10）÷ 2，無條件捨去。 */
 export const attrMod = (v: number) => Math.floor((v - 10) / 2)
 

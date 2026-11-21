@@ -135,7 +135,7 @@ const gradeOf = (id: string) => GRADES.find(x => x.id === id)!
         <div class="panel cut pad">
           <p class="h">節目</p>
           <div class="shows">
-            <button v-for="s in visibleShows" :key="s.id" type="button" class="showc cut-sm" :class="{ on: showId === s.id, off: !!showBlock(s.id), path: s.path }" @click="showId = s.id">
+            <button v-for="s in visibleShows" :key="s.id" type="button" class="showc cut-sm" :class="{ on: showId === s.id, 'is-unavailable': !!showBlock(s.id), path: s.path }" @click="showId = s.id">
               <b>{{ s.name }}</b><small>{{ s.what }}</small><small>{{ s.check }}・{{ s.time }}</small><MoneyTag kind="acc" :amount="s.cost" :size="12" />
               <span v-if="showBlock(s.id)" class="why">{{ showBlock(s.id) }}</span>
             </button>
@@ -209,7 +209,7 @@ const gradeOf = (id: string) => GRADES.find(x => x.id === id)!
 .showc.on { box-shadow: inset 0 0 0 2px var(--a); }
 .showc.path { box-shadow: inset 0 0 0 1px var(--ep); }
 .showc.on.path { box-shadow: inset 0 0 0 2px var(--a); }
-.showc.off { opacity: .6; }
+.showc.is-unavailable { cursor: pointer !important; } /* 點得開，看原因 */
 .showc .why { font-size: var(--fs-tiny); color: var(--warn); font-weight: 700; }
 .opts { margin-bottom: 8px; }
 .gear { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }

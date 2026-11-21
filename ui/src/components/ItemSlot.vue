@@ -4,6 +4,7 @@ import type { ItemDef } from '../data/types'
 import Icon from './Icon.vue'
 import GradeBadge from './GradeBadge.vue'
 import { gradeColorVar } from '../lib/grade'
+import { useUi } from '../stores/ui'
 
 /**
  * 物品格（UI 規則 1）：有東西時，邊框與等級標用那個等級的顏色，裡面是物品自己的圖標（第 3 層，沒有就退回第 2 層）；
@@ -22,11 +23,20 @@ const props = withDefaults(defineProps<{
   covered?: boolean
   unknown?: boolean
   showName?: boolean
+  /** 授權鎖之類的警告：黃框（只表示「警告」） */
   locked?: boolean
+  /** 不能選的原因：有值就灰掉、點了說原因（UI.md 1.1 節的「做不到的灰掉」），不發 select */
+  unavailable?: string | null
   /** 放在另一個按鈕裡時用 span（按鈕不能套按鈕） */
   inert?: boolean
 }>(), { size: 'md', showName: false, inert: false })
-defineEmits<{ (e: 'select'): void }>()
+const emit = defineEmits<{ (e: 'select'): void }>()
+const ui = useUi()
+function click() {
+  if (props.inert) return
+  if (props.unavailable) { ui.toast(props.unavailable, 'warn'); return }
+  emit('select')
+}
 
 const iconId = computed(() => {
   if (props.unknown) return 'ic-unknown'
@@ -40,7 +50,7 @@ const aria = computed(() => [props.label, name.value, props.item && !props.unkno
 </script>
 
 <template>
-  <component :is="inert ? 'span' : 'button'" :type="inert ? undefined : 'button'" class="slot" :class="[size, { empty: !item, sel: selected, covered, unknown, locked }]" :style="{ '--gc': color }" :aria-label="inert ? undefined : aria" :aria-pressed="inert ? undefined : selected" @click="!inert && $emit('select')">
+  <component :is="inert ? 'span' : 'button'" :type="inert ? undefined : 'button'" class="slot" :class="[size, { empty: !item, sel: selected, covered, unknown, locked, 'is-unavailable': !!unavailable }]" :style="{ '--gc': color }" :aria-label="inert ? undefined : aria" :aria-pressed="inert ? undefined : selected" :aria-disabled="unavailable ? 'true' : undefined" :title="unavailable || undefined" @click="click">
     <span class="frame">
       <Icon :id="iconId" :size="size === 'sm' ? '74%' : '64%'" :fit="!item || iconId.startsWith('ic-')" />
       <GradeBadge v-if="item && !unknown" class="badge" :grade="item.grade" small />

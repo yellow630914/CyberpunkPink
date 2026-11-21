@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ageBlock, freeValues, attrBlock, attrMod, basicLeft, basicStepBlock, cyberSummary, cyberPickBlock, cyberBlock, traitSummary, traitPickBlock, gearPoints, gearSummary, gearAddBlock, fitKit } from './creation'
+import { ageBlock, freeValues, attrBlock, attrMod, attrBudget, attrStepBlock, fmtMod, basicLeft, basicStepBlock, cyberSummary, cyberPickBlock, cyberBlock, traitSummary, traitPickBlock, gearPoints, gearSummary, gearAddBlock, fitKit } from './creation'
 import { CYBER_OPTIONS, TRAITS, SUGGESTED_KITS } from '../data/creation'
 import { ITEMS } from '../data/items'
 
@@ -31,6 +31,26 @@ describe('屬性：15、14、13、12、10、8 再加 2 點', () => {
   it('單項最高 18；調整值無條件捨去', () => {
     expect(attrBlock({ 體格: 15, 反應: 14, 技術: 13, 智識: 12, 意志: 10, 魅力: 8 }, { 體格: 2 })).toBeNull()
     expect(attrMod(15)).toBe(2); expect(attrMod(8)).toBe(-1); expect(attrMod(13)).toBe(1)
+  })
+})
+
+describe('屬性往下壓：最低 4，每壓 1 點換 1 點自由點數', () => {
+  const pick = { 體格: 12, 反應: 15, 技術: 8, 智識: 13, 意志: 10, 魅力: 14 }
+  it('壓下去的點數加進自由點數', () => {
+    expect(attrBudget({ 技術: -4 })).toEqual({ total: 6, lowered: 4, spent: 0, left: 6 })
+    expect(attrBudget({ 技術: -2, 反應: 3, 意志: 1 })).toMatchObject({ total: 4, spent: 4, left: 0 })
+    expect(attrBlock(pick, { 技術: -2, 反應: 3, 意志: 1 })).toBeNull()
+    expect(attrBlock(pick, { 技術: -2, 反應: 3 })).toBe('還有 1 點自由點數沒有用。')
+  })
+  it('最低 4（調整值 −3），最高照樣 18', () => {
+    expect(attrBlock(pick, { 技術: -5, 反應: 3, 意志: 4 })).toBe('技術最低 4。')
+    expect(attrStepBlock(pick, { 技術: -4 }, '技術', -1)).toContain('最低 4')
+    expect(attrStepBlock(pick, {}, '技術', -1)).toBeNull()
+    expect(attrStepBlock(pick, { 反應: 3 }, '反應', 1)).toContain('最高 18')
+    expect(attrStepBlock(pick, { 意志: 2 }, '體格', 1)).toContain('自由點數用完了')
+    expect(attrStepBlock(pick, { 意志: 2, 技術: -1 }, '技術', 1)).toBeNull()
+    expect(attrMod(4)).toBe(-3); expect(attrMod(6)).toBe(-2)
+    expect(fmtMod(-2)).toBe('−2'); expect(fmtMod(0)).toBe('+0')
   })
 })
 

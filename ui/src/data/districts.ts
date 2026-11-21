@@ -1,4 +1,5 @@
 import type { District, DistrictId, Facility } from './types'
+import { LINES } from './transit'
 
 /**
  * 八個區與街區（docs/world/DISTRICTS.md 第 2 節、docs/world/SITES.md 第 2～9 節）。
@@ -272,5 +273,16 @@ export function buildBlockMap(spec: BlockSpec): BlockMap {
       if (e) exitAt.set(`${x},${y}`, e); else row[x] = '.'
     }
   }))
+  // 車站（DISTRICTS 1.2.1 節）：這個街區有線停的話，在第一格內側的街道上擺一個車站設施。走過去按 E 上車。
+  const lines = LINES.filter(l => l.stops.some(s => s.block === spec.name))
+  if (lines.length) {
+    const st: Facility = {
+      id: `station-${spec.name}`, name: `${lines.map(l => l.name).join('、')}・${lines[0].stops.find(s => s.block === spec.name)!.name}站`,
+      icon: lines[0].icon, kind: 'transit', services: [{ name: '搭車', action: 'transit' }],
+    }
+    outer: for (let y = 1; y < cells.length - 1; y++) for (let x = 1; x < cells[y].length - 1; x++) {
+      if (cells[y][x] === '.' && !exitAt.has(`${x},${y}`)) { cells[y][x] = 'F'; facilityAt.set(`${x},${y}`, st); break outer }
+    }
+  }
   return { w: cells[0].length, h: cells.length, cells, facilityAt, exitAt }
 }

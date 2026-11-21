@@ -117,7 +117,7 @@ const MAT = { 機: '機', 生: '生', 皆: '皆可' }
       <aside class="panel cut pad parts">
         <p class="h">零件・{{ slotLabel(slot) }}<Hint>背包裡這個類型的零件。不收的灰掉並寫原因（材質、等級、挑剔的設計圖）；超規的標出檢定。</Hint></p>
         <div v-if="!candidates.length" class="empty-note">背包裡沒有{{ slot.type }}。</div>
-        <button v-for="c in candidates" :key="c.st.uid" type="button" class="lrow pr" :class="{ on: fillIds[slot.id] === c.def.id, no: !c.c.ok }" @click="c.c.ok ? put(c.def.id) : ui.toast(c.c.reason!, 'warn')">
+        <button v-for="c in candidates" :key="c.st.uid" type="button" class="lrow pr" :class="{ on: fillIds[slot.id] === c.def.id, 'is-unavailable': !c.c.ok }" :title="c.c.ok ? undefined : c.c.reason ?? undefined" @click="c.c.ok ? put(c.def.id) : ui.toast(c.c.reason!, 'warn')">
           <ItemSlot :item="c.def" size="sm" :qty="c.st.qty" inert />
           <span class="grow">
             <b :style="{ color: `var(--g${c.def.grade})` }">{{ c.def.name }}</b>
@@ -176,7 +176,6 @@ const MAT = { 機: '機', 生: '生', 皆: '皆可' }
 .bps, .parts { display: grid; gap: 5px; align-content: start; }
 .bpr small, .pr small { display: block; color: var(--ink-3); font-size: var(--fs-fine); }
 .lrow :deep(.slot) { width: 40px; flex: none; }
-.pr.no { opacity: .55; }
 .bph { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; margin-bottom: 10px; }
 .bph h3 { margin: 2px 0 4px; font-size: var(--fs-section); }
 .slotrow { display: grid; grid-template-columns: 44px 96px 44px minmax(0, 1fr) 36px; gap: 8px; align-items: center; width: 100%; padding: 6px 8px; background: var(--bg-2); border: 0; color: var(--ink); margin-bottom: 5px; cursor: pointer; text-align: left; }

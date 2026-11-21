@@ -10,7 +10,7 @@
 cd ui
 npm install
 npm run dev       # 開發伺服器，http://localhost:5173
-npm test          # Vitest：格子、家具、價格、技能樹、建角的點數、組裝、帳單、存檔、世界編輯器的檢查、街區、地下城的刷新
+npm test          # Vitest：格子、家具、價格、技能樹、建角的點數（含屬性往下壓）、組裝、帳單、存檔、世界編輯器的檢查、街區、地下城的刷新、快捷鍵、搭車與計程車
 npm run build     # 從文件產生內容＋抽圖標＋型別檢查＋建置到 ui/dist/
 npm run content   # 只重新產生 src/data/content.generated.ts
 npm run preview   # 在本機看建置結果
@@ -25,12 +25,12 @@ npm run preview   # 在本機看建置結果
 
 | 位置 | 放什麼 |
 |---|---|
-| `src/components/` | 通用元件：`Dialog`（對話框的外框）、`DialogHost`（對話框層、Esc）、`Hint`（「?」提示）、`ItemSlot`（物品格：等級色＋圖標；放在別的按鈕裡時加 `inert`）、`GradeBadge`、`Icon`（sprite 圖標）、`Tabs`、`GridMap`（共用的格子地圖，方向鍵與 Enter）、`TrackBar`、`MoneyTag`、`ReasonButton`（做不到的按鈕說原因）、`RuleFields`（存檔規則：設定、建角第 10 步共用）、`PartyRow`、`BodyFigure`、`CityMap`、`LogView`、`StatusBar` |
+| `src/components/` | 通用元件：`Dialog`（對話框的外框）、`DialogHost`（對話框層、Esc）、`Hint`（「?」提示）、`ItemSlot`（物品格：等級色＋圖標；放在別的按鈕裡時加 `inert`）、`GradeBadge`、`Icon`（sprite 圖標）、`Tabs`、`GridMap`（共用的格子地圖與方向鈕；掛上時登記成這一頁的移動目標）、`SkillTreeView`（技能樹的本體：對話框與建角第 8 步共用）、`TrackBar`、`MoneyTag`、`ReasonButton`（做不到的按鈕說原因）、`RuleFields`（存檔規則：設定、建角第 10 步共用）、`PartyRow`、`BodyFigure`、`CityMap`、`LogView`、`StatusBar` |
 | `src/screens/` | 全頁：標題、主畫面與城市地圖、開新局與建角、世界編輯器、AI 工坊、家園地圖、子網地圖、地下城、舊 Demo 的外框 |
-| `src/dialogs/` | 對話框：背包、角色與義體（`character/` 是內海、橋、成人三個分頁）、和 NPC 說話、商店、設定、名冊、關係、技能樹、組裝、頻道、契約、每週帳單、指南、備忘錄、待處理、讀檔與存檔 |
+| `src/dialogs/` | 對話框：背包、角色與義體（`character/` 是內海、橋、成人三個分頁）、和 NPC 說話、商店、設定、名冊、關係、技能樹、組裝、頻道、契約、每週帳單、指南、備忘錄、待處理、讀檔與存檔、城市地圖、搭車 |
 | `src/stores/` | Pinia：`game`（假存檔；`serialize()`／`hydrate()` 是存檔的進出口）、`saves`（存檔的格子）、`ui`（對話框堆疊、提示訊息）、`home`、`subnet`、`settings`（設定與 AI 工坊共用） |
 | `src/data/` | 有型別的假資料：物品（ITEMS；`items2.ts` 是零件、設計圖、構裝、SKIN）、主角與部位、主角第二版的資料（`profile.ts`）、NPC 與名冊、區與街區、商店、家具與家園版面、子網、地下城、建角、組裝、頻道、契約、帳單與待處理、世界編輯器、AI 工坊；`content.generated.ts` 由文件產生 |
-| `src/lib/` | 純邏輯，有測試：`grid`（尋路、視野）、`home`（佔地、轉向、擺放的檢查、用途、舒適度、儲物）、`grade`、`price`、`skills`（學技能的條件、階、橋的容量、夜課）、`creation`（建角的點數預算、年齡）、`crafting`（槽、難度、成功率）、`bills`（帳單的結算與下坡路）、`save`（存檔的格式、回退、快照）、`worldCheck`（世界編輯器的檢查）、`dungeon`（地下城的刷新）、`useWalk`、`useGuides` |
+| `src/lib/` | 純邏輯，有測試：`keys`（全域快捷鍵）、`transit`（搭車與計程車的車資）、`grid`（尋路、視野）、`home`（佔地、轉向、擺放的檢查、用途、舒適度、儲物）、`grade`、`price`、`skills`（學技能的條件、階、橋的容量、夜課）、`creation`（建角的點數預算、年齡）、`crafting`（槽、難度、成功率）、`bills`（帳單的結算與下坡路）、`save`（存檔的格式、回退、快照）、`worldCheck`（世界編輯器的檢查）、`dungeon`（地下城的刷新）、`useWalk`、`useGuides` |
 | `src/styles/` | `tokens.css`（顏色、兩套皮、等級色、間距、字級）、`base.css`（斜切角、面板、按鈕、標籤） |
 | `public/` | `icons-sprite.svg`（第 1、2 層）、`icons-items.svg`（第 3 層的子集）、`icon-centers.json`、`city-map.svg`、`legacy/`（四個可以操作的舊 Demo） |
 
@@ -42,7 +42,11 @@ npm run preview   # 在本機看建置結果
 
 **街區**：每一區至少一塊手畫的街區：四號塔、刀巷、千本通、中央廣場、倉庫區、俱樂部街、薔薇驛、月台市（SITES 第 3～9 節的設施）。其他街區用通用的版面。
 
-**格子地圖的鍵盤**：地圖拿到焦點時方向鍵走一格，Enter 和腳下的東西互動（街區：走進設施或出口；家園：擺設時移動游標、Enter 放下；子網與地下城：跳到這一格的行動）。
+**移動與快捷鍵**（第三版，`src/lib/keys.ts`、`App.vue`）：方向鍵與 WASD 隨時走一格、E 和腳下的東西互動，不必先點地圖（打字時、對話框開著時不作用）；地圖下面有方向鈕。C 角色、B 背包、K 技能樹、R 名冊、L 關係、J 備忘錄、N 待處理、G 組裝、V 頻道、T 契約、Y 帳單、H 家園、M 城市地圖；F5／Ctrl+S 快速存檔、F9 快速讀檔；Esc 關對話框，沒有對話框時開選單。完整的表在設定的「顯示」分頁。
+
+**城市地圖與搭車**：城市地圖是對話框（M），只能叫計程車或開自己的車；地鐵、輕軌、巴士、渡輪在街區圖上的車站按 E 選站（`src/data/transit.ts`）。
+
+**第三版的樣式規則**：做不到的一律 `.is-unavailable`（灰掉）；清單用 `.grid2`（寬的一列兩個）；字級用 `tokens.css` 的階層（`--fs-page`／`--fs-section`／`--fs-card`／`--fs-body`／`--fs-label`／`--fs-fine`）。
 
 **和設定共用的值**：AI 工坊與設定讀寫同一個 `settings` store（PROMPTS 2.14 節）；建角第 10 步、設定的「遊戲」分頁用同一個 `RuleFields`；讀檔與存檔對話框和設定的「存檔」分頁用同一組格子。
 

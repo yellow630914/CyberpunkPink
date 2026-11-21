@@ -58,6 +58,7 @@ const fmtTime = (iso?: string) => (iso ? new Date(iso).toLocaleString('zh-TW', {
     <section class="panel cut pad">
       <template v-if="tab === 'slots'">
         <p class="setgrp">手動存檔<Hint>存檔只存在這台機器的瀏覽器裡；要換機器就用「匯出與匯入」。設定的「存檔」分頁用的是同一組格子。</Hint></p>
+        <div class="grid2">
         <div v-for="(slot, i) in sv.slots" :key="'m' + i" class="setrow">
           <span class="nm">第 {{ i + 1 }} 格</span>
           <span class="val">{{ slot ? slot.label : '空' }}<small v-if="slot?.savedAt" class="when">{{ fmtTime(slot.savedAt) }}</small></span>
@@ -66,11 +67,14 @@ const fmtTime = (iso?: string) => (iso ? new Date(iso).toLocaleString('zh-TW', {
             <ReasonButton sm :reason="slot ? null : '這一格是空的。'" @go="load('slots', i)">讀取</ReasonButton>
           </span>
         </div>
+        </div>
         <p class="setgrp">自動存檔<Hint>長休之後與抵達一個新的區時各存一次，留最近的兩份。</Hint></p>
+        <div class="grid2">
         <div v-for="(slot, i) in sv.autos" :key="'a' + i" class="setrow">
           <span class="nm">自動 {{ i + 1 }}</span>
           <span class="val">{{ slot ? slot.label : '空' }}</span>
           <span class="segs"><ReasonButton sm :reason="slot ? null : '這一格是空的。'" @go="load('autos', i)">讀取</ReasonButton></span>
+        </div>
         </div>
         <div class="go"><button type="button" class="btn sm" @click="sv.autosave(); ui.toast('自動存了一份。')">現在自動存一次</button></div>
       </template>
@@ -86,10 +90,12 @@ const fmtTime = (iso?: string) => (iso ? new Date(iso).toLocaleString('zh-TW', {
       <template v-else-if="tab === 'snap'">
         <p class="setgrp">委託副本的快照<Hint>每個階段開始時和每場戰鬥開打前各存一個快照。戰敗之後選「重來這場戰鬥」回到開打前；「回到這個階段開始時」委託沒有失敗，可以換一條分支或換一個面再走；撤退回到進入入口的那一刻，委託還在手上。回退時保留紀錄、性經歷記錄與共同記憶，其餘回到那個時間點。</Hint></p>
         <div v-if="!snaps.length" class="empty-note">現在不在委託副本裡。進入子網（藍鯨的帳本・潛入子網）時會存入口與階段的快照。</div>
+        <div class="grid2">
         <div v-for="s in snaps" :key="s.id" class="setrow">
           <span class="nm"><span class="kc" :style="{ '--c': s.kind === '戰鬥' ? 'var(--hp)' : s.kind === '入口' ? 'var(--ap)' : 'var(--ram)' }">{{ s.kind }}</span>{{ s.label }}</span>
           <span class="val">{{ s.at }}</span>
           <ReasonButton sm :pri="snapshotUse(g.snapshots, s).action === '重來這場戰鬥'" :reason="snapshotUse(g.snapshots, s).reason" @go="useSnap(s.id)">{{ snapshotUse(g.snapshots, s).action }}</ReasonButton>
+        </div>
         </div>
         <div class="lockline"><span class="lk">固定</span><b>重來與回退一律可以。</b><Hint>不管選哪個難度，戰敗之後都可以重來這場戰鬥，或回到這個階段開始時。這一條不是存檔規則，所以設定裡沒有開關。</Hint></div>
       </template>

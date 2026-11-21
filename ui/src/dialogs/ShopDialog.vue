@@ -45,6 +45,20 @@ const wallet = computed(() => (pay.value === 'cash' ? g.money.cash : g.money.acc
 const shortBy = computed(() => Math.max(0, total.value - wallet.value))
 const hasRegistered = computed(() => cart.value.some(l => l.mode === 'buy' && ITEMS[l.def].legality !== '自由'))
 
+/** 這一件為什麼不能放進車（灰掉，UI.md 1.1 節）：賣完了、車裡已經是全部、錢包付不起這一件。 */
+function buyReason(i: number): string | null {
+  const s = stock.value[i]
+  const inCart = cart.value.find(l => l.mode === 'buy' && l.def === s.def)?.qty ?? 0
+  if (s.qty <= 0) return '賣完了，等明天。'
+  if (inCart >= s.qty) return '店裡只剩這些了，都在車裡。'
+  const unit = buyPrice(ITEMS[s.def], shop.value, s.condition ?? '全新').total
+  if (unit > wallet.value + sellTotal.value - buyTotal.value) return `錢不夠：這一件 ${fmt(unit)}。`
+  return null
+}
+function sellReason(uid: string): string | null {
+  const st = g.stackOf(uid)!
+  return (cart.value.find(l => l.mode === 'sell' && l.uid === uid)?.qty ?? 0) >= st.qty ? '你身上的都放進車了。' : null
+}
 function addBuy(i: number) {
   const s = stock.value[i]
   const inCart = cart.value.find(l => l.mode === 'buy' && l.def === s.def)
@@ -103,22 +117,22 @@ function checkout() {
       <section class="panel cut pad">
         <Tabs v-model="tab" :tabs="[{ id: 'buy', label: '買' }, { id: 'sell', label: '賣' }]" />
         <div v-if="tab === 'buy'" class="goods">
-          <div v-for="(s, i) in stock" :key="s.def" class="gd" :class="{ special: s.special }" :style="{ '--gc': `var(--g${ITEMS[s.def].grade})` }">
+          <div v-for="(s, i) in stock" :key="s.def" class="gd" :class="{ special: s.special, 'is-unavailable': !!buyReason(i) }" :style="{ '--gc': `var(--g${ITEMS[s.def].grade})` }">
             <ItemSlot :item="ITEMS[s.def]" size="sm" @select="focus = { def: s.def, mode: 'buy', condition: s.condition ?? '全新' }" />
             <div class="gi">
               <b>{{ ITEMS[s.def].name }}</b><span v-if="s.special" class="tag hot">今日</span>
               <small>{{ ITEMS[s.def].type }}・<GradeBadge :grade="ITEMS[s.def].grade" small />・{{ ITEMS[s.def].brand }}<template v-if="s.condition && s.condition !== '全新'">・{{ s.condition }}</template><template v-if="ITEMS[s.def].legality !== '自由'">・<span class="warn-t">{{ ITEMS[s.def].legality }}</span></template></small>
             </div>
             <div class="pr"><MoneyTag kind="cash" :amount="buyPrice(ITEMS[s.def], shop, s.condition ?? '全新').total" :size="13" /><small>剩 {{ s.qty }}</small></div>
-            <button type="button" class="btn sm" @click="addBuy(i)">放進車</button>
+            <ReasonButton sm :reason="buyReason(i)" @go="addBuy(i)">放進車</ReasonButton>
           </div>
         </div>
         <div v-else class="goods">
-          <div v-for="st in sellables" :key="st.uid" class="gd" :style="{ '--gc': `var(--g${ITEMS[st.def].grade})` }">
+          <div v-for="st in sellables" :key="st.uid" class="gd" :class="{ 'is-unavailable': !!sellReason(st.uid) }" :style="{ '--gc': `var(--g${ITEMS[st.def].grade})` }">
             <ItemSlot :item="ITEMS[st.def]" :qty="st.qty" size="sm" @select="focus = { def: st.def, mode: 'sell', condition: st.condition }" />
             <div class="gi"><b>{{ ITEMS[st.def].name }}</b><small>{{ ITEMS[st.def].type }}・<GradeBadge :grade="ITEMS[st.def].grade" small />・{{ st.condition }}</small></div>
             <div class="pr"><MoneyTag kind="cash" :amount="sellPrice(ITEMS[st.def], shop, st.condition).total" :size="13" /><small>×{{ st.qty }}</small></div>
-            <button type="button" class="btn sm" @click="addSell(st.uid)">放進車</button>
+            <ReasonButton sm :reason="sellReason(st.uid)" @go="addSell(st.uid)">放進車</ReasonButton>
           </div>
         </div>
       </section>
@@ -160,7 +174,7 @@ function checkout() {
 
 <style scoped>
 .shop { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 12px; align-items: start; }
-.goods { display: grid; gap: 6px; margin-top: 10px; }
+.goods { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, max(360px, calc(50% - 6px))), 1fr)); gap: 6px; margin-top: 10px; }
 .gd { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 10px; background: var(--bg-2); border-left: 3px solid var(--gc); }
 .gd.special { box-shadow: inset 0 0 0 1px var(--a); }
 .gi { min-width: 0; }
@@ -182,7 +196,6 @@ function checkout() {
 .payseg button { padding: 8px; text-align: center; background: var(--bg-2); font-size: var(--fs-sm); font-weight: 800; color: var(--ink-3); border: 0; cursor: pointer; display: grid; justify-items: center; gap: 2px; }
 .payseg button.on { background: var(--a); color: #fff; }
 .payseg button.on :deep(.money) { color: #fff; }
-.payseg button[aria-disabled="true"] { opacity: .45; }
 .total { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-term); margin-top: 8px; font-weight: 900; }
 .note { display: flex; align-items: center; gap: 4px; margin-top: 6px; letter-spacing: 0; }
 @media (max-width: 900px) { .shop { grid-template-columns: 1fr; } }

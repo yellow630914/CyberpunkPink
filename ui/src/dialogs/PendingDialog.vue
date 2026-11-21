@@ -30,10 +30,10 @@ function later(p: PendingItem) {
 </script>
 
 <template>
-  <Dialog :entry-id="entryId" :stacked="stacked" title="待處理" :sub="`${g.pending.length} 件`" size="md">
+  <Dialog :entry-id="entryId" :stacked="stacked" title="待處理" :sub="`${g.pending.length} 件`" size="lg">
     <template #header><Hint title="待處理">指令到期、討債上門、名冊上的人出事、人情被討、頻道的事件。擋住行動的（帳單付不出來、戰敗事件）觸發時直接打開，其餘的進鈴鐺。有期限的事過期時照事件寫的後果走。</Hint></template>
     <div v-if="!list.length" class="empty-note">沒有要處理的事。</div>
-    <div class="row-list">
+    <div class="grid2">
       <div v-for="p in list" :key="p.id" class="pend" :class="{ block: p.blocking }">
         <span class="kc" :style="{ '--c': KIND_COLOR[p.kind] }">{{ p.kind }}</span>
         <div class="grow">

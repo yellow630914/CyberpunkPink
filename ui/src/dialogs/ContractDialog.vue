@@ -57,7 +57,7 @@ function endContract() {
       </div>
       <section v-if="page === 'events'" class="panel cut pad mt">
         <p class="h">現在能對她做的事<Hint>依她的狀態、親密度、主僕關係與你的傾向決定有哪些可選。選了就進入那個事件；結果與數值的變化由事件決定，不是在這裡直接調。她也會主動來找你。</Hint></p>
-        <div class="row-list">
+        <div class="grid2">
           <div v-for="e in events" :key="e.name" class="lrow">
             <span class="grow"><b>{{ e.name }}</b><small>{{ e.note }}</small></span>
             <span class="mono st" :class="{ 'warn-t': e.cooldown }">{{ e.state }}</span>

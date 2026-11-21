@@ -42,10 +42,12 @@ void props
       <button v-for="d in DIFFS" :key="d" type="button" class="dcard" :class="{ on: s.difficulty === d }" :aria-pressed="s.difficulty === d" @click="d === '自訂' ? ui.toast('自訂的係數表在第三版做。', 'warn') : (s.difficulty = d)">{{ d }}</button>
     </div>
     <p class="setgrp">倍率</p>
+    <div class="grid2">
     <div v-for="r in multRows" :key="r.k" class="setrow" :class="{ chg: !st.isDefault(r.k) }">
       <span class="nm">{{ r.name }}<Hint :text="r.hint" /></span>
       <span class="stepper"><button type="button" :aria-label="`${r.name}減少`" @click="step(r.k, -0.1, r.lo, r.hi)">−</button><b>×{{ s[r.k] }}</b><button type="button" :aria-label="`${r.name}增加`" @click="step(r.k, 0.1, r.lo, r.hi)">＋</button></span>
       <span class="df">預設 <b>×1</b></span>
+    </div>
     </div>
     <div class="setrow" :class="{ chg: !st.isDefault('billMult') || !st.isDefault('billRule') }">
       <span class="nm">每週帳單<Hint>四個快捷的檔位一次設好倍率與下坡的節奏：關閉不結算；寬鬆金額 ×0.5、付不出來只到鎖義體為止；標準每一步間隔 7 天；嚴苛金額 ×1.5、每一步間隔 4 天。選了以後倍率還可以細調（×0～2）。</Hint></span>
@@ -53,6 +55,7 @@ void props
       <span class="stepper"><button type="button" aria-label="帳單倍率減少" @click="step('billMult', -0.1, 0, 2)">−</button><b>×{{ s.billMult }}</b><button type="button" aria-label="帳單倍率增加" @click="step('billMult', 0.1, 0, 2)">＋</button></span>
     </div>
     <p class="setgrp">戰敗<Hint>重來與回退一律可以：任何難度下，戰敗之後都可以重來這場戰鬥，或回到這個階段開始時。這一條不是設定，所以這裡不放開關。</Hint></p>
+    <div class="grid2">
     <div class="setrow" :class="{ chg: !st.isDefault('defeatView') }">
       <span class="nm">戰敗事件要不要看</span>
       <span class="segs"><button v-for="v in ['一律看', '可以跳過', '不看'] as const" :key="v" type="button" :class="{ on: s.defeatView === v }" @click="s.defeatView = v">{{ v }}</button></span>
@@ -68,10 +71,12 @@ void props
       <button type="button" class="switch" role="switch" aria-label="名冊 NPC 會死" :aria-checked="s.rosterDeath" :class="{ on: s.rosterDeath }" @click="s.rosterDeath = !s.rosterDeath" />
       <span class="df">預設 <b>關</b></span>
     </div>
+    </div>
     <template v-if="!compact">
       <p class="setgrp">其他</p>
+      <div class="grid2">
       <div class="setrow" :class="{ chg: !st.isDefault('fastTravel') }">
-        <span class="nm">快速移動<Hint>城市地圖上點街區直接過去。關掉時一律用走的或搭車；沒去過的站也能搭。</Hint></span>
+        <span class="nm">快速移動<Hint>城市地圖上叫計程車或開自己的車直接過去。關掉時一律用走的或在車站搭車。</Hint></span>
         <button type="button" class="switch" role="switch" aria-label="快速移動" :aria-checked="s.fastTravel" :class="{ on: s.fastTravel }" @click="s.fastTravel = !s.fastTravel" />
         <span class="df">預設 <b>開</b></span>
       </div>
@@ -79,6 +84,7 @@ void props
         <span class="nm">額外飾品格</span>
         <button type="button" class="switch" role="switch" aria-label="額外飾品格" :aria-checked="s.extraAccessory" :class="{ on: s.extraAccessory }" @click="s.extraAccessory = !s.extraAccessory" />
         <span class="df">預設 <b>關</b></span>
+      </div>
       </div>
     </template>
     <div v-if="showTraitPoints" class="setrow" :class="{ chg: !st.isDefault('traitPoints') }">

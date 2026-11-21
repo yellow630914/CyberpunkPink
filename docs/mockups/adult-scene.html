@@ -12,7 +12,7 @@
   --grid:linear-gradient(#ffffff06 1px,transparent 1px) 0 0/16px 16px,linear-gradient(90deg,#ffffff06 1px,transparent 1px) 0 0/16px 16px}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
-body{background:var(--bg);background-image:var(--grid);color:var(--ink);font-family:var(--font);font-size:14px}
+body{background:var(--bg);background-image:var(--grid);color:var(--ink);font-family:var(--font);font-size:16px}
 .cut{clip-path:polygon(0 0,calc(100% - var(--cut)) 0,100% var(--cut),100% 100%,var(--cut) 100%,0 calc(100% - var(--cut)))}
 .cut-sm{clip-path:polygon(0 0,calc(100% - var(--cut-sm)) 0,100% var(--cut-sm),100% 100%,var(--cut-sm) 100%,0 calc(100% - var(--cut-sm)))}
 .panel{background:var(--bg-1);box-shadow:inset 0 0 0 2px var(--line)}
@@ -192,12 +192,12 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 </head>
 <body>
 <style>
-.sw{display:grid;grid-template-columns:1fr 300px;grid-template-rows:auto 1fr auto;gap:12px;padding:12px;height:calc(100% - 52px)}
+.sw{display:grid;grid-template-columns:1fr 300px;grid-template-rows:auto minmax(0,1fr) auto;gap:12px;padding:12px;height:calc(100% - 52px)}
 .pad{padding:12px 16px}.scroll{overflow:auto;min-height:0}
 .k{font-size:11px;color:var(--ink-3);font-weight:800;letter-spacing:1px}
 .tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;background:var(--bg-2);color:var(--ink-2);white-space:nowrap}
 .head{grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.head h2{margin:0;font-size:17px}
+.head h2{margin:0;font-size:22px}
 .goal{min-width:180px}.goal .bar{height:8px;border-radius:4px;background:#2E2339;margin-top:4px;position:relative;overflow:hidden}.goal .bar b{position:absolute;inset:0 auto 0 0;background:var(--ap);border-radius:4px}
 .sync{display:flex;gap:3px}.sync span{font-size:11.5px;font-weight:800;padding:5px 9px;background:var(--bg-2);color:var(--ink-3)}.sync span.on{background:var(--ink-2);color:var(--bg)}
 .grow{flex:1}
@@ -206,7 +206,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 .pc{padding:12px;background:var(--bg-2)}
 .pc .top{display:grid;grid-template-columns:48px 1fr;gap:10px;align-items:center}
 .pc .ava{width:48px;height:48px;border-radius:12px}
-.pc h3{margin:0;font-size:15px}
+.pc h3{margin:0;font-size:19px}
 .trk{margin-top:10px}.trk .t{display:flex;justify-content:space-between;font-size:11.5px;font-weight:800}.trk .t b{font:900 12.5px var(--mono)}
 .trk .hb{height:10px;margin-top:4px}
 .after{display:flex;gap:4px;margin-top:6px}.after i{width:16px;height:7px;border-radius:2px;background:#45375A}.after i.on{background:var(--load)}
@@ -235,14 +235,14 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 .lk .per{font:700 11.5px var(--mono);color:var(--ink-2);text-align:right}
 .lk.new{box-shadow:inset 3px 0 0 var(--ram)}
 /* 行動列 */
-.acts{grid-column:1/-1}
+.panel.acts{grid-column:1/-1;display:block;margin-top:0}
 .ap{display:flex;gap:4px;align-items:center}.ap i{width:16px;height:16px;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);background:#45375A}.ap i.on{background:var(--ap)}
-.abtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.ab{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:74px;padding:8px 10px;background:var(--bg-2);font-weight:800;font-size:13px;cursor:pointer}
-.ab small{font:700 10px var(--mono);color:var(--ink-3)}
+.abtns{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));grid-auto-rows:minmax(62px,auto);gap:8px;margin-top:10px;min-height:132px;align-content:start}
+.ab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0;padding:10px 12px;background:var(--bg-2);font-weight:900;font-size:16px;cursor:pointer}
+.ab small{font:700 11.5px var(--mono);color:var(--ink-3)}
 .ab.on{box-shadow:inset 0 0 0 2px var(--ink-2)}
-.ab.no{opacity:.4}
-.ab.stop{margin-left:auto;background:transparent;box-shadow:inset 0 0 0 2px var(--line);color:var(--ink-2)}
+.ab.no{opacity:.42;filter:grayscale(.85);cursor:not-allowed}
+.ab.stop{background:transparent;box-shadow:inset 0 0 0 2px var(--line);color:var(--ink-2)}
 .pv{margin-top:10px;padding:9px 12px;background:#120D19;font:700 12px var(--mono);color:var(--ink-2);display:flex;gap:16px;flex-wrap:wrap}
 .pv b{color:var(--ink)}.pv .p{color:#F58DBA}.pv .f{color:var(--ep)}
 /* 右欄 */

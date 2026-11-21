@@ -30,7 +30,7 @@ export interface SaveShape {
   quick: Array<string | null>; coatClosed: boolean; npcs: Record<string, import('../data/types').Npc>; loc: { district: DistrictId; block: string; pos: Point; facility: string | null }; log: LogEntry[]
   basics: Record<string, number>; learned: string[]; loadout: string[]; nightLearned: string[]; params: typeof START_PARAMS; tendency: typeof START_TENDENCY
   fame: Record<string, number>; sexRecord: typeof START_SEX; deck: typeof START_DECK; roster: typeof ROSTER; channel: typeof START_CHANNEL; contracts: { held: typeof HELD }
-  bills: { items: typeof BILL_ITEMS; overdueWeeks: number }; pending: typeof PENDING; craftFill: Record<string, Record<string, string>>; guides: typeof START_GUIDES; dungeonSeed: number
+  bills: { items: typeof BILL_ITEMS; overdueWeeks: number }; pending: typeof PENDING; craftFill: Record<string, Record<string, string>>; guides: typeof START_GUIDES; dungeonSeed: number; vehicles?: string[]
 }
 
 const WEEKDAYS = ['週一', '週二', '週三', '週四', '週五', '週六', '週日']
@@ -58,6 +58,8 @@ export const useGame = defineStore('game', () => {
   const tendency = reactive(structuredClone(START_TENDENCY))
   const fame = reactive({ ...START_FAME })
   const sexRecord = reactive(structuredClone(START_SEX))
+  /** 自己的車（ITEMS 第 14 節）：有的話城市地圖可以直接開過去，不要錢。假存檔沒有車。 */
+  const vehicles = ref<string[]>([])
   const deck = reactive(structuredClone(START_DECK))
   const roster = ref(structuredClone(ROSTER))
   const channel = reactive(structuredClone(START_CHANNEL))
@@ -115,6 +117,7 @@ export const useGame = defineStore('game', () => {
   function addLog(e: Omit<LogEntry, 'id' | 'time' | 'place'> & { place?: string }) {
     log.value.unshift({ id: logSeq++, time: `第 ${day.value} 天 ${timeLabel.value}`, place: e.place ?? placeLabel.value, ...e })
   }
+  /** 換街區。viaExit：從哪個出口來就站在那個出口；'@station'：站在車站（搭車、計程車、開車到的時候）。 */
   function moveBlock(d: DistrictId, block: string, viaExit?: string) {
     const changed = loc.block !== block || loc.district !== d
     loc.district = d
@@ -124,6 +127,7 @@ export const useGame = defineStore('game', () => {
     // 從哪個出口來，就站在那個出口；不然站在第一個出口
     let start: Point | null = null
     for (const [k, to] of m.exitAt) if (to === viaExit) { const [x, y] = k.split(',').map(Number); start = { x, y } }
+    if (viaExit === '@station') for (const [k, f] of m.facilityAt) if (f.kind === 'transit') { const [x, y] = k.split(',').map(Number); start = { x, y } }
     if (!start) { const k = [...m.exitAt.keys()][0] ?? '6,2'; const [x, y] = k.split(',').map(Number); start = { x, y } }
     loc.pos = start
     if (changed) addLog({ prose: [`你走到${district.value.name}的${block}。`], place: `${district.value.name} · ${block}` })
@@ -210,7 +214,7 @@ export const useGame = defineStore('game', () => {
       inventory: inventory.value, cyber: { ...cyber }, equip: { ...equip }, quick: quick.value, coatClosed: coatClosed.value, npcs: { ...npcs }, loc: { ...loc }, log: log.value,
       basics: { ...basics }, learned: learned.value, loadout: loadout.value, nightLearned: nightLearned.value, params: { ...params }, tendency: { ...tendency },
       fame: { ...fame }, sexRecord: { ...sexRecord }, deck: { ...deck }, roster: roster.value, channel: { ...channel }, contracts: { ...contracts }, bills: { ...bills },
-      pending: pending.value, craftFill: { ...craftFill }, guides: { ...guides }, dungeonSeed: dungeonSeed.value,
+      pending: pending.value, craftFill: { ...craftFill }, guides: { ...guides }, dungeonSeed: dungeonSeed.value, vehicles: vehicles.value,
     })) as SaveShape
   }
   type SaveState = SaveShape
@@ -248,6 +252,7 @@ export const useGame = defineStore('game', () => {
     if (d.craftFill) put(craftFill, d.craftFill)
     if (d.guides) Object.assign(guides, structuredClone(d.guides))
     if (typeof d.dungeonSeed === 'number') dungeonSeed.value = d.dungeonSeed
+    if (Array.isArray(d.vehicles)) vehicles.value = [...d.vehicles]
     logSeq = Math.max(logSeq, ...log.value.map(e => e.id + 1))
   }
   function saveMeta(kind: '手動' | '自動' | '快照' = '手動') {
@@ -279,7 +284,7 @@ export const useGame = defineStore('game', () => {
     day, minutes, money, hostility, character, party, inventory, cyber, equip, quick, coatClosed, npcs, loc, log,
     timeLabel, weekday, billIn, district, block, blockMap, facility, placeLabel, topHostility, carriedWeight, sinkFloor, quickCap, coveredSlots,
     advance, addLog, moveBlock, setFacility, addItem, removeItem, stackOf, equipItem, unequip, cyberAt, changeAffinity, itemName,
-    basics, learned, loadout, nightLearned, params, tendency, fame, sexRecord, deck, roster, channel, contracts, bills, pending, craftFill, guides, dungeonSeed, snapshots, inRun,
+    basics, learned, loadout, nightLearned, params, tendency, fame, sexRecord, deck, roster, channel, contracts, bills, pending, craftFill, guides, dungeonSeed, vehicles, snapshots, inRun,
     learnSkill, syncTrees, learnNight, setQuick, serialize, hydrate, saveMeta, packed, takeSnapshot, rollback,
   }
 })

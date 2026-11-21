@@ -18,12 +18,13 @@ import MemoDialog from '../dialogs/MemoDialog.vue'
 import PendingDialog from '../dialogs/PendingDialog.vue'
 import SaveDialog from '../dialogs/SaveDialog.vue'
 import CityDialog from '../dialogs/CityDialog.vue'
+import TransitDialog from '../dialogs/TransitDialog.vue'
 
 /** 對話框層：照 ui.stack 的順序畫。Esc 關最上面那一個（App.vue 的全域快捷鍵）。 */
 const REGISTRY: Record<DialogName, Component> = {
   bag: BagDialog, character: CharacterDialog, talk: TalkDialog, shop: ShopDialog, settings: SettingsDialog,
   roster: RosterDialog, relations: RelationsDialog, skills: SkillTreeDialog, craft: CraftDialog, channel: ChannelDialog, contract: ContractDialog,
-  bills: BillsDialog, guide: GuideDialog, memo: MemoDialog, pending: PendingDialog, saves: SaveDialog, city: CityDialog,
+  bills: BillsDialog, guide: GuideDialog, memo: MemoDialog, pending: PendingDialog, saves: SaveDialog, city: CityDialog, transit: TransitDialog,
 }
 const ui = useUi()
 </script>

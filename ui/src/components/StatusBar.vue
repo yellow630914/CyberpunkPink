@@ -70,7 +70,6 @@ void props
 .mi { display: flex; justify-content: space-between; align-items: center; background: var(--bg-2); border: 0; padding: 8px 10px; font-weight: 800; font-size: var(--fs-ui); cursor: pointer; color: var(--ink); text-align: left; }
 .mi:hover { background: var(--a); color: #fff; }
 .mi small { font: 800 var(--fs-tiny) var(--mono); color: var(--ink-3); }
-.mi[aria-disabled="true"] { opacity: .5; }
 [data-skin="net"] .status { background: var(--bg-1); border-bottom: 3px solid var(--o); }
 [data-skin="net"] .ibtn { box-shadow: inset 0 0 0 2px var(--o); background: var(--o); }
 @media (max-width: 1100px) { .hide-t { display: none; } }

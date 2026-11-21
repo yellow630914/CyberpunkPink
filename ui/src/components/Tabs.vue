@@ -16,7 +16,6 @@ defineEmits<{ (e: 'update:modelValue', v: string): void; (e: 'blocked', id: stri
 .tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: thin; min-width: 0; }
 .tab { flex: none; font-weight: 800; font-size: var(--fs-sm); padding: 8px 16px; background: var(--bg-2); color: var(--ink-3); border: 0; cursor: pointer; position: relative; clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%); }
 .tab.on { background: var(--a); color: var(--on-a); }
-.tab[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
 .dot { position: absolute; top: 4px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
 [data-skin="net"] .tab { box-shadow: inset 0 0 0 2px var(--o); }
 </style>

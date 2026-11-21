@@ -4,12 +4,10 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
 import GridMap, { type CellView, type MapToken } from '../components/GridMap.vue'
-import CityMap from '../components/CityMap.vue'
 import LogView from '../components/LogView.vue'
 import PartyRow from '../components/PartyRow.vue'
 import Hint from '../components/Hint.vue'
 import Icon from '../components/Icon.vue'
-import Tabs from '../components/Tabs.vue'
 import MoneyTag from '../components/MoneyTag.vue'
 import { useGame } from '../stores/game'
 import { useUi, PENDING_DIALOGS, type DialogName } from '../stores/ui'
@@ -18,11 +16,12 @@ import { useGuides } from '../lib/useGuides'
 import { settleBills, billMultiplier } from '../lib/bills'
 import { fmt } from '../lib/price'
 import { useWalk } from '../lib/useWalk'
-import type { DistrictId, Point, Facility } from '../data/types'
+import type { Point, Facility } from '../data/types'
+import { KEY_OF } from '../lib/keys'
 import { NPCS } from '../data/npcs'
 
 /**
- * 主畫面（UI.md 第 3 節）：左欄地圖（街區／城市）、小隊、委託條；中欄工具列、紀錄、行動列；右欄這裡的人、地點、進行中。
+ * 主畫面（UI.md 第 3 節）：左欄現在這一塊的街區圖（城市地圖是對話框，工具列「城市」或 M）、小隊、委託條；中欄工具列、紀錄、行動列；右欄這裡的人、地點、進行中。
  * 手機：上面狀態列，下面四個分頁（地圖、紀錄、這裡、工具）。
  */
 const g = useGame()
@@ -30,7 +29,6 @@ const ui = useUi()
 const st = useSettings()
 void PENDING_DIALOGS
 const router = useRouter()
-const mapTab = ref<'block' | 'city'>('block')
 const mobileTab = ref<'map' | 'log' | 'here' | 'tools'>('log')
 const freeText = ref('')
 
@@ -87,14 +85,9 @@ function onEnter() {
   const k = `${g.loc.pos.x},${g.loc.pos.y}`
   const f = bm.value.facilityAt.get(k)
   const ex = bm.value.exitAt.get(k)
-  if (f) { g.setFacility(f.id); if (window.innerWidth <= 720) mobileTab.value = 'here' }
+  if (f) { g.setFacility(f.id); if (f.kind === 'transit') ui.openRoot('transit'); else if (window.innerWidth <= 720) mobileTab.value = 'here' }
   else if (ex) g.moveBlock(g.loc.district, ex, g.loc.block)
   else ui.toast('腳下沒有可以互動的東西。')
-}
-function goCity(d: DistrictId, block: string) {
-  const from = g.loc.block
-  if (d !== g.loc.district || block !== g.loc.block) { g.advance(d === g.loc.district ? 8 : 20); g.moveBlock(d, block, from) }
-  mapTab.value = 'block'
 }
 
 // ---- 這裡 ----
@@ -104,6 +97,7 @@ function service(f: Facility, s: NonNullable<Facility['services']>[number]) {
     case 'shop': ui.openRoot('shop', { shopId: f.shopId }); break
     case 'home': router.push('/home'); break
     case 'dungeon': router.push('/dungeon'); break
+    case 'transit': ui.openRoot('transit'); break
     case 'rest': g.advance(60); g.addLog({ prose: [`你在${f.name}待了一個小時，感載退了一些。`], changes: [{ text: '感載 −3', kind: 'plus' }] }); g.character.load[0] = Math.max(0, g.character.load[0] - 3); break
     default: ui.toast(`「${s.name}」的畫面在第三版做。`)
   }
@@ -112,6 +106,7 @@ function service(f: Facility, s: NonNullable<Facility['services']>[number]) {
 // ---- 工具列 ----
 const guides = useGuides()
 const tools = computed(() => [
+  { id: 'city', name: '城市', icon: 'ic-fac_metro' },
   { id: 'character', name: '角色', icon: 'ic-bs_resolve' },
   { id: 'bag', name: '背包', icon: 'ic-cargo' },
   { id: 'skills', name: '技能樹', icon: 'ic-sk_gun_passive' },
@@ -125,6 +120,7 @@ const tools = computed(() => [
 ] as Array<{ id: string; name: string; icon: string; badge?: number; dot?: boolean }>)
 function tool(id: string) {
   if (id === 'home') router.push('/home')
+  else if (id === 'city') ui.openRoot('city')
   else ui.openRoot(id as DialogName)
 }
 const billDue = computed(() => settleBills(g.bills.items, [], { acc: g.money.acc, cash: g.money.cash }, billMultiplier(st.s.billRule, st.s.billMult)))
@@ -160,15 +156,13 @@ const stages = [
         <section class="panel cut map pad">
           <span class="tick" />
           <div class="maphd">
-            <Tabs v-model="mapTab" :tabs="[{ id: 'block', label: '街區' }, { id: 'city', label: '城市' }]" />
-            <Hint title="地圖">街區是 13 × 9 的格子：點設施走過去，到了右欄「這裡」換成那個設施；點邊上的箭頭換街區。城市地圖點區、再點街區就過去。鍵盤：地圖拿到焦點時，方向鍵走一格，Enter 走進腳下的設施或出口。</Hint>
-          </div>
-          <template v-if="mapTab === 'block'">
             <p class="h">{{ g.district.name }}・{{ g.loc.block }}</p>
-            <GridMap :w="bm.w" :h="bm.h" :cell="cellView" :tokens="tokens" :path="path" :max-cell="30" :label="`${g.loc.block}的街區圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
-            <div class="legend"><span><i class="lg fac" />設施</span><span><i class="lg exit" />出口</span><span><i class="lg me" />你</span><span><i class="lg npc" />人</span></div>
-          </template>
-          <CityMap v-else :current="g.loc.district" :current-block="g.loc.block" @go="goCity" />
+            <span class="grow" />
+            <button type="button" class="btn sm" title="城市地圖（M）" @click="ui.openRoot('city')"><Icon id="ic-fac_metro" :size="16" fit />城市<kbd>M</kbd></button>
+            <Hint title="地圖">街區是 13 × 9 的格子：點設施走過去，到了右欄「這裡」換成那個設施；點邊上的箭頭換街區。車站（地鐵、輕軌、巴士、渡輪）也是設施：走上去按 E 選一站。城市地圖（M）看你在哪裡，從那裡只能叫計程車或開自己的車。鍵盤：方向鍵或 WASD 走一格，E 走進腳下的設施或出口；不必先點地圖。</Hint>
+          </div>
+          <GridMap :w="bm.w" :h="bm.h" :cell="cellView" :tokens="tokens" :path="path" :max-cell="30" :label="`${g.loc.block}的街區圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
+          <div class="legend"><span><i class="lg fac" />設施</span><span><i class="lg exit" />出口</span><span><i class="lg me" />你</span><span><i class="lg npc" />人</span></div>
         </section>
         <section class="panel cut pad party">
           <p class="h">小隊</p>
@@ -188,8 +182,8 @@ const stages = [
       <!-- 中欄 -->
       <div class="col center">
         <nav class="panel cut tools" aria-label="工具列">
-          <button v-for="t in tools" :key="t.id" type="button" class="tool" @click="tool(t.id)">
-            <Icon :id="t.icon" :size="18" fit />{{ t.name }}<span v-if="t.badge" class="badge">{{ t.badge }}</span><i v-if="t.dot" class="rdot" aria-label="有沒看過的指南" />
+          <button v-for="t in tools" :key="t.id" type="button" class="tool" :title="KEY_OF[t.id] ? `${t.name}（${KEY_OF[t.id]}）` : t.name" :aria-keyshortcuts="KEY_OF[t.id]" @click="tool(t.id)">
+            <Icon :id="t.icon" :size="18" fit />{{ t.name }}<kbd v-if="KEY_OF[t.id]">{{ KEY_OF[t.id] }}</kbd><span v-if="t.badge" class="badge">{{ t.badge }}</span><i v-if="t.dot" class="rdot" aria-label="有沒看過的指南" />
           </button>
         </nav>
         <section class="panel cut logp"><LogView :entries="g.log" /></section>
@@ -270,7 +264,9 @@ const stages = [
 .main { flex: 1; min-height: 0; display: grid; grid-template-columns: 360px minmax(0, 1fr) 330px; gap: 12px; padding: 12px; }
 .col { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; overflow: auto; }
 .mtools { display: none; }
-.maphd { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.maphd { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.maphd .h { margin: 0; }
+.maphd .grow { flex: 1; }
 .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; font-size: var(--fs-fine); color: var(--ink-3); }
 .lg { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
 .lg.fac { background: var(--tile-fac); } .lg.exit { box-shadow: inset 0 0 0 2px var(--b); } .lg.me { background: var(--a); border-radius: 50%; } .lg.npc { background: var(--c); border-radius: 50%; }
@@ -284,7 +280,6 @@ const stages = [
 .tools { display: flex; gap: 6px; padding: 8px; flex-wrap: wrap; flex: none; }
 .tool { display: flex; align-items: center; gap: 6px; padding: 7px 12px; background: var(--bg-2); font-weight: 800; font-size: var(--fs-ui); color: var(--ink-2); position: relative; border: 0; cursor: pointer; clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px)); }
 .tool:hover { background: var(--bg-3); color: var(--ink); }
-.tool[aria-disabled="true"] { opacity: .5; }
 .rdot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
 .ongb { display: block; width: 100%; text-align: left; border: 0; color: var(--ink); font: inherit; font-size: var(--fs-ui); cursor: pointer; }
 .ongb:hover { background: var(--bg-3); }

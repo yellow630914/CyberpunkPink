@@ -167,7 +167,6 @@ const floorModel = computed({ get: () => String(fi.value), set: v => { const n =
 .seg { display: inline-flex; gap: 4px; margin-bottom: 6px; }
 .seg button { font-size: var(--fs-sm); font-weight: 800; padding: 6px 12px; background: var(--bg-2); color: var(--ink-2); border: 0; cursor: pointer; }
 .seg button.on { background: var(--a); color: #fff; }
-.seg button[aria-disabled="true"] { opacity: .45; }
 .nodeh { display: flex; align-items: center; gap: 8px; }
 .go.left { justify-content: flex-start; }
 .ln { margin: 0 0 6px; font-size: var(--fs-sm); line-height: 1.6; color: var(--ink-2); }

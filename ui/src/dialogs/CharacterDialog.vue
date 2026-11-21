@@ -194,7 +194,7 @@ const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e4
           <div v-else class="empty-note">這一格是空的。</div>
           <p class="h mt">背包裡的消耗品</p>
           <div class="qgrid">
-            <ItemSlot v-for="st in quickable" :key="st.uid" :item="ITEMS[st.def]" :qty="st.qty" size="sm" show-name :locked="!!quickBlock(st.def)" @select="putQuick(st.def)" />
+            <ItemSlot v-for="st in quickable" :key="st.uid" :item="ITEMS[st.def]" :qty="st.qty" size="sm" show-name :unavailable="quickBlock(st.def)" @select="putQuick(st.def)" />
           </div>
           <div class="go"><ReasonButton sm :reason="g.quick[quickSel] ? null : '這一格是空的。'" @go="g.setQuick(quickSel!, null)">清空</ReasonButton><button type="button" class="btn sm" @click="quickSel = null">回到裝備</button></div>
         </aside>

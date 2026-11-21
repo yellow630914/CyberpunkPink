@@ -6,6 +6,7 @@ import Hint from '../components/Hint.vue'
 import ItemSlot from '../components/ItemSlot.vue'
 import ReasonButton from '../components/ReasonButton.vue'
 import RuleFields from '../components/RuleFields.vue'
+import SkillTreeView from '../components/SkillTreeView.vue'
 import MoneyTag from '../components/MoneyTag.vue'
 import { useGame } from '../stores/game'
 import { useSettings } from '../stores/settings'
@@ -13,14 +14,15 @@ import { useUi } from '../stores/ui'
 import { ITEMS } from '../data/items'
 import { SKILL_TREES } from '../data/content.generated'
 import {
-  ATTRS, ATTR_ARRAY, ATTR_FREE, BASIC_SKILLS, BASIC_POINTS, BASIC_MAX, ORIGINS, CORPS, CYBER_OPTIONS, CYBER_POINTS, CYBER_POINT_MONEY,
-  TRAITS, LIFE_TABLES, GEAR_CATALOG, GEAR_POINTS, GEAR_POINT_MONEY, SUGGESTED_KITS, LOOKS, QUICK_STARTS, START_MONEY, type AttrName, type CyberOption, type TraitOption,
+  ATTRS, ATTR_ARRAY, ATTR_FREE, ATTR_MIN, ATTR_MAX, BASIC_SKILLS, BASIC_POINTS, BASIC_MAX, ORIGINS, CORPS, CYBER_OPTIONS, CYBER_POINTS, CYBER_POINT_MONEY,
+  TRAITS, LIFE_TABLES, GEAR_CATALOG, GEAR_POINTS, GEAR_POINT_MONEY, SUGGESTED_KITS, LOOKS, LOOK_GROUPS, ORIGIN_STYLE, LIFE_BY_ORIGIN, QUICK_STARTS, START_MONEY, type AttrName, type CyberOption, type TraitOption,
 } from '../data/creation'
 import {
-  ageBlock, freeValues, attrTotals, attrBlock, attrMod, basicLeft, basicStepBlock, cyberSummary, cyberPickBlock, cyberBlock,
+  ageBlock, freeValues, attrTotals, attrBlock, attrMod, attrBudget, attrStepBlock, fmtMod, basicLeft, basicStepBlock, cyberSummary, cyberPickBlock, cyberBlock,
   traitSummary, traitPickBlock, traitBlock, gearPoints, gearSummary, gearAddBlock, fitKit, type AttrPick,
 } from '../lib/creation'
-import { learnBlock, skillXp, treeSpent, tierOpen, TIER_THRESHOLDS } from '../lib/skills'
+import { skillXp, TIER_THRESHOLDS } from '../lib/skills'
+import { unavailable } from '../lib/unavailable'
 import type { ItemDef } from '../data/types'
 
 /**
@@ -50,7 +52,18 @@ const packs = reactive([
 ])
 
 // ---- 1 基本資料 ----
-const basic = reactive({ name: '', gender: '女', pronoun: '她', view: '第二人稱', age: '24', build: '中性', height: '中等', skin: '小麥色', hair: '短髮', hairColor: '黑', eyes: '褐', beast: '沒有', cyber: '後頸的橋露在外面', looks: '', background: '' })
+const basic = reactive<Record<string, string>>({
+  name: '', gender: '女', pronoun: '她', view: '第二人稱', age: '24',
+  height: '160～169 公分', build: '中性', figure: '勻稱', posture: '步子大、手臂擺得穩', skin: '小麥色',
+  face: '鵝蛋臉', eyeShape: '有神的雙眼皮', eyes: '褐', mark: '沒有',
+  hair: '耳下的短髮', hairColor: '黑', hairTexture: '一般',
+  chest: '大小適中', waist: '結實', hips: '圓而翹', legs: '修長', hands: '指節分明、手指細長',
+  cyber: '後頸的橋露在外面', cyberLook: '織女的白色樹脂', beast: '沒有', beastPart: '只有耳朵', beastKind: '生體派（真的毛）', style: '工裝',
+  looks: '', background: '',
+})
+/** 外觀的一格現在用不到（例：沒有獸化時的「派別」）：灰掉、不能選（UI.md 1.1 節）。 */
+const lookOff = (f: { needs?: { k: string; not: string } }) => !!f.needs && basic[f.needs.k] === f.needs.not
+function randomLooks() { for (const grp of LOOK_GROUPS) for (const f of grp.fields) basic[f.k] = f.opts[Math.floor(Math.random() * f.opts.length)] }
 const NAMES = ['凜', '小穗', '阿海', '影', '朔夜', '千秋', '小滿', '晴']
 function randomName() { basic.name = NAMES[Math.floor(Math.random() * NAMES.length)] }
 
@@ -59,19 +72,19 @@ const originId = ref('hive')
 const origin = computed(() => ORIGINS.find(o => o.id === originId.value)!)
 const corp = ref<string>('緋櫻')
 const favor = ref<string>('孤星連')
-function pickOrigin(id: string) { originId.value = id; favor.value = ORIGINS.find(o => o.id === id)!.favor[0]; picks.cyber = picks.cyber.filter(c => !c.corpOnly) }
+function pickOrigin(id: string) { originId.value = id; favor.value = ORIGINS.find(o => o.id === id)!.favor[0]; picks.cyber = picks.cyber.filter(c => !c.corpOnly); basic.style = ORIGIN_STYLE[id] ?? basic.style }
 
 // ---- 3 屬性 ----
 const attrs = reactive<AttrPick>({ 體格: 12, 反應: 15, 技術: 8, 智識: 13, 意志: 10, 魅力: 14 })
 const attrBonus = reactive<Partial<Record<AttrName, number>>>({ 意志: 2 })
 const totals = computed(() => attrTotals(attrs, attrBonus))
-const freeLeft = computed(() => ATTR_FREE - ATTRS.reduce((s, a) => s + (attrBonus[a] ?? 0), 0))
+const budget = computed(() => attrBudget(attrBonus))
+const freeLeft = computed(() => budget.value.left)
+/** ±：加花自由點數（或把壓下去的加回來）；減先退自由點數，再往下壓到 4，每壓一點多一點自由點數。 */
 function bump(a: AttrName, d: 1 | -1) {
-  const v = attrBonus[a] ?? 0
-  if (d > 0 && freeLeft.value <= 0) { ui.toast('自由點數用完了。', 'warn'); return }
-  if (d > 0 && totals.value[a] >= 18) { ui.toast('單項最高 18。', 'warn'); return }
-  if (d < 0 && v <= 0) return
-  attrBonus[a] = v + d
+  const b = attrStepBlock(attrs, attrBonus, a, d)
+  if (b) { ui.toast(b, 'warn'); return }
+  attrBonus[a] = (attrBonus[a] ?? 0) + d
 }
 function setAttr(a: AttrName, raw: string) { if (raw === '') delete attrs[a]; else attrs[a] = Number(raw) }
 
@@ -87,7 +100,11 @@ function basicStep(name: string, d: 1 | -1) {
 // ---- 5 生命軌跡 ----
 const FILTER_OF: Record<string, keyof typeof st.s> = {}
 const life = reactive<Record<string, string>>({ family: 'alive', incident: 'debt', friend: 'grew', enemy: '', love: '', want: 'truth', sex: '', latent: '' })
-const lifeOptions = (id: string) => LIFE_TABLES.find(t => t.id === id)!.options.filter(o => !o.filter || st.s[o.filter as 'filterPublic'])
+/** 生命軌跡的說法跟著出身換（data/creation.ts 的 LIFE_BY_ORIGIN）：只換文字，結果的種類不變。 */
+const lifeOptions = (id: string) => LIFE_TABLES.find(t => t.id === id)!.options
+  .filter(o => !o.filter || st.s[o.filter as 'filterPublic'])
+  .map(o => ({ ...o, ...(LIFE_BY_ORIGIN[originId.value]?.opts?.[`${id}.${o.id}`] ?? {}) }))
+const lifeFlavor = (id: string) => LIFE_BY_ORIGIN[originId.value]?.flavor[id] ?? ''
 const lifeTables = computed(() => LIFE_TABLES.filter(t => lifeOptions(t.id).length))
 function roll(id: string) { const o = lifeOptions(id); life[id] = o[Math.floor(Math.random() * o.length)].id }
 void FILTER_OF
@@ -127,10 +144,7 @@ function addCustom() {
 // ---- 8 技能 ----
 const XP_START = 200
 const learned = ref<string[]>([])
-const learnedSet = computed(() => new Set(learned.value))
 const xpLeft = computed(() => XP_START - learned.value.reduce((s, id) => { const t = SKILL_TREES.find(x => id.startsWith(x.id + ':'))!; return s + skillXp(t.skills.find(k => k.id === id)!) }, 0))
-const skTree = ref(SKILL_TREES[0].id)
-const skT = computed(() => SKILL_TREES.find(t => t.id === skTree.value)!)
 function learnS(id: string) { learned.value = [...learned.value, id] }
 function forget(id: string) {
   // 拿掉一個技能時，接著它的、或因此開不了階的技能也一起拿掉
@@ -211,7 +225,7 @@ function start() {
   ui.toast('角色建好了。')
   router.push('/')
 }
-const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${attrMod(totals.value[a]) >= 0 ? '+' : ''}${attrMod(totals.value[a])}）`))
+const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${fmtMod(attrMod(totals.value[a]))}）`))
 </script>
 
 <template>
@@ -222,19 +236,21 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${attr
         <span class="mono">{{ typeof s.id === 'number' ? s.id : i === 0 ? '世' : '篩' }}</span>{{ s.name }}
       </button>
     </nav>
-    <div class="body">
+    <div class="body" :class="{ wide: step === 8 }">
       <main class="panel cut pad page">
         <!-- 世界 -->
         <template v-if="step === 'world'">
           <h2>世界</h2>
           <p class="setgrp">世界包<Hint>基本世界本身也是一個世界包；玩家做的世界包疊在上面。匯入走同一套檢查。</Hint></p>
+          <div class="grid2">
           <div v-for="p in packs" :key="p.id" class="setrow">
             <span class="nm">{{ p.name }}</span><span class="val">{{ p.sub }}</span>
             <button v-if="!p.locked" type="button" class="switch" role="switch" :aria-label="p.name" :aria-checked="p.on" :class="{ on: p.on }" @click="p.on = !p.on" />
             <span v-else class="df">一定要開</span>
           </div>
+          </div>
           <p class="setgrp">快速開始<Hint>每個出身準備兩個預設角色，一個偏戰鬥、一個偏非戰鬥。選了直接填好，最後一頁還能回頭改。</Hint></p>
-          <div class="quick"><button v-for="q in QUICK_STARTS" :key="q.name" type="button" class="lrow" @click="quick(q)"><span class="grow"><b>{{ q.name }}・{{ ORIGINS.find(o => o.id === q.origin)!.name }}・{{ q.role }}</b><small>{{ q.line }}</small></span></button></div>
+          <div class="grid2 quick"><button v-for="q in QUICK_STARTS" :key="q.name" type="button" class="lrow" @click="quick(q)"><span class="grow"><b>{{ q.name }}・{{ ORIGINS.find(o => o.id === q.origin)!.name }}・{{ q.role }}</b><small>{{ q.line }}</small></span></button></div>
         </template>
 
         <!-- 內容篩選 -->
@@ -243,22 +259,41 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${attr
           <div class="lockline"><span class="lk">LOCK</span><b>所有角色皆為成年人。</b><Hint>這一條不能關。建角、匯入與世界編輯器都會擋下低於 18 的年齡。</Hint></div>
           <div class="lockline"><span class="lk">LOCK</span><b>不寫血腥，不寫懷孕。</b><Hint>這是內容的底線，不是篩選的選項，所以沒有開關。</Hint></div>
           <p class="setgrp">題材<Hint>內容篩選排在建角之前，關掉的題材不會出現在建角的選項裡（生命軌跡的性經歷與潛在性癖、特質）。篩選跟著存檔走；開新局時預設是上一次的選擇。</Hint></p>
+          <div class="grid2">
           <div v-for="[k, n] in ([['filterRestraint', '拘束'], ['filterDollChip', '人偶晶片的失憶工作'], ['filterPublic', '公開場合'], ['filterContract', '契約']] as const)" :key="k" class="setrow">
             <span class="nm">{{ n }}</span><span />
             <button type="button" class="switch" role="switch" :aria-label="n" :aria-checked="st.s[k]" :class="{ on: st.s[k] }" @click="st.s[k] = !st.s[k]" />
+          </div>
           </div>
         </template>
 
         <!-- 1 基本資料 -->
         <template v-else-if="step === 1">
           <h2>基本資料</h2>
-          <div class="form">
-            <label class="fld"><span>名字</span><span class="row"><input v-model="basic.name" class="inp" placeholder="你取的名字"><button type="button" class="btn sm" @click="randomName">隨機</button></span></label>
-            <label class="fld"><span>年齡<Hint>只收整數，低於 18 時「下一步」不能按。</Hint></span><input v-model="basic.age" class="inp" inputmode="numeric" aria-describedby="agewarn"></label>
-            <label v-for="[k, n] in ([['gender', '性別'], ['pronoun', '稱呼'], ['view', '敘事視角'], ['build', '體型'], ['height', '身高'], ['skin', '膚色'], ['hair', '髮型'], ['hairColor', '髮色'], ['eyes', '眼睛'], ['beast', '獸化'], ['cyber', '明顯的義體']] as const)" :key="k" class="fld">
-              <span>{{ n }}<Hint v-if="k === 'gender'">決定戰敗事件、成人事件與 NTR 分到哪些版本。現實的身體之後可以靠義體或生技改，內海的化身可以自由變化。</Hint></span>
-              <select v-model="basic[k]" class="inp"><option v-for="o in LOOKS[k]" :key="o">{{ o }}</option></select>
-            </label>
+          <div class="grid2 cards looks">
+            <section class="lgrp cut-sm">
+              <h4>身分</h4>
+              <div class="form">
+                <label class="fld wide"><span>名字</span><span class="row"><input v-model="basic.name" class="inp" placeholder="你取的名字"><button type="button" class="btn sm" @click="randomName">隨機</button></span></label>
+                <label class="fld"><span>年齡<Hint>只收整數，低於 18 時「下一步」不能按。</Hint></span><input v-model="basic.age" class="inp" inputmode="numeric" aria-describedby="agewarn"></label>
+                <label v-for="[k, n] in ([['gender', '性別'], ['pronoun', '稱呼'], ['view', '敘事視角']] as const)" :key="k" class="fld">
+                  <span>{{ n }}<Hint v-if="k === 'gender'">決定戰敗事件、成人事件與 NTR 分到哪些版本。現實的身體之後可以靠義體或生技改，內海的化身可以自由變化。</Hint></span>
+                  <select v-model="basic[k]" class="inp"><option v-for="o in LOOKS[k]" :key="o">{{ o }}</option></select>
+                </label>
+              </div>
+            </section>
+            <section v-for="grp in LOOK_GROUPS" :key="grp.id" class="lgrp cut-sm">
+              <h4>{{ grp.name }}<Hint v-if="grp.hint" :text="grp.hint" /></h4>
+              <div class="form">
+                <label v-for="f in grp.fields" :key="f.k" class="fld" :class="{ 'is-unavailable': lookOff(f) }" :title="lookOff(f) ? `先選「${grp.fields.find(x => x.k === f.needs!.k)!.name}」` : undefined">
+                  <span>{{ f.name }}<Hint v-if="f.hint" :text="f.hint" /></span>
+                  <select v-model="basic[f.k]" class="inp" :disabled="lookOff(f)"><option v-for="o in f.opts" :key="o">{{ o }}</option></select>
+                </label>
+              </div>
+            </section>
+          </div>
+          <div class="go left"><button type="button" class="btn sm" @click="randomLooks">外觀全部隨機</button></div>
+          <div class="form mt">
             <label class="fld wide"><span>外觀補充（選用）</span><input v-model="basic.looks" class="inp" placeholder="例：左耳的顏色和右耳不一樣"></label>
             <label class="fld wide"><span>背景（選用）<Hint>寫進給 AI 的角色資料裡。</Hint></span><textarea v-model="basic.background" class="inp" rows="3" /></label>
           </div>
@@ -289,18 +324,22 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${attr
         <!-- 3 屬性 -->
         <template v-else-if="step === 3">
           <h2>屬性</h2>
-          <p class="setgrp">把 {{ ATTR_ARRAY.join('、') }} 分到六項，再加 {{ ATTR_FREE }} 點<Hint>每項一個下拉，選過的數字從其他下拉消失；兩顆 ± 加自由點數，單項最高 18。調整值是（屬性 − 10）÷ 2，無條件捨去。屬性之後不能用歷練點升。</Hint></p>
+          <p class="setgrp">把 {{ ATTR_ARRAY.join('、') }} 分到六項，再加 {{ ATTR_FREE }} 點<Hint>每項一個下拉，選過的數字從其他下拉消失。分完以後用 ± 調：加一點花一點自由點數（單項最高 {{ ATTR_MAX }}）；也可以把任何一項往下壓，最低 {{ ATTR_MIN }}（調整值 {{ fmtMod(attrMod(ATTR_MIN)) }}），每壓一點多一點自由點數拿去加別的。調整值是（屬性 − 10）÷ 2，無條件捨去。屬性之後不能用歷練點升。</Hint></p>
           <div class="attrs">
-            <div v-for="a in ATTRS" :key="a" class="at cut-sm">
-              <span class="k">{{ a }}</span>
+            <div v-for="a in ATTRS" :key="a" class="at cut-sm" :class="{ neg: attrs[a] !== undefined && attrMod(totals[a]) < 0 }">
+              <span class="an">{{ a }}</span>
               <select :value="attrs[a] ?? ''" class="inp" :aria-label="a" @change="setAttr(a, ($event.target as HTMLSelectElement).value)">
                 <option value="">—</option><option v-for="v in freeValues(attrs, a)" :key="v" :value="v">{{ v }}</option>
               </select>
-              <span class="stepper"><button type="button" :aria-label="`${a}減一`" @click="bump(a, -1)">−</button><b>+{{ attrBonus[a] ?? 0 }}</b><button type="button" :aria-label="`${a}加一`" @click="bump(a, 1)">＋</button></span>
-              <span class="tot mono">{{ totals[a] || '—' }}<small v-if="attrs[a]">（{{ attrMod(totals[a]) >= 0 ? '+' : '' }}{{ attrMod(totals[a]) }}）</small></span>
+              <span class="stepper">
+                <button type="button" :aria-label="`${a}減一`" v-bind="unavailable(attrStepBlock(attrs, attrBonus, a, -1))" @click="bump(a, -1)">−</button>
+                <b :class="{ 'warn-t': (attrBonus[a] ?? 0) < 0 }">{{ fmtMod(attrBonus[a] ?? 0) }}</b>
+                <button type="button" :aria-label="`${a}加一`" v-bind="unavailable(attrStepBlock(attrs, attrBonus, a, 1))" @click="bump(a, 1)">＋</button>
+              </span>
+              <span class="tot mono">{{ attrs[a] !== undefined ? totals[a] : '—' }}<small v-if="attrs[a] !== undefined" class="mod" :class="{ neg: attrMod(totals[a]) < 0 }">{{ fmtMod(attrMod(totals[a])) }}</small></span>
             </div>
           </div>
-          <div class="kv"><span>自由點數</span><b>剩 {{ freeLeft }}</b></div>
+          <div class="kv"><span>自由點數<Hint>基本 {{ ATTR_FREE }} 點，加上壓下去的 {{ budget.lowered }} 點。</Hint></span><b>剩 {{ freeLeft }}／{{ budget.total }}</b></div>
           <div v-if="block" class="blocking">{{ block }}</div>
         </template>
 
@@ -321,11 +360,14 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${attr
         <template v-else-if="step === 5">
           <h2>生命軌跡</h2>
           <p class="setgrp">每一張可以擲、可以選、可以跳過<Hint>結果會變成遊戲裡的東西：一位 NPC、一個勢力的好感或敵對值、一筆錢或債、一個旗標、一個缺陷、一個個人目標。性經歷與潛在性癖兩張表照內容篩選過濾；所有相關的人物都是成年人。</Hint></p>
-          <div v-for="t in lifeTables" :key="t.id" class="setrow">
-            <span class="nm">{{ t.name }}</span>
-            <select v-model="life[t.id]" class="inp wide" :aria-label="t.name"><option value="">跳過</option><option v-for="o in lifeOptions(t.id)" :key="o.id" :value="o.id">{{ o.text }}</option></select>
-            <button type="button" class="btn sm" @click="roll(t.id)">擲</button>
-            <small v-if="life[t.id]" class="res">{{ lifeOptions(t.id).find(o => o.id === life[t.id])?.result }}</small>
+          <p class="origin-note">出身：<b>{{ origin.name }}</b>・{{ origin.line }}。每張表的說法照出身寫；結果的種類一樣。</p>
+          <div class="grid2 cards">
+            <div v-for="t in lifeTables" :key="t.id" class="life cut-sm">
+              <div class="lh"><h4>{{ t.name }}</h4><button type="button" class="btn sm" @click="roll(t.id)">擲</button></div>
+              <p class="flavor">{{ lifeFlavor(t.id) }}</p>
+              <select v-model="life[t.id]" class="inp" :aria-label="t.name"><option value="">跳過</option><option v-for="o in lifeOptions(t.id)" :key="o.id" :value="o.id">{{ o.text }}</option></select>
+              <small v-if="life[t.id]" class="res">→ {{ lifeOptions(t.id).find(o => o.id === life[t.id])?.result }}</small>
+            </div>
           </div>
         </template>
 
@@ -333,15 +375,19 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${attr
         <template v-else-if="step === 6">
           <h2>橋與義體・剩 {{ cy.left }}／{{ CYBER_POINTS }} 點</h2>
           <p class="setgrp">橋・選一座<Hint>橋決定四類技能的容量（現實／內海／社交／媒體）。企業出身才選得到那家企業的橋。</Hint></p>
-          <button v-for="o in CYBER_OPTIONS.filter(x => x.kind === 'bridge')" :key="o.id" type="button" class="lrow pick" :class="{ on: picks.cyber.some(c => c.id === o.id), no: !!cyberPickBlock(picks.cyber, o, { id: originId, corp }) && !picks.cyber.some(c => c.id === o.id) }" @click="toggleCyber(o)">
-            <span class="grow"><b>{{ o.name }}</b><small>{{ o.brand }}・{{ ['', 'I', 'II'][o.grade] }}・{{ o.cap!.join('／') }}・沉溺成本 {{ o.sink }}</small><small v-if="cyberPickBlock(picks.cyber, o, { id: originId, corp }) && !picks.cyber.some(c => c.id === o.id)" class="warn-t">{{ cyberPickBlock(picks.cyber, o, { id: originId, corp }) }}</small></span>
+          <div class="grid2">
+          <button v-for="o in CYBER_OPTIONS.filter(x => x.kind === 'bridge')" :key="o.id" type="button" class="lrow pick" :class="{ on: picks.cyber.some(c => c.id === o.id), 'is-unavailable': !!cyberPickBlock(picks.cyber, o, { id: originId, corp }) && !picks.cyber.some(c => c.id === o.id) }" :title="(!picks.cyber.some(c => c.id === o.id) && cyberPickBlock(picks.cyber, o, { id: originId, corp })) || undefined" @click="toggleCyber(o)">
+            <span class="grow"><b>{{ o.name }}</b><small>{{ o.brand }}・{{ ['', 'I', 'II'][o.grade] }}・{{ o.cap!.join('／') }}・沉溺成本 {{ o.sink }}</small><small v-if="cyberPickBlock(picks.cyber, o, { id: originId, corp }) && !picks.cyber.some(c => c.id === o.id)" class="why">{{ cyberPickBlock(picks.cyber, o, { id: originId, corp }) }}</small></span>
             <Hint :text="o.note" /><b class="pt mono">{{ o.points }}</b>
           </button>
+          </div>
           <p class="setgrp">其他義體<Hint>每一件照常算沉溺的下限：開場改得越多，沉溺的起點越高。</Hint></p>
-          <button v-for="o in CYBER_OPTIONS.filter(x => x.kind !== 'bridge')" :key="o.id" type="button" class="lrow pick" :class="{ on: picks.cyber.some(c => c.id === o.id) }" @click="toggleCyber(o)">
-            <span class="grow"><b>{{ o.name }}</b><small>{{ o.part }}・{{ o.kind === 'light' ? '輕度' : '侵入' }}・沉溺成本 {{ o.sink }}</small></span>
+          <div class="grid2">
+          <button v-for="o in CYBER_OPTIONS.filter(x => x.kind !== 'bridge')" :key="o.id" type="button" class="lrow pick" :class="{ on: picks.cyber.some(c => c.id === o.id) }" v-bind="unavailable(!picks.cyber.some(c => c.id === o.id) && cyberPickBlock(picks.cyber, o, { id: originId, corp }))" @click="toggleCyber(o)">
+            <span class="grow"><b>{{ o.name }}</b><small>{{ o.part }}・{{ o.kind === 'light' ? '輕度' : '侵入' }}・沉溺成本 {{ o.sink }}</small><small v-if="!picks.cyber.some(c => c.id === o.id) && cyberPickBlock(picks.cyber, o, { id: originId, corp })" class="why">{{ cyberPickBlock(picks.cyber, o, { id: originId, corp }) }}</small></span>
             <Hint :text="o.note" /><b class="pt mono">{{ o.points }}</b>
           </button>
+          </div>
           <div class="kv"><span>沒花完的點數換錢<Hint>每點 {{ CYBER_POINT_MONEY }}。</Hint></span><b>+{{ cy.money }}</b></div>
           <div v-if="block" class="blocking">{{ block }}</div>
         </template>
@@ -350,8 +396,8 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${attr
         <template v-else-if="step === 7">
           <h2>特質與缺陷・剩 {{ tr.left }} 點</h2>
           <p class="setgrp">起始 {{ st.s.traitPoints }} 點，另送出身特質「{{ origin.trait.name }}」<Hint>每個特質 1～3 點：一格（例如一項基本功 +2）是 2 點；最多 2 個缺陷，每個退 1～3 點；特質總數上限 8 個（不含出身特質與缺陷）。特質不佔橋的容量。</Hint></p>
-          <div class="traits">
-            <button v-for="t in traitList" :key="t.id" type="button" class="lrow pick" :class="{ on: picks.traits.some(x => x.id === t.id), flaw: t.flaw }" @click="toggleTrait(t)">
+          <div class="grid2 traits">
+            <button v-for="t in traitList" :key="t.id" type="button" class="lrow pick" :class="{ on: picks.traits.some(x => x.id === t.id), flaw: t.flaw }" v-bind="unavailable(!picks.traits.some(x => x.id === t.id) && traitPickBlock(picks.traits, t, st.s.traitPoints))" @click="toggleTrait(t)">
               <span class="grow"><b>{{ t.name }}</b><small>{{ t.cat }}・{{ t.effect }}</small></span><b class="pt mono">{{ t.flaw ? '+' : '−' }}{{ t.cost }}</b>
             </button>
             <button v-for="t in picks.traits.filter(x => x.cat === '自訂')" :key="t.id" type="button" class="lrow pick on" @click="toggleTrait(t)"><span class="grow"><b>{{ t.name }}</b><small>自訂・{{ t.effect }}</small></span><b class="pt mono">−{{ t.cost }}</b></button>
@@ -369,18 +415,8 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${attr
         <!-- 8 技能 -->
         <template v-else-if="step === 8">
           <h2>技能・剩 {{ xpLeft }}／{{ XP_START }} 歷練點</h2>
-          <p class="setgrp">在技能樹上花<Hint>學一個技能花「階 × 20」，算進那棵樹的累計；累計到 40 開 2 階、120 開 3 階。起始的 200 點大約能把一棵樹開到 3 階。沒花完的留著。</Hint></p>
-          <div class="filters"><button v-for="t in SKILL_TREES" :key="t.id" type="button" :class="{ on: skTree === t.id }" @click="skTree = t.id">{{ t.name }}<template v-if="treeSpent(t, learnedSet)"> {{ tierOpen(treeSpent(t, learnedSet)) }}</template></button></div>
-          <div class="kv"><span>{{ skT.name }}的累計</span><b>{{ treeSpent(skT, learnedSet) }}・開到 {{ tierOpen(treeSpent(skT, learnedSet)) }} 階</b></div>
-          <div class="sks">
-            <div v-for="s in skT.skills.filter(k => k.tier <= 3)" :key="s.id" class="lrow">
-              <span class="tierb mono">{{ s.tier }}</span>
-              <span class="grow"><b>{{ s.name }}</b><small>{{ s.layer === 'sig' ? '招牌' : s.layer === 'front' ? '前層' : '後層' }}・{{ s.kindName }}・容量 {{ s.cap }}<template v-if="s.pre">・前置 {{ s.pre }}</template></small></span>
-              <Hint :text="s.real !== '—' ? s.real : s.net !== '—' ? s.net : s.opinion" />
-              <button v-if="learnedSet.has(s.id)" type="button" class="btn sm pri" @click="forget(s.id)">✓ {{ skillXp(s) }}</button>
-              <ReasonButton v-else sm :reason="learnBlock(skT, s, learnedSet, xpLeft)" @go="learnS(s.id)">學 {{ skillXp(s) }}</ReasonButton>
-            </div>
-          </div>
+          <p class="setgrp">在技能樹上花<Hint>和遊戲裡的技能樹是同一個畫面：學一個技能花「階 × 20」，算進那棵樹的累計；累計到 {{ TIER_THRESHOLDS[1] }} 開 2 階、{{ TIER_THRESHOLDS[2] }} 開 3 階。起始的 {{ XP_START }} 點大約能把一棵樹開到 3 階。建角時學了可以退（選中再按「退掉」）；沒花完的留著。灰掉的是現在學不了的，點開看原因。</Hint></p>
+          <SkillTreeView :learned="learned" :xp="xpLeft" creation @learn="learnS" @forget="forget" />
         </template>
 
         <!-- 9 錢與裝備 -->
@@ -394,7 +430,7 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${attr
                 <p class="h">{{ c.cat }}</p>
                 <div class="ggrid">
                   <div v-for="id in c.ids" :key="id" class="gi">
-                    <ItemSlot :item="ITEMS[id]" size="sm" show-name :locked="!!gearAddBlock(picks.gear, ITEMS[id])" @select="addGear(ITEMS[id])" />
+                    <ItemSlot :item="ITEMS[id]" size="sm" show-name :unavailable="gearAddBlock(picks.gear, ITEMS[id])" @select="addGear(ITEMS[id])" />
                     <small class="mono">{{ gearPoints(ITEMS[id]) }} 點</small>
                   </div>
                 </div>
@@ -482,13 +518,15 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${attr
 .inp { width: 100%; min-width: 0; background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 8px 10px; font: 600 var(--fs-md) var(--font); }
 .inp:focus { box-shadow: inset 0 0 0 2px var(--a); outline: none; }
 .mt { margin-top: 12px; }
-.quick { display: grid; gap: 5px; }
 .quick small, .pick small, .sks small, .chosen small { display: block; color: var(--ink-3); font-size: var(--fs-fine); }
-.attrs { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-bottom: 8px; }
-.at { display: grid; grid-template-columns: 1fr auto; gap: 6px; padding: 10px; background: var(--bg-2); align-items: center; }
-.at .k { grid-column: 1 / -1; }
-.at .tot { grid-column: 1 / -1; font-size: var(--fs-page); font-weight: 900; }
-.at .tot small { font-size: var(--fs-sm); color: var(--ink-3); }
+.attrs { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: var(--space-4); margin-bottom: var(--space-4); }
+.at { display: grid; grid-template-columns: 1fr auto; gap: var(--space-3); padding: var(--space-4); background: var(--bg-2); align-items: center; }
+.at .an { grid-column: 1 / -1; font-size: var(--fs-card); font-weight: var(--fw-title); }
+.at.neg { box-shadow: inset 3px 0 0 var(--warn); }
+.at .mod { margin-left: var(--space-3); font-size: var(--fs-lg); color: var(--ok); }
+.at .mod.neg { color: var(--warn); }
+.at .stepper b { min-width: 40px; }
+.at .tot { grid-column: 1 / -1; font-size: var(--fs-num); font-weight: 900; line-height: 1.1; }
 .basics { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 16px; }
 .brow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 5px 8px; background: var(--bg-2); }
 .bn { font-weight: 800; font-size: var(--fs-ui); }
@@ -500,14 +538,23 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${attr
 .res { grid-column: 1 / -1; color: var(--ram); font-size: var(--fs-fine); }
 .setrow .inp.wide { grid-column: auto; }
 .pick { margin-bottom: 4px; }
-.pick.no { opacity: .55; }
+.pick .why { color: var(--warn); }
+.looks { --col-min: 360px; }
+.lgrp { background: var(--bg-2); padding: var(--space-4) var(--space-5) var(--space-5); display: grid; gap: var(--space-4); align-content: start; }
+.lgrp h4 { margin: 0; display: flex; gap: var(--space-2); align-items: center; }
+.lgrp .form { grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: var(--space-4); }
+.origin-note { margin: 0 0 var(--space-4); color: var(--ink-2); }
+.life { background: var(--bg-2); padding: var(--space-4); display: grid; gap: var(--space-3); align-content: start; }
+.lh { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+.lh h4 { margin: 0; }
+.flavor { margin: 0; color: var(--ink-3); font-size: var(--fs-sm); line-height: 1.6; }
+.life .res { font-size: var(--fs-sm); font-weight: 700; }
 .pick.flaw b:first-child { color: var(--warn); }
 .pt { font-size: var(--fs-md); color: var(--ap); min-width: 26px; text-align: right; }
-.traits { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 4px 8px; }
 .custom { margin-top: 8px; display: grid; gap: 8px; }
-.sks { display: grid; gap: 4px; }
-.tierb { width: 22px; height: 22px; display: grid; place-items: center; background: var(--bg-term); border-radius: 5px; font-size: var(--fs-fine); flex: none; }
 .go.left { justify-content: flex-start; margin: 0 0 8px; }
+.body.wide { grid-template-columns: minmax(0, 1fr); max-width: 1600px; }
+.body.wide .sum { display: none; }
 .gearl { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 12px; align-items: start; }
 .ggrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; margin-bottom: 10px; }
 .gi { display: grid; gap: 2px; justify-items: center; }

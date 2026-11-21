@@ -28,22 +28,22 @@ const NOTES = [
 </script>
 
 <template>
-  <Dialog :entry-id="entryId" :stacked="stacked" title="備忘錄" :sub="`筆記 ${NOTES.length}・指南 ${g.guides.collected.length}／${GUIDE_LIST.length}`" size="md">
+  <Dialog :entry-id="entryId" :stacked="stacked" title="備忘錄" :sub="`筆記 ${NOTES.length}・指南 ${g.guides.collected.length}／${GUIDE_LIST.length}`" size="lg">
     <template #header><Tabs v-model="tab" :tabs="tabs" /></template>
     <section v-if="tab === 'notes'" class="row-list">
-      <div v-for="n in NOTES" :key="n.t" class="lrow note"><div class="grow"><b>{{ n.t }}</b><small>{{ n.b }}</small></div></div>
+      <div class="grid2"><div v-for="n in NOTES" :key="n.t" class="lrow note"><div class="grow"><b>{{ n.t }}</b><small>{{ n.b }}</small></div></div></div>
       <p class="h mt">人情</p>
-      <div v-for="f in FAVORS" :key="f.who" class="lrow"><span class="grow"><b>{{ g.npcs[f.who]?.name ?? f.who }}</b><small>{{ f.why }}</small></span><span :class="f.dir === 'you-owe' ? 'warn-t' : 'ok-t'" class="mono">{{ f.dir === 'you-owe' ? '你欠' : '欠你' }}・{{ f.size }}</span></div>
+      <div class="grid2"><div v-for="f in FAVORS" :key="f.who" class="lrow"><span class="grow"><b>{{ g.npcs[f.who]?.name ?? f.who }}</b><small>{{ f.why }}</small></span><span :class="f.dir === 'you-owe' ? 'warn-t' : 'ok-t'" class="mono">{{ f.dir === 'you-owe' ? '你欠' : '欠你' }}・{{ f.size }}</span></div></div>
     </section>
     <section v-else class="guides">
       <p class="h">還沒碰過的系統不列出來<Hint>紅點是收進來但還沒看的。關掉「跳出指南」之後，新的指南直接收到這裡。</Hint></p>
       <template v-for="grp in groups" :key="grp.cat">
         <p class="cat">{{ grp.cat }}</p>
-        <button v-for="x in grp.items" :key="x.id" type="button" class="lrow gl" @click="ui.open('guide', { guideId: x.id })">
+        <div class="grid2"><button v-for="x in grp.items" :key="x.id" type="button" class="lrow gl" @click="ui.open('guide', { guideId: x.id })">
           <span class="sys">SYS</span>
           <span class="grow"><b>{{ x.title }}</b><small>{{ GUIDE_PAGES[x.id] ? `${GUIDE_PAGES[x.id].length} 頁` : '內文還沒寫' }}</small></span>
           <i v-if="!g.guides.seen.includes(x.id)" class="dot" aria-label="沒看過" />
-        </button>
+        </button></div>
       </template>
     </section>
   </Dialog>

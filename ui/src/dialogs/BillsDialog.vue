@@ -56,7 +56,7 @@ const preset = computed(() => st.s.billRule)
           <Hint :text="`沒付的話：${l.ifUnpaid}。`" />
         </div>
         <p class="h mt">收入・先入帳</p>
-        <div v-for="i in INCOMES" :key="i.id" class="bill paid"><span class="ord mono">＋</span><span class="grow"><b>{{ i.name }}</b></span><MoneyTag :kind="i.to === '帳戶' ? 'acc' : 'cash'" :amount="i.amount" /></div>
+        <div v-for="i in INCOMES" :key="i.id" class="bill inc"><span class="ord mono">＋</span><span class="grow"><b>{{ i.name }}</b></span><MoneyTag :kind="i.to === '帳戶' ? 'acc' : 'cash'" :amount="i.amount" /></div>
       </section>
       <aside class="stack">
         <section class="panel cut pad">
@@ -98,9 +98,9 @@ const preset = computed(() => st.s.billRule)
 <style scoped>
 .bl { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; margin-top: 10px; }
 .bill { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto 70px 64px auto auto; gap: 8px; align-items: center; padding: 8px 10px; background: var(--bg-2); margin-bottom: 4px; font-size: var(--fs-sm); }
-.bill.paid { grid-template-columns: 22px minmax(0, 1fr) auto; }
+.bill.inc { grid-template-columns: 22px minmax(0, 1fr) auto; }
 .bill.short { box-shadow: inset 3px 0 0 var(--danger); }
-.bill.unpaid { opacity: .65; }
+.bill.unpaid { opacity: .65; filter: grayscale(.6); }
 .bill.skipped { opacity: .5; }
 .bill small { display: block; color: var(--ink-3); font-size: var(--fs-xs); }
 .ord { color: var(--ink-3); font-size: var(--fs-fine); }
