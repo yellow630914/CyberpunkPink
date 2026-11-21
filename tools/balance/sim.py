@@ -2,7 +2,7 @@
 """夾值用的模擬器（docs/systems/BALANCE.md）。不依賴任何套件。
 
 用法：python3 tools/balance/sim.py [主題 ...] [--set current|proposed] [--doc-budget] [--trials N] [--seed N]
-主題：summary（預設）、hits、encounter、cross、capture、key、quests、grade、duel、legend、difficulty、net、check、economy、xp、opinion、roster、items、skills、mech、all
+主題：summary（預設）、hits、encounter、cross、capture、key、quests、grade、duel、legend、difficulty、net、check、economy、xp、opinion、roster、items、skills、mech、netrun、all
 
 所有曲線都寫在這個檔案的 CURVES 裡，和 BALANCE.md 的表一一對應。
 current 是第一輪夾值之前文件寫的數字（2026-11-20），proposed 是 BALANCE.md 的曲線；兩組只在 DIFF 列出的欄位不同。
@@ -450,6 +450,141 @@ def capture_encounter(C, g, eg, comp, rng, trials, other=0.25, rounds=20, decay=
     n_p = C.get('party_n', 4)
     return (loss / trials, rnds / trials, wins / trials, downs / trials, overloads / trials / n_p,
             any_down / trials, multi_down / trials)
+
+
+# 網內的一層連打幾場（CYBERSPACE 8.1 節）：感載與餘韻跨場帶著走。場與場之間走 between 個節點，每個探索回合感載消退 3，
+# 餘韻不消；休息點（每層一個，2026-11-21）把感載歸零、餘韻全消、RAM 回滿。網內的傷害不打折，敵人多 1 顆骰，扣主角的防護。
+def net_fight(C, g, comp, rng, st, decay=P_DECAY, other=0.25, rounds=20):
+    lmax, lcap = C['p_load'][g], C['p_layers'][g]
+    party = make_party(C, g)
+    foes = []
+    for r in comp:
+        f = make_enemy(C, g, r)
+        f.hp = f.max = C['e_load'][r][g] * (C['e_layers'][r] + 1)
+        f.armor = C['net_guard'][g]
+        f.dice = 3 + C['grade_dice'][g] + C['e_net_dice']
+        f.mult = 1.0
+        foes.append(f)
+    alive_p = lambda: [i for i, s_ in enumerate(st) if not s_['down']]
+    n = 0
+    while n < rounds and any(f.hp > 0 for f in foes) and alive_p():
+        n += 1
+        order = ['party', 'foes'] if rng.random() < 0.5 else ['foes', 'party']
+        for side in order:
+            if side == 'party':
+                for i, u in enumerate(party):
+                    s_ = st[i]
+                    if s_['down']:
+                        continue
+                    s_['load'] = max(0.0, s_['load'] - decay)
+                    if s_['skip']:
+                        s_['skip'] = False
+                        continue
+                    take_turn(rng, u, foes, True, 0.0)
+            else:
+                for f in foes:
+                    if f.hp <= 0:
+                        continue
+                    f.acc += f.regen
+                    gain = int(f.acc); f.acc -= gain; f.ap = min(f.apmax, f.ap + gain)
+                    if rng.random() < other and f.ap >= 1:
+                        f.ap -= 1
+                    while f.ap >= 2:
+                        live = alive_p()
+                        if not live:
+                            break
+                        if f.mag == 0:
+                            f.ap -= 1; f.mag = f.magmax; continue
+                        i = rng.choice(live)
+                        f.ap -= 2; f.mag -= 1
+                        s_ = st[i]
+                        s_['load'] += attack(rng, f, party[i])
+                        if s_['load'] >= lmax:
+                            s_['load'] = 0.0
+                            s_['over'] += 1
+                            if s_['lay'] >= lcap:
+                                s_['down'] = True
+                            else:
+                                s_['lay'] += 1
+                                s_['skip'] = True
+    return all(f.hp <= 0 for f in foes)
+
+
+def net_layer(C, g, fights, rng, trials, rest_after=None, between=3):
+    """fights：這一層依序的遭遇；rest_after：第幾場之後經過休息點（None＝沒有）。回傳（有人倒下的比例、平均倒下的人數、
+    最後一場開打前每人平均帶著的餘韻、全部打完的比例）。"""
+    any_down = downs = carried = done = 0.0
+    for _ in range(trials):
+        st = [{'load': 0.0, 'lay': 0, 'skip': False, 'down': False, 'over': 0} for _ in range(4)]
+        ok = True
+        for k, comp in enumerate(fights):
+            if k == len(fights) - 1:
+                carried += sum(s_['lay'] for s_ in st if not s_['down']) / 4
+            if not net_fight(C, g, comp, rng, st):
+                ok = False
+                break
+            for s_ in st:
+                s_['load'] = max(0.0, s_['load'] - P_DECAY * between)
+                s_['skip'] = False
+            if rest_after is not None and k == rest_after:
+                for s_ in st:
+                    s_['load'], s_['lay'] = 0.0, 0
+        nd = sum(s_['down'] for s_ in st)
+        any_down += nd >= 1
+        downs += nd
+        done += ok and nd < 4
+    return any_down / trials, downs / trials, carried / trials, done / trials
+
+
+NET_MAPS = {
+    '一般子網 3 層（每層 2 場＋層主，最後一層是首領戰）': [['N', 'E', 'G'], ['N', 'E', 'G'], ['N', 'E', 'B']],
+    '沉船帶 4 層（每層 3 場＋層主）': [['N', 'E', 'N', 'G']] * 3 + [['N', 'E', 'N', 'B']],
+    '沉船帶 4 層（每層 4 場＋層主，最多的）': [['N', 'E', 'N', 'E', 'G']] * 3 + [['N', 'E', 'N', 'E', 'B']],
+    '深海一個海域 2 層': [['N', 'E', 'N'], ['N', 'E', 'B']],
+}
+NET_COMPS = {'N': ['雜兵'] * 4, 'E': ['精英', '雜兵', '雜兵'], 'G': ['首領', '雜兵'], 'B': ['首領', '雜兵', '雜兵', '雜兵']}
+
+
+def net_run(C, g, layers, rng, trials, mode='layer', between=3):
+    """一整張隨機地圖：mode＝'layer' 每層一個休息點（在那一層的一半），'map' 整張只有一個（在一半），'none' 沒有。"""
+    fights, rests = [], set()
+    for L in layers:
+        if mode == 'layer':
+            rests.add(len(fights) + len(L) // 2 - 1)
+        fights += [NET_COMPS[k] for k in L]
+    if mode == 'map':
+        rests.add(len(fights) // 2 - 1)
+    any_down = downs = done = 0.0
+    for _ in range(trials):
+        st = [{'load': 0.0, 'lay': 0, 'skip': False, 'down': False, 'over': 0} for _ in range(4)]
+        ok = True
+        for k, comp in enumerate(fights):
+            if not net_fight(C, g, comp, rng, st):
+                ok = False
+                break
+            for s_ in st:
+                s_['load'] = max(0.0, s_['load'] - P_DECAY * between)
+                s_['skip'] = False
+            if k in rests:
+                for s_ in st:
+                    s_['load'], s_['lay'] = 0.0, 0
+        nd = sum(s_['down'] for s_ in st)
+        any_down += nd >= 1
+        downs += nd
+        done += ok
+    return any_down / trials, downs / trials, done / trials
+
+
+def show_netrun(C, rng, trials):
+    print(f'■ 網內的隨機地圖連打（CYBERSPACE 8.1 節）：同級四人，{trials} 次；感載與餘韻跨場帶著走，場與場之間走 3 個節點（每個探索回合感載 −3，餘韻不消）')
+    print('  休息點：感載歸零、餘韻全消。欄位是 有人倒下的比例／平均倒下幾人／打完的比例')
+    for label, layers in NET_MAPS.items():
+        for mode, name in (('layer', '每層一個休息點'), ('map', '整張只有一個'), ('none', '沒有')):
+            cells = []
+            for g in (0, 2, 4):
+                a, d, ok = net_run(C, g, layers, rng, trials, mode)
+                cells.append(f'{G[g]} {pct(a)}／{d:.2f}／{pct(ok)}')
+            print(f'  {label}，{name}：' + '｜'.join(cells))
 
 
 def capture_table(C, rng, trials, budget=None):
@@ -1068,7 +1203,7 @@ def main():
     rng = random.Random(a.seed)
     topics = a.topics
     if 'all' in topics:
-        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'quests', 'grade', 'duel', 'legend', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items', 'skills', 'mech']
+        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'quests', 'grade', 'duel', 'legend', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items', 'skills', 'mech', 'netrun']
     if 'summary' in topics:
         topics = ['hits', 'encounter', 'cross']
     print(f'曲線：{a.set}')
@@ -1078,6 +1213,7 @@ def main():
          'check': lambda: show_check(C), 'economy': lambda: show_economy(C), 'xp': lambda: show_xp(C),
          'opinion': lambda: show_opinion(C), 'roster': lambda: show_roster(C), 'items': show_items, 'skills': show_skills,
          'mech': lambda: show_mech(C, rng, max(500, a.trials // 2)),
+         'netrun': lambda: show_netrun(C, rng, max(200, a.trials // 10)),
          'key': lambda: show_key(C, rng, max(300, a.trials // 2)),
          'capture': lambda: show_capture(C, rng, max(500, a.trials // 2)),
          'quests': lambda: show_quest_layouts(C, rng, max(300, a.trials // 4)),

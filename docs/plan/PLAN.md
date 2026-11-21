@@ -14,7 +14,7 @@
 | 3 | **潤色** | 配合平衡後的數字、去 AI 味；在純文件上做 |
 | 4 | **匯入** | 把潤色過的內容經世界編輯器的路徑匯進引擎 |
 
-- **平衡另開一個工作階段**，必須在引擎核心與世界編輯器完成之前做完。要做的事是 [BALANCE](../systems/BALANCE.md) 第 6 節的四項，加上第 5.1 節列的數字。
+- **平衡另開一個工作階段**，必須在引擎核心與世界編輯器完成之前做完。要做的事是 [BALANCE](../systems/BALANCE.md) 第 6 節的三項，加上第 5.1 節列的數字。
 - 給 ElondiaRPG 的減熵清單在共用管道搬完、整理好之後交第一版（[IMPLEMENTATION](IMPLEMENTATION.md) 第 4 節）。
 
 ## 2. 世界編輯器與匯入
@@ -53,8 +53,7 @@
 
 - [BALANCE](../systems/BALANCE.md) 第 6 節第 1 項：輿論戰的模擬加上風向、說法牌、降流與否認、多佔一次的技能，再對一次對手的數值與 [OPINION](../systems/OPINION.md) 第 2、3 節的數字。
 - BALANCE 第 6 節第 2 項：事件與任務裡寫死的錢照 COMMISSION_TEMPLATES 的公式對一次。
-- BALANCE 第 6 節第 3 項：[CYBERSPACE](../systems/CYBERSPACE.md) 第 8 節隨機地圖每層的遭遇數與陷阱的感載，照「不補給打得完」對一次。
-- BALANCE 第 6 節第 4 項：傳奇級的戰鬥，真的要寫時另外配隊伍的準備並用 `legend` 主題確認勝率。
+- BALANCE 第 6 節第 3 項：傳奇級的戰鬥，真的要寫時另外配隊伍的準備並用 `legend` 主題確認勝率。
 
 ### 5.2 系統
 
