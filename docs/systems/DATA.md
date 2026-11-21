@@ -373,7 +373,7 @@
 | `actions` | 行動的優先順序，每個寫什麼條件下用 |
 | `signature` | 這個勢力的招牌招式 |
 | `once` | 每場一次的行動：收買、找上門，各寫觸發的條件 |
-| `mimic` | 只有「另一個主播」：模擬抽牌，每回合隨機開放幾種行動 |
+| `mimic` | 只有「另一個主播」（第一手的潔絲，`pr_jess`）：模擬抽牌，每回合隨機開放幾種行動 |
 
 格子的 id：`doujin` 同人圈、`tape` 帶子街、`fanclub` 應援圈、`sakura` 緋櫻映畫、`kaleido` 萬華鏡、`nightingale` 夜鶯直播、`wall` 牆報、`whisper` 街上的耳語、`relay` 地下轉播站。
 

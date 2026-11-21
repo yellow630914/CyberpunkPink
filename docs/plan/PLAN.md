@@ -80,15 +80,12 @@
 
 - [FACTIONS](../world/FACTIONS.md) 第 7 節：各勢力特有的好感來源與效果，要和 [QUESTS](../content/QUESTS.md) 的勢力線逐家再對一次。
 - [STORY_QUESTS](../world/STORY_QUESTS.md) 1.2 節：劇情計數器 `truth` 的範圍 0～6 是照六條主線定的，主線不採用之後要不要改。
-- STORY_QUESTS 第 9 節的「期限」一欄全是「—」（「其他的線沒有期限」），但 [QUESTS](../content/QUESTS.md) 有幾條線用了 ⏳（偶像 ⑤、幾條夥伴線、勢力線的祭典），兩邊要對齊。
 
 ### 5.4 物品與內容
 
 - [CYBERWARE](../gear/CYBERWARE.md) 7.5 節：劇情取得的原型與牆外來的橋，等傳奇寫到時再加。
 - [ITEMS](../gear/ITEMS.md) 4.2 節、第 13 節：V 級的藥還沒有。
 - [QUESTS](../content/QUESTS.md)：傳奇還沒寫、吉祥物線冷庫之後故意不寫（都見第 3 節）；「路數的線」裡偶像線的親衛隊隊長，關係線「之後寫」。
-- [COMMISSION_TEMPLATES](../content/COMMISSION_TEMPLATES.md) 的輿論議題：「另一個主播」用暫時的 id `pr_rival_streamer`。詞條「有名字的對頭」說第一手的潔絲（base `pr_kaleido`，[ENEMY_ROSTER](../content/ENEMY_ROSTER.md)）就是那個主播，但直接換成 `pr_kaleido` 會讓 `tp_tape_leak`（滅火）違反「滅火的議題不能以萬華鏡當對手」；要給潔絲自己的 id，或另定 base。
-- [EVENTS_CITY](../content/EVENTS_CITY.md) 的要地事件還用舊主線的旗標命名空間（`t9:`、`grad:`、`blast:`）；「艦載網在叫」（`si_wreck_signal`）要的 `blast:b6_open` 已經沒有任何東西會設，這件事件出不來；`t9:inspection_week` 由誰設也要確認。
 
 ### 5.5 美術與介面
 
@@ -96,7 +93,6 @@
 - UI 第 4 節：「行動列」那一列與手機版裡的行動列是行動圓環之前的寫法，要照 Demo 整理。
 - UI 第 15 節：標題與存檔、世界編輯器還沒有自己的一節（示意頁有了）。
 - UI 6.1 節：輿論戰 Demo 的格子還沒接上勢力徽記，實作時接。
-- [ART_STYLE](../art/ART_STYLE.md) 第 6 節，**等你回答**：「潛入畫面樣稿」與「街區圖把店家擺到格子上」這兩項之前從「之後要畫的」拿掉了，要不要留。
 
 ### 5.6 AI 與實作
 

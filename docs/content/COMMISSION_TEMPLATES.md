@@ -2043,7 +2043,7 @@ SITES 12.4 節的權重表照舊，新的六張加在後面：
 
 - 九個格子的位置固定（OPINION 3.1 節）：上排同人圈、帶子街、應援圈；中排緋櫻映畫、萬華鏡、夜鶯直播；下排牆報、街上的耳語、地下轉播站。分數高的格子離開場的位置越遠，那一場越難打。
 - **滅火的議題不能以萬華鏡當對手**（OPINION 5.1 節），所以萬華鏡自己出事的議題只有爆料與抹黑兩種開場。
-- 「另一個主播」在 ENEMY_ROSTER 沒有 id，這裡暫時叫 `pr_rival_streamer`（DATA 6.3 節的 `mimic`）。
+- 「另一個主播」是第一手的潔絲，`pr_jess`（ENEMY_ROSTER 第六節「邊緣行者」，DATA 6.3 節的 `mimic`）。她不屬於萬華鏡，所以可以當滅火的對手。
 - 一場短的輿論戰（非最後階段，四回合）用同一個議題，分數不變。
 
 ### 大眾的議題
@@ -2104,7 +2104,7 @@ SITES 12.4 節的權重表照舊，新的六張加在後面：
 - **牽涉**：勢力 緋櫻（戰姬事業部）、親衛隊、地下偶像的事務所；人 公司偶像、地下偶像、她的對象；片 名人、親密。
 - **分數**：kaleido 2、sakura 2、nightingale 2、tape 1、doujin 1、fanclub 3、wall 0、whisper 1、relay 0（合計 12）。
 - **常用在**：爆料、滅火、蜜罐的第一階段、挖角的第一階段。
-- **預設的對手**：`pr_hizakura`；地下偶像的換 `pr_guard`（親衛隊自己會出來護航）。滅火時對手是爆料的那一方，多半是 `pr_rival_streamer`。
+- **預設的對手**：`pr_hizakura`；地下偶像的換 `pr_guard`（親衛隊自己會出來護航）。滅火時對手是爆料的那一方，多半是 `pr_jess`。
 
 #### 畢業之後（`tp_idol_graduation`）
 
@@ -2120,7 +2120,7 @@ SITES 12.4 節的權重表照舊，新的六張加在後面：
 - **牽涉**：勢力 帶子街的攤商、蜜糖會、伊甸園；人 被錄的人、錄的人、買斷的人；片 親密、名人。
 - **分數**：kaleido 1、sakura 0、nightingale 2、tape 3、doujin 1、fanclub 2、wall 0、whisper 2、relay 0（合計 11）。
 - **常用在**：滅火、抹除之後的收尾、蜜罐的後續。
-- **預設的對手**：`pr_rival_streamer`；帶子是伊甸園流出來的換 `pr_eden`（它會收買兩次）。
+- **預設的對手**：`pr_jess`；帶子是伊甸園流出來的換 `pr_eden`（它會收買兩次）。
 
 #### 主播互撕（`tp_streamer_feud`）
 
@@ -2128,7 +2128,7 @@ SITES 12.4 節的權重表照舊，新的六張加在後面：
 - **牽涉**：勢力 夜鶯、萬華鏡；人 主播、她的剪輯師、她的金主；片 名人、醜聞。
 - **分數**：kaleido 2、sakura 0、nightingale 3、tape 1、doujin 1、fanclub 2、wall 0、whisper 1、relay 1（合計 11）。
 - **常用在**：抹黑、造勢、滅火。
-- **預設的對手**：`pr_rival_streamer`。這是「同一件事兩邊都有人接」最常見的議題。
+- **預設的對手**：`pr_jess`。這是「同一件事兩邊都有人接」最常見的議題。
 
 #### 中之人（`tp_vtuber_soul`）
 
@@ -2290,8 +2290,8 @@ SITES 12.4 節的權重表照舊，新的六張加在後面：
 | `tp_kaleido_algorithm` | 醜聞 | 引爆或抹黑 | 3 | 2 | 2 | 1 | 1 | 1 | 0 | 1 | 1 | 12 | `pr_kaleido` |
 | `tp_idol_romance` | 緋聞 | 引爆 | 2 | 2 | 2 | 1 | 1 | 3 | 0 | 1 | 0 | 12 | `pr_hizakura` |
 | `tp_idol_graduation` | 人物 | 引爆 | 2 | 2 | 1 | 0 | 1 | 3 | 1 | 1 | 1 | 12 | `pr_hizakura` |
-| `tp_tape_leak` | 緋聞 | 滅火 | 1 | 0 | 2 | 3 | 1 | 2 | 0 | 2 | 0 | 11 | `pr_rival_streamer` |
-| `tp_streamer_feud` | 人物 | 抹黑 | 2 | 0 | 3 | 1 | 1 | 2 | 0 | 1 | 1 | 11 | `pr_rival_streamer` |
+| `tp_tape_leak` | 緋聞 | 滅火 | 1 | 0 | 2 | 3 | 1 | 2 | 0 | 2 | 0 | 11 | `pr_jess` |
+| `tp_streamer_feud` | 人物 | 抹黑 | 2 | 0 | 3 | 1 | 1 | 2 | 0 | 1 | 1 | 11 | `pr_jess` |
 | `tp_vtuber_soul` | 人物 | 引爆 | 1 | 0 | 3 | 1 | 2 | 3 | 0 | 1 | 0 | 11 | `pr_nightingale` |
 | `tp_doujin_feud` | 圈子 | 抹黑 | 0 | 0 | 2 | 1 | 3 | 2 | 1 | 1 | 1 | 11 | `pr_doujin` |
 | `tp_mech_tape_fake` | 商品 | 引爆 | 2 | 2 | 1 | 3 | 1 | 1 | 0 | 1 | 0 | 11 | `pr_hizakura` |
@@ -2595,7 +2595,7 @@ DATA 9.1 節的 `topic` 加一欄 `category`，其餘照舊。議題模板存在
 |---|---|---|---|---|---|---|---|---|
 | `c_persona_honeypot` | 蜜罐 | 現實 | 小 | III | `map_club` ×2（萬華鏡包下的 VIP 層） | 第一階段可選輿論：`tp_streamer_feud`（先把她捧高） | 萬華鏡 | 萬華鏡預設（成人向）；算委託失敗 |
 | `c_rescue_original` | 救援 | 現實 | 小 | III | `map_hotel`（萬華鏡把本人藏在旅館坡） | — | 萬華鏡（替身保全） | 萬華鏡預設；算委託失敗 |
-| `c_debut` | 造勢／洗白 | 輿論 | 小 | III | 第一階段 `map_studio` | `tp_streamer_feud` | 萬華鏡；另一邊可能有 `pr_rival_streamer` | 輸了算委託失敗 |
+| `c_debut` | 造勢／洗白 | 輿論 | 小 | III | 第一階段 `map_studio` | `tp_streamer_feud` | 萬華鏡；另一邊可能有 `pr_jess` | 輸了算委託失敗 |
 
 | 線索 | 在哪 | 提示 | 真假 | 來源 | 過期 |
 |---|---|---|---|---|---|
