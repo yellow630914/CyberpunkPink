@@ -1,0 +1,122 @@
+// L7 外殼：存檔與讀檔（做法照搬 ElondiaRPG 的 stores/saves 與介面第四版的 lib/save.ts）。純函式，不碰 localStorage：
+// 存到哪裡（格子、檔案）是 ui 的事，這裡只管一份存檔的文字怎麼打包、怎麼讀回來。
+//
+// - 存檔是一份 JSON：{ format, version, meta, state }。格式版本從 1 開始（MIGRATION「敘事、狀態與介面」）。
+// - 讀檔：解析 → 認格式 → 照遷移步驟表一版一版升上來 → 補缺的欄位 → 檢查結構 → 年齡的底線。
+// - 有低於 18 的年齡，整筆拒絕，不自動改成 18。
+// - 讀檔修復（ElondiaRPG 寫在狀態層的 load 裡）改成 save.loaded 掛鉤，由 Game.load 在讀完之後跑。
+
+import type { GameState } from '../core/types'
+import { STATE_VERSION } from '../core/types'
+import { blankState } from '../core/state/blank'
+import { underageAt, validateActor } from '../core/state/coreChanges'
+import { sanitizeRules } from '../core/rules/saveRules'
+import { clone } from '../core/util/clone'
+import { isRecord } from '../core/util/sanitize'
+import { formatTime, isValidTime } from '../core/util/time'
+
+/** 引擎的存檔格式。和介面第四版的假存檔（cyberpunkpink-save，版本 1～4）分開，兩邊不會互相誤讀（dev/adr/0005）。 */
+export const SAVE_FORMAT = 'cyberpunkpink-engine-save'
+export const SAVE_VERSION = STATE_VERSION
+
+export interface SaveMeta {
+  label: string
+  day: number
+  time: string
+  place: string
+  /** 存檔的時刻（由外面給；引擎不看時鐘） */
+  savedAt: string
+  kind: 'manual' | 'auto' | 'snapshot'
+  /** 主角的摘要：名字與出身（取代 ElondiaRPG 存檔摘要裡的種族、職業、等級） */
+  pc?: { name: string; origin?: string }
+}
+
+export interface SaveFile {
+  format: string
+  version: number
+  meta: SaveMeta
+  state: GameState
+}
+
+/** 一步遷移：把 from 版的狀態升到 from + 1 版。 */
+export interface Migration {
+  from: number
+  note: string
+  run(state: Record<string, unknown>): Record<string, unknown>
+}
+
+/**
+ * 遷移步驟表。現在是第 1 版，所以是空的。之後狀態的形狀一改：STATE_VERSION 加一，在這裡加一步，
+ * 並在 engine/tests/fixtures/saves/ 留一份舊版的存檔當回歸測試。
+ */
+export const MIGRATIONS: Migration[] = []
+
+export function saveMeta(state: GameState, kind: SaveMeta['kind'], savedAt: string, label?: string): SaveMeta {
+  const pc = state.pc ? state.actors[state.pc] : undefined
+  const place = [state.location.district, state.location.block, state.location.facility].filter(Boolean).join(' · ')
+  return {
+    label: label ?? `${pc?.name ?? '還沒建角'}・${formatTime(state.time)}`, day: state.time.day, time: formatTime(state.time), place, savedAt, kind,
+    ...(pc ? { pc: { name: pc.name, ...(typeof pc.ext.origin === 'string' ? { origin: pc.ext.origin } : {}) } } : {}),
+  }
+}
+
+export function packSave(state: GameState, meta: SaveMeta): string {
+  return JSON.stringify({ format: SAVE_FORMAT, version: SAVE_VERSION, meta, state } satisfies SaveFile)
+}
+
+export type Unpacked = { ok: true; file: SaveFile; fromVersion: number } | { ok: false; error: string }
+
+/** 狀態的結構檢查。回傳問題的清單。 */
+export function validateState(s: unknown): string[] {
+  if (!isRecord(s)) return ['狀態要是一個物件']
+  const p: string[] = []
+  const int = (v: unknown) => typeof v === 'number' && Number.isInteger(v)
+  if (!isRecord(s.rng) || !int(s.rng.seed) || !int(s.rng.cursor)) p.push('rng：要有整數的 seed 與 cursor')
+  if (!isValidTime(s.time)) p.push('time：不是合法的時間')
+  if (!isRecord(s.money) || !int(s.money.cred) || !int(s.money.cash) || (s.money.cred as number) < 0 || (s.money.cash as number) < 0) p.push('money：帳戶與現金要是 0 以上的整數')
+  if (!isRecord(s.actors)) p.push('actors：要是一個物件')
+  else for (const [id, a] of Object.entries(s.actors)) {
+    for (const e of validateActor(a)) p.push(`actors.${id}：${e}`)
+    if (isRecord(a) && a.id !== id) p.push(`actors.${id}：id 和鍵不一樣`)
+  }
+  if (s.pc !== null && !(typeof s.pc === 'string' && isRecord(s.actors) && s.pc in s.actors)) p.push('pc：主角不在 actors 裡')
+  if (!Array.isArray(s.party) || (isRecord(s.actors) && s.party.some((id) => !(String(id) in (s.actors as object))))) p.push('party：隊伍裡有不存在的角色')
+  if (!Array.isArray(s.inventory) || s.inventory.some((x) => !isRecord(x) || typeof x.id !== 'string' || !int(x.qty) || (x.qty as number) <= 0)) p.push('inventory：每一疊要有 id 與正整數的 qty')
+  for (const k of ['flags', 'counters', 'ext', 'location', 'seq'] as const) if (!isRecord(s[k])) p.push(`${k}：要是一個物件`)
+  for (const k of ['reports', 'chains'] as const) if (!Array.isArray(s[k])) p.push(`${k}：要是一個陣列`)
+  return p
+}
+
+export function unpackSave(raw: string): Unpacked {
+  let d: unknown
+  try {
+    d = JSON.parse(raw)
+  } catch {
+    return { ok: false, error: '這不是存檔：JSON 讀不出來。' }
+  }
+  if (!isRecord(d) || d.format !== SAVE_FORMAT) return { ok: false, error: '這不是存檔：缺了格式標記。' }
+  if (typeof d.version !== 'number' || !Number.isInteger(d.version) || d.version < 1) return { ok: false, error: '存檔的版本號不對。' }
+  if (d.version > SAVE_VERSION) return { ok: false, error: `存檔格式 ${d.version} 比這個版本新，讀不了。` }
+  if (!isRecord(d.state)) return { ok: false, error: '存檔裡沒有狀態。' }
+
+  const fromVersion = d.version
+  let state = clone(d.state) as Record<string, unknown>
+  for (let v = fromVersion; v < SAVE_VERSION; v++) {
+    const step = MIGRATIONS.find((m) => m.from === v)
+    if (!step) return { ok: false, error: `沒有從第 ${v} 版升上來的遷移步驟。` }
+    state = step.run(state)
+  }
+  // 補缺的欄位（新版多出來、舊存檔沒有的），存檔規則另外清一次
+  const blank = blankState(0) as unknown as Record<string, unknown>
+  for (const [k, v] of Object.entries(blank)) if (state[k] === undefined) state[k] = v
+  state.version = SAVE_VERSION
+  state.rules = sanitizeRules(state.rules)
+  state.seq = { ...(blank.seq as object), ...(isRecord(state.seq) ? state.seq : {}) }
+
+  const problems = validateState(state)
+  if (problems.length) return { ok: false, error: `存檔壞了（${problems.slice(0, 3).join('；')}）。` }
+  const young = underageAt(state)
+  if (young.length) return { ok: false, error: `存檔裡有低於 18 的年齡（${young.slice(0, 3).join('、')}）：所有角色都是成年人，整筆不讀。` }
+  const meta = isRecord(d.meta) ? (d.meta as unknown as SaveMeta) : saveMeta(state as unknown as GameState, 'manual', '')
+  return { ok: true, fromVersion, file: { format: SAVE_FORMAT, version: SAVE_VERSION, meta, state: state as unknown as GameState } }
+}

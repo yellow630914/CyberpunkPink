@@ -1,0 +1,21 @@
+{
+  "name": "cyberpunkpink-engine",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "CyberpunkPink 的遊戲引擎。純 TypeScript：不 import Vue，也不碰瀏覽器 API。ui/ 的 store 包住它。",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:pending": "vitest run --config vitest.pending.config.ts",
+    "test:smoke": "vitest run tests/smoke",
+    "typecheck": "tsc --noEmit",
+    "layers": "node scripts/check-layers.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "fast-check": "^4.3.0",
+    "typescript": "~5.9.3",
+    "vitest": "^5.1.1"
+  }
+}
