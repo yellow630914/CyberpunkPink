@@ -17,59 +17,67 @@ docs/
 │   ├─ GANGS            街頭勢力：主要、次要與文化分支
 │   ├─ CULTURE          御宅文化、獸化、女僕、偶像、同人、街頭用語
 │   ├─ DISTRICTS        八個區、地圖規模、要地、橋接區、交通
-│   ├─ NPCS             五十八位固定 NPC、十二位夥伴、四十二個流竄 AI、六條主線骨架
+│   ├─ NPCS             固定 NPC、十二位夥伴、四十二個流竄 AI、穿過很多人的線、傳奇人物
 │   ├─ LIFE             錢、身分與掃橋、法律、等級、牌子、藥、通訊、一週的節奏與城市的大事、行規
-│   ├─ FACTIONS         二十九個勢力的關係表、好感與敵對值的來源（草稿，還沒過）
-│   ├─ STORY_QUESTS     特殊任務：路數、中間人、夥伴、流竄 AI、勢力的線；主線先不定（素材）
-│   └─ SITES            39 塊街區、17 處要地、任務區域、副本的現實面模板（素材，小修可用）
+│   ├─ FACTIONS         二十九個勢力的關係表、好感與敵對值的來源
+│   ├─ STORY_QUESTS     特殊任務的格式、旗標與計數器；路數、中間人、夥伴、流竄 AI、勢力的線的骨架
+│   └─ SITES            39 塊街區、17 處要地、任務區域、副本的現實面模板、內海的固定地點、設施
 │
 ├─ systems/             規則：遊戲怎麼玩
 │   ├─ CORE_RULES       屬性、基本功、檢定、三條軌、同步、路數、技能與容量、成長、名聲
-│   ├─ CHARACTER        建角、出身、生命軌跡、特質與缺陷（建角的數字與特質點已確認）
+│   ├─ CHARACTER        建角、出身、生命軌跡、特質與缺陷
 │   ├─ COMBAT_SYSTEM    現實戰鬥、戰敗、召喚與機甲
 │   ├─ CYBERSPACE       內海：分區、化身、構裝、網內戰鬥、精神污染
 │   ├─ NETRUNNING       竄網：快駭、蕾絲、追蹤度、粉牆
-│   ├─ OPINION          輿論戰：3×3 棋盤的議題戰役（已確認）與頻道的經營層（已確認）
+│   ├─ OPINION          輿論戰：3×3 棋盤的議題戰役與頻道的經營層
 │   ├─ MEDIA            媒體：拍片與直播兩條流程、偶像
 │   ├─ COMMISSIONS      委託副本：三到五個階段、每階段選一面、主面與輔助面、連動、類型
 │   ├─ FIXER            中間人、一案四拍、每週帳單、掮客、名冊、派工、人情、據點的等級
 │   ├─ LEWD_SYSTEM      成人向：橋參數、傾向、成人場景、調校、豔名、場所、契約、內容篩選、夜課
 │   ├─ DATA             資料的格式：每一種內容一筆完整的樣本
-│   ├─ BALANCE          數值平衡：方法、I～V 級的核心曲線、難度、模擬器與偏差報告（初稿）
-│   ├─ SKILLS           九棵技能樹：八條路數加夜課（框架已確認；技能清單是素材）
-│   ├─ ENEMIES          敵人：等級與位階、各勢力、蕾絲、機甲、敵人 AI（框架已確認；名單與數值是素材）
-│   ├─ NPC_SYSTEM       NPC 的生成、互動、關係與記憶、夥伴（已確認）
-│   ├─ EVENTS           統一的事件導演與各範圍的事件（框架已確認；例子是素材）
+│   ├─ BALANCE          數值平衡：方法、I～V 級的核心曲線、難度、模擬器與偏差報告
+│   ├─ SKILLS           九棵技能樹：八條路數加夜課的框架
+│   ├─ ENEMIES          敵人：等級與位階、各勢力、蕾絲、機甲、敵人 AI
+│   ├─ NPC_SYSTEM       NPC 的生成、互動、關係與記憶、夥伴
+│   ├─ EVENTS           統一的事件導演與各範圍的事件
 │   ├─ SERIES           系列：事件、線索、特殊任務、委託副本的分組；線索池
-│   ├─ DOWNTIME         休息、治療、分階段的打工、帳單、區域狀態、房間制的家園（家園與打工已確認；數字待平衡）
-│   ├─ TRADE            商店、價格、殺價、黑市、價差（已確認）
-│   └─ PROMPTS          提示詞、世界書、文風（草稿；幾個任務之後照新框架重寫）
+│   ├─ DOWNTIME         休息、治療、分階段的打工、帳單、區域狀態、房間制的家園
+│   ├─ TRADE            商店、價格、殺價、黑市、價差
+│   └─ PROMPTS          提示詞、世界書、文風
+│
+├─ content/             內容（L4）：照規則寫出來的一筆一筆的東西
+│   ├─ QUESTS           特殊任務的完整寫法（照 STORY_QUESTS 的骨架）
+│   ├─ COMMISSION_TEMPLATES  委託模板
+│   ├─ SKILL_TREES      技能樹的技能清單
+│   ├─ ENEMY_ROSTER     敵人名單
+│   ├─ EVENTS_CITY、ADULT_EVENTS、DEFEAT_EVENTS、LURE_EVENTS  城市事件、成人事件、戰敗事件、流竄 AI 的接觸
+│   ├─ NIGHT_LESSONS    夜課
+│   └─ GUIDES           指南
 │
 ├─ gear/                裝備：身上有什麼
 │   ├─ CYBERWARE        義體：部位、沉溺成本、授權鎖、惡意韌體、溺感症、橋的型號
 │   ├─ CRAFTING         組裝：設計圖與零件、等級、機械與生體、組裝與拆解
 │   ├─ EQUIPMENT        身上的裝備：欄位、外套、藏匿、快取格
-│   └─ ITEMS            目錄：設計圖、零件、藥、工具、飾品（素材）
+│   └─ ITEMS            目錄：設計圖、零件、藥、工具、飾品
 │
 ├─ art/                 美術
 │   ├─ ART_STYLE        視覺方向、顏色語意、圖標規格、繪圖管線
-│   ├─ UI               各畫面的版面（草稿；四個畫面之後照新框架重寫）
+│   ├─ UI               各畫面的版面
 │   ├─ *.svg            地圖、示意圖與勢力圖的原稿
 │   └─ preview/         轉出來的 PNG
 ├─ mockups/             樣式規劃與三個可以操作的 Demo：現實戰鬥、內海戰鬥、輿論戰（HTML）
 │
 ├─ plan/                計畫：還沒做完的事
-│   ├─ ROADMAP          待決定的問題、還沒寫的文件、實作階段
-│   ├─ SYSTEMS_REVIEW   系統盤點：哪些設計決定過過了、哪些還沒
-│   ├─ AUDIT            全書一致性檢查（2026-11-18）：矛盾、要決定的事、資料格式的缺口、接下來的順序
-│   ├─ WORLD_ITEMS      世界觀項目的盤點
-│   ├─ MIGRATION        ElondiaRPG 系統遷移清單
-│   ├─ IMPLEMENTATION   實作的起點：Agent 模式、程式掃描、減熵清單
-│   ├─ IDEAS            點子庫：還沒決定要不要做的想法
+│   ├─ PLAN             現在的計畫與還沒解決的事
 │   ├─ DESIGN_ORDER     系統的依賴與設計順序：先底層、後內容
+│   ├─ IMPLEMENTATION   實作的起點：Agent 模式、程式掃描、減熵清單
+│   ├─ MIGRATION        ElondiaRPG 系統遷移清單
 │   ├─ CODESCAN         ElondiaRPG 程式掃描的結論
-│   ├─ AI_TASKS         AI 任務與工具（Agent 模式；任務鏈之後照新流程重列）
-│   └─ scan/            掃描的六份原始報告（不進設計書）
+│   ├─ AI_TASKS         AI 任務與工具（Agent 模式）
+│   └─ IDEAS            點子庫：還沒決定要不要做的想法
+│
+├─ log/                 紀錄
+│   └─ DECISIONS        已經定案的決定：決定了什麼、原本是什麼
 │
 └─ book/                設計書：全部文件編成的單一檔案（由 tools/book/ 產生；只在本機，不進版本控制）
 ```
@@ -85,8 +93,9 @@ docs/
 | 一件委託怎麼進行 | [systems/FIXER](systems/FIXER.md) 第 2 節 → [systems/COMMISSIONS](systems/COMMISSIONS.md) |
 | 裝備怎麼來 | [gear/CRAFTING](gear/CRAFTING.md) → [gear/EQUIPMENT](gear/EQUIPMENT.md) |
 | 成人向的部分 | [systems/LEWD_SYSTEM](systems/LEWD_SYSTEM.md) |
-| 還有什麼沒決定 | [plan/SYSTEMS_REVIEW](plan/SYSTEMS_REVIEW.md)、[plan/AUDIT](plan/AUDIT.md) 第 7 節、[plan/ROADMAP](plan/ROADMAP.md) |
-| 接下來做什麼 | [plan/AUDIT](plan/AUDIT.md) 第 8 節、[plan/DESIGN_ORDER](plan/DESIGN_ORDER.md) 第 4 節 |
+| 一條特殊任務的完整寫法 | [world/STORY_QUESTS](world/STORY_QUESTS.md) → [content/QUESTS](content/QUESTS.md) |
+| 還有什麼沒決定、接下來做什麼 | [plan/PLAN](plan/PLAN.md)、[plan/DESIGN_ORDER](plan/DESIGN_ORDER.md) 第 4 節 |
+| 一件事是什麼時候、為什麼這樣定的 | [log/DECISIONS](log/DECISIONS.md) |
 
 ## 3. 依賴關係
 
@@ -135,8 +144,8 @@ flowchart TD
 
 1. **一件事只寫在一個地方**，其他文件只放連結。企業的介紹只寫在 CORPORATIONS；感載的公式只寫在 CORE_RULES 第 4 節；三個戰場的等級只寫在 CORE_RULES 6.1 節；設計圖與零件只寫在 CRAFTING。
 2. **用語以 [WORLD](world/WORLD.md) 第 7 節為準**。新造的詞先加進對照表再用。
-3. **還沒決定的事寫進 [plan/](plan/ROADMAP.md)**，不要散在各文件；決定之後把結論寫回系統文件。各文件最後的「待確認」只放那一份自己的細項，跨文件的未定事項彙整在 [SYSTEMS_REVIEW](plan/SYSTEMS_REVIEW.md) 與 [AUDIT](plan/AUDIT.md) 第 7 節。新寫的系統先在 [SYSTEMS_REVIEW](plan/SYSTEMS_REVIEW.md) 標成「寫了沒過」。
-4. **數值都是初稿**。公式只是為了說明量級，實作時放進 `data/rules/*.json`。
+3. **文件只寫定案的規則與真的還沒解決的事。** 還沒決定的事寫進 [plan/PLAN](plan/PLAN.md)，不要散在各文件；各文件最後的「待確認」只放那一份自己的細項。決定之後把結論用現在式寫回文件，原本是什麼、為什麼改，記進 [log/DECISIONS](log/DECISIONS.md)，不留在文件裡。
+4. **數值都還要平衡**。公式只是為了說明量級，實作時放進 `data/rules/*.json`。
 5. **新增文件時**：放進對應的目錄，開頭寫「上層／依賴／被依賴」，加進本文件的目錄與 `tools/book/build.py` 的順序。
 6. **改了章節編號要跑檢查**：`python3 tools/docs/check.py` 會找出斷掉的連結與指向不存在章節的引用。
 7. **設計書**：文件有大改動後重編——`python3 tools/book/build.py`，再 `node tools/book/pdf.mjs`。

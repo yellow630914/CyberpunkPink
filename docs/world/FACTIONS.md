@@ -1,7 +1,7 @@
 # 勢力關係
 
 > 上層：[WORLD](WORLD.md)。依賴：[CORPORATIONS](CORPORATIONS.md)、[GANGS](GANGS.md)（名單、級別、主從、文化分支）、[CORE_RULES](../systems/CORE_RULES.md) 第 8 節（好感與敵對值）、[DISTRICTS](DISTRICTS.md)（地盤）。被依賴：[ENEMIES](../systems/ENEMIES.md)（勢力的敵人）、[COMMISSIONS](../systems/COMMISSIONS.md)（委託人與目標的生成）、[EVENTS](../systems/EVENTS.md)、[STORY_QUESTS](STORY_QUESTS.md)、[TRADE](../systems/TRADE.md)。
-> 來源：ElondiaRPG 的勢力聲望、衛兵警戒與通緝（`security.json` 的 `alert`、`reputation_bands`）。預定資料：`data/world/factions.json`（名單與關係表）、`data/rules/standing.json`（好感與敵對值的分段、來源、消退）。數值都是初稿。
+> 來源：ElondiaRPG 的勢力聲望、衛兵警戒與通緝（`security.json` 的 `alert`、`reputation_bands`）。預定資料：`data/world/factions.json`（名單與關係表）、`data/rules/standing.json`（好感與敵對值的分段、來源、消退）。數值都還要平衡。
 
 這份寫兩件事：**誰和誰是什麼關係**，以及**好感與敵對值怎麼漲怎麼跌、到了哪裡會發生什麼**。
 

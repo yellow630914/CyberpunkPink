@@ -1,7 +1,7 @@
 # 特殊任務
 
 > 上層：[NPCS](NPCS.md)。依賴：[NPCS](NPCS.md)（人物、主線骨架、流竄 AI）、[SITES](SITES.md)（地點）、[DISTRICTS](DISTRICTS.md)、[CORPORATIONS](CORPORATIONS.md)、[GANGS](GANGS.md)、[COMMISSIONS](../systems/COMMISSIONS.md) 第 1 節（和委託副本的分工）、[CORE_RULES](../systems/CORE_RULES.md) 4.3、8 節、[NPC_SYSTEM](../systems/NPC_SYSTEM.md) 第 10 節（夥伴的關係線骨架）、[EVENTS](../systems/EVENTS.md)（事件開出任務、吉祥物的目擊）。被依賴：世界書；[NPC_SYSTEM](../systems/NPC_SYSTEM.md) 10.3 節（線任務的內容）。
-> 來源：ElondiaRPG 的特殊任務與劇情旗標（任務＝開頭＋任務點＋報酬，任務點用旗標串起來；劇情計數器；內容標籤）。預定資料：`data/rules/stories.json`、`data/rules/counters.json`。數值都是初稿。
+> 來源：ElondiaRPG 的特殊任務與劇情旗標（任務＝開頭＋任務點＋報酬，任務點用旗標串起來；劇情計數器；內容標籤）。預定資料：`data/rules/stories.json`、`data/rules/counters.json`。數值都還要平衡。
 
 特殊任務是人工寫好的任務鏈。它們**不是委託副本**：沒有主面，也不照副本的階段流程走，發生在地圖網上的固定地點（街區、要地、內海的固定區），用傳統的劇情旗標推進（[COMMISSIONS](../systems/COMMISSIONS.md) 第 1 節）。這份寫的是每一條線的**真相、階段、旗標、分歧與結局**；地點的內部在 [SITES](SITES.md)。
 

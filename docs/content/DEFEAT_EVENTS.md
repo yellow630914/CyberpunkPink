@@ -1360,7 +1360,7 @@
 - **誰擲**：戰敗事件裡隊友都倒了，所以由主角自己擲；寫明「隊友」的選項才由醒著的隊友擲。
 - **金額**：寫的是 III 級的數字；實際的金額照這一場戰鬥的等級，每差一級 ×3.2 或 ÷3.2（LIFE 1.3 節）。
 - **`fails_commission`**：寫 true 的，委託副本裡戰敗就立失敗的旗標，照 COMBAT_SYSTEM 8.4 節回退到進副本之前，戰敗的經過、性經歷記錄與共同記憶保留。寫 false 的，事件結束後主角醒在這個階段的開頭，打贏你的那一隊已經走了，委託可以接著做。
-- **成人場景**的寫法：`adult_scene`：`{ when, gate, nature, role, goal, circles, start_position }`，欄位照 DATA 第 4 節。事件只寫到進場景之前，場景裡的沉溺、橋參數、傾向與性經歷由 `scene_settle` 結算。
+- **成人場景**的寫法：`adult_scene`：`{ when, gate, nature, role, goal, circles, start_position }`，欄位照 DATA 第 4 節。事件只寫到進場景之前，場景裡的沉溺、橋參數、傾向與性經歷由收尾段的 `sex_record`、`sink`、`tendency` 結算（[AI_TASKS](../plan/AI_TASKS.md) 3.8 節）。
 
 ---
 
