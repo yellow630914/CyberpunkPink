@@ -2,7 +2,7 @@
 """夾值用的模擬器（docs/systems/BALANCE.md）。不依賴任何套件。
 
 用法：python3 tools/balance/sim.py [主題 ...] [--set current|proposed] [--doc-budget] [--trials N] [--seed N]
-主題：summary（預設）、hits、encounter、cross、difficulty、net、check、economy、xp、opinion、roster、all
+主題：summary（預設）、hits、encounter、cross、capture、key、difficulty、net、check、economy、xp、opinion、roster、all
 
 所有曲線都寫在這個檔案的 CURVES 裡，和 BALANCE.md 的表一一對應。
 current 是第一輪夾值之前文件寫的數字（2026-11-20），proposed 是 BALANCE.md 的曲線；兩組只在 DIFF 列出的欄位不同。
@@ -302,6 +302,94 @@ def cross_table(C, rng, trials):
     return out
 
 
+# ───────────────────────── 打感載的遭遇（capture） ─────────────────────────
+# ENEMIES 4.1 節的 `capture`：敵人用神經武器打主角的感載。神經傷害不扣護甲，位階的傷害倍率不用在感載上（ENEMIES 1.5 節）。
+# 主角：感載上限與層數照 2.2 節，敏感度 50（×1），每回合自然消退 2 ＋ mod(意志) ＝ 3（CORE_RULES 4.2 節）。
+# 過載：感載歸零、疊一層餘韻、失去下一個回合；疊滿再過載就倒下。隊伍這邊照常用實彈打敵人的生命。
+# 損耗＝隊伍的（餘韻層數 × 上限 ＋ 剩下的感載）÷（上限 ×（層數＋1））的總和（BALANCE 2.7 節）。
+# 不算制伏：敵人把過載的人綁走算在「每回合四分之一的機會做別的事」裡（1.3 節的模擬約定）。
+P_DECAY = 3
+
+
+def capture_encounter(C, g, eg, comp, rng, trials, other=0.25, rounds=20, decay=P_DECAY):
+    loss = rnds = wins = downs = overloads = 0.0
+    lmax, lcap = C['p_load'][g], C['p_layers'][g]
+    ndice = C.get('cap_dice', [3] * 5)[eg] + C['grade_dice'][eg]
+    for _ in range(trials):
+        party = make_party(C, g)
+        for p in party:
+            p.armor = 0                    # 神經傷害不扣護甲
+        st = [{'load': 0.0, 'lay': 0, 'skip': False, 'down': False} for _ in party]
+        foes = [make_enemy(C, eg, r) for r in comp]
+        for f, r in zip(foes, comp):
+            f.dice = ndice
+            f.mult = f.mult / C['e_dmg_mult'][r]   # 感載不吃位階的倍率；難度與強度係數照留
+        n = 0
+        alive_p = lambda: [i for i, s_ in enumerate(st) if not s_['down']]
+        while n < rounds and any(f.hp > 0 for f in foes) and alive_p():
+            n += 1
+            order = ['party', 'foes']
+            if rng.random() < 0.5:
+                order.reverse()
+            for side in order:
+                if side == 'party':
+                    for i, u in enumerate(party):
+                        s_ = st[i]
+                        if s_['down']:
+                            continue
+                        s_['load'] = max(0.0, s_['load'] - decay)
+                        if s_['skip']:
+                            s_['skip'] = False
+                            u.acc += u.regen   # 失去回合：行動點照回，但這回合不動
+                            gain = int(u.acc); u.acc -= gain; u.ap = min(u.apmax, u.ap + gain)
+                            continue
+                        take_turn(rng, u, foes, True, 0.0)
+                else:
+                    for f in foes:
+                        if f.hp <= 0:
+                            continue
+                        f.acc += f.regen
+                        gain = int(f.acc); f.acc -= gain; f.ap = min(f.apmax, f.ap + gain)
+                        if rng.random() < other and f.ap >= 1:
+                            f.ap -= 1
+                        while f.ap >= 2:
+                            live = alive_p()
+                            if not live:
+                                break
+                            if f.mag == 0:
+                                f.ap -= 1; f.mag = f.magmax; continue
+                            i = rng.choice(live)
+                            f.ap -= 2; f.mag -= 1
+                            dmg = attack(rng, f, party[i])
+                            s_ = st[i]
+                            s_['load'] += dmg
+                            if s_['load'] >= lmax:        # 過載：感載歸零（多的不留），疊一層，失去下一個回合
+                                s_['load'] = 0.0
+                                overloads += 1
+                                if s_['lay'] >= lcap:
+                                    s_['down'], s_['lay'] = True, lcap + 1
+                                else:
+                                    s_['lay'] += 1
+                                    s_['skip'] = True
+        pool = lmax * (lcap + 1) * len(party)
+        lost = sum(s_['lay'] * lmax + (s_['load'] if not s_['down'] else 0) for s_ in st) / pool
+        loss += lost
+        rnds += n
+        wins += all(f.hp <= 0 for f in foes)
+        downs += sum(s_['down'] for s_ in st)
+    return loss / trials, rnds / trials, wins / trials, downs / trials, overloads / trials
+
+
+def capture_table(C, rng, trials, budget=None):
+    rows = []
+    for g in range(5):
+        b = C['budget'][g] if budget is None else budget
+        comps = compositions(C, b)
+        res = [(comp, capture_encounter(C, g, g, comp, rng, trials)) for comp in comps]
+        rows.append((G[g], b, res))
+    return rows
+
+
 # ───────────────────────── 檢定、錢、歷練點、輿論 ─────────────────────────
 def p_success(bonus, dc):
     return sum(1 for r in range(1, 21) if r == 20 or (r != 1 and r + bonus >= dc)) / 20
@@ -444,6 +532,21 @@ def show_encounter(C, rng, trials):
                 print(f'{g:>3} 預算 {budget:>4} {desc:<14} 掉 {pct(loss):>4}  {rounds:4.1f} 回合  勝 {pct(win):>4}  倒下 {down:.2f} 人')
 
 
+def show_capture(C, rng, trials):
+    print(f'■ 打感載的遭遇（capture）：同級四人，{trials} 次的平均；敵人的神經武器 {C.get("cap_dice", [3] * 5)[0]} 顆骰＋等級骰、不扣護甲、不吃位階的倍率')
+    print('  損耗＝隊伍的（餘韻 × 上限 ＋ 感載）÷（上限 ×（層數＋1））；目標 10～15%（BALANCE 2.7 節）')
+    for g, budget, res in capture_table(C, rng, trials):
+        for comp, (loss, rounds, win, down, ol) in res:
+            desc = '＋'.join(f'{comp.count(r)}{r}' for r in RANKS if comp.count(r))
+            print(f'{g:>3} 預算 {budget:>4} {desc:<14} 掉 {pct(loss):>4}  {rounds:4.1f} 回合  勝 {pct(win):>4}  過載 {ol:.1f} 次  倒下 {down:.2f} 人')
+    print('  重的遭遇（5.5 點）與輕的（2 點）：')
+    for b in (2, 5.5):
+        cells = []
+        for g, budget, res in capture_table(C, rng, max(200, trials // 2), budget=b):
+            cells.append(f'{g} ' + '／'.join(pct(r[1][0]) for r in res))
+        print(f'  {b:>4} 點：' + '｜'.join(cells))
+
+
 def show_difficulty(C, rng, trials):
     print('■ 難度：同級四人；一般遭遇＝ 4 雜兵與 2 雜兵＋1 精英的平均，首領戰＝ 3 雜兵＋1 首領與 1 精英＋1 首領的平均')
     print('難度 | 等級 | 一般遭遇掉血 | 首領戰掉血 | 首領戰勝率 | 首領戰倒下的人數')
@@ -529,7 +632,7 @@ def main():
     rng = random.Random(a.seed)
     topics = a.topics
     if 'all' in topics:
-        topics = ['hits', 'net', 'encounter', 'cross', 'key', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster']
+        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster']
     if 'summary' in topics:
         topics = ['hits', 'encounter', 'cross']
     print(f'曲線：{a.set}')
@@ -539,6 +642,7 @@ def main():
          'check': lambda: show_check(C), 'economy': lambda: show_economy(C), 'xp': lambda: show_xp(C),
          'opinion': lambda: show_opinion(C), 'roster': lambda: show_roster(C),
          'key': lambda: show_key(C, rng, max(300, a.trials // 2)),
+         'capture': lambda: show_capture(C, rng, max(500, a.trials // 2)),
          'difficulty': lambda: show_difficulty(C, rng, max(300, a.trials // 4))}[t]()
         print()
 
