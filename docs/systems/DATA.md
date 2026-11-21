@@ -8,7 +8,7 @@
 
 | 約定 | 內容 |
 |---|---|
-| `id` | 小寫英文加底線，前面帶種類的縮寫（`sk_` 技能、`nt_` 夜課、`pos_` 體位、`ev_` 事件、`df_` 戰敗事件、`en_` 敵人、`pr_` 輿論對手、`bp_` 設計圖、`pt_` 零件、`cm_` 委託副本、`nm_` 網內的生成地圖、`cs_` 構裝、`skin_` SKIN、`qh_` 快駭程式、`sc_` 腳本、`mf_` 機甲骨架、`mw_` 機甲武器、`vh_` 載具） |
+| `id` | 小寫英文加底線，前面帶種類的縮寫（`sk_` 技能、`nt_` 夜課、`pos_` 體位、`ev_` 事件、`df_` 戰敗事件、`en_` 敵人、`pr_` 輿論對手、`bp_` 設計圖、`pt_` 零件、`cm_` 委託副本、`nm_` 網內的生成地圖、`cs_` 構裝、`skin_` SKIN、`qh_` 快駭程式、`sc_` 腳本、`mf_` 機甲骨架、`mw_` 機甲武器、`vh_` 載具、`fac_` 設施的種類） |
 | `grade` | 等級 I～V，寫成 1～5。敵人、裝備、委託、要地都用它 |
 | `tier` | 只用在技能：樹的第幾階，1～5 |
 | `rank` | 只用在敵人：`minion`、`elite`、`boss` |
@@ -755,3 +755,28 @@
 | 委託副本的輿論開場表與直播目標沒有格式 | 第 9 節 |
 | 網內的生成地圖沒有存檔的格式 | 第 10 節 |
 | 等級的欄位名不統一 | 第 1 節 |
+| 設施的種類沒有格式，世界編輯器沒有地方改（2026-11-21） | 第 13 節 |
+
+## 13. 設施的種類（2026-11-21）
+
+一筆是一**種**設施（診所、潛艙店、當舖……），不是一間店。街區的 `facilities` 清單（[SITES](../world/SITES.md) 第 15 節）裡每一間店指向一種；店自己的名字、店主與例外寫在街區那一邊。功能與營業時段的總表在 [SITES](../world/SITES.md) 第 16 節。世界編輯器的「世界 → 設施」改的就是這一份。
+
+```json
+{
+  "id": "fac_clinic", "name": "診所", "group": "body",
+  "functions": ["heal", "modify", "rest", "sell", "train"],
+  "shop": "clinic", "jobs": ["job_stitch_assistant"], "train": ["medicine", "cyberware"],
+  "hours": { "default": ["morning", "noon", "afternoon"], "black": ["evening", "late"] },
+  "districts": ["hive", "kabuki42", "oldport", "sakuramachi", "rustbelt", "glass_shore"],
+  "desc": "替人治療與動手術的地方。正規的在白天開，灰色與黑的在夜晚開。"
+}
+```
+
+| 欄位 | 意思 |
+|---|---|
+| `functions` | 點進來之後的選項：`buy`、`sell`、`work`、`rest`、`heal`、`modify`、`info`、`job_board`（委託）、`train`、`travel`、`dive`（潛入內海） |
+| `shop` | 對應 [TRADE](TRADE.md) 第 2 節的商店種類；不賣東西的設施沒有這一欄 |
+| `jobs`、`train` | 這一種設施可以開的打工（[DOWNTIME](DOWNTIME.md) 4.1 節）與機構課程的基本功（[CORE_RULES](CORE_RULES.md) 7.5 節）；個別的店從裡面挑 |
+| `hours` | 六個時段的 id；可以依店的類別分開寫（例：正規、黑的） |
+| `districts` | 預設出現在哪些區，給世界包新增街區時參考；實際的位置看街區的清單 |
+

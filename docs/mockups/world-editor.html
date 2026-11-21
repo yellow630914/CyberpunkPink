@@ -481,9 +481,9 @@ if(location.hash&&location.hash!=='#ctr')show(location.hash.slice(1));addEventLi
 <script>
 // 二級：內容的大類；三級：每一類底下的種類。數字是基本世界＋這個世界包的筆數（示意）
 const CAT=[
- ['世界','world',[['地點','site',312],['區與街區','district',51],['勢力','faction',29],['城市的大事','city_event',12]]],
+ ['世界','world',[['地點','site',312],['區與街區','district',51],['設施','facility',41],['勢力','faction',29],['城市的大事','city_event',12]]],
  ['內海','net',[['固定子網','subnet',30],['隨機地圖詞條','netgen',110],['海域','sea',8]]],
- ['人物','people',[['固定 NPC','npc',63],['流竄 AI','rogue',42],['名字池','namepool',18],['外貌詞條','look',260]]],
+ ['人物','people',[['固定 NPC','npc',65],['流竄 AI','rogue',42],['名字池','namepool',18],['外貌詞條','look',260]]],
  ['物品','items',[['零件','part',640],['設計圖','blueprint',410],['藥','drug',48],['彈藥與消耗品','consumable',90],['服裝','clothes',280],['飾品','accessory',70],['成人道具','toy',120],['SKIN','skin',95],['構裝與快駭','construct',60],['機甲與載具','vehicle',30]],1],
  ['技能','skills',[['八棵樹','tree',280],['夜課','lesson',125],['特質與缺陷','perk',80]]],
  ['敵人','enemies',[['現實','foe_real',220],['內海','foe_net',90],['具名','foe_named',75]],1],
@@ -497,6 +497,7 @@ const ITEMS={
   ['蜂巢','區',[['露露餐館的最後一個月','ev_st_hive_diner','',''],['機鼻畫報','ev_st_hive_nose_art','','']]]],
  foe_real:[['舊港','區',[['碼頭的保全','en_dock_guard','err','1'],['三號碼頭的守衛','en_dock_guard','err','1']]],['緋櫻','勢力',[['家政課第二席','en_hz_hk_seat','','']]]],
  part:[['2.3 軟體與基因譜','',[['兔系基因譜・芽','pt_gene_rabbit_1','mod',''],['犬系基因譜・芽','pt_gene_dog_1','mod','']]],['2.6 感測器','',[['嗅探器-100','pt_sniffer_100','mod',''],['藍鯨的封條','pt_bluewhale_seal','','']]]],
+ facility:[['身體與橋','',[['診所','fac_clinic','',''],['調校診所','fac_tuning','','']]],['買賣','',[['當舖','fac_pawnshop','mod',''],['黑市','fac_black_market','','']]],['事情與門路','',[['市警分局','fac_police','',''],['訓練的地方','fac_training','','']]],['這個世界包','',[['碼頭工會的會館','fac_dock_union_hall','wrn','']]]],
  npc:[['舊港','',[['阿柴','npc_dock_runner','err','1']]],['蜂巢','',[['露露','npc_lulu','',''],['瑪姬','npc_maggie','','']]]],
  series:[['這個世界包','',[['帳本','ledger','',''],['碼頭工會','dock_union','wrn','']]]],
  commission:[['這個世界包','',[['偷帳本','cm_ledger_steal','mod',''],['清空倉庫','cm_ledger_raid','wrn','']]]]};
