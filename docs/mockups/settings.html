@@ -277,6 +277,11 @@ select.sel{font:800 12.5px var(--font);padding:6px 8px;background:#120D19;border
 .slot2 b{font-size:13px}.slot2 small{grid-column:1;font-size:11px;color:var(--ink-3)}
 .slot2 .r{grid-row:span 2;align-self:center;display:flex;gap:5px}
 .wide{overflow-x:auto}
+.deep{display:block;padding:9px 12px;margin-bottom:12px;background:#1E2A33;box-shadow:inset 3px 0 0 var(--ram);font-size:12px;line-height:1.7;color:var(--ink-2);text-decoration:none}
+.deep b{color:var(--ram);margin-right:8px;white-space:nowrap}
+.deep:hover{background:#243440}
+.rt select.sel{width:100%;min-width:0}
+.srow .ctl a.btn{text-decoration:none}
 @media (max-width:720px){
   .srow{grid-template-columns:1fr;padding:10px}
   .srow .df{text-align:left}
@@ -346,43 +351,37 @@ select.sel{font:800 12.5px var(--font);padding:6px 8px;background:#120D19;border
     <div class="note">連線測試除了送一句話，還測結構化輸出與工具調用。工具調用沒有通過的來源，不能用在要開 Agent 的任務上。</div>
   </aside>
   <div class="panel cut pad scroll">
+    <a class="deep" href="index.html#ai-workshop.html#models" target="_top"><b>更細的在 AI 工坊</b>全部 30 個任務的模型與參數、每個任務的備用模型、價目，在「模型與路由」。這一頁改的和那裡是同一份設定。</a>
     <p class="h">每個任務用哪一個來源</p>
-    <table class="rt">
-      <tr><th>任務</th><th>來源</th><th class="hm">模型</th><th>備用</th></tr>
-      <tr><td>判定 judge</td><td>主力</td><td class="m hm">大</td><td>便宜的小模型</td></tr>
-      <tr><td>寫正文 narrate</td><td>主力</td><td class="m hm">大</td><td>—</td></tr>
-      <tr><td>算回報 reward</td><td>便宜的小模型</td><td class="m hm">小</td><td>主力</td></tr>
-      <tr><td>算關係 relate</td><td>便宜的小模型</td><td class="m hm">小</td><td>主力</td></tr>
-      <tr><td>寫成人正文 narrate_adult<span class="ad">成人</span></td><td>成人路由</td><td class="m hm">大</td><td>—</td></tr>
-      <tr><td>成人場景 scene<span class="ad">成人</span></td><td>成人路由</td><td class="m hm">中</td><td>—</td></tr>
-      <tr><td>事後 aftercare<span class="ad">成人</span></td><td>成人路由</td><td class="m hm">小</td><td>—</td></tr>
-      <tr><td>今天的貨 flavor_shop</td><td>便宜的小模型</td><td class="m hm">小</td><td>—</td></tr>
-    </table>
-    <div class="note">預設照每個任務的大小（大、中、小）給。成人路由的五個項目預設和一般的來源相同，可以分開。被服務商拒絕時不換備用模型，以免把被拒的內容送到你沒選的服務商；逾時與網路錯誤才換。完整的設定在 AI 工坊的「模型與路由」。</div>
+    <div class="wide"><table class="rt" id="srcTbl"></table></div>
+    <p class="h" style="margin-top:16px">成人路由的來源・五個</p>
+    <div class="wide"><table class="rt" id="adultTbl"></table></div>
+    <div class="note">預設照每個任務的大小（大、中、小）給。成人路由的五個來源預設和一般的來源相同，可以分開；這一局把它們分到了「成人路由」。被服務商拒絕時不換備用模型，以免把被拒的內容送到你沒選的服務商；逾時與網路錯誤才換。</div>
   </div>
 </section>
 
 <!-- AI 開關 -->
 <section class="v" id="v-ai" style="grid-template-columns:1fr 320px">
-  <div class="panel cut pad scroll" id="aiRows"></div>
+  <div class="panel cut pad scroll"><a class="deep" href="index.html#ai-workshop.html#chains" target="_top"><b>更細的在 AI 工坊</b>每一條任務鏈的每一步、每條鏈各自的潤色、每種掛點各自的上限、每個任務各自的重試次數，在「任務鏈」與「紀錄與回報」。這一頁改的和那裡是同一份設定。</a><div id="aiRows"></div></div>
   <aside class="panel cut pad scroll">
     <p class="h">AI 全部關掉的時候</p>
-    <div class="note" style="margin-top:0">判定照規則表結算，正文換成戰報，事件一律當成固定進入成人場景。遊戲照樣能玩完。</div>
-    <p class="h" style="margin-top:16px">每項的逾時</p>
-    <div class="kv"><span>判定</span><b class="mono">30 秒</b></div>
-    <div class="kv"><span>寫正文</span><b class="mono">90 秒</b></div>
-    <div class="kv"><span>批次任務</span><b class="mono">120 秒</b></div>
-    <div class="note">數字是示意，預設值還沒有定。逾時之後改用備用模型重試；重試的次數在左邊的列表裡。</div>
+    <div class="note" style="margin-top:0">每一步都走程式的退路：判定照骰值與參考 DC，正文換成戰報，算回報照參考範圍的一半。進不進成人場景照行動或事件寫好的走：明寫了成人場景就進，其餘不進。遊戲照樣能玩完。</div>
+    <p class="h" style="margin-top:16px">逾時</p>
+    <div class="kv"><span>所有任務</span><b class="mono">閒置 3 分鐘</b></div>
+    <div class="note">收到文字、思考或工具呼叫就重新計時。這一項不能調，AI 工坊裡也只讀。逾時與網路錯誤會自動重試，最後一次改用備用模型。</div>
+    <p class="h" style="margin-top:16px">不在這裡的</p>
+    <div class="note" style="margin-top:0">任務的清單與任務鏈的主幹（擲骰、判定、算回報、算關係、驗證、套用）不能拿掉。上面「關掉」的意思是那一步改由程式照規則結算，步驟本身還在鏈上。</div>
   </aside>
 </section>
 
 <!-- 提示詞 -->
 <section class="v" id="v-prompt" style="grid-template-columns:1fr">
   <div class="panel cut pad scroll">
+    <a class="deep" href="index.html#ai-workshop.html" target="_top"><b>更細的在 AI 工坊</b>任務規則、前段與後段自訂、注入配方、世界書、生圖、試跑與檢查都只在 AI 工坊。</a>
     <p class="h">提示詞都在 AI 工坊</p>
     <div class="info">提示詞組、文風、自訂的段落、世界書與正文正則，全部在 <b>AI 工坊</b>裡管理。AI 工坊和世界編輯器用同一套三欄的殼：左邊是樹，中間編輯，右邊預覽一份請求實際的樣子。</div>
-    <div class="slot2"><b>目前的提示詞組</b><span class="r"><button class="btn sm cut-sm">切換</button></span><small>預設組・改過 3 處（文風一處、世界書兩條）</small></div>
-    <div class="slot2"><b>文風</b><span class="r"><button class="btn sm cut-sm">編輯</button></span><small>終端紀錄：第二人稱、現在式、每段一個畫面</small></div>
+    <div class="slot2"><b>目前的提示詞組</b><span class="r"><button class="btn sm cut-sm">切換</button></span><small>預設組・改過 6 處（寫正文四塊、今天的貨一塊、用語對照一列）</small></div>
+    <div class="slot2"><b>文風</b><span class="r"><button class="btn sm cut-sm">編輯</button></span><small>一般：霓虹黑色（開）；成人向兩種（開，只在成人路由）</small></div>
     <div class="slot2"><b>正文正則</b><span class="r"><button class="btn sm cut-sm">編輯</button></span><small>4 條，全部開著</small></div>
     <div class="go" style="justify-content:flex-start"><a class="btn pri cut-sm" href="index.html#ai-workshop.html" target="_top" style="text-decoration:none">打開 AI 工坊</a><button class="btn cut-sm">匯入提示詞組</button></div>
     <div class="note">硬規則與由內容篩選產生的內容界線在 AI 工坊裡看得到，但是鎖住，不能改。</div>
@@ -547,29 +546,85 @@ function sum(){
 }
 document.querySelectorAll('[data-go]').forEach(l=>l.onclick=()=>{document.querySelectorAll('[data-go]').forEach(x=>x.classList.toggle('on',x===l));const t=document.getElementById(l.dataset.go);gameBody.scrollTo({top:t.offsetTop-gameBody.offsetTop-14,behavior:'smooth'});if(getComputedStyle(gameBody).overflow==='visible'||innerWidth<=720)t.scrollIntoView({behavior:'smooth'})});
 drawDiff();sum();
-// AI 開關
-const A=[['判定'],
- ['自由行動的判定','開','關掉時，自由行動照骰值與參考 DC 由程式判定，玩家寫了做法也一樣。','AI_TASKS 3.13 節',1],
- ['打工的一班','開','關掉時，打工的一班照骰值與參考 DC 由程式判定。','AI_TASKS 3.13 節',1],
- ['事件的「我要做別的」','開','關掉時，「我要做別的」照骰值與參考 DC 由程式判定，選項照樣在。','AI_TASKS 3.13 節',1],
- ['夾值後重寫相關的句子','不重寫','AI 自己給的後果被夾住時，要不要把正文裡對應的句子改寫成夾過的數字。','AI_TASKS 2.5 節',0],
+// AI：和 AI 工坊共用同一份設定（同一個 localStorage 鍵；改一邊，另一邊重新整理或切回來就看得到）
+const AIK='cpp-ai-v1';
+const AI0={ai:1,judge_free:1,judge_work:1,judge_other:1,clamp_rewrite:0,narrate:1,trade_text:1,combat_text:0,polish:{},sexrec:1,
+ bg_flavor_shop:1,bg_flavor_roster:1,bg_npc_news:1,bg_stream_goal:1,bg_stream_chat:1,bg_footage_caption:1,
+ agent:0,query_only:0,hook_text:1,hook_block:1,hook_night:1,hook_comm:1,hook_shop:1,
+ lim_hook:1,lim_visit:10,lim_event:3,lim_night:10,lim_comm:10,lim_shop:10,chainbar:0,retry:{},src:{},fb:{},adult:{}};
+const aiLoad=()=>{let x={};try{x=JSON.parse(localStorage.getItem(AIK)||'{}')}catch(e){}return Object.assign(JSON.parse(JSON.stringify(AI0)),x)};
+let AI=aiLoad();
+const aiSave=()=>{try{localStorage.setItem(AIK,JSON.stringify(AI))}catch(e){}};
+const TASKS=['judge','narrate','reward','relate','scene_gate','scene_turn','scene_talk','sex_record','sink','tendency','pr_move','commission_gen','npc_act','flavor_roster','flavor_shop','npc_news','design_part','stream_goal','stream_chat','footage_caption','agent_hook','agent_event','agent_night','agent_commission','agent_flavor','image_prompt','storyboard','quest_designer','connection_test','prompt_review'];
+const POLISH=['free','move','trade','rest','adult_act','combat','netfight','pr','event','work','defeat','captive','deal','take_job','stage','design','stream','cont'];
+const SRCS=['主力','便宜的小模型','成人路由'];
+const SRC0={judge:'主力',narrate:'主力',reward:'便宜的小模型',relate:'便宜的小模型',flavor_shop:'便宜的小模型'},FB0={judge:'便宜的小模型',reward:'主力',relate:'主力'};
+const srcOf=id=>AI.src[id]||SRC0[id],fbOf=id=>AI.fb[id]||FB0[id]||'—',adOf=k=>AI.adult[k]||'成人路由';
+const opts=(list,v)=>list.map(x=>`<option${x===v?' selected':''}>${x}</option>`).join('');
+function drawSrc(){
+ srcTbl.innerHTML='<tr><th>任務</th><th class="hm">大小</th><th>來源</th><th>備用</th></tr>'+[['判定 judge','judge','中'],['寫正文 narrate','narrate','大'],['算回報 reward','reward','小'],['算關係 relate','relate','小'],['今天的貨 flavor_shop','flavor_shop','小']].map(([n,id,z])=>
+  `<tr><td>${n}</td><td class="m hm">${z}</td><td><select class="sel" data-src="${id}">${opts(SRCS,srcOf(id))}</select></td><td><select class="sel" data-fb="${id}">${opts(['—',...SRCS],fbOf(id))}</select></td></tr>`).join('');
+ adultTbl.innerHTML='<tr><th>成人路由的來源</th><th class="hm">給哪些任務</th><th>來源</th></tr>'+[['寫成人正文 narrate_adult','narrate_adult','成人的寫正文、成人直播的彈幕'],['成人場景 scene','scene','scene_gate、scene_turn、scene_talk'],['成人場景的收尾 aftercare','aftercare','sex_record、sink、tendency'],['成人的 NPC 近況 npc_news_adult','npc_news_adult','和性經歷有關的 npc_news'],['成人的生圖 image_adult','image_adult','adult_scene 的紀錄插圖']].map(([n,k,u])=>
+  `<tr><td>${n}<span class="ad">成人</span></td><td class="hm" style="color:var(--ink-3);font-size:11.5px">${u}</td><td><select class="sel" data-ad="${k}">${opts(SRCS,adOf(k))}</select></td></tr>`).join('');
+ document.querySelectorAll('#v-src select').forEach(x=>x.onchange=()=>{const d=x.dataset;if(d.src)AI.src[d.src]=x.value;if(d.fb)AI.fb[d.fb]=x.value;if(d.ad)AI.adult[d.ad]=x.value;aiSave()});
+}
+const allEq=a=>a.every(v=>v===a[0]);
+const RET=()=>TASKS.map(t=>AI.retry[t]??1),PO=()=>POLISH.map(c=>AI.polish[c]?1:0),OTH=()=>['lim_visit','lim_night','lim_comm','lim_shop'].map(k=>AI[k]);
+const A=[['總開關'],
+ {n:'使用 AI',k:'ai',d:'開',s:'AI_TASKS 1.1 節',ds:'關掉時每一步都走程式的退路，見右邊。'},
+ ['判定'],
+ {n:'自由行動的判定',k:'judge_free',d:'開',s:'AI_TASKS 3.13 節',ds:'關掉時，自由行動照骰值與參考 DC 由程式判定，玩家寫了做法也一樣。'},
+ {n:'打工的一班',k:'judge_work',d:'開',s:'AI_TASKS 3.13 節',ds:'關掉時，打工的一班照骰值與參考 DC 由程式判定。'},
+ {n:'事件的「我要做別的」',k:'judge_other',d:'開',s:'AI_TASKS 3.13 節',ds:'關掉時，「我要做別的」照骰值與參考 DC 由程式判定，選項照樣在。'},
  ['正文'],
- ['敘事','開','關掉時，紀錄只寫戰報。','AI_TASKS 第 1 節',1],
- ['交易要不要寫正文','寫','關掉時，買賣只留一行系統紀錄。','AI_TASKS 3.3 節',1],
- ['潤色步驟','關','寫完正文之後多跑一次潤色。','PROMPTS 第 2 節',0],
- ['記下性經歷','開','成人場景結束後，把這一場記進雙方的性經歷記錄。','AI_TASKS 第 1 節',1],
+ {n:'敘事',k:'narrate',d:'開',s:'AI_TASKS 4.1 節',ds:'所有的正文一起。關掉時，紀錄只寫戰報。'},
+ {n:'交易要不要寫正文',k:'trade_text',d:'寫',on:'寫',off:'不寫',s:'AI_TASKS 3.3 節',ds:'不寫時，買賣只留一行系統紀錄。'},
+ {n:'戰鬥正文',k:'combat_text',t:'seg',o:['結束時寫一次','每回合一小段'],d:'結束時寫一次',s:'AI_TASKS 3.9 節',ds:'每回合寫一小段比較熱鬧，也比較慢。內海戰鬥用同一個設定。'},
+ {n:'潤色',k:'polish',t:'polish',d:'關',s:'PROMPTS 2.4 節',ds:'寫完正文之後再跑一次文風的修飾。這裡一次開關全部的鏈；每條鏈各自開在 AI 工坊。'},
+ {n:'夾值後重寫相關的句子',k:'clamp_rewrite',d:'不重寫',on:'重寫',off:'不重寫',s:'AI_TASKS 2.5 節',ds:'AI 自己給的後果被夾住時，要不要把正文裡對應的句子改寫成夾過的數字。'},
+ ['其他任務：用 AI 還是照規則'],
+ {n:'記下性經歷',k:'sexrec',d:'開',s:'AI_TASKS 4.2 節',ds:'關掉時，程式照場景紀錄記下這一場，一句話用模板。'},
+ {n:'今天的貨',k:'bg_flavor_shop',d:'開',s:'AI_TASKS 4.4 節',ds:'關掉時照候選與目錄價上架。'},
+ {n:'新的人的細節',k:'bg_flavor_roster',d:'開',s:'AI_TASKS 4.4 節',ds:'關掉時外觀與性格用模板。'},
+ {n:'NPC 的近況',k:'bg_npc_news',d:'開',s:'AI_TASKS 4.4 節',ds:'關掉時只留程式擲的那一行。'},
+ {n:'直播目標的說法',k:'bg_stream_goal',d:'開',s:'AI_TASKS 4.5 節',ds:'關掉時用模板的說法。'},
+ {n:'彈幕',k:'bg_stream_chat',d:'開',s:'AI_TASKS 4.5 節',ds:'關掉時用預先寫好的句子。'},
+ {n:'素材的標題',k:'bg_footage_caption',d:'開',s:'AI_TASKS 4.5 節',ds:'關掉時由程式照旗標產生。'},
  ['Agent 支線'],
- ['Agent 模式','開','關掉時只跑主鏈，不跑任何支線；需要的資料改成程式預取。','AI_TASKS 第 1 節',1],
- ['只開查詢','關','打開時，Agent 只能查資料，不能提出事件或鉤子。','AI_TASKS 第 1 節',0],
-];
-aiRows.innerHTML=A.map(a=>a.length===1?`<div class="sgrp">${a[0]}</div>`:`<div class="srow"><span class="nm2">${a[0]}</span><div class="ctl"><span class="sw${a[4]?' on':''}"></span><span class="swl">${a[4]?'開':'關'}</span></div><span class="df">預設 <b>${a[1]}</b><br>${a[3]}</span><span class="ds">${a[2]}</span></div>`).join('')+
- `<div class="sgrp">上限與顯示</div>
- <div class="srow"><span class="nm2">每種掛點每天的件數</span><div class="ctl"><span class="swl">提出事件</span><input class="num" value="3"><span class="swl">鉤子</span><input class="num" value="1"><span class="swl">其他</span><input class="num" value="10"></div><span class="df">預設 <b>3、1、10</b><br>AI_TASKS 6.2 節</span><span class="ds">Agent 支線一天最多跑幾次。到了上限之後當天不再跑，主鏈不受影響。</span></div>
- <div class="srow"><span class="nm2">戰鬥正文</span><div class="ctl"><span class="seg"><span class="on">結束時寫一次</span><span>每回合一小段</span></span></div><span class="df">預設 <b>結束時寫一次</b><br>AI_TASKS 3.9 節</span><span class="ds">每回合寫一小段比較熱鬧，也比較慢。</span></div>
- <div class="srow"><span class="nm2">任務鏈列</span><div class="ctl"><span class="seg"><span class="on">出錯時展開</span><span>一直展開</span><span>隱藏</span></span></div><span class="df">預設 <b>出錯時展開</b><br>AI_TASKS 第 7 節</span><span class="ds">每則紀錄下方那一列，顯示這一次跑了哪些步驟。</span></div>
- <div class="srow"><span class="nm2">自動重試的次數</span><div class="ctl"><input class="num" placeholder="照預設"></div><span class="df">預設 <b>照 AI_TASKS</b><br>AI_TASKS 5.3 節</span><span class="ds">最後一次重試改用備用模型。</span></div>
- <div class="srow"><span class="nm2">注入配方的數量與字數</span><div class="ctl"><button class="btn sm cut-sm">在 AI 工坊裡調</button></div><span class="df">預設 <b>照 PROMPTS 的表</b><br>PROMPTS 第 2 節</span><span class="ds">每一類資料最多附幾筆、每筆最多幾個字。</span></div>`;
-wire(aiRows);
+ {n:'Agent 模式',k:'agent',d:'關',s:'AI_TASKS 1.1 節',ds:'打開時，AI 可以用查詢工具自己找資料，並在五個掛點長出支線。主鏈照舊，不等支線。'},
+ {n:'只開查詢',k:'query_only',d:'關',s:'AI_TASKS 1.1 節',ds:'打開時，Agent 只能查資料，五個掛點都不長支線。',ag:1},
+ {n:'寫完正文之後',k:'hook_text',d:'開',s:'AI_TASKS 6.2 節',ds:'留伏筆，或讓一個 NPC 之後找上門。',ag:2},
+ {n:'走進一個街區',k:'hook_block',d:'開',s:'AI_TASKS 6.2 節',ds:'提議一件單發事件，交給事件導演排程。',ag:2},
+ {n:'長休醒來',k:'hook_night',d:'開',s:'AI_TASKS 6.2 節',ds:'一個夢；一個 NPC 自己的日子。',ag:2},
+ {n:'接委託時',k:'hook_comm',d:'開',s:'AI_TASKS 6.2 節',ds:'加一個詞條；補一段中間人的開場。',ag:2},
+ {n:'進店與見到新的人',k:'hook_shop',d:'開',s:'AI_TASKS 6.2 節',ds:'一筆特別的貨；這個人的一則細節。',ag:2},
+ {n:'每種掛點每天的件數',t:'lims',d:'3、1、10',s:'AI_TASKS 6.1 節',ds:'提出事件 0～8 件；鉤子是一區同時幾則，1～3；其他（找上門、長休醒來、接委託時、進店與見到新的人）各 0～20 件，這一格一次改四種。城裡每天 8 件擋住型事件的總上限不能調。',ag:1},
+ ['重試與顯示'],
+ {n:'自動重試的次數',t:'retry',d:'每個任務 1 次',s:'AI_TASKS 5.3 節',ds:'0～3 次。這裡一次設全部的任務；每個任務各自設在 AI 工坊。被服務商拒絕的不自動重試。'},
+ {n:'任務鏈列',k:'chainbar',t:'seg',o:['出錯時展開','一直展開','隱藏'],d:'出錯時展開',s:'AI_TASKS 5.1 節',ds:'每則紀錄下方那一列，顯示這一次跑了哪些步驟。隱藏時出錯仍會跳出一個小提示。'},
+ {n:'注入配方的數量與字數',t:'link',d:'照 PROMPTS 的表',s:'PROMPTS 2.3 節',ds:'每一類資料最多附幾筆、每筆最多幾個字。只在 AI 工坊裡調。'}];
+function aiCtl(r){
+ if(r.t==='seg')return `<span class="seg" data-ak="${r.k}">${r.o.map((x,i)=>`<span${AI[r.k]===i?' class="on"':''} data-i="${i}">${x}</span>`).join('')}</span>`;
+ if(r.t==='retry'){const v=RET();return `<span class="seg" data-retry>${[0,1,2,3].map(n=>`<span${allEq(v)&&v[0]===n?' class="on"':''} data-i="${n}">${n} 次</span>`).join('')}</span>${allEq(v)?'':'<span class="swl" style="color:var(--ap)">各任務不同</span>'}`}
+ if(r.t==='polish'){const v=PO(),on=v.every(Boolean),some=v.some(Boolean);return `<span class="sw${on?' on':''}" data-polish></span><span class="swl">${on?'全部開':some?`開了 ${v.filter(Boolean).length}／${v.length} 條`:'關'}</span>`}
+ if(r.t==='lims'){const o=OTH();return `<span class="swl">提出事件</span><input class="num" type="number" min="0" max="8" data-lim="lim_event" value="${AI.lim_event}"><span class="swl">鉤子</span><input class="num" type="number" min="1" max="3" data-lim="lim_hook" value="${AI.lim_hook}"><span class="swl">其他</span><input class="num" type="number" min="0" max="20" data-lim="other" value="${allEq(o)?o[0]:''}" placeholder="各不同">`}
+ if(r.t==='link')return `<a class="btn sm cut-sm" href="index.html#ai-workshop.html" target="_top">在 AI 工坊裡調</a>`;
+ const v=AI[r.k];return `<span class="sw${v?' on':''}" data-ak="${r.k}"></span><span class="swl">${v?(r.on||'開'):(r.off||'關')}</span>`;
+}
+function aiChanged(r){
+ if(r.t==='retry')return RET().some(v=>v!==1);if(r.t==='polish')return PO().some(Boolean);if(r.t==='lims')return AI.lim_event!==3||AI.lim_hook!==1||OTH().some(v=>v!==10);if(r.t==='link')return false;
+ return AI[r.k]!==AI0[r.k];
+}
+function drawAI(){
+ aiRows.innerHTML=A.map(r=>Array.isArray(r)?`<div class="sgrp">${r[0]}</div>`:`<div class="srow${aiChanged(r)?' chg':''}${(r.ag&&!AI.agent)||(r.ag===2&&AI.query_only)||(r.k!=='ai'&&!AI.ai)?' off':''}"><span class="nm2">${r.n}</span><div class="ctl">${aiCtl(r)}</div><span class="df">預設 <b>${r.d}</b><br>${r.s}</span><span class="ds">${r.ds}</span></div>`).join('');
+ aiRows.querySelectorAll('.sw[data-ak]').forEach(x=>x.onclick=()=>{const k=x.dataset.ak;AI[k]=AI[k]?0:1;aiSave();drawAI()});
+ aiRows.querySelectorAll('.seg[data-ak]').forEach(g=>g.querySelectorAll('span').forEach(x=>x.onclick=()=>{AI[g.dataset.ak]=+x.dataset.i;aiSave();drawAI()}));
+ aiRows.querySelectorAll('[data-retry] span').forEach(x=>x.onclick=()=>{TASKS.forEach(t=>AI.retry[t]=+x.dataset.i);aiSave();drawAI()});
+ aiRows.querySelectorAll('[data-polish]').forEach(x=>x.onclick=()=>{const on=!PO().every(Boolean);POLISH.forEach(c=>AI.polish[c]=on?1:0);aiSave();drawAI()});
+ aiRows.querySelectorAll('[data-lim]').forEach(x=>x.onchange=()=>{const v=Math.min(+x.max,Math.max(+x.min,Math.round(+x.value||0)));if(x.dataset.lim==='other')['lim_visit','lim_night','lim_comm','lim_shop'].forEach(k=>AI[k]=v);else AI[x.dataset.lim]=v;aiSave();drawAI()});
+}
+drawSrc();drawAI();
+addEventListener('storage',e=>{if(e.key===AIK){AI=aiLoad();drawSrc();drawAI()}});
 // 內容篩選
 const F=[['主角非自願','主角在非自願的情況下被捲進成人場景。'],['對象非自願','主角對俘虜或被迫的對象用的夜課技能。'],['契約支配','關掉時，契約只剩經濟與法律層面的效果。'],['NTR','夥伴或戀人和別人發生關係的事件。'],['人偶晶片的失憶工作','戴著人偶晶片工作、事後不記得的內容。'],['黑帶相關的任務','和黑帶的製作、買賣有關的任務。']];
 fRows.innerHTML=F.map((f,i)=>`<div class="srow"><span class="nm2">${f[0]}</span><div class="ctl"><span class="sw${i===3?'':' on'}"></span><span class="swl">${i===3?'關':'開'}</span></div><span class="df">預設 <b>開</b></span><span class="ds">${f[1]}</span></div>`).join('');
