@@ -220,12 +220,14 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 @media (max-width:720px){.v.on{display:flex;flex-direction:column;height:auto}.tabsx{flex-wrap:nowrap;overflow-x:auto}.tabsx span{flex:none}}
 .status .btn{white-space:nowrap}
 /* 次級與三級頁簽 */
-.sub2{grid-column:1/-1;display:flex;gap:2px;overflow-x:auto;background:#120D19;box-shadow:inset 0 -2px 0 var(--line)}
+.subs{padding:8px 12px 0}.subs.off{display:none}
+#v-edit,#v-ctr{height:calc(100% - 52px - 46px - 82px)}
+.sub2{display:flex;gap:2px;overflow-x:auto;background:#120D19;box-shadow:inset 0 -2px 0 var(--line)}
 .sub2 span{flex:none;font-weight:800;font-size:12.5px;padding:8px 14px;color:var(--ink-3);cursor:pointer;white-space:nowrap}
 .sub2 span small{font:700 10.5px var(--mono);margin-left:6px;color:var(--ink-3)}
 .sub2 span.on{color:var(--ink);box-shadow:inset 0 -3px 0 var(--a)}
 .sub2 span .d{display:inline-block;width:7px;height:7px;border-radius:50%;background:#FF4A4A;margin-left:5px;vertical-align:1px}
-.sub3{grid-column:1/-1;display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:-4px}
+.sub3{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:8px}
 .sub3 span{font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--bg-2);color:var(--ink-3);cursor:pointer;white-space:nowrap}
 .sub3 span small{font:700 10px var(--mono);margin-left:5px}
 .sub3 span.on{background:#3A2B47;color:var(--ink);box-shadow:inset 0 0 0 2px var(--a)}
@@ -341,12 +343,11 @@ pre.json .s{color:#F58DBA}pre.json .nu{color:var(--ap)}
   <button class="btn sm cut-sm hide-m">試玩</button>
   <button class="btn sm pri cut-sm">匯出世界包</button>
 </header>
-<nav class="tabsx"><span data-v="edit" class="on">內容</span><span data-v="ctr">劇情計數器</span><span data-v="io">匯入與匯出</span></nav>
+<nav class="tabsx"><span data-v="edit" class="on">內容</span><span data-v="io">匯入與匯出</span></nav>
+<div class="subs" id="subs"><nav class="sub2" id="sub2"></nav><nav class="sub3" id="sub3"></nav></div>
 
 <!-- 內容 -->
-<section class="v on" id="v-edit" style="grid-template-columns:250px 1fr 330px;grid-template-rows:auto auto minmax(0,1fr)">
-  <nav class="sub2" id="sub2"></nav>
-  <nav class="sub3" id="sub3"></nav>
+<section class="v on" id="v-edit" style="grid-template-columns:250px 1fr 330px">
   <aside class="panel cut pad scroll">
     <div class="pack"><b>帳本外傳</b><span class="tag">世界包</span><small>疊在基本世界上・改內建的內容會存成這個包裡的覆寫</small></div>
     <details class="lock"><summary>🔒 框架裡的設定不能在這裡改</summary><div>現實與內海兩層世界、粉牆與牆外、橋與沉溺、大潮崩、城市的基本氛圍與題材底線，是系統的骨架，改了規則就不成立，所以不開放。提示詞、世界書與用語對照在 AI 工坊調整，不在世界編輯器裡。</div></details>
@@ -473,9 +474,9 @@ pre.json .s{color:#F58DBA}pre.json .nu{color:var(--ap)}
 </section>
 
 <script>
-const show=v=>{document.querySelectorAll('.v').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));document.querySelectorAll('.tabsx span').forEach(x=>x.classList.toggle('on',x.dataset.v===v))};
+const show=v=>{document.querySelectorAll('.v').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));const top=v==='ctr'?'edit':v;document.querySelectorAll('.tabsx span').forEach(x=>x.classList.toggle('on',x.dataset.v===top));const sb=document.getElementById('subs');if(sb)sb.classList.toggle('off',v==='io')};
 document.querySelectorAll('.tabsx span').forEach(t=>t.onclick=()=>{show(t.dataset.v);history.replaceState(null,'','#'+t.dataset.v)});
-if(location.hash)show(location.hash.slice(1));addEventListener('hashchange',()=>show(location.hash.slice(1)));
+if(location.hash&&location.hash!=='#ctr')show(location.hash.slice(1));addEventListener('hashchange',()=>show(location.hash.slice(1)));
 </script>
 <script>
 // 二級：內容的大類；三級：每一類底下的種類。數字是基本世界＋這個世界包的筆數（示意）
@@ -487,7 +488,7 @@ const CAT=[
  ['技能','skills',[['八棵樹','tree',280],['夜課','lesson',125],['特質與缺陷','perk',80]]],
  ['敵人','enemies',[['現實','foe_real',220],['內海','foe_net',90],['具名','foe_named',75]],1],
  ['事件','events',[['街頭','ev_street',410],['成人','ev_adult',160],['蠱惑','ev_lure',84],['戰敗','ev_defeat',58],['打工','ev_work',120],['系列','series',40]],1],
- ['任務','quests',[['特殊任務','quest',95],['委託模板','commission',60],['委託副本','dungeon',24]],1],
+ ['任務','quests',[['特殊任務','quest',95],['委託模板','commission',60],['委託副本','dungeon',24],['劇情計數器','counter',5]],1],
  ['指南','guide',[['指南','guide',55]]]];
 // 每一種裡的筆，只示意幾筆；第 6 欄 1 表示目前開著的那一件
 const ITEMS={
@@ -501,7 +502,7 @@ const ITEMS={
  commission:[['這個世界包','',[['偷帳本','cm_ledger_steal','mod',''],['清空倉庫','cm_ledger_raid','wrn','']]]]};
 const ERR={items:1,enemies:1,events:1,quests:1,people:1};
 let c2='events',c3='ev_street',scope='all';
-function render(){
+function render(nav){
  const cat=CAT.find(c=>c[1]===c2);
  sub2.innerHTML=CAT.map(c=>`<span data-c="${c[1]}" class="${c[1]===c2?'on':''}">${c[0]}<small>${c[2].reduce((a,x)=>a+x[2],0)}</small>${ERR[c[1]]?'<i class="d"></i>':''}</span>`).join('');
  sub3.innerHTML=cat[2].map(x=>`<span data-c="${x[1]}" class="${x[1]===c3?'on':''}">${x[0]}<small>${scope==='pack'?Math.max(0,Math.round(x[2]/40)):x[2]}</small></span>`).join('')+`<div class="scope"><span data-s="all" class="${scope==='all'?'on':''}">全部</span><span data-s="pack" class="${scope==='pack'?'on':''}">只看這個世界包</span><span data-s="err" class="${scope==='err'?'on':''}">只看有錯的</span></div>`;
@@ -509,8 +510,9 @@ function render(){
  crumb.innerHTML=`內容 › ${cat[0]} › <b>${sc[0]}</b>・${sc[2]} 筆`;
  const g=ITEMS[c3]||[['依名稱排序','',[['（這一種的內容照同樣的方式列出）','—','','']]]];
  tree.innerHTML=g.map(k=>`<div class="kind">${k[0]}<span>${k[1]}</span></div>`+k[2].filter(i=>scope!=='err'||i[2]==='err').map(i=>`<div class="it${i[4]?' on':''}"><i class="${i[2]?'d-'+i[2]:''}"></i><div>${i[0]}<code>${i[1]}</code></div><span class="n">${i[3]}</span></div>`).join('')).join('')+`<div class="more">一次載入 50 筆，往下捲再載入；分組可以改成依區、勢力、等級或系列</div>`;
- sub2.querySelectorAll('span').forEach(t=>t.onclick=()=>{c2=t.dataset.c;c3=CAT.find(c=>c[1]===c2)[2][0][1];render()});
- sub3.querySelectorAll('[data-c]').forEach(t=>t.onclick=()=>{c3=t.dataset.c;render()});
+ if(nav)show(c3==='counter'?'ctr':'edit');
+ sub2.querySelectorAll('span').forEach(t=>t.onclick=()=>{c2=t.dataset.c;c3=CAT.find(c=>c[1]===c2)[2][0][1];render(1)});
+ sub3.querySelectorAll('[data-c]').forEach(t=>t.onclick=()=>{c3=t.dataset.c;render(1)});
  sub3.querySelectorAll('[data-s]').forEach(t=>t.onclick=()=>{scope=t.dataset.s;render()});
 }
 render();
