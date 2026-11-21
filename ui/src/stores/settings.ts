@@ -1,12 +1,15 @@
 import { defineStore } from 'pinia'
 import { reactive, watch } from 'vue'
 import { copyPreset, type DiffTable } from '../lib/difficulty'
+import { aiSettingsFromUi, uiFromAiSettings } from '../lib/engineView'
 
 /**
  * 設定（UI.md 第 15 節）。「顯示」那一頁是這台機器的偏好，存在 localStorage；
  * 存檔規則與內容篩選跟著存檔走，這裡只是假資料。
  */
 const KEY = 'cpp-ui-settings-v1'
+/** AI 設定的儲存鍵：引擎的形狀（cpp-ai-v1，蛇形欄位、開關是 0／1）。舊鍵只在第一次讀一次，之後只讀寫這個鍵。 */
+const AI_KEY = 'cpp-ai-v1'
 
 const defaults = {
   // AI 開關
@@ -61,10 +64,20 @@ function load(): Settings {
       // 第四版：難度照 BALANCE 的名字（原本「輕鬆」「殘酷」）
       const OLD: Record<string, Settings['difficulty']> = { 輕鬆: '簡單', 殘酷: '傳奇' }
       if (OLD[v.difficulty as string]) v.difficulty = OLD[v.difficulty as string]
-      return v
+      return withAi(v)
     }
   } catch { /* 私密視窗或被擋：用預設值 */ }
-  return structuredClone(defaults)
+  return withAi(structuredClone(defaults))
+}
+
+/** AI 欄位以新鍵為準；新鍵還沒有時，用目前的值（來自舊鍵或預設）轉一次寫進去。 */
+function withAi(v: Settings): Settings {
+  try {
+    const raw = localStorage.getItem(AI_KEY)
+    if (raw) return { ...v, ...uiFromAiSettings(JSON.parse(raw)) } as Settings
+    localStorage.setItem(AI_KEY, JSON.stringify(aiSettingsFromUi(v)))
+  } catch { /* 存不了就算了 */ }
+  return v
 }
 
 export const useSettings = defineStore('settings', () => {
@@ -79,7 +92,10 @@ export const useSettings = defineStore('settings', () => {
   }
   watch(s, () => {
     apply()
-    try { localStorage.setItem(KEY, JSON.stringify(s)) } catch { /* 存不了就算了 */ }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(s))
+      localStorage.setItem(AI_KEY, JSON.stringify(aiSettingsFromUi(s)))
+    } catch { /* 存不了就算了 */ }
   }, { deep: true })
   function reset() { Object.assign(s, structuredClone(defaults)) }
   function isDefault<K extends keyof Settings>(k: K) { return JSON.stringify(s[k]) === JSON.stringify(defaults[k]) }

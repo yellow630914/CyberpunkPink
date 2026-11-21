@@ -1,12 +1,12 @@
 // 驗收測試：dev/work/M0-ui-engine.md（交給 cpp-ui）。
-// 工單完成前這個檔會失敗（ui/src/stores/engine.ts 與 ui/src/lib/engineView.ts 還不存在）。
-// 跑法：在 ui/ 跑 npx vitest run --config vitest.pending.config.ts
-// 要先完成引擎那邊的 M0-data、M0-character、M0-perks、M0-creation。
+// 工單 M0-ui-engine 完成後從 tests/pending/ 搬來。
+
+
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { useEngine } from '../../src/stores/engine'
-import { aiSettingsFromUi, logEntryOf } from '../../src/lib/engineView'
+import { useEngine } from './engine'
+import { aiSettingsFromUi, logEntryOf, rulesFromUi, uiFromAiSettings } from '../lib/engineView'
 
 const DRAFT = {
   name: '露', gender: 'female', age: 22, origin: 'hive', originChoice: { favor: '孤星連' },
@@ -155,5 +155,21 @@ describe('M0-ui-engine：把引擎的東西轉成畫面要的樣子（純函式�
     expect(entry.prose).toEqual(['建角完成。'])
     expect(entry.roll).toBeUndefined()
     expect(entry.changes).toEqual([])
+  })
+})
+
+describe('M0-ui-engine：cpp-ai-v1 與存檔規則的轉換', () => {
+  it('介面欄位轉成引擎形狀再轉回來，值不變', () => {
+    const ui = {
+      useAi: false, judgeFree: true, judgeShift: false, judgeEvent: true, narrate: false, polish: true, clampRequested: true, agentMode: true,
+      tradeProse: false, combatProse: '每回合一小段', onlyQuery: true, retries: 3, chainRow: '一直展開',
+      hooks: { agent_hook: false, agent_event: true, agent_night: false, agent_commission: true, agent_flavor: true },
+      hookLimits: { event: 2, hook: 1, other: 7 }, taskSource: { judge: 'x' },
+    }
+    expect(uiFromAiSettings(JSON.parse(JSON.stringify(aiSettingsFromUi(ui))))).toEqual(ui)
+    expect(uiFromAiSettings(null)).toEqual({})
+  })
+  it('存檔規則：難度與特質點', () => {
+    expect(rulesFromUi({ difficulty: '傳奇', traitPoints: 6 })).toEqual({ difficulty: 'legend', startPerkPoints: 6 })
   })
 })
