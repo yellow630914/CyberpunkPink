@@ -7,8 +7,9 @@
 // 順序就是安裝的順序：被別人的掛鉤依賴的排前面。
 
 import type { Feature } from '../core/kernel'
+import { actionsFeature } from './actions'
 
-export const FEATURES: Record<string, Feature> = {}
+export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature }
 
 export function allFeatures(): Feature[] {
   return Object.values(FEATURES)
