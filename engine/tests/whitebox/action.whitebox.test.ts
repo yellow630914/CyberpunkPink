@@ -7,7 +7,8 @@ import {
   ActionBlocked, ActionRegistry, Probe, areaGrade, buildActionReport, clone, commitReport, commitTurn, createKernel, expectedAfterCommit, fallbackJudgment, fallbackReward,
   partySnapshot, prepareAction, rerollAction, rewardHint, sanitizeJudgment,
 } from '../../src/core'
-import { characterFeature } from '../../src/features'
+import { characterFeature } from '../../src/features/character'
+import { MINI_PACK } from '../helpers/miniContent'
 import { makeActor, makeState } from '../../src/testkit'
 
 const KIND: ActionKindDef = { id: 'wb', owner: 'wb', name: '白箱', attr: 'charm', skill: 'negotiate', dc: 'normal', minutes: 30, maxMinutes: 60, reportKind: 'action' }
@@ -93,7 +94,7 @@ describe('白箱 L5 第一段：擲骰（AI_TASKS 3.1 第 1 步；dev/invariants
 describe('白箱 L5 第二段：判定的驗證與夾值（AI_TASKS 4.1、2.5；dev/invariants.md 第 15、19、28 條）', () => {
   const judge = (raw: unknown, o: { clampAsked?: boolean; text?: string; content?: boolean } = {}) => {
     const { k, state } = setup()
-    if (o.content) k.content.loadPack({ id: 'skills', content: { skill: [{ id: 'negotiate', name: '交涉', attr: 'charm', desc: '' }] } })
+    if (o.content) k.content.loadPack({ id: 'skills', content: { skill: MINI_PACK.content.skill! } })
     const p = prepareAction(k, state, { kind: 'wb', text: o.text })
     return { p, r: sanitizeJudgment(k, state, p, raw, { clampAsked: o.clampAsked ?? true }) }
   }
