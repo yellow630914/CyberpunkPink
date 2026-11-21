@@ -2,7 +2,7 @@
 """夾值用的模擬器（docs/systems/BALANCE.md）。不依賴任何套件。
 
 用法：python3 tools/balance/sim.py [主題 ...] [--set current|proposed] [--doc-budget] [--trials N] [--seed N]
-主題：summary（預設）、hits、encounter、cross、capture、key、quests、grade、duel、legend、difficulty、net、check、economy、xp、opinion、roster、items、all
+主題：summary（預設）、hits、encounter、cross、capture、key、quests、grade、duel、legend、difficulty、net、check、economy、xp、opinion、roster、items、skills、mech、all
 
 所有曲線都寫在這個檔案的 CURVES 裡，和 BALANCE.md 的表一一對應。
 current 是第一輪夾值之前文件寫的數字（2026-11-20），proposed 是 BALANCE.md 的曲線；兩組只在 DIFF 列出的欄位不同。
@@ -181,7 +181,8 @@ def net_table(C):
 
 # ───────────────────────── 遭遇（蒙地卡羅） ─────────────────────────
 class Unit:
-    __slots__ = ('hp', 'max', 'ap', 'apmax', 'regen', 'acc', 'mag', 'magmax', 'atk', 'ev', 'armor', 'dice', 'flat', 'pierce', 'mult', 'minion')
+    __slots__ = ('hp', 'max', 'ap', 'apmax', 'regen', 'acc', 'mag', 'magmax', 'atk', 'ev', 'armor', 'dice', 'flat', 'pierce', 'mult', 'minion',
+                 'mech', 'dur', 'mturns', 'exposed', 'turn')   # mech：機甲的設定（dict）；dur：機體耐久；mturns：啟動剩幾回合
 
     def __init__(self, **k):
         for a in self.__slots__:
@@ -196,6 +197,8 @@ def attack(rng, a, d):
     if r == 1:
         return 0
     total = r + a.atk
+    if d.exposed:
+        cover = 0                      # 機甲啟動期間永遠暴露（COMBAT_SYSTEM 9.3 節）
     de = d.ev + cover
     if r != 20 and total < de:
         return 0
@@ -204,11 +207,37 @@ def attack(rng, a, d):
     return max(0, raw - max(0, d.armor - a.pierce)) * a.mult
 
 
+def mech_tick(u):
+    """敵方機師（ENEMIES 第 11 節）：照 m['start'] 那一回合啟動（3 點行動點），持續 2 ＋ 同步回合；機體歸零或時間到就解除。"""
+    m = u.mech
+    if u.mturns > 0:
+        u.mturns -= 1
+        if u.mturns == 0 or u.dur <= 0:
+            u.mturns = 0
+            u.dur = 0
+            u.armor, u.dice, u.regen, u.magmax, u.exposed = m['base']
+            u.mag = min(u.mag, u.magmax)
+    elif not m.get('used') and u.turn >= m['start'] and u.ap >= 3:
+        u.ap -= 3
+        m['used'] = True
+        m['base'] = (u.armor, u.dice, u.regen, u.magmax, u.exposed)
+        u.armor = min(m['armor_cap'], u.armor + m['armor'])
+        u.dice = m['dice']
+        u.regen += m['ap']
+        u.magmax = u.mag = m['mag']
+        u.exposed = True
+        u.dur = m['dur']
+        u.mturns = m['turns']
+
+
 def take_turn(rng, u, foes, focus, other=0.0):
+    u.turn += 1
     u.acc += u.regen
     gain = int(u.acc)
     u.acc -= gain
-    u.ap = min(u.apmax, u.ap + gain)
+    u.ap = min(u.apmax + (u.mech['ap'] if u.mech and u.mturns else 0), u.ap + gain)
+    if u.mech:
+        mech_tick(u)
     if other and rng.random() < other and u.ap >= 1:
         u.ap -= 1                      # 移動、招牌行動、瞄準這類不直接打血的事
     while u.ap >= 2:
@@ -223,6 +252,10 @@ def take_turn(rng, u, foes, focus, other=0.0):
         u.ap -= 2
         u.mag -= 1
         dmg = attack(rng, u, t)
+        if t.dur > 0:                  # 傷害先打在機體上，多的打到機師
+            soak = min(t.dur, dmg)
+            t.dur -= soak
+            dmg -= soak
         t.hp = max(0, t.hp - dmg)
 
 
@@ -233,6 +266,8 @@ def make_party(C, g):
 
 
 def make_enemy(C, eg, rank):
+    if rank == '機師':
+        return make_pilot(C, eg)
     d = C.get('difficulty')
     k = (d['boss'] if rank == '首領' else d['minions'][BAND_OF[eg]]) if d else {'hp': 1, 'dmg': 1}
     key = C.get('key_mult', 1.0) if rank != '雜兵' else 1.0   # 任務關鍵節點 ×1.1～1.2、具名 ×1.3～1.5：精英與首領的生命與傷害
@@ -243,6 +278,22 @@ def make_enemy(C, eg, rank):
     return Unit(hp=round(C['e_hp'][rank][eg] * k['hp']), apmax=C['e_apmax'][rank][eg], regen=3, mag=2, magmax=2,
                 atk=C['e_atk'][eg], ev=C['e_ev'][eg], armor=C['e_armor'][eg], dice=3 + C['grade_dice'][eg],
                 flat=0, mult=C['e_dmg_mult'][rank] * k['dmg'], minion=(rank == '雜兵'))
+
+
+# 敵方的機甲（ENEMIES 第 11 節）：精英機師的強化狀態，2.5 點。耐久＝同級精英生命 × dur；護甲 +4、上限 8；每回合多回 2 點行動點；
+# 武器換成機甲的武器（4d6 加等級骰，彈匣 4）；永遠暴露；同步＝機甲的等級，持續 2 ＋ 同步回合；精英在第 2 回合啟動。
+MECH = {'dur': 0.4, 'pilot_hp': 1.0, 'dmg': 1.0, 'armor': 4, 'armor_cap': 8, 'ap': 2, 'dice': 4, 'mag': 4, 'start': 2}
+
+
+def make_pilot(C, eg, cfg=None):
+    m = dict(MECH, **(C.get('mech') or {}), **(cfg or {}))
+    u = make_enemy(C, eg, '精英')
+    u.hp = u.max = round(u.hp * m['pilot_hp'])
+    u.mult *= m['dmg']
+    arm = m['armor'][eg] if isinstance(m['armor'], (list, tuple)) else m['armor']
+    u.mech = {'dur': round(C['e_hp']['精英'][eg] * m['dur']), 'armor': arm, 'armor_cap': m['armor_cap'], 'ap': m['ap'],
+              'dice': m['dice'] + C['grade_dice'][eg], 'mag': m['mag'], 'start': m['start'], 'turns': 2 + (eg + 1)}
+    return u
 
 
 def compositions(C, budget, boss=False):
@@ -792,6 +843,101 @@ def show_legend(C, rng, trials):
     print(f'  故事難度，V 級四人對傳奇人物 ×{LEGEND_MULT:g}：勝 {pct(win)}，掉 {pct(loss)}，倒下 {downs:.2f} 人')
 
 
+# 機甲的幾種寫法（BALANCE 第 6 節第 1 項）：(說明, 設定)。耐久＝同級精英生命 × dur，機師本人的生命 × pilot_hp
+MECH_OPTIONS = [
+    ('機體 ×0.4、機師 ×1（BALANCE 原本的建議）', {'dur': 0.4, 'pilot_hp': 1.0}),
+    ('機體 ×0.3、機師 ×1（接近現在的 III 50、IV 62、V 75）', {'dur': 0.3, 'pilot_hp': 1.0}),
+    ('機體 ×0.3、機師 ×0.6', {'dur': 0.3, 'pilot_hp': 0.6}),
+    ('機體 ×0.2、機師 ×0.6', {'dur': 0.2, 'pilot_hp': 0.6}),
+    ('機體 ×0.3、機師 ×0.7、機甲的傷害 ×0.8', {'dur': 0.3, 'pilot_hp': 0.7, 'dmg': 0.8}),
+]
+
+
+def show_mech(C, rng, trials):
+    print(f'■ 敵方的機甲（2.5 點，照精英）：同級四人，{trials} 次的平均；一般遭遇＝機師＋2 雜兵，比的是精英＋2 雜兵；首領戰＝首領＋機師＋1 雜兵')
+    print('  機甲：護甲 +4（上限 8）、每回合多回 2 點行動點、武器 4d6 加等級骰、永遠暴露、持續 2 ＋ 同步（＝等級）回合、第 2 回合啟動')
+    base = [encounter(C, g, g, ['精英', '雜兵', '雜兵'], rng, trials) for g in range(5)]
+    bb = [encounter(C, g, g, ['首領', '精英', '雜兵'], rng, trials) for g in range(5)]
+    print('  對照（精英）：' + '｜'.join(f'{G[g]} {pct(x[0])}' for g, x in enumerate(base)) + '；首領戰 ' + '｜'.join(f'{G[g]} {pct(x[0])}' for g, x in enumerate(bb)))
+    for label, cfg in MECH_OPTIONS:
+        D = dict(C, mech=cfg)
+        r = [encounter(D, g, g, ['機師', '雜兵', '雜兵'], rng, trials) for g in range(5)]
+        b = [encounter(D, g, g, ['首領', '機師', '雜兵'], rng, trials) for g in range(5)]
+        print(f'  {label}：' + '｜'.join(f'{G[g]} {pct(x[0])}（{x[0] / y[0] - 1:+.0%}）' for g, (x, y) in enumerate(zip(r, base)))
+              + '；首領戰 ' + '｜'.join(f'{G[g]} {pct(x[0])} 勝{pct(x[2])}' for g, x in enumerate(b)))
+
+
+# 技能樹的份量與容量（SKILLS 1.9 節）：被動 1／1.5／2／2.5／3 格、容量 2～6；主動 1～5 格；每場一次的主動 3／4／6／8／10 格；
+# 反應照主動 ＋1 格；姿態照被動 ＋0.5 格；主動、反應、姿態、預備、日常的容量 1／1／2／2／3。招牌不照表。誤差 ±0.5 格。
+SK_PASSIVE = {1: 1, 2: 1.5, 3: 2, 4: 2.5, 5: 3}
+SK_ACTIVE = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5}
+SK_ONCE = {1: 3, 2: 4, 3: 6, 4: 8, 5: 10}
+SK_CAP_PASSIVE = {1: 2, 2: 3, 3: 4, 4: 5, 5: 6}
+SK_CAP_OTHER = {1: 1, 2: 1, 3: 2, 4: 2, 5: 3}
+
+
+def parse_skill_trees(path):
+    tree = tier = None
+    rows = []
+    for line in open(path, encoding='utf-8'):
+        m = re.match(r'^## (\S+)：', line)
+        if m:
+            tree, tier = m.group(1), None
+            continue
+        m = re.match(r'^### (\d) 階', line)
+        if m:
+            tier = int(m.group(1))
+            continue
+        if line.startswith('|') and tree and tier:
+            c = [x.strip() for x in line.strip().strip('|').split('|')]
+            if len(c) > 7 and re.match(r'^\d+$', c[3]):
+                rows.append({'tree': tree, 'tier': tier, 'name': c[0].strip('*'), 'layer': c[1], 'kind': c[2],
+                             'cap': int(c[3]), 'pre': c[4], 'cost': c[5], 'w': c[6]})
+    return rows
+
+
+def skills_audit(path):
+    rows, bad = parse_skill_trees(path), []
+    for r in rows:
+        if r['layer'] == '招牌':
+            continue
+        t, k = r['tier'], r['kind']
+        m = re.match(r'([\d.]+) 格', r['w'])
+        once = '每場 1' in r['cost'] and '每回合' not in r['cost']
+        if k == '被動':
+            exp, cap = SK_PASSIVE[t], SK_CAP_PASSIVE[t]
+        elif k == '姿態':
+            exp, cap = SK_PASSIVE[t] + 0.5, SK_CAP_OTHER[t]
+        elif k in ('主動', '反應'):
+            exp, cap = (SK_ONCE[t] if once else SK_ACTIVE[t]) + (1 if k == '反應' else 0), SK_CAP_OTHER[t]
+        else:
+            exp, cap = None, SK_CAP_OTHER[t]
+        msg = []
+        if exp is not None and m and abs(float(m.group(1)) - exp) > 0.5:
+            msg.append(f'份量 {m.group(1)} 格，表是 {exp:g}')
+        if r['cap'] != cap:
+            msg.append(f'容量 {r["cap"]}，表是 {cap}')
+        if msg:
+            bad.append((r, '；'.join(msg)))
+    return rows, bad
+
+
+def show_skills():
+    path = os.path.join(ROOT, 'docs/content/SKILL_TREES.md')
+    rows, bad = skills_audit(path)
+    trees = {}
+    for r in rows:
+        trees.setdefault(r['tree'], []).append(r)
+    print(f'■ 技能樹：讀到 {len(trees)} 棵樹、{len(rows)} 個技能；份量與容量照 SKILLS 1.9 節（誤差 ±0.5 格，招牌不算），不合的 {len(bad)} 個')
+    for r, msg in bad:
+        print(f'  {r["tree"]} {r["tier"]} 階 {r["name"]}（{r["kind"]}，{r["cost"]}）：{msg}')
+    print('  每棵樹的容量（全裝／每一階／只裝招牌與前層）：')
+    for t, rs in trees.items():
+        per = [sum(r['cap'] for r in rs if r['tier'] == k) for k in range(1, 6)]
+        front = sum(r['cap'] for r in rs if r['layer'] in ('前', '招牌'))
+        print(f'    {t}：{sum(r["cap"] for r in rs)}／{"、".join(map(str, per))}／{front}')
+
+
 def show_cross(C, rng, trials):
     print('■ 跨級：g 級的隊伍打 e 級的四個雜兵（掉血％／回合）')
     print('隊伍＼敵人 | ' + ' | '.join(G))
@@ -865,7 +1011,7 @@ def main():
     rng = random.Random(a.seed)
     topics = a.topics
     if 'all' in topics:
-        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'quests', 'grade', 'duel', 'legend', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items']
+        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'quests', 'grade', 'duel', 'legend', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items', 'skills', 'mech']
     if 'summary' in topics:
         topics = ['hits', 'encounter', 'cross']
     print(f'曲線：{a.set}')
@@ -873,7 +1019,8 @@ def main():
         {'hits': lambda: show_hits(C), 'net': lambda: show_net(C),
          'encounter': lambda: show_encounter(C, rng, a.trials), 'cross': lambda: show_cross(C, rng, max(200, a.trials // 4)),
          'check': lambda: show_check(C), 'economy': lambda: show_economy(C), 'xp': lambda: show_xp(C),
-         'opinion': lambda: show_opinion(C), 'roster': lambda: show_roster(C), 'items': show_items,
+         'opinion': lambda: show_opinion(C), 'roster': lambda: show_roster(C), 'items': show_items, 'skills': show_skills,
+         'mech': lambda: show_mech(C, rng, max(500, a.trials // 2)),
          'key': lambda: show_key(C, rng, max(300, a.trials // 2)),
          'capture': lambda: show_capture(C, rng, max(500, a.trials // 2)),
          'quests': lambda: show_quest_layouts(C, rng, max(300, a.trials // 4)),
