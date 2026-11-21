@@ -62,4 +62,7 @@ button { font: inherit; color: inherit; }
 .g1 { --gc: var(--g1); } .g2 { --gc: var(--g2); } .g3 { --gc: var(--g3); } .g4 { --gc: var(--g4); } .g5 { --gc: var(--g5); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+:root[data-prose-font="serif"] .prose { font-family: "Noto Serif TC", "Songti TC", "PMingLiU", serif; }
+:root[data-neon="關"] .tick { display: none; }
+
 @media (prefers-reduced-motion: reduce) { :root { --dur-fast: 0ms; --dur: 0ms; } }

@@ -6,7 +6,8 @@
   "description": "CyberpunkPink 的互動介面 v1（Vue 3 + Pinia + Vite）。引擎的介面參考實作，資料是假的。",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build",
+    "icons": "node scripts/build-icons.mjs",
+    "build": "node scripts/build-icons.mjs && vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "vue-tsc --noEmit"

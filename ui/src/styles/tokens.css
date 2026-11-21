@@ -32,8 +32,8 @@
   --shadow: 4px 4px 0 #0E0A14; --outline: 0px;
   --grid: linear-gradient(#ffffff06 1px, transparent 1px) 0 0/16px 16px, linear-gradient(90deg, #ffffff06 1px, transparent 1px) 0 0/16px 16px;
   /* 格子地圖 */
-  --tile-void: #120D19; --tile-floor: #2A1F36; --tile-wall: #0E0A14; --tile-street: #33274A; --tile-building: #1E1627;
-  --tile-door: #5B4675; --tile-fac: #5B4675; --fog: #0b0810;
+  --tile-void: #120D19; --tile-floor: #2A1F36; --tile-wall: #4A3B5E; --tile-street: #33274A; --tile-building: #1E1627;
+  --tile-door: #5B4675; --tile-fac: #5B4675; --fog: #08060c;
 }
 [data-skin="net"] {
   --bg: #F8C3D8; --bg-1: #FFF4E8; --bg-2: #FFE6F0; --bg-3: #FFD3E6; --bg-term: #FFF9F3; --line: #1E2346; --line-2: #3B4170;

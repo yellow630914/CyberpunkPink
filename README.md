@@ -1,6 +1,6 @@
 # CyberpunkPink
 
-> 狀態：**設計階段，尚未動工**。目前只有文件，沒有程式。所有數值都是初稿。
+> 狀態：**設計階段，引擎尚未動工**。除了文件，只有一份互動介面的參考實作（[`ui/`](ui/README.md)，資料是假的）。所有數值都是初稿。
 
 一款成人向（18+）的賽博龐克跑團風格 RPG 網頁遊戲。架構沿用 [ElondiaRPG](https://github.com/yellow630914/ElondiaRPG)：玩家用 UI 操作，**遊戲引擎**負責所有擲骰與數值，每次行動結束後輸出一份**結構化報告**，再交給 **AI 敘事器**寫成小說式的經過（AI 可以關閉）。
 
@@ -26,6 +26,7 @@
 | [`docs/art/`](docs/art/ART_STYLE.md) | 美術風格、地圖與示意圖 |
 | [`docs/plan/`](docs/plan/PLAN.md) | 計畫與待處理、實作的做法、ElondiaRPG 的掃描與遷移清單、AI 任務 |
 | [`docs/log/`](docs/log/DECISIONS.md) | 決策紀錄：已經定案的決定與經過 |
+| [`ui/`](ui/README.md) | 互動版介面 v1（Vue 3＋Pinia＋Vite）：寫引擎時的介面依據，`cd ui && npm install && npm run dev` |
 
 工具：`python3 tools/book/build.py` 重編設計書；`python3 tools/docs/check.py` 檢查連結與章節引用；`node tools/art/render.mjs` 把圖轉成 PNG。
 
