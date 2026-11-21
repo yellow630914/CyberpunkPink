@@ -1,0 +1,57 @@
+{
+  "id": "ui-busy-race",
+  "bug": "2026-11-21-ui-busy-race",
+  "note": "M0-ui-engine 第三節：busy 在任務鏈跑的時候是 true。第一條鏈還在跑時又送一次 act，第二次丟錯之後 finally 把 busy 設成 false，第一條鏈其實還在跑。",
+  "draft": {
+    "name": "露",
+    "gender": "female",
+    "age": 22,
+    "origin": "hive",
+    "originChoice": {
+      "favor": "孤星連"
+    },
+    "attrPick": {
+      "reflex": 15,
+      "charm": 14,
+      "intellect": 13,
+      "body": 12,
+      "resolve": 10,
+      "tech": 8
+    },
+    "attrBonus": {
+      "tech": -4,
+      "reflex": 3,
+      "resolve": 3
+    },
+    "skills": {
+      "streetwise": 3,
+      "negotiate": 3,
+      "perform": 2,
+      "stealth": 2
+    },
+    "perks": [
+      "smooth_talker",
+      "tough"
+    ]
+  },
+  "steps": [
+    {
+      "type": "ai",
+      "useAi": true
+    },
+    {
+      "type": "newGame",
+      "seed": 7
+    },
+    {
+      "type": "create"
+    },
+    {
+      "type": "actTwice",
+      "text": "我看看四周"
+    }
+  ],
+  "expect": {
+    "busyWhileFirstRunning": true
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "ui-legacy-money-in-save",
+  "bug": "2026-11-21-ui-legacy-money-in-save",
+  "note": "M0-ui-engine 第五節第 3 步：引擎的錢不再放進假存檔。現在 legacy.money 還有 acc、cash，讀檔時蓋過引擎存檔裡的錢（多一份帳）。",
+  "steps": [
+    {
+      "type": "loadPackedWith",
+      "legacy": {
+        "money": {
+          "acc": 99999,
+          "cash": 3700,
+          "fav": 2
+        }
+      }
+    }
+  ],
+  "expect": {
+    "legacyMoneyKeys": [
+      "fav"
+    ],
+    "loadResult": null,
+    "money": {
+      "cred": 4620,
+      "cash": 3700
+    },
+    "reportCount": 2,
+    "thrown": []
+  }
+}

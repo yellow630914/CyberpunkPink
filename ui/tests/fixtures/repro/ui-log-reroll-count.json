@@ -1,0 +1,64 @@
+{
+  "id": "ui-log-reroll-count",
+  "bug": "2026-11-21-ui-log-reroll-count",
+  "note": "UI 第 3.2 節、AI_TASKS 2.4 節、不變式第 5 條：重擲過的擲骰行標出重擲幾次，不能藏。引擎的 CheckRoll 有 rerolls，logEntryOf 沒帶過來。",
+  "draft": {
+    "name": "露",
+    "gender": "female",
+    "age": 22,
+    "origin": "hive",
+    "originChoice": {
+      "favor": "孤星連"
+    },
+    "attrPick": {
+      "reflex": 15,
+      "charm": 14,
+      "intellect": 13,
+      "body": 12,
+      "resolve": 10,
+      "tech": 8
+    },
+    "attrBonus": {
+      "tech": -4,
+      "reflex": 3,
+      "resolve": 3
+    },
+    "skills": {
+      "streetwise": 3,
+      "negotiate": 3,
+      "perform": 2,
+      "stealth": 2
+    },
+    "perks": [
+      "smooth_talker",
+      "tough"
+    ]
+  },
+  "steps": [
+    {
+      "type": "ai",
+      "useAi": false
+    },
+    {
+      "type": "newGame",
+      "seed": 7
+    },
+    {
+      "type": "create"
+    },
+    {
+      "type": "act",
+      "text": "我看看四周"
+    },
+    {
+      "type": "reroll"
+    },
+    {
+      "type": "reroll"
+    }
+  ],
+  "expect": {
+    "rollRerolls": 2,
+    "thrown": []
+  }
+}

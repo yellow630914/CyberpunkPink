@@ -1,0 +1,36 @@
+{
+  "id": "ui-retreat-time",
+  "bug": "2026-11-21-ui-retreat-time",
+  "note": "SERIES 第 6 節：撤退把城市的時間也回到進入入口那一刻。現在時間不回去（serialize 拿掉了 day、minutes，而引擎的時間不能用變更往回走）。",
+  "steps": [
+    {
+      "type": "snapshot",
+      "kind": "入口",
+      "label": "入口"
+    },
+    {
+      "type": "advance",
+      "minutes": 120
+    },
+    {
+      "type": "spend",
+      "money": "cash",
+      "amount": 100
+    },
+    {
+      "type": "rollback"
+    }
+  ],
+  "expect": {
+    "time": {
+      "day": 14,
+      "hour": 17,
+      "minute": 20
+    },
+    "money": {
+      "cred": 4620,
+      "cash": 3700
+    },
+    "thrown": []
+  }
+}

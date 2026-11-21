@@ -1,0 +1,29 @@
+{
+  "id": "ui-load-not-atomic",
+  "bug": "2026-11-21-ui-legacy-money-in-save",
+  "note": "不變式第 6 條：讀不進來的存檔不改變現在的狀態。legacy.money 不合法時，引擎那一份已經換上去了，接著 hydrate 改錢丟出 ChangeError：讀檔只做了一半，錯誤跑到元件。",
+  "steps": [
+    {
+      "type": "advance",
+      "minutes": 60
+    },
+    {
+      "type": "loadPackedWith",
+      "legacy": {
+        "money": {
+          "acc": -1,
+          "cash": 3700,
+          "fav": 2
+        }
+      }
+    }
+  ],
+  "expect": {
+    "thrown": [],
+    "time": {
+      "day": 14,
+      "hour": 18,
+      "minute": 20
+    }
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "id": "ui-undo-ledger-steps",
+  "bug": "2026-11-21-ui-undo-ledger-steps",
+  "note": "AI_TASKS 5.5 節：沒有正文的帳（ui.money、ui.time）算在最新的那一樓，不自己佔一步回退。現在每一筆帳各佔一步，五筆之後自由行動那一樓回退不到。",
+  "draft": {
+    "name": "露",
+    "gender": "female",
+    "age": 22,
+    "origin": "hive",
+    "originChoice": {
+      "favor": "孤星連"
+    },
+    "attrPick": {
+      "reflex": 15,
+      "charm": 14,
+      "intellect": 13,
+      "body": 12,
+      "resolve": 10,
+      "tech": 8
+    },
+    "attrBonus": {
+      "tech": -4,
+      "reflex": 3,
+      "resolve": 3
+    },
+    "skills": {
+      "streetwise": 3,
+      "negotiate": 3,
+      "perform": 2,
+      "stealth": 2
+    },
+    "perks": [
+      "smooth_talker",
+      "tough"
+    ]
+  },
+  "steps": [
+    {
+      "type": "ai",
+      "useAi": false
+    },
+    {
+      "type": "newGame",
+      "seed": 7
+    },
+    {
+      "type": "create"
+    },
+    {
+      "type": "act",
+      "text": "我看看四周"
+    },
+    {
+      "type": "spend",
+      "money": "cash",
+      "amount": 10
+    },
+    {
+      "type": "spend",
+      "money": "cash",
+      "amount": 10
+    },
+    {
+      "type": "spend",
+      "money": "cash",
+      "amount": 10
+    },
+    {
+      "type": "spend",
+      "money": "cash",
+      "amount": 10
+    },
+    {
+      "type": "spend",
+      "money": "cash",
+      "amount": 10
+    },
+    {
+      "type": "undo"
+    }
+  ],
+  "expect": {
+    "logCount": 1,
+    "time": {
+      "day": 1,
+      "hour": 8,
+      "minute": 0
+    },
+    "money": {
+      "cred": 0,
+      "cash": 1500
+    },
+    "thrown": []
+  }
+}
