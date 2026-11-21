@@ -101,7 +101,7 @@ const busyReason = (r: RosterEntry) => (r.status === '有空' ? null : `${g.npcs
 .ava { width: 40px; height: 40px; border-radius: 10px; background: var(--bg-2); display: grid; place-items: center; font-weight: 900; color: var(--b); flex: none; }
 .who { flex: 1; min-width: 0; }
 .who small { display: block; color: var(--ink-3); font-size: var(--fs-xs); }
-.status { font-size: 11px; font-weight: 900; padding: 2px 8px; border-radius: 6px; background: color-mix(in srgb, var(--c) 22%, transparent); color: var(--c); white-space: nowrap; }
+.status { font-size: var(--fs-fine); font-weight: 900; padding: 2px 8px; border-radius: 6px; background: color-mix(in srgb, var(--c) 22%, transparent); color: var(--c); white-space: nowrap; }
 .paths { display: flex; gap: 4px; flex-wrap: wrap; }
 .note { font-size: var(--fs-xs); color: var(--warn); font-weight: 700; }
 .mt { margin-top: 2px; }

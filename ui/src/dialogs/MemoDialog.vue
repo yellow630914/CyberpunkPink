@@ -52,8 +52,8 @@ const NOTES = [
 <style scoped>
 .mt { margin-top: 12px; }
 .note small { font-size: var(--fs-sm); line-height: 1.6; color: var(--ink-2); }
-.cat { font: 900 11px var(--mono); color: var(--ram); letter-spacing: 2px; margin: 12px 0 6px; }
+.cat { font: 900 var(--fs-fine) var(--mono); color: var(--ram); letter-spacing: 2px; margin: 12px 0 6px; }
 .gl { margin-bottom: 5px; font-family: var(--mono); }
-.sys { font: 900 10px var(--mono); padding: 2px 6px; border-radius: 4px; background: var(--bg-term); color: var(--ram); flex: none; }
+.sys { font: 900 var(--fs-tiny) var(--mono); padding: 2px 6px; border-radius: 4px; background: var(--bg-term); color: var(--ram); flex: none; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); flex: none; }
 </style>

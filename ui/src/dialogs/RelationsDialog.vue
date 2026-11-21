@@ -111,20 +111,20 @@ function meet(n: Npc) {
 .list { padding: 6px; display: grid; gap: 4px; max-height: calc(100vh - 200px); overflow: auto; }
 .person { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px; background: var(--bg-2); border: 0; color: var(--ink); text-align: left; cursor: pointer; }
 .person.on { box-shadow: inset 0 0 0 2px var(--a); }
-.person small { display: block; color: var(--ink-3); font-size: 11px; }
+.person small { display: block; color: var(--ink-3); font-size: var(--fs-fine); }
 .ava { width: 36px; height: 36px; border-radius: 9px; background: var(--bg-1); display: grid; place-items: center; font-weight: 900; color: var(--b); flex: none; }
-.ava.lg { width: 56px; height: 56px; font-size: 20px; border-radius: 12px; }
-.star { color: var(--ap); font-style: normal; margin-left: 4px; font-size: 11px; }
+.ava.lg { width: 56px; height: 56px; font-size: var(--fs-xl); border-radius: 12px; }
+.star { color: var(--ap); font-style: normal; margin-left: 4px; font-size: var(--fs-fine); }
 .aff { position: relative; display: block; height: 5px; margin-top: 4px; background: var(--bg-term); border-radius: 3px; }
 .aff::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; background: var(--ink-3); }
 .aff i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
 .aff i.pos { left: 50%; background: var(--a); }
 .aff i.neg { right: 50%; background: var(--danger); }
 .meta { display: grid; justify-items: end; gap: 1px; }
-.stage { font-size: 12px; color: var(--a); }
+.stage { font-size: var(--fs-sm); color: var(--a); }
 .dh { display: flex; gap: 12px; align-items: center; }
-.dh h3 { margin: 0 0 2px; font-size: 18px; }
-.dh h3 small { font-size: 12px; color: var(--ink-3); font-weight: 600; }
+.dh h3 { margin: 0 0 2px; font-size: var(--fs-section); }
+.dh h3 small { font-size: var(--fs-sm); color: var(--ink-3); font-weight: 600; }
 .affbig { display: grid; justify-items: center; }
 .affbig small { color: var(--ink-3); font-weight: 800; }
 .relline { display: flex; gap: 8px; align-items: center; margin-top: 10px; padding: 8px 10px; background: var(--bg-2); font-size: var(--fs-sm); flex-wrap: wrap; }
@@ -133,13 +133,13 @@ function meet(n: Npc) {
 .mt { margin-top: 12px; }
 .unk { color: var(--ink-3); }
 .line { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
-.seg { padding: 6px; background: var(--bg-2); font-size: 11px; }
-.seg small { display: block; color: var(--ink-3); font-size: 10px; }
+.seg { padding: 6px; background: var(--bg-2); font-size: var(--fs-fine); }
+.seg small { display: block; color: var(--ink-3); font-size: var(--fs-tiny); }
 .seg.done { background: var(--a); color: #fff; }
 .seg.done small { color: #fff; }
 .seg.now { box-shadow: inset 0 0 0 2px var(--a); }
 .mem { padding: 8px 10px; background: var(--bg-2); margin-bottom: 4px; }
-.mem small { color: var(--ink-3); font-size: 11px; }
+.mem small { color: var(--ink-3); font-size: var(--fs-fine); }
 .mem p { margin: 2px 0 0; font-size: var(--fs-sm); }
 @media (max-width: 900px) { .rel { grid-template-columns: 1fr; } .list { max-height: 300px; } }
 </style>

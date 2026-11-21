@@ -1,8 +1,9 @@
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import type { Point } from '../data/types'
 import Icon from './Icon.vue'
+import { useUi } from '../stores/ui'
 
 /**
  * 共用的格子地圖（UI 規則 3、4）：街區、家園、子網、地下城都用它。
@@ -26,16 +27,27 @@ const props = withDefaults(defineProps<{
   path?: Point[]
   maxCell?: number
   label: string
-}>(), { objects: () => [], tokens: () => [], areas: () => [], path: () => [], maxCell: 56 })
+  /** 螢幕上的方向鈕（↑↓←→ 與 E）；預設顯示 */
+  pad?: boolean
+  /** 方向鈕中間那顆的字（預設「E」） */
+  padLabel?: string
+}>(), { objects: () => [], tokens: () => [], areas: () => [], path: () => [], maxCell: 56, pad: true, padLabel: 'E' })
 
 const emit = defineEmits<{ (e: 'cell', p: Point): void; (e: 'object', id: string): void; (e: 'token', id: string): void; (e: 'hover', p: Point | null): void; (e: 'step', d: Point): void; (e: 'enter'): void }>()
-/** 鍵盤：地圖拿到焦點時，方向鍵走一格（step），Enter 或空白鍵和腳下的東西互動（enter）。由畫面決定怎麼做。 */
-const KEYS: Record<string, Point> = { ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 }, ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 } }
-function key(e: KeyboardEvent) {
-  const d = KEYS[e.key]
-  if (d) { e.preventDefault(); emit('step', d); return }
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emit('enter') }
-}
+/**
+ * 鍵盤：這張地圖掛上時登記成這一頁的「可以走的地圖」（stores/ui 的 mover），
+ * 全域的方向鍵、WASD 走一格（step），E 和腳下的東西互動（enter），不必先點地圖（App.vue 分派，lib/keys.ts）。
+ */
+const ui = useUi()
+const mover = { step: (d: Point) => emit('step', d), interact: () => emit('enter') }
+onMounted(() => ui.setMover(mover))
+onBeforeUnmount(() => { if (ui.mover === mover) ui.setMover(null) })
+const PAD: Array<{ d: Point; t: string; a: string; c: string }> = [
+  { d: { x: 0, y: -1 }, t: '↑', a: '往上走一格（↑ 或 W）', c: 'u' },
+  { d: { x: -1, y: 0 }, t: '←', a: '往左走一格（← 或 A）', c: 'l' },
+  { d: { x: 1, y: 0 }, t: '→', a: '往右走一格（→ 或 D）', c: 'r' },
+  { d: { x: 0, y: 1 }, t: '↓', a: '往下走一格（↓ 或 S）', c: 'dn' },
+]
 
 const cells = computed(() => {
   const out: Array<{ x: number; y: number; v: CellView; f: FogState }> = []
@@ -63,7 +75,7 @@ function over(e: MouseEvent) {
 </script>
 
 <template>
-  <div class="gm-wrap" :style="{ maxWidth: w * maxCell + 'px' }" tabindex="0" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Enter" :aria-label="`${label}：方向鍵走一格，Enter 互動`" @keydown="key">
+  <div class="gm-wrap" :style="{ maxWidth: w * maxCell + 'px' }" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight W A S D E" :aria-label="`${label}：方向鍵或 WASD 走一格，E 互動`">
     <div class="gm" role="grid" :aria-label="label" :style="{ aspectRatio: `${w} / ${h}`, gridTemplateColumns: `repeat(${w}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${h}, minmax(0, 1fr))` }" @click="pick" @mousemove="over" @mouseleave="emit('hover', null)">
       <div v-for="c in cells" :key="c.x + ',' + c.y" class="c" role="gridcell" :class="['k-' + c.v.kind, 'f-' + c.f, { path: pathSet.has(c.x + ',' + c.y) }]" :style="c.v.tint && c.f !== 'hidden' ? { '--tint': c.v.tint } : undefined" :data-x="c.x" :data-y="c.y" :title="c.f !== 'hidden' ? c.v.title : undefined">
         <template v-if="c.f !== 'hidden'">
@@ -80,12 +92,23 @@ function over(e: MouseEvent) {
         <button v-for="t in visTokens" :key="t.id" type="button" class="tok" :class="'t-' + t.kind" :style="box(t.x, t.y)" :title="t.title ?? t.label" :aria-label="t.title ?? t.label" @click.stop="emit('token', t.id)"><span>{{ t.label }}</span></button>
       </div>
     </div>
+    <div v-if="pad" class="pad" role="group" aria-label="移動">
+      <button v-for="b in PAD" :key="b.c" type="button" class="pb" :class="b.c" :aria-label="b.a" :title="b.a" @click="emit('step', b.d)">{{ b.t }}</button>
+      <button type="button" class="pb mid" :aria-label="`互動（E）`" title="和腳下的東西互動（E）" @click="emit('enter')">{{ padLabel }}</button>
+      <slot name="pad-side" />
+    </div>
   </div>
 </template>
 
 <style scoped>
 .gm-wrap { width: 100%; margin: 0 auto; border-radius: 4px; }
-.gm-wrap:focus-visible { outline: 2px solid var(--a); outline-offset: 3px; }
+.pad { display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 34px); gap: 4px; justify-content: center; margin-top: var(--space-3); }
+.pb { border: 0; background: var(--bg-2); color: var(--ink); font: 900 var(--fs-md) var(--font); cursor: pointer; padding: 0; border-radius: 6px; box-shadow: inset 0 0 0 1px var(--line-2); touch-action: manipulation; }
+.pb:hover { background: var(--bg-3); }
+.pb:active { background: var(--a); color: var(--on-a); }
+.pb.u { grid-area: 1 / 2; } .pb.l { grid-area: 2 / 1; } .pb.mid { grid-area: 2 / 2; background: var(--a); color: var(--on-a); font-size: var(--fs-sm); } .pb.r { grid-area: 2 / 3; } .pb.dn { grid-area: 3 / 2; }
+[data-skin="net"] .pb { box-shadow: inset 0 0 0 2px var(--o); }
+@media (max-width: 720px) { .pad { grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 44px); } }
 .gm { position: relative; display: grid; gap: 2px; width: 100%; user-select: none; cursor: pointer; }
 .c { position: relative; border-radius: 3px; background: var(--tile-floor); min-width: 0; min-height: 0; overflow: hidden; display: grid; place-items: center; }
 .c::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--tint, transparent); opacity: .22; pointer-events: none; }
@@ -107,7 +130,7 @@ function over(e: MouseEvent) {
 .c.path::after { content: ""; position: absolute; inset: 34%; border-radius: 50%; background: var(--a); opacity: .7; }
 .ci { position: relative; z-index: 1; --o: var(--bg-term); }
 [data-skin="net"] .ci { --o: #1E2346; }
-.mk { position: absolute; right: 2px; top: 0; font: 900 9px var(--mono); color: var(--ink-2); z-index: 1; }
+.mk { position: absolute; right: 2px; top: 0; font: 900 var(--fs-micro) var(--mono); color: var(--ink-2); z-index: 1; }
 .f-hidden { background: var(--fog) !important; box-shadow: none !important; cursor: default; }
 .f-hidden::before { display: none; }
 .f-seen { filter: saturate(.35) brightness(.62); }

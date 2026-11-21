@@ -68,11 +68,11 @@ onMounted(() => {
       if (cand.length) walk(p.id, cand[Math.floor(Math.random() * cand.length)])
     }
   }, 1800)
-  window.addEventListener('keydown', onKey)
+  window.addEventListener('keydown', onKey, true)
   const q = route.query.place
   if (typeof q === 'string') startNew(q)
 })
-onBeforeUnmount(() => { if (ticker) clearInterval(ticker); if (wander) clearInterval(wander); window.removeEventListener('keydown', onKey) })
+onBeforeUnmount(() => { if (ticker) clearInterval(ticker); if (wander) clearInterval(wander); window.removeEventListener('keydown', onKey, true) })
 
 // ---- 擺設 ----
 const furnitureInBag = computed(() => g.inventory.filter(s => FURNITURE_ITEM[s.def]))
@@ -108,10 +108,13 @@ function putAway() {
   ui.toast(`${FURNITURE[f.def].name}收進背包了。`)
   selected.value = null
 }
+/** 擺設時 R 轉向、Esc 取消；處理掉的鍵標成 defaultPrevented，全域快捷鍵（R 名冊、Esc 選單）就不再接。 */
 function onKey(e: KeyboardEvent) {
-  if (mode.value !== 'build') return
-  if (e.key === 'r' || e.key === 'R') rotate()
-  if (e.key === 'Escape' && placing.value) { placing.value = null; lastReason.value = null }
+  if (mode.value !== 'build' || ui.stack.length) return
+  const t = e.target as HTMLElement | null
+  if (t?.closest?.('input, textarea, select')) return
+  if (e.key === 'r' || e.key === 'R') { e.preventDefault(); rotate() }
+  if (e.key === 'Escape' && placing.value) { e.preventDefault(); placing.value = null; lastReason.value = null }
 }
 const ghost = computed<MapObject | null>(() => {
   if (!placing.value || !hover.value) return null
@@ -140,7 +143,7 @@ function onCell(p: Point) {
   }
   selected.value = h.furnitureAt(p)?.uid ?? null
 }
-/** 鍵盤：走路時方向鍵走一格、Enter 跳到側欄的行動；擺設時方向鍵移動游標、Enter 放下或選取。 */
+/** 鍵盤：走路時方向鍵或 WASD 走一格、E 跳到側欄的行動；擺設時方向鍵移動游標、E 放下或選取。 */
 function onStep(d: Point) {
   if (mode.value === 'walk') {
     const me = h.people.find(p => p.id === 'me')!
@@ -209,7 +212,7 @@ const sideTab = ref('rooms')
         <div class="mh">
           <Tabs v-model="mode" :tabs="[{ id: 'walk', label: '走路' }, { id: 'build', label: '擺設' }]" @update:model-value="placing = null; selected = null" />
           <span class="k">{{ h.map.w }} × {{ h.map.h }}</span>
-          <Hint title="家園地圖">走路：點地板，你會照最短的路走過去；住戶與訪客自己走動。擺設：點家具選取，可以轉向（R）、移動、收起；從右欄背包裡的家具擺新的。家具不能壓牆、擋門、跨兩間房、疊在一起，也不能把路堵死。鍵盤：地圖拿到焦點時，方向鍵走一格（擺設時移動游標），Enter 互動或放下。</Hint>
+          <Hint title="家園地圖">走路：點地板，你會照最短的路走過去；住戶與訪客自己走動。擺設：點家具選取，可以轉向（R）、移動、收起；從右欄背包裡的家具擺新的。家具不能壓牆、擋門、跨兩間房、疊在一起，也不能把路堵死。鍵盤：方向鍵或 WASD 走一格（擺設時移動游標），E 互動或放下；不必先點地圖。</Hint>
         </div>
         <GridMap :w="h.map.w" :h="h.map.h" :cell="cellView" :objects="objects" :tokens="tokens" :areas="areas" :max-cell="62" label="家園的格子地圖"
           @cell="onCell" @object="onObject" @hover="p => (hover = p)" @step="onStep" @enter="onEnter" />
@@ -299,26 +302,26 @@ const sideTab = ref('rooms')
 .mh .k { margin-left: auto; }
 .buildbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; min-height: 34px; }
 .side { display: grid; gap: 12px; min-width: 0; }
-h2 { margin: 2px 0 8px; font-size: 18px; }
+h2 { margin: 2px 0 8px; font-size: var(--fs-section); }
 .go.left { justify-content: flex-start; }
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .stat { display: grid; justify-items: start; gap: 2px; background: var(--bg-2); padding: 8px 10px; position: relative; }
-.stat b { font: 900 22px var(--mono); }
-.stat small { font-size: 11px; color: var(--ink-3); }
+.stat b { font: 900 var(--fs-page) var(--mono); }
+.stat small { font-size: var(--fs-fine); color: var(--ink-3); }
 .stat :deep(.hint-wrap) { position: absolute; right: 6px; top: 6px; }
 .rooms { display: grid; gap: 6px; margin-top: 10px; }
 .room { background: var(--bg-2); padding: 8px 10px; box-shadow: inset 3px 0 0 var(--rc); }
 .rh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .ru { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
-.sel { font: 800 12.5px var(--font); padding: 4px 8px; background: var(--bg-term); border: 0; box-shadow: inset 0 0 0 2px var(--a); color: var(--ink); }
-.fchip { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 999px; background: var(--bg-1); color: var(--ink-2); border: 0; cursor: pointer; }
+.sel { font: 800 var(--fs-sm) var(--font); padding: 4px 8px; background: var(--bg-term); border: 0; box-shadow: inset 0 0 0 2px var(--a); color: var(--ink); }
+.fchip { font-size: var(--fs-fine); font-weight: 800; padding: 3px 8px; border-radius: 999px; background: var(--bg-1); color: var(--ink-2); border: 0; cursor: pointer; }
 .fchip.on { background: var(--a); color: #fff; }
 .fbag { display: grid; gap: 6px; margin-top: 10px; }
 .fb { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; background: var(--bg-2); padding: 6px 10px; }
-.fb small { display: block; font-size: 11px; color: var(--ink-3); }
+.fb small { display: block; font-size: var(--fs-fine); color: var(--ink-3); }
 .ppl { margin-top: 10px; }
-.pp { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
-.pp small { color: var(--ink-3); font-size: 11px; display: inline-flex; gap: 4px; align-items: center; }
+.pp { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: var(--fs-ui); }
+.pp small { color: var(--ink-3); font-size: var(--fs-fine); display: inline-flex; gap: 4px; align-items: center; }
 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ink-3); flex: none; }
 .dot.me { background: var(--a); } .dot.ally { background: var(--ram); } .dot.visitor { background: var(--ap); }
 @media (max-width: 1100px) { .home { grid-template-columns: 1fr; } }

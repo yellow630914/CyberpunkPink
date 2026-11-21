@@ -164,22 +164,22 @@ function checkout() {
 .gd { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 10px; background: var(--bg-2); border-left: 3px solid var(--gc); }
 .gd.special { box-shadow: inset 0 0 0 1px var(--a); }
 .gi { min-width: 0; }
-.gi b { font-size: 13px; color: var(--gc); margin-right: 6px; }
-.gi small { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+.gi b { font-size: var(--fs-ui); color: var(--gc); margin-right: 6px; }
+.gi small { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; font-size: var(--fs-fine); color: var(--ink-3); margin-top: 2px; }
 .pr { text-align: right; display: grid; justify-items: end; }
-.pr small { font-size: 10.5px; color: var(--ink-3); }
+.pr small { font-size: var(--fs-tiny); color: var(--ink-3); }
 .warn-t { color: var(--warn); }
-.ln { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; font-size: 12.5px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
-.lm { font-size: 11px; font-weight: 900; color: var(--ink-3); }
+.ln { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; font-size: var(--fs-sm); padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.lm { font-size: var(--fs-fine); font-weight: 900; color: var(--ink-3); }
 .lnm { background: none; border: 0; padding: 0; cursor: pointer; text-align: left; font-weight: 800; }
 .ln .plus { color: var(--ram); }
 .rm { background: none; border: 0; color: var(--ink-3); cursor: pointer; }
 .mt { margin-top: 12px; }
-.brk { padding: 10px; background: var(--bg-term); font: 700 11.5px var(--mono); line-height: 1.9; color: var(--ink-2); }
+.brk { padding: 10px; background: var(--bg-term); font: 700 var(--fs-fine) var(--mono); line-height: 1.9; color: var(--ink-2); }
 .brk .u { color: var(--warn); } .brk .d { color: var(--ram); }
 .go.left { justify-content: flex-start; align-items: center; }
 .payseg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 10px; }
-.payseg button { padding: 8px; text-align: center; background: var(--bg-2); font-size: 12px; font-weight: 800; color: var(--ink-3); border: 0; cursor: pointer; display: grid; justify-items: center; gap: 2px; }
+.payseg button { padding: 8px; text-align: center; background: var(--bg-2); font-size: var(--fs-sm); font-weight: 800; color: var(--ink-3); border: 0; cursor: pointer; display: grid; justify-items: center; gap: 2px; }
 .payseg button.on { background: var(--a); color: #fff; }
 .payseg button.on :deep(.money) { color: #fff; }
 .payseg button[aria-disabled="true"] { opacity: .45; }

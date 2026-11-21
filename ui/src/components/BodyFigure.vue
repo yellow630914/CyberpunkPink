@@ -34,7 +34,7 @@ const SPOTS: Array<{ id: BodyPartId; x: number; y: number; t: string }> = [
 .fig :deep(.seam) { stroke: #5B4675; }
 .spot { cursor: pointer; }
 .spot circle { fill: #45375A; stroke: #17111F; stroke-width: 3; }
-.spot text { font: 900 14px var(--font); fill: #F3E9FF; pointer-events: none; }
+.spot text { font: 900 var(--fs-md) var(--font); fill: #F3E9FF; pointer-events: none; }
 .spot.filled circle { fill: #8E7CC3; }
 .spot.on circle { fill: #F06AA0; filter: drop-shadow(0 0 8px #F06AA0); }
 .spot circle.warn { fill: #FF8A5C; stroke-width: 2; }

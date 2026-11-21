@@ -43,11 +43,11 @@ const noPopup = computed({ get: () => !st.s.guidePopups, set: v => { st.s.guideP
 </template>
 
 <style scoped>
-.sys { font: 900 10px var(--mono); padding: 2px 6px; border-radius: 4px; background: var(--bg-2); color: var(--ram); }
-.pg { font-size: 12px; color: var(--ink-3); }
+.sys { font: 900 var(--fs-tiny) var(--mono); padding: 2px 6px; border-radius: 4px; background: var(--bg-2); color: var(--ram); }
+.pg { font-size: var(--fs-sm); color: var(--ink-3); }
 .gd { display: grid; gap: 12px; }
 .fig { margin: 0; min-height: 140px; display: grid; place-items: center; text-align: center; padding: 18px; background: var(--bg-term); box-shadow: inset 0 0 0 2px var(--line); color: var(--ink-3); font-size: var(--fs-sm); gap: 6px; }
-.fig .mono { font-size: 10px; color: var(--ram); letter-spacing: 2px; }
+.fig .mono { font-size: var(--fs-tiny); color: var(--ram); letter-spacing: 2px; }
 .txt { margin: 0; font-size: var(--fs-md); line-height: var(--lh-prose); }
 .chk { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--ink-2); cursor: pointer; }
 .grow { flex: 1; }

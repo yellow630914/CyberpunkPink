@@ -145,7 +145,7 @@ function endContract() {
 .kv2 { display: grid; }
 .mt { margin-top: 12px; }
 .mt2 { margin-top: 6px; }
-.st { font-size: 12px; }
+.st { font-size: var(--fs-sm); }
 .tag.off { opacity: .5; text-decoration: line-through; }
 .end { margin-top: 18px; padding-top: 10px; border-top: 2px solid var(--line); display: flex; align-items: center; gap: 6px; }
 .danger { color: var(--danger); }

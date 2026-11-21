@@ -103,10 +103,10 @@ const preset = computed(() => st.s.billRule)
 .bill.unpaid { opacity: .65; }
 .bill.skipped { opacity: .5; }
 .bill small { display: block; color: var(--ink-3); font-size: var(--fs-xs); }
-.ord { color: var(--ink-3); font-size: 11px; }
+.ord { color: var(--ink-3); font-size: var(--fs-fine); }
 .amt { text-align: right; font-weight: 800; }
-.st { font-size: 12px; text-align: center; }
-.tagbtn { display: inline-flex; align-items: center; gap: 4px; background: var(--bg-term); border: 0; padding: 3px 7px; color: var(--ink-2); font-size: 11px; font-weight: 800; cursor: pointer; }
+.st { font-size: var(--fs-sm); text-align: center; }
+.tagbtn { display: inline-flex; align-items: center; gap: 4px; background: var(--bg-term); border: 0; padding: 3px 7px; color: var(--ink-2); font-size: var(--fs-fine); font-weight: 800; cursor: pointer; }
 .mt { margin-top: 14px; }
 .down { display: grid; gap: 4px; margin-bottom: 8px; }
 .step { padding: 6px 10px; background: var(--bg-2); font-size: var(--fs-sm); display: flex; gap: 8px; align-items: center; }

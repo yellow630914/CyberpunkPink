@@ -63,12 +63,12 @@ void props
 
 <style scoped>
 .hint-wrap { display: inline-flex; vertical-align: middle; }
-.hint { width: 18px; height: 18px; border-radius: 50%; border: 0; background: var(--bg-3, #3A2B47); color: var(--ink-2); font: 900 11px/18px var(--font); padding: 0; cursor: help; flex: none; }
+.hint { width: 18px; height: 18px; border-radius: 50%; border: 0; background: var(--bg-3, #3A2B47); color: var(--ink-2); font: 900 var(--fs-fine)/18px var(--font); padding: 0; cursor: help; flex: none; }
 .hint:hover, .hint[aria-expanded="true"] { background: var(--a); color: var(--on-a); }
 [data-skin="net"] .hint { box-shadow: inset 0 0 0 2px var(--o); }
 </style>
 <style>
-.hint-pop { position: fixed; z-index: var(--z-hint); background: #120D19; color: #F3E9FF; box-shadow: inset 0 0 0 2px #45375A, 4px 4px 0 #0E0A14; padding: 10px 12px; font-size: 12.5px; line-height: 1.7; font-weight: 500; letter-spacing: 0; text-align: left; white-space: normal; border-radius: 6px; pointer-events: auto; }
+.hint-pop { position: fixed; z-index: var(--z-hint); background: #120D19; color: #F3E9FF; box-shadow: inset 0 0 0 2px #45375A, 4px 4px 0 #0E0A14; padding: 10px 12px; font-size: var(--fs-sm); line-height: 1.7; font-weight: 500; letter-spacing: 0; text-align: left; white-space: normal; border-radius: 6px; pointer-events: auto; }
 .hint-pop b { display: block; color: #F58DBA; margin-bottom: 2px; }
 .hint-pop p { margin: 0 0 6px; } .hint-pop p:last-child { margin: 0; }
 </style>

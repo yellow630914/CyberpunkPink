@@ -121,25 +121,25 @@ const tuneSlots = computed(() => g.cyber.bridge.slice(1, 3))
 .tunes :deep(.slot) { width: 52px; }
 .caps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; }
 .cap { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
-.cn { font-weight: 900; font-size: 12px; }
+.cn { font-weight: 900; font-size: var(--fs-sm); }
 .cells { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; }
 .cells i { height: 12px; background: var(--bg-term); border-radius: 2px; }
 .cells i.on { background: var(--cc); }
 .cells i.pv { background: transparent; box-shadow: inset 0 0 0 2px var(--cc); }
 .cells i.over { box-shadow: inset 0 0 0 2px var(--danger); }
-.num { font-size: 12px; font-weight: 800; white-space: nowrap; }
+.num { font-size: var(--fs-sm); font-weight: 800; white-space: nowrap; }
 .fl { margin: 0; }
 .filters .nightf { box-shadow: inset 0 0 0 1px var(--a); }
 .list { padding: 4px; display: grid; gap: 3px; }
-.srow2 { display: grid; grid-template-columns: 28px minmax(0, 1.2fr) 64px 28px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; background: var(--bg-2); font-size: 12.5px; }
+.srow2 { display: grid; grid-template-columns: 28px minmax(0, 1.2fr) 64px 28px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; background: var(--bg-2); font-size: var(--fs-sm); }
 .srow2.free { background: var(--bg-term); }
 .srow2.on .nm b { color: var(--a-hi); }
-.chk { background: none; border: 0; color: var(--ink); font-size: 16px; cursor: pointer; padding: 0; }
+.chk { background: none; border: 0; color: var(--ink); font-size: var(--fs-lg); cursor: pointer; padding: 0; }
 .nm { display: grid; min-width: 0; }
-.nm small { color: var(--ink-3); font-size: 11px; }
-.kd { font-size: 11px; color: var(--ink-3); }
+.nm small { color: var(--ink-3); font-size: var(--fs-fine); }
+.kd { font-size: var(--fs-fine); color: var(--ink-3); }
 .cp { font-weight: 900; text-align: center; }
-.why { font-size: 11px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.why { font-size: var(--fs-fine); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ft { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 @media (max-width: 720px) {
   .caps { grid-template-columns: 1fr; }

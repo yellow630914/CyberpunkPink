@@ -25,11 +25,11 @@ defineProps<{ m: PartyMember }>()
 .ava::before { content: ""; position: absolute; left: 10px; top: 7px; width: 18px; height: 18px; border-radius: 50%; background: var(--b); }
 .ava::after { content: ""; position: absolute; left: 4px; top: 24px; width: 30px; height: 20px; border-radius: 12px 12px 0 0; background: var(--b); }
 .ava.me::before, .ava.me::after { background: var(--a); }
-.nm { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; }
-.role { margin-left: auto; color: var(--ink-3); font-weight: 700; font-size: 11px; }
+.nm { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: var(--fs-ui); }
+.role { margin-left: auto; color: var(--ink-3); font-weight: 700; font-size: var(--fs-fine); }
 .sink { width: 46px; height: 10px; position: relative; border-left: 1px solid #F06AA0; border-right: 1px solid #F06AA0; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cg fill='none' stroke='%23F06AA0' stroke-width='1.4' stroke-linecap='round' opacity='0.22'%3E%3Cpath d='M0 5Q3 0 6 5T12 5'/%3E%3Cpath d='M3 2.6V5.4M9 7.4V4.6'/%3E%3C/g%3E%3C/svg%3E") 0 0/12px 10px repeat-x; flex: none; }
 .sink b { position: absolute; inset: 0 auto 0 0; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cg fill='none' stroke='%23F06AA0' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M0 5Q3 0 6 5T12 5'/%3E%3Cpath d='M3 2.6V5.4M9 7.4V4.6'/%3E%3C/g%3E%3C/svg%3E") 0 0/12px 10px repeat-x; animation: flow 1.1s linear infinite; filter: drop-shadow(0 0 3px #F06AA088); }
-.sv { font: 800 10px var(--mono); color: #F58DBA; }
+.sv { font: 800 var(--fs-tiny) var(--mono); color: #F58DBA; }
 .hb { height: 8px; border-radius: 4px; background: #2E2339; margin-top: 5px; position: relative; overflow: hidden; }
 .hb b { position: absolute; inset: 0 auto 0 0; border-radius: 4px 0 0 4px; }
 .hb.hp b { background: linear-gradient(90deg, #FF4A4A, #FF8A5C); }

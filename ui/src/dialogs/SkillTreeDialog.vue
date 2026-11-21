@@ -235,14 +235,14 @@ const nightAxis = (bId: string) => (bId === 'common' ? `${g.sexRecord.count} 次
 .tr.night { margin-top: 8px; box-shadow: inset 0 0 0 1px var(--a); }
 .tr.night.on { box-shadow: inset 0 0 0 2px var(--a); }
 .tn { display: flex; justify-content: space-between; gap: 6px; }
-.tn small { font-size: 11px; font-weight: 800; }
-.sg { font-size: 11px; color: var(--ink-3); }
+.tn small { font-size: var(--fs-fine); font-weight: 800; }
+.sg { font-size: var(--fs-fine); color: var(--ink-3); }
 .pips { display: flex; gap: 3px; }
 .pips i { flex: 1; height: 4px; border-radius: 2px; background: var(--bg-term); }
 .pips i.on { background: var(--a); }
 .main { min-width: 0; }
-.th h3 { margin: 4px 0 8px; font-size: 18px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-.th h3 small { font-size: 12px; color: var(--ap); font-weight: 800; }
+.th h3 { margin: 4px 0 8px; font-size: var(--fs-section); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.th h3 small { font-size: var(--fs-sm); color: var(--ap); font-weight: 800; }
 .str { display: flex; gap: 4px; flex-wrap: wrap; }
 .prog { margin-bottom: 10px; }
 .bar { position: relative; height: 8px; background: var(--bg-term); border-radius: 4px; margin-bottom: 4px; }
@@ -259,16 +259,16 @@ const nightAxis = (bId: string) => (bId === 'common' ? `${g.sexRecord.count} 次
 .tier { display: grid; grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 8px; row-gap: 14px; margin-bottom: 16px; position: relative; }
 .tier.locked .layer { background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--line) 50%, transparent) 6px 8px); opacity: .6; }
 .tl { grid-row: 1 / span 2; display: grid; align-content: start; }
-.tl small { color: var(--ink-3); font: 800 10px var(--mono); }
+.tl small { color: var(--ink-3); font: 800 var(--fs-tiny) var(--mono); }
 .layer { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; grid-column: 2; }
 .layer.back { padding-left: 14px; }
 .cell { display: grid; gap: 14px; align-content: start; }
 .card { position: relative; z-index: 1; display: flex; gap: 6px; align-items: center; padding: 6px 8px; background: var(--bg-2); border: 0; color: var(--ink); text-align: left; cursor: pointer; min-width: 0; width: 100%; box-shadow: inset 0 0 0 1px var(--line); }
 .back .card { background: var(--bg-1); }
 .card .cn { min-width: 0; flex: 1; display: grid; }
-.card .cn b { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.card .cn small { font-size: 10px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kd { width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center; font-size: 11px; font-weight: 900; background: var(--bg-term); color: var(--ink-2); flex: none; }
+.card .cn b { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card .cn small { font-size: var(--fs-tiny); color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kd { width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center; font-size: var(--fs-fine); font-weight: 900; background: var(--bg-term); color: var(--ink-2); flex: none; }
 .card.learned { background: var(--a); color: #fff; box-shadow: none; }
 .card.learned .cn small { color: #ffe3ef; }
 .card.learned .kd { background: #ffffff33; color: #fff; }
@@ -276,34 +276,34 @@ const nightAxis = (bId: string) => (bId === 'common' ? `${g.sexRecord.count} 次
 .card.need-pre { opacity: .55; }
 .card.locked { opacity: .35; }
 .card.sel { outline: 2px solid var(--ap); outline-offset: 2px; }
-.cost { position: absolute; right: 4px; top: -8px; font-size: 10px; font-weight: 900; background: var(--a); color: #fff; padding: 0 4px; border-radius: 4px; }
+.cost { position: absolute; right: 4px; top: -8px; font-size: var(--fs-tiny); font-weight: 900; background: var(--a); color: #fff; padding: 0 4px; border-radius: 4px; }
 .ck { font-weight: 900; }
 .sigc { width: min(260px, 100%); box-shadow: inset 0 0 0 2px var(--g4); }
 .sigc.learned { background: color-mix(in srgb, var(--g4) 30%, var(--a)); }
 .res { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-.rc { padding: 8px; background: var(--bg-2); font-size: 11px; color: var(--ink-3); display: grid; gap: 3px; }
+.rc { padding: 8px; background: var(--bg-2); font-size: var(--fs-fine); color: var(--ink-3); display: grid; gap: 3px; }
 .rc.on { color: var(--ink); box-shadow: inset 0 3px 0 var(--a); }
 .det { position: sticky; top: 0; }
 .dh { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
 .di { width: 56px; height: 56px; display: grid; place-items: center; background: var(--bg-term); border-radius: 10px; flex: none; }
-.dh h3 { margin: 2px 0 4px; font-size: 17px; }
+.dh h3 { margin: 2px 0 4px; font-size: var(--fs-section); }
 .field { padding: 8px 0; border-bottom: 1px dashed var(--line); }
-.field b { font-size: 12px; }
-.field p { margin: 3px 0 0; font-size: 12.5px; line-height: 1.65; color: var(--ink-2); }
+.field b { font-size: var(--fs-sm); }
+.field p { margin: 3px 0 0; font-size: var(--fs-sm); line-height: 1.65; color: var(--ink-2); }
 .field.none { opacity: .45; }
 .pvw { margin-top: 6px; }
-.why { font-size: 12px; color: var(--warn); font-weight: 700; margin-top: 6px; text-align: right; }
+.why { font-size: var(--fs-sm); color: var(--warn); font-weight: 700; margin-top: 6px; text-align: right; }
 .ngrid { display: grid; grid-template-columns: 52px repeat(5, minmax(0, 1fr)); gap: 6px; }
 .nh { display: grid; text-align: center; padding: 4px; }
-.nh small { font-size: 10.5px; color: var(--a); font-weight: 800; }
+.nh small { font-size: var(--fs-tiny); color: var(--a); font-weight: 800; }
 .ntl { display: grid; align-content: start; }
-.ntl small { font: 800 10px var(--mono); color: var(--ink-3); }
+.ntl small { font: 800 var(--fs-tiny) var(--mono); color: var(--ink-3); }
 .ncell { background: var(--bg-1); padding: 6px; display: grid; gap: 5px; align-content: start; min-width: 0; box-shadow: inset 0 0 0 1px var(--line); }
 .ncell.open { box-shadow: inset 0 0 0 2px var(--a); }
-.gate { font-size: 10px; color: var(--ink-3); font-weight: 800; }
+.gate { font-size: var(--fs-tiny); color: var(--ink-3); font-weight: 800; }
 .ncard { padding: 5px 6px; }
 .ncard.deep { box-shadow: inset 0 0 0 2px var(--a-hi); }
-.hid { font-size: 10px; color: var(--ink-3); }
+.hid { font-size: var(--fs-tiny); color: var(--ink-3); }
 @media (max-width: 1200px) { .sk { grid-template-columns: 180px minmax(0, 1fr); } .det { grid-column: 1 / -1; position: static; } }
 @media (max-width: 720px) {
   .sk { grid-template-columns: minmax(0, 1fr); }
@@ -311,10 +311,10 @@ const nightAxis = (bId: string) => (bId === 'common' ? `${g.sexRecord.count} 次
   .tr { flex: 0 0 130px; }
   .card .cn small, .kd, .cost { display: none; }
   .card { padding: 6px 5px; }
-  .card .cn b { font-size: 11px; white-space: normal; }
+  .card .cn b { font-size: var(--fs-fine); white-space: normal; }
   .layer.back { padding-left: 6px; }
   .tier { grid-template-columns: 30px minmax(0, 1fr); column-gap: 4px; }
-  .lines { grid-template-columns: 30px repeat(3, minmax(0, 1fr)); font-size: 10px; }
+  .lines { grid-template-columns: 30px repeat(3, minmax(0, 1fr)); font-size: var(--fs-tiny); }
   .res { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ngrid { grid-template-columns: 36px repeat(5, minmax(84px, 1fr)); }
   .main { overflow-x: auto; }

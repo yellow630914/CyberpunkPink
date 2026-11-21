@@ -148,10 +148,10 @@ const reasonEquip = computed(() => (def.value?.kind === 'cyberware' ? '義體要
 <style scoped>
 .bag { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; min-height: 0; }
 .items { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
-.legendg { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 11px; color: var(--ink-3); margin-top: 10px; }
+.legendg { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: var(--fs-fine); color: var(--ink-3); margin-top: 10px; }
 .legendg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; border: 2px solid; }
 .legendg .uqi { border-color: var(--uq); background: var(--uq); }
-.det h3 { margin: 2px 0 6px; font-size: 17px; color: var(--gc); }
+.det h3 { margin: 2px 0 6px; font-size: var(--fs-section); color: var(--gc); }
 .head { display: grid; grid-template-columns: 72px 1fr; gap: 12px; align-items: center; }
 @media (max-width: 860px) { .bag { grid-template-columns: 1fr; } .items { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); } }
 </style>

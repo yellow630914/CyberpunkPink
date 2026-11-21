@@ -10,6 +10,6 @@ defineProps<{ grade: Grade; small?: boolean }>()
 </template>
 
 <style scoped>
-.gb { display: inline-grid; place-items: center; min-width: 22px; height: 16px; padding: 0 4px; border-radius: 4px; background: var(--gc); color: #17111F; font: 900 10px/1 var(--mono); letter-spacing: 0; flex: none; }
-.gb.small { min-width: 18px; height: 14px; font-size: 9px; }
+.gb { display: inline-grid; place-items: center; min-width: 22px; height: 16px; padding: 0 4px; border-radius: 4px; background: var(--gc); color: #17111F; font: 900 var(--fs-tiny)/1 var(--mono); letter-spacing: 0; flex: none; }
+.gb.small { min-width: 18px; height: 14px; font-size: var(--fs-micro); }
 </style>

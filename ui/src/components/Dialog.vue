@@ -37,11 +37,11 @@ function close() { ui.close(props.entryId) }
 .stacked .dlg { box-shadow: inset 0 0 0 2px var(--a), 0 0 0 9999px transparent; }
 .hd { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 2px solid var(--line); background: var(--bg-term); min-width: 0; }
 .tt { display: grid; min-width: 0; }
-.tt b { font-size: var(--fs-lg); letter-spacing: 1px; }
+.tt b { font-size: var(--fs-section); font-weight: var(--fw-title); letter-spacing: 1px; }
 .tt small { color: var(--ink-3); font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .extra { flex: 1; display: flex; justify-content: flex-end; gap: 8px; min-width: 0; flex-wrap: wrap; }
 .back { display: none; }
-.x, .back { background: var(--bg-2); border: 0; color: var(--ink-2); font: 900 14px var(--font); padding: 6px 10px; cursor: pointer; flex: none; }
+.x, .back { background: var(--bg-2); border: 0; color: var(--ink-2); font: 900 var(--fs-md) var(--font); padding: 6px 10px; cursor: pointer; flex: none; }
 .x:hover, .back:hover { background: var(--a); color: var(--on-a); }
 .body { flex: 1; min-height: 0; overflow: auto; padding: 12px; }
 .ft { border-top: 2px solid var(--line); padding: 10px 16px; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }

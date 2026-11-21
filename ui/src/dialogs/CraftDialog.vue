@@ -170,28 +170,28 @@ const MAT = { 機: '機', 生: '生', 皆: '皆可' }
 
 <style scoped>
 .steps { display: none; gap: 4px; }
-.steps button { font-size: 12px; font-weight: 800; padding: 6px 10px; background: var(--bg-2); color: var(--ink-3); border: 0; cursor: pointer; }
+.steps button { font-size: var(--fs-sm); font-weight: 800; padding: 6px 10px; background: var(--bg-2); color: var(--ink-3); border: 0; cursor: pointer; }
 .steps button.on { background: var(--a); color: #fff; }
 .cr { display: grid; grid-template-columns: 260px minmax(0, 1fr) 300px; gap: 12px; align-items: start; }
 .bps, .parts { display: grid; gap: 5px; align-content: start; }
-.bpr small, .pr small { display: block; color: var(--ink-3); font-size: 11px; }
+.bpr small, .pr small { display: block; color: var(--ink-3); font-size: var(--fs-fine); }
 .lrow :deep(.slot) { width: 40px; flex: none; }
 .pr.no { opacity: .55; }
 .bph { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; margin-bottom: 10px; }
-.bph h3 { margin: 2px 0 4px; font-size: 17px; }
+.bph h3 { margin: 2px 0 4px; font-size: var(--fs-section); }
 .slotrow { display: grid; grid-template-columns: 44px 96px 44px minmax(0, 1fr) 36px; gap: 8px; align-items: center; width: 100%; padding: 6px 8px; background: var(--bg-2); border: 0; color: var(--ink); margin-bottom: 5px; cursor: pointer; text-align: left; }
 .slotrow.on { box-shadow: inset 0 0 0 2px var(--a); }
 .slotrow.bad { box-shadow: inset 3px 0 0 var(--danger); }
 .slotrow .pn small { display: block; }
-.req { font-size: 10px; font-weight: 900; padding: 2px 5px; border-radius: 4px; background: var(--b); color: #17111F; text-align: center; }
+.req { font-size: var(--fs-tiny); font-weight: 900; padding: 2px 5px; border-radius: 4px; background: var(--b); color: #17111F; text-align: center; }
 .req.opt { background: var(--bg-3); color: var(--ink-2); }
-.sn { font-weight: 800; font-size: 13px; }
-.mat { font: 800 11px var(--mono); color: var(--ink-3); text-align: right; }
+.sn { font-weight: 800; font-size: var(--fs-ui); }
+.mat { font: 800 var(--fs-fine) var(--mono); color: var(--ink-3); text-align: right; }
 .pv { margin-top: 12px; }
 .pvg { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
 .tag.up { color: var(--ram); }
 .who { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
-.sel { flex: 1; min-width: 0; background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 7px 8px; font: 700 13px var(--font); }
+.sel { flex: 1; min-width: 0; background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 7px 8px; font: 700 var(--fs-ui) var(--font); }
 @media (max-width: 1100px) { .cr { grid-template-columns: 240px minmax(0, 1fr); } .parts { grid-column: 1 / -1; } }
 @media (max-width: 720px) {
   .steps { display: flex; }

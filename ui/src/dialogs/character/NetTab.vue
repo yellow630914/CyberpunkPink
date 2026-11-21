@@ -102,7 +102,7 @@ const legal = computed(() => g.deck.slots.filter(Boolean).map(id => ITEMS[id!]).
 <style scoped>
 .net { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 12px; align-items: start; }
 .dh { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; }
-.dh h3 { margin: 2px 0 4px; font-size: 17px; }
+.dh h3 { margin: 2px 0 4px; font-size: var(--fs-section); }
 .mt { margin-top: 14px; }
 .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; }
 .cgrid.sm { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }

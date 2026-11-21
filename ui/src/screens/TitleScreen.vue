@@ -72,16 +72,16 @@ h1 { font-size: clamp(40px, 7vw, 76px); margin: 12px 0 0; letter-spacing: 6px; c
 .yr { color: var(--a-hi); margin: 4px 0 24px; letter-spacing: 4px; }
 .menu { display: grid; gap: 6px; max-width: 520px; }
 .mi { display: grid; grid-template-columns: 1fr auto; text-align: left; padding: 12px 16px; background: var(--bg-1); border: 0; color: var(--ink); cursor: pointer; box-shadow: inset 0 0 0 2px var(--line); clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px)); }
-.mi b { font-size: 16px; }
-.mi small { grid-column: 1; color: var(--ink-3); font-size: 12px; }
-.mi kbd { grid-row: 1 / span 2; grid-column: 2; align-self: center; font: 800 10px var(--mono); color: var(--ink-3); }
+.mi b { font-size: var(--fs-lg); }
+.mi small { grid-column: 1; color: var(--ink-3); font-size: var(--fs-sm); }
+.mi kbd { grid-row: 1 / span 2; grid-column: 2; align-self: center; font: 800 var(--fs-tiny) var(--mono); color: var(--ink-3); }
 .mi:hover, .mi:focus-visible { box-shadow: inset 0 0 0 2px var(--a); }
 .mi.pri { background: var(--a); color: #fff; box-shadow: none; }
 .mi.pri small, .mi.pri kbd { color: #ffe3ef; }
-.notice { font-size: 12px; color: var(--ink-3); margin-top: 24px; max-width: 520px; }
+.notice { font-size: var(--fs-sm); color: var(--ink-3); margin-top: 24px; max-width: 520px; }
 .notice b { color: var(--ink-2); }
-.ver { font-size: 11px; color: var(--ink-3); }
-.last h2 { margin: 0 0 8px; font-size: 22px; }
-.place { margin: 0; color: var(--a-hi); font-weight: 800; font-size: 12px; letter-spacing: 2px; }
+.ver { font-size: var(--fs-fine); color: var(--ink-3); }
+.last h2 { margin: 0 0 8px; font-size: var(--fs-page); }
+.place { margin: 0; color: var(--a-hi); font-weight: 800; font-size: var(--fs-sm); letter-spacing: 2px; }
 @media (max-width: 900px) { .tm { grid-template-columns: 1fr; padding: 32px 16px; } }
 </style>

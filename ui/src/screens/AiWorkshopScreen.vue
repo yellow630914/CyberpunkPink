@@ -212,25 +212,25 @@ function stepLimit(k: 'event' | 'hook' | 'other', d: number) { const v = s.hookL
 .one { padding: 12px; max-width: 1000px; }
 .tree { display: grid; gap: 3px; }
 .tree .grp { margin: 10px 0 2px; }
-.lrow.sub { padding: 5px 8px; font-size: 12.5px; }
-.lrow.sub small { font-size: 10px; color: var(--ink-3); }
+.lrow.sub { padding: 5px 8px; font-size: var(--fs-sm); }
+.lrow.sub small { font-size: var(--fs-tiny); color: var(--ink-3); }
 .cdot { width: 6px; height: 6px; border-radius: 50%; background: var(--a); flex: none; }
-.ed h3 { margin: 0 0 10px; font-size: 18px; display: flex; gap: 8px; align-items: center; }
-.ed h3 small { color: var(--ink-3); font-size: 12px; }
-.locked { display: flex; justify-content: space-between; padding: 10px 12px; margin: 8px 0; background: repeating-linear-gradient(135deg, var(--bg-2) 0 8px, var(--bg-1) 8px 12px); font-size: 13px; }
-.fld { display: grid; gap: 4px; font-size: 12px; font-weight: 800; color: var(--ink-2); margin-bottom: 8px; }
+.ed h3 { margin: 0 0 10px; font-size: var(--fs-section); display: flex; gap: 8px; align-items: center; }
+.ed h3 small { color: var(--ink-3); font-size: var(--fs-sm); }
+.locked { display: flex; justify-content: space-between; padding: 10px 12px; margin: 8px 0; background: repeating-linear-gradient(135deg, var(--bg-2) 0 8px, var(--bg-1) 8px 12px); font-size: var(--fs-ui); }
+.fld { display: grid; gap: 4px; font-size: var(--fs-sm); font-weight: 800; color: var(--ink-2); margin-bottom: 8px; }
 .fld > span { display: inline-flex; gap: 4px; align-items: center; }
-.inp { width: 100%; min-width: 0; background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 7px 9px; font: 500 13px var(--font); }
-textarea.inp { font-family: var(--mono); font-size: 12px; }
+.inp { width: 100%; min-width: 0; background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 7px 9px; font: 500 var(--fs-ui) var(--font); }
+textarea.inp { font-family: var(--mono); font-size: var(--fs-sm); }
 .sel { max-width: 220px; }
 .mt { margin-top: 8px; }
 .pv { display: grid; gap: 4px; }
-.pblk { display: flex; gap: 6px; align-items: center; padding: 5px 8px; background: var(--bg-2); font-size: 11.5px; }
+.pblk { display: flex; gap: 6px; align-items: center; padding: 5px 8px; background: var(--bg-2); font-size: var(--fs-fine); }
 .pblk.cache { box-shadow: inset 3px 0 0 var(--ram); }
-.pblk small { color: var(--ink-3); font-size: 10px; white-space: nowrap; }
-.iss { padding: 6px 8px; background: var(--bg-2); box-shadow: inset 3px 0 0 var(--warn); font-size: 12px; display: grid; gap: 2px; }
-.code { font-size: 10px; font-weight: 900; color: var(--warn); }
-.setrow .nm small { margin-left: 6px; font-size: 10px; }
+.pblk small { color: var(--ink-3); font-size: var(--fs-tiny); white-space: nowrap; }
+.iss { padding: 6px 8px; background: var(--bg-2); box-shadow: inset 3px 0 0 var(--warn); font-size: var(--fs-sm); display: grid; gap: 2px; }
+.code { font-size: var(--fs-tiny); font-weight: 900; color: var(--warn); }
+.setrow .nm small { margin-left: 6px; font-size: var(--fs-tiny); }
 @media (max-width: 1200px) { .cols { grid-template-columns: 220px minmax(0, 1fr); } .pv { grid-column: 1 / -1; } }
 @media (max-width: 720px) { .cols { grid-template-columns: minmax(0, 1fr); padding: 8px; } .tree { max-height: 260px; overflow: auto; } }
 </style>

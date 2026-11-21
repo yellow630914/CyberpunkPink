@@ -136,30 +136,30 @@ function load(i: number) { const err = sv.loadFrom('slots', i); ui.toast(err ?? 
 </template>
 
 <style scoped>
-.sgrp { font-size: 12px; font-weight: 900; letter-spacing: 2px; color: var(--ink-2); margin: 16px 0 8px; display: flex; align-items: center; gap: 8px; }
+.sgrp { font-size: var(--fs-sm); font-weight: 900; letter-spacing: 2px; color: var(--ink-2); margin: 16px 0 8px; display: flex; align-items: center; gap: 8px; }
 .sgrp::after { content: ""; flex: 1; height: 2px; background: var(--line); }
 .sgrp:first-child { margin-top: 0; }
-.srow { display: grid; grid-template-columns: minmax(150px, 240px) 1fr 110px; gap: 6px 14px; align-items: center; padding: 10px 12px; background: var(--bg-2); margin-bottom: 5px; font-size: 12.5px; }
+.srow { display: grid; grid-template-columns: minmax(150px, 240px) 1fr 110px; gap: 6px 14px; align-items: center; padding: 10px 12px; background: var(--bg-2); margin-bottom: 5px; font-size: var(--fs-sm); }
 .srow.chg { box-shadow: inset 3px 0 0 var(--a); }
 .srow.off { opacity: .5; }
-.nm2 { font-weight: 800; font-size: 13px; display: flex; align-items: center; gap: 6px; }
-.df { font-size: 11px; color: var(--ink-3); text-align: right; }
+.nm2 { font-weight: 800; font-size: var(--fs-ui); display: flex; align-items: center; gap: 6px; }
+.df { font-size: var(--fs-fine); color: var(--ink-3); text-align: right; }
 .df b { color: var(--ink-2); }
-.val { font: 800 12.5px var(--mono); color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+.val { font: 800 var(--fs-sm) var(--mono); color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 .seg { display: inline-flex; gap: 3px; flex-wrap: wrap; }
-.seg button { font-size: 12px; font-weight: 800; padding: 6px 11px; background: var(--bg-term); color: var(--ink-3); border: 0; cursor: pointer; white-space: nowrap; }
+.seg button { font-size: var(--fs-sm); font-weight: 800; padding: 6px 11px; background: var(--bg-term); color: var(--ink-3); border: 0; cursor: pointer; white-space: nowrap; }
 .seg button.on { background: var(--a); color: #fff; }
 .seg button[aria-disabled="true"] { opacity: .45; }
 .sw { width: 42px; height: 22px; border-radius: 11px; background: var(--bg-term); box-shadow: inset 0 0 0 2px var(--line); position: relative; cursor: pointer; border: 0; padding: 0; }
 .sw::after { content: ""; position: absolute; top: 4px; left: 4px; width: 14px; height: 14px; border-radius: 50%; background: var(--ink-3); transition: left var(--dur-fast); }
 .sw.on { background: var(--a); box-shadow: none; }
 .sw.on::after { left: 24px; background: #fff; }
-.src { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 10px 12px; background: var(--bg-2); margin-bottom: 6px; font-size: 12.5px; }
+.src { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 10px 12px; background: var(--bg-2); margin-bottom: 6px; font-size: var(--fs-sm); }
 .src small { grid-column: 1; color: var(--ink-3); }
-.src .ok, .src .bad { grid-row: 1 / span 2; grid-column: 2; align-self: center; font: 800 11px var(--mono); }
+.src .ok, .src .bad { grid-row: 1 / span 2; grid-column: 2; align-self: center; font: 800 var(--fs-fine) var(--mono); }
 .src .ok { color: var(--ram); } .src .bad { color: var(--warn); }
-.lock { display: flex; gap: 10px; align-items: center; padding: 10px 12px; background: #2A1A2A; box-shadow: inset 3px 0 0 var(--hp); font-size: 13px; margin-bottom: 6px; }
-.lk { font: 900 10px var(--mono); color: var(--hp); border: 1px solid var(--hp); padding: 1px 5px; border-radius: 4px; }
+.lock { display: flex; gap: 10px; align-items: center; padding: 10px 12px; background: #2A1A2A; box-shadow: inset 3px 0 0 var(--hp); font-size: var(--fs-ui); margin-bottom: 6px; }
+.lk { font: 900 var(--fs-tiny) var(--mono); color: var(--hp); border: 1px solid var(--hp); padding: 1px 5px; border-radius: 4px; }
 .diffs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
 .dcard { padding: 12px 6px; background: var(--bg-2); border: 0; color: var(--ink); font-weight: 800; cursor: pointer; }
 .dcard.on { background: var(--bg-3); box-shadow: inset 0 0 0 2px var(--a); }

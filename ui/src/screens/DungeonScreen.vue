@@ -64,7 +64,7 @@ function onCell(p: Point) {
   if (fog(p.x, p.y) === 'hidden') { ui.toast('那裡黑得什麼都看不到。', 'warn'); return }
   if (!walkTo(p)) ui.toast('走不到那裡。', 'warn')
 }
-/** 鍵盤：方向鍵走一格；Enter 把焦點移到這裡的行動。 */
+/** 鍵盤：方向鍵或 WASD 走一格；E 把焦點移到這裡的行動（App.vue 的全域快捷鍵）。 */
 function onStep(d: Point) {
   const n = { x: pos.value.x + d.x, y: pos.value.y + d.y }
   if (!walkable(n.x, n.y)) return
@@ -116,7 +116,7 @@ const floorModel = computed({ get: () => String(fi.value), set: v => { const n =
         <div class="mh">
           <Tabs v-model="floorModel" :tabs="floorTabs" @blocked="ui.toast('還沒走到這一層。', 'warn')" />
           <span class="k">第 {{ g.dungeonSeed }} 次下來</span>
-          <Hint title="垃圾滑道">蜂巢的地下城式區域：3 層、黑、離開後重新擺放遭遇與藏貨（版面不變）。方向鍵走一格，Enter 跳到這裡的行動。每層 11 × 9，往下要找到通道。點看得到或看過的格子走過去。</Hint>
+          <Hint title="垃圾滑道">蜂巢的地下城式區域：3 層、黑、離開後重新擺放遭遇與藏貨（版面不變）。方向鍵或 WASD 走一格（也可以按地圖下面的方向鈕），E 跳到這裡的行動。每層 11 × 9，往下要找到通道。點看得到或看過的格子走過去。</Hint>
         </div>
         <GridMap :w="W" :h="H" :cell="cellView" :fog="fog" :tokens="tokens" :path="path" :max-cell="64" :label="`${floor.name}的地圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
         <div class="legend"><span v-for="(info, k) in FEATURE_INFO" :key="k"><Icon :id="info.icon" :size="14" fit />{{ info.name }}<Hint :text="info.hint" /></span></div>
@@ -161,16 +161,16 @@ const floorModel = computed({ get: () => String(fi.value), set: v => { const n =
 .screen { min-height: 100vh; display: flex; flex-direction: column; }
 .dg { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; padding: 12px; align-items: start; }
 .mh { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: 11.5px; color: var(--ink-2); font-weight: 700; }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: var(--fs-fine); color: var(--ink-2); font-weight: 700; }
 .legend span { display: inline-flex; align-items: center; gap: 4px; }
 .side { display: grid; gap: 12px; min-width: 0; }
 .seg { display: inline-flex; gap: 4px; margin-bottom: 6px; }
-.seg button { font-size: 12px; font-weight: 800; padding: 6px 12px; background: var(--bg-2); color: var(--ink-2); border: 0; cursor: pointer; }
+.seg button { font-size: var(--fs-sm); font-weight: 800; padding: 6px 12px; background: var(--bg-2); color: var(--ink-2); border: 0; cursor: pointer; }
 .seg button.on { background: var(--a); color: #fff; }
 .seg button[aria-disabled="true"] { opacity: .45; }
 .nodeh { display: flex; align-items: center; gap: 8px; }
 .go.left { justify-content: flex-start; }
-.ln { margin: 0 0 6px; font-size: 12.5px; line-height: 1.6; color: var(--ink-2); }
+.ln { margin: 0 0 6px; font-size: var(--fs-sm); line-height: 1.6; color: var(--ink-2); }
 @media (max-width: 1000px) { .dg { grid-template-columns: 1fr; } }
 @media (max-width: 720px) { .dg { padding: 8px; } }
 </style>

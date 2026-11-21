@@ -54,7 +54,7 @@ function later(p: PendingItem) {
 .pend { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 10px; align-items: start; padding: 10px 12px; background: var(--bg-2); }
 .pend.block { box-shadow: inset 3px 0 0 var(--danger); }
 .pend p { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--ink-2); }
-.due { color: var(--warn); font-size: 12px; font-weight: 800; }
+.due { color: var(--warn); font-size: var(--fs-sm); font-weight: 800; }
 .acts { grid-column: 2 / -1; display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
 .grow { min-width: 0; }
 </style>

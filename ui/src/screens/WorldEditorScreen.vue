@@ -251,7 +251,7 @@ void issueLine
 <style scoped>
 .we { min-height: 100vh; display: flex; flex-direction: column; }
 .topbar { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border-bottom: 2px solid var(--line); flex-wrap: wrap; }
-.topbar .k { font-size: 11px; }
+.topbar .k { font-size: var(--fs-fine); }
 .grow { flex: 1; min-width: 0; }
 .lv2, .lv3 { padding: 6px 12px 0; display: flex; gap: 10px; align-items: center; min-width: 0; flex-wrap: wrap; }
 .lv2 > :first-child, .lv3 > :first-child { min-width: 0; max-width: 100%; }
@@ -260,23 +260,23 @@ void issueLine
 .span2 { grid-column: span 2; }
 .empty-wrap { margin: 12px; }
 .lst { display: grid; gap: 4px; }
-.lst small { display: block; font-size: 10.5px; color: var(--ink-3); }
-.inp { width: 100%; min-width: 0; background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 7px 9px; font: 600 13px var(--font); }
-.code { font: 500 12px/1.5 var(--mono); }
+.lst small { display: block; font-size: var(--fs-tiny); color: var(--ink-3); }
+.inp { width: 100%; min-width: 0; background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 7px 9px; font: 600 var(--fs-ui) var(--font); }
+.code { font: 500 var(--fs-sm)/1.5 var(--mono); }
 .rdot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); flex: none; }
 .edh { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
 .edh small { display: block; color: var(--ink-3); }
 .frow { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px; align-items: start; padding: 5px 0; border-bottom: 1px dashed var(--line); }
 .frow.bad { box-shadow: inset 3px 0 0 var(--danger); padding-left: 6px; }
-.fk { font: 800 11.5px var(--mono); color: var(--ink-3); padding-top: 7px; }
-.val { font-size: 12px; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; padding-top: 6px; }
+.fk { font: 800 var(--fs-fine) var(--mono); color: var(--ink-3); padding-top: 7px; }
+.val { font-size: var(--fs-sm); margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; padding-top: 6px; }
 .chk { display: grid; gap: 6px; }
-.cnt { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; font-weight: 800; }
-.iss { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; padding: 6px 8px; background: var(--bg-2); box-shadow: inset 3px 0 0 var(--c); font-size: 12px; text-align: left; border: 0; color: var(--ink); width: 100%; }
+.cnt { display: flex; gap: 10px; flex-wrap: wrap; font-size: var(--fs-sm); font-weight: 800; }
+.iss { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; padding: 6px 8px; background: var(--bg-2); box-shadow: inset 3px 0 0 var(--c); font-size: var(--fs-sm); text-align: left; border: 0; color: var(--ink); width: 100%; }
 .iss small { grid-column: 2; color: var(--ink-3); }
 .btnish { cursor: pointer; }
-.code.mono { font-size: 10px; font-weight: 900; color: var(--c); }
-.note { font-size: 11.5px; color: var(--ink-3); line-height: 1.6; margin-top: 6px; }
+.code.mono { font-size: var(--fs-tiny); font-weight: 900; color: var(--c); }
+.note { font-size: var(--fs-fine); color: var(--ink-3); line-height: 1.6; margin-top: 6px; }
 .series { display: flex; gap: 4px; flex-wrap: wrap; }
 .io { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; padding: 12px; align-items: start; }
 .file { position: relative; overflow: hidden; margin-bottom: 8px; }

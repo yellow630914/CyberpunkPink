@@ -51,7 +51,7 @@ function onCell(p: Point) {
   if (fog(p.x, p.y) === 'hidden') { ui.toast('那裡還沒探索過。', 'warn'); return }
   if (!walkTo(p)) ui.toast('走不到那裡。', 'warn')
 }
-/** 鍵盤：方向鍵走一格（沒探索過的也能走，走了就看到）；Enter 把焦點移到這個節點的行動。 */
+/** 鍵盤：方向鍵或 WASD 走一格（沒探索過的也能走，走了就看到）；E 把焦點移到這個節點的行動。 */
 function onStep(d: { x: number; y: number }) {
   if (s.located) { ui.toast('已經被定位了：只能拔線。', 'warn'); return }
   const n = { x: s.pos.x + d.x, y: s.pos.y + d.y }
@@ -147,7 +147,7 @@ const traceStage = computed(() => [...TRACE_MARKS].reverse().find(m => s.trace >
       <section class="panel cut pad mapp">
         <div class="mh">
           <Tabs v-model="floorModel" :tabs="floorTabs" @blocked="ui.toast('先打開這一層的閘門。', 'warn')" />
-          <Hint title="子網地圖">一層 11 × 9。點看得到或看過的格子，化身照最短的路走過去；沒探索的格子在迷霧裡。節點是格子上的設施：走到上面，右欄出現能做的事。警報節點與迴圈碎片是陷阱。</Hint>
+          <Hint title="子網地圖">一層 11 × 9。點看得到或看過的格子，化身照最短的路走過去；沒探索的格子在迷霧裡。節點是格子上的設施：走到上面，右欄出現能做的事。警報節點與迴圈碎片是陷阱。鍵盤：方向鍵或 WASD 走一格，E 跳到這一格的行動。</Hint>
         </div>
         <GridMap :w="s.w" :h="s.h" :cell="cellView" :fog="fog" :tokens="tokens" :path="path" :max-cell="64" :label="`${s.floor.name}的子網圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
         <div class="legend">
@@ -216,14 +216,14 @@ const traceStage = computed(() => [...TRACE_MARKS].reverse().find(m => s.trace >
 .screen { min-height: 100vh; display: flex; flex-direction: column; }
 .sub { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; padding: 14px; align-items: start; }
 .mh { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: 11.5px; color: var(--ink-2); font-weight: 700; }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: var(--fs-fine); color: var(--ink-2); font-weight: 700; }
 .legend span { display: inline-flex; align-items: center; gap: 4px; }
 .side { display: grid; gap: 12px; min-width: 0; }
 .trh { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.tv { font: 900 22px var(--mono); }
-.marks { display: flex; justify-content: space-between; font: 700 10px var(--mono); color: var(--ink-3); margin-top: 3px; }
+.tv { font: 900 var(--fs-page) var(--mono); }
+.marks { display: flex; justify-content: space-between; font: 700 var(--fs-tiny) var(--mono); color: var(--ink-3); margin-top: 3px; }
 .seg { display: inline-flex; gap: 4px; flex-wrap: wrap; }
-.seg button { font-size: 12px; font-weight: 800; padding: 6px 12px; background: var(--bg-2); color: var(--ink-2); border: 0; cursor: pointer; box-shadow: inset 0 0 0 2px var(--o); }
+.seg button { font-size: var(--fs-sm); font-weight: 800; padding: 6px 12px; background: var(--bg-2); color: var(--ink-2); border: 0; cursor: pointer; box-shadow: inset 0 0 0 2px var(--o); }
 .seg button.on { background: var(--a); color: #fff; }
 .seg button[aria-disabled="true"] { opacity: .45; }
 .ramrow { display: flex; align-items: center; gap: 5px; margin: 8px 0; }
@@ -232,8 +232,8 @@ const traceStage = computed(() => [...TRACE_MARKS].reverse().find(m => s.trace >
 .nodeh { display: flex; align-items: center; gap: 8px; }
 .go.left { justify-content: flex-start; }
 .admin { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
-.ad { display: grid; justify-items: center; padding: 6px 2px; background: var(--bg-2); border: 0; box-shadow: inset 0 0 0 2px var(--o); font-weight: 800; font-size: 12px; cursor: pointer; color: var(--ink); }
-.ad small { font: 800 10px var(--mono); color: var(--ram); }
+.ad { display: grid; justify-items: center; padding: 6px 2px; background: var(--bg-2); border: 0; box-shadow: inset 0 0 0 2px var(--o); font-weight: 800; font-size: var(--fs-sm); cursor: pointer; color: var(--ink); }
+.ad small { font: 800 var(--fs-tiny) var(--mono); color: var(--ram); }
 .ln { margin: 0 0 6px; font: 12.5px/1.6 var(--mono); color: var(--ink-2); }
 @media (max-width: 1100px) { .sub { grid-template-columns: 1fr; } }
 @media (max-width: 720px) { .sub { padding: 8px; } }

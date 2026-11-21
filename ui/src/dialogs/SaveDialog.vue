@@ -107,7 +107,7 @@ const fmtTime = (iso?: string) => (iso ? new Date(iso).toLocaleString('zh-TW', {
 </template>
 
 <style scoped>
-.when { display: block; color: var(--ink-3); font: 600 11px var(--font); }
+.when { display: block; color: var(--ink-3); font: 600 var(--fs-fine) var(--font); }
 .file { position: relative; overflow: hidden; }
 .file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .lockline { margin-top: 12px; }

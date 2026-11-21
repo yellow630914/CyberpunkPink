@@ -76,11 +76,11 @@ const tagsOf = (axis: string) => AXIS_TAGS[axis].filter(t => g.tendency.tags[t] 
 <style scoped>
 .ad { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; }
 .param { margin-bottom: 10px; }
-.param small { display: block; color: var(--ink-3); font-size: 11.5px; margin-top: 3px; }
+.param small { display: block; color: var(--ink-3); font-size: var(--fs-fine); margin-top: 3px; }
 .fame { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .fc { padding: 8px; background: var(--bg-2); display: grid; }
-.fc small { color: var(--ink-3); font-size: 11px; }
-.fc b { font-size: 18px; }
+.fc small { color: var(--ink-3); font-size: var(--fs-fine); }
+.fc b { font-size: var(--fs-section); }
 .fc.here { box-shadow: inset 0 0 0 2px var(--a); }
 .mt { margin-top: 12px; }
 .axis { padding: 8px 0; border-bottom: 1px dashed var(--line); }

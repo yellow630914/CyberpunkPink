@@ -68,11 +68,11 @@ const aria = computed(() => [props.label, name.value, props.item && !props.unkno
 .locked .frame { border-color: var(--g4); }
 .badge { position: absolute; left: 3px; bottom: 3px; }
 .uq { position: absolute; right: -2px; top: -2px; width: 13px; height: 13px; background: var(--uq); clip-path: polygon(0 0, 100% 0, 100% 100%); }
-.reg { position: absolute; left: 4px; top: 2px; font-size: 9px; font-weight: 900; color: var(--ink-3); }
-.qty { position: absolute; right: 4px; bottom: 2px; font: 800 10px var(--mono); color: var(--ink-2); }
+.reg { position: absolute; left: 4px; top: 2px; font-size: var(--fs-micro); font-weight: 900; color: var(--ink-3); }
+.qty { position: absolute; right: 4px; bottom: 2px; font: 800 var(--fs-tiny) var(--mono); color: var(--ink-2); }
 .nm { display: grid; text-align: center; line-height: 1.25; min-width: 0; width: 100%; }
-.nm small { font-size: 10px; color: var(--ink-3); font-weight: 800; }
-.nm b { font-size: 11px; color: var(--gc); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
+.nm small { font-size: var(--fs-tiny); color: var(--ink-3); font-weight: 800; }
+.nm b { font-size: var(--fs-fine); color: var(--gc); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
 .empty .nm b { color: var(--ink-3); font-weight: 700; }
 .slot:hover .frame { filter: brightness(1.15); }
 </style>

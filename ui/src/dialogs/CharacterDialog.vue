@@ -235,10 +235,10 @@ const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e4
 .sinkk { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
 .attrs { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
 .at { background: var(--bg-2); padding: 10px; }
-.at .v { font: 900 24px var(--mono); }
+.at .v { font: 900 var(--fs-num) var(--mono); }
 .at .v.up { color: var(--ram); }
-.at .v small { font-size: 12px; color: var(--ink-3); }
-.at .src { font-size: 11px; color: var(--ink-3); }
+.at .v small { font-size: var(--fs-sm); color: var(--ink-3); }
+.at .src { font-size: var(--fs-fine); color: var(--ink-3); }
 .bodygrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 240px) minmax(0, 1fr); gap: 10px; align-items: start; }
 .figure { grid-column: 2; grid-row: 1; background: var(--bg-term); padding: 8px; border-radius: 8px; align-self: stretch; display: grid; place-items: center; }
 .parts { display: grid; gap: 8px; }
@@ -247,28 +247,28 @@ const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e4
 .part { background: var(--bg-1); box-shadow: inset 0 0 0 2px var(--line); padding: 8px 10px; }
 .part.on { box-shadow: inset 0 0 0 2px var(--a); }
 .ph { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; text-align: left; }
-.ph b { font-size: 14px; }
+.ph b { font-size: var(--fs-md); }
 .ph .k { flex: 1; }
-.psink { font: 800 11px var(--mono); color: var(--sink); }
+.psink { font: 800 var(--fs-fine) var(--mono); color: var(--sink); }
 .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 48px)); gap: 6px; margin-top: 6px; }
 .cdet { margin-top: 12px; }
 .dh { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; margin-bottom: 8px; }
-.dh h3 { margin: 2px 0 4px; font-size: 17px; }
+.dh h3 { margin: 2px 0 4px; font-size: var(--fs-section); }
 .gear-tab { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; }
 .eqgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; margin-bottom: 14px; }
 .seg { display: inline-flex; gap: 3px; margin-bottom: 6px; }
-.seg button { font-size: 12px; font-weight: 800; padding: 6px 12px; background: var(--bg-term); color: var(--ink-3); border: 0; cursor: pointer; }
+.seg button { font-size: var(--fs-sm); font-weight: 800; padding: 6px 12px; background: var(--bg-term); color: var(--ink-3); border: 0; cursor: pointer; }
 .seg button.on { background: var(--a); color: #fff; }
 .warn-t { color: var(--warn); }
 .basics { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 16px; }
 .bgrp .k { margin: 4px 0 2px; }
-.brow { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto 44px auto; gap: 6px; align-items: center; padding: 3px 0; font-size: 12.5px; }
+.brow { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto 44px auto; gap: 6px; align-items: center; padding: 3px 0; font-size: var(--fs-sm); }
 .bn { display: inline-flex; gap: 4px; align-items: center; font-weight: 700; }
 .bpips { display: flex; gap: 2px; }
 .bpips i { width: 12px; height: 10px; border-radius: 2px; background: var(--bg-2); }
 .bpips i.on { background: var(--a); }
 .bpips i.teach { box-shadow: inset 0 0 0 1px var(--g4); }
-.bc { font-size: 11px; color: var(--ap); text-align: right; }
+.bc { font-size: var(--fs-fine); color: var(--ap); text-align: right; }
 .qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
 @media (max-width: 1100px) { .gear-tab { grid-template-columns: 1fr; } }
 @media (max-width: 900px) {

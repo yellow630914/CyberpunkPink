@@ -36,12 +36,12 @@ const base = import.meta.env.BASE_URL
 .mapbox { position: relative; aspect-ratio: 1600 / 1000; width: 100%; overflow: hidden; border-radius: 6px; background: #0d0a14; }
 .mapbox img { width: 100%; height: 100%; display: block; user-select: none; }
 .spot { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; border: 2px solid #F3E9FF; background: #17111Fcc; cursor: pointer; display: grid; place-items: center; padding: 0; }
-.spot span { font: 900 10px var(--font); color: #fff; }
+.spot span { font: 900 var(--fs-tiny) var(--font); color: #fff; }
 .spot.on { border-color: var(--a); box-shadow: 0 0 0 3px #F06AA055; }
 .spot.here { background: var(--a); }
 .blocks { margin-top: 8px; }
 .dh { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-.blk { font-size: 12px; font-weight: 800; padding: 5px 10px; border-radius: 999px; background: var(--bg-2); color: var(--ink-2); border: 0; cursor: pointer; }
+.blk { font-size: var(--fs-sm); font-weight: 800; padding: 5px 10px; border-radius: 999px; background: var(--bg-2); color: var(--ink-2); border: 0; cursor: pointer; }
 .blk:hover { background: var(--bg-3); }
 .blk.here { background: var(--a); color: #fff; }
 </style>

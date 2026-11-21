@@ -205,23 +205,23 @@ const gradeOf = (id: string) => GRADES.find(x => x.id === id)!
 .terms { font-size: var(--fs-xs); color: var(--ink-3); margin: 4px 0; display: flex; gap: 4px; align-items: start; }
 .shows { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; margin-bottom: 10px; }
 .showc { display: grid; gap: 2px; text-align: left; padding: 10px; background: var(--bg-2); border: 0; color: var(--ink); cursor: pointer; align-content: start; }
-.showc small { color: var(--ink-3); font-size: 11px; }
+.showc small { color: var(--ink-3); font-size: var(--fs-fine); }
 .showc.on { box-shadow: inset 0 0 0 2px var(--a); }
 .showc.path { box-shadow: inset 0 0 0 1px var(--ep); }
 .showc.on.path { box-shadow: inset 0 0 0 2px var(--a); }
 .showc.off { opacity: .6; }
-.showc .why { font-size: 10.5px; color: var(--warn); font-weight: 700; }
+.showc .why { font-size: var(--fs-tiny); color: var(--warn); font-weight: 700; }
 .opts { margin-bottom: 8px; }
 .gear { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
 .gear .dim { opacity: .4; }
-.formula { font-size: 12.5px; padding: 8px 10px; background: var(--bg-term); margin-bottom: 8px; overflow-wrap: anywhere; }
+.formula { font-size: var(--fs-sm); padding: 8px 10px; background: var(--bg-term); margin-bottom: 8px; overflow-wrap: anywhere; }
 .odds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 8px; }
 .odd { padding: 8px; background: var(--bg-2); box-shadow: inset 0 3px 0 var(--c); display: grid; gap: 2px; }
-.odd span { font-size: 18px; font-weight: 900; }
-.odd small { font-size: 10.5px; color: var(--ink-3); }
+.odd span { font-size: var(--fs-section); font-weight: 900; }
+.odd small { font-size: var(--fs-tiny); color: var(--ink-3); }
 .ev { display: flex; gap: 8px; align-items: start; padding: 6px 8px; background: var(--bg-2); box-shadow: inset 3px 0 0 var(--warn); margin-bottom: 4px; font-size: var(--fs-sm); }
 .ep { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: var(--fs-sm); }
-.ep small { display: block; color: var(--ink-3); font-size: 11px; }
+.ep small { display: block; color: var(--ink-3); font-size: var(--fs-fine); }
 .gd { width: 10px; height: 26px; border-radius: 2px; flex: none; }
 .pdot { width: 7px; height: 7px; border-radius: 50%; background: var(--a); flex: none; }
 .grow { flex: 1; min-width: 0; }
