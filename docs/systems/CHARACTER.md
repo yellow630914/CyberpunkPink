@@ -82,7 +82,7 @@
 - 所以可以選「好橋、身體沒改」或「普通的橋、多幾件義體」。
 - 每一件照常算沉溺的下限（[CYBERWARE](../gear/CYBERWARE.md)）：開場改得越多，沉溺的起點越高。
 - 出身不限制選擇，只影響有些型號買不買得到（企業出身才選得到那家企業的橋）。
-- 實際的型號與點數等裝備的框架定了再寫（[DESIGN_ORDER](../plan/DESIGN_ORDER.md)）。
+- 實際的型號與點數等裝備的框架定了再寫（[DESIGN_ORDER](../plan/DESIGN_ORDER.md)）。冷門的五個型號已經寫了點數與誰買得到（[CYBERWARE](../gear/CYBERWARE.md) 7.5 節，2026-11-21）。
 
 ## 3. 生命軌跡
 

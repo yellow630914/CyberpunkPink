@@ -34,6 +34,9 @@
 | `blt_` | 那場爆炸 | `rg_<流竄 AI>_` | 流竄 AI 的線（第 6 節） |
 | `mst_` | 母帶 | `fc_<勢力>_` | 勢力的線（第 7 節） |
 | `t9_` | 九號塔 | `end_` | 保留給終章（擱置，12.8 節） |
+| `lg_<傳奇人物>_` | 傳奇人物的伏筆（[NPCS](NPCS.md) 第 10 節，2026-11-21）：只記玩家見過、聽過、知道了什麼，不推計數器；保留給之後的傳奇讀 | | |
+
+`lg_` 的名字是 `arashi`（嵐）、`hale`（黑爾）、`yoi`（宵）、`akatobi`（赤鳶）、`nova`（諾瓦）、`carmen`（卡門）。每位有三個旗標：`_seen`、`_met` 與鉤子的那一個（`lg_arashi_tsubaki`、`lg_hale_keys`、`lg_yoi_firstlace`、`lg_akatobi_twelfth`、`lg_nova_heartbeat`、`lg_carmen_clause`）。和 `end_` 一樣，現在沒有任何內容讀它們。
 
 **劇情計數器**（`counters.json`）記錄城市往哪邊走，傳奇讀它們（第 2 節）：
 
