@@ -1,0 +1,52 @@
+{
+  "id": "B001-overflow-time",
+  "note": "B001：同上，判定附 asked 交 minutes 1.7e308 兩次：時間的 day 變成 Infinity，存檔讀不回來。修好後搬到 tests/fixtures/repro/。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom",
+    "ai": {
+      "ai": 1,
+      "clamp_asked": 0
+    },
+    "fake": {
+      "byTask": {
+        "judge": [
+          {
+            "json": {
+              "degree": "success",
+              "minutes": 1.7e+308,
+              "asked": "越多越好"
+            }
+          },
+          {
+            "json": {
+              "degree": "success",
+              "minutes": 1.7e+308,
+              "asked": "越多越好"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "type": "act",
+      "input": {
+        "kind": "free",
+        "text": "我要一大筆錢，越多越好"
+      }
+    },
+    {
+      "type": "act",
+      "input": {
+        "kind": "free",
+        "text": "我要一大筆錢，越多越好"
+      }
+    },
+    {
+      "type": "save_load"
+    }
+  ],
+  "expect": {}
+}

@@ -1,0 +1,71 @@
+{
+  "id": "B001-overflow-sink",
+  "note": "B001：同上，沉溺 sink 各 +1e308：沉溺變成 Infinity，存檔讀不回來。修好後搬到 tests/fixtures/repro/。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom",
+    "features": [
+      "character"
+    ],
+    "ai": {
+      "ai": 1,
+      "clamp_asked": 0
+    },
+    "fake": {
+      "byTask": {
+        "reward": [
+          {
+            "json": {
+              "items": [
+                {
+                  "kind": "sink",
+                  "amount": 1e+308,
+                  "asked": "越多越好",
+                  "from": {
+                    "source": "player",
+                    "quote": "越多越好"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "json": {
+              "items": [
+                {
+                  "kind": "sink",
+                  "amount": 1e+308,
+                  "asked": "越多越好",
+                  "from": {
+                    "source": "player",
+                    "quote": "越多越好"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "type": "act",
+      "input": {
+        "kind": "free",
+        "text": "我要一大筆錢，越多越好"
+      }
+    },
+    {
+      "type": "act",
+      "input": {
+        "kind": "free",
+        "text": "我要一大筆錢，越多越好"
+      }
+    },
+    {
+      "type": "save_load"
+    }
+  ],
+  "expect": {}
+}

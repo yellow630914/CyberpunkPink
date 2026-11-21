@@ -1,0 +1,68 @@
+{
+  "id": "B001-overflow-cash",
+  "note": "B001：「玩家要求的結果也夾值」關、asked 對得上，兩次各拿現金 1e308：現金變成 Infinity，存檔讀不回來（嚴格模式下第二次提交丟出誤導的「掛鉤直接改了狀態」）。修好後搬到 tests/fixtures/repro/。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom",
+    "ai": {
+      "ai": 1,
+      "clamp_asked": 0
+    },
+    "fake": {
+      "byTask": {
+        "reward": [
+          {
+            "json": {
+              "items": [
+                {
+                  "kind": "cash",
+                  "amount": 1e+308,
+                  "asked": "越多越好",
+                  "from": {
+                    "source": "player",
+                    "quote": "越多越好"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "json": {
+              "items": [
+                {
+                  "kind": "cash",
+                  "amount": 1e+308,
+                  "asked": "越多越好",
+                  "from": {
+                    "source": "player",
+                    "quote": "越多越好"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "type": "act",
+      "input": {
+        "kind": "free",
+        "text": "我要一大筆錢，越多越好"
+      }
+    },
+    {
+      "type": "act",
+      "input": {
+        "kind": "free",
+        "text": "我要一大筆錢，越多越好"
+      }
+    },
+    {
+      "type": "save_load"
+    }
+  ],
+  "expect": {}
+}
