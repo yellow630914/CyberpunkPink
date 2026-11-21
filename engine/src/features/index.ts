@@ -9,9 +9,10 @@
 import type { Feature } from '../core/kernel'
 import { actionsFeature } from './actions'
 import { characterFeature } from './character'
+import { creationFeature } from './creation'
 import { perksFeature } from './perks'
 
-export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature }
+export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature }
 
 export function allFeatures(): Feature[] {
   return Object.values(FEATURES)

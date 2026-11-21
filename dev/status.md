@@ -21,6 +21,9 @@
   - ADR 六份（`dev/adr/0001`～`0006`）；不變式改寫成 35 條並標出哪裡驗。
   - 還沒做的（不在這一批的範圍或刻意延後）：真的服務商、Agent 模式與工具調用、`relate` 與 `flavor_roster` 兩個任務、報告的 JSON Schema（`engine/schemas/`，現在只有 TypeScript 的型別）、繁簡轉換、紀錄封存、世界包的匯入匯出畫面、戰鬥等具名情境的狀態工廠。
 
+- 2026-11-21（lead）：M0-data、M0-actions、M0-character、M0-perks、M0-creation 做完；引擎主套件 20 個檔、198 個測試全過，M0 的冒煙（功能版）通過。
+- 待 cpp-architect 下次處理：`CreationDraft` 加私處外觀的正式欄位（CHARACTER 第 1 步；目前只能塞在 `look` 的鍵裡）；基本功單項上限調到 6 時出身 +1 先夾在 6（等使用者確認）。
+
 ## 等使用者決定
 
 - 回退不換亂數種子（dev/adr/0003 第 6 點）：回退之後同樣的行動擲出同樣的骰，想換骰只能用會留紀錄的「重擲」。ElondiaRPG 是回退就換種子（可以刷判定）。
