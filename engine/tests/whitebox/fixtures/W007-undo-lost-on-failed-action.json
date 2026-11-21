@@ -1,0 +1,17 @@
+{
+  "id": "W007-undo-lost-on-failed-action",
+  "note": "W007：回退堆疊滿 5 步時，一個不成立的動作（commit 丟錯、行動被擋下、鏈出錯）會把最舊的那一步丟掉。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom"
+  },
+  "steps": [
+    "commit s0",
+    "commit s1",
+    "commit s2",
+    "commit s3",
+    "commit s4",
+    "commit 扣 1 元現金（不夠，丟錯）"
+  ],
+  "expect": "undo.labels() 仍是 s0～s4。實際：s1～s4（s0 被擠掉）。"
+}

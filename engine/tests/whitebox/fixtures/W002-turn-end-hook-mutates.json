@@ -1,0 +1,23 @@
+{
+  "id": "W002-turn-end-hook-mutates",
+  "note": "W002：嚴格模式抓得到 report.before／report.after／time.passed 的掛鉤偷改狀態，抓不到 turn.end 的。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom",
+    "strict": true,
+    "hook": {
+      "name": "turn.end",
+      "mutates": "state.money.cash += 999"
+    }
+  },
+  "cases": [
+    {
+      "via": "commitTurn",
+      "draft": {
+        "action": "act",
+        "changes": []
+      }
+    }
+  ],
+  "expect": "丟出「turn.end 的掛鉤直接改了狀態：money.cash」；實際：沒有錯誤，現金變成 999。"
+}

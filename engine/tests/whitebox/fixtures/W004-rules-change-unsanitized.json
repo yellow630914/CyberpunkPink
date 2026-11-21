@@ -1,0 +1,30 @@
+{
+  "id": "W004-rules-change-unsanitized",
+  "note": "W004：rules 變更只檢查鍵，不檢查值。提交得進 DC 偏移 99、或難度 normal 配偏移 3；存檔再讀檔時被 sanitizeRules 改掉。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom"
+  },
+  "cases": [
+    {
+      "patch": {
+        "dcOffset": 99
+      },
+      "expectAfterLoad": 0
+    },
+    {
+      "patch": {
+        "difficulty": "custom",
+        "dcOffset": -9
+      },
+      "expectAfterLoad": -4
+    },
+    {
+      "patch": {
+        "billMult": 50
+      },
+      "expectAfterLoad": 2
+    }
+  ],
+  "expect": "提交時就擋下（或照 sanitizeRules 清過再套），存檔再讀檔狀態一模一樣。實際：提交成功，讀檔後值變了。"
+}

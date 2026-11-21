@@ -1,0 +1,44 @@
+{
+  "id": "W003-load-repair-fails",
+  "note": "W003：讀檔修復（save.loaded 掛鉤）回傳的變更不合法時，Game.load 丟錯而不是回傳錯誤訊息，而且狀態已經換成存檔的、回退已經清空。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom",
+    "hook": {
+      "name": "save.loaded",
+      "returns": [
+        {
+          "op": "cash",
+          "delta": -1
+        }
+      ]
+    }
+  },
+  "steps": [
+    {
+      "commit": [
+        {
+          "op": "flag",
+          "key": "before_save",
+          "value": true
+        }
+      ]
+    },
+    {
+      "save": true
+    },
+    {
+      "commit": [
+        {
+          "op": "flag",
+          "key": "after_save",
+          "value": true
+        }
+      ]
+    },
+    {
+      "load": "剛才那一份"
+    }
+  ],
+  "expect": "load 回傳錯誤訊息（或丟錯也行），狀態仍然有 after_save，回退還有 2 步。實際：丟 ChangeError，flags 只剩 before_save，undo.size 是 0。"
+}

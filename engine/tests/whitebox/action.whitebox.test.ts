@@ -193,7 +193,7 @@ describe('白箱 L5 第三段：組報告（AI_TASKS 3.1 第 4 步；GAME_DESIGN
   it('隊伍的快照：角色功能註冊了上限時記上限（CORE_RULES 4.1、4.2）', () => {
     const k = createKernel([characterFeature])
     const s = makeState()
-    expect(partySnapshot(k, s, s)[0]!.hp[2]).toBe(40)
+    expect(partySnapshot(k, s, s)[0]!.hp).toEqual([40, 40, 40])
   })
 
   it('時間是 0 不加 time 變更；亂數游標一定往前一格；其他步驟的變更與定案的結果接在後面', () => {
@@ -241,7 +241,7 @@ describe('白箱 L5 回合流程（CODESCAN「回合結束」；GAME_DESIGN 3 �
   it('turn.end 回傳的報告接著提交；拿到的是行動本身那一份報告', () => {
     const k = createKernel()
     k.strict = true
-    const seen: string[] = []
+    const seen: Array<string | undefined> = []
     k.hooks.on('turn.end', 'wb', ({ report }) => { seen.push(report.action); return [draft([{ op: 'counter', key: 'turn', delta: 1 }], 'turn')] })
     k.hooks.on('turn.end', 'none', () => undefined)
     const s: GameState = makeState()

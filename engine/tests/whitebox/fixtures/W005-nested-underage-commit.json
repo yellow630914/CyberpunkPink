@@ -1,0 +1,37 @@
+{
+  "id": "W005-nested-underage-commit",
+  "note": "W005：ext／actor.ext／actor.add（ext 裡）放進帶 age < 18 的資料，提交照收；存檔之後讀不回來（讀檔掃任何深度的 age）。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom"
+  },
+  "cases": [
+    [
+      {
+        "op": "ext",
+        "key": "roster",
+        "value": {
+          "npcs": [
+            {
+              "name": "某人",
+              "age": 16
+            }
+          ]
+        }
+      }
+    ],
+    [
+      {
+        "op": "actor.ext",
+        "id": "pc",
+        "key": "family",
+        "value": {
+          "sister": {
+            "age": 12
+          }
+        }
+      }
+    ]
+  ],
+  "expect": "提交時就擋下（ChangeError，狀態不變），和讀檔的底線一致。實際：提交成功，game.load(game.save()) 回「存檔裡有低於 18 的年齡」。"
+}

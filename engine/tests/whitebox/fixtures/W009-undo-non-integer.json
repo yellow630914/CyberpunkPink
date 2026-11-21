@@ -1,0 +1,14 @@
+{
+  "id": "W009-undo-non-integer",
+  "note": "W009：undoSteps(1.5) 丟 RangeError（Invalid array length），不是回傳 false。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom"
+  },
+  "steps": [
+    "commit",
+    "commit",
+    "undoSteps(1.5)"
+  ],
+  "expect": "回傳 false，什麼都不動。實際：丟 RangeError。"
+}

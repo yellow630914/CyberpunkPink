@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Change, GameState, ReportDraft } from '../../src/core'
 import {
-  ChangeError, ChangeRegistry, HookBus, MAX_FOLLOW_UP_DEPTH, Probe, addItem, clone, commitReport, commitReportAll, countItem, createKernel, removeItem, underageAt, validateActor,
+  ChangeRegistry, HookBus, MAX_FOLLOW_UP_DEPTH, Probe, addItem, clone, commitReport, commitReportAll, countItem, createKernel, removeItem, underageAt, validateActor,
 } from '../../src/core'
 import { makeActor, makeState } from '../../src/testkit'
 
@@ -40,6 +40,7 @@ describe('白箱 L3 變更的登錄表（GAME_DESIGN 3 第 1 條；dev/invariant
     const s = makeState()
     expect(k.changes.describe(s, [{ op: 'cash', delta: 0 }, { op: 'cash', delta: 12 }, { op: 'cred', delta: -3 }, { op: 'time', minutes: 5 }, { op: 'nope' }, { op: 'item', id: 'it_a', qty: -2 }]))
       .toEqual(['現金 +12', '帳戶 −3', '失去 it_a ×2'])
+    expect(k.changes.describe(s, [{ op: 'item', id: 'it_b', qty: 3 }])).toEqual(['得到 it_b ×3'])
   })
 
   it('forLog：沒有瘦身版的種類原樣記；chain 只記 id 與樓層（AI_TASKS 5.5 節）', () => {

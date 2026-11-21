@@ -1,0 +1,40 @@
+{
+  "id": "W001-follow-up-fails-after-commit",
+  "note": "W001：掛鉤接著提交的報告不合法時，原本那份已經提交，呼叫的人卻收到錯誤，回退那一步被丟掉、畫面沒有被通知。不是 Repro 格式（要註冊一個 time.passed 掛鉤），由 engine/tests/whitebox/bugs.whitebox.test.ts 讀。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom",
+    "hook": {
+      "name": "time.passed",
+      "returns": [
+        {
+          "op": "cash",
+          "delta": -100
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "via": "game.commit",
+      "draft": {
+        "action": "rest",
+        "changes": [
+          {
+            "op": "time",
+            "minutes": 60
+          }
+        ]
+      }
+    },
+    {
+      "via": "game.act",
+      "input": {
+        "kind": "free",
+        "text": "看看四周"
+      },
+      "autoRules": true
+    }
+  ],
+  "expect": "兩者擇一：(a) 丟錯時狀態完全不變（行動那份報告也不留）；(b) 行動那份照常提交、回傳成功，接著的那份另外處理。不可以「狀態變了＋丟錯＋回退那一步被丟掉」。實際：時間已經往前、紀錄多了 rest／free，undo.size 是 0，lastRun 是 null，訂閱者沒被通知。"
+}

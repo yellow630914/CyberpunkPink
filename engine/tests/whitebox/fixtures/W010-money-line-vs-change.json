@@ -1,0 +1,19 @@
+{
+  "id": "W010-money-line-vs-change",
+  "note": "W010：扣錢的效果超過手上有的時，變更只扣手上有的，但定案的結果（<results>、報告卡、寫正文收到的）照原本的數字寫。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom",
+    "money": {
+      "cred": 0,
+      "cash": 30
+    }
+  },
+  "effects": [
+    {
+      "kind": "cash",
+      "amount": -100
+    }
+  ],
+  "expect": "lines 寫實際扣的 30（或另外說明付不出來的部分）。實際：changes 是 cash −30，lines 是「失去：現金 100」。"
+}

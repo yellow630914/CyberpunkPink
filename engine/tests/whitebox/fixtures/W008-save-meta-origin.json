@@ -1,0 +1,35 @@
+{
+  "id": "W008-save-meta-origin",
+  "note": "W008：建角把出身存成物件 ext.origin = { id, favor, ... }，存檔的摘要只在 ext.origin 是字串時才放出身，所以建好角的存檔摘要永遠沒有出身。",
+  "seed": 7,
+  "setup": {
+    "scenario": "beforeCreation",
+    "features": [
+      "creation"
+    ],
+    "content": "tests/helpers/miniContent.ts 的 MINI_PACK"
+  },
+  "draft": {
+    "name": "露",
+    "gender": "female",
+    "age": 22,
+    "origin": "hive",
+    "originChoice": {
+      "favor": "孤星連"
+    },
+    "attrPick": {
+      "reflex": 15,
+      "charm": 14,
+      "intellect": 13,
+      "body": 12,
+      "resolve": 10,
+      "tech": 8
+    },
+    "attrBonus": {
+      "reflex": 2
+    },
+    "skills": {},
+    "perks": []
+  },
+  "expect": "meta.pc 是 { name: '露', origin: 'hive' }（或出身的名字）。實際：{ name: '露' }。"
+}

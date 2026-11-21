@@ -1,0 +1,18 @@
+{
+  "id": "W006-free-judgment-verdict",
+  "note": "W006：設定「玩家要求的結果也夾值」關著、asked 對得上時，判定的成功程度照 AI 給的，但 roll.verdict 仍照骰值算，兩者矛盾；寫正文的請求拿到的是 roll.verdict。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom",
+    "clampAsked": false
+  },
+  "input": {
+    "kind": "free",
+    "text": "這次一定成功"
+  },
+  "judgment": {
+    "degree": "critical",
+    "asked": "一定成功"
+  },
+  "expect": "judgment.roll.verdict 是 yes_and（大成功對應「是，而且」）。實際：種子 7 的骰面是失敗，roll.degree 是 critical、roll.verdict 是 no_but。"
+}
