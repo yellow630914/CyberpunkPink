@@ -235,6 +235,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
 .crumb{font-size:11px;color:var(--ink-3);font-weight:800;margin-bottom:8px}
 .crumb b{color:var(--ink-2)}
 .more{font-size:11px;color:var(--ink-3);padding:8px;text-align:center}
+.lock{font-size:11.5px;color:var(--ink-3);background:#120D19;box-shadow:inset 0 0 0 2px var(--line);padding:6px 10px;margin-bottom:10px}.lock summary{cursor:pointer;font-weight:800;color:var(--ink-2)}.lock div{margin-top:6px;line-height:1.6}
 @media (max-width:720px){.sub3{flex-wrap:nowrap;overflow-x:auto}.sub3 .scope{margin-left:0}}
 
 
@@ -348,6 +349,7 @@ pre.json .s{color:#F58DBA}pre.json .nu{color:var(--ap)}
   <nav class="sub3" id="sub3"></nav>
   <aside class="panel cut pad scroll">
     <div class="pack"><b>帳本外傳</b><span class="tag">世界包</span><small>疊在基本世界上・改內建的內容會存成這個包裡的覆寫</small></div>
+    <details class="lock"><summary>🔒 框架裡的設定不能在這裡改</summary><div>現實與內海兩層世界、粉牆與牆外、橋與沉溺、大潮崩、城市的基本氛圍與題材底線，是系統的骨架，改了規則就不成立，所以不開放。提示詞、世界書與用語對照在 AI 工坊調整，不在世界編輯器裡。</div></details>
     <div class="crumb" id="crumb"></div>
     <div class="search">⌕ 在這一類裡找名字、id 或內文（⌘K 找全部）</div>
     <div class="tree" id="tree"></div>
@@ -478,15 +480,15 @@ if(location.hash)show(location.hash.slice(1));addEventListener('hashchange',()=>
 <script>
 // 二級：內容的大類；三級：每一類底下的種類。數字是基本世界＋這個世界包的筆數（示意）
 const CAT=[
- ['世界','world',[['地點','site',312],['區與街區','district',51],['勢力','faction',29],['城市的大事','city_event',12],['用語','term',140]]],
+ ['世界','world',[['地點','site',312],['區與街區','district',51],['勢力','faction',29],['城市的大事','city_event',12]]],
+ ['內海','net',[['固定子網','subnet',30],['隨機地圖詞條','netgen',110],['海域','sea',8]]],
  ['人物','people',[['固定 NPC','npc',63],['流竄 AI','rogue',42],['名字池','namepool',18],['外貌詞條','look',260]]],
  ['物品','items',[['零件','part',640],['設計圖','blueprint',410],['藥','drug',48],['彈藥與消耗品','consumable',90],['服裝','clothes',280],['飾品','accessory',70],['成人道具','toy',120],['SKIN','skin',95],['構裝與快駭','construct',60],['機甲與載具','vehicle',30]],1],
  ['技能','skills',[['八棵樹','tree',280],['夜課','lesson',125],['特質與缺陷','perk',80]]],
  ['敵人','enemies',[['現實','foe_real',220],['內海','foe_net',90],['具名','foe_named',75]],1],
  ['事件','events',[['街頭','ev_street',410],['成人','ev_adult',160],['蠱惑','ev_lure',84],['戰敗','ev_defeat',58],['打工','ev_work',120],['系列','series',40]],1],
  ['任務','quests',[['特殊任務','quest',95],['委託模板','commission',60],['委託副本','dungeon',24]],1],
- ['內海','net',[['固定子網','subnet',30],['隨機地圖詞條','netgen',110],['海域','sea',8]]],
- ['文字','text',[['指南','guide',55],['提示詞','prompt',40],['世界書','lore',300]]]];
+ ['指南','guide',[['指南','guide',55]]]];
 // 每一種裡的筆，只示意幾筆；第 6 欄 1 表示目前開著的那一件
 const ITEMS={
  ev_street:[['帳本','ledger 系列',[['碼頭上看到搬帳本的人','ev_ledger_dock_carrier','err','3',1],['倉庫的位置','clue_ledger_warehouse','mod',''],['帳本被搬去哪了','clue_ledger_lost','','']]],
