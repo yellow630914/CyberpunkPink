@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
 import Hint from '../components/Hint.vue'
+import Danmaku from '../components/combat/Danmaku.vue'
 import TrackBar from '../components/TrackBar.vue'
 import ActionRing, { type RingItem } from '../components/combat/ActionRing.vue'
 import HoldButton from '../components/combat/HoldButton.vue'
@@ -87,16 +88,11 @@ const AV: Record<string, string> = {
   bot: 'M5 8h18v16H5zM14 8V3M11 3h6',
 }
 
-// ---- 彈幕：引擎丟出新的字，畫面讓它飄過戰場 ----
-const floating = ref<Array<{ id: number; text: string; top: number; dur: number }>>([])
+// ---- 彈幕：引擎丟出新的字，彈幕層讓它飄過戰場（和現實戰鬥的直播共用） ----
+const dm = ref<InstanceType<typeof Danmaku> | null>(null)
 watch(() => b.value.danmaku.length, n => {
   if (!n) return
-  for (const d of b.value.danmaku.splice(0)) {
-    if (floating.value.length >= 6) continue
-    const f = { id: d.id, text: d.text, top: 6 + Math.floor(Math.random() * 5) * 24, dur: 5 + Math.random() * 3 }
-    floating.value.push(f)
-    setTimeout(() => { floating.value = floating.value.filter(x => x.id !== f.id) }, (f.dur + 1) * 1000)
-  }
+  for (const d of b.value.danmaku.splice(0)) dm.value?.push(d.text)
 })
 
 const RESULT: Record<string, string> = { win: '勝利', lose: '戰敗', retreat: '撤退', surrender: '投降', located: '被定位', fled: '脫離' }
@@ -136,7 +132,7 @@ function leave() {
       </section>
 
       <section class="panel cut bt-fieldp">
-        <div class="dm" aria-hidden="true"><span v-for="f in floating" :key="f.id" :style="{ top: `${f.top}px`, animationDuration: `${f.dur}s` }">{{ f.text }}</span></div>
+        <Danmaku ref="dm" />
         <div class="bt-field">
           <template v-for="s in SLOTS" :key="s.side + s.slot">
             <div class="bt-slot" :style="slotStyle(s)"
@@ -224,9 +220,6 @@ function leave() {
 .trace { display: flex; align-items: center; gap: var(--space-3); min-width: 220px; flex: 0 1 320px; }
 .trace :deep(.track) { flex: 1; }
 .trace > :nth-child(3) { flex: 1; }
-.dm { position: absolute; inset: 0 0 auto 0; height: 140px; pointer-events: none; overflow: hidden; z-index: 2; }
-.dm span { position: absolute; left: 100%; white-space: nowrap; font: 900 var(--fs-md) var(--font); color: var(--ink); text-shadow: 0 0 3px var(--bg-1), 0 0 6px var(--bg-1); animation: fly linear forwards; }
-@keyframes fly { to { transform: translateX(calc(-100vw - 100%)); } }
 .av { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; vertical-align: -2px; margin-right: 3px; }
 .grp { display: grid; gap: var(--space-2); }
 .segs small { display: block; font: 700 var(--fs-tiny) var(--mono); opacity: .8; }

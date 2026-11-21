@@ -32,6 +32,28 @@ export const LIVE_DANMAKU = [
   { who: '夜貓', text: '敵人在叫增援了吧' }, { who: '路人甲', text: '這是哪一區？' }, { who: 'mika', text: '8888888' }, { who: '阿豪', text: '打賞 20：請喝蜜醇' },
 ]
 
+/** 戰鬥直播的彈幕：照戰鬥紀錄的一行決定觀眾的反應（沒有反應回 null）。kind：hot 大字、gift 打賞色 */
+const REACT: Array<{ re: RegExp; pool: string[]; kind?: 'hot' | 'gift' }> = [
+  { re: /自然 20/, pool: ['自然20！！！', '神骰', '截圖截圖', '這發會上精華'], kind: 'hot' },
+  { re: /^(?!敵・).*要害/, pool: ['要害ｷﾀ━(ﾟ∀ﾟ)━!', '這槍好準', '8888888', '爆頭啦', '好帥'], kind: 'hot' },
+  { re: /^敵・.*要害/, pool: ['痛痛痛', '主播小心！', '這下吃滿了', '找掩護啊'] },
+  { re: /^敵・.*過載！/, pool: ['過載了ww', '臉紅了臉紅了', '草', '對面撐不住了', '再來一發！'] },
+  { re: /^(?!敵・).*過載！/, pool: ['欸欸欸', '主播臉好紅', '撐住！', '這個表情可以'] },
+  { re: /^敵・.*被制伏/, pool: ['壓住了！！', '逮到', '活捉ww', '這個可以截圖嗎'], kind: 'hot' },
+  { re: /^敵・.*(被打倒|倒下)/, pool: ['下一個', 'GG', '一個', '漂亮', '收工收工'] },
+  { re: /^(?!敵・)\S+ (倒下|失血倒下)/, pool: ['不要啊', '倒了倒了', '醫生！', '主播不要死啊'] },
+  { re: /^敵・.*沒打中|^敵・.*被遮蔽擋下/, pool: ['閃得好', '沒中ww', '掩體立大功'] },
+  { re: /被壓制/, pool: ['壓到頭都抬不起來', '火力好猛'] },
+  { re: /快駭.*拿下了|拿下了。/, pool: ['駭客好帥', '整棟都是我們的了'] },
+  { re: /啟動/, pool: ['機甲！！', '大傢伙來了', '這台多少錢'], kind: 'hot' },
+  { re: /擊落/, pool: ['打下來了', '無人機掰掰'] },
+  { re: /^勝利/, pool: ['GG！', '辛苦了～', '888888', '贏啦'], kind: 'hot' },
+]
+export function liveReact(line: string, rnd: () => number = Math.random): { text: string; kind?: 'hot' | 'gift' } | null {
+  const r = REACT.find(x => x.re.test(line))
+  return r ? { text: r.pool[Math.floor(rnd() * r.pool.length)], kind: r.kind } : null
+}
+
 // ---- 紀錄、素材、片 ----
 export type FootageKind = '戰鬥' | '醜聞' | '罪證' | '親密' | '名人' | '日常'
 export interface MediaRecord { id: string; name: string; day: number; kind: FootageKind; recorded: boolean; live?: boolean; converted?: boolean; adult?: boolean }

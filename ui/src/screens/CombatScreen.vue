@@ -5,7 +5,9 @@ import StatusBar from '../components/StatusBar.vue'
 import Hint from '../components/Hint.vue'
 import ActionRing, { type RingItem } from '../components/combat/ActionRing.vue'
 import HoldButton from '../components/combat/HoldButton.vue'
-import LivePanel from '../components/LivePanel.vue'
+import LiveWindow from '../components/combat/LiveWindow.vue'
+import Danmaku from '../components/combat/Danmaku.vue'
+import { liveReact } from '../data/media'
 import { RealBattle, REAL_ACTIONS, RING_KEYS, TARGET_HINT, REAL_WEAPONS, REAL_COVER_NAMES, type RealUnit } from '../lib/combat/real'
 import { COVER_DUR, type Side, type Target } from '../lib/combat/field'
 import { mathRng, seeded } from '../lib/combat/rng'
@@ -34,6 +36,10 @@ const seed = Number(route.query.seed) || 0
 const hint = ref('')
 const skillOpen = ref(false)
 const liveOn = ref(false)
+// 直播（照內海戰鬥的版面）：頂列 ● LIVE、彈幕飄過戰場、目標在可縮放的小窗
+const live = ref({ on: false, viewers: 0 })
+const dm = ref<InstanceType<typeof Danmaku> | null>(null)
+const liveWin = ref<InstanceType<typeof LiveWindow> | null>(null)
 
 const { b, phase, isFocused, targets, endTurn, after, restart, pick } = useBattle(
   () => {
@@ -52,6 +58,11 @@ const { b, phase, isFocused, targets, endTurn, after, restart, pick } = useBattl
 // 同一個全頁換了遭遇（只有網址的參數變）：重新開始
 watch(() => route.query.enc, () => { restart(); hint.value = '' })
 const cur = computed(() => b.value.cur())
+const lineTexts = computed(() => b.value.lines.map(l => l.t))
+watch(() => b.value.lines.length, (n, o) => {
+  if (!live.value.on || n <= o) return
+  for (const l of b.value.lines.slice(o, n)) { const r = liveReact(l.t); if (r) dm.value?.push(r.text, r.kind) }
+})
 const myTurn = computed(() => phase.value === 'player' && !b.value.end)
 const items = computed<RingItem[]>(() => REAL_ACTIONS.map(a => ({ ...a, cost: b.value.cost(a.k, cur.value), reason: myTurn.value ? b.value.reason(a.k) : '現在是敵人的回合', key: RING_KEYS.indexOf(a.k) + 1 })))
 function act(k: string) {
@@ -105,6 +116,7 @@ function writeBack() {
   g.addLog({ prose: [`${enc.value.place}：${enc.value.name}。${e.text}`], changes: [{ text: `${RESULT[e.result]}・${b.value.round} 回合`, kind: e.result === 'win' || e.result === 'fled' ? 'plus' : 'minus' }] })
 }
 function leave() {
+  liveWin.value?.stop()
   writeBack()
   const lines = b.value.lines.map(l => l.t)
   g.lastBattle = { kind: 'real', result: b.value.end!.result, text: b.value.end!.text, rounds: b.value.round, crits: lines.filter(t => /^(?!敵・).*要害/.test(t)).length, downs: b.value.units.filter(u => u.side === 'P' && u.down).length, lethal: b.value.units.filter(u => u.side === 'E' && u.down && !u.out).length }
@@ -126,12 +138,14 @@ function leave() {
         <span v-if="b.dark" class="tag warn" data-field="dark">黑暗<Hint>全場迴避 +2；有夜視的單位攻擊時不受影響（COMBAT_SYSTEM 2.5 節）。</Hint></span>
         <span v-for="n in b.nodes" :key="n.id" class="tag" :class="{ hot: n.taken && !n.used }" :data-node="n.kind">{{ n.name }}・{{ n.used ? '用過了' : n.taken ? '拿下了' : '沒拿下' }}</span>
         <Hint v-if="b.nodes.length" title="控制節點">潛網者用快駭拿下控制節點，之後從技能清單用：關燈（場地變成黑暗）、放下防爆門（替我方一格造出掩體）、接管砲塔（照無人機的規則掛在我方一格）。</Hint>
-        <button type="button" class="btn sm" :class="{ pri: liveOn }" @click="liveOn = !liveOn">直播面板</button>
-        <button type="button" class="btn sm" @click="restart(); hint = ''">重新開始</button>
+        <span v-if="live.on" class="live mono" data-live-on>● LIVE　觀看 {{ live.viewers.toLocaleString('en-US') }}</span>
+        <button v-else type="button" class="btn sm" :class="{ pri: liveOn }" @click="liveOn = !liveOn">直播</button>
+        <button type="button" class="btn sm" :disabled="live.on" :title="live.on ? '直播中不能重新開始' : undefined" @click="restart(); hint = ''">重新開始</button>
         <Hint title="現實戰鬥">雙方各一排四格，面對面；格子底下是那一格的遮蔽（掩體 +4、半掩體 +2）。每回合回 3 點行動點。卡片上紅的是生命、粉的是感載，圓點是餘韻（疊滿之後再過載就倒下）。鍵盤：1～9 按圓環的格，Tab 換目標、Enter 確定、Esc 取消，空白鍵結束回合。脫離與投降要長按。</Hint>
       </section>
 
       <section class="panel cut bt-fieldp">
+        <Danmaku ref="dm" />
         <div class="bt-field">
           <template v-for="s in SLOTS" :key="s.side + s.slot">
             <div class="bt-slot" :style="slotStyle(s)"
@@ -207,7 +221,12 @@ function leave() {
           <div class="bt-log" aria-live="polite"><p v-for="(l, i) in b.lines.slice().reverse()" :key="b.lines.length - i" :class="l.c">{{ l.t }}</p></div>
         </section>
       </div>
-      <LivePanel v-if="liveOn" in-combat @close="liveOn = false" />
+      <LiveWindow v-if="liveOn || live.on" ref="liveWin" :lines="lineTexts" :title="`戰鬥直播：${enc.name}`" :locked="b.end ? '戰鬥已經結束了' : null"
+        @chat="(t, k) => dm?.push(t, k)" @state="s => (live = s)" @close="liveOn = false; live = { on: false, viewers: 0 }" />
     </div>
   </div>
 </template>
+
+<style scoped>
+.live { color: var(--hp); font-weight: 900; font-size: var(--fs-sm); }
+</style>
