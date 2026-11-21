@@ -1153,11 +1153,114 @@ def opinion_war(C, g, strength, rng, trials, bonus=True, turns=6):
     return wins / trials
 
 
+# 完整一點的輿論戰（OPINION 4.2、5.2 節）：雙方每回合先花點數，再佔一格（對手強度 2 以上可以花 2 點追擊多佔一格）。
+# 你（主播）：編輯點 4 起每回合用追擊（1 點，多佔一格），5 起再用頭條（2 點，聲量 +5、多佔一格）（SKILL_TREES 主播）。
+# 你的一點編輯點：料（聲量 +2，三分之二的機會再加料牌的等級加值）、說法（風向 +1）、降流（對手的聲量 −2）。
+# 對手的一點公關點：發稿（聲量照 ENEMIES 1.5 節的 +2／+3）、否認（風向 1）、降流（你的聲量 −2）；反爆料 2 點（風向照表 2／3）。
+# 佔沒人的格子花 2；搶對方的格子：你花 3 − 風向，對手花 3 ＋ 風向（最少 0）。風向 −5～+5，正的偏你。
+OP_DENY = [1, 1, 1, 1, 2]        # 否認推的風向（ENEMIES 1.5 節）
+OP_COUNTER = [2, 2, 2, 2, 3]     # 反爆料推的風向
+
+
+def opinion_war2(C, g, ep, strength, rng, trials, bonus=True, turns=6):
+    adj = lambda c: [(c[0] + dx, c[1] + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)) if 0 <= c[0] + dx < 3 and 0 <= c[1] + dy < 3]
+    res = {'win': 0.0, 'big': 0.0, 'lose': 0.0}
+    for _ in range(trials):
+        own = {(2, 0): 'P', (0, 2): 'O'}
+        vol = {'P': 0, 'O': 0}
+        wind = 0
+        over = None
+
+        def cost(side, n):
+            o = own.get(n)
+            if o is None:
+                return 2
+            return max(0, 3 - wind) if side == 'P' else max(0, 3 + wind)
+
+        def best(side):
+            cand = {n for c, o in own.items() if o == side for n in adj(c) if own.get(n) != side}
+            if not cand:
+                return None
+            return max(cand, key=lambda n: (OP_SCORES[n[0]][n[1]] + (1.5 if own.get(n) else 0)) - 0.3 * cost(side, n))
+
+        def occupy(side):
+            n = best(side)
+            if n is not None and vol[side] >= cost(side, n):
+                vol[side] -= cost(side, n)
+                own[n] = side
+                return 'O' if side == 'P' else 'P' not in own.values() or None
+            return None
+
+        for t in range(turns):
+            for side in (['P', 'O'] if rng.random() < 0.5 else ['O', 'P']):
+                other = 'O' if side == 'P' else 'P'
+                n = best(side)
+                need = cost(side, n) if n else 99
+                extra = 0
+                if side == 'P':
+                    left = ep
+                    if ep >= 5:                  # 主播 4 階的頭條：2 點，聲量 +5，多佔一格（每回合一次）
+                        left -= 2; vol['P'] += 5; extra += 1
+                    if ep >= 4:                  # 主播 3 階的追擊：1 點，多佔一格（每回合一次）
+                        left -= 1; extra += 1
+                    for _ in range(left):
+                        if wind < 0 and rng.random() < 0.6:
+                            wind = min(5, wind + 1)
+                        elif vol['P'] < need or rng.random() < 0.7:
+                            vol['P'] += 2 + (OP_CARD_BONUS[g] if bonus and rng.random() < 2 / 3 else 0)
+                        else:
+                            vol['O'] = max(0, vol['O'] - 2)
+                else:
+                    pr = OP_PR[strength]
+                    while pr > 0:
+                        if strength >= C.get('op_chase_min', 3) and pr >= 2 and extra == 0 and vol['O'] >= 2 * need + 2:
+                            pr -= 2; extra = 1
+                        elif wind > 0 and pr >= 2 and rng.random() < 0.5:
+                            pr -= 2; wind = max(-5, wind - OP_COUNTER[g])
+                        elif wind > 0:
+                            pr -= 1; wind = max(-5, wind - OP_DENY[g])
+                        elif vol['O'] < need or rng.random() < 0.6:
+                            pr -= 1; vol['O'] += C['op_release'][g] + 0
+                        else:
+                            pr -= 1; vol['P'] = max(0, vol['P'] - 2)
+                vol[side] = min(10, vol[side])
+                vol[other] = min(10, vol[other])
+                for _ in range(1 + extra):
+                    n = best(side)
+                    if n is not None and vol[side] >= cost(side, n):
+                        vol[side] -= cost(side, n)
+                        own[n] = side
+                        if other not in own.values():
+                            over = side
+                            break
+                if over:
+                    break
+            if over:
+                break
+        sc = {k: sum(OP_SCORES[c[0]][c[1]] for c, o in own.items() if o == k) for k in ('P', 'O')}
+        if over == 'P' or (not over and sc['P'] - sc['O'] >= 4):
+            res['big'] += 1
+        if over == 'P' or (not over and sc['P'] > sc['O']):
+            res['win'] += 1
+        elif over == 'O' or (not over and sc['P'] < sc['O']):
+            res['lose'] += 1
+    return {k: v / trials for k, v in res.items()}
+
+
 def show_opinion(C):
     print('■ 輿論（粗估）：一回合能推的聲量')
     for g, ep, you, opp in opinion_table(C):
         print(f'{g:>3} 你 {ep} 點 → {you} 聲量  對手 強度1/2/3 → {opp[1]}/{opp[2]}/{opp[3]}')
     rng = random.Random(7)
+    print('■ 輿論戰（風向、說法、降流、否認、反爆料、追擊）：你的編輯點對對手的強度，勝率（和局另計）；OPINION 5.2 節的勢均力敵：2 點對強度 1、3～4 點對強度 2、5～6 點對強度 3')
+    for g in range(5):
+        cells = []
+        for ep, k in ((2, 1), (3, 2), (4, 2), (5, 3), (6, 3), (4, 3), (6, 2)):
+            r = opinion_war2(C, g, ep, k, rng, 1000)
+            cells.append(f'{ep} 點對強度 {k}：{pct(r["win"])}')
+        print(f'  {G[g]:>3}：' + '｜'.join(cells))
+    r1 = [opinion_war2(C, g, 4, 2, rng, 1000, bonus=False)['win'] for g in range(5)]
+    print('  對照：料牌不加等級加值，4 點對強度 2：' + '｜'.join(f'{G[g]} {pct(x)}' for g, x in enumerate(r1)))
     print('■ 輿論戰的簡化模擬（媒體型主力對一個對手，勝率；和局算一半）：料牌照等級加值／不加')
     for g in range(5):
         cells = [f'強度 {k}：{pct(opinion_war(C, g, k, rng, 2000))}／{pct(opinion_war(C, g, k, rng, 2000, bonus=False))}' for k in (1, 2, 3)]

@@ -14,7 +14,7 @@
 | 3 | **潤色** | 配合平衡後的數字、去 AI 味；在純文件上做 |
 | 4 | **匯入** | 把潤色過的內容經世界編輯器的路徑匯進引擎 |
 
-- **平衡另開一個工作階段**，必須在引擎核心與世界編輯器完成之前做完。要做的事是 [BALANCE](../systems/BALANCE.md) 第 6 節的三項，加上第 5.1 節列的數字。
+- **平衡另開一個工作階段**，必須在引擎核心與世界編輯器完成之前做完。要做的事是 [BALANCE](../systems/BALANCE.md) 第 6 節剩下的一項，加上第 5.1 節列的數字。
 - 給 ElondiaRPG 的減熵清單在共用管道搬完、整理好之後交第一版（[IMPLEMENTATION](IMPLEMENTATION.md) 第 4 節）。
 
 ## 2. 世界編輯器與匯入
@@ -51,9 +51,8 @@
 
 ### 5.1 平衡（交給平衡的工作階段）
 
-- [BALANCE](../systems/BALANCE.md) 第 6 節第 1 項：輿論戰的模擬加上風向、說法牌、降流與否認、多佔一次的技能，再對一次對手的數值與 [OPINION](../systems/OPINION.md) 第 2、3 節的數字。
-- BALANCE 第 6 節第 2 項：事件與任務裡寫死的錢照 COMMISSION_TEMPLATES 的公式對一次。
-- BALANCE 第 6 節第 3 項：傳奇級的戰鬥，真的要寫時另外配隊伍的準備並用 `legend` 主題確認勝率。
+- [BALANCE](../systems/BALANCE.md) 第 6 節：傳奇級的戰鬥，真的要寫時另外配隊伍的準備並用 `legend` 主題確認勝率。
+- 契約的買斷價：[LIFE](../world/LIFE.md) 1.2 節寫「買斷一份普通的契約 30,000 起」，但 [EVENTS_CITY](../content/EVENTS_CITY.md) 的樂園（`si_eden_catalog` 12,000、`si_eden_buy_me` 8,000）與 [QUESTS](../content/QUESTS.md) 柚的線（買下來 8,000）都低於這個數字；要提高事件的價，還是改 LIFE 的寫法，等你決定。
 
 ### 5.2 系統
 
