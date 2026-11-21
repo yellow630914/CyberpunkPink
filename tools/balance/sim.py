@@ -228,7 +228,7 @@ def take_turn(rng, u, foes, focus, other=0.0):
 def make_party(C, g):
     return [Unit(hp=C['p_hp'][g], apmax=C['p_apmax'][g], regen=C['p_regen'][g], mag=2, magmax=2,
                  atk=C['p_atk'][g], ev=C['p_ev'][g], armor=C['p_armor'][g], dice=3 + C['grade_dice'][g],
-                 flat=C['p_flat'][g] + C['p_skill'][g], mult=1.0) for _ in range(4)]
+                 flat=C['p_flat'][g] + C['p_skill'][g], mult=1.0) for _ in range(C.get('party_n', 4))]
 
 
 def make_enemy(C, eg, rank):
@@ -236,6 +236,9 @@ def make_enemy(C, eg, rank):
     k = (d['boss'] if rank == '首領' else d['minions'][BAND_OF[eg]]) if d else {'hp': 1, 'dmg': 1}
     key = C.get('key_mult', 1.0) if rank != '雜兵' else 1.0   # 任務關鍵節點 ×1.1～1.2、具名 ×1.3～1.5：精英與首領的生命與傷害
     k = {'hp': k['hp'] * key, 'dmg': k['dmg'] * key}
+    duel = C.get('duel') if rank != '雜兵' else None          # 對決的修正（ENEMIES 第 13 節）：少於四人對具名的精英與首領
+    if duel:
+        k = {'hp': k['hp'] * duel['hp'], 'dmg': k['dmg'] * duel['dmg']}
     return Unit(hp=round(C['e_hp'][rank][eg] * k['hp']), apmax=C['e_apmax'][rank][eg], regen=3, mag=2, magmax=2,
                 atk=C['e_atk'][eg], ev=C['e_ev'][eg], armor=C['e_armor'][eg], dice=3 + C['grade_dice'][eg],
                 flat=0, mult=C['e_dmg_mult'][rank] * k['dmg'], minion=(rank == '雜兵'))
@@ -259,11 +262,16 @@ def compositions(C, budget, boss=False):
     return out
 
 
+def unit_of(r, eg):
+    """comp 的一格：'雜兵' 照遭遇的等級；('雜兵', 3) 指定等級（高一級的敵人用）。回傳 (等級, 位階)。"""
+    return (r[1], r[0]) if isinstance(r, tuple) else (eg, r)
+
+
 def encounter(C, g, eg, comp, rng, trials, other=0.25, rounds=20):
     loss = rnds = wins = downs = 0.0
     for _ in range(trials):
         party = make_party(C, g)
-        foes = [make_enemy(C, eg, r) for r in comp]
+        foes = [make_enemy(C, *unit_of(r, eg)) for r in comp]
         n = 0
         while n < rounds and any(f.hp > 0 for f in foes) and any(p.hp > 0 for p in party):
             n += 1
@@ -315,17 +323,18 @@ P_DECAY = 3
 
 
 def capture_encounter(C, g, eg, comp, rng, trials, other=0.25, rounds=20, decay=P_DECAY):
-    loss = rnds = wins = downs = overloads = 0.0
+    loss = rnds = wins = downs = overloads = any_down = multi_down = 0.0
     lmax, lcap = C['p_load'][g], C['p_layers'][g]
     for _ in range(trials):
         party = make_party(C, g)
         for p in party:
             p.armor = 0                    # 神經傷害不扣護甲
         st = [{'load': 0.0, 'lay': 0, 'skip': False, 'down': False} for _ in party]
-        foes = [make_enemy(C, eg, r) for r in comp]
+        foes = [make_enemy(C, *unit_of(r, eg)) for r in comp]
         for f, r in zip(foes, comp):
-            f.dice = C['cap_dice'][r] + C['grade_dice'][eg]
-            f.mult = f.mult / C['e_dmg_mult'][r]   # 感載不吃位階的倍率；難度與強度係數照留
+            ug, rk = unit_of(r, eg)
+            f.dice = C['cap_dice'][rk] + C['grade_dice'][ug]
+            f.mult = f.mult / C['e_dmg_mult'][rk]   # 感載不吃位階的倍率；難度與強度係數照留
         n = 0
         alive_p = lambda: [i for i, s_ in enumerate(st) if not s_['down']]
         while n < rounds and any(f.hp > 0 for f in foes) and alive_p():
@@ -378,8 +387,14 @@ def capture_encounter(C, g, eg, comp, rng, trials, other=0.25, rounds=20, decay=
         loss += lost
         rnds += n
         wins += all(f.hp <= 0 for f in foes)
-        downs += sum(s_['down'] for s_ in st)
-    return loss / trials, rnds / trials, wins / trials, downs / trials, overloads / trials
+        nd = sum(s_['down'] for s_ in st)
+        downs += nd
+        any_down += nd >= 1
+        multi_down += nd >= 2
+    # (損耗, 回合, 勝率, 平均倒下的人數, 每人平均過載幾次, 有人倒下的比例, 兩人以上倒下的比例)
+    n_p = C.get('party_n', 4)
+    return (loss / trials, rnds / trials, wins / trials, downs / trials, overloads / trials / n_p,
+            any_down / trials, multi_down / trials)
 
 
 def capture_table(C, rng, trials, budget=None):
@@ -556,26 +571,33 @@ def show_encounter(C, rng, trials):
                 print(f'{g:>3} 預算 {budget:>4} {desc:<14} 掉 {pct(loss):>4}  {rounds:4.1f} 回合  勝 {pct(win):>4}  倒下 {down:.2f} 人')
 
 
+CAP_TARGET = {'一般': '掉 10～15% 的感載；每人平均過載 0.5 次以下，沒有人倒下（有人倒下的場次 5% 以下）',
+              '首領戰': '每人平均過載 1～2 次；平均倒下 0.5 人以下，兩人以上倒下的場次 10% 以下；勝率 90% 以上'}
+
+
 def show_capture(C, rng, trials):
     cd = C['cap_dice']
     print(f'■ 打感載的遭遇（capture）：同級四人，{trials} 次的平均；敵人的神經武器雜兵 {cd["雜兵"]}d6、精英 {cd["精英"]}d6、首領 {cd["首領"]}d6，'
           '加等級骰，不扣護甲、不吃位階的倍率')
-    print('  損耗＝隊伍的（餘韻 × 上限 ＋ 感載）÷（上限 ×（層數＋1））；目標 10～15%（BALANCE 2.7 節）')
+    print('  損耗＝隊伍的（餘韻 × 上限 ＋ 感載）÷（上限 ×（層數＋1））；過載是每個人平均過載幾次；倒下是餘韻疊滿再過載（BALANCE 2.7 節）')
+    print(f'  目標（一般遭遇）：{CAP_TARGET["一般"]}')
     for g, budget, res in capture_table(C, rng, trials):
-        for comp, (loss, rounds, win, down, ol) in res:
+        for comp, (loss, rounds, win, down, ol, anyd, multi) in res:
             desc = '＋'.join(f'{comp.count(r)}{r}' for r in RANKS if comp.count(r))
-            print(f'{g:>3} 預算 {budget:>4} {desc:<14} 掉 {pct(loss):>4}  {rounds:4.1f} 回合  勝 {pct(win):>4}  過載 {ol:.1f} 次  倒下 {down:.2f} 人')
-    print('  首領戰（8 點，3 雜兵＋1 首領／1 精英＋1 首領）：')
-    cells = []
-    for g in range(5):
-        r = [capture_encounter(C, g, g, c, rng, max(200, trials // 2)) for c in (['首領', '雜兵', '雜兵', '雜兵'], ['首領', '精英'])]
-        cells.append(f'{G[g]} ' + '／'.join(f'{pct(x[0])} 勝{pct(x[2])}' for x in r))
-    print('  ' + '｜'.join(cells))
+            print(f'{g:>3} 預算 {budget:>4} {desc:<14} 掉 {pct(loss):>4}  {rounds:4.1f} 回合  勝 {pct(win):>4}  每人過載 {ol:.2f} 次  '
+                  f'倒下 {down:.2f} 人（有人倒下 {pct(anyd)}）')
+    print(f'  首領戰（8 點）目標：{CAP_TARGET["首領戰"]}')
+    for comp in (['首領', '雜兵', '雜兵', '雜兵'], ['首領', '精英']):
+        desc = '＋'.join(f'{comp.count(r)}{r}' for r in RANKS if comp.count(r))
+        for g in range(5):
+            loss, rounds, win, down, ol, anyd, multi = capture_encounter(C, g, g, comp, rng, max(200, trials // 2))
+            print(f'{G[g]:>3} {desc:<14} 掉 {pct(loss):>4}  {rounds:4.1f} 回合  勝 {pct(win):>4}  每人過載 {ol:.2f} 次  '
+                  f'倒下 {down:.2f} 人（兩人以上 {pct(multi)}）')
     print('  重的遭遇（5.5 點）與輕的（2 點）：')
     for b in (2, 5.5):
         cells = []
         for g, budget, res in capture_table(C, rng, max(200, trials // 2), budget=b):
-            cells.append(f'{g} ' + '／'.join(pct(r[1][0]) for r in res))
+            cells.append(f'{g} ' + '／'.join(f'{pct(r[1][0])} 過{r[1][4]:.1f}' for r in res))
         print(f'  {b:>4} 點：' + '｜'.join(cells))
 
 
