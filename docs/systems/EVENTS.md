@@ -76,7 +76,7 @@
 |---|---|---|
 | `cred`、`cash` | ±（主角信譽那一階的委託報酬下限 × 0.5） | 帳戶或現金晶片（[LIFE](../world/LIFE.md) 1.3 節）。內建的事件拿到的錢也照這個上限，用事件所在的區或要地的等級算（I 級 120、II 級 360、III 級 1,200、IV 級 3,900、V 級 12,000）；付出去的價錢、罰款與賭注的輸照價格表，不算在內 |
 | `item`、`part` | 等級不超過主角所在那一區的等級 | |
-| `hp`、`load`、`afterglow` | 不會讓人倒下或瀕死，除非事件標了 `combat` | |
+| `hp`、`load`、`afterglow` | 不會讓人倒下或瀕死，除非事件標了 `combat` | `hp` 扣完最少剩 1；`load` 加完最多到感載上限 − 1；已經在邊界上時那一筆整筆拿掉，並提醒玩家（[AI_TASKS](../plan/AI_TASKS.md) 2.5 節） |
 | `sink` | ±3；流竄 AI 的接觸 ±5 | 成人場景的沉溺只由收尾段的 `sink` 任務改（[AI_TASKS](../plan/AI_TASKS.md)） |
 | `bridge` | 一項 +1 | 橋參數慢慢長（[LEWD_SYSTEM](LEWD_SYSTEM.md) 第 1 節） |
 | `tendency` | 一個標籤一點 | |
@@ -89,7 +89,7 @@
 | `condition` | 一個暫時的狀態 | 2.4.1 節的狀態一覽；例：被下藥、受驚、宿醉 |
 | `malware` | 一個惡意韌體的潛伏期 | [CYBERWARE](../gear/CYBERWARE.md) 第 5 節 |
 | `lock` | 鎖一件義體若干小時 | |
-| `time` | 推進若干小時 | |
+| `time` | 推進若干小時 | 不另外夾；整個行動花的時間受行動種類的時間上限管（[AI_TASKS](../plan/AI_TASKS.md) 3.1 節） |
 | `move` | 帶到一個固定的地點或場景地圖 | 現實不用隨機地圖 |
 | `fight` | 開一場戰鬥，敵人照當下的區與勢力 | |
 | `start_commission` | 生成一件委託，`commission_gen` 寫內容 | |

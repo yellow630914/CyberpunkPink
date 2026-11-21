@@ -57,10 +57,14 @@
 
 - [BALANCE](../systems/BALANCE.md) 第 6 節：傳奇級的戰鬥，真的要寫時另外配隊伍的準備並用 `legend` 主題確認勝率。
 
+- [CHARACTER](../systems/CHARACTER.md) 5.4 節：起始的錢的數字（現在 C$1,500，放現金），以及出身對它的加減（現在不加減）。
+
+- [AI_TASKS](AI_TASKS.md) 3.1 節：行動種類表的 DC、時間與參考範圍；現在只寫了 I 級，II～V 級的參考範圍照平衡的曲線補。
+
 ### 5.2 系統
 
 - [ENEMIES](../systems/ENEMIES.md) 第 14 節第 1 項：二十九種戰敗事件的分法（第 6 節），尤其 `tuning`、`fed`、`drained`、`tinkered`、`taken`。
-- [CHARACTER](../systems/CHARACTER.md) 第 4 節：特質的清單之後生成（現在只有例子）。
+- [CHARACTER](../systems/CHARACTER.md) 第 4 節：特質的清單與七個出身特質，在潤色那一步一起寫（第 1 節第 3 步）；在那之前引擎用標了暫定的示意資料。
 - [GAME_DESIGN](../GAME_DESIGN.md) 第 9 節：報告裡訂閱（取代 `audience`）與沉溺的下限（取代 `humanity_cap`）的欄位名。
 - 風格影響街頭信譽的成長（「行頭勝於實力」）：現在只體現在風格上，要不要讓風格直接影響信譽的成長還沒決定。
 

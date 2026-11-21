@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { reactive, watch } from 'vue'
 import { copyPreset, type DiffTable } from '../lib/difficulty'
 import { aiSettingsFromUi, uiFromAiSettings } from '../lib/engineView'
+import { useEngine } from './engine'
 
 /**
  * 設定（UI.md 第 15 節）。「顯示」那一頁是這台機器的偏好，存在 localStorage；
@@ -82,6 +83,9 @@ function withAi(v: Settings): Settings {
 
 export const useSettings = defineStore('settings', () => {
   const s = reactive<Settings>(load())
+  const eng = useEngine()
+  // AI 開關改了就交給引擎（引擎只收設定物件）
+  watch(() => aiSettingsFromUi(s), () => eng.setAi(s), { immediate: true })
   function apply() {
     const root = document.documentElement
     root.dataset.fontSize = s.fontSize

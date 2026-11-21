@@ -27,7 +27,7 @@ const importError = ref<string | null>(null)
 function save(i: number) { const e = sv.saveTo(i); ui.toast(e ?? `存到了第 ${i + 1} 格。`, e ? 'warn' : 'info') }
 function load(list: 'slots' | 'autos', i: number) { const e = sv.loadFrom(list, i); ui.toast(e ?? '讀回來了。', e ? 'warn' : 'info') }
 function exportFile() {
-  const blob = new Blob([g.packed('手動')], { type: 'application/json' })
+  const blob = new Blob([sv.pack('手動').raw], { type: 'application/json' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
   a.download = `cyberpunkpink-第${g.day}天.json`

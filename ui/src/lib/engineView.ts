@@ -66,7 +66,10 @@ export interface EngineLogEntry {
   time: string
   place: string
   prose: string[]
-  roll?: { skill: string; die: number; mod: number; dc: number; result: '大成功' | '成功' | '失敗' | '大失敗' }
+  roll?: { skill: string; die: number; mod: number; dc: number; result: '大成功' | '成功' | '失敗' | '大失敗'; twist?: string }
+  /** LogView 與舊的紀錄共用的欄位；引擎的報告沒有這兩種，永遠不放 */
+  quotes?: string[]
+  net?: string[]
   changes: Array<{ text: string; kind?: 'plus' | 'minus' }>
   notices: string[]
 }
@@ -75,6 +78,11 @@ let plain: ReturnType<typeof createKernel> | null = null
 function plainDescribe(changes: Change[]): string[] {
   plain ??= createKernel()
   return plain.changes.describe(blankState(0), changes)
+}
+
+/** 舊系統（action 以 ui. 開頭）寫的紀錄，變化的字就放在 narration.results：引擎的變更描述不出東西時用它。 */
+function legacyOr(report: Report, lines: string[]): string[] {
+  return lines.length === 0 && report.action?.startsWith('ui.') ? report.narration?.results ?? [] : lines
 }
 
 /** 一份報告轉成紀錄的一則（LogView 吃的樣子）。describe 沒給時用一個只有核心變更的核心來描述。 */
@@ -89,7 +97,7 @@ export function logEntryOf(report: Report, describe: (changes: Change[]) => stri
     time: formatTime(report.time.start),
     place,
     prose,
-    changes: describe(report.changes).map((text) => {
+    changes: legacyOr(report, describe(report.changes)).map((text) => {
       const kind = text.includes('+') ? 'plus' : text.includes('−') ? 'minus' : undefined
       return kind ? { text, kind } : { text }
     }),
@@ -142,3 +150,9 @@ export function rulesFromUi(s: { difficulty?: string; traitPoints?: number }): R
   if (s.traitPoints !== undefined) out.startPerkPoints = s.traitPoints
   return out
 }
+
+/** 建角畫面的性別選項對到引擎的性別值（DATA 第 1 節的六個值）。介面只有一個「TS」，暫時對到 trans_f。 */
+export const GENDER_ID: Record<string, string> = { 男: 'male', 女: 'female', '偽娘（含男娘）': 'femboy', TS: 'trans_f', 扶他: 'futa' }
+
+/** 特質的分類（引擎給英文代號）顯示用的中文。 */
+export const PERK_CATEGORY_NAME: Record<string, string> = { social: '社交', street: '街頭', body: '身體', bridge: '橋', craft: '工藝', net: '內海', media: '媒體', desire: '慾望', origin: '出身' }

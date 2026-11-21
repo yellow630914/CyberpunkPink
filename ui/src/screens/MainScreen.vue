@@ -5,10 +5,12 @@ import { useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
 import GridMap, { type CellView, type MapToken } from '../components/GridMap.vue'
 import LogView from '../components/LogView.vue'
+import ChainBar from '../components/ChainBar.vue'
 import PartyRow from '../components/PartyRow.vue'
 import Hint from '../components/Hint.vue'
 import Icon from '../components/Icon.vue'
 import { useGame } from '../stores/game'
+import { useEngine } from '../stores/engine'
 import { useUi, PENDING_DIALOGS, type DialogName } from '../stores/ui'
 import { useSettings } from '../stores/settings'
 import { useGuides } from '../lib/useGuides'
@@ -26,6 +28,7 @@ import { pressE, type HereOption } from '../lib/here'
  * 手機：上面狀態列，下面四個分頁（地圖、紀錄、這裡、工具）。
  */
 const g = useGame()
+const e = useEngine()
 const ui = useUi()
 const st = useSettings()
 void PENDING_DIALOGS
@@ -138,18 +141,18 @@ function tool(id: string) {
 const billDue = computed(() => settleBills(g.bills.items, [], { acc: g.money.acc, cash: g.money.cash }, billMultiplier(st.s.billRule, st.s.billMult)))
 
 // ---- 行動列 ----
-function freeAction() {
+/** 自由行動：交給引擎（擲骰、DC、結算都在引擎；判定開著時由 AI 選屬性與基本功）。被擋下時顯示引擎給的原因。 */
+async function freeAction() {
   const text = freeText.value.trim()
   if (!text) { ui.toast('先寫下想做什麼。', 'warn'); return }
-  const die = 1 + Math.floor(Math.random() * 20)
-  const mod = 5, dc = 13
-  const res = die === 20 ? '大成功' : die === 1 ? '大失敗' : die + mod >= dc ? '成功' : '失敗'
-  g.advance(20)
-  g.addLog({ prose: [`你決定：${text}`, 'AI 關著，這裡先用戰報代替正文。'], roll: { skill: '街頭直覺', die, mod, dc, result: res }, changes: res.includes('成功') ? [{ text: '傳聞 +1', kind: 'plus' }] : [] })
-  guides.trigger('g_check')
   freeText.value = ''
   mobileTab.value = 'log'
+  const r = await e.act({ kind: 'free', text })
+  if (r.status === 'blocked') { ui.toast(r.reason ?? '現在做不了這件事。', 'warn'); freeText.value = text; return }
+  guides.trigger('g_check')
 }
+/** 任務鏈列：st.s.chainRow 是顯示偏好（隱藏、一直展開、出錯時展開）。 */
+const showChain = computed(() => e.chainSteps.length > 0 && (st.s.chainRow === '一直展開' || (st.s.chainRow !== '隱藏' && e.chainSteps.some(x => x.status === 'failed'))))
 
 const stages = [
   { name: '踩點', face: ['m'], state: 'done' },
@@ -198,13 +201,13 @@ const stages = [
             <Icon :id="t.icon" :size="18" fit />{{ t.name }}<kbd v-if="KEY_OF[t.id]">{{ KEY_OF[t.id] }}</kbd><span v-if="t.badge" class="badge-n" data-badge>{{ t.badge }}</span><i v-if="t.dot" class="badge-dot" data-badge aria-label="有沒看過的指南" />
           </button>
         </nav>
-        <section class="panel cut logp"><LogView :entries="g.log" /></section>
+        <section class="panel cut logp"><ChainBar v-if="showChain" :steps="e.chainSteps" :busy="e.busy" @retry="e.retryStep" @rules="e.useRules" @reroll="e.reroll()" /><LogView :entries="g.log" /></section>
         <section class="panel cut act">
           <form class="input" @submit.prevent="freeAction">
             <span class="die" aria-hidden="true" />
             <label class="sr-only" for="free">自由行動</label>
-            <input id="free" v-model="freeText" placeholder="自由行動：想做什麼……" autocomplete="off">
-            <button class="btn pri sm" type="submit">擲骰</button>
+            <input id="free" v-model="freeText" placeholder="自由行動：想做什麼……" autocomplete="off" :disabled="e.busy">
+            <button class="btn pri sm" type="submit" :disabled="e.busy">擲骰</button>
           </form>
           <div class="ctx">
             <button type="button" class="btn" @click="g.advance(60); g.addLog({ prose: ['你找個地方坐下來喘口氣。'] })">休息</button>

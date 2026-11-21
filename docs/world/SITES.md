@@ -843,7 +843,7 @@
     { "id": "hive_tower9", "district": "hive", "owner": "hizakura_bank", "phase": "early_mid", "subnet": "tower9_link",
       "floors": [
         { "id": "1F", "name": "封鎖的大廳", "access": "guest" },
-        { "id": "6F", "name": "禮堂", "access": "core", "hazard": { "strain_per_stage": 10, "resist": { "attr": "will", "skill": "composure", "dc": 14 }, "fail": { "immersion": 2 } } }
+        { "id": "6F", "name": "禮堂", "access": "core", "hazard": { "strain_per_stage": 10, "resist": { "attr": "resolve", "skill": "composure", "dc": 13 }, "fail": { "immersion": 2 } } }
       ],
       "entries": [{ "kind": "roof", "requires": { "favor": { "nora": 20 } } }, { "kind": "underground", "via": "hive_mech_layer" }, { "kind": "force", "alarm_minutes": 10 }],
       "memory": ["front_door_broken", "chorus_met"] }

@@ -22,12 +22,15 @@
   - 還沒做的（不在這一批的範圍或刻意延後）：真的服務商、Agent 模式與工具調用、`relate` 與 `flavor_roster` 兩個任務、報告的 JSON Schema（`engine/schemas/`，現在只有 TypeScript 的型別）、繁簡轉換、紀錄封存、世界包的匯入匯出畫面、戰鬥等具名情境的狀態工廠。
 
 - 2026-11-21（lead）：M0-data、M0-actions、M0-character、M0-perks、M0-creation 做完；引擎主套件 20 個檔、198 個測試全過，M0 的冒煙（功能版）通過。
-- 待 cpp-architect 下次處理：`CreationDraft` 加私處外觀的正式欄位（CHARACTER 第 1 步；目前只能塞在 `look` 的鍵裡）；基本功單項上限調到 6 時出身 +1 先夾在 6（等使用者確認）。
+- 待 cpp-architect 下次處理：`CreationDraft` 加私處外觀的正式欄位（CHARACTER 第 1 步；目前只能塞在 `look` 的鍵裡；欄位名定為 `look.private`，DATA 第 8 節）；基本功單項上限調到 6 時出身 +1 夾在 6（2026-11-21 使用者確認，寫在 CHARACTER 第 1 節第 4 步）。
+- 2026-11-21（docs）：ADR 0003 第 6 點與 ADR 0004 的十三項照建議定案寫回設計書；id 表（DATA 1.1 節）與行動種類表（AI_TASKS 3.1 節）是草稿，等使用者看。各項的狀態在 ADR 0004 的表。
+- 2026-11-21（lead）：M0-ui-engine 做完：介面的建角（第 1～4、7 步）、主畫面的時間、錢、紀錄、自由行動、存讀檔、AI 設定（`cpp-ai-v1`）接上引擎；舊假存檔作廢（新鍵 `cpp-engine-saves-v1`）。ui 31 個檔、234 個測試全過。
+- 待 cpp-architect（M0-ui-engine 回報的，要搬進引擎的規則）：屬性 ± 按鈕的 `attrStepBlock`；起始的錢的組成（出身加減、橋與義體點數換錢、裝備點數）；自訂特質；性別 TS 拆成 trans_f／trans_m；`g.money` 透支要換成 store 動作處理；`g.weekday`／`g.billIn` 改用引擎的 `weekdayOf`。
 
 ## 等使用者決定
 
-- 回退不換亂數種子（dev/adr/0003 第 6 點）：回退之後同樣的行動擲出同樣的骰，想換骰只能用會留紀錄的「重擲」。ElondiaRPG 是回退就換種子（可以刷判定）。
-- dev/adr/0004 的十三項暫定值（時段從幾點開始、第幾天是週一、基本功的英文 id、勢力與 NPC 的 id、特質的清單、起始的錢放哪個錢包、自由行動的預設、行動種類的表……）。
+- ~~回退不換亂數種子~~：2026-11-21 確認照建議（GAME_DESIGN 第 9 節、AI_TASKS 2.4 節）。
+- ~~dev/adr/0004 的十三項暫定值~~：2026-11-21 確認都照建議。還要使用者看的兩份草稿：DATA 1.1 節的 id 表、AI_TASKS 3.1 節的行動種類表。
 - 介面的 AI 設定現在存在 `cpp-ui-settings-v1`（駝峰式欄位），設計書示意頁用的是 `cpp-ai-v1`；引擎照後者，介面那邊先用轉換函式。要不要把儲存的形狀也統一。
 - 引擎的存檔格式和介面的假存檔分開（dev/adr/0005）：介面換到引擎之後舊的假存檔作廢。
 

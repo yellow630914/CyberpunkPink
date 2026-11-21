@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { LogEntry } from '../stores/game'
+import type { EngineLogEntry } from '../lib/engineView'
 /** 紀錄（UI.md 3.2 節）：系統行、正文、網內的段落、擲骰行、變化。 */
-defineProps<{ entries: LogEntry[] }>()
+defineProps<{ entries: Array<LogEntry | EngineLogEntry> }>()
 </script>
 
 <template>
@@ -20,6 +21,9 @@ defineProps<{ entries: LogEntry[] }>()
           <span class="grade" :class="{ fail: e.roll.result.includes('失敗') }">{{ e.roll.result }}</span>
           <span v-if="e.roll.twist" class="twist">✦ {{ e.roll.twist }}</span>
         </div>
+      </div>
+      <div v-if="'notices' in e && e.notices.length" class="notices">
+        <p v-for="(n, i) in e.notices" :key="i">{{ n }}</p>
       </div>
       <div v-if="e.changes?.length" class="chg">
         <span v-for="c in e.changes" :key="c.text" :class="c.kind">{{ c.text }}</span>
@@ -45,4 +49,6 @@ defineProps<{ entries: LogEntry[] }>()
 .chg { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .chg span { font-size: var(--fs-sm); font-weight: 800; padding: 3px 9px; border-radius: 999px; background: var(--bg-2); color: var(--ink-2); }
 .chg .plus { color: var(--ram); } .chg .minus { color: var(--hp); }
+.notices { margin-top: 8px; }
+.notices p { margin: 2px 0 0; font-size: var(--fs-fine); font-weight: 700; color: var(--ink-3); }
 </style>

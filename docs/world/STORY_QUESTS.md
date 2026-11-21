@@ -244,7 +244,7 @@
     { "id": "audit", "title": "稽核", "kind": "check",
       "at": { "where": "net", "net": "hizakura_bank_hive" },
       "requires": { "flags": ["fx_lian_ledger_seen"], "intimacy": { "npc_lian": 40 } },
-      "check": { "attr": "int", "skill": "interface", "dc": 13 },
+      "check": { "attr": "intellect", "skill": "interface", "dc": 13 },
       "success": { "set_flags": ["fx_lian_hidden"] },
       "fail": { "set_flags": ["fx_lian_failed"], "counters": { "contract": 1 } } },
     { "id": "buyback", "title": "買回", "kind": "choice",

@@ -16,10 +16,203 @@
 | `tags` | 內容篩選的標籤：流竄 AI 的題材、`pc_unwilling`（主角非自願）、`target_unwilling`（對象非自願）、`contract_dom`（契約支配）、`ntr`、`puppet_amnesia`（人偶晶片的失憶工作）、`blacktape`，以及對象的性別 `male_partner`、`female_partner`、`femboy_partner`（男娘與偽娘）、`trans_partner`、`futa_partner`（全書統一用這組名字）。玩家關掉的標籤，帶著它的內容不出現 |
 | `adult` | 布林值。只給三個地方用：交給 AI 寫正文、產圖的預處理、產圖。規則不因為它而不同 |
 | 文字欄位 | `name`、`desc`、`text` 是給玩家與 AI 看的中文，都要寫成完整的句子 |
-| 基本功與屬性 | 用英文 id。屬性：`body` 體格、`reflex` 反應、`tech` 技術、`intellect` 智識、`resolve` 意志、`charm` 魅力。基本功的 id 表在 [CORE_RULES](CORE_RULES.md) 第 2 節 |
+| 基本功與屬性 | 用英文 id。屬性：`body` 體格、`reflex` 反應、`tech` 技術、`intellect` 智識、`resolve` 意志、`charm` 魅力。屬性、基本功、勢力與具名 NPC 的 id 表在 1.1 節 |
 | 身體的部位 | `mouth` 口、`hand_l` 左手、`hand_r` 右手、`chest` 胸、`front` 前、`back` 後、`legs` 腿足；義體與化身多出來的部位自己取 id（`tail`、`tentacle_1`） |
 | 體型 | `masc` 陽剛、`fem` 陰柔、`andro` 中性 |
 | 性別 | `female`、`male`、`femboy` 偽娘與男娘、`trans_f` 與 `trans_m`（TS）、`futa` 扶他。版本照性別分：`male` 只走 `masc`；`female` 走 `default` 與 `yuri`；其他完全不限 |
+
+### 1.1 id 表
+
+**草稿：等使用者看過再定。** 屬性、基本功、勢力、具名 NPC 的英文 id 以這一節為準。已經在設計書或引擎的資料裡出現過的 id 照抄；沒出現過的是這一次補的。
+
+**屬性**（[CORE_RULES](CORE_RULES.md) 第 1 節）
+
+| id | 屬性 |
+|---|---|
+| `body` | 體格 |
+| `reflex` | 反應 |
+| `tech` | 技術 |
+| `intellect` | 智識 |
+| `resolve` | 意志 |
+| `charm` | 魅力 |
+
+**基本功**（[CORE_RULES](CORE_RULES.md) 第 2 節）
+
+| id | 基本功 | 屬性 |
+|---|---|---|
+| `brawl` | 格鬥 | `body` 體格 |
+| `athletics` | 運動 | `body` 體格 |
+| `heavy` | 重裝 | `body` 體格 |
+| `firearms` | 槍械 | `reflex` 反應 |
+| `piloting` | 操縱 | `reflex` 反應 |
+| `stealth` | 隱匿 | `reflex` 反應 |
+| `mechanics` | 機械 | `tech` 技術 |
+| `cyberware` | 義體學 | `tech` 技術 |
+| `medicine` | 醫療 | `tech` 技術 |
+| `interface` | 介面 | `intellect` 智識 |
+| `investigate` | 調查 | `intellect` 智識 |
+| `streetwise` | 街頭直覺 | `intellect` 智識 |
+| `intimidate` | 威嚇 | `resolve` 意志 |
+| `composure` | 定力 | `resolve` 意志 |
+| `sync` | 同步 | `resolve` 意志 |
+| `negotiate` | 交涉 | `charm` 魅力 |
+| `seduce` | 誘惑 | `charm` 魅力 |
+| `perform` | 表演 | `charm` 魅力 |
+
+**勢力**（[FACTIONS](../world/FACTIONS.md) 第 1 節的 id 照抄）。企業的全名與短名：短名是介面、出身與內文裡平常的叫法。
+
+| id | 全名 | 短名 | 類 |
+|---|---|---|---|
+| `hizakura` | 緋櫻重工 | 緋櫻 | 企業 |
+| `starbelle` | 星旗防務 | 星旗 | 企業 |
+| `kunlun` | 崑崙智造 | 崑崙 | 企業 |
+| `nectar` | 蜜腺生技 | 蜜腺 | 企業 |
+| `nightingale` | 夜鶯系統 | 夜鶯 | 企業 |
+| `kaleido` | 萬華鏡 | 萬華鏡 | 企業 |
+| `eden` | 伊甸園 | 伊甸園 | 企業 |
+| `blackspring` | 黑泉能源 | 黑泉 | 企業 |
+| `angel` | 天使急救 | 天使急救 | 企業 |
+| `orihime` | 織女電子 | 織女 | 企業 |
+| `netvigil` | 貞網局 | 貞網局 | 企業 |
+| `sweetheart` | 甜心食品 | 甜心食品 | 企業 |
+| `honey` | 蜜糖會 | 蜜糖會 | 街頭 |
+| `rouge` | 胭脂堂 | 胭脂堂 | 街頭 |
+| `chrome` | 鉻娘子 | 鉻娘子 | 街頭 |
+| `tokko` | 特攻姬 | 特攻姬 | 街頭 |
+| `nora` | 野良 | 野良 | 街頭 |
+| `whisper` | 牆語者 | 牆語者 | 街頭 |
+| `rose` | 野薔薇 | 野薔薇 | 街頭 |
+| `festival` | 祭典組 | 祭典組 | 街頭 |
+| `maids` | 女僕公會 | 女僕公會 | 街頭 |
+| `strippers` | 拆體客 | 拆體客 | 街頭 |
+| `doujin` | 同人眾 | 同人眾 | 街頭 |
+| `guard` | 親衛隊 | 親衛隊 | 街頭 |
+| `lonestar` | 孤星連 | 孤星連 | 街頭 |
+| `bare` | 素體教 | 素體教 | 街頭 |
+| `banquet` | 夜宴社 | 夜宴社 | 街頭 |
+| `police` | 市警 | 市警 | 公家 |
+| `suppress` | 鎮溺隊 | 鎮溺隊 | 公家 |
+
+- 企業的部門（緋櫻銀行、家政課、緋櫻映畫……）不是勢力（[FACTIONS](../world/FACTIONS.md) 第 8 節）。資料裡要指名部門時用 `<母企業>_<部門>`，例如 [SITES](../world/SITES.md) 第 15 節的 `hizakura_bank`；好感與敵對值記在母企業上。
+
+**具名 NPC**（[NPCS](../world/NPCS.md)）。前綴 `npc_`；生成的 NPC 用 `gen_<區>_<流水號>`（第 8 節）。「已出現」標 ✓ 的是設計書的樣本裡已經用過的。
+
+| id | 名字 | NPCS 的哪一節 | 已出現 |
+|---|---|---|---|
+| `npc_lian` | 阿蓮（林秋蓮） | 第 2 節 | ✓ |
+| `npc_monroe` | 夢露 | 第 2 節 | ✓ |
+| `npc_chihaya` | 白鷺千早 | 第 2 節 |  |
+| `npc_kuga` | 久我課長 | 第 2 節 |  |
+| `npc_lubo` | 陸伯（陸守仁） | 第 2 節 |  |
+| `npc_vivian_cole` | 薇薇安·柯爾 | 第 2 節 | ✓ |
+| `npc_mara` | 瑪拉 | 第 2 節 |  |
+| `npc_eliza_varga` | 伊萊莎·瓦爾加 | 第 2 節 |  |
+| `npc_hebo` | 何伯 | 第 3 節 |  |
+| `npc_fengfeng` | 縫縫 | 第 3 節 |  |
+| `npc_haruka` | 佐伯遙 | 第 3 節 |  |
+| `npc_peachy_7` | 桃桃七號 | 第 3 節 |  |
+| `npc_debbie_reed` | 黛比·瑞德 | 第 3 節 |  |
+| `npc_lulu` | 露露 | 第 3 節 | ✓ |
+| `npc_maggie` | 瑪姬 | 第 3 節 | ✓ |
+| `npc_sanmao` | 三毛 | 第 3 節 | ✓ |
+| `npc_min` | Min | 第 3 節 |  |
+| `npc_dandelion` | 蒲公英 | 第 3 節 |  |
+| `npc_k` | K | 第 3 節 |  |
+| `npc_kuga_rei` | 久我玲 | 第 3 節 |  |
+| `npc_xiaomai` | 小麥 | 第 4 節 |  |
+| `npc_jo` | 喬（Jo） | 第 4 節 |  |
+| `npc_zero` | 零（Zero） | 第 4 節 |  |
+| `npc_cheng` | 澄 | 第 4 節 |  |
+| `npc_penny` | 潘妮 | 第 4 節 | ✓ |
+| `npc_nana` | 奈奈（代號「九」） | 第 4 節 |  |
+| `npc_amber` | 琥珀 | 第 4 節 | ✓ |
+| `npc_akari` | 燈 | 第 4 節 | ✓ |
+| `npc_mashiro` | 真白 | 第 4 節 | ✓ |
+| `npc_ray` | 雷（Ray） | 第 4 節 |  |
+| `npc_yuzu` | 柚（Yuzu） | 第 4 節 |  |
+| `npc_shiori` | 詩織（Shiori） | 第 4 節 |  |
+| `npc_chitose` | 緋櫻千歲（御前） | 第 5 節 |  |
+| `npc_masatsugu` | 緋櫻正嗣 | 第 5 節 |  |
+| `npc_ayame` | 緋櫻綾女 | 第 5 節 |  |
+| `npc_saku` | 緋櫻朔 | 第 5 節 |  |
+| `npc_shizuka` | 橘靜（一番） | 第 5 節 |  |
+| `npc_hikari` | 天羽光 | 第 5 節 |  |
+| `npc_touka` | 榊冬華 | 第 5 節 |  |
+| `npc_kate_walker` | 凱特·沃克 | 第 5 節 | ✓ |
+| `npc_shen_tang` | 沈棠 | 第 5 節 |  |
+| `npc_nora_sin` | 諾拉·辛 | 第 5 節 |  |
+| `npc_elena_moretti` | 伊蓮娜·莫雷蒂 | 第 5 節 |  |
+| `npc_frost` | 霜 | 第 5 節 |  |
+| `npc_lenora` | 蕾諾拉 | 第 5 節 |  |
+| `npc_selene_wu` | 賽琳·吳 | 第 5 節 |  |
+| `npc_ezekiel_hall` | 以西結·霍爾 | 第 5 節 |  |
+| `npc_baiwei` | 白薇 | 第 5 節 | ✓ |
+| `npc_rosa` | 蘿莎（糖姐） | 第 6 節 |  |
+| `npc_eunah` | 金恩雅（辣椒） | 第 6 節 |  |
+| `npc_jiugu` | 九姑 | 第 6 節 |  |
+| `npc_hongxiao` | 紅綃 | 第 6 節 |  |
+| `npc_shen_ke` | 沈克 | 第 6 節 |  |
+| `npc_greta` | 葛蕾塔（熔爐） | 第 6 節 |  |
+| `npc_rin` | 鬼塚凜 | 第 6 節 |  |
+| `npc_rabbit` | 兔子 | 第 6 節 |  |
+| `npc_che` | 阿徹（團長） | 第 6 節 |  |
+| `npc_camilla` | 卡蜜拉（伯爵夫人） | 第 6 節 |  |
+| `npc_kitsune` | 狐面 | 第 6 節 |  |
+| `npc_jonah` | 約拿 | 第 6 節 |  |
+| `npc_echo` | 回聲 | 第 6 節 |  |
+| `npc_mio` | 澪 | 第 6 節 |  |
+| `npc_theo_mensah` | 西奧（館主） | 第 6 節 |  |
+| `npc_saya` | 梶原沙耶（局長） | 第 6 節 |  |
+| `npc_runa` | 水城瑠奈（金盞花） | 第 6 節 |  |
+| `npc_crow` | 老鴉（拆體客的具名精英） | [QUESTS](../content/QUESTS.md) | ✓ |
+| `npc_shirayuri` | 白百合（鎮溺隊越線的隊員） | [QUESTS](../content/QUESTS.md) | ✓ |
+
+**流竄 AI**（[NPCS](../world/NPCS.md) 8.2 節）也是具名 NPC，走 NPC 的好感。id 用牠原本的產品名。
+
+| id | 名字 | 原本的產品 |
+|---|---|---|
+| `npc_hearthside` | 媽咪 | Hearthside |
+| `npc_mentor` | 姐姐大人 | Mentor+ |
+| `npc_cling` | 小尾巴 | CLING |
+| `npc_rival` | 借過一下 | Rival |
+| `npc_unison` | 大家 | Unison |
+| `npc_oath` | 這杯我請 | Oath |
+| `npc_tether` | 絲 | Tether |
+| `npc_threshold` | 荊棘小姐 | Threshold |
+| `npc_sovereign` | 陛下 | Sovereign |
+| `npc_comply` | 您的 | Comply |
+| `npc_abstain` | 鎖匠 | Abstain |
+| `npc_signet` | 落款 | Signet |
+| `npc_lens` | @all_eyes | LENS Insight |
+| `npc_spotlight` | 本台 | Spotlight |
+| `npc_murmur` | 噓 | Murmur |
+| `npc_dose` | 暈 | Dose |
+| `npc_roam` | 到哪算哪 | Roam |
+| `npc_fanworks` | 新刊 | Fanworks |
+| `npc_treat` | 再一口 | Treat |
+| `npc_reach` | 好多手 | Reach |
+| `npc_curio` | 典藏室 | Curio |
+| `npc_wildcard` | 嗷 | Wildcard |
+| `npc_morph` | 還沒好 | Morph |
+| `npc_fluid` | 都可以 | Fluid |
+| `npc_contour` | Miss 七月 | Contour |
+| `npc_unit` | 零七 | Unit Companion |
+| `npc_servo` | 嘶—— | Servo |
+| `npc_persona` | Ａ子 | Persona Studio |
+| `npc_triage` | 下一位 | Triage Care |
+| `npc_zenith` | 小仙 | Zenith |
+| `npc_absolve` | 神父不在 | Absolve |
+| `npc_homemaker` | 女僕長 | Homemaker |
+| `npc_encore` | 安可 | Encore |
+| `npc_lounge` | 今晚幾位 | Lounge |
+| `npc_outlaw` | 夜露死苦 | Outlaw |
+| `npc_avatar` | 初見 | Avatar Live |
+| `npc_paladin` | 寧死不屈 | Paladin |
+| `npc_purify` | 請低頭 | Purify |
+| `npc_sentinel` | 愛與正義 | Sentinel |
+| `npc_veteran` | 長官 | Veteran |
+| `npc_atelier` | 請入座 | Atelier |
+| `npc_endless` | 夜后 | Endless |
 
 ## 2. 技能（八棵樹）
 
@@ -608,7 +801,7 @@
 
 ## 8. NPC
 
-照 [NPC_SYSTEM](NPC_SYSTEM.md) 第 12 節的樣本，改兩處、加四樣：
+照 [NPC_SYSTEM](NPC_SYSTEM.md) 第 12 節的樣本，改兩處、加五樣。主角的外觀用同一組欄位（`look`），所以 `look.private` 主角也有：
 
 | 變動 | 內容 |
 |---|---|
@@ -618,6 +811,7 @@
 | 加 `sex_record` | 性經歷：`partners` 對象的人數、`times` 次數、`first` 第一次（對象與一句話）、`service_times`、`favorite`、`notes` |
 | 加 `night_skills` | 會的夜課技能 |
 | 加 `positions` | 會的體位（基本的不用寫） |
+| 加 `look.private` | 私處的外觀：`{ "options": [詞條的 id], "text": "自由輸入的一段" }`。主角在建角第 1 步選（[CHARACTER](CHARACTER.md) 第 1 節），NPC 生成時一起寫；內容篩選關掉「身體的私密描寫」時不問、不寫，只顯示在角色的成人分頁 |
 
 ```json
 {

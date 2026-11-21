@@ -40,22 +40,22 @@ export const useEngine = defineStore('engine', () => {
   const timeLabel = computed(() => `${String(state.value.time.hour).padStart(2, '0')}:${String(state.value.time.minute).padStart(2, '0')}`)
   const log = computed<EngineLogEntry[]>(() => {
     const describe = (c: Change[]): string[] => game.k.changes.describe(state.value, c)
-    return state.value.reports.filter((r) => r.action !== 'game.new').map((r) => logEntryOf(r, describe)).reverse()
+    return state.value.reports.filter((r) => r.action !== 'game.new' && r.action !== 'ui.money' && r.action !== 'ui.time').map((r) => logEntryOf(r, describe)).reverse()
   })
   const chainSteps = computed(() => steps.value)
   const canUndo = computed(() => undoSize.value > 0)
 
   /** 建角畫面還沒開始時預覽用的規則（難度、特質點）：有設定時，建角的檢查拿一份只有這些規則的空狀態去問引擎，不動現在這一局。 */
-  let previewRules: object | null = null
+  const previewRules = shallowRef<object | null>(null)
   const cstate = (): GameState => {
-    if (!previewRules) return game.state
+    if (!previewRules.value) return game.state
     const s = blankState(0)
-    s.rules = sanitizeRules(previewRules)
+    s.rules = sanitizeRules(previewRules.value)
     return s
   }
 
   function newGame(opts: { seed: number; rules?: object }): void {
-    previewRules = null
+    previewRules.value = null
     game.newGame(opts)
   }
 
@@ -78,7 +78,7 @@ export const useEngine = defineStore('engine', () => {
     perkBlock: (picked: string[]) => perkBlock(game.k, cstate(), picked),
     blocks: (draft: CreationDraft) => creationBlocks(game.k, cstate(), draft),
     /** 建角畫面開著的時候，把設定頁的存檔規則交給引擎預覽（rulesFromUi 的輸出）；newGame 之後清掉 */
-    previewRules: (rules: object | null) => { previewRules = rules },
+    previewRules: (rules: object | null) => { previewRules.value = rules },
     /** 建角的數字（給畫面顯示與下拉選單用，來源是引擎的資料與規則） */
     get limits() {
       const r = game.k.content.get<CreationRuleEntry>('creation_rule', 'default')
@@ -141,10 +141,22 @@ export const useEngine = defineStore('engine', () => {
     refresh()
     return ok
   }
-  /** 還沒搬進引擎的舊系統（useGame）要動時間、錢、紀錄時走這裡，讓兩邊不各走各的。 */
-  function commit(parts: { summary: string; changes?: Change[] }): void {
-    game.commit({ kind: 'system', action: 'ui.legacy', location: {}, party: [], timeline: [], changes: parts.changes ?? [], outcome: { result: 'ok', summary: parts.summary } })
+  /**
+   * 還沒搬進引擎的舊系統（useGame）要動時間、錢、紀錄時走這裡，讓兩邊不各走各的。
+   * action 是 'ui.money'、'ui.time' 的報告不顯示在紀錄裡（只是帳）；'ui.legacy' 是舊系統寫的一則紀錄。
+   */
+  function commit(parts: { summary: string; changes?: Change[]; action?: string; prose?: string[]; results?: string[]; place?: string }): void {
+    game.commit({
+      kind: 'system', action: parts.action ?? 'ui.legacy', location: parts.place ? { facility: parts.place } : {}, party: [], timeline: [], changes: parts.changes ?? [],
+      outcome: { result: 'ok', summary: parts.summary },
+      ...(parts.prose || parts.results ? { narration: { ...(parts.prose ? { text: parts.prose.join('\n\n') } : {}), ...(parts.results ? { results: parts.results } : {}) } } : {}),
+    })
+  }
+  /** 錢與時間的帳（不進紀錄）。 */
+  function ledger(changes: Change[]): void {
+    const real = changes.filter((c) => c.delta !== 0)
+    if (real.length) commit({ summary: '帳', action: 'ui.money', changes: real })
   }
 
-  return { state, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, newGame, createCharacter, creation, act, retryStep, useRules, reroll, setAi, save, load, undo, commit }
+  return { state, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, newGame, createCharacter, creation, act, retryStep, useRules, reroll, setAi, save, load, undo, commit, ledger }
 })

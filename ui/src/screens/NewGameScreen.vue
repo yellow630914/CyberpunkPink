@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
 import Hint from '../components/Hint.vue'
@@ -9,18 +9,20 @@ import RuleFields from '../components/RuleFields.vue'
 import SkillTreeView from '../components/SkillTreeView.vue'
 import MoneyTag from '../components/MoneyTag.vue'
 import { useGame } from '../stores/game'
+import { useEngine } from '../stores/engine'
 import { useSettings } from '../stores/settings'
 import { useUi } from '../stores/ui'
 import { ITEMS } from '../data/items'
 import { SKILL_TREES } from '../data/content.generated'
+import type { AttrId } from '@engine/src'
 import {
-  ATTRS, ATTR_ARRAY, ATTR_FREE, ATTR_MIN, ATTR_MAX, BASIC_SKILLS, BASIC_POINTS, BASIC_MAX, ORIGINS, CORPS, CYBER_OPTIONS, CYBER_POINTS, CYBER_POINT_MONEY,
-  TRAITS, LIFE_TABLES, GEAR_CATALOG, GEAR_POINTS, GEAR_POINT_MONEY, SUGGESTED_KITS, LOOKS, LOOK_GROUPS, ORIGIN_STYLE, BEAST_LINES, LIFE_BY_ORIGIN, QUICK_STARTS, START_MONEY, type AttrName, type CyberOption, type TraitOption,
+  ORIGINS, CYBER_OPTIONS, CYBER_POINTS, CYBER_POINT_MONEY,
+  LIFE_TABLES, GEAR_CATALOG, GEAR_POINTS, GEAR_POINT_MONEY, SUGGESTED_KITS, LOOKS, LOOK_GROUPS, ORIGIN_STYLE, BEAST_LINES, LIFE_BY_ORIGIN, QUICK_STARTS, START_MONEY, type CyberOption,
 } from '../data/creation'
 import {
-  ageBlock, freeValues, attrTotals, attrBlock, attrMod, attrBudget, attrStepBlock, fmtMod, basicLeft, basicStepBlock, cyberSummary, cyberPickBlock, cyberBlock,
-  traitSummary, traitPickBlock, traitBlock, gearPoints, gearSummary, gearAddBlock, fitKit, derivedLooks, type AttrPick,
+  fmtMod, cyberSummary, cyberPickBlock, cyberBlock, gearPoints, gearSummary, gearAddBlock, fitKit, derivedLooks,
 } from '../lib/creation'
+import { GENDER_ID, PERK_CATEGORY_NAME, rulesFromUi } from '../lib/engineView'
 import { skillXp, TIER_THRESHOLDS } from '../lib/skills'
 import { unavailable } from '../lib/unavailable'
 import type { ItemDef } from '../data/types'
@@ -32,6 +34,7 @@ import type { ItemDef } from '../data/types'
  */
 const router = useRouter()
 const g = useGame()
+const e = useEngine()
 const st = useSettings()
 const ui = useUi()
 
@@ -67,33 +70,62 @@ const NAMES = ['凜', '小穗', '阿海', '影', '朔夜', '千秋', '小滿', '
 function randomName() { basic.name = NAMES[Math.floor(Math.random() * NAMES.length)] }
 
 // ---- 2 出身 ----
+// 引擎的資料：屬性、基本功、出身、特質（id 是引擎的；顯示用 name）。假資料只剩引擎還沒有的欄位（起始身分的說法、起始的錢、出身的附註）。
+e.creation.previewRules(rulesFromUi(st.s))
+watch(() => [st.s.difficulty, st.s.traitPoints], () => e.creation.previewRules(rulesFromUi(st.s)))
+const lim = computed(() => e.creation.limits)
+const eAttrs = e.creation.attributes
+const eSkills = e.creation.skills
+const eOrigins = e.creation.origins
+const ePerks = e.creation.perks.filter(p => p.category !== 'origin')
+const skillName = (id: string) => eSkills.find(s => s.id === id)?.name ?? id
+const attrName = (id: string) => eAttrs.find(a => a.id === id)?.name ?? id
+const ageBlock = (raw: string) => e.creation.ageBlock(raw)
+
 const originId = ref('hive')
-const origin = computed(() => ORIGINS.find(o => o.id === originId.value)!)
+const eo = computed(() => eOrigins.find(o => o.id === originId.value)!)
+const originSkillId = computed(() => Object.keys(eo.value.skill_bonus)[0] ?? '')
+const origin = computed(() => {
+  const legacy = ORIGINS.find(o => o.id === originId.value)!
+  const perk = e.creation.perks.find(p => p.id === eo.value.perk)
+  return { ...legacy, name: eo.value.name, line: eo.value.line, home: eo.value.home, favor: eo.value.favor.choose_one, partner: eo.value.roster.join('、'), trait: { name: perk?.name ?? '', effect: perk?.desc ?? '' } }
+})
 const corp = ref<string>('緋櫻')
 const favor = ref<string>('孤星連')
-function pickOrigin(id: string) { originId.value = id; favor.value = ORIGINS.find(o => o.id === id)!.favor[0]; picks.cyber = picks.cyber.filter(c => !c.corpOnly) }
+function pickOrigin(id: string) { originId.value = id; favor.value = eOrigins.find(o => o.id === id)!.favor.choose_one[0]; corp.value = favor.value; picks.cyber = picks.cyber.filter(c => !c.corpOnly) }
 
 // ---- 3 屬性 ----
-const attrs = reactive<AttrPick>({ 體格: 12, 反應: 15, 技術: 8, 智識: 13, 意志: 10, 魅力: 14 })
-const attrBonus = reactive<Partial<Record<AttrName, number>>>({ 意志: 2 })
-const totals = computed(() => attrTotals(attrs, attrBonus))
-const budget = computed(() => attrBudget(attrBonus))
+const attrs = reactive<Partial<Record<AttrId, number>>>({ body: 12, reflex: 15, tech: 8, intellect: 13, resolve: 10, charm: 14 })
+const attrBonus = reactive<Partial<Record<AttrId, number>>>({ resolve: 2 })
+const totals = computed(() => e.creation.attrTotals(attrs, attrBonus))
+const budget = computed(() => e.creation.attrBudget(attrBonus))
 const freeLeft = computed(() => budget.value.left)
-/** ±：加花自由點數（或把壓下去的加回來）；減先退自由點數，再往下壓到 4，每壓一點多一點自由點數。 */
-function bump(a: AttrName, d: 1 | -1) {
-  const b = attrStepBlock(attrs, attrBonus, a, d)
+const attrMod = (v: number) => e.creation.attrMod(v)
+/** 每一項的下拉只列還沒被別項選走的數字（加上它自己現在的值）。 */
+function freeValues(self: AttrId): number[] {
+  const pool = [...lim.value.attrArray]
+  for (const a of eAttrs) if (a.id !== self && attrs[a.id as AttrId] !== undefined) { const i = pool.indexOf(attrs[a.id as AttrId]!); if (i >= 0) pool.splice(i, 1) }
+  return pool
+}
+const attrStepBlock = (a: AttrId, d: 1 | -1) => e.creation.attrStepBlock(attrs, attrBonus, a, d)
+/** ±：加花自由點數（或把壓下去的加回來）；減先退自由點數，再往下壓，每壓一點多一點自由點數。能不能按問引擎。 */
+function bump(a: AttrId, d: 1 | -1) {
+  const b = attrStepBlock(a, d)
   if (b) { ui.toast(b, 'warn'); return }
   attrBonus[a] = (attrBonus[a] ?? 0) + d
 }
-function setAttr(a: AttrName, raw: string) { if (raw === '') delete attrs[a]; else attrs[a] = Number(raw) }
+function setAttr(a: AttrId, raw: string) { if (raw === '') delete attrs[a]; else attrs[a] = Number(raw) }
 
 // ---- 4 基本功 ----
-const basics = reactive<Record<string, number>>({ 槍械: 3, 隱匿: 2, 交涉: 2, 街頭直覺: 2, 運動: 1 })
-const bLeft = computed(() => basicLeft(basics))
-function basicStep(name: string, d: 1 | -1) {
-  const b = basicStepBlock(basics, name, d)
+const basics = reactive<Record<string, number>>({ firearms: 3, stealth: 2, negotiate: 2, streetwise: 2, athletics: 1 })
+const bLeft = computed(() => e.creation.skillLeft(basics))
+/** 按下去之後的那一份先問引擎。 */
+const basicNext = (id: string, d: 1 | -1) => ({ ...basics, [id]: (basics[id] ?? 0) + d })
+const basicStepBlock = (id: string, d: 1 | -1) => e.creation.skillBlock(basicNext(id, d))
+function basicStep(id: string, d: 1 | -1) {
+  const b = basicStepBlock(id, d)
   if (b) { ui.toast(b, 'warn'); return }
-  basics[name] = (basics[name] ?? 0) + d
+  basics[id] = (basics[id] ?? 0) + d
 }
 
 // ---- 5 生命軌跡 ----
@@ -109,7 +141,7 @@ function roll(id: string) { const o = lifeOptions(id); life[id] = o[Math.floor(M
 void FILTER_OF
 
 // ---- 6 橋與義體 ----
-const picks = reactive<{ cyber: CyberOption[]; traits: TraitOption[]; gear: ItemDef[] }>({ cyber: [CYBER_OPTIONS.find(c => c.id === 'br_std')!, CYBER_OPTIONS.find(c => c.id === 'cw_eye')!], traits: [], gear: [] })
+const picks = reactive<{ cyber: CyberOption[]; perks: string[]; gear: ItemDef[] }>({ cyber: [CYBER_OPTIONS.find(c => c.id === 'br_std')!, CYBER_OPTIONS.find(c => c.id === 'cw_eye')!], perks: [], gear: [] })
 const cy = computed(() => cyberSummary(picks.cyber))
 function toggleCyber(o: CyberOption) {
   const has = picks.cyber.some(c => c.id === o.id)
@@ -120,24 +152,14 @@ function toggleCyber(o: CyberOption) {
 }
 
 // ---- 7 特質 ----
-const tr = computed(() => traitSummary(picks.traits, st.s.traitPoints))
-const traitList = computed(() => TRAITS.filter(t => !t.adult || st.s.filterPublic || st.s.filterRestraint))
-function toggleTrait(t: TraitOption) {
-  if (picks.traits.some(x => x.id === t.id)) { picks.traits = picks.traits.filter(x => x.id !== t.id); return }
-  const b = traitPickBlock(picks.traits, t, st.s.traitPoints)
+const tr = computed(() => e.creation.perkSummary(picks.perks))
+const perkList = computed(() => ePerks.filter(t => !t.adult || st.s.filterPublic || st.s.filterRestraint))
+const perkAddBlock = (id: string) => (picks.perks.includes(id) ? null : e.creation.perkBlock([...picks.perks, id]))
+function togglePerk(id: string) {
+  if (picks.perks.includes(id)) { picks.perks = picks.perks.filter(x => x !== id); return }
+  const b = perkAddBlock(id)
   if (b) { ui.toast(b, 'warn'); return }
-  picks.traits = [...picks.traits, t]
-}
-const custom = reactive({ open: false, name: '', desc: '', effect: '一項基本功的檢定 +2' })
-const EFFECTS = [['一項基本功的檢定 +2', 2], ['現實或內海的命中 +1', 2], ['迴避 +1', 2], ['先攻 +3', 2], ['感載上限 +4', 2], ['生命值上限 +5', 2], ['RAM 上限 +1', 2], ['某個場合的收入 +15%', 2], ['條件很窄的檢定 +2', 1]] as const
-function addCustom() {
-  if (!custom.name.trim()) { ui.toast('先寫一個名字。', 'warn'); return }
-  const cost = EFFECTS.find(e => e[0] === custom.effect)![1]
-  const t: TraitOption = { id: `c_${Date.now()}`, name: custom.name.trim(), cat: '自訂', cost, effect: custom.effect }
-  const b = traitPickBlock(picks.traits, t, st.s.traitPoints)
-  if (b) { ui.toast(b, 'warn'); return }
-  picks.traits = [...picks.traits, t]
-  custom.open = false; custom.name = ''; custom.desc = ''
+  picks.perks = [...picks.perks, id]
 }
 
 // ---- 8 技能 ----
@@ -179,22 +201,43 @@ const hasBeast = computed(() => picks.cyber.some(c => c.beast))
 const derived = computed(() => derivedLooks({ cyber: picks.cyber, gear: picks.gear, pronoun: basic.pronoun, baseStyle: ORIGIN_STYLE[originId.value] ?? '工裝', line: beastLine.value }))
 const stepOf = (n: number) => STEPS.findIndex(x => x.id === n)
 
+// ---- 外觀、私處與整份草稿（交給引擎的樣子） ----
+const LOOK_SKIP = new Set(['name', 'gender', 'pronoun', 'age', 'looks', 'background', 'privates', 'privatesNote'])
+/** 私處還沒有正式欄位：先放在 look 的 private（選的）與 privateNote（補充）兩個鍵，受內容篩選控制。 */
+const draft = computed(() => {
+  const look: Record<string, string> = {}
+  for (const [k, v] of Object.entries(basic)) if (!LOOK_SKIP.has(k)) look[k] = v
+  if (st.s.filterIntimateBody) { look.private = String(basic.privates ?? ''); look.privateNote = String(basic.privatesNote ?? '').trim() }
+  return {
+    name: basic.name, gender: GENDER_ID[basic.gender] ?? basic.gender, pronoun: basic.pronoun, age: basic.age, look, lookNote: basic.looks, background: basic.background,
+    origin: originId.value, originChoice: { favor: favor.value },
+    attrPick: { ...attrs }, attrBonus: { ...attrBonus }, skills: { ...basics }, perks: [...picks.perks],
+  }
+})
+const BLOCK_STEP = { basics: 1, origin: 2, attrs: 3, skills: 4, perks: 7 } as const
+
 // ---- 每一步擋住「下一步」的原因 ----
+const engineBlocks = computed(() => e.creation.blocks(draft.value))
+const blockOf = (s: keyof typeof BLOCK_STEP) => engineBlocks.value.find(b => b.step === s)?.reason ?? null
 const block = computed<string | null>(() => {
   switch (step.value) {
-    case 1: return basic.name.trim() ? ageBlock(basic.age) : '先取一個名字。'
-    case 3: return attrBlock(attrs, attrBonus)
-    case 4: return bLeft.value < 0 ? `超過了 ${-bLeft.value} 點。` : null
+    case 1: return blockOf('basics')
+    case 2: return blockOf('origin')
+    case 3: return blockOf('attrs')
+    case 4: return blockOf('skills')
     case 6: return cyberBlock(picks.cyber)
-    case 7: return traitBlock(picks.traits, st.s.traitPoints)
+    case 7: return blockOf('perks')
     case 8: return xpLeft.value < 0 ? '歷練點超過了。' : null
     case 9: return gr.value.left < 0 ? '裝備點數超過了。' : null
     default: return null
   }
 })
 const firstBlocked = computed(() => {
-  const checks: Array<[number, string | null]> = [[2, basic.name.trim() ? ageBlock(basic.age) : '先取一個名字。'], [4, attrBlock(attrs, attrBonus)], [7, cyberBlock(picks.cyber)], [8, traitBlock(picks.traits, st.s.traitPoints)]]
-  return checks.find(([, b]) => b) ?? null
+  const list: Array<[number, string]> = engineBlocks.value.map(b => [stepOf(BLOCK_STEP[b.step]), b.reason])
+  const cb = cyberBlock(picks.cyber)
+  if (cb) list.push([stepOf(6), cb])
+  list.sort((x, y) => x[0] - y[0])
+  return list[0] ?? null
 })
 function next() { if (stepIdx.value < STEPS.length - 1) stepIdx.value++ }
 function go(i: number) {
@@ -210,17 +253,21 @@ function quick(q: typeof QUICK_STARTS[number]) {
   ui.toast(`快速開始：${q.name}。照預設填好了，可以回頭改。`)
 }
 
-/** 開始：把建好的角色寫進這個瀏覽器裡的這一局。存檔格不受影響。 */
+/** 開始：引擎開新局並建角（規則都在引擎）；成功之後把引擎還沒有的假資料照原本的方式寫進 useGame。存檔格不受影響。 */
 function start() {
   if (firstBlocked.value) { stepIdx.value = firstBlocked.value[0]; ui.toast(firstBlocked.value[1]!, 'warn'); return }
+  e.newGame({ seed: Date.now() % 2147483647, rules: rulesFromUi(st.s) })
+  const blocked = e.createCharacter(draft.value)
+  if (blocked.length) { stepIdx.value = stepOf(BLOCK_STEP[blocked[0].step]); ui.toast(blocked[0].reason, 'warn'); e.creation.previewRules(rulesFromUi(st.s)); return }
   g.character.name = basic.name.trim()
   g.character.privates = st.s.filterIntimateBody ? { look: String(basic.privates ?? ''), note: String(basic.privatesNote ?? '').trim() } : undefined
   g.character.origin = `${origin.value.name}出身`
-  g.character.attrs = ATTRS.map(a => ({ name: a, base: totals.value[a], eff: totals.value[a] }))
-  g.character.traits = { good: [origin.value.trait.name, ...picks.traits.filter(t => !t.flaw).map(t => t.name)], bad: picks.traits.filter(t => t.flaw).map(t => t.name) }
+  g.character.attrs = eAttrs.map(a => ({ name: a.name, base: totals.value[a.id as AttrId], eff: totals.value[a.id as AttrId] }))
+  const perkOf = (id: string) => ePerks.find(p => p.id === id)!
+  g.character.traits = { good: [origin.value.trait.name, ...picks.perks.map(perkOf).filter(t => !t.flaw).map(t => t.name)], bad: picks.perks.map(perkOf).filter(t => t.flaw).map(t => t.name) }
   g.character.xp = xpLeft.value
-  const b = { ...basics }
-  b[origin.value.skill] = (b[origin.value.skill] ?? 0) + 1
+  const b: Record<string, number> = {}
+  for (const sk of eSkills) b[sk.name] = (basics[sk.id] ?? 0) + (eo.value.skill_bonus[sk.id] ?? 0)
   for (const k of Object.keys(g.basics)) g.basics[k] = b[k] ?? 0
   g.learned = [...learned.value]
   g.loadout = []
@@ -231,7 +278,7 @@ function start() {
   ui.toast('角色建好了。')
   router.push('/')
 }
-const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${fmtMod(attrMod(totals.value[a]))}）`))
+const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id as AttrId]}（${fmtMod(attrMod(totals.value[a.id as AttrId]))}）`))
 </script>
 
 <template>
@@ -320,18 +367,18 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${fmtM
         <!-- 2 出身 -->
         <template v-else-if="step === 2">
           <h2>出身</h2>
-          <label class="fld"><span>出身</span><select :value="originId" class="inp" @change="pickOrigin(($event.target as HTMLSelectElement).value)"><option v-for="o in ORIGINS" :key="o.id" :value="o.id">{{ o.name }}・{{ o.line }}</option></select></label>
+          <label class="fld"><span>出身</span><select :value="originId" class="inp" @change="pickOrigin(($event.target as HTMLSelectElement).value)"><option v-for="o in eOrigins" :key="o.id" :value="o.id">{{ o.name }}・{{ o.line }}</option></select></label>
           <div class="cols2 mt">
             <div>
-              <div class="kv"><span>基本功 +1</span><b>{{ origin.skill }}</b></div>
+              <div class="kv"><span>基本功 +1</span><b>{{ skillName(originSkillId) }}</b></div>
               <div class="kv"><span>出身特質</span><b>{{ origin.trait.name }}・{{ origin.trait.effect }}</b></div>
               <div class="kv"><span>起始身分</span><b>{{ origin.status }}</b></div>
               <div class="kv"><span>起始住處</span><b>{{ origin.home }}</b></div>
-              <div class="kv"><span>開場就在名冊上</span><b>{{ origin.partner }}、雷</b></div>
+              <div class="kv"><span>開場就在名冊上</span><b>{{ origin.partner }}</b></div>
               <div class="kv"><span>起始的錢</span><b>{{ origin.money >= 0 ? '+' : '−' }}{{ Math.abs(origin.money) }}</b></div>
             </div>
             <div>
-              <label v-if="origin.id === 'corp'" class="fld"><span>原本那家企業<Hint>選的那一家決定好感給誰、買得到哪一家的橋。企業出身不帶債。</Hint></span><select v-model="corp" class="inp"><option v-for="c in CORPS" :key="c">{{ c }}</option></select></label>
+              <label v-if="origin.id === 'corp'" class="fld"><span>原本那家企業<Hint>選的那一家決定好感給誰、買得到哪一家的橋。企業出身不帶債。</Hint></span><select v-model="corp" class="inp" @change="favor = corp"><option v-for="c in eo.favor.choose_one" :key="c">{{ c }}</option></select></label>
               <label v-else class="fld"><span>好感 25 的勢力<template v-if="origin.favor.length > 1">（選一）</template></span><select v-model="favor" class="inp"><option v-for="f in origin.favor" :key="f">{{ f }}</option></select></label>
               <p v-if="origin.extra" class="empty-note mt">{{ origin.extra }}</p>
             </div>
@@ -341,34 +388,34 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${fmtM
         <!-- 3 屬性 -->
         <template v-else-if="step === 3">
           <h2>屬性</h2>
-          <p class="setgrp">把 {{ ATTR_ARRAY.join('、') }} 分到六項，再加 {{ ATTR_FREE }} 點<Hint>每項一個下拉，選過的數字從其他下拉消失。分完以後用 ± 調：加一點花一點自由點數（單項最高 {{ ATTR_MAX }}）；也可以把任何一項往下壓，最低 {{ ATTR_MIN }}（調整值 {{ fmtMod(attrMod(ATTR_MIN)) }}），每壓一點多一點自由點數拿去加別的。調整值是（屬性 − 10）÷ 2，無條件捨去。屬性之後不能用歷練點升。</Hint></p>
+          <p class="setgrp">把 {{ lim.attrArray.join('、') }} 分到六項，再加 {{ lim.attrFree }} 點<Hint>每項一個下拉，選過的數字從其他下拉消失。分完以後用 ± 調：加一點花一點自由點數（單項最高 {{ lim.attrMax }}）；也可以把任何一項往下壓，最低 {{ lim.attrMin }}（調整值 {{ fmtMod(attrMod(lim.attrMin)) }}），每壓一點多一點自由點數拿去加別的。調整值是（屬性 − 10）÷ 2，無條件捨去。屬性之後不能用歷練點升。</Hint></p>
           <div class="attrs">
-            <div v-for="a in ATTRS" :key="a" class="at cut-sm" :class="{ neg: attrs[a] !== undefined && attrMod(totals[a]) < 0 }">
-              <span class="an">{{ a }}</span>
-              <select :value="attrs[a] ?? ''" class="inp" :aria-label="a" @change="setAttr(a, ($event.target as HTMLSelectElement).value)">
-                <option value="">—</option><option v-for="v in freeValues(attrs, a)" :key="v" :value="v">{{ v }}</option>
+            <div v-for="at in eAttrs" :key="at.id" class="at cut-sm" :class="{ neg: attrs[at.id as AttrId] !== undefined && attrMod(totals[at.id as AttrId]) < 0 }">
+              <span class="an">{{ at.name }}</span>
+              <select :value="attrs[at.id as AttrId] ?? ''" class="inp" :aria-label="at.name" @change="setAttr(at.id as AttrId, ($event.target as HTMLSelectElement).value)">
+                <option value="">—</option><option v-for="v in freeValues(at.id as AttrId)" :key="v" :value="v">{{ v }}</option>
               </select>
               <span class="stepper">
-                <button type="button" :aria-label="`${a}減一`" v-bind="unavailable(attrStepBlock(attrs, attrBonus, a, -1))" @click="bump(a, -1)">−</button>
-                <b :class="{ 'warn-t': (attrBonus[a] ?? 0) < 0 }">{{ fmtMod(attrBonus[a] ?? 0) }}</b>
-                <button type="button" :aria-label="`${a}加一`" v-bind="unavailable(attrStepBlock(attrs, attrBonus, a, 1))" @click="bump(a, 1)">＋</button>
+                <button type="button" :aria-label="`${at.name}減一`" v-bind="unavailable(attrStepBlock(at.id as AttrId, -1))" @click="bump(at.id as AttrId, -1)">−</button>
+                <b :class="{ 'warn-t': (attrBonus[at.id as AttrId] ?? 0) < 0 }">{{ fmtMod(attrBonus[at.id as AttrId] ?? 0) }}</b>
+                <button type="button" :aria-label="`${at.name}加一`" v-bind="unavailable(attrStepBlock(at.id as AttrId, 1))" @click="bump(at.id as AttrId, 1)">＋</button>
               </span>
-              <span class="tot mono">{{ attrs[a] !== undefined ? totals[a] : '—' }}<small v-if="attrs[a] !== undefined" class="mod" :class="{ neg: attrMod(totals[a]) < 0 }">{{ fmtMod(attrMod(totals[a])) }}</small></span>
+              <span class="tot mono">{{ attrs[at.id as AttrId] !== undefined ? totals[at.id as AttrId] : '—' }}<small v-if="attrs[at.id as AttrId] !== undefined" class="mod" :class="{ neg: attrMod(totals[at.id as AttrId]) < 0 }">{{ fmtMod(attrMod(totals[at.id as AttrId])) }}</small></span>
             </div>
           </div>
-          <div class="kv"><span>自由點數<Hint>基本 {{ ATTR_FREE }} 點，加上壓下去的 {{ budget.lowered }} 點。</Hint></span><b>剩 {{ freeLeft }}／{{ budget.total }}</b></div>
+          <div class="kv"><span>自由點數<Hint>基本 {{ lim.attrFree }} 點，加上壓下去的 {{ budget.lowered }} 點。</Hint></span><b>剩 {{ freeLeft }}／{{ budget.total }}</b></div>
           <div v-if="block" class="blocking">{{ block }}</div>
         </template>
 
         <!-- 4 基本功 -->
         <template v-else-if="step === 4">
-          <h2>基本功・剩 {{ bLeft }}／{{ BASIC_POINTS }} 點</h2>
-          <p class="setgrp">單項最高 {{ BASIC_MAX }} 級<Hint>一點一級；出身另外給一項 +1（可以到 4）。這兩個數字在設定裡可以調。</Hint></p>
+          <h2>基本功・剩 {{ bLeft }}／{{ lim.skillPoints }} 點</h2>
+          <p class="setgrp">單項最高 {{ lim.skillMax }} 級<Hint>一點一級；出身另外給一項 +1（可以到 {{ lim.skillMax + 1 }}）。這兩個數字在設定裡可以調。</Hint></p>
           <div class="basics">
-            <div v-for="b in BASIC_SKILLS" :key="b.name" class="brow">
-              <span class="bn">{{ b.name }}<small>{{ b.attr }}</small></span>
-              <span class="pips"><i v-for="n in 4" :key="n" :class="{ on: n <= (basics[b.name] ?? 0), bonus: origin.skill === b.name && n === (basics[b.name] ?? 0) + 1 }" /></span>
-              <span class="stepper"><button type="button" :aria-label="`${b.name}減一`" :aria-disabled="!basics[b.name] || undefined" @click="basicStep(b.name, -1)">−</button><b>{{ (basics[b.name] ?? 0) + (origin.skill === b.name ? 1 : 0) }}</b><button type="button" :aria-label="`${b.name}加一`" :aria-disabled="!!basicStepBlock(basics, b.name, 1) || undefined" @click="basicStep(b.name, 1)">＋</button></span>
+            <div v-for="b in eSkills" :key="b.id" class="brow">
+              <span class="bn">{{ b.name }}<small>{{ attrName(b.attr) }}</small></span>
+              <span class="pips"><i v-for="n in 4" :key="n" :class="{ on: n <= (basics[b.id] ?? 0), bonus: originSkillId === b.id && n === (basics[b.id] ?? 0) + 1 }" /></span>
+              <span class="stepper"><button type="button" :aria-label="`${b.name}減一`" :aria-disabled="!basics[b.id] || undefined" @click="basicStep(b.id, -1)">−</button><b>{{ (basics[b.id] ?? 0) + (originSkillId === b.id ? 1 : 0) }}</b><button type="button" :aria-label="`${b.name}加一`" :aria-disabled="!!basicStepBlock(b.id, 1) || undefined" @click="basicStep(b.id, 1)">＋</button></span>
             </div>
           </div>
         </template>
@@ -413,20 +460,13 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${fmtM
         <!-- 7 特質 -->
         <template v-else-if="step === 7">
           <h2>特質與缺陷・剩 {{ tr.left }} 點</h2>
-          <p class="setgrp">起始 {{ st.s.traitPoints }} 點，另送出身特質「{{ origin.trait.name }}」<Hint>每個特質 1～3 點：一格（例如一項基本功 +2）是 2 點；最多 2 個缺陷，每個退 1～3 點；特質總數上限 8 個（不含出身特質與缺陷）。特質不佔橋的容量。</Hint></p>
+          <p class="setgrp">起始 {{ lim.perkPoints }} 點，另送出身特質「{{ origin.trait.name }}」<Hint>每個特質 1～3 點：一格（例如一項基本功 +2）是 2 點；最多 {{ lim.flawMax }} 個缺陷，每個退 1～3 點；特質總數上限 {{ lim.perkMax }} 個（不含出身特質與缺陷）。特質不佔橋的容量。</Hint></p>
           <div class="grid2 traits">
-            <button v-for="t in traitList" :key="t.id" type="button" class="lrow pick" :class="{ on: picks.traits.some(x => x.id === t.id), flaw: t.flaw }" v-bind="unavailable(!picks.traits.some(x => x.id === t.id) && traitPickBlock(picks.traits, t, st.s.traitPoints))" @click="toggleTrait(t)">
-              <span class="grow"><b>{{ t.name }}</b><small>{{ t.cat }}・{{ t.effect }}</small></span><b class="pt mono">{{ t.flaw ? '+' : '−' }}{{ t.cost }}</b>
+            <button v-for="t in perkList" :key="t.id" type="button" class="lrow pick" :class="{ on: picks.perks.includes(t.id), flaw: t.flaw }" v-bind="unavailable(perkAddBlock(t.id))" @click="togglePerk(t.id)">
+              <span class="grow"><b>{{ t.name }}</b><small>{{ PERK_CATEGORY_NAME[t.category] ?? t.category }}・{{ t.desc }}</small></span><b class="pt mono">{{ t.flaw ? '+' : '−' }}{{ t.cost }}</b>
             </button>
-            <button v-for="t in picks.traits.filter(x => x.cat === '自訂')" :key="t.id" type="button" class="lrow pick on" @click="toggleTrait(t)"><span class="grow"><b>{{ t.name }}</b><small>自訂・{{ t.effect }}</small></span><b class="pt mono">−{{ t.cost }}</b></button>
           </div>
-          <div class="go"><button type="button" class="btn sm" @click="custom.open = !custom.open">自訂</button></div>
-          <div v-if="custom.open" class="panel cut pad custom">
-            <label class="fld"><span>名字</span><input v-model="custom.name" class="inp"></label>
-            <label class="fld"><span>說明</span><input v-model="custom.desc" class="inp"></label>
-            <label class="fld"><span>效果<Hint>從 CHARACTER 5.2 節的表裡選；價錢照選的效果算，和現成的特質同一套。</Hint></span><select v-model="custom.effect" class="inp"><option v-for="e in EFFECTS" :key="e[0]" :value="e[0]">{{ e[0] }}（{{ e[1] }} 點）</option></select></label>
-            <div class="go"><button type="button" class="btn sm pri" @click="addCustom">加上</button></div>
-          </div>
+          <div class="go"><button type="button" class="btn sm" v-bind="unavailable('自訂特質要引擎先有這種資料，這一版還不能用。')">自訂</button></div>
           <div v-if="block" class="blocking">{{ block }}</div>
         </template>
 
@@ -473,12 +513,12 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${fmtM
             <div>
               <div class="kv"><span>名字</span><b>{{ basic.name || '（還沒取）' }}・{{ basic.age }} 歲・{{ basic.gender }}</b></div>
               <div class="kv"><span>出身</span><b>{{ origin.name }}</b></div>
-              <div class="kv"><span>屬性</span><b>{{ ATTRS.map(a => totals[a]).join('・') }}</b></div>
+              <div class="kv"><span>屬性</span><b>{{ eAttrs.map(a => totals[a.id as AttrId]).join('・') }}</b></div>
               <div class="kv"><span>橋</span><b>{{ cy.bridge?.name ?? '沒有' }}</b></div>
               <div class="kv"><span>沉溺的下限</span><b>{{ cy.sinkFloor }}</b></div>
             </div>
             <div>
-              <div class="kv"><span>特質</span><b>{{ [origin.trait.name, ...picks.traits.map(t => t.name)].join('、') }}</b></div>
+              <div class="kv"><span>特質</span><b>{{ [origin.trait.name, ...picks.perks.map(id => ePerks.find(p => p.id === id)?.name)].join('、') }}</b></div>
               <div class="kv"><span>技能</span><b>{{ learned.length }} 個・剩 {{ xpLeft }} 歷練點</b></div>
               <div class="kv"><span>裝備</span><b>{{ picks.gear.length }} 件</b></div>
               <div class="kv"><span>起始的錢</span><b><MoneyTag kind="acc" :amount="money" /></b></div>
@@ -494,7 +534,7 @@ const attrMods = computed(() => ATTRS.map(a => `${a} ${totals.value[a]}（${fmtM
         <div class="kv"><span>名字</span><b>{{ basic.name || '（你取的名字）' }}</b></div>
         <div class="kv"><span>年齡</span><b :class="{ 'warn-t': !!ageBlock(basic.age) }">{{ basic.age }}</b></div>
         <div class="kv"><span>出身</span><b>{{ origin.name }}</b></div>
-        <div class="kv"><span>屬性</span><b class="mono">{{ ATTRS.map(a => totals[a] || '—').join('・') }}</b></div>
+        <div class="kv"><span>屬性</span><b class="mono">{{ eAttrs.map(a => totals[a.id as AttrId] || '—').join('・') }}</b></div>
         <div class="kv"><span>基本功</span><b>剩 {{ bLeft }} 點</b></div>
         <div class="kv"><span>橋</span><b>{{ cy.bridge?.name ?? '沒有' }}</b></div>
         <div class="kv"><span>義體點數</span><b>剩 {{ cy.left }}</b></div>

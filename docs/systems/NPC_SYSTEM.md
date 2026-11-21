@@ -567,7 +567,7 @@ AI 不改任何數字，只透過 [AI_TASKS](../plan/AI_TASKS.md) 的任務與�
   "bridge": { "sensitivity": 48, "tolerance": 35, "craving": 22, "docility": 18 },
   "sink": 24,
   "cyberware": [["eye", "zhinv", 2], ["arm_l", "zhinv", 1]],
-  "faction": "lone_star", "status": "citizen",
+  "faction": "lonestar", "status": "citizen",
   "paths": [{ "path": "gunner", "slot": "main", "tier": 2 }],
   "wealth": 1, "guard": 13,
   "schedule": "street",

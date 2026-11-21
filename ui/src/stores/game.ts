@@ -19,6 +19,7 @@ import { START_JOB, type JobState } from '../data/commission'
 import { START_MECH, type MechState } from '../data/garage'
 import { useHome } from './home'
 import { useSubnet } from './subnet'
+import { useEngine } from './engine'
 import { packSave, rollbackKeeping, type Snapshot, type SnapshotKind } from '../lib/save'
 import { sanitizeDyes, type Dye } from '../lib/dye'
 
@@ -27,7 +28,7 @@ import { sanitizeDyes, type Dye } from '../lib/dye'
  * 引擎做好之後，這個 store 換成引擎狀態的唯讀投影，動作改成呼叫引擎。
  */
 export interface Roll { skill: string; die: number; mod: number; dc: number; result: '成功' | '失敗' | '大成功' | '大失敗'; twist?: string }
-export interface LogEntry { id: number; time: string; place: string; prose: string[]; quotes?: string[]; net?: string[]; roll?: Roll; changes?: Array<{ text: string; kind?: 'plus' | 'minus' }> }
+export interface LogEntry { id: number | string; time: string; place: string; prose: string[]; quotes?: string[]; net?: string[]; roll?: Roll; changes?: Array<{ text: string; kind?: 'plus' | 'minus' }> }
 
 /** 存檔裡的狀態的樣子（serialize() 回傳的）。 */
 export interface SaveShape {
@@ -50,10 +51,22 @@ export interface SaveShape {
 const WEEKDAYS = ['週一', '週二', '週三', '週四', '週五', '週六', '週日']
 
 export const useGame = defineStore('game', () => {
-  const day = ref(14)
-  const minutes = ref(17 * 60 + 20)
-  // 第 14 天週一 17:20；收租日已經過了，下一次在第 21 天
-  const money = reactive({ acc: 4620, cash: 3700, fav: 2 })
+  // 時間、兩種錢、紀錄的真相在引擎（stores/engine.ts）；這裡是投影，舊畫面照舊讀寫 g.day、g.money.acc、g.advance()、g.addLog()。
+  const eng = useEngine()
+  // 還沒開過新局（引擎是空的）時，照原本假存檔的樣子放一個示範的局：第 14 天週一 17:20、帳戶 4620、現金 3700。開新局與讀檔會整個換掉它。
+  if (eng.state.reports.length === 0) {
+    eng.newGame({ seed: 1 })
+    eng.ledger([{ op: 'cred', delta: 4620 }, { op: 'cash', delta: 3700 }, { op: 'time', minutes: 13 * 24 * 60 + 9 * 60 + 20 }])
+  }
+  const day = computed(() => eng.state.time.day)
+  const minutes = computed(() => eng.state.time.hour * 60 + eng.state.time.minute)
+  const fav = ref(2)
+  /** 帳戶（cred）與現金（cash）讀寫引擎：改一下就是一筆帳（不進紀錄）。fav 還在這裡。 */
+  const money = reactive({
+    get acc() { return eng.money.cred }, set acc(v: number) { eng.ledger([{ op: 'cred', delta: v - eng.money.cred }]) },
+    get cash() { return eng.money.cash }, set cash(v: number) { eng.ledger([{ op: 'cash', delta: v - eng.money.cash }]) },
+    get fav() { return fav.value }, set fav(v: number) { fav.value = v },
+  })
   const hostility = reactive<Record<string, number>>({ 緋櫻: 62, 野良: 30, 伊甸園: 18 })
   const character = reactive(structuredClone(PROTAGONIST))
   const party = reactive(structuredClone(PARTY))
@@ -97,17 +110,8 @@ export const useGame = defineStore('game', () => {
   const snapshots = ref<Snapshot[]>([])
   const inRun = ref(false)
   const loc = reactive<{ district: DistrictId; block: string; pos: Point; facility: string | null }>({ district: 'hive', block: '四號塔', pos: { x: 3, y: 1 }, facility: 'rooftop' })
-  const log = ref<LogEntry[]>([
-    { id: 1, time: '第 14 天 17:12', place: '蜂巢 · 四號塔 · 屋頂的晾衣場',
-      prose: ['小麥坐在水塔的鐵架上，郵差包擱在腿邊，正在把今天沒送完的信照樓層排好。看到你從樓梯口上來，她把一疊信塞回包裡，往旁邊挪出一個位子。'],
-      quotes: ['「你今天怎麼有空上來？我還以為你被藍鯨那件事纏住了。」'] },
-    { id: 2, time: '第 14 天 16:40', place: '蜂巢 · 天井市場',
-      prose: ['雨從頂棚的縫裡滴下來，阿蓮的雜貨店還亮著。她抬頭看你一眼，把一碗麵推到櫃檯的這一邊。'],
-      net: ['你順手掃了一下市場的子網：三台收租無人機、一面牆報板，沒有人在看你。'],
-      roll: { skill: '街頭直覺', die: 14, mod: 5, dc: 13, result: '成功', twist: '而且阿蓮多給了你一顆蛋' },
-      changes: [{ text: '街頭信譽 +1', kind: 'plus' }, { text: '現金 −5', kind: 'minus' }] },
-  ])
-  let logSeq = 3
+  /** 紀錄：引擎的報告轉成的（最新的在最前面） */
+  const log = computed<LogEntry[]>(() => eng.log)
   let uidSeq = 100
 
   const timeLabel = computed(() => {
@@ -136,11 +140,12 @@ export const useGame = defineStore('game', () => {
   const coveredSlots = computed(() => new Set(coatClosed.value && equip.coat ? EQUIP_SLOTS.filter(s => s.coveredByCoat).map(s => s.id) : []))
 
   function advance(mins: number) {
-    minutes.value += mins
-    while (minutes.value >= 24 * 60) { minutes.value -= 24 * 60; day.value++ }
+    if (mins > 0) eng.commit({ summary: '時間過去', action: 'ui.time', changes: [{ op: 'time', minutes: mins }] })
   }
+  /** 舊系統寫一則紀錄：正文、引言、網內的段落接成正文，變化的字放在 results，交給引擎提交成一份報告。 */
   function addLog(e: Omit<LogEntry, 'id' | 'time' | 'place'> & { place?: string }) {
-    log.value.unshift({ id: logSeq++, time: `第 ${day.value} 天 ${timeLabel.value}`, place: e.place ?? placeLabel.value, ...e })
+    const prose = [...e.prose, ...(e.quotes ?? []), ...(e.net ?? [])]
+    eng.commit({ summary: e.prose[0] ?? '', prose, results: (e.changes ?? []).map(c => c.text), place: e.place ?? placeLabel.value })
   }
   /** 換街區。viaExit：從哪個出口來就站在那個出口；'@station'：站在車站（搭車、計程車、開車到的時候）。 */
   function moveBlock(d: DistrictId, block: string, viaExit?: string) {
@@ -250,8 +255,8 @@ export const useGame = defineStore('game', () => {
   /** 存檔裡的狀態：全部是可以 JSON 化的東西。 */
   function serialize() {
     return JSON.parse(JSON.stringify({
-      day: day.value, minutes: minutes.value, money: { ...money }, hostility: { ...hostility }, character: { ...character }, party: [...party],
-      inventory: inventory.value, cyber: { ...cyber }, equip: { ...equip }, quick: quick.value, coatClosed: coatClosed.value, npcs: { ...npcs }, loc: { ...loc }, log: log.value,
+      money: { ...money }, hostility: { ...hostility }, character: { ...character }, party: [...party],
+      inventory: inventory.value, cyber: { ...cyber }, equip: { ...equip }, quick: quick.value, coatClosed: coatClosed.value, npcs: { ...npcs }, loc: { ...loc },
       basics: { ...basics }, learned: learned.value, loadout: loadout.value, nightLearned: nightLearned.value, params: { ...params }, tendency: { ...tendency },
       fame: { ...fame }, sexRecord: { ...sexRecord }, deck: { ...deck }, roster: roster.value, channel: { ...channel }, contracts: { ...contracts }, bills: { ...bills },
       pending: pending.value, craftFill: { ...craftFill }, guides: { ...guides }, dungeonSeed: dungeonSeed.value, vehicles: vehicles.value, media: { ...media }, job: { ...job }, mech: { ...mech },
@@ -262,8 +267,6 @@ export const useGame = defineStore('game', () => {
   /** 讀回一份狀態。v1 的存檔少了第二版的欄位：少的保留現在的值。 */
   function hydrate(d: Partial<SaveState>) {
     const put = <T extends object>(target: T, v: unknown) => { if (v && typeof v === 'object') { for (const k of Object.keys(target)) if (!(k in (v as object))) delete (target as Record<string, unknown>)[k]; Object.assign(target, structuredClone(v)) } }
-    if (typeof d.day === 'number') day.value = d.day
-    if (typeof d.minutes === 'number') minutes.value = d.minutes
     if (d.money) Object.assign(money, d.money)
     if (d.hostility) Object.assign(hostility, d.hostility)
     if (d.character) Object.assign(character, structuredClone(d.character))
@@ -275,7 +278,6 @@ export const useGame = defineStore('game', () => {
     if (typeof d.coatClosed === 'boolean') coatClosed.value = d.coatClosed
     if (d.npcs) Object.assign(npcs, structuredClone(d.npcs))
     if (d.loc) Object.assign(loc, structuredClone(d.loc))
-    if (d.log) log.value = structuredClone(d.log)
     if (d.basics) Object.assign(basics, d.basics)
     if (d.learned) learned.value = [...d.learned]
     if (d.loadout) loadout.value = [...d.loadout]
@@ -300,7 +302,6 @@ export const useGame = defineStore('game', () => {
     if (d.home) useHome().hydrate(d.home)
     if (d.subnet) useSubnet().hydrate(d.subnet)
     if (d.dyes) { for (const k of Object.keys(dyes)) delete dyes[k]; Object.assign(dyes, sanitizeDyes(d.dyes)) }
-    logSeq = Math.max(logSeq, ...log.value.map(e => e.id + 1))
   }
   function saveMeta(kind: '手動' | '自動' | '快照' = '手動') {
     return { label: `第 ${day.value} 天 ${timeLabel.value}・${placeLabel.value}`, day: day.value, time: timeLabel.value, place: placeLabel.value, savedAt: new Date().toISOString(), kind }
@@ -319,10 +320,11 @@ export const useGame = defineStore('game', () => {
   function rollback(id: string) {
     const s = snapshots.value.find(x => x.id === id)
     if (!s) return
-    const now = serialize()
-    const snap = JSON.parse(s.state) as SaveState
-    const note = { id: logSeq++, time: `第 ${day.value} 天 ${timeLabel.value}`, place: placeLabel.value, prose: [`這一段經歷被收回了：時間回到${s.label}（${s.at}）。發生過的事你還記得。`] }
+    const now = { ...serialize(), log: [] as unknown[] }
+    const snap = { ...(JSON.parse(s.state) as SaveState), log: [] as unknown[] }
+    const note = { prose: [`這一段經歷被收回了：時間回到${s.label}（${s.at}）。發生過的事你還記得。`] }
     hydrate(rollbackKeeping(now as never, snap as never, note) as Partial<SaveState>)
+    addLog(note)
     if (s.kind === '入口') { snapshots.value = []; inRun.value = false }
     else if (s.kind === '階段') snapshots.value = snapshots.value.filter(x => x.kind !== '戰鬥' || snapshots.value.indexOf(x) < snapshots.value.indexOf(s))
   }
