@@ -4,7 +4,7 @@
 > 來源：ElondiaRPG 的城鎮地標（一格一個地標、類型決定聚來的人）、特殊地圖（固定版面、通道、刷新）、地下城分層探索（層、光線、陷阱、安全房）。預定資料：`data/world/blocks.json`、`sites.json`、`areas.json`、`commission_maps.json`、`facilities.json`（第 16 節）。數值都還要平衡。
 > 格式與規則是定案。各街區與要地的條目是內容層（L4），之後只挑明顯不合理的落點個別改。
 
-[DISTRICTS](DISTRICTS.md) 寫每一區「誰管、有什麼規矩」；這份寫**地圖上實際有什麼**：39 塊街區、17 處要地的內部、每區的地下城式任務區域，以及委託副本的現實面模板。格子本身（ASCII 版面）實作時再畫，這裡定的是每張圖要放進去的東西。
+[DISTRICTS](DISTRICTS.md) 寫每一區「誰管、有什麼規矩」；這份寫**地圖上實際有什麼**：39 塊街區、17 處要地的內部、每區的地下城式任務區域，以及委託副本的現實面模板。這裡定的是每張圖要放進去的東西；委託副本的格子版面畫在 [COMMISSION_MAPS](../content/COMMISSION_MAPS.md)（30 個模板、52 張圖）。
 
 ## 1. 怎麼讀
 
@@ -474,7 +474,7 @@
 
 ## 12. 委託副本的現實面模板
 
-副本的現實面不在地圖網上，從街區裡的委託地點進入（[COMMISSIONS](../systems/COMMISSIONS.md) 2.1 節）。模板是**手工畫的固定版面**，生成時換上房客、保全與擺設（[COMMISSIONS](../systems/COMMISSIONS.md) 第 9 節）。
+副本的現實面不在地圖網上，從街區裡的委託地點進入（[COMMISSIONS](../systems/COMMISSIONS.md) 2.1 節）。模板是**手工畫的固定版面**，生成時換上房客、保全與擺設（[COMMISSIONS](../systems/COMMISSIONS.md) 第 9 節）。版面在 [COMMISSION_MAPS](../content/COMMISSION_MAPS.md)，資料的欄位在 [DATA](../systems/DATA.md) 9.3 節。
 
 ### 12.1 版面上的標記
 
@@ -841,6 +841,8 @@
   ]
 }
 ```
+
+- `commission_maps` 每一筆另外有 `sheets`：每一張圖的格子版面（`layout`、`zones`）、標記的座標、遭遇點、控制區、巡邏與張與張的連接。欄位見 [DATA](../systems/DATA.md) 9.3 節，三十個模板的版面見 [COMMISSION_MAPS](../content/COMMISSION_MAPS.md)。
 
 ## 16. 設施總表
 

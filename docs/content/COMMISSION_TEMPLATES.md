@@ -1449,7 +1449,7 @@
 
 ### 共通的寫法
 
-這一段寫三十張手工的模板。SITES 12.3 節原有的二十四張全部收進來，另外補六張各區特有的場地。每張照下面的欄位寫。
+這一段寫三十張手工的模板。SITES 12.3 節原有的二十四張全部收進來，另外補六張各區特有的場地。每張照下面的欄位寫。每一張的格子版面（串多張的每一張都畫）在 [COMMISSION_MAPS](COMMISSION_MAPS.md)。
 
 | 欄位 | 寫什麼 |
 |---|---|
@@ -2006,7 +2006,7 @@ SITES 12.4 節的權重表照舊，新的六張加在後面：
 | 鏽帶 | 工廠、倉庫、檢查哨、碼頭貨櫃區（陸運版）、**驛站** |
 | 地下層 | 排水道、地鐵、機房（舊網的）、倉庫 |
 
-資料的樣子照 SITES 第 15 節的 `commission_maps`，id 用這裡的 `map_` 前綴，另外加兩欄：`entries` 的每一個寫 `need`（基本功與 DC 的加值，或 `link`、`scouted`、`item`），`spots` 的每一個寫 `cover`（四種配置之一，或八格逐格寫）。
+資料的樣子照 SITES 第 15 節的 `commission_maps`（版面的欄位 `sheets` 見 [DATA](../systems/DATA.md) 9.3 節），id 用這裡的 `map_` 前綴，另外加兩欄：`entries` 的每一個寫 `need`（基本功與 DC 的加值，或 `link`、`scouted`、`item`），`spots` 的每一個寫 `cover`（四種配置之一，或八格逐格寫）。
 
 ```json
 { "id": "map_maid_cafe", "kind": "maid_cafe", "size": [11, 9], "max_maps": 1,
