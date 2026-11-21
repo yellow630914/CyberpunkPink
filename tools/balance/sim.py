@@ -39,6 +39,7 @@ CURRENT = {
     'e_layers': {'雜兵': 1, '精英': 2, '首領': 4},
     'e_apmax':  {'雜兵': [4] * 5, '精英': [5, 5, 5, 6, 6], '首領': [6, 6, 6, 7, 7]},
     'e_dmg_mult': {'雜兵': 1.0, '精英': 1.0, '首領': 1.0},
+    'cap_dice': {'雜兵': 3, '精英': 3, '首領': 3},   # capture 的神經武器的基礎骰（照實彈的手槍）
     'e_net_dice': 1,                      # 網內敵人多 1 顆（CYBERSPACE 6.2 節）
     'net_guard': [1, 2, 3, 5, 6],         # 網內的防護（同護甲）
     # 遭遇（夾值之前的 ENEMIES 第 13 節）
@@ -74,6 +75,8 @@ DIFF = {
     'budget':  [4, 4, 4, 4, 4],           # 一般遭遇固定 4 點，不隨等級長（2026-11-20 確認）
     'boss_budget': [8, 8, 8, 8, 8],       # 首領戰固定 8 點
     'dc_max':  25,                        # DC 階梯加一檔 25（2026-11-20 確認）
+    # capture 的神經武器：雜兵 4d6、精英與首領 6d6（第二階段，2026-11-21；BALANCE 2.7 節）
+    'cap_dice': {'雜兵': 4, '精英': 6, '首領': 6},
 }
 PROPOSED = copy.deepcopy(CURRENT)
 PROPOSED.update(copy.deepcopy(DIFF))
@@ -314,7 +317,6 @@ P_DECAY = 3
 def capture_encounter(C, g, eg, comp, rng, trials, other=0.25, rounds=20, decay=P_DECAY):
     loss = rnds = wins = downs = overloads = 0.0
     lmax, lcap = C['p_load'][g], C['p_layers'][g]
-    ndice = C.get('cap_dice', [3] * 5)[eg] + C['grade_dice'][eg]
     for _ in range(trials):
         party = make_party(C, g)
         for p in party:
@@ -322,7 +324,7 @@ def capture_encounter(C, g, eg, comp, rng, trials, other=0.25, rounds=20, decay=
         st = [{'load': 0.0, 'lay': 0, 'skip': False, 'down': False} for _ in party]
         foes = [make_enemy(C, eg, r) for r in comp]
         for f, r in zip(foes, comp):
-            f.dice = ndice
+            f.dice = C['cap_dice'][r] + C['grade_dice'][eg]
             f.mult = f.mult / C['e_dmg_mult'][r]   # 感載不吃位階的倍率；難度與強度係數照留
         n = 0
         alive_p = lambda: [i for i, s_ in enumerate(st) if not s_['down']]
@@ -442,55 +444,77 @@ def opinion_table(C):
 ROMAN = {'I': 0, 'II': 1, 'III': 2, 'IV': 3, 'V': 4}
 
 
+NET_KINDS = ('蕾絲', '程式', '化身', '內海')
+
+
 def parse_roster(path):
+    """讀 ENEMY_ROSTER.md：每個兵種的（名字, 位階, 最低級, 最高級, 修正, 修正的原文, 是不是網內的）。"""
     text = open(path, encoding='utf-8').read()
     units = []
     for block in re.split(r'\n#### ', text)[1:]:
         name = block.split('\n', 1)[0].strip()
-        m = re.search(r'\n\| (雜兵|精英|首領) \| ([IV]+)(?:～([IV]+))? \|', block)
+        m = re.search(r'\n\| (雜兵|精英|首領) \| ([IV]+)(?:～([IV]+))? \| ([^|]*) \|', block)
         mod = re.search(r'數值修正\*\*：([^\n]*)', block)
         if not m or not mod:
             continue
         lo = ROMAN[m.group(2)]
         hi = ROMAN[m.group(3)] if m.group(3) else lo
+        net = any(k in m.group(4) for k in NET_KINDS) and '現實' not in m.group(4)
         s = mod.group(1)
         md = {'hp': 1.0, 'armor': 0, 'ev': 0, 'atk': 0, 'load': 1.0}
         for key, pat in (('hp', r'生命 ×([\d.]+)'), ('load', r'感載 ×([\d.]+)')):
             x = re.search(pat, s)
             if x:
                 md[key] = float(x.group(1))
-        for key, pat in (('armor', r'(?:護甲|防護) ([+−-]\d)'), ('ev', r'迴避 ([+−-]\d)'), ('atk', r'攻擊 ([+−-]\d)')):
+        for key, pat in (('armor', r'(?:護甲|防護) ([+−-]\d)'), ('ev', r'(?:迴避|防火牆) ([+−-]\d)'), ('atk', r'攻擊 ([+−-]\d)')):
             x = re.search(pat, s)
             if x:
                 md[key] = int(x.group(1).replace('−', '-'))
-        units.append((name, m.group(1), lo, hi, md, s))
+        # 無人機與守衛程式和人重疊、永遠暴露，規則給的迴避（防火牆）+3 補回遮蔽（ENEMIES 第 10 節、CYBERSPACE 9 節）
+        md['overlay'] = ('無人機的規則' in s) or ('守衛程式的規則' in s)
+        md['layers'] = 1 if re.search(r'承受層數(?:照位階 )?\+1', s) else 0   # 溺感邊緣、溺感者的規則
+        units.append((name, m.group(1), lo, hi, md, s, net))
     return units
 
 
-def roster_audit(C, path):
-    """每個兵種在它等級範圍的每一級：同級主角幾下打倒（現實、實彈），落在目標 ±25% 之外的列出來。"""
+def unit_swings(C, rank, g, md, net=False):
+    """同級主力打這個兵種要攻擊幾次、照表的兵種要幾次。網內的兵種打的是感載 ×（層數＋1），扣的是防護。"""
+    dice = 3 + C['grade_dice'][g]
+    flat = C['p_flat'][g] + C['p_skill'][g]
+    arm = (C['net_guard'] if net else C['e_armor'])[g]
+    pool = (C['e_load'][rank][g] * (C['e_layers'][rank] + 1 + md.get('layers', 0))) if net else C['e_hp'][rank][g]
+    mult = md['load'] if net else md['hp']
+
+    def per_swing(ev_mod, arm_mod, cover):
+        res = [(w, swing(C['p_atk'][g], C['e_ev'][g] + ev_mod + c, dice, flat, arm + arm_mod, 0, rank == '雜兵')) for c, w in cover]
+        return sum(w * r[0] * r[1] for w, r in res)   # 每次攻擊的期望傷害（含沒打中）
+    cover = [(0, 1.0)] if md.get('overlay') else COVER
+    base_pool = (C['e_load'][rank][g] * (C['e_layers'][rank] + 1)) if net else pool
+    return pool * mult / per_swing(md['ev'], md['armor'], cover), base_pool / per_swing(0, 0, COVER)
+
+
+OVERLAY_FLOOR = -0.5   # 小型無人機與守衛程式（0.5 點）的生命可以低到 ×0.5（ENEMIES 第 10 節）
+
+
+def roster_audit(C, path, limit=0.15):
+    """每個兵種在它等級範圍的每一級：同級主力要攻擊幾次才打倒，和同一級照表的兵種比；偏差超過 limit 的列出來。
+    迴避與護甲的修正都算進去；曲線本身的偏差不算在兵種頭上（ENEMIES 1.3 節的 ±15%）。
+    無人機與守衛程式照 0.5 點算，下限放寬到 OVERLAY_FLOOR，上限一樣是 +limit。"""
     out = []
     units = parse_roster(path)
-    for name, rank, lo, hi, md, s in units:
-        lo_t, hi_t = TARGET_HITS[rank]
+    for name, rank, lo, hi, md, s, net in units:
         worst = None
+        devs = []
         for g in range(lo, hi + 1):
-            dice = 3 + C['grade_dice'][g]
-            flat = C['p_flat'][g] + C['p_skill'][g]
-            res = [(w, swing(C['p_atk'][g], C['e_ev'][g] + md['ev'] + c, dice, flat, C['e_armor'][g] + md['armor'], 0, rank == '雜兵'))
-                   for c, w in COVER]
-            ph = sum(w * r[0] for w, r in res)
-            dm = sum(w * r[0] * r[1] for w, r in res) / ph
-            hits = C['e_hp'][rank][g] * md['hp'] / dm
-            # 用「命中所需的攻擊次數」和同一級照表的兵種比，迴避的修正才算得進去；
-            # 曲線本身的偏差不算在兵種頭上
-            base_ph, base_dm = player_hit(C, g)
-            swings = hits / ph * base_ph
-            dev = swings / (C['e_hp'][rank][g] / base_dm) - 1
+            sw, base = unit_swings(C, rank, g, md, net)
+            dev = sw / base - 1
+            devs.append(dev)
             if worst is None or abs(dev) > abs(worst[1]):
-                worst = (G[g], dev, swings)
-        if abs(worst[1]) > 0.25:
-            out.append((name, rank, worst, s[:40]))
+                worst = (G[g], dev, sw)
+        lo_lim = OVERLAY_FLOOR if md.get('overlay') else -limit
+        bad = [d for d in devs if d > limit or d < lo_lim]
+        if bad:
+            out.append((name, rank, worst, s[:40], net))
     out.sort(key=lambda r: -abs(r[2][1]))
     return out, len(units)
 
@@ -533,12 +557,20 @@ def show_encounter(C, rng, trials):
 
 
 def show_capture(C, rng, trials):
-    print(f'■ 打感載的遭遇（capture）：同級四人，{trials} 次的平均；敵人的神經武器 {C.get("cap_dice", [3] * 5)[0]} 顆骰＋等級骰、不扣護甲、不吃位階的倍率')
+    cd = C['cap_dice']
+    print(f'■ 打感載的遭遇（capture）：同級四人，{trials} 次的平均；敵人的神經武器雜兵 {cd["雜兵"]}d6、精英 {cd["精英"]}d6、首領 {cd["首領"]}d6，'
+          '加等級骰，不扣護甲、不吃位階的倍率')
     print('  損耗＝隊伍的（餘韻 × 上限 ＋ 感載）÷（上限 ×（層數＋1））；目標 10～15%（BALANCE 2.7 節）')
     for g, budget, res in capture_table(C, rng, trials):
         for comp, (loss, rounds, win, down, ol) in res:
             desc = '＋'.join(f'{comp.count(r)}{r}' for r in RANKS if comp.count(r))
             print(f'{g:>3} 預算 {budget:>4} {desc:<14} 掉 {pct(loss):>4}  {rounds:4.1f} 回合  勝 {pct(win):>4}  過載 {ol:.1f} 次  倒下 {down:.2f} 人')
+    print('  首領戰（8 點，3 雜兵＋1 首領／1 精英＋1 首領）：')
+    cells = []
+    for g in range(5):
+        r = [capture_encounter(C, g, g, c, rng, max(200, trials // 2)) for c in (['首領', '雜兵', '雜兵', '雜兵'], ['首領', '精英'])]
+        cells.append(f'{G[g]} ' + '／'.join(f'{pct(x[0])} 勝{pct(x[2])}' for x in r))
+    print('  ' + '｜'.join(cells))
     print('  重的遭遇（5.5 點）與輕的（2 點）：')
     for b in (2, 5.5):
         cells = []
@@ -610,12 +642,12 @@ def show_opinion(C):
         print(f'{g:>3} 你 {ep} 點 → {you} 聲量  對手 強度1/2/3 → {opp[1]}/{opp[2]}/{opp[3]}')
 
 
-def show_roster(C):
+def show_roster(C, limit=0.15):
     path = os.path.join(ROOT, 'docs/content/ENEMY_ROSTER.md')
-    rows, n = roster_audit(C, path)
-    print(f'■ 名單：讀到 {n} 個兵種；同級主角要攻擊的次數比照表的兵種多或少 25% 以上的，共 {len(rows)} 個')
-    for name, rank, (g, dev, sw), s in rows:
-        print(f'  {name}｜{rank}｜最偏的一級 {g}：{sw:.1f} 下（{dev:+.0%}）｜{s}')
+    rows, n = roster_audit(C, path, limit)
+    print(f'■ 名單：讀到 {n} 個兵種；同級主力要攻擊的次數比照表的兵種多或少 {limit:.0%} 以上的，共 {len(rows)} 個（ENEMIES 1.3 節）')
+    for name, rank, (g, dev, sw), s, net in rows:
+        print(f'  {name}｜{rank}{"｜網內" if net else ""}｜最偏的一級 {g}：{sw:.1f} 次（{dev:+.0%}）｜{s}')
 
 
 def main():
