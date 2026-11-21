@@ -2,7 +2,7 @@
 """夾值用的模擬器（docs/systems/BALANCE.md）。不依賴任何套件。
 
 用法：python3 tools/balance/sim.py [主題 ...] [--set current|proposed] [--doc-budget] [--trials N] [--seed N]
-主題：summary（預設）、hits、encounter、cross、capture、key、difficulty、net、check、economy、xp、opinion、roster、items、all
+主題：summary（預設）、hits、encounter、cross、capture、key、quests、difficulty、net、check、economy、xp、opinion、roster、items、all
 
 所有曲線都寫在這個檔案的 CURVES 裡，和 BALANCE.md 的表一一對應。
 current 是第一輪夾值之前文件寫的數字（2026-11-20），proposed 是 BALANCE.md 的曲線；兩組只在 DIFF 列出的欄位不同。
@@ -608,6 +608,28 @@ def show_key(C, rng, trials):
                 print(f'  {"首領戰" if boss else "一般"} {g}：' + '｜'.join(cells))
 
 
+# QUESTS 第二階段重排後的寫法（2026-11-21）：點數乘上係數之後放進預算
+QUEST_LAYOUTS = [
+    ('關鍵節點 ×1.2：首領＋2 雜兵（8 點，首領戰）', 1.2, ['首領', '雜兵', '雜兵']),
+    ('關鍵節點 ×1.2：精英＋5 雜兵（8 點，首領戰）', 1.2, ['精英'] + ['雜兵'] * 5),
+    ('具名 ×1.3：首領＋2 雜兵（8.5 點，首領戰）', 1.3, ['首領', '雜兵', '雜兵']),
+    ('具名 ×1.3：首領＋1 雜兵（7.5 點，首領戰）', 1.3, ['首領', '雜兵']),
+    ('具名 ×1.3：精英＋2 雜兵（5.25 點，重）', 1.3, ['精英', '雜兵', '雜兵']),
+    ('具名 ×1.3：精英＋1 雜兵（4.25 點，一般）', 1.3, ['精英', '雜兵']),
+]
+
+
+def show_quest_layouts(C, rng, trials):
+    print(f'■ 任務裡寫死的遭遇（QUESTS 重排後的寫法）：同級四人，{trials} 次的平均')
+    for label, m, comp in QUEST_LAYOUTS:
+        K = dict(C, key_mult=m)
+        cells = []
+        for g in range(5):
+            loss, rnds, win, downs = encounter(K, g, g, comp, rng, trials)
+            cells.append(f'{G[g]} {pct(loss)} 勝{pct(win)}')
+        print(f'  {label}：' + '｜'.join(cells))
+
+
 def show_cross(C, rng, trials):
     print('■ 跨級：g 級的隊伍打 e 級的四個雜兵（掉血％／回合）')
     print('隊伍＼敵人 | ' + ' | '.join(G))
@@ -673,7 +695,7 @@ def main():
     rng = random.Random(a.seed)
     topics = a.topics
     if 'all' in topics:
-        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items']
+        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'quests', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items']
     if 'summary' in topics:
         topics = ['hits', 'encounter', 'cross']
     print(f'曲線：{a.set}')
@@ -684,6 +706,7 @@ def main():
          'opinion': lambda: show_opinion(C), 'roster': lambda: show_roster(C), 'items': show_items,
          'key': lambda: show_key(C, rng, max(300, a.trials // 2)),
          'capture': lambda: show_capture(C, rng, max(500, a.trials // 2)),
+         'quests': lambda: show_quest_layouts(C, rng, max(300, a.trials // 4)),
          'difficulty': lambda: show_difficulty(C, rng, max(300, a.trials // 4))}[t]()
         print()
 
