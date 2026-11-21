@@ -3,10 +3,30 @@
   "specRoot": "docs",
   "workDir": "dev",
   "elondiaRef": "/home/user/yellow630914/elondiarpg",
-  "coreDirs": ["engine/src/core", "engine/schemas"],
+  "engineRoot": "engine",
+  "coreDirs": ["engine/src/core", "engine/src/shell", "engine/src/testkit", "engine/src/index.ts", "engine/schemas", "engine/package.json", "engine/tsconfig.json", "engine/vitest.config.ts", "engine/vitest.pending.config.ts"],
   "featureDirs": ["engine/src/features"],
   "dataDirs": ["engine/data"],
-  "uiDirs": ["ui/src", "ui/scripts"],
+  "uiDirs": ["ui/src", "ui/scripts", "ui/vite.config.ts", "ui/tsconfig.json", "ui/vitest.pending.config.ts"],
   "testDirs": ["engine/tests", "ui/tests", "**/__tests__"],
-  "testFilePatterns": [".test.ts", ".spec.ts"]
+  "testFilePatterns": [".test.ts", ".spec.ts"],
+  "layers": {
+    "L0": "engine/src/core/types",
+    "L1": "engine/src/core/util",
+    "L2": "engine/src/core/content",
+    "L3": "engine/src/core/state",
+    "L4": "engine/src/core/rules",
+    "L5": "engine/src/core/action（與 engine/src/core/kernel.ts）",
+    "L6": "engine/src/features/<功能>（總表 engine/src/features/index.ts 算在外殼）",
+    "L7": "engine/src/shell"
+  },
+  "commands": {
+    "engineTest": "cd engine && npm test",
+    "engineTypecheck": "cd engine && npx tsc --noEmit",
+    "enginePending": "cd engine && npm run test:pending",
+    "engineSmoke": "cd engine && npm run test:smoke",
+    "engineLayers": "cd engine && npx vitest run tests/core/layers.test.ts",
+    "uiTest": "cd ui && npm test",
+    "uiPending": "cd ui && npx vitest run --config vitest.pending.config.ts"
+  }
 }

@@ -45,7 +45,7 @@ export interface AiSettings {
   lim_shop: number
   /** 任務鏈列：0 出錯時展開、1 一直展開、2 隱藏 */
   chainbar: number
-  /** 每個任務出錯時自動重試的次數（0～3，預設 1），鍵是任務 id */
+  /** 每個任務出錯時自動重試的次數（0～3，預設 1），鍵是任務 id；鍵 * 是沒有另外設定的任務用的次數 */
   retry: Record<string, number>
   /** 每個任務用哪個來源，鍵是任務 id，值是來源的名字 */
   src: Record<string, string>
@@ -92,7 +92,7 @@ export function sanitizeAiSettings(raw: unknown): AiSettings {
 }
 
 export function retriesFor(settings: AiSettings, task: string): number {
-  return settings.retry[task] ?? RETRY_DEFAULT
+  return settings.retry[task] ?? settings.retry['*'] ?? RETRY_DEFAULT
 }
 
 /**

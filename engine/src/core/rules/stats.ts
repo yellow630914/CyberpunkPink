@@ -20,7 +20,7 @@ export interface CheckCtx {
 }
 
 type AttrProvider = (state: GameState, actor: ActorId, attr: AttrId) => RollPart[]
-type StatProvider = (state: GameState, actor: ActorId) => RollPart[]
+type StatProvider = (state: GameState, actor: ActorId, stat: string) => RollPart[]
 type CheckModifier = (state: GameState, actor: ActorId, ctx: CheckCtx) => RollPart[]
 
 export interface StatDef {
@@ -75,7 +75,7 @@ export class StatRegistry {
     return this.stats.has(id)
   }
 
-  /** 衍生數值的來源：特質的「生命值上限 +5」、義體的加值。 */
+  /** 衍生數值的來源：特質的「生命值上限 +5」、義體的加值。stat 給 '*' 就是每一個數值都問它（它自己看第三個參數是哪一個）。 */
   addStatProvider(stat: string, owner: string, fn: StatProvider): void {
     const list = this.statProviders.get(stat) ?? []
     list.push({ owner, fn })
@@ -87,7 +87,7 @@ export class StatRegistry {
   statParts(state: GameState, actor: ActorId, id: string): RollPart[] {
     const def = this.stats.get(id)
     if (!def) throw new Error(`沒有 ${id} 這個衍生數值（還沒有功能註冊它）`)
-    return [{ label: '基礎', value: def.base(state, actor, this), source: 'base' }, ...(this.statProviders.get(id) ?? []).flatMap((p) => p.fn(state, actor)).filter((p) => p.value !== 0)]
+    return [{ label: '基礎', value: def.base(state, actor, this), source: 'base' }, ...[...(this.statProviders.get(id) ?? []), ...(this.statProviders.get('*') ?? [])].flatMap((p) => p.fn(state, actor, id)).filter((p) => p.value !== 0)]
   }
 
   stat(state: GameState, actor: ActorId, id: string): number {

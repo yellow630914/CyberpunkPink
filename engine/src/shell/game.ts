@@ -3,7 +3,7 @@
 
 import type { GameState, Report, ReportDraft } from '../core/types'
 import type { Feature, Kernel } from '../core/kernel'
-import { createKernel } from '../core/kernel'
+import { createKernel, readyFeatures } from '../core/kernel'
 import type { ContentPack } from '../core/content/registry'
 import type { ActionInput } from '../core/action/kinds'
 import { commitTurn } from '../core/action/turn'
@@ -74,6 +74,9 @@ export class Game {
     this.k = createKernel(opts.features ?? [])
     this.k.strict = opts.strict ?? false
     for (const pack of opts.content ?? []) this.k.content.loadPack(pack)
+    const dangling = this.k.content.checkRefs()
+    if (dangling.length) throw new Error(`內容的引用斷了：${dangling.slice(0, 5).join('；')}`)
+    readyFeatures(this.k)
     this.settings = sanitizeAiSettings(opts.ai)
     this.hub = new ProviderHub(opts.sources ?? {}, opts.fakeProvider ?? null)
     this.tasks = new TaskRegistry(this.k.probe)

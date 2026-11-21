@@ -135,9 +135,10 @@ export function registerCoreKinds(content: ContentRegistry): void {
       for (const f of ['name', 'line', 'home'] as const) if (!isText(e[f])) p.push(`要有 ${f}`)
       if (!isRecord(e.skill_bonus) || !Object.keys(e.skill_bonus).length || Object.values(e.skill_bonus).some((v) => !isInt(v) || v < 1)) p.push('skill_bonus 要是「基本功 id → 正整數」')
       if (!(ORIGIN_STATUSES as readonly unknown[]).includes(e.status)) p.push(`status 只能是 ${ORIGIN_STATUSES.join('、')}`)
-      if (!isRecord(e.favor) || !Array.isArray(e.favor.choose_one) || !e.favor.choose_one.length || !e.favor.choose_one.every(isId) || !isInt(e.favor.value)) p.push('favor 要有 choose_one（勢力 id 的陣列，至少一個）與 value')
+      if (!isRecord(e.favor) || !Array.isArray(e.favor.choose_one) || !e.favor.choose_one.length || !e.favor.choose_one.every(isText) || !isInt(e.favor.value)) p.push('favor 要有 choose_one（勢力的陣列，至少一個）與 value')
       if (!isId(e.perk)) p.push('要有 perk（出身特質的 id）')
-      if (!idList(e.roster)) p.push('roster 要是 id 的陣列（開場就在名冊上的人）')
+      // 勢力與 NPC 的 id 表設計書還沒有定，先收名字（dev/adr/0004）
+      if (!(Array.isArray(e.roster) && e.roster.every(isText))) p.push('roster 要是陣列（開場就在名冊上的人）')
       if (e.lifepath_extra !== undefined && !idList(e.lifepath_extra)) p.push('lifepath_extra 要是 id 的陣列')
       return p
     },

@@ -10,7 +10,7 @@
     "test:pending": "vitest run --config vitest.pending.config.ts",
     "test:smoke": "vitest run tests/smoke",
     "typecheck": "tsc --noEmit",
-    "layers": "node scripts/check-layers.mjs"
+    "layers": "vitest run tests/core/layers.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
