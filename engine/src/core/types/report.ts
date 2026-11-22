@@ -43,6 +43,8 @@ export interface TimelineBeat {
   actor?: ActorId
   text: string
   roll?: CheckRoll
+  /** 判定的轉折一句（「但是／而且」的內容）；紀錄的擲骰行下面顯示 */
+  twist?: string
 }
 
 export interface ReportOutcome {
@@ -91,6 +93,11 @@ export interface Report {
   narration?: ReportNarration
   /** 這份報告屬於哪一條任務鏈（任務鏈列用） */
   chain?: string
+  /**
+   * 被收回的經歷（SERIES 第 6 節）：委託副本撤退、戰敗後回退時，狀態回到快照那一刻，但這段紀錄留著。
+   * 標了這個記號的報告只是紀錄：它的 changes 已經不算數。只有 Game.rewind 會標。
+   */
+  retracted?: boolean
 }
 
 /** 還沒提交的報告：id 與時間由 commitReport 補上。 */

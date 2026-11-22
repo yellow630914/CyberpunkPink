@@ -20,6 +20,7 @@ export const DEFAULT_RULES: SaveRules = {
   startPerkPoints: 4,
   startCyberPoints: 10,
   startMoney: 1500,
+  contentOff: [],
 }
 
 /** 一份空白的狀態：第 1 天 08:00、沒有主角、沒有錢。 */
@@ -36,7 +37,7 @@ export function blankState(seed: number): GameState {
     inventory: [],
     flags: {},
     counters: {},
-    rules: { ...DEFAULT_RULES },
+    rules: { ...DEFAULT_RULES, contentOff: [] },
     reports: [],
     chains: [],
     seq: { report: 0, chain: 0, uid: 0, floor: 0 },

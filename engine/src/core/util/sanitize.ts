@@ -4,6 +4,11 @@ export function isRecord(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === 'object' && !Array.isArray(v)
 }
 
+/** 安全整數：整數，而且沒有大到加減之後會失真（±2^53 − 1 以內）。存進狀態的每一個數量都要是這種數字。 */
+export function isSafeInt(v: unknown): v is number {
+  return typeof v === 'number' && Number.isSafeInteger(v)
+}
+
 export function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n))
 }

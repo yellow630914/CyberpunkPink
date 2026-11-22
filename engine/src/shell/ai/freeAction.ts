@@ -10,9 +10,10 @@ import type { ClampNote, GameState } from '../../core/types'
 import type { Kernel } from '../../core/kernel'
 import type { ActionInput } from '../../core/action/kinds'
 import type { ActionPending, Judgment } from '../../core/action/action'
-import { buildActionReport, fallbackJudgment, fallbackReward, prepareAction, rewardHint, sanitizeJudgment } from '../../core/action/action'
+import { actionTailChanges, buildActionReport, fallbackJudgment, fallbackReward, prepareAction, rewardHint, sanitizeJudgment } from '../../core/action/action'
 import { DEGREE_NAME, VERDICT_NAME } from '../../core/rules/check'
 import type { Effect, EffectCtx, ResolvedEffects } from '../../core/rules/effects'
+import { effectCtx as makeEffectCtx } from '../../core/rules/grades'
 import { isRecord } from '../../core/util/sanitize'
 import type { ChainCtx, ChainDef, ChainTemplate } from './chain'
 import type { TaskDef, TaskRegistry } from './tasks'
@@ -107,8 +108,11 @@ export function registerFreeActionTasks(k: Kernel, tasks: TaskRegistry): void {
     fallback: ({ pending }) => ({ judgment: fallbackJudgment(pending), clamps: [] }),
   }
 
-  const effectCtx = (input: RewardInput, clampAsked: boolean, source: EffectCtx['source']): EffectCtx => ({
-    state: input.state, actor: input.pending.actor, grade: input.pending.grade, source, clampAsked, playerInput: input.pending.input.text, content: k.content,
+  // 這一批回報是一次行動的結算：判定已經花掉的時間算進總時間（合計後受行動種類的時間上限管），
+  // 行動其餘的變更（時間、亂數的游標）當成 tail 一起驗，套用才不會失敗
+  const effectCtx = (input: RewardInput, clampAsked: boolean, source: EffectCtx['source']): EffectCtx => makeEffectCtx(k, input.state, {
+    source, clampAsked, actor: input.pending.actor, grade: input.pending.grade, playerInput: input.pending.input.text,
+    action: { minutes: input.judgment.minutes, maxMinutes: input.pending.maxMinutes }, tail: actionTailChanges(input.judgment),
   })
 
   const reward: TaskDef<RewardInput, ResolvedEffects> = {
@@ -143,8 +147,11 @@ export function registerFreeActionTasks(k: Kernel, tasks: TaskRegistry): void {
       const resolved = k.effects.resolve(effects, effectCtx(input, ctx.settings.clamp_asked, 'player'), 'reward.items')
       return resolved.errors.length ? { ok: false, errors: resolved.errors } : { ok: true, value: resolved, clamps: resolved.clamps }
     },
-    // 照參考範圍的一半，物品給模板的標準品
-    fallback: (input) => k.effects.resolve(fallbackReward(input.hint), effectCtx(input, true, 'ai'), 'reward.items'),
+    // 照參考範圍的一半，物品給模板的標準品。參考範圍是資料寫的，照理一定合格；萬一套不上去（例：付不出來），退成什麼都不給
+    fallback: (input) => {
+      const r = k.effects.resolve(fallbackReward(input.hint), effectCtx(input, true, 'ai'), 'reward.items')
+      return r.errors.length ? k.effects.resolve([], effectCtx(input, true, 'ai'), 'reward.items') : r
+    },
   }
 
   const narrate: TaskDef<NarrateInput, NarrateOutput> = {

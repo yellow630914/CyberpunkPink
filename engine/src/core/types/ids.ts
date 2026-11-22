@@ -12,3 +12,7 @@ export type Grade = 1 | 2 | 3 | 4 | 5
 
 export type ActorId = string
 export type ReportId = string
+
+/** 性別的六個值（DATA 第 1 節）。TS 分成 trans_f 與 trans_m 兩個。 */
+export const GENDER_IDS = ['female', 'male', 'femboy', 'trans_f', 'trans_m', 'futa'] as const
+export type GenderId = (typeof GENDER_IDS)[number]

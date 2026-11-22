@@ -1,5 +1,7 @@
 // L3 狀態核心：掛鉤。L6 的功能之間不直接 import，要互相用到就掛在這裡（CODESCAN 第 3 節）。
 // 掛鉤的處理函式是唯讀的觀察者：拿到狀態不可以改，要改狀態就回傳變更或報告草稿，由提交報告統一套用。
+// 提交當中的掛鉤（report.before、report.after、time.passed、turn.end）拿到的 state 是這次提交的工作副本：
+// 已經包含到目前為止的每一份報告；整串成功才換進正式的狀態，所以不要把它留著以後用。
 
 import type { Change, GameState, GameTime, Report, ReportDraft } from '../types'
 import type { Probe } from './probe'
@@ -21,6 +23,11 @@ export interface HookMap {
   'save.loaded': [{ state: GameState; fromVersion: number }, Change[] | void]
   /** 一個行動的回合結束（報告提交之後的收尾流程）。可以回傳接著要提交的報告。 */
   'turn.end': [{ state: GameState; report: Report }, ReportDraft[] | void]
+  /**
+   * 回到快照（委託副本的撤退、戰敗後的回退；SERIES 第 6 節）：current 是回去之前的狀態，restored 是快照那一刻的狀態。
+   * 紀錄由核心保留；功能要保留自己那一塊（性經歷、共同記憶……）就回傳變更，套在 restored 上。
+   */
+  'rewind.keep': [{ current: GameState; restored: GameState }, Change[] | void]
 }
 
 export type HookName = keyof HookMap

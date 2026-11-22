@@ -2,6 +2,9 @@
 //
 // | op | 欄位 | 做什麼 |
 // |---|---|---|
+// 數量一律是安全整數（isSafeInt）：套用之後的值也要是，否則不合法。這樣狀態裡不會出現大到失真的數字、Infinity 或 NaN，
+// 任何一次提交之後的狀態都存得下去、讀得回來（dev/invariants.md 第 6、7 條）。
+//
 // | cred、cash | delta | 帳戶、現金晶片加減；不會變成負數（不夠就不合法） |
 // | time | minutes | 時間往前推 |
 // | flag | key, value（null 是拿掉） | 劇情旗標，只有這一種寫法 |
@@ -9,8 +12,8 @@
 // | item | id, qty（負的是拿走）, data? | 背包 |
 // | location | to | 換地點 |
 // | rng | advance | 亂數游標往前（每條任務鏈套用時一次） |
-// | rules | patch | 改存檔規則 |
-// | actor.add | actor | 新增一個角色；年齡低於 18 一律擋下 |
+// | rules | patch | 改存檔規則；值照 sanitizeRules 驗（超出範圍的不合法），沒有寫到的欄位跟著調整（選了預設難度，DC 偏移跟著走） |
+// | actor.add | actor | 新增一個角色；年齡低於 18 一律擋下（任何深度的 age 都看，和讀檔同一條底線） |
 // | actor.remove | id | 拿掉一個角色 |
 // | actor.track | id, track(hp/load/sink/afterglow), delta | 三條軌與餘韻的加減，最低 0（上限由產生變更的人先算好） |
 // | actor.skill | id, skill, delta | 基本功等級加減，0～6 |
@@ -25,12 +28,13 @@
 
 import type { Actor, ChainRecordSlot, Change, FlagValue, GameState, ReportLocation, SaveRules } from '../types'
 import { ATTR_IDS } from '../types'
-import { clone } from '../util/clone'
+import { clone, deepEqual } from '../util/clone'
 import { formatAmount } from '../util/money'
-import { isId, isRecord } from '../util/sanitize'
-import { addMinutes, isValidTime } from '../util/time'
+import { isId, isRecord, isSafeInt } from '../util/sanitize'
+import { addMinutes, isValidTime, toMinutes } from '../util/time'
 import type { ChangeDef, ChangeRegistry } from './changes'
 import { addItem, countItem, removeItem } from './inventory'
+import { sanitizeRules } from './saveRules'
 
 /** 只保留最近幾樓的任務鏈細節（AI_TASKS 5.5 節）。 */
 export const CHAIN_FLOORS_KEPT = 5
@@ -40,7 +44,9 @@ export const SKILL_MAX = 6
 export const TRACKS = ['hp', 'load', 'sink', 'afterglow'] as const
 export type TrackId = (typeof TRACKS)[number]
 
-const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v)
+/** 這個檔裡的「整數」一律是安全整數。 */
+const isInt = isSafeInt
+const TOO_BIG = '數字太大，超出能記的範圍'
 const actorOf = (s: GameState, id: unknown): Actor | undefined => (typeof id === 'string' ? s.actors[id] : undefined)
 const needActor = (s: GameState, id: unknown): string[] => (actorOf(s, id) ? [] : [`沒有 ${String(id)} 這個角色`])
 
@@ -64,7 +70,7 @@ export function validateActor(a: unknown): string[] {
 
 const money = (op: 'cred' | 'cash', name: string): ChangeDef<Change & { delta: number }> => ({
   op, owner: 'core',
-  validate: (s, c) => (!isInt(c.delta) ? ['delta 要是整數'] : s.money[op] + c.delta < 0 ? [`${name}不夠：有 ${s.money[op]}，要扣 ${-c.delta}`] : []),
+  validate: (s, c) => (!isInt(c.delta) ? ['delta 要是整數'] : s.money[op] + c.delta < 0 ? [`${name}不夠：有 ${s.money[op]}，要扣 ${-c.delta}`] : !isInt(s.money[op] + c.delta) ? [`${name}：${TOO_BIG}`] : []),
   apply: (s, c) => { s.money[op] += c.delta },
   describe: (c) => (c.delta ? `${name} ${c.delta > 0 ? '+' : '−'}${formatAmount(Math.abs(c.delta))}` : null),
 })
@@ -75,7 +81,7 @@ export function registerCoreChanges(reg: ChangeRegistry): void {
 
   reg.register<Change & { minutes: number }>({
     op: 'time', owner: 'core',
-    validate: (_s, c) => (isInt(c.minutes) && c.minutes >= 0 ? [] : ['minutes 要是 0 以上的整數（時間只往前走）']),
+    validate: (s, c) => (!(isInt(c.minutes) && c.minutes >= 0) ? ['minutes 要是 0 以上的整數（時間只往前走）'] : !isInt(toMinutes(s.time) + c.minutes) ? [`時間：${TOO_BIG}`] : []),
     apply: (s, c) => { s.time = addMinutes(s.time, c.minutes) },
   })
 
@@ -84,6 +90,7 @@ export function registerCoreChanges(reg: ChangeRegistry): void {
     validate: (_s, c) => [
       ...(typeof c.key === 'string' && c.key ? [] : ['key 要是字串']),
       ...(c.value === null || ['boolean', 'number', 'string'].includes(typeof c.value) ? [] : ['value 只能是布林、數字、字串或 null']),
+      ...(typeof c.value === 'number' && !Number.isFinite(c.value) ? ['value 是數字時要是有限的數字'] : []),
     ],
     apply: (s, c) => {
       if (c.value === null) delete s.flags[c.key]
@@ -93,7 +100,7 @@ export function registerCoreChanges(reg: ChangeRegistry): void {
 
   reg.register<Change & { key: string; delta: number }>({
     op: 'counter', owner: 'core',
-    validate: (_s, c) => (typeof c.key === 'string' && c.key && isInt(c.delta) ? [] : ['要有 key 與整數的 delta']),
+    validate: (s, c) => (!(typeof c.key === 'string' && c.key && isInt(c.delta)) ? ['要有 key 與整數的 delta'] : !isInt((s.counters[c.key] ?? 0) + c.delta) ? [`計數器 ${c.key}：${TOO_BIG}`] : []),
     apply: (s, c) => { s.counters[c.key] = (s.counters[c.key] ?? 0) + c.delta },
   })
 
@@ -103,6 +110,7 @@ export function registerCoreChanges(reg: ChangeRegistry): void {
       if (!isId(c.id)) return ['物品的 id 格式不對']
       if (!isInt(c.qty) || c.qty === 0) return ['qty 要是不為 0 的整數']
       if (c.qty < 0 && countItem(s.inventory, c.id) < -c.qty) return [`背包裡的 ${c.id} 不夠 ${-c.qty} 個`]
+      if (!isInt(countItem(s.inventory, c.id) + c.qty)) return [`${c.id}：${TOO_BIG}`]
       return []
     },
     apply: (s, c) => {
@@ -120,14 +128,20 @@ export function registerCoreChanges(reg: ChangeRegistry): void {
 
   reg.register<Change & { advance: number }>({
     op: 'rng', owner: 'core',
-    validate: (_s, c) => (isInt(c.advance) && c.advance > 0 ? [] : ['advance 要是正整數']),
+    validate: (s, c) => (isInt(c.advance) && c.advance > 0 && isInt(s.rng.cursor + c.advance) ? [] : ['advance 要是正整數']),
     apply: (s, c) => { s.rng.cursor += c.advance },
   })
 
   reg.register<Change & { patch: Partial<SaveRules> }>({
     op: 'rules', owner: 'core',
-    validate: (s, c) => (isRecord(c.patch) && Object.keys(c.patch).every((k) => k in s.rules) ? [] : ['patch 只能改存檔規則裡有的欄位']),
-    apply: (s, c) => { Object.assign(s.rules, clone(c.patch)) },
+    // 你要改的那幾個值，存進去的就要是那幾個值（清過之後不一樣＝超出範圍，不合法）；沒寫到的欄位可以跟著調整
+    validate: (s, c) => {
+      if (!isRecord(c.patch) || !Object.keys(c.patch).every((k) => k in s.rules)) return ['patch 只能改存檔規則裡有的欄位']
+      const next = sanitizeRules({ ...s.rules, ...c.patch }) as unknown as Record<string, unknown>
+      const bad = Object.keys(c.patch).filter((k) => !deepEqual(next[k], (c.patch as Record<string, unknown>)[k]))
+      return bad.length ? [`存檔規則的值超出範圍或格式不對：${bad.join('、')}`] : []
+    },
+    apply: (s, c) => { s.rules = sanitizeRules({ ...s.rules, ...clone(c.patch) }) },
   })
 
   reg.register<Change & { actor: Actor }>({
@@ -151,7 +165,11 @@ export function registerCoreChanges(reg: ChangeRegistry): void {
 
   reg.register<Change & { id: string; track: TrackId; delta: number }>({
     op: 'actor.track', owner: 'core',
-    validate: (s, c) => [...needActor(s, c.id), ...(TRACKS.includes(c.track) ? [] : ['track 只能是 hp、load、sink、afterglow']), ...(isInt(c.delta) ? [] : ['delta 要是整數'])],
+    validate: (s, c) => {
+      const p = [...needActor(s, c.id), ...(TRACKS.includes(c.track) ? [] : ['track 只能是 hp、load、sink、afterglow']), ...(isInt(c.delta) ? [] : ['delta 要是整數'])]
+      if (!p.length && !isInt(s.actors[c.id]![c.track] + c.delta)) p.push(`${c.track}：${TOO_BIG}`)
+      return p
+    },
     apply: (s, c) => {
       const a = s.actors[c.id]!
       a[c.track] = Math.max(0, a[c.track] + c.delta)

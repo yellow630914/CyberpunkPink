@@ -10,7 +10,7 @@ import type { GameState } from '../core/types'
 import { STATE_VERSION } from '../core/types'
 import { blankState } from '../core/state/blank'
 import { underageAt, validateActor } from '../core/state/coreChanges'
-import { sanitizeRules } from '../core/rules/saveRules'
+import { sanitizeRules } from '../core/state/saveRules'
 import { clone } from '../core/util/clone'
 import { isRecord } from '../core/util/sanitize'
 import { formatTime, isValidTime } from '../core/util/time'
@@ -27,8 +27,8 @@ export interface SaveMeta {
   /** 存檔的時刻（由外面給；引擎不看時鐘） */
   savedAt: string
   kind: 'manual' | 'auto' | 'snapshot'
-  /** 主角的摘要：名字與出身（取代 ElondiaRPG 存檔摘要裡的種族、職業、等級） */
-  pc?: { name: string; origin?: string }
+  /** 主角的摘要：名字與出身（取代 ElondiaRPG 存檔摘要裡的種族、職業、等級）。origin 是出身的 id，originName 是給玩家看的名字 */
+  pc?: { name: string; origin?: string; originName?: string }
 }
 
 export interface SaveFile {
@@ -51,12 +51,25 @@ export interface Migration {
  */
 export const MIGRATIONS: Migration[] = []
 
-export function saveMeta(state: GameState, kind: SaveMeta['kind'], savedAt: string, label?: string): SaveMeta {
+/**
+ * 角色的出身放在 actor.ext.origin：一個物件，至少有 id（出身的 id；建角寫的還有 favor、status、home、roster），
+ * 舊的寫法只放 id 的字串也收。這是核心與功能之間約定的形狀：存檔摘要、之後讀出身的功能都照這個讀。
+ */
+export function originIdOf(actor: { ext: Record<string, unknown> } | undefined): string | undefined {
+  const o = actor?.ext.origin
+  if (typeof o === 'string') return o || undefined
+  return isRecord(o) && typeof o.id === 'string' && o.id ? o.id : undefined
+}
+
+/** 存檔的摘要。originName 是「出身的 id → 給玩家看的名字」（Game.save 用內容查；沒給就只放 id）。 */
+export function saveMeta(state: GameState, kind: SaveMeta['kind'], savedAt: string, label?: string, originName?: (id: string) => string | undefined): SaveMeta {
   const pc = state.pc ? state.actors[state.pc] : undefined
   const place = [state.location.district, state.location.block, state.location.facility].filter(Boolean).join(' · ')
+  const origin = originIdOf(pc)
+  const name = origin ? originName?.(origin) : undefined
   return {
     label: label ?? `${pc?.name ?? '還沒建角'}・${formatTime(state.time)}`, day: state.time.day, time: formatTime(state.time), place, savedAt, kind,
-    ...(pc ? { pc: { name: pc.name, ...(typeof pc.ext.origin === 'string' ? { origin: pc.ext.origin } : {}) } } : {}),
+    ...(pc ? { pc: { name: pc.name, ...(origin ? { origin } : {}), ...(name ? { originName: name } : {}) } } : {}),
   }
 }
 
@@ -70,7 +83,7 @@ export type Unpacked = { ok: true; file: SaveFile; fromVersion: number } | { ok:
 export function validateState(s: unknown): string[] {
   if (!isRecord(s)) return ['狀態要是一個物件']
   const p: string[] = []
-  const int = (v: unknown) => typeof v === 'number' && Number.isInteger(v)
+  const int = (v: unknown) => typeof v === 'number' && Number.isSafeInteger(v)
   if (!isRecord(s.rng) || !int(s.rng.seed) || !int(s.rng.cursor)) p.push('rng：要有整數的 seed 與 cursor')
   if (!isValidTime(s.time)) p.push('time：不是合法的時間')
   if (!isRecord(s.money) || !int(s.money.cred) || !int(s.money.cash) || (s.money.cred as number) < 0 || (s.money.cash as number) < 0) p.push('money：帳戶與現金要是 0 以上的整數')

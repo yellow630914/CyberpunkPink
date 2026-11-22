@@ -6,7 +6,7 @@ import { ATTR_IDS, SEGMENT_IDS } from '../types'
 import type { Probe } from '../state/probe'
 import { isRecord } from '../util/sanitize'
 import type { TimeRules } from '../util/time'
-import { segmentOf, weekdayOf } from '../util/time'
+import { segmentOf, segmentWeekdayOf } from '../util/time'
 import type { StatRegistry } from './stats'
 
 export interface Condition {
@@ -91,8 +91,9 @@ export function registerCoreConditions(reg: ConditionRegistry): void {
       ...(raw.segment === undefined || (Array.isArray(raw.segment) && raw.segment.every((s) => (SEGMENT_IDS as readonly unknown[]).includes(s))) ? [] : [`segment 要是時段 id 的陣列（${SEGMENT_IDS.join('、')}）`]),
       ...(raw.weekday === undefined || (Array.isArray(raw.weekday) && raw.weekday.every((d) => Number.isInteger(d) && d >= 0 && d <= 6)) ? [] : ['weekday 要是 0～6 的陣列（0 是週一）']),
     ],
+    // 星期照時段算：深夜跨過午夜的那一段算前一天（「週四深夜」到週五凌晨 3 點之前都成立；CORE_RULES 7.4 節）
     test: (c, { state, timeRules }) =>
-      (!c.segment || c.segment.includes(segmentOf(state.time, timeRules))) && (!c.weekday || c.weekday.includes(weekdayOf(state.time, timeRules))) && (c.min_day === undefined || state.time.day >= c.min_day),
+      (!c.segment || c.segment.includes(segmentOf(state.time, timeRules))) && (!c.weekday || c.weekday.includes(segmentWeekdayOf(state.time, timeRules))) && (c.min_day === undefined || state.time.day >= c.min_day),
   })
 
   reg.register<Condition & { attr: AttrId; min?: number; max?: number }>({

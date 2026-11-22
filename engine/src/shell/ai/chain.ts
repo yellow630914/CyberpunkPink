@@ -99,7 +99,18 @@ export interface ChainEnv {
   taskEnv: TaskEnv
 }
 
-export type ChainStatus = 'idle' | 'running' | 'blocked' | 'applied' | 'cancelled'
+/**
+ * 一條鏈的狀態。paused：有一步失敗（或程式出錯），鏈停下來等玩家重試、重擲或改用規則；狀態還沒有被改。
+ * （行動本身被擋下、根本做不了，不是鏈的狀態：那是 Game.act 回傳的 refused。）
+ */
+export type ChainStatus = 'idle' | 'running' | 'paused' | 'applied' | 'cancelled'
+
+/** 對一步提出的請求：重試、用規則代替、重擲。 */
+export type StepRequest = 'retry' | 'rules' | 'reroll'
+
+/** 判定類與寫正文類的任務（模板的格式檢查用）：判定與寫正文之間一定隔著程式（AI_TASKS 2.2 節）。 */
+export const JUDGE_TASKS: readonly string[] = ['judge']
+export const TEXT_TASKS: readonly string[] = ['narrate']
 
 const SETTLED: ReadonlySet<StepStatus> = new Set(['done', 'fallback', 'skipped'])
 
@@ -118,7 +129,13 @@ export class ChainRegistry {
   }
 }
 
-/** 模板的格式檢查：id 不重複、依賴找得到、沒有循環、剛好一個 apply 而且在最後、判定與寫正文之間隔著程式。 */
+/**
+ * 模板的格式檢查：id 不重複、依賴找得到、沒有循環、剛好一個 apply 而且在最後、判定與寫正文之間隔著程式。
+ *
+ * 「判定與寫正文之間隔著程式」（AI_TASKS 2.2 節）怎麼驗（dev/adr/0007）：寫正文的步驟只要（直接或間接）依賴一個判定的步驟，
+ * 就要另外有一個程式的步驟夾在中間：寫正文（直接或間接）依賴它，它（直接或間接）依賴那個判定。
+ * 寫正文可以同時直接依賴判定（要讀成功程度與轉折），只要有一條路經過程式。沒有依賴判定的寫正文不受這一條限制。
+ */
 export function validateTemplate(t: ChainTemplate): void {
   const ids = new Set<string>()
   for (const s of t.steps) {
@@ -135,6 +152,24 @@ export function validateTemplate(t: ChainTemplate): void {
     if (s.kind === 'ai' && !s.task) throw new Error(`任務鏈 ${t.chain}：AI 步驟 ${s.id} 沒有寫 task`)
     if (s.kind === 'code' && !s.run) throw new Error(`任務鏈 ${t.chain}：程式步驟 ${s.id} 沒有寫 run`)
     for (const list of Object.values(s.branch ?? {})) for (const b of list) if (!ids.has(b)) throw new Error(`任務鏈 ${t.chain}：分支引用不存在的步驟 ${b}`)
+  }
+  // 每一步（直接或間接）依賴的所有步驟。前面已經確認依賴只往前指，所以照順序算一次就好
+  const ancestors = new Map<string, Set<string>>()
+  for (const s of t.steps) {
+    const set = new Set<string>()
+    for (const n of s.needs ?? []) {
+      set.add(n)
+      for (const a of ancestors.get(n) ?? []) set.add(a)
+    }
+    ancestors.set(s.id, set)
+  }
+  const byId = new Map(t.steps.map((s) => [s.id, s]))
+  for (const text of t.steps.filter((s) => s.kind === 'ai' && TEXT_TASKS.includes(s.task ?? ''))) {
+    const before = [...ancestors.get(text.id)!].map((id) => byId.get(id)!)
+    for (const judge of before.filter((s) => s.kind === 'ai' && JUDGE_TASKS.includes(s.task ?? ''))) {
+      const between = before.some((s) => s.kind === 'code' && ancestors.get(s.id)!.has(judge.id))
+      if (!between) throw new Error(`任務鏈 ${t.chain}：判定（${judge.id}）與寫正文（${text.id}）之間要隔著程式的步驟（AI_TASKS 2.2 節）`)
+    }
   }
 }
 
@@ -180,7 +215,7 @@ export class ChainRun {
     return (this.tpl(s.id).needs ?? []).every((n) => SETTLED.has(this.step(n).status))
   }
 
-  /** 跑到不能再跑：全部完成就套用（applied）；有一步失敗、等玩家處理就停下（blocked）。 */
+  /** 跑到不能再跑：全部完成就套用（applied）；有一步失敗、等玩家處理就停下（paused）。 */
   async run(): Promise<ChainStatus> {
     if (this.status === 'applied') return this.status
     this.status = 'running'
@@ -209,12 +244,12 @@ export class ChainRun {
     }
     await Promise.allSettled(inflight.values())
     if (codeError) {
-      this.status = 'blocked'
+      this.status = 'paused'
       throw codeError
     }
     if (this.abort.signal.aborted) return (this.status = 'cancelled')
     const apply = this.steps[this.steps.length - 1]!
-    if (!this.needsMet(apply)) return (this.status = 'blocked')
+    if (!this.needsMet(apply)) return (this.status = 'paused')
     this.set(apply, 'running')
     const floor = this.def.hasText ? this.ctx.state.seq.floor + 1 : Math.max(1, this.ctx.state.seq.floor)
     const draft = this.def.apply(this.ctx)
@@ -224,10 +259,10 @@ export class ChainRun {
     try {
       this.reports = commitTurn(this.env.k, this.ctx.state, draft)
     } catch (e) {
-      // 套用只寫驗證過的草稿，照理不會失敗；真的失敗時狀態完全沒變，這條鏈停下來
+      // 套用只寫驗證過的草稿，照理不會失敗；真的失敗時（例：掛鉤接著提交的報告不合法）整個回合不套、狀態完全沒變，這條鏈停下來
       apply.error = { kind: 'code', message: (e as Error).message, details: [] }
       this.set(apply, 'failed')
-      this.status = 'blocked'
+      this.status = 'paused'
       throw e
     }
     this.set(apply, 'done')
@@ -303,13 +338,25 @@ export class ChainRun {
     this.set(s, 'waiting')
   }
 
-  /** 這一步現在能不能重試；不能就回傳原因（給玩家看的句子）。 */
-  retryBlock(id: string): string | null {
-    const s = this.step(id)
+  /**
+   * 這個請求本身成不成立（不看這條鏈是不是已經套用：已經套用的由 Game 先回退那一次套用再打開）。
+   * 不成立就回傳原因（給玩家看的句子）。純粹的檢查，什麼都不改：Game 在動任何東西之前先問這個。
+   */
+  requestBlock(kind: StepRequest, id: string): string | null {
+    const s = this.steps.find((x) => x.id === id)
+    if (!s) return `任務鏈 ${this.template.chain} 沒有 ${id} 這一步`
     if (this.status === 'running') return '這條鏈還在跑。'
+    if (this.status === 'cancelled') return '這條鏈已經取消了。'
+    if (kind === 'reroll') return (this.def.rerollable ?? []).includes(id) ? null : '這一步不是擲骰，不能重擲。'
+    if (kind === 'rules') return s.kind === 'ai' ? null : '只有 AI 的步驟可以用規則代替。'
+    return s.kind === 'apply' ? '套用不能單獨重試。' : null
+  }
+
+  /** 這一步現在能不能重試；不能就回傳原因（給玩家看的句子）。已經套用的鏈要先由 Game 回退那一次套用。 */
+  retryBlock(id: string): string | null {
+    this.step(id)
     if (this.status === 'applied') return '這條鏈已經套用了；只有最新一樓可以先回退這一次套用再重試。'
-    if (s.kind === 'apply') return '套用不能單獨重試。'
-    return null
+    return this.requestBlock('retry', id)
   }
 
   private invalidate(id: string, extraNotes: string[] = []): void {
@@ -334,7 +381,8 @@ export class ChainRun {
 
   /** 用規則代替：這一步改走程式的退路；依賴它的後面幾步一樣失效重跑。 */
   useRules(id: string): Promise<ChainStatus> {
-    if (this.step(id).kind !== 'ai') throw new Error('只有 AI 的步驟可以用規則代替。')
+    const block = this.requestBlock('rules', id)
+    if (block) throw new Error(block)
     this.invalidate(id)
     this.step(id).byRules = true
     return this.run()
@@ -342,7 +390,8 @@ export class ChainRun {
 
   /** 重擲：換一顆骰子，依賴它的後面幾步失效重跑。每次重擲都記一筆。 */
   reroll(id: string): Promise<ChainStatus> {
-    if (!(this.def.rerollable ?? []).includes(id)) throw new Error('這一步不是擲骰，不能重擲。')
+    const block = this.requestBlock('reroll', id)
+    if (block) throw new Error(block)
     this.invalidate(id)
     this.ctx.rerolls[id] = (this.ctx.rerolls[id] ?? 0) + 1
     return this.run()
@@ -351,7 +400,7 @@ export class ChainRun {
   /** 已經套用的鏈要重試：呼叫的人先把狀態回退到套用前，再用這個把鏈打開。 */
   reopen(): void {
     if (this.status !== 'applied') return
-    this.status = 'blocked'
+    this.status = 'paused'
     this.reports = []
     this.step(this.steps[this.steps.length - 1]!.id).status = 'waiting'
   }

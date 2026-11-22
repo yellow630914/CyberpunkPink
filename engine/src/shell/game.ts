@@ -1,17 +1,19 @@
 // L7 外殼：一局遊戲的門面。ui 的 store 包住的就是這個：呼叫它的動作、拿回報告、把狀態交給畫面。
 // 這裡不寫規則，只把核心、功能、AI 任務鏈、存檔與回退接在一起。
 
-import type { GameState, Report, ReportDraft } from '../core/types'
+import type { GameState, Report, ReportDraft, SegmentId, Weekday } from '../core/types'
 import type { Feature, Kernel } from '../core/kernel'
 import { createKernel, readyFeatures } from '../core/kernel'
 import type { ContentPack } from '../core/content/registry'
+import { ActionBlocked } from '../core/action/action'
 import type { ActionInput } from '../core/action/kinds'
 import { commitTurn } from '../core/action/turn'
 import { blankState } from '../core/state/blank'
 import { commitReport } from '../core/state/commit'
-import { sanitizeRules } from '../core/rules/saveRules'
+import { sanitizeRules } from '../core/state/saveRules'
 import { clone, replaceInPlace } from '../core/util/clone'
-import type { ChainStatus } from './ai/chain'
+import { daysUntilWeekday, segmentOf, segmentWeekdayOf, weekdayOf } from '../core/util/time'
+import type { ChainStatus, StepRequest } from './ai/chain'
 import { ChainRegistry, ChainRun } from './ai/chain'
 import { freeActionChain, registerFreeActionTasks } from './ai/freeAction'
 import type { Provider, ProviderSource } from './ai/provider'
@@ -41,16 +43,43 @@ export interface GameOptions {
   strict?: boolean
 }
 
+/**
+ * 一次行動的結果。兩種「做不成」分開，不共用同一個字：
+ * - refused：行動本身被擋下（還沒有主角、條件不符……）。reason 是給玩家看的原因。狀態不變、不留回退、沒有鏈可以重試。
+ * - paused：鏈跑到一半有一步失敗，停下來等玩家重試、重擲或改用規則（任務鏈列展開那一步）。狀態還沒有被改。
+ * 其餘：applied（套用了）、cancelled（被取消：回退、讀檔、關掉 AI）。
+ */
+export type ActStatus = ChainStatus | 'refused'
+
 export interface ActResult {
-  status: ChainStatus
+  status: ActStatus
   run: ChainRun
-  /** 套用時提交的報告；還沒套用（blocked）時是空的 */
+  /** 套用時提交的報告；還沒套用時是空的 */
   reports: Report[]
+  /** status 是 refused 時：擋住的原因（給玩家看的完整句子） */
+  reason?: string
 }
 
 export interface ActOptions {
   /** 有步驟失敗、要等玩家處理時，自動改用規則（沒有畫面的測試與批次用） */
   autoRules?: boolean
+}
+
+export interface CommitOptions {
+  /** 回退選單上這一步的名字；沒給用報告的摘要 */
+  label?: string
+  /**
+   * 併進最新一樓：不另留一步回退（AI_TASKS 5.5 節：沒有正文的鏈算在當時最新的那一樓）。
+   * 回退一步時，這一份跟著它前面那一步一起收回。買東西的帳、坐車的時間這類沒有正文的結算用這個。
+   */
+  attach?: boolean
+}
+
+/** 任務鏈列上一步的三個按鈕各自能不能按：null 是可以，字串是不能按的原因。 */
+export interface StepActions {
+  retry: string | null
+  useRules: string | null
+  reroll: string | null
 }
 
 type Listener = (state: GameState, reports: Report[]) => void
@@ -65,8 +94,11 @@ export class Game {
   /** 遊戲狀態。這個物件本身不會換掉（讀檔與回退是把內容換掉），外面可以一直拿著 */
   readonly state: GameState
   settings: AiSettings
-  /** 最新一條鏈與它開始前的狀態（最新一樓可以在套用之後重試） */
-  private last: { run: ChainRun; before: GameState } | null = null
+  /**
+   * 最新一條鏈、它開始前的狀態、它套用完那一刻的報告流水號（還沒套用是 null）。
+   * 最新一樓可以在套用之後重試；流水號對不上，表示之後又有別的提交，這條鏈就只能回退。
+   */
+  private last: { run: ChainRun; before: GameState; seqAfter: number | null } | null = null
   private listeners: Listener[] = []
   private taskEnv: TaskEnv
 
@@ -101,32 +133,52 @@ export class Game {
     if (!this.settings.ai && this.last?.run.status === 'running') this.last.run.cancel()
   }
 
-  /** 開新遊戲：空白的狀態加上存檔規則，再讓每個功能放自己的初始狀態（game.new 掛鉤）。 */
-  newGame(opts: { seed: number; rules?: unknown }): Report {
+  /**
+   * 開新遊戲：空白的狀態加上存檔規則，再讓每個功能放自己的初始狀態（game.new 掛鉤）。
+   * setup（可以沒有）：開局接著要提交的報告，例如建角（拿到新的狀態，回傳報告草稿）。整件事先在旁邊做完才換進來：
+   * 任何一步丟錯，現在這一局完全不動（開新局不會因為建角被擋下而把原本那一局弄丟）。開局不留回退。
+   */
+  newGame(opts: { seed: number; rules?: unknown; setup?: (state: GameState) => ReportDraft | ReportDraft[] }): Report {
     const fresh = blankState(opts.seed)
     fresh.rules = sanitizeRules(opts.rules)
+    const changes = this.k.hooks.run('game.new', { state: fresh }).flatMap((r) => r.result)
+    const reports = [commitReport(this.k, fresh, {
+      kind: 'system', action: 'game.new', location: {}, party: [], timeline: [], changes, outcome: { result: 'created', summary: '開新遊戲。' },
+    })]
+    if (opts.setup) {
+      const drafts = opts.setup(fresh)
+      for (const d of Array.isArray(drafts) ? drafts : [drafts]) reports.push(...commitTurn(this.k, fresh, d))
+    }
+    this.last?.run.cancel()
     replaceInPlace(this.state, fresh)
     this.undo.clear()
     this.last = null
-    const changes = this.k.hooks.run('game.new', { state: this.state }).flatMap((r) => r.result)
-    const report = commitReport(this.k, this.state, {
-      kind: 'system', action: 'game.new', location: {}, party: [], timeline: [], changes, outcome: { result: 'created', summary: '開新遊戲。' },
-    })
-    this.notify([report])
-    return report
+    this.notify(reports)
+    return reports[0]!
   }
 
-  /** 提交一份程式結算的報告（不經過 AI 的動作：建角的確認、買賣、穿脫……）。會留一步回退。 */
-  commit(draft: ReportDraft, label = draft.outcome.summary): Report[] {
-    this.undo.push(this.state, label)
-    try {
-      const reports = commitTurn(this.k, this.state, draft)
-      this.notify(reports)
-      return reports
-    } catch (e) {
-      this.undo.drop()
-      throw e
-    }
+  /** 上一條鏈停在半路（等玩家處理）就做了別的事：那一條作廢，它留的那一步回退也拿掉。 */
+  private abandonPaused(): void {
+    if (this.last?.run.status !== 'paused') return
+    this.last.run.cancel()
+    this.undo.drop()
+    this.last = null
+  }
+
+  /**
+   * 提交一份程式結算的報告（不經過 AI 的動作：建角的確認、買賣、穿脫……）。
+   * 預設留一步回退；opts.attach 是併進最新一樓、不另留回退。第二個參數給字串就是 label。
+   * 不合法時丟 ChangeError：狀態完全不變，能回退的步數也不變。
+   * 這之後，更早套用的那條鏈就不能再重試、重擲（只能回退）：重試會把這一份提交一起抹掉。
+   */
+  commit(draft: ReportDraft, opts: string | CommitOptions = {}): Report[] {
+    const o: CommitOptions = typeof opts === 'string' ? { label: opts } : opts
+    const before = o.attach ? null : clone(this.state)
+    const reports = commitTurn(this.k, this.state, draft)
+    this.abandonPaused()
+    if (before) this.undo.pushSnapshot(before, o.label ?? draft.outcome.summary)
+    this.notify(reports)
+    return reports
   }
 
   /** 自由行動：跑 free_action 這條鏈。 */
@@ -134,37 +186,48 @@ export class Game {
     return this.runChain('free_action', input, opts, input.text || input.kind)
   }
 
-  /** 跑一條任務鏈。被擋下的行動（ActionBlocked）會丟出來，狀態不變。 */
+  /**
+   * 跑一條任務鏈。行動被擋下（ActionBlocked）不丟錯：回傳 status 'refused' 與原因，狀態不變、不留回退。
+   * 程式的錯誤（沒有這種行動、鏈的程式步驟出錯）照樣丟出來，狀態不變。
+   */
   async runChain(chainId: string, input: unknown, opts: ActOptions = {}, label = chainId): Promise<ActResult> {
     const def = this.chains.get(chainId)
     if (!def) throw new Error(`沒有 ${chainId} 這條任務鏈`)
     if (this.last?.run.status === 'running') throw new Error('上一條任務鏈還在跑。')
-    // 上一條鏈停在半路（等玩家處理）就開始新的行動：那一條作廢，它留的那一步回退也拿掉
-    if (this.last?.run.status === 'blocked') {
-      this.last.run.cancel()
-      this.undo.drop()
-    }
+    this.abandonPaused()
     const before = clone(this.state)
     const run = new ChainRun({ k: this.k, tasks: this.tasks, taskEnv: this.taskEnv }, def, this.state, input, this.settings)
-    this.undo.push(this.state, label)
-    this.last = { run, before }
+    this.undo.pushSnapshot(before, label)
+    this.last = { run, before, seqAfter: null }
     try {
       return await this.settle(run, await run.run(), opts)
     } catch (e) {
-      this.undo.drop()
-      this.last = null
+      // 這個行動沒有成立：狀態沒變（提交是原子的），回退那一步放回原樣
+      if (this.last?.run === run) {
+        this.undo.drop()
+        this.last = null
+      }
+      if (e instanceof ActionBlocked) return { status: 'refused', reason: e.reason, run, reports: [] }
       throw e
     }
   }
 
   private async settle(run: ChainRun, status: ChainStatus, opts: ActOptions): Promise<ActResult> {
     let s = status
-    while (s === 'blocked' && opts.autoRules) {
+    while (s === 'paused' && opts.autoRules) {
       const failed = run.steps.find((x) => x.status === 'failed' && x.kind === 'ai')
       if (!failed) break
       s = await run.useRules(failed.id)
     }
-    if (s === 'applied') this.notify(run.reports)
+    const mine = this.last?.run === run
+    if (s === 'applied') {
+      if (mine) this.last!.seqAfter = this.state.seq.report
+      this.notify(run.reports)
+    } else if (s === 'cancelled' && mine) {
+      // 被取消（關掉 AI）：這個行動沒有成立，它留的那一步回退也拿掉。回退、讀檔造成的取消已經自己清過了
+      this.undo.drop()
+      this.last = null
+    }
     return { status: s, run, reports: run.reports }
   }
 
@@ -173,55 +236,120 @@ export class Game {
     return this.last?.run ?? null
   }
 
-  /** 已經套用的最新一樓要重試：先用套用前的快照回退這一次套用（AI_TASKS 2.4 節）。 */
-  private reopenLast(): ChainRun {
-    if (!this.last) throw new Error('沒有可以重試的任務鏈；更早的樓只能回退。')
-    const { run, before } = this.last
+  /** 對最新一條鏈的一步提出請求（重試、用規則代替、重擲）現在成不成立；不成立回傳原因。什麼都不改。 */
+  private requestBlock(kind: StepRequest, stepId: string): string | null {
+    const last = this.last
+    if (!last) return '沒有可以重試的任務鏈；更早的樓只能回退。'
+    // 已經套用的鏈之後又有別的提交：重試會把之後的提交一起抹掉，所以只能回退（AI_TASKS 2.4 節：只有最新一樓）
+    if (last.run.status === 'applied' && last.seqAfter !== this.state.seq.report) return '這一樓之後已經做了別的事，不能再重試；只能回退。'
+    return last.run.requestBlock(kind, stepId)
+  }
+
+  /**
+   * 任務鏈列上這一步的三個按鈕各自能不能按（null 是可以，字串是原因）。畫面照這個顯示按鈕，不自己判斷。
+   * 沒有最新的鏈、或這一樓之後已經有別的提交時，三個都不能按。
+   */
+  stepActions(stepId: string): StepActions {
+    return { retry: this.requestBlock('retry', stepId), useRules: this.requestBlock('rules', stepId), reroll: this.requestBlock('reroll', stepId) }
+  }
+
+  /**
+   * 重試、用規則代替、重擲共用：先確認請求成立（不成立就丟錯，狀態與鏈都不動），
+   * 已經套用的最新一樓才用套用前的快照回退這一次套用（AI_TASKS 2.4 節），再重跑。
+   */
+  private async request(kind: StepRequest, stepId: string, opts: ActOptions): Promise<ActResult> {
+    const block = this.requestBlock(kind, stepId)
+    if (block) throw new Error(block)
+    const { run, before } = this.last!
     if (run.status === 'applied') {
       replaceInPlace(this.state, clone(before))
       run.reopen()
+      this.last!.seqAfter = null
+      this.notify([])
     }
-    return run
+    const status = await (kind === 'retry' ? run.retry(stepId) : kind === 'rules' ? run.useRules(stepId) : run.reroll(stepId))
+    return this.settle(run, status, opts)
   }
 
-  async retryStep(stepId: string, opts: ActOptions = {}): Promise<ActResult> {
-    const run = this.reopenLast()
-    return this.settle(run, await run.retry(stepId), opts)
+  retryStep(stepId: string, opts: ActOptions = {}): Promise<ActResult> {
+    return this.request('retry', stepId, opts)
   }
 
-  async useRules(stepId: string, opts: ActOptions = {}): Promise<ActResult> {
-    const run = this.reopenLast()
-    return this.settle(run, await run.useRules(stepId), opts)
+  useRules(stepId: string, opts: ActOptions = {}): Promise<ActResult> {
+    return this.request('rules', stepId, opts)
   }
 
-  async reroll(stepId = 'roll', opts: ActOptions = {}): Promise<ActResult> {
-    const run = this.reopenLast()
-    return this.settle(run, await run.reroll(stepId), opts)
+  reroll(stepId = 'roll', opts: ActOptions = {}): Promise<ActResult> {
+    return this.request('reroll', stepId, opts)
   }
 
   /** 打包成一份存檔的文字。savedAt 由外面給（引擎不看時鐘）。 */
   save(kind: SaveMeta['kind'] = 'manual', savedAt = '', label?: string): string {
-    return packSave(this.state, saveMeta(this.state, kind, savedAt, label))
+    const originName = (id: string) => this.k.content.get('origin', id)?.name as string | undefined
+    return packSave(this.state, saveMeta(this.state, kind, savedAt, label, originName))
   }
 
-  /** 讀一份存檔的文字。失敗時回傳錯誤訊息，狀態不變；成功回傳 null。讀檔之後不能回退到讀檔之前。 */
+  /**
+   * 讀一份存檔的文字。失敗時回傳錯誤訊息，狀態、回退、進行中的鏈都不變；成功回傳 null。讀檔之後不能回退到讀檔之前。
+   * 讀檔修復（save.loaded 掛鉤）先在讀進來的那一份上做完，成功才換進來；修復失敗也算讀檔失敗。
+   */
   load(raw: string): string | null {
     const r = unpackSave(raw)
     if (!r.ok) return r.error
+    const next = r.file.state
+    let reports: Report[] = []
+    try {
+      // 讀檔修復：功能回傳變更，有才提交一份報告
+      const changes = this.k.hooks.run('save.loaded', { state: next, fromVersion: r.fromVersion }).flatMap((x) => x.result)
+      if (changes.length) {
+        reports = [commitReport(this.k, next, { kind: 'system', action: 'save.repair', location: clone(next.location), party: [], timeline: [], changes, outcome: { result: 'repaired', summary: '讀檔時修了幾樣東西。' } })]
+      }
+    } catch (e) {
+      return `讀檔時的修復沒有成功，這份存檔沒有讀進來（${(e as Error).message}）。`
+    }
     this.last?.run.cancel()
-    replaceInPlace(this.state, r.file.state)
+    replaceInPlace(this.state, next)
     this.undo.clear()
     this.last = null
-    // 讀檔修復：功能回傳變更，有才提交一份報告
-    const changes = this.k.hooks.run('save.loaded', { state: this.state, fromVersion: r.fromVersion }).flatMap((x) => x.result)
-    const reports = changes.length
-      ? [commitReport(this.k, this.state, { kind: 'system', action: 'save.repair', location: clone(this.state.location), party: [], timeline: [], changes, outcome: { result: 'repaired', summary: '讀檔時修了幾樣東西。' } })]
-      : []
     this.notify(reports)
     return null
   }
 
-  /** 回退 n 步。回退的時候進行中的鏈被取消，那一樓的任務鏈一起消失（它在狀態裡）。成功回傳 true。 */
+  /**
+   * 回到一份存檔那一刻，但保留之後的紀錄（SERIES 第 6 節：委託副本的撤退、戰敗後的回退）。
+   * raw 是之前用 save() 留下的快照（進入口時、每個階段開始時、每場戰鬥開打前）；它必須是這一局更早的狀態。
+   * - 生命、錢、時間、物品、旗標……全部回到快照那一刻；亂數的位置也回去。
+   * - 快照之後的報告留在紀錄裡，標成 retracted（被收回的經歷）；流水號接著往下走，不重複。
+   * - 功能要保留自己那一塊（性經歷、共同記憶）：掛 rewind.keep，回傳變更。
+   * - 最後提交一份報告交代這件事，summary 是那一段特別的敘述（由發起的功能寫）。
+   * 失敗時回傳錯誤訊息，狀態不變；成功回傳 null。之後不能回退到這之前。
+   */
+  rewind(raw: string, opts: { summary: string }): string | null {
+    const r = unpackSave(raw)
+    if (!r.ok) return r.error
+    const next = r.file.state
+    const current = this.state
+    const kept = next.reports.length
+    if (kept > current.reports.length || next.reports.some((x, i) => current.reports[i]!.id !== x.id)) return '這份快照不是這一局更早的狀態，不能用來撤退。'
+    let reports: Report[] = []
+    try {
+      const changes = this.k.hooks.run('rewind.keep', { current, restored: next }).flatMap((x) => x.result)
+      next.reports = [...next.reports, ...current.reports.slice(kept).map((x) => ({ ...clone(x), retracted: true }))]
+      next.chains = clone(current.chains)
+      next.seq = { ...current.seq }
+      reports = [commitReport(this.k, next, { kind: 'system', action: 'rewind', location: clone(next.location), party: [], timeline: [], changes, outcome: { result: 'rewound', summary: opts.summary } })]
+    } catch (e) {
+      return `沒有辦法回到那一刻（${(e as Error).message}）。`
+    }
+    this.last?.run.cancel()
+    replaceInPlace(this.state, next)
+    this.undo.clear()
+    this.last = null
+    this.notify(reports)
+    return null
+  }
+
+  /** 回退 n 步。回退的時候進行中的鏈被取消，那一樓的任務鏈一起消失（它在狀態裡）。成功回傳 true；n 不是正整數或沒有那麼多步回傳 false。 */
   undoSteps(n = 1): boolean {
     const restored = this.undo.pop(n)
     if (!restored) return false
@@ -230,5 +358,15 @@ export class Game {
     replaceInPlace(this.state, restored)
     this.notify([])
     return true
+  }
+
+  /**
+   * 現在是星期幾、哪個時段（照這一局的時段規則算；畫面不自己算）。
+   * weekday 是日曆的星期（0＝週一；午夜換日），segmentWeekday 是這個時段算在星期幾（深夜跨過午夜算前一天），
+   * daysToMonday 是離下一個收租日（週一）還有幾天（今天就是的話是 0）。
+   */
+  clock(): { weekday: Weekday; segment: SegmentId; segmentWeekday: Weekday; daysToMonday: number } {
+    const t = this.state.time, rules = this.k.timeRules
+    return { weekday: weekdayOf(t, rules), segment: segmentOf(t, rules), segmentWeekday: segmentWeekdayOf(t, rules), daysToMonday: daysUntilWeekday(t, 0, rules) }
   }
 }

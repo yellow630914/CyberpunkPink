@@ -9,13 +9,14 @@
 import type { ActorId, AttrId, Change, CheckRoll, ClampNote, Degree, GameState, Grade, PartySnapshot, ReportDraft, SkillId } from '../types'
 import { ATTR_IDS } from '../types'
 import { clone } from '../util/clone'
-import { clamp, isRecord, str } from '../util/sanitize'
-import { formatAmount } from '../util/money'
+import { clamp, isRecord, isSafeInt, str } from '../util/sanitize'
 import { deriveRng } from '../util/rng'
+import { formatDuration, toMinutes } from '../util/time'
 import type { RulesKernel } from '../rules/kernel'
-import { DEGREE_NAME, checkParts, computeDegree, dcFor, makeCheck } from '../rules/check'
+import { DEGREE_NAME, checkParts, computeDegree, dcFor, makeCheck, verdictOf } from '../rules/check'
 import type { Effect, ResolvedEffects } from '../rules/effects'
 import { askedMatches } from '../rules/effects'
+import { areaGrade } from '../rules/grades'
 import type { ActionInput, ActionKindDef, ActionRegistry } from './kinds'
 
 /** 判定的 DC 預設在參考值 ±3 之內（AI_TASKS 4.1 節）。 */
@@ -70,12 +71,6 @@ export class ActionBlocked extends Error {
     super(reason)
     this.name = 'ActionBlocked'
   }
-}
-
-/** 這一區的等級。區的資料還沒搬進來之前一律是 I 級；有 district 內容之後讀它的 grade。 */
-export function areaGrade(k: RulesKernel, state: GameState): Grade {
-  const g = state.location.district ? k.content.get('district', state.location.district)?.grade : undefined
-  return (typeof g === 'number' && g >= 1 && g <= 5 ? g : 1) as Grade
 }
 
 const purposeOf = (state: GameState, input: ActionInput) => `action/${input.kind}/${state.seq.chain}`
@@ -133,6 +128,7 @@ export interface SanitizedJudgment {
 /**
  * 第二段：把 AI 交出的判定清乾淨。格式與封閉清單不合是錯誤；超出預設的三條（DC 在參考值 ±3、時間在上限內、
  * 成功程度照骰值）被夾住，不算錯誤。設定關著、asked 又對得上玩家輸入時，這三條不夾。
+ * 格式的底線不論開關都擋（EVENTS 2.4 節）：DC 與時間四捨五入之後要是安全整數，時間加上去之後也不能大到失真。
  */
 export function sanitizeJudgment(k: ActionKernel, state: GameState, pending: ActionPending, raw: unknown, opts: JudgeOpts): SanitizedJudgment {
   const def = k.actions.get(pending.input.kind)!
@@ -145,8 +141,8 @@ export function sanitizeJudgment(k: ActionKernel, state: GameState, pending: Act
   if (!(ATTR_IDS as readonly unknown[]).includes(attr)) errors.push(`judgment.attr：只能是 ${ATTR_IDS.join('、')}（拿到 ${JSON.stringify(raw.attr)}）`)
   const skill = raw.skill === undefined ? pending.skill : raw.skill === null || raw.skill === '' ? undefined : (raw.skill as SkillId)
   if (skill !== undefined && (typeof skill !== 'string' || (k.content.list('skill').length > 0 && !k.content.has('skill', skill)))) errors.push(`judgment.skill：沒有 ${JSON.stringify(raw.skill)} 這項基本功`)
-  if (raw.dc !== undefined && !(typeof raw.dc === 'number' && Number.isFinite(raw.dc))) errors.push('judgment.dc：要是數字')
-  if (raw.minutes !== undefined && !(typeof raw.minutes === 'number' && Number.isFinite(raw.minutes) && raw.minutes >= 0)) errors.push('judgment.minutes：要是 0 以上的數字')
+  if (raw.dc !== undefined && !(typeof raw.dc === 'number' && isSafeInt(Math.round(raw.dc)))) errors.push('judgment.dc：要是數字（不能是無限、非數，也不能大到失真）')
+  if (raw.minutes !== undefined && !(typeof raw.minutes === 'number' && raw.minutes >= 0 && isSafeInt(Math.round(raw.minutes)) && isSafeInt(toMinutes(state.time) + Math.round(raw.minutes)))) errors.push('judgment.minutes：要是 0 以上的數字（不能是無限、非數，也不能大到失真）')
   for (const f of ['reason', 'twist'] as const) if (raw[f] !== undefined && typeof raw[f] !== 'string') errors.push(`judgment.${f}：要是字串`)
   if (raw.asked !== undefined && typeof raw.asked !== 'string') errors.push('judgment.asked：要是玩家輸入裡的一段字')
   if (errors.length) return { judgment: null, errors, clamps }
@@ -163,7 +159,7 @@ export function sanitizeJudgment(k: ActionKernel, state: GameState, pending: Act
 
   let minutes = raw.minutes === undefined ? pending.minutes : Math.round(raw.minutes as number)
   if (!free && minutes > pending.maxMinutes) {
-    clamps.push({ path: 'judgment.minutes', from: minutes, to: pending.maxMinutes, limit: pending.maxMinutes, notice: `這件事最多花 ${formatAmount(Math.round(pending.maxMinutes / 60))} 小時。` })
+    clamps.push({ path: 'judgment.minutes', from: minutes, to: pending.maxMinutes, limit: pending.maxMinutes, notice: `這件事最多花 ${formatDuration(pending.maxMinutes)}。` })
     minutes = pending.maxMinutes
   }
 
@@ -176,7 +172,8 @@ export function sanitizeJudgment(k: ActionKernel, state: GameState, pending: Act
     clamps.push({ path: 'judgment.degree', from: degree, to: byDie, notice: `結果照骰子算：${DEGREE_NAME[byDie]}。` })
     degree = byDie
   }
-  const roll: CheckRoll = { ...check, degree, ...(pending.reroll ? { rerolls: pending.reroll, history: [...pending.history] } : {}) }
+  // 成功程度換了（免夾的判定照玩家要的給），主持人的走向跟著成功程度走，不留在骰值那一邊
+  const roll: CheckRoll = { ...check, degree, verdict: verdictOf(degree, check.margin), ...(pending.reroll ? { rerolls: pending.reroll, history: [...pending.history] } : {}) }
   const asked = str(raw.asked, 400)
   return {
     judgment: {
@@ -231,12 +228,17 @@ export interface ActionResult {
   chain?: string
 }
 
+/** 這次行動除了回報以外要套的變更：判定花的時間、亂數的游標。算回報時當成 EffectCtx.tail 一起驗。 */
+export function actionTailChanges(judgment: Pick<Judgment, 'minutes'>): Change[] {
+  return [...(judgment.minutes > 0 ? [{ op: 'time', minutes: judgment.minutes }] : []), { op: 'rng', advance: 1 }]
+}
+
 /** 第三段：組出報告草稿。交給 commitReport 才會改狀態。 */
 export function buildActionReport(k: ActionKernel, state: GameState, r: ActionResult): ReportDraft {
   const def = k.actions.get(r.pending.input.kind)!
   const actor = state.actors[r.pending.actor]!
   const j = r.judgment
-  const changes: Change[] = [...r.reward.changes, ...(r.extraChanges ?? []), ...(j.minutes > 0 ? [{ op: 'time', minutes: j.minutes }] : []), { op: 'rng', advance: 1 }]
+  const changes: Change[] = [...r.reward.changes, ...(r.extraChanges ?? []), ...actionTailChanges(j)]
   const after = clone(state)
   k.changes.applyAll(after, changes)
   const lines = [...r.reward.lines, ...(r.extraLines ?? [])]
@@ -247,7 +249,7 @@ export function buildActionReport(k: ActionKernel, state: GameState, r: ActionRe
     kind: def.reportKind, action: def.id, location: clone(state.location), actor: r.pending.actor,
     ...(r.pending.input.text ? { input: r.pending.input.text } : {}),
     party: partySnapshot(k, state, after),
-    timeline: [{ layer: 'meat', actor: r.pending.actor, text: j.reason || def.name, roll: j.roll }],
+    timeline: [{ layer: 'meat', actor: r.pending.actor, text: j.reason || def.name, roll: j.roll, ...(j.twist ? { twist: j.twist } : {}) }],
     changes,
     outcome: { result: j.degree, summary },
     ...(clamps.length ? { clamps } : {}),

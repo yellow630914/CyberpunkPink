@@ -82,6 +82,11 @@ export interface SaveRules {
   startPerkPoints: number
   startCyberPoints: number
   startMoney: number
+  /**
+   * 內容篩選（LEWD_SYSTEM 第 9 節；UI 第 15 節：跟著存檔走）：玩家關掉的標籤。沒有列在這裡的都是開著。
+   * 標籤的 id 照 DATA 第 1 節的 tags；「身體的私密描寫」是 CONTENT_TAG_INTIMATE_BODY。
+   */
+  contentOff: string[]
 }
 
 /** 一條任務鏈留在存檔裡的細節（AI_TASKS 5.5 節：只留最近五樓）。內容的形狀由 L7 的任務鏈引擎定義。 */

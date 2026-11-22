@@ -15,7 +15,7 @@ export interface RulesKernel extends StateKernel {
 
 export function createRulesKernel(): RulesKernel {
   const base = createStateKernel()
-  const effects = new EffectRegistry(base.probe)
+  const effects = new EffectRegistry(base.probe, base.changes)
   registerCoreEffects(effects)
   const conditions = new ConditionRegistry(base.probe)
   registerCoreConditions(conditions)
