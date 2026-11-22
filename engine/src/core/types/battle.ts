@@ -170,6 +170,11 @@ export interface BattleUnit {
   layersMax: number
   /** 敏感度：受到的感載 ×（0.75 ＋ 敏感度 ÷ 200）；沒寫的是 50（×1） */
   sensitivity: number
+  /**
+   * 身上裝著幾件義體；沒寫是 0。敵人 AI 的偏好 bridged（ENEMIES 4.1 節）與敵方潛網者快駭的分數（4.3 節）看這個。
+   * 角色的數字來自衍生數值 cyber_count（義體的功能在 M4 註冊；算不算橋本體由它定），在那之前都是 0
+   */
+  cyber?: number
   ap: BattlePool
   /** 其他會回的資源，鍵是池的 id（ram） */
   pools: Record<string, BattlePool>
@@ -263,6 +268,11 @@ export interface BattleOrigin {
   capture?: string[]
   /** 贏的一方的勢力（戰敗事件用）；沒寫由敵人的資料決定 */
   faction?: string
+  /**
+   * 開打時每一方的人數（上場的加上在後方等的）。士氣的「同伴倒了一半」用這個當分母（ENEMIES 4.4 節）：
+   * 之後叫來的增援不會把分母墊高。開打時由核心記下，之後不變
+   */
+  headcount?: Record<BattleSide, number>
   /** 發起的功能自己要記的東西（委託副本的階段、地圖上的遭遇點……） */
   ext?: Record<string, unknown>
 }

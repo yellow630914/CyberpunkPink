@@ -4,6 +4,7 @@
 //   輪到一個敵人時，最多做 6 步，每一步：
 //     1. 功能要不要先做一件事（想走嗎、招牌行動、啟動機體）   → ai.step 掛點
 //     2. 站得好嗎？算目前那一格與相鄰格的位置分；換過去高出 1.5 以上 → 花行動點換位
+//        位置分多一項：站在那一格有「一定要站在這裡才做得到」的行動（制伏）→ 行動自己的 aiSlotScore
 //     3. 打誰？每個可及的目標算權重，加權抽一個
 //     4. 做什麼？每個能做的行動打分數，分數平方加權抽
 //   行動點不夠就停；沒用完的留到下回合。
@@ -14,6 +15,7 @@ import { coverAt, coverLevel, distance, isWounded, losingTurn, moveBlock, otherS
 import type { BattleActionDef, BattleView } from './registry'
 import { actionCost } from './registry'
 import type { BattleRun } from './run'
+import { performAction } from './act'
 
 /** 換位花的行動點（COMBAT_SYSTEM 1.3 節）。 */
 export const MOVE_AP = 1
@@ -22,6 +24,8 @@ export const REPOSITION_MARGIN = 1.5
 
 const COVER_SCORE = [0, 0.75, 1.5]
 const COVER_TARGET_MOD = [1.3, 1, 0.7]
+/** 偏好 bridged（ENEMIES 4.1 節「有義體的人依義體數 ×1～2」）：每一件 +0.2，五件以上 ×2（暫定，dev/adr/0013 C12）。 */
+export const BRIDGED_PER_PIECE = 0.2
 
 /** 這把武器從這一格打得到幾個目標（在適用距離內）。 */
 function reachable(view: BattleView, u: BattleUnit, slot: number): number {
@@ -34,15 +38,33 @@ function reachable(view: BattleView, u: BattleUnit, slot: number): number {
 }
 
 /**
+ * 站在 slot 那一格，有沒有「一定要站在這裡才做得到」而且值得做的行動（制伏、內海的釘住）：問每個行動的 aiSlotScore，取最高的。
+ * 只問這個單位有的、付得起的（要換過去的再加換位的 1 點）、行動自己的條件（blocks）都過的行動。
+ */
+function slotActionScore(view: BattleView, u: BattleUnit, slot: number): number {
+  let best = 0
+  for (const def of view.k.battle.actionsFor(view.battle.mode)) {
+    if (!def.aiSlotScore || (def.has && !def.has(view, u))) continue
+    const cost = actionCost(view, u, def)
+    if (!view.canAfford(u, { ...cost, ap: cost.ap + (slot === u.slot ? 0 : MOVE_AP) })) continue
+    if (def.blocks?.(view, u).length) continue
+    best = Math.max(best, def.aiSlotScore(view, u, slot))
+  }
+  return best
+}
+
+/**
  * 位置分（ENEMIES 4.2 節）＝ 偏好格 2（每差一格 −1）＋ 遮蔽（掩體 1.5、半掩 0.75）× cover_use ×（受傷時 ×2）
- * ＋ 武器打得到的目標數 × 0.5 − 在第 1 格而不是近戰型 2。
+ * ＋ 武器打得到的目標數 × 0.5 − 在第 1 格而不是近戰型 2
+ * ＋ 站在那一格才做得到的行動（制伏：4；行動的 aiSlotScore）。
+ * 最後一項是設計書沒有寫的（dev/adr/0014）：沒有它，要抓人的敵人拿著神經槍會先往後退，退開之後就不在近身、永遠輪不到制伏。
  */
 export function positionScore(view: BattleView, u: BattleUnit, slot: number): number {
   const prefer = u.ai?.prefer_slots?.length ? u.ai.prefer_slots : [u.slot]
   const off = Math.min(...prefer.map((p) => Math.abs(p - slot)))
   const melee = !!wielded(u)?.traits.includes('melee')
   const cover = COVER_SCORE[coverLevel(coverAt(view.battle, u.side, slot))]! * (u.ai?.coverUse ?? 0.5) * (isWounded(u) ? 2 : 1)
-  return 2 - off + cover + reachable(view, u, slot) * 0.5 - (slot === 1 && !melee ? 2 : 0)
+  return 2 - off + cover + reachable(view, u, slot) * 0.5 - (slot === 1 && !melee ? 2 : 0) + slotActionScore(view, u, slot)
 }
 
 /**
@@ -68,6 +90,8 @@ export function targetWeight(view: BattleView, u: BattleUnit, t: BattleUnit): nu
   } else if (ai?.prefer === 'overloaded') prefer = losingTurn(t) ? 3 : 1
   else if (ai?.prefer === 'leader') prefer = t.actor && t.actor === view.state.pc ? 2 : 1
   else if (ai?.prefer === 'nearest') prefer = unitsOf(view.battle, t.side).every((x) => distance(u, x) >= distance(u, t)) ? 2 : 1
+  // 有義體的人依義體數 ×1～2（拆體客、改造師型）：沒有義體的是 ×1
+  else if (ai?.prefer === 'bridged') prefer = 1 + Math.min(1, Math.max(0, t.cyber ?? 0) * BRIDGED_PER_PIECE)
   return Math.max(0, base * range * cover * prefer)
 }
 
@@ -105,7 +129,7 @@ function usable(run: BattleRun, u: BattleUnit, def: BattleActionDef, enemy: Batt
 
 /**
  * AI 做一步。回傳有沒有做事；沒有（沒事可做、行動點不夠、已經做滿六步）就由呼叫的人結束他的回合。
- * 花費與行動的結算都在這裡；收尾（監視、補位、結果）由呼叫的人做。
+ * 花費與行動的結算都在這裡（performAction：和玩家的一步同一條路，花費的修正與 action.done 掛點都一樣）；收尾（監視、補位、結果）由呼叫的人做。
  */
 export function aiStep(run: BattleRun, u: BattleUnit): boolean {
   const b = run.battle
@@ -131,7 +155,6 @@ export function aiStep(run: BattleRun, u: BattleUnit): boolean {
   const choice = run.pick(options, (o) => o.score * o.score)
   if (!choice) return false
   const input = { action: choice.def.id, ...(choice.target ? { target: choice.target } : {}) }
-  run.spend(u, actionCost(run, u, choice.def, input))
-  choice.def.run(run, u, choice.target, input)
+  performAction(run, u, choice.def, choice.target, input)
   return true
 }

@@ -34,6 +34,7 @@
 // | map.ext | map, value | 這份實例上發起的功能自己記的東西，整份換掉 |
 // | snapshot.add | slot | 存一份快照（回到那一刻用的）。同一種類只留最新的一份由存的人決定：先 drop 再 add |
 // | snapshot.drop | id 或 kind | 丟掉一份（或一種）快照 |
+// | snapshot.mark | id 或 kind、data | 在一份（或一種）快照的 data 上補幾個鍵（打輸之後標上「這一場輸了，等玩家三選一」）；找不到就不合法 |
 
 import type { Actor, BattleState, CellPatch, ChainRecordSlot, Change, FlagValue, GameState, GridPos, MapInstance, MoverState, ReportLocation, SaveRules, SnapshotSlot } from '../types'
 import { ATTR_IDS, BATTLE_SIDES, BATTLE_SLOTS } from '../types'
@@ -403,6 +404,18 @@ export function registerCoreChanges(reg: ChangeRegistry): void {
     apply: (s, c) => { s.snapshots = s.snapshots.filter((x) => !(c.id !== undefined ? x.id === c.id : x.kind === c.kind)) },
   })
 
+  reg.register<Change & { id?: string; kind?: string; data: Record<string, unknown> }>({
+    op: 'snapshot.mark', owner: 'core',
+    validate: (s, c) => {
+      if (typeof c.id !== 'string' && typeof c.kind !== 'string') return ['要寫 id 或 kind']
+      if (!isRecord(c.data)) return ['data 要是一個物件']
+      return s.snapshots.some((x) => (c.id !== undefined ? x.id === c.id : x.kind === c.kind)) ? [] : ['沒有這份快照']
+    },
+    apply: (s, c) => {
+      for (const x of s.snapshots) if (c.id !== undefined ? x.id === c.id : x.kind === c.kind) x.data = { ...(x.data ?? {}), ...clone(c.data) }
+    },
+  })
+
   reg.register<Change & { map: string; value: Record<string, unknown> | null }>({
     op: 'map.ext', owner: 'core',
     validate: (s, c) => (!instanceOf(s, c.map) ? [`沒有 ${String(c.map)} 這份地圖`] : c.value === null || isRecord(c.value) ? [] : ['value 要是一個物件或 null']),
@@ -439,6 +452,7 @@ export function battleProblems(b: unknown): string[] {
       if (m !== undefined && !(isRecord(m) && isInt(m.now) && isInt(m.max) && (m.now as number) >= 0)) p.push(`units.${id}：${track} 要是 0 以上的整數`)
     }
     if (!isInt(raw.layers) || (raw.layers as number) < 0) p.push(`units.${id}：餘韻的層數要是 0 以上的整數`)
+    if (!Array.isArray(raw.weapons) || !Array.isArray(raw.statuses) || !isRecord(raw.uses)) p.push(`units.${id}：要有 weapons、statuses、uses`)
     // 一格一個單位：還在場上的人不能站在同一格
     if (!raw.out && (raw.slot as number) >= 1) {
       const key = `${String(raw.side)}:${String(raw.slot)}`
@@ -446,6 +460,24 @@ export function battleProblems(b: unknown): string[] {
       seen.set(key, id)
     }
   }
+  // 和人重疊的東西（無人機、砲塔）：每一方每一格最多一台沒被擊落的（COMBAT_SYSTEM 第 2 節、9.1 節）
+  if (Array.isArray(b.overlays)) {
+    const hung = new Map<string, string>()
+    for (const raw of b.overlays as unknown[]) {
+      if (!isRecord(raw) || typeof raw.id !== 'string' || !raw.id) { p.push('overlays：每一台要有 id'); continue }
+      if (!BATTLE_SIDES.includes(raw.side as never) || !isInt(raw.slot) || (raw.slot as number) < 1 || (raw.slot as number) > BATTLE_SLOTS) { p.push(`overlays.${raw.id}：要掛在某一方的第 1～${BATTLE_SLOTS} 格`); continue }
+      if (raw.down) continue
+      const key = `${String(raw.side)}:${String(raw.slot)}`
+      if (hung.has(key)) p.push(`overlays.${raw.id}：和 ${hung.get(key)} 掛在同一格（每格最多一台）`)
+      hung.set(key, raw.id)
+    }
+  }
+  // 還沒分出結果的戰鬥，輪到的那個人要在場上（讀進一份「沒有人能動」的戰鬥會卡死）
+  if (!b.result && b.order.length > 0 && isInt(b.turn) && (b.turn as number) >= 0 && (b.turn as number) < b.order.length) {
+    const cur = units[b.order[b.turn as number] as string]
+    if (isRecord(cur) && (cur.out || !((cur.slot as number) >= 1))) p.push('輪到的那個人不在場上（已經退出，或還在後方）')
+  }
+  if (!b.result && b.order.length === 0) p.push('order 是空的：沒有人可以行動')
   return p
 }
 

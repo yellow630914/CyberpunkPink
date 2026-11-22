@@ -12,28 +12,23 @@
 import type { BattleInput, BattleState, BattleTarget, BattleUnit, Change, GameState, ReportDraft, TimelineBeat } from '../types'
 import { partySnapshot } from '../action/action'
 import { clone } from '../util/clone'
-import { currentUnit, sameTarget, unitTag, wielded } from './field'
+import { currentUnit, sameTarget, unitTag } from './field'
+import { BattleBlocked, performAction } from './act'
 import { aiStep } from './ai'
 import type { BattleActionDef, BattleActionGroup, BattleKernel, BattlePick, BattleTargetKind, BattleTargetOption } from './registry'
-import { actionCost, actionIcon, actionTags } from './registry'
+import { actionCost, actionIcon } from './registry'
 import { modeOf } from './rules'
 import { BattleRun } from './run'
 import type { BattleSetup } from './setup'
 import { setupBattle } from './setup'
 import { advance } from './turn'
 
+export { BattleBlocked, performAction }
+
 /** 結束回合：核心內建的行動，每個戰場都有。 */
 export const END_TURN = 'end_turn'
 /** 結束的報告最多留幾拍（太長時保留頭尾；AI_TASKS 3.9 節）。 */
 export const TIMELINE_KEEP = { head: 60, tail: 140 }
-
-/** 這一步做不成：原因一條一條列（給玩家看的句子）。狀態不變。 */
-export class BattleBlocked extends Error {
-  constructor(public readonly reasons: string[]) {
-    super(reasons.join(' '))
-    this.name = 'BattleBlocked'
-  }
-}
 
 export interface BattleActionOption {
   id: string
@@ -121,23 +116,6 @@ function open(k: BattleKernel, state: GameState): { run: BattleRun; unit: Battle
   const unit = run.current()
   if (!unit || unit.out) throw new Error('戰鬥的狀態不對：輪到的人不在場上。')
   return { run, unit }
-}
-
-/**
- * 讓一個單位做一個行動：扣花費 → 行動本身 → 行動做完的掛點（action.done）。玩家的一步、AI 選的一步都走這裡；
- * 功能在掛點裡替單位做一個行動（招牌行動、劇本）也用它，花費的修正與「用掉幾次」才會一致。
- * 付不付得起、條件與目標合不合由呼叫的人先檢查；不夠付在這裡丟 BattleBlocked。收尾（監視、補位、結果）由呼叫的人做。
- */
-export function performAction(run: BattleRun, unit: BattleUnit, def: BattleActionDef, target: BattleTarget | null, input: BattleInput): void {
-  // 花費可以看這一步選了什麼（替別人用道具比較貴）：照這一步實際的花費再檢查一次
-  const cost = actionCost(run, unit, def, input)
-  if (!run.canAfford(unit, cost)) throw new BattleBlocked([`行動點不夠（要 ${cost.ap} 點，現在 ${unit.ap.now} 點）。`])
-  const base = def.cost(run, unit, input)
-  const tags = actionTags(unit, def, input)
-  const weapon = wielded(unit)
-  run.spend(unit, cost)
-  def.run(run, unit, target, input)
-  run.k.battle.emit('action.done', { run, unit, action: def.id, tags, target, input, cost, base, ...(weapon ? { weapon } : {}) })
 }
 
 /** 做一個行動與收尾。做完之後如果這個人自己退出了，直接往下輪。 */
