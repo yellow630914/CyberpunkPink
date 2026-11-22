@@ -119,7 +119,7 @@ export function enemyUnit(k: Cx, state: GameState, ref: Record<string, unknown>,
     quick: e.quick ? e.quick.map((q) => ({ ...q })) : e.mode === 'capture' ? [{ item: 'it_zip_tie', qty: 2 }] : [],
     uses: {}, wounds: {}, ext: {},
     ai: {
-      focus: e.ai.focus, floor: e.ai.floor ?? 1, prefer: e.ai.prefer, mode: e.mode, fleeBelow: e.ai.flee_below,
+      focus: e.ai.focus, floor: e.ai.floor ?? 1, ...(e.ai.prefer !== undefined ? { prefer: e.ai.prefer } : {}), mode: e.mode, fleeBelow: e.ai.flee_below,
       ...(e.ai.never_flee !== undefined ? { neverFlee: e.ai.never_flee } : {}),
       prefer_slots: [...e.position.prefer], coverUse: e.position.cover_use ?? 0.5,
     },

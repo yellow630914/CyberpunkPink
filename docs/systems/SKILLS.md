@@ -1,7 +1,7 @@
 # 技能：八棵技能樹
 
 > 上層：[CORE_RULES](CORE_RULES.md) 第 6 節。依賴：[CORE_RULES](CORE_RULES.md) 6.1～6.4 節與第 7 節（路數、三個戰場、容量、歷練點）、[COMBAT_SYSTEM](COMBAT_SYSTEM.md)、[CYBERSPACE](CYBERSPACE.md)、[NETRUNNING](NETRUNNING.md)、[OPINION](OPINION.md)、[MEDIA](MEDIA.md)、[CYBERWARE](../gear/CYBERWARE.md) 7.1 節（橋的型號）。被依賴：[FIXER](FIXER.md)（名冊上的人帶什麼）、[NPCS](../world/NPCS.md) 第 4 節（夥伴）、敵人與 NPC 的生成。
-> 來源：ElondiaRPG 的 `abilities.json`（主動技能的欄位：消耗、目標、判定、效果、次數）與 `perks.json`（被動加值的寫法），加上「技能攜帶上限」改成按容量計算（[CODESCAN](../plan/CODESCAN.md)）。預定資料：`data/rules/skills.json`（技能）、`data/rules/paths.json`（八棵樹與招牌）。
+> 來源：ElondiaRPG 的 `abilities.json`（主動技能的欄位：消耗、目標、判定、效果、次數）與 `perks.json`（被動加值的寫法），加上「技能攜帶上限」改成按容量計算（[CODESCAN](../plan/CODESCAN.md)）。預定資料：`data/rules/abilities.json`（技能；`skills.json` 是基本功）、`data/rules/paths.json`（八棵樹與招牌）。
 
 技能是裝在邊緣橋裡的模組。基本功是人自己練的，技能是寫進橋裡的；兩者分開（[CORE_RULES](CORE_RULES.md) 第 2 節）。這份列出八棵樹上的每一個技能，以及它在三個戰場各做什麼。
 
@@ -253,28 +253,38 @@
 
 ## 13. 資料的樣子
 
-`data/rules/paths.json` 一棵樹一筆；`data/rules/skills.json` 一個技能一筆。效果分三個戰場寫，`null` 就是在那裡不生效。欄位沿用 ElondiaRPG `abilities.json` 的 `target`、`resolve`、`damage`、`apply`、`uses`。
+`data/rules/paths.json` 一棵樹一筆；`data/rules/abilities.json` 一個技能一筆。名字、階、層、種類、容量、前置、消耗與份量照 [SKILL_TREES](../content/SKILL_TREES.md) 的表抄，`xp` 是階 × 20。效果分三個戰場寫，`null` 就是在那裡不生效；`meat` 用引擎定好的一組效果鍵（`target`、`attack`、`apply`、`cost` 這一類），還沒做成機制的寫 `{ "pending": true }`：學得到、裝得上，戰鬥裡還沒有效果。
 
 ```json
 {
   "paths": [
     { "id": "gunner", "name": "槍手", "tree": "戰鬥直覺", "category": "meat",
-      "signature": "gun_instinct",
+      "signature": "sk_gunner_instinct",
       "domains": { "meat": "strong", "net": "weak", "opinion": "none" } }
   ],
-  "skills": [
+  "abilities": [
     {
-      "id": "vital_shot", "name": "要害射擊", "path": "gunner", "category": "meat",
-      "tier": 1, "kind": "active", "cap": 1, "xp": 20, "after": "gun_instinct",
-      "use": { "ap": 2 },
-      "meat":    { "target": "enemy", "resolve": "attack", "weapon": true,
-                   "crit_margin": 3, "on_crit": { "damage": [{ "dice": "1d6" }] } },
-      "net":     { "target": "enemy", "resolve": "attack", "construct": true, "crit_margin": 4 },
+      "id": "sk_gunner_aimed_shot", "name": "要害射擊", "path": "gunner", "category": "meat",
+      "tier": 1, "layer": "front", "after": "sk_gunner_instinct", "kind": "active",
+      "cap": 1, "xp": 20, "cells": 1,
+      "use": { "ap": 3 },
+      "text": "瞄準再射擊一次（花彈匣 1 格）。這一槍是瞄準過的射擊：命中 +3，可以指定部位，打出要害時擲重創。",
+      "meat":    { "target": "enemy", "attack": { "aimed": true } },
+      "net":     { "pending": true, "text": "瞄準再用武器構裝攻擊一次（照常花 RAM）：命中 +3，打出要害時造成破損。" },
       "opinion": null
     },
     {
-      "id": "flood", "name": "灌流", "path": "streamer", "category": "media",
-      "tier": 2, "kind": "active", "cap": 1, "xp": 40, "after": "expose",
+      "id": "sk_gunner_point_shot", "name": "定點射", "path": "gunner", "category": "meat",
+      "tier": 2, "layer": "front", "after": "sk_gunner_aimed_shot", "kind": "passive",
+      "cap": 1, "xp": 40, "cells": 2,
+      "meat":    { "cost": { "ability": "sk_gunner_aimed_shot", "ap": 2 }, "weapon_cost": { "trait": "aimed", "ap": 2 } },
+      "net":     { "pending": true, "text": "每場 1 次，要害射擊只花 2 行動點。" },
+      "opinion": null
+    },
+    {
+      "id": "sk_streamer_flood", "name": "灌流", "path": "streamer", "category": "media",
+      "tier": 2, "layer": "front", "after": "sk_streamer_expose", "kind": "active",
+      "cap": 1, "xp": 40, "cells": 2,
       "use": { "ap": 2, "ram": 2 },
       "meat":    null,
       "net":     { "target": "enemy_or_node", "resolve": "check", "check": "performance",
@@ -284,8 +294,9 @@
       "opinion": null
     },
     {
-      "id": "cheer", "name": "應援", "path": "idol", "category": "media",
-      "tier": 1, "kind": "passive", "cap": 3, "xp": 20, "after": null,
+      "id": "sk_idol_cheer", "name": "應援", "path": "idol", "category": "media",
+      "tier": 1, "layer": "signature", "after": null, "kind": "passive",
+      "cap": 3, "xp": 20, "cells": 0,
       "meat":    null,
       "net":     { "link": { "count": "tree_tier+1", "share": 0.5, "trace_per_turn": 1 } },
       "opinion": { "ep_max": 1 }
@@ -297,3 +308,4 @@
 - `category` 決定吃哪一類容量；`domains` 只寫在樹上，技能的三個欄位要照它換算好（1.6 節），載入時檢查：媒體類技能的 `meat` 必須是 `null`，現實類與內海類技能的 `opinion` 必須是 `null`。
 - `tree_tier`、`traffic` 這種字串是公式，由引擎代入（1.4 節、第 8 節）。
 - 共鳴與橋的機能不寫在技能上，由引擎在裝配時算。
+- 被動技能只改別的技能或武器的花費時（例：定點射讓要害射擊與狙擊槍的一槍只花 2 點），不是一個行動，資料寫 `cost`／`weapon_cost`。

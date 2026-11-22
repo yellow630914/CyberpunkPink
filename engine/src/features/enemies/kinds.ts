@@ -6,7 +6,7 @@ import { ATTR_IDS, DAMAGE_TYPES, UNIT_RANKS } from '../../core'
 export const OWNER = 'enemies'
 export const ENEMY_KINDS = ['human', 'unbridged', 'machine', 'vehicle', 'mech', 'mascot', 'lace', 'program'] as const
 export const ENEMY_MODES = ['lethal', 'neural', 'capture'] as const
-export const AI_PREFERS = ['weakest', 'overloaded', 'leader', 'nearest', 'netrunner'] as const
+export const AI_PREFERS = ['weakest', 'overloaded', 'leader', 'nearest', 'netrunner', 'bridged'] as const
 export const ENCOUNTER_KINDS = ['light', 'normal', 'heavy', 'boss'] as const
 export const COVER_LAYOUT_IDS = ['dense', 'medium', 'sparse', 'one_sided'] as const
 /** 沒有橋的種類：沒有感載這一條（ENEMIES 第 2 節的欄位表）。 */
@@ -43,7 +43,7 @@ export interface EnemyEntry {
   position: { prefer: number[]; cover_use?: number }
   mode: (typeof ENEMY_MODES)[number]
   weapons: EnemyWeapon[]
-  ai: { prefer: string; focus: number; flee_below: number; floor?: number; never_flee?: boolean; morale?: unknown }
+  ai: { prefer?: string; focus: number; flee_below: number; floor?: number; never_flee?: boolean; morale?: unknown }
   mods?: EnemyMods
   attrs?: Record<string, number>
   skills?: Record<string, number>
@@ -130,7 +130,7 @@ function enemyProblems(e: Record<string, unknown>, partial: boolean): string[] {
     if (pos.cover_use !== undefined && !(isNum(pos.cover_use) && pos.cover_use >= 0 && pos.cover_use <= 1)) p.push('position.cover_use 要是 0～1 的數字')
   }
 
-  need('weapons', (v) => Array.isArray(v) && v.length >= 1, '要有至少一把武器')
+  need('weapons', (v) => Array.isArray(v), '要是武器的陣列（可以是空的：沒有武器的單位不攻擊，戰鬥裡手上沒有武器）')
   if (Array.isArray(e.weapons)) {
     e.weapons.forEach((w, i) => {
       const at = `weapons[${i}]`
@@ -148,7 +148,7 @@ function enemyProblems(e: Record<string, unknown>, partial: boolean): string[] {
   need('ai', (v) => isRec(v), '要是 { prefer, focus, flee_below, … }')
   if (isRec(e.ai)) {
     const ai = e.ai
-    if (!oneOf(AI_PREFERS, ai.prefer)) p.push(`ai.prefer 只能是 ${AI_PREFERS.join('、')}`)
+    if (ai.prefer !== undefined && !oneOf(AI_PREFERS, ai.prefer)) p.push(`ai.prefer 只能是 ${AI_PREFERS.join('、')}`)
     if (!isNum(ai.focus)) p.push('ai.focus 要是數字')
     if (!(isNum(ai.flee_below) && ai.flee_below >= 0 && ai.flee_below <= 1)) p.push('ai.flee_below 要是 0～1 的數字')
     if (ai.floor !== undefined && !isNum(ai.floor)) p.push('ai.floor 要是數字')

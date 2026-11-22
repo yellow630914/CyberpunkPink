@@ -166,16 +166,15 @@ describe('指揮', () => {
     const { g, d } = setup(2)
     g.battleAct({ action: 'drone.command', target: { overlay: d.id }, pick: { at: 'f1' } })
     expect(g.battleOptions()!.actions.find((a) => a.id === 'drone.command')!.targets[0]!.blocks).toEqual(['這一台這一回合動過了。'])
-    g.state.battle!.overlays[0]!.used = true
-    turnTo(g, 'a2')
-    g.battleNext?.()
-    turnTo(g, 'a1')
-    // 直接走回合流程：核心在輪到操作者時清掉 used
-    const b = g.state.battle!
-    b.turn = b.order.indexOf('a2')
-    g.battleAct({ action: 'end_turn' })
-    for (let i = 0; i < 20 && g.battleOptions()!.current !== 'a1'; i++) g.battleOptions()!.waiting === 'ai' ? g.battleNext() : g.battleAct({ action: 'end_turn' })
-    if (g.battleOptions()!.current === 'a1') expect(g.battle!.overlays[0]!.used).toBe(false)
+    const round = g.battle!.round
+    for (let i = 0; i < 40 && !(g.battle!.round > round && g.battleOptions()!.current === 'a1'); i++) {
+      const o = g.battleOptions()!
+      if (o.waiting === 'ai') g.battleNext()
+      else { turnTo(g, o.current!); g.battleAct({ action: 'end_turn' }) }
+    }
+    expect(g.battleOptions()!.current).toBe('a1')
+    expect(g.battle!.overlays[0]!.used).toBe(false)
+    expect(g.battleOptions()!.actions.find((a) => a.id === 'drone.command')!.targets[0]!.blocks).toEqual([])
   })
 
   it('不存在的、已經擊落的目標選不了', () => {
@@ -240,16 +239,17 @@ describe('被動與被擊落', () => {
     expect(g.battle!.units.a1!.load!.now).toBe(5)
   })
 
-  it('操作者倒下：所有無人機停機，但沒有感載的回灌，也不呼叫被擊落的後果', () => {
+  it('操作者倒下：所有無人機停機，沒有被擊落的後果（不加感載、不記成擊落）', () => {
     const g = game([pilot(), one({ weapon: 'rifle' }, 2)])
     turnTo(g, 'a1')
     deploy(g, 0, 1)
     deploy(g, 1, 2)
-    const run = g.state.battle!
-    run.units.a1!.hp!.now = 0
-    run.units.a1!.out = 'down'
-    g.state.battle!.overlays.forEach((o) => { o.down = true })
+    g.state.battle!.units.a1!.hp!.now = 1
+    for (let i = 0; i < 30 && !g.battle!.units.a1!.out; i++) { const f = turnTo(g, 'f1'); f.weapons[0]!.mag!.now = 3; g.battleAct({ action: 'shoot', target: { unit: 'a1' } }) }
+    expect(g.battle!.units.a1!.out).toBe('down')
+    expect(g.battle!.overlays.map((o) => o.down)).toEqual([true, true])
     expect(g.battle!.units.a1!.load!.now).toBe(0)
+    expect(g.battle!.units.a1!.uses['drone:0']).toBe(1)
   })
 })
 
