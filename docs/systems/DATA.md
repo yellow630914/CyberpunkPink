@@ -530,8 +530,7 @@
 
 | 欄位 | 內容 |
 |---|---|
-| `ram`、`ram_regen` | RAM 的上限與每回合的回復 |
-| `guard` | 防護：直接減掉受到的感載 |
+| `mods.ram`、`mods.guard` | RAM 上限與防護（直接減掉受到的感載）相對於 [ENEMIES](ENEMIES.md) 1.5 節內海表的加減；和現實的敵人一樣不寫絕對的數字，每回合回的 RAM 照表 |
 | `sync` | 固定的同步檔位：`shallow`、`standard`、`deep`、`full`；`shift` 表示它會換檔 |
 | `constructs[]` | 武器構裝：傷害骰、適用距離、花的 RAM、遮蔽倍率 |
 | `color` | 只有蕾絲：`white`、`pink`、`black`。它只決定行為，不決定數值 |
@@ -539,17 +538,16 @@
 
 ```json
 {
-  "id": "en_lace_pink_maid_g3", "name": "粉蕾絲（女僕型）",
-  "faction": "nightingale", "grade": 3, "rank": "elite", "kind": "lace", "color": "pink",
-  "attrs": { "reflex": 14, "intellect": 14, "resolve": 14, "charm": 16 },
-  "basics": { "firearms": 3, "interface": 3, "melee": 2 },
-  "load_max": 30, "layers": 2, "ap": 5, "ram": 6, "ram_regen": 3, "guard": 3, "sync": "deep",
-  "constructs": [ { "id": "stream", "dice": "4d6", "type": "neural", "range": [2, 5], "ram": 1, "cover_mult": 0.5 } ],
+  "id": "en_lace_pink_maid", "name": "粉蕾絲・侍女",
+  "faction": "none", "grades": [2, 4], "rank": "minion", "kind": "lace", "color": "pink",
+  "mods": {},
+  "sync": "standard",
+  "constructs": [ { "id": "stream", "class": "smg", "type": "neural", "ram": 1 } ],
   "position": { "prefer": [2, 3], "cover_use": 0.5 },
-  "signature": ["persuade", "pin"],
-  "ai": { "focus": 1, "prefer": "afterglow_full", "mode": "capture" },
+  "signature": ["tether"],
+  "ai": { "focus": 1, "prefer": "overloaded", "mode": "capture", "flee_below": 0, "prefer_deep_sync": true },
   "defeat": "pinned",
-  "loot": [ { "construct": "random", "grade": 3, "chance": 0.4, "needs": "dissect" } ],
+  "loot": [ { "construct": "random", "chance": 0.4, "needs": "dissect" } ],
   "desc": "她穿著女僕服，裙襬的邊緣是一圈會動的粉色蕾絲，說話的時候一直微笑。"
 }
 ```

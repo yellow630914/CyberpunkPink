@@ -131,19 +131,18 @@
 
 ## 2. 資料格式
 
-一個敵人一筆，沿用 ElondiaRPG `enemies.json` 的欄位，拿掉 `level`、`xp`、`rut`、`girl`，加上站位與三條軌。
+一個敵人一筆，沿用 ElondiaRPG `enemies.json` 的欄位，拿掉 `level`、`xp`、`rut`、`girl`，加上站位與三條軌。**數值不寫絕對的數字**：和 [ENEMY_ROSTER](../content/ENEMY_ROSTER.md) 一樣，只寫相對於 1.5 節目標表的修正 `mods`，實際的數值是「目標表 × 修正 × 難度（[BALANCE](BALANCE.md) 第 7 節）× 強度係數（第 13 節）」，所以同一個兵種放到不同等級的場景都對得上。
 
 | 欄位 | 是什麼 |
 |---|---|
 | `id`、`name`、`desc` | 名字與外觀（`desc` 給 AI 描寫） |
 | `faction`、`branch` | 屬於哪個勢力（[FACTIONS](../world/FACTIONS.md) 第 1 節的 id）、哪種文化分支。沒有勢力的寫 `none` |
-| `grade`、`rank` | 等級 I～V；位階 `minion`／`elite`／`boss`。特殊單位另寫 `kind` |
+| `grades`、`rank` | 出現的等級範圍 `[最低, 最高]`（名單兵種表的「等級」）；具名敵人可以只寫一個 `grade`。位階 `minion`／`elite`／`boss`。特殊單位另寫 `kind` |
 | `kind` | `human`（有橋的人）、`unbridged`（沒有橋的人）、`machine`（機器）、`vehicle`、`mech`、`lace`、`program`（網內的其他東西）、`mascot`（吉祥物，12.3 節） |
 | `named` | 具名敵人寫 `true`（2.1 節）；制式兵種不寫 |
 | `base` | 具名敵人可以指一個制式兵種的 id，只寫和它不同的欄位 |
-| `attrs`、`basics` | 六屬性與用得到的基本功（檢定與豁免用） |
-| `hp`、`armor`、`evade_mod`、`ap` | 生命、護甲值、迴避的額外修正、行動點上限（每回合回復 3） |
-| `load_max`、`layers`、`sensitivity`、`sink` | 感載上限、承受層數、敏感度、沉溺。`unbridged` 與 `machine` 沒有這四欄 |
+| `attrs`、`basics` | 六屬性與用得到的基本功（檢定與豁免用）；選填，沒寫的屬性當 10 |
+| `mods` | 相對於 1.5 節目標表的修正（名單的「數值修正」）：`hp`、`load`（感載上限）是倍率，`attack`、`evade`、`armor` 是加減，`sensitivity` 是敏感度本身；內海的單位照內海表，另有 `guard`（防護，加減）與 `ram`（加減），名單寫的防火牆就是 `evade`。沒寫的照表；名單寫「照表」的就是空的 `mods`。行動點上限與承受層數照 1.5 節位階的固定值，不寫。`unbridged` 與 `machine` 沒有感載與敏感度 |
 | `weapons[]` | 每把：傷害骰、傷害類型（五種：`physical` 物理、`thermal` 熱能、`em` 電磁、`neural` 神經、`pleasure` 快感）、適用距離 `[近, 遠]`、穿甲、彈匣（1～4 格）。行動點照 [COMBAT_SYSTEM](COMBAT_SYSTEM.md) 1.3 節的行動表，不另外寫 |
 | `position` | `prefer`（偏好的格，例 `[1, 2]`）、`size`（1 格；無人機是 `overlay`，和人重疊、不佔格）、`cover_use`（0～1，多在乎掩體） |
 | `signature[]` | 招牌行動的 id（`abilities.json` 裡標了 `enemy` 的項目） |
@@ -617,46 +616,49 @@
 
 ## 15. 資料的樣子
 
+[ENEMY_ROSTER](../content/ENEMY_ROSTER.md) 的家政課女僕（III～V 級精英；名單寫「生命 ×0.9、迴避 +1、護甲 +1、敏感度 40」）。放在 IV 級的場景時，生命是 205 × 0.9 ≈ 185、護甲 4 + 1 = 5、迴避 16 + 1 = 17，再乘難度與強度係數。
+
 ```json
 {
-  "id": "hz_housekeeper",
+  "id": "en_hz_hk_maid",
   "name": "家政課女僕",
   "faction": "hizakura", "branch": "service",
-  "grade": 4, "rank": "elite", "kind": "human",
-  "attrs": { "body": 14, "reflex": 16, "tech": 10, "intellect": 10, "resolve": 14, "charm": 14 },
-  "basics": { "melee": 5, "firearms": 3, "stealth": 4, "willpower": 3 },
-  "hp": 48, "armor": 6, "evade_mod": 0, "ap": 5,
-  "load_max": 30, "layers": 2, "sensitivity": 40, "sink": 35,
+  "grades": [3, 5], "rank": "elite", "kind": "human",
+  "mods": { "hp": 0.9, "evade": 1, "armor": 1, "sensitivity": 40 },
   "weapons": [
-    { "id": "hz_monoblade", "dice": "2d6+body", "type": "physical", "range": [1, 1], "pierce": 3 },
-    { "id": "hz_holdout", "dice": "2d6", "type": "physical", "range": [1, 4], "mag": 2 }
+    { "class": "melee", "name": "緋櫻刀工的單分子刀", "type": "physical", "pierce": 3 },
+    { "class": "pistol", "type": "neural", "mag": 2 }
   ],
   "position": { "prefer": [1, 2], "size": 1, "cover_use": 0.4 },
   "signature": ["sweep_cut", "stand_guard"],
-  "ai": { "focus": 1, "prefer": "leader", "mode": "capture", "flee_below": 0.2, "morale": "elite" },
+  "ai": { "focus": 1.2, "prefer": "leader", "mode": "capture", "flee_below": 0.2, "morale": "elite" },
   "traits": [],
   "angel": "none",
   "defeat": "tuning",
   "loot": [
-    { "part": "blade", "brand": "hizakura", "grade": 4, "chance": 0.5, "locked": true },
-    { "part": "fiber", "material": "bio", "grade": 3, "chance": 0.3 },
+    { "part": "blade", "brand": "hizakura", "chance": 0.5, "locked": true },
+    { "part": "fiber", "material": "bio", "chance": 0.3 },
     { "cash": [0, 0] }
   ],
-  "desc": "一絲不亂的女僕服，白手套。圍裙底下是裝甲，裙擺底下是刀。"
+  "desc": "她穿著一絲不亂的黑白女僕服，戴著白手套，圍裙底下是緋櫻的裝甲插板。她的裙襬底下藏著一把單分子刀，腿上的槍套裡另有一把小手槍。"
 }
 ```
 
+武器只寫類別（`class`）與和武器表（[COMBAT_SYSTEM](COMBAT_SYSTEM.md) 第 5 節）不一樣的地方；傷害骰照那張表加等級骰（1.5 節）。掉落的零件等級照 1.3 節，不寫死。
+
+名單的粉蕾絲・女僕型（緋櫻子網的守衛，II～IV 級雜兵；「感載 ×0.9、防護 +1」，數值照內海表）：
+
 ```json
 {
-  "id": "lace_pink_g3",
-  "name": "粉蕾絲（標準型）",
-  "faction": "nightingale", "grade": 3, "rank": "elite", "kind": "lace",
-  "load_max": 30, "layers": 2, "firewall": 15,
+  "id": "en_hz_lace_maid",
+  "name": "粉蕾絲・女僕型",
+  "faction": "hizakura", "grades": [2, 4], "rank": "minion", "kind": "lace",
+  "mods": { "load": 0.9, "guard": 1 },
   "position": { "prefer": [2, 3], "size": 1 },
-  "programs": [ { "id": "flood", "dice": "4d6", "type": "neural", "ram": 2 } ],
-  "signature": ["persuade", "pin", "implant"],
-  "ai": { "focus": 1, "prefer": "overloaded", "mode": "capture", "prefer_deep_sync": true },
+  "constructs": [ { "id": "duster", "class": "smg", "type": "neural", "ram": 1 } ],
+  "signature": ["linger"],
+  "ai": { "focus": 1, "prefer": "overloaded", "mode": "capture", "flee_below": 0, "prefer_deep_sync": true },
   "defeat": "pinned",
-  "loot": [ { "construct": "random", "grade": 3, "chance": 0.4, "needs": "dissect" } ]
+  "loot": [ { "construct": "random", "chance": 0.4, "needs": "dissect" } ]
 }
 ```
