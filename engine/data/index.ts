@@ -46,7 +46,7 @@ export const SOURCES: Record<string, string> = {
   action_kind: 'AI_TASKS 3.1 節的行動種類表（殺價、打工、日常直播等那三個系統搬進來再加）',
   battle_mode: 'COMBAT_SYSTEM 第 1.2、2.1、2.5、3、4、5、6、7 節；ENEMIES 1.5 節（位階的傷害倍率）；現實一筆（內海 net 在 M3）。aiMaxSteps、decayBase、pierceOverflow 的出處見 dev/adr/0013',
   damage_type: 'COMBAT_SYSTEM 第 5 節「傷害類型」的表',
-  battle_status: 'COMBAT_SYSTEM 第 5 節（壓制）、第 6 節（重創輕的一級）、第 5 節傷害類型（燃燒、失效）、第 7 節（失去回合）、標記的 +2 見 COMBAT_SYSTEM 9.1 節（偵察型）與 ITEMS 5.2 節（紙鶴），期限（到標記者的下一回合開始前）取工單；EVENTS 2.4.1 節（被壓住）',
+  battle_status: 'COMBAT_SYSTEM 第 5 節（壓制）、第 6 節（重創輕的一級）、第 5 節傷害類型（燃燒、失效）、第 7 節（失去回合）、標記的 +2 見 COMBAT_SYSTEM 9.1 節（偵察型）與 ITEMS 5.2 節（紙鶴），期限（到標記者的下一回合開始前）取工單；EVENTS 2.4.1 節（被壓住）；M1b-data-rules（dev/work/M1b-data-rules.md）：SKILL_TREES 改造師「拆解」「超頻」兩列（off_*、boost_*）、ITEMS 5.1 節電磁彈與 5.2 節閃光彈、一次性偵察機紙鶴（ap_minus_1、see_dark）、COMBAT_SYSTEM 2.5 節黑暗（see_dark）、dev/adr/0015 第二、三節（untargeted 與修正種類）',
   weapon_class: 'COMBAT_SYSTEM 第 5 節的武器表；範圍寫法（神經武器骰數、彈匣、重武器）取驗收測試的值',
   item: 'ITEMS 5.2 節的消耗品表與日用品表（束帶、鎖橋器、急救凝膠、冷卻劑、止血針、醒腦針、煙霧彈 I～II）；size 0 照 EQUIPMENT 6.1 節',
   enemy: 'ENEMY_ROSTER 第一到第五部分（現實的制式兵種）；ENEMIES 1.5、1.6 節',

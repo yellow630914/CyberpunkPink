@@ -98,5 +98,133 @@
     "once": true,
     "until": "battle_end",
     "kind": "debuff"
+  },
+  {
+    "id": "off_limb",
+    "name": "義肢失效",
+    "desc": "義肢受到干擾失效：到他下一回合結束前，他的攻擊命中 −2。",
+    "mods": {
+      "hit": -2
+    },
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "debuff"
+  },
+  {
+    "id": "off_eye",
+    "name": "義眼失效",
+    "desc": "義眼受到干擾失效：到他下一回合結束前，他的攻擊命中 −2。",
+    "mods": {
+      "hit": -2
+    },
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "debuff"
+  },
+  {
+    "id": "off_smartgun",
+    "name": "智慧槍失效",
+    "desc": "智慧槍受到干擾失效：到他下一回合結束前，他的攻擊命中 −2。",
+    "mods": {
+      "hit": -2
+    },
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "debuff"
+  },
+  {
+    "id": "off_reflex",
+    "name": "反射加速器失效",
+    "desc": "反射加速器受到干擾失效：他的下一回合少回 1 點行動點。",
+    "turn_start": {
+      "ap": -1
+    },
+    "once": true,
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "debuff"
+  },
+  {
+    "id": "off_generic",
+    "name": "義體失效",
+    "desc": "他的一件義體受到干擾失效，到他下一回合結束前不能運作；沒有數字上的影響。",
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "debuff"
+  },
+  {
+    "id": "boost_limb",
+    "name": "義肢超頻",
+    "desc": "義肢超頻：到他下一回合結束前，他的攻擊命中 +2。",
+    "mods": {
+      "hit": 2
+    },
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "buff"
+  },
+  {
+    "id": "boost_smartgun",
+    "name": "智慧槍超頻",
+    "desc": "智慧槍超頻：到他下一回合結束前，他的攻擊命中 +2。",
+    "mods": {
+      "hit": 2
+    },
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "buff"
+  },
+  {
+    "id": "boost_subdermal",
+    "name": "皮下裝甲超頻",
+    "desc": "皮下裝甲超頻：到他下一回合結束前，護甲 +2。",
+    "mods": {
+      "armor": 2
+    },
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "buff"
+  },
+  {
+    "id": "boost_generic",
+    "name": "義體超頻",
+    "desc": "他的一件義體超頻運作到他下一回合結束；沒有數字上的影響。",
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "buff"
+  },
+  {
+    "id": "ap_minus_1",
+    "name": "行動點 −1",
+    "desc": "被打亂了節奏：他的下一回合少 1 點行動點。",
+    "turn_start": {
+      "ap": -1
+    },
+    "once": true,
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "debuff"
+  },
+  {
+    "id": "see_dark",
+    "name": "不受黑暗影響",
+    "desc": "看得清黑暗中的一切：到他下一回合結束前，他攻擊時不受黑暗影響。",
+    "mods": {
+      "see_dark": 1
+    },
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "buff"
+  },
+  {
+    "id": "untargeted",
+    "name": "不被當成目標",
+    "desc": "敵人不會把他當成目標，除非場上只剩他打得到：到他下一回合結束前有效。",
+    "mods": {
+      "ai_target_pct": -100
+    },
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "buff"
   }
 ]

@@ -72,7 +72,7 @@ describe('M1-data-rules：戰鬥的規則數值', () => {
   it('戰鬥中的狀態：壓制、暈眩、流血、燃燒、標記、失效、肢體受創、被壓住、失去回合', () => {
     const k = kernel()
     const s = (id: string) => k.content.get<BattleStatusEntry>('battle_status', id)!
-    expect(k.content.list('battle_status').map((e) => e.id).sort()).toEqual(['bleeding', 'burning', 'dazed', 'jammed', 'limb_hurt', 'lose_turn', 'marked', 'pinned_down', 'suppressed'])
+    expect(k.content.list('battle_status').map((e) => e.id)).toEqual(expect.arrayContaining(['bleeding', 'burning', 'dazed', 'jammed', 'limb_hurt', 'lose_turn', 'marked', 'pinned_down', 'suppressed'])) // M1b-data-rules 之後多了義體失效等十二個，見 M1b-data-rules.test.ts
     // 壓制：到他下一回合結束前不能換位，攻擊 −2（COMBAT_SYSTEM 第 5 節）
     expect(s('suppressed')).toMatchObject({ name: '壓制', mods: { hit: -2 }, no_move: true, until: 'own_turn_end', kind: 'debuff' })
     // 重創的輕的那一級（第 6 節）：頭是暈眩（下回合行動點 −2）、軀幹是流血（每回合 −2，急救可停）、肢體是相關檢定 −2 到戰鬥結束

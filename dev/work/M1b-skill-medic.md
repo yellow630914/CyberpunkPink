@@ -41,3 +41,9 @@ M1b-core-overlay（`implants`）、M1b-ops、M1b-skill-format、M1b-data-rules�
 ## 完成時回報
 
 改了哪些檔、測試結果、對照表、遇到的規格問題。
+
+## 規則表狀態那張留下的（2026-11-22，M1b-data-rules 回報）
+
+- 「超頻結束時那名隊友感載 +4」狀態格式沒有結束時的效果，這張自己在技能效果或掛點處理。
+- `boost_limb`、`boost_smartgun` 只表達得到「到他下一回合結束」，設計書是「下一次攻擊」；要精確就用效果登錄表的一次性修正。
+- `off_limb`／`off_eye`／`off_smartgun` 不分哪一隻手、哪把槍，一律命中 −2；`boost_eye`（遮蔽當低一級）沒有修正種類，沒加。
