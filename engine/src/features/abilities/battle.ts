@@ -228,6 +228,16 @@ function droneOptions(u: BattleUnit): BattlePickOption[] {
   }))
 }
 
+/**
+ * 敵方沒被擊落的每一台掛著的東西（pick 的 kind 是 foe_overlay：管理員接管哪一台）。值是那一台的 id（核心 who: 'foe_overlay' 讀 pick.overlay），
+ * at 指到那一台；畫面用 choice 列出。
+ */
+function overlayOptions(view: BattleView, u: BattleUnit): BattlePickOption[] {
+  return view.battle.overlays
+    .filter((o) => !o.down && o.side !== u.side)
+    .map((o) => ({ value: o.id, label: o.name, blocks: [], at: { overlay: o.id } as BattleTarget }))
+}
+
 /** 幾種用法挑一種：選項的條件（when）灰掉自己的原因；目標的條件（needs）只讓適用的目標看到這一項。 */
 function chooseOptions(view: BattleView, u: BattleUnit, m: MeatDef): BattlePickOption[] {
   const units = candidates(view, u, m)
@@ -268,6 +278,7 @@ function picksOf(view: BattleView, u: BattleUnit, ab: AbilityEntry, m: MeatDef):
   for (const d of m.picks ?? []) {
     if (d.kind === 'choice') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: chooseOptions(view, u, m) })
     else if (d.kind === 'drone') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: droneOptions(u) })
+    else if (d.kind === 'foe_overlay') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: overlayOptions(view, u) })
     else out.push({ key: d.key, label: d.label, kind: d.kind, required: d.required ?? true, options: declaredOptions(view, u, d.kind, d.adjacent === true, d.apart ? pickTargets(view, u, m, d.kind) : [], d) })
   }
   if (m.choose?.length && !m.picks?.some((p) => p.kind === 'choice')) out.push({ key: 'choice', label: '用法', kind: 'choice', required: true, options: chooseOptions(view, u, m) })
@@ -282,7 +293,7 @@ function picksOf(view: BattleView, u: BattleUnit, ab: AbilityEntry, m: MeatDef):
 /** 做的時候照宣告查：一定要選的有沒有選、選的在不在選項裡、選的用法條件成不成立。 */
 function checkPicks(run: BattleRun, u: BattleUnit, m: MeatDef, input: BattleInput, target: BattleUnit | undefined): void {
   for (const d of m.picks ?? []) {
-    const options = d.kind === 'choice' ? chooseOptions(run, u, m) : d.kind === 'drone' ? droneOptions(u) : declaredOptions(run, u, d.kind, d.adjacent === true, [], d)
+    const options = d.kind === 'choice' ? chooseOptions(run, u, m) : d.kind === 'drone' ? droneOptions(u) : d.kind === 'foe_overlay' ? overlayOptions(run, u) : declaredOptions(run, u, d.kind, d.adjacent === true, [], d)
     const v = input.pick?.[d.key]
     if (d.apart && v !== undefined && target && v === target.id && pickTargets(run, u, m, d.kind).length) throw new BattleBlocked([`${d.label}不能選${target.name}（和目標是同一個人）。`])
     if (v === undefined) {

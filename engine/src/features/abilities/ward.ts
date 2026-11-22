@@ -21,6 +21,8 @@ export interface Ward {
   slot: number
   on: WardOn[]
   until: (typeof WARD_UNTIL)[number]
+  /** true：他在自己的回合裡守的、until 是 own_turn_end：這個回合的結束不算（核心 run.skipsOwnTurnEnd 的規則），數到第一次時拿掉記號 */
+  skip?: true
   do: Array<Record<string, unknown>>
   source: { kind: 'ability'; id: string; name: string }
   tier: number
@@ -69,6 +71,7 @@ export function registerWard(k: Kernel): void {
       until: (typeof e.until === 'string' ? e.until : 'own_turn_start') as Ward['until'],
       do: structuredClone((e.do ?? []) as Array<Record<string, unknown>>), source: { kind: 'ability', id: ctx.source.id, name: ctx.source.name }, tier: ctx.n.tier ?? 1,
     }
+    if (ward.until === 'own_turn_end' && ctx.run.skipsOwnTurnEnd(ctx.user, ctx.user)) ward.skip = true
     setWards(ctx.user, [...wardsOf(ctx.user).filter((w) => w.id !== ward.id), ward])
     ctx.run.say(`${ctx.user.name}：守著${t.side === 'foe' ? '敵方' : '我方'}第 ${t.slot} 格。`, 'skill', { unit: ctx.user.id, ability: ctx.source.id, side: t.side, slot: t.slot }, ctx.user)
   }, {
@@ -115,7 +118,12 @@ export function registerWard(k: Kernel): void {
     for (const { holder, ward } of allWards(run)) if (holder === unit && ward.until === 'own_turn_start') setWards(holder, wardsOf(holder).filter((w) => w !== ward))
   })
   k.battle.on('turn.end', OWNER, ({ run, unit }) => {
-    for (const { holder, ward } of allWards(run)) if (holder === unit && ward.until === 'own_turn_end') setWards(holder, wardsOf(holder).filter((w) => w !== ward))
+    for (const { holder, ward } of allWards(run)) {
+      if (holder !== unit || ward.until !== 'own_turn_end') continue
+      // 在自己的回合裡守的：這個回合的結束不算，只拿掉記號
+      if (ward.skip) delete ward.skip
+      else setWards(holder, wardsOf(holder).filter((w) => w !== ward))
+    }
   })
   // 守著的人退出：他守的都失效
   k.battle.on('out', OWNER, ({ unit }) => {

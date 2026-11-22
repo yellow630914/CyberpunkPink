@@ -37,7 +37,7 @@ export const WHEN_MEAT = ['wield', 'mag_min', 'hull', 'stance', 'slot', 'node_ta
 export const WHEN_MODS = [...WHEN_MEAT, 'first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_status', 'other_contract', 'target_near', 'first_attack'] as const
 export const NEEDS_KEYS = ['bridged', 'cyber', 'status', 'no_rank', 'rank', 'wounded', 'afterglow', 'tag', 'cache_tag', 'implant_off', 'any'] as const
 export const MOD_WHO = ['self', 'adjacent', 'allies', 'behind'] as const
-export const PICK_KINDS = ['foe', 'ally', 'ally_slot', 'foe_slot', 'choice', 'drone'] as const
+export const PICK_KINDS = ['foe', 'ally', 'ally_slot', 'foe_slot', 'choice', 'drone', 'foe_overlay'] as const
 export const PREP_SCOPES = ['next_battle', 'commission'] as const
 
 /** 反應的 who（誰遇到這件事）：照 on 分。 */
@@ -475,6 +475,7 @@ export function meatProblems(m: Record<string, unknown>, kind: unknown, k?: Pick
         if (!isText(x.label)) p.push(`${at}.label 要是給玩家看的名字`)
         if (!(PICK_KINDS as readonly unknown[]).includes(x.kind)) p.push(`${at}.kind「${String(x.kind)}」不在清單裡（可以寫：${PICK_KINDS.join('、')}）`)
         if (x.required !== undefined && typeof x.required !== 'boolean') p.push(`${at}.required 要是 true 或 false`)
+        if (x.kind === 'foe_overlay' && x.key !== 'overlay') p.push(`${at}.key 在 kind 是 foe_overlay 時要叫 overlay（效果的 who: 'foe_overlay' 讀的是 pick.overlay）`)
         if (x.kind === 'choice' && !Array.isArray(m.choose)) p.push(`${at}.kind 是 choice 時要有 meat.choose（選項從 choose 來）`)
       })
       if (m.picks.filter((x) => isRec(x) && x.kind === 'choice').length > 1) p.push('meat.picks 最多只能有一個 choice')

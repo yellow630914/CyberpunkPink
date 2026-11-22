@@ -79,7 +79,7 @@ const GUNNER: Rec[] = [
   g('sk_gunner_barrage', 4, 'stance', { name: '彈幕', use: { ap: 1 }, meat: { alter: [{ ability: 'sk_gunner_burst', when: { stance: 'sk_gunner_barrage' }, set: { 'attack.suppress.area': 'adjacent', 'attack.suppress.dc_bonus': 2 } }] } }),
   g('sk_gunner_flow', 4, 'active', {
     name: '心流', use: { ap: 0, per_fight: 1 },
-    meat: { do: [{ op: 'buff', who: 'self', id: 'flow', name: '心流', turns: 3, until: 'own_turn_end', mods: [{ kind: 'instinct_points', value: 2 }, { kind: 'instinct_cap', value: 2 }, { kind: 'instinct_free', value: 1 }] }] },
+    meat: { do: [{ op: 'buff', who: 'self', id: 'flow', name: '心流', turns: 2, until: 'own_turn_end', mods: [{ kind: 'instinct_points', value: 2 }, { kind: 'instinct_cap', value: 2 }, { kind: 'instinct_free', value: 1 }] }] },
   }),
   g('sk_gunner_next_one', 4, 'active', {
     name: '下一個！', use: { ap: 2 },
@@ -100,7 +100,7 @@ const GUNNER: Rec[] = [
   }),
   g('sk_gunner_bullet_time', 5, 'active', {
     name: '子彈時間', use: { ap: 0, per_fight: 1 },
-    meat: { do: [{ op: 'buff', who: 'self', id: 'bullet_time', name: '子彈時間', turns: 3, until: 'own_turn_end', mods: [{ kind: 'ap_regen', value: 2 }, { kind: 'aim_all', value: 1 }], on_end: [{ op: 'load', exact: true, amount: 10 }] }] },
+    meat: { do: [{ op: 'buff', who: 'self', id: 'bullet_time', name: '子彈時間', turns: 2, until: 'own_turn_end', mods: [{ kind: 'ap_regen', value: 2 }, { kind: 'aim_all', value: 1 }], on_end: [{ op: 'load', exact: true, amount: 10 }] }] },
   }),
   g('sk_gunner_gun_unity', 5, 'passive', { name: '人槍合一', meat: { mods: [{ kind: 'hit', value: 1 }, { kind: 'pierce', value: 1 }, { kind: 'crit_margin', to: 3 }] } }),
   g('sk_gunner_right_back', 5, 'reaction', { name: '還給你～', use: { ap: 1, per_turn: 1 }, meat: { trigger: { on: 'after', who: 'near', if: 'miss' }, do: [{ op: 'attack', who: 'attacker', hit: 2 }] } }),

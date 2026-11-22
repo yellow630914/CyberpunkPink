@@ -120,7 +120,7 @@ interface Taken {
   mode: 'takeover' | 'rewrite'
   /** 還剩幾個做的人的回合結束；null 是到戰鬥結束 */
   left: number | null
-  /** 這個回合是做的人自己的回合、才剛接管：這個回合結束不算 */
+  /** 這個回合是做的人自己的回合、才剛接管：這個回合結束不算（問核心的 run.skipsOwnTurnEnd，和狀態、buff 同一個規則） */
   fresh: boolean
   from: { side: BattleSide; owner?: string; auto?: boolean; autonomous?: boolean }
 }
@@ -144,7 +144,7 @@ function takeoverOp(ctx: Ctx, e: Eff): void {
     return
   }
   const taken: Taken = {
-    by: user.id, mode, left, fresh: user.id === run.current()?.id,
+    by: user.id, mode, left, fresh: run.skipsOwnTurnEnd(user, user),
     from: { side: o.side, ...(o.owner ? { owner: o.owner } : {}), ...(o.auto ? { auto: true } : {}), ...(o.autonomous ? { autonomous: true } : {}) },
   }
   o.ext = { ...o.ext }

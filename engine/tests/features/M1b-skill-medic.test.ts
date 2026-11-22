@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import type { BattleActionOption, BattleInput, BattleSetup, BattleTarget, BattleUnit, ContentPack, Kernel } from '../../src'
 import { BattleBlocked, BattleRun, LOSE_TURN, advance, battleAct, beginTurn, performAction, readyFeatures } from '../../src'
 import { abilitiesFeature } from '../../src/features/abilities'
+import { unitBuffs } from '../../src/features/abilities/unitdata'
 import { combatFeature } from '../../src/features/combat'
 import { makeBattleGame, makeGame, observed, playOut, testWeapon } from '../../src/testkit'
 import type { Arena } from '../helpers/battle'
@@ -44,13 +45,6 @@ const DISMANTLE_CHECK = { op: 'check', attr: 'tech', skill: 'cyberware', vs: 'ev
 const CYBER_AS = { attr: 'tech', skill: 'cyberware' }
 /** 全面翻修的「至少回到上限的一半」：還是重傷（低於一半）就一步一步回，到不是重傷為止（設計書說至少回到一半；這是近似，見回報）。 */
 const UP_TO_HALF = [8, 8, 8, 4, 2, 1, 1].map((amount) => ({ op: 'branch', needs: { wounded: true }, do: [{ op: 'heal', amount }] }))
-/**
- * buff 對自己用的計時要多算一個自己的回合：到「他下一回合結束」的效果，給自己時目前這個回合的結束也會數一次（branch 的 self）。
- * 核心的狀態已經不這樣了（M1b-core-fix3：對自己給的 own_turn_end 從下一個回合算起）；buff 的計時在 features/abilities/mods.ts，
- * 等它套用同一個規則（run.skipsOwnTurnEnd）之後，這個繞道與用到它的兩處（超頻、極限超頻）一起拿掉。
- */
-const timed = (make: (turns: number) => Rec[], turns: number): Rec[] => [{ op: 'branch', self: true, do: make(turns + 1), else: make(turns) }]
-
 const MEDIC: Rec[] = [
   // ---- 1 階 ----
   // 用快取格的醫療道具急救只花 1 點（對象自己或相鄰），回的生命多樹階；對有義體的目標打近戰可以用義體學代替格鬥（差是負的就不加）
@@ -103,8 +97,8 @@ const MEDIC: Rec[] = [
       do: [
         // 狀態：給自己時核心自己從下一個回合結束算起（own_turn_end 的規則，run.skipsOwnTurnEnd），不必多算一回合
         { op: 'implant', mode: 'boost' },
-        // buff 的計時在 features/abilities、還沒套用同一個規則，所以給自己時還要多算一回合（待 abilities 統一之後拿掉 timed）
-        ...timed((turns) => [{ op: 'buff', if: 'ok', id: 'overclock', name: '超頻', turns, until: 'own_turn_end', on_end: [{ op: 'load', amount: 4, exact: true }] }], 1),
+        // buff 的計時同狀態：給自己時從下一個回合結束算起（UnitBuff.skip）
+        { op: 'buff', if: 'ok', id: 'overclock', name: '超頻', turns: 1, until: 'own_turn_end', on_end: [{ op: 'load', amount: 4, exact: true }] },
       ],
     },
   }),
@@ -206,7 +200,7 @@ const MEDIC: Rec[] = [
     use: { ap: 1, per_fight: 1 },
     meat: {
       target: 'near',
-      do: timed((turns) => [{ op: 'buff', id: 'extreme', name: '極限超頻', turns, until: 'own_turn_end', mods: [{ kind: 'ap_regen', value: 1 }, { kind: 'hit', value: 1 }], on_end: [{ op: 'afterglow', amount: 1 }] }], 3),
+      do: [{ op: 'buff', id: 'extreme', name: '極限超頻', turns: 3, until: 'own_turn_end', mods: [{ kind: 'ap_regen', value: 1 }, { kind: 'hit', value: 1 }], on_end: [{ op: 'afterglow', amount: 1 }] }],
     },
   }),
   // 回復多 4 點；每回合第一次治療隊友（急救、戰場急救、排好隊喔、戰地手術）退還 1 點行動點
@@ -395,7 +389,7 @@ describe('這棵樹的二十七個技能：載得進來、格式檢查全過；�
     expect(load({ target: 'enemy', do: [{ op: 'implant', mode: 'boost', take: true }] })).toThrow(/take：只有 mode 是 off/)
     expect(load({ target: 'enemy', do: [{ op: 'implant', mode: 'off', take: true, turns: 2 }] })).toThrow(/take：已經是到戰鬥結束都失效/)
     expect(load({ target: 'enemy', do: [{ op: 'implant', mode: 'off', take: 'yes' }] })).toThrow(/take/)
-    expect(load({ target: 'enemy', do: [{ op: 'branch', self: 'x', do: [{ op: 'heal', amount: 1 }] }] })).toThrow(/self：要是 true 或 false/)
+    expect(load({ target: 'enemy', do: [{ op: 'branch', self: true, when: { wounded: true }, do: [{ op: 'heal', amount: 1 }] }] })).toThrow(/self：不認得的欄位/)
     // 對的寫法載得進去
     expect(load({ target: 'enemy', needs: { implant_off: true }, action_tags: ['heal'], do: [{ op: 'implant', mode: 'off', take: true }] })).not.toThrow()
   })
@@ -628,7 +622,7 @@ describe('超頻：一件義體超頻到他下一回合結束，結束時那名�
     expect(t[2]!.blocks).toEqual(['喬不在相鄰的格子，只能對自己或相鄰的隊友用。', '喬要有義體才能用。'])
   })
 
-  it('給自己：到「他下一回合結束」，所以這個回合的結束不算（狀態是核心的 skip，buff 是多算一回合）；自己的回合結束兩次才結束', () => {
+  it('給自己：到「他下一回合結束」，所以這個回合的結束不算（狀態與 buff 同一個規則：核心的 skip、UnitBuff.skip）；自己的回合結束兩次才結束', () => {
     const a = world([O], withImplants())
     // 他自己的回合正在進行（狀態的略過看這個）
     a.battle.order = ['a1', ...a.battle.order.filter((id) => id !== 'a1')]
@@ -637,6 +631,7 @@ describe('超頻：一件義體超頻到他下一回合結束，結束時那名�
     beginTurn(a.run(), a.ally(1))
     cast(a, O, u('a1'))
     expect(a.ally(1).statuses[0]).toMatchObject({ id: 'boost_limb', until: { at: 'turn_end', of: 'a1', turns: 1, skip: true } })
+    expect(unitBuffs(a.ally(1))[0]).toMatchObject({ id: 'overclock', turns: 1, skip: true })
     const run = a.run()
     const endTurn = () => a.k.battle.emit('turn.end', { run, unit: a.ally(1) })
     endTurn()
@@ -645,7 +640,7 @@ describe('超頻：一件義體超頻到他下一回合結束，結束時那名�
     expect(a.ally(1).load!.now).toBe(4)
   })
 
-  it('給自己的超頻狀態：自己的回合結束時還在，下一個自己的回合結束才拿掉（核心的 skip；沒有 branch.self 的繞道）', () => {
+  it('給自己的超頻狀態：自己的回合結束時還在，下一個自己的回合結束才拿掉（核心的 skip）', () => {
     const a = world([O], withImplants())
     a.battle.order = ['a1', ...a.battle.order.filter((id) => id !== 'a1')]
     delete a.battle.acting
@@ -1184,8 +1179,13 @@ describe('極限超頻、全面翻修', () => {
     expect(reasonOf(() => cast(a, E, u('a2')))).toEqual(['這一場已經用過了。'])
   })
 
-  it('極限超頻給自己：目前這個回合的結束不算，所以是四次回合結束', () => {
+  it('極限超頻給自己：目前這個回合的結束不算（turns 照寫 3，不必多算），所以是四次回合結束', () => {
     const a = world([E])
+    // 他自己的回合正在進行（buff 的略過看 run.skipsOwnTurnEnd）
+    a.battle.order = ['a1', ...a.battle.order.filter((id) => id !== 'a1')]
+    delete a.battle.acting
+    a.battle.turn = 0
+    beginTurn(a.run(), a.ally(1))
     cast(a, E, u('a1'))
     const run = a.run()
     const me = a.ally(1)

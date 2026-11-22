@@ -693,7 +693,7 @@
           "who": "self",
           "id": "flow",
           "name": "心流",
-          "turns": 3,
+          "turns": 2,
           "until": "own_turn_end",
           "mods": [
             {
@@ -921,7 +921,7 @@
           "who": "self",
           "id": "bullet_time",
           "name": "子彈時間",
-          "turns": 3,
+          "turns": 2,
           "until": "own_turn_end",
           "mods": [
             {

@@ -136,6 +136,12 @@ function tickBuffs(run: BattleRun, at: 'turn_start' | 'turn_end', of: BattleUnit
         kept.push(b)
         continue
       }
+      // 他在自己的回合裡給自己的 own_turn_end：這個回合的結束不算（registerBuff 標的 skip），數到第一次只拿掉記號
+      if (b.skip) {
+        delete b.skip
+        kept.push(b)
+        continue
+      }
       b.turns -= 1
       ;(b.turns <= 0 ? ended : kept).push(b)
     }
@@ -176,6 +182,8 @@ export function registerBuff(k: Kernel): void {
       of: until.startsWith('source') ? ctx.user.id : unit.id, by: ctx.user.id,
       tier: ctx.n.tier ?? (ab ? tierIn(ctx.user, ab.path) : 1), source: { kind: source.kind, id: source.id, name: source.name },
       mods: structuredClone((e.mods ?? []) as ModEntry[]), on_end: structuredClone((e.on_end ?? []) as Array<Record<string, unknown>>),
+      // 到「他」的下一個回合結束：給自己、又在自己的回合裡給，這個回合的結束不算（同核心狀態的規則）
+      ...(until === 'own_turn_end' && ctx.run.skipsOwnTurnEnd(unit, ctx.user) ? { skip: true as const } : {}),
       ...(e.mask === true ? { mask: {} } : isRec(e.mask) ? { mask: structuredClone(e.mask) as { rounds?: number } } : {}),
     }
     setBuffs(unit, [...unitBuffs(unit).filter((b) => b.id !== id), buff])

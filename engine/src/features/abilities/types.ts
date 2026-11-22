@@ -172,8 +172,11 @@ export interface ReactDef {
 export interface PickDecl {
   key: string
   label: string
-  /** drone：選單位上 ext.summons.drones 裡的哪一台（值是第幾台，給 drone.deploy 的 drone 讀） */
-  kind: 'foe' | 'ally' | 'ally_slot' | 'foe_slot' | 'choice' | 'drone'
+  /**
+   * drone：選單位上 ext.summons.drones 裡的哪一台（值是第幾台，給 drone.deploy 的 drone 讀）。
+   * foe_overlay：選敵方沒被擊落的哪一台掛著的東西（值是那一台的 id，效果 who: 'foe_overlay' 讀 pick.overlay，所以鍵要叫 overlay；畫面用 choice 列出）
+   */
+  kind: 'foe' | 'ally' | 'ally_slot' | 'foe_slot' | 'choice' | 'drone' | 'foe_overlay'
   required?: boolean
   /** kind 是 ally 時：只有和自己相鄰的隊友選得了（掩護撤退） */
   adjacent?: true
@@ -401,6 +404,8 @@ export interface UnitBuff {
   source: { kind: string; id: string; name: string }
   mods: ModEntry[]
   on_end: Array<Record<string, unknown>>
+  /** true：他在自己的回合裡給自己的 own_turn_end，這個回合的結束不算（數到第一次時拿掉記號、不扣 turns；核心 run.skipsOwnTurnEnd 的規則，和狀態一致） */
+  skip?: true
   /** 面具（換臉、千面）：有 rounds 的到那一回合為止（含），沒有的在這一段 buff 還在的時候都算；規則同被動的 meat.mask */
   mask?: { rounds?: number }
 }

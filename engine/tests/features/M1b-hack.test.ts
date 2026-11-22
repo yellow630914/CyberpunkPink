@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { BattleInput, BattleOverlay, BattleTarget, ContentPack, Feature, Kernel } from '../../src'
-import { BattleBlocked, BattleRun, actionCost, aiStep, beginTurn, performAction, pickApplies, readyFeatures } from '../../src'
+import { BattleBlocked, BattleRun, actionCost, aiStep, beginTurn, performAction, pickApplies, pickProblems, readyFeatures } from '../../src'
 import { abilitiesFeature } from '../../src/features/abilities'
 import { combatFeature } from '../../src/features/combat'
 import { hackFeature } from '../../src/features/hack'
@@ -561,6 +561,8 @@ describe('hack.takeover：接管與改寫', () => {
   const setup = () => {
     const a = world({ foes: [idle(), idle()] })
     myTurn(a)
+    // 他的回合正在進行（接管的「這個回合結束不算」問核心的 run.skipsOwnTurnEnd，看 battle.acting）
+    a.battle.acting = 'a1'
     return { a, o: overlay(a) }
   }
   const endTurn = (a: Arena, id = 'a1') => a.k.battle.emit('turn.end', { run: a.run(), unit: a.battle.units[id]! })
@@ -591,6 +593,30 @@ describe('hack.takeover：接管與改寫', () => {
     expect(o).toMatchObject({ side: 'foe', auto: true, autonomous: true })
     expect(o.owner).toBeUndefined()
     expect((o.ext as Rec).hack).toEqual({})
+  })
+  it('在別人的回合裡接管（反應）：做的人自己的回合結束就算數（只有自己的回合裡接管才略過那一次，run.skipsOwnTurnEnd）', () => {
+    const a = world({ foes: [idle(), idle()] })
+    myTurn(a, 'a2')
+    a.battle.acting = 'a2'
+    const o = overlay(a)
+    cast(a, 'hack.qh_take', { overlay: o.id })
+    expect(o.side).toBe('ally')
+    expect((o.ext as { hack: { taken: { fresh: boolean } } }).hack.taken.fresh).toBe(false)
+    endTurn(a) // 第一個
+    expect(o.side).toBe('ally')
+    endTurn(a) // 第二個：到期
+    expect(o.side).toBe('foe')
+  })
+  it('自己的回合裡接管：標 fresh（問 run.skipsOwnTurnEnd），這個回合的結束不算；回合不在進行（acting 沒設）不算自己的回合', () => {
+    const { a, o } = setup()
+    cast(a, 'hack.qh_take', { overlay: o.id })
+    expect((o.ext as { hack: { taken: { fresh: boolean } } }).hack.taken.fresh).toBe(true)
+    const b = world({ foes: [idle(), idle()] })
+    myTurn(b)
+    delete b.battle.acting
+    const p = overlay(b)
+    cast(b, 'hack.qh_take', { overlay: p.id })
+    expect((p.ext as { hack: { taken: { fresh: boolean } } }).hack.taken.fresh).toBe(false)
   })
   it('接管來的東西在我方手上做得了動作：用它的武器打敵人（技能指揮它用 drone.act，見下一條）', () => {
     const { a, o } = setup()
@@ -960,8 +986,8 @@ const NET_ABILITIES: Rec[] = [
   nab('sk_black', '黑冰', 'active', 5, { target: 'enemy', needs: { bridged: true }, do: [CHECK('neural'), { op: 'load', amount: 'spentd6', type: 'neural' }] }, { use: { ap: 1, ram_all_min: 5, per_fight: 1 }, cap: 3, after: 'sk_puppet' }),
   nab('sk_backup', '備份', 'active', 5, { target: 'none', do: [{ op: 'buff', id: 'backup', name: '備份', turns: 1, until: 'source_turn_start', mods: [{ kind: 'evade', value: 1 }], who: 'allies' }, { op: 'unstatus', kinds: ['debuff', 'mark'], count: 1, who: 'allies' }] }, { use: { ap: 1, ram: 6, per_fight: 1 }, cap: 3, after: 'sk_noleave' }),
   // 不用先選一台：關燈與降遮蔽照做，接管落在敵方的一台（who: foe_overlay，M1b-core-fix3；樹上寫「一台」）：玩家選的（pick.overlay）、沒選就是最前面的一台。
-  // 技能的 picks 還沒有「選敵方的一台」這種宣告（features/abilities 的 PickDecl，等 M1b-skill-social 做完再補），所以現在沒選就接管最前面的
-  nab('sk_admin', '管理員', 'active', 5, { target: 'none', when: { node_taken: true }, do: [{ op: 'field', key: 'dark' }, { op: 'cover', levels: -1, who: 'foes' }, { op: 'hack.takeover', until: 'battle_end', who: 'foe_overlay' }] }, { use: { ap: 1, ram: 6, per_fight: 1 }, cap: 3, after: 'sk_multi' }),
+  // picks 的 kind: 'foe_overlay' 讓玩家選得到是哪一台（不必選：required false）
+  nab('sk_admin', '管理員', 'active', 5, { target: 'none', when: { node_taken: true }, picks: [{ key: 'overlay', label: '接管哪一台', kind: 'foe_overlay', required: false }], do: [{ op: 'field', key: 'dark' }, { op: 'cover', levels: -1, who: 'foes' }, { op: 'hack.takeover', until: 'battle_end', who: 'foe_overlay' }] }, { use: { ap: 1, ram: 6, per_fight: 1 }, cap: 3, after: 'sk_multi' }),
   nab('sk_root', '根權限', 'passive', 5, { mods: [{ kind: 'action_ram', value: -1, tags: ['hack'], per_turn: 1 }] }, { layer: 'back', cap: 6, after: 'sk_admin' }),
 ]
 const NET_PACK: ContentPack = { id: 'net_tree', content: { path: [NET_TREE], ability: NET_ABILITIES } } as unknown as ContentPack
@@ -1351,11 +1377,59 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     const b = net(['sk_admin'], { tier: 5, cover: { ally: [0, 0, 0, 0], foe: [1, 1, 0, 0] }, more: { nodes: [{ kind: 'light' }] } })
     b.battle.nodes[0]!.taken = true
     const [p1] = [overlay(b, { slot: 1 }), overlay(b, { slot: 2 })]
-    cast(b, 'sk_admin', null, { pick: { overlay: 'nope' } })
+    // 技能的 picks 宣告會先擋下不在選項裡的（見下一條）；這裡直接做效果清單，看核心的 who: foe_overlay：選的不是敵方的一台就整筆不做
+    const admin = NET_ABILITIES.find((x) => x.id === 'sk_admin') as { meat: { do: Array<Record<string, unknown>> } }
+    b.run().effects(admin.meat.do, { user: b.ally(1), target: null, source: { kind: 'ability', id: 'sk_admin', name: '管理員' }, pick: { overlay: 'nope' } })
     expect(p1.side).toBe('foe')
     expect(b.battle.overlays.every((x) => x.side === 'foe')).toBe(true)
     expect(b.battle.field.dark).toBe(true)
     expect(b.battle.cover.foe.slice(0, 2).map((c) => c.level)).toEqual([0, 0])
+  })
+
+  it('管理員的 picks：kind foe_overlay 列出敵方沒被擊落的每一台（值是 id、at 指到那一台、用 choice 列出、可以不選）；我方的與被擊落的不列', () => {
+    const a = net(['sk_admin'], { tier: 5, more: { nodes: [{ kind: 'light' }] } })
+    const [o1, o2, o3] = [overlay(a, { slot: 1, name: '一號砲台' }), overlay(a, { slot: 2, name: '二號砲台' }), overlay(a, { slot: 3, name: '三號砲台' })]
+    o3.down = true
+    a.run().addOverlay({ side: 'ally', slot: 4, owner: 'a1', kind: 'attack', name: '我的無人機', hp: { now: 10, max: 10 }, armor: 0, evade: 0 })
+    const picks = defOf(a, 'sk_admin').picks!(a.run(), a.ally(1))
+    expect(picks).toHaveLength(1)
+    expect(picks[0]).toMatchObject({ key: 'overlay', label: '接管哪一台', kind: 'choice', required: false })
+    expect(picks[0]!.options).toEqual([
+      { value: o1.id, label: '一號砲台', blocks: [], at: { overlay: o1.id } },
+      { value: o2.id, label: '二號砲台', blocks: [], at: { overlay: o2.id } },
+    ])
+  })
+
+  it('管理員：玩家照宣告選了哪一台就接管那一台；不選就最前面的；選了我方的或被擊落的是 BattleBlocked（宣告與行動對得上）', () => {
+    const mk = () => {
+      const a = net(['sk_admin'], { tier: 5, more: { nodes: [{ kind: 'light' }] } })
+      a.battle.nodes[0]!.taken = true
+      return a
+    }
+    const a = mk()
+    const [o1, o2] = [overlay(a, { slot: 1 }), overlay(a, { slot: 2 })]
+    const picks = defOf(a, 'sk_admin').picks!(a.run(), a.ally(1))
+    expect(pickProblems(picks, null, { overlay: o2.id })).toEqual([])
+    expect(pickProblems(picks, null, {})).toEqual([])
+    expect(pickProblems(picks, null, { overlay: 'nope' })).not.toEqual([])
+    cast(a, 'sk_admin', null, { pick: { overlay: o2.id } })
+    expect([o1.side, o2.side]).toEqual(['foe', 'ally'])
+    // 選了被擊落的、不存在的：照宣告擋下（BattleBlocked；測試不經提交所以每個情形各用一場）
+    const down = mk()
+    const [d1, d2] = [overlay(down, { slot: 1 }), overlay(down, { slot: 2 })]
+    d1.down = true
+    expect(() => cast(down, 'sk_admin', null, { pick: { overlay: d1.id } })).toThrow(BattleBlocked)
+    expect([d1.side, d2.side]).toEqual(['foe', 'foe'])
+    const nope = mk()
+    const n1 = overlay(nope, { slot: 1 })
+    expect(() => cast(nope, 'sk_admin', null, { pick: { overlay: 'nope' } })).toThrow(BattleBlocked)
+    expect(n1.side).toBe('foe')
+    // 不選：照舊接管最前面（沒被擊落）的那一台
+    const first = mk()
+    const [q1, q2] = [overlay(first, { slot: 1 }), overlay(first, { slot: 2 })]
+    q1.down = true
+    cast(first, 'sk_admin', null)
+    expect([q1.side, q2.side]).toEqual(['foe', 'ally'])
   })
 
   it('管理員：我方那一格已經掛著一台時，最前面的那一台接管不了（記一句話，不退回別台）', () => {
