@@ -1,4 +1,6 @@
 // M0 的規則數值包（工單 dev/work/M0-data.md）。JSON 不能寫註解，所以每一種資料的出處寫在 SOURCES。
+// 內容類（world/ 的勢力、NPC、敵人、遭遇、戰敗事件、地圖；rules/ 的技能、路數、道具）是暫定示意資料（docs/plan/PLAN.md 第 1 節）：
+// 只給測試與冒煙用，不在這裡修文字；潤色之後經世界編輯器的匯入路徑整批換掉。不要再往這裡加新的內容。
 import type { ContentPack } from '../src'
 import attributes from './rules/attributes.json'
 import skills from './rules/skills.json'

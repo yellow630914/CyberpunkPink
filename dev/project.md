@@ -5,6 +5,7 @@
 ## 這個環境（2026-11-21 調整）
 
 - 雲端容器，閒置會回收：所有子代理、指令、守門 hook 都裝在 repo 的 `.claude/` 並提交；進度、工單、ADR、不變式、bug 與審查報告都在 repo 的 `dev/` 並提交。**做完的東西一定要 commit 並 push**，否則換容器就沒了。提交由總指揮（主 session）統一做：子代理與測試指令**不要自己 commit 或 push**，除非派工時明說要。
+- 內容資料一律用測試自帶的最小假資料；`engine/data/` 裡的內容類是暫定示意資料，不再匯入新內容，正式內容等潤色後經世界編輯器匯入（docs/plan/PLAN.md 第 1 節）。規則表照常。
 - 總指揮是主 session（不用 `claude --agent cpp-lead` 啟動），照 `.claude/agents/cpp-lead.md` 的分派規則把工作交給各個 cpp- 子代理。
 - 程式分兩塊：`engine/`（純 TypeScript，不 import Vue 或任何瀏覽器 API，自己帶 vitest）與 `ui/`（Vue 3＋Pinia＋Vite，第四版的互動介面）。`ui/` 的 store 包住引擎：呼叫引擎的動作、拿回報告、把狀態交給畫面。
 - `ui/` 是介面的依據（取代 docs/mockups/，見 docs/art/UI.md 1.1 節）。介面的工作是把 `ui/` 的假資料換成引擎，不是移植 mockups。
