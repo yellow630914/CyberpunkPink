@@ -1,4 +1,4 @@
-// 驗收測試：dev/work/M1-ui-combat.md（交給 cpp-ui）。工單做完之前照預期失敗（ui/src/lib/battleView.ts 與 store 的戰鬥動作還不存在）。
+// 驗收測試：dev/work/M1-ui-combat.md（交給 cpp-ui）。
 // 規格：COMBAT_SYSTEM 第 10 節（畫面）；docs/art/UI.md 第 17 節第 1 項（手機：敵上我下，兩排的第 1 格都在左邊；2026-11-22 定案）；
 // docs/plan/PLAN.md 5.5 節第一項（制伏灰掉要寫出缺哪個條件）。規則都在引擎：畫面只讀 battleOptions 與 state.battle。
 // 前置：dev/work/M1-data-rules.md 與 dev/work/M1-combat.md 已經做完（store 用 allFeatures() 與 CORE_PACK，裡面要有現實戰鬥的行動表）。
