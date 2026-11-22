@@ -5,13 +5,14 @@
 import type { ActorId, BattleInput, BattleSide, BattleState, BattleTarget, BattleUnit, BattleWeapon, Change, GameState, RollPart } from '../types'
 import type { Probe } from '../state/probe'
 import type { RulesKernel } from '../rules/kernel'
+import { sameTarget, wielded } from './field'
 import type { BattleMode, BattleNumbers, ModKind } from './rules'
 import type { BattleRun } from './run'
 
 /** 行動圓環的哪一圈（COMBAT_SYSTEM 第 10 節）：中心是技能，內環攻擊，中環補充與切換，外環戰術；system 是圓環外面那一列（結束回合、脫離、投降）。 */
 export type BattleActionGroup = 'attack' | 'supply' | 'tactic' | 'skill' | 'system'
-/** 這個行動要選什麼目標。 */
-export type BattleTargetKind = 'none' | 'foe' | 'ally' | 'unit' | 'foe_slot' | 'ally_slot' | 'overlay' | 'node'
+/** 這個行動要選什麼目標。mixed 是幾種混在一起（叫人：我方的格、敵方的格或一個敵人）；實際能選哪些一律以 targets 列的為準。 */
+export type BattleTargetKind = 'none' | 'foe' | 'ally' | 'unit' | 'foe_slot' | 'ally_slot' | 'overlay' | 'node' | 'mixed'
 
 /** 唯讀地看一場戰鬥：行動的條件、畫面的提示、AI 的打分都拿到這個（實際上是一個 BattleRun；這裡只列不改狀態的那幾樣）。 */
 export interface BattleView {
@@ -23,8 +24,8 @@ export interface BattleView {
   n: BattleNumbers
   /** 命中率（%），夾在 5～95；不擲骰 */
   hitChance(attacker: BattleUnit, target: BattleUnit, weapon?: BattleWeapon, opts?: import('./run').AttackOpts): number
-  /** 一個數字的所有加減（狀態、餘韻、重傷、功能註冊的修正） */
-  mods(kind: ModKind, unit: BattleUnit, other?: BattleUnit, weapon?: BattleWeapon, tags?: string[]): RollPart[]
+  /** 一個數字的所有加減（狀態、餘韻、重傷、功能註冊的修正）。base：這個數字在修正之前是多少（問 action_ap 時是行動自己算的行動點） */
+  mods(kind: ModKind, unit: BattleUnit, other?: BattleUnit, weapon?: BattleWeapon, tags?: string[], base?: number): RollPart[]
   /** 帶著「不能換位」的狀態嗎 */
   cannotMove(unit: BattleUnit): boolean
   /** 行動點與其他的池夠不夠 */
@@ -39,6 +40,79 @@ export interface BattleTargetOption {
   hint?: Record<string, unknown>
 }
 
+/**
+ * 目標以外，這一步還要玩家選的東西（BattleInput.pick 裡的一個鍵）：用哪個道具、換上哪一把、放哪一台無人機、打誰、放在哪一格……
+ * 行動在註冊時用 picks 宣告，battleOptions 原樣交給畫面：畫面照宣告列出來讓玩家選，不必認得每個行動（dev/adr/0014）。
+ * 這是給畫面的說明；一步成不成立仍然由行動自己的 run 決定（不合的丟 BattleBlocked），兩邊對不對得上由測試守。
+ */
+export type BattlePickKind =
+  /** 幾個選項挑一個（道具、武器、無人機、叫人做哪一件事、打哪個部位）：畫面列成一排按鈕 */
+  | 'choice'
+  /** 開或不開（掃射）：只有一個選項，value 是 true；不開就不送這個鍵 */
+  | 'toggle'
+  /** 場上的一個人：value 是單位 id，選項的 at 指到那個人 */
+  | 'foe' | 'ally' | 'unit'
+  /** 一格：value 是第幾格（1～4），選項的 at 指到那一格 */
+  | 'foe_slot' | 'ally_slot'
+
+export interface BattlePickOption {
+  /** 選了它，input.pick[key] 就放這個值 */
+  value: string | number | boolean
+  /** 給玩家看的名字 */
+  label: string
+  /** 現在選不了的原因，一條一個條件（完整的句子）；空的就是可以選。選不了的照樣列出來：灰掉但看得到 */
+  blocks: string[]
+  /** 這個選項是場上的哪個東西（選人、選格的那幾種才有）：畫面可以讓玩家直接點場上的那一個 */
+  at?: BattleTarget
+  /**
+   * 只有這一步的目標是這幾個當中的一個時才適用；沒寫就是不管目標是誰都適用。
+   * 兩個方向都用它：先選了目標，這一項只剩適用的選項（指揮無人機：攻擊型才要選敵人）；先選了選項，目標只剩 for 裡的（煙霧彈只能放在格子上）
+   */
+  for?: BattleTarget[]
+  /** 給畫面的提示（花幾點、命中率……） */
+  hint?: Record<string, unknown>
+}
+
+export interface BattlePick {
+  /** BattleInput.pick 裡的鍵 */
+  key: string
+  /** 給玩家看的名字（「道具」「換上」「掃射」「打誰」） */
+  label: string
+  kind: BattlePickKind
+  /**
+   * 一定要選：對這一步的目標有適用的選項時，沒選就做不成。false 是可以不選，行動照自己的預設做（換武器換到下一把）。
+   * 對這一步的目標一個適用的選項都沒有，這一項就不用選（醫療無人機不用選敵人）
+   */
+  required: boolean
+  options: BattlePickOption[]
+}
+
+/** 這個選項對這個目標適不適用（看 for）。 */
+export function pickApplies(option: BattlePickOption, target: BattleTarget | null | undefined): boolean {
+  return !option.for || (!!target && option.for.some((t) => sameTarget(t, target)))
+}
+
+/**
+ * 照宣告看這一步選的東西齊不齊：回傳每一個問題（一條一句）；空的就是照宣告看沒有問題。
+ * 畫面在送出之前用它提示玩家還缺什麼；核心不照它擋（行動的 run 才是依據）。
+ */
+export function pickProblems(picks: readonly BattlePick[], target: BattleTarget | null | undefined, chosen: Record<string, unknown> | undefined): string[] {
+  const out: string[] = []
+  for (const p of picks) {
+    const options = p.options.filter((o) => pickApplies(o, target))
+    const value = chosen?.[p.key]
+    // 開關：沒開（沒送，或送 false）就是不選
+    if (value === undefined || (p.kind === 'toggle' && value === false)) {
+      if (p.required && options.length) out.push(`要選${p.label}。`)
+      continue
+    }
+    const found = options.find((o) => o.value === value)
+    if (!found) out.push(`${p.label}：沒有這個選項。`)
+    else out.push(...found.blocks)
+  }
+  return out
+}
+
 export interface BattleActionDef {
   id: string
   owner: string
@@ -47,8 +121,17 @@ export interface BattleActionDef {
   /** 泡泡訊息裡的說明（完整的句子） */
   desc: string
   group: BattleActionGroup
-  /** 圖示的名字（畫面自己對照） */
+  /**
+   * 圖示的鍵（一個字串；畫面自己對照到圖，沒有圖的鍵由畫面決定怎麼退）。現在用到的鍵與哪些還沒有圖見 dev/adr/0014。
+   * 沒寫的話：技能那一圈用 'skill'（晶片），其他圈用行動自己的 id
+   */
   icon?: string
+  /**
+   * 行動的標籤：問花費的修正（action_ap）與行動做完的掛點（action.done）都帶著，讓別的功能不必認得行動的 id。
+   * 核心定的一個：weapon_attack——用手上那一把武器攻擊一次（射擊、近戰、內海的構裝攻擊）；
+   * 「帶某個特性的武器開一槍少花幾點」這類減免看這個標籤與手上的武器，不看行動叫什麼
+   */
+  tags?: string[]
   /** 哪些戰場可以用；沒寫就是每一個戰場 */
   modes?: string[]
   target: BattleTargetKind
@@ -67,6 +150,8 @@ export interface BattleActionDef {
   blocks?(view: BattleView, unit: BattleUnit): string[]
   /** 可以選的目標。每一個可以附現在選不了的原因：灰掉但看得到，泡泡寫出原因 */
   targets?(view: BattleView, unit: BattleUnit): BattleTargetOption[]
+  /** 目標以外還要選的東西（run 會讀的每一個 input.pick 的鍵都要宣告，畫面才送得出來）。沒有就不寫 */
+  picks?(view: BattleView, unit: BattleUnit): BattlePick[]
   /** 做這個行動。行動點與其他的池已經由核心扣好；彈匣這類的由行動自己扣 */
   run(run: BattleRun, unit: BattleUnit, target: BattleTarget | null, input: BattleInput): void
   /**
@@ -81,17 +166,34 @@ export interface BattleActionDef {
   aiScore?(view: BattleView, unit: BattleUnit, target: BattleUnit | null): number | null
   /** AI 用這個行動時的目標；沒寫就是 AI 挑的那個敵人（或 null） */
   aiTarget?(view: BattleView, unit: BattleUnit, target: BattleUnit | null): BattleTarget | null
+  /**
+   * 敵人 AI 的位置分（ENEMIES 4.2 節）多加的一項：站在 slot 那一格，這個行動有沒有「一定要站在這裡才做得到」而且值得做的對象。
+   * 有就回傳要加在那一格位置分上的分數（制伏回傳它的行動分 4）；沒有回傳 0。位置分其他的項大約在 −2～4 之間，換過去高出 1.5 以上才換位。
+   * 只有受站位限制、又比一般攻擊值得的行動才要寫（制伏、內海的釘住）。有這個行動、付得起（要換過去的再加換位的 1 點）、
+   * 行動自己的 blocks 是空的，核心才會問；核心取所有行動裡最高的那一個
+   */
+  aiSlotScore?(view: BattleView, unit: BattleUnit, slot: number): number
+}
+
+/** 這個行動的圖示的鍵：有寫用寫的；沒寫的話技能那一圈是 'skill'，其他圈是行動自己的 id。 */
+export function actionIcon(def: Pick<BattleActionDef, 'id' | 'group' | 'icon'>): string {
+  return def.icon ?? (def.group === 'skill' ? 'skill' : def.id)
+}
+
+/** 問花費的修正、行動做完的掛點帶的標籤：[行動的 id, 'group:<圈>', 行動自己宣告的標籤…]；目標是自己以外的人時再多一個 'other'。 */
+export function actionTags(unit: BattleUnit, def: BattleActionDef, input?: BattleInput): string[] {
+  const t = input?.target
+  return [def.id, `group:${def.group}`, ...(def.tags ?? []), ...(t && 'unit' in t && t.unit !== unit.id ? ['other'] : [])]
 }
 
 /**
  * 一個行動實際要花多少：行動自己算的花費，加上修正（action_ap：技能的減免）。行動點最少 0。
  * 畫面顯示的、核心檢查夠不夠的、實際扣的、AI 算的，都是這一個數字。
+ * 問修正時帶著：行動的標籤（actionTags）、手上那一把武器、行動自己算的行動點（base）。
  */
 export function actionCost(view: BattleView, unit: BattleUnit, def: BattleActionDef, input?: BattleInput): { ap: number; [pool: string]: number } {
   const base = def.cost(view, unit, input)
-  const t = input?.target
-  const tags = [def.id, `group:${def.group}`, ...(t && 'unit' in t && t.unit !== unit.id ? ['other'] : [])]
-  const delta = view.mods('action_ap', unit, undefined, undefined, tags).reduce((sum, p) => sum + p.value, 0)
+  const delta = view.mods('action_ap', unit, undefined, wielded(unit), actionTags(unit, def, input), base.ap).reduce((sum, p) => sum + p.value, 0)
   return delta ? { ...base, ap: Math.max(0, base.ap + delta) } : base
 }
 
@@ -106,6 +208,8 @@ export interface ModQuery {
   weapon?: BattleWeapon
   /** 情境的標籤：aimed、burst、reaction、watch、melee、first_round…… */
   tags: string[]
+  /** 這個數字在修正之前是多少。只有問 action_ap 時有：行動自己算的行動點（「改成只花 N 點」的減免要知道原價） */
+  base?: number
 }
 
 export type BattleModifier = (q: ModQuery) => RollPart[]
@@ -140,6 +244,12 @@ export interface BattleHookMap {
   'hull.break': { run: BattleRun; unit: BattleUnit }
   /** 和人重疊的東西被擊落 */
   'overlay.down': { run: BattleRun; overlay: import('../types').BattleOverlay; by?: BattleUnit }
+  /**
+   * 一個花了行動點的行動做完了（玩家下的、AI 選的、功能用 performAction 替單位做的都算；監視的自動攻擊、反應、技能裡面附帶的攻擊不算）。
+   * action 是行動的 id，tags 是 actionTags，cost 是實際扣的、base 是行動自己算的（修正之前），weapon 是行動開始時手上那一把。
+   * 「每回合第一次才便宜」這類要記次數的東西掛這裡：修正（action_ap）只管算，用掉幾次在這裡記
+   */
+  'action.done': { run: BattleRun; unit: BattleUnit; action: string; tags: string[]; target: BattleTarget | null; input: BattleInput; cost: { ap: number; [pool: string]: number }; base: { ap: number; [pool: string]: number }; weapon?: BattleWeapon }
   /** AI 的回合，每一步之前：功能可以先替他做一件事（撤退、投降、啟動機體、招牌行動）。回傳 true 表示這一步做完了 */
   'ai.step': { run: BattleRun; unit: BattleUnit }
   /** 分出結果的那一刻（還在這一步裡） */
