@@ -1,5 +1,6 @@
 import type { Change, Report } from '@engine/src'
-import { DEGREE_NAME, blankState, createKernel, formatTime } from '@engine/src'
+import type { GenderId } from '@engine/src'
+import { DEGREE_NAME, GENDER_IDS, blankState, createKernel, formatTime } from '@engine/src'
 
 /**
  * 把引擎的東西轉成畫面要的樣子（純函式，不寫規則）：
@@ -72,6 +73,8 @@ export interface EngineLogEntry {
   net?: string[]
   changes: Array<{ text: string; kind?: 'plus' | 'minus' }>
   notices: string[]
+  /** 被撤退收回的經歷：內容照留，畫面標出來（SERIES 第 6 節） */
+  retracted?: boolean
 }
 
 let plain: ReturnType<typeof createKernel> | null = null
@@ -112,8 +115,10 @@ export function logEntryOf(report: Report, describe: (changes: Change[]) => stri
       result: DEGREE_NAME[r.degree] as '大成功' | '成功' | '失敗' | '大失敗',
       // 重擲過幾次不能藏（UI 3.2 節）：有才帶
       ...(r.rerolls ? { rerolls: r.rerolls } : {}),
+      ...(beat.twist ? { twist: beat.twist } : {}),
     }
   }
+  if (report.retracted) entry.retracted = true
   return entry
 }
 
@@ -144,17 +149,20 @@ export function uiFromAiSettings(raw: unknown): Partial<UiAiFields> {
   return out
 }
 
-/** 設定頁的存檔規則轉成引擎的存檔規則（只帶難度與特質點；其他用預設）。 */
-export function rulesFromUi(s: { difficulty?: string; traitPoints?: number }): Record<string, unknown> {
+/** 設定頁的存檔規則轉成引擎的存檔規則（難度、特質點、自訂難度的 DC 偏移、關掉的內容標籤；其他用預設）。 */
+export function rulesFromUi(s: { difficulty?: string; traitPoints?: number; customDiff?: { dc: number }; filterIntimateBody?: boolean }): Record<string, unknown> {
   const D: Record<string, string> = { 故事: 'story', 簡單: 'easy', 普通: 'normal', 困難: 'hard', 傳奇: 'legend', 自訂: 'custom' }
   const out: Record<string, unknown> = {}
   if (s.difficulty && D[s.difficulty]) out.difficulty = D[s.difficulty]
   if (s.traitPoints !== undefined) out.startPerkPoints = s.traitPoints
+  if (s.difficulty === '自訂' && s.customDiff) out.dcOffset = s.customDiff.dc
+  if (s.filterIntimateBody === false) out.contentOff = ['intimate_body']
   return out
 }
 
-/** 建角畫面的性別選項對到引擎的性別值（DATA 第 1 節的六個值）。介面只有一個「TS」，暫時對到 trans_f。 */
-export const GENDER_ID: Record<string, string> = { 男: 'male', 女: 'female', '偽娘（含男娘）': 'femboy', TS: 'trans_f', 扶他: 'futa' }
+/** 建角畫面的性別選項（DATA 第 1 節的六個值；id 就是引擎的值，順序照引擎）。名字是介面定的。 */
+const GENDER_NAME: Record<GenderId, string> = { female: '女', male: '男', femboy: '偽娘（含男娘）', trans_f: 'TS（女）', trans_m: 'TS（男）', futa: '扶他' }
+export const GENDER_OPTIONS: ReadonlyArray<{ id: GenderId; name: string }> = GENDER_IDS.map((id) => ({ id, name: GENDER_NAME[id] }))
 
 /** 特質的分類（引擎給英文代號）顯示用的中文。 */
 export const PERK_CATEGORY_NAME: Record<string, string> = { social: '社交', street: '街頭', body: '身體', bridge: '橋', craft: '工藝', net: '內海', media: '媒體', desire: '慾望', origin: '出身' }

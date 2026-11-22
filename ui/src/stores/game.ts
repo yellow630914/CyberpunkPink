@@ -125,11 +125,11 @@ export const useGame = defineStore('game', () => {
     const h = Math.floor(minutes.value / 60) % 24, m = minutes.value % 60
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
   })
-  // 暫時的小函式：第 1 天週二，第 7、14 天週一（CORE_RULES 時間一節）。引擎已有 weekdayOf，之後換成引擎的。
-  const weekdayIndex = (d: number): number => ((d % 7) + 7) % 7 // 0 是週一
-  const weekday = computed(() => WEEKDAYS[weekdayIndex(day.value)])
-  /** 到下一個週一收租日還有幾天 */
-  const billIn = computed(() => { const d = (7 - weekdayIndex(day.value)) % 7; return d === 0 ? 7 : d })
+  // 星期與離收租日（週一）幾天：問引擎的時鐘（CORE_RULES 7.4 節）
+  const clock = computed(() => eng.clock)
+  const weekday = computed(() => WEEKDAYS[clock.value.weekday])
+  /** 到下一個週一收租日還有幾天（今天就是週一時，顯示成 7 天後：收租日是今天已經過的那一次） */
+  const billIn = computed(() => clock.value.daysToMonday === 0 ? 7 : clock.value.daysToMonday)
   const district = computed(() => DISTRICTS.find(d => d.id === loc.district)!)
   const block = computed(() => blockSpec(loc.district, loc.block))
   const blockMap = computed(() => buildBlockMap(block.value))
@@ -149,7 +149,7 @@ export const useGame = defineStore('game', () => {
   const coveredSlots = computed(() => new Set(coatClosed.value && equip.coat ? EQUIP_SLOTS.filter(s => s.coveredByCoat).map(s => s.id) : []))
 
   function advance(mins: number) {
-    if (mins > 0) eng.commit({ summary: '時間過去', action: 'ui.time', changes: [{ op: 'time', minutes: mins }] })
+    if (mins > 0) eng.commit({ summary: '時間過去', action: 'ui.time', changes: [{ op: 'time', minutes: mins }] }, { attach: true })
   }
   /** 舊系統寫一則紀錄：正文、引言、網內的段落接成正文，變化的字放在 results，交給引擎提交成一份報告。 */
   function addLog(e: Omit<LogEntry, 'id' | 'time' | 'place'> & { place?: string }) {
@@ -335,16 +335,8 @@ export const useGame = defineStore('game', () => {
     const note = { prose: [`這一段經歷被收回了：時間回到${s.label}（${s.at}）。發生過的事你還記得。`] }
     hydrate(rollbackKeeping(now as never, snap as never, note) as Partial<SaveState>)
     // 時間、錢、紀錄在引擎：引擎的時間只往前，所以用快照裡的引擎存檔讀回去（連回退的堆疊一起清掉）
-    if (s.engine) {
-      // 引擎讀回快照時，紀錄也跟著回到那時候；「發生過的事你還記得」，所以收回的那幾則紀錄再補上去（時間記號是現在的；
-      // 擲骰行不帶回來，要完整保留得引擎提供「回退但保留報告」的介面）。
-      let had = new Set<string>()
-      try { had = new Set((JSON.parse(s.engine) as { state: { reports: Array<{ id: string }> } }).state.reports.map(r => r.id)) } catch { /* 讀不出來就全部補回 */ }
-      const lost = eng.log.filter(x => !had.has(x.id)).reverse()
-      eng.load(s.engine)
-      for (const x of lost) eng.commit({ summary: x.prose[0] ?? '', prose: x.prose, results: x.changes.map(c => c.text), place: x.place })
-    }
-    addLog(note)
+    if (s.engine) eng.rewind(s.engine, note.prose[0]!)
+    else addLog(note)
     if (s.kind === '入口') { snapshots.value = []; inRun.value = false }
     else if (s.kind === '階段') snapshots.value = snapshots.value.filter(x => x.kind !== '戰鬥' || snapshots.value.indexOf(x) < snapshots.value.indexOf(s))
   }

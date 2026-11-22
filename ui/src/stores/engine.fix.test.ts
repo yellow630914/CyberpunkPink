@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { GENDER_IDS } from '@engine/src'
 import type { Report } from '@engine/src'
-import { useEngine } from '../../src/stores/engine'
-import { GENDER_OPTIONS, logEntryOf, rulesFromUi } from '../../src/lib/engineView'
+import { useEngine } from './engine'
+import { GENDER_OPTIONS, logEntryOf, rulesFromUi } from '../lib/engineView'
 
 /** 出身的勢力用 id（DATA 1.1 節）：孤星連是 lonestar */
 const DRAFT = {

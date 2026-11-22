@@ -148,7 +148,7 @@ async function freeAction() {
   freeText.value = ''
   mobileTab.value = 'log'
   const r = await e.act({ kind: 'free', text })
-  if (r.status === 'blocked') { ui.toast(r.reason ?? '現在做不了這件事。', 'warn'); freeText.value = text; return }
+  if (r.status === 'refused') { ui.toast(r.reason ?? '現在做不了這件事。', 'warn'); freeText.value = text; return }
   guides.trigger('g_check')
 }
 /** 任務鏈列：st.s.chainRow 是顯示偏好（隱藏、一直展開、出錯時展開）。 */
@@ -201,7 +201,7 @@ const stages = [
             <Icon :id="t.icon" :size="18" fit />{{ t.name }}<kbd v-if="KEY_OF[t.id]">{{ KEY_OF[t.id] }}</kbd><span v-if="t.badge" class="badge-n" data-badge>{{ t.badge }}</span><i v-if="t.dot" class="badge-dot" data-badge aria-label="有沒看過的指南" />
           </button>
         </nav>
-        <section class="panel cut logp"><ChainBar v-if="showChain" :steps="e.chainSteps" :busy="e.busy" @retry="e.retryStep" @rules="e.useRules" @reroll="e.reroll()" /><LogView :entries="g.log" /></section>
+        <section class="panel cut logp"><ChainBar v-if="showChain" :steps="e.chainSteps" :busy="e.busy" :actions="e.stepActions" @retry="e.retryStep" @rules="e.useRules" @reroll="e.reroll()" /><LogView :entries="g.log" /></section>
         <section class="panel cut act">
           <form class="input" @submit.prevent="freeAction">
             <span class="die" aria-hidden="true" />

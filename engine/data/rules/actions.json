@@ -1,0 +1,395 @@
+[
+  {
+    "id": "free",
+    "name": "自由行動",
+    "desc": "自由行動",
+    "attr": "intellect",
+    "dc": "normal",
+    "minutes": 30,
+    "max_minutes": 240,
+    "hint": {
+      "success": [
+        {
+          "kind": "cash",
+          "amount": 20
+        }
+      ],
+      "narrow": [
+        {
+          "kind": "cash",
+          "amount": 10
+        }
+      ],
+      "critical": [
+        {
+          "kind": "cash",
+          "amount": 30
+        }
+      ]
+    },
+    "hint_note": {
+      "success": "現金約 20 或一則傳聞",
+      "narrow": "現金約 10",
+      "fail": "沒有"
+    }
+  },
+  {
+    "id": "beg",
+    "name": "乞討",
+    "desc": "乞討",
+    "attr": "charm",
+    "skill": "perform",
+    "dc": "normal",
+    "minutes": 60,
+    "max_minutes": 240,
+    "hint": {
+      "success": [
+        {
+          "kind": "cash",
+          "amount": 20
+        }
+      ],
+      "narrow": [
+        {
+          "kind": "cash",
+          "amount": 10
+        }
+      ],
+      "critical": [
+        {
+          "kind": "cash",
+          "amount": 30
+        }
+      ]
+    },
+    "hint_note": {
+      "success": "現金約 20、一件 I 級的消耗品",
+      "narrow": "現金約 10",
+      "fail": "沒有"
+    }
+  },
+  {
+    "id": "rumor",
+    "name": "打聽",
+    "desc": "打聽",
+    "attr": "intellect",
+    "skill": "streetwise",
+    "dc": "normal",
+    "minutes": 60,
+    "max_minutes": 240,
+    "hint_note": {
+      "success": "一則情報（程式預取的資料）",
+      "narrow": "一則傳聞，真假參半",
+      "fail": "沒打聽到"
+    }
+  },
+  {
+    "id": "search",
+    "name": "搜索、查證",
+    "desc": "搜索、查證",
+    "attr": "intellect",
+    "skill": "investigate",
+    "dc": "normal",
+    "minutes": 30,
+    "max_minutes": 120,
+    "hint_note": {
+      "success": "找到要找的東西或看穿一個謊",
+      "narrow": "找到一部分，或多花一倍時間",
+      "fail": "沒找到"
+    }
+  },
+  {
+    "id": "scavenge",
+    "name": "搜刮",
+    "desc": "搜刮（翻垃圾、拆廢品）",
+    "attr": "intellect",
+    "skill": "investigate",
+    "dc": "normal",
+    "minutes": 60,
+    "max_minutes": 240,
+    "hint_note": {
+      "success": "一件 I 級的零件或消耗品",
+      "narrow": "值現金約 10 的廢料",
+      "fail": "沒有"
+    }
+  },
+  {
+    "id": "tail",
+    "name": "跟蹤",
+    "desc": "跟蹤",
+    "attr": "reflex",
+    "skill": "stealth",
+    "dc": "hard",
+    "minutes": 60,
+    "max_minutes": 240,
+    "hint_note": {
+      "success": "知道對方去了哪、見了誰（一則情報）",
+      "narrow": "跟到一半就跟丟",
+      "fail": "跟丟，對方察覺時親密度 −3"
+    }
+  },
+  {
+    "id": "pickpocket",
+    "name": "扒竊",
+    "desc": "扒竊",
+    "attr": "reflex",
+    "skill": "stealth",
+    "dc": "hard",
+    "minutes": 15,
+    "max_minutes": 60,
+    "hint": {
+      "success": [
+        {
+          "kind": "cash",
+          "amount": 30
+        }
+      ],
+      "narrow": [
+        {
+          "kind": "cash",
+          "amount": 15
+        }
+      ],
+      "critical": [
+        {
+          "kind": "cash",
+          "amount": 45
+        }
+      ]
+    },
+    "hint_note": {
+      "success": "現金約 30 或一件 I 級的隨身物",
+      "narrow": "現金約 15，對方起疑",
+      "fail": "沒得手；被看到時那一區的勢力或市警敵對值 +3"
+    }
+  },
+  {
+    "id": "sneak",
+    "name": "潛入",
+    "desc": "潛入（現實，進一個不讓進的地方）",
+    "attr": "reflex",
+    "skill": "stealth",
+    "dc": "hard",
+    "minutes": 30,
+    "max_minutes": 120,
+    "hint_note": {
+      "success": "進得去，沒留痕跡",
+      "narrow": "進得去，狀態「被記下」",
+      "fail": "進不去，狀態「被記下」"
+    }
+  },
+  {
+    "id": "lockpick",
+    "name": "撬鎖",
+    "desc": "撬鎖",
+    "attr": "tech",
+    "skill": "mechanics",
+    "dc": "normal",
+    "minutes": 15,
+    "max_minutes": 60,
+    "hint_note": {
+      "success": "打開",
+      "narrow": "打開，但鎖壞了、看得出來被開過",
+      "fail": "打不開"
+    }
+  },
+  {
+    "id": "hack",
+    "name": "駭入一台裝置",
+    "desc": "駭入一台裝置（門禁、監視器、終端機）",
+    "attr": "intellect",
+    "skill": "interface",
+    "dc": "hard",
+    "minutes": 30,
+    "max_minutes": 120,
+    "hint_note": {
+      "success": "一段資料，或控制那台裝置一陣子",
+      "narrow": "得手，但狀態「被記下」",
+      "fail": "被擋下，狀態「被記下」"
+    }
+  },
+  {
+    "id": "climb",
+    "name": "攀爬、破門",
+    "desc": "攀爬、破門",
+    "attr": "body",
+    "skill": "athletics",
+    "dc": "normal",
+    "minutes": 15,
+    "max_minutes": 60,
+    "hint": {
+      "narrow": [
+        {
+          "kind": "hp",
+          "amount": -2
+        }
+      ],
+      "fail": [
+        {
+          "kind": "hp",
+          "amount": -2
+        }
+      ],
+      "fumble": [
+        {
+          "kind": "hp",
+          "amount": -2
+        }
+      ]
+    },
+    "hint_note": {
+      "success": "過去了",
+      "narrow": "過去了，生命值 −2 或弄出聲音",
+      "fail": "過不去，生命值 −1d4"
+    }
+  },
+  {
+    "id": "escape",
+    "name": "甩掉追的人",
+    "desc": "甩掉追的人",
+    "attr": "reflex",
+    "skill": "athletics",
+    "dc": "hard",
+    "minutes": 15,
+    "max_minutes": 60,
+    "hint": {
+      "narrow": [
+        {
+          "kind": "hp",
+          "amount": -2
+        }
+      ]
+    },
+    "hint_note": {
+      "success": "甩掉了",
+      "narrow": "甩掉了，掉了一件東西或生命值 −2",
+      "fail": "沒甩掉：被追上，交給事件或戰鬥"
+    }
+  },
+  {
+    "id": "persuade",
+    "name": "說服、拜託",
+    "desc": "說服、拜託",
+    "attr": "charm",
+    "skill": "negotiate",
+    "dc": "normal",
+    "minutes": 30,
+    "max_minutes": 120,
+    "hint_note": {
+      "success": "對方答應一個小請求，親密度 +2",
+      "narrow": "答應，但附一個條件",
+      "fail": "不答應，親密度 −1"
+    }
+  },
+  {
+    "id": "deceive",
+    "name": "唬人、混進去",
+    "desc": "唬人、混進去",
+    "attr": "charm",
+    "skill": "perform",
+    "dc": "hard",
+    "minutes": 15,
+    "max_minutes": 60,
+    "hint_note": {
+      "success": "被當成別人放行",
+      "narrow": "放行，但狀態「被記下」",
+      "fail": "被識破，狀態「被記下」，親密度 −3"
+    }
+  },
+  {
+    "id": "threaten",
+    "name": "威脅、逼問",
+    "desc": "威脅、逼問",
+    "attr": "resolve",
+    "skill": "intimidate",
+    "dc": "normal",
+    "minutes": 15,
+    "max_minutes": 60,
+    "hint_note": {
+      "success": "對方照做，或吐出一則情報",
+      "narrow": "照做，但記恨，親密度 −3",
+      "fail": "對方不怕，親密度 −3，他的勢力敵對值 +2"
+    }
+  },
+  {
+    "id": "busk",
+    "name": "街頭表演",
+    "desc": "街頭表演",
+    "attr": "charm",
+    "skill": "perform",
+    "dc": "normal",
+    "minutes": 60,
+    "max_minutes": 240,
+    "hint": {
+      "success": [
+        {
+          "kind": "cash",
+          "amount": 25
+        }
+      ],
+      "narrow": [
+        {
+          "kind": "cash",
+          "amount": 10
+        }
+      ],
+      "critical": [
+        {
+          "kind": "cash",
+          "amount": 38
+        }
+      ]
+    },
+    "hint_note": {
+      "success": "打賞現金約 25，這一區豔名 +1",
+      "narrow": "打賞現金約 10",
+      "fail": "沒有人停下來"
+    }
+  },
+  {
+    "id": "repair",
+    "name": "修理",
+    "desc": "修理（替自己或替人）",
+    "attr": "tech",
+    "skill": "mechanics",
+    "dc": "normal",
+    "minutes": 60,
+    "max_minutes": 240,
+    "hint_note": {
+      "success": "修好；替人修時現金約 20",
+      "narrow": "修好，但多花一倍時間",
+      "fail": "沒修好"
+    }
+  },
+  {
+    "id": "first_aid",
+    "name": "急救",
+    "desc": "急救",
+    "attr": "tech",
+    "skill": "medicine",
+    "dc": "normal",
+    "minutes": 10,
+    "max_minutes": 30,
+    "hint_note": {
+      "success": "照 DOWNTIME 3.1 節：回 1d6 + 醫療等級、算處理過",
+      "narrow": "同成功",
+      "fail": "沒處理好；大失敗 −1d4"
+    }
+  },
+  {
+    "id": "flirt",
+    "name": "誘惑、搭訕",
+    "desc": "誘惑、搭訕",
+    "attr": "charm",
+    "skill": "seduce",
+    "dc": "normal",
+    "minutes": 30,
+    "max_minutes": 120,
+    "chain": "adult_action",
+    "hint_note": {
+      "success": "親密度 +3，可能進場景",
+      "narrow": "親密度 +1",
+      "fail": "親密度 −2"
+    }
+  }
+]

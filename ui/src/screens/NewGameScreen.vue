@@ -22,10 +22,11 @@ import {
 import {
   fmtMod, cyberSummary, cyberPickBlock, cyberBlock, gearPoints, gearSummary, gearAddBlock, fitKit, derivedLooks,
 } from '../lib/creation'
-import { GENDER_ID, PERK_CATEGORY_NAME, rulesFromUi } from '../lib/engineView'
+import { GENDER_OPTIONS, PERK_CATEGORY_NAME, rulesFromUi } from '../lib/engineView'
 import { skillXp, TIER_THRESHOLDS } from '../lib/skills'
 import { unavailable } from '../lib/unavailable'
 import type { ItemDef } from '../data/types'
+import type { CreationLook } from '@engine/src/features/creation'
 
 /**
  * 開新局與建角（UI 第 14 節、樣稿 docs/mockups/title.html 的「新遊戲」與 workshop.html 的「建角」）。
@@ -56,7 +57,7 @@ const packs = reactive([
 
 // ---- 1 基本資料 ----
 const basic = reactive<Record<string, string>>({
-  name: '', gender: '女', pronoun: '她', view: '第二人稱', age: '24',
+  name: '', gender: 'female', pronoun: '她', view: '第二人稱', age: '24',
   height: '160～169 公分', build: '中性', figure: '勻稱', posture: '步子大、手臂擺得穩', skin: '小麥色',
   face: '鵝蛋臉', eyeShape: '有神的雙眼皮', eyes: '褐', mark: '沒有',
   hair: '耳下的短髮', hairColor: '黑', hairTexture: '一般',
@@ -88,11 +89,17 @@ const originSkillId = computed(() => Object.keys(eo.value.skill_bonus)[0] ?? '')
 const origin = computed(() => {
   const legacy = ORIGINS.find(o => o.id === originId.value)!
   const perk = e.creation.perks.find(p => p.id === eo.value.perk)
-  return { ...legacy, name: eo.value.name, line: eo.value.line, home: eo.value.home, favor: eo.value.favor.choose_one, partner: eo.value.roster.join('、'), trait: { name: perk?.name ?? '', effect: perk?.desc ?? '' } }
+  return { ...legacy, name: eo.value.name, line: eo.value.line, home: eo.value.home, favor: ov.value.favor, partner: ov.value.roster.map(r => r.name).join('、'), trait: { name: perk?.name ?? '', effect: perk?.desc ?? '' } }
 })
-const corp = ref<string>('緋櫻')
-const favor = ref<string>('孤星連')
-function pickOrigin(id: string) { originId.value = id; favor.value = eOrigins.find(o => o.id === id)!.favor.choose_one[0]; corp.value = favor.value; picks.cyber = picks.cyber.filter(c => !c.corpOnly) }
+/** 出身給畫面顯示的名字（勢力的 id 與短名、開場名冊的 id 與名字）：問引擎 */
+const ov = computed(() => e.creation.originView(originId.value) ?? { favor: [], favorValue: 0, roster: [] })
+/** 好感給哪個勢力：勢力的 id */
+const favor = ref<string>(e.creation.originView(originId.value)?.favor[0]?.id ?? '')
+/** 企業出身時是哪一家（舊的橋目錄用短名比對） */
+const corp = computed(() => originId.value === 'corp' ? ov.value.favor.find(f => f.id === favor.value)?.name ?? null : null)
+function pickOrigin(id: string) { originId.value = id; favor.value = e.creation.originView(id)?.favor[0]?.id ?? ''; picks.cyber = picks.cyber.filter(c => !c.corpOnly) }
+watch(favor, () => { if (originId.value === 'corp') picks.cyber = picks.cyber.filter(c => !c.corpOnly || c.corpOnly === corp.value) })
+const genderName = computed(() => GENDER_OPTIONS.find(o => o.id === basic.gender)?.name ?? basic.gender)
 
 // ---- 3 屬性 ----
 const attrs = reactive<Partial<Record<AttrId, number>>>({ body: 12, reflex: 15, tech: 8, intellect: 13, resolve: 10, charm: 14 })
@@ -194,7 +201,7 @@ function addGear(d: ItemDef) {
 function removeGear(i: number) { picks.gear = picks.gear.filter((_, k) => k !== i) }
 function suggest() { picks.gear = fitKit(SUGGESTED_KITS[originId.value].map(id => ITEMS[id])) }
 // 起始的錢照引擎給的（全部是現金、出身不加減，CHARACTER 5.4 節）；畫面只顯示，不自己算。
-const money = computed(() => e.creation.limits.startMoney)
+const money = computed(() => e.creation.startMoney({ cyberSpent: cy.value.spent, gearSpent: gr.value.spent }).total)
 
 // ---- 外觀裡推出來的三樣（第四版）：外露的義體看第 6 步、獸化看第 6 步的耳與尾、風格看第 9 步的穿著 ----
 const beastLine = ref('貓')
@@ -204,18 +211,18 @@ const stepOf = (n: number) => STEPS.findIndex(x => x.id === n)
 
 // ---- 外觀、私處與整份草稿（交給引擎的樣子） ----
 const LOOK_SKIP = new Set(['name', 'gender', 'pronoun', 'age', 'looks', 'background', 'privates', 'privatesNote'])
-/** 私處還沒有正式欄位：先放在 look 的 private（選的）與 privateNote（補充）兩個鍵，受內容篩選控制。 */
+/** 私處是 look.private（{ options, text }）；內容篩選關掉時引擎不寫（看存檔規則的 contentOff），這裡照交。 */
 const draft = computed(() => {
-  const look: Record<string, string> = {}
+  const look: CreationLook = {}
   for (const [k, v] of Object.entries(basic)) if (!LOOK_SKIP.has(k)) look[k] = v
-  if (st.s.filterIntimateBody) { look.private = String(basic.privates ?? ''); look.privateNote = String(basic.privatesNote ?? '').trim() }
+  look.private = { options: basic.privates && basic.privates !== '（不寫）' ? [basic.privates] : [], text: String(basic.privatesNote ?? '').trim() }
   return {
-    name: basic.name, gender: GENDER_ID[basic.gender] ?? basic.gender, pronoun: basic.pronoun, age: basic.age, look, lookNote: basic.looks, background: basic.background,
-    origin: originId.value, originChoice: { favor: favor.value },
+    name: basic.name, gender: basic.gender, pronoun: basic.pronoun, age: basic.age, look, lookNote: basic.looks, background: basic.background,
+    origin: originId.value, originChoice: { favor: favor.value }, cyberSpent: cy.value.spent, gearSpent: gr.value.spent,
     attrPick: { ...attrs }, attrBonus: { ...attrBonus }, skills: { ...basics }, perks: [...picks.perks],
   }
 })
-const BLOCK_STEP = { basics: 1, origin: 2, attrs: 3, skills: 4, perks: 7 } as const
+const BLOCK_STEP = { basics: 1, origin: 2, attrs: 3, skills: 4, cyber: 6, perks: 7, gear: 9 } as const
 
 // ---- 每一步擋住「下一步」的原因 ----
 const engineBlocks = computed(() => e.creation.blocks(draft.value))
@@ -257,11 +264,11 @@ function quick(q: typeof QUICK_STARTS[number]) {
 /** 開始：引擎開新局並建角（規則都在引擎）；成功之後把引擎還沒有的假資料照原本的方式寫進 useGame。存檔格不受影響。 */
 function start() {
   if (firstBlocked.value) { stepIdx.value = firstBlocked.value[0]; ui.toast(firstBlocked.value[1]!, 'warn'); return }
-  e.newGame({ seed: Date.now() % 2147483647, rules: rulesFromUi(st.s) })
-  const blocked = e.createCharacter(draft.value)
+  const blocked = e.newGame({ seed: Date.now() % 2147483647, rules: rulesFromUi(st.s), draft: draft.value })
   if (blocked.length) { stepIdx.value = stepOf(BLOCK_STEP[blocked[0].step]); ui.toast(blocked[0].reason, 'warn'); e.creation.previewRules(rulesFromUi(st.s)); return }
   g.character.name = basic.name.trim()
-  g.character.privates = st.s.filterIntimateBody ? { look: String(basic.privates ?? ''), note: String(basic.privatesNote ?? '').trim() } : undefined
+  const pv = (e.pc?.ext.profile as { look?: { private?: { options: string[]; text: string } } } | undefined)?.look?.private
+  g.character.privates = pv ? { look: pv.options[0] ?? '（不寫）', note: pv.text } : undefined
   g.character.origin = `${origin.value.name}出身`
   g.character.attrs = eAttrs.map(a => ({ name: a.name, base: totals.value[a.id as AttrId], eff: totals.value[a.id as AttrId] }))
   const perkOf = (id: string) => ePerks.find(p => p.id === id)!
@@ -329,8 +336,12 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
               <div class="form">
                 <label class="fld wide"><span>名字</span><span class="row"><input v-model="basic.name" class="inp" placeholder="你取的名字"><button type="button" class="btn sm" @click="randomName">隨機</button></span></label>
                 <label class="fld"><span>年齡<Hint>只收整數，低於 18 時「下一步」不能按。</Hint></span><input v-model="basic.age" class="inp" inputmode="numeric" aria-describedby="agewarn"></label>
-                <label v-for="[k, n] in ([['gender', '性別'], ['pronoun', '稱呼'], ['view', '敘事視角']] as const)" :key="k" class="fld">
-                  <span>{{ n }}<Hint v-if="k === 'gender'">決定戰敗事件、成人事件與 NTR 分到哪些版本。現實的身體之後可以靠義體或生技改，內海的化身可以自由變化。</Hint></span>
+                <label class="fld">
+                  <span>性別<Hint>決定戰敗事件、成人事件與 NTR 分到哪些版本。現實的身體之後可以靠義體或生技改，內海的化身可以自由變化。</Hint></span>
+                  <select v-model="basic.gender" class="inp" data-gender><option v-for="o in GENDER_OPTIONS" :key="o.id" :value="o.id">{{ o.name }}</option></select>
+                </label>
+                <label v-for="[k, n] in ([['pronoun', '稱呼'], ['view', '敘事視角']] as const)" :key="k" class="fld">
+                  <span>{{ n }}</span>
                   <select v-model="basic[k]" class="inp"><option v-for="o in LOOKS[k]" :key="o">{{ o }}</option></select>
                 </label>
               </div>
@@ -377,8 +388,8 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
               <div class="kv"><span>開場就在名冊上</span><b>{{ origin.partner }}</b></div>
             </div>
             <div>
-              <label v-if="origin.id === 'corp'" class="fld"><span>原本那家企業<Hint>選的那一家決定好感給誰、買得到哪一家的橋。企業出身不帶債。</Hint></span><select v-model="corp" class="inp" @change="favor = corp"><option v-for="c in eo.favor.choose_one" :key="c">{{ c }}</option></select></label>
-              <label v-else class="fld"><span>好感 25 的勢力<template v-if="origin.favor.length > 1">（選一）</template></span><select v-model="favor" class="inp"><option v-for="f in origin.favor" :key="f">{{ f }}</option></select></label>
+              <label v-if="origin.id === 'corp'" class="fld"><span>原本那家企業<Hint>選的那一家決定好感給誰、買得到哪一家的橋。企業出身不帶債。</Hint></span><select v-model="favor" class="inp"><option v-for="f in ov.favor" :key="f.id" :value="f.id">{{ f.name }}</option></select></label>
+              <label v-else class="fld"><span>好感 25 的勢力<template v-if="ov.favor.length > 1">（選一）</template></span><select v-model="favor" class="inp"><option v-for="f in ov.favor" :key="f.id" :value="f.id">{{ f.name }}</option></select></label>
               <p v-if="origin.extra" class="empty-note mt">{{ origin.extra }}</p>
             </div>
           </div>
@@ -509,7 +520,7 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
           <p class="setgrp">總覽</p>
           <div class="cols2">
             <div>
-              <div class="kv"><span>名字</span><b>{{ basic.name || '（還沒取）' }}・{{ basic.age }} 歲・{{ basic.gender }}</b></div>
+              <div class="kv"><span>名字</span><b>{{ basic.name || '（還沒取）' }}・{{ basic.age }} 歲・{{ genderName }}</b></div>
               <div class="kv"><span>出身</span><b>{{ origin.name }}</b></div>
               <div class="kv"><span>屬性</span><b>{{ eAttrs.map(a => totals[a.id as AttrId]).join('・') }}</b></div>
               <div class="kv"><span>橋</span><b>{{ cy.bridge?.name ?? '沒有' }}</b></div>

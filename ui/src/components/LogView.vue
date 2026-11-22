@@ -7,8 +7,8 @@ defineProps<{ entries: Array<LogEntry | EngineLogEntry> }>()
 
 <template>
   <div class="log">
-    <article v-for="e in entries" :key="e.id" class="entry">
-      <div class="sys">{{ e.time }} · <b>{{ e.place }}</b></div>
+    <article v-for="e in entries" :key="e.id" class="entry" :class="{ retracted: 'retracted' in e && e.retracted }">
+      <div class="sys">{{ e.time }} · <b>{{ e.place }}</b><span v-if="'retracted' in e && e.retracted" class="tag-retracted">已收回</span></div>
       <div class="prose">
         <p v-for="(p, i) in e.prose" :key="'p' + i">{{ p }}</p>
         <p v-for="(q, i) in e.quotes ?? []" :key="'q' + i" class="say">{{ q }}</p>
@@ -35,6 +35,8 @@ defineProps<{ entries: Array<LogEntry | EngineLogEntry> }>()
 
 <style scoped>
 .entry { padding: 14px 0 16px; border-bottom: 2px solid var(--line); }
+.entry.retracted { opacity: .55; }
+.tag-retracted { margin-left: 8px; padding: 1px 8px; border-radius: 6px; background: var(--bg-2); color: var(--ink-3); font-weight: 800; box-shadow: inset 0 0 0 1px var(--line-2); }
 .sys { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-3); margin-bottom: 8px; }
 .sys b { color: var(--accent); }
 .prose { line-height: var(--lh-prose); font-size: calc(17px * var(--fs-scale)); max-width: 720px; }
