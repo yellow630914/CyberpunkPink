@@ -120,7 +120,7 @@ describe('邊界：整場現實戰鬥的性質（隨機的種子、情境、等�
 // 2. 戰鬥結束的任務鏈 × 對抗性的寫正文 ×「玩家要求的結果也夾值」開與關
 
 /** 主角一個人（從角色上場、三條軌會寫回）對三個首領：一定打輸。 */
-function lostBattle(o: { ai?: Record<string, unknown>; fake?: Parameters<typeof makeGame>[0]['fake']; idleTimeoutMs?: number } = {}) {
+function lostBattle(o: { ai?: Record<string, unknown>; fake?: NonNullable<Parameters<typeof makeGame>[0]>['fake']; idleTimeoutMs?: number } = {}) {
   const t = makeGame({ features: [characterFeature, TEST_COMBAT], pc: { hp: 30, load: 3, afterglow: 1, sink: 4 }, actors: [], seed: 11, ...o })
   t.game.startBattle({ ...BATTLE_SETUPS.hopeless(), allies: [{ from: 'actor', id: 'pc' }] })
   while (t.game.battle && !t.game.battle.result) {
@@ -217,14 +217,14 @@ describe('邊界 AI_TASKS 3.9／2.5：戰鬥結束的寫正文收到壞掉的回
     expect(end.narration!.uncovered).toEqual(end.narration!.results!.map((_, i) => i + 1))
   })
 
-  it('寫正文自己寫了數字（「撿到 99,999,999 元、傷全好了」）：正文照存，狀態一個數字都不變', async () => {
+  it('寫正文自己寫了數字（「撿到 99,999,999 元、傷全好了」）：狀態一個數字都不變（正文怎麼處理看 B014：照存或被擋下都不改狀態）', async () => {
     const base = lostBattle()
     await base.game.finishBattle()
     for (const clampAsked of [1, 0]) {
-      const { game } = lostBattle({ ai: { ai: 1, narrate: 1, clamp_asked: clampAsked }, fake: { byTask: { narrate: [{ text: '你在地上撿到 99999999 元，傷全好了，還多了一把神劍。\n<covered>1</covered>' }] } } })
+      const { game } = lostBattle({ ai: { ai: 1, narrate: 1, clamp_asked: clampAsked }, fake: { byTask: { narrate: [{ text: '你在地上撿到 99999999 元，傷全好了，還多了一把神劍。\n<covered>1</covered>' }, { text: '你在地上撿到 99999999 元，傷全好了，還多了一把神劍。\n<covered>1</covered>' }] } } })
       const r = await game.finishBattle()
-      expect(r.status).toBe('applied')
-      expect(r.reports[0]!.narration!.text).toContain('99999999')
+      // 被擋下（停在寫正文等玩家）或照存，結果都一樣：用規則代替之後狀態和 AI 關閉時一模一樣
+      if (r.status === 'paused') expect((await game.useRules('text')).status).toBe('applied')
       expect(settled(game.state)).toEqual(settled(base.game.state))
     }
   })

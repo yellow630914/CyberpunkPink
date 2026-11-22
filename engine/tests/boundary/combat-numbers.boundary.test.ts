@@ -5,7 +5,7 @@
 // ENEMIES 第 4 節（AI 一回合最多 6 步）、1.5 節（位階的傷害倍率）。不變式第 7、45、49～53 條。
 //
 // 每一個數值都測：下限、下限−1、上限、上限+1、零、空、最大組合；能寫成性質的用 fast-check。
-// 找到、還沒修的（B012～B014）的重現在 tests/pending/ 與 tests/boundary/fixtures/，這裡只斷言規格和程式一致的部分。
+// 這一份沒有找到和規格不一致的地方（這一批的 bug：B012、B013 在裝備、B014 在寫正文，重現在 tests/pending/）。
 
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
