@@ -8,12 +8,12 @@ import { installBattle } from './battle'
 import { installChanges } from './changes'
 import { installKinds } from './kinds'
 import { OWNER } from './model'
-import { armorOf } from './numbers'
+import { armorOf, bodyArmorOf } from './numbers'
 
 export { equip, equipBlock, unequip } from './equip'
 export type { BlueprintEntry, Gear, PartEntry } from './model'
 export { ACCESSORY_SLOTS, CARRY_SLOTS, QUICK_BASE, QUICK_MAX, WEAR_SLOTS, gearOf, quickCapacity } from './model'
-export { armorOf, concealment, scanFinds, weaponOf } from './numbers'
+export { armorOf, bodyArmorOf, concealment, scanFinds, weaponOf } from './numbers'
 
 export const gearFeature: Feature = {
   id: OWNER,
@@ -22,6 +22,8 @@ export const gearFeature: Feature = {
     installChanges(k)
     // 戰鬥的單位與報告讀同一個數字：全身的護甲（義體上的板材值在 M4 加進來）
     k.stats.defineStat({ id: 'armor', owner: OWNER, name: '護甲值', base: (state, actor) => (state.actors[actor] ? armorOf(k, state, actor) : 0) })
+    // 全身的護甲裡身上那一件的份：軀幹的重創只讓這一份失效，頭盔與（M4 之後）義體上的板材不受影響
+    k.stats.defineStat({ id: 'armor_body', owner: OWNER, name: '身上那件護甲', base: (state, actor) => (state.actors[actor] ? bodyArmorOf(k, state, actor) : 0) })
     installBattle(k)
   },
 }

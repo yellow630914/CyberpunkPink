@@ -265,16 +265,16 @@ describe('行動的條件與錯誤', () => {
     expect(g.battle!.cover.foe[1]!.level).toBe(0)
   })
 
-  it('叫人的支援射擊：d20 ＋ 4 ＋ 等級 × 2 對迴避；打中造成 3 顆 d6（I 級）的物理傷害', () => {
+  it('叫人的支援射擊：d20 ＋ 4 ＋ 等級 × 2 對迴避；打中造成 3 顆 d6（I 級）的物理傷害（要害多一顆；細節在 M1-review-fix.test.ts）', () => {
     const a = field(duel([one({ weapon: 'pistol', ...equipped('sk_fixer_face') })], [foe('elite')]))
     const def = a.k.battle.getAction('sk_fixer_face.call')!
     const hp = a.foe(1).hp!.now
-    const run = a.run([18, 6, 6, 6]) // 18 + 4 + 2 = 24 對迴避 10
+    const run = a.run([13, 6, 6, 6, 6]) // 13 + 4 + 2 = 19 對迴避 10：高 9，是要害，要 4 顆
     def.run(run, a.ally(1), null, { action: def.id, target: { unit: 'f1' }, pick: { option: 'shot' } })
-    expect(a.foe(1).hp!.now).toBe(hp - Math.max(0, 18 - a.foe(1).armor))
-    const beat = run.beats.find((b) => b.tag === 'support')!
-    expect(beat.roll).toMatchObject({ natural: 18, total: 24, dc: a.foe(1).evade })
-    expect(beat.data).toMatchObject({ unit: 'a1', option: 'shot' })
+    expect(a.foe(1).hp!.now).toBe(hp - Math.max(0, 24 - a.foe(1).armor))
+    const beat = run.beats.find((b) => b.tag === 'crit')!
+    expect(beat.roll).toMatchObject({ natural: 13, total: 19, dc: a.foe(1).evade })
+    expect(run.beats.find((b) => b.tag === 'support')!.data).toMatchObject({ unit: 'a1', option: 'shot' })
     // 沒打中：不扣血
     const b = field(duel([one({ weapon: 'pistol', ...equipped('sk_fixer_face') })], [foe('elite')]))
     const run2 = b.run([1, 6, 6, 6])

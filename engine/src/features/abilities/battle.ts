@@ -3,8 +3,8 @@
 // 被動與共鳴變成修正（花費的減免是 action_ap 的修正，次數在 action.done 記）、反應掛在攻擊之前（掩護射擊、小心後面！）。
 // 不 import 別的功能：技能自己用 run.attack，不呼叫 features/combat 的行動。
 
-import type { BattleActionDef, BattlePick, BattleRun, BattleTarget, BattleTargetOption, BattleUnit, BattleView, BattleWeapon, CheckRoll, Kernel, RollPart, SkillId } from '../../core'
-import { BATTLE_SLOTS, BattleBlocked, WOUND_PARTS, computeDegree, coverAt, gradeDice, onField, otherSide, unitAt, unitsOf, verdictOf, wielded } from '../../core'
+import type { BattleActionDef, BattlePick, BattleRun, BattleTarget, BattleTargetOption, BattleUnit, BattleView, BattleWeapon, Kernel, RollPart, SkillId } from '../../core'
+import { BATTLE_SLOTS, BattleBlocked, WOUND_PARTS, coverAt, gradeDice, onField, otherSide, unitAt, unitsOf, wielded } from '../../core'
 import { treeTierOf } from './learn'
 import type { AbilityEntry, MeatDef, PathEntry, UnitAbilities } from './types'
 import { OWNER } from './types'
@@ -227,17 +227,16 @@ function giveApAction(ab: AbilityEntry, order: number): BattleActionDef {
   }
 }
 
-/** 叫人的支援射擊：d20 ＋ 4 ＋ 場景的等級 × 2 對目標的迴避；打中造成 3 ＋ 等級骰顆 d6 的物理傷害（暫定，dev/adr/0013 D12）。 */
-function supportShot(run: BattleRun, u: BattleUnit, t: BattleUnit): { hit: boolean; roll: CheckRoll } {
-  const bonus = 4 + run.battle.grade * 2
-  const natural = run.d20()
-  const total = natural + bonus
-  const dc = run.evadeOf(t).total
-  const hit = total >= dc
-  const degree = computeDegree(natural, total, dc)
-  const roll: CheckRoll = { dice: '1d20', natural, parts: [{ label: '叫人', value: bonus, source: 'skill' }], total, dc, degree, verdict: verdictOf(degree, total - dc), margin: total - dc }
-  if (hit) run.damage(t, run.d6(3 + gradeDice(run.battle.grade)), 'physical', u)
-  return { hit, roll }
+/**
+ * 叫人的支援射擊：名冊上的人開一槍，走一般的攻擊（`run.attack`：自然 1／20、要害、傷到那一格的遮蔽、hit／miss／crit 的紀錄都和別的射擊一樣）。
+ * 數字是 SKILL_TREES 人面的叫人的暫定值：命中加值 4 ＋ 場景的等級 × 2，傷害 3 ＋ 等級骰顆 d6 的物理傷害（dev/adr/0013 D12）。
+ * 用一把臨時的武器：不扣距離（和無人機一樣）、不吃彈匣、打遮蔽的倍率照手槍（×0.25，同為 3d6 的基礎）。
+ */
+function supportWeapon(run: BattleRun): BattleWeapon {
+  return {
+    id: 'support', name: '支援', class: 'support', dice: 3 + gradeDice(run.battle.grade), flat: 0, type: 'physical', range: [1, 7], pierce: 0,
+    hit: 4 + run.battle.grade * 2, attr: 'charm', skill: 'streetwise', coverMult: 0.25, traits: [],
+  }
 }
 
 const CALL_NAME: Record<string, string> = { cover_up: '補遮蔽：替我方一格補一級遮蔽', cover_down: '拆遮蔽：拆掉敵方一格的一級遮蔽', shot: '支援射擊：朝一個敵人開一槍' }
@@ -276,7 +275,6 @@ function callAction(ab: AbilityEntry, order: number): BattleActionDef {
       const bad = new BattleBlocked(['叫人要選一件事：補遮蔽、拆遮蔽，或支援射擊。'])
       if (typeof option !== 'string' || !(call.options as string[]).includes(option) || !t) throw bad
       let text = ''
-      let roll: CheckRoll | undefined
       if (option === 'cover_up') {
         if (!('side' in t) || t.side !== u.side || t.slot < 1 || t.slot > BATTLE_SLOTS) throw bad
         run.raiseCover(t.side, t.slot, 1)
@@ -289,12 +287,14 @@ function callAction(ab: AbilityEntry, order: number): BattleActionDef {
         if (!('unit' in t)) throw bad
         const foe = run.battle.units[t.unit]
         if (!foe || foe.side === u.side || !onField(foe)) throw bad
-        const r = supportShot(run, u, foe)
-        roll = r.roll
-        text = `${u.name}：叫人，支援射擊${r.hit ? '命中' : '沒打中'} ${foe.name}。`
+        // 先記下這一次叫人，再開槍：命中與否、要害與遮蔽的紀錄由攻擊自己寫（hit／miss／crit，帶檢定的擲骰）
+        u.uses[id] = (u.uses[id] ?? 0) + 1
+        run.say(`${u.name}：叫人，支援射擊 ${foe.name}。`, 'support', { unit: u.id, option, target: foe.id }, u)
+        run.attack(u, foe, { weapon: supportWeapon(run), label: '射擊', spend: 0 })
+        return
       } else throw bad
       u.uses[id] = (u.uses[id] ?? 0) + 1
-      run.say(text, 'support', { unit: u.id, option }, u, roll)
+      run.say(text, 'support', { unit: u.id, option }, u)
     },
   }
 }

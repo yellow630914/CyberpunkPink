@@ -19,11 +19,8 @@ function pieceArmor(k: Kernel, stack: ItemStack, bp: BlueprintEntry): number {
   return num(bp.armor) + fiber + (plates[0] ?? 0) + plates.slice(1).reduce((n, v) => n + v / 2, 0)
 }
 
-/**
- * 全身的護甲：身上最高的那一件（不疊；佔頭的那一件不算在這裡）＋ 頭盔（佔 head 的那一件，值大於 0 就 +1，最多 +1），最後無條件捨去。
- * 義體上的板材值在 M4。同時註冊成衍生數值 armor（index.ts），戰鬥的單位讀那一個。
- */
-export function armorOf(k: Kernel, state: GameState, actor: string): number {
+/** 身上最高的那一件（不疊；佔頭的那一件不算在這裡）與頭盔（佔 head 的那一件，值大於 0 就 +1）。 */
+function armorSplit(k: Kernel, state: GameState, actor: string): { body: number; helmet: number } {
   const gear = gearOf(state, actor)
   const headUid = gear.worn.head
   let body = 0
@@ -33,7 +30,24 @@ export function armorOf(k: Kernel, state: GameState, actor: string): number {
     if (p.uid === headUid) helmet = v > 0 ? 1 : 0
     else body = Math.max(body, v)
   }
+  return { body, helmet }
+}
+
+/**
+ * 全身的護甲：身上最高的那一件（不疊；佔頭的那一件不算在這裡）＋ 頭盔（佔 head 的那一件，值大於 0 就 +1，最多 +1），最後無條件捨去。
+ * 義體上的板材值在 M4。同時註冊成衍生數值 armor（index.ts），戰鬥的單位讀那一個。
+ */
+export function armorOf(k: Kernel, state: GameState, actor: string): number {
+  const { body, helmet } = armorSplit(k, state, actor)
   return Math.floor(body + helmet)
+}
+
+/**
+ * 全身的護甲裡「身上那一件」的份（捨去之後；不含頭盔）。軀幹的重創只讓這一件失效（COMBAT_SYSTEM 第 6 節）：
+ * 註冊成衍生數值 armor_body（index.ts），戰鬥的重創功能用 id 讀它，不直接用裝備。
+ */
+export function bodyArmorOf(k: Kernel, state: GameState, actor: string): number {
+  return Math.floor(armorSplit(k, state, actor).body)
 }
 
 // ---- 武器 ----

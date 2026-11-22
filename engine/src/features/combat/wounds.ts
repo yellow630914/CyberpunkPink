@@ -31,7 +31,10 @@ export function registerWounds(k: Kernel): void {
     if (worsened) {
       if (part === 'limb') run.applyStatus(target, 'limb_hurt', { data: { hit: -4 } })
       else if (part === 'torso') {
-        target.armor = 0
+        // 身上那件護甲失效（COMBAT_SYSTEM 第 6 節）：頭盔與義體的板材不受影響。裝備的功能給 armor_body（身上那一件的份）；
+        // 沒有角色或沒有人註冊它的單位（沒有分來源的資料），整個護甲都當成身上那一件
+        const body = target.actor && run.state.actors[target.actor] && run.k.stats.hasStat('armor_body') ? run.k.stats.stat(run.state, target.actor, 'armor_body') : target.armor
+        target.armor = Math.max(0, target.armor - body)
         if (target.hp) {
           target.hp.max = Math.max(1, target.hp.max - 5)
           target.hp.now = Math.min(target.hp.now, target.hp.max)
