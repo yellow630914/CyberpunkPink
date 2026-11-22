@@ -4,7 +4,7 @@
 - 目標：在 `features/combat` 註冊一組通用的效果（`op`），道具、技能、招牌行動、武器的附帶效果、快駭都用這一組；現有的五個道具效果搬到同一張表上。
 - 規格出處：SKILLS 1.8 節「現實與內海共用」「只在現實」兩列（效果只能是這張清單上的事）；COMBAT_SYSTEM 第 4 節（傷害類型）、第 6 節（重創的輕與重）；dev/adr/0015 第一節與 E8。只讀這幾處。
 - 可以改的路徑：`engine/src/features/combat/`（新增 `ops.ts`）、`engine/tests/features/M1b-ops.test.ts`（新增）。
-- 可以用的介面（都從 `'../../core'`）：`k.battle.effect`、`EffectCtx`、`amount`、`amountProblems`、`run.effects`（M1b-core-effects 做的）；`BattleRun` 的基本動作（`attack`、`damage`、`addLoad`、`heal`、`vent`、`applyStatus`、`removeStatus`、`cleanse`、`shift`、`move`、`place`、`raiseCover`、`lowerCover`、`softCover`、`refund`、`save`、`revive`、`setOut`、`implantStatus`、`swapOrder`、`actNext`、`say`）；`weaponFromClass`、`gradeDice`。
+- 可以用的介面（都從 `'../../core'`）：`k.battle.effect`、`BattleEffectCtx`（原名和報告的效果系統撞到，改成 Battle 開頭）、`amount`、`amountProblems`、`run.effects`（M1b-core-effects 做的）；`BattleRun` 的基本動作（`attack`、`damage`、`addLoad`、`heal`、`vent`、`applyStatus`、`removeStatus`、`cleanse`、`shift`、`move`、`place`、`raiseCover`、`lowerCover`、`softCover`、`refund`、`save`、`revive`、`setOut`、`implantStatus`、`swapOrder`、`actNext`、`say`）；`weaponFromClass`、`gradeDice`。
 - 不可以做的事：不改核心；不 import 別的功能；不寫任何技能或道具的資料；每個 `op` 只做一件事，不看來源是技能還是道具。
 
 ## 一、要註冊的 `op`（封閉清單；數量的欄位都收公式）
@@ -61,3 +61,5 @@ M1b-core-effects、M1b-core-overlay（`implant` 要 `implantStatus`）。做完�
 ## 完成時回報
 
 改了哪些檔、測試結果、哪些 `op` 的語意在設計書裡找不到依據。
+
+- 2026-11-22 補（M1b-ops 起）：`run.ts` 的 `wound_grade` 修正核心已宣告但 `features/combat/wounds.ts` 還沒問，這張接上。灌感載的 op 要寫 `last.overloaded`；`check` 的 `stop` 用 `ctx.last.stop`。

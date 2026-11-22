@@ -5,10 +5,10 @@
 // 型別的名字：ADR 的 EffectCtx、EffectSource 和 core/rules/effects.ts（報告的效果）同名，戰鬥的這一組冠上 Battle：BattleEffectCtx 等。
 
 import { describe, expect, it } from 'vitest'
-import type { BattleActionDef, BattleEffectInput, BattleOverlay, BattleTarget, ContentPack, Kernel } from '../../src'
+import type { BattleActionDef, BattleEffectInput, BattleOverlay, BattleTarget, ContentPack, Feature, Kernel } from '../../src'
 import { BATTLE_EVENTS, MOD_KINDS, actionCost, actionTags, aiStep, amount, amountProblems, attrMod, beginTurn, createKernel, readyFeatures, targetWeight } from '../../src'
 import { combatFeature } from '../../src/features/combat'
-import { BATTLE_SETUPS, fixDice, testWeapon } from '../../src/testkit'
+import { BATTLE_SETUPS, TEST_COMBAT, fixDice, makeBattleGame, playOut, stateHash, testWeapon } from '../../src/testkit'
 import type { Arena } from '../helpers/battle'
 import { TEST_STATUSES, arena, duel, foe, one, raw } from '../helpers/battle'
 
@@ -482,6 +482,10 @@ describe('退出與救回來（dev/adr/0015 第二節）', () => {
     expect(a.battle.result).toBeUndefined()
     expect(hows).toEqual(['down'])
     expect(run.beats.find((b) => b.tag === 'damage')!.data!.left).toBe(1)
+    // 回傳的實際造成的量只算扣到 1 為止的那一段
+    const c = lone(true)
+    c.foe(1).hp!.now = 5
+    expect(c.run().damage(c.foe(1), 9999, 'physical', c.ally(1))).toMatchObject({ dealt: 4, track: 'hp' })
     // 不擋的對照：倒下、戰鬥結束
     const b = lone(false)
     const run2 = b.run()
@@ -905,5 +909,46 @@ describe('花費的標籤與 RAM（dev/adr/0015 第二節）', () => {
     // 還沒選：兩種都能用，不知道是哪一種
     expect(actionCost(a.run(), me, action).ap).toBe(1)
     expect(seen.at(-1)).toEqual(['item', 'group:supply', 'item'])
+  })
+})
+
+describe('整場戰鬥裡用：掛點接在提交與回合上（不變式 44、47）', () => {
+  /** 我方第一次生命歸零時被擋下（生命 1）；敵方第一次倒下時被救回來（生命 8）。 */
+  const savior: Feature = {
+    id: 'savior',
+    install: (k) => {
+      k.battle.on('out.before', 'savior', ({ unit, how, out }) => {
+        if (unit.side === 'ally' && how === 'down' && !unit.uses.saved) {
+          unit.uses.saved = 1
+          out.prevent = true
+        }
+      })
+      k.battle.on('out', 'savior', ({ run, unit, how }) => {
+        if (unit.side === 'foe' && how === 'down' && !unit.uses.revived) {
+          unit.uses.revived = 1
+          run.revive(unit, 8)
+        }
+      })
+    },
+  }
+  const play = (seed: number) => {
+    const { game } = makeBattleGame({ features: [TEST_COMBAT, savior], battle: 'encounter', seed })
+    const { outcome } = playOut(game)
+    const beats = game.state.reports.filter((r) => r.action === 'battle.step').flatMap((r) => r.timeline.map((b) => b.tag))
+    return { outcome, beats, hash: stateHash(game.state), game }
+  }
+
+  it('擋下與救回來的整場戰鬥打得完（每一步都過提交的檢查）；同一個種子兩次的結果一樣', () => {
+    const a = play(7)
+    expect(['win', 'lose']).toContain(a.outcome)
+    expect(a.beats.filter((t) => t === 'revive').length).toBeGreaterThan(0)
+    expect(play(7).hash).toBe(a.hash)
+  })
+
+  it('存檔再讀檔：救回來排在後方的人也存得下、讀得回來', () => {
+    const { game } = play(7)
+    const hash = stateHash(game.state)
+    expect(game.load(game.save('manual', '2026-11-22T00:00:00Z'))).toBeNull()
+    expect(stateHash(game.state)).toBe(hash)
   })
 })

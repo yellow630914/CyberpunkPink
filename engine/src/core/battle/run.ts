@@ -464,6 +464,7 @@ export class BattleRun implements BattleView {
       if (hull.hp.now <= 0) this.k.battle.emit('hull.break', { run: this, unit: target })
       if (dm <= 0 || target.out) return { dealt: soaked, track: 'hull' }
     }
+    const hpBefore = target.hp.now
     target.hp.now = Math.max(0, target.hp.now - dm)
     const at = this.beats.length
     this.say(`${unitTag(target)} 受到 ${dm} 點${type.name}傷害。`, 'damage', { target: target.id, type: typeId, amount: dm, left: target.hp.now, ...(by ? { by: by.id } : {}) }, by)
@@ -473,7 +474,8 @@ export class BattleRun implements BattleView {
     if (prevented && this.beats[at]?.data) this.beats[at]!.data!.left = target.hp.now
     if (zero && !prevented) this.leave(target, 'down', by)
     else for (const s of type.onHit ?? []) if (statusRuleOf(this.k.content, s.status)) this.applyStatus(target, s.status, { ...(by ? { by } : {}), turns: s.turns })
-    return { dealt: dm + soaked, track: 'hp' }
+    // 被擋下（out.before）而生命拉回 1 的：實際扣掉的只有扣到 1 為止的那一段
+    return { dealt: (prevented ? hpBefore - target.hp.now : dm) + soaked, track: 'hp' }
   }
 
   /**

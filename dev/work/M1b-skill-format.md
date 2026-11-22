@@ -89,3 +89,5 @@ M1b-core-effects、M1b-ops。做完才能開 M1b-skill-gunner-broker、M1b-skill
 ## 完成時回報
 
 改了哪些檔、測試結果、SKILLS 1.8 節的清單裡這套格式還寫不出來的效果。
+
+- 2026-11-22 補：`features/abilities/battle.ts` 技能的壓制檢定要帶 `resist:suppressed` 標籤（核心工單範圍外，這張補）。
