@@ -1,0 +1,6179 @@
+{
+ "generated": "2026-11-22",
+ "effects": [
+  {
+   "op": "attack",
+   "owner": "combat",
+   "desc": "用手上的武器對目標攻擊一次，走一般的命中、傷害、要害與重創流程，並把結果記進上一筆的結果供後面的效果用。可以臨時加命中、骰數、固定傷害與穿甲，改傷害類型，當成瞄準過的射擊，指定花掉幾格彈匣（all 是全部），調整遮蔽對這一擊的影響，或改用另一組屬性與基本功擲命中。",
+   "params": [
+    "hit",
+    "dice",
+    "damage",
+    "pierce",
+    "type",
+    "aimed",
+    "spend",
+    "cover_shift",
+    "cover_mult_min",
+    "no_cover",
+    "no_wound",
+    "auto_crit",
+    "armor_mult",
+    "as",
+    "label",
+    "tags"
+   ],
+   "usedBy": [
+    "sk_gunner_back_off",
+    "sk_gunner_pierce",
+    "sk_gunner_run_and_gun",
+    "sk_gunner_deadline",
+    "sk_gunner_covering_retreat",
+    "sk_gunner_next_one",
+    "sk_gunner_dont_move",
+    "sk_gunner_one_shot",
+    "sk_gunner_right_back",
+    "sk_medic_find_gap",
+    "sk_medic_short_circuit"
+   ]
+  },
+  {
+   "op": "strike",
+   "owner": "combat",
+   "desc": "用一把臨時的武器打一擊，不吃彈匣也不看手上的武器，名字用來源的名字（手雷、撞擊）；落在掛著的東西上時也能打。natural 可以讓同一串效果的每個落點共用同一個骰面。",
+   "params": [
+    "dice",
+    "type",
+    "hit",
+    "range",
+    "pierce",
+    "cover_mult",
+    "natural",
+    "label",
+    "traits"
+   ],
+   "usedBy": [],
+   "usedByOther": "手雷、撞擊這類道具與招牌行動（M1b-ops 的測試）使用；八棵樹的技能沒有用到。"
+  },
+  {
+   "op": "damage",
+   "owner": "combat",
+   "desc": "對目標造成一筆直接傷害，不擲命中；打在掛著的東西上時照核心的算法扣它的耐久。",
+   "params": [
+    "amount",
+    "type",
+    "pierce"
+   ],
+   "usedBy": [],
+   "usedByOther": "誘惑攻擊與引爆在內部呼叫它，敵人招牌與道具也用；八棵樹的技能沒有直接寫它。"
+  },
+  {
+   "op": "load",
+   "owner": "combat",
+   "desc": "替有橋的目標增加感載（神經或快感），沒有橋的人無效；快感類型會依傷害類型的資料加沉溺，exact 表示不吃百分比修正。",
+   "params": [
+    "amount",
+    "type",
+    "exact"
+   ],
+   "usedBy": [
+    "sk_gunner_bullet_time",
+    "sk_medic_overclock",
+    "sk_heat",
+    "sk_inflow",
+    "sk_black",
+    "sk_socialite_poke"
+   ]
+  },
+  {
+   "op": "heal",
+   "owner": "combat",
+   "desc": "替目標回復生命值，數量可以寫公式；做的人的 heal_dealt 修正會加進來。",
+   "params": [
+    "amount"
+   ],
+   "usedBy": [
+    "sk_medic_first_aid",
+    "sk_medic_painless",
+    "sk_medic_line_up",
+    "sk_medic_field_surgery",
+    "sk_medic_overhaul"
+   ]
+  },
+  {
+   "op": "vent",
+   "owner": "combat",
+   "desc": "替目標排掉感載，數量可以寫公式；做的人的 vent_dealt 修正會加進來。",
+   "params": [
+    "amount"
+   ],
+   "usedBy": [
+    "sk_medic_cool_down",
+    "sk_fixer_hold_the_line"
+   ]
+  },
+  {
+   "op": "afterglow",
+   "owner": "combat",
+   "desc": "增減目標的餘韻層數，最少 0、最多到他的承受層數上限。",
+   "params": [
+    "amount",
+    "layers"
+   ],
+   "usedBy": [
+    "sk_medic_cool_down",
+    "sk_medic_overhaul",
+    "sk_medic_extreme_overclock",
+    "sk_socialite_swoon"
+   ]
+  },
+  {
+   "op": "status",
+   "owner": "combat",
+   "desc": "替目標加上一個戰鬥狀態，可指定回合數、結束時機與數值；寫了 save 時目標先擲豁免，過了就不加。",
+   "params": [
+    "status",
+    "turns",
+    "until",
+    "data",
+    "save"
+   ],
+   "usedBy": [
+    "sk_gunner_covering_retreat",
+    "sk_pilot_bastion",
+    "sk_medic_short_circuit",
+    "sk_medic_strip_all",
+    "sk_puppet",
+    "sk_socialite_tell_me",
+    "sk_socialite_dizzy",
+    "sk_socialite_everyone",
+    "sk_fixer_talk_down",
+    "sk_fixer_bribe",
+    "sk_fixer_hit_him",
+    "sk_fixer_lets_talk",
+    "sk_fixer_city_owes_me"
+   ]
+  },
+  {
+   "op": "unstatus",
+   "owner": "combat",
+   "desc": "拿掉目標身上指定的狀態，或依種類（控制、減益、增益、重創、標記）拿掉指定數量。",
+   "params": [
+    "status",
+    "kinds",
+    "count"
+   ],
+   "usedBy": [
+    "sk_pilot_bastion",
+    "sk_backup"
+   ]
+  },
+  {
+   "op": "cleanse",
+   "owner": "combat",
+   "desc": "以某種解除方式（例如急救）或指定的狀態 id，解掉目標身上的狀態。",
+   "params": [
+    "by",
+    "status"
+   ],
+   "usedBy": [
+    "sk_medic_first_aid",
+    "sk_medic_painless"
+   ]
+  },
+  {
+   "op": "soft_cover",
+   "owner": "combat",
+   "desc": "在目標那一格放上一種臨時的軟遮蔽（煙霧之類），可限定回合數；also 為真時連玩家選的相鄰一格也放。",
+   "params": [
+    "kind",
+    "rounds",
+    "also"
+   ],
+   "usedBy": [],
+   "usedByOther": "煙霧彈等道具（engine/data/rules/items.json）使用；八棵樹的技能沒有用到。"
+  },
+  {
+   "op": "check",
+   "owner": "combat",
+   "desc": "做的人擲 1d20＋屬性修正＋基本功＋加值，對目標的防火牆、迴避、意志或固定難度；對別人擲時先發 check.before 讓對方的反應改難度，結果寫進上一筆的 ok，stop 為真且失敗時中止後面的效果。",
+   "params": [
+    "attr",
+    "skill",
+    "vs",
+    "bonus",
+    "tags",
+    "label",
+    "stop"
+   ],
+   "usedBy": [
+    "sk_medic_dismantle",
+    "sk_medic_take_off",
+    "sk_medic_strip_all",
+    "sk_medic_hands_off",
+    "sk_socialite_tell_me",
+    "sk_fixer_talk_down",
+    "sk_fixer_lets_talk"
+   ]
+  },
+  {
+   "op": "shift",
+   "owner": "combat",
+   "desc": "把目標往後推或往前拉幾格，遇到邊界或擋住就停。",
+   "params": [
+    "dir",
+    "n"
+   ],
+   "usedBy": [
+    "sk_gunner_back_off",
+    "sk_medic_hands_off",
+    "sk_puppet"
+   ]
+  },
+  {
+   "op": "move",
+   "owner": "combat",
+   "desc": "讓目標換到玩家選的那一格（pick.slot）；to 為 adjacent 時只能換到相鄰的格。",
+   "params": [
+    "to"
+   ],
+   "usedBy": [
+    "sk_gunner_run_and_gun",
+    "sk_gunner_covering_retreat"
+   ]
+  },
+  {
+   "op": "swap",
+   "owner": "combat",
+   "desc": "讓目標和玩家選的另一名隊友對調位置。",
+   "params": [
+    "with"
+   ],
+   "usedBy": [],
+   "usedByOther": "目前只有 M1b-ops 的測試使用；八棵樹的技能沒有用到（換個位子嘛走舊的 free_move 寫法）。"
+  },
+  {
+   "op": "cover",
+   "owner": "combat",
+   "desc": "替目標所在的那一格升或降遮蔽等級；正數升（可限制最高級），負數降。",
+   "params": [
+    "levels",
+    "max"
+   ],
+   "usedBy": [
+    "sk_rewrite",
+    "sk_lockdown",
+    "sk_admin"
+   ]
+  },
+  {
+   "op": "ap",
+   "owner": "combat",
+   "desc": "增減目標的行動點，預設不超過上限，over_cap 可以超過，減不會低於 0。",
+   "params": [
+    "amount",
+    "over_cap"
+   ],
+   "usedBy": [
+    "sk_gunner_kill_rhythm",
+    "sk_puppet",
+    "sk_cast",
+    "sk_fixer_all_out"
+   ]
+  },
+  {
+   "op": "mag",
+   "owner": "combat",
+   "desc": "增減目標手上武器的彈匣格數；amount 為 full 時補滿，over_cap 可以超過容量。",
+   "params": [
+    "amount",
+    "over_cap"
+   ],
+   "usedBy": [
+    "sk_fixer_proxy",
+    "sk_fixer_black_market"
+   ]
+  },
+  {
+   "op": "pool",
+   "owner": "combat",
+   "desc": "增減目標的某個資源池（RAM、現金、人情等），amount 為 full 時補滿。",
+   "params": [
+    "pool",
+    "amount"
+   ],
+   "usedBy": [
+    "sk_backflow",
+    "sk_thanks"
+   ]
+  },
+  {
+   "op": "implant",
+   "owner": "combat",
+   "desc": "讓目標的一件義體失效（off）或超頻（boost），可指定種類、持續時間；take 讓它到戰鬥結束都失效並記成被卸下。",
+   "params": [
+    "mode",
+    "kind",
+    "turns",
+    "until",
+    "take"
+   ],
+   "usedBy": [
+    "sk_medic_dismantle",
+    "sk_medic_overclock",
+    "sk_medic_take_off",
+    "sk_medic_strip_all",
+    "sk_medic_hands_off",
+    "sk_heat"
+   ]
+  },
+  {
+   "op": "revive",
+   "owner": "combat",
+   "desc": "讓因生命歸零倒下的目標以指定生命值回到場上。",
+   "params": [
+    "hp"
+   ],
+   "usedBy": [
+    "sk_medic_pull_back"
+   ]
+  },
+  {
+   "op": "wound",
+   "owner": "combat",
+   "desc": "處理重創：treat 是輕的解除、重的降成輕的，clear 是全部清掉，可指定部位。",
+   "params": [
+    "mode",
+    "part"
+   ],
+   "usedBy": [
+    "sk_medic_field_surgery",
+    "sk_medic_overhaul"
+   ]
+  },
+  {
+   "op": "out",
+   "owner": "combat",
+   "desc": "讓目標退出這場戰鬥（投降或逃走）。",
+   "params": [
+    "how"
+   ],
+   "usedBy": [
+    "sk_fixer_talk_down"
+   ]
+  },
+  {
+   "op": "field",
+   "owner": "combat",
+   "desc": "開關全場的場地旗標（目前只有 dark：全場黑暗，迴避 +2）。",
+   "params": [
+    "key",
+    "value"
+   ],
+   "usedBy": [
+    "sk_lockdown",
+    "sk_admin"
+   ]
+  },
+  {
+   "op": "order",
+   "owner": "combat",
+   "desc": "把目標和玩家選的隊友的先攻順位對調；act_next 讓被換到前面、這一輪還沒動過的人馬上輪到並拿回 1 點行動點。",
+   "params": [
+    "with",
+    "act_next"
+   ],
+   "usedBy": [
+    "sk_fixer_big_picture"
+   ]
+  },
+  {
+   "op": "sink",
+   "owner": "combat",
+   "desc": "替目標增加沉溺；寫了 save 時目標先擲定力豁免，過了就整筆擋掉。",
+   "params": [
+    "amount",
+    "save"
+   ],
+   "usedBy": [
+    "sk_inflow"
+   ]
+  },
+  {
+   "op": "throw",
+   "owner": "combat",
+   "desc": "投擲物：一顆骰同時打目標那一格與玩家選的相鄰一格，格上的人與掛著的東西各自對自己的迴避；寫 save 的（閃光彈）不造成傷害，兩格的人過檢定、沒過的做 on_hit；cover 可以讓那兩格遮蔽各降幾級。",
+   "params": [
+    "dice",
+    "type",
+    "hit",
+    "cover_mult",
+    "on_hit",
+    "save",
+    "cover"
+   ],
+   "usedBy": [],
+   "usedByOther": "投擲物道具（手雷、閃光彈、炸藥）使用；八棵樹的技能沒有用到。"
+  },
+  {
+   "op": "decoy",
+   "owner": "combat",
+   "desc": "在我方一格放一台沒有操作者、耐久 1 的立牌，下一次以那一格的人為目標的敵方攻擊改打它。",
+   "params": [],
+   "usedBy": [],
+   "usedByOther": "立牌道具使用；八棵樹的技能沒有用到。"
+  },
+  {
+   "op": "hack.check",
+   "owner": "hack",
+   "desc": "快駭的檢定：包裝核心的 check，1d20＋智識＋介面＋等級加值＋程式加值，對目標的防火牆（控制類打精英 +2、首領 +4）；沒過時記一句「沒有效果（RAM 已經花掉了）」。",
+   "params": [
+    "class",
+    "grade",
+    "bonus",
+    "stop"
+   ],
+   "usedBy": [
+    "sk_ice",
+    "sk_take",
+    "sk_loop",
+    "sk_heat",
+    "sk_rewrite",
+    "sk_inflow",
+    "sk_puppet",
+    "sk_black"
+   ]
+  },
+  {
+   "op": "hack.dot",
+   "owner": "hack",
+   "desc": "持續型快駭：目標之後每個回合開始時受一次感載；同一個目標同時只掛一個，新的蓋掉舊的。",
+   "params": [
+    "amount",
+    "turns"
+   ],
+   "usedBy": [
+    "sk_loop"
+   ]
+  },
+  {
+   "op": "hack.takeover",
+   "owner": "hack",
+   "desc": "接管敵方一台無人機或砲塔指定回合（或到戰鬥結束），變成我方、由做的人指揮；mode 為 rewrite 時只改寫敵我名單，到期前它每輪攻擊原本的隊友；到期後還回去。",
+   "params": [
+    "turns",
+    "until",
+    "mode"
+   ],
+   "usedBy": [
+    "sk_take",
+    "sk_admin"
+   ]
+  },
+  {
+   "op": "hack.node",
+   "owner": "hack",
+   "desc": "拿下一個控制節點。",
+   "params": [],
+   "usedBy": [],
+   "usedByOther": "快駭程式（拿下控制節點）使用；八棵樹的技能沒有用到。"
+  },
+  {
+   "op": "hack.detonate",
+   "owner": "hack",
+   "desc": "引爆目標快取格裡的一件爆裂物：那一格受一擊（預設熱能 2d6）、遮蔽降級，那件道具消失。",
+   "params": [
+    "dice",
+    "type",
+    "cover"
+   ],
+   "usedBy": [
+    "sk_rewrite"
+   ]
+  },
+  {
+   "op": "buff",
+   "owner": "abilities",
+   "desc": "替目標掛一段限時的修正（mods），到期時做 on_end；同一個 id 再掛是重算時間；mask 讓它同時算戴著面具。",
+   "params": [
+    "id",
+    "name",
+    "turns",
+    "until",
+    "mods",
+    "on_end",
+    "mask"
+   ],
+   "usedBy": [
+    "sk_gunner_deadline",
+    "sk_gunner_flow",
+    "sk_gunner_fire_wall",
+    "sk_gunner_bullet_time",
+    "sk_pilot_accompany",
+    "sk_pilot_dome",
+    "sk_medic_painless",
+    "sk_medic_overclock",
+    "sk_medic_extreme_overclock",
+    "sk_ice",
+    "sk_mirror",
+    "sk_backup",
+    "sk_socialite_stay",
+    "sk_socialite_new_face",
+    "sk_socialite_thousand_faces",
+    "sk_socialite_curtain_call",
+    "sk_fixer_hit_him",
+    "sk_fixer_all_out",
+    "sk_fixer_hold_the_line",
+    "sk_fixer_command"
+   ]
+  },
+  {
+   "op": "ward",
+   "owner": "abilities",
+   "desc": "守著敵方的一格：到期之前站在那一格的人第一次換位、補位或攻擊時，守著的人立刻做 do（通常是朝他開一槍），用過就沒了。",
+   "params": [
+    "slot",
+    "until",
+    "on",
+    "do"
+   ],
+   "usedBy": [
+    "sk_gunner_dont_move"
+   ]
+  },
+  {
+   "op": "tease",
+   "owner": "abilities",
+   "desc": "誘惑攻擊：魅力與誘惑對目標的意志與定力一次檢定，過了造成 2d6 快感傷害（不看護甲與遮蔽），再做 on_ok；讓目標過載時再做 on_overload；targets 為 2 時多選第二個目標。",
+   "params": [
+    "hit",
+    "bonus",
+    "on_ok",
+    "on_overload",
+    "targets"
+   ],
+   "usedBy": [
+    "sk_socialite_payback"
+   ]
+  },
+  {
+   "op": "branch",
+   "owner": "abilities",
+   "desc": "看這一筆落在的人（needs）與做的人（when）符不符合條件，符合做 do、不符合做 else。",
+   "params": [
+    "needs",
+    "when",
+    "do",
+    "else"
+   ],
+   "usedBy": [
+    "sk_medic_find_gap",
+    "sk_medic_short_circuit",
+    "sk_medic_overhaul",
+    "sk_fixer_talk_down",
+    "sk_fixer_city_owes_me"
+   ]
+  },
+  {
+   "op": "cover_temp",
+   "owner": "abilities",
+   "desc": "替這個人所在的那一格暫時升遮蔽等級（最高到掩體），到期時把升上去的拿回來。",
+   "params": [
+    "levels",
+    "until"
+   ],
+   "usedBy": [
+    "sk_gunner_run_and_gun"
+   ]
+  },
+  {
+   "op": "drone.act",
+   "owner": "summons",
+   "desc": "讓指定的幾台無人機各動作一次，不另外花指揮的行動點；可指定打誰與命中、穿甲加成。",
+   "params": [
+    "which",
+    "max",
+    "at",
+    "hit",
+    "pierce",
+    "mark_used",
+    "ignore_used"
+   ],
+   "usedBy": [
+    "sk_pilot_good_kid",
+    "sk_pilot_one_more",
+    "sk_pilot_dual_fire",
+    "sk_pilot_saturation",
+    "sk_pilot_precision",
+    "sk_pilot_swarm",
+    "sk_pilot_defend_kids"
+   ]
+  },
+  {
+   "op": "drone.deploy",
+   "owner": "summons",
+   "desc": "放出一台無人機（單位上的第幾台，或臨時的一台），可指定持續回合、是否超過同步上限、被擊落時是否不回灌感載。",
+   "params": [
+    "drone",
+    "kind",
+    "grade",
+    "turns",
+    "over_cap",
+    "no_backlash"
+   ],
+   "usedBy": [
+    "sk_pilot_good_kid",
+    "sk_pilot_swarm"
+   ]
+  },
+  {
+   "op": "drone.move",
+   "owner": "summons",
+   "desc": "把選的那一台無人機移到指定的格；any 為真時不必相鄰。",
+   "params": [
+    "to",
+    "any"
+   ],
+   "usedBy": [
+    "sk_pilot_accompany",
+    "sk_pilot_quick_repair"
+   ]
+  },
+  {
+   "op": "drone.repair",
+   "owner": "summons",
+   "desc": "讓一台還沒被擊落的無人機回復耐久。",
+   "params": [
+    "amount"
+   ],
+   "usedBy": [
+    "sk_pilot_quick_repair"
+   ]
+  },
+  {
+   "op": "drone.smoke",
+   "owner": "summons",
+   "desc": "讓無人機掛的那一格變成打不破的半掩體，持續指定回合。",
+   "params": [
+    "rounds"
+   ],
+   "usedBy": [
+    "sk_pilot_smoke_cover"
+   ]
+  },
+  {
+   "op": "drone.ram",
+   "owner": "summons",
+   "desc": "讓一台無人機撞上目標：無人機被擊落，目標受傷害並被往後推。",
+   "params": [
+    "dice",
+    "type"
+   ],
+   "usedBy": [
+    "sk_pilot_ram_in"
+   ]
+  },
+  {
+   "op": "drone.guard",
+   "owner": "summons",
+   "desc": "讓幾台無人機替同一格的人擋下一次攻擊（那一擊改打無人機）。",
+   "params": [
+    "which",
+    "max",
+    "until"
+   ],
+   "usedBy": [
+    "sk_pilot_dome"
+   ]
+  },
+  {
+   "op": "drone.escort",
+   "owner": "summons",
+   "desc": "姿態用：開著時和無人機同一格的隊友迴避加成，最多幾格受惠；off 為真時收起。",
+   "params": [
+    "evade",
+    "max",
+    "off"
+   ],
+   "usedBy": [
+    "sk_pilot_escort"
+   ]
+  }
+ ],
+ "mods": [
+  {
+   "kind": "hit",
+   "owner": "core",
+   "desc": "自己攻擊的命中加減；問的時候帶武器與標籤，所以可以只對某一類攻擊生效（例如瞄準過的、無人機的）。",
+   "usedBy": [
+    "sk_gunner_deadline",
+    "sk_gunner_hunter_eye",
+    "sk_gunner_gun_unity",
+    "sk_pilot_formation",
+    "sk_pilot_assault",
+    "sk_medic_scalpel",
+    "sk_medic_painless",
+    "sk_medic_dismantle_fun",
+    "sk_medic_locksmith",
+    "sk_medic_extreme_overclock",
+    "sk_socialite_stay",
+    "sk_socialite_disguise",
+    "sk_fixer_all_out",
+    "sk_fixer_command"
+   ],
+   "usedByResonance": [
+    "pilot:4"
+   ]
+  },
+  {
+   "kind": "hit_against",
+   "owner": "core",
+   "desc": "別人打他時，攻擊者的命中加減（標記是 +2）。",
+   "usedBy": []
+  },
+  {
+   "kind": "evade",
+   "owner": "core",
+   "desc": "迴避加減。",
+   "usedBy": [
+    "sk_gunner_fire_wall",
+    "sk_pilot_accompany",
+    "sk_pilot_assault",
+    "sk_pilot_dome",
+    "sk_silent",
+    "sk_mirror",
+    "sk_backup",
+    "sk_socialite_deep_in_role",
+    "sk_socialite_the_real_me",
+    "sk_fixer_formation",
+    "sk_fixer_hold_the_line",
+    "sk_fixer_command"
+   ],
+   "usedByResonance": [
+    "fixer:3"
+   ]
+  },
+  {
+   "kind": "dice",
+   "owner": "core",
+   "desc": "傷害骰的顆數加減。",
+   "usedBy": [
+    "sk_pilot_assault"
+   ]
+  },
+  {
+   "kind": "damage",
+   "owner": "core",
+   "desc": "固定傷害加減。",
+   "usedBy": []
+  },
+  {
+   "kind": "pierce",
+   "owner": "core",
+   "desc": "穿甲加減。",
+   "usedBy": [
+    "sk_gunner_gun_unity"
+   ]
+  },
+  {
+   "kind": "armor",
+   "owner": "core",
+   "desc": "護甲加減。",
+   "usedBy": [
+    "sk_pilot_bastion"
+   ]
+  },
+  {
+   "kind": "crit_margin",
+   "owner": "core",
+   "desc": "要害門檻（超過迴避幾以上算要害），負的是更容易；資料可以用 to 直接指定門檻。",
+   "usedBy": [
+    "sk_gunner_hunter_eye",
+    "sk_gunner_gun_unity"
+   ]
+  },
+  {
+   "kind": "save",
+   "owner": "core",
+   "desc": "豁免與戰鬥裡各種檢定的加減，可用標籤限定是哪一種檢定（hack、tease、subdue、resist:suppressed 等）。",
+   "usedBy": [
+    "sk_gunner_deadline",
+    "sk_medic_painless",
+    "sk_medic_dismantle_fun",
+    "sk_medic_locksmith",
+    "sk_ctrl",
+    "sk_focus",
+    "sk_mutex",
+    "sk_fixer_im_here"
+   ],
+   "usedByResonance": [
+    "medic:3",
+    "netrunner:1",
+    "socialite:1"
+   ]
+  },
+  {
+   "kind": "initiative",
+   "owner": "core",
+   "desc": "先攻加減。",
+   "usedBy": []
+  },
+  {
+   "kind": "ap_regen",
+   "owner": "core",
+   "desc": "每回合回復的行動點加減；設計書限制只有終極技能可以動它。",
+   "usedBy": [
+    "sk_gunner_bullet_time",
+    "sk_medic_extreme_overclock"
+   ]
+  },
+  {
+   "kind": "load_dealt_pct",
+   "owner": "core",
+   "desc": "自己造成的感載的百分比加減。",
+   "usedBy": []
+  },
+  {
+   "kind": "load_taken_pct",
+   "owner": "core",
+   "desc": "自己受到的感載的百分比加減（同步檔位的 ×0.5 是 −50）。",
+   "usedBy": []
+  },
+  {
+   "kind": "decay",
+   "owner": "core",
+   "desc": "感載每回合自然消退的加減。",
+   "usedBy": []
+  },
+  {
+   "kind": "move_ap",
+   "owner": "core",
+   "desc": "換位花的行動點加減（負的是減免）。",
+   "usedBy": []
+  },
+  {
+   "kind": "action_ap",
+   "owner": "core",
+   "desc": "任何行動花的行動點加減（最少 0）；問的時候帶行動 id、群組與行動宣告的標籤，可以每場或每回合只算前幾次，資料也可以用 to 指定改成只花幾點。",
+   "usedBy": [
+    "sk_gunner_loadout_mastery",
+    "sk_medic_scalpel",
+    "sk_medic_rounds",
+    "sk_medic_famed_doctor",
+    "sk_backdoor",
+    "sk_multi"
+   ],
+   "usedByResonance": [
+    "fixer:2"
+   ]
+  },
+  {
+   "kind": "action_ram",
+   "owner": "core",
+   "desc": "行動花的 RAM 加減，只在行動本來就花 RAM 時算，最少 1。",
+   "usedBy": [
+    "sk_root"
+   ]
+  },
+  {
+   "kind": "heal_dealt",
+   "owner": "core",
+   "desc": "自己造成的生命回復多幾點；問的時候 other 是被回復的人、標籤是治療的標籤。",
+   "usedBy": [
+    "sk_medic_scalpel",
+    "sk_medic_suture",
+    "sk_medic_chief_surgeon",
+    "sk_medic_famed_doctor"
+   ],
+   "usedByResonance": [
+    "medic:1"
+   ]
+  },
+  {
+   "kind": "vent_dealt",
+   "owner": "core",
+   "desc": "自己造成的排感載多幾點，問法同 heal_dealt。",
+   "usedBy": [],
+   "usedByResonance": [
+    "medic:1"
+   ]
+  },
+  {
+   "kind": "ai_target_pct",
+   "owner": "core",
+   "desc": "敵人 AI 挑目標時，候選人的權重加減幾個百分點；−100 就是不挑他，候選全部都是 0 時當成沒有這個修正（面具、謝幕）。",
+   "usedBy": [
+    "sk_socialite_curtain_call"
+   ]
+  },
+  {
+   "kind": "see_dark",
+   "owner": "core",
+   "desc": "大於 0 的人攻擊時不吃黑暗，和夜視標籤並存。",
+   "usedBy": []
+  },
+  {
+   "kind": "firewall",
+   "owner": "core",
+   "desc": "目標的防火牆加減，問的是被擲檢定的那一方（破冰是 −2、我很清醒喔是 +2）。",
+   "usedBy": [
+    "sk_ice",
+    "sk_socialite_sober"
+   ]
+  },
+  {
+   "kind": "wound_grade",
+   "owner": "core",
+   "desc": "重創級數加減，−1 是重的改成輕的；由 features/combat 擲部位時問。",
+   "usedBy": [
+    "sk_medic_chief_surgeon"
+   ]
+  },
+  {
+   "kind": "overlay_hp",
+   "owner": "core",
+   "desc": "放出一台和人重疊的東西時，它的耐久（現在與上限）加減；問的是操作者，標籤是種類。",
+   "usedBy": [
+    "sk_pilot_overhaul"
+   ],
+   "usedByResonance": [
+    "pilot:1"
+   ]
+  },
+  {
+   "kind": "overlay_armor",
+   "owner": "core",
+   "desc": "和人重疊的東西的護甲加減。",
+   "usedBy": [
+    "sk_pilot_overhaul"
+   ],
+   "usedByResonance": [
+    "pilot:2"
+   ]
+  },
+  {
+   "kind": "overlay_evade",
+   "owner": "core",
+   "desc": "和人重疊的東西的迴避加減。",
+   "usedBy": [],
+   "usedByResonance": [
+    "pilot:5"
+   ]
+  },
+  {
+   "kind": "overlay_cap",
+   "owner": "core",
+   "desc": "同時連得住幾台和人重疊的東西加減幾台；標籤 support 表示只限支援型；由 features/summons 問。",
+   "usedBy": [
+    "sk_pilot_multitask"
+   ]
+  },
+  {
+   "kind": "overlay_backlash",
+   "owner": "core",
+   "desc": "自己放的一台被擊落時，操作者受的感載（基本 5 點）加減幾點，最少 0；由 features/summons 問。",
+   "usedBy": [
+    "sk_pilot_feedback_buffer"
+   ]
+  },
+  {
+   "kind": "cover_level",
+   "owner": "core",
+   "desc": "站在這一格的人吃到的遮蔽多（負的是少）幾級，最高到掩體；多出來的級數打不破，修正消失就沒了；who 為 behind 時是「自己後面那一格」（堡壘姿態）。",
+   "usedBy": [
+    "sk_pilot_bastion"
+   ]
+  },
+  {
+   "kind": "instinct_points",
+   "owner": "abilities",
+   "desc": "戰鬥直覺可以分配的點數加減（共鳴 5、心流）；features/abilities 自己認的修正。",
+   "usedBy": [
+    "sk_gunner_flow"
+   ],
+   "usedByResonance": [
+    "gunner:5"
+   ]
+  },
+  {
+   "kind": "instinct_cap",
+   "owner": "abilities",
+   "desc": "戰鬥直覺每一項的點數上限加減（心流）；features/abilities 自己認的修正。",
+   "usedBy": [
+    "sk_gunner_flow"
+   ]
+  },
+  {
+   "kind": "instinct_free",
+   "owner": "abilities",
+   "desc": "大於 0 時，戰鬥直覺的重分配不花行動點（心流）。",
+   "usedBy": [
+    "sk_gunner_flow"
+   ]
+  },
+  {
+   "kind": "call_uses",
+   "owner": "abilities",
+   "desc": "叫人每場的次數加減（派工網、人脈）。",
+   "usedBy": [
+    "sk_fixer_dispatch_net",
+    "sk_fixer_connections"
+   ]
+  },
+  {
+   "kind": "call_hit",
+   "owner": "abilities",
+   "desc": "叫人的支援射擊的命中加減（人脈）。",
+   "usedBy": [
+    "sk_fixer_connections"
+   ]
+  },
+  {
+   "kind": "aim_all",
+   "owner": "abilities",
+   "desc": "大於 0 時，這個人的每一次射擊都算瞄準過的（子彈時間）。",
+   "usedBy": [
+    "sk_gunner_bullet_time"
+   ]
+  },
+  {
+   "kind": "no_wound",
+   "owner": "abilities",
+   "desc": "大於 0 時，打在他身上的重創改成一般的命中（擋、護盤、第二張臉）。",
+   "usedBy": [
+    "sk_socialite_second_face",
+    "sk_fixer_hold_the_line"
+   ]
+  },
+  {
+   "kind": "damage_roll",
+   "owner": "abilities",
+   "desc": "造成的傷害多一個公式，可以擲骰，在命中確定之後才算一次（打他打他！的 1d3）。",
+   "usedBy": [
+    "sk_fixer_hit_him"
+   ]
+  },
+  {
+   "kind": "give_ap_cap",
+   "owner": "abilities",
+   "desc": "指揮每回合能讓出的行動點上限加減（號令）。",
+   "usedBy": [
+    "sk_fixer_command"
+   ]
+  },
+  {
+   "kind": "tease_hit",
+   "owner": "abilities",
+   "desc": "誘惑攻擊的命中加減（繞指柔、共鳴 5）。",
+   "usedBy": [
+    "sk_socialite_silk"
+   ],
+   "usedByResonance": [
+    "socialite:5"
+   ]
+  },
+  {
+   "kind": "tease_bonus",
+   "owner": "abilities",
+   "desc": "誘惑攻擊的傷害加減，公式可以擲骰，在傷害要算的那一刻才問（媚態、繞指柔）。",
+   "usedBy": [
+    "sk_socialite_charm_pose",
+    "sk_socialite_silk"
+   ]
+  }
+ ],
+ "triggers": [
+  {
+   "on": "attacked",
+   "hook": "attack.before",
+   "desc": "有人攻擊（擲命中之前）時觸發；react 可以改這一擊的迴避、命中、讓重創變一般命中，或改打自己的無人機（redirect）。",
+   "who": [
+    "self",
+    "adjacent",
+    "ally",
+    "self_or_ally",
+    "own_overlay",
+    "with_own_overlay"
+   ],
+   "usedBy": [
+    "sk_pilot_cover_flight",
+    "sk_pilot_intercept"
+   ]
+  },
+  {
+   "on": "hit",
+   "hook": "attack.hit",
+   "desc": "命中已確定、傷害還沒算時觸發（if 可限 wound 或 crit）；react 可以讓這一擊無效（negate）、讓重創變一般命中、改穿甲，或讓被打的人事後換位（then_move）。",
+   "who": [
+    "self",
+    "adjacent",
+    "ally",
+    "self_or_ally",
+    "own_overlay",
+    "with_own_overlay",
+    "foe_by_self"
+   ],
+   "usedBy": [
+    "sk_gunner_kill_rhythm",
+    "sk_socialite_stand_in",
+    "sk_fixer_block"
+   ]
+  },
+  {
+   "on": "after",
+   "hook": "attack.after",
+   "desc": "一次攻擊結算完之後觸發（if 可限 miss、hit、crit、melee、bridged）；沒有 react，只做 do 的效果（反擊、還給你～）。",
+   "who": [
+    "self",
+    "adjacent",
+    "near",
+    "ally",
+    "self_or_ally",
+    "own_overlay",
+    "with_own_overlay",
+    "foe_by_self"
+   ],
+   "usedBy": [
+    "sk_gunner_right_back",
+    "sk_pilot_defend_kids",
+    "sk_medic_hands_off",
+    "sk_socialite_payback"
+   ]
+  },
+  {
+   "on": "hp_half",
+   "hook": "hp_half 掃描",
+   "desc": "某人第一次生命低於一半時觸發（每人每場一次）；只做 do 的效果（死線、不痛不痛）。",
+   "who": [
+    "self",
+    "near"
+   ],
+   "usedBy": [
+    "sk_gunner_deadline",
+    "sk_medic_painless"
+   ]
+  },
+  {
+   "on": "overload",
+   "hook": "overload",
+   "desc": "某人過載時觸發；react.keep_turn 可以讓他不失去下一個回合（急凍），也可以做 do（逆流、謝謝招待）。",
+   "who": [
+    "self",
+    "ally",
+    "self_or_ally",
+    "foe_by_self"
+   ],
+   "usedBy": [
+    "sk_medic_flash_freeze",
+    "sk_backflow",
+    "sk_thanks"
+   ]
+  },
+  {
+   "on": "checked",
+   "hook": "check.before",
+   "desc": "有人對他擲檢定、擲骰之前觸發（if 是檢定的標籤，例如 hack）；react.dc 加這一次的難度（偷看是不行的喔）。",
+   "who": [
+    "self",
+    "ally",
+    "self_or_ally"
+   ],
+   "usedBy": [
+    "sk_peek"
+   ]
+  },
+  {
+   "on": "out_before",
+   "hook": "out.before",
+   "desc": "有人即將退出（倒下、餘韻疊滿過載、被制伏）時觸發；react.prevent 可以擋下指定的方式（保釋、還不准睡、不讓你帶走）。",
+   "who": [
+    "self",
+    "ally",
+    "self_or_ally"
+   ],
+   "usedBy": [
+    "sk_medic_not_sleep_yet",
+    "sk_noleave",
+    "sk_fixer_bail"
+   ]
+  },
+  {
+   "on": "ally_attacked",
+   "hook": "attack.before（舊寫法）",
+   "desc": "舊的字串寫法：隊友被攻擊、擲命中之前觸發（小心後面！）；可以加迴避或朝攻擊者開一槍。",
+   "usedBy": [
+    "sk_fixer_watch_out"
+   ]
+  },
+  {
+   "on": "ally_attacked_adjacent",
+   "hook": "attack.before（舊寫法）",
+   "desc": "舊的字串寫法：只有和自己相鄰的隊友被攻擊時觸發（掩護射擊）。",
+   "usedBy": [
+    "sk_gunner_cover_fire"
+   ]
+  }
+ ],
+ "triggerWho": [
+  {
+   "who": "self",
+   "desc": "被打、過載、被檢定、要退出的是自己。"
+  },
+  {
+   "who": "adjacent",
+   "desc": "是和自己相鄰、而且不是自己的隊友。"
+  },
+  {
+   "who": "near",
+   "desc": "是自己或相鄰的隊友（距離不超過 1 格）。"
+  },
+  {
+   "who": "ally",
+   "desc": "是自己以外的任何隊友。"
+  },
+  {
+   "who": "self_or_ally",
+   "desc": "是自己或任何一名隊友。"
+  },
+  {
+   "who": "own_overlay",
+   "desc": "被打的是自己放出的無人機（替身）。"
+  },
+  {
+   "who": "with_own_overlay",
+   "desc": "被打的人（自己或隊友）那一格掛著自己的一台無人機（reach 可放寬到相鄰）。"
+  },
+  {
+   "who": "foe_by_self",
+   "desc": "事情是自己造成的（自己打中的、讓敵人過載的）。"
+  }
+ ],
+ "reacts": [
+  {
+   "key": "evade",
+   "on": "attacked",
+   "desc": "這一擊對被打的人的迴避加減。",
+   "usedBy": []
+  },
+  {
+   "key": "hit",
+   "on": "attacked",
+   "desc": "這一擊的命中加減。",
+   "usedBy": [
+    "sk_pilot_cover_flight"
+   ]
+  },
+  {
+   "key": "redirect",
+   "on": "attacked",
+   "desc": "改打自己的一台無人機（overlay），照無人機的迴避與護甲算。",
+   "usedBy": [
+    "sk_pilot_intercept"
+   ]
+  },
+  {
+   "key": "reach",
+   "on": "attacked",
+   "desc": "擋槍的無人機和被打的人可以差幾格（0～3）。",
+   "usedBy": [
+    "sk_pilot_intercept"
+   ]
+  },
+  {
+   "key": "no_wound",
+   "on": "attacked / hit",
+   "desc": "把這一擊的重創改成一般的命中。",
+   "usedBy": [
+    "sk_fixer_block"
+   ]
+  },
+  {
+   "key": "negate",
+   "on": "hit",
+   "desc": "這一擊不造成傷害、不重創、不推拉（遮蔽照樣受傷）。",
+   "usedBy": [
+    "sk_socialite_stand_in"
+   ]
+  },
+  {
+   "key": "pierce",
+   "on": "hit",
+   "desc": "這一擊的穿甲加減（獵殺節奏）。",
+   "usedBy": [
+    "sk_gunner_kill_rhythm"
+   ]
+  },
+  {
+   "key": "then_move",
+   "on": "hit",
+   "desc": "這一擊結算完之後，被打的人換到相鄰的一格（替身），要和 negate 一起寫。",
+   "usedBy": [
+    "sk_socialite_stand_in"
+   ]
+  },
+  {
+   "key": "keep_turn",
+   "on": "overload",
+   "desc": "過載的人不失去下一個回合。",
+   "usedBy": [
+    "sk_medic_flash_freeze"
+   ]
+  },
+  {
+   "key": "dc",
+   "on": "checked",
+   "desc": "這一次檢定的難度加減。",
+   "usedBy": [
+    "sk_peek"
+   ]
+  },
+  {
+   "key": "prevent",
+   "on": "out_before",
+   "desc": "擋下指定方式的退出（down、burnout、subdued）。",
+   "usedBy": [
+    "sk_medic_not_sleep_yet",
+    "sk_noleave",
+    "sk_fixer_bail"
+   ]
+  }
+ ],
+ "conditions": [
+  {
+   "key": "when.wield",
+   "owner": "abilities",
+   "desc": "手上要拿著某類武器（class 或特性）。",
+   "usedBy": [
+    "sk_gunner_one_shot",
+    "sk_pilot_assault",
+    "sk_medic_scalpel",
+    "sk_medic_find_gap",
+    "sk_medic_locksmith",
+    "sk_medic_short_circuit"
+   ]
+  },
+  {
+   "key": "when.mag_min",
+   "owner": "abilities",
+   "desc": "彈匣裡要有至少幾格。",
+   "usedBy": []
+  },
+  {
+   "key": "when.hull",
+   "owner": "abilities",
+   "desc": "true 要在機甲狀態，false 不能在機甲狀態（機甲是 M6，現在永遠不成立）。",
+   "usedBy": [
+    "sk_pilot_assault"
+   ]
+  },
+  {
+   "key": "when.stance",
+   "owner": "abilities",
+   "desc": "要先開著某個姿態。",
+   "usedBy": [
+    "sk_gunner_barrage"
+   ]
+  },
+  {
+   "key": "when.slot",
+   "owner": "abilities",
+   "desc": "自己要站在指定的格。",
+   "usedBy": []
+  },
+  {
+   "key": "when.node_taken",
+   "owner": "abilities",
+   "desc": "要先拿下一個控制節點（或指定種類的節點）。",
+   "usedBy": [
+    "sk_rewrite",
+    "sk_lockdown",
+    "sk_admin"
+   ]
+  },
+  {
+   "key": "when.wounded",
+   "owner": "abilities",
+   "desc": "自己是重傷（生命低於一半）。",
+   "usedBy": [
+    "sk_gunner_deadline",
+    "sk_medic_painless"
+   ]
+  },
+  {
+   "key": "when.first_round",
+   "owner": "abilities",
+   "desc": "只在第一回合有效；只有 mods 的 when 能寫，技能本身要限第一回合用 use.first_round。",
+   "usedBy": [
+    "sk_backdoor",
+    "sk_socialite_disguise",
+    "sk_socialite_second_face",
+    "sk_socialite_deep_in_role",
+    "sk_socialite_curtain_call",
+    "sk_socialite_the_real_me"
+   ]
+  },
+  {
+   "key": "when.in_cover",
+   "owner": "abilities",
+   "desc": "自己所在的格有效遮蔽至少 1 級（含堡壘姿態的 cover_level）。僅限 mods 的 when。",
+   "usedBy": []
+  },
+  {
+   "key": "when.other_exposed",
+   "owner": "abilities",
+   "desc": "對手站在暴露的格子。僅限 mods 的 when。",
+   "usedBy": []
+  },
+  {
+   "key": "when.other_cyber",
+   "owner": "abilities",
+   "desc": "對手有義體。僅限 mods 的 when。",
+   "usedBy": [
+    "sk_medic_scalpel",
+    "sk_medic_locksmith"
+   ]
+  },
+  {
+   "key": "when.other_status",
+   "owner": "abilities",
+   "desc": "對手帶著指定的狀態。僅限 mods 的 when。",
+   "usedBy": [
+    "sk_fixer_hit_him"
+   ]
+  },
+  {
+   "key": "when.other_contract",
+   "owner": "abilities",
+   "desc": "對手有契約義體（授權鎖）。僅限 mods 的 when。",
+   "usedBy": [
+    "sk_medic_locksmith"
+   ]
+  },
+  {
+   "key": "when.target_near",
+   "owner": "abilities",
+   "desc": "對象是自己或相鄰一格的隊友；問花費時沒有對象，當成成立。僅限 mods 的 when。",
+   "usedBy": [
+    "sk_medic_scalpel",
+    "sk_medic_rounds"
+   ]
+  },
+  {
+   "key": "when.first_attack",
+   "owner": "abilities",
+   "desc": "這一場自己還沒發動過任何攻擊。僅限 mods 的 when。",
+   "usedBy": [
+    "sk_socialite_disguise"
+   ]
+  },
+  {
+   "key": "needs.bridged",
+   "owner": "abilities",
+   "desc": "目標要有橋（true）或不能有橋（false）。",
+   "usedBy": [
+    "sk_medic_cool_down",
+    "sk_loop",
+    "sk_heat",
+    "sk_inflow",
+    "sk_black",
+    "sk_socialite_poke",
+    "sk_socialite_tell_me",
+    "sk_socialite_payback",
+    "sk_socialite_everyone"
+   ]
+  },
+  {
+   "key": "needs.cyber",
+   "owner": "abilities",
+   "desc": "目標要有義體（true）或不能有義體（false）。",
+   "usedBy": [
+    "sk_medic_dismantle",
+    "sk_medic_overclock",
+    "sk_medic_take_off",
+    "sk_medic_short_circuit",
+    "sk_medic_strip_all"
+   ]
+  },
+  {
+   "key": "needs.status",
+   "owner": "abilities",
+   "desc": "目標要帶著指定的狀態（其中任何一個）。",
+   "usedBy": [
+    "sk_puppet"
+   ]
+  },
+  {
+   "key": "needs.no_rank",
+   "owner": "abilities",
+   "desc": "不能對指定位階（雜兵、精英、首領）的目標用。",
+   "usedBy": [
+    "sk_fixer_talk_down",
+    "sk_fixer_bribe"
+   ]
+  },
+  {
+   "key": "needs.rank",
+   "owner": "abilities",
+   "desc": "只能對指定位階的目標用。",
+   "usedBy": [
+    "sk_fixer_talk_down",
+    "sk_fixer_lets_talk",
+    "sk_fixer_city_owes_me"
+   ]
+  },
+  {
+   "key": "needs.wounded",
+   "owner": "abilities",
+   "desc": "目標要是重傷。",
+   "usedBy": [
+    "sk_medic_overhaul",
+    "sk_fixer_talk_down"
+   ]
+  },
+  {
+   "key": "needs.afterglow",
+   "owner": "abilities",
+   "desc": "目標要疊著至少幾層餘韻。",
+   "usedBy": [
+    "sk_medic_cool_down",
+    "sk_fixer_talk_down"
+   ]
+  },
+  {
+   "key": "needs.tag",
+   "owner": "abilities",
+   "desc": "目標要帶著指定的標籤。",
+   "usedBy": []
+  },
+  {
+   "key": "needs.cache_tag",
+   "owner": "abilities",
+   "desc": "目標的快取格裡要有帶指定標籤的道具（引爆要有爆裂物）。",
+   "usedBy": [
+    "sk_rewrite"
+   ]
+  },
+  {
+   "key": "needs.implant_off",
+   "owner": "abilities",
+   "desc": "目標身上已經有一件被干擾的義體。",
+   "usedBy": [
+    "sk_medic_find_gap"
+   ]
+  },
+  {
+   "key": "needs.any",
+   "owner": "abilities",
+   "desc": "幾組條件成立任何一組就算（「重傷，或疊著餘韻」）。",
+   "usedBy": [
+    "sk_fixer_talk_down"
+   ]
+  },
+  {
+   "key": "range",
+   "owner": "abilities",
+   "desc": "meat.range（與 picks、trigger.by 的 range）：[近, 遠] 的距離限制，不在範圍裡灰掉並說明現在的距離。",
+   "usedBy": [
+    "sk_gunner_one_shot",
+    "sk_medic_dismantle",
+    "sk_medic_find_gap",
+    "sk_medic_take_off",
+    "sk_medic_short_circuit",
+    "sk_medic_strip_all",
+    "sk_socialite_poke",
+    "sk_socialite_tell_me",
+    "sk_socialite_payback"
+   ]
+  },
+  {
+   "key": "trigger.by",
+   "owner": "abilities",
+   "desc": "反應的 trigger.by：做這件事的人（攻擊者、讓他過載的人）要符合 needs，並且在 range 的距離內。",
+   "usedBy": [
+    "sk_socialite_payback"
+   ]
+  },
+  {
+   "key": "if.hit",
+   "owner": "core",
+   "desc": "效果的 if：上一筆攻擊命中了才做。",
+   "usedBy": [
+    "sk_gunner_back_off",
+    "sk_gunner_covering_retreat",
+    "sk_medic_short_circuit"
+   ]
+  },
+  {
+   "key": "if.miss",
+   "owner": "core",
+   "desc": "效果的 if：上一筆攻擊沒命中才做。",
+   "usedBy": []
+  },
+  {
+   "key": "if.crit",
+   "owner": "core",
+   "desc": "效果的 if：上一筆攻擊打出要害才做。",
+   "usedBy": []
+  },
+  {
+   "key": "if.downed",
+   "owner": "core",
+   "desc": "效果的 if：上一筆讓目標倒下了才做。",
+   "usedBy": [
+    "sk_gunner_next_one"
+   ]
+  },
+  {
+   "key": "if.overloaded",
+   "owner": "core",
+   "desc": "效果的 if：上一筆讓目標過載了才做。",
+   "usedBy": []
+  },
+  {
+   "key": "if.ok",
+   "owner": "core",
+   "desc": "效果的 if：上一筆檢定成功才做。",
+   "usedBy": [
+    "sk_medic_dismantle",
+    "sk_medic_overclock",
+    "sk_medic_take_off",
+    "sk_medic_strip_all",
+    "sk_medic_hands_off",
+    "sk_socialite_tell_me",
+    "sk_fixer_talk_down",
+    "sk_fixer_lets_talk"
+   ]
+  },
+  {
+   "key": "if.fail",
+   "owner": "core",
+   "desc": "效果的 if：上一筆檢定失敗才做。",
+   "usedBy": []
+  },
+  {
+   "key": "if.first_round",
+   "owner": "core",
+   "desc": "效果的 if：只在第一回合做。",
+   "usedBy": [
+    "sk_socialite_poke",
+    "sk_socialite_dizzy"
+   ]
+  },
+  {
+   "key": "if.not_first_round",
+   "owner": "core",
+   "desc": "效果的 if：不是第一回合才做。",
+   "usedBy": [
+    "sk_socialite_poke"
+   ]
+  }
+ ],
+ "uses": [
+  {
+   "key": "use.ap",
+   "owner": "abilities",
+   "desc": "消耗的行動點（沒寫行動點也沒寫別的池時預設 1）。",
+   "usedBy": [
+    "sk_gunner_aimed_shot",
+    "sk_gunner_cover_fire",
+    "sk_gunner_burst",
+    "sk_gunner_watch_me",
+    "sk_gunner_suppress_stance",
+    "sk_gunner_thats_you",
+    "sk_gunner_back_off",
+    "sk_gunner_pierce",
+    "sk_gunner_run_and_gun",
+    "sk_gunner_deadline",
+    "sk_gunner_covering_retreat",
+    "sk_gunner_kill_rhythm",
+    "sk_gunner_barrage",
+    "sk_gunner_flow",
+    "sk_gunner_next_one",
+    "sk_gunner_dont_move",
+    "sk_gunner_one_shot",
+    "sk_gunner_fire_wall",
+    "sk_gunner_bullet_time",
+    "sk_gunner_right_back",
+    "sk_pilot_good_kid",
+    "sk_pilot_cover_flight",
+    "sk_pilot_one_more",
+    "sk_pilot_accompany",
+    "sk_pilot_dual_fire",
+    "sk_pilot_escort",
+    "sk_pilot_quick_repair",
+    "sk_pilot_ram_in",
+    "sk_pilot_assault",
+    "sk_pilot_bastion",
+    "sk_pilot_sync_dash",
+    "sk_pilot_saturation",
+    "sk_pilot_smoke_cover",
+    "sk_pilot_remote_fire",
+    "sk_pilot_intercept",
+    "sk_pilot_precision",
+    "sk_pilot_swarm",
+    "sk_pilot_dome",
+    "sk_pilot_valkyrie",
+    "sk_pilot_defend_kids",
+    "sk_medic_first_aid",
+    "sk_medic_dismantle",
+    "sk_medic_cool_down",
+    "sk_medic_painless",
+    "sk_medic_overclock",
+    "sk_medic_pull_back",
+    "sk_medic_find_gap",
+    "sk_medic_rounds",
+    "sk_medic_take_off",
+    "sk_medic_line_up",
+    "sk_medic_flash_freeze",
+    "sk_medic_short_circuit",
+    "sk_medic_field_surgery",
+    "sk_medic_not_sleep_yet",
+    "sk_medic_strip_all",
+    "sk_medic_overhaul",
+    "sk_medic_extreme_overclock",
+    "sk_medic_hands_off",
+    "sk_ice",
+    "sk_take",
+    "sk_loop",
+    "sk_heat",
+    "sk_silent",
+    "sk_rewrite",
+    "sk_backflow",
+    "sk_inflow",
+    "sk_lockdown",
+    "sk_thanks",
+    "sk_mutex",
+    "sk_puppet",
+    "sk_mirror",
+    "sk_cast",
+    "sk_noleave",
+    "sk_black",
+    "sk_backup",
+    "sk_admin",
+    "sk_socialite_look_here",
+    "sk_socialite_stand_in",
+    "sk_socialite_poke",
+    "sk_socialite_tell_me",
+    "sk_socialite_stay",
+    "sk_socialite_disguise",
+    "sk_socialite_false_identity",
+    "sk_socialite_honey_pot",
+    "sk_socialite_charm_pose",
+    "sk_socialite_new_face",
+    "sk_socialite_persuade_lace",
+    "sk_socialite_swoon",
+    "sk_socialite_dizzy",
+    "sk_socialite_stand_in_for",
+    "sk_socialite_payback",
+    "sk_socialite_city_fall",
+    "sk_socialite_curtain_call",
+    "sk_socialite_everyone",
+    "sk_socialite_silk",
+    "sk_fixer_focus_fire",
+    "sk_fixer_watch_out",
+    "sk_fixer_swap",
+    "sk_fixer_proxy",
+    "sk_fixer_talk_down",
+    "sk_fixer_bribe",
+    "sk_fixer_bail",
+    "sk_fixer_hit_him",
+    "sk_fixer_reinforce",
+    "sk_fixer_formation",
+    "sk_fixer_big_picture",
+    "sk_fixer_lets_talk",
+    "sk_fixer_all_out",
+    "sk_fixer_hold_the_line",
+    "sk_fixer_city_owes_me",
+    "sk_fixer_command"
+   ]
+  },
+  {
+   "key": "use.ram",
+   "owner": "abilities",
+   "desc": "消耗的 RAM。",
+   "usedBy": [
+    "sk_ice",
+    "sk_peek",
+    "sk_take",
+    "sk_loop",
+    "sk_heat",
+    "sk_rewrite",
+    "sk_inflow",
+    "sk_lockdown",
+    "sk_puppet",
+    "sk_mirror",
+    "sk_cast",
+    "sk_noleave",
+    "sk_backup",
+    "sk_admin"
+   ]
+  },
+  {
+   "key": "use.ram_all_min",
+   "owner": "abilities",
+   "desc": "花掉手上全部的 RAM，至少要有這麼多；花掉的數字是公式裡的 spent。",
+   "usedBy": [
+    "sk_black"
+   ]
+  },
+  {
+   "key": "use.cash",
+   "owner": "abilities",
+   "desc": "消耗的現金（公式，例如 grade*500）；戰鬥結束時差額寫回。",
+   "usedBy": [
+    "sk_fixer_proxy",
+    "sk_fixer_bribe"
+   ]
+  },
+  {
+   "key": "use.favor",
+   "owner": "abilities",
+   "desc": "消耗一個人情（small、mid、big）。",
+   "usedBy": [
+    "sk_fixer_block",
+    "sk_fixer_bail",
+    "sk_fixer_city_owes_me"
+   ]
+  },
+  {
+   "key": "use.per_turn",
+   "owner": "abilities",
+   "desc": "每回合最多幾次（可與 group 合併成一組）。",
+   "usedBy": [
+    "sk_gunner_cover_fire",
+    "sk_gunner_kill_rhythm",
+    "sk_gunner_right_back",
+    "sk_pilot_cover_flight",
+    "sk_pilot_saturation",
+    "sk_pilot_intercept",
+    "sk_pilot_defend_kids",
+    "sk_medic_first_aid",
+    "sk_medic_cool_down",
+    "sk_medic_overclock",
+    "sk_medic_hands_off",
+    "sk_peek",
+    "sk_thanks",
+    "sk_socialite_look_here",
+    "sk_socialite_poke",
+    "sk_socialite_stay",
+    "sk_socialite_swoon",
+    "sk_socialite_dizzy",
+    "sk_fixer_watch_out",
+    "sk_fixer_buy_space",
+    "sk_fixer_a_bit_more"
+   ]
+  },
+  {
+   "key": "use.per_fight",
+   "owner": "abilities",
+   "desc": "每場最多幾次。",
+   "usedBy": [
+    "sk_gunner_watch_me",
+    "sk_gunner_deadline",
+    "sk_gunner_flow",
+    "sk_gunner_one_shot",
+    "sk_gunner_fire_wall",
+    "sk_gunner_bullet_time",
+    "sk_pilot_good_kid",
+    "sk_pilot_sync_dash",
+    "sk_pilot_remote_fire",
+    "sk_pilot_swarm",
+    "sk_pilot_dome",
+    "sk_pilot_valkyrie",
+    "sk_medic_painless",
+    "sk_medic_pull_back",
+    "sk_medic_take_off",
+    "sk_medic_flash_freeze",
+    "sk_medic_not_sleep_yet",
+    "sk_medic_strip_all",
+    "sk_medic_overhaul",
+    "sk_medic_extreme_overclock",
+    "sk_backflow",
+    "sk_lockdown",
+    "sk_cast",
+    "sk_noleave",
+    "sk_black",
+    "sk_backup",
+    "sk_admin",
+    "sk_socialite_stand_in",
+    "sk_socialite_persuade_lace",
+    "sk_socialite_payback",
+    "sk_socialite_city_fall",
+    "sk_socialite_curtain_call",
+    "sk_socialite_everyone",
+    "sk_fixer_prep",
+    "sk_fixer_block",
+    "sk_fixer_bribe",
+    "sk_fixer_bail",
+    "sk_fixer_reinforce",
+    "sk_fixer_all_out",
+    "sk_fixer_hold_the_line"
+   ]
+  },
+  {
+   "key": "use.per_commission",
+   "owner": "abilities",
+   "desc": "每件委託最多幾次（次數記在角色身上）。",
+   "usedBy": [
+    "sk_fixer_city_owes_me"
+   ]
+  },
+  {
+   "key": "use.first_round",
+   "owner": "abilities",
+   "desc": "只能在第一回合用。",
+   "usedBy": [
+    "sk_gunner_watch_me",
+    "sk_socialite_stand_in",
+    "sk_socialite_tell_me",
+    "sk_socialite_city_fall",
+    "sk_socialite_curtain_call",
+    "sk_socialite_everyone",
+    "sk_fixer_city_owes_me"
+   ]
+  },
+  {
+   "key": "use.not_first_round",
+   "owner": "abilities",
+   "desc": "第一回合不能用。",
+   "usedBy": [
+    "sk_socialite_new_face"
+   ]
+  },
+  {
+   "key": "use.group",
+   "owner": "abilities",
+   "desc": "共用每回合次數的一組（誘惑攻擊與看這邊♡共用）。",
+   "usedBy": [
+    "sk_socialite_look_here",
+    "sk_socialite_stay",
+    "sk_socialite_swoon",
+    "sk_socialite_dizzy"
+   ]
+  },
+  {
+   "key": "use.slot",
+   "owner": "abilities",
+   "desc": "預備與日常花幾個時段。",
+   "usedBy": [
+    "sk_pilot_overhaul",
+    "sk_medic_surgery",
+    "sk_medic_dissection",
+    "sk_medic_workshop",
+    "sk_backdoor",
+    "sk_socialite_read_people",
+    "sk_socialite_thousand_faces"
+   ]
+  },
+  {
+   "key": "use.note",
+   "owner": "abilities",
+   "desc": "給人看的說明文字，不參與計算。",
+   "usedBy": []
+  }
+ ],
+ "targets": [
+  {
+   "who": "target",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "這一筆落在玩家選的目標（預設）。",
+   "usedBy": [
+    "sk_socialite_curtain_call"
+   ]
+  },
+  {
+   "who": "self",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "落在做的人自己。",
+   "usedBy": [
+    "sk_gunner_run_and_gun",
+    "sk_gunner_deadline",
+    "sk_gunner_kill_rhythm",
+    "sk_gunner_flow",
+    "sk_gunner_bullet_time",
+    "sk_pilot_defend_kids",
+    "sk_rewrite",
+    "sk_backflow",
+    "sk_lockdown",
+    "sk_thanks",
+    "sk_socialite_new_face",
+    "sk_socialite_thousand_faces",
+    "sk_socialite_curtain_call"
+   ]
+  },
+  {
+   "who": "allies",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "我方在場的每個人，逐人各做一次。",
+   "usedBy": [
+    "sk_gunner_fire_wall",
+    "sk_pilot_dome",
+    "sk_backup",
+    "sk_fixer_hit_him",
+    "sk_fixer_all_out",
+    "sk_fixer_hold_the_line"
+   ]
+  },
+  {
+   "who": "others",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "我方在場、扣掉自己的每個人。",
+   "usedBy": []
+  },
+  {
+   "who": "adjacent",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "和做的人站位差 1 的隊友。",
+   "usedBy": []
+  },
+  {
+   "who": "near",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "自己加上相鄰的隊友。",
+   "usedBy": [
+    "sk_medic_line_up"
+   ]
+  },
+  {
+   "who": "foes",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "敵方在場的每個人。",
+   "usedBy": [
+    "sk_admin"
+   ]
+  },
+  {
+   "who": "foes_bridged",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "敵方有橋的每個人。",
+   "usedBy": [
+    "sk_cast"
+   ]
+  },
+  {
+   "who": "foe_overlays",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "敵方每一台沒被擊落的掛著的東西，逐台各做一次。",
+   "usedBy": []
+  },
+  {
+   "who": "foe_overlay",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "敵方沒被擊落的一台掛著的東西：玩家選的（pick.overlay），沒選就是被瞄準的或最前面的一台。",
+   "usedBy": [
+    "sk_admin"
+   ]
+  },
+  {
+   "who": "slot",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "目標那一格上的人。",
+   "usedBy": [
+    "sk_pilot_accompany"
+   ]
+  },
+  {
+   "who": "area",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "目標那一格加玩家選的相鄰一格上的每個人與每一台掛著的東西。",
+   "usedBy": []
+  },
+  {
+   "who": "attacker",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "反應裡正在攻擊的人。",
+   "usedBy": [
+    "sk_gunner_deadline",
+    "sk_gunner_right_back",
+    "sk_medic_hands_off",
+    "sk_socialite_payback"
+   ]
+  },
+  {
+   "who": "victim",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "反應裡被打的人。",
+   "usedBy": []
+  },
+  {
+   "who": "pick",
+   "scope": "effect",
+   "owner": "core",
+   "desc": "pick:<鍵>：玩家在 picks 裡選的那個單位。",
+   "usedBy": [
+    "sk_gunner_covering_retreat",
+    "sk_gunner_next_one",
+    "sk_pilot_ram_in",
+    "sk_fixer_black_market",
+    "sk_fixer_city_owes_me"
+   ]
+  },
+  {
+   "who": "enemy",
+   "scope": "skill",
+   "owner": "abilities",
+   "desc": "技能的目標是一個敵人。",
+   "usedBy": [
+    "sk_gunner_aimed_shot",
+    "sk_gunner_burst",
+    "sk_gunner_watch_me",
+    "sk_gunner_thats_you",
+    "sk_gunner_back_off",
+    "sk_gunner_pierce",
+    "sk_gunner_run_and_gun",
+    "sk_gunner_covering_retreat",
+    "sk_gunner_next_one",
+    "sk_gunner_one_shot",
+    "sk_gunner_fire_wall",
+    "sk_pilot_dual_fire",
+    "sk_pilot_saturation",
+    "sk_pilot_swarm",
+    "sk_medic_dismantle",
+    "sk_medic_find_gap",
+    "sk_medic_take_off",
+    "sk_medic_short_circuit",
+    "sk_medic_strip_all",
+    "sk_ice",
+    "sk_loop",
+    "sk_heat",
+    "sk_rewrite",
+    "sk_inflow",
+    "sk_puppet",
+    "sk_black",
+    "sk_socialite_poke",
+    "sk_socialite_tell_me",
+    "sk_socialite_everyone",
+    "sk_fixer_focus_fire",
+    "sk_fixer_talk_down",
+    "sk_fixer_bribe",
+    "sk_fixer_hit_him",
+    "sk_fixer_lets_talk"
+   ]
+  },
+  {
+   "who": "ally",
+   "scope": "skill",
+   "owner": "abilities",
+   "desc": "技能的目標是一名隊友（不含自己）。",
+   "usedBy": [
+    "sk_socialite_curtain_call",
+    "sk_fixer_swap",
+    "sk_fixer_proxy"
+   ]
+  },
+  {
+   "who": "self",
+   "scope": "skill",
+   "owner": "abilities",
+   "desc": "技能的目標是自己。",
+   "usedBy": [
+    "sk_socialite_new_face"
+   ]
+  },
+  {
+   "who": "ally_slot",
+   "scope": "skill",
+   "owner": "abilities",
+   "desc": "技能的目標是我方的一格。",
+   "usedBy": [
+    "sk_pilot_good_kid"
+   ]
+  },
+  {
+   "who": "enemy_slot",
+   "scope": "skill",
+   "owner": "abilities",
+   "desc": "技能的目標是敵方的一格。",
+   "usedBy": []
+  },
+  {
+   "who": "none",
+   "scope": "skill",
+   "owner": "abilities",
+   "desc": "技能沒有目標。",
+   "usedBy": [
+    "sk_pilot_dome",
+    "sk_medic_line_up",
+    "sk_lockdown",
+    "sk_cast",
+    "sk_backup",
+    "sk_admin"
+   ]
+  },
+  {
+   "who": "ally_or_self",
+   "scope": "skill",
+   "owner": "abilities",
+   "desc": "技能的目標是自己或一名隊友。",
+   "usedBy": [
+    "sk_mirror",
+    "sk_fixer_big_picture"
+   ]
+  },
+  {
+   "who": "near",
+   "scope": "skill",
+   "owner": "abilities",
+   "desc": "技能的目標是自己或相鄰一格的隊友。",
+   "usedBy": [
+    "sk_medic_first_aid",
+    "sk_medic_cool_down",
+    "sk_medic_overclock",
+    "sk_medic_field_surgery",
+    "sk_medic_overhaul",
+    "sk_medic_extreme_overclock"
+   ]
+  },
+  {
+   "who": "downed_near",
+   "scope": "skill",
+   "owner": "abilities",
+   "desc": "技能的目標是相鄰一格因生命歸零倒下的隊友。",
+   "usedBy": [
+    "sk_medic_pull_back"
+   ]
+  },
+  {
+   "who": "foe_slot",
+   "scope": "skill",
+   "owner": "abilities",
+   "desc": "技能的目標是敵方的一格（守著、投擲用）。",
+   "usedBy": [
+    "sk_gunner_dont_move"
+   ]
+  },
+  {
+   "who": "own_overlay",
+   "scope": "skill",
+   "owner": "abilities",
+   "desc": "技能的目標是自己放出的一台無人機。",
+   "usedBy": [
+    "sk_pilot_one_more",
+    "sk_pilot_accompany",
+    "sk_pilot_quick_repair",
+    "sk_pilot_ram_in",
+    "sk_pilot_smoke_cover",
+    "sk_pilot_precision"
+   ]
+  },
+  {
+   "who": "foe_overlay",
+   "scope": "skill",
+   "owner": "abilities",
+   "desc": "技能的目標是敵方掛著的一台東西（接管）。",
+   "usedBy": [
+    "sk_take"
+   ]
+  }
+ ],
+ "formats": [
+  {
+   "key": "meat.target",
+   "desc": "技能的目標種類：enemy、ally、self、ally_slot、enemy_slot、none、ally_or_self、near、downed_near、foe_slot、own_overlay、foe_overlay。",
+   "usedBy": []
+  },
+  {
+   "key": "meat.attack",
+   "desc": "舊寫法的攻擊：aimed、hit、spend、min_mag、dice、suppress、at、free_mag（連射、壓制、看我的！）。",
+   "usedBy": [
+    "sk_gunner_aimed_shot",
+    "sk_gunner_cover_fire",
+    "sk_gunner_burst",
+    "sk_gunner_watch_me",
+    "sk_gunner_suppress_stance",
+    "sk_gunner_fire_wall",
+    "sk_pilot_dual_fire"
+   ]
+  },
+  {
+   "key": "meat.apply",
+   "desc": "舊寫法：對目標加上一個或幾個狀態（標記）。",
+   "usedBy": [
+    "sk_gunner_thats_you",
+    "sk_fixer_focus_fire"
+   ]
+  },
+  {
+   "key": "meat.free_move",
+   "desc": "舊寫法：兩名相鄰隊友不花行動點對調位置（換個位子嘛）。",
+   "usedBy": [
+    "sk_fixer_swap"
+   ]
+  },
+  {
+   "key": "meat.cost",
+   "desc": "舊寫法：某個技能的行動點改成幾點，可限每回合幾次（定點射）。",
+   "usedBy": [
+    "sk_gunner_point_shot"
+   ]
+  },
+  {
+   "key": "meat.weapon_cost",
+   "desc": "舊寫法：帶某個武器特性的攻擊行動點改成幾點（定點射）。",
+   "usedBy": [
+    "sk_gunner_point_shot"
+   ]
+  },
+  {
+   "key": "meat.evade",
+   "desc": "舊寫法：隊友被攻擊時替他加迴避（小心後面！）。",
+   "usedBy": [
+    "sk_fixer_watch_out"
+   ]
+  },
+  {
+   "key": "meat.on_hit",
+   "desc": "舊寫法：反擊命中時，原本那一擊的命中再加減（掩護射擊）。",
+   "usedBy": [
+    "sk_gunner_cover_fire"
+   ]
+  },
+  {
+   "key": "meat.give_ap",
+   "desc": "指揮：把自己的行動點讓給隊友，每回合最多 1＋階數一半點（人面）。",
+   "usedBy": [
+    "sk_fixer_face"
+   ]
+  },
+  {
+   "key": "meat.call",
+   "desc": "叫人：叫一個沒上場的人做支援射擊、補或拆遮蔽、回復、排感載（人面）。",
+   "usedBy": [
+    "sk_fixer_face"
+   ]
+  },
+  {
+   "key": "meat.instinct",
+   "desc": "戰鬥直覺：開戰分配點數、每回合可重分配。",
+   "usedBy": [
+    "sk_gunner_instinct"
+   ]
+  },
+  {
+   "key": "meat.pending",
+   "desc": "這個技能現實的效果還沒寫（等後面的批次），格式檢查放行但不註冊成行動。",
+   "usedBy": [
+    "sk_pilot_sync_dash",
+    "sk_pilot_neural_hardening",
+    "sk_pilot_remote_fire",
+    "sk_pilot_resonant_pilot",
+    "sk_pilot_valkyrie",
+    "sk_pilot_man_machine",
+    "sk_socialite_read_people",
+    "sk_socialite_good_actor",
+    "sk_fixer_reinforce"
+   ]
+  },
+  {
+   "key": "meat.picks",
+   "desc": "除了目標以外要玩家選的東西（foe、ally、ally_slot、foe_slot、choice、drone、foe_overlay）。",
+   "usedBy": [
+    "sk_gunner_run_and_gun",
+    "sk_gunner_covering_retreat",
+    "sk_gunner_next_one",
+    "sk_pilot_good_kid",
+    "sk_pilot_one_more",
+    "sk_pilot_accompany",
+    "sk_pilot_quick_repair",
+    "sk_pilot_ram_in",
+    "sk_pilot_precision",
+    "sk_take",
+    "sk_rewrite",
+    "sk_inflow",
+    "sk_lockdown",
+    "sk_puppet",
+    "sk_admin",
+    "sk_fixer_big_picture",
+    "sk_fixer_city_owes_me"
+   ]
+  },
+  {
+   "key": "meat.choose",
+   "desc": "玩家二選一或三選一的用法，每個用法有自己的 do、when、needs。",
+   "usedBy": [
+    "sk_medic_cool_down",
+    "sk_medic_field_surgery",
+    "sk_take",
+    "sk_rewrite",
+    "sk_inflow",
+    "sk_lockdown",
+    "sk_puppet",
+    "sk_fixer_city_owes_me"
+   ]
+  },
+  {
+   "key": "meat.do",
+   "desc": "效果清單，每筆是 { op, who?, if?, ... }，由效果的登錄表執行。",
+   "usedBy": []
+  },
+  {
+   "key": "meat.mods",
+   "desc": "被動、姿態的修正清單，每筆是 { kind, value, tags?, who?, when?, per_fight?, per_turn?, ... }。",
+   "usedBy": []
+  },
+  {
+   "key": "meat.trigger",
+   "desc": "反應的觸發：{ on, who, if?, by? }，或舊的字串寫法。",
+   "usedBy": []
+  },
+  {
+   "key": "meat.react",
+   "desc": "反應能改的東西（evade、hit、redirect、no_wound、negate、keep_turn、dc、prevent……）。",
+   "usedBy": []
+  },
+  {
+   "key": "meat.do_on",
+   "desc": "姿態開啟時做的效果。",
+   "usedBy": [
+    "sk_pilot_escort",
+    "sk_pilot_bastion"
+   ]
+  },
+  {
+   "key": "meat.do_off",
+   "desc": "姿態關閉時做的效果。",
+   "usedBy": [
+    "sk_pilot_escort",
+    "sk_pilot_bastion"
+   ]
+  },
+  {
+   "key": "meat.tags",
+   "desc": "這個技能的行動多帶的標籤（例如 drone_link、quickhack）。",
+   "usedBy": [
+    "sk_pilot_formation",
+    "sk_ctrl"
+   ]
+  },
+  {
+   "key": "meat.action_tags",
+   "desc": "這個技能的行動多帶的花費標籤（治療類寫 heal），花費修正與 action.done 都認得。",
+   "usedBy": [
+    "sk_medic_first_aid",
+    "sk_medic_line_up",
+    "sk_medic_field_surgery",
+    "sk_medic_overhaul"
+   ]
+  },
+  {
+   "key": "meat.pool",
+   "desc": "開戰時資源池上限與回復的加減（RAM、感載）。",
+   "usedBy": [
+    "sk_ctrl",
+    "sk_band",
+    "sk_socialite_the_real_me"
+   ]
+  },
+  {
+   "key": "meat.alter",
+   "desc": "改寫另一個技能的 meat（點放、彈幕、我有認識的人），可以加成玩家選的選項。",
+   "usedBy": [
+    "sk_gunner_tap",
+    "sk_gunner_barrage",
+    "sk_fixer_i_know_someone"
+   ]
+  },
+  {
+   "key": "meat.ransom",
+   "desc": "保釋：全隊倒下的戰敗事件多一個「被贖回」，付指定的現金。",
+   "usedBy": [
+    "sk_fixer_bail"
+   ]
+  },
+  {
+   "key": "meat.on_start",
+   "desc": "開戰時做一次的效果（黑市門路）。",
+   "usedBy": [
+    "sk_fixer_black_market"
+   ]
+  },
+  {
+   "key": "meat.on_give_ap",
+   "desc": "姿態開著時，指揮把行動點讓給隊友之後對他做的效果（號令）。",
+   "usedBy": [
+    "sk_fixer_command"
+   ]
+  },
+  {
+   "key": "meat.mask",
+   "desc": "入戲：戴著面具到第 rounds 回合為止，AI 挑目標時不挑她。",
+   "usedBy": [
+    "sk_socialite_in_character"
+   ]
+  },
+  {
+   "key": "meat.tease",
+   "desc": "誘惑攻擊：這個技能的行動就是一次誘惑攻擊，可帶 hit、bonus、on_ok、on_overload、targets。",
+   "usedBy": [
+    "sk_socialite_in_character",
+    "sk_socialite_look_here",
+    "sk_socialite_stay",
+    "sk_socialite_swoon",
+    "sk_socialite_dizzy",
+    "sk_socialite_city_fall"
+   ]
+  },
+  {
+   "key": "prep",
+   "desc": "預備（kind: prep）：{ slot, scope: next_battle|commission, meat: { mods?, do? } }，下一場現實戰鬥帶進去。",
+   "usedBy": [
+    "sk_gunner_gun_care",
+    "sk_pilot_overhaul",
+    "sk_backdoor",
+    "sk_socialite_read_people",
+    "sk_socialite_thousand_faces",
+    "sk_fixer_prep",
+    "sk_fixer_intel_net"
+   ]
+  },
+  {
+   "key": "daily",
+   "desc": "日常（kind: daily）：戰鬥外的效果，只有說明文字；格式還寫不出來，等 M4。",
+   "usedBy": [
+    "sk_medic_surgery",
+    "sk_medic_dissection",
+    "sk_medic_workshop",
+    "sk_fixer_face",
+    "sk_fixer_black_market",
+    "sk_fixer_dispatch_net",
+    "sk_fixer_connections"
+   ]
+  },
+  {
+   "key": "resonance.effect",
+   "desc": "共鳴的效果（封閉清單）：initiative、free_move、mods、pool、load_max、hp_max、pending。",
+   "usedBy": []
+  },
+  {
+   "key": "pick.foe",
+   "desc": "picks 的種類：玩家要選一個敵人。",
+   "usedBy": [
+    "sk_gunner_next_one",
+    "sk_pilot_good_kid",
+    "sk_pilot_one_more",
+    "sk_pilot_ram_in",
+    "sk_pilot_precision",
+    "sk_fixer_city_owes_me"
+   ]
+  },
+  {
+   "key": "pick.ally",
+   "desc": "picks 的種類：玩家要選一名隊友。",
+   "usedBy": [
+    "sk_gunner_covering_retreat",
+    "sk_fixer_big_picture"
+   ]
+  },
+  {
+   "key": "pick.ally_slot",
+   "desc": "picks 的種類：玩家要選我方的一格。",
+   "usedBy": [
+    "sk_gunner_run_and_gun",
+    "sk_gunner_covering_retreat",
+    "sk_pilot_accompany",
+    "sk_pilot_quick_repair"
+   ]
+  },
+  {
+   "key": "pick.foe_slot",
+   "desc": "picks 的種類：玩家要選敵方的一格。",
+   "usedBy": []
+  },
+  {
+   "key": "pick.choice",
+   "desc": "picks 的種類：玩家要在幾個用法裡選一個。",
+   "usedBy": [
+    "sk_take",
+    "sk_rewrite",
+    "sk_inflow",
+    "sk_lockdown",
+    "sk_puppet",
+    "sk_fixer_city_owes_me"
+   ]
+  },
+  {
+   "key": "pick.drone",
+   "desc": "picks 的種類：玩家要選單位上的哪一台無人機。",
+   "usedBy": [
+    "sk_pilot_good_kid"
+   ]
+  },
+  {
+   "key": "pick.foe_overlay",
+   "desc": "picks 的種類：玩家要選敵方掛著的哪一台東西。",
+   "usedBy": [
+    "sk_admin"
+   ]
+  }
+ ],
+ "trees": [
+  {
+   "id": "gunner",
+   "name": "槍手",
+   "tree": "槍手：戰鬥直覺",
+   "skills": [
+    {
+     "id": "sk_gunner_instinct",
+     "name": "戰鬥直覺",
+     "tier": 1,
+     "kind": "signature",
+     "status": "done",
+     "text": "每場戰鬥開始時，把和這棵樹已開的階數一樣多的點數，分到先攻、命中、迴避三項；每 1 點是先攻 +3、命中 +1 或迴避 +1，每一項最多 3 點。戰鬥中每回合可以花 1 行動點重分配一次。",
+     "keys": [
+      "meat.instinct"
+     ],
+     "note": "招牌（meat.instinct）：開戰分配點數、戰鬥中每回合花 1 行動點重分配；引擎讀 preset.instinct，但開打前的指定還沒有報告與介面寫入。"
+    },
+    {
+     "id": "sk_gunner_aimed_shot",
+     "name": "要害射擊",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "瞄準再射擊一次（花彈匣 1 格）。這一槍是瞄準過的射擊：命中 +3，可以指定部位，打出要害時擲重創（COMBAT_SYSTEM 第 6 節）。狙擊槍的一槍本來就算瞄準過，用這個技能不再多加。",
+     "keys": [
+      "meat.attack",
+      "target.enemy",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_cover_fire",
+     "name": "掩護射擊",
+     "tier": 1,
+     "kind": "reaction",
+     "status": "done",
+     "text": "和你相鄰的隊友被敵人攻擊時，在對方擲骰之前，你先朝攻擊者射擊一次（花彈匣 1 格）。這一槍命中的話，除了照常造成傷害，那次攻擊的命中再 −2。",
+     "keys": [
+      "meat.attack",
+      "meat.on_hit",
+      "trigger.ally_attacked_adjacent",
+      "use.ap",
+      "use.per_turn"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_burst",
+     "name": "連射控制",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "你可以連射：彈匣容量 2 以上的武器，花掉彈匣裡剩下的全部（至少 2 格），擲一次命中，傷害骰多「花掉的格數 − 1」顆；不管有沒有打中，目標要過定力檢定（DC 10＋花掉的格數×2），失敗就被壓制（COMBAT_SYSTEM 第 5 節）。",
+     "keys": [
+      "meat.attack",
+      "target.enemy",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_watch_me",
+     "name": "看我的！",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "只能在戰鬥的第一回合使用。射擊一次只花 1 行動點，而且這一槍命中 +1。",
+     "keys": [
+      "meat.attack",
+      "target.enemy",
+      "use.ap",
+      "use.first_round",
+      "use.per_fight"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_tap",
+     "name": "點放",
+     "tier": 1,
+     "kind": "passive",
+     "status": "done",
+     "text": "你連射時可以只花彈匣 2 格，剩下的格數留在彈匣裡；傷害照花掉 2 格算，壓制的定力 DC 照花掉 3 格算（DC 16）。",
+     "keys": [
+      "meat.alter"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：點放：連射時可以只花彈匣 2 格，傷害照 2 格算，壓制的 DC 照花掉 3 格算（16）。"
+    },
+    {
+     "id": "sk_gunner_point_shot",
+     "name": "定點射",
+     "tier": 2,
+     "kind": "passive",
+     "status": "done",
+     "text": "每回合你的第一次要害射擊只花 2 行動點（原本 3），效果相同：命中 +3，可以指定部位，打出要害時擲重創。狙擊槍的一槍也算，每回合第一槍只花 2 行動點。它不是一個行動，裝著就生效。",
+     "keys": [
+      "meat.cost",
+      "meat.weapon_cost"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_suppress_stance",
+     "name": "壓制姿態",
+     "tier": 2,
+     "kind": "stance",
+     "status": "done",
+     "text": "開著時，你每回合第一次射擊命中的目標直接得到壓制，不必檢定：到他的下一回合結束前不能換位，攻擊 −2。",
+     "keys": [
+      "meat.attack",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_loadout_mastery",
+     "name": "構裝精通",
+     "tier": 2,
+     "kind": "passive",
+     "status": "done",
+     "text": "每場戰鬥有 2 次，換武器不花行動點。",
+     "keys": [
+      "mod.action_ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_thats_you",
+     "name": "就是你了",
+     "tier": 2,
+     "kind": "active",
+     "status": "done",
+     "text": "指定一個看得到的敵人，讓他得到標記：到你的下一回合開始前，全隊打他命中 +2。",
+     "keys": [
+      "meat.apply",
+      "target.enemy",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_back_off",
+     "name": "走開啦",
+     "tier": 2,
+     "kind": "active",
+     "status": "done",
+     "text": "射擊一次。命中的話把目標往後推一格；不論有沒有命中，這一擊對目標那一格遮蔽的倍率至少算 ×1。",
+     "keys": [
+      "attack",
+      "if.hit",
+      "shift",
+      "target.enemy",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_gun_care",
+     "name": "幫槍槍保養",
+     "tier": 2,
+     "kind": "prep",
+     "status": "missing",
+     "text": "—",
+     "keys": [
+      "prep"
+     ],
+     "note": "預備的效果（主武器彈匣容量 +1、最多 4 格）寫不出來：資料只有說明文字、沒有 prep.meat，格式也沒有改彈匣容量上限的修正；表格現實欄是「—」，效果寫在預備段。"
+    },
+    {
+     "id": "sk_gunner_pierce",
+     "name": "穿透",
+     "tier": 3,
+     "kind": "active",
+     "status": "done",
+     "text": "射擊一次。這一擊把目標那一格的遮蔽當成低一級來算（掩體算半掩體，半掩體算暴露），而且穿甲 +1。",
+     "keys": [
+      "attack",
+      "target.enemy",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_run_and_gun",
+     "name": "跑位射擊",
+     "tier": 3,
+     "kind": "active",
+     "status": "done",
+     "text": "換位一次再射擊一次，兩件事一共 2 行動點。你換到的那一格，到你的下一回合開始前遮蔽高一級，最高到掩體。",
+     "keys": [
+      "attack",
+      "cover_temp",
+      "meat.picks",
+      "move",
+      "pick.ally_slot",
+      "target.enemy",
+      "use.ap",
+      "who.self"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_deadline",
+     "name": "死線",
+     "tier": 3,
+     "kind": "reaction",
+     "status": "done",
+     "text": "你第一次進入重傷（生命值低於一半）時，立刻射擊一次，不花行動點，命中 +2。到你的下一回合結束前，重傷的 −2 不算。",
+     "keys": [
+      "attack",
+      "buff",
+      "mod.hit",
+      "mod.save",
+      "trigger.hp_half",
+      "use.ap",
+      "use.per_fight",
+      "when.wounded",
+      "who.attacker",
+      "who.self"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_hunter_eye",
+     "name": "獵眼",
+     "tier": 3,
+     "kind": "passive",
+     "status": "done",
+     "text": "你瞄準過的射擊（要害射擊、狙擊槍的一槍），瞄準的加值從 +3 變成 +4，而且超過迴避 3 以上就算要害。",
+     "keys": [
+      "mod.crit_margin",
+      "mod.hit"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_covering_retreat",
+     "name": "掩護撤退",
+     "tier": 3,
+     "kind": "active",
+     "status": "done",
+     "text": "射擊一次，同時讓一名和你相鄰的隊友立刻換位一次，不花他的行動點。這一槍命中的話，目標得到壓制，到他的下一回合結束。",
+     "keys": [
+      "attack",
+      "if.hit",
+      "meat.picks",
+      "move",
+      "pick.ally",
+      "pick.ally_slot",
+      "status",
+      "target.enemy",
+      "use.ap",
+      "who.pick"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_kill_rhythm",
+     "name": "獵殺節奏",
+     "tier": 4,
+     "kind": "passive",
+     "status": "done",
+     "text": "每回合你第一次打出要害時，退還 1 點行動點，而且那一擊穿甲 +1。",
+     "keys": [
+      "ap",
+      "react.pierce",
+      "trigger.hit",
+      "use.ap",
+      "use.per_turn",
+      "who.self"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_barrage",
+     "name": "彈幕",
+     "tier": 4,
+     "kind": "stance",
+     "status": "approx",
+     "text": "開著時，你連射或用輕機槍掃射造成的壓制，同時打到目標相鄰一格上的人，他也要過定力檢定；兩個人的 DC 都再 +2。",
+     "keys": [
+      "meat.alter",
+      "use.ap",
+      "when.stance"
+     ],
+     "note": "只用 alter 改連射控制的壓制（相鄰一格、DC +2），輕機槍的掃射不吃彈幕，比設計書窄。"
+    },
+    {
+     "id": "sk_gunner_flow",
+     "name": "心流",
+     "tier": 4,
+     "kind": "active",
+     "status": "done",
+     "text": "從這一回合起連續三個回合，戰鬥直覺的點數 +2，每一項的上限從 3 點變成 5 點，每回合的重分配不花行動點。",
+     "keys": [
+      "buff",
+      "mod.instinct_cap",
+      "mod.instinct_free",
+      "mod.instinct_points",
+      "use.ap",
+      "use.per_fight",
+      "who.self"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_next_one",
+     "name": "下一個！",
+     "tier": 4,
+     "kind": "active",
+     "status": "done",
+     "text": "射擊一次。這一擊讓目標倒下的話，立刻用同一把槍對另一個敵人射擊一次，不花行動點（照常花彈匣）。",
+     "keys": [
+      "attack",
+      "if.downed",
+      "meat.picks",
+      "pick.foe",
+      "target.enemy",
+      "use.ap",
+      "who.pick"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_dont_move",
+     "name": "不准動喔",
+     "tier": 4,
+     "kind": "active",
+     "status": "done",
+     "text": "指定敵方的一格。到你的下一回合開始前，站在那一格的人第一次換位、補位或攻擊時，你立刻朝他射擊一次，不花行動點（照常花彈匣）。",
+     "keys": [
+      "attack",
+      "target.foe_slot",
+      "use.ap",
+      "ward"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：不准動喔：守著敵方的一格，站在那一格上的人第一次換位、補位或攻擊時，立刻朝他射一槍。"
+    },
+    {
+     "id": "sk_gunner_one_shot",
+     "name": "一槍定局",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "進攻的終極。用步槍或狙擊槍，對距離 5 以上的目標射擊一次：命中 +6，命中就一定算要害，並且擲一次重創，部位由你選。",
+     "keys": [
+      "attack",
+      "range",
+      "target.enemy",
+      "use.ap",
+      "use.per_fight",
+      "when.wield"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_fire_wall",
+     "name": "火力牆",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "防守的終極。連射一次，這次連射不花彈匣；壓制打到敵方整排的每一個人，各自檢定，DC 再 +2。到你的下一回合開始前，我方每一格的迴避 +1。",
+     "keys": [
+      "buff",
+      "meat.attack",
+      "mod.evade",
+      "target.enemy",
+      "use.ap",
+      "use.per_fight",
+      "who.allies"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_bullet_time",
+     "name": "子彈時間",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "改變規則的終極，這一招動到「每回合回復的行動點」：你的下兩個回合，每回合回復的行動點 +2；這兩個回合裡，你的每一次射擊都算瞄準過的射擊（命中 +3，可以指定部位，打出要害時擲重創），不多花行動點。效果結束時，你的感載 +10。",
+     "keys": [
+      "buff",
+      "load",
+      "mod.aim_all",
+      "mod.ap_regen",
+      "use.ap",
+      "use.per_fight",
+      "who.self"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_gun_unity",
+     "name": "人槍合一",
+     "tier": 5,
+     "kind": "passive",
+     "status": "done",
+     "text": "你射擊時命中 +1、穿甲 +1，而且超過迴避 3 以上就算要害。",
+     "keys": [
+      "mod.crit_margin",
+      "mod.hit",
+      "mod.pierce"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_gunner_right_back",
+     "name": "還給你～",
+     "tier": 5,
+     "kind": "reaction",
+     "status": "done",
+     "text": "敵人的攻擊沒有打中你，或沒有打中和你相鄰的隊友時，你立刻朝那個敵人射擊一次（照常花彈匣），命中 +2。",
+     "keys": [
+      "attack",
+      "trigger.after",
+      "use.ap",
+      "use.per_turn",
+      "who.attacker"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    }
+   ],
+   "resonance": [
+    {
+     "tier": 1,
+     "status": "done",
+     "keys": [
+      "resonance.initiative"
+     ],
+     "text": "每場戰鬥開始時，你的先攻 +3。",
+     "note": "effect.initiative +3，開戰時先攻 +3。"
+    },
+    {
+     "tier": 2,
+     "status": "done",
+     "keys": [
+      "resonance.free_move"
+     ],
+     "text": "每場戰鬥你第一次換位不花行動點。",
+     "note": "effect.free_move，每場第一次換位不花行動點。"
+    },
+    {
+     "tier": 3,
+     "status": "missing",
+     "keys": [
+      "resonance.pending"
+     ],
+     "text": "你射擊站在暴露格子上的敵人時，命中 +1。",
+     "note": "資料仍標 pending；格式現在寫得出來（mods 的 hit +1、when.other_exposed），只是還沒補進資料與測試。"
+    },
+    {
+     "tier": 4,
+     "status": "missing",
+     "keys": [
+      "resonance.pending"
+     ],
+     "text": "你站在掩體或半掩體的格子上時，迴避 +1。",
+     "note": "資料仍標 pending；格式現在寫得出來（mods 的 evade +1、when.in_cover），只是還沒補進資料與測試。"
+    },
+    {
+     "tier": 5,
+     "status": "done",
+     "keys": [
+      "mod.instinct_points"
+     ],
+     "text": "戰鬥直覺可以分配的點數 +1。",
+     "note": "effect.mods instinct_points +1。"
+    }
+   ]
+  },
+  {
+   "id": "pilot",
+   "name": "機師",
+   "tree": "機師：編隊",
+   "skills": [
+    {
+     "id": "sk_pilot_formation",
+     "name": "編隊",
+     "tier": 1,
+     "kind": "signature",
+     "status": "approx",
+     "text": "你能連結並指揮無人機：同時連得住的台數看同步（0～1 一台、2～3 兩台、4～5 三台、6 四台）；放出、指揮、移動、收回各花 1 行動點，每台每回合指揮一次，命中用你的操縱，再加這棵樹已開階數的一半（無條件進位）。你能把載具叫來當掩體：2 行動點、每場一次，讓我方一格變成耐久 45 的掩體。你能啟動機甲：3 行動點、每場一次、持續「2＋同步」回合；回灌是機體受到傷害的 20%，再乘同步檔位的倍率（淺 10%、標準 20%、深 30%、全 50%）。",
+     "later": "M6",
+     "keys": [
+      "meat.tags",
+      "mod.hit"
+     ],
+     "note": "無人機的連結與指揮（mods hit、tags drone_link）與叫載具當掩體都做了；啟動機甲與回灌要機甲，留到 M6。"
+    },
+    {
+     "id": "sk_pilot_good_kid",
+     "name": "乖孩子去吧",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "放出一台無人機，並立刻指揮它一次，兩件事一共 1 行動點（原本 2）；這一次動作命中 +1。",
+     "keys": [
+      "drone.act",
+      "drone.deploy",
+      "meat.picks",
+      "pick.drone",
+      "pick.foe",
+      "target.ally_slot",
+      "use.ap",
+      "use.per_fight"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_pilot_cover_flight",
+     "name": "掩護飛行",
+     "tier": 1,
+     "kind": "reaction",
+     "status": "done",
+     "text": "和你的無人機同一格的隊友被攻擊時，無人機擋到前面：那次攻擊的命中 −2。",
+     "keys": [
+      "react.hit",
+      "trigger.attacked",
+      "use.ap",
+      "use.per_turn"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_pilot_multitask",
+     "name": "多工連結",
+     "tier": 1,
+     "kind": "passive",
+     "status": "done",
+     "text": "同時連得住的無人機 +1 台；多的這一台只能是護盾型、偵察型或醫療型。",
+     "keys": [
+      "mod.overlay_cap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_pilot_one_more",
+     "name": "再一次嘛",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "指揮一台無人機在這一回合動作兩次（原本每台每回合一次），兩次的指揮都算在這 2 行動點裡；第二次動作命中 +1。",
+     "keys": [
+      "drone.act",
+      "meat.picks",
+      "pick.foe",
+      "target.own_overlay",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_pilot_accompany",
+     "name": "去陪陪他",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "把一台無人機移到我方任何一格，不必相鄰。到你的下一回合開始前，那一格的人迴避 +1。",
+     "keys": [
+      "buff",
+      "drone.move",
+      "meat.picks",
+      "mod.evade",
+      "pick.ally_slot",
+      "target.own_overlay",
+      "use.ap",
+      "who.slot"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_pilot_dual_fire",
+     "name": "雙聯火控",
+     "tier": 2,
+     "kind": "active",
+     "status": "approx",
+     "text": "你射擊一次，和你同一格的無人機同時射擊同一個目標，不另外花指揮的行動點（那台這一回合算已經指揮過）。機甲狀態下改成機甲的兩件武器一起開火，各自擲命中，兩下的命中都 −1。",
+     "later": "M6",
+     "keys": [
+      "drone.act",
+      "meat.attack",
+      "target.enemy",
+      "use.ap"
+     ],
+     "note": "射擊加同一格無人機同時射擊已做；機甲狀態下兩件武器一起開火、命中各 −1 要機甲，留到 M6。"
+    },
+    {
+     "id": "sk_pilot_escort",
+     "name": "護航編隊",
+     "tier": 2,
+     "kind": "stance",
+     "status": "done",
+     "text": "開著時，每一台和隊友同一格的無人機，讓那個隊友迴避 +1；最多兩格受惠。",
+     "keys": [
+      "drone.escort",
+      "meat.do_off",
+      "meat.do_on",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_pilot_feedback_buffer",
+     "name": "回灌緩衝",
+     "tier": 2,
+     "kind": "passive",
+     "status": "approx",
+     "text": "機甲的回灌從機體傷害的 20% 降到 15%，再乘同步檔位的倍率（淺約 8%、標準 15%、深約 23%、全約 38%）。無人機被擊落時，你的感載只 +2（原本 +5）。",
+     "later": "M6",
+     "keys": [
+      "mod.overlay_backlash"
+     ],
+     "note": "無人機被擊落時感載少 3 點（overlay_backlash −3）已做；機甲回灌 20% 降到 15% 要機甲，留到 M6。"
+    },
+    {
+     "id": "sk_pilot_quick_repair",
+     "name": "修修就好",
+     "tier": 2,
+     "kind": "active",
+     "status": "done",
+     "text": "讓一台還沒被擊落的無人機回復 10 點耐久，並可以順便移到相鄰的一格。",
+     "keys": [
+      "drone.move",
+      "drone.repair",
+      "meat.picks",
+      "pick.ally_slot",
+      "target.own_overlay",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_pilot_ram_in",
+     "name": "撞過去！",
+     "tier": 2,
+     "kind": "active",
+     "status": "approx",
+     "text": "機甲狀態下，你在第 1 格時才能用：用機甲的武器近戰攻擊敵方第 1 格的人，命中的話把他往後推一格，而且他那一格的遮蔽受到的傷害加倍。沒有機甲時，改成讓一台無人機撞上敵方第 1 格：無人機被擊落（感載照算），目標受 3d6 物理傷害並被往後推一格。",
+     "later": "M6",
+     "keys": [
+      "drone.ram",
+      "meat.picks",
+      "pick.foe",
+      "target.own_overlay",
+      "use.ap",
+      "who.pick"
+     ],
+     "note": "沒有機甲時讓無人機撞上目標（drone.ram）已做；機甲在第 1 格近戰、遮蔽傷害加倍要機甲，留到 M6。"
+    },
+    {
+     "id": "sk_pilot_assault",
+     "name": "突擊姿態",
+     "tier": 3,
+     "kind": "stance",
+     "status": "approx",
+     "text": "開著時，你和你的無人機命中 +1；機甲狀態下你的近戰傷害多一顆骰。代價是你的迴避 −1。",
+     "later": "M6",
+     "keys": [
+      "mod.dice",
+      "mod.evade",
+      "mod.hit",
+      "use.ap",
+      "when.hull",
+      "when.wield"
+     ],
+     "note": "命中 +1、迴避 −1 已做；機甲狀態下近戰多一顆骰已寫成 when.hull，現在沒有機甲所以永遠不生效，等 M6。"
+    },
+    {
+     "id": "sk_pilot_bastion",
+     "name": "堡壘姿態",
+     "tier": 3,
+     "kind": "stance",
+     "status": "done",
+     "text": "開著時你不能自己換位（被推、被拉照算）。你的護甲 +1（機甲狀態下的上限 8 照算），你後面那一格（往第 4 格的方向）的遮蔽高一級，最高到掩體。",
+     "keys": [
+      "meat.do_off",
+      "meat.do_on",
+      "mod.armor",
+      "mod.cover_level",
+      "status",
+      "unstatus",
+      "use.ap"
+     ],
+     "note": "護甲 +1、不能自己換位（rooted 狀態）、後面那一格遮蔽高一級（cover_level，who: behind）都已寫出；測試資料裡的舊註解說「後面那一格」寫不出來，已被 M1b-core-fix3 補上。"
+    },
+    {
+     "id": "sk_pilot_sync_dash",
+     "name": "同步衝刺",
+     "tier": 3,
+     "kind": "active",
+     "status": "later",
+     "text": "機甲狀態下才能用。立刻得到 2 點行動點，可以超過上限，回合結束時多出來的消失；機甲的持續時間 +1 回合。這一回合的回灌加倍。",
+     "later": "M6",
+     "keys": [
+      "meat.pending",
+      "use.ap",
+      "use.per_fight"
+     ],
+     "note": "整個效果都要機甲，meat 標 pending，等 M6。"
+    },
+    {
+     "id": "sk_pilot_saturation",
+     "name": "飽和攻擊",
+     "tier": 3,
+     "kind": "active",
+     "status": "done",
+     "text": "最多三台無人機各對同一個目標射擊一次，不另外花指揮的行動點（這幾台這一回合算已經指揮過），每一下命中 +1。",
+     "keys": [
+      "drone.act",
+      "target.enemy",
+      "use.ap",
+      "use.per_turn"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_pilot_smoke_cover",
+     "name": "煙煙罩著你",
+     "tier": 3,
+     "kind": "active",
+     "status": "done",
+     "text": "一台無人機在它掛的那一格放出煙霧：那一格變成打不破的半掩體，持續 2 回合。本來就是掩體的格子，在煙散掉之前被打壞也不會低於半掩體。",
+     "keys": [
+      "drone.smoke",
+      "target.own_overlay",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_pilot_neural_hardening",
+     "name": "神經硬化",
+     "tier": 3,
+     "kind": "passive",
+     "status": "later",
+     "text": "機甲狀態下，你的感載上限 +8。",
+     "later": "M6",
+     "keys": [
+      "meat.pending"
+     ],
+     "note": "機甲狀態下感載上限 +8，meat 標 pending，等 M6。"
+    },
+    {
+     "id": "sk_pilot_remote_fire",
+     "name": "遠端火力",
+     "tier": 4,
+     "kind": "active",
+     "status": "later",
+     "text": "機甲還沒啟動時才能用。待命中的機甲從遠處開火：指定敵方相鄰的兩格，到你的下一回合開始時，兩格上的人各受一次 4d6 物理的攻擊（各自擲命中，用你的操縱），遮蔽倍率 ×2。這一場機甲照樣可以啟動。",
+     "later": "M6",
+     "keys": [
+      "meat.pending",
+      "use.ap",
+      "use.per_fight"
+     ],
+     "note": "要待命中的機甲遠端開火，meat 標 pending，等 M6。"
+    },
+    {
+     "id": "sk_pilot_intercept",
+     "name": "攔截",
+     "tier": 4,
+     "kind": "reaction",
+     "status": "done",
+     "text": "一名隊友被攻擊時，和他同一格或相鄰一格的一台無人機擋到前面：那一下改打這台無人機，照無人機的迴避與護甲算。",
+     "keys": [
+      "react.reach",
+      "react.redirect",
+      "trigger.attacked",
+      "use.ap",
+      "use.per_turn"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_pilot_resonant_pilot",
+     "name": "共鳴駕駛",
+     "tier": 4,
+     "kind": "passive",
+     "status": "later",
+     "text": "機甲狀態下，和你相鄰的一名隊友可以花 1 行動點接上你的同步，當副駕到機甲結束：之後機甲的回灌有一半算在他身上（照你的檔位），他可以花 2 行動點用機甲的副武器射擊一次。",
+     "later": "M6",
+     "keys": [
+      "meat.pending"
+     ],
+     "note": "要機甲與副駕同步，meat 標 pending，等 M6。"
+    },
+    {
+     "id": "sk_pilot_precision",
+     "name": "精準導引",
+     "tier": 4,
+     "kind": "active",
+     "status": "done",
+     "text": "指揮一台無人機射擊，這一下命中 +2、穿甲 +2。",
+     "keys": [
+      "drone.act",
+      "meat.picks",
+      "pick.foe",
+      "target.own_overlay",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_pilot_overhaul",
+     "name": "整備",
+     "tier": 4,
+     "kind": "prep",
+     "status": "approx",
+     "text": "—",
+     "later": "M6",
+     "keys": [
+      "mod.overlay_armor",
+      "mod.overlay_hp",
+      "prep",
+      "use.slot"
+     ],
+     "note": "預備：每台無人機耐久 +6、護甲 +1 已做（overlay_hp、overlay_armor）；機體耐久 +10 要機甲，留到 M6。"
+    },
+    {
+     "id": "sk_pilot_swarm",
+     "name": "蜂群",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "進攻的終極。立刻放出兩台額外的攻擊型無人機，不算進同步的上限，持續 3 回合，被擊落時你的感載不增加；接著你所有的無人機各射擊一次，不另外花指揮的行動點。",
+     "keys": [
+      "drone.act",
+      "drone.deploy",
+      "target.enemy",
+      "use.ap",
+      "use.per_fight"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_pilot_dome",
+     "name": "穹頂",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "防守的終極。到你的下一回合開始前，我方每一格的迴避 +2，而且每一台無人機替同一格的人擋下第一次攻擊（那一下改打無人機）。",
+     "keys": [
+      "buff",
+      "drone.guard",
+      "mod.evade",
+      "target.none",
+      "use.ap",
+      "use.per_fight",
+      "who.allies"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_pilot_valkyrie",
+     "name": "女武神",
+     "tier": 5,
+     "kind": "active",
+     "status": "later",
+     "text": "改變規則的終極，這一招動到「每回合回復的行動點」。機甲狀態下才能用：同步立刻換到你能開的最高檔，不算這一回合的換檔次數；到機甲結束為止（最多三回合），你每回合回復的行動點再 +1，疊在機甲的 +2 上；機甲的命中 +2，超過迴避 3 以上就算要害。機甲結束時你過載一次，沉溺 +2。",
+     "later": "M6",
+     "keys": [
+      "meat.pending",
+      "use.ap",
+      "use.per_fight"
+     ],
+     "note": "要機甲與同步檔位，meat 標 pending，等 M6。"
+    },
+    {
+     "id": "sk_pilot_defend_kids",
+     "name": "敢打我家孩子？",
+     "tier": 5,
+     "kind": "reaction",
+     "status": "done",
+     "text": "敵人攻擊你的一台無人機之後，你其餘的無人機各朝他射擊一次（最多兩下），不另外花指揮的行動點。",
+     "keys": [
+      "drone.act",
+      "trigger.after",
+      "use.ap",
+      "use.per_turn",
+      "who.self"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：who: self：被打的那一台可能就在這一擊被擊落了（核心不對已經擊落的做效果），所以不落在它身上；「其餘的」是照 ctx.target 排除那一台。"
+    },
+    {
+     "id": "sk_pilot_man_machine",
+     "name": "人機一體",
+     "tier": 5,
+     "kind": "passive",
+     "status": "later",
+     "text": "機甲的持續時間 +1 回合；機甲狀態下你的命中 +1。",
+     "later": "M6",
+     "keys": [
+      "meat.pending"
+     ],
+     "note": "機甲持續時間與命中加成，meat 標 pending，等 M6。"
+    }
+   ],
+   "resonance": [
+    {
+     "tier": 1,
+     "status": "done",
+     "keys": [
+      "mod.overlay_hp"
+     ],
+     "text": "你的無人機耐久 +5。",
+     "note": "effect.mods overlay_hp +5，無人機耐久 +5。"
+    },
+    {
+     "tier": 2,
+     "status": "done",
+     "keys": [
+      "mod.overlay_armor"
+     ],
+     "text": "你的無人機護甲 +1。",
+     "note": "effect.mods overlay_armor +1，無人機護甲 +1。"
+    },
+    {
+     "tier": 3,
+     "status": "later",
+     "later": "M6",
+     "keys": [
+      "resonance.pending"
+     ],
+     "text": "你的機甲的機體耐久 +5。",
+     "note": "機甲的機體耐久 +5，要機甲，effect 標 pending，等 M6。"
+    },
+    {
+     "tier": 4,
+     "status": "done",
+     "keys": [
+      "mod.hit"
+     ],
+     "text": "你指揮無人機時，命中 +1。",
+     "note": "effect.mods hit +1（標籤 drone），指揮無人機時命中 +1。"
+    },
+    {
+     "tier": 5,
+     "status": "done",
+     "keys": [
+      "mod.overlay_evade"
+     ],
+     "text": "你的無人機迴避 +1。",
+     "note": "effect.mods overlay_evade +1，無人機迴避 +1。"
+    }
+   ]
+  },
+  {
+   "id": "medic",
+   "name": "改造師",
+   "tree": "改造師：手術刀",
+   "skills": [
+    {
+     "id": "sk_medic_scalpel",
+     "name": "手術刀",
+     "tier": 1,
+     "kind": "signature",
+     "status": "approx",
+     "text": "用快取格的醫療道具急救只花 1 行動點，對象可以是自己或相鄰一格的隊友，回的生命值另外 +樹階。對有義體的目標打近戰時，可以用義體學代替格鬥。日常：自己動刀安裝義體時，沉溺成本 −5%×樹階（最多 −25%，CYBERWARE 第 2 節）。",
+     "later": "M4",
+     "keys": [
+      "mod.action_ap",
+      "mod.heal_dealt",
+      "mod.hit",
+      "when.other_cyber",
+      "when.target_near",
+      "when.wield"
+     ],
+     "note": "急救只花 1 點、回復加樹階、義體學代替格鬥都已做；日常的「自己動刀安裝義體沉溺成本減免」要義體系統，留到 M4。"
+    },
+    {
+     "id": "sk_medic_first_aid",
+     "name": "戰場急救",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "不用道具：自己或相鄰一格的一名隊友回 2d6＋醫療等級的生命值，並解除流血。",
+     "keys": [
+      "cleanse",
+      "heal",
+      "meat.action_tags",
+      "target.near",
+      "use.ap",
+      "use.per_turn"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_medic_dismantle",
+     "name": "拆解",
+     "tier": 1,
+     "kind": "active",
+     "status": "approx",
+     "text": "近身：用義體學對目標的迴避打一次近戰，不造成傷害。命中時目標一件義體受到干擾，失效到他下一回合結束（義肢：用那一邊的攻擊 −2；義眼或智慧槍：命中 −2；反射加速器：下一回合少回 1 點行動點）。對無人機與機器一樣有效。",
+     "keys": [
+      "check",
+      "if.ok",
+      "implant",
+      "needs.cyber",
+      "range",
+      "target.enemy",
+      "use.ap"
+     ],
+     "note": "對有義體的目標近戰檢定、讓一件義體失效已做；設計書說對無人機與機器一樣有效，目前拆解對無人機沒有效果。"
+    },
+    {
+     "id": "sk_medic_cool_down",
+     "name": "呼呼不燙了",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "自己或相鄰一格的一名隊友排 8 點感載，或消一層餘韻。",
+     "keys": [
+      "afterglow",
+      "meat.choose",
+      "needs.afterglow",
+      "needs.bridged",
+      "target.near",
+      "use.ap",
+      "use.per_turn",
+      "vent"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_medic_suture",
+     "name": "縫合手",
+     "tier": 1,
+     "kind": "passive",
+     "status": "done",
+     "text": "你造成的每一次生命回復多 4 點（急救、戰場急救、其他治療技能都算）。",
+     "keys": [
+      "mod.heal_dealt"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_medic_painless",
+     "name": "不痛不痛",
+     "tier": 1,
+     "kind": "reaction",
+     "status": "done",
+     "text": "自己或相鄰一格的隊友第一次進入重傷時，自動打一針：他回 2d6 生命值、解除流血，到他下一回合結束前不吃重傷的 −2。不花行動點。",
+     "keys": [
+      "buff",
+      "cleanse",
+      "heal",
+      "mod.hit",
+      "mod.save",
+      "trigger.hp_half",
+      "use.ap",
+      "use.per_fight",
+      "when.wounded"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：自己或相鄰的隊友第一次進入重傷：回 2d6、止血，到他下一回合結束前不吃重傷的 −2（重傷還在的時候命中與檢定各 +2）。"
+    },
+    {
+     "id": "sk_medic_surgery",
+     "name": "手術",
+     "tier": 1,
+     "kind": "daily",
+     "status": "later",
+     "text": "—",
+     "later": "M4",
+     "keys": [
+      "daily",
+      "use.slot"
+     ],
+     "note": "日常（自己動刀安裝、拆卸、修理義體），格式還寫不出日常，等 M4 的義體系統。"
+    },
+    {
+     "id": "sk_medic_overclock",
+     "name": "超頻",
+     "tier": 2,
+     "kind": "active",
+     "status": "approx",
+     "text": "自己或相鄰一格的隊友，一件義體超頻到他下一回合結束。義肢或智慧槍：他下一次攻擊命中 +2。義眼：他下一次攻擊把目標那一格的遮蔽當成低一級。皮下裝甲：護甲 +2。超頻結束時那名隊友感載 +4。",
+     "keys": [
+      "buff",
+      "if.ok",
+      "implant",
+      "load",
+      "needs.cyber",
+      "target.near",
+      "use.ap",
+      "use.per_turn"
+     ],
+     "note": "義肢、智慧槍的下一次攻擊 +2、皮下裝甲護甲 +2、結束時感載 +4 都已做；義眼「下一次攻擊把遮蔽當低一級」還沒有（缺 boost_eye）。"
+    },
+    {
+     "id": "sk_medic_pull_back",
+     "name": "拉回來",
+     "tier": 2,
+     "kind": "active",
+     "status": "done",
+     "text": "相鄰一格因生命值歸零而倒下的隊友回到 2d6＋醫療等級的生命值，重新回到戰鬥，從他的下一回合開始行動。餘韻疊滿再過載而倒下的人不能用這一招拉回來。",
+     "keys": [
+      "revive",
+      "target.downed_near",
+      "use.ap",
+      "use.per_fight"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_medic_find_gap",
+     "name": "找縫",
+     "tier": 2,
+     "kind": "active",
+     "status": "done",
+     "text": "近身：用義體學打一次近戰，傷害照武器，無視目標 2 點護甲。目標身上已經有一件被干擾的義體時，改成無視 4 點。",
+     "keys": [
+      "attack",
+      "branch",
+      "needs.implant_off",
+      "range",
+      "target.enemy",
+      "use.ap",
+      "when.wield"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_medic_dismantle_fun",
+     "name": "拆拆好好玩",
+     "tier": 2,
+     "kind": "passive",
+     "status": "done",
+     "text": "拆解、找縫、卸下、短路、拆光的命中 +1；你動手制伏時，格鬥檢定 +1。",
+     "keys": [
+      "mod.hit",
+      "mod.save"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：拆解、找縫、卸下、短路、拆光的命中 +1（帶 dismantle 標籤的攻擊與檢定）；你動手制伏時格鬥檢定 +1。"
+    },
+    {
+     "id": "sk_medic_rounds",
+     "name": "巡房",
+     "tier": 2,
+     "kind": "stance",
+     "status": "done",
+     "text": "開著時，每回合你第一次對相鄰隊友用急救或戰場急救不花行動點。",
+     "keys": [
+      "mod.action_ap",
+      "use.ap",
+      "when.target_near"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：開著時，每回合第一次對相鄰隊友用急救（道具）或戰場急救不花行動點。"
+    },
+    {
+     "id": "sk_medic_take_off",
+     "name": "卸下",
+     "tier": 3,
+     "kind": "active",
+     "status": "done",
+     "text": "近身：用義體學打一次近戰，不造成傷害。命中時目標一件義體到戰鬥結束都失效（效果照拆解）；戰後這件義體算戰利品，是受損的二手件。",
+     "keys": [
+      "check",
+      "if.ok",
+      "implant",
+      "needs.cyber",
+      "range",
+      "target.enemy",
+      "use.ap",
+      "use.per_fight"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_medic_line_up",
+     "name": "排好隊喔",
+     "tier": 3,
+     "kind": "active",
+     "status": "done",
+     "text": "你這一格與相鄰兩格的隊友各回 2d6＋醫療等級的生命值。",
+     "keys": [
+      "heal",
+      "meat.action_tags",
+      "target.none",
+      "use.ap",
+      "who.near"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：排好隊喔治療的都是隊友：action_tags 多帶 other，名醫的「治療隊友」才認得。"
+    },
+    {
+     "id": "sk_medic_flash_freeze",
+     "name": "急凍",
+     "tier": 3,
+     "kind": "reaction",
+     "status": "approx",
+     "text": "任何一格的隊友過載時，你從上回合留下的行動點扣 1，替他打一針：他照樣得到一層餘韻，但不失去下一個回合，機甲與加速義體的同步也不斷開。",
+     "later": "M6",
+     "keys": [
+      "react.keep_turn",
+      "trigger.overload",
+      "use.ap",
+      "use.per_fight"
+     ],
+     "note": "過載的隊友不失去下一回合（react.keep_turn）已做；設計書另說機甲與加速義體的同步不斷開，機甲同步等 M6，加速義體同步目前沒有對應機制。"
+    },
+    {
+     "id": "sk_medic_dissection",
+     "name": "解剖",
+     "tier": 3,
+     "kind": "daily",
+     "status": "later",
+     "text": "—",
+     "later": "M4",
+     "keys": [
+      "daily",
+      "use.slot"
+     ],
+     "note": "日常（戰後從倒下的敵人身上拆下義體或零件），格式寫不出日常，等 M4。"
+    },
+    {
+     "id": "sk_medic_locksmith",
+     "name": "解鎖匠",
+     "tier": 3,
+     "kind": "passive",
+     "status": "approx",
+     "text": "對有義體的敵人，你的近戰命中 +1；拆解、找縫、卸下打契約義體（遠端可控的）時命中再 +2。日常的部分寫在下面。",
+     "later": "M4",
+     "keys": [
+      "mod.hit",
+      "mod.save",
+      "when.other_contract",
+      "when.other_cyber",
+      "when.wield"
+     ],
+     "note": "戰鬥裡對有義體的敵人近戰命中 +1、拆解類打契約義體再 +2 已做；日常的「解授權鎖檢定 +2」留到 M4。"
+    },
+    {
+     "id": "sk_medic_short_circuit",
+     "name": "短路",
+     "tier": 4,
+     "kind": "active",
+     "status": "done",
+     "text": "近身：用義體學打一次近戰，傷害照武器並改成電磁。命中時目標暈眩（下一回合行動點 −2）。目標沒有義體時只有電磁傷害，沒有暈眩。",
+     "keys": [
+      "attack",
+      "branch",
+      "if.hit",
+      "needs.cyber",
+      "range",
+      "status",
+      "target.enemy",
+      "use.ap",
+      "when.wield"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_medic_field_surgery",
+     "name": "戰地手術",
+     "tier": 4,
+     "kind": "active",
+     "status": "approx",
+     "text": "相鄰一格的一名隊友：處理一個重創（輕的直接解除；重的降成輕的），並回 2d6 生命值。也可以改成替他裝上快取格裡的一件義體，這場戰鬥立刻能用。",
+     "later": "M4",
+     "keys": [
+      "heal",
+      "meat.action_tags",
+      "meat.choose",
+      "target.near",
+      "use.ap",
+      "wound"
+     ],
+     "note": "處理一個重創並回 2d6 已做；「替他裝上快取格裡的一件義體」要義體系統，留到 M4。"
+    },
+    {
+     "id": "sk_medic_not_sleep_yet",
+     "name": "還不准睡",
+     "tier": 4,
+     "kind": "reaction",
+     "status": "done",
+     "text": "任何一格的隊友即將倒下時（生命值歸零，或餘韻疊滿再過載），你從上回合留下的行動點扣 1：他改成停在生命 1，或感載停在上限 −1、不疊餘韻，留在戰鬥裡。",
+     "keys": [
+      "react.prevent",
+      "trigger.out_before",
+      "use.ap",
+      "use.per_fight"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_medic_chief_surgeon",
+     "name": "主刀",
+     "tier": 4,
+     "kind": "passive",
+     "status": "done",
+     "text": "你造成的每一次生命回復多 4 點（和縫合手疊加）。相鄰一格的隊友受到重創時，重的那一級一律改成輕的。",
+     "keys": [
+      "mod.heal_dealt",
+      "mod.wound_grade"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：回復多 4 點；相鄰一格的隊友受到重創時，重的那一級改成輕的（wound_grade −1，落在被打的人身上）。"
+    },
+    {
+     "id": "sk_medic_workshop",
+     "name": "工坊",
+     "tier": 4,
+     "kind": "daily",
+     "status": "later",
+     "text": "—",
+     "later": "M4",
+     "keys": [
+      "daily",
+      "use.slot"
+     ],
+     "note": "日常（組裝義體、武器、護甲檢定 +2），格式寫不出日常，等 M4。"
+    },
+    {
+     "id": "sk_medic_strip_all",
+     "name": "拆光",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "進攻的終極。近身：用義體學打一次近戰，不造成傷害。命中時目標失去下一個回合，而且他身上兩件義體到戰鬥結束都失效（效果照拆解）。",
+     "keys": [
+      "check",
+      "if.ok",
+      "implant",
+      "needs.cyber",
+      "range",
+      "status",
+      "target.enemy",
+      "use.ap",
+      "use.per_fight"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_medic_overhaul",
+     "name": "全面翻修",
+     "tier": 5,
+     "kind": "active",
+     "status": "approx",
+     "text": "支援的終極。相鄰一格的一名隊友：生命值至少回到上限的一半（已經超過一半的再回 2d6），清掉他所有的重創，消兩層餘韻。",
+     "keys": [
+      "afterglow",
+      "branch",
+      "heal",
+      "meat.action_tags",
+      "needs.wounded",
+      "target.near",
+      "use.ap",
+      "use.per_fight",
+      "wound"
+     ],
+     "note": "「生命至少回到上限的一半」寫成連續幾次有條件的回復直到不是重傷為止（近似）；清掉所有重創、消兩層餘韻都照設計書。"
+    },
+    {
+     "id": "sk_medic_extreme_overclock",
+     "name": "極限超頻",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "改變規則的終極。自己或相鄰一格的隊友全身的義體超頻 3 回合：這 3 回合他每回合回復的行動點 +1，命中 +1。結束時他得到一層餘韻。這是本樹唯一動到「每回合回復的行動點」的技能。",
+     "keys": [
+      "afterglow",
+      "buff",
+      "mod.ap_regen",
+      "mod.hit",
+      "target.near",
+      "use.ap",
+      "use.per_fight"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：全身的義體超頻 3 回合：每回合回復的行動點 +1、命中 +1，結束時一層餘韻（只用 buff，不給 boost_ 狀態：狀態的 +2 會和這裡的 +1 疊成 +3）。"
+    },
+    {
+     "id": "sk_medic_famed_doctor",
+     "name": "名醫",
+     "tier": 5,
+     "kind": "passive",
+     "status": "done",
+     "text": "你造成的每一次生命回復多 4 點（和縫合手、主刀疊加）。每回合你第一次治療隊友（急救、戰場急救、排好隊喔、戰地手術）退還 1 點行動點。",
+     "keys": [
+      "mod.action_ap",
+      "mod.heal_dealt"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：回復多 4 點；每回合第一次治療隊友（急救、戰場急救、排好隊喔、戰地手術）退還 1 點行動點。"
+    },
+    {
+     "id": "sk_medic_hands_off",
+     "name": "手手拿開",
+     "tier": 5,
+     "kind": "reaction",
+     "status": "done",
+     "text": "近身的敵人攻擊你或相鄰的隊友之後，你從上回合留下的行動點扣 1，立刻反擊：照拆解打一次，命中時那件義體失效兩回合，並且他被推後一格。",
+     "keys": [
+      "check",
+      "if.ok",
+      "implant",
+      "shift",
+      "trigger.after",
+      "use.ap",
+      "use.per_turn",
+      "who.attacker"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    }
+   ],
+   "resonance": [
+    {
+     "tier": 1,
+     "status": "done",
+     "keys": [
+      "mod.heal_dealt",
+      "mod.vent_dealt"
+     ],
+     "text": "你用的醫療道具（急救凝膠、冷卻劑）效果多 4 點：回的生命值多 4，或排掉的感載多 4。",
+     "note": "effect.mods heal_dealt、vent_dealt 各 +4（標籤 medical）。"
+    },
+    {
+     "tier": 2,
+     "status": "done",
+     "keys": [
+      "resonance.free_move"
+     ],
+     "text": "每場戰鬥你第一次換位不花行動點。",
+     "note": "effect.free_move，每場第一次換位不花行動點。"
+    },
+    {
+     "tier": 3,
+     "status": "approx",
+     "later": "M4",
+     "keys": [
+      "mod.save"
+     ],
+     "text": "醫療檢定 +2。",
+     "note": "戰鬥裡沒有醫療檢定，寫成帶 medicine 標籤的 save +2，等 M4 的醫療檢定帶上標籤才生效。"
+    },
+    {
+     "tier": 4,
+     "status": "done",
+     "keys": [
+      "resonance.load_max"
+     ],
+     "text": "感載上限 +4。",
+     "note": "effect.load_max +4，感載上限 +4（有橋的人才加）。"
+    },
+    {
+     "tier": 5,
+     "status": "done",
+     "keys": [
+      "resonance.hp_max"
+     ],
+     "text": "生命上限 +5。",
+     "note": "effect.hp_max +5，生命上限 +5。"
+    }
+   ]
+  },
+  {
+   "id": "netrunner",
+   "name": "潛網者",
+   "tree": "潛網者：主控",
+   "skills": [
+    {
+     "id": "sk_ctrl",
+     "name": "主控",
+     "tier": 1,
+     "kind": "signature",
+     "status": "done",
+     "text": "快駭檢定 +⌈樹階×⅔⌉。只有主控能快駭：能裝快駭程式（ITEMS 11.9 節），能跑的最高等級等於樹階（4 階以上是 IV 級）。快駭程式裝在構裝槽裡（現實與內海共用同一副甲板的槽）。RAM 照內海欄的加值，因為現實與內海是同一池，數字相同。沒有甲板時這一欄沒有效果。",
+     "keys": [
+      "meat.pool",
+      "meat.tags",
+      "mod.save"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_ice",
+     "name": "破冰",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "對一個目標丟破冰程式：到你的下一回合結束前，全隊對他的快駭檢定 +2。",
+     "keys": [
+      "buff",
+      "hack.check",
+      "mod.firewall",
+      "target.enemy",
+      "use.ap",
+      "use.ram"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_peek",
+     "name": "偷看是不行的喔",
+     "tier": 1,
+     "kind": "reaction",
+     "status": "done",
+     "text": "你或一名隊友被快駭時，這一次那個人的防火牆 +2。",
+     "keys": [
+      "react.dc",
+      "trigger.checked",
+      "use.per_turn",
+      "use.ram"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：「你或一名隊友被快駭」：trigger.who 的 self_or_ally（M1b-core-fix2）。"
+    },
+    {
+     "id": "sk_take",
+     "name": "接管",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "快駭視線內的一台砲塔或無人機（對它的防火牆）：成功的話它 2 回合是我方的，和人重疊、不佔格，由你花 1 行動點指揮。也可以改成只改寫它的敵我名單：到你的下一回合結束，它攻擊它原本的隊友，目標由它自己選，不必你指揮。",
+     "keys": [
+      "hack.check",
+      "hack.takeover",
+      "meat.choose",
+      "meat.picks",
+      "pick.choice",
+      "target.foe_overlay",
+      "use.ap",
+      "use.ram"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_loop",
+     "name": "迴圈",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "神經快駭，持續型：目標每回合開始時受 1d6＋1 感載，共 3 回合。同一個目標身上同時只能掛一個持續型的快駭。",
+     "keys": [
+      "hack.check",
+      "hack.dot",
+      "needs.bridged",
+      "target.enemy",
+      "use.ap",
+      "use.ram"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_netrunner_t1_6",
+     "name": "我不在家喔",
+     "tier": 1,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，這個技能只在內海用，現實沒有效果（測試也不寫）。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_band",
+     "name": "頻寬",
+     "tier": 1,
+     "kind": "passive",
+     "status": "approx",
+     "text": "RAM 是同一池，所以現實也多 1；構裝槽 +1，多裝一個快駭程式。",
+     "keys": [
+      "meat.pool"
+     ],
+     "note": "RAM 上限 +1 已做；「構裝槽 +1」在甲板上（deck.slots），技能格式沒有改甲板的鍵，寫不出來。"
+    },
+    {
+     "id": "sk_heat",
+     "name": "過熱",
+     "tier": 2,
+     "kind": "active",
+     "status": "done",
+     "text": "神經快駭：目標受 2d6 感載，並且他一件義體受到干擾，失效到他下一回合結束。",
+     "keys": [
+      "hack.check",
+      "implant",
+      "load",
+      "needs.bridged",
+      "target.enemy",
+      "use.ap",
+      "use.ram"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_silent",
+     "name": "靜默",
+     "tier": 2,
+     "kind": "stance",
+     "status": "approx",
+     "text": "開著時你的迴避 +1：敵人的瞄具抓不到你的訊號源。你的快駭追蹤各少 1（最低 0）。",
+     "later": "M3",
+     "keys": [
+      "mod.evade",
+      "use.ap"
+     ],
+     "note": "迴避 +1 已做；「快駭追蹤各少 1」要追蹤度（ADR 0015 E9，M2、M3），這一波不做。"
+    },
+    {
+     "id": "sk_rewrite",
+     "name": "改寫地形",
+     "tier": 2,
+     "kind": "active",
+     "status": "approx",
+     "text": "這一區的控制節點已經在我方手上時（接管或連動拿到的）：放下防爆門，替我方一格補一級遮蔽；或撤掉敵方一格的掩體，降一級。另外，不需要控制節點也能引爆視線內一件爆裂物（敵人身上的手榴彈、場景裡的油桶與電源箱）：熱能 2d6 打那一格，那一格的遮蔽降一級。",
+     "keys": [
+      "cover",
+      "hack.check",
+      "hack.detonate",
+      "meat.choose",
+      "meat.picks",
+      "needs.cache_tag",
+      "pick.choice",
+      "target.enemy",
+      "use.ap",
+      "use.ram",
+      "when.node_taken",
+      "who.self"
+     ],
+     "note": "引爆、撤掉敵方掩體、放防爆門都已做；防爆門補的一級遮蔽只能落在自己那一格（choose 的每個用法吃同一個目標），不能選我方的任一格。"
+    },
+    {
+     "id": "sk_focus",
+     "name": "盯～",
+     "tier": 2,
+     "kind": "passive",
+     "status": "done",
+     "text": "神經快駭的檢定 +1。",
+     "keys": [
+      "mod.save"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_backflow",
+     "name": "逆流",
+     "tier": 2,
+     "kind": "reaction",
+     "status": "done",
+     "text": "你過載時 RAM 回滿（下一回合照樣失去）。",
+     "keys": [
+      "pool",
+      "trigger.overload",
+      "use.ap",
+      "use.per_fight",
+      "who.self"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_inflow",
+     "name": "灌頂",
+     "tier": 3,
+     "kind": "active",
+     "status": "approx",
+     "text": "神經快駭：目標受 2d6＋2 感載。現實裡這是收尾的一下，要隊友先灌（NETRUNNING 第 2 節）。也可以改成快感版：目標受 2d6 感載，沉溺 +2，定力檢定成功可以擋掉其中 1 點。",
+     "keys": [
+      "hack.check",
+      "load",
+      "meat.choose",
+      "meat.picks",
+      "needs.bridged",
+      "pick.choice",
+      "sink",
+      "target.enemy",
+      "use.ap",
+      "use.ram"
+     ],
+     "note": "神經版與快感版的感載、沉溺 +2 已做；快感版「定力檢定成功可以擋掉其中 1 點」寫不出來（sink 的 save 是成功就整筆擋掉），「要隊友先灌」的收尾限制也沒有寫。"
+    },
+    {
+     "id": "sk_backdoor",
+     "name": "後門",
+     "tier": 3,
+     "kind": "prep",
+     "status": "done",
+     "text": "—",
+     "keys": [
+      "mod.action_ap",
+      "prep",
+      "use.slot",
+      "when.first_round"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_lockdown",
+     "name": "封鎖",
+     "tier": 3,
+     "kind": "active",
+     "status": "approx",
+     "text": "關燈（全場黑暗，COMBAT_SYSTEM 2.5 節），這一下不需要控制節點。這一區的控制節點在我方手上時，另外放下一道防爆門，我方一格補一級遮蔽。",
+     "keys": [
+      "cover",
+      "field",
+      "meat.choose",
+      "meat.picks",
+      "pick.choice",
+      "target.none",
+      "use.ap",
+      "use.per_fight",
+      "use.ram",
+      "when.node_taken",
+      "who.self"
+     ],
+     "note": "關燈已做；「有節點時另外放一道防爆門」不能依節點自動加做，改寫成「關燈」與「關燈並放下防爆門」兩種用法讓玩家挑，且防爆門落在自己那一格。"
+    },
+    {
+     "id": "sk_thanks",
+     "name": "謝謝招待",
+     "tier": 3,
+     "kind": "passive",
+     "status": "approx",
+     "text": "你的神經快駭讓目標過載時，你回 1 RAM，每回合一次。",
+     "keys": [
+      "pool",
+      "trigger.overload",
+      "use.ap",
+      "use.per_turn",
+      "who.self"
+     ],
+     "note": "設計書是「你的神經快駭讓目標過載時回 1 RAM」；overload 的反應分不出是不是神經快駭，所以寫成任何你讓敵人過載的都算，比設計書寬。"
+    },
+    {
+     "id": "sk_mutex",
+     "name": "值機",
+     "tier": 3,
+     "kind": "stance",
+     "status": "done",
+     "text": "開著時，裝置類快駭（迴圈攝影機、誤報、接管砲塔、封鎖的關燈）的檢定 +2。",
+     "keys": [
+      "mod.save",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_puppet",
+     "name": "傀儡",
+     "tier": 4,
+     "kind": "active",
+     "status": "approx",
+     "text": "有標記的目標，他的義肢動一下：他下一回合少 1 點行動點，並且被你推或拉一格。也可以改成定住他：到他的下一回合結束，他不能換位、不能補位，他的隊友也不能和他交換位置。",
+     "keys": [
+      "ap",
+      "hack.check",
+      "meat.choose",
+      "meat.picks",
+      "needs.status",
+      "pick.choice",
+      "shift",
+      "status",
+      "target.enemy",
+      "use.ap",
+      "use.ram"
+     ],
+     "note": "「動一下」只寫了推一格（沒有讓玩家選拉）、少 1 點行動點，「定住」用 pinned 狀態；比設計書少了推拉二選一。"
+    },
+    {
+     "id": "sk_mirror",
+     "name": "看錯人囉",
+     "tier": 4,
+     "kind": "active",
+     "status": "done",
+     "text": "一名隊友（含自己）的迴避 +2，到你的下一回合開始：你在敵人的瞄具裡塞了雜訊。",
+     "keys": [
+      "buff",
+      "mod.evade",
+      "target.ally_or_self",
+      "use.ap",
+      "use.ram"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_multi",
+     "name": "多工",
+     "tier": 4,
+     "kind": "passive",
+     "status": "approx",
+     "text": "每回合你的第一個快駭不花行動點；構裝槽 +1。",
+     "keys": [
+      "mod.action_ap"
+     ],
+     "note": "每回合第一個快駭不花行動點已做；「構裝槽 +1」同頻寬，寫不出來。"
+    },
+    {
+     "id": "sk_cast",
+     "name": "群播",
+     "tier": 4,
+     "kind": "active",
+     "status": "done",
+     "text": "敵方整排有橋的人，下一回合各少 1 點行動點。",
+     "keys": [
+      "ap",
+      "target.none",
+      "use.ap",
+      "use.per_fight",
+      "use.ram",
+      "who.foes_bridged"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_noleave",
+     "name": "不讓你帶走",
+     "tier": 4,
+     "kind": "reaction",
+     "status": "done",
+     "text": "任何一格的隊友即將被制伏時，你讓他身上的鎖橋器短路：這次制伏自動失敗。",
+     "keys": [
+      "react.prevent",
+      "trigger.out_before",
+      "use.ap",
+      "use.per_fight",
+      "use.ram"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_black",
+     "name": "黑冰",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "進攻的終極。神經快駭：每花 1 點 RAM，目標受 1d6 感載。",
+     "keys": [
+      "hack.check",
+      "load",
+      "needs.bridged",
+      "target.enemy",
+      "use.ap",
+      "use.per_fight",
+      "use.ram_all_min"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_backup",
+     "name": "備份",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "防守的終極。我方整排的迴避 +1 到你的下一回合開始，並且每個人解除一個狀態（壓制、干擾或標記）。",
+     "keys": [
+      "buff",
+      "mod.evade",
+      "target.none",
+      "unstatus",
+      "use.ap",
+      "use.per_fight",
+      "use.ram",
+      "who.allies"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_admin",
+     "name": "管理員",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "改變規則的終極。這一區的控制節點在我方手上時，整區聽你的：關燈（全場黑暗）、敵方整排的遮蔽降一級、場上的一台砲塔或無人機到戰鬥結束都是我方的。",
+     "keys": [
+      "cover",
+      "field",
+      "hack.takeover",
+      "meat.picks",
+      "pick.foe_overlay",
+      "target.none",
+      "use.ap",
+      "use.per_fight",
+      "use.ram",
+      "when.node_taken",
+      "who.foe_overlay",
+      "who.foes"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：不用先選一台：關燈與降遮蔽照做，接管落在敵方的一台（who: foe_overlay，M1b-core-fix3；樹上寫「一台」）：玩家選的（pick.overlay）、沒選就是最前面的一台。 picks 的 kind: 'foe_overlay' 讓玩家選得到是哪一台（不必選：required false）。"
+    },
+    {
+     "id": "sk_root",
+     "name": "根權限",
+     "tier": 5,
+     "kind": "passive",
+     "status": "done",
+     "text": "每回合你的第一個快駭 RAM −1（最低 1）。",
+     "keys": [
+      "mod.action_ram"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_netrunner_t5_27",
+     "name": "深潛",
+     "tier": 5,
+     "kind": "stance",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，這個姿態只在內海有效，現實沒有效果。",
+     "idPlaceholder": true
+    }
+   ],
+   "resonance": [
+    {
+     "tier": 1,
+     "status": "done",
+     "keys": [
+      "mod.save"
+     ],
+     "text": "介面檢定 +2（快駭與管理行動都用介面）。",
+     "note": "effect.mods save +2（標籤 hack），快駭的介面檢定 +2。"
+    },
+    {
+     "tier": 2,
+     "status": "none",
+     "keys": [],
+     "text": "每場網內戰鬥你第一次換位不花行動點。",
+     "note": "設計書寫的是網內戰鬥的第一次換位，現實沒有效果（測試資料沒有這一階）。"
+    },
+    {
+     "tier": 3,
+     "status": "done",
+     "keys": [
+      "resonance.pool"
+     ],
+     "text": "RAM 上限 +1。",
+     "note": "effect.pool ram.max +1，RAM 上限 +1。"
+    },
+    {
+     "tier": 4,
+     "status": "done",
+     "keys": [],
+     "text": "感載上限 +4。",
+     "note": "effect.load_max +4，感載上限 +4。"
+    },
+    {
+     "tier": 5,
+     "status": "none",
+     "keys": [],
+     "text": "釘住的檢定 +2。",
+     "note": "釘住的檢定是內海的蕾絲機制，現實沒有效果（測試資料沒有這一階）。"
+    }
+   ]
+  },
+  {
+   "id": "socialite",
+   "name": "名媛",
+   "tree": "名媛：入戲",
+   "skills": [
+    {
+     "id": "sk_socialite_in_character",
+     "name": "入戲",
+     "tier": 1,
+     "kind": "signature",
+     "status": "approx",
+     "text": "開打前戴上一個人格面具。戴著面具時，第一回合敵人不以你為目標，除非你是他打得到的唯一目標，或你在這一回合已經攻擊過他。面具抵消豔名「被認出來」的懲罰。整場都能用誘惑攻擊：2 行，每回合 1 次，對距離 2 以內一名有橋的目標擲 1d20＋mod(魅力)＋誘惑，對 10＋目標的 mod(意志)＋定力；命中造成 2d6 快感傷害，不看護甲與遮蔽。",
+     "later": "M2",
+     "keys": [
+      "meat.mask",
+      "meat.tease"
+     ],
+     "note": "面具（第一回合敵人不以她為目標）與誘惑攻擊都已做；「面具抵消豔名被認出來的懲罰」要豔名系統，留到 M2。"
+    },
+    {
+     "id": "sk_socialite_look_here",
+     "name": "看這邊♡",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "做一次誘惑攻擊，命中 +1。",
+     "keys": [
+      "meat.tease",
+      "use.ap",
+      "use.group",
+      "use.per_turn"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_socialite_stand_in",
+     "name": "替身",
+     "tier": 1,
+     "kind": "reaction",
+     "status": "done",
+     "text": "只在第一回合：你第一次被命中時，這一擊打在全息替身上，你不受傷害，並換到相鄰的一格，不花行動點。",
+     "keys": [
+      "react.negate",
+      "react.then_move",
+      "trigger.hit",
+      "use.ap",
+      "use.first_round",
+      "use.per_fight"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：替身（反應）：只在第一回合，第一次被命中時這一擊打在全息替身上，不受傷害，換到相鄰的一格。"
+    },
+    {
+     "id": "sk_socialite_read_people",
+     "name": "讀人",
+     "tier": 1,
+     "kind": "prep",
+     "status": "later",
+     "text": "—",
+     "later": "M2",
+     "keys": [
+      "meat.pending",
+      "prep",
+      "use.slot"
+     ],
+     "note": "預備：效果是對「他」的誘惑攻擊與檢定加成，要知道「他」是誰（名冊與傾向），meat 標 pending，等 M2。"
+    },
+    {
+     "id": "sk_socialite_poke",
+     "name": "戳戳你",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "對距離 2 以內一名有橋的敵人灌 4 點快感感載，不擲骰；在第一回合用時改成 8 點。",
+     "keys": [
+      "if.first_round",
+      "if.not_first_round",
+      "load",
+      "needs.bridged",
+      "range",
+      "target.enemy",
+      "use.ap",
+      "use.per_turn"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：戳戳你：對距離 2 以內有橋的敵人灌 4 點快感感載，不擲骰；第一回合 8 點。"
+    },
+    {
+     "id": "sk_socialite_sober",
+     "name": "我很清醒喔",
+     "tier": 1,
+     "kind": "passive",
+     "status": "done",
+     "text": "抵抗控制類快駭的檢定 +2。",
+     "keys": [
+      "mod.firewall"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：我很清醒喔：抵抗控制類快駭的檢定 +2。"
+    },
+    {
+     "id": "sk_socialite_tell_me",
+     "name": "跟我說嘛",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "只在第一回合：對距離 2 以內一名有橋的敵人擲交涉，對 10＋他的 mod(意志)＋定力；成功的話他被標記到你的下一回合（全隊打他命中 +2）。",
+     "keys": [
+      "check",
+      "if.ok",
+      "needs.bridged",
+      "range",
+      "status",
+      "target.enemy",
+      "use.ap",
+      "use.first_round"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：跟我說嘛：只在第一回合，距離 2 以內有橋的敵人，交涉對 10＋他的 mod(意志)＋定力；過了標記到她的下一回合（全隊打他命中 +2）。"
+    },
+    {
+     "id": "sk_socialite_stay",
+     "name": "不要走嘛",
+     "tier": 2,
+     "kind": "active",
+     "status": "done",
+     "text": "做一次誘惑攻擊；命中的話，到目標下一回合結束前，他攻擊你的命中 −2。",
+     "keys": [
+      "buff",
+      "meat.tease",
+      "mod.hit",
+      "use.ap",
+      "use.group",
+      "use.per_turn"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：不要走嘛：誘惑攻擊；命中的話，到目標下一回合結束前，他攻擊她的命中 −2（掛在目標身上、只對她有效）。"
+    },
+    {
+     "id": "sk_socialite_disguise",
+     "name": "偽裝",
+     "tier": 2,
+     "kind": "stance",
+     "status": "approx",
+     "text": "戰鬥之前的滲透：冒充一個身分過門禁與盤問，表演 +2。開打時還開著的話，你在第一回合的第一次攻擊命中 +2。",
+     "later": "M2",
+     "keys": [
+      "mod.hit",
+      "use.ap",
+      "when.first_attack",
+      "when.first_round"
+     ],
+     "note": "開著時第一回合第一次攻擊命中 +2 已做；「戰鬥之前的滲透」（過門禁與盤問，表演 +2）是 M2 的滲透系統，沒有寫。"
+    },
+    {
+     "id": "sk_socialite_false_identity",
+     "name": "假身分",
+     "tier": 2,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [
+      "use.ap"
+     ],
+     "note": "設計書現實欄是「—」，這個技能只有輿論欄。"
+    },
+    {
+     "id": "sk_socialite_honey_pot",
+     "name": "蜜罐",
+     "tier": 2,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [
+      "use.ap"
+     ],
+     "note": "設計書現實欄是「—」，這個技能只有輿論欄。"
+    },
+    {
+     "id": "sk_socialite_good_actor",
+     "name": "我演得很像吧",
+     "tier": 2,
+     "kind": "passive",
+     "status": "later",
+     "text": "開打前被識破（面具、偽裝）的難度 +2。",
+     "later": "M2",
+     "keys": [
+      "meat.pending"
+     ],
+     "note": "現實效果是「開打前被識破的難度 +2」，屬於開打前的滲透，meat 標 pending，等 M2。"
+    },
+    {
+     "id": "sk_socialite_charm_pose",
+     "name": "媚態",
+     "tier": 3,
+     "kind": "stance",
+     "status": "done",
+     "text": "開著時，誘惑攻擊的傷害多 1d3。",
+     "keys": [
+      "mod.tease_bonus",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：媚態（姿態）：誘惑攻擊的傷害多 1d3。"
+    },
+    {
+     "id": "sk_socialite_new_face",
+     "name": "換臉",
+     "tier": 3,
+     "kind": "active",
+     "status": "done",
+     "text": "換上另一個面具：入戲的「不被當成目標」重新生效，到你的下一回合開始為止。",
+     "keys": [
+      "buff",
+      "target.self",
+      "use.ap",
+      "use.not_first_round",
+      "who.self"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：換臉：第一回合不能用；入戲的「不被當成目標」重新生效，到她的下一回合開始為止。"
+    },
+    {
+     "id": "sk_socialite_persuade_lace",
+     "name": "說服蕾絲",
+     "tier": 3,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [
+      "use.ap",
+      "use.per_fight"
+     ],
+     "note": "設計書現實欄是「—」，這個技能只在內海與輿論有效。"
+    },
+    {
+     "id": "sk_socialite_swoon",
+     "name": "銷魂",
+     "tier": 3,
+     "kind": "active",
+     "status": "done",
+     "text": "做一次誘惑攻擊；這一下讓目標過載的話，他多疊一層餘韻。",
+     "keys": [
+      "afterglow",
+      "meat.tease",
+      "use.ap",
+      "use.group",
+      "use.per_turn"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：銷魂：誘惑攻擊；這一下讓目標過載的話，他多疊一層餘韻。"
+    },
+    {
+     "id": "sk_socialite_second_face",
+     "name": "第二張臉",
+     "tier": 3,
+     "kind": "passive",
+     "status": "done",
+     "text": "第一回合裡，打在你身上的重創改成一般的命中。",
+     "keys": [
+      "mod.no_wound",
+      "when.first_round"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：第二張臉：第一回合裡，打在她身上的重創改成一般的命中。"
+    },
+    {
+     "id": "sk_socialite_dizzy",
+     "name": "暈乎乎",
+     "tier": 4,
+     "kind": "active",
+     "status": "done",
+     "text": "做一次誘惑攻擊，傷害多 1d6；在第一回合用時，命中的目標同時暈眩（下一回合行動點 −2）。",
+     "keys": [
+      "if.first_round",
+      "meat.tease",
+      "status",
+      "use.ap",
+      "use.group",
+      "use.per_turn"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：暈乎乎：誘惑攻擊，傷害多 1d6；第一回合用時，命中的目標同時暈眩。"
+    },
+    {
+     "id": "sk_socialite_deep_in_role",
+     "name": "入骨",
+     "tier": 4,
+     "kind": "passive",
+     "status": "approx",
+     "text": "開打前被識破的難度 +4；第一回合迴避 +2。",
+     "later": "M2",
+     "keys": [
+      "mod.evade",
+      "when.first_round"
+     ],
+     "note": "第一回合迴避 +2 已做；「開打前被識破的難度 +4」是 M2 的滲透系統，沒有寫。"
+    },
+    {
+     "id": "sk_socialite_stand_in_for",
+     "name": "頂替",
+     "tier": 4,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [
+      "use.ap"
+     ],
+     "note": "設計書現實欄是「—」，這個技能只在內海與輿論有效。"
+    },
+    {
+     "id": "sk_socialite_payback",
+     "name": "欺負人家要賠喔",
+     "tier": 4,
+     "kind": "reaction",
+     "status": "done",
+     "text": "被距離 2 以內一名有橋的敵人攻擊之後觸發：對他做一次誘惑攻擊當反擊，不算在每回合 1 次裡。",
+     "keys": [
+      "needs.bridged",
+      "range",
+      "tease",
+      "trigger.after",
+      "trigger.by",
+      "use.ap",
+      "use.per_fight",
+      "who.attacker"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：欺負人家要賠喔：被距離 2 以內有橋的敵人攻擊之後，對他做一次誘惑攻擊當反擊（不算每回合那一次、每場 2 次）。"
+    },
+    {
+     "id": "sk_socialite_thousand_faces",
+     "name": "千面",
+     "tier": 4,
+     "kind": "prep",
+     "status": "done",
+     "text": "—",
+     "keys": [
+      "buff",
+      "prep",
+      "use.slot",
+      "who.self"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：千面（預備，整個副本有效）：這個副本裡的每一場現實戰鬥，入戲的「第一回合不被當成目標」延長到第二回合。"
+    },
+    {
+     "id": "sk_socialite_city_fall",
+     "name": "傾城",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "只在第一回合：對距離 2 以內兩名有橋的目標各做一次誘惑攻擊，傷害各多 1d6。",
+     "keys": [
+      "meat.tease",
+      "use.ap",
+      "use.first_round",
+      "use.per_fight"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：傾城：只在第一回合，距離 2 以內兩名有橋的目標各做一次誘惑攻擊，傷害各多 1d6。"
+    },
+    {
+     "id": "sk_socialite_curtain_call",
+     "name": "謝幕",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "只在第一回合：你和一名隊友在這一回合不會被敵人當成目標。",
+     "keys": [
+      "buff",
+      "mod.ai_target_pct",
+      "target.ally",
+      "use.ap",
+      "use.first_round",
+      "use.per_fight",
+      "when.first_round",
+      "who.self",
+      "who.target"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：謝幕：只在第一回合，她和一名隊友在這一回合不會被敵人當成目標。"
+    },
+    {
+     "id": "sk_socialite_everyone",
+     "name": "眾生相",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "只在第一回合：你的面具讓一名有橋的敵人把你當成他的上司，他失去這一回合。",
+     "keys": [
+      "needs.bridged",
+      "status",
+      "target.enemy",
+      "use.ap",
+      "use.first_round",
+      "use.per_fight"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：眾生相：不花行動點；只在第一回合，一名有橋的敵人把她當成他的上司，他失去這一回合（首領照控制保護）。"
+    },
+    {
+     "id": "sk_socialite_silk",
+     "name": "繞指柔",
+     "tier": 5,
+     "kind": "stance",
+     "status": "done",
+     "text": "開著時，誘惑攻擊命中 +1，傷害多 1d3。",
+     "keys": [
+      "mod.tease_bonus",
+      "mod.tease_hit",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：繞指柔（姿態）：誘惑攻擊命中 +1，傷害多 1d3。"
+    },
+    {
+     "id": "sk_socialite_the_real_me",
+     "name": "這才是真的我",
+     "tier": 5,
+     "kind": "passive",
+     "status": "done",
+     "text": "感載上限 +8；第一回合迴避 +1。",
+     "keys": [
+      "meat.pool",
+      "mod.evade",
+      "when.first_round"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：這才是真的我：感載上限 +8（pool 的 load 就是感載上限）；第一回合迴避 +1。"
+    }
+   ],
+   "resonance": [
+    {
+     "tier": 1,
+     "status": "done",
+     "keys": [
+      "mod.save"
+     ],
+     "text": "誘惑與表演的檢定 +2。",
+     "note": "effect.mods save +2（標籤 tease）；戰鬥裡只有誘惑攻擊的檢定，表演檢定現實沒有。"
+    },
+    {
+     "tier": 2,
+     "status": "done",
+     "keys": [
+      "resonance.load_max"
+     ],
+     "text": "感載上限 +4。",
+     "note": "effect.load_max +4，感載上限 +4。"
+    },
+    {
+     "tier": 3,
+     "status": "done",
+     "keys": [
+      "resonance.free_move"
+     ],
+     "text": "每場戰鬥第一次換位不花行動點（現實與內海）。",
+     "note": "effect.free_move，每場第一次換位不花行動點。"
+    },
+    {
+     "tier": 4,
+     "status": "none",
+     "keys": [],
+     "text": "輿論戰開場的手牌多 1 張。",
+     "note": "輿論戰開場手牌，現實沒有效果。"
+    },
+    {
+     "tier": 5,
+     "status": "done",
+     "keys": [
+      "mod.tease_hit"
+     ],
+     "text": "誘惑攻擊的命中 +1（現實與內海）。",
+     "note": "effect.mods tease_hit +1，誘惑攻擊命中 +1。"
+    }
+   ]
+  },
+  {
+   "id": "fixer",
+   "name": "掮客",
+   "tree": "掮客：人面",
+   "skills": [
+    {
+     "id": "sk_fixer_face",
+     "name": "人面",
+     "tier": 1,
+     "kind": "signature",
+     "status": "approx",
+     "text": "指揮：在你的回合把行動點讓給一名隊友，1 點換 1 點，每回合最多 1＋人面的階數的一半（無條件捨去）點；對方的行動點不能超過他的上限。叫人：花 1 行，叫名冊上一名有空、不在隊伍裡的人支援一次，三選一：用他的武器對一個敵人射擊一次（命中與傷害照他的資料）、替我方一格補一級遮蔽、拆掉敵方一格一級遮蔽。每場次數是人面的階數的一半（無條件進位）。叫來的人戰後要算錢：出場費的四分之一，或記一個你欠他的小人情。",
+     "later": "M2",
+     "keys": [
+      "daily",
+      "meat.call",
+      "meat.give_ap"
+     ],
+     "note": "指揮（讓行動點）與叫人（三選一）已做；叫人的支援射擊用暫定的固定數字，不是名冊上那個人的資料，戰後的出場費與人情也沒有記，要等名冊（M2）。"
+    },
+    {
+     "id": "sk_fixer_focus_fire",
+     "name": "集火",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "指定一個敵人，他被標記到你的下一回合：全隊打他命中 +2。",
+     "keys": [
+      "meat.apply",
+      "target.enemy",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_watch_out",
+     "name": "小心後面！",
+     "tier": 1,
+     "kind": "reaction",
+     "status": "done",
+     "text": "一名隊友被攻擊、擲命中之前觸發：他這一次的迴避 +3。",
+     "keys": [
+      "meat.evade",
+      "trigger.ally_attacked",
+      "use.ap",
+      "use.per_turn"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_prep",
+     "name": "戰前佈置",
+     "tier": 1,
+     "kind": "prep",
+     "status": "missing",
+     "text": "—",
+     "keys": [
+      "prep",
+      "use.per_fight"
+     ],
+     "note": "預備三選一（藏貨、安排人、打點）要玩家選，但預備沒有 pick，寫不出來；資料只有說明文字，內海的兩選一版屬 M3。"
+    },
+    {
+     "id": "sk_fixer_swap",
+     "name": "換個位子嘛",
+     "tier": 1,
+     "kind": "active",
+     "status": "approx",
+     "text": "讓兩名相鄰的隊友交換位置，不花他們的行動點；換到的那一格有遮蔽的人，迴避 +1 到他的下一回合。",
+     "keys": [
+      "meat.free_move",
+      "target.ally",
+      "use.ap"
+     ],
+     "note": "兩名相鄰隊友對調位置已做；「換到的那一格有遮蔽的人迴避 +1 到他的下一回合」沒有寫。"
+    },
+    {
+     "id": "sk_fixer_im_here",
+     "name": "有我在",
+     "tier": 1,
+     "kind": "passive",
+     "status": "done",
+     "text": "和你相鄰的隊友抵抗壓制的定力檢定 +2。",
+     "keys": [
+      "mod.save"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_proxy",
+     "name": "代理",
+     "tier": 1,
+     "kind": "active",
+     "status": "done",
+     "text": "花等級×100 C$，叫地頭的人把彈藥送進來：一名隊友的彈匣補滿，不花他的行動點。",
+     "keys": [
+      "mag",
+      "target.ally",
+      "use.ap",
+      "use.cash"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_talk_down",
+     "name": "勸降",
+     "tier": 2,
+     "kind": "active",
+     "status": "done",
+     "text": "對一名重傷或疊著餘韻的敵人喊話，擲交涉，對 10＋他的等級×2（精英再 +2；首領不行）。成功的話他暈眩（下一回合行動點 −2）；目標是重傷的雜兵時，成功改成他投降，退出這場戰鬥。",
+     "keys": [
+      "branch",
+      "check",
+      "if.ok",
+      "needs.afterglow",
+      "needs.any",
+      "needs.no_rank",
+      "needs.rank",
+      "needs.wounded",
+      "out",
+      "status",
+      "target.enemy",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_block",
+     "name": "擋",
+     "tier": 2,
+     "kind": "reaction",
+     "status": "done",
+     "text": "一名隊友要被重創時觸發：改成一般的命中。",
+     "keys": [
+      "react.no_wound",
+      "trigger.hit",
+      "use.favor",
+      "use.per_fight"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_buy_space",
+     "name": "買版面",
+     "tier": 2,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [
+      "use.per_turn"
+     ],
+     "note": "設計書現實欄是「—」，這個技能只有輿論欄。"
+    },
+    {
+     "id": "sk_fixer_a_bit_more",
+     "name": "再加一點嘛",
+     "tier": 2,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [
+      "use.per_turn"
+     ],
+     "note": "設計書現實欄是「—」，這個技能只有輿論欄。"
+    },
+    {
+     "id": "sk_fixer_black_market",
+     "name": "黑市門路",
+     "tier": 2,
+     "kind": "passive",
+     "status": "done",
+     "text": "開戰時，你指定的一名隊友彈匣多一格，可以超過容量；那一格用掉就沒了。",
+     "keys": [
+      "daily",
+      "mag",
+      "meat.on_start",
+      "who.pick"
+     ],
+     "note": "開戰時指定的隊友彈匣多一格（可超過容量）；指定的隊友由 preset.picks 讀，但開打前的指定還沒有報告與介面寫入。"
+    },
+    {
+     "id": "sk_fixer_bribe",
+     "name": "收買",
+     "tier": 3,
+     "kind": "active",
+     "status": "done",
+     "text": "一名雜兵或精英收了錢，失去下一回合；首領不行。",
+     "keys": [
+      "needs.no_rank",
+      "status",
+      "target.enemy",
+      "use.ap",
+      "use.cash",
+      "use.per_fight"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_bail",
+     "name": "保釋",
+     "tier": 3,
+     "kind": "reaction",
+     "status": "done",
+     "text": "一名隊友被制伏時觸發：叫來的人剪斷束帶，制伏解除，他留在原來那一格。全隊倒下時，戰敗事件多一個選項「被贖回」：付等級×1,000 C$，跳過事件的內容，委託照戰敗處理。",
+     "keys": [
+      "meat.ransom",
+      "react.prevent",
+      "trigger.out_before",
+      "use.ap",
+      "use.favor",
+      "use.per_fight"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：保釋：隊友被制伏時，制伏解除；全隊倒下時，戰敗事件多一個「被贖回」（付等級×1,000 C$）。"
+    },
+    {
+     "id": "sk_fixer_intel_net",
+     "name": "情報網",
+     "tier": 3,
+     "kind": "prep",
+     "status": "missing",
+     "text": "—",
+     "keys": [
+      "prep"
+     ],
+     "note": "預備的現實效果（全隊先攻 +3、指定一名敵人開場被標記）要玩家指定敵人，預備沒有 pick，寫不出來；踩點多揭開一項未知屬 M2；資料只有說明文字。"
+    },
+    {
+     "id": "sk_fixer_hit_him",
+     "name": "打他打他！",
+     "tier": 3,
+     "kind": "active",
+     "status": "done",
+     "text": "指定一個敵人，到你的下一回合為止：全隊打他命中 +2，傷害多 1d3。",
+     "keys": [
+      "buff",
+      "mod.damage_roll",
+      "status",
+      "target.enemy",
+      "use.ap",
+      "when.other_status",
+      "who.allies"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_dispatch_net",
+     "name": "派工網",
+     "tier": 3,
+     "kind": "passive",
+     "status": "done",
+     "text": "叫人的每場次數 +1。",
+     "keys": [
+      "daily",
+      "mod.call_uses"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_reinforce",
+     "name": "增援",
+     "tier": 4,
+     "kind": "active",
+     "status": "later",
+     "text": "名冊上一名有空的人在下一回合開始時進到我方一個空格，當我方的單位打到戰鬥結束，照他自己的資料，由玩家操縱；不算叫人的次數。沒有空格時，改成他支援三次（照叫人的選項）。",
+     "later": "M2",
+     "keys": [
+      "meat.pending",
+      "use.ap",
+      "use.per_fight"
+     ],
+     "note": "名冊上的人進場當我方單位要名冊（M2，ADR 0015 E13），meat 標 pending。"
+    },
+    {
+     "id": "sk_fixer_formation",
+     "name": "布陣",
+     "tier": 4,
+     "kind": "stance",
+     "status": "done",
+     "text": "開著時，你的每一名隊友迴避 +1。",
+     "keys": [
+      "mod.evade",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_big_picture",
+     "name": "大局",
+     "tier": 4,
+     "kind": "active",
+     "status": "approx",
+     "text": "把我方兩個人的先攻對調；被換到前面的那個人馬上行動，並拿回 1 點行動點。",
+     "keys": [
+      "meat.picks",
+      "order",
+      "pick.ally",
+      "target.ally_or_self",
+      "use.ap"
+     ],
+     "note": "先攻對調、被換到前面還沒動過的人馬上行動並拿回 1 點已做；選自己再選後面的隊友時，兩人之間還沒動過的人會被跳過一輪（ADR 0015 補記的沒處理的邊角）。"
+    },
+    {
+     "id": "sk_fixer_i_know_someone",
+     "name": "我有認識的人",
+     "tier": 4,
+     "kind": "passive",
+     "status": "done",
+     "text": "叫人的選項多兩種：替一名隊友回復 2d6 生命（認識的醫生），或替一名隊友排 8 點感載。",
+     "keys": [
+      "meat.alter"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_lets_talk",
+     "name": "有話好好說",
+     "tier": 4,
+     "kind": "active",
+     "status": "done",
+     "text": "對一名精英或首領喊話，擲交涉，對 10＋他的等級×2（精英再 +2、首領再 +4）。成功的話他被壓制並被標記，到他的下一回合結束。",
+     "keys": [
+      "check",
+      "if.ok",
+      "needs.rank",
+      "status",
+      "target.enemy",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_all_out",
+     "name": "總攻令",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "這是動「每回合回復的行動點」的終極：這一回合你的每一名隊友多回 1 點行動點，下一次攻擊命中 +1。",
+     "keys": [
+      "ap",
+      "buff",
+      "mod.hit",
+      "use.ap",
+      "use.per_fight",
+      "who.allies"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_hold_the_line",
+     "name": "護盤",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "到你的下一回合開始前：你和隊友迴避 +2，打在你們身上的重創改成一般的命中；你的每一名隊友排 4 點感載。",
+     "keys": [
+      "buff",
+      "mod.evade",
+      "mod.no_wound",
+      "use.ap",
+      "use.per_fight",
+      "vent",
+      "who.allies"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_city_owes_me",
+     "name": "全城欠我",
+     "tier": 5,
+     "kind": "active",
+     "status": "done",
+     "text": "開戰時用：敵方一名精英或兩名雜兵沒收到命令，失去第一回合。",
+     "keys": [
+      "branch",
+      "meat.choose",
+      "meat.picks",
+      "needs.rank",
+      "pick.choice",
+      "pick.foe",
+      "status",
+      "use.ap",
+      "use.favor",
+      "use.first_round",
+      "use.per_commission",
+      "who.pick"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_command",
+     "name": "號令",
+     "tier": 5,
+     "kind": "stance",
+     "status": "done",
+     "text": "開著時，指揮每回合能讓的行動點上限 +1；拿到你行動點的隊友，這一回合命中 +1、迴避 +1。",
+     "keys": [
+      "buff",
+      "meat.on_give_ap",
+      "mod.evade",
+      "mod.give_ap_cap",
+      "mod.hit",
+      "use.ap"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    },
+    {
+     "id": "sk_fixer_connections",
+     "name": "人脈",
+     "tier": 5,
+     "kind": "passive",
+     "status": "done",
+     "text": "叫人的每場次數 +1；叫來的人射擊時命中 +2。",
+     "keys": [
+      "daily",
+      "mod.call_hit",
+      "mod.call_uses"
+     ],
+     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+    }
+   ],
+   "resonance": [
+    {
+     "tier": 1,
+     "status": "later",
+     "later": "M2",
+     "keys": [
+      "resonance.pending"
+     ],
+     "text": "名冊的容量多 1 個人。",
+     "note": "名冊的容量多 1 個人，要名冊（M2），資料標 pending。"
+    },
+    {
+     "tier": 2,
+     "status": "done",
+     "keys": [
+      "mod.action_ap"
+     ],
+     "text": "每場戰鬥第一次叫人不花行動點。",
+     "note": "effect.mods action_ap −1（標籤 sk_fixer_face.call，每場 1 次），第一次叫人不花行動點。"
+    },
+    {
+     "tier": 3,
+     "status": "done",
+     "keys": [
+      "mod.evade"
+     ],
+     "text": "和你相鄰的隊友迴避 +1（現實與內海）。",
+     "note": "effect.mods evade +1（who adjacent），相鄰的隊友迴避 +1。"
+    },
+    {
+     "tier": 4,
+     "status": "none",
+     "keys": [
+      "resonance.pending"
+     ],
+     "text": "輿論戰開場的手牌多 1 張。",
+     "note": "輿論戰開場手牌，現實沒有效果（資料目前標 pending）。"
+    },
+    {
+     "tier": 5,
+     "status": "later",
+     "later": "M2",
+     "keys": [
+      "resonance.pending"
+     ],
+     "text": "輔助面與派工的擲骰 +2。",
+     "note": "輔助面與派工的擲骰屬委託與名冊系統（M2），資料標 pending。"
+    }
+   ]
+  },
+  {
+   "id": "streamer",
+   "name": "主播",
+   "tree": "主播：聚光燈",
+   "skills": [
+    {
+     "id": "sk_streamer_t1_1",
+     "name": "聚光燈",
+     "tier": 1,
+     "kind": "signature",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t1_2",
+     "name": "曝光",
+     "tier": 1,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t1_3",
+     "name": "我查查看",
+     "tier": 1,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t1_4",
+     "name": "現場連線",
+     "tier": 1,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t1_5",
+     "name": "剪剪貼貼",
+     "tier": 1,
+     "kind": "passive",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t1_6",
+     "name": "留一手",
+     "tier": 1,
+     "kind": "reaction",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t1_7",
+     "name": "開台囉～",
+     "tier": 1,
+     "kind": "daily",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "這是日常技能，設計書現實欄是「—」，效果只在戰鬥外的媒體日常與輿論裡，現實戰鬥沒有效果。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t2_8",
+     "name": "灌流",
+     "tier": 2,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t2_9",
+     "name": "主持",
+     "tier": 2,
+     "kind": "stance",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t2_10",
+     "name": "洗版",
+     "tier": 2,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t2_11",
+     "name": "獨家",
+     "tier": 2,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t2_12",
+     "name": "老粉都在",
+     "tier": 2,
+     "kind": "passive",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t3_13",
+     "name": "爆料王",
+     "tier": 3,
+     "kind": "passive",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t3_14",
+     "name": "帶節奏",
+     "tier": 3,
+     "kind": "stance",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t3_15",
+     "name": "圍觀",
+     "tier": 3,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t3_16",
+     "name": "追擊",
+     "tier": 3,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t3_17",
+     "name": "假料工坊",
+     "tier": 3,
+     "kind": "daily",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "這是日常技能，設計書現實欄是「—」，效果只在戰鬥外的媒體日常與輿論裡，現實戰鬥沒有效果。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t4_18",
+     "name": "頭條",
+     "tier": 4,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t4_19",
+     "name": "反彈反彈",
+     "tier": 4,
+     "kind": "reaction",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t4_20",
+     "name": "插播一下喔",
+     "tier": 4,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t4_21",
+     "name": "流量密碼",
+     "tier": 4,
+     "kind": "passive",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t4_22",
+     "name": "直擊",
+     "tier": 4,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t5_23",
+     "name": "號外",
+     "tier": 5,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t5_24",
+     "name": "定調",
+     "tier": 5,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t5_25",
+     "name": "全網聯播",
+     "tier": 5,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t5_26",
+     "name": "今天也第一名",
+     "tier": 5,
+     "kind": "passive",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_streamer_t5_27",
+     "name": "還不能下播",
+     "tier": 5,
+     "kind": "reaction",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，主播在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    }
+   ],
+   "resonance": [
+    {
+     "tier": 1,
+     "status": "none",
+     "keys": [],
+     "text": "輿論戰的開場手牌 +1。",
+     "note": "主播與偶像在現實沒有任何效果，格式檢查也不收這兩棵樹現實的共鳴效果。"
+    },
+    {
+     "tier": 2,
+     "status": "none",
+     "keys": [],
+     "text": "每場內海戰鬥第一次用曝光時，不花 RAM。",
+     "note": "主播與偶像在現實沒有任何效果，格式檢查也不收這兩棵樹現實的共鳴效果。"
+    },
+    {
+     "tier": 3,
+     "status": "none",
+     "keys": [],
+     "text": "每場輿論戰第一次佔沒人的格子時，那一格的防守當作 1。",
+     "note": "主播與偶像在現實沒有任何效果，格式檢查也不收這兩棵樹現實的共鳴效果。"
+    },
+    {
+     "tier": 4,
+     "status": "none",
+     "keys": [],
+     "text": "輿論戰每回合抽牌時多抽 1 張，再從手上棄掉 1 張。",
+     "note": "主播與偶像在現實沒有任何效果，格式檢查也不收這兩棵樹現實的共鳴效果。"
+    },
+    {
+     "tier": 5,
+     "status": "none",
+     "keys": [],
+     "text": "公信力 50 以上，「說法」牌的效果就 +1（原本要 60）。",
+     "note": "主播與偶像在現實沒有任何效果，格式檢查也不收這兩棵樹現實的共鳴效果。"
+    }
+   ]
+  },
+  {
+   "id": "idol",
+   "name": "偶像",
+   "tree": "偶像：應援",
+   "skills": [
+    {
+     "id": "sk_idol_t1_1",
+     "name": "應援",
+     "tier": 1,
+     "kind": "signature",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t1_2",
+     "name": "進行曲",
+     "tier": 1,
+     "kind": "stance",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t1_3",
+     "name": "表態",
+     "tier": 1,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t1_4",
+     "name": "聲援",
+     "tier": 1,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t1_5",
+     "name": "搖籃曲",
+     "tier": 1,
+     "kind": "stance",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t1_6",
+     "name": "我還可以！",
+     "tier": 1,
+     "kind": "passive",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t1_7",
+     "name": "握握手",
+     "tier": 1,
+     "kind": "daily",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "這是日常技能，設計書現實欄是「—」，效果只在戰鬥外的媒體日常與輿論裡，現實戰鬥沒有效果。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t2_8",
+     "name": "安可",
+     "tier": 2,
+     "kind": "stance",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t2_9",
+     "name": "動員",
+     "tier": 2,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t2_10",
+     "name": "聽我唱～",
+     "tier": 2,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t2_11",
+     "name": "安撫",
+     "tier": 2,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t2_12",
+     "name": "大家都在喔",
+     "tier": 2,
+     "kind": "passive",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t3_13",
+     "name": "合唱",
+     "tier": 3,
+     "kind": "stance",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t3_14",
+     "name": "一句話",
+     "tier": 3,
+     "kind": "passive",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t3_15",
+     "name": "召集",
+     "tier": 3,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t3_16",
+     "name": "公演",
+     "tier": 3,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t3_17",
+     "name": "唱出來",
+     "tier": 3,
+     "kind": "daily",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "這是日常技能，設計書現實欄是「—」，效果只在戰鬥外的媒體日常與輿論裡，現實戰鬥沒有效果。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t4_18",
+     "name": "絕唱",
+     "tier": 4,
+     "kind": "stance",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t4_19",
+     "name": "我來擋！",
+     "tier": 4,
+     "kind": "reaction",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t4_20",
+     "name": "巨蛋",
+     "tier": 4,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t4_21",
+     "name": "休息一下下",
+     "tier": 4,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t4_22",
+     "name": "C 位是我的",
+     "tier": 4,
+     "kind": "passive",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t5_23",
+     "name": "畢業公演",
+     "tier": 5,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t5_24",
+     "name": "為你而唱",
+     "tier": 5,
+     "kind": "active",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t5_25",
+     "name": "全員同步",
+     "tier": 5,
+     "kind": "stance",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t5_26",
+     "name": "傳說",
+     "tier": 5,
+     "kind": "passive",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    },
+    {
+     "id": "sk_idol_t5_27",
+     "name": "大家不要走",
+     "tier": 5,
+     "kind": "reaction",
+     "status": "none",
+     "text": "—",
+     "keys": [],
+     "note": "設計書現實欄是「—」，偶像在現實的戰鬥沒有任何效果，這個技能的 meat 必須是 null，只學得到、裝得上。",
+     "idPlaceholder": true
+    }
+   ],
+   "resonance": [
+    {
+     "tier": 1,
+     "status": "none",
+     "keys": [],
+     "text": "每場內海戰鬥第一次用應援接上隊友時，不花行動點。",
+     "note": "主播與偶像在現實沒有任何效果，格式檢查也不收這兩棵樹現實的共鳴效果。"
+    },
+    {
+     "tier": 2,
+     "status": "none",
+     "keys": [],
+     "text": "每場輿論戰第一次佔應援圈時，防守 −1（最少 0）。",
+     "note": "主播與偶像在現實沒有任何效果，格式檢查也不收這兩棵樹現實的共鳴效果。"
+    },
+    {
+     "tier": 3,
+     "status": "none",
+     "keys": [],
+     "text": "感載上限 +4。",
+     "note": "感載上限 +4 是橋的數值；這棵樹在現實是 none，格式檢查會擋下它現實的共鳴效果（load_max），所以現實戰鬥沒有效果。"
+    },
+    {
+     "tier": 4,
+     "status": "none",
+     "keys": [],
+     "text": "輿論戰的開場手牌 +1。",
+     "note": "主播與偶像在現實沒有任何效果，格式檢查也不收這兩棵樹現實的共鳴效果。"
+    },
+    {
+     "tier": 5,
+     "status": "none",
+     "keys": [],
+     "text": "同步檔位的上限 +1 級（照 CORE_RULES 第 5 節，最高是全檔）。",
+     "note": "主播與偶像在現實沒有任何效果，格式檢查也不收這兩棵樹現實的共鳴效果。"
+    }
+   ]
+  }
+ ]
+}
