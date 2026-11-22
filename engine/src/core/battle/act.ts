@@ -25,7 +25,8 @@ export function performAction(run: BattleRun, unit: BattleUnit, def: BattleActio
   const cost = actionCost(run, unit, def, input)
   if (!run.canAfford(unit, cost)) throw new BattleBlocked([`行動點不夠（要 ${cost.ap} 點，現在 ${unit.ap.now} 點）。`])
   const base = def.cost(run, unit, input)
-  const tags = actionTags(unit, def, input)
+  // 標籤帶上行動自己的 costTags（用的是哪一類道具：item:medical），和問花費時的標籤一致；要在 def.run 之前問：用掉道具之後快取格可能空了
+  const tags = actionTags(unit, def, input, run)
   // 行動開始時手上那一把（換武器會把它換掉；掛點要的是「這一步用的那一把」）
   const weapon = wielded(unit)
   run.spend(unit, cost)

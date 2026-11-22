@@ -14,6 +14,11 @@ function tickStatuses(run: BattleRun, at: 'turn_start' | 'turn_end', of: string,
   for (const u of Object.values(run.battle.units)) {
     for (const s of [...u.statuses]) {
       if (s.until.at !== at || s.until.of !== of || fresh?.(s)) continue
+      // 他在自己的回合裡給自己的 own_turn_end：這一次的結束不算，下一次輪到他才開始數
+      if (s.until.skip) {
+        delete s.until.skip
+        continue
+      }
       s.until.turns -= 1
       if (s.until.turns <= 0) run.removeStatus(u, s.id, s.id === LOSE_TURN)
     }
@@ -107,6 +112,8 @@ export function beginTurn(run: BattleRun, u: BattleUnit): boolean {
     return false
   }
   run.say(`輪到 ${unitTag(u)}。`, 'turn', { unit: u.id, round: b.round })
+  // 回合進行中：從這裡到 advance 把計時數完為止，他給自己的 own_turn_end 不算這個回合的結束（run.skipsOwnTurnEnd）
+  b.acting = u.id
   run.k.battle.emit('turn.start', { run, unit: u })
   return !u.out && !run.over
 }
@@ -120,6 +127,7 @@ export function advance(run: BattleRun): void {
       if (!cur.out) run.k.battle.emit('turn.end', { run, unit: cur })
       tickStatuses(run, 'turn_end', cur.id)
     }
+    delete b.acting
     run.settle()
     if (run.over) return
     b.turn += 1

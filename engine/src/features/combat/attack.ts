@@ -2,7 +2,7 @@
 // 只用核心的基本動作與唯讀的 BattleView；不碰 GameState。
 
 import type { BattleActionDef, BattlePick, BattleTarget, BattleUnit, BattleView, BattleWeapon } from '../../core'
-import { BattleBlocked, coverAt, coverLevel, distance, otherSide, unitsOf, wielded } from '../../core'
+import { BattleBlocked, distance, otherSide, unitsOf, wielded } from '../../core'
 import type { AmmoItem } from './fx'
 
 const OWNER = 'combat'
@@ -16,7 +16,7 @@ function attackScore(view: BattleView, u: BattleUnit, t: BattleUnit | null): num
   const w = wielded(u)
   if (!t || !w) return null
   let score = view.hitChance(u, t) < 35 ? 1 : 2
-  if (coverLevel(coverAt(view.battle, t.side, t.slot)) === 2 && (w.class === 'shotgun' || w.class === 'heavy')) score += 0.5
+  if (view.coverOf(t) === 2 && (w.class === 'shotgun' || w.class === 'heavy')) score += 0.5
   return score
 }
 

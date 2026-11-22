@@ -88,8 +88,11 @@ export interface BattleWeapon {
 
 /** 狀態什麼時候結束。 */
 export type BattleUntil =
-  /** 某個單位的回合開始（或結束）過了 turns 次之後：「到他的下一回合結束前」是 { at: 'turn_end', of: 他, turns: 1 } */
-  | { at: 'turn_start' | 'turn_end'; of: string; turns: number }
+  /**
+   * 某個單位的回合開始（或結束）過了 turns 次之後：「到他的下一回合結束前」是 { at: 'turn_end', of: 他, turns: 1 }。
+   * skip：這個狀態是他在自己的回合裡給自己的 own_turn_end，這個回合的結束不算（下一次輪到他的回合結束才開始數）；數到第一次時拿掉這個記號
+   */
+  | { at: 'turn_start' | 'turn_end'; of: string; turns: number; skip?: true }
   /** 第幾回合結束時 */
   | { at: 'round_end'; round: number }
   /** 整場 */
@@ -342,6 +345,11 @@ export interface BattleState {
   seq: number
   /** 這一步輪到的單位（AI 的）已經做了幾個動作；換人時歸零 */
   aiSteps: number
+  /**
+   * 回合正在進行的單位 id：輪到他、回合開始的結算做完之後設，回合結束的結算做完（狀態與 buff 的計時數完）才拿掉；
+   * 還沒輪到、失去回合跳過的人不算。對自己給的 own_turn_end 看它決定這個回合的結束算不算（run.skipsOwnTurnEnd）
+   */
+  acting?: string
   /** 這場戰鬥每一步的報告 id：結束時收成一份 */
   steps: string[]
   origin: BattleOrigin

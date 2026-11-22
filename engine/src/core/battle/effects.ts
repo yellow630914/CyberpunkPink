@@ -15,8 +15,13 @@ import type { BattleRun } from './run'
 
 // ---- who 與 if：封閉清單。不夠用時加在這裡，不在功能裡各自解析 ----
 
-/** 這一筆落在誰身上。另外還有 pick:<鍵>（pick 裡那個單位）。foe_overlays：敵方每一台掛著的東西（沒被擊落的），逐台各做一次，一台都沒有就整筆不做。 */
-export const EFFECT_WHO = ['target', 'self', 'allies', 'others', 'adjacent', 'near', 'foes', 'foes_bridged', 'foe_overlays', 'slot', 'area', 'attacker', 'victim'] as const
+/**
+ * 這一筆落在誰身上。另外還有 pick:<鍵>（pick 裡那個單位或那一台掛著的東西）。
+ * foe_overlays：敵方每一台掛著的東西（沒被擊落的），逐台各做一次，一台都沒有就整筆不做。
+ * foe_overlay：敵方**一台**掛著的東西（沒被擊落的）：玩家選的（pick.overlay，值是那一台的 id）；沒選就是目標（目標是敵方掛著的一台時）；
+ * 都沒有就是最前面（格子最小）的一台；一台都沒有就整筆不做。pick.overlay 寫了卻不是敵方沒被擊落的一台，也整筆不做（不退回別台）。
+ */
+export const EFFECT_WHO = ['target', 'self', 'allies', 'others', 'adjacent', 'near', 'foes', 'foes_bridged', 'foe_overlays', 'foe_overlay', 'slot', 'area', 'attacker', 'victim'] as const
 export type EffectWho = (typeof EFFECT_WHO)[number]
 /** 這一筆要不要做（看 ctx.last 與回合數）。 */
 export const EFFECT_IF = ['hit', 'miss', 'crit', 'downed', 'overloaded', 'ok', 'fail', 'first_round', 'not_first_round'] as const
@@ -39,9 +44,15 @@ export function ifProblem(cond: unknown): string | null {
 
 // ---- 數量的公式 ----
 
-const NAMES = ['tier', 'half_tier_up', 'half_tier_down', 'grade', 'spent'] as const
+// 名字的家族：<名字>、half_<名字>_up（一半，進位）、half_<名字>_down（一半，捨去）。樹階（tier）看技能的樹階；
+// hp_max、load_max 看這一筆落在的人（ctx.unit）的生命、感載上限，沒有人就看做的人；沒有那一條的（沒有橋的人沒有感載）是 0
+const FAMILIES = ['tier', 'hp_max', 'load_max'] as const
+const HALVED = FAMILIES.flatMap((f) => [`half_${f}_up`, `half_${f}_down`]) as string[]
+const NAMES = [...FAMILIES, ...HALVED, 'grade', 'spent'] as const
 type Name = (typeof NAMES)[number]
 const isName = (s: string): s is Name => (NAMES as readonly string[]).includes(s)
+// 骰數可以是名字，但「上限」不行（骰上限那麼多顆沒有意思）：只有這幾個
+const DICE_NAMES = ['tier', 'grade', 'spent', 'half_tier_up', 'half_tier_down'] as const
 
 type Base =
   | { t: 'int'; n: number }
@@ -54,7 +65,7 @@ interface Term {
   mult: number
 }
 
-const GRAMMAR = '整數、NdM（骰數也可以是 tier、grade、spent 這些名字）、tier、half_tier_up、half_tier_down、grade、spent、skill:<基本功>、mod:<屬性>，每一項後面可以再接 *整數，項與項用 + 接起來'
+const GRAMMAR = '整數、NdM（骰數也可以是 tier、grade、spent 這些名字）、tier、half_tier_up、half_tier_down、hp_max、half_hp_max_up、half_hp_max_down、load_max、half_load_max_up、half_load_max_down、grade、spent、skill:<基本功>、mod:<屬性>，每一項後面可以再接 *整數，項與項用 + 接起來'
 const bad = (expr: string, why: string): Error => new Error(`公式「${expr}」${why}（文法：${GRAMMAR}）`)
 
 function parseBase(expr: string, raw: string): Base {
@@ -68,7 +79,7 @@ function parseBase(expr: string, raw: string): Base {
     if (!(ATTR_IDS as readonly string[]).includes(attr)) throw bad(expr, `：「${raw}」不認得屬性 ${attr}（${ATTR_IDS.join('、')}）`)
     return { t: 'mod', attr }
   }
-  const dice = /^(\d+|tier|grade|spent|half_tier_up|half_tier_down)d(\d+)$/.exec(raw)
+  const dice = new RegExp(`^(\\d+|${DICE_NAMES.join('|')})d(\\d+)$`).exec(raw)
   if (dice) {
     const count = /^\d+$/.test(dice[1]!) ? Number(dice[1]) : (dice[1] as Name)
     const sides = Number(dice[2])
@@ -112,20 +123,19 @@ export function amountProblems(expr: unknown): string[] {
 /**
  * 算一個數量。數字照原樣回傳；字串照公式：骰子用 run.roll（和戰鬥裡別的骰子同一串），
  * tier、grade、spent 看 ctx.n（grade 沒給用這場戰鬥的等級，tier 與 spent 沒給是 0），
- * skill、mod 看做的人（ctx.user）。公式不合格丟錯（載入時用 amountProblems 先擋）。
+ * skill、mod 看做的人（ctx.user）；hp_max、load_max 與它們的一半看這一筆落在的人（ctx.unit，沒有就是做的人）。公式不合格丟錯（載入時用 amountProblems 先擋）。
  */
-export function amount(ctx: Pick<BattleEffectCtx, 'run' | 'user' | 'n'>, expr: number | string): number {
+export function amount(ctx: Pick<BattleEffectCtx, 'run' | 'user' | 'n'> & { unit?: BattleUnit }, expr: number | string): number {
   if (typeof expr === 'number') return expr
   const terms = parse(expr)
   const named = (name: Name): number => {
-    const tier = ctx.n.tier ?? 0
-    switch (name) {
-      case 'tier': return tier
-      case 'half_tier_up': return Math.ceil(tier / 2)
-      case 'half_tier_down': return Math.floor(tier / 2)
-      case 'grade': return ctx.n.grade ?? ctx.run.battle.grade
-      case 'spent': return ctx.n.spent ?? 0
-    }
+    if (name === 'grade') return ctx.n.grade ?? ctx.run.battle.grade
+    if (name === 'spent') return ctx.n.spent ?? 0
+    // 家族：tier、hp_max、load_max 與它們的一半
+    const half = /^half_(.+)_(up|down)$/.exec(name)
+    const base = half ? half[1]! : name
+    const whole = base === 'tier' ? (ctx.n.tier ?? 0) : base === 'hp_max' ? (ctx.unit ?? ctx.user).hp?.max ?? 0 : (ctx.unit ?? ctx.user).load?.max ?? 0
+    return !half ? whole : half[2] === 'up' ? Math.ceil(whole / 2) : Math.floor(whole / 2)
   }
   let total = 0
   for (const { base, mult } of terms) {
@@ -187,6 +197,18 @@ function resolveWho(run: BattleRun, who: string, base: Omit<BattleEffectCtx, 'un
     case 'foes': return people(unitsOf(b, otherSide(user.side)))
     case 'foes_bridged': return people(unitsOf(b, otherSide(user.side)).filter((u) => !!u.load))
     case 'foe_overlays': return b.overlays.filter((o) => o.side === otherSide(user.side) && !o.down).map((overlay) => ({ overlay }))
+    case 'foe_overlay': {
+      const theirs = b.overlays.filter((o) => o.side === otherSide(user.side) && !o.down)
+      const chosen = base.pick.overlay
+      const id = typeof chosen === 'string' ? chosen : isRecord(chosen) && typeof chosen.overlay === 'string' ? chosen.overlay : undefined
+      if (chosen !== undefined) {
+        const found = id ? theirs.find((o) => o.id === id) : undefined
+        return found ? [{ overlay: found }] : []
+      }
+      const aimed = target && 'overlay' in target ? theirs.find((o) => o.id === target.overlay) : undefined
+      const first = aimed ?? [...theirs].sort((x, y) => x.slot - y.slot)[0]
+      return first ? [{ overlay: first }] : []
+    }
     case 'slot': {
       const c = cell()
       const u = c ? unitAt(b, c.side, c.slot) : undefined

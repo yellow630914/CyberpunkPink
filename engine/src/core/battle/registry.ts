@@ -30,6 +30,10 @@ export interface BattleView {
   mods(kind: ModKind, unit: BattleUnit, other?: BattleUnit, weapon?: BattleWeapon, tags?: string[], base?: number): RollPart[]
   /** 帶著「不能換位」的狀態嗎 */
   cannotMove(unit: BattleUnit): boolean
+  /** 這個單位現在吃到幾級遮蔽：他站的那一格本身的遮蔽，加上 cover_level 的修正（最高到掩體）；開著機體的人用不了遮蔽（永遠 0）。迴避、暴露、AI 都問它，不直接看那一格（技能的 in_cover、other_exposed 條件還看那一格本身的，見 dev/adr/0015 補記） */
+  coverOf(unit: BattleUnit): import('../types').CoverLevel
+  /** 站在暴露的格子上（有效遮蔽是 0；監視看的就是這個） */
+  isExposed(unit: BattleUnit): boolean
   /** 行動點與其他的池夠不夠 */
   canAfford(unit: BattleUnit, cost: { ap?: number; [pool: string]: number | undefined }): boolean
 }
@@ -312,7 +316,7 @@ export interface BattleHookMap {
   'overlay.down': { run: BattleRun; overlay: import('../types').BattleOverlay; by?: BattleUnit }
   /**
    * 一個花了行動點的行動做完了（玩家下的、AI 選的、功能用 performAction 替單位做的都算；監視的自動攻擊、反應、技能裡面附帶的攻擊不算）。
-   * action 是行動的 id，tags 是 actionTags，cost 是實際扣的、base 是行動自己算的（修正之前），weapon 是行動開始時手上那一把。
+   * action 是行動的 id，tags 是 actionTags（含行動自己的 costTags，和問 action_ap 時帶的一樣；在行動做之前問好），cost 是實際扣的、base 是行動自己算的（修正之前），weapon 是行動開始時手上那一把。
    * 「每回合第一次才便宜」這類要記次數的東西掛這裡：修正（action_ap）只管算，用掉幾次在這裡記
    */
   'action.done': { run: BattleRun; unit: BattleUnit; action: string; tags: string[]; target: BattleTarget | null; input: BattleInput; cost: { ap: number; [pool: string]: number }; base: { ap: number; [pool: string]: number }; weapon?: BattleWeapon }

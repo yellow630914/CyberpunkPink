@@ -959,9 +959,9 @@ const NET_ABILITIES: Rec[] = [
   nab('sk_noleave', '不讓你帶走', 'reaction', 4, { trigger: { on: 'out_before', who: 'ally' }, react: { prevent: { how: ['subdued'] } } }, { use: { ap: 0, ram: 1, per_fight: 1 }, layer: 'back', cap: 2, after: 'sk_mirror' }),
   nab('sk_black', '黑冰', 'active', 5, { target: 'enemy', needs: { bridged: true }, do: [CHECK('neural'), { op: 'load', amount: 'spentd6', type: 'neural' }] }, { use: { ap: 1, ram_all_min: 5, per_fight: 1 }, cap: 3, after: 'sk_puppet' }),
   nab('sk_backup', '備份', 'active', 5, { target: 'none', do: [{ op: 'buff', id: 'backup', name: '備份', turns: 1, until: 'source_turn_start', mods: [{ kind: 'evade', value: 1 }], who: 'allies' }, { op: 'unstatus', kinds: ['debuff', 'mark'], count: 1, who: 'allies' }] }, { use: { ap: 1, ram: 6, per_fight: 1 }, cap: 3, after: 'sk_noleave' }),
-  // 不用先選一台：關燈與降遮蔽照做，接管落在敵方的每一台（who: foe_overlays，M1b-core-fix2；樹上寫「一台」，場上有幾台就接管幾台——
-  // 我方那一格已經掛著一台的接管不了，所以實際上最多接到空格的數量）
-  nab('sk_admin', '管理員', 'active', 5, { target: 'none', when: { node_taken: true }, do: [{ op: 'field', key: 'dark' }, { op: 'cover', levels: -1, who: 'foes' }, { op: 'hack.takeover', until: 'battle_end', who: 'foe_overlays' }] }, { use: { ap: 1, ram: 6, per_fight: 1 }, cap: 3, after: 'sk_multi' }),
+  // 不用先選一台：關燈與降遮蔽照做，接管落在敵方的一台（who: foe_overlay，M1b-core-fix3；樹上寫「一台」）：玩家選的（pick.overlay）、沒選就是最前面的一台。
+  // 技能的 picks 還沒有「選敵方的一台」這種宣告（features/abilities 的 PickDecl，等 M1b-skill-social 做完再補），所以現在沒選就接管最前面的
+  nab('sk_admin', '管理員', 'active', 5, { target: 'none', when: { node_taken: true }, do: [{ op: 'field', key: 'dark' }, { op: 'cover', levels: -1, who: 'foes' }, { op: 'hack.takeover', until: 'battle_end', who: 'foe_overlay' }] }, { use: { ap: 1, ram: 6, per_fight: 1 }, cap: 3, after: 'sk_multi' }),
   nab('sk_root', '根權限', 'passive', 5, { mods: [{ kind: 'action_ram', value: -1, tags: ['hack'], per_turn: 1 }] }, { layer: 'back', cap: 6, after: 'sk_admin' }),
 ]
 const NET_PACK: ContentPack = { id: 'net_tree', content: { path: [NET_TREE], ability: NET_ABILITIES } } as unknown as ContentPack
@@ -1310,7 +1310,7 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 6)
   })
 
-  it('管理員：控制節點在我方手上時，關燈、敵方整排的遮蔽降一級、敵方每一台砲塔或無人機到戰鬥結束都是我方的（who: foe_overlays）；沒有節點灰掉；不必先選一台', () => {
+  it('管理員：控制節點在我方手上時，關燈、敵方整排的遮蔽降一級、敵方的一台砲塔或無人機到戰鬥結束是我方的（who: foe_overlay）；沒有節點灰掉；不必先選一台', () => {
     const a = net(['sk_admin'], { tier: 5, cover: { ally: [0, 0, 0, 0], foe: [1, 1, 0, 0] }, more: { nodes: [{ kind: 'light' }] } })
     const o = overlay(a)
     expect(blocksOf(a, 'sk_admin').join()).toContain('控制節點')
@@ -1323,19 +1323,49 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     expect(((o.ext as Rec).hack as { taken: { left: unknown } }).taken.left).toBeNull()
   })
 
-  it('管理員：場上沒有敵方的東西也用得了（關燈、降遮蔽照做）；有兩台就兩台都接管（我方那一格掛著的接管不了）', () => {
+  it('管理員：場上沒有敵方的東西也用得了（關燈、降遮蔽照做）', () => {
     const none = net(['sk_admin'], { tier: 5, cover: { ally: [0, 0, 0, 0], foe: [1, 1, 0, 0] }, more: { nodes: [{ kind: 'light' }] } })
     none.battle.nodes[0]!.taken = true
     cast(none, 'sk_admin', null)
     expect(none.battle.field.dark).toBe(true)
     expect(none.battle.cover.foe.slice(0, 2).map((c) => c.level)).toEqual([0, 0])
+  })
+
+  it('管理員只接管「一台」：場上有兩台、三台時沒選就接管最前面的那一台，其餘的照舊是敵方的', () => {
+    const two = net(['sk_admin'], { tier: 5, more: { nodes: [{ kind: 'light' }] } })
+    two.battle.nodes[0]!.taken = true
+    const [o2, o1, o3] = [overlay(two, { slot: 2 }), overlay(two, { slot: 1 }), overlay(two, { slot: 3 })]
+    cast(two, 'sk_admin', null)
+    expect(o1).toMatchObject({ side: 'ally', owner: 'a1' })
+    expect([o2.side, o3.side]).toEqual(['foe', 'foe'])
+    expect(two.battle.field.dark).toBe(true)
+  })
+
+  it('管理員：玩家選了哪一台（pick.overlay）就接管那一台；選的不是敵方的一台就一台都不接管（不退回別台），關燈與降遮蔽照做', () => {
+    const a = net(['sk_admin'], { tier: 5, cover: { ally: [0, 0, 0, 0], foe: [1, 1, 0, 0] }, more: { nodes: [{ kind: 'light' }] } })
+    a.battle.nodes[0]!.taken = true
+    const [o1, o2] = [overlay(a, { slot: 1 }), overlay(a, { slot: 2 })]
+    cast(a, 'sk_admin', null, { pick: { overlay: o2.id } })
+    expect([o1.side, o2.side]).toEqual(['foe', 'ally'])
+    expect(o2.owner).toBe('a1')
+    const b = net(['sk_admin'], { tier: 5, cover: { ally: [0, 0, 0, 0], foe: [1, 1, 0, 0] }, more: { nodes: [{ kind: 'light' }] } })
+    b.battle.nodes[0]!.taken = true
+    const [p1] = [overlay(b, { slot: 1 }), overlay(b, { slot: 2 })]
+    cast(b, 'sk_admin', null, { pick: { overlay: 'nope' } })
+    expect(p1.side).toBe('foe')
+    expect(b.battle.overlays.every((x) => x.side === 'foe')).toBe(true)
+    expect(b.battle.field.dark).toBe(true)
+    expect(b.battle.cover.foe.slice(0, 2).map((c) => c.level)).toEqual([0, 0])
+  })
+
+  it('管理員：我方那一格已經掛著一台時，最前面的那一台接管不了（記一句話，不退回別台）', () => {
     const two = net(['sk_admin'], { tier: 5, more: { nodes: [{ kind: 'light' }] } })
     two.battle.nodes[0]!.taken = true
     const [o1, o2] = [overlay(two, { slot: 1 }), overlay(two, { slot: 2 })]
-    two.run().addOverlay({ side: 'ally', slot: 2, owner: 'a1', kind: 'attack', name: '我的無人機', hp: { now: 10, max: 10 }, armor: 0, evade: 0 })
-    cast(two, 'sk_admin', null)
-    expect(o1).toMatchObject({ side: 'ally', owner: 'a1' })
-    expect(o2.side).toBe('foe')
+    two.run().addOverlay({ side: 'ally', slot: 1, owner: 'a1', kind: 'attack', name: '我的無人機', hp: { now: 10, max: 10 }, armor: 0, evade: 0 })
+    const run = cast(two, 'sk_admin', null)
+    expect([o1.side, o2.side]).toEqual(['foe', 'foe'])
+    expect(run.beats.some((b) => b.text.includes('接管不了'))).toBe(true)
   })
 
   it('根權限：每回合你的第一個快駭 RAM −1（最低 1；action_ram，per_turn）', () => {

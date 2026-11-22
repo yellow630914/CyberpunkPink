@@ -57,6 +57,7 @@ function slotActionScore(view: BattleView, u: BattleUnit, slot: number): number 
  * 位置分（ENEMIES 4.2 節）＝ 偏好格 2（每差一格 −1）＋ 遮蔽（掩體 1.5、半掩 0.75）× cover_use ×（受傷時 ×2）
  * ＋ 武器打得到的目標數 × 0.5 − 在第 1 格而不是近戰型 2
  * ＋ 站在那一格才做得到的行動（制伏：4；行動的 aiSlotScore）。
+ * 遮蔽只看那一格本身的（預測換位之後；姿態給的 cover_level 要站到那一格才問得到，不算進預測）。
  * 最後一項是設計書沒有寫的（dev/adr/0014）：沒有它，要抓人的敵人拿著神經槍會先往後退，退開之後就不在近身、永遠輪不到制伏。
  */
 export function positionScore(view: BattleView, u: BattleUnit, slot: number): number {
@@ -81,7 +82,7 @@ export function targetWeight(view: BattleView, u: BattleUnit, t: BattleUnit, o: 
     const out = d < w.range[0] ? w.range[0] - d : d > w.range[1] ? d - w.range[1] : 0
     range = 0.6 ** out
   }
-  const cover = COVER_TARGET_MOD[t.hull ? 0 : coverLevel(coverAt(view.battle, t.side, t.slot))]!
+  const cover = COVER_TARGET_MOD[view.coverOf(t)]!
   let prefer = 1
   const byLoad = ai?.mode === 'neural' || ai?.mode === 'capture'
   if (ai?.prefer === 'weakest') {

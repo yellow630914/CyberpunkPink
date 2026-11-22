@@ -83,7 +83,7 @@ const PILOT: Rec[] = [
   // 機甲狀態下近戰傷害多一顆骰：寫成 when.hull（現在沒有機甲，永遠不算）
   sk('sk_pilot_assault', '突擊姿態', 3, 'front', 'stance', 2, { use: { ap: 1 }, meat: { mods: [{ kind: 'hit', value: 1 }, { kind: 'evade', value: -1 }, { kind: 'dice', value: 1, when: { hull: true, wield: 'melee' } }] } }),
   // 後面那一格的遮蔽高一級：寫不出來（沒有「自己後面那一格」這種落點、也沒有跟著姿態開關的遮蔽加成）；不能自己換位寫成狀態
-  sk('sk_pilot_bastion', '堡壘姿態', 3, 'front', 'stance', 2, { use: { ap: 1 }, meat: { mods: [{ kind: 'armor', value: 1 }], do_on: [{ op: 'status', status: 'rooted' }], do_off: [{ op: 'unstatus', status: 'rooted' }] } }),
+  sk('sk_pilot_bastion', '堡壘姿態', 3, 'front', 'stance', 2, { use: { ap: 1 }, meat: { mods: [{ kind: 'armor', value: 1 }, { kind: 'cover_level', value: 1, who: 'behind' }], do_on: [{ op: 'status', status: 'rooted' }], do_off: [{ op: 'unstatus', status: 'rooted' }] } }),
   sk('sk_pilot_sync_dash', '同步衝刺', 3, 'front', 'active', 2, { use: { ap: 0, per_fight: 1 }, meat: { pending: true } }),
   sk('sk_pilot_saturation', '飽和攻擊', 3, 'back', 'active', 2, { use: { ap: 2, per_turn: 1 }, meat: { target: 'enemy', do: [{ op: 'drone.act', which: 'all', max: 3, at: 'target', hit: 1 }] } }),
   sk('sk_pilot_smoke_cover', '煙煙罩著你', 3, 'back', 'active', 2, { use: { ap: 1 }, meat: { target: 'own_overlay', do: [{ op: 'drone.smoke', rounds: 2 }] } }),
@@ -1285,19 +1285,45 @@ describe('突擊姿態、堡壘姿態：現實能寫的那一半（機甲那一�
     expect(hits(r)[0]!.parts.some((p) => p.label === '突擊姿態' && p.value === 1)).toBe(true)
   })
 
-  it('堡壘姿態：護甲 +1、不能自己換位（被推、被拉照算）；關掉就恢復。後面那一格的遮蔽高一級寫不出來（見回報）', () => {
-    const a = world([ID('formation'), ID('bastion')])
+  it('堡壘姿態：護甲 +1、不能自己換位（被推、被拉照算）、後面那一格的遮蔽高一級（最高到掩體）；關掉就恢復，換了位後面的人跟著換', () => {
+    const a = world([ID('formation'), ID('bastion')], { cover: { ally: [0, 0, 1, 2], foe: [0, 0, 0, 0] } })
     const armor = () => sum(modParts(a, 'armor', 'a1').filter((p) => p.label === '堡壘姿態'))
+    const cover = () => [1, 2, 3].map((i) => a.run().coverOf(a.ally(i)))
+    // 後面那一格：a2（第 2 格，那一格本身是暴露）、a3（第 3 格，半掩體）
+    expect(cover()).toEqual([0, 0, 1])
     cast(a, ID('bastion'), null)
     expect(armor()).toBe(1)
     expect(a.run().cannotMove(a1(a))).toBe(true)
-    // 被推照算
+    // 後面那一格（第 2 格）高一級：暴露變半掩體；別人不變；那一格本身的遮蔽沒有動
+    expect(cover()).toEqual([0, 1, 1])
+    expect(a.battle.cover.ally.map((c) => c.level)).toEqual([0, 0, 1, 2])
+    // 被推照算：a1 被推到第 2 格，a2 換到第 1 格，後面那一格變成第 3 格（半掩體升成掩體）
     expect(a.run().shift(a1(a), +1)).toBe(true)
     expect(a1(a).slot).toBe(2)
+    expect(cover()).toEqual([0, 0, 2])
+    // 關掉就恢復
     cast(a, ID('bastion'), null)
     expect(a1(a).stance).toBeUndefined()
     expect(armor()).toBe(0)
     expect(a.run().cannotMove(a1(a))).toBe(false)
+    expect(cover()).toEqual([0, 0, 1])
+  })
+
+  it('堡壘姿態的遮蔽：最高到掩體；沒有人站的格子不算（後面沒有人就沒有東西可加）；加上去的打不破', () => {
+    const a = world([ID('formation'), ID('bastion')], { cover: { ally: [0, 2, 0, 0], foe: [0, 0, 0, 0] } })
+    cast(a, ID('bastion'), null)
+    expect(a.run().coverOf(a.ally(2))).toBe(2)
+    const b = world([ID('formation'), ID('bastion')])
+    cast(b, ID('bastion'), null)
+    expect(b.run().coverOf(b.ally(2))).toBe(1)
+    // 後面那一格的人倒下了：沒有人站在那裡，不加
+    b.ally(2).out = 'down'
+    expect(b.run().coverOf(b.ally(2))).toBe(0)
+    b.ally(2).out = undefined
+    const run = b.run()
+    run.hurtCover('ally', 2, 99, b.foe(1))
+    expect(run.beats.some((x) => x.tag === 'cover.hit')).toBe(false)
+    expect(run.coverOf(b.ally(2))).toBe(1)
   })
 })
 

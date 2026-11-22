@@ -186,6 +186,11 @@ export const MOD_KINDS = [
    */ 'overlay_hp', 'overlay_armor', 'overlay_evade',
   /** 同時連得住幾台和人重疊的東西，加減幾台（features/summons 問放出的上限；問的是操作者，標籤是 [種類]，支援型多一個 support） */ 'overlay_cap',
   /** 自己放的一台被擊落時，操作者受的感載（基本 5 點）加減幾點，最少 0（features/summons 問；問的是操作者，標籤是 [種類]） */ 'overlay_backlash',
+  /**
+   * 站在這一格的人吃到的遮蔽多（負的是少）幾級，最高到掩體、最低暴露（問的是站在那一格的人，run.coverOf 問；堡壘姿態：後面那一格高一級，
+   * 寫成 { kind: 'cover_level', value: 1, who: 'behind' }）。多出來的級數是加上去的、不是那一格的遮蔽本身：打不破（遮蔽的耐久只看那一格自己的），
+   * 修正一消失（姿態關了、換了位）就沒了；迴避、暴露（監視）、AI 挑目標看的是加過的（技能的 in_cover、other_exposed 條件還看那一格本身的，見 dev/adr/0015 補記）
+   */ 'cover_level',
 ] as const
 export type ModKind = (typeof MOD_KINDS)[number]
 

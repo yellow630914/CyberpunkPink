@@ -5,7 +5,7 @@
 //
 // 以第四版介面的 ui/src/lib/combat/real.ts、field.ts 當底，逐條對照 COMBAT_SYSTEM 改寫；和設計書對不上的地方列在 dev/adr/0013。
 
-import type { AttrId, BattleCover, BattleImplant, BattleOverlay, BattleOverlayInit, BattleSide, BattleState, BattleStatus, BattleUnit, BattleUntil, BattleWeapon, CheckRoll, DamageType, GameState, RollPart, SkillId, TimelineBeat } from '../types'
+import type { AttrId, BattleCover, BattleImplant, BattleOverlay, BattleOverlayInit, BattleSide, BattleState, BattleStatus, BattleUnit, BattleUntil, BattleWeapon, CheckRoll, CoverLevel, DamageType, GameState, RollPart, SkillId, TimelineBeat } from '../types'
 import { ATTR_IDS, BATTLE_SLOTS } from '../types'
 import { attrMod, computeDegree, verdictOf } from '../rules/check'
 import { deriveRng } from '../util/rng'
@@ -13,7 +13,7 @@ import { clamp, isRecord } from '../util/sanitize'
 import { clone } from '../util/clone'
 import { BattleBlocked } from './act'
 import { runEffects } from './effects'
-import { SIDE_NAME, afterglowFull, coverAt, coverLevel, coverOf, currentUnit, distance, isExposed, isWounded, onField, otherSide, overlayAt, poolName, rangeMod, standing, unitAt, unitTag, unitsOf, wielded } from './field'
+import { SIDE_NAME, afterglowFull, coverAt, coverLevel, coverOf, currentUnit, distance, isWounded, onField, otherSide, overlayAt, poolName, rangeMod, standing, unitAt, unitTag, unitsOf, wielded } from './field'
 import type { BattleEffectInput, BattleEffectLast, BattleKernel, BattleView } from './registry'
 import type { BattleMode, BattleNumbers, BattleStatusRule, ModKind, StatusUntil } from './rules'
 import { LOSE_TURN, coverHpFor, damageTypeOf, modeOf, statusMod, statusRuleOf } from './rules'
@@ -146,6 +146,8 @@ export class BattleRun implements BattleView {
   readonly beats: TimelineBeat[] = []
   private exposedQueue: string[] = []
   private flushing = false
+  /** 正在問 cover_level 的修正：修正的條件裡又問有效遮蔽時（in_cover）回答那一格本身的，不然會問不完 */
+  private askingCover = false
 
   /** battle 是工作副本：呼叫的人先複製好；state 是這一步開始時的遊戲狀態，只讀。 */
   constructor(readonly k: BattleKernel, readonly state: GameState, readonly battle: BattleState) {
@@ -246,6 +248,28 @@ export class BattleRun implements BattleView {
     return u.statuses.some((s) => statusRuleOf(this.k.content, s.id)?.noMove)
   }
 
+  /**
+   * 這個單位現在吃到幾級遮蔽：他站的那一格本身的（煙霧算至少半掩體），加上 cover_level 的修正，夾在 0～2；開著機體的人永遠 0。
+   * 加上去的級數只影響「算幾級」（迴避、暴露、AI、條件），不改那一格的遮蔽本身：遮蔽的耐久、被打穿、被拆都只看那一格自己的。
+   */
+  coverOf(u: BattleUnit): CoverLevel {
+    const base = coverOf(this.battle, u)
+    if (u.hull || this.askingCover || !onField(u) || this.isStandIn(u)) return base
+    this.askingCover = true
+    let bonus = 0
+    try {
+      bonus = sum(this.mods('cover_level', u))
+    } finally {
+      this.askingCover = false
+    }
+    return clamp(base + bonus, 0, 2) as CoverLevel
+  }
+
+  /** 站在暴露的格子上：有效遮蔽是 0。 */
+  isExposed(u: BattleUnit): boolean {
+    return onField(u) && this.coverOf(u) === 0
+  }
+
   /** 攻擊的人不吃黑暗：有夜視的標籤，或 see_dark 的修正大於 0（other 是他的目標）。 */
   seesDark(by: BattleUnit, other?: BattleUnit): boolean {
     return by.tags.includes('night_vision') || sum(this.mods('see_dark', by, other)) > 0
@@ -253,7 +277,7 @@ export class BattleRun implements BattleView {
 
   /** 迴避 = 基礎（單位身上算好的）＋ 那一格的遮蔽 ＋ 黑暗 ＋ 修正。by 是攻擊的人（有夜視或 see_dark 的不算黑暗）。 */
   evadeOf(target: BattleUnit, by?: BattleUnit, o: { coverShift?: number; extra?: number } = {}): { total: number; parts: RollPart[]; cover: number } {
-    const level = clamp(coverOf(this.battle, target) - (o.coverShift ?? 0), 0, 2)
+    const level = clamp(this.coverOf(target) - (o.coverShift ?? 0), 0, 2)
     const cover = this.n.coverBonus[level] ?? 0
     const parts: RollPart[] = [{ label: '迴避', value: target.evade, source: 'base' }]
     if (cover) parts.push({ label: this.mode.coverNames[level]!, value: cover, source: 'cover' })
@@ -680,6 +704,15 @@ export class BattleRun implements BattleView {
 
   // ---- 狀態 ----
 
+  /**
+   * 對 holder 給的 own_turn_end（到他的回合結束）要不要略過「現在這個回合的結束」：他自己的回合正在進行（battle.acting）、而且是他自己給自己的。
+   * 是的話，計時從他下一個回合的結束才開始數（「到你下一回合結束前」給自己用時，不會在同一個回合就少掉一次）。
+   * 別人給的（沒有 by 的也算別人）、不在他的回合裡給的、source_turn_end 與 own_turn_start 都不用它。功能自己另外算計時的東西（buff、守著）問這個。
+   */
+  skipsOwnTurnEnd(holder: BattleUnit, by?: BattleUnit): boolean {
+    return this.battle.acting === holder.id && by?.id === holder.id && this.current()?.id === holder.id
+  }
+
   /** 給一個狀態。同一個狀態再得一次只重算時間，不疊加。首領有控制保護（ENEMIES 4.5 節）。回傳有沒有給上去。 */
   applyStatus(target: BattleUnit, id: string, o: StatusOpts = {}): boolean {
     if (target.out || this.isStandIn(target)) return false
@@ -696,7 +729,9 @@ export class BattleRun implements BattleView {
     }
     const kind = o.until ?? rule.until
     const of = kind.startsWith('source') ? (o.by?.id ?? target.id) : target.id
-    const until: BattleUntil = kind === 'battle_end' ? { at: 'battle_end' } : kind === 'next_overload' ? { at: 'overload' } : { at: kind.endsWith('start') ? 'turn_start' : 'turn_end', of, turns }
+    // 他在自己的回合裡給自己的 own_turn_end：這個回合的結束不算（到他「下一個」回合結束），所以標 skip
+    const until: BattleUntil = kind === 'battle_end' ? { at: 'battle_end' } : kind === 'next_overload' ? { at: 'overload' }
+      : { at: kind.endsWith('start') ? 'turn_start' : 'turn_end', of, turns, ...(kind === 'own_turn_end' && this.skipsOwnTurnEnd(target, o.by) ? { skip: true as const } : {}) }
     const status: BattleStatus = { id, until, ...(o.by ? { by: o.by.id } : {}), ...(o.data ? { data: { ...o.data } } : {}) }
     target.statuses = [...target.statuses.filter((s) => s.id !== id), status]
     if (id !== LOSE_TURN && !o.quiet) this.say(`${unitTag(target)}：${rule.name}。`, 'status', { target: target.id, status: id, ...(o.by ? { by: o.by.id } : {}) }, o.by)
@@ -1041,7 +1076,7 @@ export class BattleRun implements BattleView {
 
   /** 有人站上暴露的格子：記下來，這個動作結算完再交給監視。 */
   exposed(u: BattleUnit): void {
-    if (isExposed(this.battle, u) && !this.exposedQueue.includes(u.id)) this.exposedQueue.push(u.id)
+    if (this.isExposed(u) && !this.exposedQueue.includes(u.id)) this.exposedQueue.push(u.id)
   }
 
   /** 換位：和相鄰那一格的隊友交換，或移到相鄰的空格。合不合法由呼叫的人先用 moveBlock 檢查。 */
@@ -1164,10 +1199,10 @@ export class BattleRun implements BattleView {
     try {
       for (let guard = 0; guard < 24 && this.exposedQueue.length && !this.over; guard++) {
         const t = this.battle.units[this.exposedQueue.shift()!]
-        if (!t || !isExposed(this.battle, t)) continue
+        if (!t || !this.isExposed(t)) continue
         const watchers = this.battle.order.map((id) => this.battle.units[id]!).filter((w) => w && w.side === otherSide(t.side) && onField(w) && w.watch && !w.statuses.some((s) => s.id === LOSE_TURN))
         for (const w of watchers) {
-          if (t.out || !isExposed(this.battle, t) || this.over) break
+          if (t.out || !this.isExposed(t) || this.over) break
           const def = this.k.battle.getAction(w.watch!.action)
           if (!def?.auto) continue
           this.say(`${unitTag(w)} 監視觸發：${unitTag(t)} 站上了暴露的格子。`, 'watch.fire', { unit: w.id, target: t.id }, w)

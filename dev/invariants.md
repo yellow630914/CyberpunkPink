@@ -9,7 +9,7 @@
 M0 的修正批次（2026-11-22）之後照定案改了第 1、3、4、6、7、10、12、16、19、29、31 條，加了第 36～43 條。
 M1 開工（2026-11-22）照定案改了第 29、36、43 條（錢分開夾、物品每一種 100 個、性別五個值），第 4、6 條補上戰鬥，加了第 44～58 條（戰鬥、格子地圖、快照、內容篩選與版本）。
 M1 第一波之後的核心修正（2026-11-22；dev/adr/0014、審查 M1a）改了第 45、46、48、57 條，加了第 59～61 條（等著選的戰敗、花費與行動做完的掛點、開不起來的戰與壞掉的戰鬥存檔）。
-M1 第二波的核心（2026-11-22；dev/adr/0015）加了第 62 條（效果的 op 都查得到）。第二波收尾（M1b-core-closeout）改了第 64 條，加了第 66～69 條。
+M1 第二波的核心（2026-11-22；dev/adr/0015）加了第 62 條（效果的 op 都查得到）。第二波收尾（M1b-core-closeout）改了第 64 條，加了第 66～69 條。第二波的核心小修（M1b-core-fix2、fix3）加了第 70～77 條。
 
 ## 狀態與報告
 
@@ -122,4 +122,9 @@ M1 第二波的核心（2026-11-22；dev/adr/0015）加了第 62 條（效果的
 | 70 | `check.before` 的 `unit` 是擲骰的人（`run.save` 的 `u`），`other` 是檢定對他擲的那個人（拿 DC 的那一方：被快駭、被誘惑的人，或豁免裡下手的人）；只有帶 `other` 的檢定才發，而且一次擲骰只發一次。`checked` 反應的主角是 `other`、`by` 是 `unit`，`react.dc` 加的是這一次的 DC。快駭的檢定（`hack.check`）走核心的 `check` 效果，自己不發這個掛點、不算防火牆 | dev/adr/0015 補記（M1b-core-fix2） | `tests/features/M1b-ops.test.ts`「check」；`tests/features/M1b-hack.test.ts`「hack.check 是核心 check 效果的包裝」；`tests/features/M1b-skill-format.test.ts`「checked」；`tests/core/battle-m1b-effects.test.ts` |
 | 71 | 補位（`run.compact`）做完、狀態整理好之後，對每個往前移動的單位發一次 `compacted`（`from`、`to` 是這一次補位的淨移動，沒有人動不發）；「站在某一格的人往前補位」的反應聽這個掛點，不在每個動作做完去掃站位 | dev/adr/0015 補記 | `tests/core/battle.test.ts`「補位發 compacted」；`tests/features/M1b-skill-gunner-broker.test.ts`「不准動喔」 |
 | 72 | 先攻的 `actNext` 問的是「對調之前動過沒有」：呼叫的人在 `swapOrder` 之前用 `run.hasActed` 問好、用 `{ acted }` 帶進來；動過的（順位在現在輪到的人之前或就是他）不排，沒動過的排到現在輪到的人後面一位，輪到的人不變。不在順序裡、已經退出的、現在輪到的人回傳 `false` | dev/adr/0015 E7 與補記 | `tests/core/battle-m1b-effects.test.ts`「hasActed」「actNext」；`tests/features/M1b-ops.test.ts`「act_next」；`tests/features/M1b-skill-gunner-broker.test.ts`「大局」 |
+| 73 | `action.done` 的 `tags` 和問花費（`action_ap`）時帶的是同一串：行動的 id、`group:<圈>`、行動自己宣告的標籤、`other`、行動自己的 `costTags`（`item:medical`）；在行動做之前問好（用掉道具之後快取格可能空了）。功能不必自己記問花費時的標籤 | dev/adr/0014、0015 第二節與補記（M1b-core-fix3） | `tests/core/battle-m1b-fix3.test.ts`「performAction」；`tests/features/M1b-skill-medic.test.ts`「巡房」「名醫」 |
+| 74 | 對自己給的 `until: own_turn_end`（`by` 就是帶著它的人、他自己的回合正在進行）：這個回合的結束不算，從他下一個回合的結束起算 `turns`（`BattleUntil.skip`；`battle.acting` 是回合進行中的單位，`beginTurn` 設、`advance` 在回合結束的結算做完之後拿掉；`run.skipsOwnTurnEnd(holder, by)`）。別人給的、不在他的回合裡給自己的、`source_turn_end`、`own_turn_start` 不變。buff 的計時（`features/abilities/mods.ts`）還沒套用同一個規則（dev/adr/0015 補記列了要做的事） | dev/adr/0015 補記（M1b-core-fix3） | `tests/core/battle-m1b-fix3.test.ts`「對自己給的 until: own_turn_end」；`tests/features/M1b-skill-medic.test.ts`「超頻」 |
+| 75 | 公式的名字有三個家族：`tier`、`hp_max`、`load_max`，各有 `half_<名字>_up`（進位）與 `half_<名字>_down`（捨去）；`hp_max`、`load_max` 看這一筆落在的人（沒有就看做的人），沒有感載的人是 0；骰數的名字不收上限 | dev/adr/0015 第一節與補記（M1b-core-fix3） | `tests/core/battle-m1b-fix3.test.ts`「公式的 hp_max、load_max」 |
+| 76 | 有效遮蔽 = 那一格本身的（煙霧算至少半掩體）+ `cover_level` 的修正，夾在 0～2，開著機體的人永遠 0（`run.coverOf`、`run.isExposed`）：迴避、暴露（監視）、AI 挑目標都問它；多出來的級數打不破，遮蔽的耐久與被打穿只看那一格自己的；修正的條件裡問有效遮蔽時回答那一格本身的 | COMBAT_SYSTEM 2.1；SKILL_TREES 堡壘姿態；dev/adr/0015 補記（M1b-core-fix3） | `tests/core/battle-m1b-fix3.test.ts`「cover_level」；`tests/features/M1b-skill-pilot.test.ts`「堡壘姿態」 |
+| 77 | 效果的 `who: foe_overlay` 落在敵方**一台**沒被擊落的掛著的東西：`pick.overlay`（寫了卻不是敵方沒被擊落的一台就整筆不做）→ 目標（是敵方掛著的一台時）→ 最前面（格子最小）的一台；一台都沒有整筆不做。`pick:<鍵>` 也收掛著的東西的 id | dev/adr/0015 補記（M1b-core-fix3）；SKILL_TREES 管理員 | `tests/core/battle-m1b-fix3.test.ts`「who：foe_overlay」；`tests/features/M1b-hack.test.ts`「管理員」 |
 
