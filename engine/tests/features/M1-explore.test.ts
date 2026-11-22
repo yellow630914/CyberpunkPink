@@ -5,7 +5,10 @@
 import { describe, expect, it } from 'vitest'
 import type { ContentPack, SpecialMapEntry } from '../../src'
 import { exploreFeature, placeGuards } from '../../src/features/explore'
-import { TEST_COMBAT, enemyUnit, makeGame, playOut } from '../../src/testkit'
+import { TEST_COMBAT, enemyUnit, makeGame, playOut, testWeapon } from '../../src/testkit'
+
+// 主角要有武器：空手只打得到第 1 格，第 1 格倒了但遮蔽還在時後排不補位（COMBAT_SYSTEM 2.4），會打不完
+const GEAR = { id: 'test_gear', install(k: { battle: { loadout(o: string, fn: () => unknown): void } }) { k.battle.loadout('test_gear', () => ({ weapons: [testWeapon('pistol', 5)] })) } }
 
 const MAP: SpecialMapEntry = {
   id: 'map_t_explore', kind: 'test', size: [9, 5],
@@ -21,7 +24,7 @@ const MAP: SpecialMapEntry = {
 const foe = (rank: 'minion' | 'elite' = 'minion', o = {}) => ({ from: 'unit', unit: enemyUnit(rank, 1, { hp: { now: 1, max: 45 }, evade: -30, ...o }) as unknown as Record<string, unknown> })
 const PACK: ContentPack = { id: 'explore_test', content: { special_map: [MAP] } }
 const setup = () => {
-  const { game } = makeGame({ features: [exploreFeature, TEST_COMBAT], content: [PACK] })
+  const { game } = makeGame({ features: [exploreFeature, TEST_COMBAT, GEAR as never], content: [PACK] })
   const id = game.enterMap('map_t_explore')
   // 發起的功能（之後是委託副本）把每個保全崗放誰寫在這份實例上
   game.commit({ kind: 'system', action: 'test.guards', location: {}, party: [], timeline: [], changes: placeGuards(game.state, id, { G1: { foes: [foe(), foe()], faction: 'hizakura' }, G2: { foes: [foe('elite')], faction: 'hizakura' } }), outcome: { result: 'ok', summary: '放保全。' } })
