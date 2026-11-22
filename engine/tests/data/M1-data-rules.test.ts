@@ -120,7 +120,7 @@ describe('M1-data-rules：兩張地圖（先證明版面讀得進來；其餘的
     expect(maps().map((m) => m.id).sort()).toEqual(['map_club', 'map_office_small'])
     expect(office).toMatchObject({ kind: 'office_small', size: [9, 9], max_maps: 1 })
     expect(office.sheets).toHaveLength(1)
-    expect(office.sheets[0]!.layout).toEqual(['####=E###', '#TOT#..S#', '#.2.%G1.#', '#DC.#oOo#', '######+##', '#T&.#.GS#', 'E...%.O.#', '#X..#C.K#', '######E##'])
+    expect(office.sheets[0]!.layout).toEqual(['####=E###', '#TOT#.OS#', '#.2.%G1.#', '#DC.#o.o#', '######+##', '#T&.#.GS#', 'E...%.O.#', '#X..#C.K#', '######E##'])
     expect(office.sheets[0]!.spots).toEqual([{ id: '!1', at: [6, 2], cover: 'dense' }, { id: '!2', at: [2, 2], cover: 'one_sided' }])
     expect(club).toMatchObject({ kind: 'club', size: [13, 9], max_maps: 2 })
     expect(club.sheets).toHaveLength(2)

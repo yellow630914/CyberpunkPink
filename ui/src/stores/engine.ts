@@ -218,7 +218,7 @@ export const useEngine = defineStore('engine', () => {
     refresh()
   }
   /** 內容的名字（道具、狀態……；顯示用，查內容不是規則）；查不到是 undefined */
-  const contentName = (kind: string, id: string): string | undefined => game.k.content.get<{ name?: string }>(kind, id)?.name
+  const contentName = (kind: string, id: string): string | undefined => game.k.content.get<{ id: string; name?: string }>(kind, id)?.name
 
   return { state, battle, inBattle, defeat, battleOptions, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, acceptDefeat: acceptDefeatNow, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

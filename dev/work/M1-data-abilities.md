@@ -80,7 +80,7 @@
 "sk_fixer_swap":        { "target": "ally", "free_move": { "swap_adjacent_pair": true } }
 ```
 
-定點射在設計書上的種類是「主動」，但它的效果是「要害射擊只花 2 點」：`kind` 照設計書寫 `active`、`use` 寫 `{ "ap": 2 }`，`meat` 照上面（沒有 `target` 的主動技能不會變成一個行動）。這一點如果功能的格式檢查不收，停下來回報。
+定點射已改成被動（2026-11-22 定案，SKILL_TREES）：`kind` 寫 `passive`、不寫 `use`，效果鍵照 `meat` 寫「要害射擊只花 2 點」（`cost`）。
 
 ## 四、`engine/data/index.ts`
 

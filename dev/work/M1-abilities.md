@@ -113,7 +113,7 @@ export function equipAbilities(k, state, actor, ids: string[]): ReportDraft   //
 
 ### 主動技能變成行動（在 `ready(k)` 裡照內容註冊）
 
-每一個 `kind: 'active'`、`meat` 裡有 `target` 的技能註冊一個行動（`meat` 是 `null`、是 `pending`、或只有 `cost`／`weapon_cost` 這類被動的鍵的不註冊；設計書把「定點射」標成主動，但它的效果是讓要害射擊便宜，資料裡它沒有 `target`）：`id` 是技能的 id、`owner: 'abilities'`、`name`、`desc: text`、`group: 'skill'`、`modes: ['meat']`、`order` 是它在內容裡的順序、`has` 是「這個單位裝著它」。
+每一個 `kind: 'active'`、`meat` 裡有 `target` 的技能註冊一個行動（`meat` 是 `null`、是 `pending`、或只有 `cost`／`weapon_cost` 這類被動的鍵的不註冊；定點射已改成被動）：`id` 是技能的 id、`owner: 'abilities'`、`name`、`desc: text`、`group: 'skill'`、`modes: ['meat']`、`order` 是它在內容裡的順序、`has` 是「這個單位裝著它」。
 
 - **花費**：`use.ap`；有別的裝著的被動技能的 `meat.cost.ability` 指向它時，改用那個 `ap`。
 - **共同的 `blocks`**：`use.per_fight` 用完了（`unit.uses[技能 id] >= per_fight`）→ `'這一場已經用過了。'`；`use.first_round` 而現在不是第 1 回合 → `'只能在第一回合用。'`；`use.per_turn` 用完了（`unit.uses['turn:' + 技能 id]`）→ `'這一回合已經用過了。'`。用了之後把對應的次數加一（`turn:` 開頭的核心會在這個人的回合開始時清掉）。
