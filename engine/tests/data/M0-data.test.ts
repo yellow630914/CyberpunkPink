@@ -4,13 +4,13 @@
 
 import { describe, expect, it } from 'vitest'
 import type { AttributeEntry, CreationRuleEntry, FactionEntry, NpcEntry, OriginEntry, PerkEntry, SkillEntry } from '../../src'
-import { ATTR_IDS, MONEY_CAP_BY_GRADE, createKernel } from '../../src'
+import { ATTR_IDS, Game, MONEY_CAP_BY_GRADE } from '../../src'
+import { allFeatures } from '../../src/features'
 import { CORE_PACK } from '../../data'
 
+// 整包內容含功能自己註冊的種類（敵人、遭遇、戰敗事件），要裝上功能才載得進去（M1-data-enemies）
 function loaded() {
-  const k = createKernel()
-  k.content.loadPack(CORE_PACK)
-  return k.content
+  return new Game({ features: allFeatures(), content: [CORE_PACK] }).k.content
 }
 
 /** 十八項基本功：名字 → [id, 屬性]（CORE_RULES 第 2 節的表；id 見工單的對照表） */

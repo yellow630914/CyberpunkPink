@@ -1,0 +1,206 @@
+[
+  {
+    "id": "enc_base_g1_normal",
+    "name": "基準遭遇：野良（I 級）",
+    "grade": 1,
+    "kind": "normal",
+    "cover": "medium",
+    "foes": [
+      {
+        "enemy": "en_nora_hound"
+      },
+      {
+        "enemy": "en_nora_hound"
+      },
+      {
+        "enemy": "en_nora_pickpocket"
+      },
+      {
+        "enemy": "en_nora_courier"
+      }
+    ]
+  },
+  {
+    "id": "enc_base_g2_normal",
+    "name": "基準遭遇：緋櫻的巡查（II 級）",
+    "grade": 2,
+    "kind": "normal",
+    "cover": "medium",
+    "foes": [
+      {
+        "enemy": "en_hz_patrol"
+      },
+      {
+        "enemy": "en_hz_patrol"
+      },
+      {
+        "enemy": "en_hz_patrol"
+      },
+      {
+        "enemy": "en_hz_patrol"
+      }
+    ]
+  },
+  {
+    "id": "enc_base_g2_boss",
+    "name": "基準首領戰：野良（II 級）",
+    "grade": 2,
+    "kind": "boss",
+    "cover": "medium",
+    "foes": [
+      {
+        "enemy": "en_nora_hound"
+      },
+      {
+        "enemy": "en_nora_hound"
+      },
+      {
+        "enemy": "en_nora_courier"
+      },
+      {
+        "enemy": "en_nora_packleader"
+      }
+    ]
+  },
+  {
+    "id": "enc_base_g3_normal",
+    "name": "基準遭遇：緋櫻的警備局（III 級）",
+    "grade": 3,
+    "kind": "normal",
+    "cover": "medium",
+    "foes": [
+      {
+        "enemy": "en_hz_riot"
+      },
+      {
+        "enemy": "en_hz_riot"
+      },
+      {
+        "enemy": "en_hz_patrol"
+      },
+      {
+        "enemy": "en_hz_patrol"
+      }
+    ]
+  },
+  {
+    "id": "enc_base_g3_boss",
+    "name": "基準首領戰：蜜糖會（III 級）",
+    "grade": 3,
+    "kind": "boss",
+    "cover": "medium",
+    "foes": [
+      {
+        "enemy": "en_honey_head"
+      },
+      {
+        "enemy": "en_honey_dancer"
+      },
+      {
+        "enemy": "en_honey_dancer"
+      },
+      {
+        "enemy": "en_honey_dancer"
+      }
+    ]
+  },
+  {
+    "id": "enc_base_g4_normal",
+    "name": "基準遭遇：鉻娘子（IV 級）",
+    "grade": 4,
+    "kind": "normal",
+    "cover": "medium",
+    "foes": [
+      {
+        "enemy": "en_chrome_brawler"
+      },
+      {
+        "enemy": "en_chrome_brawler"
+      },
+      {
+        "enemy": "en_chrome_rider"
+      },
+      {
+        "enemy": "en_chrome_rider"
+      }
+    ]
+  },
+  {
+    "id": "enc_base_g4_boss",
+    "name": "基準首領戰：緋櫻的家政課（IV 級）",
+    "grade": 4,
+    "kind": "boss",
+    "cover": "medium",
+    "foes": [
+      {
+        "enemy": "en_hz_riot"
+      },
+      {
+        "enemy": "en_hz_riot"
+      },
+      {
+        "enemy": "en_hz_riot"
+      },
+      {
+        "enemy": "en_hz_hk_seat"
+      }
+    ]
+  },
+  {
+    "id": "enc_base_g5_normal",
+    "name": "基準遭遇：鉻娘子（V 級）",
+    "grade": 5,
+    "kind": "normal",
+    "cover": "medium",
+    "foes": [
+      {
+        "enemy": "en_chrome_brawler"
+      },
+      {
+        "enemy": "en_chrome_brawler"
+      },
+      {
+        "enemy": "en_chrome_pourer"
+      },
+      {
+        "enemy": "en_chrome_pourer"
+      }
+    ]
+  },
+  {
+    "id": "enc_base_g5_boss",
+    "name": "基準首領戰：鉻娘子（V 級）",
+    "grade": 5,
+    "kind": "boss",
+    "cover": "medium",
+    "foes": [
+      {
+        "enemy": "en_chrome_brawler"
+      },
+      {
+        "enemy": "en_chrome_brawler"
+      },
+      {
+        "enemy": "en_chrome_pourer"
+      },
+      {
+        "enemy": "en_chrome_officer"
+      }
+    ]
+  },
+  {
+    "id": "enc_base_g1_light",
+    "name": "基準的小衝突：野良（I 級）",
+    "grade": 1,
+    "kind": "light",
+    "cover": "medium",
+    "foes": [
+      {
+        "enemy": "en_nora_hound"
+      },
+      {
+        "enemy": "en_nora_pickpocket"
+      }
+    ]
+  }
+]

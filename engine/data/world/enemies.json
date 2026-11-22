@@ -1,0 +1,7204 @@
+[
+  {
+    "id": "en_hz_patrol",
+    "name": "警備局巡查",
+    "faction": "hizakura",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        2,
+        3
+      ]
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "感官彈槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "掃橋",
+        "text": "選一個目標，他的迴避 −1，到他下一回合結束。花 1 點行動點，每場一次。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "外皮（緋櫻，II 級）"
+      },
+      {
+        "text": "員工憑證"
+      }
+    ],
+    "adult": [
+      "服從",
+      "束縛"
+    ],
+    "desc": "巡查穿著深藍色的立領制服，左臂的袖章上印著一朵緋櫻的櫻紋。他腰上掛著一捆束帶，手上那把短管槍的彈匣是粉紅色的，裡面裝的是感官彈。"
+  },
+  {
+    "id": "en_hz_riot",
+    "name": "警備局鎮壓班",
+    "faction": "hizakura",
+    "rank": "minion",
+    "grades": [
+      3,
+      5
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": 2,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "電擊鞭",
+        "traits": [
+          "pull"
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "盾牆",
+        "text": "他身後那一格的迴避 +1，到他下一回合開始。花 1 點行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "板材（緋櫻，III 級起有授權鎖）"
+      }
+    ],
+    "adult": [
+      "束縛",
+      "痛"
+    ],
+    "desc": "鎮壓班的隊員戴著全罩式頭盔，左手是一面印著櫻紋的透明防爆盾。他右手拿著一條會發出粉色電光的電擊鞭。"
+  },
+  {
+    "id": "en_hz_hk_maid",
+    "name": "家政課女僕",
+    "faction": "hizakura",
+    "rank": "elite",
+    "grades": [
+      3,
+      5
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1,
+        2
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1,
+      "armor": 1,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "緋櫻刀工的單分子刀",
+        "pierce": 3
+      },
+      {
+        "class": "pistol",
+        "type": "neural",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.2,
+      "flee_below": 0.2
+    },
+    "defeat": "tuning",
+    "signature": [
+      {
+        "name": "清掃",
+        "text": "一次近戰攻擊，命中 +1，並且無視目標 2 點護甲。花 2 點行動點。份量 3 格。"
+      },
+      {
+        "name": "侍立",
+        "text": "相鄰的友軍被攻擊時，那一擊的命中 −2。反應，花 1 點行動點。份量 3 格（含反應多給的 1 格）。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "刃（緋櫻，有授權鎖）"
+      },
+      {
+        "text": "纖維（生體的蛛絲織物）"
+      }
+    ],
+    "adult": [
+      "服從",
+      "束縛"
+    ],
+    "desc": "她穿著一絲不亂的黑白女僕服，戴著白手套，圍裙底下是緋櫻的裝甲插板。她的裙襬底下藏著一把單分子刀，腿上的槍套裡另有一把小手槍。"
+  },
+  {
+    "id": "en_hz_hk_butler",
+    "name": "家政課執事",
+    "faction": "hizakura",
+    "rank": "elite",
+    "grades": [
+      3,
+      5
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "attack": 1,
+      "armor": -1
+    },
+    "weapons": [
+      {
+        "class": "sniper",
+        "pierce": 4,
+        "mag": 1
+      }
+    ],
+    "ai": {
+      "prefer": "netrunner",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "defeat": "tuning",
+    "signature": [
+      {
+        "name": "點名",
+        "text": "標記一個目標，友軍打他命中 +2，直到那個目標換位。花 1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "奉茶",
+        "text": "一名友軍排掉 8 點感載。花 1 點行動點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "感測器（緋櫻，有授權鎖）"
+      },
+      {
+        "text": "外皮（緋櫻「瓷肌」）"
+      }
+    ],
+    "adult": [
+      "支配",
+      "窺視"
+    ],
+    "desc": "執事穿著燕尾服，白手套上沒有一點灰。他的狙擊槍收在一個琴盒裡，組起來之後槍托上刻著家政課的家紋。"
+  },
+  {
+    "id": "en_hz_hk_seat",
+    "name": "家政課席次",
+    "faction": "hizakura",
+    "rank": "boss",
+    "grades": [
+      4,
+      5
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1,
+        2
+      ]
+    },
+    "mods": {
+      "evade": 1,
+      "armor": 1,
+      "sensitivity": 35
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "緋櫻刀工的長刀",
+        "pierce": 4
+      },
+      {
+        "class": "pistol",
+        "type": "neural",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.3,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "defeat": "tuning",
+    "signature": [
+      {
+        "name": "完璧",
+        "text": "每回合她第一次被攻擊時，那一擊的命中 −3。被動。份量 3 格。"
+      },
+      {
+        "name": "一閃",
+        "text": "一次近戰攻擊，命中 +1，傷害多一顆骰。花 2 點行動點。份量 3 格。"
+      },
+      {
+        "name": "號令",
+        "text": "一名友軍這回合換位不花行動點，他的下一次攻擊命中 +2。花 1 點行動點。份量 3 格。"
+      },
+      {
+        "name": "低血大招・散華",
+        "text": "她換位不花行動點，對我方第 1 格連斬兩次，每一刀命中時都讓目標流血。每場一次，花 3 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "刃（緋櫻，V 級具名，特殊任務限定）"
+      }
+    ],
+    "adult": [
+      "支配",
+      "標記"
+    ],
+    "desc": "席次穿著長及腳踝的黑色女僕長禮服，衣領上別著一枚刻有席次號碼的銀章。她的腰後交叉掛著兩把緋櫻刀工的長刀，另有一把手槍收在圍裙的口袋裡。"
+  },
+  {
+    "id": "en_sb_rifleman",
+    "name": "傭兵步兵",
+    "faction": "starbelle",
+    "rank": "minion",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "armor": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "pierce": 2,
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [],
+    "loot": [
+      {
+        "text": "槍管、機構（星旗）"
+      }
+    ],
+    "desc": "步兵穿著沙色的軍規防彈衣，頭盔側面畫著一個眨眼的金髮女郎。他手上的星旗步槍刮痕很多，背帶上掛著三個備用彈匣。"
+  },
+  {
+    "id": "en_sb_pinup",
+    "name": "突擊女郎",
+    "faction": "starbelle",
+    "rank": "minion",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "evade": 1,
+      "armor": -1
+    },
+    "weapons": [
+      {
+        "class": "shotgun",
+        "mag": 2,
+        "traits": [
+          "push"
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "衝鋒",
+        "text": "她每回合的第一次換位不花行動點。被動，III 級起有。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "槍管（星旗）"
+      },
+      {
+        "text": "外皮（星旗「消光」）"
+      }
+    ],
+    "adult": [
+      "豐滿",
+      "暴露"
+    ],
+    "desc": "她戴著一頂牛仔帽，飛行夾克的背後畫著一個跨坐在炸彈上的女郎，口紅是正紅色的。她手上的霰彈槍槍托貼滿了貼紙。"
+  },
+  {
+    "id": "en_sb_gunner",
+    "name": "重火力手",
+    "faction": "starbelle",
+    "rank": "elite",
+    "grades": [
+      3,
+      5
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3,
+        4
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": 2,
+      "evade": -2
+    },
+    "weapons": [
+      {
+        "class": "lmg",
+        "mag": 4
+      },
+      {
+        "class": "heavy",
+        "name": "榴彈發射器",
+        "mag": 1
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 0.8,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "彈幕",
+        "text": "一次連射，自帶的壓制檢定 DC +2，並且這一擊的遮蔽倍率加倍。花 3 點行動點。份量 3 格。"
+      },
+      {
+        "name": "架槍",
+        "text": "她這回合不換位時，下一次射擊命中 +2。被動。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "致動器（星旗）"
+      },
+      {
+        "text": "槍管（星旗）"
+      }
+    ],
+    "desc": "她的雙臂是星旗的軍規義肢，彈鏈從背包一路垂到輕機槍上。她的防彈衣胸前寫著一個用口紅畫的編號。"
+  },
+  {
+    "id": "en_sb_mustang",
+    "name": "野馬機師",
+    "faction": "starbelle",
+    "rank": "elite",
+    "grades": [
+      4,
+      5
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        2,
+        3
+      ]
+    },
+    "mods": {
+      "load": 1.05,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "耐操",
+        "text": "機甲狀態下，她每回合開始時排掉 8 點感載。被動。份量 2 格。"
+      },
+      {
+        "name": "掃射",
+        "text": "機甲狀態下的一次連射，傷害多半顆骰，自帶的壓制檢定 DC +2。花 3 點行動點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "致動器、電源、板材（星旗，各一件的機會）"
+      },
+      {
+        "text": "機甲殘件"
+      }
+    ],
+    "adult": [
+      "豐滿",
+      "御姐"
+    ],
+    "desc": "機師嘴裡叼著一根沒點的雪茄，飛行夾克的領子豎著，背後背著一具收起來的機甲框架。機甲「野馬」展開之後是一副橄欖綠的外骨骼，機鼻的位置畫著她自己。"
+  },
+  {
+    "id": "en_sb_sergeant",
+    "name": "軍士長",
+    "faction": "starbelle",
+    "rank": "boss",
+    "grades": [
+      4,
+      5
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": 1,
+      "evade": -1,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "pierce": 2,
+        "mag": 3
+      },
+      {
+        "class": "heavy",
+        "name": "下掛榴彈",
+        "mag": 1
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "集火",
+        "text": "標記一個目標，全隊打他命中 +2，到她下一回合開始。花 1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "換彈掩護",
+        "text": "一名友軍換彈不花行動點，並且他的彈匣多補一格。花 1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "站穩",
+        "text": "她身後那一格的遮蔽升一級，到她下一回合開始。花 1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "低血大招・呼叫火力",
+        "text": "她指定我方的一格，標記讓玩家看得到；下一回合她開始時那一格與相鄰一格挨一次重武器攻擊，傷害多兩顆骰，遮蔽倍率加倍。每場一次，花 3 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "槍管、機構（星旗，保證一件最高級）"
+      }
+    ],
+    "adult": [
+      "豐滿",
+      "支配"
+    ],
+    "desc": "軍士長是一個金髮剪得很短的高大女人，迷彩背心外面套著一件掛滿勳章的軍裝外套。她的步槍下掛著榴彈發射器，腰上別著一具無線電，身邊跟著一台星旗的武裝無人機。"
+  },
+  {
+    "id": "en_kl_outer",
+    "name": "外門弟子",
+    "faction": "kunlun",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "attack": 1,
+      "hp": 0.9
+    },
+    "weapons": [
+      {
+        "class": "smg",
+        "name": "崑崙的智慧衝鋒槍",
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.2,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "槍靈校準",
+        "text": "連續兩次射擊同一個目標時，第二次命中 +1。被動，III 級起有。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "晶片（崑崙「算盤」）"
+      },
+      {
+        "text": "軟體（槍靈）"
+      }
+    ],
+    "desc": "外門弟子穿著改短的月白色漢服，腰帶上繫著崑崙的玉牌。她的衝鋒槍槍身上浮著一個小小的全息劍靈，會在開槍前報出目標的距離。"
+  },
+  {
+    "id": "en_kl_turret",
+    "name": "智慧砲塔",
+    "faction": "kunlun",
+    "rank": "minion",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "machine",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.95,
+      "armor": 2,
+      "evade": -2
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "name": "崑崙的智慧砲",
+        "pierce": 2,
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "netrunner",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "曲射",
+        "text": "它的攻擊不看目標的半掩體，掩體照算。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "晶片、感測器（崑崙）"
+      }
+    ],
+    "desc": "砲塔是一座漆成青瓷色的圓筒，裝在天花板或牆上，砲管兩側刻著雲紋。它啟動時會用一個平板的女聲念出「劍陣已開」。"
+  },
+  {
+    "id": "en_kl_swordmaster",
+    "name": "劍靈使",
+    "faction": "kunlun",
+    "rank": "elite",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "name": "崑崙的智慧手槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "netrunner",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "御劍",
+        "text": "飛劍攻擊一次，命中 +1，命中時給目標標記。花 1 點行動點。份量 3 格。"
+      },
+      {
+        "name": "劍陣",
+        "text": "敵人攻擊她時，那一擊的命中 −2。反應，花 1 點行動點。份量 3 格（含反應多給的 1 格）。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "晶片、致動器（崑崙）"
+      }
+    ],
+    "desc": "劍靈使穿著一件立領的青色旗袍，兩指併攏時，身邊的一把飛劍就會轉向她指的地方。她的另一隻手拿著一把細長的智慧手槍。"
+  },
+  {
+    "id": "en_kl_warden",
+    "name": "執劍護法",
+    "faction": "kunlun",
+    "rank": "elite",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "崑崙的智慧長劍",
+        "pierce": 2
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "守一",
+        "text": "有人對他近戰攻擊時，他立刻反擊一次。反應，花 1 點行動點。份量 3 格（含反應多給的 1 格）。"
+      },
+      {
+        "name": "破甲",
+        "text": "一次近戰攻擊，無視目標 3 點護甲。花 2 點行動點。份量 3 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "刃、晶片（崑崙）"
+      }
+    ],
+    "desc": "護法是一個穿著黑色長袍的高個子，長袍底下是崑崙的合金插板。他手上的長劍劍格裡嵌著槍靈的晶片，劍身會在他出手前半秒亮起來。"
+  },
+  {
+    "id": "en_kl_senior",
+    "name": "師姐",
+    "faction": "kunlun",
+    "rank": "boss",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "attack": 1,
+      "hp": 0.9,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "sniper",
+        "name": "崑崙的智慧狙擊槍",
+        "pierce": 4,
+        "mag": 1
+      }
+    ],
+    "ai": {
+      "prefer": "netrunner",
+      "focus": 1.2,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "曲射",
+        "text": "她的攻擊不看目標的半掩體，掩體算成半掩體。被動。份量 3 格。"
+      },
+      {
+        "name": "指點",
+        "text": "一名友軍的下一次攻擊命中 +2，並且他換一次位不花行動點。花 1 點行動點。份量 3 格。"
+      },
+      {
+        "name": "劍靈護主",
+        "text": "被攻擊時，那一擊的命中 −2。反應，花 1 點行動點，每回合一次。份量 3 格（含反應多給的 1 格）。"
+      },
+      {
+        "name": "低血大招・破境",
+        "text": "她的槍靈全開，退還 2 點行動點，到戰鬥結束命中 +2；這時對她的鎖槍快駭成功的話，失效的回合數加倍。每場一次，花 0 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "晶片、軟體（崑崙，槍靈有人格；保證一件最高級）"
+      }
+    ],
+    "adult": [
+      "御姐",
+      "禁慾"
+    ],
+    "desc": "師姐穿著一身白色的高衩旗袍，長髮用一支玉簪挽著，表情冷淡。她的狙擊槍槍身上纏著一條白綾，槍靈是一個會跟她說話的老成劍靈。"
+  },
+  {
+    "id": "en_nc_orderly",
+    "name": "療養院警衛",
+    "faction": "nectar",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "鎮靜針槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "加量",
+        "text": "他的下一次命中多灌 4 點感載。花 0 點行動點，每場一次。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "抑制劑、戰鬥藥"
+      }
+    ],
+    "adult": [
+      "偽娘",
+      "藥",
+      "服從"
+    ],
+    "desc": "警衛是一個偽娘，淺綠色的看護制服底下是纖細的骨架，短髮剪得很整齊，臉上化著淡妝。他胸前別著蜜腺的蜂巢徽章，手上那把針槍的彈匣是透明的，可以看到裡面一管管琥珀色的鎮靜劑。"
+  },
+  {
+    "id": "en_nc_sampler",
+    "name": "採樣員",
+    "faction": "nectar",
+    "rank": "minion",
+    "grades": [
+      3,
+      5
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "sensitivity": 60
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "費洛蒙噴腺"
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "採樣",
+        "text": "她的制伏格鬥檢定 +2。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "生體件（活體神經，要移植）"
+      },
+      {
+        "text": "生體樣本"
+      }
+    ],
+    "adult": [
+      "扶他",
+      "藥"
+    ],
+    "desc": "採樣員是扶他，長及腳踝的白袍蓋住了她的下身，臉上的五官柔和，頭髮在腦後盤成一個髻。她的手腕內側長著一對噴腺，噴出來的是帶甜味的粉紅色霧氣。"
+  },
+  {
+    "id": "en_nc_shifter",
+    "name": "流形保全",
+    "faction": "nectar",
+    "rank": "elite",
+    "grades": [
+      3,
+      5
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.2,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "生體鞭",
+        "pierce": 1
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "換形",
+        "text": "二選一，甲殼（護甲 +3）或伸展（迴避 +2，換位不花行動點一次），持續到戰鬥結束。每場一次，花 1 點行動點。份量 3 格。"
+      },
+      {
+        "name": "纏抱",
+        "text": "一次近戰攻擊，命中時目標被壓制。花 2 點行動點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "生體鞭、生體板材（甲殼），都要移植"
+      }
+    ],
+    "adult": [
+      "偽娘",
+      "變形",
+      "觸手"
+    ],
+    "desc": "流形保全是一個偽娘，身形會隨著呼吸慢慢改變，肩膀一下寬一下窄，腰卻一直很細。他的前臂裡收著一條半透明的粉色生體鞭，表面有一層黏液。"
+  },
+  {
+    "id": "en_nc_physician",
+    "name": "主治醫師",
+    "faction": "nectar",
+    "rank": "elite",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "name": "注射槍",
+        "type": "neural",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 0.8,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "配方調整",
+        "text": "替一名友軍打一劑戰鬥藥，他的命中 +1、迴避 +1，到戰鬥結束，但他的感載上限 −4。花 1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "縫合",
+        "text": "一名友軍回復 10 點生命。花 1 點行動點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "藥、晶片（蜜腺）"
+      }
+    ],
+    "adult": [
+      "扶他",
+      "藥",
+      "支配"
+    ],
+    "desc": "醫師是扶他，穿著燙得筆挺的白袍，裙下的輪廓在她走動時看得出來。她胸前的口袋裡插著一排彩色的安瓿，手上的手槍是一把改過的注射槍，槍管很短。"
+  },
+  {
+    "id": "en_nc_director",
+    "name": "研究主任",
+    "faction": "nectar",
+    "rank": "boss",
+    "grades": [
+      4,
+      5
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1,
+      "sensitivity": 55
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "霧化器",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "配方調整",
+        "text": "照主治醫師，但同時給兩名友軍。花 1 點行動點。份量 3 格。"
+      },
+      {
+        "name": "甜霧",
+        "text": "一次霧化器攻擊，命中時目標被干擾，下一次快駭或技能失敗。花 2 點行動點。份量 2 格。"
+      },
+      {
+        "name": "讀數",
+        "text": "一名入侵者被標記，友軍打他命中 +2，直到他下次過載。花 1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "低血大招・最後的樣本",
+        "text": "她把自己的樣本打進身體，回復 20 點生命，迴避 +2 到戰鬥結束。每場一次，花 2 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "基因譜（生體軟體）"
+      },
+      {
+        "text": "晶片（蜜腺），保證一件最高級"
+      }
+    ],
+    "adult": [
+      "扶他",
+      "變形"
+    ],
+    "desc": "主任是一個看不出年紀的扶他，白袍底下的身體一半是柔軟的生體組織，脖子上有一圈像鰓一樣的腺體。她手上的霧化器連著背後的兩個藥罐，噴口是一朵金屬做的花。"
+  },
+  {
+    "id": "en_ng_silencer",
+    "name": "機房靜音者",
+    "faction": "nightingale",
+    "rank": "elite",
+    "grades": [
+      3,
+      5
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        2,
+        3
+      ]
+    },
+    "mods": {
+      "evade": 1,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "感官彈槍",
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "netrunner",
+      "focus": 1.2,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "噤聲",
+        "text": "一次射擊，命中時目標被干擾，到他下一回合結束前不能快駭。花 2 點行動點。份量 2 格。"
+      },
+      {
+        "name": "斷訊",
+        "text": "我方有人快駭時，他立刻對那個人射擊一次。反應，花 1 點行動點加射擊的花費。份量 3 格（含反應多給的 1 格）。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "晶片（夜鶯）"
+      },
+      {
+        "text": "管理憑證的碎片"
+      }
+    ],
+    "adult": [
+      "聲音",
+      "束縛"
+    ],
+    "desc": "靜音者穿著一身吸音的黑色制服，臉上戴著一張沒有五官的白色面罩，面罩上浮著夜鶯的音符標誌。他的槍很安靜，開火時只有一聲很輕的「噠」。"
+  },
+  {
+    "id": "en_kd_studio_guard",
+    "name": "棚內保全",
+    "faction": "kaleido",
+    "rank": "minion",
+    "grades": [
+      1,
+      3
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "電擊器"
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "打光",
+        "text": "一個目標的迴避 −1，到他下一回合結束。花 1 點行動點，II 級起有。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "感測器（萬華鏡）"
+      }
+    ],
+    "adult": [
+      "暴露",
+      "窺視"
+    ],
+    "desc": "棚內保全穿著印有萬華鏡七彩標誌的黑色 polo 衫，耳朵上掛著對講機。他手上的電擊器做成一支麥克風的樣子。"
+  },
+  {
+    "id": "en_kd_double",
+    "name": "替身保全",
+    "faction": "kaleido",
+    "rank": "elite",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        1,
+        2
+      ]
+    },
+    "mods": {
+      "evade": 1,
+      "armor": -1
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "type": "neural",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "換皮",
+        "text": "開場時她的迴避 +2，直到她第一次被命中。被動。份量 2 格。II 級只有這一個。"
+      },
+      {
+        "name": "入戲",
+        "text": "她模仿一名敵人的動作，那個人這回合對她的攻擊命中 −2，她對那個人的下一次攻擊命中 +1。花 1 點行動點，III 級起有。份量 3 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "晶片（人格面具）"
+      },
+      {
+        "text": "外皮（萬華鏡）"
+      }
+    ],
+    "adult": [
+      "妄想",
+      "性別流動"
+    ],
+    "desc": "替身保全的臉是一張人格面具，開場時看起來和你隊上的某個人一模一樣。她穿著和那個人同一套的衣服，手上拿著一把裝感官彈的手槍。"
+  },
+  {
+    "id": "en_kd_villain",
+    "name": "演員・反派人設",
+    "faction": "kaleido",
+    "rank": "elite",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "load": 1.1,
+      "sensitivity": 60
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "聲波麥克風",
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "台詞",
+        "text": "一個目標過定力檢定，失敗的話他被壓制；成功的話他仍然受 4 點感載。花 2 點行動點。份量 3 格。"
+      },
+      {
+        "name": "高潮戲",
+        "text": "她身上每有一層餘韻，攻擊的傷害就多半顆骰，最多一顆骰。被動。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "外皮（萬華鏡的戲服）"
+      },
+      {
+        "text": "軟體「播報員」"
+      }
+    ],
+    "adult": [
+      "暴露",
+      "支配"
+    ],
+    "desc": "她扮成一個穿著黑色軍服與長披風的女幹部，胸口別著一個誇張的骷髏徽章。她手上的麥克風會把她的台詞變成一道打在橋上的聲波。"
+  },
+  {
+    "id": "en_kd_director",
+    "name": "直播導演",
+    "faction": "kaleido",
+    "rank": "boss",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1,
+      "attack": -1
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "type": "neural",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "打光",
+        "text": "一個目標被標記，友軍打他命中 +2，到他下次換位。花 1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "切鏡頭",
+        "text": "一名友軍這回合的迴避 +2，並且他換一次位不花行動點。花 1 點行動點。份量 3 格。"
+      },
+      {
+        "name": "加戲",
+        "text": "一名友軍的下一次攻擊傷害多一顆骰。花 1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "低血大招・收視高峰",
+        "text": "所有友軍命中 +1、先攻 +3，持續兩回合；她自己退還 2 點行動點。每場一次，花 1 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "軟體「播報員」"
+      },
+      {
+        "text": "感測器（萬華鏡，保證一件最高級）"
+      },
+      {
+        "text": "這場的母帶"
+      }
+    ],
+    "adult": [
+      "窺視",
+      "支配"
+    ],
+    "desc": "導演戴著一副單邊的全息眼鏡，鏡片上同時開著十幾個畫面，手上拿著一個導演板。她身邊飄著一台無人攝影機，鏡頭一直對著場上最狼狽的那個人。"
+  },
+  {
+    "id": "en_ed_contract_guard",
+    "name": "契約保全",
+    "faction": "eden",
+    "rank": "minion",
+    "grades": [
+      1,
+      3
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "sensitivity": 55
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "感官彈槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [],
+    "loot": [
+      {
+        "text": "鎖具（伊甸園）"
+      },
+      {
+        "text": "契約人的橋權碼（可以拿來放他走）"
+      }
+    ],
+    "adult": [
+      "服從",
+      "恩與債"
+    ],
+    "desc": "契約保全穿著乾淨的白色西裝，脖子上戴著一條細細的金屬項圈，上面刻著他的契約編號。他手上的感官彈槍槍身漆成米白色，槍口有一朵蘋果花的標誌。"
+  },
+  {
+    "id": "en_ed_doorman",
+    "name": "看門人",
+    "faction": "eden",
+    "rank": "minion",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "磁鎖警棍"
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "扣腕",
+        "text": "他的制伏格鬥檢定 +2。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "鎖具（伊甸園）"
+      }
+    ],
+    "adult": [
+      "束縛",
+      "服從"
+    ],
+    "desc": "看門人是一個肩膀很寬的人，穿著燕尾領的黑色制服，胸口插著一朵白花。他手上的警棍末端裝著一個可以扣住手腕的磁鎖環。"
+  },
+  {
+    "id": "en_ed_collector",
+    "name": "回收員",
+    "faction": "eden",
+    "rank": "elite",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1,
+        2
+      ]
+    },
+    "mods": {
+      "evade": 1
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "name": "抓捕索發射器",
+        "mag": 1,
+        "traits": [
+          "pull"
+        ]
+      },
+      {
+        "class": "neural_melee",
+        "name": "電擊鞭",
+        "traits": [
+          "pull"
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "netrunner",
+      "focus": 1.2,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "上鎖",
+        "text": "對失去回合的目標，他的制伏格鬥檢定 +4。被動。份量 2 格。II 級只有這一個。"
+      },
+      {
+        "name": "收線",
+        "text": "一次抓捕索射擊，命中 +2，命中時目標被壓制。花 2 點行動點，III 級起有。份量 3 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "機械神經元「絹」（伊甸園）"
+      },
+      {
+        "text": "鎖具"
+      }
+    ],
+    "adult": [
+      "束縛",
+      "奪與被奪"
+    ],
+    "desc": "回收員穿著一件長版的灰色風衣，腰上掛著一排磁鎖手銬，風衣下擺沾著別人的口紅。他的右手是一具抓捕索發射器，左手拿著電擊鞭。"
+  },
+  {
+    "id": "en_ed_floor_manager",
+    "name": "樓面經理",
+    "faction": "eden",
+    "rank": "elite",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "load": 1.05,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "手杖噴霧器",
+        "mag": 2,
+        "range": [
+          2,
+          5
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 0.8,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "指令",
+        "text": "一名契約人友軍立刻換位一次，不花行動點，並且他的下一次攻擊命中 +2。花 1 點行動點。份量 3 格。"
+      },
+      {
+        "name": "加班條款",
+        "text": "一名契約人友軍排掉 8 點感載。花 1 點行動點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "軟體（伊甸園，有授權鎖）"
+      },
+      {
+        "text": "一份契約人名冊"
+      }
+    ],
+    "adult": [
+      "支配",
+      "恩與債"
+    ],
+    "desc": "樓面經理穿著一套剪裁合身的酒紅色套裝，手指上戴著一枚印章戒指，戒面是伊甸園的蘋果。她的手杖裡藏著一具費洛蒙噴霧器，噴出來的霧有成熟水果的味道。"
+  },
+  {
+    "id": "en_ed_white",
+    "name": "樂園的白衣",
+    "faction": "eden",
+    "rank": "boss",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1,
+        2
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1,
+      "armor": 1,
+      "sensitivity": 35
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "細刃",
+        "pierce": 2
+      },
+      {
+        "class": "neural_melee",
+        "name": "磁鎖手銬的電擊",
+        "range": [
+          1,
+          2
+        ],
+        "traits": [
+          "pull"
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "所有權",
+        "text": "她的制伏格鬥檢定 +4，並且只花 1 點行動點。被動。份量 3 格。"
+      },
+      {
+        "name": "項圈令",
+        "text": "一個目標被標記，所有契約人打他命中 +2，到他下次過載。花 1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "讓渡",
+        "text": "一名契約人友軍替她承受下一次攻擊（換位到她的格子，不花行動點）。反應，花 1 點行動點。份量 3 格（含反應多給的 1 格）。"
+      },
+      {
+        "name": "低血大招・收押",
+        "text": "她對我方第 1 格做一次近戰攻擊，命中 +2；命中的話目標失去下一回合。每場一次，花 3 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "機械神經元「絹」、鎖具（伊甸園，保證一件最高級）"
+      }
+    ],
+    "adult": [
+      "支配",
+      "標記"
+    ],
+    "desc": "白衣是一個穿著純白長禮服的女人，手上戴著過肘的白手套，腰間掛著一串磁鎖手銬與一把細刃。她身後跟著一個捧著契約書的契約人，她簽名用的筆是金色的。"
+  },
+  {
+    "id": "en_bs_trooper",
+    "name": "私兵・見習騎士",
+    "faction": "blackspring",
+    "rank": "minion",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "unbridged",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "armor": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "pierce": 2,
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [],
+    "loot": [
+      {
+        "text": "槍管（星旗）"
+      },
+      {
+        "text": "板材"
+      }
+    ],
+    "desc": "見習騎士穿著黑鐵色的動力裝甲，胸甲上刻著黑泉的泉水紋章，頭盔的面罩是一道細長的縫。她手上的步槍是星旗製的，槍托上綁著一串念珠。"
+  },
+  {
+    "id": "en_bs_chapel_guard",
+    "name": "禮拜衛隊",
+    "faction": "blackspring",
+    "rank": "minion",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "unbridged",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1,
+        2
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": 2,
+      "evade": -2
+    },
+    "weapons": [
+      {
+        "class": "shotgun",
+        "mag": 2,
+        "traits": [
+          "push"
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "懺悔",
+        "text": "被她命中的人，下一次誘惑檢定 −2。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "板材、纖維"
+      }
+    ],
+    "adult": [
+      "禁慾",
+      "痛"
+    ],
+    "desc": "禮拜衛隊穿著修女服樣式的長罩袍，罩袍底下是全套的動力裝甲，左手是一面刻著經文的塔盾。她右手的霰彈槍彈匣上畫著一個十字。"
+  },
+  {
+    "id": "en_bs_handler",
+    "name": "獵犬操作員",
+    "faction": "blackspring",
+    "rank": "elite",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "unbridged",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "pierce": 2,
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "放狗",
+        "text": "一隻獵犬撲向我方第 1 格的人，一次咬擊，命中時目標被壓制。花 1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "圍獵",
+        "text": "被獵犬命中過的目標被標記，她打他命中 +2，到戰鬥結束。被動。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "致動器、感測器"
+      }
+    ],
+    "desc": "操作員穿著一件沾滿泥巴的農場風衣，裡面是輕型的動力裝甲，耳朵上掛著一具老式的骨傳導耳機。她身邊跟著兩隻黑色的機械獵犬，背上漆著黑泉的紋章。"
+  },
+  {
+    "id": "en_bs_sister",
+    "name": "隨軍修女",
+    "faction": "blackspring",
+    "rank": "elite",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "unbridged",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.8,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "包紮",
+        "text": "一名友軍回復 10 點生命。花 1 點行動點。份量 2 格。II 級只有這一個。"
+      },
+      {
+        "name": "禱詞",
+        "text": "所有友軍這回合的士氣檢定 +2，並且一名友軍解除壓制。花 1 點行動點，III 級起有。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "纖維"
+      },
+      {
+        "text": "急救包"
+      }
+    ],
+    "adult": [
+      "禁慾",
+      "束縛"
+    ],
+    "desc": "修女穿著一件深黑色的長裙禮拜服，頭紗壓得很低，手上捧著一本包著鐵皮的經書。經書的書背裡藏著一把手槍，腰上的布包裝滿了繃帶與止血針。"
+  },
+  {
+    "id": "en_bs_knight_captain",
+    "name": "騎士長",
+    "faction": "blackspring",
+    "rank": "boss",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "unbridged",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "armor": 2,
+      "evade": -1,
+      "hp": 1.1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "電漿劍",
+        "type": "thermal"
+      },
+      {
+        "class": "pistol",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.2,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "不屈",
+        "text": "她的生命第一次降到一半以下時，回復 10 點生命。被動，每場一次。份量 2 格。"
+      },
+      {
+        "name": "橫掃",
+        "text": "一次近戰攻擊，傷害多一顆骰，並且這一擊對她面前那一格的遮蔽造成加倍的傷害。花 2 點行動點。份量 3 格。"
+      },
+      {
+        "name": "守誓",
+        "text": "相鄰的友軍被攻擊時，那一擊的命中 −2。反應，花 1 點行動點。份量 3 格（含反應多給的 1 格）。"
+      },
+      {
+        "name": "低血大招・審判",
+        "text": "她對我方第 1 格連斬兩次，每一刀命中時目標都燃燒並且流血。每場一次，花 3 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "刃（電漿劍的電源與刃）"
+      },
+      {
+        "text": "板材，保證一件最高級"
+      }
+    ],
+    "adult": [
+      "禁慾",
+      "痛"
+    ],
+    "desc": "騎士長穿著一套黑金色的重型動力裝甲，肩甲上披著一件紅色的斗篷，頭盔夾在左手臂下面，露出一張很年輕的嚴肅的臉。她右手的電漿劍有一人高，劍刃是一道發白的藍光。"
+  },
+  {
+    "id": "en_bs_steward",
+    "name": "莊園管事",
+    "faction": "blackspring",
+    "rank": "boss",
+    "grades": [
+      4,
+      4
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "armor": 2,
+      "hp": 0.9
+    },
+    "weapons": [
+      {
+        "class": "sniper",
+        "pierce": 3,
+        "mag": 2
+      },
+      {
+        "class": "pistol",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "defeat": "farm",
+    "signature": [
+      {
+        "name": "藏著的橋",
+        "text": "開場時他照沒有橋的人算，神經武器與神經類、控制類快駭對他無效。他被掃描一次、或挨一次神經攻擊之後，橋就露出來：從那一刻起他有感載（照表的首領值）與 4 層承受層數，神經打法對他有效，他的定力檢定 −2。被動。份量 3 格。"
+      },
+      {
+        "name": "帳本",
+        "text": "一名友軍這一回合的攻擊命中 +2，並且那名友軍不撤退，到戰鬥結束。花 1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "低血大招・封口",
+        "text": "他下令全場的私兵集火一個看過他後頸的人（掃描過他、或打出過那一次神經攻擊的人），每名私兵各攻擊那人一次，不花行動點。每場一次，花 3 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "機械神經元（IV 級，沒有登記，有殘響）"
+      },
+      {
+        "text": "槍管（星旗），保證一件最高級"
+      },
+      {
+        "text": "被俘虜或審問時，他的橋是以西結那條線揭發黑泉的材料"
+      }
+    ],
+    "adult": [
+      "禁慾",
+      "窺視"
+    ],
+    "desc": "管事穿著一套剪裁合身的深灰色西裝，外面套著黑泉的防水風衣，領口扣到最上面一顆。他後頸的頭髮留得比別人長，蓋住一道不該有的疤；黑泉的人都沒有橋，他私下裝了一座沒登記的。"
+  },
+  {
+    "id": "en_angel_medic",
+    "name": "急救隊員",
+    "faction": "angel",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1,
+        2
+      ]
+    },
+    "mods": {
+      "armor": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "smg",
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.6,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "搶人",
+        "text": "和相鄰的同伴或倒下的會員換位，不花行動點，每回合一次。花費 0 點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "醫療件（蜜腺，生體）或電源（織女），II～III 級"
+      },
+      {
+        "text": "急救包"
+      }
+    ],
+    "adult": [
+      "溺愛",
+      "窺視"
+    ],
+    "desc": "她穿著白色的強化護理服，肩上有翅膀的標誌，護目鏡推在護士帽上方。她一手拿衝鋒槍，背後揹著摺疊擔架。"
+  },
+  {
+    "id": "en_angel_sergeant",
+    "name": "黃金班長",
+    "faction": "angel",
+    "rank": "elite",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "attack": 1
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "pierce": 2,
+        "mag": 3
+      },
+      {
+        "class": "neural_gun",
+        "name": "鎮靜針槍",
+        "mag": 2,
+        "range": [
+          2,
+          5
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.8,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "檢傷分類",
+        "text": "指定一名擋路的人，給他標記，全隊打他時命中 +2，持續到他離開第 1 格或倒下。花 1 點。份量 2 格。"
+      },
+      {
+        "name": "強心針",
+        "text": "一名同伴回 10 點生命。花 1 點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "醫療件（蜜腺）、電源（織女），III～IV 級"
+      },
+      {
+        "text": "黃金班長身上有一張天使急救的出勤憑證"
+      }
+    ],
+    "adult": [
+      "恩與債",
+      "溺愛"
+    ],
+    "desc": "她的護理服上別著金色的翅膀章，外面套著一件有十字標記的防彈背心。她拿一把短步槍，腰側掛著一支鎮靜針槍。"
+  },
+  {
+    "id": "en_angel_platinum",
+    "name": "白金隊長",
+    "faction": "angel",
+    "rank": "boss",
+    "grades": [
+      4,
+      4
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        2,
+        3
+      ]
+    },
+    "mods": {
+      "armor": 1,
+      "load": 1.1
+    },
+    "weapons": [
+      {
+        "class": "smg",
+        "mag": 3
+      },
+      {
+        "class": "neural_melee",
+        "name": "除顫器",
+        "range": [
+          1,
+          2
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.8,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "回收",
+        "text": "和相鄰的同伴或倒下的會員換位，不花行動點，並且到她下一回合前迴避 +2。花費 0 點，每回合一次。份量 3 格。"
+      },
+      {
+        "name": "除顫",
+        "text": "用除顫器做一次攻擊，命中時目標暈眩。花 2 點。份量 3 格。"
+      },
+      {
+        "name": "清場",
+        "text": "連射，傷害多一顆骰。花 3 點，彈匣至少要剩 2 格。份量 2 格。"
+      },
+      {
+        "name": "低血大招",
+        "text": "白金條款。她的生命降到一半以下時用，每場一次：救護浮空車降在我方後方，第 3、4 格的遮蔽各升一級（暴露升半掩體、半掩體升掩體），全隊每人回 5 點生命。花 2 點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "晶片（夜鶯）、醫療件（蜜腺），IV 級，保證一件 IV 級"
+      },
+      {
+        "text": "白金會員的回收鑰匙（任務物品）"
+      }
+    ],
+    "adult": [
+      "支配",
+      "恩與債"
+    ],
+    "desc": "她的護理服是白金色的，外層是一整套貼身的輕型裝甲，翅膀標誌做成金屬的肩甲。她右手拿衝鋒槍，左手腕上接著一對除顫電極。"
+  },
+  {
+    "id": "en_orihime_patrol",
+    "name": "巡邏無人機",
+    "faction": "orihime",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "machine",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        2,
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.7
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.5,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [],
+    "loot": [
+      {
+        "text": "感測器、電源（織女），I～II 級，沒有殘響"
+      }
+    ],
+    "desc": "它是一台白色的球形無人機，外殼上印著織女的型號與序號。正面的鏡頭轉動時會發出細小的馬達聲。"
+  },
+  {
+    "id": "en_orihime_spider",
+    "name": "蜘蛛砲台",
+    "faction": "orihime",
+    "rank": "elite",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "machine",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        4
+      ],
+      "cover_use": 0
+    },
+    "mods": {
+      "hp": 0.9,
+      "armor": 2,
+      "evade": -2
+    },
+    "weapons": [
+      {
+        "class": "smg",
+        "name": "自動槍",
+        "mag": 3,
+        "range": [
+          2,
+          5
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.7,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "哨戒程式",
+        "text": "每回合第一次待命不花行動點，而且待命觸發的那一次射擊命中 +1。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "感測器、電源（織女），II～III 級，沒有殘響"
+      }
+    ],
+    "desc": "它是一座六條腿的蹲伏式砲台，背上架著一挺自動槍，腿收起來時和展示台的底座一樣高。它的外殼漆成和展示間一樣的珍珠白。"
+  },
+  {
+    "id": "en_orihime_premier",
+    "name": "展示間的首席",
+    "faction": "orihime",
+    "rank": "boss",
+    "grades": [
+      3,
+      3
+    ],
+    "kind": "machine",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "attack": 1,
+      "armor": 1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "雙刃臂",
+        "pierce": 2
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "同步",
+        "text": "被動。她在場時，場上其他織女的機器命中 +1；她倒下時，它們這場戰鬥命中 −1。份量 3 格。"
+      },
+      {
+        "name": "雙刃",
+        "text": "近戰攻擊，傷害多一顆骰，穿甲再 +1。花 2 點。份量 3 格。"
+      },
+      {
+        "name": "鎖喉",
+        "text": "近戰攻擊，命中時目標暈眩。花 2 點。份量 3 格。"
+      },
+      {
+        "name": "低血大招",
+        "text": "全機連線。她的生命降到一半以下時用，每場一次：場上每一台織女的機器立刻做一次武器攻擊，不花它們的行動點。花 1 點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。被控制類快駭命中時同樣只維持 1 回合。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "晶片、致動器（織女），III 級，保證一件 III 級，沒有殘響"
+      }
+    ],
+    "adult": [
+      "人偶",
+      "機娘"
+    ],
+    "desc": "她是展示間正中央那一具最新型號的機娘，穿著白色的高衩禮服，頭髮是一束一束的光纖。她的兩條前臂從關節處翻開，各彈出一片刀刃。"
+  },
+  {
+    "id": "en_netvigil_trooper",
+    "name": "戒律隊員",
+    "faction": "netvigil",
+    "rank": "minion",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "armor": 1,
+      "sensitivity": 35
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "pierce": 2,
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "netrunner",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "未經許可",
+        "text": "他的連射自帶的壓制，檢定的 DC +2。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "晶片（夜鶯）、鎖用的軟體，III～IV 級"
+      }
+    ],
+    "adult": [
+      "禁慾",
+      "束縛"
+    ],
+    "desc": "他穿著深灰色的立領制服，領口扣到最上面一顆，袖口繡著一把鎖。他拿一把制式步槍，臉上戴著遮住下半張臉的黑色面罩。"
+  },
+  {
+    "id": "en_netvigil_censor",
+    "name": "審查官",
+    "faction": "netvigil",
+    "rank": "boss",
+    "grades": [
+      4,
+      5
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "sensitivity": 30
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "感官手槍",
+        "mag": 2,
+        "range": [
+          2,
+          5
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.2,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "審查",
+        "text": "支援類快駭，給一名目標標記，全隊打他時命中 +2，持續到他下次過載。花 0 點，每回合一次。份量 3 格。"
+      },
+      {
+        "name": "未經許可不得",
+        "text": "對一名剛快駭過、或正在潛入的人，讓他被干擾（一件義體或甲板失效一回合）。花 1 點。份量 2 格。"
+      },
+      {
+        "name": "燒橋令",
+        "text": "對一名正在失去回合的人宣告判決，他的餘韻加一層。花 2 點。份量 3 格。"
+      },
+      {
+        "name": "低血大招",
+        "text": "全局封網。她的生命降到一半以下時用，每場一次：對方整排被干擾一回合。花 2 點。份量 5 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "晶片（夜鶯，局裡的），IV～V 級，保證一件最高級"
+      },
+      {
+        "text": "鎖用的軟體"
+      },
+      {
+        "text": "審查官的判決紀錄（任務物品）"
+      }
+    ],
+    "adult": [
+      "禁慾",
+      "支配"
+    ],
+    "desc": "她穿著及膝的黑色制服大衣，戴著細框眼鏡，手上拿著一台記錄判決用的平板。她的另一隻手握著一把感官手槍，頸後的橋埠上掛著三道局裡發的鎖。"
+  },
+  {
+    "id": "en_sweetheart_clerk",
+    "name": "桃子屋店員",
+    "faction": "sweetheart",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "hp": 0.95,
+      "armor": -1,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "電擊器",
+        "range": [
+          1,
+          2
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.6,
+      "flee_below": 0.3
+    },
+    "signature": [],
+    "loot": [
+      {
+        "text": "糰糧、外皮（桃子屋制服），I～II 級"
+      }
+    ],
+    "adult": [
+      "溺愛",
+      "口與吞嚥"
+    ],
+    "desc": "她穿著粉紅色的桃子屋制服與荷葉邊圍裙，胸前的名牌旁邊別著一顆桃子徽章。她手上拿著一把粉紅色的電擊器，臉上的笑容一直沒有變。"
+  },
+  {
+    "id": "en_sweetheart_warehouse",
+    "name": "倉儲保全",
+    "faction": "sweetheart",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "armor": 1,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "感官彈槍",
+        "mag": 2,
+        "range": [
+          2,
+          5
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 0.8,
+      "flee_below": 0.3
+    },
+    "signature": [],
+    "loot": [
+      {
+        "text": "電源（低級）、糰糧，I～II 級"
+      }
+    ],
+    "adult": [
+      "口與吞嚥"
+    ],
+    "desc": "他穿著粉紅色的工作背心與安全帽，帽子側面貼著桃子吉祥物的貼紙。他拿著一把槍管很粗的感官彈槍，背後是一排疊到天花板的糰糧箱。"
+  },
+  {
+    "id": "en_sweetheart_lossprev",
+    "name": "損失防治專員",
+    "faction": "sweetheart",
+    "rank": "elite",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "糖霧發射器",
+        "mag": 1,
+        "range": [
+          3,
+          5
+        ]
+      },
+      {
+        "class": "pistol",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "我們很遺憾",
+        "text": "他念出一條條款，給一名目標標記，全隊打他時命中 +2，持續到他下次過載。花 1 點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "晶片（低級）、糰糧，I～II 級"
+      },
+      {
+        "text": "甜心食品的員工憑證"
+      }
+    ],
+    "adult": [
+      "恩與債"
+    ],
+    "desc": "他穿著淺粉色的西裝與白色領帶，手上拿著一本寫滿條款的平板，說話時一直點頭。他的肩上扛著一具噴出粉紅色糖霧的發射器。"
+  },
+  {
+    "id": "en_sweetheart_chef",
+    "name": "中央廚房的料理長",
+    "faction": "sweetheart",
+    "rank": "boss",
+    "grades": [
+      2,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.2,
+      "evade": -1,
+      "load": 1.15,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "電擊湯杓",
+        "range": [
+          1,
+          2
+        ],
+        "traits": [
+          "pull"
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "乖，張嘴",
+        "text": "電擊湯杓的攻擊命中時，另灌 8 點感載。花 2 點。份量 2 格。"
+      },
+      {
+        "name": "繫上圍兜",
+        "text": "近身的一名目標被壓制，到他下一回合結束前不能換位、攻擊 −2。花 1 點。份量 2 格。"
+      },
+      {
+        "name": "試吃",
+        "text": "排掉自己 8 點感載。花 1 點。份量 2 格。"
+      },
+      {
+        "name": "低血大招",
+        "text": "營業到最後一刻。她的生命降到一半以下時用，每場一次：她打開整條輸送管，對方整排每人感載 +10。花 2 點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "外皮（料理長的圍裙）、電源，II 級，保證一件 II 級"
+      },
+      {
+        "text": "一箱沒有添加物的真糰糧（任務物品，值錢）"
+      }
+    ],
+    "adult": [
+      "溺愛",
+      "口與吞嚥"
+    ],
+    "desc": "她是一個高大豐滿的女人，穿著粉紅色的廚師服與一件繡著桃子的巨大圍裙。她一手拿著接了電擊線的長柄湯杓，另一隻手的指尖沾著糖霜。"
+  },
+  {
+    "id": "en_police_patrol",
+    "name": "巡警",
+    "faction": "police",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 0.8,
+      "flee_below": 0.3
+    },
+    "signature": [],
+    "loot": [
+      {
+        "text": "槍管、機構（星旗的警用型），I～II 級"
+      },
+      {
+        "text": "少量的現金晶片"
+      }
+    ],
+    "adult": [
+      "支配",
+      "束縛"
+    ],
+    "desc": "他穿著深藍色的市警制服與反光背心，腰帶上掛著手銬與一捆束帶。他拿一把制式手槍，肩上的對講機一直在響。"
+  },
+  {
+    "id": "en_police_k9",
+    "name": "警犬",
+    "faction": "police",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "machine",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 0.8,
+      "evade": 1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "鋼顎"
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.5,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "嗅跡",
+        "text": "被動，先攻 +3。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "致動器、感測器（織女），II～III 級，沒有殘響"
+      }
+    ],
+    "desc": "它是一隻織女製的機械警犬，背上漆著市警的徽章，脖子上掛著吉祥物造型的名牌。它的嘴裡裝著一副會鎖死的鋼顎。"
+  },
+  {
+    "id": "en_police_marksman",
+    "name": "特勤射手",
+    "faction": "police",
+    "rank": "elite",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "evade": 1,
+      "armor": -1
+    },
+    "weapons": [
+      {
+        "class": "sniper",
+        "pierce": 4,
+        "mag": 1
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.2,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "點名",
+        "text": "瞄準不花行動點，而且這一次射擊命中再 +1。每回合一次。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "槍管、機構（星旗），II～III 級"
+      },
+      {
+        "text": "市警的特勤憑證"
+      }
+    ],
+    "adult": [
+      "支配"
+    ],
+    "desc": "她穿著黑色的特勤戰術服，頭盔的護目鏡上跳著測距的數字。她趴在掩體後面，架著一把長管的狙擊槍。"
+  },
+  {
+    "id": "en_police_inspector",
+    "name": "分局督察",
+    "faction": "police",
+    "rank": "boss",
+    "grades": [
+      3,
+      3
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "attack": 1
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "pierce": 1,
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "全員注意",
+        "text": "他對著擴音器下令，我方全隊命中 +1，到他下一回合開始。花 1 點。份量 3 格。"
+      },
+      {
+        "name": "放下武器",
+        "text": "一名目標被壓制，到他下一回合結束前不能換位、攻擊 −2。花 1 點。份量 2 格。"
+      },
+      {
+        "name": "依法逮捕",
+        "text": "這一回合我方下一次制伏的檢定 +4。花 1 點。份量 2 格。"
+      },
+      {
+        "name": "低血大招",
+        "text": "封鎖現場。他的生命降到一半以下時用，每場一次：增援的探照燈與路障封住現場，對方整排被壓制。花 2 點。份量 5 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "槍管（星旗的大口徑），III 級，保證一件 III 級"
+      },
+      {
+        "text": "市警的憑證"
+      },
+      {
+        "text": "案件的檔案（任務物品，可以賣給掮客）"
+      }
+    ],
+    "adult": [
+      "支配",
+      "恩與債"
+    ],
+    "desc": "他穿著一件舊風衣，裡面是皺掉的襯衫與鬆開的領帶，胸前別著督察的徽章。他一手拿著擴音器，另一手拿著一把大口徑手槍。"
+  },
+  {
+    "id": "en_suppress_vanguard",
+    "name": "隔離前衛",
+    "faction": "suppress",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "armor": 2,
+      "evade": -1,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "shotgun",
+        "name": "隔離泡沫槍",
+        "mag": 2,
+        "range": [
+          1,
+          3
+        ],
+        "traits": [
+          "push"
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 0.8,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "冷卻迴路",
+        "text": "被動，每回合開始時排掉自己 4 點感載。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "外皮、電源（變身手環的零件），II～III 級"
+      },
+      {
+        "text": "蜜腺的抑制劑"
+      }
+    ],
+    "adult": [
+      "束縛",
+      "禁慾"
+    ],
+    "desc": "她手腕上的手環展開成一套薄荷綠的變身裝甲，裙甲與肩甲上都有星形的紋章。她雙手抱著一把槍口很寬的隔離泡沫槍，代號印在胸甲上。"
+  },
+  {
+    "id": "en_suppress_marksman",
+    "name": "抑制射手",
+    "faction": "suppress",
+    "rank": "minion",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "evade": 1,
+      "armor": -1,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "name": "抑制劑步槍",
+        "pierce": 2,
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "鎖定溺感",
+        "text": "被動，她對沉溺 60 以上的目標命中 +1。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "槍管、機構，II～IV 級"
+      },
+      {
+        "text": "蜜腺的抑制劑"
+      }
+    ],
+    "adult": [
+      "藥"
+    ],
+    "desc": "她的變身裝甲是天藍色的，背後展開一對發光的翼片，裙擺短而硬。她架著一把槍身繞著緞帶裝飾的步槍，槍托上刻著她和搭檔的兩個代號。"
+  },
+  {
+    "id": "en_suppress_leader",
+    "name": "隔離班長",
+    "faction": "suppress",
+    "rank": "elite",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "armor": 1,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "smg",
+        "mag": 3
+      },
+      {
+        "class": "pistol",
+        "name": "抑制劑飛鏢槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "抑制劑飛鏢",
+        "text": "用飛鏢槍射擊，命中時目標被干擾（一件義體失效一回合），並且消掉一層餘韻。花 2 點。份量 3 格。"
+      },
+      {
+        "name": "搭檔連攜",
+        "text": "相鄰的一名同伴命中 +2，到她下一回合開始。花 1 點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "外皮、電源（變身手環），III～IV 級"
+      },
+      {
+        "text": "蜜腺的抑制劑"
+      },
+      {
+        "text": "鎮溺隊的出勤憑證"
+      }
+    ],
+    "adult": [
+      "束縛",
+      "支配"
+    ],
+    "desc": "她的變身裝甲是深紫色的，胸針展開成一面小圓盾掛在左臂上，頭髮綁成兩束長長的雙馬尾。她右手拿著一把衝鋒槍，大腿的槍套裡插著一支抑制劑飛鏢槍。"
+  },
+  {
+    "id": "en_suppress_ace",
+    "name": "首席淨化官",
+    "faction": "suppress",
+    "rank": "boss",
+    "grades": [
+      4,
+      4
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "load": 1.2,
+      "sensitivity": 60
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "淨化杖的光刃",
+        "type": "thermal"
+      },
+      {
+        "class": "neural_gun",
+        "name": "淨化光",
+        "mag": 3,
+        "range": [
+          2,
+          5
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "變身",
+        "text": "換姿態。開著時她迴避 +2，並且每回合開始時排掉自己 4 點感載。花 1 點。份量 3 格。"
+      },
+      {
+        "name": "淨化",
+        "text": "用淨化光攻擊，傷害多一顆骰；目標的沉溺在 60 以上時再多半顆骰。花 2 點。份量 3 格。"
+      },
+      {
+        "name": "交給妳了",
+        "text": "相鄰的一名同伴立刻做一次攻擊，不花那名同伴的行動點。花 1 點。份量 3 格。"
+      },
+      {
+        "name": "低血大招",
+        "text": "最後的變身。她的生命降到一半以下時用，每場一次：她排掉自己全部的感載、消掉一層餘韻，接下來三回合她的傷害骰多一顆。花 2 點。份量 6 格。用過這一招之後，她只要再過載一次，沉溺就會越過 100，當場變成溺感者（ENEMIES 12.1 節），不再屬於任何一方。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "外皮、電源（首席的變身手環），IV 級，保證一件 IV 級"
+      },
+      {
+        "text": "蜜腺的抑制劑"
+      }
+    ],
+    "adult": [
+      "御姐",
+      "藥"
+    ],
+    "desc": "她的變身裝甲是白色與金色的，背後拖著一條光帶，代號是隊上最久的那一個。她拿著一根和她一樣高的淨化杖，杖頭的水晶會射出光束，也會凝成一片光刃。"
+  },
+  {
+    "id": "en_honey_bouncer",
+    "name": "糖衣保鑣",
+    "faction": "honey",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.2,
+      "evade": -1,
+      "load": 1.3
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "電擊鞭",
+        "traits": [
+          "pull"
+        ]
+      },
+      {
+        "class": "pistol",
+        "name": "掌心手槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "I 級沒有。II 級起有「擋門」",
+        "text": "她站在第 1 格時，我方第 2 格的人迴避 +1。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      }
+    ],
+    "adult": [
+      "御姐",
+      "豐滿"
+    ],
+    "desc": "她穿著黑色的兔女郎裝，外面套一件寬肩的西裝外套，左臂別著蜜糖會的粉紅臂章。她把高跟鞋換成平底短靴，腰上捲著一條粉紅色的電擊鞭。"
+  },
+  {
+    "id": "en_honey_bunny",
+    "name": "亮片兔女郎",
+    "faction": "honey",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        2,
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1,
+      "load": 1.3
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "感官彈手槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "I 級沒有。II 級起有「亮片」",
+        "text": "開戰的第一回合，被她射擊命中的人到他下一回合結束前命中 −1。附在射擊上，2 點行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      }
+    ],
+    "adult": [
+      "暴露",
+      "窺視"
+    ],
+    "desc": "她穿著縫滿亮片的兔女郎裝和網襪，頭上戴著兔耳髮箍。她手上的感官彈手槍貼滿了水鑽，開槍的時候會反光。"
+  },
+  {
+    "id": "en_honey_dancer",
+    "name": "舞廳的姐妹",
+    "faction": "honey",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "evade": 1,
+      "armor": -1,
+      "load": 1.3
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "費洛蒙霧",
+        "range": [
+          1,
+          2
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 0.8,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "「轉身」",
+        "text": "她每回合第一次換位不花行動點。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      }
+    ],
+    "adult": [
+      "藥",
+      "群與融合"
+    ],
+    "desc": "她穿著開衩到腰的亮片禮服和透明的高跟鞋，兩隻手腕上各戴著一個噴霧手環。她走過的地方會留下很濃的甜香。"
+  },
+  {
+    "id": "en_honey_firebrand",
+    "name": "少壯派的燒夷手",
+    "faction": "honey",
+    "rank": "elite",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "attack": 1,
+      "load": 1.3,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "smg",
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.2,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "「燒掉它」",
+        "text": "她丟出一個香水瓶，打敵方相鄰的兩格，傷害照衝鋒槍的骰，類型改成熱能（命中後燃燒）。2 點行動點，每場兩次。份量 2 格。"
+      },
+      {
+        "name": "III 級起加上「伊甸園的人」",
+        "text": "她攻擊伊甸園的敵人，或穿著伊甸園制服的人時，傷害多一顆骰。被動。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "另有電源 II 的機會（燃燒瓶的點火器）"
+      }
+    ],
+    "adult": [
+      "痛",
+      "支配"
+    ],
+    "desc": "她把亮片細肩帶上衣塞進黑色皮短褲，外面是一件短版皮夾克，頭髮剃短並染成橘色。她的腰帶上掛著一排裝了燃料的香水瓶，手上拿著一把短管衝鋒槍。"
+  },
+  {
+    "id": "en_honey_medic",
+    "name": "互助診所的改造師",
+    "faction": "honey",
+    "rank": "elite",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        3,
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.8,
+      "evade": 1,
+      "load": 1.3
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "鎮靜槍",
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 0.8,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "「冷卻」",
+        "text": "她替一名姐妹排掉 8 點感載，或消掉一層餘韻。2 點行動點。份量 2 格。"
+      },
+      {
+        "name": "III 級起加上「止血」",
+        "text": "她替一名姐妹回復 10 點生命。2 點行動點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "另有冷卻劑一劑的機會"
+      }
+    ],
+    "adult": [
+      "溺愛",
+      "藥"
+    ],
+    "desc": "她在緞面的晚禮服外面套著一件白大褂，脖子上掛著粉紅色的聽診器。她手上的鎮靜槍是用感官彈槍改的，槍身纏著蜜糖會的粉紅緞帶。"
+  },
+  {
+    "id": "en_honey_head",
+    "name": "糖罐的保鑣長",
+    "faction": "honey",
+    "rank": "boss",
+    "grades": [
+      3,
+      3
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": 1,
+      "evade": -1,
+      "load": 1.3
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "電擊鞭",
+        "traits": [
+          "pull"
+        ]
+      },
+      {
+        "class": "shotgun",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.2,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "「糖罐的門」",
+        "text": "她站在第 1 格時，我方第 2、3 格的人迴避 +1。被動。份量 2 格。"
+      },
+      {
+        "name": "「誰動我妹妹」",
+        "text": "反應。有姐妹倒下時，她立刻對打倒姐妹的人攻擊一次，這一擊命中 +2，行動點照那個攻擊另扣。份量 3 格。"
+      },
+      {
+        "name": "「收鞭」",
+        "text": "她用電擊鞭攻擊，命中時目標被拉近一格，並且被壓制。2 點行動點。份量 2 格。"
+      },
+      {
+        "name": "低血大招「關店」",
+        "text": "每場一次，0 點行動點。我方每一名蜜糖會的人排掉 8 點感載、消一層餘韻，她自己這一回合行動點 +2。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設；保證一件外皮（歡場）III"
+      }
+    ],
+    "adult": [
+      "御姐",
+      "溺愛"
+    ],
+    "desc": "她穿著香檳色的亮片禮服，裙襬剪到膝蓋上方，外面套著一件防彈的皮背心，左臂別著粉紅臂章。她右手握著一條粗的電擊鞭，背後揹著一把短管霰彈槍。"
+  },
+  {
+    "id": "en_rouge_thug",
+    "name": "堂口打仔",
+    "faction": "rouge",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "柳葉刀"
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "「接刀」",
+        "text": "她被近戰攻擊時迴避 +1。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      }
+    ],
+    "adult": [
+      "恩與債",
+      "標記"
+    ],
+    "desc": "她穿著黑色的立領短衫，兩條手臂刺滿花牌的圖案。她手上拿著一把柳葉刀，刀柄纏著紅繩。"
+  },
+  {
+    "id": "en_rouge_collector",
+    "name": "收數的",
+    "faction": "rouge",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "mag": 2
+      },
+      {
+        "class": "melee",
+        "name": "短刀"
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "defeat": "debt_work",
+    "signature": [
+      {
+        "name": "「記帳」",
+        "text": "被她射擊命中過的人，這場戰鬥對她的攻擊命中 −1。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "另有現金晶片（當天收到的數）"
+      }
+    ],
+    "adult": [
+      "恩與債",
+      "束縛"
+    ],
+    "desc": "她穿著捲起袖子的白襯衫和西裝背心，腋下的皮套裡插著一把手槍，後腰別著一把短刀。她的上衣口袋露出一本翻爛了的欠條簿。"
+  },
+  {
+    "id": "en_rouge_knifethrower",
+    "name": "飛刀姐",
+    "faction": "rouge",
+    "rank": "minion",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "attack": 1
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "name": "飛刀",
+        "pierce": 1,
+        "mag": 2,
+        "range": [
+          1,
+          4
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "「盯上」",
+        "text": "她對上一回合射擊過的同一個目標再射擊時，命中 +1。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "刃的機會比較高"
+      }
+    ],
+    "adult": [
+      "痛",
+      "戀物"
+    ],
+    "desc": "她穿著開衩到大腿的墨色旗袍，大腿上綁著一圈飛刀的皮套。她的髮髻上插著兩支刀簪，那也是兩把刀。"
+  },
+  {
+    "id": "en_rouge_dealer",
+    "name": "賭檔的荷官",
+    "faction": "rouge",
+    "rank": "elite",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "name": "袖槍",
+        "mag": 2
+      },
+      {
+        "class": "melee",
+        "name": "蝴蝶刀",
+        "pierce": 1
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "「出千」",
+        "text": "反應。一名敵人的攻擊擲完、結果宣布之前，她讓那一擊命中 −3。每回合一次，1 點行動點。份量 3 格。"
+      },
+      {
+        "name": "「換牌」",
+        "text": "她和相鄰的一名同伴交換位置，不花行動點；被換到第 1 格的人這一回合迴避 +1。每回合一次。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "另有花牌（道具，賭場委託用）"
+      }
+    ],
+    "adult": [
+      "恩與債",
+      "支配"
+    ],
+    "desc": "她穿著黑色的馬甲和白手套，左手腕上刺著一張麻將的「發」。她的袖口藏著一副花牌、一把蝴蝶刀和一支袖槍。"
+  },
+  {
+    "id": "en_rouge_teahouse",
+    "name": "茶樓的姐姐",
+    "faction": "rouge",
+    "rank": "elite",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        3,
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.8,
+      "evade": 1,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "煙管麻醉針",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 0.8,
+      "flee_below": 0.2
+    },
+    "defeat": "debt_work",
+    "signature": [
+      {
+        "name": "「先倒茶」",
+        "text": "開戰的第一回合她不攻擊。這一回合，攻擊她的人命中 −2；如果整個第一回合都沒有人攻擊她，她從第二回合起命中 +1。被動。份量 2 格。"
+      },
+      {
+        "name": "「談債」",
+        "text": "她對一名正在失去回合的敵人說話，讓他多疊一層餘韻。2 點行動點。份量 3 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "另有現金晶片"
+      }
+    ],
+    "adult": [
+      "恩與債",
+      "御姐"
+    ],
+    "desc": "她穿著暗紅色的長旗袍，耳朵上掛著翡翠的耳墜，手裡拿著一支長煙管。煙管的嘴是空心的，裡面裝著麻醉針。"
+  },
+  {
+    "id": "en_rouge_redpole",
+    "name": "堂口的紅棍",
+    "faction": "rouge",
+    "rank": "boss",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "attack": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "長刀",
+        "pierce": 2
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.3,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "defeat": "ransom",
+    "signature": [
+      {
+        "name": "「斬」",
+        "text": "近戰攻擊，傷害多一顆骰，並無視 2 點護甲。2 點行動點。份量 3 格。"
+      },
+      {
+        "name": "「家法」",
+        "text": "開戰時她宣告堂口的規矩。這場戰鬥裡，先開槍的那一方每個人被胭脂堂攻擊時迴避 −1。被動。份量 3 格。"
+      },
+      {
+        "name": "「護堂」",
+        "text": "反應。相鄰的同伴被近戰攻擊時，她對攻擊的人反擊一次。1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "低血大招「刀山」",
+        "text": "每場一次，2 點行動點。她連續近戰攻擊三次；第 1 格的人倒下時，剩下的攻擊打遞補上來的人。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設；保證一件師傅的刃（傳家）IV"
+      }
+    ],
+    "adult": [
+      "支配",
+      "標記"
+    ],
+    "desc": "她穿著敞著領口的黑色長衫，背上刺著過肩龍與牡丹，袖子捲到手肘。她手上的長刀是堂口師傅打的，刀鞘上了朱紅色的漆。"
+  },
+  {
+    "id": "en_chrome_rider",
+    "name": "騎手",
+    "faction": "chrome",
+    "rank": "minion",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1,
+        2
+      ]
+    },
+    "mods": {
+      "armor": 1,
+      "evade": -1,
+      "sensitivity": 60
+    },
+    "weapons": [
+      {
+        "class": "shotgun",
+        "name": "鉻娘子改霰彈槍",
+        "mag": 2,
+        "traits": [
+          "push"
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "「轟油門」",
+        "text": "先攻 +3。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      }
+    ],
+    "adult": [
+      "半機娘",
+      "野外"
+    ],
+    "desc": "她穿著鉚釘皮衣，手肘與膝蓋換成了外露的鍍鉻球關節，走路的時候有氣壓的嘶聲。她手上拿著一把槍管鋸短的霰彈槍，槍身焊著鉻娘子的徽記。"
+  },
+  {
+    "id": "en_chrome_brawler",
+    "name": "熔爐的黑拳手",
+    "faction": "chrome",
+    "rank": "minion",
+    "grades": [
+      3,
+      5
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.2,
+      "attack": 1,
+      "evade": -1,
+      "sensitivity": 65
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "液壓拳"
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.2,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "「再來一層」",
+        "text": "她帶著餘韻時，近戰傷害多半顆骰。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      }
+    ],
+    "adult": [
+      "痛",
+      "半機娘"
+    ],
+    "desc": "她只穿運動內衣和皮短褲，兩條手臂從肩膀以下換成液壓缸驅動的鉻臂。她的拳頭上焊著一排鋼釘。"
+  },
+  {
+    "id": "en_chrome_pourer",
+    "name": "熔爐的灌注手",
+    "faction": "chrome",
+    "rank": "minion",
+    "grades": [
+      4,
+      5
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "load": 1.1,
+      "sensitivity": 70
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "鋼瓶感官彈槍",
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "「分一口」",
+        "text": "她射擊命中時，我方相鄰的一名同伴感載 +6。被動。份量 1 格。這一口會餵給同伴的熱驅動。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "另有感官藥劑一劑（道具）"
+      }
+    ],
+    "adult": [
+      "藥",
+      "群與融合"
+    ],
+    "desc": "她的下顎換成了金屬，背上揹著兩個裝感官藥劑的鋼瓶。鋼瓶的管線一路接到她手上的感官彈槍。"
+  },
+  {
+    "id": "en_chrome_welder",
+    "name": "熔接手",
+    "faction": "chrome",
+    "rank": "elite",
+    "grades": [
+      4,
+      5
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.2,
+      "armor": 2,
+      "evade": -2,
+      "sensitivity": 60
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "電鋸臂",
+        "pierce": 2
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.2,
+      "flee_below": 0.1
+    },
+    "signature": [
+      {
+        "name": "「紅熱刃」",
+        "text": "近戰攻擊，類型改成熱能，傷害多一顆骰。2 點行動點。份量 3 格。"
+      },
+      {
+        "name": "「點火」",
+        "text": "她把自己的感載 +10，這一回合近戰命中 +1。1 點行動點。份量 2 格。熱驅動因此多算一級。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "板材的機會比較高"
+      }
+    ],
+    "adult": [
+      "半機娘",
+      "痛"
+    ],
+    "desc": "她的整條脊椎露在背上，鉻製的椎節從腰一路排到後腦。她的右臂是一支電鋸臂，左手拿著一把焊槍。"
+  },
+  {
+    "id": "en_chrome_roadhunter",
+    "name": "公路的獵手",
+    "faction": "chrome",
+    "rank": "elite",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "attack": 1,
+      "sensitivity": 55
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "pierce": 2,
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "「橫車」",
+        "text": "每場一次，她把重機橫在自己那一格，那一格的遮蔽升一級；載具的耐久比一般的掩體高（[COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 9.2 節）。1 點行動點。份量 3 格。"
+      },
+      {
+        "name": "「追獵」",
+        "text": "她每回合第一次瞄準不花行動點。被動。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "另有載具零件的機會"
+      }
+    ],
+    "adult": [
+      "半機娘",
+      "野外"
+    ],
+    "desc": "她的兩條腿換成了三段式的鍍鉻義腿，腳踝是外露的球關節。她背著一把長管步槍，她的重機就橫停在她身邊。"
+  },
+  {
+    "id": "en_chrome_officer",
+    "name": "熔爐的幹部",
+    "faction": "chrome",
+    "rank": "boss",
+    "grades": [
+      4,
+      5
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1,
+        2
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": 1,
+      "evade": -1,
+      "sensitivity": 65
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "重型義臂",
+        "pierce": 2
+      },
+      {
+        "class": "shotgun",
+        "name": "手砲",
+        "mag": 2,
+        "traits": [
+          "push"
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.8,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "「分享」",
+        "text": "近戰攻擊，命中時把她自己的一層餘韻移到目標身上，她少一層，目標多一層。2 點行動點。份量 3 格。"
+      },
+      {
+        "name": "「熔爐的熱」",
+        "text": "她在場時，全場的人（敵我都算）每回合開始時感載 +3。被動。份量 3 格。V 級時這是她改變戰場規則的那一條：全場的人都被慢慢灌熱，而鉻娘子吃的是這個。"
+      },
+      {
+        "name": "低血大招「熔毀」",
+        "text": "每場一次，3 點行動點。她對第 1 格近戰攻擊兩次，兩次都改成熱能、傷害各多一顆骰；打完之後她自己疊一層餘韻。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設；保證一件機械神經元（鉻娘子改）IV 或 V"
+      }
+    ],
+    "adult": [
+      "半機娘",
+      "群與融合"
+    ],
+    "desc": "她的整個軀幹換成了透明的樹脂外殼，看得見裡面的液壓管和發光的冷卻液。她的右臂是一支重型義臂，左手拿著一把手砲。"
+  },
+  {
+    "id": "en_tokko_member",
+    "name": "特攻隊員",
+    "faction": "tokko",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "木刀"
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "「喧嘩」",
+        "text": "開戰的第一回合先攻 +3。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      }
+    ],
+    "adult": [
+      "御姐",
+      "痛"
+    ],
+    "desc": "她穿著長到腳踝的白色特攻服，背上繡著四個字的口號，裡面只纏著胸布。她的口罩拉到下巴，手上握著一把赤樫木刀。"
+  },
+  {
+    "id": "en_tokko_kohai",
+    "name": "後輩",
+    "faction": "tokko",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "name": "氣動釘槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 0.8,
+      "flee_below": 0.4
+    },
+    "signature": [
+      {
+        "name": "「學姐在看」",
+        "text": "場上有特攻姬的精英或首領時，她命中 +1。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      }
+    ],
+    "adult": [
+      "妹系",
+      "服從"
+    ],
+    "desc": "她穿著短版的特攻服，一頭漂成金色的長捲髮，嘴裡一直嚼著口香糖。她手上拿著一把改造過的氣動釘槍。"
+  },
+  {
+    "id": "en_tokko_biker",
+    "name": "機車隊員",
+    "faction": "tokko",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "weapons": [
+      {
+        "class": "smg",
+        "name": "鋼珠槍",
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "「停車」",
+        "text": "每場一次，她把重機停在自己那一格；那一格如果是暴露，就升成半掩體（只能升到半掩體）。1 點行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "另有載具零件的機會"
+      }
+    ],
+    "adult": [
+      "野外",
+      "暴露"
+    ],
+    "desc": "她戴著一副沒有鏡片的護目鏡，特攻服背後縫著隊旗的一角。她騎著一台排氣管改過的重機，手上拿著一把鋼珠槍。"
+  },
+  {
+    "id": "en_tokko_flag",
+    "name": "旗手",
+    "faction": "tokko",
+    "rank": "elite",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "hp": 1.1
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "mag": 2
+      },
+      {
+        "class": "melee",
+        "name": "旗桿"
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "「喧嘩上等」",
+        "text": "她的旗立著（她沒有失去回合）時，我方第 1、2 格的人對近身的敵人命中 +1。被動。份量 2 格。"
+      },
+      {
+        "name": "III 級起加上「揮旗」",
+        "text": "她揮旗，替一名同伴消一層餘韻，那名同伴這一回合換位一次不花行動點。2 點行動點。份量 3 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "另有隊旗（任務道具，特攻姬的好感用）"
+      }
+    ],
+    "adult": [
+      "御姐",
+      "標記"
+    ],
+    "desc": "她背上插著一面繡了隊名的長旗，旗桿是一根鋼管。她左手拿著一把手槍，特攻服的袖子繡著「旗」。"
+  },
+  {
+    "id": "en_tokko_charger",
+    "name": "突擊手",
+    "faction": "tokko",
+    "rank": "elite",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "evade": 1,
+      "armor": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "真刀"
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.2,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "「單車突擊」",
+        "text": "她從所在的格換到第 1 格，換位都不花行動點，然後近戰攻擊一次。2 點行動點。份量 2 格。"
+      },
+      {
+        "name": "III 級起加上「峰打」",
+        "text": "近戰攻擊，命中時目標暈眩。2 點行動點。份量 3 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "刃的機會比較高"
+      }
+    ],
+    "adult": [
+      "痛",
+      "奪與被奪"
+    ],
+    "desc": "她戴著全罩的安全帽，特攻服的下襬綁在腰上。她騎著重機，手上握著一把真刀，但砍人的時候用刀背。"
+  },
+  {
+    "id": "en_tokko_captain",
+    "name": "特攻隊長",
+    "faction": "tokko",
+    "rank": "boss",
+    "grades": [
+      3,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "attack": 1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "木刀"
+      },
+      {
+        "class": "melee",
+        "name": "真刀",
+        "pierce": 2
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.2,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "「一騎打」",
+        "text": "開戰時她指名一名敵人。她和那個人互相攻擊時，她命中 +2；別人攻擊她時，她迴避 +1。被動。份量 3 格。"
+      },
+      {
+        "name": "「看好了」",
+        "text": "近戰攻擊，命中時我方其他人這一回合命中 +1。2 點行動點。份量 3 格。"
+      },
+      {
+        "name": "「拔刀」",
+        "text": "她換成真刀不花行動點，之後的近戰無視 2 點護甲。只在對方先開槍或先動真刀之後能用。份量 2 格。"
+      },
+      {
+        "name": "低血大招「最後一圈」",
+        "text": "每場一次，2 點行動點。她解除自己身上的壓制與暈眩，然後連續近戰攻擊三次。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設；保證一件刃 III（真刀）"
+      }
+    ],
+    "adult": [
+      "御姐",
+      "支配"
+    ],
+    "desc": "她穿著紅色的特攻服，袖子上繡著「特攻隊長」，前襟敞開，裡面是纏胸布。她的腰帶左邊插著一把木刀，右邊插著一把真刀。"
+  },
+  {
+    "id": "en_nora_pickpocket",
+    "name": "扒手",
+    "faction": "nora",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 0.8,
+      "evade": 2,
+      "armor": -1
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "電擊爪",
+        "range": [
+          1,
+          1
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 0.6,
+      "flee_below": 0.5
+    },
+    "signature": [
+      {
+        "name": "I 級沒有。II 級起有「溜」",
+        "text": "她每回合攻擊之後的第一次換位不花行動點。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      }
+    ],
+    "adult": [
+      "獸",
+      "妹系"
+    ],
+    "desc": "她的貓耳從連帽外套的帽子裡露出來，尾巴纏在腰上。她的手指上套著一副自製的電擊爪套。"
+  },
+  {
+    "id": "en_nora_courier",
+    "name": "屋頂的信差",
+    "faction": "nora",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        3,
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.8,
+      "evade": 1
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "自製感官彈槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 0.6,
+      "flee_below": 0.5
+    },
+    "signature": [
+      {
+        "name": "I 級沒有。II 級起有「早就看到了」",
+        "text": "先攻 +3。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "另有一則情報的機會（踩點用）"
+      }
+    ],
+    "adult": [
+      "獸",
+      "窺視"
+    ],
+    "desc": "她頂著一對垂下來的兔耳，背著一個貼滿貼紙的快遞包。她手上拿著一把用水管和膠帶做的感官彈槍。"
+  },
+  {
+    "id": "en_nora_hound",
+    "name": "地下層的野犬",
+    "faction": "nora",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.2,
+      "attack": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "生體爪"
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.2,
+      "flee_below": 0.4
+    },
+    "signature": [
+      {
+        "name": "I 級沒有。II 級起有「撲」",
+        "text": "她近戰命中的人，到他下一回合結束前迴避 −1。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      }
+    ],
+    "adult": [
+      "獸",
+      "奪與被奪"
+    ],
+    "desc": "她有一對立起來的犬耳和改過的下顎，犬齒很長。她的雙手是生體爪，脖子上戴著一條沒有掛牌子的項圈。"
+  },
+  {
+    "id": "en_nora_roofhunter",
+    "name": "屋頂獵手",
+    "faction": "nora",
+    "rank": "elite",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "attack": 1
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "name": "自製弩",
+        "mag": 1
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.4
+    },
+    "signature": [
+      {
+        "name": "I 級沒有。II 級起有「高處」",
+        "text": "開戰時她那一格的遮蔽升一級。被動。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "另有刃 II（弩的箭頭）"
+      }
+    ],
+    "adult": [
+      "獸",
+      "野外"
+    ],
+    "desc": "她有一對豹紋的耳朵和一條長尾巴，身上披著用舊廣告布縫成的斗篷。她背著一把自製的弩。"
+  },
+  {
+    "id": "en_nora_heatcat",
+    "name": "發情的貓",
+    "faction": "nora",
+    "rank": "elite",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "evade": 1,
+      "load": 1.1,
+      "sensitivity": 60
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "費洛蒙霧",
+        "range": [
+          1,
+          2
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 0.8,
+      "flee_below": 0.4
+    },
+    "signature": [
+      {
+        "name": "I 級沒有。II 級起有「蹭」",
+        "text": "她攻擊命中的人，到他下一回合結束前命中 −2。附在攻擊上，2 點行動點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      }
+    ],
+    "adult": [
+      "獸",
+      "藥"
+    ],
+    "desc": "她頭上是三色的貓耳，短上衣露出腰上的毛皮紋路。她的項圈上接著一個小小的費洛蒙發散器，一閃一閃地亮著。"
+  },
+  {
+    "id": "en_nora_packleader",
+    "name": "一群野良的頭",
+    "faction": "nora",
+    "rank": "boss",
+    "grades": [
+      2,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        1,
+        2
+      ]
+    },
+    "mods": {
+      "evade": 1,
+      "armor": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "生體爪"
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 0.8,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "「貓道」",
+        "text": "她和相鄰的同伴交換位置不花行動點。被動。份量 2 格。"
+      },
+      {
+        "name": "「圍上來」",
+        "text": "近戰攻擊，命中時目標被標記，我方攻擊他 +2。2 點行動點。份量 2 格。"
+      },
+      {
+        "name": "「撤！」",
+        "text": "這一回合和下一回合，我方所有人換位不花行動點。1 點行動點。份量 4 格。"
+      },
+      {
+        "name": "低血大招「散」",
+        "text": "每場一次，0 點行動點。我方所有人迴避 +2 到她下一回合，換位不花行動點；用完之後她脫身離場（這是劇本，和士氣無關，同 ENEMIES 4.5 節）。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設；保證現金晶片"
+      },
+      {
+        "text": "另有一件這場被偷走的道具"
+      }
+    ],
+    "adult": [
+      "獸",
+      "群與融合"
+    ],
+    "desc": "她有一對狼耳和一頭灰白的長髮，身上穿著一件太大的舊軍外套。她的雙手是生體爪，項圈上掛滿了別人的鑰匙。"
+  },
+  {
+    "id": "en_whisper_hood",
+    "name": "白兜帽信徒",
+    "faction": "whisper",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        2,
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "load": 1.1,
+      "sensitivity": 60
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "自製感官彈槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "netrunner",
+      "focus": 0.8,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "「傳話」",
+        "text": "她射擊命中時，目標聽見低語，到他下一回合結束前命中 −1。附在射擊上，2 點行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      }
+    ],
+    "adult": [
+      "群與融合",
+      "聲音"
+    ],
+    "desc": "她穿著白色的兜帽長袍，後頸的橋露在外面，接著一個纏滿膠帶的自製增幅器。她手上拿著一把自製的感官彈槍。"
+  },
+  {
+    "id": "en_whisper_diver",
+    "name": "聖堂的潛網者",
+    "faction": "whisper",
+    "rank": "elite",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.8,
+      "evade": 1,
+      "load": 1.05
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "netrunner",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "「深同步」",
+        "text": "她的神經類快駭傷害多一顆骰，她自己也受到那一下一半的感載。1 點行動點與 RAM 照程式。份量 2 格。"
+      },
+      {
+        "name": "「指給牆看」",
+        "text": "她標記一名有橋的敵人，我方攻擊他 +2。0 點行動點，每回合一次。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "聖堂晶片的機會比較高"
+      }
+    ],
+    "adult": [
+      "群與融合",
+      "妄想"
+    ],
+    "desc": "她把兜帽拉到眉毛的高度，袍子上用銀線繡著波形的圖案。她雙手捧著一台聖堂甲板，甲板的線從她的後頸接出來。"
+  },
+  {
+    "id": "en_rose_gunner",
+    "name": "車族槍手",
+    "faction": "rose",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "unbridged",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "hp": 1.1
+    },
+    "weapons": [
+      {
+        "class": "shotgun",
+        "mag": 2,
+        "traits": [
+          "push"
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "「靠車」",
+        "text": "她站在有載具的那一格時，迴避再 +1。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      }
+    ],
+    "adult": [
+      "野外",
+      "奪與被奪"
+    ],
+    "desc": "她的手臂曬得很黑，防塵巾拉到鼻子，防風鏡推在額頭上。她穿著皮背心，手上拿著一把霰彈槍。"
+  },
+  {
+    "id": "en_rose_hunter",
+    "name": "驛站的獵人",
+    "faction": "rose",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "unbridged",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3,
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "attack": 1
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "name": "獵槍",
+        "pierce": 2,
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "「看風」",
+        "text": "她瞄準之後的射擊命中再 +1。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      }
+    ],
+    "adult": [
+      "野外",
+      "窺視"
+    ],
+    "desc": "她戴著一頂寬邊帽，身上是一件洗到褪色的獵裝。她背著一把長管的獵槍，槍托上刻著家裡每個人的名字。"
+  },
+  {
+    "id": "en_rose_driver",
+    "name": "改裝車的駕駛",
+    "faction": "rose",
+    "rank": "elite",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "unbridged",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 1.1
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "name": "車載魚叉",
+        "mag": 1,
+        "traits": [
+          "pull"
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "netrunner",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "「圍車陣」",
+        "text": "開戰時她選我方一格開進一台改裝車，那一格的遮蔽升一級，耐久照載具。被動，開場生效。份量 2 格。"
+      },
+      {
+        "name": "「收線」",
+        "text": "魚叉射擊，命中時目標被拉近一格，並且被壓制。2 點行動點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "載具零件的機會比較高"
+      }
+    ],
+    "adult": [
+      "束縛",
+      "野外"
+    ],
+    "desc": "她戴著皮手套和防風鏡，脖子上掛著一串車鑰匙。她的改裝車停在她那一格，車頂架著一支魚叉槍。"
+  },
+  {
+    "id": "en_rose_captain",
+    "name": "車隊長",
+    "faction": "rose",
+    "rank": "boss",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "unbridged",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "attack": 1,
+      "armor": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "pierce": 2,
+        "mag": 3
+      },
+      {
+        "class": "pistol",
+        "name": "左輪",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "defeat": "ransom",
+    "signature": [
+      {
+        "name": "「一家人」",
+        "text": "反應。同伴被打倒或被制伏時，她立刻射擊一次，這一擊命中 +2，行動點照射擊另扣。份量 3 格。"
+      },
+      {
+        "name": "「掉頭」",
+        "text": "我方每個人換位一次不花行動點；換到有載具那一格的人，這一回合迴避 +1。2 點行動點。份量 3 格。"
+      },
+      {
+        "name": "低血大招「整隊衝過去」",
+        "text": "每場一次，2 點行動點。車隊撞進敵方的陣線，敵方第 1、2 格的遮蔽各降兩級，她再對那兩格的人各射擊一次。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設；保證一件槍管 IV"
+      }
+    ],
+    "adult": [
+      "恩與債",
+      "支配"
+    ],
+    "desc": "她穿著一件下襬磨破的長大衣，灰白的頭髮編成一條辮子，臉上的曬痕很深。她手上拿著一把步槍，腰上還有一把老式的左輪手槍。"
+  },
+  {
+    "id": "en_fest_reveler",
+    "name": "酒客",
+    "faction": "festival",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "evade": -1,
+      "sensitivity": 60
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "酒霧噴壺",
+        "range": [
+          1,
+          2
+        ]
+      },
+      {
+        "class": "melee",
+        "name": "酒瓶"
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.6,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "（II 級起）乾杯",
+        "text": "用酒瓶近戰命中後，另外灌目標半顆骰的感載。2 點行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設"
+      },
+      {
+        "text": "常見的是攤位的獎品與半瓶酒"
+      }
+    ],
+    "adult": [
+      "群與融合",
+      "野外"
+    ],
+    "desc": "酒客穿著敞開的浴衣，臉上歪戴著半邊的塑膠面具，手臂和脖子塗滿了螢光漆。他一手提著酒瓶，另一手握著一個改裝過的噴霧壺，壺裡裝的是摻了感官藥的酒。"
+  },
+  {
+    "id": "en_fest_hanabi",
+    "name": "煙火手",
+    "faction": "festival",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.95,
+      "armor": -1
+    },
+    "weapons": [
+      {
+        "class": "smg",
+        "name": "連發煙火筒",
+        "type": "thermal",
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "（II 級起）連珠",
+        "text": "這一次連射對遮蔽的倍率加倍。花費同連射（3 點行動點）。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設"
+      },
+      {
+        "text": "另有 30% 掉一個煙火筒（道具，丟出去是一次熱能的範圍傷害）"
+      }
+    ],
+    "adult": [
+      "暴露",
+      "野外"
+    ],
+    "desc": "煙火手穿著短版的法被與寬鬆的工作褲，頭上綁著寫了「祭」字的頭巾，腰帶上掛著一串手捲的煙火筒。她肩上扛著一具改裝的連發煙火筒，筒口已經燻得焦黑。"
+  },
+  {
+    "id": "en_fest_taiko",
+    "name": "太鼓手",
+    "faction": "festival",
+    "rank": "elite",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        2,
+        3
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "增幅太鼓",
+        "mag": 2,
+        "range": [
+          2,
+          5
+        ]
+      },
+      {
+        "class": "melee",
+        "name": "鼓棒"
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "（II 級）祭囃子",
+        "text": "鼓聲讓敵方整排每人感載 +2，同時讓自己這一方第 1～2 格的人感載也 +2。2 點行動點。份量 2 格（打到自己人的部分當成代價扣掉）。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設"
+      },
+      {
+        "text": "電源的等級取這一場的上限"
+      }
+    ],
+    "adult": [
+      "聲音",
+      "群與融合"
+    ],
+    "desc": "太鼓手是一個肩膀寬厚的壯漢，上身只綁著一條白色的胸布，汗水把胸布浸成半透明。他背著一面接了喇叭的大太鼓，鼓棒是兩根接著電纜的金屬棒，鼓聲經過喇叭放大後會直接打進周圍每一座橋。"
+  },
+  {
+    "id": "en_fest_pyro",
+    "name": "花火師",
+    "faction": "festival",
+    "rank": "boss",
+    "grades": [
+      2,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "armor": -1,
+      "evade": 1
+    },
+    "weapons": [
+      {
+        "class": "heavy",
+        "name": "打上筒",
+        "type": "thermal",
+        "mag": 1
+      },
+      {
+        "class": "neural_gun",
+        "name": "色煙彈",
+        "mag": 2,
+        "range": [
+          2,
+          5
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 0.8,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "色煙",
+        "text": "在自己這一方的任一格放一團煙霧（打不破的半掩體），持續兩回合。1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "開幕",
+        "text": "用打上筒射擊時，先把目標那一格的遮蔽降一級，再算命中與傷害。2 點行動點（同射擊）。份量 2 格。"
+      },
+      {
+        "name": "低血大招　大玉",
+        "text": "他點燃整綑真的炸藥，對敵方整排各造成一次打上筒的熱能傷害，並且每一格的遮蔽降一級。每場一次，3 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "電源 II（保證）"
+      },
+      {
+        "text": "另有一綑炸藥（道具）"
+      }
+    ],
+    "adult": [
+      "暴露",
+      "恩與債"
+    ],
+    "desc": "花火師穿著深藍色的職人法被，背上印著自家的屋號，臉上戴著一副紅色的天狗面具。他身邊架著一具鋼管焊成的發射筒，腰帶上插著一排用舊報紙包著的炸藥。"
+  },
+  {
+    "id": "en_maid_bronze",
+    "name": "銅章女僕",
+    "faction": "maids",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "armor": 1,
+      "evade": -1,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "短刀"
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.2,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "侍立",
+        "text": "相鄰一名友軍的迴避 +1，到她下一回合開始為止。1 點行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設（纖維、外皮）"
+      },
+      {
+        "text": "制服的外皮是緋櫻規格"
+      }
+    ],
+    "adult": [
+      "服從",
+      "女僕"
+    ],
+    "desc": "銅章女僕穿著緋櫻規格的長裙女僕裝，白色圍裙的胸口別著一枚銅色的公會等級章。她的襯裙裡縫著防彈纖維，雙手各握一把短刀，腰後掛著一捆束帶。"
+  },
+  {
+    "id": "en_maid_butler",
+    "name": "公會執事",
+    "faction": "maids",
+    "rank": "minion",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "attack": 1
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "name": "卡賓步槍",
+        "pierce": 2,
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "奉茶",
+        "text": "替相鄰的一名友軍消一層餘韻。1 點行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設"
+      },
+      {
+        "text": "另有 20% 掉感測器（瞄具）"
+      }
+    ],
+    "adult": [
+      "支配",
+      "女僕"
+    ],
+    "desc": "公會執事穿著黑色的燕尾服與白手套，領結的正中央別著一枚銅章。他用的是一把折疊槍托的卡賓步槍，平常收在燕尾服的下擺裡。"
+  },
+  {
+    "id": "en_maid_silver",
+    "name": "銀章女僕",
+    "faction": "maids",
+    "rank": "elite",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "armor": 1,
+      "sensitivity": 40
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "電擊鞭",
+        "range": [
+          1,
+          2
+        ],
+        "traits": [
+          "pull"
+        ]
+      },
+      {
+        "class": "pistol",
+        "name": "暗藏手槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.2,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "（II 級起）收拾",
+        "text": "電擊鞭打一名正在失去回合的敵人時，這一擊多一顆傷害骰。2 點行動點（同近戰攻擊）。份量 2 格。"
+      },
+      {
+        "name": "（III 級起）綁帶結",
+        "text": "到她這一回合結束前，她的制伏檢定 +4。1 點行動點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "纖維與外皮"
+      },
+      {
+        "text": "等級取這一場的上限"
+      }
+    ],
+    "adult": [
+      "束縛",
+      "支配"
+    ],
+    "desc": "銀章女僕的女僕裝是訂做的，袖口與裙擺用的是比銅章厚一倍的裝甲布料，胸口別著銀色的等級章。她從圍裙的口袋裡抽出一條電擊鞭，大腿內側的槍套裡藏著一把小手槍。"
+  },
+  {
+    "id": "en_maid_gold",
+    "name": "金章女僕",
+    "faction": "maids",
+    "rank": "boss",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": 1,
+      "evade": -1,
+      "sensitivity": 35
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "雙長刃",
+        "pierce": 2
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.3,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "清掃",
+        "text": "近戰命中後，對同一個目標再近戰一次，第二次少一顆傷害骰。3 點行動點。份量 3 格。"
+      },
+      {
+        "name": "侍立",
+        "text": "相鄰一名友軍或雇主的迴避 +2，到她下一回合開始為止；這段時間裡攻擊那名友軍的人，她可以反擊一次。1 點行動點。份量 3 格。"
+      },
+      {
+        "name": "低血大招　完璧的服務",
+        "text": "到這一回合結束前，她每一次近戰的命中 +2，行動點花費 −1（最少 1）。每場一次，0 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "外皮 IV（高訂，保證；III 級時是 III）、刃 III"
+      }
+    ],
+    "adult": [
+      "支配",
+      "女僕"
+    ],
+    "desc": "金章女僕的女僕裝是高訂的黑色布料，在燈下泛著細細的光，圍裙上的金章旁邊排著一列代表年資的小星。她戴著白手套，雙手各握一把緋櫻刀工的長刃，刃背刻著公會的徽記。"
+  },
+  {
+    "id": "en_strp_picker",
+    "name": "看貨人",
+    "faction": "strippers",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "麻醉槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "看貨",
+        "text": "和瞄準一樣讓下一次射擊 +3；目標身上有兩件以上的義體時再 +1。1 點行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設（二手義體零件，有殘響）"
+      },
+      {
+        "text": "另有一疊型號標籤（沒有用）"
+      }
+    ],
+    "adult": [
+      "戀物",
+      "窺視"
+    ],
+    "desc": "看貨人穿著沾滿機油的工作背心，背心上十幾個口袋裡塞滿了型號標籤與夾鏈袋。他戴著一副加了放大鏡片的護目鏡，手上的麻醉槍是用釘槍改的。"
+  },
+  {
+    "id": "en_strp_driver",
+    "name": "冰桶司機",
+    "faction": "strippers",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "weapons": [
+      {
+        "class": "smg",
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 0.8,
+      "flee_below": 0.5
+    },
+    "signature": [
+      {
+        "name": "倒車",
+        "text": "把廂型車倒進她那一格，那一格的遮蔽升一級（最多到掩體）。每場一次，1 點行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設"
+      },
+      {
+        "text": "另有 30% 掉一個醫療冰桶（裡面可能有任務的線頭）"
+      }
+    ],
+    "adult": [
+      "藥",
+      "恩與債"
+    ],
+    "desc": "冰桶司機穿著一件連帽的防水外套，腳邊放著一個貼滿貼紙的醫療冰桶，車鑰匙用鞋帶掛在脖子上。她手上的衝鋒槍槍托纏著好幾圈電工膠帶。"
+  },
+  {
+    "id": "en_dj_stall",
+    "name": "看攤的",
+    "faction": "doujin",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "attack": -1
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "同人電擊器",
+        "range": [
+          1,
+          2
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.5,
+      "flee_below": 0.5
+    },
+    "signature": [],
+    "loot": [
+      {
+        "text": "同人件 I（怪癖看得見）"
+      }
+    ],
+    "adult": [
+      "妄想",
+      "角色扮演"
+    ],
+    "desc": "看攤的穿著自己社團印的 T 恤，外面套一件別滿徽章的帽 T，脖子上掛著攤位的名牌。他手上的電擊器是用行動電源和舊電蚊拍拼成的，握把纏著好幾層膠帶。"
+  },
+  {
+    "id": "en_dj_garage",
+    "name": "車庫生技改造人",
+    "faction": "doujin",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.2,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "變異的爪"
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.8,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "（II 級起）長出來",
+        "text": "他的傷口自己收口，生命回復 5。1 點行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "生體件（同人狀態，要移植），I～II 級"
+      }
+    ],
+    "adult": [
+      "變形",
+      "獸"
+    ],
+    "desc": "改造人是車庫生技社團的試用者，兩條前臂上長著一排灰色的硬棘，硬棘的根部還貼著 OK 繃。他穿著一件被硬棘戳破的運動外套，袖子乾脆剪掉了。"
+  },
+  {
+    "id": "en_dj_dronecircle",
+    "name": "無人機社團",
+    "faction": "doujin",
+    "rank": "elite",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "armor": -1,
+      "evade": 1
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "name": "自組手槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "netrunner",
+      "focus": 0.8,
+      "flee_below": 0.4
+    },
+    "signature": [
+      {
+        "name": "（II 級）改機",
+        "text": "把一台無人機換成另一種（攻擊、護盾、偵察、干擾之一）。1 點行動點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "晶片 II、致動器 II（都是同人狀態）"
+      },
+      {
+        "text": "無人機的殘骸可以拆"
+      }
+    ],
+    "adult": [
+      "窺視",
+      "妄想"
+    ],
+    "desc": "操作手戴著一副貼滿貼紙的頭戴顯示器，背著一個塞滿電池的大背包。她身邊飛著用模型零件組起來的無人機，機身上畫著社團自己的角色。"
+  },
+  {
+    "id": "en_dj_wallcircle",
+    "name": "壁社團的社長",
+    "faction": "doujin",
+    "rank": "boss",
+    "grades": [
+      2,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "attack": 1,
+      "sensitivity": 60
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "name": "試作步槍",
+        "type": "neural",
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "新刊",
+        "text": "她把一件剛做好的試作品丟給一名友軍，那名友軍下一次攻擊多一顆傷害骰。1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "社團連攜",
+        "text": "場上每一台同人眾的無人機立刻各做一次動作，不花操作手的行動點。2 點行動點。份量 3 格。"
+      },
+      {
+        "name": "低血大招　完售",
+        "text": "她把攤位上剩下的試作品全部用掉，敵方整排每人灌 2d6 感載；之後每個被打到的人擲 1d6，擲出 1～2 的人多一層餘韻。每場一次，3 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "同人件 II（保證，怪癖看得見）"
+      },
+      {
+        "text": "另有 30% 掉社團的一張設計圖"
+      }
+    ],
+    "adult": [
+      "妄想",
+      "角色扮演"
+    ],
+    "desc": "社長是同人夜市靠牆大攤位的主人，她穿著自己設計的角色服裝，服裝上的每一個配件都是社團的周邊商品。她扛著一把用三把壞槍拼成的試作步槍，槍身上貼著一張「非賣品」的貼紙。"
+  },
+  {
+    "id": "en_grd_fan",
+    "name": "同擔",
+    "faction": "guard",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        1,
+        2
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "sensitivity": 60
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "螢光棒電擊棍",
+        "range": [
+          1,
+          2
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.2,
+      "flee_below": 0.3
+    },
+    "defeat": "lesson",
+    "signature": [
+      {
+        "name": "（II 級起）應援同步（被動）",
+        "text": "場上還有兩名以上的其他親衛隊員時，他的命中 +1。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設（電源 I、外皮「法被」）"
+      }
+    ],
+    "adult": [
+      "偶像",
+      "群與融合"
+    ],
+    "desc": "同擔穿著印了推的名字的應援法被，額頭綁著應援色的頭帶。他兩手各握一支螢光棒，螢光棒的握把裡藏著電擊器的電池。"
+  },
+  {
+    "id": "en_grd_corps",
+    "name": "公司親衛隊員",
+    "faction": "guard",
+    "rank": "minion",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "armor": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "加長電擊棍",
+        "range": [
+          1,
+          2
+        ],
+        "traits": [
+          "pull"
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.2,
+      "flee_below": 0.2
+    },
+    "defeat": "exposed",
+    "signature": [
+      {
+        "name": "應援同步（被動）",
+        "text": "場上還有兩名以上的其他親衛隊員時，他的命中 +1。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設"
+      },
+      {
+        "text": "外皮是公司的制式法被（III 級）"
+      },
+      {
+        "text": "盾牌可以拆成板材"
+      }
+    ],
+    "adult": [
+      "群與融合",
+      "暴露"
+    ],
+    "desc": "隊員穿著公司發的制式法被，法被底下是一件輕型的防刺背心，胸前別著印有會員編號的名牌。他左手舉著一面印了偶像照片的透明盾牌，右手握著一支加長的螢光棒電擊棍。"
+  },
+  {
+    "id": "en_grd_caller",
+    "name": "應援指揮",
+    "faction": "guard",
+    "rank": "elite",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "擴音器",
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "（II 級起）打 call",
+        "text": "全體親衛隊員的下一次攻擊命中 +1。2 點行動點。份量 2 格。"
+      },
+      {
+        "name": "（III 級起）口號",
+        "text": "擴音器的一次射擊帶上壓制（定力 DC 14，和連射打空 2 格的壓制一樣），不必連射。2 點行動點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "電源"
+      },
+      {
+        "text": "等級取這一場的上限"
+      },
+      {
+        "text": "擴音器可以整件撿"
+      }
+    ],
+    "adult": [
+      "偶像",
+      "聲音"
+    ],
+    "desc": "應援指揮站在隊伍後面的一張折疊椅上，頭上戴著麥克風耳機，背後插著一支寫著推的名字的大旗。她手上的擴音器改裝過，喊出來的口號會經過橋直接打進聽的人腦子裡。"
+  },
+  {
+    "id": "en_grd_undercap",
+    "name": "地下親衛隊長",
+    "faction": "guard",
+    "rank": "boss",
+    "grades": [
+      2,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "sensitivity": 60
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "雙螢光棒電擊棍",
+        "range": [
+          1,
+          2
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.3,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "defeat": "lesson",
+    "signature": [
+      {
+        "name": "全員起立",
+        "text": "到他下一回合開始為止，全體親衛隊員換位不花行動點。1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "推的歌",
+        "text": "一名友軍消一層餘韻，並且生命回復 5。1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "低血大招　安可",
+        "text": "場上每一名親衛隊員立刻各做一次近戰或射擊，不花行動點。每場一次，3 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "外皮（法被）II（保證）、電源 II"
+      },
+      {
+        "text": "另有一張地下公演的票（道具）"
+      }
+    ],
+    "adult": [
+      "偶像",
+      "服從"
+    ],
+    "desc": "地下親衛隊長穿著一件洗到褪色的手縫法被，袖子上用亮片縫滿了每一場公演的日期。他的左臂綁著一條推的應援毛巾，雙手各握一支加粗的螢光棒電擊棍。"
+  },
+  {
+    "id": "en_grd_captain",
+    "name": "親衛隊長",
+    "faction": "guard",
+    "rank": "boss",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "armor": 1
+    },
+    "weapons": [
+      {
+        "class": "smg",
+        "name": "應援色衝鋒槍",
+        "type": "neural",
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "defeat": "exposed",
+    "signature": [
+      {
+        "name": "上面在看",
+        "text": "到她下一回合開始為止，全體親衛隊員命中 +1。2 點行動點。份量 3 格。"
+      },
+      {
+        "name": "整列",
+        "text": "一名倒下的隊員空出來的格，後面排隊的隊員立刻補上，不花行動點，補上來的人迴避 +1 到他下一回合。1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "低血大招　最後一首",
+        "text": "全場的親衛隊一起喊出推的名字，敵方整排每人灌 2d6 感載，並且各要過一次定力檢定（標準 DC），失敗的人受到壓制。每場一次，3 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "外皮（公司法被）III～IV（保證）、纖維 III"
+      }
+    ],
+    "adult": [
+      "偶像",
+      "支配"
+    ],
+    "desc": "親衛隊長穿著公司訂做的長版法被，法被的襯裡是防彈纖維，肩上別著一枚金色的隊長臂章。她胸前掛著耳麥與指揮用的平板，手上的衝鋒槍漆成推的應援色。"
+  },
+  {
+    "id": "en_ls_pointman",
+    "name": "前哨兵",
+    "faction": "lonestar",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "armor": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "shotgun",
+        "name": "泵動霰彈槍",
+        "mag": 2,
+        "traits": [
+          "push"
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "頂住（被動）",
+        "text": "她站在第 1 格時，她身後那一格的友軍迴避 +1。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設（星旗的槍管、板材）"
+      }
+    ],
+    "adult": [
+      "畫報系",
+      "御姐"
+    ],
+    "desc": "前哨兵穿著磨舊的飛行夾克，背上繡著一顆孤星與部隊番號，腳上是一雙沾滿泥的牛仔靴。她手上是一把截短槍管的泵動霰彈槍，胸前掛著星旗的兵籍牌。"
+  },
+  {
+    "id": "en_ls_patrol",
+    "name": "巡守隊員",
+    "faction": "lonestar",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        2,
+        3
+      ]
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "name": "星旗舊型步槍",
+        "pierce": 2,
+        "mag": 3
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "交替掩護",
+        "text": "每回合一次，她換位不花行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設"
+      }
+    ],
+    "adult": [
+      "畫報系",
+      "支配"
+    ],
+    "desc": "巡守隊員穿著飛行夾克與軍褲，墨鏡推在額頭上，嘴角叼著一根沒點的雪茄。他手上的星旗步槍是戰時的舊型號，槍托上刻著退伍的日期。"
+  },
+  {
+    "id": "en_ls_sergeant",
+    "name": "軍士",
+    "faction": "lonestar",
+    "rank": "elite",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "lmg",
+        "name": "星旗輕機槍",
+        "mag": 4
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.2,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "（II 級起）火力壓制",
+        "text": "這一次連射的壓制打到目標那一格與相鄰的一格（DC 照常）。花費同連射（3 點行動點）。份量 2 格。"
+      },
+      {
+        "name": "（III 級起）點名",
+        "text": "她指著一名敵人喊出他的位置，標記他。1 點行動點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "槍管 III、機構 III（星旗）"
+      }
+    ],
+    "adult": [
+      "支配",
+      "畫報系"
+    ],
+    "desc": "軍士是一個肩膀很寬的女人，夾克的袖子捲到手肘，兩條手臂上都是部隊的刺青。她抱著一挺星旗的輕機槍，彈鏈從肩上繞到腰後的彈箱。"
+  },
+  {
+    "id": "en_ls_lieutenant",
+    "name": "排長",
+    "faction": "lonestar",
+    "rank": "boss",
+    "grades": [
+      3,
+      3
+    ],
+    "kind": "human",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "armor": 1
+    },
+    "weapons": [
+      {
+        "class": "heavy",
+        "name": "榴彈發射器",
+        "mag": 1
+      },
+      {
+        "class": "pistol",
+        "name": "制式手槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "leader",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "連隊編制",
+        "text": "到她下一回合開始為止，全體孤星連換位不花行動點。1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "標定",
+        "text": "指定敵方一格，那一格的遮蔽降一級，她下一次對那一格用榴彈射擊時命中 +2。1 點行動點。份量 3 格。"
+      },
+      {
+        "name": "低血大招　老夥計",
+        "text": "她跳上皮卡，啟動帆布底下的戰時機甲，照 [COMBAT_SYSTEM](../systems/COMBAT_SYSTEM.md) 9.3 節進入機甲的強化狀態：多一條機體耐久、護甲 +4、每回合多回 2 點行動點，持續 2 回合。這具舊機甲受到電磁傷害時停一回合。每場一次，3 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "槍管 III（保證）、致動器 III（機甲的殘件）"
+      }
+    ],
+    "adult": [
+      "支配",
+      "畫報系"
+    ],
+    "desc": "排長穿著一件領口磨白的飛行夾克，胸前掛著一排褪色的勳表，墨鏡後面的眼角全是細紋。她背著一具戰時的榴彈發射器，腰間插著一把星旗的制式手槍；她身後的皮卡上載著一具罩著帆布的舊機甲。"
+  },
+  {
+    "id": "en_bare_acolyte",
+    "name": "灰袍信徒",
+    "faction": "bare",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "unbridged",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "鐵皮長棍"
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "（II 級起）押住",
+        "text": "到他這一回合結束前，他的制伏檢定 +2。1 點行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設（幾乎沒有，少量現金晶片）"
+      }
+    ],
+    "adult": [
+      "禁慾",
+      "巫女"
+    ],
+    "desc": "信徒穿著灰色的粗布長袍，袍子底下露出白色的素衣，頭髮剃得很短，後頸有一道拔掉橋之後留下的疤。他雙手握著一根包了鐵皮的長棍。"
+  },
+  {
+    "id": "en_bare_bell",
+    "name": "持鈴巫女",
+    "faction": "bare",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "unbridged",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "祓鈴",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "（II 級起）餘音",
+        "text": "這一次祓鈴命中的人，下一次定力檢定 −2。2 點行動點（同射擊）。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設"
+      },
+      {
+        "text": "鈴上的發信器可以拆成一個電源 I"
+      }
+    ],
+    "adult": [
+      "禁慾",
+      "聲音"
+    ],
+    "desc": "持鈴巫女穿著白衣緋袴式的素色裝束，臉上不施脂粉，長髮用白紙束在背後。她右手搖著一串加裝了發信器的神樂鈴，鈴聲的頻率剛好落在橋的接收段上。"
+  },
+  {
+    "id": "en_bnq_attendant",
+    "name": "黑派侍從",
+    "faction": "banquet",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1,
+      "sensitivity": 60
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "刺劍",
+        "pierce": 1
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "吸",
+        "text": "刺劍命中時，目標消一層餘韻，她自己加一層。2 點行動點（同近戰攻擊）。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設（外皮「哥德」、刃「細劍」）"
+      }
+    ],
+    "adult": [
+      "哥德",
+      "奪與被奪"
+    ],
+    "desc": "黑派侍從穿著黑色的燕尾服或束腰長裙，臉上撲著很白的粉，嘴唇塗成深紅色。她戴著黑色的蕾絲手套，手上握一把細長的刺劍，胸口別著一朵黑玫瑰。"
+  },
+  {
+    "id": "en_bnq_guest",
+    "name": "甜派茶會客",
+    "faction": "banquet",
+    "rank": "minion",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "sensitivity": 60
+    },
+    "weapons": [
+      {
+        "class": "neural_gun",
+        "name": "洋傘槍",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 0.8,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "撐傘",
+        "text": "她把洋傘轉到身前，自己的迴避 +1，到她下一回合開始為止。1 點行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "外皮（哥德羅莉塔）"
+      },
+      {
+        "text": "等級取這一場的上限"
+      }
+    ],
+    "adult": [
+      "哥德",
+      "窺視"
+    ],
+    "desc": "茶會客穿著粉色或白色的蓬裙洋裝，頭上戴著一個大蝴蝶結，臂彎裡抱著一隻縫了十字架的熊玩偶。她撐開的蕾絲洋傘是一把感官彈槍，扳機藏在傘柄的緞帶下面。"
+  },
+  {
+    "id": "en_bnq_hostess",
+    "name": "茶會主人",
+    "faction": "banquet",
+    "rank": "elite",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "lmg",
+        "name": "裙底機槍",
+        "type": "neural",
+        "mag": 4
+      }
+    ],
+    "ai": {
+      "prefer": "weakest",
+      "focus": 1.0,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "（II 級起）可愛是武器（被動）",
+        "text": "開戰的第一回合，對她攻擊的人命中 −2。份量 2 格。"
+      },
+      {
+        "name": "（III 級起）糖霜彈幕",
+        "text": "這一次連射命中時，目標多一層餘韻。花費同連射（3 點行動點）。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "外皮（哥德羅莉塔）III（IV 級時是 IV）、機構 III"
+      }
+    ],
+    "adult": [
+      "哥德",
+      "暴露"
+    ],
+    "desc": "茶會主人的洋裝底下有四層襯裙，裙擺撐得很開，頭上斜戴著一頂掛了小提燈的迷你禮帽。開打的時候她撩起裙擺，從裙撐裡抽出一挺漆成粉白色的輕機槍，彈鏈上綁著緞帶。"
+  },
+  {
+    "id": "en_bnq_host",
+    "name": "宴主",
+    "faction": "banquet",
+    "rank": "boss",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1,
+      "sensitivity": 65
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "細劍",
+        "pierce": 2
+      },
+      {
+        "class": "neural_melee",
+        "name": "竊感增幅器",
+        "range": [
+          1,
+          2
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "品味（被動）",
+        "text": "這一場先用實彈攻擊她這一方的敵人，她對他的攻擊多一顆傷害骰。份量 2 格。"
+      },
+      {
+        "name": "晚餐",
+        "text": "竊感增幅器命中後，目標消一層餘韻、她加一層，並且她自己排掉 1d6 感載。2 點行動點（同攻擊）。份量 3 格。"
+      },
+      {
+        "name": "低血大招　真名解放",
+        "text": "她念出自己的真名，把這一場吸來的餘韻全部放出去：她身上每有一層餘韻，敵方整排每人就灌 1d6 感載（最多 3d6），之後她的餘韻歸零。每場一次，3 點行動點。份量最多 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "外皮（哥德）IV（III 級時是 III，保證）、刃 III"
+      },
+      {
+        "text": "另有 30% 掉一卷錄著別人感覺的帶子"
+      }
+    ],
+    "adult": [
+      "哥德",
+      "支配"
+    ],
+    "desc": "宴主是黑派的老派打扮，她穿著高領的黑色長外套與皮革束腰，頸上掛著一條銀十字架，左眼戴著一個刻了封印紋樣的眼罩。她說話時只用自己的真名，右手握一把鑲黑寶石的細劍，左手的蕾絲手套底下接著竊感用的增幅器。"
+  },
+  {
+    "id": "en_drown_lost",
+    "name": "溺感的人",
+    "faction": "none",
+    "rank": "minion",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 0.95,
+      "armor": -1,
+      "sensitivity": 70
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "擁抱",
+        "type": "pleasure"
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.3,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "defeat": "spread",
+    "signature": [
+      {
+        "name": "分給你",
+        "text": "近戰命中時，把自己的一層餘韻分給對方。花 2 點行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "沒有零件"
+      },
+      {
+        "text": "身上偶爾有一點現金晶片"
+      },
+      {
+        "text": "活捉時可以交給獵溺的委託人"
+      }
+    ],
+    "adult": [
+      "群與融合",
+      "溺愛"
+    ],
+    "desc": "他穿著出事那天的衣服，衣服已經很久沒換，臉上卻很乾淨，眼睛很亮。他張開雙手慢慢走過來，嘴裡一直說「沒關係，沒關係」。"
+  },
+  {
+    "id": "en_drown_singer",
+    "name": "溺感的歌姬",
+    "faction": "none",
+    "rank": "elite",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "load": 1.2,
+      "hp": 0.9,
+      "sensitivity": 60
+    },
+    "weapons": [
+      {
+        "class": "neural_melee",
+        "name": "歌聲",
+        "type": "pleasure",
+        "range": [
+          1,
+          2
+        ]
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.3,
+      "flee_below": 0.0
+    },
+    "defeat": "spread",
+    "signature": [
+      {
+        "name": "安可",
+        "text": "一次攻擊打一格上的所有人。花 3 點行動點。份量 2 格。（II 級只有這一個。）"
+      },
+      {
+        "name": "別走",
+        "text": "一次攻擊，命中的人被壓制。花 2 點行動點。份量 2 格。（III 級以上。）"
+      }
+    ],
+    "loot": [
+      {
+        "text": "舊的感官帶或演出服（外皮，II～IV 級）的機會"
+      }
+    ],
+    "adult": [
+      "聲音",
+      "群與融合"
+    ],
+    "desc": "她以前站過舞台，身上還穿著褪色的演出服，耳後的增幅器接著一支舊麥克風。她唱歌的時候，聽見的人會覺得那首歌是唱給自己的。"
+  },
+  {
+    "id": "en_drown_saint",
+    "name": "溺感的聖者",
+    "faction": "none",
+    "rank": "boss",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "load": 1.3,
+      "sensitivity": 70,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "擁抱",
+        "type": "pleasure"
+      }
+    ],
+    "ai": {
+      "prefer": "nearest",
+      "focus": 0.3,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "defeat": "spread",
+    "signature": [
+      {
+        "name": "溫度",
+        "text": "她在場的每一回合開始時，雙方第 1 格的人各灌一次感載（不分敵我）。被動。份量 3 格。"
+      },
+      {
+        "name": "接住",
+        "text": "場上有人過載時，她換到離那人最近的格子，不花行動點。份量 2 格。"
+      },
+      {
+        "name": "雙份",
+        "text": "近戰命中時，把自己的兩層餘韻分給對方。花 2 點行動點。份量 3 格。"
+      },
+      {
+        "name": "低血大招",
+        "text": "滿溢。她的生命 ≤ 40%，或餘韻疊到承受層數 − 1 時解開，每場一次。她把身上所有的餘韻一次分出去：雙方第 1、2 格的人各得到一層，並且各灌一次感載。花 3 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "沒有零件"
+      },
+      {
+        "text": "她的橋接著別人的線，改造師可以從那裡追到失蹤的人（任務線頭）"
+      }
+    ],
+    "adult": [
+      "群與融合",
+      "溺愛"
+    ],
+    "desc": "她身邊總是圍著幾個溺感的人，他們牽著她的衣角走。她後頸的橋上接著好幾條別人的線，身上帶著不只她自己的餘韻，走過的地方空氣是溫的。"
+  },
+  {
+    "id": "en_masc_peach",
+    "name": "桃子",
+    "faction": "none",
+    "rank": "minion",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "mascot",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "抱住"
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 0.3,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "defeat": "taken",
+    "signature": [
+      {
+        "name": "揮手",
+        "text": "一個人下一回合的先攻 −3。花 1 點行動點。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "一顆氣球"
+      }
+    ],
+    "adult": null,
+    "desc": "牠是一套粉紅色的桃子玩偶裝，圓滾滾的身體上縫著一張笑臉，頭頂有一片綠色的葉子。玩偶裝的布面有洗過很多次的痕跡，背後的拉鍊被黑線縫死了。"
+  },
+  {
+    "id": "en_masc_bear",
+    "name": "熊",
+    "faction": "none",
+    "rank": "elite",
+    "grades": [
+      3,
+      5
+    ],
+    "kind": "mascot",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.05,
+      "armor": 1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "抱住"
+      }
+    ],
+    "ai": {
+      "prefer": "overloaded",
+      "focus": 0.3,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "defeat": "taken",
+    "signature": [
+      {
+        "name": "揮手",
+        "text": "一格上的所有人過定力檢定（DC 照制伏的難度），失敗的被壓制。花 2 點行動點。份量 3 格。"
+      },
+      {
+        "name": "抱緊",
+        "text": "一次近戰攻擊，命中的人被壓制，並且這一回合不能被隊友換走。花 2 點行動點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "一顆氣球"
+      }
+    ],
+    "adult": null,
+    "desc": "牠是一套比人高一個頭的棕色熊玩偶裝，脖子上繫著褪色的紅領結，一隻手永遠牽著氣球的線。牠的頭會慢慢歪到一個脖子做不到的角度，然後停在那裡。"
+  }
+]

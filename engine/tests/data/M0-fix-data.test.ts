@@ -90,10 +90,8 @@ describe('M0-fix-data：行動種類的資料（AI_TASKS 3.1 節）', () => {
   })
 
   it('整包載得進去：格式、引用（基本功）、參考範圍的效果都過', () => {
-    const k = createKernel()
-    k.content.loadPack(CORE_PACK)
+    const k = new Game({ features: allFeatures(), content: [CORE_PACK] }).k
     expect(k.content.checkRefs()).toEqual([])
-    expect(() => new Game({ features: allFeatures(), content: [CORE_PACK] })).not.toThrow()
   })
 
   it('裝上所有功能：十八種可以做（free 用資料的那一筆）；誘惑先不註冊（它的鏈還沒搬進來）', () => {

@@ -4,13 +4,11 @@
 import { describe, expect, it } from 'vitest'
 import type { BattleStatusEntry, ItemEntry, SpecialMapEntry, WeaponClassEntry } from '../../src'
 import { DEFAULT_DAMAGE_TYPES, DEFAULT_MODES, Game, Sheet, createKernel, damageTypeOf, markersInLayout, modeOf, statusRuleOf, weaponFromClass } from '../../src'
+import { allFeatures } from '../../src/features'
 import { CORE_PACK, SOURCES } from '../../data'
 
-const kernel = () => {
-  const k = createKernel()
-  k.content.loadPack(CORE_PACK)
-  return k
-}
+// 整包內容含功能自己註冊的種類（敵人、遭遇、戰敗事件），要裝上功能才載得進去（M1-data-enemies）
+const kernel = () => new Game({ features: allFeatures(), content: [CORE_PACK] }).k
 
 describe('M1-data-rules：戰鬥的規則數值', () => {
   it('整包載得進去，引用都找得到；每一種資料寫了出處', () => {
@@ -20,7 +18,7 @@ describe('M1-data-rules：戰鬥的規則數值', () => {
       expect(k.content.list(kind).length, kind).toBeGreaterThan(0)
       expect(SOURCES[kind], kind).toBeTruthy()
     }
-    expect(() => new Game({ content: [CORE_PACK] })).not.toThrow()
+    expect(() => new Game({ features: allFeatures(), content: [CORE_PACK] })).not.toThrow()
   })
 
   it('戰場 meat（現實）：數字逐項照 COMBAT_SYSTEM；資料寫的和核心的預設一樣（預設就是照設計書寫的）', () => {
@@ -159,7 +157,7 @@ describe('M1-data-rules：兩張地圖（先證明版面讀得進來；其餘的
   })
 
   it('走得進去：開一份實例、站在第一個入口、看得到周圍', () => {
-    const game = new Game({ content: [CORE_PACK], strict: true })
+    const game = new Game({ features: allFeatures(), content: [CORE_PACK], strict: true })
     game.newGame({ seed: 1 })
     for (const id of ['map_office_small', 'map_club']) {
       const inst = game.enterMap(id)

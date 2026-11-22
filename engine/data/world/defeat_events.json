@@ -1,0 +1,16 @@
+[
+  {
+    "id": "df_generic",
+    "name": "通用的戰敗",
+    "kind": "generic",
+    "factions": [],
+    "fails_commission": true,
+    "default": true,
+    "versions": {
+      "default": {
+        "text": "你們全倒下了。再醒來的時候，對方已經走了。",
+        "effects": []
+      }
+    }
+  }
+]

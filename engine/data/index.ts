@@ -15,12 +15,16 @@ import items from './rules/items.json'
 import maps from './world/maps.json'
 import factions from './world/factions.json'
 import npcs from './world/npcs.json'
+import enemies from './world/enemies.json'
+import encounters from './world/encounters.json'
+import defeatEvents from './world/defeat_events.json'
 
 export const CORE_PACK: ContentPack = {
   id: 'core',
   content: {
     attribute: attributes, skill: skills, perk: perks, faction: factions, npc: npcs, origin: origins, creation_rule: creation, effect_cap: effectCaps, action_kind: actions,
     battle_mode: battleModes, damage_type: damageTypes, battle_status: battleStatuses, weapon_class: weaponClasses, item: items, special_map: maps,
+    enemy: enemies, encounter: encounters, defeat_event: defeatEvents,
   },
 }
 
@@ -40,5 +44,8 @@ export const SOURCES: Record<string, string> = {
   battle_status: 'COMBAT_SYSTEM 第 5 節（壓制）、第 6 節（重創輕的一級）、第 5 節傷害類型（燃燒、失效）、第 7 節（失去回合）、標記的 +2 見 COMBAT_SYSTEM 9.1 節（偵察型）與 ITEMS 5.2 節（紙鶴），期限（到標記者的下一回合開始前）取工單；EVENTS 2.4.1 節（被壓住）',
   weapon_class: 'COMBAT_SYSTEM 第 5 節的武器表；範圍寫法（神經武器骰數、彈匣、重武器）取驗收測試的值',
   item: 'ITEMS 5.2 節的消耗品表與日用品表（束帶、鎖橋器、急救凝膠、冷卻劑、止血針、醒腦針、煙霧彈 I～II）；size 0 照 EQUIPMENT 6.1 節',
+  enemy: 'ENEMY_ROSTER 第一到第五部分（現實的制式兵種）；ENEMIES 1.5、1.6 節',
+  encounter: 'dev/work/M1-data-enemies.md（基準，M2 換成委託模板與二十九種戰敗事件）',
+  defeat_event: 'dev/work/M1-data-enemies.md（基準，M2 換成委託模板與二十九種戰敗事件）',
   special_map: 'DATA 9.3 節（小辦公室樣本）、COMMISSION_MAPS 第 1、2 節（小辦公室）與第 8 節、1.6 節樣本（俱樂部）；C 的 cells 照第 2、8 節的控制區表補',
 }
