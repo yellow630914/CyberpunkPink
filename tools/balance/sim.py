@@ -2,7 +2,7 @@
 """夾值用的模擬器（docs/systems/BALANCE.md）。不依賴任何套件。
 
 用法：python3 tools/balance/sim.py [主題 ...] [--set current|proposed] [--doc-budget] [--trials N] [--seed N]
-主題：summary（預設）、hits、encounter、cross、capture、key、quests、grade、duel、legend、difficulty、net、check、economy、xp、opinion、roster、items、skills、mech、netrun、all
+主題：summary（預設）、hits、encounter、cross、capture、key、quests、grade、duel、legend、difficulty、commission、net、check、economy、xp、opinion、roster、items、skills、mech、netrun、all
 
 所有曲線都寫在這個檔案的 CURVES 裡，和 BALANCE.md 的表一一對應。
 current 是第一輪夾值之前文件寫的數字（2026-11-20），proposed 是 BALANCE.md 的曲線；兩組只在 DIFF 列出的欄位不同。
@@ -182,21 +182,25 @@ def net_table(C):
 # ───────────────────────── 遭遇（蒙地卡羅） ─────────────────────────
 class Unit:
     __slots__ = ('hp', 'max', 'ap', 'apmax', 'regen', 'acc', 'mag', 'magmax', 'atk', 'ev', 'armor', 'dice', 'flat', 'pierce', 'mult', 'minion',
-                 'mech', 'dur', 'mturns', 'exposed', 'turn')   # mech：機甲的設定（dict）；dur：機體耐久；mturns：啟動剩幾回合
+                 'mech', 'dur', 'mturns', 'exposed', 'turn', 'cov', 'mark', 'skip')
+    # mech：機甲的設定（dict）；dur：機體耐久；mturns：啟動剩幾回合
+    # cov：固定的遮蔽（遭遇點的配置，None＝照 COVER 的比例）；mark：被標記（隊友打他 +2）；skip：下一個回合被控制住
 
     def __init__(self, **k):
         for a in self.__slots__:
-            setattr(self, a, k.get(a, 0))
+            setattr(self, a, k.get(a, None if a == 'cov' else 0))
         self.max = self.hp
         self.ap = self.apmax
 
 
 def attack(rng, a, d):
     cover = rng.choices([c for c, _ in COVER], [w for _, w in COVER])[0]
+    if d.cov is not None:
+        cover = d.cov                  # 遭遇點的配置（COMMISSION_MAPS 1.3 節）
     r = rng.randint(1, 20)
     if r == 1:
         return 0
-    total = r + a.atk
+    total = r + a.atk + (2 if d.mark else 0)   # 標記：隊友打他 +2（COMBAT_SYSTEM 偵察型、快駭的支援）
     if d.exposed:
         cover = 0                      # 機甲啟動期間永遠暴露（COMBAT_SYSTEM 9.3 節）
     de = d.ev + cover
@@ -1267,6 +1271,445 @@ def show_opinion(C):
         print(f'  {G[g]:>3}（編輯點 {C["op_player_ep"][g]}）：' + '｜'.join(cells))
 
 
+# ───────────────────────── 委託的決定性階段（commission） ─────────────────────────
+# 2026-11-21：介面第四版的自動測試（只會普通射擊、普通出牌）兩件委託每次都輸，這裡照規格重建那兩個決定性階段，
+# 用會用技能、掩體、標記、會選牌的策略 AI 判斷是不是平衡的問題。目標照 BALANCE 7.1 節首領戰的勝率（決定性的一步輸了就是委託失敗）。
+DECISIVE_TARGET = {'故事': (0.97, '100%'), '簡單': (0.95, '100%'), '普通': (0.90, '90% 以上'),
+                   '困難': (0.80, '82～94%'), '傳奇': (0.55, '56～73%')}
+
+# 遭遇點的配置（COMMISSION_MAPS 1.3 節，我方 4→1｜敵方 1→4）：倉庫的 ① 卸貨區是「中」，② 貨架列是「密」
+SPOTS = {'① 卸貨區（中）': ([4, 2, 2, 0], [0, 2, 2, 4]), '② 貨架列（密）': ([4, 4, 2, 2], [2, 2, 4, 4])}
+
+
+def _regen(u):
+    u.turn += 1
+    u.acc += u.regen
+    gain = int(u.acc)
+    u.acc -= gain
+    u.ap = min(u.apmax, u.ap + gain)
+
+
+def _shoot(rng, u, foes, mult=1.0):
+    """花光行動點打 foes 裡血最少的（集火）；mult 是對這個目標的傷害倍率（弱點 ×2）。"""
+    while u.ap >= 2:
+        live = [f for f in foes if f.hp > 0]
+        if not live:
+            return
+        if u.mag == 0:
+            u.ap -= 1
+            u.mag = u.magmax
+            continue
+        t = min(live, key=lambda f: f.hp)
+        u.ap -= 2
+        u.mag -= 1
+        t.hp = max(0, t.hp - attack(rng, u, t) * (mult if t.minion == 'object' else 1.0))
+
+
+def sabotage(C, g, comp, rng, trials, plan, spot, dc_off=0, smart=True, weak=False, rounds=20):
+    """破壞（COMMISSION_TEMPLATES ct_type_sabotage）的決定性一步：目標物不會動、佔一格，生命是同級精英的兩倍、護甲照等級，永遠暴露。
+    plan：'clear' 先清場再打目標物；'split' 兩人打目標物、兩人打敵人；'bomb' 一人裝炸藥（1 點移動＋2 點，機械對標準 DC），其他人打敵人。
+    炸藥在裝好那一回合結束起算的第二回合結束時引爆；敵人花 2 點（加 1 點移動）可以拆，不擲。
+    smart：潛網者每回合標記集火的目標（快駭的支援 0 點，隊友打他 +2）；一個人用一次控制的招牌（2 點，最強的敵人失去下一個回合）。
+    weak：有 weak_point：裝炸藥不擲，打目標物傷害 ×2。回傳（毀掉的比例、掉多少生命、回合、倒下幾人）。"""
+    pc, fc = SPOTS[spot]
+    win = loss = rnds = downs = 0.0
+    dc = min(C['dc_max'], C['dc_std'][g] + dc_off)
+    pb = 1.0 if weak else p_success(C['p_check'][g], dc)
+    for _ in range(trials):
+        party = make_party(C, g)
+        for i, p in enumerate(party):
+            p.cov = pc[i % 4]
+        foes = [make_enemy(C, *unit_of(r, g)) for r in comp]
+        for i, f in enumerate(foes):
+            f.cov = fc[min(i, 3)]
+        obj = Unit(hp=2 * C['e_hp']['精英'][g], ev=C['e_ev'][g], armor=C['e_armor'][g], cov=0, minion='object')
+        armed = det = None
+        ctrl = smart
+        n = 0
+        while n < rounds and obj.hp > 0 and any(p.hp > 0 for p in party):
+            n += 1
+            order = ['P', 'E'] if rng.random() < 0.5 else ['E', 'P']
+            for side in order:
+                if side == 'P':
+                    live = [f for f in foes if f.hp > 0]
+                    if smart and live:
+                        for f in foes:
+                            f.mark = 0
+                        min(live, key=lambda f: f.hp).mark = 1
+                    for i, p in enumerate(party):
+                        if p.hp <= 0:
+                            continue
+                        _regen(p)
+                        live = [f for f in foes if f.hp > 0]
+                        if ctrl and i == 1 and live and p.ap >= 2:
+                            big = max(live, key=lambda f: (f.max, f.hp))
+                            if big.max > C['e_hp']['雜兵'][g] * 1.5:
+                                p.ap -= 2
+                                big.skip = True
+                            ctrl = False
+                        if plan == 'bomb' and i == 3 and armed is None:
+                            need = 3 if p.turn == 1 else 2
+                            if p.ap >= need:
+                                p.ap -= need
+                                if rng.random() < pb:
+                                    armed, det = True, n + 2
+                            continue          # 裝炸藥的人守在那一格，不開槍
+                        if plan == 'bomb' and i == 3:
+                            _shoot(rng, p, live)
+                            continue
+                        if plan == 'split' and i in (0, 1):
+                            tgt = [obj]
+                        else:
+                            tgt = live if live else [obj]
+                        _shoot(rng, p, tgt, 2.0 if weak else 1.0)
+                        if tgt is not live and obj.hp <= 0:
+                            break
+                        if live and not any(f.hp > 0 for f in foes) and plan != 'bomb':
+                            _shoot(rng, p, [obj], 2.0 if weak else 1.0)
+                else:
+                    tried = False
+                    for f in foes:
+                        if f.hp <= 0:
+                            continue
+                        if f.skip:
+                            f.skip = False
+                            _regen(f)
+                            continue
+                        if armed and not tried and rng.random() < 0.5:
+                            _regen(f)
+                            if f.ap >= 3:
+                                f.ap -= 3
+                                armed = None
+                                tried = True
+                            take_turn_noregen(rng, f, party)
+                            continue
+                        take_turn(rng, f, party, False, 0.25)
+                if obj.hp <= 0 or not any(p.hp > 0 for p in party):
+                    break
+            if armed and n >= det:
+                obj.hp = 0
+        lost = sum(p.max - p.hp for p in party) / sum(p.max for p in party)
+        win += obj.hp <= 0 and any(p.hp > 0 for p in party)
+        loss += lost
+        rnds += n
+        downs += sum(p.hp <= 0 for p in party)
+    return win / trials, loss / trials, rnds / trials, downs / trials
+
+
+def take_turn_noregen(rng, u, foes):
+    while u.ap >= 2:
+        live = [f for f in foes if f.hp > 0]
+        if not live:
+            return
+        if u.mag == 0:
+            u.ap -= 1
+            u.mag = u.magmax
+            continue
+        t = rng.choice(live)
+        u.ap -= 2
+        u.mag -= 1
+        t.hp = max(0, t.hp - attack(rng, u, t))
+
+
+SAB_COMPS = [('小／中型：重（5.5）1 精英＋3 雜兵', ['精英', '雜兵', '雜兵', '雜兵']),
+             ('小／中型：重（5）5 雜兵', ['雜兵'] * 5),
+             ('大型：首領戰（8）1 首領＋3 雜兵', ['首領', '雜兵', '雜兵', '雜兵']),
+             ('大型：首領戰（7.5）1 首領＋1 精英', ['首領', '精英'])]
+SAB_PLANS = {'clear': '清場', 'split': '分火', 'bomb': '炸藥'}
+
+
+# 滅火（ct_type_firefight）的決定性一步：六回合守住，你開場佔緋櫻映畫與夜鶯直播，潔絲（pr_jess）從街上的耳語打上來。
+# 格子 (列, 行)：上排同人圈、帶子街、應援圈；中排緋櫻映畫、萬華鏡、夜鶯直播；下排牆報、街上的耳語、地下轉播站（OPINION 3.1 節）。
+FF_SCORES = {'帶子外流（tp_tape_leak）': [[1, 3, 2], [0, 1, 2], [0, 2, 0]],
+             '偶像的醜聞': [[2, 1, 3], [1, 2, 2], [1, 0, 0]],
+             '大眾議題（企業醜聞）': [[1, 1, 1], [2, 3, 1], [1, 1, 0]]}
+# 牌庫（OPINION 4.3 節，14 張）：(種類, 花的編輯點, 數字)。料的數字另加戰役等級的加值（III、IV +1，V +2）。
+FF_DECK = [('料', 1, 2)] * 4 + [('料', 2, 4)] * 2 + [('說法', 1, 1)] * 3 + [('說法', 2, 2)] + [('降流', 1, 2)] * 2 + [('設防', 1, 0), ('轉移', 1, 2)]
+# 潔絲的 mimic（DATA 6.3 節）：行動表比一般的公關長，每回合隨機開放三到四種。
+JESS_POOL = ['發稿', '否認', '降流', '反爆料', '律師函', '下架', '追擊', '料', '說法', '水軍', '頭條', '轉移']
+PR_POOL = ['發稿', '否認', '降流', '反爆料', '律師函', '下架', '追擊']   # 一般的公關（OPINION 5.2 節的行動表），全部開放
+JESS_COST = {'發稿': 1, '否認': 1, '降流': 1, '反爆料': 2, '律師函': 2, '下架': 2, '追擊': 2, '料': 1, '說法': 1, '水軍': 1, '頭條': 2, '轉移': 1}
+
+
+def firefight(C, g, rng, trials, scores, pr=6, chase=True, fuel=0, sig='free', eps=None, wind0=0, start_cells=(), rounds=6,
+              jess_grade=2, open_n=(3, 4), smart=True, pool=None, free_cards=False):
+    """回傳 {'win','big','tie','lose'}。pr：潔絲每回合的公關點（難度、連動已經加減好）；chase：她能不能追擊（強度 3）；
+    fuel：她的料的聲量加減（leaker_discredited −1）；sig：招牌「推薦位」第一回合搶萬華鏡 'free'（不花聲量、不看相鄰、不算那一次佔領）／'paid'（照防守花聲量、算那一次佔領）／None；
+    eps：坐在編輯台的人的編輯點（預設是這一級的媒體型主力一人）；smart=False 是只會照順序出牌的機器人。"""
+    adj = lambda c: [(c[0] + dx, c[1] + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)) if 0 <= c[0] + dx < 3 and 0 <= c[1] + dy < 3]
+    S = scores
+    eps = eps or [C['op_player_ep'][g]]
+    bonus = OP_CARD_BONUS[g]
+    jrel = C['op_release'][jess_grade]
+    deny, counter = OP_DENY[jess_grade], OP_COUNTER[jess_grade]
+    KAL = (1, 1)
+    res = {'win': 0.0, 'big': 0.0, 'tie': 0.0, 'lose': 0.0}
+    for _ in range(trials):
+        own = {(1, 0): 'P', (1, 2): 'P', (2, 1): 'O'}
+        for c in start_cells:
+            own[c] = 'P'
+        vol = {'P': 0, 'O': 0}
+        wind = wind0
+        deck = FF_DECK[:]
+        rng.shuffle(deck)
+        disc, hand = [], []
+        ep_cut = 0
+        took_last = False
+        over = None
+
+        def draw(k):
+            for _ in range(k):
+                if len(hand) >= 5:
+                    return
+                if not deck:
+                    deck.extend(disc); disc.clear(); rng.shuffle(deck)
+                    if not deck:
+                        return
+                hand.append(deck.pop())
+
+        def cost(side, n):
+            o = own.get(n)
+            if o is None:
+                return 2
+            return max(0, 3 - wind) if side == 'P' else max(0, 3 + wind)
+
+        def cands(side):
+            return {n for c, o in own.items() if o == side for n in adj(c) if own.get(n) != side}
+
+        def value(side, n):
+            return S[n[0]][n[1]] + (S[n[0]][n[1]] if own.get(n) else 0) + 0.3 * sum(1 for m in adj(n) if own.get(m) is None)
+
+        def pick(side, avoid=(), prefer=None):
+            cs = [n for n in cands(side) if n not in avoid]
+            if prefer and prefer in cs:
+                return prefer
+            if not cs:
+                return None
+            return max(cs, key=lambda n: value(side, n) - 0.4 * cost(side, n))
+
+        def occupy(side, k, guard=None):
+            nonlocal over
+            got = 0
+            for _ in range(k):
+                n = pick(side, avoid=(guard,) if guard else (), prefer=KAL if side == 'O' else None)
+                if n is None or vol[side] < cost(side, n):
+                    break
+                vol[side] -= cost(side, n)
+                own[n] = side
+                got += 1
+                other = 'O' if side == 'P' else 'P'
+                if other not in own.values():
+                    over = side
+                    break
+            return got
+
+        draw(3)
+        for t in range(rounds):
+            # ── 你 ──
+            draw(2)
+            if free_cards:                   # 對照：牌不受手牌限制，每點編輯點換任何一種效果（BALANCE 2.13 節的模型）
+                hand[:] = [c for c in FF_DECK for _ in range(3)]
+            ep = max(0, sum(eps) - ep_cut)
+            ep_cut = 0
+            k = 1
+            main = eps[0]
+            if main >= 4 and ep >= 1:        # 主播的追擊：1 點，多佔一格
+                ep -= 1; k += 1
+            if main >= 5 and ep >= 2:        # 主播的頭條：2 點，聲量 +5，多佔一格
+                ep -= 2; k += 1; vol['P'] += 5
+            guard = None
+            if smart:
+                # 要佔 k 格大約要多少聲量
+                need, tmp = 0, []
+                for _ in range(k):
+                    n = pick('P', avoid=tmp)
+                    if n is None:
+                        break
+                    tmp.append(n); need += cost('P', n)
+                hand.sort(key=lambda c: (c[0] != '料', -c[2] / c[1]))
+                while ep > 0:
+                    playable = [c for c in hand if c[1] <= ep]
+                    if not playable:
+                        break
+                    if wind < 0 and any(c[0] == '說法' for c in playable):
+                        c = max((c for c in playable if c[0] == '說法'), key=lambda c: c[2])
+                    elif vol['P'] < need and any(c[0] == '料' for c in playable):
+                        c = max((c for c in playable if c[0] == '料'), key=lambda c: c[2] / c[1])
+                    elif any(c[0] == '設防' for c in playable) and guard is None:
+                        c = next(c for c in playable if c[0] == '設防')
+                    elif any(c[0] == '說法' for c in playable):
+                        c = max((c for c in playable if c[0] == '說法'), key=lambda c: c[2])
+                    elif vol['O'] >= 2 and any(c[0] == '降流' for c in playable):
+                        c = next(c for c in playable if c[0] == '降流')
+                    elif any(c[0] == '料' for c in playable):
+                        c = max((c for c in playable if c[0] == '料'), key=lambda c: c[2])
+                    else:
+                        break
+                    hand.remove(c); disc.append(c); ep -= c[1]
+                    if c[0] == '料':
+                        vol['P'] += c[2] + bonus
+                    elif c[0] == '說法':
+                        wind = min(5, wind + c[2])
+                    elif c[0] == '降流':
+                        vol['O'] = max(0, vol['O'] - 2)
+                    elif c[0] == '設防':
+                        mine = [n for n, o in own.items() if o == 'P']
+                        guard = max(mine, key=lambda n: S[n[0]][n[1]]) if mine else None
+                    elif c[0] == '轉移':
+                        vol['P'] = max(0, vol['P'] - 2); vol['O'] = max(0, vol['O'] - 2)
+            else:
+                # 普通出牌的機器人：照手牌的順序能出就出，設防與轉移也照樣丟
+                for c in list(hand):
+                    if c[1] <= ep:
+                        hand.remove(c); disc.append(c); ep -= c[1]
+                        if c[0] == '料':
+                            vol['P'] += c[2] + bonus
+                        elif c[0] == '說法':
+                            wind = min(5, wind + c[2])
+                        elif c[0] == '降流':
+                            vol['O'] = max(0, vol['O'] - 2)
+                        elif c[0] == '轉移':
+                            vol['P'] = max(0, vol['P'] - 2); vol['O'] = max(0, vol['O'] - 2)
+            vol['P'] = min(10, vol['P'])
+            took_last = occupy('P', k) > 0
+            if over:
+                break
+            # ── 潔絲 ──
+            p = pr
+            kO = 1
+            if sig == 'free' and t == 0 and own.get(KAL) != 'O':
+                own[KAL] = 'O'
+            elif sig == 'paid' and t == 0:
+                pass
+            opened = set(pool) if pool else set(rng.sample(JESS_POOL, rng.choice(open_n)))
+            target = pick('O', avoid=(guard,) if guard else (), prefer=KAL)
+            need = cost('O', target) if target else 99
+            while p > 0:
+                can = lambda a: a in opened and JESS_COST[a] <= p
+                if took_last and can('反爆料'):
+                    p -= 2; wind = max(-5, wind - counter); took_last = False
+                elif wind >= 2 and can('否認'):
+                    p -= 1; wind = max(-5, wind - deny)
+                elif vol['O'] < need and can('頭條') and kO == 1:
+                    p -= 2; vol['O'] += 5; kO += 1
+                elif vol['O'] < need and (can('發稿') or can('料') or can('水軍')):
+                    a = '發稿' if can('發稿') else '料' if can('料') else '水軍'
+                    p -= 1
+                    if a == '水軍':
+                        vol['O'] += 3 + fuel
+                        if rng.randint(1, 20) <= 5:
+                            wind = min(5, wind + 1)
+                    else:
+                        vol['O'] += max(0, (jrel if a == '發稿' else 2 + OP_CARD_BONUS[jess_grade]) + fuel)
+                elif chase and can('追擊') and kO == 1 and vol['O'] >= 2 * need:
+                    p -= 2; kO += 1
+                elif wind > 0 and can('說法'):
+                    p -= 1; wind = max(-5, wind - 1)
+                elif can('律師函'):
+                    p -= 2; ep_cut = 1
+                elif can('下架') and hand:
+                    p -= 2; c = rng.choice(hand); hand.remove(c); disc.append(c)
+                elif can('降流') and vol['P'] > 0:
+                    p -= 1; vol['P'] = max(0, vol['P'] - 2)
+                elif can('發稿') or can('料'):
+                    p -= 1; vol['O'] += max(0, jrel + fuel)
+                elif can('否認') and wind > -5:
+                    p -= 1; wind = max(-5, wind - deny)
+                elif can('反爆料') and wind > -5:
+                    p -= 2; wind = max(-5, wind - counter)
+                else:
+                    break
+                vol['O'] = min(10, vol['O'])
+            if sig == 'paid' and t == 0 and own.get(KAL) != 'O' and vol['O'] >= cost('O', KAL):
+                vol['O'] -= cost('O', KAL); own[KAL] = 'O'; kO -= 1
+            if kO > 0:
+                occupy('O', kO, guard)
+            if over:
+                break
+        if over:
+            sp, so = (1, 0) if over == 'P' else (0, 1)
+        else:
+            sp = sum(S[c[0]][c[1]] for c, o in own.items() if o == 'P')
+            so = sum(S[c[0]][c[1]] for c, o in own.items() if o == 'O')
+        if over == 'P' or (not over and sp - so >= 4):
+            res['big'] += 1
+        if sp > so:
+            res['win'] += 1
+        elif sp == so:
+            res['tie'] += 1
+        else:
+            res['lose'] += 1
+    return {k: v / trials for k, v in res.items()}
+
+
+def show_commission(C, rng, trials):
+    print('■ 委託的決定性階段（介面第四版自動測試輸掉的兩件）。目標照 BALANCE 7.1 節首領戰的勝率：'
+          + '、'.join(f'{k} {v[1]}' for k, v in DECISIVE_TARGET.items()))
+    print(f'■ 破壞（ct_type_sabotage）：倉庫 map_warehouse，目標物＝同級精英生命 ×2、護甲照等級、永遠暴露；同級四人，{trials} 次')
+    print('  策略 AI：潛網者每回合標記集火的目標（+2）、一人用一次控制的招牌、照遭遇點的配置站掩體；三種打法取勝率最高的')
+    spot = '① 卸貨區（中）'
+    print(f'  遭遇點 {spot}，普通難度，三種打法（勝率／掉多少生命／回合）：')
+    D = dict(C, difficulty=DIFFICULTY['普通'])
+    for label, comp in SAB_COMPS:
+        cells = []
+        for g in range(5):
+            r = {pl: sabotage(D, g, comp, rng, trials, pl, spot) for pl in SAB_PLANS}
+            cells.append(f'{G[g]} ' + '／'.join(f'{SAB_PLANS[pl]}{pct(v[0])}' for pl, v in r.items()))
+        print(f'    {label}：' + '｜'.join(cells))
+    print('  各難度，最好的打法（勝率／掉多少生命／倒下幾人）；括號是同一組敵人沒有目標物、照一般遭遇打的勝率：')
+    for name, d in DIFFICULTY.items():
+        D = dict(C, difficulty=d)
+        lo = DECISIVE_TARGET[name][0]
+        for label, comp in SAB_COMPS:
+            cells, worst = [], 1.0
+            for g in range(5):
+                best = max((sabotage(D, g, comp, rng, trials, pl, spot, d['dc']) + (pl,) for pl in SAB_PLANS), key=lambda x: x[0])
+                plain = encounter(D, g, g, comp, rng, trials // 2)
+                worst = min(worst, best[0])
+                cells.append(f'{G[g]} {pct(best[0])}/{pct(best[1])}/{best[3]:.1f}（{pct(plain[2])}）')
+            print(f'    {name}｜{label}：' + '｜'.join(cells) + ('' if worst >= lo else '　← 低於目標'))
+    print('  對照（普通）：只會普通射擊、不標記不控制、先清場（介面的機器人）｜② 貨架列（密）｜有 weak_point：')
+    D = dict(C, difficulty=DIFFICULTY['普通'])
+    for label, comp in SAB_COMPS[:1] + SAB_COMPS[2:3]:
+        a = [pct(sabotage(D, g, comp, rng, trials, 'clear', spot, smart=False)[0]) for g in range(5)]
+        b = [pct(max(sabotage(D, g, comp, rng, trials, pl, '② 貨架列（密）')[0] for pl in SAB_PLANS)) for g in range(5)]
+        c = [pct(max(sabotage(D, g, comp, rng, trials, pl, spot, weak=True)[0] for pl in SAB_PLANS)) for g in range(5)]
+        print(f'    {label}：機器人 {" ".join(a)}｜密 {" ".join(b)}｜弱點 {" ".join(c)}')
+
+    print(f'■ 滅火（ct_type_firefight）：六回合守住，你開場佔緋櫻映畫與夜鶯直播，潔絲（pr_jess，mimic、招牌「推薦位」）從街上的耳語打上來；{trials} 次')
+    print('  你：這一級的媒體型主力一人（編輯點 I～V 是 2～6，4 點起追擊、5 點起頭條），會選牌的 AI。勝＝結算時分數比潔絲高（平手算沒守住）')
+    print('  牌：抽＝14 張牌、開場 3 張、每回合抽 2、手牌上限 5；選＝每點編輯點換任何一種效果（BALANCE 2.13 節的模型）')
+    print('  現行＝強度固定 3（6 點、可以追擊），招牌第一回合不花聲量搶下萬華鏡、另外多佔一格')
+    print('  調整後（2026-11-21）＝強度照副本的共通規則（I～II 1、III～IV 2、V 3，大型 +1，上限 3）；招牌是第一回合的佔領不看相鄰、照防守花聲量')
+    print('  連動：源＝source_destroyed（第 2 階段，她每回合 −1 點）；封口＝leaker_quiet（大型的 2b，強度 −1）。議題：帶子外流（tp_tape_leak，她的預設議題）')
+    sc = FF_SCORES['帶子外流（tp_tape_leak）']
+    setups = [('II 中', 1, 0, ()), ('II 中＋源', 1, 0, ('src',)), ('II 大＋源＋封口', 1, 1, ('src', 'quiet')),
+              ('III 中', 2, 0, ()), ('III 中＋源', 2, 0, ('src',)), ('III 大＋源＋封口', 2, 1, ('src', 'quiet'))]
+    for name, d in DIFFICULTY.items():
+        lo = DECISIVE_TARGET[name][0]
+        for rule in ('現行', '調整後'):
+            cells, bad = [], False
+            for label, g, large, ln in setups:
+                k = 3 if rule == '現行' else min(3, [1, 1, 2, 2, 3][g] + large)
+                if 'quiet' in ln:
+                    k = max(1, k - 1)
+                pr = max(1, 2 * k + d['pr'] - (1 if 'src' in ln else 0))
+                sig = 'free' if rule == '現行' else 'paid'
+                r1 = firefight(C, g, rng, trials, sc, pr=pr, chase=k >= 3, sig=sig)['win']
+                r2 = firefight(C, g, rng, trials, sc, pr=pr, chase=k >= 3, sig=sig, free_cards=True)['win']
+                bad |= bool(ln) and r1 < lo
+                cells.append(f'{label}（強度 {k}）{pct(r1)}/{pct(r2)}')
+            print(f'    {name}｜{rule}：' + '｜'.join(cells) + ('　← 有連動也低於目標' if bad else ''))
+    print('  對照（普通、III 中型、沒有連動；三種議題的勝率，抽／選）：')
+    for label, kw in [('現行（強度 3）', {}), ('現行，只會照順序出牌的機器人', {'smart': False}),
+                      ('現行，招牌照防守花聲量、算那一次佔領', {'sig': 'paid'}), ('現行，沒有招牌', {'sig': None}),
+                      ('現行，兩個人坐編輯台（主播＋任何人 2 點）', {'eps': [4, 2]}), ('現行，四回合', {'rounds': 4}),
+                      ('現行，每回合 5 點', {'pr': 5}), ('只改強度（共通規則：強度 2、4 點、不能追擊）', {'pr': 4, 'chase': False}),
+                      ('調整後（強度 2，招牌照防守花聲量）', {'pr': 4, 'chase': False, 'sig': 'paid'})]:
+        r = [(firefight(C, 2, rng, trials, FF_SCORES[s], **kw)['win'], firefight(C, 2, rng, trials, FF_SCORES[s], free_cards=True, **kw)['win']) for s in FF_SCORES]
+        print(f'    {label}：' + '｜'.join(f'{s} {pct(x)}/{pct(y)}' for s, (x, y) in zip(FF_SCORES, r)))
+
+
 def show_roster(C, limit=0.15):
     path = os.path.join(ROOT, 'docs/content/ENEMY_ROSTER.md')
     rows, n, excused = roster_audit(C, path, limit)
@@ -1306,7 +1749,7 @@ def main():
     rng = random.Random(a.seed)
     topics = a.topics
     if 'all' in topics:
-        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'quests', 'grade', 'duel', 'legend', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items', 'skills', 'mech', 'netrun']
+        topics = ['hits', 'net', 'encounter', 'cross', 'capture', 'key', 'quests', 'grade', 'duel', 'legend', 'difficulty', 'check', 'economy', 'xp', 'opinion', 'roster', 'items', 'skills', 'mech', 'netrun', 'commission']
     if 'summary' in topics:
         topics = ['hits', 'encounter', 'cross']
     print(f'曲線：{a.set}')
@@ -1323,7 +1766,8 @@ def main():
          'grade': lambda: show_grade(C, rng, max(300, a.trials // 4)),
          'duel': lambda: show_duel(C, rng, max(500, a.trials // 2)),
          'legend': lambda: show_legend(C, rng, max(500, a.trials // 2)),
-         'difficulty': lambda: show_difficulty(C, rng, max(300, a.trials // 4))}[t]()
+         'difficulty': lambda: show_difficulty(C, rng, max(300, a.trials // 4)),
+         'commission': lambda: show_commission(C, rng, max(300, a.trials // 4))}[t]()
         print()
 
 
