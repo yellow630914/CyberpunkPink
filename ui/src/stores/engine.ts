@@ -1,11 +1,13 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
-import type { ActionInput, Actor, AttributeEntry, Change, GameState, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
+import type { ActionInput, Actor, AttributeEntry, BattleInput, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
 import { FakeProvider, Game, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
 import type { ActStatus, StepActions } from '@engine/src'
 import type { StepRecord } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
 import { allFeatures } from '@engine/src/features'
+import { acceptDefeat, defeatOf } from '@engine/src/features/defeat'
+import { setupFromEncounter } from '@engine/src/features/enemies'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
 import { ageBlock, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
 import { aiSettingsFromUi, logEntryOf, type EngineLogEntry, type UiAiFields } from '../lib/engineView'
@@ -174,5 +176,49 @@ export const useEngine = defineStore('engine', () => {
     if (real.length) commit({ summary: '帳', action: 'ui.money', changes: real }, { attach: true })
   }
 
-  return { state, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  // ---- 戰鬥（COMBAT_SYSTEM；dev/work/M1-ui-combat.md）：包住引擎的 battle*，畫面只讀這裡的東西 ----
+  const battle = computed(() => state.value.battle)
+  const inBattle = computed(() => state.value.battle !== null)
+  const defeat = computed(() => defeatOf(state.value))
+  /** 現在輪到誰、能做什麼（引擎算）；沒有在打是 null。每次呼叫都問一次引擎，所以回傳的是新的一份。 */
+  function battleOptions(): BattleOptions | null {
+    void state.value
+    return game.battleOptions()
+  }
+  function startBattle(setup: BattleSetup): void {
+    game.startBattle(setup)
+    refresh()
+  }
+  /** 照遭遇的 id 開打：我方是隊上的人；找不到這個遭遇就丟錯（畫面先用 encounterIds 查）。 */
+  function startEncounter(id: string): void {
+    startBattle(setupFromEncounter(game.k, game.state, id, { allies: game.state.party.map((a) => ({ from: 'actor' as const, id: a })) }))
+  }
+  /** 內容裡的遭遇 id（照引擎給的順序）與它的等級，給畫面挑預設的一場。 */
+  function encounters(): Array<{ id: string; grade: number }> {
+    return game.k.content.list<{ id: string; grade: number }>('encounter').map((e) => ({ id: e.id, grade: e.grade }))
+  }
+  function battleAct(input: BattleInput): BattleStepResult {
+    const r = game.battleAct(input)
+    if (r.status === 'applied') refresh()
+    return r
+  }
+  function battleNext(o?: { anyone?: boolean }): BattleStepResult {
+    const r = game.battleNext(o)
+    if (r.status === 'applied') refresh()
+    return r
+  }
+  const finishBattle = () => run(() => game.finishBattle())
+  function retryBattle(): string | null {
+    const err = game.retryBattle()
+    if (err === null) refresh()
+    return err
+  }
+  function acceptDefeatNow(): void {
+    game.commit(acceptDefeat(game.k, game.state))
+    refresh()
+  }
+  /** 內容的名字（道具、狀態……；顯示用，查內容不是規則）；查不到是 undefined */
+  const contentName = (kind: string, id: string): string | undefined => game.k.content.get<{ name?: string }>(kind, id)?.name
+
+  return { state, battle, inBattle, defeat, battleOptions, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, acceptDefeat: acceptDefeatNow, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

@@ -13,6 +13,28 @@ export const LIVE_GOALS: LiveGoal[] = [
   { id: 'talk', name: '陪聊滿一個時段', kind: 'daily', check: () => true },
   { id: 'tip', name: '收到三筆打賞', kind: 'daily', check: () => false },
 ]
+/** 現實戰鬥的直播事件：從引擎報告的每一拍（timeline[].tag）整理出來的（lib/liveEvents.ts）。good：對我方有利（我方打出要害、敵人過載或倒下）。 */
+export interface LiveEvent { tag: string; good: boolean; text: string; outcome?: string }
+const tagCount = (ev: LiveEvent[], tag: string, good?: boolean) => ev.filter(e => e.tag === tag && (good === undefined || e.good === good)).length
+export interface LiveEventGoal { id: string; name: string; check: (ev: LiveEvent[]) => boolean }
+/** 戰鬥直播的目標（現實戰鬥的小窗用；檢查的是引擎發出的事件，不掃文字） */
+export const COMBAT_LIVE_GOALS: LiveEventGoal[] = [
+  { id: 'crit2', name: '打出兩次要害', check: ev => tagCount(ev, 'crit', true) >= 2 },
+  { id: 'over2', name: '讓敵人過載兩次', check: ev => tagCount(ev, 'overload', true) >= 2 },
+  { id: 'nodown', name: '不讓任何人倒下（打完才算）', check: ev => ev.some(e => e.tag === 'battle.end' && e.outcome === 'win') && tagCount(ev, 'down', false) === 0 },
+  { id: 'down3', name: '打倒三個敵人', check: ev => tagCount(ev, 'down', true) + tagCount(ev, 'subdue', true) >= 3 },
+  { id: 'subdue', name: '制伏一個敵人', check: ev => tagCount(ev, 'subdue', true) >= 1 },
+]
+/** 亮點（熱度各 +1）：我方的要害、過載、打倒或制伏敵人 */
+export function eventHighlights(ev: LiveEvent[]): string[] {
+  const out: string[] = []
+  for (const e of ev) {
+    if (e.tag === 'crit' && e.good) out.push('打出要害')
+    else if (e.tag === 'overload') out.push(e.good ? '敵人過載' : '我方有人過載')
+    else if ((e.tag === 'down' || e.tag === 'subdue') && e.good) out.push('打倒一個敵人')
+  }
+  return out
+}
 /** 亮點：要害、過載、打倒敵人、有人只剩一口氣（熱度各 +1） */
 export function liveHighlights(lines: string[]): string[] {
   const out: string[] = []

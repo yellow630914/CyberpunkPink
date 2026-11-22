@@ -4,14 +4,14 @@ import Hint from '../Hint.vue'
 import ReasonButton from '../ReasonButton.vue'
 import { useGame } from '../../stores/game'
 import { useUi } from '../../stores/ui'
-import { LIVE_GOALS, LIVE_DANMAKU, liveHighlights, liveSettle, type LiveGoal } from '../../data/media'
+import { COMBAT_LIVE_GOALS, LIVE_DANMAKU, eventHighlights, liveSettle, type LiveEvent, type LiveEventGoal } from '../../data/media'
 
 /**
  * 戰鬥直播的小窗（MEDIA 1.2 節）：版面照內海戰鬥——頂列一個 ● LIVE 與觀看數、彈幕直接飄過戰場；
  * 直播目標、熱度、打賞收在這個浮動的小窗，可以縮成一條、拉大小、拖著標題列移動。
  * 開播前就抽好目標（看過才決定要不要開）。收播或離開戰鬥時把熱度換成訂閱與打賞。
  */
-const props = defineProps<{ lines: string[]; title?: string; locked?: string | null }>()
+const props = defineProps<{ events: LiveEvent[]; title?: string; locked?: string | null }>()
 const emit = defineEmits<{
   (e: 'chat', text: string, kind?: 'hot' | 'gift'): void
   (e: 'state', s: { on: boolean; viewers: number }): void
@@ -21,22 +21,22 @@ const g = useGame()
 const ui = useUi()
 
 const started = ref(false)
-const goals = ref<LiveGoal[]>([])
+const goals = ref<LiveEventGoal[]>([])
 const viewers = ref(0)
 const tips = ref(0)
 const startAt = ref(0)
 let timer: ReturnType<typeof setInterval> | null = null
 
 function draw() {
-  const pool = LIVE_GOALS.filter(x => x.kind === 'combat')
-  const out: LiveGoal[] = []
+  const pool = COMBAT_LIVE_GOALS
+  const out: LiveEventGoal[] = []
   while (out.length < Math.min(3, pool.length)) { const x = pool[Math.floor(Math.random() * pool.length)]; if (!out.includes(x)) out.push(x) }
   goals.value = out
 }
 draw()
-const myLines = computed(() => props.lines.slice(startAt.value))
-const hl = computed(() => liveHighlights(myLines.value))
-const goalDone = (x: LiveGoal) => x.check(myLines.value)
+const myEvents = computed(() => props.events.slice(startAt.value))
+const hl = computed(() => eventHighlights(myEvents.value))
+const goalDone = (x: LiveEventGoal) => x.check(myEvents.value)
 const doneN = computed(() => goals.value.filter(goalDone).length)
 const heat = computed(() => hl.value.length + doneN.value * 3)
 watch([started, viewers], () => emit('state', { on: started.value, viewers: viewers.value }))
@@ -45,7 +45,7 @@ watch(doneN, (n, o) => { if (started.value && n > o) emit('chat', `直播目標�
 
 function start() {
   started.value = true
-  startAt.value = props.lines.length
+  startAt.value = props.events.length
   viewers.value = Math.round(g.channel.subs * 0.8)
   emit('chat', '開台了！', 'hot')
   if (mobile) min.value = true

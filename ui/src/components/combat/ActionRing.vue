@@ -63,6 +63,8 @@ function key(e: KeyboardEvent, a: RingItem) {
   e.stopPropagation()
   if (!props.off && !a.reason) emit('act', a.k)
 }
+/** 引擎給的原因是完整的句子（可能好幾條，用換行分開）；結尾沒有標點的補一個句號（內海畫面的原因不帶句號） */
+const sentence = (r: string): string => r.split('\n').map((l) => (/[。！？.!?]$/.test(l) ? l : `${l}。`)).join('\n')
 const tipStyle = computed(() => {
   if (!tip.value) return {}
   const left = tip.value.x + 18 > 200 ? Math.max(0, tip.value.x - 250) : tip.value.x + 18
@@ -76,7 +78,7 @@ const tipStyle = computed(() => {
       <circle class="hit" cx="174" cy="174" r="173" />
       <g v-for="a in segs" :key="a.k" :class="[`r-${a.g}`, { hov: hov === a.k, sel: selected === a.k, dis: off || !!a.reason }]" :data-a="a.k" role="button"
         :tabindex="off || a.reason ? -1 : 0" :aria-disabled="off || a.reason ? 'true' : undefined"
-        :aria-label="`${a.key}. ${a.n}，${a.cost} 點行動點。${a.d}${a.reason ? `現在做不到：${a.reason}。` : ''}`" :aria-keyshortcuts="String(a.key)"
+        :aria-label="`${a.key}. ${a.n}，${a.cost} 點行動點。${a.d}${a.reason ? `現在做不到：${sentence(a.reason)}` : ''}`" :aria-keyshortcuts="String(a.key)"
         @mousemove="move($event, a.k)" @focus="focusIn(a.k, $event)" @blur="leave" @click="click(a, $event)" @keydown="key($event, a)">
         <path :d="a.d0" />
         <path class="ic" :transform="`translate(${a.ix} ${a.iy}) scale(.0586)`" :d="COMBAT_ICONS[a.icon]" />
@@ -94,7 +96,7 @@ const tipStyle = computed(() => {
       <template v-else-if="hovItem">
         <b>{{ hovItem.n }}</b><i>{{ hovItem.cost }} 點</i><i v-if="ramLabel && hovItem.ram" class="rm">RAM {{ hovItem.ram }}</i><kbd>{{ hovItem.key }}</kbd>
         <p>{{ hovItem.d }}</p>
-        <p v-if="hovItem.reason && !off" class="no">現在做不到：{{ hovItem.reason }}。</p>
+        <p v-if="hovItem.reason && !off" class="no">現在做不到：{{ sentence(hovItem.reason) }}</p>
       </template>
     </div>
   </div>
@@ -127,6 +129,6 @@ text.kn { fill: var(--ink-3); font-size: 11px; font-weight: 800; }
 .tip i.rm { color: var(--ram); }
 .tip kbd { float: right; }
 .tip p { margin: 4px 0 0; }
-.tip .no { color: var(--hp); font-weight: 800; }
+.tip .no { color: var(--hp); font-weight: 800; white-space: pre-line; }
 @media (max-width: 720px) { .ringbox { width: min(300px, calc(100vw - 48px)); height: min(300px, calc(100vw - 48px)); } }
 </style>

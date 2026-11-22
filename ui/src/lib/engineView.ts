@@ -73,6 +73,8 @@ export interface EngineLogEntry {
   net?: string[]
   changes: Array<{ text: string; kind?: 'plus' | 'minus' }>
   notices: string[]
+  /** 報告的種類（action、combat、event……） */
+  kind: string
   /** 被撤退收回的經歷：內容照留，畫面標出來（SERIES 第 6 節） */
   retracted?: boolean
 }
@@ -97,6 +99,7 @@ export function logEntryOf(report: Report, describe: (changes: Change[]) => stri
     : [report.outcome.summary]
   const entry: EngineLogEntry = {
     id: report.id,
+    kind: report.kind,
     time: formatTime(report.time.start),
     place,
     prose,
