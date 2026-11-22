@@ -21,7 +21,7 @@ const PACK: ContentPack = {
     skill: SKILLS, weapon_class: WEAPONS,
     blueprint: [
       bp('bp_pistol', 'weapon', { class: 'pistol', carry: 'side' }),
-      bp('bp_smg', 'weapon', { class: 'smg', carry: 'side', size: 2 }),
+      bp('bp_smg', 'weapon', { class: 'smg', carry: 'main', size: 2 }),
       bp('bp_vest', 'armor', { armor: 1, covers: ['armor'], weight_class: 'medium', quick: 2 }),
       bp('bp_helmet', 'armor', { armor: 1, covers: ['head'], weight_class: 'medium' }),
       bp('bp_cap', 'armor', { armor: 0, covers: ['head'], weight_class: 'light' }),
@@ -269,15 +269,16 @@ describe('數字的邊界', () => {
     expect(concealment(g.k, g.state, 'pc').capacity).toBe(1)
     wear(g, 'p3') // 沒有零件
     expect(scanFinds(g.k, g.state, 'pc', 2)).toEqual(['p3'])
-    wear(g, 'p2') // 槍管與板材都防掃描
+    wear(g, 'p2') // 副武器換成：槍管與板材都防掃描
     expect(scanFinds(g.k, g.state, 'pc', 3)).toEqual([])
-    wear(g, 'p1')
+    wear(g, 's1') // 主武器：每個零件都防掃描
+    expect(scanFinds(g.k, g.state, 'pc', 3)).toEqual([])
+    wear(g, 'p1') // 有一個掃得到的零件：整件掃得到
     expect(scanFinds(g.k, g.state, 'pc', 1)).toEqual([]) // 大小 1：強度 1 不掃
     expect(scanFinds(g.k, g.state, 'pc', 2)).toEqual(['p1'])
-    wear(g, 's1')
-    expect(scanFinds(g.k, g.state, 'pc', 3)).toEqual(['p1']) // 衝鋒槍（大小 2）每個零件都防掃描
     wear(g, 's2')
-    expect(scanFinds(g.k, g.state, 'pc', 1)).toEqual(['s2'])
+    expect(scanFinds(g.k, g.state, 'pc', 1)).toEqual(['s2']) // 大小 2：強度 1 就掃
+    expect(scanFinds(g.k, g.state, 'pc', 3)).toEqual(['p1', 's2'])
   })
 
   it('內海的戰鬥不帶槍：武器是構裝（M3）；快取格照帶', () => {
