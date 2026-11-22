@@ -46,10 +46,14 @@ export function treeTier(_k: Pick<Kernel, 'content'>, state: GameState, actor: A
   return treeTierOf(abilitiesOf(state, actor).spent[path] ?? 0)
 }
 
+/** 敵人的招牌行動（標了 enemy）不能學、也不能裝進橋。 */
+const NOT_LEARNABLE = '這不是學得到的技能。'
+
 /** 現在學不學得到這個技能；學不到就回傳第一個原因（給玩家看的完整句子），學得到是 null。 */
 export function learnBlock(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId, id: string): string | null {
   const ab = k.content.get<AbilityEntry>('ability', id)
   if (!ab) return '沒有這個技能。'
+  if (ab.enemy) return NOT_LEARNABLE
   const mine = abilitiesOf(state, actor)
   if (mine.learned.includes(id)) return '已經學會了。'
   const spent = mine.spent[ab.path] ?? 0
@@ -115,6 +119,7 @@ export function equipAbilities(k: Pick<Kernel, 'content'>, state: GameState, act
   const mine = abilitiesOf(state, actor)
   const list = [...new Set(ids)]
   for (const id of list) {
+    if (k.content.get<AbilityEntry>('ability', id)?.enemy) throw new Error(NOT_LEARNABLE)
     if (!mine.learned.includes(id)) throw new Error(`還沒學會${k.content.get<AbilityEntry>('ability', id)?.name ?? id}。`)
   }
   const cap = capacityFor(k, state, actor, list)

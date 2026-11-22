@@ -1,19 +1,26 @@
 // L6 功能：敵人與遭遇。兩種內容（enemy、encounter）的格式；把一筆敵人資料照「等級與位階的目標表 × 兵種的修正 × 難度 × 強度係數」
 // 變成戰鬥裡的單位（來源 enemy）；遭遇的點數與開打的設定；敵人的士氣（撤退與投降）。
-// 掉落的格式與打贏之後的結算在 loot.ts。招牌行動、特徵、天使急救、蕾絲與網內的敵人不在這裡：欄位先收下、照格式檢查，不做效果。
-// 規格：ENEMIES 1.1、1.5、第 2 節、4.4 節、第 13 節；ENEMY_ROSTER 開頭；BALANCE 2.4、7.2；dev/adr/0013（B2、D4～D6）。
+// 掉落的格式與打贏之後的結算在 loot.ts。
+// 敵人資料多收的欄位（M1b-enemy-moves）：signature（招牌行動：技能的 id 放進 unit.ext.abilities.equipped，技能那一邊本來就認；
+// 還沒轉的敘述 { name, text } 收下、不做效果）、traits 與內容種類 enemy_trait（traits.ts）、cyber（變成 implants）、deck（放到 ext.deck）、
+// mods.sink（記在 ext.enemies.sink）、angel（angel.ts）、defeat（字串或字串陣列）。蕾絲與網內的敵人、附屬單位還不在這裡。
+// 規格：ENEMIES 1.1、1.5、第 2 節、4.4 節、第 5 節、第 13 節；ENEMY_ROSTER 開頭；BALANCE 2.4、7.2；dev/adr/0013（B2、D4～D6）、0015（E10、E11）。
 
 import type { BattleUnit, Feature } from '../../core'
+import { checkSignatures } from './signature'
+import { registerAngel } from './angel'
 import { enemyUnit } from './stats'
 import { OWNER, registerKinds } from './kinds'
 import { installLoot } from './loot'
+import { applyTraits, moraleDcBonus, registerTraitKind, runTraitStart } from './traits'
 
 export { ENEMY_CURVE, ENCOUNTER_BUDGET } from './curve'
 export { encounterPoints, enemyStats, setupFromEncounter } from './stats'
 export type { EnemyStats } from './stats'
 export { CASH_RANGE, LOOT_CAP } from './loot'
 export type { LootDrop, LootEntry, LootText } from './loot'
-export type { EncounterEntry, EncounterFoe, EnemyEntry } from './kinds'
+export type { EncounterEntry, EncounterFoe, EnemyCyber, EnemyDeck, EnemyEntry, EnemySignature } from './kinds'
+export type { TraitEntry } from './traits'
 
 const MORALE_DC = { minion: 13, elite: 10 } as const
 
@@ -21,9 +28,14 @@ export const enemiesFeature: Feature = {
   id: OWNER,
   install(k) {
     registerKinds(k)
+    registerTraitKind(k)
     k.battle.unitSource('enemy', OWNER, (ref, ctx) => enemyUnit(k, ctx.state, ref, ctx))
     // 掉落：打贏之後在戰鬥結束時結算（M1b-loot）
     installLoot(k, OWNER)
+    // 特徵：組好單位時算進去（一定帶著的加上開戰時擲的），開打時做 start；天使急救的倒數
+    k.battle.on('unit.ready', OWNER, ({ run, unit }) => applyTraits(run, unit))
+    k.battle.on('battle.start', OWNER, ({ run }) => runTraitStart(run))
+    registerAngel(k)
 
     // 士氣（ENEMIES 4.4 節）：輪到 AI 操縱的敵人，每一步之前。每場只檢定一次
     k.battle.on('ai.step', OWNER, ({ run, unit }) => {
@@ -42,7 +54,8 @@ export const enemiesFeature: Feature = {
       const check = unit.rank === 'minion' ? bossOut || halfGone || low : bossOut || low
       if (!check) return
       unit.uses.morale = 1
-      const { ok } = run.save(unit, 'resolve', 'composure', MORALE_DC[unit.rank], '士氣', [], ['morale'])
+      // 特徵可以把 DC 加高或降低（老兵 −3、新人 +3）
+      const { ok } = run.save(unit, 'resolve', 'composure', MORALE_DC[unit.rank] + moraleDcBonus(unit), '士氣', [], ['morale'])
       if (ok) return
       // 被困在第 4 格（站在第 4 格，前面三格沒有還站著的同伴），或對方還站著的人數是自己這一方的兩倍以上就投降，否則撤退（ENEMIES 4.4 節；dev/adr/0013 D4）
       const standing = (list: BattleUnit[]) => list.filter((u) => !u.out).length
@@ -50,5 +63,9 @@ export const enemiesFeature: Feature = {
       run.setOut(unit, trapped || standing(theirs) >= 2 * standing(mine) ? 'surrendered' : 'fled')
       return true
     })
+  },
+  // 內容載入之後：招牌行動寫技能 id 的，要查得到而且標了 enemy（查不到由引用檢查擋下；這裡擋「查得到但不是招牌行動」的）
+  ready(k) {
+    checkSignatures(k)
   },
 }

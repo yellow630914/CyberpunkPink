@@ -9,6 +9,9 @@ export const ENEMY_KINDS = ['human', 'unbridged', 'machine', 'vehicle', 'mech', 
 export const ENEMY_MODES = ['lethal', 'neural', 'capture'] as const
 export const AI_PREFERS = ['weakest', 'overloaded', 'leader', 'nearest', 'netrunner', 'bridged'] as const
 export const ENCOUNTER_KINDS = ['light', 'normal', 'heavy', 'boss'] as const
+/** 天使急救的會員等級與倒下之後倒數幾回合（ENEMIES 第 5 節：白銀 4、黃金 3、白金 2）。 */
+export const ANGEL_GRADES = ['none', 'silver', 'gold', 'platinum'] as const
+export const ANGEL_ROUNDS: Record<string, number> = { silver: 4, gold: 3, platinum: 2 }
 export const COVER_LAYOUT_IDS = ['dense', 'medium', 'sparse', 'one_sided'] as const
 /** 沒有橋的種類：沒有感載這一條（ENEMIES 第 2 節的欄位表）。 */
 export const UNBRIDGED_KINDS: readonly string[] = ['unbridged', 'machine', 'vehicle', 'mascot']
@@ -21,6 +24,8 @@ export interface EnemyWeapon {
   pierce?: number
   range?: [number, number]
   mag?: number
+  /** 附帶效果（命中燃燒、義體失效、卡彈、炸膛……；格式由 features/combat 查）：buildWeapons 複製到 BattleWeapon.ext.fx */
+  fx?: Record<string, unknown>
 }
 export interface EnemyMods {
   hp?: number
@@ -31,7 +36,24 @@ export interface EnemyMods {
   ap?: number
   layers?: number
   sensitivity?: number
+  /** 沉溺 0～120（溺感邊緣 80～99；記在 unit.ext.enemies.sink，80 以上多一個標籤 sink_edge；這一張不做別的效果） */
+  sink?: number
 }
+/** 一件義體（變成單位的 implants）。 */
+export interface EnemyCyber {
+  kind: string
+  name: string
+  contract?: boolean
+}
+/** 甲板（原樣放到 unit.ext.deck；M1b-hack 讀）。 */
+export interface EnemyDeck {
+  grade: number
+  firewall: number
+  slots: string[]
+  tree?: string
+}
+/** 招牌行動：技能的 id（標了 enemy 的技能），或還沒轉的敘述 { name, text }（收下、不做效果）。 */
+export type EnemySignature = string | { name: string; text: string }
 export interface EnemyEntry {
   id: string
   name: string
@@ -52,15 +74,21 @@ export interface EnemyEntry {
   named?: boolean
   base?: string
   strength?: number
-  defeat?: string
+  defeat?: string | string[]
   adult?: string[] | null
-  signature?: unknown[]
+  signature?: EnemySignature[]
   /** 掉落（ENEMIES 第 7 節；格式見 loot.ts）：{ item, chance, qty?, top? } 或還沒轉的 { text } */
   loot?: unknown[]
   /** 照等級掉現金晶片；false 是企業的人（身上沒有現金）。預設 true */
   cash?: boolean
+  /** 一定帶著的特徵（enemy_trait 的 id；查不到的當成純標籤）；另外開戰時照 traits.ts 擲 */
   traits?: string[]
-  angel?: string
+  /** 義體：每一件變成單位的 implants（cyber 是件數） */
+  cyber?: EnemyCyber[]
+  /** 甲板：原樣放到 unit.ext.deck */
+  deck?: EnemyDeck
+  /** 天使急救的會員等級：倒下時開始倒數，到了標成被帶走 */
+  angel?: (typeof ANGEL_GRADES)[number]
   [field: string]: unknown
 }
 export interface EncounterFoe {
@@ -81,6 +109,8 @@ export interface EncounterEntry {
   ambush?: 'ally' | 'foe'
   field?: Record<string, boolean | number | string>
   nodes?: Array<{ kind: string; name?: string }>
+  /** false：這場開戰不擲特徵（基準遭遇與具名的測試情境用；ENEMIES 第 5 節、dev/adr/0015 E10） */
+  traits?: boolean
   [field: string]: unknown
 }
 
@@ -146,6 +176,8 @@ function enemyProblems(e: Record<string, unknown>, partial: boolean): string[] {
       if (w.pierce !== undefined && !(isInt(w.pierce) && w.pierce >= 0)) p.push(`${at}.pierce 要是 0 以上的整數（這一把最後的穿甲）`)
       if (w.range !== undefined && !(Array.isArray(w.range) && w.range.length === 2 && w.range.every(isInt) && w.range[0]! >= 1 && w.range[0]! <= w.range[1]! && w.range[1]! <= 7)) p.push(`${at}.range 要是 [近, 遠]，在 1～7 之間`)
       if (w.mag !== undefined && !(isInt(w.mag) && w.mag >= 1 && w.mag <= 4)) p.push(`${at}.mag 要是 1～4（格）`)
+      // fx 的內容由 features/combat 在載入之後查（checkItems）；這裡只看是物件
+      if (w.fx !== undefined && !isRec(w.fx)) p.push(`${at}.fx 要是物件（武器的附帶效果）`)
     })
   }
 
@@ -166,7 +198,8 @@ function enemyProblems(e: Record<string, unknown>, partial: boolean): string[] {
         if (k === 'hp' || k === 'load') { if (!(isNum(v) && v >= 0.5 && v <= 1.5)) p.push(`mods.${k} 要是 0.5～1.5 的倍數`) }
         else if (k === 'armor' || k === 'evade' || k === 'attack' || k === 'ap' || k === 'layers') { if (!isInt(v)) p.push(`mods.${k} 要是整數（加減）`) }
         else if (k === 'sensitivity') { if (!(isNum(v) && v >= 0 && v <= 100)) p.push('mods.sensitivity 要是 0～100') }
-        else p.push(`mods.${k} 不是可以修正的鍵（只有 hp、load、armor、evade、attack、ap、layers、sensitivity）`)
+        else if (k === 'sink') { if (!(isNum(v) && v >= 0 && v <= 120)) p.push('mods.sink 要是 0～120（沉溺）') }
+        else p.push(`mods.${k} 不是可以修正的鍵（只有 hp、load、armor、evade、attack、ap、layers、sensitivity、sink）`)
       }
     }
   }
@@ -186,12 +219,44 @@ function enemyProblems(e: Record<string, unknown>, partial: boolean): string[] {
   opt('named', (v) => typeof v === 'boolean', '要是 true 或 false')
   opt('base', isText, '要是制式兵種的 id')
   opt('strength', (v) => isNum(v) && v > 0 && v <= 2, '（強度係數）要是 0 到 2 之間的數字')
-  opt('defeat', (v) => typeof v === 'string', '要是字串')
+  opt('defeat', (v) => typeof v === 'string' || isTextList(v), '要是字串或字串的陣列')
   opt('adult', (v) => v === null || isTextList(v), '要是字串的陣列或 null')
   opt('signature', Array.isArray, '要是陣列')
+  if (Array.isArray(e.signature)) {
+    e.signature.forEach((s, i) => {
+      if (isText(s)) return
+      if (isRec(s) && isText(s.name) && isText(s.text) && Object.keys(s).every((x) => x === 'name' || x === 'text')) return
+      p.push(`signature[${i}] 要是技能的 id（字串），或還沒轉的敘述 { name, text }`)
+    })
+  }
   p.push(...lootProblems(e))
   opt('traits', isTextList, '要是字串的陣列')
-  opt('angel', (v) => typeof v === 'string', '要是字串')
+  if (e.cyber !== undefined) {
+    if (!Array.isArray(e.cyber)) p.push('cyber 要是陣列')
+    else {
+      e.cyber.forEach((c, i) => {
+        const at = `cyber[${i}]`
+        if (!isRec(c)) return void p.push(`${at} 要是 { kind, name, contract? }`)
+        if (!isText(c.kind)) p.push(`${at}.kind 要是義體的種類（eye、arm、leg……）`)
+        if (!isText(c.name)) p.push(`${at}.name 要是名字`)
+        if (c.contract !== undefined && typeof c.contract !== 'boolean') p.push(`${at}.contract 要是 true 或 false`)
+        for (const key of Object.keys(c)) if (!['kind', 'name', 'contract'].includes(key)) p.push(`${at}.${key} 不是可以用的鍵（只有 kind、name、contract）`)
+      })
+    }
+  }
+  if (e.deck !== undefined) {
+    const d = e.deck
+    if (!isRec(d)) p.push('deck 要是 { grade, firewall, slots }')
+    else {
+      if (!(isInt(d.grade) && d.grade >= 1 && d.grade <= 4)) p.push('deck.grade 要是 1～4 的整數（甲板的等級）')
+      if (!isNum(d.firewall)) p.push('deck.firewall 要是數字（防火牆）')
+      if (!isTextList(d.slots)) p.push('deck.slots 要是快駭程式 id 的陣列（可以是空的）')
+      if (d.tree !== undefined && !isText(d.tree)) p.push('deck.tree 要是路數的 id')
+      for (const key of Object.keys(d)) if (!['grade', 'firewall', 'slots', 'tree'].includes(key)) p.push(`deck.${key} 不是可以用的鍵（只有 grade、firewall、slots、tree）`)
+    }
+  }
+  opt('angel', (v) => typeof v === 'string', `要是字串（${ANGEL_GRADES.join('、')}）`)
+  if (typeof e.angel === 'string' && !(ANGEL_GRADES as readonly string[]).includes(e.angel)) p.push(`angel 只能是 ${ANGEL_GRADES.join('、')}（拿到 ${e.angel}）`)
   return p
 }
 
@@ -211,6 +276,8 @@ export function registerKinds(k: Pick<Kernel, 'content'>): void {
       ...(e.faction && e.faction !== 'none' ? [['faction', e.faction] as [string, string]] : []),
       ...(Array.isArray(e.weapons) ? e.weapons.map((w) => ['weapon_class', w.class] as [string, string]) : []),
       ...(e.base ? [['enemy', e.base] as [string, string]] : []),
+      // 招牌行動寫技能的 id 的：要查得到（標了 enemy 由 ready 的檢查看）
+      ...(Array.isArray(e.signature) ? e.signature.filter((s): s is string => typeof s === 'string').map((s) => ['ability', s] as [string, string]) : []),
       ...(Array.isArray(e.quick) ? e.quick.map((q) => ['item', q.item] as [string, string]) : []),
       ...lootRefs(k.content, e),
     ],
@@ -239,6 +306,7 @@ export function registerKinds(k: Pick<Kernel, 'content'>): void {
       if (e.faction !== undefined && !isText(e.faction)) p.push('faction 要是勢力的 id')
       if (e.ambush !== undefined && e.ambush !== 'ally' && e.ambush !== 'foe') p.push('ambush 只能是 ally 或 foe')
       if (e.field !== undefined && !(isRec(e.field) && Object.values(e.field).every((v) => ['boolean', 'number', 'string'].includes(typeof v)))) p.push('field 要是 { 名字: 布林、數字或字串 }')
+      if (e.traits !== undefined && typeof e.traits !== 'boolean') p.push('traits 要是 true 或 false（false：這場開戰不擲特徵）')
       if (e.nodes !== undefined && !(Array.isArray(e.nodes) && e.nodes.every((n) => isRec(n) && isText(n.kind) && (n.name === undefined || isText(n.name))))) p.push('nodes 要是 [{ kind, name? }]')
       return p
     },

@@ -5,6 +5,7 @@
 
 import type { BattleActionDef, BattleInput, BattlePick, BattlePickOption, BattleRun, BattleTarget, BattleTargetOption, BattleUnit, BattleView, BattleWeapon, Kernel, RollPart } from '../../core'
 import { BATTLE_SLOTS, BattleBlocked, WOUND_PARTS, coverAt, gradeDice, onField, otherSide, unitAt, unitsOf, wielded } from '../../core'
+import { aiDefsOf, registerAiStance } from './ai'
 import { endChanges } from './end'
 import { needsBlocks, rangeBlock, whenBlocks, heldGun } from './conditions'
 import { applySet } from './format'
@@ -293,18 +294,21 @@ function checkPicks(run: BattleRun, u: BattleUnit, m: MeatDef, input: BattleInpu
 function skillAction(ab: AbilityEntry, order: number): BattleActionDef {
   const m0 = ab.meat!
   const hasPicks = (v: Pick<BattleView, 'k'>, u: BattleUnit): boolean => !!(wantsPart(m0) || m0.free_move?.swap_adjacent_pair || m0.picks || m0.choose || equippedOf(v, u).some((o) => o.meat?.alter?.some((a) => a.ability === ab.id && a.as_pick)))
+  const blocksOf = (v: BattleView, u: BattleUnit): string[] => {
+    const m = effectiveMeat(v, u, ab)
+    return [...usageBlocks(v, u, ab), ...whenBlocks(v, u, m.when), ...(m.attack ? attackBlocks(u, m.attack) : [])]
+  }
   return {
     id: ab.id, owner: OWNER, name: ab.name, desc: ab.text, group: 'skill', icon: iconOf(m0), modes: ['meat'],
     target: TARGET_KIND[m0.target ?? 'none'], order,
     has: (_v, u) => hasAbility(u, ab.id),
     // 技能自己的消耗（行動點、RAM、現金、人情）；別的被動技能給的減免（meat.cost）是花費的修正，核心會加上去
     cost: (v, u) => costOf(v, u, ab),
-    blocks: (v, u) => {
-      const m = effectiveMeat(v, u, ab)
-      return [...usageBlocks(v, u, ab), ...whenBlocks(v, u, m.when), ...(m.attack ? attackBlocks(u, m.attack) : [])]
-    },
+    blocks: (v, u) => blocksOf(v, u),
     targets: (v, u) => targetsOf(v, u, effectiveMeat(v, u, ab)),
     picks: (v, u) => (hasPicks(v, u) ? picksOf(v, u, ab, effectiveMeat(v, u, ab)) : []),
+    // 敵人的招牌行動（與寫了 ai 的技能）：AI 用的分數與目標
+    ...aiDefsOf(ab, { meat: (v, u) => effectiveMeat(v, u, ab), blocks: blocksOf, targets: targetsOf, picks: (v, u, m) => picksOf(v, u, ab, m) }),
     run(run, u, target, input) {
       bumpUses(u, ab)
       run.say(`${u.name}：${ab.name}。`, 'skill', { unit: u.id, ability: ab.id }, u)
@@ -535,6 +539,7 @@ function applyPassives(run: BattleRun, unit: BattleUnit): void {
 
 export function registerBattle(k: Kernel): void {
   registerInstinct(k)
+  registerAiStance(k)
   // 單位剛組好：照開打那一刻填上裝著的技能與每棵樹的階；已經有資料的單位不動
   k.battle.on('unit.ready', OWNER, ({ run, unit }) => {
     if (!isRec(unit.ext.abilities) && unit.actor) {

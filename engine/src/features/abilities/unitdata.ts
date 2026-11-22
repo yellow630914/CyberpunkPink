@@ -24,7 +24,11 @@ export function dataOf(u: BattleUnit): Record<string, unknown> {
 }
 
 export const hasAbility = (u: BattleUnit, id: string): boolean => unitAbilities(u).equipped.includes(id)
-export const tierIn = (u: BattleUnit, path: string): number => unitAbilities(u).tiers[path] ?? 1
+/**
+ * 這個單位在這棵樹開到幾階。敵人的招牌行動沒有樹（path 是 undefined），公式的 tier 代單位的等級；
+ * 敵人單位（有 enemy）沒有記某棵樹的階數時也是等級，其他人是 1。
+ */
+export const tierIn = (u: BattleUnit, path: string | undefined): number => (path === undefined ? undefined : unitAbilities(u).tiers[path]) ?? (path === undefined || u.enemy !== undefined ? u.grade : 1)
 
 /** 裝著的技能的內容（找不到的略過）。 */
 export function equippedOf(view: { k: Pick<Kernel, 'content'> }, u: BattleUnit): AbilityEntry[] {

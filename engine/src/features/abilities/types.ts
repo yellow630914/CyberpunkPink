@@ -261,6 +261,26 @@ export interface PrepDef {
   meat?: { mods?: ModEntry[]; do?: Array<Record<string, unknown>> }
 }
 
+/**
+ * 敵人招牌行動的 AI 資料（ENEMIES 4.3、4.5 節）。註冊成行動時變成 aiScore：條件不符回 null，否則回 score（加上第一、二回合與低血解開的加分）。
+ * 沒有 ai 的技能 AI 不會用。反應、被動、姿態不用分數：裝著就有（姿態在 AI 的第一個回合自己開）。
+ * 玩家的技能也可以寫（之後 AI 操縱的夥伴用得到）。
+ */
+export interface AbilityAi {
+  /** 基準分（武器攻擊是 2） */
+  score: number
+  /** 第一、二回合多加幾分 */
+  first_rounds?: number
+  /** AI 才看的條件：自己的條件同 meat.when 與 mods 的 when（含 first_round、in_cover、other_*），再加 target_hp_below（目標的生命比例低於這個數字才列：治療、補刀） */
+  when?: WhenDef & { target_hp_below?: number }
+  /** low：生命 ≤ 40%，或餘韻疊到承受層數 − 1 才解開；每場一次；解開之後分數 +1（ENEMIES 4.5 節） */
+  unlock?: 'low'
+}
+
+/**
+ * 技能的內容。標了 `enemy: true` 的是敵人的招牌行動（M1b-enemy-moves）：path、tier、layer、cap、xp、after、category、cells、net、opinion 可以不寫
+ * （不寫時執行時是 undefined；讀它們之前先看 enemy）；不能學、不能裝進橋；公式的 tier 代單位的等級。
+ */
 export interface AbilityEntry {
   id: string
   name: string
@@ -274,6 +294,8 @@ export interface AbilityEntry {
   xp: number
   cells: number
   after?: string
+  enemy?: true
+  ai?: AbilityAi
   use?: AbilityUse
   meat: MeatDef | null
   net: Record<string, unknown> | null

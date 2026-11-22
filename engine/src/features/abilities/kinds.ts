@@ -2,7 +2,7 @@
 // 規格：dev/work/M1-abilities.md 第二節；SKILLS 1.1、1.2 節；DATA 第 2 節。
 
 import type { Kernel } from '../../core'
-import { applySet, meatProblems, modsProblems, onlyKeys, poolProblems, prepProblems, useProblems } from './format'
+import { aiProblems, applySet, meatProblems, modsProblems, onlyKeys, poolProblems, prepProblems, useProblems } from './format'
 import type { AbilityEntry, PathEntry } from './types'
 import { CATEGORIES, DOMAIN_LEVELS, KINDS, LAYERS, OWNER } from './types'
 
@@ -50,7 +50,31 @@ function pathProblems(e: Record<string, unknown>): string[] {
   return p
 }
 
+/** 敵人的招牌行動只有這四種（姿態、反應、被動不用分數：裝著就有）。 */
+const ENEMY_KINDS = ['active', 'passive', 'reaction', 'stance'] as const
+
+/** 標了 enemy 的招牌行動：不必寫 path、tier、layer、cap、xp、after、category；kind、use、meat、text 照一般的技能。 */
+function enemyAbilityProblems(e: Record<string, unknown>, k: Pick<Kernel, 'battle'>): string[] {
+  const p: string[] = []
+  if (!isText(e.name)) p.push('要有 name')
+  if (!isText(e.text)) p.push('要有 text（說明）')
+  if (!(ENEMY_KINDS as readonly unknown[]).includes(e.kind)) p.push(`敵人的招牌行動 kind 只能是 ${ENEMY_KINDS.join('、')}`)
+  if (e.cells !== undefined && !isNum(e.cells)) p.push('cells 要是數字（份量）')
+  p.push(...useProblems(e.use, e.kind))
+  if (!isRec(e.meat)) p.push('敵人的招牌行動要有 meat（物件）：效果寫在這裡')
+  else p.push(...meatProblems(e.meat, e.kind, k))
+  for (const col of ['net', 'opinion'] as const) if (e[col] !== undefined && e[col] !== null && !isRec(e[col])) p.push(`${col} 要是物件或 null`)
+  return p
+}
+
 function abilityProblems(e: Record<string, unknown>, k: Pick<Kernel, 'battle'>): string[] {
+  if (e.enemy !== undefined && e.enemy !== true) return ['enemy 只能是 true（標示這是敵人的招牌行動）']
+  const p: string[] = e.enemy === true ? [...enemyAbilityProblems(e, k)] : [...playerAbilityProblems(e, k)]
+  if (e.ai !== undefined) p.push(...aiProblems(e.ai))
+  return p
+}
+
+function playerAbilityProblems(e: Record<string, unknown>, k: Pick<Kernel, 'battle'>): string[] {
   const p: string[] = []
   if (!isText(e.name)) p.push('要有 name')
   if (!isText(e.text)) p.push('要有 text（給玩家看的完整說明）')
@@ -88,7 +112,7 @@ export function registerKinds(k: Pick<Kernel, 'content' | 'battle'>): void {
   k.content.defineKind<AbilityEntry>({
     kind: 'ability', owner: OWNER,
     validate: (e) => abilityProblems(e, k),
-    refs: (e) => (typeof e.path === 'string' ? [['path', e.path]] : []),
+    refs: (e) => (e.enemy !== true && typeof e.path === 'string' ? [['path', e.path]] : []),
   })
 }
 
@@ -107,19 +131,20 @@ export function checkAbilities(k: Pick<Kernel, 'content' | 'battle'>): void {
   }
 
   for (const a of abilities.values()) {
-    const path = paths.get(a.path)
-    if (!path) {
+    // 敵人的招牌行動沒有樹：只查花費的引用與 alter
+    const path = a.enemy === true ? undefined : paths.get(a.path)
+    if (a.enemy !== true && !path) {
       problems.push(`${a.id}：沒有 ${a.path} 這棵樹`)
       continue
     }
-    if (a.category !== path.category) problems.push(`${a.id}：category（${a.category}）要和${path.tree}的 category（${path.category}）一樣`)
-    if (a.after !== undefined) {
+    if (path && a.category !== path.category) problems.push(`${a.id}：category（${a.category}）要和${path.tree}的 category（${path.category}）一樣`)
+    if (path && a.after !== undefined) {
       const pre = abilities.get(a.after)
       if (!pre) problems.push(`${a.id}：前置 ${a.after} 不存在`)
       else if (pre.path !== a.path) problems.push(`${a.id}：前置 ${a.after} 不在同一棵樹（${a.id} 在 ${a.path}，${a.after} 在 ${pre.path}）`)
     }
     for (const [col, name] of DOMAIN_COLUMNS) {
-      if (path.domains[col] === 'none' && a[col] !== null) problems.push(`${a.id}：${path.tree}在${name}沒有效果（domains.${col} 是 none），${col} 要是 null`)
+      if (path && path.domains[col] === 'none' && a[col] !== null) problems.push(`${a.id}：${path.tree}在${name}沒有效果（domains.${col} 是 none），${col} 要是 null`)
     }
     const cost = a.meat?.cost
     if (cost && !abilities.has(cost.ability)) problems.push(`${a.id}：meat.cost.ability 的 ${cost.ability} 不存在`)

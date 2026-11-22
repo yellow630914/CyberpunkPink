@@ -195,6 +195,25 @@ export function modsProblems(at: string, list: unknown): string[] {
   return p
 }
 
+// ---- ai（敵人招牌行動的 AI 資料） ----
+
+export const AI_KEYS = ['score', 'first_rounds', 'when', 'unlock'] as const
+
+/** ai：{ score, first_rounds?, when?, unlock? }（types.ts 的 AbilityAi）。 */
+export function aiProblems(ai: unknown): string[] {
+  if (!isRec(ai)) return ['ai 要是 { score, first_rounds?, when?, unlock? }']
+  const p = onlyKeys('ai', ai, AI_KEYS)
+  if (!(isNum(ai.score) && ai.score > 0)) p.push('ai.score 要是大於 0 的數字（基準分，武器攻擊是 2）')
+  if (ai.first_rounds !== undefined && !isNum(ai.first_rounds)) p.push('ai.first_rounds 要是數字（第一、二回合多加幾分）')
+  if (ai.unlock !== undefined && ai.unlock !== 'low') p.push(`ai.unlock 只能是 low（拿到 ${String(ai.unlock)}）`)
+  if (ai.when !== undefined) {
+    p.push(...whenProblems('ai.when', ai.when, [...WHEN_MODS, 'target_hp_below']))
+    const t = isRec(ai.when) ? ai.when.target_hp_below : undefined
+    if (t !== undefined && !(isNum(t) && t > 0 && t <= 1)) p.push('ai.when.target_hp_below 要是 0～1 的數字（目標的生命比例低於它才列）')
+  }
+  return p
+}
+
 // ---- 效果清單 ----
 
 function effectsProblems(k: Pick<Kernel, 'battle'> | undefined, at: string, list: unknown): string[] {

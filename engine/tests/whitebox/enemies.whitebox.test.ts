@@ -125,7 +125,7 @@ describe('白箱 enemy 的格式（ENEMIES 第 2 節；dev/work/M1-enemies.md �
   })
 
   it('合格的選填欄位：adult 可以是 null、traits 與 loot 可以有東西、strength 在 0～2', () => {
-    expect(problems('enemy', { ...ENEMY, adult: null, traits: ['contract'], loot: [], signature: [], strength: 2, angel: 'x', named: true, branch: 'b', defeat: 'd' })).toBe('')
+    expect(problems('enemy', { ...ENEMY, adult: null, traits: ['contract'], loot: [], signature: [], strength: 2, angel: 'gold', named: true, branch: 'b', defeat: 'd' })).toBe('')
   })
 
   it('refs：勢力（none 不算）、武器類型、base、快取格的道具；載入後的引用檢查找得到', () => {

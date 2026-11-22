@@ -10,6 +10,11 @@ import { UNBRIDGED_KINDS, resolveEnemy } from './kinds'
 
 type Cx = Pick<Kernel, 'content'>
 
+/** 沉溺到這個數字以上算溺感邊緣（ENEMIES 第 5 節）：多一個標籤 sink_edge。 */
+const SINK_EDGE = 80
+/** 基準遭遇的 id 開頭（engine/data 的平衡用遭遇）：預設不擲特徵。 */
+const BASE_PREFIX = 'enc_base_'
+
 export interface EnemyStats {
   grade: Grade
   rank: UnitRank
@@ -91,7 +96,7 @@ function buildWeapons(content: ContentRegistry, e: EnemyEntry, grade: Grade, att
     // 打感載的神經武器：打法是 capture 或 neural 的敵人，雜兵 4d6、精英 6d6、首領 11d6，再加同一條等級骰
     const hitsLoad = (type === 'neural' || type === 'pleasure') && (e.mode === 'capture' || e.mode === 'neural')
     const extraDice = hitsLoad ? ENEMY_CURVE.captureDice[e.rank] + gradeDice(grade) - cls.dice : gradeDice(grade)
-    return weaponFromClass(content, w.class, {
+    const weapon = weaponFromClass(content, w.class, {
       hit: attack, extraDice,
       ...(w.name !== undefined ? { name: w.name } : {}), ...(w.type !== undefined ? { type: w.type as BattleWeapon['type'] } : {}),
       ...(w.traits !== undefined ? { traits: w.traits } : {}),
@@ -99,6 +104,9 @@ function buildWeapons(content: ContentRegistry, e: EnemyEntry, grade: Grade, att
       pierce: w.pierce !== undefined ? w.pierce - cls.pierce : 0,
       ...(w.range !== undefined ? { range: w.range } : {}), ...(w.mag !== undefined ? { mag: w.mag } : {}),
     })
+    // 武器的附帶效果（燃燒、義體失效、卡彈、炸膛……）：複製到 ext.fx，features/combat 的 fx 才讀得到（格式在載入時由 combat 查）
+    if (w.fx !== undefined) weapon.ext = { ...(weapon.ext ?? {}), fx: structuredClone(w.fx) }
+    return weapon
   })
 }
 
@@ -110,7 +118,17 @@ export function enemyUnit(k: Cx, state: GameState, ref: Record<string, unknown>,
   const st = statsOf(state, e, grade, ctx.allyCount, typeof ref.strength === 'number' ? ref.strength : undefined)
   const attrs = Object.fromEntries(ATTR_IDS.map((a) => [a, e.attrs?.[a] ?? 10])) as BattleUnitInit['attrs']
   const bridged = st.load !== undefined
-  const tags = [...new Set<string>([e.kind, ...(bridged ? [] : ['unbridged']), ...(e.traits ?? [])])]
+  const sink = e.mods?.sink
+  const tags = [...new Set<string>([e.kind, ...(bridged ? [] : ['unbridged']), ...(e.traits ?? []), ...(sink !== undefined && sink >= SINK_EDGE ? ['sink_edge'] : [])])]
+  // 招牌行動：技能的 id 放進 unit.ext.abilities.equipped（技能那一邊本來就認）；還沒轉的敘述 { name, text } 收下、不做效果
+  const signature = (e.signature ?? []).filter((x): x is string => typeof x === 'string')
+  const angel = e.angel !== undefined && e.angel !== 'none' ? e.angel : undefined
+  const mine: Record<string, unknown> = {
+    ...(e.traits?.length ? { traits: [...e.traits] } : {}),
+    ...(sink !== undefined ? { sink } : {}),
+    ...(angel ? { angel } : {}),
+  }
+  const cyber = e.cyber?.length ? e.cyber.map((c) => ({ kind: c.kind, name: c.name, ...(c.contract ? { contract: true } : {}) })) : undefined
   return {
     name: typeof ref.name === 'string' ? ref.name : e.name, enemy: id, control: 'ai', grade, rank: e.rank,
     attrs, skills: e.skills ? { ...e.skills } : { composure: e.rank === 'minion' ? 0 : 2 },
@@ -121,7 +139,13 @@ export function enemyUnit(k: Cx, state: GameState, ref: Record<string, unknown>,
     weapons: buildWeapons(k.content, e, grade, st.attack), wield: 0,
     evade: st.evade, initBonus: attrMod(attrs.reflex), statuses: [], dmgMult: st.dmgMult, tags,
     quick: e.quick ? e.quick.map((q) => ({ ...q })) : e.mode === 'capture' ? [{ item: 'it_zip_tie', qty: 2 }] : [],
-    uses: {}, wounds: {}, ext: {},
+    uses: {}, wounds: {},
+    ...(cyber ? { implants: cyber, cyber: cyber.length } : {}),
+    ext: {
+      ...(signature.length ? { abilities: { equipped: [...signature], tiers: {} } } : {}),
+      ...(e.deck ? { deck: structuredClone(e.deck) } : {}),
+      ...(Object.keys(mine).length ? { enemies: mine } : {}),
+    },
     ai: {
       focus: e.ai.focus, floor: e.ai.floor ?? 1, ...(e.ai.prefer !== undefined ? { prefer: e.ai.prefer } : {}), mode: e.mode, fleeBelow: e.ai.flee_below,
       ...(e.ai.never_flee !== undefined ? { neverFlee: e.ai.never_flee } : {}),
@@ -166,7 +190,11 @@ export function setupFromEncounter(k: Cx, _state: GameState, encounterId: string
   }))
   return {
     mode: 'meat', grade: enc.grade as Grade, cover: enc.cover, allies: o.allies, foes,
-    origin: { encounter: encounterId, escapable: enc.escapable ?? true, place: enc.name, ...(faction && faction !== 'none' ? { faction } : {}) },
+    // 開戰時擲特徵（E10）：遭遇寫 traits: false 就不擲；基準遭遇（id 開頭 enc_base_）不動平衡的基準，預設也不擲
+    origin: {
+      encounter: encounterId, escapable: enc.escapable ?? true, place: enc.name, ...(faction && faction !== 'none' ? { faction } : {}),
+      ...(enc.traits === false || (enc.traits === undefined && encounterId.startsWith(BASE_PREFIX)) ? { ext: { traits: false } } : {}),
+    },
     ...(enc.ambush ? { ambush: enc.ambush } : {}), ...(enc.field ? { field: enc.field } : {}), ...(enc.nodes ? { nodes: enc.nodes } : {}),
   }
 }

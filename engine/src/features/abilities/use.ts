@@ -46,11 +46,15 @@ export function costOf(view: BattleView, u: BattleUnit, ab: AbilityEntry): Cost 
 const groupKey = (g: string): string => `turn:group:${g}`
 export const commissionUse = (id: string): string => `commission:${id}`
 
+/** 每場幾次：寫了 per_fight 照寫的；低血才解開的招牌行動（ai.unlock: 'low'）每場一次。 */
+const perFightOf = (ab: AbilityEntry): number | undefined => useOf(ab).per_fight ?? (ab.ai?.unlock === 'low' ? 1 : undefined)
+
 /** 這個技能現在用不了的原因（次數類的）。錢與行動點不夠由核心列。 */
 export function usageBlocks(view: Pick<BattleView, 'battle'>, u: BattleUnit, ab: AbilityEntry): string[] {
   const use = useOf(ab)
   const out: string[] = []
-  if (use.per_fight !== undefined && (u.uses[ab.id] ?? 0) >= use.per_fight) out.push('這一場已經用過了。')
+  const perFight = perFightOf(ab)
+  if (perFight !== undefined && (u.uses[ab.id] ?? 0) >= perFight) out.push('這一場已經用過了。')
   if (use.per_commission !== undefined && (u.uses[commissionUse(ab.id)] ?? 0) >= use.per_commission) out.push(`這件委託的次數用完了（每件委託 ${use.per_commission} 次）。`)
   if (use.first_round && view.battle.round !== 1) out.push('只能在第一回合用。')
   if (use.not_first_round && view.battle.round === 1) out.push('第一回合不能用。')
@@ -70,7 +74,7 @@ export function usageBlocks(view: Pick<BattleView, 'battle'>, u: BattleUnit, ab:
 /** 用掉一次：記每場、每回合（同一組的合起來記）、每件委託的次數。 */
 export function bumpUses(u: BattleUnit, ab: AbilityEntry): void {
   const use = useOf(ab)
-  if (use.per_fight !== undefined) u.uses[ab.id] = (u.uses[ab.id] ?? 0) + 1
+  if (perFightOf(ab) !== undefined) u.uses[ab.id] = (u.uses[ab.id] ?? 0) + 1
   if (use.per_turn !== undefined) {
     const key = use.group !== undefined ? groupKey(use.group) : `turn:${ab.id}`
     u.uses[key] = (u.uses[key] ?? 0) + 1
