@@ -287,6 +287,8 @@ export class BattleRun implements BattleView {
       dice: '1d20', natural, parts, total, dc: ev.total, margin: total - ev.total,
       degree: natural === 1 ? 'fumble' : crit ? 'critical' : hit ? 'success' : 'fail',
       verdict: verdictOf(natural === 1 ? 'fumble' : crit ? 'critical' : hit ? 'success' : 'fail', total - ev.total),
+      // 這一擊用的是哪個屬性與基本功（武器的；無人機的武器是操作者的操縱）
+      attr: w.attr, skill: w.skill,
     }
     const head = `${unitTag(attacker)} 用${w.name}${opts.label ?? (w.traits.includes('melee') ? '攻擊' : '射擊')} ${unitTag(target)}：`
     const ids = { attacker: attacker.id, target: target.id, weapon: w.class }
@@ -311,6 +313,49 @@ export class BattleRun implements BattleView {
     }
     this.k.battle.emit('attack.after', { run: this, attacker, target, weapon: w, opts, result })
     return result
+  }
+
+  /**
+   * 攻擊一個和人重疊的東西（無人機、砲塔；COMBAT_SYSTEM 9.1 節）：它永遠暴露、不吃那一格的遮蔽，也不傷那一格的遮蔽。
+   * 命中對它自己的迴避（黑暗照算）；傷害扣它的護甲（穿甲只抵銷護甲）；耐久歸零就被擊落（overlay.down 掛點：操作者的回灌由功能做）。
+   * 沒有要害與重創。彈匣照扣。
+   */
+  attackOverlay(attacker: BattleUnit, o: BattleOverlay, opts: AttackOpts = {}): AttackResult {
+    const w = opts.weapon ?? wielded(attacker)
+    if (!w) throw new Error(`${attacker.name} 手上沒有武器`)
+    const none: AttackResult = { hit: false, crit: false, natural: 0, total: 0, evade: 0, raw: 0, dealt: 0, track: 'none', wound: false, downed: false }
+    if (o.down) return { ...none, aborted: true }
+    const spend = opts.spend ?? 1
+    if (w.mag && spend > 0) w.mag.now = Math.max(0, w.mag.now - spend)
+    const tags = opts.tags ?? []
+    const parts: RollPart[] = [
+      { label: w.name, value: w.hit, source: 'weapon' },
+      { label: '距離', value: rangeMod(this.n, attacker, o, w), source: 'range' },
+      ...(opts.hit ? [{ label: opts.label ?? '加值', value: opts.hit, source: 'skill' }] : []),
+      ...this.mods('hit', attacker, undefined, w, tags),
+    ].filter((p) => p.value !== 0)
+    const dark = this.battle.field.dark && !attacker.tags.includes('night_vision') ? this.n.darkEvade : 0
+    const evade = o.evade + dark
+    const natural = this.d20()
+    const total = natural + sum(parts)
+    const hit = natural === 20 || (natural !== 1 && total >= evade)
+    const degree = natural === 1 ? 'fumble' : hit ? 'success' : 'fail'
+    const roll: CheckRoll = { dice: '1d20', natural, parts, total, dc: evade, margin: total - evade, degree, verdict: verdictOf(degree, total - evade), attr: w.attr, skill: w.skill }
+    const head = `${unitTag(attacker)} 用${w.name}${opts.label ?? (w.traits.includes('melee') ? '攻擊' : '射擊')} ${o.name}：`
+    const ids = { attacker: attacker.id, overlay: o.id, weapon: w.class }
+    if (!hit) {
+      this.say(`${head}${natural === 1 ? '自然 1，失手。' : '沒打中。'}`, 'miss', { ...ids, natural }, attacker, roll)
+      return { ...none, natural, total, evade }
+    }
+    const baseDice = w.far && distance(attacker, o) > w.far.beyond ? w.far.dice : w.dice
+    const raw = Math.max(0, this.d6(Math.max(1, baseDice + (opts.dice ?? 0))) + w.flat + (opts.damage ?? 0))
+    const armor = Math.max(0, o.armor - (w.pierce + (opts.pierce ?? 0)))
+    const dealt = Math.max(0, Math.round((raw - armor) * attacker.dmgMult.hp))
+    o.hp.now = Math.max(0, o.hp.now - dealt)
+    this.say(`${head}命中，${o.name}受到 ${dealt} 點傷害。`, 'hit', { ...ids, natural, amount: dealt }, attacker, roll)
+    const downed = o.hp.now <= 0
+    if (downed) this.dropOverlay(o, attacker)
+    return { ...none, hit: true, natural, total, evade, raw, dealt, track: 'hp', downed }
   }
 
   /**

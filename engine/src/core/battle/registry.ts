@@ -83,6 +83,18 @@ export interface BattleActionDef {
   aiTarget?(view: BattleView, unit: BattleUnit, target: BattleUnit | null): BattleTarget | null
 }
 
+/**
+ * 一個行動實際要花多少：行動自己算的花費，加上修正（action_ap：技能的減免）。行動點最少 0。
+ * 畫面顯示的、核心檢查夠不夠的、實際扣的、AI 算的，都是這一個數字。
+ */
+export function actionCost(view: BattleView, unit: BattleUnit, def: BattleActionDef, input?: BattleInput): { ap: number; [pool: string]: number } {
+  const base = def.cost(view, unit, input)
+  const t = input?.target
+  const tags = [def.id, `group:${def.group}`, ...(t && 'unit' in t && t.unit !== unit.id ? ['other'] : [])]
+  const delta = view.mods('action_ap', unit, undefined, undefined, tags).reduce((sum, p) => sum + p.value, 0)
+  return delta ? { ...base, ap: Math.max(0, base.ap + delta) } : base
+}
+
 /** 問一個數字的修正時帶的情境。 */
 export interface ModQuery {
   kind: ModKind
@@ -100,6 +112,11 @@ export type BattleModifier = (q: ModQuery) => RollPart[]
 
 /** 戰鬥裡的掛點。處理函式拿到正在算的這一步（BattleRun），可以用它的基本動作改戰鬥狀態；不可以碰 GameState。 */
 export interface BattleHookMap {
+  /**
+   * 一個單位剛組好（開打時每個上場與在後方等的人各一次；還沒擲先攻、還沒輪到任何人）。
+   * 功能把自己的資料掛到單位上：裝著的技能、義體、帶進來的東西。先攻的修正讀得到這裡掛上去的東西
+   */
+  'unit.ready': { run: BattleRun; unit: BattleUnit }
   /** 開打：單位都站好、先攻擲完之後。技能的開場效果、預備帶進來的東西放這裡 */
   'battle.start': { run: BattleRun }
   /** 一個單位的回合開始：行動點已經回復、狀態已經結算、確定不是失去回合 */

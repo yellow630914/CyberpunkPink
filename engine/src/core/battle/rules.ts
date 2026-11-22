@@ -151,6 +151,10 @@ export const MOD_KINDS = [
   /** 自己受到的感載（百分比；同步檔位的 ×0.5 是 −50） */ 'load_taken_pct',
   /** 感載每回合的自然消退 */ 'decay',
   /** 換位花的行動點（負的是減免） */ 'move_ap',
+  /**
+   * 任何一個行動花的行動點（負的是減免；最少 0）。問的時候 tags 是 [行動的 id, 'group:<圈>']，
+   * 目標是自己以外的人時再多一個 'other'（替別人用道具）。技能的「退還或減免行動點」（SKILLS 1.8 節）掛在這裡
+   */ 'action_ap',
 ] as const
 export type ModKind = (typeof MOD_KINDS)[number]
 

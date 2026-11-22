@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import type { BattleUnit } from '../../src'
 import { COVER_LAYOUTS, DEFAULT_NUMBERS, GRADE_DICE, LOSE_TURN, createKernel, weaponFromClass, advance, afterglowFull, beginTurn, coverLevel, distance, isExposed, losingTurn, moveBlock, rangeMod, unitAt, unitsOf } from '../../src'
-import { BATTLE_SETUPS, TEST_ACTIONS, enemyUnit, partyUnit, testWeapon } from '../../src/testkit'
+import { BATTLE_SETUPS, TEST_ACTIONS, TEST_COMBAT, enemyUnit, partyUnit, testWeapon } from '../../src/testkit'
 import { TEST_STATUSES, arena, duel, foe, one, raw } from '../helpers/battle'
 
 const N = DEFAULT_NUMBERS
@@ -602,6 +602,60 @@ describe('後方的增援、機體的接口、結果', () => {
     expect(unitAt(a.battle, 'ally', 1)!.id).toBe('a1')
     expect(partyUnit(0).rank).toBe('elite')
     expect(enemyUnit('boss', 4).ap.max).toBe(7)
+  })
+})
+
+describe('和人重疊的東西可以被單獨瞄準（COMBAT_SYSTEM 9.1 節）', () => {
+  const drone = () => ({ id: 'o1', side: 'ally' as const, slot: 2, owner: 'a1', kind: 'shield', name: '護盾無人機', hp: { now: 14, max: 14 }, armor: 1, evade: 13, used: false, down: false })
+
+  it('永遠暴露：命中對它自己的迴避，不看那一格的遮蔽；傷害扣它的護甲、乘攻擊者的傷害倍率；不傷遮蔽', () => {
+    const downs: string[] = []
+    const a = arena(duel([one(), one({}, 2)], [foe()], { ally: [2, 2, 2, 2], foe: [0, 0, 0, 0] }), [TEST_COMBAT], (k) => k.battle.on('overlay.down', 'test', ({ overlay, by }) => { downs.push(`${overlay.id}:${by?.id}`) }))
+    a.battle.overlays.push(drone())
+    const o = a.battle.overlays[0]!
+    // 雜兵的手槍：命中 +3、3d6、傷害倍率 ×0.4。15 + 3 = 18 對 13：命中；(4+4+4 − 1) × 0.4 = 4.4 → 4
+    const hit = a.run([15, 4, 4, 4]).attackOverlay(a.foe(1), o)
+    expect(hit).toMatchObject({ hit: true, evade: 13, raw: 12, dealt: 4, track: 'hp', downed: false })
+    expect(o.hp.now).toBe(10)
+    expect(a.foe(1).weapons[0]!.mag!.now).toBe(1)
+    expect(a.battle.cover.ally[1]).toMatchObject({ level: 2, hp: 30 })
+    // 沒打中：2 + 3 = 5
+    const run = a.run([2])
+    expect(run.attackOverlay(a.foe(1), o)).toMatchObject({ hit: false, dealt: 0 })
+    expect(run.beats[0]).toMatchObject({ tag: 'miss', roll: { dc: 13, skill: 'firearms', attr: 'reflex' } })
+    // 耐久歸零：被擊落，掛點收到是誰打的；已經被擊落的不能再打
+    o.hp.now = 3
+    a.foe(1).weapons[0]!.mag!.now = 2
+    const last = a.run([15, 4, 4, 4])
+    expect(last.attackOverlay(a.foe(1), o)).toMatchObject({ hit: true, downed: true })
+    expect(o).toMatchObject({ down: true, hp: { now: 0 } })
+    expect(downs).toEqual(['o1:f1'])
+    expect(tags(last)).toEqual(expect.arrayContaining(['hit', 'overlay.down']))
+    expect(a.run([]).attackOverlay(a.foe(1), o)).toMatchObject({ aborted: true })
+  })
+
+  it('一般的攻擊也記下用的是哪個屬性與基本功（武器的）', () => {
+    const a = arena(duel([one({ weapon: 'knife' })], [foe()]))
+    const run = a.run([10, 3, 3, 3])
+    run.attack(a.ally(1), a.foe(1))
+    expect(run.beats.find((b) => b.roll)!.roll).toMatchObject({ attr: 'body', skill: 'brawl' })
+  })
+})
+
+describe('單位剛組好的掛點（unit.ready）：在擲先攻之前，功能把自己的資料掛到單位上', () => {
+  it('上場與在後方等的人各呼叫一次；掛上去的東西先攻的修正讀得到', () => {
+    const seen: string[] = []
+    const a = arena(duel([one(), one({}, 2)], [1, 2, 3, 4, 5].map(() => foe())), [TEST_COMBAT], (k) => {
+      k.battle.on('unit.ready', 'test', ({ unit }) => {
+        seen.push(unit.id)
+        if (unit.id === 'a2') unit.ext.fast = true
+      })
+      k.battle.modifier('test', (q) => (q.kind === 'initiative' && q.unit.ext.fast ? [{ label: '測試', value: 100, source: 'skill' }] : []))
+    })
+    expect(seen).toEqual(['a1', 'a2', 'f1', 'f2', 'f3', 'f4', 'f5'])
+    // a2 的先攻多了 100：一定排第一個
+    expect(a.battle.order[0]).toBe('a2')
+    expect(a.ally(2).initiative).toBeGreaterThan(100)
   })
 })
 

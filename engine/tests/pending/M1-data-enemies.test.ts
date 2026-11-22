@@ -7,7 +7,7 @@ import { allFeatures } from '../../src/features'
 import { ENEMY_CURVE, encounterPoints } from '../../src/features/enemies'
 import { CORE_PACK, SOURCES } from '../../data'
 
-interface EnemyRow { id: string; name: string; desc: string; faction: string; rank: 'minion' | 'elite' | 'boss'; grades: [number, number]; kind: string; mode: string; mods?: Record<string, number>; weapons: Array<{ class: string }>; position: { prefer: number[] }; adult?: string[] | null; named?: boolean }
+interface EnemyRow { [key: string]: unknown; id: string; name: string; desc: string; faction: string; rank: 'minion' | 'elite' | 'boss'; grades: [number, number]; kind: string; mode: string; mods?: Record<string, number>; weapons: Array<{ class: string }>; position: { prefer: number[] }; adult?: string[] | null; named?: boolean }
 const game = () => new Game({ features: allFeatures(), content: [CORE_PACK], strict: true })
 const rows = (g: Game) => g.k.content.list<EnemyRow>('enemy')
 
@@ -18,12 +18,14 @@ describe('M1-data-enemies：敵人名冊', () => {
     expect(SOURCES.enemy).toMatch(/ENEMY_ROSTER/)
     const RANGE: Record<string, [number, number]> = { hizakura: [2, 5], starbelle: [2, 5], nectar: [2, 5], nightingale: [2, 5], kunlun: [2, 4], eden: [1, 4], kaleido: [1, 4] }
     const list = rows(g)
-    // 現實的制式兵種（蕾絲與網內的敵人在 M3）：名冊上每個勢力至少一筆
-    expect(list.length).toBeGreaterThanOrEqual(150)
-    expect(new Set(list.map((e) => e.faction)).size).toBeGreaterThanOrEqual(25)
+    // 現實的制式兵種（蕾絲、程式、內海的化身在 M3）：名冊第一到第五部分裡「種類」是人、機器、吉祥物的那些，一共約 140 筆
+    expect(list.length).toBeGreaterThanOrEqual(130)
+    expect(list.length).toBeLessThanOrEqual(150)
+    // 二十九個勢力每一個都有現實的兵種
+    expect(new Set(list.map((e) => e.faction).filter((f) => f !== 'none')).size).toBe(29)
     for (const e of list) {
       expect(e.id.startsWith('en_'), e.id).toBe(true)
-      expect(e.kind, e.id).not.toBe('lace')
+      expect(['human', 'unbridged', 'machine', 'mascot'], `${e.id} 的 kind`).toContain(e.kind)
       expect(e.named, e.id).toBeUndefined() // 具名敵人跟著任務走，不進名冊
       expect(e.desc.length, e.id).toBeGreaterThan(10)
       expect(e.grades[0], e.id).toBeLessThanOrEqual(e.grades[1])

@@ -125,6 +125,57 @@ describe('開打與每一步（Game 的門面）', () => {
   })
 })
 
+describe('行動的花費可以被修正（SKILLS 1.8 節「退還或減免行動點」）', () => {
+  // 一個花費看這一步選了什麼的行動（替別人做比較貴），加上一個「攻擊少花 1 點、替別人做少花 1 點」的修正
+  const HELP: Feature = {
+    id: 'help_test',
+    install(k) {
+      k.battle.action({
+        id: 'test.help', owner: 'help_test', name: '幫忙', desc: '幫自己或隊友一個忙。', group: 'supply', target: 'ally', order: 9,
+        cost: (_v, u, input) => ({ ap: input?.target && 'unit' in input.target && input.target.unit !== u.id ? 3 : 1 }),
+        targets: (v, u) => unitsOf(v.battle, u.side).map((t) => ({ target: { unit: t.id }, blocks: [] })),
+        run: (run, u) => run.say(`${u.name} 幫了一個忙。`, 'item', { unit: u.id }, u),
+      })
+      k.battle.modifier('help_test', (q) => {
+        if (q.kind !== 'action_ap' || !q.unit.ext.cheap) return []
+        if (q.tags.includes(ATTACK)) return [{ label: '測試', value: -1, source: 'skill' }]
+        if (q.tags.includes('test.help') && q.tags.includes('other')) return [{ label: '測試', value: -1, source: 'skill' }]
+        return []
+      })
+    },
+  }
+  const start = () => makeBattleGame({ features: [TEST_COMBAT, HELP], battle: duel([one({ weapon: 'pistol' }), one({ weapon: 'pistol' }, 2)], [foe()]) }).game
+
+  it('畫面上的花費、核心的檢查、實際扣的、AI 算的，都是修正過的同一個數字；最少 0', () => {
+    const game = start()
+    const opt = (id: string) => game.battleOptions()!.actions.find((x) => x.id === id)!
+    turnTo(game, 'a1')
+    expect(opt(ATTACK).cost.ap).toBe(2)
+    game.state.battle!.units.a1!.ext.cheap = true
+    expect(opt(ATTACK).cost.ap).toBe(1)
+    const me = turnTo(game, 'a1')
+    expect(game.battleAct({ action: ATTACK, target: { unit: 'f1' } }).status).toBe('applied')
+    expect(game.battle!.units.a1!.ap.now).toBe(me.ap.max - 1)
+    // 換位不受影響（沒有帶這個行動的標籤）
+    expect(opt(MOVE).cost.ap).toBe(MOVE_AP)
+  })
+
+  it('花費看這一步選了什麼：替別人做比較貴，行動點不夠就擋下（不是當掉），狀態不變', () => {
+    const game = start()
+    const me = turnTo(game, 'a1')
+    me.ap.now = 2
+    // 沒選目標時顯示的是基本的花費（1 點），所以這個行動是亮的；替隊友做要 3 點，不夠
+    expect(game.battleOptions()!.actions.find((x) => x.id === 'test.help')).toMatchObject({ ok: true, cost: { ap: 1 } })
+    const before = stateHash(game.state)
+    expect(game.battleAct({ action: 'test.help', target: { unit: 'a2' } })).toMatchObject({ status: 'refused', reasons: ['行動點不夠（要 3 點，現在 2 點）。'] })
+    expect(stateHash(game.state)).toBe(before)
+    // 有減免的人替隊友做只要 2 點
+    game.state.battle!.units.a1!.ext.cheap = true
+    expect(game.battleAct({ action: 'test.help', target: { unit: 'a2' } }).status).toBe('applied')
+    expect(game.battle!.units.a1!.ap.now).toBe(0)
+  })
+})
+
 describe('AI 的回合（ENEMIES 第 4 節）', () => {
   it('輪到 AI 的人：一步一份報告；沒事可做就結束回合；最多做 6 步', () => {
     const { game } = makeBattleGame({ seed: 3 })

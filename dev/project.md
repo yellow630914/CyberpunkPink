@@ -41,6 +41,13 @@ L0 型別 → L1 純工具 → L2 內容 → L3 狀態核心 → L4 規則核心
 - 功能只從 `engine/src/core`（寫成 `'../../core'`）import；測試可以另外 import `engine/src/testkit`（狀態工廠 `makeState`、`makeGame`，不變式檢查 `observed`）。
 - 介面的驗收測試在 `ui/tests/pending/`，跑法：在 `ui/` 跑 `npx vitest run --config vitest.pending.config.ts`。
 
+## 戰鬥與格子地圖（2026-11-22，M1）
+
+- 戰鬥的引擎在核心（`engine/src/core/battle/`，現實與內海共用；dev/adr/0010、0011），格子地圖也在核心（`engine/src/core/grid/`；dev/adr/0012）。功能不寫引擎，只往登錄表註冊：`k.battle`（行動、掛點、修正、結束時的變更、誰上場、帶進戰鬥的裝備、道具的效果）與 `k.grid`（站上標記、走進一格、放行、這一格能做的事）。
+- 功能改戰鬥狀態只用 `BattleRun` 的基本動作；行動的條件與目標（`blocks`、`targets`）只讀。灰掉的原因寫成給玩家看的完整句子，一條一個條件。
+- 測試：`engine/src/testkit` 有具名的情境（`BATTLE_SETUPS`）、`makeBattleGame`、`playOut`、`fixDice` 與一組最小的行動 `TEST_COMBAT`（dev/test-harness.md 第 1 節）。
+- 設計書沒寫或兩處對不上而先定的東西集中在 dev/adr/0013；工單裡引用它的地方，做的時候看到設計書有相反的寫法就停下來回報。
+
 ## 工作檔案（都在 repo 的 dev/，要提交）
 
 | 東西 | 位置 | 誰寫 |

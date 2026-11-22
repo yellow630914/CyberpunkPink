@@ -40,8 +40,21 @@
 - 2026-11-22（lead）：M0 修正批次做完（M0-fix 核心、M0-fix-data、M0-fix-ui、介面這側的 E3／E5／E6／E7）。M0 收尾；建角第 6、8、9 步的規則（`ui/src/lib/creation.ts`）等 M1／M4 搬。
 - 2026-11-22（docs）：使用者定案「等使用者決定」的十題，寫回設計書（EVENTS 2.4、LIFE 1.3、AI_TASKS 2.5／3.1／3.5、SERIES 第 6 節、GAME_DESIGN 第 9 節、DATA 第 1 節、CHARACTER 1.1）與 docs/log/DECISIONS.md。待 cpp-architect：引擎跟著改第 1、2、4、6 條：帳戶與現金分開夾（`money` 拆成兩組）、物品每一種各 100 個（`ITEM_MAX_PER_EVENT` 改成每種分開算）、街頭信譽對等級（`rep_grade`：無名、熟面孔 I，之後每階 +1）、`free` 的參考範圍拿掉現金（`engine/data/rules/actions.json`）。其餘六條和引擎現在的做法一致。
 - 2026-11-22（lead）：M1 範圍定案：現實戰鬥照 COMBAT_SYSTEM 做完整（所有主動技能、三種無人機與移動收回、載具當掩體、場地與控制節點）；機甲留到 M6（只留接口）；手機戰鬥敵上我下、兩排第 1 格在左；戰敗事件 M1 只做略過版，二十九種的分法留到 M2。
+- 2026-11-22（cpp-architect）：M1 開工：核心、測試基礎建設、第一波工單。引擎主套件 41 個檔、632 個測試全過，`npx tsc --noEmit` 沒有錯，冒煙 3 個檔 6 個測試過；ui 38 個檔、373 個測試全過，`vue-tsc` 沒有錯。給下游的驗收測試（引擎 11 個檔、ui 1 個檔）照預期失敗。
+  - 核心（L5）：戰鬥引擎 `engine/src/core/battle/`（現實與內海共用：站位、遮蔽、回合、命中、傷害、感載與過載、狀態、監視、增援、和人重疊的東西、機體的接口、敵人 AI 的骨架；戰場、傷害類型、狀態、武器的類型是資料）與格子地圖 `engine/src/core/grid/`（DATA 9.3 的格式、實例、走一步、站上標記的登錄表）。戰鬥的每一步是一份報告；快照放在狀態裡；`Game` 多了 `startBattle`、`battleOptions`、`battleAct`、`battleNext`、`finishBattle`、`retryBattle`、`rewindTo`、`enterMap`、`gridMove`、`gridView`。存檔升到第 2 版（第 1 版的讀得進來）。
+  - 另外放進核心的：內容種類 `item`、`weapon_class`、`battle_mode`、`damage_type`、`battle_status`、`special_map`；內容篩選與照性別選版本（`pickVersion`、`resolveFiltered`）；難度的敵人係數（BALANCE 7.2）。
+  - 定案做進引擎：帳戶與現金分開夾、物品每一種 100 個、信譽六階對等級（`REP_TIER_GRADE`）、`free` 的參考範圍拿掉現金、性別五個值（拿掉 `trans_m`；ui 的選項與測試也改了）。
+  - 測試基礎建設：具名的情境（一般遭遇、精英遭遇、首領戰、要活的、打不贏的）、`makeBattleGame`、`playOut`、`fixDice`、最小的行動表 `TEST_COMBAT`；冒煙 M1 的核心版（一場現實戰鬥打完、戰敗、重來）。
+  - 工單十一張（`dev/work/M1-*.md`），各附驗收測試。建議的順序：`M1-data-rules`（cpp-data）→ `M1-combat`、`M1-enemies`、`M1-gear`、`M1-defeat`、`M1-explore`、`M1-abilities`（cpp-feature；彼此不相依，但都要在 `engine/src/features/index.ts` 加一行，同時做要小心那一行）→ `M1-data-enemies`、`M1-data-abilities`（cpp-data）→ `M1-summons`（cpp-feature）→ `M1-ui-combat`（cpp-ui）→ 把 `engine/tests/pending/M1-smoke-features.test.ts` 搬進 `tests/smoke/`。
+  - ADR：0007 改寫（錢分開夾、物品每一種 100 個、信譽對照）；新增 0010（戰鬥引擎放在核心）、0011（每一步是一份報告、快照、存檔第 2 版）、0012（格子地圖）、0013（M1 的解讀與暫定值）。不變式更新到 58 條。
+  - M1 還沒開工單的（等第一波做完、介面定了再寫）：其餘的技能（槍手與掮客剩下的、機師、改造師含手術刀、潛網者在現實的快駭、名媛）與它們的資料；敵人的招牌行動與掉落、敵方的無人機與砲塔、機師兵種；投擲物、腳本、特殊彈；設計圖、零件、物品目錄的資料與建角第 6 步；裝備與技能的介面。機甲在 M6（核心只有接口）。
 
 ## 等使用者決定
+
+- M1 開工對照出來的事（細節在 dev/adr/0013；每一項引擎現在照哪一邊也寫在那裡）：
+  - 設計書兩處對不上：穿甲多出來的算不算傷害（COMBAT_SYSTEM 第 4 節的公式對平衡模擬）；敵人資料寫絕對值還是相對修正（ENEMIES 第 2、15 節對 ENEMY_ROSTER）；技能資料的樣本（SKILLS 第 13 節對 SKILL_TREES）；容量的例子（CORE_RULES 6.4 對 SKILL_TREES）；手術刀在戰鬥裡做什麼（COMBAT_SYSTEM 第 11 節對 SKILL_TREES）；DATA 9.3 節小辦公室樣本的門走不過去；定點射是主動還是被動。
+  - 會動到平衡的兩項：重傷的 −2 開始對攻擊生效（平衡模擬沒有算）；首領戰用「一邊倒」的遮蔽時勝率與損耗離目標很遠（用「中」才對得上）。建議交給平衡的 session 重跑。
+  - 設計書沒寫、先定的暫定值二十幾項（餘韻的「全屬性 −2」落在哪、打遮蔽的花費、制伏失手時束帶、敵人的士氣、基準遭遇、通用的戰敗事件、叫人的支援射擊、無人機的數字……）。
 
 - ~~效果上限的幾個讀法（dev/adr/0007）~~：2026-11-22 確認：帳戶與現金**各自**有上限、分開算；物品是**每一種**一次最多 100 個，總數不另外限；AI 給的錢拿到與失去都管、內建的只管拿到的（EVENTS 2.4 節）。
 - ~~街頭信譽六階怎麼對到 I～V 級~~：2026-11-22 確認：無名、熟面孔 I 級，之後每升一階升一級（LIFE 1.3 節）。

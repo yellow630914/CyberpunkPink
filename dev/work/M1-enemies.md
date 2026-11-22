@@ -59,9 +59,9 @@ export function setupFromEncounter(k, state, encounterId: string, o: { allies: U
 | `rank` | 是 | `minion`、`elite`、`boss`。錯的時候訊息裡要有 `rank` 這個字 |
 | `grades` | 是 | `[最低, 最高]`，1～5，最低 ≤ 最高 |
 | `kind` | 是 | `human`、`unbridged`、`machine`、`vehicle`、`mech`、`mascot`、`lace`、`program` |
-| `position` | 是 | `{ prefer: [1～4 的整數…]（至少一個）, cover_use: 0～1 }` |
+| `position` | 是 | `{ prefer: [1～4 的整數…]（至少一個）, cover_use?: 0～1 }`；`cover_use` 沒寫是 0.5 |
 | `mode` | 是 | `lethal`、`neural`、`capture` |
-| `weapons` | 是 | 至少一把：`{ class（引用 weapon_class）, name?, type?（五種傷害類型）, traits?: string[], pierce?, range?, mag? }` |
+| `weapons` | 是 | 至少一把：`{ class（引用 weapon_class）, name?, type?（五種傷害類型）, traits?: string[], pierce?, range?, mag? }`。`pierce`、`range`、`mag` 寫的是這一把最後的值（不是相對於類型的加減）；沒寫就用類型的 |
 | `ai` | 是 | `{ prefer: 'weakest'｜'overloaded'｜'leader'｜'nearest'｜'netrunner', focus: 數字, flee_below: 0～1, floor?, never_flee?, morale? }` |
 | `mods` | | 相對於目標表的修正，只收這幾個鍵：`hp`、`load`（倍數，0.5～1.5）；`armor`、`evade`、`attack`、`ap`、`layers`（整數，加減）；`sensitivity`（0～100，直接取代預設的 50） |
 | `attrs`、`skills` | | 六屬性與基本功（檢定與豁免用）；沒寫時屬性全是 10、基本功是 `{ composure: 雜兵 0／其餘 2 }` |
@@ -98,10 +98,10 @@ export function setupFromEncounter(k, state, encounterId: string, o: { allies: U
    - 護甲 `armor[g] + m.armor`；迴避 `evade[g] + m.evade`；承受層數 `layers[rank] + m.layers`（最少 1）；敏感度 `m.sensitivity ?? 50`。
    - 行動點上限 `ap[rank] + (rank !== 'minion' && 等級 >= 4 ? 1 : 0) + m.ap`，開場是滿的，每回合回 3（`regen: 3`）。
    - 傷害的倍率（照這個順序乘，測試比對的是同一個浮點數）：`dmgMult.hp = rankDamage[rank] * c.dmg * 傷害的強度倍數`；`dmgMult.load = c.dmg * 傷害的強度倍數`。
-6. **武器**（每一把）：`weaponFromClass(k.content, w.class, { hit: attack[g] + m.attack, extraDice, name: w.name, type: w.type, traits: w.traits, pierce: w.pierce, range: w.range, mag: w.mag })`。
+6. **武器**（每一把）：`weaponFromClass(k.content, w.class, { hit: attack[g] + m.attack, extraDice, name: w.name, type: w.type, traits: w.traits, pierce, range: w.range, mag: w.mag })`。`weaponFromClass` 的 `pierce` 是加在類型的穿甲上的，所以資料有寫 `w.pierce` 時傳 `w.pierce − 類型的穿甲`，沒寫傳 0；`traits` 是加在類型的特性上的。
    - 一般：`extraDice = gradeDice(等級)`。
    - 打感載的神經武器（這一把最後的傷害類型是 `neural` 或 `pleasure`，而且兵種的 `mode` 是 `capture` 或 `neural`）：骰數是 `captureDice[rank] + gradeDice(等級)`，也就是 `extraDice = captureDice[rank] + gradeDice(等級) − 類型的基礎骰`。
-7. 單位其餘的欄位：`name`（`ref.name ?? 資料的 name`）、`enemy: id`、`control: 'ai'`、`grade`、`rank`、`attrs`、`skills`、`layers: 0`、`sink: 0`、`pools: {}`、`wield: 0`、`initBonus: attrMod(attrs.reflex)`、`statuses: []`、`quick`、`uses: {}`、`wounds: {}`、`ext: {}`；`tags` 是 `[kind, …(沒有橋的加 'unbridged'), …(資料的 traits)]`；`ai: { focus, floor: ai.floor ?? 1, prefer, mode（兵種的 mode）, fleeBelow: ai.flee_below, neverFlee: ai.never_flee（有寫才放）, prefer_slots: position.prefer, coverUse: position.cover_use }`。
+7. 單位其餘的欄位：`name`（`ref.name ?? 資料的 name`）、`enemy: id`、`control: 'ai'`、`grade`、`rank`、`attrs`、`skills`、`layers: 0`、`sink: 0`、`pools: {}`、`wield: 0`、`initBonus: attrMod(attrs.reflex)`、`statuses: []`、`quick`、`uses: {}`、`wounds: {}`、`ext: {}`；`tags` 是 `[kind, …(沒有橋的加 'unbridged'), …(資料的 traits)]`；`ai: { focus, floor: ai.floor ?? 1, prefer, mode（兵種的 mode）, fleeBelow: ai.flee_below, neverFlee: ai.never_flee（有寫才放）, prefer_slots: position.prefer, coverUse: position.cover_use ?? 0.5 }`。
 
 ## 五、遭遇
 

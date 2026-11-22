@@ -4,6 +4,11 @@
 - `makeState(overrides)`：用最少的資料建立合法的遊戲狀態，不讀完整的內建世界。
 - 預設情境：空房間、一位主角、固定種子。常用情境做成具名的建構函式（一場一般遭遇、一場首領戰、一個委託副本的第一階段、一場成人場景、一場輿論戰）。
 - 理由：ElondiaRPG 的測試約 200 個檔靠「真實資料」建狀態，跟著搬得重寫（CODESCAN 2.8）。
+- M1 已經有的（`engine/src/testkit/battle.ts`）：
+  - 具名的情境 `BATTLE_SETUPS`：`encounter`（一般遭遇：四個雜兵）、`encounterElite`（兩個雜兵加一個精英）、`boss`（首領戰：一個首領加三個雜兵）、`capture`（敵人打感載、要活的）、`hopeless`（一定打輸，測戰敗用）。每一個都可以給等級。單位的數字是設計書的基準（敵人：ENEMIES 1.5 節的目標表；我方：BALANCE 2.2 節同級的主力），不讀資料檔。
+  - `makeBattleGame({ battle, features, content, seed, … })`：一局已經開打的遊戲；`playOut(game)`：雙方都由程式選動作，打到分出結果；`fixDice(run, [骰面…])`：把一個 `BattleRun` 的骰釘死（規則的測試一顆一顆驗）。
+  - `TEST_COMBAT`：一組最小的行動（攻擊、換彈、監視），讓核心的測試、冒煙、探針不必等現實戰鬥的功能。正式的行動表在 `features/combat`。
+  - `engine/tests/helpers/battle.ts`（測試共用）：`arena()` 建一場不經過提交的戰鬥、`duel()` 幾對幾的小場地、`one()`／`foe()` 一個我方或敵方的單位。
 
 ## 2. 探針介面
 - 在 L3～L5 開唯讀的觀察點：提交報告前後、每一個掛鉤被呼叫時、登錄表註冊時、任務鏈每一步的狀態變化。
@@ -28,7 +33,7 @@
 ### 冒煙（engine/tests/smoke/）
 固定種子、AI 關閉。主幹隨批次長大：
 - M0：開新遊戲 → 建角 → 空房間的自由行動 → 存檔 → 讀檔 → 回退
-- M1 加：一場現實戰鬥打完、戰敗事件（略過版）
+- M1 加：一場現實戰鬥打完、戰敗事件（略過版）。核心版在 `engine/tests/smoke/m1.test.ts`（測試用的行動表與具名的情境）；功能版在 `engine/tests/pending/M1-smoke-features.test.ts`，M1 的功能工單做完之後搬進 `tests/smoke/`
 - M2 加：接委託 → 副本走完一個階段；移動觸發事件導演；每週帳單結算
 - M3 加：潛入內海、一場網內戰鬥
 - 之後每一批加一步

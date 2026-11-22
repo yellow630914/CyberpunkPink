@@ -14,6 +14,7 @@ import { clone } from '../util/clone'
 import { currentUnit, sameTarget, unitTag } from './field'
 import { aiStep } from './ai'
 import type { BattleActionDef, BattleActionGroup, BattleKernel, BattleTargetKind, BattleTargetOption } from './registry'
+import { actionCost } from './registry'
 import { modeOf } from './rules'
 import { BattleRun } from './run'
 import type { BattleSetup } from './setup'
@@ -62,7 +63,7 @@ export interface BattleOptions {
 }
 
 function optionOf(run: BattleRun, u: BattleUnit, def: BattleActionDef): BattleActionOption {
-  const cost = def.cost(run, u)
+  const cost = actionCost(run, u, def)
   const blocks: string[] = []
   if (cost.ap > u.ap.now) blocks.push(`行動點不夠（要 ${cost.ap} 點，現在 ${u.ap.now} 點）。`)
   for (const [pool, v] of Object.entries(cost)) if (pool !== 'ap' && v > (u.pools[pool]?.now ?? 0)) blocks.push(`${pool.toUpperCase()} 不夠（要 ${v}，現在 ${u.pools[pool]?.now ?? 0}）。`)
@@ -120,7 +121,10 @@ function open(k: BattleKernel, state: GameState): { run: BattleRun; unit: Battle
 
 /** 做一個行動（花費、行動本身、收尾）。做完之後如果這個人自己退出了，直接往下輪。 */
 function perform(run: BattleRun, unit: BattleUnit, def: BattleActionDef, target: BattleTarget | null, input: BattleInput): void {
-  run.spend(unit, def.cost(run, unit, input))
+  // 花費可以看這一步選了什麼（替別人用道具比較貴）：照這一步實際的花費再檢查一次
+  const cost = actionCost(run, unit, def, input)
+  if (!run.canAfford(unit, cost)) throw new BattleBlocked([`行動點不夠（要 ${cost.ap} 點，現在 ${unit.ap.now} 點）。`])
+  run.spend(unit, cost)
   def.run(run, unit, target, input)
   run.settle()
   if (!run.over && unit.out && run.current()?.id === unit.id) advance(run)

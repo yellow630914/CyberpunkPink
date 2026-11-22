@@ -1,6 +1,6 @@
-// 驗收測試：dev/work/M1-abilities-2.md（cpp-feature）。前置：M1-combat、M1-abilities 已經做完。做完之前照預期失敗。
-// 規格：COMBAT_SYSTEM 2.4、2.5 節（控制節點、場地效果）、9.1 節（無人機）、9.2 節（載具是叫來的掩體）、第 11 節（改造師的手術刀）。
-// 這一張只驗「不隨技能資料改變」的那幾樣：無人機的四個行動與五種、載具掩體、控制節點、手術刀的急救。機甲留到 M6。
+// 驗收測試：dev/work/M1-summons.md（cpp-feature）。前置：M1-data-rules、M1-combat 已經做完。做完之前照預期失敗（features/summons 還不存在）。
+// 規格：COMBAT_SYSTEM 2.4、2.5 節（控制節點、場地效果）、9.1 節（無人機）、9.2 節（載具是叫來的掩體）。
+// 機甲留到 M6（核心只留接口）。改造師的手術刀是技能樹的一部分，跟著改造師那一批技能做，不在這一張。
 
 import { describe, expect, it } from 'vitest'
 import type { BattleUnit, ContentPack } from '../../src'
@@ -69,7 +69,7 @@ describe('無人機（COMBAT_SYSTEM 9.1 節）', () => {
   })
 })
 
-describe('載具、控制節點、手術刀', () => {
+describe('載具與控制節點', () => {
   it('載具不是單位，是叫來的掩體：我方的一格變成掩體，耐久比一般的高；被打爛了就是暴露', () => {
     const g = game([pilot()])
     turnTo(g, 'a1')
@@ -88,25 +88,5 @@ describe('載具、控制節點、手術刀', () => {
     expect(g.battleAct({ action: 'node.use', target: { node: 'n2' }, pick: { slot: 1 } }).status).toBe('applied')
     expect(g.battle!.cover.ally[0]).toMatchObject({ level: 2, hp: 30 })
     expect(g.battle!.nodes.map((n) => n.used)).toEqual([false, true]) // 燈可以再開；防爆門放下就用掉了
-  })
-
-  it('改造師的手術刀：1 點行動點急救相鄰的隊友（回生命、止血），可以把倒下的人救起來', () => {
-    const g = game([one({ weapon: 'pistol', skills: { medicine: 3 }, ext: { abilities: { equipped: ['sk_modder_scalpel'], tiers: { modder: 1 } } } }), one({ weapon: 'rifle' }, 2)])
-    const mate = g.state.battle!.units.a2!
-    mate.hp!.now = 10
-    mate.statuses.push({ id: 'bleeding', until: { at: 'battle_end' } })
-    turnTo(g, 'a1')
-    expect(opt(g, 'scalpel.aid')).toMatchObject({ name: '急救', cost: { ap: 1 }, group: 'skill' })
-    expect(g.battleAct({ action: 'scalpel.aid', target: { unit: 'a2' } }).status).toBe('applied')
-    expect(g.battle!.units.a2!.hp!.now).toBeGreaterThan(10)
-    expect(g.battle!.units.a2!.statuses).toEqual([])
-    // 倒下的人：救起來，回到場上、生命至少 1
-    g.state.battle!.units.a2!.out = 'down'
-    g.state.battle!.units.a2!.hp!.now = 0
-    turnTo(g, 'a1')
-    expect(g.battleAct({ action: 'scalpel.aid', target: { unit: 'a2' } }).status).toBe('applied')
-    expect(g.battle!.units.a2!).toMatchObject({ slot: 2 })
-    expect(g.battle!.units.a2!.out).toBeUndefined()
-    expect(g.battle!.units.a2!.hp!.now).toBeGreaterThanOrEqual(1)
   })
 })

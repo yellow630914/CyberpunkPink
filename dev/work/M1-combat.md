@@ -8,6 +8,7 @@
   - 註冊行動：`k.battle.action(def)`，`BattleActionDef` 在 `registry.ts`（每個欄位都有註解）。**照抄的範本**：`engine/src/testkit/battle.ts` 的 `TEST_COMBAT`（攻擊、換彈、監視三個最小的行動）。
   - 算這一步用的 `BattleRun`（`run.ts`）：`attack`、`damage`、`addLoad`、`heal`、`vent`、`save`、`applyStatus`、`cleanse`、`removeStatus`、`setOut`、`finish`、`hurtCover`、`softCover`、`d6`、`rand`、`say`、`unit`。只讀的 `BattleView`（行動的 `cost`、`blocks`、`targets`、`aiScore` 拿到的）：`hitChance`、`mods`、`n`（這個戰場的數字：`n.subdueDc`、`n.fleeDc`）。
   - 站位的小工具（`field.ts`）：`wielded`、`distance`、`unitsOf`、`otherSide`、`unitAt`、`coverAt`、`coverLevel`、`losingTurn`、`standing`、`unitTag`。
+  - 花費的修正：核心在行動自己算的花費上再加 `action_ap` 這一種修正（技能的減免），畫面、檢查、實際扣的都是修正過的數字；行動的 `cost` 只管自己的基本花費。
   - 掛點：`k.battle.on('wound' | 'attack.after', owner, fn)`（`BattleHookMap`）；戰鬥結束時加一行結果：`k.battle.onEnd(owner, fn)`。
   - 道具效果的登錄表：`k.battle.itemOp(op, owner, fn)`、`k.battle.getItemOp(op)`、`k.battle.itemOpIds()`（`BattleItemOp`）。
   - 做不成的一步：`throw new BattleBlocked([原因, …])`（`step.ts`）。`blocks` 與 `targets` 回傳的原因由核心擋；要看 `input.pick` 才知道的（掃射、選了哪個道具）在 `run` 裡自己丟。這時戰鬥狀態是工作副本，丟了就整步作廢。
@@ -41,8 +42,8 @@
 ### 射擊 `shoot`
 
 - `blocks`：手上的武器帶 `melee` 特性 → `'手上是近戰武器，不能射擊。'`；有彈匣而且是 0 → `'彈匣空了，要先換彈。'`。
-- `targets`：敵方每一個在場上的人（照站位）。每個目標的 `hint` 放 `{ chance: view.hitChance(u, t), distance: distance(u, t) }`。
-- `run`：`run.attack(u, target)`。彈匣由 `attack` 扣（預設 1 格）。
+- `targets`：敵方每一個在場上的人（照站位）`{ unit }`，每個目標的 `hint` 放 `{ chance: view.hitChance(u, t), distance: distance(u, t) }`；後面再列敵方每一台還沒被擊落的、和人重疊的東西（`battle.overlays` 裡 `side` 是敵方、`down` 是 `false` 的）`{ overlay: id }`。
+- `run`：目標是人 → `run.attack(u, target)`；目標是和人重疊的東西 → `run.attackOverlay(u, 那一台)`（它永遠暴露；核心已經做好）。彈匣由這兩個函式扣（預設 1 格）。掃射只能對人。
 - **掃射**（`input.pick.sweep === true`；武器要有 `sweep` 特性）：彈匣不到 2 格 → `throw new BattleBlocked(['掃射要彈匣裡有 2 格。'])`；武器沒有這個特性 → `throw new BattleBlocked(['這把武器不能掃射。'])`。`run.attack(u, t, { spend: 2, label: '掃射', tags: ['sweep'] })`；之後不管有沒有打中，目標還在場上就 `run.save(t, 'resolve', 'composure', 14, '定力')`，沒過就 `run.applyStatus(t, 'suppressed', { by: u })`。
 - `auto(run, u, t)`（監視觸發時）：手上是近戰武器、或彈匣空了回傳 `false`；否則 `run.attack(u, t, { label: '監視射擊', tags: ['watch'] })`，回傳 `true`。
 - `aiScore`：`view.hitChance(u, t) < 35 ? 1 : 2`；目標那一格是掩體（`coverLevel(...) === 2`）而自己的武器是霰彈槍或重武器（`class` 是 `shotgun` 或 `heavy`）再 +0.5。
@@ -51,7 +52,7 @@
 
 - `blocks`：手上的武器沒有 `melee` 特性 → `'手上不是近戰武器。'`。
 - `targets`：敵方每一個在場上的人；`distance(u, t) !== 1` 的那些 `blocks: ['近戰只能打近身（雙方的第 1 格）。']`。
-- `run`：`run.attack(u, target)`。`auto`：不是近身回傳 `false`。`aiScore`：和射擊一樣的基準。
+- `run`：`run.attack(u, target)`。`auto`：不是近身回傳 `false`。`aiScore`：和射擊一樣的基準。近戰不能打和人重疊的東西（它們在飛）。
 
 ### 換彈 `reload`、換武器 `swap`
 
@@ -63,8 +64,8 @@
 - 「能用的道具」：`u.quick` 裡數量大於 0、內容裡那一筆有 `use`、而且 `use.modes` 沒寫或包含這個戰場。束帶與鎖橋器沒有 `use`，不算。
 - `blocks`：一個能用的都沒有 → `'快取格裡沒有能用的道具。'`。
 - `targets`：
-  - 有任何一個能用的道具的 `use.target` 是 `self` 或 `ally`：列出我方每一個在場上的人（照站位，包含自己）`{ unit }`；和自己隔一格以上的（`Math.abs(t.slot - u.slot) > 1`）`blocks: ['要相鄰才用得到。']`。
-  - 有任何一個的 `use.target` 是 `slot`：再列我方的四格 `{ side: u.side, slot }`。
+  - 一律列出我方每一個在場上的人（照站位，包含自己）`{ unit }`；和自己隔一格以上的（`Math.abs(t.slot - u.slot) > 1`）`blocks: ['要相鄰才用得到。']`。沒有能用的道具時也照列（目標的清單是空的話，核心會多加一句「沒有可以選的目標。」，驗收測試要的是只有上面那一句）。
+  - 有任何一個能用的道具的 `use.target` 是 `slot`：再列我方的四格 `{ side: u.side, slot }`。
 - `cost(view, u, input)`：沒有 `input` 時回 `{ ap: 1 }`。有 `input` 時照選的道具：對自己（或對一格）是 `use.ap`，對別人是 `use.ap_other ?? use.ap`。
 - `run`：
   - 選哪一個：`input.pick.item`；沒寫而能用的只有一種就用那一種，否則 `BattleBlocked(['要選用哪一個道具。'])`。選的不在快取格、或不是能用的 → `BattleBlocked(['快取格裡沒有這個道具。'])`。
@@ -134,5 +135,6 @@
 
 1. 驗收測試用的是測試自己帶的幾筆道具與狀態（`PACK`），不靠 `CORE_PACK`；正式的資料是 `dev/work/M1-data-rules.md`。兩邊的欄位是同一套。
 2. 核心在每一步做完之後自己處理：監視、後方補位、分出勝負。行動的 `run` 不要呼叫 `run.settle()`、`advance()`。
-3. `BattleView` 是只讀的：`cost`、`blocks`、`targets`、`aiScore` 裡不可以改單位、不可以擲骰。
-4. 束帶在制伏失手時不消耗、打遮蔽一律 2 點（狙擊槍也是）、有束帶先用束帶：這三點設計書沒有寫，是 cpp-architect 的暫定（`dev/adr/0013`）。做的時候如果在設計書裡看到相反的寫法，停下來回報。
+3. 要選目標的行動，`targets` 回傳空陣列時核心會自動加一條 `'沒有可以選的目標。'`。想讓灰掉的原因只有自己寫的那一句，就把目標照列、原因寫在行動的 `blocks` 或每個目標的 `blocks` 上。
+4. `BattleView` 是只讀的：`cost`、`blocks`、`targets`、`aiScore` 裡不可以改單位、不可以擲骰。
+5. 束帶在制伏失手時不消耗、打遮蔽一律 2 點（狙擊槍也是）、有束帶先用束帶：這三點設計書沒有寫，是 cpp-architect 的暫定（`dev/adr/0013`）。做的時候如果在設計書裡看到相反的寫法，停下來回報。

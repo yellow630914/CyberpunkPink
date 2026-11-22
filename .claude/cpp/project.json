@@ -16,7 +16,7 @@
     "L2": "engine/src/core/content",
     "L3": "engine/src/core/state",
     "L4": "engine/src/core/rules",
-    "L5": "engine/src/core/action（與 engine/src/core/kernel.ts）",
+    "L5": "engine/src/core/action、engine/src/core/battle（戰鬥引擎，現實與內海共用）、engine/src/core/grid（格子地圖）（與 engine/src/core/kernel.ts）",
     "L6": "engine/src/features/<功能>（總表 engine/src/features/index.ts 算在外殼）",
     "L7": "engine/src/shell"
   },

@@ -12,6 +12,7 @@ import type { BattleTarget, BattleUnit } from '../types'
 import { BATTLE_SLOTS } from '../types'
 import { coverAt, coverLevel, distance, isWounded, losingTurn, moveBlock, otherSide, sameTarget, unitAt, unitsOf, wielded } from './field'
 import type { BattleActionDef, BattleView } from './registry'
+import { actionCost } from './registry'
 import type { BattleRun } from './run'
 
 /** 換位花的行動點（COMBAT_SYSTEM 1.3 節）。 */
@@ -93,7 +94,7 @@ function tryReposition(run: BattleRun, u: BattleUnit): boolean {
 /** 這個行動現在對這個目標做不做得到；做得到就回傳要用的目標。 */
 function usable(run: BattleRun, u: BattleUnit, def: BattleActionDef, enemy: BattleUnit | null): { target: BattleTarget | null } | null {
   if (def.has && !def.has(run, u)) return null
-  if (!run.canAfford(u, def.cost(run, u))) return null
+  if (!run.canAfford(u, actionCost(run, u, def))) return null
   if (def.blocks?.(run, u).length) return null
   if (def.target === 'none') return { target: null }
   const want = def.aiTarget ? def.aiTarget(run, u, enemy) : enemy ? { unit: enemy.id } : null
@@ -130,7 +131,7 @@ export function aiStep(run: BattleRun, u: BattleUnit): boolean {
   const choice = run.pick(options, (o) => o.score * o.score)
   if (!choice) return false
   const input = { action: choice.def.id, ...(choice.target ? { target: choice.target } : {}) }
-  run.spend(u, choice.def.cost(run, u, input))
+  run.spend(u, actionCost(run, u, choice.def, input))
   choice.def.run(run, u, choice.target, input)
   return true
 }

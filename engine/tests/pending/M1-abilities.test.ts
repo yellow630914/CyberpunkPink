@@ -128,6 +128,7 @@ describe('戰鬥裡的技能（SKILL_TREES 槍手、掮客 1～2 階）', () => 
     const save = beats(r).filter((b) => b.roll).at(-1)!.roll!
     expect(save).toMatchObject({ dc: 10 + 3 * 2, skill: 'composure' })
     expect(g.battle!.units.f1!.statuses.map((s) => s.id)).toContain('suppressed')
+    turnTo(g, 'a1') // 行動點補滿：只剩「彈匣不夠」這一條
     expect(opt(g, 'sk_gunner_burst')).toMatchObject({ ok: false, blocks: ['彈匣裡要有 2 格以上才能連射。'] })
     // 彈匣容量 1 的武器（狙擊槍）不能連射
     const s = game([unit(['sk_gunner_burst'], { weapon: 'sniper' })])

@@ -6,7 +6,7 @@ import { Game } from '../../src'
 import { allFeatures } from '../../src/features'
 import { CORE_PACK, SOURCES } from '../../data'
 
-interface Sk { id: string; name: string; path: string; tier: number; layer: string; after?: string; kind: string; cap: number; xp: number; cells: number; text: string; use?: Record<string, unknown>; meat: unknown; net: unknown; opinion: unknown; prep?: unknown; daily?: unknown }
+interface Sk { [key: string]: unknown; id: string; name: string; path: string; tier: number; layer: string; after?: string; kind: string; cap: number; xp: number; cells: number; text: string; use?: Record<string, unknown>; meat: unknown; net: unknown; opinion: unknown; prep?: unknown; daily?: unknown }
 const game = () => new Game({ features: allFeatures(), content: [CORE_PACK], strict: true })
 
 describe('M1-data-abilities：槍手與掮客兩棵樹', () => {

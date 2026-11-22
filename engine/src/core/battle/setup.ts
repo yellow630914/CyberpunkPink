@@ -165,6 +165,8 @@ export function setupBattle(k: BattleKernel, state: GameState, setup: BattleSetu
 
   const run = new BattleRun(k, state, battle)
   for (const s of setup.soft ?? []) run.softCover(s.side, s.slot, s.kind, s.rounds)
+  // 每個單位剛組好：功能把自己的資料掛上去（在擲先攻之前，先攻的修正才讀得到）
+  for (const u of Object.values(battle.units)) k.battle.emit('unit.ready', { run, unit: u })
   run.beats.length = 0
   if (setup.ambush) {
     // 被埋伏的一方排列是亂的，第一回合從「上限 − 2」開始

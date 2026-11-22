@@ -44,7 +44,8 @@ describe('M1-ui-combat：store 包住引擎的戰鬥', () => {
     const end = await e.finishBattle()
     expect(end.status).toBe('applied')
     expect(e.inBattle).toBe(false)
-    expect(e.log[0]).toMatchObject({ kind: 'combat' })
+    // 這場戰鬥收成一份 combat 報告（打輸的話它後面還接著一份戰敗的報告）
+    expect(e.log.some((r) => r.kind === 'combat')).toBe(true)
   })
 
   it('重來這場戰鬥：回到開打之前', async () => {
