@@ -9,6 +9,16 @@ import { LOSE_TURN } from './rules'
 export const otherSide = (side: BattleSide): BattleSide => (side === 'ally' ? 'foe' : 'ally')
 export const SIDE_NAME: Record<BattleSide, string> = { ally: '我方', foe: '敵方' }
 
+/** 資源池的顯示名（給玩家看的句子用）：行動點、RAM、現金、三種人情。沒列的池（功能自己加的）用它自己的鍵。 */
+export const POOL_NAMES: Record<string, string> = { ap: '行動點', ram: 'RAM', cash: '現金', favor_small: '小人情', favor_mid: '中人情', favor_big: '大人情' }
+export const poolName = (key: string): string => POOL_NAMES[key] ?? key
+
+/** 某個池不夠的那一句（「現金不夠（要 500，現在 300）。」）；名字以拉丁字母結尾（RAM）時和後面的字隔一個空格。 */
+export const poolShort = (key: string, need: number, have: number): string => {
+  const name = poolName(key)
+  return `${name}${/[A-Za-z]$/.test(name) ? ' ' : ''}不夠（要 ${need}，現在 ${have}）。`
+}
+
 /** 還在場上（沒有倒下、沒有退出、不在後方排隊）。 */
 export const onField = (u: BattleUnit): boolean => !u.out && u.slot >= 1
 

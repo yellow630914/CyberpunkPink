@@ -13,7 +13,7 @@ import { clamp, isRecord } from '../util/sanitize'
 import { clone } from '../util/clone'
 import { BattleBlocked } from './act'
 import { runEffects } from './effects'
-import { SIDE_NAME, afterglowFull, coverAt, coverLevel, coverOf, currentUnit, distance, isExposed, isWounded, onField, otherSide, overlayAt, rangeMod, standing, unitAt, unitTag, unitsOf, wielded } from './field'
+import { SIDE_NAME, afterglowFull, coverAt, coverLevel, coverOf, currentUnit, distance, isExposed, isWounded, onField, otherSide, overlayAt, poolName, rangeMod, standing, unitAt, unitTag, unitsOf, wielded } from './field'
 import type { BattleEffectInput, BattleEffectLast, BattleKernel, BattleView } from './registry'
 import type { BattleMode, BattleNumbers, BattleStatusRule, ModKind, StatusUntil } from './rules'
 import { LOSE_TURN, coverHpFor, damageTypeOf, modeOf, statusMod, statusRuleOf } from './rules'
@@ -291,7 +291,7 @@ export class BattleRun implements BattleView {
     for (const [key, v] of Object.entries(cost)) {
       if (!v) continue
       const pool = key === 'ap' ? u.ap : u.pools[key]
-      if (!pool || pool.now < v) throw new Error(`${u.name} 的${key === 'ap' ? '行動點' : key}不夠（要 ${v}）`)
+      if (!pool || pool.now < v) throw new Error(`${u.name} 的${poolName(key)}不夠（要 ${v}）`)
       pool.now -= v
     }
   }

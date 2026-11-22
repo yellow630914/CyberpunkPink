@@ -49,7 +49,7 @@ const PACK: ContentPack = {
       ITEM('it_smoke3', '煙霧彈', { use: { ap: 2, target: 'slot', modes: ['meat'], effects: [{ op: 'soft_cover', kind: 'smoke', rounds: 2, also: true }] } }),
       // 立牌：放在我方的一格
       ITEM('it_decoy', '等身立牌', { use: { ap: 1, target: 'ally_slot', modes: ['meat'], effects: [{ op: 'decoy' }] } }),
-      // 紙鶴：不用新的 op，標記加（II 級）不受黑暗；標記一個敵人的目標（use.target: foe）還不能用，效果清單直接給 run.effects
+      // 紙鶴：不用新的 op，標記加（II 級）不受黑暗；這裡直接把效果清單交給 run.effects（對一個敵人用的 use.target: foe 與「到下次過載」是 M1b-core-closeout 做的，測試在 M1b-core-closeout.test.ts）
       ITEM('it_crane1', '紙鶴', { use: { ap: 1, target: 'foe', modes: ['meat'], effects: [{ op: 'status', status: 'marked', until: 'battle_end' }] } }),
       ITEM('it_crane2', '紙鶴', { use: { ap: 1, target: 'foe', modes: ['meat'], effects: [{ op: 'status', status: 'marked', until: 'battle_end' }, { op: 'status', status: 'see_dark', who: 'self', until: 'battle_end' }] } }),
     ],

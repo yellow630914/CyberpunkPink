@@ -12,7 +12,7 @@
 import type { BattleInput, BattleState, BattleTarget, BattleUnit, Change, GameState, ReportDraft, TimelineBeat } from '../types'
 import { partySnapshot } from '../action/action'
 import { clone } from '../util/clone'
-import { currentUnit, sameTarget, unitTag } from './field'
+import { currentUnit, poolShort, sameTarget, unitTag } from './field'
 import { BattleBlocked, performAction } from './act'
 import { aiStep } from './ai'
 import type { BattleActionDef, BattleActionGroup, BattleKernel, BattlePick, BattleTargetKind, BattleTargetOption } from './registry'
@@ -65,7 +65,7 @@ function optionOf(run: BattleRun, u: BattleUnit, def: BattleActionDef): BattleAc
   const cost = actionCost(run, u, def)
   const blocks: string[] = []
   if (cost.ap > u.ap.now) blocks.push(`行動點不夠（要 ${cost.ap} 點，現在 ${u.ap.now} 點）。`)
-  for (const [pool, v] of Object.entries(cost)) if (pool !== 'ap' && v > (u.pools[pool]?.now ?? 0)) blocks.push(`${pool.toUpperCase()} 不夠（要 ${v}，現在 ${u.pools[pool]?.now ?? 0}）。`)
+  for (const [pool, v] of Object.entries(cost)) if (pool !== 'ap' && v > (u.pools[pool]?.now ?? 0)) blocks.push(poolShort(pool, v, u.pools[pool]?.now ?? 0))
   blocks.push(...(def.blocks?.(run, u) ?? []))
   const targets = def.target === 'none' ? [] : (def.targets?.(run, u) ?? [])
   if (def.target !== 'none' && targets.length === 0) blocks.push('沒有可以選的目標。')

@@ -21,7 +21,13 @@
 7. **fx 合併**：`armor_mult` 相乘（兩邊都有才乘，只有一邊就是那一邊）；其餘照舊。
 8. **道具 `use.target: 'foe'`**：對一個敵人用（在場上、沒退出）。物品資料的 `use.range: [近, 遠]`（核心的 `ItemEntry` 與載入檢查補這個欄位；沒寫就不限距離）：超出距離的敵人在 `targets` 灰掉、寫出一句原因，硬用也擋下。花費照 `use.ap`（`ap_other` 只給隊友）。紙鶴的資料只用 `status` 效果寫得出來：`{ op: 'status', status: 'marked', until: 'next_overload' }`。
 
+## 追加（總指揮）
+
+9. **資源池的中文名**：核心的 `optionOf`（行動灰掉的原因）原本寫 `CASH 不夠（…）`。核心加名字表 `POOL_NAMES`（`ap` 行動點、`ram` RAM、`cash` 現金、`favor_small／mid／big` 小／中／大人情；沒列的池用它自己的鍵）與 `poolShort(key, 要, 現在)`：「現金不夠（要 500，現在 300）。」，名字以拉丁字母結尾（RAM）時和後面的字隔一個空格（句子格式不變：`RAM 不夠（要 9，現在 4）。` 照舊）。`run.spend` 丟的錯也用名字表。
+
 ## 驗收條件
+
+（資源池的中文名：`battle-m1b-closeout.test.ts` 最後一組。）
 
 - `engine/tests/core/battle-m1b-closeout.test.ts`：`damageOverlay` 的護甲、穿甲、倍率、感載類無效、擊落；`cancel` 不擲骰、不發 `attack.after`、記一拍、彈匣照扣、後面的處理函式不跑、發 `attack.cancel`；`attack.redirected` 帶對的東西、彈匣只扣一次；`attackOverlay` 發 `attack.before`（`target` 是替身）、設 `cancel` 也能取消；`gainSink` 與 `sink.before` 擋下、`noSink`；`next_overload` 在過載時拿掉、不在別的時候拿掉、存讀檔往返。
 - `engine/tests/features/M1b-core-closeout.test.ts`：技能效果清單的 `{ op: 'attack' }` 會卡彈（彈匣照扣、行動點照扣）；炸膛的順序是「炸膛」那一拍在前、自己的傷害在後；打掛著的東西的射擊吃得到特殊彈（原本的測試要照樣過）；立牌被打空也倒下；`armor_mult` 相乘；`am_honey` 的定力擋仍然成立且沒有先加再扣；紙鶴從快取格用在一個敵人身上、超出距離被擋、標記在目標過載時結束。
@@ -29,4 +35,4 @@
 
 ## 完成時回報
 
-改了哪些檔、測試結果、既有測試有沒有動、功能層需要跟進的地方（`features/abilities` 的反應處理函式現在會對「掛著的東西」發 `attack.before`，要自己看 `run.isStandIn(target)`）。
+改了哪些檔、測試結果、既有測試有沒有動（動到的三處：`M1-picks`、`whitebox/combat` 兩條「foe 的道具還不能用」改成能用；`M1b-ordnance` 只改一行過時的註解）。`features/abilities` 的反應處理函式已經自己看 `run.isStandIn(target)`（M1b-skill-format），不用跟進。

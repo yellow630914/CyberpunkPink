@@ -159,14 +159,14 @@ describe('E3：要多選一樣東西的行動，選項由引擎列出來（picks
     // 換武器：三把都列，手上那一把灰掉、寫出原因
     expect(opt(g, 'swap').picks[0]).toMatchObject({ key: 'weapon', kind: 'choice', required: false })
     expect(opt(g, 'swap').picks[0]!.options).toEqual([{ value: 0, label: '輕機槍', blocks: ['這一把已經拿在手上。'] }, { value: 1, label: '手槍', blocks: [] }, { value: 2, label: '刀', blocks: [] }])
-    // 道具：只列能用的（束帶不是這樣用的，不列）；每一種各自適用的目標寫在 for；還不能用的灰掉
+    // 道具：只列能用的（束帶不是這樣用的，不列）；每一種各自適用的目標寫在 for（對一個敵人用的是場上每一個敵人：M1b-core-closeout）
     const item = opt(g, 'item').picks[0]!
     expect(item).toMatchObject({ key: 'item', kind: 'choice', required: true })
     expect(item.options.map((o) => [o.value, o.label, o.blocks, o.for])).toEqual([
       ['it_medgel_1', '急救凝膠 ×2', [], [{ unit: 'a1' }, { unit: 'a2' }, { unit: 'a3' }]],
       ['it_coolant_1', '冷卻劑 ×1', [], [{ unit: 'a1' }]],
       ['it_smoke_1', '煙霧彈 ×1', [], [1, 2, 3, 4].map((slot) => ({ side: 'ally', slot }))],
-      ['it_flash_1', '閃光彈 ×1', ['這個道具現在還不能這樣用。'], []],
+      ['it_flash_1', '閃光彈 ×1', [], [{ unit: 'f1' }, { unit: 'f2' }]],
     ])
     expect(item.options[0]!.hint).toEqual({ ap: 1, ap_other: 2, qty: 2 })
     for (const id of ['shoot', 'swap', 'item']) {

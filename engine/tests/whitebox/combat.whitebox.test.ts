@@ -352,16 +352,19 @@ describe('白箱 道具（COMBAT_SYSTEM 1.3 節；ITEMS 5.2 節；EQUIPMENT 4.1 
     expect(act(none, 'item').cost(none.run(), none.ally(1))).toEqual({ ap: 1 })
   })
 
-  it('對一個敵人用的道具（foe）：選項灰掉寫「現在還不能這樣用」；run 也擋；丟在敵方一格的（foe_slot，M1b-ordnance）可以用：選項適用敵方四格、run 不擋、不丟在我方', () => {
+  it('對一個敵人用的道具（foe，M1b-core-closeout）：選項適用場上每一個敵人；run 對敵人不擋、對隊友擋；丟在敵方一格的（foe_slot，M1b-ordnance）：選項適用敵方四格、run 不擋、不丟在我方', () => {
     const a = equipped(['it_throw', 1], ['it_throw_slot', 1])
     const opts = act(a, 'item').picks!(a.run(), a.ally(1))[0]!.options
-    expect(opts.map((o) => o.blocks)).toEqual([['這個道具現在還不能這樣用。'], []])
-    expect(opts.map((o) => o.for)).toEqual([[], [1, 2, 3, 4].map((slot) => ({ side: 'foe', slot }))])
-    expect(() => use(a, 'it_throw', { unit: 'f1' })).toThrow(/現在還不能這樣用/)
+    expect(opts.map((o) => o.blocks)).toEqual([[], []])
+    expect(opts.map((o) => o.for)).toEqual([Object.values(a.battle.units).filter((u) => u.side === 'foe').map((u) => ({ unit: u.id })), [1, 2, 3, 4].map((slot) => ({ side: 'foe', slot }))])
+    expect(() => use(a, 'it_throw', { unit: 'f1' })).not.toThrow()
     expect(() => use(a, 'it_throw_slot', { side: 'foe', slot: 1 })).not.toThrow()
     const b = equipped(['it_throw', 1], ['it_throw_slot', 1])
+    expect(() => use(b, 'it_throw', { unit: 'a2' })).toThrow(/要用在一個敵人身上/)
     expect(() => use(b, 'it_throw_slot', { side: 'ally', slot: 1 })).toThrow(/丟在敵方/)
-    expect(act(b, 'item').targets!(b.run(), b.ally(1)).map((t) => t.blocks.length)).toEqual([1, 1, 0, 0, 0, 0])
+    const foes = Object.values(b.battle.units).filter((u) => u.side === 'foe').length
+    // 隊友兩個人灰掉（兩種道具都不能用在人身上）、每個敵人（對敵人用的那件）、敵方四格都能選
+    expect(act(b, 'item').targets!(b.run(), b.ally(1)).map((t) => t.blocks.length)).toEqual([1, 1, ...Array(foes).fill(0), 0, 0, 0, 0])
   })
 
   it('目標：沒給目標丟「要選一個目標」；不相鄰的隊友灰掉；格子只有格子用的道具才列；自己用的對隊友寫原因', () => {
