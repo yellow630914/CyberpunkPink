@@ -1,13 +1,16 @@
 // L6 功能 combat：重創的部位與輕重兩級（COMBAT_SYSTEM 第 6 節）、戰後的紀錄與「要活的」的條件（8.5 節、第 7 節）。
 
 import type { BattleUnit, Change, Kernel } from '../../core'
-import { unitTag } from '../../core'
+import { clamp, unitTag } from '../../core'
 
 const OWNER = 'combat'
-type Part = 'limb' | 'head' | 'torso' | 'bridge'
-const PART_NAME: Record<Part, string> = { limb: '肢體', head: '頭', torso: '軀幹', bridge: '橋' }
-const LIGHT: Record<Exclude<Part, 'bridge'>, string> = { limb: 'limb_hurt', head: 'dazed', torso: 'bleeding' }
-const isPart = (p: unknown): p is Part => typeof p === 'string' && p in PART_NAME
+export type Part = 'limb' | 'head' | 'torso' | 'bridge'
+export const PART_NAME: Record<Part, string> = { limb: '肢體', head: '頭', torso: '軀幹', bridge: '橋' }
+/** 輕的那一級是哪個狀態（橋的輕傷是感載 +10，沒有狀態） */
+export const LIGHT: Record<Exclude<Part, 'bridge'>, string> = { limb: 'limb_hurt', head: 'dazed', torso: 'bleeding' }
+export const isPart = (p: unknown): p is Part => typeof p === 'string' && p in PART_NAME
+/** 軀幹的重創讓生命值上限少多少（COMBAT_SYSTEM 第 6 節）；治療時加回來 */
+export const TORSO_HP_LOSS = 5
 
 export function registerWounds(k: Kernel): void {
   k.battle.on('wound', OWNER, ({ run, attacker, target, part: asked }) => {
@@ -19,8 +22,11 @@ export function registerWounds(k: Kernel): void {
       part = r < 0.25 ? 'limb' : r < 0.5 ? 'head' : r < 0.75 ? 'torso' : 'bridge'
     }
     const before = target.wounds[part] ?? 0
-    const level = before === 0 ? 1 : target.side === 'ally' && run.state.rules.heavyWounds ? 2 : Math.max(1, before)
-    const worsened = before === 1 && level === 2
+    const heavyOk = target.side === 'ally' && run.state.rules.heavyWounds
+    let level = before === 0 ? 1 : heavyOk ? 2 : Math.max(1, before)
+    // 重創的級數加減（修正 wound_grade，問的是被打的人）：−1 把重的改成輕的；不能比輕的更輕，沒有重的那一級（敵人、存檔規則關掉）時不能更重
+    level = clamp(level + run.mods('wound_grade', target, attacker).reduce((s, p) => s + p.value, 0), 1, heavyOk ? 2 : 1)
+    const worsened = level === 2 && before < 2
     target.wounds[part] = level
 
     // 輕的效果每次都給
@@ -36,7 +42,7 @@ export function registerWounds(k: Kernel): void {
         const body = target.actor && run.state.actors[target.actor] && run.k.stats.hasStat('armor_body') ? run.k.stats.stat(run.state, target.actor, 'armor_body') : target.armor
         target.armor = Math.max(0, target.armor - body)
         if (target.hp) {
-          target.hp.max = Math.max(1, target.hp.max - 5)
+          target.hp.max = Math.max(1, target.hp.max - TORSO_HP_LOSS)
           target.hp.now = Math.min(target.hp.now, target.hp.max)
         }
       } else if (part === 'bridge') target.layersMax = Math.max(1, target.layersMax - 1)

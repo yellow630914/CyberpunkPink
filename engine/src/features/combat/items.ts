@@ -1,11 +1,9 @@
-// L6 功能 combat：使用道具（只能用快取格裡的）與五種道具效果。COMBAT_SYSTEM 1.3 節；ITEMS 5.2 節。
+// L6 功能 combat：使用道具（只能用快取格裡的）。道具的效果是效果登錄表上的 op（ops.ts）。COMBAT_SYSTEM 1.3 節；ITEMS 5.2 節。
 
-import type { BattleActionDef, BattleInput, BattleKernel, BattlePick, BattleRun, BattleTarget, BattleUnit, BattleView, ItemEntry, Kernel } from '../../core'
-import { BATTLE_SLOTS, BattleBlocked, sameTarget, unitTag, unitsOf } from '../../core'
+import type { BattleActionDef, BattleInput, BattleKernel, BattlePick, BattleTarget, BattleUnit, BattleView, ItemEntry, Kernel } from '../../core'
+import { BATTLE_SLOTS, BattleBlocked, sameTarget, unitsOf } from '../../core'
 
 const OWNER = 'combat'
-
-type Slot = { side: 'ally' | 'foe'; slot: number }
 
 /** 快取格裡「能用的道具」：數量大於 0、內容裡有 use、use.modes 沒寫或包含這個戰場。束帶與鎖橋器沒有 use，不算。 */
 export function usableItems(k: BattleKernel, u: BattleUnit, mode: string): Array<{ slot: { item: string; qty: number }; entry: ItemEntry & { use: NonNullable<ItemEntry['use']> } }> {
@@ -31,9 +29,7 @@ function chosen(view: BattleView, u: BattleUnit, input?: BattleInput) {
 const isSlotUse = (t: string): boolean => t === 'slot' || t === 'ally_slot'
 
 /** 這個道具的標籤（內容的 tags：medical、throwable……）；查不到是空的。 */
-const tagsOf = (k: BattleKernel, id: string | undefined): string[] => (id ? (k.content.get<ItemEntry>('item', id)?.tags ?? []) : [])
-/** 回復類的效果帶給 run.heal、run.vent 的標籤：['item', …物品的標籤]（heal_dealt、vent_dealt 的修正看它）。 */
-const healTags = (run: BattleRun, item: string | undefined): string[] => ['item', ...tagsOf(run.k, item)]
+export const tagsOf = (k: BattleKernel, id: string | undefined): string[] => (id ? (k.content.get<ItemEntry>('item', id)?.tags ?? []) : [])
 
 /** 這個道具可以用在哪些目標上（行動列的目標裡挑）：自己用的只有自己，給隊友的是我方每一個人，放在格子上的是我方四格；其餘的現在還不能用。 */
 function itemTargets(view: BattleView, u: BattleUnit, use: { target: string }): { for: BattleTarget[]; blocks: string[] } {
@@ -115,33 +111,6 @@ const item: BattleActionDef = {
 }
 
 export const ITEM_ACTIONS: BattleActionDef[] = [item]
-
-/** 這個功能註冊的五種道具效果（現在是效果登錄表上的五個 op；dev/adr/0015）。 */
-export function registerItemOps(k: Kernel): void {
-  k.battle.effect('heal', OWNER, ({ run, user, unit, item }, e) => {
-    if (unit) run.heal(unit, Number(e.amount) || 0, user, healTags(run, item))
-  })
-  k.battle.effect('cleanse', OWNER, ({ run, unit }, e) => {
-    if (!unit) return
-    if (typeof e.by === 'string') run.cleanse(unit, e.by)
-    else if (typeof e.status === 'string') run.removeStatus(unit, e.status)
-  })
-  k.battle.effect('afterglow', OWNER, ({ run, unit }, e) => {
-    if (!unit) return
-    const layers = Math.max(0, Math.min(unit.layersMax, unit.layers + (Number(e.layers) || 0)))
-    const delta = layers - unit.layers
-    unit.layers = layers
-    if (delta) run.say(`${unitTag(unit)} 餘韻 ${delta > 0 ? '+' : '−'}${Math.abs(delta)} 層。`, undefined, { target: unit.id, layers: delta })
-  })
-  k.battle.effect('vent', OWNER, ({ run, user, unit, item }, e) => {
-    if (unit) run.vent(unit, Number(e.amount) || 0, user, healTags(run, item))
-  })
-  k.battle.effect('soft_cover', OWNER, ({ run, target }, e) => {
-    if (!target || !('slot' in target)) return
-    const t: Slot = target
-    run.softCover(t.side, t.slot, String(e.kind), typeof e.rounds === 'number' ? e.rounds : undefined)
-  })
-}
 
 /** 內容裡的道具用了沒有人註冊的效果（或欄位不對）：載入時擋下（格式錯誤）。 */
 export function checkItems(k: Kernel): void {
