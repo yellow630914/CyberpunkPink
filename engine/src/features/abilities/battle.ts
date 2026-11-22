@@ -105,7 +105,8 @@ function candidates(view: BattleView, u: BattleUnit, m: MeatDef): BattleUnit[] {
     case 'ally': return unitsOf(b, u.side).filter((t) => t.id !== u.id)
     case 'ally_or_self':
     case 'near': return unitsOf(b, u.side)
-    case 'downed_near': return Object.values(b.units).filter((t) => t.side === u.side && t.out === 'down' && t.id !== u.id && t.slot >= 1)
+    // 倒下的：生命歸零（down）與餘韻疊滿昏過去（burnout）都列出來；昏過去的選不了（targetsOf 寫出原因），拉回來只收 down
+    case 'downed_near': return Object.values(b.units).filter((t) => t.side === u.side && (t.out === 'down' || t.out === 'burnout') && t.id !== u.id && t.slot >= 1)
     default: return []
   }
 }
@@ -125,6 +126,7 @@ function targetsOf(view: BattleView, u: BattleUnit, m: MeatDef): BattleTargetOpt
         const blocks: string[] = []
         if (m.target === 'near' && t.id !== u.id && !adjacentTo(u, t)) blocks.push(`${t.name}不在相鄰的格子，只能對自己或相鄰的隊友用。`)
         if (m.target === 'downed_near' && !adjacentTo(u, t)) blocks.push(`${t.name}不在相鄰的格子，只能對相鄰倒下的隊友用。`)
+        if (m.target === 'downed_near' && t.out === 'burnout') blocks.push(`${t.name}是餘韻疊滿再過載才昏過去的，不是因為生命值歸零倒下，這一招拉不回來。`)
         blocks.push(...needsBlocks(view, t, m.needs))
         const far = rangeBlock(u, t.slot, m.range)
         if (far) blocks.push(far)
@@ -210,6 +212,19 @@ function declaredOptions(view: BattleView, u: BattleUnit, kind: 'foe' | 'ally' |
   return Array.from({ length: BATTLE_SLOTS }, (_, i) => i + 1).map((slot) => ({ value: slot, label: `第 ${slot} 格`, blocks: [], at: { side, slot } as BattleTarget }))
 }
 
+/**
+ * 單位上 ext.summons.drones 的每一台（pick 的 kind 是 drone：選放出哪一台）。值是第幾台（給 drone.deploy 的 drone 讀），
+ * 這一場已經放出去、被擊落的灰掉（狀態記在操作者的 uses['drone:<索引>']，1 是放出去了、2 是被擊落了：features/summons 寫的，這裡只讀資料不 import）。
+ */
+function droneOptions(u: BattleUnit): BattlePickOption[] {
+  const s = u.ext.summons
+  const list = isRec(s) && Array.isArray(s.drones) ? s.drones : []
+  return list.filter(isRec).map((d, i) => ({
+    value: i, label: typeof d.name === 'string' ? d.name : String(d.kind ?? `第 ${i + 1} 台`),
+    blocks: u.uses[`drone:${i}`] === 1 ? ['這一台已經放出去了。'] : u.uses[`drone:${i}`] === 2 ? ['這一台被擊落了，這一場不能再放。'] : [],
+  }))
+}
+
 /** 幾種用法挑一種：選項的條件（when）灰掉自己的原因；目標的條件（needs）只讓適用的目標看到這一項。 */
 function chooseOptions(view: BattleView, u: BattleUnit, m: MeatDef): BattlePickOption[] {
   const units = candidates(view, u, m)
@@ -249,6 +264,7 @@ function picksOf(view: BattleView, u: BattleUnit, ab: AbilityEntry, m: MeatDef):
   }
   for (const d of m.picks ?? []) {
     if (d.kind === 'choice') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: chooseOptions(view, u, m) })
+    else if (d.kind === 'drone') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: droneOptions(u) })
     else out.push({ key: d.key, label: d.label, kind: d.kind, required: d.required ?? true, options: declaredOptions(view, u, d.kind, d.adjacent === true, d.apart ? pickTargets(view, u, m, d.kind) : []) })
   }
   if (m.choose?.length && !m.picks?.some((p) => p.kind === 'choice')) out.push({ key: 'choice', label: '用法', kind: 'choice', required: true, options: chooseOptions(view, u, m) })
@@ -263,7 +279,7 @@ function picksOf(view: BattleView, u: BattleUnit, ab: AbilityEntry, m: MeatDef):
 /** 做的時候照宣告查：一定要選的有沒有選、選的在不在選項裡、選的用法條件成不成立。 */
 function checkPicks(run: BattleRun, u: BattleUnit, m: MeatDef, input: BattleInput, target: BattleUnit | undefined): void {
   for (const d of m.picks ?? []) {
-    const options = d.kind === 'choice' ? chooseOptions(run, u, m) : declaredOptions(run, u, d.kind, d.adjacent === true)
+    const options = d.kind === 'choice' ? chooseOptions(run, u, m) : d.kind === 'drone' ? droneOptions(u) : declaredOptions(run, u, d.kind, d.adjacent === true)
     const v = input.pick?.[d.key]
     if (d.apart && v !== undefined && target && v === target.id && pickTargets(run, u, m, d.kind).length) throw new BattleBlocked([`${d.label}不能選${target.name}（和目標是同一個人）。`])
     if (v === undefined) {
@@ -300,6 +316,7 @@ function skillAction(ab: AbilityEntry, order: number): BattleActionDef {
   }
   return {
     id: ab.id, owner: OWNER, name: ab.name, desc: ab.text, group: 'skill', icon: iconOf(m0), modes: ['meat'],
+    ...(m0.action_tags?.length ? { tags: [...m0.action_tags] } : {}),
     target: TARGET_KIND[m0.target ?? 'none'], order,
     has: (_v, u) => hasAbility(u, ab.id),
     // 技能自己的消耗（行動點、RAM、現金、人情）；別的被動技能給的減免（meat.cost）是花費的修正，核心會加上去
@@ -533,6 +550,10 @@ function applyPassives(run: BattleRun, unit: BattleUnit): void {
       if (!f || r.tier > tier) continue
       for (const [id, pool] of Object.entries(f.pool ?? {})) bumpPool(unit, id, pool)
       if (f.load_max && unit.load) unit.load.max = Math.max(1, unit.load.max + f.load_max)
+      if (f.hp_max && unit.hp) {
+        unit.hp.max = Math.max(1, unit.hp.max + f.hp_max)
+        unit.hp.now = Math.min(unit.hp.max, Math.max(1, unit.hp.now + f.hp_max))
+      }
     }
   }
 }

@@ -5,7 +5,7 @@
 // buff 這個效果也由這裡註冊：在對象身上掛一段時間的修正，結束時做 on_end；任何來源都能用。
 
 import type { BattleRun, BattleUnit, BattleView, Kernel, ModQuery, RollPart } from '../../core'
-import { STATUS_UNTILS, amount, onField, unitTag, unitsOf } from '../../core'
+import { STATUS_UNTILS, amount, onField, statusRuleOf, unitTag, unitsOf } from '../../core'
 import { whenBlocks } from './conditions'
 import { modsProblems } from './format'
 import type { AbilityEntry, AnyModKind, FeatureModKind, ModEntry, PathEntry, UnitBuff } from './types'
@@ -50,14 +50,18 @@ function sourcesOf(view: Pick<BattleView, 'k'>, holder: BattleUnit): Source[] {
 
 const counterKey = (src: Source, i: number, perTurn: boolean): string => `${perTurn ? 'turn:' : ''}mod:${src.key}#${i}`
 
-/** 這一筆修正的數字（公式與 by_tier 照給的人的樹階；crit_margin 的 to 換成和核心預設的差）。 */
-function valueOf(view: BattleView, src: Source, e: ModEntry): number {
-  if (e.to !== undefined) return e.to - view.n.critMargin
+/**
+ * 這一筆修正的數字（公式與 by_tier 照給的人的樹階；crit_margin 的 to 換成和核心預設的差；action_ap 的 to 換成「改成只花 to 點」的差：
+ * 原價比 to 少就是 0，沒有原價（沒人問花費）也是 0）。寫了 min 的不低於它。
+ */
+function valueOf(view: BattleView, src: Source, e: ModEntry, base?: number): number {
   const v = e.value
-  if (typeof v === 'number') return v
-  if (typeof v === 'string') return Math.round(amount({ run: view as unknown as BattleRun, user: src.holder, n: { tier: src.tier } }, v))
-  if (isRec(v) && Array.isArray(v.by_tier)) return Number(v.by_tier[Math.min(4, Math.max(0, src.tier - 1))] ?? 0)
-  return 0
+  let n = 0
+  if (e.to !== undefined) n = e.kind === 'action_ap' ? (base === undefined ? 0 : Math.min(0, e.to - base)) : e.to - view.n.critMargin
+  else if (typeof v === 'number') n = v
+  else if (typeof v === 'string') n = Math.round(amount({ run: view as unknown as BattleRun, user: src.holder, n: { tier: src.tier } }, v))
+  else if (isRec(v) && Array.isArray(v.by_tier)) n = Number(v.by_tier[Math.min(4, Math.max(0, src.tier - 1))] ?? 0)
+  return e.min !== undefined ? Math.max(e.min, n) : n
 }
 
 interface Applied {
@@ -67,8 +71,8 @@ interface Applied {
   value: number
 }
 
-/** 問 unit 的某一種數字時，現在算數的每一筆修正。 */
-function applied(view: BattleView, unit: BattleUnit, kind: AnyModKind, tags: readonly string[], other?: BattleUnit): Applied[] {
+/** 問 unit 的某一種數字時，現在算數的每一筆修正。base 是問 action_ap 時行動自己算的原價（to 要用）。 */
+function applied(view: BattleView, unit: BattleUnit, kind: AnyModKind, tags: readonly string[], other?: BattleUnit, base?: number): Applied[] {
   const b = view.battle
   // 替身（和人重疊的東西自己開火）不在單位清單裡，吃不到技能的修正
   if (b.units[unit.id] !== unit) return []
@@ -86,10 +90,11 @@ function applied(view: BattleView, unit: BattleUnit, kind: AnyModKind, tags: rea
           case 'behind': if (!onField(holder) || !onField(unit) || unit.slot !== holder.slot + 1) return; break
         }
         if (entry.tags && !entry.tags.every((t) => tags.includes(t))) return
+        if (entry.tags_any && !entry.tags_any.some((t) => tags.includes(t))) return
         if (entry.when && whenBlocks(view, holder, entry.when, other).length) return
         if (entry.per_fight !== undefined && (unit.uses[counterKey(src, index, false)] ?? 0) >= entry.per_fight) return
         if (entry.per_turn !== undefined && (unit.uses[counterKey(src, index, true)] ?? 0) >= entry.per_turn) return
-        out.push({ src, index, entry, value: valueOf(view, src, entry) })
+        out.push({ src, index, entry, value: valueOf(view, src, entry, base) })
       })
     }
   }
@@ -173,15 +178,35 @@ export function registerBuff(k: Kernel): void {
 
 // ---- 掛上去 ----
 
+/**
+ * 問花費（action_ap）時帶的完整標籤，照（人、行動的 id）記下最近一次。核心的 performAction 發 action.done 時只帶 actionTags(unit, def, input)，
+ * 沒有給 view，所以行動自己的 costTags（用的是哪一類道具：item:medical）不在 action.done 的 tags 裡；
+ * 「每回合第一次」的次數（巡房、名醫）要認得是醫療道具，就靠這裡記下的那一份（performAction 在扣費之前剛問過一次，記的就是這一步的）。
+ * 核心把 view 補給 actionTags 之後，這一份就多餘了（合併是聯集，不會出錯）。
+ */
+const costTagMemo = new WeakMap<BattleUnit, Map<string, readonly string[]>>()
+function rememberCostTags(unit: BattleUnit, tags: readonly string[]): void {
+  const action = tags[0]
+  if (action === undefined) return
+  let m = costTagMemo.get(unit)
+  if (!m) costTagMemo.set(unit, (m = new Map()))
+  m.set(action, tags)
+}
+
 export function registerMods(k: Kernel): void {
-  k.battle.modifier(OWNER, (q: ModQuery): RollPart[] => applied(q.view, q.unit, q.kind, q.tags, q.other).map((a) => ({ label: a.src.name, value: a.value, source: 'skill' })).filter((p) => p.value !== 0))
+  k.battle.modifier(OWNER, (q: ModQuery): RollPart[] => {
+    if (q.kind === 'action_ap') rememberCostTags(q.unit, q.tags)
+    return applied(q.view, q.unit, q.kind, q.tags, q.other, q.base).map((a) => ({ label: a.src.name, value: a.value, source: 'skill' as const })).filter((p) => p.value !== 0)
+  })
 
   // 每場、每回合只有前幾次的修正：行動做完時記一次（和定點射的減免同一個做法）。
   // 這時候次數還沒加，照同樣的條件再問一次，拿到的就是剛才算花費時用的那幾筆
-  k.battle.on('action.done', OWNER, ({ run, unit, tags, base }) => {
+  k.battle.on('action.done', OWNER, ({ run, unit, action, tags: eventTags, base }) => {
+    const remembered = costTagMemo.get(unit)?.get(action)
+    const tags = remembered ? [...new Set([...eventTags, ...remembered])] : eventTags
     for (const [kind, baseValue] of [['action_ap', base.ap], ['action_ram', base.ram ?? 0]] as const) {
       if (!baseValue) continue
-      for (const a of applied(run, unit, kind, tags)) {
+      for (const a of applied(run, unit, kind, tags, undefined, baseValue)) {
         if (a.value === 0) continue
         if (a.entry.per_fight !== undefined) unit.uses[counterKey(a.src, a.index, false)] = (unit.uses[counterKey(a.src, a.index, false)] ?? 0) + 1
         if (a.entry.per_turn !== undefined) unit.uses[counterKey(a.src, a.index, true)] = (unit.uses[counterKey(a.src, a.index, true)] ?? 0) + 1
@@ -197,6 +222,16 @@ export function registerMods(k: Kernel): void {
   k.battle.on('attack.hit', OWNER, ({ run, attacker, target, opts, roll, out }) => {
     if (!run.isStandIn(attacker)) for (const p of featureMods(run, attacker, 'damage_roll', opts.tags ?? [], target)) opts.damage = (opts.damage ?? 0) + p.value
     if (roll.wound && featureTotal(run, target, 'no_wound', opts.tags ?? [], attacker) > 0) out.wound = false
+  })
+
+  // 超頻的「下一次攻擊」（SKILL_TREES 超頻：義肢或智慧槍「他下一次攻擊命中 +2」）：規則表的 boost_limb、boost_smartgun 只寫得出「到他下一回合結束」的 +2，
+  // 所以這裡補上「用掉」：帶著 boost_ 開頭、而且有命中加值的狀態的人，打完一次攻擊（擲過命中；卡彈、被取消的不算）就把那個狀態拿掉。
+  // 「一次攻擊」是一次 run.attack：連射、掃射是一次，反應裡的攻擊也算；沒有命中加值的超頻（皮下裝甲的護甲、其他種類）不受影響，照樣到回合結束
+  k.battle.on('attack.after', OWNER, ({ run, attacker, result }) => {
+    if (run.isStandIn(attacker) || result.aborted) return
+    for (const st of [...attacker.statuses]) {
+      if (st.id.startsWith('boost_') && (statusRuleOf(run.k.content, st.id)?.mods?.hit ?? 0) > 0) run.removeStatus(attacker, st.id)
+    }
   })
 
   k.battle.on('turn.start', OWNER, ({ run, unit }) => tickBuffs(run, 'turn_start', unit))

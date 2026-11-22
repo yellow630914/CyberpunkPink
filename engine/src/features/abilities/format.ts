@@ -23,7 +23,7 @@ export const MEAT_TARGETS = ['enemy', 'ally', 'self', 'ally_slot', 'enemy_slot',
 export const UNIT_TARGETS: readonly string[] = ['enemy', 'ally', 'ally_or_self', 'near', 'downed_near']
 export const MEAT_KEYS = [
   'target', 'attack', 'apply', 'free_move', 'cost', 'weapon_cost', 'trigger', 'evade', 'on_hit', 'give_ap', 'call', 'instinct', 'pending',
-  'needs', 'when', 'range', 'picks', 'do', 'choose', 'mods', 'react', 'do_on', 'do_off', 'tags', 'pool', 'alter', 'ransom', 'on_start', 'on_give_ap',
+  'needs', 'when', 'range', 'picks', 'do', 'choose', 'mods', 'react', 'do_on', 'do_off', 'tags', 'action_tags', 'pool', 'alter', 'ransom', 'on_start', 'on_give_ap',
 ] as const
 export const CALL_OPTIONS = ['shot', 'cover_up', 'cover_down', 'heal', 'vent'] as const
 /** 叫人的選項裡要自己寫數字的（call.heal、call.vent） */
@@ -33,10 +33,10 @@ const LEGACY_TRIGGERS = ['ally_attacked', 'ally_attacked_adjacent'] as const
 export const USE_KEYS = ['ap', 'ram', 'ram_all_min', 'cash', 'favor', 'per_turn', 'per_fight', 'per_commission', 'first_round', 'not_first_round', 'group', 'slot', 'note'] as const
 export const FAVORS = ['small', 'mid', 'big'] as const
 export const WHEN_MEAT = ['wield', 'mag_min', 'hull', 'stance', 'slot', 'node_taken', 'wounded'] as const
-export const WHEN_MODS = [...WHEN_MEAT, 'first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_status'] as const
-export const NEEDS_KEYS = ['bridged', 'cyber', 'status', 'no_rank', 'rank', 'wounded', 'afterglow', 'tag', 'cache_tag', 'any'] as const
+export const WHEN_MODS = [...WHEN_MEAT, 'first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_status', 'other_contract', 'target_near'] as const
+export const NEEDS_KEYS = ['bridged', 'cyber', 'status', 'no_rank', 'rank', 'wounded', 'afterglow', 'tag', 'cache_tag', 'implant_off', 'any'] as const
 export const MOD_WHO = ['self', 'adjacent', 'allies', 'behind'] as const
-export const PICK_KINDS = ['foe', 'ally', 'ally_slot', 'foe_slot', 'choice'] as const
+export const PICK_KINDS = ['foe', 'ally', 'ally_slot', 'foe_slot', 'choice', 'drone'] as const
 export const PREP_SCOPES = ['next_battle', 'commission'] as const
 
 /** 反應的 who（誰遇到這件事）：照 on 分。 */
@@ -133,7 +133,7 @@ export function whenProblems(at: string, w: unknown, allowed: readonly string[])
   if (w.stance !== undefined && !isText(w.stance)) p.push(`${at}.stance 要是姿態技能的 id`)
   if (w.slot !== undefined && !((isInt(w.slot) && w.slot >= 1 && w.slot <= 4) || (Array.isArray(w.slot) && w.slot.length > 0 && w.slot.every((x) => isInt(x) && x >= 1 && x <= 4)))) p.push(`${at}.slot 要是 1～4 的整數（或整數的陣列）`)
   if (w.node_taken !== undefined && !(w.node_taken === true || isText(w.node_taken))) p.push(`${at}.node_taken 要是 true 或控制節點的種類`)
-  for (const key of ['first_round', 'in_cover', 'other_exposed', 'other_cyber'] as const) {
+  for (const key of ['first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_contract', 'target_near'] as const) {
     if (w[key] !== undefined && w[key] !== true) p.push(`${at}.${key} 只能是 true`)
   }
   if (w.other_status !== undefined && !isText(w.other_status)) p.push(`${at}.other_status 要是狀態的 id`)
@@ -158,6 +158,7 @@ export function needsProblems(at: string, n: unknown, inAny = false): string[] {
   }
   if (n.afterglow !== undefined && !(isInt(n.afterglow) && n.afterglow >= 1)) p.push(`${at}.afterglow 要是 1 以上的整數（層數）`)
   if (n.tag !== undefined && !isText(n.tag)) p.push(`${at}.tag 要是標籤`)
+  if (n.implant_off !== undefined && n.implant_off !== true) p.push(`${at}.implant_off 只能是 true（目標身上已經有一件被干擾的義體）`)
   if (n.cache_tag !== undefined && !isText(n.cache_tag)) p.push(`${at}.cache_tag 要是道具的標籤（目標的快取格裡有帶這個標籤的道具）`)
   return p
 }
@@ -168,11 +169,12 @@ export function modsProblems(at: string, list: unknown): string[] {
   list.forEach((m, i) => {
     const here = `${at}[${i}]`
     if (!isRec(m)) return void p.push(`${here} 要是 { kind, value, ... }`)
-    p.push(...onlyKeys(here, m, ['kind', 'value', 'tags', 'who', 'when', 'per_fight', 'per_turn', 'to']))
+    p.push(...onlyKeys(here, m, ['kind', 'value', 'tags', 'tags_any', 'min', 'who', 'when', 'per_fight', 'per_turn', 'to']))
     if (!(MOD_KINDS as readonly unknown[]).includes(m.kind) && !(FEATURE_MOD_KINDS as readonly unknown[]).includes(m.kind)) p.push(`${here}.kind「${String(m.kind)}」不是修正的種類（可以寫：${[...MOD_KINDS, ...FEATURE_MOD_KINDS].join('、')}）`)
     if (m.to !== undefined) {
-      if (m.kind !== 'crit_margin') p.push(`${here}.to 只有 crit_margin 用（改成超過迴避幾以上就算要害）`)
+      if (m.kind !== 'crit_margin' && m.kind !== 'action_ap') p.push(`${here}.to 只有 crit_margin（改成超過迴避幾以上就算要害）、action_ap（這個行動改成只花幾點）用`)
       else if (!isNum(m.to)) p.push(`${here}.to 要是數字`)
+      else if (m.kind === 'action_ap' && !(isInt(m.to) && m.to >= 0)) p.push(`${here}.to 要是 0 以上的整數（action_ap：改成只花幾點）`)
       if (m.value !== undefined) p.push(`${here} 的 value 與 to 只能寫一個`)
     } else if (m.value === undefined) p.push(`${here}.value 一定要寫（數字、公式，或 { by_tier: [五個數字] }）`)
     if (m.value !== undefined) {
@@ -184,6 +186,8 @@ export function modsProblems(at: string, list: unknown): string[] {
       else p.push(...plainFormula(`${here}.value`, v))
     }
     if (m.tags !== undefined && !(Array.isArray(m.tags) && m.tags.length > 0 && m.tags.every(isText))) p.push(`${here}.tags 要是標籤的陣列`)
+    if (m.tags_any !== undefined && !(Array.isArray(m.tags_any) && m.tags_any.length > 0 && m.tags_any.every(isText))) p.push(`${here}.tags_any 要是標籤的陣列（有其中任何一個就算）`)
+    if (m.min !== undefined && !isNum(m.min)) p.push(`${here}.min 要是數字（算出來的數字不低於它）`)
     if (m.who !== undefined && !(MOD_WHO as readonly unknown[]).includes(m.who)) p.push(`${here}.who「${String(m.who)}」不在清單裡（可以寫：${MOD_WHO.join('、')}）`)
     if (m.when !== undefined) p.push(...whenProblems(`${here}.when`, m.when, WHEN_MODS))
     for (const key of ['per_fight', 'per_turn'] as const) {
@@ -453,6 +457,7 @@ export function meatProblems(m: Record<string, unknown>, kind: unknown, k?: Pick
     p.push(...modsProblems('meat.mods', m.mods))
   }
   if (m.tags !== undefined && !(Array.isArray(m.tags) && m.tags.length > 0 && m.tags.every(isText))) p.push('meat.tags 要是標籤的陣列')
+  if (m.action_tags !== undefined && !(Array.isArray(m.action_tags) && m.action_tags.length > 0 && m.action_tags.every(isText))) p.push('meat.action_tags 要是標籤的陣列（這個技能的行動多帶的標籤，例如 heal）')
   if (m.pool !== undefined) p.push(...poolProblems('meat.pool', m.pool))
   if (m.ransom !== undefined) {
     if (!isRec(m.ransom)) p.push('meat.ransom 要是 { cash }')

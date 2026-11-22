@@ -361,9 +361,36 @@ function poolOp(ctx: Ctx, e: Eff): void {
 
 // ---- 義體、救回來、重創、退出、場地、先攻、沉溺 ----
 
+/**
+ * 被卸下的義體（改造師的卸下、拆光）：BattleImplant 沒有「被拆下」的欄位（不改核心），索引記在 unit.ext.implants_gone。
+ * 到戰鬥結束都失效；變成戰利品是 M4 的事，這裡只標記，並在結束的報告多一行（registerOps 的 onEnd）。
+ */
+export const goneImplants = (u: BattleUnit): number[] => {
+  const g = u.ext.implants_gone
+  return Array.isArray(g) ? g.filter((i): i is number => Number.isInteger(i)) : []
+}
+
+/** take：挑一件還沒被拆下的（pick.implant、kind 優先；其次是還沒失效的，最後才是已經被干擾而還沒拆下的）讓它到戰鬥結束都失效，並記成被拆下。 */
+function takeImplant(ctx: Ctx, unit: BattleUnit, e: Eff): void {
+  const { run } = ctx
+  const list = unit.implants ?? []
+  const gone = goneImplants(unit)
+  const statusOf = (i: { kind: string }): string => (statusRuleOf(run.k.content, `off_${i.kind}`) ? `off_${i.kind}` : 'off_generic')
+  const ok = (i: number): boolean => !!list[i] && !gone.includes(i) && (typeof e.kind !== 'string' || list[i]!.kind === e.kind)
+  const asked = ctx.pick.implant
+  const all = list.map((_, i) => i).filter(ok)
+  const idx = typeof asked === 'number' && ok(asked) ? asked : (all.find((i) => !unit.statuses.some((st) => st.id === statusOf(list[i]!))) ?? all[0])
+  const got = idx === undefined || unit.out ? null : run.implantStatus(unit, 'off', { by: ctx.user, pick: idx, until: 'battle_end' })
+  ctx.last.ok = got !== null
+  if (got === null || idx === undefined) return
+  unit.ext.implants_gone = [...gone, idx]
+  run.say(`${unitTag(unit)} 的${got.name}被卸下了。`, 'status', { target: unit.id, implant: got.kind, index: idx, take: true, by: ctx.user.id }, ctx.user)
+}
+
 function implantOp(ctx: Ctx, e: Eff): void {
   const unit = who(ctx)
   if (!unit) return
+  if (e.take === true) return takeImplant(ctx, unit, e)
   const idx = ctx.pick.implant
   const got = ctx.run.implantStatus(unit, e.mode === 'boost' ? 'boost' : 'off', {
     by: ctx.user,
@@ -529,7 +556,20 @@ export function registerOps(k: Kernel): void {
   op('ap', apOp, schema({ amount: F, over_cap: B }, ['amount']))
   op('mag', magOp, schema({ amount: orWord('full'), over_cap: B }, ['amount']))
   op('pool', poolOp, schema({ pool: S, amount: orWord('full') }, ['pool', 'amount']))
-  op('implant', implantOp, schema({ mode: oneOf(['off', 'boost']), kind: S, turns: F, until: UNTIL }, ['mode']))
+  const implantSchema = schema({ mode: oneOf(['off', 'boost']), kind: S, turns: F, until: UNTIL, take: B }, ['mode'])
+  op('implant', implantOp, (e) => [
+    ...implantSchema(e),
+    ...(e.take === true && e.mode !== 'off' ? ['take：只有 mode 是 off 才能用（卸下是讓義體到戰鬥結束都失效）'] : []),
+    ...(e.take === true && (e.turns !== undefined || e.until !== undefined) ? ['take：已經是到戰鬥結束都失效，不能再寫 turns、until'] : []),
+  ])
+  // 戰鬥結束：被卸下的義體多一行（戰後算戰利品，是受損的二手件；真的拿到是 M4）
+  k.battle.onEnd(OWNER, ({ battle }) => {
+    const lines: string[] = []
+    for (const u of Object.values(battle.units) as BattleUnit[]) {
+      for (const i of goneImplants(u)) if (u.implants?.[i]) lines.push(`卸下：${u.name}的${u.implants[i]!.name}（戰後算戰利品，受損的二手件）`)
+    }
+    return lines.length ? { lines } : undefined
+  })
   op('revive', reviveOp, schema({ hp: F }))
   op('wound', woundOp, schema({ mode: oneOf(['treat', 'clear']), part: oneOf(WOUND_PARTS.map((p) => p.id)) }, ['mode']))
   op('out', outOp, schema({ how: oneOf(['surrendered', 'fled']) }, ['how']))

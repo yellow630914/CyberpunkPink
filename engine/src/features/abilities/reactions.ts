@@ -107,7 +107,12 @@ function applyReact(run: BattleRun, holder: BattleUnit, ab: AbilityEntry, on: st
     if (r.keep_turn) run.removeStatus(e.subject, LOSE_TURN, true)
   } else if (on === 'checked' && e.check) {
     if (r.dc !== undefined) e.check.dc += num(run, holder, ab, r.dc)
-  } else if (on === 'out_before' && e.out && r.prevent) e.out.prevent = true
+  } else if (on === 'out_before' && e.out && r.prevent) {
+    e.out.prevent = true
+    // 因為生命歸零而來的，核心擋下之後生命至少 1；餘韻疊滿再過載而來的（burnout）核心只把感載歸零，要停在哪裡由這裡定：
+    // 感載停在上限 −1、餘韻不再疊（過載的這一步還沒疊），留在戰鬥裡（還不准睡）
+    if (e.how === 'burnout' && e.subject.load) e.subject.load.now = Math.max(0, e.subject.load.max - 1)
+  }
 }
 
 /** 這個反應現在有沒有東西可做（沒有就不觸發、不扣消耗）。 */

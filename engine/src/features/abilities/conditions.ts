@@ -2,7 +2,7 @@
 // 只讀戰鬥狀態，不改任何東西。mods 的 when 也用同一組（只看成不成立）。
 
 import type { BattleUnit, BattleView, ItemEntry, UnitRank } from '../../core'
-import { coverOf, distance, hasStatus, isExposed, isWounded, statusRuleOf, wielded } from '../../core'
+import { coverOf, distance, hasStatus, isExposed, isWounded, onField, statusRuleOf, wielded } from '../../core'
 import type { AbilityEntry, NeedsDef, WhenDef } from './types'
 
 const RANK_NAME: Record<UnitRank, string> = { minion: '雜兵', elite: '精英', boss: '首領' }
@@ -43,6 +43,9 @@ export function whenBlocks(view: BattleView, u: BattleUnit, w: WhenDef | undefin
   if (w.other_exposed && !(other && isExposed(view.battle, other))) out.push('對手要站在暴露的格子才能用。')
   if (w.other_cyber && !((other?.cyber ?? 0) > 0)) out.push('對手要有義體才能用。')
   if (w.other_status !== undefined && !(other && hasStatus(other, w.other_status))) out.push(`對手要帶著${statusName(view, w.other_status)}才能用。`)
+  if (w.other_contract && !other?.implants?.some((i) => i.contract)) out.push('對手要有契約義體（授權鎖）才能用。')
+  // 沒有對象時（問花費）當成成立：行動自己已經把對象限在自己或相鄰一格
+  if (w.target_near && other && other.id !== u.id && !(onField(other) && onField(u) && Math.abs(other.slot - u.slot) === 1)) out.push('對象要是自己或相鄰一格的隊友才能用。')
   return out
 }
 
@@ -64,6 +67,7 @@ export function needsBlocks(view: BattleView, t: BattleUnit, n: NeedsDef | undef
   if (n.wounded && !isWounded(t)) out.push(`${t.name}要是重傷（生命低於一半）才能用。`)
   if (n.afterglow !== undefined && t.layers < n.afterglow) out.push(`${t.name}要疊著 ${n.afterglow} 層以上的餘韻才能用（現在 ${t.layers} 層）。`)
   if (n.tag !== undefined && !t.tags.includes(n.tag)) out.push(`${t.name}要帶著「${n.tag}」標籤才能用。`)
+  if (n.implant_off && !t.statuses.some((s) => s.id.startsWith('off_') || s.id === 'jammed')) out.push(`${t.name}身上要已經有一件被干擾的義體才能用。`)
   if (n.cache_tag !== undefined && !t.quick.some((q) => q.qty > 0 && view.k.content.get<ItemEntry>('item', q.item)?.tags?.includes(n.cache_tag!))) out.push(`${t.name}的快取格裡要有帶「${n.cache_tag}」標籤的道具才能用。`)
   // any：成立任何一組就算；全都不成立時合成一句（每一組的原因用「，或」接起來）
   if (n.any?.length) {

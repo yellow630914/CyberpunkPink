@@ -13,7 +13,7 @@ const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInt
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
 
-const RESONANCE_KEYS = ['initiative', 'free_move', 'mods', 'pool', 'load_max', 'pending'] as const
+const RESONANCE_KEYS = ['initiative', 'free_move', 'mods', 'pool', 'load_max', 'hp_max', 'pending'] as const
 
 function pathProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
@@ -43,6 +43,7 @@ function pathProblems(e: Record<string, unknown>): string[] {
         if (f.mods !== undefined) p.push(...modsProblems(`${at}.effect.mods`, f.mods))
         if (f.pool !== undefined) p.push(...poolProblems(`${at}.effect.pool`, f.pool))
         if (f.load_max !== undefined && !(isInt(f.load_max) && f.load_max !== 0)) p.push(`${at}.effect.load_max 要是整數（感載上限加減幾點，不能是 0）`)
+        if (f.hp_max !== undefined && !(isInt(f.hp_max) && f.hp_max !== 0)) p.push(`${at}.effect.hp_max 要是整數（生命上限加減幾點，不能是 0）`)
         if (f.pending !== undefined && f.pending !== true) p.push(`${at}.effect.pending 只能是 true`)
       }
     })

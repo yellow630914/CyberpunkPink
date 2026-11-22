@@ -40,6 +40,8 @@ export interface ResonanceEffect {
   pool?: Record<string, { max?: number; regen?: number }>
   /** 感載上限的加減（有橋的人；開打時加一次，現在的感載不動） */
   load_max?: number
+  /** 生命上限的加減（開打時加一次，現在的生命跟著加，不超過新的上限） */
+  hp_max?: number
   pending?: true
 }
 export interface Resonance {
@@ -84,6 +86,13 @@ export interface WhenDef {
   other_exposed?: boolean
   other_cyber?: boolean
   other_status?: string
+  /** 對手有契約義體（implants 裡有 contract：授權鎖，改造師的解鎖匠看這個） */
+  other_contract?: true
+  /**
+   * 對象是自己或相鄰的隊友（問 other 的修正才有意思：heal_dealt 的 other 是被回復的人）。問花費（action_ap）時沒有對象，這一項當成成立
+   * （道具與技能的行動自己已經把對象限在自己或相鄰一格，不相鄰的人根本選不了）
+   */
+  target_near?: true
   /** true：自己是重傷（生命低於一半） */
   wounded?: true
 }
@@ -100,6 +109,8 @@ export interface NeedsDef {
   tag?: string
   /** 目標的快取格裡有帶這個標籤的道具（內容裡道具的 tags；數量至少 1）：引爆爆裂物要目標身上有爆裂物 */
   cache_tag?: string
+  /** true：目標身上已經有一件被干擾的義體（off_* 或 jammed 狀態）：找縫的「無視 4 點」 */
+  implant_off?: true
   /** 幾組條件成立任何一組就算（「重傷，或疊著餘韻」）；每一組裡不能再寫 any */
   any?: Array<Omit<NeedsDef, 'any'>>
 }
@@ -109,11 +120,18 @@ export interface ModEntry {
   kind: AnyModKind
   value?: number | string | { by_tier: number[] }
   tags?: string[]
+  /** 問修正時帶的標籤裡有其中任何一個就算（和 tags 並用時兩邊都要成立）：名醫的「急救或戰場急救」 */
+  tags_any?: string[]
+  /** 算出來的數字不低於這個（義體學代替格鬥：差是負的就不加） */
+  min?: number
   who?: 'self' | 'adjacent' | 'allies' | 'behind'
   when?: WhenDef
   per_fight?: number
   per_turn?: number
-  /** crit_margin 專用：改成超過迴避幾以上就算要害 */
+  /**
+   * crit_margin：改成超過迴避幾以上就算要害。
+   * action_ap：這個行動改成只花這麼多點（原價比它少就不動）：手術刀的「只花 1 點」、巡房的「不花行動點」（to: 0）
+   */
   to?: number
 }
 
@@ -145,7 +163,8 @@ export interface ReactDef {
 export interface PickDecl {
   key: string
   label: string
-  kind: 'foe' | 'ally' | 'ally_slot' | 'foe_slot' | 'choice'
+  /** drone：選單位上 ext.summons.drones 裡的哪一台（值是第幾台，給 drone.deploy 的 drone 讀） */
+  kind: 'foe' | 'ally' | 'ally_slot' | 'foe_slot' | 'choice' | 'drone'
   required?: boolean
   /** kind 是 ally 時：只有和自己相鄰的隊友選得了（掩護撤退） */
   adjacent?: true
@@ -218,6 +237,8 @@ export interface MeatDef {
   do_on?: Array<Record<string, unknown>>
   do_off?: Array<Record<string, unknown>>
   tags?: string[]
+  /** 這個技能的行動多帶的標籤（花費的修正與 action.done 都認得）：治療類的寫 heal，巡房、名醫的「每回合第一次治療」靠它 */
+  action_tags?: string[]
   pool?: Record<string, { max?: number; regen?: number }>
   alter?: AlterEntry[]
   /** 保釋：裝著的人在隊上時，全隊倒下的戰敗事件多一個「被贖回」，付這個數字的現金（公式，例 'grade*1000'） */
