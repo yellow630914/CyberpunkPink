@@ -1,0 +1,29 @@
+{
+  "id": "ui-stage-legacy-dungeon",
+  "bug": "2026-11-22-ui-stage-outside-dungeon",
+  "note": "COMBAT_SYSTEM 8.4 節＋SERIES 第 6 節：委託副本裡，「回到這個階段開始時」回到這個階段剛開始的時候。現在副本的階段快照存在舊系統（useGame.takeSnapshot 的「階段」），rewindToStage 只找引擎的快照，找不到就回傳「沒有更早的存檔點可以回去。」。",
+  "draft": {
+    "name": "露", "gender": "female", "age": 22, "origin": "hive", "originChoice": { "favor": "lonestar" },
+    "attrPick": { "reflex": 15, "charm": 14, "intellect": 13, "body": 12, "resolve": 10, "tech": 8 },
+    "attrBonus": { "tech": -4, "reflex": 3, "resolve": 3 },
+    "skills": { "streetwise": 3, "negotiate": 3, "perform": 2, "stealth": 2 },
+    "perks": ["smooth_talker", "tough"]
+  },
+  "steps": [
+    { "type": "newGame", "seed": 7 },
+    { "type": "create" },
+    { "type": "snapshot", "kind": "入口", "label": "入口" },
+    { "type": "advance", "minutes": 30 },
+    { "type": "snapshot", "kind": "階段", "label": "第一階段" },
+    { "type": "advance", "minutes": 90 },
+    { "type": "loseBattle" },
+    { "type": "rewindToStage" }
+  ],
+  "expect": {
+    "choiceResult": null,
+    "inBattle": false,
+    "pendingDefeat": false,
+    "time": { "day": 1, "hour": 8, "minute": 30 },
+    "thrown": []
+  }
+}

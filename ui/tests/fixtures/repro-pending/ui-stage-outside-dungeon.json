@@ -1,0 +1,24 @@
+{
+  "id": "ui-stage-outside-dungeon",
+  "bug": "2026-11-22-ui-stage-outside-dungeon",
+  "note": "COMBAT_SYSTEM 8.4 節：副本以外的戰鬥，「回到這個階段開始時」等於重來這場戰鬥。現在引擎裡沒有更早的快照時回傳「沒有更早的存檔點可以回去。」，三選一的第三個按了沒有用。",
+  "draft": {
+    "name": "露", "gender": "female", "age": 22, "origin": "hive", "originChoice": { "favor": "lonestar" },
+    "attrPick": { "reflex": 15, "charm": 14, "intellect": 13, "body": 12, "resolve": 10, "tech": 8 },
+    "attrBonus": { "tech": -4, "reflex": 3, "resolve": 3 },
+    "skills": { "streetwise": 3, "negotiate": 3, "perform": 2, "stealth": 2 },
+    "perks": ["smooth_talker", "tough"]
+  },
+  "steps": [
+    { "type": "newGame", "seed": 7 },
+    { "type": "create" },
+    { "type": "loseBattle" },
+    { "type": "rewindToStage" }
+  ],
+  "expect": {
+    "choiceResult": null,
+    "inBattle": true,
+    "pendingDefeat": false,
+    "thrown": []
+  }
+}

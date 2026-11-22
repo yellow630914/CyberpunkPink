@@ -6,6 +6,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useEngine } from '../../src/stores/engine'
 import { useGame } from '../../src/stores/game'
 import { useSaves } from '../../src/stores/saves'
+import { BATTLE_SETUPS } from '@engine/src/testkit'
 
 export type UiStep =
   | { type: 'ai'; useAi: boolean }
@@ -22,6 +23,12 @@ export type UiStep =
   | { type: 'actTwice'; text: string }
   /** 把這一局打包，換掉 legacy 裡的幾個欄位，再用 useSaves().loadRaw 讀回來 */
   | { type: 'loadPackedWith'; legacy: Record<string, unknown> }
+  /** 打一場一定輸的（BATTLE_SETUPS.hopeless）：輪到我方就投降，結算到等戰敗的三選一 */
+  | { type: 'loseBattle' }
+  /** 戰敗三選一的「回到這個階段開始時」（useEngine().rewindToStage）：記下回傳的原因 */
+  | { type: 'rewindToStage' }
+  /** 戰敗三選一的「重來這場戰鬥」（useEngine().retryBattle）：記下回傳的原因 */
+  | { type: 'retryBattle' }
 
 export interface UiRepro {
   id: string
@@ -43,6 +50,10 @@ export interface UiView {
   legacyMoneyKeys: string[]
   busyWhileFirstRunning: boolean | null
   loadResult: string | null | undefined
+  /** 最後一次 rewindToStage／retryBattle 的回傳（沒有按過是 undefined） */
+  choiceResult: string | null | undefined
+  inBattle: boolean
+  pendingDefeat: boolean
   thrown: string[]
 }
 
@@ -65,6 +76,7 @@ export async function runUiRepro(r: UiRepro): Promise<UiView> {
   let lastSnap: string | null = null
   let busyWhileFirstRunning: boolean | null = null
   let loadResult: string | null | undefined
+  let choiceResult: string | null | undefined
 
   for (const step of r.steps) {
     try {
@@ -96,6 +108,17 @@ export async function runUiRepro(r: UiRepro): Promise<UiView> {
           loadResult = s.loadRaw(JSON.stringify(raw))
           break
         }
+        case 'loseBattle': {
+          e.startBattle(BATTLE_SETUPS.hopeless())
+          for (let i = 0; i < 500 && e.battleOptions()?.waiting !== 'over'; i++) {
+            if (e.battleOptions()?.waiting === 'ai') e.battleNext()
+            else e.battleAct({ action: 'surrender' })
+          }
+          await e.finishBattle()
+          break
+        }
+        case 'rewindToStage': choiceResult = e.rewindToStage(); break
+        case 'retryBattle': choiceResult = e.retryBattle(); break
       }
     } catch (x) {
       thrown.push(String(x))
@@ -113,6 +136,9 @@ export async function runUiRepro(r: UiRepro): Promise<UiView> {
     legacyMoneyKeys: Object.keys((g.serialize() as { money?: object }).money ?? {}).sort(),
     busyWhileFirstRunning,
     loadResult,
+    choiceResult,
+    inBattle: e.inBattle,
+    pendingDefeat: e.pendingDefeat !== null,
     thrown,
   }
 }
