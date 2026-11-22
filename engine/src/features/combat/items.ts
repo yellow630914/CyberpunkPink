@@ -34,6 +34,16 @@ const isSlotUse = (t: string): boolean => t === 'slot' || t === 'ally_slot' || t
 export const tagsOf = (k: BattleKernel, id: string | undefined): string[] => (id ? (k.content.get<ItemEntry>('item', id)?.tags ?? []) : [])
 
 type Use = NonNullable<ItemEntry['use']>
+/** 這件道具要用的人帶著哪個標籤（use.tag_required：腳本當成快駭用要有 quickhack）；沒寫是不限。 */
+const tagRequired = (use: Use): string | undefined => {
+  const t = (use as { tag_required?: unknown }).tag_required
+  return typeof t === 'string' && t ? t : undefined
+}
+/** 這個人用不用得了這件道具（標籤）：不行的回傳原因（一句完整的話）；行的是空的。 */
+const tagBlocks = (u: BattleUnit, entry: { name: string; use: Use }): string[] => {
+  const t = tagRequired(entry.use)
+  return t && !u.tags.includes(t) ? [`${entry.name}要有「${t}」才用得了，這個人沒有。`] : []
+}
 const ops = (use: Use): Array<Record<string, unknown>> => use.effects.filter((e): e is Record<string, unknown> => isRecord(e))
 /** 要玩家多選相鄰的一格（pick.also）：投擲物，與寫了 also 的煙霧彈。 */
 const needsAlso = (use: Use): boolean => ops(use).some((e) => e.op === 'throw' || (e.op === 'soft_cover' && e.also === true))
@@ -92,7 +102,7 @@ const item: BattleActionDef = {
       key: 'item', label: '用哪一個道具', kind: 'choice', required: list.length > 1,
       options: list.map((x) => {
         const t = itemTargets(view, u, x.entry.use)
-        return { value: x.slot.item, label: `${x.entry.name} ×${x.slot.qty}`, blocks: t.blocks, for: t.for, hint: { ap: x.entry.use.ap, ap_other: x.entry.use.ap_other ?? x.entry.use.ap, qty: x.slot.qty, ...(needsAlso(x.entry.use) ? { also: true } : {}) } }
+        return { value: x.slot.item, label: `${x.entry.name} ×${x.slot.qty}`, blocks: [...t.blocks, ...tagBlocks(u, x.entry)], for: t.for, hint: { ap: x.entry.use.ap, ap_other: x.entry.use.ap_other ?? x.entry.use.ap, qty: x.slot.qty, ...(needsAlso(x.entry.use) ? { also: true } : {}) } }
       }),
     }, ...(also ? [also] : [])]
   },
@@ -108,7 +118,12 @@ const item: BattleActionDef = {
   },
   // 用的是哪一類道具：['item', …物品的標籤各加 item: 前綴]，花費的減免才認得出「用醫療道具」（item:medical）
   costTags: (view, u, input) => ['item', ...tagsOf(view.k, chosen(view, u, input)?.entry.id).map((t) => `item:${t}`)],
-  blocks: (view, u) => (usableItems(view.k, u, view.battle.mode).length ? [] : ['快取格裡沒有能用的道具。']),
+  blocks: (view, u) => {
+    const list = usableItems(view.k, u, view.battle.mode)
+    if (!list.length) return ['快取格裡沒有能用的道具。']
+    // 每一件都要有某個標籤而這個人都沒有：整個行動灰掉，寫出原因
+    return list.some((x) => tagBlocks(u, x.entry).length === 0) ? [] : [...new Set(list.flatMap((x) => tagBlocks(u, x.entry)))]
+  },
   targets: (view, u) => {
     // 每一種能用的道具各自用得到的目標；一個目標沒有任何一種用得上，就灰掉、寫出原因
     const reach = usableItems(view.k, u, view.battle.mode).flatMap((x) => itemTargets(view, u, x.entry.use).for)
@@ -146,6 +161,8 @@ const item: BattleActionDef = {
     const found = list.find((x) => x.slot.item === id)
     if (!found) throw new BattleBlocked(['快取格裡沒有這個道具。'])
     const use = found.entry.use
+    const noTag = tagBlocks(u, found.entry)
+    if (noTag.length) throw new BattleBlocked(noTag)
     if (!target) throw new BattleBlocked(['要選一個目標。'])
     const onUnit = 'unit' in target
     if (use.target === 'self') {
@@ -202,6 +219,8 @@ function useProblems(e: ItemEntry): string[] {
   const use = e.use
   if (!use || !Array.isArray(use.effects)) return []
   const out: string[] = []
+  const tag = (use as { tag_required?: unknown }).tag_required
+  if (tag !== undefined && !(typeof tag === 'string' && tag.trim())) out.push('use.tag_required：要是標籤（字串，不能是空的）')
   const has = (op: string): boolean => use.effects.some((x) => isRecord(x) && x.op === op)
   if (has('throw') && use.target !== 'foe_slot') out.push(`use.target：投擲物（throw）要寫 foe_slot，不是 ${use.target}`)
   if (has('throw') && use.ap !== 2) out.push(`use.ap：投擲物（throw）要花 2 點行動點，不是 ${use.ap}`)
