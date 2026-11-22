@@ -3,7 +3,7 @@
 // 只用核心的基本動作（BattleRun）與公式（amount）；落在掛著的東西（ctx.overlay）上時，只有 strike、damage 有作用，其餘跳過。
 // 每個 op 註冊時一起給格式檢查（problems）：欄位的型別、不認得的欄位、公式用 amountProblems；訊息開頭是欄位的名字。
 
-import type { AttackOpts, BattleEffectCtx, BattleOverlay, BattleRun, BattleUnit, BattleWeapon, DamageType, Kernel, RollPart } from '../../core'
+import type { AttackOpts, BattleEffectCtx, BattleRun, BattleUnit, BattleWeapon, DamageType, Kernel, RollPart } from '../../core'
 import { BATTLE_SLOTS, BattleBlocked, STATUS_UNTILS, WOUND_PARTS, attrMod, damageTypeOf, isRecord, onField, statusRuleOf, unitTag, wielded } from '../../core'
 import { tagsOf } from './items'
 import { ATTR, B, F, S, STATUS_KINDS, TYPE, UNTIL, adjacentPick, list, num, oneOf, orWord, pair, qty, schema, shape } from './schema'
@@ -63,31 +63,6 @@ function pickedUnit(ctx: Ctx, key: unknown): BattleUnit | undefined {
 /** 沒有橋的人吃不到感載類的效果：記一句。 */
 function noBridge(run: BattleRun, u: BattleUnit, name: string): void {
   run.say(`${unitTag(u)} 沒有橋，${name}對他無效。`, 'load', { target: u.id, amount: 0 })
-}
-
-// ---- 傷害打在掛著的東西上（不擲命中） ----
-
-/**
- * 直接傷害打在一台和人重疊的東西上：照傷害類型扣它的護甲（穿甲抵銷護甲）、類型對機器的倍率（電磁加倍）、做的人的傷害倍率；
- * 感載類的傷害對它無效（沒有橋）；耐久歸零就被擊落。算法和 BattleRun.hpDamage 一樣（那一個是核心私有的）。
- */
-function damageOverlay(run: BattleRun, o: BattleOverlay, raw: number, typeId: DamageType, by: BattleUnit, pierce: number): { dealt: number; downed: boolean } {
-  if (o.down) return { dealt: 0, downed: false }
-  const type = damageTypeOf(run.k.content, typeId)
-  if (type.track === 'load') {
-    run.say(`${o.name}沒有橋，${type.name}傷害對它無效。`, 'damage', { overlay: o.id, type: typeId, amount: 0 }, by)
-    return { dealt: 0, downed: false }
-  }
-  const eff = Math.floor(o.armor * type.armor)
-  let dm = run.n.pierceOverflow ? Math.max(0, raw - eff + pierce) : Math.max(0, raw - Math.max(0, eff - pierce))
-  for (const [tag, mult] of Object.entries(type.vs ?? {})) if (tag === 'machine') dm *= mult
-  if (dm > 0 && by.dmgMult.hp !== 1) dm = Math.max(1, Math.round(dm * by.dmgMult.hp))
-  dm = Math.round(dm)
-  o.hp.now = Math.max(0, o.hp.now - dm)
-  run.say(dm > 0 ? `${o.name}受到 ${dm} 點${type.name}傷害。` : `${o.name}的護甲擋下了這一擊。`, 'damage', { overlay: o.id, type: typeId, amount: dm, left: o.hp.now, by: by.id }, by)
-  const downed = o.hp.now <= 0
-  if (downed) run.dropOverlay(o, by)
-  return { dealt: dm, downed }
 }
 
 // ---- 攻擊 ----
@@ -173,7 +148,8 @@ function damageOp(ctx: Ctx, e: Eff): void {
   const pierce = qty(ctx, e.pierce, 0)
   const overlay = ctx.overlay ?? (ctx.unit ? run.overlayOfStandIn(ctx.unit) : undefined)
   if (overlay) {
-    const r = damageOverlay(run, overlay, raw, type, user, pierce)
+    // 直接的傷害打在掛著的東西上（不擲命中）：核心的算法（dev/work/M1b-core-closeout.md 第 1 項）
+    const r = run.damageOverlay(overlay, raw, type, user, { pierce })
     ctx.last.dealt = r.dealt
     ctx.last.downed = r.downed
     return
@@ -201,8 +177,8 @@ function loadOp(ctx: Ctx, e: Eff): void {
   }
   const before = unit.load.now
   const got = run.addLoad(unit, qty(ctx, e.amount, 0), user, { exact: e.exact === true })
-  // 快感：照核心的規則加沉溺（傷害類型資料的 sink）
-  if (got > 0 && rule.sink) unit.sink += rule.sink
+  // 快感：照核心的規則加沉溺（傷害類型資料的 sink；走 gainSink，sink.before 擋得下）
+  if (got > 0 && rule.sink) run.gainSink(unit, rule.sink, { type, by: user })
   ctx.last.overloaded = got > 0 && before + got >= unit.load.max
 }
 

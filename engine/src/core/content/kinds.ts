@@ -148,7 +148,7 @@ export interface ItemEntry extends ContentEntry {
    * 花幾點行動點（ap；替相鄰的人用是 ap_other）、對誰用、做什麼。effects 是一串 { op, ... }，由戰鬥的功能解讀
    *（heal、vent、afterglow、cleanse、status、soft_cover、attack……）；不認得的 op 在功能載入內容時擋下。
    */
-  use?: { ap: number; ap_other?: number; target: (typeof ITEM_USE_TARGETS)[number]; modes?: string[]; effects: Array<Record<string, unknown>> }
+  use?: { ap: number; ap_other?: number; target: (typeof ITEM_USE_TARGETS)[number]; /** 對一個敵人用（target: foe）時，目標要在這個距離裡 [近, 遠]；沒寫不限 */ range?: [number, number]; modes?: string[]; effects: Array<Record<string, unknown>> }
 }
 
 export function registerCoreKinds(content: ContentRegistry): void {
@@ -242,6 +242,8 @@ export function registerCoreKinds(content: ContentRegistry): void {
         else {
           if (u.ap_other !== undefined && !(isInt(u.ap_other) && u.ap_other >= 0 && u.ap_other <= 3)) p.push('use.ap_other 要是 0～3 的整數')
           if (!(ITEM_USE_TARGETS as readonly unknown[]).includes(u.target)) p.push(`use.target 只能是 ${ITEM_USE_TARGETS.join('、')}`)
+          if (u.range !== undefined && !(Array.isArray(u.range) && u.range.length === 2 && u.range.every(isInt) && u.range[0] >= 1 && u.range[0] <= u.range[1])) p.push('use.range 要是 [近, 遠]：兩個整數，近至少 1、不超過遠')
+          if (u.range !== undefined && u.target !== 'foe') p.push('use.range 只有對一個敵人用的道具（target: foe）才能寫')
           if (!(Array.isArray(u.effects) && u.effects.length > 0 && u.effects.every((x) => isRecord(x) && isText(x.op)))) p.push('use.effects 要是 { op, ... } 的陣列（至少一筆）')
         }
       }

@@ -71,6 +71,16 @@ export interface AttackOpts {
    * 彈匣只扣一次；結果帶 redirected: true。第一個設的算數（後面的處理函式再設不會蓋掉）；找不到、已經被擊落的就照原本的打
    */
   redirect?: { overlay: string }
+  /**
+   * 這一擊不打了（由 attack.before 的處理函式設：卡彈、炸膛、被禁止開火）：寫給玩家看的一句完整的話。設了之後核心結束這一擊——
+   * 不擲任何骰、不發 attack.after、把這句話記成一拍、結果 aborted 並帶 cancelled，然後發 attack.cancel；彈匣已經扣了（扣在 attack.before 之前）。
+   * 後面的 attack.before 處理函式不再跑。第一個設的算數
+   */
+  cancel?: string
+  /** 取消那一拍多帶的資料欄位（jam: true、backfire: true）；只在 cancel 有設時用 */
+  cancelData?: Record<string, unknown>
+  /** 這一擊的傷害類型自己帶的沉溺（快感 +1）不加：由呼叫的人的效果決定（on_hit 帶定力檢定的 sink）。不經過 sink.before */
+  noSink?: boolean
 }
 
 export interface AttackResult {
@@ -94,6 +104,8 @@ export interface AttackResult {
   redirected?: boolean
   /** 命中了，但被 attack.hit 的處理函式擋下（out.negate）：沒有傷害、沒有重創、沒有推拉 */
   negated?: boolean
+  /** 這一擊被 attack.before 的處理函式取消了（opts.cancel），值是那一句話；同時 aborted 也是 true */
+  cancelled?: string
 }
 
 export interface StatusOpts {
@@ -317,10 +329,15 @@ export class BattleRun implements BattleView {
     Object.defineProperty(opts, 'redirect', { enumerable: true, configurable: true, get: () => redirect, set: (v: AttackOpts['redirect']) => { if (!redirect && v) redirect = v } })
     // 反應在擲骰之前（掩護射擊、小心後面！）：可以改這一擊的加減，也可能先把攻擊的人打倒
     this.k.battle.emit('attack.before', { run: this, attacker, target, weapon: w, opts })
+    if (opts.cancel !== undefined) return this.cancelStrike(attacker, target, w, opts, { ...none, aborted: true })
     if (attacker.out || target.out || this.over) return { ...none, aborted: true }
-    // 改打掛著的東西（擋槍）：照它的迴避與護甲算，原本的目標不受影響；彈匣上面已經扣過了，不再扣
+    // 改打掛著的東西（擋槍）：照它的迴避與護甲算，原本的目標不受影響；彈匣上面已經扣過了，不再扣。結算之後發 attack.redirected（不發 attack.after）
     const diverted = opts.redirect ? this.battle.overlays.find((x) => x.id === opts.redirect!.overlay && !x.down) : undefined
-    if (diverted) return { ...this.strikeOverlay(attacker, diverted, { ...opts, redirect: undefined, spend: 0 }), redirected: true }
+    if (diverted) {
+      const result: AttackResult = { ...this.strikeOverlay(attacker, diverted, { ...opts, redirect: undefined, spend: 0 }), redirected: true }
+      this.k.battle.emit('attack.redirected', { run: this, attacker, target, overlay: diverted, weapon: w, opts, result })
+      return result
+    }
 
     const aimed = !!opts.aimed || w.traits.includes('aimed')
     const tags = aimed ? [...opts.tags!, 'aimed'] : opts.tags!
@@ -370,7 +387,7 @@ export class BattleRun implements BattleView {
         result = { ...result, negated: true }
       } else {
         const before = !!target.out
-        const d = this.damage(target, raw, opts.type ?? w.type, attacker, { pierce: w.pierce + (opts.pierce ?? 0) + sum(this.mods('pierce', attacker, target, w, tags)), ...(opts.armorMult !== undefined ? { armorMult: opts.armorMult } : {}) })
+        const d = this.damage(target, raw, opts.type ?? w.type, attacker, { pierce: w.pierce + (opts.pierce ?? 0) + sum(this.mods('pierce', attacker, target, w, tags)), ...(opts.armorMult !== undefined ? { armorMult: opts.armorMult } : {}), ...(opts.noSink ? { noSink: true } : {}) })
         result = { ...result, dealt: d.dealt, track: d.track, downed: !before && !!target.out }
         if (wound && target.rank !== 'minion' && !target.out && d.dealt > 0) this.k.battle.emit('wound', { run: this, attacker, target, aimed, ...(opts.part ? { part: opts.part } : {}) })
       }
@@ -390,18 +407,37 @@ export class BattleRun implements BattleView {
   /**
    * 攻擊一個和人重疊的東西（無人機、砲塔；COMBAT_SYSTEM 9.1 節）：它永遠暴露、不吃那一格的遮蔽，也不傷那一格的遮蔽。
    * 命中對它自己的迴避（黑暗照算）；傷害扣它的護甲（穿甲只抵銷護甲）；耐久歸零就被擊落（overlay.down 掛點：操作者的回灌由功能做）。
-   * 沒有要害與重創。彈匣照扣。做完發 attack.after（目標是那一台的替身；沒有發生的〔aborted〕不發）。
+   * 沒有要害與重創。彈匣照扣（先扣，之後才發 attack.before）。
+   * 發 attack.before（目標是那一台的替身：武器的附帶效果、卡彈、反應都在這裡；不看 opts.redirect，打的就是這一台）與 attack.after（同一個替身）；
+   * 沒有發生的（那一台已經被擊落、反應把攻擊的人打倒、被 opts.cancel 取消）回傳 aborted、不發 attack.after。
    */
   attackOverlay(attacker: BattleUnit, o: BattleOverlay, opts: AttackOpts = {}): AttackResult {
-    const result = this.strikeOverlay(attacker, o, opts)
-    if (!result.aborted) {
-      const weapon = opts.weapon ?? wielded(attacker)
-      if (weapon) this.k.battle.emit('attack.after', { run: this, attacker, target: this.standIn(o), weapon, opts, result })
-    }
+    const w = opts.weapon ?? wielded(attacker)
+    if (!w) throw new Error(`${attacker.name} 手上沒有武器`)
+    const none: AttackResult = { hit: false, crit: false, natural: 0, total: 0, evade: 0, raw: 0, dealt: 0, track: 'none', wound: false, downed: false }
+    if (o.down) return { ...none, aborted: true }
+    const spend = opts.spend ?? 1
+    if (w.mag && spend > 0) w.mag.now = Math.max(0, w.mag.now - spend)
+    const o2: AttackOpts = { ...opts, tags: [...(opts.tags ?? [])], spend: 0 }
+    const standIn = this.standIn(o)
+    this.k.battle.emit('attack.before', { run: this, attacker, target: standIn, weapon: w, opts: o2 })
+    if (o2.cancel !== undefined) return this.cancelStrike(attacker, standIn, w, o2, { ...none, aborted: true })
+    if (attacker.out || o.down || this.over) return { ...none, aborted: true }
+    const result = this.strikeOverlay(attacker, o, { ...o2, weapon: w })
+    if (!result.aborted) this.k.battle.emit('attack.after', { run: this, attacker, target: standIn, weapon: w, opts: o2, result })
     return result
   }
 
-  /** attackOverlay 的本體（不發 attack.after：改打的 redirect 也走這裡，它不發）。 */
+  /** attack.before 的處理函式取消了這一擊（opts.cancel）：把那一句話記成一拍、發 attack.cancel，回傳 aborted 的結果。 */
+  private cancelStrike(attacker: BattleUnit, target: BattleUnit, w: BattleWeapon, opts: AttackOpts, none: AttackResult): AttackResult {
+    const reason = opts.cancel!
+    const hung = this.isStandIn(target)
+    this.say(reason, undefined, { attacker: attacker.id, ...(hung ? { overlay: target.id } : { target: target.id }), weapon: w.class, cancelled: true, ...opts.cancelData }, attacker)
+    this.k.battle.emit('attack.cancel', { run: this, attacker, target, weapon: w, opts, reason })
+    return { ...none, cancelled: reason }
+  }
+
+  /** attackOverlay 的本體（不發 attack.before、attack.after；彈匣由呼叫的人先扣：改打的 redirect 也走這裡，已經扣過了）。 */
   private strikeOverlay(attacker: BattleUnit, o: BattleOverlay, opts: AttackOpts = {}): AttackResult {
     const w = opts.weapon ?? wielded(attacker)
     if (!w) throw new Error(`${attacker.name} 手上沒有武器`)
@@ -432,14 +468,39 @@ export class BattleRun implements BattleView {
     const baseDice = w.far && distance(attacker, o) > w.far.beyond ? w.far.dice : w.dice
     const raw = Math.max(0, this.d6(Math.max(1, baseDice + (damageTypeOf(this.k.content, opts.type ?? w.type).dice ?? 0) + (opts.dice ?? 0))) + w.flat + (opts.damage ?? 0))
     // 照傷害類型算（COMBAT_SYSTEM 第 5 節）：和打人同一份算法；無人機與砲塔是機器；沒有橋，感載類的傷害對它無效
-    const typeId = opts.type ?? w.type
-    const armor = opts.armorMult !== undefined ? Math.round(o.armor * opts.armorMult) : o.armor
-    const dealt = damageTypeOf(this.k.content, typeId).track === 'load' ? 0 : this.hpDamage(raw, typeId, armor, OVERLAY_TAGS, attacker, { pierce: w.pierce + (opts.pierce ?? 0) })
-    o.hp.now = Math.max(0, o.hp.now - dealt)
+    const dealt = this.overlayHurt(o, raw, opts.type ?? w.type, attacker, { pierce: w.pierce + (opts.pierce ?? 0), ...(opts.armorMult !== undefined ? { armorMult: opts.armorMult } : {}) })
     this.say(`${head}命中，${o.name}受到 ${dealt} 點傷害。`, 'hit', { ...ids, natural, amount: dealt }, attacker, roll)
     const downed = o.hp.now <= 0
     if (downed) this.dropOverlay(o, attacker)
     return { ...none, hit: true, natural, total, evade, raw, dealt, track: 'hp', downed }
+  }
+
+  /** 一筆傷害打在一台和人重疊的東西上的算法（不記拍、不擊落）：感載類無效；護甲（可以乘倍率）、穿甲、類型對機器的倍率、做的人的傷害倍率；扣耐久。回傳實際扣了多少。 */
+  private overlayHurt(o: BattleOverlay, raw: number, typeId: DamageType, by: BattleUnit | undefined, opts: { pierce?: number; armorMult?: number } = {}): number {
+    if (damageTypeOf(this.k.content, typeId).track === 'load') return 0
+    const armor = opts.armorMult !== undefined ? Math.round(o.armor * opts.armorMult) : o.armor
+    const dealt = this.hpDamage(raw, typeId, armor, OVERLAY_TAGS, by, { pierce: opts.pierce ?? 0 })
+    o.hp.now = Math.max(0, o.hp.now - dealt)
+    return dealt
+  }
+
+  /**
+   * 一筆直接的傷害打在一台和人重疊的東西上（不擲命中：效果的 damage、爆炸；dev/adr/0015）。算法和 attackOverlay 一樣
+   * （照傷害類型扣它的護甲、穿甲抵銷護甲、電磁對機器加倍、做的人的傷害倍率；感載類的傷害對它無效，沒有橋）；耐久歸零就被擊落（overlay.down 掛點）。
+   * 記一拍 damage；那一台已經被擊落回傳 { dealt: 0, downed: false }。回傳實際造成的量與有沒有擊落。
+   */
+  damageOverlay(o: BattleOverlay, raw: number, typeId: DamageType, by?: BattleUnit, opts: { pierce?: number; armorMult?: number } = {}): { dealt: number; downed: boolean } {
+    if (o.down) return { dealt: 0, downed: false }
+    const type = damageTypeOf(this.k.content, typeId)
+    if (type.track === 'load') {
+      this.say(`${o.name}沒有橋，${type.name}傷害對它無效。`, 'damage', { overlay: o.id, type: typeId, amount: 0 }, by)
+      return { dealt: 0, downed: false }
+    }
+    const dealt = this.overlayHurt(o, raw, typeId, by, opts)
+    this.say(dealt > 0 ? `${o.name}受到 ${dealt} 點${type.name}傷害。` : `${o.name}的護甲擋下了這一擊。`, 'damage', { overlay: o.id, type: typeId, amount: dealt, left: o.hp.now, ...(by ? { by: by.id } : {}) }, by)
+    const downed = o.hp.now <= 0
+    if (downed) this.dropOverlay(o, by)
+    return { dealt, downed }
   }
 
   /** 護甲照比例（type.armor 或 1）扣掉之後剩下的傷害；穿甲只抵銷護甲。 */
@@ -460,9 +521,9 @@ export class BattleRun implements BattleView {
   /**
    * 照傷害類型把一筆傷害打在目標身上（COMBAT_SYSTEM 第 4、5 節）。by 是造成傷害的人（敵人的傷害倍率、仇恨）。
    * 生命：扣護甲（穿甲只抵銷護甲）→ 類型對標籤的倍率 → 位階與難度的倍率 → 有機體的先扣機體、回灌感載。
-   * 感載：不看護甲（內海的防護照扣）→ 餘韻的加成 → 敏感度 → 過載。
+   * 感載：不看護甲（內海的防護照扣）→ 餘韻的加成 → 敏感度 → 過載；傷害類型帶沉溺的（快感）另外走 gainSink，o.noSink 是呼叫的人說「這一點由我決定」。
    */
-  damage(target: BattleUnit, raw: number, typeId: DamageType, by?: BattleUnit, o: { pierce?: number; armorMult?: number } = {}): { dealt: number; track: AttackResult['track'] } {
+  damage(target: BattleUnit, raw: number, typeId: DamageType, by?: BattleUnit, o: { pierce?: number; armorMult?: number; noSink?: boolean } = {}): { dealt: number; track: AttackResult['track'] } {
     if (target.out) return { dealt: 0, track: 'none' }
     const type = damageTypeOf(this.k.content, typeId)
     const armorBase = target.armor + (target.hull?.armor ?? 0) + sum(this.mods('armor', target, by))
@@ -475,7 +536,8 @@ export class BattleRun implements BattleView {
       let v = this.mode.armorOnLoad ? this.armorAfter(raw, armor, 1, o.pierce) : raw
       if (by) v *= by.dmgMult.load * (1 + (by.layers * this.mode.afterglow.loadDealtPct + sum(this.mods('load_dealt_pct', by, target))) / 100)
       const got = this.addLoad(target, v, by)
-      if (got > 0 && type.sink) target.sink += type.sink
+      // 傷害類型自己帶的沉溺（快感 +1）：走 gainSink（sink.before 擋得下）；noSink 是呼叫的人的效果自己決定
+      if (got > 0 && type.sink && !o.noSink) this.gainSink(target, type.sink, { type: typeId, ...(by ? { by } : {}) })
       return { dealt: got, track: got > 0 ? 'load' : 'none' }
     }
     if (!target.hp) return { dealt: 0, track: 'none' }
@@ -528,10 +590,26 @@ export class BattleRun implements BattleView {
     return v
   }
 
+  /**
+   * 加沉溺（傷害類型自己帶的快感 +1、快感的感載效果）：先發 sink.before，處理函式設 out.block 就不加（定力擋、免疫沉溺的人）。
+   * 不記拍（沉溺是慢慢累積的，由呼叫的人決定要不要說）。回傳實際加了多少。對沒有 hp 與 load 的替身、已經退出的人沒有作用。
+   */
+  gainSink(unit: BattleUnit, amount: number, o: { type?: DamageType; by?: BattleUnit } = {}): number {
+    const v = Math.max(0, Math.round(amount))
+    if (!v || unit.out || this.isStandIn(unit)) return 0
+    const out: { block?: boolean } = {}
+    this.k.battle.emit('sink.before', { run: this, unit, amount: v, ...(o.type ? { type: o.type } : {}), ...(o.by ? { by: o.by } : {}), out })
+    if (out.block) return 0
+    unit.sink += v
+    return v
+  }
+
   /** 過載：感載歸零（多的不留）、疊一層餘韻；已經疊滿就倒下。沒倒下的照戰場的規則失去下一個回合（現實）或閃斷（內海）。 */
   overload(target: BattleUnit, by?: BattleUnit): void {
     if (!target.load || target.out) return
     target.load.now = 0
+    // 「到下次過載」的狀態（紙鶴的標記）：過載一發生就結束，不管接下來是失去回合還是昏過去
+    for (const st of [...target.statuses]) if (st.until.at === 'overload') this.removeStatus(target, st.id)
     if (afterglowFull(target)) {
       // 即將昏過去：有人擋下（out.before）就到此為止，感載已經歸零，其餘由處理函式自己改
       if (this.outPrevented(target, 'burnout', by)) return
@@ -617,7 +695,7 @@ export class BattleRun implements BattleView {
     }
     const kind = o.until ?? rule.until
     const of = kind.startsWith('source') ? (o.by?.id ?? target.id) : target.id
-    const until: BattleUntil = kind === 'battle_end' ? { at: 'battle_end' } : { at: kind.endsWith('start') ? 'turn_start' : 'turn_end', of, turns }
+    const until: BattleUntil = kind === 'battle_end' ? { at: 'battle_end' } : kind === 'next_overload' ? { at: 'overload' } : { at: kind.endsWith('start') ? 'turn_start' : 'turn_end', of, turns }
     const status: BattleStatus = { id, until, ...(o.by ? { by: o.by.id } : {}), ...(o.data ? { data: { ...o.data } } : {}) }
     target.statuses = [...target.statuses.filter((s) => s.id !== id), status]
     if (id !== LOSE_TURN && !o.quiet) this.say(`${unitTag(target)}：${rule.name}。`, 'status', { target: target.id, status: id, ...(o.by ? { by: o.by.id } : {}) }, o.by)

@@ -254,10 +254,20 @@ export interface BattleHookMap {
    */
   'attack.before': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; weapon: BattleWeapon; opts: import('./run').AttackOpts }
   /**
+   * 一次攻擊被 attack.before 的處理函式取消了（opts.cancel：卡彈、炸膛）：那一句話已經記成一拍、彈匣已經扣了，沒有擲任何骰、不發 attack.after。
+   * 取消的後果放這裡（炸膛傷到開槍的人）；reason 就是 opts.cancel。attacker 可能是替身（見 attack.before）
+   */
+  'attack.cancel': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; weapon: BattleWeapon; opts: import('./run').AttackOpts; reason: string }
+  /**
    * 一次攻擊結算完（命中或沒中）：武器的特性與技能的後續（輕機槍的壓制、還給你～）。
-   * 打和人重疊的東西（run.attackOverlay）也發，target 是那一台的替身；改打（opts.redirect）的那一擊不發。attacker 可能是替身（見 attack.before）
+   * 打和人重疊的東西（run.attackOverlay）也發，target 是那一台的替身；改打（opts.redirect）的那一擊不發，它發 attack.redirected。attacker 可能是替身（見 attack.before）
    */
   'attack.after': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; weapon: BattleWeapon; opts: import('./run').AttackOpts; result: import('./run').AttackResult }
+  /**
+   * 改打（opts.redirect）的那一擊結算完：target 是原本的目標（沒有受影響），overlay 是吃下這一擊的那一台，result 是那一台的結果（redirected: true；
+   * 打中、打空、被護甲擋光都發）。不發 attack.after：它的處理函式都假設 target 是被打中的人。立牌「吃了一擊就倒下」放在這裡
+   */
+  'attack.redirected': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; overlay: import('../types').BattleOverlay; weapon: BattleWeapon; opts: import('./run').AttackOpts; result: import('./run').AttackResult }
   /**
    * 命中已經確定、傷害還沒算（只有打人的攻擊；打掛著的東西沒有）。roll 是這一擊的骰面與結果（wound：本來會重創）；
    * 處理函式改 out：negate 設成 true，這一擊不造成傷害、不重創、不推拉（遮蔽照樣受傷，attack.after 照樣發）；wound 設成 false，重創改成一般的命中
@@ -265,6 +275,11 @@ export interface BattleHookMap {
   'attack.hit': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; weapon: BattleWeapon; opts: import('./run').AttackOpts; roll: { natural: number; total: number; evade: number; crit: boolean; wound: boolean }; out: { negate?: boolean; wound?: boolean } }
   /** 重創（自然 20，或瞄準過的射擊打出要害），目標不是雜兵：現實擲部位，內海是破損 */
   'wound': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; aimed: boolean; part?: string }
+  /**
+   * 有人即將加沉溺（run.gainSink：傷害類型自己帶的、快感的感載效果）。處理函式把 out.block 設成 true 就不加（定力擋、免疫沉溺的人）。
+   * type 是造成它的傷害類型；呼叫的人自己決定沉溺的（AttackOpts.noSink）不經過這裡
+   */
+  'sink.before': { run: BattleRun; unit: BattleUnit; amount: number; type?: import('../types').DamageType; by?: BattleUnit; out: { block?: boolean } }
   /** 過載了（感載已經歸零、餘韻加了一層、沒有倒下；失去回合或閃斷已經照戰場的規則做了） */
   'overload': { run: BattleRun; unit: BattleUnit; by?: BattleUnit }
   /**
@@ -463,7 +478,10 @@ export class BattleRegistry {
     this.reg('battle.hooks', name, owner)
   }
 
-  /** 呼叫一個掛點。回傳有沒有哪一個處理函式回傳 true（ai.step 用：這一步有人做了）。 */
+  /**
+   * 呼叫一個掛點。回傳有沒有哪一個處理函式回傳 true（ai.step 用：這一步有人做了）。
+   * attack.before 有人設了 opts.cancel 之後，後面的處理函式不再跑（這一擊已經不打了，反應不該對它起反應）。
+   */
   emit<N extends BattleHookName>(name: N, payload: BattleHookMap[N]): boolean {
     let handled = false
     for (const h of this.hooks.get(name) ?? []) {
@@ -473,6 +491,7 @@ export class BattleRegistry {
         handled = true
         if (name === 'ai.step') break
       }
+      if (name === 'attack.before' && (payload as BattleHookMap['attack.before']).opts.cancel !== undefined) break
     }
     return handled
   }

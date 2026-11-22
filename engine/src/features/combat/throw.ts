@@ -5,7 +5,7 @@
 
 import type { AttackOpts, BattleEffectCtx, BattleUnit, BattleWeapon, DamageType, Kernel } from '../../core'
 import { BattleBlocked, attrMod, distance, isRecord, unitAt } from '../../core'
-import { runOnHit } from './fx'
+import { ownsSink, runOnHit } from './fx'
 import { ATTR, F, S, TYPE, adjacentPick, list, num, qty, schema, shape } from './schema'
 
 const OWNER = 'combat'
@@ -56,7 +56,8 @@ function throwOp(ctx: Ctx, e: Eff): void {
       hit: attrMod(user.attrs.reflex ?? 10) + (user.skills.athletics ?? 0) + qty(ctx, e.hit, 0), attr: 'reflex', skill: 'athletics',
       coverMult: typeof e.cover_mult === 'number' ? e.cover_mult : 0, traits: ['throw'],
     }
-    const opts: AttackOpts = { weapon: w, spend: 0, natural, label: '投擲', tags: ['throw'], noWound: true }
+    // 命中效果裡有帶定力檢定的 sink（蜜桃霧、聖餐）：傷害類型自己帶的沉溺不加，由那一筆決定（定力擋得掉）
+    const opts: AttackOpts = { weapon: w, spend: 0, natural, label: '投擲', tags: ['throw'], noWound: true, ...(ownsSink(onHit) ? { noSink: true } : {}) }
     let hit = false, crit = false, downed = false, dealt = 0
     const take = (r: { hit: boolean; crit: boolean; downed: boolean; dealt: number }): void => {
       hit ||= r.hit
@@ -67,7 +68,7 @@ function throwOp(ctx: Ctx, e: Eff): void {
     for (const p of people) {
       const r = run.attack(user, p, opts)
       take(r)
-      runOnHit(run, user, p, w, type, r, onHit)
+      runOnHit(run, user, p, w, r, onHit)
     }
     for (const o of run.battle.overlays.filter((x) => !x.down && x.side === t.side && slots.includes(x.slot))) take(run.attackOverlay(user, o, opts))
     Object.assign(ctx.last, { hit, crit, downed, dealt })
@@ -95,10 +96,16 @@ export function registerThrow(k: Kernel): void {
   })
   k.battle.effect('decoy', OWNER, decoyOp, { problems: schema({}) })
 
-  // 立牌：下一次以那一格的人為目標的敵方攻擊改打它（照它的迴避與護甲算；耐久 1，被打中就倒下）
+  // 立牌：下一次以那一格的人為目標的敵方攻擊改打它（照它的迴避與護甲算）
   k.battle.on('attack.before', OWNER, ({ run, attacker, target, opts }) => {
     if (opts.redirect || run.isStandIn(target)) return
     const decoy = run.battle.overlays.find((o) => o.kind === 'decoy' && !o.down && o.side === target.side && o.slot === target.slot && o.side !== attacker.side)
     if (decoy) opts.redirect = { overlay: decoy.id }
+  })
+  // 立牌吃下一擊就倒下：不管那一擊打中、打空，或是感載類的傷害（對它無效）。耐久歸零之後才算擊落，所以先歸零
+  k.battle.on('attack.redirected', OWNER, ({ run, attacker, overlay }) => {
+    if (overlay.kind !== 'decoy' || overlay.down) return
+    overlay.hp.now = 0
+    run.dropOverlay(overlay, attacker)
   })
 }

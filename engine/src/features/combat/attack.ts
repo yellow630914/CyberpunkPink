@@ -1,9 +1,8 @@
 // L6 功能 combat：攻擊類的行動（射擊、近戰、換彈、換武器、打遮蔽、監視）。COMBAT_SYSTEM 1.3 節與第 5 節。
 // 只用核心的基本動作與唯讀的 BattleView；不碰 GameState。
 
-import type { AttackOpts, BattleActionDef, BattlePick, BattleTarget, BattleUnit, BattleView, BattleWeapon } from '../../core'
+import type { BattleActionDef, BattlePick, BattleTarget, BattleUnit, BattleView, BattleWeapon } from '../../core'
 import { BattleBlocked, coverAt, coverLevel, distance, otherSide, unitsOf, wielded } from '../../core'
-import { applyFx, fireGate, fxOf } from './fx'
 import type { AmmoItem } from './fx'
 
 const OWNER = 'combat'
@@ -54,17 +53,10 @@ const shoot: BattleActionDef = {
       const why = sweepBlocks(wielded(u))
       if (why.length) throw new BattleBlocked(why)
     }
-    const w = wielded(u)
-    // 卡彈與炸膛（fx.on_use）：這一擊不發生
-    if (w && !fireGate(run, u, w, sweep ? 2 : 1)) return
+    // 卡彈與炸膛（fx.on_use）、武器的附帶效果與特殊彈的欄位都在核心的 attack.before 掛點裡（打人與打掛著的東西一樣）
     if ('overlay' in target) {
       const o = run.battle.overlays.find((x) => x.id === target.overlay)
-      if (!o) return
-      // 打掛著的東西不發 attack.before：武器的附帶效果與特殊彈的欄位在這裡直接加進這一擊
-      const opts: AttackOpts = {}
-      const fx = w ? fxOf(run.k, w) : undefined
-      if (fx) applyFx(opts, fx)
-      run.attackOverlay(u, o, opts)
+      if (o) run.attackOverlay(u, o)
       return
     }
     if (!('unit' in target)) return
@@ -73,7 +65,9 @@ const shoot: BattleActionDef = {
       run.attack(u, t)
       return
     }
-    run.attack(u, t, { spend: 2, label: '掃射', tags: ['sweep'] })
+    const r = run.attack(u, t, { spend: 2, label: '掃射', tags: ['sweep'] })
+    // 卡彈或炸膛：這一擊沒有打出去，也就沒有壓制
+    if (r.cancelled !== undefined) return
     // 不管有沒有打中，目標還在場上就要過定力豁免，沒過就被壓制
     if (!t.out && t.slot >= 1) {
       const s = run.save(t, 'resolve', 'composure', 14, '定力', [], ['resist:suppressed'])
@@ -83,7 +77,6 @@ const shoot: BattleActionDef = {
   auto: (run, u, t) => {
     const w = wielded(u)
     if (!w || isMelee(w) || magEmpty(w)) return false
-    if (!fireGate(run, u, w)) return true
     run.attack(u, t, { label: '監視射擊', tags: ['watch'] })
     return true
   },
@@ -102,14 +95,10 @@ const melee: BattleActionDef = {
   })),
   run: (run, u, target) => {
     if (!target || !('unit' in target)) return
-    const w = wielded(u)
-    if (w && !fireGate(run, u, w)) return
     run.attack(u, run.unit(target.unit))
   },
   auto: (run, u, t) => {
-    const w = wielded(u)
-    if (!isMelee(w) || distance(u, t) !== 1) return false
-    if (w && !fireGate(run, u, w)) return true
+    if (!isMelee(wielded(u)) || distance(u, t) !== 1) return false
     run.attack(u, t, { label: '監視攻擊', tags: ['watch'] })
     return true
   },

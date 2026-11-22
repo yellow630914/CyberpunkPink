@@ -1,7 +1,7 @@
 // L6 功能 combat：使用道具（只能用快取格裡的）。道具的效果是效果登錄表上的 op（ops.ts）。COMBAT_SYSTEM 1.3 節；ITEMS 5.2 節。
 
 import type { BattleActionDef, BattleInput, BattleKernel, BattlePick, BattleSide, BattleTarget, BattleUnit, BattleView, ItemEntry, Kernel } from '../../core'
-import { BATTLE_SLOTS, BattleBlocked, isRecord, otherSide, overlayAt, sameTarget, unitsOf } from '../../core'
+import { BATTLE_SLOTS, BattleBlocked, distance, isRecord, otherSide, overlayAt, sameTarget, unitsOf } from '../../core'
 import { ammoProblems, fxProblems } from './fx'
 import { throwBlock } from './throw'
 
@@ -40,14 +40,21 @@ const needsAlso = (use: Use): boolean => ops(use).some((e) => e.op === 'throw' |
 const isDecoy = (use: Use): boolean => ops(use).some((e) => e.op === 'decoy')
 const cellsOf = (side: BattleSide): BattleTarget[] => Array.from({ length: BATTLE_SLOTS }, (_, i) => ({ side, slot: i + 1 }))
 
-/** 這個道具可以用在哪些目標上（行動列的目標裡挑）：自己用的只有自己，給隊友的是我方每一個人，放在格子上的是我方四格，丟出去的是敵方四格；其餘的現在還不能用。 */
+/** 這個道具可以用在哪些目標上（行動列的目標裡挑）：自己用的只有自己，給隊友的是我方每一個人，對一個敵人用的是場上每一個敵人，放在格子上的是我方四格，丟出去的是敵方四格。 */
 function itemTargets(view: BattleView, u: BattleUnit, use: { target: string }): { for: BattleTarget[]; blocks: string[] } {
   if (use.target === 'self') return { for: [{ unit: u.id }], blocks: [] }
   if (use.target === 'ally') return { for: unitsOf(view.battle, u.side).map((t) => ({ unit: t.id })), blocks: [] }
+  if (use.target === 'foe') return { for: unitsOf(view.battle, otherSide(u.side)).map((t) => ({ unit: t.id })), blocks: [] }
   if (use.target === 'foe_slot') return { for: cellsOf(otherSide(u.side)), blocks: [] }
-  if (isSlotUse(use.target)) return { for: cellsOf(u.side), blocks: [] }
-  // 對一個敵人用的道具（foe）還不能用
-  return { for: [], blocks: ['這個道具現在還不能這樣用。'] }
+  return { for: cellsOf(u.side), blocks: [] }
+}
+
+/** 對一個敵人用的道具（target: foe）打不到這個人的原因（use.range 是 [近, 遠]，量的是雙方站位的距離）；沒寫 range、在範圍裡回傳 null。 */
+function rangeBlock(u: BattleUnit, use: Use, foe: { slot: number }): string | null {
+  if (!use.range) return null
+  const d = distance(u, foe)
+  const [near, far] = use.range
+  return d < near || d > far ? `這個道具只用得到距離 ${near === far ? near : `${near}～${far}`} 的敵人，這個人的距離是 ${d}。` : null
 }
 
 /** 這個道具放在這一格現在行不行（一格一格灰掉、寫出原因）：投擲物看距離，立牌看那一格有沒有掛著東西。 */
@@ -74,7 +81,7 @@ function alsoPick(view: BattleView, u: BattleUnit): BattlePick | null {
 }
 
 const item: BattleActionDef = {
-  id: 'item', owner: OWNER, name: '使用道具', desc: '從快取格裡拿出一件道具來用，可以用在自己或相鄰的隊友身上，或是我方的一格上。',
+  id: 'item', owner: OWNER, name: '使用道具', desc: '從快取格裡拿出一件道具來用：用在自己、相鄰的隊友或一個敵人身上，或是放在、丟在某一格上。',
   group: 'supply', icon: 'item', order: 3, target: 'unit', modes: ['meat'],
   // 用哪一個道具（pick.item）：快取格裡能用的才列（束帶、鎖橋器不是這樣用的，不列）；只有一種時可以不選
   picks: (view, u): BattlePick[] => {
@@ -94,7 +101,9 @@ const item: BattleActionDef = {
     const found = chosen(view, u, input)
     if (!found) return { ap: 1 }
     const t = input.target
-    const other = !!t && 'unit' in t && t.unit !== u.id
+    // 替相鄰的隊友用才算「替別人用」（ap_other）；對敵人用照 ap
+    const mate = t && 'unit' in t ? view.battle.units[t.unit] : undefined
+    const other = !!mate && mate.id !== u.id && mate.side === u.side
     return { ap: other ? (found.entry.use.ap_other ?? found.entry.use.ap) : found.entry.use.ap }
   },
   // 用的是哪一類道具：['item', …物品的標籤各加 item: 前綴]，花費的減免才認得出「用醫療道具」（item:medical）
@@ -108,6 +117,14 @@ const item: BattleActionDef = {
       const target: BattleTarget = { unit: t.id }
       return { target, blocks: [...(Math.abs(t.slot - u.slot) > 1 ? ['要相鄰才用得到。'] : []), ...(usable(target) ? [] : [t.id === u.id ? '快取格裡沒有可以用在自己身上的道具。' : '快取格裡沒有可以用在別人身上的道具。'])] }
     })
+    // 敵人：每一種對一個敵人用的道具各自看這個人行不行（距離）；有一種行就行，都不行就灰掉、寫出原因
+    const foeItems = usableItems(view.k, u, view.battle.mode).filter((x) => x.entry.use.target === 'foe')
+    if (foeItems.length) {
+      for (const t of unitsOf(view.battle, otherSide(u.side))) {
+        const asks = foeItems.map((x) => rangeBlock(u, x.entry.use, t))
+        out.push({ target: { unit: t.id }, blocks: asks.some((why) => why === null) ? [] : [...new Set(asks as string[])] })
+      }
+    }
     // 一格一格：每一種用得到這一格的道具各自看這一格行不行（距離、有沒有掛著東西）；有一種行就行，都不行就灰掉、寫出原因
     const cells: Array<{ side: BattleSide; slot: number }> = []
     for (const r of reach) if ('slot' in r && !cells.some((c) => c.side === r.side && c.slot === r.slot)) cells.push(r)
@@ -143,9 +160,13 @@ const item: BattleActionDef = {
         const far = throwBlock(u, target.slot)
         if (far) throw new BattleBlocked([far])
       } else if (use.target === 'ally_slot' && target.side !== u.side) throw new BattleBlocked(['這個道具只能放在我方的一格上。'])
-    } else {
-      // 對一個敵人用的道具（foe）還不能用
-      throw new BattleBlocked(['這個道具現在還不能這樣用。'])
+    } else if (use.target === 'foe') {
+      // 對一個敵人用：在場上的敵人，距離要在 use.range 裡
+      const foeUnit = onUnit ? run.unit(target.unit) : undefined
+      if (!foeUnit || foeUnit.side === u.side) throw new BattleBlocked(['這個道具要用在一個敵人身上。'])
+      if (foeUnit.out || foeUnit.slot < 1) throw new BattleBlocked(['這個敵人已經不在場上了。'])
+      const far = rangeBlock(u, use, foeUnit)
+      if (far) throw new BattleBlocked([far])
     }
     const unit = onUnit ? run.unit(target.unit) : undefined
     run.say(`${u.name} 使用${found.entry.name}${unit && unit.id !== u.id ? `，用在${unit.name}身上` : ''}。`, 'item', { unit: u.id, item: found.slot.item, target }, u)

@@ -189,8 +189,8 @@ export const MOD_KINDS = [
 ] as const
 export type ModKind = (typeof MOD_KINDS)[number]
 
-/** 狀態什麼時候結束的幾種寫法（資料用）。 */
-export const STATUS_UNTILS = ['own_turn_end', 'own_turn_start', 'source_turn_start', 'source_turn_end', 'battle_end'] as const
+/** 狀態什麼時候結束的幾種寫法（資料用）。next_overload：帶著它的人下一次過載的時候，沒有過載就到整場結束。 */
+export const STATUS_UNTILS = ['own_turn_end', 'own_turn_start', 'source_turn_start', 'source_turn_end', 'battle_end', 'next_overload'] as const
 export type StatusUntil = (typeof STATUS_UNTILS)[number]
 
 /** 一個戰鬥中的狀態（壓制、暈眩、流血、標記、失去回合……）：資料驅動，核心照這幾個欄位算。 */

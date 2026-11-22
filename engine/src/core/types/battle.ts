@@ -94,6 +94,8 @@ export type BattleUntil =
   | { at: 'round_end'; round: number }
   /** 整場 */
   | { at: 'battle_end' }
+  /** 帶著它的人下一次過載的時候（紙鶴的標記：到他下次過載或戰鬥結束）；過載一發生就拿掉，沒有過載就留到整場結束 */
+  | { at: 'overload' }
 
 export interface BattleStatus {
   /** 狀態的 id（內容種類 battle_status） */
