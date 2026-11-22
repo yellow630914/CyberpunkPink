@@ -178,18 +178,20 @@
     "layer": "front",
     "after": "sk_gunner_aimed_shot",
     "kind": "passive",
-    "cap": 1,
+    "cap": 3,
     "xp": 40,
     "cells": 2,
-    "text": "要害射擊只花 2 行動點（原本 3），效果相同：命中 +3，可以指定部位，打出要害時擲重創。狙擊槍的一槍也一樣只花 2 行動點。它不是一個行動，裝著就生效。",
+    "text": "每回合你的第一次要害射擊只花 2 行動點（原本 3），效果相同：命中 +3，可以指定部位，打出要害時擲重創。狙擊槍的一槍也算，每回合第一槍只花 2 行動點。它不是一個行動，裝著就生效。",
     "meat": {
       "cost": {
         "ability": "sk_gunner_aimed_shot",
-        "ap": 2
+        "ap": 2,
+        "per_turn": 1
       },
       "weapon_cost": {
         "trait": "aimed",
-        "ap": 2
+        "ap": 2,
+        "per_turn": 1
       }
     },
     "net": {

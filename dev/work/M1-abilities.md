@@ -99,8 +99,8 @@ export function equipAbilities(k, state, actor, ids: string[]): ReportDraft   //
 | `attack` | 主動、反應 | 用手上的武器攻擊一次。子鍵：`aimed`（算瞄準過的射擊）、`hit`（命中加多少）、`spend: 'all'`（花掉彈匣裡剩下的全部）、`min_mag`（彈匣至少要有幾格）、`dice: 'spent_minus_1'`（傷害骰多「花掉的格數 − 1」顆）、`suppress: { dc: 'spent' 或數字, skill }`（打完之後目標過檢定，失敗被壓制；`'spent'` 是 10 ＋ 花掉的格數 × 2）、`at: 'attacker'`（反應：打的是正在攻擊的那個敵人） |
 | `apply` | 主動 | `[{ status, until? }]`：給目標狀態，`by` 是用技能的人 |
 | `free_move` | 主動 | `{ swap_adjacent_pair: true }`：讓選的隊友和他相鄰的另一名隊友交換位置，不花他們的行動點 |
-| `cost` | 被動 | `{ ability, ap }`：裝著時，那個技能改花這麼多行動點 |
-| `weapon_cost` | 被動 | `{ trait, ap }`：裝著時，帶這個特性的武器射擊一次改花這麼多行動點 |
+| `cost` | 被動 | `{ ability, ap, per_turn? }`：裝著時，那個技能改花這麼多行動點；寫了 `per_turn`（正整數）就只有每個回合的前幾次，用完照原價 |
+| `weapon_cost` | 被動 | `{ trait, ap, per_turn? }`：裝著時，帶這個特性的武器射擊一次改花這麼多行動點；`per_turn` 同上 |
 | `trigger` | 反應 | `ally_attacked`（一名隊友被攻擊、擲命中之前）、`ally_attacked_adjacent`（那名隊友和自己相鄰） |
 | `evade` | 反應 | 被攻擊的那名隊友這一次的迴避加多少 |
 | `on_hit` | 反應 | `{ hit_against_ally: -2 }`：反應的那一槍命中的話，原本那次攻擊的命中加這麼多 |
@@ -115,7 +115,7 @@ export function equipAbilities(k, state, actor, ids: string[]): ReportDraft   //
 
 每一個 `kind: 'active'`、`meat` 裡有 `target` 的技能註冊一個行動（`meat` 是 `null`、是 `pending`、或只有 `cost`／`weapon_cost` 這類被動的鍵的不註冊；定點射已改成被動）：`id` 是技能的 id、`owner: 'abilities'`、`name`、`desc: text`、`group: 'skill'`、`modes: ['meat']`、`order` 是它在內容裡的順序、`has` 是「這個單位裝著它」。
 
-- **花費**：`use.ap`；有別的裝著的被動技能的 `meat.cost.ability` 指向它時，改用那個 `ap`。
+- **花費**：`use.ap`；有別的裝著的被動技能的 `meat.cost.ability` 指向它時，改用那個 `ap`。那個 `cost` 寫了 `per_turn` 時，只有這個回合的減免次數還沒用完才改用（見下面「每回合第幾次的減免」）；行動的 `run` 一開始用掉一次（花費在行動之前已經扣了）。
 - **共同的 `blocks`**：`use.per_fight` 用完了（`unit.uses[技能 id] >= per_fight`）→ `'這一場已經用過了。'`；`use.first_round` 而現在不是第 1 回合 → `'只能在第一回合用。'`；`use.per_turn` 用完了（`unit.uses['turn:' + 技能 id]`）→ `'這一回合已經用過了。'`。用了之後把對應的次數加一（`turn:` 開頭的核心會在這個人的回合開始時清掉）。
 - **`attack` 的 `blocks`**：手上是近戰武器 → `'要拿著槍才能用。'`；彈匣空了 → `'彈匣空了，要先換彈。'`；有 `min_mag` 而彈匣（現在的格數，或容量）不到 → `` `彈匣裡要有 ${min_mag} 格以上才能連射。` ``。
 - **目標**（`targets`）：`enemy` 是敵方每一個在場上的人；`ally` 是我方每一個在場上的人（不含自己）。
@@ -148,7 +148,12 @@ export function equipAbilities(k, state, actor, ids: string[]): ReportDraft   //
 
 - `cost`、`weapon_cost`、`give_ap`、`call` 不看技能的 `kind`：裝著就生效。
 - `cost`：見上面的花費。
-- `weapon_cost`：在 `unit.ready` 把這個單位帶那個特性的每一把武器的 `ap` 改成那個數字（射擊的花費讀的是武器的 `ap`）。
+- `weapon_cost`：在 `unit.ready` 把這個單位帶那個特性的每一把武器的 `ap` 改成那個數字（射擊的花費讀的是武器的 `ap`）。寫了 `per_turn` 的是每回合第幾次的減免，見下面。
+- **每回合第幾次的減免**（`cost.per_turn`、`weapon_cost.per_turn`；定點射：`per_turn: 1`）：同一個技能的 `cost` 與 `weapon_cost` 共用一個回合計數 `unit.uses['turn:<技能 id>.discount']`（核心每個回合開始清掉 `turn:` 開頭的鍵，所以下個回合又有次數；兩邊都寫時 `per_turn` 要一樣，格式檢查會擋）。核心不用改：
+  - 主動技能（要害射擊）：花費函式讀計數，還有次數才用 `cost.ap`；行動跑的時候（花費已經扣了）計數加一。
+  - 武器（狙擊槍的一槍）：射擊行動讀武器的 `ap`，所以還有次數時武器的 `ap` 是減免後的數字：`unit.ready` 與 `turn.start`（回合開始，清計數之後）把帶 `trait` 的武器改成 `weapon_cost.ap`（只在比原本便宜時），原本的 `ap` 記在 `uses['wbase:<武器的位置>']`（沒寫 `ap` 的記 `-1`）；一次「花了行動點的射擊」（`attack.before`，攻擊的是輪到的人、`opts.tags` 是空的或只有 `sweep`，監視、反應、無人機與技能的攻擊不算）用掉計數，次數用完就把武器的 `ap` 還原。
+  - 兩邊共用計數：同一回合要害射擊與狙擊槍的一槍合起來只省一次；技能用掉次數時也把武器還原。
+  - 內容檢查：`per_turn` 是 1 以上的整數；`cost.per_turn` 指向的技能（在 `ready` 檢查）要是主動技能。
 - 共鳴：一個單位在某棵樹的階數到了 N，那棵樹 `tier <= N` 的共鳴都生效（要裝著那棵樹的招牌才算）。
   - `initiative`：`k.battle.modifier` 在 `kind === 'initiative'` 時回傳 `{ label: 共鳴的樹名, value }`。
   - `free_move: { per_fight: 1 }`：`kind === 'move_ap'` 時，這一場還沒用過就回傳 `{ label, value: -1 }`；`k.battle.on('moved', …)` 在 `by === 'action'`、而且換位的就是輪到的那個人（`run.current()?.id === unit.id`）時把 `unit.uses.free_move` 加一。

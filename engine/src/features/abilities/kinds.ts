@@ -67,13 +67,21 @@ function meatProblems(m: Record<string, unknown>): string[] {
     }
   }
   if (m.cost !== undefined) {
-    if (!isRec(m.cost) || !isText(m.cost.ability) || !(isInt(m.cost.ap) && m.cost.ap >= 0)) p.push('meat.cost 要是 { ability, ap }：ability 是技能的 id，ap 是 0 以上的整數')
-    else p.push(...onlyKeys('meat.cost', m.cost, ['ability', 'ap']))
+    if (!isRec(m.cost) || !isText(m.cost.ability) || !(isInt(m.cost.ap) && m.cost.ap >= 0)) p.push('meat.cost 要是 { ability, ap, per_turn? }：ability 是技能的 id，ap 是 0 以上的整數')
+    else {
+      p.push(...onlyKeys('meat.cost', m.cost, ['ability', 'ap', 'per_turn']))
+      if (m.cost.per_turn !== undefined && !(isInt(m.cost.per_turn) && m.cost.per_turn >= 1)) p.push('meat.cost.per_turn 要是 1 以上的整數')
+    }
   }
   if (m.weapon_cost !== undefined) {
-    if (!isRec(m.weapon_cost) || !isText(m.weapon_cost.trait) || !(isInt(m.weapon_cost.ap) && m.weapon_cost.ap >= 0)) p.push('meat.weapon_cost 要是 { trait, ap }：trait 是武器的特性，ap 是 0 以上的整數')
-    else p.push(...onlyKeys('meat.weapon_cost', m.weapon_cost, ['trait', 'ap']))
+    if (!isRec(m.weapon_cost) || !isText(m.weapon_cost.trait) || !(isInt(m.weapon_cost.ap) && m.weapon_cost.ap >= 0)) p.push('meat.weapon_cost 要是 { trait, ap, per_turn? }：trait 是武器的特性，ap 是 0 以上的整數')
+    else {
+      p.push(...onlyKeys('meat.weapon_cost', m.weapon_cost, ['trait', 'ap', 'per_turn']))
+      if (m.weapon_cost.per_turn !== undefined && !(isInt(m.weapon_cost.per_turn) && m.weapon_cost.per_turn >= 1)) p.push('meat.weapon_cost.per_turn 要是 1 以上的整數')
+    }
   }
+  // 兩邊共用同一個回合計數：兩邊都寫 per_turn 就要一樣，只有一邊寫的話另一邊是每次都照那個行動點
+  if (isRec(m.cost) && isRec(m.weapon_cost) && m.cost.per_turn !== undefined && m.weapon_cost.per_turn !== undefined && m.cost.per_turn !== m.weapon_cost.per_turn) p.push('meat.cost.per_turn 與 meat.weapon_cost.per_turn 共用同一個回合計數，兩邊要寫一樣的數字')
   if (m.trigger !== undefined && !(TRIGGERS as readonly unknown[]).includes(m.trigger)) p.push(`meat.trigger 只能是 ${TRIGGERS.join('、')}`)
   if (m.evade !== undefined && !isNum(m.evade)) p.push('meat.evade 要是數字')
   if (m.on_hit !== undefined) {
@@ -217,6 +225,7 @@ export function checkAbilities(k: Pick<Kernel, 'content'>): void {
     }
     const cost = a.meat?.cost
     if (cost && !abilities.has(cost.ability)) problems.push(`${a.id}：meat.cost.ability 的 ${cost.ability} 不存在`)
+    else if (cost?.per_turn !== undefined && abilities.get(cost.ability)!.kind !== 'active') problems.push(`${a.id}：meat.cost.per_turn 的 ${cost.ability} 不是主動技能，每回合第幾次的減免沒有行動可以套`)
   }
   if (problems.length) throw new Error(`技能內容的檢查沒過（${problems.length} 個）：\n${problems.slice(0, 20).join('\n')}`)
 }

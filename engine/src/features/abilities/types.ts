@@ -59,8 +59,9 @@ export interface MeatDef {
   }
   apply?: Array<{ status: string; until?: StatusUntil }>
   free_move?: { swap_adjacent_pair?: boolean }
-  cost?: { ability: string; ap: number }
-  weapon_cost?: { trait: string; ap: number }
+  /** per_turn：每回合只有前幾次花 ap，之後照原價。cost 與 weapon_cost 都寫時兩邊共用同一個回合計數（所以數字要一樣） */
+  cost?: { ability: string; ap: number; per_turn?: number }
+  weapon_cost?: { trait: string; ap: number; per_turn?: number }
   trigger?: 'ally_attacked' | 'ally_attacked_adjacent'
   evade?: number
   on_hit?: { hit_against_ally?: number }

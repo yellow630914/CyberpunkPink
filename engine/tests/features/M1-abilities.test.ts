@@ -29,7 +29,7 @@ const PACK: ContentPack = {
       sk('sk_gunner_burst', '連射控制', 'gunner', 1, 'active', 1, { after: 'sk_gunner_instinct', use: { ap: 3 }, meat: { target: 'enemy', attack: { spend: 'all', min_mag: 2, dice: 'spent_minus_1', suppress: { dc: 'spent', skill: 'composure' } } } }),
       sk('sk_gunner_cover_fire', '掩護射擊', 'gunner', 1, 'reaction', 1, { after: 'sk_gunner_instinct', use: { ap: 2, per_turn: 1 }, meat: { trigger: 'ally_attacked_adjacent', attack: { at: 'attacker' }, on_hit: { hit_against_ally: -2 } } }),
       sk('sk_gunner_watch_me', '看我的！', 'gunner', 1, 'active', 1, { layer: 'back', after: 'sk_gunner_aimed_shot', use: { ap: 1, per_fight: 1, first_round: true }, meat: { target: 'enemy', attack: { hit: 1 } } }),
-      sk('sk_gunner_point_shot', '定點射', 'gunner', 2, 'passive', 1, { after: 'sk_gunner_aimed_shot', meat: { cost: { ability: 'sk_gunner_aimed_shot', ap: 2 }, weapon_cost: { trait: 'aimed', ap: 2 } } }),
+      sk('sk_gunner_point_shot', '定點射', 'gunner', 2, 'passive', 3, { after: 'sk_gunner_aimed_shot', meat: { cost: { ability: 'sk_gunner_aimed_shot', ap: 2, per_turn: 1 }, weapon_cost: { trait: 'aimed', ap: 2, per_turn: 1 } } }),
       sk('sk_gunner_thats_you', '就是你了', 'gunner', 2, 'active', 1, { layer: 'back', after: 'sk_gunner_point_shot', use: { ap: 1 }, meat: { target: 'enemy', apply: [{ status: 'marked', until: 'source_turn_start' }] } }),
       sk('sk_fixer_face', '人面', 'fixer', 1, 'passive', 3, { layer: 'signature', meat: { give_ap: { max: 'one_plus_half_tier' }, call: { options: ['shot', 'cover_up', 'cover_down'], per_fight: 'half_tier_up', ap: 1 } } }),
       sk('sk_fixer_focus_fire', '集火', 'fixer', 1, 'active', 1, { after: 'sk_fixer_face', use: { ap: 1 }, meat: { target: 'enemy', apply: [{ status: 'marked', until: 'source_turn_start' }] } }),
@@ -107,7 +107,7 @@ describe('戰鬥裡的技能（SKILL_TREES 槍手、掮客 1～2 階）', () => 
     expect(g.battleOptions()!.actions.some((a) => a.group === 'skill')).toBe(false)
   })
 
-  it('要害射擊：3 點、花彈匣 1 格，算瞄準過的射擊（命中 +3）；裝了定點射只花 2 點', () => {
+  it('要害射擊：3 點、花彈匣 1 格，算瞄準過的射擊（命中 +3）；裝了定點射每回合第一次只花 2 點，第二次 3 點', () => {
     const g = game([unit(['sk_gunner_aimed_shot'], { weapon: 'rifle' }), unit(['sk_gunner_aimed_shot', 'sk_gunner_point_shot'], { weapon: 'rifle' }, 2)])
     const me = turnTo(g, 'a1')
     const r = g.battleAct({ action: 'sk_gunner_aimed_shot', target: { unit: 'f1' } })
@@ -115,8 +115,14 @@ describe('戰鬥裡的技能（SKILL_TREES 槍手、掮客 1～2 階）', () => 
     expect(beats(r).find((b) => b.roll)!.roll!.parts).toContainEqual(expect.objectContaining({ label: '瞄準', value: 3 }))
     expect(g.battle!.units.a1!).toMatchObject({ ap: { now: me.ap.max - 3 }, weapons: [{ mag: { now: 2 } }] })
     expect(beats(r).some((b) => b.tag === 'skill')).toBe(true)
-    turnTo(g, 'a2')
+    expect(opt(g, 'sk_gunner_aimed_shot')!.cost.ap).toBe(3) // 沒裝定點射：每次都 3 點
+    const you = turnTo(g, 'a2')
     expect(opt(g, 'sk_gunner_aimed_shot')!.cost.ap).toBe(2)
+    expect(g.battleAct({ action: 'sk_gunner_aimed_shot', target: { unit: 'f1' } }).status).toBe('applied')
+    expect(g.battle!.units.a2!.ap.now).toBe(you.ap.max - 2)
+    expect(opt(g, 'sk_gunner_aimed_shot')!.cost.ap).toBe(3) // 這回合的第一次用掉了：第二次照原價
+    expect(g.battleAct({ action: 'sk_gunner_aimed_shot', target: { unit: 'f1' } }).status).toBe('applied')
+    expect(g.battle!.units.a2!.ap.now).toBe(you.ap.max - 2 - 3)
   })
 
   it('連射：花掉彈匣裡剩下的全部（至少 2 格），傷害骰多「格數 − 1」顆；不管有沒有打中，目標過定力（DC 10 ＋ 格數 × 2），失敗被壓制', () => {
@@ -135,6 +141,81 @@ describe('戰鬥裡的技能（SKILL_TREES 槍手、掮客 1～2 階）', () => 
     const s = game([unit(['sk_gunner_burst'], { weapon: 'sniper' })])
     turnTo(s, 'a1')
     expect(opt(s, 'sk_gunner_burst')!.ok).toBe(false)
+  })
+
+  describe('定點射：每回合第一次（要害射擊與狙擊槍的一槍共用一個計數）', () => {
+    const point = (weapon: string, ids = ['sk_gunner_aimed_shot', 'sk_gunner_point_shot']) => game([unit(ids, { weapon })], [foe('boss')])
+    const shoot = (g: G) => g.battleAct({ action: TEST_ACTIONS.ATTACK, target: { unit: 'f1' } })
+    const aim = (g: G) => g.battleAct({ action: 'sk_gunner_aimed_shot', target: { unit: 'f1' } })
+    const reload = (g: G) => g.battleAct({ action: TEST_ACTIONS.RELOAD })
+    const costs = (g: G) => [opt(g, 'sk_gunner_aimed_shot')!.cost.ap, opt(g, TEST_ACTIONS.ATTACK)!.cost.ap]
+
+    // 每一步之後狀態都是新的副本：每次重新拿
+    const ap = (g: G) => g.battle!.units.a1!.ap.now
+    const full = (g: G) => g.battle!.units.a1!.ap.max
+
+    it('狙擊槍的一槍：每回合第一槍 2 點（本來 3 點），用掉之後第二槍回到 3 點；沒裝定點射的人每槍都 3 點', () => {
+      const g = point('sniper')
+      turnTo(g, 'a1')
+      expect(costs(g)).toEqual([2, 2]) // 射擊前：兩種瞄準過的射擊都顯示 2 點
+      expect(shoot(g).status).toBe('applied')
+      expect(ap(g)).toBe(full(g) - 2)
+      expect(costs(g)).toEqual([3, 3]) // 射擊後：兩種都回到原價
+      expect(reload(g).status).toBe('applied')
+      expect(shoot(g)).toMatchObject({ status: 'refused', reasons: [`行動點不夠（要 3 點，現在 ${full(g) - 2 - 1} 點）。`] }) // 剩 2 點：第二槍要 3 點，不夠
+      g.battle!.units.a1!.ap.now = full(g)
+      expect(shoot(g).status).toBe('applied')
+      expect(ap(g)).toBe(full(g) - 3)
+      const plain = game([unit(['sk_gunner_aimed_shot'], { weapon: 'sniper' })])
+      turnTo(plain, 'a1')
+      expect(costs(plain)).toEqual([3, 3])
+    })
+
+    it('要害射擊與狙擊槍的一槍共用同一個計數：同一回合兩種合起來只省一次（先用哪個都一樣）', () => {
+      const run = (a: (g: G) => unknown, b: (g: G) => unknown) => {
+        const g = point('sniper')
+        turnTo(g, 'a1')
+        a(g)
+        expect(ap(g)).toBe(full(g) - 2)
+        expect(costs(g)).toEqual([3, 3])
+        reload(g)
+        g.battle!.units.a1!.ap.now = full(g) // 只看第二槍的價錢
+        b(g)
+        expect(ap(g)).toBe(full(g) - 3)
+      }
+      run(aim, shoot) // 先要害射擊（2 點），再狙擊槍的一槍（3 點）
+      run(shoot, aim) // 先狙擊槍的一槍（2 點），再要害射擊（3 點）
+    })
+
+    it('下一個回合又有一次；沒用掉的次數不累積', () => {
+      const g = point('sniper')
+      turnTo(g, 'a1')
+      shoot(g)
+      expect(costs(g)).toEqual([3, 3])
+      expect(g.battleAct({ action: END_TURN }).status).toBe('applied')
+      for (let i = 0; i < 20 && g.battle!.order[g.battle!.turn] !== 'a1'; i++) g.battleNext()
+      expect(g.battle!.order[g.battle!.turn]).toBe('a1')
+      expect(costs(g)).toEqual([2, 2]) // 下一回合：又是 2 點
+      reload(g)
+      shoot(g)
+      expect(costs(g)).toEqual([3, 3])
+    })
+
+    it('不是用武器的行動點打的槍不用掉次數：監視的自動射擊、看我的！', () => {
+      const g = game([unit(['sk_gunner_aimed_shot', 'sk_gunner_point_shot', 'sk_gunner_watch_me'], { weapon: 'sniper' })], [foe('boss')])
+      turnTo(g, 'a1')
+      expect(opt(g, 'sk_gunner_watch_me')!.cost.ap).toBe(1)
+      expect(g.battleAct({ action: 'sk_gunner_watch_me', target: { unit: 'f1' } }).status).toBe('applied') // 技能自己的 1 點，不算狙擊槍的減免
+      expect(costs(g)).toEqual([2, 2])
+    })
+
+    it('步槍沒有 aimed 特性，射擊的價錢不變；要害射擊還是每回合第一次 2 點', () => {
+      const g = point('rifle')
+      turnTo(g, 'a1')
+      expect(costs(g)).toEqual([2, 2]) // 步槍沒寫 ap：射擊本來就是 2 點
+      aim(g)
+      expect(costs(g)).toEqual([3, 2])
+    })
   })
 
   it('看我的！：只能在第一回合、每場一次；射擊一次只花 1 點、命中 +1', () => {

@@ -20,6 +20,7 @@ const ABILITIES = [
   sk('sk_gunner_cover_fire', '掩護射擊', 'gunner', 1, 'reaction', 1, { after: 'sk_gunner_instinct', use: { ap: 2, per_turn: 1 }, meat: { trigger: 'ally_attacked_adjacent', attack: { at: 'attacker' }, on_hit: { hit_against_ally: -2 } } }),
   sk('sk_gunner_burst', '連射控制', 'gunner', 1, 'active', 1, { after: 'sk_gunner_instinct', use: { ap: 3 }, meat: { target: 'enemy', attack: { spend: 'all', min_mag: 2, dice: 'spent_minus_1', suppress: { dc: 'spent', skill: 'composure' } } } }),
   sk('sk_gunner_pending', '還沒做的', 'gunner', 1, 'active', 1, { after: 'sk_gunner_instinct', use: { ap: 1 }, meat: { pending: true } }),
+  sk('sk_gunner_point_shot', '定點射', 'gunner', 2, 'passive', 3, { after: 'sk_gunner_instinct', meat: { cost: { ability: 'sk_gunner_burst', ap: 2, per_turn: 1 }, weapon_cost: { trait: 'aimed', ap: 2, per_turn: 1 } } }),
   sk('sk_gunner_sights', '瞄具', 'gunner', 2, 'passive', 1, { after: 'sk_gunner_instinct', meat: { weapon_cost: { trait: 'long', ap: 1 } } }),
   sk('sk_fixer_face', '人面', 'fixer', 1, 'passive', 3, { layer: 'signature', meat: { give_ap: { max: 'one_plus_half_tier' }, call: { options: ['shot', 'cover_up', 'cover_down'], per_fight: 'half_tier_up', ap: 1 } } }),
   sk('sk_fixer_swap', '換個位子嘛', 'fixer', 1, 'active', 1, { after: 'sk_fixer_face', use: { ap: 1 }, meat: { target: 'ally', free_move: { swap_adjacent_pair: true } } }),
@@ -316,6 +317,15 @@ describe('單位的資料與開場的效果', () => {
     expect(u.a1!.ext.abilities).toEqual({ equipped: ['sk_gunner_sights'], tiers: { gunner: 2, fixer: 2 } })
   })
 
+  it('每回合第幾次的 weapon_cost：unit.ready 把武器掛上減免（原本的數字記在 uses），用掉之後還原，下一回合開始再掛上', () => {
+    const g = makeBattleGame({ features: FEATURES, content: [PACK], battle: duel([one({ weapon: 'sniper', ...equipped('sk_gunner_point_shot') }), one({ weapon: 'rifle', ...equipped('sk_gunner_point_shot') }, 2)], [foe('boss')]), seed: 7 }).game
+    const u = () => g.battle!.units
+    expect(u().a1!.weapons[0]!.ap).toBe(2) // 狙擊槍帶 aimed：3 點掛成 2 點，原本的 3 記著
+    expect(u().a1!.uses['wbase:0']).toBe(3)
+    expect(u().a2!.weapons[0]!.ap).toBeUndefined() // 步槍沒有 aimed：不動
+    expect(u().a2!.uses['wbase:0']).toBeUndefined()
+  })
+
   it('有角色的單位：照開打那一刻的 equipped 與 spent；沒裝東西的角色得到空的資料；沒有角色的單位不填', () => {
     const t = makeGame({ features: FEATURES, content: [PACK], pc: { ext: { abilities: { xp: 0, learned: [], equipped: [], spent: { gunner: 130, fixer: 39 } } } } })
     t.game.startBattle({ mode: 'meat', grade: 1, cover: 'medium', allies: [{ from: 'actor', id: 'pc' }, { from: 'unit', unit: one({}, 2) as unknown as Record<string, unknown> }], foes: [{ from: 'unit', unit: foe('minion') as unknown as Record<string, unknown> }] })
@@ -414,6 +424,11 @@ describe('內容的檢查', () => {
     expect(fmt({ meat: { target: 'everyone' } })).toThrow(/meat\.target/)
     expect(fmt({ meat: { call: { options: ['summon'], per_fight: 'half_tier_up', ap: 1 } } })).toThrow(/options/)
     expect(fmt({ meat: { apply: [{ status: 'marked', until: 'someday' }] } })).toThrow(/until/)
+    expect(fmt({ meat: { cost: { ability: 'sk_gunner_burst', ap: 1, per_turn: 0 } } })).toThrow(/meat\.cost\.per_turn/)
+    expect(fmt({ meat: { cost: { ability: 'sk_gunner_burst', ap: 1, per_fight: 1 } } })).toThrow(/per_fight/)
+    expect(fmt({ meat: { weapon_cost: { trait: 'aimed', ap: 1, per_turn: 1.5 } } })).toThrow(/meat\.weapon_cost\.per_turn/)
+    expect(fmt({ meat: { cost: { ability: 'sk_gunner_burst', ap: 1, per_turn: 1 }, weapon_cost: { trait: 'aimed', ap: 1, per_turn: 2 } } })).toThrow(/共用同一個回合計數/)
+    expect(fmt({ meat: { cost: { ability: 'sk_gunner_burst', ap: 1, per_turn: 1 }, weapon_cost: { trait: 'aimed', ap: 1, per_turn: 1 } } })).not.toThrow()
     expect(fmt({ meat: 5 })).toThrow(/meat/)
     expect(fmt({ net: undefined })).toThrow(/net/)
     expect(fmt({ after: undefined })).toThrow(/after/)
@@ -435,6 +450,10 @@ describe('內容的檢查', () => {
     expect(bad('sk_x1', { after: 'sk_fixer_face' })).toThrow(/sk_fixer_face/)
     expect(bad('sk_x2', { category: 'social' })).toThrow(/category/)
     expect(bad('sk_x3', { meat: { cost: { ability: 'sk_ghost', ap: 1 } } })).toThrow(/sk_ghost/)
+    // 每回合第幾次的減免要套在主動技能上；被動技能沒有行動可以套
+    expect(bad('sk_x4', { meat: { cost: { ability: 'sk_gunner_burst', ap: 2, per_turn: 1 } } })).not.toThrow()
+    expect(bad('sk_x5', { meat: { cost: { ability: 'sk_gunner_instinct', ap: 2, per_turn: 1 } } })).toThrow(/sk_gunner_instinct.*不是主動技能/)
+    expect(bad('sk_x6', { meat: { cost: { ability: 'sk_gunner_instinct', ap: 2 } } })).not.toThrow()
     expect(() => readyFeatures(kernel({ path: [{ ...PATHS[0]!, signature: 'sk_fixer_face' }, PATHS[1]!] }))).toThrow(/sk_fixer_face/)
     // 引用不存在的樹 / 招牌：載入時就擋（內容的引用檢查）
     const k = kernel({ ability: [...ABILITIES, sk('sk_lost', '迷路', 'ghost', 1, 'passive', 1, { after: 'sk_gunner_instinct' })] })

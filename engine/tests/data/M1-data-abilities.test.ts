@@ -49,7 +49,8 @@ describe('M1-data-abilities：槍手與掮客兩棵樹', () => {
     const get = (id: string) => g.k.content.get<Sk>('ability', id)!
     expect(get('sk_gunner_aimed_shot')).toMatchObject({ name: '要害射擊', tier: 1, layer: 'front', after: 'sk_gunner_instinct', kind: 'active', cap: 1, use: { ap: 3 } })
     expect(get('sk_gunner_burst')).toMatchObject({ name: '連射控制', tier: 1, kind: 'active', cap: 1, use: { ap: 3 } })
-    expect(get('sk_gunner_point_shot')).toMatchObject({ name: '定點射', tier: 2, after: 'sk_gunner_aimed_shot' })
+    expect(get('sk_gunner_point_shot')).toMatchObject({ name: '定點射', tier: 2, after: 'sk_gunner_aimed_shot', kind: 'passive', cap: 3, meat: { cost: { ability: 'sk_gunner_aimed_shot', ap: 2, per_turn: 1 }, weapon_cost: { trait: 'aimed', ap: 2, per_turn: 1 } } })
+    expect(get('sk_gunner_point_shot').text).toMatch(/每回合你的第一次要害射擊只花 2 行動點.*狙擊槍的一槍也算，每回合第一槍只花 2 行動點/)
     expect(get('sk_gunner_one_shot')).toMatchObject({ name: '一槍定局', tier: 5, layer: 'front', cap: 3, use: { ap: 3, per_fight: 1 }, net: null })
     expect(get('sk_fixer_focus_fire')).toMatchObject({ name: '集火', tier: 1, layer: 'front', after: 'sk_fixer_face', kind: 'active', cap: 1, use: { ap: 1 } })
     expect(get('sk_fixer_bail')).toMatchObject({ name: '保釋', tier: 3, kind: 'reaction', cap: 2 })

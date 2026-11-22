@@ -32,10 +32,62 @@ function equippedOf(view: Pick<BattleView, 'k'>, u: BattleUnit): AbilityEntry[] 
 
 // ---- 行動的花費、次數與條件 ----
 
-/** 這個技能的行動點：use.ap；裝著的被動技能的 meat.cost.ability 指向它時改用那個。 */
+// ---- 每回合第幾次的減免（meat.cost.per_turn、meat.weapon_cost.per_turn） ----
+// 一個被動技能的 cost（指定的主動技能）與 weapon_cost（帶某特性的武器射擊）共用一個回合計數：uses['turn:<技能 id>.discount']，
+// 核心每個回合開始時清掉所有 'turn:' 開頭的鍵，所以下一回合又有一次。
+// 主動技能的花費在 cost() 讀計數；武器的花費（射擊行動讀武器的 ap）則是把武器的 ap 暫時改成減免後的數字、
+// 原本的數字記在 uses['wbase:<武器的位置>']（-1 是「原本沒寫 ap」），減免用掉時還回去，下個回合開始再改一次。
+
+const discountKey = (ab: AbilityEntry): string => `turn:${ab.id}.discount`
+const baseKey = (i: number): string => `wbase:${i}`
+/** 這個技能的回合減免次數；不是每回合型的是 undefined。 */
+const perTurnOf = (ab: AbilityEntry): number | undefined => ab.meat?.cost?.per_turn ?? ab.meat?.weapon_cost?.per_turn
+const discountLeft = (u: BattleUnit, ab: AbilityEntry): boolean => (u.uses[discountKey(ab)] ?? 0) < (perTurnOf(ab) ?? 0)
+/** 射擊的預設行動點（武器沒寫 ap 時，射擊行動照這個算）。 */
+const DEFAULT_SHOT_AP = 2
+
+/** 這個單位帶這個特性的武器（位置與武器）。 */
+function weaponsWith(u: BattleUnit, trait: string): Array<[number, BattleUnit['weapons'][number]]> {
+  return u.weapons.map((w, i): [number, BattleUnit['weapons'][number]] => [i, w]).filter(([, w]) => w.traits.includes(trait))
+}
+
+/** 把減免掛到武器上（已經掛著的不動）；減免沒有比較便宜就不掛。 */
+function armWeapons(u: BattleUnit, ab: AbilityEntry): void {
+  const wc = ab.meat?.weapon_cost
+  if (!wc || wc.per_turn === undefined || !discountLeft(u, ab)) return
+  for (const [i, w] of weaponsWith(u, wc.trait)) {
+    if (u.uses[baseKey(i)] !== undefined || wc.ap >= (w.ap ?? DEFAULT_SHOT_AP)) continue
+    u.uses[baseKey(i)] = w.ap ?? -1
+    w.ap = wc.ap
+  }
+}
+
+/** 把掛著的減免還原（這回合的次數用掉了）。 */
+function disarmWeapons(u: BattleUnit, ab: AbilityEntry): void {
+  const wc = ab.meat?.weapon_cost
+  if (!wc) return
+  for (const [i, w] of weaponsWith(u, wc.trait)) {
+    const base = u.uses[baseKey(i)]
+    if (base === undefined) continue
+    if (base < 0) delete w.ap
+    else w.ap = base
+    delete u.uses[baseKey(i)]
+  }
+}
+
+/** 用掉一次減免（花費已經照減免後的數字扣過了）。 */
+function spendDiscount(u: BattleUnit, ab: AbilityEntry): void {
+  u.uses[discountKey(ab)] = (u.uses[discountKey(ab)] ?? 0) + 1
+  if (!discountLeft(u, ab)) disarmWeapons(u, ab)
+}
+
+/** 這個技能的行動點：use.ap；裝著的被動技能的 meat.cost.ability 指向它時改用那個（寫了 per_turn 的只在這回合還有次數時）。 */
 function apOf(view: Pick<BattleView, 'k'>, u: BattleUnit, ab: AbilityEntry): number {
-  const override = equippedOf(view, u).find((x) => x.meat?.cost?.ability === ab.id)?.meat?.cost
-  return override ? override.ap : (ab.use?.ap ?? 1)
+  const base = ab.use?.ap ?? 1
+  const passive = equippedOf(view, u).find((x) => x.meat?.cost?.ability === ab.id)
+  const cost = passive?.meat?.cost
+  if (!passive || !cost) return base
+  return cost.per_turn !== undefined && !discountLeft(u, passive) ? base : cost.ap
 }
 
 /** 共同的條件：每場、第一回合、每回合。 */
@@ -139,6 +191,8 @@ function skillAction(ab: AbilityEntry, order: number): BattleActionDef {
     targets: (v, u) => targetsOf(v, u, ab),
     run(run, u, target, input) {
       bumpUses(u, ab)
+      // 這一次的行動點是照每回合減免算的：用掉一次（花費在行動之前已經扣了）
+      for (const x of equippedOf(run, u)) if (x.meat?.cost?.ability === ab.id && x.meat.cost.per_turn !== undefined && discountLeft(u, x) && x.meat.cost.ap < (ab.use?.ap ?? 1)) spendDiscount(u, x)
       run.say(`${u.name}：${ab.name}。`, 'skill', { unit: u.id, ability: ab.id }, u)
       const t = unitOfTarget(run, u, ab, target)
       if ((m.attack || m.apply || m.free_move) && !t) throw new BattleBlocked(['那一格沒有人。'])
@@ -279,8 +333,15 @@ export function registerBattle(k: Kernel): void {
     if (!isRec(unit.ext.abilities)) return
     for (const ab of equippedOf(run, unit)) {
       const wc = ab.meat?.weapon_cost
-      if (wc) for (const w of unit.weapons) if (w.traits.includes(wc.trait)) w.ap = wc.ap
+      if (!wc) continue
+      if (wc.per_turn !== undefined) armWeapons(unit, ab)
+      else for (const w of unit.weapons) if (w.traits.includes(wc.trait)) w.ap = wc.ap
     }
+  })
+
+  // 每回合第幾次的武器減免：計數在核心清掉之後（回合開始的掛點在清掉之後）重新掛到武器上
+  k.battle.on('turn.start', OWNER, ({ run, unit }) => {
+    for (const ab of equippedOf(run, unit)) armWeapons(unit, ab)
   })
 
   // 共鳴：這棵樹的階數到了 N，tier <= N 的共鳴都生效（要裝著這棵樹的招牌才算）
@@ -307,5 +368,15 @@ export function registerBattle(k: Kernel): void {
     if (by === 'action' && run.current()?.id === unit.id) unit.uses.free_move = (unit.uses.free_move ?? 0) + 1
   })
 
-  k.battle.on('attack.before', OWNER, ({ run, attacker, target, opts }) => react(run, attacker, target, opts))
+  k.battle.on('attack.before', OWNER, ({ run, attacker, target, weapon, opts }) => {
+    react(run, attacker, target, opts)
+    // 花了行動點的那一槍（沒有標籤，或只是掃射）用掉武器減免的次數；監視、反應、無人機與技能的攻擊不是用武器的花費打的
+    if (run.current()?.id !== attacker.id || !opts.tags?.every((t) => t === 'sweep')) return
+    const i = attacker.weapons.indexOf(weapon)
+    if (i < 0 || attacker.uses[baseKey(i)] === undefined) return
+    for (const ab of equippedOf(run, attacker)) {
+      const wc = ab.meat?.weapon_cost
+      if (wc?.per_turn !== undefined && weapon.traits.includes(wc.trait) && discountLeft(attacker, ab)) spendDiscount(attacker, ab)
+    }
+  })
 }

@@ -72,7 +72,7 @@
 "sk_gunner_burst":      { "target": "enemy", "attack": { "spend": "all", "min_mag": 2, "dice": "spent_minus_1", "suppress": { "dc": "spent", "skill": "composure" } } }
 "sk_gunner_cover_fire": { "trigger": "ally_attacked_adjacent", "attack": { "at": "attacker" }, "on_hit": { "hit_against_ally": -2 } }
 "sk_gunner_watch_me":   { "target": "enemy", "attack": { "hit": 1 } }
-"sk_gunner_point_shot": { "cost": { "ability": "sk_gunner_aimed_shot", "ap": 2 }, "weapon_cost": { "trait": "aimed", "ap": 2 } }
+"sk_gunner_point_shot": { "cost": { "ability": "sk_gunner_aimed_shot", "ap": 2, "per_turn": 1 }, "weapon_cost": { "trait": "aimed", "ap": 2, "per_turn": 1 } }
 "sk_gunner_thats_you":  { "target": "enemy", "apply": [{ "status": "marked", "until": "source_turn_start" }] }
 "sk_fixer_face":        { "give_ap": { "max": "one_plus_half_tier" }, "call": { "options": ["shot", "cover_up", "cover_down"], "per_fight": "half_tier_up", "ap": 1 } }
 "sk_fixer_focus_fire":  { "target": "enemy", "apply": [{ "status": "marked", "until": "source_turn_start" }] }
@@ -80,7 +80,7 @@
 "sk_fixer_swap":        { "target": "ally", "free_move": { "swap_adjacent_pair": true } }
 ```
 
-定點射已改成被動（2026-11-22 定案，SKILL_TREES）：`kind` 寫 `passive`、不寫 `use`，效果鍵照 `meat` 寫「要害射擊只花 2 點」（`cost`）。
+定點射已改成被動（2026-11-22 定案，SKILL_TREES）：`kind` 寫 `passive`、不寫 `use`，`cap` 是 3；效果是「每回合第一次」要害射擊（`cost`）與狙擊槍的一槍（`weapon_cost`）只花 2 點，兩邊都寫 `per_turn: 1`、共用一個回合計數（設計書 2026-11-22 改版；機制見 M1-abilities 的「每回合第幾次的減免」）。`text` 照設計書：「每回合你的第一次要害射擊只花 2 行動點（原本 3）……狙擊槍的一槍也算，每回合第一槍只花 2 行動點。它不是一個行動，裝著就生效。」
 
 ## 四、`engine/data/index.ts`
 
