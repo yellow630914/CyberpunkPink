@@ -47,7 +47,7 @@ const subdue: BattleActionDef = {
   run: (run, u, target) => {
     if (!target || !('unit' in target)) return
     const t = run.unit(target.unit)
-    const { ok } = run.save(u, 'body', 'brawl', subdueDc(run, t), '制伏')
+    const { ok } = run.save(u, 'body', 'brawl', subdueDc(run, t), '制伏', [], ['subdue'])
     if (!ok) return
     // 有束帶先用束帶；鎖橋器不消耗（內容的 consumable 寫 false）
     const have = restraints(run.k, u)
@@ -84,7 +84,7 @@ const flee: BattleActionDef = {
     const useAthletics = (best.skills.athletics ?? 0) >= (best.skills.stealth ?? 0)
     const top = Math.max(0, ...unitsOf(run.battle, otherSide(u.side)).map((f) => f.grade))
     const dc = run.n.fleeDc.base + top * run.n.fleeDc.perGrade
-    const { ok } = useAthletics ? run.save(best, 'body', 'athletics', dc, '脫離') : run.save(best, 'reflex', 'stealth', dc, '脫離')
+    const { ok } = useAthletics ? run.save(best, 'body', 'athletics', dc, '脫離', [], ['flee']) : run.save(best, 'reflex', 'stealth', dc, '脫離', [], ['flee'])
     if (ok) {
       run.say(`${best.name} 帶著全隊脫離了戰鬥。`, 'flee', { unit: best.id }, best)
       run.finish('fled', '全隊脫離了這場戰鬥，敵人還在原地。')

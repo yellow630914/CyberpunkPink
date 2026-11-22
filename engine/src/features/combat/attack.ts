@@ -66,7 +66,7 @@ const shoot: BattleActionDef = {
     run.attack(u, t, { spend: 2, label: '掃射', tags: ['sweep'] })
     // 不管有沒有打中，目標還在場上就要過定力豁免，沒過就被壓制
     if (!t.out && t.slot >= 1) {
-      const s = run.save(t, 'resolve', 'composure', 14, '定力')
+      const s = run.save(t, 'resolve', 'composure', 14, '定力', [], ['resist:suppressed'])
       if (!s.ok) run.applyStatus(t, 'suppressed', { by: u })
     }
   },

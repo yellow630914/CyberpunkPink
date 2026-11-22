@@ -37,7 +37,7 @@ export const enemiesFeature: Feature = {
       const check = unit.rank === 'minion' ? bossOut || halfGone || low : bossOut || low
       if (!check) return
       unit.uses.morale = 1
-      const { ok } = run.save(unit, 'resolve', 'composure', MORALE_DC[unit.rank], '士氣')
+      const { ok } = run.save(unit, 'resolve', 'composure', MORALE_DC[unit.rank], '士氣', [], ['morale'])
       if (ok) return
       // 被困在第 4 格（站在第 4 格，前面三格沒有還站著的同伴），或對方還站著的人數是自己這一方的兩倍以上就投降，否則撤退（ENEMIES 4.4 節；dev/adr/0013 D4）
       const standing = (list: BattleUnit[]) => list.filter((u) => !u.out).length
