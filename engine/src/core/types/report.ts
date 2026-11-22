@@ -45,6 +45,13 @@ export interface TimelineBeat {
   roll?: CheckRoll
   /** 判定的轉折一句（「但是／而且」的內容）；紀錄的擲骰行下面顯示 */
   twist?: string
+  /**
+   * 這一拍是什麼事（戰鬥的事件：BATTLE_EVENTS 裡的一個，例如 crit、overload、down、subdue）。
+   * 直播的亮點、任務目標、成就聽的就是這個；沒有就是一般的敘述。
+   */
+  tag?: string
+  /** 事件的數字與對象（target、amount、slot……），給聽事件的功能與畫面用 */
+  data?: Record<string, unknown>
 }
 
 export interface ReportOutcome {

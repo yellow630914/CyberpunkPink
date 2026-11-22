@@ -182,7 +182,7 @@ describe('白箱 L7 一局遊戲（GAME_DESIGN 3；AI_TASKS 2.4、2.6；dev/inva
     const seen: Array<Array<string | undefined>> = []
     game.subscribe((_s, rs) => seen.push(rs.map((r) => r.action)))
     expect(game.load(game.save())).toBeNull()
-    expect(game.state.counters).toEqual({ from1: 1 })
+    expect(game.state.counters).toEqual({ [`from${SAVE_VERSION}`]: 1 })
     expect(seen).toEqual([['save.repair']])
   })
 

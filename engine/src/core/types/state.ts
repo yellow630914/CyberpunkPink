@@ -1,10 +1,16 @@
 // L0 型別：遊戲狀態的骨架。功能自己的狀態放在 ext[功能 id]，形狀由功能定義；核心不認得裡面的東西。
 
+import type { BattleState } from './battle'
+import type { MapsState } from './grid'
 import type { ActorId, AttrId, SkillId } from './ids'
 import type { Report, ReportLocation } from './report'
 import type { GameTime } from './time'
 
-export const STATE_VERSION = 1
+/**
+ * 狀態的版本。第 2 版（M1）：多了 battle（進行中的戰鬥）、maps（格子地圖的實例與位置）、snapshots（快照），
+ * 存檔規則多了敵人的係數（enemyCoef）、戰敗扣錢的金額上限（defeatMoneyCap）、重創要不要留傷勢（heavyWounds）。
+ */
+export const STATE_VERSION = 2
 
 /** 亂數狀態：種子與游標。每一次要擲骰，從（種子、游標、用途、重擲次數）導出一顆骰子的種子。 */
 export interface RngState {
@@ -58,6 +64,18 @@ export interface Actor {
   ext: Record<string, unknown>
 }
 
+/** 敵人的一組係數：生命、傷害、感載上限（普通都是 1）。 */
+export interface EnemyCoef {
+  hp: number
+  dmg: number
+  load: number
+}
+export interface EnemyCoefTable {
+  boss: EnemyCoef
+  /** 雜兵與精英：低（I～II）、中（III）、高（IV～V） */
+  minions: [EnemyCoef, EnemyCoef, EnemyCoef]
+}
+
 /** 存檔規則（MIGRATION A「存檔規則」、BALANCE 第 7 節、CHARACTER 5.6 節）。 */
 export interface SaveRules {
   difficulty: 'story' | 'easy' | 'normal' | 'hard' | 'legend' | 'custom'
@@ -67,10 +85,20 @@ export interface SaveRules {
   fastTravel: boolean
   /** 每週帳單的倍率 ×0～2 */
   billMult: number
-  /** 戰敗的三個設定 */
+  /**
+   * 敵人的係數（BALANCE 7.2 節）：乘在敵人的生命、傷害、感載上限上。預設的五個難度照表；自訂時每一格 0.25～5。
+   * 首領一組；雜兵與精英照敵人的等級分三段：低（I～II）、中（III）、高（IV～V）
+   */
+  enemyCoef: EnemyCoefTable
+  /** 戰敗的三個設定（COMBAT_SYSTEM 8.3 節） */
   defeatView: 'always' | 'skippable' | 'never'
   defeatTakeGear: boolean
+  /** 戰敗最多扣身上現金的多少（0～1）；預設 1：照事件，最多 100% */
   defeatMoneyLoss: number
+  /** 戰敗扣錢的金額上限；null 是不另外設上限 */
+  defeatMoneyCap: number | null
+  /** 重創重的那一級（要治療的傷勢）留不留；關掉時只留戰鬥中的狀態（COMBAT_SYSTEM 第 6 節） */
+  heavyWounds: boolean
   /** 名冊 NPC 會死 */
   rosterDeath: boolean
   /** 歷練倍率 0.5～2 */
@@ -87,6 +115,23 @@ export interface SaveRules {
    * 標籤的 id 照 DATA 第 1 節的 tags；「身體的私密描寫」是 CONTENT_TAG_INTIMATE_BODY。
    */
   contentOff: string[]
+}
+
+/**
+ * 一份快照：某一刻的整份狀態（存檔的文字），之後可以回到那一刻而保留紀錄（SERIES 第 6 節；COMBAT_SYSTEM 8.4 節）。
+ * 進委託副本的入口、每個階段開始時、每場戰鬥開打前各存一份。快照跟著存檔走；快照裡不再包快照（存的那一份 snapshots 是空的）。
+ */
+export interface SnapshotSlot {
+  /** s1、s2…… */
+  id: string
+  /** battle（戰鬥開打前）、stage（階段開始時）、entry（進入口時）；功能可以用自己的種類 */
+  kind: string
+  /** 給玩家看的名字 */
+  label: string
+  /** Game.save 那種存檔的文字 */
+  raw: string
+  /** 存的那一刻要怎麼重來（戰鬥：開打的設定），由發起的功能定義 */
+  data?: Record<string, unknown>
 }
 
 /** 一條任務鏈留在存檔裡的細節（AI_TASKS 5.5 節：只留最近五樓）。內容的形狀由 L7 的任務鏈引擎定義。 */
@@ -118,6 +163,12 @@ export interface GameState {
   reports: Report[]
   /** 任務鏈的細節 */
   chains: ChainRecordSlot[]
+  /** 進行中的戰鬥；沒有在打是 null。現實與內海的戰鬥不同場，同時只有一場 */
+  battle: BattleState | null
+  /** 格子地圖：開著的實例與現在站的位置 */
+  maps: MapsState
+  /** 快照：回到那一刻用的（撤退、戰敗後重來）。照存的順序 */
+  snapshots: SnapshotSlot[]
   /** 流水號 */
   seq: { report: number; chain: number; uid: number; floor: number }
   /** 功能自己的狀態，鍵是功能 id */

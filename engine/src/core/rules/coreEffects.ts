@@ -112,7 +112,7 @@ export function registerCoreEffects(reg: EffectRegistry): void {
     validate: (raw, ctx) => {
       if (!isId(raw.id)) return ['id 的格式不對']
       if (!isSafeInt(raw.qty) || raw.qty === 0) return ['qty 要是不為 0 的整數（不能大到失真）']
-      if (!ctx.content.hasKind('item')) return ['物品的目錄還沒有載入，不能給物品']
+      if (!ctx.content.list('item').length) return ['物品的目錄還沒有載入，不能給物品']
       if (!ctx.content.has('item', raw.id)) return [`引用了不存在的物品：${raw.id}`]
       if (raw.qty < 0 && countItem(ctx.state.inventory, raw.id) < -raw.qty) return [`背包裡的 ${raw.id} 不夠 ${-raw.qty} 個`]
       return []

@@ -233,8 +233,10 @@ describe('白箱 L4 效果的登錄表（EVENTS 2.4 封閉清單；AI_TASKS 2.5�
     const k = createKernel()
     const s = makeState()
     expect(k.effects.validate([{ kind: 'item', id: 'it_a', qty: 1 }], effCtx(k, s))[0]).toMatch(/目錄還沒有載入/)
-    k.content.defineKind({ kind: 'item', owner: 'wb', validate: () => [] })
-    k.content.load('item', [{ id: 'it_a', name: '甲', grade: 1 }, { id: 'it_b', name: '乙', grade: 3 }, { id: 'it_c', name: '丙' }])
+    const IT = (id: string, name: string, grade = 1) => ({ id, name, desc: `${name}。`, category: 'misc', grade, size: 1, legal: 'free' })
+    k.content.load('item', [IT('it_a', '甲'), IT('it_b', '乙', 3), IT('it_c', '丙')])
+    // 物品的格式（內容種類 item）：等級、大小、合法性都要寫
+    expect(() => k.content.load('item', [{ id: 'it_bad', name: '壞的' }])).toThrow(/要有 desc|grade 要是 1～5/)
     expect(k.effects.validate([{ kind: 'item', id: 'Bad', qty: 1 }], effCtx(k, s))).toEqual(['effects[0]：id 的格式不對'])
     expect(k.effects.validate([{ kind: 'item', id: 'it_a', qty: 0 }], effCtx(k, s))[0]).toMatch(/^effects\[0\]：qty 要是不為 0 的整數/)
     expect(k.effects.validate([{ kind: 'item', id: 'it_z', qty: 1 }], effCtx(k, s))[0]).toMatch(/不存在的物品：it_z/)

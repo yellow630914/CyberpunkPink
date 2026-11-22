@@ -25,9 +25,18 @@
 // | ext | key, value | 某個功能自己的狀態，整份換掉 |
 // | chain | slot | 記下一條任務鏈的細節，並清掉五樓以前的（AI_TASKS 5.5 節） |
 // | narration | report, text?, uncovered?, results? | 替一份已經提交的報告補上正文（寫正文在結果之後才有） |
+// | uid | advance | 流水號往前（戰鬥、地圖實例這類要一個不重複的 id 的東西） |
+// | battle | state（null 是結束）, step?, fold? | 整份換掉進行中的戰鬥；step 把這份報告記成這場戰鬥的一步；fold 在結束時把每一步的報告收掉（dev/adr/0011） |
+// | map.open | instance | 開一份地圖的實例 |
+// | map.close | id | 清掉一份實例（人還站在裡面就不行） |
+// | map.at | to（null 是離開格子地圖） | 換位置 |
+// | map.sheet | map, sheet, seen?, cells?, movers? | 改一張圖的狀態：看過的格子、改過的格子、會動的東西 |
+// | map.ext | map, value | 這份實例上發起的功能自己記的東西，整份換掉 |
+// | snapshot.add | slot | 存一份快照（回到那一刻用的）。同一種類只留最新的一份由存的人決定：先 drop 再 add |
+// | snapshot.drop | id 或 kind | 丟掉一份（或一種）快照 |
 
-import type { Actor, ChainRecordSlot, Change, FlagValue, GameState, ReportLocation, SaveRules } from '../types'
-import { ATTR_IDS } from '../types'
+import type { Actor, BattleState, CellPatch, ChainRecordSlot, Change, FlagValue, GameState, GridPos, MapInstance, MoverState, ReportLocation, SaveRules, SnapshotSlot } from '../types'
+import { ATTR_IDS, BATTLE_SIDES, BATTLE_SLOTS } from '../types'
 import { clone, deepEqual } from '../util/clone'
 import { formatAmount } from '../util/money'
 import { isId, isRecord, isSafeInt } from '../util/sanitize'
@@ -284,6 +293,160 @@ export function registerCoreChanges(reg: ChangeRegistry): void {
       r.narration = { ...r.narration, ...(c.text !== undefined ? { text: c.text } : {}), ...(c.results ? { results: [...c.results] } : {}), ...(c.uncovered ? { uncovered: [...c.uncovered] } : {}) }
     },
   })
+
+  reg.register<Change & { advance: number }>({
+    op: 'uid', owner: 'core',
+    validate: (s, c) => (isInt(c.advance) && c.advance > 0 && isInt(s.seq.uid + c.advance) ? [] : ['advance 要是正整數']),
+    apply: (s, c) => { s.seq.uid += c.advance },
+  })
+
+  // 進行中的戰鬥（dev/adr/0010、0011）。戰鬥狀態怎麼算是 L5 的事；這裡只管「整份換掉」與骨架的檢查。
+  reg.register<Change & { state: BattleState | null; step?: boolean; fold?: boolean }>({
+    op: 'battle', owner: 'core',
+    validate: (s, c) => {
+      if (c.state === null) return s.battle ? [] : ['現在沒有在戰鬥，沒有東西可以結束']
+      const p = battleProblems(c.state)
+      if (!p.length && s.battle && s.battle.id !== c.state.id) p.push(`已經有一場戰鬥在進行（${s.battle.id}），不能換成另一場`)
+      if (c.fold) p.push('fold 只能和 state: null 一起用（戰鬥結束時）')
+      return p
+    },
+    // 記進紀錄時不留整份戰鬥狀態（它在 state.battle；每一步的經過在報告的 timeline）
+    forLog: (c) => ({ op: 'battle', ...(c.state ? { id: c.state.id, round: c.state.round } : { state: null }), ...(c.step ? { step: true } : {}), ...(c.fold ? { fold: true } : {}) }),
+    apply: (s, c) => {
+      if (c.state === null) {
+        // 結束：這場戰鬥每一步的報告收掉（它們的經過已經接進結束那一份報告的 timeline）
+        if (c.fold && s.battle) {
+          const ids = new Set(s.battle.steps)
+          s.reports = s.reports.filter((r) => !ids.has(r.id))
+        }
+        s.battle = null
+        return
+      }
+      s.battle = clone(c.state)
+      // 這份報告是這場戰鬥的一步：記下它的 id（正在套用的這一份是 r<流水號 + 1>）
+      if (c.step) s.battle.steps.push(`r${s.seq.report + 1}`)
+    },
+  })
+
+  const instanceOf = (s: GameState, id: unknown): MapInstance | undefined => (typeof id === 'string' ? s.maps.instances[id] : undefined)
+
+  reg.register<Change & { instance: MapInstance }>({
+    op: 'map.open', owner: 'core',
+    validate: (s, c) => {
+      const m = c.instance
+      if (!isRecord(m) || !isId(m.id) || !isId(m.def) || !isRecord(m.sheets)) return ['instance 要有 id、def、sheets']
+      return s.maps.instances[m.id] ? [`地圖實例的 id 重複：${m.id}`] : []
+    },
+    apply: (s, c) => {
+      s.maps.instances[c.instance.id] = clone(c.instance)
+      s.maps.seq += 1
+    },
+  })
+
+  reg.register<Change & { id: string }>({
+    op: 'map.close', owner: 'core',
+    validate: (s, c) => (!instanceOf(s, c.id) ? [`沒有 ${String(c.id)} 這份地圖`] : s.maps.at?.map === c.id ? ['人還站在這張地圖裡，不能清掉'] : []),
+    apply: (s, c) => { delete s.maps.instances[c.id] },
+  })
+
+  reg.register<Change & { to: GridPos | null }>({
+    op: 'map.at', owner: 'core',
+    validate: (s, c) => {
+      if (c.to === null) return []
+      const t = c.to
+      if (!isRecord(t) || typeof t.sheet !== 'string' || !isInt(t.x) || !isInt(t.y) || t.x < 0 || t.y < 0) return ['to 要有 map、sheet 與不是負數的 x、y']
+      return instanceOf(s, t.map) ? [] : [`沒有 ${String(t.map)} 這份地圖`]
+    },
+    apply: (s, c) => { s.maps.at = c.to ? { map: c.to.map, sheet: c.to.sheet, x: c.to.x, y: c.to.y } : null },
+  })
+
+  reg.register<Change & { map: string; sheet: string; seen?: string[]; cells?: Record<string, CellPatch | null>; movers?: Record<string, MoverState | null> }>({
+    op: 'map.sheet', owner: 'core',
+    validate: (s, c) => {
+      if (!instanceOf(s, c.map)) return [`沒有 ${String(c.map)} 這份地圖`]
+      const p: string[] = []
+      if (typeof c.sheet !== 'string' || !c.sheet) p.push('要有 sheet（圖的 id）')
+      if (c.seen !== undefined && !(Array.isArray(c.seen) && c.seen.every((row) => typeof row === 'string' && /^[01]*$/.test(row)))) p.push('seen 要是只有 0 與 1 的字串陣列')
+      for (const key of ['cells', 'movers'] as const) if (c[key] !== undefined && !isRecord(c[key])) p.push(`${key} 要是一個物件`)
+      return p
+    },
+    apply: (s, c) => {
+      const m = s.maps.instances[c.map]!
+      const sheet = (m.sheets[c.sheet] ??= { seen: [], cells: {}, movers: {} })
+      if (c.seen) sheet.seen = [...c.seen]
+      for (const [key, v] of Object.entries(c.cells ?? {})) {
+        if (v === null) delete sheet.cells[key]
+        else sheet.cells[key] = { ...sheet.cells[key], ...clone(v) }
+      }
+      for (const [key, v] of Object.entries(c.movers ?? {})) {
+        if (v === null) delete sheet.movers[key]
+        else sheet.movers[key] = clone(v)
+      }
+    },
+  })
+
+  reg.register<Change & { slot: SnapshotSlot }>({
+    op: 'snapshot.add', owner: 'core',
+    validate: (s, c) => {
+      const x = c.slot
+      if (!isRecord(x) || !isId(x.id) || !isId(x.kind) || typeof x.label !== 'string' || typeof x.raw !== 'string' || !x.raw) return ['slot 要有 id、kind、label 與 raw（存檔的文字）']
+      return s.snapshots.some((y) => y.id === x.id) ? [`快照的 id 重複：${x.id}`] : []
+    },
+    // 記進紀錄時不留存檔的文字（它在 state.snapshots）
+    forLog: (c) => ({ op: 'snapshot.add', slot: { id: c.slot.id, kind: c.slot.kind, label: c.slot.label } }),
+    apply: (s, c) => { s.snapshots.push(clone(c.slot)) },
+  })
+
+  reg.register<Change & { id?: string; kind?: string }>({
+    op: 'snapshot.drop', owner: 'core',
+    validate: (_s, c) => (typeof c.id === 'string' || typeof c.kind === 'string' ? [] : ['要寫 id 或 kind']),
+    apply: (s, c) => { s.snapshots = s.snapshots.filter((x) => !(c.id !== undefined ? x.id === c.id : x.kind === c.kind)) },
+  })
+
+  reg.register<Change & { map: string; value: Record<string, unknown> | null }>({
+    op: 'map.ext', owner: 'core',
+    validate: (s, c) => (!instanceOf(s, c.map) ? [`沒有 ${String(c.map)} 這份地圖`] : c.value === null || isRecord(c.value) ? [] : ['value 要是一個物件或 null']),
+    apply: (s, c) => {
+      const m = s.maps.instances[c.map]!
+      if (c.value === null) delete m.ext
+      else m.ext = clone(c.value)
+    },
+  })
+}
+
+/** 戰鬥狀態的骨架合不合格式（存進去的每一個數字都要是有限的數字；提交時另外擋 NaN 與 Infinity）。回傳錯誤訊息。 */
+export function battleProblems(b: unknown): string[] {
+  if (!isRecord(b)) return ['戰鬥狀態要是一個物件']
+  const p: string[] = []
+  if (typeof b.id !== 'string' || !b.id) p.push('要有 id')
+  if (typeof b.mode !== 'string' || !b.mode) p.push('要有 mode（戰場）')
+  if (!isInt(b.round) || (b.round as number) < 1) p.push('round 要是 1 以上的整數')
+  if (!Array.isArray(b.order) || !isRecord(b.units)) return [...p, '要有 order 與 units']
+  const units = b.units as Record<string, unknown>
+  if (b.order.some((id) => typeof id !== 'string' || !units[id])) p.push('order 裡有不存在的單位')
+  if (!isInt(b.turn) || (b.turn as number) < 0 || (b.order.length > 0 && (b.turn as number) >= b.order.length)) p.push('turn 要指到 order 裡的一個人')
+  if (!isRecord(b.cover) || BATTLE_SIDES.some((side) => !Array.isArray((b.cover as Record<string, unknown>)[side]) || ((b.cover as Record<string, unknown[]>)[side]!).length !== BATTLE_SLOTS)) p.push(`cover 要有雙方各 ${BATTLE_SLOTS} 格`)
+  if (!Array.isArray(b.steps) || !Array.isArray(b.overlays) || !Array.isArray(b.nodes) || !isRecord(b.reserve) || !isRecord(b.origin)) p.push('要有 steps、overlays、nodes、reserve、origin')
+  const seen = new Map<string, string>()
+  for (const [id, raw] of Object.entries(units)) {
+    if (!isRecord(raw) || raw.id !== id) { p.push(`units.${id}：id 和鍵不一樣`); continue }
+    if (!BATTLE_SIDES.includes(raw.side as never)) p.push(`units.${id}：side 只能是 ${BATTLE_SIDES.join('、')}`)
+    if (!isInt(raw.slot) || (raw.slot as number) < 0 || (raw.slot as number) > BATTLE_SLOTS) p.push(`units.${id}：slot 要是 0～${BATTLE_SLOTS}`)
+    const ap = raw.ap as Record<string, unknown> | undefined
+    if (!isRecord(ap) || !isInt(ap.now) || (ap.now as number) < 0) p.push(`units.${id}：行動點要是 0 以上的整數`)
+    for (const track of ['hp', 'load'] as const) {
+      const m = raw[track]
+      if (m !== undefined && !(isRecord(m) && isInt(m.now) && isInt(m.max) && (m.now as number) >= 0)) p.push(`units.${id}：${track} 要是 0 以上的整數`)
+    }
+    if (!isInt(raw.layers) || (raw.layers as number) < 0) p.push(`units.${id}：餘韻的層數要是 0 以上的整數`)
+    // 一格一個單位：還在場上的人不能站在同一格
+    if (!raw.out && (raw.slot as number) >= 1) {
+      const key = `${String(raw.side)}:${String(raw.slot)}`
+      if (seen.has(key)) p.push(`units.${id}：和 ${seen.get(key)} 站在同一格（一格一個單位）`)
+      seen.set(key, id)
+    }
+  }
+  return p
 }
 
 /** 狀態裡任何深度的 age 欄位，低於 18 的位置（讀檔與匯入時整筆拒絕，不自動改成 18）。 */

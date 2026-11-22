@@ -20,7 +20,8 @@ describe('L7 存檔與讀檔', () => {
     expect(r.file.format).toBe(SAVE_FORMAT)
     expect(r.file.version).toBe(SAVE_VERSION)
     expect(r.file.meta).toMatchObject({ kind: 'manual', day: 1, time: '第 1 天 08:00', savedAt: '2026-11-21T10:00:00Z', pc: { name: '測試主角' } })
-    expect(SAVE_VERSION).toBe(1)
+    // 第 2 版（M1）：多了 battle、maps 與存檔規則的三個欄位
+    expect(SAVE_VERSION).toBe(2)
   })
 
   it('不是存檔、壞掉的存檔、太新的存檔都讀不進來，並說明原因', () => {
@@ -55,12 +56,13 @@ describe('L7 存檔與讀檔', () => {
   })
 
   it('遷移的掛點：舊版的存檔照步驟表一版一版升上來；少了一步就讀不了', () => {
-    const v1 = raw(() => {})
+    const v1 = raw((f) => { f.version = 1; f.state.version = 1 })
     const migrations = [
       { from: 1, note: '第 2 版多了 flags.v2', run: (s: Record<string, unknown>) => ({ ...s, flags: { ...(s.flags as object), v2: true } }) },
       { from: 2, note: '第 3 版把 v2 改名成 v3', run: (s: Record<string, unknown>) => ({ ...s, flags: { v3: (s.flags as Record<string, unknown>).v2 } }) },
     ]
     const r = unpackSave(v1, { migrations, version: 3 })
+    // （這一段用測試自己的步驟表：從第 1 版升到第 3 版）
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.fromVersion).toBe(1)
@@ -68,9 +70,9 @@ describe('L7 存檔與讀檔', () => {
     expect(r.file.state.version).toBe(3)
     expect(r.file.state.flags).toEqual({ v3: true })
     expect(unpackSave(v1, { migrations: [migrations[1]!], version: 3 })).toEqual({ ok: false, error: '沒有從第 1 版升上來的遷移步驟。' })
-    // 現在是第 1 版：步驟表是空的，正常讀檔不跑任何一步
-    expect(MIGRATIONS).toEqual([])
-    expect(unpackSave(v1)).toMatchObject({ ok: true, fromVersion: 1 })
+    // 正式的步驟表：每一版到下一版各一步，不缺號；第 1 版的存檔照它升到現在的版本
+    expect(MIGRATIONS.map((m) => m.from)).toEqual(Array.from({ length: SAVE_VERSION - 1 }, (_, i) => i + 1))
+    expect(unpackSave(v1)).toMatchObject({ ok: true, fromVersion: 1, file: { version: SAVE_VERSION } })
     expect(unpackSave(raw((f) => { f.version = 0 })).ok).toBe(false)
   })
 
@@ -158,5 +160,33 @@ describe('L7 回退', () => {
     const restored = restoreKeeping(current, a, (cur, out) => { out.flags = { ...cur.flags } })
     expect(restored.flags).toEqual({ now: true })
     expect(a.flags).toEqual({})
+  })
+})
+
+// dev/adr/0005 第 5 點：狀態的形狀一改就留一份舊版的存檔當回歸測試
+describe('舊版的存檔（tests/fixtures/saves/）讀得進來', () => {
+  it('第 1 版（M0）：升到現在的版本；多出來的欄位補上；戰敗最多扣多少錢從 0 改成 1；其餘的不變', async () => {
+    const { readFileSync } = await import('node:fs')
+    const text = readFileSync(new URL('../fixtures/saves/v1-m0.json', import.meta.url), 'utf8')
+    const old = JSON.parse(text) as { version: number; state: Record<string, any> }
+    expect(old.version).toBe(1)
+    const r = unpackSave(text)
+    expect(r).toMatchObject({ ok: true, fromVersion: 1 })
+    if (!r.ok) return
+    const s = r.file.state
+    expect(s.version).toBe(SAVE_VERSION)
+    expect(s.battle).toBeNull()
+    expect(s.maps).toEqual({ instances: {}, at: null, seq: 0 })
+    // 存檔規則：玩家選的留著（困難、可以跳過、關掉的標籤），新的欄位照難度補
+    expect(s.rules).toMatchObject({ difficulty: 'hard', dcOffset: 1, defeatView: 'skippable', contentOff: ['ntr'], defeatMoneyLoss: 1, defeatMoneyCap: null, heavyWounds: true })
+    expect(s.rules.enemyCoef.boss).toEqual({ hp: 1.15, dmg: 1.35, load: 1.15 })
+    // 其餘的原樣
+    for (const k of ['rng', 'time', 'money', 'location', 'pc', 'actors', 'party', 'inventory', 'flags', 'counters', 'reports', 'chains', 'seq', 'ext']) expect(s[k as keyof typeof s], k).toEqual(old.state[k])
+    // 讀進來的那一份存得下去、再讀回來一模一樣
+    const again = unpackSave(packSave(s, r.file.meta))
+    expect(again.ok && again.file.state).toEqual(s)
+    const { game } = makeGame()
+    expect(game.load(text)).toBeNull()
+    expect(game.state.money).toEqual(old.state.money)
   })
 })

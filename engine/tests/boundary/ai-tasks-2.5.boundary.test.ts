@@ -549,8 +549,8 @@ describe('邊界 EVENTS 2.4／AI_TASKS 2.5：hp、load、sink', () => {
 describe('邊界 AI_TASKS 2.5：格式錯誤不論開關都擋；等級照這一區', () => {
   const setup = () => {
     const k = effectKernel()
-    k.content.defineKind({ kind: 'item', owner: 'test', validate: () => [] })
-    k.content.load('item', [{ id: 'it_g1', name: '菸', grade: 1 }, { id: 'it_g1b', name: '糰糧', grade: 1 }, { id: 'it_g2', name: '短刀', grade: 2 }, { id: 'it_g5', name: '神劍', grade: 5 }])
+    const IT = (id: string, name: string, grade = 1) => ({ id, name, desc: `${name}。`, category: 'misc', grade, size: 1, legal: 'free' })
+    k.content.load('item', [IT('it_g1', '菸'), IT('it_g1b', '糰糧'), IT('it_g2', '短刀', 2), IT('it_g5', '神劍', 5)])
     return k
   }
 

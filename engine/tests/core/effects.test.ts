@@ -101,8 +101,8 @@ describe('L4 效果：封閉清單、驗證、夾值', () => {
 
   it('物品：引用不存在的 id 是格式錯誤；等級超過這一區的整筆拿掉並提醒', () => {
     const { k, ctx } = setup({ grade: 1 })
-    k.content.defineKind({ kind: 'item', owner: 'test', validate: () => [] })
-    k.content.load('item', [{ id: 'it_smoke', name: '菸', grade: 1 }, { id: 'it_rifle', name: '步槍', grade: 3 }])
+    const IT = (id: string, name: string, grade = 1) => ({ id, name, desc: `${name}。`, category: 'misc', grade, size: 1, legal: 'free' })
+    k.content.load('item', [IT('it_smoke', '菸'), IT('it_rifle', '步槍', 3)])
     expect(k.effects.resolve([{ kind: 'item', id: 'it_nope', qty: 1 }], ctx).errors[0]).toMatch(/不存在的物品/)
     expect(k.effects.resolve([{ kind: 'item', id: 'it_smoke', qty: -1 }], ctx).errors[0]).toMatch(/不夠/)
     const r = k.effects.resolve([{ kind: 'item', id: 'it_smoke', qty: 1 }, { kind: 'item', id: 'it_rifle', qty: 1 }], ctx)

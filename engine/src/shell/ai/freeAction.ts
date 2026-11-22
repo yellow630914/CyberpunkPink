@@ -50,8 +50,8 @@ export interface RewardInput {
 }
 export interface NarrateInput {
   mode: string
-  /** 報告的摘要（寫正文收到的報告） */
-  report: { kind: string; action: string; actor: string; input?: string; degree: string; verdict: string; reason: string; twist: string; minutes: number }
+  /** 報告的摘要（寫正文收到的報告）。自由行動是判定的結果；戰鬥是結果與 timeline；每一條鏈各自決定放什麼 */
+  report: Record<string, unknown>
   /** 定案的結果，一行一筆；編號是 1 起算的行號 */
   results: string[]
 }

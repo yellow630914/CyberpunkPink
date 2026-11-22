@@ -1,0 +1,199 @@
+// L5 戰鬥：開打。把「誰上場、在哪裡打、誰埋伏誰」組成一份戰鬥狀態：站位、遮蔽、先攻、第一回合的行動點。
+// 「誰上場」的來源是登錄表：核心有 actor（state.actors 裡的角色）與 unit（直接給整個單位）；敵人資料由敵人的功能註冊 enemy。
+
+import type { ActorId, AttrId, BattleCover, BattleNode, BattleOrigin, BattleSide, BattleState, BattleUnit, BattleWeapon, GameState, Grade } from '../types'
+import { ATTR_IDS, BATTLE_SLOTS } from '../types'
+import { attrMod } from '../rules/check'
+import { areaGrade } from '../rules/grades'
+import { clone } from '../util/clone'
+import { clamp, isRecord } from '../util/sanitize'
+import { otherSide, unitsOf } from './field'
+import type { BattleKernel, BattleUnitInit, UnitSourceCtx } from './registry'
+import type { BattleMode } from './rules'
+import { COVER_LAYOUTS, coverHpFor, modeOf } from './rules'
+import { BattleRun } from './run'
+import { advance, beginTurn } from './turn'
+
+/** 一筆「誰上場」：from 是來源（actor、unit、enemy……），其餘的欄位由那個來源解讀。 */
+export interface UnitRef {
+  from: string
+  /** 指定站第幾格；沒寫照順序排（第 1 個站第 1 格） */
+  slot?: number
+  /** 誰操縱；沒寫的話我方是玩家、敵方是 AI */
+  control?: 'player' | 'ai'
+  [field: string]: unknown
+}
+
+export interface BattleSetup {
+  /** 戰場；沒寫是 meat（現實） */
+  mode?: string
+  /** 場景的等級；沒寫用主角所在那一區的 */
+  grade?: Grade
+  /** 我方上場的人。超過四個的排在後方，有空格才補上來 */
+  allies: UnitRef[]
+  foes: UnitRef[]
+  /** 八格的遮蔽：配置的名字（dense、medium、sparse、one_sided；SITES 12.2 節），或逐格寫（索引 0 是第 1 格；0 暴露、1 半掩體、2 掩體） */
+  cover?: string | { ally: number[]; foe: number[] }
+  /** 誰埋伏誰：埋伏的一方多一格掩體；被埋伏的一方遮蔽全部降一級、排列是亂的、第一回合行動點從上限 − 2 開始 */
+  ambush?: BattleSide
+  /** 場地效果：dark 黑暗 */
+  field?: Record<string, boolean | number | string>
+  /** 控制節點 */
+  nodes?: Array<{ kind: string; name?: string }>
+  /** 打不破的遮蔽（人群、開場就有的煙霧） */
+  soft?: Array<{ side: BattleSide; slot: number; kind: string; rounds?: number }>
+  origin?: Partial<BattleOrigin>
+}
+
+const statOr = (k: BattleKernel, state: GameState, actor: ActorId, id: string, fallback: number): number => (k.stats.hasStat(id) ? k.stats.stat(state, actor, id) : fallback)
+
+/** 沒有帶武器的人：空手（格鬥，只能打近身）。 */
+function unarmed(attrs: Record<AttrId, number>, skills: Record<string, number>): BattleWeapon {
+  return {
+    id: 'unarmed', name: '空手', class: 'melee', dice: 1, flat: Math.max(0, attrMod(attrs.body)), type: 'physical', range: [1, 1], pierce: 0,
+    hit: attrMod(attrs.body) + (skills.brawl ?? 0), attr: 'body', skill: 'brawl', coverMult: 0, traits: ['melee'],
+  }
+}
+
+/**
+ * 把一個角色變成戰鬥裡的單位（COMBAT_SYSTEM 1.2、第 3 節；CORE_RULES 第 4 節）。
+ * 上限讀衍生數值（角色的功能註冊的 max_hp、load_cap、ap_max、afterglow_cap、ram_max）；沒有人註冊時照設計書的公式算。
+ * 武器、護甲、快取格來自裝備的功能（battle.loadout）；沒有武器就是空手。
+ */
+export function unitFromActor(k: BattleKernel, state: GameState, actorId: ActorId, mode: BattleMode, grade: Grade): BattleUnitInit {
+  const a = state.actors[actorId]
+  if (!a) throw new Error(`沒有 ${actorId} 這個角色`)
+  const attrs = Object.fromEntries(ATTR_IDS.map((id) => [id, k.stats.effectiveAttr(state, actorId, id)])) as Record<AttrId, number>
+  const mod = (id: AttrId) => attrMod(attrs[id])
+  const n = mode.numbers
+  const lo = k.battle.loadoutOf(state, actorId, mode.id)
+  const bridge = isRecord(a.ext.bridge) ? a.ext.bridge : {}
+  const sensitivity = typeof bridge.sensitivity === 'number' ? bridge.sensitivity : 50
+  const tolerance = typeof bridge.tolerance === 'number' ? bridge.tolerance : 0
+  const hpMax = statOr(k, state, actorId, 'max_hp', 20 + attrs.body * 2)
+  const loadMax = statOr(k, state, actorId, 'load_cap', 20 + Math.floor(tolerance / 2) + mod('resolve') * 3)
+  const apMax = statOr(k, state, actorId, 'ap_max', 4 + Math.floor((mod('reflex') + mod('charm')) / 2))
+  const ramMax = statOr(k, state, actorId, 'ram_max', Math.max(4, 4 + mod('intellect')))
+  const weapons = lo.weapons.length ? clone(lo.weapons) : [unarmed(attrs, a.skills)]
+  return {
+    name: a.name, actor: actorId, control: 'player', grade, rank: 'elite',
+    attrs, skills: { ...a.skills },
+    ...(mode.tracks.includes('hp') ? { hp: { now: clamp(a.hp, 0, hpMax), max: hpMax } } : {}),
+    armor: statOr(k, state, actorId, 'armor', 0) + lo.armor,
+    load: { now: clamp(a.load, 0, Math.max(0, loadMax - 1)), max: Math.max(1, loadMax) },
+    layers: a.afterglow, layersMax: statOr(k, state, actorId, 'afterglow_cap', 3), sensitivity, sink: 0,
+    ap: { now: apMax, max: apMax, regen: n.apRegen },
+    pools: { ram: { now: ramMax, max: ramMax, regen: statOr(k, state, actorId, 'ram_regen', 2) } },
+    weapons, wield: 0,
+    evade: statOr(k, state, actorId, 'evade', n.evadeBase + mod('reflex')) + lo.evade,
+    initBonus: mod('reflex'),
+    statuses: [], dmgMult: { hp: 1, load: 1 }, tags: [...new Set(lo.tags)], quick: clone(lo.quick), uses: {}, wounds: {}, ext: {},
+  }
+}
+
+function resolveUnit(k: BattleKernel, state: GameState, ref: UnitRef, ctx: UnitSourceCtx, mode: BattleMode): BattleUnitInit {
+  if (ref.from === 'actor') {
+    if (typeof ref.id !== 'string') throw new Error('actor 要寫 id（角色的 id）')
+    return unitFromActor(k, state, ref.id, mode, ctx.grade as Grade)
+  }
+  if (ref.from === 'unit') {
+    if (!isRecord(ref.unit)) throw new Error('unit 要給整個單位')
+    return clone(ref.unit) as unknown as BattleUnitInit
+  }
+  const source = k.battle.getUnitSource(ref.from)
+  if (!source) throw new Error(`沒有 ${ref.from} 這種單位的來源（還沒有功能註冊它）`)
+  return source(ref, ctx)
+}
+
+function coverRow(levels: readonly number[], mode: BattleMode, grade: Grade): BattleCover[] {
+  return Array.from({ length: BATTLE_SLOTS }, (_, i) => {
+    const level = clamp(Math.floor(levels[i] ?? 0), 0, 2) as 0 | 1 | 2
+    return { level, hp: level > 0 ? coverHpFor(mode.numbers, level as 1 | 2, grade) : 0 }
+  })
+}
+
+/**
+ * 開打：算出這場戰鬥的第一份狀態與開場的紀錄。不改 state；回傳的 run 裡有戰鬥狀態（run.battle）與每一拍（run.beats）。
+ * 已經有一場在打、沒有人上場、戰場沒註冊，都丟錯。
+ */
+export function setupBattle(k: BattleKernel, state: GameState, setup: BattleSetup): BattleRun {
+  if (state.battle) throw new Error('已經有一場戰鬥在進行。')
+  const modeId = setup.mode ?? 'meat'
+  const mode = modeOf(k.content, modeId)
+  if (!mode) throw new Error(`沒有 ${modeId} 這個戰場`)
+  if (!setup.allies.length || !setup.foes.length) throw new Error('雙方都要有人上場。')
+  const grade = setup.grade ?? areaGrade(k, state)
+  const n = mode.numbers
+
+  const layout = typeof setup.cover === 'string' ? COVER_LAYOUTS[setup.cover] : setup.cover
+  if (typeof setup.cover === 'string' && !layout) throw new Error(`沒有 ${setup.cover} 這種遮蔽的配置`)
+  const levels = { ally: [...(layout?.ally ?? COVER_LAYOUTS.medium!.ally)], foe: [...(layout?.foe ?? COVER_LAYOUTS.medium!.foe)] }
+  if (setup.ambush) {
+    // 埋伏的一方多一格掩體（最前面那一格不是掩體的升成掩體）；被埋伏的一方全部降一級
+    const lead = levels[setup.ambush]
+    const i = lead.findIndex((l) => l < 2)
+    if (i >= 0) lead[i] = 2
+    const caught = otherSide(setup.ambush)
+    levels[caught] = levels[caught].map((l) => Math.max(0, l - 1))
+  }
+
+  const battle: BattleState = {
+    id: `b${state.seq.uid + 1}`, mode: modeId, grade, round: 1, order: [], turn: 0, units: {},
+    reserve: { ally: [], foe: [] },
+    cover: { ally: coverRow(levels.ally, mode, grade), foe: coverRow(levels.foe, mode, grade) },
+    overlays: [], nodes: (setup.nodes ?? []).map((x, i): BattleNode => ({ id: `n${i + 1}`, kind: x.kind, name: x.name ?? x.kind, taken: false, used: false })),
+    field: { ...(setup.field ?? {}) }, rolls: 0, seq: 0, aiSteps: 0, steps: [],
+    origin: { escapable: true, ...(setup.ambush ? { ambush: setup.ambush } : {}), ...clone(setup.origin ?? {}) },
+  }
+
+  for (const side of ['ally', 'foe'] as const) {
+    const refs = side === 'ally' ? setup.allies : setup.foes
+    const ctx: UnitSourceCtx = { k, state, side, mode: modeId, grade, allyCount: setup.allies.length }
+    const taken = new Set<number>()
+    refs.forEach((ref, i) => {
+      const init = resolveUnit(k, state, ref, ctx, mode)
+      const id = `${side === 'ally' ? 'a' : 'f'}${i + 1}`
+      let slot = 0
+      if (taken.size < BATTLE_SLOTS) {
+        slot = typeof ref.slot === 'number' && ref.slot >= 1 && ref.slot <= BATTLE_SLOTS && !taken.has(ref.slot) ? ref.slot : [1, 2, 3, 4].find((s) => !taken.has(s))!
+        taken.add(slot)
+      } else battle.reserve[side].push(id)
+      const u: BattleUnit = { ...init, id, side, slot, initiative: 0, control: ref.control ?? (side === 'ally' ? init.control : 'ai') }
+      battle.units[id] = u
+    })
+  }
+
+  const run = new BattleRun(k, state, battle)
+  for (const s of setup.soft ?? []) run.softCover(s.side, s.slot, s.kind, s.rounds)
+  run.beats.length = 0
+  if (setup.ambush) {
+    // 被埋伏的一方排列是亂的，第一回合從「上限 − 2」開始
+    const caught = unitsOf(battle, otherSide(setup.ambush))
+    const slots = caught.map((u) => u.slot)
+    for (let i = slots.length - 1; i > 0; i--) {
+      const j = Math.floor(run.rand() * (i + 1))
+      const tmp = slots[i]!
+      slots[i] = slots[j]!
+      slots[j] = tmp
+    }
+    caught.forEach((u, i) => {
+      u.slot = slots[i]!
+      u.ap.now = Math.max(0, u.ap.max + n.apAmbushed)
+    })
+  }
+  // 先攻 = 1d20 ＋ mod(反應) ＋ 加值；由高到低，一樣高時我方先、再照站位
+  const fielded = Object.values(battle.units).filter((u) => u.slot >= 1)
+  for (const u of fielded) u.initiative = run.d20() + u.initBonus + run.mods('initiative', u).reduce((s, p) => s + p.value, 0)
+  battle.order = fielded.sort((a, b) => b.initiative - a.initiative || (a.side === b.side ? a.slot - b.slot : a.side === 'ally' ? -1 : 1)).map((u) => u.id)
+
+  const place = battle.origin.place ? `（${battle.origin.place}）` : ''
+  run.say(`戰鬥開始${place}。${setup.ambush ? (setup.ambush === 'ally' ? '我方埋伏：敵人的遮蔽降一級、排列被打亂。' : '被埋伏了：我方的遮蔽降一級、排列被打亂，第一回合的行動點少 2 點。') : ''}`, 'battle.start', { battle: battle.id, mode: modeId, ...(setup.ambush ? { ambush: setup.ambush } : {}) })
+  if (battle.origin.capture?.length) run.say(`條件：要活的。${battle.origin.capture.map((id) => battle.units[id]?.name ?? id).join('、')}要制伏，不能打倒。`, undefined, { capture: battle.origin.capture })
+  k.battle.emit('battle.start', { run })
+  run.say(`—— 第 1 回合 ——`, 'round', { round: 1 })
+  // 輪到第一個能動的人（先攻最高的人開場就失去回合時，往下輪）
+  const first = battle.units[battle.order[0] ?? '']
+  if (first && beginTurn(run, first)) run.settle()
+  else advance(run)
+  return run
+}

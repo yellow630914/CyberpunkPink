@@ -12,6 +12,9 @@
 // | action_kind | actions.json | AI_TASKS 3.1 節；CORE_RULES 第 3 節 |
 // | faction | factions.json | DATA 1.1 節的勢力表（FACTIONS 第 1 節的 id） |
 // | npc | npcs.json | DATA 1.1 節的具名 NPC 與流竄 AI 的 id 表。現在只有 id 與名字；NPC 的完整格式（DATA 第 8 節）在 M2 補 |
+// | item | items.json | ITEMS 第 5 節（消耗品、彈藥、日用品）；EQUIPMENT 第 4、6 節（大小、合法性、快取格）。M1 加 |
+// | battle_mode、damage_type、battle_status | 在 core/battle/rules.ts | COMBAT_SYSTEM 第 1～7 節。M1 加 |
+// | special_map | 在 core/grid/model.ts | DATA 9.3 節；COMMISSION_MAPS。M1 加 |
 
 import { ATTR_IDS } from '../types/ids'
 import { isId, isRecord } from '../util/sanitize'
@@ -119,6 +122,35 @@ export interface ActionKindEntry extends ContentEntry {
   hint_note?: Partial<Record<(typeof HINT_KEYS)[number], string>>
 }
 
+/** 物品的大類（ITEMS；EQUIPMENT 第 4 節）。設計圖與零件另有自己的內容種類（裝備的功能註冊）；這裡是目錄上的一件東西。 */
+export const ITEM_CATEGORIES = ['weapon', 'armor', 'clothing', 'accessory', 'consumable', 'ammo', 'tool', 'part', 'blueprint', 'cargo', 'misc'] as const
+/** 合法性（LIFE 3.1 節）：自由、登記、許可、違禁。 */
+export const LEGALITIES = ['free', 'register', 'permit', 'banned'] as const
+/** 戰鬥中用道具時可以選的對象。 */
+export const ITEM_USE_TARGETS = ['self', 'ally', 'foe', 'ally_slot', 'foe_slot', 'slot'] as const
+export interface ItemEntry extends ContentEntry {
+  name: string
+  desc: string
+  category: (typeof ITEM_CATEGORIES)[number]
+  /** 等級 I～V（1～5）；AI 給的物品不超過主角所在那一區的等級（EVENTS 2.4 節） */
+  grade: number
+  /** 大小（藏匿用，0～4；EQUIPMENT 6.1 節） */
+  size: number
+  weight?: number
+  legal: (typeof LEGALITIES)[number]
+  price?: number
+  /** 標籤：restraint（束帶、鎖橋器）、medical、throwable、script…… */
+  tags?: string[]
+  /** 用掉就沒了（預設是；鎖橋器這類工具寫 false） */
+  consumable?: boolean
+  /**
+   * 戰鬥中從快取格拿出來用（EQUIPMENT 4.1 節；COMBAT_SYSTEM 1.3 節「使用道具／急救 1～2」）：
+   * 花幾點行動點（ap；替相鄰的人用是 ap_other）、對誰用、做什麼。effects 是一串 { op, ... }，由戰鬥的功能解讀
+   *（heal、vent、afterglow、cleanse、status、soft_cover、attack……）；不認得的 op 在功能載入內容時擋下。
+   */
+  use?: { ap: number; ap_other?: number; target: (typeof ITEM_USE_TARGETS)[number]; modes?: string[]; effects: Array<Record<string, unknown>> }
+}
+
 export function registerCoreKinds(content: ContentRegistry): void {
   content.defineKind<AttributeEntry>({
     kind: 'attribute', owner: 'core',
@@ -188,6 +220,33 @@ export function registerCoreKinds(content: ContentRegistry): void {
   content.defineKind<NpcEntry>({
     kind: 'npc', owner: 'core',
     validate: (e) => [...(typeof e.id === 'string' && /^(npc|gen)_/.test(e.id) ? [] : ['id 要以 npc_（具名）或 gen_（生成）開頭']), ...(isText(e.name) ? [] : ['要有 name'])],
+  })
+
+  content.defineKind<ItemEntry>({
+    kind: 'item', owner: 'core',
+    validate: (e) => {
+      const p: string[] = []
+      if (!isText(e.name)) p.push('要有 name')
+      if (!isText(e.desc)) p.push('要有 desc（完整的句子）')
+      if (!(ITEM_CATEGORIES as readonly unknown[]).includes(e.category)) p.push(`category 只能是 ${ITEM_CATEGORIES.join('、')}`)
+      if (!isInt(e.grade) || e.grade < 1 || e.grade > 5) p.push('grade 要是 1～5')
+      if (!isInt(e.size) || e.size < 0 || e.size > 4) p.push('size 要是 0～4')
+      if (!(LEGALITIES as readonly unknown[]).includes(e.legal)) p.push(`legal 只能是 ${LEGALITIES.join('、')}`)
+      if (e.price !== undefined && !(isInt(e.price) && e.price >= 0)) p.push('price 要是 0 以上的整數')
+      if (e.weight !== undefined && !(typeof e.weight === 'number' && e.weight >= 0)) p.push('weight 要是 0 以上的數字')
+      if (e.tags !== undefined && !(Array.isArray(e.tags) && e.tags.every(isText))) p.push('tags 要是標籤的陣列')
+      if (e.consumable !== undefined && typeof e.consumable !== 'boolean') p.push('consumable 要是布林值')
+      if (e.use !== undefined) {
+        const u = e.use
+        if (!isRecord(u) || !isInt(u.ap) || u.ap < 0 || u.ap > 3) p.push('use.ap 要是 0～3 的整數')
+        else {
+          if (u.ap_other !== undefined && !(isInt(u.ap_other) && u.ap_other >= 0 && u.ap_other <= 3)) p.push('use.ap_other 要是 0～3 的整數')
+          if (!(ITEM_USE_TARGETS as readonly unknown[]).includes(u.target)) p.push(`use.target 只能是 ${ITEM_USE_TARGETS.join('、')}`)
+          if (!(Array.isArray(u.effects) && u.effects.length > 0 && u.effects.every((x) => isRecord(x) && isText(x.op)))) p.push('use.effects 要是 { op, ... } 的陣列（至少一筆）')
+        }
+      }
+      return p
+    },
   })
 
   const CREATION_INTS = ['attr_free', 'attr_max', 'attr_min', 'skill_points', 'skill_max', 'perk_points', 'perk_max', 'flaw_max', 'min_age', 'start_money'] as const

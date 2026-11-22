@@ -46,10 +46,21 @@ export interface Migration {
 }
 
 /**
- * 遷移步驟表。現在是第 1 版，所以是空的。之後狀態的形狀一改：STATE_VERSION 加一，在這裡加一步，
- * 並在 engine/tests/fixtures/saves/ 留一份舊版的存檔當回歸測試。
+ * 遷移步驟表。狀態的形狀一改：STATE_VERSION 加一，在這裡加一步，
+ * 並在 engine/tests/fixtures/saves/ 留一份舊版的存檔當回歸測試（v1-m0.json 是第 1 版）。
  */
-export const MIGRATIONS: Migration[] = []
+export const MIGRATIONS: Migration[] = [
+  {
+    from: 1,
+    note: 'M1：多了 battle（進行中的戰鬥）、maps（格子地圖）與 snapshots（快照）；存檔規則多了敵人的係數、戰敗扣錢的金額上限、重創要不要留傷勢。'
+      + '第 1 版的「戰敗最多扣多少錢」預設寫成 0（當時沒有地方可以改它），照 COMBAT_SYSTEM 8.3 節的預設改成 1（最多 100%）。',
+    run: (state) => {
+      const rules = isRecord(state.rules) ? { ...state.rules } : {}
+      if (rules.defeatMoneyLoss === 0 || rules.defeatMoneyLoss === undefined) rules.defeatMoneyLoss = 1
+      return { ...state, rules, battle: state.battle ?? null, maps: isRecord(state.maps) ? state.maps : { instances: {}, at: null, seq: 0 }, snapshots: Array.isArray(state.snapshots) ? state.snapshots : [] }
+    },
+  },
+]
 
 /**
  * 角色的出身放在 actor.ext.origin：一個物件，至少有 id（出身的 id；建角寫的還有 favor、status、home、roster），
@@ -97,6 +108,13 @@ export function validateState(s: unknown): string[] {
   if (!Array.isArray(s.inventory) || s.inventory.some((x) => !isRecord(x) || typeof x.id !== 'string' || !int(x.qty) || (x.qty as number) <= 0)) p.push('inventory：每一疊要有 id 與正整數的 qty')
   for (const k of ['flags', 'counters', 'ext', 'location', 'seq'] as const) if (!isRecord(s[k])) p.push(`${k}：要是一個物件`)
   for (const k of ['reports', 'chains'] as const) if (!Array.isArray(s[k])) p.push(`${k}：要是一個陣列`)
+  // 進行中的戰鬥與格子地圖：只看骨架（裡面的每一個數字在提交時已經驗過）
+  if (s.battle !== null && s.battle !== undefined) {
+    const b = s.battle
+    if (!isRecord(b) || typeof b.id !== 'string' || typeof b.mode !== 'string' || !isRecord(b.units) || !Array.isArray(b.order) || !isRecord(b.cover)) p.push('battle：進行中的戰鬥缺了骨架（id、mode、units、order、cover）')
+  }
+  if (!isRecord(s.maps) || !isRecord(s.maps.instances) || !(s.maps.at === null || isRecord(s.maps.at))) p.push('maps：要有 instances 與 at')
+  if (!Array.isArray(s.snapshots) || s.snapshots.some((x) => !isRecord(x) || typeof x.id !== 'string' || typeof x.kind !== 'string' || typeof x.raw !== 'string')) p.push('snapshots：每一份要有 id、kind 與 raw')
   return p
 }
 

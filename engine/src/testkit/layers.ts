@@ -21,7 +21,7 @@ export function layerOf(path: string): { layer: number; feature?: string } | nul
   if (p.startsWith('core/content/')) return { layer: 2 }
   if (p.startsWith('core/state/')) return { layer: 3 }
   if (p.startsWith('core/rules/')) return { layer: 4 }
-  if (p.startsWith('core/action/') || p === 'core/kernel.ts' || p === 'core/index.ts') return { layer: 5 }
+  if (p.startsWith('core/action/') || p.startsWith('core/battle/') || p.startsWith('core/grid/') || p === 'core/kernel.ts' || p === 'core/index.ts') return { layer: 5 }
   // 功能的總表：把所有功能列在一起的那一個檔，算在外殼（它可以 import 每個功能；功能不可以 import 它）
   if (p === 'features/index.ts') return { layer: 7 }
   const f = /^features\/([^/]+)(\/|\.ts$)/.exec(p)
@@ -71,7 +71,7 @@ export function checkLayers(files: Record<string, string>): LayerViolation[] {
     if (!file.endsWith('.ts') || isTest(file)) continue
     const me = layerOf(file)
     if (!me) {
-      out.push({ file, rule: 'unknown-layer', message: `${file} 不在任何一層的資料夾裡（core/types、core/util、core/content、core/state、core/rules、core/action、features/<功能>、shell、testkit）` })
+      out.push({ file, rule: 'unknown-layer', message: `${file} 不在任何一層的資料夾裡（core/types、core/util、core/content、core/state、core/rules、core/action、core/battle、core/grid、features/<功能>、shell、testkit）` })
       continue
     }
     for (const spec of importsOf(src)) {
