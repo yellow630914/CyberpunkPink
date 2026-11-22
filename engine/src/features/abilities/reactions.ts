@@ -102,7 +102,7 @@ function applyReact(run: BattleRun, holder: BattleUnit, ab: AbilityEntry, on: st
 /** 這個反應現在有沒有東西可做（沒有就不觸發、不扣消耗）。 */
 function hasWork(run: BattleRun, holder: BattleUnit, on: string, r: ReactDef | undefined, e: Event): boolean {
   if (!r) return true
-  if (r.redirect === 'overlay' && !overlayFor(run, holder, e.subject)) return false
+  if (r.redirect === 'overlay' && (run.isStandIn(e.subject) || !overlayFor(run, holder, e.subject))) return false
   if (r.prevent && !(e.how && r.prevent.how.includes(e.how))) return false
   if (on === 'out_before' && e.out?.prevent) return false
   return true
@@ -121,6 +121,8 @@ function fire(run: BattleRun, on: TriggerDef['on'], e: Event): void {
       const t = m?.trigger
       if (!m || m.pending || !isRec(t) || (t as TriggerDef).on !== on) continue
       const trig = t as TriggerDef
+      // 掛著的東西被打也會發 attack.before（target 是替身）：只有 who: own_overlay 的反應管它，其餘的反應只管人
+      if (on === 'attacked' && run.isStandIn(e.subject) && trig.who !== 'own_overlay') continue
       if (!whoMatches(run, holder, trig.who, e) || !ifHolds(trig.if, on, e)) continue
       if (whenBlocks(run, holder, m.when).length) continue
       if (!hasWork(run, holder, on, m.react, e)) continue
@@ -152,7 +154,7 @@ function fire(run: BattleRun, on: TriggerDef['on'], e: Event): void {
 
 /** 隊友被攻擊、擲命中之前（SKILL_TREES：掩護射擊、小心後面！）。 */
 function legacy(run: BattleRun, attacker: BattleUnit, target: BattleUnit, opts: AttackOpts): void {
-  if (opts.tags?.includes('reaction') || attacker.side === target.side || reacting.has(run)) return
+  if (opts.tags?.includes('reaction') || attacker.side === target.side || reacting.has(run) || run.isStandIn(target)) return
   for (const mate of sideMates(run, target)) {
     if (mate.id === target.id) continue
     for (const ab of equippedOf(run, mate)) {
@@ -181,8 +183,14 @@ function legacy(run: BattleRun, attacker: BattleUnit, target: BattleUnit, opts: 
 
 // ---- 第一次低於一半生命 ----
 
+/** 場上有沒有人裝著 hp_half 的反應（沒有就不用看：也不在單位身上記號）。 */
+function anyHalfReaction(run: BattleRun): boolean {
+  return Object.values(run.battle.units).some((u) => equippedOf(run, u).some((ab) => isRec(ab.meat?.trigger) && (ab.meat!.trigger as TriggerDef).on === 'hp_half' && !ab.meat!.pending))
+}
+
 /** 看一遍：還沒標過、而且生命低於一半的人，標上「已經低於一半過」，再問 hp_half 的反應。 */
 function scanHalf(run: BattleRun): void {
+  if (!anyHalfReaction(run)) return
   for (const u of Object.values(run.battle.units)) {
     if (!u.hp || u.out || !onField(u) || u.uses.hp_half || !isWounded(u)) continue
     u.uses.hp_half = 1
