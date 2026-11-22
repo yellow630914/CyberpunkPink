@@ -38,9 +38,12 @@ const sk = (id: string, name: string, tier: number, layer: 'signature' | 'front'
   id, name, path: 'pilot', category: 'meat', tier, layer, kind, cap, xp: tier * 20, cells: 1, after: layer === 'signature' ? undefined : 'sk_pilot_formation', text: `${name}。`, net: null, opinion: null, meat: null, ...more,
 })
 const KINDS = ['attack', 'shield', 'scout', 'medic', 'jammer'] as const
+/** pilot() 預設帶的五台，pick.drone 是它在這個順序裡的索引。 */
+const NTH = { attack: 0, shield: 1, scout: 2, medic: 3, jammer: 4 } as const
 const KIND_LABEL: Record<string, string> = { attack: '攻擊型', shield: '護盾型', scout: '偵察型', medic: '醫療型', jammer: '干擾型' }
-/** 乖孩子去吧：放出一台並立刻指揮一次。放哪一台（種類）用 choose 挑（pick.choice），打誰是 pick.at。 */
-const GOOD_KID_DO = [{ op: 'drone.deploy', drone: 'choice' }, { op: 'drone.act', which: 'target', at: 'pick:at', hit: 1 }]
+/** 乖孩子去吧：放出一台並立刻指揮一次。放哪一台是 kind 為 drone 的 pick（選單位上 ext.summons.drones 的第幾台：pick.drone），打誰是 pick.at。 */
+const GOOD_KID_DO = [{ op: 'drone.deploy', drone: 'drone' }, { op: 'drone.act', which: 'target', at: 'pick:at', hit: 1 }]
+const DRONE_PICK = { key: 'drone', label: '放出哪一台', kind: 'drone', required: true } as const
 const AT = { key: 'at', label: '打誰', kind: 'foe', required: false } as const
 const AT_REQUIRED = { key: 'at', label: '打誰', kind: 'foe', required: true } as const
 
@@ -49,7 +52,7 @@ const PILOT: Rec[] = [
   sk('sk_pilot_formation', '編隊', 1, 'signature', 'passive', 3, { meat: { tags: ['drone_link'], mods: [{ kind: 'hit', value: 'half_tier_up', tags: ['drone'] }] } }),
   sk('sk_pilot_good_kid', '乖孩子去吧', 1, 'front', 'active', 1, {
     use: { ap: 1, per_fight: 1 },
-    meat: { target: 'ally_slot', picks: [AT], choose: KINDS.map((kind) => ({ key: kind, label: KIND_LABEL[kind], do: GOOD_KID_DO })) },
+    meat: { target: 'ally_slot', picks: [AT, DRONE_PICK], do: GOOD_KID_DO },
   }),
   sk('sk_pilot_cover_flight', '掩護飛行', 1, 'front', 'reaction', 1, { use: { ap: 1, per_turn: 1 }, meat: { trigger: { on: 'attacked', who: 'with_own_overlay' }, react: { hit: -2 } } }),
   sk('sk_pilot_multitask', '多工連結', 1, 'front', 'passive', 2, { meat: { mods: [{ kind: 'overlay_cap', value: 1, tags: ['support'] }] } }),
@@ -403,7 +406,7 @@ describe('乖孩子去吧：放出一台並立刻指揮一次，一共 1 點、�
     const g = play(ids, { foes: foes() })
     turnTo(g, 'a1')
     const ap = unit(g, 'a1').ap.now
-    const r = g.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { choice: 'attack', at: 'f1' } })
+    const r = g.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { drone: NTH.attack, at: 'f1' } })
     expect(r.status).toBe('applied')
     expect(unit(g, 'a1').ap.now).toBe(ap - 1)
     expect(ovs(g)).toHaveLength(1)
@@ -425,39 +428,42 @@ describe('乖孩子去吧：放出一台並立刻指揮一次，一共 1 點、�
   it('每場一次：用過之後灰掉；每一種都放得出來（偵察型標記、醫療型替同一格的人急救、護盾型守著）', () => {
     const g = play(ids, { foes: foes() })
     turnTo(g, 'a1')
-    g.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { choice: 'attack', at: 'f1' } })
+    g.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { drone: NTH.attack, at: 'f1' } })
     turnTo(g, 'a1')
     expect(opt(g, ID('good_kid')).ok).toBe(false)
     expect(opt(g, ID('good_kid')).blocks).toHaveLength(1)
     // 分開的場地試其他種類
     const scout = play(ids, { foes: foes() })
     turnTo(scout, 'a1')
-    scout.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { choice: 'scout', at: 'f1' } })
+    scout.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { drone: NTH.scout, at: 'f1' } })
     expect(unit(scout, 'f1').statuses.map((x) => x.id)).toContain('marked')
     const medic = play(ids, { foes: foes() })
     turnTo(medic, 'a1')
     unit(medic, 'a2').hp!.now = 10
-    medic.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 2 }, pick: { choice: 'medic' } })
+    medic.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 2 }, pick: { drone: NTH.medic } })
     expect(unit(medic, 'a2').hp!.now).toBeGreaterThan(10)
     const shield = play(ids, { foes: foes() })
     turnTo(shield, 'a1')
-    shield.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 2 }, pick: { choice: 'shield' } })
+    shield.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 2 }, pick: { drone: NTH.shield } })
     expect(ovs(shield)[0]).toMatchObject({ kind: 'shield', used: true, ext: { guard: 'own_turn_start' } })
   })
 
-  it('攻擊型沒選敵人、沒有這一種無人機、這一格已經掛著一台：整步不成立，不扣行動點、沒有放出', () => {
+  it('攻擊型沒選敵人、選了手上沒有的那一台、選了已經放出去的、這一格已經掛著一台：整步不成立，不扣行動點、沒有放出', () => {
     const g = play(ids, { foes: foes(), drones: ['shield', 'medic'] })
     turnTo(g, 'a1')
     const ap = unit(g, 'a1').ap.now
-    refused(g.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { choice: 'attack', at: 'f1' } }), '沒有這一台無人機。')
+    // 只帶兩台：第 3 台（索引 2）不在選項裡
+    refused(g.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { drone: 2, at: 'f1' } }), '放出哪一台：沒有這個選項。')
     const g2 = play(ids, { foes: foes() })
     turnTo(g2, 'a1')
-    refused(g2.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { choice: 'attack' } }), '要選一個敵人。')
+    refused(g2.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { drone: NTH.attack } }), '要選一個敵人。')
     expect(ovs(g2)).toHaveLength(0)
     expect(unit(g, 'a1').ap.now).toBe(ap)
-    deploy(g2, 1, 1)
+    deploy(g2, NTH.shield, 1)
     turnTo(g2, 'a1')
-    refused(g2.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { choice: 'medic' } }), '這一格已經掛著一台了。')
+    refused(g2.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { drone: NTH.medic } }), '這一格已經掛著一台了。')
+    // 放出去的那一台灰掉：選它被擋下，原因是一句完整的話
+    refused(g2.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 3 }, pick: { drone: NTH.shield } }), '這一台已經放出去了。')
   })
 
   it('放出之前先看上限：連得住的台數滿了就放不出來（和一般的放出同一句）', () => {
@@ -465,7 +471,7 @@ describe('乖孩子去吧：放出一台並立刻指揮一次，一共 1 點、�
     turnTo(g, 'a1')
     deploy(g, 1, 3)
     turnTo(g, 'a1')
-    refused(g.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { choice: 'attack', at: 'f1' } }), '同步 0 級只連得住 1 台。')
+    refused(g.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { drone: NTH.attack, at: 'f1' } }), '同步 0 級只連得住 1 台。')
   })
 })
 
@@ -1474,14 +1480,26 @@ describe('效果本身的邊角（run.effects 直接叫）', () => {
     expect(a.foe(1).hp!.now).toBeLessThan(hp)
   })
 
-  it('declaration：乖孩子去吧的「放哪一台」用 choose 五個種類挑（宣告看不出手上有沒有那一種，做的時候擋下一句完整的話）', () => {
-    const g = play([ID('formation'), ID('good_kid')], { drones: ['shield'] })
+  it('declaration：乖孩子去吧的「放哪一台」是 drone 這種 pick：選項就是單位上 ext.summons.drones 的每一台（值是第幾台，名字用 name，沒有就是種類）；放出去、被擊落的灰掉', () => {
+    const g = play([ID('formation'), ID('good_kid')], { drones: [{ kind: 'shield', grade: 1, name: '小盾' }, { kind: 'attack', grade: 1 }] })
     turnTo(g, 'a1')
     const picks = opt(g, ID('good_kid')).picks
-    expect(picks.map((p) => [p.key, p.kind, p.required])).toEqual([['at', 'foe', false], ['choice', 'choice', true]])
-    expect(picks[1]!.options.map((o) => o.value)).toEqual([...KINDS])
-    expect(pickProblems(picks, { side: 'ally', slot: 1 }, { choice: 'attack' })).toEqual([])
-    expect(tryAct(g, { action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { choice: 'attack' } })).toEqual(['沒有這一台無人機。'])
-    expect(tryAct(g, { action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { choice: 'shield' } })).toBeNull()
+    expect(picks.map((p) => [p.key, p.kind, p.required])).toEqual([['at', 'foe', false], ['drone', 'choice', true]])
+    expect(picks[1]!.options.map((o) => [o.value, o.label, o.blocks])).toEqual([[0, '小盾', []], [1, 'attack', []]])
+    expect(pickProblems(picks, { side: 'ally', slot: 1 }, { drone: 0 })).toEqual([])
+    expect(tryAct(g, { action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: {} })).toEqual(['要選放出哪一台。'])
+    expect(tryAct(g, { action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { drone: 5 } })).toEqual(['放出哪一台：沒有這個選項。'])
+    expect(tryAct(g, { action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { drone: 0 } })).toBeNull()
+    // 這一場放出去的、被擊落的：灰掉（狀態記在操作者的 uses['drone:<索引>']）
+    g.battleAct({ action: ID('good_kid'), target: { side: 'ally', slot: 1 }, pick: { drone: 0 } })
+    unit(g, 'a1').uses['drone:1'] = 2
+    turnTo(g, 'a1')
+    expect(opt(g, ID('good_kid')).picks[1]!.options.map((o) => o.blocks)).toEqual([['這一台已經放出去了。'], ['這一台被擊落了，這一場不能再放。']])
+  })
+
+  it('drone 這種 pick 的格式：只有 kind 是 drone 才收；沒有帶無人機的人，選項是空的（行動本身灰掉）', () => {
+    const g = play([ID('formation'), ID('good_kid')], { drones: [] })
+    turnTo(g, 'a1')
+    expect(opt(g, ID('good_kid')).picks[1]!.options).toEqual([])
   })
 })

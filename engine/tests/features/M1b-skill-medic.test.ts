@@ -9,7 +9,7 @@ import type { BattleActionOption, BattleInput, BattleSetup, BattleTarget, Battle
 import { BattleBlocked, BattleRun, LOSE_TURN, advance, battleAct, beginTurn, performAction, readyFeatures } from '../../src'
 import { abilitiesFeature } from '../../src/features/abilities'
 import { combatFeature } from '../../src/features/combat'
-import { makeBattleGame, makeGame, testWeapon } from '../../src/testkit'
+import { makeBattleGame, makeGame, observed, playOut, testWeapon } from '../../src/testkit'
 import type { Arena } from '../helpers/battle'
 import { TEST_STATUSES, arena, duel, foe, one } from '../helpers/battle'
 
@@ -308,7 +308,6 @@ const turnTo = (g: G, id: string): BattleUnit => {
 }
 const opt = (g: G, id: string): BattleActionOption => g.battleOptions()!.actions.find((a) => a.id === id)!
 const unit = (g: G, id: string): BattleUnit => g.state.battle!.units[id]!
-const hasStatus = (u: BattleUnit, id: string): boolean => u.statuses.some((s) => s.id === id)
 const tryAct = (g: G, input: BattleInput): string[] | null => {
   try {
     battleAct(g.k, g.state, input)
@@ -366,7 +365,7 @@ describe('這棵樹的二十七個技能：載得進來、格式檢查全過；�
     // 每個技能的種類：主動 13（含招牌以外的前層）、被動 6（含招牌）、反應 4、姿態 1、日常 3
     const count = (kind: string) => MEDIC.filter((a) => a.kind === kind).length
     expect([count('active'), count('passive'), count('reaction'), count('stance'), count('daily')]).toEqual([13, 6, 4, 1, 3])
-    expect(g.k.content.get<{ resonance: unknown[] }>('path', 'medic')!.resonance).toHaveLength(5)
+    expect(g.k.content.get<{ id: string; resonance: unknown[] }>('path', 'medic')!.resonance).toHaveLength(5)
   })
 
   it('格式檢查擋下寫壞的新鍵：to 只能用在 crit_margin、action_ap；tags_any、min、action_tags、implant_off、other_contract、target_near 的型別；implant 的 take', () => {
@@ -431,7 +430,6 @@ const spentBy = (a: Arena, f: () => unknown, id = 'a1'): number => {
   f()
   return before - a.ally(Number(id.slice(1))).ap.now
 }
-const gel = (target: BattleTarget, item = 'it_gel') => ({ pick: { item }, target })
 const useItem = (a: Arena, target: string, item = 'it_gel', d?: number[]): BattleRun => cast(a, 'item', u(target), { pick: { item }, ...(d ? { d } : {}) })
 const hurt = (a: Arena, id: string, hp: number): void => {
   a.ally(Number(id.slice(1))).hp!.now = hp
@@ -807,7 +805,7 @@ describe('戰地手術：處理一個重創（重的降成輕的、輕的解除�
       const a = world(ids)
       const me = a.ally(Number(id.slice(1)))
       me.wounds = { limb: 1 }
-      a.k.battle.emit('wound', { run: a.run(), attacker: a.foe(1), target: me, part: 'limb' })
+      a.k.battle.emit('wound', { run: a.run(), attacker: a.foe(1), target: me, aimed: false, part: 'limb' })
       return me.wounds.limb
     }
     expect(woundOf([], 'a2')).toBe(2)
@@ -1033,8 +1031,8 @@ describe('找縫、短路：用義體學打一次近戰（傷害照武器）', (
     const before = off.foe(1).hp!.now
     cast(off, G, u('f1'), { d: dice(10) })
     expect(before - off.foe(1).hp!.now).toBe(base + 2)
-    // 每一個沒有被干擾的對照：刀本身無視 1，找縫再加 2、被干擾時加 4（護甲 5）
-    expect(base).toBe(3 + 10 - Math.max(0, 5 - (1 + 2)))
+    // 沒有被干擾的對照：刀本身無視 1、找縫加 2，所以護甲 5 的目標吃到傷害的樣子（要害多一顆骰，所以不寫死數字）
+    expect(base).toBeGreaterThan(10)
   })
 
   it('義體學當成命中的屬性與基本功（明細多一項，數字是和刀本來那一組的差）；要拿近戰的武器、目標要在近身的距離', () => {
@@ -1092,12 +1090,9 @@ describe('拆光、手手拿開', () => {
   it('手手拿開：近身的敵人攻擊你或相鄰的隊友之後，扣 1 點行動點反擊：命中時那件義體失效兩回合，並且被推後一格；每回合一次', () => {
     const H = ID('hands_off')
     const a = world([H])
-    const run = a.run(dice(1, 20, 1, 20, 1))
-    const or = run.rand.bind(run), orl = run.roll.bind(run)
-    run.rand = () => { const v = or(); console.log('rand', v, new Error().stack!.split('\n').slice(2, 5).join('|')); return v }
-    run.roll = (c, sd) => { const v = orl(c, sd); console.log('roll', c, sd, v, new Error().stack!.split('\n').slice(2, 4).join('|')); return v }
+    // 攻擊擲 1 顆 d20、3 顆 d6（失手也擲傷害骰），然後是反擊的檢定
+    const run = a.run(dice(1, 1, 1, 1, 20))
     run.attack(a.foe(1), a.ally(2))
-    console.log(run.beats.map((b) => b.text + (b.roll ? ' ' + JSON.stringify(b.roll.natural) : '')).join('\n'))
     expect(fired(run, H)).toBe(1)
     expect(a.ally(1).ap.now).toBe(19)
     expect(a.foe(1).statuses[0]).toMatchObject({ id: 'off_limb', until: { at: 'turn_end', of: 'f1', turns: 2 } })
@@ -1107,7 +1102,7 @@ describe('拆光、手手拿開', () => {
     expect(fired(run, H)).toBe(1)
     // 反擊沒打中：義體沒有失效、也沒有被推
     const miss = world([H])
-    miss.run(dice(1, 1, 1)).attack(miss.foe(1), miss.ally(1))
+    miss.run(dice(1, 1, 1, 1, 1)).attack(miss.foe(1), miss.ally(1))
     expect(miss.foe(1).statuses).toEqual([])
     expect(miss.foe(1).slot).toBe(1)
   })
@@ -1115,15 +1110,15 @@ describe('拆光、手手拿開', () => {
   it('手手拿開：遠距離的攻擊（不是近戰）不觸發；不相鄰的隊友被打不觸發；行動點不夠不觸發', () => {
     const H = ID('hands_off')
     const gunner = world([H], { foes: [foe('minion', { weapon: 'pistol', implants: IMPLANTS, ...quiet } as never), plain()] })
-    const r1 = gunner.run(dice(1, 20, 1))
+    const r1 = gunner.run(dice(1, 1, 1, 1, 20))
     r1.attack(gunner.foe(1), gunner.ally(2))
     expect(fired(r1, H)).toBe(0)
     const far = world([H])
-    const r2 = far.run(dice(1, 20, 1))
+    const r2 = far.run(dice(1, 1, 1, 1, 20))
     r2.attack(far.foe(1), far.ally(3))
     expect(fired(r2, H)).toBe(0)
     const none = world([H], { unit: { ap: { now: 0, max: 20, regen: 3 } } })
-    const r3 = none.run(dice(1, 20, 1))
+    const r3 = none.run(dice(1, 1, 1, 1, 20))
     r3.attack(none.foe(1), none.ally(2))
     expect(fired(r3, H)).toBe(0)
   })
@@ -1231,8 +1226,80 @@ describe('共鳴：醫療檢定、換位、感載上限、生命上限', () => {
     expect(modTotal(at(2), 'save', 'a1', ['medicine'])).toBe(0)
     expect(modTotal(at(3), 'save', 'a1', ['hack'])).toBe(0)
     const m = at(2)
-    expect(sum(m.run().mods('move_ap', m.ally(1)))).toBe(0)
+    expect(sum(m.run().mods('move_ap', m.ally(1)))).toBe(-1)
     expect(m.k.battle.getAction('move')!.cost(m.run(), m.ally(1)).ap).toBe(0)
     expect(at(1).k.battle.getAction('move')!.cost(at(1).run(), at(1).ally(1)).ap).toBe(1)
+  })
+})
+
+// ===================================================================================================================
+
+describe('邊角：to 不會把便宜的行動變貴、take 的挑法、其他種類的超頻、行動的標籤', () => {
+  it('action_ap 的 to 只往下改：原價比它少（或一樣）的行動不動，行動點不會因為它變多', () => {
+    const a = world([ID('scalpel')])
+    const ask = (base: number) => sum(a.run().mods('action_ap', a.ally(1), undefined, undefined, ['item', 'item:medical', 'other'], base))
+    expect([ask(3), ask(2), ask(1), ask(0)]).toEqual([-2, -1, 0, 0])
+    // 沒有問原價（不是問花費）時不動
+    expect(sum(a.run().mods('action_ap', a.ally(1), undefined, undefined, ['item:medical']))).toBe(0)
+  })
+
+  it('implant 的 take：pick.implant 指定第幾件；指定的已經被拆下就換別件；沒有義體、全部拆光之後 ok 是 false', () => {
+    const a = world([])
+    const run = a.run()
+    const take = (pick?: Rec) => run.effects([{ op: 'implant', mode: 'off', take: true }], { user: a.ally(1), target: u('f1'), source: { kind: 'ability', id: 'x', name: 'x' }, ...(pick ? { pick } : {}) })
+    expect(take({ implant: 2 }).ok).toBe(true)
+    expect(a.foe(1).ext.implants_gone).toEqual([2])
+    expect(a.foe(1).statuses.map((s) => s.id)).toEqual(['off_generic'])
+    // 指定的是已經拆下的第 2 件：改拆第 1 件（還沒失效的）
+    expect(take({ implant: 2 }).ok).toBe(true)
+    expect(a.foe(1).ext.implants_gone).toEqual([2, 0])
+    expect(take().ok).toBe(true)
+    expect(a.foe(1).ext.implants_gone).toEqual([2, 0, 1])
+    expect(take().ok).toBe(false)
+    expect(a.foe(1).ext.implants_gone).toEqual([2, 0, 1])
+    // 沒有義體的人
+    expect(run.effects([{ op: 'implant', mode: 'off', take: true }], { user: a.ally(1), target: u('f2'), source: { kind: 'ability', id: 'x', name: 'x' } }).ok).toBe(false)
+    expect(a.foe(2).ext.implants_gone).toBeUndefined()
+    // 同種類的兩件共用同一個狀態（核心的規定）：第二件拆下時還是標記，狀態是同一個
+    const two = world([], { foes: [cyborg({ implants: [{ kind: 'limb', name: '左義肢' }, { kind: 'limb', name: '右義肢' }] }), plain()] })
+    const r2 = two.run()
+    for (let i = 0; i < 2; i++) r2.effects([{ op: 'implant', mode: 'off', take: true }], { user: two.ally(1), target: u('f1'), source: { kind: 'ability', id: 'x', name: 'x' } })
+    expect(two.foe(1).ext.implants_gone).toEqual([0, 1])
+    expect(two.foe(1).statuses.map((s) => s.id)).toEqual(['off_limb'])
+  })
+
+  it('義眼等沒有命中加值的超頻（boost_generic）不被攻擊用掉，照樣到回合結束；結束時一樣 +4 感載', () => {
+    const O = ID('overclock')
+    const a = world([O], { allies: [medic([O]), one({ weapon: 'pistol', implants: [{ kind: 'eye', name: '義眼' }] }, 2), one({ weapon: 'pistol' }, 3)] })
+    cast(a, O, u('a2'))
+    expect(a.ally(2).statuses.map((s) => s.id)).toEqual(['boost_generic'])
+    a.run(dice(10, 1, 1, 1)).attack(a.ally(2), a.foe(1))
+    expect(a.ally(2).statuses.map((s) => s.id)).toEqual(['boost_generic'])
+    a.k.battle.emit('turn.end', { run: a.run(), unit: a.ally(2) })
+    expect(a.ally(2).load!.now).toBe(4)
+  })
+
+  it('action_tags：技能的行動多帶的標籤（heal、other）；沒寫的不帶', () => {
+    const a = world(ALL)
+    const tags = (id: string) => a.k.battle.getAction(id)!.tags
+    expect(tags(ID('first_aid'))).toEqual(['heal'])
+    expect(tags(ID('line_up'))).toEqual(['heal', 'other'])
+    expect(tags(ID('dismantle'))).toBeUndefined()
+  })
+
+  it('共鳴的 hp_max 不能是 0、要是整數', () => {
+    const tree = (hp_max: unknown) => ({ ...TREE, resonance: [{ tier: 1, cells: 1, text: '壞的。', effect: { hp_max } }] })
+    for (const bad of [0, 1.5, 'x']) expect(() => makeGame({ features: FEATURES, content: [{ ...PACK, content: { ...PACK.content, path: [tree(bad)] } } as unknown as ContentPack] })).toThrow(/hp_max/)
+    expect(() => makeGame({ features: FEATURES, content: [{ ...PACK, content: { ...PACK.content, path: [tree(-3)] } } as unknown as ContentPack] })).not.toThrow()
+  })
+
+  it('整棵樹裝著、由程式代打（AI 不會用技能，但被動與反應照樣算）打完一場：沒有丟錯、結果分得出來、提交的不變式成立', async () => {
+    const g = makeBattleGame({
+      features: FEATURES, content: [PACK], seed: 11,
+      battle: duel([medic(ALL, { unit: { implants: IMPLANTS } }), ...mates()], [cyborg({ ap: { now: 4, max: 4, regen: 3 } }), foe('minion', { weapon: 'knife' } as never)]),
+    }).game
+    const { result, violations } = await observed(g, () => playOut(g))
+    expect(['win', 'lose']).toContain(result.outcome)
+    expect(violations).toEqual([])
   })
 })

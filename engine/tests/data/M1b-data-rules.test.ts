@@ -4,13 +4,14 @@
 
 import { describe, expect, it } from 'vitest'
 import type { BattleStatusEntry } from '../../src'
-import { Game, beginTurn, statusRuleOf } from '../../src'
+import { Game, advance, beginTurn, statusRuleOf } from '../../src'
 import { allFeatures } from '../../src/features'
 import { CORE_PACK, SOURCES } from '../../data'
 import statuses from '../../data/rules/battle_statuses.json'
 import { arena, duel, foe, one } from '../helpers/battle'
 
-const NEW_IDS = ['off_limb', 'off_eye', 'off_smartgun', 'off_reflex', 'off_generic', 'boost_limb', 'boost_smartgun', 'boost_subdermal', 'boost_generic', 'ap_minus_1', 'see_dark', 'untargeted']
+// rooted：機師的堡壘姿態用的「不能自己換位」（M1b-skill-medic 工單帶的小項，需求來自 M1b-skill-pilot 的回報）
+const NEW_IDS = ['off_limb', 'off_eye', 'off_smartgun', 'off_reflex', 'off_generic', 'boost_limb', 'boost_smartgun', 'boost_subdermal', 'boost_generic', 'ap_minus_1', 'see_dark', 'untargeted', 'rooted']
 const OLD_IDS = ['lose_turn', 'suppressed', 'dazed', 'bleeding', 'limb_hurt', 'burning', 'jammed', 'marked', 'pinned_down']
 const rows = statuses as BattleStatusEntry[]
 const row = (id: string) => rows.find((e) => e.id === id)!
@@ -44,6 +45,8 @@ describe('M1b-data-rules：義體失效、超頻與其他戰鬥狀態', () => {
     expect(row('ap_minus_1')).toMatchObject({ turn_start: { ap: -1 }, once: true, until: 'own_turn_end', kind: 'debuff' })
     expect(row('see_dark')).toMatchObject({ mods: { see_dark: 1 }, until: 'own_turn_end', kind: 'buff' })
     expect(row('untargeted')).toMatchObject({ mods: { ai_target_pct: -100 }, until: 'own_turn_end', kind: 'buff' })
+    // 固守：不能自己換位，到戰鬥結束；沒有數字上的效果
+    expect(row('rooted')).toEqual({ id: 'rooted', name: '固守', desc: expect.stringMatching(/不能自己換位.*。$/), no_move: true, until: 'battle_end', kind: 'buff' })
     // 其他種類：沒有數字上的效果，只有名字與說明
     for (const id of ['off_generic', 'boost_generic']) {
       expect(row(id).mods, id).toBeUndefined()
@@ -132,6 +135,23 @@ describe('M1b-data-rules：戰鬥裡的效果', () => {
     const dark = ev()
     run.applyStatus(me, 'see_dark')
     expect(ev()).toBe(dark - 2)
+  })
+
+  it('rooted：自己不能換位（換位那一格灰掉、寫出原因），到戰鬥結束都不會自己消失', () => {
+    const a = withRules()
+    const me = a.ally(1)
+    const run = a.run()
+    expect(run.cannotMove(me)).toBe(false)
+    run.applyStatus(me, 'rooted')
+    expect(run.cannotMove(me)).toBe(true)
+    expect(me.statuses.find((s) => s.id === 'rooted')!.until).toEqual({ at: 'battle_end' })
+    // 回合與一整個回合輪過去之後還在
+    for (let i = 0; i < 10; i++) advance(a.run())
+    expect(me.statuses.map((s) => s.id)).toContain('rooted')
+    const move = a.k.battle.getAction('move')!
+    const targets = move.targets!(run, me)
+    expect(targets.length).toBeGreaterThan(0)
+    expect(targets.every((t) => t.blocks.length > 0)).toBe(true)
   })
 
   it('untargeted：AI 不挑他；場上只剩他時照樣會挑', () => {

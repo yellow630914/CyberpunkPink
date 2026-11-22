@@ -226,5 +226,13 @@
     "until": "own_turn_end",
     "turns": 1,
     "kind": "buff"
+  },
+  {
+    "id": "rooted",
+    "name": "固守",
+    "desc": "站定了不動：不能自己換位，到戰鬥結束。機師的堡壘姿態開著的時候帶著它。",
+    "no_move": true,
+    "until": "battle_end",
+    "kind": "buff"
   }
 ]
