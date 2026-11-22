@@ -42,6 +42,7 @@ function blueprintProblems(e: Record<string, unknown>): string[] {
     if (!Array.isArray(e.covers) || !e.covers.length || !e.covers.every((s) => (WEAR_SLOTS as readonly unknown[]).includes(s)) || new Set(e.covers).size !== e.covers.length) p.push(`covers 要是至少一個、不重複的穿著格（${WEAR_SLOTS.join('、')}）`)
     if (!(WEIGHT_CLASSES as readonly unknown[]).includes(e.weight_class)) p.push(`weight_class 只能是 ${WEIGHT_CLASSES.join('、')}`)
     if (e.conceal !== undefined && !(isInt(e.conceal) && e.conceal >= 0)) p.push('conceal（藏匿量）要是 0 以上的整數')
+    if (e.conceal_add !== undefined && !(isInt(e.conceal_add) && e.conceal_add >= 0)) p.push('conceal_add（內藏槽加的藏匿量）要是 0 以上的整數')
     if (e.quick !== undefined && !(isInt(e.quick) && e.quick >= 0)) p.push('quick（多給的快取格）要是 0 以上的整數')
   }
   return p

@@ -63,7 +63,10 @@ export interface BlueprintEntry extends ContentEntry {
   armor?: number
   covers?: WearSlot[]
   weight_class?: (typeof WEIGHT_CLASSES)[number]
+  /** 藏匿量：身上每一件的 conceal 取最大的那個（短外套 3、長外套 5；佔外套格的那一件敞開時減半） */
   conceal?: number
+  /** 藏匿量：加在上面（裝甲制服的內藏槽 +2）；不取最大、敞開外套時也不減半（EQUIPMENT 6.1 節） */
+  conceal_add?: number
   quick?: number
 }
 

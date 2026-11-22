@@ -90,19 +90,23 @@ export function carriedBattleWeapons(k: Kernel, state: GameState, actor: string)
 const byUid = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
 
 /**
- * 藏匿量 ＝ 身上每一件設計圖的 conceal 裡最大的那個（佔外套格的那一件，外套敞開時先減半、無條件捨去），一件都沒有就是 1；再加戴著的每一個飾品的 conceal。
+ * 藏匿量（EQUIPMENT 6.1 節）＝ 基本量 ＋ 內藏槽 ＋ 戴著的每一個飾品的 conceal。
+ * 基本量 ＝ 身上每一件設計圖的 conceal 裡最大的那個（佔外套格的那一件，外套敞開時先減半、無條件捨去），一件都沒有就是 1。
+ * 內藏槽 ＝ 身上每一件設計圖的 conceal_add 加起來（裝甲制服的 +2）：疊在上面，不取最大，外套敞開也不減半。
  * 要藏的是攜帶格裡的武器：照 size 由小到大（一樣大照 uid）一件一件放，加起來不超過藏匿量的藏好了（hidden），放不下的露在外面（shown）。
  */
 export function concealment(k: Kernel, state: GameState, actor: string): { capacity: number; hidden: string[]; shown: string[] } {
   const gear = gearOf(state, actor)
   let base = 0
+  let added = 0
   for (const p of wornPieces(k, state, gear)) {
+    added += Math.floor(num(p.bp.conceal_add))
     const c = Math.floor(num(p.bp.conceal))
     if (c <= 0) continue
     base = Math.max(base, p.slots.includes('outer') && gear.coat === 'open' ? Math.floor(c / 2) : c)
   }
   if (base === 0) base = 1
-  const capacity = Object.values(gear.acc).reduce((n, id) => n + num(k.content.get<ItemEntry>('item', id as string)?.conceal), base)
+  const capacity = Object.values(gear.acc).reduce((n, id) => n + num(k.content.get<ItemEntry>('item', id as string)?.conceal), base + added)
 
   const hidden: string[] = []
   const shown: string[] = []

@@ -27,6 +27,9 @@ const PACK: ContentPack = {
       bp('bp_cap', 'armor', { armor: 0, covers: ['head'], weight_class: 'light' }),
       bp('bp_hood', 'armor', { armor: 1, covers: ['head', 'outer'], weight_class: 'light' }),
       bp('bp_coat', 'armor', { armor: 0, covers: ['outer'], weight_class: 'light', conceal: 1 }),
+      bp('bp_jacket', 'armor', { armor: 0, covers: ['outer'], weight_class: 'light', conceal: 3 }),
+      bp('bp_maid', 'armor', { armor: 1, covers: ['upper', 'lower'], weight_class: 'medium', conceal_add: 2 }),
+      bp('bp_maid_coat', 'armor', { armor: 1, covers: ['upper', 'lower', 'outer'], weight_class: 'medium', conceal: 4, conceal_add: 2 }),
       bp('bp_heavy', 'armor', { armor: 1, covers: ['armor'], weight_class: 'heavy' }),
     ],
     part: [
@@ -44,7 +47,7 @@ const INVENTORY = (): ItemStack[] => [
   made('p1', 'bp_pistol', { barrel: 'pt_barrel' }), made('p2', 'bp_pistol', { barrel: 'pt_shield', plate: 'pt_ceramic' }), made('p3', 'bp_pistol'),
   made('s1', 'bp_smg', { barrel: 'pt_shield', plate: 'pt_ceramic' }), made('s2', 'bp_smg', { barrel: 'pt_barrel' }),
   made('v1', 'bp_vest', { plate: ['pt_plate_3', 'pt_plate_1'] }), made('h1', 'bp_helmet', { plate: 'pt_plate_1' }), made('h0', 'bp_cap'), made('hd', 'bp_hood', { plate: 'pt_plate_3' }),
-  made('c1', 'bp_coat'), made('hv', 'bp_heavy', { plate: 'pt_plate_3' }),
+  made('c1', 'bp_coat'), made('j1', 'bp_jacket'), made('m1', 'bp_maid'), made('m2', 'bp_maid_coat'), made('hv', 'bp_heavy', { plate: 'pt_plate_3' }),
   { id: 'it_medgel_1', qty: 6 }, { id: 'it_smoke', qty: 3 }, { id: 'it_belt', qty: 1 }, { id: 'it_collar', qty: 1 },
 ]
 const setup = (inventory: ItemStack[] = INVENTORY()) => makeGame({ features: [characterFeature, gearFeature, TEST_COMBAT], content: [PACK], pc: { attrs: { reflex: 14 }, skills: { firearms: 2 } }, patch: { inventory } }).game
@@ -281,6 +284,28 @@ describe('數字的邊界', () => {
     expect(scanFinds(g.k, g.state, 'pc', 3)).toEqual(['p1', 's2'])
   })
 
+  it('藏匿量：內藏槽（conceal_add）疊在上面；短外套 3 ＋ 裝甲制服 2 ＝ 5，外套敞開只有外套那 3 減半：1 ＋ 2 ＝ 3', () => {
+    const g = setup()
+    wear(g, 'm1')
+    expect(concealment(g.k, g.state, 'pc').capacity).toBe(3) // 沒穿外套：基本 1 ＋ 內藏槽 2
+    wear(g, 'j1')
+    expect(concealment(g.k, g.state, 'pc').capacity).toBe(3) // 敞開：(3 → 1) ＋ 2
+    g.commit({ kind: 'system', action: 'gear.coat', location: {}, party: [], timeline: [], changes: [{ op: 'gear.coat', id: 'pc', coat: 'closed' }], outcome: { result: 'ok', summary: '把外套扣上。' } })
+    expect(concealment(g.k, g.state, 'pc').capacity).toBe(5) // 扣上：3 ＋ 2
+    wear(g, 'c1') // 另一件外套把短外套換下來：conceal 1，內藏槽還在
+    expect(concealment(g.k, g.state, 'pc').capacity).toBe(3)
+  })
+
+  it('藏匿量：同一件既有 conceal 又有 conceal_add 時分開算；內藏槽換下來就沒了；多件內藏槽相加', () => {
+    const g = setup()
+    wear(g, 'm2') // 佔外套格：敞開 (4 → 2) 減半，內藏槽 2 不減半
+    expect(concealment(g.k, g.state, 'pc').capacity).toBe(4)
+    g.commit({ kind: 'system', action: 'gear.coat', location: {}, party: [], timeline: [], changes: [{ op: 'gear.coat', id: 'pc', coat: 'closed' }], outcome: { result: 'ok', summary: '把外套扣上。' } })
+    expect(concealment(g.k, g.state, 'pc').capacity).toBe(6)
+    g.commit(unequip(g.k, g.state, 'pc', 'm2'))
+    expect(concealment(g.k, g.state, 'pc').capacity).toBe(1)
+  })
+
   it('內海的戰鬥不帶槍：武器是構裝（M3）；快取格照帶', () => {
     const g = setup()
     wear(g, 'p1')
@@ -304,6 +329,11 @@ describe('內容的格式', () => {
     expect(build({ blueprint: [bp('b', 'weapon', { class: 'pistol', carry: 'main', require: [{}] })] })).toThrow(/require\[0\]/)
     expect(build({ blueprint: [bp('b', 'cyber', {})] })).toThrow(/kind/)
     expect(build({ blueprint: [bp('b', 'armor', { armor: 1, covers: ['upper'], weight_class: 'light', conceal: -1 })] })).toThrow(/conceal/)
+  })
+  it('設計圖：conceal_add 要是 0 以上的整數', () => {
+    expect(build({ blueprint: [bp('b', 'armor', { armor: 1, covers: ['upper'], weight_class: 'light', conceal_add: -2 })] })).toThrow(/conceal_add/)
+    expect(build({ blueprint: [bp('b', 'armor', { armor: 1, covers: ['upper'], weight_class: 'light', conceal_add: 1.5 })] })).toThrow(/conceal_add/)
+    expect(build({ blueprint: [bp('b', 'armor', { armor: 1, covers: ['upper'], weight_class: 'light', conceal_add: 2 })] })).not.toThrow()
   })
   it('設計圖引用不存在的武器類型：載入時擋下', () => {
     expect(build({ blueprint: [bp('b', 'weapon', { class: 'railgun', carry: 'main' })] })).toThrow(/weapon_class\/railgun/)
