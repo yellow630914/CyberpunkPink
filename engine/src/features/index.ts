@@ -9,12 +9,13 @@
 import type { Feature } from '../core/kernel'
 import { actionsFeature } from './actions'
 import { characterFeature } from './character'
+import { combatFeature } from './combat'
 import { creationFeature } from './creation'
 import { defeatFeature } from './defeat'
 import { enemiesFeature } from './enemies'
 import { perksFeature } from './perks'
 
-export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature }
+export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [combatFeature.id]: combatFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature }
 
 export function allFeatures(): Feature[] {
   return Object.values(FEATURES)
