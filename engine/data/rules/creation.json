@@ -18,6 +18,9 @@
     "perk_max": 8,
     "flaw_max": 2,
     "min_age": 18,
-    "start_money": 1500
+    "start_money": 1500,
+    "gear_points": 12,
+    "cyber_point_cash": 500,
+    "gear_point_cash": 150
   }
 ]

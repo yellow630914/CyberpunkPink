@@ -6,12 +6,13 @@ import perks from './rules/perks.json'
 import origins from './rules/origins.json'
 import creation from './rules/creation.json'
 import effectCaps from './rules/effect_caps.json'
+import actions from './rules/actions.json'
 import factions from './world/factions.json'
 import npcs from './world/npcs.json'
 
 export const CORE_PACK: ContentPack = {
   id: 'core',
-  content: { attribute: attributes, skill: skills, perk: perks, faction: factions, npc: npcs, origin: origins, creation_rule: creation, effect_cap: effectCaps },
+  content: { attribute: attributes, skill: skills, perk: perks, faction: factions, npc: npcs, origin: origins, creation_rule: creation, effect_cap: effectCaps, action_kind: actions },
 }
 
 /** 每一種資料的出處（文件與節） */
@@ -24,4 +25,5 @@ export const SOURCES: Record<string, string> = {
   npc: 'DATA 1.1 節的具名 NPC 表與流竄 AI 表（只有 id 與名字；流竄 AI 標 rogue_ai 與原本的產品名）。完整的 NPC 格式（DATA 第 8 節）在 M2 補',
   creation_rule: 'CHARACTER 第 5.1、5.3、5.4、5.6 節',
   effect_cap: 'EVENTS 第 2.4 節 cred、cash 那一列',
+  action_kind: 'AI_TASKS 3.1 節的行動種類表（殺價、打工、日常直播等那三個系統搬進來再加）',
 }
