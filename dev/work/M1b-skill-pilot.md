@@ -53,3 +53,5 @@ M1b-core-overlay、M1b-ops、M1b-skill-format。和 M1b-enemy-units 都改 `feat
 ## 完成時回報
 
 改了哪些檔、測試結果、這棵樹二十七個技能各用了哪些鍵的對照表、遇到的規格問題。
+
+- 2026-11-22 補：`tests/features/M1b-hack.test.ts` 有一條 it.todo（接管來的那一台用 `drone.act` 指揮），這張做完換成真測試。
