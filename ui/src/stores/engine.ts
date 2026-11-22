@@ -1,11 +1,14 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
-import type { ActionInput, Actor, AttributeEntry, BattleInput, BattleMode, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, Report, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
-import { ActionBlocked, FakeProvider, Game, modeOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
+import type { ActionInput, ContentPack, ItemEntry, Actor, AttributeEntry, BattleInput, BattleMode, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, Report, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
+import { ActionBlocked, ChangeError, FakeProvider, Game, modeOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
 import type { ActStatus, StepActions } from '@engine/src'
 import type { StepRecord } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
 import { allFeatures } from '@engine/src/features'
+import { armorOf, concealment, equip as gearEquip, equipBlock as gearEquipBlock, gearOf, quickCapacity, scanFinds, unequip as gearUnequip, weaponOf } from '@engine/src/features/gear'
+import type { BlueprintEntry, PartEntry } from '@engine/src/features/gear'
+import type { GearLookup } from '../lib/gearView'
 import { acceptDefeat, defeatOf } from '@engine/src/features/defeat'
 import { setupFromEncounter } from '@engine/src/features/enemies'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
@@ -19,7 +22,8 @@ import { aiSettingsFromUi, logEntryOf, type EngineLogEntry, type UiAiFields } fr
 export interface ActOutcome { status: ActStatus | 'busy'; reason?: string }
 
 export const useEngine = defineStore('engine', () => {
-  const game = new Game({ features: allFeatures(), content: [CORE_PACK], fakeProvider: new FakeProvider() })
+  const build = (extra: ContentPack[] = []): Game => new Game({ features: allFeatures(), content: [CORE_PACK, ...extra], fakeProvider: new FakeProvider() })
+  let game = build()
 
   const snapshot = (): GameState => structuredClone(game.state)
   const state = shallowRef<GameState>(snapshot())
@@ -58,8 +62,13 @@ export const useEngine = defineStore('engine', () => {
   }
 
   /** 開新局；有 draft 時開局與建角一起提交（被擋下就原樣回傳是哪一步，原本那一局完全不動）。 */
-  function newGame(opts: { seed: number; rules?: object; draft?: CreationDraft }): CreationBlock[] {
-    const { draft, ...rest } = opts
+  function newGame(opts: { seed: number; rules?: object; draft?: CreationDraft; testContent?: ContentPack[] }): CreationBlock[] {
+    const { draft, testContent, ...rest } = opts
+    // 只給測試用：把測試自帶的最小內容接在核心的內容後面，換一個新的引擎（畫面與正式的流程不傳這個參數）
+    if (testContent) {
+      game = build(testContent)
+      game.subscribe(refresh)
+    }
     if (draft) {
       const probe = blankState(0)
       probe.rules = sanitizeRules(opts.rules ?? {})
@@ -247,5 +256,82 @@ export const useEngine = defineStore('engine', () => {
   /** 內容的名字（道具、狀態……；顯示用，查內容不是規則）；查不到是 undefined */
   const contentName = (kind: string, id: string): string | undefined => game.k.content.get<{ id: string; name?: string }>(kind, id)?.name
 
-  return { state, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+
+  // ---- 裝備與背包（EQUIPMENT；dev/work/M1b-ui-gear.md）：全部轉接 features/gear，畫面不自己判斷 ----
+  /** 查內容（名字、等級、零件）；顯示用，不是規則 */
+  const gearLook: GearLookup = {
+    blueprint: (id) => game.k.content.get<BlueprintEntry>('blueprint', id),
+    item: (id) => game.k.content.get<ItemEntry>('item', id),
+    part: (id) => game.k.content.get<PartEntry>('part', id),
+  }
+  /** 引擎擋下的原因：ChangeError 的訊息前面有「changes[0]（gear.quick）：」，去掉它只留引擎寫的那一句 */
+  const reasonOf = (e: unknown): string | null => {
+    if (e instanceof ActionBlocked) return e.reason
+    if (e instanceof ChangeError) return e.problems.map((p) => p.replace(/^changes\[\d+\]（[^）]*）：/, '')).join('')
+    if (e instanceof Error) return e.message
+    return null
+  }
+  const NO_PC = '還沒有主角。'
+  /** 提交一份裝備的報告；被擋下回傳原因，成功回傳 null */
+  function commitGear(make: (pc: string) => Parameters<Game['commit']>[0]): string | null {
+    const pcId = game.state.pc
+    if (pcId === null) return NO_PC
+    try {
+      game.commit(make(pcId))
+      return null
+    } catch (e) {
+      const why = reasonOf(e)
+      if (why === null) throw e
+      return why
+    }
+  }
+  const gearDraft = (action: string, summary: string, changes: Change[]) => ({
+    kind: 'system' as const, action, location: {}, party: [], timeline: [], changes, outcome: { result: 'ok', summary },
+  })
+  const gear = {
+    look: gearLook,
+    /** 現在的主角（沒有是 null） */
+    get actor(): string | null { void state.value; return game.state.pc },
+    /** 戰鬥中或等著選戰敗時整頁唯讀：引擎給的原因；可以動回傳 null */
+    lock: (): string | null => { void state.value; return game.blockOf('commit:gear.equip') },
+    of: () => { void state.value; return gearOf(game.state, game.state.pc ?? '') },
+    inventory: () => { void state.value; return game.state.inventory },
+    /** 這一件能不能穿、帶、戴（可以是 null；slot 只給武器用） */
+    equipBlock: (what: string, slot?: string): string | null => {
+      void state.value
+      if (game.state.pc === null) return NO_PC
+      return game.blockOf('commit:gear.equip') ?? gearEquipBlock(game.k, game.state, game.state.pc, what, slot)
+    },
+    /** 穿上之後會佔哪幾格（照引擎的報告草稿；穿不上是空的）。畫面用它寫「裝到哪一格」 */
+    equipSlots: (what: string, slot?: string): string[] => {
+      void state.value
+      if (game.state.pc === null) return []
+      try {
+        return gearEquip(game.k, game.state, game.state.pc, what, slot).changes.filter((c) => c.op === 'gear.slot' && c.item === what).map((c) => c.slot as string)
+      } catch {
+        return []
+      }
+    },
+    equip: (what: string, slot?: string): string | null => commitGear((pc) => gearEquip(game.k, game.state, pc, what, slot)),
+    unequip: (what: string): string | null => commitGear((pc) => gearUnequip(game.k, game.state, pc, what)),
+    /** 整份換掉快取格；放不下、背包不夠時引擎擋下，回傳它的原因 */
+    setQuick: (items: Array<{ item: string; qty: number }>): string | null => commitGear((pc) => gearDraft('gear.quick', '整理快取格。', [{ op: 'gear.quick', id: pc, items }])),
+    setCoat: (coat: 'open' | 'closed'): string | null => commitGear((pc) => gearDraft('gear.coat', coat === 'closed' ? '外套扣上了。' : '外套敞開了。', [{ op: 'gear.coat', id: pc, coat }])),
+    quickCapacity: (): number => { void state.value; return quickCapacity(game.k, game.state, gearOf(game.state, game.state.pc ?? '')) },
+    armor: (): number => { void state.value; return game.state.pc === null ? 0 : armorOf(game.k, game.state, game.state.pc) },
+    concealment: () => { void state.value; return game.state.pc === null ? { capacity: 0, hidden: [] as string[], shown: [] as string[] } : concealment(game.k, game.state, game.state.pc) },
+    scanFinds: (strength: number): string[] => { void state.value; return game.state.pc === null ? [] : scanFinds(game.k, game.state, game.state.pc, strength) },
+    /** 一件組好的武器在戰鬥裡的數字；不是武器或找不到是 null */
+    weapon: (uid: string) => {
+      void state.value
+      if (game.state.pc === null) return null
+      try {
+        return weaponOf(game.k, game.state, game.state.pc, uid)
+      } catch {
+        return null
+      }
+    },
+  }
+
+  return { state, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

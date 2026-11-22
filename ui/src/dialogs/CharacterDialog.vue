@@ -4,7 +4,6 @@ import { computed, ref } from 'vue'
 import Dialog from '../components/Dialog.vue'
 import Tabs from '../components/Tabs.vue'
 import ItemSlot from '../components/ItemSlot.vue'
-import { dyeable } from '../lib/dye'
 import GradeBadge from '../components/GradeBadge.vue'
 import Hint from '../components/Hint.vue'
 import Icon from '../components/Icon.vue'
@@ -14,20 +13,21 @@ import ReasonButton from '../components/ReasonButton.vue'
 import { useGame } from '../stores/game'
 import { useUi } from '../stores/ui'
 import { ITEMS } from '../data/items'
-import { BODY_PARTS, EQUIP_SLOTS } from '../data/character'
-import type { BodyPartId, EquipSlotId } from '../data/types'
+import { BODY_PARTS } from '../data/character'
+import type { BodyPartId } from '../data/types'
 import NetTab from './character/NetTab.vue'
 import BridgeTab from './character/BridgeTab.vue'
 import AdultTab from './character/AdultTab.vue'
+import GearTab from './character/GearTab.vue'
 import { BASIC_SKILLS, ATTRS } from '../data/creation'
 import { useGuides } from '../lib/useGuides'
 
 /**
  * 角色與義體（UI.md 第 8 節）。左欄角色卡；右邊六個分頁：概要、身體、裝備、內海、橋、成人（後三頁在 character/）。
  * 身體：人形與十一個部位的槽（CYBERWARE 第 1 節），每一槽是一個物品格。
- * 裝備：穿著 10、飾品 5、攜帶 3＋快取格（EQUIPMENT 第 2～4 節）；「換裝」疊開背包。
+ * 裝備：穿著 10、飾品 5、攜帶 3＋快取格（EQUIPMENT 第 2～4 節），整個分頁讀引擎（character/GearTab.vue）。
  */
-const props = defineProps<{ entryId: number; stacked?: boolean; tab?: string }>()
+const props = defineProps<{ entryId: number; stacked?: boolean; tab?: string; gearSelect?: { group: 'worn' | 'acc' | 'carry'; slot: string } }>()
 const g = useGame()
 const ui = useUi()
 const tab = ref(props.tab ?? 'body')
@@ -54,21 +54,6 @@ function raiseBasic(name: string) {
   ui.toast(`${name}升到 ${lv + 1} 級。`)
 }
 
-// ---- 快取格（EQUIPMENT 4.1 節）：戰鬥中只能用這裡的道具 ----
-const quickSel = ref<number | null>(null)
-const quickable = computed(() => g.inventory.filter(st => ['consumable', 'drug', 'ammo'].includes(ITEMS[st.def].kind)))
-function quickBlock(def: string): string | null {
-  const inQuick = g.quick.filter((x, i) => x === def && i !== quickSel.value).length
-  const have = g.inventory.filter(st => st.def === def).reduce((a, st) => a + st.qty, 0)
-  return inQuick >= have ? `背包裡只有 ${have} 個，快取格已經放了 ${inQuick} 個。` : null
-}
-function putQuick(def: string) {
-  if (quickSel.value === null) return
-  const b = quickBlock(def)
-  if (b) { ui.toast(b, 'warn'); return }
-  g.setQuick(quickSel.value, def)
-}
-
 // ---- 身體 ----
 const part = ref<BodyPartId>('brain')
 const slotIdx = ref(0)
@@ -80,13 +65,6 @@ function pick(id: BodyPartId, i = 0) { part.value = id; slotIdx.value = i }
 const sinkParts = computed(() => BODY_PARTS.flatMap(p => g.cyber[p.id].filter(Boolean).map(id => ({ name: ITEMS[id!].name, sink: ITEMS[id!].cyber!.sink })))
   .sort((a, b) => b.sink - a.sink))
 
-// ---- 裝備 ----
-const eqSel = ref<EquipSlotId>('coat')
-const eqDef = computed(() => { const id = g.equip[eqSel.value]; return id ? ITEMS[id] : null })
-const groups = ['穿著', '飾品', '攜帶'] as const
-const slotDef = (id: EquipSlotId) => EQUIP_SLOTS.find(s => s.id === id)!
-function change() { ui.open('bag', { targetSlot: eqSel.value }) }
-const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e405cc' ? 1 : 0))
 </script>
 
 <template>
@@ -171,51 +149,8 @@ const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e4
         </div>
       </section>
 
-      <!-- 裝備 -->
-      <section v-else-if="tab === 'gear'" class="gear-tab">
-        <div class="panel cut pad">
-          <template v-for="grp in groups" :key="grp">
-            <p class="h">{{ grp }}・{{ EQUIP_SLOTS.filter(s => s.group === grp).length }} 格</p>
-            <div class="eqgrid">
-              <ItemSlot v-for="s in EQUIP_SLOTS.filter(x => x.group === grp)" :key="s.id" :item="g.equip[s.id] ? ITEMS[g.equip[s.id]!] : null" :slot-icon="s.icon" :label="s.name" :dye="g.dyes[`slot:${s.id}`] ?? null"
-                show-name :selected="eqSel === s.id && quickSel === null" :covered="g.coveredSlots.has(s.id)" @select="eqSel = s.id; quickSel = null" />
-            </div>
-          </template>
-          <p class="h">快取格 {{ g.quick.filter(Boolean).length }}／{{ g.quickCap }}<Hint title="快取格">戰鬥中只能用這裡的道具（1 點行動點）。每個人 2 格，腰帶 +1，戰術背心 +2，上限 8。</Hint></p>
-          <div class="eqgrid">
-            <ItemSlot v-for="(id, i) in Array.from({ length: g.quickCap }, (_, k) => g.quick[k] ?? null)" :key="i" :item="id ? ITEMS[id] : null" slot-icon="ic-consumable" label="快取" show-name size="sm" :selected="quickSel === i" @select="quickSel = i" />
-          </div>
-        </div>
-        <aside v-if="quickSel !== null" class="panel cut pad">
-          <p class="h">快取格・第 {{ quickSel + 1 }} 格<Hint>點背包裡的消耗品放進這一格。快取格只是記著要帶哪些，東西還在背包裡算。</Hint></p>
-          <template v-if="g.quick[quickSel]">
-            <div class="dh"><ItemSlot :item="ITEMS[g.quick[quickSel]!]" size="md" /><div><div class="k">{{ ITEMS[g.quick[quickSel]!].type }}</div><h3 :style="{ color: `var(--g${ITEMS[g.quick[quickSel]!].grade})` }">{{ ITEMS[g.quick[quickSel]!].name }}</h3></div></div>
-            <div v-for="[k, v] in ITEMS[g.quick[quickSel]!].stats ?? []" :key="k" class="kv"><span>{{ k }}</span><b>{{ v }}</b></div>
-          </template>
-          <div v-else class="empty-note">這一格是空的。</div>
-          <p class="h mt">背包裡的消耗品</p>
-          <div class="qgrid">
-            <ItemSlot v-for="st in quickable" :key="st.uid" :item="ITEMS[st.def]" :qty="st.qty" size="sm" show-name :unavailable="quickBlock(st.def)" @select="putQuick(st.def)" />
-          </div>
-          <div class="go"><ReasonButton sm :reason="g.quick[quickSel] ? null : '這一格是空的。'" @go="g.setQuick(quickSel!, null)">清空</ReasonButton><button type="button" class="btn sm" @click="quickSel = null">回到裝備</button></div>
-        </aside>
-        <aside v-else class="panel cut pad">
-          <p class="h">{{ slotDef(eqSel).group }}・{{ slotDef(eqSel).name }}</p>
-          <template v-if="eqDef">
-            <div class="dh"><ItemSlot :item="eqDef" size="md" :dye="g.dyes[`slot:${eqSel}`] ?? null" /><div><div class="k">{{ eqDef.type }}・{{ eqDef.brand }}</div><h3 :style="{ color: `var(--g${eqDef.grade})` }">{{ eqDef.name }}</h3><div class="chips"><GradeBadge :grade="eqDef.grade" /><span v-if="eqDef.legality !== '自由'" class="tag warn">{{ eqDef.legality }}</span><span v-if="g.coveredSlots.has(eqSel)" class="tag">被外套蓋住</span></div></div></div>
-            <div v-for="[k, v] in eqDef.stats ?? []" :key="k" class="kv"><span>{{ k }}</span><b>{{ v }}</b></div>
-          </template>
-          <div v-else class="empty-note">這一格是空的。</div>
-          <div class="go"><button type="button" class="btn sm pri" @click="change">換裝</button><ReasonButton sm :reason="eqDef ? null : '這一格沒有東西。'" @go="g.unequip(eqSel)">卸下</ReasonButton><ReasonButton sm :reason="!eqDef ? '這一格沒有東西。' : !dyeable(eqDef) ? '這一件不能染。' : null" data-open-dye @go="ui.open('dye', { dyeKey: `slot:${eqSel}`, where: 'home' })">染色</ReasonButton></div>
-          <hr class="hr">
-          <p class="h">外套<Hint title="外套">扣上時蓋住護甲、上身與內衣：藏匿量變大，曝露度變低。重甲不能再穿外套。</Hint></p>
-          <div class="seg"><button type="button" :class="{ on: !g.coatClosed }" @click="g.coatClosed = false">敞開</button><button type="button" :class="{ on: g.coatClosed }" @click="g.coatClosed = true">扣上</button></div>
-          <div class="kv"><span>曝露度</span><b>{{ exposure }}／5</b></div>
-          <div class="kv"><span>重量</span><b>{{ g.carriedWeight }}／24 kg</b></div>
-          <div class="kv"><span>風格</span><b>街頭・霓虹龐克</b></div>
-          <div class="kv"><span>被掃到時</span><b class="warn-t">手槍：登記類，掃得到</b></div>
-        </aside>
-      </section>
+      <!-- 裝備：讀引擎（character/GearTab.vue） -->
+      <GearTab v-else-if="tab === 'gear'" :select="gearSelect" />
       <NetTab v-else-if="tab === 'net'" />
       <BridgeTab v-else-if="tab === 'bridge'" />
       <AdultTab v-else-if="tab === 'adult'" />
@@ -255,12 +190,6 @@ const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e4
 .cdet { margin-top: 12px; }
 .dh { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; margin-bottom: 8px; }
 .dh h3 { margin: 2px 0 4px; font-size: var(--fs-section); }
-.gear-tab { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; }
-.eqgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; margin-bottom: 14px; }
-.seg { display: inline-flex; gap: 3px; margin-bottom: 6px; }
-.seg button { font-size: var(--fs-sm); font-weight: 800; padding: 6px 12px; background: var(--bg-term); color: var(--ink-3); border: 0; cursor: pointer; }
-.seg button.on { background: var(--a); color: #fff; }
-.warn-t { color: var(--warn); }
 .basics { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 16px; }
 .bgrp .k { margin: 4px 0 2px; }
 .brow { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto 44px auto; gap: 6px; align-items: center; padding: 3px 0; font-size: var(--fs-sm); }
@@ -270,8 +199,6 @@ const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e4
 .bpips i.on { background: var(--a); }
 .bpips i.teach { box-shadow: inset 0 0 0 1px var(--g4); }
 .bc { font-size: var(--fs-fine); color: var(--ap); text-align: right; }
-.qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
-@media (max-width: 1100px) { .gear-tab { grid-template-columns: 1fr; } }
 @media (max-width: 900px) {
   .ch { grid-template-columns: 1fr; }
   .bodygrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
@@ -280,5 +207,5 @@ const exposure = computed(() => (g.coatClosed ? 1 : 2) + (g.equip.leg === 'it_e4
   .parts.left { grid-column: 1; grid-row: 2; }
   .parts.right { grid-column: 2; grid-row: 2; }
 }
-@media (max-width: 480px) { .eqgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .slots { grid-template-columns: repeat(3, minmax(0, 44px)); } }
+@media (max-width: 480px) { .slots { grid-template-columns: repeat(3, minmax(0, 44px)); } }
 </style>

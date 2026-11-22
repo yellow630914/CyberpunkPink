@@ -9,5 +9,5 @@ export default defineConfig({
   resolve: { alias: { '@engine': fileURLToPath(new URL('../engine', import.meta.url)) } },
   server: { fs: { allow: ['..'] } },
   build: { outDir: 'dist', chunkSizeWarningLimit: 800 },
-  test: { environment: 'node', include: ['src/**/*.test.ts'] },
+  test: { environment: 'node', include: ['src/**/*.test.ts', 'tests/**/*.test.ts'], exclude: ['**/node_modules/**', 'tests/pending/**'] },
 })

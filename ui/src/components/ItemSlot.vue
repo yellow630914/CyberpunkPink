@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { ItemDef } from '../data/types'
+import type { SlotItem } from '../lib/gearView'
 import Icon from './Icon.vue'
 import GradeBadge from './GradeBadge.vue'
 import { gradeColorVar } from '../lib/grade'
@@ -13,7 +13,7 @@ import { hexOf, type Dye } from '../lib/dye'
  * 未鑑定的只顯示第 1 層（立體方塊加問號），不上等級色。
  */
 const props = withDefaults(defineProps<{
-  item?: ItemDef | null
+  item?: SlotItem | null
   /** 空格時顯示的欄位圖標 */
   slotIcon?: string
   /** 欄位名（顯示在格子下面） */
@@ -22,6 +22,8 @@ const props = withDefaults(defineProps<{
   size?: 'sm' | 'md' | 'lg'
   selected?: boolean
   covered?: boolean
+  /** 格子下面的一行小字（例：被外套蓋住） */
+  note?: string
   unknown?: boolean
   showName?: boolean
   /** 授權鎖之類的警告：黃框（只表示「警告」） */
@@ -45,7 +47,7 @@ const iconId = computed(() => {
   if (props.unknown) return 'ic-unknown'
   const it = props.item
   if (!it) return props.slotIcon ?? 'ic-unknown'
-  return it.icon ?? (it.id.startsWith('it_') ? it.id : it.l2)
+  return it.icon ?? (it.id.startsWith('it_') ? it.id : it.l2 ?? 'ic-unknown')
 })
 const color = computed(() => (props.item && !props.unknown ? gradeColorVar(props.item.grade) : 'var(--line-2)'))
 const name = computed(() => (props.unknown ? '包著的盒子' : props.item?.name ?? '空'))
@@ -66,6 +68,7 @@ const aria = computed(() => [props.label, name.value, props.item && !props.unkno
     <span v-if="showName || label" class="nm">
       <small v-if="label">{{ label }}</small>
       <b v-if="showName">{{ name }}</b>
+      <em v-if="note" class="note">{{ note }}</em>
     </span>
   </component>
 </template>
@@ -88,6 +91,7 @@ const aria = computed(() => [props.label, name.value, props.item && !props.unkno
 .nm { display: grid; text-align: center; line-height: 1.25; min-width: 0; width: 100%; }
 .nm small { font-size: var(--fs-tiny); color: var(--ink-3); font-weight: 800; }
 .nm b { font-size: var(--fs-fine); color: var(--gc); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
+.nm .note { font-style: normal; font-size: var(--fs-tiny); color: var(--warn); font-weight: 800; }
 .empty .nm b { color: var(--ink-3); font-weight: 700; }
 .slot:hover .frame { filter: brightness(1.15); }
 .slot[style*="--dye-p"] .frame { background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--dye-p) 42%, var(--bg-term)) 0 48%, var(--bg-term) 78%); }
