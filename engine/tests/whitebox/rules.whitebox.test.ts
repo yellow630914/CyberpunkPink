@@ -175,15 +175,18 @@ describe('白箱 L4 效果的登錄表（EVENTS 2.4 封閉清單；AI_TASKS 2.5�
   it('錢：扣的錢不超過手上有的，定案的結果寫實際扣的數字（W010）；扣不到的不能拿來抵拿到的', () => {
     const k = createKernel()
     const s = makeState({ patch: { money: { cred: 0, cash: 50 } } })
-    // 合計照寫的量是 0（看起來沒超過），但 500 現金實際只扣得到 50：改成邊走邊算，實際的淨變化 −50 + 170 = +120
-    const r = k.effects.resolve([{ kind: 'cash', amount: -500 }, { kind: 'cred', amount: 500 }], effCtx(k, s))
-    expect(r.effects).toEqual([{ kind: 'cash', amount: -50 }, { kind: 'cred', amount: 170 }])
-    expect(r.changes).toEqual([{ op: 'cash', delta: -50 }, { op: 'cred', delta: 170 }])
-    expect(r.lines).toEqual(['失去：現金 50', '拿到：帳戶 170'])
+    // 同一種錢裡，合計照寫的量是 0（看起來沒超過），但 500 現金實際只扣得到 50：改成邊走邊算，實際的淨變化 −50 + 170 = +120
+    const r = k.effects.resolve([{ kind: 'cash', amount: -500 }, { kind: 'cash', amount: 500 }], effCtx(k, s))
+    expect(r.effects).toEqual([{ kind: 'cash', amount: -50 }, { kind: 'cash', amount: 170 }])
+    expect(r.changes).toEqual([{ op: 'cash', delta: -50 }, { op: 'cash', delta: 170 }])
+    expect(r.lines).toEqual(['失去：現金 50', '拿到：現金 170'])
     expect(r.clamps.map((c) => [c.path, c.from, c.to, c.notice])).toEqual([
       ['effects[0]', -500, -50, '你身上的現金只有 50 元，實際少了 50 元。'],
       ['effects[1]', 500, 170, '你要的比這一區給得起的多，實際拿到 170 元。'],
     ])
+    // 帳戶與現金分開夾（2026-11-22 定案）：現金扣不到不影響帳戶，帳戶照自己的上限 120 夾
+    const two = k.effects.resolve([{ kind: 'cash', amount: -500 }, { kind: 'cred', amount: 500 }], effCtx(k, s))
+    expect(two.changes).toEqual([{ op: 'cash', delta: -50 }, { op: 'cred', delta: 120 }])
   })
 
   it('錢：手上是 0 時扣錢整筆拿掉並提醒（沒有變更，也不留一行）；內建的也一樣', () => {

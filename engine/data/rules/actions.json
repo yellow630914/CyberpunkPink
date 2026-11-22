@@ -7,29 +7,9 @@
     "dc": "normal",
     "minutes": 30,
     "max_minutes": 240,
-    "hint": {
-      "success": [
-        {
-          "kind": "cash",
-          "amount": 20
-        }
-      ],
-      "narrow": [
-        {
-          "kind": "cash",
-          "amount": 10
-        }
-      ],
-      "critical": [
-        {
-          "kind": "cash",
-          "amount": 30
-        }
-      ]
-    },
     "hint_note": {
-      "success": "現金約 20 或一則傳聞",
-      "narrow": "現金約 10",
+      "success": "一則傳聞",
+      "narrow": "沒有",
       "fail": "沒有"
     }
   },

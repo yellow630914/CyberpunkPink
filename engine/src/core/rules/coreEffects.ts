@@ -9,8 +9,9 @@ import { formatDuration } from '../util/time'
 import type { Effect, EffectCtx, EffectDef, EffectRegistry } from './effects'
 
 /**
- * 錢的上限（一件事合計，帳戶與現金加在一起算），照等級：EVENTS 2.4 節「I 級 120、II 級 360、III 級 1,200、IV 級 3,900、V 級 12,000」，
+ * 錢的上限（一件事合計），照等級：EVENTS 2.4 節「I 級 120、II 級 360、III 級 1,200、IV 級 3,900、V 級 12,000」，
  * 也就是那一級的委託報酬下限（小型委託，BALANCE 2.8 節）× 0.5。
+ * - **帳戶與現金各自有上限、分開算**（EVENTS 2.4 節 2026-11-22 的定案）：一件事裡帳戶的合計比一次，現金的合計另比一次。
  * - AI 生成的（與設定開著時玩家要的）：用主角街頭信譽那一階對應的等級（ctx.repGrade），拿到與失去都算。
  * - 內建的事件：用事件所在的區或要地的等級（ctx.grade），只管拿到的；付出去的價錢、罰款與賭注的輸照價格表，不算在內。
  * 資料檔 data/rules/effect_caps.json 載入後（內容種類 effect_cap，id 是 money）以資料為準。
@@ -22,8 +23,13 @@ export function moneyCap(ctx: Pick<EffectCtx, 'content' | 'grade'>): number {
   return data?.[String(ctx.grade)] ?? MONEY_CAP_BY_GRADE[ctx.grade]
 }
 
-/** 物品一次最多幾個（EVENTS 2.4 節的格式底線：防呆的天花板，不是平衡用的上限）。只管 AI 交出的結果。 */
-export const ITEM_MAX_PER_EVENT = 100
+/**
+ * 每一種物品一次最多幾個（EVENTS 2.4 節的格式底線：防呆的天花板，不是平衡用的上限）。只管 AI 交出的結果。
+ * 每一種各算各的：一件事拿到的物品總數不另外限制。
+ */
+export const ITEM_MAX_PER_KIND = 100
+/** 舊名字（2026-11-22 之前是「一件事全部加起來」）；值與新的定案相同，留著讓既有的 import 不斷。 */
+export const ITEM_MAX_PER_EVENT = ITEM_MAX_PER_KIND
 
 type MoneyEffect = Effect & { amount: number }
 /** 付不出來時的提醒：兩種錢各有說法（held 是手上有的） */
@@ -39,7 +45,8 @@ const moneyEffect = (kind: 'cred' | 'cash', name: string): EffectDef<MoneyEffect
     if (ctx.level === 'floor' || (ctx.level === 'builtin' && e.amount <= 0)) return null
     const cap = moneyCap({ content: ctx.content, grade: ctx.level === 'builtin' ? ctx.grade : (ctx.repGrade ?? 1) })
     return {
-      group: 'money', amount: e.amount, max: cap, min: ctx.level === 'builtin' ? -Infinity : -cap,
+      // 帳戶與現金各自一組：分開夾
+      group: kind, amount: e.amount, max: cap, min: ctx.level === 'builtin' ? -Infinity : -cap,
       resize: (amount) => ({ ...e, amount }),
       notice: (to) =>
         e.amount > 0
@@ -110,14 +117,14 @@ export function registerCoreEffects(reg: EffectRegistry): void {
       if (raw.qty < 0 && countItem(ctx.state.inventory, raw.id) < -raw.qty) return [`背包裡的 ${raw.id} 不夠 ${-raw.qty} 個`]
       return []
     },
-    // 格式的底線：AI 交出的結果，一件事拿到的物品加起來最多 100 個（設定關著也照擋；內建的照寫的算）
+    // 格式的底線：AI 交出的結果，每一種物品一件事最多拿 100 個（設定關著也照擋；內建的照寫的算）。每一種各一組
     budget: (e, ctx) => {
       if (ctx.level === 'builtin' || e.qty <= 0) return null
       const name = String(ctx.content.get('item', e.id)?.name ?? e.id)
       return {
-        group: 'item', amount: e.qty, min: -Infinity, max: ITEM_MAX_PER_EVENT,
+        group: `item:${e.id}`, amount: e.qty, min: -Infinity, max: ITEM_MAX_PER_KIND,
         resize: (qty) => ({ ...e, qty }),
-        notice: (to) => (to === 0 ? `一次最多拿 ${ITEM_MAX_PER_EVENT} 個東西，${name}沒有拿到。` : `一次最多拿 ${ITEM_MAX_PER_EVENT} 個東西，${name}實際拿到 ${to} 個。`),
+        notice: (to) => (to === 0 ? `同一種東西一次最多拿 ${ITEM_MAX_PER_KIND} 個，${name}沒有再多拿。` : `同一種東西一次最多拿 ${ITEM_MAX_PER_KIND} 個，${name}實際拿到 ${to} 個。`),
       }
     },
     // 等級不超過主角所在那一區的等級；超過的整筆拿掉

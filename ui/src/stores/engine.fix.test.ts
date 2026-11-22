@@ -121,14 +121,18 @@ describe('M0-fix-ui：開新局與建角是一件事（審查 S11）；建角的
     })
   })
 
-  it('性別六個值：TS 分成 trans_f 與 trans_m（選項的 id 就是引擎的值）', () => {
+  it('性別五個值：TS 只有男跨女一種 trans_f（選項的 id 就是引擎的值）；trans_m 已經拿掉', () => {
     expect(GENDER_OPTIONS.map((o) => o.id)).toEqual([...GENDER_IDS])
     for (const o of GENDER_OPTIONS) expect(o.name.length).toBeGreaterThan(0)
-    for (const gender of ['trans_f', 'trans_m']) {
+    expect(GENDER_OPTIONS.map((o) => o.id)).toEqual(['female', 'male', 'femboy', 'trans_f', 'futa'])
+    for (const gender of ['trans_f', 'futa']) {
       setActivePinia(createPinia())
       expect(started({ gender }).pc!.gender).toBe(gender)
     }
-    // 舊的寫法（一個「TS」）引擎不收
+    // 拿掉的 trans_m 引擎不收
+    setActivePinia(createPinia())
+    expect(useEngine().newGame({ seed: 7, draft: { ...DRAFT, gender: 'trans_m' } as never })).toEqual([{ step: 'basics', reason: '沒有這個性別。' }])
+    // 舊的寫法（顯示用的「TS」當成值）引擎不收
     setActivePinia(createPinia())
     expect(useEngine().newGame({ seed: 7, draft: { ...DRAFT, gender: 'TS' } as never })).toEqual([{ step: 'basics', reason: '沒有這個性別。' }])
   })

@@ -35,7 +35,7 @@ const TABLE: Record<string, [string, string, string | null, string, number, numb
 
 /** 參考範圍裡引擎現在套得了的部分（錢與生命值）：工單「參考範圍」那張表 */
 const HINTS: Record<string, Record<string, Array<{ kind: string; amount: number }>>> = {
-  free: { success: [{ kind: 'cash', amount: 20 }], narrow: [{ kind: 'cash', amount: 10 }], critical: [{ kind: 'cash', amount: 30 }] },
+  // free 不給現金（2026-11-22 定案，AI_TASKS 3.1 節）：參考範圍是「一則傳聞／沒有／沒有」，AI 關閉時的退路只給時間與敘述
   beg: { success: [{ kind: 'cash', amount: 20 }], narrow: [{ kind: 'cash', amount: 10 }], critical: [{ kind: 'cash', amount: 30 }] },
   pickpocket: { success: [{ kind: 'cash', amount: 30 }], narrow: [{ kind: 'cash', amount: 15 }], critical: [{ kind: 'cash', amount: 45 }] },
   busk: { success: [{ kind: 'cash', amount: 25 }], narrow: [{ kind: 'cash', amount: 10 }], critical: [{ kind: 'cash', amount: 38 }] },
@@ -82,7 +82,8 @@ describe('M0-fix-data：行動種類的資料（AI_TASKS 3.1 節）', () => {
       expect(Object.keys(note).sort(), id).toEqual(['fail', 'narrow', 'success'])
       for (const v of Object.values(note)) expect(typeof v === 'string' && v.trim().length > 0, id).toBe(true)
     }
-    expect(e.free!.hint_note).toEqual({ success: '現金約 20 或一則傳聞', narrow: '現金約 10', fail: '沒有' })
+    expect(e.free!.hint_note).toEqual({ success: '一則傳聞', narrow: '沒有', fail: '沒有' })
+    expect(e.free!.hint).toBeUndefined()
     expect(e.sneak!.hint_note!.narrow).toBe('進得去，狀態「被記下」')
     expect(e.pickpocket!.hint_note!.fail).toBe('沒得手；被看到時那一區的勢力或市警敵對值 +3')
     expect(e.first_aid!.hint_note!.success).toMatch(/1d6 \+ 醫療等級/)
@@ -95,12 +96,13 @@ describe('M0-fix-data：行動種類的資料（AI_TASKS 3.1 節）', () => {
     expect(() => new Game({ features: allFeatures(), content: [CORE_PACK] })).not.toThrow()
   })
 
-  it('裝上所有功能：十八種可以做（free 用資料的那一筆，多了參考範圍）；誘惑先不註冊（它的鏈還沒搬進來）', () => {
+  it('裝上所有功能：十八種可以做（free 用資料的那一筆）；誘惑先不註冊（它的鏈還沒搬進來）', () => {
     const game = new Game({ features: allFeatures(), content: [CORE_PACK], strict: true })
     const ids = game.k.actions.list().map((a) => a.id).sort()
     expect(ids).toEqual(Object.keys(TABLE).filter((id) => id !== 'flirt').sort())
     expect(game.k.actions.get('free')).toMatchObject({ owner: 'actions', name: '自由行動', attr: 'intellect', minutes: 30, maxMinutes: 240 })
-    expect(game.k.actions.get('free')!.hint).toBeDefined()
+    // free 的參考範圍不給現金（2026-11-22 定案）：資料沒有寫 hint，所以沒有參考範圍
+    expect(game.k.actions.get('free')!.hint).toBeUndefined()
     expect(game.k.actions.get('flirt')).toBeUndefined()
   })
 

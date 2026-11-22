@@ -160,8 +160,8 @@ export function rulesFromUi(s: { difficulty?: string; traitPoints?: number; cust
   return out
 }
 
-/** 建角畫面的性別選項（DATA 第 1 節的六個值；id 就是引擎的值，順序照引擎）。名字是介面定的。 */
-const GENDER_NAME: Record<GenderId, string> = { female: '女', male: '男', femboy: '偽娘（含男娘）', trans_f: 'TS（女）', trans_m: 'TS（男）', futa: '扶他' }
+/** 建角畫面的性別選項（DATA 第 1 節的五個值；id 就是引擎的值，順序照引擎）。TS 只有男跨女一種（trans_f）。名字是介面定的。 */
+const GENDER_NAME: Record<GenderId, string> = { female: '女', male: '男', femboy: '偽娘（含男娘）', trans_f: 'TS', futa: '扶他' }
 export const GENDER_OPTIONS: ReadonlyArray<{ id: GenderId; name: string }> = GENDER_IDS.map((id) => ({ id, name: GENDER_NAME[id] }))
 
 /** 特質的分類（引擎給英文代號）顯示用的中文。 */

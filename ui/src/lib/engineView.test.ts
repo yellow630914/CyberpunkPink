@@ -207,7 +207,9 @@ describe('顯示用的對照表', () => {
   it('DATA 第 1 節的性別值：介面的每個選項就是一個引擎的值，而且不重複', () => {
     const vals = GENDER_OPTIONS.map((o) => o.id)
     expect(new Set(vals).size).toBe(vals.length)
-    for (const v of vals) expect(['male', 'female', 'femboy', 'trans_f', 'trans_m', 'futa']).toContain(v)
+    expect(vals).toHaveLength(5)
+    for (const v of vals) expect(['male', 'female', 'femboy', 'trans_f', 'futa']).toContain(v)
+    expect(GENDER_OPTIONS.find((o) => o.id === 'trans_f')!.name).toBe('TS')
   })
 
   it('特質的分類都有中文名', () => {

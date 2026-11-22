@@ -1,5 +1,5 @@
 // 建角在 M0 的修正批次（2026-11-22）加的東西（介面回報要搬進引擎的規則與定案）：
-// 屬性 ± 按鈕、建角的數字、性別的六個值、私處的外觀（受內容篩選控制）、出身的勢力與名冊改用 id、義體與裝備點數換成現金。
+// 屬性 ± 按鈕、建角的數字、性別的五個值、私處的外觀（受內容篩選控制）、出身的勢力與名冊改用 id、義體與裝備點數換成現金。
 // 規格：CHARACTER 第 1、2、5.1、5.4、5.6 節；DATA 第 1、1.1、8 節；LEWD_SYSTEM 第 9 節。
 
 import { describe, expect, it } from 'vitest'
@@ -119,15 +119,16 @@ describe('建角：給畫面的數字與出身的摘要', () => {
   })
 })
 
-describe('建角：性別的六個值與私處的外觀（DATA 第 1、8 節；LEWD_SYSTEM 第 9 節）', () => {
-  it('性別只收六個值（TS 分成 trans_f 與 trans_m）；空的要選，其他的擋下', () => {
-    expect([...GENDER_IDS]).toEqual(['female', 'male', 'femboy', 'trans_f', 'trans_m', 'futa'])
+describe('建角：性別的五個值與私處的外觀（DATA 第 1、8 節；LEWD_SYSTEM 第 9 節）', () => {
+  it('性別只收五個值（TS 只有男跨女一種 trans_f；trans_m 已經拿掉）；空的要選，其他的擋下', () => {
+    expect([...GENDER_IDS]).toEqual(['female', 'male', 'femboy', 'trans_f', 'futa'])
+    expect(genderBlock('trans_m')).toBe('沒有這個性別。')
     for (const g of GENDER_IDS) expect(genderBlock(g)).toBeNull()
     expect(genderBlock('')).toBe('要選性別。')
     for (const bad of ['TS', 'trans', 'Female', '女']) expect(genderBlock(bad)).toBe('沒有這個性別。')
     const game = setup()
     expect(creationBlocks(game.k, game.state, draft({ gender: 'TS' }))).toEqual([{ step: 'basics', reason: '沒有這個性別。' }])
-    for (const gender of ['trans_f', 'trans_m']) {
+    for (const gender of ['trans_f', 'futa']) {
       const g = setup()
       g.commit(buildCreationReport(g.k, g.state, draft({ gender })))
       expect(g.state.actors.pc!.gender).toBe(gender)

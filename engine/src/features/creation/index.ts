@@ -24,7 +24,7 @@ export interface CreationLook {
 
 export interface CreationDraft {
   name: string
-  /** female、male、femboy、trans_f、trans_m、futa（DATA 第 1 節的六個值；TS 分成 trans_f 與 trans_m） */
+  /** female、male、femboy、trans_f、futa（DATA 第 1 節的五個值；TS 只有男跨女一種，id 是 trans_f） */
   gender: string
   pronoun?: string
   age: number | string

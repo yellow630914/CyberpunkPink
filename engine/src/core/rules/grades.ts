@@ -15,9 +15,34 @@ export function areaGrade(k: RulesKernel, state: GameState): Grade {
 /** 衍生數值的 id：主角的街頭信譽那一階接得到的委託等級（1～5）。由街頭信譽的功能註冊（M2）。 */
 export const REP_GRADE_STAT = 'rep_grade'
 
+/** 街頭信譽六階（CORE_RULES 第 8 節）：無名、熟面孔、有號、搶手、頂尖、傳說；括號裡是到那一階要的信譽值。 */
+export const REP_TIERS = ['nobody', 'familiar', 'named', 'in_demand', 'top', 'legend'] as const
+export type RepTier = (typeof REP_TIERS)[number]
+export const REP_TIER_NAME: Record<RepTier, string> = { nobody: '無名', familiar: '熟面孔', named: '有號', in_demand: '搶手', top: '頂尖', legend: '傳說' }
+/** 到每一階要的信譽值：0、15、35、55、75、90。 */
+export const REP_TIER_MIN: readonly number[] = [0, 15, 35, 55, 75, 90]
 /**
- * 主角的街頭信譽那一階對應的委託等級（LIFE 1.3 節「信譽六階對應 I～V 級」）。AI 給的錢的上限用它（EVENTS 2.4 節）。
+ * 六階對 I～V 級（LIFE 1.3 節，2026-11-22 定案）：最低兩階（無名、熟面孔）都是 I 級，之後每升一階升一級
+ * （有號 II、搶手 III、頂尖 IV、傳說 V）。AI 給的錢的上限照這個對法（EVENTS 2.4 節）。
+ */
+export const REP_TIER_GRADE: readonly Grade[] = [1, 1, 2, 3, 4, 5]
+
+/** 信譽值在第幾階（0～5）。 */
+export function repTierOf(rep: number): number {
+  let tier = 0
+  REP_TIER_MIN.forEach((min, i) => { if (rep >= min) tier = i })
+  return tier
+}
+
+/** 第幾階（0～5，超出的夾住）對到的委託等級。街頭信譽的功能用它註冊 rep_grade。 */
+export function gradeOfRepTier(tier: number): Grade {
+  return REP_TIER_GRADE[clamp(Math.floor(tier), 0, REP_TIER_GRADE.length - 1)]!
+}
+
+/**
+ * 主角的街頭信譽那一階對應的委託等級（LIFE 1.3 節）。AI 給的錢的上限用它（EVENTS 2.4 節）。
  * 街頭信譽的功能還沒搬進來之前（沒有人註冊 rep_grade）一律是 I 級：無名。
+ * 註冊的那個功能用 gradeOfRepTier(repTierOf(信譽值)) 算，對法只有這一份。
  */
 export function repGrade(k: RulesKernel, state: GameState): Grade {
   if (!state.pc || !state.actors[state.pc] || !k.stats.hasStat(REP_GRADE_STAT)) return 1
