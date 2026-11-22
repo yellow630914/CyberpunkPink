@@ -1,0 +1,112 @@
+[
+  {
+    "id": "gunner",
+    "name": "槍手",
+    "tree": "戰鬥直覺",
+    "category": "meat",
+    "signature": "sk_gunner_instinct",
+    "domains": {
+      "meat": "strong",
+      "net": "weak",
+      "opinion": "none"
+    },
+    "resonance": [
+      {
+        "tier": 1,
+        "cells": 1,
+        "text": "每場戰鬥開始時，你的先攻 +3。",
+        "effect": {
+          "initiative": 3
+        }
+      },
+      {
+        "tier": 2,
+        "cells": 1,
+        "text": "每場戰鬥你第一次換位不花行動點。",
+        "effect": {
+          "free_move": {
+            "per_fight": 1
+          }
+        }
+      },
+      {
+        "tier": 3,
+        "cells": 1,
+        "text": "你射擊站在暴露格子上的敵人時，命中 +1。",
+        "effect": {
+          "pending": true
+        }
+      },
+      {
+        "tier": 4,
+        "cells": 1,
+        "text": "你站在掩體或半掩體的格子上時，迴避 +1。",
+        "effect": {
+          "pending": true
+        }
+      },
+      {
+        "tier": 5,
+        "cells": 1,
+        "text": "戰鬥直覺可以分配的點數 +1。",
+        "effect": {
+          "pending": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "fixer",
+    "name": "掮客",
+    "tree": "人面",
+    "category": "social",
+    "signature": "sk_fixer_face",
+    "domains": {
+      "meat": "strong_support",
+      "net": "mid",
+      "opinion": "mid"
+    },
+    "resonance": [
+      {
+        "tier": 1,
+        "cells": 1,
+        "text": "名冊的容量多 1 個人。",
+        "effect": {
+          "pending": true
+        }
+      },
+      {
+        "tier": 2,
+        "cells": 1,
+        "text": "每場戰鬥第一次叫人不花行動點。",
+        "effect": {
+          "pending": true
+        }
+      },
+      {
+        "tier": 3,
+        "cells": 1,
+        "text": "和你相鄰的隊友迴避 +1（現實與內海）。",
+        "effect": {
+          "pending": true
+        }
+      },
+      {
+        "tier": 4,
+        "cells": 1,
+        "text": "輿論戰開場的手牌多 1 張。",
+        "effect": {
+          "pending": true
+        }
+      },
+      {
+        "tier": 5,
+        "cells": 1,
+        "text": "輔助面與派工的擲骰 +2。",
+        "effect": {
+          "pending": true
+        }
+      }
+    ]
+  }
+]

@@ -12,6 +12,8 @@ import damageTypes from './rules/damage_types.json'
 import battleStatuses from './rules/battle_statuses.json'
 import weaponClasses from './rules/weapon_classes.json'
 import items from './rules/items.json'
+import paths from './rules/paths.json'
+import abilities from './rules/abilities.json'
 import maps from './world/maps.json'
 import factions from './world/factions.json'
 import npcs from './world/npcs.json'
@@ -25,6 +27,7 @@ export const CORE_PACK: ContentPack = {
     attribute: attributes, skill: skills, perk: perks, faction: factions, npc: npcs, origin: origins, creation_rule: creation, effect_cap: effectCaps, action_kind: actions,
     battle_mode: battleModes, damage_type: damageTypes, battle_status: battleStatuses, weapon_class: weaponClasses, item: items, special_map: maps,
     enemy: enemies, encounter: encounters, defeat_event: defeatEvents,
+    path: paths, ability: abilities,
   },
 }
 
@@ -47,5 +50,7 @@ export const SOURCES: Record<string, string> = {
   enemy: 'ENEMY_ROSTER 第一到第五部分（現實的制式兵種）；ENEMIES 1.5、1.6 節',
   encounter: 'dev/work/M1-data-enemies.md（基準，M2 換成委託模板與二十九種戰敗事件）',
   defeat_event: 'dev/work/M1-data-enemies.md（基準，M2 換成委託模板與二十九種戰敗事件）',
+  path: 'SKILL_TREES 槍手、掮客；SKILLS 1.3、1.9、1.10 節',
+  ability: 'SKILL_TREES 槍手、掮客；SKILLS 1.3、1.9、1.10 節',
   special_map: 'DATA 9.3 節（小辦公室樣本）、COMMISSION_MAPS 第 1、2 節（小辦公室）與第 8 節、1.6 節樣本（俱樂部）；C 的 cells 照第 2、8 節的控制區表補',
 }
