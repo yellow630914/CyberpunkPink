@@ -39,9 +39,10 @@ export const enemiesFeature: Feature = {
       unit.uses.morale = 1
       const { ok } = run.save(unit, 'resolve', 'composure', MORALE_DC[unit.rank], '士氣')
       if (ok) return
-      // 對方還站著的人數是自己這一方的兩倍以上就投降，否則撤退（暫定，dev/adr/0013 D4）
+      // 被困在第 4 格（站在第 4 格，前面三格沒有還站著的同伴），或對方還站著的人數是自己這一方的兩倍以上就投降，否則撤退（ENEMIES 4.4 節；dev/adr/0013 D4）
       const standing = (list: BattleUnit[]) => list.filter((u) => !u.out).length
-      run.setOut(unit, standing(theirs) >= 2 * standing(mine) ? 'surrendered' : 'fled')
+      const trapped = unit.slot === 4 && !mine.some((u) => u !== unit && !u.out && u.slot >= 1 && u.slot <= 3)
+      run.setOut(unit, trapped || standing(theirs) >= 2 * standing(mine) ? 'surrendered' : 'fled')
       return true
     })
   },

@@ -61,11 +61,19 @@ export function learn(k: Pick<Kernel, 'content'>, state: GameState, actor: Actor
   return reportOf(state, actor, 'ability.learn', next, `學會了${ab.name}（花 ${ab.xp} 點歷練點）。`, 'learned')
 }
 
+/** 每一類容量的下限（CORE_RULES 6.4 節、CYBERWARE 7.1 節：任何一座橋的每一類最低 8）。 */
+export const BRIDGE_CAPACITY_MIN = 8
+
+/** 橋的容量。有橋（ext.bridge.capacity 是物件）的每一類至少 8，壞掉的數字當 8；沒有橋就是 0（沒有橋就沒有容量）。 */
 function bridgeCapacity(state: GameState, actor: ActorId): Record<Category, number> {
   const raw = state.actors[actor]?.ext.bridge
-  const cap = isRec(raw) && isRec(raw.capacity) ? raw.capacity : {}
+  const hasBridge = isRec(raw) && isRec(raw.capacity)
+  const cap = hasBridge ? raw.capacity as Record<string, unknown> : {}
   const out = {} as Record<Category, number>
-  for (const c of CATEGORIES) out[c] = typeof cap[c] === 'number' && Number.isFinite(cap[c]) ? (cap[c] as number) : 0
+  for (const c of CATEGORIES) {
+    const v = cap[c]
+    out[c] = hasBridge ? Math.max(BRIDGE_CAPACITY_MIN, typeof v === 'number' && Number.isFinite(v) ? v : 0) : 0
+  }
   return out
 }
 

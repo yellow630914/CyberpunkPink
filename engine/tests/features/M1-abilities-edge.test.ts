@@ -365,7 +365,7 @@ describe('單位的資料與開場的效果', () => {
 })
 
 describe('學與裝的邊界', () => {
-  const state = (xp: number, extra: Record<string, unknown> = {}) => makeGame({ features: FEATURES, content: [PACK], pc: { ext: { bridge: { capacity: { meat: 4, net: 0, social: 4, media: 0 } }, abilities: { xp, learned: [], equipped: [], spent: {}, ...extra } } } }).game
+  const state = (xp: number, extra: Record<string, unknown> = {}) => makeGame({ features: FEATURES, content: [PACK], pc: { ext: { bridge: { capacity: { meat: 8, net: 8, social: 8, media: 8 } }, abilities: { xp, learned: [], equipped: [], spent: {}, ...extra } } } }).game
 
   it('樹的階：累計 39 還是 1 階、40 是 2 階、120 是 3 階、240 是 4 階、400 是 5 階', () => {
     const g = state(0)
@@ -408,13 +408,13 @@ describe('學與裝的邊界', () => {
   })
 
   it('裝：整份換掉；重複的 id 只算一次；容量沒有的那一類（橋沒有）裝不下；沒學與不存在的技能擋下且不動狀態', () => {
-    const g = state(0, { learned: ['sk_gunner_instinct', 'sk_gunner_burst', 'sk_gunner_cover_fire', 'sk_fixer_face'], equipped: ['sk_gunner_burst'] })
+    const g = state(0, { learned: ['sk_gunner_instinct', 'sk_gunner_burst', 'sk_gunner_cover_fire', 'sk_gunner_point_shot', 'sk_gunner_sights', 'sk_fixer_face'], equipped: ['sk_gunner_burst'] })
     g.commit(equipAbilities(g.k, g.state, 'pc', ['sk_gunner_instinct', 'sk_gunner_instinct']))
     expect(abilitiesOf(g.state, 'pc').equipped).toEqual(['sk_gunner_instinct'])
-    expect(capacityOf(g.k, g.state, 'pc').meat).toEqual({ used: 3, max: 4 })
-    expect(() => equipAbilities(g.k, g.state, 'pc', ['sk_gunner_instinct', 'sk_gunner_burst', 'sk_gunner_cover_fire', 'sk_fixer_face'])).toThrow('現實型的容量不夠（要 5，橋只有 4）。')
+    expect(capacityOf(g.k, g.state, 'pc').meat).toEqual({ used: 3, max: 8 })
+    expect(() => equipAbilities(g.k, g.state, 'pc', ['sk_gunner_instinct', 'sk_gunner_burst', 'sk_gunner_cover_fire', 'sk_gunner_point_shot', 'sk_gunner_sights'])).toThrow('現實型的容量不夠（要 9，橋只有 8）。')
     expect(() => equipAbilities(g.k, g.state, 'pc', ['sk_nope'])).toThrow('還沒學會sk_nope。')
-    expect(() => equipAbilities(g.k, g.state, 'pc', ['sk_gunner_sights'])).toThrow('還沒學會瞄具。')
+    expect(() => equipAbilities(g.k, g.state, 'pc', ['sk_fixer_swap'])).toThrow('還沒學會換個位子嘛。')
     expect(abilitiesOf(g.state, 'pc').equipped).toEqual(['sk_gunner_instinct'])
     g.commit(equipAbilities(g.k, g.state, 'pc', []))
     expect(abilitiesOf(g.state, 'pc').equipped).toEqual([])

@@ -112,8 +112,8 @@ describe('白箱 enemy 的格式（ENEMIES 第 2 節；dev/work/M1-enemies.md �
     ['quick', 'x', /quick 要是/],
     ['named', 'yes', /named 要是 true 或 false/],
     ['base', '', /base 要是制式兵種的 id/],
-    ['strength', 0, /強度係數）要是 0 到 3 之間的數字/],
-    ['strength', 3.5, /強度係數）要是 0 到 3 之間的數字/],
+    ['strength', 0, /強度係數）要是 0 到 2 之間的數字/],
+    ['strength', 3.5, /強度係數）要是 0 到 2 之間的數字/],
     ['defeat', 3, /defeat 要是字串/],
     ['adult', 'x', /adult 要是字串的陣列或 null/],
     ['signature', 'x', /signature 要是陣列/],
@@ -124,8 +124,8 @@ describe('白箱 enemy 的格式（ENEMIES 第 2 節；dev/work/M1-enemies.md �
     expect(edit('enemy', ENEMY, field, value as unknown)).toMatch(re)
   })
 
-  it('合格的選填欄位：adult 可以是 null、traits 與 loot 可以有東西、strength 在 0～3', () => {
-    expect(problems('enemy', { ...ENEMY, adult: null, traits: ['contract'], loot: [], signature: [], strength: 3, angel: 'x', named: true, branch: 'b', defeat: 'd' })).toBe('')
+  it('合格的選填欄位：adult 可以是 null、traits 與 loot 可以有東西、strength 在 0～2', () => {
+    expect(problems('enemy', { ...ENEMY, adult: null, traits: ['contract'], loot: [], signature: [], strength: 2, angel: 'x', named: true, branch: 'b', defeat: 'd' })).toBe('')
   })
 
   it('refs：勢力（none 不算）、武器類型、base、快取格的道具；載入後的引用檢查找得到', () => {
@@ -181,7 +181,7 @@ describe('白箱 base 的展開（ENEMIES 2.1 節）', () => {
 describe('白箱 encounter 的格式（ENEMIES 第 13 節）', () => {
   it('合格的樣本收得進來', () => {
     expect(problems('encounter', ENC)).toBe('')
-    expect(problems('encounter', { ...ENC, kind: 'boss', escapable: false, faction: 'x', ambush: 'foe', field: { dark: true, n: 1, s: 'x' }, nodes: [{ kind: 'light', name: '燈' }], foes: [{ enemy: 'a', grade: 5, slot: 4, strength: 3 }] })).toBe('')
+    expect(problems('encounter', { ...ENC, kind: 'boss', escapable: false, faction: 'x', ambush: 'foe', field: { dark: true, n: 1, s: 'x' }, nodes: [{ kind: 'light', name: '燈' }], foes: [{ enemy: 'a', grade: 5, slot: 4, strength: 2 }] })).toBe('')
   })
 
   it.each([
@@ -196,7 +196,7 @@ describe('白箱 encounter 的格式（ENEMIES 第 13 節）', () => {
     ['foes', [{ enemy: '' }], /foes\[0\]\.enemy 要是敵人的 id/],
     ['foes', [{ enemy: 'a', grade: 6 }], /foes\[0\]\.grade 要是 1～5 的整數/],
     ['foes', [{ enemy: 'a', slot: 5 }], /foes\[0\]\.slot 要是 1～4 的整數/],
-    ['foes', [{ enemy: 'a', strength: 0 }], /foes\[0\]\.strength 要是 0 到 3 之間的數字/],
+    ['foes', [{ enemy: 'a', strength: 0 }], /foes\[0\]\.strength 要是 0 到 2 之間的數字/],
     ['escapable', 'no', /escapable 要是 true 或 false/],
     ['faction', '', /faction 要是勢力的 id/],
     ['ambush', 'both', /ambush 只能是 ally 或 foe/],

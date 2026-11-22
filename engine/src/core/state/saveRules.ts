@@ -74,7 +74,8 @@ export function sanitizeRules(raw: unknown): SaveRules {
     defeatTakeGear: bool(r.defeatTakeGear, d.defeatTakeGear),
     enemyCoef: difficulty === 'custom' ? sanitizeCoefTable(r.enemyCoef) : clone(DIFFICULTY_ENEMY_COEF[difficulty]),
     defeatMoneyLoss: clamp(num(r.defeatMoneyLoss, d.defeatMoneyLoss), 0, 1),
-    defeatMoneyCap: r.defeatMoneyCap === null || r.defeatMoneyCap === undefined ? null : Math.max(0, int(r.defeatMoneyCap, 0)),
+    // 金額的上限：null 與沒寫是不設上限；壞掉的值（不是有限的數字）回到預設（不設上限），不是 0；負數夾成 0
+    defeatMoneyCap: Number.isNaN(num(r.defeatMoneyCap, Number.NaN)) ? d.defeatMoneyCap : Math.max(0, Math.round(num(r.defeatMoneyCap))),
     heavyWounds: bool(r.heavyWounds, d.heavyWounds),
     rosterDeath: bool(r.rosterDeath, d.rosterDeath),
     xpMult: clamp(num(r.xpMult, d.xpMult), 0.5, 2),

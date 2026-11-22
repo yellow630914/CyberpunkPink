@@ -7,3 +7,5 @@
   會失敗的測試：`engine/tests/pending/B013-bio-parts-not-scanned.test.ts`（一個失敗、一個對照會過）。
 - 可能的位置（只寫推測，不改）：`scanFinds` 的 `parts.every(...)`：條件改成 `p.part.material === 'bio' || p.part.traits?.includes('scan_proof')`。如果決定資料要自己寫特性，就把 EQUIPMENT 6.3 節的表改成「生體件帶 scan_proof」並在 DATA 7.2 節補一條檢查。
 - 附帶：同一節的「屏蔽襯裡」（外套選配零件，讓藏在外套裡、大小 ≤ 1／2／3 的東西掃不到）與「義體的藏匿艙 +1、搜身找不到」M1 沒有實作（`dev/work/M1-gear.md` 第六節沒列），不算這一條的 bug，M4 組裝做零件時一併處理。
+
+- fixed in: 2026-11-22 邊界修正批次（回歸測試在 engine/tests/boundary/）

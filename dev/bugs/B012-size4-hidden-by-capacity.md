@@ -6,3 +6,5 @@
 - 重現：種子 7（`makeState` 預設），不擲骰。長外套（conceal 5）扣上、一件 conceal_add 2 的裝甲制服，攜帶格帶一把大小 4 與一把大小 3。期望 `hidden = ['r1']`、`shown = ['s1']`，實際 `hidden = ['r1', 's1']`。
   會失敗的測試：`engine/tests/pending/B012-size4-never-hidden.test.ts`。
 - 可能的位置（只寫推測，不改）：`concealment` 的迴圈：`w.bp.size >= 4` 直接放進 `shown`。機甲（M6）也走同一個地方。
+
+- fixed in: 2026-11-22 邊界修正批次（回歸測試在 engine/tests/boundary/）

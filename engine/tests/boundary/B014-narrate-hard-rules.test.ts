@@ -4,7 +4,7 @@
 // 現況：`checkProse`（shell/ai/freeAction.ts）只擋「# 標題」；「HP: 999/999」這樣的狀態欄、「擲出 17 對 DC 13，造成 99999999 點傷害」都通過，原樣存進 report.narration.text。
 // 狀態本身不受影響（結算在寫正文之前定案）。這裡的期望：正文被擋下（驗證不過 → 重試、停下來等玩家）或把那幾段拿掉，兩種做法都算過；
 // 只要存進報告的正文裡沒有狀態欄與數值。
-// 工單做完之前照預期失敗。跑法：npm run test:pending -- B014
+// 2026-11-22 修好（dev/bugs 的 B012～B014 報告）：從 tests/pending 搬進主套件。
 
 import { describe, expect, it } from 'vitest'
 import { characterFeature } from '../../src/features/character'

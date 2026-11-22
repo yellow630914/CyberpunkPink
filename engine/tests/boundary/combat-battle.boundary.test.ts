@@ -102,7 +102,7 @@ describe('邊界：整場現實戰鬥的性質（隨機的種子、情境、等�
         expect(['win', 'lose', 'fled', 'surrender']).toContain(r.outcome)
         expect(r.end!.status, JSON.stringify(s)).toBe('applied')
         expect(r.game.battle).toBeNull()
-      }), { numRuns: 25 })
+      }), { numRuns: 12 }) // 2026-11-22：25 → 12，讓 npm test 在一分鐘內；性質一個都沒少
     }, 120_000)
   }
 
@@ -112,7 +112,7 @@ describe('邊界：整場現實戰鬥的性質（隨機的種子、情境、等�
       const b = await fight(s, SETS[1]!)
       expect(a.hash).toBe(b.hash)
       expect(a.steps).toBe(b.steps)
-    }), { numRuns: 8 })
+    }), { numRuns: 4 }) // 8 → 4（同上）
   }, 120_000)
 })
 

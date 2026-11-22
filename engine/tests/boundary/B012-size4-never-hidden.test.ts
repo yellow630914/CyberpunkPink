@@ -1,7 +1,7 @@
 // B012：大小 4 的東西（狙擊槍、重武器、摺起來的機甲）「藏不了」，程式卻在藏匿量夠大時把它算成藏好了。
 // 規格：EQUIPMENT 6.1 節大小表「4｜狙擊槍、重武器、摺起來的機甲；藏不了」；第 4 節「機甲……大小 4，藏不住，臨檢一定掃得到」。
 // 現況：`concealment`（features/gear/numbers.ts）只比 已用 ＋ 大小 ≤ 藏匿量；長外套扣上（5）加內藏槽（+2）加飾品，藏匿量可以到 12，大小 4 的就進了 hidden。
-// 工單做完之前照預期失敗。跑法：npm run test:pending -- B012
+// 2026-11-22 修好（dev/bugs 的 B012～B014 報告）：從 tests/pending 搬進主套件。
 
 import { describe, expect, it } from 'vitest'
 import type { ContentPack, ItemStack } from '../../src'

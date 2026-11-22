@@ -72,12 +72,36 @@ export function splitCovered(raw: string): { text: string; covered: number[] | n
   return { text: raw.slice(0, m.index).replace(/<\/?covered>/g, '').trim(), covered }
 }
 
-/** 寫正文與潤色共用的檢查：不能是空的；不寫標題（硬規則 H10）；對照 <covered>。 */
+/**
+ * 正文的硬規則（AI_TASKS 4.1 節「正文的硬規則」，PROMPTS H4、H10）。目的是沉浸：不寫戰報。只擋三類，一小組正規式，寧可漏擋也不誤殺：
+ * 世界裡的數字（時間、人數、樓層、對白裡的錢）不擋。
+ */
+const STATUS_BAR = [
+  /^\s{0,3}#{1,6}\s/m, // 標題
+  /\b(?:HP|MP|AP|SP|XP|DC|LV)\s*[:：]?\s*[-−+]?\d/, // HP: 999/999、AP 3
+  /(?:生命值?|感載|過載|護甲|行動點|餘韻|沉溺)\s*[:：]?\s*\d+\s*[/／]\s*\d+/, // 感載 0/52
+]
+const DICE_JARGON = [
+  /(?:擲出|骰出|擲到|骰到|擲得)\s*\d/, // 擲出 17
+  /\bDC\s*\d/, // DC 13
+  /\b\d*d(?:4|6|8|10|12|20|100)\b/, // d20、2d6
+  /\brolled\s+\d/i,
+  /命中率/,
+]
+const MECHANIC_NUMBERS = [
+  /\d[\d,]*\s*點\s*(?:的\s*)?(?:傷害|生命|血量|感載|護甲|行動點|HP)/, // 3 點傷害
+  /(?:傷害|生命值?|血量|感載|護甲|行動點|HP)\s*[:：]?\s*[-−+＋－]\s*\d/, // 生命 −12
+  /(?:造成|受到|承受|失去|損失)\s*\d[\d,]*\s*(?:傷害|生命|感載)/, // 造成 40 傷害
+]
+const anyOf = (list: RegExp[], text: string) => list.some((re) => re.test(text))
+
+/** 寫正文與潤色共用的檢查：不能是空的；硬規則 H10（標題、狀態欄）與 H4（骰值、機制的數字）；對照 <covered>。 */
 function checkProse(raw: unknown, results: string[]): { ok: true; value: NarrateOutput; marks: string[] } | { ok: false; errors: string[] } {
   if (typeof raw !== 'string') return { ok: false, errors: ['正文要是文字'] }
   const { text, covered } = splitCovered(raw)
   if (!text) return { ok: false, errors: ['正文是空的'] }
-  if (/^\s{0,3}#{1,6}\s/m.test(text)) return { ok: false, errors: ['H10：正文不寫標題、狀態欄、系統訊息'] }
+  if (anyOf(STATUS_BAR, text)) return { ok: false, errors: ['H10：正文不寫標題、狀態欄、系統訊息'] }
+  if (anyOf(DICE_JARGON, text) || anyOf(MECHANIC_NUMBERS, text)) return { ok: false, errors: ['H4：擲骰、DC、傷害與生命、感載的數字不寫進文字，用描寫呈現'] }
   // 對照：少了哪一行，或沒有交 <covered>，標「沒寫到」。不算失敗、不改任何結果
   const uncovered = results.map((_, i) => i + 1).filter((n) => !covered?.includes(n))
   return { ok: true, value: { text, uncovered }, marks: uncovered.length ? ['uncovered'] : [] }

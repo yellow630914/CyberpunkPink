@@ -105,9 +105,10 @@ const byUid = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
 
 /**
  * 藏匿量（EQUIPMENT 6.1 節）＝ 基本量 ＋ 內藏槽 ＋ 戴著的每一個飾品的 conceal。
- * 基本量 ＝ 身上每一件設計圖的 conceal 裡最大的那個（佔外套格的那一件，外套敞開時先減半、無條件捨去），一件都沒有就是 1。
+ * 基本量 ＝ 身上每一件設計圖的 conceal 裡最大的那個（佔外套格的那一件，外套敞開時先減半、無條件捨去、最少 1），一件都沒有就是 1。
  * 內藏槽 ＝ 身上每一件設計圖的 conceal_add 加起來（裝甲制服的 +2）：疊在上面，不取最大，外套敞開也不減半。
  * 要藏的是攜帶格裡的武器：照 size 由小到大（一樣大照 uid）一件一件放，加起來不超過藏匿量的藏好了（hidden），放不下的露在外面（shown）。
+ * 大小 4 的藏不了（6.1 節的大小表，沒有例外）：藏匿量再大也一律露在外面，也不佔藏匿量。
  */
 export function concealment(k: Kernel, state: GameState, actor: string): { capacity: number; hidden: string[]; shown: string[] } {
   const gear = gearOf(state, actor)
@@ -117,7 +118,7 @@ export function concealment(k: Kernel, state: GameState, actor: string): { capac
     added += Math.floor(num(p.bp.conceal_add))
     const c = Math.floor(num(p.bp.conceal))
     if (c <= 0) continue
-    base = Math.max(base, p.slots.includes('outer') && gear.coat === 'open' ? Math.floor(c / 2) : c)
+    base = Math.max(base, p.slots.includes('outer') && gear.coat === 'open' ? Math.max(1, Math.floor(c / 2)) : c)
   }
   if (base === 0) base = 1
   const capacity = Object.values(gear.acc).reduce((n, id) => n + num(k.content.get<ItemEntry>('item', id as string)?.conceal), base + added)
@@ -126,7 +127,7 @@ export function concealment(k: Kernel, state: GameState, actor: string): { capac
   const shown: string[] = []
   let used = 0
   for (const w of [...carriedWeapons(k, state, gear)].sort((a, b) => a.bp.size - b.bp.size || byUid(a.uid, b.uid))) {
-    if (used + w.bp.size <= capacity) {
+    if (w.bp.size < 4 && used + w.bp.size <= capacity) {
       hidden.push(w.uid)
       used += w.bp.size
     } else shown.push(w.uid)
@@ -136,7 +137,8 @@ export function concealment(k: Kernel, state: GameState, actor: string): { capac
 
 /**
  * 掃描看的是攜帶格裡的武器本身，回傳掃得到的 uid（照字串順序）。強度 0 不掃；1 只掃大小 2 以上的；2 以上掃全部。
- * 一件東西的每一個零件都帶 scan_proof 才掃不到；只要有一個掃得到的零件，整件就掃得到（沒有零件的當成掃得到）。
+ * 一件東西的每一個零件都掃不到才掃不到——生體件（material: 'bio'）本身掃不到（6.3 節），其他的零件要帶 scan_proof；
+ * 只要有一個掃得到的零件，整件就掃得到（沒有零件的當成掃得到）。
  */
 export function scanFinds(k: Kernel, state: GameState, actor: string, strength: number): string[] {
   if (!(strength >= 1)) return []
@@ -144,7 +146,7 @@ export function scanFinds(k: Kernel, state: GameState, actor: string, strength: 
   for (const w of carriedWeapons(k, state, gearOf(state, actor))) {
     if (strength < 2 && w.bp.size < 2) continue
     const parts = partsOf(k, w.stack)
-    if (parts.length > 0 && parts.every((p) => p.part.traits?.includes('scan_proof'))) continue
+    if (parts.length > 0 && parts.every((p) => p.part.material === 'bio' || p.part.traits?.includes('scan_proof'))) continue
     out.push(w.uid)
   }
   return out.sort(byUid)

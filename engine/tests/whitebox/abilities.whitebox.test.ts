@@ -239,13 +239,13 @@ describe('白箱 單位上的資料與學裝（SKILLS 1.3、1.4；CORE_RULES 6.4
     expect(learnBlock(k2, state, 'pc', 'sk_burst')).toMatch(/^nowhere這棵樹/)
   })
 
-  it('capacityOf：技能被拿掉的內容、類別不在清單裡的略過；橋的容量壞掉當 0', () => {
+  it('capacityOf：技能被拿掉的內容、類別不在清單裡的略過；有橋的每類最低 8、壞掉的數字當 8；橋不是物件當沒有橋（0）', () => {
     const k = createKernel([abilitiesFeature])
     k.content.loadPack(BASE)
     const state = makeState()
     state.actors.pc!.ext.abilities = { equipped: ['sk_instinct', 'sk_ghost'] }
-    state.actors.pc!.ext.bridge = { capacity: { meat: 5, net: 'x' } }
-    expect(capacityOf(k, state, 'pc')).toEqual({ meat: { used: 3, max: 5 }, net: { used: 0, max: 0 }, social: { used: 0, max: 0 }, media: { used: 0, max: 0 } })
+    state.actors.pc!.ext.bridge = { capacity: { meat: 12, net: 'x' } }
+    expect(capacityOf(k, state, 'pc')).toEqual({ meat: { used: 3, max: 12 }, net: { used: 0, max: 8 }, social: { used: 0, max: 8 }, media: { used: 0, max: 8 } })
     state.actors.pc!.ext.bridge = 'x'
     expect(capacityOf(k, state, 'pc').meat.max).toBe(0)
   })

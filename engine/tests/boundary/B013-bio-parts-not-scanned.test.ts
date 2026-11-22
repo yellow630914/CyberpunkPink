@@ -2,7 +2,7 @@
 // 規格：EQUIPMENT 6.3 節表「生體件（爪、蛛絲、活皮）｜掃不到」；ITEMS 1.1 節「生體件一律自由……掃描不到」；CRAFTING 8.1 節；DATA 7.2 節零件的 material（mech／bio）。
 // 現況：`scanFinds`（features/gear/numbers.ts）每個零件都要有 traits 裡的 scan_proof 才掃不到；material: 'bio' 的零件沒寫那個特性就被掃到。
 // 如果設計是「生體件的資料一律自己寫 scan_proof」，那規格要寫明；現在規格寫的是生體件本身掃不到。
-// 工單做完之前照預期失敗。跑法：npm run test:pending -- B013
+// 2026-11-22 修好（dev/bugs 的 B012～B014 報告）：從 tests/pending 搬進主套件。
 
 import { describe, expect, it } from 'vitest'
 import type { ContentPack, ItemStack } from '../../src'

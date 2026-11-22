@@ -16,7 +16,7 @@
 //   快取格              2 ＋ 件的加成，上限 8            EQUIPMENT 4.1       7、8、9
 //   護甲                不疊取最高，頭盔最多 +1，捨去      COMBAT_SYSTEM 第 4 節  最大組合
 //
-// 找到的 bug（B012、B013）的測試在 tests/pending/，這裡斷言規格和程式一致的部分。
+// 找到的 bug（B012、B013）的測試在 tests/boundary/B012-*、B013-*（2026-11-22 修好），這裡斷言規格和程式一致的部分。
 
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'

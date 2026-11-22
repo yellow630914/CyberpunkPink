@@ -181,7 +181,7 @@ function enemyProblems(e: Record<string, unknown>, partial: boolean): string[] {
   }
   opt('named', (v) => typeof v === 'boolean', '要是 true 或 false')
   opt('base', isText, '要是制式兵種的 id')
-  opt('strength', (v) => isNum(v) && v > 0 && v <= 3, '（強度係數）要是 0 到 3 之間的數字')
+  opt('strength', (v) => isNum(v) && v > 0 && v <= 2, '（強度係數）要是 0 到 2 之間的數字')
   opt('defeat', (v) => typeof v === 'string', '要是字串')
   opt('adult', (v) => v === null || isTextList(v), '要是字串的陣列或 null')
   opt('signature', Array.isArray, '要是陣列')
@@ -227,7 +227,7 @@ export function registerKinds(k: Pick<Kernel, 'content'>): void {
           if (!isText(f.enemy)) p.push(`${at}.enemy 要是敵人的 id`)
           if (f.grade !== undefined && !(isInt(f.grade) && f.grade >= 1 && f.grade <= 5)) p.push(`${at}.grade 要是 1～5 的整數`)
           if (f.slot !== undefined && !(isInt(f.slot) && f.slot >= 1 && f.slot <= 4)) p.push(`${at}.slot 要是 1～4 的整數`)
-          if (f.strength !== undefined && !(isNum(f.strength) && f.strength > 0 && f.strength <= 3)) p.push(`${at}.strength 要是 0 到 3 之間的數字`)
+          if (f.strength !== undefined && !(isNum(f.strength) && f.strength > 0 && f.strength <= 2)) p.push(`${at}.strength 要是 0 到 2 之間的數字`)
         })
       }
       if (e.escapable !== undefined && typeof e.escapable !== 'boolean') p.push('escapable 要是 true 或 false')

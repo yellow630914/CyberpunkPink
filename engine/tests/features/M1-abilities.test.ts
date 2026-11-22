@@ -67,8 +67,9 @@ describe('學、裝、容量與樹的階（SKILLS 1.3、1.4 節；CORE_RULES 6.4
     g.commit(equipAbilities(g.k, g.state, 'pc', ['sk_gunner_instinct', 'sk_gunner_aimed_shot', 'sk_gunner_burst', 'sk_fixer_face', 'sk_fixer_focus_fire']))
     expect(capacityOf(g.k, g.state, 'pc')).toMatchObject({ meat: { used: 5, max: 8 }, social: { used: 4, max: 8 } })
     expect(() => equipAbilities(g.k, g.state, 'pc', ['sk_gunner_thats_you'])).toThrow(/還沒學會就是你了/)
+    // 橋的每一類最低 8（CORE_RULES 6.4 節）：寫得更低的照 8 算
     g.state.actors.pc!.ext.bridge = { capacity: { meat: 4, net: 8, social: 8, media: 8 } }
-    expect(() => equipAbilities(g.k, g.state, 'pc', ['sk_gunner_instinct', 'sk_gunner_aimed_shot', 'sk_gunner_burst'])).toThrow(/現實型的容量不夠（要 5，橋只有 4）/)
+    expect(capacityOf(g.k, g.state, 'pc').meat.max).toBe(8)
   })
 
   it('內容的檢查：前置要存在、同一棵樹；效果只能用封閉清單裡的鍵；樹的戰場寫 none 的那一欄一定是 null', () => {

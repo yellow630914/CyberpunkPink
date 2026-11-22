@@ -156,9 +156,9 @@ const learnedAll = ABILITIES.map((a) => a.id)
 const sumBy = (ids: string[], cat: Cat) => [...new Set(ids)].reduce((n, id) => n + (BY_ID.get(id)!.category === cat ? BY_ID.get(id)!.cap : 0), 0)
 
 describe('邊界 CORE_RULES 6.4：橋的四類容量', () => {
-  it('性質：任何橋的容量（每類 0～34）、任何一組裝著的技能（含重複）：裝得上 ⇔ 每一類的合計都不超過那一類的容量；裝不上丟錯並指出是哪一類', () => {
+  it('性質：任何橋的容量（每類 8～34）、任何一組裝著的技能（含重複）：裝得上 ⇔ 每一類的合計都不超過那一類的容量；裝不上丟錯並指出是哪一類', () => {
     const idsArb = fc.array(fc.constantFrom(...learnedAll), { maxLength: 30 })
-    const capArb = fc.record({ meat: fc.integer({ min: 0, max: 34 }), net: fc.integer({ min: 0, max: 34 }), social: fc.integer({ min: 0, max: 34 }), media: fc.integer({ min: 0, max: 34 }) })
+    const capArb = fc.record({ meat: fc.integer({ min: 8, max: 34 }), net: fc.integer({ min: 8, max: 34 }), social: fc.integer({ min: 8, max: 34 }), media: fc.integer({ min: 8, max: 34 }) })
     fc.assert(fc.property(capArb, idsArb, (capacity, ids) => {
       const g = gameWith({ xp: 0, learned: learnedAll }, capacity)
       const over = CATS.filter((c) => sumBy(ids, c) > capacity[c])
@@ -176,20 +176,23 @@ describe('邊界 CORE_RULES 6.4：橋的四類容量', () => {
     }), { numRuns: 300 })
   })
 
-  it('邊上：容量剛好等於裝著的合計可以，少 1 不行；四類各自算（一類滿了不影響別類）；0 容量只能裝空的', () => {
-    const meatIds = ABILITIES.filter((a) => a.category === 'meat').slice(0, 5).map((a) => a.id)
+  it('邊上：容量剛好等於裝著的合計可以，少 1 不行；四類各自算（一類滿了不影響別類）；橋的每一類最低 8（CORE_RULES 6.4、CYBERWARE 7.1）', () => {
+    // 現實型的技能挑到合計 ≥ 9：容量 8 是下限，「少 1 不行」要在 8 以上才量得到
+    const meatIds: string[] = []
+    for (const a of ABILITIES.filter((x) => x.category === 'meat')) { if (sumBy(meatIds, 'meat') < 9) meatIds.push(a.id) }
     const used = sumBy(meatIds, 'meat')
-    const exact = gameWith({ learned: learnedAll }, { meat: used, net: 0, social: 0, media: 0 })
+    expect(used).toBeGreaterThanOrEqual(9)
+    const exact = gameWith({ learned: learnedAll }, { meat: used, net: 8, social: 8, media: 8 })
     expect(() => equipAbilities(exact.k, exact.state, 'pc', meatIds)).not.toThrow()
     const less = gameWith({ learned: learnedAll }, { meat: used - 1, net: 99, social: 99, media: 99 })
     expect(() => equipAbilities(less.k, less.state, 'pc', meatIds)).toThrow(/現實型的容量不夠/)
     // 四類各裝滿一個
     const four = CATS.map((c) => ABILITIES.find((a) => a.category === c && a.layer === 'signature')!.id)
-    const allFull = gameWith({ learned: learnedAll }, { meat: 3, net: 3, social: 3, media: 3 })
+    const allFull = gameWith({ learned: learnedAll }, { meat: 8, net: 8, social: 8, media: 8 })
     expect(() => equipAbilities(allFull.k, allFull.state, 'pc', four)).not.toThrow()
-    const zero = gameWith({ learned: learnedAll }, { meat: 0, net: 0, social: 0, media: 0 })
-    expect(() => equipAbilities(zero.k, zero.state, 'pc', [])).not.toThrow()
-    expect(() => equipAbilities(zero.k, zero.state, 'pc', [four[0]!])).toThrow(/容量不夠/)
+    // 容量寫得比 8 低的（3、0、負的），載入時夾到 8：照 8 算
+    const low = gameWith({ learned: learnedAll }, { meat: 3, net: 0, social: -5, media: 7 })
+    for (const c of CATS) expect(capacityOf(low.k, low.state, 'pc')[c].max).toBe(8)
   })
 
   it('沒學會的裝不上；重複的只算一次；空清單全部卸下；順序照給的', () => {
@@ -201,13 +204,14 @@ describe('邊界 CORE_RULES 6.4：橋的四類容量', () => {
     expect(abilitiesOf(g.state, 'pc').equipped).toEqual([])
   })
 
-  it('沒有橋（沒有 ext.bridge）或橋的資料壞掉：每類容量 0，裝什麼都不行、卸光可以；NaN、字串、缺的欄位當成 0', () => {
-    for (const cap of [null, { meat: Number.NaN, net: 'x', social: null }] as const) {
-      const g = gameWith({ learned: learnedAll }, cap)
-      expect(capacityOf(g.k, g.state, 'pc').meat.max).toBe(0)
-      expect(() => equipAbilities(g.k, g.state, 'pc', [`${PATH_OF.meat}_sig`])).toThrow(/容量不夠/)
-      expect(() => equipAbilities(g.k, g.state, 'pc', [])).not.toThrow()
-    }
+  it('沒有橋（沒有 ext.bridge）：每類容量 0，裝什麼都不行、卸光可以；有橋但資料壞掉（NaN、字串、缺的欄位）：照下限 8', () => {
+    const none = gameWith({ learned: learnedAll }, null)
+    expect(capacityOf(none.k, none.state, 'pc').meat.max).toBe(0)
+    expect(() => equipAbilities(none.k, none.state, 'pc', [`${PATH_OF.meat}_sig`])).toThrow(/容量不夠/)
+    expect(() => equipAbilities(none.k, none.state, 'pc', [])).not.toThrow()
+    const broken = gameWith({ learned: learnedAll }, { meat: Number.NaN, net: 'x', social: null })
+    for (const c of CATS) expect(capacityOf(broken.k, broken.state, 'pc')[c].max).toBe(8)
+    expect(() => equipAbilities(broken.k, broken.state, 'pc', [`${PATH_OF.meat}_sig`])).not.toThrow()
   })
 
   it('裝著的技能被內容拿掉（存檔比內容舊）：不算進容量，不擋新的裝配', () => {

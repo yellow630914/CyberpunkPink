@@ -113,7 +113,7 @@ describe('邊界 ENEMIES 1.5／第 13 節／BALANCE 7：敵人的數字', () => 
   it('性質：每一個位階 × 等級 × 兵種修正 × 難度（預設與自訂）× 我方人數 × 強度，單位的數字照規格的表算', () => {
     fc.assert(fc.property(
       fc.constantFrom(...RANKS), fc.constantFrom(...GRADES), modsArb, difficultyArb, fc.integer({ min: 0, max: 8 }),
-      fc.option(fc.integer({ min: 1, max: 30 }).map((x) => x / 10), { nil: undefined }), fc.boolean(), fc.constantFrom('human', 'machine', 'lace'),
+      fc.option(fc.integer({ min: 1, max: 20 }).map((x) => x / 10), { nil: undefined }), fc.boolean(), fc.constantFrom('human', 'machine', 'lace'),
       (rank, grade, mods, diff, allies, strength, named, kind) => {
         const id = `en_p${n++}`
         k.content.load('enemy', [baseEnemy(id, rank, { mods, named, kind })])
@@ -127,10 +127,10 @@ describe('邊界 ENEMIES 1.5／第 13 節／BALANCE 7：敵人的數字', () => 
         expect(sameRounded(st.hp, HP[rank][g]! * (m.hp ?? 1) * c.hp * sHp), `生命 ${st.hp}`).toBe(true)
         if (kind === 'human' || kind === 'lace') expect(sameRounded(st.load!, LOAD[rank][g]! * (m.load ?? 1) * c.load), `感載 ${st.load}`).toBe(true)
         else expect(st.load, '沒有橋的沒有感載').toBeUndefined()
-        expect(st.armor).toBe(ARMOR[g]! + (m.armor ?? 0))
+        expect(st.armor).toBe(Math.max(0, ARMOR[g]! + (m.armor ?? 0))) // 護甲最少 0（ENEMIES 第 2 節）
         expect(st.evade).toBe(EVADE[g]! + (m.evade ?? 0))
         expect(st.attack).toBe(ATTACK[g]! + (m.attack ?? 0))
-        expect(st.ap).toBe(AP[rank] + (rank !== 'minion' && grade >= 4 ? 1 : 0) + (m.ap ?? 0))
+        expect(st.ap).toBe(Math.max(1, AP[rank] + (rank !== 'minion' && grade >= 4 ? 1 : 0) + (m.ap ?? 0))) // 行動點最少 1
         expect(st.layers).toBe(Math.max(1, LAYERS[rank] + (m.layers ?? 0)))
         expect(st.sensitivity).toBe(m.sensitivity ?? 50)
         // 傷害倍率：生命的傷害 = 位階倍率 × 難度 × 強度（對決）；感載的傷害不吃位階倍率
@@ -200,7 +200,7 @@ describe('邊界 ENEMIES 1.5／第 13 節／BALANCE 7：敵人的數字', () => 
     expect(enemyStats(k, s, 'en_s_elite', { grade: 1 }).hp).toBe(132)
     expect(enemyStats(k, s, 'en_s_elite', { grade: 1, strength: 1.5 }).hp).toBe(165)
     expect(enemyStats(k, s, 'en_s_elite', { grade: 1, strength: 1.5, allies: 3 }).hp).toBe(110)
-    expect(enemyStats(k, s, 'en_s_minion', { grade: 1, strength: 3 }).hp).toBe(45)
+    expect(enemyStats(k, s, 'en_s_minion', { grade: 1, strength: 3 }).hp).toBe(45) // 雜兵不乘
   })
 })
 
@@ -284,7 +284,7 @@ describe('邊界 ENEMIES 第 13 節：遭遇的點數與預算', () => {
   const foeArb = fc.record({
     enemy: fc.constantFrom('en_minion', 'en_elite', 'en_boss', 'en_named_boss'),
     grade: fc.option(fc.constantFrom(...GRADES), { nil: undefined }),
-    strength: fc.option(fc.integer({ min: 10, max: 30 }).map((x) => x / 10), { nil: undefined }),
+    strength: fc.option(fc.integer({ min: 10, max: 20 }).map((x) => x / 10), { nil: undefined }),
   }).map((f) => Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)) as { enemy: string; grade?: number; strength?: number })
 
   it('預算的四個數字：輕 2、一般 4、重 5.5、首領戰 8，每一級都一樣', () => {

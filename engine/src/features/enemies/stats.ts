@@ -27,6 +27,9 @@ export interface EnemyStats {
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
 const asGrade = (n: number) => clamp(Math.floor(n), 1, 5) as Grade
+/** 強度係數最高 ×2（ENEMIES 第 13 節：傳奇人物）；資料與遭遇寫了更大的（格式檢查擋得到，程式裡直接給的）也夾在 2。 */
+const STRENGTH_MAX = 2
+const capStrength = (s: number) => Math.min(STRENGTH_MAX, s)
 
 /** 沒寫等級時用場景的等級，夾在這個兵種的 grades 範圍裡（兵種不出現的等級照最近的那一級，不擋）。 */
 export function gradeIn(e: EnemyEntry, sceneGrade: number): Grade {
@@ -37,7 +40,7 @@ export function gradeIn(e: EnemyEntry, sceneGrade: number): Grade {
 function strengthOf(e: EnemyEntry, allies: number, override?: number): { hp: number; dmg: number } {
   if (e.rank === 'minion') return { hp: 1, dmg: 1 }
   if (allies >= 4) {
-    const s = override ?? e.strength ?? (e.named ? 1.3 : 1)
+    const s = capStrength(override ?? e.strength ?? (e.named ? 1.3 : 1))
     return { hp: s, dmg: s }
   }
   // 對決（ENEMIES 第 13 節）：不看具名的係數，也不看遭遇自己指定的
@@ -57,10 +60,11 @@ function statsOf(state: GameState, e: EnemyEntry, grade: Grade, allies: number, 
     grade, rank: e.rank,
     hp: Math.round(ENEMY_CURVE.hp[e.rank][g]! * (m.hp ?? 1) * c.hp * s.hp),
     ...(bridged ? { load: Math.round(ENEMY_CURVE.load[e.rank][g]! * (m.load ?? 1) * c.load) } : {}),
-    armor: ENEMY_CURVE.armor[g]! + (m.armor ?? 0),
+    // 兵種的修正加減之後，護甲最少 0、行動點最少 1（ENEMIES 第 2 節 mods）
+    armor: Math.max(0, ENEMY_CURVE.armor[g]! + (m.armor ?? 0)),
     evade: ENEMY_CURVE.evade[g]! + (m.evade ?? 0),
     attack: ENEMY_CURVE.attack[g]! + (m.attack ?? 0),
-    ap: ENEMY_CURVE.ap[e.rank] + (e.rank !== 'minion' && grade >= 4 ? 1 : 0) + (m.ap ?? 0),
+    ap: Math.max(1, ENEMY_CURVE.ap[e.rank] + (e.rank !== 'minion' && grade >= 4 ? 1 : 0) + (m.ap ?? 0)),
     layers: Math.max(1, ENEMY_CURVE.layers[e.rank] + (m.layers ?? 0)),
     sensitivity: m.sensitivity ?? 50,
     dmgMult: { hp: ENEMY_CURVE.rankDamage[e.rank] * c.dmg * s.dmg, load: c.dmg * s.dmg },
@@ -136,7 +140,7 @@ export function encounterPoints(k: Cx, foes: EncounterFoe[], grade: number): num
   for (const f of foes) {
     const e = resolveEnemy(k.content, f.enemy)
     const fg = f.grade !== undefined ? f.grade : gradeIn(e, grade)
-    const s = e.rank === 'minion' ? 1 : f.strength ?? e.strength ?? (e.named ? 1.3 : 1)
+    const s = e.rank === 'minion' ? 1 : capStrength(f.strength ?? e.strength ?? (e.named ? 1.3 : 1))
     total += ENEMY_CURVE.points[e.rank] * (fg >= grade + 1 ? 1.75 : 1) * s
   }
   return total
