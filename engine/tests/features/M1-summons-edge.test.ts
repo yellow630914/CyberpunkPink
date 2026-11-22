@@ -12,8 +12,9 @@ const PACK: ContentPack = { id: 'summons_edge', content: { battle_status: [...TE
 const FEATURES = [...allFeatures().filter((f) => f.id !== 'summons'), summonsFeature]
 const kinds = ['attack', 'shield', 'scout', 'medic', 'jammer'] as const
 const drones = kinds.map((kind) => ({ kind, grade: 1 }))
-const pilot = (summons: unknown = { drones, vehicle: { name: '小貨車', hp: [30, 60] } }, skills: Record<string, number> = { sync: 6, piloting: 3, firearms: 2 }) =>
-  one({ weapon: 'pistol', skills, ext: summons === undefined ? {} : { summons } })
+const FULL = { drones, vehicle: { name: '小貨車', hp: [30, 60] } }
+const pilot = (summons: unknown = FULL, skills: Record<string, number> = { sync: 6, piloting: 3, firearms: 2 }) =>
+  one({ weapon: 'pistol', skills, ext: summons === null ? {} : { summons } })
 const game = (allies: unknown[], more = {}, seed = 7) => makeBattleGame({ features: FEATURES, content: [PACK], battle: duel(allies, [foe('elite'), foe('elite')], { ally: [0, 0, 0, 0], foe: [0, 0, 0, 0] }, more), seed }).game
 type G = ReturnType<typeof game>
 const turnTo = (g: G, id: string): BattleUnit => { const b = g.state.battle!; b.turn = b.order.indexOf(id); const u = b.units[id]!; u.ap.now = u.ap.max; u.control = 'player'; return u }
@@ -23,11 +24,11 @@ const refused = (r: { status: string; reasons?: string[] }, ...reasons: string[]
 
 describe('誰有這些行動', () => {
   it('沒有 ext.summons 的人沒有無人機與叫車的行動；每個人都有控制節點（只要場上有節點）', () => {
-    const g = game([pilot(undefined)], { nodes: [{ kind: 'light', name: '燈' }] })
+    const g = game([pilot(null)], { nodes: [{ kind: 'light', name: '燈' }] })
     turnTo(g, 'a1')
     for (const id of ['drone.deploy', 'drone.command', 'drone.move', 'drone.recall', 'vehicle.call']) expect(opt(g, id)).toBeUndefined()
     expect(opt(g, 'node.use')).toBeDefined()
-    const g2 = game([pilot(undefined)])
+    const g2 = game([pilot(null)])
     turnTo(g2, 'a1')
     expect(opt(g2, 'node.use')).toBeUndefined()
   })
@@ -46,7 +47,7 @@ describe('誰有這些行動', () => {
 describe('放出', () => {
   it('同步 0 與 1 連 1 台、6 連 4 台；放得出去的台數就是上限', () => {
     for (const [sync, cap] of [[0, 1], [1, 1], [4, 3], [6, 4]] as const) {
-      const g = game([pilot(undefined, {})].map(() => pilot({ drones }, { sync, piloting: 1 })))
+      const g = game([pilot({ drones }, { sync, piloting: 1 })])
       turnTo(g, 'a1')
       for (let i = 0; i < cap; i++) { g.state.battle!.units.a1!.ap.now = 5; expect(deploy(g, i, i + 1).status).toBe('applied') }
       g.state.battle!.units.a1!.ap.now = 5
@@ -177,24 +178,25 @@ describe('指揮', () => {
     if (g.battleOptions()!.current === 'a1') expect(g.battle!.overlays[0]!.used).toBe(false)
   })
 
-  it('不是自己的、已經擊落的、不存在的目標：沒有這一台無人機', () => {
+  it('不存在的、已經擊落的目標選不了', () => {
     const { g, d } = setup(2)
-    refused(g.battleAct({ action: 'drone.command', target: { overlay: 'o99' }, pick: { at: 'f1' } }), '沒有這一台無人機。')
+    // 核心先檢查目標列得出來沒有：不存在的、已經擊落的都選不了
+    refused(g.battleAct({ action: 'drone.command', target: { overlay: 'o99' }, pick: { at: 'f1' } }), '這個目標不能選。')
     g.state.battle!.overlays[0]!.down = true
-    refused(g.battleAct({ action: 'drone.recall', target: { overlay: d.id } }), '沒有這一台無人機。')
+    refused(g.battleAct({ action: 'drone.recall', target: { overlay: d.id } }), '沒有可以選的目標。')
   })
 })
 
 describe('移動與收回', () => {
   it('只能換到相鄰、沒有掛著別台的格；每一種錯法都不扣行動點', () => {
     const g = game([pilot()])
-    const me = turnTo(g, 'a1')
+    turnTo(g, 'a1')
     deploy(g, 0, 2)
     deploy(g, 1, 3)
     const [a] = g.battle!.overlays
-    const ap = me.ap.now
-    for (const slot of [undefined, 2, 4 - 0.5, 0, 5, '1', 3, 4]) {
-      refused(g.battleAct({ action: 'drone.move', target: { overlay: a!.id }, ...(slot === undefined ? {} : { pick: { slot } }) }), ...(slot === 4 ? [] : ['只能換到相鄰、沒有掛著別台的格。']))
+    const ap = g.battle!.units.a1!.ap.now
+    for (const slot of [undefined, 2, 3.5, 0, 5, '1', 3, 4]) {
+      refused(g.battleAct({ action: 'drone.move', target: { overlay: a!.id }, ...(slot === undefined ? {} : { pick: { slot } }) }), '只能換到相鄰、沒有掛著別台的格。')
     }
     expect(g.battle!.overlays[0]!.slot).toBe(2)
     expect(g.battle!.units.a1!.ap.now).toBe(ap)
@@ -215,7 +217,7 @@ describe('被動與被擊落', () => {
     const g = game([pilot(), one({ weapon: 'rifle' }, 2)])
     turnTo(g, 'a1')
     deploy(g, 1, 2)
-    const dc = (slot: number) => { const id = `a${slot}`; turnTo(g, 'f1'); return g.battleAct({ action: 'shoot', target: { unit: id } }).reports[0]!.timeline.find((b) => b.roll)!.roll!.dc }
+    const dc = (slot: number) => { const id = `a${slot}`; turnTo(g, 'f1').weapons[0]!.mag!.now = 3; return g.battleAct({ action: 'shoot', target: { unit: id } }).reports[0]!.timeline.find((b) => b.roll)!.roll!.dc }
     expect(dc(2)).toBe(14)
     turnTo(g, 'a1')
     g.battleAct({ action: 'drone.move', target: { overlay: g.battle!.overlays[0]!.id }, pick: { slot: 1 } })
@@ -305,7 +307,7 @@ describe('控制節點', () => {
     refused(g.battleAct({ action: 'node.use', target: { node: 'n2' } }), '要選放在哪一格。')
     refused(g.battleAct({ action: 'node.use', target: { node: 'n2' }, pick: { slot: 5 } }), '要選放在哪一格。')
     refused(g.battleAct({ action: 'node.use', target: { node: 'n3' } }), '這個節點現在用不了。')
-    refused(g.battleAct({ action: 'node.use', target: { node: 'n9' } }), '沒有這個節點。')
+    refused(g.battleAct({ action: 'node.use', target: { node: 'n9' } }), '這個目標不能選。')
     expect(g.battle!.units.a1!.ap.now).toBe(ap)
     g.battleAct({ action: 'node.use', target: { node: 'n2' }, pick: { slot: 4 } })
     refused(g.battleAct({ action: 'node.use', target: { node: 'n2' }, pick: { slot: 4 } }), '這個節點已經用掉了。')
