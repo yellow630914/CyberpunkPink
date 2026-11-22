@@ -49,6 +49,8 @@ L0 型別 → L1 純工具 → L2 內容 → L3 狀態核心 → L4 規則核心
 - 功能改戰鬥狀態只用 `BattleRun` 的基本動作；行動的條件與目標（`blocks`、`targets`）只讀。灰掉的原因寫成給玩家看的完整句子，一條一個條件。
 - 測試：`engine/src/testkit` 有具名的情境（`BATTLE_SETUPS`）、`makeBattleGame`、`playOut`、`fixDice` 與一組最小的行動 `TEST_COMBAT`（dev/test-harness.md 第 1 節）。
 - 設計書沒寫或兩處對不上而先定的東西集中在 dev/adr/0013；工單裡引用它的地方，做的時候看到設計書有相反的寫法就停下來回報。
+- 註冊一個戰鬥行動時要寫齊的（dev/adr/0014）：`icon`（圖示的鍵）；`run` 會讀的每一個 `input.pick` 的鍵都要在 `picks` 宣告（選項、選不了的原因、對哪些目標適用），畫面才送得出來；用手上的武器攻擊一次的行動加 `tags: ['weapon_attack']`。花費的減免做成 `action_ap` 的修正，「用掉幾次」在 `action.done` 掛點記，不要改武器或別人的行動。在掛點裡替單位做一個行動用 `performAction`。
+- 戰鬥中、或打輸之後還在等玩家三選一時，`Game.commit` 不收別的報告（丟 `ActionBlocked`，`Game.blockOf` 可以先問）；戰敗「接受結果」的報告要帶 `{ op: 'snapshot.drop', kind: 'battle' }`。
 
 ## 工作檔案（都在 repo 的 dev/，要提交）
 

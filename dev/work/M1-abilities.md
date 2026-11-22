@@ -87,7 +87,7 @@ export function equipAbilities(k, state, actor, ids: string[]): ReportDraft   //
 戰鬥裡每個單位的 `unit.ext.abilities` 是 `{ equipped: string[], tiers: Record<樹, 階數> }`。
 
 - `k.battle.on('unit.ready', 'abilities', ({ run, unit }) => …)`：有 `actor` 的單位，照開打那一刻填上：`equipped` 是角色裝著的清單，`tiers` 是 `spent` 裡有的每一棵樹的 `treeTier`（`run.state` 是遊戲狀態）。已經有 `ext.abilities` 的單位（測試直接給的、之後敵人資料給的）不動。
-- 同一個掛點裡、填完之後做開場的效果（下面的 `weapon_cost`）。一定要用這個掛點，不要用 `battle.start`：先攻是在 `battle.start` 之前擲的，共鳴的先攻加值要讀得到 `ext.abilities`。
+- （原本在同一個掛點裡把 `weapon_cost` 寫到武器上；2026-11-22 改成花費的修正，見下面，這個掛點現在只填資料。）一定要用這個掛點，不要用 `battle.start`：先攻是在 `battle.start` 之前擲的，共鳴的先攻加值要讀得到 `ext.abilities`。
 
 「這個單位裝著某個技能」一律看 `unit.ext.abilities.equipped`；「某棵樹的階數」看 `tiers[樹] ?? 1`。
 
@@ -115,7 +115,7 @@ export function equipAbilities(k, state, actor, ids: string[]): ReportDraft   //
 
 每一個 `kind: 'active'`、`meat` 裡有 `target` 的技能註冊一個行動（`meat` 是 `null`、是 `pending`、或只有 `cost`／`weapon_cost` 這類被動的鍵的不註冊；定點射已改成被動）：`id` 是技能的 id、`owner: 'abilities'`、`name`、`desc: text`、`group: 'skill'`、`modes: ['meat']`、`order` 是它在內容裡的順序、`has` 是「這個單位裝著它」。
 
-- **花費**：`use.ap`；有別的裝著的被動技能的 `meat.cost.ability` 指向它時，改用那個 `ap`。那個 `cost` 寫了 `per_turn` 時，只有這個回合的減免次數還沒用完才改用（見下面「每回合第幾次的減免」）；行動的 `run` 一開始用掉一次（花費在行動之前已經扣了）。
+- **花費**：行動自己的 `cost()` 回 `use.ap`。別的裝著的被動技能給的減免（`meat.cost`）是花費的修正，由核心加上去（見下面「`cost` 與 `weapon_cost` 都是花費的修正」）；畫面顯示的、實際扣的都是修正過的數字。
 - **共同的 `blocks`**：`use.per_fight` 用完了（`unit.uses[技能 id] >= per_fight`）→ `'這一場已經用過了。'`；`use.first_round` 而現在不是第 1 回合 → `'只能在第一回合用。'`；`use.per_turn` 用完了（`unit.uses['turn:' + 技能 id]`）→ `'這一回合已經用過了。'`。用了之後把對應的次數加一（`turn:` 開頭的核心會在這個人的回合開始時清掉）。
 - **`attack` 的 `blocks`**：手上是近戰武器 → `'要拿著槍才能用。'`；彈匣空了 → `'彈匣空了，要先換彈。'`；有 `min_mag` 而彈匣（現在的格數，或容量）不到 → `` `彈匣裡要有 ${min_mag} 格以上才能連射。` ``。
 - **目標**（`targets`）：`enemy` 是敵方每一個在場上的人；`ally` 是我方每一個在場上的人（不含自己）。
@@ -148,11 +148,15 @@ export function equipAbilities(k, state, actor, ids: string[]): ReportDraft   //
 
 - `cost`、`weapon_cost`、`give_ap`、`call` 不看技能的 `kind`：裝著就生效。
 - `cost`：見上面的花費。
-- `weapon_cost`：在 `unit.ready` 把這個單位帶那個特性的每一把武器的 `ap` 改成那個數字（射擊的花費讀的是武器的 `ap`）。寫了 `per_turn` 的是每回合第幾次的減免，見下面。
-- **每回合第幾次的減免**（`cost.per_turn`、`weapon_cost.per_turn`；定點射：`per_turn: 1`）：同一個技能的 `cost` 與 `weapon_cost` 共用一個回合計數 `unit.uses['turn:<技能 id>.discount']`（核心每個回合開始清掉 `turn:` 開頭的鍵，所以下個回合又有次數；兩邊都寫時 `per_turn` 要一樣，格式檢查會擋）。核心不用改：
-  - 主動技能（要害射擊）：花費函式讀計數，還有次數才用 `cost.ap`；行動跑的時候（花費已經扣了）計數加一。
-  - 武器（狙擊槍的一槍）：射擊行動讀武器的 `ap`，所以還有次數時武器的 `ap` 是減免後的數字：`unit.ready` 與 `turn.start`（回合開始，清計數之後）把帶 `trait` 的武器改成 `weapon_cost.ap`（只在比原本便宜時），原本的 `ap` 記在 `uses['wbase:<武器的位置>']`（沒寫 `ap` 的記 `-1`）；一次「花了行動點的射擊」（`attack.before`，攻擊的是輪到的人、`opts.tags` 是空的或只有 `sweep`，監視、反應、無人機與技能的攻擊不算）用掉計數，次數用完就把武器的 `ap` 還原。
-  - 兩邊共用計數：同一回合要害射擊與狙擊槍的一槍合起來只省一次；技能用掉次數時也把武器還原。
+- `cost` 與 `weapon_cost` 都是**花費的修正**（2026-11-22 改；dev/adr/0014。原本是把武器的 `ap` 暫時改掉，已經拿掉）：
+  - 註冊一個 `k.battle.modifier`，只回答 `kind === 'action_ap'`。核心問一個行動要花多少時帶著：`q.tags`（行動的 id、`group:<圈>`、行動自己宣告的標籤）、`q.weapon`（手上那一把）、`q.base`（行動自己算的行動點）。
+  - `cost` 套得上的條件：`q.tags` 裡有 `cost.ability`（那個主動技能的 id）。`weapon_cost` 套得上的條件：`q.tags` 裡有 `weapon_attack`（用手上的武器攻擊一次；射擊的行動自己宣告的標籤，這裡不用知道它叫什麼），而且 `q.weapon` 的 `traits` 有 `weapon_cost.trait`。
+  - 套得上就回 `{ label: 被動技能的名字, value: ap − q.base, source: 'skill' }`（改成只花 `ap` 點）。同一個行動套得上好幾筆時只算改完之後最便宜的那一筆。
+  - 主動技能自己的 `cost()` 只回 `use.ap`，不再自己找被動技能。
+- **每回合第幾次的減免**（`cost.per_turn`、`weapon_cost.per_turn`；定點射：`per_turn: 1`）：同一個技能的 `cost` 與 `weapon_cost` 共用一個回合計數 `unit.uses['turn:<技能 id>.discount']`（核心每個回合開始清掉 `turn:` 開頭的鍵；兩邊都寫時 `per_turn` 要一樣，格式檢查會擋）。
+  - 修正只管算：這回合的次數用完了、或沒有比原價便宜（`ap >= q.base`），就不算。
+  - 用掉幾次在行動做完的掛點記：`k.battle.on('action.done', …)` 拿到行動的標籤、原價（`base.ap`）、那一步用的武器，照同樣的條件再問一次（這時候次數還沒加），拿到的是每回合型的就把計數加一。
+  - 監視的自動射擊、反應、技能裡附帶的攻擊（看我的！）不是「花了行動點的行動」，不經過這兩個地方，所以不會用掉次數。
   - 內容檢查：`per_turn` 是 1 以上的整數；`cost.per_turn` 指向的技能（在 `ready` 檢查）要是主動技能。
 - 共鳴：一個單位在某棵樹的階數到了 N，那棵樹 `tier <= N` 的共鳴都生效（要裝著那棵樹的招牌才算）。
   - `initiative`：`k.battle.modifier` 在 `kind === 'initiative'` 時回傳 `{ label: 共鳴的樹名, value }`。

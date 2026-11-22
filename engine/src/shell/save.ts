@@ -9,7 +9,7 @@
 import type { GameState } from '../core/types'
 import { STATE_VERSION } from '../core/types'
 import { blankState } from '../core/state/blank'
-import { underageAt, validateActor } from '../core/state/coreChanges'
+import { battleProblems, underageAt, validateActor } from '../core/state/coreChanges'
 import { sanitizeRules } from '../core/state/saveRules'
 import { clone } from '../core/util/clone'
 import { isRecord } from '../core/util/sanitize'
@@ -108,11 +108,9 @@ export function validateState(s: unknown): string[] {
   if (!Array.isArray(s.inventory) || s.inventory.some((x) => !isRecord(x) || typeof x.id !== 'string' || !int(x.qty) || (x.qty as number) <= 0)) p.push('inventory：每一疊要有 id 與正整數的 qty')
   for (const k of ['flags', 'counters', 'ext', 'location', 'seq'] as const) if (!isRecord(s[k])) p.push(`${k}：要是一個物件`)
   for (const k of ['reports', 'chains'] as const) if (!Array.isArray(s[k])) p.push(`${k}：要是一個陣列`)
-  // 進行中的戰鬥與格子地圖：只看骨架（裡面的每一個數字在提交時已經驗過）
-  if (s.battle !== null && s.battle !== undefined) {
-    const b = s.battle
-    if (!isRecord(b) || typeof b.id !== 'string' || typeof b.mode !== 'string' || !isRecord(b.units) || !Array.isArray(b.order) || !isRecord(b.cover)) p.push('battle：進行中的戰鬥缺了骨架（id、mode、units、order、cover）')
-  }
+  // 進行中的戰鬥：和提交時同一套檢查（輪到誰指得到人、一格一個單位、每格最多一台無人機……）。
+  // 壞掉的戰鬥讀進來會卡死：每一步都丟錯，又因為「正在戰鬥」什麼別的都不能做
+  if (s.battle !== null && s.battle !== undefined) for (const e of battleProblems(s.battle)) p.push(`battle：${e}`)
   if (!isRecord(s.maps) || !isRecord(s.maps.instances) || !(s.maps.at === null || isRecord(s.maps.at))) p.push('maps：要有 instances 與 at')
   if (!Array.isArray(s.snapshots) || s.snapshots.some((x) => !isRecord(x) || typeof x.id !== 'string' || typeof x.kind !== 'string' || typeof x.raw !== 'string')) p.push('snapshots：每一份要有 id、kind 與 raw')
   return p

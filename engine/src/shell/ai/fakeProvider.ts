@@ -44,6 +44,20 @@ export function inputOf<T = Record<string, unknown>>(req: AiRequest): T {
   return (raw ? JSON.parse(raw) : {}) as T
 }
 
+/**
+ * 假的正文的第一句：「誰做了什麼，結果如何。」每一條鏈交給寫正文的報告欄位不一樣（NarrateInput.report）：
+ * 自由行動有 actor、action、degree；戰鬥結束有 action 與 result（勝利、戰敗……），沒有 actor 與 degree。
+ * 有什麼寫什麼，沒有的略過，不把 undefined 寫進正文。
+ */
+export function fakeHeadline(report: unknown): string {
+  const r = (report && typeof report === 'object' ? report : {}) as Record<string, unknown>
+  const text = (v: unknown): string => (typeof v === 'string' ? v : '')
+  const what = `${text(r.actor)}${text(r.action)}`
+  const how = text(r.degree) || text(r.result) || text(r.outcome)
+  const line = [what, how].filter((x) => x !== '').join('，')
+  return line ? `${line}。` : ''
+}
+
 /** 自動模式：每個任務一份合格的回應。 */
 export function goodReply(req: AiRequest): FakeReply {
   const input = inputOf<Record<string, any>>(req)
@@ -55,7 +69,7 @@ export function goodReply(req: AiRequest): FakeReply {
     case 'narrate':
     case 'polish': {
       const results = (input.results as string[]) ?? []
-      const body = req.task === 'polish' ? String(input.text) : `（假的服務商）${input.report.actor}${input.report.action}，${input.report.degree}。${results.join('，')}`
+      const body = req.task === 'polish' ? String(input.text) : `（假的服務商）${fakeHeadline(input.report)}${results.join('，')}`
       return { text: `${body}\n<covered>${results.map((_, i) => i + 1).join(',')}</covered>` }
     }
     default:

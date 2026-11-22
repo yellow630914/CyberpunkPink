@@ -1,7 +1,7 @@
 // L5 戰鬥：回合（COMBAT_SYSTEM 1.2 節）。逐回合：輪到自己時連續行動直到行動點用完或結束回合，沒用完的留到下回合（不超過上限）。
 // 每個人的回合開始時：回行動點與其他的池 → 感載自然消退 → 到期的狀態 → 每回合發作的狀態（流血、暈眩、燃燒）→ 失去回合就跳過。
 
-import type { BattleUnit } from '../types'
+import type { BattleStatus, BattleUnit } from '../types'
 import { attrMod } from '../rules/check'
 import { currentUnit, unitTag } from './field'
 import { LOSE_TURN } from './rules'
@@ -9,11 +9,11 @@ import type { BattleRun } from './run'
 
 const sum = (parts: Array<{ value: number }>): number => parts.reduce((s, p) => s + p.value, 0)
 
-/** 把「到某個人的回合開始／結束」的狀態往前算一次；到期的拿掉。 */
-function tickStatuses(run: BattleRun, at: 'turn_start' | 'turn_end', of: string): void {
+/** 把「到某個人的回合開始／結束」的狀態往前算一次；到期的拿掉。fresh 裡的是這一刻才剛給上去的，這一次不算。 */
+function tickStatuses(run: BattleRun, at: 'turn_start' | 'turn_end', of: string, fresh?: (s: BattleStatus) => boolean): void {
   for (const u of Object.values(run.battle.units)) {
     for (const s of [...u.statuses]) {
-      if (s.until.at !== at || s.until.of !== of) continue
+      if (s.until.at !== at || s.until.of !== of || fresh?.(s)) continue
       s.until.turns -= 1
       if (s.until.turns <= 0) run.removeStatus(u, s.id, s.id === LOSE_TURN)
     }
@@ -59,6 +59,9 @@ export function beginTurn(run: BattleRun, u: BattleUnit): boolean {
   delete u.watch
   for (const o of b.overlays) if (o.owner === u.id) o.used = false
   const lost = u.statuses.some((s) => run.statusRule(s.id).loseTurn)
+  // 回合開始前就帶著的狀態：等一下只有這些算一次到期。發作的時候才剛給上去的（發作的感載造成過載 → 失去下一個回合）
+  // 不能在同一個回合開始就被算掉，不然過載了卻一個回合都沒失去
+  const carried = new Set(Object.values(b.units).flatMap((x) => x.statuses))
   // 每回合發作的狀態：流血、暈眩、燃燒（先發作，再算到期：「之後兩回合各 1d6」兩回合都要燒到）
   for (const s of [...u.statuses]) {
     const rule = run.statusRule(s.id)
@@ -75,7 +78,7 @@ export function beginTurn(run: BattleRun, u: BattleUnit): boolean {
     if (rule.once) run.removeStatus(u, s.id, true)
     if (u.out) break
   }
-  tickStatuses(run, 'turn_start', u.id)
+  tickStatuses(run, 'turn_start', u.id, (st) => !carried.has(st))
   // 機體的時間（機甲持續「2 ＋ 同步」回合）：時間到正常解除
   if (u.hull?.turns !== undefined && !u.out) {
     u.hull.turns -= 1
@@ -86,7 +89,8 @@ export function beginTurn(run: BattleRun, u: BattleUnit): boolean {
   }
   if (u.out || run.over) return false
   if (lost) {
-    for (const s of [...u.statuses]) if (run.statusRule(s.id).loseTurn) run.removeStatus(u, s.id, true)
+    // 這一回合用掉的是回合開始前就帶著的那一個；發作時才剛過載的，失去的是下一個回合，留著
+    for (const s of [...u.statuses]) if (carried.has(s) && run.statusRule(s.id).loseTurn) run.removeStatus(u, s.id, true)
     run.say(`${unitTag(u)} 還動不了，失去這一回合。`, 'turn.skip', { unit: u.id })
     return false
   }

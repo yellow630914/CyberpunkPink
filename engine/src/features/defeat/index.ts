@@ -3,6 +3,8 @@
 // 戰鬥打輸（全隊倒下）或投降之後：照贏的那一方的勢力選一個戰敗事件與版本，先列出接受的話會發生什麼（M1 只有略過版：
 // 一段敘事加上結果），等玩家選「接受結果」才結算。等待中的戰敗放在 state.ext.defeat；「重來」與「回到這個階段開始時」由
 // 介面呼叫 Game.retryBattle()，ext 跟著快照回去，這個功能不用做事。
+// 等玩家三選一的期間不能做別的事，是核心與外殼擋的（Game.blockOf：打輸之後開打前的快照還在，就是在等）；
+// 「接受結果」的報告把那份快照丟掉（snapshot.drop），才算選完。
 // 二十九種各自的分法與內容、戰敗時拿走義體與裝備、委託失敗的旗標都在 M2。
 
 import type { Change, ContentEntry, Effect, Feature, Kernel, ReportDraft, RulesKernel } from '../../core'
@@ -171,7 +173,9 @@ export const defeatFeature: Feature = {
       const roll = deriveRng(state.rng, `defeat/${battle.id}`).next()
       const faction = battle.origin.faction
       const r = pick(bk, state, { ...(faction !== undefined ? { faction } : {}), roll })
-      if (!r) return // 沒有任何可用的戰敗事件：不留等待中的戰敗，玩家還是可以重來
+      // 沒有任何可用的戰敗事件：沒有後果可以接受，這一場就這樣定案——不留等待中的戰敗，開打前的快照也丟掉
+      // （核心在打輸時把它留著等玩家三選一；留著而沒有人接受，之後什麼事都做不了）
+      if (!r) return { changes: [{ op: 'snapshot.drop', kind: 'battle' }] }
       const s = settle(bk, state, r.entry, r.version)
       const value: PendingDefeat = {
         event: r.entry.id, version: r.version, ...(faction !== undefined ? { faction } : {}), outcome,

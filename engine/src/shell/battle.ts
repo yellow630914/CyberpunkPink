@@ -6,7 +6,7 @@
 // 寫正文預設不跑，戰鬥結束時整場寫一次。AI 關閉時只顯示戰報（報告的摘要）。
 
 import type { ReportDraft } from '../core/types'
-import { endBattle } from '../core/battle/step'
+import { OUTCOME_NAME, endBattle } from '../core/battle/step'
 import type { ChainDef, ChainTemplate } from './ai/chain'
 import type { NarrateInput, NarrateOutput } from './ai/freeAction'
 
@@ -44,7 +44,8 @@ export function battleEndChain(): ChainDef {
       const timeline = beats.length <= head + tail ? beats : [...beats.slice(0, head), `（中間略過 ${beats.length - head - tail} 拍）`, ...beats.slice(-tail)]
       return {
         mode: step.mode ?? 'combat',
-        report: { kind: draft.kind, action: '戰鬥', outcome: draft.outcome.result, summary: draft.outcome.summary, party: draft.party, timeline },
+        // result 是結果給人看的名字（勝利、戰敗、脫離、投降）；outcome 是它的 id
+        report: { kind: draft.kind, action: '戰鬥', outcome: draft.outcome.result, result: OUTCOME_NAME[draft.outcome.result] ?? draft.outcome.result, summary: draft.outcome.summary, party: draft.party, timeline },
         results: draft.narration?.results ?? [],
       } satisfies NarrateInput
     },

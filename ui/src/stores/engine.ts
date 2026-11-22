@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
-import type { ActionInput, Actor, AttributeEntry, BattleInput, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
-import { FakeProvider, Game, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
+import type { ActionInput, Actor, AttributeEntry, BattleInput, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, Report, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
+import { ActionBlocked, FakeProvider, Game, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
 import type { ActStatus, StepActions } from '@engine/src'
 import type { StepRecord } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
@@ -162,18 +162,25 @@ export const useEngine = defineStore('engine', () => {
   /**
    * 還沒搬進引擎的舊系統（useGame）要動時間、錢、紀錄時走這裡，讓兩邊不各走各的。
    * action 是 'ui.money'、'ui.time' 的報告不顯示在紀錄裡（只是帳）；'ui.legacy' 是舊系統寫的一則紀錄。
+   * 戰鬥中、或有等著選的戰敗時，引擎不收別的報告：回傳擋住的原因（沒有被擋回傳 null），狀態不變。
    */
-  function commit(parts: { summary: string; changes?: Change[]; action?: string; prose?: string[]; results?: string[]; place?: string }, opts?: { attach?: boolean }): void {
-    game.commit({
-      kind: 'system', action: parts.action ?? 'ui.legacy', location: parts.place ? { facility: parts.place } : {}, party: [], timeline: [], changes: parts.changes ?? [],
-      outcome: { result: 'ok', summary: parts.summary },
-      ...(parts.prose || parts.results ? { narration: { ...(parts.prose ? { text: parts.prose.join('\n\n') } : {}), ...(parts.results ? { results: parts.results } : {}) } } : {}),
-    }, opts?.attach ? { attach: true } : undefined)
+  function commit(parts: { summary: string; changes?: Change[]; action?: string; prose?: string[]; results?: string[]; place?: string }, opts?: { attach?: boolean }): string | null {
+    try {
+      game.commit({
+        kind: 'system', action: parts.action ?? 'ui.legacy', location: parts.place ? { facility: parts.place } : {}, party: [], timeline: [], changes: parts.changes ?? [],
+        outcome: { result: 'ok', summary: parts.summary },
+        ...(parts.prose || parts.results ? { narration: { ...(parts.prose ? { text: parts.prose.join('\n\n') } : {}), ...(parts.results ? { results: parts.results } : {}) } } : {}),
+      }, opts?.attach ? { attach: true } : undefined)
+      return null
+    } catch (e) {
+      if (e instanceof ActionBlocked) return e.reason
+      throw e
+    }
   }
-  /** 錢與時間的帳（不進紀錄）。 */
-  function ledger(changes: Change[]): void {
+  /** 錢與時間的帳（不進紀錄）。被擋下時回傳原因（見 commit）。 */
+  function ledger(changes: Change[]): string | null {
     const real = changes.filter((c) => c.delta !== 0)
-    if (real.length) commit({ summary: '帳', action: 'ui.money', changes: real }, { attach: true })
+    return real.length ? commit({ summary: '帳', action: 'ui.money', changes: real }, { attach: true }) : null
   }
 
   // ---- 戰鬥（COMBAT_SYSTEM；dev/work/M1-ui-combat.md）：包住引擎的 battle*，畫面只讀這裡的東西 ----
@@ -185,13 +192,22 @@ export const useEngine = defineStore('engine', () => {
     void state.value
     return game.battleOptions()
   }
-  function startBattle(setup: BattleSetup): void {
-    game.startBattle(setup)
+  /**
+   * 等著玩家三選一的戰敗（引擎的判斷：打輸之後開打前的快照還在）；沒有在等是 null。這段時間引擎不收別的事。
+   * defeat（上面）是戰敗事件的內容（哪一個事件、接受的話會發生什麼）。
+   */
+  const pendingDefeat = computed(() => { void state.value; return game.pendingDefeat })
+  /** 現在這件事做不做得成（戰鬥中、等著選的戰敗）：回傳擋住的原因，可以做回傳 null。 */
+  const blockOf = (doing: string): string | null => game.blockOf(doing)
+  /** 開打。回傳提交的報告：第一份是 battle.start，開場的每一拍在它的 timeline（畫面放進戰鬥紀錄）。 */
+  function startBattle(setup: BattleSetup): Report[] {
+    const reports = game.startBattle(setup)
     refresh()
+    return reports
   }
-  /** 照遭遇的 id 開打：我方是隊上的人；找不到這個遭遇就丟錯（畫面先用 encounterIds 查）。 */
-  function startEncounter(id: string): void {
-    startBattle(setupFromEncounter(game.k, game.state, id, { allies: game.state.party.map((a) => ({ from: 'actor' as const, id: a })) }))
+  /** 照遭遇的 id 開打：我方是隊上的人；找不到這個遭遇就丟錯（畫面先用 encounterIds 查）。回傳開打的報告（見 startBattle）。 */
+  function startEncounter(id: string): Report[] {
+    return startBattle(setupFromEncounter(game.k, game.state, id, { allies: game.state.party.map((a) => ({ from: 'actor' as const, id: a })) }))
   }
   /** 內容裡的遭遇 id（照引擎給的順序）與它的等級，給畫面挑預設的一場。 */
   function encounters(): Array<{ id: string; grade: number }> {
@@ -220,5 +236,5 @@ export const useEngine = defineStore('engine', () => {
   /** 內容的名字（道具、狀態……；顯示用，查內容不是規則）；查不到是 undefined */
   const contentName = (kind: string, id: string): string | undefined => game.k.content.get<{ id: string; name?: string }>(kind, id)?.name
 
-  return { state, battle, inBattle, defeat, battleOptions, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, acceptDefeat: acceptDefeatNow, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  return { state, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, acceptDefeat: acceptDefeatNow, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

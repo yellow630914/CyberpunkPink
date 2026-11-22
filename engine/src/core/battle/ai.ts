@@ -9,7 +9,7 @@
 //     4. 做什麼？每個能做的行動打分數，分數平方加權抽
 //   行動點不夠就停；沒用完的留到下回合。
 
-import type { BattleTarget, BattleUnit } from '../types'
+import type { BattleInput, BattleTarget, BattleUnit } from '../types'
 import { BATTLE_SLOTS } from '../types'
 import { coverAt, coverLevel, distance, isWounded, losingTurn, moveBlock, otherSide, sameTarget, unitAt, unitsOf, wielded } from './field'
 import type { BattleActionDef, BattleView } from './registry'
@@ -144,17 +144,19 @@ export function aiStep(run: BattleRun, u: BattleUnit): boolean {
   const foes = unitsOf(b, otherSide(u.side))
   const enemy = foes.length ? (run.pick(foes, (t) => targetWeight(run, u, t)) ?? foes[0]!) : null
   // 4. 做什麼：分數平方加權抽
-  const options: Array<{ def: BattleActionDef; target: BattleTarget | null; score: number }> = []
+  const options: Array<{ def: BattleActionDef; target: BattleTarget | null; input: BattleInput; score: number }> = []
   for (const def of run.k.battle.actionsFor(b.mode)) {
     if (!def.aiScore) continue
     const use = usable(run, u, def, enemy)
     if (!use) continue
+    // 花費可以看這一步的目標（替別人做比較貴）：照實際要送的這一步再確認付得起
+    const input: BattleInput = { action: def.id, ...(use.target ? { target: use.target } : {}) }
+    if (!run.canAfford(u, actionCost(run, u, def, input))) continue
     const score = def.aiScore(run, u, enemy)
-    if (score !== null && score > 0) options.push({ def, target: use.target, score })
+    if (score !== null && score > 0) options.push({ def, target: use.target, input, score })
   }
   const choice = run.pick(options, (o) => o.score * o.score)
   if (!choice) return false
-  const input = { action: choice.def.id, ...(choice.target ? { target: choice.target } : {}) }
-  performAction(run, u, choice.def, choice.target, input)
+  performAction(run, u, choice.def, choice.target, choice.input)
   return true
 }

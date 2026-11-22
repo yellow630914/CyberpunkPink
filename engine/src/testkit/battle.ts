@@ -152,7 +152,7 @@ export type BattleScenarioId = keyof typeof BATTLE_SETUPS
 const ATTACK = 'test.attack', RELOAD = 'test.reload', WATCH = 'test.watch'
 
 /**
- * 一組最小的行動：攻擊（2 點，花彈匣 1 格；近戰只能打近身）、換彈（1 點）、監視（2 點）。
+ * 一組最小的行動：攻擊（2 點，花彈匣 1 格；近戰只能打近身；帶 weapon_attack 的標籤）、換彈（1 點）、監視（2 點）。
  * 只用核心的基本動作；AI 的分數照 ENEMIES 4.3 節的基準（攻擊 2、命中率低於 35% 時 1；換彈 3、只剩一格 1；監視 1.5）。
  */
 export const TEST_COMBAT: Feature = {
@@ -164,7 +164,7 @@ export const TEST_COMBAT: Feature = {
     }
     const inReach = (u: BattleUnit, t: BattleUnit) => !wielded(u)?.traits.includes('melee') || distance(u, t) === 1
     k.battle.action({
-      id: ATTACK, owner: 'test_combat', name: '攻擊', desc: '用手上的武器攻擊一個敵人。', group: 'attack', target: 'foe', order: 1,
+      id: ATTACK, owner: 'test_combat', name: '攻擊', desc: '用手上的武器攻擊一個敵人。', group: 'attack', icon: 'shoot', tags: ['weapon_attack'], target: 'foe', order: 1,
       cost: (_v, u) => ({ ap: wielded(u)?.ap ?? 2 }),
       blocks: (_v, u) => (loaded(u) ? [] : ['彈匣空了，要先換彈。']),
       targets: (v, u) => unitsOf(v.battle, otherSide(u.side)).map((t) => ({ target: { unit: t.id }, blocks: inReach(u, t) ? [] : ['近戰只能打近身（雙方的第 1 格）。'] })),
@@ -179,7 +179,7 @@ export const TEST_COMBAT: Feature = {
       aiScore: (v, u, t) => (t ? (v.hitChance(u, t) < 35 ? 1 : 2) : null),
     })
     k.battle.action({
-      id: RELOAD, owner: 'test_combat', name: '換彈', desc: '把彈匣補滿。', group: 'supply', target: 'none', order: 1,
+      id: RELOAD, owner: 'test_combat', name: '換彈', desc: '把彈匣補滿。', group: 'supply', icon: 'reload', target: 'none', order: 1,
       cost: () => ({ ap: 1 }),
       blocks: (_v, u) => {
         const w = wielded(u)
@@ -196,7 +196,7 @@ export const TEST_COMBAT: Feature = {
       },
     })
     k.battle.action({
-      id: WATCH, owner: 'test_combat', name: '監視', desc: '到你的下一回合開始前，第一次有敵人站上暴露的格子，就自動朝他攻擊一次。', group: 'tactic', target: 'none', order: 2,
+      id: WATCH, owner: 'test_combat', name: '監視', desc: '到你的下一回合開始前，第一次有敵人站上暴露的格子，就自動朝他攻擊一次。', group: 'tactic', icon: 'watch', target: 'none', order: 2,
       cost: () => ({ ap: 2 }),
       blocks: (_v, u) => (u.watch ? ['已經在監視了。'] : []),
       run: (run, u) => {

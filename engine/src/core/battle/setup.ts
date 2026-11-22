@@ -11,7 +11,7 @@ import { otherSide, unitsOf } from './field'
 import type { BattleKernel, BattleUnitInit, UnitSourceCtx } from './registry'
 import type { BattleMode } from './rules'
 import { COVER_LAYOUTS, coverHpFor, modeOf } from './rules'
-import { BattleRun } from './run'
+import { BattleRun, initiativeOrder } from './run'
 import { advance, beginTurn } from './turn'
 
 /** 一筆「誰上場」：from 是來源（actor、unit、enemy……），其餘的欄位由那個來源解讀。 */
@@ -82,6 +82,8 @@ export function unitFromActor(k: BattleKernel, state: GameState, actorId: ActorI
     armor: statOr(k, state, actorId, 'armor', 0) + lo.armor,
     load: { now: clamp(a.load, 0, Math.max(0, loadMax - 1)), max: Math.max(1, loadMax) },
     layers: a.afterglow, layersMax: statOr(k, state, actorId, 'afterglow_cap', 3), sensitivity, sink: 0,
+    // 身上的義體數：義體的功能（M4）註冊 cyber_count 之前都是 0
+    ...(k.stats.hasStat('cyber_count') ? { cyber: Math.max(0, Math.floor(k.stats.stat(state, actorId, 'cyber_count'))) } : {}),
     ap: { now: apMax, max: apMax, regen: n.apRegen },
     pools: { ram: { now: ramMax, max: ramMax, regen: statOr(k, state, actorId, 'ram_regen', 2) } },
     weapons, wield: 0,
@@ -163,6 +165,10 @@ export function setupBattle(k: BattleKernel, state: GameState, setup: BattleSetu
     })
   }
 
+  // 開打時每一方的人數（上場的加上在後方等的）：士氣的分母，之後的增援不改它（ENEMIES 4.4 節）
+  const all = Object.values(battle.units)
+  battle.origin.headcount = { ally: all.filter((u) => u.side === 'ally').length, foe: all.filter((u) => u.side === 'foe').length }
+
   const run = new BattleRun(k, state, battle)
   for (const s of setup.soft ?? []) run.softCover(s.side, s.slot, s.kind, s.rounds)
   // 每個單位剛組好：功能把自己的資料掛上去（在擲先攻之前，先攻的修正才讀得到）
@@ -186,7 +192,7 @@ export function setupBattle(k: BattleKernel, state: GameState, setup: BattleSetu
   // 先攻 = 1d20 ＋ mod(反應) ＋ 加值；由高到低，一樣高時我方先、再照站位
   const fielded = Object.values(battle.units).filter((u) => u.slot >= 1)
   for (const u of fielded) u.initiative = run.d20() + u.initBonus + run.mods('initiative', u).reduce((s, p) => s + p.value, 0)
-  battle.order = fielded.sort((a, b) => b.initiative - a.initiative || (a.side === b.side ? a.slot - b.slot : a.side === 'ally' ? -1 : 1)).map((u) => u.id)
+  battle.order = fielded.sort(initiativeOrder).map((u) => u.id)
 
   const place = battle.origin.place ? `（${battle.origin.place}）` : ''
   run.say(`戰鬥開始${place}。${setup.ambush ? (setup.ambush === 'ally' ? '我方埋伏：敵人的遮蔽降一級、排列被打亂。' : '被埋伏了：我方的遮蔽降一級、排列被打亂，第一回合的行動點少 2 點。') : ''}`, 'battle.start', { battle: battle.id, mode: modeId, ...(setup.ambush ? { ambush: setup.ambush } : {}) })

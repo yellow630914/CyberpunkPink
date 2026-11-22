@@ -124,15 +124,28 @@ export interface DamageTypeRule {
   onHit?: Array<{ status: string; turns: number }>
   /** 每次命中沉溺加多少（快感）。戰鬥結束時寫回角色 */
   sink?: number
+  /** 這一種傷害的攻擊，傷害骰多幾顆（負的是少）：電磁與熱能的武器少一顆（COMBAT_SYSTEM 第 4 節）。最少還是擲一顆 */
+  dice?: number
 }
 
 export const DEFAULT_DAMAGE_TYPES: Record<DamageType, DamageTypeRule> = {
   physical: { id: 'physical', name: '物理', track: 'hp', armor: 1 },
-  thermal: { id: 'thermal', name: '熱能', track: 'hp', armor: 0.5, onHit: [{ status: 'burning', turns: 2 }] },
-  em: { id: 'em', name: '電磁', track: 'hp', armor: 0, vs: { machine: 2 }, onHit: [{ status: 'jammed', turns: 1 }] },
+  thermal: { id: 'thermal', name: '熱能', track: 'hp', armor: 0.5, onHit: [{ status: 'burning', turns: 2 }], dice: -1 },
+  em: { id: 'em', name: '電磁', track: 'hp', armor: 0, vs: { machine: 2 }, onHit: [{ status: 'jammed', turns: 1 }], dice: -1 },
   neural: { id: 'neural', name: '神經', track: 'load', armor: 0, needsBridge: true },
   pleasure: { id: 'pleasure', name: '快感', track: 'load', armor: 0, needsBridge: true, sink: 1 },
 }
+
+/**
+ * 重創的四個部位（COMBAT_SYSTEM 第 6 節）。id 是戰鬥共用的語彙：瞄準過的射擊由攻擊者指定部位（AttackOpts.part、wound 掛點的 part），
+ * 每個部位輕重兩級的效果由註冊 wound 掛點的功能做。
+ */
+export const WOUND_PARTS = [
+  { id: 'limb', name: '肢體' },
+  { id: 'head', name: '頭' },
+  { id: 'torso', name: '軀幹' },
+  { id: 'bridge', name: '橋' },
+] as const
 
 /** 修正的種類：狀態、技能、義體用這些鍵加減戰鬥裡的數字。 */
 export const MOD_KINDS = [
@@ -152,8 +165,10 @@ export const MOD_KINDS = [
   /** 感載每回合的自然消退 */ 'decay',
   /** 換位花的行動點（負的是減免） */ 'move_ap',
   /**
-   * 任何一個行動花的行動點（負的是減免；最少 0）。問的時候 tags 是 [行動的 id, 'group:<圈>']，
-   * 目標是自己以外的人時再多一個 'other'（替別人用道具）。技能的「退還或減免行動點」（SKILLS 1.8 節）掛在這裡
+   * 任何一個行動花的行動點（負的是減免；最少 0）。問的時候 tags 是 [行動的 id, 'group:<圈>', 行動自己宣告的標籤…]
+   * （核心定的標籤：weapon_attack，用手上那一把武器攻擊一次），目標是自己以外的人時再多一個 'other'（替別人用道具）；
+   * weapon 是手上那一把，base 是行動自己算的行動點。技能的「退還或減免行動點」（SKILLS 1.8 節）掛在這裡；
+   * 「每回合第一次才便宜」的次數在 action.done 掛點記
    */ 'action_ap',
 ] as const
 export type ModKind = (typeof MOD_KINDS)[number]
@@ -227,6 +242,8 @@ export interface DamageTypeEntry extends ContentEntry {
   vs?: Record<string, number>
   on_hit?: Array<{ status: string; turns: number }>
   sink?: number
+  /** 傷害骰多幾顆（負的是少）：電磁與熱能 −1 */
+  dice?: number
 }
 
 export interface BattleStatusEntry extends ContentEntry {
@@ -275,6 +292,7 @@ export function registerBattleKinds(content: ContentRegistry): void {
       if (e.vs !== undefined && !(isRecord(e.vs) && Object.values(e.vs).every(isNum))) p.push('vs 要是「標籤 → 倍率」')
       if (e.on_hit !== undefined && !(Array.isArray(e.on_hit) && e.on_hit.every((x) => isRecord(x) && isText(x.status) && Number.isInteger(x.turns) && (x.turns as number) > 0))) p.push('on_hit 要是 { status, turns } 的陣列')
       if (e.sink !== undefined && !Number.isInteger(e.sink)) p.push('sink 要是整數')
+      if (e.dice !== undefined && !Number.isInteger(e.dice)) p.push('dice 要是整數（傷害骰多幾顆；負的是少）')
       return p
     },
     refs: (e) => (e.on_hit ?? []).map((x) => ['battle_status', x.status]),
@@ -321,7 +339,7 @@ export function damageTypeOf(content: ContentRegistry, id: DamageType): DamageTy
   if (!e) return DEFAULT_DAMAGE_TYPES[id]
   return {
     id, name: e.name, track: e.track, armor: e.armor, ...(e.needs_bridge ? { needsBridge: true } : {}), ...(e.vs ? { vs: { ...e.vs } } : {}),
-    ...(e.on_hit ? { onHit: e.on_hit.map((x) => ({ ...x })) } : {}), ...(e.sink ? { sink: e.sink } : {}),
+    ...(e.on_hit ? { onHit: e.on_hit.map((x) => ({ ...x })) } : {}), ...(e.sink ? { sink: e.sink } : {}), ...(e.dice ? { dice: e.dice } : {}),
   }
 }
 

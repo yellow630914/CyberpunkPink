@@ -17,6 +17,11 @@ import { LOSE_TURN, coverHpFor, damageTypeOf, modeOf, statusMod, statusRuleOf } 
 
 const sum = (parts: RollPart[]): number => parts.reduce((s, p) => s + p.value, 0)
 
+/** 先攻的順序：由高到低；一樣高時我方先、再照站位（COMBAT_SYSTEM 1.2 節）。負的是 a 先。 */
+export function initiativeOrder(a: BattleUnit, b: BattleUnit): number {
+  return b.initiative - a.initiative || (a.side === b.side ? a.slot - b.slot : a.side === 'ally' ? -1 : 1)
+}
+
 /** 一次攻擊的選項：行動與技能用這些組出各種打法（瞄準、連射、穿透、不耗彈……）。 */
 export interface AttackOpts {
   /** 用哪一把；沒寫是手上那一把 */
@@ -171,8 +176,8 @@ export class BattleRun implements BattleView {
 
   // ---- 修正 ----
 
-  /** 一個數字的所有加減：狀態、餘韻、重傷，加上功能註冊的修正（技能、義體、特質）。 */
-  mods(kind: ModKind, unit: BattleUnit, other?: BattleUnit, weapon?: BattleWeapon, tags: string[] = []): RollPart[] {
+  /** 一個數字的所有加減：狀態、餘韻、重傷，加上功能註冊的修正（技能、義體、特質）。base：這個數字在修正之前是多少（只有 action_ap 會給）。 */
+  mods(kind: ModKind, unit: BattleUnit, other?: BattleUnit, weapon?: BattleWeapon, tags: string[] = [], base?: number): RollPart[] {
     const out: RollPart[] = []
     for (const s of unit.statuses) {
       const rule = statusRuleOf(this.k.content, s.id)
@@ -185,7 +190,7 @@ export class BattleRun implements BattleView {
     }
     // 重傷：生命值低於一半，所有檢定 −2（CORE_RULES 4.1 節）。迴避是對方檢定的目標值，不是自己的檢定，不扣
     if ((kind === 'hit' || kind === 'save') && isWounded(unit)) out.push({ label: '重傷', value: -2, source: 'condition' })
-    out.push(...this.k.battle.modifiers({ kind, view: this, unit, ...(other ? { other } : {}), ...(weapon ? { weapon } : {}), tags }))
+    out.push(...this.k.battle.modifiers({ kind, view: this, unit, ...(other ? { other } : {}), ...(weapon ? { weapon } : {}), tags, ...(base !== undefined ? { base } : {}) }))
     return out.filter((p) => p.value !== 0)
   }
 
@@ -278,8 +283,10 @@ export class BattleRun implements BattleView {
     // 重創：自然 20，或瞄準過的射擊打出要害
     const wound = hit && !opts.noWound && (natural === 20 || (crit && aimed))
     const baseDice = w.far && distance(attacker, target) > w.far.beyond ? w.far.dice : w.dice
+    // 這一擊的傷害類型自己帶的骰數（電磁與熱能的武器少一顆；COMBAT_SYSTEM 第 4 節）：照實際打出去的類型（特殊彈換了類型就照換過的）
+    const typeDice = damageTypeOf(this.k.content, opts.type ?? w.type).dice ?? 0
     // 要害多一顆；雜兵不擲部位，重創直接多一顆
-    const dice = Math.max(1, baseDice + (opts.dice ?? 0) + sum(this.mods('dice', attacker, target, w, tags)) + (crit ? 1 : 0) + (wound && target.rank === 'minion' ? 1 : 0))
+    const dice = Math.max(1, baseDice + typeDice + (opts.dice ?? 0) + sum(this.mods('dice', attacker, target, w, tags)) + (crit ? 1 : 0) + (wound && target.rank === 'minion' ? 1 : 0))
     const rolled = this.d6(dice)
     const raw = Math.max(0, rolled + w.flat + (opts.damage ?? 0) + sum(this.mods('damage', attacker, target, w, tags)))
 
@@ -348,7 +355,7 @@ export class BattleRun implements BattleView {
       return { ...none, natural, total, evade }
     }
     const baseDice = w.far && distance(attacker, o) > w.far.beyond ? w.far.dice : w.dice
-    const raw = Math.max(0, this.d6(Math.max(1, baseDice + (opts.dice ?? 0))) + w.flat + (opts.damage ?? 0))
+    const raw = Math.max(0, this.d6(Math.max(1, baseDice + (damageTypeOf(this.k.content, opts.type ?? w.type).dice ?? 0) + (opts.dice ?? 0))) + w.flat + (opts.damage ?? 0))
     const armor = Math.max(0, o.armor - (w.pierce + (opts.pierce ?? 0)))
     const dealt = Math.max(0, Math.round((raw - armor) * attacker.dmgMult.hp))
     o.hp.now = Math.max(0, o.hp.now - dealt)
@@ -679,10 +686,21 @@ export class BattleRun implements BattleView {
         const back = unitsOf(this.battle, side).filter((u) => u.slot > s)
         if (!back.length) continue
         for (const u of back) u.slot -= 1
-        for (const o of this.battle.overlays) if (o.side === side && !o.down && o.slot > s) o.slot -= 1
+        // 和人重疊的東西跟著它掛的那一格走：後面的往前一格；掛在空出來那一格的，那一格轉到最後面，它也跟著到最後面。
+        // 這樣每格還是最多一台（COMBAT_SYSTEM 第 2 節；設計書沒寫人倒下之後掛在他那一格的怎麼辦，dev/adr/0013 C13）
+        const orphans: BattleOverlay[] = []
+        for (const o of this.battle.overlays) {
+          if (o.side !== side || o.down) continue
+          if (o.slot > s) o.slot -= 1
+          else if (o.slot === s) {
+            o.slot = BATTLE_SLOTS
+            orphans.push(o)
+          }
+        }
         for (let i = s - 1; i < BATTLE_SLOTS - 1; i++) c[i] = c[i + 1]!
         c[BATTLE_SLOTS - 1] = { level: 0, hp: 0 }
         this.say(`${SIDE_NAME[side]}後排連同${this.mode.coverWord}往前補位。`, 'compact', { side, slot: s })
+        for (const o of orphans) this.say(`${o.name}退到${SIDE_NAME[side]}的第 ${BATTLE_SLOTS} 格。`, 'overlay', { overlay: o.id, kind: o.kind, from: s, slot: BATTLE_SLOTS })
         for (const u of back) this.exposed(u)
         moved = true
       }
@@ -690,17 +708,29 @@ export class BattleRun implements BattleView {
     }
   }
 
-  /** 後方排隊的人補上來：有空格才補，從最後面的空格進場；先攻當場擲，行動點從上限開始。 */
+  /**
+   * 後方排隊的人補上來：有空格才補，從最後面的空格進場；行動點從上限開始。
+   * 先攻當場擲（1d20 ＋ mod(反應) ＋ 修正，和開打時同一條算式），照它排進先攻的順序：
+   * 他的順位在這一輪已經過了，下一輪才動；還沒到，這一輪就輪得到他（COMBAT_SYSTEM 1.2 節；dev/adr/0013 C6）。
+   */
   reinforce(side: BattleSide): void {
-    const queue = this.battle.reserve[side]
-    while (queue.length && unitsOf(this.battle, side).length < BATTLE_SLOTS && !this.over) {
+    const b = this.battle
+    const queue = b.reserve[side]
+    while (queue.length && unitsOf(b, side).length < BATTLE_SLOTS && !this.over) {
       let slot = 0
-      for (let s = BATTLE_SLOTS; s >= 1; s--) if (!unitAt(this.battle, side, s)) { slot = s; break }
+      for (let s = BATTLE_SLOTS; s >= 1; s--) if (!unitAt(b, side, s)) { slot = s; break }
       if (!slot) break
       const u = this.unit(queue.shift()!)
       u.slot = slot
-      u.initiative = this.d20() + u.initBonus
-      this.battle.order.push(u.id)
+      u.initiative = this.d20() + u.initBonus + sum(this.mods('initiative', u))
+      // 排在第一個先攻比他低的人前面（一樣高照開打時的規矩：我方先、再照站位）；都不比他低就排最後
+      const at = b.order.findIndex((id) => initiativeOrder(u, b.units[id]!) < 0)
+      if (at < 0) b.order.push(u.id)
+      else {
+        b.order.splice(at, 0, u.id)
+        // 插在輪到的人前面（或正好是他的位置）：指標跟著往後一格，輪到的還是原來那個人
+        if (at <= b.turn) b.turn += 1
+      }
       this.say(`${unitTag(u)} 從後方補上來，站到第 ${slot} 格。`, 'reinforce', { unit: u.id, side, slot })
       this.exposed(u)
       this.compact(side)

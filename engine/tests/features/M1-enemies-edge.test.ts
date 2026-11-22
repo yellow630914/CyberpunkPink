@@ -184,6 +184,43 @@ describe('士氣', () => {
     expect(now(g).units.f1!.uses.morale).toBe(1)
     expect(r.reports[0]!.timeline.find((x) => x.roll)!.roll).toMatchObject({ dc: 10, skill: 'composure' })
   })
+  it('「同伴倒了一半」的分母是開打時記下的人數：之後才進來的增援不會把它墊高（ENEMIES 4.4 節）', () => {
+    const g = fight(['en_mook', 'en_mook', 'en_mook', 'en_mook'], 4)
+    expect(now(g).origin.headcount).toEqual({ ally: 4, foe: 4 })
+    now(g).units.f2!.out = 'down'
+    now(g).units.f3!.out = 'down'
+    // 中途叫來兩個增援（M2 的呼叫增援會這樣做）：場上的人變多了，但開場是四個人、已經倒了兩個
+    for (const id of ['f5', 'f6']) now(g).units[id] = { ...structuredClone(now(g).units.f4!), id, slot: 0 }
+    now(g).reserve.foe.push('f5', 'f6')
+    stepAs(g, 'f1')
+    expect(now(g).units.f1!.uses.morale).toBe(1)
+    // 沒有記人數的舊戰鬥（存檔）：退回用現在場上的人數算，六個人倒兩個還不到一半
+    const old = fight(['en_mook', 'en_mook', 'en_mook', 'en_mook'], 4)
+    delete now(old).origin.headcount
+    now(old).units.f2!.out = 'down'
+    now(old).units.f3!.out = 'down'
+    for (const id of ['f5', 'f6']) now(old).units[id] = { ...structuredClone(now(old).units.f4!), id, slot: 0 }
+    now(old).reserve.foe.push('f5', 'f6')
+    stepAs(old, 'f1')
+    expect(now(old).units.f1!.uses.morale).toBeUndefined()
+  })
+  it('契約人不能投降也不能撤退：帶 contract 標籤的單位不檢定士氣（ENEMIES 4.4 節）；資料的 traits 會變成單位的標籤', () => {
+    const g = makeGame({ features: [enemiesFeature, TEST_COMBAT], content: [{ ...PACK, content: { ...PACK.content, enemy: [...PACK.content.enemy!, enemy('en_contract', 'minion', { traits: ['contract'] })] } }], seed: 4 }).game
+    g.startBattle({ grade: 2, cover: 'medium', allies: Array.from({ length: 4 }, () => ({ from: 'unit', unit: ally() })), foes: ['en_contract', 'en_mook', 'en_mook', 'en_mook'].map((id) => ({ from: 'enemy', id })) })
+    for (const u of Object.values(now(g).units)) if (u.side === 'foe') u.skills.composure = -40
+    expect(now(g).units.f1!.tags).toContain('contract')
+    // 同伴倒了一半、自己也只剩一口氣：一般的雜兵會擲士氣，契約人不擲、不走
+    now(g).units.f3!.out = 'down'
+    now(g).units.f4!.out = 'down'
+    now(g).units.f1!.hp!.now = 1
+    const r = stepAs(g, 'f1')
+    expect(now(g).units.f1!.uses.morale).toBeUndefined()
+    expect(now(g).units.f1!.out).toBeUndefined()
+    expect(r.reports[0]!.timeline.some((x) => /士氣/.test(x.text))).toBe(false)
+    // 同一場裡沒有契約的那個照常擲
+    stepAs(g, 'f2')
+    expect(now(g).units.f2!.uses.morale).toBe(1)
+  })
   it('首領不檢定；檢定過的人（morale 已經有值）這一場不再擲', () => {
     const g = fight(['en_boss', 'en_mook', 'en_mook', 'en_mook'], 4)
     now(g).units.f1!.hp!.now = 1

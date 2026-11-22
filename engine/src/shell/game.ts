@@ -13,7 +13,8 @@ import type { GridDir } from '../core/grid/model'
 import type { GridView, OpenMapOpts } from '../core/grid/walk'
 import { GridBlocked, gridView, gridWalk, openMap } from '../core/grid/walk'
 import type { BattleOptions } from '../core/battle/step'
-import { BattleBlocked, battleAct, battleAuto, battleOptions, startBattle } from '../core/battle/step'
+import { BattleBlocked, abortBattle, battleAct, battleAuto, battleOptions, pendingDefeat, startBattle } from '../core/battle/step'
+import { modeOf, statusRuleOf } from '../core/battle/rules'
 import { blankState } from '../core/state/blank'
 import { commitReport, commitReportAll } from '../core/state/commit'
 import { sanitizeRules } from '../core/state/saveRules'
@@ -176,6 +177,29 @@ export class Game {
     return reports[0]!
   }
 
+  /**
+   * 等著玩家三選一的戰敗（COMBAT_SYSTEM 8.4 節：接受結果、重來這場戰鬥、回到這個階段開始時）；沒有在等是 null。
+   * 打輸或投降的那一場結算之後、開打前的快照還留著的期間就是在等：接受（提交的報告把那份快照丟掉）、重來、回到更早的快照，才會離開。
+   */
+  get pendingDefeat(): { snapshot: string; battle: string; outcome: string } | null {
+    return pendingDefeat(this.state)
+  }
+
+  /**
+   * 現在這件事做不做得成（不變式第 48、59 條）：回傳擋住的原因（給玩家看的完整句子），可以做回傳 null。什麼都不改。
+   * - 戰鬥中只能做戰鬥的事（戰鬥的每一步、結束的結算、重來）：別的報告、別的任務鏈、走地圖都擋下。
+   * - 有等著選的戰敗時，只能三選一：重來、回到快照，或提交一份把開打前的快照丟掉的報告（接受結果）。
+   * doing：chain:<鏈的 id>、commit:<報告的 action>、battle.start、battle.retry、grid.enter、grid.move。
+   */
+  blockOf(doing: string, draft?: ReportDraft): string | null {
+    if (this.state.battle) return doing.startsWith('battle.') || doing.startsWith('commit:battle.') || doing === 'chain:battle_end' ? null : '正在戰鬥，先把這一場打完。'
+    if (this.pendingDefeat) {
+      const settles = !!draft?.changes.some((c) => c.op === 'snapshot.drop' && c.kind === 'battle')
+      return doing === 'battle.retry' || settles ? null : '先在戰敗的三個選擇裡選一個：接受結果、重來這場戰鬥，或回到這個階段開始時。'
+    }
+    return null
+  }
+
   /** 上一條鏈停在半路（等玩家處理）就做了別的事：那一條作廢，它留的那一步回退也拿掉。 */
   private abandonPaused(): void {
     if (this.last?.run.status !== 'paused') return
@@ -188,10 +212,18 @@ export class Game {
    * 提交一份程式結算的報告（不經過 AI 的動作：建角的確認、買賣、穿脫……）。
    * 預設留一步回退；opts.attach 是併進最新一樓、不另留回退。第二個參數給字串就是 label。
    * 不合法時丟 ChangeError：狀態完全不變，能回退的步數也不變。任務鏈還在跑的時候不能提交（丟錯）。
+   * 戰鬥中、或有等著選的戰敗時，別的報告不收：丟 ActionBlocked（reason 是給玩家看的原因；見 blockOf），狀態不變。
    * 這之後，更早套用的那條鏈就不能再重試、重擲（只能回退）：重試會把這一份提交一起抹掉。
    * 停在半路等玩家的鏈則作廢（和開始新的行動一樣）。
    */
   commit(draft: ReportDraft, opts: string | CommitOptions = {}): Report[] {
+    const block = this.blockOf(`commit:${draft.action}`, draft)
+    if (block) throw new ActionBlocked(block)
+    return this.commitNow(draft, opts)
+  }
+
+  /** 提交（不問 blockOf）：門面自己的入口已經問過了才用它。 */
+  private commitNow(draft: ReportDraft, opts: string | CommitOptions = {}): Report[] {
     const o: CommitOptions = typeof opts === 'string' ? { label: opts } : opts
     // 鏈還在跑的時候不能插進別的提交：那條鏈的每一步都是照開始時的狀態算的
     if (this.last?.run.status === 'running') throw new Error('上一條任務鏈還在跑。')
@@ -216,9 +248,11 @@ export class Game {
     const def = this.chains.get(chainId)
     if (!def) throw new Error(`沒有 ${chainId} 這條任務鏈`)
     if (this.last?.run.status === 'running') throw new Error('上一條任務鏈還在跑。')
-    // 戰鬥中不能做別的事（探索用格子、戰鬥是另一個畫面；COMBAT_SYSTEM 第 10 節）：只有結束戰鬥的那條鏈可以跑
-    if (this.state.battle && chainId !== 'battle_end') {
-      return { status: 'refused', reason: '正在戰鬥，先把這一場打完。', run: new ChainRun({ k: this.k, tasks: this.tasks, taskEnv: this.taskEnv }, def, this.state, input, this.settings), reports: [] }
+    // 戰鬥中不能做別的事（探索用格子、戰鬥是另一個畫面；COMBAT_SYSTEM 第 10 節）：只有結束戰鬥的那條鏈可以跑。
+    // 有等著選的戰敗時也一樣：先三選一（8.4 節）
+    const block = this.blockOf(`chain:${chainId}`)
+    if (block) {
+      return { status: 'refused', reason: block, run: new ChainRun({ k: this.k, tasks: this.tasks, taskEnv: this.taskEnv }, def, this.state, input, this.settings), reports: [] }
     }
     this.abandonPaused()
     const before = clone(this.state)
@@ -323,15 +357,21 @@ export class Game {
 
   /**
    * 開打。留一步回退（回退就回到開打之前），並存一份「戰鬥開打前」的快照：戰敗之後可以重來這場戰鬥（COMBAT_SYSTEM 8.4 節）。
-   * 不成立（已經在打、沒有人上場）丟錯，狀態不變。
+   * 回傳提交的報告，第一份是 battle.start（開場的每一拍在它的 timeline：畫面放進戰鬥紀錄）。
+   * 不成立（已經在打、沒有人上場）丟錯；有等著選的戰敗時丟 ActionBlocked。狀態不變。
    */
   startBattle(setup: BattleSetup, o: { label?: string; snapshot?: boolean } = {}): Report[] {
+    if (this.state.battle) throw new Error('已經有一場戰鬥在進行。')
+    const block = this.blockOf('battle.start')
+    if (block) throw new ActionBlocked(block)
     const draft = startBattle(this.k, this.state, setup)
+    // 上一場留下來的「開打前」快照一律先丟（同一時間只留這一場的）；這一場不留快照時也丟，免得打輸時標到別場的快照上
+    draft.changes.push({ op: 'snapshot.drop', kind: 'battle' })
     if (o.snapshot !== false) {
       const slot: SnapshotSlot = { id: `s${this.state.seq.uid + 1}`, kind: 'battle', label: o.label ?? '戰鬥開打前', raw: this.snapshotText(), data: { setup: clone(setup) as unknown as Record<string, unknown> } }
-      draft.changes.push({ op: 'snapshot.drop', kind: 'battle' }, { op: 'snapshot.add', slot })
+      draft.changes.push({ op: 'snapshot.add', slot })
     }
-    return this.commit(draft, { label: o.label ?? '開戰', turn: false })
+    return this.commitNow(draft, { label: o.label ?? '開戰', turn: false })
   }
 
   private battleStep(make: () => ReportDraft): BattleStepResult {
@@ -344,7 +384,7 @@ export class Game {
       throw e
     }
     // 併進最新一樓：戰鬥裡的每一步不另留回退（回退回到開打之前）；也不算一個回合
-    const reports = this.commit(draft, { attach: true, turn: false })
+    const reports = this.commitNow(draft, { attach: true, turn: false })
     return { status: 'applied', reports, over: !!this.state.battle?.result }
   }
 
@@ -386,14 +426,30 @@ export class Game {
 
   /**
    * 重來這場戰鬥（COMBAT_SYSTEM 8.4 節：任何難度、任何存檔規則下都可以）：回到開打之前，照同一份設定再開打一次。
-   * 紀錄、性經歷、記憶留著；骰子不保證和上一次一樣。沒有快照回傳錯誤訊息；成功回傳 null。
+   * 紀錄、性經歷、記憶留著；骰子不保證和上一次一樣。
+   * 只在兩個時候成立：這一場還在打（打到一半重新開始），或這一場打輸了、還在等玩家三選一。
+   * 打贏、脫離、戰敗已經接受之後，開打前的快照已經丟掉，不能再重來（不然就是一個沒有步數限制的回退；不變式第 4 條）。
+   * 打到一半重來的，先把這一場到現在的每一步收成一份報告（留在紀錄裡、標成被收回），不然重來幾次紀錄裡就多幾百筆。
+   * 不成立回傳原因（狀態不變）；成功回傳 null。
    */
   retryBattle(summary = '你回到開打之前。剛才那一場像一段太真的預演。'): string | null {
-    const slot = [...this.state.snapshots].reverse().find((x) => x.kind === 'battle')
+    const fighting = this.state.battle
+    const waiting = this.pendingDefeat
+    const slot = fighting ? [...this.state.snapshots].reverse().find((x) => x.kind === 'battle') : waiting ? this.state.snapshots.find((x) => x.id === waiting.snapshot) : undefined
     const setup = slot?.data?.setup as BattleSetup | undefined
-    if (!slot || !setup) return '沒有這場戰鬥開打前的快照。'
+    if (!slot || !setup) return fighting ? '這一場開打前沒有留快照，不能重來。' : '沒有這場戰鬥開打前的快照。'
+    if (this.last?.run.status === 'running') return '上一條任務鏈還在跑。'
+    // 回不去的話（快照壞了）整件事不成立：連「把這一場收成一份」也收回去
+    const before = fighting ? clone(this.state) : null
+    if (fighting) this.commitNow(abortBattle(this.k, this.state), { attach: true, turn: false })
     const err = this.rewindTo(slot.id, { summary })
-    if (err) return err
+    if (err) {
+      if (before) {
+        replaceInPlace(this.state, before)
+        this.notify([])
+      }
+      return err
+    }
     this.startBattle(setup, { label: slot.label })
     return null
   }
@@ -407,26 +463,34 @@ export class Game {
 
   /** 開一份地圖的實例並站進去（留一步回退）。回傳實例的 id。 */
   enterMap(defId: string, o: OpenMapOpts & { label?: string } = {}): string {
+    const block = this.blockOf('grid.enter')
+    if (block) throw new ActionBlocked(block)
     const { id, changes } = openMap(this.k, this.state, defId, o)
-    this.commit({ kind: 'action', action: 'grid.enter', location: clone(this.state.location), party: [], timeline: [], changes, outcome: { result: 'entered', summary: '進到一張地圖裡。' } }, { label: o.label ?? '進地圖' })
+    this.commitNow({ kind: 'action', action: 'grid.enter', location: clone(this.state.location), party: [], timeline: [], changes, outcome: { result: 'entered', summary: '進到一張地圖裡。' } }, { label: o.label ?? '進地圖' })
     return id
   }
 
   /**
    * 在格子地圖上走：一個方向（一格），或一個目的地（照最短路走，遇到事情就停）。
    * 走不過去回傳 refused 與原因，狀態不變。走到敵人那一格就開打：這一步提交之後接著開戰（state.battle 有了）。
+   * 開不成戰（遭遇點寫了不存在的敵人、隊伍是空的）整步不成立：先試開打、成了才提交走路，不會人已經站過去、戰卻沒開（不變式第 3 條）。
    */
   gridMove(to: GridDir | [number, number]): { status: 'applied' | 'refused'; reason?: string; reports: Report[] } {
+    const block = this.blockOf('grid.move')
+    if (block) return { status: 'refused', reason: block, reports: [] }
     let walked: ReturnType<typeof gridWalk>
     try {
       walked = gridWalk(this.k, this.state, to)
+      // 先試一次開打（只算、不改狀態）：開不成就整步不走
+      if (walked.battle) startBattle(this.k, this.state, walked.battle)
     } catch (e) {
       if (e instanceof GridBlocked) return { status: 'refused', reason: e.reason, reports: [] }
+      if (walked! && walked.battle) return { status: 'refused', reason: `這裡的戰鬥開不起來（${(e as Error).message}）。`, reports: [] }
       throw e
     }
     // 走路併進最新一樓：不另留回退；接著的事（事件、開打）各自提交
-    const reports = this.commit(walked.draft, { attach: true })
-    for (const f of walked.followUps) reports.push(...this.commit(f, { attach: true }))
+    const reports = this.commitNow(walked.draft, { attach: true })
+    for (const f of walked.followUps) reports.push(...this.commitNow(f, { attach: true }))
     if (walked.battle) reports.push(...this.startBattle(walked.battle))
     return { status: 'applied', reports }
   }
@@ -445,6 +509,9 @@ export class Game {
     const r = unpackSave(raw)
     if (!r.ok) return r.error
     const next = r.file.state
+    // 進行中的戰鬥要對得上這一局的內容：戰場與狀態都查得到（查不到的話，讀進來之後每一步都會丟錯，整局卡死）
+    const broken = this.battleContentProblems(next)
+    if (broken.length) return `存檔壞了（${broken.slice(0, 3).join('；')}）。`
     let reports: Report[] = []
     try {
       // 讀檔修復：功能回傳變更，有才提交一份報告
@@ -461,6 +528,18 @@ export class Game {
     this.last = null
     this.notify(reports)
     return null
+  }
+
+  /** 存檔裡進行中的戰鬥用到的戰場、狀態，在這一局的內容裡查不查得到。 */
+  private battleContentProblems(state: GameState): string[] {
+    const b = state.battle
+    if (!b) return []
+    const p: string[] = []
+    if (!modeOf(this.k.content, b.mode)) p.push(`battle：沒有 ${b.mode} 這個戰場`)
+    const unknown = new Set<string>()
+    for (const u of Object.values(b.units)) for (const st of u.statuses) if (!statusRuleOf(this.k.content, st.id)) unknown.add(st.id)
+    if (unknown.size) p.push(`battle：不認得的狀態 ${[...unknown].join('、')}`)
+    return p
   }
 
   /**
@@ -485,8 +564,9 @@ export class Game {
       next.reports = [...next.reports, ...current.reports.slice(kept).map((x) => ({ ...clone(x), retracted: true }))]
       next.chains = clone(current.chains)
       next.seq = { ...current.seq }
-      // 快照跟著現在的走：沒有指定就留著現在的每一份（rewindTo 會只留比那一份早的）
-      next.snapshots = clone(keepSnapshots ?? current.snapshots)
+      // 快照跟著現在的走：沒有指定就留著現在的每一份（rewindTo 會只留比那一份早的），
+      // 但「戰鬥開打前」的那一種不留：回到更早的時間點之後，那一場已經不存在，留著只會變成一個隨時能用的回退
+      next.snapshots = clone(keepSnapshots ?? current.snapshots.filter((x) => x.kind !== 'battle'))
       reports = [commitReport(this.k, next, { kind: 'system', action: 'rewind', location: clone(next.location), party: [], timeline: [], changes, outcome: { result: 'rewound', summary: opts.summary } })]
     } catch (e) {
       return `沒有辦法回到那一刻（${(e as Error).message}）。`

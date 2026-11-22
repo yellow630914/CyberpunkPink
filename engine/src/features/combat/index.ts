@@ -5,7 +5,7 @@
 import type { Feature } from '../../core'
 import { ATTACK_ACTIONS } from './attack'
 import { ITEM_ACTIONS, checkItems, registerItemOps } from './items'
-import { TACTIC_ACTIONS, registerCaptureAi } from './tactics'
+import { TACTIC_ACTIONS } from './tactics'
 import { registerWounds } from './wounds'
 
 export const combatFeature: Feature = {
@@ -14,7 +14,6 @@ export const combatFeature: Feature = {
     for (const def of [...ATTACK_ACTIONS, ...ITEM_ACTIONS, ...TACTIC_ACTIONS]) k.battle.action(def)
     registerItemOps(k)
     registerWounds(k)
-    registerCaptureAi(k)
   },
   ready(k) {
     checkItems(k)

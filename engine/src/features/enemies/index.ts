@@ -24,12 +24,16 @@ export const enemiesFeature: Feature = {
     k.battle.on('ai.step', OWNER, ({ run, unit }) => {
       if (!unit.enemy || unit.control !== 'ai' || unit.out) return
       if (unit.rank === 'boss' || unit.ai?.neverFlee || unit.uses.morale !== undefined) return
+      // 契約人不能投降也不能撤退：橋權在公司手上，要公司准（4.4 節）。帶 contract 標籤的單位不檢定士氣
+      if (unit.tags.includes('contract')) return
       const units = Object.values(run.battle.units)
       const mine = units.filter((u) => u.side === unit.side)
       const theirs = units.filter((u) => u.side !== unit.side)
       const bossOut = mine.some((u) => u.rank === 'boss' && u.out)
       const low = !!unit.hp && !!unit.ai && unit.hp.now / unit.hp.max < unit.ai.fleeBelow
-      const halfGone = mine.filter((u) => u.out).length * 2 >= mine.length
+      // 「同伴倒了一半」的分母是開打時記下的人數（核心在開打時寫進 origin.headcount）：之後叫來的增援不會把它墊高
+      const started = run.battle.origin.headcount?.[unit.side] ?? mine.length
+      const halfGone = mine.filter((u) => u.out).length * 2 >= started
       const check = unit.rank === 'minion' ? bossOut || halfGone || low : bossOut || low
       if (!check) return
       unit.uses.morale = 1

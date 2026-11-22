@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import type { BattleSetup, BattleUnit, ContentPack, Kernel, Report } from '../../src'
 import { createKernel, readyFeatures } from '../../src'
 import { TREE_XP, abilitiesFeature, abilitiesOf, capacityOf, equipAbilities, learn, learnBlock, treeTier } from '../../src/features/abilities'
-import { TEST_COMBAT, makeBattleGame, makeGame } from '../../src/testkit'
+import { TEST_ACTIONS, TEST_COMBAT, makeBattleGame, makeGame } from '../../src/testkit'
 import { TEST_STATUSES, arena, duel, foe, one } from '../helpers/battle'
 
 const sk = (id: string, name: string, path: string, tier: number, kind: string, cap: number, more: Record<string, unknown>) => ({
@@ -246,7 +246,12 @@ describe('行動的條件與錯誤', () => {
     const ids = { cu: 'sk_fixer_face.call' }
     // 目標對不上
     expect(g.battleAct({ action: ids.cu, target: { side: 'foe', slot: 1 }, pick: { option: 'cover_up' } })).toMatchObject({ status: 'refused' })
-    expect(g.battleAct({ action: ids.cu, target: { side: 'foe', slot: 1 }, pick: { option: 'cover_down' } })).toMatchObject({ status: 'refused', reasons: ['叫人要選一件事：補遮蔽、拆遮蔽，或支援射擊。'] })
+    // 敵方第 1 格沒有遮蔽：這個目標本身就選不了（核心照行動列的目標擋，原因寫出來）
+    expect(g.battleAct({ action: ids.cu, target: { side: 'foe', slot: 1 }, pick: { option: 'cover_down' } })).toMatchObject({ status: 'refused', reasons: ['這一格沒有遮蔽可以拆。'] })
+    // 有遮蔽的格、選的卻是補遮蔽：行動自己擋
+    expect(g.battleAct({ action: ids.cu, target: { side: 'foe', slot: 2 }, pick: { option: 'cover_up' } })).toMatchObject({ status: 'refused', reasons: ['叫人要選一件事：補遮蔽、拆遮蔽，或支援射擊。'] })
+    // 不在場上的單位 id：不是當掉，是擋下（核心照行動列的目標驗）
+    expect(g.battleAct({ action: ids.cu, target: { unit: 'f9' }, pick: { option: 'shot' } })).toMatchObject({ status: 'refused', reasons: ['這個目標不能選。'] })
     expect(g.battleAct({ action: ids.cu, target: { side: 'ally', slot: 1 }, pick: { option: 'shot' } })).toMatchObject({ status: 'refused' })
     expect(g.battleAct({ action: ids.cu, target: { unit: 'a1' }, pick: { option: 'shot' } })).toMatchObject({ status: 'refused' })
     // 選項不在清單裡、沒有選項、沒有目標
@@ -308,22 +313,45 @@ describe('行動的條件與錯誤', () => {
 })
 
 describe('單位的資料與開場的效果', () => {
-  it('定點射的 weapon_cost 在 unit.ready 把帶那個特性的武器改成指定的行動點；已經有資料的單位不被覆寫', () => {
+  /** 把回合轉到某個人、行動點補滿，看他那個行動現在要花幾點。 */
+  const apOf = (g: ReturnType<typeof makeBattleGame>['game'], id: string, action: string): number => {
+    const b = g.state.battle!
+    b.turn = b.order.indexOf(id)
+    b.units[id]!.ap.now = b.units[id]!.ap.max
+    b.units[id]!.control = 'player'
+    return g.battleOptions()!.actions.find((a) => a.id === action)!.cost.ap
+  }
+
+  it('weapon_cost 是花費的修正：用帶那個特性的武器攻擊一次改花指定的行動點；武器本身不被改；已經有資料的單位不被覆寫', () => {
     const g = makeBattleGame({ features: FEATURES, content: [PACK], battle: duel([one({ weapon: 'sniper', ...equipped('sk_gunner_sights') }), one({ weapon: 'rifle', ...equipped('sk_gunner_sights') }, 2), one({ weapon: 'sniper' }, 3)], [foe('elite')]), seed: 7 }).game
+    expect(apOf(g, 'a1', TEST_ACTIONS.ATTACK)).toBe(1) // 狙擊槍帶 long：3 點改成 1 點
+    expect(apOf(g, 'a2', TEST_ACTIONS.ATTACK)).toBe(1) // 步槍也帶 long：2 點改成 1 點
+    expect(apOf(g, 'a3', TEST_ACTIONS.ATTACK)).toBe(3) // 沒裝的人不變
+    // 不帶 weapon_attack 標籤的行動（換彈）不受影響
+    g.state.battle!.units.a1!.weapons[0]!.mag!.now = 0
+    expect(apOf(g, 'a1', TEST_ACTIONS.RELOAD)).toBe(1)
     const u = g.battle!.units
-    expect(u.a1!.weapons[0]!.ap).toBe(1) // 狙擊槍帶 long：3 點改成 1 點
-    expect(u.a2!.weapons[0]!.ap).toBe(1) // 步槍也帶 long：沒寫 ap 的武器被寫上 1
-    expect(u.a3!.weapons[0]!.ap).toBe(3) // 沒裝的人不變
+    // 武器的 ap 沒有被動過：狙擊槍還是寫 3，步槍還是沒寫（dev/adr/0014）
+    expect([u.a1!.weapons[0]!.ap, u.a2!.weapons[0]!.ap, u.a3!.weapons[0]!.ap]).toEqual([3, undefined, 3])
     expect(u.a1!.ext.abilities).toEqual({ equipped: ['sk_gunner_sights'], tiers: { gunner: 2, fixer: 2 } })
   })
 
-  it('每回合第幾次的 weapon_cost：unit.ready 把武器掛上減免（原本的數字記在 uses），用掉之後還原，下一回合開始再掛上', () => {
+  it('每回合第幾次的 weapon_cost：不改武器、不在 uses 裡記原價；用掉幾次只記在 turn:<技能>.discount，下一回合由核心清掉', () => {
     const g = makeBattleGame({ features: FEATURES, content: [PACK], battle: duel([one({ weapon: 'sniper', ...equipped('sk_gunner_point_shot') }), one({ weapon: 'rifle', ...equipped('sk_gunner_point_shot') }, 2)], [foe('boss')]), seed: 7 }).game
     const u = () => g.battle!.units
-    expect(u().a1!.weapons[0]!.ap).toBe(2) // 狙擊槍帶 aimed：3 點掛成 2 點，原本的 3 記著
-    expect(u().a1!.uses['wbase:0']).toBe(3)
-    expect(u().a2!.weapons[0]!.ap).toBeUndefined() // 步槍沒有 aimed：不動
-    expect(u().a2!.uses['wbase:0']).toBeUndefined()
+    expect(apOf(g, 'a1', TEST_ACTIONS.ATTACK)).toBe(2) // 狙擊槍帶 aimed：這回合的第一槍 3 點變 2 點
+    expect(apOf(g, 'a2', TEST_ACTIONS.ATTACK)).toBe(2) // 步槍沒有 aimed：本來就是 2 點
+    expect(u().a1!.weapons[0]!.ap).toBe(3)
+    expect(u().a2!.weapons[0]!.ap).toBeUndefined()
+    expect(Object.keys(u().a1!.uses).filter((key) => key.startsWith('wbase'))).toEqual([])
+    apOf(g, 'a1', TEST_ACTIONS.ATTACK)
+    expect(g.battleAct({ action: TEST_ACTIONS.ATTACK, target: { unit: 'f1' } }).status).toBe('applied')
+    expect(u().a1!.uses['turn:sk_gunner_point_shot.discount']).toBe(1)
+    expect(u().a1!.weapons[0]!.ap).toBe(3)
+    // 步槍那一槍沒有比較便宜（2 點對 2 點）：不算用掉
+    apOf(g, 'a2', TEST_ACTIONS.ATTACK)
+    expect(g.battleAct({ action: TEST_ACTIONS.ATTACK, target: { unit: 'f1' } }).status).toBe('applied')
+    expect(u().a2!.uses['turn:sk_gunner_point_shot.discount']).toBeUndefined()
   })
 
   it('有角色的單位：照開打那一刻的 equipped 與 spent；沒裝東西的角色得到空的資料；沒有角色的單位不填', () => {

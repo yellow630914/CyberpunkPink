@@ -1,7 +1,7 @@
 // L6 功能 combat：使用道具（只能用快取格裡的）與五種道具效果。COMBAT_SYSTEM 1.3 節；ITEMS 5.2 節。
 
-import type { BattleActionDef, BattleInput, BattleKernel, BattleTarget, BattleUnit, BattleView, ItemEntry, Kernel } from '../../core'
-import { BATTLE_SLOTS, BattleBlocked, unitTag, unitsOf } from '../../core'
+import type { BattleActionDef, BattleInput, BattleKernel, BattlePick, BattleTarget, BattleUnit, BattleView, ItemEntry, Kernel } from '../../core'
+import { BATTLE_SLOTS, BattleBlocked, sameTarget, unitTag, unitsOf } from '../../core'
 
 const OWNER = 'combat'
 
@@ -30,9 +30,30 @@ function chosen(view: BattleView, u: BattleUnit, input?: BattleInput) {
 
 const isSlotUse = (t: string): boolean => t === 'slot' || t === 'ally_slot'
 
+/** 這個道具可以用在哪些目標上（行動列的目標裡挑）：自己用的只有自己，給隊友的是我方每一個人，放在格子上的是我方四格；其餘的現在還不能用。 */
+function itemTargets(view: BattleView, u: BattleUnit, use: { target: string }): { for: BattleTarget[]; blocks: string[] } {
+  if (use.target === 'self') return { for: [{ unit: u.id }], blocks: [] }
+  if (use.target === 'ally') return { for: unitsOf(view.battle, u.side).map((t) => ({ unit: t.id })), blocks: [] }
+  if (isSlotUse(use.target)) return { for: Array.from({ length: BATTLE_SLOTS }, (_, i) => ({ side: u.side, slot: i + 1 })), blocks: [] }
+  // 對敵人用的道具（foe、foe_slot）要等投擲物那一批
+  return { for: [], blocks: ['這個道具現在還不能這樣用。'] }
+}
+
 const item: BattleActionDef = {
   id: 'item', owner: OWNER, name: '使用道具', desc: '從快取格裡拿出一件道具來用，可以用在自己或相鄰的隊友身上，或是我方的一格上。',
-  group: 'supply', order: 3, target: 'unit', modes: ['meat'],
+  group: 'supply', icon: 'item', order: 3, target: 'unit', modes: ['meat'],
+  // 用哪一個道具（pick.item）：快取格裡能用的才列（束帶、鎖橋器不是這樣用的，不列）；只有一種時可以不選
+  picks: (view, u): BattlePick[] => {
+    const list = usableItems(view.k, u, view.battle.mode)
+    if (!list.length) return []
+    return [{
+      key: 'item', label: '用哪一個道具', kind: 'choice', required: list.length > 1,
+      options: list.map((x) => {
+        const t = itemTargets(view, u, x.entry.use)
+        return { value: x.slot.item, label: `${x.entry.name} ×${x.slot.qty}`, blocks: t.blocks, for: t.for, hint: { ap: x.entry.use.ap, ap_other: x.entry.use.ap_other ?? x.entry.use.ap, qty: x.slot.qty } }
+      }),
+    }]
+  },
   cost: (view, u, input) => {
     if (!input) return { ap: 1 }
     const found = chosen(view, u, input)
@@ -43,10 +64,14 @@ const item: BattleActionDef = {
   },
   blocks: (view, u) => (usableItems(view.k, u, view.battle.mode).length ? [] : ['快取格裡沒有能用的道具。']),
   targets: (view, u) => {
-    const out: Array<{ target: BattleTarget; blocks: string[] }> = unitsOf(view.battle, u.side).map((t) => ({
-      target: { unit: t.id }, blocks: Math.abs(t.slot - u.slot) > 1 ? ['要相鄰才用得到。'] : [],
-    }))
-    if (usableItems(view.k, u, view.battle.mode).some((x) => isSlotUse(x.entry.use.target))) {
+    // 每一種能用的道具各自用得到的目標；一個目標沒有任何一種用得上，就灰掉、寫出原因
+    const reach = usableItems(view.k, u, view.battle.mode).flatMap((x) => itemTargets(view, u, x.entry.use).for)
+    const usable = (t: BattleTarget) => reach.some((r) => sameTarget(r, t))
+    const out: Array<{ target: BattleTarget; blocks: string[] }> = unitsOf(view.battle, u.side).map((t) => {
+      const target: BattleTarget = { unit: t.id }
+      return { target, blocks: [...(Math.abs(t.slot - u.slot) > 1 ? ['要相鄰才用得到。'] : []), ...(usable(target) ? [] : [t.id === u.id ? '快取格裡沒有可以用在自己身上的道具。' : '快取格裡沒有可以用在別人身上的道具。'])] }
+    })
+    if (reach.some((r) => 'slot' in r)) {
       for (let slot = 1; slot <= BATTLE_SLOTS; slot++) out.push({ target: { side: u.side, slot }, blocks: [] })
     }
     return out

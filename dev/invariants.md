@@ -8,6 +8,7 @@
 
 M0 的修正批次（2026-11-22）之後照定案改了第 1、3、4、6、7、10、12、16、19、29、31 條，加了第 36～43 條。
 M1 開工（2026-11-22）照定案改了第 29、36、43 條（錢分開夾、物品每一種 100 個、性別五個值），第 4、6 條補上戰鬥，加了第 44～58 條（戰鬥、格子地圖、快照、內容篩選與版本）。
+M1 第一波之後的核心修正（2026-11-22；dev/adr/0014、審查 M1a）改了第 45、46、48、57 條，加了第 59～61 條（等著選的戰敗、花費與行動做完的掛點、開不起來的戰與壞掉的戰鬥存檔）。
 
 ## 狀態與報告
 
@@ -82,10 +83,10 @@ M1 開工（2026-11-22）照定案改了第 29、36、43 條（錢分開夾、�
 | # | 不變式 | 出處 | 哪裡驗 |
 |---|---|---|---|
 | 44 | 戰鬥狀態（`state.battle`）只經由 `battle` 這一種變更改變；戰鬥的每一步（開打、玩家的一步、AI 的一步、結束）各是一份報告，照常經過提交。行動的條件、畫面的提示、AI 的打分只讀、不擲骰 | GAME_DESIGN 3 第 1、3 條；dev/adr/0011 | `tests/core/battle-flow.test.ts`「戰鬥狀態只經由提交改變」；`tests/probe/battle.probe.test.ts`；`tests/smoke/m1.test.ts`（全程 `commitViolations`） |
-| 45 | 一格最多一個單位（和人重疊的東西不算，每格最多一台）；站位只有第 1～4 格；超過四個的在後方等，有空格才從最後面補上來；前面那一格沒有人也沒有遮蔽時，後面的人連同遮蔽往前遞補 | COMBAT_SYSTEM 2、2.4、9.1 | `tests/core/battle.test.ts`「站位、距離與遮蔽」「後方的增援」；提交時的 `battleProblems` |
-| 46 | 做不成的一步不改狀態、不留報告，回傳每一條原因（給玩家看的完整句子，寫出缺的是哪個條件）；灰掉的行動與選不了的目標都帶著原因 | COMBAT_SYSTEM 10；PLAN 5.5 第一項 | `tests/core/battle-flow.test.ts`「做不成的一步被擋下」「battleOptions」；`tests/pending/M1-combat.test.ts`（制伏的每一個條件） |
+| 45 | 一格最多一個單位（和人重疊的東西不算，每一方每格最多一台沒被擊落的；補位時它跟著掛的那一格走，掛在空出來那一格的退到第 4 格）；站位只有第 1～4 格；超過四個的在後方等，有空格才從最後面補上來；前面那一格沒有人也沒有遮蔽時，後面的人連同遮蔽往前遞補 | COMBAT_SYSTEM 2、2.4、9.1 | `tests/core/battle.test.ts`「站位、距離與遮蔽」「後方的增援」；提交時與讀檔時的 `battleProblems`；`tests/core/battle-m1-followups.test.ts`「E2」 |
+| 46 | 做不成的一步不改狀態、不留報告，回傳每一條原因（給玩家看的完整句子，寫出缺的是哪個條件）；灰掉的行動與選不了的目標都帶著原因。行動除了目標還要選的東西（`input.pick` 的每一個鍵）都用 `picks` 宣告，`battleOptions` 列出每一項、每個選項與選不了的原因；每個行動都帶圖示的鍵。宣告與行動本身（`run`）對得上 | COMBAT_SYSTEM 10；PLAN 5.5 第一項 | `tests/core/battle-flow.test.ts`「做不成的一步被擋下」「battleOptions」；`tests/pending/M1-combat.test.ts`（制伏的每一個條件）；`tests/features/M1-picks.test.ts`；`tests/core/battle-m1-followups.test.ts`「每個行動都有圖示的鍵」 |
 | 47 | 戰鬥裡的骰子由（種子、游標、這一場的 id、這一場擲到第幾次）導出：同一個狀態、同一串輸入，整場的結果一樣；戰鬥結束時游標往前一格。存讀檔不改變之後的骰 | AI_TASKS 2.4；dev/adr/0011 | `tests/core/battle-flow.test.ts`「同一個種子兩次的結果一樣」「存檔再讀檔之後接著打」 |
-| 48 | 戰鬥中不能跑別的任務鏈（自由行動、事件）；還沒分出結果不能結算；已經有一場在打不能再開一場 | COMBAT_SYSTEM 1.3（只有這張表上的行動） | `tests/core/battle-flow.test.ts`「戰鬥中不能做別的事」 |
+| 48 | 戰鬥中不能做別的事：別的任務鏈（自由行動、事件）、別的報告（`Game.commit` 只收戰鬥的報告，其餘丟 `ActionBlocked`）、走地圖都擋下，原因寫出來；還沒分出結果不能結算；已經有一場在打不能再開一場 | COMBAT_SYSTEM 1.3（只有這張表上的行動） | `tests/core/battle-flow.test.ts`「戰鬥中不能做別的事」；`tests/core/battle-m1-followups.test.ts`「S3」 |
 | 49 | 戰鬥結束：每一步的報告收成一份（`combat`；內海是 `netrun`），三條軌寫回角色；戰鬥中沒有人會死，倒下的人帶著傷回來（生命最少剩 1）；餘韻疊滿再過載而倒下的，餘韻清空、沉溺 +2。結束之後 `state.battle` 是 `null` | COMBAT_SYSTEM 8.1、8.2；CORE_RULES 4.2；AI_TASKS 3.9 | `tests/core/battle-flow.test.ts`「結束的結算」「倒下的人帶著傷回來」 |
 | 50 | 命中：1d20 ＋ 加值 對 迴避（10 ＋ mod(反應) ＋ 遮蔽 ＋ 修正）；自然 20 一定命中、自然 1 一定失手；超過迴避 5 以上是要害（多一顆傷害骰）；命中率顯示時夾在 5～95% | COMBAT_SYSTEM 3 | `tests/core/battle.test.ts`「命中」 |
 | 51 | 遮蔽：半掩體迴避 +2、掩體 +4；耐久照場景的等級（半掩體 15／15／20／25／30，掩體 30／30／40／50／60）；任何攻擊都傷到目標那一格的遮蔽（傷害骰 × 武器的遮蔽倍率），沒有人站的格子加倍；煙霧與人群打不破 | COMBAT_SYSTEM 2.1、2.5 | `tests/core/battle.test.ts`「站位、距離與遮蔽」 |
@@ -99,6 +100,9 @@ M1 開工（2026-11-22）照定案改了第 29、36、43 條（錢分開夾、�
 |---|---|---|---|
 | 55 | 地圖的定義合格才收：列數與每列的長度對得上、只有圖例裡的字元、標記和版面對得上、每一格從某個入口走得到。地圖上的位置、看過的格子、改過的格子只經由 `map.*` 變更改變 | DATA 9.3；COMMISSION_MAPS 1 | `tests/core/grid.test.ts` |
 | 56 | 在格子上走：牆與擺設擋路；要條件的格子（上鎖的門）沒有人放行就過不去；走一段路遇到事情（標記觸發、開打）就停在那一格；走到敵人那一格就開打 | COMBAT_SYSTEM 10；SITES 12.5 | `tests/core/grid.test.ts`；`tests/smoke/m1.test.ts` |
-| 57 | 快照放在狀態裡（`state.snapshots`），快照裡不再包快照；回到一份快照時，比它晚的快照與它自己一起丟掉。每場戰鬥開打前留一份；重來這場戰鬥回到開打之前，紀錄留著並標成被收回 | COMBAT_SYSTEM 8.4；SERIES 6；dev/adr/0011 | `tests/core/battle-flow.test.ts`「重來這場戰鬥」；`tests/core/save.test.ts` |
+| 57 | 快照放在狀態裡（`state.snapshots`），快照裡不再包快照；回到一份快照時，比它晚的快照與它自己一起丟掉。每場戰鬥開打前留一份；結果定案（打贏、脫離、功能自己的結果，或戰敗已經接受）就丟掉，只有打輸與投降之後留著等玩家三選一。重來這場戰鬥只在這一場還在打、或在等三選一時成立：回到開打之前，紀錄留著並標成被收回；打到一半重來的，這一場的每一步先收成一份 | COMBAT_SYSTEM 8.4；SERIES 6；dev/adr/0011 | `tests/core/battle-flow.test.ts`「重來這場戰鬥」；`tests/core/save.test.ts`；`tests/core/battle-m1-followups.test.ts`「E1」「S7」 |
 | 58 | 內容篩選與版本：玩家關掉的標籤，帶著它的內容不出現，改走 `fallback` 指的那一筆（繞圈或找不到就不出現）；版本照主角的性別：男只走 `masc`，女七成 `default`、三成 `yuri`，偽娘、TS、扶他三個各三分之一；抽到的版本沒有寫就退回 `default` | ENEMIES 6；DATA 1、5；LEWD_SYSTEM 9 | `tests/core/versions.test.ts` |
+| 59 | 戰敗（全隊倒下或投降）結算之後、開打前的快照還留著的期間，是在等玩家三選一（接受結果、重來這場戰鬥、回到這個階段開始時）：這段時間別的事都做不成（自由行動、別的報告、開另一場、走地圖），原因寫出來；接受結果的報告把那份快照丟掉才算選完。戰敗的後果在接受之前不發生 | COMBAT_SYSTEM 8.3、8.4；dev/adr/0014 | `tests/core/battle-m1-followups.test.ts`「E1」；`tests/features/M1-defeat-edge.test.ts`「E1」；`ui/src/stores/engine.followups.test.ts` |
+| 60 | 一個行動要花多少只有一個數字（行動自己算的加上修正），畫面顯示的、檢查的、實際扣的、AI 算的都是它；「每回合第幾次才便宜」的次數只在行動做完的掛點（`action.done`）記，不改武器、不改行動。玩家的一步與 AI 選的一步走同一條路（`performAction`） | SKILLS 1.8；SKILL_TREES 定點射；dev/adr/0014 | `tests/core/battle-flow.test.ts`「行動的花費可以被修正」；`tests/core/battle-m1-followups.test.ts`「行動做完的掛點」；`tests/features/M1-abilities.test.ts`「定點射」 |
+| 61 | 走到敵人那一格而戰開不起來（遭遇點寫壞了、沒有人上場），整步不成立：人沒有站過去、沒有留下報告，回傳原因。讀檔時進行中的戰鬥照提交時同一套檢查，戰場與狀態在這一局的內容裡查不到的整筆不讀 | 不變式第 3、6、11 條；審查 M1a 的 S2、E4 | `tests/core/battle-m1-followups.test.ts`「S2」「E4」 |
 

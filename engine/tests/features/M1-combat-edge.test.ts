@@ -199,3 +199,60 @@ describe('做不成的一步', () => {
     expect(r.reports[0]!.timeline.find((b) => b.roll)!.text.startsWith(g.battle!.units.a1!.name)).toBe(true)
   })
 })
+
+describe('要抓人的敵人會留下來制伏（ENEMIES 4.1～4.3 節；dev/adr/0014：位置分多一項，不再靠 ai.step 的繞道）', () => {
+  /** 拿感官彈槍的保全站在第 1 格（偏好第 2、3 格），帶著束帶；對面第 1 格的人正在失去回合、餘韻疊滿。 */
+  const cop = (o: Parameters<typeof foe>[1] = {}) => foe('minion', { capture: true, quick: [{ item: 'it_tie', qty: 1 }], skills: { brawl: 40 }, ai: { focus: 1, floor: 1, prefer: 'overloaded', mode: 'capture', fleeBelow: 0, prefer_slots: [2, 3], coverUse: 0.5 }, ...o })
+  const scene = (seed: number, o: Parameters<typeof foe>[1] = {}, overloaded = true) => {
+    const g = game(duel([one({ weapon: 'pistol' }), one({ weapon: 'pistol' }, 2)], [cop(o)], { ally: [0, 0, 0, 0], foe: [1, 1, 1, 1] }), seed)
+    const b = g.state.battle!
+    if (overloaded) {
+      b.units.a1!.statuses.push({ id: 'lose_turn', until: { at: 'turn_start', of: 'a1', turns: 1 } })
+      b.units.a1!.layers = b.units.a1!.layersMax
+    }
+    b.turn = b.order.indexOf('f1')
+    b.units.f1!.ap.now = b.units.f1!.ap.max
+    b.aiSteps = 0
+    return g
+  }
+  const firstBeat = (g: G) => g.battleNext().reports.flatMap((r) => r.timeline)
+
+  it('第 1 格有制伏得了的人：不往後退；制伏和別的行動一起平方加權抽（16 對 4），多數時候先制伏', () => {
+    let subdued = 0
+    let moved = 0
+    for (let seed = 1; seed <= 30; seed++) {
+      const beats = firstBeat(scene(seed))
+      if (beats.some((x) => x.tag === 'move')) moved += 1
+      if (beats.some((x) => x.roll?.skill === 'brawl')) subdued += 1
+    }
+    expect(moved).toBe(0)
+    // 制伏的權重是 16／(16 ＋ 射擊的 4 或 1)：三十次裡至少二十次
+    expect(subdued).toBeGreaterThanOrEqual(20)
+    expect(subdued).toBeLessThan(30) // 不是每一次：偶爾做次佳的（ENEMIES 4.3 節）
+  })
+
+  it('沒有制伏得了的人（對方沒有在失去回合）：照原本的位置分，拿槍的人往後退到偏好的格', () => {
+    const beats = firstBeat(scene(3, {}, false))
+    expect(beats.find((x) => x.tag === 'move')).toMatchObject({ data: { unit: 'f1', from: 1, to: 2 } })
+  })
+
+  it('手上沒有束帶、或不是要抓人的打法：位置分不加，照樣往後退', () => {
+    expect(firstBeat(scene(3, { quick: [] })).some((x) => x.tag === 'move')).toBe(true)
+    expect(firstBeat(scene(3, { ai: { focus: 1, floor: 1, mode: 'lethal', fleeBelow: 0, prefer_slots: [2, 3], coverUse: 0.5 } })).some((x) => x.tag === 'move')).toBe(true)
+  })
+
+  it('AI 挑的目標不是制伏得了的那一個時，制伏改對制伏得了的人動手', () => {
+    // 仇恨都在第 2 格的人身上：AI 幾乎一定挑他當目標；制伏還是對第 1 格那個失去回合的人
+    let seen = false
+    for (let seed = 1; seed <= 12 && !seen; seed++) {
+      const g = scene(seed)
+      g.state.battle!.units.a2!.uses.threat = 900
+      const beats = firstBeat(g)
+      const roll = beats.find((x) => x.roll?.skill === 'brawl')
+      if (!roll) continue
+      seen = true
+      expect(beats.find((x) => x.tag === 'subdue')).toMatchObject({ data: { target: 'a1' } })
+    }
+    expect(seen).toBe(true)
+  })
+})

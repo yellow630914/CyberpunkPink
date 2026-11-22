@@ -1,7 +1,7 @@
 // L6 功能 combat：攻擊類的行動（射擊、近戰、換彈、換武器、打遮蔽、監視）。COMBAT_SYSTEM 1.3 節與第 5 節。
 // 只用核心的基本動作與唯讀的 BattleView；不碰 GameState。
 
-import type { BattleActionDef, BattleUnit, BattleView, BattleWeapon } from '../../core'
+import type { BattleActionDef, BattlePick, BattleTarget, BattleUnit, BattleView, BattleWeapon } from '../../core'
 import { BattleBlocked, coverAt, coverLevel, distance, otherSide, unitsOf, wielded } from '../../core'
 
 const OWNER = 'combat'
@@ -19,9 +19,12 @@ function attackScore(view: BattleView, u: BattleUnit, t: BattleUnit | null): num
   return score
 }
 
+/** 掃射做不到的原因（輕機槍才有；COMBAT_SYSTEM 第 5 節）：宣告（picks）與行動本身（run）共用。 */
+const sweepBlocks = (w: BattleWeapon | undefined): string[] => (!w?.traits.includes('sweep') ? ['這把武器不能掃射。'] : w.mag && w.mag.now < 2 ? ['掃射要彈匣裡有 2 格。'] : [])
+
 const shoot: BattleActionDef = {
   id: 'shoot', owner: OWNER, name: '射擊', desc: '用手上的槍打一個敵人，每打一槍消耗彈匣一格；狙擊槍的一槍要花 3 點行動點。',
-  group: 'attack', order: 1, target: 'foe', modes: MODES,
+  group: 'attack', icon: 'shoot', tags: ['weapon_attack'], order: 1, target: 'foe', modes: MODES,
   cost: (_v, u) => ({ ap: wielded(u)?.ap ?? 2 }),
   blocks: (_v, u) => {
     const w = wielded(u)
@@ -34,14 +37,20 @@ const shoot: BattleActionDef = {
     ...unitsOf(view.battle, otherSide(u.side)).map((t) => ({ target: { unit: t.id }, blocks: [] as string[], hint: { chance: view.hitChance(u, t), distance: distance(u, t) } })),
     ...view.battle.overlays.filter((o) => o.side === otherSide(u.side) && !o.down).map((o) => ({ target: { overlay: o.id }, blocks: [] as string[] })),
   ],
+  // 掃射（pick.sweep）：手上的武器能掃射才列出來；只能打人
+  picks: (view, u): BattlePick[] => {
+    const w = wielded(u)
+    if (!w?.traits.includes('sweep')) return []
+    const people: BattleTarget[] = unitsOf(view.battle, otherSide(u.side)).map((t) => ({ unit: t.id }))
+    return [{ key: 'sweep', label: '掃射', kind: 'toggle', required: false, options: [{ value: true, label: '掃射：花彈匣 2 格；不管有沒有打中，目標要過定力豁免，沒過就被壓制', blocks: sweepBlocks(w), for: people }] }]
+  },
   run: (run, u, target, input) => {
     if (!target) return
     const sweep = input.pick?.sweep === true
     if (sweep) {
       if ('overlay' in target) throw new BattleBlocked(['掃射只能打人，不能打和人重疊的東西。'])
-      const w = wielded(u)!
-      if (w.mag && w.mag.now < 2) throw new BattleBlocked(['掃射要彈匣裡有 2 格。'])
-      if (!w.traits.includes('sweep')) throw new BattleBlocked(['這把武器不能掃射。'])
+      const why = sweepBlocks(wielded(u))
+      if (why.length) throw new BattleBlocked(why)
     }
     if ('overlay' in target) {
       const o = run.battle.overlays.find((x) => x.id === target.overlay)
@@ -72,7 +81,7 @@ const shoot: BattleActionDef = {
 
 const melee: BattleActionDef = {
   id: 'melee', owner: OWNER, name: '近戰攻擊', desc: '用手上的近戰武器打一個近身的敵人，雙方都要站在第 1 格。',
-  group: 'attack', order: 2, target: 'foe', modes: MODES,
+  group: 'attack', icon: 'melee', tags: ['weapon_attack'], order: 2, target: 'foe', modes: MODES,
   cost: () => ({ ap: 2 }),
   blocks: (_v, u) => (isMelee(wielded(u)) ? [] : ['手上不是近戰武器。']),
   targets: (view, u) => unitsOf(view.battle, otherSide(u.side)).map((t) => ({
@@ -93,7 +102,7 @@ const melee: BattleActionDef = {
 
 const reload: BattleActionDef = {
   id: 'reload', owner: OWNER, name: '換彈', desc: '把手上這把武器的彈匣補滿。',
-  group: 'supply', order: 1, target: 'none', modes: MODES,
+  group: 'supply', icon: 'reload', order: 1, target: 'none', modes: MODES,
   cost: () => ({ ap: 1 }),
   blocks: (_v, u) => {
     const w = wielded(u)
@@ -113,9 +122,14 @@ const reload: BattleActionDef = {
 
 const swap: BattleActionDef = {
   id: 'swap', owner: OWNER, name: '換武器', desc: '把手上的武器換成另一把；不指定的話換到下一把。',
-  group: 'supply', order: 2, target: 'none', modes: MODES,
+  group: 'supply', icon: 'swap', order: 2, target: 'none', modes: MODES,
   cost: () => ({ ap: 1 }),
   blocks: (_v, u) => (u.weapons.length < 2 ? ['只有一把武器。'] : []),
+  // 換上哪一把（pick.weapon：武器的位置）；不選就換到下一把
+  picks: (_v, u): BattlePick[] => (u.weapons.length < 2 ? [] : [{
+    key: 'weapon', label: '換上哪一把', kind: 'choice', required: false,
+    options: u.weapons.map((w, i) => ({ value: i, label: w.name, blocks: i === u.wield ? ['這一把已經拿在手上。'] : [] })),
+  }]),
   run: (run, u, _t, input) => {
     const want = input.pick?.weapon
     let to = (u.wield + 1) % u.weapons.length
@@ -130,7 +144,7 @@ const swap: BattleActionDef = {
 
 const hitCover: BattleActionDef = {
   id: 'hit_cover', owner: OWNER, name: '打遮蔽', desc: '不打人，把子彈打在敵人身前的遮蔽上，把它打壞；每一次花彈匣一格。',
-  group: 'tactic', order: 2, target: 'foe_slot', modes: MODES,
+  group: 'tactic', icon: 'cover', order: 2, target: 'foe_slot', modes: MODES,
   cost: () => ({ ap: 2 }),
   blocks: (_v, u) => {
     const w = wielded(u)
@@ -154,7 +168,7 @@ const hitCover: BattleActionDef = {
 
 const watch: BattleActionDef = {
   id: 'watch', owner: OWNER, name: '監視', desc: '到你的下一回合開始前，第一次有敵人站上暴露的格子，就自動朝他攻擊一次。',
-  group: 'tactic', order: 3, target: 'none', modes: MODES,
+  group: 'tactic', icon: 'watch', order: 3, target: 'none', modes: MODES,
   cost: () => ({ ap: 2 }),
   blocks: (_v, u) => (u.watch ? ['已經在監視了。'] : []),
   run: (run, u) => {

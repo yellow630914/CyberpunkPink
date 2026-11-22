@@ -45,12 +45,54 @@ describe('內容與選擇', () => {
     const two = [ev({ id: 'df_a', default: true, factions: [] }), ev({ id: 'df_b', default: true, factions: [] })]
     expect(() => makeGame({ features: FEATURES, content: [pack(two)] })).toThrow(/default/)
   })
-  it('沒有任何事件可選：不留等待中的戰敗（玩家仍可重來）', async () => {
+  it('沒有任何事件可選：不留等待中的戰敗；沒有後果可以接受，這一場就這樣定案（開打前的快照丟掉，不卡在三選一）', async () => {
     const { game } = makeBattleGame({ features: FEATURES, content: [pack([])], battle: 'hopeless', seed: 3 })
     playOut(game)
     const r = await game.finishBattle()
     expect(r.reports.map((x) => x.action)).toEqual(['battle.end'])
     expect(defeatOf(game.state)).toBeNull()
+    expect(game.pendingDefeat).toBeNull()
+    expect(game.state.snapshots).toEqual([])
+    expect(game.retryBattle()).toBe('沒有這場戰鬥開打前的快照。')
+    // 沒有在等三選一：之後的事照常做得成
+    expect(game.blockOf('chain:free_action')).toBeNull()
+  })
+})
+
+describe('E1：等著選的戰敗擋住別的事；接受了才算數（COMBAT_SYSTEM 8.3、8.4 節）', () => {
+  const pending = async () => {
+    const { game } = makeBattleGame({ features: FEATURES, content: [pack([ev({ id: 'df_generic', default: true, factions: [] })])], battle: 'hopeless', seed: 3, patch: { money: { cred: 0, cash: 2000 } } })
+    playOut(game)
+    await game.finishBattle()
+    return game
+  }
+  const why = '先在戰敗的三個選擇裡選一個：接受結果、重來這場戰鬥，或回到這個階段開始時。'
+
+  it('戰敗還沒選：自由行動、開另一場都被擋下，原因寫出來；戰敗的後果還沒發生', async () => {
+    const game = await pending()
+    expect(defeatOf(game.state)).not.toBeNull()
+    expect(game.pendingDefeat).toMatchObject({ outcome: 'lose' })
+    expect(await game.act({ kind: 'free', text: '回家睡覺' })).toMatchObject({ status: 'refused', reason: why })
+    expect(() => game.startBattle({ allies: [{ from: 'actor', id: 'pc' }], foes: [{ from: 'actor', id: 'pc' }] })).toThrow(why)
+    expect(defeatOf(game.state)).not.toBeNull()
+  })
+
+  it('接受結果：這份報告把開打前的快照丟掉，所以收得進去；之後不再擋，也不能再重來', async () => {
+    const game = await pending()
+    const reports = game.commit(acceptDefeat(game.k, game.state))
+    expect(reports[0]).toMatchObject({ action: 'defeat.accept' })
+    expect(defeatOf(game.state)).toBeNull()
+    expect(game.pendingDefeat).toBeNull()
+    expect(game.state.snapshots).toEqual([])
+    expect(game.blockOf('chain:free_action')).toBeNull()
+    expect(game.retryBattle()).toBe('沒有這場戰鬥開打前的快照。')
+  })
+
+  it('重來：戰敗跟著快照回去，沒有東西在等', async () => {
+    const game = await pending()
     expect(game.retryBattle()).toBeNull()
+    expect(defeatOf(game.state)).toBeNull()
+    expect(game.pendingDefeat).toBeNull()
+    expect(game.battle).toMatchObject({ round: 1 })
   })
 })

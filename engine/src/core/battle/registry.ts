@@ -65,7 +65,7 @@ export interface BattlePickOption {
   /** 這個選項是場上的哪個東西（選人、選格的那幾種才有）：畫面可以讓玩家直接點場上的那一個 */
   at?: BattleTarget
   /**
-   * 只有這一步的目標是這幾個當中的一個時才適用；沒寫就是不管目標是誰都適用。
+   * 只有這一步的目標是這幾個當中的一個時才適用；沒寫就是不管目標是誰都適用（還沒選目標時，每個選項都先算適用）。
    * 兩個方向都用它：先選了目標，這一項只剩適用的選項（指揮無人機：攻擊型才要選敵人）；先選了選項，目標只剩 for 裡的（煙霧彈只能放在格子上）
    */
   for?: BattleTarget[]
@@ -87,9 +87,9 @@ export interface BattlePick {
   options: BattlePickOption[]
 }
 
-/** 這個選項對這個目標適不適用（看 for）。 */
+/** 這個選項對這個目標適不適用（看 for）。還沒選目標（target 是空的）時每個選項都算適用：還沒有東西可以把它排除。 */
 export function pickApplies(option: BattlePickOption, target: BattleTarget | null | undefined): boolean {
-  return !option.for || (!!target && option.for.some((t) => sameTarget(t, target)))
+  return !option.for || !target || option.for.some((t) => sameTarget(t, target))
 }
 
 /**

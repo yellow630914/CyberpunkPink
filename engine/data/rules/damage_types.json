@@ -15,7 +15,8 @@
         "status": "burning",
         "turns": 2
       }
-    ]
+    ],
+    "dice": -1
   },
   {
     "id": "em",
@@ -30,7 +31,8 @@
         "status": "jammed",
         "turns": 1
       }
-    ]
+    ],
+    "dice": -1
   },
   {
     "id": "neural",
