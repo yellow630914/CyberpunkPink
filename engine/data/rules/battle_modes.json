@@ -1,0 +1,77 @@
+[
+  {
+    "id": "meat",
+    "name": "現實",
+    "layer": "meat",
+    "tracks": [
+      "hp",
+      "load"
+    ],
+    "overload": "lose_turn",
+    "afterglow": {
+      "roll": -1,
+      "load_dealt_pct": 10
+    },
+    "armor_on_load": false,
+    "cover_names": [
+      "暴露",
+      "半掩體",
+      "掩體"
+    ],
+    "cover_word": "遮蔽",
+    "numbers": {
+      "apRegen": 3,
+      "apAmbushed": -2,
+      "aiMaxSteps": 6,
+      "evadeBase": 10,
+      "critMargin": 5,
+      "rangeStep": -2,
+      "longAtFront": -4,
+      "aimedHit": 3,
+      "coverBonus": [
+        0,
+        2,
+        4
+      ],
+      "coverHp": {
+        "half": [
+          15,
+          15,
+          20,
+          25,
+          30
+        ],
+        "full": [
+          30,
+          30,
+          40,
+          50,
+          60
+        ]
+      },
+      "emptyCoverMult": 2,
+      "aimCover": {
+        "mult": 2,
+        "min": 1
+      },
+      "darkEvade": 2,
+      "decayBase": 2,
+      "pierceOverflow": false,
+      "rankDamage": {
+        "minion": 0.4,
+        "elite": 0.6,
+        "boss": 1
+      },
+      "subdueDc": {
+        "base": 10,
+        "perGrade": 2,
+        "elite": 2,
+        "boss": 4
+      },
+      "fleeDc": {
+        "base": 10,
+        "perGrade": 2
+      }
+    }
+  }
+]

@@ -1,0 +1,345 @@
+[
+  {
+    "id": "it_zip_tie",
+    "name": "束帶",
+    "desc": "制伏用：把一個動不了的人綁起來，讓他退出戰鬥（COMBAT_SYSTEM 第 7 節）。",
+    "category": "consumable",
+    "grade": 1,
+    "size": 0,
+    "legal": "free",
+    "price": 10,
+    "tags": [
+      "restraint"
+    ]
+  },
+  {
+    "id": "it_bridge_lock",
+    "name": "鎖橋器",
+    "desc": "制伏時代替束帶，並關掉對方的橋：不能快駭、不能耳語、不能潛入，持約人也不能遠端叫醒他。",
+    "category": "consumable",
+    "grade": 2,
+    "size": 0,
+    "legal": "register",
+    "price": 260,
+    "consumable": false,
+    "tags": [
+      "restraint"
+    ]
+  },
+  {
+    "id": "it_medgel_1",
+    "name": "急救凝膠 I",
+    "desc": "立刻回 8 點生命值，並止血，傷口算處理過。自己用 1 點行動點，替相鄰的隊友用 2 點。",
+    "category": "consumable",
+    "grade": 1,
+    "size": 0,
+    "legal": "free",
+    "price": 40,
+    "use": {
+      "ap": 1,
+      "ap_other": 2,
+      "target": "ally",
+      "modes": [
+        "meat"
+      ],
+      "effects": [
+        {
+          "op": "heal",
+          "amount": 8
+        },
+        {
+          "op": "cleanse",
+          "by": "first_aid"
+        }
+      ]
+    }
+  },
+  {
+    "id": "it_medgel_2",
+    "name": "急救凝膠 II",
+    "desc": "立刻回 12 點生命值，並止血，傷口算處理過。自己用 1 點行動點，替相鄰的隊友用 2 點。",
+    "category": "consumable",
+    "grade": 2,
+    "size": 0,
+    "legal": "free",
+    "price": 140,
+    "use": {
+      "ap": 1,
+      "ap_other": 2,
+      "target": "ally",
+      "modes": [
+        "meat"
+      ],
+      "effects": [
+        {
+          "op": "heal",
+          "amount": 12
+        },
+        {
+          "op": "cleanse",
+          "by": "first_aid"
+        }
+      ]
+    }
+  },
+  {
+    "id": "it_medgel_3",
+    "name": "急救凝膠 III",
+    "desc": "立刻回 16 點生命值，並止血，傷口算處理過。自己用 1 點行動點，替相鄰的隊友用 2 點。",
+    "category": "consumable",
+    "grade": 3,
+    "size": 0,
+    "legal": "permit",
+    "price": 430,
+    "use": {
+      "ap": 1,
+      "ap_other": 2,
+      "target": "ally",
+      "modes": [
+        "meat"
+      ],
+      "effects": [
+        {
+          "op": "heal",
+          "amount": 16
+        },
+        {
+          "op": "cleanse",
+          "by": "first_aid"
+        }
+      ]
+    }
+  },
+  {
+    "id": "it_medgel_4",
+    "name": "急救凝膠 IV",
+    "desc": "立刻回 24 點生命值，並止血，傷口算處理過。自己用 1 點行動點，替相鄰的隊友用 2 點。",
+    "category": "consumable",
+    "grade": 4,
+    "size": 0,
+    "legal": "banned",
+    "price": 1620,
+    "use": {
+      "ap": 1,
+      "ap_other": 2,
+      "target": "ally",
+      "modes": [
+        "meat"
+      ],
+      "effects": [
+        {
+          "op": "heal",
+          "amount": 24
+        },
+        {
+          "op": "cleanse",
+          "by": "first_aid"
+        }
+      ]
+    }
+  },
+  {
+    "id": "it_coolant_1",
+    "name": "冷卻劑 I",
+    "desc": "立刻消一層餘韻，並排掉 4 點感載。之後一小時敏感度 −20，深檔與全檔可能開不了；成癮 2（戒斷：敏感度 −10，3 天）。",
+    "category": "consumable",
+    "grade": 1,
+    "size": 0,
+    "legal": "free",
+    "price": 45,
+    "use": {
+      "ap": 1,
+      "target": "self",
+      "modes": [
+        "meat"
+      ],
+      "effects": [
+        {
+          "op": "afterglow",
+          "layers": -1
+        },
+        {
+          "op": "vent",
+          "amount": 4
+        }
+      ]
+    }
+  },
+  {
+    "id": "it_coolant_2",
+    "name": "冷卻劑 II",
+    "desc": "立刻消一層餘韻，並排掉 8 點感載。之後一小時敏感度 −20，深檔與全檔可能開不了；成癮 2（戒斷：敏感度 −10，3 天）。",
+    "category": "consumable",
+    "grade": 2,
+    "size": 0,
+    "legal": "free",
+    "price": 150,
+    "use": {
+      "ap": 1,
+      "target": "self",
+      "modes": [
+        "meat"
+      ],
+      "effects": [
+        {
+          "op": "afterglow",
+          "layers": -1
+        },
+        {
+          "op": "vent",
+          "amount": 8
+        }
+      ]
+    }
+  },
+  {
+    "id": "it_coolant_3",
+    "name": "冷卻劑 III",
+    "desc": "立刻消一層餘韻，並排掉 12 點感載。之後一小時敏感度 −20，深檔與全檔可能開不了；成癮 2（戒斷：敏感度 −10，3 天）。",
+    "category": "consumable",
+    "grade": 3,
+    "size": 0,
+    "legal": "permit",
+    "price": 480,
+    "use": {
+      "ap": 1,
+      "target": "self",
+      "modes": [
+        "meat"
+      ],
+      "effects": [
+        {
+          "op": "afterglow",
+          "layers": -1
+        },
+        {
+          "op": "vent",
+          "amount": 12
+        }
+      ]
+    }
+  },
+  {
+    "id": "it_coolant_4",
+    "name": "冷卻劑 IV",
+    "desc": "立刻消兩層餘韻，並排掉 12 點感載。之後一小時敏感度 −20，深檔與全檔可能開不了；成癮 2（戒斷：敏感度 −10，3 天）。",
+    "category": "consumable",
+    "grade": 4,
+    "size": 0,
+    "legal": "banned",
+    "price": 1800,
+    "use": {
+      "ap": 1,
+      "target": "self",
+      "modes": [
+        "meat"
+      ],
+      "effects": [
+        {
+          "op": "afterglow",
+          "layers": -2
+        },
+        {
+          "op": "vent",
+          "amount": 12
+        }
+      ]
+    }
+  },
+  {
+    "id": "it_stop_bleed",
+    "name": "M2 止血針",
+    "desc": "解除流血；不回生命值。自己用 1 點行動點，替相鄰的隊友用 2 點。",
+    "category": "consumable",
+    "grade": 2,
+    "size": 0,
+    "legal": "free",
+    "price": 140,
+    "use": {
+      "ap": 1,
+      "ap_other": 2,
+      "target": "ally",
+      "modes": [
+        "meat"
+      ],
+      "effects": [
+        {
+          "op": "cleanse",
+          "status": "bleeding"
+        }
+      ]
+    }
+  },
+  {
+    "id": "it_wake_up",
+    "name": "醒腦針「拍醒」",
+    "desc": "解除暈眩。自己用 1 點行動點，替相鄰的隊友用 2 點。",
+    "category": "consumable",
+    "grade": 2,
+    "size": 0,
+    "legal": "free",
+    "price": 140,
+    "use": {
+      "ap": 1,
+      "ap_other": 2,
+      "target": "ally",
+      "modes": [
+        "meat"
+      ],
+      "effects": [
+        {
+          "op": "cleanse",
+          "status": "dazed"
+        }
+      ]
+    }
+  },
+  {
+    "id": "it_smoke_1",
+    "name": "煙霧彈 I",
+    "desc": "不造成傷害。我方或敵方的一個格子變成打不破的半掩體（迴避 +2），持續兩回合。",
+    "category": "consumable",
+    "grade": 1,
+    "size": 0,
+    "legal": "free",
+    "price": 60,
+    "use": {
+      "ap": 1,
+      "target": "slot",
+      "modes": [
+        "meat"
+      ],
+      "effects": [
+        {
+          "op": "soft_cover",
+          "kind": "smoke",
+          "rounds": 2
+        }
+      ]
+    }
+  },
+  {
+    "id": "it_smoke_2",
+    "name": "煙霧彈 II",
+    "desc": "不造成傷害。我方或敵方的一個格子變成打不破的半掩體（迴避 +2），持續三回合。",
+    "category": "consumable",
+    "grade": 2,
+    "size": 0,
+    "legal": "free",
+    "price": 200,
+    "use": {
+      "ap": 1,
+      "target": "slot",
+      "modes": [
+        "meat"
+      ],
+      "effects": [
+        {
+          "op": "soft_cover",
+          "kind": "smoke",
+          "rounds": 3
+        }
+      ]
+    }
+  }
+]

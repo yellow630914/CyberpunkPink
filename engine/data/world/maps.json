@@ -1,0 +1,758 @@
+[
+  {
+    "id": "map_office_small",
+    "kind": "office_small",
+    "size": [
+      9,
+      9
+    ],
+    "max_maps": 1,
+    "district_weight": {
+      "sakura": 3,
+      "hive": 1,
+      "kabuki42": 1
+    },
+    "fits": [
+      "steal_data",
+      "erase",
+      "tamper",
+      "honeypot",
+      "collect"
+    ],
+    "sheets": [
+      {
+        "id": "office",
+        "name": "二樓的辦公室",
+        "size": [
+          9,
+          9
+        ],
+        "layout": [
+          "####=E###",
+          "#TOT#..S#",
+          "#.2.%G1.#",
+          "#DC.#oOo#",
+          "######+##",
+          "#T&.#.GS#",
+          "E...%.O.#",
+          "#X..#C.K#",
+          "######E##"
+        ],
+        "zones": [
+          "####bb###",
+          "#ccc#bbb#",
+          "#ccccbbb#",
+          "#ccc#bbb#",
+          "######a##",
+          "#ddd#aaa#",
+          "dddddaaa#",
+          "#ddd#aaa#",
+          "######a##"
+        ],
+        "zone_names": {
+          "a": "接待區",
+          "b": "開放座位",
+          "c": "主管室",
+          "d": "茶水間與後門"
+        },
+        "cells": [
+          {
+            "id": "E1",
+            "at": [
+              5,
+              0
+            ],
+            "mark": "E",
+            "kind": "window",
+            "name": "二樓的窗",
+            "need": {
+              "basic": "athletics",
+              "dc_plus": 3,
+              "each": true,
+              "fail_alert": 10,
+              "time": "night"
+            }
+          },
+          {
+            "id": "E2",
+            "at": [
+              0,
+              6
+            ],
+            "mark": "E",
+            "kind": "back",
+            "name": "後門（茶水間旁的防火門）",
+            "need": {
+              "any": [
+                {
+                  "basic": "mechanics",
+                  "dc_plus": 0
+                },
+                {
+                  "item": "K"
+                }
+              ]
+            }
+          },
+          {
+            "id": "E3",
+            "at": [
+              6,
+              8
+            ],
+            "mark": "E",
+            "kind": "front",
+            "name": "正門",
+            "need": {
+              "open_hours": {
+                "basic": "performance",
+                "dc_plus": 0,
+                "fail": "force"
+              }
+            }
+          },
+          {
+            "id": "T1",
+            "at": [
+              1,
+              1
+            ],
+            "mark": "T",
+            "name": "牆上的保險櫃"
+          },
+          {
+            "id": "T2",
+            "at": [
+              3,
+              1
+            ],
+            "mark": "T",
+            "name": "主管室的辦公桌"
+          },
+          {
+            "id": "T3",
+            "at": [
+              1,
+              5
+            ],
+            "mark": "T",
+            "name": "茶水間後面的檔案間"
+          },
+          {
+            "id": "D1",
+            "at": [
+              1,
+              3
+            ],
+            "mark": "D",
+            "name": "主管室的終端下方的網路孔"
+          },
+          {
+            "id": "C1",
+            "at": [
+              2,
+              3
+            ],
+            "mark": "C",
+            "name": "主管室的控制面板"
+          },
+          {
+            "id": "C2",
+            "at": [
+              5,
+              7
+            ],
+            "mark": "C",
+            "name": "接待區的控制面板"
+          },
+          {
+            "id": "&1",
+            "at": [
+              2,
+              5
+            ],
+            "mark": "&",
+            "name": "檔案間（人質放在這裡）"
+          },
+          {
+            "id": "K1",
+            "at": [
+              7,
+              7
+            ],
+            "mark": "K",
+            "name": "接待區的員工外套掛架"
+          },
+          {
+            "id": "G1",
+            "at": [
+              5,
+              2
+            ],
+            "mark": "G",
+            "name": "主管室門口"
+          },
+          {
+            "id": "G2",
+            "at": [
+              6,
+              5
+            ],
+            "mark": "G",
+            "name": "接待櫃檯"
+          },
+          {
+            "id": "X1",
+            "at": [
+              1,
+              7
+            ],
+            "mark": "X",
+            "name": "後門"
+          },
+          {
+            "id": "S1",
+            "at": [
+              7,
+              1
+            ],
+            "mark": "S",
+            "name": "開放座位的監視器"
+          },
+          {
+            "id": "S2",
+            "at": [
+              7,
+              5
+            ],
+            "mark": "S",
+            "name": "接待區的監視器"
+          }
+        ],
+        "spots": [
+          {
+            "id": "!1",
+            "at": [
+              6,
+              2
+            ],
+            "cover": "dense"
+          },
+          {
+            "id": "!2",
+            "at": [
+              2,
+              2
+            ],
+            "cover": "one_sided"
+          }
+        ],
+        "controls": [
+          {
+            "id": "C1",
+            "at": [
+              2,
+              3
+            ],
+            "zones": [
+              "c",
+              "d"
+            ],
+            "node": "cn_back_half",
+            "devices": [
+              "light",
+              "safe_lock"
+            ]
+          },
+          {
+            "id": "C2",
+            "at": [
+              5,
+              7
+            ],
+            "zones": [
+              "a",
+              "b"
+            ],
+            "node": "cn_front_half",
+            "devices": [
+              "door",
+              "camera"
+            ]
+          }
+        ],
+        "patrols": [
+          {
+            "guard": "G2",
+            "route": [
+              "a",
+              "b",
+              "a",
+              "d"
+            ]
+          }
+        ],
+        "scout": [
+          {
+            "reveal": "路",
+            "at": "E2"
+          },
+          {
+            "reveal": "路",
+            "at": "E1"
+          },
+          {
+            "reveal": "守備",
+            "at": "G2"
+          },
+          {
+            "reveal": "目標",
+            "at": "T2"
+          },
+          {
+            "reveal": "詞條",
+            "at": "b"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "map_club",
+    "kind": "club",
+    "size": [
+      13,
+      9
+    ],
+    "max_maps": 2,
+    "district_weight": {
+      "kabuki42": 3,
+      "glass_shore": 1,
+      "sakura": 1
+    },
+    "fits": [
+      "honeypot",
+      "assassinate",
+      "poach",
+      "expose",
+      "entertain"
+    ],
+    "sheets": [
+      {
+        "id": "dance",
+        "name": "舞池層",
+        "size": [
+          13,
+          9
+        ],
+        "layout": [
+          "#######E#####",
+          "#.OO..oTDo#KE",
+          "#.2...***.%.#",
+          "#o...*1**.#XE",
+          "#....****.#C#",
+          "####......###",
+          "#.S.......G<#",
+          "#.....G.....#",
+          "######E######"
+        ],
+        "zones": [
+          "#######b#####",
+          "#ccccbbbbb#dd",
+          "#ccccbbbbbbd#",
+          "#cccbbbbbb#dd",
+          "#cccbbbbbb#d#",
+          "####bbbbbb###",
+          "#aaaaaaaaaaa#",
+          "#aaaaaaaaaaa#",
+          "######a######"
+        ],
+        "zone_names": {
+          "a": "入口與衣帽間",
+          "b": "舞池與 DJ 台",
+          "c": "吧檯",
+          "d": "員工區（休息室與後門）"
+        },
+        "cells": [
+          {
+            "id": "E1",
+            "at": [
+              7,
+              0
+            ],
+            "mark": "E",
+            "kind": "gear_door",
+            "name": "DJ 的器材口（要踩點）",
+            "need": {
+              "scouted": "gear_door",
+              "time": "show_night"
+            }
+          },
+          {
+            "id": "E2",
+            "at": [
+              12,
+              1
+            ],
+            "mark": "E",
+            "kind": "staff",
+            "name": "員工通道",
+            "need": {
+              "any": [
+                {
+                  "item": "K"
+                },
+                {
+                  "basic": "negotiation",
+                  "dc_plus": 0
+                }
+              ]
+            }
+          },
+          {
+            "id": "E3",
+            "at": [
+              12,
+              3
+            ],
+            "mark": "E",
+            "kind": "back",
+            "name": "後門（垃圾場那邊）",
+            "need": {
+              "basic": "stealth",
+              "dc_plus": 0
+            }
+          },
+          {
+            "id": "E4",
+            "at": [
+              6,
+              8
+            ],
+            "mark": "E",
+            "kind": "front",
+            "name": "正門",
+            "need": {
+              "any": [
+                {
+                  "basic": "seduction",
+                  "dc_plus": 0
+                },
+                {
+                  "basic": "performance",
+                  "dc_plus": 0
+                }
+              ],
+              "fail": "force",
+              "force_alert": 20
+            }
+          },
+          {
+            "id": "T1",
+            "at": [
+              7,
+              1
+            ],
+            "mark": "T",
+            "name": "DJ 台"
+          },
+          {
+            "id": "D1",
+            "at": [
+              8,
+              1
+            ],
+            "mark": "D",
+            "name": "DJ 台的混音器（接著舞池音響的橋）"
+          },
+          {
+            "id": "C1",
+            "at": [
+              11,
+              4
+            ],
+            "mark": "C",
+            "name": "員工區的控制面板"
+          },
+          {
+            "id": "K1",
+            "at": [
+              11,
+              1
+            ],
+            "mark": "K",
+            "name": "員工休息室"
+          },
+          {
+            "id": "G1",
+            "at": [
+              10,
+              6
+            ],
+            "mark": "G",
+            "name": "VIP 的樓梯"
+          },
+          {
+            "id": "G2",
+            "at": [
+              6,
+              7
+            ],
+            "mark": "G",
+            "name": "正門"
+          },
+          {
+            "id": "X1",
+            "at": [
+              11,
+              3
+            ],
+            "mark": "X",
+            "name": "後門"
+          },
+          {
+            "id": "S1",
+            "at": [
+              2,
+              6
+            ],
+            "mark": "S",
+            "name": "入口的監視器"
+          }
+        ],
+        "spots": [
+          {
+            "id": "!1",
+            "at": [
+              6,
+              3
+            ],
+            "cover": "medium"
+          },
+          {
+            "id": "!2",
+            "at": [
+              2,
+              2
+            ],
+            "cover": "dense"
+          }
+        ],
+        "controls": [
+          {
+            "id": "C1",
+            "at": [
+              11,
+              4
+            ],
+            "zones": [
+              "a",
+              "b",
+              "c",
+              "d"
+            ],
+            "node": "cn_club_light",
+            "devices": [
+              "light",
+              "sound"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "at": [
+              [
+                11,
+                6
+              ]
+            ],
+            "to": "vip"
+          }
+        ],
+        "scout": [
+          {
+            "reveal": "路",
+            "at": "E2"
+          },
+          {
+            "reveal": "路",
+            "at": "E1"
+          },
+          {
+            "reveal": "詞條",
+            "at": "b"
+          }
+        ]
+      },
+      {
+        "id": "vip",
+        "name": "VIP 層",
+        "size": [
+          13,
+          9
+        ],
+        "layout": [
+          "#############",
+          "#.O.#.O.#.O.#",
+          "#.T.#...#.&.#",
+          "##+###+###%##",
+          "#>.3..S.....#",
+          "##+#####%####",
+          "#...#...4OO$#",
+          "#.O.#.CG.TD.#",
+          "#############"
+        ],
+        "zones": [
+          "#############",
+          "#bbb#bbb#ccc#",
+          "#bbb#bbb#ccc#",
+          "##b###b###a##",
+          "#aaaaaaaaaaa#",
+          "##b#####a####",
+          "#bbb#ddddddd#",
+          "#bbb#ddddddd#",
+          "#############"
+        ],
+        "zone_names": {
+          "a": "VIP 的樓梯口與走廊",
+          "b": "VIP 包廂",
+          "c": "最裡面的包廂",
+          "d": "經理室"
+        },
+        "cells": [
+          {
+            "id": "T1",
+            "at": [
+              2,
+              2
+            ],
+            "mark": "T",
+            "name": "VIP 包廂"
+          },
+          {
+            "id": "T2",
+            "at": [
+              9,
+              7
+            ],
+            "mark": "T",
+            "name": "經理室"
+          },
+          {
+            "id": "D1",
+            "at": [
+              10,
+              7
+            ],
+            "mark": "D",
+            "name": "經理室的終端"
+          },
+          {
+            "id": "C1",
+            "at": [
+              6,
+              7
+            ],
+            "mark": "C",
+            "name": "經理室的控制面板"
+          },
+          {
+            "id": "$1",
+            "at": [
+              11,
+              6
+            ],
+            "mark": "$",
+            "name": "經理室的保險箱"
+          },
+          {
+            "id": "&1",
+            "at": [
+              10,
+              2
+            ],
+            "mark": "&",
+            "name": "最裡面的包廂"
+          },
+          {
+            "id": "G1",
+            "at": [
+              7,
+              7
+            ],
+            "mark": "G",
+            "name": "經理室"
+          },
+          {
+            "id": "S1",
+            "at": [
+              6,
+              4
+            ],
+            "mark": "S",
+            "name": "VIP 走廊的監視器"
+          }
+        ],
+        "spots": [
+          {
+            "id": "!3",
+            "at": [
+              3,
+              4
+            ],
+            "cover": "sparse"
+          },
+          {
+            "id": "!4",
+            "at": [
+              8,
+              6
+            ],
+            "cover": "one_sided"
+          }
+        ],
+        "controls": [
+          {
+            "id": "C1",
+            "at": [
+              6,
+              7
+            ],
+            "zones": [
+              "a",
+              "b",
+              "c",
+              "d"
+            ],
+            "node": "cn_club_access",
+            "devices": [
+              "door",
+              "camera"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "at": [
+              [
+                1,
+                4
+              ]
+            ],
+            "to": "dance"
+          }
+        ],
+        "scout": [
+          {
+            "reveal": "守備",
+            "at": "a"
+          },
+          {
+            "reveal": "目標",
+            "at": "T1"
+          }
+        ]
+      }
+    ]
+  }
+]

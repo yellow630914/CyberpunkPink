@@ -1,0 +1,102 @@
+[
+  {
+    "id": "lose_turn",
+    "name": "失去回合",
+    "desc": "這個人動不了：輪到他的時候直接跳過。這段時間可以被制伏。",
+    "lose_turn": true,
+    "until": "own_turn_start",
+    "turns": 1,
+    "kind": "control"
+  },
+  {
+    "id": "suppressed",
+    "name": "壓制",
+    "desc": "到他下一回合結束前不能換位，攻擊 −2。",
+    "mods": {
+      "hit": -2
+    },
+    "no_move": true,
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "debuff"
+  },
+  {
+    "id": "dazed",
+    "name": "暈眩",
+    "desc": "頭部受到重創的輕的那一級：下回合行動點 −2，打完這場戰鬥就好。",
+    "turn_start": {
+      "ap": -2
+    },
+    "once": true,
+    "until": "battle_end",
+    "kind": "wound",
+    "cleansed_by": [
+      "wake_up"
+    ]
+  },
+  {
+    "id": "bleeding",
+    "name": "流血",
+    "desc": "軀幹受到重創的輕的那一級：每回合 −2 生命值，急救可停。",
+    "turn_start": {
+      "hp": -2
+    },
+    "until": "battle_end",
+    "kind": "wound",
+    "cleansed_by": [
+      "first_aid",
+      "stop_bleed"
+    ]
+  },
+  {
+    "id": "limb_hurt",
+    "name": "肢體受創",
+    "desc": "肢體受到重創的輕的那一級：那隻手或腳的檢定 −2，到戰鬥結束。",
+    "mods": {
+      "hit": -2
+    },
+    "until": "battle_end",
+    "kind": "wound"
+  },
+  {
+    "id": "burning",
+    "name": "燃燒",
+    "desc": "熱能傷害命中後燃燒：之後兩回合各 1d6 生命值。",
+    "turn_start": {
+      "hp_dice": 1
+    },
+    "until": "own_turn_start",
+    "turns": 2,
+    "kind": "debuff"
+  },
+  {
+    "id": "jammed",
+    "name": "失效",
+    "desc": "電磁傷害命中後，義體與智慧武器失效一回合。",
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "debuff"
+  },
+  {
+    "id": "marked",
+    "name": "標記",
+    "desc": "到標記的人的下一回合開始前，全隊打他命中 +2。",
+    "mods": {
+      "hit_against": 2
+    },
+    "until": "source_turn_start",
+    "turns": 1,
+    "kind": "mark"
+  },
+  {
+    "id": "pinned_down",
+    "name": "被壓住",
+    "desc": "開打之前被制住：第一回合行動點 −1，這一場戰鬥。",
+    "turn_start": {
+      "ap": -1
+    },
+    "once": true,
+    "until": "battle_end",
+    "kind": "debuff"
+  }
+]

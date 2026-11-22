@@ -1,0 +1,50 @@
+[
+  {
+    "id": "physical",
+    "name": "物理",
+    "track": "hp",
+    "armor": 1
+  },
+  {
+    "id": "thermal",
+    "name": "熱能",
+    "track": "hp",
+    "armor": 0.5,
+    "on_hit": [
+      {
+        "status": "burning",
+        "turns": 2
+      }
+    ]
+  },
+  {
+    "id": "em",
+    "name": "電磁",
+    "track": "hp",
+    "armor": 0,
+    "vs": {
+      "machine": 2
+    },
+    "on_hit": [
+      {
+        "status": "jammed",
+        "turns": 1
+      }
+    ]
+  },
+  {
+    "id": "neural",
+    "name": "神經",
+    "track": "load",
+    "armor": 0,
+    "needs_bridge": true
+  },
+  {
+    "id": "pleasure",
+    "name": "快感",
+    "track": "load",
+    "armor": 0,
+    "needs_bridge": true,
+    "sink": 1
+  }
+]
