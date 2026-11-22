@@ -10,7 +10,7 @@
 
 1. 掛點 `round.start`：`{ run, round }`。
 2. `BattleOverlay`：`owner?`、`weapon?`、`auto?`、`autonomous?`。操作者退出時：`autonomous` 的改成沒有操作者、`auto = true`、`ext.orphan = true`、不發 `overlay.down`；其餘照舊停機。`battleProblems` 跟著放寬（`owner` 可以沒有；有的話要查得到）。
-3. `run.addOverlay(init)`：那一格已經掛著一台沒被擊落的丟 `BattleBlocked(['這一格已經掛著一台了。'])`；有操作者時耐久（現在與上限）、護甲、迴避各加 `overlay_hp`、`overlay_armor`、`overlay_evade` 的修正（問的是操作者，標籤 `[kind]`）；記一拍 `overlay`。`MOD_KINDS` 加這三個與 `overlay_cap`。
+3. `run.addOverlay(init)`：那一格已經掛著一台沒被擊落的丟 `BattleBlocked(['這一格已經掛著一台了。'])`；有操作者時耐久（現在與上限）、護甲、迴避各加 `overlay_hp`、`overlay_armor`、`overlay_evade` 的修正（問的是操作者，標籤 `[kind]`）；記一拍 `overlay`。`MOD_KINDS` 加這三個與 `overlay_cap`、`overlay_backlash`（`features/summons` 問：放出的上限、被擊落時操作者受的感載 5 點的加減，最少 0）。
 4. `run.overlayAttack(o, target, opts)` 與替身（照 ADR）。`run.attack` 的目標是替身時改走 `attackOverlay`；`applyStatus`、`shift`、`place` 對替身回傳 `false`、不丟錯。`attackOverlay` 做完發 `attack.after`。
 5. 義體：`BattleUnit.implants?`；`UnitSource` 回傳的單位與 `Loadout` 都可以帶；`cyber` 沒寫時用件數。`run.implantStatus(...)` 照 ADR；狀態查不到（連 `_generic` 都沒有）丟錯，訊息裡寫出要哪一個狀態 id。`battleProblems` 驗 `implants` 的形狀。
 
