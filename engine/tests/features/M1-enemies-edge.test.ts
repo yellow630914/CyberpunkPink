@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { BattleUnit, ContentPack } from '../../src'
 import { ContentError, Game, createKernel } from '../../src'
 import { encounterPoints, enemiesFeature, enemyStats, setupFromEncounter } from '../../src/features/enemies'
-import { TEST_COMBAT, makeBattleGame, makeGame } from '../../src/testkit'
+import { TEST_COMBAT, makeBattleGame, makeGame, playOut } from '../../src/testkit'
 
 const SKILLS = ['firearms', 'brawl', 'composure'].map((id) => ({ id, name: id, attr: id === 'composure' ? 'resolve' : id === 'firearms' ? 'reflex' : 'body', desc: `${id}。` }))
 const WEAPONS = [
@@ -44,7 +44,11 @@ describe('內容的格式', () => {
     reject({ ...enemy('en_x', 'minion'), kind: 'ghost' }, /kind/)
     reject({ ...enemy('en_x', 'minion'), position: { prefer: [] } }, /position\.prefer/)
     reject({ ...enemy('en_x', 'minion'), position: { prefer: [5] } }, /position\.prefer/)
-    reject({ ...enemy('en_x', 'minion'), weapons: [] }, /weapons/)
+    reject({ ...enemy('en_x', 'minion'), weapons: 'x' }, /weapons/)
+    // 沒有武器、沒有 prefer、prefer 寫 bridged 都合格（ENEMY_ROSTER 有這幾種兵種）
+    expect(() => load({ ...enemy('en_none', 'minion'), weapons: [] })).not.toThrow()
+    expect(() => load({ ...enemy('en_noprefer', 'minion'), ai: { focus: 0.3, flee_below: 0 } })).not.toThrow()
+    expect(() => load({ ...enemy('en_br', 'minion'), ai: { prefer: 'bridged', focus: 1, flee_below: 0.3 } })).not.toThrow()
     reject({ ...enemy('en_x', 'minion'), weapons: [{ class: 'pistol', type: 'fire' }] }, /weapons\[0\]\.type/)
     reject({ ...enemy('en_x', 'minion'), ai: { prefer: 'nobody', focus: 1, flee_below: 0.3 } }, /ai\.prefer/)
     reject({ ...enemy('en_x', 'minion'), ai: { prefer: 'weakest', focus: 1, flee_below: 2 } }, /ai\.flee_below/)
@@ -62,7 +66,7 @@ describe('內容的格式', () => {
     // base 已經載入：合併之後完整檢查，合併出來的資料是 base 加上自己寫的
     k.content.load('enemy', [{ id: 'en_named2', base: 'en_boss', name: '另一個', grades: [1, 2] }])
     expect(k.content.checkRefs()).toEqual([])
-    expect(() => k.content.load('enemy', [{ id: 'en_bad_base', base: 'en_boss', weapons: [] }])).toThrow(ContentError)
+    expect(() => k.content.load('enemy', [{ id: 'en_bad_base', base: 'en_boss', rank: 'king' }])).toThrow(ContentError)
     // base 不存在：引用檢查抓得到
     k.content.load('enemy', [{ id: 'en_orphan', base: 'en_nope' }])
     expect(k.content.checkRefs()).toEqual(['enemy/en_orphan：引用了不存在的 enemy/en_nope'])
@@ -114,6 +118,15 @@ describe('遭遇', () => {
   it('點數：遭遇指定的強度係數乘上去，雜兵不乘', () => {
     expect(encounterPoints(k(), [{ enemy: 'en_boss', strength: 1.1 }, { enemy: 'en_mook', strength: 2 }], 2)).toBe(5 * 1.1 + 1)
     expect(encounterPoints(k(), [{ enemy: 'en_elite', grade: 3 }], 2)).toBe(2.5 * 1.75)
+  })
+})
+
+describe('沒有武器的單位', () => {
+  it('手上沒有武器：不攻擊也不會丟錯，戰鬥打得完', () => {
+    const g = makeGame({ features: [enemiesFeature, TEST_COMBAT], content: [{ ...PACK, content: { ...PACK.content, enemy: [enemy('en_unarmed', 'minion', { weapons: [], ai: { focus: 0.3, flee_below: 0 } })], encounter: [] } }] }).game
+    g.startBattle({ grade: 2, allies: [{ from: 'unit', unit: ally() }], foes: [{ from: 'enemy', id: 'en_unarmed' }] })
+    expect(g.battle!.units.f1!.weapons).toEqual([])
+    expect(() => playOut(g)).not.toThrow()
   })
 })
 

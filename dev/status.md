@@ -76,3 +76,4 @@
 - 2026-11-22 技術債：capture 敵人拿遠程武器時，核心 AI 的位置分會先讓他後退，輪不到制伏。M1-combat 先在 `ai.step`（order 10）替他制伏（features/combat/tactics.ts `registerCaptureAi`）。正本應該是核心位置分考慮「有可制伏的目標」，交 cpp-architect 在 M1 收尾時改。
 - 2026-11-22 技術債：契約人不能投降（ENEMIES 4.4）、士氣的開場人數要在開場時記下（M2 增援），留給敵人招牌行動那批。
 - 2026-11-22 名冊轉不進格式、留給第二波（敵人招牌行動、掉落、附屬單位那批）：mods 的「沉溺」、溺感邊緣、一定帶著的特徵（traits）、angel 欄位、position 的重疊（掛在格上的無人機與砲塔）、武器效果敘述（燃燒、義體失效、無視一半護甲、炸膛、卡彈、無聲…）、附屬單位（無人機、獵犬、飛劍、攝影機）、機甲 en_sb_mustang、快駭武器、雙戰敗 id（en_grd_caller）。名冊轉換腳本：tools/data_enemies_gen.py。
+- 2026-11-22 技術債：核心 AI（core/battle/ai.ts）還沒有 prefer `bridged` 的算法（7 筆名冊兵種用到），交 cpp-architect 在 M1 收尾時補。

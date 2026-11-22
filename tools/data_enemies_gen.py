@@ -165,6 +165,7 @@ def weapons_of(first,sub):
     for s in sub: texts+=[x for x in s.split('。') if x.strip()]
     res=[]
     for t in texts:
+        if t.strip().startswith('沒有') or t.strip().startswith('他每回合拍攝'): continue
         if re.search(r'^(IV 級起|武裝無人機|機械獵犬|飛劍|無人攝影機|自組無人機|機甲|怪癖|胭脂堂不用)',t): continue
         if '快駭' in t.split('，')[0]: continue
         w=weapon_sent(t)
@@ -173,7 +174,8 @@ def weapons_of(first,sub):
     return res
 
 OVERRIDE_W={'en_sb_gunner':[None,{'class':'heavy','name':'榴彈發射器','mag':1}]}
-OMIT={'en_orihime_guardroid':'ai.prefer 是 bridged，格式的 prefer 沒有這個值','en_rose_wrecker':'ai.prefer 是 bridged','en_rose_mechanic':'ai.prefer 是 bridged','en_strp_cutter':'ai.prefer 是 bridged','en_strp_boss':'ai.prefer 是 bridged','en_bare_puller':'ai.prefer 是 bridged','en_bare_high':'ai.prefer 是 bridged','en_angel_cherub':'AI 行沒有 prefer（只寫「跟著生命比例最低的同伴換格」）；武器「沒有」','en_kd_paparazzi':'武器「沒有」，格式要求至少一把'}
+OMIT0={'en_orihime_guardroid':'ai.prefer 是 bridged，格式的 prefer 沒有這個值','en_rose_wrecker':'ai.prefer 是 bridged','en_rose_mechanic':'ai.prefer 是 bridged','en_strp_cutter':'ai.prefer 是 bridged','en_strp_boss':'ai.prefer 是 bridged','en_bare_puller':'ai.prefer 是 bridged','en_bare_high':'ai.prefer 是 bridged','en_angel_cherub':'AI 行沒有 prefer（只寫「跟著生命比例最低的同伴換格」）；武器「沒有」','en_kd_paparazzi':'武器「沒有」，格式要求至少一把'}
+OMIT={}
 def build(allow_omitted=False):
     res=[];skipped=[]
     for x in ents:
@@ -203,9 +205,10 @@ def build(allow_omitted=False):
             if o is not None: ww.insert(i,o)
         assert all(isinstance(w,dict) for w in ww),(x['id'],ww)
         e['weapons']=ww
-        A={'prefer':a['prefer'],'focus':a['focus']}
+        A={'prefer':a['prefer'],'focus':a['focus']} if a['prefer'] else {'focus':a['focus']}
         if 'flee_below' in a: A['flee_below']=a['flee_below']
         if never: A['never_flee']=True
+        if not a['prefer']: A['note']=a_first.split('；')[0].split('：')[-1].strip()
         e['ai']=A
         d=c[5]
         m=re.match(r'^`(\w+)`$',d)

@@ -1175,6 +1175,47 @@
     "desc": "靜音者穿著一身吸音的黑色制服，臉上戴著一張沒有五官的白色面罩，面罩上浮著夜鶯的音符標誌。他的槍很安靜，開火時只有一聲很輕的「噠」。"
   },
   {
+    "id": "en_kd_paparazzi",
+    "name": "狗仔",
+    "faction": "kaleido",
+    "rank": "minion",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "human",
+    "mode": "neural",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.8,
+      "evade": 2
+    },
+    "weapons": [],
+    "ai": {
+      "prefer": "leader",
+      "focus": 0.5,
+      "flee_below": 0.6
+    },
+    "signature": [],
+    "loot": [
+      {
+        "text": "感測器（萬華鏡）"
+      },
+      {
+        "text": "素材（這場戰鬥的錄影）"
+      }
+    ],
+    "adult": [
+      "窺視",
+      "暴露"
+    ],
+    "desc": "狗仔穿著一件口袋很多的背心，脖子上掛著三台相機，右眼是一顆會伸縮的鏡頭義眼。他一直在拍，連被打的時候也在拍。"
+  },
+  {
     "id": "en_kd_studio_guard",
     "name": "棚內保全",
     "faction": "kaleido",
@@ -2106,6 +2147,47 @@
     "desc": "她穿著白色的強化護理服，肩上有翅膀的標誌，護目鏡推在護士帽上方。她一手拿衝鋒槍，背後揹著摺疊擔架。"
   },
   {
+    "id": "en_angel_cherub",
+    "name": "小天使",
+    "faction": "angel",
+    "rank": "minion",
+    "grades": [
+      2,
+      4
+    ],
+    "kind": "machine",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1,
+        2,
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.7
+    },
+    "weapons": [],
+    "ai": {
+      "focus": 0.3,
+      "flee_below": 0,
+      "never_flee": true,
+      "note": "跟著生命比例最低的同伴換格"
+    },
+    "signature": [
+      {
+        "name": "止血",
+        "text": "替同一格的同伴回 5 點生命。花 1 點（由同一格的隊員指揮）。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "感測器、電源（織女），II～IV 級，沒有殘響"
+      }
+    ],
+    "desc": "它是一台巴掌大的醫療無人機，外殼做成長著白色小翅膀的天使吉祥物。機腹下面垂著一支止血噴嘴與一條注射臂。"
+  },
+  {
     "id": "en_angel_sergeant",
     "name": "黃金班長",
     "faction": "angel",
@@ -2286,6 +2368,56 @@
       }
     ],
     "desc": "它是一台白色的球形無人機，外殼上印著織女的型號與序號。正面的鏡頭轉動時會發出細小的馬達聲。"
+  },
+  {
+    "id": "en_orihime_guardroid",
+    "name": "保全機娘",
+    "faction": "orihime",
+    "rank": "minion",
+    "grades": [
+      1,
+      3
+    ],
+    "kind": "machine",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1,
+        2
+      ]
+    },
+    "mods": {
+      "armor": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "電擊警棍",
+        "type": "em"
+      },
+      {
+        "class": "pistol",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "bridged",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [],
+    "loot": [
+      {
+        "text": "致動器、感測器（織女），I～III 級，沒有殘響"
+      }
+    ],
+    "adult": [
+      "人偶",
+      "機娘"
+    ],
+    "desc": "她是一具穿著保全制服的機娘，肘與膝露出白色的球形關節，臉是無機質的瓷白。她拿一根電擊警棍，腰間掛著一把制式手槍。"
   },
   {
     "id": "en_orihime_spider",
@@ -5132,6 +5264,59 @@
     "desc": "她戴著一頂寬邊帽，身上是一件洗到褪色的獵裝。她背著一把長管的獵槍，槍托上刻著家裡每個人的名字。"
   },
   {
+    "id": "en_rose_wrecker",
+    "name": "拆車手",
+    "faction": "rose",
+    "rank": "minion",
+    "grades": [
+      3,
+      4
+    ],
+    "kind": "unbridged",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.1,
+      "armor": 1,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "電磁撬棍",
+        "type": "em"
+      }
+    ],
+    "ai": {
+      "prefer": "bridged",
+      "focus": 1.0,
+      "flee_below": 0.3
+    },
+    "signature": [
+      {
+        "name": "「拔插頭」",
+        "text": "她近戰命中裝了義體的人時，傷害多半顆骰。被動。份量 1 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "另有電源 III 的機會"
+      }
+    ],
+    "adult": [
+      "野外",
+      "支配"
+    ],
+    "desc": "她把連身工作服的上半身綁在腰上，手臂上有機油和舊燒傷的疤。她手上拿著一根接了電池的撬棍。"
+  },
+  {
     "id": "en_rose_driver",
     "name": "改裝車的駕駛",
     "faction": "rose",
@@ -5188,6 +5373,63 @@
       "野外"
     ],
     "desc": "她戴著皮手套和防風鏡，脖子上掛著一串車鑰匙。她的改裝車停在她那一格，車頂架著一支魚叉槍。"
+  },
+  {
+    "id": "en_rose_mechanic",
+    "name": "車隊的技工",
+    "faction": "rose",
+    "rank": "elite",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "unbridged",
+    "mode": "lethal",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1
+    },
+    "weapons": [
+      {
+        "class": "shotgun",
+        "name": "電磁霰彈槍",
+        "type": "em",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "bridged",
+      "focus": 0.8,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "「補車」",
+        "text": "我方一格被打壞的遮蔽升回一級，耐久補滿。2 點行動點。份量 2 格。"
+      },
+      {
+        "name": "III 級起加上「打下來」",
+        "text": "她攻擊無人機時命中 +2。被動。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "預設"
+      },
+      {
+        "text": "另有載具零件"
+      }
+    ],
+    "adult": [
+      "恩與債",
+      "野外"
+    ],
+    "desc": "她把短髮綁在頭巾裡，腰上掛著一整條工具帶。她背著一把自己焊的電磁霰彈槍，槍管上纏著銅線。"
   },
   {
     "id": "en_rose_captain",
@@ -5842,6 +6084,128 @@
       "恩與債"
     ],
     "desc": "冰桶司機穿著一件連帽的防水外套，腳邊放著一個貼滿貼紙的醫療冰桶，車鑰匙用鞋帶掛在脖子上。她手上的衝鋒槍槍托纏著好幾圈電工膠帶。"
+  },
+  {
+    "id": "en_strp_cutter",
+    "name": "拆件師傅",
+    "faction": "strippers",
+    "rank": "elite",
+    "grades": [
+      2,
+      3
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        1
+      ]
+    },
+    "mods": {
+      "hp": 1.2,
+      "evade": -1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "拆件起子",
+        "pierce": 1
+      }
+    ],
+    "ai": {
+      "prefer": "bridged",
+      "focus": 1.2,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "（II 級起）拆",
+        "text": "起子命中後，目標身上的一件義體受到干擾，到目標下一回合結束為止。2 點行動點（同近戰攻擊）。份量 2 格。"
+      },
+      {
+        "name": "（III 級起）順手綁",
+        "text": "到他這一回合結束前，他的制伏檢定 +4。1 點行動點。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "二手義體零件 II～III（有殘響）"
+      },
+      {
+        "text": "另有 20% 是一整件拆下來的義體"
+      }
+    ],
+    "adult": [
+      "半機娘",
+      "戀物"
+    ],
+    "desc": "拆件師傅穿著一件長到膝蓋的塑膠圍裙，圍裙上沾滿了機油。他的右手是一具自己改裝的義手，手腕上裝著一支會轉的拆件起子，左手腕綁著一排手術用的束帶。"
+  },
+  {
+    "id": "en_strp_boss",
+    "name": "攤主",
+    "faction": "strippers",
+    "rank": "boss",
+    "grades": [
+      3,
+      3
+    ],
+    "kind": "human",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        3
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "attack": 1
+    },
+    "weapons": [
+      {
+        "class": "pistol",
+        "name": "拼裝電磁手槍",
+        "type": "em",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "bridged",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "讀序號",
+        "text": "標記一名有義體的敵人。1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "估價",
+        "text": "指定一名正在失去回合的敵人，這一回合所有拆體客對他的制伏檢定 +2。1 點行動點。份量 3 格（打到全隊）。"
+      },
+      {
+        "name": "低血大招　收攤",
+        "text": "她叫司機把車橫到前面，自己這一方每一格的遮蔽升一級，並且到下一回合結束前，所有拆體客的制伏檢定 +4。每場一次，3 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "二手義體零件 III（保證）、晶片 II～III（二手）"
+      },
+      {
+        "text": "另有 50% 掉一張冷庫的位置（線索）"
+      }
+    ],
+    "adult": [
+      "戀物",
+      "支配"
+    ],
+    "desc": "攤主是一個戴著頭燈的女人，身上套著一件縫滿抽屜式口袋的厚背心，每一格都貼著手寫的型號。她手上的電磁手槍是拆了三把舊槍拼起來的，腰間掛著一台能讀義體序號的掃描器。"
   },
   {
     "id": "en_dj_stall",
@@ -6682,6 +7046,122 @@
       "聲音"
     ],
     "desc": "持鈴巫女穿著白衣緋袴式的素色裝束，臉上不施脂粉，長髮用白紙束在背後。她右手搖著一串加裝了發信器的神樂鈴，鈴聲的頻率剛好落在橋的接收段上。"
+  },
+  {
+    "id": "en_bare_puller",
+    "name": "拔橋手",
+    "faction": "bare",
+    "rank": "elite",
+    "grades": [
+      1,
+      2
+    ],
+    "kind": "unbridged",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        2
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "evade": 1
+    },
+    "weapons": [
+      {
+        "class": "melee",
+        "name": "電磁短刀"
+      }
+    ],
+    "ai": {
+      "prefer": "bridged",
+      "focus": 1.2,
+      "flee_below": 0.2
+    },
+    "signature": [
+      {
+        "name": "（II 級）拔針",
+        "text": "制伏一名失去回合的敵人時，檢定 +2；成功的話，那個人身上的一件義體到戰鬥結束都受到干擾。2 點行動點（同制伏）。份量 2 格。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "電源 II（電磁刀的）"
+      }
+    ],
+    "adult": [
+      "禁慾",
+      "束縛"
+    ],
+    "desc": "拔橋手穿著緋袴與白色的窄袖上衣，袖口用紅繩紮緊，雙手戴著薄薄的手術手套。她腰上掛著一把電磁短刀，和一個裝著拔針器具的白木盒。"
+  },
+  {
+    "id": "en_bare_high",
+    "name": "大祓巫女",
+    "faction": "bare",
+    "rank": "boss",
+    "grades": [
+      2,
+      2
+    ],
+    "kind": "unbridged",
+    "mode": "capture",
+    "position": {
+      "prefer": [
+        4
+      ]
+    },
+    "mods": {
+      "hp": 0.9,
+      "attack": 1
+    },
+    "weapons": [
+      {
+        "class": "rifle",
+        "name": "長弓",
+        "mag": 2
+      }
+    ],
+    "ai": {
+      "prefer": "bridged",
+      "focus": 1.0,
+      "flee_below": 0,
+      "never_flee": true
+    },
+    "signature": [
+      {
+        "name": "鳴弦",
+        "text": "她空拉弓弦，弦聲壓住一名有橋的敵人（壓制）。1 點行動點。份量 2 格。"
+      },
+      {
+        "name": "破魔矢",
+        "text": "這一箭無視目標那一格遮蔽給的迴避；命中後，目標的一件義體受到干擾，到他下一回合結束為止。2 點行動點（同射擊）。份量 3 格。"
+      },
+      {
+        "name": "低血大招　大祓",
+        "text": "她唸完整段祓詞，場上所有的鈴一起響，敵方整排每個有橋的人灌 2d6 感載，並且各有一件義體受到干擾，到他下一回合結束為止。每場一次，3 點行動點。份量 6 格。"
+      },
+      {
+        "name": "控制保護",
+        "text": "照 ENEMIES 4.5 節。"
+      }
+    ],
+    "loot": [
+      {
+        "text": "照預設（幾乎沒有）"
+      },
+      {
+        "text": "長弓可以整件撿"
+      },
+      {
+        "text": "另有 50% 掉一張傳教所的避難路線圖（線索）"
+      }
+    ],
+    "adult": [
+      "禁慾",
+      "巫女"
+    ],
+    "desc": "大祓巫女穿著全白的祭服，外面罩著一件素色的薄紗外衣，長髮垂到腰，用白紙與麻繩束起。她手持一張比人還高的長弓，箭筒裡每一支箭的箭頭都纏著寫了祓詞的紙。"
   },
   {
     "id": "en_bnq_attendant",
