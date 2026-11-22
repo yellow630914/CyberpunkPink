@@ -247,9 +247,16 @@ export interface BattleHookMap {
   /** 一個單位的回合開始：行動點已經回復、狀態已經結算、確定不是失去回合 */
   'turn.start': { run: BattleRun; unit: BattleUnit }
   'turn.end': { run: BattleRun; unit: BattleUnit }
-  /** 擲命中之前：反應（掩護射擊、小心後面！）在這裡；可以改 opts（命中、迴避的加減） */
+  /**
+   * 擲命中之前：反應（掩護射擊、小心後面！）在這裡；可以改 opts（命中、迴避的加減）。
+   * attacker 可能是替身（和人重疊的東西自己開火，run.overlayAttack；ext.overlay 是那一台的 id，不在 battle.units 裡）：
+   * 要對攻擊者做攻擊以外的事（給狀態、推拉）的功能先看 ext.overlay（run.isStandIn）；run.attack 打替身會自動改打那一台的耐久
+   */
   'attack.before': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; weapon: BattleWeapon; opts: import('./run').AttackOpts }
-  /** 一次攻擊結算完（命中或沒中）：武器的特性與技能的後續（輕機槍的壓制、還給你～） */
+  /**
+   * 一次攻擊結算完（命中或沒中）：武器的特性與技能的後續（輕機槍的壓制、還給你～）。
+   * 打和人重疊的東西（run.attackOverlay）也發，target 是那一台的替身；改打（opts.redirect）的那一擊不發。attacker 可能是替身（見 attack.before）
+   */
   'attack.after': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; weapon: BattleWeapon; opts: import('./run').AttackOpts; result: import('./run').AttackResult }
   /**
    * 命中已經確定、傷害還沒算（只有打人的攻擊；打掛著的東西沒有）。roll 是這一擊的骰面與結果（wound：本來會重創）；

@@ -5,13 +5,15 @@
 //
 // 以第四版介面的 ui/src/lib/combat/real.ts、field.ts 當底，逐條對照 COMBAT_SYSTEM 改寫；和設計書對不上的地方列在 dev/adr/0013。
 
-import type { AttrId, BattleCover, BattleOverlay, BattleSide, BattleState, BattleStatus, BattleUnit, BattleUntil, BattleWeapon, CheckRoll, DamageType, GameState, RollPart, SkillId, TimelineBeat } from '../types'
-import { BATTLE_SLOTS } from '../types'
+import type { AttrId, BattleCover, BattleImplant, BattleOverlay, BattleOverlayInit, BattleSide, BattleState, BattleStatus, BattleUnit, BattleUntil, BattleWeapon, CheckRoll, DamageType, GameState, RollPart, SkillId, TimelineBeat } from '../types'
+import { ATTR_IDS, BATTLE_SLOTS } from '../types'
 import { attrMod, computeDegree, verdictOf } from '../rules/check'
 import { deriveRng } from '../util/rng'
-import { clamp } from '../util/sanitize'
+import { clamp, isRecord } from '../util/sanitize'
+import { clone } from '../util/clone'
+import { BattleBlocked } from './act'
 import { runEffects } from './effects'
-import { SIDE_NAME, afterglowFull, coverAt, coverLevel, coverOf, currentUnit, distance, isExposed, isWounded, onField, otherSide, rangeMod, standing, unitAt, unitTag, unitsOf, wielded } from './field'
+import { SIDE_NAME, afterglowFull, coverAt, coverLevel, coverOf, currentUnit, distance, isExposed, isWounded, onField, otherSide, overlayAt, rangeMod, standing, unitAt, unitTag, unitsOf, wielded } from './field'
 import type { BattleEffectInput, BattleEffectLast, BattleKernel, BattleView } from './registry'
 import type { BattleMode, BattleNumbers, BattleStatusRule, ModKind, StatusUntil } from './rules'
 import { LOSE_TURN, coverHpFor, damageTypeOf, modeOf, statusMod, statusRuleOf } from './rules'
@@ -104,10 +106,26 @@ export interface StatusOpts {
   data?: Record<string, number>
   /** 不看首領的控制保護（過載的失去回合） */
   force?: boolean
+  /** 不記「某某：狀態名」那一拍（呼叫的人自己記一拍，例如 run.implantStatus 要寫是哪一件義體） */
+  quiet?: boolean
+}
+
+/** run.implantStatus 的選項（dev/adr/0015 第三節）。 */
+export interface ImplantStatusOpts {
+  /** 指定第幾件（implants 的索引）；最優先 */
+  pick?: number
+  /** 指定哪一種；沒有那一種就回傳 null */
+  kind?: string
+  by?: BattleUnit
+  /** 幾個回合；沒寫照規則表 */
+  turns?: number
+  until?: StatusUntil
 }
 
 /** 和人重疊的東西（無人機、砲塔）的標籤：機器（電磁加倍照這個算）。 */
 const OVERLAY_TAGS: readonly string[] = ['machine']
+/** 替身（和人重疊的東西自己開火時的攻擊者）的標籤。 */
+const OVERLAY_STAND_IN_TAGS: readonly string[] = ['machine', 'overlay']
 
 export class BattleRun implements BattleView {
   readonly mode: BattleMode
@@ -282,6 +300,12 @@ export class BattleRun implements BattleView {
    * 行動點由行動自己（或核心）扣；彈匣在這裡扣（o.spend，預設 1 格）。
    */
   attack(attacker: BattleUnit, target: BattleUnit, o: AttackOpts = {}): AttackResult {
+    // 目標是替身（和人重疊的東西自己開火時的攻擊者；反應打回去）：改走 attackOverlay，打的是那一台的耐久（dev/adr/0015 第三節）。
+    // 那一台已經被擊落或收走了，這一擊就沒有發生（不會當成打人）
+    if (this.isStandIn(target)) {
+      const hung = this.battle.overlays.find((x) => x.id === target.ext.overlay)
+      return hung ? this.attackOverlay(attacker, hung, o) : { hit: false, crit: false, natural: 0, total: 0, evade: 0, raw: 0, dealt: 0, track: 'none', wound: false, downed: false, aborted: true }
+    }
     const w = o.weapon ?? wielded(attacker)
     if (!w) throw new Error(`${attacker.name} 手上沒有武器`)
     const none: AttackResult = { hit: false, crit: false, natural: 0, total: 0, evade: 0, raw: 0, dealt: 0, track: 'none', wound: false, downed: false }
@@ -296,7 +320,7 @@ export class BattleRun implements BattleView {
     if (attacker.out || target.out || this.over) return { ...none, aborted: true }
     // 改打掛著的東西（擋槍）：照它的迴避與護甲算，原本的目標不受影響；彈匣上面已經扣過了，不再扣
     const diverted = opts.redirect ? this.battle.overlays.find((x) => x.id === opts.redirect!.overlay && !x.down) : undefined
-    if (diverted) return { ...this.attackOverlay(attacker, diverted, { ...opts, redirect: undefined, spend: 0 }), redirected: true }
+    if (diverted) return { ...this.strikeOverlay(attacker, diverted, { ...opts, redirect: undefined, spend: 0 }), redirected: true }
 
     const aimed = !!opts.aimed || w.traits.includes('aimed')
     const tags = aimed ? [...opts.tags!, 'aimed'] : opts.tags!
@@ -366,9 +390,19 @@ export class BattleRun implements BattleView {
   /**
    * 攻擊一個和人重疊的東西（無人機、砲塔；COMBAT_SYSTEM 9.1 節）：它永遠暴露、不吃那一格的遮蔽，也不傷那一格的遮蔽。
    * 命中對它自己的迴避（黑暗照算）；傷害扣它的護甲（穿甲只抵銷護甲）；耐久歸零就被擊落（overlay.down 掛點：操作者的回灌由功能做）。
-   * 沒有要害與重創。彈匣照扣。
+   * 沒有要害與重創。彈匣照扣。做完發 attack.after（目標是那一台的替身；沒有發生的〔aborted〕不發）。
    */
   attackOverlay(attacker: BattleUnit, o: BattleOverlay, opts: AttackOpts = {}): AttackResult {
+    const result = this.strikeOverlay(attacker, o, opts)
+    if (!result.aborted) {
+      const weapon = opts.weapon ?? wielded(attacker)
+      if (weapon) this.k.battle.emit('attack.after', { run: this, attacker, target: this.standIn(o), weapon, opts, result })
+    }
+    return result
+  }
+
+  /** attackOverlay 的本體（不發 attack.after：改打的 redirect 也走這裡，它不發）。 */
+  private strikeOverlay(attacker: BattleUnit, o: BattleOverlay, opts: AttackOpts = {}): AttackResult {
     const w = opts.weapon ?? wielded(attacker)
     if (!w) throw new Error(`${attacker.name} 手上沒有武器`)
     const none: AttackResult = { hit: false, crit: false, natural: 0, total: 0, evade: 0, raw: 0, dealt: 0, track: 'none', wound: false, downed: false }
@@ -569,7 +603,7 @@ export class BattleRun implements BattleView {
 
   /** 給一個狀態。同一個狀態再得一次只重算時間，不疊加。首領有控制保護（ENEMIES 4.5 節）。回傳有沒有給上去。 */
   applyStatus(target: BattleUnit, id: string, o: StatusOpts = {}): boolean {
-    if (target.out) return false
+    if (target.out || this.isStandIn(target)) return false
     const rule = this.statusRule(id)
     let turns = o.turns ?? rule.turns
     if (rule.kind === 'control' && !o.force && target.rank === 'boss') {
@@ -586,7 +620,7 @@ export class BattleRun implements BattleView {
     const until: BattleUntil = kind === 'battle_end' ? { at: 'battle_end' } : { at: kind.endsWith('start') ? 'turn_start' : 'turn_end', of, turns }
     const status: BattleStatus = { id, until, ...(o.by ? { by: o.by.id } : {}), ...(o.data ? { data: { ...o.data } } : {}) }
     target.statuses = [...target.statuses.filter((s) => s.id !== id), status]
-    if (id !== LOSE_TURN) this.say(`${unitTag(target)}：${rule.name}。`, 'status', { target: target.id, status: id, ...(o.by ? { by: o.by.id } : {}) }, o.by)
+    if (id !== LOSE_TURN && !o.quiet) this.say(`${unitTag(target)}：${rule.name}。`, 'status', { target: target.id, status: id, ...(o.by ? { by: o.by.id } : {}) }, o.by)
     return true
   }
 
@@ -604,6 +638,38 @@ export class BattleRun implements BattleView {
     return gone
   }
 
+  // ---- 義體（dev/adr/0015 第三節） ----
+
+  /**
+   * 讓目標的一件義體失效（off）或超頻（boost）：挑一件（opts.pick 指定第幾件 → opts.kind 指定哪一種 → 第一件還沒帶這個狀態的），
+   * 給單位狀態 off_<種類> 或 boost_<種類>（規則表沒有的退回 off_generic、boost_generic）；每一種義體差多少是規則表的資料，核心不寫數字。
+   * 回傳挑到的那一件（就是 target.implants 裡的那個物件）；沒有可挑的（沒有義體、指定的那一件或那一種沒有、每一件都已經帶著這個狀態、
+   * 目標已經退出）回傳 null，不記拍。「還沒帶這個狀態」看的是狀態 id：同一種的兩件、或都退回 _generic 的兩件，共用同一個狀態，
+   * 第二次就沒有可挑的（要換掉第一件的時間，用 pick 指定）。狀態查不到（連 _generic 都沒有）丟錯，訊息寫出要哪一個狀態 id。記一拍 status。
+   */
+  implantStatus(target: BattleUnit, mode: 'off' | 'boost', opts: ImplantStatusOpts = {}): BattleImplant | null {
+    const list = target.implants ?? []
+    if (!list.length || target.out) return null
+    const statusOf = (i: BattleImplant): string => {
+      const own = `${mode}_${i.kind}`
+      const generic = `${mode}_generic`
+      if (statusRuleOf(this.k.content, own)) return own
+      if (statusRuleOf(this.k.content, generic)) return generic
+      throw new Error(`義體「${i.name}」要 ${own} 這個狀態（規則表沒有的退回 ${generic}），兩個都查不到：先在規則表（battle_status）補上`)
+    }
+    let chosen: BattleImplant | undefined
+    if (opts.pick !== undefined) chosen = Number.isInteger(opts.pick) ? list[opts.pick] : undefined
+    else if (opts.kind !== undefined) chosen = list.find((i) => i.kind === opts.kind)
+    else chosen = list.find((i) => !target.statuses.some((st) => st.id === statusOf(i)))
+    if (!chosen) return null
+    const id = statusOf(chosen)
+    const given = this.applyStatus(target, id, { ...(opts.by ? { by: opts.by } : {}), ...(opts.turns !== undefined ? { turns: opts.turns } : {}), ...(opts.until ? { until: opts.until } : {}), quiet: true })
+    if (!given) return null
+    const word = mode === 'off' ? '失效了' : '超頻了'
+    this.say(`${unitTag(target)} 的${chosen.name}${word}。`, 'status', { target: target.id, status: id, implant: chosen.kind, mode, ...(opts.by ? { by: opts.by.id } : {}) }, opts.by)
+    return chosen
+  }
+
   // ---- 倒下、退出與結果 ----
 
   /**
@@ -613,7 +679,7 @@ export class BattleRun implements BattleView {
    * 回傳這一次有沒有讓他退出（已經退出的也回傳 false）。
    */
   setOut(u: BattleUnit, how: string, by?: BattleUnit): boolean {
-    if (u.out) return false
+    if (u.out || this.isStandIn(u)) return false
     if (this.outPrevented(u, how, by)) return false
     this.leave(u, how, by)
     return true
@@ -638,8 +704,12 @@ export class BattleRun implements BattleView {
     const tag = how === 'subdued' ? 'subdue' : how === 'surrendered' ? 'surrender' : how === 'fled' ? 'flee' : 'down'
     if (how !== 'burnout') this.say(`${unitTag(u)} ${words[how] ?? '退出了戰鬥'}。`, tag, { target: u.id, how, rank: u.rank, side: u.side, ...(by ? { by: by.id } : {}) }, by)
     else this.say(`${unitTag(u)} 倒下了。`, 'down', { target: u.id, how, rank: u.rank, side: u.side, ...(by ? { by: by.id } : {}) }, by)
-    // 操作者倒下，所有和人重疊的東西停機（COMBAT_SYSTEM 9.1 節）
-    for (const o of this.battle.overlays) if (o.owner === u.id && !o.down) this.dropOverlay(o, undefined, true)
+    // 操作者退出（COMBAT_SYSTEM 9.1 節；dev/adr/0015 第三節）：他的東西，autonomous 的沒有操作者、自己動（自律）；其餘的停機
+    for (const o of this.battle.overlays) {
+      if (o.owner !== u.id || o.down) continue
+      if (o.autonomous) this.orphan(o)
+      else this.dropOverlay(o, undefined, true)
+    }
     this.k.battle.emit('out', { run: this, unit: u, how, ...(by ? { by } : {}) })
     this.compact(u.side)
     this.checkResult()
@@ -670,12 +740,95 @@ export class BattleRun implements BattleView {
     return true
   }
 
+  // ---- 和人重疊的東西（COMBAT_SYSTEM 第 9 節；dev/adr/0015 第三節） ----
+
+  /**
+   * 掛上一台和人重疊的東西（無人機、砲塔、立牌、內海的守衛程式）：發 id、查那一格有沒有別台、有操作者時問他的修正。
+   * 那一格已經掛著一台沒被擊落的丟 BattleBlocked（狀態不變）。有 owner 時耐久（現在與上限）、護甲、迴避各加他的修正
+   * overlay_hp、overlay_armor、overlay_evade（標籤是 [種類]）；沒有操作者的照給的數字，不問。
+   * 記一拍 overlay；text 可以換掉那一句（沒寫：有操作者是「某某 放出…，掛在第 N 格。」，沒有是「…掛在我方第 N 格。」）。回傳掛上去的那一台。
+   * 連得住幾台（overlay_cap）由放它的功能先查；這裡只管每格一台。
+   */
+  addOverlay(init: BattleOverlayInit, o: { text?: string } = {}): BattleOverlay {
+    const b = this.battle
+    if (!Number.isInteger(init.slot) || init.slot < 1 || init.slot > BATTLE_SLOTS) throw new Error(`${init.name} 要掛在第 1～${BATTLE_SLOTS} 格，不是 ${String(init.slot)}`)
+    if (overlayAt(b, init.side, init.slot)) throw new BattleBlocked(['這一格已經掛著一台了。'])
+    const owner = init.owner !== undefined ? this.unit(init.owner) : undefined
+    const tags = [init.kind]
+    const plus = (kind: 'overlay_hp' | 'overlay_armor' | 'overlay_evade'): number => (owner ? sum(this.mods(kind, owner, undefined, undefined, tags)) : 0)
+    const hp = plus('overlay_hp')
+    const max = Math.max(1, init.hp.max + hp)
+    const overlay: BattleOverlay = {
+      ...init, id: `o${(b.seq += 1)}`,
+      hp: { now: clamp(init.hp.now + hp, 1, max), max }, armor: Math.max(0, init.armor + plus('overlay_armor')), evade: init.evade + plus('overlay_evade'),
+      ...(init.weapon ? { weapon: clone(init.weapon) } : {}), ...(init.ext ? { ext: clone(init.ext) } : {}),
+      used: false, down: false,
+    }
+    if (overlay.owner === undefined) delete overlay.owner
+    b.overlays.push(overlay)
+    const text = o.text ?? (owner ? `${owner.name} 放出${overlay.name}，掛在第 ${overlay.slot} 格。` : `${overlay.name}掛在${SIDE_NAME[overlay.side]}第 ${overlay.slot} 格。`)
+    this.say(text, 'overlay', { overlay: overlay.id, kind: overlay.kind, slot: overlay.slot }, owner)
+    return overlay
+  }
+
   /** 和人重疊的東西被擊落或停機。 */
   dropOverlay(o: BattleOverlay, by?: BattleUnit, quiet = false): void {
     if (o.down) return
     o.down = true
-    this.say(quiet ? `${o.name}停機了。` : `${o.name}被擊落了。`, 'overlay.down', { overlay: o.id, kind: o.kind, owner: o.owner, ...(by ? { by: by.id } : {}) }, by)
+    this.say(quiet ? `${o.name}停機了。` : `${o.name}被擊落了。`, 'overlay.down', { overlay: o.id, kind: o.kind, ...(o.owner ? { owner: o.owner } : {}), ...(by ? { by: by.id } : {}) }, by)
     if (!quiet) this.k.battle.emit('overlay.down', { run: this, overlay: o, ...(by ? { by } : {}) })
+  }
+
+  /** 操作者退出之後自律（autonomous 的那一台）：沒有操作者、每一輪自己動（auto）、ext.orphan。不發 overlay.down、不停機。 */
+  private orphan(o: BattleOverlay): void {
+    delete o.owner
+    o.auto = true
+    o.ext = { ...o.ext, orphan: true }
+    this.say(`${o.name}失去了操作者，進入自律模式。`, 'overlay', { overlay: o.id, kind: o.kind, slot: o.slot, orphan: true })
+  }
+
+  /**
+   * 替身：和人重疊的東西自己開火時的攻擊者，由核心臨時組出來，不在 battle.units 裡、不寫進戰鬥狀態。
+   * 名字、哪一方、哪一格、迴避、護甲照那一台；武器是它自己的；傷害倍率照 ext.dmgMult（{ hp, load }，或一個數字當生命的倍率；沒寫都是 1）；
+   * 標籤 machine、overlay；ext.overlay 是那一台的 id。沒有 hp 與 load（對它做回復、感載、傷害都沒有效果），
+   * 狀態給不上去（applyStatus 回傳 false）、推拉不動（shift、place 回傳 false）。凡是拿到 attacker 的掛點都可能拿到替身：
+   * 要對攻擊者做攻擊以外的事的功能先看 ext.overlay（或 run.overlayOfStandIn）。
+   */
+  standIn(o: BattleOverlay): BattleUnit {
+    const m = o.ext?.dmgMult
+    const mult = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 1)
+    const dmgMult = typeof m === 'number' ? { hp: mult(m), load: 1 } : isRecord(m) ? { hp: mult(m.hp), load: mult(m.load) } : { hp: 1, load: 1 }
+    return {
+      id: o.id, side: o.side, slot: o.slot, name: o.name, control: 'ai', grade: this.battle.grade, rank: 'minion',
+      attrs: Object.fromEntries(ATTR_IDS.map((id) => [id, 10])) as BattleUnit['attrs'], skills: {},
+      armor: o.armor, layers: 0, layersMax: 0, sensitivity: 50, sink: 0,
+      ap: { now: 0, max: 0, regen: 0 }, pools: {}, weapons: o.weapon ? [o.weapon] : [], wield: 0,
+      evade: o.evade, initBonus: 0, initiative: 0, statuses: [], dmgMult, tags: [...OVERLAY_STAND_IN_TAGS], quick: [], uses: {}, wounds: {},
+      ext: { overlay: o.id },
+    }
+  }
+
+  /** 這個單位是不是替身（核心臨時組的，不在 battle.units 裡）。 */
+  isStandIn(u: BattleUnit): boolean {
+    return typeof u.ext?.overlay === 'string' && this.battle.units[u.id] !== u
+  }
+
+  /** 替身對應的那一台（掛著、還沒被擊落的）；不是替身，或那一台已經被擊落、不見了就是 undefined。 */
+  overlayOfStandIn(u: BattleUnit): BattleOverlay | undefined {
+    if (!this.isStandIn(u)) return undefined
+    return this.battle.overlays.find((x) => x.id === u.ext.overlay && !x.down)
+  }
+
+  /**
+   * 這一台自己開火：用它自己的武器（opts.weapon 可以換）、傷害乘 ext.dmgMult；攻擊者是替身（standIn），
+   * attack.before、attack.after 拿到的 attacker 帶 ext.overlay。其餘和 run.attack 一樣（命中、要害、遮蔽、重創、反應）。
+   * 這一台已經被擊落回傳 aborted；沒有武器丟錯。對方的反應用 run.attack 打回去時，打的是這一台的耐久。
+   */
+  overlayAttack(o: BattleOverlay, target: BattleUnit, opts: AttackOpts = {}): AttackResult {
+    const weapon = opts.weapon ?? o.weapon
+    if (!weapon) throw new Error(`${o.name} 沒有武器`)
+    if (o.down) return { hit: false, crit: false, natural: 0, total: 0, evade: 0, raw: 0, dealt: 0, track: 'none', wound: false, downed: false, aborted: true }
+    return this.attack(this.standIn(o), target, { ...opts, weapon })
   }
 
   /** 一方全部倒下或退出：分出結果。 */
@@ -821,7 +974,7 @@ export class BattleRun implements BattleView {
 
   /** 把人放到某一格（抓捕索把後排的人拉到第 1 格）；那一格有人就交換。 */
   place(u: BattleUnit, to: number, by?: BattleUnit): boolean {
-    if (!onField(u) || to < 1 || to > BATTLE_SLOTS || to === u.slot) return false
+    if (!onField(u) || this.isStandIn(u) || to < 1 || to > BATTLE_SLOTS || to === u.slot) return false
     const other = unitAt(this.battle, u.side, to)
     const from = u.slot
     if (other) other.slot = from

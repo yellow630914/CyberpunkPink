@@ -453,6 +453,13 @@ export function battleProblems(b: unknown): string[] {
     }
     if (!isInt(raw.layers) || (raw.layers as number) < 0) p.push(`units.${id}：餘韻的層數要是 0 以上的整數`)
     if (!Array.isArray(raw.weapons) || !Array.isArray(raw.statuses) || !isRecord(raw.uses)) p.push(`units.${id}：要有 weapons、statuses、uses`)
+    // 義體的清單：每一件要有種類與名字（失效與超頻照種類找狀態）；contract 要是布林值
+    if (raw.implants !== undefined) {
+      if (!Array.isArray(raw.implants)) p.push(`units.${id}：implants 要是義體的陣列`)
+      else raw.implants.forEach((x, i) => {
+        if (!isRecord(x) || typeof x.kind !== 'string' || !x.kind || typeof x.name !== 'string' || !x.name || (x.contract !== undefined && typeof x.contract !== 'boolean')) p.push(`units.${id}：implants[${i}] 要有 kind、name（字串），contract 要是布林值`)
+      })
+    }
     // 一格一個單位：還在場上的人不能站在同一格
     if (!raw.out && (raw.slot as number) >= 1) {
       const key = `${String(raw.side)}:${String(raw.slot)}`
@@ -466,6 +473,10 @@ export function battleProblems(b: unknown): string[] {
     for (const raw of b.overlays as unknown[]) {
       if (!isRecord(raw) || typeof raw.id !== 'string' || !raw.id) { p.push('overlays：每一台要有 id'); continue }
       if (!BATTLE_SIDES.includes(raw.side as never) || !isInt(raw.slot) || (raw.slot as number) < 1 || (raw.slot as number) > BATTLE_SLOTS) { p.push(`overlays.${raw.id}：要掛在某一方的第 1～${BATTLE_SLOTS} 格`); continue }
+      // 操作者可以沒有（裝在場景上的、巡邏用的、自律之後的）；有的話要查得到
+      if (raw.owner !== undefined && !(typeof raw.owner === 'string' && Object.prototype.hasOwnProperty.call(units, raw.owner))) p.push(`overlays.${raw.id}：操作者 ${String(raw.owner)} 不在這場戰鬥裡`)
+      for (const f of ['auto', 'autonomous'] as const) if (raw[f] !== undefined && typeof raw[f] !== 'boolean') p.push(`overlays.${raw.id}：${f} 要是布林值`)
+      if (raw.weapon !== undefined && !isRecord(raw.weapon)) p.push(`overlays.${raw.id}：weapon 要是一把武器`)
       if (raw.down) continue
       const key = `${String(raw.side)}:${String(raw.slot)}`
       if (hung.has(key)) p.push(`overlays.${raw.id}：和 ${hung.get(key)} 掛在同一格（每格最多一台）`)

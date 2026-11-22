@@ -42,3 +42,9 @@ M1b-core-overlay、M1b-skill-pilot（`drone.act`，而且兩張都改 `features/
 ## 完成時回報
 
 改了哪些檔、測試結果、ENEMIES 第 10 節那張「兵種在哪裡」的表裡哪幾種這套格式還放不進去。
+
+## 補（2026-11-22，M1b-core-overlay 回報後）
+
+- **使用者已定案 E6 兩邊統一自律**：這張改 `features/summons` 時，我方放出的無人機也帶 `autonomous: true`，`round.start` 照 `ext.orphan` 做命中 −2、不移動；`tests/features/M1-summons*.test.ts` 裡「所有無人機停機」的兩處改成自律（照 COMBAT_SYSTEM 9.1 新版）。
+- 沒有操作者的那一台的 `used` 由這張的 `round.start` 處理函式每輪清掉。
+- 替身用 `run.standIn(o)`。

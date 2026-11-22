@@ -271,6 +271,12 @@ export interface BattleOverlay {
   ext?: Record<string, unknown>
 }
 
+/**
+ * run.addOverlay 收的：一台的樣子，不含核心發的 id 與狀態（used、down 一開始都是 false）。
+ * hp、armor、evade 是基本值；有 owner 時核心再問他的修正（overlay_hp、overlay_armor、overlay_evade）加上去
+ */
+export type BattleOverlayInit = Omit<BattleOverlay, 'id' | 'used' | 'down'>
+
 /** 控制節點（COMBAT_SYSTEM 2.4 節）：被潛網者拿下之後可以改變戰場（關燈、放防爆門、接管砲塔）。 */
 export interface BattleNode {
   id: string

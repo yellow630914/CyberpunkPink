@@ -12,7 +12,7 @@ import type { BattleKernel, BattleUnitInit, UnitSourceCtx } from './registry'
 import type { BattleMode } from './rules'
 import { COVER_LAYOUTS, coverHpFor, modeOf } from './rules'
 import { BattleRun, initiativeOrder } from './run'
-import { advance, beginTurn } from './turn'
+import { advance, beginTurn, startRound } from './turn'
 
 /** 一筆「誰上場」：from 是來源（actor、unit、enemy……），其餘的欄位由那個來源解讀。 */
 export interface UnitRef {
@@ -84,6 +84,8 @@ export function unitFromActor(k: BattleKernel, state: GameState, actorId: ActorI
     layers: a.afterglow, layersMax: statOr(k, state, actorId, 'afterglow_cap', 3), sensitivity, sink: 0,
     // 身上的義體數：義體的功能（M4）註冊 cyber_count 之前都是 0
     ...(k.stats.hasStat('cyber_count') ? { cyber: Math.max(0, Math.floor(k.stats.stat(state, actorId, 'cyber_count'))) } : {}),
+    // 身上裝著的義體（義體的功能經 loadout 給）：失效與超頻從這裡挑
+    ...(lo.implants?.length ? { implants: clone(lo.implants) } : {}),
     ap: { now: apMax, max: apMax, regen: n.apRegen },
     pools: { ram: { now: ramMax, max: ramMax, regen: statOr(k, state, actorId, 'ram_regen', 2) } },
     weapons, wield: 0,
@@ -163,6 +165,8 @@ export function setupBattle(k: BattleKernel, state: GameState, setup: BattleSetu
         taken.add(slot)
       } else battle.reserve[side].push(id)
       const u: BattleUnit = { ...init, id, side, slot, initiative: 0, control: ref.control ?? (side === 'ally' ? init.control : 'ai') }
+      // cyber 沒寫、但有義體清單時，用件數（敵人 AI 的 bridged 偏好看 cyber；dev/adr/0015 第三節）
+      if (u.cyber === undefined && u.implants) u.cyber = u.implants.length
       battle.units[id] = u
     })
   }
@@ -201,9 +205,11 @@ export function setupBattle(k: BattleKernel, state: GameState, setup: BattleSetu
   if (battle.origin.capture?.length) run.say(`條件：要活的。${battle.origin.capture.map((id) => battle.units[id]?.name ?? id).join('、')}要制伏，不能打倒。`, undefined, { capture: battle.origin.capture })
   k.battle.emit('battle.start', { run })
   run.say(`—— 第 1 回合 ——`, 'round', { round: 1 })
+  startRound(run)
+  if (run.over) return run
   // 輪到第一個能動的人（先攻最高的人開場就失去回合時，往下輪）
   const first = battle.units[battle.order[0] ?? '']
-  if (first && beginTurn(run, first)) run.settle()
+  if (first && !first.out && first.slot >= 1 && beginTurn(run, first)) run.settle()
   else advance(run)
   return run
 }

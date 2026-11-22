@@ -33,6 +33,16 @@ function endRound(run: BattleRun): void {
   }
   b.round += 1
   run.say(`—— 第 ${b.round} 回合 ——`, 'round', { round: b.round })
+  startRound(run)
+}
+
+/**
+ * 一輪的開頭（第一輪也走這裡，由 setupBattle 呼叫）：發 round.start 掛點（還沒有人行動），再替處理函式收尾（補位、看結果）。
+ * 沒有操作者、自己動的東西與倒數計時放在這個掛點上。
+ */
+export function startRound(run: BattleRun): void {
+  run.k.battle.emit('round.start', { run, round: run.battle.round })
+  run.settle()
 }
 
 /**
@@ -116,6 +126,8 @@ export function advance(run: BattleRun): void {
     if (b.turn >= b.order.length) {
       b.turn = 0
       endRound(run)
+      // 一輪開頭的掛點裡分出了結果（巡邏的東西打倒了最後一個人）：不再往下輪
+      if (run.over) return
     }
     const next = currentUnit(b)
     if (!next || next.out || next.slot < 1) continue
