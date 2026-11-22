@@ -3,7 +3,7 @@
 
 import type { ActorId, GameState, Kernel, ReportDraft } from '../../core'
 import { clone } from '../../core'
-import type { AbilityEntry, AbilityState, Category, PathEntry } from './types'
+import type { AbilityEntry, AbilityState, Category, PathEntry, PreparedEntry } from './types'
 import { CATEGORIES, CATEGORY_NAME, TREE_XP } from './types'
 
 const isRec = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -15,7 +15,22 @@ export function abilitiesOf(state: GameState, actor: ActorId): AbilityState {
   const list = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
   const spent: Record<string, number> = {}
   if (isRec(r.spent)) for (const [key, v] of Object.entries(r.spent)) if (typeof v === 'number' && Number.isFinite(v)) spent[key] = v
-  return { xp: typeof r.xp === 'number' && Number.isFinite(r.xp) ? r.xp : 0, learned: list(r.learned), equipped: list(r.equipped), spent }
+  // 每件委託的次數與預備好的：沒有就不出現這兩個鍵（學、裝的報告照舊整份帶著它們）
+  const commission: Record<string, Record<string, number>> = {}
+  if (isRec(r.commission)) {
+    for (const [key, used] of Object.entries(r.commission)) {
+      if (!isRec(used)) continue
+      const counts = Object.fromEntries(Object.entries(used).filter(([, n]) => typeof n === 'number' && Number.isFinite(n)))
+      if (Object.keys(counts).length) commission[key] = counts as Record<string, number>
+    }
+  }
+  const prepared: PreparedEntry[] = Array.isArray(r.prepared)
+    ? r.prepared.filter((x): x is PreparedEntry => isRec(x) && typeof x.id === 'string' && (x.scope === 'next_battle' || x.scope === 'commission')).map((x) => ({ id: x.id, scope: x.scope, ...(typeof x.key === 'string' ? { key: x.key } : {}) }))
+    : []
+  return {
+    xp: typeof r.xp === 'number' && Number.isFinite(r.xp) ? r.xp : 0, learned: list(r.learned), equipped: list(r.equipped), spent,
+    ...(Object.keys(commission).length ? { commission } : {}), ...(prepared.length ? { prepared } : {}),
+  }
 }
 
 /** 一棵樹開到幾階（1～5）：這棵樹累計花的歷練點達到 TREE_XP[N-1] 的最大的 N。 */
