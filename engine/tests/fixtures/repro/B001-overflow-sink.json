@@ -1,6 +1,6 @@
 {
   "id": "B001-overflow-sink",
-  "note": "B001：同上，沉溺 sink 各 +1e308：沉溺變成 Infinity，存檔讀不回來。修好後搬到 tests/fixtures/repro/。",
+  "note": "B001（已修）：同上，沉溺 sink 各 +1e308：格式錯誤，走退路；沉溺不變，存檔讀得回來。",
   "seed": 7,
   "setup": {
     "scenario": "emptyRoom",

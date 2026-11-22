@@ -103,8 +103,21 @@ describe('M0-actions：行動種類由資料驅動（AI_TASKS 3.1 節；CORE_RUL
     expect(judged(k, makeState(), 'beg', 'critical', 9)).toEqual([{ kind: 'cash', amount: 40 }])
   })
 
-  it('格式錯誤在內容載入之後就擋下：和核心的行動撞名、條件的種類不存在、參考範圍裡有清單以外的效果、引用不存在的基本功', () => {
-    expect(() => kernel([{ ...ACTIONS[2], id: 'free' }])).toThrow(/free/)
+  it('資料裡的 free 取代核心內建的自由行動（多了參考範圍）；寫了別的任務鏈的種類先不註冊（那一條鏈搬進來之前只是資料）', () => {
+    const k = kernel([{ ...ACTIONS[0], id: 'free', name: '自由行動', attr: 'intellect', skill: undefined, minutes: 30, max_minutes: 240 }, { ...ACTIONS[1], id: 'flirt', chain: 'adult_action', hint_note: { success: '親密度 +3，可能進場景' } }, { ...ACTIONS[2], id: 'plain', chain: 'free_action' }])
+    expect(k.actions.get('free')).toMatchObject({ owner: 'actions', attr: 'intellect', minutes: 30, maxMinutes: 240 })
+    expect(k.actions.get('free')!.hint).toBeDefined()
+    expect(k.actions.get('flirt')).toBeUndefined()
+    expect(k.actions.get('plain')).toBeDefined()
+    // 沒有載入 free 的資料時，核心內建的預設還在
+    expect(kernel([ACTIONS[0]!]).actions.get('free')).toMatchObject({ owner: 'core' })
+    // 寫了別的鏈的種類照樣檢查格式與引用
+    expect(() => kernel([{ ...ACTIONS[1], id: 'flirt', chain: 'adult_action', skill: 'juggling' }])).toThrow(/juggling/)
+    expect(() => kernel([{ ...ACTIONS[1], chain: 'Bad Chain' }])).toThrow(/chain/)
+    expect(() => kernel([{ ...ACTIONS[1], hint_note: { great: 'x' } }])).toThrow(/hint_note/)
+  })
+
+  it('格式錯誤在內容載入之後就擋下：條件的種類不存在、參考範圍裡有清單以外的效果、引用不存在的基本功', () => {
     expect(() => kernel([{ ...ACTIONS[1], requires: { kind: 'moon_phase' } }])).toThrow(/moon_phase/)
     expect(() => kernel([{ ...ACTIONS[0], hint: { success: [{ kind: 'summon_dragon', amount: 1 }] } }])).toThrow(/summon_dragon/)
     expect(() => kernel([{ ...ACTIONS[0], hint: { success: [{ kind: 'cash', amount: 'lots' }] } }])).toThrow()

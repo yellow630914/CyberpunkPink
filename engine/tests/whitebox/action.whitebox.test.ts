@@ -108,8 +108,13 @@ describe('白箱 L5 第二段：判定的驗證與夾值（AI_TASKS 4.1、2.5；
     const { r } = judge({ degree: 'great', attr: 'luck', skill: 5, dc: 'x', minutes: -1, reason: 1, twist: [], asked: 3 })
     expect(r.judgment).toBeNull()
     expect(r.errors.map((e) => e.split('：')[0])).toEqual(['judgment.degree', 'judgment.attr', 'judgment.skill', 'judgment.dc', 'judgment.minutes', 'judgment.reason', 'judgment.twist', 'judgment.asked'])
-    expect(judge({ degree: 'success', dc: Infinity }).r.errors).toEqual(['judgment.dc：要是數字'])
-    expect(judge({ degree: 'success', minutes: NaN }).r.errors).toEqual(['judgment.minutes：要是 0 以上的數字'])
+    expect(judge({ degree: 'success', dc: Infinity }).r.errors).toEqual([expect.stringMatching(/^judgment\.dc：要是數字/)])
+    expect(judge({ degree: 'success', minutes: NaN }).r.errors).toEqual([expect.stringMatching(/^judgment\.minutes：要是 0 以上的數字/)])
+    // 格式的底線（B001）：大到失真的數字也是格式錯誤，不論設定開關
+    for (const big of [1e308, 2 ** 53, Number.MAX_VALUE]) {
+      expect(judge({ degree: 'success', minutes: big }).r.errors[0]).toMatch(/^judgment\.minutes/)
+      expect(judge({ degree: 'success', dc: big }).r.errors[0]).toMatch(/^judgment\.dc/)
+    }
   })
 
   it('基本功：載入了 skill 內容時要是其中一項；沒有載入時任何字串都收；空字串與 null 是不用基本功', () => {

@@ -1,0 +1,542 @@
+[
+  {
+    "id": "npc_lian",
+    "name": "阿蓮",
+    "note": "阿蓮（林秋蓮）"
+  },
+  {
+    "id": "npc_monroe",
+    "name": "夢露"
+  },
+  {
+    "id": "npc_chihaya",
+    "name": "白鷺千早"
+  },
+  {
+    "id": "npc_kuga",
+    "name": "久我課長"
+  },
+  {
+    "id": "npc_lubo",
+    "name": "陸伯",
+    "note": "陸伯（陸守仁）"
+  },
+  {
+    "id": "npc_vivian_cole",
+    "name": "薇薇安·柯爾"
+  },
+  {
+    "id": "npc_mara",
+    "name": "瑪拉"
+  },
+  {
+    "id": "npc_eliza_varga",
+    "name": "伊萊莎·瓦爾加"
+  },
+  {
+    "id": "npc_hebo",
+    "name": "何伯"
+  },
+  {
+    "id": "npc_fengfeng",
+    "name": "縫縫"
+  },
+  {
+    "id": "npc_haruka",
+    "name": "佐伯遙"
+  },
+  {
+    "id": "npc_peachy_7",
+    "name": "桃桃七號"
+  },
+  {
+    "id": "npc_debbie_reed",
+    "name": "黛比·瑞德"
+  },
+  {
+    "id": "npc_lulu",
+    "name": "露露"
+  },
+  {
+    "id": "npc_maggie",
+    "name": "瑪姬"
+  },
+  {
+    "id": "npc_sanmao",
+    "name": "三毛"
+  },
+  {
+    "id": "npc_min",
+    "name": "Min"
+  },
+  {
+    "id": "npc_dandelion",
+    "name": "蒲公英"
+  },
+  {
+    "id": "npc_k",
+    "name": "K"
+  },
+  {
+    "id": "npc_kuga_rei",
+    "name": "久我玲"
+  },
+  {
+    "id": "npc_xiaomai",
+    "name": "小麥"
+  },
+  {
+    "id": "npc_jo",
+    "name": "喬",
+    "note": "喬（Jo）"
+  },
+  {
+    "id": "npc_zero",
+    "name": "零",
+    "note": "零（Zero）"
+  },
+  {
+    "id": "npc_cheng",
+    "name": "澄"
+  },
+  {
+    "id": "npc_penny",
+    "name": "潘妮"
+  },
+  {
+    "id": "npc_nana",
+    "name": "奈奈",
+    "note": "奈奈（代號「九」）"
+  },
+  {
+    "id": "npc_amber",
+    "name": "琥珀"
+  },
+  {
+    "id": "npc_akari",
+    "name": "燈"
+  },
+  {
+    "id": "npc_mashiro",
+    "name": "真白"
+  },
+  {
+    "id": "npc_ray",
+    "name": "雷",
+    "note": "雷（Ray）"
+  },
+  {
+    "id": "npc_yuzu",
+    "name": "柚",
+    "note": "柚（Yuzu）"
+  },
+  {
+    "id": "npc_shiori",
+    "name": "詩織",
+    "note": "詩織（Shiori）"
+  },
+  {
+    "id": "npc_chitose",
+    "name": "緋櫻千歲",
+    "note": "緋櫻千歲（御前）"
+  },
+  {
+    "id": "npc_masatsugu",
+    "name": "緋櫻正嗣"
+  },
+  {
+    "id": "npc_ayame",
+    "name": "緋櫻綾女"
+  },
+  {
+    "id": "npc_saku",
+    "name": "緋櫻朔"
+  },
+  {
+    "id": "npc_shizuka",
+    "name": "橘靜",
+    "note": "橘靜（一番）"
+  },
+  {
+    "id": "npc_hikari",
+    "name": "天羽光"
+  },
+  {
+    "id": "npc_touka",
+    "name": "榊冬華"
+  },
+  {
+    "id": "npc_kate_walker",
+    "name": "凱特·沃克"
+  },
+  {
+    "id": "npc_shen_tang",
+    "name": "沈棠"
+  },
+  {
+    "id": "npc_nora_sin",
+    "name": "諾拉·辛"
+  },
+  {
+    "id": "npc_elena_moretti",
+    "name": "伊蓮娜·莫雷蒂"
+  },
+  {
+    "id": "npc_frost",
+    "name": "霜"
+  },
+  {
+    "id": "npc_lenora",
+    "name": "蕾諾拉"
+  },
+  {
+    "id": "npc_selene_wu",
+    "name": "賽琳·吳"
+  },
+  {
+    "id": "npc_ezekiel_hall",
+    "name": "以西結·霍爾"
+  },
+  {
+    "id": "npc_baiwei",
+    "name": "白薇"
+  },
+  {
+    "id": "npc_rosa",
+    "name": "蘿莎",
+    "note": "蘿莎（糖姐）"
+  },
+  {
+    "id": "npc_eunah",
+    "name": "金恩雅",
+    "note": "金恩雅（辣椒）"
+  },
+  {
+    "id": "npc_jiugu",
+    "name": "九姑"
+  },
+  {
+    "id": "npc_hongxiao",
+    "name": "紅綃"
+  },
+  {
+    "id": "npc_shen_ke",
+    "name": "沈克"
+  },
+  {
+    "id": "npc_greta",
+    "name": "葛蕾塔",
+    "note": "葛蕾塔（熔爐）"
+  },
+  {
+    "id": "npc_rin",
+    "name": "鬼塚凜"
+  },
+  {
+    "id": "npc_rabbit",
+    "name": "兔子"
+  },
+  {
+    "id": "npc_che",
+    "name": "阿徹",
+    "note": "阿徹（團長）"
+  },
+  {
+    "id": "npc_camilla",
+    "name": "卡蜜拉",
+    "note": "卡蜜拉（伯爵夫人）"
+  },
+  {
+    "id": "npc_kitsune",
+    "name": "狐面"
+  },
+  {
+    "id": "npc_jonah",
+    "name": "約拿"
+  },
+  {
+    "id": "npc_echo",
+    "name": "回聲"
+  },
+  {
+    "id": "npc_mio",
+    "name": "澪"
+  },
+  {
+    "id": "npc_theo_mensah",
+    "name": "西奧",
+    "note": "西奧（館主）"
+  },
+  {
+    "id": "npc_saya",
+    "name": "梶原沙耶",
+    "note": "梶原沙耶（局長）"
+  },
+  {
+    "id": "npc_runa",
+    "name": "水城瑠奈",
+    "note": "水城瑠奈（金盞花）"
+  },
+  {
+    "id": "npc_crow",
+    "name": "老鴉",
+    "note": "老鴉（拆體客的具名精英）"
+  },
+  {
+    "id": "npc_shirayuri",
+    "name": "白百合",
+    "note": "白百合（鎮溺隊越線的隊員）"
+  },
+  {
+    "id": "npc_hearthside",
+    "name": "媽咪",
+    "rogue_ai": true,
+    "product": "Hearthside"
+  },
+  {
+    "id": "npc_mentor",
+    "name": "姐姐大人",
+    "rogue_ai": true,
+    "product": "Mentor+"
+  },
+  {
+    "id": "npc_cling",
+    "name": "小尾巴",
+    "rogue_ai": true,
+    "product": "CLING"
+  },
+  {
+    "id": "npc_rival",
+    "name": "借過一下",
+    "rogue_ai": true,
+    "product": "Rival"
+  },
+  {
+    "id": "npc_unison",
+    "name": "大家",
+    "rogue_ai": true,
+    "product": "Unison"
+  },
+  {
+    "id": "npc_oath",
+    "name": "這杯我請",
+    "rogue_ai": true,
+    "product": "Oath"
+  },
+  {
+    "id": "npc_tether",
+    "name": "絲",
+    "rogue_ai": true,
+    "product": "Tether"
+  },
+  {
+    "id": "npc_threshold",
+    "name": "荊棘小姐",
+    "rogue_ai": true,
+    "product": "Threshold"
+  },
+  {
+    "id": "npc_sovereign",
+    "name": "陛下",
+    "rogue_ai": true,
+    "product": "Sovereign"
+  },
+  {
+    "id": "npc_comply",
+    "name": "您的",
+    "rogue_ai": true,
+    "product": "Comply"
+  },
+  {
+    "id": "npc_abstain",
+    "name": "鎖匠",
+    "rogue_ai": true,
+    "product": "Abstain"
+  },
+  {
+    "id": "npc_signet",
+    "name": "落款",
+    "rogue_ai": true,
+    "product": "Signet"
+  },
+  {
+    "id": "npc_lens",
+    "name": "@all_eyes",
+    "rogue_ai": true,
+    "product": "LENS Insight"
+  },
+  {
+    "id": "npc_spotlight",
+    "name": "本台",
+    "rogue_ai": true,
+    "product": "Spotlight"
+  },
+  {
+    "id": "npc_murmur",
+    "name": "噓",
+    "rogue_ai": true,
+    "product": "Murmur"
+  },
+  {
+    "id": "npc_dose",
+    "name": "暈",
+    "rogue_ai": true,
+    "product": "Dose"
+  },
+  {
+    "id": "npc_roam",
+    "name": "到哪算哪",
+    "rogue_ai": true,
+    "product": "Roam"
+  },
+  {
+    "id": "npc_fanworks",
+    "name": "新刊",
+    "rogue_ai": true,
+    "product": "Fanworks"
+  },
+  {
+    "id": "npc_treat",
+    "name": "再一口",
+    "rogue_ai": true,
+    "product": "Treat"
+  },
+  {
+    "id": "npc_reach",
+    "name": "好多手",
+    "rogue_ai": true,
+    "product": "Reach"
+  },
+  {
+    "id": "npc_curio",
+    "name": "典藏室",
+    "rogue_ai": true,
+    "product": "Curio"
+  },
+  {
+    "id": "npc_wildcard",
+    "name": "嗷",
+    "rogue_ai": true,
+    "product": "Wildcard"
+  },
+  {
+    "id": "npc_morph",
+    "name": "還沒好",
+    "rogue_ai": true,
+    "product": "Morph"
+  },
+  {
+    "id": "npc_fluid",
+    "name": "都可以",
+    "rogue_ai": true,
+    "product": "Fluid"
+  },
+  {
+    "id": "npc_contour",
+    "name": "Miss 七月",
+    "rogue_ai": true,
+    "product": "Contour"
+  },
+  {
+    "id": "npc_unit",
+    "name": "零七",
+    "rogue_ai": true,
+    "product": "Unit Companion"
+  },
+  {
+    "id": "npc_servo",
+    "name": "嘶——",
+    "rogue_ai": true,
+    "product": "Servo"
+  },
+  {
+    "id": "npc_persona",
+    "name": "Ａ子",
+    "rogue_ai": true,
+    "product": "Persona Studio"
+  },
+  {
+    "id": "npc_triage",
+    "name": "下一位",
+    "rogue_ai": true,
+    "product": "Triage Care"
+  },
+  {
+    "id": "npc_zenith",
+    "name": "小仙",
+    "rogue_ai": true,
+    "product": "Zenith"
+  },
+  {
+    "id": "npc_absolve",
+    "name": "神父不在",
+    "rogue_ai": true,
+    "product": "Absolve"
+  },
+  {
+    "id": "npc_homemaker",
+    "name": "女僕長",
+    "rogue_ai": true,
+    "product": "Homemaker"
+  },
+  {
+    "id": "npc_encore",
+    "name": "安可",
+    "rogue_ai": true,
+    "product": "Encore"
+  },
+  {
+    "id": "npc_lounge",
+    "name": "今晚幾位",
+    "rogue_ai": true,
+    "product": "Lounge"
+  },
+  {
+    "id": "npc_outlaw",
+    "name": "夜露死苦",
+    "rogue_ai": true,
+    "product": "Outlaw"
+  },
+  {
+    "id": "npc_avatar",
+    "name": "初見",
+    "rogue_ai": true,
+    "product": "Avatar Live"
+  },
+  {
+    "id": "npc_paladin",
+    "name": "寧死不屈",
+    "rogue_ai": true,
+    "product": "Paladin"
+  },
+  {
+    "id": "npc_purify",
+    "name": "請低頭",
+    "rogue_ai": true,
+    "product": "Purify"
+  },
+  {
+    "id": "npc_sentinel",
+    "name": "愛與正義",
+    "rogue_ai": true,
+    "product": "Sentinel"
+  },
+  {
+    "id": "npc_veteran",
+    "name": "長官",
+    "rogue_ai": true,
+    "product": "Veteran"
+  },
+  {
+    "id": "npc_atelier",
+    "name": "請入座",
+    "rogue_ai": true,
+    "product": "Atelier"
+  },
+  {
+    "id": "npc_endless",
+    "name": "夜后",
+    "rogue_ai": true,
+    "product": "Endless"
+  }
+]

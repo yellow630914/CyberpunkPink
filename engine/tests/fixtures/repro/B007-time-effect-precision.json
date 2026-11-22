@@ -1,0 +1,51 @@
+{
+  "id": "B007-time-effect-precision",
+  "note": "B007（已修）：預設設定，算回報交 time 1e300 小時：同上，算回報就判格式錯誤；時間只走判定的那一段。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom",
+    "ai": {
+      "ai": 1,
+      "retry": {
+        "reward": 0
+      }
+    },
+    "fake": {
+      "byTask": {
+        "reward": [
+          {
+            "json": {
+              "items": [
+                {
+                  "kind": "time",
+                  "hours": 1e+300,
+                  "from": {
+                    "source": "degree"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "type": "act",
+      "input": {
+        "kind": "free",
+        "text": "我等一下"
+      }
+    }
+  ],
+  "expect": {
+    "paths": {
+      "time": {
+        "day": 1,
+        "hour": 8,
+        "minute": 30
+      }
+    }
+  }
+}

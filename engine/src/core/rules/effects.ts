@@ -3,7 +3,8 @@
 //
 // 一批效果（一件事、或一次行動的結算）走四步，效果自己不改狀態：
 //   1. 驗格式（每一筆都驗；有一筆不合格，整批不收）
-//   2. 合計的上限（EVENTS 2.4 節「每件」）：同一組的所有筆數加起來才比上限，拆成幾筆給也一樣；超過的從最後幾筆往回扣
+//   2. 合計的上限（EVENTS 2.4 節「每件」）：同一組的所有筆數加起來才比上限，拆成幾筆給也一樣；超過的從最後幾筆往回扣。
+//      合計照每一筆寫的量算；如果照當下的狀態調整之後實際的淨變化仍然超出上限，那一組改成邊走邊算（任何時候都不超出）
 //   3. 照順序一筆一筆：看當下的狀態夾值（已經包含前面幾筆的結果）→ 轉成變更 → 變更在一份複製的狀態上驗過、套上去
 //   4. 呼叫的人接著要套的變更（ctx.tail，例如這次行動的時間）也在那份複製的狀態上驗一次
 // 所以 resolve 回傳的 changes 一定套得上去：套用不會失敗（dev/invariants.md 第 16 條）。
@@ -171,59 +172,92 @@ export class EffectRegistry {
     if (errors.length) return fail(errors)
     const list = raw as Effect[]
     const levels = list.map((e) => effectLevel(e, ctx))
-    /** 每一筆現在的樣子（null 是整筆拿掉）與它被夾的紀錄（一筆最多一則：from 是原本的，to 是最後的） */
-    const current: Array<Effect | null> = [...list]
-    const notes = new Map<number, Omit<ClampNote, 'path'>>()
-    const note = (i: number, n: Omit<ClampNote, 'path'>) => notes.set(i, notes.has(i) ? { ...n, from: notes.get(i)!.from } : n)
-
-    // 第 2 步：合計的上限
-    const groups = new Map<string, Array<{ i: number; b: EffectBudget }>>()
-    list.forEach((e, i) => {
+    const budgets = list.map((e, i) => {
       const b = this.defs.get(e.kind)!.budget?.(e, { ...ctx, level: levels[i]! })
-      if (b && b.amount !== 0) groups.set(b.group, [...(groups.get(b.group) ?? []), { i, b }])
+      return b && b.amount !== 0 ? b : null
     })
-    for (const members of groups.values()) {
-      const total = members.reduce((s, m) => s + m.b.amount, 0)
-      const max = Math.min(...members.map((m) => m.b.max)), min = Math.max(...members.map((m) => m.b.min))
-      // 超過的從最後幾筆往回扣（只扣同一個方向的）
-      let excess = total > max ? total - max : total < min ? total - min : 0
-      for (let j = members.length - 1; j >= 0 && excess !== 0; j--) {
-        const { i, b } = members[j]!
+    const groups = new Map<string, { members: number[]; min: number; max: number }>()
+    budgets.forEach((b, i) => {
+      if (!b) return
+      const g = groups.get(b.group) ?? { members: [], min: -Infinity, max: Infinity }
+      groups.set(b.group, { members: [...g.members, i], min: Math.max(g.min, b.min), max: Math.min(g.max, b.max) })
+    })
+
+    // 第 2 步：合計的上限。同一組的量加起來才比上限；超過的從最後幾筆往回扣（只扣同一個方向的）
+    const planned: Array<Effect | null> = [...list]
+    const planNotes = new Map<number, Omit<ClampNote, 'path'>>()
+    for (const g of groups.values()) {
+      const total = g.members.reduce((sum, i) => sum + budgets[i]!.amount, 0)
+      let excess = total > g.max ? total - g.max : total < g.min ? total - g.min : 0
+      for (let j = g.members.length - 1; j >= 0 && excess !== 0; j--) {
+        const i = g.members[j]!, b = budgets[i]!
         if (Math.sign(b.amount) !== Math.sign(excess)) continue
         const cut = excess > 0 ? Math.min(b.amount, excess) : Math.max(b.amount, excess)
         const to = b.amount - cut
         excess -= cut
-        current[i] = to === 0 ? null : b.resize(to)
-        note(i, { from: b.amount, to, limit: cut > 0 ? max : min, notice: b.notice(to) })
+        planned[i] = to === 0 ? null : b.resize(to)
+        planNotes.set(i, { from: b.amount, to, limit: cut > 0 ? g.max : g.min, notice: b.notice(to) })
       }
     }
 
-    // 第 3 步：照順序，一筆一筆在複製的狀態上夾、轉、驗、套
-    const out: ResolvedEffects = { effects: [], changes: [], lines: [], clamps: [], errors: [] }
-    const work = clone(ctx.state)
-    for (let i = 0; i < list.length; i++) {
-      const def = this.defs.get(list[i]!.kind)!
-      const step: EffectStepCtx = { ...ctx, state: work, level: levels[i]! }
-      let effect = current[i]
-      if (effect && def.clamp) {
-        const r = def.clamp(effect, step)
-        effect = r.effect
-        if (r.note) note(i, r.note)
+    // 第 3 步：照順序，一筆一筆在複製的狀態上夾、轉、驗、套。
+    // running 裡的組改成「邊走邊算」：每一筆套上去之後，這一組到目前為止實際的淨變化都不超出上下限（見下面的說明）。
+    const pass = (running: ReadonlySet<string>): { out: ResolvedEffects; work: GameState; net: Map<string, number> } | { errors: string[] } => {
+      const out: ResolvedEffects = { effects: [], changes: [], lines: [], clamps: [], errors: [] }
+      const work = clone(ctx.state)
+      const net = new Map<string, number>()
+      for (let i = 0; i < list.length; i++) {
+        const def = this.defs.get(list[i]!.kind)!
+        const step: EffectStepCtx = { ...ctx, state: work, level: levels[i]! }
+        const b = budgets[i]
+        const g = b ? groups.get(b.group)! : null
+        let effect: Effect | null
+        let note: Omit<ClampNote, 'path'> | undefined
+        if (b && g && running.has(b.group)) {
+          const n = net.get(b.group) ?? 0
+          const to = b.amount > 0 ? Math.max(0, Math.min(b.amount, g.max - n)) : Math.min(0, Math.max(b.amount, g.min - n))
+          effect = to === 0 ? null : to === b.amount ? list[i]! : b.resize(to)
+          if (to !== b.amount) note = { from: b.amount, to, limit: b.amount > 0 ? g.max : g.min, notice: b.notice(to) }
+        } else {
+          effect = planned[i] ?? null
+          note = planNotes.get(i)
+        }
+        if (effect && def.clamp) {
+          const r = def.clamp(effect, step)
+          effect = r.effect
+          // 一筆最多一則：from 是原本的值，to 是最後的值
+          if (r.note) note = note ? { ...r.note, from: note.from } : r.note
+        }
+        if (note) out.clamps.push({ ...note, path: `${path}[${i}]` })
+        if (!effect) continue
+        // 這一筆實際算進合計的量（夾過、照當下的狀態調整過之後）
+        if (b) net.set(b.group, (net.get(b.group) ?? 0) + (def.budget?.(effect, step)?.amount ?? 0))
+        const changes = def.toChanges(effect, step)
+        const line = def.describe(effect, step)
+        try {
+          this.changes.applyAll(work, changes)
+        } catch (e) {
+          if (!(e instanceof ChangeError)) throw e
+          return { errors: e.problems.map((p) => `${path}[${i}]：${p}`) }
+        }
+        out.effects.push(effect)
+        out.changes.push(...changes)
+        out.lines.push(line)
       }
-      if (notes.has(i)) out.clamps.push({ ...notes.get(i)!, path: `${path}[${i}]` })
-      if (!effect) continue
-      const changes = def.toChanges(effect, step)
-      const line = def.describe(effect, step)
-      try {
-        this.changes.applyAll(work, changes)
-      } catch (e) {
-        if (!(e instanceof ChangeError)) throw e
-        return fail(e.problems.map((p) => `${path}[${i}]：${p}`))
-      }
-      out.effects.push(effect)
-      out.changes.push(...changes)
-      out.lines.push(line)
+      return { out, work, net }
     }
+
+    let done = pass(new Set())
+    if ('errors' in done) return fail(done.errors)
+    // 合計是照每一筆寫的量算的；照當下的狀態調整之後（例：要扣的錢比手上有的多，實際只扣得到手上有的），實際的淨變化可能超出上限：
+    // 「扣一大筆（扣不到）再給一大筆」合計看起來沒超過，實際卻多拿。這種組改成邊走邊算再跑一次，實際的淨變化一定在上下限內。
+    const { net } = done
+    const over = new Set([...groups].filter(([id, g]) => (net.get(id) ?? 0) > g.max || (net.get(id) ?? 0) < g.min).map(([id]) => id))
+    if (over.size) {
+      done = pass(over)
+      if ('errors' in done) return fail(done.errors)
+    }
+    const { out, work } = done
 
     // 第 4 步：接著要套的變更也驗一次
     if (ctx.tail?.length) {

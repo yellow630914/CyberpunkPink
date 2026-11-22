@@ -10,15 +10,15 @@
     "home": "蜂巢四號塔的單位",
     "favor": {
       "choose_one": [
-        "孤星連",
-        "野良"
+        "lonestar",
+        "nora"
       ],
       "value": 25
     },
     "perk": "origin_hive",
     "roster": [
-      "小麥",
-      "雷"
+      "npc_xiaomai",
+      "npc_ray"
     ]
   },
   {
@@ -32,25 +32,25 @@
     "home": "蜂巢四號塔的單位",
     "favor": {
       "choose_one": [
-        "緋櫻",
-        "星旗",
-        "崑崙",
-        "蜜腺",
-        "夜鶯",
-        "萬華鏡",
-        "伊甸園",
-        "黑泉",
-        "天使急救",
-        "織女",
-        "貞網局",
-        "甜心食品"
+        "hizakura",
+        "starbelle",
+        "kunlun",
+        "nectar",
+        "nightingale",
+        "kaleido",
+        "eden",
+        "blackspring",
+        "angel",
+        "orihime",
+        "netvigil",
+        "sweetheart"
       ],
       "value": 25
     },
     "perk": "origin_corp",
     "roster": [
-      "潘妮",
-      "雷"
+      "npc_penny",
+      "npc_ray"
     ]
   },
   {
@@ -64,14 +64,14 @@
     "home": "一台能住的車，停在舊港的車廠",
     "favor": {
       "choose_one": [
-        "野薔薇"
+        "rose"
       ],
       "value": 25
     },
     "perk": "origin_nomad",
     "roster": [
-      "真白",
-      "雷"
+      "npc_mashiro",
+      "npc_ray"
     ]
   },
   {
@@ -85,14 +85,14 @@
     "home": "番街的隔間",
     "favor": {
       "choose_one": [
-        "蜜糖會"
+        "honey"
       ],
       "value": 25
     },
     "perk": "origin_pleasure",
     "roster": [
-      "琥珀",
-      "雷"
+      "npc_amber",
+      "npc_ray"
     ]
   },
   {
@@ -106,14 +106,14 @@
     "home": "舊港的倉庫隔間",
     "favor": {
       "choose_one": [
-        "胭脂堂"
+        "rouge"
       ],
       "value": 25
     },
     "perk": "origin_oldport",
     "roster": [
-      "奈奈",
-      "雷"
+      "npc_nana",
+      "npc_ray"
     ]
   },
   {
@@ -127,15 +127,15 @@
     "home": "櫻町的合租屋",
     "favor": {
       "choose_one": [
-        "特攻姬",
-        "女僕公會"
+        "tokko",
+        "maids"
       ],
       "value": 25
     },
     "perk": "origin_sakura",
     "roster": [
-      "燈",
-      "雷"
+      "npc_akari",
+      "npc_ray"
     ]
   },
   {
@@ -149,15 +149,15 @@
     "home": "月台市的鋪位",
     "favor": {
       "choose_one": [
-        "野良",
-        "牆語者"
+        "nora",
+        "whisper"
       ],
       "value": 25
     },
     "perk": "origin_under",
     "roster": [
-      "零",
-      "雷"
+      "npc_zero",
+      "npc_ray"
     ]
   }
 ]

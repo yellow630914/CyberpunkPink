@@ -1,6 +1,6 @@
 {
   "id": "B001-overflow-cash",
-  "note": "B001：「玩家要求的結果也夾值」關、asked 對得上，兩次各拿現金 1e308：現金變成 Infinity，存檔讀不回來（嚴格模式下第二次提交丟出誤導的「掛鉤直接改了狀態」）。修好後搬到 tests/fixtures/repro/。",
+  "note": "B001（已修）：「玩家要求的結果也夾值」關、asked 對得上，兩次各要現金 1e308。數值不是安全整數是格式錯誤（EVENTS 2.4 節的格式底線，設定關著也照擋）：算回報重試、再走退路；錢不會變成 Infinity，存檔讀得回來。",
   "seed": 7,
   "setup": {
     "scenario": "emptyRoom",

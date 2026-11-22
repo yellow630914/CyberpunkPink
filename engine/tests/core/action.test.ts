@@ -155,11 +155,31 @@ describe('L5 主動行動的三段式', () => {
     expect(draft.outcome.summary).toContain('拿到：現金 12')
     expect(draft.narration).toEqual({ results: ['拿到：現金 12'], text: '正文' })
     expect(draft.timeline[0]!.roll).toEqual(j.roll)
+    // 判定的轉折寫在擲骰的那一拍上（紀錄的擲骰行下面顯示）；沒有轉折就沒有這一欄
+    expect(draft.timeline[0]!.twist).toBe('有個路人連菸帶硬幣一起丟給你')
+    expect('twist' in buildActionReport(k, state, { pending: p, judgment: fallbackJudgment(p), reward }).timeline[0]!).toBe(false)
     expect(draft.party[0]).toMatchObject({ id: 'pc', hp: [40, 40, 0] })
     const report = commitReport(k, state, draft)
     expect(state).toEqual(expectedAfterCommit(k, before, report))
     expect(state.money.cash).toBe(12)
     expect(state.rng.cursor).toBe(1)
     expect(state.time).toEqual({ day: 1, hour: 9, minute: 0 })
+  })
+
+  it('免夾的判定（設定關著、asked 對得上）：成功程度照 AI 給的，主持人的走向跟著成功程度走（W006）', () => {
+    const { k, state } = setup()
+    const p = prepareAction(k, state, { kind: 'beg', text: '這次一定成功' })
+    const VERDICTS = { critical: 'yes_and', fail: 'no_but', fumble: 'no_and' } as const
+    for (const degree of ['critical', 'fail', 'fumble'] as const) {
+      const j = sanitizeJudgment(k, state, p, { degree, asked: '一定成功' }, { clampAsked: false }).judgment!
+      expect(j.degree).toBe(degree)
+      expect(j.roll).toMatchObject({ degree, verdict: VERDICTS[degree], natural: p.roll.natural })
+    }
+    // 成功：照差距分「是」與「是，但是」
+    const success = sanitizeJudgment(k, state, p, { degree: 'success', asked: '一定成功' }, { clampAsked: false }).judgment!
+    expect(success.roll.verdict).toBe(success.roll.margin >= 3 ? 'yes' : 'yes_but')
+    // 設定開著：成功程度與走向都照骰值
+    const on = sanitizeJudgment(k, state, p, { degree: 'critical', asked: '一定成功' }, { clampAsked: true }).judgment!
+    expect(on.roll).toMatchObject({ degree: p.roll.degree, verdict: p.roll.verdict })
   })
 })

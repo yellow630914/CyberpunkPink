@@ -5,6 +5,8 @@ import type { ActionHint, ActionInput, ActionKindDef, ActionKindEntry, Condition
 import { blankState, clone } from '../../core'
 
 const GRADES: Grade[] = [1, 2, 3, 4, 5]
+/** 自由行動的鏈（AI_TASKS 3.1 節）：沒有寫 chain 的行動種類走這一條 */
+const FREE_CHAIN = 'free_action'
 
 function check(k: Kernel, e: ActionKindEntry): void {
   const fail = (why: string): never => {
@@ -69,6 +71,8 @@ export const actionsFeature: Feature = {
   ready(k) {
     const entries = k.content.list<ActionKindEntry>('action_kind')
     for (const e of entries) check(k, e)
-    for (const e of entries) k.actions.register(toDef(e, k))
+    // 走別的任務鏈的種類（誘惑走 3.5 節的鏈……）先只是資料：那一條鏈搬進來之前不註冊成可以做的行動。
+    // 資料裡的 free 取代核心內建的預設（核心的登錄表允許）
+    for (const e of entries) if (e.chain === undefined || e.chain === FREE_CHAIN) k.actions.register(toDef(e, k))
   },
 }

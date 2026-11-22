@@ -1,8 +1,8 @@
 // 邊界測試：任務鏈的管線（AI_TASKS 2.2 節：依賴、同時跑最多 3 個、判定與寫正文之間隔著程式、結果在寫正文之前）
-// 與 2.5 節「time 不另外夾」。cpp-tester-boundary 寫的。
+// 與 2.5 節、EVENTS 2.4 節的時間（time 自己不夾；一次行動的總時間合計後受行動種類的時間上限管）。cpp-tester-boundary 寫的。
 //
 // 同時跑：0、1、3（上限）、4（上限+1）、10 個沒有依賴關係的 AI 步驟；性質：隨機的依賴圖，每一步都在它依賴的步驟完成之後才開始、
-// 同時跑的請求不超過 3 個、套用最後。已知會失敗的用 it.fails 標著（見 dev/bugs/）。
+// 同時跑的請求不超過 3 個、套用最後。B006、B007（dev/bugs/）已經修好，這裡有它們的回歸測試。
 
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
@@ -150,34 +150,91 @@ describe('邊界 AI_TASKS 2.2：判定與寫正文之間隔著程式；結果在
     }
   })
 
-  it.fails('B006：模板的格式檢查擋下「寫正文直接接在判定後面、中間沒有程式」的模板（validateTemplate 的說明寫了這一條，但沒有做）', () => {
+  it('B006：模板的格式檢查擋下「寫正文直接接在判定後面、中間沒有程式」的模板', () => {
     expect(() => validateTemplate({
       chain: 'no_code_between',
       steps: [{ id: 'judge', kind: 'ai', task: 'judge' }, { id: 'text', kind: 'ai', task: 'narrate', needs: ['judge'] }, { id: 'apply', kind: 'apply' }],
-    })).toThrow()
+    })).toThrow(/隔著程式/)
+  })
+
+  it('「隔著程式」怎麼算（dev/adr/0009）：寫正文依賴的步驟裡要有一個程式步驟，而且那個程式步驟依賴判定', () => {
+    const judge: StepTemplate = { id: 'judge', kind: 'ai', task: 'judge' }
+    const apply: StepTemplate = { id: 'apply', kind: 'apply' }
+    const ok = (steps: StepTemplate[]) => expect(() => validateTemplate({ chain: 't', steps: [...steps, apply] })).not.toThrow()
+    const bad = (steps: StepTemplate[]) => expect(() => validateTemplate({ chain: 't', steps: [...steps, apply] })).toThrow(/隔著程式/)
+    // 程式夾在中間：直接的、隔一層 AI 的；寫正文可以同時直接依賴判定
+    ok([judge, { id: 'hint', kind: 'code', run: 'x', needs: ['judge'] }, { id: 'text', kind: 'ai', task: 'narrate', needs: ['hint'] }])
+    ok([judge, { id: 'hint', kind: 'code', run: 'x', needs: ['judge'] }, { id: 'reward', kind: 'ai', task: 'reward', needs: ['judge', 'hint'] }, { id: 'text', kind: 'ai', task: 'narrate', needs: ['judge', 'reward'] }])
+    // 程式在判定之前（不是夾在中間）、程式和判定沒有關係、寫正文沒有依賴那個程式：都不算
+    bad([{ id: 'roll', kind: 'code', run: 'x' }, { ...judge, needs: ['roll'] }, { id: 'text', kind: 'ai', task: 'narrate', needs: ['judge'] }])
+    bad([judge, { id: 'side', kind: 'code', run: 'x' }, { id: 'text', kind: 'ai', task: 'narrate', needs: ['judge', 'side'] }])
+    bad([judge, { id: 'hint', kind: 'code', run: 'x', needs: ['judge'] }, { id: 'text', kind: 'ai', task: 'narrate', needs: ['judge'] }])
+    // 只隔著 AI 的步驟（沒有程式）也不算
+    bad([judge, { id: 'reward', kind: 'ai', task: 'reward', needs: ['judge'] }, { id: 'text', kind: 'ai', task: 'narrate', needs: ['reward'] }])
+    // 沒有判定的鏈、寫正文不依賴判定的鏈不受這一條限制
+    ok([{ id: 'settle', kind: 'code', run: 'x' }, { id: 'text', kind: 'ai', task: 'narrate', needs: ['settle'] }])
+    ok([judge, { id: 'text', kind: 'ai', task: 'narrate' }])
+    ok([{ id: 'text', kind: 'ai', task: 'narrate' }])
+    // 兩個判定：每一個都要隔著程式
+    bad([judge, { id: 'judge2', kind: 'ai', task: 'judge' }, { id: 'hint', kind: 'code', run: 'x', needs: ['judge'] }, { id: 'text', kind: 'ai', task: 'narrate', needs: ['hint', 'judge2'] }])
+    // 自由行動的模板合格
+    expect(() => validateTemplate(FREE_ACTION_TEMPLATE)).not.toThrow()
   })
 })
 
 // ---------------------------------------------------------------------------------------------
-// AI_TASKS 2.5 節、EVENTS 2.4 節：time 不另外夾
+// AI_TASKS 2.5 節、EVENTS 2.4 節：time 自己不夾；一次行動的總時間（判定的時間加上結算裡的 time）合計後受行動種類的時間上限管
 
-describe('邊界 AI_TASKS 2.5：time 不另外夾（設定開著也不夾）', () => {
-  const act = async (hours: unknown, clamp_asked = 1) => {
-    const { game } = makeGame({ ai: { ai: 1, clamp_asked, retry: { reward: 0 } }, fake: { byTask: { reward: [{ json: { items: [{ kind: 'time', hours, from: { source: 'degree' } }] } }] } } })
+describe('邊界 AI_TASKS 2.5／EVENTS 2.4：行動的總時間合計後受行動種類的時間上限管', () => {
+  const FREE_MAX = 240
+  const act = async (hours: unknown, clamp_asked = 1, asked?: string) => {
+    const item = { kind: 'time', hours, ...(asked ? { asked, from: { source: 'player', quote: asked } } : { from: { source: 'degree' } }) }
+    const { game } = makeGame({ ai: { ai: 1, clamp_asked, retry: { reward: 0 } }, fake: { byTask: { reward: [{ json: { items: [item] } }] } } })
     const t0 = game.state.time
-    const r = await game.act({ kind: 'free', text: '我等一下' }, { autoRules: true })
+    const r = await game.act({ kind: 'free', text: '我等一下，等很久很久' }, { autoRules: true })
     const minutes = (r.run.draft.judge as { judgment: { minutes: number } }).judgment.minutes
     const passed = (game.state.time.day - t0.day) * 1440 + (game.state.time.hour - t0.hour) * 60 + (game.state.time.minute - t0.minute)
     return { game, r, minutes, passed }
   }
 
-  it('0 小時：不推時間、不算失敗；1 小時：多 60 分鐘；24 小時：多一天。都不留夾值的記號', async () => {
-    for (const [hours, extra] of [[0, 0], [1, 60], [24, 1440], [0.5, 30]] as const) {
+  it('合計在上限內：0 小時不推時間、不算失敗；0.5、1、3.5 小時（合計剛好 240 分鐘）照給。都不留夾值的記號', async () => {
+    for (const [hours, extra] of [[0, 0], [0.5, 30], [1, 60], [3.5, 210]] as const) {
       const { r, minutes, passed } = await act(hours)
+      expect(minutes).toBe(30)
       expect(r.status).toBe('applied')
       expect(passed, `${hours} 小時`).toBe(minutes + extra)
       expect(r.run.step('reward').marks).not.toContain('clamped')
     }
+  })
+
+  it('合計超過上限（上限+1 分鐘、24 小時、1,000 小時）：結算的 time 被扣到合計剛好等於上限，留記號，提醒照實寫時數；存檔讀得回來', async () => {
+    for (const hours of [211 / 60, 24, 1000]) {
+      const { game, r, minutes, passed } = await act(hours)
+      expect(passed, `${hours} 小時`).toBe(FREE_MAX)
+      expect(r.run.step('reward').marks).toContain('clamped')
+      const c = r.run.step('reward').clamps![0]!
+      expect(c).toMatchObject({ to: FREE_MAX - minutes, limit: FREE_MAX - minutes })
+      expect(c.notice).toBe('這件事最多花 4 小時，所以只再多花了 3 小時 30 分鐘。')
+      expect(r.reports[0]!.narration!.results).toEqual(['時間：過了 3 小時 30 分鐘'])
+      expect(game.load(game.save())).toBeNull()
+    }
+  })
+
+  it('拆成幾筆給也一樣：三筆各 2 小時，合計扣到上限（從最後一筆往回扣）', async () => {
+    const { game } = makeGame({ ai: { ai: 1 }, fake: { byTask: { reward: [{ json: { items: [1, 2, 3].map(() => ({ kind: 'time', hours: 2, from: { source: 'degree' } })) } }] } } })
+    const r = await game.act({ kind: 'free', text: '我等一下' })
+    expect(game.state.time).toEqual({ day: 1, hour: 12, minute: 0 })
+    expect(r.reports[0]!.narration!.results).toEqual(['時間：過了 2 小時', '時間：過了 1 小時 30 分鐘'])
+    expect(r.run.step('reward').clamps!.map((c) => c.path)).toEqual(['reward.items[1]', 'reward.items[2]'])
+  })
+
+  it('設定關著、玩家明說要的（asked 對得上）：time 不受上限管，照給；對不上的照樣合計後夾', async () => {
+    const free = await act(1000, 0, '等很久很久')
+    expect(free.passed).toBe(free.minutes + 60000)
+    expect(free.r.run.step('reward').marks).not.toContain('clamped')
+    const not = await act(1000, 0, '玩家沒有說過的話')
+    expect(not.r.run.step('reward').status).toBe('fallback')
+    expect(not.passed).toBe(not.minutes)
   })
 
   it('負數、NaN、字串、null 是格式錯誤：算回報失敗（自動重試設 0），照規則代替（退路），時間只走判定的那一段', async () => {
@@ -189,33 +246,37 @@ describe('邊界 AI_TASKS 2.5：time 不另外夾（設定開著也不夾）', (
     }
   })
 
-  it('現況：設定開著，AI 交 1,000 小時也照給（時間跳 41 天多）；判定的時間照樣夾在 240 分鐘', async () => {
-    const { game, r, minutes, passed } = await act(1000)
-    expect(minutes).toBeLessThanOrEqual(240)
-    expect(passed).toBe(minutes + 60000)
-    expect(r.run.step('reward').marks).not.toContain('clamped')
-    expect(game.load(game.save())).toBeNull()
+  it('B007：AI 交的 time 大到換算之後不是安全整數（1e308、1e300 小時；設定開或關都一樣），算回報就判格式錯誤（走重試或退路），不是到套用才丟錯', async () => {
+    for (const hours of [1e308, 1e300, Number.MAX_VALUE]) {
+      for (const clamp_asked of [1, 0]) {
+        const { game, r, minutes, passed } = await act(hours, clamp_asked, clamp_asked ? undefined : '等很久很久')
+        expect(r.status).toBe('applied')
+        expect(r.run.step('reward').status).toBe('fallback')
+        expect(r.run.step('reward').error?.details.join('')).toMatch(/hours/)
+        expect(passed).toBe(minutes)
+        expect(Number.isSafeInteger(game.state.time.day)).toBe(true)
+      }
+    }
   })
 
-  it.fails('B007：AI 交的 time 大到換算之後不是安全整數（1e308 小時）時，算回報就要判格式錯誤（走重試或退路），不是到套用才丟錯', async () => {
-    const { r } = await act(1e308)
-    expect(r.status).toBe('applied')
-    expect(r.run.step('reward').status).not.toBe('done')
-  })
-
-  it('B007 的現況：算回報標成完成，套用時「變更不合法」丟錯，整個行動丟出去；狀態不變、回退不留步數', async () => {
+  it('B007：不走退路的寫法也一樣（自動重試用完之前就擋下）：行動不會整個丟出去，不變式成立', async () => {
     const { game } = makeGame({ ai: { ai: 1 }, fake: { byTask: { reward: [{ json: { items: [{ kind: 'time', hours: 1e308, from: { source: 'degree' } }] } }] } } })
-    const h = stateHash(game.state)
-    const { result, violations } = await observed(game, () => game.act({ kind: 'free', text: '我等一下' }, { autoRules: true }).then(() => 'ok', (e: Error) => e.message))
-    expect(result).toMatch(/變更不合法/)
+    const { result, violations } = await observed(game, () => game.act({ kind: 'free', text: '我等一下' }, { autoRules: true }))
+    expect(result.status).toBe('applied')
     expect(violations).toEqual([])
-    expect(stateHash(game.state)).toBe(h)
-    expect(game.undo.size).toBe(0)
+    expect(game.undo.size).toBe(1)
+    expect(game.state.time).toEqual({ day: 1, hour: 8, minute: 30 })
   })
 
-  it.fails('B007：AI 交 1e300 小時，時間的天數變成 4e298（不是安全整數，再加分鐘不會動）——驗證應該擋下', async () => {
-    const { game, r } = await act(1e300)
-    expect(r.run.step('reward').status).not.toBe('done')
-    expect(Number.isSafeInteger(game.state.time.day)).toBe(true)
+  it('性質：設定開著，不論 AI 交幾筆、多少小時的 time，行動花的時間不超過行動種類的上限；套用不會失敗', async () => {
+    await fc.assert(fc.asyncProperty(fc.array(fc.oneof(fc.double({ min: 0, max: 1e6, noNaN: true }), fc.integer({ min: 0, max: 48 })), { maxLength: 5 }), fc.integer({ min: 0, max: 9999 }), async (list, judgeMinutes) => {
+      const { game } = makeGame({ ai: { ai: 1 }, fake: { byTask: {
+        judge: [(req: AiRequest) => ({ json: { degree: inputOf<{ roll: { degree: string } }>(req).roll.degree, minutes: judgeMinutes } })],
+        reward: [{ json: { items: list.map((hours) => ({ kind: 'time', hours, from: { source: 'degree' } })) } }],
+      } } })
+      const r = await game.act({ kind: 'free', text: '我等一下' })
+      const passed = (game.state.time.day - 1) * 1440 + (game.state.time.hour - 8) * 60 + game.state.time.minute
+      return r.status === 'applied' && passed <= FREE_MAX && passed >= Math.min(judgeMinutes, FREE_MAX)
+    }), { numRuns: 40 })
   })
 })

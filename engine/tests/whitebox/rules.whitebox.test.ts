@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ConditionCtx, EffectCtx, GameState } from '../../src/core'
 import {
-  ConditionRegistry, EffectRegistry, MONEY_CAP_BY_GRADE, Probe, askedMatches, attrMod, checkParts, computeDegree, createKernel, dcFor, makeCheck, moneyCap, rollCheck,
+  ChangeRegistry, ConditionRegistry, EffectRegistry, MONEY_CAP_BY_GRADE, Probe, askedMatches, attrMod, checkParts, computeDegree, createKernel, dcFor, makeCheck, moneyCap, rollCheck,
   sanitizeRules, snapToLadder, verdictOf,
 } from '../../src/core'
 import { makeState } from '../../src/testkit'
@@ -134,7 +134,8 @@ describe('白箱 L4 有效屬性與衍生數值（CORE_RULES 第 1 節；dev/inv
 
 describe('白箱 L4 效果的登錄表（EVENTS 2.4 封閉清單；AI_TASKS 2.5；dev/invariants.md 第 13、19、20、29 條）', () => {
   it('重複註冊丟錯；has、kinds', () => {
-    const reg = new EffectRegistry(new Probe())
+    const probe = new Probe()
+    const reg = new EffectRegistry(probe, new ChangeRegistry(probe))
     reg.register({ kind: 'k', owner: 'a', validate: () => [], toChanges: () => [], describe: () => '' })
     expect(() => reg.register({ kind: 'k', owner: 'b', validate: () => [], toChanges: () => [], describe: () => '' })).toThrow(/已經由 a 註冊/)
     expect(reg.has('k')).toBe(true)
@@ -149,7 +150,8 @@ describe('白箱 L4 效果的登錄表（EVENTS 2.4 封閉清單；AI_TASKS 2.5�
     expect(k.effects.validate([{ kind: 5 }], ctx)[0]).toMatch(/effects\[0\]\.kind：5 不在封閉清單裡/)
     expect(k.effects.validate([{ kind: 'cash', amount: 1, asked: 5 }], ctx)).toEqual(['effects[0].asked：要是玩家輸入裡的一段字'])
     const r = k.effects.resolve([{ kind: 'cash', amount: 1 }, { kind: 'cash', amount: 'x' }], ctx, 'reward')
-    expect(r.errors).toEqual(['reward[1]：amount 要是整數'])
+    expect(r.errors).toHaveLength(1)
+    expect(r.errors[0]).toMatch(/^reward\[1\]：amount 要是整數/)
     expect(r.changes).toEqual([])
   })
 
@@ -160,21 +162,39 @@ describe('白箱 L4 效果的登錄表（EVENTS 2.4 封閉清單；AI_TASKS 2.5�
     expect(askedMatches(' 要錢 ', '我要錢')).toBe(true)
   })
 
-  it('錢：負的也夾在上限（−上限）；扣的錢不超過手上有的；提醒的兩種寫法', () => {
+  it('錢：負的也夾在上限（−上限）；提醒的兩種寫法', () => {
     const k = createKernel()
-    const s = makeState({ patch: { money: { cred: 0, cash: 50 } } })
-    const r = k.effects.resolve([{ kind: 'cash', amount: -500 }, { kind: 'cred', amount: 500 }], effCtx(k, s))
-    expect(r.effects).toEqual([{ kind: 'cash', amount: -120 }, { kind: 'cred', amount: 120 }])
-    expect(r.changes).toEqual([{ op: 'cash', delta: -50 }, { op: 'cred', delta: 120 }])
-    expect(r.clamps.map((c) => c.notice)).toEqual(['這一區一次拿不走這麼多，實際少了 120 元。', '你要的比這一區給得起的多，實際拿到 120 元。'])
-    expect(r.clamps[0]!.path).toBe('effects[0]')
+    const rich = makeState({ patch: { money: { cred: 1000, cash: 1000 } } })
+    const lose = k.effects.resolve([{ kind: 'cash', amount: -500 }], effCtx(k, rich))
+    expect(lose.effects).toEqual([{ kind: 'cash', amount: -120 }])
+    expect(lose.clamps).toEqual([{ path: 'effects[0]', from: -500, to: -120, limit: -120, notice: '這一區一次拿不走這麼多，實際少了 120 元。' }])
+    const gain = k.effects.resolve([{ kind: 'cred', amount: 500 }], effCtx(k, rich))
+    expect(gain.clamps).toEqual([{ path: 'effects[0]', from: 500, to: 120, limit: 120, notice: '你要的比這一區給得起的多，實際拿到 120 元。' }])
   })
 
-  it('錢：手上是 0 時扣錢不產生變更（delta 0 不記）', () => {
+  it('錢：扣的錢不超過手上有的，定案的結果寫實際扣的數字（W010）；扣不到的不能拿來抵拿到的', () => {
     const k = createKernel()
-    const r = k.effects.resolve([{ kind: 'cred', amount: -10 }], effCtx(k, makeState()))
-    expect(r.changes).toEqual([])
-    expect(r.lines).toEqual(['失去：帳戶 10'])
+    const s = makeState({ patch: { money: { cred: 0, cash: 50 } } })
+    // 合計照寫的量是 0（看起來沒超過），但 500 現金實際只扣得到 50：改成邊走邊算，實際的淨變化 −50 + 170 = +120
+    const r = k.effects.resolve([{ kind: 'cash', amount: -500 }, { kind: 'cred', amount: 500 }], effCtx(k, s))
+    expect(r.effects).toEqual([{ kind: 'cash', amount: -50 }, { kind: 'cred', amount: 170 }])
+    expect(r.changes).toEqual([{ op: 'cash', delta: -50 }, { op: 'cred', delta: 170 }])
+    expect(r.lines).toEqual(['失去：現金 50', '拿到：帳戶 170'])
+    expect(r.clamps.map((c) => [c.path, c.from, c.to, c.notice])).toEqual([
+      ['effects[0]', -500, -50, '你身上的現金只有 50 元，實際少了 50 元。'],
+      ['effects[1]', 500, 170, '你要的比這一區給得起的多，實際拿到 170 元。'],
+    ])
+  })
+
+  it('錢：手上是 0 時扣錢整筆拿掉並提醒（沒有變更，也不留一行）；內建的也一樣', () => {
+    const k = createKernel()
+    for (const source of ['ai', 'builtin'] as const) {
+      const r = k.effects.resolve([{ kind: 'cred', amount: -10 }, { kind: 'cash', amount: -10 }], effCtx(k, makeState(), { source }))
+      expect(r.changes).toEqual([])
+      expect(r.lines).toEqual([])
+      expect(r.effects).toEqual([])
+      expect(r.clamps.map((c) => c.notice)).toEqual(['你的帳戶裡沒有錢，這一筆沒有扣。', '你身上沒有現金，這一筆沒有扣。'])
+    }
   })
 
   it('錢的上限：沒有資料用內建的表；資料檔載入了就以資料為準；資料要寫滿五級（內容的格式檢查）', () => {
@@ -213,7 +233,7 @@ describe('白箱 L4 效果的登錄表（EVENTS 2.4 封閉清單；AI_TASKS 2.5�
     k.content.defineKind({ kind: 'item', owner: 'wb', validate: () => [] })
     k.content.load('item', [{ id: 'it_a', name: '甲', grade: 1 }, { id: 'it_b', name: '乙', grade: 3 }, { id: 'it_c', name: '丙' }])
     expect(k.effects.validate([{ kind: 'item', id: 'Bad', qty: 1 }], effCtx(k, s))).toEqual(['effects[0]：id 的格式不對'])
-    expect(k.effects.validate([{ kind: 'item', id: 'it_a', qty: 0 }], effCtx(k, s))).toEqual(['effects[0]：qty 要是不為 0 的整數'])
+    expect(k.effects.validate([{ kind: 'item', id: 'it_a', qty: 0 }], effCtx(k, s))[0]).toMatch(/^effects\[0\]：qty 要是不為 0 的整數/)
     expect(k.effects.validate([{ kind: 'item', id: 'it_z', qty: 1 }], effCtx(k, s))[0]).toMatch(/不存在的物品：it_z/)
     expect(k.effects.validate([{ kind: 'item', id: 'it_a', qty: -1 }], effCtx(k, s))[0]).toMatch(/不夠 1 個/)
     const r = k.effects.resolve([{ kind: 'item', id: 'it_b', qty: 1 }, { kind: 'item', id: 'it_c', qty: 2 }], effCtx(k, s))

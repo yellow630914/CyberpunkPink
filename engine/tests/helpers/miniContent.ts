@@ -33,8 +33,19 @@ export const MINI_PACK: ContentPack = {
       { id: 'origin_oldport', name: '黑市的孩子', category: 'origin', cost: 2, flaw: false, desc: '隱匿 +2。', checks: { skills: ['stealth'], bonus: 2 } },
     ],
     origin: [
-      { id: 'hive', name: '蜂巢', line: '巨型公寓裡長大的孩子，現在是大人了', skill_bonus: { streetwise: 1 }, status: 'citizen', home: '蜂巢四號塔的單位', favor: { choose_one: ['孤星連', '野良'], value: 25 }, perk: 'origin_hive', roster: ['小麥', '雷'] },
-      { id: 'oldport', name: '舊港', line: '碼頭與黑市的人', skill_bonus: { stealth: 1 }, status: 'unregistered', home: '舊港的倉庫隔間', favor: { choose_one: ['胭脂堂'], value: 25 }, perk: 'origin_oldport', roster: ['奈奈', '雷'] },
+      { id: 'hive', name: '蜂巢', line: '巨型公寓裡長大的孩子，現在是大人了', skill_bonus: { streetwise: 1 }, status: 'citizen', home: '蜂巢四號塔的單位', favor: { choose_one: ['lonestar', 'nora'], value: 25 }, perk: 'origin_hive', roster: ['npc_xiaomai', 'npc_ray'] },
+      { id: 'oldport', name: '舊港', line: '碼頭與黑市的人', skill_bonus: { stealth: 1 }, status: 'unregistered', home: '舊港的倉庫隔間', favor: { choose_one: ['rouge'], value: 25 }, perk: 'origin_oldport', roster: ['npc_nana', 'npc_ray'] },
+    ],
+    // 勢力與具名 NPC 用 DATA 1.1 節 id 表的 id；出身引用它們
+    faction: [
+      { id: 'lonestar', name: '孤星連', short: '孤星連', class: 'street' },
+      { id: 'nora', name: '野良', short: '野良', class: 'street' },
+      { id: 'rouge', name: '胭脂堂', short: '胭脂堂', class: 'street' },
+    ],
+    npc: [
+      { id: 'npc_xiaomai', name: '小麥' },
+      { id: 'npc_ray', name: '雷' },
+      { id: 'npc_nana', name: '奈奈' },
     ],
     creation_rule: [
       { id: 'default', attr_array: [15, 14, 13, 12, 10, 8], attr_free: 2, attr_max: 18, attr_min: 4, skill_points: 10, skill_max: 3, perk_points: 4, perk_max: 8, flaw_max: 2, min_age: 18, start_money: 1500 },

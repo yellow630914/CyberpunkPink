@@ -10,7 +10,7 @@
 // 測試用 expectedAfterCommit() 驗這一條。
 
 import type { GameState, Report, ReportDraft } from '../types'
-import { clone, deepEqual, diffPaths, replaceInPlace } from '../util/clone'
+import { clone, deepEqual, diffPaths, nonFiniteAt, replaceInPlace } from '../util/clone'
 import { toMinutes } from '../util/time'
 import { ChangeError } from './changes'
 import { underageAt } from './coreChanges'
@@ -79,9 +79,18 @@ export function guardHooks<T>(k: StateKernel, state: GameState, names: string, r
 /** 在 work 上提交一份報告與掛鉤接著提交的。失敗時 work 可能套了一半：呼叫的人丟掉 work。 */
 function commitInto(k: StateKernel, work: GameState, draft: ReportDraft, depth: number, events: Array<() => void>): Report[] {
   if (depth > MAX_FOLLOW_UP_DEPTH) throw new Error(`掛鉤接著提交的報告超過 ${MAX_FOLLOW_UP_DEPTH} 層，可能是兩個功能互相觸發`)
+  // 報告裡不能有 NaN、Infinity：JSON 寫不出來，複製與存檔會把它們悄悄變成 null（先擋，再複製）
+  const notFinite = (v: unknown) => {
+    const bad = nonFiniteAt(v)
+    if (bad.length) throw new ChangeError([`報告裡有不是有限的數字（${bad.slice(0, 3).join('、')}）`])
+  }
+  notFinite(draft)
   const d: ReportDraft = clone(draft)
   guardHooks(k, work, 'report.before', () => {
-    for (const { result } of k.hooks.run('report.before', { state: work, draft: d })) d.changes.push(...result)
+    for (const { result } of k.hooks.run('report.before', { state: work, draft: d })) {
+      notFinite(result)
+      d.changes.push(...clone(result))
+    }
   })
   // 所有角色都是成年人：報告裡任何深度有低於 18 的年齡，整份不收（和讀檔同一條底線，所以提交得進去的一定讀得回來）
   const young = underageAt(d)

@@ -117,12 +117,12 @@ describe('L7 任務鏈：自由行動', () => {
 
   it('自動重試都失敗：判定停下來等玩家；其他任務自動用規則代替', async () => {
     const { game, fake } = setup({ ai: { ai: 1, retry: { judge: 2, reward: 0 } }, fake: { adversarial: { mode: 'bad_json', tasks: ['judge', 'reward'] } } })
-    const blocked = await game.act({ kind: 'beg', text: TEXT })
-    expect(blocked.status).toBe('blocked')
+    const paused = await game.act({ kind: 'beg', text: TEXT })
+    expect(paused.status).toBe('paused')
     expect(fake!.requestsFor('judge')).toHaveLength(3)
-    expect(blocked.run.step('judge').status).toBe('failed')
-    expect(blocked.run.step('judge').error?.kind).toBe('format')
-    expect(blocked.run.step('reward').status).toBe('waiting')
+    expect(paused.run.step('judge').status).toBe('failed')
+    expect(paused.run.step('judge').error?.kind).toBe('format')
+    expect(paused.run.step('reward').status).toBe('waiting')
     expect(game.state.reports).toHaveLength(1)
     expect(game.state.money.cash).toBe(0)
     // 玩家按「用規則代替」：判定走退路，後面照跑；算回報壞掉但它會自動用規則代替
@@ -135,10 +135,10 @@ describe('L7 任務鏈：自由行動', () => {
 
   it('被服務商拒絕：不自動重試；玩家可以重試或用規則代替', async () => {
     const { game, fake } = setup({ ai: { ai: 1, retry: { narrate: 3 } }, fake: { byTask: { narrate: [{ refusal: true }] } } })
-    const blocked = await game.act({ kind: 'beg', text: TEXT })
-    expect(blocked.status).toBe('blocked')
+    const paused = await game.act({ kind: 'beg', text: TEXT })
+    expect(paused.status).toBe('paused')
     expect(fake!.requestsFor('narrate')).toHaveLength(1)
-    expect(blocked.run.step('text').error?.kind).toBe('refusal')
+    expect(paused.run.step('text').error?.kind).toBe('refusal')
     // 數值在寫正文之前已經定案：改用規則照樣套用
     const done = await game.useRules('text')
     expect(done.status).toBe('applied')
@@ -221,7 +221,7 @@ describe('L7 任務鏈：自由行動', () => {
   it('寫正文不能寫標題（H10）、不能是空的', async () => {
     const { game, fake } = setup({ ai: { ai: 1, retry: { narrate: 1 } }, fake: { byTask: { narrate: [{ text: '# 狀態\nHP 10\n<covered>1</covered>' }, { text: '\n<covered>1</covered>' }] } } })
     const r = await game.act({ kind: 'beg', text: TEXT })
-    expect(r.status).toBe('blocked')
+    expect(r.status).toBe('paused')
     expect(r.run.step('text').attempts!.map((a) => a.error?.details[0])).toEqual(['H10：正文不寫標題、狀態欄、系統訊息', '正文是空的'])
     expect(sectionOf(fake!.requestsFor('narrate')[1]!, 'previous_error')).toContain('H10')
   })
@@ -367,7 +367,7 @@ describe('L7 任務鏈的引擎：依賴、同時跑、分支', () => {
     const { game } = setup({ ai: { ai: 1, retry: { judge: 0 } }, fake: { byTask: { judge: [{ refusal: true }] } } })
     const before = clone(game.state)
     const r = await game.act({ kind: 'beg', text: TEXT })
-    expect(r.status).toBe('blocked')
+    expect(r.status).toBe('paused')
     expect(game.state).toEqual(before)
     expect(r.run.draft.roll).toBeDefined()
     // 手動重試：這次假的服務商自己回合格的

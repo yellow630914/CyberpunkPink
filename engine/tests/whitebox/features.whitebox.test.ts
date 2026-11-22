@@ -21,7 +21,7 @@ const kernelWith = (features = [creationFeature, characterFeature, perksFeature]
 /** MINI_PACK 拿掉 creation_rule：驗「沒有載入時用預設值」。 */
 const NO_RULE_PACK = { id: 'mini-norule', content: Object.fromEntries(Object.entries(MINI_PACK.content).filter(([kind]) => kind !== 'creation_rule')) }
 const good: CreationDraft = {
-  name: '露', gender: 'female', age: 22, origin: 'hive', originChoice: { favor: '孤星連' },
+  name: '露', gender: 'female', age: 22, origin: 'hive', originChoice: { favor: 'lonestar' },
   attrPick: { reflex: 15, charm: 14, intellect: 13, body: 12, resolve: 10, tech: 8 }, attrBonus: { reflex: 2 },
   skills: { streetwise: 3, negotiate: 3 }, perks: ['smooth_talker'],
 }
@@ -92,10 +92,10 @@ describe('白箱 L6 建角（CHARACTER 第 1、2、5 節；UI 第 14 節；dev/i
     const s = makeState({ pc: false })
     expect(creationBlocks(k, s, { ...good, origin: 'moon' })).toEqual([{ step: 'origin', reason: '沒有這個出身。' }])
     expect(creationBlocks(k, s, { ...good, originChoice: undefined })[0]!.reason).toBe('要選一個勢力：孤星連、野良。')
-    expect(creationBlocks(k, s, { ...good, originChoice: { favor: '胭脂堂' } })[0]!.step).toBe('origin')
+    expect(creationBlocks(k, s, { ...good, originChoice: { favor: 'rouge' } })[0]!.step).toBe('origin')
     const d = buildCreationReport(k, s, { ...good, origin: 'oldport', originChoice: undefined, skills: { negotiate: 2, streetwise: 0 } })
     const actor = (d.changes[0] as unknown as { actor: { ext: { origin: { favor: string } }; skills: Record<string, number>; perks: string[] } }).actor
-    expect(actor.ext.origin.favor).toBe('胭脂堂')
+    expect(actor.ext.origin.favor).toBe('rouge')
     // 0 級的不放進去；出身送的 +1 加在沒買過的基本功上
     expect(actor.skills).toEqual({ negotiate: 2, stealth: 1 })
     expect(actor.perks).toEqual(['origin_oldport', 'smooth_talker'])

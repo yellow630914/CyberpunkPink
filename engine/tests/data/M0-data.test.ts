@@ -3,7 +3,7 @@
 // 完成後：git mv engine/tests/pending/M0-data.test.ts engine/tests/data/M0-data.test.ts，主套件要全過。
 
 import { describe, expect, it } from 'vitest'
-import type { AttributeEntry, CreationRuleEntry, OriginEntry, PerkEntry, SkillEntry } from '../../src'
+import type { AttributeEntry, CreationRuleEntry, FactionEntry, NpcEntry, OriginEntry, PerkEntry, SkillEntry } from '../../src'
 import { ATTR_IDS, MONEY_CAP_BY_GRADE, createKernel } from '../../src'
 import { CORE_PACK } from '../../data'
 
@@ -75,23 +75,49 @@ describe('M0-data：出身（CHARACTER 第 2 節）', () => {
     expect(Object.entries(o).filter(([, x]) => x.status === 'unregistered').map(([id]) => id).sort()).toEqual(['nomad', 'oldport', 'under'])
   })
 
-  it('好感 25 的勢力：選一的照表列出來；企業是十二家選一', () => {
+  it('好感 25 的勢力：選一的照表列出來（DATA 1.1 節的勢力 id）；企業是十二家選一', () => {
     const o = origins()
+    const content = loaded()
+    const short = (ids: string[]) => ids.map((id) => content.get<FactionEntry>('faction', id)?.short)
     for (const x of Object.values(o)) expect(x.favor.value, x.id).toBe(25)
-    expect(o.hive!.favor.choose_one).toEqual(['孤星連', '野良'])
+    expect(o.hive!.favor.choose_one).toEqual(['lonestar', 'nora'])
+    expect(short(o.hive!.favor.choose_one)).toEqual(['孤星連', '野良'])
     expect(o.corp!.favor.choose_one).toHaveLength(12)
-    expect(o.nomad!.favor.choose_one).toEqual(['野薔薇'])
-    expect(o.pleasure!.favor.choose_one).toEqual(['蜜糖會'])
-    expect(o.oldport!.favor.choose_one).toEqual(['胭脂堂'])
-    expect(o.sakura!.favor.choose_one).toEqual(['特攻姬', '女僕公會'])
-    expect(o.under!.favor.choose_one).toEqual(['野良', '牆語者'])
+    expect(o.corp!.favor.choose_one.every((id) => content.get<FactionEntry>('faction', id)?.class === 'corp')).toBe(true)
+    expect(short(o.nomad!.favor.choose_one)).toEqual(['野薔薇'])
+    expect(short(o.pleasure!.favor.choose_one)).toEqual(['蜜糖會'])
+    expect(short(o.oldport!.favor.choose_one)).toEqual(['胭脂堂'])
+    expect(short(o.sakura!.favor.choose_one)).toEqual(['特攻姬', '女僕公會'])
+    expect(short(o.under!.favor.choose_one)).toEqual(['野良', '牆語者'])
   })
 
-  it('開場就在名冊上：出身的那一位加上雷', () => {
+  it('開場就在名冊上：出身的那一位加上雷（DATA 1.1 節的 NPC id）', () => {
     const o = origins()
+    const content = loaded()
     expect(Object.fromEntries(Object.entries(o).map(([id, x]) => [id, x.roster]))).toEqual({
+      hive: ['npc_xiaomai', 'npc_ray'], corp: ['npc_penny', 'npc_ray'], nomad: ['npc_mashiro', 'npc_ray'], pleasure: ['npc_amber', 'npc_ray'],
+      oldport: ['npc_nana', 'npc_ray'], sakura: ['npc_akari', 'npc_ray'], under: ['npc_zero', 'npc_ray'],
+    })
+    expect(Object.fromEntries(Object.entries(o).map(([id, x]) => [id, x.roster.map((n) => content.get<NpcEntry>('npc', n)?.name)]))).toEqual({
       hive: ['小麥', '雷'], corp: ['潘妮', '雷'], nomad: ['真白', '雷'], pleasure: ['琥珀', '雷'], oldport: ['奈奈', '雷'], sakura: ['燈', '雷'], under: ['零', '雷'],
     })
+  })
+
+  it('id 表（DATA 1.1 節）：勢力二十九個（企業十二、街頭十五、公家二）；具名 NPC 與流竄 AI 的 id 都以 npc_ 開頭、不重複', () => {
+    const content = loaded()
+    const factions = content.list<FactionEntry>('faction')
+    expect(factions).toHaveLength(29)
+    expect(factions.filter((f) => f.class === 'corp')).toHaveLength(12)
+    expect(factions.filter((f) => f.class === 'street')).toHaveLength(15)
+    expect(factions.filter((f) => f.class === 'public').map((f) => f.id).sort()).toEqual(['police', 'suppress'])
+    expect(content.get<FactionEntry>('faction', 'hizakura')).toMatchObject({ name: '緋櫻重工', short: '緋櫻' })
+    const npcs = content.list<NpcEntry>('npc')
+    expect(npcs.every((n) => n.id.startsWith('npc_'))).toBe(true)
+    expect(new Set(npcs.map((n) => n.id)).size).toBe(npcs.length)
+    expect(npcs.filter((n) => n.rogue_ai === true)).toHaveLength(42)
+    expect(content.get<NpcEntry>('npc', 'npc_lian')?.name).toBe('阿蓮')
+    expect(content.get<NpcEntry>('npc', 'npc_jo')?.name).toBe('喬')
+    expect(content.get<NpcEntry>('npc', 'npc_hearthside')?.name).toBe('媽咪')
   })
 
   it('每個出身有一個出身特質，id 是 origin_<出身>，分類是 origin', () => {

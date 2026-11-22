@@ -1,0 +1,21 @@
+{
+  "id": "E2-retry-after-attached-commit",
+  "note": "審查 E2（已修）加上併進最新一樓的提交：自由行動之後付了兩筆帳（不另留回退），再重試判定被拒絕；回退一步把那一樓連同兩筆帳一起收回。",
+  "seed": 7,
+  "setup": {
+    "scenario": "withMoney",
+    "ai": { "ai": 1 },
+    "fake": {}
+  },
+  "inputs": [
+    { "type": "act", "input": { "kind": "free", "text": "我看看四周" } },
+    { "type": "commit", "changes": [{ "op": "cash", "delta": -10 }], "attach": true },
+    { "type": "commit", "changes": [{ "op": "cash", "delta": -10 }], "attach": true },
+    { "type": "undo" },
+    { "type": "retry", "step": "judge" }
+  ],
+  "expect": {
+    "throws": "回退",
+    "paths": { "time": { "day": 1, "hour": 8, "minute": 0 }, "money.cash": 500, "seq.report": 1 }
+  }
+}

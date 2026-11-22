@@ -26,6 +26,12 @@ export function moneyCap(ctx: Pick<EffectCtx, 'content' | 'grade'>): number {
 export const ITEM_MAX_PER_EVENT = 100
 
 type MoneyEffect = Effect & { amount: number }
+/** 付不出來時的提醒：兩種錢各有說法（held 是手上有的） */
+const SHORT_NOTICE: Record<'cred' | 'cash', (held: number) => string> = {
+  cash: (held) => (held === 0 ? '你身上沒有現金，這一筆沒有扣。' : `你身上的現金只有 ${formatAmount(held)} 元，實際少了 ${formatAmount(held)} 元。`),
+  cred: (held) => (held === 0 ? '你的帳戶裡沒有錢，這一筆沒有扣。' : `你的帳戶裡只有 ${formatAmount(held)} 元，實際少了 ${formatAmount(held)} 元。`),
+}
+
 const moneyEffect = (kind: 'cred' | 'cash', name: string): EffectDef<MoneyEffect> => ({
   kind, owner: 'core',
   validate: (raw) => (isSafeInt(raw.amount) ? [] : ['amount 要是整數（不能是小數、無限、非數，也不能大到失真）']),
@@ -48,7 +54,7 @@ const moneyEffect = (kind: 'cred' | 'cash', name: string): EffectDef<MoneyEffect
     if (e.amount > 0 || -e.amount <= held) return { effect: e }
     return {
       effect: held === 0 ? null : { ...e, amount: -held },
-      note: { from: e.amount, to: -held, limit: held, notice: held === 0 ? `你身上沒有${name}可以付，這一筆沒有扣。` : `你身上的${name}只有 ${formatAmount(held)} 元，實際少了 ${formatAmount(held)} 元。` },
+      note: { from: e.amount, to: -held, limit: held, notice: SHORT_NOTICE[kind](held) },
     }
   },
   toChanges: (e) => [{ op: kind, delta: e.amount }],

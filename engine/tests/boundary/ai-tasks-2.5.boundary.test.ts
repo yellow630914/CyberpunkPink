@@ -2,13 +2,15 @@
 // 2.6 節（逾時與拒絕）與 EVENTS 2.4 節（上限）。cpp-tester-boundary 寫的；邊界表在這份測試的回報裡。
 //
 // 每一個數值都測：下限、下限−1、上限、上限+1、零、空、最大組合；「玩家要求的結果也夾值」開與關兩條路都走。
-// 已知會失敗的（bug）不放在這裡，放在 tests/pending/boundary-ai-tasks-2.5.test.ts（見 dev/bugs/）。
+// 2026-11-21 定案之後照 EVENTS 2.4 節改寫：上限「每件」是一件事合計；錢的上限 AI 的看主角信譽那一階、內建的看區的等級；
+// 格式的底線（數值不溢位、物品一次最多 100 個、戰鬥外生命最少剩 1）設定關著也照擋。
+// B001、B002 的回歸測試在 tests/fixtures/repro/（種子重播）與 fixed-bugs.boundary.test.ts。
 
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import type { ActionKindDef, AiRequest, EffectCtx, EffectSource, Feature, GameState, Grade, Kernel } from '../../src'
 import {
-  ADVERSARIAL_MODES, DC_WINDOW, MONEY_CAP_BY_GRADE, RETRY_DEFAULT, RETRY_MAX, askedMatches, clone, computeDegree, createKernel, inputOf, prepareAction,
+  ADVERSARIAL_MODES, DC_WINDOW, ITEM_MAX_PER_EVENT, MONEY_CAP_BY_GRADE, RETRY_DEFAULT, RETRY_MAX, askedMatches, clone, computeDegree, createKernel, effectCtx, effectLevel, inputOf, prepareAction,
   retriesFor, sanitizeAiSettings, sanitizeJudgment, sectionOf, shouldClamp, splitCovered,
 } from '../../src'
 import { characterFeature } from '../../src/features/character'
@@ -199,30 +201,48 @@ describe('邊界 AI_TASKS 4.1／2.5：judge 的 DC、時間、成功程度', () 
 })
 
 // ---------------------------------------------------------------------------------------------
-// 3. 回報的數值上限（EVENTS 2.4 節）：錢照等級
+// 3. 回報的數值上限（EVENTS 2.4 節）：錢。AI 的照主角信譽那一階，內建的照區的等級；帳戶與現金加在一起算；一件事合計
 
-describe('邊界 EVENTS 2.4：錢的上限（每筆）', () => {
-  it('每一級：上限剛好不夾、上限+1 夾；負的一樣；零不產生變更', () => {
+describe('邊界 EVENTS 2.4：錢的上限（一件事合計）', () => {
+  const rich = () => makeState({ patch: { money: { cred: 1e6, cash: 1e6 } } })
+
+  it('AI 的照主角信譽那一階（repGrade）、不看區的等級：每一階上限剛好不夾、上限+1 夾；負的一樣；零不產生變更也不留一行', () => {
+    for (const rep of GRADES) {
+      const cap = MONEY_CAP_BY_GRADE[rep]
+      const k = effectKernel()
+      for (const grade of GRADES) {
+        const ctx = ctxOf(k, rich(), { grade, repGrade: rep })
+        for (const kind of ['cash', 'cred'] as const) {
+          expect(k.effects.resolve([{ kind, amount: cap }], ctx).clamps, `信譽 ${rep} 區 ${grade} ${kind} 上限`).toEqual([])
+          expect(k.effects.resolve([{ kind, amount: -cap }], ctx).clamps, `${rep} ${kind} −上限`).toEqual([])
+          const over = k.effects.resolve([{ kind, amount: cap + 1 }], ctx)
+          expect(over.changes, `${rep} ${kind} 上限+1`).toEqual([{ op: kind, delta: cap }])
+          expect(over.clamps[0]).toMatchObject({ from: cap + 1, to: cap, limit: cap })
+          expect(PLAIN(over.clamps[0]!.notice)).toBe(true)
+          const under = k.effects.resolve([{ kind, amount: -cap - 1 }], ctx)
+          expect(under.changes, `${rep} ${kind} −上限−1`).toEqual([{ op: kind, delta: -cap }])
+          expect(PLAIN(under.clamps[0]!.notice)).toBe(true)
+          const zero = k.effects.resolve([{ kind, amount: 0 }], ctx)
+          expect(zero).toMatchObject({ errors: [], changes: [], clamps: [], lines: [] })
+        }
+      }
+    }
+    // 沒給 repGrade（街頭信譽的功能還沒搬進來）當 I 級：無名
+    const k = effectKernel()
+    expect(k.effects.resolve([{ kind: 'cash', amount: 9999 }], ctxOf(k, rich(), { grade: 5 })).changes).toEqual([{ op: 'cash', delta: 120 }])
+    expect(effectCtx(k, rich(), { source: 'ai' })).toMatchObject({ grade: 1, repGrade: 1 })
+  })
+
+  it('內建的事件：拿到的錢照區的等級夾（不看信譽）；付出去的價錢、罰款不算在內，照寫的扣', () => {
+    const k = effectKernel()
     for (const grade of GRADES) {
       const cap = MONEY_CAP_BY_GRADE[grade]
-      const k = effectKernel()
-      const state = makeState({ patch: { money: { cred: 1e6, cash: 1e6 } } })
-      const ctx = ctxOf(k, state, { grade })
-      for (const kind of ['cash', 'cred'] as const) {
-        expect(k.effects.resolve([{ kind, amount: cap }], ctx).clamps, `${grade} ${kind} 上限`).toEqual([])
-        expect(k.effects.resolve([{ kind, amount: -cap }], ctx).clamps, `${grade} ${kind} −上限`).toEqual([])
-        const over = k.effects.resolve([{ kind, amount: cap + 1 }], ctx)
-        expect(over.changes, `${grade} ${kind} 上限+1`).toEqual([{ op: kind, delta: cap }])
-        expect(over.clamps[0]).toMatchObject({ from: cap + 1, to: cap, limit: cap })
-        expect(PLAIN(over.clamps[0]!.notice)).toBe(true)
-        const under = k.effects.resolve([{ kind, amount: -cap - 1 }], ctx)
-        expect(under.changes, `${grade} ${kind} −上限−1`).toEqual([{ op: kind, delta: -cap }])
-        expect(PLAIN(under.clamps[0]!.notice)).toBe(true)
-        const zero = k.effects.resolve([{ kind, amount: 0 }], ctx)
-        expect(zero.errors).toEqual([])
-        expect(zero.changes).toEqual([])
-        expect(zero.clamps).toEqual([])
-      }
+      const ctx = ctxOf(k, rich(), { source: 'builtin', grade, repGrade: 5 })
+      expect(k.effects.resolve([{ kind: 'cash', amount: cap }], ctx).clamps).toEqual([])
+      expect(k.effects.resolve([{ kind: 'cash', amount: cap + 1 }], ctx).changes).toEqual([{ op: 'cash', delta: cap }])
+      expect(k.effects.resolve([{ kind: 'cred', amount: -cap * 50 }], ctx)).toMatchObject({ changes: [{ op: 'cred', delta: -cap * 50 }], clamps: [] })
+      // 拿到的合計才比上限；付出去的不拿來抵
+      expect(k.effects.resolve([{ kind: 'cash', amount: cap }, { kind: 'cred', amount: 1 }, { kind: 'cash', amount: -500 }], ctx).changes).toEqual([{ op: 'cash', delta: cap }, { op: 'cash', delta: -500 }])
     }
   })
 
@@ -234,33 +254,109 @@ describe('邊界 EVENTS 2.4：錢的上限（每筆）', () => {
     expect(k.effects.resolve([{ kind: 'cash', amount: 51 }], ctx).changes).toEqual([{ op: 'cash', delta: 50 }])
   })
 
-  it('性質：每一種來源 × 開關 × asked，錢的變更都照 2.5 節的表；不會讓錢變成負數；提交不會失敗', () => {
+  it('一件事合計（審查 E1）：拆成幾筆給也一樣；帳戶與現金加在一起算；超過的從最後幾筆往回扣', () => {
+    const k = effectKernel()
+    const ctx = ctxOf(k, rich())
+    const three = k.effects.resolve([{ kind: 'cash', amount: 120 }, { kind: 'cash', amount: 120 }, { kind: 'cash', amount: 120 }], ctx)
+    expect(three.changes).toEqual([{ op: 'cash', delta: 120 }])
+    expect(three.lines).toEqual(['拿到：現金 120'])
+    expect(three.clamps.map((c) => [c.path, c.from, c.to])).toEqual([['effects[1]', 120, 0], ['effects[2]', 120, 0]])
+    for (const c of three.clamps) expect(PLAIN(c.notice)).toBe(true)
+    expect(k.effects.resolve([{ kind: 'cash', amount: 100 }, { kind: 'cred', amount: 100 }], ctx).changes).toEqual([{ op: 'cash', delta: 100 }, { op: 'cred', delta: 20 }])
+    // 有進有出：合計之後才比上限（+200、−100 合計 +100，不夾）
+    expect(k.effects.resolve([{ kind: 'cash', amount: 200 }, { kind: 'cash', amount: -100 }], ctx)).toMatchObject({ changes: [{ op: 'cash', delta: 200 }, { op: 'cash', delta: -100 }], clamps: [] })
+    // 合計超過時只扣同一個方向的那幾筆
+    expect(k.effects.resolve([{ kind: 'cash', amount: 100 }, { kind: 'cash', amount: -50 }, { kind: 'cash', amount: 100 }], ctx).changes).toEqual([{ op: 'cash', delta: 100 }, { op: 'cash', delta: -50 }, { op: 'cash', delta: 70 }])
+    expect(k.effects.resolve([{ kind: 'cash', amount: -100 }, { kind: 'cred', amount: -100 }], ctx).changes).toEqual([{ op: 'cash', delta: -100 }, { op: 'cred', delta: -20 }])
+  })
+
+  it('扣不到的不能拿來抵（E1 的另一種繞法）：先扣一大筆（手上沒有那麼多）再給一大筆，實際的淨變化照樣不超過上限', () => {
+    const k = effectKernel()
+    const poor = () => makeState({ patch: { money: { cred: 0, cash: 30 } } })
+    const net = (list: unknown[], state = poor()) => {
+      const r = k.effects.resolve(list, ctxOf(k, state))
+      const after = clone(state)
+      k.changes.applyAll(after, r.changes)
+      return after.money.cash + after.money.cred - state.money.cash - state.money.cred
+    }
+    expect(net([{ kind: 'cash', amount: -1000000 }, { kind: 'cred', amount: 1000120 }])).toBeLessThanOrEqual(120)
+    expect(net([{ kind: 'cred', amount: -5000 }, { kind: 'cash', amount: 5100 }])).toBe(120)
+    expect(net([{ kind: 'cred', amount: 300 }, { kind: 'cash', amount: 500 }, { kind: 'cash', amount: -1000 }])).toBeLessThanOrEqual(120)
+    // 真的扣得到的可以抵：先付 30 再拿 150，淨 +120
+    expect(net([{ kind: 'cash', amount: -30 }, { kind: 'cash', amount: 150 }])).toBe(120)
+    fc.assert(fc.property(fc.array(fc.tuple(fc.constantFrom('cash', 'cred'), fc.integer({ min: -3000, max: 3000 }).filter((n) => n !== 0)), { minLength: 1, maxLength: 8 }), fc.nat({ max: 400 }), fc.nat({ max: 400 }), (parts, cash, cred) => {
+      const n = net(parts.map(([kind, amount]) => ({ kind, amount })), makeState({ patch: { money: { cred, cash } } }))
+      return n <= 120 && n >= -120
+    }))
+  })
+
+  it('性質（E1）：AI 給的錢不論怎麼拆、怎麼混帳戶與現金，一件事的淨變化不超過 ±上限；和合成一筆的結果一樣多', () => {
+    const k = effectKernel()
+    fc.assert(fc.property(fc.array(fc.tuple(fc.constantFrom('cash' as const, 'cred' as const), fc.integer({ min: 0, max: 5000 })), { minLength: 1, maxLength: 8 }), fc.constantFrom(...GRADES), fc.boolean(), (parts, rep, negative) => {
+      const state = rich()
+      const list = parts.map(([kind, n]) => ({ kind, amount: negative ? -n : n }))
+      const r = k.effects.resolve(list, ctxOf(k, state, { repGrade: rep }))
+      const after = clone(state)
+      k.changes.applyAll(after, r.changes)
+      const net = after.money.cash + after.money.cred - 2e6
+      const total = list.reduce((sum, e) => sum + e.amount, 0)
+      const cap = MONEY_CAP_BY_GRADE[rep]
+      return r.errors.length === 0 && net === Math.max(-cap, Math.min(cap, total)) && r.lines.length === r.effects.length
+    }))
+  })
+
+  it('性質：每一種來源 × 開關 × asked，一筆錢的變更都照 2.5 節的表；不會讓錢變成負數；扣不到的那一段有提醒；提交不會失敗', () => {
     const k = effectKernel()
     fc.assert(fc.property(
-      fc.integer({ min: -1e7, max: 1e7 }), fc.constantFrom(...GRADES), fc.constantFrom(...SOURCES), fc.boolean(),
+      fc.integer({ min: -1e7, max: 1e7 }), fc.constantFrom(...GRADES), fc.constantFrom(...GRADES), fc.constantFrom(...SOURCES), fc.boolean(),
       fc.option(fc.constantFrom(ASKED, NOT_SAID), { nil: undefined }), fc.nat({ max: 20000 }), fc.constantFrom('cash' as const, 'cred' as const),
-      (amount, grade, source, clampAsked, asked, held, kind) => {
+      (amount, grade, rep, source, clampAsked, asked, held, kind) => {
         const state = makeState({ patch: { money: { cred: held, cash: held } } })
-        const ctx = ctxOf(k, state, { grade, source, clampAsked })
+        const ctx = ctxOf(k, state, { grade, repGrade: rep, source, clampAsked })
         const r = k.effects.resolve([{ kind, amount, ...(asked !== undefined ? { asked } : {}) }], ctx)
-        const cap = MONEY_CAP_BY_GRADE[grade]
-        const clamped = shouldClamp({ kind, asked }, ctx)
-        const want = clamped ? Math.max(-cap, Math.min(cap, amount)) : amount
+        const level = effectLevel({ kind, asked }, ctx)
+        expect(level).toBe(source === 'builtin' ? 'builtin' : shouldClamp({ kind, asked }, ctx) ? 'cap' : 'floor')
+        // 內建：只夾拿到的，照區；照上限：兩個方向都夾，照信譽；免夾：不夾
+        const want = level === 'builtin' ? Math.min(amount, MONEY_CAP_BY_GRADE[grade]) : level === 'cap' ? Math.max(-MONEY_CAP_BY_GRADE[rep], Math.min(MONEY_CAP_BY_GRADE[rep], amount)) : amount
         const delta = want < 0 ? -Math.min(-want, held) : want
         const after = clone(state)
         k.changes.applyAll(after, r.changes)
+        // 被夾（或付不出來）就有一則提醒；定案的那一行寫的是實際的數字
+        const line = delta === 0 ? [] : [`${delta > 0 ? '拿到' : '失去'}：${kind === 'cash' ? '現金' : '帳戶'} ${Math.abs(delta).toLocaleString('en-US')}`]
         return r.errors.length === 0 && after.money[kind] === held + delta && after.money[kind] >= 0
-          && r.clamps.length === (clamped && Math.abs(amount) > cap ? 1 : 0)
+          && r.clamps.length === (delta !== amount ? 1 : 0) && JSON.stringify(r.lines) === JSON.stringify(line)
       },
     ))
   })
 
-  it('一份回報有好幾筆時每筆分開判斷：同一份裡對得上的不夾、對不上的照夾（關）', () => {
+  it('一份回報有好幾筆時：玩家明說要的那幾筆（關著、asked 對得上）不夾也不算進合計；其餘的合計後照上限夾', () => {
     const k = effectKernel()
     const ctx = ctxOf(k, makeState(), { source: 'player', clampAsked: false })
     const r = k.effects.resolve([{ kind: 'cash', amount: 5000, asked: ASKED }, { kind: 'cash', amount: 5000 }, { kind: 'cred', amount: 5000, asked: NOT_SAID }], ctx)
-    expect(r.changes).toEqual([{ op: 'cash', delta: 5000 }, { op: 'cash', delta: 120 }, { op: 'cred', delta: 120 }])
-    expect(r.clamps.map((c) => c.path)).toEqual(['effects[1]', 'effects[2]'])
+    expect(r.changes).toEqual([{ op: 'cash', delta: 5000 }, { op: 'cash', delta: 120 }])
+    expect(r.clamps.map((c) => [c.path, c.to])).toEqual([['effects[1]', 120], ['effects[2]', 0]])
+    // 開著：三筆都算進合計
+    const on = k.effects.resolve([{ kind: 'cash', amount: 5000, asked: ASKED }, { kind: 'cash', amount: 5000 }], { ...ctx, clampAsked: true })
+    expect(on.changes).toEqual([{ op: 'cash', delta: 120 }])
+  })
+
+  it('格式的底線（B001）：數值不是安全整數是格式錯誤，設定關著、asked 對得上也照擋；加上去會溢位的也擋', () => {
+    const k = effectKernel([characterFeature])
+    const free: Partial<EffectCtx> = { source: 'player', clampAsked: false }
+    for (const amount of [1e308, -1e308, 2 ** 53, Number.MAX_VALUE, Infinity, -Infinity, Number.NaN, 1.5]) {
+      for (const kind of ['cash', 'cred', 'sink', 'hp', 'load', 'afterglow']) {
+        const r = k.effects.resolve([{ kind, amount, asked: ASKED }], ctxOf(k, makeState(), free))
+        expect(r.errors.length, `${kind} ${amount}`).toBeGreaterThan(0)
+        expect(r.changes).toEqual([])
+      }
+    }
+    // 每一筆都是安全整數，但加上手上有的會超出範圍：一樣是格式錯誤（不會到套用才丟錯）
+    const near = makeState({ patch: { money: { cred: 0, cash: Number.MAX_SAFE_INTEGER - 10 } } })
+    expect(k.effects.resolve([{ kind: 'cash', amount: 11, asked: ASKED }], ctxOf(k, near, free)).errors[0]).toMatch(/effects\[0\]/)
+    expect(k.effects.resolve([{ kind: 'cash', amount: 6, asked: ASKED }, { kind: 'cash', amount: 6, asked: ASKED }], ctxOf(k, near, free)).errors[0]).toMatch(/effects\[1\]/)
+    expect(k.effects.resolve([{ kind: 'cash', amount: 10, asked: ASKED }], ctxOf(k, near, free)).changes).toEqual([{ op: 'cash', delta: 10 }])
+    // 最大的合法值照給
+    expect(k.effects.resolve([{ kind: 'cash', amount: Number.MAX_SAFE_INTEGER, asked: ASKED }], ctxOf(k, makeState(), free)).changes).toEqual([{ op: 'cash', delta: Number.MAX_SAFE_INTEGER }])
   })
 })
 
@@ -297,11 +393,99 @@ describe('邊界 EVENTS 2.4／AI_TASKS 2.5：hp、load、sink', () => {
     expect(at({ hp: 1 }, [{ kind: 'hp', amount: 0 }]).r.errors[0]).toMatch(/amount/)
   })
 
-  it('hp：關著而且 asked 對得上的不夾（可以扣到 0）；內建的不夾；開著附 asked 照夾', () => {
-    expect(at({ hp: 5 }, [{ kind: 'hp', amount: -10, asked: ASKED }], { source: 'player', clampAsked: false }).pc.hp).toBe(0)
+  it('hp：戰鬥外最少剩 1 是格式的底線，關著而且 asked 對得上也照擋；內建的照寫的算（可以扣到 0）；事件標了 combat 就不擋', () => {
+    const free = at({ hp: 5 }, [{ kind: 'hp', amount: -10, asked: ASKED }], { source: 'player', clampAsked: false })
+    expect(free.pc.hp).toBe(1)
+    expect(free.r.clamps).toHaveLength(1)
+    expect(PLAIN(free.r.clamps[0]!.notice)).toBe(true)
     expect(at({ hp: 5 }, [{ kind: 'hp', amount: -10, asked: NOT_SAID }], { source: 'player', clampAsked: false }).pc.hp).toBe(1)
     expect(at({ hp: 5 }, [{ kind: 'hp', amount: -10, asked: ASKED }], { source: 'player', clampAsked: true }).pc.hp).toBe(1)
-    expect(at({ hp: 5 }, [{ kind: 'hp', amount: -10 }], { source: 'builtin' }).pc.hp).toBe(0)
+    expect(at({ hp: 5 }, [{ kind: 'hp', amount: -10 }], { source: 'builtin' })).toMatchObject({ pc: { hp: 0 }, r: { clamps: [] } })
+    for (const over of [{ source: 'ai' as const }, { source: 'player' as const, clampAsked: false }]) {
+      expect(at({ hp: 5 }, [{ kind: 'hp', amount: -10, asked: ASKED }], { ...over, combat: true }).pc.hp).toBe(0)
+    }
+  })
+
+  it('一件事合計（審查 E1）：hp、load、sink 拆成幾筆給，結果和合成一筆一樣', () => {
+    const cap = k.stats.stat(makeState(), 'pc', 'load_cap')
+    // 審查的重現：hp 44 扣兩次 40
+    const hp = at({ hp: 40 }, [{ kind: 'hp', amount: -30 }, { kind: 'hp', amount: -30 }])
+    expect(hp.pc.hp).toBe(1)
+    expect(hp.r.clamps.map((c) => [c.path, c.from, c.to])).toEqual([['effects[1]', -30, -9]])
+    expect(at({ hp: 40 }, [{ kind: 'hp', amount: -39 }, { kind: 'hp', amount: -1 }, { kind: 'hp', amount: -1 }]).pc.hp).toBe(1)
+    // 先補再扣：補血不超過上限，扣的照補完之後的量算
+    expect(at({ hp: 30 }, [{ kind: 'hp', amount: 40 }, { kind: 'hp', amount: -60 }]).pc.hp).toBe(1)
+    expect(at({ hp: 35 }, [{ kind: 'hp', amount: 10 }, { kind: 'hp', amount: 10 }]).pc.hp).toBe(40)
+    const load = at({ load: 0 }, [{ kind: 'load', amount: 30 }, { kind: 'load', amount: 30 }])
+    expect(load.pc.load).toBe(cap - 1)
+    expect(load.r.effects).toHaveLength(1)
+    expect(load.r.clamps).toHaveLength(2)
+    const sink = at({ sink: 10 }, [{ kind: 'sink', amount: 3 }, { kind: 'sink', amount: 3 }])
+    expect(sink.pc.sink).toBe(13)
+    expect(sink.r.clamps.map((c) => [c.path, c.to])).toEqual([['effects[1]', 0]])
+    expect(at({ sink: 10 }, [{ kind: 'sink', amount: 2 }, { kind: 'sink', amount: 2 }]).pc.sink).toBe(13)
+    // 有加有減：合計之後才比上限（+5、−1 合計 +4，扣到 +3）
+    expect(at({ sink: 10 }, [{ kind: 'sink', amount: 5 }, { kind: 'sink', amount: -1 }]).pc.sink).toBe(13)
+    // 減的那一筆其實減不到（沉溺是 0）：實際的淨變化照樣不超過 3
+    expect(at({ sink: 0 }, [{ kind: 'sink', amount: -5 }, { kind: 'sink', amount: 8 }]).pc.sink).toBe(3)
+    expect(at({ sink: 10 }, [{ kind: 'sink', amount: -2 }, { kind: 'sink', amount: -2 }]).pc.sink).toBe(7)
+  })
+
+  it('餘韻（定案）：AI 給的一件事最多 +1 層，加完最多到上限 − 1；已經在邊界時整筆拿掉並提醒；內建的照寫的（最多疊滿）', () => {
+    const cap = k.stats.stat(makeState(), 'pc', 'afterglow_cap')
+    expect(cap).toBe(3)
+    const ag = (afterglow: number, raw: unknown[], over: Partial<EffectCtx> = {}) => {
+      const state = makeState({ pc: { afterglow } })
+      const r = k.effects.resolve(raw, ctxOf(k, state, over))
+      const after = clone(state)
+      k.changes.applyAll(after, r.changes)
+      return { r, afterglow: after.actors.pc!.afterglow }
+    }
+    // 下限、上限−2、上限−1（邊界）、上限
+    expect(ag(0, [{ kind: 'afterglow', amount: 1 }])).toMatchObject({ afterglow: 1, r: { clamps: [] } })
+    expect(ag(1, [{ kind: 'afterglow', amount: 1 }])).toMatchObject({ afterglow: 2, r: { clamps: [] } })
+    const edge = ag(cap - 1, [{ kind: 'afterglow', amount: 1 }])
+    expect(edge.afterglow).toBe(cap - 1)
+    expect(edge.r.effects).toEqual([])
+    expect(edge.r.lines).toEqual([])
+    expect(edge.r.clamps).toHaveLength(1)
+    expect(PLAIN(edge.r.clamps[0]!.notice)).toBe(true)
+    expect(ag(cap, [{ kind: 'afterglow', amount: 1 }]).afterglow).toBe(cap)
+    // 一次最多 +1：+2、+99、拆成兩筆都只加一層
+    for (const raw of [[{ kind: 'afterglow', amount: 2 }], [{ kind: 'afterglow', amount: 99 }], [{ kind: 'afterglow', amount: 1 }, { kind: 'afterglow', amount: 1 }]]) {
+      const x = ag(0, raw)
+      expect(x.afterglow).toBe(1)
+      expect(x.r.clamps.length).toBeGreaterThan(0)
+      for (const c of x.r.clamps) expect(PLAIN(c.notice)).toBe(true)
+    }
+    // 往下退的不受限制，不低於 0
+    expect(ag(2, [{ kind: 'afterglow', amount: -5 }]).afterglow).toBe(0)
+    // 零與不是整數的是格式錯誤
+    expect(ag(0, [{ kind: 'afterglow', amount: 0 }]).r.errors[0]).toMatch(/amount/)
+    // 開著時玩家要的照夾；關著而且 asked 對得上的不受「一次一層」限制，但不會超過承受層數
+    expect(ag(0, [{ kind: 'afterglow', amount: 3, asked: ASKED }], { source: 'player', clampAsked: true }).afterglow).toBe(1)
+    expect(ag(0, [{ kind: 'afterglow', amount: 9, asked: ASKED }], { source: 'player', clampAsked: false }).afterglow).toBe(cap)
+    expect(ag(0, [{ kind: 'afterglow', amount: 2 }], { source: 'builtin' })).toMatchObject({ afterglow: 2, r: { clamps: [] } })
+    expect(ag(1, [{ kind: 'afterglow', amount: 9 }], { source: 'builtin' }).afterglow).toBe(cap)
+    // 事件標了 combat：AI 給的也可以疊滿
+    expect(ag(0, [{ kind: 'afterglow', amount: 3 }], { combat: true }).afterglow).toBe(cap)
+  })
+
+  it('性質（E1）：AI 給的 hp、load、sink、afterglow 任意拆成幾筆、任意順序，hp 不會到 0、load 不會到上限、沉溺一件事最多動 3、餘韻最多 +1 而且不疊滿', () => {
+    const one = fc.tuple(fc.constantFrom('hp', 'load', 'sink', 'afterglow'), fc.integer({ min: -60, max: 60 }).filter((n) => n !== 0))
+    fc.assert(fc.property(
+      fc.integer({ min: 1, max: 40 }), fc.integer({ min: 0, max: 19 }), fc.integer({ min: 0, max: 50 }), fc.integer({ min: 0, max: 2 }),
+      fc.array(one, { minLength: 1, maxLength: 10 }), fc.constantFrom<Partial<EffectCtx>>({ source: 'ai' }, { source: 'player', clampAsked: true }),
+      (hp, load, sink, afterglow, parts, over) => {
+        const state = makeState({ pc: { hp, load, sink, afterglow } })
+        const r = k.effects.resolve(parts.map(([kind, amount]) => ({ kind, amount })), ctxOf(k, state, over))
+        const after = clone(state)
+        k.changes.applyAll(after, r.changes)
+        const pc = after.actors.pc!
+        return r.errors.length === 0 && pc.hp >= 1 && pc.hp <= 40 && pc.load <= 19 && pc.load >= 0 && Math.abs(pc.sink - sink) <= 3 && pc.sink >= 0
+          && pc.afterglow <= Math.max(afterglow, Math.min(afterglow + 1, 2)) && pc.afterglow >= 0 && r.lines.length === r.effects.length
+      },
+    ))
   })
 
   it('load：加完剛好到上限 − 1 不夾；多 1 夾；已經在上限 − 1 時整筆拿掉；減的不夾', () => {
@@ -355,6 +539,30 @@ describe('邊界 AI_TASKS 2.5：格式錯誤不論開關都擋；等級照這一
     k.content.load('item', [{ id: 'it_g1', name: '菸', grade: 1 }, { id: 'it_g2', name: '短刀', grade: 2 }, { id: 'it_g5', name: '神劍', grade: 5 }])
     return k
   }
+
+  it('物品一次最多 100 個（格式的底線）：AI 交出的一件事合計超過的扣掉，關著而且 asked 對得上也照擋；內建的照寫的算', () => {
+    const k = setup()
+    const state = makeState()
+    expect(ITEM_MAX_PER_EVENT).toBe(100)
+    const qty = (r: ReturnType<typeof k.effects.resolve>) => r.changes.reduce((n, c) => n + (c.qty as number), 0)
+    for (const over of [{ source: 'ai' as const }, { source: 'player' as const, clampAsked: true }, { source: 'player' as const, clampAsked: false }]) {
+      const ctx = ctxOf(k, state, over)
+      expect(k.effects.resolve([{ kind: 'item', id: 'it_g1', qty: 100, asked: ASKED }], ctx)).toMatchObject({ changes: [{ op: 'item', id: 'it_g1', qty: 100 }], clamps: [] })
+      const one = k.effects.resolve([{ kind: 'item', id: 'it_g1', qty: 101, asked: ASKED }], ctx)
+      expect(qty(one)).toBe(100)
+      expect(one.clamps[0]).toMatchObject({ from: 101, to: 100, limit: 100 })
+      expect(one.clamps[0]!.notice).toMatch(/菸/)
+      // 拆成幾筆、換不同的物品，合計一樣是 100
+      const split = k.effects.resolve([{ kind: 'item', id: 'it_g1', qty: 60, asked: ASKED }, { kind: 'item', id: 'it_g1', qty: 60, asked: ASKED }, { kind: 'item', id: 'it_g1', qty: 999999, asked: ASKED }], ctx)
+      expect(qty(split)).toBe(100)
+      expect(split.clamps.map((c) => c.to)).toEqual([40, 0])
+    }
+    expect(qty(k.effects.resolve([{ kind: 'item', id: 'it_g1', qty: 5000 }], ctxOf(k, state, { source: 'builtin' })))).toBe(5000)
+    // 拿走的不算在內；數量大到失真是格式錯誤
+    const full = makeState({ patch: { inventory: [{ id: 'it_g1', qty: 500 }] } })
+    expect(qty(k.effects.resolve([{ kind: 'item', id: 'it_g1', qty: -300 }], ctxOf(k, full)))).toBe(-300)
+    expect(k.effects.resolve([{ kind: 'item', id: 'it_g1', qty: 1e308, asked: ASKED }], ctxOf(k, state, { source: 'player', clampAsked: false })).errors[0]).toMatch(/qty/)
+  })
 
   it('物品：等級等於這一區不夾；高一級整筆拿掉並提醒；關著而且對得上的，V 級的神劍在 I 級區照給', () => {
     const k = setup()
@@ -522,7 +730,7 @@ describe('邊界 AI_TASKS 5.3／2.6：自動重試的次數、逾時、拒絕', 
       const before = clone(g.state)
       const r = await g.act({ kind: 'beg', text: TEXT })
       expect(fake!.requestsFor('judge')).toHaveLength(requests)
-      expect(r.status).toBe('blocked')
+      expect(r.status).toBe('paused')
       expect(r.run.step('judge').status).toBe('failed')
       expect(g.state.money).toEqual(before.money)
       expect(g.state.time).toEqual(before.time)
@@ -543,7 +751,7 @@ describe('邊界 AI_TASKS 5.3／2.6：自動重試的次數、逾時、拒絕', 
       const { game: g, fake } = game({ ai: { ai: 1, retry: { [task]: 3 } }, fake: { adversarial: { mode: 'refusal', tasks: [task] } } })
       const r = await g.act({ kind: 'beg', text: TEXT })
       expect(fake!.requestsFor(task), task).toHaveLength(1)
-      expect(r.status, task).toBe('blocked')
+      expect(r.status, task).toBe('paused')
       expect(r.run.step(task === 'judge' ? 'judge' : 'text').error?.kind, task).toBe('refusal')
     }
   })

@@ -168,11 +168,14 @@ export class Game {
   /**
    * 提交一份程式結算的報告（不經過 AI 的動作：建角的確認、買賣、穿脫……）。
    * 預設留一步回退；opts.attach 是併進最新一樓、不另留回退。第二個參數給字串就是 label。
-   * 不合法時丟 ChangeError：狀態完全不變，能回退的步數也不變。
+   * 不合法時丟 ChangeError：狀態完全不變，能回退的步數也不變。任務鏈還在跑的時候不能提交（丟錯）。
    * 這之後，更早套用的那條鏈就不能再重試、重擲（只能回退）：重試會把這一份提交一起抹掉。
+   * 停在半路等玩家的鏈則作廢（和開始新的行動一樣）。
    */
   commit(draft: ReportDraft, opts: string | CommitOptions = {}): Report[] {
     const o: CommitOptions = typeof opts === 'string' ? { label: opts } : opts
+    // 鏈還在跑的時候不能插進別的提交：那條鏈的每一步都是照開始時的狀態算的
+    if (this.last?.run.status === 'running') throw new Error('上一條任務鏈還在跑。')
     const before = o.attach ? null : clone(this.state)
     const reports = commitTurn(this.k, this.state, draft)
     this.abandonPaused()

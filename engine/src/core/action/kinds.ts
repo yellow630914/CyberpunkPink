@@ -57,8 +57,10 @@ export class ActionRegistry {
 
   constructor(private probe: Probe) {}
 
+  /** 註冊一種行動。id 重複就丟錯；唯一的例外：核心內建的預設（owner 是 core，例如 free）可以被功能照資料註冊的同一個 id 取代。 */
   register(def: ActionKindDef): void {
-    if (this.defs.has(def.id)) throw new Error(`行動種類重複註冊：${def.id}（已經由 ${this.defs.get(def.id)!.owner} 註冊）`)
+    const old = this.defs.get(def.id)
+    if (old && !(old.owner === 'core' && def.owner !== 'core')) throw new Error(`行動種類重複註冊：${def.id}（已經由 ${old.owner} 註冊）`)
     if (def.maxMinutes < def.minutes) throw new Error(`行動種類 ${def.id}：maxMinutes 不能比 minutes 小`)
     this.defs.set(def.id, def)
     this.probe.emit('core/action/kinds', 'registry.register', { registry: 'actions', id: def.id, owner: def.owner })
@@ -74,8 +76,8 @@ export class ActionRegistry {
 }
 
 /**
- * 內建的自由行動：玩家自己寫要做什麼，自己選（或讓判定選）屬性與基本功。
- * 預設的屬性、時間與時間上限規格沒有寫，是暫定值（dev/adr/0004）；資料檔定了之後由功能用同一個 id 以外的種類取代。
+ * 內建的自由行動：玩家自己寫要做什麼，自己選（或讓判定選）屬性與基本功（AI_TASKS 3.1 節「自由行動的預設」：智識、DC 13、30／240 分鐘）。
+ * 這是沒有載入行動種類的資料時的預設；data/rules/actions.json 有 free 這一筆時，行動種類的功能用資料的那一筆取代它（多了參考範圍）。
  */
 export const FREE_ACTION: ActionKindDef = {
   id: 'free', owner: 'core', name: '自由行動',

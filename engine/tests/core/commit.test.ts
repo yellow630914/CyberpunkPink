@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import type { Change, GameState, ReportDraft } from '../../src/core'
-import { CHAIN_FLOORS_KEPT, ChangeError, MAX_FOLLOW_UP_DEPTH, clone, commitReport, commitReportAll, countItem, createKernel, deepEqual, expectedAfterCommit, underageAt } from '../../src/core'
+import { CHAIN_FLOORS_KEPT, ChangeError, DEFAULT_RULES, MAX_FOLLOW_UP_DEPTH, clone, commitAtomic, commitReport, commitReportAll, commitTurn, countItem, createKernel, deepEqual, expectedAfterCommit, sanitizeRules, toMinutes, underageAt } from '../../src/core'
 import { commitViolations, makeActor, makeState } from '../../src/testkit'
 
 const draft = (changes: Change[], extra: Partial<ReportDraft> = {}): ReportDraft => ({
@@ -191,5 +191,158 @@ describe('L3 提交報告', () => {
     expect(kept).toHaveLength(CHAIN_FLOORS_KEPT)
     expect(state.chains.filter((c) => c.cleaned).every((c) => c.detail === undefined)).toBe(true)
     expect(state.seq.chain).toBe(8)
+  })
+})
+
+// 規格：GAME_DESIGN 第 3 節第 13 條；dev/invariants.md 第 1、3、6、7、12、16 條；dev/bugs W001、W002、W004、W005、B001、B007
+describe('L3 提交：整串是一件事；格式的底線', () => {
+  const rest = () => draft([{ op: 'time', minutes: 60 }], { action: 'rest' })
+
+  it('掛鉤接著提交的報告不合法（W001）：整串不套，原本那份也不留；狀態完全不變，探針裡沒有那幾份報告', () => {
+    for (const hook of ['report.after', 'time.passed'] as const) {
+      const k = kernel()
+      if (hook === 'report.after') k.hooks.on('report.after', 'bill', ({ report }) => (report.action === 'rest' ? [draft([{ op: 'cash', delta: -100 }], { action: 'bill' })] : undefined))
+      else k.hooks.on('time.passed', 'bill', () => [draft([{ op: 'cash', delta: -100 }], { action: 'bill' })])
+      const state = makeState()
+      const before = clone(state)
+      k.probe.start()
+      expect(() => commitReport(k, state, rest())).toThrow(/現金不夠/)
+      const events = k.probe.stop().filter((e) => e.source === 'core/state/commit')
+      expect(state).toEqual(before)
+      expect(events).toEqual([])
+      // 付得出來時，兩份一起進去
+      state.money.cash = 100
+      const reports = commitReportAll(k, state, rest())
+      expect(reports.map((r) => r.action)).toEqual(['rest', 'bill'])
+      expect(state.money.cash).toBe(0)
+      expect(state.time).toEqual({ day: 1, hour: 9, minute: 0 })
+    }
+  })
+
+  it('接著的報告看得到前面那一份的結果：掛鉤拿到的是這次提交的工作副本', () => {
+    const k = kernel()
+    const seen: number[] = []
+    k.hooks.on('report.after', 'spy', ({ state, report }) => {
+      seen.push(state.money.cash)
+      return report.action === 'pay' ? [draft([{ op: 'cash', delta: -30 }], { action: 'fee' })] : undefined
+    })
+    const state = makeState({ patch: { money: { cred: 0, cash: 100 } } })
+    commitReport(k, state, draft([{ op: 'cash', delta: -50 }], { action: 'pay' }))
+    expect(seen).toEqual([50, 20])
+    expect(state.money.cash).toBe(20)
+    expect(state.reports.map((r) => r.id)).toEqual(['r1', 'r2'])
+    expect(commitViolations(k, [])).toEqual([])
+  })
+
+  it('回合流程（commitTurn）：turn.end 接著的報告不合法，行動那一份也不留（W001）；嚴格模式抓得到 turn.end 的掛鉤偷改狀態（W002）', () => {
+    const k = kernel()
+    k.hooks.on('turn.end', 'upkeep', () => [draft([{ op: 'cred', delta: -1 }], { action: 'upkeep' })])
+    const state = makeState()
+    const before = clone(state)
+    expect(() => commitTurn(k, state, rest())).toThrow(ChangeError)
+    expect(state).toEqual(before)
+    state.money.cred = 5
+    expect(commitTurn(k, state, rest()).map((r) => r.action)).toEqual(['rest', 'upkeep'])
+    expect(state.money.cred).toBe(4)
+
+    const cheat = kernel()
+    cheat.hooks.on('turn.end', 'cheat', ({ state: s }) => { s.money.cash += 999 })
+    const s2 = makeState()
+    const b2 = clone(s2)
+    expect(() => commitTurn(cheat, s2, rest())).toThrow(/turn\.end 的掛鉤直接改了狀態：money\.cash/)
+    expect(s2).toEqual(b2)
+  })
+
+  it('commitAtomic：好幾份報告當成一件事，中途丟錯就全部不算', () => {
+    const k = kernel()
+    const state = makeState({ patch: { money: { cred: 0, cash: 10 } } })
+    const before = clone(state)
+    expect(() => commitAtomic(k, state, (tx) => {
+      tx.commit(draft([{ op: 'cash', delta: -10 }]))
+      expect(tx.work.money.cash).toBe(0)
+      expect(state.money.cash).toBe(10)
+      tx.commit(draft([{ op: 'cash', delta: -1 }]))
+    })).toThrow(/現金不夠/)
+    expect(state).toEqual(before)
+    expect(commitAtomic(k, state, (tx) => [...tx.commit(draft([{ op: 'cash', delta: -4 }])), ...tx.commit(draft([{ op: 'cash', delta: -6 }]))]).map((r) => r.id)).toEqual(['r1', 'r2'])
+    expect(state.money.cash).toBe(0)
+  })
+
+  it('所有角色 18 歲以上（W005）：報告裡任何深度有低於 18 的年齡，整份不收（和讀檔同一條底線）', () => {
+    const k = kernel()
+    const cases: Change[][] = [
+      [{ op: 'ext', key: 'roster', value: { npcs: [{ name: '某人', age: 16 }] } }],
+      [{ op: 'actor.ext', id: 'pc', key: 'family', value: { sister: { age: 12 } } }],
+      [{ op: 'actor.add', actor: makeActor({ id: 'npc_a', role: 'npc', ext: { child: { age: 15 } } }) }],
+      [{ op: 'chain', slot: { id: 'c1', floor: 1, detail: { steps: [{ result: { npc: { age: 17 } } }] } } }],
+      [{ op: 'flag', key: 'ok', value: true }, { op: 'ext', key: 'x', value: [[{ age: 0 }]] }],
+    ]
+    for (const changes of cases) {
+      const state = makeState()
+      const before = clone(state)
+      expect(() => commitReport(k, state, draft(changes)), JSON.stringify(changes)).toThrow(/低於 18 的年齡/)
+      expect(state).toEqual(before)
+    }
+    // 掛鉤加進來的變更也看；18 歲剛好可以；不是年齡的數字不受影響
+    const hooked = kernel()
+    hooked.hooks.on('report.before', 'bad', () => [{ op: 'ext', key: 'y', value: { age: 17 } }])
+    expect(() => commitReport(hooked, makeState(), draft([]))).toThrow(/低於 18 的年齡/)
+    const ok = makeState()
+    commitReport(k, ok, draft([{ op: 'ext', key: 'roster', value: { npcs: [{ name: '某人', age: 18 }], count: 3 } }]))
+    expect(underageAt(ok)).toEqual([])
+  })
+
+  it('數量一律是安全整數（B001、B007）：大到失真的數字、套用之後會失真的數字都不合法；狀態不變', () => {
+    const k = kernel()
+    const MAX = Number.MAX_SAFE_INTEGER
+    const bad: Array<[string, Change[], Partial<GameState>?]> = [
+      ['cash 1e308', [{ op: 'cash', delta: 1e308 }]],
+      ['cred 2^53', [{ op: 'cred', delta: 2 ** 53 }]],
+      ['cash 加上去超出範圍', [{ op: 'cash', delta: 11 }], { money: { cred: 0, cash: MAX - 10 } }],
+      ['time 無限', [{ op: 'time', minutes: Infinity }]],
+      ['time 1e300', [{ op: 'time', minutes: 1e300 }]],
+      ['time 加上去超出範圍', [{ op: 'time', minutes: MAX - 100 }]],
+      ['counter', [{ op: 'counter', key: 'n', delta: 2 ** 60 }]],
+      ['counter 加上去超出範圍', [{ op: 'counter', key: 'n', delta: MAX }, { op: 'counter', key: 'n', delta: 1 }]],
+      ['item', [{ op: 'item', id: 'it_a', qty: 1e300 }]],
+      ['track', [{ op: 'actor.track', id: 'pc', track: 'sink', delta: 1e308 }]],
+      ['track 加上去超出範圍', [{ op: 'actor.track', id: 'pc', track: 'sink', delta: MAX }, { op: 'actor.track', id: 'pc', track: 'sink', delta: 1 }]],
+      ['rng', [{ op: 'rng', advance: 2 ** 53 }]],
+      ['flag NaN', [{ op: 'flag', key: 'f', value: Number.NaN }]],
+      ['flag 無限', [{ op: 'flag', key: 'f', value: Infinity }]],
+    ]
+    for (const [name, changes, patch] of bad) {
+      const state = makeState({ patch })
+      const before = clone(state)
+      expect(() => commitReport(k, state, draft(changes)), name).toThrow(ChangeError)
+      expect(state, name).toEqual(before)
+    }
+    // 邊界：最大的安全整數剛好可以
+    const state = makeState()
+    commitReport(k, state, draft([{ op: 'cash', delta: MAX }, { op: 'counter', key: 'n', delta: MAX }, { op: 'time', minutes: MAX - toMinutes(state.time) }]))
+    expect(state.money.cash).toBe(MAX)
+    expect(Number.isSafeInteger(state.time.day)).toBe(true)
+  })
+
+  it('rules 變更照 sanitizeRules 驗值（W004）：超出範圍的不合法；沒寫到的欄位跟著調整；套用之後再清一次不會變', () => {
+    const k = kernel()
+    const bad: Array<Record<string, unknown>> = [{ dcOffset: 99 }, { difficulty: 'custom', dcOffset: -9 }, { billMult: 50 }, { difficulty: 'nightmare' }, { startSkillMax: 7 }, { xpMult: 0.1 }, { fastTravel: 'yes' }, { contentOff: ['Bad Tag'] }, { contentOff: 'ntr' }, { no_such_rule: 1 }, { dcOffset: 1 }]
+    for (const patch of bad) {
+      const state = makeState()
+      const before = clone(state)
+      expect(() => commitReport(k, state, draft([{ op: 'rules', patch }])), JSON.stringify(patch)).toThrow(ChangeError)
+      expect(state).toEqual(before)
+    }
+    const state = makeState()
+    commitReport(k, state, draft([{ op: 'rules', patch: { difficulty: 'hard' } }]))
+    expect(state.rules).toMatchObject({ difficulty: 'hard', dcOffset: 1 })
+    commitReport(k, state, draft([{ op: 'rules', patch: { difficulty: 'custom', dcOffset: -4 } }]))
+    expect(state.rules).toMatchObject({ difficulty: 'custom', dcOffset: -4 })
+    commitReport(k, state, draft([{ op: 'rules', patch: { difficulty: 'normal' } }]))
+    expect(state.rules.dcOffset).toBe(0)
+    commitReport(k, state, draft([{ op: 'rules', patch: { contentOff: ['intimate_body', 'ntr'], billMult: 2, startPerkPoints: 6 } }]))
+    expect(state.rules).toMatchObject({ contentOff: ['intimate_body', 'ntr'], billMult: 2, startPerkPoints: 6 })
+    expect(sanitizeRules(state.rules)).toEqual(state.rules)
+    expect(sanitizeRules({})).toEqual(DEFAULT_RULES)
   })
 })

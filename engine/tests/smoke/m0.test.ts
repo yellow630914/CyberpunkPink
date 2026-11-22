@@ -22,7 +22,9 @@ describe('冒煙 M0：開新遊戲 → 建角 → 空房間的自由行動 → �
     expect(game.state.pc).toBeNull()
     expect(game.state.time).toEqual({ day: 1, hour: 8, minute: 0 })
     expect(game.state.rules.dcOffset).toBe(0)
-    await expect(game.act({ kind: 'free', text: '還沒有主角就想動' })).rejects.toThrow('還沒有主角。')
+    // 行動被擋下不丟錯：回傳 refused 與原因，狀態不變、不留回退
+    expect(await game.act({ kind: 'free', text: '還沒有主角就想動' })).toMatchObject({ status: 'refused', reason: '還沒有主角。', reports: [] })
+    expect(game.undo.size).toBe(0)
 
     // 2. 建角（核心的替身）：一份報告放進主角、起始的錢與開場的地點
     const pc = makeActor({ id: 'pc', name: '露', age: 22, attrs: { charm: 15, reflex: 14, intellect: 13, body: 12, resolve: 10, tech: 8 }, skills: { negotiate: 2 } })

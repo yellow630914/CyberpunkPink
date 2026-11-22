@@ -237,7 +237,7 @@ describe('白箱 L7 一局遊戲（GAME_DESIGN 3；AI_TASKS 2.4、2.6；dev/inva
   it('被拒絕的一步停下來等玩家（不自動重試）；玩家按「用規則代替」走退路（AI_TASKS 2.6）', async () => {
     const { game, fake } = makeGame({ ai: { ai: 1 }, fake: { byTask: { judge: [{ refusal: true }] } } })
     const r = await game.act({ kind: 'free', text: '試試看' })
-    expect(r.status).toBe('blocked')
+    expect(r.status).toBe('paused')
     expect(fake!.requestsFor('judge')).toHaveLength(1)
     expect(game.undo.size).toBe(1)
     const r2 = await game.useRules('judge')
@@ -248,7 +248,7 @@ describe('白箱 L7 一局遊戲（GAME_DESIGN 3；AI_TASKS 2.4、2.6；dev/inva
   it('上一條鏈停在半路就開始新的行動：那一條作廢，它留的那一步回退也拿掉', async () => {
     const { game } = makeGame({ ai: { ai: 1 }, fake: { byTask: { judge: [{ refusal: true }] } } })
     const first = await game.act({ kind: 'free', text: '試試看' })
-    expect(first.status).toBe('blocked')
+    expect(first.status).toBe('paused')
     const r = await game.act({ kind: 'free', text: '換一件事' })
     expect(game.lastRun).toBe(r.run)
     expect(r.status).toBe('applied')

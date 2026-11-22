@@ -1,0 +1,48 @@
+{
+  "id": "B007-time-effect-overflow",
+  "note": "B007（已修）：預設設定，算回報交 time 1e308 小時：換算成分鐘不是安全整數，算回報就判格式錯誤，走退路；行動照樣套用。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom",
+    "ai": {
+      "ai": 1,
+      "retry": {
+        "reward": 0
+      }
+    },
+    "fake": {
+      "byTask": {
+        "reward": [
+          {
+            "json": {
+              "items": [
+                {
+                  "kind": "time",
+                  "hours": 1e+308,
+                  "from": {
+                    "source": "degree"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "type": "act",
+      "input": {
+        "kind": "free",
+        "text": "我等一下"
+      }
+    }
+  ],
+  "expect": {
+    "paths": {
+      "seq.chain": 1,
+      "seq.report": 2
+    }
+  }
+}

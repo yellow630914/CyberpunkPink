@@ -1,6 +1,6 @@
 {
   "id": "B002-minutes-notice",
-  "note": "B002：判定交的時間被夾在上限時，提醒寫成整數小時（Math.round(上限/60)）。上限 30 分鐘（AI_TASKS 3.1 的 first_aid）顯示「最多花 1 小時」，上限 20 分鐘顯示「0 小時」，上限 90 分鐘顯示「2 小時」。這份不是 Repro 格式（行動種類不能從 repro 的設定註冊），由 tests/pending/boundary-ai-tasks-2.5.test.ts 讀。",
+  "note": "B002（已修）：判定交的時間被夾在上限時，提醒照實寫時數（「30 分鐘」「1 小時 30 分鐘」），不四捨五入成整數小時。這份不是 Repro 格式（行動種類不能從 repro 的設定註冊），由 tests/boundary/fixed-bugs.boundary.test.ts 讀。",
   "seed": 7,
   "cases": [
     {

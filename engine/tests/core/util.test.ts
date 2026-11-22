@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
+import type { SegmentId } from '../../src/core'
 import {
-  Rng, addHours, addMinutes, bool, clamp, clone, deepEqual, deriveRng, diffPaths, formatAmount, formatMoney, formatTime, fromMinutes, hash32, int, isId, isValidTime,
-  minutesToNextSegment, num, oneOf, roll, segmentOf, str, toMinutes, weekdayOf,
+  DEFAULT_TIME_RULES, Rng, SEGMENT_IDS, addHours, addMinutes, bool, clamp, clone, daysUntilWeekday, deepEqual, deriveRng, diffPaths, formatAmount, formatDuration, formatMoney, formatTime, fromMinutes, hash32, int, isId, isValidTime,
+  minutesToNextSegment, num, oneOf, roll, segmentDayOf, segmentOf, segmentWeekdayOf, str, toMinutes, weekdayOf,
 } from '../../src/core'
 
 describe('L1 亂數', () => {
@@ -75,20 +76,68 @@ describe('L1 時間', () => {
     expect(isValidTime({ day: 0, hour: 1, minute: 0 })).toBe(false)
   })
 
-  it('一天六個時段，各 4 小時（CORE_RULES 7.4 節）', () => {
+  it('一天六個時段，各 4 小時，從清晨 3 點起算（CORE_RULES 7.4 節）', () => {
     const ids = Array.from({ length: 24 }, (_, h) => segmentOf({ day: 1, hour: h, minute: 0 }))
     expect(new Set(ids).size).toBe(6)
     for (const id of new Set(ids)) expect(ids.filter((x) => x === id)).toHaveLength(4)
-    expect(segmentOf({ day: 1, hour: 4, minute: 0 })).toBe('dawn')
-    expect(segmentOf({ day: 1, hour: 3, minute: 59 })).toBe('late')
-    expect(minutesToNextSegment({ day: 1, hour: 4, minute: 0 })).toBe(240)
-    expect(minutesToNextSegment({ day: 1, hour: 7, minute: 59 })).toBe(1)
+    expect(DEFAULT_TIME_RULES).toEqual({ dawnHour: 3, mondayRemainder: 0 })
+    // 清晨 3～7、上午 7～11、中午 11～15、下午 15～19、黃金時段 19～23、深夜 23～3：每一段的第一分鐘與最後一分鐘
+    const TABLE: Array<[SegmentId, number, number]> = [['dawn', 3, 7], ['morning', 7, 11], ['noon', 11, 15], ['afternoon', 15, 19], ['prime', 19, 23], ['late', 23, 3]]
+    expect(TABLE.map(([id]) => id)).toEqual([...SEGMENT_IDS])
+    for (const [id, from, to] of TABLE) {
+      expect(segmentOf({ day: 1, hour: from, minute: 0 }), `${id} 開始`).toBe(id)
+      expect(segmentOf({ day: 1, hour: (to + 23) % 24, minute: 59 }), `${id} 結束前`).toBe(id)
+      expect(segmentOf({ day: 1, hour: to, minute: 0 }), `${id} 結束`).not.toBe(id)
+    }
+    expect(segmentOf({ day: 1, hour: 2, minute: 59 })).toBe('late')
+    expect(segmentOf({ day: 1, hour: 0, minute: 0 })).toBe('late')
+    expect(minutesToNextSegment({ day: 1, hour: 3, minute: 0 })).toBe(240)
+    expect(minutesToNextSegment({ day: 1, hour: 6, minute: 59 })).toBe(1)
+    expect(minutesToNextSegment({ day: 1, hour: 23, minute: 0 })).toBe(240)
+    expect(minutesToNextSegment({ day: 2, hour: 2, minute: 30 })).toBe(30)
   })
 
-  it('星期每七天一輪；預設第 7、14 天是週一', () => {
-    expect(weekdayOf({ day: 14, hour: 0, minute: 0 })).toBe(0)
+  it('深夜跨過午夜，午夜到清晨之前算前一天的最後一段：segmentDayOf、segmentWeekdayOf', () => {
+    expect(segmentDayOf({ day: 6, hour: 23, minute: 0 })).toBe(6)
+    expect(segmentDayOf({ day: 7, hour: 0, minute: 0 })).toBe(6)
+    expect(segmentDayOf({ day: 7, hour: 2, minute: 59 })).toBe(6)
+    expect(segmentDayOf({ day: 7, hour: 3, minute: 0 })).toBe(7)
+    // 第 7 天是週一：週一的深夜到第 8 天凌晨 3 點之前都算週一；日曆的星期在午夜換
+    expect(segmentWeekdayOf({ day: 7, hour: 23, minute: 30 })).toBe(0)
+    expect(segmentWeekdayOf({ day: 8, hour: 1, minute: 0 })).toBe(0)
+    expect(weekdayOf({ day: 8, hour: 1, minute: 0 })).toBe(1)
+    expect(segmentWeekdayOf({ day: 8, hour: 3, minute: 0 })).toBe(1)
+    expect(segmentWeekdayOf({ day: 7, hour: 1, minute: 0 })).toBe(6)
+    fc.assert(fc.property(time, (t) => (t.hour >= 3 ? segmentWeekdayOf(t) === weekdayOf(t) : segmentWeekdayOf(t) === weekdayOf({ ...t, day: t.day + 6 }))))
+  })
+
+  it('星期每七天一輪；第 1 天是週二，第 7、14、21 天是週一（收租日）；和時段從幾點起算無關', () => {
+    expect(weekdayOf({ day: 1, hour: 8, minute: 0 })).toBe(1)
+    for (const day of [7, 14, 21, 700]) expect(weekdayOf({ day, hour: 0, minute: 0 }), `第 ${day} 天`).toBe(0)
     expect(weekdayOf({ day: 15, hour: 0, minute: 0 })).toBe(1)
+    expect(weekdayOf({ day: 6, hour: 23, minute: 59 })).toBe(6)
     fc.assert(fc.property(time, (t) => weekdayOf(t) === weekdayOf({ ...t, day: t.day + 7 })))
+    // 日曆的星期不看 dawnHour：改了時段的起點，週一還是那幾天
+    fc.assert(fc.property(time, fc.integer({ min: 0, max: 23 }), (t, dawnHour) => weekdayOf(t, { dawnHour, mondayRemainder: 0 }) === weekdayOf(t)))
+    expect(daysUntilWeekday({ day: 7, hour: 9, minute: 0 }, 0)).toBe(0)
+    expect(daysUntilWeekday({ day: 1, hour: 9, minute: 0 }, 0)).toBe(6)
+    expect(daysUntilWeekday({ day: 8, hour: 0, minute: 0 }, 0)).toBe(6)
+    expect(daysUntilWeekday({ day: 13, hour: 23, minute: 59 }, 0)).toBe(1)
+  })
+
+  it('一段時間的白話照實寫：分鐘、整數小時、小時加分鐘（B002）', () => {
+    expect(formatDuration(0)).toBe('0 分鐘')
+    expect(formatDuration(20)).toBe('20 分鐘')
+    expect(formatDuration(30)).toBe('30 分鐘')
+    expect(formatDuration(60)).toBe('1 小時')
+    expect(formatDuration(90)).toBe('1 小時 30 分鐘')
+    expect(formatDuration(240)).toBe('4 小時')
+    expect(formatDuration(481)).toBe('8 小時 1 分鐘')
+    fc.assert(fc.property(fc.nat({ max: 100000 }), (m) => {
+      const text = formatDuration(m)
+      const said = Number(/(\d+) 小時/.exec(text)?.[1] ?? 0) * 60 + Number(/(\d+) 分鐘/.exec(text)?.[1] ?? 0)
+      return said === m
+    }))
   })
 })
 

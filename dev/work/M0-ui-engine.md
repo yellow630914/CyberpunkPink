@@ -107,8 +107,8 @@ const game = new Game({ features: allFeatures(), content: [CORE_PACK], fakeProvi
 | `newGame(opts: { seed: number; rules?: object })` | | `game.newGame(opts)` |
 | `createCharacter(draft: CreationDraft)` | `CreationBlock[]` | 先 `creationBlocks`；不是空的就原樣回傳，狀態不動；空的就 `game.commit(buildCreationReport(...))` 並回傳 `[]` |
 | `creation` | 物件 | 建角畫面要的東西，見下面 |
-| `act(input: ActionInput)` | `Promise<{ status: string }>` | `game.act(input)`；被擋下的行動（引擎丟 `ActionBlocked`）回傳 `{ status: 'blocked', reason }`，不讓錯誤跑到元件 |
-| `retryStep(id)`、`useRules(id)`、`reroll()` | `Promise<{ status: string }>` | 對應 `game.retryStep`、`game.useRules`、`game.reroll` |
+| `act(input: ActionInput)` | `Promise<{ status: ActStatus \| 'busy'; reason?: string }>` | `game.act(input)`。`status` 用引擎的 `ActStatus`：`applied` 套用了；`refused` 行動被擋下（附 `reason`，狀態不變）；`paused` 鏈停下來等玩家重試、重擲或改用規則（任務鏈列展開那一步）；`cancelled`。**沒有 `blocked` 這個狀態**（2026-11-22 改名，審查 E4：原本行動被擋下與鏈停下來共用 `blocked`，畫面分不出來） |
+| `retryStep(id)`、`useRules(id)`、`reroll()` | 同上 | 對應 `game.retryStep`、`game.useRules`、`game.reroll`。請求不成立時引擎丟錯（狀態不變）；哪一步能按哪個按鈕先問 `game.stepActions(id)` |
 | `setAi(uiSettings)` | | `game.setAiSettings(aiSettingsFromUi(uiSettings))` |
 | `save()` | `string` | `game.save('manual', new Date().toISOString())` |
 | `load(raw: string)` | `string \| null` | `game.load(raw)`：錯誤訊息或 null |
@@ -158,6 +158,10 @@ const game = new Game({ features: allFeatures(), content: [CORE_PACK], fakeProvi
 4. 狀態列的時間與錢讀 `e.timeLabel`、`e.money`。
 5. 設定頁的 AI 開關改了之後呼叫 `e.setAi(settings)`。
 6. 任務鏈列（`ui/src/components/ChainFlow.vue`）有現成的畫面：把 `e.chainSteps` 餵給它；每一步的三個按鈕接 `e.retryStep`、`e.useRules`，擲骰那一步的「重擲」接 `e.reroll`。資料的樣子對不上就寫一個轉換的純函式放在 `engineView.ts`。
+
+## 2026-11-22 的修正
+
+這一張已經做完。之後引擎改了幾個介面（行動的結果改名、提交可以併進最新一樓、開新局與建角一起提交、出身的勢力改用 id、撤退保留紀錄……），要改的地方與新的驗收測試在 dev/work/M0-fix-ui.md；上面第三節的表已經照新的名字改了 `act` 那兩列，其餘以 M0-fix-ui 為準。
 
 ## 已知的事
 

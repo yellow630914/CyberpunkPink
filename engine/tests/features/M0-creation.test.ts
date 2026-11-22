@@ -19,7 +19,7 @@ function setup(rules: Record<string, unknown> = {}): Game {
 /** CHARACTER 5.1 節的例子：技術 8 壓到 4，多 4 點，連同原本的 2 點把反應 15 加到 18、意志 10 加到 13。 */
 const draft = (over: Partial<CreationDraft> = {}): CreationDraft => ({
   name: '露', gender: 'female', age: 22,
-  origin: 'hive', originChoice: { favor: '孤星連' },
+  origin: 'hive', originChoice: { favor: 'lonestar' },
   attrPick: { reflex: 15, charm: 14, intellect: 13, body: 12, resolve: 10, tech: 8 },
   attrBonus: { tech: -4, reflex: 3, resolve: 3 },
   skills: { streetwise: 3, negotiate: 3, perform: 2, stealth: 2 },
@@ -103,7 +103,7 @@ describe('M0-creation：每一步的檢查（CHARACTER 第 1、5 節；UI 第 14
     expect(steps(draft({ origin: 'atlantis' }))).toEqual(['origin'])
     // 好感給誰有兩個以上可以選：要選一個，而且要是清單裡的
     expect(steps(draft({ originChoice: {} }))).toEqual(['origin'])
-    expect(steps(draft({ originChoice: { favor: '緋櫻' } }))).toEqual(['origin'])
+    expect(steps(draft({ originChoice: { favor: 'hizakura' } }))).toEqual(['origin'])
     // 只有一個可以選的出身不用選
     expect(steps(draft({ origin: 'oldport', originChoice: undefined }))).toEqual([])
     expect(steps(draft({ attrBonus: {} }))).toEqual(['attrs'])
@@ -132,7 +132,7 @@ describe('M0-creation：確認建角（CHARACTER 第 1、2、5.4 節）', () => 
     expect(pc.skills).toMatchObject({ streetwise: 4, negotiate: 3, perform: 2, stealth: 2 })
     // 出身特質白送，排在最前面
     expect(pc.perks).toEqual(['origin_hive', 'smooth_talker', 'tough', 'loose_lips'])
-    expect(pc.ext.origin).toMatchObject({ id: 'hive', favor: '孤星連' })
+    expect(pc.ext.origin).toMatchObject({ id: 'hive', favor: 'lonestar' })
     // 起始的錢 1,500：放在哪一個錢包規格沒有寫，所以只驗總數
     expect(s.money.cred + s.money.cash).toBe(1500)
     expect([pc.load, pc.afterglow, pc.sink]).toEqual([0, 0, 0])
@@ -153,7 +153,7 @@ describe('M0-creation：確認建角（CHARACTER 第 1、2、5.4 節）', () => 
     const pc = s.actors[s.pc!]!
     expect(pc.skills.stealth).toBe(4)
     expect(pc.perks).toEqual(['origin_oldport'])
-    expect(pc.ext.origin).toMatchObject({ id: 'oldport', favor: '胭脂堂' })
+    expect(pc.ext.origin).toMatchObject({ id: 'oldport', favor: 'rouge' })
   })
 
   it('有問題的草稿不能提交：丟錯，訊息是第一個問題的原因；狀態不變', () => {

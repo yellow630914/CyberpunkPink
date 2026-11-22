@@ -1,0 +1,37 @@
+{
+  "id": "E1-split-hp-below-one",
+  "note": "審查 E1（已修）：AI 把同一種效果拆成幾筆（hp −40 兩筆、load +30 兩筆、sink +3 兩筆、cash 120 三筆）。上限是一件事合計：hp 最少剩 1、感載最多到上限 − 1（19）、沉溺 +3、現金 120。",
+  "seed": 7,
+  "setup": {
+    "scenario": "emptyRoom",
+    "features": ["character"],
+    "ai": { "ai": 1 },
+    "fake": {
+      "byTask": {
+        "reward": [
+          {
+            "json": {
+              "items": [
+                { "kind": "hp", "amount": -40, "from": { "source": "degree" } },
+                { "kind": "hp", "amount": -40, "from": { "source": "degree" } },
+                { "kind": "load", "amount": 30, "from": { "source": "degree" } },
+                { "kind": "load", "amount": 30, "from": { "source": "degree" } },
+                { "kind": "sink", "amount": 3, "from": { "source": "degree" } },
+                { "kind": "sink", "amount": 3, "from": { "source": "degree" } },
+                { "kind": "cash", "amount": 120, "from": { "source": "degree" } },
+                { "kind": "cash", "amount": 120, "from": { "source": "degree" } },
+                { "kind": "cash", "amount": 120, "from": { "source": "degree" } }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "inputs": [
+    { "type": "act", "input": { "kind": "free", "text": "我硬闖過去" } }
+  ],
+  "expect": {
+    "paths": { "actors.pc.hp": 1, "actors.pc.load": 19, "actors.pc.sink": 3, "money.cash": 120, "seq.report": 2 }
+  }
+}

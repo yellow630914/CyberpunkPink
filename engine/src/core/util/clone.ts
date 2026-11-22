@@ -1,7 +1,16 @@
 // L1 純工具：複製、比較與差異。狀態是純 JSON（沒有函式、Map、Date），所以用 JSON 的語意比較。
 
+/** JSON 的複製。注意：NaN 與 Infinity 會變成 null（JSON 寫不出來），所以進狀態之前要先用 nonFiniteAt 擋掉。 */
 export function clone<T>(v: T): T {
   return v === undefined ? v : (JSON.parse(JSON.stringify(v)) as T)
+}
+
+/** 任何深度裡不是有限的數字（NaN、Infinity）的位置。這種數字存不進 JSON：存檔會把它寫成 null。 */
+export function nonFiniteAt(v: unknown, path = ''): string[] {
+  if (typeof v === 'number') return Number.isFinite(v) ? [] : [path || '(root)']
+  if (Array.isArray(v)) return v.flatMap((x, i) => nonFiniteAt(x, `${path}[${i}]`))
+  if (v && typeof v === 'object') return Object.entries(v as Record<string, unknown>).flatMap(([k, x]) => nonFiniteAt(x, path ? `${path}.${k}` : k))
+  return []
 }
 
 export function deepEqual(a: unknown, b: unknown): boolean {

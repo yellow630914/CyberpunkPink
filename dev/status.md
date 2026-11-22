@@ -29,12 +29,29 @@
 - 2026-11-21（lead）：使用者定案 id 表（DATA 1.1）、行動種類表（AI_TASKS 3.1）、餘韻的夾法（一次 +1、不能疊滿）、EVENTS 的時段改用六時段。待 cpp-architect／cpp-data：`engine/data/rules/actions.json` 照 AI_TASKS 3.1 建；出身的 `favor`、`roster` 改收 id；`afterglow` 的夾值；ui 假資料的 NPC id 改成 `npc_lian`、`npc_ray`、`npc_jo`。時段名稱與時間還沒定（見等使用者決定）。
 - 2026-11-21（lead）：邊界測試的規格問題定案（EVENTS 2.4、AI_TASKS 2.5）：上限一件事合計；總時間合計後夾；格式底線（不溢位、物品一次最多 100、戰鬥外生命最少剩 1）夾值關著也擋。錢的上限照規格（AI 的事件看信譽、內建的看區的等級）；B006「隔著程式」由 cpp-architect 照 AI_TASKS 2.2 的意思解讀。
 
+- 2026-11-22（cpp-architect）：M0 的修正批次（核心與外殼）做完。引擎 34 個檔、542 個測試全過，沒有 `it.fails`；`npx tsc --noEmit` 沒有錯；分層檢查過。
+  - 審查 E1、E2、E4（引擎這一側）與屬於引擎的小問題（S3 的引擎那一半、S6、S7、S8、S10、S11）；邊界 B001～B007；白箱 W001～W010。每一份 bug 報告最後一行記了怎麼修、回歸測試在哪。
+  - 定案做進引擎：時段從清晨 3 點起算；上限一件事合計、行動的總時間合計後夾、格式的底線；錢的上限分 AI（信譽）與內建（區）；餘韻的夾法；出身的勢力與名冊改用 id（多了 `faction`、`npc` 兩種內容與資料）；`look.private`；`attrStepBlock`、性別六個值、`Game.clock`。
+  - 介面回報的四件事：`Game.commit` 的 `attach`（併進最新一樓）、`Game.rewind`（回到快照但保留紀錄）、義體與裝備點數換現金（`startMoney`）、自訂難度的 DC 偏移（引擎本來就收，介面的對照表在工單裡補）。
+  - 新的工單：dev/work/M0-fix-data.md（行動種類的資料、建角的三個數字）、dev/work/M0-fix-ui.md（介面照新的介面接；做完之前 ui 有 17 個測試是紅的、typecheck 有 2 個錯）。驗收測試在 `engine/tests/pending/M0-fix-data.test.ts`、`ui/tests/pending/M0-fix-ui.test.ts`。
+  - ADR：0007（效果的上限）、0008（提交、重試、回到快照）、0009（幾個解讀與暫定值）。不變式更新到 43 條。
+  - 這一批為了讓主套件保持全綠，動了 cpp-architect 範圍以外的幾處：`engine/src/features/`（角色的效果、建角、行動種類，都是照新的核心介面改）、`engine/data/`（`origins.json` 改成 id，新增 `world/factions.json`、`world/npcs.json`）。
+- 待 cpp-data：dev/work/M0-fix-data.md。待 cpp-ui：dev/work/M0-fix-ui.md。
+
 ## 等使用者決定
+
+- 效果上限的幾個讀法（dev/adr/0007）：帳戶與現金算同一組；物品一次 100 個是一件事全部加起來；AI 給的錢兩個方向都受上限管、內建的只管拿到的。
+- 街頭信譽六階怎麼對到 I～V 級（LIFE 1.3 節只說「六階對應 I～V 級」）：AI 給的錢的上限要用。街頭信譽搬進來之前一律當 I 級。
+- 參考範圍照區的等級、上限照信譽：高等級的區、低信譽時參考範圍會比上限大。
+- `free` 的參考範圍「現金約 20」：AI 關閉時任何成功的自由行動都會拿到 10 元（行動種類的資料進來之後）。要不要留。
+- 撤退之後再做同樣的事，骰子要不要和上一次一樣（現在不保證：流水號接著走；dev/adr/0008 第 5 項）。
+- 兩個暫定的名字：內容篩選「身體的私密描寫」的標籤 id（`intimate_body`）、AI_TASKS 3.5 節那條鏈的 id（`adult_action`）。
+- 殺價、打工、日常直播三種行動的屬性與 DC 寫「照某個系統」，行動種類的資料先不收，等那三個系統搬進來。
 
 - ~~回退不換亂數種子~~：2026-11-21 確認照建議（GAME_DESIGN 第 9 節、AI_TASKS 2.4 節）。
 - ~~dev/adr/0004 的十三項暫定值~~：2026-11-21 確認都照建議。
 - ~~AI 設定的儲存形狀~~：2026-11-21 確認統一存 `cpp-ai-v1`（介面讀到舊鍵轉一次）。
 - ~~舊假存檔~~：2026-11-21 確認作廢。
 - 草稿兩份（id 表、行動種類表）：2026-11-21 確認定案。
-- ~~時段~~：2026-11-21 選 A：名稱不動、全部往前 1 小時（CORE_RULES 7.4 節）。待 cpp-architect：`DEFAULT_TIME_RULES.dawnHour` 4 → 3。
+- ~~時段~~：2026-11-21 選 A：名稱不動、全部往前 1 小時（CORE_RULES 7.4 節）。`DEFAULT_TIME_RULES.dawnHour` 已經改成 3（2026-11-22）。
 

@@ -1,0 +1,176 @@
+[
+  {
+    "id": "hizakura",
+    "name": "緋櫻重工",
+    "short": "緋櫻",
+    "class": "corp"
+  },
+  {
+    "id": "starbelle",
+    "name": "星旗防務",
+    "short": "星旗",
+    "class": "corp"
+  },
+  {
+    "id": "kunlun",
+    "name": "崑崙智造",
+    "short": "崑崙",
+    "class": "corp"
+  },
+  {
+    "id": "nectar",
+    "name": "蜜腺生技",
+    "short": "蜜腺",
+    "class": "corp"
+  },
+  {
+    "id": "nightingale",
+    "name": "夜鶯系統",
+    "short": "夜鶯",
+    "class": "corp"
+  },
+  {
+    "id": "kaleido",
+    "name": "萬華鏡",
+    "short": "萬華鏡",
+    "class": "corp"
+  },
+  {
+    "id": "eden",
+    "name": "伊甸園",
+    "short": "伊甸園",
+    "class": "corp"
+  },
+  {
+    "id": "blackspring",
+    "name": "黑泉能源",
+    "short": "黑泉",
+    "class": "corp"
+  },
+  {
+    "id": "angel",
+    "name": "天使急救",
+    "short": "天使急救",
+    "class": "corp"
+  },
+  {
+    "id": "orihime",
+    "name": "織女電子",
+    "short": "織女",
+    "class": "corp"
+  },
+  {
+    "id": "netvigil",
+    "name": "貞網局",
+    "short": "貞網局",
+    "class": "corp"
+  },
+  {
+    "id": "sweetheart",
+    "name": "甜心食品",
+    "short": "甜心食品",
+    "class": "corp"
+  },
+  {
+    "id": "honey",
+    "name": "蜜糖會",
+    "short": "蜜糖會",
+    "class": "street"
+  },
+  {
+    "id": "rouge",
+    "name": "胭脂堂",
+    "short": "胭脂堂",
+    "class": "street"
+  },
+  {
+    "id": "chrome",
+    "name": "鉻娘子",
+    "short": "鉻娘子",
+    "class": "street"
+  },
+  {
+    "id": "tokko",
+    "name": "特攻姬",
+    "short": "特攻姬",
+    "class": "street"
+  },
+  {
+    "id": "nora",
+    "name": "野良",
+    "short": "野良",
+    "class": "street"
+  },
+  {
+    "id": "whisper",
+    "name": "牆語者",
+    "short": "牆語者",
+    "class": "street"
+  },
+  {
+    "id": "rose",
+    "name": "野薔薇",
+    "short": "野薔薇",
+    "class": "street"
+  },
+  {
+    "id": "festival",
+    "name": "祭典組",
+    "short": "祭典組",
+    "class": "street"
+  },
+  {
+    "id": "maids",
+    "name": "女僕公會",
+    "short": "女僕公會",
+    "class": "street"
+  },
+  {
+    "id": "strippers",
+    "name": "拆體客",
+    "short": "拆體客",
+    "class": "street"
+  },
+  {
+    "id": "doujin",
+    "name": "同人眾",
+    "short": "同人眾",
+    "class": "street"
+  },
+  {
+    "id": "guard",
+    "name": "親衛隊",
+    "short": "親衛隊",
+    "class": "street"
+  },
+  {
+    "id": "lonestar",
+    "name": "孤星連",
+    "short": "孤星連",
+    "class": "street"
+  },
+  {
+    "id": "bare",
+    "name": "素體教",
+    "short": "素體教",
+    "class": "street"
+  },
+  {
+    "id": "banquet",
+    "name": "夜宴社",
+    "short": "夜宴社",
+    "class": "street"
+  },
+  {
+    "id": "police",
+    "name": "市警",
+    "short": "市警",
+    "class": "public"
+  },
+  {
+    "id": "suppress",
+    "name": "鎮溺隊",
+    "short": "鎮溺隊",
+    "class": "public"
+  }
+]

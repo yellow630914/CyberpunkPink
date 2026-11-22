@@ -4,7 +4,7 @@
 
 import type { ActionInput } from '../core/action/kinds'
 import type { Feature } from '../core/kernel'
-import type { GameState } from '../core/types'
+import type { Change, GameState } from '../core/types'
 import { hash32 } from '../core/util/rng'
 import type { AdversarialMode, FakeReply } from '../shell/ai/fakeProvider'
 import type { GameSetup, ScenarioId, StateOverrides, TestGame } from './factory'
@@ -19,6 +19,8 @@ export type ReproInput =
   | { type: 'retry'; step: string }
   | { type: 'use_rules'; step: string }
   | { type: 'ai'; settings: Record<string, unknown> }
+  /** 提交一份程式結算的報告（買東西、休息這類不經過 AI 的動作）；attach 是併進最新一樓、不另留回退 */
+  | { type: 'commit'; changes: Change[]; summary?: string; attach?: boolean }
 
 export interface Repro {
   id: string
@@ -89,6 +91,9 @@ export async function runRepro(repro: Repro, features: Record<string, Feature> =
         else if (step.type === 'retry') await game.retryStep(step.step, { autoRules: true })
         else if (step.type === 'use_rules') await game.useRules(step.step, { autoRules: true })
         else if (step.type === 'ai') game.setAiSettings(step.settings)
+        else if (step.type === 'commit') {
+          game.commit({ kind: 'system', action: 'repro.commit', location: {}, party: [], timeline: [], changes: step.changes, outcome: { result: 'ok', summary: step.summary ?? '重現用的提交' } }, { attach: step.attach ?? false })
+        }
       }
     } catch (e) {
       error = (e as Error).message

@@ -7,7 +7,7 @@ import { MINI_PACK } from '../helpers/miniContent'
 
 const setup = (rules: Record<string, unknown> = {}) => makeGame({ scenario: 'beforeCreation', features: [creationFeature], content: [MINI_PACK], patch: { rules: rules as never } }).game
 const draft = (over: Partial<CreationDraft> = {}): CreationDraft => ({
-  name: '露', gender: 'female', age: 22, origin: 'hive', originChoice: { favor: '野良' },
+  name: '露', gender: 'female', age: 22, origin: 'hive', originChoice: { favor: 'nora' },
   attrPick: { reflex: 15, charm: 14, intellect: 13, body: 12, resolve: 10, tech: 8 },
   attrBonus: { tech: -4, reflex: 3, resolve: 3 }, skills: { streetwise: 3 }, perks: [], ...over,
 })
@@ -35,6 +35,6 @@ describe('M0-creation 邊界', () => {
     const game = setup({ startMoney: 0 })
     expect(buildCreationReport(game.k, game.state, draft()).changes.map((c) => c.op)).toEqual(['actor.add', 'pc'])
     expect(creationBlocks(game.k, game.state, draft({ gender: '' }))[0]!.reason).toBe('要選性別。')
-    expect(creationBlocks(game.k, game.state, draft({ originChoice: { favor: '緋櫻' } }))[0]!.reason).toBe('要選一個勢力：孤星連、野良。')
+    expect(creationBlocks(game.k, game.state, draft({ originChoice: { favor: 'hizakura' } }))[0]!.reason).toBe('要選一個勢力：孤星連、野良。')
   })
 })

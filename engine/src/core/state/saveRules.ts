@@ -14,7 +14,7 @@ export const CUSTOM_DC_OFFSET_RANGE = [-4, 4] as const
 
 /**
  * 內容篩選的標籤：「身體的私密描寫」（建角的私處與角色的成人分頁；DATA 第 8 節的 look.private）。
- * DATA 第 1 節的標籤表還沒有這一個的 id，這是暫定的名字（dev/adr/0007）。
+ * DATA 第 1 節的標籤表還沒有這一個的 id，這是暫定的名字（dev/adr/0009）。
  */
 export const CONTENT_TAG_INTIMATE_BODY = 'intimate_body'
 

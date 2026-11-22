@@ -9,4 +9,4 @@
 - 重現：`ui/tests/fixtures/repro/ui-undo-ledger-steps.json`（介面層的重現格式，由 `ui/tests/helpers/uiRepro.ts` 執行；引擎的 repro 格式沒有 store 層的動作，所以不放在 `engine/tests/fixtures/repro/`）。會失敗的測試：`ui/tests/pending/M0-ui-engine-bugs.test.ts`（在 `ui/` 跑 `npx vitest run --config vitest.pending.config.ts M0-ui-engine-bugs`）。
 - 可能的位置（推測）：`ui/src/stores/engine.ts` 的 `commit`、`ledger`（`game.commit` 一定留一步回退）。可能要引擎給一個「併進最新一樓、不另留回退」的提交入口（`engine/src/shell/game.ts` 的 `Game.commit`），屬於 cpp-architect。
 
-- 狀態：未修。要引擎給「併進最新一樓、不另留回退」的提交入口（Game.commit 的選項），已回報 cpp-architect；測試留在 ui/tests/pending/M0-ui-engine-bugs.test.ts。
+- 狀態：引擎這一側已經給了（2026-11-22，cpp-architect）：`Game.commit(draft, { attach: true })`。介面這一側（`e.ledger` 改用 `attach`、重現資料的 `favor` 改成 id）在 dev/work/M0-fix-ui.md 第二節；測試留在 ui/tests/pending/M0-ui-engine-bugs.test.ts，那一張做完會過。

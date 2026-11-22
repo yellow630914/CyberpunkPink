@@ -1,0 +1,19 @@
+{
+  "id": "E2-reroll-after-commit",
+  "note": "審查 E2（已修）：自由行動套用之後又提交一份報告（過了 600 分鐘、現金 −100），再按重擲。重擲被拒絕（這一樓之後已經做了別的事，只能回退），之後的提交還在：時間 18:30、現金 400、三份報告。",
+  "seed": 7,
+  "setup": {
+    "scenario": "withMoney",
+    "ai": { "ai": 1 },
+    "fake": {}
+  },
+  "inputs": [
+    { "type": "act", "input": { "kind": "free", "text": "我看看四周" } },
+    { "type": "commit", "changes": [{ "op": "time", "minutes": 600 }, { "op": "cash", "delta": -100 }], "summary": "休息了一陣子" },
+    { "type": "reroll" }
+  ],
+  "expect": {
+    "throws": "只能回退",
+    "paths": { "time": { "day": 1, "hour": 18, "minute": 30 }, "money.cash": 400, "seq.report": 3 }
+  }
+}

@@ -1,6 +1,6 @@
 {
   "id": "B001-overflow-time",
-  "note": "B001：同上，判定附 asked 交 minutes 1.7e308 兩次：時間的 day 變成 Infinity，存檔讀不回來。修好後搬到 tests/fixtures/repro/。",
+  "note": "B001（已修）：同上，判定附 asked 交 minutes 1.7e308 兩次：格式錯誤，重試之後改用規則；時間照常往前，存檔讀得回來。",
   "seed": 7,
   "setup": {
     "scenario": "emptyRoom",

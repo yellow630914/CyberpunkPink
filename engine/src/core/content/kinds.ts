@@ -10,6 +10,8 @@
 // | creation_rule | creation.json | CHARACTER 第 1、5 節 |
 // | effect_cap | effect_caps.json | EVENTS 2.4 節 |
 // | action_kind | actions.json | AI_TASKS 3.1 節；CORE_RULES 第 3 節 |
+// | faction | factions.json | DATA 1.1 節的勢力表（FACTIONS 第 1 節的 id） |
+// | npc | npcs.json | DATA 1.1 節的具名 NPC 與流竄 AI 的 id 表。現在只有 id 與名字；NPC 的完整格式（DATA 第 8 節）在 M2 補 |
 
 import { ATTR_IDS } from '../types/ids'
 import { isId, isRecord } from '../util/sanitize'
@@ -22,6 +24,8 @@ const idList = (v: unknown) => Array.isArray(v) && v.every(isId)
 
 /** 特質的分類（CHARACTER 4.2 節）；缺陷另外用 flaw 標。 */
 export const PERK_CATEGORIES = ['street', 'social', 'body', 'bridge', 'craft', 'net', 'media', 'desire', 'origin'] as const
+/** 勢力的三類（DATA 1.1 節）。 */
+export const FACTION_CLASSES = ['corp', 'street', 'public'] as const
 /** 起始的身分（CHARACTER 第 2 節；LIFE 第 2 節）。 */
 export const ORIGIN_STATUSES = ['citizen', 'unregistered'] as const
 /** DC 的檔位（CORE_RULES 第 3 節）。和 rules/check.ts 的 DC_TIERS 同一組鍵。 */
@@ -47,14 +51,26 @@ export interface PerkEntry extends ContentEntry {
   /** 設計書裡沒有、先借來讓遊戲能跑的示意資料 */
   provisional?: boolean
 }
+export interface FactionEntry extends ContentEntry {
+  /** 全名（緋櫻重工） */
+  name: string
+  /** 短名：介面、出身與內文裡平常的叫法（緋櫻） */
+  short: string
+  class: (typeof FACTION_CLASSES)[number]
+}
+export interface NpcEntry extends ContentEntry {
+  name: string
+}
 export interface OriginEntry extends ContentEntry {
   name: string
   line: string
   skill_bonus: Record<string, number>
   status: (typeof ORIGIN_STATUSES)[number]
   home: string
+  /** 好感給哪個勢力：choose_one 是勢力的 id（DATA 1.1 節），兩個以上時建角要選一個 */
   favor: { choose_one: string[]; value: number }
   perk: string
+  /** 開場就在名冊上的人：具名 NPC 的 id（npc_ 開頭，DATA 1.1 節） */
   roster: string[]
   lifepath_extra?: string[]
 }
@@ -70,6 +86,12 @@ export interface CreationRuleEntry extends ContentEntry {
   flaw_max: number
   min_age: number
   start_money: number
+  /** 起始的裝備點數（CHARACTER 5.4 節：12 點）。沒寫用預設值 */
+  gear_points?: number
+  /** 沒花完的義體點數每點換多少現金（CHARACTER 5.4 節：C$500） */
+  cyber_point_cash?: number
+  /** 沒花完的裝備點數每點換多少現金（CHARACTER 5.4 節：C$150） */
+  gear_point_cash?: number
 }
 export type ActionHint = Partial<Record<(typeof HINT_KEYS)[number], Array<Record<string, unknown>>>>
 export interface ActionKindEntry extends ContentEntry {
@@ -88,6 +110,13 @@ export interface ActionKindEntry extends ContentEntry {
   hint?: ActionHint
   /** 其他等級的區的參考範圍，鍵是 2～5；沒寫的等級用比它低、最近的那一級 */
   hint_by_grade?: Record<string, ActionHint>
+  /**
+   * 這種行動走哪一條任務鏈（AI_TASKS 3.1 節的表「鏈」那一欄）。沒寫就是自由行動的鏈（free_action）。
+   * 寫了別的鏈的種類先只是資料：那一條鏈搬進來之前不會註冊成可以做的行動。
+   */
+  chain?: string
+  /** 參考範圍裡引擎現在還表達不了的部分（情報、物品、親密度、狀態……），照設計書的原文記下來，等那個系統搬進來再改寫成效果。鍵和 hint 一樣 */
+  hint_note?: Partial<Record<(typeof HINT_KEYS)[number], string>>
 }
 
 export function registerCoreKinds(content: ContentRegistry): void {
@@ -135,14 +164,30 @@ export function registerCoreKinds(content: ContentRegistry): void {
       for (const f of ['name', 'line', 'home'] as const) if (!isText(e[f])) p.push(`要有 ${f}`)
       if (!isRecord(e.skill_bonus) || !Object.keys(e.skill_bonus).length || Object.values(e.skill_bonus).some((v) => !isInt(v) || v < 1)) p.push('skill_bonus 要是「基本功 id → 正整數」')
       if (!(ORIGIN_STATUSES as readonly unknown[]).includes(e.status)) p.push(`status 只能是 ${ORIGIN_STATUSES.join('、')}`)
-      if (!isRecord(e.favor) || !Array.isArray(e.favor.choose_one) || !e.favor.choose_one.length || !e.favor.choose_one.every(isText) || !isInt(e.favor.value)) p.push('favor 要有 choose_one（勢力的陣列，至少一個）與 value')
+      // 勢力與 NPC 一律用 DATA 1.1 節 id 表的 id（不收中文名）；找不找得到由引用檢查擋
+      if (!isRecord(e.favor) || !Array.isArray(e.favor.choose_one) || !e.favor.choose_one.length || !e.favor.choose_one.every(isId) || !isInt(e.favor.value)) p.push('favor 要有 choose_one（勢力 id 的陣列，至少一個）與 value')
       if (!isId(e.perk)) p.push('要有 perk（出身特質的 id）')
-      // 勢力與 NPC 的 id 表設計書還沒有定，先收名字（dev/adr/0004）
-      if (!(Array.isArray(e.roster) && e.roster.every(isText))) p.push('roster 要是陣列（開場就在名冊上的人）')
+      if (!(Array.isArray(e.roster) && e.roster.every((x) => isId(x) && x.startsWith('npc_')))) p.push('roster 要是具名 NPC 的 id 的陣列（npc_ 開頭）')
       if (e.lifepath_extra !== undefined && !idList(e.lifepath_extra)) p.push('lifepath_extra 要是 id 的陣列')
       return p
     },
-    refs: (e) => [...Object.keys(e.skill_bonus).map((s) => ['skill', s] as [string, string]), ['perk', e.perk]],
+    refs: (e) => [
+      ...Object.keys(e.skill_bonus).map((s) => ['skill', s] as [string, string]), ['perk', e.perk],
+      ...e.favor.choose_one.map((f) => ['faction', f] as [string, string]), ...e.roster.map((n) => ['npc', n] as [string, string]),
+    ],
+  })
+
+  content.defineKind<FactionEntry>({
+    kind: 'faction', owner: 'core',
+    validate: (e) => [
+      ...(isText(e.name) ? [] : ['要有 name（全名）']), ...(isText(e.short) ? [] : ['要有 short（短名）']),
+      ...((FACTION_CLASSES as readonly unknown[]).includes(e.class) ? [] : [`class 只能是 ${FACTION_CLASSES.join('、')}`]),
+    ],
+  })
+
+  content.defineKind<NpcEntry>({
+    kind: 'npc', owner: 'core',
+    validate: (e) => [...(typeof e.id === 'string' && /^(npc|gen)_/.test(e.id) ? [] : ['id 要以 npc_（具名）或 gen_（生成）開頭']), ...(isText(e.name) ? [] : ['要有 name'])],
   })
 
   const CREATION_INTS = ['attr_free', 'attr_max', 'attr_min', 'skill_points', 'skill_max', 'perk_points', 'perk_max', 'flaw_max', 'min_age', 'start_money'] as const
@@ -151,6 +196,7 @@ export function registerCoreKinds(content: ContentRegistry): void {
     validate: (e) => [
       ...(Array.isArray(e.attr_array) && e.attr_array.length === ATTR_IDS.length && e.attr_array.every(isInt) ? [] : [`attr_array 要是 ${ATTR_IDS.length} 個整數`]),
       ...CREATION_INTS.filter((f) => !isInt(e[f]) || (e[f] as number) < 0).map((f) => `${f} 要是 0 以上的整數`),
+      ...(['gear_points', 'cyber_point_cash', 'gear_point_cash'] as const).filter((f) => e[f] !== undefined && (!isInt(e[f]) || (e[f] as number) < 0)).map((f) => `${f} 要是 0 以上的整數`),
       ...(isInt(e.min_age) && e.min_age < 18 ? ['min_age 不能低於 18：所有角色都是成年人'] : []),
     ],
   })
@@ -179,6 +225,8 @@ export function registerCoreKinds(content: ContentRegistry): void {
           else if (!Array.isArray(list) || list.some((x) => !isRecord(x) || typeof x.kind !== 'string')) p.push(`${at}.${k}：要是效果的陣列`)
         }
       }
+      if (e.chain !== undefined && !isId(e.chain)) p.push('chain 要是任務鏈的 id')
+      if (e.hint_note !== undefined && !(isRecord(e.hint_note) && Object.entries(e.hint_note).every(([key, v]) => (HINT_KEYS as readonly string[]).includes(key) && isText(v)))) p.push(`hint_note 的鍵只能是 ${HINT_KEYS.join('、')}，值是一段字`)
       if (e.hint !== undefined) hintProblems(e.hint, 'hint')
       if (e.hint_by_grade !== undefined) {
         if (!isRecord(e.hint_by_grade)) p.push('hint_by_grade 要是一個物件')

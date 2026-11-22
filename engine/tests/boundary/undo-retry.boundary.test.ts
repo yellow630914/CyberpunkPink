@@ -2,7 +2,7 @@
 //
 // 回退：0、1、5（上限）、6（上限+1）、負數、空的堆疊、讀檔與開新遊戲之後；性質：回退 m 步等於當時的狀態，回退之後重做同樣的行動得到同樣的結果。
 // 重試：只有最新一樓；重試別的步驟不重擲；重擲 r 次留 r 筆；重試與重擲不吃回退的步數。
-// 已知會失敗的（bug）用 it.fails 標著，修好之後會變紅，提醒把 it.fails 拿掉（見 dev/bugs/）。
+// B003、B004、B005（dev/bugs/）已經修好：下面是它們的回歸測試。
 
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
@@ -123,9 +123,9 @@ describe('邊界 GAME_DESIGN 9：回退的步數', () => {
   })
 })
 
-describe('邊界 GAME_DESIGN 9：已知的問題（it.fails：修好之後會變紅，把 it.fails 拿掉）', () => {
-  // B003：堆疊滿了（5 步）的時候，一個被擋下或出錯的動作會擠掉最舊的一步，回退只剩 4 步
-  it.fails('B003：做滿 5 件事之後一次提交失敗，回退的步數仍是 5、仍回得到最開始', async () => {
+describe('邊界 GAME_DESIGN 9：不成立的動作不改能回退的步數；步數不是正整數回 false（B003、B004 的回歸）', () => {
+  // B003：堆疊滿了（5 步）的時候，一個被擋下或出錯的動作不能擠掉最舊的一步
+  it('B003：做滿 5 件事之後一次提交失敗，回退的步數仍是 5、仍回得到最開始', async () => {
     const { game } = makeGame()
     const h0 = stateHash(game.state)
     for (let i = 0; i < 5; i++) await game.act({ kind: 'free', text: TEXTS[i]! })
@@ -137,30 +137,46 @@ describe('邊界 GAME_DESIGN 9：已知的問題（it.fails：修好之後會變
     expect(stateHash(game.state)).toBe(h0)
   })
 
-  it.fails('B003：做滿 5 件事之後一個被擋下的行動（沒有這種行動），回退的步數仍是 5', async () => {
-    const { game } = makeGame()
+  it('B003：做滿 5 件事之後一個做不成的行動（沒有這種行動、被擋下的行動），回退的步數仍是 5、仍回得到最開始', async () => {
+    const blocked: Feature = { id: 'blocked_action', install: (k) => k.actions.register({ ...BEG, id: 'never', block: () => '現在做不了這件事。' }) }
+    const { game } = makeGame({ features: [blocked] })
+    const h0 = stateHash(game.state)
     for (let i = 0; i < 5; i++) await game.act({ kind: 'free', text: TEXTS[i]! })
+    const h5 = stateHash(game.state)
     await expect(game.act({ kind: 'no_such_action' })).rejects.toThrow()
     expect(game.undo.size).toBe(5)
+    // 被擋下的行動不丟錯：回傳 refused 與原因，狀態與回退都不變
+    const r = await game.act({ kind: 'never' })
+    expect(r).toMatchObject({ status: 'refused', reason: '現在做不了這件事。', reports: [] })
+    expect(game.lastRun).toBeNull()
+    expect(stateHash(game.state)).toBe(h5)
+    expect(game.undo.size).toBe(5)
+    expect(game.undoSteps(5)).toBe(true)
+    expect(stateHash(game.state)).toBe(h0)
   })
 
-  // B004：回退的步數不是整數時丟 RangeError，而不是回 false
-  it.fails('B004：回退 1.5 步、NaN 步回 false（不丟錯）', async () => {
-    const { game } = makeGame()
-    await game.act({ kind: 'free', text: TEXTS[0]! })
-    await game.act({ kind: 'free', text: TEXTS[1]! })
-    expect(game.undoSteps(1.5)).toBe(false)
-    expect(game.undoSteps(Number.NaN)).toBe(false)
-    expect(game.undo.size).toBe(2)
+  it('B003（性質）：做 k 件事（0～8），中間夾任意幾次失敗的提交與做不成的行動，回退的步數只算成立的那幾件', async () => {
+    await fc.assert(fc.asyncProperty(fc.array(fc.constantFrom('act', 'bad_commit', 'bad_act'), { maxLength: 12 }), async (ops) => {
+      const { game } = makeGame()
+      let done = 0
+      for (const op of ops) {
+        if (op === 'act') { await game.act({ kind: 'free', text: TEXTS[done % TEXTS.length]! }); done++ }
+        else if (op === 'bad_commit') expect(() => game.commit(BAD_COMMIT)).toThrow()
+        else await expect(game.act({ kind: 'no_such_action' })).rejects.toThrow()
+        if (game.undo.size !== Math.min(done, UNDO_STEPS)) return false
+      }
+      return true
+    }), { numRuns: 30 })
   })
 
-  it('B004 的現況：丟錯，但狀態與堆疊都沒變（所以只是小問題）', async () => {
+  // B004：回退的步數不是整數時回 false，不丟錯
+  it('B004：回退 1.5 步、0.5 步、NaN 步回 false（不丟錯）；狀態與堆疊都不變', async () => {
     const { game } = makeGame()
     await game.act({ kind: 'free', text: TEXTS[0]! })
     await game.act({ kind: 'free', text: TEXTS[1]! })
     const h = stateHash(game.state)
-    for (const n of [1.5, Number.NaN]) {
-      expect(() => game.undoSteps(n)).toThrow(RangeError)
+    for (const n of [1.5, 0.5, 1.0000001, Number.NaN]) {
+      expect(game.undoSteps(n), String(n)).toBe(false)
       expect(game.undo.size).toBe(2)
       expect(stateHash(game.state)).toBe(h)
     }
@@ -245,9 +261,9 @@ describe('邊界 AI_TASKS 2.4：重試只有最新一樓、重試不重擲、重
     }
   })
 
-  // B005：不合法的重試請求先把最新一樓的套用回退掉，才發現不能重試；丟錯之後那一次行動已經不見了
+  // B005：不合法的重試請求要先被拒絕，不能先把最新一樓的套用回退掉
   for (const call of BAD_RETRIES) {
-    it.fails(`B005：${call.name}被拒絕之後，狀態和請求之前一模一樣（最新一樓的報告還在）`, async () => {
+    it(`B005：${call.name}被拒絕之後，狀態和請求之前一模一樣（最新一樓的報告還在）`, async () => {
       const { game } = setup()
       await game.act({ kind: 'beg', text: '我伸手' })
       const h = stateHash(game.state)
@@ -257,14 +273,87 @@ describe('邊界 AI_TASKS 2.4：重試只有最新一樓、重試不重擲、重
     })
   }
 
-  it('B005 的現況：被拒絕的重試把行動回退掉了；接著做下一件事，那一次行動就永遠消失（沒有人按回退）', async () => {
+  it('B005：被拒絕的重試之後，行動還在；接著做下一件事，兩件事都在紀錄裡，合法的重試照樣能做', async () => {
+    const { game } = setup()
+    await game.act({ kind: 'beg', text: '我伸手' })
+    const h1 = stateHash(game.state)
+    await expect(game.retryStep('apply')).rejects.toThrow(/套用不能單獨重試/)
+    expect(stateHash(game.state)).toBe(h1)
+    expect(game.lastRun!.status).toBe('applied')
+    expect((await game.retryStep('text')).status).toBe('applied')
+    await game.act({ kind: 'free', text: '我敲敲牆' })
+    expect(game.state.reports.map((r) => r.action)).toEqual(['game.new', 'beg', 'free'])
+  })
+
+  it('任務鏈列的按鈕由引擎說了算：stepActions 對每一步回傳三個請求各自能不能做（原因是完整的句子）', async () => {
+    const { game } = setup()
+    expect(game.stepActions('roll').retry).toMatch(/回退/)
+    await game.act({ kind: 'beg', text: '我伸手' })
+    expect(game.stepActions('roll')).toEqual({ retry: null, useRules: '只有 AI 的步驟可以用規則代替。', reroll: null })
+    expect(game.stepActions('judge')).toEqual({ retry: null, useRules: null, reroll: '這一步不是擲骰，不能重擲。' })
+    expect(game.stepActions('apply')).toEqual({ retry: '套用不能單獨重試。', useRules: '只有 AI 的步驟可以用規則代替。', reroll: '這一步不是擲骰，不能重擲。' })
+    expect(game.stepActions('no_such_step').retry).toMatch(/沒有 no_such_step/)
+  })
+})
+
+// ---------------------------------------------------------------------------------------------
+// 審查 E2：已經套用的鏈之後又有別的提交，重試、重擲、用規則代替不能把之後的提交抹掉
+
+describe('邊界 AI_TASKS 2.4：只有最新一樓可以在套用之後重試（之後有別的提交就只能回退）', () => {
+  const setup = (o: Parameters<typeof makeGame>[0] = {}) => makeGame({ features: [testFeature], ai: { ai: 1 }, fake: true, scenario: 'withMoney', ...o })
+  const REST = { kind: 'system' as const, action: 'rest', location: {}, party: [], timeline: [], changes: [{ op: 'time', minutes: 600 }, { op: 'cash', delta: -100 }], outcome: { result: 'ok', summary: '休息了一陣子' } }
+
+  for (const attach of [false, true]) {
+    it(`鏈套用之後又提交一份報告（${attach ? '併進最新一樓' : '另留一步回退'}）：重試、重擲、用規則代替都被拒絕，狀態不變，之後的提交還在`, async () => {
+      const { game } = setup()
+      await game.act({ kind: 'beg', text: '我伸手' })
+      game.commit(REST, { attach })
+      const h = stateHash(game.state)
+      const reports = game.state.reports.length
+      for (const call of [() => game.reroll(), () => game.retryStep('judge'), () => game.useRules('judge'), () => game.retryStep('text')]) {
+        await expect(call()).rejects.toThrow(/之後已經做了別的事.*只能回退/)
+        expect(stateHash(game.state)).toBe(h)
+        expect(game.state.reports).toHaveLength(reports)
+      }
+      expect(game.stepActions('roll')).toMatchObject({ retry: expect.stringMatching(/只能回退/), reroll: expect.stringMatching(/只能回退/) })
+      // 任務鏈列還看得到那一條鏈（只是不能再重試）
+      expect(game.lastRun!.status).toBe('applied')
+    })
+  }
+
+  it('併進最新一樓的提交不另留回退：回退一步，連同那一樓一起收回', async () => {
     const { game } = setup()
     const h0 = stateHash(game.state)
     await game.act({ kind: 'beg', text: '我伸手' })
-    await expect(game.retryStep('apply')).rejects.toThrow(/套用不能單獨重試/)
+    expect(game.undo.size).toBe(1)
+    for (let i = 0; i < 7; i++) game.commit({ ...REST, changes: [{ op: 'cash', delta: -10 }] }, { attach: true })
+    expect(game.undo.size).toBe(1)
+    expect(game.state.money.cash).toBeLessThanOrEqual(500 - 70 + 120)
+    expect(game.undoSteps(1)).toBe(true)
     expect(stateHash(game.state)).toBe(h0)
-    expect(game.lastRun!.status).toBe('blocked')
-    await game.act({ kind: 'free', text: '我敲敲牆' })
-    expect(game.state.reports.map((r) => r.action)).toEqual(['game.new', 'free'])
+  })
+
+  it('性質：鏈套用之後夾 0～4 次提交（併進或另留），之後只要有過提交，重擲一定被拒絕、狀態不變；沒有提交時重擲照常', async () => {
+    await fc.assert(fc.asyncProperty(fc.integer({ min: 1, max: 2 ** 31 - 1 }), fc.array(fc.boolean(), { maxLength: 4 }), async (seed, attaches) => {
+      const { game } = setup({ seed })
+      await game.act({ kind: 'beg', text: '我伸手' })
+      for (const attach of attaches) game.commit({ ...REST, changes: [{ op: 'time', minutes: 30 }] }, { attach })
+      const h = stateHash(game.state)
+      if (attaches.length === 0) return (await game.reroll()).status === 'applied'
+      const err = await game.reroll().then(() => null, (e: Error) => e.message)
+      return err !== null && stateHash(game.state) === h && game.state.reports.filter((r) => r.action === 'rest').length === attaches.length
+    }), { numRuns: 25 })
+  })
+
+  it('鏈停在半路（等玩家）時提交別的報告：那一條鏈作廢，它留的那一步回退拿掉；提交照常', async () => {
+    const { game } = setup({ fake: { adversarial: { mode: 'refusal', tasks: ['judge'] } } })
+    const r = await game.act({ kind: 'beg', text: '我伸手' })
+    expect(r.status).toBe('paused')
+    expect(game.undo.size).toBe(1)
+    game.commit(REST)
+    expect(game.undo.size).toBe(1)
+    expect(game.lastRun).toBeNull()
+    await expect(game.useRules('judge')).rejects.toThrow(/回退/)
+    expect(game.state.reports.map((x) => x.action)).toEqual(['game.new', 'rest'])
   })
 })
