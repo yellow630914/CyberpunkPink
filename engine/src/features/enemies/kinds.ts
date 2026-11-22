@@ -2,6 +2,7 @@
 
 import type { ContentRegistry, Kernel } from '../../core'
 import { ATTR_IDS, DAMAGE_TYPES, UNIT_RANKS } from '../../core'
+import { lootProblems, lootRefs } from './loot'
 
 export const OWNER = 'enemies'
 export const ENEMY_KINDS = ['human', 'unbridged', 'machine', 'vehicle', 'mech', 'mascot', 'lace', 'program'] as const
@@ -54,7 +55,10 @@ export interface EnemyEntry {
   defeat?: string
   adult?: string[] | null
   signature?: unknown[]
+  /** 掉落（ENEMIES 第 7 節；格式見 loot.ts）：{ item, chance, qty?, top? } 或還沒轉的 { text } */
   loot?: unknown[]
+  /** 照等級掉現金晶片；false 是企業的人（身上沒有現金）。預設 true */
+  cash?: boolean
   traits?: string[]
   angel?: string
   [field: string]: unknown
@@ -185,7 +189,7 @@ function enemyProblems(e: Record<string, unknown>, partial: boolean): string[] {
   opt('defeat', (v) => typeof v === 'string', '要是字串')
   opt('adult', (v) => v === null || isTextList(v), '要是字串的陣列或 null')
   opt('signature', Array.isArray, '要是陣列')
-  opt('loot', Array.isArray, '要是陣列')
+  p.push(...lootProblems(e))
   opt('traits', isTextList, '要是字串的陣列')
   opt('angel', (v) => typeof v === 'string', '要是字串')
   return p
@@ -208,6 +212,7 @@ export function registerKinds(k: Pick<Kernel, 'content'>): void {
       ...(Array.isArray(e.weapons) ? e.weapons.map((w) => ['weapon_class', w.class] as [string, string]) : []),
       ...(e.base ? [['enemy', e.base] as [string, string]] : []),
       ...(Array.isArray(e.quick) ? e.quick.map((q) => ['item', q.item] as [string, string]) : []),
+      ...lootRefs(k.content, e),
     ],
   })
 
