@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { ActionKindEntry, CreationRuleEntry } from '../../src'
-import { Game, createKernel, prepareAction, sanitizeJudgment } from '../../src'
+import { Game, prepareAction, sanitizeJudgment } from '../../src'
 import { allFeatures } from '../../src/features'
 import { CORE_PACK, SOURCES } from '../../data'
 import { makeActor } from '../../src/testkit'

@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { BattleStatusEntry, ItemEntry, SpecialMapEntry, WeaponClassEntry } from '../../src'
-import { DEFAULT_DAMAGE_TYPES, DEFAULT_MODES, Game, Sheet, createKernel, damageTypeOf, markersInLayout, modeOf, statusRuleOf, weaponFromClass } from '../../src'
+import { DEFAULT_DAMAGE_TYPES, DEFAULT_MODES, Game, Sheet, damageTypeOf, markersInLayout, modeOf, statusRuleOf, weaponFromClass } from '../../src'
 import { allFeatures } from '../../src/features'
 import { CORE_PACK, SOURCES } from '../../data'
 
