@@ -74,7 +74,15 @@ const ringItems = computed<RingItem[]>(() => {
 const actionOf = (id: string): BattleActionOption | undefined => options.value?.actions.find((a) => a.id === id)
 
 // ---- 開打 ----
+/** 讀檔或重新整理回來接著打：戰鬥紀錄照引擎已經提交的每一步報告重建 */
+function restoreLines(): void {
+  const b = engine.battle
+  if (!b) return
+  const mine = new Set(b.steps)
+  after({ status: 'applied', over: false, reports: engine.state.reports.filter((r) => mine.has(r.id)) }, false)
+}
 function startFromRoute(): void {
+  if (engine.inBattle && lines.value.length === 0) { restoreLines(); return }
   if (!engine.hasCharacter || engine.inBattle || engine.defeat) return
   const wanted = typeof route.query.enc === 'string' ? route.query.enc : ''
   const list = engine.encounters()
@@ -93,7 +101,7 @@ onMounted(() => {
 watch(() => route.query.enc, () => { if (!engine.inBattle && !settling.value) startFromRoute() })
 
 // ---- 一步的結果：紀錄、直播、提示 ----
-function after(r: BattleStepResult): void {
+function after(r: BattleStepResult, fresh = true): void {
   const reports = r.reports ?? []
   for (const rep of reports) {
     for (const b of rep.timeline) {
@@ -101,6 +109,7 @@ function after(r: BattleStepResult): void {
       lines.value.push({ t: b.text, c: good ? 'h' : b.tag === 'wound' ? 'r' : '' })
     }
   }
+  if (!fresh) return
   const ev = liveEventsOf(reports, engine.battle)
   liveEvents.value.push(...ev)
   if (live.value.on) for (const d of danmakuOf(ev)) dm.value?.push(d.text, d.kind)
