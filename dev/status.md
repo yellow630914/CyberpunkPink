@@ -72,3 +72,6 @@
 - 草稿兩份（id 表、行動種類表）：2026-11-21 確認定案。
 - ~~時段~~：2026-11-21 選 A：名稱不動、全部往前 1 小時（CORE_RULES 7.4 節）。`DEFAULT_TIME_RULES.dawnHour` 已經改成 3（2026-11-22）。
 
+
+- 2026-11-22 技術債：capture 敵人拿遠程武器時，核心 AI 的位置分會先讓他後退，輪不到制伏。M1-combat 先在 `ai.step`（order 10）替他制伏（features/combat/tactics.ts `registerCaptureAi`）。正本應該是核心位置分考慮「有可制伏的目標」，交 cpp-architect 在 M1 收尾時改。
+- 2026-11-22 技術債：契約人不能投降（ENEMIES 4.4）、士氣的開場人數要在開場時記下（M2 增援），留給敵人招牌行動那批。

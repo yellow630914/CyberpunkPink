@@ -4,7 +4,7 @@
 // 站在撤離點（X）可以離開。保全崗放誰由發起的功能用 placeGuards 寫在這份實例上，這個功能不知道敵人的資料。
 // 監視器、巡邏、門鎖、資料埠、憑證、警戒是 M2。
 
-import type { BattleSetup, Change, Feature, GameState, GridKernel, MarkerDef, ReportDraft, Sheet, SpotDef, UnitRef } from '../../core'
+import type { BattleSetup, Change, Feature, GameState, GridCtx, GridEffect, GridKernel, MarkerDef, ReportDraft, Sheet, SpotDef, UnitRef } from '../../core'
 import { clone, closeMap, gridHere, pointKey } from '../../core'
 
 const OWNER = 'explore'
@@ -52,13 +52,11 @@ function pickSpot(sheet: Sheet, post: [number, number]): SpotDef | undefined {
   return nearest(same.length ? same : spots)
 }
 
-function enterGuard(ctx: Parameters<Parameters<GridKernel['grid']['onMark']>[2]>[0], marker: MarkerDef) {
-  const here = gridHere(ctx.k, ctx.state)
+function enterGuard(ctx: GridCtx, marker: MarkerDef): GridEffect | undefined {
   const instance = ctx.state.maps.instances[ctx.at.map]
   const guard = guardOf(instance?.ext, marker.id)
   if (!guard) return
-  const used = (instance?.sheets[ctx.at.sheet]?.cells[pointKey(ctx.at.x, ctx.at.y)] ?? here?.sheetState.cells[pointKey(ctx.at.x, ctx.at.y)])?.used
-  if (used) return
+  if (instance?.sheets[ctx.at.sheet]?.cells[pointKey(ctx.at.x, ctx.at.y)]?.used) return
   const spot = pickSpot(ctx.sheet, [ctx.at.x, ctx.at.y])
   const battle: BattleSetup = {
     mode: 'meat',
