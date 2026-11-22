@@ -161,7 +161,19 @@
     "cells": 1,
     "text": "你連射時可以只花彈匣 2 格，剩下的格數留在彈匣裡；傷害照花掉 2 格算，壓制的定力 DC 照花掉 3 格算（DC 16）。",
     "meat": {
-      "pending": true
+      "alter": [
+        {
+          "ability": "sk_gunner_burst",
+          "as_pick": {
+            "key": "tap",
+            "label": "點放：只花 2 格"
+          },
+          "set": {
+            "attack.spend": 2,
+            "attack.suppress.dc": 16
+          }
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -217,7 +229,12 @@
     },
     "text": "開著時，你每回合第一次射擊命中的目標直接得到壓制，不必檢定：到他的下一回合結束前不能換位，攻擊 −2。",
     "meat": {
-      "pending": true
+      "attack": {
+        "suppress": {
+          "auto": true,
+          "per_turn": 1
+        }
+      }
     },
     "net": {
       "pending": true,
@@ -239,7 +256,16 @@
     "cells": 1.5,
     "text": "每場戰鬥有 2 次，換武器不花行動點。",
     "meat": {
-      "pending": true
+      "mods": [
+        {
+          "kind": "action_ap",
+          "value": -1,
+          "tags": [
+            "swap"
+          ],
+          "per_fight": 2
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -295,7 +321,19 @@
     },
     "text": "射擊一次。命中的話把目標往後推一格；不論有沒有命中，這一擊對目標那一格遮蔽的倍率至少算 ×1。",
     "meat": {
-      "pending": true
+      "target": "enemy",
+      "do": [
+        {
+          "op": "attack",
+          "cover_mult_min": 1
+        },
+        {
+          "op": "shift",
+          "dir": "push",
+          "n": 1,
+          "if": "hit"
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -315,16 +353,16 @@
     "cap": 1,
     "xp": 40,
     "cells": 1.5,
+    "prep": {
+      "text": "幫槍槍保養是本樹唯一的預備技能。進委託副本之前（或在副本裡兩個階段之間喘口氣的時候）花 1 個時段，把主武器調到順手：這個副本裡的下一場現實戰鬥，那把槍的彈匣容量 +1，最多到 4 格。"
+    },
     "use": {
       "note": "1 時段"
     },
     "text": "幫槍槍保養是本樹唯一的預備技能。進委託副本之前（或在副本裡兩個階段之間喘口氣的時候）花 1 個時段，把主武器調到順手：這個副本裡的下一場現實戰鬥，那把槍的彈匣容量 +1，最多到 4 格。",
     "meat": null,
     "net": null,
-    "opinion": null,
-    "prep": {
-      "text": "幫槍槍保養是本樹唯一的預備技能。進委託副本之前（或在副本裡兩個階段之間喘口氣的時候）花 1 個時段，把主武器調到順手：這個副本裡的下一場現實戰鬥，那把槍的彈匣容量 +1，最多到 4 格。"
-    }
+    "opinion": null
   },
   {
     "id": "sk_gunner_pierce",
@@ -343,7 +381,14 @@
     },
     "text": "射擊一次。這一擊把目標那一格的遮蔽當成低一級來算（掩體算半掩體，半掩體算暴露），而且穿甲 +1。",
     "meat": {
-      "pending": true
+      "target": "enemy",
+      "do": [
+        {
+          "op": "attack",
+          "cover_shift": 1,
+          "pierce": 1
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -368,7 +413,29 @@
     },
     "text": "換位一次再射擊一次，兩件事一共 2 行動點。你換到的那一格，到你的下一回合開始前遮蔽高一級，最高到掩體。",
     "meat": {
-      "pending": true
+      "target": "enemy",
+      "picks": [
+        {
+          "key": "slot",
+          "label": "換到哪一格",
+          "kind": "ally_slot"
+        }
+      ],
+      "do": [
+        {
+          "op": "move",
+          "who": "self",
+          "to": "adjacent"
+        },
+        {
+          "op": "cover_temp",
+          "who": "self",
+          "levels": 1
+        },
+        {
+          "op": "attack"
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -394,7 +461,41 @@
     },
     "text": "你第一次進入重傷（生命值低於一半）時，立刻射擊一次，不花行動點，命中 +2。到你的下一回合結束前，重傷的 −2 不算。",
     "meat": {
-      "pending": true
+      "trigger": {
+        "on": "hp_half",
+        "who": "self"
+      },
+      "do": [
+        {
+          "op": "attack",
+          "who": "attacker",
+          "hit": 2
+        },
+        {
+          "op": "buff",
+          "who": "self",
+          "id": "deadline",
+          "name": "死線",
+          "turns": 1,
+          "until": "own_turn_end",
+          "mods": [
+            {
+              "kind": "hit",
+              "value": 2,
+              "when": {
+                "wounded": true
+              }
+            },
+            {
+              "kind": "save",
+              "value": 2,
+              "when": {
+                "wounded": true
+              }
+            }
+          ]
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -416,7 +517,22 @@
     "cells": 2,
     "text": "你瞄準過的射擊（要害射擊、狙擊槍的一槍），瞄準的加值從 +3 變成 +4，而且超過迴避 3 以上就算要害。",
     "meat": {
-      "pending": true
+      "mods": [
+        {
+          "kind": "hit",
+          "value": 1,
+          "tags": [
+            "aimed"
+          ]
+        },
+        {
+          "kind": "crit_margin",
+          "to": 3,
+          "tags": [
+            "aimed"
+          ]
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -441,7 +557,35 @@
     },
     "text": "射擊一次，同時讓一名和你相鄰的隊友立刻換位一次，不花他的行動點。這一槍命中的話，目標得到壓制，到他的下一回合結束。",
     "meat": {
-      "pending": true
+      "target": "enemy",
+      "picks": [
+        {
+          "key": "mate",
+          "label": "讓誰換位",
+          "kind": "ally",
+          "adjacent": true
+        },
+        {
+          "key": "slot",
+          "label": "換到哪一格",
+          "kind": "ally_slot"
+        }
+      ],
+      "do": [
+        {
+          "op": "attack"
+        },
+        {
+          "op": "status",
+          "status": "suppressed",
+          "if": "hit"
+        },
+        {
+          "op": "move",
+          "who": "pick:mate",
+          "to": "adjacent"
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -461,9 +605,27 @@
     "cap": 5,
     "xp": 80,
     "cells": 2.5,
+    "use": {
+      "ap": 0,
+      "per_turn": 1
+    },
     "text": "每回合你第一次打出要害時，退還 1 點行動點，而且那一擊穿甲 +1。",
     "meat": {
-      "pending": true
+      "trigger": {
+        "on": "hit",
+        "who": "foe_by_self",
+        "if": "crit"
+      },
+      "react": {
+        "pierce": 1
+      },
+      "do": [
+        {
+          "op": "ap",
+          "who": "self",
+          "amount": 1
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -488,7 +650,18 @@
     },
     "text": "開著時，你連射或用輕機槍掃射造成的壓制，同時打到目標相鄰一格上的人，他也要過定力檢定；兩個人的 DC 都再 +2。",
     "meat": {
-      "pending": true
+      "alter": [
+        {
+          "ability": "sk_gunner_burst",
+          "when": {
+            "stance": "sk_gunner_barrage"
+          },
+          "set": {
+            "attack.suppress.area": "adjacent",
+            "attack.suppress.dc_bonus": 2
+          }
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -514,7 +687,30 @@
     },
     "text": "從這一回合起連續三個回合，戰鬥直覺的點數 +2，每一項的上限從 3 點變成 5 點，每回合的重分配不花行動點。",
     "meat": {
-      "pending": true
+      "do": [
+        {
+          "op": "buff",
+          "who": "self",
+          "id": "flow",
+          "name": "心流",
+          "turns": 3,
+          "until": "own_turn_end",
+          "mods": [
+            {
+              "kind": "instinct_points",
+              "value": 2
+            },
+            {
+              "kind": "instinct_cap",
+              "value": 2
+            },
+            {
+              "kind": "instinct_free",
+              "value": 1
+            }
+          ]
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -539,7 +735,26 @@
     },
     "text": "射擊一次。這一擊讓目標倒下的話，立刻用同一把槍對另一個敵人射擊一次，不花行動點（照常花彈匣）。",
     "meat": {
-      "pending": true
+      "target": "enemy",
+      "picks": [
+        {
+          "key": "next",
+          "label": "下一個目標",
+          "kind": "foe",
+          "required": false,
+          "apart": true
+        }
+      ],
+      "do": [
+        {
+          "op": "attack"
+        },
+        {
+          "op": "attack",
+          "who": "pick:next",
+          "if": "downed"
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -564,7 +779,24 @@
     },
     "text": "指定敵方的一格。到你的下一回合開始前，站在那一格的人第一次換位、補位或攻擊時，你立刻朝他射擊一次，不花行動點（照常花彈匣）。",
     "meat": {
-      "pending": true
+      "target": "foe_slot",
+      "do": [
+        {
+          "op": "ward",
+          "slot": "target",
+          "until": "own_turn_start",
+          "on": [
+            "move",
+            "compact",
+            "attack"
+          ],
+          "do": [
+            {
+              "op": "attack"
+            }
+          ]
+        }
+      ]
     },
     "net": null,
     "opinion": null
@@ -587,7 +819,26 @@
     },
     "text": "進攻的終極。用步槍或狙擊槍，對距離 5 以上的目標射擊一次：命中 +6，命中就一定算要害，並且擲一次重創，部位由你選。",
     "meat": {
-      "pending": true
+      "target": "enemy",
+      "when": {
+        "wield": [
+          "rifle",
+          "sniper"
+        ]
+      },
+      "range": [
+        5,
+        7
+      ],
+      "do": [
+        {
+          "op": "attack",
+          "aimed": true,
+          "hit": 6,
+          "auto_crit": true,
+          "label": "一槍定局"
+        }
+      ]
     },
     "net": null,
     "opinion": null
@@ -610,7 +861,35 @@
     },
     "text": "防守的終極。連射一次，這次連射不花彈匣；壓制打到敵方整排的每一個人，各自檢定，DC 再 +2。到你的下一回合開始前，我方每一格的迴避 +1。",
     "meat": {
-      "pending": true
+      "target": "enemy",
+      "attack": {
+        "spend": "all",
+        "min_mag": 2,
+        "dice": "spent_minus_1",
+        "free_mag": true,
+        "suppress": {
+          "dc": "spent",
+          "skill": "composure",
+          "area": "row",
+          "dc_bonus": 2
+        }
+      },
+      "do": [
+        {
+          "op": "buff",
+          "who": "allies",
+          "id": "fire_wall",
+          "name": "火力牆",
+          "turns": 1,
+          "until": "source_turn_start",
+          "mods": [
+            {
+              "kind": "evade",
+              "value": 1
+            }
+          ]
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -636,7 +915,33 @@
     },
     "text": "改變規則的終極，**這一招動到「每回合回復的行動點」**：你的下兩個回合，每回合回復的行動點 +2；這兩個回合裡，你的每一次射擊都算瞄準過的射擊（命中 +3，可以指定部位，打出要害時擲重創），不多花行動點。效果結束時，你的感載 +10。",
     "meat": {
-      "pending": true
+      "do": [
+        {
+          "op": "buff",
+          "who": "self",
+          "id": "bullet_time",
+          "name": "子彈時間",
+          "turns": 3,
+          "until": "own_turn_end",
+          "mods": [
+            {
+              "kind": "ap_regen",
+              "value": 2
+            },
+            {
+              "kind": "aim_all",
+              "value": 1
+            }
+          ],
+          "on_end": [
+            {
+              "op": "load",
+              "exact": true,
+              "amount": 10
+            }
+          ]
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -658,7 +963,20 @@
     "cells": 3,
     "text": "你射擊時命中 +1、穿甲 +1，而且超過迴避 3 以上就算要害。",
     "meat": {
-      "pending": true
+      "mods": [
+        {
+          "kind": "hit",
+          "value": 1
+        },
+        {
+          "kind": "pierce",
+          "value": 1
+        },
+        {
+          "kind": "crit_margin",
+          "to": 3
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -684,7 +1002,18 @@
     },
     "text": "敵人的攻擊沒有打中你，或沒有打中和你相鄰的隊友時，你立刻朝那個敵人射擊一次（照常花彈匣），命中 +2。",
     "meat": {
-      "pending": true
+      "trigger": {
+        "on": "after",
+        "who": "near",
+        "if": "miss"
+      },
+      "do": [
+        {
+          "op": "attack",
+          "who": "attacker",
+          "hit": 2
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -703,6 +1032,9 @@
     "cap": 3,
     "xp": 20,
     "cells": 0,
+    "daily": {
+      "text": "名冊的容量是 3＋mod(魅力)＋人面的階數×2（FIXER 第 6 節）。派工的擲骰加上人面的階數（FIXER 第 7 節）。替輔助面從名冊找人時，每一階讓付錢的價錢便宜一成，靠交情的難度 −1（COMMISSIONS 6.5 節）。"
+    },
     "text": "**指揮**：在你的回合把行動點讓給一名隊友，1 點換 1 點，每回合最多 1＋人面的階數的一半（無條件捨去）點；對方的行動點不能超過他的上限。**叫人**：花 1 行，叫名冊上一名有空、不在隊伍裡的人支援一次，三選一：用他的武器對一個敵人射擊一次（命中與傷害照他的資料）、替我方一格補一級遮蔽、拆掉敵方一格一級遮蔽。每場次數是人面的階數的一半（無條件進位）。叫來的人戰後要算錢：出場費的四分之一，或記一個你欠他的小人情。",
     "meat": {
       "give_ap": {
@@ -725,9 +1057,6 @@
     "opinion": {
       "pending": true,
       "text": "能坐編輯台。編輯點是 2＋人面的階數的一半（無條件捨去），照 OPINION 4.3b。"
-    },
-    "daily": {
-      "text": "名冊的容量是 3＋mod(魅力)＋人面的階數×2（FIXER 第 6 節）。派工的擲骰加上人面的階數（FIXER 第 7 節）。替輔助面從名冊找人時，每一階讓付錢的價錢便宜一成，靠交情的難度 −1（COMMISSIONS 6.5 節）。"
     }
   },
   {
@@ -801,6 +1130,9 @@
     "cap": 1,
     "xp": 20,
     "cells": 3,
+    "prep": {
+      "text": "開打前用，不花時段；委託副本裡每個階段可以用一次。三選一，效果帶進這一場：**藏貨**，我方一格多一級遮蔽；**安排人**，這一場叫人的次數 +1；**打點**，敵方一名雜兵在第一回合被壓制。進內海之前改成兩選一：**預付憑證**，第一道閘門不必破解；**預埋後門**，追蹤度起始 −10。"
+    },
     "use": {
       "per_fight": 1,
       "note": "開打前；每場 1"
@@ -808,10 +1140,7 @@
     "text": "開打前用，不花時段；委託副本裡每個階段可以用一次。三選一，效果帶進這一場：**藏貨**，我方一格多一級遮蔽；**安排人**，這一場叫人的次數 +1；**打點**，敵方一名雜兵在第一回合被壓制。進內海之前改成兩選一：**預付憑證**，第一道閘門不必破解；**預埋後門**，追蹤度起始 −10。",
     "meat": null,
     "net": null,
-    "opinion": null,
-    "prep": {
-      "text": "開打前用，不花時段；委託副本裡每個階段可以用一次。三選一，效果帶進這一場：**藏貨**，我方一格多一級遮蔽；**安排人**，這一場叫人的次數 +1；**打點**，敵方一名雜兵在第一回合被壓制。進內海之前改成兩選一：**預付憑證**，第一道閘門不必破解；**預埋後門**，追蹤度起始 −10。"
-    }
+    "opinion": null
   },
   {
     "id": "sk_fixer_swap",
@@ -855,7 +1184,16 @@
     "cells": 1,
     "text": "和你相鄰的隊友抵抗壓制的定力檢定 +2。",
     "meat": {
-      "pending": true
+      "mods": [
+        {
+          "kind": "save",
+          "value": 2,
+          "who": "adjacent",
+          "tags": [
+            "resist:suppressed"
+          ]
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -877,11 +1215,18 @@
     "cells": 1,
     "use": {
       "ap": 1,
+      "cash": "grade*100",
       "note": "1 行＋錢"
     },
     "text": "花等級×100 C$，叫地頭的人把彈藥送進來：一名隊友的彈匣補滿，不花他的行動點。",
     "meat": {
-      "pending": true
+      "target": "ally",
+      "do": [
+        {
+          "op": "mag",
+          "amount": "full"
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -906,7 +1251,54 @@
     },
     "text": "對一名重傷或疊著餘韻的敵人喊話，擲交涉，對 10＋他的等級×2（精英再 +2；首領不行）。成功的話他暈眩（下一回合行動點 −2）；目標是重傷的雜兵時，成功改成他投降，退出這場戰鬥。",
     "meat": {
-      "pending": true
+      "target": "enemy",
+      "needs": {
+        "no_rank": [
+          "boss"
+        ],
+        "any": [
+          {
+            "wounded": true
+          },
+          {
+            "afterglow": 1
+          }
+        ]
+      },
+      "do": [
+        {
+          "op": "check",
+          "attr": "charm",
+          "skill": "negotiate",
+          "vs": {
+            "base": 10,
+            "per_grade": 2,
+            "elite": 2
+          }
+        },
+        {
+          "op": "branch",
+          "if": "ok",
+          "needs": {
+            "rank": [
+              "minion"
+            ],
+            "wounded": true
+          },
+          "do": [
+            {
+              "op": "out",
+              "how": "surrendered"
+            }
+          ],
+          "else": [
+            {
+              "op": "status",
+              "status": "dazed"
+            }
+          ]
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -927,12 +1319,22 @@
     "xp": 40,
     "cells": 3,
     "use": {
-      "per_fight": 2,
-      "note": "1 個小人情，或 1 編；每場 2 次"
+      "meat": {
+        "favor": "small",
+        "per_fight": 2,
+        "note": "1 個小人情，或 1 編；每場 2 次"
+      }
     },
     "text": "一名隊友要被重創時觸發：改成一般的命中。",
     "meat": {
-      "pending": true
+      "trigger": {
+        "on": "hit",
+        "who": "ally",
+        "if": "wound"
+      },
+      "react": {
+        "no_wound": true
+      }
     },
     "net": {
       "pending": true,
@@ -1003,18 +1405,25 @@
     "cap": 3,
     "xp": 40,
     "cells": 1.5,
+    "daily": {
+      "text": "違禁品買得到，稀有度上限 +1；洗現金晶片的抽成 −5%。"
+    },
     "text": "開戰時，你指定的一名隊友彈匣多一格，可以超過容量；那一格用掉就沒了。",
     "meat": {
-      "pending": true
+      "on_start": [
+        {
+          "op": "mag",
+          "who": "pick:mate",
+          "amount": 1,
+          "over_cap": true
+        }
+      ]
     },
     "net": {
       "pending": true,
       "text": "代理租來的守衛程式多留 1 回合；代理的價錢 −20%。"
     },
-    "opinion": null,
-    "daily": {
-      "text": "違禁品買得到，稀有度上限 +1；洗現金晶片的抽成 −5%。"
-    }
+    "opinion": null
   },
   {
     "id": "sk_fixer_bribe",
@@ -1029,13 +1438,27 @@
     "xp": 60,
     "cells": 6,
     "use": {
-      "ap": 2,
-      "per_fight": 1,
-      "note": "2 行＋等級×500 C$，或 1 編＋同樣的錢；每場 1"
+      "meat": {
+        "ap": 2,
+        "cash": "grade*500",
+        "per_fight": 1,
+        "note": "2 行＋等級×500 C$，或 1 編＋同樣的錢；每場 1"
+      }
     },
     "text": "一名雜兵或精英收了錢，失去下一回合；首領不行。",
     "meat": {
-      "pending": true
+      "target": "enemy",
+      "needs": {
+        "no_rank": [
+          "boss"
+        ]
+      },
+      "do": [
+        {
+          "op": "status",
+          "status": "lose_turn"
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -1059,12 +1482,27 @@
     "xp": 60,
     "cells": 7,
     "use": {
+      "ap": 0,
+      "favor": "mid",
       "per_fight": 1,
       "note": "1 個中人情；每場 1"
     },
     "text": "一名隊友被制伏時觸發：叫來的人剪斷束帶，制伏解除，他留在原來那一格。全隊倒下時，戰敗事件多一個選項「被贖回」：付等級×1,000 C$，跳過事件的內容，委託照戰敗處理。",
     "meat": {
-      "pending": true
+      "trigger": {
+        "on": "out_before",
+        "who": "ally"
+      },
+      "react": {
+        "prevent": {
+          "how": [
+            "subdued"
+          ]
+        }
+      },
+      "ransom": {
+        "cash": "grade*1000"
+      }
     },
     "net": {
       "pending": true,
@@ -1084,16 +1522,16 @@
     "cap": 2,
     "xp": 60,
     "cells": 6,
+    "prep": {
+      "text": "每件委託一次。踩點時多揭開一項未知，可以是任何一面的，不花時段也不擲骰。效果帶進這件委託的第一場戰鬥：全隊先攻 +3，你指定一名敵人開場就被標記，到第二回合結束（全隊打他命中 +2）。後面有輿論面的話，開戰前就知道對手的強度與性格。"
+    },
     "use": {
       "note": "每件委託 1"
     },
     "text": "每件委託一次。踩點時多揭開一項未知，可以是任何一面的，不花時段也不擲骰。效果帶進這件委託的第一場戰鬥：全隊先攻 +3，你指定一名敵人開場就被標記，到第二回合結束（全隊打他命中 +2）。後面有輿論面的話，開戰前就知道對手的強度與性格。",
     "meat": null,
     "net": null,
-    "opinion": null,
-    "prep": {
-      "text": "每件委託一次。踩點時多揭開一項未知，可以是任何一面的，不花時段也不擲骰。效果帶進這件委託的第一場戰鬥：全隊先攻 +3，你指定一名敵人開場就被標記，到第二回合結束（全隊打他命中 +2）。後面有輿論面的話，開戰前就知道對手的強度與性格。"
-    }
+    "opinion": null
   },
   {
     "id": "sk_fixer_hit_him",
@@ -1112,7 +1550,31 @@
     },
     "text": "指定一個敵人，到你的下一回合為止：全隊打他命中 +2，傷害多 1d3。",
     "meat": {
-      "pending": true
+      "target": "enemy",
+      "do": [
+        {
+          "op": "status",
+          "status": "marked",
+          "until": "source_turn_start"
+        },
+        {
+          "op": "buff",
+          "who": "allies",
+          "id": "hit_him",
+          "name": "打他打他！",
+          "turns": 1,
+          "until": "source_turn_start",
+          "mods": [
+            {
+              "kind": "damage_roll",
+              "value": "1d3",
+              "when": {
+                "other_status": "marked"
+              }
+            }
+          ]
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -1132,18 +1594,23 @@
     "cap": 4,
     "xp": 60,
     "cells": 2,
+    "daily": {
+      "text": "每週可以多派一件派工，派工的擲骰 +2。"
+    },
     "text": "叫人的每場次數 +1。",
     "meat": {
-      "pending": true
+      "mods": [
+        {
+          "kind": "call_uses",
+          "value": 1
+        }
+      ]
     },
     "net": {
       "pending": true,
       "text": "叫人的每場次數 +1。"
     },
-    "opinion": null,
-    "daily": {
-      "text": "每週可以多派一件派工，派工的擲骰 +2。"
-    }
+    "opinion": null
   },
   {
     "id": "sk_fixer_reinforce",
@@ -1191,7 +1658,13 @@
     },
     "text": "開著時，你的每一名隊友迴避 +1。",
     "meat": {
-      "pending": true
+      "mods": [
+        {
+          "kind": "evade",
+          "value": 1,
+          "who": "allies"
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -1212,12 +1685,29 @@
     "xp": 80,
     "cells": 4,
     "use": {
-      "ap": 1,
-      "note": "1 行，或 2 編"
+      "meat": {
+        "ap": 1,
+        "note": "1 行，或 2 編"
+      }
     },
     "text": "把我方兩個人的先攻對調；被換到前面的那個人馬上行動，並拿回 1 點行動點。",
     "meat": {
-      "pending": true
+      "target": "ally_or_self",
+      "picks": [
+        {
+          "key": "with",
+          "label": "和誰對調",
+          "kind": "ally",
+          "apart": true
+        }
+      ],
+      "do": [
+        {
+          "op": "order",
+          "with": "with",
+          "act_next": true
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -1242,7 +1732,22 @@
     "cells": 2.5,
     "text": "叫人的選項多兩種：替一名隊友回復 2d6 生命（認識的醫生），或替一名隊友排 8 點感載。",
     "meat": {
-      "pending": true
+      "alter": [
+        {
+          "ability": "sk_fixer_face",
+          "set": {
+            "call.options": [
+              "shot",
+              "cover_up",
+              "cover_down",
+              "heal",
+              "vent"
+            ],
+            "call.heal": "2d6",
+            "call.vent": 8
+          }
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -1263,12 +1768,45 @@
     "xp": 80,
     "cells": 4,
     "use": {
-      "ap": 2,
-      "note": "2 行，或 1 編"
+      "meat": {
+        "ap": 2,
+        "note": "2 行，或 1 編"
+      }
     },
     "text": "對一名精英或首領喊話，擲交涉，對 10＋他的等級×2（精英再 +2、首領再 +4）。成功的話他被壓制並被標記，到他的下一回合結束。",
     "meat": {
-      "pending": true
+      "target": "enemy",
+      "needs": {
+        "rank": [
+          "elite",
+          "boss"
+        ]
+      },
+      "do": [
+        {
+          "op": "check",
+          "attr": "charm",
+          "skill": "negotiate",
+          "vs": {
+            "base": 10,
+            "per_grade": 2,
+            "elite": 2,
+            "boss": 4
+          }
+        },
+        {
+          "op": "status",
+          "if": "ok",
+          "status": "suppressed",
+          "until": "own_turn_end"
+        },
+        {
+          "op": "status",
+          "if": "ok",
+          "status": "marked",
+          "until": "own_turn_end"
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -1292,13 +1830,35 @@
     "xp": 100,
     "cells": 10,
     "use": {
-      "ap": 2,
-      "per_fight": 1,
-      "note": "2 行，或 2 編；每場 1"
+      "meat": {
+        "ap": 2,
+        "per_fight": 1,
+        "note": "2 行，或 2 編；每場 1"
+      }
     },
     "text": "**這是動「每回合回復的行動點」的終極**：這一回合你的每一名隊友多回 1 點行動點，下一次攻擊命中 +1。",
     "meat": {
-      "pending": true
+      "do": [
+        {
+          "op": "ap",
+          "who": "allies",
+          "amount": 1
+        },
+        {
+          "op": "buff",
+          "who": "allies",
+          "id": "all_out",
+          "name": "總攻令",
+          "turns": 1,
+          "until": "own_turn_end",
+          "mods": [
+            {
+              "kind": "hit",
+              "value": 1
+            }
+          ]
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -1322,13 +1882,39 @@
     "xp": 100,
     "cells": 10,
     "use": {
-      "ap": 1,
-      "per_fight": 1,
-      "note": "1 行，或 2 編；每場 1"
+      "meat": {
+        "ap": 1,
+        "per_fight": 1,
+        "note": "1 行，或 2 編；每場 1"
+      }
     },
     "text": "到你的下一回合開始前：你和隊友迴避 +2，打在你們身上的重創改成一般的命中；你的每一名隊友排 4 點感載。",
     "meat": {
-      "pending": true
+      "do": [
+        {
+          "op": "buff",
+          "who": "allies",
+          "id": "hold_the_line",
+          "name": "護盤",
+          "turns": 1,
+          "until": "source_turn_start",
+          "mods": [
+            {
+              "kind": "evade",
+              "value": 2
+            },
+            {
+              "kind": "no_wound",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "op": "vent",
+          "who": "allies",
+          "amount": 4
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -1352,11 +1938,93 @@
     "xp": 100,
     "cells": 10,
     "use": {
-      "note": "1 個大人情；每件委託 1；不花行動點與編輯點"
+      "meat": {
+        "ap": 0,
+        "favor": "big",
+        "per_commission": 1,
+        "first_round": true,
+        "note": "1 個大人情；每件委託 1；不花行動點與編輯點"
+      }
     },
     "text": "開戰時用：敵方一名精英或兩名雜兵沒收到命令，失去第一回合。",
     "meat": {
-      "pending": true
+      "picks": [
+        {
+          "key": "a",
+          "label": "第一個目標",
+          "kind": "foe"
+        },
+        {
+          "key": "b",
+          "label": "第二個目標（兩個雜兵時）",
+          "kind": "foe",
+          "required": false
+        },
+        {
+          "key": "who",
+          "label": "誰沒收到命令",
+          "kind": "choice"
+        }
+      ],
+      "choose": [
+        {
+          "key": "elite",
+          "label": "一名精英",
+          "do": [
+            {
+              "op": "branch",
+              "who": "pick:a",
+              "needs": {
+                "rank": [
+                  "elite"
+                ]
+              },
+              "do": [
+                {
+                  "op": "status",
+                  "status": "lose_turn"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "minions",
+          "label": "兩名雜兵",
+          "do": [
+            {
+              "op": "branch",
+              "who": "pick:a",
+              "needs": {
+                "rank": [
+                  "minion"
+                ]
+              },
+              "do": [
+                {
+                  "op": "status",
+                  "status": "lose_turn"
+                }
+              ]
+            },
+            {
+              "op": "branch",
+              "who": "pick:b",
+              "needs": {
+                "rank": [
+                  "minion"
+                ]
+              },
+              "do": [
+                {
+                  "op": "status",
+                  "status": "lose_turn"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -1384,7 +2052,31 @@
     },
     "text": "開著時，指揮每回合能讓的行動點上限 +1；拿到你行動點的隊友，這一回合命中 +1、迴避 +1。",
     "meat": {
-      "pending": true
+      "mods": [
+        {
+          "kind": "give_ap_cap",
+          "value": 1
+        }
+      ],
+      "on_give_ap": [
+        {
+          "op": "buff",
+          "id": "command",
+          "name": "號令",
+          "turns": 1,
+          "until": "own_turn_end",
+          "mods": [
+            {
+              "kind": "hit",
+              "value": 1
+            },
+            {
+              "kind": "evade",
+              "value": 1
+            }
+          ]
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -1404,9 +2096,21 @@
     "cap": 6,
     "xp": 100,
     "cells": 3,
+    "daily": {
+      "text": "名冊的容量 +2；每週結帳時，名冊上一名忠誠 50 以上的人主動欠你一個小人情（一週最多一個）。"
+    },
     "text": "叫人的每場次數 +1；叫來的人射擊時命中 +2。",
     "meat": {
-      "pending": true
+      "mods": [
+        {
+          "kind": "call_uses",
+          "value": 1
+        },
+        {
+          "kind": "call_hit",
+          "value": 2
+        }
+      ]
     },
     "net": {
       "pending": true,
@@ -1415,9 +2119,6 @@
     "opinion": {
       "pending": true,
       "text": "每回合的編輯點上限 +1。"
-    },
-    "daily": {
-      "text": "名冊的容量 +2；每週結帳時，名冊上一名忠誠 50 以上的人主動欠你一個小人情（一週最多一個）。"
     }
   }
 ]

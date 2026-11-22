@@ -50,7 +50,12 @@
         "cells": 1,
         "text": "戰鬥直覺可以分配的點數 +1。",
         "effect": {
-          "pending": true
+          "mods": [
+            {
+              "kind": "instinct_points",
+              "value": 1
+            }
+          ]
         }
       }
     ]
@@ -80,7 +85,16 @@
         "cells": 1,
         "text": "每場戰鬥第一次叫人不花行動點。",
         "effect": {
-          "pending": true
+          "mods": [
+            {
+              "kind": "action_ap",
+              "value": -1,
+              "tags": [
+                "sk_fixer_face.call"
+              ],
+              "per_fight": 1
+            }
+          ]
         }
       },
       {
@@ -88,7 +102,13 @@
         "cells": 1,
         "text": "和你相鄰的隊友迴避 +1（現實與內海）。",
         "effect": {
-          "pending": true
+          "mods": [
+            {
+              "kind": "evade",
+              "value": 1,
+              "who": "adjacent"
+            }
+          ]
         }
       },
       {
