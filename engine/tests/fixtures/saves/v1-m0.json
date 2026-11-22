@@ -1,0 +1,375 @@
+{
+ "format": "cyberpunkpink-engine-save",
+ "version": 1,
+ "meta": {
+  "label": "M0 的存檔（第 1 版）",
+  "day": 1,
+  "time": "第 1 天 08:30",
+  "place": "test · empty_room",
+  "savedAt": "2026-11-22T00:00:00Z",
+  "kind": "manual",
+  "pc": {
+   "name": "測試主角"
+  }
+ },
+ "state": {
+  "version": 1,
+  "rng": {
+   "seed": 7,
+   "cursor": 1
+  },
+  "time": {
+   "day": 1,
+   "hour": 8,
+   "minute": 30
+  },
+  "money": {
+   "cred": 1000,
+   "cash": 480
+  },
+  "location": {
+   "district": "test",
+   "block": "empty_room",
+   "scene": "一個空房間"
+  },
+  "pc": "pc",
+  "actors": {
+   "pc": {
+    "id": "pc",
+    "name": "測試主角",
+    "role": "pc",
+    "age": 25,
+    "gender": "female",
+    "perks": [],
+    "hp": 40,
+    "load": 0,
+    "afterglow": 0,
+    "sink": 0,
+    "conditions": [],
+    "attrs": {
+     "body": 10,
+     "reflex": 10,
+     "tech": 10,
+     "intellect": 10,
+     "resolve": 10,
+     "charm": 10
+    },
+    "skills": {},
+    "ext": {}
+   }
+  },
+  "party": [
+   "pc"
+  ],
+  "inventory": [],
+  "flags": {
+   "met_ray": true
+  },
+  "counters": {},
+  "rules": {
+   "difficulty": "hard",
+   "dcOffset": 1,
+   "fastTravel": true,
+   "billMult": 1,
+   "defeatView": "skippable",
+   "defeatTakeGear": true,
+   "defeatMoneyLoss": 0,
+   "rosterDeath": false,
+   "xpMult": 1,
+   "startXp": 200,
+   "startSkillPoints": 10,
+   "startSkillMax": 3,
+   "startPerkPoints": 4,
+   "startCyberPoints": 10,
+   "startMoney": 1500,
+   "contentOff": [
+    "ntr"
+   ]
+  },
+  "reports": [
+   {
+    "kind": "system",
+    "action": "game.new",
+    "location": {},
+    "party": [],
+    "timeline": [],
+    "changes": [],
+    "outcome": {
+     "result": "created",
+     "summary": "開新遊戲。"
+    },
+    "id": "r1",
+    "time": {
+     "start": {
+      "day": 1,
+      "hour": 8,
+      "minute": 0
+     },
+     "end": {
+      "day": 1,
+      "hour": 8,
+      "minute": 0
+     }
+    }
+   },
+   {
+    "kind": "action",
+    "action": "free",
+    "location": {
+     "district": "test",
+     "block": "empty_room",
+     "scene": "一個空房間"
+    },
+    "actor": "pc",
+    "input": "我檢查這個房間的門鎖",
+    "party": [
+     {
+      "id": "pc",
+      "name": "測試主角",
+      "hp": [
+       40,
+       40,
+       40
+      ],
+      "load": [
+       0,
+       0,
+       20
+      ],
+      "sink": [
+       0,
+       0,
+       0
+      ],
+      "afterglow": 0
+     }
+    ],
+    "timeline": [
+     {
+      "layer": "meat",
+      "actor": "pc",
+      "text": "自由行動",
+      "roll": {
+       "dice": "1d20",
+       "natural": 9,
+       "parts": [],
+       "total": 9,
+       "dc": 14,
+       "degree": "fumble",
+       "verdict": "no_and",
+       "margin": -5,
+       "attr": "tech"
+      }
+     }
+    ],
+    "changes": [
+     {
+      "op": "time",
+      "minutes": 30
+     },
+     {
+      "op": "rng",
+      "advance": 1
+     },
+     {
+      "op": "chain",
+      "slot": {
+       "id": "c1",
+       "floor": 1
+      }
+     }
+    ],
+    "outcome": {
+     "result": "fumble",
+     "summary": "測試主角：自由行動，大失敗（骰 9，合計 9，對 DC 14）。"
+    },
+    "narration": {
+     "results": []
+    },
+    "chain": "c1",
+    "id": "r2",
+    "time": {
+     "start": {
+      "day": 1,
+      "hour": 8,
+      "minute": 0
+     },
+     "end": {
+      "day": 1,
+      "hour": 8,
+      "minute": 30
+     }
+    }
+   },
+   {
+    "kind": "system",
+    "action": "test.buy",
+    "location": {},
+    "party": [],
+    "timeline": [],
+    "changes": [
+     {
+      "op": "cash",
+      "delta": -20
+     },
+     {
+      "op": "flag",
+      "key": "met_ray",
+      "value": true
+     }
+    ],
+    "outcome": {
+     "result": "ok",
+     "summary": "買了一瓶水。"
+    },
+    "id": "r3",
+    "time": {
+     "start": {
+      "day": 1,
+      "hour": 8,
+      "minute": 30
+     },
+     "end": {
+      "day": 1,
+      "hour": 8,
+      "minute": 30
+     }
+    }
+   }
+  ],
+  "chains": [
+   {
+    "id": "c1",
+    "floor": 1,
+    "detail": {
+     "chain": "free_action",
+     "steps": [
+      {
+       "id": "roll",
+       "kind": "code",
+       "status": "done",
+       "marks": [],
+       "result": {
+        "input": {
+         "kind": "free",
+         "text": "我檢查這個房間的門鎖",
+         "attr": "tech"
+        },
+        "actor": "pc",
+        "attr": "tech",
+        "refDc": 14,
+        "roll": {
+         "dice": "1d20",
+         "natural": 9,
+         "parts": [],
+         "total": 9,
+         "dc": 14,
+         "degree": "fumble",
+         "verdict": "no_and",
+         "margin": -5,
+         "attr": "tech"
+        },
+        "reroll": 0,
+        "history": [],
+        "minutes": 30,
+        "maxMinutes": 240,
+        "grade": 1
+       }
+      },
+      {
+       "id": "judge",
+       "kind": "ai",
+       "task": "judge",
+       "status": "fallback",
+       "marks": [],
+       "attempts": [],
+       "result": {
+        "judgment": {
+         "degree": "fumble",
+         "attr": "tech",
+         "dc": 14,
+         "reason": "",
+         "twist": "",
+         "minutes": 30,
+         "newPerson": false,
+         "roll": {
+          "dice": "1d20",
+          "natural": 9,
+          "parts": [],
+          "total": 9,
+          "dc": 14,
+          "degree": "fumble",
+          "verdict": "no_and",
+          "margin": -5,
+          "attr": "tech"
+         }
+        },
+        "clamps": []
+       }
+      },
+      {
+       "id": "hint",
+       "kind": "code",
+       "status": "done",
+       "marks": [],
+       "result": []
+      },
+      {
+       "id": "person",
+       "kind": "ai",
+       "task": "flavor_roster",
+       "status": "skipped",
+       "marks": []
+      },
+      {
+       "id": "reward",
+       "kind": "ai",
+       "task": "reward",
+       "status": "fallback",
+       "marks": [],
+       "attempts": [],
+       "result": {
+        "effects": [],
+        "changes": [],
+        "lines": [],
+        "clamps": [],
+        "errors": []
+       }
+      },
+      {
+       "id": "relate",
+       "kind": "ai",
+       "task": "relate",
+       "status": "skipped",
+       "marks": []
+      },
+      {
+       "id": "text",
+       "kind": "ai",
+       "task": "narrate",
+       "status": "fallback",
+       "marks": [],
+       "attempts": [],
+       "result": {
+        "uncovered": []
+       }
+      },
+      {
+       "id": "apply",
+       "kind": "apply",
+       "status": "done",
+       "marks": []
+      }
+     ]
+    }
+   }
+  ],
+  "seq": {
+   "report": 3,
+   "chain": 1,
+   "uid": 0,
+   "floor": 1
+  },
+  "ext": {}
+ }
+}
