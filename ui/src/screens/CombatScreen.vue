@@ -266,7 +266,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="bt-screen">
-    <StatusBar back :title="`現實戰鬥：${place}`" />
+    <StatusBar back :title="engine.inBattle ? `現實戰鬥：${place}` : '現實戰鬥'" />
     <div class="bt-wrap">
       <section v-if="!engine.hasCharacter" class="panel cut bt-end" data-nochar>
         <h3>先建好角色再來</h3>

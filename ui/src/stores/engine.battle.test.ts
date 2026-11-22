@@ -7,8 +7,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { BATTLE_SETUPS } from '@engine/src/testkit'
 import { END_TURN, MOVE } from '@engine/src'
-import { useEngine } from '../../src/stores/engine'
-import { RING_KEYS, battleView, disabledReason, ringOf, slotLayout } from '../../src/lib/battleView'
+import { useEngine } from './engine'
+import { RING_KEYS, battleView, disabledReason, ringOf, slotLayout } from '../lib/battleView'
 
 describe('M1-ui-combat：store 包住引擎的戰鬥', () => {
   beforeEach(() => setActivePinia(createPinia()))
