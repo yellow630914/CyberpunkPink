@@ -20,6 +20,7 @@ import { CORE_PACK } from '../../data'
 import { TREE_XP, abilitiesFeature, abilitiesOf, capacityOf, equipAbilities, learn, learnBlock, treeTier } from '../../src/features/abilities'
 import { createKernel } from '../../src'
 import { makeGame } from '../../src/testkit'
+import { combatFeature } from '../../src/features/combat'
 
 const CATS = ['meat', 'net', 'social', 'media'] as const
 type Cat = (typeof CATS)[number]
@@ -269,7 +270,7 @@ describe('邊界 DATA 第 2 節／SKILLS 1.9：技能的容量與歷練點的格
   })
 
   it('內建資料：載入之後的檢查（前置在同一棵樹、category 和樹一樣）都過；整棵樹每一階的前置都指向更早或同階的技能', () => {
-    const k = createKernel([abilitiesFeature])
+    const k = createKernel([combatFeature, abilitiesFeature])
     k.content.loadPack({ id: 'core_abilities', content: { path: CORE_PACK.content.path!, ability: CORE_PACK.content.ability!, battle_status: CORE_PACK.content.battle_status! } })
     const list = CORE_PACK.content.ability as unknown as Array<{ id: string; path: string; tier: number; after?: string }>
     const byId = new Map(list.map((a) => [a.id, a]))
