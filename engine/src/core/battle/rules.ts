@@ -180,6 +180,12 @@ export const MOD_KINDS = [
   /** 大於 0 的人攻擊時不吃黑暗（和 night_vision 標籤並存） */ 'see_dark',
   /** 目標的防火牆加減（快駭與內海的檢定對它）；問的是被擲檢定的那一方 */ 'firewall',
   /** 重創的級數加減（−1：重的改成輕的）；features/combat 擲部位時問 */ 'wound_grade',
+  /**
+   * 操作者放出一台和人重疊的東西時，那一台的耐久（現在與上限）、護甲、迴避加減幾點（run.addOverlay 問；問的是操作者，標籤是 [種類]）。
+   * 沒有操作者的不問（dev/adr/0015 第三節）
+   */ 'overlay_hp', 'overlay_armor', 'overlay_evade',
+  /** 同時連得住幾台和人重疊的東西，加減幾台（features/summons 問放出的上限；問的是操作者，標籤是 [種類]，支援型多一個 support） */ 'overlay_cap',
+  /** 自己放的一台被擊落時，操作者受的感載（基本 5 點）加減幾點，最少 0（features/summons 問；問的是操作者，標籤是 [種類]） */ 'overlay_backlash',
 ] as const
 export type ModKind = (typeof MOD_KINDS)[number]
 

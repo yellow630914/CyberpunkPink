@@ -2,7 +2,7 @@
 // 「有哪些行動、每個行動做什麼」由功能註冊：現實戰鬥註冊射擊、近戰、換彈、監視、制伏……，內海戰鬥（M3）註冊它自己的那一組，
 // 技能的功能把每個主動技能註冊成一個行動。功能之間不直接 import，都接在這張表上。dev/adr/0010。
 
-import type { ActorId, BattleInput, BattleOverlay, BattleSide, BattleState, BattleTarget, BattleUnit, BattleWeapon, Change, GameState, RollPart } from '../types'
+import type { ActorId, BattleImplant, BattleInput, BattleOverlay, BattleSide, BattleState, BattleTarget, BattleUnit, BattleWeapon, Change, GameState, RollPart } from '../types'
 import type { Probe } from '../state/probe'
 import type { RulesKernel } from '../rules/kernel'
 import { isRecord } from '../util/sanitize'
@@ -238,6 +238,12 @@ export interface BattleHookMap {
   'unit.ready': { run: BattleRun; unit: BattleUnit }
   /** 開打：單位都站好、先攻擲完之後。技能的開場效果、預備帶進來的東西放這裡 */
   'battle.start': { run: BattleRun }
+  /**
+   * 每一輪（全員輪過一次）開頭，第一輪也發；發的時候還沒有人行動（還沒輪到這一輪的第一個人）。
+   * 沒有操作者、auto 的東西（巡邏的無人機、砲塔）每一輪自己做一個動作放這裡；倒數計時的東西（天使急救）也在這裡數。
+   * 處理函式做完之後，核心替它收尾（run.settle：補位、看結果）
+   */
+  'round.start': { run: BattleRun; round: number }
   /** 一個單位的回合開始：行動點已經回復、狀態已經結算、確定不是失去回合 */
   'turn.start': { run: BattleRun; unit: BattleUnit }
   'turn.end': { run: BattleRun; unit: BattleUnit }
@@ -315,6 +321,8 @@ export interface Loadout {
   evade?: number
   quick?: Array<{ item: string; qty: number }>
   tags?: string[]
+  /** 身上裝著的義體（M4 的義體功能給；在那之前主角這一邊是空的）。單位的 cyber 沒寫時用件數 */
+  implants?: BattleImplant[]
 }
 export type LoadoutProvider = (state: GameState, actor: ActorId, mode: string) => Loadout | void
 
@@ -560,8 +568,10 @@ export class BattleRegistry {
     return this.effectIds()
   }
 
-  loadoutOf(state: GameState, actor: ActorId, mode: string): Required<Loadout> {
-    const out: Required<Loadout> = { weapons: [], armor: 0, evade: 0, quick: [], tags: [] }
+  /** 合起來的裝備。implants 只在有義體的時候才有這個鍵（沒有義體的角色回傳的東西和以前一樣）。 */
+  loadoutOf(state: GameState, actor: ActorId, mode: string): Required<Omit<Loadout, 'implants'>> & { implants?: BattleImplant[] } {
+    const out: Required<Omit<Loadout, 'implants'>> = { weapons: [], armor: 0, evade: 0, quick: [], tags: [] }
+    const implants: BattleImplant[] = []
     for (const p of this.loadouts) {
       const l = p.fn(state, actor, mode)
       if (!l) continue
@@ -570,7 +580,8 @@ export class BattleRegistry {
       out.evade += l.evade ?? 0
       out.quick.push(...(l.quick ?? []))
       out.tags.push(...(l.tags ?? []))
+      implants.push(...(l.implants ?? []))
     }
-    return out
+    return implants.length ? { ...out, implants } : out
   }
 }

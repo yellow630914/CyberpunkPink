@@ -141,6 +141,18 @@ export interface BattleHull {
   ext?: Record<string, unknown>
 }
 
+/**
+ * 身上裝著的一件義體在這場戰鬥裡的樣子（開打時的快照；dev/adr/0015 第三節）。失效與超頻是單位身上的狀態
+ * （off_<kind>、boost_<kind>；run.implantStatus），不寫在這裡。來源：敵人資料的 cyber、角色的由 M4 的義體功能經 loadout 給
+ */
+export interface BattleImplant {
+  /** 義體的種類（eye、arm、leg、spine、deck……）：失效與超頻的狀態照它找（off_<kind>），規則表沒有的退回 off_generic */
+  kind: string
+  name: string
+  /** 契約義體（授權鎖）：改造師的技能看這個 */
+  contract?: boolean
+}
+
 export interface BattleUnit {
   /** 這場戰鬥裡的 id：a1～（我方）、f1～（敵方） */
   id: string
@@ -172,9 +184,12 @@ export interface BattleUnit {
   sensitivity: number
   /**
    * 身上裝著幾件義體；沒寫是 0。敵人 AI 的偏好 bridged（ENEMIES 4.1 節）與敵方潛網者快駭的分數（4.3 節）看這個。
-   * 角色的數字來自衍生數值 cyber_count（義體的功能在 M4 註冊；算不算橋本體由它定），在那之前都是 0
+   * 角色的數字來自衍生數值 cyber_count（義體的功能在 M4 註冊；算不算橋本體由它定），在那之前都是 0。
+   * 沒寫、但有 implants 時，開打時補成 implants 的件數（dev/adr/0015 第三節）
    */
   cyber?: number
+  /** 身上裝著的義體（開打時的快照；沒有就是沒有義體）。run.implantStatus 從這裡挑一件讓它失效或超頻 */
+  implants?: BattleImplant[]
   ap: BattlePool
   /** 其他會回的資源，鍵是池的 id（ram） */
   pools: Record<string, BattlePool>
@@ -221,25 +236,38 @@ export interface BattleUnit {
 
 /**
  * 和人重疊的東西（COMBAT_SYSTEM 第 9 節）：無人機、接管來的砲塔、內海的守衛程式。掛在某一格上，不佔格、
- * 不算進四個單位的上限，每格最多一台；永遠暴露；可以被單獨瞄準、擊落。
+ * 不算進四個單位的上限，每格最多一台；永遠暴露；可以被單獨瞄準、擊落。dev/adr/0015 第三節。
  */
 export interface BattleOverlay {
   id: string
   side: BattleSide
   slot: number
-  /** 操作者（單位 id）；他倒下就停機 */
-  owner: string
+  /**
+   * 操作者（單位 id）。沒有就是沒有操作者（裝在場景上的、巡邏用的、自律之後的）。
+   * 操作者退出時：autonomous 的改成沒有操作者、自己動；其餘的停機（核心不再一律停機，由放它的功能決定）
+   */
+  owner?: string
   /** 種類：attack、shield、scout、medic、jammer、turret…… 由註冊行動的功能解讀 */
   kind: string
   name: string
   hp: BattleMeter
   armor: number
   evade: number
+  /** 它自己的武器（敵方的、砲塔）：run.overlayAttack 用它開火，不用操作者的操縱。沒有就沒有武器（我方的無人機用操作者的） */
+  weapon?: BattleWeapon
+  /** 每一輪自己做一個動作（沒有操作者的巡邏機、砲塔）；做什麼、怎麼做由功能掛在 round.start 上，核心只存這個旗標 */
+  auto?: boolean
+  /** 操作者退出時不停機：改成沒有操作者、auto 開著、ext.orphan = true（自律：命中 −2、不移動由功能照 ext.orphan 做），不發 overlay.down */
+  autonomous?: boolean
   /** 這一回合動過了（每台每回合一次） */
   used: boolean
   down: boolean
   /** 背包裡對應的物品（戰後要修） */
   item?: string
+  /**
+   * 功能自己的資料。核心認得的鍵：dmgMult（{ hp, load }：它自己開火時的傷害倍率，照位階與難度；沒寫都是 1）、
+   * orphan（true：操作者退出之後自律）
+   */
   ext?: Record<string, unknown>
 }
 
