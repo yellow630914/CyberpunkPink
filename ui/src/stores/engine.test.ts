@@ -9,7 +9,7 @@ import { useEngine } from './engine'
 import { aiSettingsFromUi, logEntryOf, rulesFromUi, uiFromAiSettings } from '../lib/engineView'
 
 const DRAFT = {
-  name: '露', gender: 'female', age: 22, origin: 'hive', originChoice: { favor: '孤星連' },
+  name: '露', gender: 'female', age: 22, origin: 'hive', originChoice: { favor: 'lonestar' },
   attrPick: { reflex: 15, charm: 14, intellect: 13, body: 12, resolve: 10, tech: 8 },
   attrBonus: { tech: -4, reflex: 3, resolve: 3 },
   skills: { streetwise: 3, negotiate: 3, perform: 2, stealth: 2 },

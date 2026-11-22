@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { Report } from '@engine/src'
-import { GENDER_ID, PERK_CATEGORY_NAME, aiSettingsFromUi, logEntryOf, rulesFromUi, uiFromAiSettings } from './engineView'
+import { GENDER_OPTIONS, PERK_CATEGORY_NAME, aiSettingsFromUi, logEntryOf, rulesFromUi, uiFromAiSettings } from './engineView'
 
 /** 最少的一份報告；測試只改需要的欄位 */
 function rep(over: Partial<Report> = {}): Report {
@@ -204,8 +204,8 @@ describe('rulesFromUi（M0-ui-engine 第四節：存檔規則從設定頁帶）'
 })
 
 describe('顯示用的對照表', () => {
-  it('DATA 第 1 節的性別值：介面的每個選項都對到一個引擎的值，而且不重複', () => {
-    const vals = Object.values(GENDER_ID)
+  it('DATA 第 1 節的性別值：介面的每個選項就是一個引擎的值，而且不重複', () => {
+    const vals = GENDER_OPTIONS.map((o) => o.id)
     expect(new Set(vals).size).toBe(vals.length)
     for (const v of vals) expect(['male', 'female', 'femboy', 'trans_f', 'trans_m', 'futa']).toContain(v)
   })

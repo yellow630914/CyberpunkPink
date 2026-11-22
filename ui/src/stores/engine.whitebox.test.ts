@@ -8,7 +8,7 @@ import { ChangeError } from '@engine/src'
 import { useEngine } from './engine'
 
 const DRAFT = {
-  name: '露', gender: 'female', age: 22, origin: 'hive', originChoice: { favor: '孤星連' },
+  name: '露', gender: 'female', age: 22, origin: 'hive', originChoice: { favor: 'lonestar' },
   attrPick: { reflex: 15, charm: 14, intellect: 13, body: 12, resolve: 10, tech: 8 },
   attrBonus: { tech: -4, reflex: 3, resolve: 3 },
   skills: { streetwise: 3, negotiate: 3, perform: 2, stealth: 2 },
@@ -78,13 +78,13 @@ describe('store 的唯讀投影', () => {
 describe('動作：act、retryStep、useRules、reroll', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
-  it('M0-ui-engine 第三節 act：被擋下的行動（還沒有主角）回傳 blocked 與原因，不丟到元件；狀態不變（GAME_DESIGN 第 3 節）', async () => {
+  it('M0-ui-engine 第三節 act：被擋下的行動（還沒有主角）回傳 refused 與原因，不丟到元件；狀態不變（GAME_DESIGN 第 3 節）', async () => {
     const e = useEngine()
     e.setAi({ useAi: false })
     e.newGame({ seed: 7 })
     const before = json(e.state)
     const r = await e.act({ kind: 'free', text: '我看看四周' })
-    expect(r).toEqual({ status: 'blocked', reason: '還沒有主角。' })
+    expect(r).toEqual({ status: 'refused', reason: '還沒有主角。' })
     expect(e.busy).toBe(false)
     expect(json(e.state)).toBe(before)
     expect(e.canUndo).toBe(false)
@@ -155,7 +155,7 @@ describe('建角（M0-ui-engine 第三、四節；CHARACTER 第 5 節）', () =>
     expect(e.canUndo).toBe(false)
   })
 
-  it('M0-ui-engine 第三節 createCharacter：成功時經過提交點（多一份報告、留一步回退）', () => {
+  it('M0-ui-engine 第三節 createCharacter：成功時經過提交點（多一份報告；一起開新局時不留回退）', () => {
     const e = useEngine()
     e.newGame({ seed: 7 })
     const n = e.state.reports.length
@@ -167,7 +167,7 @@ describe('建角（M0-ui-engine 第三、四節；CHARACTER 第 5 節）', () =>
   it('不變式第 32 條；CHARACTER 第 5 節：建角的數字從引擎拿', () => {
     const e = useEngine()
     e.newGame({ seed: 7 })
-    expect(e.creation.limits).toEqual({ attrArray: [15, 14, 13, 12, 10, 8], attrFree: 2, attrMax: 18, attrMin: 4, skillPoints: 10, skillMax: 3, perkPoints: 4, perkMax: 8, flawMax: 2, startMoney: 1500 })
+    expect(e.creation.limits).toEqual({ attrArray: [15, 14, 13, 12, 10, 8], attrFree: 2, attrMax: 18, attrMin: 4, skillPoints: 10, skillMax: 3, perkPoints: 4, perkMax: 8, flawMax: 2, startMoney: 1500, cyberPoints: 10, gearPoints: 12, cyberPointCash: 500, gearPointCash: 150 })
   })
 
   it('M0-ui-engine 第四節：設定頁的特質點交給引擎預覽；清掉或開新局之後回到這一局的規則', () => {
