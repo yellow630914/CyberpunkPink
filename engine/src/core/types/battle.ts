@@ -340,5 +340,6 @@ export const BATTLE_EVENTS = [
   'cover.hit', 'cover.break', 'cover.raise', 'compact', 'reinforce',
   'move', 'push', 'pull', 'reload', 'swap', 'item', 'watch', 'watch.fire',
   'status', 'status.end', 'skill', 'support', 'overlay', 'overlay.down', 'node', 'field', 'hull', 'hull.break',
+  'revive',
 ] as const
 export type BattleEvent = (typeof BATTLE_EVENTS)[number]

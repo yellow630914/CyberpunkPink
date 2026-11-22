@@ -2,6 +2,7 @@
 export * from './rules'
 export * from './field'
 export * from './registry'
+export * from './effects'
 export * from './run'
 export * from './turn'
 export * from './ai'

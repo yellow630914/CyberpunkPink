@@ -10,8 +10,9 @@ import { BATTLE_SLOTS } from '../types'
 import { attrMod, computeDegree, verdictOf } from '../rules/check'
 import { deriveRng } from '../util/rng'
 import { clamp } from '../util/sanitize'
+import { runEffects } from './effects'
 import { SIDE_NAME, afterglowFull, coverAt, coverLevel, coverOf, currentUnit, distance, isExposed, isWounded, onField, otherSide, rangeMod, standing, unitAt, unitTag, unitsOf, wielded } from './field'
-import type { BattleKernel, BattleView } from './registry'
+import type { BattleEffectInput, BattleEffectLast, BattleKernel, BattleView } from './registry'
 import type { BattleMode, BattleNumbers, BattleStatusRule, ModKind, StatusUntil } from './rules'
 import { LOSE_TURN, coverHpFor, damageTypeOf, modeOf, statusMod, statusRuleOf } from './rules'
 
@@ -59,6 +60,15 @@ export interface AttackOpts {
   label?: string
   /** 情境的標籤，給修正與掛點看：aimed、burst、reaction、watch、support…… */
   tags?: string[]
+  /** 用已經擲好的 d20 面，不另外擲命中骰（投擲物：一顆骰對兩格）。自然 20 一定命中、自然 1 一定失手照舊 */
+  natural?: number
+  /** 目標的護甲乘幾倍再扣（空尖彈 2）；打掛著的東西時乘在它的護甲上 */
+  armorMult?: number
+  /**
+   * 這一擊改打和人重疊的一台（由 attack.before 的處理函式設：無人機擋槍、立牌、替身）：照那一台自己的迴避與護甲算，原本的目標不受影響，
+   * 彈匣只扣一次；結果帶 redirected: true。第一個設的算數（後面的處理函式再設不會蓋掉）；找不到、已經被擊落的就照原本的打
+   */
+  redirect?: { overlay: string }
 }
 
 export interface AttackResult {
@@ -78,6 +88,10 @@ export interface AttackResult {
   wound: boolean
   /** 這一擊讓目標倒下 */
   downed: boolean
+  /** 這一擊被改打到別的東西上（opts.redirect）：這份結果是那一台的；原本的目標不受影響，不發 attack.after */
+  redirected?: boolean
+  /** 命中了，但被 attack.hit 的處理函式擋下（out.negate）：沒有傷害、沒有重創、沒有推拉 */
+  negated?: boolean
 }
 
 export interface StatusOpts {
@@ -202,13 +216,18 @@ export class BattleRun implements BattleView {
     return u.statuses.some((s) => statusRuleOf(this.k.content, s.id)?.noMove)
   }
 
-  /** 迴避 = 基礎（單位身上算好的）＋ 那一格的遮蔽 ＋ 黑暗 ＋ 修正。by 是攻擊的人（有夜視的不算黑暗）。 */
+  /** 攻擊的人不吃黑暗：有夜視的標籤，或 see_dark 的修正大於 0（other 是他的目標）。 */
+  seesDark(by: BattleUnit, other?: BattleUnit): boolean {
+    return by.tags.includes('night_vision') || sum(this.mods('see_dark', by, other)) > 0
+  }
+
+  /** 迴避 = 基礎（單位身上算好的）＋ 那一格的遮蔽 ＋ 黑暗 ＋ 修正。by 是攻擊的人（有夜視或 see_dark 的不算黑暗）。 */
   evadeOf(target: BattleUnit, by?: BattleUnit, o: { coverShift?: number; extra?: number } = {}): { total: number; parts: RollPart[]; cover: number } {
     const level = clamp(coverOf(this.battle, target) - (o.coverShift ?? 0), 0, 2)
     const cover = this.n.coverBonus[level] ?? 0
     const parts: RollPart[] = [{ label: '迴避', value: target.evade, source: 'base' }]
     if (cover) parts.push({ label: this.mode.coverNames[level]!, value: cover, source: 'cover' })
-    if (this.battle.field.dark && !by?.tags.includes('night_vision')) parts.push({ label: '黑暗', value: this.n.darkEvade, source: 'field' })
+    if (this.battle.field.dark && !(by && this.seesDark(by, target))) parts.push({ label: '黑暗', value: this.n.darkEvade, source: 'field' })
     if (o.extra) parts.push({ label: '掩護', value: o.extra, source: 'skill' })
     parts.push(...this.mods('evade', target, by))
     return { total: sum(parts), parts, cover }
@@ -269,22 +288,36 @@ export class BattleRun implements BattleView {
     const spend = o.spend ?? 1
     if (w.mag && spend > 0) w.mag.now = Math.max(0, w.mag.now - spend)
     const opts: AttackOpts = { ...o, tags: [...(o.tags ?? [])] }
+    // redirect 第一個設的算數：設過之後，後面的處理函式再寫不會蓋掉它
+    let redirect = opts.redirect
+    Object.defineProperty(opts, 'redirect', { enumerable: true, configurable: true, get: () => redirect, set: (v: AttackOpts['redirect']) => { if (!redirect && v) redirect = v } })
     // 反應在擲骰之前（掩護射擊、小心後面！）：可以改這一擊的加減，也可能先把攻擊的人打倒
     this.k.battle.emit('attack.before', { run: this, attacker, target, weapon: w, opts })
     if (attacker.out || target.out || this.over) return { ...none, aborted: true }
+    // 改打掛著的東西（擋槍）：照它的迴避與護甲算，原本的目標不受影響；彈匣上面已經扣過了，不再扣
+    const diverted = opts.redirect ? this.battle.overlays.find((x) => x.id === opts.redirect!.overlay && !x.down) : undefined
+    if (diverted) return { ...this.attackOverlay(attacker, diverted, { ...opts, redirect: undefined, spend: 0 }), redirected: true }
 
     const aimed = !!opts.aimed || w.traits.includes('aimed')
     const tags = aimed ? [...opts.tags!, 'aimed'] : opts.tags!
     const parts = this.hitParts(attacker, target, w, opts)
     const ev = this.evadeOf(target, attacker, { coverShift: opts.coverShift, extra: opts.evade })
-    const natural = this.d20()
+    const natural = opts.natural ?? this.d20()
     const total = natural + sum(parts)
     // 自然 20 一定命中，自然 1 一定失手
     const hit = natural === 20 || (natural !== 1 && total >= ev.total)
     const margin = this.n.critMargin + (opts.critMargin ?? 0) + sum(this.mods('crit_margin', attacker, target, w, tags))
     const crit = hit && (!!opts.autoCrit || total - ev.total >= margin)
     // 重創：自然 20，或瞄準過的射擊打出要害
-    const wound = hit && !opts.noWound && (natural === 20 || (crit && aimed))
+    let wound = hit && !opts.noWound && (natural === 20 || (crit && aimed))
+    // 命中確定、傷害還沒算：處理函式可以擋下這一擊（negate），或把重創改成一般的命中（wound = false）
+    const hitOut: { negate?: boolean; wound?: boolean } = {}
+    if (hit) {
+      this.k.battle.emit('attack.hit', { run: this, attacker, target, weapon: w, opts, roll: { natural, total, evade: ev.total, crit, wound }, out: hitOut })
+      if (hitOut.wound === false) wound = false
+    }
+    const negated = hit && !!hitOut.negate
+    if (negated) wound = false
     const baseDice = w.far && distance(attacker, target) > w.far.beyond ? w.far.dice : w.dice
     // 這一擊的傷害類型自己帶的骰數（電磁與熱能的武器少一顆；COMBAT_SYSTEM 第 4 節）：照實際打出去的類型（特殊彈換了類型就照換過的）
     const typeDice = damageTypeOf(this.k.content, opts.type ?? w.type).dice ?? 0
@@ -308,10 +341,15 @@ export class BattleRun implements BattleView {
       this.say(`${head}${natural === 1 ? '自然 1，失手。' : blocked ? `被${this.mode.coverWord}擋下。` : '沒打中。'}`, 'miss', { ...ids, natural, blocked }, attacker, roll)
     } else {
       this.say(`${head}${natural === 20 ? '自然 20！' : crit ? '要害！' : '命中。'}`, crit ? 'crit' : 'hit', { ...ids, natural }, attacker, roll)
-      const before = !!target.out
-      const d = this.damage(target, raw, opts.type ?? w.type, attacker, { pierce: w.pierce + (opts.pierce ?? 0) + sum(this.mods('pierce', attacker, target, w, tags)) })
-      result = { ...result, dealt: d.dealt, track: d.track, downed: !before && !!target.out }
-      if (wound && target.rank !== 'minion' && !target.out && d.dealt > 0) this.k.battle.emit('wound', { run: this, attacker, target, aimed, ...(opts.part ? { part: opts.part } : {}) })
+      if (negated) {
+        this.say(`${unitTag(target)} 擋下了這一擊，沒有受到傷害。`, 'damage', { target: target.id, type: opts.type ?? w.type, amount: 0, negated: true }, attacker)
+        result = { ...result, negated: true }
+      } else {
+        const before = !!target.out
+        const d = this.damage(target, raw, opts.type ?? w.type, attacker, { pierce: w.pierce + (opts.pierce ?? 0) + sum(this.mods('pierce', attacker, target, w, tags)), ...(opts.armorMult !== undefined ? { armorMult: opts.armorMult } : {}) })
+        result = { ...result, dealt: d.dealt, track: d.track, downed: !before && !!target.out }
+        if (wound && target.rank !== 'minion' && !target.out && d.dealt > 0) this.k.battle.emit('wound', { run: this, attacker, target, aimed, ...(opts.part ? { part: opts.part } : {}) })
+      }
     }
     // 任何攻擊都會傷到目標那一格的遮蔽，不管有沒有打中人：這一擊的傷害骰 × 武器的遮蔽倍率
     const mult = Math.max(w.coverMult, opts.coverMultMin ?? 0)
@@ -344,9 +382,9 @@ export class BattleRun implements BattleView {
       ...(opts.hit ? [{ label: opts.label ?? '加值', value: opts.hit, source: 'skill' }] : []),
       ...this.mods('hit', attacker, undefined, w, tags),
     ].filter((p) => p.value !== 0)
-    const dark = this.battle.field.dark && !attacker.tags.includes('night_vision') ? this.n.darkEvade : 0
+    const dark = this.battle.field.dark && !this.seesDark(attacker) ? this.n.darkEvade : 0
     const evade = o.evade + dark
-    const natural = this.d20()
+    const natural = opts.natural ?? this.d20()
     const total = natural + sum(parts)
     const hit = natural === 20 || (natural !== 1 && total >= evade)
     const degree = natural === 1 ? 'fumble' : hit ? 'success' : 'fail'
@@ -361,7 +399,8 @@ export class BattleRun implements BattleView {
     const raw = Math.max(0, this.d6(Math.max(1, baseDice + (damageTypeOf(this.k.content, opts.type ?? w.type).dice ?? 0) + (opts.dice ?? 0))) + w.flat + (opts.damage ?? 0))
     // 照傷害類型算（COMBAT_SYSTEM 第 5 節）：和打人同一份算法；無人機與砲塔是機器；沒有橋，感載類的傷害對它無效
     const typeId = opts.type ?? w.type
-    const dealt = damageTypeOf(this.k.content, typeId).track === 'load' ? 0 : this.hpDamage(raw, typeId, o.armor, OVERLAY_TAGS, attacker, { pierce: w.pierce + (opts.pierce ?? 0) })
+    const armor = opts.armorMult !== undefined ? Math.round(o.armor * opts.armorMult) : o.armor
+    const dealt = damageTypeOf(this.k.content, typeId).track === 'load' ? 0 : this.hpDamage(raw, typeId, armor, OVERLAY_TAGS, attacker, { pierce: w.pierce + (opts.pierce ?? 0) })
     o.hp.now = Math.max(0, o.hp.now - dealt)
     this.say(`${head}命中，${o.name}受到 ${dealt} 點傷害。`, 'hit', { ...ids, natural, amount: dealt }, attacker, roll)
     const downed = o.hp.now <= 0
@@ -389,10 +428,11 @@ export class BattleRun implements BattleView {
    * 生命：扣護甲（穿甲只抵銷護甲）→ 類型對標籤的倍率 → 位階與難度的倍率 → 有機體的先扣機體、回灌感載。
    * 感載：不看護甲（內海的防護照扣）→ 餘韻的加成 → 敏感度 → 過載。
    */
-  damage(target: BattleUnit, raw: number, typeId: DamageType, by?: BattleUnit, o: { pierce?: number } = {}): { dealt: number; track: AttackResult['track'] } {
+  damage(target: BattleUnit, raw: number, typeId: DamageType, by?: BattleUnit, o: { pierce?: number; armorMult?: number } = {}): { dealt: number; track: AttackResult['track'] } {
     if (target.out) return { dealt: 0, track: 'none' }
     const type = damageTypeOf(this.k.content, typeId)
-    const armor = Math.max(0, target.armor + (target.hull?.armor ?? 0) + sum(this.mods('armor', target, by)))
+    const armorBase = target.armor + (target.hull?.armor ?? 0) + sum(this.mods('armor', target, by))
+    const armor = Math.max(0, o.armorMult !== undefined ? Math.round(armorBase * o.armorMult) : armorBase)
     if (type.track === 'load') {
       if (type.needsBridge && !target.load) {
         this.say(`${unitTag(target)} 沒有橋，${type.name}傷害對他無效。`, 'damage', { target: target.id, type: typeId, amount: 0 })
@@ -425,8 +465,13 @@ export class BattleRun implements BattleView {
       if (dm <= 0 || target.out) return { dealt: soaked, track: 'hull' }
     }
     target.hp.now = Math.max(0, target.hp.now - dm)
+    const at = this.beats.length
     this.say(`${unitTag(target)} 受到 ${dm} 點${type.name}傷害。`, 'damage', { target: target.id, type: typeId, amount: dm, left: target.hp.now, ...(by ? { by: by.id } : {}) }, by)
-    if (target.hp.now <= 0) this.setOut(target, 'down', by)
+    // 生命歸零：先問有沒有人擋下（out.before）；擋下的生命拉回 1，這一拍記的剩餘生命跟著改
+    const zero = target.hp.now <= 0
+    const prevented = zero && this.outPrevented(target, 'down', by)
+    if (prevented && this.beats[at]?.data) this.beats[at]!.data!.left = target.hp.now
+    if (zero && !prevented) this.leave(target, 'down', by)
     else for (const s of type.onHit ?? []) if (statusRuleOf(this.k.content, s.status)) this.applyStatus(target, s.status, { ...(by ? { by } : {}), turns: s.turns })
     return { dealt: dm + soaked, track: 'hp' }
   }
@@ -452,8 +497,10 @@ export class BattleRun implements BattleView {
     if (!target.load || target.out) return
     target.load.now = 0
     if (afterglowFull(target)) {
+      // 即將昏過去：有人擋下（out.before）就到此為止，感載已經歸零，其餘由處理函式自己改
+      if (this.outPrevented(target, 'burnout', by)) return
       this.say(`${unitTag(target)} 餘韻疊滿之後再過載：昏了過去。`, 'overload', { target: target.id, layers: target.layers, down: true }, by)
-      this.setOut(target, 'burnout', by)
+      this.leave(target, 'burnout', by)
       return
     }
     target.layers += 1
@@ -468,37 +515,51 @@ export class BattleRun implements BattleView {
     this.k.battle.emit('overload', { run: this, unit: target, ...(by ? { by } : {}) })
   }
 
-  /** 回生命值（不超過上限）。回傳實際回了多少。 */
-  heal(target: BattleUnit, amount: number): number {
+  /**
+   * 回生命值（不超過上限）。回傳實際回了多少。by 是做的人：帶了才吃他的 heal_dealt 修正（多回幾點；tags 是這次回復的標籤：
+   * 道具是 ['item', …物品的標籤]）；不帶（狀態每回合的回復）不吃。
+   */
+  heal(target: BattleUnit, amount: number, by?: BattleUnit, tags: string[] = []): number {
     if (!target.hp || target.out) return 0
-    const v = Math.max(0, Math.min(Math.round(amount), target.hp.max - target.hp.now))
+    let want = Math.round(amount)
+    if (by && want > 0) want += sum(this.mods('heal_dealt', by, target, undefined, tags))
+    const v = Math.max(0, Math.min(want, target.hp.max - target.hp.now))
     target.hp.now += v
-    if (v) this.say(`${unitTag(target)} 生命 +${v}。`, 'heal', { target: target.id, amount: v })
+    if (v) this.say(`${unitTag(target)} 生命 +${v}。`, 'heal', { target: target.id, amount: v, ...(by ? { by: by.id } : {}) }, by)
     return v
   }
 
-  /** 排感載（不低於 0）。 */
-  vent(target: BattleUnit, amount: number): number {
+  /** 排感載（不低於 0）。by 與 tags 同 heal，吃 vent_dealt 修正。 */
+  vent(target: BattleUnit, amount: number, by?: BattleUnit, tags: string[] = []): number {
     if (!target.load || target.out) return 0
-    const v = Math.max(0, Math.min(Math.round(amount), target.load.now))
+    let want = Math.round(amount)
+    if (by && want > 0) want += sum(this.mods('vent_dealt', by, target, undefined, tags))
+    const v = Math.max(0, Math.min(want, target.load.now))
     target.load.now -= v
-    if (v) this.say(`${unitTag(target)} 感載 −${v}。`, 'load', { target: target.id, amount: -v, now: target.load.now })
+    if (v) this.say(`${unitTag(target)} 感載 −${v}。`, 'load', { target: target.id, amount: -v, now: target.load.now, ...(by ? { by: by.id } : {}) }, by)
     return v
   }
 
-  /** 一次豁免或戰鬥裡的檢定：1d20 ＋ mod(屬性) ＋ 基本功 ＋ 修正 對 DC。自然 20 一定過、自然 1 一定不過。 */
-  save(u: BattleUnit, attr: AttrId, skill: SkillId | undefined, dc: number, label: string, extra: RollPart[] = []): { ok: boolean; roll: CheckRoll } {
+  /**
+   * 一次豁免或戰鬥裡的檢定：1d20 ＋ mod(屬性) ＋ 基本功 ＋ 修正 對 DC。自然 20 一定過、自然 1 一定不過。
+   * tags 是這個檢定的標籤（subdue、resist:suppressed、morale、flee、hack……），修正（save）讀得到：只對某一類檢定加值的修正不會影響別的。
+   * other 是「對誰擲的」（被快駭、被誘惑的那一方擲，other 是對他下手的人）：帶了就在擲之前發 check.before 掛點，處理函式可以改這一次的 DC 與加值。
+   */
+  save(u: BattleUnit, attr: AttrId, skill: SkillId | undefined, dc: number, label: string, extra: RollPart[] = [], tags: string[] = [], other?: BattleUnit): { ok: boolean; roll: CheckRoll } {
+    const opts = { dc, bonus: 0 }
+    if (other) this.k.battle.emit('check.before', { run: this, unit: u, other, tags, opts })
     const parts: RollPart[] = [
       { label: this.k.stats.attrName(attr), value: attrMod(u.attrs[attr] ?? 10), source: 'attr' },
       ...(skill ? [{ label: this.k.stats.skillName(skill), value: u.skills[skill] ?? 0, source: 'skill' }] : []),
-      ...this.mods('save', u), ...extra,
+      ...this.mods('save', u, other, undefined, tags), ...extra,
+      ...(opts.bonus ? [{ label: '反應', value: opts.bonus, source: 'reaction' }] : []),
     ].filter((p) => p.value !== 0)
     const natural = this.d20()
     const total = natural + sum(parts)
-    const degree = computeDegree(natural, total, dc)
-    const roll: CheckRoll = { dice: '1d20', natural, parts, total, dc, degree, verdict: verdictOf(degree, total - dc), margin: total - dc, attr, ...(skill ? { skill } : {}) }
+    const degree = computeDegree(natural, total, opts.dc)
+    const roll: CheckRoll = { dice: '1d20', natural, parts, total, dc: opts.dc, degree, verdict: verdictOf(degree, total - opts.dc), margin: total - opts.dc, attr, ...(skill ? { skill } : {}) }
     const ok = degree === 'critical' || degree === 'success'
-    this.say(`${unitTag(u)} ${label}：${total} 對 ${dc}，${ok ? '過了' : '沒過'}。`, undefined, { unit: u.id, ok }, u, roll)
+    this.say(`${unitTag(u)} ${label}：${total} 對 ${opts.dc}，${ok ? '過了' : '沒過'}。`, undefined, { unit: u.id, ok }, u, roll)
     return { ok, roll }
   }
 
@@ -546,8 +607,27 @@ export class BattleRun implements BattleView {
   /**
    * 這個人退出戰鬥。how：down（生命歸零倒下）、burnout（餘韻疊滿再過載，昏過去）、subdued（被制伏）、
    * surrendered（投降）、fled（逃走）、removed（被帶走）。戰鬥中沒有人會死（COMBAT_SYSTEM 8.2 節）。
+   * 先問 out.before 掛點有沒有人擋下：擋下的回傳 false、什麼都不做（生命歸零而來的，生命至少 1；其餘由處理函式自己改）。
+   * 回傳這一次有沒有讓他退出（已經退出的也回傳 false）。
    */
-  setOut(u: BattleUnit, how: string, by?: BattleUnit): void {
+  setOut(u: BattleUnit, how: string, by?: BattleUnit): boolean {
+    if (u.out) return false
+    if (this.outPrevented(u, how, by)) return false
+    this.leave(u, how, by)
+    return true
+  }
+
+  /** 即將退出：問 out.before 有沒有人擋下。擋下回傳 true；因為生命歸零而來的（how 是 down），生命拉回至少 1。 */
+  private outPrevented(u: BattleUnit, how: string, by?: BattleUnit): boolean {
+    const out: { prevent?: boolean } = {}
+    this.k.battle.emit('out.before', { run: this, unit: u, how, ...(by ? { by } : {}), out })
+    if (!out.prevent) return false
+    if (how === 'down' && u.hp && u.hp.now < 1) u.hp.now = 1
+    return true
+  }
+
+  /** 退出的後半（沒有人擋下之後）：記下 out、停機、發 out 掛點、補位、看結果。 */
+  private leave(u: BattleUnit, how: string, by?: BattleUnit): void {
     if (u.out) return
     u.out = how
     delete u.watch
@@ -561,6 +641,31 @@ export class BattleRun implements BattleView {
     this.k.battle.emit('out', { run: this, unit: u, how, ...(by ? { by } : {}) })
     this.compact(u.side)
     this.checkResult()
+  }
+
+  /**
+   * 把因為生命歸零倒下的人救回來（out 是 down 的才收；burnout、subdued 與還在場上的回傳 false）。
+   * 回到場上：有空格放最後面的空格（和增援同一條，dev/adr/0013 C6），沒有空格就排進後方的最前面；
+   * 生命是給的數字（最少 1、不超過上限），行動點 0，狀態清空，先攻的順位不變。戰鬥已經分出結果之後不能救。
+   */
+  revive(u: BattleUnit, hp: number): boolean {
+    if (this.over || u.out !== 'down' || !u.hp) return false
+    const b = this.battle
+    delete u.out
+    u.slot = 0
+    u.hp.now = clamp(Number.isFinite(hp) ? Math.round(hp) : 1, 1, u.hp.max)
+    u.ap.now = 0
+    u.statuses = []
+    let slot = 0
+    for (let s = BATTLE_SLOTS; s >= 1; s--) if (!unitAt(b, u.side, s)) { slot = s; break }
+    if (slot) u.slot = slot
+    else b.reserve[u.side].unshift(u.id)
+    this.say(`${unitTag(u)} 重新站了起來（生命 ${u.hp.now}）${slot ? `，回到第 ${slot} 格` : '，在後方等著補上來'}。`, 'revive', { unit: u.id, hp: u.hp.now, slot, side: u.side }, u)
+    if (slot) {
+      this.exposed(u)
+      this.compact(u.side)
+    }
+    return true
   }
 
   /** 和人重疊的東西被擊落或停機。 */
@@ -585,6 +690,48 @@ export class BattleRun implements BattleView {
     for (const u of Object.values(this.battle.units)) delete u.watch
     this.k.battle.emit('battle.result', { run: this, outcome })
     this.say(text, 'battle.end', { outcome })
+  }
+
+  // ---- 先攻的順序 ----
+
+  /** 對調兩個人在先攻順序裡的位置；現在輪到的人不變（他還是現在輪到的那一個）。兩個人有一個不在順序裡回傳 false。 */
+  swapOrder(a: BattleUnit, b: BattleUnit): boolean {
+    const order = this.battle.order
+    const i = order.indexOf(a.id)
+    const j = order.indexOf(b.id)
+    if (a.id === b.id || i < 0 || j < 0) return false
+    const current = order[this.battle.turn]
+    order[i] = b.id
+    order[j] = a.id
+    if (current) this.battle.turn = order.indexOf(current)
+    this.say(`${unitTag(a)} 和 ${unitTag(b)} 對調了行動的順序。`, undefined, { a: a.id, b: b.id })
+    return true
+  }
+
+  /**
+   * 把這一輪還沒動過的人排到現在輪到的人後面一位（下一個就輪到他）。
+   * 已經動過的、正在動的、已經退出或不在場上的回傳 false，順序不動。
+   */
+  actNext(u: BattleUnit): boolean {
+    const b = this.battle
+    const i = b.order.indexOf(u.id)
+    if (i <= b.turn || !onField(u)) return false
+    if (i !== b.turn + 1) {
+      b.order.splice(i, 1)
+      b.order.splice(b.turn + 1, 0, u.id)
+    }
+    this.say(`${unitTag(u)} 排到下一個行動。`, undefined, { unit: u.id })
+    return true
+  }
+
+  // ---- 效果（dev/adr/0015 第一節） ----
+
+  /**
+   * 照順序做一串效果（道具、技能、招牌行動、武器的附帶效果、快駭的 { op, ... }）：解析每一筆的 who（落在誰身上）與 if（看上一筆的結果），
+   * 再呼叫註冊的處理函式。op 查不到、who 或 if 不在清單裡丟錯。回傳最後的 last（上一筆攻擊或檢定的結果）。詳見 effects.ts。
+   */
+  effects(list: readonly Record<string, unknown>[], input: BattleEffectInput): BattleEffectLast {
+    return runEffects(this, list, input)
   }
 
   // ---- 遮蔽與站位（COMBAT_SYSTEM 第 2 節） ----
@@ -734,14 +881,17 @@ export class BattleRun implements BattleView {
       if (!slot) break
       const u = this.unit(queue.shift()!)
       u.slot = slot
-      u.initiative = this.d20() + u.initBonus + sum(this.mods('initiative', u))
-      // 排在第一個先攻比他低的人前面（一樣高照開打時的規矩：我方先、再照站位）；都不比他低就排最後
-      const at = b.order.findIndex((id) => initiativeOrder(u, b.units[id]!) < 0)
-      if (at < 0) b.order.push(u.id)
-      else {
-        b.order.splice(at, 0, u.id)
-        // 插在輪到的人前面（或正好是他的位置）：指標跟著往後一格，輪到的還是原來那個人
-        if (at <= b.turn) b.turn += 1
+      // 救回來之後排在後方的人（revive）本來就在先攻的順序裡，順位不變
+      if (!b.order.includes(u.id)) {
+        u.initiative = this.d20() + u.initBonus + sum(this.mods('initiative', u))
+        // 排在第一個先攻比他低的人前面（一樣高照開打時的規矩：我方先、再照站位）；都不比他低就排最後
+        const at = b.order.findIndex((id) => initiativeOrder(u, b.units[id]!) < 0)
+        if (at < 0) b.order.push(u.id)
+        else {
+          b.order.splice(at, 0, u.id)
+          // 插在輪到的人前面（或正好是他的位置）：指標跟著往後一格，輪到的還是原來那個人
+          if (at <= b.turn) b.turn += 1
+        }
       }
       this.say(`${unitTag(u)} 從後方補上來，站到第 ${slot} 格。`, 'reinforce', { unit: u.id, side, slot })
       this.exposed(u)

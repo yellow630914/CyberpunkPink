@@ -69,9 +69,9 @@ export function positionScore(view: BattleView, u: BattleUnit, slot: number): nu
 
 /**
  * 挑目標的權重（ENEMIES 4.1 節）＝（floor ＋ 仇恨 × focus）× 距離修正 × 遮蔽修正 × 偏好修正。
- * 仇恨是那個人這一場造成的傷害（每 10 點算 1）。
+ * 仇恨是那個人這一場造成的傷害（每 10 點算 1）。最後乘上 ai_target_pct 的修正（候選人身上的加減百分點，−100 是不挑他）。
  */
-export function targetWeight(view: BattleView, u: BattleUnit, t: BattleUnit): number {
+export function targetWeight(view: BattleView, u: BattleUnit, t: BattleUnit, o: { ignorePct?: boolean } = {}): number {
   const ai = u.ai
   const w = wielded(u)
   const base = (ai?.floor ?? 1) + ((t.uses.threat ?? 0) / 10) * (ai?.focus ?? 1)
@@ -92,7 +92,9 @@ export function targetWeight(view: BattleView, u: BattleUnit, t: BattleUnit): nu
   else if (ai?.prefer === 'nearest') prefer = unitsOf(view.battle, t.side).every((x) => distance(u, x) >= distance(u, t)) ? 2 : 1
   // 有義體的人依義體數 ×1～2（拆體客、改造師型）：沒有義體的是 ×1
   else if (ai?.prefer === 'bridged') prefer = 1 + Math.min(1, Math.max(0, t.cyber ?? 0) * BRIDGED_PER_PIECE)
-  return Math.max(0, base * range * cover * prefer)
+  // ai_target_pct：候選人身上的加減（−100 就是不挑他）。ignorePct 是「當成沒有這個修正」（候選全部都是 0 的時候，見 aiStep）
+  const pct = o.ignorePct ? 0 : view.mods('ai_target_pct', t, u).reduce((sum, p) => sum + p.value, 0)
+  return Math.max(0, base * range * cover * prefer * Math.max(0, 1 + pct / 100))
 }
 
 function tryReposition(run: BattleRun, u: BattleUnit): boolean {
@@ -142,7 +144,9 @@ export function aiStep(run: BattleRun, u: BattleUnit): boolean {
   if (tryReposition(run, u)) return true
   // 3. 打誰
   const foes = unitsOf(b, otherSide(u.side))
-  const enemy = foes.length ? (run.pick(foes, (t) => targetWeight(run, u, t)) ?? foes[0]!) : null
+  // 每個候選的權重都是 0（ai_target_pct 把場上的人全部排除了）時當成沒有這個修正：除非他是唯一打得到的目標，否則不挑他
+  const pickFoe = (ignorePct: boolean) => run.pick(foes, (t) => targetWeight(run, u, t, { ignorePct }))
+  const enemy = foes.length ? (pickFoe(false) ?? pickFoe(true) ?? foes[0]!) : null
   // 4. 做什麼：分數平方加權抽
   const options: Array<{ def: BattleActionDef; target: BattleTarget | null; input: BattleInput; score: number }> = []
   for (const def of run.k.battle.actionsFor(b.mode)) {

@@ -2,9 +2,11 @@
 // 「有哪些行動、每個行動做什麼」由功能註冊：現實戰鬥註冊射擊、近戰、換彈、監視、制伏……，內海戰鬥（M3）註冊它自己的那一組，
 // 技能的功能把每個主動技能註冊成一個行動。功能之間不直接 import，都接在這張表上。dev/adr/0010。
 
-import type { ActorId, BattleInput, BattleSide, BattleState, BattleTarget, BattleUnit, BattleWeapon, Change, GameState, RollPart } from '../types'
+import type { ActorId, BattleInput, BattleOverlay, BattleSide, BattleState, BattleTarget, BattleUnit, BattleWeapon, Change, GameState, RollPart } from '../types'
 import type { Probe } from '../state/probe'
 import type { RulesKernel } from '../rules/kernel'
+import { isRecord } from '../util/sanitize'
+import { ifProblem, whoProblem } from './effects'
 import { sameTarget, wielded } from './field'
 import type { BattleMode, BattleNumbers, ModKind } from './rules'
 import type { BattleRun } from './run'
@@ -144,6 +146,11 @@ export interface BattleActionDef {
   /** 花費：行動點與其他的池（ram）。可以看當下的狀態（狙擊槍的一槍 3 點） */
   cost(view: BattleView, unit: BattleUnit, input?: BattleInput): { ap: number; [pool: string]: number }
   /**
+   * 照這一步的輸入多給幾個標籤（接在 actionTags 的最後面）：用的是哪一類道具、是不是治療。
+   * 花費的減免（action_ap、action_ram）與 action.done 掛點靠它認得出「用醫療道具」，不必認得行動的 id（dev/adr/0015 第二節）
+   */
+  costTags?(view: BattleView, unit: BattleUnit, input?: BattleInput): string[]
+  /**
    * 現在做不到的原因，一條一條列（每一條是給玩家看的完整句子，寫出缺的是哪個條件）。空的就是做得到。
    * 不看目標；行動點夠不夠、是不是輪到他、戰鬥結束了沒有，由核心檢查。
    */
@@ -180,21 +187,29 @@ export function actionIcon(def: Pick<BattleActionDef, 'id' | 'group' | 'icon'>):
   return def.icon ?? (def.group === 'skill' ? 'skill' : def.id)
 }
 
-/** 問花費的修正、行動做完的掛點帶的標籤：[行動的 id, 'group:<圈>', 行動自己宣告的標籤…]；目標是自己以外的人時再多一個 'other'。 */
-export function actionTags(unit: BattleUnit, def: BattleActionDef, input?: BattleInput): string[] {
+/**
+ * 問花費的修正、行動做完的掛點帶的標籤：[行動的 id, 'group:<圈>', 行動自己宣告的標籤…]；目標是自己以外的人時再多一個 'other'；
+ * 最後接行動的 costTags（照這一步的輸入多給的；要給 view 才問，沒給就沒有）。
+ */
+export function actionTags(unit: BattleUnit, def: BattleActionDef, input?: BattleInput, view?: BattleView): string[] {
   const t = input?.target
-  return [def.id, `group:${def.group}`, ...(def.tags ?? []), ...(t && 'unit' in t && t.unit !== unit.id ? ['other'] : [])]
+  return [def.id, `group:${def.group}`, ...(def.tags ?? []), ...(t && 'unit' in t && t.unit !== unit.id ? ['other'] : []), ...(view && def.costTags ? def.costTags(view, unit, input) : [])]
 }
 
 /**
- * 一個行動實際要花多少：行動自己算的花費，加上修正（action_ap：技能的減免）。行動點最少 0。
+ * 一個行動實際要花多少：行動自己算的花費，加上修正（action_ap：技能的減免；action_ram：只在這個行動本來就花 RAM 時，最少 1）。行動點最少 0。
  * 畫面顯示的、核心檢查夠不夠的、實際扣的、AI 算的，都是這一個數字。
- * 問修正時帶著：行動的標籤（actionTags）、手上那一把武器、行動自己算的行動點（base）。
+ * 問修正時帶著：行動的標籤（actionTags）、手上那一把武器、行動自己算的行動點或 RAM（base）。
  */
 export function actionCost(view: BattleView, unit: BattleUnit, def: BattleActionDef, input?: BattleInput): { ap: number; [pool: string]: number } {
   const base = def.cost(view, unit, input)
-  const delta = view.mods('action_ap', unit, undefined, wielded(unit), actionTags(unit, def, input), base.ap).reduce((sum, p) => sum + p.value, 0)
-  return delta ? { ...base, ap: Math.max(0, base.ap + delta) } : base
+  const tags = actionTags(unit, def, input, view)
+  const weapon = wielded(unit)
+  const delta = view.mods('action_ap', unit, undefined, weapon, tags, base.ap).reduce((sum, p) => sum + p.value, 0)
+  const ram = base.ram ?? 0
+  const ramDelta = ram > 0 ? view.mods('action_ram', unit, undefined, weapon, tags, ram).reduce((sum, p) => sum + p.value, 0) : 0
+  if (!delta && !ramDelta) return base
+  return { ...base, ...(delta ? { ap: Math.max(0, base.ap + delta) } : {}), ...(ramDelta ? { ram: Math.max(1, ram + ramDelta) } : {}) }
 }
 
 /** 問一個數字的修正時帶的情境。 */
@@ -230,12 +245,27 @@ export interface BattleHookMap {
   'attack.before': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; weapon: BattleWeapon; opts: import('./run').AttackOpts }
   /** 一次攻擊結算完（命中或沒中）：武器的特性與技能的後續（輕機槍的壓制、還給你～） */
   'attack.after': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; weapon: BattleWeapon; opts: import('./run').AttackOpts; result: import('./run').AttackResult }
+  /**
+   * 命中已經確定、傷害還沒算（只有打人的攻擊；打掛著的東西沒有）。roll 是這一擊的骰面與結果（wound：本來會重創）；
+   * 處理函式改 out：negate 設成 true，這一擊不造成傷害、不重創、不推拉（遮蔽照樣受傷，attack.after 照樣發）；wound 設成 false，重創改成一般的命中
+   */
+  'attack.hit': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; weapon: BattleWeapon; opts: import('./run').AttackOpts; roll: { natural: number; total: number; evade: number; crit: boolean; wound: boolean }; out: { negate?: boolean; wound?: boolean } }
   /** 重創（自然 20，或瞄準過的射擊打出要害），目標不是雜兵：現實擲部位，內海是破損 */
   'wound': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; aimed: boolean; part?: string }
   /** 過載了（感載已經歸零、餘韻加了一層、沒有倒下；失去回合或閃斷已經照戰場的規則做了） */
   'overload': { run: BattleRun; unit: BattleUnit; by?: BattleUnit }
+  /**
+   * 有人即將退出（how：down、burnout、subdued、surrendered、fled……）。處理函式把 out.prevent 設成 true 就擋下：setOut 回傳 false、什麼都不做。
+   * 因為生命歸零而來的（how 是 down），核心保證擋下之後生命至少 1；其餘的數字（感載、餘韻、狀態）由處理函式自己改
+   */
+  'out.before': { run: BattleRun; unit: BattleUnit; how: string; by?: BattleUnit; out: { prevent?: boolean } }
   /** 倒下或退出（how：down、subdued、surrendered、fled……） */
   'out': { run: BattleRun; unit: BattleUnit; how: string; by?: BattleUnit }
+  /**
+   * 一個帶著 other（對誰擲的）的檢定（run.save）擲之前：被快駭、被誘惑的那一方的反應在這裡改這一次的 DC 與加值（opts.dc、opts.bonus）。
+   * tags 是這個檢定的標籤（hack、seduce……）。沒有 other 的檢定不發
+   */
+  'check.before': { run: BattleRun; unit: BattleUnit; other: BattleUnit; tags: string[]; opts: { dc: number; bonus: number } }
   /** 有人換了格（by：action 是自己換位，forced 是被推拉）。補位不算 */
   'moved': { run: BattleRun; unit: BattleUnit; from: number; to: number; by: 'action' | 'forced' }
   /** 有人站上暴露的格子（換位、補位、被推拉、遮蔽被打成暴露）：監視之外的反應 */
@@ -289,10 +319,88 @@ export interface Loadout {
 export type LoadoutProvider = (state: GameState, actor: ActorId, mode: string) => Loadout | void
 
 /**
- * 道具在戰鬥裡的一種效果（內容種類 item 的 use.effects 裡每一筆的 op）。現實戰鬥的功能註冊 heal、cleanse、afterglow、vent、soft_cover；
- * 之後的功能（投擲物、藥、腳本）各自加自己的。target 是玩家選的目標；unit 是那個目標是人的時候的那個單位。
+ * 效果（dev/adr/0015 第一節）：道具（use.effects）、技能、招牌行動、武器的附帶效果、快駭用同一張登錄表，每一筆資料是 { op, ... }，
+ * 另外可以帶兩個核心解析的共同欄位：who（落在誰身上）、if（看上一筆的結果要不要做）。
+ * 誰註冊什麼：features/combat 註冊通用的，features/summons、abilities、hack 各註冊自己的。
  */
-export type BattleItemOp = (ctx: { run: BattleRun; user: BattleUnit; target: BattleTarget; unit?: BattleUnit; item: string }, effect: Record<string, unknown>) => void
+export interface BattleEffectSource {
+  kind: 'item' | 'ability' | 'weapon' | 'hack' | 'field'
+  id: string
+  name: string
+}
+/** 公式要代的數字：tier 樹階、grade 場景等級（沒給用這場戰鬥的）、spent 花掉的格數或 RAM。 */
+export interface BattleEffectNumbers {
+  tier?: number
+  grade?: number
+  spent?: number
+}
+/**
+ * 上一筆攻擊或檢定的結果：做攻擊與檢定的 op 把結果寫進 ctx.last，後面的 if 看它（整串效果共用同一個物件）。
+ * overloaded 是上一筆讓對象過載了（灌感載的 op 寫）；stop 設成 true，這一筆做完之後這一串效果都不做（檢定的 stop 用）。
+ */
+export interface BattleEffectLast {
+  hit?: boolean
+  crit?: boolean
+  downed?: boolean
+  overloaded?: boolean
+  ok?: boolean
+  dealt?: number
+  stop?: boolean
+}
+export interface BattleEffectCtx {
+  run: BattleRun
+  /** 做的人 */
+  user: BattleUnit
+  /** 玩家選的目標：可以是人、一格、一台、節點、沒有 */
+  target: BattleTarget | null
+  /** 這一筆落在哪個人身上（核心照 who 解析好的；who 是 target 而目標不是人時沒有） */
+  unit?: BattleUnit
+  /** 這一筆落在哪一台和人重疊的東西上（範圍打到掛著的東西時） */
+  overlay?: BattleOverlay
+  source: BattleEffectSource
+  /** 來源是道具時等於 source.id（現有的道具效果讀這個） */
+  item?: string
+  /** 這一步其他的選擇（BattleInput.pick） */
+  pick: Record<string, unknown>
+  n: BattleEffectNumbers
+  last: BattleEffectLast
+  /** 反應裡：正在攻擊的人、被打的人（who: attacker、victim 看這兩個） */
+  attacker?: BattleUnit
+  victim?: BattleUnit
+}
+/** run.effects 收的：ctx 裡呼叫的人給的那幾樣（run、unit、overlay 由核心補）。 */
+export interface BattleEffectInput {
+  user: BattleUnit
+  target?: BattleTarget | null
+  source: BattleEffectSource
+  pick?: Record<string, unknown>
+  n?: BattleEffectNumbers
+  /** 沒給就是一個新的空物件；給了的話整串效果做完之後呼叫的人看得到最後的結果 */
+  last?: BattleEffectLast
+  attacker?: BattleUnit
+  victim?: BattleUnit
+}
+export type BattleEffectOp = (ctx: BattleEffectCtx, effect: Record<string, unknown>) => void
+export interface BattleEffectOpts {
+  /** 這個效果自己的格式檢查：回傳給資料作者看的訊息（欄位的型別、不認得的欄位、公式用 amountProblems）；空的就是合格 */
+  problems?(effect: Record<string, unknown>): string[]
+}
+export interface BattleEffectDef extends BattleEffectOpts {
+  op: string
+  owner: string
+  fn: BattleEffectOp
+}
+
+/** 舊的道具效果的呼叫方式（只有道具的那幾個欄位）：getItemOp 收這個，補齊其餘的欄位再交給效果。 */
+export interface BattleItemOpCtx {
+  run: BattleRun
+  user: BattleUnit
+  target: BattleTarget
+  unit?: BattleUnit
+  item: string
+}
+/** 舊名：道具效果現在就是效果（BattleEffectOp）。 */
+export type BattleItemOp = BattleEffectOp
 
 export interface BattleKernel extends RulesKernel {
   battle: BattleRegistry
@@ -305,7 +413,7 @@ export class BattleRegistry {
   private ends: Array<{ owner: string; fn: BattleEndHandler }> = []
   private sources = new Map<string, { owner: string; fn: UnitSource }>()
   private loadouts: Array<{ owner: string; fn: LoadoutProvider }> = []
-  private itemOps = new Map<string, { owner: string; fn: BattleItemOp }>()
+  private effects = new Map<string, BattleEffectDef>()
 
   constructor(private probe: Probe) {}
 
@@ -391,21 +499,65 @@ export class BattleRegistry {
     this.reg('battle.loadouts', owner, owner)
   }
 
-  /** 註冊一種道具效果。op 重複就丟錯。 */
-  itemOp(op: string, owner: string, fn: BattleItemOp): void {
-    const old = this.itemOps.get(op)
-    if (old) throw new Error(`道具效果重複註冊：${op}（已經由 ${old.owner} 註冊）`)
-    this.itemOps.set(op, { owner, fn })
-    this.reg('battle.itemOps', op, owner)
+  /**
+   * 註冊一種效果（內容裡 { op, ... } 的 op）。op 重複就丟錯。核心自己不註冊任何效果：誰管那個領域誰註冊。
+   * problems 是這個效果自己的格式檢查（effectProblems 會呼叫）。
+   */
+  effect(op: string, owner: string, fn: BattleEffectOp, opts: BattleEffectOpts = {}): void {
+    this.addEffect(op, owner, fn, opts, '效果')
   }
 
-  getItemOp(op: string): BattleItemOp | undefined {
-    return this.itemOps.get(op)?.fn
+  private addEffect(op: string, owner: string, fn: BattleEffectOp, opts: BattleEffectOpts, what: string): void {
+    const old = this.effects.get(op)
+    if (old) throw new Error(`${what}重複註冊：${op}（已經由 ${old.owner} 註冊）`)
+    this.effects.set(op, { op, owner, fn, ...(opts.problems ? { problems: opts.problems } : {}) })
+    this.reg('battle.effects', op, owner)
   }
 
-  /** 已經註冊的道具效果（檢查內容用：道具寫了沒有人註冊的 op，就是寫錯了）。 */
+  getEffect(op: string): BattleEffectDef | undefined {
+    return this.effects.get(op)
+  }
+
+  /** 已經註冊的效果的 op。 */
+  effectIds(): string[] {
+    return [...this.effects.keys()]
+  }
+
+  /**
+   * 檢查一串效果（每個來源載入內容時都用它查）：每一筆的 op 查不查得到、who 與 if 在不在清單裡，再加那個效果自己的 problems。
+   * 回傳每一個問題（一句一條，寫出是哪個 op）；空的就是合格。
+   */
+  effectProblems(list: unknown): string[] {
+    if (!Array.isArray(list)) return ['效果要是 { op, ... } 的陣列']
+    const out: string[] = []
+    list.forEach((e, i) => {
+      if (!isRecord(e) || typeof e.op !== 'string' || !e.op) {
+        out.push(`第 ${i + 1} 筆效果要是 { op, ... }`)
+        return
+      }
+      const def = this.effects.get(e.op)
+      if (!def) out.push(`不認得的效果 ${e.op}（還沒有功能註冊它；第 ${i + 1} 筆）`)
+      for (const m of [whoProblem(e.who), ifProblem(e.if)]) if (m) out.push(`效果 ${e.op}：${m}`)
+      if (def?.problems) out.push(...def.problems(e).map((m) => `效果 ${e.op}：${m}`))
+    })
+    return out
+  }
+
+  /** 舊名：註冊一種道具效果（= effect；道具效果現在是效果的一種）。 */
+  itemOp(op: string, owner: string, fn: BattleEffectOp, opts: BattleEffectOpts = {}): void {
+    this.addEffect(op, owner, fn, opts, '道具效果')
+  }
+
+  /** 舊名：用舊的道具效果的呼叫方式叫一個效果（補齊 source、pick、n、last）。 */
+  getItemOp(op: string): ((ctx: BattleItemOpCtx, effect: Record<string, unknown>) => void) | undefined {
+    const def = this.effects.get(op)
+    if (!def) return undefined
+    return (ctx, effect) => def.fn({ source: { kind: 'item', id: ctx.item, name: ctx.item }, pick: {}, n: {}, last: {}, ...ctx }, effect)
+  }
+
+  /** 舊名：已經註冊的效果的 op（= effectIds）。 */
   itemOpIds(): string[] {
-    return [...this.itemOps.keys()]
+    return this.effectIds()
   }
 
   loadoutOf(state: GameState, actor: ActorId, mode: string): Required<Loadout> {

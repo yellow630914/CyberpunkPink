@@ -72,8 +72,10 @@ export function beginTurn(run: BattleRun, u: BattleUnit): boolean {
     const hp = (t.hp ?? 0) - (t.hpDice ? run.d6(t.hpDice) : 0)
     if (hp < 0 && u.hp && !u.out) {
       u.hp.now = Math.max(0, u.hp.now + hp)
+      const at = run.beats.length
       run.say(`${unitTag(u)} ${rule.name}：生命 ${hp}。`, 'damage', { target: u.id, amount: -hp, status: s.id, left: u.hp.now })
-      if (u.hp.now <= 0) run.setOut(u, 'down')
+      // 被擋下的（out.before）生命拉回 1，這一拍記的剩餘生命跟著改
+      if (u.hp.now <= 0 && !run.setOut(u, 'down') && !u.out && run.beats[at]?.data) run.beats[at]!.data!.left = u.hp.now
     } else if (hp > 0) run.heal(u, hp)
     if (rule.once) run.removeStatus(u, s.id, true)
     if (u.out) break

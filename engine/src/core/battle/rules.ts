@@ -170,6 +170,16 @@ export const MOD_KINDS = [
    * weapon 是手上那一把，base 是行動自己算的行動點。技能的「退還或減免行動點」（SKILLS 1.8 節）掛在這裡；
    * 「每回合第一次才便宜」的次數在 action.done 掛點記
    */ 'action_ap',
+  /**
+   * 行動花的 RAM 加減（負的是減免）：只在這個行動本來就花 RAM 的時候算，最少 1（花 0 點的行動不會因此多花）。
+   * 問的時候帶的標籤與 action_ap 一樣（dev/adr/0015 第二節）
+   */ 'action_ram',
+  /** 自己造成的回復多幾點（做的人的修正；問的時候 other 是被回復的人，tags 是 run.heal 帶的標籤：道具是 ['item', …物品的標籤]）。不帶「誰做的」的回復不吃這個 */ 'heal_dealt',
+  /** 自己造成的排感載多幾點（同 heal_dealt） */ 'vent_dealt',
+  /** 敵人 AI 挑目標時，這個人（候選）的權重加減幾個百分點：問的是候選人，other 是正在挑的 AI。−100 就是不挑他；候選全部都是 0 時當成沒有這個修正（dev/adr/0015 第二節） */ 'ai_target_pct',
+  /** 大於 0 的人攻擊時不吃黑暗（和 night_vision 標籤並存） */ 'see_dark',
+  /** 目標的防火牆加減（快駭與內海的檢定對它）；問的是被擲檢定的那一方 */ 'firewall',
+  /** 重創的級數加減（−1：重的改成輕的）；features/combat 擲部位時問 */ 'wound_grade',
 ] as const
 export type ModKind = (typeof MOD_KINDS)[number]
 
