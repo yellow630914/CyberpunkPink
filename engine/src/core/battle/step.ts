@@ -5,16 +5,17 @@
 //   battleAct     玩家的一步              → 報告 battle.step
 //   battleAuto    AI 的一步（或替玩家代打）→ 報告 battle.step
 //   endBattle     分出結果之後的結算       → 報告 battle.end（把這場的每一步收成一份）
+//   abortBattle   打到一半不打了（重來）   → 報告 battle.abort（一樣把每一步收成一份，不結算）
 //
 // 戰鬥的每一步是一份報告（dev/adr/0011）：戰鬥狀態只經由 battle 變更改變，存檔、回退、探針都照常。
 
 import type { BattleInput, BattleState, BattleTarget, BattleUnit, Change, GameState, ReportDraft, TimelineBeat } from '../types'
 import { partySnapshot } from '../action/action'
 import { clone } from '../util/clone'
-import { currentUnit, sameTarget, unitTag } from './field'
+import { currentUnit, sameTarget, unitTag, wielded } from './field'
 import { aiStep } from './ai'
-import type { BattleActionDef, BattleActionGroup, BattleKernel, BattleTargetKind, BattleTargetOption } from './registry'
-import { actionCost } from './registry'
+import type { BattleActionDef, BattleActionGroup, BattleKernel, BattlePick, BattleTargetKind, BattleTargetOption } from './registry'
+import { actionCost, actionIcon, actionTags } from './registry'
 import { modeOf } from './rules'
 import { BattleRun } from './run'
 import type { BattleSetup } from './setup'
@@ -39,9 +40,12 @@ export interface BattleActionOption {
   name: string
   desc: string
   group: BattleActionGroup
-  icon?: string
+  /** 圖示的鍵（每個行動都有；畫面自己對照到圖） */
+  icon: string
   hold?: boolean
   target: BattleTargetKind
+  /** 目標以外還要選的東西（道具、武器、無人機、打誰、放哪一格……）；沒有就是空的。畫面照這個列出來讓玩家選 */
+  picks: BattlePick[]
   cost: { ap: number; [pool: string]: number }
   /** 現在能不能做 */
   ok: boolean
@@ -72,8 +76,8 @@ function optionOf(run: BattleRun, u: BattleUnit, def: BattleActionDef): BattleAc
   if (def.target !== 'none' && targets.length === 0) blocks.push('沒有可以選的目標。')
   const ok = blocks.length === 0 && (def.target === 'none' || targets.some((t) => t.blocks.length === 0))
   return {
-    id: def.id, name: def.name, desc: def.desc, group: def.group, ...(def.icon ? { icon: def.icon } : {}), ...(def.hold ? { hold: true } : {}),
-    target: def.target, cost, ok, blocks, targets,
+    id: def.id, name: def.name, desc: def.desc, group: def.group, icon: actionIcon(def), ...(def.hold ? { hold: true } : {}),
+    target: def.target, picks: def.picks?.(run, u) ?? [], cost, ok, blocks, targets,
   }
 }
 
@@ -119,13 +123,26 @@ function open(k: BattleKernel, state: GameState): { run: BattleRun; unit: Battle
   return { run, unit }
 }
 
-/** 做一個行動（花費、行動本身、收尾）。做完之後如果這個人自己退出了，直接往下輪。 */
-function perform(run: BattleRun, unit: BattleUnit, def: BattleActionDef, target: BattleTarget | null, input: BattleInput): void {
+/**
+ * 讓一個單位做一個行動：扣花費 → 行動本身 → 行動做完的掛點（action.done）。玩家的一步、AI 選的一步都走這裡；
+ * 功能在掛點裡替單位做一個行動（招牌行動、劇本）也用它，花費的修正與「用掉幾次」才會一致。
+ * 付不付得起、條件與目標合不合由呼叫的人先檢查；不夠付在這裡丟 BattleBlocked。收尾（監視、補位、結果）由呼叫的人做。
+ */
+export function performAction(run: BattleRun, unit: BattleUnit, def: BattleActionDef, target: BattleTarget | null, input: BattleInput): void {
   // 花費可以看這一步選了什麼（替別人用道具比較貴）：照這一步實際的花費再檢查一次
   const cost = actionCost(run, unit, def, input)
   if (!run.canAfford(unit, cost)) throw new BattleBlocked([`行動點不夠（要 ${cost.ap} 點，現在 ${unit.ap.now} 點）。`])
+  const base = def.cost(run, unit, input)
+  const tags = actionTags(unit, def, input)
+  const weapon = wielded(unit)
   run.spend(unit, cost)
   def.run(run, unit, target, input)
+  run.k.battle.emit('action.done', { run, unit, action: def.id, tags, target, input, cost, base, ...(weapon ? { weapon } : {}) })
+}
+
+/** 做一個行動與收尾。做完之後如果這個人自己退出了，直接往下輪。 */
+function perform(run: BattleRun, unit: BattleUnit, def: BattleActionDef, target: BattleTarget | null, input: BattleInput): void {
+  performAction(run, unit, def, target, input)
   run.settle()
   if (!run.over && unit.out && run.current()?.id === unit.id) advance(run)
 }
@@ -206,6 +223,26 @@ export function battleTimeline(state: GameState, b: BattleState): TimelineBeat[]
 
 export const OUTCOME_NAME: Record<string, string> = { win: '勝利', lose: '戰敗', fled: '脫離', surrender: '投降' }
 
+/** 這個結果算不算戰敗（全隊倒下，或投降；COMBAT_SYSTEM 8.1、8.5 節）：戰敗之後等玩家三選一（8.4 節）。 */
+export const isDefeat = (outcome: string): boolean => outcome === 'lose' || outcome === 'surrender'
+
+/**
+ * 等著玩家三選一的戰敗（接受結果、重來這場戰鬥、回到這個階段開始時；COMBAT_SYSTEM 8.4 節）：
+ * 打輸或投降的那一場已經結算、開打前的快照還留著的期間。這段時間不能做別的事。沒有在等回傳 null。
+ */
+export function pendingDefeat(state: GameState): { snapshot: string; battle: string; outcome: string } | null {
+  if (state.battle) return null
+  for (let i = state.snapshots.length - 1; i >= 0; i--) {
+    const slot = state.snapshots[i]!
+    const lost = slot.kind === 'battle' ? slot.data?.lost : undefined
+    if (lost && typeof lost === 'object') {
+      const l = lost as { battle?: unknown; outcome?: unknown }
+      return { snapshot: slot.id, battle: String(l.battle ?? ''), outcome: String(l.outcome ?? 'lose') }
+    }
+  }
+  return null
+}
+
 /**
  * 戰鬥分出結果之後的結算：三條軌寫回角色、功能加進來的變更（掉落、用掉的道具、傷勢……）、把這場的每一步收成一份報告。
  * 還沒分出結果就丟錯。回傳 battle.end 的報告草稿；交給提交之後 state.battle 變回 null。
@@ -217,7 +254,12 @@ export function endBattle(k: BattleKernel, state: GameState): ReportDraft {
   const outcome = b.result.outcome
   const core = writeBack(k, state, b)
   const extras = k.battle.endExtras({ k, state, battle: b, outcome })
-  const changes: Change[] = [...core.changes, ...extras.flatMap((x) => x.changes ?? []), { op: 'battle', state: null, fold: true }, { op: 'rng', advance: 1 }]
+  // 開打前的快照（COMBAT_SYSTEM 8.4 節）：打輸與投降之後留著，等玩家三選一（標上是哪一場輸的）；其餘的結果就是定案，丟掉。
+  // 放在功能的變更前面：功能可以接著把它丟掉（沒有戰敗事件可以接受時）
+  const snapshot: Change[] = !state.snapshots.some((x) => x.kind === 'battle') ? []
+    : isDefeat(outcome) ? [{ op: 'snapshot.mark', kind: 'battle', data: { lost: { battle: b.id, outcome } } }]
+      : [{ op: 'snapshot.drop', kind: 'battle' }]
+  const changes: Change[] = [...core.changes, ...snapshot, ...extras.flatMap((x) => x.changes ?? []), { op: 'battle', state: null, fold: true }, { op: 'rng', advance: 1 }]
   const lines = [...core.lines, ...extras.flatMap((x) => x.lines ?? [])]
   const after = clone(state)
   k.changes.applyAll(after, changes)
@@ -231,5 +273,22 @@ export function endBattle(k: BattleKernel, state: GameState): ReportDraft {
     changes,
     outcome: { result: outcome, summary },
     narration: { results: lines },
+  }
+}
+
+/**
+ * 打到一半不打了（重來這場戰鬥；COMBAT_SYSTEM 8.4 節）：把這一場到現在的每一步收成一份報告，不結算（三條軌不寫回、沒有掉落、沒有戰敗事件）。
+ * 外殼接著回到開打前的快照，這一份會留在紀錄裡、標成被收回：紀錄裡一場戰鬥只有一筆，重來幾次就是幾筆，不是幾百筆（dev/adr/0011）。
+ */
+export function abortBattle(k: BattleKernel, state: GameState): ReportDraft {
+  const b = state.battle
+  if (!b) throw new Error('現在沒有在戰鬥。')
+  const mode = modeOf(k.content, b.mode)
+  const foes = [...new Set(Object.values(b.units).filter((u) => u.side === 'foe').map((u) => u.name))]
+  return {
+    kind: mode?.layer === 'net' ? 'netrun' : 'combat', action: 'battle.abort', location: clone(state.location), ...(state.pc ? { actor: state.pc } : {}),
+    party: [], timeline: battleTimeline(state, b),
+    changes: [{ op: 'battle', state: null, fold: true }],
+    outcome: { result: 'aborted', summary: `${b.origin.place ? `${b.origin.place}：` : ''}和${foes.join('、')}打到第 ${b.round} 回合，沒有打完。` },
   }
 }
