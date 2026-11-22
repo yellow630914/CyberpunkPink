@@ -7,50 +7,15 @@
 //
 // 一台無人機這一場的狀態記在操作者的 uses 裡：`drone:<索引>` 是 1（放出去了）或 2（被擊落了，這一場不能再放）；收回就清掉。
 
-import type { BattleActionDef, BattleInput, BattleOverlay, BattlePick, BattleTarget, BattleTargetOption, BattleUnit, BattleView, BattleWeapon, DamageType, Feature } from '../../core'
-import { BATTLE_SLOTS, BattleBlocked, attrMod, gradeDice, otherSide, overlayAt, unitAt, unitsOf } from '../../core'
+import type { BattleActionDef, BattleOverlay, BattlePick, BattleTarget, BattleTargetOption, BattleUnit, BattleView, Feature } from '../../core'
+import { BATTLE_SLOTS, BattleBlocked, otherSide, overlayAt, unitsOf } from '../../core'
+import { DRONE_CAP_BY_SYNC, DRONE_STATS, KIND_NAME, NEEDS_FOE, OWNER, capBlock, driveOnce, dronesOf, fielded, hang, isDrone, isKind, moveSlots, moveTo, stateOf, syncOf, vehicleOf, widestCap } from './drones'
+import { registerHooks } from './hooks'
+import { registerOps } from './ops'
+import type { DroneDef, DroneKind, SummonsExt } from './drones'
 
-const OWNER = 'summons'
-
-/** 同步幾級連得住幾台；索引是同步的級數 0～6（COMBAT_SYSTEM 9.1 節） */
-export const DRONE_CAP_BY_SYNC = [1, 1, 2, 2, 3, 3, 4]
-/** 自己放的一台被擊落時，操作者受的感載（COMBAT_SYSTEM 9.1 節）；overlay_backlash 的修正加減在這上面 */
-const BACKLASH = 5
-/** 無人機的生命與護甲，索引 0 是 I 級（ITEMS 3.2 節） */
-export const DRONE_STATS = [{ hp: 14, armor: 1 }, { hp: 17, armor: 2 }, { hp: 20, armor: 3 }, { hp: 25, armor: 4 }]
-
-export type DroneKind = 'attack' | 'shield' | 'scout' | 'medic' | 'jammer'
-export interface DroneDef { kind: DroneKind; grade: 1 | 2 | 3 | 4; name?: string; item?: string }
-export interface SummonsExt { drones?: DroneDef[]; vehicle?: { name: string; hp: [number, number] } }
-
-const KIND_NAME: Record<DroneKind, string> = { attack: '攻擊無人機', shield: '護盾無人機', scout: '偵察無人機', medic: '醫療無人機', jammer: '干擾無人機' }
-const isKind = (k: unknown): k is DroneKind => typeof k === 'string' && k in KIND_NAME
-
-// ---- 讀單位上的資料 ----
-
-const summonsOf = (u: BattleUnit): SummonsExt | undefined => {
-  const s = u.ext.summons
-  return s && typeof s === 'object' ? (s as SummonsExt) : undefined
-}
-const dronesOf = (u: BattleUnit): DroneDef[] => {
-  const d = summonsOf(u)?.drones
-  return Array.isArray(d) ? d : []
-}
-const vehicleOf = (u: BattleUnit): SummonsExt['vehicle'] => {
-  const v = summonsOf(u)?.vehicle
-  return v && typeof v === 'object' ? v : undefined
-}
-/** 同時連得住幾台：同步的級數查表，加上 overlay_cap 的修正（問的是操作者；tags 是這一台的種類，沒指定哪一台時不帶），最少 0。 */
-const capOf = (view: BattleView, u: BattleUnit, tags: string[] = []): number =>
-  Math.max(0, DRONE_CAP_BY_SYNC[syncOf(u)]! + view.mods('overlay_cap', u, undefined, undefined, tags).reduce((n, p) => n + p.value, 0))
-const gradeOf = (d: DroneDef): number => Math.min(4, Math.max(1, Math.round(Number(d.grade) || 1)))
-const syncOf = (u: BattleUnit): number => Math.min(6, Math.max(0, Math.floor(u.skills.sync ?? 0)))
-
-/** 索引 i 的那一台這一場的狀態：0 在手上、1 放出去了、2 被擊落了。 */
-const stateOf = (u: BattleUnit, i: number): number => u.uses[`drone:${i}`] ?? 0
-const isDrone = (o: BattleOverlay): boolean => typeof o.ext?.drone === 'number'
-/** 這個人場上沒被擊落的無人機。 */
-const fielded = (view: BattleView, u: BattleUnit): BattleOverlay[] => view.battle.overlays.filter((o) => o.owner === u.id && isDrone(o) && !o.down)
+export { DRONE_CAP_BY_SYNC, DRONE_STATS }
+export type { DroneDef, DroneKind, SummonsExt }
 
 const allySlots = (u: BattleUnit, blocksOf: (slot: number) => string[]): BattleTargetOption[] =>
   Array.from({ length: BATTLE_SLOTS }, (_, i) => ({ target: { side: u.side, slot: i + 1 } as BattleTarget, blocks: blocksOf(i + 1) }))
@@ -69,7 +34,7 @@ function droneOf(run: BattleView & { battle: { overlays: BattleOverlay[] } }, u:
 }
 
 /** 要選的敵人（pick.at）：還在場上的敵方單位。 */
-function foeOf(view: BattleView, u: BattleUnit, input: BattleInput): BattleUnit {
+function foeOf(view: BattleView, u: BattleUnit, input: { pick?: Record<string, unknown> }): BattleUnit {
   const id = input.pick?.at
   const t = typeof id === 'string' ? view.battle.units[id] : undefined
   if (!t || t.side !== otherSide(u.side) || t.slot < 1 || t.out) throw new BattleBlocked(['要選一個敵人。'])
@@ -79,10 +44,6 @@ function foeOf(view: BattleView, u: BattleUnit, input: BattleInput): BattleUnit 
 const droneTargets = (view: BattleView, u: BattleUnit, spentCounts: boolean): BattleTargetOption[] =>
   fielded(view, u).map((o) => ({ target: { overlay: o.id }, blocks: spentCounts && o.used ? ['這一台這一回合動過了。'] : [] }))
 
-/** 指揮時要另外選一個敵人的那幾型（攻擊、干擾、偵察）；醫療型照顧同一格的人，護盾型不用指揮。 */
-const NEEDS_FOE: readonly string[] = ['attack', 'jammer', 'scout']
-/** 這一台可以換到哪幾格：相鄰、沒有掛著別台的。宣告（picks）與行動本身（run）共用。 */
-const moveSlots = (view: BattleView, o: BattleOverlay): number[] => [o.slot - 1, o.slot + 1].filter((s) => s >= 1 && s <= BATTLE_SLOTS && !overlayAt(view.battle, o.side, s))
 const slotLabel = (slot: number): string => `第 ${slot} 格`
 
 const COMMON = { owner: OWNER, group: 'skill' as const, modes: ['meat'], cost: () => ({ ap: 1 }) }
@@ -94,18 +55,19 @@ const deploy: BattleActionDef = {
   ...COMMON, id: 'drone.deploy', name: '放出', icon: 'drone_deploy', order: 1, target: 'ally_slot',
   desc: '放出一台無人機，掛在我方的一格上：和那一格的人重疊，不佔格，永遠暴露。連得住幾台看同步。',
   has: hasDrones,
-  // 放哪一台（pick.drone：這個人帶的第幾台）；放出去的、被擊落的照樣列出來，寫出原因
-  picks: (_v, u): BattlePick[] => [{
+  // 放哪一台（pick.drone：這個人帶的第幾台）；放出去的、被擊落的照樣列出來，寫出原因。
+  // 多工連結多出來的一台只給支援型：攻擊型、干擾型放不下時，那一項灰掉、寫出原因
+  picks: (view, u): BattlePick[] => [{
     key: 'drone', label: '放出哪一台', kind: 'choice', required: true,
     options: dronesOf(u).map((d, i) => ({
       value: i, label: d.name ?? (isKind(d.kind) ? KIND_NAME[d.kind] : String(d.kind)),
-      blocks: !isKind(d.kind) ? ['不認得這一台的種類。'] : stateOf(u, i) === 1 ? ['這一台已經放出去了。'] : stateOf(u, i) === 2 ? ['這一台被擊落了，這一場不能再放。'] : [],
+      blocks: !isKind(d.kind) ? ['不認得這一台的種類。'] : stateOf(u, i) === 1 ? ['這一台已經放出去了。'] : stateOf(u, i) === 2 ? ['這一台被擊落了，這一場不能再放。'] : kindBlock(view, u, d.kind),
     })),
   }],
   blocks: (view, u) => {
     const out: string[] = []
-    const sync = syncOf(u), cap = capOf(view, u)
-    if (fielded(view, u).length >= cap) out.push(`同步 ${sync} 級只連得住 ${cap} 台。`)
+    const cap = widestCap(view, u)
+    if (fielded(view, u).filter((o) => !o.ext?.overCap).length >= cap) out.push(`同步 ${syncOf(u)} 級只連得住 ${cap} 台。`)
     if (!dronesOf(u).some((_, i) => stateOf(u, i) === 0)) out.push('沒有可以放的無人機了。')
     return out
   },
@@ -115,33 +77,26 @@ const deploy: BattleActionDef = {
     const idx = input.pick?.drone
     const def = typeof idx === 'number' && Number.isInteger(idx) ? dronesOf(u)[idx] : undefined
     if (!def || !isKind(def.kind) || stateOf(u, idx as number) !== 0) throw new BattleBlocked(['沒有這一台無人機。'])
+    const why = capBlock(run, u, def.kind)
+    if (why) throw new BattleBlocked([why])
     // 掛上去交給核心：每格一台（這一格已經掛著一台了）、耐久與護甲與迴避問操作者的修正（overlay_hp、overlay_armor、overlay_evade）、記一拍
-    const grade = gradeOf(def), stats = DRONE_STATS[grade - 1]!
-    run.addOverlay({
-      side: u.side, slot, owner: u.id, kind: def.kind, name: def.name ?? KIND_NAME[def.kind],
-      hp: { now: stats.hp, max: stats.hp }, armor: stats.armor, evade: run.n.evadeBase + 3,
-      ...(def.item ? { item: def.item } : {}), ext: { drone: idx as number, grade },
-    })
-    u.uses[`drone:${idx}`] = 1
+    hang(run, u, slot, { idx: idx as number })
   },
 }
 
-/** 一台臨時的武器：攻擊型是物理、干擾型是電磁；命中用操作者的反應與操縱（COMBAT_SYSTEM 9.1 節）。 */
-function droneWeapon(u: BattleUnit, o: BattleOverlay, type: DamageType): BattleWeapon {
-  const grade = Number(o.ext?.grade) || 1
-  return {
-    id: 'drone', name: o.name, class: 'drone', dice: 2 + gradeDice(grade), flat: 0, type, range: [1, 7], pierce: 0,
-    hit: attrMod(u.attrs.reflex) + (u.skills.piloting ?? 0), attr: 'reflex', skill: 'piloting', coverMult: 0.25, traits: [],
-  }
+/** 這一種現在放不放得下：整個動作放不下時由動作本身擋（blocks），這裡只管「這一種放不下、別種還放得下」。 */
+function kindBlock(view: BattleView, u: BattleUnit, kind: DroneKind): string[] {
+  if (fielded(view, u).filter((o) => !o.ext?.overCap).length >= widestCap(view, u)) return []
+  const why = capBlock(view, u, kind)
+  return why ? [why] : []
 }
 
 const command: BattleActionDef = {
   ...COMMON, id: 'drone.command', name: '指揮', icon: 'drone_command', order: 2, target: 'overlay',
-  desc: '讓一台無人機做一次它的動作，命中用你的操縱。每台每回合一次。',
+  desc: '讓一台無人機做一次它的動作，命中用你的操縱：攻擊與干擾型開火、偵察型標記、醫療型急救、護盾型替同一格的人擋下一次攻擊（到你的下一回合開始）。每台每回合一次。',
   has: hasDrones,
-  // 護盾型不用指揮：照樣列出來，寫出原因（它是被動的）
-  targets: (view, u) => fielded(view, u).map((o) => ({ target: { overlay: o.id }, blocks: o.kind === 'shield' ? ['護盾無人機不用指揮：它替同一格的人擋著。'] : o.used ? ['這一台這一回合動過了。'] : [] })),
-  // 對誰（pick.at：敵人的單位 id）：攻擊、干擾、偵察型才要選；醫療型照顧同一格的人，不用選
+  targets: (view, u) => fielded(view, u).map((o) => ({ target: { overlay: o.id }, blocks: o.used ? ['這一台這一回合動過了。'] : [] })),
+  // 對誰（pick.at：敵人的單位 id）：攻擊、干擾、偵察型才要選；醫療型照顧同一格的人、護盾型守著同一格的人，不用選
   picks: (view, u): BattlePick[] => {
     const need: BattleTarget[] = fielded(view, u).filter((o) => NEEDS_FOE.includes(o.kind)).map((o) => ({ overlay: o.id }))
     if (!need.length) return []
@@ -150,32 +105,7 @@ const command: BattleActionDef = {
   run: (run, u, target, input) => {
     const o = droneOf(run, u, target)
     if (o.used) throw new BattleBlocked(['這一台這一回合動過了。'])
-    switch (o.kind) {
-      case 'attack':
-      case 'jammer': {
-        const foe = foeOf(run, u, input)
-        run.attack(u, foe, { weapon: droneWeapon(u, o, o.kind === 'jammer' ? 'em' : 'physical'), spend: 0, label: '無人機射擊', tags: ['drone'] })
-        break
-      }
-      case 'scout': {
-        const foe = foeOf(run, u, input)
-        run.say(`${o.name}標記了${foe.name}。`, 'overlay', { overlay: o.id, kind: o.kind, slot: o.slot, target: foe.id }, u)
-        run.applyStatus(foe, 'marked', { by: u, until: 'source_turn_start' })
-        break
-      }
-      case 'medic': {
-        const mate = unitAt(run.battle, o.side, o.slot)
-        if (!mate) throw new BattleBlocked(['那一格沒有人。'])
-        run.say(`${o.name}替${mate.name}急救。`, 'overlay', { overlay: o.id, kind: o.kind, slot: o.slot, target: mate.id }, u)
-        run.heal(mate, run.d6(2))
-        run.cleanse(mate, 'first_aid')
-        break
-      }
-      case 'shield':
-        throw new BattleBlocked(['護盾無人機不用指揮：它替同一格的人擋著。'])
-      default:
-        throw new BattleBlocked(['這一台現在做不了事。'])
-    }
+    driveOnce(run, u, o, NEEDS_FOE.includes(o.kind) ? { foe: foeOf(run, u, input) } : {})
     o.used = true
   },
 }
@@ -194,16 +124,7 @@ const move: BattleActionDef = {
       .map((x) => ({ value: x.slot, label: slotLabel(x.slot), blocks: [], at: { side: u.side, slot: x.slot } as BattleTarget, for: x.from }))
     return options.length ? [{ key: 'slot', label: '換到哪一格', kind: 'ally_slot', required: true, options }] : []
   },
-  run: (run, u, target, input) => {
-    const o = droneOf(run, u, target)
-    const to = input.pick?.slot
-    if (typeof to !== 'number' || !moveSlots(run, o).includes(to)) {
-      throw new BattleBlocked(['只能換到相鄰、沒有掛著別台的格。'])
-    }
-    const from = o.slot
-    o.slot = to
-    run.say(`${o.name}從第 ${from} 格換到第 ${to} 格。`, 'overlay', { overlay: o.id, kind: o.kind, from, slot: to }, u)
-  },
+  run: (run, u, target, input) => moveTo(run, u, droneOf(run, u, target), input.pick?.slot),
 }
 
 const recall: BattleActionDef = {
@@ -214,7 +135,8 @@ const recall: BattleActionDef = {
   run: (run, u, target) => {
     const o = droneOf(run, u, target)
     run.battle.overlays = run.battle.overlays.filter((x) => x.id !== o.id)
-    delete u.uses[`drone:${o.ext!.drone as number}`]
+    // 臨時放出來的（蜂群）索引是 -1，沒有「在手上」的狀態可以清
+    if ((o.ext!.drone as number) >= 0) delete u.uses[`drone:${o.ext!.drone as number}`]
     run.say(`${u.name} 收回${o.name}。`, 'overlay', { overlay: o.id, kind: o.kind, slot: o.slot, recalled: true }, u)
   },
 }
@@ -283,22 +205,9 @@ export const summonsFeature: Feature = {
   id: OWNER,
   install(k) {
     for (const def of [deploy, command, move, recall, vehicleCall, nodeUse]) k.battle.action(def)
-    // 護盾型：同一格的人迴避 +2（COMBAT_SYSTEM 9.1 節）
-    k.battle.modifier(OWNER, (q) => {
-      if (q.kind !== 'evade' || q.unit.slot < 1) return []
-      const shielded = q.view.battle.overlays.some((o) => o.kind === 'shield' && !o.down && o.side === q.unit.side && o.slot === q.unit.slot)
-      return shielded ? [{ label: '護盾無人機', value: 2, source: 'overlay' }] : []
-    })
-    // 被擊落：操作者感載 +5（加上 overlay_backlash 的修正，最少 0），這一場不能再放。沒有操作者的（敵方的、自律之後的）沒有人受灌
-    k.battle.on('overlay.down', OWNER, ({ run, overlay, by }) => {
-      if (!isDrone(overlay) || !overlay.owner) return
-      const owner = run.battle.units[overlay.owner]
-      if (!owner) return
-      owner.uses[`drone:${overlay.ext!.drone as number}`] = 2
-      const backlash = Math.max(0, BACKLASH + run.mods('overlay_backlash', owner, undefined, undefined, [overlay.kind]).reduce((n, p) => n + p.value, 0))
-      if (!owner.out && owner.slot > 0 && backlash > 0) run.addLoad(owner, backlash, by, { exact: true, label: '無人機被擊落' })
-    })
-
+    // 效果：技能、接管、招牌行動叫無人機做事（drone.act、deploy、move、repair、smoke、ram、guard、escort）
+    registerOps(k)
+    // 被動的修正與掛點：護盾型的迴避、偵察型的 see_dark、護航編隊、守著、臨時機到期、被擊落的回灌
+    registerHooks(k)
   },
 }
-

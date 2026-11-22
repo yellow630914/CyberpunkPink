@@ -142,7 +142,7 @@ describe('白箱 指揮、移動、收回的每一條原因（COMBAT_SYSTEM 9.1�
     expect(jr.beats.some((b) => b.tag === 'hit' || b.tag === 'crit')).toBe(true)
   })
 
-  it('偵察型標記一個敵人；醫療型沒人在同一格丟「那一格沒有人」（run 的守門）；護盾型與沒有定義的種類指揮不了', () => {
+  it('偵察型標記一個敵人；醫療型沒人在同一格丟「那一格沒有人」（run 的守門）；護盾型指揮就是守著（M1b-skill-pilot）；沒有定義的種類指揮不了', () => {
     const s = setup('scout')
     cmd(s.a, s.me, { overlay: 'o1' }, { at: 'f1' })
     expect(s.a.foe(1).statuses.map((x) => x.id)).toContain('marked')
@@ -153,8 +153,9 @@ describe('白箱 指揮、移動、收回的每一條原因（COMBAT_SYSTEM 9.1�
     m.a.ally(1).slot = 4
     expect(() => cmd(m.a, m.me, { overlay: 'o1' })).toThrow(/那一格沒有人/)
     const sh = setup('shield')
-    expect(() => cmd(sh.a, sh.me, { overlay: 'o1' })).toThrow(/護盾無人機不用指揮/)
-    expect(act(sh.a, 'drone.command').targets!(sh.a.run(), sh.me)[0]!.blocks).toEqual(['護盾無人機不用指揮：它替同一格的人擋著。'])
+    expect(act(sh.a, 'drone.command').targets!(sh.a.run(), sh.me)[0]!.blocks).toEqual([])
+    cmd(sh.a, sh.me, { overlay: 'o1' })
+    expect(overlayOf(sh.a)).toMatchObject({ used: true, ext: { guard: 'own_turn_start' } })
     const weird = setup()
     overlayOf(weird.a).kind = 'turret'
     expect(() => cmd(weird.a, weird.me, { overlay: 'o1' })).toThrow(/這一台現在做不了事/)

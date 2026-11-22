@@ -142,10 +142,11 @@ describe('指揮', () => {
     expect(g.battle!.units.f2!.statuses[0]!.by).toBe('a1')
   })
 
-  it('護盾型：指揮不了，也不算動過', () => {
+  it('護盾型：指揮就是守著同一格的人（不用選敵人），算動過；到操作者的下一個回合開始', () => {
     const { g, d } = setup(1)
-    refused(g.battleAct({ action: 'drone.command', target: { overlay: d.id }, pick: { at: 'f1' } }), '護盾無人機不用指揮：它替同一格的人擋著。')
-    expect(g.battle!.overlays[0]!.used).toBe(false)
+    expect(g.battleAct({ action: 'drone.command', target: { overlay: d.id } }).status).toBe('applied')
+    expect(g.battle!.overlays[0]).toMatchObject({ used: true, ext: { guard: 'own_turn_start' } })
+    refused(g.battleAct({ action: 'drone.command', target: { overlay: d.id } }), '這一台這一回合動過了。')
   })
 
   it('醫療型：同一格的隊友回血、止血；那一格沒有人不行', () => {

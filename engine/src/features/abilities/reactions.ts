@@ -32,13 +32,21 @@ interface Event {
 
 const sideMates = (run: BattleRun, a: BattleUnit): BattleUnit[] => unitsOf(run.battle, a.side)
 
-/** 這個人的一台（沒被擊落的），掛在 subject 同一格或相鄰一格；同一格的優先。 */
-function overlayFor(run: BattleRun, holder: BattleUnit, subject: BattleUnit) {
-  const mine = run.battle.overlays.filter((o) => !o.down && o.owner === holder.id && o.side === holder.side && Math.abs(o.slot - subject.slot) <= 1)
+/**
+ * 這個人的一台（沒被擊落的），掛在 subject 同一格或相鄰 reach 格以內；同一格的優先。
+ * reach 預設：with_own_overlay（和他同一格）是 0，其餘的 who（ally、adjacent……）寫 redirect 時是 1（掛在同一格或相鄰一格；M1b-skill-format 的寫法）；
+ * react.reach 可以明寫（攔截：1）。
+ */
+function overlayFor(run: BattleRun, holder: BattleUnit, subject: BattleUnit, reach: number) {
+  const mine = run.battle.overlays.filter((o) => !o.down && o.owner === holder.id && o.side === holder.side && Math.abs(o.slot - subject.slot) <= reach)
   return mine.sort((a, b) => Math.abs(a.slot - subject.slot) - Math.abs(b.slot - subject.slot))[0]
 }
+const reachOf = (trig: TriggerDef, react: ReactDef | undefined): number => react?.reach ?? (trig.who === 'with_own_overlay' ? 0 : 1)
 
-function whoMatches(run: BattleRun, holder: BattleUnit, who: string, e: Event): boolean {
+/** 替身對應的那一台的操作者（被擊落的也找得到：被擊落的那一擊之後的反應要認得是誰的）。 */
+const ownerOfStandIn = (run: BattleRun, s: BattleUnit): string | undefined => run.battle.overlays.find((o) => o.id === s.ext.overlay)?.owner
+
+function whoMatches(run: BattleRun, holder: BattleUnit, who: string, e: Event, reach: number): boolean {
   const s = e.subject
   const mate = s.side === holder.side
   switch (who) {
@@ -47,11 +55,10 @@ function whoMatches(run: BattleRun, holder: BattleUnit, who: string, e: Event): 
     case 'ally': return mate && s !== holder
     case 'near': return mate && onField(s) && Math.abs(s.slot - holder.slot) <= 1
     case 'foe_by_self': return !mate && e.by === holder
-    case 'own_overlay': {
-      // 被打的是自己的無人機（替身），或是自己有一台掛在他同一格或相鄰一格的隊友
-      if (run.isStandIn(s)) return run.overlayOfStandIn(s)?.owner === holder.id
-      return mate && onField(s) && !!overlayFor(run, holder, s)
-    }
+    // 自己的一台被打（敢打我家孩子？）：被打的是自己的無人機（替身）
+    case 'own_overlay': return run.isStandIn(s) && ownerOfStandIn(run, s) === holder.id
+    // 被打的是（自己或隊友）那一格掛著自己的一台（掩護飛行、攔截、穹頂）
+    case 'with_own_overlay': return mate && onField(s) && !run.isStandIn(s) && !!overlayFor(run, holder, s, reach)
     default: return false
   }
 }
@@ -80,14 +87,14 @@ function num(run: BattleRun, holder: BattleUnit, ab: AbilityEntry, v: number | s
 }
 
 /** 一個反應成立之後的事（改這一擊、這次檢定、這次退出）。 */
-function applyReact(run: BattleRun, holder: BattleUnit, ab: AbilityEntry, on: string, r: ReactDef | undefined, e: Event): void {
+function applyReact(run: BattleRun, holder: BattleUnit, ab: AbilityEntry, on: string, r: ReactDef | undefined, e: Event, reach: number): void {
   if (!r) return
   if (on === 'attacked' && e.opts) {
     if (r.evade !== undefined) e.opts.evade = (e.opts.evade ?? 0) + num(run, holder, ab, r.evade)
     if (r.hit !== undefined) e.opts.hit = (e.opts.hit ?? 0) + num(run, holder, ab, r.hit)
     if (r.no_wound) e.opts.noWound = true
     if (r.redirect === 'overlay') {
-      const o = overlayFor(run, holder, e.subject)
+      const o = overlayFor(run, holder, e.subject, r.reach ?? reach)
       if (o) e.opts.redirect = { overlay: o.id }
     }
   } else if (on === 'hit' && e.out) {
@@ -103,9 +110,9 @@ function applyReact(run: BattleRun, holder: BattleUnit, ab: AbilityEntry, on: st
 }
 
 /** 這個反應現在有沒有東西可做（沒有就不觸發、不扣消耗）。 */
-function hasWork(run: BattleRun, holder: BattleUnit, on: string, r: ReactDef | undefined, e: Event): boolean {
+function hasWork(run: BattleRun, holder: BattleUnit, on: string, r: ReactDef | undefined, e: Event, reach: number): boolean {
   if (!r) return true
-  if (r.redirect === 'overlay' && (run.isStandIn(e.subject) || !overlayFor(run, holder, e.subject))) return false
+  if (r.redirect === 'overlay' && (run.isStandIn(e.subject) || !overlayFor(run, holder, e.subject, r.reach ?? reach))) return false
   if (r.prevent && !(e.how && r.prevent.how.includes(e.how))) return false
   if (on === 'out_before' && e.out?.prevent) return false
   return true
@@ -124,18 +131,19 @@ function fire(run: BattleRun, on: TriggerDef['on'], e: Event): void {
       const t = m?.trigger
       if (!m || m.pending || !isRec(t) || (t as TriggerDef).on !== on) continue
       const trig = t as TriggerDef
-      // 掛著的東西被打也會發 attack.before（target 是替身）：只有 who: own_overlay 的反應管它，其餘的反應只管人
-      if (on === 'attacked' && run.isStandIn(e.subject) && trig.who !== 'own_overlay') continue
-      if (!whoMatches(run, holder, trig.who, e) || !ifHolds(trig.if, on, e)) continue
+      // 掛著的東西被打也會發掛點（target 是替身）：只有 who: own_overlay 的反應管它；管人的（self、adjacent、near、ally、with_own_overlay）不管替身
+      if (run.isStandIn(e.subject) && trig.who !== 'own_overlay' && trig.who !== 'foe_by_self') continue
+      const reach = reachOf(trig, m.react)
+      if (!whoMatches(run, holder, trig.who, e, reach) || !ifHolds(trig.if, on, e)) continue
       if (whenBlocks(run, holder, m.when).length) continue
-      if (!hasWork(run, holder, on, m.react, e)) continue
+      if (!hasWork(run, holder, on, m.react, e, reach)) continue
       if (usageBlocks(run, holder, ab).length) continue
       const cost = costOf(run, holder, ab)
       if (!run.canAfford(holder, cost)) continue
       run.spend(holder, cost)
       bumpUses(holder, ab)
       run.say(`${holder.name}：${ab.name}。`, 'skill', { unit: holder.id, ability: ab.id, ally: e.subject.id }, holder)
-      applyReact(run, holder, ab, on, m.react, e)
+      applyReact(run, holder, ab, on, m.react, e, reach)
       if (m.do?.length) {
         reacting.add(run)
         try {
@@ -221,6 +229,8 @@ export function registerReactions(k: Kernel): void {
     fire(run, 'after', { subject: target, by: attacker, opts, result, weapon })
     scanHalf(run, attacker)
   })
+  // 改打掛著的東西（擋槍）的那一擊不發 attack.after：自己的無人機替人挨了一擊，也算「自己的一台被打之後」（敢打我家孩子？）
+  k.battle.on('attack.redirected', OWNER, ({ run, attacker, overlay, weapon, opts, result }) => fire(run, 'after', { subject: run.standIn(overlay), by: attacker, opts, result, weapon }))
   k.battle.on('overload', OWNER, ({ run, unit, by }) => fire(run, 'overload', { subject: unit, ...(by ? { by } : {}) }))
   k.battle.on('check.before', OWNER, ({ run, unit, other, tags, opts }) => fire(run, 'checked', { subject: unit, by: other, tags, check: opts }))
   k.battle.on('out.before', OWNER, ({ run, unit, how, by, out }) => fire(run, 'out_before', { subject: unit, ...(by ? { by } : {}), how, out }))

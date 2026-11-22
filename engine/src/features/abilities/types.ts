@@ -125,6 +125,8 @@ export interface ReactDef {
   evade?: number | string
   hit?: number | string
   redirect?: 'overlay'
+  /** redirect 專用：擋槍的那一台可以掛在被打的人同一格（0）或相鄰幾格以內（1：攔截）。沒寫：who 是 with_own_overlay 時 0，其餘 1 */
+  reach?: number
   no_wound?: true
   negate?: true
   keep_turn?: true

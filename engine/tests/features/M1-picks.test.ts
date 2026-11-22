@@ -201,10 +201,10 @@ describe('E3：要多選一樣東西的行動，選項由引擎列出來（picks
     const [atk, med, shd] = g.battle!.overlays.map((o) => o.id)
     expect(opt(g, 'drone.deploy').picks[0]!.options.map((o) => o.blocks)).toEqual([['這一台已經放出去了。'], ['這一台已經放出去了。'], ['這一台已經放出去了。'], []])
     expect(mismatches(g, opt(g, 'drone.deploy')).bad).toEqual([])
-    // 指揮：只有攻擊型要選敵人（for 是那一台）；醫療型不用選；護盾型不用指揮，目標灰掉、寫出原因
+    // 指揮：只有攻擊型要選敵人（for 是那一台）；醫療型、護盾型不用選（護盾型指揮 = 守著同一格的人）
     const command = opt(g, 'drone.command')
     expect(command.picks).toEqual([{ key: 'at', label: '對誰', kind: 'foe', required: true, options: ['f1', 'f2'].map((id) => ({ value: id, label: '小隊長', blocks: [], at: { unit: id }, for: [{ overlay: atk }] })) }])
-    expect(command.targets.map((t) => [t.target, t.blocks])).toEqual([[{ overlay: atk }, []], [{ overlay: med }, []], [{ overlay: shd }, ['護盾無人機不用指揮：它替同一格的人擋著。']]])
+    expect(command.targets.map((t) => [t.target, t.blocks])).toEqual([[{ overlay: atk }, []], [{ overlay: med }, []], [{ overlay: shd }, []]])
     expect(pickProblems(command.picks, { overlay: med }, undefined)).toEqual([])
     expect(pickProblems(command.picks, { overlay: atk }, undefined)).toEqual(['要選對誰。'])
     expect(mismatches(g, command).bad).toEqual([])

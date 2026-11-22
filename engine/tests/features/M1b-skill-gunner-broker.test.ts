@@ -1062,7 +1062,29 @@ describe('擋、保釋、大局、全城欠我、黑市門路', () => {
     expect(unit(game, 'a2').ap.now).toBe(1)
   })
 
-  it.todo('大局：一個動過、一個沒動過的人對調時，原本沒動過、被換到前面的人也該接著動（核心的 actNext 看的是對調之後的位置，這一種不會動；要核心判斷「對調之前」是否動過，見報告）')
+  it('大局：一個動過、一個沒動過的人對調時，原本沒動過、被換到前面的人接著動並拿回 1 點行動點；動過的被換到後面（E7）', () => {
+    const ids = ['sk_fixer_face', 'sk_fixer_big_picture']
+    const game = play(ids)
+    // 順序：a2 動過了、現在輪到我（a1）、a3 還沒動：把 a2 和 a3 對調，a3 被換到前面（第 0 位），它對調之前還沒動過，所以接在我後面動
+    game.state.battle!.order = ['a2', 'f1', 'a1', 'f2', 'a3']
+    turnTo(game, 'a1')
+    unit(game, 'a3').ap.now = 1
+    const r = game.battleAct({ action: 'sk_fixer_big_picture', target: { unit: 'a2' }, pick: { with: 'a3' } })
+    expect(r.status).toBe('applied')
+    const after = game.state.battle!
+    expect(after.order[after.turn]).toBe('a1')
+    expect(after.order[after.turn + 1]).toBe('a3')
+    expect(after.order.indexOf('a2')).toBeGreaterThan(after.order.indexOf('a3'))
+    expect([...after.order].sort()).toEqual(['a1', 'a2', 'a3', 'f1', 'f2'])
+    expect(unit(game, 'a3').ap.now).toBe(2)
+    // 反過來（a3 動過、a2 沒動過；目標與 with 對調著選）：一樣是沒動過的那個接著動
+    const g2 = play(ids)
+    g2.state.battle!.order = ['a3', 'f1', 'a1', 'f2', 'a2']
+    turnTo(g2, 'a1')
+    expect(g2.battleAct({ action: 'sk_fixer_big_picture', target: { unit: 'a3' }, pick: { with: 'a2' } }).status).toBe('applied')
+    const b2 = g2.state.battle!
+    expect(b2.order[b2.turn + 1]).toBe('a2')
+  })
 
   it('大局：被換到前面的人這一輪已經動過了，只換順位、拿回 1 點，不會接著動', () => {
     const ids = ['sk_fixer_face', 'sk_fixer_big_picture']

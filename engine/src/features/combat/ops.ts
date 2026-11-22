@@ -400,19 +400,23 @@ function fieldOp(ctx: Ctx, e: Eff): void {
 }
 
 /**
- * 先攻對調：對象和 pick[with] 兩個人換順位。act_next（dev/adr/0015 E7）：被換到前面的那一個，這一輪還沒動過的馬上輪到他；
- * 已經動過的只換順位；兩種都讓他拿回 1 點行動點（不超過上限）。
+ * 先攻對調：對象和 pick[with] 兩個人換順位。act_next（dev/adr/0015 E7）：被換到前面的那一個（對調之前排比較後面的），
+ * **對調之前**這一輪還沒動過的話馬上輪到他（排在現在這一位後面）；已經動過的只換順位；兩種都讓他拿回 1 點行動點（不超過上限）。
+ * 「一個動過、一個沒動過」的對調：動過的那一個被換到後面，原本沒動過、被換到前面的那一個接著動。
  */
 function orderOp(ctx: Ctx, e: Eff): void {
   const { run } = ctx
   const unit = who(ctx)
   if (!unit) return
   const mate = pickedUnit(ctx, e.with)
-  if (!mate || mate.id === unit.id || !run.swapOrder(unit, mate)) throw new BattleBlocked(['要選另一個人來對調行動的順序。'])
-  if (e.act_next !== true) return
+  if (!mate || mate.id === unit.id) throw new BattleBlocked(['要選另一個人來對調行動的順序。'])
+  // 對調之後，排在前面的是對調之前排在後面的那一個；他動過沒有要在對調之前問
   const order = run.battle.order
-  const front = order.indexOf(unit.id) < order.indexOf(mate.id) ? unit : mate
-  run.actNext(front)
+  const front = order.indexOf(unit.id) > order.indexOf(mate.id) ? unit : mate
+  const acted = run.hasActed(front)
+  if (!run.swapOrder(unit, mate)) throw new BattleBlocked(['要選另一個人來對調行動的順序。'])
+  if (e.act_next !== true) return
+  run.actNext(front, { acted })
   run.refund(front, 1)
 }
 

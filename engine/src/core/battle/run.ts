@@ -941,16 +941,27 @@ export class BattleRun implements BattleView {
     return true
   }
 
+  /** 這一輪已經動過、或正在動：順位在現在輪到的人之前、或就是他。不在先攻順序裡（還在後方排隊、已經不在了）回傳 false。 */
+  hasActed(u: BattleUnit): boolean {
+    const i = this.battle.order.indexOf(u.id)
+    return i >= 0 && i <= this.battle.turn
+  }
+
   /**
    * 把這一輪還沒動過的人排到現在輪到的人後面一位（下一個就輪到他）。
-   * 已經動過的、正在動的、已經退出或不在場上的回傳 false，順序不動。
+   * 動過沒有，預設看現在的順位；對調順位之後要問的是「對調之前」動過沒有（大局：被換到前面的人，原本在後面才算還沒動過），
+   * 這時由呼叫的人在對調之前用 hasActed 問好，把結果用 opts.acted 帶進來。
+   * 已經動過的、正在動的、已經退出或不在場上的、不在順序裡的回傳 false，順序不動。他本來排在現在輪到的人前面（對調過）時，
+   * 要把輪到的人的指標跟著修正，輪到的還是原來那個人。
    */
-  actNext(u: BattleUnit): boolean {
+  actNext(u: BattleUnit, opts: { acted?: boolean } = {}): boolean {
     const b = this.battle
     const i = b.order.indexOf(u.id)
-    if (i <= b.turn || !onField(u)) return false
+    const cur = b.order[b.turn]
+    if (i < 0 || cur === undefined || u.id === cur || (opts.acted ?? i <= b.turn) || !onField(u)) return false
     if (i !== b.turn + 1) {
       b.order.splice(i, 1)
+      b.turn = b.order.indexOf(cur)
       b.order.splice(b.turn + 1, 0, u.id)
     }
     this.say(`${unitTag(u)} 排到下一個行動。`, undefined, { unit: u.id })
@@ -1068,16 +1079,21 @@ export class BattleRun implements BattleView {
   /**
    * 補位：前面那一格沒有單位、也沒有遮蔽時，後面的單位自動往前遞補，而且帶著自己那一格的遮蔽一起往前；
    * 最後面空出來的那一格是暴露。前面那一格空了但遮蔽還在（煙霧也算），後面的人留在原地。
+   * 全部補完、狀態整理好之後，對每個往前移動的單位發一次 compacted（from、to 是這一次 compact 的淨移動，照原本的格由前往後）。
    */
   compact(side: BattleSide): void {
     const c = this.battle.cover[side]
+    const from = new Map<string, number>()
     for (let guard = 0; guard < 8; guard++) {
       let moved = false
       for (let s = 1; s < BATTLE_SLOTS && !moved; s++) {
         if (unitAt(this.battle, side, s) || coverLevel(coverAt(this.battle, side, s)) > 0) continue
         const back = unitsOf(this.battle, side).filter((u) => u.slot > s)
         if (!back.length) continue
-        for (const u of back) u.slot -= 1
+        for (const u of back) {
+          if (!from.has(u.id)) from.set(u.id, u.slot)
+          u.slot -= 1
+        }
         // 和人重疊的東西跟著它掛的那一格走：後面的往前一格；掛在空出來那一格的，那一格轉到最後面，它也跟著到最後面。
         // 這樣每格還是最多一台（COMBAT_SYSTEM 第 2 節；設計書沒寫人倒下之後掛在他那一格的怎麼辦，dev/adr/0013 C13）
         const orphans: BattleOverlay[] = []
@@ -1097,6 +1113,11 @@ export class BattleRun implements BattleView {
         moved = true
       }
       if (!moved) break
+    }
+    // 狀態都整理好了才發：處理函式（守著一格的反擊）可以放心做會動到站位的事
+    for (const [id, was] of [...from].sort((a, b) => a[1] - b[1])) {
+      const u = this.battle.units[id]
+      if (u && u.slot < was) this.k.battle.emit('compacted', { run: this, side, unit: u, from: was, to: u.slot })
     }
   }
 

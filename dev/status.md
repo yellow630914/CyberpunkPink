@@ -108,3 +108,4 @@
 - 2026-11-22 第二批核心小修（之後一起派，sonnet）：order 的 act_next 要看「對調之前」有沒有動過（大局，M1b-skill-gunner-broker 留 it.todo）；compact（補位）發 `compacted` 掛點（不准動喔現在用掃描補）。
 - 2026-11-22 開打前的指定（戰鬥直覺的分配 preset.instinct、黑市門路指定的隊友 preset.picks）沒有寫入的報告與介面，要一張 abilities＋UI 的小工單。被贖回（保釋）的選項要 UI 用 defeatOptions／chooseDefeatOption 顯示。
 - 2026-11-22 第二批核心小修（續）：`check.before` 的 unit 是擲骰的人還是被檢定的人要定（快駭用自己的 hack.check 繞過）；技能格式補「你或一名隊友」的 trigger.who、甲板構裝槽的鍵、共鳴改池上限與感載上限、「敵方的每一台」的 who、needs 的「快取格有某標籤的道具」。潛網者樹的 path id 要和 hack 預設的 `netrunner` 核對；控制節點防火牆暫定 ext.firewall 預設 10。接管期間 overlay 的 owner/auto/autonomous 會暫時清掉（enemy-units 要知道）。圓環缺 `hack` 圖示。
+- 2026-11-22 待辦：第二波技能工單（改造師、名媛、敵人招牌）做完後，整理一張技能效果統計表給使用者（效果清單、修正與條件清單、八棵樹逐技能的狀態：已做／近似／寫不出來／等後面批次），做成可篩選的 artifact，另在 dev/ 留文字版。

@@ -1,10 +1,10 @@
 // 守著一格（不准動喔；M1b-skill-gunner-broker）：效果 ward = { op: 'ward', slot: 'target', until, on: ['move', 'compact', 'attack'], do }。
 // 守著敵方的一格：到期之前，站在那一格上的人第一次做 on 裡的事（自己換位、補位往前、攻擊）時，守著的人立刻做 do（通常是朝他射一槍：
 // 不花行動點、照常花彈匣）；用過就沒了，一格只管第一次。守著的人退出、或是到期（預設到自己的下一回合開始）也失效。
-// 記在守著的人身上（unit.ext.abilities.wards）。補位沒有自己的掛點：每次一個動作做完時看一遍，那一格原本的人還在場上、卻跑到比較前面的格，就是補位。
+// 記在守著的人身上（unit.ext.abilities.wards）。補位聽核心的 compacted 掛點：站在那一格上的人往前遞補了（from 就是守著的那一格）。
 
 import type { BattleRun, BattleSide, BattleUnit, Kernel } from '../../core'
-import { BattleBlocked, onField, unitAt } from '../../core'
+import { BattleBlocked, onField } from '../../core'
 import { heldGun } from './conditions'
 import { OWNER } from './types'
 import { dataOf, isRec } from './unitdata'
@@ -24,8 +24,6 @@ export interface Ward {
   do: Array<Record<string, unknown>>
   source: { kind: 'ability'; id: string; name: string }
   tier: number
-  /** 現在站在那一格上的人（補位看他有沒有往前跑） */
-  occ?: string
 }
 
 const wardsOf = (u: BattleUnit): Ward[] => {
@@ -61,29 +59,15 @@ function trigger(run: BattleRun, holder: BattleUnit, ward: Ward, victim: BattleU
   }
 }
 
-/** 補位：那一格原本的人還在場上，卻跑到比較前面的格去了。每次一個動作做完時看一遍；順便把「現在站在那一格的人」記新。 */
-function scan(run: BattleRun): void {
-  for (const { holder, ward } of allWards(run)) {
-    if (run.over) return
-    const now = unitAt(run.battle, ward.side, ward.slot)?.id
-    const was = ward.occ !== undefined ? run.battle.units[ward.occ] : undefined
-    const moved = was && was.id !== now && onField(was) && was.side === ward.side && was.slot < ward.slot
-    ward.occ = now
-    if (moved && ward.on.includes('compact')) trigger(run, holder, ward, was, 'compact')
-  }
-}
-
 export function registerWard(k: Kernel): void {
   k.battle.effect('ward', OWNER, (ctx, e) => {
     const t = ctx.target
     if (!t || !('side' in t) || !('slot' in t)) throw new BattleBlocked(['要選敵方的一格。'])
     const on = (Array.isArray(e.on) ? e.on : [...WARD_ON]).filter((x): x is WardOn => (WARD_ON as readonly unknown[]).includes(x))
-    const occ = unitAt(ctx.run.battle, t.side, t.slot)?.id
     const ward: Ward = {
       id: ctx.source.id, by: ctx.user.id, side: t.side, slot: t.slot, on,
       until: (typeof e.until === 'string' ? e.until : 'own_turn_start') as Ward['until'],
       do: structuredClone((e.do ?? []) as Array<Record<string, unknown>>), source: { kind: 'ability', id: ctx.source.id, name: ctx.source.name }, tier: ctx.n.tier ?? 1,
-      ...(occ ? { occ } : {}),
     }
     setWards(ctx.user, [...wardsOf(ctx.user).filter((w) => w.id !== ward.id), ward])
     ctx.run.say(`${ctx.user.name}：守著${t.side === 'foe' ? '敵方' : '我方'}第 ${t.slot} 格。`, 'skill', { unit: ctx.user.id, ability: ctx.source.id, side: t.side, slot: t.slot }, ctx.user)
@@ -107,8 +91,14 @@ export function registerWard(k: Kernel): void {
     if (run.isStandIn(unit)) return
     for (const { holder, ward } of allWards(run)) {
       if (ward.side === unit.side && ward.slot === from && by === 'action' && ward.on.includes('move')) trigger(run, holder, ward, unit, 'move')
-      // 被推拉、被換位的人變了：記新（補位只看沒被動過的）
-      else ward.occ = unitAt(run.battle, ward.side, ward.slot)?.id
+    }
+  })
+
+  // 補位：站在守著那一格上的人因為前面空了往前遞補（核心整理好站位之後才發）
+  k.battle.on('compacted', OWNER, ({ run, side, unit, from }) => {
+    if (run.isStandIn(unit)) return
+    for (const { holder, ward } of allWards(run)) {
+      if (ward.side === side && ward.slot === from && ward.on.includes('compact')) trigger(run, holder, ward, unit, 'compact')
     }
   })
 
@@ -120,20 +110,15 @@ export function registerWard(k: Kernel): void {
     }
   })
 
-  // 到期；補位
+  // 到期
   k.battle.on('turn.start', OWNER, ({ run, unit }) => {
     for (const { holder, ward } of allWards(run)) if (holder === unit && ward.until === 'own_turn_start') setWards(holder, wardsOf(holder).filter((w) => w !== ward))
-    scan(run)
   })
   k.battle.on('turn.end', OWNER, ({ run, unit }) => {
     for (const { holder, ward } of allWards(run)) if (holder === unit && ward.until === 'own_turn_end') setWards(holder, wardsOf(holder).filter((w) => w !== ward))
-    scan(run)
   })
   // 守著的人退出：他守的都失效
   k.battle.on('out', OWNER, ({ unit }) => {
     if (wardsOf(unit).length) setWards(unit, [])
   })
-  k.battle.on('attack.after', OWNER, ({ run }) => scan(run))
-  k.battle.on('action.done', OWNER, ({ run }) => scan(run))
-  k.battle.on('round.start', OWNER, ({ run }) => scan(run))
 }

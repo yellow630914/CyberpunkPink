@@ -41,9 +41,10 @@ export const PREP_SCOPES = ['next_battle', 'commission'] as const
 
 /** 反應的 who（誰遇到這件事）：照 on 分。 */
 export const TRIGGER_WHO: Record<string, readonly string[]> = {
-  attacked: ['self', 'adjacent', 'ally', 'own_overlay'],
-  hit: ['self', 'adjacent', 'ally', 'own_overlay', 'foe_by_self'],
-  after: ['self', 'adjacent', 'near', 'ally', 'own_overlay', 'foe_by_self'],
+  // own_overlay：自己的一台被打；with_own_overlay：被打的人（自己或隊友）那一格掛著自己的一台（reach 放寬到相鄰）
+  attacked: ['self', 'adjacent', 'ally', 'own_overlay', 'with_own_overlay'],
+  hit: ['self', 'adjacent', 'ally', 'own_overlay', 'with_own_overlay', 'foe_by_self'],
+  after: ['self', 'adjacent', 'near', 'ally', 'own_overlay', 'with_own_overlay', 'foe_by_self'],
   hp_half: ['self', 'near'],
   overload: ['self', 'ally', 'foe_by_self'],
   checked: ['self', 'ally'],
@@ -53,13 +54,13 @@ export const TRIGGER_WHO: Record<string, readonly string[]> = {
 const TRIGGER_IF: Record<string, readonly string[]> = { hit: ['wound', 'crit'], after: ['miss', 'hit', 'crit', 'melee', 'bridged'] }
 /** react 可以做的：照 on 分。 */
 export const REACT_BY_ON: Record<string, readonly string[]> = {
-  attacked: ['evade', 'hit', 'redirect', 'no_wound'],
+  attacked: ['evade', 'hit', 'redirect', 'reach', 'no_wound'],
   hit: ['negate', 'no_wound', 'pierce'],
   overload: ['keep_turn'],
   checked: ['dc'],
   out_before: ['prevent'],
 }
-const REACT_KEYS = ['evade', 'hit', 'redirect', 'no_wound', 'negate', 'keep_turn', 'dc', 'prevent', 'pierce'] as const
+const REACT_KEYS = ['evade', 'hit', 'redirect', 'reach', 'no_wound', 'negate', 'keep_turn', 'dc', 'prevent', 'pierce'] as const
 
 // ---- 公式 ----
 
@@ -270,6 +271,10 @@ function triggerProblems(m: Record<string, unknown>): string[] {
       for (const key of Object.keys(r)) if ((REACT_KEYS as readonly string[]).includes(key) && !ok.includes(key)) p.push(`meat.react.${key} 不能用在 ${on}（${on} 的 react 只有 ${ok.length ? ok.join('、') : '沒有；用 do'}）`)
       for (const key of ['evade', 'hit', 'dc', 'pierce'] as const) if (r[key] !== undefined) p.push(...plainFormula(`meat.react.${key}`, r[key]))
       if (r.redirect !== undefined && r.redirect !== 'overlay') p.push("meat.react.redirect 只能是 'overlay'")
+      if (r.reach !== undefined) {
+        if (!(isInt(r.reach) && r.reach >= 0 && r.reach <= 3)) p.push('meat.react.reach 要是 0～3 的整數（擋槍的無人機和被打的人差幾格以內）')
+        else if (r.redirect !== 'overlay') p.push("meat.react.reach 要和 redirect: 'overlay' 一起寫")
+      }
       for (const key of ['no_wound', 'negate', 'keep_turn'] as const) if (r[key] !== undefined && r[key] !== true) p.push(`meat.react.${key} 只能是 true`)
       if (r.prevent !== undefined) {
         const pv = r.prevent

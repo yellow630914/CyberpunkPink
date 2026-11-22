@@ -848,6 +848,44 @@ describe('先攻（dev/adr/0015 第二節）', () => {
     const five = arena({ ...BATTLE_SETUPS.encounter(), foes: [1, 2, 3, 4, 5].map(() => raw(foe())) })
     expect(five.run().actNext(five.foe(5))).toBe(false)
   })
+
+  it('hasActed：順位在現在輪到的人之前、或就是他算動過（或正在動）；在後面的、還在後方排隊的不算', () => {
+    const a = eight()
+    const b = a.battle
+    b.turn = 3
+    const run = a.run()
+    expect(b.order.slice(0, 4).map((id) => run.hasActed(b.units[id]!))).toEqual([true, true, true, true])
+    expect(b.order.slice(4).map((id) => run.hasActed(b.units[id]!))).toEqual([false, false, false, false])
+    const five = arena({ ...BATTLE_SETUPS.encounter(), foes: [1, 2, 3, 4, 5].map(() => raw(foe())) })
+    expect(five.run().hasActed(five.foe(5))).toBe(false)
+  })
+
+  it('actNext 帶 acted（對調之前就問好的）：acted 是 false 時，順位在現在輪到的人前面的也排到他後面，輪到的人不變、指標跟著修正；acted 是 true 時不動', () => {
+    const a = eight()
+    const b = a.battle
+    b.turn = 3
+    const run = a.run()
+    const before = [...b.order]
+    const cur = before[3]!
+    // 順位在前面（第 0 位）、但對調之前其實還沒動過：排到現在輪到的人後面一位
+    expect(run.actNext(b.units[before[0]!]!, { acted: false })).toBe(true)
+    expect(b.order[b.turn]).toBe(cur)
+    expect(b.turn).toBe(2)
+    expect(b.order[3]).toBe(before[0])
+    expect([...b.order].sort()).toEqual([...before].sort())
+    expect(b.order.filter((id) => id === before[0])).toHaveLength(1)
+    // 對調之前就動過了：不動
+    const copy = [...b.order]
+    expect(run.actNext(b.units[before[6]!]!, { acted: true })).toBe(false)
+    expect(b.order).toEqual(copy)
+    // 正在動的、退出的、不在順序裡的，不管 acted 怎麼寫都回傳 false
+    expect(run.actNext(b.units[cur]!, { acted: false })).toBe(false)
+    b.units[before[7]!]!.out = 'down'
+    expect(run.actNext(b.units[before[7]!]!, { acted: false })).toBe(false)
+    expect(b.order).toEqual(copy)
+    const five = arena({ ...BATTLE_SETUPS.encounter(), foes: [1, 2, 3, 4, 5].map(() => raw(foe())) })
+    expect(five.run().actNext(five.foe(5), { acted: false })).toBe(false)
+  })
 })
 
 describe('花費的標籤與 RAM（dev/adr/0015 第二節）', () => {

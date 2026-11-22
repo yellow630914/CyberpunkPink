@@ -684,6 +684,33 @@ describe('implant、revive、wound、out、field、order、sink', () => {
       expect(a.battle.order[5]).toBe(x)
     })
 
+    it('act_next：一個動過、一個沒動過的對調：原本沒動過、被換到前面（對調後排在現在這一位前面）的接著動；動過的被換到後面', () => {
+      const a = eight()
+      a.battle.turn = 3
+      const before = [...a.battle.order]
+      const [x, , , cur, , , y] = before
+      // x 排在第 0 位（動過），y 排在第 6 位（還沒動過）；對調後 y 在第 0 位、x 在第 6 位
+      a.battle.units[y!]!.ap.now = 0
+      go(a, [{ op: 'order', with: 'buddy', act_next: true }], f(x!), { pick: { buddy: y } })
+      const order = a.battle.order
+      expect(order[a.battle.turn]).toBe(cur)
+      expect(order[a.battle.turn + 1]).toBe(y)
+      expect(order.indexOf(x!)).toBeGreaterThan(a.battle.turn + 1)
+      expect([...order].sort()).toEqual([...before].sort())
+      expect(a.battle.units[y!]!.ap.now).toBe(1)
+      // 反過來：y 是目標、x 是 with，結果一樣（誰是目標不影響誰被換到前面）
+      const b = eight()
+      b.battle.turn = 3
+      go(b, [{ op: 'order', with: 'buddy', act_next: true }], f(y!), { pick: { buddy: x } })
+      expect(b.battle.order[b.battle.turn + 1]).toBe(y)
+      // 沒寫 act_next：只換順位，不接著動
+      const c = eight()
+      c.battle.turn = 3
+      go(c, [{ op: 'order', with: 'buddy' }], f(x!), { pick: { buddy: y } })
+      expect(c.battle.order[0]).toBe(y)
+      expect(c.battle.order[c.battle.turn]).toBe(cur)
+    })
+
     it('act_next：兩個人這一輪都動過了：只換順位（不會再輪一次），被換到前面的拿回 1 點；不寫 act_next 不拿', () => {
       const a = eight()
       a.battle.turn = 4

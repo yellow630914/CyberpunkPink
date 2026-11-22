@@ -294,8 +294,14 @@ export interface BattleHookMap {
    * tags 是這個檢定的標籤（hack、seduce……）。沒有 other 的檢定不發
    */
   'check.before': { run: BattleRun; unit: BattleUnit; other: BattleUnit; tags: string[]; opts: { dc: number; bonus: number } }
-  /** 有人換了格（by：action 是自己換位，forced 是被推拉）。補位不算 */
+  /** 有人換了格（by：action 是自己換位，forced 是被推拉）。補位不算（補位發 compacted） */
   'moved': { run: BattleRun; unit: BattleUnit; from: number; to: number; by: 'action' | 'forced' }
+  /**
+   * 補位（run.compact）做完了：unit 從 from 格往前遞補到 to 格（to < from；這一次 compact 裡的淨移動，同一次補了兩格就是一個事件、from 是原本的格）。
+   * 發的時候這一方的站位、遮蔽、掛著的東西都已經整理好。每個往前移動的單位各發一次；沒動的不發。
+   * 「站在那一格的人往前補位」的反應（不准動喔）聽這個，不必每個動作做完去掃站位
+   */
+  'compacted': { run: BattleRun; side: BattleSide; unit: BattleUnit; from: number; to: number }
   /** 有人站上暴露的格子（換位、補位、被推拉、遮蔽被打成暴露）：監視之外的反應 */
   'exposed': { run: BattleRun; unit: BattleUnit }
   /** 機體（機甲、構裝體）耐久歸零 */
