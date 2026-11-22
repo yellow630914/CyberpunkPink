@@ -1,4 +1,4 @@
-// 驗收測試：dev/work/M1-ui-combat-picks.md（交給 cpp-ui）。工單做完之前照預期失敗（ui/src/lib/battlePicks.ts 還不存在、幾個圖示還沒有圖）。
+// 驗收測試（已搬進主套件）：dev/work/M1-ui-combat-picks.md（交給 cpp-ui）。
 // 規格：COMBAT_SYSTEM 第 10 節（畫面只問引擎；每一格用圖示）；dev/adr/0014（行動的宣告：icon、picks）；審查 dev/reviews/2026-11-22-M1a.md 的 E3、S9。
 // 規則都在引擎：畫面照 battleOptions 給的 picks 生選單，不認得個別的行動。跑法：在 ui/ 跑 npx vitest run --config vitest.pending.config.ts M1-ui-combat-picks
 
@@ -6,10 +6,10 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import type { BattleActionOption, BattleSetup } from '@engine/src'
 import { partyUnit, enemyUnit, testWeapon } from '@engine/src/testkit'
-import { useEngine } from '../../src/stores/engine'
-import { COMBAT_ICONS } from '../../src/data/combatIcons'
+import { useEngine } from '../stores/engine'
+import { COMBAT_ICONS } from '../data/combatIcons'
 // 這個檔由工單新增
-import { pickFlow } from '../../src/lib/battlePicks'
+import { pickFlow } from './battlePicks'
 
 const raw = (unit: unknown, slot?: number) => ({ from: 'unit', unit: unit as Record<string, unknown>, ...(slot ? { slot } : {}) })
 /** 一個什麼都帶的人（第 1 格）加兩個隊友；敵方兩個人。內容用引擎的規則資料（CORE_PACK 的道具）。 */

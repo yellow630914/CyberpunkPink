@@ -11,6 +11,7 @@ import LiveWindow from '../components/combat/LiveWindow.vue'
 import Danmaku from '../components/combat/Danmaku.vue'
 import { COMBAT_ICONS } from '../data/combatIcons'
 import type { LiveEvent } from '../data/media'
+import { pickFlow, type PickOptionView, type PickView } from '../lib/battlePicks'
 import { RING_KEYS, battleView, disabledReason, ringOf, slotLayout, type BattleCell, type SlotPos } from '../lib/battleView'
 import { combatKey, isTyping } from '../lib/keys'
 import { danmakuOf, liveEventsOf } from '../lib/liveEvents'
@@ -49,7 +50,8 @@ const layout = computed(() => slotLayout(mobile.value ? 'mobile' : 'desktop'))
 // ---- 引擎給的東西 ----
 const battle = computed(() => engine.battle)
 const options = computed(() => (engine.battle ? engine.battleOptions() : null))
-const view = computed(() => (battle.value && options.value ? battleView(battle.value, options.value, engine.contentName) : null))
+const mode = computed(() => (engine.battle ? engine.battleMode() : null))
+const view = computed(() => (battle.value && options.value && mode.value ? battleView(battle.value, options.value, mode.value, engine.contentName) : null))
 const myTurn = computed(() => options.value?.waiting === 'player')
 const over = computed(() => options.value?.waiting === 'over')
 const cur = computed(() => (battle.value && options.value?.current ? battle.value.units[options.value.current] ?? null : null))
@@ -59,9 +61,8 @@ const place = computed(() => battle.value?.origin.place ?? '現實戰鬥')
 const cellOf = (p: SlotPos): BattleCell | undefined => view.value?.cells.find((c) => c.side === p.side && c.slot === p.slot)
 
 const RING_G = { attack: 'atk', supply: 'res', tactic: 'tac' } as const
-/** 引擎的行動沒給圖示的，照行動的 id 對圖示（只是顯示的對照） */
-const ID_ICON: Record<string, string> = { shoot: 'shoot', melee: 'melee', reload: 'reload', swap: 'swap', item: 'item', move: 'move', hit_cover: 'cover', watch: 'watch', subdue: 'subdue', flee: 'flee' }
-const iconOf = (a: BattleActionOption): string => (a.icon && COMBAT_ICONS[a.icon] ? a.icon : ID_ICON[a.id] ?? 'skill')
+/** 圖示照引擎給的鍵；這張表還沒有圖的鍵退成技能的圖 */
+const iconOf = (a: BattleActionOption): string => (COMBAT_ICONS[a.icon] ? a.icon : 'skill')
 const reasonOf = (a: BattleActionOption): string | null => disabledReason(a) ?? (a.ok ? null : '現在做不到。')
 const ringItems = computed<RingItem[]>(() => {
   const r = ring.value
@@ -88,9 +89,10 @@ function startFromRoute(): void {
   const list = engine.encounters()
   const id = list.find((e) => e.id === wanted)?.id ?? list.find((e) => e.grade === 1)?.id ?? list[0]?.id
   if (!id) { hint.value = '內容裡沒有任何遭遇。'; return }
-  engine.startEncounter(id)
   lines.value = []
   liveEvents.value = []
+  // 開場的「戰鬥開始」「第 1 回合」「輪到誰」在 battle.start 這份報告的 timeline 裡
+  after({ status: 'applied', over: false, reports: engine.startEncounter(id) })
 }
 onMounted(() => {
   mq?.addEventListener('change', onMq)
@@ -127,82 +129,97 @@ function scheduleAi(): void {
     after(r)
   }, fast.value ? 0 : 650)
 }
-watch(() => engine.battle, () => { selId.value = null; scheduleAi() })
+watch(() => engine.battle, () => { resetSel(); scheduleAi() })
 
 // ---- 選行動、選目標 ----
 const selId = ref<string | null>(null)
-const pickItem = ref<string | null>(null)
-const pickSweep = ref(false)
+/** 已經選的目標與多選的東西（pick 的鍵 → 值）；能不能送、還缺什麼，一律問 pickFlow（引擎的 pickApplies、pickProblems） */
+const chosenTarget = ref<BattleTarget | null>(null)
+const picked = ref<Record<string, unknown>>({})
 const selAction = computed(() => (selId.value ? actionOf(selId.value) ?? null : null))
+const flow = computed(() => (selAction.value ? pickFlow(selAction.value, { target: chosenTarget.value, pick: picked.value }) : null))
 const tkey = (t: BattleTarget): string => ('unit' in t ? `u:${t.unit}` : 'overlay' in t ? `o:${t.overlay}` : 'node' in t ? `n:${t.node}` : `s:${t.side}:${t.slot}`)
 const tmap = computed(() => new Map((selAction.value?.targets ?? []).map((t) => [tkey(t.target), t])))
-const okTargets = computed(() => (selAction.value?.targets ?? []).filter((t) => t.blocks.length === 0))
+const treason = computed(() => new Map((flow.value?.targets ?? []).map((t) => [tkey(t.target), t.reason])))
+/** 選項有 at（選人、選格）的：場上那個東西也可以直接點 */
+const atMap = computed(() => {
+  const m = new Map<string, { p: PickView; o: PickOptionView }>()
+  for (const p of flow.value?.picks ?? []) for (const o of p.options) if (o.at) m.set(tkey(o.at), { p, o })
+  return m
+})
+const okTargets = computed(() => (selAction.value?.targets ?? []).filter((t) => !treason.value.get(tkey(t.target))))
 const focus = ref(0)
 const focused = computed(() => (okTargets.value.length ? okTargets.value[((focus.value % okTargets.value.length) + okTargets.value.length) % okTargets.value.length]! : null))
-const isFocused = (k: string): boolean => !!focused.value && tkey(focused.value.target) === k
-const quick = computed(() => (cur.value?.quick ?? []).filter((q) => q.qty > 0))
-const wieldedTraits = computed(() => cur.value?.weapons[cur.value.wield]?.traits ?? [])
-const canSweep = computed(() => selAction.value?.id === 'shoot' && wieldedTraits.value.includes('sweep'))
+const isFocused = (k: string): boolean => (!!focused.value && tkey(focused.value.target) === k) || (!!chosenTarget.value && tkey(chosenTarget.value) === k)
 
-/** 這一格（或這個人、這台機器、這個節點）現在是不是目標：有就回傳引擎給的那一筆（可能帶著選不了的原因） */
-const tgt = (...ks: string[]): BattleTargetOption | undefined => { for (const k of ks) { const t = tmap.value.get(k); if (t) return t } return undefined }
-const unitTgt = (c: BattleCell): BattleTargetOption | undefined => (c.unit ? tgt(`u:${c.unit.id}`, `s:${c.side}:${c.slot}`) : undefined)
-const slotTgt = (c: BattleCell): BattleTargetOption | undefined => tgt(`s:${c.side}:${c.slot}`)
-const stateOf = (t: BattleTargetOption | undefined): string => (!t ? '' : t.blocks.length ? 'tg-no' : 'tg')
-
-function pickPayload(): BattleInput['pick'] | undefined {
-  const p: Record<string, unknown> = {}
-  if (selId.value === 'item' && pickItem.value) p.item = pickItem.value
-  if (canSweep.value && pickSweep.value) p.sweep = true
-  return Object.keys(p).length ? p : undefined
+/** 場上的一個東西現在能不能點：是目標（可能帶著選不了的原因），或是某個多選項的 at */
+interface Hit { reason: string | null; target?: BattleTargetOption; pick?: { p: PickView; o: PickOptionView } }
+const hit = (...ks: string[]): Hit | undefined => {
+  for (const k of ks) { const t = tmap.value.get(k); if (t) return { reason: treason.value.get(k) ?? null, target: t } }
+  for (const k of ks) { const a = atMap.value.get(k); if (a) return { reason: a.o.reason, pick: a } }
+  return undefined
 }
+const unitHit = (c: BattleCell): Hit | undefined => (c.unit ? hit(`u:${c.unit.id}`, `s:${c.side}:${c.slot}`) : undefined)
+const slotHit = (c: BattleCell): Hit | undefined => hit(`s:${c.side}:${c.slot}`)
+const stateOf = (h: Hit | undefined): string => (!h ? '' : h.reason ? 'tg-no' : 'tg')
+
+function resetSel(): void { selId.value = null; chosenTarget.value = null; picked.value = {} }
 function submit(input: BattleInput): void {
   const r = engine.battleAct(input)
   if (r.status === 'refused') { hint.value = (r.reasons ?? []).join('\n'); return }
   hint.value = ''
-  selId.value = null
-  pickItem.value = null
-  pickSweep.value = false
+  resetSel()
   skillOpen.value = false
   after(r)
+}
+/** 選齊了就送，還缺什麼就說 */
+function tryFinish(): void {
+  const f = flow.value
+  if (!f) return
+  if (f.ready) submit(f.input)
+  else hint.value = f.missing.join('\n')
 }
 function chooseAction(id: string): void {
   const a = actionOf(id)
   if (!a || !myTurn.value) return
   const why = reasonOf(a)
   if (why) { hint.value = `${a.name}：${why}`; return }
-  if (selId.value === id && a.target !== 'none') { cancel(); return }
+  // 再點一次同一個行動：選齊了（或不用選）就照預設送出，沒有就取消
+  if (selId.value === id) { if (flow.value?.ready) submit(flow.value.input); else cancel(); return }
+  resetSel()
   focus.value = 0
-  pickItem.value = null
-  pickSweep.value = false
-  if (a.id === 'item') pickItem.value = quick.value.length === 1 ? quick.value[0]!.item : null
-  if (a.id === 'swap' && (cur.value?.weapons.length ?? 0) > 2) { selId.value = id; hint.value = '選要換上哪一把。'; return }
-  if (a.target === 'none') { submit({ action: a.id }); return }
+  if (a.target === 'none' && a.picks.length === 0) { submit({ action: a.id }); return }
   selId.value = id
-  hint.value = a.id === 'item' && !pickItem.value ? '先選一個道具，再選目標。' : '選一個目標（綠框）。Tab 換目標，Enter 確定，Esc 取消。'
+  hint.value = a.target !== 'none' ? '選一個目標（綠框）。Tab 換目標，Enter 確定，Esc 取消。' : flow.value?.ready ? '選一個選項，或再點一次行動照預設送出。' : '選一個選項。'
 }
-function pickTarget(t: BattleTargetOption | undefined): void {
-  const a = selAction.value
-  if (!a || !t) return
-  if (t.blocks.length) { hint.value = t.blocks.join('\n'); return }
-  if (a.id === 'item' && !pickItem.value) { hint.value = '先選一個道具。'; return }
-  const pick = pickPayload()
-  submit({ action: a.id, target: t.target, ...(pick ? { pick } : {}) })
+function activate(h: Hit | undefined): void {
+  if (!selAction.value || !h) return
+  if (h.reason) { hint.value = h.reason; return }
+  if (h.target) { chosenTarget.value = h.target.target; tryFinish() }
+  else if (h.pick) pickOption(h.pick.p, h.pick.o)
 }
-function cancel(): void { selId.value = null; hint.value = ''; pickItem.value = null; pickSweep.value = false }
+function pickOption(p: PickView, o: PickOptionView): void {
+  if (o.reason) { hint.value = o.reason; return }
+  const next = { ...picked.value }
+  if (p.kind === 'toggle') { if (next[p.key]) delete next[p.key]; else next[p.key] = o.value; picked.value = next; return }
+  if (o.selected) { delete next[p.key]; picked.value = next; return }
+  next[p.key] = o.value
+  picked.value = next
+  tryFinish()
+}
+function cancel(): void { resetSel(); hint.value = '' }
 function endTurn(): void {
   const a = actionOf(END_TURN)
   if (!a || !myTurn.value) return
   submit({ action: END_TURN })
 }
-function swapTo(i: number): void { submit({ action: 'swap', pick: { weapon: i } }) }
 function fire(a: BattleActionOption): void { submit({ action: a.id }) }
 /** 目標的提示：命中率（%）、制伏的檢定難度；引擎有給才顯示 */
-function chanceOf(t: BattleTargetOption | undefined): string {
-  const h = t?.hint
-  if (!h) return ''
-  if (typeof h.chance === 'number') return `${h.chance}%`
-  if (typeof h.dc === 'number') return `格鬥對 ${h.dc}`
+function chanceOf(h: Hit | undefined): string {
+  const hh = h?.target?.hint
+  if (!hh) return ''
+  if (typeof hh.chance === 'number') return `${hh.chance}%`
+  if (typeof hh.dc === 'number') return `格鬥對 ${hh.dc}`
   return ''
 }
 
@@ -220,7 +237,7 @@ function onKey(e: KeyboardEvent): void {
   if (a.type === 'ring') { const id = keys.value[a.i]; if (id) chooseAction(id) }
   else if (a.type === 'end') endTurn()
   else if (a.type === 'cycle') focus.value += a.dir
-  else if (a.type === 'confirm') pickTarget(focused.value ?? undefined)
+  else if (a.type === 'confirm') { if (focused.value && !chosenTarget.value) activate({ reason: null, target: focused.value }); else tryFinish() }
   else if (a.type === 'cancel') cancel()
 }
 
@@ -238,15 +255,26 @@ async function settle(): Promise<void> {
   const r = await engine.finishBattle()
   settling.value = false
   if (r.status !== 'applied') { hint.value = r.reason ?? '結算沒有成功。'; return }
-  if (!engine.defeat) leave()
+  if (!engine.pendingDefeat) leave()
 }
-function accept(): void { engine.acceptDefeat(); leave() }
+function accept(): void {
+  try { engine.acceptDefeat() } catch (e) { hint.value = e instanceof Error ? e.message : String(e); return }
+  leave()
+}
+function stage(): void {
+  const err = engine.rewindToStage()
+  if (err) { hint.value = err; return }
+  leave()
+}
 function retry(): void {
   const err = engine.retryBattle()
   if (err) { hint.value = err; return }
+  hint.value = ''
+  resetSel()
   lines.value = []
   liveEvents.value = []
-  hint.value = ''
+  // 重來之後是一場新的戰鬥：開場的紀錄照引擎已經提交的報告重建
+  restoreLines()
   scheduleAi()
 }
 
@@ -266,7 +294,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="bt-screen">
-    <StatusBar back :title="engine.inBattle ? `現實戰鬥：${place}` : '現實戰鬥'" />
+    <StatusBar :back="!engine.pendingDefeat" :title="engine.inBattle ? `現實戰鬥：${place}` : '現實戰鬥'" />
     <div class="bt-wrap">
       <section v-if="!engine.hasCharacter" class="panel cut bt-end" data-nochar>
         <h3>先建好角色再來</h3>
@@ -274,17 +302,17 @@ onBeforeUnmount(() => {
         <div class="bt-btns"><button type="button" class="btn pri" @click="router.push('/newgame')">去建角</button></div>
       </section>
 
-      <section v-else-if="!engine.inBattle && engine.defeat" class="panel cut bt-end lose" data-defeat>
-        <h3>{{ engine.defeat.outcome === 'surrender' ? '投降' : '戰敗' }}</h3>
+      <section v-else-if="!engine.inBattle && engine.pendingDefeat" class="panel cut bt-end lose" data-defeat>
+        <h3>{{ engine.pendingDefeat.outcome === 'surrender' ? '投降' : '戰敗' }}</h3>
         <p v-if="defeatStory" class="story">{{ defeatStory }}</p>
-        <div v-if="engine.defeat.lines.length" class="happen">
+        <div v-if="engine.defeat?.lines.length" class="happen">
           <b>接受的話會發生什麼</b>
           <ul><li v-for="(l, i) in engine.defeat.lines" :key="i">{{ l }}</li></ul>
         </div>
         <div class="bt-btns">
           <button type="button" class="btn pri" data-defeat-accept @click="accept">接受結果</button>
           <button type="button" class="btn" data-defeat-retry @click="retry">重來這場戰鬥</button>
-          <button type="button" class="btn" data-defeat-stage @click="retry">回到這個階段開始時</button>
+          <button type="button" class="btn" data-defeat-stage @click="stage">回到這個階段開始時</button>
         </div>
         <div class="bt-hint" aria-live="polite">{{ hint }}</div>
       </section>
@@ -299,7 +327,7 @@ onBeforeUnmount(() => {
           <span class="grow" />
           <span v-if="view.field.dark" class="tag warn" data-field="dark">黑暗<Hint>全場迴避 +2；有夜視的單位攻擊時不受影響（COMBAT_SYSTEM 2.5 節）。</Hint></span>
           <template v-for="n in view.nodes" :key="n.id">
-            <button v-if="tgt(`n:${n.id}`)" type="button" class="tag tgt" :class="stateOf(tgt(`n:${n.id}`))" :data-node="n.id" @click="pickTarget(tgt(`n:${n.id}`))">{{ n.name }}・{{ n.used ? '用過了' : n.taken ? '拿下了' : '沒拿下' }}</button>
+            <button v-if="hit(`n:${n.id}`)" type="button" class="tag tgt" :class="stateOf(hit(`n:${n.id}`))" :title="hit(`n:${n.id}`)?.reason || undefined" :data-node="n.id" @click="activate(hit(`n:${n.id}`))">{{ n.name }}・{{ n.used ? '用過了' : n.taken ? '拿下了' : '沒拿下' }}</button>
             <span v-else class="tag" :class="{ hot: n.taken && !n.used }" :data-node="n.id">{{ n.name }}・{{ n.used ? '用過了' : n.taken ? '拿下了' : '沒拿下' }}</span>
           </template>
           <span v-if="live.on" class="live mono" data-live-on>● LIVE　觀看 {{ live.viewers.toLocaleString('en-US') }}</span>
@@ -313,10 +341,10 @@ onBeforeUnmount(() => {
           <div class="bt-field" :class="mobile ? 'm' : 'd'" data-field-grid :data-layout="mobile ? 'mobile' : 'desktop'">
             <template v-for="p in layout" :key="p.side + p.slot">
               <template v-if="cellOf(p)">
-                <div class="bt-slot" :style="fieldStyle(p)" :class="[stateOf(slotTgt(cellOf(p)!)), { foc: isFocused(`s:${p.side}:${p.slot}`) }]"
-                  :role="slotTgt(cellOf(p)!) ? 'button' : undefined" :tabindex="slotTgt(cellOf(p)!) ? 0 : undefined" :data-slot="(p.side === 'ally' ? 'P' : 'E') + p.slot" :data-cell="p.side + p.slot"
-                  :title="slotTgt(cellOf(p)!)?.blocks.join('\n') || undefined"
-                  @click="slotTgt(cellOf(p)!) && pickTarget(slotTgt(cellOf(p)!))">
+                <div class="bt-slot" :style="fieldStyle(p)" :class="[stateOf(slotHit(cellOf(p)!)), { foc: isFocused(`s:${p.side}:${p.slot}`) }]"
+                  :role="slotHit(cellOf(p)!) ? 'button' : undefined" :tabindex="slotHit(cellOf(p)!) ? 0 : undefined" :data-slot="(p.side === 'ally' ? 'P' : 'E') + p.slot" :data-cell="p.side + p.slot"
+                  :title="slotHit(cellOf(p)!)?.reason || undefined"
+                  @click="activate(slotHit(cellOf(p)!))">
                   <div class="bt-sh" :aria-label="`第 ${p.slot} 格，${cellOf(p)!.cover.name}`">
                     <template v-if="cellOf(p)!.cover.level">
                       <svg class="bt-i" viewBox="0 0 512 512" aria-hidden="true"><path :d="COMBAT_ICONS[cellOf(p)!.cover.level === 2 ? 'cov' : 'half']" /></svg>
@@ -326,12 +354,12 @@ onBeforeUnmount(() => {
                     </template>
                     <span v-else class="t-fine">{{ cellOf(p)!.cover.name }}</span>
                   </div>
-                  <div v-if="cellOf(p)!.unit" class="bt-u" :class="[{ e: p.side === 'foe', act: cellOf(p)!.unit!.id === options.current && !over }, stateOf(unitTgt(cellOf(p)!)), { foc: isFocused(`u:${cellOf(p)!.unit!.id}`) }]"
-                    :role="unitTgt(cellOf(p)!) ? 'button' : undefined" :tabindex="unitTgt(cellOf(p)!) ? 0 : undefined"
+                  <div v-if="cellOf(p)!.unit" class="bt-u" :class="[{ e: p.side === 'foe', act: cellOf(p)!.unit!.id === options.current && !over }, stateOf(unitHit(cellOf(p)!)), { foc: isFocused(`u:${cellOf(p)!.unit!.id}`) }]"
+                    :role="unitHit(cellOf(p)!) ? 'button' : undefined" :tabindex="unitHit(cellOf(p)!) ? 0 : undefined"
                     :data-unit="cellOf(p)!.unit!.id" :aria-label="`${cellOf(p)!.unit!.name}，生命 ${cellOf(p)!.unit!.hp?.now ?? '無'}，感載 ${cellOf(p)!.unit!.load?.now ?? '無'}`"
-                    @click.stop="pickTarget(unitTgt(cellOf(p)!))"
-                    @keydown.enter.stop.prevent="pickTarget(unitTgt(cellOf(p)!))">
-                    <div class="bt-nm"><b>{{ cellOf(p)!.unit!.name }}</b><small><span v-if="chanceOf(unitTgt(cellOf(p)!))" class="hc" data-chance>{{ chanceOf(unitTgt(cellOf(p)!)) }}</span> {{ rankLabel(p.side, cellOf(p)!.unit!.rank) }}</small></div>
+                    @click.stop="activate(unitHit(cellOf(p)!))"
+                    @keydown.enter.stop.prevent="activate(unitHit(cellOf(p)!))">
+                    <div class="bt-nm"><b>{{ cellOf(p)!.unit!.name }}</b><small><span v-if="chanceOf(unitHit(cellOf(p)!))" class="hc" data-chance>{{ chanceOf(unitHit(cellOf(p)!)) }}</span> {{ rankLabel(p.side, cellOf(p)!.unit!.rank) }}</small></div>
                     <div v-if="cellOf(p)!.unit!.hp" class="bt-row" style="color: var(--hp)"><svg class="bt-i" viewBox="0 0 512 512" aria-label="生命"><path :d="COMBAT_ICONS.hp" /></svg><span class="bt-bar"><i :style="{ width: pct(cellOf(p)!.unit!.hp!.now, cellOf(p)!.unit!.hp!.max), background: 'var(--hp)' }" /></span><span class="num">{{ cellOf(p)!.unit!.hp!.now }}</span></div>
                     <div v-if="cellOf(p)!.unit!.load" class="bt-row" style="color: var(--load)"><svg class="bt-i" viewBox="0 0 512 512" aria-label="感載"><path :d="COMBAT_ICONS.load" /></svg><span class="bt-bar"><i :style="{ width: pct(cellOf(p)!.unit!.load!.now, cellOf(p)!.unit!.load!.max), background: 'var(--load)' }" /></span><span class="num">{{ cellOf(p)!.unit!.load!.now }}</span></div>
                     <div class="bt-row" title="餘韻層數（疊滿之後再過載就倒下）"><span class="bt-pips l"><i v-for="n in cellOf(p)!.unit!.layersMax" :key="n" :class="{ f: n <= cellOf(p)!.unit!.layers }" /></span></div>
@@ -341,8 +369,8 @@ onBeforeUnmount(() => {
                   </div>
                   <div v-else class="bt-down">空格</div>
                   <template v-for="o in cellOf(p)!.overlays" :key="o.id">
-                    <component :is="tgt(`o:${o.id}`) ? 'button' : 'div'" class="bt-drone" :class="stateOf(tgt(`o:${o.id}`))" :data-drone="o.kind" :title="`${o.name}：耐久 ${o.hp.now}／${o.hp.max}；永遠暴露`"
-                      @click.stop="tgt(`o:${o.id}`) && pickTarget(tgt(`o:${o.id}`))">
+                    <component :is="hit(`o:${o.id}`) ? 'button' : 'div'" class="bt-drone" :class="[stateOf(hit(`o:${o.id}`)), { foc: isFocused(`o:${o.id}`) }]" :data-drone="o.kind" :title="hit(`o:${o.id}`)?.reason || `${o.name}：耐久 ${o.hp.now}／${o.hp.max}；永遠暴露`"
+                      @click.stop="activate(hit(`o:${o.id}`))">
                       <b>{{ o.name }}</b><span class="bt-bar"><i :style="{ width: pct(o.hp.now, o.hp.max), background: 'var(--ram)' }" /></span>{{ o.hp.now }}
                     </component>
                   </template>
@@ -367,31 +395,28 @@ onBeforeUnmount(() => {
           <section class="panel cut bt-actp" :data-phase="myTurn ? 'player' : over ? 'over' : 'enemy'">
             <ActionRing :items="ringItems" :selected="selId" :off="!myTurn" :skill-open="skillOpen" @act="chooseAction" @skill="skillOpen = !skillOpen" />
             <div class="bt-side">
-              <div v-if="cur" class="bt-who"><span class="k">現在</span><b>{{ cur.side === 'foe' ? '敵・' : '' }}{{ cur.name }}</b><span class="t-fine">第 {{ cur.slot }} 格</span><span v-if="myTurn" class="t-fine" data-ap>行動點 {{ cur.ap.now }}／{{ cur.ap.max }}</span></div>
+              <div v-if="cur" class="bt-who"><span class="k">現在</span><b>{{ cur.side === 'foe' ? '敵・' : '' }}{{ cur.name }}</b><span class="t-fine">第 {{ cur.slot }} 格</span><span v-if="myTurn" class="t-fine" data-ap>行動點 {{ cur.ap.now }}／{{ cur.ap.max }}<small class="mono" data-ap-regen title="每個回合開始回的行動點（COMBAT_SYSTEM 1.2 節）；上限另外算。">每回合回 {{ cur.ap.regen }}</small></span></div>
               <div v-if="view.distances.length" class="t-fine" data-distances>距離：{{ view.distances.map((d) => `${d.name} ${d.distance}`).join('・') }}</div>
               <div v-if="ring" class="bt-btns">
                 <template v-for="a in ring.system" :key="a.id">
-                  <HoldButton v-if="a.hold" :reason="!myTurn ? '現在不是你的回合。' : reasonOf(a)" :data-action="a.id" @fire="fire(a)" @hint="(t) => (hint = t)">{{ a.name }}<small v-if="a.cost.ap">{{ a.cost.ap }}</small></HoldButton>
+                  <HoldButton v-if="a.hold" :reason="!myTurn ? '現在不是你的回合。' : reasonOf(a)" :data-action="a.id" @fire="fire(a)" @hint="(t) => (hint = t)"><svg class="bt-i" viewBox="0 0 512 512" aria-hidden="true"><path :d="COMBAT_ICONS[iconOf(a)]" /></svg>{{ a.name }}<small v-if="a.cost.ap">{{ a.cost.ap }}</small></HoldButton>
                   <button v-else type="button" class="btn" :class="{ pri: a.id === END_TURN, 'is-unavailable': !myTurn || !a.ok }" :aria-disabled="!myTurn || !a.ok || undefined" :data-action="a.id"
-                    @click="myTurn && (a.ok ? submit({ action: a.id }) : (hint = reasonOf(a) ?? ''))">{{ a.name }}<kbd v-if="a.id === END_TURN">Space</kbd></button>
+                    @click="myTurn && (a.ok ? submit({ action: a.id }) : (hint = reasonOf(a) ?? ''))"><svg class="bt-i" viewBox="0 0 512 512" aria-hidden="true"><path :d="COMBAT_ICONS[iconOf(a)]" /></svg>{{ a.name }}<kbd v-if="a.id === END_TURN">Space</kbd></button>
                 </template>
               </div>
               <div class="bt-hint" aria-live="polite" data-hint>{{ myTurn ? hint || `輪到 ${cur?.name ?? ''}。選一個行動。` : over ? '' : hint || `${cur?.name ?? '敵人'}的回合……` }}</div>
-              <div v-if="selAction?.id === 'item'" class="bt-pick" data-pick="item">
-                <b>道具</b>
-                <button v-for="q in quick" :key="q.item" type="button" class="btn sm" :class="{ pri: pickItem === q.item }" :data-item="q.item" @click="pickItem = q.item">{{ engine.contentName('item', q.item) ?? q.item }} ×{{ q.qty }}</button>
-                <span v-if="!quick.length" class="t-fine">快取格是空的。</span>
+              <div v-if="selAction && flow?.picks.length" class="bt-picks" data-picks>
+                <div v-for="p in flow.picks" :key="p.key" class="bt-pick" :data-pick="p.key" :data-kind="p.kind">
+                  <b>{{ p.label }}<small v-if="!p.required" class="t-fine">（可不選）</small></b>
+                  <button v-for="o in p.options" :key="String(o.value)" type="button" class="btn sm" :class="{ pri: o.selected, 'is-unavailable': !!o.reason }" :aria-disabled="o.reason ? 'true' : undefined" :aria-pressed="o.selected"
+                    :title="o.reason ?? undefined" :data-pick-option="String(o.value)" @click="pickOption(p, o)">{{ o.label }}</button>
+                </div>
               </div>
-              <div v-if="selAction?.id === 'swap'" class="bt-pick" data-pick="swap">
-                <b>換上</b>
-                <button v-for="(w, i) in cur?.weapons ?? []" :key="w.id" type="button" class="btn sm" :class="{ 'is-unavailable': i === cur?.wield }" :aria-disabled="i === cur?.wield || undefined" :data-weapon="i" @click="i !== cur?.wield && swapTo(i)">{{ w.name }}</button>
-              </div>
-              <label v-if="canSweep" class="bt-pick sweep" data-pick="sweep"><input v-model="pickSweep" type="checkbox" /> 掃射（彈匣要有 2 格）</label>
               <div v-if="skillOpen" class="bt-skl" data-skills>
                 <b>技能清單・{{ cur?.name }}</b>
                 <div v-if="!ring?.skill.length" class="t-fine">{{ cur?.name }}沒有可以在戰鬥裡用的主動技能。</div>
                 <button v-for="a in ring?.skill ?? []" :key="a.id" type="button" class="bt-sk" :class="{ on: selId === a.id, 'is-unavailable': !a.ok }" :title="disabledReason(a) ?? a.desc" :data-skill="a.id" @click="chooseAction(a.id)">
-                  <b>{{ a.name }}</b><small class="mono">{{ a.cost.ap }} 點</small><span class="t-fine sd">{{ a.desc }}</span><span v-if="!a.ok" class="t-fine sd no">{{ disabledReason(a) }}</span>
+                  <svg class="bt-i" viewBox="0 0 512 512" aria-hidden="true"><path :d="COMBAT_ICONS[iconOf(a)]" /></svg><b>{{ a.name }}</b><small class="mono">{{ a.cost.ap }} 點</small><span class="t-fine sd">{{ a.desc }}</span><span v-if="!a.ok" class="t-fine sd no">{{ disabledReason(a) }}</span>
                 </button>
               </div>
             </div>
@@ -420,7 +445,13 @@ button.bt-drone { border: 0; color: inherit; font: inherit; cursor: pointer; tex
 button.tag.tgt { border: 0; cursor: pointer; font: inherit; }
 button.tag.tg { box-shadow: inset 0 0 0 3px var(--ok); }
 .bt-pick { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; font-size: var(--fs-sm); }
-.bt-pick.sweep { gap: var(--space-3); }
+.bt-picks { display: grid; gap: var(--space-3); }
+.bt-pick > b { margin-right: var(--space-2); }
+.bt-pick > b small { margin-left: var(--space-1); font-weight: 400; }
+.bt-btns .btn .bt-i, .bt-sk .bt-i { display: inline-block; vertical-align: -3px; margin-right: var(--space-2); }
+.bt-sk .bt-i { width: 18px; height: 18px; }
+[data-ap-regen] { margin-left: var(--space-2); color: var(--ink-3); }
+.bt-pick .btn[aria-pressed='true'] { box-shadow: inset 0 0 0 2px var(--ok); }
 .bt-sk .no { color: var(--hp); white-space: pre-line; }
 .bt-hint { white-space: pre-line; }
 .bt-end .story { white-space: pre-line; line-height: var(--lh-prose); max-width: 70ch; }

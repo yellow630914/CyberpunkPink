@@ -63,7 +63,7 @@ describe('M1-ui-combat：畫面的模型（純函式，不寫規則）', () => {
     e.newGame({ seed: 7 })
     e.startBattle(BATTLE_SETUPS.encounter())
     while (e.battleOptions()!.waiting === 'ai') e.battleNext()
-    return { e, v: battleView(e.battle!, e.battleOptions()!) }
+    return { e, v: battleView(e.battle!, e.battleOptions()!, e.battleMode()!) }
   }
 
   it('八格：桌面是我方 4→1、敵方 1→4 排成一列；手機是敵上我下，兩排的第 1 格都在左邊', () => {

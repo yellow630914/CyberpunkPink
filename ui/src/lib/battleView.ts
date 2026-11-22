@@ -1,5 +1,6 @@
 import type { BattleActionOption, BattleOptions, BattleState, BattleUnit } from '@engine/src'
-import { DEFAULT_MODES, DEFAULT_NUMBERS, coverHpFor } from '@engine/src'
+import type { BattleMode } from '@engine/src'
+import { coverHpFor } from '@engine/src'
 
 /**
  * 把戰鬥狀態整理成畫面要的模型（純函式，不寫規則，COMBAT_SYSTEM 第 10 節）。
@@ -73,14 +74,18 @@ function cellUnit(u: BattleUnit, nameOf?: NameOf): CellUnit {
   return out
 }
 
-export function battleView(battle: BattleState, options: BattleOptions, nameOf?: NameOf): BattleViewModel {
-  const names = (DEFAULT_MODES[battle.mode] ?? DEFAULT_MODES.meat!).coverNames
+/**
+ * mode 是這個戰場的規則（store 的 battleMode()：遮蔽的名字與上限的算式照這一局的內容，不用預設值）。
+ * 距離讀射擊的每個目標帶的 hint.distance（引擎算），沒有射擊這個行動就不顯示。
+ */
+export function battleView(battle: BattleState, options: BattleOptions, mode: BattleMode, nameOf?: NameOf): BattleViewModel {
+  const names = mode.coverNames
   const onField = (u: BattleUnit): boolean => !u.out && u.slot > 0
   const cells: BattleCell[] = slotLayout('desktop').map(({ side, slot }) => {
     const c = battle.cover[side][slot - 1]!
     const level = c.level
     const unit = Object.values(battle.units).find((u) => u.side === side && u.slot === slot && onField(u))
-    const max = level === 0 ? 0 : (c.max?.[level - 1] ?? coverHpFor(DEFAULT_NUMBERS, level, battle.grade))
+    const max = level === 0 ? 0 : (c.max?.[level - 1] ?? coverHpFor(mode.numbers, level, battle.grade))
     return {
       side, slot,
       cover: { level, name: names[level], hp: c.hp, max, ...(c.soft ? { soft: c.soft.kind } : {}) },
@@ -92,11 +97,14 @@ export function battleView(battle: BattleState, options: BattleOptions, nameOf?:
     const u = battle.units[id]!
     return { id, name: u.name, side: u.side, now: id === options.current, ...(u.out ? { out: u.out } : {}) }
   })
-  const cur = options.current && options.waiting === 'player' ? battle.units[options.current] : undefined
-  const distances = cur
-    ? Object.values(battle.units).filter((u) => u.side !== cur.side && onField(u)).sort((a, b) => a.slot - b.slot)
-      .map((u) => ({ id: u.id, name: u.name, distance: cur.slot + u.slot - 1 }))
-    : []
+  const distances: BattleViewModel['distances'] = []
+  if (options.waiting === 'player') {
+    for (const t of options.actions.find((a) => a.id === 'shoot')?.targets ?? []) {
+      const d = t.hint?.distance
+      const u = 'unit' in t.target ? battle.units[t.target.unit] : undefined
+      if (typeof d === 'number' && u) distances.push({ id: u.id, name: u.name, distance: d })
+    }
+  }
   return {
     round: battle.round, cells, order, distances,
     field: { dark: battle.field.dark === true },

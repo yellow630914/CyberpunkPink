@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
-import type { ActionInput, Actor, AttributeEntry, BattleInput, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, Report, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
-import { ActionBlocked, FakeProvider, Game, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
+import type { ActionInput, Actor, AttributeEntry, BattleInput, BattleMode, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, Report, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
+import { ActionBlocked, FakeProvider, Game, modeOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
 import type { ActStatus, StepActions } from '@engine/src'
 import type { StepRecord } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
@@ -229,12 +229,31 @@ export const useEngine = defineStore('engine', () => {
     if (err === null) refresh()
     return err
   }
+  /**
+   * 回到這個階段開始時（戰敗三選一的第三個）：回到開打前那份快照之前最近的一份快照（引擎的 rewindTo：比它晚的快照一起丟掉）。
+   * 沒有更早的快照就回傳原因，狀態不變。哪一份算「階段開始」是這裡暫定的轉接，見回報。
+   */
+  function rewindToStage(): string | null {
+    const waiting = game.pendingDefeat
+    if (!waiting) return '現在沒有在等戰敗的選擇。'
+    const i = game.state.snapshots.findIndex((x) => x.id === waiting.snapshot)
+    const before = i > 0 ? game.state.snapshots[i - 1] : undefined
+    if (!before) return '沒有更早的存檔點可以回去。'
+    const err = game.rewindTo(before.id, { summary: '你回到這個階段開始的時候。' })
+    if (err === null) refresh()
+    return err
+  }
   function acceptDefeatNow(): void {
     game.commit(acceptDefeat(game.k, game.state))
     refresh()
   }
+  /** 這個戰場的規則（遮蔽的名字、數值：照這一局的內容，不是預設值）；沒有在打是 null。 */
+  function battleMode(): BattleMode | null {
+    const b = state.value.battle
+    return b ? modeOf(game.k.content, b.mode) ?? null : null
+  }
   /** 內容的名字（道具、狀態……；顯示用，查內容不是規則）；查不到是 undefined */
   const contentName = (kind: string, id: string): string | undefined => game.k.content.get<{ id: string; name?: string }>(kind, id)?.name
 
-  return { state, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, acceptDefeat: acceptDefeatNow, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  return { state, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

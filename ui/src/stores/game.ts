@@ -67,7 +67,11 @@ export const useGame = defineStore('game', () => {
   const pay = (op: 'cred' | 'cash', v: number): void => {
     const delta = v - (op === 'cred' ? eng.money.cred : eng.money.cash)
     if (delta === 0) return
-    try { eng.ledger([{ op, delta }]) } catch { useUi().toast('錢不夠。', 'warn') }
+    try {
+      // 戰鬥中或等著選的戰敗時，引擎不收這筆帳：回傳原因，不當成成功
+      const why = eng.ledger([{ op, delta }])
+      if (why) useUi().toast(why, 'warn')
+    } catch { useUi().toast('錢不夠。', 'warn') }
   }
   const money = reactive({
     get acc() { return eng.money.cred }, set acc(v: number) { pay('cred', v) },
@@ -149,12 +153,15 @@ export const useGame = defineStore('game', () => {
   const coveredSlots = computed(() => new Set(coatClosed.value && equip.coat ? EQUIP_SLOTS.filter(s => s.coveredByCoat).map(s => s.id) : []))
 
   function advance(mins: number) {
-    if (mins > 0) eng.commit({ summary: '時間過去', action: 'ui.time', changes: [{ op: 'time', minutes: mins }] }, { attach: true })
+    if (mins <= 0) return
+    const why = eng.commit({ summary: '時間過去', action: 'ui.time', changes: [{ op: 'time', minutes: mins }] }, { attach: true })
+    if (why) useUi().toast(why, 'warn')
   }
   /** 舊系統寫一則紀錄：正文、引言、網內的段落接成正文，變化的字放在 results，交給引擎提交成一份報告。 */
   function addLog(e: Omit<LogEntry, 'id' | 'time' | 'place'> & { place?: string }) {
     const prose = [...e.prose, ...(e.quotes ?? []), ...(e.net ?? [])]
-    eng.commit({ summary: e.prose[0] ?? '', prose, results: (e.changes ?? []).map(c => c.text), place: e.place ?? placeLabel.value })
+    const why = eng.commit({ summary: e.prose[0] ?? '', prose, results: (e.changes ?? []).map(c => c.text), place: e.place ?? placeLabel.value })
+    if (why) useUi().toast(why, 'warn')
   }
   /** 換街區。viaExit：從哪個出口來就站在那個出口；'@station'：站在車站（搭車、計程車、開車到的時候）。 */
   function moveBlock(d: DistrictId, block: string, viaExit?: string) {
