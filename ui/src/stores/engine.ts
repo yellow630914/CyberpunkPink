@@ -9,6 +9,8 @@ import { allFeatures } from '@engine/src/features'
 import { armorOf, concealment, equip as gearEquip, equipBlock as gearEquipBlock, gearOf, quickCapacity, scanFinds, unequip as gearUnequip, weaponOf } from '@engine/src/features/gear'
 import type { BlueprintEntry, PartEntry } from '@engine/src/features/gear'
 import type { GearLookup } from '../lib/gearView'
+import { abilitiesOf, capacityOf, equipAbilities, learn as abilityLearn, learnBlock as abilityLearnBlock, treeTier, TREE_XP } from '@engine/src/features/abilities'
+import type { AbilityEntry, PathEntry } from '@engine/src/features/abilities'
 import { acceptDefeat, defeatOf } from '@engine/src/features/defeat'
 import { setupFromEncounter } from '@engine/src/features/enemies'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
@@ -333,5 +335,30 @@ export const useEngine = defineStore('engine', () => {
     },
   }
 
-  return { state, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  // ---- 技能與橋（SKILLS 1.3、1.4；dev/work/M1b-ui-skills.md）：全部轉接 features/abilities，畫面不自己判斷 ----
+  const skills = {
+    /** 內容裡的路數與技能（照內容登錄表的順序） */
+    paths: (): PathEntry[] => game.k.content.list<PathEntry>('path'),
+    abilities: (): AbilityEntry[] => game.k.content.list<AbilityEntry>('ability'),
+    /** 歷練點、學會的、裝著的、每棵樹累計花的（沒有主角是空的） */
+    mine: () => { void state.value; return abilitiesOf(game.state, game.state.pc ?? '') },
+    /** 這棵樹開到第幾階（引擎算） */
+    tierOf: (path: string): number => { void state.value; return treeTier(game.k, game.state, game.state.pc ?? '', path) },
+    treeXp: TREE_XP,
+    /** 戰鬥中或等著選戰敗時整頁唯讀：引擎給的原因；可以動回傳 null */
+    lock: (): string | null => { void state.value; return game.blockOf('commit:ability.equip') },
+    /** 現在學不學得到：先看整頁的鎖，再問引擎；可以學是 null */
+    learnBlock: (id: string): string | null => {
+      void state.value
+      if (game.state.pc === null) return NO_PC
+      return game.blockOf('commit:ability.learn') ?? abilityLearnBlock(game.k, game.state, game.state.pc, id)
+    },
+    learn: (id: string): string | null => commitGear((pc) => abilityLearn(game.k, game.state, pc, id)),
+    /** 橋四類的容量（used 是裝著的，max 是橋） */
+    capacity: () => { void state.value; return capacityOf(game.k, game.state, game.state.pc ?? '') },
+    /** 整份換掉裝著的清單；引擎擋下就回傳原因（狀態不動） */
+    equip: (ids: string[]): string | null => commitGear((pc) => equipAbilities(game.k, game.state, pc, ids)),
+  }
+
+  return { state, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

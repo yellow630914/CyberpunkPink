@@ -12,6 +12,8 @@ import BodyFigure from '../components/BodyFigure.vue'
 import ReasonButton from '../components/ReasonButton.vue'
 import { useGame } from '../stores/game'
 import { useUi } from '../stores/ui'
+import { useEngine } from '../stores/engine'
+import { listTrees } from '../lib/skillView'
 import { ITEMS } from '../data/items'
 import { BODY_PARTS } from '../data/character'
 import type { BodyPartId } from '../data/types'
@@ -30,7 +32,14 @@ import { useGuides } from '../lib/useGuides'
 const props = defineProps<{ entryId: number; stacked?: boolean; tab?: string; gearSelect?: { group: 'worn' | 'acc' | 'carry'; slot: string } }>()
 const g = useGame()
 const ui = useUi()
+const eng = useEngine()
 const tab = ref(props.tab ?? 'body')
+// 角色卡的抬頭與歷練點讀引擎（8.1 節）：已經開的樹與階（一點都沒花的不列）
+const myXp = computed(() => eng.skills.mine().xp)
+const openTrees = computed(() => {
+  const mine = eng.skills.mine()
+  return listTrees(eng.skills.paths(), eng.skills.abilities(), mine, eng.skills.tierOf, eng.skills.treeXp).filter((t) => !t.dim).map((t) => `${t.name} ${t.tier}`)
+})
 const TABS = [
   { id: 'sum', label: '概要' }, { id: 'body', label: '身體' }, { id: 'gear', label: '裝備' },
   { id: 'net', label: '內海' }, { id: 'bridge', label: '橋' }, { id: 'adult', label: '成人' },
@@ -68,13 +77,13 @@ const sinkParts = computed(() => BODY_PARTS.flatMap(p => g.cyber[p.id].filter(Bo
 </script>
 
 <template>
-  <Dialog :entry-id="entryId" :stacked="stacked" title="角色與義體" :sub="`${g.character.origin}・${g.character.trees.join('・')}`" size="xl">
+  <Dialog :entry-id="entryId" :stacked="stacked" title="角色與義體" :sub="[g.character.origin, ...openTrees].join('・')" size="xl">
     <template #header><Tabs v-model="tab" :tabs="TABS" @update:model-value="v => v === 'gear' && guides.trigger('g_gear')" /></template>
     <div class="ch">
       <!-- 角色卡 -->
       <aside class="panel cut pad card">
-        <div class="who"><div class="ava" aria-hidden="true" /><div><b>{{ g.character.name }}</b><div class="k">{{ g.character.trees.join('・') }}</div></div></div>
-        <div class="kv"><span>歷練點</span><b style="color: var(--ap)">{{ g.character.xp }}</b></div>
+        <div class="who"><div class="ava" aria-hidden="true" /><div><b>{{ g.character.name }}</b><div class="k" data-trees>{{ openTrees.join('・') || '還沒有開的樹' }}</div></div></div>
+        <div class="kv"><span>歷練點</span><b style="color: var(--ap)" data-xp>{{ myXp }}</b></div>
         <div class="kv"><span>體悟</span><b style="color: var(--a)">{{ g.character.insight }}</b></div>
         <div class="kv"><span>街頭信譽</span><b>{{ g.character.rep }}・{{ g.character.repTitle }}</b></div>
         <TrackBar label="生命" :value="g.character.hp[0]" :max="g.character.hp[1]" color="var(--hp)" class="mt" />
