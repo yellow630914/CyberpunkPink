@@ -15,8 +15,8 @@ import type { BattleRun } from './run'
 
 // ---- who 與 if：封閉清單。不夠用時加在這裡，不在功能裡各自解析 ----
 
-/** 這一筆落在誰身上。另外還有 pick:<鍵>（pick 裡那個單位）。 */
-export const EFFECT_WHO = ['target', 'self', 'allies', 'others', 'adjacent', 'near', 'foes', 'foes_bridged', 'slot', 'area', 'attacker', 'victim'] as const
+/** 這一筆落在誰身上。另外還有 pick:<鍵>（pick 裡那個單位）。foe_overlays：敵方每一台掛著的東西（沒被擊落的），逐台各做一次，一台都沒有就整筆不做。 */
+export const EFFECT_WHO = ['target', 'self', 'allies', 'others', 'adjacent', 'near', 'foes', 'foes_bridged', 'foe_overlays', 'slot', 'area', 'attacker', 'victim'] as const
 export type EffectWho = (typeof EFFECT_WHO)[number]
 /** 這一筆要不要做（看 ctx.last 與回合數）。 */
 export const EFFECT_IF = ['hit', 'miss', 'crit', 'downed', 'overloaded', 'ok', 'fail', 'first_round', 'not_first_round'] as const
@@ -186,6 +186,7 @@ function resolveWho(run: BattleRun, who: string, base: Omit<BattleEffectCtx, 'un
     case 'near': return [{ unit: user }, ...people(adjacent())]
     case 'foes': return people(unitsOf(b, otherSide(user.side)))
     case 'foes_bridged': return people(unitsOf(b, otherSide(user.side)).filter((u) => !!u.load))
+    case 'foe_overlays': return b.overlays.filter((o) => o.side === otherSide(user.side) && !o.down).map((overlay) => ({ overlay }))
     case 'slot': {
       const c = cell()
       const u = c ? unitAt(b, c.side, c.slot) : undefined

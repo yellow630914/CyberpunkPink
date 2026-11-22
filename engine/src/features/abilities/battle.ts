@@ -496,21 +496,39 @@ export function registerActions(k: Kernel): void {
 
 // ---- 掛點與修正 ----
 
-/** 裝著的被動技能給的標籤（meat.tags）與池的加減（meat.pool）：開打時一次。 */
+/** 一個資源池加減上限與每回合回復：池有就加（現在的也跟著加，不超過上限）；沒有而且是加上限就新開一個。 */
+function bumpPool(unit: BattleUnit, id: string, d: { max?: number; regen?: number }): void {
+  const max = d.max ?? 0
+  const regen = d.regen ?? 0
+  const pool = unit.pools[id]
+  if (pool) {
+    pool.max = Math.max(0, pool.max + max)
+    pool.now = Math.min(pool.max, Math.max(0, pool.now + max))
+    pool.regen = Math.max(0, pool.regen + regen)
+  } else if (max > 0) unit.pools[id] = { now: max, max, regen: Math.max(0, regen) }
+}
+
+/**
+ * 裝著的被動技能給的標籤（meat.tags）與池的加減（meat.pool），以及共鳴給的池（effect.pool）與感載上限（effect.load_max）：開打時一次。
+ * 共鳴：這棵樹的階數到了 N，tier <= N 的共鳴都生效（要裝著這棵樹的招牌才算，和其他共鳴一樣）。
+ */
 function applyPassives(run: BattleRun, unit: BattleUnit): void {
   for (const ab of equippedOf(run, unit)) {
     const m = ab.meat
     if (!m || m.pending) continue
     for (const t of m.tags ?? []) if (!unit.tags.includes(t)) unit.tags.push(t)
-    for (const [id, d] of Object.entries(m.pool ?? {})) {
-      const max = d.max ?? 0
-      const regen = d.regen ?? 0
-      const pool = unit.pools[id]
-      if (pool) {
-        pool.max = Math.max(0, pool.max + max)
-        pool.now = Math.min(pool.max, Math.max(0, pool.now + max))
-        pool.regen = Math.max(0, pool.regen + regen)
-      } else if (max > 0) unit.pools[id] = { now: max, max, regen: Math.max(0, regen) }
+    for (const [id, d] of Object.entries(m.pool ?? {})) bumpPool(unit, id, d)
+  }
+  const d = unitAbilities(unit)
+  if (!d.equipped.length) return
+  for (const p of run.k.content.list<PathEntry>('path')) {
+    if (!d.equipped.includes(p.signature)) continue
+    const tier = d.tiers[p.id] ?? 1
+    for (const r of p.resonance) {
+      const f = r.effect
+      if (!f || r.tier > tier) continue
+      for (const [id, pool] of Object.entries(f.pool ?? {})) bumpPool(unit, id, pool)
+      if (f.load_max && unit.load) unit.load.max = Math.max(1, unit.load.max + f.load_max)
     }
   }
 }

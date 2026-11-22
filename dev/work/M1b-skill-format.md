@@ -91,3 +91,5 @@ M1b-core-effects、M1b-ops。做完才能開 M1b-skill-gunner-broker、M1b-skill
 改了哪些檔、測試結果、SKILLS 1.8 節的清單裡這套格式還寫不出來的效果。
 
 - 2026-11-22 補：`features/abilities/battle.ts` 技能的壓制檢定要帶 `resist:suppressed` 標籤（核心工單範圍外，這張補）。
+- 2026-11-22 補（M1b-core-fix2）：`trigger.who` 多 `self_or_ally`（你或一名隊友；`attacked`、`hit`、`after`、`overload`、`checked`、`out_before` 收）；共鳴的 `effect` 多 `pool`（同 `meat.pool`）與 `load_max`（感載上限）；`needs` 多 `cache_tag`（目標的快取格裡有帶某標籤的道具）；效果的 `who` 多 `foe_overlays`（核心）。`checked` 的主角是檢定「對他擲的」那個人（`check.before` 的 `other`），擲骰的是 `by`（dev/adr/0015 補記）。
+

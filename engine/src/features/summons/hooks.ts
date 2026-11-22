@@ -43,17 +43,19 @@ export function registerHooks(k: Kernel): void {
     return out
   })
 
-  // 守著：下一次以同一格的人為目標的敵方攻擊改打那一台（打人的攻擊才算；掛著的東西被打、隊友誤傷不算）。已經有人設了 redirect 就不搶、不用掉
+  // 守著：下一次以同一格的人為目標的敵方攻擊改打那一台（打人的攻擊才算；掛著的東西被打、隊友誤傷不算）。已經有人設了 redirect 就不搶
   k.battle.on('attack.before', OWNER, ({ run, attacker, target, opts }) => {
     if (run.isStandIn(target) || target.slot < 1 || attacker.side === target.side || opts.redirect) return
     const o = guardian(run, target)
-    if (!o) return
-    opts.redirect = { overlay: o.id }
-    if (opts.redirect?.overlay !== o.id) return
-    run.say(`${o.name}擋在${target.name}前面。`, 'overlay', { overlay: o.id, kind: o.kind, slot: o.slot, guard: true, target: target.id }, attacker)
-    const ext = { ...o.ext }
+    if (o) opts.redirect = { overlay: o.id }
+  })
+  // 擋下之後守著就用掉了（不管是守著自己擋的，還是別的反應挑了它擋：這一台已經挨了一擊）。被取消的攻擊（卡彈）不發這個掛點，守著留著
+  k.battle.on('attack.redirected', OWNER, ({ run, overlay, attacker, target }) => {
+    if (overlay.ext?.guard === undefined) return
+    const ext = { ...overlay.ext }
     delete ext.guard
-    o.ext = ext
+    overlay.ext = ext
+    run.say(`${overlay.name}替${target.name}擋下了這一擊。`, 'overlay', { overlay: overlay.id, kind: overlay.kind, slot: overlay.slot, guard: true, target: target.id }, attacker)
   })
   // 守著到操作者的下一個回合開始
   k.battle.on('turn.start', OWNER, ({ unit, run }) => {

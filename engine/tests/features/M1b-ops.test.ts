@@ -398,6 +398,87 @@ describe('check：做的人擲一次檢定', () => {
     expect(dc('f1', 12)).toBe(12)
   })
 
+  it('vs: { firewall: true, elite, boss }：防火牆再依對象的位階加 elite、boss（快駭的控制類）；沒寫的那一項是 0；evade、will 也能這樣寫', () => {
+    const a = three(undefined, undefined, undefined, [foe(), foe('elite'), foe('boss')])
+    const dc = (vs: unknown, target: string) => rolls(go(a, [{ op: 'check', attr: 'intellect', vs }], f(target), { d: dice(20) }).run)[0]!.dc
+    const fw = { firewall: true, elite: 2, boss: 4 }
+    // 三個人都沒有甲板：防火牆 = 不含遮蔽的迴避
+    expect([dc(fw, 'f1'), dc(fw, 'f2'), dc(fw, 'f3')]).toEqual([a.foe(1).evade, a.foe(2).evade + 2, a.foe(3).evade + 4])
+    // 沒寫 elite、boss：不加；公式也行
+    expect(dc({ firewall: true }, 'f3')).toBe(a.foe(3).evade)
+    expect(dc({ firewall: true, boss: 'grade*2' }, 'f3')).toBe(a.foe(3).evade + 2)
+    // 有甲板：用甲板的
+    a.foe(3).ext.deck = { grade: 2, firewall: 15, slots: [] }
+    expect(dc(fw, 'f3')).toBe(19)
+    // evade、will 的寫法
+    expect(dc({ evade: true, boss: 3 }, 'f3')).toBe(a.run().evadeOf(a.foe(3), a.ally(1)).total + 3)
+    a.foe(2).attrs.resolve = 14
+    a.foe(2).skills.composure = 2
+    expect(dc({ will: true, elite: 1 }, 'f2')).toBe(10 + attrMod(14) + 2 + 1)
+    // 和字串寫法一樣的數字
+    expect(dc('firewall', 'f3')).toBe(15)
+  })
+
+  it('防火牆：有甲板（要有 grade）沒寫 firewall 是 10；沒有 grade 的不算甲板、用迴避；firewall 修正帶這次檢定的標籤', () => {
+    const asked: string[][] = []
+    const a = three((k) => k.battle.modifier('t', (q) => {
+      if (q.kind === 'firewall') asked.push(q.tags)
+      return q.kind === 'firewall' && q.tags.includes('hack:neural') ? [{ label: '神經防火牆', value: 3 }] : []
+    }))
+    const dc = (tags?: string[]) => rolls(go(a, [{ op: 'check', attr: 'intellect', vs: 'firewall', ...(tags ? { tags } : {}) }], f('f1'), { d: dice(20) }).run)[0]!.dc
+    a.foe(1).ext.deck = { grade: 2, slots: [] }
+    expect(dc()).toBe(10)
+    a.foe(1).ext.deck = { firewall: 15 }
+    expect(dc()).toBe(a.foe(1).evade)
+    a.foe(1).ext.deck = { grade: 2, firewall: 12, slots: [] }
+    asked.length = 0
+    expect(dc(['hack', 'hack:neural'])).toBe(15)
+    expect(asked).toEqual([['hack', 'hack:neural']])
+  })
+
+  it('掛著的東西：對防火牆的檢定照它的迴避擲（沒有甲板；不發 check.before）；對 evade、will 或寫死的數字的檢定落在它身上時跳過', () => {
+    const seen: string[] = []
+    const a = three((k) => k.battle.on('check.before', 't', ({ unit, other }) => void seen.push(`${unit.id}>${other.id}`)))
+    a.battle.overlays.push(overlay('o1', 'foe', 1, { evade: 7 }))
+    const at = (vs: unknown): number[] => rolls(go(a, [{ op: 'check', attr: 'intellect', vs }], { overlay: 'o1' }, { d: dice(20) }).run).map((r) => r.dc)
+    expect(at('firewall')).toEqual([7])
+    expect(at({ firewall: true, elite: 2, boss: 4 })).toEqual([7])
+    expect(at('evade')).toEqual([])
+    expect(at('will')).toEqual([])
+    expect(at(12)).toEqual([])
+    expect(at({ base: 10 })).toEqual([])
+    expect(seen).toEqual([])
+  })
+
+  it('控制節點與沒有對象：寫死的數字對節點照擲（不發 check.before）；防火牆、意志這種要看對象的沒有對象就整筆跳過', () => {
+    const a = three()
+    expect(rolls(go(a, [{ op: 'check', attr: 'intellect', vs: 14 }], { node: 'n1' }, { d: dice(20) }).run).map((r) => r.dc)).toEqual([14])
+    expect(go(a, [{ op: 'check', attr: 'intellect', vs: 'firewall' }], { node: 'n1' }).run.beats).toEqual([])
+    expect(go(a, [{ op: 'check', attr: 'intellect', vs: { firewall: true } }], { side: 'foe', slot: 2 }).run.beats).toEqual([])
+  })
+
+  it('bonus 可以是一串 { label, value }：每一項在明細裡各自一行（值是 0 的不列）；公式照常', () => {
+    const a = three()
+    const r = go(a, [{ op: 'check', attr: 'intellect', vs: 12, bonus: [{ label: '等級加值', value: 1 }, { label: '程式加值', value: 0 }, { label: '公式加值', value: 'tier+1' }] }], f('f1'), { d: dice(10), n: { tier: 2 } })
+    const parts = rolls(r.run)[0]!.parts
+    expect(parts.filter((p) => p.source === 'skill').map((p) => [p.label, p.value])).toEqual([['等級加值', 1], ['公式加值', 3]])
+  })
+
+  it('check 的格式檢查：vs 的防火牆寫法一次只能寫一種、值要是 true；bonus 的每一項要有 label 與 value', () => {
+    const a = three()
+    const bad = (e: Record<string, unknown>) => a.k.battle.effectProblems([{ op: 'check', attr: 'intellect', ...e }]).join('；')
+    expect(bad({ vs: { firewall: true, elite: 2, boss: 4 } })).toBe('')
+    expect(bad({ vs: { evade: true } })).toBe('')
+    expect(bad({ vs: { firewall: true, will: true } })).toContain('只能寫一個')
+    expect(bad({ vs: { firewall: false } })).toContain('firewall：要是 true')
+    expect(bad({ vs: { firewall: true, elite: 'bogus' } })).toContain('elite')
+    expect(bad({ vs: { firewall: true, base: 3 } })).toContain('base')
+    expect(bad({ vs: 'nothing' })).toContain('nothing')
+    expect(bad({ vs: 12, bonus: [{ label: '加值', value: 1 }] })).toBe('')
+    expect(bad({ vs: 12, bonus: [{ label: '加值' }] })).toContain('value')
+    expect(bad({ vs: 12, bonus: [{ value: 1 }] })).toContain('label')
+  })
+
   it('bonus 與 tags：加值多一項、標籤傳到修正；對別人擲的檢定發 check.before（被快駭的一方可以改 DC），對自己擲的不發', () => {
     const seen: string[] = []
     const a = three((k) => {

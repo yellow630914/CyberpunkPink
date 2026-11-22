@@ -909,18 +909,21 @@ describe('反應：每一種 on 各一個假技能（規格第四節）；行動
     expect([b.ally(2).out, b.ally(3).out]).toEqual([undefined, 'down'])
   })
 
-  it('checked：別人對他擲檢定之前，改這一次的 DC；if 是檢定的標籤（快駭、誘惑）', () => {
+  it('checked：別人對他擲檢定之前，改這一次的 DC；if 是檢定的標籤（快駭、誘惑）；擲骰的人是 unit、他是 other（dev/adr/0015 補記）', () => {
     const a = field([react('sk_ck', { on: 'checked', who: 'self', if: 'hack' }, { react: { dc: 3 } })])
-    const dc = (tags: string[]) => a.run(dice(10, 1, 1)).save(a.ally(1), 'resolve', undefined, 10, '定力', [], tags, a.foe(1)).roll.dc
+    // 敵人（擲骰的人）對我擲檢定：save(擲骰的人, …, 對誰擲的)
+    const dc = (tags: string[]) => a.run(dice(10, 1, 1)).save(a.foe(1), 'intellect', undefined, 10, '快駭', [], tags, a.ally(1)).roll.dc
     expect(dc(['hack'])).toBe(13)
     expect(a.ally(1).ap.now).toBe(a.ally(1).ap.max - 1)
     expect(dc(['seduce'])).toBe(10)
+    // 我自己擲、對別人擲的檢定（我是 unit、不是 other）：我的反應不會因此觸發
+    expect(a.run(dice(10, 1, 1)).save(a.ally(1), 'intellect', undefined, 10, '快駭', [], ['hack'], a.foe(1)).roll.dc).toBe(10)
     // 沒有 other 的檢定（自己對自己的）不發這個掛點
     expect(a.run(dice(10, 1, 1)).save(a.ally(1), 'resolve', undefined, 10, '定力', [], ['hack']).roll.dc).toBe(10)
     // who: ally：隊友被快駭
     const b = field([react('sk_ck', { on: 'checked', who: 'ally' }, { react: { dc: -2 } })])
-    expect(b.run(dice(10, 1, 1)).save(b.ally(2), 'resolve', undefined, 10, '定力', [], ['hack'], b.foe(1)).roll.dc).toBe(8)
-    expect(b.run(dice(10, 1, 1)).save(b.ally(1), 'resolve', undefined, 10, '定力', [], ['hack'], b.foe(1)).roll.dc).toBe(10)
+    expect(b.run(dice(10, 1, 1)).save(b.foe(1), 'intellect', undefined, 10, '快駭', [], ['hack'], b.ally(2)).roll.dc).toBe(8)
+    expect(b.run(dice(10, 1, 1)).save(b.foe(1), 'intellect', undefined, 10, '快駭', [], ['hack'], b.ally(1)).roll.dc).toBe(10)
   })
 
   it('reaction 標籤的攻擊不再觸發反應：舊的掩護射擊與新的反擊不會互相連鎖', () => {
@@ -1204,5 +1207,191 @@ describe('不動核心、不拿掉舊的鍵', () => {
     expect(Object.keys(unit(g, 'a1').pools).sort()).toEqual(['cash', 'favor_big', 'favor_mid', 'favor_small', 'ram'])
     expect(Object.keys(unit(g, 'a2').pools)).toEqual(['ram'])
     expect(Object.keys(unit(g, 'f1').pools)).toEqual([])
+  })
+})
+
+// =====================================================================================
+// M1b-core-fix2 第 4 項：格式補的四個小東西（trigger.who 的 self_or_ally、共鳴的池與感載上限、needs.cache_tag）；
+// 效果的 who: foe_overlays 在核心（tests/core/battle-m1b-effects.test.ts）。
+
+describe('trigger.who：self_or_ally（你或一名隊友）', () => {
+  const react = (id: string, trigger: Rec, more: Rec = {}, use: Rec = { ap: 1 }) => ab(id, 'reaction', { use, meat: { trigger, ...more } })
+  const load = (a: Rec) => () => makeGame({ features: FEATURES, content: [pack([a])] })
+
+  it('格式：attacked、hit、after、overload、checked、out_before 收；hp_half 不收（寫出訊息裡有那個字）', () => {
+    for (const on of ['attacked', 'hit', 'after', 'overload', 'checked', 'out_before']) {
+      expect(load(react('sk_x', { on, who: 'self_or_ally' }, { do: [{ op: 'heal', who: 'self', amount: 1 }] })), on).not.toThrow()
+    }
+    expect(load(react('sk_x', { on: 'hp_half', who: 'self_or_ally' }, { do: [{ op: 'heal', who: 'self', amount: 1 }] }))).toThrow(/self_or_ally/)
+  })
+
+  it('checked：自己或隊友被擲檢定都觸發（偷看是不行的喔）；敵人被擲檢定不觸發；ally 不含自己、self 不含隊友（對照）', () => {
+    const a = field([react('sk_ck', { on: 'checked', who: 'self_or_ally', if: 'hack' }, { react: { dc: 2 } }, { ram: 0 })])
+    const dc = (target: 'a1' | 'a2' | 'a3' | 'f1', roller: 'a1' | 'f1' | 'f2') => {
+      const t = a.battle.units[target]!
+      return a.run(dice(10, 1, 1)).save(a.battle.units[roller]!, 'intellect', undefined, 10, '快駭', [], ['hack'], t).roll.dc
+    }
+    expect(dc('a1', 'f1')).toBe(12)
+    expect(dc('a2', 'f1')).toBe(12)
+    expect(dc('a3', 'f2')).toBe(12)
+    // 敵人被我方擲檢定：是敵方，不觸發
+    expect(dc('f1', 'a1')).toBe(10)
+    // 對照：ally 不含自己
+    const b = field([react('sk_ck', { on: 'checked', who: 'ally', if: 'hack' }, { react: { dc: 2 } }, { ram: 0 })])
+    const bdc = (target: 'a1' | 'a2') => b.run(dice(10, 1, 1)).save(b.foe(1), 'intellect', undefined, 10, '快駭', [], ['hack'], b.battle.units[target]!).roll.dc
+    expect([bdc('a1'), bdc('a2')]).toEqual([10, 12])
+  })
+
+  it('attacked：自己或隊友被攻擊都觸發（evade 加在這一擊上）；打敵人的攻擊不觸發', () => {
+    const a = field([react('sk_ev', { on: 'attacked', who: 'self_or_ally' }, { react: { evade: 4 } })], { foes: [foe('minion', { weapons: [testWeapon('pistol', 30)], ...quiet } as never), foe('minion', quiet as never)] })
+    const run = a.run(dice(10, 1, 1, 1, 1, 1, 10, 1, 1, 1, 1, 1))
+    run.attack(a.foe(1), a.ally(1))
+    run.attack(a.foe(1), a.ally(2))
+    expect(fired(run, 'sk_ev')).toBe(2)
+    const b = field([react('sk_ev', { on: 'attacked', who: 'self_or_ally' }, { react: { evade: 4 } })], { allies: [me(['sk_ev']), one({ weapon: 'pistol' }, 2)] })
+    const rb = b.run(dice(10, 1, 1, 1, 1, 1))
+    rb.attack(b.ally(2), b.foe(1))
+    expect(fired(rb, 'sk_ev')).toBe(0)
+  })
+
+  it('out_before：自己或隊友即將退出都能擋下（各一次、行動點用反應的人的）', () => {
+    const a = field([react('sk_pt', { on: 'out_before', who: 'self_or_ally' }, { react: { prevent: { how: ['down'] } } }, { ap: 1, per_turn: 1 })])
+    const run = a.run()
+    run.damage(a.ally(1), 999, 'physical', a.foe(1))
+    expect(a.ally(1).out).toBeUndefined()
+    // 一回合一次：第二個隊友擋不下
+    run.damage(a.ally(2), 999, 'physical', a.foe(1))
+    expect(a.ally(2).out).toBe('down')
+    const b = field([react('sk_pt', { on: 'out_before', who: 'self_or_ally' }, { react: { prevent: { how: ['down'] } } }, { ap: 1, per_turn: 1 })])
+    b.run().damage(b.ally(3), 999, 'physical', b.foe(1))
+    expect(b.ally(3).out).toBeUndefined()
+  })
+})
+
+describe('共鳴的 effect.pool 與 effect.load_max（RAM 上限、感載上限）', () => {
+  const tree = (resonance: Rec[]) => ({ ...TREE, resonance })
+  const RES = [
+    { tier: 1, cells: 1, text: 'RAM 上限 +2。', effect: { pool: { ram: { max: 2 } } } },
+    { tier: 3, cells: 1, text: 'RAM 上限再 +1、每回合回復 +1，感載上限 +4。', effect: { pool: { ram: { max: 1, regen: 1 } }, load_max: 4 } },
+    { tier: 4, cells: 1, text: '感載上限 +10。', effect: { load_max: 10 } },
+    { tier: 5, cells: 1, text: '開一個新的池。', effect: { pool: { focus: { max: 3, regen: 1 } } } },
+  ]
+  const mk = (res: Rec[], o: { ids?: string[]; tier?: number; me?: Rec } = {}) => {
+    const ids = o.ids ?? ['sk_root']
+    return field([], { tree: tree(res), allies: [me(ids, { actor: undefined, ext: { abilities: { equipped: ids, tiers: { tree: o.tier ?? 3 } } }, ...(o.me ?? {}) }), one({ weapon: 'pistol' }, 2), one({ weapon: 'pistol' }, 3)] })
+  }
+
+  it('到了階數的共鳴才算：第 3 階時 1、3 階的生效、4、5 階的不生效；沒有裝這棵樹的招牌的人不吃', () => {
+    const a = mk(RES)
+    const mate = a.ally(2)
+    expect(a.ally(1).pools.ram).toMatchObject({ max: mate.pools.ram!.max + 3, regen: mate.pools.ram!.regen + 1 })
+    expect(a.ally(1).load!.max).toBe(mate.load!.max + 4)
+    expect(a.ally(1).pools.focus).toBeUndefined()
+    // 現在的 RAM 也跟著加（開打時是滿的）
+    expect(a.ally(1).pools.ram!.now).toBe(mate.pools.ram!.now + 3)
+    // 第 5 階：四筆都生效，連新開的池
+    const b = mk(RES, { tier: 5 })
+    expect(b.ally(1).pools.ram!.max).toBe(b.ally(2).pools.ram!.max + 3)
+    expect(b.ally(1).load!.max).toBe(b.ally(2).load!.max + 14)
+    expect(b.ally(1).pools.focus).toEqual({ now: 3, max: 3, regen: 1 })
+    // 沒有裝招牌：不算
+    const c = mk(RES, { ids: [] })
+    expect(c.ally(1).pools.ram!.max).toBe(c.ally(2).pools.ram!.max)
+    expect(c.ally(1).load!.max).toBe(c.ally(2).load!.max)
+  })
+
+  it('沒有橋的人（沒有感載）吃不到 load_max，也不會被補出感載；負數的 load_max 最少剩 1', () => {
+    const a = mk(RES, { me: { load: undefined } })
+    expect(a.ally(1).load).toBeUndefined()
+    expect(a.ally(1).pools.ram!.max).toBe(a.ally(2).pools.ram!.max + 3)
+    const b = mk([{ tier: 1, cells: 1, text: '感載上限大減。', effect: { load_max: -9999 } }])
+    expect(b.ally(1).load!.max).toBe(1)
+  })
+
+  it('格式：pool 的每一項要是整數（和 meat.pool 同一個檢查）、load_max 要是不為 0 的整數；寫壞的載入時擋下並寫出那個字', () => {
+    const bad = (effect: Rec) => () => makeGame({ features: FEATURES, content: [pack([], {}, tree([{ tier: 1, cells: 1, text: '壞的。', effect }]))] })
+    expect(bad({ pool: { ram: { max: 1 } }, load_max: 4 })).not.toThrow()
+    expect(bad({ pool: { ram: { max: 1.5 } } })).toThrow(/pool\.ram\.max/)
+    expect(bad({ pool: { ram: { size: 1 } } })).toThrow(/size/)
+    expect(bad({ pool: {} })).toThrow(/pool/)
+    expect(bad({ load_max: 0 })).toThrow(/load_max/)
+    expect(bad({ load_max: 2.5 })).toThrow(/load_max/)
+    expect(bad({ load_max: '4' })).toThrow(/load_max/)
+    expect(bad({ cap: 1 })).toThrow(/cap/)
+  })
+})
+
+describe('needs.cache_tag：目標的快取格裡有帶某標籤的道具', () => {
+  const ITEMS = [
+    { id: 'it_nade', name: '破片手雷', desc: '手雷。', category: 'consumable', grade: 1, size: 1, legal: 'free', tags: ['explosive', 'throwable'] },
+    { id: 'it_gel', name: '急救凝膠', desc: '凝膠。', category: 'consumable', grade: 1, size: 1, legal: 'free', tags: ['medical'] },
+  ]
+  const conds = (meat: Rec, mutate: (g: G) => void) => {
+    const g = play([ab('sk_c', 'active', { use: { ap: 1 }, meat: { target: 'enemy', ...meat } })], { foes: [idle({ name: '雜兵甲' }), idle({ name: '雜兵乙' })], extra: { item: ITEMS } })
+    turnTo(g, 'a1')
+    mutate(g)
+    const a = opt(g, 'sk_c')
+    return { action: a.blocks, targets: a.targets.map((t) => t.blocks) }
+  }
+
+  it('快取格裡有帶這個標籤的道具才選得了；沒有的那一句寫出標籤；數量是 0 的、標籤不對的不算', () => {
+    const r = conds({ needs: { cache_tag: 'explosive' } }, (g) => {
+      unit(g, 'f1').quick = [{ item: 'it_gel', qty: 2 }, { item: 'it_nade', qty: 0 }]
+      unit(g, 'f2').quick = [{ item: 'it_gel', qty: 1 }, { item: 'it_nade', qty: 1 }]
+    })
+    expect(r.action).toEqual([])
+    expect(r.targets).toEqual([['雜兵甲的快取格裡要有帶「explosive」標籤的道具才能用。'], []])
+  })
+
+  it('空的快取格、查不到的道具也是不成立；可以和別的 needs 同時寫、放進 any 的一組、放進 choose 的用法', () => {
+    const r = conds({ needs: { cache_tag: 'explosive', bridged: true } }, (g) => {
+      unit(g, 'f1').quick = []
+      unit(g, 'f2').quick = [{ item: 'it_ghost', qty: 1 }]
+    })
+    expect(r.targets.map((t) => t.length)).toEqual([1, 1])
+    const any = conds({ needs: { any: [{ wounded: true }, { cache_tag: 'explosive' }] } }, (g) => {
+      unit(g, 'f2').quick = [{ item: 'it_nade', qty: 1 }]
+    })
+    expect(any.targets).toEqual([[expect.stringContaining('重傷')], []])
+    const g = play([ab('sk_ch', 'active', { use: { ap: 1 }, meat: { target: 'enemy', picks: [{ key: 'way', label: '用法', kind: 'choice', required: true }], choose: [{ key: 'boom', label: '引爆', needs: { cache_tag: 'explosive' }, do: [{ op: 'damage', amount: 3, type: 'physical' }] }, { key: 'plain', label: '普通', do: [{ op: 'damage', amount: 1, type: 'physical' }] }] } })], { extra: { item: ITEMS } })
+    turnTo(g, 'a1')
+    unit(g, 'f2').quick = [{ item: 'it_nade', qty: 1 }]
+    const pick = opt(g, 'sk_ch').picks[0]!
+    const boom = pick.options.find((o) => o.value === 'boom')!
+    expect(pickApplies(boom, { unit: 'f1' })).toBe(false)
+    expect(pickApplies(boom, { unit: 'f2' })).toBe(true)
+    expect(tryAct(g, { action: 'sk_ch', target: { unit: 'f1' }, pick: { way: 'boom' } })).not.toBeNull()
+    expect(tryAct(g, { action: 'sk_ch', target: { unit: 'f2' }, pick: { way: 'boom' } })).toBeNull()
+  })
+
+  it('格式：cache_tag 要是標籤（字串）；target 不是人的技能不能寫 needs（照舊）', () => {
+    const load = (meat: Rec) => () => makeGame({ features: FEATURES, content: [pack([ab('sk_x', 'active', { use: { ap: 1 }, meat })])] })
+    expect(load({ target: 'enemy', needs: { cache_tag: 'explosive' }, do: [{ op: 'attack' }] })).not.toThrow()
+    expect(load({ target: 'enemy', needs: { cache_tag: 3 }, do: [{ op: 'attack' }] })).toThrow(/cache_tag/)
+    expect(load({ target: 'enemy', needs: { cache_tag: '' }, do: [{ op: 'attack' }] })).toThrow(/cache_tag/)
+    expect(load({ target: 'foe_slot', needs: { cache_tag: 'explosive' }, do: [{ op: 'attack' }] })).toThrow(/needs/)
+  })
+})
+
+describe('效果的 who: foe_overlays 在技能裡用', () => {
+  it('格式收：do 裡寫 who: foe_overlays 載得進來；不認得的 who 照樣擋', () => {
+    const load = (who: string) => () => makeGame({ features: FEATURES, content: [pack([ab('sk_x', 'active', { use: { ap: 1 }, meat: { target: 'none', do: [{ op: 'damage', amount: 2, type: 'physical', who }] } })])] })
+    expect(load('foe_overlays')).not.toThrow()
+    expect(load('foe_drones')).toThrow(/foe_drones/)
+  })
+
+  it('目標是「無」的技能對敵方每一台各做一次；一台都沒有時這一筆不做、別的效果照做', () => {
+    const g = play([ab('sk_all', 'active', { use: { ap: 1 }, meat: { target: 'none', do: [{ op: 'damage', amount: 2, type: 'physical', who: 'foe_overlays' }, { op: 'field', key: 'dark' }] } })])
+    turnTo(g, 'a1')
+    // 一台都沒有：燈照樣關
+    expect(g.battleAct({ action: 'sk_all' }).status).toBe('applied')
+    expect(g.state.battle!.field.dark).toBe(true)
+    g.state.battle!.field.dark = false
+    const run = new BattleRun(g.k, g.state, g.state.battle!)
+    for (const slot of [1, 2]) run.addOverlay({ side: 'foe', slot, kind: 'turret', name: `砲塔${slot}`, hp: { now: 20, max: 20 }, armor: 0, evade: 0 } as never)
+    run.addOverlay({ side: 'ally', slot: 1, kind: 'turret', name: '我方砲塔', hp: { now: 20, max: 20 }, armor: 0, evade: 0 } as never)
+    turnTo(g, 'a1')
+    expect(g.battleAct({ action: 'sk_all' }).status).toBe('applied')
+    expect(g.state.battle!.overlays.map((o) => [o.side, o.hp.now])).toEqual([['foe', 18], ['foe', 18], ['ally', 20]])
   })
 })

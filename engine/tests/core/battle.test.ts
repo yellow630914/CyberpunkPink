@@ -93,6 +93,42 @@ describe('站位、距離與遮蔽（COMBAT_SYSTEM 第 2 節）', () => {
     expect(a.battle.cover.foe.map((c) => c.level)).toEqual([1, 0, 0, 0])
   })
 
+  it('補位發 compacted：每個往前移動的單位一次（from、to 是淨移動，由前往後）；發的時候站位與遮蔽都整理好了；沒有人動不發', () => {
+    const seen: Array<{ side: string; unit: string; from: number; to: number; slots: number[]; cover: number[] }> = []
+    const a = arena(duel([one(), one({}, 2)], [foe(), foe(), foe()], { ally: [0, 0, 0, 0], foe: [0, 2, 1, 0] }), undefined, (k) => {
+      k.battle.on('compacted', 't', ({ run, side, unit, from, to }) => {
+        seen.push({ side, unit: unit.id, from, to, slots: [1, 2, 3].map((i) => run.battle.units[`f${i}`]!.slot), cover: run.battle.cover.foe.map((c) => c.level) })
+      })
+    })
+    const run = a.run()
+    run.setOut(a.foe(1), 'down')
+    expect(seen).toEqual([
+      { side: 'foe', unit: 'f2', from: 2, to: 1, slots: [1, 1, 2], cover: [2, 1, 0, 0] },
+      { side: 'foe', unit: 'f3', from: 3, to: 2, slots: [1, 1, 2], cover: [2, 1, 0, 0] },
+    ])
+    // 沒有人往前（補完、站位本來就是齊的）：不發
+    seen.length = 0
+    run.compact('foe')
+    run.compact('ally')
+    expect(seen).toEqual([])
+    // 我方倒下：side 是 ally
+    run.setOut(a.ally(1), 'down')
+    expect(seen).toEqual([{ side: 'ally', unit: 'a2', from: 2, to: 1, slots: [1, 1, 2], cover: [2, 1, 0, 0] }])
+  })
+
+  it('補位發 compacted：同一次 compact 補了兩格就只發一個事件（from 是原本的格）', () => {
+    const seen: Array<[string, number, number]> = []
+    const a = arena(duel([one()], [foe(), foe(), foe()], { ally: [0, 0, 0, 0], foe: [0, 0, 0, 0] }), undefined, (k) => {
+      k.battle.on('compacted', 't', ({ unit, from, to }) => void seen.push([unit.id, from, to]))
+    })
+    // 第 1、2 格的人一起不在了（不經過 setOut）：第 3 格的人一次補到第 1 格
+    a.foe(1).out = 'down'
+    a.foe(2).out = 'down'
+    a.run().compact('foe')
+    expect(seen).toEqual([['f3', 3, 1]])
+    expect(a.foe(3).slot).toBe(1)
+  })
+
   it('遮蔽受損：打穿一級就降一級，多的傷害算到下一級；沒有人站的格子傷害加倍；煙霧打不破', () => {
     const a = arena(duel([one()], [foe(), foe()], { ally: [0, 0, 0, 0], foe: [2, 2, 0, 0] }))
     const run = a.run()

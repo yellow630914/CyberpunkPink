@@ -689,17 +689,59 @@ describe('不准動喔：守著敵方的一格（ward）', () => {
     expect(attacksBy(run, 'a1')).toBe(1)
   })
 
-  it('補位：那一格上的人因為前面的人倒下而往前補位時，也挨一槍', () => {
+  it('補位：那一格上的人因為前面的人倒下而往前補位時，也挨一槍（聽核心的 compacted 掛點：補位當下就射，不必等下一個動作）', () => {
     const a = mk()
     const run = a.run(dice(15, 3, 3, 3, 1, 1, 1, 1))
     place(a, run, 2)
-    // 第 1 格的人倒下（遮蔽是暴露，後面的人補位到第 1 格）
+    // 第 1 格的人倒下（遮蔽是暴露，後面的人補位到第 1 格）：setOut 一回來，那一槍已經射了
     run.setOut(a.foe(1), 'down', a.ally(2))
     expect(a.foe(2).slot).toBe(1)
-    // 補位沒有掛點：下一個動作做完時看一遍
-    a.k.battle.emit('round.start', { run, round: 2 })
     expect(attacksBy(run, 'a1')).toBe(1)
     expect(a.ally(1).weapons[0]!.mag!.now).toBe(4)
+    expect(run.beats.some((b) => b.text.includes('補位了'))).toBe(true)
+    // 之後的動作不會再補射一次（一格只管第一次）
+    run.move(a.foe(3), 2)
+    expect(attacksBy(run, 'a1')).toBe(1)
+  })
+
+  it('補位：只有「從守著那一格出去」的人算——別人補位經過那一格、或守著的那一格換了人上來都不算；補了兩格也是從原本的格算', () => {
+    // 守著第 1 格：它的人倒下，後面的 f2 補位上來（他不是從第 1 格出去的）：不挨一槍；他之後在那一格換位才挨
+    const a = mk()
+    const run = a.run(dice(15, 3, 3, 3, 15, 3, 3, 3, 1, 1, 1, 1))
+    place(a, run, 1)
+    run.setOut(a.foe(1), 'down', a.ally(2))
+    expect(a.foe(2).slot).toBe(1)
+    expect(attacksBy(run, 'a1')).toBe(0)
+    run.move(a.foe(2), 2)
+    expect(attacksBy(run, 'a1')).toBe(1)
+    // 守著第 3 格、第 1 與第 2 格的人一起不在了（不經過 setOut）：f3 一次補到第 1 格，從第 3 格出去算補位
+    const b = mk()
+    const rb = b.run(dice(15, 3, 3, 3, 1, 1, 1, 1))
+    place(b, rb, 3)
+    b.foe(1).out = 'down'
+    b.foe(2).out = 'down'
+    rb.compact('foe')
+    expect(b.foe(3).slot).toBe(1)
+    expect(attacksBy(rb, 'a1')).toBe(1)
+    // 守著第 2 格：第 3 格的人補位經過它、停在第 1 格，他不是從第 2 格出去的：不挨一槍
+    const c = mk()
+    const rc = c.run(dice(15, 3, 3, 3, 1, 1, 1, 1))
+    place(c, rc, 2)
+    c.foe(1).out = 'down'
+    c.foe(2).out = 'down'
+    rc.compact('foe')
+    expect(c.foe(3).slot).toBe(1)
+    expect(attacksBy(rc, 'a1')).toBe(0)
+  })
+
+  it('補位：on 沒寫 compact 的守著不管補位', () => {
+    const a = field(ids, { allies: [me(ids, { weapons: [mag(5, 5, 'pistol', 30)] }), one({ weapon: 'pistol' }, 2)], foes: [tough(), tough(), tough()] })
+    const ward = (on: string[]) => ({ op: 'ward', slot: 'target', until: 'own_turn_start', on, do: [{ op: 'attack' }] })
+    const run = a.run(dice(15, 3, 3, 3, 1, 1, 1, 1))
+    run.effects([ward(['move'])], { user: a.ally(1), target: { side: 'foe', slot: 2 }, source: { kind: 'ability', id: 'sk_gunner_dont_move', name: '不准動喔' } })
+    run.setOut(a.foe(1), 'down', a.ally(2))
+    expect(a.foe(2).slot).toBe(1)
+    expect(attacksBy(run, 'a1')).toBe(0)
   })
 
   it('到自己的下一回合開始就失效；守著的人倒下也失效；彈匣空了做不到就不算、繼續等', () => {

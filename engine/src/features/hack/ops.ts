@@ -1,12 +1,12 @@
 // L6 功能 hack：這個功能註冊的效果與掛點。
-//   hack.check     快駭的檢定：1d20 ＋ mod(智識) ＋ 介面 ＋ 等級加值（＋ 技能的加值）對目標的防火牆；控制類對精英 +2、首領 +4；被駭的人那一邊的反應經由 check.before
+//   hack.check     快駭的檢定：變成核心 check 效果（1d20 ＋ mod(智識) ＋ 介面 ＋ 等級加值（＋ 技能的加值）對目標的防火牆；控制類對精英 +2、首領 +4）；被駭的人那一邊的反應經由 check.before（核心 check 發）
 //   hack.dot       持續型：目標每個回合開始時受感載；同一個目標同時只能掛一個，新的蓋掉舊的
 //   hack.takeover  接管一台敵方的無人機或砲塔 turns 回合（或 until: 'battle_end'）：變成我方、由做的人指揮，到期還回去；mode: 'rewrite'：不接管，到期之前它每一輪自己打它原本那一方的人
 //   hack.node      拿下一個控制節點
 //   hack.detonate  引爆目標快取格裡的一件爆裂物：那一格受一擊、遮蔽降一級、那件道具沒了
 // 狀態都記在戰鬥狀態裡（單位的 ext.hack、掛著的東西的 ext.hack），存檔、回退才對得上。
 
-import type { BattleEffectCtx, BattleOverlay, ItemEntry, BattleRun, BattleSide, BattleUnit, Kernel, RollPart } from '../../core'
+import type { BattleEffectCtx, BattleOverlay, ItemEntry, BattleRun, BattleSide, BattleTarget, BattleUnit, Kernel } from '../../core'
 import { BATTLE_SLOTS, BattleBlocked, amount, onField, overlayAt, unitAt, unitTag } from '../../core'
 import { GRADE_CHECK, OWNER, deckOf } from './deck'
 import { isExplosive } from './actions'
@@ -26,54 +26,41 @@ function qty(ctx: Pick<Ctx, 'run' | 'user' | 'n'>, v: unknown, fallback: number)
   }
 }
 
-const sum = (parts: RollPart[]): number => parts.reduce((s, p) => s + p.value, 0)
-
 // ---- 檢定 ----
 
-/** 目標的防火牆（dev/adr/0015 E5）：有甲板用甲板的，沒有的用不含遮蔽與狀態的迴避；再加修正 firewall（問的是目標）。 */
-function firewallOf(ctx: Ctx, target: BattleUnit, tags: string[]): number {
-  const deck = deckOf(target)
-  return (deck ? deck.firewall : target.evade) + sum(ctx.run.mods('firewall', target, ctx.user, undefined, tags))
-}
-
+/**
+ * 快駭的檢定：變成核心 check 效果（features/combat 註冊）——1d20 ＋ mod(智識) ＋ 介面 ＋ 等級加值 ＋ 程式加值，對目標的防火牆
+ * （vs: { firewall: true, elite: 2, boss: 4 }：控制類打精英 +2、首領 +4，ITEMS 11.9 節）。防火牆怎麼算、check.before 發不發都是核心 check 的事：
+ * 被駭的人那一邊的反應（偷看是不行的喔）照 dev/adr/0015 補記的方向——unit 是丟程式的人、other 是被駭的人。
+ * 這裡只管快駭自己的東西：標籤、等級加值、控制節點的防火牆（節點自己的 ext.firewall，沒寫是 10，甲板的預設）、沒過的那一句。
+ * 掛著的東西沒有甲板（它的迴避就是防火牆，核心 check 照算）；沒有對象（對自己、一格）沒有東西可以對，不必檢定。
+ */
 function checkOp(ctx: Ctx, e: Eff): void {
   const { run, user } = ctx
   const cls = typeof e.class === 'string' ? e.class : undefined
   const tags = ['hack', 'quickhack', ...(cls ? [`hack:${cls}`] : [])]
   const t = ctx.target
-  let dc: number
-  let victim: BattleUnit | undefined
+  let vs: number | Eff
+  let at: BattleTarget
   if (ctx.overlay) {
-    // 無人機與砲塔沒有甲板：用它的迴避（E5）
-    dc = run.standIn(ctx.overlay).evade
+    vs = { firewall: true }
+    at = { overlay: ctx.overlay.id }
   } else if (ctx.unit && !run.isStandIn(ctx.unit) && ctx.unit.id !== user.id) {
-    victim = ctx.unit
-    dc = firewallOf(ctx, victim, tags)
-    // 控制類打精英與首領比較難（ITEMS 11.9 節）
-    if (cls === 'control') dc += victim.rank === 'boss' ? 4 : victim.rank === 'elite' ? 2 : 0
+    vs = { firewall: true, ...(cls === 'control' ? { elite: 2, boss: 4 } : {}) }
+    at = { unit: ctx.unit.id }
   } else if (!ctx.unit && t && 'node' in t) {
-    // 控制節點沒有甲板：節點自己的 ext.firewall，沒寫是 10（甲板的預設）
-    const node = run.battle.nodes.find((n) => n.id === t.node)
-    const fw = node?.ext?.firewall
-    dc = typeof fw === 'number' ? fw : 10
+    const fw = run.battle.nodes.find((n) => n.id === t.node)?.ext?.firewall
+    vs = typeof fw === 'number' ? fw : 10
+    at = t
   } else {
-    // 沒有對象（對自己、一格）：沒有東西可以對，不必檢定
     ctx.last.ok = true
     return
   }
-  // 被駭的人那一邊的反應（偷看是不行的喔）在這裡改這一次的 DC：掛點的 unit 是被駭的人、other 是丟程式的人。
-  // 不把 other 交給 run.save：save 發 check.before 時 unit 是擲骰的人，會讓丟程式的人自己的反應觸發
-  const opts = { dc, bonus: 0 }
-  if (victim) run.k.battle.emit('check.before', { run, unit: victim, other: user, tags, opts })
   const grade = typeof e.grade === 'number' ? e.grade : 1
-  const extra: RollPart[] = [
-    { label: '等級加值', value: GRADE_CHECK[grade] ?? 0, source: 'skill' },
-    { label: '程式加值', value: qty(ctx, e.bonus, 0), source: 'skill' },
-    ...(opts.bonus ? [{ label: '反應', value: opts.bonus, source: 'reaction' }] : []),
-  ].filter((p) => p.value !== 0)
-  const { ok } = run.save(user, 'intellect', 'interface', opts.dc, '快駭', extra, tags)
-  ctx.last.ok = ok
-  if (!ok) {
+  const bonus = [{ label: '等級加值', value: GRADE_CHECK[grade] ?? 0 }, { label: '程式加值', value: e.bonus === undefined ? 0 : e.bonus }]
+  const done = run.effects([{ op: 'check', attr: 'intellect', skill: 'interface', vs, bonus, tags, label: '快駭' }], { user, target: at, source: ctx.source, pick: ctx.pick, n: ctx.n })
+  ctx.last.ok = done.ok === true
+  if (!ctx.last.ok) {
     run.say(`${ctx.source.name}沒有效果（RAM 已經花掉了）。`, undefined, { hack: ctx.source.id, ok: false }, user)
     if (e.stop === true) ctx.last.stop = true
   }

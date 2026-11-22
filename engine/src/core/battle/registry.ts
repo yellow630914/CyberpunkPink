@@ -290,8 +290,10 @@ export interface BattleHookMap {
   /** 倒下或退出（how：down、subdued、surrendered、fled……） */
   'out': { run: BattleRun; unit: BattleUnit; how: string; by?: BattleUnit }
   /**
-   * 一個帶著 other（對誰擲的）的檢定（run.save）擲之前：被快駭、被誘惑的那一方的反應在這裡改這一次的 DC 與加值（opts.dc、opts.bonus）。
-   * tags 是這個檢定的標籤（hack、seduce……）。沒有 other 的檢定不發
+   * 一個帶著 other（對誰擲的）的檢定（run.save）擲之前。**unit 是擲骰的人**（run.save 的 u：快駭與誘惑是丟程式、出手的人；
+   * 對效果擲的豁免是被打的人），**other 是這個檢定對他擲的那個人**（拿 DC 的那一方：被快駭、被誘惑的人；豁免則是下手的人）。
+   * other 那一邊的反應（偷看是不行的喔）在這裡改這一次的 DC 與加值（opts.dc、opts.bonus；DC 加是讓擲骰的 unit 更難、bonus 加是讓他更容易）。
+   * 和 attack.before（attacker 擲命中、target 的反應）同一個方向。tags 是這個檢定的標籤（hack、seduce……）。沒有 other 的檢定不發（dev/adr/0015 補記）
    */
   'check.before': { run: BattleRun; unit: BattleUnit; other: BattleUnit; tags: string[]; opts: { dc: number; bonus: number } }
   /** 有人換了格（by：action 是自己換位，forced 是被推拉）。補位不算（補位發 compacted） */

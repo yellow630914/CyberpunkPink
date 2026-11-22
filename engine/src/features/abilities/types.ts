@@ -36,6 +36,10 @@ export interface ResonanceEffect {
   free_move?: { per_fight: number }
   /** 被動的修正，格式同 meat.mods（照這棵樹的階數；dev/work/M1b-skill-format.md 第三節） */
   mods?: ModEntry[]
+  /** 資源池的上限與每回合回復的加減，格式同 meat.pool（RAM 上限 +1：{ ram: { max: 1 } }）；開打時加一次 */
+  pool?: Record<string, { max?: number; regen?: number }>
+  /** 感載上限的加減（有橋的人；開打時加一次，現在的感載不動） */
+  load_max?: number
   pending?: true
 }
 export interface Resonance {
@@ -94,6 +98,8 @@ export interface NeedsDef {
   wounded?: boolean
   afterglow?: number
   tag?: string
+  /** 目標的快取格裡有帶這個標籤的道具（內容裡道具的 tags；數量至少 1）：引爆爆裂物要目標身上有爆裂物 */
+  cache_tag?: string
   /** 幾組條件成立任何一組就算（「重傷，或疊著餘韻」）；每一組裡不能再寫 any */
   any?: Array<Omit<NeedsDef, 'any'>>
 }

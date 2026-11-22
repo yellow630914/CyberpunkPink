@@ -147,6 +147,28 @@ describe('run.effects：who、if 與上一筆的結果（dev/adr/0015 第一節�
     expect(run1(a, 'foes_bridged')).toEqual(['f1/-', 'f3/-'])
   })
 
+  it('foe_overlays：敵方每一台掛著的東西（沒被擊落的）逐台各一次、帶 ctx.overlay；我方的、被擊落的不算；一台都沒有就整筆不做；站在哪一方看做的人', () => {
+    const a = field()
+    expect(run1(a, 'foe_overlays')).toEqual(['-/o1', '-/o3'])
+    // 做的人是敵方的 f1：他的敵人是我方，只有我方的 m1
+    expect(run1(a, 'foe_overlays', { user: a.foe(1) })).toEqual(['-/m1'])
+    // 不看目標：目標是別的東西也一樣
+    expect(run1(a, 'foe_overlays', { target: { unit: 'f2' } })).toEqual(['-/o1', '-/o3'])
+    a.battle.overlays[0]!.down = true
+    a.battle.overlays[2]!.down = true
+    expect(run1(a, 'foe_overlays')).toEqual([])
+    // 做第一台的時候擊落了後面的那一台：同一筆裡已經擊落的不再做（和 area 一樣）
+    const b = field()
+    const log = recorder(b)
+    b.k.battle.effect('kill_mark', 'test', (ctx) => {
+      log.push(`-/${ctx.overlay!.id}`)
+      if (ctx.overlay!.id === 'o1') b.battle.overlays.find((x) => x.id === 'o3')!.down = true
+    })
+    log.length = 0
+    b.run().effects([{ op: 'kill_mark', who: 'foe_overlays' }], input(b))
+    expect(log).toEqual(['-/o1'])
+  })
+
   it('slot：目標那一格上的人（目標是一格、或是一個人）；那一格沒有人就跳過', () => {
     const a = field()
     expect(run1(a, 'slot', { target: { side: 'foe', slot: 2 } })).toEqual(['f2/-'])

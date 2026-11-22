@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { BattleInput, BattleOverlay, BattleTarget, ContentPack, Feature, Kernel } from '../../src'
-import { BattleBlocked, BattleRun, actionCost, aiStep, beginTurn, performAction, readyFeatures } from '../../src'
+import { BattleBlocked, BattleRun, actionCost, aiStep, beginTurn, performAction, pickApplies, readyFeatures } from '../../src'
 import { abilitiesFeature } from '../../src/features/abilities'
 import { combatFeature } from '../../src/features/combat'
 import { hackFeature } from '../../src/features/hack'
@@ -276,7 +276,7 @@ describe('神經類（一支假的白噪）', () => {
     expect(actionCost(run, a.ally(1), defOf(a, 'hack.qh_mark'))).toEqual({ ap: 0, ram: 1 })
   })
 
-  it('被駭的人那一邊的反應經由 check.before：掛點的 unit 是被駭的人、other 是丟程式的人；反應改的 DC 算進去', () => {
+  it('被駭的人那一邊的反應經由 check.before：掛點的 unit 是擲骰的人（丟程式的人）、other 是檢定對他擲的人（被駭的人）；反應改的 DC 算進去（dev/adr/0015 補記）', () => {
     const calls: Array<{ unit: string; other: string }> = []
     const a = world({
       prep: (k) => k.battle.on('check.before', 't', ({ unit, other, opts }) => {
@@ -286,12 +286,60 @@ describe('神經類（一支假的白噪）', () => {
       }),
     })
     const run = cast(a, 'hack.qh_noise', U('f1'))
-    expect(calls).toEqual([{ unit: 'f1', other: 'a1' }])
+    expect(calls).toEqual([{ unit: 'a1', other: 'f1' }])
     const roll = rollsOf(run)[0]!
     expect(roll.dc).toBe(13)
     expect(labelOf(roll, '反應')).toBe(1)
-    // 丟程式的人自己不會因為這次檢定觸發 check.before（只有被駭的那一方）
+    // 只發一次（核心 check 發的，hack.check 自己不再發）
     expect(rollsOf(run)).toHaveLength(1)
+  })
+})
+
+describe('hack.check 是核心 check 效果的包裝（dev/adr/0015 補記）', () => {
+  const marked = (o: Rec = {}) => idle({ statuses: [{ id: 'marked', until: { at: 'battle_end' } }], ...o })
+  it('check.before 只發一次（核心 check 發的）：unit 是丟程式的人、other 是被駭的人、DC 已經含精英的加成；別的類不加精英的 2', () => {
+    const calls: Array<{ unit: string; other: string; dc: number; tags: string[] }> = []
+    const a = world({
+      allies: [hacker(ALL_SLOTS, { ...RICH, ext: { deck: deckOf(ALL_SLOTS), abilities: { equipped: [], tiers: { netrunner: 3 } } } }), one({}, 2)],
+      foes: [marked({ rank: 'elite', ext: { deck: deckOf([], { firewall: 14 }) } })],
+      prep: (k) => k.battle.on('check.before', 't', ({ unit, other, opts, tags }) => void calls.push({ unit: unit.id, other: other.id, dc: opts.dc, tags })),
+    })
+    a.battle.units.f1!.rank = 'elite'
+    const run = cast(a, 'hack.qh_puppet', U('f1'))
+    expect(calls).toEqual([{ unit: 'a1', other: 'f1', dc: 16, tags: ['hack', 'quickhack', 'hack:control'] }])
+    expect(rollsOf(run)[0]!.dc).toBe(16)
+    // 別的類不加精英的 2
+    calls.length = 0
+    cast(a, 'hack.qh_noise', U('f1'))
+    expect(calls.map((c) => c.dc)).toEqual([14])
+  })
+
+  it('掛著的東西（它的迴避）與控制節點（它自己的 ext.firewall）：照擲、不發 check.before；對自己、對一格不必檢定', () => {
+    const calls: string[] = []
+    const NODES = { nodes: [{ kind: 'light', name: '電閘' }] }
+    const a = world({ features: [combatFeature, summonsFeature, hackFeature], more: NODES, prep: (k) => k.battle.on('check.before', 't', () => void calls.push('x')) })
+    myTurn(a)
+    const o = overlay(a, { evade: 9 })
+    expect(rollsOf(cast(a, 'hack.qh_take', { overlay: o.id }))[0]!.dc).toBe(9)
+    a.battle.nodes[0]!.ext = { firewall: 17 }
+    expect(rollsOf(cast(a, 'hack.qh_node', { node: 'n1' }))[0]!.dc).toBe(17)
+    expect(calls).toEqual([])
+    // 沒有對象：效果自己做 ok、不擲
+    const run = a.run(dice(15))
+    const last = run.effects([{ op: 'hack.check', class: 'neural' }], { user: a.ally(1), target: U('a1'), source: { kind: 'hack', id: 'x', name: 'x' } })
+    expect(last.ok).toBe(true)
+    expect(rollsOf(run)).toEqual([])
+  })
+
+  it('等級加值與程式加值各一行（標籤不變）；沒過時那一句還在、stop 照樣停住後面的效果', () => {
+    const a = world({ foes: [idle()] })
+    const run = a.run(dice(1))
+    const last = run.effects([{ op: 'hack.check', class: 'neural', grade: 4, bonus: '1+1', stop: true }, { op: 'heal', who: 'self', amount: 3 }], { user: a.ally(1), target: U('f1'), source: { kind: 'hack', id: 'qh_noise', name: '白噪' } })
+    const roll = rollsOf(run)[0]!
+    expect(labelOf(roll, '等級加值')).toBe(2)
+    expect(labelOf(roll, '程式加值')).toBe(2)
+    expect(last).toMatchObject({ ok: false, stop: true })
+    expect(run.beats.some((b) => b.text.includes('白噪沒有效果'))).toBe(true)
   })
 })
 
@@ -544,7 +592,7 @@ describe('hack.takeover：接管與改寫', () => {
     expect(o.owner).toBeUndefined()
     expect((o.ext as Rec).hack).toEqual({})
   })
-  it('接管來的東西在我方手上做得了動作：用它的武器打敵人（指揮它要 drone.act，見下面的待辦）', () => {
+  it('接管來的東西在我方手上做得了動作：用它的武器打敵人（技能指揮它用 drone.act，見下一條）', () => {
     const { a, o } = setup()
     cast(a, 'hack.qh_take', { overlay: o.id })
     const before = a.foe(1).hp!.now
@@ -555,7 +603,38 @@ describe('hack.takeover：接管與改寫', () => {
     // 打它的人是我方：它的標籤、站在我方
     expect(run.standIn(o).side).toBe('ally')
   })
-  it.todo('接管來的那一台由做的人花 1 點行動點指揮它打敵人（要 M1b-skill-pilot 的 drone.act；做完之後把這一條換成真的測試）')
+  it('接管來的那一台由做的人花 1 點行動點指揮它打敵人（技能的 drone.act：用它自己的武器、算動過、每回合一次）', () => {
+    const cmd = {
+      id: 'sk_cmd', name: '指揮接管機', path: 'cmd_tree', category: 'meat', tier: 1, layer: 'signature', kind: 'active', cap: 1, xp: 20, cells: 1, text: '指揮一台你的無人機或接管來的機器開火。', net: null, opinion: null,
+      use: { ap: 1 }, meat: { target: 'own_overlay', picks: [{ key: 'at', label: '打誰', kind: 'foe', required: true }], do: [{ op: 'drone.act', which: 'target', at: 'pick:at' }] },
+    }
+    const pack: ContentPack = {
+      id: 'hack_cmd_test',
+      content: { path: [{ id: 'cmd_tree', name: '測試路數', tree: '測試樹', category: 'meat', signature: 'sk_cmd', domains: { meat: 'strong', net: 'none', opinion: 'none' }, resonance: [] }], ability: [cmd] },
+    } as unknown as ContentPack
+    const a = world({
+      features: [combatFeature, hackFeature, abilitiesFeature, summonsFeature], packs: [pack], foes: [idle(), idle()],
+      allies: [hacker(ALL_SLOTS, { ext: { deck: deckOf(ALL_SLOTS), abilities: { equipped: ['sk_cmd'], tiers: {} } } }), one({ weapon: 'pistol' }, 2)],
+    })
+    myTurn(a)
+    const o = overlay(a)
+    cast(a, 'hack.qh_take', { overlay: o.id })
+    expect(o).toMatchObject({ side: 'ally', owner: 'a1' })
+    // 接管來的那一台列在技能的目標裡
+    expect(targetsOf(a, 'sk_cmd').map((t) => t.target)).toEqual([{ overlay: o.id }])
+    const ap = a.ally(1).ap.now
+    const hp = a.foe(1).hp!.now
+    const run = cast(a, 'sk_cmd', { overlay: o.id }, { pick: { at: 'f1' } })
+    expect(a.ally(1).ap.now).toBe(ap - 1)
+    expect(a.foe(1).hp!.now).toBeLessThan(hp)
+    expect(o.used).toBe(true)
+    // 用它自己的武器（核心的替身），不是做的人的操縱
+    expect(rollsOf(run)).toHaveLength(1)
+    expect(rollsOf(run)[0]!.skill).not.toBe('piloting')
+    // 每回合一次
+    expect(() => cast(a, 'sk_cmd', { overlay: o.id }, { pick: { at: 'f1' } })).toThrow(BattleBlocked)
+    expect(a.foe(1).hp!.now).toBeLessThan(hp)
+  })
 
   it('我方那一格已經掛著一台時接管不了（灰掉並寫原因）', () => {
     const { a, o } = setup()
@@ -821,9 +900,9 @@ const NET_TREE = {
   id: 'netrunner', name: '潛網者', tree: '主控的樹', category: 'net', signature: 'sk_ctrl', domains: { meat: 'mid', net: 'strong', opinion: 'none' },
   resonance: [
     { tier: 1, cells: 1, text: '介面檢定 +2（快駭與管理行動都用介面）。', effect: { mods: [{ kind: 'save', value: 2, tags: ['hack'] }] } },
-    // 3 階「RAM 上限 +1」、4 階「感載上限 +4」：共鳴的效果格式（initiative、free_move、mods）沒有池與上限的加減，寫不出來，只留文字
-    { tier: 3, cells: 1, text: 'RAM 上限 +1。' },
-    { tier: 4, cells: 1, text: '感載上限 +4。' },
+    // 3 階「RAM 上限 +1」、4 階「感載上限 +4」：共鳴的 effect.pool 與 effect.load_max（M1b-core-fix2）
+    { tier: 3, cells: 1, text: 'RAM 上限 +1。', effect: { pool: { ram: { max: 1 } } } },
+    { tier: 4, cells: 1, text: '感載上限 +4。', effect: { load_max: 4 } },
   ],
 }
 const nab = (id: string, name: string, kind: string, tier: number, meat: Rec | null, more: Rec = {}): Rec => ({
@@ -834,8 +913,8 @@ const WAY = { key: 'way', label: '用法', kind: 'choice', required: true }
 const NET_ABILITIES: Rec[] = [
   nab('sk_ctrl', '主控', 'passive', 1, { tags: ['quickhack'], pool: { ram: { max: 3, regen: 1 } }, mods: [{ kind: 'save', value: { by_tier: [1, 2, 2, 3, 4] }, tags: ['hack'] }] }, { layer: 'signature', after: undefined }),
   nab('sk_ice', '破冰', 'active', 1, { target: 'enemy', do: [CHECK('device'), { op: 'buff', id: 'icebreak', name: '破冰', turns: 1, until: 'source_turn_end', mods: [{ kind: 'firewall', value: -2 }] }] }, { use: { ap: 1, ram: 2 } }),
-  // 樹上是「你或一名隊友被快駭」：trigger.who 一次只能寫 self 或 ally 其中一個，所以這一筆只管隊友（自己被駭的那一半寫不出來）
-  nab('sk_peek', '偷看是不行的喔', 'reaction', 1, { trigger: { on: 'checked', who: 'ally', if: 'hack' }, react: { dc: 2 } }, { use: { ram: 1, per_turn: 1 } }),
+  // 「你或一名隊友被快駭」：trigger.who 的 self_or_ally（M1b-core-fix2）
+  nab('sk_peek', '偷看是不行的喔', 'reaction', 1, { trigger: { on: 'checked', who: 'self_or_ally', if: 'hack' }, react: { dc: 2 } }, { use: { ram: 1, per_turn: 1 } }),
   nab('sk_take', '接管', 'active', 1, { target: 'foe_overlay', picks: [WAY], choose: [{ key: 'take', label: '接管', do: [CHECK('device'), { op: 'hack.takeover', turns: 2 }] }, { key: 'rewrite', label: '改寫敵我名單', do: [CHECK('device'), { op: 'hack.takeover', mode: 'rewrite' }] }] }, { use: { ap: 1, ram: 3 } }),
   nab('sk_loop', '迴圈', 'active', 1, { target: 'enemy', needs: { bridged: true }, do: [CHECK('neural'), { op: 'hack.dot', amount: '1d6+1', turns: 3 }] }, { use: { ap: 1, ram: 3 }, layer: 'back', after: 'sk_ice' }),
   // 樹上還有「構裝槽 +1」：槽在甲板上（deck.slots），技能格式沒有改甲板的鍵，寫不出來
@@ -843,11 +922,12 @@ const NET_ABILITIES: Rec[] = [
   nab('sk_heat', '過熱', 'active', 2, { target: 'enemy', needs: { bridged: true }, do: [CHECK('neural'), { op: 'load', amount: '2d6', type: 'neural' }, { op: 'implant', mode: 'off', turns: 1 }] }, { use: { ap: 1, ram: 3 }, after: 'sk_loop' }),
   // 樹上還有「快駭追蹤各少 1」：追蹤度是 E9（M2、M3），這一波不做
   nab('sk_silent', '靜默', 'stance', 2, { mods: [{ kind: 'evade', value: 1 }] }, { use: { ap: 1 } }),
-  // 補一級遮蔽要落在「我方一格」、放防爆門要選一格：choose 的每個用法吃同一個目標，所以補在自己那一格；目標要有爆裂物的灰掉原因，needs 沒有這一項，寫不出來
+  // 補一級遮蔽要落在「我方一格」、放防爆門要選一格：choose 的每個用法吃同一個目標，所以補在自己那一格；
+  // 引爆的灰掉原因用 needs.cache_tag（M1b-core-fix2：目標的快取格裡要有爆裂物）
   nab('sk_rewrite', '改寫地形', 'active', 2, {
     target: 'enemy', picks: [WAY],
     choose: [
-      { key: 'boom', label: '引爆爆裂物', do: [CHECK('device'), { op: 'hack.detonate' }] },
+      { key: 'boom', label: '引爆爆裂物', needs: { cache_tag: 'explosive' }, do: [CHECK('device'), { op: 'hack.detonate' }] },
       { key: 'strip', label: '撤掉敵方一格的掩體', when: { node_taken: true }, do: [CHECK('device'), { op: 'cover', levels: -1 }] },
       { key: 'door', label: '放下防爆門', when: { node_taken: 'door' }, do: [{ op: 'cover', levels: 1, who: 'self' }] },
     ],
@@ -879,13 +959,16 @@ const NET_ABILITIES: Rec[] = [
   nab('sk_noleave', '不讓你帶走', 'reaction', 4, { trigger: { on: 'out_before', who: 'ally' }, react: { prevent: { how: ['subdued'] } } }, { use: { ap: 0, ram: 1, per_fight: 1 }, layer: 'back', cap: 2, after: 'sk_mirror' }),
   nab('sk_black', '黑冰', 'active', 5, { target: 'enemy', needs: { bridged: true }, do: [CHECK('neural'), { op: 'load', amount: 'spentd6', type: 'neural' }] }, { use: { ap: 1, ram_all_min: 5, per_fight: 1 }, cap: 3, after: 'sk_puppet' }),
   nab('sk_backup', '備份', 'active', 5, { target: 'none', do: [{ op: 'buff', id: 'backup', name: '備份', turns: 1, until: 'source_turn_start', mods: [{ kind: 'evade', value: 1 }], who: 'allies' }, { op: 'unstatus', kinds: ['debuff', 'mark'], count: 1, who: 'allies' }] }, { use: { ap: 1, ram: 6, per_fight: 1 }, cap: 3, after: 'sk_noleave' }),
-  // 場上要有一台敵方的砲塔或無人機才選得了目標（效果裡的 who 沒有「敵方的每一台」），所以關燈與降遮蔽也要有一台才做得出來
-  nab('sk_admin', '管理員', 'active', 5, { target: 'foe_overlay', when: { node_taken: true }, do: [{ op: 'field', key: 'dark' }, { op: 'cover', levels: -1, who: 'foes' }, { op: 'hack.takeover', until: 'battle_end' }] }, { use: { ap: 1, ram: 6, per_fight: 1 }, cap: 3, after: 'sk_multi' }),
+  // 不用先選一台：關燈與降遮蔽照做，接管落在敵方的每一台（who: foe_overlays，M1b-core-fix2；樹上寫「一台」，場上有幾台就接管幾台——
+  // 我方那一格已經掛著一台的接管不了，所以實際上最多接到空格的數量）
+  nab('sk_admin', '管理員', 'active', 5, { target: 'none', when: { node_taken: true }, do: [{ op: 'field', key: 'dark' }, { op: 'cover', levels: -1, who: 'foes' }, { op: 'hack.takeover', until: 'battle_end', who: 'foe_overlays' }] }, { use: { ap: 1, ram: 6, per_fight: 1 }, cap: 3, after: 'sk_multi' }),
   nab('sk_root', '根權限', 'passive', 5, { mods: [{ kind: 'action_ram', value: -1, tags: ['hack'], per_turn: 1 }] }, { layer: 'back', cap: 6, after: 'sk_admin' }),
 ]
 const NET_PACK: ContentPack = { id: 'net_tree', content: { path: [NET_TREE], ability: NET_ABILITIES } } as unknown as ContentPack
 const NET_FEATURES = [combatFeature, abilitiesFeature, summonsFeature, hackFeature]
 const SLOTS = ['qh_noise', 'qh_mark', 'qh_relay']
+/** 樹階 3 以上的潛網者開打時的 RAM 上限：假潛網者本來 8、主控 +3、共鳴 3 階 +1（effect.pool）。2 階以下是 11。 */
+const RAM3 = 8 + 3 + 1
 
 /** 裝著主控與這幾個技能的潛網者（a1）；甲板 III 級、樹階 tier。 */
 const netrunner = (ids: string[], tier = 3, o: Rec = {}) => hacker(SLOTS, { ext: { deck: deckOf(SLOTS), abilities: { equipped: ['sk_ctrl', ...ids], tiers: { netrunner: tier } } }, ...o })
@@ -928,7 +1011,7 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     cast(a, 'sk_ice', U('f1'))
     expect(a.ally(1).ap.now).toBe(6 - 1 - 1)
     // 破冰自己要 2 點 RAM
-    expect(a.ally(1).pools.ram!.now).toBe(11 - 3 - 2)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 3 - 2)
     expect(mods(a, 'firewall', 'f1')).toEqual([expect.objectContaining({ label: '破冰', value: -2 })])
     // 隊友（a2）丟的快駭也吃到：我方整隊對他的 DC 少 2
     const mate = hacker(SLOTS)
@@ -943,17 +1026,48 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     const dc = (u = 'a2') => rollsOf(cast(a, 'hack.qh_noise', U(u), { user: 'f1' }))[0]!.dc
     const base = a.ally(2).evade
     expect(dc()).toBe(base + 2)
-    expect(a.ally(1).pools.ram!.now).toBe(11 - 1)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 1)
     // 一回合一次
     expect(dc()).toBe(base)
-    expect(a.ally(1).pools.ram!.now).toBe(10)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 1)
     // 沒有裝這個技能：不加
     const b = net([], { foes: [enemy, idle()] })
     expect(rollsOf(cast(b, 'hack.qh_noise', U('a2'), { user: 'f1' }))[0]!.dc).toBe(base)
     // 丟程式的人自己的反應不會被自己的快駭觸發：我方的潛網者對敵人快駭時不會扣自己的 RAM
     const c = net(['sk_peek'])
     cast(c, 'hack.qh_noise', U('f1'))
-    expect(c.ally(1).pools.ram!.now).toBe(11 - 3)
+    expect(c.ally(1).pools.ram!.now).toBe(RAM3 - 3)
+  })
+
+  it('偷看是不行的喔：你自己被快駭也算（trigger.who 的 self_or_ally）；一回合一次，隊友與自己合起來算', () => {
+    const enemy = idle({ tags: ['quickhack'], skills: { interface: 3 }, pools: { ram: { now: 20, max: 20, regen: 2 } }, ap: { now: 9, max: 9, regen: 3 }, ext: { deck: deckOf(['qh_noise'], { grade: 2 }) } })
+    const a = net(['sk_peek'], { foes: [enemy, idle()] })
+    const dc = (u: string) => rollsOf(cast(a, 'hack.qh_noise', U(u), { user: 'f1' }))[0]!.dc
+    // 我（a1）有甲板，防火牆是甲板的 12
+    expect(dc('a1')).toBe(12 + 2)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 1)
+    // 同一回合隊友被駭：已經用過了
+    expect(dc('a2')).toBe(a.ally(2).evade)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 1)
+    // 敵人被我方快駭：不觸發（敵方的人不是我的隊友）
+    const b = net(['sk_peek'])
+    cast(b, 'hack.qh_noise', U('f1'))
+    expect(b.ally(1).pools.ram!.now).toBe(RAM3 - 3)
+  })
+
+  it('共鳴 3 階 RAM 上限 +1（effect.pool）、4 階感載上限 +4（effect.load_max）：照樹階；2 階以下都沒有', () => {
+    const at = (tier: number) => {
+      const a = net([], { tier })
+      return { ram: a.ally(1).pools.ram!.max, now: a.ally(1).pools.ram!.now, load: a.ally(1).load!.max - a.ally(2).load!.max }
+    }
+    expect(at(2)).toEqual({ ram: 11, now: 11, load: 0 })
+    expect(at(3)).toEqual({ ram: 12, now: 12, load: 0 })
+    expect(at(4)).toEqual({ ram: 12, now: 12, load: 4 })
+    expect(at(5)).toEqual({ ram: 12, now: 12, load: 4 })
+    // 沒有甲板：RAM 整個沒有（共鳴的池也一樣被拿掉），感載上限照樣加
+    const c = net([], { tier: 4, me: { ext: { abilities: { equipped: ['sk_ctrl'], tiers: { netrunner: 4 } } } } })
+    expect(c.ally(1).pools.ram).toBeUndefined()
+    expect(c.ally(1).load!.max - c.ally(2).load!.max).toBe(4)
   })
 
   it('接管：選接管（2 回合是我方的）或改寫敵我名單（不接管、它打自己人）；沒選不行', () => {
@@ -964,7 +1078,7 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     expect(opt.options.map((x) => x.value)).toEqual(['take', 'rewrite'])
     cast(a, 'sk_take', { overlay: o.id }, { pick: { way: 'take' } })
     expect(o).toMatchObject({ side: 'ally', owner: 'a1' })
-    expect(a.ally(1).pools.ram!.now).toBe(11 - 3)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 3)
     const b = net(['sk_take'])
     const p = overlay(b)
     cast(b, 'sk_take', { overlay: p.id }, { pick: { way: 'rewrite' } })
@@ -990,7 +1104,7 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
 
   it('頻寬：RAM 上限 +1（pool）', () => {
     const a = net(['sk_band'])
-    expect(a.ally(1).pools.ram!.max).toBe(8 + 3 + 1)
+    expect(a.ally(1).pools.ram!.max).toBe(RAM3 + 1)
   })
 
   it('過熱：神經快駭 2d6 感載，另外他一件義體失效到他下一回合結束', () => {
@@ -998,7 +1112,7 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     cast(a, 'sk_heat', U('f1'), { d: dice(15, 3, 4) })
     expect(a.foe(1).load!.now).toBe(7)
     expect(a.foe(1).statuses.find((s) => s.id === 'off_generic')!.until).toMatchObject({ turns: 1 })
-    expect(a.ally(1).pools.ram!.now).toBe(11 - 3)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 3)
   })
 
   it('靜默：姿態，開著時迴避 +1；開關各花 1 行動點', () => {
@@ -1031,6 +1145,18 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     expect(a.battle.cover.ally[0]!.level).toBe(1)
   })
 
+  it('改寫地形：引爆的用法只對快取格裡有爆裂物的目標（needs.cache_tag）；沒有爆裂物的目標選不了、硬選被擋下；引爆掉之後那個目標也不適用了', () => {
+    const a = net(['sk_rewrite'], { foes: [idle({ quick: [{ item: 'it_nade', qty: 1 }] }), idle({ quick: [{ item: 'it_gel', qty: 2 }] })] })
+    const boom = () => defOf(a, 'sk_rewrite').picks!(a.run(), a.ally(1))[0]!.options.find((x) => x.value === 'boom')!
+    expect(pickApplies(boom(), U('f1'))).toBe(true)
+    // 凝膠不是爆裂物
+    expect(pickApplies(boom(), U('f2'))).toBe(false)
+    expect(() => cast(a, 'sk_rewrite', U('f2'), { pick: { way: 'boom' } })).toThrow(BattleBlocked)
+    cast(a, 'sk_rewrite', U('f1'), { pick: { way: 'boom' }, d: dice(15, 6, 6) })
+    expect(a.foe(1).quick).toEqual([])
+    expect(pickApplies(boom(), U('f1'))).toBe(false)
+  })
+
   it('盯～：神經快駭的檢定 +1（只有神經類）', () => {
     const a = net(['sk_focus'])
     expect(labelOf(rollsOf(cast(a, 'hack.qh_noise', U('f1')))[0]!, '盯～')).toBe(1)
@@ -1041,7 +1167,7 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     const a = net(['sk_backflow'])
     a.ally(1).pools.ram!.now = 2
     a.run().addLoad(a.ally(1), 999, a.foe(1), { exact: true })
-    expect(a.ally(1).pools.ram!.now).toBe(11)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3)
     expect(a.ally(1).statuses.some((s) => s.id === 'lose_turn')).toBe(true)
     a.ally(1).pools.ram!.now = 2
     a.run().addLoad(a.ally(1), 999, a.foe(1), { exact: true })
@@ -1092,10 +1218,10 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     const a = net(['sk_thanks'], { foes: [idle({ load: { now: 20, max: 22 } }), idle({ load: { now: 20, max: 22 } })] })
     cast(a, 'hack.qh_noise', U('f1'))
     expect(a.foe(1).layers).toBe(1)
-    expect(a.ally(1).pools.ram!.now).toBe(11 - 3 + 1)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 3 + 1)
     cast(a, 'hack.qh_noise', U('f2'))
     expect(a.foe(2).layers).toBe(1)
-    expect(a.ally(1).pools.ram!.now).toBe(11 - 3 + 1 - 3)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 3 + 1 - 3)
   })
 
   it('值機：姿態，開著時裝置類快駭的檢定 +2（只有裝置類）', () => {
@@ -1145,7 +1271,7 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     const a = net(['sk_cast'], { tier: 4, foes: three })
     cast(a, 'sk_cast', null)
     expect([a.foe(1).ap.now, a.foe(2).ap.now, a.foe(3).ap.now]).toEqual([2, 3, 2])
-    expect(a.ally(1).pools.ram!.now).toBe(11 - 6)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 6)
     expect(blocksOf(a, 'sk_cast').join()).toContain('這一場已經用過了')
   })
 
@@ -1154,13 +1280,13 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     const run = a.run()
     expect(run.setOut(a.ally(2), 'subdued', a.foe(1))).toBe(false)
     expect(a.ally(2).out).toBeUndefined()
-    expect(a.ally(1).pools.ram!.now).toBe(10)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 1)
     expect(run.setOut(a.ally(2), 'subdued', a.foe(1))).toBe(true)
-    expect(a.ally(1).pools.ram!.now).toBe(10)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 1)
     // 倒下不在它擋的範圍裡
     const b = net(['sk_noleave'], { tier: 4 })
     expect(b.run().setOut(b.ally(2), 'down', b.foe(1))).toBe(true)
-    expect(b.ally(1).pools.ram!.now).toBe(11)
+    expect(b.ally(1).pools.ram!.now).toBe(RAM3)
   })
 
   it('黑冰：手上全部 RAM（至少 5）、每花 1 點 RAM 擲一顆 d6 感載（ram_all_min、spentd6）；每場一次', () => {
@@ -1181,20 +1307,35 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     expect(mods(a, 'evade', 'a1')).toEqual([expect.objectContaining({ value: 1 })])
     expect(mods(a, 'evade', 'a2')).toEqual([expect.objectContaining({ value: 1 })])
     expect(a.ally(2).statuses.map((s) => s.id)).toEqual(['jammed'])
-    expect(a.ally(1).pools.ram!.now).toBe(11 - 6)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 6)
   })
 
-  it('管理員：控制節點在我方手上時，關燈、敵方整排的遮蔽降一級、場上的一台砲塔到戰鬥結束都是我方的；沒有節點灰掉', () => {
+  it('管理員：控制節點在我方手上時，關燈、敵方整排的遮蔽降一級、敵方每一台砲塔或無人機到戰鬥結束都是我方的（who: foe_overlays）；沒有節點灰掉；不必先選一台', () => {
     const a = net(['sk_admin'], { tier: 5, cover: { ally: [0, 0, 0, 0], foe: [1, 1, 0, 0] }, more: { nodes: [{ kind: 'light' }] } })
     const o = overlay(a)
     expect(blocksOf(a, 'sk_admin').join()).toContain('控制節點')
     a.battle.nodes[0]!.taken = true
     expect(blocksOf(a, 'sk_admin')).toEqual([])
-    cast(a, 'sk_admin', { overlay: o.id })
+    cast(a, 'sk_admin', null)
     expect(a.battle.field.dark).toBe(true)
     expect(a.battle.cover.foe.slice(0, 2).map((c) => c.level)).toEqual([0, 0])
     expect(o).toMatchObject({ side: 'ally', owner: 'a1' })
     expect(((o.ext as Rec).hack as { taken: { left: unknown } }).taken.left).toBeNull()
+  })
+
+  it('管理員：場上沒有敵方的東西也用得了（關燈、降遮蔽照做）；有兩台就兩台都接管（我方那一格掛著的接管不了）', () => {
+    const none = net(['sk_admin'], { tier: 5, cover: { ally: [0, 0, 0, 0], foe: [1, 1, 0, 0] }, more: { nodes: [{ kind: 'light' }] } })
+    none.battle.nodes[0]!.taken = true
+    cast(none, 'sk_admin', null)
+    expect(none.battle.field.dark).toBe(true)
+    expect(none.battle.cover.foe.slice(0, 2).map((c) => c.level)).toEqual([0, 0])
+    const two = net(['sk_admin'], { tier: 5, more: { nodes: [{ kind: 'light' }] } })
+    two.battle.nodes[0]!.taken = true
+    const [o1, o2] = [overlay(two, { slot: 1 }), overlay(two, { slot: 2 })]
+    two.run().addOverlay({ side: 'ally', slot: 2, owner: 'a1', kind: 'attack', name: '我的無人機', hp: { now: 10, max: 10 }, armor: 0, evade: 0 })
+    cast(two, 'sk_admin', null)
+    expect(o1).toMatchObject({ side: 'ally', owner: 'a1' })
+    expect(o2.side).toBe('foe')
   })
 
   it('根權限：每回合你的第一個快駭 RAM −1（最低 1；action_ram，per_turn）', () => {
@@ -1202,7 +1343,7 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     // 樹階 5、甲板 III：跑 III 級，白噪 3 點 RAM → 2 點；第二個照原價
     expect(actionCost(a.run(), a.ally(1), defOf(a, 'hack.qh_noise')).ram).toBe(2)
     cast(a, 'hack.qh_noise', U('f1'))
-    expect(a.ally(1).pools.ram!.now).toBe(11 - 2)
+    expect(a.ally(1).pools.ram!.now).toBe(RAM3 - 2)
     expect(actionCost(a.run(), a.ally(1), defOf(a, 'hack.qh_noise')).ram).toBe(3)
     // 支援類本來只花 1 點：最少還是 1
     expect(actionCost(net(['sk_root']).run(), net(['sk_root']).ally(1), defOf(net(['sk_root']), 'hack.qh_mark')).ram).toBe(1)

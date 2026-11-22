@@ -16,9 +16,9 @@ const reacting = new WeakSet<BattleRun>()
 export const inReaction = (run: BattleRun): boolean => reacting.has(run)
 
 interface Event {
-  /** 遇到這件事的人：被打的、過載的、被擲檢定的、要退出的 */
+  /** 遇到這件事的人：被打的、過載的、檢定是對他擲的（拿 DC 的那一方：被快駭、被誘惑的人）、要退出的 */
   subject: BattleUnit
-  /** 對他做這件事的人：攻擊的人、讓他過載的人、擲檢定的人、讓他退出的人 */
+  /** 對他做這件事的人：攻擊的人、讓他過載的人、擲檢定的人（DC 加多少就是讓他更難）、讓他退出的人 */
   by?: BattleUnit
   opts?: AttackOpts
   roll?: { wound: boolean; crit?: boolean }
@@ -53,6 +53,7 @@ function whoMatches(run: BattleRun, holder: BattleUnit, who: string, e: Event, r
     case 'self': return s === holder
     case 'adjacent': return mate && s !== holder && onField(s) && Math.abs(s.slot - holder.slot) === 1
     case 'ally': return mate && s !== holder
+    case 'self_or_ally': return mate
     case 'near': return mate && onField(s) && Math.abs(s.slot - holder.slot) <= 1
     case 'foe_by_self': return !mate && e.by === holder
     // 自己的一台被打（敢打我家孩子？）：被打的是自己的無人機（替身）
@@ -232,7 +233,8 @@ export function registerReactions(k: Kernel): void {
   // 改打掛著的東西（擋槍）的那一擊不發 attack.after：自己的無人機替人挨了一擊，也算「自己的一台被打之後」（敢打我家孩子？）
   k.battle.on('attack.redirected', OWNER, ({ run, attacker, overlay, weapon, opts, result }) => fire(run, 'after', { subject: run.standIn(overlay), by: attacker, opts, result, weapon }))
   k.battle.on('overload', OWNER, ({ run, unit, by }) => fire(run, 'overload', { subject: unit, ...(by ? { by } : {}) }))
-  k.battle.on('check.before', OWNER, ({ run, unit, other, tags, opts }) => fire(run, 'checked', { subject: unit, by: other, tags, check: opts }))
+  // check.before 的 unit 是擲骰的人、other 是檢定對他擲的那個人（dev/adr/0015 補記）：反應的主角是 other，擲骰的 unit 是對他下手的人
+  k.battle.on('check.before', OWNER, ({ run, unit, other, tags, opts }) => fire(run, 'checked', { subject: other, by: unit, tags, check: opts }))
   k.battle.on('out.before', OWNER, ({ run, unit, how, by, out }) => fire(run, 'out_before', { subject: unit, ...(by ? { by } : {}), how, out }))
   // 低於一半生命沒有自己的掛點（流血、燃燒、效果都會扣）：在這幾個地方看一遍
   k.battle.on('action.done', OWNER, ({ run }) => scanHalf(run))

@@ -657,7 +657,8 @@ export class BattleRun implements BattleView {
   /**
    * 一次豁免或戰鬥裡的檢定：1d20 ＋ mod(屬性) ＋ 基本功 ＋ 修正 對 DC。自然 20 一定過、自然 1 一定不過。
    * tags 是這個檢定的標籤（subdue、resist:suppressed、morale、flee、hack……），修正（save）讀得到：只對某一類檢定加值的修正不會影響別的。
-   * other 是「對誰擲的」（被快駭、被誘惑的那一方擲，other 是對他下手的人）：帶了就在擲之前發 check.before 掛點，處理函式可以改這一次的 DC 與加值。
+   * other 是「對誰擲的」（u 擲骰；other 是拿 DC 的那一方：被快駭、被誘惑的人，或是豁免裡下手的人）：帶了就在擲之前發 check.before 掛點
+   * （unit 是 u、other 是 other；other 那一邊的反應在那裡改這一次的 DC 與加值，dev/adr/0015 補記）。
    */
   save(u: BattleUnit, attr: AttrId, skill: SkillId | undefined, dc: number, label: string, extra: RollPart[] = [], tags: string[] = [], other?: BattleUnit): { ok: boolean; roll: CheckRoll } {
     const opts = { dc, bonus: 0 }

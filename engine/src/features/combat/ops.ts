@@ -1,6 +1,6 @@
 // L6 功能 combat：通用的效果（op）。dev/adr/0015 第一節；dev/work/M1b-ops.md。
 // 道具、技能、招牌行動、武器的附帶效果、快駭都只寫 [{ op, ... }]；這裡註冊的是「做一件事」的那一批，每一個 op 不看來源是技能還是道具。
-// 只用核心的基本動作（BattleRun）與公式（amount）；落在掛著的東西（ctx.overlay）上時，只有 strike、damage 有作用，其餘跳過。
+// 只用核心的基本動作（BattleRun）與公式（amount）；落在掛著的東西（ctx.overlay）上時，只有 strike、damage、對防火牆的 check 有作用，其餘跳過。
 // 每個 op 註冊時一起給格式檢查（problems）：欄位的型別、不認得的欄位、公式用 amountProblems；訊息開頭是欄位的名字。
 
 import type { AttackOpts, BattleEffectCtx, BattleRun, BattleUnit, BattleWeapon, DamageType, Kernel, RollPart } from '../../core'
@@ -232,35 +232,62 @@ function unstatusOp(ctx: Ctx, e: Eff): void {
 
 // ---- 檢定 ----
 
+/** vs 可以對的三種防守值（防火牆、迴避、意志）。 */
+const DEFENSES = ['firewall', 'evade', 'will'] as const
+
+/** 一種防守值（check 的 vs）。掛著的東西只有防火牆（等於它的迴避，E5）；沒有對象、這一種算不出來回傳 null（整筆跳過）。 */
+function defenseOf(ctx: Ctx, key: string, unit: BattleUnit | undefined, tags: string[]): number | null {
+  const { run, user } = ctx
+  if (ctx.overlay) return key === 'firewall' ? run.standIn(ctx.overlay).evade : null
+  if (!unit) return null
+  if (key === 'evade') return run.evadeOf(unit, user).total
+  if (key === 'will') return 10 + attrMod(unit.attrs.resolve ?? 10) + (unit.skills.composure ?? 0)
+  // 防火牆（dev/adr/0015 E5）：有甲板（unit.ext.deck，有 grade）用甲板的（沒寫是 10），沒有的用不含遮蔽與狀態的迴避；再加修正 firewall（問的是目標，帶這次檢定的標籤）
+  const deck = unit.ext.deck
+  const hasDeck = isRecord(deck) && typeof deck.grade === 'number' && Number.isFinite(deck.grade)
+  const base = hasDeck ? (typeof deck.firewall === 'number' && Number.isFinite(deck.firewall) ? deck.firewall : 10) : unit.evade
+  return base + run.mods('firewall', unit, user, undefined, tags).reduce((sum, p) => sum + p.value, 0)
+}
+
+/** 加值：一個數字或公式（標成「加值」），或一串 { label, value }（每一項各自標名字，檢定的明細才分得出來源）。 */
+function bonusParts(ctx: Ctx, v: unknown): RollPart[] {
+  if (Array.isArray(v)) return v.map((x) => ({ label: String((x as Eff).label), value: qty(ctx, (x as Eff).value, 0), source: 'skill' }))
+  const bonus = qty(ctx, v, 0)
+  return bonus ? [{ label: '加值', value: bonus, source: 'skill' }] : []
+}
+
+/**
+ * 檢定：做的人（ctx.user）擲 1d20 ＋ mod(attr) ＋ 基本功 ＋ 修正 ＋ 加值，對 DC。對別人擲的檢定（對象不是自己）在擲之前發 check.before
+ * （unit 是擲骰的人、other 是對象；對象那一邊的反應改 DC，dev/adr/0015 補記）。落在掛著的東西上：只有對防火牆的檢定擲（它沒有甲板，防火牆就是它的迴避），其餘跳過。
+ * vs：數字；evade、firewall、will；{ firewall | evade | will: true, elite?, boss? }（對象是精英、首領時 DC 再加 elite、boss：快駭的控制類）；
+ * { base, per_grade?, elite?, boss? }（照場景等級與位階的固定難度）。
+ */
 function checkOp(ctx: Ctx, e: Eff): void {
   const { run, user } = ctx
-  if (ctx.overlay) return
   const unit = ctx.unit
   const vs = e.vs
+  const tags = Array.isArray(e.tags) ? e.tags.map(String) : []
+  const named = typeof vs === 'string' ? vs : isRecord(vs) ? DEFENSES.find((d) => vs[d] === true) : undefined
   let dc: number
-  if (typeof vs === 'number') dc = vs
-  else if (typeof vs === 'string') {
+  if (typeof vs === 'number') {
+    if (ctx.overlay) return
+    dc = vs
+  } else if (named) {
     // 這幾種要看對象：沒有對象（落在一格、沒有目標）就沒有東西可以對，整筆跳過
-    if (!unit) return
-    if (vs === 'evade') dc = run.evadeOf(unit, user).total
-    else if (vs === 'will') dc = 10 + attrMod(unit.attrs.resolve ?? 10) + (unit.skills.composure ?? 0)
-    else {
-      // 防火牆（dev/adr/0015 E5）：有甲板用甲板的，沒有的用不含遮蔽與狀態的迴避；再加修正 firewall
-      const deck = unit.ext.deck
-      const base = isRecord(deck) && typeof deck.firewall === 'number' ? deck.firewall : unit.evade
-      dc = base + run.mods('firewall', unit, user).reduce((s, p) => s + p.value, 0)
-    }
+    const base = defenseOf(ctx, named, unit, tags)
+    if (base === null) return
+    const rank = unit?.rank
+    dc = base + (isRecord(vs) && !ctx.overlay ? (rank === 'elite' ? qty(ctx, vs.elite, 0) : rank === 'boss' ? qty(ctx, vs.boss, 0) : 0) : 0)
   } else if (isRecord(vs)) {
+    if (ctx.overlay) return
     const grade = unit?.grade ?? run.battle.grade
     const rank = unit?.rank
     dc = qty(ctx, vs.base, 0) + qty(ctx, vs.per_grade, 0) * grade + (rank === 'elite' ? qty(ctx, vs.elite, 0) : rank === 'boss' ? qty(ctx, vs.boss, 0) : 0)
   } else return
   const skill = typeof e.skill === 'string' ? e.skill : undefined
   const attr = e.attr as keyof BattleUnit['attrs']
-  const bonus = qty(ctx, e.bonus, 0)
-  const extra: RollPart[] = bonus ? [{ label: '加值', value: bonus, source: 'skill' }] : []
   const label = typeof e.label === 'string' ? e.label : skill ? run.k.stats.skillName(skill) : run.k.stats.attrName(attr)
-  const { ok } = run.save(user, attr, skill, dc, label, extra, Array.isArray(e.tags) ? e.tags.map(String) : [], unit && unit.id !== user.id ? unit : undefined)
+  const { ok } = run.save(user, attr, skill, dc, label, bonusParts(ctx, e.bonus), tags, unit && unit.id !== user.id ? unit : undefined)
   ctx.last.ok = ok
   if (e.stop === true && !ok) ctx.last.stop = true
 }
@@ -443,9 +470,18 @@ const SAVE = shape({ attr: ATTR, skill: S, dc: F, tags: list(S) }, ['attr', 'dc'
 const SINK_SAVE = shape({ attr: ATTR, skill: S, dc: F }, ['attr', 'dc'])
 const VS = (v: unknown): string | null => {
   if (typeof v === 'number') return Number.isFinite(v) ? null : '要是有限的數字'
-  if (typeof v === 'string') return oneOf(['evade', 'firewall', 'will'])(v)
+  if (typeof v === 'string') return oneOf(DEFENSES)(v)
+  if (isRecord(v)) {
+    const named = DEFENSES.filter((d) => v[d] !== undefined)
+    if (named.length > 1) return `${DEFENSES.join('、')} 只能寫一個`
+    if (named.length === 1) {
+      if (v[named[0]!] !== true) return `${named[0]!}：要是 true`
+      return shape({ firewall: B, evade: B, will: B, elite: F, boss: F })(v)
+    }
+  }
   return shape({ base: F, per_grade: F, elite: F, boss: F }, ['base'])(v)
 }
+const BONUS = (v: unknown): string | null => (Array.isArray(v) ? list(shape({ label: S, value: F }, ['label', 'value']))(v) : F(v))
 
 export function registerOps(k: Kernel): void {
   const op = (name: string, fn: (ctx: Ctx, e: Eff) => void, problems: (e: Eff) => string[]): void => k.battle.effect(name, OWNER, fn, { problems })
@@ -485,7 +521,7 @@ export function registerOps(k: Kernel): void {
     if (e.also !== true) return
     run.softCover(target.side, adjacentPick(pick.also, target.slot), String(e.kind), rounds)
   }, schema({ kind: S, rounds: num(1), also: B }, ['kind']))
-  op('check', checkOp, schema({ attr: ATTR, skill: S, vs: VS, bonus: F, tags: list(S), label: S, stop: B }, ['attr', 'vs']))
+  op('check', checkOp, schema({ attr: ATTR, skill: S, vs: VS, bonus: BONUS, tags: list(S), label: S, stop: B }, ['attr', 'vs']))
   op('shift', shiftOp, schema({ dir: oneOf(['push', 'pull']), n: F }, ['dir']))
   op('move', moveOp, schema({ to: oneOf(['pick', 'adjacent']) }, ['to']))
   op('swap', swapOp, schema({ with: S }, ['with']))

@@ -34,21 +34,21 @@ export const USE_KEYS = ['ap', 'ram', 'ram_all_min', 'cash', 'favor', 'per_turn'
 export const FAVORS = ['small', 'mid', 'big'] as const
 export const WHEN_MEAT = ['wield', 'mag_min', 'hull', 'stance', 'slot', 'node_taken', 'wounded'] as const
 export const WHEN_MODS = [...WHEN_MEAT, 'first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_status'] as const
-export const NEEDS_KEYS = ['bridged', 'cyber', 'status', 'no_rank', 'rank', 'wounded', 'afterglow', 'tag', 'any'] as const
+export const NEEDS_KEYS = ['bridged', 'cyber', 'status', 'no_rank', 'rank', 'wounded', 'afterglow', 'tag', 'cache_tag', 'any'] as const
 export const MOD_WHO = ['self', 'adjacent', 'allies', 'behind'] as const
 export const PICK_KINDS = ['foe', 'ally', 'ally_slot', 'foe_slot', 'choice'] as const
 export const PREP_SCOPES = ['next_battle', 'commission'] as const
 
 /** 反應的 who（誰遇到這件事）：照 on 分。 */
 export const TRIGGER_WHO: Record<string, readonly string[]> = {
-  // own_overlay：自己的一台被打；with_own_overlay：被打的人（自己或隊友）那一格掛著自己的一台（reach 放寬到相鄰）
-  attacked: ['self', 'adjacent', 'ally', 'own_overlay', 'with_own_overlay'],
-  hit: ['self', 'adjacent', 'ally', 'own_overlay', 'with_own_overlay', 'foe_by_self'],
-  after: ['self', 'adjacent', 'near', 'ally', 'own_overlay', 'with_own_overlay', 'foe_by_self'],
+  // own_overlay：自己的一台被打；with_own_overlay：被打的人（自己或隊友）那一格掛著自己的一台（reach 放寬到相鄰）；self_or_ally：自己或一名隊友（任何一個我方的人）
+  attacked: ['self', 'adjacent', 'ally', 'self_or_ally', 'own_overlay', 'with_own_overlay'],
+  hit: ['self', 'adjacent', 'ally', 'self_or_ally', 'own_overlay', 'with_own_overlay', 'foe_by_self'],
+  after: ['self', 'adjacent', 'near', 'ally', 'self_or_ally', 'own_overlay', 'with_own_overlay', 'foe_by_self'],
   hp_half: ['self', 'near'],
-  overload: ['self', 'ally', 'foe_by_self'],
-  checked: ['self', 'ally'],
-  out_before: ['self', 'ally'],
+  overload: ['self', 'ally', 'self_or_ally', 'foe_by_self'],
+  checked: ['self', 'ally', 'self_or_ally'],
+  out_before: ['self', 'ally', 'self_or_ally'],
 }
 /** 反應的 if：沒列的 on 不能寫 if（checked 的 if 是檢定的標籤，任何字都行）。 */
 const TRIGGER_IF: Record<string, readonly string[]> = { hit: ['wound', 'crit'], after: ['miss', 'hit', 'crit', 'melee', 'bridged'] }
@@ -158,6 +158,7 @@ export function needsProblems(at: string, n: unknown, inAny = false): string[] {
   }
   if (n.afterglow !== undefined && !(isInt(n.afterglow) && n.afterglow >= 1)) p.push(`${at}.afterglow 要是 1 以上的整數（層數）`)
   if (n.tag !== undefined && !isText(n.tag)) p.push(`${at}.tag 要是標籤`)
+  if (n.cache_tag !== undefined && !isText(n.cache_tag)) p.push(`${at}.cache_tag 要是道具的標籤（目標的快取格裡有帶這個標籤的道具）`)
   return p
 }
 
@@ -283,6 +284,20 @@ function triggerProblems(m: Record<string, unknown>): string[] {
       }
     }
   } else if (m.do === undefined) p.push('meat.trigger 要搭配 react 或 do，不然反應什麼都不做')
+  return p
+}
+
+/** 資源池的加減：{ <池的 id>: { max?, regen? } }（meat.pool 與共鳴的 effect.pool 共用）。 */
+export function poolProblems(at: string, pool: unknown): string[] {
+  if (!isRec(pool) || Object.keys(pool).length === 0) return [`${at} 要是 { <池的 id>: { max?, regen? } }`]
+  const p: string[] = []
+  for (const [id, v] of Object.entries(pool)) {
+    if (!isRec(v)) p.push(`${at}.${id} 要是 { max?, regen? }`)
+    else {
+      p.push(...onlyKeys(`${at}.${id}`, v, ['max', 'regen']))
+      for (const key of ['max', 'regen']) if (v[key] !== undefined && !isInt(v[key])) p.push(`${at}.${id}.${key} 要是整數（加減幾點）`)
+    }
+  }
   return p
 }
 
@@ -419,18 +434,7 @@ export function meatProblems(m: Record<string, unknown>, kind: unknown, k?: Pick
     p.push(...modsProblems('meat.mods', m.mods))
   }
   if (m.tags !== undefined && !(Array.isArray(m.tags) && m.tags.length > 0 && m.tags.every(isText))) p.push('meat.tags 要是標籤的陣列')
-  if (m.pool !== undefined) {
-    if (!isRec(m.pool) || Object.keys(m.pool).length === 0) p.push('meat.pool 要是 { <池的 id>: { max?, regen? } }')
-    else {
-      for (const [id, v] of Object.entries(m.pool)) {
-        if (!isRec(v)) p.push(`meat.pool.${id} 要是 { max?, regen? }`)
-        else {
-          p.push(...onlyKeys(`meat.pool.${id}`, v, ['max', 'regen']))
-          for (const key of ['max', 'regen']) if (v[key] !== undefined && !isInt(v[key])) p.push(`meat.pool.${id}.${key} 要是整數（加減幾點）`)
-        }
-      }
-    }
-  }
+  if (m.pool !== undefined) p.push(...poolProblems('meat.pool', m.pool))
   if (m.ransom !== undefined) {
     if (!isRec(m.ransom)) p.push('meat.ransom 要是 { cash }')
     else {

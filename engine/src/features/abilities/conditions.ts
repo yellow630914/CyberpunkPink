@@ -1,7 +1,7 @@
 // 技能的條件：自己的（when）、目標的（needs）、距離（range）。每一項不成立就是一句完整的灰掉的原因。
 // 只讀戰鬥狀態，不改任何東西。mods 的 when 也用同一組（只看成不成立）。
 
-import type { BattleUnit, BattleView, UnitRank } from '../../core'
+import type { BattleUnit, BattleView, ItemEntry, UnitRank } from '../../core'
 import { coverOf, distance, hasStatus, isExposed, isWounded, statusRuleOf, wielded } from '../../core'
 import type { AbilityEntry, NeedsDef, WhenDef } from './types'
 
@@ -64,6 +64,7 @@ export function needsBlocks(view: BattleView, t: BattleUnit, n: NeedsDef | undef
   if (n.wounded && !isWounded(t)) out.push(`${t.name}要是重傷（生命低於一半）才能用。`)
   if (n.afterglow !== undefined && t.layers < n.afterglow) out.push(`${t.name}要疊著 ${n.afterglow} 層以上的餘韻才能用（現在 ${t.layers} 層）。`)
   if (n.tag !== undefined && !t.tags.includes(n.tag)) out.push(`${t.name}要帶著「${n.tag}」標籤才能用。`)
+  if (n.cache_tag !== undefined && !t.quick.some((q) => q.qty > 0 && view.k.content.get<ItemEntry>('item', q.item)?.tags?.includes(n.cache_tag!))) out.push(`${t.name}的快取格裡要有帶「${n.cache_tag}」標籤的道具才能用。`)
   // any：成立任何一組就算；全都不成立時合成一句（每一組的原因用「，或」接起來）
   if (n.any?.length) {
     const alts = n.any.map((a) => needsBlocks(view, t, a))
