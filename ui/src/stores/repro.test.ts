@@ -1,11 +1,10 @@
 // 白箱測試找到、已經修好的 bug 的重現（dev/bugs/2026-11-21-ui-*.md）。重現資料在 ui/tests/fixtures/repro/。
-// 還沒修的（ui-undo-ledger-steps：要引擎給「併進最新一樓」的提交入口）留在 ui/tests/pending/M0-ui-engine-bugs.test.ts。
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { at, runUiRepro, type UiRepro } from '../../tests/helpers/uiRepro'
 
 const files = import.meta.glob<UiRepro>('../../tests/fixtures/repro/*.json', { eager: true, import: 'default' })
-const fixtures: UiRepro[] = Object.keys(files).sort().map((k) => files[k]!).filter((f) => f.id !== 'ui-undo-ledger-steps')
+const fixtures: UiRepro[] = Object.keys(files).sort().map((k) => files[k]!)
 
 afterEach(() => { delete (globalThis as { localStorage?: unknown }).localStorage })
 

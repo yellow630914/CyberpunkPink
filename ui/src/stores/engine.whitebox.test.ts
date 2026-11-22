@@ -155,7 +155,7 @@ describe('建角（M0-ui-engine 第三、四節；CHARACTER 第 5 節）', () =>
     expect(e.canUndo).toBe(false)
   })
 
-  it('M0-ui-engine 第三節 createCharacter：成功時經過提交點（多一份報告；一起開新局時不留回退）', () => {
+  it('M0-ui-engine 第三節 createCharacter：成功時經過提交點（多一份報告；單獨建角留一步回退，跟開新局一起提交時不留，見 engine.fix.test.ts）', () => {
     const e = useEngine()
     e.newGame({ seed: 7 })
     const n = e.state.reports.length
