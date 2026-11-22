@@ -56,3 +56,5 @@ M1b-core-effects、M1b-core-overlay、M1b-ops、M1b-skill-format。會改 `featu
 ## 完成時回報
 
 改了哪些檔、測試結果、十一個特徵與名冊裡招牌行動的寫法（抽十個）哪些寫得出來、哪些還缺鍵。
+
+- 2026-11-22 補（M1b-ordnance 回報）：`features/enemies` 的 `buildWeapons` 要把 `weapons[].fx` 複製到 `BattleWeapon.ext.fx`，敵人的武器附帶效果才會生效。

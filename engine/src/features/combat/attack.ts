@@ -1,8 +1,10 @@
 // L6 功能 combat：攻擊類的行動（射擊、近戰、換彈、換武器、打遮蔽、監視）。COMBAT_SYSTEM 1.3 節與第 5 節。
 // 只用核心的基本動作與唯讀的 BattleView；不碰 GameState。
 
-import type { BattleActionDef, BattlePick, BattleTarget, BattleUnit, BattleView, BattleWeapon } from '../../core'
+import type { AttackOpts, BattleActionDef, BattlePick, BattleTarget, BattleUnit, BattleView, BattleWeapon } from '../../core'
 import { BattleBlocked, coverAt, coverLevel, distance, otherSide, unitsOf, wielded } from '../../core'
+import { applyFx, fireGate, fxOf } from './fx'
+import type { AmmoItem } from './fx'
 
 const OWNER = 'combat'
 const MODES = ['meat']
@@ -52,9 +54,17 @@ const shoot: BattleActionDef = {
       const why = sweepBlocks(wielded(u))
       if (why.length) throw new BattleBlocked(why)
     }
+    const w = wielded(u)
+    // 卡彈與炸膛（fx.on_use）：這一擊不發生
+    if (w && !fireGate(run, u, w, sweep ? 2 : 1)) return
     if ('overlay' in target) {
       const o = run.battle.overlays.find((x) => x.id === target.overlay)
-      if (o) run.attackOverlay(u, o)
+      if (!o) return
+      // 打掛著的東西不發 attack.before：武器的附帶效果與特殊彈的欄位在這裡直接加進這一擊
+      const opts: AttackOpts = {}
+      const fx = w ? fxOf(run.k, w) : undefined
+      if (fx) applyFx(opts, fx)
+      run.attackOverlay(u, o, opts)
       return
     }
     if (!('unit' in target)) return
@@ -73,6 +83,7 @@ const shoot: BattleActionDef = {
   auto: (run, u, t) => {
     const w = wielded(u)
     if (!w || isMelee(w) || magEmpty(w)) return false
+    if (!fireGate(run, u, w)) return true
     run.attack(u, t, { label: '監視射擊', tags: ['watch'] })
     return true
   },
@@ -90,29 +101,79 @@ const melee: BattleActionDef = {
     hint: { chance: view.hitChance(u, t), distance: distance(u, t) },
   })),
   run: (run, u, target) => {
-    if (target && 'unit' in target) run.attack(u, run.unit(target.unit))
+    if (!target || !('unit' in target)) return
+    const w = wielded(u)
+    if (w && !fireGate(run, u, w)) return
+    run.attack(u, run.unit(target.unit))
   },
   auto: (run, u, t) => {
-    if (!isMelee(wielded(u)) || distance(u, t) !== 1) return false
+    const w = wielded(u)
+    if (!isMelee(w) || distance(u, t) !== 1) return false
+    if (w && !fireGate(run, u, w)) return true
     run.attack(u, t, { label: '監視攻擊', tags: ['watch'] })
     return true
   },
   aiScore: attackScore,
 }
 
+/** 快取格裡裝得進這把武器的特殊彈（物品有 ammo 欄位、fits 包含這把的類型、數量大於 0）。 */
+function fittingAmmo(view: Pick<BattleView, 'k'>, u: BattleUnit, w: BattleWeapon): Array<{ id: string; qty: number; item: AmmoItem }> {
+  const out = []
+  for (const q of u.quick) {
+    if (q.qty <= 0) continue
+    const item = view.k.content.get<AmmoItem>('item', q.item)
+    if (item?.ammo?.fits.includes(w.class)) out.push({ id: q.item, qty: q.qty, item })
+  }
+  return out
+}
+
 const reload: BattleActionDef = {
-  id: 'reload', owner: OWNER, name: '換彈', desc: '把手上這把武器的彈匣補滿。',
+  id: 'reload', owner: OWNER, name: '換彈', desc: '把手上這把武器的彈匣補滿；可以選快取格裡的一匣特殊彈，沒選就裝普通彈。',
   group: 'supply', icon: 'reload', order: 1, target: 'none', modes: MODES,
   cost: () => ({ ap: 1 }),
-  blocks: (_v, u) => {
+  blocks: (view, u) => {
     const w = wielded(u)
-    return !w?.mag ? ['這把武器不用換彈。'] : w.mag.now >= w.mag.max ? ['彈匣是滿的。'] : []
+    if (!w?.mag) return ['這把武器不用換彈。']
+    // 彈匣是滿的：裝著特殊彈（可以換回普通彈）或快取格裡有合用的特殊彈（可以換彈種）時還是可以換
+    return w.mag.now >= w.mag.max && !w.ammo && fittingAmmo(view, u, w).length === 0 ? ['彈匣是滿的。'] : []
   },
-  run: (run, u) => {
+  // 裝哪一種彈（pick.ammo）：快取格裡 fits 包含手上這一把的類型的彈才列；可以不選（裝普通彈）
+  picks: (view, u): BattlePick[] => {
+    const w = wielded(u)
+    if (!w?.mag) return []
+    const list = fittingAmmo(view, u, w)
+    if (!list.length) return []
+    return [{
+      key: 'ammo', label: '裝哪一種彈', kind: 'choice', required: false,
+      options: list.map((x) => ({
+        value: x.id, label: `${x.item.name} ×${x.qty}`,
+        blocks: w.ammo === x.id && w.mag!.now >= w.mag!.max ? ['彈匣裡已經是這種彈，而且是滿的。'] : [],
+        hint: { qty: x.qty },
+      })),
+    }]
+  },
+  run: (run, u, _t, input) => {
     const w = wielded(u)
     if (!w?.mag) return
+    const want = input.pick?.ammo
+    if (want === undefined) {
+      if (w.mag.now >= w.mag.max && !w.ammo) throw new BattleBlocked(['彈匣是滿的。'])
+      // 沒選：裝普通彈，原本裝著的特殊彈剩下的格數作廢
+      w.mag.now = w.mag.max
+      delete w.ammo
+      run.say(`${u.name} 換彈。`, 'reload', { unit: u.id }, u)
+      return
+    }
+    const found = typeof want === 'string' ? fittingAmmo(run, u, w).find((x) => x.id === want) : undefined
+    if (!found) throw new BattleBlocked(['快取格裡沒有裝得進這把武器的這種彈。'])
+    if (w.ammo === found.id && w.mag.now >= w.mag.max) throw new BattleBlocked(['彈匣裡已經是這種彈，而且是滿的。'])
+    // 用掉一件，彈匣裝滿；原本裝著的特殊彈剩下的格數作廢
+    const slot = u.quick.find((q) => q.item === found.id)!
+    slot.qty -= 1
+    if (slot.qty <= 0) u.quick = u.quick.filter((q) => q.qty > 0)
     w.mag.now = w.mag.max
-    run.say(`${u.name} 換彈。`, 'reload', { unit: u.id }, u)
+    w.ammo = found.id
+    run.say(`${u.name} 換彈，裝上${found.item.name}。`, 'reload', { unit: u.id, ammo: found.id }, u)
   },
   aiScore: (_v, u) => {
     const w = wielded(u)

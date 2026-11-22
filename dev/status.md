@@ -103,3 +103,4 @@
 - 2026-11-22 技能介面等引擎給的：橋的物品資料（型號、晶片、調校槽）與新角色的預設橋、夜課與體悟、升基本功的動作（概要分頁還用假 store 的 xp，和引擎的歷練點會不一致）、建角第 8 步的學技能規則還在 ui/src/lib/skills.ts（M4 建角搬進引擎）、委託頁讀假的 g.loadout（M2）。
 - 2026-11-22 掉落還表達不出來的（ENEMIES 第 7、9、15 節）：牌子與材質隨機、零件等級照敵人等級、憑證、撿整件武器護甲、構裝與解剖掉落、機甲殘件；網內的蕾絲與程式該不該掉現金（M3 決定）。
 - 2026-11-22 技術債：features/combat/ops.ts 的 damageOverlay 複製了核心的掛著東西的傷害算法（核心 hpDamage 是私有的）；第二波收尾時核心補 run.damageOverlay(o, raw, type, by, { pierce }) 並改用它。
+- 2026-11-22 第二波收尾的核心小工單（M1b-core-closeout，sonnet）累積：`run.damageOverlay` 公開入口；`attack.before` 可設 `opts.cancel`（卡彈與炸膛移回掛點，技能的 attack 也會卡彈）；redirect 結算後的掛點（立牌保證倒下）；`attackOverlay` 也發 `attack.before`（技能打掛著的東西吃得到彈的 fx）；快感沉溺的定力擋（取代 takeBackSink）。功能層：fx 合併的 `armor_mult` 改相乘；使用道具支援 `target: 'foe'`（紙鶴）、`until: next_overload`；智慧武器失效。

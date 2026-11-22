@@ -4,71 +4,14 @@
 // 每個 op 註冊時一起給格式檢查（problems）：欄位的型別、不認得的欄位、公式用 amountProblems；訊息開頭是欄位的名字。
 
 import type { AttackOpts, BattleEffectCtx, BattleOverlay, BattleRun, BattleUnit, BattleWeapon, DamageType, Kernel, RollPart } from '../../core'
-import { ATTR_IDS, BATTLE_SLOTS, BattleBlocked, DAMAGE_TYPES, STATUS_UNTILS, WOUND_PARTS, amount, amountProblems, attrMod, damageTypeOf, isRecord, onField, statusRuleOf, unitTag, wielded } from '../../core'
+import { BATTLE_SLOTS, BattleBlocked, STATUS_UNTILS, WOUND_PARTS, attrMod, damageTypeOf, isRecord, onField, statusRuleOf, unitTag, wielded } from '../../core'
 import { tagsOf } from './items'
+import { ATTR, B, F, S, STATUS_KINDS, TYPE, UNTIL, adjacentPick, list, num, oneOf, orWord, pair, qty, schema, shape } from './schema'
 import { LIGHT, PART_NAME, TORSO_HP_LOSS, isPart } from './wounds'
 
 const OWNER = 'combat'
 type Eff = Record<string, unknown>
 type Ctx = BattleEffectCtx
-
-// ---- 格式檢查 ----
-
-type Check = (v: unknown) => string | null
-/** 數字或公式 */
-const F: Check = (v) => amountProblems(v)[0] ?? null
-const B: Check = (v) => (typeof v === 'boolean' ? null : '要是 true 或 false')
-const S: Check = (v) => (typeof v === 'string' && v.trim() ? null : '要是字串（不能是空的）')
-const oneOf = (list: readonly string[]): Check => (v) => (typeof v === 'string' && list.includes(v) ? null : `「${String(v)}」不在清單裡（可以寫：${list.join('、')}）`)
-/** 數字或公式，或是這幾個字之一（'all'、'full'） */
-const orWord = (...words: string[]): Check => (v) => (typeof v === 'string' && words.includes(v) ? null : F(v))
-const num = (min?: number): Check => (v) => (typeof v === 'number' && Number.isFinite(v) && (min === undefined || v >= min) ? null : `要是${min === undefined ? '' : ` ${min} 以上的`}數字`)
-const list = (item: Check): Check => (v) => {
-  if (!Array.isArray(v)) return '要是陣列'
-  for (const x of v) {
-    const why = item(x)
-    if (why) return why
-  }
-  return null
-}
-const pair: Check = (v) => (Array.isArray(v) && v.length === 2 && v.every((x) => Number.isInteger(x)) ? null : '要是兩個整數 [a, b]')
-/** 物件：欄位各自檢查，不認得的欄位擋下；required 一定要有 */
-const shape = (spec: Record<string, Check>, required: string[] = []): Check => (v) => {
-  if (!isRecord(v)) return `要是物件（欄位：${Object.keys(spec).join('、')}）`
-  for (const key of Object.keys(v)) {
-    const c = spec[key]
-    if (!c) return `不認得的欄位 ${key}（可以寫：${Object.keys(spec).join('、')}）`
-    const why = c(v[key])
-    if (why) return `${key}：${why}`
-  }
-  for (const key of required) if (v[key] === undefined) return `${key}：一定要寫`
-  return null
-}
-const ATTR: Check = oneOf(ATTR_IDS)
-const TYPE: Check = oneOf(DAMAGE_TYPES)
-const UNTIL: Check = oneOf(STATUS_UNTILS)
-const STATUS_KINDS = ['control', 'debuff', 'buff', 'wound', 'mark'] as const
-
-/** 一個 op 的格式檢查：spec 是欄位的檢查，required 一定要寫，anyOf 每一組至少寫一個。op、who、if 由核心查。 */
-function schema(spec: Record<string, Check>, required: string[] = [], anyOf: string[][] = []): (e: Eff) => string[] {
-  return (e) => {
-    const out: string[] = []
-    for (const key of Object.keys(e)) {
-      if (key === 'op' || key === 'who' || key === 'if') continue
-      const check = spec[key]
-      if (!check) {
-        out.push(`不認得的欄位 ${key}（可以寫：${Object.keys(spec).join('、')}）`)
-        continue
-      }
-      if (e[key] === undefined) continue
-      const why = check(e[key])
-      if (why) out.push(`${key}：${why}`)
-    }
-    for (const key of required) if (e[key] === undefined) out.push(`${key}：一定要寫`)
-    for (const group of anyOf) if (group.every((key) => e[key] === undefined)) out.push(`${group.join('、')}：至少要寫一個`)
-    return out
-  }
-}
 
 // ---- 共用的小工具 ----
 
@@ -78,19 +21,6 @@ function who(ctx: Ctx): BattleUnit | undefined {
   return u && !ctx.run.isStandIn(u) ? u : undefined
 }
 
-/**
- * 數量：數字照原樣，字串照公式（可以多帶一個 spent）。沒寫用預設。寫壞的（公式不合格、不是有限的數字）當預設：
- * 載入時 problems 已經擋過；這裡是舊的道具效果一向的寬容（壞掉的數量當 0），執行時不丟錯。
- */
-function qty(ctx: Pick<Ctx, 'run' | 'user' | 'n'>, v: unknown, fallback: number): number {
-  if (v === undefined) return fallback
-  try {
-    const n = Math.round(amount(ctx, v as number | string))
-    return Number.isFinite(n) ? n : fallback
-  } catch {
-    return fallback
-  }
-}
 
 /** 回復類的效果帶給 run.heal、run.vent 的標籤：道具照舊（['item', …物品的標籤]）、技能是 ['skill']，其餘是來源的種類。 */
 function healTags(ctx: Ctx): string[] {
@@ -567,10 +497,14 @@ export function registerOps(k: Kernel): void {
     if (typeof e.by === 'string') run.cleanse(unit, e.by)
     else if (typeof e.status === 'string') run.removeStatus(unit, e.status)
   }, schema({ by: S, status: S }, [], [['by', 'status']]))
-  op('soft_cover', ({ run, target }, e) => {
+  // also: true：目標那一格之外，再加玩家選的相鄰一格（pick.also；煙霧彈 III 級的兩格）。目標在邊上又沒選時，只有一個相鄰的格就用它
+  op('soft_cover', ({ run, target, pick }, e) => {
     if (!target || !('slot' in target)) return
-    run.softCover(target.side, target.slot, String(e.kind), typeof e.rounds === 'number' ? e.rounds : undefined)
-  }, schema({ kind: S, rounds: num(1) }, ['kind']))
+    const rounds = typeof e.rounds === 'number' ? e.rounds : undefined
+    run.softCover(target.side, target.slot, String(e.kind), rounds)
+    if (e.also !== true) return
+    run.softCover(target.side, adjacentPick(pick.also, target.slot), String(e.kind), rounds)
+  }, schema({ kind: S, rounds: num(1), also: B }, ['kind']))
   op('check', checkOp, schema({ attr: ATTR, skill: S, vs: VS, bonus: F, tags: list(S), label: S, stop: B }, ['attr', 'vs']))
   op('shift', shiftOp, schema({ dir: oneOf(['push', 'pull']), n: F }, ['dir']))
   op('move', moveOp, schema({ to: oneOf(['pick', 'adjacent']) }, ['to']))
