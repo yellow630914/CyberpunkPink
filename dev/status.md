@@ -114,3 +114,4 @@
 - 2026-11-22 敵人招牌（M1b-enemy-moves）留下的：特徵缺鍵（不吃壓制、第一回合不先動、戰後倒地、撤退必定成功、特徵給 sink）；招牌缺「叫別的單位各攻擊一次」與耐久補滿；近戰招牌要寫 do:[attack]（名冊匯入時注意）。待修：hack 的 treeTier 對敵人退回單位等級（敵方潛網者）；基準遭遇現在靠 id 前綴 enc_base_ 不擲特徵，改成 encounters.json 寫 traits:false（機制欄位）後拿掉前綴規則。
 - 2026-11-22 敵方單位放不進的（ENEMIES 第 10 節）：不戰鬥的 overlay（收租無人機）、佔格單位的「不移動」旗標（展示間蜘蛛砲台）、機械獵犬詞條（匯入時寫 attached）、無人攝影機的被直播效果。
 - 2026-11-22 改造師（M1b-skill-medic）留下的核心缺口：performAction 發 action.done 時沒傳 run，行動的 costTags 不在 tags 裡（abilities/mods.ts 有繞道）；until own_turn_end 對自己用會在同一回合結束就數一次（abilities 用 branch.self 繞）；公式缺「上限的一半」（全面翻修）。功能層：拆解對無人機、義眼超頻（boost_eye）、「相鄰、不含自己」的目標、SOURCES.battle_status 補 rooted 出處。
+- 2026-11-22 技能效果盤點 artifact：https://claude.ai/artifact/2JCokMDuMapwcEskFvVAww（資料 dev/reports/skill-effects.json）。
