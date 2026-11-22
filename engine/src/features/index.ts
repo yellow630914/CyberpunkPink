@@ -7,6 +7,7 @@
 // 順序就是安裝的順序：被別人的掛鉤依賴的排前面。
 
 import type { Feature } from '../core/kernel'
+import { abilitiesFeature } from './abilities'
 import { actionsFeature } from './actions'
 import { characterFeature } from './character'
 import { combatFeature } from './combat'
@@ -18,7 +19,7 @@ import { exploreFeature } from './explore'
 import { perksFeature } from './perks'
 import { summonsFeature } from './summons'
 
-export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [combatFeature.id]: combatFeature, [gearFeature.id]: gearFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature, [exploreFeature.id]: exploreFeature, [summonsFeature.id]: summonsFeature }
+export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [combatFeature.id]: combatFeature, [gearFeature.id]: gearFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature, [exploreFeature.id]: exploreFeature, [summonsFeature.id]: summonsFeature, [abilitiesFeature.id]: abilitiesFeature }
 
 export function allFeatures(): Feature[] {
   return Object.values(FEATURES)

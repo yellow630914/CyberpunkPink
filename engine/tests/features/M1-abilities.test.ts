@@ -120,7 +120,8 @@ describe('戰鬥裡的技能（SKILL_TREES 槍手、掮客 1～2 階）', () => 
   })
 
   it('連射：花掉彈匣裡剩下的全部（至少 2 格），傷害骰多「格數 − 1」顆；不管有沒有打中，目標過定力（DC 10 ＋ 格數 × 2），失敗被壓制', () => {
-    const g = game([unit(['sk_gunner_burst'], { weapon: 'rifle' })], [foe('boss', { skills: { composure: -40 } })])
+    // 種子 8：種子 7 的定力擲到自然 20（一定過，CORE_RULES 第 3 節）
+    const g = game([unit(['sk_gunner_burst'], { weapon: 'rifle' })], [foe('boss', { skills: { composure: -40 } })], {}, 8)
     turnTo(g, 'a1')
     const r = g.battleAct({ action: 'sk_gunner_burst', target: { unit: 'f1' } })
     expect(r.status).toBe('applied')
