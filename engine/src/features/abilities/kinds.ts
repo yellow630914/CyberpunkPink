@@ -131,6 +131,15 @@ export function checkAbilities(k: Pick<Kernel, 'content' | 'battle'>): void {
     else if (sig.path !== path.id) problems.push(`${path.id}：招牌技能 ${path.signature} 不在這棵樹（它屬於 ${sig.path}）`)
   }
 
+  // 現實裡沒有效果的樹（媒體型：主播、偶像；SKILLS 1.6 節「無：不生效，裝著也一樣」）：共鳴也不能有現實的效果，不然會變成戰鬥裡的修正與池
+  for (const path of paths.values()) {
+    if (path.domains.meat !== 'none') continue
+    path.resonance.forEach((r, i) => {
+      const keys = Object.keys(r.effect ?? {}).filter((key) => key !== 'pending')
+      if (keys.length) problems.push(`${path.id}：${path.tree}在現實沒有效果（domains.meat 是 none），resonance[${i}].effect 不能有 ${keys.join('、')}（現實的共鳴效果）`)
+    })
+  }
+
   for (const a of abilities.values()) {
     // 敵人的招牌行動沒有樹：只查花費的引用與 alter
     const path = a.enemy === true ? undefined : paths.get(a.path)

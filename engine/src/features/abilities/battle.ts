@@ -17,7 +17,8 @@ import { ransomChanges, registerRansom } from './ransom'
 import { startPrep, bringPrep } from './prep'
 import { suppressAfter } from './suppress'
 import { bumpUses, costOf, setupResources, spentRam, usageBlocks, useOf } from './use'
-import type { AbilityEntry, AbilityState, MeatDef, PathEntry, UnitAbilities } from './types'
+import { teaseEntry } from './social'
+import type { AbilityEntry, AbilityState, MeatDef, PathEntry, PickDecl, UnitAbilities } from './types'
 import { OWNER } from './types'
 import { equippedOf, hasAbility, isRec, tierIn, unitAbilities } from './unitdata'
 
@@ -199,13 +200,15 @@ const iconOf = (m: MeatDef): string => (m.attack?.spend === 'all' ? 'burst' : m.
  * 宣告的 pick 的選項：場上的人或格子。技能的目標是人的時候，選的人不能就是目標自己（「另一個敵人」「和誰對調」）：
  * 每個選項只對「不是它自己」的目標適用（for），宣告與行動才對得上。
  */
-function declaredOptions(view: BattleView, u: BattleUnit, kind: 'foe' | 'ally' | 'ally_slot' | 'foe_slot', adjacent = false, targets: BattleUnit[] = []): BattlePickOption[] {
+function declaredOptions(view: BattleView, u: BattleUnit, kind: 'foe' | 'ally' | 'ally_slot' | 'foe_slot', adjacent = false, targets: BattleUnit[] = [], decl?: Pick<PickDecl, 'needs' | 'range'>): BattlePickOption[] {
   const b = view.battle
   const apart = (t: BattleUnit): Pick<BattlePickOption, 'for'> => (targets.length ? { for: targets.filter((x) => x.id !== t.id).map((x): BattleTarget => ({ unit: x.id })) } : {})
-  if (kind === 'foe') return unitsOf(b, otherSide(u.side)).map((t) => ({ value: t.id, label: t.name, blocks: [], at: { unit: t.id } as BattleTarget, ...apart(t) }))
+  // 宣告裡的條件（needs、range）：不符合的選項灰掉，寫出原因（傾城的第二個目標：有橋、距離 2 以內）
+  const declared = (t: BattleUnit): string[] => [...needsBlocks(view, t, decl?.needs), ...(rangeBlock(u, t.slot, decl?.range) ? [rangeBlock(u, t.slot, decl?.range)!] : [])]
+  if (kind === 'foe') return unitsOf(b, otherSide(u.side)).map((t) => ({ value: t.id, label: t.name, blocks: declared(t), at: { unit: t.id } as BattleTarget, ...apart(t) }))
   if (kind === 'ally') {
     return unitsOf(b, u.side).filter((t) => t.id !== u.id).map((t) => ({
-      value: t.id, label: t.name, blocks: adjacent && !adjacentTo(u, t) ? [`${t.name}不在相鄰的格子，只能選和自己相鄰的隊友。`] : [], at: { unit: t.id } as BattleTarget, ...apart(t),
+      value: t.id, label: t.name, blocks: [...(adjacent && !adjacentTo(u, t) ? [`${t.name}不在相鄰的格子，只能選和自己相鄰的隊友。`] : []), ...declared(t)], at: { unit: t.id } as BattleTarget, ...apart(t),
     }))
   }
   const side = kind === 'ally_slot' ? u.side : otherSide(u.side)
@@ -265,7 +268,7 @@ function picksOf(view: BattleView, u: BattleUnit, ab: AbilityEntry, m: MeatDef):
   for (const d of m.picks ?? []) {
     if (d.kind === 'choice') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: chooseOptions(view, u, m) })
     else if (d.kind === 'drone') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: droneOptions(u) })
-    else out.push({ key: d.key, label: d.label, kind: d.kind, required: d.required ?? true, options: declaredOptions(view, u, d.kind, d.adjacent === true, d.apart ? pickTargets(view, u, m, d.kind) : []) })
+    else out.push({ key: d.key, label: d.label, kind: d.kind, required: d.required ?? true, options: declaredOptions(view, u, d.kind, d.adjacent === true, d.apart ? pickTargets(view, u, m, d.kind) : [], d) })
   }
   if (m.choose?.length && !m.picks?.some((p) => p.kind === 'choice')) out.push({ key: 'choice', label: '用法', kind: 'choice', required: true, options: chooseOptions(view, u, m) })
   for (const other of equippedOf(view, u)) {
@@ -279,7 +282,7 @@ function picksOf(view: BattleView, u: BattleUnit, ab: AbilityEntry, m: MeatDef):
 /** 做的時候照宣告查：一定要選的有沒有選、選的在不在選項裡、選的用法條件成不成立。 */
 function checkPicks(run: BattleRun, u: BattleUnit, m: MeatDef, input: BattleInput, target: BattleUnit | undefined): void {
   for (const d of m.picks ?? []) {
-    const options = d.kind === 'choice' ? chooseOptions(run, u, m) : d.kind === 'drone' ? droneOptions(u) : declaredOptions(run, u, d.kind, d.adjacent === true)
+    const options = d.kind === 'choice' ? chooseOptions(run, u, m) : d.kind === 'drone' ? droneOptions(u) : declaredOptions(run, u, d.kind, d.adjacent === true, [], d)
     const v = input.pick?.[d.key]
     if (d.apart && v !== undefined && target && v === target.id && pickTargets(run, u, m, d.kind).length) throw new BattleBlocked([`${d.label}不能選${target.name}（和目標是同一個人）。`])
     if (v === undefined) {
@@ -502,12 +505,20 @@ function callAction(ab: AbilityEntry, order: number): BattleActionDef {
   }
 }
 
+/** 誘惑攻擊的行動：主動技能照自己的名字與消耗；被動（入戲）是另一個行動「誘惑攻擊」，id 加 .tease，消耗固定 2 點、每回合 1 次、同一組。 */
+function teaseAction(ab: AbilityEntry, order: number): BattleActionDef {
+  const def = skillAction(teaseEntry(ab), order)
+  return ab.kind === 'passive' ? { ...def, id: `${ab.id}.tease` } : def
+}
+
 /** 內容載入之後：照內容註冊行動。 */
 export function registerActions(k: Kernel): void {
   k.content.list<AbilityEntry>('ability').forEach((ab, order) => {
     const m = ab.meat
     if (!m || m.pending) return
-    if (ab.kind === 'active' && (m.target || m.do || m.choose)) k.battle.action(skillAction(ab, order))
+    // 誘惑攻擊：主動技能的行動就是一次誘惑攻擊；被動（入戲）多一個基本的誘惑攻擊行動（social.ts 把它們改寫成一般的技能行動）
+    if (m.tease) k.battle.action(teaseAction(ab, order))
+    else if (ab.kind === 'active' && (m.target || m.do || m.choose)) k.battle.action(skillAction(ab, order))
     if (ab.kind === 'stance') k.battle.action(stanceAction(ab, order))
     if (m.give_ap) k.battle.action(giveApAction(ab, order))
     if (m.call) k.battle.action(callAction(ab, order))
@@ -521,6 +532,11 @@ export function registerActions(k: Kernel): void {
 function bumpPool(unit: BattleUnit, id: string, d: { max?: number; regen?: number }): void {
   const max = d.max ?? 0
   const regen = d.regen ?? 0
+  // 感載（load）不是資源池：它的上限是單位自己的 load.max。池名寫 load 就是加減感載上限（有橋的人才有；現在的感載不動；這才是真的我）
+  if (id === 'load') {
+    if (unit.load && max) unit.load.max = Math.max(1, unit.load.max + max)
+    return
+  }
   const pool = unit.pools[id]
   if (pool) {
     pool.max = Math.max(0, pool.max + max)

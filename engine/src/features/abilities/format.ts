@@ -24,6 +24,7 @@ export const UNIT_TARGETS: readonly string[] = ['enemy', 'ally', 'ally_or_self',
 export const MEAT_KEYS = [
   'target', 'attack', 'apply', 'free_move', 'cost', 'weapon_cost', 'trigger', 'evade', 'on_hit', 'give_ap', 'call', 'instinct', 'pending',
   'needs', 'when', 'range', 'picks', 'do', 'choose', 'mods', 'react', 'do_on', 'do_off', 'tags', 'action_tags', 'pool', 'alter', 'ransom', 'on_start', 'on_give_ap',
+  'mask', 'tease',
 ] as const
 export const CALL_OPTIONS = ['shot', 'cover_up', 'cover_down', 'heal', 'vent'] as const
 /** 叫人的選項裡要自己寫數字的（call.heal、call.vent） */
@@ -33,7 +34,7 @@ const LEGACY_TRIGGERS = ['ally_attacked', 'ally_attacked_adjacent'] as const
 export const USE_KEYS = ['ap', 'ram', 'ram_all_min', 'cash', 'favor', 'per_turn', 'per_fight', 'per_commission', 'first_round', 'not_first_round', 'group', 'slot', 'note'] as const
 export const FAVORS = ['small', 'mid', 'big'] as const
 export const WHEN_MEAT = ['wield', 'mag_min', 'hull', 'stance', 'slot', 'node_taken', 'wounded'] as const
-export const WHEN_MODS = [...WHEN_MEAT, 'first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_status', 'other_contract', 'target_near'] as const
+export const WHEN_MODS = [...WHEN_MEAT, 'first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_status', 'other_contract', 'target_near', 'first_attack'] as const
 export const NEEDS_KEYS = ['bridged', 'cyber', 'status', 'no_rank', 'rank', 'wounded', 'afterglow', 'tag', 'cache_tag', 'implant_off', 'any'] as const
 export const MOD_WHO = ['self', 'adjacent', 'allies', 'behind'] as const
 export const PICK_KINDS = ['foe', 'ally', 'ally_slot', 'foe_slot', 'choice', 'drone'] as const
@@ -55,12 +56,12 @@ const TRIGGER_IF: Record<string, readonly string[]> = { hit: ['wound', 'crit'], 
 /** react 可以做的：照 on 分。 */
 export const REACT_BY_ON: Record<string, readonly string[]> = {
   attacked: ['evade', 'hit', 'redirect', 'reach', 'no_wound'],
-  hit: ['negate', 'no_wound', 'pierce'],
+  hit: ['negate', 'no_wound', 'pierce', 'then_move'],
   overload: ['keep_turn'],
   checked: ['dc'],
   out_before: ['prevent'],
 }
-const REACT_KEYS = ['evade', 'hit', 'redirect', 'reach', 'no_wound', 'negate', 'keep_turn', 'dc', 'prevent', 'pierce'] as const
+const REACT_KEYS = ['evade', 'hit', 'redirect', 'reach', 'no_wound', 'negate', 'keep_turn', 'dc', 'prevent', 'pierce', 'then_move'] as const
 
 // ---- 公式 ----
 
@@ -133,7 +134,7 @@ export function whenProblems(at: string, w: unknown, allowed: readonly string[])
   if (w.stance !== undefined && !isText(w.stance)) p.push(`${at}.stance 要是姿態技能的 id`)
   if (w.slot !== undefined && !((isInt(w.slot) && w.slot >= 1 && w.slot <= 4) || (Array.isArray(w.slot) && w.slot.length > 0 && w.slot.every((x) => isInt(x) && x >= 1 && x <= 4)))) p.push(`${at}.slot 要是 1～4 的整數（或整數的陣列）`)
   if (w.node_taken !== undefined && !(w.node_taken === true || isText(w.node_taken))) p.push(`${at}.node_taken 要是 true 或控制節點的種類`)
-  for (const key of ['first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_contract', 'target_near'] as const) {
+  for (const key of ['first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_contract', 'target_near', 'first_attack'] as const) {
     if (w[key] !== undefined && w[key] !== true) p.push(`${at}.${key} 只能是 true`)
   }
   if (w.other_status !== undefined && !isText(w.other_status)) p.push(`${at}.other_status 要是狀態的 id`)
@@ -169,7 +170,8 @@ export function modsProblems(at: string, list: unknown): string[] {
   list.forEach((m, i) => {
     const here = `${at}[${i}]`
     if (!isRec(m)) return void p.push(`${here} 要是 { kind, value, ... }`)
-    p.push(...onlyKeys(here, m, ['kind', 'value', 'tags', 'tags_any', 'min', 'who', 'when', 'per_fight', 'per_turn', 'to']))
+    p.push(...onlyKeys(here, m, ['kind', 'value', 'tags', 'tags_any', 'min', 'who', 'when', 'per_fight', 'per_turn', 'to', 'vs_source']))
+    if (m.vs_source !== undefined && m.vs_source !== true) p.push(`${here}.vs_source 只能是 true（只對給這一段修正的人有效，buff 的 mods 用）`)
     if (!(MOD_KINDS as readonly unknown[]).includes(m.kind) && !(FEATURE_MOD_KINDS as readonly unknown[]).includes(m.kind)) p.push(`${here}.kind「${String(m.kind)}」不是修正的種類（可以寫：${[...MOD_KINDS, ...FEATURE_MOD_KINDS].join('、')}）`)
     if (m.to !== undefined) {
       if (m.kind !== 'crit_margin' && m.kind !== 'action_ap') p.push(`${here}.to 只有 crit_margin（改成超過迴避幾以上就算要害）、action_ap（這個行動改成只花幾點）用`)
@@ -182,7 +184,7 @@ export function modsProblems(at: string, list: unknown): string[] {
       if (isRec(v)) {
         p.push(...onlyKeys(`${here}.value`, v, ['by_tier']))
         if (!(Array.isArray(v.by_tier) && v.by_tier.length === 5 && v.by_tier.every(isNum))) p.push(`${here}.value.by_tier 要是五個數字（照樹階 1～5 查表）`)
-      } else if (m.kind === 'damage_roll') p.push(...amountProblems(v).map((x) => `${here}.value：${x}`))
+      } else if (m.kind === 'damage_roll' || m.kind === 'tease_bonus') p.push(...amountProblems(v).map((x) => `${here}.value：${x}`))
       else p.push(...plainFormula(`${here}.value`, v))
     }
     if (m.tags !== undefined && !(Array.isArray(m.tags) && m.tags.length > 0 && m.tags.every(isText))) p.push(`${here}.tags 要是標籤的陣列`)
@@ -271,7 +273,17 @@ function triggerProblems(m: Record<string, unknown>): string[] {
     return p
   }
   if (!isRec(t)) return [`meat.trigger 要是 { on, who, if? }（或舊的字串 ${LEGACY_TRIGGERS.join('、')}）`]
-  const p = onlyKeys('meat.trigger', t, ['on', 'who', 'if'])
+  const p = onlyKeys('meat.trigger', t, ['on', 'who', 'if', 'by'])
+  if (t.by !== undefined) {
+    const b = t.by
+    if (!isRec(b)) p.push('meat.trigger.by 要是 { needs?, range? }（做這件事的人要符合的條件）')
+    else {
+      p.push(...onlyKeys('meat.trigger.by', b, ['needs', 'range']))
+      if (b.needs === undefined && b.range === undefined) p.push('meat.trigger.by 要寫 needs 或 range')
+      if (b.needs !== undefined) p.push(...needsProblems('meat.trigger.by.needs', b.needs))
+      if (b.range !== undefined && !(Array.isArray(b.range) && b.range.length === 2 && isInt(b.range[0]) && isInt(b.range[1]) && b.range[0] >= 1 && b.range[1] >= b.range[0])) p.push('meat.trigger.by.range 要是 [近, 遠]：兩個整數，近是 1 以上、遠不小於近')
+    }
+  }
   const on = t.on
   if (!(TRIGGER_ON as readonly unknown[]).includes(on)) {
     p.push(`meat.trigger.on「${String(on)}」不在清單裡（可以寫：${TRIGGER_ON.join('、')}）`)
@@ -299,7 +311,8 @@ function triggerProblems(m: Record<string, unknown>): string[] {
         if (!(isInt(r.reach) && r.reach >= 0 && r.reach <= 3)) p.push('meat.react.reach 要是 0～3 的整數（擋槍的無人機和被打的人差幾格以內）')
         else if (r.redirect !== 'overlay') p.push("meat.react.reach 要和 redirect: 'overlay' 一起寫")
       }
-      for (const key of ['no_wound', 'negate', 'keep_turn'] as const) if (r[key] !== undefined && r[key] !== true) p.push(`meat.react.${key} 只能是 true`)
+      for (const key of ['no_wound', 'negate', 'keep_turn', 'then_move'] as const) if (r[key] !== undefined && r[key] !== true) p.push(`meat.react.${key} 只能是 true`)
+      if (r.then_move === true && r.negate !== true) p.push('meat.react.then_move 要和 negate 一起寫（這一擊沒有傷害，被打的人才換位）')
       if (r.prevent !== undefined) {
         const pv = r.prevent
         if (!isRec(pv) || !(Array.isArray(pv.how) && pv.how.length > 0 && pv.how.every(isText))) p.push('meat.react.prevent 要是 { how: [退出的方式…] }（down、burnout、subdued……）')
@@ -321,6 +334,28 @@ export function poolProblems(at: string, pool: unknown): string[] {
       for (const key of ['max', 'regen']) if (v[key] !== undefined && !isInt(v[key])) p.push(`${at}.${id}.${key} 要是整數（加減幾點）`)
     }
   }
+  return p
+}
+
+/** 誘惑攻擊的格式（meat.tease 與效果 { op: 'tease' } 共用欄位）：k 沒給就不查 on_ok、on_overload 裡的 op。 */
+export function teaseFieldProblems(at: string, t: Record<string, unknown>, k?: Pick<Kernel, 'battle'>): string[] {
+  const p: string[] = []
+  if (t.hit !== undefined) p.push(...plainFormula(`${at}.hit`, t.hit))
+  if (t.bonus !== undefined) p.push(...amountProblems(t.bonus).map((x) => `${at}.bonus：${x}`))
+  if (t.targets !== undefined && t.targets !== 1 && t.targets !== 2) p.push(`${at}.targets 只能是 1 或 2（傾城對兩個目標各做一次）`)
+  for (const key of ['on_ok', 'on_overload'] as const) if (t[key] !== undefined) p.push(...effectsProblems(k, `${at}.${key}`, t[key]))
+  return p
+}
+
+function teaseProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kernel, 'battle'>): string[] {
+  const t = m.tease
+  if (!isRec(t)) return ['meat.tease 要是 { hit?, bonus?, on_ok?, on_overload?, targets? }（基本的誘惑攻擊寫 {}）']
+  const p = onlyKeys('meat.tease', t, ['hit', 'bonus', 'on_ok', 'on_overload', 'targets'])
+  p.push(...teaseFieldProblems('meat.tease', t, k))
+  if (kind !== 'active' && kind !== 'passive') p.push("meat.tease 只有主動技能（它的行動就是一次誘惑攻擊）與被動（入戲：多一個基本的誘惑攻擊行動）用；反應寫 do: [{ op: 'tease' }]")
+  if (m.do !== undefined || m.choose !== undefined || m.attack !== undefined) p.push('meat.tease 不能和 do、choose、attack 一起寫（誘惑攻擊就是這個行動做的事）')
+  if (m.target !== undefined && m.target !== 'enemy') p.push(`meat.tease 的 target 只能是 enemy（拿到 ${String(m.target)}）`)
+  if (m.picks !== undefined) p.push('meat.tease 不能自己寫 picks（targets: 2 時第二個目標由格式補）')
   return p
 }
 
@@ -393,6 +428,17 @@ export function meatProblems(m: Record<string, unknown>, kind: unknown, k?: Pick
   if (m.instinct !== undefined && m.instinct !== true) p.push('meat.instinct 只能是 true')
   if (m.pending !== undefined && m.pending !== true) p.push('meat.pending 只能是 true')
 
+  // ---- 名媛 ----
+  if (m.mask !== undefined) {
+    if (kind !== 'passive') p.push('meat.mask 只有被動（kind 是 passive）用：裝著就戴著面具；換臉、千面用 buff 的 mask')
+    if (!isRec(m.mask)) p.push('meat.mask 要是 { rounds }')
+    else {
+      p.push(...onlyKeys('meat.mask', m.mask, ['rounds']))
+      if (!(isInt(m.mask.rounds) && m.mask.rounds >= 1)) p.push('meat.mask.rounds 要是 1 以上的整數（到第幾回合為止，含）')
+    }
+  }
+  if (m.tease !== undefined) p.push(...teaseProblems(m, kind, k))
+
   // ---- 通用格式 ----
   if (m.needs !== undefined) {
     p.push(...needsProblems('meat.needs', m.needs))
@@ -412,7 +458,15 @@ export function meatProblems(m: Record<string, unknown>, kind: unknown, k?: Pick
       m.picks.forEach((x, i) => {
         const at = `meat.picks[${i}]`
         if (!isRec(x)) return void p.push(`${at} 要是 { key, label, kind, required }`)
-        p.push(...onlyKeys(at, x, ['key', 'label', 'kind', 'required', 'adjacent', 'apart']))
+        p.push(...onlyKeys(at, x, ['key', 'label', 'kind', 'required', 'adjacent', 'apart', 'needs', 'range']))
+        if (x.needs !== undefined) {
+          if (x.kind !== 'foe' && x.kind !== 'ally') p.push(`${at}.needs 只有 kind 是 foe、ally 的用`)
+          else p.push(...needsProblems(`${at}.needs`, x.needs))
+        }
+        if (x.range !== undefined) {
+          if (x.kind !== 'foe' && x.kind !== 'ally') p.push(`${at}.range 只有 kind 是 foe、ally 的用`)
+          else if (!(Array.isArray(x.range) && x.range.length === 2 && isInt(x.range[0]) && isInt(x.range[1]) && x.range[0] >= 1 && x.range[1] >= x.range[0])) p.push(`${at}.range 要是 [近, 遠]：兩個整數，近是 1 以上、遠不小於近`)
+        }
         if (x.adjacent !== undefined && (x.adjacent !== true || x.kind !== 'ally')) p.push(`${at}.adjacent 只能是 true，而且只有 kind 是 ally 的用`)
         if (x.apart !== undefined && (x.apart !== true || (x.kind !== 'ally' && x.kind !== 'foe'))) p.push(`${at}.apart 只能是 true，而且只有 kind 是 foe、ally 的用`)
         if (!isText(x.key)) p.push(`${at}.key 要是 pick 的鍵（字串）`)

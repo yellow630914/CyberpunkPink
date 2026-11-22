@@ -19,6 +19,8 @@ interface Source {
   holder: BattleUnit
   tier: number
   mods: ModEntry[]
+  /** buff 的給的人（vs_source 的修正認它） */
+  by?: string
 }
 
 function sourcesOf(view: Pick<BattleView, 'k'>, holder: BattleUnit): Source[] {
@@ -39,7 +41,7 @@ function sourcesOf(view: Pick<BattleView, 'k'>, holder: BattleUnit): Source[] {
       })
     }
   }
-  for (const b of unitBuffs(holder)) out.push({ key: `buff:${b.id}`, name: b.name, holder, tier: b.tier, mods: b.mods })
+  for (const b of unitBuffs(holder)) out.push({ key: `buff:${b.id}`, name: b.name, holder, tier: b.tier, mods: b.mods, by: b.by })
   for (const id of broughtPrep(holder)) {
     const ab = view.k.content.get<AbilityEntry>('ability', id)
     const mods = ab?.prep?.meat?.mods
@@ -92,6 +94,7 @@ function applied(view: BattleView, unit: BattleUnit, kind: AnyModKind, tags: rea
         if (entry.tags && !entry.tags.every((t) => tags.includes(t))) return
         if (entry.tags_any && !entry.tags_any.some((t) => tags.includes(t))) return
         if (entry.when && whenBlocks(view, holder, entry.when, other).length) return
+        if (entry.vs_source && !(other && src.by !== undefined && other.id === src.by)) return
         if (entry.per_fight !== undefined && (unit.uses[counterKey(src, index, false)] ?? 0) >= entry.per_fight) return
         if (entry.per_turn !== undefined && (unit.uses[counterKey(src, index, true)] ?? 0) >= entry.per_turn) return
         out.push({ src, index, entry, value: valueOf(view, src, entry, base) })
@@ -145,12 +148,15 @@ function tickBuffs(run: BattleRun, at: 'turn_start' | 'turn_end', of: BattleUnit
 function buffProblems(k: Pick<Kernel, 'battle'>) {
   return (e: Record<string, unknown>): string[] => {
     const p: string[] = []
-    for (const key of Object.keys(e)) if (!['op', 'who', 'if', 'id', 'name', 'turns', 'until', 'mods', 'on_end'].includes(key)) p.push(`不認得的欄位 ${key}（可以寫：id、name、turns、until、mods、on_end）`)
+    for (const key of Object.keys(e)) if (!['op', 'who', 'if', 'id', 'name', 'turns', 'until', 'mods', 'on_end', 'mask'].includes(key)) p.push(`不認得的欄位 ${key}（可以寫：id、name、turns、until、mods、on_end、mask）`)
     if (!isText(e.id)) p.push('id：一定要寫（buff 的名字，同一個 id 再掛一次是重算時間）')
     if (e.name !== undefined && !isText(e.name)) p.push('name：要是給玩家看的名字')
     if (e.turns !== undefined && !(Number.isInteger(e.turns) && (e.turns as number) >= 1)) p.push('turns：要是 1 以上的整數')
     if (e.until !== undefined && !(STATUS_UNTILS as readonly unknown[]).includes(e.until)) p.push(`until：「${String(e.until)}」不在清單裡（可以寫：${STATUS_UNTILS.join('、')}）`)
-    if (e.mods === undefined && e.on_end === undefined) p.push('mods、on_end：至少要寫一個')
+    if (e.mask !== undefined) {
+      if (e.mask !== true && !(isRec(e.mask) && Object.keys(e.mask).every((key) => key === 'rounds') && (e.mask.rounds === undefined || (Number.isInteger(e.mask.rounds) && (e.mask.rounds as number) >= 1)))) p.push('mask：要是 true，或 { rounds }（到第幾回合為止，含；1 以上的整數）。面具：AI 挑目標時不挑戴著的人（入戲）')
+    }
+    if (e.mods === undefined && e.on_end === undefined && e.mask === undefined) p.push('mods、on_end、mask：至少要寫一個')
     if (e.mods !== undefined) p.push(...modsProblems('mods', e.mods))
     if (e.on_end !== undefined) p.push(...k.battle.effectProblems(e.on_end).map((m) => `on_end：${m}`))
     return p
@@ -170,6 +176,7 @@ export function registerBuff(k: Kernel): void {
       of: until.startsWith('source') ? ctx.user.id : unit.id, by: ctx.user.id,
       tier: ctx.n.tier ?? (ab ? tierIn(ctx.user, ab.path) : 1), source: { kind: source.kind, id: source.id, name: source.name },
       mods: structuredClone((e.mods ?? []) as ModEntry[]), on_end: structuredClone((e.on_end ?? []) as Array<Record<string, unknown>>),
+      ...(e.mask === true ? { mask: {} } : isRec(e.mask) ? { mask: structuredClone(e.mask) as { rounds?: number } } : {}),
     }
     setBuffs(unit, [...unitBuffs(unit).filter((b) => b.id !== id), buff])
     ctx.run.say(`${unitTag(unit)}：${buff.name}。`, 'status', { target: unit.id, buff: id, by: ctx.user.id }, ctx.user)
@@ -178,32 +185,14 @@ export function registerBuff(k: Kernel): void {
 
 // ---- 掛上去 ----
 
-/**
- * 問花費（action_ap）時帶的完整標籤，照（人、行動的 id）記下最近一次。核心的 performAction 發 action.done 時只帶 actionTags(unit, def, input)，
- * 沒有給 view，所以行動自己的 costTags（用的是哪一類道具：item:medical）不在 action.done 的 tags 裡；
- * 「每回合第一次」的次數（巡房、名醫）要認得是醫療道具，就靠這裡記下的那一份（performAction 在扣費之前剛問過一次，記的就是這一步的）。
- * 核心把 view 補給 actionTags 之後，這一份就多餘了（合併是聯集，不會出錯）。
- */
-const costTagMemo = new WeakMap<BattleUnit, Map<string, readonly string[]>>()
-function rememberCostTags(unit: BattleUnit, tags: readonly string[]): void {
-  const action = tags[0]
-  if (action === undefined) return
-  let m = costTagMemo.get(unit)
-  if (!m) costTagMemo.set(unit, (m = new Map()))
-  m.set(action, tags)
-}
-
 export function registerMods(k: Kernel): void {
   k.battle.modifier(OWNER, (q: ModQuery): RollPart[] => {
-    if (q.kind === 'action_ap') rememberCostTags(q.unit, q.tags)
     return applied(q.view, q.unit, q.kind, q.tags, q.other, q.base).map((a) => ({ label: a.src.name, value: a.value, source: 'skill' as const })).filter((p) => p.value !== 0)
   })
 
   // 每場、每回合只有前幾次的修正：行動做完時記一次（和定點射的減免同一個做法）。
   // 這時候次數還沒加，照同樣的條件再問一次，拿到的就是剛才算花費時用的那幾筆
-  k.battle.on('action.done', OWNER, ({ run, unit, action, tags: eventTags, base }) => {
-    const remembered = costTagMemo.get(unit)?.get(action)
-    const tags = remembered ? [...new Set([...eventTags, ...remembered])] : eventTags
+  k.battle.on('action.done', OWNER, ({ run, unit, tags, base }) => {
     for (const [kind, baseValue] of [['action_ap', base.ap], ['action_ram', base.ram ?? 0]] as const) {
       if (!baseValue) continue
       for (const a of applied(run, unit, kind, tags, undefined, baseValue)) {

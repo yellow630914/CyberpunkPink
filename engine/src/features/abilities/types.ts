@@ -24,9 +24,10 @@ export const TREE_XP: readonly number[] = [0, 40, 120, 240, 400]
  * call_uses／call_hit 叫人（每場次數加減、支援射擊的命中加減）；
  * aim_all 大於 0 時這個人的每一次射擊都算瞄準過的；no_wound 大於 0 時打在他身上的重創改成一般的命中；
  * damage_roll 造成的傷害多這個公式（可以擲骰：打他打他！的 1d3，在命中確定之後才算一次）；
- * give_ap_cap 指揮每回合能讓的行動點加減。
+ * give_ap_cap 指揮每回合能讓的行動點加減；
+ * tease_hit、tease_bonus 誘惑攻擊的命中與傷害加減（媚態的 1d3、繞指柔、共鳴 5 的 +1；tease_bonus 的公式可以擲骰，在傷害要算的那一刻才問一次）。
  */
-export const FEATURE_MOD_KINDS = ['instinct_points', 'instinct_cap', 'instinct_free', 'call_uses', 'call_hit', 'aim_all', 'no_wound', 'damage_roll', 'give_ap_cap'] as const
+export const FEATURE_MOD_KINDS = ['instinct_points', 'instinct_cap', 'instinct_free', 'call_uses', 'call_hit', 'aim_all', 'no_wound', 'damage_roll', 'give_ap_cap', 'tease_hit', 'tease_bonus'] as const
 export type FeatureModKind = (typeof FEATURE_MOD_KINDS)[number]
 export type AnyModKind = ModKind | FeatureModKind
 
@@ -95,6 +96,8 @@ export interface WhenDef {
   target_near?: true
   /** true：自己是重傷（生命低於一半） */
   wounded?: true
+  /** true：自己這一場還沒發動過攻擊（連射、反應裡的攻擊都算一次；偽裝的「第一次攻擊」） */
+  first_attack?: true
 }
 
 /** 目標的條件（每一項一句灰掉的原因）。 */
@@ -128,6 +131,8 @@ export interface ModEntry {
   when?: WhenDef
   per_fight?: number
   per_turn?: number
+  /** true：問的對手（other）要是給這一段修正的人才算（只有 buff 的 mods 用：不要走嘛的「他攻擊你的命中 −2」，掛在被誘惑的人身上、只對下手的人有效） */
+  vs_source?: true
   /**
    * crit_margin：改成超過迴避幾以上就算要害。
    * action_ap：這個行動改成只花這麼多點（原價比它少就不動）：手術刀的「只花 1 點」、巡房的「不花行動點」（to: 0）
@@ -142,6 +147,8 @@ export interface TriggerDef {
   who: string
   /** attacked 沒有；hit：wound；after：miss、hit、melee、bridged；checked：檢定的標籤 */
   if?: string
+  /** 做這件事的人（攻擊的人、讓他過載的人、擲檢定的人、讓他退出的人）要符合的條件：needs 同技能的 needs，range 是和反應的人的距離（欺負人家要賠喔：有橋、距離 2 以內）。沒帶 by 的事不觸發 */
+  by?: { needs?: NeedsDef; range?: [number, number] }
 }
 
 /** 反應能改的東西（看 trigger.on）。 */
@@ -158,6 +165,8 @@ export interface ReactDef {
   prevent?: { how: string[] }
   /** hit 專用：這一擊的穿甲加減（獵殺節奏） */
   pierce?: number | string
+  /** hit 專用：這一擊結算完之後，被打的人換到相鄰的一格（有空格先去空格，沒有就和相鄰的隊友交換），不花行動點（替身）。要和 negate 一起寫 */
+  then_move?: true
 }
 
 export interface PickDecl {
@@ -170,6 +179,9 @@ export interface PickDecl {
   adjacent?: true
   /** kind 是 foe、ally 而且技能的目標是人時：選的人不能就是目標自己（「另一個敵人」「和誰對調」） */
   apart?: true
+  /** kind 是 foe、ally 時：選的人要符合這些條件（不符合的選項灰掉，寫出原因）；range 是和自己的距離（傾城的第二個目標：有橋、距離 2 以內） */
+  needs?: NeedsDef
+  range?: [number, number]
 }
 export interface ChooseEntry {
   key: string
@@ -195,6 +207,20 @@ export interface SuppressDef {
   auto?: true
   /** auto 專用：每回合前幾次 */
   per_turn?: number
+}
+
+/**
+ * 誘惑攻擊（M1b-skill-social；dev/adr/0015 E8）：一次檢定加一次快感傷害，不走武器攻擊（沒有要害與重創、不傷遮蔽）。
+ * 做的人擲 1d20 ＋ mod(魅力) ＋ 誘惑（＋ hit ＋ 修正 tease_hit ＋ 檢定的修正，標籤 tease），對 10 ＋ 目標的 mod(意志) ＋ 定力；
+ * 過了：造成 2d6（＋ bonus ＋ 修正 tease_bonus）快感傷害，再做 on_ok；這一下讓目標過載的話再做 on_overload。
+ * targets 是 2 時（傾城）多選一個目標，各擲各的。
+ */
+export interface TeaseDef {
+  hit?: number | string
+  bonus?: number | string
+  on_ok?: Array<Record<string, unknown>>
+  on_overload?: Array<Record<string, unknown>>
+  targets?: 1 | 2
 }
 
 /** `meat` 欄的封閉清單（M1-abilities 第四節＋M1b-skill-format 第二～四節）。 */
@@ -247,6 +273,11 @@ export interface MeatDef {
   on_start?: Array<Record<string, unknown>>
   /** 姿態開著時，指揮把行動點讓給一名隊友之後對他做的效果（號令） */
   on_give_ap?: Array<Record<string, unknown>>
+  // ---- 名媛（M1b-skill-social） ----
+  /** 入戲：戴著面具（被動，裝著就有）。到第 rounds 回合為止（含），AI 挑目標時不挑她，除非她是唯一打得到的目標，或她這一回合已經攻擊過那個敵人 */
+  mask?: { rounds: number }
+  /** 誘惑攻擊。主動技能：這個技能的行動就是一次誘惑攻擊（目標是有橋、距離 2 以內的敵人）；被動（入戲）：多一個基本的誘惑攻擊行動（2 點、每回合 1 次，組 tease）。反應用 { op: 'tease' } */
+  tease?: TeaseDef
 }
 
 /** 一組消耗。`use` 可以直接寫一組（每個戰場都一樣），或照戰場分 meat、net、opinion（E1）。 */
@@ -370,4 +401,6 @@ export interface UnitBuff {
   source: { kind: string; id: string; name: string }
   mods: ModEntry[]
   on_end: Array<Record<string, unknown>>
+  /** 面具（換臉、千面）：有 rounds 的到那一回合為止（含），沒有的在這一段 buff 還在的時候都算；規則同被動的 meat.mask */
+  mask?: { rounds?: number }
 }

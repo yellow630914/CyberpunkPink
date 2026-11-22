@@ -12,6 +12,7 @@ import { checkAbilities, registerKinds } from './kinds'
 import { registerBuff, registerMods } from './mods'
 import { registerOps } from './ops'
 import { registerReactions } from './reactions'
+import { registerSocial } from './social'
 import { registerSuppress } from './suppress'
 import { OWNER } from './types'
 import { registerWard } from './ward'
@@ -34,6 +35,7 @@ export const abilitiesFeature: Feature = {
     registerOps(k)
     registerWard(k)
     registerSuppress(k)
+    registerSocial(k)
   },
   ready(k) {
     checkAbilities(k)

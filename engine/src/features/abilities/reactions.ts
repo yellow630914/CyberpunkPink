@@ -5,7 +5,8 @@
 
 import type { AttackOpts, AttackResult, BattleRun, BattleUnit, BattleWeapon, Kernel } from '../../core'
 import { amount, LOSE_TURN, isWounded, onField, unitsOf } from '../../core'
-import { heldGun, whenBlocks } from './conditions'
+import { heldGun, needsBlocks, rangeBlock, whenBlocks } from './conditions'
+import { requestMove } from './social'
 import { bumpUses, costOf, usageBlocks } from './use'
 import type { AbilityEntry, ReactDef, TriggerDef } from './types'
 import { OWNER } from './types'
@@ -64,6 +65,13 @@ function whoMatches(run: BattleRun, holder: BattleUnit, who: string, e: Event, r
   }
 }
 
+/** 做這件事的人要符合的條件（trigger.by）：沒有「做的人」的事不觸發。 */
+function byHolds(run: BattleRun, holder: BattleUnit, by: NonNullable<TriggerDef['by']>, e: Event): boolean {
+  if (!e.by) return false
+  if (needsBlocks(run, e.by, by.needs).length) return false
+  return !rangeBlock(holder, e.by.slot, by.range)
+}
+
 function ifHolds(cond: string | undefined, on: string, e: Event): boolean {
   if (cond === undefined) return true
   if (on === 'hit') return (cond === 'wound' && !!e.roll?.wound) || (cond === 'crit' && !!e.roll?.crit)
@@ -100,6 +108,8 @@ function applyReact(run: BattleRun, holder: BattleUnit, ab: AbilityEntry, on: st
     }
   } else if (on === 'hit' && e.out) {
     if (r.negate) e.out.negate = true
+    // 替身：這一擊沒有傷害，結算完（遮蔽也傷過了）被打的人換到相鄰的一格
+    if (r.then_move) requestMove(e.subject)
     if (r.no_wound) e.out.wound = false
     // 這一擊的穿甲（傷害還沒算：獵殺節奏）
     if (r.pierce !== undefined && e.opts) e.opts.pierce = (e.opts.pierce ?? 0) + num(run, holder, ab, r.pierce)
@@ -141,6 +151,7 @@ function fire(run: BattleRun, on: TriggerDef['on'], e: Event): void {
       if (run.isStandIn(e.subject) && trig.who !== 'own_overlay' && trig.who !== 'foe_by_self') continue
       const reach = reachOf(trig, m.react)
       if (!whoMatches(run, holder, trig.who, e, reach) || !ifHolds(trig.if, on, e)) continue
+      if (trig.by && !byHolds(run, holder, trig.by, e)) continue
       if (whenBlocks(run, holder, m.when).length) continue
       if (!hasWork(run, holder, on, m.react, e, reach)) continue
       if (usageBlocks(run, holder, ab).length) continue
