@@ -3,12 +3,17 @@
 //         see_dark：和偵察型同一格的同一方的人，攻擊時不吃黑暗
 //   掛點  attack.before：守著（drone.guard）的那一台替同一格的人擋下一次攻擊（opts.redirect）
 //         turn.start：到操作者的下一個回合開始，守著結束
-//         round.start：臨時放出來、有時限的（蜂群）到期自己收回
+//         round.start：臨時放出來、有時限的（蜂群）到期自己收回；沒有操作者的一台清 used、auto 的各自己動一次（auto.ts；被電磁打到停著的跳過、被接管的不動）
+//         attack.after、attack.redirected：被電磁傷害打到、沒被擊落的一台停一回合；機器的單位（佔一格的）被電磁打到失去下一個回合
+//         turn.end：有操作者的一台，停機到操作者這個回合結束拿掉
+//   修正  hit：自律（ext.orphan）的一台自己開火，命中 −2（替身是攻擊者）
 //         overlay.down：被擊落：這一場不能再放，操作者感載 +5（overlay_backlash 的修正加減；臨時機不灌）
 // COMBAT_SYSTEM 9.1、2.5 節；dev/work/M1b-skill-pilot.md。
 
-import type { BattleOverlay, BattleUnit, BattleView, Kernel } from '../../core'
-import { onField } from '../../core'
+import type { AttackResult, BattleOverlay, BattleRun, BattleUnit, BattleView, BattleWeapon, Kernel } from '../../core'
+import { LOSE_TURN, onField } from '../../core'
+import type { AttackOpts } from '../../core'
+import { autoAct, skipIfStunned } from './auto'
 import { BACKLASH, OWNER, heldBy, isDrone } from './drones'
 
 /** 這個人（護航編隊開著的操作者）的哪幾格受惠：他的無人機掛的格，從前面數起最多 max 格。 */
@@ -22,8 +27,42 @@ function escortSlots(view: BattleView, holder: BattleUnit): number[] {
 const guardian = (view: BattleView, target: BattleUnit): BattleOverlay | undefined =>
   view.battle.overlays.find((o) => !o.down && o.ext?.guard !== undefined && o.side === target.side && o.slot === target.slot)
 
+/** 被接管（或改寫）期間歸 features/hack 管（ext.hack.taken）：這個功能不動它。 */
+const takenByHack = (o: BattleOverlay): boolean => {
+  const h = o.ext?.hack
+  return typeof h === 'object' && h !== null && 'taken' in h && !!(h as Record<string, unknown>).taken
+}
+
+/** 改 ext 的一個鍵（換一個新物件，不原地改）；undefined 是拿掉。 */
+function setExt(o: BattleOverlay, key: string, value: unknown): void {
+  const ext = { ...o.ext }
+  if (value === undefined) delete ext[key]
+  else ext[key] = value
+  o.ext = ext
+}
+
+/** 被電磁傷害打到：一台沒被擊落的停一回合；機器的單位（佔一格的）失去下一個回合。 */
+function emHit(run: BattleRun, attacker: BattleUnit, target: BattleUnit, weapon: BattleWeapon, opts: AttackOpts, result: AttackResult): void {
+  if ((opts.type ?? weapon.type) !== 'em' || !result.hit || result.aborted || result.negated) return
+  const o = run.overlayOfStandIn(target)
+  if (o) {
+    if (o.ext?.stun !== undefined) return
+    setExt(o, 'stun', 1)
+    run.say(`${o.name}被電磁打中，停機一回合。`, 'overlay', { overlay: o.id, kind: o.kind, slot: o.slot, stun: true })
+    return
+  }
+  if (run.isStandIn(target) || target.out || target.slot < 1 || !target.tags.includes('machine')) return
+  run.applyStatus(target, LOSE_TURN, run.isStandIn(attacker) ? {} : { by: attacker })
+  run.say(`${target.name}被電磁打中，失去下一個回合。`, 'status', { target: target.id, status: LOSE_TURN, em: true })
+}
+
 export function registerHooks(k: Kernel): void {
   k.battle.modifier(OWNER, (q) => {
+    // 自律的一台自己開火：命中 −2（攻擊者是核心臨時組的替身，ext.overlay 是那一台的 id）
+    if (q.kind === 'hit' && typeof q.unit.ext.overlay === 'string' && q.view.battle.units[q.unit.id] !== q.unit) {
+      const o = q.view.battle.overlays.find((x) => x.id === q.unit.ext.overlay)
+      return o?.ext?.orphan ? [{ label: '自律', value: -2, source: 'overlay' }] : []
+    }
     if ((q.kind !== 'evade' && q.kind !== 'see_dark') || q.unit.slot < 1 || q.view.battle.units[q.unit.id] !== q.unit) return []
     const b = q.view.battle
     if (q.kind === 'see_dark') {
@@ -60,12 +99,14 @@ export function registerHooks(k: Kernel): void {
   // 守著到操作者的下一個回合開始
   k.battle.on('turn.start', OWNER, ({ unit, run }) => {
     for (const o of run.battle.overlays) {
-      if (o.owner === unit.id && o.ext?.guard === 'own_turn_start') {
-        const ext = { ...o.ext }
-        delete ext.guard
-        o.ext = ext
-      }
+      if (o.owner !== unit.id) continue
+      if (o.ext?.guard === 'own_turn_start') setExt(o, 'guard', undefined)
+      // 被電磁打到的停機：到操作者的下一個回合才生效（這個回合動不了），回合結束拿掉
+      if (o.ext?.stun === 1) setExt(o, 'stun', 2)
     }
+  })
+  k.battle.on('turn.end', OWNER, ({ unit, run }) => {
+    for (const o of run.battle.overlays) if (o.owner === unit.id && o.ext?.stun === 2) setExt(o, 'stun', undefined)
   })
 
   // 臨時機到期：自己收回（不是被擊落：不發 overlay.down，操作者不受灌）；單位上的第 N 台回到手上
@@ -78,7 +119,20 @@ export function registerHooks(k: Kernel): void {
       if (owner && typeof o.ext?.drone === 'number' && o.ext.drone >= 0) delete owner.uses[`drone:${o.ext.drone}`]
       run.say(`${o.name}的時限到了，自己收回。`, 'overlay', { overlay: o.id, kind: o.kind, slot: o.slot, expired: true })
     }
+    // 沒有操作者的（敵方的、自律的）：沒有人會在回合開始時替它清 used，每輪在這裡清；auto 的各做一次動作。被接管的（hack）不動
+    for (const o of [...run.battle.overlays]) {
+      if (o.down || takenByHack(o)) continue
+      if (!o.owner) o.used = false
+      if (!o.auto || o.owner) continue
+      if (skipIfStunned(run, o)) continue
+      autoAct(run, o)
+      if (run.over) return
+    }
   })
+
+  // 被電磁傷害打到：打在掛著的東西上（替身是目標）的那一台停一回合；打在機器的單位上的失去下一個回合
+  k.battle.on('attack.after', OWNER, ({ run, attacker, target, weapon, opts, result }) => emHit(run, attacker, target, weapon, opts, result))
+  k.battle.on('attack.redirected', OWNER, ({ run, attacker, overlay, weapon, opts, result }) => emHit(run, attacker, run.standIn(overlay), weapon, opts, result))
 
   // 被擊落：操作者感載 +5（加上 overlay_backlash 的修正，最少 0），這一場不能再放。沒有操作者的（敵方的、自律之後的）沒有人受灌
   k.battle.on('overlay.down', OWNER, ({ run, overlay, by }) => {

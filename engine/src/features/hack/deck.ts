@@ -38,12 +38,13 @@ export function deckOf(u: BattleUnit): Deck | undefined {
   }
 }
 
-/** 主控的樹階（1～5）。 */
+/** 主控的樹階（1～5）。讀不到時：敵人（敵方潛網者沒有技能樹）用自己的等級，其他的當 1。 */
 export function treeTier(u: BattleUnit): number {
   const tree = deckOf(u)?.tree ?? DEFAULT_TREE
   const a = u.ext.abilities
   const t = isRecord(a) && isRecord(a.tiers) ? a.tiers[tree] : undefined
-  return typeof t === 'number' && Number.isFinite(t) ? Math.min(5, Math.max(1, Math.floor(t))) : 1
+  if (typeof t === 'number' && Number.isFinite(t)) return Math.min(5, Math.max(1, Math.floor(t)))
+  return u.enemy !== undefined && Number.isFinite(u.grade) ? Math.min(5, Math.max(1, Math.floor(u.grade))) : 1
 }
 
 /** 主控的樹階能跑的等級：1→I、2→II、3→III、4～5→IV（ITEMS 11.9 節）。 */

@@ -707,18 +707,18 @@ describe('summons 改用 addOverlay：放出的上限問 overlay_cap、被擊落
     expect(seen).toEqual([{ unit: 'a1', tags: ['attack'] }])
   })
 
-  it('操作者倒下：自己放的無人機照舊停機（summons 沒有把它們標成 autonomous）：down 是 true、拍是「停機了」、沒有被擊落的後果', () => {
+  it('操作者倒下：自己放的無人機自律（summons 把它們標成 autonomous，M1b-enemy-units；E6 兩邊統一）：還在、沒有操作者、auto、不發 overlay.down、沒有被擊落的後果', () => {
     const a = arena(two([pilot(), one({}, 2)]), [TEST_COMBAT, summonsFeature])
     const run = a.run()
     a.ally(1).ap.now = 5
     a.k.battle.getAction('drone.deploy')!.run(run, a.ally(1), { side: 'ally', slot: 2 }, { action: 'drone.deploy', pick: { drone: 0 } })
     const o = a.battle.overlays[0]!
     expect(o).toMatchObject({ owner: 'a1', down: false })
-    expect(o.autonomous).toBeUndefined()
+    expect(o.autonomous).toBe(true)
     run.setOut(a.ally(1), 'down')
-    expect(o).toMatchObject({ down: true, owner: 'a1' })
-    expect(o.auto).toBeUndefined()
-    expect(run.beats.find((b) => b.tag === 'overlay.down')!.text).toMatch(/停機了/)
+    expect(o).toMatchObject({ down: false, auto: true, ext: { orphan: true } })
+    expect('owner' in o).toBe(false)
+    expect(run.beats.find((b) => b.tag === 'overlay.down')).toBeUndefined()
     expect(a.ally(2).load!.now).toBe(0)
     expect(a.ally(1).load!.now).toBe(0)
   })

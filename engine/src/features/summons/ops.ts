@@ -15,7 +15,7 @@
 
 import type { BattleEffectCtx, BattleOverlay, BattleUnit, Kernel } from '../../core'
 import { BATTLE_SLOTS, BattleBlocked, amount, amountProblems, isRecord, overlayAt } from '../../core'
-import { KIND_NAME, OWNER, capBlock, dronesOf, driveOnce, guard, hang, heldBy, isDrone, isKind, isShooter, moveTo, stateOf } from './drones'
+import { KIND_NAME, OWNER, capBlock, dronesOf, driveOnce, guard, hang, heldBy, isDrone, isKind, isShooter, isStunned, moveTo, stateOf } from './drones'
 import type { DroneDef, DroneKind } from './drones'
 
 type Ctx = BattleEffectCtx
@@ -116,7 +116,7 @@ function setOf(ctx: Ctx, which: string, e: Eff): BattleOverlay[] {
     const hit = targetOverlay(ctx) ?? (ctx.victim ? run.battle.overlays.find((x) => x.id === ctx.victim!.ext.overlay) : undefined)
     pool = held.filter((o) => o.id !== hit?.id)
   } else pool = held
-  pool = pool.filter(isShooter)
+  pool = pool.filter((o) => isShooter(o) && !isStunned(o))
   if (e.ignore_used !== true) pool = pool.filter((o) => !o.used)
   const max = e.max === undefined ? pool.length : Math.max(0, num(ctx, e.max, pool.length))
   return pool.slice(0, max)

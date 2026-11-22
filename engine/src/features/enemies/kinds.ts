@@ -13,6 +13,10 @@ export const ENCOUNTER_KINDS = ['light', 'normal', 'heavy', 'boss'] as const
 export const ANGEL_GRADES = ['none', 'silver', 'gold', 'platinum'] as const
 export const ANGEL_ROUNDS: Record<string, number> = { silver: 4, gold: 3, platinum: 2 }
 export const COVER_LAYOUT_IDS = ['dense', 'medium', 'sparse', 'one_sided'] as const
+/** 掛在格上的一台（position.size: 'overlay'）的種類（ENEMIES 第 10 節）；砲塔是裝在場景上的，不會移動。 */
+export const OVERLAY_KINDS = ['attack', 'shield', 'scout', 'medic', 'jammer', 'turret'] as const
+/** 一定要帶武器的種類：不帶武器的 attack、jammer、turret 沒有東西可以做。 */
+const ARMED_OVERLAY_KINDS: readonly string[] = ['attack', 'jammer', 'turret']
 /** 沒有橋的種類：沒有感載這一條（ENEMIES 第 2 節的欄位表）。 */
 export const UNBRIDGED_KINDS: readonly string[] = ['unbridged', 'machine', 'vehicle', 'mascot']
 
@@ -52,6 +56,30 @@ export interface EnemyDeck {
   slots: string[]
   tree?: string
 }
+/** 機甲的機體（只收格式、不啟動；欄位照核心的 BattleHull；M6 才用）。 */
+export interface EnemyHull {
+  id: string
+  name: string
+  hp: { now: number; max: number }
+  armor: number
+  backlash: number
+  turns?: number
+  ext?: Record<string, unknown>
+}
+/** 掛在格上的一台的身分（position.size 是 'overlay' 的兵種才寫）。 */
+export interface EnemyOverlay {
+  kind: (typeof OVERLAY_KINDS)[number]
+  /** 固定在那一格、不會移動（砲塔一定是） */
+  fixed?: boolean
+}
+/** 跟著主人的附屬單位：開打時掛上去，owner 是主人、autonomous（主人倒下之後自律）。 */
+export interface EnemyAttached {
+  /** 一個 overlay 的兵種 id */
+  enemy: string
+  count?: number
+  /** same（和主人同一格；放不下的挪到最近的空格）或第幾格 */
+  slot?: 'same' | number
+}
 /** 招牌行動：技能的 id（標了 enemy 的技能），或還沒轉的敘述 { name, text }（收下、不做效果）。 */
 export type EnemySignature = string | { name: string; text: string }
 export interface EnemyEntry {
@@ -63,7 +91,13 @@ export interface EnemyEntry {
   rank: (typeof UNIT_RANKS)[number]
   grades: [number, number]
   kind: (typeof ENEMY_KINDS)[number]
-  position: { prefer: number[]; cover_use?: number }
+  position: { prefer: number[]; cover_use?: number; size?: 1 | 'overlay' }
+  /** position.size 是 'overlay' 時一定要寫：這個兵種不是一個單位，是掛在格上的一台 */
+  overlay?: EnemyOverlay
+  /** 跟著主人的附屬單位（會指揮的敵人：多一個行動 enemy.command） */
+  attached?: EnemyAttached[]
+  /** kind 是 mech 才寫：機體的資料，現在只檢查格式 */
+  hull?: EnemyHull
   mode: (typeof ENEMY_MODES)[number]
   weapons: EnemyWeapon[]
   ai: { prefer?: string; focus: number; flee_below: number; floor?: number; never_flee?: boolean; morale?: unknown }
@@ -136,6 +170,54 @@ export function resolveEnemy(content: ContentRegistry, id: string, seen: string[
   return mergeBase(base as Record<string, unknown>, e as Record<string, unknown>) as EnemyEntry
 }
 
+/** 掛在格上的一台（overlay）、附屬單位（attached）與機甲的機體（hull）的格式。partial 時 kind 與 weapons 可能還沒展開，只檢查寫了的。 */
+function overlayProblems(e: Record<string, unknown>, partial: boolean): string[] {
+  const p: string[] = []
+  const isOverlay = isRec(e.position) && e.position.size === 'overlay'
+  if (e.overlay !== undefined) {
+    const o = e.overlay
+    if (!isRec(o)) p.push('overlay 要是 { kind, fixed? }')
+    else {
+      if (!(OVERLAY_KINDS as readonly unknown[]).includes(o.kind)) p.push(`overlay.kind 只能是 ${OVERLAY_KINDS.join('、')}`)
+      if (o.fixed !== undefined && typeof o.fixed !== 'boolean') p.push('overlay.fixed 要是 true 或 false')
+      for (const key of Object.keys(o)) if (key !== 'kind' && key !== 'fixed') p.push(`overlay.${key} 不是可以用的鍵（只有 kind、fixed）`)
+      if (typeof o.kind === 'string' && ARMED_OVERLAY_KINDS.includes(o.kind) && Array.isArray(e.weapons) && e.weapons.length === 0) p.push(`overlay.kind 是 ${o.kind} 的一台要有武器（weapons 的第一把是它自己的武器）`)
+    }
+    if (!partial && !isOverlay) p.push("寫了 overlay 的兵種，position.size 要是 'overlay'")
+  } else if (isOverlay && !partial) p.push("position.size 是 'overlay' 的兵種要寫 overlay: { kind, fixed? }")
+  if (e.attached !== undefined) {
+    if (!Array.isArray(e.attached)) p.push('attached 要是陣列（每一筆 { enemy, count?, slot? }）')
+    else {
+      if (isOverlay) p.push('掛在格上的一台自己不能再帶附屬單位（attached）')
+      e.attached.forEach((a, i) => {
+        const at = `attached[${i}]`
+        if (!isRec(a)) return void p.push(`${at} 要是 { enemy, count?, slot? }`)
+        if (!isText(a.enemy)) p.push(`${at}.enemy 要是一個 overlay 兵種的 id`)
+        if (a.count !== undefined && !(isInt(a.count) && a.count >= 1 && a.count <= 4)) p.push(`${at}.count 要是 1～4 的整數`)
+        if (a.slot !== undefined && a.slot !== 'same' && !(isInt(a.slot) && a.slot >= 1 && a.slot <= 4)) p.push(`${at}.slot 要是 'same' 或 1～4 的整數`)
+        for (const key of Object.keys(a)) if (!['enemy', 'count', 'slot'].includes(key)) p.push(`${at}.${key} 不是可以用的鍵（只有 enemy、count、slot）`)
+      })
+    }
+  }
+  if (e.hull !== undefined) {
+    const h = e.hull
+    if (!partial && e.kind !== 'mech') p.push("hull（機體）只有 kind 是 'mech' 的兵種可以寫")
+    if (!isRec(h)) p.push('hull 要是 { id, name, hp, armor, backlash, turns?, ext? }')
+    else {
+      if (!isText(h.id)) p.push('hull.id 要是機體的 id')
+      if (!isText(h.name)) p.push('hull.name 要是名字')
+      const hp = h.hp
+      if (!(isRec(hp) && isNum(hp.now) && isNum(hp.max) && hp.max >= 1 && hp.now >= 0 && hp.now <= hp.max)) p.push('hull.hp 要是 { now, max }（max 至少 1，now 在 0 到 max 之間）')
+      if (!(isInt(h.armor) && h.armor >= 0)) p.push('hull.armor 要是 0 以上的整數（啟動期間加在護甲上的值）')
+      if (!(isNum(h.backlash) && h.backlash >= 0 && h.backlash <= 1)) p.push('hull.backlash 要是 0～1 的數字（機體受到的傷害有多少比例回灌成機師的感載）')
+      if (h.turns !== undefined && !(isInt(h.turns) && h.turns >= 1)) p.push('hull.turns 要是 1 以上的整數（還剩幾個自己的回合）')
+      if (h.ext !== undefined && !isRec(h.ext)) p.push('hull.ext 要是物件')
+      for (const key of Object.keys(h)) if (!['id', 'name', 'hp', 'armor', 'backlash', 'turns', 'ext'].includes(key)) p.push(`hull.${key} 不是可以用的鍵（照核心的 BattleHull：id、name、hp、armor、backlash、turns、ext）`)
+    }
+  }
+  return p
+}
+
 /**
  * 檢查一筆敵人。partial 是「有 base 但 base 現在還找不到」（同一批內容裡還沒載入）：這時只檢查寫了的欄位的格式，不檢查必填；
  * 必填留到 base 展開之後（resolveEnemy 之後的使用處）。
@@ -162,7 +244,9 @@ function enemyProblems(e: Record<string, unknown>, partial: boolean): string[] {
     const pos = e.position
     if (!(Array.isArray(pos.prefer) && pos.prefer.length >= 1 && pos.prefer.every((s) => isInt(s) && s >= 1 && s <= 4))) p.push('position.prefer 要是至少一個 1～4 的整數')
     if (pos.cover_use !== undefined && !(isNum(pos.cover_use) && pos.cover_use >= 0 && pos.cover_use <= 1)) p.push('position.cover_use 要是 0～1 的數字')
+    if (pos.size !== undefined && pos.size !== 1 && pos.size !== 'overlay') p.push("position.size 只能是 1（佔一格）或 'overlay'（掛在格上、和人重疊）")
   }
+  p.push(...overlayProblems(e, partial))
 
   need('weapons', (v) => Array.isArray(v), '要是武器的陣列（可以是空的：沒有武器的單位不攻擊，戰鬥裡手上沒有武器）')
   if (Array.isArray(e.weapons)) {
@@ -276,6 +360,8 @@ export function registerKinds(k: Pick<Kernel, 'content'>): void {
       ...(e.faction && e.faction !== 'none' ? [['faction', e.faction] as [string, string]] : []),
       ...(Array.isArray(e.weapons) ? e.weapons.map((w) => ['weapon_class', w.class] as [string, string]) : []),
       ...(e.base ? [['enemy', e.base] as [string, string]] : []),
+      // 附屬單位：要查得到（是不是 overlay 的兵種由 ready 的檢查看）
+      ...(Array.isArray(e.attached) ? e.attached.filter((a) => isRec(a) && typeof a.enemy === 'string').map((a) => ['enemy', a.enemy] as [string, string]) : []),
       // 招牌行動寫技能的 id 的：要查得到（標了 enemy 由 ready 的檢查看）
       ...(Array.isArray(e.signature) ? e.signature.filter((s): s is string => typeof s === 'string').map((s) => ['ability', s] as [string, string]) : []),
       ...(Array.isArray(e.quick) ? e.quick.map((q) => ['item', q.item] as [string, string]) : []),

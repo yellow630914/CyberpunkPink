@@ -5,6 +5,7 @@
     "grade": 1,
     "kind": "normal",
     "cover": "medium",
+    "traits": false,
     "foes": [
       {
         "enemy": "en_nora_hound"
@@ -26,6 +27,7 @@
     "grade": 2,
     "kind": "normal",
     "cover": "medium",
+    "traits": false,
     "foes": [
       {
         "enemy": "en_hz_patrol"
@@ -47,6 +49,7 @@
     "grade": 2,
     "kind": "boss",
     "cover": "medium",
+    "traits": false,
     "foes": [
       {
         "enemy": "en_nora_hound"
@@ -68,6 +71,7 @@
     "grade": 3,
     "kind": "normal",
     "cover": "medium",
+    "traits": false,
     "foes": [
       {
         "enemy": "en_hz_riot"
@@ -89,6 +93,7 @@
     "grade": 3,
     "kind": "boss",
     "cover": "medium",
+    "traits": false,
     "foes": [
       {
         "enemy": "en_honey_head"
@@ -110,6 +115,7 @@
     "grade": 4,
     "kind": "normal",
     "cover": "medium",
+    "traits": false,
     "foes": [
       {
         "enemy": "en_chrome_brawler"
@@ -131,6 +137,7 @@
     "grade": 4,
     "kind": "boss",
     "cover": "medium",
+    "traits": false,
     "foes": [
       {
         "enemy": "en_hz_riot"
@@ -152,6 +159,7 @@
     "grade": 5,
     "kind": "normal",
     "cover": "medium",
+    "traits": false,
     "foes": [
       {
         "enemy": "en_chrome_brawler"
@@ -173,6 +181,7 @@
     "grade": 5,
     "kind": "boss",
     "cover": "medium",
+    "traits": false,
     "foes": [
       {
         "enemy": "en_chrome_brawler"
@@ -194,6 +203,7 @@
     "grade": 1,
     "kind": "light",
     "cover": "medium",
+    "traits": false,
     "foes": [
       {
         "enemy": "en_nora_hound"

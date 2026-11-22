@@ -240,7 +240,7 @@ describe('被動與被擊落', () => {
     expect(g.battle!.units.a1!.load!.now).toBe(5)
   })
 
-  it('操作者倒下：所有無人機停機，沒有被擊落的後果（不加感載、不記成擊落）', () => {
+  it('操作者倒下：所有無人機進入自律模式（沒有操作者、自己動），沒有被擊落的後果（不加感載、不記成擊落）', () => {
     const g = game([pilot(), one({ weapon: 'rifle' }, 2)])
     turnTo(g, 'a1')
     deploy(g, 0, 1)
@@ -248,7 +248,9 @@ describe('被動與被擊落', () => {
     g.state.battle!.units.a1!.hp!.now = 1
     for (let i = 0; i < 30 && !g.battle!.units.a1!.out; i++) { const f = turnTo(g, 'f1'); f.weapons[0]!.mag!.now = 3; g.battleAct({ action: 'shoot', target: { unit: 'a1' } }) }
     expect(g.battle!.units.a1!.out).toBe('down')
-    expect(g.battle!.overlays.map((o) => o.down)).toEqual([true, true])
+    // COMBAT_SYSTEM 9.1 節：自律模式（dev/adr/0015 E6，兩邊統一）：還在、沒有操作者、每一輪自己動；不發 overlay.down，所以沒有回灌
+    expect(g.battle!.overlays.map((o) => o.down)).toEqual([false, false])
+    expect(g.battle!.overlays.map((o) => ({ owner: o.owner, auto: o.auto, orphan: o.ext!.orphan }))).toEqual([{ owner: undefined, auto: true, orphan: true }, { owner: undefined, auto: true, orphan: true }])
     expect(g.battle!.units.a1!.load!.now).toBe(0)
     expect(g.battle!.units.a1!.uses['drone:0']).toBe(1)
   })

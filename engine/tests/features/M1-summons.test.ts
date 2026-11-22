@@ -47,7 +47,7 @@ describe('無人機（COMBAT_SYSTEM 9.1 節）', () => {
     expect(g.battle!.units.a1!.ap.now).toBe(me.ap.max - 5)
   })
 
-  it('護盾型：同一格的人迴避 +2；偵察型：標記一個敵人，隊友打他 +2；被擊落時操作者感載 +5；操作者倒下，所有無人機停機', () => {
+  it('護盾型：同一格的人迴避 +2；偵察型：標記一個敵人，隊友打他 +2；被擊落時操作者感載 +5；放出的無人機都帶 autonomous（操作者倒下之後自律）', () => {
     const g = game([pilot(), one({ weapon: 'rifle' }, 2)])
     turnTo(g, 'a1')
     g.battleAct({ action: 'drone.deploy', target: { side: 'ally', slot: 2 }, pick: { drone: 1 } })
@@ -66,6 +66,7 @@ describe('無人機（COMBAT_SYSTEM 9.1 節）', () => {
     for (let i = 0; i < 12 && !g.battle!.overlays[0]!.down; i++) { turnTo(g, 'f1').weapons[0]!.mag!.now = 2; g.battleAct({ action: 'shoot', target: { overlay: shield!.id } }) }
     expect(g.battle!.overlays[0]!.down).toBe(true)
     expect(g.battle!.units.a1!.load!.now).toBe(load + 5)
+    expect(g.battle!.overlays.map((o) => o.autonomous)).toEqual([true, true])
   })
 })
 

@@ -593,8 +593,8 @@ describe('特徵：開戰時擲（dev/adr/0015 E10）', () => {
     const origin = (id: string) => setupFromEncounter(k, makeGame().game.state, id, { allies: [] }).origin?.ext
     expect(origin('enc_t_off')).toEqual({ traits: false })
     expect(origin('enc_t_plain') ?? null).toBeNull()
-    // 基準遭遇（id 開頭 enc_base_）預設也不擲，不動平衡的基準
-    expect(origin('enc_base_g1_normal')).toEqual({ traits: false })
+    // 基準遭遇不再靠 id 的前綴：engine/data 的基準遭遇自己寫 traits: false；沒寫的就是沒寫（id 叫 enc_base_ 也一樣）
+    expect(origin('enc_base_g1_normal') ?? null).toBeNull()
   })
   it('traits: false 的遭遇沒有人擲到；沒寫的遭遇照樣擲（整批種子裡有人擲到）', () => {
     const pack = withRolls()

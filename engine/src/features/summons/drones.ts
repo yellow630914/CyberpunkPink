@@ -2,6 +2,7 @@
 // index.ts 的行動與 ops.ts 的效果（drone.*）都用這裡的同一份，所以兩邊的數字、句子、錯誤一致。
 // 一台無人機這一場的狀態記在操作者的 uses 裡：`drone:<索引>` 是 1（放出去了）或 2（被擊落了，這一場不能再放）；收回就清掉。
 // 臨時放出來的（蜂群：不在 ext.summons.drones 裡）索引是 -1，不記 uses。
+// 放出的一台帶 autonomous：操作者倒下之後自律（COMBAT_SYSTEM 9.1 節；dev/adr/0015 E6）——沒有操作者、每一輪自己動（auto.ts）、命中 −2。
 
 import type { AttackResult, BattleOverlay, BattleRun, BattleUnit, BattleView, BattleWeapon, DamageType } from '../../core'
 import { BATTLE_SLOTS, BattleBlocked, attrMod, gradeDice, overlayAt, unitAt } from '../../core'
@@ -24,7 +25,18 @@ export const isKind = (k: unknown): k is DroneKind => typeof k === 'string' && k
 /** 支援型：放出的上限問 overlay_cap 時多帶一個 support 標籤（多工連結只給支援型） */
 export const SUPPORT_KINDS: readonly string[] = ['shield', 'scout', 'medic']
 /** 會開火的種類（攻擊、干擾；自己帶武器的也算）：drone.act 對一整組時只讓它們動 */
-export const SHOOTER_KINDS: readonly string[] = ['attack', 'jammer']
+export const SHOOTER_KINDS: readonly string[] = ['attack', 'jammer', 'turret']
+/** 砲塔（敵方的、接管來的）：裝在場景上，不會移動、不能收回；動作是用它自己的武器射擊（ENEMIES 第 10 節）。不是無人機（沒有 ext.drone），不算進同步的上限 */
+export const TURRET = 'turret'
+/** 固定在那一格、不會移動：砲塔，或資料寫了 fixed 的一台。 */
+export const isFixed = (o: BattleOverlay): boolean => o.kind === TURRET || o.ext?.fixed === true
+/**
+ * 被電磁打到的停機（記在 ext.stun）：1 是剛被打到、還沒輪到；2 是「這個回合動不了」。
+ * 沒有操作者自己動的在下一次 round.start 跳過這一輪；有操作者的到操作者的下一個回合開始變 2、回合結束拿掉（hooks.ts）。
+ * features/enemies 的 enemy.command 讀同一個鍵（STUNNED = 2）來灰掉那一台。
+ */
+export const isStunned = (o: BattleOverlay): boolean => o.ext?.stun === 2
+export const STUN_BLOCK = '這一台被電磁打到，這個回合動不了。'
 /** 指揮時要另外選一個敵人的那幾型（攻擊、干擾、偵察）；醫療型照顧同一格的人，護盾型守著同一格的人。 */
 export const NEEDS_FOE: readonly string[] = ['attack', 'jammer', 'scout']
 
@@ -93,7 +105,8 @@ export function hang(run: BattleRun, u: BattleUnit, slot: number, o: { idx?: num
   const stats = DRONE_STATS[grade - 1]!
   const name = def?.name ?? o.name ?? KIND_NAME[kind]
   const item = def?.item ?? o.item
-  const ext: Record<string, unknown> = { drone: idx, grade }
+  // operator：操作者倒下之後這一台自律（沒有 owner 了），自己開火時武器要照他的操縱算，所以記著他是誰
+  const ext: Record<string, unknown> = { drone: idx, grade, operator: u.id }
   // 時限（turns：到期自己收回）、不算進上限、被擊落不灌感載（蜂群的臨時機）
   if (o.limits?.until !== undefined) ext.until = o.limits.until
   if (o.limits?.overCap) ext.overCap = true
@@ -101,7 +114,7 @@ export function hang(run: BattleRun, u: BattleUnit, slot: number, o: { idx?: num
   const overlay = run.addOverlay({
     side: u.side, slot, owner: u.id, kind, name,
     hp: { now: stats.hp, max: stats.hp }, armor: stats.armor, evade: run.n.evadeBase + 3,
-    ...(item ? { item } : {}), ext,
+    ...(item ? { item } : {}), autonomous: true, ext,
   })
   if (idx >= 0) u.uses[`drone:${idx}`] = 1
   return overlay
@@ -143,6 +156,7 @@ export function driveOnce(run: BattleRun, u: BattleUnit, o: BattleOverlay, a: Dr
     if (!t || t.side === u.side || t.slot < 1 || t.out) throw new BattleBlocked(['要選一個敵人。'])
     return t
   }
+  if (isStunned(o)) throw new BattleBlocked([STUN_BLOCK])
   const extra = { ...(a.hit ? { hit: a.hit } : {}), ...(a.pierce ? { pierce: a.pierce } : {}) }
   if (o.weapon) return run.overlayAttack(o, foeOf(), { spend: 0, label: '射擊', tags: ['drone'], ...extra })
   switch (o.kind) {
@@ -174,10 +188,11 @@ export function driveOnce(run: BattleRun, u: BattleUnit, o: BattleOverlay, a: Dr
 // ---- 移動 ----
 
 /** 這一台可以換到哪幾格：相鄰、沒有掛著別台的。宣告（picks）與行動本身（run）共用。 */
-export const moveSlots = (view: BattleView, o: BattleOverlay): number[] => [o.slot - 1, o.slot + 1].filter((s) => s >= 1 && s <= BATTLE_SLOTS && !overlayAt(view.battle, o.side, s))
+export const moveSlots = (view: BattleView, o: BattleOverlay): number[] => (isFixed(o) ? [] : [o.slot - 1, o.slot + 1].filter((s) => s >= 1 && s <= BATTLE_SLOTS && !overlayAt(view.battle, o.side, s)))
 
 /** 把一台換到另一格（any：不必相鄰，只要那一格沒有別台）。不合丟 BattleBlocked。 */
 export function moveTo(run: BattleRun, u: BattleUnit, o: BattleOverlay, to: unknown, any = false): void {
+  if (isFixed(o)) throw new BattleBlocked([`${o.name}是固定在這一格的，不能移動。`])
   if (typeof to !== 'number' || !Number.isInteger(to) || to < 1 || to > BATTLE_SLOTS || (any ? to === o.slot || !!overlayAt(run.battle, o.side, to) : !moveSlots(run, o).includes(to))) {
     throw new BattleBlocked([any ? '要選一個沒有掛著別台的格。' : '只能換到相鄰、沒有掛著別台的格。'])
   }

@@ -1,19 +1,19 @@
 // 把一筆敵人資料變成單位的數字：目標表 × 兵種的修正 × 難度 × 強度係數（ENEMIES 1.5、第 13 節；ENEMY_ROSTER 開頭；BALANCE 7.2）。
 // dev/work/M1-enemies.md 第四、五節。
 
-import type { BattleSetup, BattleUnitInit, BattleWeapon, ContentRegistry, GameState, Grade, UnitRank, UnitRef, WeaponClassEntry } from '../../core'
+import type { BattleOverlayInit, BattleSetup, BattleUnitInit, BattleWeapon, ContentRegistry, GameState, Grade, UnitRank, UnitRef, WeaponClassEntry } from '../../core'
 import { ATTR_IDS, areaGrade, attrMod, enemyCoefFor, gradeDice, weaponFromClass } from '../../core'
 import type { Kernel } from '../../core'
-import { ENEMY_CURVE } from './curve'
+import { ENEMY_CURVE, OVERLAY_POINTS } from './curve'
 import type { EncounterEntry, EncounterFoe, EnemyEntry } from './kinds'
 import { UNBRIDGED_KINDS, resolveEnemy } from './kinds'
 
 type Cx = Pick<Kernel, 'content'>
 
+/** 掛在格上的東西的迴避加成（COMBAT_SYSTEM 9.1 節：迴避 13 = 目標表 + 3）。 */
+const OVERLAY_EVADE = 3
 /** 沉溺到這個數字以上算溺感邊緣（ENEMIES 第 5 節）：多一個標籤 sink_edge。 */
 const SINK_EDGE = 80
-/** 基準遭遇的 id 開頭（engine/data 的平衡用遭遇）：預設不擲特徵。 */
-const BASE_PREFIX = 'enc_base_'
 
 export interface EnemyStats {
   grade: Grade
@@ -114,6 +114,7 @@ function buildWeapons(content: ContentRegistry, e: EnemyEntry, grade: Grade, att
 export function enemyUnit(k: Cx, state: GameState, ref: Record<string, unknown>, ctx: { grade: number; allyCount: number }): BattleUnitInit {
   const id = typeof ref.id === 'string' ? ref.id : ''
   const e = resolveEnemy(k.content, id)
+  if (isOverlay(e)) throw new Error(`${e.name}（${id}）是掛在格上的一台，不是一個單位：放進遭遇的 foes 由 setupFromEncounter 掛上去，或直接寫在 origin.ext.enemies.overlays`)
   const grade = typeof ref.grade === 'number' ? asGrade(ref.grade) : gradeIn(e, ctx.grade)
   const st = statsOf(state, e, grade, ctx.allyCount, typeof ref.strength === 'number' ? ref.strength : undefined)
   const attrs = Object.fromEntries(ATTR_IDS.map((a) => [a, e.attrs?.[a] ?? 10])) as BattleUnitInit['attrs']
@@ -127,6 +128,8 @@ export function enemyUnit(k: Cx, state: GameState, ref: Record<string, unknown>,
     ...(e.traits?.length ? { traits: [...e.traits] } : {}),
     ...(sink !== undefined ? { sink } : {}),
     ...(angel ? { angel } : {}),
+    // 跟著主人的附屬單位：開打時（battle.start）由 overlays.ts 掛上去
+    ...(e.attached?.length ? { attached: e.attached.map((a) => ({ ...a })) } : {}),
   }
   const cyber = e.cyber?.length ? e.cyber.map((c) => ({ kind: c.kind, name: c.name, ...(c.contract ? { contract: true } : {}) })) : undefined
   return {
@@ -154,6 +157,30 @@ export function enemyUnit(k: Cx, state: GameState, ref: Record<string, unknown>,
   }
 }
 
+// ---- 掛在格上的一台（ENEMIES 第 10 節） ----
+
+/** 這個兵種是不是掛在格上的一台（position.size: 'overlay'）。 */
+export const isOverlay = (e: EnemyEntry): boolean => e.position.size === 'overlay'
+
+/**
+ * 一台掛在格上的敵人（ENEMIES 第 10 節）：耐久 = 生命（目標表 × 修正 × 難度）、護甲照表加修正、迴避 = 目標表的迴避 + 3 + 修正；
+ * 武器是 weapons 的第一把（命中照目標表）；傷害倍率照位階與難度（ext.dmgMult）。side、slot、owner 由呼叫的人補。
+ * 沒有操作者的（巡邏用的、砲塔）auto；跟著主人的 autonomous——兩個旗標也由呼叫的人給。
+ */
+export function overlayInit(k: Cx, state: GameState, id: string, o: { grade: number; allyCount: number; strength?: number }): Omit<BattleOverlayInit, 'side' | 'slot'> {
+  const e = resolveEnemy(k.content, id)
+  if (!isOverlay(e) || !e.overlay) throw new Error(`${e.name}（${id}）不是掛在格上的兵種（position.size 要是 'overlay'）`)
+  const grade = gradeIn(e, o.grade)
+  const st = statsOf(state, e, grade, o.allyCount, o.strength)
+  const weapon = buildWeapons(k.content, e, grade, st.attack)[0]
+  return {
+    kind: e.overlay.kind, name: e.name,
+    hp: { now: st.hp, max: st.hp }, armor: st.armor, evade: st.evade + OVERLAY_EVADE,
+    ...(weapon ? { weapon } : {}),
+    ext: { enemy: id, grade, dmgMult: st.dmgMult, ...(e.overlay.fixed || e.overlay.kind === 'turret' ? { fixed: true } : {}) },
+  }
+}
+
 // ---- 遭遇 ----
 
 const RANK_ORDER: Record<string, number> = { minion: 0, elite: 1, boss: 2 }
@@ -164,6 +191,11 @@ export function encounterPoints(k: Cx, foes: EncounterFoe[], grade: number): num
   for (const f of foes) {
     const e = resolveEnemy(k.content, f.enemy)
     const fg = f.grade !== undefined ? f.grade : gradeIn(e, grade)
+    // 掛在格上的小型無人機與砲塔每一台 0.5 點（附屬單位不另外算：它們不在遭遇的 foes 裡）
+    if (isOverlay(e)) {
+      total += OVERLAY_POINTS * (fg >= grade + 1 ? 1.75 : 1)
+      continue
+    }
     const s = e.rank === 'minion' ? 1 : capStrength(f.strength ?? e.strength ?? (e.named ? 1.3 : 1))
     total += ENEMY_CURVE.points[e.rank] * (fg >= grade + 1 ? 1.75 : 1) * s
   }
@@ -184,16 +216,27 @@ export function setupFromEncounter(k: Cx, _state: GameState, encounterId: string
     }
     faction = best?.faction
   }
-  const foes = enc.foes.map((f): UnitRef => ({
-    from: 'enemy', id: f.enemy,
-    ...(f.grade !== undefined ? { grade: f.grade } : {}), ...(f.slot !== undefined ? { slot: f.slot } : {}), ...(f.strength !== undefined ? { strength: f.strength } : {}),
-  }))
+  // 掛在格上的兵種不是一個單位：放進 origin.ext.enemies.overlays，開打時（battle.start）掛上去；其餘的是上場的人
+  const foes: UnitRef[] = []
+  const overlays: Array<{ enemy: string; slot?: number; grade?: number }> = []
+  for (const f of enc.foes) {
+    if (isOverlay(resolveEnemy(k.content, f.enemy))) {
+      overlays.push({ enemy: f.enemy, ...(f.slot !== undefined ? { slot: f.slot } : {}), ...(f.grade !== undefined ? { grade: f.grade } : {}) })
+      continue
+    }
+    foes.push({
+      from: 'enemy', id: f.enemy,
+      ...(f.grade !== undefined ? { grade: f.grade } : {}), ...(f.slot !== undefined ? { slot: f.slot } : {}), ...(f.strength !== undefined ? { strength: f.strength } : {}),
+    })
+  }
+  if (!foes.length) throw new Error(`遭遇 ${encounterId} 的敵人都是掛在格上的一台：要有至少一個佔格的敵人`)
+  const ext = { ...(enc.traits === false ? { traits: false } : {}), ...(overlays.length ? { enemies: { overlays } } : {}) }
   return {
     mode: 'meat', grade: enc.grade as Grade, cover: enc.cover, allies: o.allies, foes,
-    // 開戰時擲特徵（E10）：遭遇寫 traits: false 就不擲；基準遭遇（id 開頭 enc_base_）不動平衡的基準，預設也不擲
+    // 開戰時擲特徵（E10）：遭遇寫 traits: false 就不擲（基準遭遇在資料裡寫）；掛在格上的敵人放 ext.enemies.overlays
     origin: {
       encounter: encounterId, escapable: enc.escapable ?? true, place: enc.name, ...(faction && faction !== 'none' ? { faction } : {}),
-      ...(enc.traits === false || (enc.traits === undefined && encounterId.startsWith(BASE_PREFIX)) ? { ext: { traits: false } } : {}),
+      ...(Object.keys(ext).length ? { ext } : {}),
     },
     ...(enc.ambush ? { ambush: enc.ambush } : {}), ...(enc.field ? { field: enc.field } : {}), ...(enc.nodes ? { nodes: enc.nodes } : {}),
   }

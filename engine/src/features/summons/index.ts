@@ -2,14 +2,15 @@
 // 用拿下的控制節點改變戰場（關燈、放下防爆門）。COMBAT_SYSTEM 9.1、9.2、2.4、2.5 節；dev/work/M1-summons.md。
 //
 // 和人重疊的東西（無人機）、控制節點、場地效果與被擊落的接口都在核心（BattleOverlay、BattleNode、battle.field、overlay.down）；
-// 這個功能只註冊行動、護盾型的被動修正與被擊落的後果。機甲在 M6，敵方的無人機與砲塔、接管砲塔不在這一批。
+// 這個功能只註冊行動、護盾型的被動修正與被擊落的後果；以及一台怎麼動：沒有操作者的每一輪自己動（auto.ts：敵方的無人機與砲塔、自律之後的）、
+// 被電磁打到停一回合、砲塔（不能移動）。把東西掛上去、會指揮的敵人在 features/enemies（M1b-enemy-units）。機甲在 M6。
 // 機師有哪些無人機與載具讀單位上的 ext.summons（裝備的功能之後會把它填上）；不 import 別的功能。
 //
 // 一台無人機這一場的狀態記在操作者的 uses 裡：`drone:<索引>` 是 1（放出去了）或 2（被擊落了，這一場不能再放）；收回就清掉。
 
 import type { BattleActionDef, BattleOverlay, BattlePick, BattleTarget, BattleTargetOption, BattleUnit, BattleView, Feature } from '../../core'
 import { BATTLE_SLOTS, BattleBlocked, otherSide, overlayAt, unitsOf } from '../../core'
-import { DRONE_CAP_BY_SYNC, DRONE_STATS, KIND_NAME, NEEDS_FOE, OWNER, capBlock, driveOnce, dronesOf, fielded, hang, isDrone, isKind, moveSlots, moveTo, stateOf, syncOf, vehicleOf, widestCap } from './drones'
+import { DRONE_CAP_BY_SYNC, DRONE_STATS, KIND_NAME, NEEDS_FOE, OWNER, STUN_BLOCK, capBlock, driveOnce, dronesOf, fielded, hang, isDrone, isKind, isStunned, moveSlots, moveTo, stateOf, syncOf, vehicleOf, widestCap } from './drones'
 import { registerHooks } from './hooks'
 import { registerOps } from './ops'
 import type { DroneDef, DroneKind, SummonsExt } from './drones'
@@ -95,7 +96,7 @@ const command: BattleActionDef = {
   ...COMMON, id: 'drone.command', name: '指揮', icon: 'drone_command', order: 2, target: 'overlay',
   desc: '讓一台無人機做一次它的動作，命中用你的操縱：攻擊與干擾型開火、偵察型標記、醫療型急救、護盾型替同一格的人擋下一次攻擊（到你的下一回合開始）。每台每回合一次。',
   has: hasDrones,
-  targets: (view, u) => fielded(view, u).map((o) => ({ target: { overlay: o.id }, blocks: o.used ? ['這一台這一回合動過了。'] : [] })),
+  targets: (view, u) => fielded(view, u).map((o) => ({ target: { overlay: o.id }, blocks: o.used ? ['這一台這一回合動過了。'] : isStunned(o) ? [STUN_BLOCK] : [] })),
   // 對誰（pick.at：敵人的單位 id）：攻擊、干擾、偵察型才要選；醫療型照顧同一格的人、護盾型守著同一格的人，不用選
   picks: (view, u): BattlePick[] => {
     const need: BattleTarget[] = fielded(view, u).filter((o) => NEEDS_FOE.includes(o.kind)).map((o) => ({ overlay: o.id }))

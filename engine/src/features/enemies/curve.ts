@@ -22,3 +22,6 @@ export const ENEMY_CURVE = {
 
 /** 遭遇的種類與點數的預算（ENEMIES 第 13 節）。 */
 export const ENCOUNTER_BUDGET = { light: 2, normal: 4, heavy: 5.5, boss: 8 } as const
+
+/** 掛在格上的小型無人機與砲塔每一台的點數（ENEMIES 第 13 節）。 */
+export const OVERLAY_POINTS = 0.5
