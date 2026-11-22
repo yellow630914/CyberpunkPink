@@ -504,8 +504,10 @@ describe('內容的檢查', () => {
     const has = (id: string) => !!k.battle.getAction(id)
     expect([has('sk_gunner_burst'), has('sk_fixer_swap'), has('sk_fixer_face.give_ap'), has('sk_fixer_face.call')]).toEqual([true, true, true, true])
     expect([has('sk_gunner_cover_fire'), has('sk_fixer_watch_out'), has('sk_gunner_instinct'), has('sk_gunner_sights'), has('sk_gunner_pending')]).toEqual([false, false, false, false, false])
+    // 戰鬥直覺（被動）自己不是行動，但多一個「重分配」（M1b-skill-gunner-broker）
+    expect(has('sk_gunner_instinct.realloc')).toBe(true)
     // 順序照內容裡的順序
-    expect(k.battle.actionsFor('meat').filter((a) => a.group === 'skill').map((a) => a.id)).toEqual(['sk_gunner_burst', 'sk_fixer_face.give_ap', 'sk_fixer_face.call', 'sk_fixer_swap'])
+    expect(k.battle.actionsFor('meat').filter((a) => a.group === 'skill').map((a) => a.id)).toEqual(['sk_gunner_instinct.realloc', 'sk_gunner_burst', 'sk_fixer_face.give_ap', 'sk_fixer_face.call', 'sk_fixer_swap'])
     // 只有現實戰場
     expect(k.battle.actionsFor('net').some((a) => a.group === 'skill')).toBe(false)
   })

@@ -27,9 +27,11 @@ export function abilitiesOf(state: GameState, actor: ActorId): AbilityState {
   const prepared: PreparedEntry[] = Array.isArray(r.prepared)
     ? r.prepared.filter((x): x is PreparedEntry => isRec(x) && typeof x.id === 'string' && (x.scope === 'next_battle' || x.scope === 'commission')).map((x) => ({ id: x.id, scope: x.scope, ...(typeof x.key === 'string' ? { key: x.key } : {}) }))
     : []
+  // 開打前的指定（戰鬥直覺的分配、黑市門路指定的隊友）：整份帶著走，學、裝的報告不會丟掉它
+  const preset = isRec(r.preset) ? (clone(r.preset) as NonNullable<AbilityState['preset']>) : undefined
   return {
     xp: typeof r.xp === 'number' && Number.isFinite(r.xp) ? r.xp : 0, learned: list(r.learned), equipped: list(r.equipped), spent,
-    ...(Object.keys(commission).length ? { commission } : {}), ...(prepared.length ? { prepared } : {}),
+    ...(Object.keys(commission).length ? { commission } : {}), ...(prepared.length ? { prepared } : {}), ...(preset ? { preset } : {}),
   }
 }
 

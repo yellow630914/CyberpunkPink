@@ -105,3 +105,5 @@
 - 2026-11-22 技術債：features/combat/ops.ts 的 damageOverlay 複製了核心的掛著東西的傷害算法（核心 hpDamage 是私有的）；第二波收尾時核心補 run.damageOverlay(o, raw, type, by, { pierce }) 並改用它。
 - 2026-11-22 第二波收尾的核心小工單（M1b-core-closeout，sonnet）累積：`run.damageOverlay` 公開入口；`attack.before` 可設 `opts.cancel`（卡彈與炸膛移回掛點，技能的 attack 也會卡彈）；redirect 結算後的掛點（立牌保證倒下）；`attackOverlay` 也發 `attack.before`（技能打掛著的東西吃得到彈的 fx）；快感沉溺的定力擋（取代 takeBackSink）。功能層：fx 合併的 `armor_mult` 改相乘；使用道具支援 `target: 'foe'`（紙鶴）、`until: next_overload`；智慧武器失效。
 - 2026-11-22 技能格式還寫不出來的（SKILLS 1.8）：預備裡要玩家選的東西（預備沒有 pick）、move_ap 等其他修正的每場／每回合第 N 次、被動改遮蔽倍率、重創機率、反應 attacked 的 if、mods.when 的生命比例條件、日常（daily）。
+- 2026-11-22 第二批核心小修（之後一起派，sonnet）：order 的 act_next 要看「對調之前」有沒有動過（大局，M1b-skill-gunner-broker 留 it.todo）；compact（補位）發 `compacted` 掛點（不准動喔現在用掃描補）。
+- 2026-11-22 開打前的指定（戰鬥直覺的分配 preset.instinct、黑市門路指定的隊友 preset.picks）沒有寫入的報告與介面，要一張 abilities＋UI 的小工單。被贖回（保釋）的選項要 UI 用 defeatOptions／chooseDefeatOption 顯示。

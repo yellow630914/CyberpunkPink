@@ -38,6 +38,7 @@ export function whenBlocks(view: BattleView, u: BattleUnit, w: WhenDef | undefin
     if (!view.battle.nodes.some((n) => n.taken && (!kind || n.kind === kind))) out.push(kind ? `要先接管${kind}類的控制節點才能用。` : '要先接管一個控制節點才能用。')
   }
   if (w.first_round && view.battle.round !== 1) out.push('只能在第一回合用。')
+  if (w.wounded && !isWounded(u)) out.push('自己要是重傷（生命低於一半）才能用。')
   if (w.in_cover && coverOf(view.battle, u) < 1) out.push('自己要站在有遮蔽的格子才能用。')
   if (w.other_exposed && !(other && isExposed(view.battle, other))) out.push('對手要站在暴露的格子才能用。')
   if (w.other_cyber && !((other?.cyber ?? 0) > 0)) out.push('對手要有義體才能用。')
@@ -63,6 +64,11 @@ export function needsBlocks(view: BattleView, t: BattleUnit, n: NeedsDef | undef
   if (n.wounded && !isWounded(t)) out.push(`${t.name}要是重傷（生命低於一半）才能用。`)
   if (n.afterglow !== undefined && t.layers < n.afterglow) out.push(`${t.name}要疊著 ${n.afterglow} 層以上的餘韻才能用（現在 ${t.layers} 層）。`)
   if (n.tag !== undefined && !t.tags.includes(n.tag)) out.push(`${t.name}要帶著「${n.tag}」標籤才能用。`)
+  // any：成立任何一組就算；全都不成立時合成一句（每一組的原因用「，或」接起來）
+  if (n.any?.length) {
+    const alts = n.any.map((a) => needsBlocks(view, t, a))
+    if (alts.every((why) => why.length > 0)) out.push(alts.map((why) => why.join('').replace(/。$/, '')).join('；或是') + '。')
+  }
   return out
 }
 

@@ -101,9 +101,10 @@ describe('戰鬥裡的技能（SKILL_TREES 槍手、掮客 1～2 階）', () => 
     const g = game([unit(['sk_gunner_instinct', 'sk_gunner_aimed_shot', 'sk_gunner_burst'], { weapon: 'rifle' }), one({ weapon: 'pistol' }, 2)])
     turnTo(g, 'a1')
     const skills = g.battleOptions()!.actions.filter((a) => a.group === 'skill')
-    expect(skills.map((a) => [a.id, a.name, a.cost.ap])).toEqual([['sk_gunner_aimed_shot', '要害射擊', 3], ['sk_gunner_burst', '連射控制', 3]])
+    // 戰鬥直覺（被動）多一個行動「重分配」（M1b-skill-gunner-broker）
+    expect(skills.map((a) => [a.id, a.name, a.cost.ap])).toEqual([['sk_gunner_instinct.realloc', '重分配', 1], ['sk_gunner_aimed_shot', '要害射擊', 3], ['sk_gunner_burst', '連射控制', 3]])
     // 技能排在圓環的最前面（中心），其餘照原本的圈
-    expect(g.battleOptions()!.actions.map((a) => a.id)).toEqual(['sk_gunner_aimed_shot', 'sk_gunner_burst', TEST_ACTIONS.ATTACK, TEST_ACTIONS.RELOAD, MOVE, TEST_ACTIONS.WATCH, END_TURN])
+    expect(g.battleOptions()!.actions.map((a) => a.id)).toEqual(['sk_gunner_instinct.realloc', 'sk_gunner_aimed_shot', 'sk_gunner_burst', TEST_ACTIONS.ATTACK, TEST_ACTIONS.RELOAD, MOVE, TEST_ACTIONS.WATCH, END_TURN])
     turnTo(g, 'a2')
     expect(g.battleOptions()!.actions.some((a) => a.group === 'skill')).toBe(false)
   })

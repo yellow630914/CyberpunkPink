@@ -11,6 +11,10 @@ import type { Change, ContentEntry, Effect, Feature, Kernel, ReportDraft, RulesK
 import { clone, deriveRng, effectCtx, pickVersion, resolveFiltered } from '../../core'
 import type { GameState, VersionId } from '../../core'
 
+// 戰敗的選項（M1b-skill-gunner-broker）：戰敗事件三選一（接受、重來、回到這個階段開始時）之外，別的功能可以多加選項（保釋的「被贖回」）。
+// 這個功能只開一個掛點 defeat.options：別的功能掛上去，回傳它要多的選項；選了就照選項的 changes 結算、跳過事件的內容。
+// 兩邊不互相 import（掛點的型別用 declare module 補在核心的掛點表上）。
+
 const OWNER = 'defeat'
 const KIND = 'defeat_event'
 const EXT = 'defeat'
@@ -28,6 +32,29 @@ export interface DefeatEventEntry extends ContentEntry {
   tags?: string[]
   fallback?: string
   adult?: boolean
+}
+
+/** 戰敗時多出來的一個選項（別的功能經 defeat.options 掛點給）。選了就套 changes、不進戰敗事件的內容。 */
+export interface DefeatOption {
+  id: string
+  name: string
+  /** 給玩家看的說明（完整的句子：會發生什麼） */
+  desc: string
+  /** 現在選不了的原因（完整的句子，一條一個條件）；空的就是選得了。選不了的照樣列出來：灰掉但看得到 */
+  blocks: string[]
+  /** 選了之後要套的變更（付錢……）；結算時再加上清掉等待中的戰敗與開打前的快照 */
+  changes: Change[]
+  /** 結算的敘述，一行一筆 */
+  lines: string[]
+  /** 報告的摘要 */
+  summary: string
+}
+
+declare module '../../core' {
+  interface HookMap {
+    /** 戰敗在等玩家選的時候問一次：別的功能回傳它要多給的選項（保釋：被贖回） */
+    'defeat.options': [{ state: GameState; pending: PendingDefeat }, DefeatOption[] | void]
+  }
 }
 
 export interface PendingDefeat {
@@ -146,6 +173,28 @@ export function acceptDefeat(k: Kernel, state: GameState): ReportDraft {
     changes,
     outcome: { result: 'accepted', summary: pending.fails_commission ? '你接受了這個結果。這一趟的委託算失敗。' : '你接受了這個結果。這一趟的委託還在。' },
     narration: { results: r.lines },
+  }
+}
+
+/** 等待中的戰敗現在多出來哪些選項（接受、重來、回到這個階段開始時以外的）；沒有等待中的戰敗是空的。 */
+export function defeatOptions(k: Pick<Kernel, 'hooks'>, state: GameState): DefeatOption[] {
+  const pending = defeatOf(state)
+  if (!pending) return []
+  return k.hooks.run('defeat.options', { state, pending }).flatMap((r) => r.result)
+}
+
+/** 選多出來的一個選項：套它的變更、跳過事件的內容，戰敗就這樣結算。選項不存在或現在選不了，丟錯（訊息是原因）。 */
+export function chooseDefeatOption(k: Pick<Kernel, 'hooks'>, state: GameState, id: string): ReportDraft {
+  const pending = defeatOf(state)
+  if (!pending) throw new Error('沒有等待中的戰敗。')
+  const option = defeatOptions(k, state).find((o) => o.id === id)
+  if (!option) throw new Error(`戰敗現在沒有「${id}」這個選項。`)
+  if (option.blocks.length) throw new Error(option.blocks.join(''))
+  return {
+    kind: 'event', action: 'defeat.option', location: clone(state.location), party: [], timeline: [],
+    changes: [...option.changes, { op: 'ext', key: EXT, value: null }, { op: 'snapshot.drop', kind: 'battle' }],
+    outcome: { result: option.id, summary: option.summary },
+    narration: { results: option.lines },
   }
 }
 

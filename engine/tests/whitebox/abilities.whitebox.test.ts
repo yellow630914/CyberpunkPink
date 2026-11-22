@@ -114,7 +114,7 @@ describe('白箱 meat 欄的格式（工單第四節：封閉清單）', () => {
     [{ attack: { speed: 1 } }, /meat\.attack\.speed 不是可以用的鍵/],
     [{ attack: { aimed: 'yes' } }, /meat\.attack\.aimed 要是 true 或 false/],
     [{ attack: { hit: 'x' } }, /meat\.attack\.hit 要是數字/],
-    [{ attack: { spend: 2 } }, /meat\.attack\.spend 只能是 'all'/],
+    [{ attack: { spend: 0 } }, /meat\.attack\.spend 只能是 'all'/],
     [{ attack: { min_mag: 0 } }, /meat\.attack\.min_mag 要是 1 以上的整數/],
     [{ attack: { dice: 'x' } }, /meat\.attack\.dice 只能是 'spent_minus_1'/],
     [{ attack: { at: 'target' } }, /meat\.attack\.at 只能是 'attacker'/],

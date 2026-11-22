@@ -21,7 +21,7 @@ interface Event {
   /** 對他做這件事的人：攻擊的人、讓他過載的人、擲檢定的人、讓他退出的人 */
   by?: BattleUnit
   opts?: AttackOpts
-  roll?: { wound: boolean }
+  roll?: { wound: boolean; crit?: boolean }
   out?: { negate?: boolean; wound?: boolean; prevent?: boolean }
   how?: string
   tags?: string[]
@@ -58,11 +58,12 @@ function whoMatches(run: BattleRun, holder: BattleUnit, who: string, e: Event): 
 
 function ifHolds(cond: string | undefined, on: string, e: Event): boolean {
   if (cond === undefined) return true
-  if (on === 'hit') return cond === 'wound' && !!e.roll?.wound
+  if (on === 'hit') return (cond === 'wound' && !!e.roll?.wound) || (cond === 'crit' && !!e.roll?.crit)
   if (on === 'after') {
     switch (cond) {
       case 'miss': return e.result?.hit === false
       case 'hit': return e.result?.hit === true
+      case 'crit': return e.result?.crit === true
       case 'melee': return !!e.weapon?.traits.includes('melee')
       case 'bridged': return !!e.subject.load
     }
@@ -92,6 +93,8 @@ function applyReact(run: BattleRun, holder: BattleUnit, ab: AbilityEntry, on: st
   } else if (on === 'hit' && e.out) {
     if (r.negate) e.out.negate = true
     if (r.no_wound) e.out.wound = false
+    // 這一擊的穿甲（傷害還沒算：獵殺節奏）
+    if (r.pierce !== undefined && e.opts) e.opts.pierce = (e.opts.pierce ?? 0) + num(run, holder, ab, r.pierce)
   } else if (on === 'overload') {
     if (r.keep_turn) run.removeStatus(e.subject, LOSE_TURN, true)
   } else if (on === 'checked' && e.check) {
@@ -188,13 +191,23 @@ function anyHalfReaction(run: BattleRun): boolean {
   return Object.values(run.battle.units).some((u) => equippedOf(run, u).some((ab) => isRec(ab.meat?.trigger) && (ab.meat!.trigger as TriggerDef).on === 'hp_half' && !ab.meat!.pending))
 }
 
-/** 看一遍：還沒標過、而且生命低於一半的人，標上「已經低於一半過」，再問 hp_half 的反應。 */
-function scanHalf(run: BattleRun): void {
+/**
+ * hp_half 的反應裡「是誰害的」（do 裡 who: attacker 要用）：剛打傷他的人（還在場上的敵人）；不是被打傷的（流血、燃燒、效果），
+ * 就是對面最前面的敵人。
+ */
+function foeOf(run: BattleRun, u: BattleUnit, by?: BattleUnit): BattleUnit | undefined {
+  if (by && !run.isStandIn(by) && by.side !== u.side && onField(by)) return by
+  return unitsOf(run.battle, u.side === 'ally' ? 'foe' : 'ally')[0]
+}
+
+/** 看一遍：還沒標過、而且生命低於一半的人，標上「已經低於一半過」，再問 hp_half 的反應。by 是剛打過的人（有就帶給反應）。 */
+function scanHalf(run: BattleRun, by?: BattleUnit): void {
   if (!anyHalfReaction(run)) return
   for (const u of Object.values(run.battle.units)) {
     if (!u.hp || u.out || !onField(u) || u.uses.hp_half || !isWounded(u)) continue
     u.uses.hp_half = 1
-    fire(run, 'hp_half', { subject: u })
+    const foe = foeOf(run, u, by)
+    fire(run, 'hp_half', { subject: u, ...(foe ? { by: foe } : {}) })
   }
 }
 
@@ -206,7 +219,7 @@ export function registerReactions(k: Kernel): void {
   k.battle.on('attack.hit', OWNER, ({ run, attacker, target, opts, roll, out }) => fire(run, 'hit', { subject: target, by: attacker, opts, roll, out }))
   k.battle.on('attack.after', OWNER, ({ run, attacker, target, weapon, opts, result }) => {
     fire(run, 'after', { subject: target, by: attacker, opts, result, weapon })
-    scanHalf(run)
+    scanHalf(run, attacker)
   })
   k.battle.on('overload', OWNER, ({ run, unit, by }) => fire(run, 'overload', { subject: unit, ...(by ? { by } : {}) }))
   k.battle.on('check.before', OWNER, ({ run, unit, other, tags, opts }) => fire(run, 'checked', { subject: unit, by: other, tags, check: opts }))

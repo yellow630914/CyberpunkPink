@@ -4,11 +4,11 @@
 // when 看的是給修正的那個人自己（再加對手的 other_*）。
 // buff 這個效果也由這裡註冊：在對象身上掛一段時間的修正，結束時做 on_end；任何來源都能用。
 
-import type { BattleRun, BattleUnit, BattleView, Kernel, ModKind, ModQuery, RollPart } from '../../core'
+import type { BattleRun, BattleUnit, BattleView, Kernel, ModQuery, RollPart } from '../../core'
 import { STATUS_UNTILS, amount, onField, unitTag, unitsOf } from '../../core'
 import { whenBlocks } from './conditions'
 import { modsProblems } from './format'
-import type { AbilityEntry, ModEntry, PathEntry, UnitBuff } from './types'
+import type { AbilityEntry, AnyModKind, FeatureModKind, ModEntry, PathEntry, UnitBuff } from './types'
 import { OWNER } from './types'
 import { broughtPrep, equippedOf, isRec, setBuffs, tierIn, unitAbilities, unitBuffs } from './unitdata'
 
@@ -68,7 +68,7 @@ interface Applied {
 }
 
 /** 問 unit 的某一種數字時，現在算數的每一筆修正。 */
-function applied(view: BattleView, unit: BattleUnit, kind: ModKind, tags: readonly string[], other?: BattleUnit): Applied[] {
+function applied(view: BattleView, unit: BattleUnit, kind: AnyModKind, tags: readonly string[], other?: BattleUnit): Applied[] {
   const b = view.battle
   // 替身（和人重疊的東西自己開火）不在單位清單裡，吃不到技能的修正
   if (b.units[unit.id] !== unit) return []
@@ -95,6 +95,14 @@ function applied(view: BattleView, unit: BattleUnit, kind: ModKind, tags: readon
   }
   return out
 }
+
+/** 這個功能自己認的修正（FEATURE_MOD_KINDS）：問 unit 的這個數字，現在算數的每一筆。數字在這裡才算（damage_roll 的公式會擲骰，所以只在要用的那一刻問一次）。 */
+export function featureMods(view: BattleView, unit: BattleUnit, kind: FeatureModKind, tags: readonly string[] = [], other?: BattleUnit): Array<{ label: string; value: number }> {
+  return applied(view, unit, kind, tags, other).map((a) => ({ label: a.src.name, value: a.value }))
+}
+
+/** featureMods 的合計（不擲骰的修正用；damage_roll 不要用它問，它每問一次擲一次）。 */
+export const featureTotal = (view: BattleView, unit: BattleUnit, kind: FeatureModKind, tags: readonly string[] = [], other?: BattleUnit): number => featureMods(view, unit, kind, tags, other).reduce((sum, p) => sum + p.value, 0)
 
 // ---- buff ----
 
@@ -179,6 +187,16 @@ export function registerMods(k: Kernel): void {
         if (a.entry.per_turn !== undefined) unit.uses[counterKey(a.src, a.index, true)] = (unit.uses[counterKey(a.src, a.index, true)] ?? 0) + 1
       }
     }
+  })
+
+  // 這個功能自己認的幾種修正（核心不問）：每一次射擊都算瞄準過的；打在他身上的重創改成一般的命中；傷害多一個公式（命中確定之後才擲）
+  k.battle.on('attack.before', OWNER, ({ run, attacker, target, opts }) => {
+    if (run.isStandIn(attacker) || opts.aimed) return
+    if (featureTotal(run, attacker, 'aim_all', opts.tags ?? [], run.isStandIn(target) ? undefined : target) > 0) opts.aimed = true
+  })
+  k.battle.on('attack.hit', OWNER, ({ run, attacker, target, opts, roll, out }) => {
+    if (!run.isStandIn(attacker)) for (const p of featureMods(run, attacker, 'damage_roll', opts.tags ?? [], target)) opts.damage = (opts.damage ?? 0) + p.value
+    if (roll.wound && featureTotal(run, target, 'no_wound', opts.tags ?? [], attacker) > 0) out.wound = false
   })
 
   k.battle.on('turn.start', OWNER, ({ run, unit }) => tickBuffs(run, 'turn_start', unit))

@@ -10,14 +10,18 @@ import type { Feature } from '../../core'
 import { registerActions, registerBattle } from './battle'
 import { checkAbilities, registerKinds } from './kinds'
 import { registerBuff, registerMods } from './mods'
+import { registerOps } from './ops'
 import { registerReactions } from './reactions'
+import { registerSuppress } from './suppress'
 import { OWNER } from './types'
+import { registerWard } from './ward'
 
 export { TREE_XP } from './types'
 export type { AbilityEntry, AbilityState, AbilityUse, MeatDef, ModEntry, PathEntry, PrepDef, PreparedEntry, UnitAbilities } from './types'
 export { abilitiesOf, capacityOf, equipAbilities, learn, learnBlock, treeTier } from './learn'
 export { unitAbilities } from './unitdata'
 export { prep, prepBlock } from './prep'
+export { defaultAlloc, fitAlloc, allocOf } from './instinct'
 
 export const abilitiesFeature: Feature = {
   id: OWNER,
@@ -27,6 +31,9 @@ export const abilitiesFeature: Feature = {
     registerMods(k)
     registerBuff(k)
     registerReactions(k)
+    registerOps(k)
+    registerWard(k)
+    registerSuppress(k)
   },
   ready(k) {
     checkAbilities(k)

@@ -18,6 +18,18 @@ export const KINDS = ['active', 'passive', 'reaction', 'stance', 'prep', 'daily'
 /** 一棵樹開到第 N 階，要在這棵樹累計花 TREE_XP[N-1] 點（SKILLS 1.3 節）。 */
 export const TREE_XP: readonly number[] = [0, 40, 120, 240, 400]
 
+/**
+ * 這個功能自己認的修正名（不進核心的 MOD_KINDS；核心不會問，由這個功能在自己的地方查）：
+ * instinct_points／instinct_cap／instinct_free 戰鬥直覺（點數加減、每項上限加減、重分配不花行動點）；
+ * call_uses／call_hit 叫人（每場次數加減、支援射擊的命中加減）；
+ * aim_all 大於 0 時這個人的每一次射擊都算瞄準過的；no_wound 大於 0 時打在他身上的重創改成一般的命中；
+ * damage_roll 造成的傷害多這個公式（可以擲骰：打他打他！的 1d3，在命中確定之後才算一次）；
+ * give_ap_cap 指揮每回合能讓的行動點加減。
+ */
+export const FEATURE_MOD_KINDS = ['instinct_points', 'instinct_cap', 'instinct_free', 'call_uses', 'call_hit', 'aim_all', 'no_wound', 'damage_roll', 'give_ap_cap'] as const
+export type FeatureModKind = (typeof FEATURE_MOD_KINDS)[number]
+export type AnyModKind = ModKind | FeatureModKind
+
 /** 共鳴的效果（封閉清單）。 */
 export interface ResonanceEffect {
   initiative?: number
@@ -48,7 +60,7 @@ export interface PathEntry {
 export type MeatTarget =
   | 'enemy' | 'ally' | 'self' | 'ally_slot' | 'enemy_slot' | 'none'
   | 'ally_or_self' | 'near' | 'downed_near' | 'foe_slot' | 'own_overlay' | 'foe_overlay'
-export type CallOption = 'shot' | 'cover_up' | 'cover_down'
+export type CallOption = 'shot' | 'cover_up' | 'cover_down' | 'heal' | 'vent'
 
 /** 自己的條件（每一項一句灰掉的原因）。mods 的 when 可以多用 first_round、in_cover、other_*。 */
 export interface WhenDef {
@@ -68,6 +80,8 @@ export interface WhenDef {
   other_exposed?: boolean
   other_cyber?: boolean
   other_status?: string
+  /** true：自己是重傷（生命低於一半） */
+  wounded?: true
 }
 
 /** 目標的條件（每一項一句灰掉的原因）。 */
@@ -80,11 +94,13 @@ export interface NeedsDef {
   wounded?: boolean
   afterglow?: number
   tag?: string
+  /** 幾組條件成立任何一組就算（「重傷，或疊著餘韻」）；每一組裡不能再寫 any */
+  any?: Array<Omit<NeedsDef, 'any'>>
 }
 
 /** 被動、姿態、共鳴、預備、buff 的一筆修正。value 收數字、公式或 { by_tier: [五個數字] }。 */
 export interface ModEntry {
-  kind: ModKind
+  kind: AnyModKind
   value?: number | string | { by_tier: number[] }
   tags?: string[]
   who?: 'self' | 'adjacent' | 'allies' | 'behind'
@@ -114,6 +130,8 @@ export interface ReactDef {
   keep_turn?: true
   dc?: number | string
   prevent?: { how: string[] }
+  /** hit 專用：這一擊的穿甲加減（獵殺節奏） */
+  pierce?: number | string
 }
 
 export interface PickDecl {
@@ -121,6 +139,10 @@ export interface PickDecl {
   label: string
   kind: 'foe' | 'ally' | 'ally_slot' | 'foe_slot' | 'choice'
   required?: boolean
+  /** kind 是 ally 時：只有和自己相鄰的隊友選得了（掩護撤退） */
+  adjacent?: true
+  /** kind 是 foe、ally 而且技能的目標是人時：選的人不能就是目標自己（「另一個敵人」「和誰對調」） */
+  apart?: true
 }
 export interface ChooseEntry {
   key: string
@@ -133,6 +155,19 @@ export interface AlterEntry {
   ability: string
   set: Record<string, unknown>
   as_pick?: { key: string; label: string }
+  /** 裝著這個技能的人要符合這些條件才改（彈幕：要開著那個姿態） */
+  when?: WhenDef
+}
+
+/** 攻擊之後的壓制：被打的人過定力檢定（dc 加 dc_bonus），失敗就被壓制。area 讓目標相鄰一格上的人或整排也各自檢定；auto 是姿態：命中就壓制、不必檢定。 */
+export interface SuppressDef {
+  dc?: 'spent' | number
+  skill?: string
+  area?: 'adjacent' | 'row'
+  dc_bonus?: number
+  auto?: true
+  /** auto 專用：每回合前幾次 */
+  per_turn?: number
 }
 
 /** `meat` 欄的封閉清單（M1-abilities 第四節＋M1b-skill-format 第二～四節）。 */
@@ -141,11 +176,14 @@ export interface MeatDef {
   attack?: {
     aimed?: boolean
     hit?: number
-    spend?: 'all'
+    /** 'all'：彈匣裡剩下的全部；數字：花這麼多格（點放） */
+    spend?: 'all' | number
     min_mag?: number
     dice?: 'spent_minus_1'
-    suppress?: { dc: 'spent' | number; skill: string }
+    suppress?: SuppressDef
     at?: 'attacker'
+    /** true：這一次連射不花彈匣（花掉的格數照樣算在傷害與壓制上：火力牆） */
+    free_mag?: true
   }
   apply?: Array<{ status: string; until?: StatusUntil }>
   free_move?: { swap_adjacent_pair?: boolean }
@@ -157,7 +195,7 @@ export interface MeatDef {
   evade?: number
   on_hit?: { hit_against_ally?: number }
   give_ap?: { max: 'one_plus_half_tier' }
-  call?: { options: CallOption[]; per_fight: 'half_tier_up'; ap: number }
+  call?: { options: CallOption[]; per_fight: 'half_tier_up'; ap: number; heal?: number | string; vent?: number | string }
   instinct?: true
   pending?: true
   // ---- 通用格式（M1b-skill-format） ----
@@ -174,6 +212,12 @@ export interface MeatDef {
   tags?: string[]
   pool?: Record<string, { max?: number; regen?: number }>
   alter?: AlterEntry[]
+  /** 保釋：裝著的人在隊上時，全隊倒下的戰敗事件多一個「被贖回」，付這個數字的現金（公式，例 'grade*1000'） */
+  ransom?: { cash: number | string }
+  /** 開戰時做一次（黑市門路；指定的隊友從開打前的指定來，見 AbilityState.preset.picks） */
+  on_start?: Array<Record<string, unknown>>
+  /** 姿態開著時，指揮把行動點讓給一名隊友之後對他做的效果（號令） */
+  on_give_ap?: Array<Record<string, unknown>>
 }
 
 /** 一組消耗。`use` 可以直接寫一組（每個戰場都一樣），或照戰場分 meat、net、opinion（E1）。 */
@@ -248,12 +292,16 @@ export interface AbilityState {
   commission?: Record<string, Record<string, number>>
   /** 預備好的（dev/adr/0015 E4） */
   prepared?: PreparedEntry[]
+  /** 開打前的指定（開打時才讀；沒有就用預設）：戰鬥直覺的分配、黑市門路指定的隊友 */
+  preset?: { instinct?: { initiative: number; hit: number; evade: number }; picks?: Record<string, string> }
 }
 
 /** 戰鬥裡每個單位的資料（unit.ext.abilities）。 */
 export interface UnitAbilities {
   equipped: string[]
   tiers: Record<string, number>
+  /** 開打前的指定（黑市門路指定的隊友：鍵 → 隊友的角色 id 或單位 id） */
+  picks?: Record<string, string>
 }
 
 /** 一段時間的修正（buff 這個效果掛的）：到期時做 on_end。 */
