@@ -19,7 +19,7 @@
 | 基本功與屬性 | 用英文 id。屬性：`body` 體格、`reflex` 反應、`tech` 技術、`intellect` 智識、`resolve` 意志、`charm` 魅力。屬性、基本功、勢力與具名 NPC 的 id 表在 1.1 節 |
 | 身體的部位 | `mouth` 口、`hand_l` 左手、`hand_r` 右手、`chest` 胸、`front` 前、`back` 後、`legs` 腿足；義體與化身多出來的部位自己取 id（`tail`、`tentacle_1`） |
 | 體型 | `masc` 陽剛、`fem` 陰柔、`andro` 中性 |
-| 性別 | `female`、`male`、`femboy` 偽娘與男娘、`trans_f` 與 `trans_m`（TS）、`futa` 扶他。版本照性別分：`male` 只走 `masc`；`female` 走 `default` 與 `yuri`；其他完全不限 |
+| 性別 | `female`、`male`、`femboy` 偽娘與男娘、`trans_f`（TS，只有男跨女一種）、`futa` 扶他。版本照性別分：`male` 只走 `masc`；`female` 走 `default` 與 `yuri`；其他完全不限 |
 
 ### 1.1 id 表
 
@@ -806,7 +806,7 @@
 | 變動 | 內容 |
 |---|---|
 | `traits` 改名 `persona` | 原本放屬性與性格象限的欄位改叫 `persona`，把 `traits` 這個名字讓給特質 |
-| `gender` 的值 | 用第 1 節的六個值 |
+| `gender` 的值 | 用第 1 節的五個值 |
 | 加 `traits` | 特質與缺陷的 id，照特質點抽 |
 | 加 `sex_record` | 性經歷：`partners` 對象的人數、`times` 次數、`first` 第一次（對象與一句話）、`service_times`、`favorite`、`notes` |
 | 加 `night_skills` | 會的夜課技能 |

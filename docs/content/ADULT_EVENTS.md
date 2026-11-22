@@ -18,7 +18,7 @@
    - 4.7 節的「藥」寫成觸發點 `drug`：用了催情劑（蜜）、牆灰、蜜腺的試用品，或狀態「被下藥」上身之後的下一個回合。
 2. **效果**：直播中的事件多一個效果 `highlight`（亮點）：照那一場直播的模板加熱度，一件最多 +3，只在 `stream` 觸發的事件裡用。熱度只指這個數字。
 3. **體型的版本**：帶 `adult_scene` 的事件照戰敗事件的寫法（DATA 第 5 節）分版本。沒寫的照 `default`。寫了「陽剛（masc）」的，陽剛的主角改用那一行的登場角色與起始體位，主角在那一場是被動的一方；寫了「百合（yuri）」的，陰柔與中性的主角有 30% 走那一行，由女性主導。事件的 `requires` 可以只收某一種體型。
-4. **對象的性別**：DATA 第 1 節的六個值。偽娘沒有自己的值，寫成 `femboy` 加上 `look: crossdress`（穿女裝的男性，身體沒有改造）；男娘是 `femboy` 本身（照 CULTURE 10.6 節，身體與打扮都往女性調過）。
+4. **對象的性別**：DATA 第 1 節的五個值。偽娘沒有自己的值，寫成 `femboy` 加上 `look: crossdress`（穿女裝的男性，身體沒有改造）；男娘是 `femboy` 本身（照 CULTURE 10.6 節，身體與打扮都往女性調過）。
 5. **篩選標籤**：照 SPEC 與 EVENTS 第 6 節用 `pc_unwilling`、`contract_dom`、`ntr`、`puppet_amnesia`、`blacktape`、`male_partner`、`female_partner`、`ai:<自稱>`、`tendency:<標籤>`。另外補四個：`target_unwilling`（對象非自願，LEWD 第 9 節有這一項但 EVENTS 第 6 節沒有標籤）、`femboy_partner`、`trans_partner`、`futa_partner`（男娘與偽娘、TS、扶他當對象）。對象的性別標籤被關掉時，生成的登場角色改抽沒被關掉的性別；指定的固定 NPC 被關掉時整件不出現。
 6. **夜課的對照**：開場與選項寫明的體位、道具、風格都是夜課（NIGHT_LESSONS）裡有的，`start_position` 用那裡的體位名。事件的選項可以寫「會某個夜課技能的人 +2」，那是技能延伸到日常的那一部分（每個分支三階與五階的延伸技能），要裝進橋才算。
 
