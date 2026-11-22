@@ -1,6 +1,6 @@
 // B008：打和人重疊的東西（無人機、砲塔）時，不照傷害類型的規則算（dev/bugs/B008-overlay-ignores-damage-type.md）。
 // 規格：COMBAT_SYSTEM 第 5 節的傷害類型表（熱能「護甲：無視一半」；電磁「護甲：不看」、「對機器、無人機、機甲傷害加倍」）；9.1 節（無人機的生命與護甲照等級，敵人位階的傷害倍率照乘）。
-// 現況：BattleRun.attackOverlay 一律用「物理」的算法（護甲全扣），電磁與熱能只少一顆骰。工單做完之前照預期失敗。
+// 現況：BattleRun.attackOverlay 一律用「物理」的算法（護甲全扣），電磁與熱能只少一顆骰。已修好（2026-11-22），這一份是回歸測試。
 
 import { describe, expect, it } from 'vitest'
 import type { BattleOverlay } from '../../src'

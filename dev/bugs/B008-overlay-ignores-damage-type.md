@@ -6,3 +6,5 @@
 - 重現（種子不用，骰面釘死）：我方拿電磁手槍（3d6 → 少一顆 = 2 顆，各擲 3，沒有固定傷害），敵方無人機護甲 4、生命 99，自然 20 命中。期望傷害 = 6 × 2 = 12（護甲不看、電磁加倍），實際 2（6 − 4）。熱能同一組：期望 6 − floor(4 × 0.5) = 4，實際 2。
   會失敗的測試：`engine/tests/pending/B008-overlay-damage-type.test.ts`（兩個失敗；第三個「物理」對照會過）。
 - 可能的位置（只寫推測，不改）：`engine/src/core/battle/run.ts` 的 `attackOverlay`（約 :376～:380）：照 `damageTypeOf(...)` 的 `armor`（算幾成）算護甲、`vs`（無人機要有 `machine` 之類的標籤，或 overlay 一律當 machine）乘倍率。順手考慮 overlay 的神經傷害（沒有橋：無效）。
+- 修好了（2026-11-22）：`BattleRun` 把生命傷害的算法抽成 `hpDamage`／`armorAfter`，`damage` 與 `attackOverlay` 共用；overlay 當 `machine`（電磁加倍），護甲照類型的比例與穿甲算，感載類（神經）傷害對它無效。
+- fixed in: `engine/src/core/battle/run.ts`；回歸測試 `engine/tests/whitebox/B008-overlay-damage-type.test.ts`

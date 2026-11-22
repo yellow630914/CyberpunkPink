@@ -6,3 +6,4 @@
 - 重現：單位掛一個耐久 100、護甲 0 的機體（`unit.hull`），`run.damage(unit, 10, 'em')`：期望機體耐久少 20，實際少 10；物理 10 點少 10（對照，是對的）。
   會失敗的測試：`engine/tests/pending/B009-hull-em-double.test.ts`（一個失敗、一個對照會過）。
 - 可能的位置（只寫推測，不改）：`engine/src/core/battle/run.ts` 的 `damage`：機體在場時（`target.hull`）傷害類型的 `vs` 要照機體算（機體視同 machine），不看機師的標籤；神經傷害對機體無效的那一條（「神經武器對機體無效」）也在同一個地方。
+- 狀態：不在 M1 修，留到 M6（機甲與機體耐久搬進來時一起處理）。`engine/tests/pending/B009-hull-em-double.test.ts` 繼續留在 pending。

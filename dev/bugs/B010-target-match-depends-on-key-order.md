@@ -6,3 +6,5 @@
 - 重現：開一場一般遭遇，輪到 a1 時 `game.battleAct({ action: 'move', target: { slot: 2, side: 'ally' } })` 回 `refused`、`reasons: ['這個目標不能選。']`；把鍵順序換成 `{ side: 'ally', slot: 2 }` 就成功。
   會失敗的測試：`engine/tests/pending/B010-same-target-key-order.test.ts`（兩個失敗、一個對照會過）。
 - 可能的位置（只寫推測，不改）：`sameTarget` 改成逐鍵比對（四種目標只有 unit、side＋slot、overlay、node 幾個鍵）。
+- 修好了（2026-11-22）：`sameTarget` 改成逐鍵比對。
+- fixed in: `engine/src/core/battle/field.ts`；回歸測試 `engine/tests/whitebox/B010-same-target-key-order.test.ts`

@@ -92,6 +92,9 @@ export interface StatusOpts {
   force?: boolean
 }
 
+/** 和人重疊的東西（無人機、砲塔）的標籤：機器（電磁加倍照這個算）。 */
+const OVERLAY_TAGS: readonly string[] = ['machine']
+
 export class BattleRun implements BattleView {
   readonly mode: BattleMode
   readonly n: BattleNumbers
@@ -356,13 +359,29 @@ export class BattleRun implements BattleView {
     }
     const baseDice = w.far && distance(attacker, o) > w.far.beyond ? w.far.dice : w.dice
     const raw = Math.max(0, this.d6(Math.max(1, baseDice + (damageTypeOf(this.k.content, opts.type ?? w.type).dice ?? 0) + (opts.dice ?? 0))) + w.flat + (opts.damage ?? 0))
-    const armor = Math.max(0, o.armor - (w.pierce + (opts.pierce ?? 0)))
-    const dealt = Math.max(0, Math.round((raw - armor) * attacker.dmgMult.hp))
+    // 照傷害類型算（COMBAT_SYSTEM 第 5 節）：和打人同一份算法；無人機與砲塔是機器；沒有橋，感載類的傷害對它無效
+    const typeId = opts.type ?? w.type
+    const dealt = damageTypeOf(this.k.content, typeId).track === 'load' ? 0 : this.hpDamage(raw, typeId, o.armor, OVERLAY_TAGS, attacker, { pierce: w.pierce + (opts.pierce ?? 0) })
     o.hp.now = Math.max(0, o.hp.now - dealt)
     this.say(`${head}命中，${o.name}受到 ${dealt} 點傷害。`, 'hit', { ...ids, natural, amount: dealt }, attacker, roll)
     const downed = o.hp.now <= 0
     if (downed) this.dropOverlay(o, attacker)
     return { ...none, hit: true, natural, total, evade, raw, dealt, track: 'hp', downed }
+  }
+
+  /** 護甲照比例（type.armor 或 1）扣掉之後剩下的傷害；穿甲只抵銷護甲。 */
+  private armorAfter(v: number, armor: number, share: number, pierce = 0): number {
+    const eff = Math.floor(armor * share)
+    return this.n.pierceOverflow ? Math.max(0, v - eff + pierce) : Math.max(0, v - Math.max(0, eff - pierce))
+  }
+
+  /** 生命傷害的算法（打人與打和人重疊的東西共用）：照類型扣護甲 → 類型對標籤的倍率 → 攻擊者的位階與難度倍率。 */
+  private hpDamage(raw: number, typeId: DamageType, armor: number, tags: readonly string[], by?: BattleUnit, o: { pierce?: number } = {}): number {
+    const type = damageTypeOf(this.k.content, typeId)
+    let dm = this.armorAfter(raw, armor, type.armor, o.pierce)
+    for (const [tag, mult] of Object.entries(type.vs ?? {})) if (tags.includes(tag)) dm *= mult
+    if (by && dm > 0 && by.dmgMult.hp !== 1) dm = Math.max(1, Math.round(dm * by.dmgMult.hp))
+    return Math.round(dm)
   }
 
   /**
@@ -374,26 +393,19 @@ export class BattleRun implements BattleView {
     if (target.out) return { dealt: 0, track: 'none' }
     const type = damageTypeOf(this.k.content, typeId)
     const armor = Math.max(0, target.armor + (target.hull?.armor ?? 0) + sum(this.mods('armor', target, by)))
-    const afterArmor = (v: number, share: number): number => {
-      const eff = Math.floor(armor * share)
-      return this.n.pierceOverflow ? Math.max(0, v - eff + (o.pierce ?? 0)) : Math.max(0, v - Math.max(0, eff - (o.pierce ?? 0)))
-    }
     if (type.track === 'load') {
       if (type.needsBridge && !target.load) {
         this.say(`${unitTag(target)} 沒有橋，${type.name}傷害對他無效。`, 'damage', { target: target.id, type: typeId, amount: 0 })
         return { dealt: 0, track: 'none' }
       }
-      let v = this.mode.armorOnLoad ? afterArmor(raw, 1) : raw
+      let v = this.mode.armorOnLoad ? this.armorAfter(raw, armor, 1, o.pierce) : raw
       if (by) v *= by.dmgMult.load * (1 + (by.layers * this.mode.afterglow.loadDealtPct + sum(this.mods('load_dealt_pct', by, target))) / 100)
       const got = this.addLoad(target, v, by)
       if (got > 0 && type.sink) target.sink += type.sink
       return { dealt: got, track: got > 0 ? 'load' : 'none' }
     }
     if (!target.hp) return { dealt: 0, track: 'none' }
-    let dm = afterArmor(raw, type.armor)
-    for (const [tag, mult] of Object.entries(type.vs ?? {})) if (target.tags.includes(tag)) dm *= mult
-    if (by && dm > 0 && by.dmgMult.hp !== 1) dm = Math.max(1, Math.round(dm * by.dmgMult.hp))
-    dm = Math.round(dm)
+    let dm = this.hpDamage(raw, typeId, armor, target.tags, by, o)
     if (dm <= 0) {
       this.say(`${unitTag(target)} 的護甲擋下了這一擊。`, 'damage', { target: target.id, type: typeId, amount: 0 })
       return { dealt: 0, track: 'none' }

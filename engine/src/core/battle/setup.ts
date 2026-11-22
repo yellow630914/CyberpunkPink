@@ -130,6 +130,8 @@ export function setupBattle(k: BattleKernel, state: GameState, setup: BattleSetu
   const layout = typeof setup.cover === 'string' ? COVER_LAYOUTS[setup.cover] : setup.cover
   if (typeof setup.cover === 'string' && !layout) throw new Error(`沒有 ${setup.cover} 這種遮蔽的配置`)
   const levels = { ally: [...(layout?.ally ?? COVER_LAYOUTS.medium!.ally)], foe: [...(layout?.foe ?? COVER_LAYOUTS.medium!.foe)] }
+  // 「一邊倒」是守方（敵人）佔好位置；我方埋伏時對調（SITES 12.2 節、COMMISSION_MAPS 1.3 節），再照埋伏調一級（B011）
+  if (setup.cover === 'one_sided' && setup.ambush === 'ally') [levels.ally, levels.foe] = [levels.foe, levels.ally]
   if (setup.ambush) {
     // 埋伏的一方多一格掩體（最前面那一格不是掩體的升成掩體）；被埋伏的一方全部降一級
     const lead = levels[setup.ambush]

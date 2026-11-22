@@ -102,8 +102,12 @@ export function overlayAt(b: BattleState, side: BattleSide, slot: number): Battl
   return b.overlays.find((o) => !o.down && o.side === side && o.slot === slot)
 }
 
+/** 兩個目標是不是同一個：逐鍵比對，不看鍵的順序（B010）。 */
 export function sameTarget(a: BattleTarget, t: BattleTarget): boolean {
-  return JSON.stringify(a) === JSON.stringify(t)
+  const x = a as unknown as Record<string, unknown>
+  const y = t as unknown as Record<string, unknown>
+  const keys = Object.keys(x)
+  return keys.length === Object.keys(y).length && keys.every((key) => Object.prototype.hasOwnProperty.call(y, key) && x[key] === y[key])
 }
 
 /** 這一方還站著的人數（沒有倒下、沒有退出；在後方排隊的也算還有人）。 */

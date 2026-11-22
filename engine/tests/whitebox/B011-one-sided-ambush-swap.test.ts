@@ -1,6 +1,6 @@
 // B011：「一邊倒」的遮蔽配置，我方埋伏時沒有對調（dev/bugs/B011-one-sided-not-swapped-on-ambush.md）。
 // 規格：SITES 12.2 節表「一邊倒……守方（敵人）佔好位置的遭遇點；從後門進來或我方埋伏時對調」，「埋伏與被埋伏照 COMBAT_SYSTEM 2.1 節再調一級」；COMMISSION_MAPS 1.3 節同。
-// 現況：setupBattle 不管誰埋伏，一律用 COVER_LAYOUTS.one_sided（我方 半 暴 暴 暴、敵方 掩 掩 半 半），只做埋伏的調整。工單做完之前照預期失敗。
+// 現況：setupBattle 不管誰埋伏，一律用 COVER_LAYOUTS.one_sided（我方 半 暴 暴 暴、敵方 掩 掩 半 半），只做埋伏的調整。已修好（2026-11-22），這一份是回歸測試。
 
 import { describe, expect, it } from 'vitest'
 import { createKernel, setupBattle } from '../../src'

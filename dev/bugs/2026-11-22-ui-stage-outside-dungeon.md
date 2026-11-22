@@ -16,3 +16,7 @@
 - 可能的位置（推測，不改）：`ui/src/stores/engine.ts` 的 `rewindToStage()`（註解自己寫了「哪一份算階段開始是這裡暫定的轉接」）。
   - 「哪一份快照算這個階段的開始、副本以外要退成重來」是 COMBAT_SYSTEM 8.4 的規則，照 CODESCAN 2.8（不變式第 10 條）不該寫在 store。建議由 cpp-architect 在引擎給一個 `Game.rewindToStage()`（或 defeat 功能的轉接）：找最近一份 `kind === 'stage'` 的快照；沒有就走 `retryBattle()`；store 只轉接。
   - 舊系統的副本（`useGame` 的「階段」快照）要不要在 M1 就接上，或等 M2 委託副本搬進引擎時一起改成 `snapshot.add`（`stage`、`entry`；dev/adr/0011），請 cpp-architect 決定。在那之前，第 2 份重現會一直是紅的；如果決定等 M2，可以先只修第 1 份（副本以外等於重來），第 2 份留在 pending。
+- 處理進度（2026-11-22）：
+  - 第 1 份（副本以外，等於重來）修好了：引擎加了 `Game.rewindToStage()`（`engine/src/shell/game.ts`）：只在等三選一時成立，找開打前那份快照之前最近的 `kind === 'stage'`，沒有就走 `retryBattle()`；`ui/src/stores/engine.ts` 的 `rewindToStage()` 只轉接。重現 json 已搬到 `ui/tests/fixtures/repro/ui-stage-outside-dungeon.json`，引擎的回歸測試在 `engine/tests/whitebox/shell-battle.whitebox.test.ts`。
+  - 第 2 份（舊系統副本的階段快照）**留在 pending**，`ui/tests/fixtures/repro-pending/ui-stage-legacy-dungeon.json` 還在原處：等 M2 委託副本搬進引擎、改用 `snapshot.add`（`stage`、`entry`；dev/adr/0011）之後自然解決，現在不接。
+- fixed in（第 1 份）: `engine/src/shell/game.ts`（`rewindToStage`）、`ui/src/stores/engine.ts`

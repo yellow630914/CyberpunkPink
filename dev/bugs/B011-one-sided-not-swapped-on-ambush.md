@@ -6,3 +6,5 @@
 - 重現：`setupBattle(k, state, { …, cover: 'one_sided', ambush: 'ally' })`。期望先對調（我方 [2,2,1,1]、敵方 [0,0,0,1]），再埋伏（我方第一個不是掩體的格升成掩體、敵方降一級）：我方 [2,2,2,1]、敵方 [0,0,0,0]。
   會失敗的測試：`engine/tests/pending/B011-one-sided-ambush-swap.test.ts`（第一個失敗；第二個對照——沒有人埋伏、敵方埋伏——會過）。
 - 可能的位置（只寫推測，不改）：`setupBattle` 在算 `levels` 之前，`setup.cover === 'one_sided'` 而且 `setup.ambush === 'ally'` 時把 `layout.ally` 與 `layout.foe` 對調。「從後門進來」要等 M2 的遭遇點知道是從哪個入口進來，另外處理。
+- 修好了（2026-11-22）：`setupBattle` 在 `cover === 'one_sided'` 且我方埋伏時先對調配置再做埋伏的調整。「從後門進來」要等 M2 的遭遇點知道入口，還沒做。
+- fixed in: `engine/src/core/battle/setup.ts`；回歸測試 `engine/tests/whitebox/B011-one-sided-ambush-swap.test.ts`

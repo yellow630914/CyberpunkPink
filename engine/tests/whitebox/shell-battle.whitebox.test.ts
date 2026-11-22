@@ -150,6 +150,46 @@ describe('白箱 Game 的戰鬥門面（不變式第 3、4、48、57 條）', ()
     expect(game.battle!.round).toBe(1)
   })
 
+  it('回到這個階段開始時：沒有在等三選一就回傳原因；副本以外（沒有 stage 快照）等於重來（COMBAT_SYSTEM 8.4 節）', async () => {
+    const { game } = makeBattleGame({ battle: 'hopeless', seed: 2, features: [TEST_COMBAT] })
+    const mid = stateHash(game.state)
+    expect(game.rewindToStage()).toBe('現在沒有在等戰敗的選擇。')
+    expect(stateHash(game.state)).toBe(mid)
+    playOut(game)
+    await game.finishBattle()
+    expect(game.pendingDefeat).not.toBeNull()
+    expect(game.rewindToStage()).toBeNull()
+    expect(game.battle).toMatchObject({ round: 1 })
+    expect(game.pendingDefeat).toBeNull()
+  })
+
+  it('回到這個階段開始時：開打前有 stage 快照就回到最近的那一份（不是 entry），比它晚的快照一起丟掉；快照壞了回傳原因、還在等', async () => {
+    const mk = async () => {
+      const { game } = makeGame({ seed: 4, features: [TEST_COMBAT] })
+      const snap = (id: string, kind: string) => game.commit({ kind: 'system', action: 'wb.snapshot', location: {}, party: [], timeline: [], changes: [{ op: 'snapshot.add', slot: { id, kind, label: id, raw: game.save() } }], outcome: { result: 'ok', summary: id } })
+      snap('entry1', 'entry')
+      snap('stage1', 'stage')
+      game.startBattle(BATTLE_SETUPS.hopeless())
+      playOut(game)
+      await game.finishBattle()
+      return game
+    }
+    const game = await mk()
+    expect(game.state.snapshots.map((s) => s.kind)).toEqual(['entry', 'stage', 'battle'])
+    expect(game.rewindToStage()).toBeNull()
+    expect(game.state.snapshots.map((s) => s.id)).toEqual(['entry1'])
+    expect(game.pendingDefeat).toBeNull()
+    expect(game.battle).toBeNull()
+    expect(game.state.reports.at(-1)).toMatchObject({ action: 'rewind', outcome: { summary: '你回到這個階段開始的時候。' } })
+
+    const broken = await mk()
+    broken.state.snapshots.find((s) => s.id === 'stage1')!.raw = 'this is not a save'
+    const before = stateHash(broken.state)
+    expect(broken.rewindToStage()).toBeTypeOf('string')
+    expect(stateHash(broken.state)).toBe(before)
+    expect(broken.pendingDefeat).not.toBeNull()
+  })
+
   it('重來時快照壞掉（raw 被破壞）：整件事不成立，連「收成一份」也收回去；狀態完全不變（不變式第 3 條）', () => {
     const { game } = makeBattleGame({ features: [TEST_COMBAT], seed: 5 })
     for (let i = 0; i < 4; i++) game.battleNext({ anyone: true })

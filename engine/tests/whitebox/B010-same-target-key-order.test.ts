@@ -1,7 +1,7 @@
 // B010：同一個目標，鍵的順序不同就被當成「這個目標不能選」（dev/bugs/B010-target-match-depends-on-key-order.md）。
 // 規格：dev/invariants.md 第 46 條（做不成的一步回傳原因；目標由 targets 列出，列出來的合法目標一步送得出去）；BattleTarget 是一個聯集型別（core/types/battle.ts），物件的鍵沒有順序。
 // 現況：core/battle/field.ts 的 sameTarget 用 JSON.stringify 比對，{ slot: 2, side: 'ally' } 與 { side: 'ally', slot: 2 } 不相等。
-// 從存檔、JSON 傳輸或別的程式組出來的目標（鍵的順序不一定）會被擋下。工單做完之前照預期失敗。
+// 從存檔、JSON 傳輸或別的程式組出來的目標（鍵的順序不一定）會被擋下。已修好（2026-11-22），這一份是回歸測試。
 
 import { describe, expect, it } from 'vitest'
 import { sameTarget } from '../../src'

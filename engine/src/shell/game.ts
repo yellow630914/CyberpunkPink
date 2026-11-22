@@ -454,6 +454,20 @@ export class Game {
     return null
   }
 
+  /**
+   * 回到這個階段開始時（戰敗三選一的第三個；COMBAT_SYSTEM 8.4 節）：回到開打前那份快照之前最近的一份 `stage` 快照
+   * （rewindTo：比它晚的快照一起丟掉）。沒有（副本以外的戰鬥）就等於重來這場戰鬥（retryBattle）。
+   * 只在等玩家三選一時成立；不成立或回不去回傳原因（狀態不變），成功回傳 null。
+   */
+  rewindToStage(): string | null {
+    const waiting = this.pendingDefeat
+    if (!waiting) return '現在沒有在等戰敗的選擇。'
+    const at = this.state.snapshots.findIndex((x) => x.id === waiting.snapshot)
+    const stage = this.state.snapshots.slice(0, Math.max(0, at)).reverse().find((x) => x.kind === 'stage')
+    if (!stage) return this.retryBattle()
+    return this.rewindTo(stage.id, { summary: '你回到這個階段開始的時候。' })
+  }
+
   // ---- 格子地圖（MIGRATION E 的 grid、specialMaps；dev/adr/0012） ----
 
   /** 現在這一張圖：看過的格子、站的位置、這一格能做的事、四個方向能不能走。不在格子地圖上是 null。 */

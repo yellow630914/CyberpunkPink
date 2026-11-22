@@ -229,17 +229,9 @@ export const useEngine = defineStore('engine', () => {
     if (err === null) refresh()
     return err
   }
-  /**
-   * 回到這個階段開始時（戰敗三選一的第三個）：回到開打前那份快照之前最近的一份快照（引擎的 rewindTo：比它晚的快照一起丟掉）。
-   * 沒有更早的快照就回傳原因，狀態不變。哪一份算「階段開始」是這裡暫定的轉接，見回報。
-   */
+  /** 回到這個階段開始時（戰敗三選一的第三個）：規則在引擎（Game.rewindToStage，COMBAT_SYSTEM 8.4 節），這裡只轉接。 */
   function rewindToStage(): string | null {
-    const waiting = game.pendingDefeat
-    if (!waiting) return '現在沒有在等戰敗的選擇。'
-    const i = game.state.snapshots.findIndex((x) => x.id === waiting.snapshot)
-    const before = i > 0 ? game.state.snapshots[i - 1] : undefined
-    if (!before) return '沒有更早的存檔點可以回去。'
-    const err = game.rewindTo(before.id, { summary: '你回到這個階段開始的時候。' })
+    const err = game.rewindToStage()
     if (err === null) refresh()
     return err
   }
