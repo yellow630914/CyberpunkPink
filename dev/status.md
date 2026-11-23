@@ -10,6 +10,7 @@
 - 2026-11-21：工作流裝在 repo（.claude/ 與 dev/），不裝在 ~/.claude/（雲端容器會回收）。
 - 2026-11-21（給 M1）：戰鬥以第四版的 `ui/src/lib/combat/` 當底搬進引擎，搬的時候逐條對照 COMBAT_SYSTEM（第四版只抽查過）；ElondiaRPG 只參考骨架。
 - 2026-11-21：「破壞」「滅火」兩件委託打不贏的問題交給平衡的 session（分支 claude/balance-commissions），引擎不先動數字。
+- 2026-11-23：菁英遭遇（一般遭遇 4 點；III～V 級沒有菁英的組合）的點數與勝率，使用者裁決交給平衡 session，引擎與設計書先不動數字。
 
 ## 紀錄
 - 2026-11-21（cpp-architect）：M0 的核心與測試基礎建設做完。
@@ -134,10 +135,10 @@
 - 2026-11-23 work 沒做的（DOWNTIME 4）：自己的店面、派別人打工（M5）、區域狀態修正、AI 判定與小費偷聽、契約人收入歸屬（M4）、公式型時薪（第七棚）。
 - 2026-11-23 fixer-pay：出場費只付一次（輔助面付錢與借人召集時預付；隊伍裡的人入帳時從報酬付），撤退在 rewind.keep 退人退錢。沒做：補出場費時選錢種、欠下的寫進帳單、人面的好處、讀名冊 pay 欄位、同行的親密度。
 - 2026-11-23 scene 沒做的（LEWD 3.5）：多人分圈、換檔、觸手例外、技能 needs、夜課學習與共鳴、對方性別／NTR 等篩選開關、外部打斷來源、AI 每回合與 scene_gate（只留接口）。精簡版換體位後自動接回是免費的。
-- 2026-11-23 abilities-m2 留下的：~~roster 要註冊同行條件 in_tagalong {who}（xp 才分得出同行與留家）~~（M2-closeout 做完）；增援的 fallback「他支援三次」沒有效果可寫；被識破時換臉、千面這類戰鬥中戴上的面具要不要一起失效（待使用者）；日常（daily）技能、M3／M5 欄位、M4 的戰地手術裝義體。
+- 2026-11-23 abilities-m2 留下的：~~roster 要註冊同行條件 in_tagalong {who}（xp 才分得出同行與留家）~~（M2-closeout 做完）；增援的 fallback「他支援三次」沒有效果可寫；~~被識破時換臉、千面這類戰鬥中戴上的面具要不要一起失效~~（使用者 2026-11-23 裁決：不一起失效，寫在 SKILL_TREES 名媛的預備與日常；引擎照做，被識破只結束偽裝本身）；日常（daily）技能、M3／M5 欄位、M4 的戰地手術裝義體。
 - ~~2026-11-23 M2 收尾小修（第二批，ui-world 回報）：導演把「車上」當成別的活動，擋住型 transit_stop／wait 事件在車上一律延後（放行 event.start 的活動不該算）；出口標記用 usesOf 列「過去」；district 內容加地圖位置、治安、風格欄位（示意包先放 map_x/map_y/security/style）；核心 sheetProblems「每張至少 2 個遭遇點」不該套在街區地圖上。~~（M2-closeout 做完，dev/work/M2-closeout.md、dev/adr/0017）
 - ~~2026-11-23 M2 收尾小修（資料對設計書，data-rules 回報）：預設值要改成設計書的數字——遭遇組合點數（ENEMIES 13：一般 4、首領戰 8）、報酬範圍（COMMISSION_TEMPLATES 的表）、債的利息胭脂堂收現金（DOWNTIME 5.1）、讀橋防護階企業主管與保全 3（NPC_SYSTEM 6.4）。人情作價 300／1500 與拒絕 −3 沒有出處，維持暫定。scan_level 種類沒人認得（scan_levels.json 未接）。~~（M2-closeout 做完，dev/work/M2-closeout.md、dev/adr/0017；`scan_level` 沒人認得的部分還在）
-- 2026-11-23 M2-closeout 做完（十項；dev/work/M2-closeout.md、dev/adr/0017）：戰敗的放行照階段與開戰、回到快照之後的接續報告、街區地圖不要求遭遇點、導演不把車上當別的活動、world 出口 `world.go` 與 district 欄位、roster `in_tagalong`、預設值對設計書、俘虜審問的 scout_reveal、規則表可以被後載入的包取代（示意包與測試的繞法拿掉）。**還沒做的**：介面要接 `world.go`（`MainScreen.runUse` 現在給「畫面還沒有接上引擎」；站在出口上按 E 要呼叫 arrive(exit.to, exit.arrive)，store 的 `world.go()` 還沒有）；劫囚（戰敗事件的 fight 結果）打完之後發起那一場的副本不會收到 defeat 的 activity.end（ADR 0017 第 3 點）；讀橋防護階 3 靠旗標 manager、guard，正式 NPC 要加。
+- 2026-11-23 M2-closeout 做完（十項；dev/work/M2-closeout.md、dev/adr/0017）：戰敗的放行照階段與開戰、回到快照之後的接續報告、街區地圖不要求遭遇點、導演不把車上當別的活動、world 出口 `world.go` 與 district 欄位、roster `in_tagalong`、預設值對設計書、俘虜審問的 scout_reveal、規則表可以被後載入的包取代（示意包與測試的繞法拿掉）。**還沒做的**：介面要接 `world.go`（`MainScreen.runUse` 現在給「畫面還沒有接上引擎」；站在出口上按 E 要呼叫 arrive(exit.to, exit.arrive)，store 的 `world.go()` 還沒有）；劫囚（戰敗事件的 fight 結果）打完之後發起那一場的副本不會收到 defeat 的 activity.end（ADR 0017 第 3 點）；讀橋防護階 3 靠旗標 manager、guard；使用者 2026-11-23 裁決：店長／保全的旗標匯入內容時再標（NPC_SYSTEM 6.4 節），現在不用補。
 
 ## M2-ui-commission 回報的缺口（2026-11-23，待 M2 審查一起處理）
 

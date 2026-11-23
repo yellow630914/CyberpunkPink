@@ -249,6 +249,31 @@ export function alight(k: Kernel, state: GameState): ReportDraft {
   return attachActivityEnd(d, end)
 }
 
+// ---- 車上開打、開場景：這一趟車先結束 ----
+
+/**
+ * 車上的事件結果要開一段車不放行的活動（戰鬥、成人場景……）：這一趟車先結束（dev/adr/0017 M2 修正批 1）。
+ * 人在這條線往前開的下一站（沒有下一站就是現在這一站；還在月台上就是這一站），這一站記成去過，沒坐完的票作廢（每一站的錢本來就是坐的時候才付，所以沒有要退的）；
+ * 活動 ride 發 activity.end（outcome interrupted）。回傳要併進事件收尾那一份報告的變更與句子；沒有在車上回傳 null。
+ * 句子不帶數字（寫正文時數字不進文字）。
+ */
+export function interruptRide(k: Kernel, state: GameState): { changes: Change[]; lines: string[] } | null {
+  const t = tripOf(k, state)
+  if (typeof t === 'string') return null
+  const { trip, line } = t
+  const to = trip.phase === 'aboard' ? (nextIndex(line, trip.at, trip.dir) ?? trip.at) : trip.at
+  const stop = line.stops[to]!
+  const moved = moveChanges(k, state, stop)
+  const end: ActivityEndMerged = endActivity(k, {
+    state, kind: RIDE_ACTIVITY, id: trip.id, origin: { by: OWNER, ref: line.id }, outcome: 'interrupted',
+    result: { line: line.id, stop: stop.id, rode: trip.rode, paid: trip.paid, pay: trip.pay },
+  })
+  return {
+    changes: [...moved.changes, { op: 'transit.visit', station: stopKey(stop) }, { op: 'transit.trip', trip: null }, ...end.changes],
+    lines: [`這一趟車到此為止，你在${stop.name}站下了車，沒坐完的車票作廢了`, ...moved.lines, ...end.lines],
+  }
+}
+
 // ---- 浮空計程車 ----
 
 export interface TaxiQuote {

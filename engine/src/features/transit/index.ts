@@ -8,7 +8,7 @@
 //   變更  transit.trip（記這一趟，或結束）、transit.visit（記一站去過）
 //   活動  ride（order 80；放行 commit:transit.、commit:event.、event.start、chain:free_action、commit:npc.）；在車上走地圖、做別的事都被擋下
 //   格子  usesOf：站在車站的標記上列「搭車」（現在每條線都不開時灰掉並寫原因）
-//   掛點  activity.end（掃橋做完：過了才上車、車資這時才扣；沒過就沒有上車）
+//   掛點  activity.end（掃橋做完：過了才上車、車資這時才扣；沒過就沒有上車；車上的事件結果要開戰鬥或場景：這一趟先結束，人在下一站，interruptRide）
 // 報告：transit.board、transit.wait、transit.stop、transit.alight、transit.taxi（出發與抵達各一份）。
 // 觸發點：transit_wait、transit_stop（where: line、kind、stop、block、district、period 是 peak／night／day）、transit_taxi（where.phase 是 depart 或 arrive）。
 // 狀態 state.ext.transit：{ visited, trips, trip }。位置本身用核心的 location（block 與 facility 是站的街區與標記）。
@@ -16,14 +16,14 @@
 
 import type { Change, Feature, GameState, GridUse, Kernel } from '../../core'
 import { ContentError, isRecord, isSafeInt } from '../../core'
-import { BOARD_REF, SCAN_KIND, boardChanges, planBoard } from './trip'
+import { BOARD_REF, SCAN_KIND, boardChanges, interruptRide, planBoard } from './trip'
 import type { BoardInput } from './trip'
 import type { LineEntry, Trip } from './model'
 import {
   EXT, LINE_KIND, OWNER, PAY_KINDS, RIDE_ACTIVITY, RULE_KIND, lineClosed, lineEntry, linesOf, lineProblems, ruleProblems, stationAt, transitOf, tripProblems,
 } from './model'
 
-export { SCAN_KIND, BOARD_REF, advance, advanceBlock, alight, alightBlock, board, boardBlock, planBoard, taxi, taxiBlock, taxiQuote, wait, waitBlock } from './trip'
+export { SCAN_KIND, BOARD_REF, advance, advanceBlock, alight, alightBlock, board, boardBlock, interruptRide, planBoard, taxi, taxiBlock, taxiQuote, wait, waitBlock } from './trip'
 export type { BoardInput, BoardPlan, TaxiQuote } from './trip'
 export { transitView } from './view'
 export type { DirectionView, RideStopView, RideView, StationLineView, TaxiDestinationView, TransitView } from './view'
@@ -95,6 +95,13 @@ export const transitFeature: Feature = {
 
     // ---- 掃橋做完：過了才上車 ----
     k.hooks.on('activity.end', OWNER, (p) => {
+      // 車上的事件結果要開戰鬥、成人場景這類車不放行的活動：這一趟先結束，人在下一站（dev/adr/0017 補記；EVENTS 4.10 追兵上車、癡漢）
+      if (p.kind === 'event') {
+        const launch = Array.isArray(p.result.launch) ? (p.result.launch as unknown[]) : []
+        if (!launch.some((x) => typeof x === 'string' && !k.activity.permits(p.state, RIDE_ACTIVITY, `${x}.start`))) return
+        const out = interruptRide(k, p.state)
+        return out ? { changes: out.changes, lines: out.lines } : undefined
+      }
       if (p.kind !== SCAN_KIND || p.origin.by !== OWNER || p.origin.ref !== BOARD_REF) return
       if (p.result.passed !== true) return { lines: ['你沒有上車，車資沒有扣'] }
       const ext = isRecord(p.origin.ext) ? p.origin.ext : {}
