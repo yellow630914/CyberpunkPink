@@ -9,7 +9,7 @@
 //   變更  world.visit（記下街區用的地圖實例與去過）、world.steps（走了幾格）
 //   效果  move：{ kind, block, at? } 把人帶到一塊街區（EVENTS 2.4 節）
 //   條件  in_district { districts }、in_block { blocks }、at_facility { types? }
-//   格子  onEnter（只管自己開的實例）：每一格加時間、每 10 格 walk、走上出口換街區（這一段路到出口為止）、走上設施（不擋路；停在最後一格才算到）；usesOf：設施沒開時列一項灰掉的
+//   格子  onEnter（只管自己開的實例）：每一格加時間、每 10 格 walk、走上出口換街區（這一段路到出口為止）、走上設施（不擋路；停在最後一格才算到）；usesOf：站在出口上列「前往」（world.go）、設施沒開時列一項灰掉的
 // 報告：world.arrive（到一塊街區；走路本身是核心的 grid.move）。
 //
 // location.facility 放的是設施的標記 id（那一塊街區裡的哪一間，例：F1）；設施的種類查 block 的 facilities[標記].type。
@@ -152,13 +152,24 @@ function onEnter(ctx: GridCtx): GridEffect | void {
   return { changes, triggers }
 }
 
-/** 設施不在營業時間：站在那一格上列一項灰掉的；開著的時候這個功能不列任何事（各功能自己列）。 */
-function closedUses(ctx: GridCtx, marker: { id: string }): GridUse[] {
+/**
+ * 站在這一格上能做的事（這個功能管的兩種）：
+ * - 設施不在營業時間：列一項灰掉的；開著的時候不列任何事（各功能自己列）；
+ * - 出口：列「前往<隔壁那塊街區>」（id 是 world.go；畫面照它呼叫 arrive(出口的 to, 出口的 arrive)）。
+ *   平常走上出口那一格就換街區（這一步走到出口為止），人站在出口上是剛從隔壁過來、或是被帶到出口那一格（move 效果），這時可以再走回去。
+ */
+function hereUses(ctx: GridCtx, marker: { id: string }): GridUse[] {
   const block = worldBlockAt(ctx.k, ctx.state, ctx.at.map)
-  const fac = block ? facilitiesOf(block)[marker.id] : undefined
+  if (!block) return []
+  const exit = exitsOf(block)[marker.id]
+  if (exit) return [{ id: GO_USE, name: `前往${blockEntry(ctx.k, exit.to)?.name ?? exit.to}`, block: null }]
+  const fac = facilitiesOf(block)[marker.id]
   if (!fac || facilityOpen(ctx.k, ctx.state, fac)) return []
   return [{ id: 'closed', name: '進去', block: CLOSED_REASON }]
 }
+
+/** 站在出口上「前往」的項目 id。 */
+export const GO_USE = 'world.go'
 
 // ---- 效果與條件 ----
 
@@ -254,7 +265,7 @@ export const worldFeature: Feature = {
     })
 
     k.grid.onEnter(OWNER, onEnter)
-    k.grid.usesOf(OWNER, closedUses)
+    k.grid.usesOf(OWNER, hereUses)
   },
 
   ready(k) {

@@ -2,7 +2,8 @@
 // 規格：DISTRICTS 1.1、1.2、1.3、1.4 節；DATA 第 12 節（設施的種類）；dev/adr/0012（格子地圖）、0016 第六節與 G8；dev/work/M2-world.md。
 //
 // 內容種類：
-//   district       { id, name, grade, price_mult?, step_minutes?, blocks: [街區 id], factions?: [勢力 id] }
+//   district       { id, name, grade, price_mult?, step_minutes?, blocks: [街區 id], factions?: [勢力 id],
+//                    map_x?, map_y?（城市地圖上的位置，畫面的熱點用）, security?（治安的一句話）, style?（主場風格） }
 //   block          { id, district, name, kind: 'block' | 'bridge', map: 地圖 id（special_map）, exits, facilities }
 //                  exits       { [標記 id]: { to: 街區 id, arrive: 對面的標記 id } }（版面上的 E）
 //                  facilities  { [標記 id]: { type, name, npc?, open?: { time?: [時段], weekday?: [0～6] } } }（版面上的 F，核心的 facility 格）
@@ -36,6 +37,13 @@ export interface DistrictEntry extends ContentEntry {
   step_minutes?: number
   blocks: string[]
   factions?: string[]
+  /** 在城市地圖（1600 × 1000）上的位置：畫面的熱點用，引擎不讀 */
+  map_x?: number
+  map_y?: number
+  /** 治安：給玩家看的一句話 */
+  security?: string
+  /** 主場風格：給玩家看的一句話 */
+  style?: string
 }
 
 export interface ExitDef {
@@ -104,6 +112,8 @@ export function districtProblems(e: Record<string, unknown>): string[] {
   if (!isIdList(e.blocks) || e.blocks.length === 0) p.push('blocks 要是街區 id 的陣列，每個區至少一塊街區')
   else if (new Set(e.blocks).size !== e.blocks.length) p.push('blocks 的街區 id 不能重複')
   if (e.factions !== undefined && !isIdList(e.factions)) p.push('factions 要是勢力 id 的陣列')
+  for (const key of ['map_x', 'map_y'] as const) if (e[key] !== undefined && !(typeof e[key] === 'number' && Number.isFinite(e[key]) && (e[key] as number) >= 0)) p.push(`${key} 要是 0 以上的數字（城市地圖上的位置）`)
+  for (const key of ['security', 'style'] as const) if (e[key] !== undefined && !isText(e[key])) p.push(`${key} 要是一句話（字串）`)
   return p
 }
 

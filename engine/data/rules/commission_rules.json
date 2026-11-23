@@ -44,24 +44,24 @@
     },
     "reward_range": {
       "1": [
-        300,
-        500
+        240,
+        720
       ],
       "2": [
-        900,
-        1500
+        720,
+        2160
       ],
       "3": [
-        3000,
-        5000
+        2400,
+        7200
       ],
       "4": [
-        10000,
-        16000
+        7800,
+        23400
       ],
       "5": [
-        30000,
-        50000
+        24000,
+        72000
       ]
     },
     "scales_by_tier": [
@@ -114,6 +114,7 @@
         "last": [
           "boss",
           "minion",
+          "minion",
           "minion"
         ]
       },
@@ -121,10 +122,12 @@
         "normal": [
           "minion",
           "minion",
-          "elite"
+          "minion",
+          "minion"
         ],
         "last": [
           "boss",
+          "minion",
           "minion",
           "minion"
         ]
@@ -133,10 +136,12 @@
         "normal": [
           "minion",
           "minion",
-          "elite"
+          "minion",
+          "minion"
         ],
         "last": [
           "boss",
+          "minion",
           "minion",
           "minion"
         ]
@@ -145,10 +150,12 @@
         "normal": [
           "minion",
           "minion",
-          "elite"
+          "minion",
+          "minion"
         ],
         "last": [
           "boss",
+          "minion",
           "minion",
           "minion"
         ]

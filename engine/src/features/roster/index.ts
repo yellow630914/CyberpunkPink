@@ -10,7 +10,7 @@
 //   衍生  roster_cap（3 ＋ mod(魅力) ＋ 人面階數 × 2）、roster_fee（這個人一件委託的出場費；拿分紅的與不在名冊上的是 0）
 //   變更  roster.join、roster.leave、roster.muster、roster.candidate、roster.think、roster.pay（形狀見各自的註解）
 //   效果  roster_add：{ who, source? }（進候選；source 是 rescued 救過的、introduced 介紹的，決定忠誠的起始值）
-//   條件  in_roster { who }、in_party { who }
+//   條件  in_roster { who }、in_party { who }、in_tagalong { who }（這一趟召集時排的同行：abilities 的歷練點分得出同行與留家的）
 //   掛點  bill.collect（回 weeklyPay 的每一筆：order 8、付現金）、bill.settled（沒付成的週薪：那個人忠誠 −8）：宣告在 features/bills，這裡只掛處理函式；
 //         defeat.companions（同行的人：這一趟召集時排的同行，跟著主角一起被處置）：宣告在 features/defeat
 //   掛鉤  time.passed（順序 14：連續沒召集的忠誠、忠誠太低的人離開）、activity.end（戰鬥裡倒下的成員忠誠 −3）、rest.done（睡一覺之後「再想想」的人可以再問）、
@@ -245,6 +245,12 @@ export const rosterFeature: Feature = {
       kind: 'in_roster', owner: OWNER,
       validate: (raw) => (isText(raw.who) ? [] : ['who 要是角色的 id']),
       test: (c, ctx) => isMember(ctx.state, c.who),
+    })
+    // 這一趟召集時排的同行（不上場、跟著主角一起出門；NPC_SYSTEM 10.0）。abilities 的歷練點靠它分得出同行與留家的
+    k.conditions.register<Condition & { who: string }>({
+      kind: 'in_tagalong', owner: OWNER,
+      validate: (raw) => (isText(raw.who) ? [] : ['who 要是角色的 id']),
+      test: (c, ctx) => isMember(ctx.state, c.who) && readRoster(ctx.state).tagalong.includes(c.who),
     })
     k.conditions.register<Condition & { who: string }>({
       kind: 'in_party', owner: OWNER,

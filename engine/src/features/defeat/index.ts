@@ -10,7 +10,7 @@
 // 不替任何一種 kind 寫專屬的程式（dev/adr/0016 G5）：kind 只是資料上的標籤，每一種都用通用的事件格式加封閉的效果清單寫。
 // 不 import features/director 與 features/commission：事件視窗只經 k.activity 開，委託失敗只把 fails_commission 交出去。
 
-import type { Feature } from '../../core'
+import type { Feature, Launch } from '../../core'
 import type { RulesKernel, GameState } from '../../core'
 import { afterBattleEnd, onBattleEnd, onEventEnd } from './flow'
 import { pick as pickEntry } from './choose'
@@ -32,6 +32,17 @@ export function pickDefeat(k: RulesKernel, state: GameState, o: PickOpts): { eve
   const r = pickEntry(k, state, o)
   if (!r) throw new Error('沒有可用的戰敗事件（沒有勢力對得上的，也沒有標 default 的通用事件）。')
   return { event: r.entry.id, version: r.version, fails_commission: r.entry.fails_commission, tier: r.tier }
+}
+
+/**
+ * 這一次開活動是不是戰敗自己的流程開出來的：戰敗自己開的事件（origin.by 是 defeat）、它的事件 chain 帶出來的第二件，
+ * 還有這些事件的 fight 結果開的戰鬥（origin 是導演、ext.caller 是 defeat，或是 chain 帶出來的那一件；那一件的 caller 記的是導演）。
+ * 等玩家三選一的期間只放行這些：玩家自己開戰、別的功能開的事件都不放行（M1 審查 E1）。
+ */
+export function fromDefeatFlow(launch: Launch | undefined): boolean {
+  const o = launch?.origin
+  if (!o) return false
+  return o.by === OWNER || (o.by === 'director' && (o.ext?.caller === OWNER || o.ext?.caller === 'director'))
 }
 
 export const defeatFeature: Feature = {
@@ -75,8 +86,18 @@ export const defeatFeature: Feature = {
     const defaults = k.content.list<DefeatEventEntry>(KIND).filter((e) => e.default === true)
     if (defaults.length > 1) throw new Error(`戰敗事件的 default: true 整份內容裡最多一筆（現在有 ${defaults.map((e) => e.id).join('、')}）。`)
     // 等著三選一的期間，事件視窗與成人場景自己的報告要放行（所有功能都安裝之後才知道有沒有人登記這兩種活動；
-    // 沒有事件視窗的一局維持 M1 的樣子：等著選的戰敗擋住自由行動，不開口子）
-    if (k.activity.get(EVENT_ACTIVITY)) for (const prefix of ['event.start', 'commit:event.', 'chain:free_action']) k.activity.allow('defeat', prefix, OWNER)
+    // 沒有事件視窗的一局維持 M1 的樣子：等著選的戰敗擋住自由行動，不開口子）。
+    // 放行照階段（COMBAT_SYSTEM 8.4 節、M1 審查 E1）：
+    // - 事件視窗：只放戰敗自己的流程開的（不放別的功能開的；導演也因此把等待中的戰敗當成「另一個活動進行中」）；
+    // - 自由行動：只在事件視窗開著時放行（回應事件）；問要不要看（ask）與三選一（played）的期間不放行；
+    // - 戰鬥：只放事件的 fight 結果開的（劫囚之類），玩家自己開戰仍然擋住。
+    const eventWindow = k.activity.get(EVENT_ACTIVITY)
+    if (eventWindow) {
+      k.activity.allow('defeat', 'commit:event.', OWNER)
+      k.activity.allow('defeat', 'event.start', OWNER, (_s, _doing, _draft, launch) => fromDefeatFlow(launch))
+      k.activity.allow('defeat', 'chain:free_action', OWNER, (s) => eventWindow.active(s) !== null)
+      k.activity.allow('defeat', 'battle.start', OWNER, (_s, _doing, _draft, launch) => fromDefeatFlow(launch))
+    }
     if (k.activity.get('scene')) for (const prefix of ['scene.start', 'commit:scene.']) k.activity.allow('defeat', prefix, OWNER)
   },
 }

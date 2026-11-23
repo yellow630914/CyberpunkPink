@@ -2,13 +2,13 @@
 //
 //   觸發點 ──▶ 每個範圍：冷卻過了、每天上限沒到、擲機率 ──▶ 篩選、依權重抽一件 ──▶ 候選
 //   候選 ──▶ 通知：先放排隊的、再放新的，一回合最多 per_turn.notices 則，多的排到下一回合
-//        └▶ 擋住型：有活動要開或進行中（副本不算）→ 全部延後；否則先放延後的，沒有才在新的候選裡挑一件
+//        └▶ 擋住型：有活動要開或進行中（副本、放行事件的活動如車上不算）→ 全部延後；否則先放延後的，沒有才在新的候選裡挑一件
 //
 // 導演不改狀態：提交由外殼做。這裡回傳報告草稿（通知、開事件視窗的草稿、狀態的更新）。
 // 一個「回合」裡可以走好幾次（turn.end 一次；time.passed 每個跨過的每天、每週各一次），它們共用同一個回合的上限：
 // 回合的記號是那個行動的報告 id，存在 state.ext.director.turn。
 
-import type { Change, GameState, GameTime, Kernel, ReportDraft, ReportTrigger } from '../../core'
+import type { Change, GameState, GameTime, Kernel, Launch, ReportDraft, ReportTrigger } from '../../core'
 import { ActionBlocked, clone, deriveRng, effectCtx, isRecord, tagsAllowed, toMinutes } from '../../core'
 import type { DirectorState, EventEntry, EventRules, Queued, Scope } from './model'
 import {
@@ -54,6 +54,9 @@ interface Run {
 
 const minutesOf = (t: GameTime): number => toMinutes(t)
 
+/** 問活動「導演現在能不能開一件事件」用的那一次開活動（origin 只有導演自己，沒有發起它的功能）。 */
+const DIRECTOR_LAUNCH: Launch = { kind: 'event', setup: {}, origin: { by: 'director' } }
+
 /** 副本進行中只放 in_commission 的範圍（EVENTS 3.4 節）。 */
 const allowedHere = (run: Run, scope: Scope | undefined): scope is Scope => !!scope && (!run.commission || scope.in_commission)
 
@@ -71,7 +74,9 @@ export function runPasses(k: Kernel, state: GameState, passes: Pass[], o: RunOpt
   const run: Run = {
     k, state, sim: clone(state), rules: eventRules(k), d: before,
     commission: active.some((a) => a.kind === 'commission'),
-    otherActive: active.some((a) => a.kind !== 'commission'),
+    // 副本以外還有活動進行中：放行「導演開事件」的活動不算（車上：擋住型的 transit_stop、wait 事件要在車上跳出來）；
+    // 戰敗等待中、事件視窗、成人場景、戰鬥都不放行，照舊算
+    otherActive: active.some((a) => a.kind !== 'commission' && !k.activity.permits(state, a.kind, 'event.start', undefined, DIRECTOR_LAUNCH)),
     launchPending: o.launchPending, changed: false, notices: [], starts: [],
   }
   if (run.d.turn.key !== o.turnKey) run.d.turn = { key: o.turnKey, blocking: 0, notices: 0 }

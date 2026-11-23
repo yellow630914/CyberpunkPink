@@ -6,7 +6,9 @@
     "debt_hostility": 10,
     "debt_rate": 0.05,
     "debt_rates": {},
-    "debt_pay": {},
+    "debt_pay": {
+      "rouge": "cash"
+    },
     "debt_pay_default": "cred",
     "interest_order": 5,
     "extra_order": 7,

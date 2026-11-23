@@ -242,19 +242,21 @@ export interface GenRules {
   encounters: Record<number, { normal: Rank[]; last: Rank[] }>
 }
 
+// 遭遇的組合照 ENEMIES 第 13 節的點數（雜兵 1、精英 2.5、首領 5）：預算固定，每一級都一樣——一般 4 點（四個雜兵）、首領戰 8 點（一個首領加三個雜兵）。
+// I 級沒有首領：首領戰改成兩個精英加兩個雜兵（COMMISSION_TEMPLATES「遭遇的寫法」，點數照算，7 點）。
 const MINIONS: Rank[] = ['minion', 'minion', 'minion', 'minion']
-const MIXED: Rank[] = ['minion', 'minion', 'elite']
-const BOSS: Rank[] = ['boss', 'minion', 'minion']
+const BOSS: Rank[] = ['boss', 'minion', 'minion', 'minion']
 
+// 報酬範圍照 COMMISSION_TEMPLATES 的表：基準（I 400、II 1,200、III 4,000、IV 13,000、V 40,000）× 規模係數，下限是小型（×0.6）、上限是大型（×1.8）
 export const DEFAULT_GEN_RULES: GenRules = {
-  reward_range: { 1: [300, 500], 2: [900, 1500], 3: [3000, 5000], 4: [10000, 16000], 5: [30000, 50000] },
+  reward_range: { 1: [240, 720], 2: [720, 2160], 3: [2400, 7200], 4: [7800, 23400], 5: [24000, 72000] },
   scales_by_tier: [['small'], ['small'], ['small', 'medium'], ['small', 'medium', 'large'], ['medium', 'large'], ['medium', 'large']],
   encounters: {
     1: { normal: MINIONS, last: ['elite', 'elite', 'minion', 'minion'] },
     2: { normal: MINIONS, last: BOSS },
-    3: { normal: MIXED, last: BOSS },
-    4: { normal: MIXED, last: BOSS },
-    5: { normal: MIXED, last: BOSS },
+    3: { normal: MINIONS, last: BOSS },
+    4: { normal: MINIONS, last: BOSS },
+    5: { normal: MINIONS, last: BOSS },
   },
 }
 

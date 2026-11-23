@@ -141,7 +141,8 @@ export interface BillRules {
 }
 
 export const DEFAULT_BILL_RULES: BillRules = {
-  debt_week: 3, debt_faction: 'eden', debt_hostility: 10, debt_rate: 0.05, debt_rates: {}, debt_pay: {}, debt_pay_default: 'cred',
+  // DOWNTIME 5.1：債的利息胭脂堂收現金，伊甸園（和沒寫的勢力）扣帳戶
+  debt_week: 3, debt_faction: 'eden', debt_hostility: 10, debt_rate: 0.05, debt_rates: {}, debt_pay: { rouge: 'cash' }, debt_pay_default: 'cred',
   interest_order: 5, extra_order: 7, grace_max_days: 7, tweak_ratio: 0.5, max_catch_up: 52,
 }
 
@@ -173,7 +174,7 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
 /** 現在生效的規則：資料 bill_rule/default 蓋掉內建的預設（格式不對的欄位忽略）。 */
 export function billRules(k: Pick<Kernel, 'content'>): BillRules {
   const e = k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default')
-  const out: BillRules = { ...DEFAULT_BILL_RULES, debt_rates: {}, debt_pay: {} }
+  const out: BillRules = { ...DEFAULT_BILL_RULES, debt_rates: {}, debt_pay: { ...DEFAULT_BILL_RULES.debt_pay } }
   if (!e) return out
   const bad = new Set(ruleProblems(e).map((m) => m.split(/[ .]/)[0]))
   for (const key of Object.keys(out) as Array<keyof BillRules>) {
