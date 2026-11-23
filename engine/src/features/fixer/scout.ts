@@ -6,8 +6,9 @@ import { ActionBlocked, DEGREE_NAME, clone, formatAmount } from '../../core'
 import { briefOf, fixerDraft as draft, revealedStages } from './board'
 import type { BriefView } from './board'
 import type { Cat, Job, ScoutEntry, ScoutMethod, UnknownItem } from './model'
+import { auxSetup } from './hire'
 import {
-  CAT_NAME, COMMISSION_ACTIVITY, LOCKED_METHODS, SCOUT_METHODS, fixerRules, gradeOf, hiddenUnknowns, jobOf, methodOf, methodsFor, methodTargets, rollBest, scoutDc, scoutedOf, stageCount,
+  CAT_NAME, COMMISSION_ACTIVITY, auxList, LOCKED_METHODS, SCOUT_METHODS, fixerRules, gradeOf, hiddenUnknowns, jobOf, methodOf, methodsFor, methodTargets, rollBest, scoutDc, scoutedOf, stageCount,
 } from './model'
 
 function needJob(state: GameState, id: string): Job {
@@ -219,21 +220,25 @@ export function goBlock(k: Kernel, state: GameState, job: Job): string | null {
     const here = k.conditions.test({ kind: 'in_block', blocks: [block] }, { state, stats: k.stats, timeRules: k.timeRules })
     if (!here) return `要先走到委託的地點（${String(k.content.get('block', block)?.name ?? block)}）才能出發。`
   }
+  const gone = auxList(job).find((e) => !Object.hasOwn(state.actors, e.actor))
+  if (gone) return `你請的人（${gone.actor}）已經不在了，先把他退掉。`
   return null
 }
 
 /**
  * 出發（FIXER 第 2 節③的開頭）：這份報告開一場副本（launch commission），帶著這件委託的副本、踩到的東西（scouted）、警戒的起始值與談好的條件（terms）。
- * origin 是 { by: 'fixer', ref: 這件委託的 id }。出發本身不改狀態（撤退時狀態回到出發之後、進副本之前：委託還在手上，踩過的點還在）。
+ * 請了人（hire）的話，aux 也併進 setup（每一面的角色 id、哪些是借來的）。origin 是 { by: 'fixer', ref: 這件委託的 id }。出發本身不改狀態（撤退時狀態回到出發之後、進副本之前：委託還在手上，踩過的點還在）。
  */
 export function go(k: Kernel, state: GameState, jobId: string): ReportDraft {
   const job = needJob(state, jobId)
   const block = goBlock(k, state, job)
   if (block) throw new ActionBlocked(block)
   const s = scoutedOf(job)
+  const aux = auxSetup(job)
   const setup = {
     def: clone(job.commission), scouted: s.scouted, alert_start: s.alert_start, terms: clone(job.terms),
     ...(s.trace_start > 0 ? { trace_start: s.trace_start } : {}),
+    ...(aux ? { aux } : {}),
   }
   return draft(state, 'fixer.go', 'go', `出發去做「${job.title}」。`, [], {
     launch: [{ kind: COMMISSION_ACTIVITY, setup, origin: { by: 'fixer', ref: job.id } }],

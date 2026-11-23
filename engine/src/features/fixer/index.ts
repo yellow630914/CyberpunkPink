@@ -11,25 +11,43 @@
 //   變更  fixer.take、fixer.status、fixer.drop、fixer.table、fixer.scout、fixer.reveal
 //   效果  scout_reveal { job?, cat?, count? }：替手上的一件委託揭開未知；job 寫委託的 id 或它的副本的 id；沒寫就是最近接的那一件
 //   報告  fixer.accept、fixer.haggle、fixer.scout、fixer.buy_intel、fixer.go、fixer.drop（kind gig）
+// 召集與入帳（M2-fixer-pay；hire.ts、pay.ts）：
+//   變更  fixer.hire、fixer.unhire、fixer.bond_fail（請人與退人、靠交情失敗）、fixer.pend、fixer.settle（副本交回來之後等著結算的事）
+//   報告  fixer.hire、fixer.unhire、fixer.payout（kind gig）
+//   掛鉤  activity.end（commission）：做完或失敗記下 pending、撤退記下 retreat；report.after：有 pending 就接著提交 fixer.payout；
+//         rewind.keep：撤退回到進副本之前之後，把請的人全退掉（付出去的錢回來、busy 拿掉、借來的人移除）
+//   規則  fixer_rule 多：rating_bonus、rep_done、rep_fail、borrow_base、borrow_mult、boss_shares、aux_max、bond_*、trip_*（見 model.ts 的 FixerRules）
+//   讀別人的：衍生數值 roster_fee（沒有人註冊當 0）、條件 in_roster、has_favor、變更 favor.spend、效果 owed、owed_to_pc、cash、cred、rep、hostility、loyalty、affinity（沒有人註冊就略過）
 // 這個功能不 import 別的功能：人情、敵對值、街區只經由效果、條件、變更的登錄表（沒有人註冊就不列、不檢查）。
-// 對外：board、briefOf、payOptions、haggle、accept、drop、scout、scoutView、buyIntel、intelOptions、scoutedOf、go、readFixer、jobOf、jobsOf。
+// 對外：board、briefOf、payOptions、haggle、accept、drop、scout、scoutView、buyIntel、intelOptions、scoutedOf、go、readFixer、jobOf、jobsOf；
+//   hireOptions、hireBlocks、borrowOption、hire、unhire、splitPreview。
 
-import type { Change, Effect, EffectCtx, Feature, GameState, Kernel } from '../../core'
+import type { Change, Effect, EffectCtx, Feature, GameState, Kernel, ReportDraft } from '../../core'
 import { ContentError, clone, gradeOfRepTier, isRecord, isSafeInt, meterOf, repTierOf } from '../../core'
-import type { Cat, Job, ScoutEntry, TableEntry } from './model'
-import { CATS, DEGREES, EXT, KIND, OWNER, REP_METER, RULE_KIND, SCOUT_METHODS, fixerProblems, hiddenUnknowns, jobByRef, jobOf, latestJob, readFixer, ruleProblems } from './model'
+import type { AuxEntry, AuxFace, Cat, Job, PayoutRecord, PendingEnd, ScoutEntry, TableEntry } from './model'
+import {
+  AUX_FACES, CATS, DEGREES, EXT, HIRE_WAYS, KIND, OWNER, REP_METER, RULE_KIND, SCOUT_METHODS, auxList, fixerProblems, hiddenUnknowns, jobByRef, jobOf, latestJob, readFixer, ruleProblems,
+} from './model'
+import { payoutDraft } from './pay'
+import { retreatRefund } from './hire'
 
 export {
+  AUX_FACES, AUX_FACE_NAME, FAVOR_SIZE_NAME, HIRE_NAME, HIRE_WAYS, RATING_KEYS, auxList,
   CATS, CAT_NAME, DEFAULT_FIXER_RULES, EXT, KIND, LOCKED_METHODS, OWNER, PAY_KINDS, PAY_NAME, REP_METER, RULE_KIND, SCOUT_METHODS,
   activeJobs, favorSizeOf, fixerProblems, fixerRules, gradeOf, hiddenUnknowns, jobByRef, jobOf, jobsOf, latestJob, methodOf, offerProblems, readFixer, repBlock, ruleProblems, scoutDc, scoutedOf, tableOf,
 } from './model'
 export type {
+  Aux, AuxEntry, AuxFace, FavorSize, HireCost, HireWay, PayoutRecord, PendingEnd, Rating,
   Cat, CommissionDef, Degree, FixerEntry, FixerRules, FixerState, Job, JobStatus, Offer, PayKind, Reveal, ScoutEntry, ScoutMethod, Scouted, TableDay, TableEntry, Terms, UnknownItem,
 } from './model'
 export { accept, board, boardRow, briefOf, drop, haggle, haggledPurpose, payOptions, rawOffers, revealedStages, unknownLine } from './board'
 export type { AcceptOpts, BoardRow, BoardView, BriefStageRow, BriefView, PayOption } from './board'
 export { buyIntel, buyable, go, goBlock, intelOptions, scout, scoutBlock, scoutPurpose, scoutView } from './scout'
 export type { IntelOption, IntelWith, MethodRow, ScoutView, UnknownRow } from './scout'
+export { auxSetup, bondDc, bondPurpose, borrowOption, borrowPrice, feeOf as hireFeeOf, hire, hireBlocks, hireOptions, retreatRefund, unhire, unhireChanges } from './hire'
+export type { HireInput, HireOption } from './hire'
+export { WALLET_NAME, payoutDraft, splitOf, splitPreview } from './pay'
+export type { Split, SplitOutside, SplitSegment, Wallet } from './pay'
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
 
@@ -178,6 +196,85 @@ export const fixerFeature: Feature = {
       },
     })
 
+    // ---- 召集與入帳的變更（M2-fixer-pay）----
+    k.changes.register<Change & { job: string; face: AuxFace; entry: AuxEntry }>({
+      op: 'fixer.hire', owner: OWNER,
+      validate(state, c) {
+        const job = jobOf(state, c.job)
+        if (!job) return [`手上沒有 ${String(c.job)} 這件委託`]
+        const e = c.entry as unknown
+        if (!(AUX_FACES as readonly unknown[]).includes(c.face)) return [`face 只能是 ${AUX_FACES.join('、')}`]
+        if (!isRecord(e) || !isText(e.actor) || !(HIRE_WAYS as readonly unknown[]).includes(e.way) || !isRecord(e.cost)) return ['entry 要是 { actor, way, cost }']
+        if (auxList(job).some((x) => x.actor === e.actor)) return [`${e.actor} 已經在這件委託裡了`]
+        if ((job.aux[c.face]?.length ?? 0) >= 2) return ['每一面最多請 2 個人']
+        return []
+      },
+      apply(state, c) {
+        const f = fixerState(state)
+        const j = f.jobs.find((x) => x.id === c.job)!
+        j.aux[c.face] = [...(j.aux[c.face] ?? []), clone(c.entry)]
+        if (c.entry.way === 'borrow') j.borrow_n += 1
+        store(state, f)
+      },
+      describe: (c, state) => `請人：${state.actors[c.entry.actor]?.name ?? c.entry.actor} 去${c.face === 'meat' ? '現實' : c.face === 'net' ? '內海' : '輿論'}面`,
+    })
+
+    k.changes.register<Change & { job: string; actor: string }>({
+      op: 'fixer.unhire', owner: OWNER,
+      validate(state, c) {
+        const job = jobOf(state, c.job)
+        if (!job) return [`手上沒有 ${String(c.job)} 這件委託`]
+        return auxList(job).some((x) => x.actor === c.actor) ? [] : [`這件委託沒有請 ${String(c.actor)}`]
+      },
+      apply(state, c) {
+        const f = fixerState(state)
+        const j = f.jobs.find((x) => x.id === c.job)!
+        for (const face of AUX_FACES) {
+          const left = (j.aux[face] ?? []).filter((x) => x.actor !== c.actor)
+          if (left.length > 0) j.aux[face] = left
+          else delete j.aux[face]
+        }
+        store(state, f)
+      },
+      describe: (c, state) => `退人：${state.actors[c.actor]?.name ?? c.actor}`,
+    })
+
+    k.changes.register<Change & { job: string; actor: string }>({
+      op: 'fixer.bond_fail', owner: OWNER,
+      validate: (state, c) => (!jobOf(state, c.job) ? [`手上沒有 ${String(c.job)} 這件委託`] : isText(c.actor) ? [] : ['actor 要是角色的 id']),
+      apply(state, c) {
+        const f = fixerState(state)
+        const j = f.jobs.find((x) => x.id === c.job)!
+        if (!j.bond_failed.includes(c.actor)) j.bond_failed.push(c.actor)
+        store(state, f)
+      },
+    })
+
+    k.changes.register<Change & { entry: PendingEnd }>({
+      op: 'fixer.pend', owner: OWNER,
+      validate(_state, c) {
+        const e = c.entry as unknown
+        return isRecord(e) && isText(e.job) && (e.outcome === 'done' || e.outcome === 'failed' || e.outcome === 'retreat') ? [] : ['entry 要是 { job, outcome: done、failed 或 retreat }']
+      },
+      apply(state, c) {
+        const f = fixerState(state)
+        f.pending.push(clone(c.entry))
+        store(state, f)
+      },
+    })
+
+    k.changes.register<Change & { job: string; payout?: PayoutRecord }>({
+      op: 'fixer.settle', owner: OWNER,
+      validate: (_state, c) => (isText(c.job) ? [] : ['job 要是委託的 id']),
+      apply(state, c) {
+        const f = fixerState(state)
+        f.pending = f.pending.filter((x) => x.job !== c.job || x.outcome === 'retreat')
+        const j = f.jobs.find((x) => x.id === c.job)
+        if (j && c.payout) j.payout = clone(c.payout)
+        store(state, f)
+      },
+    })
+
     // ---- 效果：替手上的一件委託揭開未知（不花時間、不算踩點的次數）----
     k.effects.register<RevealEffect>({
       kind: 'scout_reveal', owner: OWNER,
@@ -213,15 +310,37 @@ export const fixerFeature: Feature = {
       },
     })
 
-    // ---- 副本做完或失敗：只把手上那一件標起來（錢在 M2-fixer-pay；撤退不用處理，狀態跟著快照回去）----
-    k.hooks.on('activity.end', OWNER, ({ state, kind, origin, outcome }) => {
-      if (kind !== 'commission' || origin.by !== OWNER || (outcome !== 'done' && outcome !== 'failed')) return
+    // ---- 副本做完、失敗或撤退：標起來並記下等著結算的事；錢在 report.after 接著提交的 fixer.payout（pay.ts）----
+    k.hooks.on('activity.end', OWNER, ({ state, kind, origin, outcome, result }) => {
+      if (kind !== 'commission' || origin.by !== OWNER) return
       const job = isText(origin.ref) ? jobOf(state, origin.ref) : null
       if (!job || job.status !== 'active') return
+      // 撤退：狀態跟著快照回到進副本之前，請的人由 rewind.keep 退掉
+      if (outcome === 'retreat') return { changes: [{ op: 'fixer.pend', entry: { job: job.id, outcome: 'retreat' } } as Change] }
+      if (outcome !== 'done' && outcome !== 'failed') return
+      const rating = result.rating === 'S' || result.rating === 'A' || result.rating === 'B' || result.rating === 'C' ? result.rating : undefined
       return {
-        changes: [{ op: 'fixer.status', id: job.id, status: outcome } as Change],
+        changes: [
+          { op: 'fixer.status', id: job.id, status: outcome } as Change,
+          { op: 'fixer.pend', entry: { job: job.id, outcome, ...(rating ? { rating } : {}) } } as Change,
+        ],
         lines: [outcome === 'done' ? `委託「${job.title}」做完了。` : `委託「${job.title}」失敗了。`],
       }
+    })
+
+    // 有等著結算的事（做完或失敗）：接著提交入帳。撤退的那一份自己帶 rewind，不在這裡處理。
+    k.hooks.on('report.after', OWNER, ({ state, report }): ReportDraft[] | void => {
+      if (report.rewind) return
+      const p = readFixer(state).pending.find((x) => x.outcome !== 'retreat')
+      return p ? [payoutDraft(k, state, p)] : undefined
+    })
+
+    // 撤退回到進副本之前之後：請的人全退掉（付出去的錢回來、busy 拿掉、借來的人移除）；用掉的人情不退
+    k.hooks.on('rewind.keep', OWNER, ({ current, restored }) => {
+      const p = readFixer(current).pending.find((x) => x.outcome === 'retreat')
+      if (!p) return
+      const out = retreatRefund(k, restored, p.job)
+      return out.changes.length > 0 ? out.changes : undefined
     })
   },
 
