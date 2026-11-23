@@ -4,7 +4,7 @@
 //
 //   市場 ── 塔下 ── 閘門（橋接區）── 院子
 //   蜂巢（走一格 1 分鐘）          鏽帶（step_minutes 2）
-// 每一塊版面是 14 × 5：E1 在 (0,2)、E2 在 (13,2)；市場與院子在 y=1 有三個設施的標記 (1,1)、(6,1)、(12,1)（圖例 F 對到 safe，標記 id 是 $1、$2、$3）。
+// 每一塊版面是 14 × 5：E1 在 (0,2)、E2 在 (13,2)；市場與院子在 y=1 有三個設施的標記 (1,1)、(6,1)、(12,1)（預設圖例的 F 是核心的 facility 格，標記 id 是 F1、F2、F3）。
 
 import { describe, expect, it } from 'vitest'
 import type { ContentPack, Feature, GameState, Kernel, Report, SpecialMapEntry } from '../../src'
@@ -20,9 +20,8 @@ const street = (id: string, name: string, withFacilities: boolean): SpecialMapEn
   sheets: [{
     id: 'street', name, size: [14, 5],
     layout: ['##############', withFacilities ? '#F....F.....F#' : '#............#', 'E.1........2.E', '#............#', '##############'],
-    legend: { F: 'safe' },
     cells: [
-      ...(withFacilities ? [{ id: '$1', at: [1, 1] as [number, number], mark: '$', name: '一號攤位' }, { id: '$2', at: [6, 1] as [number, number], mark: '$', name: '二號攤位' }, { id: '$3', at: [12, 1] as [number, number], mark: '$', name: '三號攤位' }] : []),
+      ...(withFacilities ? [{ id: 'F1', at: [1, 1] as [number, number], mark: 'F', name: '一號攤位' }, { id: 'F2', at: [6, 1] as [number, number], mark: 'F', name: '二號攤位' }, { id: 'F3', at: [12, 1] as [number, number], mark: 'F', name: '三號攤位' }] : []),
       { id: 'E1', at: [0, 2], mark: 'E', name: '西口' }, { id: 'E2', at: [13, 2], mark: 'E', name: '東口' },
     ],
     spots: [{ id: '!1', at: [2, 2], cover: 'sparse' }, { id: '!2', at: [11, 2], cover: 'dense' }],
@@ -43,10 +42,10 @@ const content = (patch: (c: Record<string, any[]>) => void = () => {}): ContentP
       { id: 'd_rust', name: '鏽帶', grade: 2, step_minutes: 2, blocks: ['b_yard'] },
     ],
     block: [
-      { id: 'b_market', district: 'd_hive', name: '市場', kind: 'block', map: 'm_market', exits: { E2: { to: 'b_tower', arrive: 'E1' } }, facilities: { $1: { type: 'fac_clinic', name: '後巷診所', open: clinicHours }, $2: { type: 'fac_stall', name: '中段的小攤' }, $3: { type: 'fac_bar', name: '霓虹酒吧', open: SATURDAY } } },
+      { id: 'b_market', district: 'd_hive', name: '市場', kind: 'block', map: 'm_market', exits: { E2: { to: 'b_tower', arrive: 'E1' } }, facilities: { F1: { type: 'fac_clinic', name: '後巷診所', open: clinicHours }, F2: { type: 'fac_stall', name: '中段的小攤' }, F3: { type: 'fac_bar', name: '霓虹酒吧', open: SATURDAY } } },
       { id: 'b_tower', district: 'd_hive', name: '塔下', kind: 'block', map: 'm_tower', exits: { E1: { to: 'b_market', arrive: 'E2' }, E2: { to: 'b_gate', arrive: 'E1' } }, facilities: {} },
       { id: 'b_gate', district: 'd_hive', name: '閘門', kind: 'bridge', map: 'm_gate', exits: { E1: { to: 'b_tower', arrive: 'E2' }, E2: { to: 'b_yard', arrive: 'E1' } }, facilities: {} },
-      { id: 'b_yard', district: 'd_rust', name: '院子', kind: 'block', map: 'm_yard', exits: { E1: { to: 'b_gate', arrive: 'E2' } }, facilities: { $1: { type: 'fac_stall', name: '鐵皮攤' } } },
+      { id: 'b_yard', district: 'd_rust', name: '院子', kind: 'block', map: 'm_yard', exits: { E1: { to: 'b_gate', arrive: 'E2' } }, facilities: { F1: { type: 'fac_stall', name: '鐵皮攤' } } },
     ],
   }
   patch(c)
@@ -82,9 +81,9 @@ describe('到一塊街區：arrive', () => {
     const g = world()
     go(g, 'b_market')
     expect(at(g)).toMatchObject({ x: 0, y: 2 })
-    go(g, 'b_yard', '$1')
+    go(g, 'b_yard', 'F1')
     expect(at(g)).toMatchObject({ x: 1, y: 1 })
-    expect(where(g)).toEqual({ district: 'd_rust', block: 'b_yard', facility: '$1' })
+    expect(where(g)).toEqual({ district: 'd_rust', block: 'b_yard', facility: 'F1' })
     go(g, 'b_tower', 'E2')
     expect(where(g).facility).toBeUndefined()
   })
@@ -274,7 +273,7 @@ describe('設施', () => {
     expect(test(g, { kind: 'at_facility' })).toBe(false)
     const r = g.gridMove('north') // 一號攤位在 (1,1)
     expect(r.reports.map((x) => x.action)).toEqual(['grid.move'])
-    expect(where(g)).toEqual({ district: 'd_hive', block: 'b_market', facility: '$1' })
+    expect(where(g)).toEqual({ district: 'd_hive', block: 'b_market', facility: 'F1' })
     expect(triggers(r.reports)).toEqual([{ point: 'enter_facility', where: { district: 'd_hive', block: 'b_market', facility: 'fac_clinic' } }])
     expect(test(g, { kind: 'at_facility' })).toBe(true)
     expect(test(g, { kind: 'at_facility', types: ['fac_clinic'] })).toBe(true)
@@ -290,74 +289,108 @@ describe('設施', () => {
     const g = world()
     go(g, 'b_market', 'E1')
     const r = g.gridMove([1, 1])
-    expect(where(g).facility).toBe('$1')
+    expect(where(g).facility).toBe('F1')
     expect(at(g)).toMatchObject({ x: 1, y: 1 })
     expect(triggers(r.reports).map((t) => t.point)).toEqual(['enter_facility'])
   })
 
-  it('設施不擋路：一段路經過的每個設施一格一格照走（各帶 enter_facility），最後停在哪就是哪一間；站著的那一間走開就清掉', () => {
+  it('設施不擋路：路過的設施照走、不帶 enter_facility；只有停在最後一格的那一間才帶，並設 location.facility', () => {
     const g = world()
-    go(g, 'b_market', '$1') // 從一號攤位沿著 y=1 走到三號攤位：途中經過 (6,1) 的二號攤位
+    go(g, 'b_market', 'F1') // 從一號攤位沿著 y=1 走到三號攤位：途中經過 (6,1) 的二號攤位
     const t0 = minutes(g)
     const r = g.gridMove([12, 1])
     expect(r.reports.map((x) => x.action)).toEqual(['grid.move'])
     expect(at(g)).toMatchObject({ x: 12, y: 1 })
     expect(minutes(g) - t0).toBe(11)
     expect(triggers(r.reports)).toEqual([
-      { point: 'enter_facility', where: { district: 'd_hive', block: 'b_market', facility: 'fac_stall' } },
-      { point: 'walk', where: { district: 'd_hive', block: 'b_market' } }, // 第 10 格
+      { point: 'walk', where: { district: 'd_hive', block: 'b_market' } }, // 第 10 格；經過二號攤位那一格沒有 enter_facility
       { point: 'enter_facility', where: { district: 'd_hive', block: 'b_market', facility: 'fac_bar' } },
     ])
-    expect(where(g)).toEqual({ district: 'd_hive', block: 'b_market', facility: '$3' })
+    expect(where(g)).toEqual({ district: 'd_hive', block: 'b_market', facility: 'F3' })
+  })
+
+  it('路過設施：整段路沒有 enter_facility，也沒有留下 location.facility；一格一格走上去才算到', () => {
+    const g = world()
+    go(g, 'b_market', 'F1')
+    const r = g.gridMove([8, 1]) // 經過二號攤位 (6,1)
+    expect(triggers(r.reports)).toEqual([])
+    expect('facility' in where(g)).toBe(false)
+    go(g, 'b_market', 'F1')
+    g.gridMove([5, 1])
+    const r2 = g.gridMove('east') // 這一步的最後一格就是二號攤位
+    expect(triggers(r2.reports).map((t) => t.point)).toEqual(['enter_facility'])
+    expect(where(g).facility).toBe('F2')
+  })
+
+  it('站在設施上往外走、路過另一間：只有 last 的那一格算；起點的 location.facility 清掉', () => {
+    const g = world()
+    go(g, 'b_market', 'F1')
+    expect(where(g).facility).toBe('F1')
+    g.gridMove([7, 1])
+    expect('facility' in where(g)).toBe(false)
   })
 
   it('經過設施但沒停在上面：走完之後 location.facility 是空的', () => {
     const g = world()
-    go(g, 'b_market', '$1')
+    go(g, 'b_market', 'F1')
     g.gridMove([8, 1]) // 經過二號攤位 (6,1)，停在 (8,1)
     expect(at(g)).toMatchObject({ x: 8, y: 1 })
     expect(where(g)).toEqual({ district: 'd_hive', block: 'b_market' })
     expect(test(g, { kind: 'at_facility' })).toBe(false)
   })
 
+  it('走到一半被別的事停在設施那一格（沒走到終點）：不算到了，沒有 enter_facility 也沒有 location.facility', () => {
+    const stopper: Feature = { id: 'stopper', install: (k) => (k as Kernel).grid.onEnter('stopper', (ctx) => (ctx.at.x === 6 && ctx.at.y === 1 ? { stop: true } : undefined)) }
+    const g = world({ features: [worldFeature, stopper] })
+    go(g, 'b_market', 'F1')
+    const r = g.gridMove([12, 1])
+    expect(at(g)).toMatchObject({ x: 6, y: 1 })
+    expect(triggers(r.reports)).toEqual([])
+    expect('facility' in where(g)).toBe(false)
+    // 接著從那裡走到最後一格才算：走完去三號攤位
+    const r2 = g.gridMove([12, 1])
+    expect(triggers(r2.reports).map((t) => t.point).filter((p) => p !== 'walk')).toEqual(['enter_facility'])
+    expect(where(g).facility).toBe('F3')
+  })
+
   it('從設施走去出口：facility 清掉、換街區之後也沒有', () => {
     const g = world()
-    go(g, 'b_market', '$1')
-    expect(where(g).facility).toBe('$1')
+    go(g, 'b_market', 'F1')
+    expect(where(g).facility).toBe('F1')
     g.gridMove([13, 2])
     expect(where(g)).toEqual({ district: 'd_hive', block: 'b_tower' })
   })
 
   it('營業時間：在時段裡開著，這個功能不列任何事', () => {
     const g = world() // 第 1 天 08:00，上午；週二
-    go(g, 'b_market', '$1')
+    go(g, 'b_market', 'F1')
     expect(g.gridView()!.here.uses).toEqual([])
   })
 
   it('不在營業的時段：列一項灰掉的並寫原因', () => {
     const g = world({ time: { day: 1, hour: 1, minute: 0 } }) // 深夜
-    go(g, 'b_market', '$1')
+    go(g, 'b_market', 'F1')
     expect(g.gridView()!.here.uses).toEqual([{ id: 'closed', name: '進去', block: '現在沒有開。' }])
   })
 
   it('不在營業的星期：週六才開的酒吧，週二是灰的、週六開著', () => {
     const tue = world() // 第 1 天週二
-    go(tue, 'b_market', '$3')
+    go(tue, 'b_market', 'F3')
     expect(tue.gridView()!.here.uses.map((u) => u.block)).toEqual(['現在沒有開。'])
     const sat = world({ time: { day: 5, hour: 8, minute: 0 } }) // 第 5 天週六
-    go(sat, 'b_market', '$3')
+    go(sat, 'b_market', 'F3')
     expect(sat.gridView()!.here.uses).toEqual([])
   })
 
   it('深夜跨過午夜算前一天：週六深夜到週日凌晨酒吧的星期還是週六，但沒有寫時段所以一直開', () => {
     const g = world({ time: { day: 6, hour: 1, minute: 0 } }) // 日曆上的週日凌晨 1 點，算週六的深夜
-    go(g, 'b_market', '$3')
+    go(g, 'b_market', 'F3')
     expect(g.gridView()!.here.uses).toEqual([])
   })
 
   it('沒寫營業時間的設施一直開；不是設施的格子沒有東西', () => {
     const g = world({ time: { day: 1, hour: 1, minute: 0 } })
-    go(g, 'b_yard', '$1')
+    go(g, 'b_yard', 'F1')
     expect(g.gridView()!.here.uses).toEqual([])
     go(g, 'b_yard', 'E1')
     expect(g.gridView()!.here.uses).toEqual([])
@@ -464,9 +497,9 @@ describe('對外：worldView、cityGraph', () => {
     expect(v.facility).toBeNull()
     expect(v.exits).toEqual([{ marker: 'E2', at: [13, 2], to: 'b_tower', toName: '塔下', toDistrict: 'd_hive', toKind: 'block', arrive: 'E1' }])
     expect(v.facilities).toEqual([
-      { marker: '$1', at: [1, 1], name: '後巷診所', type: 'fac_clinic', typeName: '診所', open: true, reason: null },
-      { marker: '$2', at: [6, 1], name: '中段的小攤', type: 'fac_stall', typeName: '攤販', open: true, reason: null },
-      { marker: '$3', at: [12, 1], name: '霓虹酒吧', type: 'fac_bar', typeName: '酒吧', open: false, reason: '現在沒有開。' },
+      { marker: 'F1', at: [1, 1], name: '後巷診所', type: 'fac_clinic', typeName: '診所', open: true, reason: null },
+      { marker: 'F2', at: [6, 1], name: '中段的小攤', type: 'fac_stall', typeName: '攤販', open: true, reason: null },
+      { marker: 'F3', at: [12, 1], name: '霓虹酒吧', type: 'fac_bar', typeName: '酒吧', open: false, reason: '現在沒有開。' },
     ])
     expect(v.steps).toBe(0)
     expect(v.visited).toEqual(['b_market'])
@@ -475,8 +508,8 @@ describe('對外：worldView、cityGraph', () => {
   it('worldView：站在設施上有 facility；橋接區的出口通到另一個區；沒有街區時是空的', () => {
     const g = world()
     expect(worldView(g.k, g.state)).toMatchObject({ district: null, block: null, facility: null, exits: [], facilities: [] })
-    go(g, 'b_market', '$1')
-    expect(worldView(g.k, g.state).facility).toEqual({ marker: '$1', name: '後巷診所', type: 'fac_clinic', typeName: '診所' })
+    go(g, 'b_market', 'F1')
+    expect(worldView(g.k, g.state).facility).toEqual({ marker: 'F1', name: '後巷診所', type: 'fac_clinic', typeName: '診所' })
     go(g, 'b_gate', 'E1')
     expect(worldView(g.k, g.state).exits.map((e) => [e.to, e.toDistrict, e.toKind])).toEqual([['b_tower', 'd_hive', 'block'], ['b_yard', 'd_rust', 'block']])
   })
@@ -524,9 +557,9 @@ describe('內容檢查：載入時擋下並寫出是哪一筆', () => {
 
   it('出口的標記在版面上不是 E', () => {
     expect(bad((c) => {
-      block(c, 'b_market').exits = { E2: { to: 'b_tower', arrive: 'E1' }, $1: { to: 'b_tower', arrive: 'E1' } }
-      delete block(c, 'b_market').facilities.$1
-    })).toThrow(/block\/b_market.*\$1.*不是 E/)
+      block(c, 'b_market').exits = { E2: { to: 'b_tower', arrive: 'E1' }, F1: { to: 'b_tower', arrive: 'E1' } }
+      delete block(c, 'b_market').facilities.F1
+    })).toThrow(/block\/b_market.*F1.*不是 E/)
   })
 
   it('出口到了對面要站的標記，對面的版面上找不到', () => {
@@ -535,10 +568,22 @@ describe('內容檢查：載入時擋下並寫出是哪一筆', () => {
     })).toThrow(/block\/b_market.*b_tower.*E7/)
   })
 
+  it('設施的標記在版面上不是 F（是別種標記格）', () => {
+    expect(bad((c) => {
+      block(c, 'b_tower').facilities = { E1: { type: 'fac_clinic', name: '出口診所' } }
+      block(c, 'b_tower').exits = { E2: { to: 'b_gate', arrive: 'E1' } }
+    })).toThrow(/block\/b_tower.*E1.*出口診所/)
+    expect(bad((c) => {
+      c.special_map![1].sheets[0].layout[1] = '#..........$.#'
+      c.special_map![1].sheets[0].cells.push({ id: '$1', at: [11, 1], mark: '$', name: '保險箱' })
+      block(c, 'b_tower').facilities = { $1: { type: 'fac_clinic', name: '保險箱診所' } }
+    })).toThrow(/block\/b_tower.*\$1.*保險箱診所.*F/)
+  })
+
   it('設施的標記在版面上找不到', () => {
     expect(bad((c) => {
-      block(c, 'b_market').facilities.$7 = { type: 'fac_clinic', name: '幽靈診所' }
-    })).toThrow(/block\/b_market.*\$7.*幽靈診所/)
+      block(c, 'b_market').facilities.F7 = { type: 'fac_clinic', name: '幽靈診所' }
+    })).toThrow(/block\/b_market.*F7.*幽靈診所/)
   })
 
   it('設施的標記其實是出口（E）', () => {
@@ -556,7 +601,7 @@ describe('內容檢查：載入時擋下並寫出是哪一筆', () => {
 
   it('to 指不到、設施的種類沒有、地圖沒有、區沒有：寫出是哪一筆', () => {
     expect(bad((c) => { block(c, 'b_market').exits.E2!.to = 'b_nowhere' })).toThrow(/block\/b_market.*b_nowhere/)
-    expect(bad((c) => { block(c, 'b_market').facilities.$1.type = 'fac_nope' })).toThrow(/block\/b_market.*fac_nope/)
+    expect(bad((c) => { block(c, 'b_market').facilities.F1.type = 'fac_nope' })).toThrow(/block\/b_market.*fac_nope/)
     expect(bad((c) => { block(c, 'b_market').map = 'm_nope' })).toThrow(/block\/b_market.*m_nope/)
     expect(bad((c) => { block(c, 'b_market').district = 'd_nope' })).toThrow(/block\/b_market.*d_nope/)
   })
@@ -571,8 +616,8 @@ describe('內容檢查：載入時擋下並寫出是哪一筆', () => {
     expect(bad((c) => { c.district![0].grade = 9 })).toThrow(ContentError)
     expect(bad((c) => { c.district![0].step_minutes = 0 })).toThrow(/step_minutes/)
     expect(bad((c) => { block(c, 'b_market').kind = 'alley' })).toThrow(/kind/)
-    expect(bad((c) => { block(c, 'b_market').facilities.$1.open = { time: ['teatime'] } })).toThrow(/open\.time/)
-    expect(bad((c) => { block(c, 'b_market').facilities.$1.open = { weekday: [7] } })).toThrow(/open\.weekday/)
+    expect(bad((c) => { block(c, 'b_market').facilities.F1.open = { time: ['teatime'] } })).toThrow(/open\.time/)
+    expect(bad((c) => { block(c, 'b_market').facilities.F1.open = { weekday: [7] } })).toThrow(/open\.weekday/)
     expect(bad((c) => { c.facility_type![0].name = '' })).toThrow(/facility_type\/fac_clinic/)
   })
 })
@@ -584,10 +629,10 @@ describe('存檔往返', () => {
     g.gridMove([13, 2]) // 到塔下
     g.gridMove('east')
     g.gridMove('west') // 回市場
-    go(g, 'b_market', '$1')
+    go(g, 'b_market', 'F1')
     g.gridMove('south')
     g.gridMove('north') // 走上一號攤位
-    expect(where(g).facility).toBe('$1')
+    expect(where(g).facility).toBe('F1')
     const raw = g.save()
     const g2 = world()
     expect(g2.load(raw)).toBeNull()
@@ -611,7 +656,7 @@ describe('和其他功能一起裝', () => {
     go(g, 'b_market', 'E1')
     expect(g.gridMove([10, 2]).status).toBe('applied')
     expect(worldOf(g.state).steps).toBe(10)
-    go(g, 'b_market', '$1')
+    go(g, 'b_market', 'F1')
     expect(test(g, { kind: 'at_facility', types: ['fac_clinic'] })).toBe(true)
   })
 })

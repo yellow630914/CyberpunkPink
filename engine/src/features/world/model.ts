@@ -5,7 +5,7 @@
 //   district       { id, name, grade, price_mult?, step_minutes?, blocks: [街區 id], factions?: [勢力 id] }
 //   block          { id, district, name, kind: 'block' | 'bridge', map: 地圖 id（special_map）, exits, facilities }
 //                  exits       { [標記 id]: { to: 街區 id, arrive: 對面的標記 id } }（版面上的 E）
-//                  facilities  { [標記 id]: { type, name, npc?, open?: { time?: [時段], weekday?: [0～6] } } }（版面上的 F，圖例由資料加）
+//                  facilities  { [標記 id]: { type, name, npc?, open?: { time?: [時段], weekday?: [0～6] } } }（版面上的 F，核心的 facility 格）
 //   facility_type  { id, name }（清單是資料；別的功能多讀的欄位照樣放這裡）
 // 一塊街區用的版面是那張地圖的第一張圖（sheets[0]）。
 //
@@ -246,7 +246,7 @@ export function worldProblems(k: Cx): string[] {
     for (const [marker, f] of Object.entries(facilitiesOf(b))) {
       const cell = cells.find((c) => c.id === marker)
       if (!cell) p.push(`block/${b.id}：設施 ${marker}（${f.name}）在 ${b.map} 的版面上找不到`)
-      else if (cell.mark === 'E') p.push(`block/${b.id}：設施 ${marker}（${f.name}）在版面上是 E，那是出口的標記`)
+      else if (cell.mark !== 'F') p.push(`block/${b.id}：設施 ${marker}（${f.name}）在版面上要是 F（設施的標記），拿到的是 ${cell.mark}${cell.mark === 'E' ? '，那是出口的標記' : ''}`)
       if (!has(FACILITY_TYPE_KIND, f.type)) p.push(`block/${b.id}：設施 ${marker}（${f.name}）的種類 ${f.type} 沒有這筆 facility_type`)
     }
   }

@@ -1,7 +1,7 @@
 // L6 功能：世界（一座連在一起的城市；DISTRICTS 1.1、1.2、1.3、1.4 節；DATA 第 12 節；EVENTS 3.1 節；UI 1.1 節；dev/adr/0012、0016；dev/work/M2-world.md）。
 //
 // 區、街區、橋接區、設施的資料；在街區圖上走、走到邊緣換到隔壁那一塊、走上設施；走路花時間並帶著事件的觸發點。
-// 街區的版面是 special_map（同一種格式）：出口是版面上的 E，設施是版面上的 F（圖例由資料加）。
+// 街區的版面是 special_map（同一種格式）：出口是版面上的 E，設施是版面上的 F（核心的 facility 格，預設圖例就有）。
 // 這個功能只管「在城裡的位置」：每一種設施裡做什麼由各功能自己用 k.grid.usesOf 接；公共交通、區域狀態、封鎖、追逐、要地都不在這裡。
 //
 // 接上核心的地方：
@@ -9,7 +9,7 @@
 //   變更  world.visit（記下街區用的地圖實例與去過）、world.steps（走了幾格）
 //   效果  move：{ kind, block, at? } 把人帶到一塊街區（EVENTS 2.4 節）
 //   條件  in_district { districts }、in_block { blocks }、at_facility { types? }
-//   格子  onEnter（只管自己開的實例）：每一格加時間、每 10 格 walk、走上出口換街區（這一段路到出口為止）、走上設施（不擋路）；usesOf：設施沒開時列一項灰掉的
+//   格子  onEnter（只管自己開的實例）：每一格加時間、每 10 格 walk、走上出口換街區（這一段路到出口為止）、走上設施（不擋路；停在最後一格才算到）；usesOf：設施沒開時列一項灰掉的
 // 報告：world.arrive（到一塊街區；走路本身是核心的 grid.move）。
 //
 // location.facility 放的是設施的標記 id（那一塊街區裡的哪一間，例：F1）；設施的種類查 block 的 facilities[標記].type。
@@ -120,18 +120,6 @@ export function cityGraph(k: Pick<Kernel, 'content'>): CityGraph {
 
 // ---- 走路 ----
 
-/**
- * 這一格是這一段路的第幾格。onEnter 看到的 state 是走這一段路之前的（整段路共用），所以用「從出發的格子到這一格的最短路」算：
- * 走的路本來就是最短路，路上每一格的距離就是它是第幾步。
- */
-function stepIndex(ctx: GridCtx): number {
-  const start = ctx.state.maps.at
-  if (!start || start.map !== ctx.at.map || start.sheet !== ctx.at.sheet) return 1
-  const s = ctx.sheet
-  const path = s.findPath({ x: start.x, y: start.y }, { x: ctx.at.x, y: ctx.at.y }, (x, y) => s.walkable(x, y) || !!s.traitsAt(x, y).locked)
-  return path ? Math.max(1, path.length - 1) : 1
-}
-
 function onEnter(ctx: GridCtx): GridEffect | void {
   const block = worldBlockAt(ctx.k, ctx.state, ctx.at.map)
   if (!block) return
@@ -139,15 +127,16 @@ function onEnter(ctx: GridCtx): GridEffect | void {
   const where = { district: block.district, block: block.id }
   const changes: Change[] = [{ op: 'time', minutes: stepMinutes(k, block) }, { op: 'world.steps', n: 1 }]
   const triggers: ReportTrigger[] = []
-  if ((worldOf(ctx.state).steps + stepIndex(ctx)) % WALK_TRIGGER_EVERY === 0) triggers.push({ point: 'walk', where })
+  if ((worldOf(ctx.state).steps + ctx.step) % WALK_TRIGGER_EVERY === 0) triggers.push({ point: 'walk', where })
 
   const marker = ctx.sheet.markerAt(ctx.at.x, ctx.at.y)
   const exit = marker ? exitsOf(block)[marker.id] : undefined
   const fac = marker ? facilitiesOf(block)[marker.id] : undefined
-  // location.facility：走上設施就設成它，離開那一格清掉
+  // location.facility：停在設施上（這一段路計畫的最後一格）才設成它；路過的、被停下來沒走到終點的不算到了，離開原本站的那一格清掉
+  const onFacility = !!(fac && marker && ctx.last)
   const base = { ...ctx.state.location, district: block.district, block: block.id }
   delete (base as { facility?: string }).facility
-  if (fac && marker) changes.push({ op: 'location', to: { ...base, facility: marker.id } })
+  if (onFacility && marker) changes.push({ op: 'location', to: { ...base, facility: marker.id } })
   else if (ctx.state.location.facility !== undefined) changes.push({ op: 'location', to: base })
 
   if (exit) {
@@ -155,9 +144,9 @@ function onEnter(ctx: GridCtx): GridEffect | void {
     // 換街區：這一步走到出口為止，到了隔壁那一塊是接著提交的另一份報告（world.arrive）
     return { changes, triggers, followUps: [arrive(k, ctx.state, exit.to, exit.arrive)], stop: true, line: `從出口走向${to?.name ?? exit.to}。` }
   }
-  if (fac && marker) {
+  if (fac && onFacility) {
+    // 設施不擋路：路過的設施照走，只有停在最後一格才算到了（帶 enter_facility、設 location.facility）
     triggers.push({ point: 'enter_facility', where: { ...where, facility: fac.type } })
-    // 設施不擋路：路上經過的設施一格一格照走（每一格都設 location.facility、帶 enter_facility），走開就清掉；停在哪由走的人決定
     return { changes, triggers, line: `到了${fac.name}。` }
   }
   return { changes, triggers }
