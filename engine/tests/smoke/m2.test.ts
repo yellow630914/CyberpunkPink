@@ -16,7 +16,7 @@
 import { readFileSync } from 'node:fs'
 import { join as joinPath } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { Report } from '../../src'
 import { meterOf, toMinutes } from '../../src'
 import { chooseOption, eventView } from '../../src/features/director'
@@ -37,6 +37,9 @@ import {
 } from '../../src/testkit'
 import type { Game } from '../../src/shell/game'
 import { arrive } from '../../src/features/world'
+
+// 整條主幹有十幾場真的戰鬥：平常三秒上下，機器忙的時候（別的測試同時在跑）會慢好幾倍，預設的十秒不夠
+vi.setConfig({ testTimeout: 60_000 })
 
 const minutes = (g: Game): number => toMinutes(g.state.time)
 const actions = (rs: Report[]): string[] => rs.map((r) => r.action ?? '')

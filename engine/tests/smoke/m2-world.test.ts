@@ -9,7 +9,8 @@ import { CORE_PACK } from '../../data'
 import { Game, createKernel } from '../../src'
 import { FEATURES, allFeatures } from '../../src/features'
 import { arrive } from '../../src/features/world'
-import { TEST_WORLD, makeWorldGame, passTime, testWorld, walkAcross, worldFeatures, worldFor } from '../../src/testkit'
+import { latestJob, jobOf } from '../../src/features/fixer'
+import { TEST_WORLD, doStep, makeCommissionGame, makeWorldGame, passTime, testWorld, walkAcross, worldFeatures, worldFor } from '../../src/testkit'
 
 /** 拿掉這個功能時，TEST_WORLD 濾掉的內容種類（kinds）與跟著斷掉的幾筆（entries）。沒寫的功能什麼都不濾。 */
 const DROPS: Record<string, { kinds: string[]; entries?: string[] }> = {
@@ -130,5 +131,20 @@ describe('拿掉任何一個功能（逐一試）：核心與其餘的功能照�
     const { dropped, droppedEntries } = worldFor(worldFeatures())
     expect(dropped).toEqual([])
     expect(droppedEntries).toEqual([])
+  })
+})
+
+// 副本與中間人只經由登錄表與掛鉤用到這幾個功能（敵對值、人情、親密度與忠誠、歷練點、傾向、導演的觸發點）：沒裝的那一邊「有人註冊才…」的地方照樣跑。
+// 逐一拿掉每一個功能再把副本從接案走到入帳，我們試過全部二十八個：除了副本自己需要的（combat 沒有戰鬥的行動、enemies 沒有 enemy_pick、explore 沒有保全崗、
+// world 沒有街區、roster 沒有名冊、commission 與 fixer 本身）都走得完、不變式沒有違規；下面挑出接縫最多的五個放進主套件（每個約 0.6 秒；不變式的檢查在 m2.test.ts 做，這裡不重複）。
+describe('拿掉接縫另一邊的功能，副本照樣從接案走到入帳', () => {
+  it.each(['security', 'favors', 'npcs', 'abilities', 'director'])('拿掉 %s', async (id) => {
+    const t = makeCommissionGame({ without: [id] })
+    const { game: g, job } = t
+    for (const step of ['scout', 'go', 'stage', 'stage', 'stage']) await doStep(g, step)
+    expect(latestJob(g.state)).toBeNull()
+    expect(jobOf(g.state, job)!.status).toBe('done')
+    expect(jobOf(g.state, job)!.payout).toMatchObject({ outcome: 'done' })
+    expect(g.k.features).not.toContain(id)
   })
 })

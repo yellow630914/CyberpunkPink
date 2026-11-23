@@ -86,8 +86,8 @@ export function makeState(o: StateOverrides = {}): GameState {
 }
 
 /**
- * 具名的情境。目前只有核心用得到的；戰鬥、委託副本、成人場景、輿論戰的情境等那些系統搬進來的批次再加
- * （一般遭遇與首領戰 M1、委託副本的第一階段與成人場景 M2、輿論戰 M5），加在這張表裡。
+ * 具名的情境。這張表只有「純狀態」的（核心用得到的）；戰鬥的在 battle.ts 的 BATTLE_SETUPS；要提交報告才建得起來的（城市、委託：照真的功能走一遍）
+ * 在 scenarios.ts 的 makeCityGame、makeCommissionGame（M2）；輿論戰等 M5 搬進來再加。
  */
 export const SCENARIOS = {
   /** 空房間、一位主角 */
