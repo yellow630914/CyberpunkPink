@@ -116,3 +116,4 @@
 - 2026-11-22 改造師（M1b-skill-medic）留下的核心缺口：performAction 發 action.done 時沒傳 run，行動的 costTags 不在 tags 裡（abilities/mods.ts 有繞道）；until own_turn_end 對自己用會在同一回合結束就數一次（abilities 用 branch.self 繞）；公式缺「上限的一半」（全面翻修）。功能層：拆解對無人機、義眼超頻（boost_eye）、「相鄰、不含自己」的目標、SOURCES.battle_status 補 rooted 出處。
 - 2026-11-22 技能效果盤點 artifact：https://claude.ai/artifact/2JCokMDuMapwcEskFvVAww（資料 dev/reports/skill-effects.json）。
 - 2026-11-23 核心的 ITEM_CATEGORIES 沒有 drug（藥現在靠 drug 標籤才能進快取格），M4 做藥時補類別。名冊卡彈與炸膛的變體（連射 1d6 卡彈、煙花自傷一半）還沒有格式。匯入正式潛網者資料時七個快駭技能要寫 action_tags ['hack','hack:<類別>']。
+- 2026-11-23 world 待跟進（等 M2-core-shell 補 GridCtx.step/last 與 facility 格子種類）：設施只在最後一格觸發、拿掉最短路推算、圖例改用 F。DISTRICTS 1.2 沒做的（橋接區封鎖繞路、追逐、地下層入口與要地、區域狀態、公共交通、日夜人口表）排 M2-transit 或之後。
