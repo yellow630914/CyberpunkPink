@@ -1,0 +1,15 @@
+{
+  "id": "B016-insight-ai-cap",
+  "note": "B016：AI 給的體悟一件事最多 5 點（EVENTS 2.4 節：「insight | 體悟，一件最多 5 點」）。引擎的量表 insight 寫 cap: { down: 20, up: 30 }。這份不是 Repro 格式（效果直接交給 k.effects.resolve），由 engine/tests/pending/B016-insight-ai-cap.test.ts 讀。",
+  "seed": 6,
+  "setup": "makeCityGame({ seed })：建好角色、站在塔下、租了住處；AI 的來源（source: ai）",
+  "cases": [
+    { "effects": [{ "kind": "insight", "amount": 5 }], "source": "ai", "expectDelta": 5, "expectClamped": false },
+    { "effects": [{ "kind": "insight", "amount": 6 }], "source": "ai", "expectDelta": 5, "expectClamped": true },
+    { "effects": [{ "kind": "insight", "amount": 30 }], "source": "ai", "expectDelta": 5, "expectClamped": true },
+    { "effects": [{ "kind": "insight", "amount": 3 }, { "kind": "insight", "amount": 3 }], "source": "ai", "expectDelta": 5, "expectClamped": true },
+    { "effects": [{ "kind": "insight", "amount": 30, "asked": "全部的體悟" }], "source": "player", "clampAsked": false, "playerInput": "我要全部的體悟", "expectDelta": 30, "expectClamped": false },
+    { "effects": [{ "kind": "insight", "amount": 30 }], "source": "builtin", "expectDelta": 30, "expectClamped": false }
+  ],
+  "actual": "AI 給 +6、+30、3+3 都照給（+6、+30、+6），沒有夾值的記號"
+}

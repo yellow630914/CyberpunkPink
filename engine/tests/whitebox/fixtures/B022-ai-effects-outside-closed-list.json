@@ -1,0 +1,11 @@
+{
+  "id": "B022",
+  "note": "AI 生成的效果（source: ai）可以直接給不在 EVENTS 2.4 封閉清單的 debt 與 bargain，而且 bill 的新項目沒有金額上限",
+  "seed": 7,
+  "cases": [
+    { "label": "AI 開一筆十億、週利率 100% 的債", "effect": { "kind": "debt", "to": "f_corp", "amount": 1000000000, "rate": 1 }, "rule": "closed_list" },
+    { "label": "AI 不擲骰直接給「殺價大成功」（今天這間店的價錢 ×0.8、店主親密度 +2）", "effect": { "kind": "bargain", "shop": "s_tw_stall", "method": "haggle", "degree": "critical" }, "rule": "closed_list" },
+    { "label": "AI 加一個九十億、520 週的新帳單項目", "effect": { "kind": "bill", "name": "保護費", "amount": 9000000000, "weeks": 520, "pay": "cred" }, "rule": "bill_cap" }
+  ],
+  "billCap": { "note": "EVENTS 2.4 的 cred、cash 上限：信譽那一階的委託報酬下限 × 0.5；新手（grade 1）是 120", "amount": 120 }
+}

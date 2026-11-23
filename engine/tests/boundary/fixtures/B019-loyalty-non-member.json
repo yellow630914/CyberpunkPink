@@ -1,0 +1,11 @@
+{
+  "id": "B019-loyalty-non-member",
+  "note": "B019：忠誠只有名冊上的人有（NPC_SYSTEM 10.4 節）。AI 給不在名冊上的人忠誠，引擎照收並寫一行「忠誠（街坊小周）：+5」。由 engine/tests/pending/B019-loyalty-non-member.test.ts 讀。",
+  "seed": 6,
+  "setup": "makeCommissionGame({ seed })：名冊上有行者 a_tw_runner；npc_tw_friend 不在名冊上",
+  "cases": [
+    { "effects": [{ "kind": "loyalty", "key": "npc_tw_friend", "amount": 5 }], "source": "ai", "expect": "不在名冊上：不記（整筆拿掉或驗證不過）" },
+    { "effects": [{ "kind": "loyalty", "key": "a_tw_runner", "amount": 5 }], "source": "ai", "expect": "對照：名冊上的人照收，忠誠 30 → 35" }
+  ],
+  "actual": "state.meters.loyalty.npc_tw_friend = 35，結果的那一行寫「忠誠（街坊小周）：+5」"
+}

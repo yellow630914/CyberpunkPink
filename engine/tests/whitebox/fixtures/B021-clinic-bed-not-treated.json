@@ -1,0 +1,24 @@
+{
+  "id": "B021",
+  "note": "睡在診所的病床（回復率 60%、50 一晚）：DOWNTIME 2.3 寫「算處理過」，引擎卻照一般的重傷限制（低於一半、沒處理過，最多回到一半）夾住",
+  "seed": 7,
+  "body": 10,
+  "hp": 5,
+  "pack": {
+    "id": "b021",
+    "content": {
+      "special_map": [{
+        "id": "m_street", "kind": "street", "size": [10, 5],
+        "sheets": [{
+          "id": "street", "name": "街", "size": [10, 5], "layout": ["##########", "#F.......#", "E.1....2.E", "#........#", "##########"],
+          "cells": [{ "id": "F1", "at": [1, 1], "mark": "F", "name": "診所" }, { "id": "E1", "at": [0, 2], "mark": "E", "name": "西口" }, { "id": "E2", "at": [9, 2], "mark": "E", "name": "東口" }],
+          "spots": [{ "id": "!1", "at": [2, 2], "cover": "sparse" }, { "id": "!2", "at": [7, 2], "cover": "dense" }]
+        }]
+      }],
+      "facility_type": [{ "id": "fac_clinic", "name": "診所", "sleep": { "rate": 0.6, "cost": 50 } }, { "id": "fac_home", "name": "公寓" }],
+      "district": [{ "id": "d_hive", "name": "蜂巢", "grade": 1, "blocks": ["b_hive"] }],
+      "block": [{ "id": "b_hive", "district": "d_hive", "name": "四號塔", "kind": "block", "map": "m_street", "exits": {}, "facilities": { "F1": { "type": "fac_clinic", "name": "診所" } } }]
+    }
+  },
+  "expect": { "note": "生命 5／40，睡診所（60% = 24）：算處理過就不夾，回到 29；現況夾在一半（20）", "hpAfterTreated": 29, "hpNowBuggy": 20 }
+}

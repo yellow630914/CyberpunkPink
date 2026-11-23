@@ -1,0 +1,22 @@
+{
+  "id": "B020",
+  "note": "special_map 的 validate 遇到 sheets[].cells／spots 型別不對的資料丟 TypeError，而不是回問題清單（載入內容時整個當機，沒有寫出是哪一筆）",
+  "base": {
+    "id": "m_b020", "kind": "street", "size": [5, 3],
+    "sheets": [{
+      "id": "s", "name": "街", "size": [5, 3], "layout": ["#####", "E1F2E", "#####"],
+      "cells": [{ "id": "E1", "at": [0, 1], "mark": "E", "name": "西口" }, { "id": "F1", "at": [2, 1], "mark": "F", "name": "設施" }, { "id": "E2", "at": [4, 1], "mark": "E", "name": "東口" }],
+      "spots": [{ "id": "!1", "at": [1, 1], "cover": "sparse" }, { "id": "!2", "at": [3, 1], "cover": "dense" }]
+    }]
+  },
+  "cases": [
+    { "path": ["sheets", 0, "cells"], "value": "x", "why": "cells 不是陣列" },
+    { "path": ["sheets", 0, "cells"], "value": {}, "why": "cells 是物件" },
+    { "path": ["sheets", 0, "cells"], "value": 5, "why": "cells 是數字" },
+    { "path": ["sheets", 0, "cells", 0], "value": null, "why": "cells 裡有 null" },
+    { "path": ["sheets", 0, "cells", 0, "at"], "value": null, "why": "標記沒有位置" },
+    { "path": ["sheets", 0, "spots"], "value": "x", "why": "spots 不是陣列" },
+    { "path": ["sheets", 0, "spots", 0], "value": null, "why": "spots 裡有 null" },
+    { "path": ["sheets", 0, "spots", 0, "at"], "value": null, "why": "遭遇點沒有位置" }
+  ]
+}

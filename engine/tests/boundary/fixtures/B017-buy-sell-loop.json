@@ -1,0 +1,21 @@
+{
+  "id": "B017-buy-sell-loop",
+  "note": "B017（規格問題，等使用者裁決）：同一間店、同一天，買進再原樣賣回去，賣得比買的貴。TRADE 3.2 的公式（收購價乘 1 + 折扣 ÷ 2、收購的區倍率只打四分之一）加上第 5 節的整車交涉（買乘倍率、賣除以倍率），在物價低於 1 的區（舊港 ×0.7、蜂巢 ×0.8、鏽帶 ×0.9）或折扣夠高時，賣價會高過買價。3.2 節自己寫了「不然在舊港買、到冠冕區賣就是印鈔機」，所以設計的意思是不能套利。由 engine/tests/pending/B017-buy-sell-loop.test.ts 讀。",
+  "seed": 7,
+  "setup": "makeGame：一區（物價 ×0.7）、一種攤子（店家倍率 0.9、賣也收武器）、一間店（店主 npc_ann、後台 f_alpha）；一把手槍目錄價 1000；現金 5000",
+  "input": [
+    { "do": "meter", "kind": "affinity", "key": "npc_ann", "value": 50 },
+    { "do": "meter", "kind": "favor", "key": "f_alpha", "value": 40 },
+    { "do": "bargain", "shop": "s_b17", "method": "haggle", "degree": "critical" },
+    { "do": "buy", "shop": "s_b17", "item": "i_b17_gun", "qty": 1, "pay": "cash" },
+    { "do": "sell", "shop": "s_b17", "item": "i_b17_gun", "qty": 1, "pay": "cash" }
+  ],
+  "observed": { "buy": 423, "sell": 500, "net_cash": 77 },
+  "expect": "net_cash <= 0：同一間店同一天買進再賣回去不賺錢",
+  "more": [
+    "不殺價、沒有折扣：買 630、賣 370（正常）",
+    "只有大成功（×0.8）：買 502、賣 464（正常）",
+    "大成功加店主親密度 50（10%）：買 454、賣 486（賺 32）",
+    "四十二番街（×1）、市場攤（0.9）、好感 80 加親密度 50（25%）、大成功：買 540、賣 563（賺 23）"
+  ]
+}

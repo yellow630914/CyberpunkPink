@@ -1,0 +1,13 @@
+{
+  "id": "B018-alert-outside-commission",
+  "note": "B018：AI 給的警戒只在委託副本裡（EVENTS 2.4 節：「alert、trace | 警戒只在委託副本裡……；±20」）；引用的 id 要存在（AI_TASKS 2.5 節）。引擎在城市的街區地圖上照收、key 寫一張不存在的地圖實例也照收。由 engine/tests/pending/B018-alert-outside-commission.test.ts 讀。",
+  "seed": 6,
+  "setup": "城市：makeCityGame({ seed })（人在塔下的街區地圖 m1，不在副本裡）；副本：makeCommissionGame({ seed }) → go → chooseFace(meat) → chooseBranch(assault)",
+  "cases": [
+    { "where": "city", "effects": [{ "kind": "alert", "amount": 5 }], "source": "ai", "expect": "警戒不變（整筆拿掉或驗證不過都可以）" },
+    { "where": "city", "effects": [{ "kind": "alert", "key": "m999", "amount": 1 }], "source": "ai", "expect": "驗證不過：m999 這張地圖的實例不存在" },
+    { "where": "commission", "effects": [{ "kind": "alert", "key": "m999", "amount": 1 }], "source": "ai", "expect": "驗證不過：m999 這張地圖的實例不存在" },
+    { "where": "commission", "effects": [{ "kind": "alert", "amount": 5 }], "source": "ai", "expect": "對照：副本裡照收，警戒 +5" }
+  ],
+  "actual": "城市裡 alert +5 寫進 state.meters.alert.m1；key m999 寫進 state.meters.alert.m999（沒有這張實例）"
+}
