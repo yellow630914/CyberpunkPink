@@ -11,6 +11,7 @@
 
 import type { GameState, Report, ReportDraft } from '../types'
 import { clone, deepEqual, diffPaths, nonFiniteAt, replaceInPlace } from '../util/clone'
+import { isRecord } from '../util/sanitize'
 import { toMinutes } from '../util/time'
 import { ChangeError } from './changes'
 import { underageAt } from './coreChanges'
@@ -95,6 +96,12 @@ function commitInto(k: StateKernel, work: GameState, draft: ReportDraft, depth: 
   // 所有角色都是成年人：報告裡任何深度有低於 18 的年齡，整份不收（和讀檔同一條底線，所以提交得進去的一定讀得回來）
   const young = underageAt(d)
   if (young.length) throw new ChangeError([`所有角色都是成年人：報告裡有低於 18 的年齡（${young.slice(0, 3).join('、')}）`])
+
+  // 報告的代辦（dev/adr/0016 第二節）：rewind 要寫清楚回到哪一種快照；launch 之後不會再有 rewind，兩個都寫的整份不收
+  if (d.rewind !== undefined) {
+    if (!isRecord(d.rewind) || typeof d.rewind.kind !== 'string' || !d.rewind.kind || typeof d.rewind.summary !== 'string') throw new ChangeError(['rewind 要有 kind（回到哪一種快照）與 summary（寫成報告的那一句）'])
+    if (d.launch?.length) throw new ChangeError(['同一份報告不能同時帶 launch 與 rewind：launch 之後不會再有 rewind（要撤退就不要再開新的活動）'])
+  }
 
   const start = clone(work.time)
   const id = `r${work.seq.report + 1}`

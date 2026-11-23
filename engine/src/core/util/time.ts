@@ -95,3 +95,69 @@ export function isValidTime(t: unknown): t is GameTime {
   return Number.isSafeInteger(day) && (day as number) >= 1 && Number.isInteger(hour) && (hour as number) >= 0 && (hour as number) <= 23
     && Number.isInteger(minute) && (minute as number) >= 0 && (minute as number) <= 59
 }
+
+// ---- 跨過的時間點（dev/adr/0016 第六節）：每天 08:00、每週一 06:00 這類「走過這一刻就發生」的事共用 ----
+
+/** 一種週期的時間點：每 every 分鐘一個，落在「第 1 天 00:00 起算的總分鐘數」除以 every 的餘數等於 offset 的那些刻。 */
+export interface CrossingRule {
+  /** 週期（分鐘），正整數 */
+  every: number
+  /** 週期裡的第幾分鐘（整數；可以超出 0～every − 1，照餘數算） */
+  offset: number
+}
+
+/** crossings 最多回傳幾個點；超過丟錯（多半是 every 寫得太小，或時間差大得不合理）。要數量就用 countCrossings。 */
+export const MAX_CROSSINGS = 100_000
+/** 每天的時間點：08:00（EVENTS 3.1 節，導演的 daily）。 */
+export const DAILY_AT_MINUTE = 8 * 60
+/** 每週的時間點：週一 06:00（DOWNTIME 5.1 節，收租日與每週的事）。 */
+export const WEEKLY_AT_MINUTE = 6 * 60
+
+const mod = (n: number, m: number): number => ((n % m) + m) % m
+
+function checkRule(rule: CrossingRule): number {
+  if (!Number.isSafeInteger(rule.every) || rule.every < 1) throw new RangeError(`crossings：every 要是正整數（拿到 ${String(rule.every)}）`)
+  if (!Number.isSafeInteger(rule.offset)) throw new RangeError(`crossings：offset 要是整數（拿到 ${String(rule.offset)}）`)
+  return mod(rule.offset, rule.every)
+}
+
+/** 從 from 走到 to，跨過了幾個時間點。（from, to]：剛好站在點上出發的不算，剛好走到點上的算；同一刻、或 to 比 from 早，是 0。 */
+export function countCrossings(from: GameTime, to: GameTime, rule: CrossingRule): number {
+  const off = checkRule(rule)
+  const a = toMinutes(from), b = toMinutes(to)
+  if (b <= a) return 0
+  return Math.floor((b - off) / rule.every) - Math.floor((a - off) / rule.every)
+}
+
+/**
+ * 從 from 走到 to，跨過的每一個時間點（照時間順序）。規矩同 countCrossings：（from, to]。
+ * 跨過超過 MAX_CROSSINGS 個丟 RangeError。
+ */
+export function crossings(from: GameTime, to: GameTime, rule: CrossingRule): GameTime[] {
+  const n = countCrossings(from, to, rule)
+  if (n > MAX_CROSSINGS) throw new RangeError(`crossings：跨過了 ${n} 個時間點，超過 ${MAX_CROSSINGS}`)
+  if (n === 0) return []
+  const off = mod(rule.offset, rule.every)
+  const first = (Math.floor((toMinutes(from) - off) / rule.every) + 1) * rule.every + off
+  return Array.from({ length: n }, (_, i) => fromMinutes(first + i * rule.every))
+}
+
+/** 每天 08:00 的規則。 */
+export const DAILY_RULE: CrossingRule = { every: MINUTES_PER_DAY, offset: DAILY_AT_MINUTE }
+
+/** 每週一 06:00 的規則（哪一天是週一照時段規則 TimeRules.mondayRemainder：預設第 7、14、21 天）。 */
+export function weeklyRule(rules: TimeRules = DEFAULT_TIME_RULES): CrossingRule {
+  const r = mod(rules.mondayRemainder, 7)
+  const firstMonday = r === 0 ? 7 : r
+  return { every: 7 * MINUTES_PER_DAY, offset: (firstMonday - 1) * MINUTES_PER_DAY + WEEKLY_AT_MINUTE }
+}
+
+/** 跨過的每一個「每天 08:00」。 */
+export function dailyCrossings(from: GameTime, to: GameTime): GameTime[] {
+  return crossings(from, to, DAILY_RULE)
+}
+
+/** 跨過的每一個「每週一 06:00」（週一照 TimeRules）。 */
+export function weeklyCrossings(from: GameTime, to: GameTime, rules: TimeRules = DEFAULT_TIME_RULES): GameTime[] {
+  return crossings(from, to, weeklyRule(rules))
+}

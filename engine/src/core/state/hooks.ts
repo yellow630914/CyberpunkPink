@@ -6,6 +6,9 @@
 import type { Change, GameState, GameTime, Launch, Origin, Report, ReportDraft, ReportRewind } from '../types'
 import type { Probe } from './probe'
 
+/** 休息的種類（掛點 rest.done）：breath 喘口氣、sleep 睡一覺、stage 副本裡階段之間的喘口氣。 */
+export type RestKind = 'breath' | 'sleep' | 'stage'
+
 /** 掛點 activity.end 的處理函式可以回傳的東西：活動的主人把它們併進「結束的那一份報告」（共用的函式 endActivity）。 */
 export interface ActivityEndReturn {
   /** 接在結束報告的變更後面 */
@@ -47,6 +50,11 @@ export interface HookMap {
    * state 是結束之前的狀態，唯讀。
    */
   'activity.end': [{ state: GameState; kind: string; id: string; origin: Origin; outcome: string; result: Record<string, unknown> }, ActivityEndReturn | void]
+  /**
+   * 休息做完了（dev/adr/0016 第六節）：「每次休息回滿」的東西聽它、回傳變更（回傳的接在休息那一份報告的變更後面）。
+   * 發的人是功能（休息、副本的階段之間），用共用的函式 restDone；state 是休息做完之前的狀態，唯讀。
+   */
+  'rest.done': [{ state: GameState; kind: RestKind }, Change[] | void]
 }
 
 export type HookName = keyof HookMap

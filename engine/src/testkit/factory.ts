@@ -4,16 +4,39 @@
 import type { Actor, GameState } from '../core/types'
 import { blankState } from '../core/state/blank'
 import { validateActor } from '../core/state/coreChanges'
-import type { Feature } from '../core/kernel'
+import type { Feature, Kernel } from '../core/kernel'
+import { createKernel } from '../core/kernel'
+import type { StateKernel } from '../core/state/kernel'
+import { createStateKernel } from '../core/state/kernel'
 import type { ContentPack } from '../core/content/registry'
 import { FakeProvider } from '../shell/ai/fakeProvider'
 import type { FakeProviderOpts } from '../shell/ai/fakeProvider'
 import type { Provider } from '../shell/ai/provider'
 import { Game } from '../shell/game'
-import { validateState } from '../shell/save'
+import { snapshotText, validateState } from '../shell/save'
 
 /** 測試的固定種子。 */
 export const TEST_SEED = 7
+
+/**
+ * 只有核心、沒有外殼的測試用的序列化函式（變更 snapshot.take 存快照要用；dev/adr/0016 第二節）：和 Game 注入的是同一個，
+ * 寫出來的文字可以直接交給 unpackSave、Game.rewind。makeGame 建的 Game 自己就帶了，不必另外給。
+ */
+export const TEST_SERIALIZE: (state: GameState) => string = snapshotText
+
+/** createKernel 加上 TEST_SERIALIZE（核心的測試要存快照時用；功能照 createKernel 一樣給）。嚴格模式不開，要的自己開。 */
+export function makeKernel(features: Feature[] = []): Kernel {
+  const k = createKernel(features)
+  k.serialize = TEST_SERIALIZE
+  return k
+}
+
+/** createStateKernel 加上 TEST_SERIALIZE：只測 L3（提交、變更）的測試用。 */
+export function makeStateKernel(): StateKernel {
+  const k = createStateKernel()
+  k.serialize = TEST_SERIALIZE
+  return k
+}
 
 export type ActorOverrides = Partial<Omit<Actor, 'attrs' | 'skills' | 'ext'>> & { attrs?: Partial<Actor['attrs']>; skills?: Actor['skills']; ext?: Actor['ext'] }
 

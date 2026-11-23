@@ -475,8 +475,10 @@ describe('activity.end：戰鬥結算發它（kind battle），處理函式回�
       return ret(seen.at(-1)!)
     }),
   })
-  const run = async (features: Feature[], outcome = 'win') => {
+  // withEntry：開戰之前先存一份 entry 快照（M2-core-shell 之後報告帶的 rewind 會真的執行，要有地方可以回去）
+  const run = async (features: Feature[], outcome = 'win', withEntry = false) => {
     const t = makeGame({ features: [TEST_COMBAT, TEST_ACTIVITY, ...features] })
+    if (withEntry) t.game.commit(note({}, [{ op: 'snapshot.take', kind: 'entry', label: '入口' }, { op: 'flag', key: 'noted', value: true }]))
     t.game.commit(note({ launch: [{ kind: 'battle', setup: BATTLE_SETUPS.encounter(), origin: { by: 'test', ref: 'q1', ext: { commission: 'c1', stage: 2 } } }] }))
     decide(t.game, outcome)
     return { ...t, result: await t.game.finishBattle() }
@@ -533,7 +535,7 @@ describe('activity.end：戰鬥結算發它（kind battle），處理函式回�
   })
 
   it('回傳的 rewind 放到 battle.end 那一份報告上', async () => {
-    const t = await run([listener([], () => ({ rewind: { kind: 'entry', summary: '你撤退了。' } }))])
+    const t = await run([listener([], () => ({ rewind: { kind: 'entry', summary: '你撤退了。' } }))], 'win', true)
     expect(t.result.reports.find((r) => r.action === 'battle.end')!.rewind).toEqual({ kind: 'entry', summary: '你撤退了。' })
   })
 

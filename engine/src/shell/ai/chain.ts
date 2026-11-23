@@ -89,6 +89,8 @@ export interface ChainDef {
   aiInput(step: StepTemplate, ctx: ChainCtx): unknown
   /** 這一步的 AI 有沒有開（照設定裡各任務的開關）；關著就直接走退路 */
   aiEnabled?(step: StepTemplate, ctx: ChainCtx): boolean
+  /** 這條鏈的 AI 請求走不走成人路由（請求的 adult 記號；報告帶 adult 的鏈：narrated）。沒寫就是不走 */
+  adult?(ctx: ChainCtx): boolean
   /** 套用：把草稿組成報告草稿 */
   apply(ctx: ChainCtx): ReportDraft
 }
@@ -292,7 +294,8 @@ export class ChainRun {
       const def = this.env.tasks.get(t.task!)
       if (!def) throw new Error(`任務鏈 ${this.template.chain}：沒有 ${t.task} 這個 AI 任務`)
       const enabled = this.def.aiEnabled?.(t, this.ctx) ?? true
-      const outcome = await runTask(this.env.taskEnv, def, this.def.aiInput(t, this.ctx), { settings: this.ctx.settings, chain: this.id, step: s.id }, {
+      const adult = this.def.adult?.(this.ctx) ?? false
+      const outcome = await runTask(this.env.taskEnv, def, this.def.aiInput(t, this.ctx), { settings: this.ctx.settings, chain: this.id, step: s.id, ...(adult ? { adult: true } : {}) }, {
         signal: this.abort.signal, forceFallback: !enabled || !!s.byRules, previousError: this.retryNotes[s.id],
       })
       delete this.retryNotes[s.id]

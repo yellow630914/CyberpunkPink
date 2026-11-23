@@ -26,6 +26,8 @@ import { daysUntilWeekday, segmentOf, segmentWeekdayOf, weekdayOf } from '../cor
 import type { ChainEnv, ChainStatus, StepRequest } from './ai/chain'
 import { ChainRegistry, ChainRun } from './ai/chain'
 import { battleEndChain } from './battle'
+import type { NarratedInput } from './narrated'
+import { NARRATED_CHAIN, narratedChain } from './narrated'
 import { freeActionChain, registerFreeActionTasks } from './ai/freeAction'
 import type { Provider, ProviderSource } from './ai/provider'
 import { Limiter } from './ai/provider'
@@ -34,7 +36,7 @@ import { ProviderHub, sanitizeAiSettings } from './ai/settings'
 import type { TaskEnv } from './ai/tasks'
 import { IDLE_TIMEOUT_MS, TaskRegistry } from './ai/tasks'
 import type { SaveMeta } from './save'
-import { packSave, saveMeta, unpackSave } from './save'
+import { packSave, saveMeta, snapshotText, unpackSave } from './save'
 import { UndoStack } from './undo'
 
 export interface GameOptions {
@@ -88,6 +90,16 @@ export interface CommitOptions {
   turn?: boolean
 }
 
+/** commitNarrated 的選項（dev/adr/0016 第二節）。 */
+export interface NarratedOptions extends ActOptions {
+  /** 寫正文的模式（new、continue、rewrite……；AI_TASKS 3.1 節）：給 narrate 任務的 mode */
+  mode: string
+  /** 回退選單上這一步的名字；沒給用報告的摘要 */
+  label?: string
+  /** 併進最新一樓：不另留一步回退（同 CommitOptions.attach；買東西的帳、坐車的時間這類） */
+  attach?: boolean
+}
+
 /** 戰鬥裡一步的結果：refused 是這一步做不成（reasons 一條一條列出缺的條件），狀態不變。 */
 export interface BattleStepResult {
   status: 'applied' | 'refused'
@@ -109,6 +121,9 @@ type Listener = (state: GameState, reports: Report[]) => void
 /** 報告的 launch 最多連開幾層（開出來的活動的開始報告自己又帶 launch……）；超過丟錯，防止兩個功能互相觸發個沒完（dev/adr/0016 第二節）。 */
 export const MAX_LAUNCH_DEPTH = 4
 
+/** 找不到那種快照的原因（給玩家看的完整句子）。 */
+const noSnapshotOfKind = (kind: string): string => `沒有「${kind}」這種快照，回不去。`
+
 export class Game {
   readonly k: Kernel
   readonly tasks: TaskRegistry
@@ -120,10 +135,10 @@ export class Game {
   readonly state: GameState
   settings: AiSettings
   /**
-   * 最新一條鏈、它開始前的狀態、它套用完那一刻的報告流水號（還沒套用是 null）。
+   * 最新一條鏈、它開始前的狀態、它套用完那一刻的報告流水號（還沒套用是 null）、它有沒有另留一步回退（pushed；attach 的鏈沒有）。
    * 最新一樓可以在套用之後重試；流水號對不上，表示之後又有別的提交，這條鏈就只能回退。
    */
-  private last: { run: ChainRun; before: GameState; seqAfter: number | null } | null = null
+  private last: { run: ChainRun; before: GameState; seqAfter: number | null; pushed: boolean } | null = null
   private listeners: Listener[] = []
   private taskEnv: TaskEnv
   /** 任務鏈的環境：套用時的提交走 commitWithLaunch（報告帶的 launch 在同一次提交裡開；開不成整條鏈的套用不成立） */
@@ -132,6 +147,8 @@ export class Game {
   constructor(opts: GameOptions = {}) {
     this.k = createKernel(opts.features ?? [])
     this.k.strict = opts.strict ?? false
+    // 變更 snapshot.take 存快照用的序列化函式：外殼注入，內容就是戰鬥開打前存快照的那一份文字（dev/adr/0016 第二節）
+    this.k.serialize = snapshotText
     for (const pack of opts.content ?? []) this.k.content.loadPack(pack)
     const dangling = this.k.content.checkRefs()
     if (dangling.length) throw new Error(`內容的引用斷了：${dangling.slice(0, 5).join('；')}`)
@@ -144,6 +161,7 @@ export class Game {
     registerFreeActionTasks(this.k, this.tasks)
     this.chains.register(freeActionChain())
     this.chains.register(battleEndChain())
+    this.chains.register(narratedChain())
     this.state = blankState(0)
   }
 
@@ -177,7 +195,13 @@ export class Game {
     if (opts.setup) {
       const drafts = opts.setup(fresh)
       // 開局的報告帶 launch 也照順序開（開不成整個開局不成立，原本那一局不動）
-      for (const d of Array.isArray(drafts) ? drafts : [drafts]) reports.push(...commitAtomic(this.k, fresh, (tx) => this.settleIn(tx, d, true)))
+      for (const d of Array.isArray(drafts) ? drafts : [drafts]) {
+        reports.push(...commitAtomic(this.k, fresh, (tx) => {
+          const made = this.settleIn(tx, d, true)
+          this.rewindIn(tx, made)
+          return made
+        }))
+      }
     }
     this.last?.run.cancel()
     replaceInPlace(this.state, fresh)
@@ -212,7 +236,14 @@ export class Game {
   private abandonPaused(): void {
     if (this.last?.run.status !== 'paused') return
     this.last.run.cancel()
-    this.undo.drop()
+    if (this.last.pushed) this.undo.drop()
+    this.last = null
+  }
+
+  /** 這一步裡有一份報告帶 rewind、而且做了：回到快照之後不能回退到這之前（和 rewind 一樣），最新的鏈也不能再重試。 */
+  private afterRewind(): void {
+    this.last?.run.cancel()
+    this.undo.clear()
     this.last = null
   }
 
@@ -225,6 +256,8 @@ export class Game {
    * 停在半路等玩家的鏈則作廢（和開始新的行動一樣）。
    * 報告帶 launch（dev/adr/0016）：提交之後照順序開那些活動，開出來的報告接在回傳的後面；和這份報告是同一步回退、不另算一個回合。
    * 任何一個開不成，整步不成立：狀態回到這一步之前（含這份報告本身），丟 ActionBlocked（原因是那個活動給的）。
+   * 報告帶 rewind（dev/adr/0016 第二節）：提交完（開活動之後）回到最近一份那個種類的快照（見 rewindToKind）；找不到那種快照，
+   * 整步不成立（同 launch 的回滾，丟 ActionBlocked）。回到快照之後不能回退到這之前，回傳的報告標成被收回、最後多一份交代這件事的。
    */
   commit(draft: ReportDraft, opts: string | CommitOptions = {}): Report[] {
     const block = this.blockOf(`commit:${draft.action}`, draft)
@@ -240,7 +273,8 @@ export class Game {
     const before = o.attach ? null : clone(this.state)
     const reports = this.commitWithLaunch(draft, o.turn !== false)
     this.abandonPaused()
-    if (before) this.undo.pushSnapshot(before, o.label ?? draft.outcome.summary)
+    if (reports.some((r) => r.rewind)) this.afterRewind()
+    else if (before) this.undo.pushSnapshot(before, o.label ?? draft.outcome.summary)
     this.notify(reports)
     return reports
   }
@@ -248,13 +282,17 @@ export class Game {
   // ---- 活動的開始：報告的 launch 與 Game.launch（dev/adr/0016 第一、二節） ----
 
   /**
-   * 提交一份報告，連同它（與回合結束的流程帶出來的每一份報告）的 launch：整件事是一次提交（commitAtomic）。
-   * turn 是 false 時只提交報告、不跑回合結束的流程。任何一個 launch 開不成就整件事不成立：狀態回到這一步之前（含那份報告本身），
-   * 丟 ActionBlocked；連開超過 MAX_LAUNCH_DEPTH 層丟一般的錯（狀態一樣不動）。
-   * 任務鏈的套用（ChainEnv.commit）、commit、走地圖都走這裡。回傳的第一份是報告本身，開出來的報告接在後面。
+   * 提交一份報告，連同它（與回合結束的流程帶出來的每一份報告）的 launch，最後做報告帶的 rewind：整件事是一次提交（commitAtomic）。
+   * turn 是 false 時只提交報告、不跑回合結束的流程。任何一個 launch 開不成、或 rewind 找不到快照，整件事不成立：
+   * 狀態回到這一步之前（含那份報告本身），丟 ActionBlocked；連開超過 MAX_LAUNCH_DEPTH 層丟一般的錯（狀態一樣不動）。
+   * 任務鏈的套用（ChainEnv.commit）、commit 都走這裡。回傳的第一份是報告本身，開出來的報告接在後面，有 rewind 的最後是交代回到快照的那一份。
    */
   private commitWithLaunch(draft: ReportDraft, turn: boolean): Report[] {
-    return commitAtomic(this.k, this.state, (tx) => this.settleIn(tx, draft, turn))
+    return commitAtomic(this.k, this.state, (tx) => {
+      const reports = this.settleIn(tx, draft, turn)
+      this.rewindIn(tx, reports)
+      return reports
+    })
   }
 
   /** 在一次提交裡：提交一份報告（回合流程或單純的報告），再照順序開它們帶的 launch。 */
@@ -311,10 +349,12 @@ export class Game {
     const reports = commitAtomic(this.k, this.state, (tx) => {
       const made = this.launchIn(tx, { kind, setup, ...(origin ? { origin } : {}) })
       this.launchAll(tx, made)
+      this.rewindIn(tx, made)
       return made
     })
     this.abandonPaused()
-    this.undo.pushSnapshot(before, o.label ?? (kind === 'battle' ? '開戰' : (reports[0]?.outcome.summary ?? kind)))
+    if (reports.some((r) => r.rewind)) this.afterRewind()
+    else this.undo.pushSnapshot(before, o.label ?? (kind === 'battle' ? '開戰' : (reports[0]?.outcome.summary ?? kind)))
     this.notify(reports)
     return reports
   }
@@ -328,27 +368,48 @@ export class Game {
    * 跑一條任務鏈。行動被擋下（ActionBlocked）不丟錯：回傳 status 'refused' 與原因，狀態不變、不留回退。
    * 程式的錯誤（沒有這種行動、鏈的程式步驟出錯）照樣丟出來，狀態不變。
    */
-  async runChain(chainId: string, input: unknown, opts: ActOptions = {}, label = chainId): Promise<ActResult> {
+  runChain(chainId: string, input: unknown, opts: ActOptions = {}, label = chainId): Promise<ActResult> {
+    return this.startChain(chainId, input, opts, label, { doing: `chain:${chainId}` })
+  }
+
+  /**
+   * 結算之後寫正文（dev/adr/0016 第二節）：給定的報告草稿（功能用純函式算好的結算）→ 寫正文（narrate；草稿帶 adult 走成人路由）→ 套用，
+   * 跑通用的鏈 narrated，不替任何功能另開一條。M2 的移動、交易、休息、事件、打工、副本的階段、場景的結束都走它。
+   * - 放行問 commit:<草稿的 action>（和 commit 同一個；戰鬥中、等著選的戰敗、別的活動進行中都擋，回傳 refused 與原因，狀態不變、不留回退）。
+   * - AI 關著、或設定關掉寫正文時（settings.ai、settings.narrate），報告沒有正文，其餘和 commit 一樣：同一份草稿、同一份變更。
+   * - 重試、用規則代替、重擲照現有的鏈（retryStep、useRules）；停在半路等玩家時，狀態還沒有被改。
+   * - 套用之後照常處理草稿的 launch 與 rewind（見 commit）；開不成或找不到快照，整步不成立，回傳 refused。
+   * - 預設留一步回退；opts.attach 是併進最新一樓、不另留（同 commit）。
+   */
+  async commitNarrated(draft: ReportDraft, opts: NarratedOptions): Promise<ActResult> {
+    if (!opts || typeof opts.mode !== 'string' || !opts.mode) throw new Error('commitNarrated 要給寫正文的模式（mode）。')
+    const input: NarratedInput = { draft, mode: opts.mode }
+    return this.startChain(NARRATED_CHAIN, input, opts, opts.label ?? draft.outcome.summary, { doing: `commit:${draft.action}`, draft, attach: opts.attach === true })
+  }
+
+  /** runChain 與 commitNarrated 共用：o.doing 是問放行的那一個（draft 給 allows 看）；o.attach 是不另留一步回退。 */
+  private async startChain(chainId: string, input: unknown, opts: ActOptions, label: string, o: { doing: string; draft?: ReportDraft; attach?: boolean }): Promise<ActResult> {
     const def = this.chains.get(chainId)
     if (!def) throw new Error(`沒有 ${chainId} 這條任務鏈`)
     if (this.last?.run.status === 'running') throw new Error('上一條任務鏈還在跑。')
     // 戰鬥中不能做別的事（探索用格子、戰鬥是另一個畫面；COMBAT_SYSTEM 第 10 節）：只有結束戰鬥的那條鏈可以跑。
     // 有等著選的戰敗時也一樣：先三選一（8.4 節）
-    const block = this.blockOf(`chain:${chainId}`)
+    const block = this.blockOf(o.doing, o.draft)
     if (block) {
       return { status: 'refused', reason: block, run: new ChainRun(this.chainEnv, def, this.state, input, this.settings), reports: [] }
     }
     this.abandonPaused()
     const before = clone(this.state)
     const run = new ChainRun(this.chainEnv, def, this.state, input, this.settings)
-    this.undo.pushSnapshot(before, label)
-    this.last = { run, before, seqAfter: null }
+    const pushed = !o.attach
+    if (pushed) this.undo.pushSnapshot(before, label)
+    this.last = { run, before, seqAfter: null, pushed }
     try {
       return await this.settle(run, await run.run(), opts)
     } catch (e) {
       // 這個行動沒有成立：狀態沒變（提交是原子的），回退那一步放回原樣
       if (this.last?.run === run) {
-        this.undo.drop()
+        if (pushed) this.undo.drop()
         this.last = null
       }
       if (e instanceof ActionBlocked) return { status: 'refused', reason: e.reason, run, reports: [] }
@@ -365,11 +426,13 @@ export class Game {
     }
     const mine = this.last?.run === run
     if (s === 'applied') {
-      if (mine) this.last!.seqAfter = this.state.seq.report
+      // 套用的報告帶 rewind 而且做了：回到快照之後不能回退到這之前，這條鏈也不能再重試（重試會抹掉那次回到快照）
+      if (mine && run.reports.some((r) => r.rewind)) this.afterRewind()
+      else if (mine) this.last!.seqAfter = this.state.seq.report
       this.notify(run.reports)
     } else if (s === 'cancelled' && mine) {
-      // 被取消（關掉 AI）：這個行動沒有成立，它留的那一步回退也拿掉。回退、讀檔造成的取消已經自己清過了
-      this.undo.drop()
+      // 被取消（關掉 AI）：這個行動沒有成立，它留的那一步回退也拿掉（attach 的沒有留）。回退、讀檔造成的取消已經自己清過了
+      if (this.last!.pushed) this.undo.drop()
       this.last = null
     }
     return { status: s, run, reports: run.reports }
@@ -460,7 +523,7 @@ export class Game {
   private battleSnapshotChanges(state: GameState, setup: BattleSetup, o: { label?: string; snapshot?: boolean } = {}): Change[] {
     const changes: Change[] = [{ op: 'snapshot.drop', kind: 'battle' }]
     if (o.snapshot !== false) {
-      const slot: SnapshotSlot = { id: `s${state.seq.uid + 1}`, kind: 'battle', label: o.label ?? '戰鬥開打前', raw: this.snapshotText(state), data: { setup: clone(setup) as unknown as Record<string, unknown> } }
+      const slot: SnapshotSlot = { id: `s${state.seq.uid + 1}`, kind: 'battle', label: o.label ?? '戰鬥開打前', raw: snapshotText(state), data: { setup: clone(setup) as unknown as Record<string, unknown> } }
       changes.push({ op: 'snapshot.add', slot })
     }
     return changes
@@ -498,13 +561,6 @@ export class Game {
     return this.runChain('battle_end', null, opts, '戰鬥結束')
   }
 
-  /** 某一個狀態存成一份快照的文字（快照裡不再包快照）。 */
-  private snapshotText(state: GameState): string {
-    const copy = clone(state)
-    copy.snapshots = []
-    return packSave(copy, saveMeta(copy, 'snapshot', ''))
-  }
-
   /**
    * 回到一份快照那一刻（保留之後的紀錄；見 rewind）。比它晚存的快照與它自己一起丟掉，比它早的留著。
    * 失敗回傳錯誤訊息；成功回傳 null。
@@ -514,6 +570,41 @@ export class Game {
     if (i < 0) return '沒有這份快照。'
     const keep = clone(this.state.snapshots.slice(0, i))
     return this.rewind(this.state.snapshots[i]!.raw, opts, keep)
+  }
+
+  /**
+   * 回到最近一份這個種類的快照（dev/adr/0016 第二節；rewindTo 的包裝）：比它晚的快照與它自己一起丟掉，比它早的留著；
+   * 之後的紀錄留著並標成被收回，summary 寫成一筆 system 的報告，rewind.keep 掛點照舊。
+   * 報告帶 rewind 時外殼提交完會自己呼叫同一套（撤退、委託失敗都是一份帶 rewind 的報告，介面不直接呼叫這個）。
+   * 直接呼叫的人先問 blockOf('rewind:<種類>')：這裡也問，被活動擋下回傳它的原因。
+   * 找不到那種快照、回不去回傳原因（狀態不變）；成功回傳 null。
+   */
+  rewindToKind(kind: string, summary: string): string | null {
+    const block = this.blockOf(`rewind:${kind}`)
+    if (block) return block
+    const slot = [...this.state.snapshots].reverse().find((x) => x.kind === kind)
+    if (!slot) return noSnapshotOfKind(kind)
+    return this.rewindTo(slot.id, { summary })
+  }
+
+  /**
+   * 一步裡的 rewind（在 commitAtomic 裡面，提交完、開完活動之後）：這一步的報告裡有一份帶 rewind，就在同一次提交裡回到最近一份那個種類的快照。
+   * 找不到快照、回不去，丟 ActionBlocked：整步不成立（狀態回到這一步之前，含那份報告本身；同 launch 開不成）。
+   * 一步只能有一份帶 rewind 的報告。回傳的報告（reports）原地改：標成被收回、最後接上交代這件事的那一份。
+   */
+  private rewindIn(tx: CommitTx, reports: Report[]): void {
+    const asked = reports.filter((r) => r.rewind)
+    if (asked.length === 0) return
+    if (asked.length > 1) throw new Error(`同一步裡有 ${asked.length} 份報告都帶 rewind（${asked.map((r) => r.action ?? r.id).join('、')}）：一步只能回到一份快照。`)
+    const { kind, summary } = asked[0]!.rewind!
+    const at = tx.work.snapshots.map((x) => x.kind).lastIndexOf(kind)
+    if (at < 0) throw new ActionBlocked(noSnapshotOfKind(kind))
+    const res = this.restoreFrom(tx.work, tx.work.snapshots[at]!.raw, summary, clone(tx.work.snapshots.slice(0, at)))
+    if (typeof res === 'string') throw new ActionBlocked(res)
+    replaceInPlace(tx.work, res.next)
+    const retracted = new Set(res.next.reports.filter((r) => r.retracted).map((r) => r.id))
+    reports.forEach((r, i) => { if (retracted.has(r.id)) reports[i] = { ...r, retracted: true } })
+    reports.push(res.report)
   }
 
   /**
@@ -614,6 +705,7 @@ export class Game {
           out.push(...started)
           this.launchAll(tx, started)
         }
+        this.rewindIn(tx, out)
         return out
       })
     } catch (e) {
@@ -621,7 +713,8 @@ export class Game {
       throw e
     }
     this.abandonPaused()
-    if (beforeBattle) this.undo.pushSnapshot(beforeBattle, '開戰')
+    if (reports.some((r) => r.rewind)) this.afterRewind()
+    else if (beforeBattle) this.undo.pushSnapshot(beforeBattle, '開戰')
     this.notify(reports)
     return { status: 'applied', reports }
   }
@@ -683,13 +776,26 @@ export class Game {
    * 失敗時回傳錯誤訊息，狀態不變；成功回傳 null。之後不能回退到這之前。
    */
   rewind(raw: string, opts: { summary: string }, keepSnapshots?: SnapshotSlot[]): string | null {
+    const res = this.restoreFrom(this.state, raw, opts.summary, keepSnapshots)
+    if (typeof res === 'string') return res
+    this.last?.run.cancel()
+    replaceInPlace(this.state, res.next)
+    this.undo.clear()
+    this.last = null
+    this.notify([res.report])
+    return null
+  }
+
+  /**
+   * 回到一份存檔那一刻的做法（純的：不碰 this.state）：算出回去之後的狀態與交代這件事的報告。rewind、rewindToKind、報告帶的 rewind 共用。
+   * current 是現在的狀態（讀它，不改它）。失敗回傳錯誤訊息。規矩見 rewind。
+   */
+  private restoreFrom(current: GameState, raw: string, summary: string, keepSnapshots?: SnapshotSlot[]): { next: GameState; report: Report } | string {
     const r = unpackSave(raw)
     if (!r.ok) return r.error
     const next = r.file.state
-    const current = this.state
     const kept = next.reports.length
     if (kept > current.reports.length || next.reports.some((x, i) => current.reports[i]!.id !== x.id)) return '這份快照不是這一局更早的狀態，不能用來撤退。'
-    let reports: Report[] = []
     try {
       const changes = this.k.hooks.run('rewind.keep', { current, restored: next }).flatMap((x) => x.result)
       next.reports = [...next.reports, ...current.reports.slice(kept).map((x) => ({ ...clone(x), retracted: true }))]
@@ -698,16 +804,11 @@ export class Game {
       // 快照跟著現在的走：沒有指定就留著現在的每一份（rewindTo 會只留比那一份早的），
       // 但「戰鬥開打前」的那一種不留：回到更早的時間點之後，那一場已經不存在，留著只會變成一個隨時能用的回退
       next.snapshots = clone(keepSnapshots ?? current.snapshots.filter((x) => x.kind !== 'battle'))
-      reports = [commitReport(this.k, next, { kind: 'system', action: 'rewind', location: clone(next.location), party: [], timeline: [], changes, outcome: { result: 'rewound', summary: opts.summary } })]
+      const report = commitReport(this.k, next, { kind: 'system', action: 'rewind', location: clone(next.location), party: [], timeline: [], changes, outcome: { result: 'rewound', summary } })
+      return { next, report }
     } catch (e) {
       return `沒有辦法回到那一刻（${(e as Error).message}）。`
     }
-    this.last?.run.cancel()
-    replaceInPlace(this.state, next)
-    this.undo.clear()
-    this.last = null
-    this.notify(reports)
-    return null
   }
 
   /** 回退 n 步。回退的時候進行中的鏈被取消，那一樓的任務鏈一起消失（它在狀態裡）。成功回傳 true；n 不是正整數或沒有那麼多步回傳 false。 */

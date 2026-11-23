@@ -4,13 +4,19 @@
 import type { Change, GameState } from '../types'
 import type { Probe } from './probe'
 
+/** 一筆變更在它那一串變更（一份報告的 changes）裡的位置：snapshot.take 這類「一定要放第一筆」的變更看它。 */
+export interface ChangeAt {
+  index: number
+  count: number
+}
+
 export interface ChangeDef<C extends Change = Change> {
   op: string
   owner: string
-  /** 這筆變更現在能不能套；回傳錯誤訊息（空的就是可以）。不可以改狀態。 */
-  validate(state: GameState, change: C): string[]
+  /** 這筆變更現在能不能套；回傳錯誤訊息（空的就是可以）。不可以改狀態。at 是它在那一串裡的位置（applyAll 才給） */
+  validate(state: GameState, change: C, at?: ChangeAt): string[]
   /** 套用。只能改 state；同一個狀態、同一筆變更一定得到同一個結果（不擲骰、不看時鐘）。 */
-  apply(state: GameState, change: C): void
+  apply(state: GameState, change: C, at?: ChangeAt): void
   /** 記進紀錄時的瘦身版（例：任務鏈的細節只放在 state.chains，不在紀錄裡再存一份）。沒有就原樣記。 */
   forLog?(change: C): Change
   /** 給玩家看的一行（報告卡的 changes 摘要）；回傳 null 就不顯示。 */
@@ -48,9 +54,10 @@ export class ChangeRegistry {
     changes.forEach((c, i) => {
       const def = this.defs.get(c.op)
       if (!def) throw new ChangeError([`changes[${i}]：沒有 ${String(c.op)} 這種變更`])
-      const problems = def.validate(state, c)
+      const at: ChangeAt = { index: i, count: changes.length }
+      const problems = def.validate(state, c, at)
       if (problems.length) throw new ChangeError(problems.map((p) => `changes[${i}]（${c.op}）：${p}`))
-      def.apply(state, c)
+      def.apply(state, c, at)
     })
   }
 

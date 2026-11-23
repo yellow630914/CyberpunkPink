@@ -132,6 +132,11 @@ export interface SnapshotSlot {
   raw: string
   /** 存的那一刻要怎麼重來（戰鬥：開打的設定），由發起的功能定義 */
   data?: Record<string, unknown>
+  /**
+   * 誰存的（功能自己決定：委託的 id、功能的 id；dev/adr/0016 第二節）。`snapshot.take` 的 `replace` 只換同一個 owner、同一種的舊快照。
+   * 沒有 owner 的快照（戰鬥開打前、`snapshot.add` 存的）互相算同一個 owner。
+   */
+  owner?: string
 }
 
 /** 一條任務鏈留在存檔裡的細節（AI_TASKS 5.5 節：只留最近五樓）。內容的形狀由 L7 的任務鏈引擎定義。 */

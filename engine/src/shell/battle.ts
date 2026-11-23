@@ -23,6 +23,12 @@ export const BATTLE_END_TEMPLATE: ChainTemplate = {
 /** 寫正文收到的 timeline 最多幾拍（太長時保留頭尾；AI_TASKS 3.9 節）。 */
 export const NARRATE_BEATS = { head: 20, tail: 40 }
 
+/** 寫正文收到的 timeline：太長時保留頭尾，中間寫「略過幾拍」（NARRATE_BEATS）。 */
+export function clipBeats(beats: string[]): string[] {
+  const { head, tail } = NARRATE_BEATS
+  return beats.length <= head + tail ? beats : [...beats.slice(0, head), `（中間略過 ${beats.length - head - tail} 拍）`, ...beats.slice(-tail)]
+}
+
 export function battleEndChain(): ChainDef {
   return {
     template: BATTLE_END_TEMPLATE,
@@ -39,9 +45,7 @@ export function battleEndChain(): ChainDef {
     aiInput: (step, ctx) => {
       if (step.task !== 'narrate') throw new Error(`戰鬥結束的鏈不認得 ${String(step.task)} 這個任務`)
       const draft = ctx.draft.settle as ReportDraft
-      const beats = draft.timeline.map((b) => b.text)
-      const { head, tail } = NARRATE_BEATS
-      const timeline = beats.length <= head + tail ? beats : [...beats.slice(0, head), `（中間略過 ${beats.length - head - tail} 拍）`, ...beats.slice(-tail)]
+      const timeline = clipBeats(draft.timeline.map((b) => b.text))
       return {
         mode: step.mode ?? 'combat',
         // result 是結果給人看的名字（勝利、戰敗、脫離、投降）；outcome 是它的 id

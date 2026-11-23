@@ -33,6 +33,7 @@
 // | map.sheet | map, sheet, seen?, cells?, movers? | 改一張圖的狀態：看過的格子、改過的格子、會動的東西 |
 // | map.ext | map, value | 這份實例上發起的功能自己記的東西，整份換掉 |
 // | snapshot.add | slot | 存一份快照（回到那一刻用的）。同一種類只留最新的一份由存的人決定：先 drop 再 add |
+// | snapshot.take | kind, label, owner?, data?, replace? | 存一份「這份報告套用之前」的快照（dev/adr/0016 第二節）：一定是報告的第一筆變更；文字由 k.serialize 產生（沒注入就不合法）；replace 把同一個 owner、同一種的舊快照拿掉。記進紀錄時不留文字 |
 // | snapshot.drop | id 或 kind | 丟掉一份（或一種）快照 |
 // | snapshot.mark | id 或 kind、data | 在一份（或一種）快照的 data 上補幾個鍵（打輸之後標上「這一場輸了，等玩家三選一」）；找不到就不合法 |
 
@@ -85,7 +86,11 @@ const money = (op: 'cred' | 'cash', name: string): ChangeDef<Change & { delta: n
   describe: (c) => (c.delta ? `${name} ${c.delta > 0 ? '+' : '−'}${formatAmount(Math.abs(c.delta))}` : null),
 })
 
-export function registerCoreChanges(reg: ChangeRegistry): void {
+/**
+ * serialize：問 kernel 現在有沒有注入序列化函式（snapshot.take 用；它是之後才注入的，所以每次問，不在登錄時抓）。
+ * 不給的話（單獨測某一種變更）就當沒注入。
+ */
+export function registerCoreChanges(reg: ChangeRegistry, serialize: () => ((state: GameState) => string) | undefined = () => undefined): void {
   reg.register(money('cred', '帳戶'))
   reg.register(money('cash', '現金'))
 
@@ -396,6 +401,36 @@ export function registerCoreChanges(reg: ChangeRegistry): void {
     // 記進紀錄時不留存檔的文字（它在 state.snapshots）
     forLog: (c) => ({ op: 'snapshot.add', slot: { id: c.slot.id, kind: c.slot.kind, label: c.slot.label } }),
     apply: (s, c) => { s.snapshots.push(clone(c.slot)) },
+  })
+
+  reg.register<Change & { kind: string; label: string; owner?: string; data?: Record<string, unknown>; replace?: boolean }>({
+    op: 'snapshot.take', owner: 'core',
+    validate: (_s, c, at) => {
+      const p: string[] = []
+      // 存的是「這份報告套用之前」的狀態：放在別的變更後面，存到的就是套了一半的狀態
+      if (at && at.index !== 0) p.push('snapshot.take 要放在報告的第一筆變更（它存的是這份報告套用之前的狀態）')
+      if (!serialize()) p.push('沒有注入存快照的序列化函式（k.serialize）：Game 建好時會注入；只有核心、沒有外殼的測試用 testkit 的 makeKernel')
+      if (!isId(c.kind)) p.push('kind 的格式不對')
+      if (typeof c.label !== 'string') p.push('label 要是字串（給玩家看的名字）')
+      if (c.owner !== undefined && !(typeof c.owner === 'string' && c.owner)) p.push('owner 要是非空的字串')
+      if (c.data !== undefined && !isRecord(c.data)) p.push('data 要是一個物件')
+      if (c.replace !== undefined && typeof c.replace !== 'boolean') p.push('replace 要是布林值')
+      return p
+    },
+    // 記進紀錄時不留存檔的文字與 data（它們在 state.snapshots）；也沒有 id（id 由套用時定）
+    forLog: (c) => ({ op: 'snapshot.take', kind: c.kind, label: c.label, ...(c.owner !== undefined ? { owner: c.owner } : {}), ...(c.replace ? { replace: true } : {}) }),
+    describe: () => null,
+    apply: (s, c) => {
+      // 傳進去的是 snapshots 放空的淺拷貝：快照裡不再包快照（不變式第 57 條），序列化的函式不必知道這件事
+      const raw = serialize()!({ ...s, snapshots: [] })
+      if (typeof raw !== 'string' || !raw) throw new Error('k.serialize 要回傳存檔的文字（非空的字串）')
+      // id 照流水號（和戰鬥開打前的快照同一套 s<流水號>），並把流水號用掉：之後的 s<流水號 + 1> 不會撞上；已經有人用的號碼跳過
+      let n = s.seq.uid + 1
+      while (s.snapshots.some((x) => x.id === `s${n}`)) n++
+      s.seq.uid = n
+      if (c.replace) s.snapshots = s.snapshots.filter((x) => !(x.kind === c.kind && x.owner === c.owner))
+      s.snapshots.push({ id: `s${n}`, kind: c.kind, label: c.label, raw, ...(c.owner !== undefined ? { owner: c.owner } : {}), ...(c.data ? { data: clone(c.data) } : {}) })
+    },
   })
 
   reg.register<Change & { id?: string; kind?: string }>({

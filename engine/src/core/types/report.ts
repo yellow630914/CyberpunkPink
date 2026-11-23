@@ -37,7 +37,8 @@ export interface Launch {
 
 /**
  * 提交之後回到最近一份這個種類的快照（撤退、委託失敗；dev/adr/0016 第二節）。
- * 型別放在這裡是因為掛點 activity.end 的處理函式可以回傳它、核心的結算併進報告；執行的部分是 M2-core-shell。
+ * 型別放在這裡是因為掛點 activity.end 的處理函式可以回傳它、核心的結算併進報告；外殼提交完之後執行（Game.rewindToKind）：
+ * 紀錄留著並標成被收回（連同這份報告自己），summary 寫成一筆 system 的報告。同一份報告不能同時帶 launch 與 rewind。
  */
 export interface ReportRewind {
   kind: string
@@ -140,7 +141,10 @@ export interface Report {
   retracted?: boolean
   /** 這份報告提交之後接著開的活動（dev/adr/0016 第二節）：Game 照順序處理，開不成整步不成立 */
   launch?: Launch[]
-  /** 這份報告提交之後回到最近一份這個種類的快照（執行的部分在 M2-core-shell） */
+  /**
+   * 這份報告提交之後回到最近一份這個種類的快照（外殼的 Game.rewindToKind）。找不到那種快照，整步不成立（和 launch 開不成同一條）。
+   * 不能和 launch 同時寫：launch 之後不會再有 rewind，兩個都寫的報告提交時就擋下。
+   */
   rewind?: ReportRewind
   /** 這一回合碰到的觸發點（事件導演讀） */
   triggers?: ReportTrigger[]

@@ -88,6 +88,16 @@ export function packSave(state: GameState, meta: SaveMeta): string {
   return JSON.stringify({ format: SAVE_FORMAT, version: SAVE_VERSION, meta, state } satisfies SaveFile)
 }
 
+/**
+ * 某一個狀態存成一份快照的文字（快照裡不再包快照：存的那一份 snapshots 是空的）。k.serialize 就是它（Game 建好時注入；dev/adr/0016 第二節），
+ * 戰鬥開打前的快照也用它。不改傳進來的狀態。
+ */
+export function snapshotText(state: GameState): string {
+  const copy = clone(state)
+  copy.snapshots = []
+  return packSave(copy, saveMeta(copy, 'snapshot', ''))
+}
+
 export type Unpacked = { ok: true; file: SaveFile; fromVersion: number } | { ok: false; error: string }
 
 /** 狀態的結構檢查。回傳問題的清單。 */
@@ -112,7 +122,7 @@ export function validateState(s: unknown): string[] {
   // 壞掉的戰鬥讀進來會卡死：每一步都丟錯，又因為「正在戰鬥」什麼別的都不能做
   if (s.battle !== null && s.battle !== undefined) for (const e of battleProblems(s.battle)) p.push(`battle：${e}`)
   if (!isRecord(s.maps) || !isRecord(s.maps.instances) || !(s.maps.at === null || isRecord(s.maps.at))) p.push('maps：要有 instances 與 at')
-  if (!Array.isArray(s.snapshots) || s.snapshots.some((x) => !isRecord(x) || typeof x.id !== 'string' || typeof x.kind !== 'string' || typeof x.raw !== 'string')) p.push('snapshots：每一份要有 id、kind 與 raw')
+  if (!Array.isArray(s.snapshots) || s.snapshots.some((x) => !isRecord(x) || typeof x.id !== 'string' || typeof x.kind !== 'string' || typeof x.raw !== 'string' || (x.owner !== undefined && typeof x.owner !== 'string'))) p.push('snapshots：每一份要有 id、kind 與 raw（owner 有的話要是字串）')
   return p
 }
 
