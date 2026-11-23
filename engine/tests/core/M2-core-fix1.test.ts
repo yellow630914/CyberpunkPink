@@ -28,7 +28,7 @@ const judgeOk = () => (req: Parameters<typeof inputOf>[0]) => {
 
 /** 一種測試用的行動：成功程度決定的規則表（fallback）、給 AI 看的參考範圍（hint）都能自己指定。 */
 function kind(over: Partial<ActionKindDef> = {}): ActionKindDef {
-  return { id: 'probe_act', owner: 'test', name: '試試看', attr: 'charm', dc: 'trivial', minutes: 10, maxMinutes: 30, reportKind: 'action', ...over }
+  return { id: 'probe_act', owner: 'test', name: '試試看', attr: 'charm', dc: 'easy', minutes: 10, maxMinutes: 30, reportKind: 'action', ...over }
 }
 const withKind = (def: ActionKindDef): Feature => ({ id: 'test_kind', install: (k) => k.actions.register(def) })
 /** 把 NPC 放進角色表（工廠的 patch.actors 會整個取代，所以開局之後再放）。 */
@@ -69,7 +69,7 @@ describe('1 自由行動：場上有具名的 NPC 時算關係那一步不丟錯
 
   it('戰鬥結束的鏈一樣：場上有 NPC 單位時 relate 走退路，戰鬥照常結算', async () => {
     const setup = BATTLE_SETUPS.encounter()
-    const first = setup.allies[0] as { unit: Record<string, unknown> }
+    const first = setup.allies[0] as unknown as { unit: Record<string, unknown> }
     first.unit.actor = 'n1'
     const { game } = withNpc(makeGame({ features: [TEST_COMBAT, NPCS], seed: 2 }))
     game.startBattle(setup)

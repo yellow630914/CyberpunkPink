@@ -118,7 +118,7 @@
 - 2026-11-23 核心的 ITEM_CATEGORIES 沒有 drug（藥現在靠 drug 標籤才能進快取格），M4 做藥時補類別。名冊卡彈與炸膛的變體（連射 1d6 卡彈、煙花自傷一半）還沒有格式。匯入正式潛網者資料時七個快駭技能要寫 action_tags ['hack','hack:<類別>']。
 - 2026-11-23 world 待跟進（等 M2-core-shell 補 GridCtx.step/last 與 facility 格子種類）：設施只在最後一格觸發、拿掉最短路推算、圖例改用 F。DISTRICTS 1.2 沒做的（橋接區封鎖繞路、追逐、地下層入口與要地、區域狀態、公共交通、日夜人口表）排 M2-transit 或之後。
 - 2026-11-23 lewd 留下的：核心 unitFromActor 與角色的 load_cap 讀 ext.bridge 的基本值，義體或藥物加的有效值（bridge_<參數>）不會進戰鬥（M4 定誰負責）；把橋拿掉（unbridged）需要核心明寫「沒有橋」的辦法。LEWD_SYSTEM 第 1 節表上沒有數字的格子（同步深度門檻、義體效率、抵抗修正、開銷）留到 M4。
-- 2026-11-23 核心小修待辦（M2 收尾一起派）：核心 `item` 變更要能依 `data.uid` 拿走特定那一件（沒收、交易同設計圖多把時會拿錯；M2-trade 因此只讓沒有實例資料的那幾疊上架收購，有 `data` 的組裝成品與零件現在賣不了，核心補上之後 `sellBlock` 放開、`SellRow` 多帶 uid）；explore 的進圖要呼叫者自己呼叫 arrive（或 openMap 走掛點）。security 沒做的（降敵對值的其他方式、分段後果、好感效果、義體與沉溺掃描、寄放與拘留）排 M2 後段或 M4。
+- ~~2026-11-23 核心 item 依 uid 已做（M2-core-fix1）~~；原：核心 `item` 變更要能依 `data.uid` 拿走特定那一件（沒收、交易同設計圖多把時會拿錯；M2-trade 因此只讓沒有實例資料的那幾疊上架收購，有 `data` 的組裝成品與零件現在賣不了，核心補上之後 `sellBlock` 放開、`SellRow` 多帶 uid）；explore 的進圖要呼叫者自己呼叫 arrive（或 openMap 走掛點）。security 沒做的（降敵對值的其他方式、分段後果、好感效果、義體與沉溺掃描、寄放與拘留）排 M2 後段或 M4。
 - 2026-11-23 transit 留下的：存檔規則「沒去過的站也能搭」放在 transit_rule.anywhere（要做成存檔規則得改核心 SaveRules）；介面的改目的地與快轉沒有報告；車上能做的事、渡輪帶貨與人情付費、乘客紀錄、自己的車沒做。
 - 2026-11-23 trade 留下的：成品（組裝出來的裝備）沒有目錄價，ITEMS 1.4 節要零件價錢加總與型係數，引擎還沒有，所以買不到也賣不了；類別的行情現在固定 1（`categoryMult`，M2-market 接）；員工價（社員 −10%）、帳戶被凍結只能用現金、洗錢、服務、殺價都沒做；用帳戶買違禁品的敵對值加幾點設計書沒寫，暫定每種 3 點（`trade_rule.dirty_hostility`）。features/index.ts 要加 `tradeFeature`（排在 worldFeature、securityFeature 之後）。
 - 2026-11-23 成品（組裝出來的裝備）沒有目錄價：ITEMS 1.4 的零件價加總與型係數，要 gear 提供算價函式（M4 組裝時一起做）。

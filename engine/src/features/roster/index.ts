@@ -37,18 +37,14 @@ export type { JoinOpts, LeaveReason, MusterInput } from './ops'
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
 const own = (o: object, key: string): boolean => Object.hasOwn(o, key)
 
-// ---- 招募的輸入：對象寫在文字結尾的標記裡（報告上沒有行動的輸入；和 npcs 的互動同一個做法）----
-
-const MARK = /〔recruit=([A-Za-z0-9_:.-]+)〕$/
-const markText = (id: string): string => `〔recruit=${id}〕`
-export const recruitMarkOf = (text: string | undefined): string | null => (text ? (MARK.exec(text)?.[1] ?? null) : null)
+// ---- 招募的輸入：行動的輸入就是 { kind, target, text }，報告帶著它（report.args），掛鉤從那裡讀對象 ----
 
 /** 組出要交給 Game.act 的招募輸入。資料沒有 npc_recruit、或查不到對象丟錯（呼叫的人的錯）。 */
 export function recruitInput(k: Pick<Kernel, 'actions'>, state: Pick<GameState, 'actors'>, id: string): ActionInput {
   const def = k.actions.get(RECRUIT_KIND)
   if (!def || def.owner !== OWNER) throw new Error(`資料裡沒有 ${RECRUIT_KIND} 這種行動。`)
   if (!own(state.actors, id)) throw new Error(`查不到 ${id} 這個人。`)
-  return { kind: RECRUIT_KIND, target: id, text: `招募${state.actors[id]!.name}${markText(id)}` }
+  return { kind: RECRUIT_KIND, target: id, text: `招募${state.actors[id]!.name}` }
 }
 
 // ---- 給介面看的 ----
@@ -254,8 +250,8 @@ export const rosterFeature: Feature = {
     // ---- 招募：成功進名冊，差一點的「再想想」 ----
     k.hooks.on('report.before', OWNER, ({ state, draft }) => {
       if (draft.action !== RECRUIT_KIND) return
-      const id = recruitMarkOf(draft.input)
-      if (id === null || !own(state.actors, id)) return
+      const id = draft.args?.target
+      if (typeof id !== 'string' || !own(state.actors, id)) return
       if (draft.changes.some((c) => c.op === 'roster.join' && c.who === id)) return
       const degree = draft.outcome.result
       if (degree === 'critical' || degree === 'success') return joinBlock(k, state, id) === null ? joinChanges(k, state, id) : undefined
@@ -328,12 +324,7 @@ export const rosterFeature: Feature = {
     const dataReq = def.block
     def.reportKind = 'social'
     def.dc = (state, input) => (typeof input.target === 'string' ? recruitDc(k, state, input.target).dc : 16)
-    def.block = (state, input) => {
-      const reason = recruitBlock(k, state, input.target)
-      if (reason) return reason
-      if (recruitMarkOf(input.text) !== input.target) return '招募的輸入要用 recruitInput 組出來（文字結尾要帶對象的標記）。'
-      return dataReq?.(state, input) ?? null
-    }
+    def.block = (state, input) => recruitBlock(k, state, input.target) ?? dataReq?.(state, input) ?? null
     k.actions.register(def)
   },
 }

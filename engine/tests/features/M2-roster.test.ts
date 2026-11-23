@@ -194,15 +194,16 @@ describe('招募能不能做：只有行者；每一個原因一句', () => {
     expect(recruitBlock(g.k, g.state, 'r_bob')).toBe('鮑說要再想想：睡一覺之後才能再問。')
   })
 
-  it('Game.act 把不能招募的人擋在擲骰之前，原因就是上面那一句；對象的標記要用 recruitInput 組', async () => {
+  it('Game.act 把不能招募的人擋在擲骰之前，原因就是上面那一句；輸入不必用 recruitInput 組（報告帶行動的輸入，不靠文字裡的標記）', async () => {
     const g = make()
-    const r = await g.act({ kind: 'npc_recruit', target: 'c_bob', text: '招募街坊鮑勃〔recruit=c_bob〕' })
+    const r = await g.act({ kind: 'npc_recruit', target: 'c_bob', text: '招募街坊鮑勃' })
     expect(r.status).toBe('refused')
     expect(r.reason).toBe('街坊鮑勃不是行者，沒辦法招募（街坊與職員只能同行）。')
-    const bare = await g.act({ kind: 'npc_recruit', target: 'r_ann' })
+    const bare = await g.act({ kind: 'npc_recruit' })
     expect(bare.status).toBe('refused')
-    expect(bare.reason).toBe('招募的輸入要用 recruitInput 組出來（文字結尾要帶對象的標記）。')
+    expect(bare.reason).toBe('要先指定對象。')
     expect(members(g)).toEqual([])
+    expect(recruitInput(g.k, g.state, 'r_ann')).toEqual({ kind: 'npc_recruit', target: 'r_ann', text: '招募安' })
   })
 
   it('資料裡沒有 npc_recruit：沒有這個行動，recruitInput 丟錯；不丟在載入時', () => {
@@ -253,6 +254,7 @@ describe('招募的結果：成功進名冊；差一點的「再想想」，睡�
       expect(readRoster(g.state).members.r_ann).toMatchObject({ pay: 'fee', since: { day: 3 } })
       const last = g.state.reports.at(-1)!
       expect(last.action).toBe('npc_recruit')
+      expect(last.args).toEqual({ kind: 'npc_recruit', target: 'r_ann', text: '招募安' })
       expect(last.changes.some((c) => c.op === 'roster.join' && c.who === 'r_ann')).toBe(true)
     }
   })
