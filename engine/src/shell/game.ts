@@ -440,13 +440,21 @@ export class Game {
     const block = this.blockOf('battle.start')
     if (block) throw new ActionBlocked(block)
     const draft = startBattle(this.k, this.state, setup)
-    // 上一場留下來的「開打前」快照一律先丟（同一時間只留這一場的）；這一場不留快照時也丟，免得打輸時標到別場的快照上
-    draft.changes.push({ op: 'snapshot.drop', kind: 'battle' })
-    if (o.snapshot !== false) {
-      const slot: SnapshotSlot = { id: `s${this.state.seq.uid + 1}`, kind: 'battle', label: o.label ?? '戰鬥開打前', raw: this.snapshotText(), data: { setup: clone(setup) as unknown as Record<string, unknown> } }
-      draft.changes.push({ op: 'snapshot.add', slot })
-    }
+    draft.changes.push(...this.battleSnapshotChanges(this.state, setup, o))
     return this.commitNow(draft, { label: o.label ?? '開戰', turn: false })
+  }
+
+  /**
+   * 開打前的快照的變更：上一場留下來的先丟（同一時間只留這一場的；這一場不留快照時也丟，免得打輸時標到別場的快照上），
+   * 再存這一場的（state 是開打之前的狀態）。data.setup 是重來這場戰鬥時要照著再開的設定。
+   */
+  private battleSnapshotChanges(state: GameState, setup: BattleSetup, o: { label?: string; snapshot?: boolean } = {}): Change[] {
+    const changes: Change[] = [{ op: 'snapshot.drop', kind: 'battle' }]
+    if (o.snapshot !== false) {
+      const slot: SnapshotSlot = { id: `s${state.seq.uid + 1}`, kind: 'battle', label: o.label ?? '戰鬥開打前', raw: this.snapshotText(state), data: { setup: clone(setup) as unknown as Record<string, unknown> } }
+      changes.push({ op: 'snapshot.add', slot })
+    }
+    return changes
   }
 
   private battleStep(make: () => ReportDraft): BattleStepResult {
@@ -481,9 +489,9 @@ export class Game {
     return this.runChain('battle_end', null, opts, '戰鬥結束')
   }
 
-  /** 現在的狀態存成一份快照的文字（快照裡不再包快照）。 */
-  private snapshotText(): string {
-    const copy = clone(this.state)
+  /** 某一個狀態存成一份快照的文字（快照裡不再包快照）。 */
+  private snapshotText(state: GameState): string {
+    const copy = clone(state)
     copy.snapshots = []
     return packSave(copy, saveMeta(copy, 'snapshot', ''))
   }
