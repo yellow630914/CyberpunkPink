@@ -18,8 +18,16 @@
     ],
     "keeper_per_point": 0.002,
     "keeper_cap": 0.1,
-    "hostility_markup_at": 40,
-    "hostility_markup": 1.2,
+    "hostility_markups": [
+      [
+        20,
+        1.1
+      ],
+      [
+        40,
+        1.2
+      ]
+    ],
     "hostility_refuse_at": 60,
     "dirty_hostility": 3,
     "list_size": [

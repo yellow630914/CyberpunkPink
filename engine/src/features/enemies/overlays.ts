@@ -8,7 +8,7 @@
 // 約定（和 summons 共用的資料，寫在 BattleOverlay.ext）：stun === 2 是「被電磁打到、這個回合動不了」（command 的目標灰掉）；fixed 是不會移動。
 
 import type { BattleActionDef, BattleOverlay, BattlePick, BattleRun, BattleTarget, BattleTargetOption, BattleUnit, BattleView, Kernel } from '../../core'
-import { BATTLE_SLOTS, BattleBlocked, overlayAt, otherSide, targetWeight, unitsOf } from '../../core'
+import { BATTLE_SLOTS, BattleBlocked, compareText, overlayAt, otherSide, targetWeight, unitsOf } from '../../core'
 import type { EnemyAttached } from './kinds'
 import { OWNER, resolveEnemy } from './kinds'
 import { overlayInit } from './stats'
@@ -17,7 +17,7 @@ import { isRec, peekEnemy } from './unitdata'
 /** 被電磁打到、這個回合動不了（summons 記在 ext.stun 的第二階段）。 */
 const STUNNED = 2
 
-const heldBy = (view: BattleView, u: BattleUnit): BattleOverlay[] => view.battle.overlays.filter((o) => o.owner === u.id && o.side === u.side && !o.down).sort((a, b) => a.slot - b.slot || a.id.localeCompare(b.id))
+const heldBy = (view: BattleView, u: BattleUnit): BattleOverlay[] => view.battle.overlays.filter((o) => o.owner === u.id && o.side === u.side && !o.down).sort((a, b) => a.slot - b.slot || compareText(a.id, b.id))
 const stunned = (o: BattleOverlay): boolean => o.ext?.stun === STUNNED
 const blocksOf = (o: BattleOverlay): string[] => (o.used ? ['這一台這一回合動過了。'] : stunned(o) ? ['這一台被電磁打到，這個回合動不了。'] : [])
 
@@ -51,7 +51,7 @@ function hangAll(k: Pick<Kernel, 'content'>, run: BattleRun): void {
     run.addOverlay({ ...init, side, slot, auto: true })
   }
   // 跟著主人的：主人倒下之後自律（E6）。主人在後方排隊（沒有格）時照他偏好的格
-  for (const u of Object.values(b.units).sort((x, y) => x.id.localeCompare(y.id))) {
+  for (const u of Object.values(b.units).sort((x, y) => compareText(x.id, y.id))) {
     const attached = peekEnemy(u).attached
     if (!Array.isArray(attached)) continue
     for (const a of attached as EnemyAttached[]) {

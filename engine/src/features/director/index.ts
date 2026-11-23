@@ -9,12 +9,15 @@
 // 接上核心的地方：
 //   內容  event_scope（每個範圍一筆）、event_rule（id: default，每回合的上限、城裡每天的上限、類型平衡）、event（表頭；內文檢查用 addEventBodyCheck 再掛）
 //         載入之後 ready 跑 directorProblems：scope 查不到、觸發點不在範圍的表裡、通知的效果格式不對，整批擋下並寫出是哪一件
-//   掛鉤  turn.end：這一回合的觸發點；time.passed（順序 20）：每天 08:00 的 daily、週一 06:00 的 weekly（一次跨好幾天，各最多補 3 次）
+//   掛鉤  turn.end：這一回合的觸發點（行動自己那一份加上掛鉤接著提交的報告帶的：警戒漲過門檻，副本接一份帶 pressure 的報告）；time.passed（順序 20）：每天 08:00 的 daily、週一 06:00 的 weekly（一次跨好幾天，各最多補 3 次）
 //   狀態  state.ext.director：每個範圍的冷卻與今天的件數、每件事上次的日子、最近的類型、延後的事件、排隊的通知（形狀見 model.ts）
 // 報告：event.notice（不擋的事件，效果當場結算）；director.queue（只有排隊的更新，沒有別的事發生時）。
 //
+// 範圍的欄位 unique_in_commission（同一件委託不重複，記在 state.ext.director.in_commission）與 events_as（壓力條那一擲的觸發點 pressure，事件寫的還是 stage）：
+// dev/adr/0017 M2 修正批 4。
+//
 // 還沒做的（EVENTS 第 3 節）：存檔規則的範圍倍率與成人比重、曝露度的修正（街頭機率 ×1.5）、鉤子與 AI 提出的事件、
-// 契約的佇列與家園的帳單機率（只收範圍的格式）、同一處的不重複天數。
+// 契約的佇列與家園的帳單機率（只收範圍的格式）、同一處的不重複天數、副本內「每個階段最多一件」。
 
 import type { Feature, Kernel } from '../../core'
 import { ContentError, dailyCrossings, toMinutes, weeklyCrossings } from '../../core'
@@ -50,9 +53,11 @@ export const directorFeature: Feature = {
     })
 
     // 一個行動的回合結束：這一回合碰到的觸發點。報告帶 rewind 時狀態馬上換成快照那一刻，導演做什麼都不會留下，所以不走
-    k.hooks.on('turn.end', OWNER, ({ state, report }) => {
+    k.hooks.on('turn.end', OWNER, ({ state, report, reports }) => {
       if (report.rewind) return
-      const drafts = runPasses(k, state, [{ triggers: report.triggers ?? [], at: state.time }], { turnKey: report.id, launchPending: (report.launch?.length ?? 0) > 0 })
+      // 這一回合的觸發點：行動自己那一份加上掛鉤接著提交的報告帶的（例：警戒漲過門檻，副本接一份帶 pressure 的報告）
+      const triggers = reports.flatMap((r) => r.triggers ?? [])
+      const drafts = runPasses(k, state, [{ triggers, at: state.time }], { turnKey: report.id, launchPending: (report.launch?.length ?? 0) > 0 })
       return drafts.length > 0 ? drafts : undefined
     })
 

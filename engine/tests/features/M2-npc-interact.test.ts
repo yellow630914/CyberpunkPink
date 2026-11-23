@@ -9,7 +9,7 @@ import type { ContentPack, Feature, Kernel, ReportDraft } from '../../src'
 import { MONEY_CAP_BY_GRADE, countItem, inputOf, meterOf, prepareAction } from '../../src'
 import { actionsFeature } from '../../src/features/actions'
 import { lewdFeature } from '../../src/features/lewd'
-import { npcsFeature, npcsHere, interactBlock, interactInput, interactRules, interactions, giftGain, giftTier, DEFAULT_INTERACT_RULES, doneToday, knownFacts, knows, npcOf, readNpcs, tableEffects } from '../../src/features/npcs'
+import { CHAT_DONE_NOTE, knowFactText, npcsFeature, npcsHere, interactBlock, interactInput, interactRules, interactions, giftGain, giftTier, DEFAULT_INTERACT_RULES, doneToday, knownFacts, knows, npcOf, readNpcs, tableEffects } from '../../src/features/npcs'
 import type { InteractKind } from '../../src/features/npcs'
 import { securityFeature } from '../../src/features/security'
 import { makeGame, observed } from '../../src/testkit'
@@ -821,5 +821,51 @@ describe('AI 開著（假的服務商）：走 judge，AI 給的效果被夾在�
     expect(aff(g, 'npc_cora')).toBe(-8)
     expect(r.reports[0]!.clamps!.length).toBeGreaterThan(0)
     expect(doneToday(g.state, 'npc_cora')).toEqual([])
+  })
+})
+
+// ---- M2 修正批 14：interactions 的 note、knowFactText 的匯出 ----
+
+describe('interactions 的 note：今天聊過了，再聊不會再加親密度（說明句由引擎給，畫面不自己讀 doneToday 寫）', () => {
+  it('還沒聊過：note 是 null；聊過之後（成功的、大失敗的都算做過）：聊天那一列 ok 照舊、reason 是 null、note 是那一句；別的互動沒有 note', async () => {
+    const { g } = make()
+    know(g, 'npc_bob', 0)
+    expect(row(g, 'npc_bob', 'npc_chat')).toMatchObject({ ok: true, reason: null, note: null })
+    await act(g, 'npc_chat', 'npc_bob', 'success')
+    expect(doneToday(g.state, 'npc_bob')).toContain('chat')
+    expect(row(g, 'npc_bob', 'npc_chat')).toMatchObject({ ok: true, reason: null, note: CHAT_DONE_NOTE })
+    expect(CHAT_DONE_NOTE).toBe('今天聊過了，不會再加親密度。')
+    for (const v of interactions(g.k, g.state, 'npc_bob').filter((x) => x.kind !== 'npc_chat')) expect(v.note, v.kind).toBeNull()
+  })
+
+  it('說的是真的：同一天再聊一次確實不加親密度；隔天又重置，note 消失，又能加', async () => {
+    const { g } = make()
+    know(g, 'npc_bob', 0)
+    await act(g, 'npc_chat', 'npc_bob', 'success')
+    const first = aff(g, 'npc_bob')
+    expect(first).toBeGreaterThan(0)
+    await act(g, 'npc_chat', 'npc_bob', 'success')
+    expect(aff(g, 'npc_bob')).toBe(first)
+    nextDay(g)
+    expect(row(g, 'npc_bob', 'npc_chat').note).toBeNull()
+    await act(g, 'npc_chat', 'npc_bob', 'success')
+    expect(aff(g, 'npc_bob')).toBeGreaterThan(first)
+  })
+
+  it('對象查不到（沒有這個人）：每一列都做不了、沒有 note；聊天被別的原因擋住時（還不認識也不在這裡）也沒有 note，只有 reason', () => {
+    const { g } = make()
+    for (const v of interactions(g.k, g.state, 'npc_nobody')) expect(v, v.kind).toMatchObject({ ok: false, note: null })
+    const far = row(g, 'npc_cora', 'npc_chat')
+    if (!far.ok) expect(far.note).toBeNull()
+  })
+})
+
+describe('knowFactText 從人物功能匯出（畫面把「知道的事」寫成句子用）', () => {
+  it('每一種寫法都有一句話：傾向、橋、契約、秘密、最近的行蹤；名字用傳進去的函式換', () => {
+    expect(knowFactText('bridge')).toBeTypeOf('string')
+    expect(knowFactText('contract')).toBeTypeOf('string')
+    expect(knowFactText('tendency:tg_x', (t) => `「${t}」`)).toContain('「tg_x」')
+    expect(knowFactText('recent:b_market', undefined, (p) => `<${p}>`)).toContain('<b_market>')
+    expect(knowFactText('secret:鑰匙')).toContain('鑰匙')
   })
 })

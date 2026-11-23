@@ -20,3 +20,13 @@
 ## 驗收
 
 - ui 的 npm test 全過、vue-tsc 與 npm run build 通過；每一條有測試（畫面的用 Playwright 看過）。不改 engine/，不 commit。
+
+## 引擎修正批之後要跟著改（M2-fix-review 回報）
+
+- 5 個壞掉的測試（建角後名冊帶出身夥伴）：`src/stores/engine.whitebox.test.ts:163`（改用 action 過濾）、`src/stores/repro.test.ts` 的 `ui-undo-ledger-steps`（logCount 照新數字）、`tests/people/M2-ui-people.test.ts` 招募／名冊滿／成員三條（把出身名冊算進去或用沒有出身名冊的 origin）。
+- 拿掉 `demoCoreWithoutPeople`（npc 已可覆寫）；示範局的開局名冊改由建角的出身名冊來（示範局沒有主角時保留現在做法）。
+- 「今天聊過了」改讀 `interactions` 每列的 `note`；`knowFactText` 直接 import。
+- 睡覺、喘口氣的結果句子已不帶數字，`failText` 的權宜提示可拿掉。
+- `trade_rule` 的 `hostility_markup_at`/`hostility_markup` 換成 `hostility_markups`（若 ui 有讀）。
+- 車上事件開打或開場景後人在下一站：畫面換到戰鬥／場景並在結束後顯示新的位置。
+- 中間人的 `backer`：示意包的兩位中間人補上後台勢力。

@@ -123,7 +123,7 @@ export interface RosterRules {
   idle_delta: number
   down_delta: number
   unpaid_delta: number
-  /** 每週結帳時，忠誠 leave_at 以下的人有 leave_chance 的機會離開（10.4：20、30%） */
+  /** 每週結帳時，忠誠低於 leave_at 的人有 leave_chance 的機會離開（10.4：20、30%；剛好 20 是 20～39 那一段，不離開） */
   leave_at: number
   leave_chance: number
   /** 出場費 = 主職階數² × fee_base ×（1 ± fee_spread，照人固定）（10.5：200、25%）；信譽階序比他低 +fee_low_rep；忠誠在 low_loyalty_min～max +fee_low_loyalty（10.4：20～39、25%） */

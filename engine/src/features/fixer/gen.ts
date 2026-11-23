@@ -24,7 +24,7 @@
 //   - 同一個 seed 的結果一模一樣；fixer.offers 的亂數把存檔亂數的游標固定在 0，這樣同一天之內不管中間擲了幾次骰，今天的委託都不變。
 
 import type { ContentEntry, GameState, Kernel } from '../../core'
-import { UNIT_RANKS, clone, deriveRng, isRecord, isSafeInt, repGrade, repTierOf, meterOf } from '../../core'
+import { UNIT_RANKS, clone, compareText, deriveRng, isRecord, isSafeInt, repGrade, repTierOf, meterOf } from '../../core'
 import type { CommissionDef, FixerEntry, Offer, Reveal, UnknownItem } from './model'
 import { CATS, factionName, offerProblems } from './model'
 import type { Cat } from './model'
@@ -528,7 +528,7 @@ function build(c: Ctx): Offer | string {
   const multi = type.stages.slice(0, 2).some((s) => s.faces.length >= 2)
   const hasMulti = (list: readonly StageWork[]): boolean => list.some((s) => s.faces.length >= 2)
 
-  const allLinks = k.content.list<LinkEntry>(LINK_KIND).filter((l) => linkProblems(l as unknown as Record<string, unknown>).length === 0).sort((a, b) => a.id.localeCompare(b.id))
+  const allLinks = k.content.list<LinkEntry>(LINK_KIND).filter((l) => linkProblems(l as unknown as Record<string, unknown>).length === 0).sort((a, b) => compareText(a.id, b.id))
 
   // 詞條 1～2 個：lock_face 把那個階段鎖成一個面（不能讓某個階段沒有玩得了的面，也不能讓「至少一個階段有兩個面」不成立，也不能讓接得上的連動不夠）
   const mods = k.content.list<ModifierEntry>(MODIFIER_KIND).filter((m) => modifierProblems(m as unknown as Record<string, unknown>).length === 0)

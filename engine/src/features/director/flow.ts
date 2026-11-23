@@ -44,6 +44,8 @@ interface Run {
   d: DirectorState
   /** 副本進行中 */
   commission: boolean
+  /** 進行中的副本的 id（活動 commission 的 id）；沒有是 null */
+  commissionId: string | null
   /** 副本以外還有活動進行中（戰鬥、場景、事件視窗……） */
   otherActive: boolean
   launchPending: boolean
@@ -74,6 +76,7 @@ export function runPasses(k: Kernel, state: GameState, passes: Pass[], o: RunOpt
   const run: Run = {
     k, state, sim: clone(state), rules: eventRules(k), d: before,
     commission: active.some((a) => a.kind === 'commission'),
+    commissionId: active.find((a) => a.kind === 'commission')?.id ?? null,
     // 副本以外還有活動進行中：放行「導演開事件」的活動不算（車上：擋住型的 transit_stop、wait 事件要在車上跳出來）；
     // 戰敗等待中、事件視窗、成人場景、戰鬥都不放行，照舊算
     otherActive: active.some((a) => a.kind !== 'commission' && !k.activity.permits(state, a.kind, 'event.start', undefined, DIRECTOR_LAUNCH)),
@@ -167,6 +170,10 @@ function recordRelease(run: Run, c: Candidate, at: GameTime): void {
   const prev = d.scopes[c.scope.id]
   d.scopes[c.scope.id] = { until: now + Math.round(c.scope.cooldown_hours * 60), day: at.day, count: (prev?.day === at.day ? prev.count : 0) + 1 }
   d.seen[c.event.id] = at.day
+  // 同一件委託不重複：記在這件委託名下；換了一件委託就從頭記
+  if (c.scope.unique_in_commission && run.commissionId !== null) {
+    d.in_commission = d.in_commission?.id === run.commissionId ? { id: run.commissionId, events: [...d.in_commission.events, c.event.id] } : { id: run.commissionId, events: [c.event.id] }
+  }
   if (c.event.category) d.recent = [...d.recent, c.event.category].slice(-Math.max(0, rules.category_recent))
   if (c.event.blocking !== false) {
     if (!c.scope.in_commission) d.city = { day: at.day, blocking: cityBlockingToday(d, at.day) + 1 }

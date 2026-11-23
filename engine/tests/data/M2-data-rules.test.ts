@@ -126,12 +126,14 @@ describe('M2-data-rules：抽查設計書的數字', () => {
   it('導演（EVENTS 3.3、3.4、3.5、第 7 節）', () => {
     expect(raw(g, 'event_rule')).toMatchObject({ per_turn: { blocking: 1, notices: 2 }, city_daily_blocking: 8, category_recent: 6, category_penalty: 0.35 })
     const street = g.k.content.get('event_scope', 'street') as Rec
-    expect(street).toMatchObject({ triggers: { enter_block: 0.12, walk: 0.06, enter_bridge: 0.25, enter_facility: 0.08 }, cooldown_hours: 2, repeat_days: 3, daily_cap: 5, lost: 'drop' })
+    // 街頭範圍多一個 transit_stop 6%（EVENTS 3.3 節的表；M2 修正批 9：以表為準）
+    expect(street).toMatchObject({ triggers: { enter_block: 0.12, walk: 0.06, enter_bridge: 0.25, enter_facility: 0.08, transit_stop: 0.06 }, cooldown_hours: 2, repeat_days: 3, daily_cap: 5, lost: 'drop' })
     expect(g.k.content.get('event_scope', 'site')).toMatchObject({ triggers: { enter_floor: 0.25, open: 0.1, rest: 0.2 }, cooldown_hours: 1, repeat_days: 7 })
     expect(g.k.content.get('event_scope', 'home')).toMatchObject({ triggers: { home: 0.1, rest: 0.2 }, cooldown_hours: 6, repeat_days: 7, daily_cap: 2, lost: 'defer', defer_hours: 6 })
     expect(g.k.content.get('event_scope', 'work')).toMatchObject({ triggers: { work: 0.15 }, repeat_days: 3 })
     expect(g.k.content.get('event_scope', 'mascot')).toMatchObject({ cooldown_hours: 72, daily_cap: 1, flags_at: [3, 6, 10] })
-    expect(g.k.content.get('event_scope', 'commission')).toMatchObject({ in_commission: true, triggers: { stage: 0.3 } })
+    // 副本內：每個階段 30%、壓力條跨過 60 再擲 15%（事件寫的觸發點還是 stage）；同一件委託不重複（EVENTS 3.1、3.3 節；M2 修正批 4）
+    expect(g.k.content.get('event_scope', 'commission')).toMatchObject({ in_commission: true, unique_in_commission: true, triggers: { stage: 0.3, pressure: 0.15 }, events_as: { pressure: 'stage' } })
   })
 
   it('十種範圍加交通都寫了；導演讀得到（範圍進得了導演的清單）', () => {
@@ -169,7 +171,7 @@ describe('M2-data-rules：抽查設計書的數字', () => {
     expect(t).toMatchObject({
       buy_ratio: 0.4, cargo_ratio: 0.9, sell_area_slope: 0.25, discount_cap: 0.3, decay_step: 0.03, decay_max: 0.5, decay_recover: 5,
       market_min: 0.5, market_max: 2.5, bargain_dc: 13, bargain_affinity_step: 25, favor_bands: [20, 40, 60, 80], favor_discounts: [0.03, 0.06, 0.1, 0.15],
-      hostility_markup_at: 40, hostility_markup: 1.2, hostility_refuse_at: 60,
+      hostility_markups: [[20, 1.1], [40, 1.2]], hostility_refuse_at: 60,
       bargain_results: { critical: { mult: 0.8, affinity: 2 }, success: { mult: 0.9, affinity: 0 }, fail: { mult: 1, affinity: 0 }, fumble: { mult: 1.1, affinity: -3 } },
     })
     expect(Object.keys(t.categories as Rec)).toHaveLength(13)

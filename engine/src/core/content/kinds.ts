@@ -222,8 +222,9 @@ export function registerCoreKinds(content: ContentRegistry): void {
     ],
   })
 
+  // npc 可以被後載入的包同 id 取代整筆（dev/adr/0017 M2 修正批 14）：人物是世界內容，示意包與模組要能換掉核心包裡同 id 的那幾位（以前要先把核心包同 id 的濾掉）
   content.defineKind<NpcEntry>({
-    kind: 'npc', owner: 'core',
+    kind: 'npc', owner: 'core', overridable: true,
     validate: (e) => [...(typeof e.id === 'string' && /^(npc|gen)_/.test(e.id) ? [] : ['id 要以 npc_（具名）或 gen_（生成）開頭']), ...(isText(e.name) ? [] : ['要有 name'])],
   })
 

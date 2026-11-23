@@ -7,7 +7,7 @@ import type { BargainView } from './bargain'
 import { bargainView, temperOf } from './bargain'
 import { buyBlock, payBlock, sellBlock, sellPrices, shopBlock } from './checkout'
 import {
-  PAYS, categoryName, decayMult, discountOf, hostilityOf, intakeCount, isCargo, itemOf, marketMult, marketOf, matches, plainCount, priced, quote, shopEntry, shopTypeOf, stockOf,
+  PAYS, categoryName, decayMult, discountOf, hostilityMarkup, hostilityOf, intakeCount, isCargo, itemOf, marketMult, marketOf, matches, plainCount, priced, quote, shopEntry, shopTypeOf, stockOf,
   tradeCategoryOf, tradeRules, wornCount,
 } from './model'
 
@@ -148,7 +148,7 @@ export function shopView(k: Kernel, state: GameState, shop: string | ShopEntry):
     bargain: bargainView(k, state, entry),
     closed,
     discount: { favor: discount.favor, keeper: discount.keeper, total: discount.total },
-    markup: hostility >= rules.hostility_markup_at ? rules.hostility_markup : 1,
+    markup: hostilityMarkup(rules, hostility),
     shelf, sell,
   }
 }

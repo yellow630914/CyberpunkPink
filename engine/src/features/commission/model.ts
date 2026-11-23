@@ -131,6 +131,8 @@ export interface CommissionRules {
   /** 警戒到這麼多，最後一個階段的遭遇升 hard_grade_up 級（G9：100、1；最高 V） */
   hard_alert: number
   hard_grade_up: number
+  /** 警戒漲到這麼多，導演多擲一次副本內事件（EVENTS 3.1 節：壓力條跨過 60）；一個階段只算一次 */
+  pressure_at: number
   /** 輔助面的結算（COMMISSIONS 6.4 節）：失敗的壓力加多少（輿論面沒有壓力條，不加；6.4 節：+10） */
   aux_pressure: number
   /** 出事之後那一面撤幾個階段（6.4 節「撤一個階段」：1） */
@@ -156,18 +158,18 @@ export interface CommissionRules {
 }
 
 export const DEFAULT_COMMISSION_RULES: CommissionRules = {
-  stage_minutes: 120, stealth_fail_alert: 10, check_fail_alert: 5, dc_base: 10, dc_per_grade: 2, reinforce_count: 2, hard_alert: 100, hard_grade_up: 1,
+  stage_minutes: 120, stealth_fail_alert: 10, check_fail_alert: 5, dc_base: 10, dc_per_grade: 2, reinforce_count: 2, hard_alert: 100, hard_grade_up: 1, pressure_at: 60,
   aux_pressure: 10, aux_rest: 1, aux_injured_days: 3,
   xp_small: 20, xp_medium: 35, xp_large: 60, hostility_base: 5, hostility_per_assault: 3, hostility_max: 15, rating_links: 3, rating_alert: 60, rating_peak: 100,
   aux_skills: { meat: ['firearms', 'brawl', 'stealth', 'athletics'], net: ['interface'], opinion: ['perform', 'negotiate'] },
   aux_bonus: { strong: 4, mid: 2, weak: 0, none: 0 },
 }
 
-type NumericRule = 'stage_minutes' | 'stealth_fail_alert' | 'check_fail_alert' | 'dc_base' | 'dc_per_grade' | 'reinforce_count' | 'hard_alert' | 'hard_grade_up' | 'aux_pressure' | 'aux_rest' | 'aux_injured_days'
+type NumericRule = 'stage_minutes' | 'stealth_fail_alert' | 'check_fail_alert' | 'dc_base' | 'dc_per_grade' | 'reinforce_count' | 'hard_alert' | 'hard_grade_up' | 'pressure_at' | 'aux_pressure' | 'aux_rest' | 'aux_injured_days'
   | 'xp_small' | 'xp_medium' | 'xp_large' | 'hostility_base' | 'hostility_per_assault' | 'hostility_max' | 'rating_links' | 'rating_alert' | 'rating_peak'
 const RULE_FIELDS: Array<[NumericRule, number, number]> = [
   ['stage_minutes', 0, 100000], ['stealth_fail_alert', 0, 100], ['check_fail_alert', 0, 100], ['dc_base', 0, 40], ['dc_per_grade', 0, 10],
-  ['reinforce_count', 0, 8], ['hard_alert', 1, 100], ['hard_grade_up', 0, 4], ['aux_pressure', 0, 100], ['aux_rest', 0, 3], ['aux_injured_days', 0, 30],
+  ['reinforce_count', 0, 8], ['hard_alert', 1, 100], ['hard_grade_up', 0, 4], ['pressure_at', 1, 100], ['aux_pressure', 0, 100], ['aux_rest', 0, 3], ['aux_injured_days', 0, 30],
   ['xp_small', 0, 1000], ['xp_medium', 0, 1000], ['xp_large', 0, 1000], ['hostility_base', 0, 100], ['hostility_per_assault', 0, 100], ['hostility_max', 0, 100],
   ['rating_links', 1, 20], ['rating_alert', 1, 100], ['rating_peak', 1, 100],
 ]
@@ -443,6 +445,8 @@ export interface RunSetup {
   scouted?: { stages?: number[]; branches?: string[]; guards?: number[] }
   aux?: unknown
   terms?: unknown
+  /** 每個現實面的守備多幾個雜兵（遭遇預算 +N 點，一個雜兵 1 點；FACTIONS 6.1 節：目標勢力的敵對值到「找麻煩」）。沒有守備的階段不加 */
+  encounter_plus?: number
 }
 
 export interface Run {
@@ -473,6 +477,8 @@ export interface Run {
   scene?: 'done' | 'failed'
   /** 別的面的玩法：做完了 */
   done?: boolean
+  /** 這個階段的警戒到過 pressure_at 了（壓力條的觸發點發過了，不再發第二次） */
+  pressured?: boolean
   /** 輔助面的狀態（第一次有人擲了才有） */
   aux?: AuxState
   started: GameTime
@@ -528,6 +534,11 @@ export function normalSetup(raw: unknown): { def: unknown; setup: RunSetup; aler
     setup.aux = clone(raw.aux)
   }
   if (raw.terms !== undefined) setup.terms = clone(raw.terms)
+  const plus = raw.encounter_plus
+  if (plus !== undefined) {
+    if (!(isSafeInt(plus) && plus >= 0 && plus <= 4)) return 'encounter_plus 要是 0～4 的整數。'
+    if (plus > 0) setup.encounter_plus = plus
+  }
   const a = raw.alert_start
   if (a !== undefined && !(isSafeInt(a) && a >= 0 && a <= 100)) return 'alert_start 要是 0～100 的整數。'
   return { def: raw.def, setup, alert_start: (a as number | undefined) ?? 0 }

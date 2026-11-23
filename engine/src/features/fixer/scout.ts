@@ -8,7 +8,7 @@ import type { BriefView } from './board'
 import type { Cat, Job, ScoutEntry, ScoutMethod, UnknownItem } from './model'
 import { auxSetup } from './hire'
 import {
-  CAT_NAME, COMMISSION_ACTIVITY, auxList, LOCKED_METHODS, SCOUT_METHODS, fixerRules, gradeOf, hiddenUnknowns, jobOf, methodOf, methodsFor, methodTargets, rollBest, scoutDc, scoutedOf, stageCount,
+  CAT_NAME, COMMISSION_ACTIVITY, HOSTILITY_TIER_PURSUIT, HOSTILITY_TIER_TROUBLE, auxList, LOCKED_METHODS, SCOUT_METHODS, fixerRules, gradeOf, hiddenUnknowns, hostilityAtLeast, jobOf, methodOf, methodsFor, methodTargets, rollBest, scoutDc, scoutedOf, stageCount,
 } from './model'
 
 function needJob(state: GameState, id: string): Job {
@@ -238,14 +238,22 @@ export function go(k: Kernel, state: GameState, jobId: string): ReportDraft {
   if (block) throw new ActionBlocked(block)
   const s = scoutedOf(job)
   const aux = auxSetup(job)
+  // 目標勢力對你的敵對值（FACTIONS 6.1 節）：找麻煩 → 遭遇預算 +1；追捕 → 警戒起始 +20（高的段包含低的段）。出發的這一刻看，副本裡再漲不算
+  const rules = fixerRules(k)
+  const target = typeof job.commission.target_faction === 'string' && job.commission.target_faction !== 'none' ? job.commission.target_faction : null
+  const troubled = target !== null && hostilityAtLeast(k, state, target, HOSTILITY_TIER_TROUBLE)
+  const pursued = target !== null && hostilityAtLeast(k, state, target, HOSTILITY_TIER_PURSUIT)
+  const plus = troubled ? rules.hostile_budget : 0
   const setup = {
-    // 警戒的起始值：踩點驚動的加上詞條帶的（生成的副本的 alert_start 欄位）
-    def: clone(job.commission), scouted: s.scouted, alert_start: Math.min(100, s.alert_start + startBonus(job.commission)), terms: clone(job.terms),
+    // 警戒的起始值：踩點驚動的加上詞條帶的（生成的副本的 alert_start 欄位）、追捕的加成
+    def: clone(job.commission), scouted: s.scouted, alert_start: Math.min(100, s.alert_start + startBonus(job.commission) + (pursued ? rules.hostile_alert : 0)), terms: clone(job.terms),
+    ...(plus > 0 ? { encounter_plus: plus } : {}),
     ...(s.trace_start > 0 ? { trace_start: s.trace_start } : {}),
     ...(aux ? { aux } : {}),
   }
+  const warn = pursued ? '對方正在追捕你，警戒一開始就比平常高。' : troubled ? '對方在找你麻煩，守備比平常多。' : null
   return draft(state, 'fixer.go', 'go', `出發去做「${job.title}」。`, [], {
     launch: [{ kind: COMMISSION_ACTIVITY, setup, origin: { by: 'fixer', ref: job.id } }],
-    narration: { results: [`你帶著這件委託出發了：${job.title}。`] },
+    narration: { results: [`你帶著這件委託出發了：${job.title}。`, ...(warn ? [warn] : [])] },
   })
 }

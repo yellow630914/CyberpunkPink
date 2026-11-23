@@ -324,7 +324,7 @@ describe('第 10 項：內容登錄表的 overridable（規則表）', () => {
     ]
     expect(expectRules.length).toBeGreaterThan(20)
     for (const k of expectRules) expect(g.k.content.isOverridable(k), k).toBe(true)
-    for (const k of ['attribute', 'skill', 'perk', 'origin', 'faction', 'npc', 'item', 'enemy', 'encounter', 'defeat_event', 'path', 'ability', 'event', 'special_map', 'block', 'district', 'transit_line', 'fixer', 'position']) {
+    for (const k of ['attribute', 'skill', 'perk', 'origin', 'faction', 'item', 'enemy', 'encounter', 'defeat_event', 'path', 'ability', 'event', 'special_map', 'block', 'district', 'transit_line', 'fixer', 'position']) {
       if (kinds.includes(k)) expect(g.k.content.isOverridable(k), k).toBe(false)
     }
     // CORE_PACK 帶的每一種規則表，後載入的包都能取代它的每一筆（用同一份資料再載一次不丟錯）

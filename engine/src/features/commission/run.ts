@@ -189,7 +189,24 @@ export function chooseFace(k: Kernel, state: GameState, face: Face): ReportDraft
   ], {
     ...(aux && aux.timeline.length > 0 ? { timeline: aux.timeline } : {}),
     ...(lines.length > 0 ? { narration: { results: lines } } : {}),
-    triggers: [{ point: 'stage', where: { kind: run.def.kind, face, faction: run.def.target_faction, ...(run.def.modifiers ? { tags: clone(run.def.modifiers) } : {}) } }],
+    triggers: [{ point: 'stage', where: stageWhere(run, face) }],
+  })
+}
+
+/** 導演篩事件用的 where：委託的類型、這一面、目標勢力、詞條（EVENTS 4.4 節）。stage 與 pressure 兩個觸發點共用。 */
+const stageWhere = (run: Run, face: Face): Record<string, unknown> => ({ kind: run.def.kind, face, faction: run.def.target_faction, ...(run.def.modifiers ? { tags: clone(run.def.modifiers) } : {}) })
+
+/**
+ * 警戒漲到門檻（EVENTS 3.1 節：壓力條跨過 60）：這個階段第一次到，就接一份 commission.pressure，帶 pressure 觸發點，導演多擲一次（15%）；
+ * 同一階段發過就不再發（run.pressured）；開地圖時就已經在門檻以上的不算「跨過」（chooseBranch 開地圖時就記成發過）。
+ * 只看現實面、地圖還開著的時候；戰鬥中不發（戰鬥的每一步不跑回合流程，導演看不到它），打完那一份報告再發。
+ */
+export function pressureDraft(k: Kernel, state: GameState, run: Run): ReportDraft | undefined {
+  if (run.pressured || run.step !== 'play' || run.face !== 'meat' || !run.map || !state.maps.instances[run.map] || !k.meters.get('alert')) return undefined
+  if (meterOf(k, state, 'alert', run.map) < commissionRules(k).pressure_at) return undefined
+  const text = '警戒升高了，附近的氣氛不對勁。'
+  return draft(state, 'commission.pressure', 'pressure', text, [runChange({ ...run, pressured: true })], {
+    triggers: [{ point: 'pressure', where: stageWhere(run, 'meat') }],
   })
 }
 
@@ -263,7 +280,9 @@ function planMeat(k: Kernel, state: GameState, run: Run, b: BranchDef, extraAler
   // 警戒到 100：最後一個階段的遭遇升一級（G9；最高 V）
   const hard = isLast(run) && start >= rules.hard_alert
   const grade = hard ? Math.min(5, baseGrade + rules.hard_grade_up) : baseGrade
-  const ranks = encounterAfter((face.encounter ?? []) as Rank[], fx)
+  const base = encounterAfter((face.encounter ?? []) as Rank[], fx)
+  // 目標勢力對你的敵對值到了「找麻煩」：有守備的階段多幾個雜兵（遭遇預算 +N 點；沒有守備的階段不加）
+  const ranks: Rank[] = base.length > 0 ? [...base, ...Array.from({ length: run.setup.encounter_plus ?? 0 }, (): Rank => 'minion')] : base
   const { map, sheet: sheetId } = sheetIdOf(k, face)
   const sheet = new Sheet(map.sheets.find((s) => s.id === sheetId)!)
   const post = face.post !== undefined ? sheet.marker(face.post) : firstGuard(sheet)
@@ -290,6 +309,7 @@ function planMeat(k: Kernel, state: GameState, run: Run, b: BranchDef, extraAler
   const notes: string[] = []
   if (fx.from.length > 0) notes.push(`連動生效：${fx.from.map((id) => def.links[id]?.name ?? id).join('、')}。`)
   if (ranks.length < (face.encounter?.length ?? 0)) notes.push(`守備只剩 ${ranks.length} 個。`)
+  if (ranks.length > base.length) notes.push('對方認得你，守備多了人。')
   if (direct) notes.push('不必探索，直接到了遭遇的地方。')
   if (hard) notes.push('警戒滿了，這一段的敵人高了一級。')
   return { changes, map: opened.id, start_alert: start, frozen: fx.frozen, notes }
@@ -348,6 +368,7 @@ export function chooseBranch(k: Kernel, state: GameState, branchId: string): Rep
     next.map = plan.map
     next.start_alert = plan.start_alert
     next.frozen = plan.frozen
+    if (plan.start_alert >= rules.pressure_at) next.pressured = true
     lines.push(...plan.notes)
   } else {
     // 別的面：把它的玩法開起來，等它的 activity.end（M3、M5）
@@ -464,7 +485,7 @@ export function milestone(k: Kernel, state: GameState): ReportDraft {
   }
   const last = isLast(run)
   const next: Run = { ...run, stage: n + 1, step: last ? 'done' : 'face', links, alert, peak: Math.max(run.peak, alert), breathed: false }
-  for (const key of ['face', 'branch', 'map', 'start_alert', 'frozen', 'won', 'checked', 'scene', 'done'] as const) delete next[key]
+  for (const key of ['face', 'branch', 'map', 'start_alert', 'frozen', 'won', 'checked', 'scene', 'done', 'pressured'] as const) delete next[key]
   changes.push(runChange(next))
   return draft(state, 'commission.milestone', last ? 'decisive' : 'milestone', `${stageName(run.def, n)}完成，城裡過了 ${rules.stage_minutes / 60} 小時。${last ? '決定性的一步做到了。' : ''}`, changes, { narration: { results: lines } })
 }

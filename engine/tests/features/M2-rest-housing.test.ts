@@ -169,7 +169,7 @@ describe('喘口氣', () => {
     g.commit(third)
     expect(pc(g).hp).toBe(18)
     expect(pc(g).load).toBe(0)
-    expect(third.outcome.summary).toContain('沒有回生命值')
+    expect(third.outcome.summary).toContain('沒有回復生命值')
     expect(readRest(g.state).breaths).toBe(3)
     g.commit(sleepDraft(g.k, g.state, { spot: 'wild' }))
     expect(readRest(g.state).breaths).toBe(0)

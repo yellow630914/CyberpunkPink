@@ -7,7 +7,7 @@
 //   內容  commission（一件具體的副本）、commission_rule（id: default，規則的數字）
 //   活動  commission（setup: { def: id 或整筆, scouted?, alert_start?, aux?, terms? }；activity.end 的 result 見 run.ts 的 resultOf）
 //   報告  commission.enter、.face（第一筆是 stage 快照）、.branch、.milestone、.breathe、.retreat（帶 rewind: entry）、.finish，
-//         另有 .check（動手的檢定）、.scene（開場景）、.replay（地圖離開了再進去）
+//         另有 .check（動手的檢定）、.scene（開場景）、.replay（地圖離開了再進去）、.pressure（警戒漲過門檻，帶 pressure 觸發點給導演）
 //   掛鉤  report.after（目標達成就接里程碑、做完接 finish、開了地圖問 map.arrive）、activity.end（戰鬥打贏、場景與別的面做完，記進目標的進度）
 //   掛點  map.arrive（這個功能宣告、探索回答：剛進圖入口那一格有沒有被看到）；rest.done（kind: stage，喘口氣時發）
 //   別的面  有人登記活動 face.net、face.opinion（M3、M5）才選得了；沒有的面列出來但選不了
@@ -25,7 +25,7 @@ import { ContentError } from '../../core'
 import type { CommissionEntry } from './model'
 import { ACTIVITY, FACE_ACTIVITY, KIND, OWNER, RULE_KIND, commissionMapProblems, commissionProblems, readRun, ruleProblems, runChange } from './model'
 import { failedDraft, keepFailed, mineOf, onDefeatAccepted } from './close'
-import { achieved, enterDraft, finish, milestone } from './run'
+import { achieved, enterDraft, finish, milestone, pressureDraft } from './run'
 
 export {
   ACTIVITY, BRANCH_KINDS, DEFAULT_COMMISSION_RULES, EXT, FACES, FAILED_EXT, FACE_ACTIVITY, FACE_NAME, GOAL_KINDS, KIND, LINK_TYPES, OWNER, RULE_KIND, SCALE_STAGES,
@@ -123,7 +123,10 @@ export const commissionFeature: Feature = {
       }
       if (run.step === 'done') return report.action === 'commission.finish' ? undefined : [finish(k, state)]
       if (state.battle || run.step !== 'play') return
-      return achieved(k, state, run) ? [milestone(k, state)] : undefined
+      if (achieved(k, state, run)) return [milestone(k, state)]
+      // 警戒漲過門檻：接一份帶 pressure 觸發點的報告，導演多擲一次副本內事件（EVENTS 3.1 節）
+      const pressure = pressureDraft(k, state, run)
+      return pressure ? [pressure] : undefined
     })
   },
 

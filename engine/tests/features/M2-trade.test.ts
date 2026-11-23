@@ -198,12 +198,17 @@ describe('價格與拆解', () => {
     expect(d(0, 50).keeper).toBeCloseTo(0.1, 9)
     expect(d(0, 100).keeper).toBeCloseTo(0.1, 9)
     expect(d(0, -50).keeper).toBe(0)
-    // 敵對值 40 起才加價，39 不加
+    // 敵對值分段加價（FACTIONS 6.1 節、TRADE 第 9 節；M2 修正批 9）：0～19 不加、20～39 ×1.1、40～59 ×1.2；60 以上不做生意（另一條測試）
     setMeter(g, 'favor', 'f_alpha', 0)
-    setMeter(g, 'hostility', 'f_alpha', 39)
-    expect(quote(g.k, g.state, 's_alpha', 'i_gun', 'buy').price).toBe(108)
-    setMeter(g, 'hostility', 'f_alpha', 40)
-    expect(quote(g.k, g.state, 's_alpha', 'i_gun', 'buy').price).toBe(130)
+    const priceAt = (h: number) => {
+      setMeter(g, 'hostility', 'f_alpha', h)
+      return quote(g.k, g.state, 's_alpha', 'i_gun', 'buy')
+    }
+    expect([0, 19].map((h) => priceAt(h).price)).toEqual([108, 108])
+    expect([20, 39].map((h) => priceAt(h).price)).toEqual([119, 119]) // 108 × 1.1
+    expect([40, 59].map((h) => priceAt(h).price)).toEqual([130, 130]) // 108 × 1.2
+    expect(priceAt(20).steps.at(-1)).toMatchObject({ id: 'hostility', mult: 1.1 })
+    expect(priceAt(40).steps.at(-1)).toMatchObject({ id: 'hostility', mult: 1.2 })
   })
 
   it('折扣合計最多 30%（規則可以調）', () => {
@@ -552,8 +557,12 @@ describe('設施與商店的畫面', () => {
     expect(v.sell).toMatchObject([{ item: 'i_gun', name: '手槍', qty: 2, price: 44, prices: [44, 43], quote: expect.anything(), block: null }])
   })
 
-  it('敵對值 40 以上 markup 是 1.2；沒有後台勢力與店主的店抬頭是 null', () => {
+  it('敵對值 20～39 的 markup 是 1.1、40 以上是 1.2；沒有後台勢力與店主的店抬頭是 null', () => {
     const g = mk()
+    setMeter(g, 'hostility', 'f_alpha', 10)
+    expect(shopView(g.k, g.state, 's_alpha').markup).toBe(1)
+    setMeter(g, 'hostility', 'f_alpha', 25)
+    expect(shopView(g.k, g.state, 's_alpha').markup).toBe(1.1)
     setMeter(g, 'hostility', 'f_alpha', 45)
     expect(shopView(g.k, g.state, 's_alpha').markup).toBe(1.2)
     const v = shopView(g.k, g.state, 's_beta')

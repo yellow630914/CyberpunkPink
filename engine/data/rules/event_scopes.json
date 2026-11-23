@@ -5,7 +5,8 @@
       "enter_block": 0.12,
       "walk": 0.06,
       "enter_bridge": 0.25,
-      "enter_facility": 0.08
+      "enter_facility": 0.08,
+      "transit_stop": 0.06
     },
     "cooldown_hours": 2,
     "repeat_days": 3,
@@ -50,10 +51,15 @@
   {
     "id": "commission",
     "triggers": {
-      "stage": 0.3
+      "stage": 0.3,
+      "pressure": 0.15
+    },
+    "events_as": {
+      "pressure": "stage"
     },
     "priority": 1,
     "in_commission": true,
+    "unique_in_commission": true,
     "lost": "drop"
   },
   {

@@ -17,7 +17,7 @@ export function commitTurnIn(k: StateKernel, tx: CommitTx, draft: ReportDraft): 
   const reports = tx.commit(draft)
   const followUps: ReportDraft[] = []
   guardHooks(k, tx.work, 'turn.end', () => {
-    for (const { result } of k.hooks.run('turn.end', { state: tx.work, report: reports[0]! })) followUps.push(...result)
+    for (const { result } of k.hooks.run('turn.end', { state: tx.work, report: reports[0]!, reports: [...reports] })) followUps.push(...result)
   })
   for (const f of followUps) reports.push(...tx.commit(f))
   return reports

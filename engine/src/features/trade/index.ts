@@ -34,7 +34,7 @@ export { buyBlock, checkout, payBlock, planCheckout, refuseReason, sellBlock, se
 export type { Cart, CartLine, CheckoutPlan, PricedLine } from './checkout'
 export {
   DEFAULT_TRADE_CATEGORIES, DEFAULT_TRADE_RULES, PAY_NAME, bargainToday, candidatesOf, categoryMult, categoryName, clampMarket, closedToday, decayMult, discountOf, favorDiscount,
-  intakeCount, isCargo, marketMult, marketOf, matches, plainCount, quote, round, soldToday, stockOf, tradeCategoryOf, tradeOf, tradeRules, wornCount,
+  hostilityMarkup, intakeCount, isCargo, marketMult, marketOf, matches, plainCount, quote, round, soldToday, stockOf, tradeCategoryOf, tradeOf, tradeRules, wornCount,
 } from './model'
 export type { BargainRec, Discount, Intake, Pay, Quote, QuoteOpts, QuoteStep, ShopEntry, ShopTypeEntry, StockRow, TradeItem, TradeRules, TradeState } from './model'
 export { shopView } from './view'

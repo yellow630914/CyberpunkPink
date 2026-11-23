@@ -104,6 +104,7 @@ describe('功能不讀別的功能的 state.ext', () => {
     for (const [key, feature] of Object.entries({
       world: 'world', transit: 'transit', trade: 'trade', work: 'work', rest: 'rest', bills: 'bills', director: 'director', scene: 'scene', npcs: 'npcs', roster: 'roster',
       fixer: 'fixer', commission: 'commission', commission_failed: 'commission', defeat: 'defeat', favors: 'favors', security: 'security', security_scan: 'security',
+      capture: 'enemies', // 俘虜的鍵（常數 CAPTURE_EXT；以前叫 CAPTURE_KEY，掃描認不得，M2 修正批 11 改名）
     })) expect(owners[key], key).toBe(feature)
   })
 

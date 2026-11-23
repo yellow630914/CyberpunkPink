@@ -38,6 +38,8 @@ export interface FixerEntry extends ContentEntry {
   cut: number
   /** 她肯見你的最低街頭信譽（沒寫是人人都見） */
   min_rep?: number
+  /** 後台：哪個勢力罩她（FIXER 第 1 節）。那個勢力對你的敵對值到「懸賞」就不接你（FACTIONS 6.1 節）；沒寫就沒有後台 */
+  backer?: string
 }
 
 export function fixerProblems(e: Record<string, unknown>): string[] {
@@ -49,6 +51,7 @@ export function fixerProblems(e: Record<string, unknown>): string[] {
   if (!isTextList(e.kinds) || e.kinds.length === 0) p.push('kinds 要是至少一個委託類型的 id 的陣列')
   if (!(typeof e.cut === 'number' && Number.isFinite(e.cut) && e.cut >= 0 && e.cut <= 1)) p.push('cut 要是 0～1 的數字（抽成的比例）')
   if (e.min_rep !== undefined && !(isSafeInt(e.min_rep) && e.min_rep >= 0 && e.min_rep <= 100)) p.push('min_rep 要是 0～100 的整數')
+  if (e.backer !== undefined && !isText(e.backer)) p.push('backer 要是勢力的 id')
   return p
 }
 
@@ -96,6 +99,12 @@ export interface FixerRules {
   /** 一起去的人：做完之後親密度加多少、錢照說好的付了的人忠誠加多少（NPC_SYSTEM 7.3、10.4） */
   trip_affinity: number
   trip_loyalty: number
+  /** 完成它當委託人的委託：委託人勢力的好感加多少、評價最高（S）再加多少（FACTIONS 5.2 節：+3、再 +2 共 +5） */
+  favor_done: number
+  favor_top: number
+  /** 目標勢力的敵對值到「找麻煩」：出發時遭遇預算加幾點（一點一個雜兵）；到「追捕」：警戒起始加多少（FACTIONS 6.1 節：+1、+20） */
+  hostile_budget: number
+  hostile_alert: number
 }
 
 /** 委託的評價四級（M2-commission-close 的 rate 給的）。 */
@@ -106,7 +115,7 @@ export const DEFAULT_FIXER_RULES: FixerRules = {
   pay_cred: 0.85, pay_favor: 0.7, hostility_cred: 2, haggle_dc_base: 13, haggle_success: 0.05, haggle_critical: 0.1,
   scout_minutes: 240, scout_dc_base: 10, scout_dc_per_grade: 2, scout_hard_from: 4, scout_hard_plus: 1, scout_alert: 15, intel_per_grade: 300,
   rating_bonus: { S: 0.2, A: 0.1, B: 0, C: -0.1 }, rep_done: 2, rep_fail: -3, borrow_base: 200, borrow_mult: 1.5, boss_shares: 2, aux_max: 2,
-  bond_dc_base: 20, bond_affinity_step: 5, bond_loyalty: 70, trip_affinity: 2, trip_loyalty: 2,
+  bond_dc_base: 20, bond_affinity_step: 5, bond_loyalty: 70, trip_affinity: 2, trip_loyalty: 2, favor_done: 3, favor_top: 2, hostile_budget: 1, hostile_alert: 20,
 }
 
 type RuleKey = Exclude<keyof FixerRules, 'rating_bonus'>
@@ -117,6 +126,7 @@ const RULE_FIELDS: Array<[RuleKey, number, number, boolean]> = [
   ['scout_alert', 0, 100, true], ['intel_per_grade', 0, 100000, true],
   ['rep_done', -100, 100, true], ['rep_fail', -100, 100, true], ['borrow_base', 0, 100000, true], ['borrow_mult', 0, 10, false], ['boss_shares', 1, 10, true], ['aux_max', 1, 2, true],
   ['bond_dc_base', 0, 40, true], ['bond_affinity_step', 1, 100, true], ['bond_loyalty', 0, 100, true], ['trip_affinity', 0, 100, true], ['trip_loyalty', 0, 100, true],
+  ['favor_done', 0, 100, true], ['favor_top', 0, 100, true], ['hostile_budget', 0, 4, true], ['hostile_alert', 0, 100, true],
 ]
 
 const ratingBonusProblem = (v: unknown): string | null => {
@@ -151,6 +161,22 @@ export function fixerRules(k: Pick<Kernel, 'content'>): FixerRules {
   for (const [key] of RULE_FIELDS) if (e[key] !== undefined && !bad.has(key)) out[key] = e[key] as number
   if (e.rating_bonus !== undefined && !bad.has('rating_bonus')) Object.assign(out.rating_bonus, e.rating_bonus)
   return out
+}
+
+// ---- 敵對值的後果（FACTIONS 6.1 節） ----
+
+/** 敵對值的分段 id（安全功能的 hostility_tier 條件認得的名字）：找麻煩、追捕、懸賞。 */
+export const HOSTILITY_TIER_TROUBLE = 'trouble'
+export const HOSTILITY_TIER_PURSUIT = 'pursuit'
+export const HOSTILITY_TIER_BOUNTY = 'bounty'
+
+/**
+ * 這個勢力對你的敵對值到了某一段以上嗎：問條件 hostility_tier（敵對值的功能 security 登記）。沒有人登記那個條件就當作沒到。
+ * 這個功能不 import security，也不自己讀量表的數字與分段表：分段是 security 的規則。
+ */
+export function hostilityAtLeast(k: Pick<Kernel, 'conditions' | 'stats' | 'timeRules'>, state: GameState, faction: string, tier: string): boolean {
+  if (!k.conditions.kinds().includes('hostility_tier')) return false
+  return k.conditions.test({ kind: 'hostility_tier', faction, min: tier } as never, { state, stats: k.stats, timeRules: k.timeRules })
 }
 
 // ---- 委託的格式（fixer.offers 回傳的東西） ----

@@ -575,7 +575,15 @@ export interface InteractionView {
   skill: string | null
   /** 還要玩家選的：禮物（item）、讀橋的類別（category） */
   needs: 'item' | 'category' | null
+  /**
+   * 做得了、但有一件事要先知道（給玩家看的完整句子）；沒有是 null。現在只有一條：今天已經聊過了，再聊不會再加親密度（NPC_SYSTEM 6.1 節：每人每天只有第一次聊天加親密度）。
+   * 和 reason 分開：reason 是「做不了」，note 不擋。畫面照這句顯示，不自己讀 doneToday 寫句子。
+   */
+  note: string | null
 }
+
+/** 今天聊過了的說明（interactions 的 note）。 */
+export const CHAT_DONE_NOTE = '今天聊過了，不會再加親密度。'
 
 /** 這一刻對這個人，每一種互動能不能做、原因、DC 與成功率（只列資料有的那幾種）。 */
 export function interactions(k: Kernel, state: GameState, npc: string): InteractionView[] {
@@ -600,6 +608,7 @@ export function interactions(k: Kernel, state: GameState, npc: string): Interact
     out.push({
       kind: id, name: def.name, ok: listing === null, reason: listing, dc, mods, chance, attr: def.attr, skill: def.skill ?? null,
       needs: id === 'npc_gift' ? 'item' : id === 'npc_read_bridge' ? 'category' : null,
+      note: id === 'npc_chat' && n !== undefined && listing === null && doneToday(state, npc).includes('chat') ? CHAT_DONE_NOTE : null,
     })
   }
   return out

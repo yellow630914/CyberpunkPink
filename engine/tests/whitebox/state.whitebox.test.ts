@@ -321,7 +321,7 @@ describe('白箱 L3 掛鉤（CODESCAN 第 3 節）', () => {
     expect(bus.owners('turn.end')).toEqual([])
     bus.run('game.new', { state: makeState() })
     expect(seen).toEqual(['a', 'b', 'c'])
-    expect(bus.run('turn.end', { state: makeState(), report: {} as never })).toEqual([])
+    expect(bus.run('turn.end', { state: makeState(), report: {} as never, reports: [] })).toEqual([])
   })
 })
 

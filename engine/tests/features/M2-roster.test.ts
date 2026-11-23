@@ -706,7 +706,7 @@ describe('忠誠：連兩週沒召集的生成行者 −2', () => {
   })
 })
 
-describe('每週忠誠 20 以下的人 30% 離開（固定骰面驗兩邊）', () => {
+describe('每週忠誠低於 20 的人 30% 離開（固定骰面驗兩邊）', () => {
   const leaver = (g: G) => g.state.reports.filter((r) => r.action === 'roster.leave')
 
   it('機會 100%（資料蓋掉）：忠誠 15 的人過一週就離開；機會 0：留下', () => {
@@ -726,7 +726,7 @@ describe('每週忠誠 20 以下的人 30% 離開（固定骰面驗兩邊）', (
     expect(leaver(never)).toEqual([])
   })
 
-  it('20 以下（含 20）才擲；21 不擲，機會再高也不離開', () => {
+  it('低於 20 才擲（NPC_SYSTEM 10.4：20～39 是出場費 +25% 的那一段，20 不離開）；機會再高，20 以上也不離開', () => {
     const at = (value: number) => {
       const g = make({ content: (c) => { c.roster_rule = [{ id: 'default', leave_chance: 1 }] } })
       add(g, 'r_ann')
@@ -734,7 +734,7 @@ describe('每週忠誠 20 以下的人 30% 離開（固定骰面驗兩邊）', (
       advance(g, 7 * DAY)
       return members(g).length
     }
-    expect([at(0), at(20), at(21), at(40)]).toEqual([0, 0, 1, 1])
+    expect([at(0), at(19), at(20), at(21), at(40)]).toEqual([0, 0, 1, 1, 1])
   })
 
   it('預設 30%：換種子兩邊都會發生；同一個種子永遠同一個結果', () => {
@@ -763,12 +763,16 @@ describe('每週忠誠 20 以下的人 30% 離開（固定骰面驗兩邊）', (
     expect(leaver(g)).toHaveLength(1)
   })
 
-  it('連兩週沒召集先扣再判斷：忠誠 22 的人兩週後變 20，下一次就會離開', () => {
-    const g = make({ content: (c) => { c.roster_rule = [{ id: 'default', leave_chance: 1 }] } })
-    add(g, 'r_ann')
-    setMeter(g, 'loyalty', 'r_ann', 22)
-    advance(g, 14 * DAY)
-    expect(members(g)).toEqual([]) // 第二個週一扣到 20，當週就判斷
+  it('連兩週沒召集先扣再判斷：忠誠 21 的人兩週後扣到 19，當週就離開；22 扣到 20，還不離開（20 是「出場費 +25%」那一段）', () => {
+    const at = (loyalty: number) => {
+      const g = make({ content: (c) => { c.roster_rule = [{ id: 'default', leave_chance: 1 }] } })
+      add(g, 'r_ann')
+      setMeter(g, 'loyalty', 'r_ann', loyalty)
+      advance(g, 14 * DAY)
+      return members(g)
+    }
+    expect(at(21)).toEqual([])
+    expect(at(22)).toEqual(['r_ann'])
   })
 })
 

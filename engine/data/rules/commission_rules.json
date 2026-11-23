@@ -9,6 +9,7 @@
     "reinforce_count": 2,
     "hard_alert": 100,
     "hard_grade_up": 1,
+    "pressure_at": 60,
     "aux_pressure": 10,
     "aux_rest": 1,
     "aux_injured_days": 3,

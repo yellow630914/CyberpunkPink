@@ -5,7 +5,7 @@
 // 放出的一台帶 autonomous：操作者倒下之後自律（COMBAT_SYSTEM 9.1 節；dev/adr/0015 E6）——沒有操作者、每一輪自己動（auto.ts）、命中 −2。
 
 import type { AttackResult, BattleOverlay, BattleRun, BattleUnit, BattleView, BattleWeapon, DamageType } from '../../core'
-import { BATTLE_SLOTS, BattleBlocked, attrMod, gradeDice, overlayAt, unitAt } from '../../core'
+import { BATTLE_SLOTS, BattleBlocked, attrMod, compareText, gradeDice, overlayAt, unitAt } from '../../core'
 
 export const OWNER = 'summons'
 
@@ -70,7 +70,7 @@ export const isDrone = (o: BattleOverlay): boolean => typeof o.ext?.drone === 'n
 export const fielded = (view: BattleView, u: BattleUnit): BattleOverlay[] => view.battle.overlays.filter((o) => o.owner === u.id && isDrone(o) && !o.down)
 /** 這個人的所有掛著的東西（接管來的也算；沒被擊落的），照格排。 */
 export const heldBy = (view: BattleView, u: BattleUnit): BattleOverlay[] =>
-  view.battle.overlays.filter((o) => o.owner === u.id && o.side === u.side && !o.down).sort((a, b) => a.slot - b.slot || a.id.localeCompare(b.id))
+  view.battle.overlays.filter((o) => o.owner === u.id && o.side === u.side && !o.down).sort((a, b) => a.slot - b.slot || compareText(a.id, b.id))
 /** 算進同步上限的：不是「不算進上限」的臨時機。 */
 export const countsAgainstCap = (o: BattleOverlay): boolean => !o.ext?.overCap
 

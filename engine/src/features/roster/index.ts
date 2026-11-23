@@ -14,7 +14,7 @@
 //   掛點  bill.collect（回 weeklyPay 的每一筆：order 8、付現金）、bill.settled（沒付成的週薪：那個人忠誠 −8）：宣告在 features/bills，這裡只掛處理函式；
 //         defeat.companions（同行的人：這一趟召集時排的同行，跟著主角一起被處置）：宣告在 features/defeat
 //   掛鉤  time.passed（順序 14：連續沒召集的忠誠、忠誠太低的人離開）、activity.end（戰鬥裡倒下的成員忠誠 −3）、rest.done（睡一覺之後「再想想」的人可以再問）、
-//         report.before（招募成功進名冊、差一點的「再想想」）
+//         report.before（招募成功進名冊、差一點的「再想想」）、report.after（建角：出身的名冊 pc.ext.origin.roster 進名冊，originRosterDrafts）
 //   候補  k.battle.bench：名冊上不在這一場裡的人；沒空的列出來帶原因（blocks）
 //   狀態  state.ext.roster：{ members, tagalong, candidates, thinking }（形狀見 model.ts）
 // 報告：roster.join、roster.leave、roster.muster、roster.weekly（連續沒召集的忠誠）、roster.pay（改出場費或週薪）；招募走行動 npc_recruit。
@@ -24,7 +24,7 @@
 
 import type { ActionInput, ActionKindEntry, Change, Condition, Effect, EffectCtx, Feature, GameState, Kernel } from '../../core'
 import { ContentError, actionKindToDef, blankState, isRecord, isSafeInt, isValidTime, meterOf } from '../../core'
-import { joinBlock, joinChanges, weeklyDrafts } from './ops'
+import { joinBlock, joinChanges, originRosterDrafts, weeklyDrafts } from './ops'
 import type { Candidate, PayKind } from './model'
 import {
   EXT, OWNER, PAY_KINDS, RECRUIT_KIND, RULE_KIND, SOURCES, busyReasons, feeOf, isMember, isRunner, mainTier, nameOf, readRoster, recruitBlock, recruitDc, rosterCap, rosterRules, ruleProblems, weeklyPay, writeRoster,
@@ -32,7 +32,7 @@ import {
 
 export { DEFAULT_ROSTER_RULES, SOURCES, feeOf, mainTier, faceTier, isRunner, payOf, readRoster, recruitBlock, recruitDc, reliabilityOf, rosterCap, rosterRules, rosterSize, weeklyPay } from './model'
 export type { Candidate, CandidateSource, DcMod, Member, PathRow, PayKind, RosterRules, RosterState } from './model'
-export { join, joinBlock, joinChanges, leave, leaveChanges, memberOf, muster, musterBlocks, setPay, weeklyDrafts } from './ops'
+export { join, joinBlock, joinChanges, leave, leaveChanges, memberOf, muster, musterBlocks, originRosterDrafts, setPay, weeklyDrafts } from './ops'
 export type { JoinOpts, LeaveReason, MusterInput } from './ops'
 
 /** 週薪那一筆在帳單上的 id 前綴與順序（DOWNTIME 5.1 節那張表的第 8 項） */
@@ -256,6 +256,13 @@ export const rosterFeature: Feature = {
       kind: 'in_party', owner: OWNER,
       validate: (raw) => (isText(raw.who) ? [] : ['who 要是角色的 id']),
       test: (c, ctx) => ctx.state.party.includes(c.who),
+    })
+
+    // ---- 建角：出身的名冊進名冊（pc.ext.origin.roster；actor 的 ext 是共用的資料慣例，可以讀） ----
+    k.hooks.on('report.after', OWNER, ({ state, report }) => {
+      if (report.action !== 'creation.commit') return
+      const drafts = originRosterDrafts(k, state)
+      return drafts.length > 0 ? drafts : undefined
     })
 
     // ---- 招募：成功進名冊，差一點的「再想想」 ----

@@ -16,7 +16,7 @@
 // 觸發點的 where：{ district, block }，走上設施的另外帶 facility（設施的種類）。
 
 import type { Change, Condition, ConditionCtx, Effect, EffectCtx, Feature, GameState, GridCtx, GridEffect, GridKernel, GridUse, Kernel, ReportTrigger } from '../../core'
-import { ContentError, isSafeInt } from '../../core'
+import { ContentError, compareText, isSafeInt } from '../../core'
 import { arrive, planArrive } from './arrive'
 import type { BlockEntry, DistrictEntry, FacilityTypeEntry } from './model'
 import {
@@ -98,7 +98,7 @@ export function cityGraph(k: Pick<Kernel, 'content'>): CityGraph {
   for (const b of blocks) {
     for (const [marker, x] of Object.entries(exitsOf(b))) {
       const ends: Array<[string, string]> = [[b.id, marker], [x.to, x.arrive]]
-      ends.sort((p, q) => `${p[0]}:${p[1]}`.localeCompare(`${q[0]}:${q[1]}`))
+      ends.sort((p, q) => compareText(`${p[0]}:${p[1]}`, `${q[0]}:${q[1]}`))
       const key = ends.map(([id, m]) => `${id}:${m}`).join('|')
       if (!seen.has(key)) {
         seen.add(key)

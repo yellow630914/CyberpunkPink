@@ -166,7 +166,7 @@ async function collect(provider: Provider, req: AiRequest, env: TaskEnv, signal?
 /** 跑一個任務。永遠不丟錯：結果用 status 表示。 */
 export async function runTask<I, O>(env: TaskEnv, def: TaskDef<I, O>, input: I, ctx: TaskCtx, opts: RunTaskOpts = {}): Promise<TaskOutcome<O>> {
   const out: TaskOutcome<O> = { status: 'failed', clamps: [], marks: [], attempts: [] }
-  const provider = opts.forceFallback ? null : env.hub.resolve(ctx.settings, def.id)
+  const provider = opts.forceFallback ? null : env.hub.resolve(ctx.settings, def.id, { adult: ctx.adult === true })
   if (!provider) return { ...out, status: 'fallback', value: def.fallback(input, ctx) }
 
   out.model = `${provider.source.provider}/${provider.source.model}`

@@ -10,7 +10,7 @@ import type { ContentPack, Feature, GameState, Launch, Report, ReportDraft } fro
 import { ActionBlocked, BattleRun, LOSE_TURN, attachActivityEnd, clone, deriveRng, endActivity } from '../../src'
 import type { CaptureState } from '../../src/features/enemies'
 import {
-  ASK_DC, CAPTURE_BASE, CAPTURE_KEY, askDc, captureCause, captureChance, captureKindOk, captureOf, enemiesFeature, pickCandidates, pickEnemy, pickProblems, rollCaptures,
+  ASK_DC, CAPTURE_BASE, CAPTURE_EXT, askDc, captureCause, captureChance, captureKindOk, captureOf, enemiesFeature, pickCandidates, pickEnemy, pickProblems, rollCaptures,
 } from '../../src/features/enemies'
 import type { Game } from '../../src'
 import { chooseOption, directorFeature, eventRunFeature, eventView } from '../../src/features/director'
@@ -536,7 +536,7 @@ describe('打贏之後誰擲、誰不擲', () => {
     const r = await fight({ ...base, rngSeed: winSeed(arrange(base).game, 2) })
     expect(r.cap).toBeNull()
     expect(r.end.launch).toBeUndefined()
-    expect(r.game.state.ext[CAPTURE_KEY]).toBeUndefined()
+    expect(r.game.state.ext[CAPTURE_EXT]).toBeUndefined()
   })
 
   it('機率在整條流程上：雜兵 40%（骰面 40 中、41 不中），誘惑 3 級同一個 41 到 49 的骰面就中', async () => {
@@ -689,7 +689,7 @@ describe('處置的事件：選項與效果（ENEMIES 6.1 節的表）', () => {
       const reports = closeEvent(r.game, option, degree)
       expect(meter(r.game, 'hostility', 'starbelle'), `${option} ${degree}`).toBe(hostile)
       expect(captureOf(r.game.state), `${option} ${degree}`).toBeNull()
-      expect(r.game.state.ext[CAPTURE_KEY]).toBeUndefined()
+      expect(r.game.state.ext[CAPTURE_EXT]).toBeUndefined()
       expect(reports.map((x) => x.action), `${option} ${degree}`).toEqual(['event.close', 'capture.done'])
       const done = reports[1]!
       expect(done.outcome.result).toBe(option)
@@ -769,7 +769,7 @@ describe('處置的事件：選項與效果（ENEMIES 6.1 節的表）', () => {
   it('開著處置存檔再讀：狀態還在（state.ext.capture 與事件）', async () => {
     const r = await oneCaptive()
     const copy = JSON.parse(JSON.stringify(r.game.state.ext)) as Rec
-    expect(copy[CAPTURE_KEY]).toEqual(r.game.state.ext[CAPTURE_KEY])
+    expect(copy[CAPTURE_EXT]).toEqual(r.game.state.ext[CAPTURE_EXT])
     expect(copy[FAKE_KEY]).toBeDefined()
   })
 })

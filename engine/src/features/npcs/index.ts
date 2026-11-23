@@ -33,7 +33,7 @@ import {
 
 export { genEntryOf, genId, generateNpc, planRoster } from './generate'
 export {
-  CATEGORY_NAME, DEFAULT_INTERACT_RULES, INTERACT_KINDS, INTERACT_RULE_KIND, READ_CATEGORIES, difficulty, factionOf, giftGain, giftLiked, giftTier, hasDeck, interactBlock, interactInput, interactRules, interactions,
+  CATEGORY_NAME, CHAT_DONE_NOTE, DEFAULT_INTERACT_RULES, INTERACT_KINDS, INTERACT_RULE_KIND, READ_CATEGORIES, difficulty, factionOf, giftGain, giftLiked, giftTier, hasDeck, interactBlock, interactInput, interactRules, interactions,
   revealFacts, shieldOf, successChance, tableEffects,
 } from './interact'
 export type { DcMod, InteractExtra, InteractKind, InteractRules, InteractionView, NpcActionInput, ReadCategory } from './interact'
@@ -47,7 +47,7 @@ export { compactMemories, editMemory, forgetMemory, importanceOf, memoriesOf, me
 export type { MemoryPatch, RecallOpts, RememberInput } from './memory'
 export {
   ABSENT_CONDITIONS, AFFINITY, AXES, BODIES, BRIDGE_PARAMS, DEFAULT_NPC_RULES, GENDERS, GENDER_TAG, KIND_NAME, NPC_KINDS, STAGES, TAG_STATES, TEMP_FLAG,
-  affinityStage, doneToday, hauntMatches, knownFacts, knows, normalizeHaunt, npcEntryProblems, npcOf, npcRules, npcsHere, npcsProblems, parseFact, readNpcs, relationOf, rosterIds, stageIndex, whereIs,
+  affinityStage, doneToday, hauntMatches, knowFactText, knownFacts, knows, normalizeHaunt, npcEntryProblems, npcOf, npcRules, npcsHere, npcsProblems, parseFact, readNpcs, relationOf, rosterIds, stageIndex, whereIs,
 } from './model'
 export type { Memory, MemoryWhere, NewsItem } from './model'
 export type { Axis, BridgeParam, Gender, GenEntry, Haunt, KnownFact, Look, Npc, NpcEntry, NpcKind, NpcRules, NpcsState, PathRow, PoolEntry, Relation, RosterEntry, StageDef, StageView, TagState, Tendencies } from './model'

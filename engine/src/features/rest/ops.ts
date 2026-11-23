@@ -45,6 +45,17 @@ function clearChanges(state: GameState, ids: string[]): Change[] {
 const hpChange = (id: string, delta: number): Change[] => (delta > 0 ? [{ op: 'actor.track', id, track: 'hp', delta }] : [])
 const nameOf = (state: GameState, id: string): string => state.actors[id]?.name ?? id
 
+/**
+ * 回了生命值的那一句：寫成描寫，不帶數字（M2 修正批 13）。這些句子是「定案的結果」，AI 寫正文時照它們寫；
+ * 句子裡帶「生命值 +3」，AI 照抄就違反硬規則 H4（機制的數字不寫進文字），整份正文被擋下、行動停在半路。
+ * 數字留在報告的變更（hp）與這一拍的 data（{ id, hp }）。
+ */
+const healLine = (name: string, hp: number, kind: 'breath' | 'sleep', capped = false): string => {
+  if (hp <= 0) return capped ? `${name}的傷口沒處理過，睡了一覺也沒有好轉。` : kind === 'sleep' ? `${name}本來就沒有什麼傷，睡得很安穩。` : `${name}的身上沒有什麼要緩的傷。`
+  if (kind === 'breath') return `${name}的傷勢緩了一些。`
+  return `${name}睡得很沉，傷勢好了不少${capped ? '，只是傷口沒處理過，最多只回到一半' : ''}。`
+}
+
 // ---- 喘口氣 ----
 
 /** 現在能不能喘口氣；能是 null。 */
@@ -82,7 +93,7 @@ export function breathDraft(k: Kernel, state: GameState): ReportDraft {
 
   const lines = [
     '你坐下來喘了口氣，感載與餘韻都退了。',
-    ...(heals ? gained.map((g) => `${nameOf(state, g.id)}生命值 +${g.hp}。`) : [`這一次沒有回生命值（兩次睡一覺之間只有前 ${rules.breath_heals} 次喘口氣會回）。`]),
+    ...(heals ? gained.map((g) => healLine(nameOf(state, g.id), g.hp, 'breath')) : ['這一次沒有回復生命值：兩次睡一覺之間，喘口氣能回復的次數有限，已經用完了。']),
   ]
   const beats: TimelineBeat[] = lines.map((text, i) => ({ layer: 'meat', ...(state.pc ? { actor: state.pc } : {}), text, tag: i === 0 ? 'rest.breath' : 'rest.heal', ...(i > 0 && heals ? { data: { ...gained[i - 1] } } : {}) }))
   return draftOf(state, 'rest.breath', changes, heals ? 'healed' : 'no_heal', lines.join(''), { beats, triggers: [{ point: 'rest', where: whereOf(state) }] })
@@ -200,7 +211,7 @@ export function sleepDraft(k: Kernel, state: GameState, opts: SleepOpts = {}): R
   changes.push(...restDone(k, state, 'sleep'))
 
   lines.push(`你在${spot.name}睡了一覺（${spanText(rules.sleep_minutes)}），感載與餘韻都退了。${pool && spot.cost > 0 ? `付了 ${formatAmount(spot.cost)}（${POOL_NAME[pool]}）。` : ''}`)
-  for (const g of gained) lines.push(`${nameOf(state, g.id)}生命值 +${g.hp}${g.capped ? '（傷口沒處理過，最多只回到一半）' : ''}。`)
+  for (const g of gained) lines.push(healLine(nameOf(state, g.id), g.hp, 'sleep', g.capped))
   const beats: TimelineBeat[] = lines.map((text, i) => ({
     layer: 'meat', ...(state.pc ? { actor: state.pc } : {}), text, tag: i === 0 ? 'rest.sleep' : 'rest.heal',
     ...(i === 0 ? { data: { spot: spot.id, rate: spot.rate, cost: spot.cost } } : { data: { ...gained[i - 1] } }),

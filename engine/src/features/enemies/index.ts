@@ -29,7 +29,7 @@ export type { EncounterEntry, EncounterFoe, EnemyAttached, EnemyCyber, EnemyDeck
 export type { TraitEntry } from './traits'
 export { pickCandidates, pickEnemy, pickProblems } from './pick'
 export type { PickSpec } from './pick'
-export { ASK_DC, CAPTURE_BASE, CAPTURE_KEY, CAPTURE_MAX_OFFER, CAPTURE_PER_SEDUCE, CAPTIVE_TAG, askDc, canTake, captureCause, captureChance, captureKindOk, captureOf, pickEvent, rollCaptures, treatEvent } from './capture'
+export { ASK_DC, CAPTURE_BASE, CAPTURE_EXT, CAPTURE_MAX_OFFER, CAPTURE_PER_SEDUCE, CAPTIVE_TAG, askDc, canTake, captureCause, captureChance, captureKindOk, captureOf, pickEvent, rollCaptures, treatEvent } from './capture'
 export type { CaptureCandidate, CaptureState } from './capture'
 
 const MORALE_DC = { minion: 13, elite: 10 } as const

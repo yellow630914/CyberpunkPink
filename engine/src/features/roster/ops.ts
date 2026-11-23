@@ -3,7 +3,7 @@
 // 規格：NPC_SYSTEM 10.0（隊伍與同行）、10.4（忠誠）、10.6（離隊）、10.7（候選人）；COMMISSIONS 6.1 節；dev/work/M2-roster.md。
 
 import type { Change, GameState, GameTime, Kernel, ReportDraft } from '../../core'
-import { ActionBlocked, countCrossings, deriveRng, meterOf, toMinutes, weeklyCrossings, weeklyRule } from '../../core'
+import { ActionBlocked, clone, countCrossings, deriveRng, effectCtx, isRecord, meterOf, toMinutes, weeklyCrossings, weeklyRule } from '../../core'
 import type { CandidateSource, Member, PayKind } from './model'
 import {
   busyReasons, isRunner, nameOf, readRoster, reliabilityOf, rosterCap, rosterRules, startLoyalty,
@@ -65,6 +65,37 @@ export function join(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, id:
   if (block) throw new ActionBlocked(block)
   const name = nameOf(state, id)
   return draftOf(state, 'social', 'roster.join', joinChanges(k, state, id, opts), 'joined', `${name}進了你的名冊。`)
+}
+
+/**
+ * 建角之後：出身的名冊（主角角色的 ext.origin.roster，npc 的 id；CHARACTER 第 1 節）進名冊，當開場的固定夥伴（分紅、不會因為冷落而降忠誠）。
+ * 這個功能不 import npcs：還不是角色的人問「meet」這個效果（npcs 登記，會把人變成角色）；沒有人登記、或那個人查不到資料就略過。
+ * 名冊滿了、已經在名冊上的也略過。每一位一份 roster.join；回傳的草稿由掛鉤（report.after）接著提交。
+ */
+export function originRosterDrafts(k: Kernel, state: GameState): ReportDraft[] {
+  const pc = state.pc ? state.actors[state.pc] : undefined
+  const origin = pc && isRecord(pc.ext.origin) ? pc.ext.origin : undefined
+  const ids = origin && Array.isArray(origin.roster) ? (origin.roster as unknown[]).filter((x): x is string => typeof x === 'string' && x.trim().length > 0) : []
+  const out: ReportDraft[] = []
+  // 一位一位算：前面的人進了名冊，後面的人看到的是進了之後的狀態（名冊的容量）
+  const sim = clone(state)
+  for (const id of new Set(ids)) {
+    if (id === sim.pc || own(readRoster(sim).members, id)) continue
+    let meet: Change[] = []
+    if (!own(sim.actors, id)) {
+      if (!k.effects.has('meet')) continue
+      const res = k.effects.resolve([{ kind: 'meet', npc: id }], effectCtx(k, sim, { source: 'builtin' }))
+      if (res.errors.length > 0 || !res.changes.some((c) => c.op === 'actor.add')) continue
+      meet = res.changes
+      k.changes.applyAll(sim, meet)
+    }
+    if (joinBlock(k, sim, id)) continue
+    const join = joinChanges(k, sim, id, { fixed: true })
+    k.changes.applyAll(sim, join)
+    const name = nameOf(sim, id)
+    out.push(draftOf(sim, 'social', 'roster.join', [...meet, ...join], 'joined', `${name}是你出身帶來的夥伴，進了你的名冊。`))
+  }
+  return out
 }
 
 // ---- 離開 ----
@@ -169,7 +200,7 @@ const clampLoyalty = (v: number): number => Math.max(0, Math.min(100, v))
 /**
  * 每跨過一個週一 06:00：
  *  - 連續兩週沒召集的生成行者（不是固定夥伴）忠誠 −2（每滿兩週一次：沒召集滿 2、4、6……週時）；
- *  - 忠誠在 leave_at 以下的人 30% 離開（照人與那一週的固定亂數；先扣、再判斷）。
+ *  - 忠誠低於 leave_at 的人 30% 離開（NPC_SYSTEM 10.4：20 剛好是「出場費 +25%」那一段，不離開）（照人與那一週的固定亂數；先扣、再判斷）。
  * 一次跨好幾週就一週一週算。回傳忠誠的報告（roster.weekly）與每個離開的人一份報告（roster.leave）；沒有事就是 []。
  */
 export function weeklyDrafts(k: Pick<Kernel, 'content' | 'timeRules' | 'meters'>, state: GameState, from: GameTime, to: GameTime): ReportDraft[] {
@@ -198,7 +229,7 @@ export function weeklyDrafts(k: Pick<Kernel, 'content' | 'timeRules' | 'meters'>
           lines.push(`${nameOf(state, id)}已經 ${idle} 週沒被召集，忠誠 ${next - before}。`)
         }
       }
-      if (loyalty.get(id)! <= rules.leave_at && deriveRng(state.rng, `roster/leave/${id}/${toMinutes(at)}`).chance(rules.leave_chance)) gone.add(id)
+      if (loyalty.get(id)! < rules.leave_at && deriveRng(state.rng, `roster/leave/${id}/${toMinutes(at)}`).chance(rules.leave_chance)) gone.add(id)
     }
   }
   const out: ReportDraft[] = []

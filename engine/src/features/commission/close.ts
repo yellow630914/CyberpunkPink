@@ -215,7 +215,7 @@ function continueChanges(k: Kernel, state: GameState, run: Run): Change[] {
     if (state.maps.instances[run.map]) changes.push({ op: 'map.close', id: run.map })
   }
   const next: Run = { ...run, step: 'branch', alert, peak: Math.max(run.peak, alert), route: run.route.filter((r) => r.stage !== run.stage) }
-  for (const key of ['branch', 'map', 'start_alert', 'frozen', 'won', 'checked', 'scene', 'done'] as const) delete next[key]
+  for (const key of ['branch', 'map', 'start_alert', 'frozen', 'won', 'checked', 'scene', 'done', 'pressured'] as const) delete next[key]
   changes.push(runChange(next))
   return changes
 }

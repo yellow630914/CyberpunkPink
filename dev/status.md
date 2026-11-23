@@ -160,18 +160,33 @@
 
 ## M2-ui-life 回報（2026-11-23）
 
-- **要修（引擎）**：`rest.sleep`／`rest.breath` 的 results 句子帶「生命值 +N」，AI 開著時被 H4（數字不寫進文字）擋下，`act` 回 paused。交給 M2 審查後的修正批。
+- ~~**要修（引擎）**：`rest.sleep`／`rest.breath` 的 results 句子帶「生命值 +N」，AI 開著時被 H4（數字不寫進文字）擋下，`act` 回 paused。交給 M2 審查後的修正批。~~（M2-fix-review 做完：句子寫成描寫，數字留在變更與 data；dev/adr/0017 補記第 12 項、不變式第 125 條）
 - 示意包沒有開局的住處（示範局推到第 14 天會補收房租）；要先去休息租。
 - 舊的澡堂、居酒屋等 rest 服務已從「這裡」拿掉。
 - 沒做：AI 當日優惠、特別交易、長期折扣、二手狀態、洗錢、派人打工、家園地圖。
 
 ## M2-ui-people 回報（2026-11-23，排進 M2 修正批）
 
-- `npc` 不是可覆寫的規則表，示意包要先濾掉核心包同 id 的 9 筆（`demoCoreWithoutPeople`）；考慮讓 npc 可覆寫或補完整 NPC。
-- 建角只把出身名冊存成 `pc.ext.origin.roster`，沒有放進名冊。
+- ~~`npc` 不是可覆寫的規則表，示意包要先濾掉核心包同 id 的 9 筆（`demoCoreWithoutPeople`）；考慮讓 npc 可覆寫或補完整 NPC。~~（M2-fix-review 做完：`npc` 後載入的包同 id 整筆取代；介面把 `demoCoreWithoutPeople` 拿掉）
+- ~~建角只把出身名冊存成 `pc.ext.origin.roster`，沒有放進名冊。~~（M2-fix-review 做完：roster 在 `creation.commit` 之後把他們放進名冊；介面的建角名冊要照這個）
 - engine/data 的路數只有 gunner、fixer。
 - 示範局推進十三天後紀錄多一則 downtime，介面測試已改成濾掉。
 - 同一天第二次聊天的提示是介面讀 `doneToday` 自己寫的，引擎 `interactions` 沒有說明句。
 - `knowFactText` 沒匯出。
 - 引擎沒有「正在被討」的人情待處理記錄。
 - 示範局沒有引擎主角，名冊容量為 0。
+
+## M2 引擎修正批（2026-11-23，cpp-architect；dev/work/M2-fix-review.md、dev/adr/0017 補記、不變式第 115～127 條）
+
+做完（依 dev/reviews/2026-11-23-M2.md 與使用者「都照建議」的裁決）：
+- 必修 1 車上開打或開場景：這一趟車先結束，人在下一站（交通聽事件的 `activity.end`）。應修 1 副本放行表拿掉 `rewind:stage`／`rewind:entry`。應修 2 撤退與失敗回去之後亂數游標往前推（`rewind.fresh`），一般回退不變。應修 3 副本內事件同一件委託不重複、警戒漲過 60 多擲一次 15%（`pressure` 觸發點、`turn.end` 帶 `reports`）。應修 4 成人路由接到服務商（`ADULT_SOURCE_KEY`）。應修 5 委託人勢力好感 +3（評價 S 再 +2）。應修 6 `M2-scene` 的「隨機走一整場」給自己的逾時並寫根因。應修 7 敵對值對委託的後果（找麻煩：守備 +1 個雜兵；追捕：警戒起始 +20；懸賞：後台是它的中間人不接）。
+- 設計書裁決：街頭範圍加 `transit_stop` 6%；敵對值物價 20～39 ×1.1、40～59 ×1.2、60 以上不做生意；好感折扣維持 TRADE。
+- 建議 1 排序不看語系（`compareText`／`compareNatural`）；建議 2 `CAPTURE_EXT`；建議 3 名冊離開 `< 20`。
+- M2-ui-life：rest 的結果句子不帶數字。M2-ui-people：出身名冊進名冊、`npc` 可覆寫、`knowFactText` 匯出、`interactions` 的 `note`。
+
+還沒做、或要使用者決定：
+- EVENTS 3.3 範圍冷卻「每個階段最多一件」：階段開始的 30% 與壓力條的 15% 各自擲，同一階段可以出兩件（要知道現在第幾階段才做得了；等有內容需要）。
+- 「附帶條件全達成」的好感 +5：附帶條件的檢查還沒有，現在只看評價 S。生成的委託不寫 `employer`（`fixer/gen.ts`），所以委託人好感只有手寫的、帶 `employer` 的副本會加；要不要讓生成器把中間人的 `backer` 當委託人，是設計上的事。
+- `fixer` 內容多了選填的 `backer`（後台勢力），engine/data 與 TEST_WORLD 的中間人都還沒寫；正式的中間人資料要加。
+- 同類風險已掃過：其他功能的 `narration.results` 沒有「生命值／傷害／感載 ±N」的寫法（效果的 `describe` 本來就寫成描寫），只有 rest 是例外；之後新寫結果句子別帶這種數字。
+- 介面要跟著改的（不在這一批）：見 M2 介面修正批；`ui/` 的示意包不用再濾掉核心包同 id 的 npc；睡覺與喘口氣的結果句子變了；建角的名冊會真的進名冊；`interactions` 多了 `note`；`transit` 的車上事件選開打後人在下一站、`rewindToKind('stage'／'entry')` 在副本裡被擋；`trade_rule` 的欄位名換了（`hostility_markups`）。

@@ -67,6 +67,17 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
 /** 沒有另外指定時，每個任務用哪個來源（mockups 的 SRC0）。 */
 export const DEFAULT_TASK_SOURCE: Record<string, string> = { judge: '主力', narrate: '主力', reward: '便宜的小模型', relate: '便宜的小模型', flavor_shop: '便宜的小模型' }
 export const DEFAULT_SOURCE_NAME = '主力'
+
+/**
+ * 成人路由：任務走成人路由時看設定的 adult 表，鍵是「成人來源」的名字（PROMPTS 2.13 節：narrate_adult、scene、aftercare、npc_news_adult、image_adult；預設和一般的來源相同）。
+ * 寫正文與潤色共用 narrate_adult；場景的三個任務共用 scene；收尾的三個任務共用 aftercare；表裡沒有的任務用自己的 id 當鍵。
+ */
+export const ADULT_SOURCE_KEY: Record<string, string> = {
+  narrate: 'narrate_adult', polish: 'narrate_adult',
+  scene_gate: 'scene', scene_turn: 'scene', scene_talk: 'scene',
+  sex_record: 'aftercare', sink: 'aftercare', tendency: 'aftercare',
+  npc_news: 'npc_news_adult', image: 'image_adult',
+}
 export const RETRY_DEFAULT = 1
 export const RETRY_MAX = 3
 
@@ -108,13 +119,21 @@ export class ProviderHub {
 
   constructor(public sources: Record<string, ProviderSource> = {}, public fake: Provider | null = null) {}
 
-  sourceNameFor(settings: AiSettings, task: string): string {
+  /**
+   * 這個任務用哪個來源（名字）。adult：走成人路由（由引擎看狀態決定，不看 AI；AI_TASKS 第 1 節第 9 條）：設定的 adult 表有指定就用它，
+   * 沒有指定就和一般的一樣（成人的來源預設和一般的相同）。
+   */
+  sourceNameFor(settings: AiSettings, task: string, o: { adult?: boolean } = {}): string {
+    if (o.adult) {
+      const adult = settings.adult[ADULT_SOURCE_KEY[task] ?? task]
+      if (adult) return adult
+    }
     return settings.src[task] ?? DEFAULT_TASK_SOURCE[task] ?? DEFAULT_SOURCE_NAME
   }
 
-  resolve(settings: AiSettings, task: string): Provider | null {
+  resolve(settings: AiSettings, task: string, o: { adult?: boolean } = {}): Provider | null {
     if (!settings.ai) return null
-    const source = this.sources[this.sourceNameFor(settings, task)]
+    const source = this.sources[this.sourceNameFor(settings, task, o)]
     const factory = source ? this.factories[source.provider] : undefined
     if (source?.apiKey && factory) {
       const key = `${source.name}/${source.provider}/${source.model}`

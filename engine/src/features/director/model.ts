@@ -34,6 +34,13 @@ export interface ScopeEntry extends ContentEntry {
   defer_hours?: number
   /** 副本進行中也擲（EVENTS 3.4 節：副本內只擲這種範圍；也不算在城裡每天的上限裡） */
   in_commission?: boolean
+  /** 同一件委託裡，同一件事件不重複（EVENTS 3.3 節「單件不重複：同一件委託不重複」；不看天數，看副本的 id） */
+  unique_in_commission?: boolean
+  /**
+   * 這個範圍的某個觸發點，事件在 triggers 裡寫的是另一個名字：{ pressure: 'stage' } 是壓力條跨過門檻那一擲（機率 15%）用的觸發點，
+   * 事件寫的還是 stage（EVENTS 3.1 節：stage ＝ 每個階段開始；壓力條跨過 60）。key 與值都要在 triggers 的表裡。
+   */
+  events_as?: Record<string, string>
   /** 事件視窗擲檢定的人（M2-event-run 讀；導演只驗格式） */
   roller?: 'pc' | 'best'
   dc_plus?: number
@@ -50,6 +57,8 @@ export interface Scope {
   lost: 'drop' | 'defer'
   defer_hours: number
   in_commission: boolean
+  unique_in_commission: boolean
+  events_as: Record<string, string>
 }
 
 export interface EventEntry extends ContentEntry {
@@ -101,6 +110,16 @@ export function scopeProblems(e: Record<string, unknown>): string[] {
   if (e.lost !== undefined && e.lost !== 'drop' && e.lost !== 'defer') p.push("lost 只能是 'drop' 或 'defer'")
   if (e.defer_hours !== undefined && !(isNum(e.defer_hours) && e.defer_hours > 0)) p.push('defer_hours 要是大於 0 的數字')
   if (e.in_commission !== undefined && typeof e.in_commission !== 'boolean') p.push('in_commission 要是 true 或 false')
+  if (e.unique_in_commission !== undefined && typeof e.unique_in_commission !== 'boolean') p.push('unique_in_commission 要是 true 或 false')
+  if (e.events_as !== undefined) {
+    if (!isRecord(e.events_as) || Object.values(e.events_as).some((v) => !isText(v))) p.push('events_as 要是 { 觸發點: 事件寫的觸發點 }')
+    else if (isRecord(e.triggers)) {
+      for (const [from, to] of Object.entries(e.events_as)) {
+        if (e.triggers[from] === undefined) p.push(`events_as.${from}：這個觸發點不在 triggers 的表裡`)
+        if (e.triggers[to as string] === undefined) p.push(`events_as.${from}：${String(to)} 不在 triggers 的表裡`)
+      }
+    }
+  }
   if (e.roller !== undefined && e.roller !== 'pc' && e.roller !== 'best') p.push("roller 只能是 'pc' 或 'best'")
   if (e.dc_plus !== undefined && !isSafeInt(e.dc_plus)) p.push('dc_plus 要是整數')
   return p
@@ -138,6 +157,7 @@ const normalScope = (e: ScopeEntry): Scope => ({
   id: e.id, triggers: { ...e.triggers },
   cooldown_hours: e.cooldown_hours ?? 0, repeat_days: e.repeat_days ?? 0, daily_cap: e.daily_cap ?? null, priority: e.priority ?? null,
   lost: e.lost ?? 'drop', defer_hours: e.defer_hours ?? DEFAULT_DEFER_HOURS, in_commission: e.in_commission === true,
+  unique_in_commission: e.unique_in_commission === true, events_as: { ...(e.events_as ?? {}) },
 })
 
 /** 每個範圍（照內容載入的順序）。 */
@@ -253,6 +273,11 @@ export interface DirectorState {
   /** 這一回合（key 是那個行動的報告 id）已經放行了幾件擋住型、幾則通知 */
   turn: { key: string; blocking: number; notices: number }
   /**
+   * 現在這件委託（id 是委託的副本 id）裡已經放行過的事件（unique_in_commission 的範圍用）。換了一件委託就整份換掉，不留舊的；
+   * 回到進去之前（撤退、失敗）時狀態整份回去，所以重來一趟不算「重複」。
+   */
+  in_commission?: { id: string; events: string[] }
+  /**
    * 開著的那一件事件（事件視窗，M2-event-run 管；形狀見 run.ts 的 OpenEvent）。沒有開著的沒有這個欄位。
    * 導演自己不讀它，只在改寫 state.ext.director 時原樣帶著走（整份是一個 ext 變更，不帶就等於把事件視窗關掉）。
    */
@@ -278,6 +303,7 @@ export function directorOf(state: Pick<GameState, 'ext'>): DirectorState {
   if (isRecord(r.city) && isSafeInt(r.city.day) && isSafeInt(r.city.blocking)) out.city = { day: r.city.day, blocking: r.city.blocking }
   if (isRecord(r.turn) && typeof r.turn.key === 'string' && isSafeInt(r.turn.blocking) && isSafeInt(r.turn.notices)) out.turn = { key: r.turn.key, blocking: r.turn.blocking, notices: r.turn.notices }
   if (isRecord(r.open)) out.open = clone(r.open)
+  if (isRecord(r.in_commission) && isText(r.in_commission.id) && isTextList(r.in_commission.events)) out.in_commission = { id: r.in_commission.id, events: [...r.in_commission.events] }
   return out
 }
 
@@ -330,8 +356,14 @@ export interface EligibleOpts {
 export function eligibleEvents(k: Kernel, state: GameState, scope: Scope, point: string, o: EligibleOpts = {}): EventEntry[] {
   const d = directorOf(state)
   const day = (o.at ?? state.time).day
+  // 事件寫的觸發點：有 events_as 的（壓力條那一擲）事件寫的是另一個名字，兩種寫法都收
+  const as = scope.events_as[point]
+  // 同一件委託不重複：現在進行中的委託（活動 commission 的 id）這一趟已經放行過的事件
+  const commission = scope.unique_in_commission ? k.activity.active(state).find((a) => a.kind === 'commission')?.id : undefined
+  const done = commission !== undefined && d.in_commission?.id === commission ? d.in_commission.events : []
   return k.content.list<EventEntry>(EVENT_KIND).filter((e) => {
-    if (e.scope !== scope.id || !e.triggers.includes(point)) return false
+    if (e.scope !== scope.id || !(e.triggers.includes(point) || (as !== undefined && e.triggers.includes(as)))) return false
+    if (done.includes(e.id)) return false
     if (o.exclude?.has(e.id)) return false
     if (!tagsAllowed(state.rules, e.tags)) return false
     const repeat = e.repeat_days ?? scope.repeat_days

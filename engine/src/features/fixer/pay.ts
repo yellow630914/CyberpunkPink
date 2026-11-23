@@ -94,6 +94,12 @@ function targetFaction(job: Pick<Job, 'commission'>): string | null {
   return typeof t === 'string' && t.trim() && t !== 'none' ? t : null
 }
 
+/** 委託人的勢力（沒有寫是 null）。 */
+function employerFaction(job: Pick<Job, 'commission'>): string | null {
+  const t = job.commission.employer
+  return typeof t === 'string' && t.trim() && t !== 'none' ? t : null
+}
+
 /** 這一趟照 rating 算出來的分帳：入帳與 splitPreview 共用。 */
 export function splitOf(k: Kernel, state: GameState, job: Job, rating: Rating = 'B'): Split {
   const rules = fixerRules(k)
@@ -248,6 +254,16 @@ export function payoutDraft(k: Kernel, state: GameState, pend: PendingEnd): Repo
   const rep = effectChanges(k, state, { kind: 'rep', amount: rules.rep_done })
   changes.push(...rep.changes)
   lines.push(...rep.lines)
+  // 委託人的勢力：完成它當委託人的委託，好感 +3；評價最高再 +2（FACTIONS 5.2 節）。沒有寫委託人勢力、或好感的功能沒裝就沒有
+  const employer = employerFaction(job)
+  if (employer !== null) {
+    const amount = rules.favor_done + (s.rating === RATING_KEYS[0] ? rules.favor_top : 0)
+    if (amount > 0) {
+      const e = effectChanges(k, state, { kind: 'favor', key: employer, amount })
+      changes.push(...e.changes)
+      lines.push(...e.lines)
+    }
+  }
   // 一起去的人：親密度；錢照說好的付了的人：忠誠（借來的臨時角色等一下就移除，不算）
   for (const id of s.went) {
     const e = effectChanges(k, state, { kind: 'affinity', key: id, amount: rules.trip_affinity })

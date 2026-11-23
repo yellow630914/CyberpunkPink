@@ -44,9 +44,9 @@ export interface TradeRules {
   /** 店主親密度：每點折扣多少、最多折多少（0.2%、10%） */
   keeper_per_point: number
   keeper_cap: number
-  /** 敵對值：這個值以上加價（40 起 ×1.2）、這個值以上不做生意（60） */
-  hostility_markup_at: number
-  hostility_markup: number
+  /** 後台勢力對你的敵對值加價：[這個值以上, 倍率]，由小到大，取最後一個達到的（FACTIONS 6.1 節：20～39 ×1.1、40～59 ×1.2）；沒有達到的是 ×1 */
+  hostility_markups: Array<[number, number]>
+  /** 這個值以上不做生意（60：追捕） */
   hostility_refuse_at: number
   /** 用帳戶買違禁品，後台勢力的敵對值當場加多少（TRADE 7 只寫「當場加」，數字沒寫：暫定每一種 3 點） */
   dirty_hostility: number
@@ -94,7 +94,7 @@ export const DEFAULT_TRADE_RULES: TradeRules = {
   buy_ratio: 0.4, sell_area_slope: 0.25, discount_cap: 0.3,
   favor_bands: [20, 40, 60, 80], favor_discounts: [0.03, 0.06, 0.1, 0.15],
   keeper_per_point: 0.002, keeper_cap: 0.1,
-  hostility_markup_at: 40, hostility_markup: 1.2, hostility_refuse_at: 60, dirty_hostility: 3,
+  hostility_markups: [[20, 1.1], [40, 1.2]], hostility_refuse_at: 60, dirty_hostility: 3,
   list_size: [6, 10],
   stock_by_tag: { food: [20, 20] },
   stock_by_category: { weapon: [1, 1], armor: [1, 1], clothing: [1, 1], accessory: [1, 1], blueprint: [1, 1], misc: [20, 20] },
@@ -125,8 +125,13 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
   const ratios: Array<keyof TradeRules> = ['buy_ratio', 'sell_area_slope', 'discount_cap', 'keeper_per_point', 'keeper_cap']
   for (const f of ratios) if (e[f] !== undefined && !num(e[f], 0, 1)) p.push(`${f} 要是 0～1 的數字`)
-  if (e.hostility_markup !== undefined && !num(e.hostility_markup, 1)) p.push('hostility_markup 要是 1 以上的倍率')
-  for (const f of ['hostility_markup_at', 'hostility_refuse_at'] as const) if (e[f] !== undefined && !int(e[f], 0)) p.push(`${f} 要是 0 以上的整數`)
+  if (e.hostility_markups !== undefined) {
+    const m = e.hostility_markups
+    if (!(Array.isArray(m) && m.every((x, i) => Array.isArray(x) && x.length === 2 && int(x[0], 0) && num(x[1], 1) && (i === 0 || (x[0] as number) > ((m[i - 1] as unknown[])[0] as number))))) {
+      p.push('hostility_markups 要是 [敵對值, 倍率] 的陣列，敵對值是遞增的整數、倍率是 1 以上的數字')
+    }
+  }
+  if (e.hostility_refuse_at !== undefined && !int(e.hostility_refuse_at, 0)) p.push('hostility_refuse_at 要是 0 以上的整數')
   if (e.dirty_hostility !== undefined && !int(e.dirty_hostility, 0)) p.push('dirty_hostility 要是 0 以上的整數')
   if (e.favor_bands !== undefined || e.favor_discounts !== undefined) {
     const b = e.favor_bands ?? DEFAULT_TRADE_RULES.favor_bands
@@ -451,6 +456,13 @@ export function discountOf(k: Pick<Kernel, 'content' | 'meters'>, state: GameSta
 /** 後台勢力對你的敵對值（沒有後台勢力是 0）。 */
 export const hostilityOf = (k: Pick<Kernel, 'meters'>, state: GameState, shop: ShopEntry): number => (shop.backer ? meterOf(k, state, 'hostility', shop.backer) : 0)
 
+/** 這個敵對值的加價倍率（規則 hostility_markups，取最後一個達到的；沒有達到的是 1）。 */
+export function hostilityMarkup(rules: Pick<TradeRules, 'hostility_markups'>, hostility: number): number {
+  let mult = 1
+  for (const [at, m] of rules.hostility_markups) if (hostility >= at) mult = m
+  return mult
+}
+
 const districtMult = (k: Pick<Kernel, 'content'>, shop: ShopEntry): number => {
   const m = k.content.get<ContentEntry & { price_mult?: unknown }>('district', shop.district)?.price_mult
   return typeof m === 'number' && Number.isFinite(m) && m > 0 ? m : 1
@@ -559,7 +571,7 @@ export function quote(k: Kernel, state: GameState, shop: string | ShopEntry, ite
     push('district', '區倍率', area)
     push('category', '類別的行情', cat)
     push('discount', '折扣', 1 - discount.total)
-    push('hostility', '敵對值的加價', hostilityOf(k, state, entry) >= rules.hostility_markup_at ? rules.hostility_markup : 1)
+    push('hostility', '敵對值的加價', hostilityMarkup(rules, hostilityOf(k, state, entry)))
     if (bargain) push('bargain', '殺價', bargain.mult)
   } else {
     push('ratio', '收購比例', isCargo(it) ? rules.cargo_ratio : rules.buy_ratio)

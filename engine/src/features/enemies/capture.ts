@@ -17,13 +17,13 @@
 // 這一張不做：帶走之後的成人場景本身、交給委託人的報酬 +10%、放走之後再遇到他（見 dev/work/M2-enemy-encounter.md 的完成回報）。
 
 import type { ActivityEndReturn, BattleUnit, Change, GameState, HookMap, Kernel, Launch, ReportDraft, UnitRank } from '../../core'
-import { attrMod, clone, deriveRng, losingTurn, modeOf } from '../../core'
+import { attrMod, clone, compareNatural, deriveRng, losingTurn, modeOf } from '../../core'
 import type { EnemyEntry } from './kinds'
 import { resolveEnemy } from './kinds'
 import { enemyData, isRec, peekEnemy } from './unitdata'
 
 /** 狀態的鍵：state.ext.capture。 */
-export const CAPTURE_KEY = 'capture'
+export const CAPTURE_EXT = 'capture'
 /** 擲俘虜的基本機率（%），照位階。 */
 export const CAPTURE_BASE: Record<UnitRank, number> = { minion: 40, elite: 25, boss: 10 }
 /** 主角的誘惑每一級加幾個百分點。 */
@@ -75,7 +75,7 @@ export interface CaptureState {
 
 /** 現在可以處置的俘虜；沒有是 null。 */
 export function captureOf(state: Pick<GameState, 'ext'>): CaptureState | null {
-  const c = state.ext[CAPTURE_KEY]
+  const c = state.ext[CAPTURE_EXT]
   return isRec(c) && typeof c.battle === 'string' && Array.isArray(c.candidates) ? (c as unknown as CaptureState) : null
 }
 
@@ -122,7 +122,7 @@ export function rollCaptures(rng: { int(min: number, max: number): number }, lis
 /** 這場戰鬥裡可以擲俘虜的人：被制伏的那一刻符合條件（unit.ext.enemies.capturable），照單位 id 排好。 */
 function eligible(k: Pick<Kernel, 'content'>, units: BattleUnit[]): Array<{ u: BattleUnit; e: EnemyEntry }> {
   const list: Array<{ u: BattleUnit; e: EnemyEntry }> = []
-  for (const u of [...units].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))) {
+  for (const u of [...units].sort((a, b) => compareNatural(a.id, b.id))) {
     if (u.side !== 'foe' || !u.enemy || u.out !== 'subdued' || !peekEnemy(u).capturable) continue
     if (peekEnemy(u).taken || !k.content.has('enemy', u.enemy)) continue
     const e = resolveEnemy(k.content, u.enemy)
@@ -245,11 +245,11 @@ export function installCapture(k: Kernel, owner: string): void {
     const cap = captureOf(state)
     if (!cap) return
     if (cap.done) {
-      return [draft(state, 'capture.done', cap.done.option, `${doneLine(cap.done)}。`, [{ op: 'ext', key: CAPTURE_KEY, value: null }])]
+      return [draft(state, 'capture.done', cap.done.option, `${doneLine(cap.done)}。`, [{ op: 'ext', key: CAPTURE_EXT, value: null }])]
     }
     if (report.action === 'battle.end' && !cap.offered) {
       const names = cap.candidates.map((c) => c.name).join('、')
-      return [draft(state, 'capture.offer', 'offer', `${names}被制伏後還醒著，可以處置。`, [{ op: 'ext', key: CAPTURE_KEY, value: { ...cap, offered: true } }])]
+      return [draft(state, 'capture.offer', 'offer', `${names}被制伏後還醒著，可以處置。`, [{ op: 'ext', key: CAPTURE_EXT, value: { ...cap, offered: true } }])]
     }
   })
 }
@@ -275,7 +275,7 @@ function onBattleEnd(k: Kernel, p: EndPayload): ActivityEndReturn | void {
   const one = cands.length === 1
   const cap: CaptureState = { battle: b.id, step: one ? 'treat' : 'pick', candidates: cands, ...(one ? { picked: cands[0]!.unit } : {}), ...ctx }
   return {
-    changes: [{ op: 'ext', key: CAPTURE_KEY, value: cap }],
+    changes: [{ op: 'ext', key: CAPTURE_EXT, value: cap }],
     lines: [`${cands.map((c) => c.name).join('、')}被制伏後還醒著，可以處置`],
     launch: [one ? launchOf(treatEvent(k, state, cands[0]!, ctx), b.id, 'treat') : launchOf(pickEvent(cands), b.id, 'pick')],
   }
@@ -290,7 +290,7 @@ function onTreatEnd(k: Kernel, p: EndPayload): ActivityEndReturn | void {
     // 沒挑（選了「我要做別的」）：全部放走，什麼都不加
     if (!chosen) return finish(cap, { option: 'release', unit: cap.candidates[0]!.unit, name: cap.candidates.map((c) => c.name).join('、') })
     const next: CaptureState = { ...cap, step: 'treat', picked: chosen.unit }
-    return { changes: [{ op: 'ext', key: CAPTURE_KEY, value: next }], launch: [launchOf(treatEvent(k, p.state, chosen, cap), cap.battle, 'treat')] }
+    return { changes: [{ op: 'ext', key: CAPTURE_EXT, value: next }], launch: [launchOf(treatEvent(k, p.state, chosen, cap), cap.battle, 'treat')] }
   }
   const chosen = cap.candidates.find((c) => c.unit === cap.picked) ?? cap.candidates[0]!
   const known = ['take', 'ask', 'handover', 'release'].includes(option) ? option : 'release'
@@ -299,5 +299,5 @@ function onTreatEnd(k: Kernel, p: EndPayload): ActivityEndReturn | void {
 
 /** 處置完：記下結果（capture.done 報告看到它就清掉整份狀態）。 */
 function finish(cap: CaptureState, done: NonNullable<CaptureState['done']>): ActivityEndReturn {
-  return { changes: [{ op: 'ext', key: CAPTURE_KEY, value: { ...cap, done } }], lines: [doneLine(done)] }
+  return { changes: [{ op: 'ext', key: CAPTURE_EXT, value: { ...cap, done } }], lines: [doneLine(done)] }
 }

@@ -30,6 +30,10 @@
     "bond_affinity_step": 5,
     "bond_loyalty": 70,
     "trip_affinity": 2,
-    "trip_loyalty": 2
+    "trip_loyalty": 2,
+    "favor_done": 3,
+    "favor_top": 2,
+    "hostile_budget": 1,
+    "hostile_alert": 20
   }
 ]

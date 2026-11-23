@@ -36,8 +36,12 @@ export interface HookMap {
   'game.new': [{ state: GameState }, Change[] | void]
   /** 讀檔之後、交給遊戲之前：讀檔修復。可以回傳變更。 */
   'save.loaded': [{ state: GameState; fromVersion: number }, Change[] | void]
-  /** 一個行動的回合結束（報告提交之後的收尾流程）。可以回傳接著要提交的報告。 */
-  'turn.end': [{ state: GameState; report: Report }, ReportDraft[] | void]
+  /**
+   * 一個行動的回合結束（報告提交之後的收尾流程）。可以回傳接著要提交的報告。
+   * report 是玩家這個行動自己的那一份；reports 是這一回合到目前為止提交的每一份（第一份就是 report，後面是 report.after 的掛鉤接著提交的），
+   * 唯讀：陣列是複製的，裡面的報告和狀態裡的是同一份。導演用它收集這一回合的觸發點：行動之後才發現的事（警戒漲過門檻）由功能接一份報告，觸發點寫在那一份上（dev/adr/0017 M2 修正批 4）。
+   */
+  'turn.end': [{ state: GameState; report: Report; reports: readonly Report[] }, ReportDraft[] | void]
   /**
    * 回到快照（委託副本的撤退、戰敗後的回退；SERIES 第 6 節）：current 是回去之前的狀態，restored 是快照那一刻的狀態。
    * 紀錄由核心保留；功能要保留自己那一塊（性經歷、共同記憶……）就回傳變更，套在 restored 上。

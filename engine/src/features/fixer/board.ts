@@ -6,7 +6,7 @@
 import type { Change, GameState, Kernel, ReportDraft } from '../../core'
 import { ActionBlocked, DEGREE_NAME, clone, formatAmount, meterOf } from '../../core'
 import type { Degree, FixerEntry, FixerRules, Job, Offer, PayKind, TableEntry, UnknownItem } from './model'
-import { CAT_NAME, KIND, PAY_KINDS, PAY_NAME, factionName, favorSizeOf, fixerRules, gradeOf, jobsOf, offerProblems, repBlock, rollBest, stageCount, tableOf } from './model'
+import { CAT_NAME, HOSTILITY_TIER_BOUNTY, KIND, PAY_KINDS, PAY_NAME, factionName, favorSizeOf, fixerRules, gradeOf, hostilityAtLeast, jobsOf, offerProblems, repBlock, rollBest, stageCount, tableOf } from './model'
 
 declare module '../../core' {
   interface HookMap {
@@ -214,6 +214,11 @@ export function board(k: Kernel, state: GameState, fixerId: string): BoardView {
   const name = fixer.name ?? fixer.id
   const gate = repBlock(rep, fixer.min_rep, `肯見你（${name}）`)
   if (gate) return { fixer: fixer.id, name, open: false, reason: gate, rep, offers: [], problems: [] }
+  // 後台勢力對你的敵對值到了「懸賞」：它罩的中間人不接你（FACTIONS 6.1 節）
+  if (fixer.backer !== undefined && hostilityAtLeast(k, state, fixer.backer, HOSTILITY_TIER_BOUNTY)) {
+    const reason = `${factionName(k, fixer.backer)}懸賞要你，它罩的中間人（${name}）不肯接你的案子。`
+    return { fixer: fixer.id, name, open: false, reason, rep, offers: [], problems: [] }
+  }
   const { offers, problems } = rawOffers(k, state, fixer)
   const table = tableOf(state, fixer.id)
   const hand = new Set(jobsOf(state).map((j) => j.id))
