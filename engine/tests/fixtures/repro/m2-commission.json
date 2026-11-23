@@ -1,7 +1,7 @@
 {
   "id": "m2-commission",
   "note": "基準（不是 bug）：M2 冒煙的委託那一條。已經接案、隊伍兩個人、站在市場；踩點一次、出發、第一階段打完之後存檔讀檔、三個階段走完、做完入帳。",
-  "seed": 5,
+  "seed": 6,
   "setup": {
     "named": "commission"
   },
@@ -39,7 +39,7 @@
       },
       "money": {
         "cred": 500,
-        "cash": 1804
+        "cash": 2044
       },
       "rng.cursor": 4,
       "location": {

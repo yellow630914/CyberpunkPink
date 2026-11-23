@@ -2,6 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { FEATURES } from '../../src/features'
 import { checkExtReads, checkLayers, extOwners, importsOf, layerOf } from '../../src/testkit'
 
 const SRC = fileURLToPath(new URL('../../src', import.meta.url))
@@ -139,5 +140,35 @@ describe('功能不讀別的功能的 state.ext', () => {
     expect(found[0]).toMatchObject({ file: 'features/world/spy.ts', feature: 'world', owner: 'fixer', key: 'fixer' })
     expect(found[0]!.message).toContain('world')
     expect(found[0]!.message).toContain('fixer')
+  })
+})
+
+// 規格：dev/work/M2-plan.md「每一張都適用的規定」第 2、3 條（能用測試守的）
+describe('M2 每一張都適用的規定', () => {
+  const TESTS = fileURLToPath(new URL('..', import.meta.url))
+
+  it('第 3 條：engine/src/features 底下每一個功能的資料夾都在總表 FEATURES 裡（做完忘了加那一行就紅），總表裡每一個功能都有資料夾', () => {
+    const dirs = readdirSync(join(SRC, 'features')).filter((n) => statSync(join(SRC, 'features', n)).isDirectory()).sort()
+    const ids = Object.keys(FEATURES)
+    for (const d of dirs) expect(ids, `features/${d} 沒有出現在 FEATURES`).toContain(d)
+    // director 資料夾裡有兩個功能（導演與事件視窗）；其餘一個資料夾一個功能
+    const extra = ids.filter((id) => !dirs.includes(id))
+    expect(extra).toEqual(['event_run'])
+    for (const [key, f] of Object.entries(FEATURES)) expect(f.id, key).toBe(key)
+  })
+
+  it('第 2 條：各功能的驗收測試（tests/features/M2-<功能>.test.ts）用測試自帶的最小假資料，不 import engine/data（資料的測試在 tests/data、收尾那張 M2-closeout 要對照資料的預設值，除外）', () => {
+    const files = readdirSync(join(TESTS, 'features')).filter((n) => /^M2-.*\.test\.ts$/.test(n) && n !== 'M2-closeout.test.ts')
+    expect(files.length).toBeGreaterThan(25)
+    const bad = files.filter((n) => /from\s+['"](?:\.\.\/)+data(?:\/[^'"]*)?['"]/.test(readFileSync(join(TESTS, 'features', n), 'utf8')))
+    expect(bad).toEqual([])
+  })
+
+  it('第 2 條的反面：假世界（testkit）不放進 engine/data——engine/data 裡找不到 TEST_WORLD 的任何 id', () => {
+    const ids = ['tw_market', 'tw_metro', 'fx_tw_broker', 'cm_tw_office', 'ev_tw_street', 'npc_tw_vendor', 'j_tw_porter', 'r_tw_unit', 'df_tw_pow']
+    const data = join(SRC, '..', 'data')
+    const walk = (dir: string): string[] => readdirSync(dir).flatMap((n) => (statSync(join(dir, n)).isDirectory() ? walk(join(dir, n)) : [join(dir, n)]))
+    const text = walk(data).map((f) => readFileSync(f, 'utf8')).join('\n')
+    for (const id of ids) expect(text, id).not.toContain(id)
   })
 })

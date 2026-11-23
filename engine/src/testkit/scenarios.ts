@@ -8,6 +8,7 @@
 // 全部走真正的功能與真正的提交（和介面用的是同一條路）；只有主角的武器用 TEST_GEAR 補（假兵種一碰就倒，冒煙不測裝備的組裝）。
 // AI 一律關著；要接假的服務商就給 fake。
 
+import { CORE_PACK } from '../../data'
 import type { ContentPack } from '../core/content/registry'
 import type { Feature } from '../core/kernel'
 import { createKernel } from '../core/kernel'
@@ -32,6 +33,8 @@ export interface WorldGameSetup extends GameSetup {
   without?: string[]
   /** 不要主角的武器（TEST_GEAR）；預設有 */
   noGear?: boolean
+  /** 不載資料的規則表（engine/data 的 *_rule、戰鬥的狀態與傷害類型、行動種類、設施種類）與技能表；預設載（假世界只有內容，規則表在資料裡，和真的一局一樣） */
+  noRules?: boolean
   /**
    * 先載入的包（例：資料的規則表加技能表）。假世界載在後面：規則表（可被取代的種類）由假世界蓋掉，
    * 其餘種類（技能……）假世界裡 id 一樣的筆濾掉，用先載入的那一份。
@@ -52,17 +55,28 @@ export function worldFeatures(without: string[] = [], gear = true): Feature[] {
   return gear ? [...all, TEST_GEAR] : all
 }
 
+/**
+ * 資料的規則表加技能表（engine/data 的 CORE_PACK 裡可被取代的種類，加 skill：規則表引用它）：假世界載在它後面，同 id 的規則（例：事件範圍 street）由假世界蓋掉。
+ * 沒有人定義的種類（拿掉功能之後）與引用跟著斷掉的筆濾掉。
+ */
+export function dataRules(features: Feature[]): ContentPack {
+  const kernel = createKernel(features)
+  const content: ContentPack['content'] = {}
+  for (const [kind, entries] of Object.entries(CORE_PACK.content)) if (kind === 'skill' || kernel.content.isOverridable(kind)) content[kind] = entries
+  return worldFor(features, { id: 'data_rules', content }).pack
+}
+
 /** 帶著 TEST_WORLD 與全部功能的一局：只有工廠的狀態（空房間、一位主角），沒有任何情境的步驟。 */
 export function makeWorldGame(o: WorldGameSetup = {}): WorldGame {
   const features = worldFeatures(o.without, o.noGear !== true)
   const { pack, dropped, droppedEntries } = worldFor(features, testWorld())
-  const base = o.base ?? []
+  const base = [...(o.noRules ? [] : [dataRules(features)]), ...(o.base ?? [])]
   if (base.length > 0) {
     const kernel = createKernel(features)
     const have = new Set(base.flatMap((p) => Object.entries(p.content).flatMap(([kind, es]) => (kernel.content.isOverridable(kind) ? [] : es.map((e) => `${kind}/${e.id}`)))))
     for (const [kind, es] of Object.entries(pack.content)) pack.content[kind] = es.filter((e) => !have.has(`${kind}/${e.id}`))
   }
-  const { without: _without, noGear: _noGear, base: _base, ...rest } = o
+  const { without: _without, noGear: _noGear, noRules: _noRules, base: _base, ...rest } = o
   const t = makeGame({ ...rest, features: [...features, ...(o.features ?? [])], content: [...base, pack, ...(o.content ?? [])] })
   return { ...t, dropped, droppedEntries }
 }
@@ -134,7 +148,7 @@ export function makeRunner(id = RUNNER) {
 export function makeCommissionGame(o: CommissionOptions = {}): CommissionGame {
   const { pc, pay, patch, actors, ...rest } = o
   const t = makeWorldGame({
-    seed: 5, ...rest, pc: pc ?? STRONG_PC, actors: [makeRunner(), ...(actors ?? [])],
+    seed: 6, ...rest, pc: pc ?? STRONG_PC, actors: [makeRunner(), ...(actors ?? [])],
     patch: { time: { day: 3, hour: 10, minute: 0 }, money: { cred: 500, cash: 1000 }, ...patch },
   })
   const { game } = t

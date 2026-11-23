@@ -13,6 +13,9 @@
 //
 // 每一個數字都是「這一局這樣算出來」的結果（骰面來自固定的種子），不是設計書的承諾；設計書的數字在各功能自己的測試裡。
 
+import { readFileSync } from 'node:fs'
+import { join as joinPath } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import type { Report } from '../../src'
 import { meterOf, toMinutes } from '../../src'
@@ -26,10 +29,11 @@ import { sceneAct, sceneNext, sceneOf } from '../../src/features/scene'
 import { checkout, planCheckout } from '../../src/features/trade'
 import { shift } from '../../src/features/work'
 import { readBills } from '../../src/features/bills'
+import { advance, alight, board as boardRide, wait } from '../../src/features/transit'
 import { worldOf } from '../../src/features/world'
-import type { Flow, WorldGame } from '../../src/testkit'
+import type { Flow, Repro, WorldGame } from '../../src/testkit'
 import {
-  FIXER, RUNNER, STRONG_PC, engage, flow, makeCityGame, makeCommissionGame, makeRunner, makeWorldGame, observed, passUntil, playStage, rideTo, stateHash, surrender, untilIdle, walkAcross, walkTo,
+  FIXER, M2_STEPS, RUNNER, STRONG_PC, doStep, engage, flow, makeCityGame, makeCommissionGame, makeRunner, makeWorldGame, observed, passTime, passUntil, playStage, rideTo, stateHash, surrender, untilIdle, walkAcross, walkTo,
 } from '../../src/testkit'
 import type { Game } from '../../src/shell/game'
 import { arrive } from '../../src/features/world'
@@ -39,6 +43,17 @@ const actions = (rs: Report[]): string[] => rs.map((r) => r.action ?? '')
 const setFlag = (g: Game, key: string): void => {
   g.commit({ kind: 'system', action: 'test.flag', location: {}, party: [], timeline: [], changes: [{ op: 'flag', key, value: true }], outcome: { result: 'ok', summary: '測試用的旗標。' } })
 }
+
+/**
+ * 報告的 action 一律是「功能的前綴.動詞」（dev/adr/0016 第七節；dev/work/M2-plan.md 第 5 條）：前綴是那一節列的二十二個，加上核心與外殼自己的幾個
+ * （game 開新局、battle 戰鬥、rewind 回到快照的那一份交代［整個 action 就是 rewind，不帶動詞］、save 讀檔修補）與導演的 director（排隊的更新；0016 第七節沒列，導演自己的檔頭寫了）。測試自己發的報告用 test。
+ */
+export const ACTION_PREFIXES = [
+  'world', 'transit', 'grid', 'event', 'scan', 'scene', 'defeat', 'capture', 'commission', 'fixer', 'roster', 'favor', 'npc', 'security', 'trade', 'bill', 'rest', 'home', 'work', 'lewd', 'ability', 'gear',
+  'game', 'battle', 'rewind', 'save', 'director', 'test',
+]
+const prefixProblems = (g: Game): string[] =>
+  [...new Set(g.state.reports.map((r) => r.action ?? ''))].filter((a) => a !== 'rewind' && (!/^[a-z_]+\.[a-z_]+$/.test(a) || !ACTION_PREFIXES.includes(a.split('.')[0]!))).sort()
 
 /** 一條冒煙的結尾：每一份報告的 changes 套用之後等於狀態的變化（不變式第 2 條）。 */
 async function guarded<T>(g: Game, fn: () => Promise<T>): Promise<T> {
@@ -216,12 +231,14 @@ async function commissionFlow(f: Flow, g: Game, checkpoint: Checkpoint = noop): 
     expect(actions(reports)).toEqual(['fixer.accept'])
     expect(jobOf(g.state, row.id)).toMatchObject({ status: 'active', scouts: 0 })
   })
-  await f.step('踩點一次：記下次數、花一個時段', () => {
+  await f.step('踩點一次：記下次數、花一個時段、揭開一項未知', () => {
     const t0 = minutes(g)
     const reports = g.commit(scout(k, g.state, row.id, 'survey'))
     expect(actions(reports)).toEqual(['fixer.scout'])
     expect(jobOf(g.state, row.id)!.scouts).toBe(1)
     expect(minutes(g) - t0).toBeGreaterThan(0)
+    expect(['success', 'critical']).toContain(reports[0]!.outcome.result) // 這個種子擲得過；踩點沒過會驚動對方，那一條在 M2-fixer 的測試裡
+    expect(jobOf(g.state, row.id)!.revealed.length).toBeGreaterThan(0)
   })
   checkpoint('commission.scouted')
   await f.step('召集：名冊上的行者進隊，隊伍兩個人', () => {
@@ -251,13 +268,20 @@ async function commissionFlow(f: Flow, g: Game, checkpoint: Checkpoint = noop): 
     if (n === 1) checkpoint('commission.stage1')
   }
   await f.step('做完入帳：副本結束、委託做完、報酬入帳、信譽增加', () => {
+    const pay = g.state.reports.find((r) => r.action === 'fixer.payout')!
+    const payout = jobOf(g.state, row.id)!.payout!
     expect(readRun(g.state)).toBeNull()
     expect(g.k.activity.active(g.state)).toEqual([])
     expect(g.state.snapshots).toEqual([])
     expect(minutes(g) - t0).toBeGreaterThanOrEqual(360) // 三個階段各兩小時，加上踩點之後的等候以外不會再多於戰鬥之外的走路
     const job = jobOf(g.state, row.id)!
     expect(job.status).toBe('done')
-    expect(job.payout).not.toBeNull()
+    expect(payout).toMatchObject({ outcome: 'done', wallet: 'cash' })
+    // 報酬扣掉中間人的抽成、剩下的照份數分；入帳的那一筆現金就是主角實拿的
+    expect(payout.reward - payout.cut).toBe(payout.pool)
+    expect(pay.changes).toContainEqual({ op: 'cash', delta: payout.pc_net })
+    expect(payout.pc_net).toBeGreaterThan(0)
+    expect(payout.pc_net).toBeLessThan(payout.pool)
     expect(g.state.reports.filter((r) => r.action === 'commission.finish')).toHaveLength(1)
     expect(g.state.reports.filter((r) => r.action === 'fixer.payout')).toHaveLength(1)
     expect(meterOf(k, g.state, 'rep')).toBeGreaterThan(rep0)
@@ -309,7 +333,7 @@ describe('冒煙 M2：場景', () => {
 
 /** 委託的起點：強主角、站在市場、名冊裡的行者已經是角色（還沒進名冊）。 */
 function commissionStart(): WorldGame {
-  const t = makeWorldGame({ seed: 5, pc: STRONG_PC, actors: [makeRunner()], patch: { time: { day: 3, hour: 10, minute: 0 }, money: { cred: 500, cash: 1000 } } })
+  const t = makeWorldGame({ seed: 6, pc: STRONG_PC, actors: [makeRunner()], patch: { time: { day: 3, hour: 10, minute: 0 }, money: { cred: 500, cash: 1000 } } })
   t.game.commit(arrive(t.game.k, t.game.state, 'tw_market', 'E1'))
   return t
 }
@@ -409,6 +433,7 @@ describe('冒煙 M2：戰敗', () => {
         expect(g.battle).toBeNull()
         expect(g.k.activity.active(g.state)).toEqual([])
         expect(g.state.reports.filter((r) => r.retracted).map((r) => r.action)).toEqual(expect.arrayContaining(['commission.enter', 'battle.end']))
+        expect(prefixProblems(g)).toEqual([])
       })
     })
   })
@@ -459,6 +484,181 @@ describe('冒煙 M2：戰敗', () => {
 })
 
 // ===================================================================================================================
+// 存檔讀檔：每一種活動的中途
+// ===================================================================================================================
+
+describe('冒煙 M2：每一種活動的中途存檔讀檔，狀態一模一樣、讀完還能接著做', () => {
+  /** 存檔再讀檔：讀得進來、狀態（含亂數與紀錄）一模一樣。 */
+  const roundTrip = (g: Game, label: string): void => {
+    const before = stateHash(g.state)
+    expect(g.load(g.save('manual', '2026-11-23T00:00:00Z', label)), label).toBeNull()
+    expect(stateHash(g.state), label).toBe(before)
+  }
+
+  it('搭車的月台上與車上、事件視窗開著、場景進行中', async () => {
+    const f = flow('存檔・城市的活動')
+    const { game: g } = makeCityGame({ pc: STRONG_PC })
+    const { k } = g
+    await guarded(g, async () => {
+      await f.step('月台上與車上存檔：車票、這一趟的進度都還在，接著坐完', () => {
+        walkTo(g, 'E2')
+        walkTo(g, 'E2')
+        walkTo(g, 'F1')
+        g.commit(boardRide(k, g.state, { line: 'tw_metro', pay: 'cred', dest: 's_market' }))
+        roundTrip(g, 'platform')
+        g.commit(wait(k, g.state))
+        roundTrip(g, 'aboard')
+        g.commit(advance(k, g.state))
+        g.commit(advance(k, g.state))
+        g.commit(alight(k, g.state))
+        expect(g.state.location).toMatchObject({ block: 'tw_market', facility: 'F3' })
+      })
+      await f.step('事件視窗開著存檔：選項、骰面都不變，讀完照樣選', () => {
+        setFlag(g, 'tw_street_a')
+        walkAcross(g)
+        const v = eventView(k, g.state)!
+        roundTrip(g, 'event')
+        expect(eventView(k, g.state)).toEqual(v)
+        g.commit(chooseOption(k, g.state, 'leave'))
+        expect(eventView(k, g.state)).toBeNull()
+      })
+      await f.step('場景進行中存檔：連接、行動點、對方都不變，讀完照樣做完', async () => {
+        setFlag(g, 'tw_street_b')
+        walkAcross(g)
+        g.commit(chooseOption(k, g.state, 'go'))
+        g.commit(sceneAct(k, g.state, { kind: 'talk', text: '你好。' }))
+        const s = structuredClone(sceneOf(g.state))
+        roundTrip(g, 'scene')
+        expect(sceneOf(g.state)).toEqual(s)
+        await untilIdle(g)
+        expect(sceneOf(g.state)).toBeNull()
+      })
+    })
+  })
+
+  it('副本裡的戰鬥打到一半、打輸之後等著選、戰敗事件演完', async () => {
+    const f = flow('存檔・副本的活動')
+    const { game: g, job } = makeCommissionGame()
+    const { k } = g
+    await guarded(g, async () => {
+      await f.step('出發、第一階段選面強攻、走到保全崗開打', () => {
+        g.commit(go(k, g.state, job))
+        g.commit(chooseFace(k, g.state, 'meat'))
+        g.commit(chooseBranch(k, g.state, 'assault'))
+        engage(g)
+        expect(g.battle).not.toBeNull()
+      })
+      await f.step('戰鬥打到一半存檔：還在戰鬥、還是輪到同一個人', () => {
+        const turn = g.battleOptions()!.current
+        roundTrip(g, 'battle')
+        expect(g.battle).not.toBeNull()
+        expect(g.battleOptions()!.current).toBe(turn)
+      })
+      await f.step('投降之後存檔：等著選的戰敗、事件視窗都還在；演完再存一次', async () => {
+        await surrender(g)
+        roundTrip(g, 'defeat-pending')
+        expect(g.pendingDefeat).not.toBeNull()
+        expect(eventView(k, g.state)).not.toBeNull()
+        await untilIdle(g)
+        roundTrip(g, 'defeat-played')
+        expect(defeatOf(g.state)).toMatchObject({ stage: 'played' })
+      })
+      await f.step('讀檔之後三選一照樣能選：回到這個階段開始時', () => {
+        expect(g.rewindToStage()).toBeNull()
+        expect(readRun(g.state)).toMatchObject({ stage: 1, step: 'face' })
+        roundTrip(g, 'after-rewind')
+      })
+    })
+  })
+})
+
+// ===================================================================================================================
+// 週一在副本裡
+// ===================================================================================================================
+
+describe('冒煙 M2：人在副本裡跨過週一（0016 G3）', () => {
+  /** 星期日晚上 23:00 站在市場、名冊上的行者進隊、接案、踩點一次（4 小時）、出發。 */
+  async function readyAtSundayNight(): Promise<Game> {
+    const { game: g } = makeCityGame({ pc: STRONG_PC, actors: [makeRunner()], seed: 6 })
+    walkTo(g, [1, 2])
+    walkTo(g, 'E1') // 塔下的西口通市場
+    expect(g.state.location.block).toBe('tw_market')
+    passUntil(g, { day: 6, hour: 23 })
+    for (const step of ['offer', 'scout', 'muster', 'go']) await doStep(g, step)
+    return g
+  }
+
+  it('帳單記成到期（bill.due）、副本裡不結；做完之後的下一次時間過去才結算', async () => {
+    const f = flow('週一在副本裡')
+    const g = await readyAtSundayNight()
+    const cred = g.state.money.cred
+    await guarded(g, async () => {
+      await f.step('三個階段打完，中途跨過週一 06:00：只有 bill.due，帳戶沒動', async () => {
+        for (let n = 1; n <= 3; n++) await doStep(g, 'stage')
+        expect(g.state.time.day).toBe(7)
+        const bills = g.state.reports.filter((r) => r.action?.startsWith('bill.')).map((r) => r.action)
+        expect(bills).toContain('bill.due')
+        expect(bills).not.toContain('bill.settle')
+        expect(readBills(g.state).due).toHaveLength(1)
+        expect(readRun(g.state)).toBeNull()
+      })
+      await f.step('出了副本之後時間再過去一點：這一週的房租結算（付 100）', () => {
+        passTime(g, 1)
+        expect(g.state.reports.filter((r) => r.action === 'bill.settle')).toHaveLength(1)
+        expect(readBills(g.state).due).toHaveLength(0)
+        expect(cred - g.state.money.cred).toBe(100)
+      })
+    })
+  })
+
+  it('撤退：回到進去之前，記著的到期跟著回去（沒有留下 bill.due）', async () => {
+    const f = flow('週一在副本裡・撤退')
+    const g = await readyAtSundayNight()
+    await guarded(g, async () => {
+      await f.step('打完兩個階段（跨過週一）之後撤退', async () => {
+        await doStep(g, 'stage')
+        await doStep(g, 'stage')
+        expect(readBills(g.state).due).toHaveLength(1)
+        await doStep(g, 'retreat')
+      })
+      await f.step('時間回到進去的時候（週一凌晨 03:00，踩點用掉的四小時還在）、沒有到期的帳單；之後時間照常過到 06:00，那時才結算', () => {
+        expect(g.state.time).toEqual({ day: 7, hour: 3, minute: 0 })
+        expect(readBills(g.state).due).toHaveLength(0)
+        passUntil(g, { day: 7, hour: 7 })
+        expect(g.state.reports.filter((r) => !r.retracted && r.action === 'bill.settle')).toHaveLength(1)
+      })
+    })
+  })
+})
+
+// ===================================================================================================================
+// 種子重播的固定檔
+// ===================================================================================================================
+
+describe('冒煙 M2：種子重播的固定檔（engine/tests/fixtures/repro/）', () => {
+  const dir = fileURLToPath(new URL('../fixtures/repro', import.meta.url))
+  const load = (id: string): Repro => JSON.parse(readFileSync(joinPath(dir, `${id}.json`), 'utf8')) as Repro
+
+  it.each(['m2-city', 'm2-commission'])('%s：在、步驟都是 M2_STEPS 裡有的、寫了期望（重播與「跑兩次一樣」由 tests/repro/replay.test.ts 做）', (id) => {
+    const r = load(id)
+    expect(r.id).toBe(id)
+    expect(r.setup.named).toBe(id === 'm2-city' ? 'city' : 'commission')
+    const steps = r.inputs.filter((i) => i.type === 'm2').map((i) => (i as { do: string }).do)
+    expect(steps.length).toBeGreaterThan(3)
+    for (const s of steps) expect(Object.keys(M2_STEPS), s).toContain(s)
+    expect(Object.keys(r.expect.paths ?? {})).toEqual(expect.arrayContaining(['time', 'money', 'rng.cursor']))
+  })
+
+  it('兩份固定檔涵蓋冒煙的城市與委託兩條：城市有搭車、買東西、打工、睡覺；委託有踩點、出發、三個階段；兩份都中途存檔讀檔一次', () => {
+    const city = load('m2-city').inputs.map((i) => (i.type === 'm2' ? i.do : i.type))
+    for (const s of ['ride', 'buy', 'work', 'sleep', 'pass_until', 'save_load']) expect(city, s).toContain(s)
+    const commission = load('m2-commission').inputs.map((i) => (i.type === 'm2' ? i.do : i.type))
+    expect(commission.filter((s) => s === 'stage')).toHaveLength(3)
+    for (const s of ['scout', 'go', 'save_load']) expect(commission, s).toContain(s)
+  })
+})
+
+// ===================================================================================================================
 // 主幹
 // ===================================================================================================================
 
@@ -495,18 +695,27 @@ describe('冒煙 M2：整條主幹中途存檔讀檔一次，結果和沒有中�
     expect(game.state.reports.some((r) => r.action === 'fixer.payout')).toBe(true)
   })
 
-  // 一條在城市做完的時候（睡前：記著帳單、車票、買的東西），一條在副本第一階段做完的時候（副本的狀態、階段的快照、警戒、連動）
-  it.each(['city.home', 'commission.stage1'])('在 %s 存檔再讀檔：最後的狀態和沒有中斷的一模一樣', async (point) => {
+  it('整條主幹裡每一份報告的 action 都是「功能的前綴.動詞」，前綴在 0016 第七節的清單裡', async () => {
+    const { game } = await straight()
+    expect(prefixProblems(game)).toEqual([])
+    // 掃得到東西：主幹碰到了十幾個功能的前綴
+    const seen = new Set(game.state.reports.map((r) => r.action!.split('.')[0]))
+    for (const p of ['world', 'transit', 'trade', 'work', 'rest', 'bill', 'event', 'scene', 'fixer', 'roster', 'commission', 'battle', 'grid', 'home']) expect(seen, p).toContain(p)
+  })
+
+  // 同一遍裡存兩次檔：一次在城市做完的時候（睡前：記著帳單、車票、買的東西），一次在副本第一階段做完的時候（副本的狀態、階段的快照、警戒、連動）。
+  // 讀完的狀態都要和讀之前一模一樣；最後的結果和不中斷的那一遍一模一樣。
+  it('中途存檔讀檔（城市做完、副本第一階段做完各一次）：每次讀完和讀之前一模一樣，最後的狀態和沒有中斷的一模一樣', async () => {
     const g = newTrunkGame()
-    let loaded = 0
+    const loaded: string[] = []
     await trunk(g, (label) => {
-      if (label !== point) return
+      if (label !== 'city.home' && label !== 'commission.stage1') return
       const before = stateHash(g.state)
       expect(g.load(g.save('manual', '2026-11-23T00:00:00Z', 'smoke'))).toBeNull()
       expect(stateHash(g.state)).toBe(before)
-      loaded += 1
+      loaded.push(label)
     })
-    expect(loaded).toBe(1)
+    expect(loaded).toEqual(['city.home', 'commission.stage1'])
     expect(stateHash(g.state)).toBe((await straight()).hash)
   })
 })

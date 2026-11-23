@@ -109,7 +109,8 @@ describe('拿掉任何一個功能（逐一試）：核心與其餘的功能照�
   })
 
   it.each(ids)('拿掉 %s：照樣開新局、自由行動、回退、存檔讀檔、時間過一個週一', async (id) => {
-    const t = makeWorldGame({ without: [id], seed: 3 })
+    // character 是基礎：資料的行動表（climb 的 hint 用 hp 效果）要它；拿掉它時不載資料的規則表
+    const t = makeWorldGame({ without: [id], seed: 3, ...(id === 'character' ? { noRules: true } : {}) })
     const { game } = t
     expect(game.k.features).not.toContain(id)
     // 還有世界的話站到街上走一條街（沒有世界就只用核心的位置）
