@@ -25,6 +25,13 @@ export interface ActivityInfo {
   label: string
 }
 
+/**
+ * 帶條件的放行：前綴符合、而且這個函式回答 true 才放行（k.activity.allow 的第四個參數）。
+ * launch 只有「開一段活動」（報告的 launch、Game.launch、Game.startBattle）才有，是那一次要開的活動；一般的提交與任務鏈沒有。
+ * 要分辨「戰敗自己開的事件」與「玩家自己要開戰」這類事就看它的 origin。
+ */
+export type AllowWhen = (state: GameState, doing: string, draft?: ReportDraft, launch?: Launch) => boolean
+
 export interface ActivityDef {
   kind: string
   /** 誰登記的（core 或功能 id） */
@@ -38,8 +45,10 @@ export interface ActivityDef {
   active(state: GameState): ActivityInfo | null
   /** 進行中放行的 doing 前綴（startsWith） */
   allow: string[]
-  /** 前綴之外的特例（戰敗：帶 snapshot.drop 的報告） */
-  allows?(state: GameState, doing: string, draft?: ReportDraft): boolean
+  /** 進行中放行的 doing 前綴，加上條件（別的功能用 k.activity.allow 的第四個參數加進來；登記時可以是空的） */
+  allowWhen?: Array<{ prefix: string; when: AllowWhen }>
+  /** 前綴之外的特例（戰敗：帶 snapshot.drop 的報告）。launch 見 AllowWhen */
+  allows?(state: GameState, doing: string, draft?: ReportDraft, launch?: Launch): boolean
   /** 擋下時給玩家看的完整句子 */
   reason(state: GameState, doing: string): string
   /** 開始：純函式，回傳要提交的報告草稿；開不成丟 ActionBlocked（原因寫成一條一句） */
@@ -55,7 +64,7 @@ export interface ActiveActivity extends ActivityInfo {
 export class ActivityRegistry {
   private defs = new Map<string, ActivityDef>()
   /** allow 加在還沒登記的活動上：先記著，登記時併進去（始終沒有人登記就當沒這回事） */
-  private pending = new Map<string, Array<{ prefix: string; owner: string }>>()
+  private pending = new Map<string, Array<{ prefix: string; owner: string; when?: AllowWhen }>>()
 
   constructor(private probe: Probe) {}
 
@@ -68,16 +77,26 @@ export class ActivityRegistry {
     if (old) throw new Error(`活動重複登記：${def.kind}（已經由 ${old.owner} 登記）`)
     const extra = this.pending.get(def.kind) ?? []
     this.pending.delete(def.kind)
-    this.defs.set(def.kind, { ...def, allow: [...def.allow, ...extra.map((x) => x.prefix)] })
+    this.defs.set(def.kind, {
+      ...def,
+      allow: [...def.allow, ...extra.filter((x) => !x.when).map((x) => x.prefix)],
+      allowWhen: [...(def.allowWhen ?? []), ...extra.flatMap((x) => (x.when ? [{ prefix: x.prefix, when: x.when }] : []))],
+    })
     this.probe.emit('core/action/activity', 'registry.register', { registry: 'activity', id: def.kind, owner: def.owner })
   }
 
-  /** 把一個 doing 的前綴加進某個活動的放行清單（別的功能把自己的行動加進去）。那個活動還沒登記就先記著。 */
-  allow(kind: string, prefix: string, owner: string): void {
+  /**
+   * 把一個 doing 的前綴加進某個活動的放行清單（別的功能把自己的行動加進去）。那個活動還沒登記就先記著。
+   * when（可以沒有）：帶條件的放行，前綴符合而且 when 回答 true 才放行（例：戰敗只在事件視窗開著時放行自由行動）。
+   * when 是唯讀的觀察者：不可以改狀態。
+   */
+  allow(kind: string, prefix: string, owner: string, when?: AllowWhen): void {
     const def = this.defs.get(kind)
-    if (def) def.allow.push(prefix)
-    else this.pending.set(kind, [...(this.pending.get(kind) ?? []), { prefix, owner }])
-    this.probe.emit('core/action/activity', 'registry.register', { registry: 'activity.allow', id: kind, owner, prefix })
+    if (def) {
+      if (when) (def.allowWhen ??= []).push({ prefix, when })
+      else def.allow.push(prefix)
+    } else this.pending.set(kind, [...(this.pending.get(kind) ?? []), { prefix, owner, ...(when ? { when } : {}) }])
+    this.probe.emit('core/action/activity', 'registry.register', { registry: 'activity.allow', id: kind, owner, prefix, ...(when ? { conditional: true } : {}) })
   }
 
   get(kind: string): ActivityDef | undefined {
@@ -99,18 +118,33 @@ export class ActivityRegistry {
     return out
   }
 
+  private lets(def: ActivityDef, state: GameState, doing: string, draft?: ReportDraft, launch?: Launch): boolean {
+    if (def.allow.some((prefix) => doing.startsWith(prefix))) return true
+    if ((def.allowWhen ?? []).some((a) => doing.startsWith(a.prefix) && a.when(state, doing, draft, launch))) return true
+    return !!def.allows?.(state, doing, draft, launch)
+  }
+
   /**
    * 現在這件事做不做得成：進行中的每一個活動照 order 都要放行，第一個不放行的給原因；都放行回傳 null。什麼都不改。
-   * doing 的寫法見檔頭。
+   * doing 的寫法見檔頭。launch：這一次是開一段活動時，要開的是哪一段（見 AllowWhen）。
    */
-  blockOf(state: GameState, doing: string, draft?: ReportDraft): string | null {
+  blockOf(state: GameState, doing: string, draft?: ReportDraft, launch?: Launch): string | null {
     for (const def of this.list()) {
       if (!def.active(state)) continue
-      if (def.allow.some((prefix) => doing.startsWith(prefix))) continue
-      if (def.allows?.(state, doing, draft)) continue
+      if (this.lets(def, state, doing, draft, launch)) continue
       return def.reason(state, doing)
     }
     return null
+  }
+
+  /**
+   * 這一種活動放不放行這件事：沒有登記、或現在沒有進行中的，當成放行（沒有擋住誰）。
+   * 問「在這個活動進行中，還能不能開某件事」用（導演：車上還能不能跳出擋住型的事件）；blockOf 的逐個活動版。
+   */
+  permits(state: GameState, kind: string, doing: string, draft?: ReportDraft, launch?: Launch): boolean {
+    const def = this.defs.get(kind)
+    if (!def || !def.active(state)) return true
+    return this.lets(def, state, doing, draft, launch)
   }
 
   /**

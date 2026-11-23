@@ -280,8 +280,22 @@ export function markersInLayout(def: SheetDef): Array<{ id: string; at: [number,
   return out
 }
 
+/**
+ * 城市的街區地圖（world 的街區與橋接區）：special_map 的 kind 是這幾種之一，就不要求每張圖有 2 個遭遇點
+ * （遭遇點是副本的模板才有的東西；街區上沒有人登記遭遇點的觸發，要放也可以）。
+ */
+export const STREET_MAP_KINDS: readonly string[] = ['block', 'bridge']
+
+/** 這個種類的地圖是不是城市的街區地圖（不要求遭遇點）。 */
+export const isStreetMapKind = (kind: unknown): boolean => typeof kind === 'string' && STREET_MAP_KINDS.includes(kind)
+
+export interface SheetCheckOpts {
+  /** 每一張至少要有幾個遭遇點；預設 2（COMMISSION_MAPS 第 1 節），街區地圖是 0 */
+  minSpots?: number
+}
+
 /** 一張圖的格式檢查（DATA 9.3 節的資料檢查）。回傳問題的清單。 */
-export function sheetProblems(def: SheetDef, siblings: string[] = []): string[] {
+export function sheetProblems(def: SheetDef, siblings: string[] = [], opts: SheetCheckOpts = {}): string[] {
   const p: string[] = []
   const at = `sheets/${String(def?.id)}`
   if (!def || typeof def.id !== 'string' || !def.id) return ['每一張圖要有 id']
@@ -307,7 +321,8 @@ export function sheetProblems(def: SheetDef, siblings: string[] = []): string[] 
   }
   for (const m of listed) if (!drawn.some((d) => d.id === m.id)) p.push(`${at}：${m.id} 列在資料裡，版面上卻沒有`)
   for (const m of def.cells ?? []) if (typeof m.name !== 'string' || !m.name.trim()) p.push(`${at}：${m.id} 要有 name`)
-  if ((def.spots ?? []).length < 2) p.push(`${at}：每一張至少要有 2 個遭遇點`)
+  const minSpots = opts.minSpots ?? 2
+  if ((def.spots ?? []).length < minSpots) p.push(`${at}：每一張至少要有 ${minSpots} 個遭遇點`)
   for (const l of def.links ?? []) {
     if (!siblings.includes(l.to)) p.push(`${at}：links 接到不存在的圖 ${l.to}`)
     for (const [x, y] of l.at ?? []) if (!sheet.walkable(x, y)) p.push(`${at}：連接格 ${x},${y} 走不上去`)
@@ -332,6 +347,7 @@ export function specialMapProblems(e: Record<string, unknown>): string[] {
   const sheets = e.sheets as SheetDef[]
   const ids = sheets.map((s) => s?.id)
   if (new Set(ids).size !== ids.length) p.push('sheets 的 id 不能重複')
-  for (const s of sheets) p.push(...sheetProblems(s, ids as string[]))
+  const opts: SheetCheckOpts = isStreetMapKind(e.kind) ? { minSpots: 0 } : {}
+  for (const s of sheets) p.push(...sheetProblems(s, ids as string[], opts))
   return p
 }

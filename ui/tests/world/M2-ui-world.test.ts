@@ -52,11 +52,11 @@ const WORLD = {
     { id: 'line_t', name: '測試線', kind: 'metro', minutes_per_stop: 5, wait: [3, 3], fare: { base: 2, per_stop: 1 }, pay: ['cred', 'cash'], night: false, stops: [{ id: 's1', name: '甲站', block: 'b_a', at: 'F2' }, { id: 's2', name: '乙站', block: 'b_b', at: 'F1' }, { id: 's3', name: '丙站', block: 'b_c', at: 'F1' }] },
     { id: 'line_scan', name: '掃描線', kind: 'metro', minutes_per_stop: 5, wait: [3, 3], fare: { base: 2, per_stop: 1 }, pay: ['cred'], scan: 2, faction: 'hizakura', stops: [{ id: 's1', name: '甲站', block: 'b_a', at: 'F2' }, { id: 's2', name: '乙站', block: 'b_b', at: 'F1' }] },
   ],
-  transit_rule: [{ id: 'default', km: [{ a: 'd_a', b: 'd_b', km: 3 }] }],
+  // transit_rule（default）已經在引擎的規則表裡，id 不能重複；公里數表（d_a 到 d_b 3 公里）無法由內容包覆蓋，見回報
 }
 const opt = (id: string, text: string, o: Fx = {}): Fx => ({ id, text, outcomes: { any: [] }, ...o })
 const EVENT = {
-  id: 'ev_a', scope: 'street', triggers: ['enter_block'], where: { block: 'b_b' }, text: '一個人擋住了去路。',
+  id: 'ev_a', scope: 'street_t', triggers: ['enter_block'], where: { block: 'b_b' }, text: '一個人擋住了去路。',
   options: [
     opt('talk', '試著說服他。', { check: ['negotiate', 'charm', 'easy'], outcomes: { critical: [{ kind: 'cash', amount: 40 }], success: [{ kind: 'cash', amount: 20 }], fail: [], fumble: [{ kind: 'cash', amount: -5 }] } }),
     opt('rich', '遞上一大筆錢。', { need: { kind: 'money', wallet: 'cash', min: 999999 }, show_locked: '你身上的現金不夠。' }),
@@ -68,7 +68,7 @@ const DEFER_EVENT = { id: 'ev_b', scope: 'street2', triggers: ['enter_block'], w
 
 interface PackOpts { street?: number; ride?: number; extra?: Fx[]; defer?: boolean }
 function pack(o: PackOpts = {}): ContentPack {
-  const street: Fx = { id: 'street', triggers: { enter_block: o.street ?? 0 }, cooldown_hours: 0, repeat_days: 0, lost: 'drop', roller: 'pc', priority: 1 }
+  const street: Fx = { id: 'street_t', triggers: { enter_block: o.street ?? 0 }, cooldown_hours: 0, repeat_days: 0, lost: 'drop', roller: 'pc', priority: 1 }
   // 第二個範圍同一回合也擲中：擋住型的名額只有一個，輸的那件延後（lost: defer）
   const street2: Fx = { id: 'street2', triggers: { enter_block: o.street ?? 0 }, cooldown_hours: 0, repeat_days: 0, lost: 'defer', roller: 'pc', priority: 2 }
   return {

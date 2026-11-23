@@ -143,6 +143,6 @@ function acceptIt(): void { if (say(engine.defeatFlow.accept())) emit('leave') }
   .da-main { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
   .da-final { position: sticky; bottom: 0; z-index: 2; padding: var(--space-3) 0; background: var(--bg); box-shadow: 0 -2px 0 var(--line); }
   .da-final .bt-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .da-final .btn { min-height: 44px; padding-inline: var(--space-2); font-size: var(--fs-xs); }
+  .da-final .btn { min-height: 44px; padding-inline: var(--space-2); font-size: var(--fs-xs); white-space: normal; line-height: 1.25; }
 }
 </style>

@@ -29,5 +29,7 @@ export function transitContent(): NonNullable<ContentPack['content']> {
     }),
   }))
   const transit_rule = [{ id: 'default', taxi_base: 25, taxi_per_km: 4, taxi_minutes: 10, taxi_same_km: 1, taxi_default_km: 10, km: districtKm(), no_taxi: ['under'] }]
-  return { transit_line, transit_rule } as unknown as NonNullable<ContentPack['content']>
+  // transit_rule（default）已經在引擎的規則表裡（CORE_PACK），id 不能重複；示意的公里數表（districtKm）暫時不載入，計程車用規則表的預設公里數
+  void transit_rule
+  return { transit_line } as unknown as NonNullable<ContentPack['content']>
 }

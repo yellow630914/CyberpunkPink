@@ -18,7 +18,7 @@ import { BattleBlocked, abortBattle, battleAct, battleAuto, battleOptions, pendi
 import { modeOf, statusRuleOf } from '../core/battle/rules'
 import { blankState } from '../core/state/blank'
 import type { CommitTx } from '../core/state/commit'
-import { commitAtomic, commitReport } from '../core/state/commit'
+import { commitAtomic, commitReport, commitReportAll } from '../core/state/commit'
 import { sanitizeRules } from '../core/state/saveRules'
 import { clone, replaceInPlace } from '../core/util/clone'
 import { isRecord } from '../core/util/sanitize'
@@ -227,9 +227,10 @@ export class Game {
    * - 有等著選的戰敗時，只能三選一：重來、回到快照，或提交一份把開打前的快照丟掉的報告（接受結果）。
    * 其餘的活動（事件、成人場景、委託副本）由功能登記。
    * doing：chain:<鏈的 id>、commit:<報告的 action>、<種類>.start、battle.retry、rewind:<快照的種類>、grid.enter、grid.move。
+   * launch：問的是「開一段活動」時，要開的是哪一段（帶條件的放行看它的 origin：戰敗只放自己開的事件與戰鬥）。
    */
-  blockOf(doing: string, draft?: ReportDraft): string | null {
-    return this.k.activity.blockOf(this.state, doing, draft)
+  blockOf(doing: string, draft?: ReportDraft, launch?: Launch): string | null {
+    return this.k.activity.blockOf(this.state, doing, draft, launch)
   }
 
   /** 上一條鏈停在半路（等玩家處理）就做了別的事：那一條作廢，它留的那一步回退也拿掉。 */
@@ -323,7 +324,7 @@ export class Game {
    * origin 的 by、ref 與 ext 併進 setup.origin.ext（所以重來這場戰鬥時 origin 還在）。
    */
   private launchIn(tx: CommitTx, l: Launch): Report[] {
-    const block = this.k.activity.blockOf(tx.work, `${l.kind}.start`)
+    const block = this.k.activity.blockOf(tx.work, `${l.kind}.start`, undefined, l)
     if (block) throw new ActionBlocked(block)
     const origin: Origin = l.origin ?? { by: 'core' }
     const setup = l.kind === 'battle' && isRecord(l.setup) ? battleSetupWithOrigin(l.setup as unknown as BattleSetup, origin) : l.setup
@@ -342,7 +343,7 @@ export class Game {
    * 不成立（被擋下、沒有這種活動、活動自己開不成）丟 ActionBlocked，狀態與回退的步數都不變。
    */
   launch(kind: string, setup: unknown, origin?: Origin, o: { label?: string } = {}): Report[] {
-    const block = this.blockOf(`${kind}.start`)
+    const block = this.blockOf(`${kind}.start`, undefined, { kind, setup, ...(origin ? { origin } : {}) })
     if (block) throw new ActionBlocked(block)
     if (this.last?.run.status === 'running') throw new Error('上一條任務鏈還在跑。')
     const before = clone(this.state)
@@ -509,7 +510,7 @@ export class Game {
    */
   startBattle(setup: BattleSetup, o: { label?: string; snapshot?: boolean } = {}): Report[] {
     if (this.state.battle) throw new Error('已經有一場戰鬥在進行。')
-    const block = this.blockOf('battle.start')
+    const block = this.blockOf('battle.start', undefined, { kind: 'battle', setup })
     if (block) throw new ActionBlocked(block)
     const draft = startBattle(this.k, this.state, setup)
     draft.changes.push(...this.battleSnapshotChanges(this.state, setup, o))
@@ -604,7 +605,8 @@ export class Game {
     replaceInPlace(tx.work, res.next)
     const retracted = new Set(res.next.reports.filter((r) => r.retracted).map((r) => r.id))
     reports.forEach((r, i) => { if (retracted.has(r.id)) reports[i] = { ...r, retracted: true } })
-    reports.push(res.report)
+    // 交代回到快照的那一份，加上掛鉤（report.after）接著提交的（例：commission.failed）：都是這一步的報告
+    reports.push(...res.reports)
   }
 
   /**
@@ -696,7 +698,7 @@ export class Game {
         const out = this.settleIn(tx, walked.draft, true)
         for (const f of walked.followUps) out.push(...this.settleIn(tx, f, true))
         if (walked.battle) {
-          const blocked = this.k.activity.blockOf(tx.work, 'battle.start')
+          const blocked = this.k.activity.blockOf(tx.work, 'battle.start', undefined, { kind: 'battle', setup: walked.battle })
           if (blocked) throw new ActionBlocked(blocked)
           beforeBattle = clone(tx.work)
           const draft = startBattle(this.k, tx.work, walked.battle)
@@ -782,15 +784,17 @@ export class Game {
     replaceInPlace(this.state, res.next)
     this.undo.clear()
     this.last = null
-    this.notify([res.report])
+    this.notify(res.reports)
     return null
   }
 
   /**
    * 回到一份存檔那一刻的做法（純的：不碰 this.state）：算出回去之後的狀態與交代這件事的報告。rewind、rewindToKind、報告帶的 rewind 共用。
+   * reports 的第一份是交代回到快照的那一份，之後是掛鉤（report.after）接著提交的報告（例：委託失敗的 commission.failed）：
+   * 它們已經在 next.reports 裡，這裡一併回傳，呼叫的人放進回傳與通知的報告。
    * current 是現在的狀態（讀它，不改它）。失敗回傳錯誤訊息。規矩見 rewind。
    */
-  private restoreFrom(current: GameState, raw: string, summary: string, keepSnapshots?: SnapshotSlot[]): { next: GameState; report: Report } | string {
+  private restoreFrom(current: GameState, raw: string, summary: string, keepSnapshots?: SnapshotSlot[]): { next: GameState; reports: Report[] } | string {
     const r = unpackSave(raw)
     if (!r.ok) return r.error
     const next = r.file.state
@@ -804,8 +808,8 @@ export class Game {
       // 快照跟著現在的走：沒有指定就留著現在的每一份（rewindTo 會只留比那一份早的），
       // 但「戰鬥開打前」的那一種不留：回到更早的時間點之後，那一場已經不存在，留著只會變成一個隨時能用的回退
       next.snapshots = clone(keepSnapshots ?? current.snapshots.filter((x) => x.kind !== 'battle'))
-      const report = commitReport(this.k, next, { kind: 'system', action: 'rewind', location: clone(next.location), party: [], timeline: [], changes, outcome: { result: 'rewound', summary } })
-      return { next, report }
+      const reports = commitReportAll(this.k, next, { kind: 'system', action: 'rewind', location: clone(next.location), party: [], timeline: [], changes, outcome: { result: 'rewound', summary } })
+      return { next, reports }
     } catch (e) {
       return `沒有辦法回到那一刻（${(e as Error).message}）。`
     }

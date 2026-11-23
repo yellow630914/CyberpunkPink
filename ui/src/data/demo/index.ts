@@ -1,4 +1,5 @@
 import type { ContentPack, Feature, GridKernel } from '@engine/src'
+import { CORE_PACK } from '@engine/data'
 import { planArrive } from '@engine/src/features/world'
 import { demoStart, legacyFacilityAt, blockIdOf, stationMarkerOf, worldContent } from './world'
 import { transitContent } from './transit'
@@ -16,7 +17,11 @@ import { eventContent } from './events'
 export const DEMO_PACK_ID = 'demo_world'
 
 export function demoPack(): ContentPack {
-  return { id: DEMO_PACK_ID, content: { ...worldContent(), ...transitContent(), ...eventContent() } }
+  const all = { ...worldContent(), ...transitContent(), ...eventContent() } as Record<string, Array<{ id: string }>>
+  // 引擎的規則表（CORE_PACK）已經有的 id（事件範圍、設施種類、計程車的規則……）以規則表為準：id 不能重複載入
+  const core = CORE_PACK.content as Record<string, Array<{ id: string }>>
+  const content = Object.fromEntries(Object.entries(all).map(([kind, list]) => [kind, Array.isArray(list) ? list.filter((e) => !core[kind]?.some((c) => c.id === e.id)) : list]))
+  return { id: DEMO_PACK_ID, content: content as unknown as ContentPack['content'] }
 }
 
 /**
