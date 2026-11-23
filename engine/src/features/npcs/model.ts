@@ -159,6 +159,35 @@ export interface TodayState {
   done: Record<string, string[]>
 }
 
+/** 共同記憶的地點（NPC_SYSTEM 8.1 節）：區、街區、設施；在內海時另記子網與層（layer: net）。 */
+export interface MemoryWhere {
+  district?: string
+  block?: string
+  facility?: string
+  layer?: 'net'
+  subnet?: string
+  depth?: number
+}
+
+/** 共同記憶的一筆（NPC_SYSTEM 第 8 節）：重要程度 1 日常、2 重要、3 難忘；merged 是「合併 N 筆」。 */
+export interface Memory {
+  id: string
+  at: GameTime
+  where: MemoryWhere
+  who: string[]
+  text: string
+  weight: 1 | 2 | 3
+  pinned?: true
+  merged?: number
+}
+
+/** 一則近況（NPC_SYSTEM 第 9 節）：what 是哪一類的事（job、injured、arrested、debt、near_sink、implant、joined、left、moved、died……）。 */
+export interface NewsItem {
+  at: GameTime
+  what: string
+  text: string
+}
+
 export interface NpcsState {
   gen: Record<string, Npc>
   rosters: Record<string, RosterEntry>
@@ -168,6 +197,12 @@ export interface NpcsState {
   over: Record<string, Partial<Npc>>
   /** 今天做過哪些互動（互動選單的每天次數）；沒有互動過就沒有這個欄位 */
   today?: TodayState
+  /** 共同記憶（M2-npc-life）；沒有記過就沒有這個欄位 */
+  memories?: Memory[]
+  /** 記憶流水號 */
+  memSeq?: number
+  /** 每個人最多 6 則近況（M2-npc-life） */
+  news?: Record<string, NewsItem[]>
 }
 
 const emptyState = (): NpcsState => ({ gen: {}, rosters: {}, seq: {}, rel: {}, over: {} })
@@ -177,7 +212,13 @@ export function readNpcs(state: Pick<GameState, 'ext'>): NpcsState {
   const raw = state.ext[EXT]
   if (!isRecord(raw)) return emptyState()
   const f = (key: keyof NpcsState): Record<string, never> => (isRecord(raw[key]) ? (raw[key] as Record<string, never>) : {})
-  return { gen: f('gen'), rosters: f('rosters'), seq: f('seq'), rel: f('rel'), over: f('over'), ...(isRecord(raw.today) ? { today: raw.today as unknown as TodayState } : {}) } as NpcsState
+  return {
+    gen: f('gen'), rosters: f('rosters'), seq: f('seq'), rel: f('rel'), over: f('over'),
+    ...(isRecord(raw.today) ? { today: raw.today as unknown as TodayState } : {}),
+    ...(Array.isArray(raw.memories) ? { memories: raw.memories as Memory[] } : {}),
+    ...(isSafeInt(raw.memSeq) ? { memSeq: raw.memSeq } : {}),
+    ...(isRecord(raw.news) ? { news: raw.news as unknown as Record<string, NewsItem[]> } : {}),
+  } as NpcsState
 }
 
 /** 今天（state.time.day）這個人做過哪些互動（沒記過、或記的是別天，就是空的）。 */

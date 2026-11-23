@@ -2,7 +2,7 @@
 //
 // 三種人：固定 NPC（內容 npc；存檔只記變動）、生成 NPC（每區一份名單，第一次走進一區時建立）、臨時 NPC（事件的路人；有了關係條目就升格進名單）。
 // 主角和每個認識的人有一個關係條目（meet 之後才有）；親密度是量表 affinity，條目記已知的事、見面的時間、關注與一句話。
-// 互動選單（聊天、送禮、誘惑、交涉、威嚇、偷竊、讀橋；interact.ts）也在這個功能；共同記憶與名單的變動（M2-npc-life）、名冊（M2-roster）不在這裡。
+// 互動選單（聊天、送禮、誘惑、交涉、威嚇、偷竊、讀橋；interact.ts）也在這個功能；共同記憶（memory.ts）、NPC 自己的日子（life.ts）、每區名單的變動（churn.ts）也在（M2-npc-life）；名冊（M2-roster）不在這裡。
 //
 // 接上核心的地方：
 //   內容  npc（核心的種類，載入之後 ready 補查新欄位：kind、guard、wealth、haunts、paths……；只有 id 與名字的舊 id 表照收）、
@@ -16,11 +16,15 @@
 //   狀態  state.ext.npcs：{ gen, rosters, seq, rel, over }（形狀見 model.ts）
 // 行動種類  資料裡 owner 是 npcs 的 npc_chat、npc_gift、npc_seduce、npc_ask_small／mid／big、npc_intimidate、npc_steal、npc_read_bridge（ready 時註冊；interact.ts）
 // 報告：npc.meet、npc.watch、各種互動（kind 都是 social）。
+// M2-npc-life：內容 npc_life_rule（id: default）；效果 memory；變更 npcs.memory.*（add、edit、delete、keep）與 npcs.life.*（join、leave、move、news、attr）；
+//   掛鉤 report.before（照 8.1 節記一筆共同記憶，記成那份報告的最後一筆變更）、time.passed（順序 16：自己的日子與名單的變動）、rewind.keep（記憶留著）；
+//   報告 npc.life（downtime；有變化時一份，出事的帶 npc_life 的觸發點）、npc.memory（玩家的操作）；狀態 state.ext.npcs 多 memories、memSeq、news。
 
 import type { Actor, Change, Condition, ConditionCtx, Effect, Feature, GameState, Kernel, ReportDraft } from '../../core'
 import { ActionBlocked, ContentError, Rng, clone, hash32, isRecord, isSafeInt, isValidTime, meterOf } from '../../core'
 import { generateNpc, planRoster, takenNames } from './generate'
 import { installInteract, registerInteractions } from './interact'
+import { installLife } from './life'
 import type { Npc, NpcKind, PathRow } from './model'
 import {
   AFFINITY, AXES, GEN_KIND, NPC_KIND, NPC_KINDS, OWNER, POOL_KIND, RULE_KIND, TEMP_FLAG,
@@ -34,10 +38,18 @@ export {
 } from './interact'
 export type { DcMod, InteractExtra, InteractKind, InteractRules, InteractionView, NpcActionInput, ReadCategory } from './interact'
 export type { GenOpts } from './generate'
+export { NEWS_MAX, TRIGGER_WHATS, lifeDraft, lifeSubjects, newsOf } from './life'
+export type { LifeDeps } from './life'
+export { PROTECT_FLAG } from './churn'
+export { DEFAULT_LIFE_RULES, LIFE_RULE_KIND, lifeRules } from './lifeRules'
+export type { LifeRules, MemoryRules } from './lifeRules'
+export { compactMemories, editMemory, forgetMemory, importanceOf, memoriesOf, memoryChanges, participantsOf, pinMemory, recall, remember } from './memory'
+export type { MemoryPatch, RecallOpts, RememberInput } from './memory'
 export {
   ABSENT_CONDITIONS, AFFINITY, AXES, BODIES, BRIDGE_PARAMS, DEFAULT_NPC_RULES, GENDERS, GENDER_TAG, KIND_NAME, NPC_KINDS, STAGES, TAG_STATES, TEMP_FLAG,
   affinityStage, doneToday, hauntMatches, knownFacts, knows, normalizeHaunt, npcEntryProblems, npcOf, npcRules, npcsHere, npcsProblems, parseFact, readNpcs, relationOf, rosterIds, stageIndex, whereIs,
 } from './model'
+export type { Memory, MemoryWhere, NewsItem } from './model'
 export type { Axis, BridgeParam, Gender, GenEntry, Haunt, KnownFact, Look, Npc, NpcEntry, NpcKind, NpcRules, NpcsState, PathRow, PoolEntry, Relation, RosterEntry, StageDef, StageView, TagState, Tendencies } from './model'
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
@@ -357,6 +369,8 @@ export const npcsFeature: Feature = {
 
     registerChanges(k)
     installInteract(k)
+    // 共同記憶、NPC 自己的日子、每區名單的變動（M2-npc-life；life.ts、memory.ts、churn.ts）
+    installLife(k, { actorOf: (state, id) => actorOf(k, state, id), buildActor: (n) => buildActor(k, n) })
 
     // ---- 效果 ----
     interface MeetEffect extends Effect { npc: string }
