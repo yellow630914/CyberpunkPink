@@ -190,3 +190,10 @@
 - `fixer` 內容多了選填的 `backer`（後台勢力），engine/data 與 TEST_WORLD 的中間人都還沒寫；正式的中間人資料要加。
 - 同類風險已掃過：其他功能的 `narration.results` 沒有「生命值／傷害／感載 ±N」的寫法（效果的 `describe` 本來就寫成描寫），只有 rest 是例外；之後新寫結果句子別帶這種數字。
 - 介面要跟著改的（不在這一批）：見 M2 介面修正批；`ui/` 的示意包不用再濾掉核心包同 id 的 npc；睡覺與喘口氣的結果句子變了；建角的名冊會真的進名冊；`interactions` 多了 `note`；`transit` 的車上事件選開打後人在下一站、`rewindToKind('stage'／'entry')` 在副本裡被擋；`trade_rule` 的欄位名換了（`hostility_markups`）。
+
+## M2-fix-ui 回報（2026-11-23，留給下一批引擎小修）
+
+- rest 匯出 `depositOf`、`residencePools`（介面現在深匯入 model、押金在 store 重算）。
+- transit 匯出 `taxiArrival(k, state, to)`（介面用補足車資的狀態複本權宜重做抵達）。
+- 設定 `billMult`、`xpMult`、`defeatView`、`defeatTakeGear` 還沒交給引擎（`rulesFromUi`）。
+- App.vue 的戰鬥換頁與帳單 watch 只有原始碼檢查與 Playwright 確認，沒有掛載測試。

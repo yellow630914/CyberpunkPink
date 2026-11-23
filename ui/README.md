@@ -18,7 +18,7 @@ npm run preview   # 在本機看建置結果
 
 - `vite.config.ts` 設了 `base: './'`，路由用 hash，所以 `dist/` 放在任何路徑底下、用任何靜態伺服器打開都能用。瀏覽器不讓 `file://` 跑模組腳本，直接雙擊 `index.html` 打不開，要經過伺服器（`npm run preview` 或 `python3 -m http.server`）。
 - 直接打開某個對話框：`#/?dialog=shop&shopId=gunshop`、`#/?dialog=character&tab=bridge`、`#/?dialog=skills&tree=night`、`#/?dialog=saves&tab=snap`、`#/?dialog=mech`、`#/?dialog=clinic`（測試與截圖用；對話框的名字見 `src/stores/ui.ts` 的 `DialogName`）。
-- 戰鬥畫面：`#/combat?enc=warehouse|chute|capture|mech`、`#/netcombat?enc=bluewhale|patrol|download`、`#/opinion?topic=idol&foe=pr_jess|pr_starbelle|pr_kunlun|pr_nightingale`；成人場景 `#/scene?scene=amber|rin`（示範的場景，要先有主角；`gate=0` 跳過確認框；`fast=1` 對方的回合不等；引擎開了場景時 App 會自動換到這一頁，`from=` 是結束後回哪一頁）；`from=` 是打完回哪一頁，`seed=` 固定亂數，`fast=1` 讓敵人的回合不等（自動測試用）；委託帶過來的 `minus=`（少幾個敵人）、`va=`、`cells=`、`inside=`、`pr=`、`rounds=`（輿論戰的開場）、`goal0=`（場景目的的起始）。
+- 戰鬥畫面：`#/combat?enc=warehouse|chute|capture|mech`、`#/netcombat?enc=bluewhale|patrol|download`、`#/opinion?topic=idol&foe=pr_jess|pr_starbelle|pr_kunlun|pr_nightingale`；成人場景 `#/scene?scene=amber|rin`（示範的場景，只有這個網址入口：要先有主角，技能、體位、道具由示範入口放好，用完不補；遊戲裡沒有任何選單會連到它；`gate=0` 跳過確認框；`fast=1` 對方的回合不等；引擎開了場景時 App 會自動換到這一頁，`from=` 是結束後回哪一頁）；`from=` 是打完回哪一頁，`seed=` 固定亂數，`fast=1` 讓敵人的回合不等（自動測試用）；委託帶過來的 `minus=`（少幾個敵人）、`va=`、`cells=`、`inside=`、`pr=`、`rounds=`（輿論戰的開場）、`goal0=`（場景目的的起始）。
 - `npm run build` 先跑 `scripts/build-content.mjs`：從 `docs/content/SKILL_TREES.md`、`NIGHT_LESSONS.md`、`GUIDES.md`、`docs/art/UI.md` 3.6 節與 `docs/art/icons/skills.csv` 抽出技能樹、夜課、指南，寫成 `src/data/content.generated.ts`（不要手改）。表格的格式對不上的那一列印出警告並略過，建置照樣成功；找不到文件時保留現有的輸出。
 - `npm run build` 會先跑 `scripts/build-icons.mjs`：從 `docs/art/style/icons-l3-sprite.svg` 抽出資料用到的第 3 層圖標，攤平成 `public/icons-items.svg`（外部 sprite 裡巢狀的 `<use>` 瀏覽器不畫，原檔也有幾個重複的屬性，當成外部 SVG 讀時是 XML 錯誤）。資料加了新的物品，重新建置就會帶進來。
 
@@ -74,7 +74,7 @@ npm run preview   # 在本機看建置結果
 - **委託**照模板跑（`src/data/templates.ts`）：竊密（藍鯨的帳本）、暗殺、蜜罐（決定性的一步是成人場景）、救援、網內打撈（決定性的一步是下載撐回合）、滅火（決定性的一步是六回合的輿論戰）、破壞；連動的效果（不必探索、壓力減半、少一個敵人、輿論戰的開場……）；副本直播的目標。
 - **其他**：機甲的大修與升級、載具被打爛之後的修理；其他住處的地圖、請人搬家、打包的家具；世界編輯器所有種類的「用在哪」；任務鏈 23 條的流程圖；商店的殺價（TRADE 第 5 節）、當日特別交易、店內事件；角色成人分頁可以改私處的描述。
 
-**人接引擎**（M2-ui-people）：「這裡的人」、說話與互動、關係、名冊與招募、人情、橋分頁的換配置只編排（`TalkDialog`、`RelationsDialog`、`RosterDialog`、`components/StatusBar` 與 `MoneyTag` 的人情、`character/BridgeTab`），`stores/engine.ts` 的 `people` 只轉接 `features/npcs`、`roster`、`favors`、`abilities`；`lib/peopleView.ts` 只整理（已知的事沒揭開的寫問號、互動列的 DC 與成功率字樣、記憶與近況的列、名單的篩選、人情的列），沒有 DC、成功率、親密度階段、容量的算式。主畫面「這裡的人」是引擎的 `npcsHere`；站在設施上時，只有出沒表寫了那一種設施的人才在。互動送出去走主動行動（送禮選背包裡的東西、讀橋選類別、「我要做別的」帶著對象）；威嚇中間人、沒有甲板讀橋、名冊滿了的原因都是引擎的；關係線、傳訊息、邀約、採訪、請教、派工還沒有開放。人情欠你的可以用掉、你欠的可以答應或回絕（引擎的 `favors.call`），錢包旁列出兩種數字（你欠的橘字）。橋分頁最下面一行寫現在能不能換（引擎的原因）與要花幾分鐘（衍生數值 `loadout_minutes`）。示意世界包多了 `data/demo/people.ts`：固定 NPC 用 `engine/data` 已有的 id（那邊只有 id 與名字，所以載入時用 `demoCoreWithoutPeople` 把被重寫的那幾筆從核心包拿掉）、八區的生成規則與三份名字池、開局的名冊（小麥、雷）與候選人（奈奈、喬），在開局那份報告裡由引擎自己的 `meetChanges`、`joinChanges` 放進去。
+**人接引擎**（M2-ui-people）：「這裡的人」、說話與互動、關係、名冊與招募、人情、橋分頁的換配置只編排（`TalkDialog`、`RelationsDialog`、`RosterDialog`、`components/StatusBar` 與 `MoneyTag` 的人情、`character/BridgeTab`），`stores/engine.ts` 的 `people` 只轉接 `features/npcs`、`roster`、`favors`、`abilities`；`lib/peopleView.ts` 只整理（已知的事沒揭開的寫問號、互動列的 DC 與成功率字樣、記憶與近況的列、名單的篩選、人情的列），沒有 DC、成功率、親密度階段、容量的算式。主畫面「這裡的人」是引擎的 `npcsHere`；站在設施上時，只有出沒表寫了那一種設施的人才在。互動送出去走主動行動（送禮選背包裡的東西、讀橋選類別、「我要做別的」帶著對象）；威嚇中間人、沒有甲板讀橋、名冊滿了的原因都是引擎的；關係線、傳訊息、邀約、採訪、請教、派工還沒有開放。人情欠你的可以用掉、你欠的可以答應或回絕（引擎的 `favors.call`），錢包旁列出兩種數字（你欠的橘字）。橋分頁最下面一行寫現在能不能換（引擎的原因）與要花幾分鐘（衍生數值 `loadout_minutes`）。示意世界包多了 `data/demo/people.ts`：固定 NPC 用 `engine/data` 已有的 id（那邊只有 id 與名字；`npc` 可覆寫，示意包整筆取代同 id 的）、八區的生成規則與三份名字池、候選人（奈奈、喬）在開局那份報告裡由引擎自己的 `meetChanges` 放進去；名冊的成員（小麥、雷）是建角時照出身的名冊由引擎放進去（沒有主角的示意局才由 `demoPeopleChanges` 給）。
 
 **成人場景接引擎**（M2-ui-scene）：`AdultSceneScreen` 與 `components/scene/` 只編排，感載、契合、主動權、預覽、能不能做與原因全是 `features/scene` 的（`stores/engine.ts` 的 `scene` 只轉接）。開場先出確認框（進入或略過；略過直接算結果、紀錄多一份）；一對一的回合，玩家做完一步就呼叫對方的一步；結束後出戰報卡（評價、體悟、關係、餘韻，AI 開著時有整場的正文）；場景進行中引擎不收別的報告，App 也不讓人停在別的全頁。設定的「成人場景的操作」（遊戲分頁）：**精簡版**（預設）由引擎自動接線，畫面只顯示持續效果的條數與大概數值；**完整版**自己選部位（技能、說話、道具要選時，照引擎宣告的選項點卡上的部位）。兩種的規則與數值相同，下一場生效。同步檔位固定「標準」（還沒有開放）、直播關。「身體的私密描寫」關掉時私密部位的名字收起來換成編號。
 
@@ -87,3 +87,9 @@ npm run preview   # 在本機看建置結果
 - 委託其餘十二型、中型與大型的 2a／2b 階段、附帶條件與報酬公式、詞條、踩點開出來的路。
 - 機甲武器與零件的買賣；另外三處住處、買斷與假身分；商店的長期折扣；染色接上 AI 的外觀描述。
 - 紀錄的逐樓回退要等引擎存每一樓的快照。
+
+## M2 介面修正批（2026-11-23）
+
+- **佇列**：`stores/engine.ts` 的 `commitDrafts` 只在「同一個動作的前一份已提交、後面那份被擋」時才留草稿（計程車的抵達，放行時照當下狀態重做）；整個動作被擋下的不留。開新局、讀檔、回退、undo、重來戰鬥、回到階段開始都清空。
+- **全域換頁**：`App.vue` 看 `inBattle` 與等著選的戰敗，不在戰鬥相關頁面就換到 `/combat`；帳單與通知看 store 的 `feed`（這一步提交新產生的報告），不靠報告 id。
+- **讀引擎**：小隊（`partyRows`）、狀態列的敵對值（`hostilityTop`）、中間人的店的人情、召集的人數上限（`fixer.crewRules`）、互動列的 `note`、勢力人情的名字；主畫面「休息」開休息對話框、臥室睡一覺走 `rest.sleep`。設定的快速移動與名冊會死經 `rulesFromUi` 交給引擎。
