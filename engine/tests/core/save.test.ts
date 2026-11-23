@@ -20,8 +20,8 @@ describe('L7 存檔與讀檔', () => {
     expect(r.file.format).toBe(SAVE_FORMAT)
     expect(r.file.version).toBe(SAVE_VERSION)
     expect(r.file.meta).toMatchObject({ kind: 'manual', day: 1, time: '第 1 天 08:00', savedAt: '2026-11-21T10:00:00Z', pc: { name: '測試主角' } })
-    // 第 2 版（M1）：多了 battle、maps 與存檔規則的三個欄位
-    expect(SAVE_VERSION).toBe(2)
+    // 第 2 版（M1）：多了 battle、maps 與存檔規則的三個欄位；第 3 版（M2）：多了 meters（量表）
+    expect(SAVE_VERSION).toBe(3)
   })
 
   it('不是存檔、壞掉的存檔、太新的存檔都讀不進來，並說明原因', () => {

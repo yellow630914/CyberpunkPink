@@ -2,6 +2,7 @@
 export * from './factory'
 export * from './battle'
 export * from './activity'
+export * from './meters'
 export * from './invariants'
 export * from './repro'
 export * from './layers'

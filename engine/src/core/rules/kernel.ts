@@ -5,6 +5,7 @@ import { createStateKernel } from '../state/kernel'
 import { ConditionRegistry, registerCoreConditions } from './conditions'
 import { registerCoreEffects } from './coreEffects'
 import { EffectRegistry } from './effects'
+import { registerMeterRules } from './meters'
 import { StatRegistry } from './stats'
 
 export interface RulesKernel extends StateKernel {
@@ -19,5 +20,7 @@ export function createRulesKernel(): RulesKernel {
   registerCoreEffects(effects)
   const conditions = new ConditionRegistry(base.probe)
   registerCoreConditions(conditions)
+  // 每定義一種量表（k.meters.define）就自動有同名的效果與條件（dev/adr/0016 第三節）
+  base.meters.onDefine((def) => registerMeterRules(def, base.meters, effects, conditions))
   return Object.assign(base, { stats: new StatRegistry(base.probe, base.content), effects, conditions })
 }

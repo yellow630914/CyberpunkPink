@@ -9,6 +9,7 @@ import { DEFAULT_TIME_RULES } from '../util/time'
 import { ChangeRegistry } from './changes'
 import { registerCoreChanges } from './coreChanges'
 import { HookBus } from './hooks'
+import { MeterRegistry } from './meters'
 import { Probe } from './probe'
 
 export interface StateKernel {
@@ -16,6 +17,8 @@ export interface StateKernel {
   content: ContentRegistry
   changes: ChangeRegistry
   hooks: HookBus
+  /** 量表的登錄表（dev/adr/0016 第三節）：核心自己不定義任何一種，由管那一塊的功能 k.meters.define；同名的效果與條件由 L4 自動註冊 */
+  meters: MeterRegistry
   timeRules: TimeRules
   /** 嚴格模式：每次提交都檢查掛鉤有沒有偷改狀態（要多複製一次狀態）。測試一律開，正式版關。 */
   strict: boolean
@@ -33,8 +36,9 @@ export function createStateKernel(): StateKernel {
   registerCoreKinds(content)
   content.onChange((e) => probe.emit('core/content/registry', e.type === 'kind' ? 'registry.register' : 'content.load', { registry: 'content', id: e.kind, owner: e.owner, count: e.count }))
   const changes = new ChangeRegistry(probe)
-  const k: StateKernel = { probe, content, changes, hooks: new HookBus(probe), timeRules: { ...DEFAULT_TIME_RULES }, strict: false }
+  const meters = new MeterRegistry(probe)
+  const k: StateKernel = { probe, content, changes, hooks: new HookBus(probe), meters, timeRules: { ...DEFAULT_TIME_RULES }, strict: false }
   // snapshot.take 要用的序列化函式是之後才注入的（k.serialize）：變更的定義每次問 kernel，不在登錄時抓
-  registerCoreChanges(changes, () => k.serialize)
+  registerCoreChanges(changes, () => k.serialize, { meters, content })
   return k
 }

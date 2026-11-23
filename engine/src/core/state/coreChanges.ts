@@ -32,6 +32,7 @@
 // | map.at | to（null 是離開格子地圖） | 換位置 |
 // | map.sheet | map, sheet, seen?, cells?, movers? | 改一張圖的狀態：看過的格子、改過的格子、會動的東西 |
 // | map.ext | map, value | 這份實例上發起的功能自己記的東西，整份換掉 |
+// | meter | kind, key, delta 或 set | 量表（state.meters；dev/adr/0016 第三節）：加減或直接設，套用時夾在那張量表的 min～max（有 floor 時不低於那張量表同一個鍵的值）。種類沒有人定義、key 不是非空字串、勢力／人／區的鍵在內容裡查不到、不分對象的 key 不是 _ 都不合法；delta 與 set 要有一個而且只有一個，是整數 |
 // | snapshot.add | slot | 存一份快照（回到那一刻用的）。同一種類只留最新的一份由存的人決定：先 drop 再 add |
 // | snapshot.take | kind, label, owner?, data?, replace? | 存一份「這份報告套用之前」的快照（dev/adr/0016 第二節）：一定是報告的第一筆變更；文字由 k.serialize 產生（沒注入就不合法）；replace 把同一個 owner、同一種的舊快照拿掉。記進紀錄時不留文字 |
 // | snapshot.drop | id 或 kind | 丟掉一份（或一種）快照 |
@@ -39,12 +40,15 @@
 
 import type { Actor, BattleState, CellPatch, ChainRecordSlot, Change, FlagValue, GameState, GridPos, MapInstance, MoverState, ReportLocation, SaveRules, SnapshotSlot } from '../types'
 import { ATTR_IDS, BATTLE_SIDES, BATTLE_SLOTS } from '../types'
+import type { ContentRegistry } from '../content/registry'
 import { clone, deepEqual } from '../util/clone'
 import { formatAmount } from '../util/money'
 import { isId, isRecord, isSafeInt } from '../util/sanitize'
 import { addMinutes, isValidTime, toMinutes } from '../util/time'
 import type { ChangeDef, ChangeRegistry } from './changes'
 import { addItem, countItem, removeItem } from './inventory'
+import type { MeterRegistry } from './meters'
+import { meterKeyLabel, meterKeyProblems, nextMeterValue } from './meters'
 import { sanitizeRules } from './saveRules'
 
 /** 只保留最近幾樓的任務鏈細節（AI_TASKS 5.5 節）。 */
@@ -86,11 +90,18 @@ const money = (op: 'cred' | 'cash', name: string): ChangeDef<Change & { delta: n
   describe: (c) => (c.delta ? `${name} ${c.delta > 0 ? '+' : '−'}${formatAmount(Math.abs(c.delta))}` : null),
 })
 
+/** meter 變更要問的：量表的登錄表（種類有沒有人定義、範圍）與內容（勢力、人、區的鍵查不查得到）。 */
+export interface MeterEnv {
+  meters: MeterRegistry
+  content: ContentRegistry
+}
+
 /**
  * serialize：問 kernel 現在有沒有注入序列化函式（snapshot.take 用；它是之後才注入的，所以每次問，不在登錄時抓）。
  * 不給的話（單獨測某一種變更）就當沒注入。
+ * meterEnv：meter 變更用的量表登錄表與內容；不給的話（單獨測某一種變更）meter 變更一律當作沒有人定義。
  */
-export function registerCoreChanges(reg: ChangeRegistry, serialize: () => ((state: GameState) => string) | undefined = () => undefined): void {
+export function registerCoreChanges(reg: ChangeRegistry, serialize: () => ((state: GameState) => string) | undefined = () => undefined, meterEnv?: MeterEnv): void {
   reg.register(money('cred', '帳戶'))
   reg.register(money('cash', '現金'))
 
@@ -458,6 +469,35 @@ export function registerCoreChanges(reg: ChangeRegistry, serialize: () => ((stat
       const m = s.maps.instances[c.map]!
       if (c.value === null) delete m.ext
       else m.ext = clone(c.value)
+    },
+  })
+
+  // 量表：種類由功能定義（k.meters.define）；沒有人定義的種類擋下並寫出是哪一種。範圍與下限在套用時夾，所以同一份狀態、同一筆變更一定得到同一個結果
+  reg.register<Change & { kind: string; key: string; delta?: number; set?: number }>({
+    op: 'meter', owner: 'core',
+    validate: (s, c) => {
+      const def = typeof c.kind === 'string' ? meterEnv?.meters.get(c.kind) : undefined
+      if (!def) return [`沒有人定義過「${String(c.kind)}」這種量表（那個功能這一局沒裝）`]
+      const p = meterKeyProblems(def, c.key, s, meterEnv!.content)
+      const hasDelta = c.delta !== undefined, hasSet = c.set !== undefined
+      if (hasDelta === hasSet) p.push('要寫 delta 或 set，而且只能寫一個')
+      else if (!isInt(hasDelta ? c.delta : c.set)) p.push(`${hasDelta ? 'delta' : 'set'} 要是整數（不能是小數、無限、非數，也不能大到失真）`)
+      return p
+    },
+    apply: (s, c) => {
+      const def = meterEnv!.meters.get(c.kind)!
+      const next = nextMeterValue(meterEnv!.meters, s, def, c.key, c)
+      // 沒寫過的種類在這裡才開一列；用 Object.hasOwn 看，不吃原型鏈上的東西
+      if (!Object.hasOwn(s.meters, c.kind)) s.meters[c.kind] = {}
+      s.meters[c.kind]![c.key] = next
+    },
+    describe: (c, s) => {
+      const def = meterEnv?.meters.get(c.kind)
+      if (!def) return null
+      const label = meterKeyLabel(def, c.key, s, meterEnv!.content)
+      const name = label ? `${def.name}（${label}）` : def.name
+      if (c.set !== undefined) return `${name} 設為 ${c.set}`
+      return c.delta ? `${name} ${c.delta > 0 ? '+' : '−'}${Math.abs(c.delta)}` : null
     },
   })
 }

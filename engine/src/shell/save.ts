@@ -60,6 +60,11 @@ export const MIGRATIONS: Migration[] = [
       return { ...state, rules, battle: state.battle ?? null, maps: isRecord(state.maps) ? state.maps : { instances: {}, at: null, seq: 0 }, snapshots: Array.isArray(state.snapshots) ? state.snapshots : [] }
     },
   },
+  {
+    from: 2,
+    note: 'M2：多了 meters（量表：照種類與對象分開記、有範圍的數字；dev/adr/0016 第三節）。第 2 版的存檔讀進來補一張空的表。',
+    run: (state) => ({ ...state, meters: isRecord(state.meters) ? state.meters : {} }),
+  },
 ]
 
 /**
@@ -123,6 +128,13 @@ export function validateState(s: unknown): string[] {
   if (s.battle !== null && s.battle !== undefined) for (const e of battleProblems(s.battle)) p.push(`battle：${e}`)
   if (!isRecord(s.maps) || !isRecord(s.maps.instances) || !(s.maps.at === null || isRecord(s.maps.at))) p.push('maps：要有 instances 與 at')
   if (!Array.isArray(s.snapshots) || s.snapshots.some((x) => !isRecord(x) || typeof x.id !== 'string' || typeof x.kind !== 'string' || typeof x.raw !== 'string' || (x.owner !== undefined && typeof x.owner !== 'string'))) p.push('snapshots：每一份要有 id、kind 與 raw（owner 有的話要是字串）')
+  // 量表（第 3 版）：種類 → 鍵 → 整數。種類有沒有人定義、值在不在範圍內這裡不看（沒有 kernel）：沒有人定義的種類照樣留著
+  // （那個功能這一局沒裝，之後裝上就接得起來），範圍由變更套用時夾
+  if (!isRecord(s.meters)) p.push('meters：要是一個物件')
+  else for (const [kind, row] of Object.entries(s.meters)) {
+    if (!isRecord(row)) p.push(`meters.${kind}：要是一個物件（鍵 → 整數）`)
+    else for (const [key, v] of Object.entries(row)) if (!key || !int(v)) p.push(`meters.${kind}.${key}：要有非空的鍵與整數的值`)
+  }
   return p
 }
 

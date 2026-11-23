@@ -1,0 +1,670 @@
+{
+ "format": "cyberpunkpink-engine-save",
+ "version": 2,
+ "meta": {
+  "label": "M2 開工前的存檔（第 2 版）",
+  "day": 1,
+  "time": "第 1 天 09:00",
+  "place": "test · empty_room",
+  "savedAt": "2026-11-23T00:00:00Z",
+  "kind": "manual",
+  "pc": {
+   "name": "測試主角"
+  }
+ },
+ "state": {
+  "version": 2,
+  "rng": {
+   "seed": 7,
+   "cursor": 2
+  },
+  "time": {
+   "day": 1,
+   "hour": 9,
+   "minute": 0
+  },
+  "money": {
+   "cred": 1200,
+   "cash": 345
+  },
+  "location": {
+   "district": "test",
+   "block": "empty_room",
+   "scene": "一個空房間"
+  },
+  "pc": "pc",
+  "actors": {
+   "pc": {
+    "id": "pc",
+    "name": "測試主角",
+    "role": "pc",
+    "age": 25,
+    "gender": "female",
+    "perks": [],
+    "hp": 40,
+    "load": 0,
+    "afterglow": 0,
+    "sink": 0,
+    "conditions": [],
+    "attrs": {
+     "body": 10,
+     "reflex": 10,
+     "tech": 10,
+     "intellect": 10,
+     "resolve": 10,
+     "charm": 10
+    },
+    "skills": {},
+    "ext": {}
+   },
+   "npc_ray": {
+    "id": "npc_ray",
+    "name": "雷",
+    "role": "companion",
+    "age": 25,
+    "gender": "female",
+    "perks": [],
+    "hp": 40,
+    "load": 0,
+    "afterglow": 0,
+    "sink": 0,
+    "conditions": [],
+    "skills": {
+     "stealth": 2
+    },
+    "attrs": {
+     "body": 10,
+     "reflex": 10,
+     "tech": 10,
+     "intellect": 10,
+     "resolve": 10,
+     "charm": 10
+    },
+    "ext": {}
+   }
+  },
+  "party": [
+   "pc",
+   "npc_ray"
+  ],
+  "inventory": [
+   {
+    "id": "it_medkit",
+    "qty": 2
+   }
+  ],
+  "flags": {
+   "met_ray": true
+  },
+  "counters": {
+   "visits": 3
+  },
+  "rules": {
+   "difficulty": "normal",
+   "dcOffset": 0,
+   "fastTravel": true,
+   "billMult": 1,
+   "defeatView": "always",
+   "defeatTakeGear": true,
+   "enemyCoef": {
+    "boss": {
+     "hp": 1,
+     "dmg": 1,
+     "load": 1
+    },
+    "minions": [
+     {
+      "hp": 1,
+      "dmg": 1,
+      "load": 1
+     },
+     {
+      "hp": 1,
+      "dmg": 1,
+      "load": 1
+     },
+     {
+      "hp": 1,
+      "dmg": 1,
+      "load": 1
+     }
+    ]
+   },
+   "defeatMoneyLoss": 1,
+   "defeatMoneyCap": null,
+   "heavyWounds": true,
+   "rosterDeath": false,
+   "xpMult": 1,
+   "startXp": 200,
+   "startSkillPoints": 10,
+   "startSkillMax": 3,
+   "startPerkPoints": 4,
+   "startCyberPoints": 10,
+   "startMoney": 1500,
+   "contentOff": []
+  },
+  "reports": [
+   {
+    "kind": "system",
+    "action": "game.new",
+    "location": {},
+    "party": [],
+    "timeline": [],
+    "changes": [],
+    "outcome": {
+     "result": "created",
+     "summary": "開新遊戲。"
+    },
+    "id": "r1",
+    "time": {
+     "start": {
+      "day": 1,
+      "hour": 8,
+      "minute": 0
+     },
+     "end": {
+      "day": 1,
+      "hour": 8,
+      "minute": 0
+     }
+    }
+   },
+   {
+    "kind": "action",
+    "action": "free",
+    "location": {
+     "district": "test",
+     "block": "empty_room",
+     "scene": "一個空房間"
+    },
+    "actor": "pc",
+    "input": "我看看四周",
+    "party": [
+     {
+      "id": "pc",
+      "name": "測試主角",
+      "hp": [
+       40,
+       40,
+       0
+      ],
+      "load": [
+       0,
+       0,
+       0
+      ],
+      "sink": [
+       0,
+       0,
+       0
+      ],
+      "afterglow": 0
+     },
+     {
+      "id": "npc_ray",
+      "name": "雷",
+      "hp": [
+       40,
+       40,
+       0
+      ],
+      "load": [
+       0,
+       0,
+       0
+      ],
+      "sink": [
+       0,
+       0,
+       0
+      ],
+      "afterglow": 0
+     }
+    ],
+    "timeline": [
+     {
+      "layer": "meat",
+      "actor": "pc",
+      "text": "自由行動",
+      "roll": {
+       "dice": "1d20",
+       "natural": 9,
+       "parts": [],
+       "total": 9,
+       "dc": 13,
+       "degree": "fail",
+       "verdict": "no_but",
+       "margin": -4,
+       "attr": "intellect"
+      }
+     }
+    ],
+    "changes": [
+     {
+      "op": "time",
+      "minutes": 30
+     },
+     {
+      "op": "rng",
+      "advance": 1
+     },
+     {
+      "op": "chain",
+      "slot": {
+       "id": "c1",
+       "floor": 1
+      }
+     }
+    ],
+    "outcome": {
+     "result": "fail",
+     "summary": "測試主角：自由行動，失敗（骰 9，合計 9，對 DC 13）。"
+    },
+    "narration": {
+     "results": []
+    },
+    "chain": "c1",
+    "id": "r2",
+    "time": {
+     "start": {
+      "day": 1,
+      "hour": 8,
+      "minute": 0
+     },
+     "end": {
+      "day": 1,
+      "hour": 8,
+      "minute": 30
+     }
+    }
+   },
+   {
+    "kind": "action",
+    "action": "free",
+    "location": {
+     "district": "test",
+     "block": "empty_room",
+     "scene": "一個空房間"
+    },
+    "actor": "pc",
+    "input": "再看一次",
+    "party": [
+     {
+      "id": "pc",
+      "name": "測試主角",
+      "hp": [
+       40,
+       40,
+       0
+      ],
+      "load": [
+       0,
+       0,
+       0
+      ],
+      "sink": [
+       0,
+       0,
+       0
+      ],
+      "afterglow": 0
+     },
+     {
+      "id": "npc_ray",
+      "name": "雷",
+      "hp": [
+       40,
+       40,
+       0
+      ],
+      "load": [
+       0,
+       0,
+       0
+      ],
+      "sink": [
+       0,
+       0,
+       0
+      ],
+      "afterglow": 0
+     }
+    ],
+    "timeline": [
+     {
+      "layer": "meat",
+      "actor": "pc",
+      "text": "自由行動",
+      "roll": {
+       "dice": "1d20",
+       "natural": 10,
+       "parts": [],
+       "total": 10,
+       "dc": 13,
+       "degree": "fail",
+       "verdict": "no_but",
+       "margin": -3,
+       "attr": "intellect"
+      }
+     }
+    ],
+    "changes": [
+     {
+      "op": "time",
+      "minutes": 30
+     },
+     {
+      "op": "rng",
+      "advance": 1
+     },
+     {
+      "op": "chain",
+      "slot": {
+       "id": "c2",
+       "floor": 2
+      }
+     }
+    ],
+    "outcome": {
+     "result": "fail",
+     "summary": "測試主角：自由行動，失敗（骰 10，合計 10，對 DC 13）。"
+    },
+    "narration": {
+     "results": []
+    },
+    "chain": "c2",
+    "id": "r3",
+    "time": {
+     "start": {
+      "day": 1,
+      "hour": 8,
+      "minute": 30
+     },
+     "end": {
+      "day": 1,
+      "hour": 9,
+      "minute": 0
+     }
+    }
+   }
+  ],
+  "chains": [
+   {
+    "id": "c1",
+    "floor": 1,
+    "detail": {
+     "chain": "free_action",
+     "steps": [
+      {
+       "id": "roll",
+       "kind": "code",
+       "status": "done",
+       "marks": [],
+       "result": {
+        "input": {
+         "kind": "free",
+         "text": "我看看四周"
+        },
+        "actor": "pc",
+        "attr": "intellect",
+        "refDc": 13,
+        "roll": {
+         "dice": "1d20",
+         "natural": 9,
+         "parts": [],
+         "total": 9,
+         "dc": 13,
+         "degree": "fail",
+         "verdict": "no_but",
+         "margin": -4,
+         "attr": "intellect"
+        },
+        "reroll": 0,
+        "history": [],
+        "minutes": 30,
+        "maxMinutes": 240,
+        "grade": 1
+       }
+      },
+      {
+       "id": "judge",
+       "kind": "ai",
+       "task": "judge",
+       "status": "fallback",
+       "marks": [],
+       "attempts": [],
+       "result": {
+        "judgment": {
+         "degree": "fail",
+         "attr": "intellect",
+         "dc": 13,
+         "reason": "",
+         "twist": "",
+         "minutes": 30,
+         "newPerson": false,
+         "roll": {
+          "dice": "1d20",
+          "natural": 9,
+          "parts": [],
+          "total": 9,
+          "dc": 13,
+          "degree": "fail",
+          "verdict": "no_but",
+          "margin": -4,
+          "attr": "intellect"
+         }
+        },
+        "clamps": []
+       }
+      },
+      {
+       "id": "hint",
+       "kind": "code",
+       "status": "done",
+       "marks": [],
+       "result": []
+      },
+      {
+       "id": "person",
+       "kind": "ai",
+       "task": "flavor_roster",
+       "status": "skipped",
+       "marks": []
+      },
+      {
+       "id": "reward",
+       "kind": "ai",
+       "task": "reward",
+       "status": "fallback",
+       "marks": [],
+       "attempts": [],
+       "result": {
+        "effects": [],
+        "changes": [],
+        "lines": [],
+        "clamps": [],
+        "errors": []
+       }
+      },
+      {
+       "id": "relate",
+       "kind": "ai",
+       "task": "relate",
+       "status": "skipped",
+       "marks": []
+      },
+      {
+       "id": "text",
+       "kind": "ai",
+       "task": "narrate",
+       "status": "fallback",
+       "marks": [],
+       "attempts": [],
+       "result": {
+        "uncovered": []
+       }
+      },
+      {
+       "id": "apply",
+       "kind": "apply",
+       "status": "done",
+       "marks": []
+      }
+     ]
+    }
+   },
+   {
+    "id": "c2",
+    "floor": 2,
+    "detail": {
+     "chain": "free_action",
+     "steps": [
+      {
+       "id": "roll",
+       "kind": "code",
+       "status": "done",
+       "marks": [],
+       "result": {
+        "input": {
+         "kind": "free",
+         "text": "再看一次"
+        },
+        "actor": "pc",
+        "attr": "intellect",
+        "refDc": 13,
+        "roll": {
+         "dice": "1d20",
+         "natural": 10,
+         "parts": [],
+         "total": 10,
+         "dc": 13,
+         "degree": "fail",
+         "verdict": "no_but",
+         "margin": -3,
+         "attr": "intellect"
+        },
+        "reroll": 0,
+        "history": [],
+        "minutes": 30,
+        "maxMinutes": 240,
+        "grade": 1
+       }
+      },
+      {
+       "id": "judge",
+       "kind": "ai",
+       "task": "judge",
+       "status": "fallback",
+       "marks": [],
+       "attempts": [],
+       "result": {
+        "judgment": {
+         "degree": "fail",
+         "attr": "intellect",
+         "dc": 13,
+         "reason": "",
+         "twist": "",
+         "minutes": 30,
+         "newPerson": false,
+         "roll": {
+          "dice": "1d20",
+          "natural": 10,
+          "parts": [],
+          "total": 10,
+          "dc": 13,
+          "degree": "fail",
+          "verdict": "no_but",
+          "margin": -3,
+          "attr": "intellect"
+         }
+        },
+        "clamps": []
+       }
+      },
+      {
+       "id": "hint",
+       "kind": "code",
+       "status": "done",
+       "marks": [],
+       "result": []
+      },
+      {
+       "id": "person",
+       "kind": "ai",
+       "task": "flavor_roster",
+       "status": "skipped",
+       "marks": []
+      },
+      {
+       "id": "reward",
+       "kind": "ai",
+       "task": "reward",
+       "status": "fallback",
+       "marks": [],
+       "attempts": [],
+       "result": {
+        "effects": [],
+        "changes": [],
+        "lines": [],
+        "clamps": [],
+        "errors": []
+       }
+      },
+      {
+       "id": "relate",
+       "kind": "ai",
+       "task": "relate",
+       "status": "skipped",
+       "marks": []
+      },
+      {
+       "id": "text",
+       "kind": "ai",
+       "task": "narrate",
+       "status": "fallback",
+       "marks": [],
+       "attempts": [],
+       "result": {
+        "uncovered": []
+       }
+      },
+      {
+       "id": "apply",
+       "kind": "apply",
+       "status": "done",
+       "marks": []
+      }
+     ]
+    }
+   }
+  ],
+  "battle": null,
+  "maps": {
+   "instances": {},
+   "at": null,
+   "seq": 0
+  },
+  "snapshots": [
+   {
+    "id": "s1",
+    "kind": "stage",
+    "label": "第 2 版的階段快照",
+    "raw": "{\"format\":\"cyberpunkpink-engine-save\",\"version\":2,\"meta\":{\"label\":\"測試主角・第 1 天 08:30\",\"day\":1,\"time\":\"第 1 天 08:30\",\"place\":\"test · empty_room\",\"savedAt\":\"\",\"kind\":\"snapshot\",\"pc\":{\"name\":\"測試主角\"}},\"state\":{\"version\":2,\"rng\":{\"seed\":7,\"cursor\":1},\"time\":{\"day\":1,\"hour\":8,\"minute\":30},\"money\":{\"cred\":1200,\"cash\":345},\"location\":{\"district\":\"test\",\"block\":\"empty_room\",\"scene\":\"一個空房間\"},\"pc\":\"pc\",\"actors\":{\"pc\":{\"id\":\"pc\",\"name\":\"測試主角\",\"role\":\"pc\",\"age\":25,\"gender\":\"female\",\"perks\":[],\"hp\":40,\"load\":0,\"afterglow\":0,\"sink\":0,\"conditions\":[],\"attrs\":{\"body\":10,\"reflex\":10,\"tech\":10,\"intellect\":10,\"resolve\":10,\"charm\":10},\"skills\":{},\"ext\":{}},\"npc_ray\":{\"id\":\"npc_ray\",\"name\":\"雷\",\"role\":\"companion\",\"age\":25,\"gender\":\"female\",\"perks\":[],\"hp\":40,\"load\":0,\"afterglow\":0,\"sink\":0,\"conditions\":[],\"skills\":{\"stealth\":2},\"attrs\":{\"body\":10,\"reflex\":10,\"tech\":10,\"intellect\":10,\"resolve\":10,\"charm\":10},\"ext\":{}}},\"party\":[\"pc\",\"npc_ray\"],\"inventory\":[{\"id\":\"it_medkit\",\"qty\":2}],\"flags\":{\"met_ray\":true},\"counters\":{\"visits\":3},\"rules\":{\"difficulty\":\"normal\",\"dcOffset\":0,\"fastTravel\":true,\"billMult\":1,\"defeatView\":\"always\",\"defeatTakeGear\":true,\"enemyCoef\":{\"boss\":{\"hp\":1,\"dmg\":1,\"load\":1},\"minions\":[{\"hp\":1,\"dmg\":1,\"load\":1},{\"hp\":1,\"dmg\":1,\"load\":1},{\"hp\":1,\"dmg\":1,\"load\":1}]},\"defeatMoneyLoss\":1,\"defeatMoneyCap\":null,\"heavyWounds\":true,\"rosterDeath\":false,\"xpMult\":1,\"startXp\":200,\"startSkillPoints\":10,\"startSkillMax\":3,\"startPerkPoints\":4,\"startCyberPoints\":10,\"startMoney\":1500,\"contentOff\":[]},\"reports\":[{\"kind\":\"system\",\"action\":\"game.new\",\"location\":{},\"party\":[],\"timeline\":[],\"changes\":[],\"outcome\":{\"result\":\"created\",\"summary\":\"開新遊戲。\"},\"id\":\"r1\",\"time\":{\"start\":{\"day\":1,\"hour\":8,\"minute\":0},\"end\":{\"day\":1,\"hour\":8,\"minute\":0}}},{\"kind\":\"action\",\"action\":\"free\",\"location\":{\"district\":\"test\",\"block\":\"empty_room\",\"scene\":\"一個空房間\"},\"actor\":\"pc\",\"input\":\"我看看四周\",\"party\":[{\"id\":\"pc\",\"name\":\"測試主角\",\"hp\":[40,40,0],\"load\":[0,0,0],\"sink\":[0,0,0],\"afterglow\":0},{\"id\":\"npc_ray\",\"name\":\"雷\",\"hp\":[40,40,0],\"load\":[0,0,0],\"sink\":[0,0,0],\"afterglow\":0}],\"timeline\":[{\"layer\":\"meat\",\"actor\":\"pc\",\"text\":\"自由行動\",\"roll\":{\"dice\":\"1d20\",\"natural\":9,\"parts\":[],\"total\":9,\"dc\":13,\"degree\":\"fail\",\"verdict\":\"no_but\",\"margin\":-4,\"attr\":\"intellect\"}}],\"changes\":[{\"op\":\"time\",\"minutes\":30},{\"op\":\"rng\",\"advance\":1},{\"op\":\"chain\",\"slot\":{\"id\":\"c1\",\"floor\":1}}],\"outcome\":{\"result\":\"fail\",\"summary\":\"測試主角：自由行動，失敗（骰 9，合計 9，對 DC 13）。\"},\"narration\":{\"results\":[]},\"chain\":\"c1\",\"id\":\"r2\",\"time\":{\"start\":{\"day\":1,\"hour\":8,\"minute\":0},\"end\":{\"day\":1,\"hour\":8,\"minute\":30}}}],\"chains\":[{\"id\":\"c1\",\"floor\":1,\"detail\":{\"chain\":\"free_action\",\"steps\":[{\"id\":\"roll\",\"kind\":\"code\",\"status\":\"done\",\"marks\":[],\"result\":{\"input\":{\"kind\":\"free\",\"text\":\"我看看四周\"},\"actor\":\"pc\",\"attr\":\"intellect\",\"refDc\":13,\"roll\":{\"dice\":\"1d20\",\"natural\":9,\"parts\":[],\"total\":9,\"dc\":13,\"degree\":\"fail\",\"verdict\":\"no_but\",\"margin\":-4,\"attr\":\"intellect\"},\"reroll\":0,\"history\":[],\"minutes\":30,\"maxMinutes\":240,\"grade\":1}},{\"id\":\"judge\",\"kind\":\"ai\",\"task\":\"judge\",\"status\":\"fallback\",\"marks\":[],\"attempts\":[],\"result\":{\"judgment\":{\"degree\":\"fail\",\"attr\":\"intellect\",\"dc\":13,\"reason\":\"\",\"twist\":\"\",\"minutes\":30,\"newPerson\":false,\"roll\":{\"dice\":\"1d20\",\"natural\":9,\"parts\":[],\"total\":9,\"dc\":13,\"degree\":\"fail\",\"verdict\":\"no_but\",\"margin\":-4,\"attr\":\"intellect\"}},\"clamps\":[]}},{\"id\":\"hint\",\"kind\":\"code\",\"status\":\"done\",\"marks\":[],\"result\":[]},{\"id\":\"person\",\"kind\":\"ai\",\"task\":\"flavor_roster\",\"status\":\"skipped\",\"marks\":[]},{\"id\":\"reward\",\"kind\":\"ai\",\"task\":\"reward\",\"status\":\"fallback\",\"marks\":[],\"attempts\":[],\"result\":{\"effects\":[],\"changes\":[],\"lines\":[],\"clamps\":[],\"errors\":[]}},{\"id\":\"relate\",\"kind\":\"ai\",\"task\":\"relate\",\"status\":\"skipped\",\"marks\":[]},{\"id\":\"text\",\"kind\":\"ai\",\"task\":\"narrate\",\"status\":\"fallback\",\"marks\":[],\"attempts\":[],\"result\":{\"uncovered\":[]}},{\"id\":\"apply\",\"kind\":\"apply\",\"status\":\"done\",\"marks\":[]}]}}],\"battle\":null,\"maps\":{\"instances\":{},\"at\":null,\"seq\":0},\"snapshots\":[],\"seq\":{\"report\":2,\"chain\":1,\"uid\":0,\"floor\":1},\"ext\":{}}}",
+    "owner": "cm_1"
+   }
+  ],
+  "seq": {
+   "report": 3,
+   "chain": 2,
+   "uid": 1,
+   "floor": 2
+  },
+  "ext": {
+   "world": {
+    "visited": [
+     "test"
+    ]
+   }
+  }
+ }
+}

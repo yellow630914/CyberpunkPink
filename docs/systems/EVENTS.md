@@ -559,7 +559,7 @@ DC = 12 ＋ 4（管理級）＋ ⌊馴化 ÷ 10⌋ ＋ 沉溺的懲罰（迷醉 
   "scope": "street",
   "triggers": ["enter_block", "walk"],
   "where": { "district": "42nd", "blocks": ["uptown"] },
-  "when": { "time": ["evening", "late"], "weekday": ["fri"] },
+  "when": { "time": ["prime", "late"], "weekday": [4] },
   "category": "opportunity",
   "weight": 3,
   "cast": [{ "role": "a", "gen": { "faction": "hizakura", "kind": "citizen", "occupation": "主管" } }],

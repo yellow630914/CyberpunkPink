@@ -13,6 +13,7 @@ import { characterFeature } from './character'
 import { combatFeature } from './combat'
 import { creationFeature } from './creation'
 import { defeatFeature } from './defeat'
+import { directorFeature } from './director'
 import { enemiesFeature } from './enemies'
 import { favorsFeature } from './favors'
 import { gearFeature } from './gear'
@@ -22,7 +23,7 @@ import { perksFeature } from './perks'
 import { summonsFeature } from './summons'
 import { worldFeature } from './world'
 
-export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [combatFeature.id]: combatFeature, [gearFeature.id]: gearFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature, [exploreFeature.id]: exploreFeature, [summonsFeature.id]: summonsFeature, [abilitiesFeature.id]: abilitiesFeature, [hackFeature.id]: hackFeature, [favorsFeature.id]: favorsFeature, [worldFeature.id]: worldFeature }
+export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [combatFeature.id]: combatFeature, [gearFeature.id]: gearFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature, [exploreFeature.id]: exploreFeature, [summonsFeature.id]: summonsFeature, [abilitiesFeature.id]: abilitiesFeature, [hackFeature.id]: hackFeature, [favorsFeature.id]: favorsFeature, [worldFeature.id]: worldFeature, [directorFeature.id]: directorFeature }
 
 export function allFeatures(): Feature[] {
   return Object.values(FEATURES)
