@@ -9,6 +9,9 @@
   - `makeBattleGame({ battle, features, content, seed, … })`：一局已經開打的遊戲；`playOut(game)`：雙方都由程式選動作，打到分出結果；`fixDice(run, [骰面…])`：把一個 `BattleRun` 的骰釘死（規則的測試一顆一顆驗）。
   - `TEST_COMBAT`：一組最小的行動（攻擊、換彈、監視），讓核心的測試、冒煙、探針不必等現實戰鬥的功能。正式的行動表在 `features/combat`。
   - `engine/tests/helpers/battle.ts`（測試共用）：`arena()` 建一場不經過提交的戰鬥、`duel()` 幾對幾的小場地、`one()`／`foe()` 一個我方或敵方的單位。
+- M2 加的（`engine/src/testkit/activity.ts`；dev/adr/0016）：
+  - `TEST_ACTIVITY`：玩具活動（種類 `toy`，狀態放 `state.ext.toy`：`{ id, steps, goal, origin }`），給核心與下游的測試當替身，不必等事件、成人場景、委託副本做完。裝在 `makeGame` 的 `features` 裡。放行 `toy.`、`commit:toy.`，其餘全擋（`玩具活動進行中，先把它做完。`，order 20）；要讓它放行別的事用 `game.k.activity.allow('toy', 前綴, 主人)`。
+  - 開始：`game.launch('toy', setup, origin?)` 或一份報告的 `launch`；`setup` 是 `{ goal?, refuse?, then? }`（`refuse` 是開不成的原因，一條一句，測 `launch` 開不成的回滾；`then` 是開始的那份報告自己帶的 `launch`，測連開幾層）。走一步 `toyStep(state)`、結束 `toyEnd(k, state, outcome?)` 都回傳報告草稿；`toyEnd` 同時是「活動的主人怎麼用 `endActivity`、`attachActivityEnd` 組結束的那一份報告」的範例（發 `activity.end`，`kind: 'toy'`，`result: { steps, goal }`）。`toyOf(state)` 讀現在的狀態。
 
 ## 2. 探針介面
 - 在 L3～L5 開唯讀的觀察點：提交報告前後、每一個掛鉤被呼叫時、登錄表註冊時、任務鏈每一步的狀態變化。

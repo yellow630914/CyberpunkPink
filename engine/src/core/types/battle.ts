@@ -312,7 +312,16 @@ export interface BattleOrigin {
    * 之後叫來的增援不會把分母墊高。開打時由核心記下，之後不變
    */
   headcount?: Record<BattleSide, number>
-  /** 發起的功能自己要記的東西（委託副本的階段、地圖上的遭遇點……） */
+  /**
+   * 發起的功能自己要記的東西（委託副本的階段、地圖上的遭遇點……）。核心不讀（除了 by 與 ref：結束時發給 activity.end 的 origin），
+   * 但發起的與聽結果的功能約定這幾個鍵（dev/adr/0016 第五節；誰發起誰填，聽的人照名字讀、不 import 對方）：
+   * - `by`：發起的功能的 id（activity.end 的 origin.by 取自這裡，沒寫就是 core）；`ref`：發起的人自己的指標（可以沒有）。
+   * - `commission`：這一場屬於哪一件委託（技能「每件委託 1 次」的次數照這個鍵記；dev/adr/0015 E3）。
+   * - `stage`：委託副本的第幾個階段；`face`：這一段是哪一個面（meat、net、opinion）。
+   * - `pre`：開打前的事，`{ spotted?: boolean; disguise?: boolean }`：開打前被識破了沒有（spotted 為 true 時偽裝不生效）、有沒有喬裝。
+   * - `defeat_event`：這一場輸了要走哪一件戰敗事件（副本自訂的；沒寫照勢力的預設）。
+   * 這一批不加程式；別的鍵各功能自己加，名字寫在自己的工單裡。
+   */
   ext?: Record<string, unknown>
 }
 
@@ -331,8 +340,14 @@ export interface BattleState {
   /** 輪到 order 的第幾個 */
   turn: number
   units: Record<string, BattleUnit>
-  /** 還在後方排隊的單位（照順序補上來） */
+  /** 還在後方排隊的單位（照順序補上來；叫來還沒進場的在最前面） */
   reserve: Record<BattleSide, string[]>
+  /**
+   * 叫來還沒進場的單位 id，照叫的順序（run.callIn；dev/adr/0016 第五節）。他們也在 reserve 裡（最前面），但平常的補位（reinforce）不理他們，
+   * 下一輪開頭（round.start 之前）才補進最後面的空格；補進去、或沒有空格（被別人佔了）時整個欄位拿掉，之後留在後方的照平常補位。
+   * 沒有人在等時沒有這個欄位（舊的存檔也沒有）
+   */
+  called?: string[]
   /** 每一方四格的遮蔽；索引 0 是第 1 格 */
   cover: Record<BattleSide, BattleCover[]>
   overlays: BattleOverlay[]
@@ -385,6 +400,8 @@ export const BATTLE_EVENTS = [
   'move', 'push', 'pull', 'reload', 'swap', 'item', 'watch', 'watch.fire',
   'status', 'status.end', 'skill', 'support', 'overlay', 'overlay.down', 'node', 'field', 'hull', 'hull.break',
   'revive',
+  // 叫來增援（run.callIn：排進後方，下一輪開頭才進場；進場那一拍是 reinforce，data.called 是 true）
+  'call_in',
   // 功能自己的事件：angel（天使急救的小隊把倒下的人帶走）、tease（誘惑沒有橋或太遠）、trait（開戰時敵人特徵上身）
   'angel', 'tease', 'trait',
 ] as const

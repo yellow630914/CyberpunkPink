@@ -483,6 +483,22 @@ export function battleProblems(b: unknown): string[] {
       hung.set(key, raw.id)
     }
   }
+  // 叫來還沒進場的人（run.callIn）：每一個都要在自己那一方的後方排著（slot 是 0、沒有退出、在 reserve 裡），不重複
+  if (b.called !== undefined) {
+    if (!Array.isArray(b.called)) p.push('called 要是單位 id 的陣列')
+    else {
+      const reserve = isRecord(b.reserve) ? b.reserve : {}
+      const dup = new Set<unknown>()
+      for (const id of b.called) {
+        const u = typeof id === 'string' ? units[id] : undefined
+        const queue = isRecord(u) ? reserve[u.side as string] : undefined
+        if (!isRecord(u)) p.push(`called：${String(id)} 不是這場戰鬥的單位`)
+        else if (dup.has(id)) p.push(`called：${String(id)} 重複了`)
+        else if (u.out || u.slot !== 0 || !Array.isArray(queue) || !queue.includes(id)) p.push(`called：${String(id)} 要在後方排隊（沒有退出、slot 是 0、在自己那一方的 reserve 裡）`)
+        dup.add(id)
+      }
+    }
+  }
   // 還沒分出結果的戰鬥，輪到的那個人要在場上（讀進一份「沒有人能動」的戰鬥會卡死）
   if (!b.result && b.order.length > 0 && isInt(b.turn) && (b.turn as number) >= 0 && (b.turn as number) < b.order.length) {
     const cur = units[b.order[b.turn as number] as string]

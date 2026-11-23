@@ -10,6 +10,7 @@ import { ifProblem, whoProblem } from './effects'
 import { sameTarget, wielded } from './field'
 import type { BattleMode, BattleNumbers, ModKind } from './rules'
 import type { BattleRun } from './run'
+import type { UnitRef } from './units'
 
 /** 行動圓環的哪一圈（COMBAT_SYSTEM 第 10 節）：中心是技能，內環攻擊，中環補充與切換，外環戰術；system 是圓環外面那一列（結束回合、脫離、投降）。 */
 export type BattleActionGroup = 'attack' | 'supply' | 'tactic' | 'skill' | 'system'
@@ -36,7 +37,30 @@ export interface BattleView {
   isExposed(unit: BattleUnit): boolean
   /** 行動點與其他的池夠不夠 */
   canAfford(unit: BattleUnit, cost: { ap?: number; [pool: string]: number | undefined }): boolean
+  /**
+   * 這一方現在叫得到的候補（k.battle.bench 登記的每個來源合在一起；dev/adr/0016 第五節）：同一個 id 只留第一筆，
+   * 已經在這一場裡的人（上場的、在後方等的、倒下或退出的、叫了還沒進場的）不列。沒有人登記就是空的。
+   * 每一筆的 blocks 是現在叫不了他的原因（一條一個條件）；叫不叫得進場另外看 run.callIn 有沒有空格
+   */
+  bench(side: BattleSide): BenchEntry[]
 }
+
+/**
+ * 候補的一個人（k.battle.bench 的來源回答的每一筆）：這一方叫得到、但還不在這一場裡的人。
+ * 核心不替來源決定「誰算候補」（名冊上有空的人、技能召來的幫手……）；只管合起來、去重、拿掉已經在場裡的。
+ */
+export interface BenchEntry {
+  /** 候補的識別（同一個人在不同來源裡用同一個 id；合起來時只留第一筆）。名冊的人用角色的 id */
+  id: string
+  /** 叫他進場時交給 run.callIn 的那一筆（和開戰時的 UnitRef 同一種格式；名冊的人是 { from: 'actor', id }） */
+  ref: UnitRef
+  /** 給玩家看的名字 */
+  name: string
+  /** 現在叫不了他的原因，一條一個條件（給玩家看的完整句子）；空的就是叫得了。叫不了的照樣列出來：灰掉但看得到 */
+  blocks: string[]
+}
+/** 一個候補的來源：回答「這一方現在叫得到誰」。拿到的 battle 是這一刻的戰鬥狀態，只讀。 */
+export type BenchSource = (state: GameState, battle: BattleState, side: BattleSide) => BenchEntry[]
 
 /** 一個可以選的目標，以及現在選不了的原因（一條一條列；空的就是可以選）。 */
 export interface BattleTargetOption {
@@ -236,8 +260,8 @@ export type BattleModifier = (q: ModQuery) => RollPart[]
 /** 戰鬥裡的掛點。處理函式拿到正在算的這一步（BattleRun），可以用它的基本動作改戰鬥狀態；不可以碰 GameState。 */
 export interface BattleHookMap {
   /**
-   * 一個單位剛組好（開打時每個上場與在後方等的人各一次；還沒擲先攻、還沒輪到任何人）。
-   * 功能把自己的資料掛到單位上：裝著的技能、義體、帶進來的東西。先攻的修正讀得到這裡掛上去的東西
+   * 一個單位剛組好（開打時每個上場與在後方等的人各一次；還沒擲先攻、還沒輪到任何人；戰鬥中用 run.callIn 叫來的人在叫來的那一刻也發一次，
+   * 那時他在後方、還沒有先攻）。功能把自己的資料掛到單位上：裝著的技能、義體、帶進來的東西。先攻的修正讀得到這裡掛上去的東西
    */
   'unit.ready': { run: BattleRun; unit: BattleUnit }
   /** 開打：單位都站好、先攻擲完之後。技能的開場效果、預備帶進來的東西放這裡 */
@@ -482,6 +506,7 @@ export class BattleRegistry {
   private sources = new Map<string, { owner: string; fn: UnitSource }>()
   private loadouts: Array<{ owner: string; fn: LoadoutProvider }> = []
   private effects = new Map<string, BattleEffectDef>()
+  private benches: Array<{ owner: string; fn: BenchSource }> = []
 
   constructor(private probe: Probe) {}
 
@@ -563,6 +588,35 @@ export class BattleRegistry {
 
   getUnitSource(kind: string): UnitSource | undefined {
     return this.sources.get(kind)?.fn
+  }
+
+  /**
+   * 候補的來源（dev/adr/0016 第五節）：回答「這一方現在叫得到誰」，每個人一筆（BenchEntry）。名冊登記「名冊上有空、不在這一場裡的人」，
+   * 技能的「增援」只問 view.bench、呼叫 run.callIn，不知道名冊。可以登記好幾個來源（來源之間不互相知道）；同一個 owner 也可以登記幾次。
+   */
+  bench(owner: string, fn: BenchSource): void {
+    this.benches.push({ owner, fn })
+    this.reg('battle.benches', owner, owner)
+  }
+
+  /**
+   * 這一方現在叫得到的候補：每個來源照登記的順序回答，合起來。同一個 id 只留第一筆；已經在這一場裡的人不列：
+   * 這一場有單位的 actor 等於他的 id（或 ref 是 { from: 'actor', id } 而 id 對得上）。不是角色的候補，來源拿到 battle、自己看有沒有已經在場裡。
+   */
+  benchOf(state: GameState, battle: BattleState, side: BattleSide): BenchEntry[] {
+    const present = new Set<string>()
+    for (const u of Object.values(battle.units)) if (u.actor) present.add(u.actor)
+    const seen = new Set<string>()
+    const out: BenchEntry[] = []
+    for (const src of this.benches) {
+      for (const e of src.fn(state, battle, side)) {
+        if (seen.has(e.id)) continue
+        seen.add(e.id)
+        if (present.has(e.id) || (e.ref.from === 'actor' && typeof e.ref.id === 'string' && present.has(e.ref.id))) continue
+        out.push(e)
+      }
+    }
+    return out
   }
 
   /** 角色帶進戰鬥的裝備。 */

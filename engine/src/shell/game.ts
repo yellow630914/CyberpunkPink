@@ -8,7 +8,7 @@ import type { ContentPack } from '../core/content/registry'
 import { ActionBlocked } from '../core/action/action'
 import type { ActionInput } from '../core/action/kinds'
 import { battleSetupWithOrigin } from '../core/action/coreActivities'
-import { commitTurn, commitTurnIn } from '../core/action/turn'
+import { commitTurnIn } from '../core/action/turn'
 import type { BattleSetup } from '../core/battle/setup'
 import type { GridDir } from '../core/grid/model'
 import type { GridView, OpenMapOpts } from '../core/grid/walk'
@@ -23,7 +23,7 @@ import { sanitizeRules } from '../core/state/saveRules'
 import { clone, replaceInPlace } from '../core/util/clone'
 import { isRecord } from '../core/util/sanitize'
 import { daysUntilWeekday, segmentOf, segmentWeekdayOf, weekdayOf } from '../core/util/time'
-import type { ChainStatus, StepRequest } from './ai/chain'
+import type { ChainEnv, ChainStatus, StepRequest } from './ai/chain'
 import { ChainRegistry, ChainRun } from './ai/chain'
 import { battleEndChain } from './battle'
 import { freeActionChain, registerFreeActionTasks } from './ai/freeAction'
@@ -126,6 +126,8 @@ export class Game {
   private last: { run: ChainRun; before: GameState; seqAfter: number | null } | null = null
   private listeners: Listener[] = []
   private taskEnv: TaskEnv
+  /** 任務鏈的環境：套用時的提交走 commitWithLaunch（報告帶的 launch 在同一次提交裡開；開不成整條鏈的套用不成立） */
+  private readonly chainEnv: ChainEnv
 
   constructor(opts: GameOptions = {}) {
     this.k = createKernel(opts.features ?? [])
@@ -138,6 +140,7 @@ export class Game {
     this.hub = new ProviderHub(opts.sources ?? {}, opts.fakeProvider ?? null)
     this.tasks = new TaskRegistry(this.k.probe)
     this.taskEnv = { hub: this.hub, limiter: this.limiter, probe: this.k.probe, now: opts.now ?? (() => Date.now()), idleTimeoutMs: opts.idleTimeoutMs ?? IDLE_TIMEOUT_MS }
+    this.chainEnv = { k: this.k, tasks: this.tasks, taskEnv: this.taskEnv, commit: (draft) => this.commitWithLaunch(draft, true) }
     registerFreeActionTasks(this.k, this.tasks)
     this.chains.register(freeActionChain())
     this.chains.register(battleEndChain())
@@ -173,7 +176,8 @@ export class Game {
     })]
     if (opts.setup) {
       const drafts = opts.setup(fresh)
-      for (const d of Array.isArray(drafts) ? drafts : [drafts]) reports.push(...commitTurn(this.k, fresh, d))
+      // 開局的報告帶 launch 也照順序開（開不成整個開局不成立，原本那一局不動）
+      for (const d of Array.isArray(drafts) ? drafts : [drafts]) reports.push(...commitAtomic(this.k, fresh, (tx) => this.settleIn(tx, d, true)))
     }
     this.last?.run.cancel()
     replaceInPlace(this.state, fresh)
@@ -219,6 +223,8 @@ export class Game {
    * 戰鬥中、或有等著選的戰敗時，別的報告不收：丟 ActionBlocked（reason 是給玩家看的原因；見 blockOf），狀態不變。
    * 這之後，更早套用的那條鏈就不能再重試、重擲（只能回退）：重試會把這一份提交一起抹掉。
    * 停在半路等玩家的鏈則作廢（和開始新的行動一樣）。
+   * 報告帶 launch（dev/adr/0016）：提交之後照順序開那些活動，開出來的報告接在回傳的後面；和這份報告是同一步回退、不另算一個回合。
+   * 任何一個開不成，整步不成立：狀態回到這一步之前（含這份報告本身），丟 ActionBlocked（原因是那個活動給的）。
    */
   commit(draft: ReportDraft, opts: string | CommitOptions = {}): Report[] {
     const block = this.blockOf(`commit:${draft.action}`, draft)
@@ -258,14 +264,17 @@ export class Game {
     return reports
   }
 
-  /** 照順序處理每一份報告的 launch；開出來的報告自己帶的 launch 接著處理（層數照 MAX_LAUNCH_DEPTH）。開出來的報告接在 reports 後面。 */
+  /**
+   * 照順序處理每一份報告的 launch；開出來的報告自己帶的 launch 接著處理（深度優先，層數照 MAX_LAUNCH_DEPTH）。
+   * 開出來的報告（連同它們再開出來的）接在 reports 後面，順序就是提交的順序。
+   */
   private launchAll(tx: CommitTx, reports: Report[], depth = 1): void {
     for (const r of [...reports]) {
       for (const l of r.launch ?? []) {
         if (depth > MAX_LAUNCH_DEPTH) throw new Error(`活動連開超過 ${MAX_LAUNCH_DEPTH} 層（${r.action ?? r.id} 還在開 ${l.kind}），可能是兩個功能互相觸發。`)
         const made = this.launchIn(tx, l)
-        reports.push(...made)
         this.launchAll(tx, made, depth + 1)
+        reports.push(...made)
       }
     }
   }
@@ -327,11 +336,11 @@ export class Game {
     // 有等著選的戰敗時也一樣：先三選一（8.4 節）
     const block = this.blockOf(`chain:${chainId}`)
     if (block) {
-      return { status: 'refused', reason: block, run: new ChainRun({ k: this.k, tasks: this.tasks, taskEnv: this.taskEnv }, def, this.state, input, this.settings), reports: [] }
+      return { status: 'refused', reason: block, run: new ChainRun(this.chainEnv, def, this.state, input, this.settings), reports: [] }
     }
     this.abandonPaused()
     const before = clone(this.state)
-    const run = new ChainRun({ k: this.k, tasks: this.tasks, taskEnv: this.taskEnv }, def, this.state, input, this.settings)
+    const run = new ChainRun(this.chainEnv, def, this.state, input, this.settings)
     this.undo.pushSnapshot(before, label)
     this.last = { run, before, seqAfter: null }
     try {
@@ -571,6 +580,8 @@ export class Game {
    * 在格子地圖上走：一個方向（一格），或一個目的地（照最短路走，遇到事情就停）。
    * 走不過去回傳 refused 與原因，狀態不變。走到敵人那一格就開打：這一步提交之後接著開戰（state.battle 有了）。
    * 開不成戰（遭遇點寫了不存在的敵人、隊伍是空的）整步不成立：先試開打、成了才提交走路，不會人已經站過去、戰卻沒開（不變式第 3 條）。
+   * 走這一步帶出來的 launch（GridEffect.launch）也是這一步的一部分：走路、接著的報告、它們的 launch、開打是一次提交，
+   * 任何一個開不成（被活動擋下、活動自己開不成）整步不成立，回傳 refused 與原因。
    */
   gridMove(to: GridDir | [number, number]): { status: 'applied' | 'refused'; reason?: string; reports: Report[] } {
     const block = this.blockOf('grid.move')
@@ -585,10 +596,33 @@ export class Game {
       if (walked! && walked.battle) return { status: 'refused', reason: `這裡的戰鬥開不起來（${(e as Error).message}）。`, reports: [] }
       throw e
     }
-    // 走路併進最新一樓：不另留回退；接著的事（事件、開打）各自提交
-    const reports = this.commitNow(walked.draft, { attach: true })
-    for (const f of walked.followUps) reports.push(...this.commitNow(f, { attach: true }))
-    if (walked.battle) reports.push(...this.startBattle(walked.battle))
+    if (this.last?.run.status === 'running') throw new Error('上一條任務鏈還在跑。')
+    // 走路併進最新一樓：不另留回退；接著的事（事件、開打）各自是一份報告，開戰另留一步回退（回到人已經站在那一格的時候）
+    let beforeBattle: GameState | null = null
+    let reports: Report[]
+    try {
+      reports = commitAtomic(this.k, this.state, (tx) => {
+        const out = this.settleIn(tx, walked.draft, true)
+        for (const f of walked.followUps) out.push(...this.settleIn(tx, f, true))
+        if (walked.battle) {
+          const blocked = this.k.activity.blockOf(tx.work, 'battle.start')
+          if (blocked) throw new ActionBlocked(blocked)
+          beforeBattle = clone(tx.work)
+          const draft = startBattle(this.k, tx.work, walked.battle)
+          draft.changes.push(...this.battleSnapshotChanges(tx.work, walked.battle))
+          const started = tx.commit(draft)
+          out.push(...started)
+          this.launchAll(tx, started)
+        }
+        return out
+      })
+    } catch (e) {
+      if (e instanceof ActionBlocked) return { status: 'refused', reason: e.reason, reports: [] }
+      throw e
+    }
+    this.abandonPaused()
+    if (beforeBattle) this.undo.pushSnapshot(beforeBattle, '開戰')
+    this.notify(reports)
     return { status: 'applied', reports }
   }
 

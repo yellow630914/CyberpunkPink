@@ -97,6 +97,11 @@ export interface ChainEnv {
   k: Kernel
   tasks: TaskRegistry
   taskEnv: TaskEnv
+  /**
+   * 套用時怎麼提交（回合流程加上報告帶的 launch，整件事是一次提交）。Game 給；沒給的話直接 commitTurn（沒有 launch 的處理）。
+   * 提交不成立（含 launch 開不成丟 ActionBlocked）時狀態完全不動，這條鏈停下來。
+   */
+  commit?(draft: ReportDraft): Report[]
 }
 
 /**
@@ -257,7 +262,7 @@ export class ChainRun {
     draft.chain = this.id
     draft.changes.push({ op: 'chain', slot: { id: this.id, floor, detail: { chain: this.template.chain, steps: clone(this.steps) } } })
     try {
-      this.reports = commitTurn(this.env.k, this.ctx.state, draft)
+      this.reports = this.env.commit ? this.env.commit(draft) : commitTurn(this.env.k, this.ctx.state, draft)
     } catch (e) {
       // 套用只寫驗證過的草稿，照理不會失敗；真的失敗時（例：掛鉤接著提交的報告不合法）整個回合不套、狀態完全沒變，這條鏈停下來
       apply.error = { kind: 'code', message: (e as Error).message, details: [] }

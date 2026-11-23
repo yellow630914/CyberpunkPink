@@ -13,7 +13,7 @@ import type { BattleInput, BattleState, BattleTarget, BattleUnit, Change, GameSt
 import { partySnapshot } from '../action/action'
 import { attachActivityEnd, endActivity } from '../action/activity'
 import { clone } from '../util/clone'
-import { currentUnit, poolShort, sameTarget, unitTag } from './field'
+import { currentUnit, distancesFrom, poolShort, sameTarget, unitTag } from './field'
 import { BattleBlocked, performAction } from './act'
 import { aiStep } from './ai'
 import type { BattleActionDef, BattleActionGroup, BattleKernel, BattlePick, BattleTargetKind, BattleTargetOption } from './registry'
@@ -60,6 +60,11 @@ export interface BattleOptions {
   waiting: 'player' | 'ai' | 'over'
   /** 輪到的那個人能做的行動（照圓環的圈與順序）；等的不是玩家時是空的 */
   actions: BattleActionOption[]
+  /**
+   * 輪到的人到對面每個還在場上的單位、每一台沒被擊落的掛著的東西的距離：鍵是那個單位（f1）或那一台（o3）的 id，值是核心的 distance（我的格 ＋ 他的格 − 1）。
+   * 每次都帶；沒有人輪到（分出結果了）是空的。畫面不必自己算
+   */
+  distances: Record<string, number>
 }
 
 function optionOf(run: BattleRun, u: BattleUnit, def: BattleActionDef): BattleActionOption {
@@ -82,12 +87,13 @@ export function battleOptions(k: BattleKernel, state: GameState): BattleOptions 
   const b = state.battle
   if (!b) return null
   const u = currentUnit(b)
-  if (b.result || !u) return { battle: b.id, round: b.round, current: null, waiting: 'over', actions: [] }
-  if (u.control !== 'player') return { battle: b.id, round: b.round, current: u.id, waiting: 'ai', actions: [] }
+  if (b.result || !u) return { battle: b.id, round: b.round, current: null, waiting: 'over', actions: [], distances: {} }
+  const distances = distancesFrom(b, u)
+  if (u.control !== 'player') return { battle: b.id, round: b.round, current: u.id, waiting: 'ai', actions: [], distances }
   const run = new BattleRun(k, state, clone(b))
   const me = run.unit(u.id)
   const actions = k.battle.actionsFor(b.mode).filter((d) => !d.has || d.has(run, me)).map((d) => optionOf(run, me, d))
-  return { battle: b.id, round: b.round, current: u.id, waiting: 'player', actions }
+  return { battle: b.id, round: b.round, current: u.id, waiting: 'player', actions, distances }
 }
 
 function draftOf(run: BattleRun, action: string, by?: BattleUnit): ReportDraft {

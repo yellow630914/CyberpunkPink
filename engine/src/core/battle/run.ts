@@ -14,9 +14,11 @@ import { clone } from '../util/clone'
 import { BattleBlocked } from './act'
 import { runEffects } from './effects'
 import { SIDE_NAME, afterglowFull, coverAt, coverLevel, coverOf, currentUnit, distance, isWounded, onField, otherSide, overlayAt, poolName, rangeMod, standing, unitAt, unitTag, unitsOf, wielded } from './field'
-import type { BattleEffectInput, BattleEffectLast, BattleKernel, BattleView } from './registry'
+import type { BattleEffectInput, BattleEffectLast, BattleKernel, BattleView, BenchEntry, UnitSourceCtx } from './registry'
 import type { BattleMode, BattleNumbers, BattleStatusRule, ModKind, StatusUntil } from './rules'
 import { LOSE_TURN, coverHpFor, damageTypeOf, modeOf, statusMod, statusRuleOf } from './rules'
+import type { UnitRef } from './units'
+import { buildUnit, resolveUnit } from './units'
 
 const sum = (parts: RollPart[]): number => parts.reduce((s, p) => s + p.value, 0)
 
@@ -134,6 +136,14 @@ export interface ImplantStatusOpts {
   until?: StatusUntil
 }
 
+/** run.callIn 的選項。 */
+export interface CallInOpts {
+  /** 誰叫的（紀錄那一拍記他的角色）；沒寫就是沒有人（劇本、場地叫來的） */
+  by?: BattleUnit
+  /** 換掉叫人那一拍的句子（沒寫：「某某被叫來支援，下一輪開頭進場。」） */
+  text?: string
+}
+
 /** 和人重疊的東西（無人機、砲塔）的標籤：機器（電磁加倍照這個算）。 */
 const OVERLAY_TAGS: readonly string[] = ['machine']
 /** 替身（和人重疊的東西自己開火時的攻擊者）的標籤。 */
@@ -173,6 +183,11 @@ export class BattleRun implements BattleView {
 
   current(): BattleUnit | undefined {
     return currentUnit(this.battle)
+  }
+
+  /** 這一方現在叫得到的候補（BattleView.bench）：每個來源合起來，去重，已經在這一場裡的不列。 */
+  bench(side: BattleSide): BenchEntry[] {
+    return this.k.battle.benchOf(this.state, this.battle, side)
   }
 
   statusRule(id: string): BattleStatusRule {
@@ -816,6 +831,12 @@ export class BattleRun implements BattleView {
     if (u.out) return
     u.out = how
     delete u.watch
+    // 叫來還沒進場的人在後方就退出了（被帶走）：不再等著進場，也不留在後方排隊
+    if (this.battle.called?.includes(u.id)) {
+      this.battle.called = this.battle.called.filter((id) => id !== u.id)
+      if (!this.battle.called.length) delete this.battle.called
+      this.battle.reserve[u.side] = this.battle.reserve[u.side].filter((id) => id !== u.id)
+    }
     u.statuses = u.statuses.filter((s) => s.id !== LOSE_TURN)
     const words: Record<string, string> = { down: u.side === 'foe' ? '被打倒了' : '倒下了', burnout: '昏了過去', subdued: '被制伏，退出戰鬥', surrendered: '投降了', fled: '逃走了', removed: '被帶走了' }
     const tag = how === 'subdued' ? 'subdue' : how === 'surrendered' ? 'surrender' : how === 'fled' ? 'flee' : 'down'
@@ -865,6 +886,61 @@ export class BattleRun implements BattleView {
     // 功能自己記在他身上的限時的東西（buff、持續型快駭）也屬於「狀態清空」：由功能在這個掛點清
     this.k.battle.emit('revive', { run: this, unit: u })
     return true
+  }
+
+  /**
+   * 叫一個人來增援（dev/adr/0016 第五節；dev/adr/0013 C6）：照開戰時同一條路把 ref 解成單位（來源查不到丟錯；沒有空格時不解，直接回傳 null），排進這一方後方的最前面，
+   * 記一拍 call_in；**下一輪開頭**（round.start 之前）補進最後面的空格：先攻當場擲（照一般的補位）、行動點從上限開始、照先攻排進順序，
+   * 那一輪他就輪得到。回傳這個單位（還在後方：slot 是 0、不在先攻的順序裡；id 是新發的 a5、f5……）。
+   * 這一方現在沒有空格（站在場上的加上後方等著的〔含已經叫了還沒進場的〕，已經有四個）：回傳 null，什麼都不動。
+   * 到下一輪開頭時空格被別人佔了（倒下的人被救回來）：他留在後方，照平常的補位等（有人倒下才進場）。
+   * 叫來的人在叫來的那一刻發一次 unit.ready（功能把自己的資料掛上去）。戰鬥已經分出結果之後回傳 null。
+   * 叫得動誰（候補名單、叫了幾次、花什麼）由呼叫的功能先查：這裡不看 view.bench 的 blocks。
+   */
+  callIn(side: BattleSide, ref: UnitRef, opts: CallInOpts = {}): BattleUnit | null {
+    const b = this.battle
+    if (this.over) return null
+    // 空格 = 四格 − 站在場上的 − 在後方等著補上來的（含叫了還沒進場的：他們已經佔了一個空格）
+    if (unitsOf(b, side).length + b.reserve[side].length >= BATTLE_SLOTS) return null
+    // 有空格才解（解的時候不改任何狀態；來源查不到丟錯，狀態還是沒有動）
+    const ctx: UnitSourceCtx = { k: this.k, state: this.state, side, mode: b.mode, grade: b.grade, allyCount: b.origin.headcount?.ally ?? Object.values(b.units).filter((x) => x.side === 'ally').length }
+    const init = resolveUnit(this.k, this.state, ref, ctx, this.mode)
+    let n = Object.values(b.units).filter((x) => x.side === side).length + 1
+    const prefix = side === 'ally' ? 'a' : 'f'
+    while (b.units[`${prefix}${n}`]) n += 1
+    const u = buildUnit(init, ref, `${prefix}${n}`, side, 0)
+    // 剛上場的人行動點從上限開始（C6）；功能在 unit.ready 裡可以再改
+    u.ap.now = u.ap.max
+    b.units[u.id] = u
+    b.reserve[side].unshift(u.id)
+    b.called = [...(b.called ?? []), u.id]
+    // 功能把自己的資料掛上去；那一邊記的拍子（和開打時一樣）不進紀錄
+    const mark = this.beats.length
+    this.k.battle.emit('unit.ready', { run: this, unit: u })
+    this.beats.length = mark
+    this.say(opts.text ?? `${unitTag(u)} 被叫來支援，下一輪開頭進場。`, 'call_in', { unit: u.id, side, ...(opts.by ? { by: opts.by.id } : {}) }, opts.by)
+    return u
+  }
+
+  /**
+   * 叫來還沒進場的人（run.callIn）在一輪的開頭補進場（startRound 在 round.start 之前呼叫）：照叫的順序，各補進最後面的空格；
+   * 那一輪他就輪得到（開頭的時候誰都還沒動）。沒有空格的（被別人佔了）留在後方，不再算「叫來的」，之後照平常的補位。
+   */
+  admitCalled(): void {
+    const b = this.battle
+    const list = b.called
+    if (!list) return
+    delete b.called
+    for (const id of list) {
+      const u = b.units[id]
+      if (!u || u.out || u.slot >= 1 || this.over) continue
+      const slot = this.lastFreeSlot(u.side)
+      if (!slot) continue
+      const queue = b.reserve[u.side]
+      const at = queue.indexOf(id)
+      if (at >= 0) queue.splice(at, 1)
+      this.enter(u, slot, true)
+    }
   }
 
   // ---- 和人重疊的東西（COMBAT_SYSTEM 第 9 節；dev/adr/0015 第三節） ----
@@ -1179,35 +1255,51 @@ export class BattleRun implements BattleView {
     }
   }
 
+  /** 這一方最後面的空格（沒有就是 0）。 */
+  private lastFreeSlot(side: BattleSide): number {
+    for (let s = BATTLE_SLOTS; s >= 1; s--) if (!unitAt(this.battle, side, s)) return s
+    return 0
+  }
+
+  /**
+   * 一個在後方的人站上場：放進這一格；還不在先攻順序裡的當場擲先攻（1d20 ＋ mod(反應) ＋ 修正，和開打時同一條算式）並排進去；補位。
+   * roundStart：一輪開頭才進場的（run.callIn 叫來的）。那時誰都還沒動，輪到的指標不必讓位：他的順位排在最前面就是這一輪第一個動。
+   */
+  private enter(u: BattleUnit, slot: number, roundStart = false): void {
+    const b = this.battle
+    u.slot = slot
+    // 救回來之後排在後方的人（revive）本來就在先攻的順序裡，順位不變
+    if (!b.order.includes(u.id)) {
+      u.initiative = this.d20() + u.initBonus + sum(this.mods('initiative', u))
+      // 排在第一個先攻比他低的人前面（一樣高照開打時的規矩：我方先、再照站位）；都不比他低就排最後
+      const at = b.order.findIndex((id) => initiativeOrder(u, b.units[id]!) < 0)
+      if (at < 0) b.order.push(u.id)
+      else {
+        b.order.splice(at, 0, u.id)
+        // 插在輪到的人前面（或正好是他的位置）：指標跟著往後一格，輪到的還是原來那個人
+        if (at <= b.turn && !roundStart) b.turn += 1
+      }
+    }
+    this.say(`${unitTag(u)} 從後方補上來，站到第 ${slot} 格。`, 'reinforce', { unit: u.id, side: u.side, slot, ...(roundStart ? { called: true } : {}) })
+    this.exposed(u)
+    this.compact(u.side)
+  }
+
   /**
    * 後方排隊的人補上來：有空格才補，從最後面的空格進場；行動點從上限開始。
    * 先攻當場擲（1d20 ＋ mod(反應) ＋ 修正，和開打時同一條算式），照它排進先攻的順序：
    * 他的順位在這一輪已經過了，下一輪才動；還沒到，這一輪就輪得到他（COMBAT_SYSTEM 1.2 節；dev/adr/0013 C6）。
+   * 叫來還沒進場的人（run.callIn）不在這裡補：他們等下一輪開頭（admitCalled）；排在他們後面的人照常先補。
    */
   reinforce(side: BattleSide): void {
     const b = this.battle
     const queue = b.reserve[side]
-    while (queue.length && unitsOf(b, side).length < BATTLE_SLOTS && !this.over) {
-      let slot = 0
-      for (let s = BATTLE_SLOTS; s >= 1; s--) if (!unitAt(b, side, s)) { slot = s; break }
-      if (!slot) break
-      const u = this.unit(queue.shift()!)
-      u.slot = slot
-      // 救回來之後排在後方的人（revive）本來就在先攻的順序裡，順位不變
-      if (!b.order.includes(u.id)) {
-        u.initiative = this.d20() + u.initBonus + sum(this.mods('initiative', u))
-        // 排在第一個先攻比他低的人前面（一樣高照開打時的規矩：我方先、再照站位）；都不比他低就排最後
-        const at = b.order.findIndex((id) => initiativeOrder(u, b.units[id]!) < 0)
-        if (at < 0) b.order.push(u.id)
-        else {
-          b.order.splice(at, 0, u.id)
-          // 插在輪到的人前面（或正好是他的位置）：指標跟著往後一格，輪到的還是原來那個人
-          if (at <= b.turn) b.turn += 1
-        }
-      }
-      this.say(`${unitTag(u)} 從後方補上來，站到第 ${slot} 格。`, 'reinforce', { unit: u.id, side, slot })
-      this.exposed(u)
-      this.compact(side)
+    while (!this.over && unitsOf(b, side).length < BATTLE_SLOTS) {
+      const id = queue.find((x) => !b.called?.includes(x))
+      const slot = this.lastFreeSlot(side)
+      if (id === undefined || !slot) break
+      queue.splice(queue.indexOf(id), 1)
+      this.enter(this.unit(id), slot)
     }
   }
 

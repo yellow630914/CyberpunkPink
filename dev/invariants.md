@@ -11,6 +11,8 @@ M1 開工（2026-11-22）照定案改了第 29、36、43 條（錢分開夾、�
 M1 第一波之後的核心修正（2026-11-22；dev/adr/0014、審查 M1a）改了第 45、46、48、57 條，加了第 59～61 條（等著選的戰敗、花費與行動做完的掛點、開不起來的戰與壞掉的戰鬥存檔）。
 M1 第二波的核心（2026-11-22；dev/adr/0015）加了第 62 條（效果的 op 都查得到）。第二波收尾（M1b-core-closeout）改了第 64 條，加了第 66～69 條。第二波的核心小修（M1b-core-fix2、fix3）加了第 70～77 條。
 M1b 審查與白箱的核心修正（2026-11-23；dev/work/M1b-review-core.md）改了第 54、64、69 條，加了第 78～82 條。
+M2 的核心：戰鬥接縫（2026-11-23；dev/adr/0016 第五節、dev/work/M2-core-battle.md）改了第 45、54 條，加了第 86～88 條（叫人與候補、先攻的優勢與距離）。
+M2 開工的核心（2026-11-23；dev/adr/0016、dev/work/M2-core-activity.md）加了第 83～85 條（活動的登錄表）；第 48、59 條的實作改成問登錄表，句子與時機不變。
 
 ## 狀態與報告
 
@@ -85,7 +87,7 @@ M1b 審查與白箱的核心修正（2026-11-23；dev/work/M1b-review-core.md）
 | # | 不變式 | 出處 | 哪裡驗 |
 |---|---|---|---|
 | 44 | 戰鬥狀態（`state.battle`）只經由 `battle` 這一種變更改變；戰鬥的每一步（開打、玩家的一步、AI 的一步、結束）各是一份報告，照常經過提交。行動的條件、畫面的提示、AI 的打分只讀、不擲骰 | GAME_DESIGN 3 第 1、3 條；dev/adr/0011 | `tests/core/battle-flow.test.ts`「戰鬥狀態只經由提交改變」；`tests/probe/battle.probe.test.ts`；`tests/smoke/m1.test.ts`（全程 `commitViolations`） |
-| 45 | 一格最多一個單位（和人重疊的東西不算，每一方每格最多一台沒被擊落的；補位時它跟著掛的那一格走，掛在空出來那一格的退到第 4 格）；站位只有第 1～4 格；超過四個的在後方等，有空格才從最後面補上來；前面那一格沒有人也沒有遮蔽時，後面的人連同遮蔽往前遞補 | COMBAT_SYSTEM 2、2.4、9.1 | `tests/core/battle.test.ts`「站位、距離與遮蔽」「後方的增援」；提交時與讀檔時的 `battleProblems`；`tests/core/battle-m1-followups.test.ts`「E2」 |
+| 45 | 一格最多一個單位（和人重疊的東西不算，每一方每格最多一台沒被擊落的；補位時它跟著掛的那一格走，掛在空出來那一格的退到第 4 格）；站位只有第 1～4 格；超過四個的在後方等，有空格才從最後面補上來；前面那一格沒有人也沒有遮蔽時，後面的人連同遮蔽往前遞補；用 `run.callIn` 叫來的人不在這個補位裡，等下一輪開頭（第 86 條） | COMBAT_SYSTEM 2、2.4、9.1 | `tests/core/battle.test.ts`「站位、距離與遮蔽」「後方的增援」；提交時與讀檔時的 `battleProblems`；`tests/core/battle-m1-followups.test.ts`「E2」 |
 | 46 | 做不成的一步不改狀態、不留報告，回傳每一條原因（給玩家看的完整句子，寫出缺的是哪個條件）；灰掉的行動與選不了的目標都帶著原因。行動除了目標還要選的東西（`input.pick` 的每一個鍵）都用 `picks` 宣告，`battleOptions` 列出每一項、每個選項與選不了的原因；每個行動都帶圖示的鍵。宣告與行動本身（`run`）對得上 | COMBAT_SYSTEM 10；PLAN 5.5 第一項 | `tests/core/battle-flow.test.ts`「做不成的一步被擋下」「battleOptions」；`tests/pending/M1-combat.test.ts`（制伏的每一個條件）；`tests/features/M1-picks.test.ts`；`tests/core/battle-m1-followups.test.ts`「每個行動都有圖示的鍵」 |
 | 47 | 戰鬥裡的骰子由（種子、游標、這一場的 id、這一場擲到第幾次）導出：同一個狀態、同一串輸入，整場的結果一樣；戰鬥結束時游標往前一格。存讀檔不改變之後的骰 | AI_TASKS 2.4；dev/adr/0011 | `tests/core/battle-flow.test.ts`「同一個種子兩次的結果一樣」「存檔再讀檔之後接著打」 |
 | 48 | 戰鬥中不能做別的事：別的任務鏈（自由行動、事件）、別的報告（`Game.commit` 只收戰鬥的報告，其餘丟 `ActionBlocked`）、走地圖都擋下，原因寫出來；還沒分出結果不能結算；已經有一場在打不能再開一場 | COMBAT_SYSTEM 1.3（只有這張表上的行動） | `tests/core/battle-flow.test.ts`「戰鬥中不能做別的事」；`tests/core/battle-m1-followups.test.ts`「S3」 |
@@ -94,7 +96,10 @@ M1b 審查與白箱的核心修正（2026-11-23；dev/work/M1b-review-core.md）
 | 51 | 遮蔽：半掩體迴避 +2、掩體 +4；耐久照場景的等級（半掩體 15／15／20／25／30，掩體 30／30／40／50／60）；任何攻擊都傷到目標那一格的遮蔽（傷害骰 × 武器的遮蔽倍率），沒有人站的格子加倍；煙霧與人群打不破 | COMBAT_SYSTEM 2.1、2.5 | `tests/core/battle.test.ts`「站位、距離與遮蔽」 |
 | 52 | 行動點：上限照角色，每回合回 3（第一回合從上限開始；被埋伏的一方從上限 − 2 開始），沒用完的留著、不超過上限；AI 一回合最多做 6 步 | COMBAT_SYSTEM 1.2；ENEMIES 4 | `tests/core/battle.test.ts`「回合與行動點」；`tests/core/battle-flow.test.ts`「AI 的回合」 |
 | 53 | 感載：受到的感載 ＝ 傷害 × 敏感度的倍率 ×（攻擊者每一層餘韻 +10%）；到上限就過載：感載歸零、疊一層餘韻，現實是失去下一個回合、內海是閃斷；餘韻已經疊滿再過載就倒下。每回合自然消退 2 ＋ mod(意志)。首領被控制最多 1 回合，之後免疫控制 1 回合 | CORE_RULES 4.2；COMBAT_SYSTEM 7；CYBERSPACE 6.1、6.2；ENEMIES 4.5 | `tests/core/battle.test.ts`「感載、過載與餘韻」「狀態」 |
-| 54 | 戰鬥裡給玩家與紀錄看的事件是封閉清單（`BATTLE_EVENTS`：要害、過載、打倒、制伏……，功能自己的事件 `angel`、`tease`、`trait` 也在裡面）；每一拍帶著事件的標籤與數字，直播、紀錄、之後的功能聽這些，不解析文字。核心與功能裡每一個 `run.say(文字, '標籤')` 的標籤都在清單裡 | PLAN 5.5 第二項；dev/adr/0010；審查 M1b 的 E3 | `tests/core/battle-flow.test.ts`「結束的結算」（每一拍的標籤都在 `BATTLE_EVENTS` 裡）；`tests/core/battle-m1b-review-core.test.ts`「E3」（掃原始碼）；`tests/smoke/M1-smoke-features.test.ts`（整場的標籤） |
+| 54 | 戰鬥裡給玩家與紀錄看的事件是封閉清單（`BATTLE_EVENTS`：要害、過載、打倒、制伏……，叫來增援的 `call_in`，功能自己的事件 `angel`、`tease`、`trait` 也在裡面）；每一拍帶著事件的標籤與數字，直播、紀錄、之後的功能聽這些，不解析文字。核心與功能裡每一個 `run.say(文字, '標籤')` 的標籤都在清單裡 | PLAN 5.5 第二項；dev/adr/0010；審查 M1b 的 E3 | `tests/core/battle-flow.test.ts`「結束的結算」（每一拍的標籤都在 `BATTLE_EVENTS` 裡）；`tests/core/battle-m1b-review-core.test.ts`「E3」（掃原始碼）；`tests/smoke/M1-smoke-features.test.ts`（整場的標籤） |
+| 86 | 叫人（`run.callIn(side, ref)`）：這一方站在場上的加後方等著的（含叫了還沒進場的）已經有四個，回傳 `null`、什麼都不動；有空格就解成單位（來源查不到丟錯）、排進後方最前面、記一拍 `call_in`、`battle.called` 記著他；**下一輪開頭（`round.start` 之前）**才補進最後面的空格：先攻當場擲、行動點從上限開始、照先攻排進順序，那一輪就輪得到他（指標不讓位）。平常的補位不理叫來的人（排在他後面的人照常先補）；到時沒有空格（被別人佔了）就留在後方、不再算叫來的，之後照平常補位。叫來的人在後方被帶走就不再等。`battle.called` 的每一個 id 都要在自己那一方的後方排著（`battleProblems`）；存讀檔之後接著打的結果和沒有中斷的一樣 | dev/adr/0016 第五節；dev/adr/0013 C6 | `tests/core/battle-m2.test.ts`「叫人」「叫了還沒進場的人」 |
+| 87 | 候補（`k.battle.bench` 登記、`view.bench(side)` 問）：每個來源照登記的順序合起來，同一個 id 只留第一筆，已經在這一場裡的（單位的 `actor` 對得上，含倒下、後方等著、叫了還沒進場的）不列，叫不了的帶原因照樣列；沒有人登記是空的 | dev/adr/0016 第五節 | `tests/core/battle-m2.test.ts`「候補」 |
+| 88 | 開戰設定的 `edge`：那一方開場上場的每個人，先攻連擲兩次取高，紀錄各留一拍帶兩顆骰；沒寫就是每個人擲一次（和以前一樣）；之後補位與叫來的人照一般的擲一次。`battleOptions.distances`：輪到的人到對面每個還在場上的單位、每一台沒被擊落的掛著的東西的距離，每個數字都是核心的 `distance()`，每次都帶（分出結果之後是空的） | dev/adr/0016 G7、第五節；COMBAT_SYSTEM 2.2 | `tests/core/battle-m2.test.ts`「先攻的優勢」「distances」 |
 
 ## 格子地圖、快照、內容篩選（dev/adr/0011、0012）
 
@@ -133,3 +138,11 @@ M1b 審查與白箱的核心修正（2026-11-23；dev/work/M1b-review-core.md）
 | 80 | 救回來（`run.revive`）：核心的狀態與姿態（`stance`）清空、行動點 0，最後發 `revive { run, unit }`（發的時候已經回到場上或排在後方）；功能記在他身上的限時的東西（buff、持續型快駭）在這個掛點清。救不起來的（還站著、昏過去）不發 | dev/adr/0015 第一節與補記（M1b-review-core）第三節；dev/bugs W013 | `tests/core/battle-m1b-review-core.test.ts`「W013」；`tests/pending/W011-W013-ability-timers.test.ts`「W013」（功能那一半） |
 | 81 | 效果的 `last.stop` 是「這一筆做完之後」：這一筆落在好幾個人身上，每個落點都做完，後面的筆才不做 | dev/adr/0015 補記（M1b-core-effects、M1b-review-core）；審查 M1b 的 S1 | `tests/core/battle-m1b-review-core.test.ts`「S1」；`tests/core/battle-m1b-effects.test.ts`、`tests/whitebox/core-battle-m1b.whitebox.test.ts` |
 | 82 | 沒有發生的一擊（`aborted`：卡彈、被取消、攻擊的人在反應裡倒下、目標已經不在）沒有命中也沒有失手：做攻擊的 op 用 `noteAttack(ctx.last, result)` 寫結果，`aborted` 時 `last.hit`、`crit`、`downed` 是 `undefined`（`if: 'miss'` 與 `if: 'hit'` 都不成立）、`dealt` 是 0、`last.aborted` 是 `true`，上一筆留下的結果清掉 | dev/adr/0015 第一節與補記（M1b-review-core）第五節；不變式第 66 條；審查 M1b 的 S11 | `tests/core/battle-m1b-review-core.test.ts`「S11」 |
+
+## 活動（dev/adr/0016）
+
+| # | 不變式 | 出處 | 哪裡驗 |
+|---|---|---|---|
+| 83 | 活動的放行是白名單：進行中的每一個活動（`k.activity.active`，照 `order`，小的先）都要放行一件事（`doing` 以它的 `allow` 前綴開頭，或它的 `allows` 說可以），第一個不放行的給原因；沒有活動進行就什麼都放行。核心只登記兩筆：`battle`（order 0）與 `defeat`（order 10），放行的事與句子就是不變式第 48、59 條，一字不差；`Game.blockOf` 只是問登錄表。別的功能用 `k.activity.allow(種類, 前綴, 主人)` 把自己的 `doing` 加進去（對還沒登記的種類先 allow、之後才 define 也生效；始終沒人登記就當沒這回事）。新功能忘了登記，結果是「在那個活動裡用不了」，不是漏洞。進行中與否只讀狀態，所以存檔讀回來還是擋 | dev/adr/0016 第一節；dev/adr/0014 | `tests/core/activity.test.ts`「登錄表」「戰鬥與戰敗是核心內建的兩筆」「活動進行中存檔再讀回來」 |
+| 84 | 報告的 `launch` 開不成，整步不成立：`Game.commit`、任務鏈的套用、`Game.gridMove`、`Game.launch` 提交完之後，照順序開每一份報告（含回合結束帶出來的、開出來的報告自己再帶的）的 `launch`，整件事是一次提交（`commitAtomic`）。每個 `launch` 先問放行（`<種類>.start`，白名單，看的是這一次提交到目前為止的狀態）再 `k.activity.start`；任何一個開不成（被擋、沒有這種活動、活動自己丟 `ActionBlocked`），狀態回到這一步之前（含那份報告本身）、能回退的步數不變、丟 `ActionBlocked`（原因是活動給的那幾句；任務鏈與走地圖回 `refused`）。連開超過 4 層（`MAX_LAUNCH_DEPTH`）丟一般的錯，狀態一樣不動。開出來的報告不另算一個回合（不跑 `turn.end`）、不另留回退（和那份報告同一步回退）；開戰照原本的 `startBattle`：開打前的快照存的是開打之前、那份報告之後的狀態，`origin` 的 `by`、`ref`、`ext` 併進 `setup.origin.ext`（重來時還在） | dev/adr/0016 第二節；不變式第 3、61 條 | `tests/core/activity.test.ts`「launch 開不成」「報告帶 launch」「launch 一場戰鬥」「走地圖」「任務鏈的套用也走 launch」 |
+| 85 | 結束交回：活動的主人組「結束的那一份報告」時用共用的 `endActivity`（發 `activity.end`；處理函式回傳的 `changes`、`lines`、`launch` 照順序接起來，`rewind` 只取第一個；格式不對丟錯，訊息寫出是誰的哪一欄）。戰鬥結算（`endBattle`）發 `kind: 'battle'`：`origin` 取自 `battle.origin.ext`（沒有 `by` 當 `core`）、`result` 是 `{ battle, grade, standing: { ally, foe } }`；處理函式回傳的變更在 `battle.end` 那一份裡（`battle` 的收尾之前、接在 `k.battle.onEnd` 的變更後面）、`launch` 在結算提交之後開起來。原本的 `k.battle.onEnd` 不動 | dev/adr/0016 第一節 | `tests/core/activity.test.ts`「activity.end」「endActivity 與 attachActivityEnd」 |

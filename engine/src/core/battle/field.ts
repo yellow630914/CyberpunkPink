@@ -40,6 +40,19 @@ export function distance(a: { slot: number }, t: { slot: number }): number {
   return a.slot + t.slot - 1
 }
 
+/**
+ * 一個單位到對面每個還在場上的單位、每一台沒被擊落的掛著的東西的距離（鍵是那個單位或那一台的 id；用上面的 distance，不另寫一份）。
+ * 他自己不在場上（還在後方、已經退出）回傳空的。給 battleOptions 的 distances：畫面不必自己算。
+ */
+export function distancesFrom(b: BattleState, u: BattleUnit): Record<string, number> {
+  const out: Record<string, number> = {}
+  if (!onField(u)) return out
+  const foe = otherSide(u.side)
+  for (const t of unitsOf(b, foe)) out[t.id] = distance(u, t)
+  for (const o of b.overlays) if (!o.down && o.side === foe) out[o.id] = distance(u, o)
+  return out
+}
+
 export function coverAt(b: BattleState, side: BattleSide, slot: number): BattleCover {
   return b.cover[side][slot - 1] ?? { level: 0, hp: 0 }
 }

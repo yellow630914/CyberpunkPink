@@ -42,10 +42,12 @@ function endRound(run: BattleRun): void {
 }
 
 /**
- * 一輪的開頭（第一輪也走這裡，由 setupBattle 呼叫）：發 round.start 掛點（還沒有人行動），再替處理函式收尾（補位、看結果）。
+ * 一輪的開頭（第一輪也走這裡，由 setupBattle 呼叫）：先讓叫來還沒進場的人補進最後面的空格（run.callIn；dev/adr/0016 第五節），
+ * 再發 round.start 掛點（還沒有人行動），再替處理函式收尾（補位、看結果）。
  * 沒有操作者、自己動的東西與倒數計時放在這個掛點上。
  */
 export function startRound(run: BattleRun): void {
+  run.admitCalled()
   run.k.battle.emit('round.start', { run, round: run.battle.round })
   run.settle()
 }
