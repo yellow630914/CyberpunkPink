@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed, reactive } from 'vue'
 import type { BodyPartId, DistrictId, EquipSlotId, ItemStack, Point, Condition } from '../data/types'
 import { PROTAGONIST, PARTY, START_INVENTORY, START_CYBER, START_EQUIP, START_QUICK } from '../data/character'
-import { NPCS, affinityStage } from '../data/npcs'
+import { NPCS } from '../data/npcs'
 import { DISTRICTS } from '../data/districts'
 import { legacyFacilityAt } from '../data/demo'
 import { ITEMS, itemDef } from '../data/items'
@@ -209,13 +209,6 @@ export const useGame = defineStore('game', () => {
   /** 義體要在診所拆裝；這裡只給「拆下」的預覽，不真的動 */
   function cyberAt(part: BodyPartId) { return cyber[part] }
 
-  function changeAffinity(npcId: string, delta: number) {
-    const n = npcs[npcId]
-    if (!n) return
-    n.affinity = Math.max(-100, Math.min(100, n.affinity + delta))
-    n.stage = affinityStage(n.affinity)
-  }
-
   function itemName(def: string) { return itemDef(def).name }
 
   // ---- 技能（SKILLS 1.3 節） ----
@@ -331,7 +324,7 @@ export const useGame = defineStore('game', () => {
   return {
     day, minutes, money, hostility, character, party, inventory, cyber, equip, quick, coatClosed, npcs, loc, log,
     timeLabel, weekday, billIn, district, facility, placeLabel, topHostility, carriedWeight, sinkFloor, quickCap, coveredSlots,
-    advance, addLog, addItem, removeItem, stackOf, equipItem, unequip, cyberAt, changeAffinity, itemName,
+    advance, addLog, addItem, removeItem, stackOf, equipItem, unequip, cyberAt, itemName,
     basics, learned, nightLearned, params, tendency, fame, sexRecord, deck, channel, contracts, pending, craftFill, guides, dungeonSeed, vehicles, media, mech, lastBattle, snapshots,
     dyes, setDye, learnSkill, syncTrees, learnNight, setQuick, serialize, hydrate, saveMeta, packed, takeSnapshot, rollback,
   }
