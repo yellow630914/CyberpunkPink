@@ -1,7 +1,7 @@
 {
   "id": "ui-undo-ledger-steps",
   "bug": "2026-11-21-ui-undo-ledger-steps",
-  "note": "AI_TASKS 5.5 節：沒有正文的帳（ui.money、ui.time）算在最新的那一樓，不自己佔一步回退。現在每一筆帳各佔一步，五筆之後自由行動那一樓回退不到。",
+  "note": "AI_TASKS 5.5 節（logCount 含建角時出身名冊的兩份報告）：沒有正文的帳（ui.money、ui.time）算在最新的那一樓，不自己佔一步回退。現在每一筆帳各佔一步，五筆之後自由行動那一樓回退不到。",
   "draft": {
     "name": "露",
     "gender": "female",
@@ -80,7 +80,7 @@
     }
   ],
   "expect": {
-    "logCount": 1,
+    "logCount": 3,
     "time": {
       "day": 1,
       "hour": 8,

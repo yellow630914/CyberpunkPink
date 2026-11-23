@@ -85,7 +85,8 @@ describe('M0-fix-ui：開新局與建角是一件事（審查 S11）；建角的
 
   it('newGame 帶 draft：成功時開局加建角一起進去、不留回退；被擋下時回傳是哪一步，原本那一局完全不動', async () => {
     const e = started()
-    expect(e.state.reports.map((r) => r.action)).toEqual(['game.new', 'creation.commit'])
+    // 出身的名冊（小麥、雷）由引擎在建角之後各放一份 roster.join
+    expect(e.state.reports.map((r) => r.action)).toEqual(['game.new', 'creation.commit', 'roster.join', 'roster.join'])
     expect(e.canUndo).toBe(false)
     await e.act({ kind: 'free', text: '我看看四周' })
     const before = JSON.stringify(e.state)

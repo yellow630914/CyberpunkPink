@@ -8,10 +8,11 @@ import { DISTRICTS } from '../districts'
  * 示意世界包的人（dev/work/M2-ui-people.md 第 7 項）：把 ui/src/data/npcs.ts、roster.ts 的示意人物整理成引擎的內容。
  * 格式是引擎的內容種類（npc、npc_gen、name_pool），整份是資料，沒有規則；正式內容匯入之後整包換掉。
  *
- * - 固定 NPC 用 engine/data 已經有的 id（那邊只有 id 與名字）。`npc` 不是規則表，同一個 id 不能載兩次，
- *   所以載入時由 `demoCoreWithoutPeople`（index.ts）把核心包裡被這裡重寫的那幾筆拿掉，完整的資料放在這裡。
+ * - 固定 NPC 用 engine/data 已經有的 id（那邊只有 id 與名字）。`npc` 是可覆寫的內容（dev/adr/0017 M2 修正批第 14 項），
+ *   載入順序在後的這個包整筆取代核心包同 id 的那幾筆，不必先濾掉。
  * - 每區一筆生成規則（npc_gen）加一份名字池：第一次走進一區時引擎照它生成街坊與行者，種子相同名單就相同。
- * - 開局的名冊（小麥、雷在名冊上；奈奈、喬是候選人）由 `demoPeopleChanges` 給（stores/engine.ts 開新局之後附在開局那份報告上）：
+ * - 開局的名冊：建角的開新局，成員由引擎照出身的名冊放進去（`creation.commit` 的後續），這裡只給候選人（奈奈、喬）；
+ *   沒有主角的示意局（建角之前，people.demoChanges）沒有出身，成員（小麥、雷）也由 `demoPeopleChanges` 給。
  *   成員要在 state 有角色、帶路數才進得了隊伍。
  */
 
@@ -125,9 +126,6 @@ export function peopleContent(): NonNullable<ContentPack['content']> {
   return { npc: NPCS, name_pool: POOLS, npc_gen: genEntries() } as unknown as NonNullable<ContentPack['content']>
 }
 
-/** 這個包重寫的固定 NPC 的 id（核心包裡同 id 的簡表要先拿掉） */
-export const DEMO_NPC_IDS: readonly string[] = NPCS.map(n => n.id as string)
-
 /** 開局的名冊：成員、候選人與他們的親密度（示意數字；老朋友從 34～52 開始） */
 const START_MEMBERS: Array<{ id: string; affinity: number; pay: 'share'; fixed: true }> = [
   { id: 'npc_xiaomai', affinity: 34, pay: 'share', fixed: true },
@@ -139,7 +137,9 @@ const START_CANDIDATES = ['npc_nana', 'npc_jo']
  * 開局的名冊（成員先認識、變成角色、進名冊）與候選人。
  * 全部走引擎自己的函式（meetChanges、joinChanges、roster.candidate）；這裡只決定「誰」。
  */
-export function demoPeopleChanges(k: Kernel, state: GameState): Change[] {
+export function demoPeopleChanges(k: Kernel, state: GameState, opts: { origin?: readonly string[] } = {}): Change[] {
+  // origin 有給（建角的開新局）：成員是引擎照出身的名冊放的，這裡不重複；已經在出身名冊上的人也不當候選人
+  const fromOrigin = opts.origin !== undefined
   const out: Change[] = []
   const seen = new Set<string>()
   const meet = (id: string): void => {
@@ -147,12 +147,17 @@ export function demoPeopleChanges(k: Kernel, state: GameState): Change[] {
     seen.add(id)
     out.push(...meetChanges(k, state, id))
   }
+  // 老朋友的起始親密度（示意數字）：建角時只給出身名冊上的那幾位，先認識、再由引擎把他們放進名冊
   for (const m of START_MEMBERS) {
+    if (fromOrigin && !opts.origin!.includes(m.id)) continue
     meet(m.id)
     out.push({ op: 'meter', kind: 'affinity', key: m.id, set: m.affinity })
   }
-  for (const m of START_MEMBERS) out.push(...joinChanges(k, state, m.id, { pay: m.pay, fixed: m.fixed }))
+  if (!fromOrigin) {
+    for (const m of START_MEMBERS) out.push(...joinChanges(k, state, m.id, { pay: m.pay, fixed: m.fixed }))
+  }
   for (const id of START_CANDIDATES) {
+    if (opts.origin?.includes(id)) continue
     meet(id)
     out.push({ op: 'roster.candidate', who: id, at: { ...state.time } })
   }

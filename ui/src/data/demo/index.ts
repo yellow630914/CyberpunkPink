@@ -6,7 +6,7 @@ import { eventContent } from './events'
 import { commissionContent } from './commission'
 import { sceneContent } from './scene'
 import { lifeContent } from './life'
-import { DEMO_NPC_IDS, peopleContent } from './people'
+import { peopleContent } from './people'
 
 /**
  * 示意世界包（dev/work/M2-plan.md 使用者定案第 5 項）：引擎不再匯入內容，畫面接上引擎之後城市是空的，
@@ -30,16 +30,6 @@ export function demoPack(): ContentPack {
     for (const [kind, list] of Object.entries(part)) merged[kind] = [...(merged[kind] ?? []), ...list]
   }
   return { id: DEMO_PACK_ID, content: merged as unknown as ContentPack['content'] }
-}
-
-/**
- * 核心包去掉被示意包重寫的固定 NPC：engine/data 的 npc 只有 id 與名字，`npc` 不是規則表（同一個 id 不能載兩次），
- * 所以要用示意包時，載入的是這份去掉那幾筆的核心包，加上 demoPack()。順序：[demoCoreWithoutPeople(CORE_PACK), demoPack()]。
- */
-export function demoCoreWithoutPeople(core: ContentPack): ContentPack {
-  const content = { ...core.content } as Record<string, Array<{ id: string }>>
-  content.npc = (content.npc ?? []).filter(n => !DEMO_NPC_IDS.includes(n.id))
-  return { ...core, content: content as unknown as ContentPack['content'] }
 }
 
 /**

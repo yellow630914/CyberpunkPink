@@ -58,7 +58,7 @@ export const BLOCKS: Record<string, BlockSpec> = {
       '######>######',
     ],
     facilities: [
-      { id: 'rooftop', name: '屋頂的晾衣場', icon: 'ic-fac_home', kind: 'talk', npcIds: ['npc_xiaomai'], services: [{ name: '吹風', action: 'rest' }, { name: '和小麥待到天黑（成人場景）', action: 'scene', props: { scene: 'rin' } }] },
+      { id: 'rooftop', name: '屋頂的晾衣場', icon: 'ic-fac_home', kind: 'talk', npcIds: ['npc_xiaomai'], services: [{ name: '吹風', action: 'rest' }] },
       { id: 'myhome', name: '你的單位（7 樓）', icon: 'ic-fac_home', kind: 'home', services: [{ name: '回家', action: 'home' }, { name: '睡一覺', action: 'rest' }] },
       { id: 'hebo', name: '何伯的樓長室', icon: 'ic-fac_home', kind: 'talk', npcIds: ['npc_hebo'], services: [{ name: '付房租', price: 150, action: 'none' }] },
       { id: 'clinic', name: '縫縫診所（地下室）', icon: 'ic-fac_clinic', kind: 'clinic', services: [{ name: '處理傷口', price: 120, action: 'none' }, { name: '裝義體與調校', action: 'clinic', props: { clinic: '縫縫診所', black: true } }] },

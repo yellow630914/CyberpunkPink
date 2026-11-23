@@ -8,10 +8,10 @@ import { board, genProblems } from '@engine/src/features/fixer'
 import { shopView } from '@engine/src/features/trade'
 import { sleepOptions } from '@engine/src/features/rest'
 import { jobsHere } from '@engine/src/features/work'
-import { demoCoreWithoutPeople, demoPack, demoStartFeature } from '.'
+import { demoPack, demoStartFeature } from '.'
 
 /** 示意世界包能被引擎載入：內容的格式、引用、出口成對、車站在街區的設施上，都由引擎的檢查把關。 */
-const make = () => new Game({ features: [...allFeatures(), demoStartFeature()], content: [demoCoreWithoutPeople(CORE_PACK), demoPack()], fakeProvider: new FakeProvider() })
+const make = () => new Game({ features: [...allFeatures(), demoStartFeature()], content: [CORE_PACK, demoPack()], fakeProvider: new FakeProvider() })
 
 describe('示意世界包', () => {
   it('引擎載得進去，世界的整體檢查沒有問題', () => {

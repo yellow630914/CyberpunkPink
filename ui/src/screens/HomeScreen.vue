@@ -13,6 +13,8 @@ import MoneyTag from '../components/MoneyTag.vue'
 import ReasonButton from '../components/ReasonButton.vue'
 import { useHome } from '../stores/home'
 import { useGame } from '../stores/game'
+import { useEngine } from '../stores/engine'
+import { failText } from '../lib/lifeView'
 import { useUi } from '../stores/ui'
 import { FURNITURE, FURNITURE_ITEM, HOME_TIER_SIZE, RESIDENCES, SHOP_KINDS, MOVE_PER_ITEM, type ShopKind } from '../data/home'
 import { ITEMS } from '../data/items'
@@ -27,6 +29,7 @@ import type { Point } from '../data/types'
  */
 const h = useHome()
 const g = useGame()
+const e = useEngine()
 const ui = useUi()
 const route = useRoute()
 const router = useRouter()
@@ -165,8 +168,15 @@ function onEnter() {
   if (msg) ui.toast(msg, 'warn')
 }
 /** 你站的那一格能做的事：大門是出口（E 出門）；房間照它的用途給一個預設的動作。 */
+/** 臥室的床：睡一覺是引擎的（回復、時間、感載與餘韻、距上次的限制都是它的）；做不到顯示它的原因 */
+async function sleepInBed() {
+  const r = await e.rest.sleep('home')
+  const why = failText(r, '現在睡不了。')
+  if (why) ui.toast(why, 'warn')
+  else ui.toast(e.state.reports.at(-1)?.outcome.summary ?? '睡了一覺。')
+}
 const ROOM_ACTS: Record<string, { name: string; run: () => void }> = {
-  bedroom: { name: '睡一覺', run: () => { g.advance(480); g.character.load[0] = 0; g.addLog({ prose: ['你在自己的床上睡了一覺，感載退光了。'], changes: [{ text: '感載歸零', kind: 'plus' }] }); ui.toast('睡了八小時。') } },
+  bedroom: { name: '睡一覺', run: () => { void sleepInBed() } },
   guest: { name: '在客房坐一會', run: () => { g.advance(30); ui.toast('你在客房和住戶聊了半小時。') } },
   workshop: { name: '組裝', run: () => ui.openRoot('craft') },
   // 工作間也是自己染色的地方（EQUIPMENT 第 9 節）：選單裡的第二個選項，見 hereOpts

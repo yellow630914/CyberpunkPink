@@ -8,6 +8,7 @@ import { useSettings } from './stores/settings'
 import { useUi, DIALOG_TITLES, type DialogName } from './stores/ui'
 import { useSaves } from './stores/saves'
 import { keyAction, isTyping } from './lib/keys'
+import { freshEffects } from './lib/engineView'
 
 /** 外殼：全頁由路由切換，對話框層蓋在上面。子網與內海戰鬥的全頁換成內海皮。 */
 const route = useRoute()
@@ -28,15 +29,19 @@ watch(() => route.query.dialog, d => {
 settings.apply()
 
 // ---- 每週帳單（M2-ui-life）：引擎出了 bill.settle（跨過週一）就把帳單打開，bill.notice（週日晚上的提醒）顯示成通知 ----
-let seenReport = eng.state.reports.at(-1)?.id ?? null
-watch(() => eng.state.reports.at(-1)?.id ?? null, () => {
-  const list = eng.state.reports
-  const fresh: typeof list = []
-  for (let i = list.length - 1; i >= 0 && list[i]!.id !== seenReport; i--) fresh.unshift(list[i]!)
-  seenReport = list.at(-1)?.id ?? null
-  if (fresh.some((r) => r.action === 'bill.settle')) ui.open('bills', { settled: true })
-  for (const r of fresh) if (r.action === 'bill.notice') ui.toast(r.outcome.summary, 'warn')
+// 看的是「這一步提交新產生的報告」（store 的 feed），不是紀錄的最後幾份：報告 id 每一局從 r1 起算，讀檔也不該把舊的再觸發一次。
+watch(() => eng.feed.seq, () => {
+  const fx = freshEffects(eng.feed.reports)
+  if (fx.openBills) ui.open('bills', { settled: true })
+  for (const t of fx.toasts) ui.toast(t, 'warn')
 })
+
+// ---- 引擎開了戰鬥（事件選項的 fight、戰敗劫囚、副本走到敵人那一格……）或有等著選的戰敗：全域換到戰鬥畫面（M2-ui-world 的 S1） ----
+const BATTLE_ELSEWHERE = new Set(['/combat', '/netcombat', '/opinion', '/scene', '/title', '/newgame', '/editor', '/workshop'])
+const battleRouter = useRouter()
+watch(() => eng.inBattle || !!eng.pendingDefeat, (on) => {
+  if (on && !BATTLE_ELSEWHERE.has(route.path)) void battleRouter.push({ path: '/combat', query: { from: route.fullPath } })
+}, { immediate: true })
 
 // ---- 成人場景進行中：畫面換到場景，別的全頁的入口被擋（引擎也不收別的報告；這裡只是不讓人停在別的畫面上） ----
 const sceneRouter = useRouter()

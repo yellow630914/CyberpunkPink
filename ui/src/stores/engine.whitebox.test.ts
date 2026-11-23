@@ -158,9 +158,10 @@ describe('建角（M0-ui-engine 第三、四節；CHARACTER 第 5 節）', () =>
   it('M0-ui-engine 第三節 createCharacter：成功時經過提交點（多一份報告；單獨建角留一步回退，跟開新局一起提交時不留，見 engine.fix.test.ts）', () => {
     const e = useEngine()
     e.newGame({ seed: 7 })
-    const n = e.state.reports.length
+    const n = e.state.reports.filter((r) => r.action === 'creation.commit').length
     e.createCharacter(DRAFT)
-    expect(e.state.reports).toHaveLength(n + 1)
+    // 出身的名冊（認識與入隊）另外各是一份報告，建角那一份只有一份
+    expect(e.state.reports.filter((r) => r.action === 'creation.commit')).toHaveLength(n + 1)
     expect(e.canUndo).toBe(true)
   })
 

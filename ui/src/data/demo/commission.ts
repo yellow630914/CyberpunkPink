@@ -12,10 +12,10 @@ import { blockIdOf } from './world'
 type Rec = Record<string, unknown>
 
 const FIXERS: Rec[] = [
-  // 阿蓮雜貨（天井市場）：新手的案子，信譽不用高
-  { id: 'fx_alian', name: '阿蓮雜貨的後間', npc: 'npc_lian', district: 'hive', block: blockIdOf('hive', '天井市場'), kinds: ['steal_data', 'assassinate'], cut: 0.1 },
-  // 夢露（中城段・北）：什麼案子都接，抽得多一點
-  { id: 'fx_monroe', name: '夢露的店・後場', npc: 'npc_monroe', district: 'ave42', block: blockIdOf('ave42', '中城段・北'), kinds: ['steal_data', 'assassinate'], cut: 0.15 },
+  // 阿蓮雜貨（天井市場）：新手的案子，信譽不用高；後台是蜂巢的孤星連（backer：它對你的敵對值到「懸賞」，這位中間人就不接你）
+  { id: 'fx_alian', name: '阿蓮雜貨的後間', npc: 'npc_lian', district: 'hive', block: blockIdOf('hive', '天井市場'), kinds: ['steal_data', 'assassinate'], cut: 0.1, backer: 'lonestar' },
+  // 夢露（中城段・北）：什麼案子都接，抽得多一點；後台是四十二番街的拆體客
+  { id: 'fx_monroe', name: '夢露的店・後場', npc: 'npc_monroe', district: 'ave42', block: blockIdOf('ave42', '中城段・北'), kinds: ['steal_data', 'assassinate'], cut: 0.15, backer: 'strippers' },
 ]
 
 const TYPES: Rec[] = [

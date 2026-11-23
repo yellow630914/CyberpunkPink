@@ -140,7 +140,8 @@ export const useGame = defineStore('game', () => {
     get facility(): string | null { return facility.value?.id ?? null },
   })
   const placeLabel = computed(() => [where.value.district?.name, where.value.block?.name, where.value.facility?.name].filter(Boolean).join(' · '))
-  const topHostility = computed(() => Object.entries(hostility).sort((a, b) => b[1] - a[1]).slice(0, 2))
+  /** 狀態列的敵對值：引擎的量表（舊的 hostility 只剩舊系統自己讀寫） */
+  const topHostility = computed(() => eng.hostilityTop(2))
 
   const carriedWeight = computed(() => {
     // 家具直接送到家裡，不算身上的重量

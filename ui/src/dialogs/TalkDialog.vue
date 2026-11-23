@@ -8,7 +8,7 @@ import TrackBar from '../components/TrackBar.vue'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
 import { failText } from '../lib/lifeView'
-import { CATEGORY_NAME, READ_CATEGORIES, UNOPENED, UNOPENED_ACTIONS, affinityBar, chatAgain, factionOf, identityOf, interactRows, kindName, knownRows, memoryRows, newsRows, stageList } from '../lib/peopleView'
+import { CATEGORY_NAME, READ_CATEGORIES, UNOPENED, UNOPENED_ACTIONS, affinityBar, factionOf, identityOf, interactRows, kindName, knownRows, memoryRows, newsRows, stageList } from '../lib/peopleView'
 import type { InteractRow, ReadCategory } from '../lib/peopleView'
 
 /**
@@ -29,7 +29,6 @@ const known = computed(() => (npc.value ? e.people.known().includes(props.npcId)
 const bar = computed(() => affinityBar(affinity.value))
 const facts = computed(() => knownRows(npc.value!, rel.value?.known ?? [], e.people.look))
 const rows = computed<InteractRow[]>(() => interactRows(e.people.interactions(props.npcId)))
-const again = computed(() => chatAgain(e.people.done(props.npcId)))
 const log = computed(() => e.people.talkLog(props.npcId))
 const memories = computed(() => memoryRows(e.people.recall(props.npcId), e.people.look))
 const news = computed(() => newsRows(e.people.news(props.npcId)))
@@ -105,7 +104,7 @@ const readRow = computed(() => rows.value.find((r) => r.needs === 'category'))
         <div class="dock">
           <div v-if="pane === 'talk'" class="menu" data-menu>
             <div v-for="r in rows" :key="r.kind" class="irow" :data-kind="r.kind">
-              <span class="in"><b>{{ r.name }}</b><small v-if="r.reason" class="why" data-reason>{{ r.reason }}</small><small v-else-if="r.kind === 'npc_chat' && again" data-again>{{ again }}</small></span>
+              <span class="in"><b>{{ r.name }}</b><small v-if="r.reason" class="why" data-reason>{{ r.reason }}</small><small v-else-if="r.note" data-again>{{ r.note }}</small></span>
               <span v-if="r.dcText" class="dc mono" :title="r.dcTitle" data-dc>{{ r.dcText }}</span>
               <span v-if="r.chanceText" class="ch mono" data-chance>{{ r.chanceText }}</span>
               <ReasonButton sm pri :reason="r.reason" :data-do="r.kind" @go="pick(r)">{{ r.needs === 'item' ? '選禮物' : r.needs === 'category' ? '選類別' : '做' }}</ReasonButton>

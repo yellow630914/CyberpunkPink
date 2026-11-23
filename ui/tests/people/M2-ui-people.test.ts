@@ -10,7 +10,7 @@ import type { ContentPack, Feature } from '@engine/src'
 import { FakeProvider, Game, meterOf } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
 import { allFeatures } from '@engine/src/features'
-import { affinityStage, interactions, npcsHere, recall } from '@engine/src/features/npcs'
+import { CHAT_DONE_NOTE, affinityStage, interactions, npcsHere, recall } from '@engine/src/features/npcs'
 import { recruitBlock, recruitDc, rosterView } from '@engine/src/features/roster'
 import { favorsOf } from '@engine/src/features/favors'
 import { useEngine } from '../../src/stores/engine'
@@ -24,8 +24,8 @@ import TalkDialog from '../../src/dialogs/TalkDialog.vue'
 import RelationsDialog from '../../src/dialogs/RelationsDialog.vue'
 import RosterDialog from '../../src/dialogs/RosterDialog.vue'
 import BridgeTab from '../../src/dialogs/character/BridgeTab.vue'
-import { chatAgain, favorTotals, knownRows, personRows, filterPersons, recruitIds } from '../../src/lib/peopleView'
-import { demoCoreWithoutPeople, demoPack, demoStartFeature } from '../../src/data/demo'
+import { favorTotals, knownRows, personRows, filterPersons, recruitIds } from '../../src/lib/peopleView'
+import { demoPack, demoStartFeature } from '../../src/data/demo'
 
 // ---- 假資料 ----
 
@@ -95,7 +95,7 @@ const busy: Feature = {
 
 type Eng = ReturnType<typeof useEngine>
 /** 一局：建好角色、放進兩樣東西、站在測試街的街上（不在設施裡）；hour 是一天裡的幾點 */
-async function setup(o: { seed?: number; hour?: number; at?: string } = {}) {
+async function setup(o: { seed?: number; hour?: number; at?: string; bare?: boolean } = {}) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const e = useEngine()
@@ -104,6 +104,8 @@ async function setup(o: { seed?: number; hour?: number; at?: string } = {}) {
   expect(e.createCharacter(DRAFT)).toEqual([])
   expect(e.commit({ summary: '放進背包。', changes: [{ op: 'item', id: 't_bun', qty: 2 }, { op: 'item', id: 't_deck', qty: 1 }] })).toBeNull()
   e.ledger([{ op: 'cred', delta: 5000 - e.money.cred }, { op: 'cash', delta: 3000 - e.money.cash }])
+  // 建角時出身的名冊（小麥、雷）會自己進名冊；bare 是把他們拿出去，剩下空的名冊（測招募與名冊滿用）
+  if (o.bare) for (const id of e.people.roster().members.map((m) => (m as { id: string }).id)) expect((await e.people.removeMember(id)).status).toBe('applied')
   const r = await e.world.arrive('b_t', o.at)
   expect(r.status).toBe('applied')
   if (o.hour !== undefined) toHour(e, o.hour)
@@ -203,7 +205,7 @@ describe('對話畫面與互動選單（引擎的 interactions）', () => {
     expect(e.people.stage('npc_day')).toEqual(affinityStage(meterOf(g.k, g.state, 'affinity', 'npc_day')))
     expect(strip(await html(pinia, TalkDialog, { npcId: 'npc_day' }))).toContain(`${after}${e.people.stage('npc_day').name}`)
     // 第二次聊天：照樣能聊，但不再加親密度；畫面有提示
-    expect(chatAgain(e.people.done('npc_day'))).not.toBeNull()
+    expect(e.people.interactions('npc_day').find((r) => r.kind === 'npc_chat')!.note).toBe(CHAT_DONE_NOTE)
     expect(strip(await html(pinia, TalkDialog, { npcId: 'npc_day' }))).toContain('不會再加親密度')
     const second = await e.people.interact('npc_chat', 'npc_day')
     expect(second.status).toBe('applied')
@@ -303,7 +305,7 @@ describe('關係（名單、關注、記憶的改寫、釘選、刪除）', () =
 describe('名冊與招募（引擎的 roster）', () => {
   it('招募：DC、成功率、原因是引擎的；成功之後名冊多一個人、容量的數字對', async () => {
     const out = await untilOk(60, async (seed) => {
-      const { e, pinia } = await setup({ seed, hour: 10 })
+      const { e, pinia } = await setup({ seed, hour: 10, bare: true })
       await e.people.meet('npc_run')
       const g = oracle(e)
       const info = e.people.recruitInfo('npc_run')
@@ -324,7 +326,7 @@ describe('名冊與招募（引擎的 roster）', () => {
   })
 
   it('名冊滿了：招募按鈕是灰的，原因是引擎的；把人拿出名冊之後空出位子', async () => {
-    const { e, pinia } = await setup({ hour: 10 })
+    const { e, pinia } = await setup({ hour: 10, bare: true })
     for (const id of ['npc_run', 'npc_run2', 'npc_run3']) await e.people.meet(id)
     const cap = e.people.roster().cap
     expect(cap).toBe(2)
@@ -345,7 +347,7 @@ describe('名冊與招募（引擎的 roster）', () => {
   })
 
   it('成員的出場費、忠誠、有空沒有都是引擎的；沒空的寫出原因', async () => {
-    const { e, pinia } = await setup({ hour: 10 })
+    const { e, pinia } = await setup({ hour: 10, bare: true })
     await e.people.meet('npc_run')
     expect(e.commit({ summary: '進名冊', changes: [{ op: 'roster.join', who: 'npc_run', since: e.state.time, reliability: 50, pay: 'fee' } as never, { op: 'meter', kind: 'loyalty', key: 'npc_run', set: 60 } as never] })).toBeNull()
     expect(e.commit({ summary: '受傷', changes: [{ op: 'actor.condition', id: 'npc_run', condition: 'injured' } as never] })).toBeNull()
@@ -450,7 +452,7 @@ describe('畫面沒有規則', () => {
 
 describe('示意世界包的人', () => {
   it('載得進去：固定 NPC 用 engine/data 已有的 id；名冊有小麥與雷，候選人有奈奈與喬；每區有生成規則', () => {
-    const g = new Game({ features: [...allFeatures(), demoStartFeature()], content: [demoCoreWithoutPeople(CORE_PACK), demoPack()], fakeProvider: new FakeProvider() })
+    const g = new Game({ features: [...allFeatures(), demoStartFeature()], content: [CORE_PACK, demoPack()], fakeProvider: new FakeProvider() })
     expect(g.k.content.has('npc', 'npc_xiaomai')).toBe(true)
     expect(g.k.content.list('npc_gen')).toHaveLength(8)
     expect(g.k.content.get<{ id: string; paths?: unknown[] }>('npc', 'npc_xiaomai')?.paths).toBeTruthy()

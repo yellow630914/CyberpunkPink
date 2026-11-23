@@ -48,7 +48,8 @@ const addTagalong = (id: string) => setCrew(others.value.filter(x => x !== id), 
 const removeTagalong = (id: string) => setCrew(others.value, tagalong.value.filter(x => x !== id))
 const members = computed(() => roster.value.members)
 const free = computed(() => members.value.filter(m => !party.value.includes(m.id) && !tagalong.value.includes(m.id)))
-const slots = computed(() => Math.max(0, 4 - party.value.length))
+const crew = computed(() => e.fixer.crewRules())
+const slots = computed(() => Math.max(0, crew.value.party - party.value.length))
 
 // ---- 技能配置 ----
 const labels = computed(() => loadoutLabels(e.skills.mine().equipped, e.skills.abilities()))
@@ -98,7 +99,7 @@ async function go() {
 <template>
   <div class="cols3" data-call-tab>
     <section class="panel cut pad stack">
-      <p class="h">隊伍・跟著你玩的那一面走（最多 4 人含你）<Hint>名冊上的行者可以進隊伍；不打仗的人只能同行（最多 2 位）。加不進去時按鈕會寫引擎的原因。</Hint></p>
+      <p class="h">隊伍・跟著你玩的那一面走（最多 {{ crew.party }} 人含你）<Hint>名冊上的行者可以進隊伍；不打仗的人只能同行（最多 {{ crew.tagalong }} 位）。加不進去時按鈕會寫引擎的原因。</Hint></p>
       <div class="grid2" style="--col-min: 150px" data-party>
         <div v-for="id in party" :key="id" class="crew" :data-party-member="id"><b>{{ nameOf(id) }}</b><small>{{ id === pcId ? '你' : '隊伍' }}</small><button v-if="id !== pcId" type="button" class="btn sm ghost" @click="removeFromParty(id)">移除</button></div>
         <div v-for="n in slots" :key="'e' + n" class="crew empty">空格</div>
@@ -110,7 +111,7 @@ async function go() {
         <ReasonButton sm :reason="m.busy.length ? m.busy.join('') : addReason(m.id, 'party')" data-add-party @go="addToParty(m.id)">進隊伍</ReasonButton>
         <ReasonButton sm :reason="addReason(m.id, 'tagalong')" @go="addTagalong(m.id)">同行</ReasonButton>
       </div>
-      <p class="h">同行（{{ tagalong.length }}／2）</p>
+      <p class="h">同行（{{ tagalong.length }}／{{ crew.tagalong }}）</p>
       <div class="chips"><span v-for="id in tagalong" :key="id" class="tag">{{ nameOf(id) }}<button type="button" class="x" aria-label="移除同行" @click="removeTagalong(id)">×</button></span><span v-if="!tagalong.length" class="empty-note">沒有人同行。</span></div>
       <p class="h">技能配置・進去之後不能換</p>
       <div class="chips" data-loadout><span v-for="n in labels" :key="n" class="tag">{{ n }}</span><span v-if="!labels.length" class="empty-note">沒有裝技能。</span></div>

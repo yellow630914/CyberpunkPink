@@ -17,9 +17,9 @@ import { auxChance, breathe as commissionBreathe, chooseBranch, chooseFace, comm
 import type { AuxChance, CommissionView } from '@engine/src/features/commission'
 import { accept as fixerAccept, activeJobs, board as fixerBoard, borrowOption, buyIntel as fixerBuyIntel, drop as fixerDrop, go as fixerGo, goBlock as fixerGoBlock, haggle as fixerHaggle, hire as fixerHire, hireOptions as fixerHireOptions, jobOf, scout as fixerScout, scoutView as fixerScoutView, splitPreview, unhire as fixerUnhire } from '@engine/src/features/fixer'
 import type { AuxFace, BoardView, FixerEntry, HireInput, HireOption, IntelWith, Job, Offer, PayKind, ScoutView, Split } from '@engine/src/features/fixer'
-import { muster as rosterMuster, musterBlocks, rosterView, recruitBlock as rosterRecruitBlock, recruitDc, recruitInput, readRoster, leave as rosterLeave, isRunner as rosterIsRunner } from '@engine/src/features/roster'
+import { muster as rosterMuster, musterBlocks, rosterRules, rosterView, recruitBlock as rosterRecruitBlock, recruitDc, recruitInput, readRoster, leave as rosterLeave, isRunner as rosterIsRunner } from '@engine/src/features/roster'
 import type { Candidate as RosterCandidate } from '@engine/src/features/roster'
-import { affinityStage, doneToday, editMemory, forgetMemory, interactInput, interactions, memoriesOf, meetNpc, newsOf, npcOf, npcsHere, readNpcs, recall, relationOf, successChance, watchNpc } from '@engine/src/features/npcs'
+import { affinityStage, editMemory, forgetMemory, interactInput, interactions, memoriesOf, meetNpc, newsOf, npcOf, npcsHere, readNpcs, recall, relationOf, successChance, watchNpc } from '@engine/src/features/npcs'
 import type { InteractExtra, InteractKind, InteractionView, Memory, MemoryPatch, NewsItem, Npc, Relation, StageView } from '@engine/src/features/npcs'
 import { call as favorCall, favorsOf, spend as favorSpend, spendBlock as favorSpendBlock } from '@engine/src/features/favors'
 import type { FavorsState } from '@engine/src/features/favors'
@@ -42,9 +42,11 @@ import { billPreview, setBill } from '@engine/src/features/bills'
 import type { BillPreview, BillSetting } from '@engine/src/features/bills'
 import { jobsHere, shift as workShift } from '@engine/src/features/work'
 import type { JobView } from '@engine/src/features/work'
+import { residencePools } from '@engine/src/features/rest/model'
 import { breathBlock, breathDraft, homeOf, leaveBlock, leaveDraft, readRest, rentBlock, rentDraft, restRules, sleepBlock, sleepDraft, sleepOptions } from '@engine/src/features/rest'
 import type { Level, ResidenceEntry, SleepOption, SleepSpotId } from '@engine/src/features/rest'
-import { DEMO_SCENES, demoCoreWithoutPeople, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature } from '../data/demo'
+import type { PartyMember } from '../data/types'
+import { DEMO_SCENES, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature } from '../data/demo'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
 import { ageBlock, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
 import { debriefOf } from '../lib/scene/sceneView'
@@ -68,7 +70,7 @@ export const useEngine = defineStore('engine', () => {
   // 開局站在哪（示意包的起點）是 game.new 掛點給的變更（demoStartFeature），不另開一份報告，所以紀錄一開始是空的。
   // 成人場景的模式（設定 scene_mode，預設精簡；下一場生效）：每個新建的引擎都套上現在的設定
   let sceneModeNow: SceneMode = 'simple'
-  const build = (extra: ContentPack[] = [], demo = true, features: Feature[] = []): Game => withSceneMode(new Game({ features: [...allFeatures(), ...(demo ? [demoStartFeature()] : []), ...features], content: [...(demo ? [demoCoreWithoutPeople(CORE_PACK), demoPack()] : [CORE_PACK]), ...extra], fakeProvider: new FakeProvider() }))
+  const build = (extra: ContentPack[] = [], demo = true, features: Feature[] = []): Game => withSceneMode(new Game({ features: [...allFeatures(), ...(demo ? [demoStartFeature()] : []), ...features], content: [...(demo ? [CORE_PACK, demoPack()] : [CORE_PACK]), ...extra], fakeProvider: new FakeProvider() }))
   const withSceneMode = (g: Game): Game => { setSceneMode(g.k, sceneModeNow); return g }
   let game = build()
   /** 這一局載的是示意世界包（測試自帶內容時不是）：開新局之後附上示意的名冊 */
@@ -88,7 +90,17 @@ export const useEngine = defineStore('engine', () => {
     undoSize.value = game.undo.size
     refreshSteps()
   }
-  game.subscribe(refresh)
+  /**
+   * 這一步提交新產生的報告（引擎每次提交通知的那一份）：App 靠它開帳單、顯示通知。
+   * 報告的 id 每一局都從 r1 起算，所以不能用「上次看到的 id」往回找；這裡每次提交換一份、seq 加一。
+   * 讀檔、開新局不算新報告（讀進來的舊紀錄不會再觸發一次）。
+   */
+  const feed = shallowRef<{ seq: number; reports: Report[] }>({ seq: 0, reports: [] })
+  const onCommit = (_state: GameState, reports: Report[]): void => {
+    if (reports.length > 0) feed.value = { seq: feed.value.seq + 1, reports: structuredClone(reports) }
+    refresh()
+  }
+  game.subscribe(onCommit)
 
   const hasCharacter = computed(() => state.value.pc !== null)
   const pc = computed<Actor | null>(() => (state.value.pc === null ? null : state.value.actors[state.value.pc] ?? null))
@@ -125,9 +137,10 @@ export const useEngine = defineStore('engine', () => {
     const { draft, testContent, testFeatures, people, ...rest } = opts
     // 只給測試用：把測試自帶的最小內容接在核心的內容後面，換一個新的引擎（畫面與正式的流程不傳這個參數）
     if (testContent) {
+      clearQueued()
       game = build(testContent, false, testFeatures)
       demoOn = false
-      game.subscribe(refresh)
+      game.subscribe(onCommit)
     }
     if (draft) {
       const probe = blankState(0)
@@ -135,15 +148,18 @@ export const useEngine = defineStore('engine', () => {
       const blocks = creationBlocks(game.k, probe, draft)
       if (blocks.length > 0) return blocks
       previewRules.value = null
-      game.newGame({ ...rest, setup: (state) => withPeople(buildCreationReport(game.k, state, draft), state, people !== false) })
+      clearQueued()
+      game.newGame({ ...rest, setup: (state) => withPeople(buildCreationReport(game.k, state, draft), state, people !== false, draft.origin) })
       return []
     }
     previewRules.value = null
+    clearQueued()
     game.newGame(rest)
     return []
   }
 
-  const withPeople = (r: ReportDraft, state: GameState, on: boolean): ReportDraft => (on && demoOn ? { ...r, changes: [...r.changes, ...demoPeopleChanges(game.k, state)] } : r)
+  /** 建角的開新局：名冊的成員是引擎照出身的名冊放的，示意包只補候選人 */
+  const withPeople = (r: ReportDraft, state: GameState, on: boolean, origin: string): ReportDraft => (on && demoOn ? { ...r, changes: [...r.changes, ...demoPeopleChanges(game.k, state, { origin: (originView(game.k, origin)?.roster ?? []).map((n) => n.id) })] } : r)
   /** 先問引擎每一步行不行；有問題原樣回傳、狀態不動；沒問題才提交。 */
   function createCharacter(draft: CreationDraft): CreationBlock[] {
     const blocks = creationBlocks(game.k, game.state, draft)
@@ -218,18 +234,21 @@ export const useEngine = defineStore('engine', () => {
   }
   function load(raw: string): string | null {
     const err = game.load(raw)
+    if (err === null) clearQueued()
     refresh()
     return err
   }
   /** 撤退：狀態回到快照，快照之後的紀錄留著並標成被收回，多一則交代這件事的。回傳錯誤訊息或 null。 */
   function rewind(raw: string, summary: string): string | null {
     const err = game.rewind(raw, { summary })
+    if (err === null) clearQueued()
     refresh()
     return err
   }
   const clock = computed(() => { void state.value; return game.clock() })
   function undo(): boolean {
     const ok = game.undoSteps(1)
+    if (ok) clearQueued()
     refresh()
     return ok
   }
@@ -300,13 +319,13 @@ export const useEngine = defineStore('engine', () => {
   const finishBattle = () => run(() => game.finishBattle())
   function retryBattle(): string | null {
     const err = game.retryBattle()
-    if (err === null) refresh()
+    if (err === null) { clearQueued(); refresh() }
     return err
   }
   /** 回到這個階段開始時（戰敗三選一的第三個）：規則在引擎（Game.rewindToStage，COMBAT_SYSTEM 8.4 節），這裡只轉接。 */
   function rewindToStage(): string | null {
     const err = game.rewindToStage()
-    if (err === null) refresh()
+    if (err === null) { clearQueued(); refresh() }
     return err
   }
   function acceptDefeatNow(): void {
@@ -547,9 +566,20 @@ export const useEngine = defineStore('engine', () => {
   }
 
   // ---- 城市、搭車、事件視窗、掃橋（M2-ui-world）：全部轉接 features/world、transit、director、security，畫面不自己判斷 ----
-  /** 把一份（或幾份）報告草稿交給引擎提交（走 commitNarrated：AI 關著就是一般的提交）。草稿做不出來（被擋下）回傳原因。 */
-  const queued: ReportDraft[] = []
-  async function commitDrafts(make: () => ReportDraft | ReportDraft[], label?: string): Promise<ActOutcome> {
+  /**
+   * 留著等引擎放行的草稿：只有「同一個動作的前一份已經提交、後面那份被擋下」才留（例：計程車出發之後事件開了，抵達先等）。
+   * 整個動作被引擎擋下（refused）的草稿不留：引擎沒做、狀態不變，之後也不會自己生效。
+   * make 在放行的時候才呼叫，照當下的狀態重做；做不出來（引擎擋下）就丟掉。
+   */
+  interface Queued { action: string; make: () => ReportDraft }
+  const queued: Queued[] = []
+  /** 開新局、讀檔、回退、回到階段開始、重來戰鬥：狀態換了，留著的草稿都是舊的，全部丟掉 */
+  const clearQueued = (): void => { queued.length = 0 }
+  /**
+   * 把一份（或幾份）報告草稿交給引擎提交（走 commitNarrated：AI 關著就是一般的提交）。草稿做不出來（被擋下）回傳原因。
+   * remake(i)：第 i 份草稿（i ≥ 1）若要留著等放行，放行時用它照當下狀態重做；沒給就用原來那一份。
+   */
+  async function commitDrafts(make: () => ReportDraft | ReportDraft[], label?: string, remake?: (i: number) => ReportDraft): Promise<ActOutcome> {
     let drafts: ReportDraft[]
     try {
       const made = make()
@@ -564,8 +594,8 @@ export const useEngine = defineStore('engine', () => {
       const r = await run(() => game.commitNarrated(d, { mode: 'new', ...(label ? { label } : {}) }))
       last = r
       if (r.status !== 'applied') {
-        // 前面的已經提交了、這一份被擋下（例：出發之後事件開了）：留著，等引擎放行再提交（計程車的抵達）
-        if (i > 0 || r.status === 'refused') queued.push(...drafts.slice(i))
+        // 前面的已經提交了、這一份被擋下（例：出發之後事件開了）：留著，等引擎放行再提交（計程車的抵達）。第一份就被擋下的不留。
+        if (i > 0) for (let j = i; j < drafts.length; j++) queued.push({ action: drafts[j]!.action ?? '', make: remake ? () => remake(j) : () => drafts[j]! })
         return r
       }
     }
@@ -574,9 +604,17 @@ export const useEngine = defineStore('engine', () => {
   /** 引擎放行了就把留著的草稿提交掉（事件做完之後呼叫） */
   async function drainQueued(): Promise<void> {
     while (queued.length > 0 && game.blockOf(`commit:${queued[0]!.action}`) === null) {
-      const d = queued.shift()!
+      const q = queued.shift()!
+      let d: ReportDraft
+      try { d = q.make() } catch (e) { if (reasonOf(e) === null) throw e; continue }
       await run(() => game.commitNarrated(d, { mode: 'new' }))
     }
+  }
+  /** 計程車抵達那一份，照現在的狀態重做（引擎的 taxi 一次做出發與抵達；車資在出發時已付，所以用一份補足車資的複本問，取後面那份）。 */
+  const taxiArrival = (to: string): ReportDraft => {
+    const s = structuredClone(game.state)
+    s.money.cred += 1_000_000_000
+    return transitTaxi(game.k, s, to)[1]!
   }
 
   const world = {
@@ -618,7 +656,7 @@ export const useEngine = defineStore('engine', () => {
     advance: () => commitDrafts(() => transitAdvance(game.k, game.state)),
     alight: () => commitDrafts(() => transitAlight(game.k, game.state)),
     /** 計程車：出發與抵達各一份報告，照順序提交 */
-    taxi: (to: string) => commitDrafts(() => transitTaxi(game.k, game.state, to), '叫計程車'),
+    taxi: (to: string) => commitDrafts(() => transitTaxi(game.k, game.state, to), '叫計程車', () => taxiArrival(to)),
     /**
      * 坐到目的地：一站一站呼叫引擎，路上開了事件（或引擎說坐不下去）就停。到了目的地也停，不自動下車。
      * stopped：dest 到了、event 路上開了事件、blocked 引擎擋下（reason 是它的原因）、none 沒有目的地。
@@ -708,6 +746,8 @@ export const useEngine = defineStore('engine', () => {
     muster: (party: string[], tagalong: string[]) => commitDrafts(() => rosterMuster(game.k, game.state, { party, tagalong }), '召集'),
     /** 隊上現在的人（含主角） */
     party: (): string[] => { void state.value; return [...game.state.party] },
+    /** 隊伍與同行的人數上限（引擎的名冊規則 party_max、tagalong_max；資料可以蓋掉） */
+    crewRules: (): { party: number; tagalong: number } => { void state.value; const r = rosterRules(game.k); return { party: r.party_max, tagalong: r.tagalong_max } },
     /** 角色的名字（顯示用） */
     actorName: (id: string): string => game.state.actors[id]?.name ?? id,
   }
@@ -792,7 +832,7 @@ export const useEngine = defineStore('engine', () => {
       void state.value
       const weeks = restRules(game.k).deposit_weeks
       return game.k.content.list<ResidenceEntry>('residence').map((r) => ({
-        id: r.id, name: r.name, rent: r.rent, level: r.level, deposit: r.rent * weeks, pools: r.cash_ok === 'only' ? ['cash'] : r.cash_ok === true ? ['cred', 'cash'] : ['cred'],
+        id: r.id, name: r.name, rent: r.rent, level: r.level, deposit: r.rent * weeks, pools: residencePools(r),
         block: game.k.content.get<{ id: string; name?: string }>('block', r.block)?.name ?? null, block_reason: rentBlock(game.k, game.state, r.id),
       }))
     },
@@ -828,8 +868,6 @@ export const useEngine = defineStore('engine', () => {
     loyalty: (id: string): number | null => { void state.value; return Object.hasOwn(readRoster(game.state).members, id) ? meterOf(game.k, game.state, 'loyalty', id) : null },
     /** 對這個人每一種互動：能不能做、原因、DC 與成功率（引擎的 interactions） */
     interactions: (id: string): InteractionView[] => { void state.value; return interactions(game.k, game.state, id) },
-    /** 這個人今天做過哪些互動（引擎的 doneToday：chat、gift、ask_small…） */
-    done: (id: string): string[] => { void state.value; return doneToday(game.state, id) },
     /** 送出一個互動（主動行動：先擲骰再判定）；被擋下的原因是引擎的 */
     interact: (kind: InteractKind, id: string, extra: InteractExtra = {}): Promise<ActOutcome> => {
       try {
@@ -884,12 +922,34 @@ export const useEngine = defineStore('engine', () => {
     candidates: (): RosterCandidate[] => { void state.value; return readRoster(game.state).candidates },
     /** 人情：欠你的與你欠的（引擎的 favorsOf） */
     favors: (): FavorsState => { void state.value; return favorsOf(game.state) },
-    favorName: (who: string): string => game.state.actors[who]?.name ?? nameIn('npc', who) ?? nameIn('faction', who),
+    /** 人情的對象（角色、固定 NPC 或勢力）的名字；都查不到才用 id */
+    favorName: (who: string): string => game.state.actors[who]?.name ?? (game.k.content.has('npc', who) ? nameIn('npc', who) : game.k.content.has('faction', who) ? peopleLook.faction(who) : who),
     favorUseBlock: (id: string): string | null => { void state.value; return favorSpendBlock(game.k, game.state, { id }) },
     favorUse: (id: string) => commitDrafts(() => favorSpend(game.k, game.state, { id }), '用掉人情'),
     /** 被討：答應（do）或回絕（refuse） */
     favorAnswer: (id: string, answer: 'do' | 'refuse') => commitDrafts(() => favorCall(game.k, game.state, id, answer), answer === 'do' ? '答應' : '回絕'),
   }
 
-  return { state, world, transit, people, event, fixer, commission, scene, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  // ---- 主畫面的小隊與狀態列的敵對值：讀引擎的隊伍、生命值、感載與量表 ----
+  const statOf = (id: string, stat: string, fallback: number): number => (game.k.stats.hasStat(stat) ? Math.max(1, game.k.stats.stat(game.state, id, stat)) : fallback)
+  /** 小隊（引擎的 state.party；生命值與感載上限是引擎的衍生數值 max_hp、load_cap）。主職是路數的名字（沒有路數的主角不寫） */
+  function partyRows(): PartyMember[] {
+    void state.value
+    const s = game.state
+    return s.party.flatMap((id): PartyMember[] => {
+      const a = s.actors[id]
+      if (!a) return []
+      const main = (Array.isArray(a.ext.paths) ? a.ext.paths as Array<{ path: string; slot: string }> : []).find((p) => p.slot === 'main')
+      return [{ id, name: a.name, role: main ? peopleLook.path(main.path) : '', sink: a.sink, hp: [a.hp, statOf(id, 'max_hp', Math.max(1, a.hp))], load: [a.load, statOf(id, 'load_cap', Math.max(1, a.load))], afterglow: a.afterglow, me: id === s.pc }]
+    })
+  }
+  /** 敵對值最高的幾個勢力（引擎的量表 hostility；0 的不列）。名字是勢力的短名 */
+  function hostilityTop(n = 2): Array<[string, number]> {
+    void state.value
+    return game.k.content.list<{ id: string }>('faction')
+      .map((f): [string, number] => [peopleLook.faction(f.id), meterOf(game.k, game.state, 'hostility', f.id)])
+      .filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, n)
+  }
+
+  return { state, feed, partyRows, hostilityTop, world, transit, people, event, fixer, commission, scene, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

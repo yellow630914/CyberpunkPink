@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import Dialog from '../components/Dialog.vue'
 import Hint from '../components/Hint.vue'
-import MoneyTag from '../components/MoneyTag.vue'
 import ReasonButton from '../components/ReasonButton.vue'
 import { useGame } from '../stores/game'
 import { useUi } from '../stores/ui'
@@ -12,6 +11,8 @@ import { useEngine } from '../stores/engine'
 import { gradeRoman } from '../lib/commissionView'
 import { STEP_TEXT, STEPS } from '@engine/src/features/bills'
 import { fmt } from '../lib/price'
+import { favorRows, identityOf } from '../lib/peopleView'
+import { failText } from '../lib/lifeView'
 
 /**
  * 中間人的店（對話框，UI.md 第 13 節、FIXER 第 1、2、4、8 節）：走進中間人所在的設施打開。
@@ -26,7 +27,9 @@ const e = useEngine()
 // 設施寫的 fixerId 是引擎內容裡中間人的 id；沒寫（或查不到）用第一位
 const fixerId = computed(() => (props.fixerId && e.fixer.entry(props.fixerId) ? props.fixerId : e.fixer.ids()[0] ?? ''))
 const fixerEntry = computed(() => e.fixer.entry(fixerId.value))
-const fixer = computed(() => g.npcs[fixerEntry.value?.npc ?? ''] ?? g.npcs.npc_monroe)
+// 中間人本人是引擎的 npc；店名取中間人的名字，身分是 npc 的職業
+const fixerNpc = computed(() => (fixerEntry.value ? e.people.npc(fixerEntry.value.npc) : null))
+const fixerSub = computed(() => [fixerNpc.value?.name ?? fixerEntry.value?.name ?? '', fixerNpc.value ? identityOf(fixerNpc.value) : ''].filter(Boolean).join('・'))
 const jobs = computed(() => e.fixer.jobs())
 /** 四拍走到哪（引擎的狀態：副本開著是副本，踩過點是踩點，其餘是召集前） */
 const beatOf = (jobId: string): string => {
@@ -35,19 +38,16 @@ const beatOf = (jobId: string): string => {
   if (run && j && run.id === j.commission.id) return `副本・第 ${run.stage} 階段`
   return j && j.scouts > 0 ? `踩點 ${j.scouts} 次` : '接案了、還沒踩點'
 }
-const owes = computed(() => Object.values(g.npcs).filter(n => n.favor).map(n => ({ id: n.id, name: n.name, favor: n.favor!, why: n.relation })))
+// 人情是引擎的（favors）：欠你的可以用掉，你欠的在「關係」答應或回絕
+const favors = computed(() => e.people.favors())
+const owedToYou = computed(() => favorRows(favors.value, 'owed_to_pc', e.people.favorName))
+const youOwe = computed(() => favorRows(favors.value, 'owed_by_pc', e.people.favorName))
 // 這週的帳單：引擎的預覽（和真的結算同一個算法）
 const bills = computed(() => e.bills.preview())
 const stage = computed(() => bills.value.slope)
-const useMenu = ref<string | null>(null)
-const FAVOR_USES = ['請一位行者幫一次忙（不付出場費）', '委託的分帳換一份不抽成', '踩點時直接揭開一項', '戰敗時把戰敗事件換成比較輕的']
-function useFavor(id: string, what: string) {
-  const n = g.npcs[id]
-  if (!n || !n.favor || n.favor <= 0) return
-  n.favor--
-  g.addLog({ prose: [`你向${n.name}討了一個人情：${what}。`] })
-  ui.toast(`用掉${n.name}的一個人情。`)
-  useMenu.value = null
+async function useFavor(id: string) {
+  const why = failText(await e.people.favorUse(id), '現在用不了這個人情。')
+  if (why) ui.toast(why, 'warn')
 }
 function open(jobId?: string) {
   ui.closeAll()
@@ -57,7 +57,7 @@ function accepted(jobId: string) { open(jobId) }
 </script>
 
 <template>
-  <Dialog :entry-id="entryId" :stacked="stacked" title="中間人的店" :sub="`${fixer.name}・${fixer.identity}`" size="xl">
+  <Dialog :entry-id="entryId" :stacked="stacked" title="中間人的店" :sub="fixerSub" size="xl">
     <template #header><Hint title="中間人">中間人賣的是信任：保證雇主付錢、保證做事的人不亂說。每個中間人有自己的地盤、門路、後台與脾氣。信譽越高，肯見你的中間人越多；信譽不夠的委託變淡並寫門檻。</Hint></template>
     <div class="fx">
       <TakePanel v-if="fixerId" :fixer-id="fixerId" @accepted="accepted" @leave="ui.closeAll()" />
@@ -70,15 +70,17 @@ function accepted(jobId: string) { open(jobId) }
             <span class="tag hot">打開</span>
           </button>
         </section>
-        <section class="panel cut pad">
-          <p class="h">人情<Hint>欠你的（金色）與你欠的（橘色）。勢力的人情寫明要找誰兌。用掉一個人情開一個選單。</Hint></p>
-          <div v-if="!owes.length" class="empty-note">沒有人情往來。</div>
-          <div v-for="o in owes" :key="o.id" class="fav" :class="{ mine: o.favor < 0 }">
-            <span class="grow"><b>{{ o.name }}</b><small>{{ o.favor > 0 ? `欠你 ${o.favor}` : `你欠 ${-o.favor}` }}・{{ o.why }}</small></span>
-            <ReasonButton v-if="o.favor > 0" sm :reason="null" @go="useMenu = useMenu === o.id ? null : o.id">用掉一個</ReasonButton>
-            <div v-if="useMenu === o.id" class="menu"><button v-for="w in FAVOR_USES" :key="w" type="button" class="lrow" @click="useFavor(o.id, w)">{{ w }}</button></div>
+        <section class="panel cut pad" data-favors>
+          <p class="h">人情<Hint>欠你的（金色）與你欠的（橘色）。用掉一個是引擎的人情帳（不能用的寫原因）；你欠的在「關係」答應或回絕。</Hint></p>
+          <div v-if="!owedToYou.length && !youOwe.length" class="empty-note">沒有人情往來。</div>
+          <div v-for="o in owedToYou" :key="o.id" class="fav" :data-favor="o.id">
+            <span class="grow"><b>{{ o.whoName }}</b><small>欠你・{{ o.size }}<template v-if="o.note">・{{ o.note }}</template></small></span>
+            <ReasonButton sm :reason="e.people.favorUseBlock(o.id)" @go="useFavor(o.id)">用掉一個</ReasonButton>
           </div>
-          <div class="kv"><span>手上的人情（小）</span><b><MoneyTag kind="fav" :amount="g.money.fav" :size="12" /></b></div>
+          <div v-for="o in youOwe" :key="o.id" class="fav mine" :data-owe="o.id">
+            <span class="grow"><b>{{ o.whoName }}</b><small>你欠・{{ o.size }}<template v-if="o.note">・{{ o.note }}</template></small></span>
+            <button type="button" class="btn sm" @click="ui.openRoot('relations')">去答覆</button>
+          </div>
         </section>
         <section class="panel cut pad">
           <p class="h">這週的帳單</p>
@@ -100,6 +102,5 @@ function accepted(jobId: string) { open(jobId) }
 .fav { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); margin-bottom: var(--space-2); background: var(--bg-2); box-shadow: inset 3px 0 0 var(--money-fav); }
 .fav.mine { box-shadow: inset 3px 0 0 var(--warn); }
 .fav small { color: var(--ink-3); font-size: var(--fs-fine); }
-.menu { flex-basis: 100%; display: grid; gap: var(--space-1); }
 .go.left { justify-content: flex-start; }
 </style>

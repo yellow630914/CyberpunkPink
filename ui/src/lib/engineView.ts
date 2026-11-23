@@ -152,14 +152,16 @@ export function uiFromAiSettings(raw: unknown): Partial<UiAiFields> {
   return out
 }
 
-/** 設定頁的存檔規則轉成引擎的存檔規則（難度、特質點、自訂難度的 DC 偏移、關掉的內容標籤；其他用預設）。 */
-export function rulesFromUi(s: { difficulty?: string; traitPoints?: number; customDiff?: { dc: number }; filterIntimateBody?: boolean }): Record<string, unknown> {
+/** 設定頁的存檔規則轉成引擎的存檔規則（難度、特質點、自訂難度的 DC 偏移、關掉的內容標籤、快速移動、名冊 NPC 會死；其他用預設）。 */
+export function rulesFromUi(s: { difficulty?: string; traitPoints?: number; customDiff?: { dc: number }; filterIntimateBody?: boolean; fastTravel?: boolean; rosterDeath?: boolean }): Record<string, unknown> {
   const D: Record<string, string> = { 故事: 'story', 簡單: 'easy', 普通: 'normal', 困難: 'hard', 傳奇: 'legend', 自訂: 'custom' }
   const out: Record<string, unknown> = {}
   if (s.difficulty && D[s.difficulty]) out.difficulty = D[s.difficulty]
   if (s.traitPoints !== undefined) out.startPerkPoints = s.traitPoints
   if (s.difficulty === '自訂' && s.customDiff) out.dcOffset = s.customDiff.dc
   if (s.filterIntimateBody === false) out.contentOff = ['intimate_body']
+  if (s.fastTravel !== undefined) out.fastTravel = s.fastTravel
+  if (s.rosterDeath !== undefined) out.rosterDeath = s.rosterDeath
   return out
 }
 
@@ -169,3 +171,11 @@ export const GENDER_OPTIONS: ReadonlyArray<{ id: GenderId; name: string }> = GEN
 
 /** 特質的分類（引擎給英文代號）顯示用的中文。 */
 export const PERK_CATEGORY_NAME: Record<string, string> = { social: '社交', street: '街頭', body: '身體', bridge: '橋', craft: '工藝', net: '內海', media: '媒體', desire: '慾望', origin: '出身' }
+
+/**
+ * 這一步提交新產生的報告要引出什麼（App 用）：跨過週一的結算（bill.settle）打開帳單，週日晚上的提醒（bill.notice）顯示成通知。
+ * 只看傳進來的報告，不看紀錄的歷史：讀檔、回退帶進來的舊報告不算。
+ */
+export function freshEffects(reports: ReadonlyArray<{ action?: string; outcome: { summary: string } }>): { openBills: boolean; toasts: string[] } {
+  return { openBills: reports.some((r) => r.action === 'bill.settle'), toasts: reports.filter((r) => r.action === 'bill.notice').map((r) => r.outcome.summary) }
+}

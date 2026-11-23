@@ -119,11 +119,16 @@ export const DEMO_SCENES: DemoScene[] = [
   },
 ]
 
-/** 示範場景開始之前要先放好的東西：對象進狀態、主角會的體位與技能、兩件道具、一點「主導」的傾向。回傳要提交的變更。 */
+/**
+ * 示範場景開始之前要先放好的東西：對象進狀態、主角會的體位與技能、兩件道具、一點「主導」的傾向。回傳要提交的變更。
+ * 只給 `#/scene?scene=` 的示範入口用（正式的局裡沒有任何入口會呼叫它：技能、傾向、道具不由畫面寫進規則狀態）；
+ * 道具只在第一次（還沒放過示範的技能）給，用完再進來不補。
+ */
 export function demoSceneChanges(scene: DemoScene, has: { actor: boolean; pc: string; ext: Record<string, unknown>; items: string[] }): Change[] {
   const out: Change[] = []
   if (!has.actor) out.push({ op: 'actor.add', actor: scene.partner } as unknown as Change)
   const mine = (has.ext.scene ?? {}) as { positions?: string[]; skills?: string[] }
+  const seeded = (mine.skills ?? []).includes('nt_stroke')
   const skills = [...new Set([...(mine.skills ?? []), 'nt_stroke', 'nt_kiss', 'nt_nibble', 'nt_press', 'nt_hold', 'nt_whisper'])]
   const positions = [...new Set([...(mine.positions ?? []), 'pos_ride'])]
   out.push({ op: 'actor.ext', id: has.pc, key: 'scene', value: { ...(mine as object), skills, positions } } as unknown as Change)
@@ -132,6 +137,6 @@ export function demoSceneChanges(scene: DemoScene, has: { actor: boolean; pc: st
     out.push({ op: 'actor.ext', id: has.pc, key: 'tendency', value: { ...t, tags: { ...t.tags, tg_dom: 'has' } } } as unknown as Change)
   }
   if (!has.ext.bridge) out.push({ op: 'actor.ext', id: has.pc, key: 'bridge', value: { sensitivity: 46, tolerance: 30, craving: 30, docility: 10 } } as unknown as Change)
-  for (const id of ['it_gel', 'it_calm']) if (!has.items.includes(id)) out.push({ op: 'item', id, qty: 2 } as unknown as Change)
+  if (!seeded) for (const id of ['it_gel', 'it_calm']) if (!has.items.includes(id)) out.push({ op: 'item', id, qty: 2 } as unknown as Change)
   return out
 }

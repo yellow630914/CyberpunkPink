@@ -8,7 +8,7 @@ import { formatTime } from '@engine/src'
 import type { FavorsState } from '@engine/src/features/favors'
 import { SIZE_NAME } from '@engine/src/features/favors'
 import type { InteractionView, Memory, NewsItem, Npc, Relation } from '@engine/src/features/npcs'
-import { BRIDGE_PARAMS, CATEGORY_NAME, KIND_NAME, READ_CATEGORIES, STAGES, parseFact } from '@engine/src/features/npcs'
+import { BRIDGE_PARAMS, CATEGORY_NAME, KIND_NAME, READ_CATEGORIES, STAGES, knowFactText, parseFact } from '@engine/src/features/npcs'
 import type { ReadCategory } from '@engine/src/features/npcs'
 import type { Candidate, RosterRow } from '@engine/src/features/roster'
 
@@ -80,11 +80,12 @@ export function knownRows(npc: Npc, facts: string[], look: PeopleLook): KnownRow
   rows.push(secrets.length ? { key: 'secret', label: '秘密', value: secrets.map((x) => x.p!.arg!).join('、'), unknown: false } : { key: 'secret', label: '秘密', value: UNKNOWN, unknown: true })
   const recent = of('recent')
   if (recent.length) {
+    // 這一條的句子是引擎的 knowFactText（畫面只補地名的查詢）
     const where = (arg: string): string => {
       const asBlock = look.place({ block: arg })
       return asBlock !== arg ? asBlock : look.place({ district: arg })
     }
-    rows.push({ key: 'recent', label: '近況', value: recent.map((x) => `最近去過${where(x.p!.arg!)}`).join('；'), unknown: false })
+    rows.push({ key: 'recent', label: '近況', value: recent.map((x) => knowFactText(x.f, look.tag, where)).join('；'), unknown: false })
   }
   return rows
 }
@@ -101,24 +102,19 @@ export interface InteractRow {
   dcTitle: string
   chanceText: string
   needs: 'item' | 'category' | null
+  /** 做得了、但有一件事要先知道（引擎的 note：今天聊過了不會再加親密度）；沒有是 null */
+  note: string | null
 }
 const pct = (c: number | null): string => (c === null ? '' : `${Math.round(c * 100)}%`)
 
 export function interactRows(list: InteractionView[]): InteractRow[] {
   return list.map((v) => ({
-    kind: v.kind, name: v.name, ok: v.ok, reason: v.reason, needs: v.needs,
+    kind: v.kind, name: v.name, ok: v.ok, reason: v.reason, needs: v.needs, note: v.note ?? null,
     dcText: v.dc === null ? '' : `DC ${v.dc}`,
     dcTitle: v.mods.map((m) => `${m.label} ${signed(m.value)}`).join('；'),
     chanceText: pct(v.chance),
   }))
 }
-
-/**
- * 今天已經聊過了的提示。引擎只在結算時照「今天第一次」加親密度，沒有現成的句子（列在回報裡），
- * 所以這裡只認引擎的 doneToday 記的 chat，句子是畫面寫的。
- */
-export const CHAT_AGAIN = '今天已經聊過了：再聊也行，但不會再加親密度。'
-export const chatAgain = (done: string[]): string | null => (done.includes('chat') ? CHAT_AGAIN : null)
 
 // ---- 共同記憶與近況 ----
 

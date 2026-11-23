@@ -105,7 +105,7 @@ const needText = (b: NonNullable<typeof v.value>['branches'][number]): string =>
         <TrackBar :value="v.alert.value" :max="100" color="var(--warn)" label="警戒" :marks="[v.alert.reinforce]" />
         <small class="t-fine">到 {{ v.alert.reinforce }} 增援加進下一場遭遇</small>
       </div>
-      <div class="pres"><TrackBar :value="trace" :max="100" color="var(--net)" label="追蹤度" :marks="[30, 60, 90]" /></div>
+      <div class="pres"><TrackBar :value="trace" :max="100" color="var(--net)" label="追蹤度" /></div>
       <label class="live"><input type="checkbox" disabled aria-label="副本直播" /> 副本直播<small>（{{ NOT_OPEN }}）</small></label>
       <ReasonButton :reason="v.breathe.reason" data-breathe @go="breathe">喘口氣</ReasonButton>
       <ReasonButton :reason="v.retreat.reason" data-retreat @go="confirmRetreat = true">撤退</ReasonButton>

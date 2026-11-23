@@ -103,7 +103,6 @@ function service(s: NonNullable<Facility['services']>[number]) {
     case 'home': router.push('/home'); break
     case 'dungeon': router.push('/dungeon'); break
     case 'garage': case 'mech': case 'clinic': case 'fixer': case 'cut': case 'dye': ui.openRoot(s.action, s.props ?? {}); break
-    case 'scene': router.push({ path: '/scene', query: { scene: String(s.props?.scene ?? ''), from: '/' } }); break
     default: ui.toast(`「${s.name}」的畫面在第四版做。`)
   }
 }
@@ -150,7 +149,9 @@ const run = computed(() => e.commission.view())
 /** 委託條的每一格：副本開著照引擎的階段軌（沒揭開的寫「？」），還沒出發只有接案、踩點、召集、出發四拍 */
 const stages = computed(() => {
   if (run.value) return run.value.track.map(n => ({ name: n.known ? n.name : '？', face: (n.faces ?? []).map(f => ({ meat: 'm', net: 'n', opinion: 'o' }[f])), state: n.state === 'done' ? 'done' : n.state === 'current' ? 'now' : '' }))
-  return [{ name: '接案', face: [], state: 'done' }, { name: '踩點', face: [], state: job.value && job.value.scouts > 0 ? 'done' : 'now' }, { name: '召集', face: [], state: '' }, { name: '副本', face: [], state: '' }]
+  // 手上沒有委託時四格都不亮（沒有「做完」也沒有「現在」）
+  const has = !!job.value
+  return [{ name: '接案', face: [], state: has ? 'done' : '' }, { name: '踩點', face: [], state: has ? (job.value!.scouts > 0 ? 'done' : 'now') : '' }, { name: '召集', face: [], state: '' }, { name: '副本', face: [], state: '' }]
 })
 const jobLine = computed(() => (run.value ? `第 ${Math.min(run.value.stage, run.value.stages)} 階段` : job.value ? '還沒出發' : '去中間人那裡接案'))
 </script>
@@ -176,7 +177,7 @@ const jobLine = computed(() => (run.value ? `第 ${Math.min(run.value.stage, run
         </section>
         <section class="panel cut pad party">
           <p class="h">小隊</p>
-          <PartyRow v-for="m in g.party" :key="m.id" :m="m" />
+          <PartyRow v-for="m in e.partyRows()" :key="m.id" :m="m" />
         </section>
         <section class="panel cut pad job">
           <p class="h">委託<Hint title="委託條">進行中的委託與它的階段。每一格寫階段名與可選的面（灰是現實、薄荷是內海、紫是輿論），現在的那格是粉色。點任一格打開委託頁（接案、踩點、召集、副本）。</Hint></p>
@@ -205,7 +206,7 @@ const jobLine = computed(() => (run.value ? `第 ${Math.min(run.value.stage, run
             <button class="btn pri sm" type="submit" :disabled="e.busy">擲骰</button>
           </form>
           <div class="ctx">
-            <button type="button" class="btn" @click="g.advance(60); g.addLog({ prose: ['你找個地方坐下來喘口氣。'] })">休息</button>
+            <button type="button" class="btn" data-rest @click="ui.openRoot('rest')">休息</button>
             <button type="button" class="btn" @click="router.push('/subnet')">潛入</button>
             <button type="button" class="btn" @click="ui.openRoot('live')">直播</button>
           </div>
