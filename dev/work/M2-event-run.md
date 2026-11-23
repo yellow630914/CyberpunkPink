@@ -45,3 +45,5 @@ M2-director、M2-core-activity。做完才能開 M2-security、M2-defeat、M2-wo
 ## 完成時回報
 
 改了哪些檔、測試結果、DATA 第 4、5 節的欄位裡沒有收的（預期：`adult_soft`、事件開頭由 AI 改寫的那一步、`deadline`）。
+
+- 2026-11-23 補（M2-enemy-encounter 回報）：俘虜的處置是一件內嵌事件 `{ id, scope, text, cast, options }`，選項的 `check: [skill, attr, dc]` 的 DC 是**數字**（問話 10＋等級×2），事件執行器要收數字 DC；收不了的話整場打贏的戰鬥會回滾。驗收要拿 `features/enemies/capture.ts` 的真實事件跑一次。

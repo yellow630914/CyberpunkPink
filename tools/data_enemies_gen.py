@@ -173,6 +173,60 @@ def weapons_of(first,sub):
         res.append(build_weapon(w))
     return res
 
+
+# ---- 跟著主人的附屬單位（dev/work/M2-enemy-encounter.md 第 5 項；ENEMIES 第 10 節「跟著主人寫在主人的條目裡」那一列）----
+# 名冊把這幾種東西只寫在主人的條目裡（「武器」那一行的「…一台」「…兩隻」），沒有自己的兵種表：
+#   星旗的武裝無人機（軍士長 en_sb_sergeant）、崑崙的飛劍（劍靈使 en_kl_swordmaster）、萬華鏡的無人攝影機（直播導演 en_kd_director）、
+#   黑泉的機械獵犬（獵犬操作員 en_bs_handler）、同人眾的自組無人機（無人機社團 en_dj_dronecircle）。
+# 引擎的格式（features/enemies，M1b-enemy-units）：主人的條目寫 attached: [{ enemy, count?, slot? }]，開打時掛在格上、owner 是主人、
+# 主人倒下之後自律；被掛的是一個 position.size: 'overlay' 的兵種（要查得到）。所以這裡在轉換主人的時候寫 attached，並一併產生那幾個 overlay 兵種。
+# 名冊沒有這幾個東西的數值，只有一句話，所以數值用最小的寫法（生命 ×0.5、武器照那一句、AI 照無人機的一般寫法 ENEMIES 第 10 節）；
+# 名冊補了再改這裡。這個腳本只負責轉換；engine/data 不由這一張工單重跑。
+#
+# 詞條 `hounds`（COMMISSIONS 第 9 節、COMMISSION_TEMPLATES「機械獵犬（hounds）」）對到的兵種：HOUNDS_ENEMY = en_bs_hound（黑泉的機械獵犬）。
+#   「每一場現實遭遇多兩隻小型無人機（各 0.5 點，用機械獵犬的數值）」有兩種寫法，由生成委託的功能（M2-commission-gen）挑：
+#   遭遇的 foes 多兩筆 { enemy: 'en_bs_hound' }（沒有主人、每輪自己動）；或替遭遇裡位階最高的那個敵人給 UnitRef.attached: [{ enemy: 'en_bs_hound', count: 2 }]
+#   （蓋掉他自己的附屬單位）。「對獵犬有效的電磁武器傷害 +2」是戰鬥規則，不在資料裡。
+HOUNDS_ENEMY='en_bs_hound'
+DRONE_AI={'prefer':'nearest','focus':0.6,'flee_below':0,'never_flee':True}
+def overlay_entry(id,name,faction,grades,kind,desc,weapons=None,mods=None,prefer=(2,3)):
+    e={'id':id,'name':name,'faction':faction,'rank':'minion','grades':list(grades),'kind':'machine','mode':'lethal',
+       'position':{'prefer':list(prefer),'size':'overlay'},'overlay':{'kind':kind},
+       'weapons':list(weapons or []),'ai':dict(DRONE_AI),'desc':desc}
+    if mods: e['mods']=dict(mods)
+    return e
+# (主人的 id, 主人的 attached, 要產生的 overlay 兵種)
+FOLLOWERS=[
+    # 武裝無人機一台：和她重疊、不佔格
+    ('en_sb_sergeant',[{'enemy':'en_sb_drone'}],[
+        overlay_entry('en_sb_drone','星旗的武裝無人機','starbelle',[4,5],'attack','一台星旗的武裝無人機，跟在軍士長身邊，機身漆著星旗的軍用塗裝。',[{'class':'pistol'}],{'hp':0.5})]),
+    # 飛劍一台：傷害比手槍低一級，她倒下時飛劍就掉下來（自律；「傷害低一級」在武器的骰數上，這裡先用手槍類）
+    ('en_kl_swordmaster',[{'enemy':'en_kl_flying_sword'}],[
+        overlay_entry('en_kl_flying_sword','飛劍','kunlun',[3,4],'attack','一把懸在劍靈使身邊的飛劍，劍身上有崑崙的刻印，她兩指一併它就轉向。',[{'class':'pistol','name':'飛劍'}],{'hp':0.5})]),
+    # 無人攝影機一台：不攻擊（偵察型，沒有武器）；被擊落時這場的錄影少一半（還沒有規則）
+    ('en_kd_director',[{'enemy':'en_kd_camera'}],[
+        overlay_entry('en_kd_camera','無人攝影機','kaleido',[3,4],'scout','一台飄在導演身邊的無人攝影機，鏡頭一直對著場上最狼狽的那個人。',None,{'hp':0.5})]),
+    # 機械獵犬兩隻：開場掛在她這一方的第 1、2 格（slot 1 起，第二隻挪到最近的空格）；詞條 hounds 也用這一種
+    ('en_bs_handler',[{'enemy':HOUNDS_ENEMY,'count':2,'slot':1}],[
+        overlay_entry(HOUNDS_ENEMY,'黑泉的機械獵犬','blackspring',[3,4],'attack','一隻背上漆著黑泉紋章的機械獵犬，四條腿的關節裸露在外，咬合的下顎是金屬的。',[{'class':'melee','name':'咬擊'}],{'hp':0.5},(1,2))]),
+    # 自組無人機：I 級一台（攻擊型，神經）、II 級兩台（多一台干擾型，電磁）。這裡寫 I 級的一台；II 級的第二台由遭遇用 UnitRef.attached
+    # [{ enemy: 'en_dj_drone_atk' }, { enemy: 'en_dj_drone_jam' }] 蓋掉（兵種的 attached 不隨等級變）
+    ('en_dj_dronecircle',[{'enemy':'en_dj_drone_atk'}],[
+        overlay_entry('en_dj_drone_atk','自組無人機（攻擊型）','doujin',[1,2],'attack','用模型零件組起來的無人機，機身畫著社團自己的角色，下面掛著一把裝感官彈的小槍。',[{'class':'pistol','type':'neural'}],{'hp':0.5}),
+        overlay_entry('en_dj_drone_jam','自組無人機（干擾型）','doujin',[2,2],'jammer','用模型零件組起來的無人機，天線比機身還長，專門打斷別人的義體。',[{'class':'pistol','type':'em','name':'干擾槍'}],{'hp':0.5})]),
+]
+def attach_followers(res):
+    """主人的條目補上 attached，並把被掛的 overlay 兵種接在後面（已經有同 id 的不重複加；主人沒有轉進來就不掛）。"""
+    by={e['id']:e for e in res}; have=set(by)
+    for master,attached,entries in FOLLOWERS:
+        m=by.get(master)
+        if m is None: continue
+        m['attached']=[dict(a) for a in attached]
+        for o in entries:
+            if o['id'] not in have:
+                res.append(json.loads(json.dumps(o))); have.add(o['id'])
+    return res
+
 OVERRIDE_W={'en_sb_gunner':[None,{'class':'heavy','name':'榴彈發射器','mag':1}]}
 OMIT0={'en_orihime_guardroid':'ai.prefer 是 bridged，格式的 prefer 沒有這個值','en_rose_wrecker':'ai.prefer 是 bridged','en_rose_mechanic':'ai.prefer 是 bridged','en_strp_cutter':'ai.prefer 是 bridged','en_strp_boss':'ai.prefer 是 bridged','en_bare_puller':'ai.prefer 是 bridged','en_bare_high':'ai.prefer 是 bridged','en_angel_cherub':'AI 行沒有 prefer（只寫「跟著生命比例最低的同伴換格」）；武器「沒有」','en_kd_paparazzi':'武器「沒有」，格式要求至少一把'}
 OMIT={}
@@ -219,6 +273,7 @@ def build(allow_omitted=False):
         if af is not None: e['adult']=clean_adult(af)
         df,_=bullet(L,'樣子'); e['desc']=df
         res.append(e)
+    attach_followers(res)
     return res,skipped
 if __name__=='__main__':
     allow=len(sys.argv)>2 and sys.argv[2]=='all'

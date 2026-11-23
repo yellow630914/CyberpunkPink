@@ -50,3 +50,5 @@ M2-core-activity、M2-core-shell、M2-explore、M2-enemy-encounter（`enemy_pick
 ## 完成時回報
 
 改了哪些檔、測試結果、COMMISSIONS 第 2～5 節裡沒做的（預期：附帶條件的檢查、輿論戰的開場表、直播目標、隔離區）。
+
+- 2026-11-23 補：戰鬥的 `origin.ext` 加 `employer`（委託人的勢力 id），俘虜「交出去」的好感要它。
