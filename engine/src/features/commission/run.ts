@@ -10,6 +10,7 @@ import type { ActivityEndMerged, Change, GameState, Kernel, Launch, MarkerDef, O
 import {
   ActionBlocked, DEGREE_NAME, attachActivityEnd, clone, endActivity, formatAmount, gridHere, mapDef, meterOf, openMap, pointKey, restDone, rollCheck, Sheet,
 } from '../../core'
+import { settleAux } from './aux'
 import type { BranchDef, BranchKind, CommissionEntry, Face, FaceDef, GoalDef, Rank, Run, RouteEntry } from './model'
 import {
   ACTIVITY, FACE_ACTIVITY, FACE_NAME, KIND, branchName, clamp, commissionMapProblems, commissionProblems, commissionRules, dcBaseOf, effectsFor, encounterAfter, faceOf, gradeOf,
@@ -172,13 +173,19 @@ export function chooseFace(k: Kernel, state: GameState, face: Face): ReportDraft
   const view = faceViews(k, run).find((f) => f.face === face)
   if (!view) throw new ActionBlocked('沒有這一面。')
   if (view.block) throw new ActionBlocked(view.block)
-  const next: Run = { ...run, step: 'branch', face }
   const n = run.stage
+  // 輔助面先結算（COMMISSIONS 6.2 節：先結算輔助面，再進玩家選的那一面，所以拿到的連動這個階段就生效）
+  const aux = settleAux(k, state, { ...run, step: 'branch', face })
+  const next: Run = aux ? aux.run : { ...run, step: 'branch', face }
+  const lines = aux?.lines ?? []
   return draft(state, 'commission.face', 'face', `第 ${n} 階段：你選了${FACE_NAME[face]}面。`, [
     // 階段開始時存一份（只留最新的一份）：第一筆變更，存的是還沒選面的狀態（戰敗的「回到這個階段開始時」回到這裡）
     { op: 'snapshot.take', kind: 'stage', label: `${stageName(run.def, n)}開始時`, owner: run.def.id, replace: true },
+    ...(aux?.changes ?? []),
     runChange(next),
   ], {
+    ...(aux && aux.timeline.length > 0 ? { timeline: aux.timeline } : {}),
+    ...(lines.length > 0 ? { narration: { results: lines } } : {}),
     triggers: [{ point: 'stage', where: { kind: run.def.kind, face, faction: run.def.target_faction, ...(run.def.modifiers ? { tags: clone(run.def.modifiers) } : {}) } }],
   })
 }
@@ -540,6 +547,7 @@ function resultOf(run: Run): Record<string, unknown> {
     stages: stagesOf(run), route: clone(run.route), links: run.links.map((l) => l.id), alert: run.alert, peak: run.peak,
     ...(run.def.conditions ? { conditions: clone(run.def.conditions) } : {}),
     ...(run.setup.terms !== undefined ? { terms: clone(run.setup.terms) } : {}), ...(run.setup.aux !== undefined ? { aux: clone(run.setup.aux) } : {}),
+    ...(run.aux && run.aux.log.length > 0 ? { aux_log: clone(run.aux.log) } : {}),
   }
 }
 

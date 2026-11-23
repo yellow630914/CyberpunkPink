@@ -3,7 +3,7 @@
 //
 // 這個功能不 import 別的功能：警戒只經由量表 alert（meterOf）、敵人只經由單位來源 enemy_pick 的 UnitRef、探索只經由地圖實例的 ext。
 
-import type { ContentEntry, GameState, GameTime, Kernel, Origin } from '../../core'
+import type { CheckRoll, ContentEntry, GameState, GameTime, Kernel, Origin } from '../../core'
 import { UNIT_RANKS, clone, isRecord, isSafeInt } from '../../core'
 
 export const OWNER = 'commission'
@@ -129,20 +129,44 @@ export interface CommissionRules {
   /** 警戒到這麼多，最後一個階段的遭遇升 hard_grade_up 級（G9：100、1；最高 V） */
   hard_alert: number
   hard_grade_up: number
+  /** 輔助面的結算（COMMISSIONS 6.4 節）：失敗的壓力加多少（輿論面沒有壓力條，不加；6.4 節：+10） */
+  aux_pressure: number
+  /** 出事之後那一面撤幾個階段（6.4 節「撤一個階段」：1） */
+  aux_rest: number
+  /** 出事的人受傷幾天（工單：3） */
+  aux_injured_days: number
+  /** 每一面看哪幾項基本功（工單：現實槍械、格鬥、隱匿、運動；內海介面；輿論表演、交涉） */
+  aux_skills: Record<'meat' | 'net' | 'opinion', string[]>
+  /** 分量修正（6.4 節：強 +4、中 +2、弱 0；路數在那個戰場沒有效果（none）當弱） */
+  aux_bonus: { strong: number; mid: number; weak: number; none: number }
 }
 
 export const DEFAULT_COMMISSION_RULES: CommissionRules = {
   stage_minutes: 120, stealth_fail_alert: 10, check_fail_alert: 5, dc_base: 10, dc_per_grade: 2, reinforce_count: 2, hard_alert: 100, hard_grade_up: 1,
+  aux_pressure: 10, aux_rest: 1, aux_injured_days: 3,
+  aux_skills: { meat: ['firearms', 'brawl', 'stealth', 'athletics'], net: ['interface'], opinion: ['perform', 'negotiate'] },
+  aux_bonus: { strong: 4, mid: 2, weak: 0, none: 0 },
 }
 
-const RULE_FIELDS: Array<[keyof CommissionRules, number, number]> = [
+type NumericRule = 'stage_minutes' | 'stealth_fail_alert' | 'check_fail_alert' | 'dc_base' | 'dc_per_grade' | 'reinforce_count' | 'hard_alert' | 'hard_grade_up' | 'aux_pressure' | 'aux_rest' | 'aux_injured_days'
+const RULE_FIELDS: Array<[NumericRule, number, number]> = [
   ['stage_minutes', 0, 100000], ['stealth_fail_alert', 0, 100], ['check_fail_alert', 0, 100], ['dc_base', 0, 40], ['dc_per_grade', 0, 10],
-  ['reinforce_count', 0, 8], ['hard_alert', 1, 100], ['hard_grade_up', 0, 4],
+  ['reinforce_count', 0, 8], ['hard_alert', 1, 100], ['hard_grade_up', 0, 4], ['aux_pressure', 0, 100], ['aux_rest', 0, 3], ['aux_injured_days', 0, 30],
 ]
+const AUX_FACES = ['meat', 'net', 'opinion'] as const
+const AUX_BONUS_KEYS = ['strong', 'mid', 'weak', 'none'] as const
 
 export function ruleProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
   for (const [key, lo, hi] of RULE_FIELDS) if (e[key] !== undefined && !(isSafeInt(e[key]) && e[key] >= lo && e[key] <= hi)) p.push(`${key} 要是 ${lo}～${hi} 的整數`)
+  if (e.aux_skills !== undefined) {
+    const sk = e.aux_skills
+    if (!isRecord(sk) || Object.keys(sk).some((f) => !(AUX_FACES as readonly string[]).includes(f)) || Object.values(sk).some((v) => !isTextList(v) || v.length === 0)) p.push('aux_skills 要是 { meat?, net?, opinion? }，每一面是至少一個基本功 id 的陣列')
+  }
+  if (e.aux_bonus !== undefined) {
+    const b = e.aux_bonus
+    if (!isRecord(b) || Object.keys(b).some((x) => !(AUX_BONUS_KEYS as readonly string[]).includes(x)) || Object.values(b).some((v) => !(isSafeInt(v) && v >= 0 && v <= 20))) p.push('aux_bonus 要是 { strong?, mid?, weak?, none? }，每一項是 0～20 的整數')
+  }
   return p
 }
 
@@ -152,10 +176,15 @@ export function commissionRules(k: Pick<Kernel, 'content'>): CommissionRules {
   const out: CommissionRules = { ...DEFAULT_COMMISSION_RULES }
   if (!e) return out
   const bad = new Set(ruleProblems(e).map((m) => m.split(' ')[0]))
-  for (const key of Object.keys(out) as Array<keyof CommissionRules>) {
+  for (const [key] of RULE_FIELDS) {
     if (e[key] === undefined || bad.has(key)) continue
     out[key] = e[key] as number
   }
+  // 輔助面的兩張表：寫了的項目蓋掉預設，沒寫的照預設（格式不對整張忽略）
+  out.aux_skills = clone(DEFAULT_COMMISSION_RULES.aux_skills)
+  out.aux_bonus = { ...DEFAULT_COMMISSION_RULES.aux_bonus }
+  if (e.aux_skills !== undefined && !bad.has('aux_skills')) for (const [f, v] of Object.entries(e.aux_skills as Record<string, string[]>)) out.aux_skills[f as 'meat'] = [...v]
+  if (e.aux_bonus !== undefined && !bad.has('aux_bonus')) Object.assign(out.aux_bonus, e.aux_bonus)
   return out
 }
 
@@ -345,6 +374,40 @@ export interface RunLink {
   /** 在第幾階段拿到的 */
   from: number
   face: Face
+  /** 輔助面擲出來的（COMMISSIONS 6.2 節：當場生效，沒寫 effect.stage 時對這個階段生效，而不是下一個） */
+  aux?: true
+}
+
+export type AuxOutcome = 'great' | 'success' | 'fail' | 'mishap'
+
+/** 一個輔助面一個階段的結算（commission.face 那一份報告的 aux 一拍；也記在 run.aux.log）。 */
+export interface AuxResult {
+  stage: number
+  face: Face
+  /** 那一面在場的人（角色 id） */
+  people: string[]
+  /** 擲骰的人：在場的人裡最高的相關基本功 */
+  roller: string
+  skill: string
+  /** 加值的三項：基本功、分量修正、人數 − 1 */
+  bonus: { skill: number; path: number; crowd: number }
+  roll: CheckRoll
+  outcome: AuxOutcome
+  /** 拿到的連動 id（拿到的時候；已經有了或這一面沒寫 gives 時沒有） */
+  link?: string
+  /** 這一面的壓力加了多少 */
+  pressure?: number
+  /** 出事受傷的人 */
+  injured?: string
+  /** 出事之後，這一面撤到第幾階段為止（那之前的階段不擲） */
+  rest_until?: number
+}
+
+/** 輔助面的狀態：內海的壓力（追蹤度，先記著給 M3；現實的壓力就是 run.alert）、哪一面撤到第幾階段為止、每個階段的結算紀錄。 */
+export interface AuxState {
+  pressure: Partial<Record<Face, number>>
+  rest: Partial<Record<Face, number>>
+  log: AuxResult[]
 }
 
 export interface RouteEntry {
@@ -392,6 +455,8 @@ export interface Run {
   scene?: 'done' | 'failed'
   /** 別的面的玩法：做完了 */
   done?: boolean
+  /** 輔助面的狀態（第一次有人擲了才有） */
+  aux?: AuxState
   started: GameTime
 }
 
@@ -411,6 +476,25 @@ export const stagesOf = (run: Run): number => run.def.stages.length
 export const isLast = (run: Run): boolean => run.stage === stagesOf(run)
 export const faceOf = (run: Run, n = run.stage, face: Face | undefined = run.face): FaceDef | undefined => (face ? run.def.stages[n - 1]?.faces[face] : undefined)
 
+/** setup.aux 的格式：{ meat?, net?, opinion?, borrowed? }，每一項是角色 id 的陣列；每一面最多 2 個人，同一個人不能同時派去兩個面。 */
+export function auxProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return 'aux 要是 { meat?, net?, opinion?, borrowed? }，每一項是角色 id 的陣列。'
+  const seen = new Map<string, string>()
+  for (const key of [...AUX_FACES, 'borrowed'] as const) {
+    const v = raw[key]
+    if (v === undefined) continue
+    if (!isTextList(v)) return `aux.${key} 要是角色 id 的陣列。`
+    if (key === 'borrowed') continue
+    if (v.length > 2) return `${FACE_NAME[key]}面最多派 2 個人（aux.${key} 有 ${v.length} 個）。`
+    for (const id of v) {
+      const at = seen.get(id)
+      if (at !== undefined) return at === key ? `${id} 在${FACE_NAME[key]}面列了兩次。` : `${id} 不能同時派去${FACE_NAME[at as Face]}面和${FACE_NAME[key]}面。`
+      seen.set(id, key)
+    }
+  }
+  return null
+}
+
 export function normalSetup(raw: unknown): { def: unknown; setup: RunSetup; alert_start: number } | string {
   if (!isRecord(raw)) return '開副本要給 { def: 委託的 id 或整筆 }。'
   if (!(isText(raw.def) || isRecord(raw.def))) return '開副本要給 def（委託的 id，或整筆副本的資料）。'
@@ -420,7 +504,11 @@ export function normalSetup(raw: unknown): { def: unknown; setup: RunSetup; aler
     if (!isRecord(s)) return 'scouted 要是 { stages, branches, guards }。'
     setup.scouted = { stages: asTimes(s.stages), branches: isTextList(s.branches) ? clone(s.branches) : [], guards: asTimes(s.guards) }
   }
-  if (raw.aux !== undefined) setup.aux = clone(raw.aux)
+  if (raw.aux !== undefined) {
+    const bad = auxProblem(raw.aux)
+    if (bad) return bad
+    setup.aux = clone(raw.aux)
+  }
   if (raw.terms !== undefined) setup.terms = clone(raw.terms)
   const a = raw.alert_start
   if (a !== undefined && !(isSafeInt(a) && a >= 0 && a <= 100)) return 'alert_start 要是 0～100 的整數。'
@@ -445,7 +533,7 @@ export function effectsFor(run: Run, n: number): StageEffects {
   for (const l of run.links) {
     const ef = run.def.links[l.id]?.effect
     if (!ef) continue
-    if ((ef.stage ?? l.from + 1) !== n) continue
+    if ((ef.stage ?? (l.aux ? l.from : l.from + 1)) !== n) continue
     let used = false
     if (ef.encounter_half) { out.half = true; used = true }
     if (ef.foes_minus) { out.minus += ef.foes_minus; used = true }

@@ -3,8 +3,10 @@
 
 import type { GameState, Kernel } from '../../core'
 import { meterOf } from '../../core'
-import type { Face, LinkEffect, RouteEntry, Step } from './model'
-import { commissionRules, effectsFor, gradeOf, readRun, stageName, stagesOf } from './model'
+import type { AuxChance } from './aux'
+import { auxChance, auxPeople, openFaces, peopleAt, resting } from './aux'
+import type { AuxResult, Face, LinkEffect, RouteEntry, Step } from './model'
+import { FACES, FACE_NAME, commissionRules, effectsFor, gradeOf, readRun, stageName, stagesOf } from './model'
 import type { BranchView, FaceView, GoalView } from './run'
 import { branchViews, breatheBlock, faceViews, goalView } from './run'
 
@@ -38,6 +40,26 @@ export interface LinkRow {
   used: boolean
 }
 
+/** 輔助面的一面（UI 7.4 節的「輔助結算」、召集的畫面）：誰在那裡、這個階段擲了什麼、成功率。 */
+export interface AuxFaceView {
+  face: Face
+  name: string
+  /** 在那裡的人（派了、而且是真的角色；借來的有標記） */
+  people: Array<{ id: string; name: string; borrowed: boolean }>
+  /** 出事之後撤到第幾階段為止；沒有撤過是 null */
+  restUntil: number | null
+  /** 這個階段在休息（不擲） */
+  resting: boolean
+  /** 這個階段如果玩家沒選這一面，會擲（這一面開著、有人、沒在休息） */
+  rolls: boolean
+  /** 這一面的壓力：現實是警戒、內海是追蹤度（先記著給 M3）、輿論沒有壓力條是 null */
+  pressure: number | null
+  /** 派這些人擲一次的算式與機率；沒有人時沒有 */
+  chance?: AuxChance
+  /** 這個階段已經擲過的結果 */
+  result?: AuxResult
+}
+
 export interface CommissionView {
   id: string
   name: string
@@ -63,10 +85,31 @@ export interface CommissionView {
   /** 這一段的目標與做到哪（開始玩這一段之後才有） */
   goal?: GoalView
   links: LinkRow[]
+  /** 三個面各自的輔助狀況（沒有派人的面也列出來） */
+  aux: AuxFaceView[]
   route: RouteEntry[]
   alert: { value: number; reinforce: number; hard: number; peak: number }
   breathe: { can: boolean; reason: string | null }
   retreat: { can: boolean; reason: string | null }
+}
+
+function auxViews(k: Kernel, state: GameState, run: NonNullable<ReturnType<typeof readRun>>, alertNow: number): AuxFaceView[] {
+  const open = openFaces(run, run.stage)
+  const all = auxPeople(run.setup.aux)
+  return FACES.map((face): AuxFaceView => {
+    const people = peopleAt(state, run, face)
+    const sit = resting(run, face, run.stage)
+    const chance = auxChance(k, state, run.def, face, people, all.borrowed)
+    const result = run.aux?.log.find((r) => r.stage === run.stage && r.face === face)
+    return {
+      face, name: FACE_NAME[face],
+      people: people.map((id) => ({ id, name: state.actors[id]?.name ?? id, borrowed: all.borrowed.includes(id) })),
+      restUntil: run.aux?.rest[face] ?? null, resting: sit,
+      rolls: open.includes(face) && run.face !== face && people.length > 0 && !sit && run.step === 'face',
+      pressure: face === 'meat' ? alertNow : face === 'net' ? (run.aux?.pressure.net ?? 0) : null,
+      ...(chance ? { chance } : {}), ...(result ? { result } : {}),
+    }
+  })
 }
 
 /** 現在這件副本的樣子；沒有在副本裡回傳 null。 */
@@ -92,7 +135,7 @@ export function commissionView(k: Kernel, state: GameState): CommissionView | nu
   const alertNow = run.step === 'play' && run.face === 'meat' && run.map && state.maps.instances[run.map] ? meterOf(k, state, 'alert', run.map) : run.alert
   const links: LinkRow[] = run.links.map((l) => {
     const def = run.def.links[l.id]
-    const target = def?.effect?.stage ?? l.from + 1
+    const target = def?.effect?.stage ?? (l.aux ? l.from : l.from + 1)
     return { id: l.id, name: def?.name ?? l.id, type: def?.type ?? 'open', from: l.from, face: l.face, stage: target, effect: def?.effect ? { ...def.effect } : {}, used: target < stage || (target === stage && run.step !== 'face' && !done) }
   })
   const breatheWhy = breatheBlock(state, run) ?? k.activity.blockOf(state, 'commit:commission.breathe')
@@ -106,7 +149,7 @@ export function commissionView(k: Kernel, state: GameState): CommissionView | nu
     faces: done ? [] : faceViews(k, run),
     branches: run.step === 'branch' || play ? branchViews(k, state, run) : [],
     ...(play ? { goal: goalView(k, state, run) } : {}),
-    links, route: run.route.map((r) => ({ ...r })),
+    links, aux: done ? [] : auxViews(k, state, run, alertNow), route: run.route.map((r) => ({ ...r })),
     alert: { value: alertNow, reinforce: REINFORCE_MARK, hard: rules.hard_alert, peak: Math.max(run.peak, alertNow) },
     breathe: { can: breatheWhy === null, reason: breatheWhy },
     retreat: { can: retreatWhy === null, reason: retreatWhy },

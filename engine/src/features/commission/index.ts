@@ -12,7 +12,10 @@
 //   掛點  map.arrive（這個功能宣告、探索回答：剛進圖入口那一格有沒有被看到）；rest.done（kind: stage，喘口氣時發）
 //   別的面  有人登記活動 face.net、face.opinion（M3、M5）才選得了；沒有的面列出來但選不了
 // 對外：commissionView、chooseFace、chooseBranch、breathe、retreat、checkGoal、playScene、replay、milestone、finish。
-// 輔助面每個階段的結算（M2-commission-aux）與做完之後的結算（M2-commission-close）聽 activity.end 與 commission.face，不在這裡。
+// 輔助面每個階段的結算（aux.ts，M2-commission-aux）寫在 commission.face 那一份報告裡（每個擲了的面一拍，標籤 aux）；
+// 做完之後的結算（M2-commission-close）聽 activity.end（result.aux_log 有每一次輔助結算）。
+// 輔助面（aux.ts）：setup.aux 是 { meat?, net?, opinion?, borrowed? }；規則 commission_rule 多 aux_skills、aux_bonus、aux_pressure、aux_rest、aux_injured_days；
+//   對外 auxChance（還沒進副本也能問成功率）、commissionView().aux。
 
 import type { Feature, Kernel, ReportDraft } from '../../core'
 import { ContentError } from '../../core'
@@ -22,15 +25,17 @@ import { achieved, enterDraft, finish, milestone } from './run'
 
 export {
   ACTIVITY, BRANCH_KINDS, DEFAULT_COMMISSION_RULES, EXT, FACES, FACE_ACTIVITY, FACE_NAME, GOAL_KINDS, KIND, LINK_TYPES, OWNER, RULE_KIND, SCALE_STAGES,
-  commissionMapProblems, commissionProblems, commissionRules, dcBaseOf, effectsFor, encounterAfter, gradeOf, readRun, stageName,
+  commissionMapProblems, commissionProblems, commissionRules, dcBaseOf, effectsFor, encounterAfter, gradeOf, readRun, ruleProblems, stageName,
 } from './model'
 export type {
-  BranchDef, BranchKind, CommissionEntry, CommissionRules, Face, FaceDef, GoalDef, LinkDef, LinkEffect, Need, Rank, RouteEntry, Run, RunLink, RunSetup, StageDef, StageEffects, Step,
+  AuxOutcome, AuxResult, AuxState, BranchDef, BranchKind, CommissionEntry, CommissionRules, Face, FaceDef, GoalDef, LinkDef, LinkEffect, Need, Rank, RouteEntry, Run, RunLink, RunSetup, StageDef, StageEffects, Step,
 } from './model'
 export { achieved, branchViews, breathe, breatheBlock, checkGoal, chooseBranch, chooseFace, enterDraft, faceViews, finish, goalView, milestone, playScene, replay, retreat } from './run'
 export type { BranchView, FaceView, GoalView } from './run'
 export { REINFORCE_MARK, commissionView, stageEffects } from './view'
-export type { CommissionView, LinkRow, TrackNode } from './view'
+export type { AuxFaceView, CommissionView, LinkRow, TrackNode } from './view'
+export { auxChance, auxPeople, auxSum, classify as classifyAux, pathBonus, settleAux } from './aux'
+export type { AuxChance, AuxPeople, AuxSettlement, AuxSum } from './aux'
 
 /** 進行中放行的 doing 前綴（工單 M2-commission-run 的驗收條件）。探索的 grid.、commit:grid. 由探索自己再登記一次（沒裝探索也一樣放行）。 */
 export const COMMISSION_ALLOW: readonly string[] = [
