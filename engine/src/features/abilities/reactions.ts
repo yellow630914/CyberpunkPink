@@ -181,7 +181,7 @@ function fire(run: BattleRun, on: TriggerDef['on'], e: Event): void {
           reacting.delete(run)
         }
       }
-      if (run.over || e.by?.out || e.subject.out) return
+      if (run.over || (e.by && run.gone(e.by)) || e.subject.out) return
     }
   }
 }
@@ -196,7 +196,7 @@ function legacy(run: BattleRun, attacker: BattleUnit, target: BattleUnit, opts: 
     for (const ab of equippedOf(run, mate)) {
       const m = ab.meat
       if (typeof m?.trigger !== 'string') continue
-      if (attacker.out || target.out || run.over) return
+      if (run.gone(attacker) || target.out || run.over) return
       if (m.trigger === 'ally_attacked_adjacent' && Math.abs(mate.slot - target.slot) !== 1) continue
       if (usageBlocks(run, mate, ab).length) continue
       const cost = costOf(run, mate, ab)

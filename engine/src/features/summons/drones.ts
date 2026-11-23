@@ -107,7 +107,7 @@ export function hang(run: BattleRun, u: BattleUnit, slot: number, o: { idx?: num
   const item = def?.item ?? o.item
   // operator：操作者倒下之後這一台自律（沒有 owner 了），自己開火時武器要照他的操縱算，所以記著他是誰
   const ext: Record<string, unknown> = { drone: idx, grade, operator: u.id }
-  // 時限（turns：到期自己收回）、不算進上限、被擊落不灌感載（蜂群的臨時機）
+  // 時限（turns：到期自己收回）、不算進上限、被擊落不灌感載（只有資料寫了 no_backlash 的：蜂群的資料有寫；沒寫的臨時機被擊落照灌）
   if (o.limits?.until !== undefined) ext.until = o.limits.until
   if (o.limits?.overCap) ext.overCap = true
   if (o.limits?.noBacklash) ext.noBacklash = true

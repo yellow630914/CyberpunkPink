@@ -1,7 +1,6 @@
-// W012、W013：技能這邊自己算計時的東西（臨時遮蔽、buff）在給的人退出、被救回來時要結束（dev/bugs/2026-11-23-W012、W013）。
-// W011 的部分已經修好、搬進主套件（tests/features/W011-lost-turn-ability-timers.test.ts）。
-// 重現資料在 engine/tests/whitebox/fixtures/W011～W013 的 JSON（不是 Repro 格式：直接在一場不經過提交的戰鬥上呼叫基本動作與 beginTurn、advance）。
-// 每個測試寫的是規格期望的行為；同一個檔裡的「對照」是核心現在就對的那一半（狀態、監視），會過。修好之前其餘的照預期失敗。
+// W012、W013：技能這邊自己算計時的東西（臨時遮蔽、buff）在給的人退出時結束、救回來時 buff 清空（dev/bugs/2026-11-23-W012、W013；W011 在 W011-lost-turn-ability-timers.test.ts）。
+// 重現資料在 engine/tests/whitebox/fixtures/W012～W013 的 JSON（不是 Repro 格式：直接在一場不經過提交的戰鬥上呼叫基本動作）。
+// 修在：features/abilities（ops.ts 的 out、mods.ts 的 out 與 revive）、features/hack（revive 清持續型）；核心發 out 與 revive 掛點。
 
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'

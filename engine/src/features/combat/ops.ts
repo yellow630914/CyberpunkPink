@@ -4,7 +4,7 @@
 // 每個 op 註冊時一起給格式檢查（problems）：欄位的型別、不認得的欄位、公式用 amountProblems；訊息開頭是欄位的名字。
 
 import type { AttackOpts, BattleEffectCtx, BattleRun, BattleUnit, BattleWeapon, DamageType, Kernel, RollPart } from '../../core'
-import { BATTLE_SLOTS, BattleBlocked, STATUS_UNTILS, WOUND_PARTS, attrMod, damageTypeOf, isRecord, onField, statusRuleOf, unitTag, wielded } from '../../core'
+import { BATTLE_SLOTS, BattleBlocked, STATUS_UNTILS, WOUND_PARTS, attrMod, damageTypeOf, isRecord, noteAttack, onField, poolName, statusRuleOf, unitTag, wielded } from '../../core'
 import { tagsOf } from './items'
 import { ATTR, B, F, S, STATUS_KINDS, TYPE, UNTIL, adjacentPick, list, num, oneOf, orWord, pair, qty, schema, shape } from './schema'
 import { LIGHT, PART_NAME, TORSO_HP_LOSS, isPart } from './wounds'
@@ -79,11 +79,9 @@ function naturalOf(ctx: Ctx, e: Eff): number | undefined {
   return v
 }
 
-function writeLast(ctx: Ctx, r: { hit: boolean; crit: boolean; downed: boolean; dealt: number }): void {
-  ctx.last.hit = r.hit
-  ctx.last.crit = r.crit
-  ctx.last.downed = r.downed
-  ctx.last.dealt = r.dealt
+/** 一擊的結果寫進 ctx.last（核心的 noteAttack：沒有發生的一擊 hit 是 undefined，`if: miss` 不成立，另標 last.aborted）。 */
+function writeLast(ctx: Ctx, r: Parameters<typeof noteAttack>[1]): void {
+  noteAttack(ctx.last, r)
 }
 
 function attackOp(ctx: Ctx, e: Eff): void {
@@ -372,7 +370,7 @@ function poolOp(ctx: Ctx, e: Eff): void {
   const now = pool.now
   pool.now = e.amount === 'full' ? Math.max(now, pool.max) : grow(now, qty(ctx, e.amount, 0), pool.max, false)
   const d = pool.now - now
-  if (d) ctx.run.say(`${unitTag(unit)} 的${String(e.pool).toUpperCase()} ${d > 0 ? '+' : '−'}${Math.abs(d)}。`, undefined, { target: unit.id, pool: e.pool, amount: d })
+  if (d) ctx.run.say(`${unitTag(unit)} 的${poolName(String(e.pool))} ${d > 0 ? '+' : '−'}${Math.abs(d)}。`, undefined, { target: unit.id, pool: e.pool, amount: d })
 }
 
 // ---- 義體、救回來、重創、退出、場地、先攻、沉溺 ----

@@ -35,6 +35,10 @@ const PACK: ContentPack = {
       foe('en_l_boss_hit', 'boss', { loot: [drop('it_t_top', 1, { top: true }), drop('it_t_a', 0)], cash: false }),
       // 雜兵與精英帶 top 時照一般的機率擲，不保證
       foe('en_l_mook_top', 'minion', { loot: [drop('it_t_top', 0, { top: true })], cash: false }),
+      // 件數的下限（精英 1、首領 2）：機率低到不會擲中，也要從有機率的補；機率 0 的是「不掉」，不補
+      foe('en_l_elite_min', 'elite', { loot: [drop('it_t_a', 0.0001), drop('it_t_b', 0.00005), drop('it_t_c', 0)], cash: false }),
+      foe('en_l_boss_min', 'boss', { loot: [drop('it_t_b', 0.00005), drop('it_t_a', 0.0001), drop('it_t_c', 0.00002), drop('it_t_chip', 0)], cash: false }),
+      foe('en_l_boss_one', 'boss', { loot: [drop('it_t_a', 0.0001), drop('it_t_b', 0)], cash: false }),
       foe('en_l_cash', 'minion'),
       foe('en_l_corp', 'minion', { cash: false }),
       foe('en_l_same', 'minion', { loot: [drop('it_t_a', 1)], cash: false }),
@@ -113,6 +117,18 @@ describe('件數：位階決定上限（ENEMIES 第 7 節：雜兵 0～1、精�
     const r = await fight(['en_l_boss_hit'])
     expect(r.items).toEqual([['it_t_top', 1]])
     expect(r.lines).toEqual(['拿到 頂級晶片'])
+  })
+
+  it('精英至少 1 件：都沒擲中時補機率最高的那一件；機率 0 的不補', async () => {
+    const r = await fight(['en_l_elite_min'])
+    expect(r.items).toEqual([['it_t_a', 1]])
+  })
+
+  it('首領至少 2 件：都沒擲中時補機率最高的兩件（甲、乙），不是 loot 的前兩筆；有機率的不夠就只有那些', async () => {
+    const r = await fight(['en_l_boss_min'])
+    expect(r.items).toEqual([['it_t_a', 1], ['it_t_b', 1]])
+    const one = await fight(['en_l_boss_one'])
+    expect(one.items).toEqual([['it_t_a', 1]])
   })
 
   it('雜兵帶 top 時照一般的機率，不保證', async () => {

@@ -31,7 +31,7 @@ const lanes = computed(() => (sel.value ? lanesOf(sel.value, path.value) : []))
 const after = computed(() => (sel.value?.after ? eng.skills.abilities().find((a) => a.id === sel.value!.after) ?? null : null))
 const xpMax = computed(() => eng.skills.treeXp[eng.skills.treeXp.length - 1] ?? 1)
 const progress = computed(() => ({ pct: `${Math.min(100, ((tree.value?.spent ?? 0) / xpMax.value) * 100)}%`, marks: eng.skills.treeXp.slice(1).map((x) => ({ x, left: `${(x / xpMax.value) * 100}%` })) }))
-const resonance = computed(() => (path.value?.resonance ?? []).map((r) => ({ ...r, on: r.tier <= open.value })))
+const resonance = computed(() => (path.value?.resonance ?? []).map((r) => ({ ...r, on: eng.skills.resonanceOn(path.value!.id, r.tier) })))
 const catColor = (c: keyof typeof CAT_COLOR) => CAT_COLOR[c]
 
 function pickTree(id: string) {

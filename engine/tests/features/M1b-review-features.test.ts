@@ -277,6 +277,61 @@ describe('buff 的 until: next_overload：過載的那一刻結束；沒有過�
     expect(ids(a.ally(1))).toEqual(['shield'])
     expect(run.beats.some((b) => b.tag === 'status.end' && (b.data as Rec).buff === 'shield2')).toBe(true)
   })
+
+  it('餘韻疊滿再過載（昏過去）：先發 out.before { how: burnout }，buff 照樣結束（有沒有人擋下都一樣）', () => {
+    const a = arena(duel([one({ weapon: 'pistol' }), one({ weapon: 'pistol' }, 2)], [foe('minion', { ap: { now: 0, max: 0, regen: 0 } } as never)]), FEATURES, (kk) => {
+      kk.content.loadPack(PACK)
+      readyFeatures(kk)
+    })
+    const run = a.run(dice())
+    const me = a.ally(1)
+    run.effects([{ op: 'buff', id: 'shield', until: 'next_overload', mods: [{ kind: 'evade', value: 1 }] }], { user: me, target: { unit: 'a1' }, source: SRC })
+    me.layers = me.layersMax
+    me.load!.now = me.load!.max
+    run.overload(me, a.foe(1))
+    expect(me.out).toBe('burnout')
+    expect((((me.ext.abilities as Rec).buffs ?? []) as Rec[]).length).toBe(0)
+  })
+})
+
+describe('效果層的小項（M1b-review-features 跟進）', () => {
+  const field = (): Arena => arena(duel([one({ weapon: 'pistol' })], [foe('minion', { ap: { now: 0, max: 0, regen: 0 }, hp: { now: 300, max: 300 } } as never)]), [combatFeature], (kk) => {
+    kk.content.loadPack(BASE)
+  })
+
+  it('S11：被取消的一擊沒有命中也沒有失手：if: miss 不成立、last.aborted；打出去失手的 if: miss 成立', () => {
+    const a = field()
+    let cancel = true
+    a.k.battle.on('attack.before', 'spy', ({ opts }) => { if (cancel) opts.cancel = '這一擊被取消了。' })
+    const use = { user: a.ally(1), target: { unit: 'f1' } as BattleTarget, source: SRC }
+    const hp = a.foe(1).hp!.now
+    const last = a.run(dice()).effects([{ op: 'attack' }, { op: 'damage', amount: 5, if: 'miss' }], use)
+    expect(last.aborted).toBe(true)
+    expect(last.hit).toBeUndefined()
+    expect(a.foe(1).hp!.now).toBe(hp)
+    cancel = false
+    const missed = a.run(dice(1, 1, 1, 1)).effects([{ op: 'attack' }, { op: 'damage', amount: 5, if: 'miss' }], use)
+    expect(missed.hit).toBe(false)
+    expect(a.foe(1).hp!.now).toBeLessThan(hp)
+  })
+
+  it('S10：資源池的紀錄用中文名（現金、RAM），不是把鍵轉大寫', () => {
+    const a = field()
+    a.ally(1).pools.cash = { now: 0, max: 500, regen: 0 }
+    const run = a.run(dice())
+    run.effects([{ op: 'pool', pool: 'cash', amount: 'full' }], { user: a.ally(1), target: { unit: 'a1' }, source: SRC })
+    expect(run.beats.map((b) => b.text).join()).toMatch(/的現金 \+500/)
+  })
+})
+
+describe('E1：攻擊的人在反應裡被打下來（含替身那一台被擊落）就停，不再起後面的反應', () => {
+  it('run.gone：退出的人、被擊落的替身都算；還在的不算', () => {
+    const a = arena(duel([one({ weapon: 'pistol' })], [foe('minion', { ap: { now: 0, max: 0, regen: 0 } } as never)]), [combatFeature], (kk) => kk.content.loadPack(BASE))
+    const run = a.run(dice())
+    expect(run.gone(a.foe(1))).toBe(false)
+    run.setOut(a.foe(1), 'down')
+    expect(run.gone(a.foe(1))).toBe(true)
+  })
 })
 
 // =====================================================================================================================

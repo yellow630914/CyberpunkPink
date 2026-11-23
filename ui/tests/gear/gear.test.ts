@@ -10,7 +10,7 @@ import type { ContentPack, ItemStack } from '@engine/src'
 import { FakeProvider, Game } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
 import { allFeatures } from '@engine/src/features'
-import { armorOf, concealment, equipBlock, gearOf, quickCapacity, scanFinds, weaponOf } from '@engine/src/features/gear'
+import { armorOf, concealment, equipBlock, gearOf, quickBlock, quickCapacity, scanFinds, weaponOf } from '@engine/src/features/gear'
 import { BATTLE_SETUPS } from '@engine/src/testkit'
 import { useEngine } from '../../src/stores/engine'
 import GearTab from '../../src/dialogs/character/GearTab.vue'
@@ -176,6 +176,20 @@ describe('裝備分頁讀引擎（M1b-ui-gear）', () => {
     const g = oracle(e)
     const found = scanFinds(g.k, g.state, pc(e), 2).includes('g1')
     expect(await html(pinia, GearTab)).toContain(found ? '會被發現' : '掃不到')
+  })
+
+  it('能不能放進快取格問引擎（quickBlock）：畫面的 quickable 與原因和引擎一樣；gearView 沒有自己的分類表（E6）', () => {
+    const { e } = setup()
+    const g = oracle(e)
+    const entries = bagEntries(e.gear.look, e.gear.inventory())
+    expect(entries.filter((x) => x.quickable).map((x) => x.key).sort()).toEqual(['it_medgel', 'it_stim'])
+    for (const x of entries) {
+      expect(x.quickWhy, x.key).toBe(quickBlock(g.k, x.stack.id))
+      expect(x.quickable, x.key).toBe(quickBlock(g.k, x.stack.id) === null)
+    }
+    expect(entries.find((x) => x.key === 'g1')!.quickWhy).toMatch(/不能放進快取格/)
+    expect(e.gear.look.quickBlock('pt_barrel')).toMatch(/不能放進快取格/)
+    expect(viewSrc).not.toMatch(/category === 'consumable'/)
   })
 
   it('背包的篩選只留那一類；詳情裡武器的命中、骰數、射程和 weaponOf 一樣', async () => {

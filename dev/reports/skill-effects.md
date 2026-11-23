@@ -1,6 +1,6 @@
 # 技能效果清單
 
-產生日期：2026-11-22（2026-11-23 更新：M1b-random-picks，幫槍槍保養、戰前佈置、情報網寫成，開打前要選的東西改隨機）。唯讀盤點，沒有改任何程式。資料版本在 `dev/reports/skill-effects.json`，這份是同一份內容的表格版。
+產生日期：2026-11-22（2026-11-23 更新：M1b-review-features 潛網者七個技能的 hack 標籤、敢打我家孩子不打機器；M1b-random-picks，幫槍槍保養、戰前佈置、情報網寫成，開打前要選的東西改隨機）。唯讀盤點，沒有改任何程式。資料版本在 `dev/reports/skill-effects.json`，這份是同一份內容的表格版。
 
 ## 一、總覽
 
@@ -311,7 +311,7 @@ react 能改的東西（依 on 分）：
 | `meat.do_on` | 姿態開啟時做的效果。 | 2 |
 | `meat.do_off` | 姿態關閉時做的效果。 | 2 |
 | `meat.tags` | 這個技能的行動多帶的標籤（例如 drone_link、quickhack）。 | 2 |
-| `meat.action_tags` | 這個技能的行動多帶的花費標籤（治療類寫 heal），花費修正與 action.done 都認得。 | 4 |
+| `meat.action_tags` | 這個技能的行動多帶的花費標籤（治療類寫 heal，潛網者的主動技能寫 hack 與 hack:<類別>），花費修正與 action.done 都認得。 | 11 |
 | `meat.pool` | 開戰時資源池上限與回復的加減（RAM、感載）。 | 3 |
 | `meat.alter` | 改寫另一個技能的 meat（點放、彈幕、我有認識的人），可以加成玩家選的選項。 | 3 |
 | `meat.ransom` | 保釋：全隊倒下的戰敗事件多一個「被贖回」，付指定的現金。 | 1 |
@@ -421,7 +421,7 @@ react 能改的東西（依 on 分）：
 | 5 | 蜂群 | `sk_pilot_swarm` | active | 完成 | `drone.act`、`drone.deploy`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 5 | 穹頂 | `sk_pilot_dome` | active | 完成 | `buff`、`drone.guard`、`mod.evade`、`target.none`、`who.allies` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 5 | 女武神 | `sk_pilot_valkyrie` | active | 等後面批次（M6） | `meat.pending` | 要機甲與同步檔位，meat 標 pending，等 M6。 |
-| 5 | 敢打我家孩子？ | `sk_pilot_defend_kids` | reaction | 完成 | `drone.act`、`trigger.after`、`who.self` | 照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：who: self：被打的那一台可能就在這一擊被擊落了（核心不對已經擊落的做效果），所以不落在它身上；「其餘的」是照 ctx.target 排除那一台。 |
+| 5 | 敢打我家孩子？ | `sk_pilot_defend_kids` | reaction | 完成 | `drone.act`、`trigger.after`、`who.self` | 照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：who: self：被打的那一台可能就在這一擊被擊落了（核心不對已經擊落的做效果），所以不落在它身上；「其餘的」是照 ctx.target 排除那一台。 攻擊的人是砲塔或沒有操作者的無人機（替身）時不觸發、不花行動點與次數（設計書寫的是「敵人…朝他射擊」，沒有寫打機器；M1b-review-features E5）。 |
 | 5 | 人機一體 | `sk_pilot_man_machine` | passive | 等後面批次（M6） | `meat.pending` | 機甲持續時間與命中加成，meat 標 pending，等 M6。 |
 
 ### 改造師（改造師：手術刀）
@@ -489,26 +489,26 @@ react 能改的東西（依 on 分）：
 | 階 | 技能 | id | 種類 | 狀態 | 用到的鍵 | 說明 |
 |---|---|---|---|---|---|---|
 | 1 | 主控 | `sk_ctrl` | signature | 完成 | `meat.pool`、`meat.tags`、`mod.save` | 照設計書的現實欄寫成，沒有已知的差異。 |
-| 1 | 破冰 | `sk_ice` | active | 完成 | `buff`、`hack.check`、`mod.firewall`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 |
+| 1 | 破冰 | `sk_ice` | active | 完成 | `buff`、`hack.check`、`meat.action_tags`、`mod.firewall`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 `hack` 標籤（和 `hack:<類別>`）寫在 meat.action_tags，根權限、多工對它生效（M1b-review-features）。 |
 | 1 | 偷看是不行的喔 | `sk_peek` | reaction | 完成 | `react.dc`、`trigger.checked` | 照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：「你或一名隊友被快駭」：trigger.who 的 self_or_ally（M1b-core-fix2）。 |
-| 1 | 接管 | `sk_take` | active | 完成 | `hack.check`、`hack.takeover`、`meat.choose`、`meat.picks`、`pick.choice`、`target.foe_overlay` | 照設計書的現實欄寫成，沒有已知的差異。 |
-| 1 | 迴圈 | `sk_loop` | active | 完成 | `hack.check`、`hack.dot`、`needs.bridged`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 |
+| 1 | 接管 | `sk_take` | active | 完成 | `hack.check`、`hack.takeover`、`meat.action_tags`、`meat.choose`、`meat.picks`、`pick.choice`、`target.foe_overlay` | 照設計書的現實欄寫成，沒有已知的差異。 `hack` 標籤（和 `hack:<類別>`）寫在 meat.action_tags，根權限、多工對它生效（M1b-review-features）。 |
+| 1 | 迴圈 | `sk_loop` | active | 完成 | `hack.check`、`hack.dot`、`meat.action_tags`、`needs.bridged`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 `hack` 標籤（和 `hack:<類別>`）寫在 meat.action_tags，根權限、多工對它生效（M1b-review-features）。 |
 | 1 | 我不在家喔 | `sk_netrunner_t1_6`＊ | active | 無現實效果 | — | 設計書現實欄是「—」，這個技能只在內海用，現實沒有效果（測試也不寫）。 |
 | 1 | 頻寬 | `sk_band` | passive | 近似 | `meat.pool` | RAM 上限 +1 已做；「構裝槽 +1」在甲板上（deck.slots），技能格式沒有改甲板的鍵，寫不出來。 |
-| 2 | 過熱 | `sk_heat` | active | 完成 | `hack.check`、`implant`、`load`、`needs.bridged`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 |
+| 2 | 過熱 | `sk_heat` | active | 完成 | `hack.check`、`implant`、`load`、`meat.action_tags`、`needs.bridged`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 `hack` 標籤（和 `hack:<類別>`）寫在 meat.action_tags，根權限、多工對它生效（M1b-review-features）。 |
 | 2 | 靜默 | `sk_silent` | stance | 近似（M3） | `mod.evade` | 迴避 +1 已做；「快駭追蹤各少 1」要追蹤度（ADR 0015 E9，M2、M3），這一波不做。 |
 | 2 | 改寫地形 | `sk_rewrite` | active | 近似 | `cover`、`hack.check`、`hack.detonate`、`meat.choose`、`meat.picks`、`needs.cache_tag`、`pick.choice`、`target.enemy`、`when.node_taken`、`who.self` | 引爆、撤掉敵方掩體、放防爆門都已做；防爆門補的一級遮蔽只能落在自己那一格（choose 的每個用法吃同一個目標），不能選我方的任一格。 |
 | 2 | 盯～ | `sk_focus` | passive | 完成 | `mod.save` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 2 | 逆流 | `sk_backflow` | reaction | 完成 | `pool`、`trigger.overload`、`who.self` | 照設計書的現實欄寫成，沒有已知的差異。 |
-| 3 | 灌頂 | `sk_inflow` | active | 近似 | `hack.check`、`load`、`meat.choose`、`meat.picks`、`needs.bridged`、`pick.choice`、`sink`、`target.enemy` | 神經版與快感版的感載、沉溺 +2 已做；快感版「定力檢定成功可以擋掉其中 1 點」寫不出來（sink 的 save 是成功就整筆擋掉），「要隊友先灌」的收尾限制也沒有寫。 |
+| 3 | 灌頂 | `sk_inflow` | active | 近似 | `hack.check`、`load`、`meat.action_tags`、`meat.choose`、`meat.picks`、`needs.bridged`、`pick.choice`、`sink`、`target.enemy` | 神經版與快感版的感載、沉溺 +2 已做；快感版「定力檢定成功可以擋掉其中 1 點」寫不出來（sink 的 save 是成功就整筆擋掉），「要隊友先灌」的收尾限制也沒有寫。 `hack` 標籤（和 `hack:<類別>`）寫在 meat.action_tags，根權限、多工對它生效（M1b-review-features）。 |
 | 3 | 後門 | `sk_backdoor` | prep | 完成 | `mod.action_ap`、`prep`、`when.first_round` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 3 | 封鎖 | `sk_lockdown` | active | 近似 | `cover`、`field`、`meat.choose`、`meat.picks`、`pick.choice`、`target.none`、`when.node_taken`、`who.self` | 關燈已做；「有節點時另外放一道防爆門」不能依節點自動加做，改寫成「關燈」與「關燈並放下防爆門」兩種用法讓玩家挑，且防爆門落在自己那一格。 |
 | 3 | 謝謝招待 | `sk_thanks` | passive | 近似 | `pool`、`trigger.overload`、`who.self` | 設計書是「你的神經快駭讓目標過載時回 1 RAM」；overload 的反應分不出是不是神經快駭，所以寫成任何你讓敵人過載的都算，比設計書寬。 |
 | 3 | 值機 | `sk_mutex` | stance | 完成 | `mod.save` | 照設計書的現實欄寫成，沒有已知的差異。 |
-| 4 | 傀儡 | `sk_puppet` | active | 近似 | `ap`、`hack.check`、`meat.choose`、`meat.picks`、`needs.status`、`pick.choice`、`shift`、`status`、`target.enemy` | 「動一下」只寫了推一格（沒有讓玩家選拉）、少 1 點行動點，「定住」用 pinned 狀態；比設計書少了推拉二選一。 |
+| 4 | 傀儡 | `sk_puppet` | active | 近似 | `ap`、`hack.check`、`meat.action_tags`、`meat.choose`、`meat.picks`、`needs.status`、`pick.choice`、`shift`、`status`、`target.enemy` | 「動一下」只寫了推一格（沒有讓玩家選拉）、少 1 點行動點，「定住」用 pinned 狀態；比設計書少了推拉二選一。 `hack` 標籤（和 `hack:<類別>`）寫在 meat.action_tags，根權限、多工對它生效（M1b-review-features）。 |
 | 4 | 看錯人囉 | `sk_mirror` | active | 完成 | `buff`、`mod.evade`、`target.ally_or_self` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 4 | 多工 | `sk_multi` | passive | 近似 | `mod.action_ap` | 每回合第一個快駭不花行動點已做；「構裝槽 +1」同頻寬，寫不出來。 |
-| 4 | 群播 | `sk_cast` | active | 完成 | `ap`、`target.none`、`who.foes_bridged` | 照設計書的現實欄寫成，沒有已知的差異。 |
+| 4 | 群播 | `sk_cast` | active | 完成 | `ap`、`meat.action_tags`、`target.none`、`who.foes_bridged` | 照設計書的現實欄寫成，沒有已知的差異。 `hack` 標籤（和 `hack:<類別>`）寫在 meat.action_tags，根權限、多工對它生效（M1b-review-features）。 |
 | 4 | 不讓你帶走 | `sk_noleave` | reaction | 完成 | `react.prevent`、`trigger.out_before` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 5 | 黑冰 | `sk_black` | active | 完成 | `hack.check`、`load`、`needs.bridged`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 5 | 備份 | `sk_backup` | active | 完成 | `buff`、`mod.evade`、`target.none`、`unstatus`、`who.allies` | 照設計書的現實欄寫成，沒有已知的差異。 |

@@ -253,11 +253,16 @@ export function registerMods(k: Kernel): void {
   })
 
   // 到下次過載（until: next_overload）：過載的那一刻結束；沒有過載就留到戰鬥結束（不變式第 69 條）
-  k.battle.on('overload', OWNER, ({ run, unit }) => {
+  // 一般的過載發 overload；餘韻疊滿再過載（昏過去）不論有沒有人擋下都先發 out.before { how: 'burnout' }，擋下的那一次沒有 overload（dev/adr/0015 補記 M1b-review-core）
+  const endOnOverload = (run: BattleRun, unit: BattleUnit): void => {
     const buffs = unitBuffs(unit)
     const ended = buffs.filter((b) => b.until === 'next_overload')
     if (!ended.length) return
     setBuffs(unit, buffs.filter((b) => !ended.includes(b)))
     for (const b of ended) endBuff(run, unit, b)
+  }
+  k.battle.on('overload', OWNER, ({ run, unit }) => endOnOverload(run, unit))
+  k.battle.on('out.before', OWNER, ({ run, unit, how }) => {
+    if (how === 'burnout') endOnOverload(run, unit)
   })
 }

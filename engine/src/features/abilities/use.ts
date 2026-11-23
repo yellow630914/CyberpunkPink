@@ -18,6 +18,14 @@ export function useOf(ab: Pick<AbilityEntry, 'use'>): AbilityUse {
   return u
 }
 
+/** 每個戰場各一組消耗（use 照戰場分時：有寫的那幾個戰場；直接寫一組的是 field: null，每個戰場都一樣）。介面寫技能卡的消耗用它。 */
+export function usesOf(ab: Pick<AbilityEntry, 'use'>): Array<{ field: 'meat' | 'net' | 'opinion' | null; use: AbilityUse }> {
+  const u = ab.use
+  if (!u) return []
+  if (!('meat' in u || 'net' in u || 'opinion' in u)) return [{ field: null, use: u }]
+  return (['meat', 'net', 'opinion'] as const).filter((f) => u[f] !== undefined).map((f) => ({ field: f, use: u[f]! }))
+}
+
 const poolCost = (u: AbilityUse): boolean => u.ram !== undefined || u.ram_all_min !== undefined || u.cash !== undefined || u.favor !== undefined
 
 export type Cost = { ap: number; [pool: string]: number }

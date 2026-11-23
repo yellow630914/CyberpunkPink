@@ -44,7 +44,7 @@ function doEquip() {
   else ui.toast(`${sel.value.name}裝上了。`)
 }
 const quickReason = computed(() => {
-  if (!sel.value?.quickable) return '這一件不能放進快取格。'
+  if (!sel.value?.quickable) return sel.value?.quickWhy ?? '這一件不能放進快取格。'
   return lock.value
 })
 function doQuick() {

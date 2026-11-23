@@ -19,8 +19,9 @@ import { registerWard } from './ward'
 
 export { TREE_XP } from './types'
 export type { AbilityEntry, AbilityState, AbilityUse, MeatDef, ModEntry, PathEntry, PrepDef, PreparedEntry, UnitAbilities } from './types'
-export { abilitiesOf, capacityOf, equipAbilities, learn, learnBlock, treeTier } from './learn'
+export { abilitiesOf, capacityOf, equipAbilities, learn, learnBlock, resonanceOn, treeTier } from './learn'
 export { unitAbilities } from './unitdata'
+export { usesOf } from './use'
 export { prep, prepBlock } from './prep'
 export { defaultAlloc, fitAlloc, allocOf } from './instinct'
 

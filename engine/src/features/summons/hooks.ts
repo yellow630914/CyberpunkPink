@@ -7,7 +7,7 @@
 //         attack.after、attack.redirected：被電磁傷害打到、沒被擊落的一台停一回合；機器的單位（佔一格的）被電磁打到失去下一個回合
 //         turn.end：有操作者的一台，停機到操作者這個回合結束拿掉
 //   修正  hit：自律（ext.orphan）的一台自己開火，命中 −2（替身是攻擊者）
-//         overlay.down：被擊落：這一場不能再放，操作者感載 +5（overlay_backlash 的修正加減；臨時機不灌）
+//         overlay.down：被擊落：這一場不能再放，操作者感載 +5（overlay_backlash 的修正加減；資料寫了 no_backlash 的不灌：蜂群的資料有寫，臨時機本身不是理由）
 // COMBAT_SYSTEM 9.1、2.5 節；dev/work/M1b-skill-pilot.md。
 
 import type { AttackResult, BattleOverlay, BattleRun, BattleUnit, BattleView, BattleWeapon, Kernel } from '../../core'

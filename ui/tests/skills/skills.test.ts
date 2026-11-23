@@ -10,7 +10,7 @@ import type { ContentPack } from '@engine/src'
 import { FakeProvider, Game } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
 import { allFeatures } from '@engine/src/features'
-import { abilitiesOf, capacityOf, learnBlock, treeTier, TREE_XP } from '@engine/src/features/abilities'
+import { abilitiesOf, capacityOf, learnBlock, resonanceOn, treeTier, TREE_XP } from '@engine/src/features/abilities'
 import { BATTLE_SETUPS } from '@engine/src/testkit'
 import { useEngine } from '../../src/stores/engine'
 import AbilityTreeView from '../../src/components/AbilityTreeView.vue'
@@ -19,7 +19,7 @@ import treeSrc from '../../src/components/AbilityTreeView.vue?raw'
 import bridgeSrc from '../../src/dialogs/character/BridgeTab.vue?raw'
 import dialogSrc from '../../src/dialogs/SkillTreeDialog.vue?raw'
 import viewSrc from '../../src/lib/skillView.ts?raw'
-import { bridgeRows, capCells, cardOf, draftUse, filterRows, gridOf, listTrees, previewOf, richText, sameList, toggleDraft } from '../../src/lib/skillView'
+import { bridgeRows, capCells, cardOf, draftUse, filterRows, gridOf, listTrees, previewOf, richText, sameList, toggleDraft, useLine } from '../../src/lib/skillView'
 
 const ab = (id: string, path: string, category: string, tier: number, layer: string, more: Record<string, unknown>) => ({
   id, name: `${id}名`, text: `${id}的說明。`, path, category, tier, layer, kind: 'active', cap: 1, xp: tier * 20, cells: 1, meat: null, net: null, opinion: null, ...more,
@@ -152,10 +152,41 @@ describe('技能樹讀引擎（M1b-ui-skills）', () => {
     expect(e.skills.tierOf('ta')).toBe(2)
     const h = await html(pinia, AbilityTreeView, { tree: 'ta' })
     expect(h).toMatch(/data-tier="2" data-open="true"/)
-    expect(h).toMatch(/data-reso="2" data-on="true"/)
+    // 共鳴生效要裝著這棵樹的招牌（問引擎）：學了沒裝不生效
+    expect(h).toMatch(/data-reso="2" data-on="false"/)
+    expect(e.skills.equip(['ta_sig'])).toBeNull()
+    expect(await html(pinia, AbilityTreeView, { tree: 'ta' })).toMatch(/data-reso="2" data-on="true"/)
     expect(e.skills.learnBlock('ta_three')).toBeNull()
     // 第三階以後的樹沒有資料也照樣排得出來（五階各兩列）
     expect(gridOf(treeVm(e).find((t) => t.id === 'ta')!).tiers).toHaveLength(5)
+  })
+
+  it('共鳴「生效中」問引擎：學了這棵樹但沒裝招牌不生效；裝上招牌、樹階到了才生效（和戰鬥裡的修正同一條）', async () => {
+    const { pinia, e } = setup()
+    expect(e.skills.learn('ta_sig')).toBeNull()
+    expect(e.skills.resonanceOn('ta', 1)).toBe(false)
+    expect(resonanceOn(oracle(e).k, oracle(e).state, pc(e), 'ta', 1)).toBe(false)
+    expect(await html(pinia, AbilityTreeView, { tree: 'ta' })).toMatch(/data-reso="1" data-on="false"/)
+    expect(e.skills.equip(['ta_sig'])).toBeNull()
+    expect(e.skills.resonanceOn('ta', 1)).toBe(true)
+    expect(e.skills.resonanceOn('ta', 1)).toBe(resonanceOn(oracle(e).k, oracle(e).state, pc(e), 'ta', 1))
+    // 第 2 階：樹的累計還沒到
+    expect(e.skills.resonanceOn('ta', 2)).toBe(false)
+    expect(await html(pinia, AbilityTreeView, { tree: 'ta' })).toMatch(/data-reso="1" data-on="true"/)
+    expect(treeSrc).not.toMatch(/r\.tier <= open\.value/)
+  })
+
+  it('技能卡的消耗：直接寫的、照戰場分的、RAM、現金、人情、每件委託都寫得出來；沒寫是「沒有消耗」', () => {
+    const line = (use: unknown) => useLine({ use } as never)
+    expect(line(undefined)).toBe('沒有消耗')
+    expect(line({ ap: 2, per_turn: 1 })).toBe('2 行動點，每回合 1 次')
+    // 照戰場分、只有現實：不標戰場
+    expect(line({ meat: { ap: 1, cash: 'grade*500' } })).toBe('1 行動點，現金（照等級）')
+    expect(line({ meat: { ap: 2, favor: 'mid', per_commission: 1 } })).toBe('2 行動點，中人情 1 個，每件委託 1 次')
+    // 兩個戰場：每個各一段
+    expect(line({ meat: { ap: 2, ram: 2 }, net: { ap: 1, ram_all_min: 5, per_fight: 1 } })).toBe('現實：2 行動點，2 RAM；內海：1 行動點，花掉全部 RAM（至少 5 點），每場 1 次')
+    expect(line({ meat: { first_round: true } })).toBe('只能在第一回合')
+    expect(line({ meat: {} })).toBe('沒有消耗')
   })
 
   it('「meat」是 null 的技能在現實那一列是淡的；標 pending 的有「還沒有做成機制」', async () => {

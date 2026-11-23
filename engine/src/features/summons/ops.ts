@@ -238,7 +238,7 @@ function ramOp(ctx: Ctx, e: Eff): void {
   const type = typeof e.type === 'string' ? (e.type as never) : ('physical' as never)
   const raw = Math.max(0, num(ctx, e.dice ?? '3d6'))
   run.say(`${o.name}朝${foe.name}撞了過去。`, 'overlay', { overlay: o.id, kind: o.kind, slot: o.slot, target: foe.id, ram: true }, user)
-  // 它被擊落（overlay.down：操作者的回灌照算，臨時機不灌），目標受一擊、被往後推一格
+  // 它被擊落（overlay.down：操作者的回灌照算；資料寫了 no_backlash 的臨時機才不灌），目標受一擊、被往後推一格
   run.dropOverlay(o)
   const d = run.damage(foe, raw, type, user)
   ctx.last.hit = true

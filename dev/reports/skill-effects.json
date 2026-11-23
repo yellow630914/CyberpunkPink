@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-22（2026-11-23 更新：M1b-random-picks）",
+ "generated": "2026-11-22（2026-11-23 更新：M1b-random-picks；M1b-review-features 更新：潛網者七個技能的 hack 標籤）",
  "effects": [
   {
    "op": "attack",
@@ -2513,7 +2513,14 @@
     "sk_medic_first_aid",
     "sk_medic_line_up",
     "sk_medic_field_surgery",
-    "sk_medic_overhaul"
+    "sk_medic_overhaul",
+    "sk_ice",
+    "sk_take",
+    "sk_loop",
+    "sk_heat",
+    "sk_inflow",
+    "sk_puppet",
+    "sk_cast"
    ]
   },
   {
@@ -3551,7 +3558,7 @@
       "use.per_turn",
       "who.self"
      ],
-     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：who: self：被打的那一台可能就在這一擊被擊落了（核心不對已經擊落的做效果），所以不落在它身上；「其餘的」是照 ctx.target 排除那一台。"
+     "note": "照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：who: self：被打的那一台可能就在這一擊被擊落了（核心不對已經擊落的做效果），所以不落在它身上；「其餘的」是照 ctx.target 排除那一台。 攻擊的人是砲塔或沒有操作者的無人機（替身）時不觸發、不花行動點與次數（設計書寫的是「敵人…朝他射擊」，沒有寫打機器；M1b-review-features E5）。"
     },
     {
      "id": "sk_pilot_man_machine",
@@ -4150,12 +4157,13 @@
      "keys": [
       "buff",
       "hack.check",
+      "meat.action_tags",
       "mod.firewall",
       "target.enemy",
       "use.ap",
       "use.ram"
      ],
-     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+     "note": "照設計書的現實欄寫成，沒有已知的差異。 `hack` 標籤（和 `hack:<類別>`）寫在 meat.action_tags，根權限、多工對它生效（M1b-review-features）。"
     },
     {
      "id": "sk_peek",
@@ -4182,6 +4190,7 @@
      "keys": [
       "hack.check",
       "hack.takeover",
+      "meat.action_tags",
       "meat.choose",
       "meat.picks",
       "pick.choice",
@@ -4189,7 +4198,7 @@
       "use.ap",
       "use.ram"
      ],
-     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+     "note": "照設計書的現實欄寫成，沒有已知的差異。 `hack` 標籤（和 `hack:<類別>`）寫在 meat.action_tags，根權限、多工對它生效（M1b-review-features）。"
     },
     {
      "id": "sk_loop",
@@ -4201,12 +4210,13 @@
      "keys": [
       "hack.check",
       "hack.dot",
+      "meat.action_tags",
       "needs.bridged",
       "target.enemy",
       "use.ap",
       "use.ram"
      ],
-     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+     "note": "照設計書的現實欄寫成，沒有已知的差異。 `hack` 標籤（和 `hack:<類別>`）寫在 meat.action_tags，根權限、多工對它生效（M1b-review-features）。"
     },
     {
      "id": "sk_netrunner_t1_6",
@@ -4242,12 +4252,13 @@
       "hack.check",
       "implant",
       "load",
+      "meat.action_tags",
       "needs.bridged",
       "target.enemy",
       "use.ap",
       "use.ram"
      ],
-     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+     "note": "照設計書的現實欄寫成，沒有已知的差異。 `hack` 標籤（和 `hack:<類別>`）寫在 meat.action_tags，根權限、多工對它生效（M1b-review-features）。"
     },
     {
      "id": "sk_silent",
@@ -4324,6 +4335,7 @@
      "keys": [
       "hack.check",
       "load",
+      "meat.action_tags",
       "meat.choose",
       "meat.picks",
       "needs.bridged",
@@ -4333,7 +4345,7 @@
       "use.ap",
       "use.ram"
      ],
-     "note": "神經版與快感版的感載、沉溺 +2 已做；快感版「定力檢定成功可以擋掉其中 1 點」寫不出來（sink 的 save 是成功就整筆擋掉），「要隊友先灌」的收尾限制也沒有寫。"
+     "note": "神經版與快感版的感載、沉溺 +2 已做；快感版「定力檢定成功可以擋掉其中 1 點」寫不出來（sink 的 save 是成功就整筆擋掉），「要隊友先灌」的收尾限制也沒有寫。 `hack` 標籤（和 `hack:<類別>`）寫在 meat.action_tags，根權限、多工對它生效（M1b-review-features）。"
     },
     {
      "id": "sk_backdoor",
@@ -4411,6 +4423,7 @@
      "keys": [
       "ap",
       "hack.check",
+      "meat.action_tags",
       "meat.choose",
       "meat.picks",
       "needs.status",
@@ -4421,7 +4434,7 @@
       "use.ap",
       "use.ram"
      ],
-     "note": "「動一下」只寫了推一格（沒有讓玩家選拉）、少 1 點行動點，「定住」用 pinned 狀態；比設計書少了推拉二選一。"
+     "note": "「動一下」只寫了推一格（沒有讓玩家選拉）、少 1 點行動點，「定住」用 pinned 狀態；比設計書少了推拉二選一。 `hack` 標籤（和 `hack:<類別>`）寫在 meat.action_tags，根權限、多工對它生效（M1b-review-features）。"
     },
     {
      "id": "sk_mirror",
@@ -4460,13 +4473,14 @@
      "text": "敵方整排有橋的人，下一回合各少 1 點行動點。",
      "keys": [
       "ap",
+      "meat.action_tags",
       "target.none",
       "use.ap",
       "use.per_fight",
       "use.ram",
       "who.foes_bridged"
      ],
-     "note": "照設計書的現實欄寫成，沒有已知的差異。"
+     "note": "照設計書的現實欄寫成，沒有已知的差異。 `hack` 標籤（和 `hack:<類別>`）寫在 meat.action_tags，根權限、多工對它生效（M1b-review-features）。"
     },
     {
      "id": "sk_noleave",

@@ -6,10 +6,10 @@ import type { ActStatus, StepActions } from '@engine/src'
 import type { StepRecord } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
 import { allFeatures } from '@engine/src/features'
-import { armorOf, concealment, equip as gearEquip, equipBlock as gearEquipBlock, gearOf, quickCapacity, scanFinds, unequip as gearUnequip, weaponOf } from '@engine/src/features/gear'
+import { armorOf, concealment, equip as gearEquip, equipBlock as gearEquipBlock, gearOf, quickBlock, quickCapacity, scanFinds, unequip as gearUnequip, weaponOf } from '@engine/src/features/gear'
 import type { BlueprintEntry, PartEntry } from '@engine/src/features/gear'
 import type { GearLookup } from '../lib/gearView'
-import { abilitiesOf, capacityOf, equipAbilities, learn as abilityLearn, learnBlock as abilityLearnBlock, treeTier, TREE_XP } from '@engine/src/features/abilities'
+import { abilitiesOf, capacityOf, equipAbilities, learn as abilityLearn, learnBlock as abilityLearnBlock, resonanceOn, treeTier, TREE_XP } from '@engine/src/features/abilities'
 import type { AbilityEntry, PathEntry } from '@engine/src/features/abilities'
 import { acceptDefeat, defeatOf } from '@engine/src/features/defeat'
 import { setupFromEncounter } from '@engine/src/features/enemies'
@@ -265,6 +265,7 @@ export const useEngine = defineStore('engine', () => {
     blueprint: (id) => game.k.content.get<BlueprintEntry>('blueprint', id),
     item: (id) => game.k.content.get<ItemEntry>('item', id),
     part: (id) => game.k.content.get<PartEntry>('part', id),
+    quickBlock: (id) => quickBlock(game.k, id),
   }
   /** 引擎擋下的原因：ChangeError 的訊息前面有「changes[0]（gear.quick）：」，去掉它只留引擎寫的那一句 */
   const reasonOf = (e: unknown): string | null => {
@@ -345,6 +346,8 @@ export const useEngine = defineStore('engine', () => {
     /** 這棵樹開到第幾階（引擎算） */
     tierOf: (path: string): number => { void state.value; return treeTier(game.k, game.state, game.state.pc ?? '', path) },
     treeXp: TREE_XP,
+    /** 這棵樹第 tier 階的共鳴現在生效嗎（引擎算：樹階到了、而且裝著這棵樹的招牌） */
+    resonanceOn: (path: string, tier: number): boolean => { void state.value; return resonanceOn(game.k, game.state, game.state.pc ?? '', path, tier) },
     /** 戰鬥中或等著選戰敗時整頁唯讀：引擎給的原因；可以動回傳 null */
     lock: (): string | null => { void state.value; return game.blockOf('commit:ability.equip') },
     /** 現在學不學得到：先看整頁的鎖，再問引擎；可以學是 null */

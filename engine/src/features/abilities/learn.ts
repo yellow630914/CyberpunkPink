@@ -44,6 +44,16 @@ export function treeTier(_k: Pick<Kernel, 'content'>, state: GameState, actor: A
   return treeTierOf(abilitiesOf(state, actor).spent[path] ?? 0)
 }
 
+/**
+ * 這棵樹的第 tier 階共鳴現在生效嗎：樹開到那一階、而且橋裡裝著這棵樹的招牌（和戰鬥裡 mods.ts 的算法同一條：沒裝招牌不生效）。
+ * 介面標「生效中」問它，不自己拿樹階比。
+ */
+export function resonanceOn(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId, path: string, tier: number): boolean {
+  const p = k.content.get<PathEntry>('path', path)
+  if (!p) return false
+  return abilitiesOf(state, actor).equipped.includes(p.signature) && tier <= treeTier(k, state, actor, path)
+}
+
 /** 敵人的招牌行動（標了 enemy）不能學、也不能裝進橋。 */
 const NOT_LEARNABLE = '這不是學得到的技能。'
 

@@ -25,6 +25,8 @@ export interface GearLookup {
   blueprint(id: string): BlueprintEntry | undefined
   item(id: string): ItemEntry | undefined
   part(id: string): PartEntry | undefined
+  /** 這一件能不能放進快取格：不能就是引擎的原因（一句話），能是 null。規則在引擎（features/gear 的 quickBlock），這裡不留表 */
+  quickBlock(id: string): string | null
 }
 
 export type GearGroupId = 'worn' | 'acc' | 'carry'
@@ -118,9 +120,17 @@ export interface BagEntry {
   size?: number
   /** 武器與護甲：組好的成品 */
   crafted: boolean
-  /** 能放進快取格的（消耗品、彈藥、工具） */
+  /** 能放進快取格嗎（問引擎；不能的原因在 quickWhy） */
   quickable: boolean
+  /** 不能放進快取格的原因（引擎的那一句）；能放是 null */
+  quickWhy: string | null
   slotItem: SlotItem
+}
+
+/** 問引擎這一疊能不能放進快取格。 */
+const quick = (look: GearLookup, stack: ItemStack): { quickable: boolean; quickWhy: string | null } => {
+  const quickWhy = look.quickBlock(stack.id)
+  return { quickable: quickWhy === null, quickWhy }
 }
 
 /** 整理背包裡的一疊。查不到內容的當成雜物（名字用 id）。 */
@@ -130,7 +140,7 @@ export function bagEntry(look: GearLookup, stack: ItemStack): BagEntry {
   if (bp && uid) {
     const legal = legalName(bp.legal)
     return {
-      key: uid, what: uid, stack, qty: stack.qty, category: bp.kind, filter: 'gear', type: CATEGORY_NAMES[bp.kind] ?? bp.kind, name: bp.name, grade: clampGrade(bp.grade), brand: bp.brand, legal, size: bp.size, crafted: true, quickable: false,
+      key: uid, what: uid, stack, qty: stack.qty, category: bp.kind, filter: 'gear', type: CATEGORY_NAMES[bp.kind] ?? bp.kind, name: bp.name, grade: clampGrade(bp.grade), brand: bp.brand, legal, size: bp.size, crafted: true, ...quick(look, stack),
       slotItem: { id: uid, name: bp.name, grade: clampGrade(bp.grade), icon: iconOf(bp.kind, bp), legality: legal },
     }
   }
@@ -139,7 +149,7 @@ export function bagEntry(look: GearLookup, stack: ItemStack): BagEntry {
     const legal = legalName(item.legal)
     return {
       key: stack.id, what: item.category === 'accessory' ? stack.id : null, stack, qty: stack.qty, category: item.category, filter: CATEGORY_FILTER[item.category] ?? 'misc', type: CATEGORY_NAMES[item.category] ?? item.category,
-      name: item.name, grade: clampGrade(item.grade), legal, size: item.size, crafted: false, quickable: item.category === 'consumable' || item.category === 'ammo' || item.category === 'tool',
+      name: item.name, grade: clampGrade(item.grade), legal, size: item.size, crafted: false, ...quick(look, stack),
       slotItem: { id: stack.id, name: item.name, grade: clampGrade(item.grade), icon: iconOf(item.category, undefined, item), legality: legal },
     }
   }
@@ -147,7 +157,7 @@ export function bagEntry(look: GearLookup, stack: ItemStack): BagEntry {
   if (part) {
     const legal = legalName(part.legal)
     return {
-      key: stack.id, what: null, stack, qty: stack.qty, category: 'part', filter: 'part', type: `零件・${PART_TYPE_NAMES[part.type] ?? part.type}`, name: part.name, grade: clampGrade(part.grade), brand: part.brand, legal, size: part.size, crafted: false, quickable: false,
+      key: stack.id, what: null, stack, qty: stack.qty, category: 'part', filter: 'part', type: `零件・${PART_TYPE_NAMES[part.type] ?? part.type}`, name: part.name, grade: clampGrade(part.grade), brand: part.brand, legal, size: part.size, crafted: false, ...quick(look, stack),
       slotItem: { id: stack.id, name: part.name, grade: clampGrade(part.grade), icon: iconOf('part'), legality: legal },
     }
   }
@@ -155,11 +165,11 @@ export function bagEntry(look: GearLookup, stack: ItemStack): BagEntry {
   if (sheet) {
     const legal = legalName(sheet.legal)
     return {
-      key: stack.id, what: null, stack, qty: stack.qty, category: 'blueprint', filter: 'blueprint', type: '設計圖', name: sheet.name, grade: clampGrade(sheet.grade), brand: sheet.brand, legal, size: sheet.size, crafted: false, quickable: false,
+      key: stack.id, what: null, stack, qty: stack.qty, category: 'blueprint', filter: 'blueprint', type: '設計圖', name: sheet.name, grade: clampGrade(sheet.grade), brand: sheet.brand, legal, size: sheet.size, crafted: false, ...quick(look, stack),
       slotItem: { id: stack.id, name: sheet.name, grade: clampGrade(sheet.grade), icon: iconOf('blueprint'), legality: legal },
     }
   }
-  return { key: stack.id, what: null, stack, qty: stack.qty, category: 'misc', filter: 'misc', type: '雜物', name: stack.id, grade: 1, legal: '自由', crafted: false, quickable: false, slotItem: { id: stack.id, name: stack.id, grade: 1, icon: 'ic-unknown' } }
+  return { key: stack.id, what: null, stack, qty: stack.qty, category: 'misc', filter: 'misc', type: '雜物', name: stack.id, grade: 1, legal: '自由', crafted: false, ...quick(look, stack), slotItem: { id: stack.id, name: stack.id, grade: 1, icon: 'ic-unknown' } }
 }
 
 const byGradeName = (a: BagEntry, b: BagEntry): number => b.grade - a.grade || a.name.localeCompare(b.name, 'zh-Hant') || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)

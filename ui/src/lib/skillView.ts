@@ -3,7 +3,8 @@
  * 不判斷能不能學、能不能裝：這些一律由 store 問引擎（stores/engine.ts 的 skills），原因就是引擎回的那一句。
  * 這裡只有名字、顏色、說明文字的對照，以及「現在用掉的加上它的容量」的預覽（只做加法）。
  */
-import type { AbilityEntry, AbilityState, PathEntry } from '@engine/src/features/abilities'
+import { usesOf } from '@engine/src/features/abilities'
+import type { AbilityEntry, AbilityState, AbilityUse, PathEntry } from '@engine/src/features/abilities'
 import { CATEGORIES, CATEGORY_NAME } from '@engine/src/features/abilities/types'
 import type { Category } from '@engine/src/features/abilities/types'
 
@@ -39,17 +40,36 @@ export function richText(text: string): TextSeg[] {
   return out
 }
 
-/** 消耗寫成一句（照 `use`）。沒有寫消耗的寫「沒有消耗」。 */
-export function useLine(ab: AbilityEntry): string {
-  const u = ab.use
-  if (!u) return '沒有消耗'
+/** 一組消耗寫成一句：行動點、RAM（花掉全部）、現金、人情、次數、時段。 */
+function useBits(u: AbilityUse): string[] {
   const bits: string[] = []
   if (u.ap !== undefined) bits.push(`${u.ap} 行動點`)
+  if (u.ram !== undefined) bits.push(`${u.ram} RAM`)
+  if (u.ram_all_min !== undefined) bits.push(`花掉全部 RAM（至少 ${u.ram_all_min} 點）`)
+  if (u.cash !== undefined) bits.push(typeof u.cash === 'number' ? `現金 ${u.cash}` : '現金（照等級）')
+  if (u.favor !== undefined) bits.push(`${FAVOR_NAME[u.favor] ?? u.favor}人情 1 個`)
+  if (u.slot !== undefined) bits.push(`${u.slot} 個時段`)
   if (u.per_turn !== undefined) bits.push(`每回合 ${u.per_turn} 次`)
   if (u.per_fight !== undefined) bits.push(`每場 ${u.per_fight} 次`)
+  if (u.per_commission !== undefined) bits.push(`每件委託 ${u.per_commission} 次`)
   if (u.first_round) bits.push('只能在第一回合')
+  if (u.not_first_round) bits.push('第一回合不能用')
   if (u.note) bits.push(u.note)
-  return bits.length ? bits.join('，') : '沒有消耗'
+  return bits
+}
+const FAVOR_NAME: Record<string, string> = { small: '小', mid: '中', big: '大' }
+const FIELD_NAME = { meat: '現實', net: '內海', opinion: '輿論' } as const
+
+/**
+ * 消耗寫成一句（照 `use`；怎麼分戰場由引擎的 usesOf 說）。直接寫一組的就是那一組；照戰場分的每個戰場各寫一段（「現實：…；內海：…」），
+ * 只寫了現實的不標戰場。沒有寫消耗的寫「沒有消耗」。
+ */
+export function useLine(ab: AbilityEntry): string {
+  const groups = usesOf(ab)
+  const lines = groups.map((g) => ({ field: g.field, text: useBits(g.use).join('，') })).filter((g) => g.text)
+  if (!lines.length) return '沒有消耗'
+  if (lines.length === 1 && (lines[0]!.field === null || lines[0]!.field === 'meat')) return lines[0]!.text
+  return lines.map((g) => (g.field ? `${FIELD_NAME[g.field]}：${g.text}` : g.text)).join('；')
 }
 
 export interface LaneView { key: string; label: string; level: string; dim: boolean; pending: boolean; line: string }

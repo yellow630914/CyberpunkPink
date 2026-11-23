@@ -1497,7 +1497,7 @@ describe('M1b-review-features：接管到期時原本的操作者已經退出（
   })
 
   it('不是 autonomous 的：還回去時停機（不是掛在那裡的、有一個倒下的操作者）', () => {
-    const { a, o, endTurn } = setup({})
+    const { a, o, endTurn } = setup({ autonomous: false })
     a.run().setOut(a.foe(1), 'down', a.ally(1))
     endTurn(); endTurn(); endTurn()
     expect(o.down).toBe(true)
