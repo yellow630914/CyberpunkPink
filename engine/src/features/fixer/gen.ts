@@ -15,7 +15,7 @@
 //   encounters（每一級的遭遇組合：normal 是一般的階段、last 是最後一個階段）。
 //
 // 幾個解讀（設計書沒寫死的）：
-//   - 中型多一個階段，插在第二階段後面（extra[0]）；大型前後各一個（extra[1] 在第二階段前面、extra[0] 在後面）。工單是這樣寫的；COMMISSION_TEMPLATES 的階段表把中型的 2a 排在第二階段前面。
+//   - 階段表照 COMMISSION_TEMPLATES：中型多一個 2a，插在第二階段前面（extra[0]）；大型是 2a 在前（extra[0]）、2b 在第二階段後面（extra[1]）。extra 的內容照表上 2a、2b 的順序寫。
 //   - lock_face { stage, face }：那個階段鎖成只有這一個面（COMMISSIONS 7.1 節「鎖成只有一個面」）；stage 是生成之後的第幾階段（1 起算），不能是最後一個階段。
 //   - 詞條的 stage（可選）：attached、foes_plus 只加在那一個階段的現實面遭遇上；沒寫是每一個現實面的遭遇。
 //   - attached 寫在那一面的 attached 欄位（[{ enemy, count }]），意思是掛在那一場遭遇的第一個敵人身上；副本開地圖時要照它寫進敵人的 UnitRef（commission/run.ts 的 foeRef）。
@@ -357,13 +357,13 @@ export function registeredFaces(k: Pick<Kernel, 'activity'>): GenFace[] {
 
 const playable = (faces: readonly GenFace[], reg: readonly GenFace[]): boolean => faces.some((f) => reg.includes(f))
 
-/** 這個規模的階段怎麼排（工單：中型在第二階段後面插一個、大型前後各插一個）；模板的階段不夠回傳 null。 */
+/** 這個規模的階段怎麼排（COMMISSION_TEMPLATES 的階段表：中型是 1、2a、2、★，大型是 1、2a、2、2b、★；extra 照表的順序寫 [2a, 2b]）；模板的階段不夠回傳 null。 */
 export function stagePlan(t: Pick<TypeEntry, 'stages' | 'extra'>, scale: Scale): StageTemplate[] | null {
   const [s1, s2, s3] = t.stages
   if (!s1 || !s2 || !s3) return null
   if (scale === 'small') return [s1, s2, s3]
-  if (scale === 'medium') return t.extra[0] ? [s1, s2, t.extra[0], s3] : null
-  return t.extra[0] && t.extra[1] ? [s1, t.extra[1], s2, t.extra[0], s3] : null
+  if (scale === 'medium') return t.extra[0] ? [s1, t.extra[0], s2, s3] : null
+  return t.extra[0] && t.extra[1] ? [s1, t.extra[0], s2, t.extra[1], s3] : null
 }
 
 /** 這種類型現在抽得到的規模（模板的階段排得出來、每個階段都有一個有人登記玩法的面）。 */

@@ -9,6 +9,7 @@ import { ContentError, effectCtx, meterOf, repGrade, toMinutes } from '../../src
 import { commissionFeature, readRun, chooseBranch, chooseFace } from '../../src/features/commission'
 import { defeatFeature } from '../../src/features/defeat'
 import { enemiesFeature } from '../../src/features/enemies'
+import { summonsFeature } from '../../src/features/summons'
 import { exploreFeature } from '../../src/features/explore'
 import {
   GEN_RETRIES, OFFERS_PER_DAY, accept, board, commissionIdOf, eligibleTypes, fixerFeature, generate, generateTrace, genProblems, genRules, genRuleProblems, go, jobOf, linkProblems, modifierProblems,
@@ -95,7 +96,7 @@ const TYPE_HIT = {
     { name: '靠近他', faces: ['meat', 'net'] },
     { name: '動手', faces: ['meat'] },
   ],
-  extra: [{ name: '最後一道門', faces: ['meat', 'opinion'] }, { name: '他的護衛', faces: ['meat', 'net'] }],
+  extra: [{ name: '他的護衛', faces: ['meat', 'net'] }, { name: '最後一道門', faces: ['meat', 'opinion'] }],
   branches: { stealth: 'stealth', talk: 'negotiate' },
   brief: '替{fixer}處理{faction}在{district}的一個人，地點在{place}。',
   gives: { meat: ['lk_key'], net: ['lk_cam', 'lk_door'] },
@@ -178,7 +179,7 @@ const STRONG = { attrs: { tech: 20, intellect: 20, body: 20, reflex: 20, charm: 
 
 interface Opts { seed?: number; features?: Feature[]; content?: ContentPack[]; rep?: number; noEnemies?: boolean; noCommission?: boolean }
 function setup(o: Opts = {}): G {
-  const base: Feature[] = [DISTRICT_KIND, exploreFeature, ...(o.noEnemies ? [] : [enemiesFeature]), defeatFeature, TEST_COMBAT, GEAR as never, ...(o.noCommission ? [] : [commissionFeature]), fixerFeature, ...(o.features ?? [])]
+  const base: Feature[] = [DISTRICT_KIND, exploreFeature, ...(o.noEnemies ? [] : [enemiesFeature]), summonsFeature, defeatFeature, TEST_COMBAT, GEAR as never, ...(o.noCommission ? [] : [commissionFeature]), fixerFeature, ...(o.features ?? [])]
   const g = makeGame({ seed: o.seed, features: base, content: o.content ?? [pack()], pc: STRONG as never }).game
   if (o.rep !== undefined) setRep(g, o.rep)
   return g
@@ -381,7 +382,7 @@ describe('generate：一百件', () => {
 })
 
 describe('generate：階段與面', () => {
-  it('中型四個階段、大型五個；小型三個；階段照模板排（中型多的插在第二階段後面，大型前後各一個）', () => {
+  it('中型四個階段、大型五個；小型三個；階段照模板排（中型的 2a 在第二階段前面，大型 2a 在前、2b 在後）', () => {
     const g = setup({ rep: 55 })
     const offers = many(g, 150)
     const bySize = (s: string) => offers.filter((o) => sizeOf(o) === s)
@@ -392,7 +393,7 @@ describe('generate：階段與面', () => {
     for (const o of bySize('medium')) expect(stagesOf(o)).toHaveLength(4)
     for (const o of bySize('large')) expect(stagesOf(o)).toHaveLength(5)
     const hit = (s: string) => bySize(s).find((o) => o.commission.kind === 't_hit')!
-    expect(stagesOf(hit('medium')).map((x) => x.name).slice(1)).toEqual(['靠近他', '最後一道門', '動手'])
+    expect(stagesOf(hit('medium')).map((x) => x.name).slice(1)).toEqual(['他的護衛', '靠近他', '動手'])
     expect(stagesOf(hit('large')).map((x) => x.name).slice(1)).toEqual(['他的護衛', '靠近他', '最後一道門', '動手'])
     expect(stagePlan(TYPE_HIT as never, 'small')!.map((s) => s.name)).toEqual(['找到他', '靠近他', '動手'])
   })
@@ -809,6 +810,40 @@ describe('串起來：生成的一件交給 M2-commission-run 走完三個階段
   })
 })
 
+describe('串起來：詞條帶的附屬單位（獵犬）真的進戰鬥', () => {
+  it('生成 → go → 開地圖 → 走到守衛開打：獵犬掛在第一個敵人身上，其餘的敵人沒有', async () => {
+    const hounds = MODS.filter((m) => m.id === 'md_hounds')
+    const g = setup({ seed: 5, rep: 0, content: [pack({ special_map: [MAP_C], commission_modifier: hounds })] })
+    const row = board(g.k, g.state, 'fx_c').offers[0]!
+    // 生成的那一面寫著 attached
+    const stage1 = (row.offer.commission.stages as Array<{ faces: Record<string, Rec> }>)[0]!.faces.meat!
+    expect(row.offer.commission.modifiers).toEqual(['md_hounds'])
+    expect(stage1.attached).toEqual([{ enemy: 'en_hound', count: 2 }])
+    expect((stage1.encounter as string[]).length).toBeGreaterThan(1)
+    g.commit(accept(g.k, g.state, { id: row.id, fixer: 'fx_c' }, { pay: 'cash' }))
+    g.state.location.block = 'blk_shop'
+    g.commit(go(g.k, g.state, row.id))
+    g.commit(chooseFace(g.k, g.state, 'meat'))
+    g.commit(chooseBranch(g.k, g.state, 'assault'))
+    // 開地圖時：守衛的第一個敵人帶 attached，其他的沒有；增援沒有
+    const guards = Object.values(g.state.maps.instances)[0] as { ext?: { guards?: Record<string, { foes: Array<Rec> }>; reinforce?: Array<Rec> } } | undefined
+    const foes = Object.values(guards!.ext!.guards!)[0]!.foes
+    expect(foes[0]!.attached).toEqual([{ enemy: 'en_hound', count: 2 }])
+    for (const f of foes.slice(1)) expect(f.attached).toBeUndefined()
+    for (const f of guards!.ext!.reinforce!) expect(f.attached).toBeUndefined()
+    // 走到守衛：開打，獵犬在場
+    const face = readRun(g.state)!.def.stages[0]!.faces.meat as unknown as { post: string }
+    g.gridMove(at(face.post))
+    expect(g.battle).not.toBeNull()
+    const b = g.state.battle!
+    expect(b.overlays.filter((o) => o.ext?.enemy === 'en_hound')).toHaveLength(2)
+    const owners = new Set(b.overlays.map((o) => o.owner))
+    expect(owners.size).toBe(1)
+    expect(b.units[[...owners][0]!]?.side).toBe('foe')
+    await settle(g)
+  })
+})
+
 // ===================================================================================================================
 // 補一條：整體的性質
 // ===================================================================================================================
@@ -833,6 +868,8 @@ describe('性質', () => {
   it('TypeEntry 的型別可以直接用（給之後的內容編輯器）', () => {
     const t = TYPE_HIT as unknown as TypeEntry
     expect(stagePlan(t, 'large')!.map((s) => s.name)).toEqual(['找到他', '他的護衛', '靠近他', '最後一道門', '動手'])
+    expect(stagePlan(t, 'medium')!.map((s) => s.name)).toEqual(['找到他', '他的護衛', '靠近他', '動手'])
     expect(stagePlan({ ...t, extra: [] }, 'medium')).toBeNull()
+    expect(stagePlan({ ...t, extra: t.extra.slice(0, 1) }, 'large')).toBeNull()
   })
 })

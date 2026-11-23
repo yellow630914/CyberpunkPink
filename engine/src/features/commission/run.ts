@@ -220,9 +220,13 @@ const rollBeat = (k: Kernel, state: GameState, r: Rolled, text: string): ReportD
   text: `${text}（${k.stats.skillName(r.skill)}）：${DEGREE_NAME[r.roll.degree]}（骰 ${r.roll.natural}，合計 ${r.roll.total}，對 DC ${r.roll.dc}）`,
 })
 
-/** 這一面的那個位階的敵人（勢力是目標勢力、等級是副本的等級；seed 用委託、階段與第幾個）。 */
-const foeRef = (def: CommissionEntry, n: number, grade: number, rank: Rank, i: number | string): UnitRef => ({
+/**
+ * 這一面的那個位階的敵人（勢力是目標勢力、等級是副本的等級；seed 用委託、階段與第幾個）。
+ * attached 是這一場遭遇的附屬單位（面的 attached 欄位，詞條「獵犬」那類）：只寫在第一個敵人的 UnitRef 上（enemy_pick 會照 UnitRef.attached 蓋掉兵種自己的）。
+ */
+const foeRef = (def: CommissionEntry, n: number, grade: number, rank: Rank, i: number | string, attached?: unknown[]): UnitRef => ({
   from: 'enemy_pick', faction: def.target_faction, grade, rank, seed: `${def.id}/${n}/${i}`,
+  ...(attached && attached.length > 0 ? { attached: attached.map((a) => ({ ...(a as object) })) } : {}),
 })
 
 interface MapPlan {
@@ -263,7 +267,7 @@ function planMeat(k: Kernel, state: GameState, run: Run, b: BranchDef, extraAler
   const { map, sheet: sheetId } = sheetIdOf(k, face)
   const sheet = new Sheet(map.sheets.find((s) => s.id === sheetId)!)
   const post = face.post !== undefined ? sheet.marker(face.post) : firstGuard(sheet)
-  const guards = post && ranks.length > 0 ? { [post.id]: { foes: ranks.map((r, i) => foeRef(def, n, grade, r, i + 1)), faction: def.target_faction } } : {}
+  const guards = post && ranks.length > 0 ? { [post.id]: { foes: ranks.map((r, i) => foeRef(def, n, grade, r, i + 1, i === 0 ? face.attached as unknown[] | undefined : undefined)), faction: def.target_faction } } : {}
   const scoutedGuards = (run.setup.scouted?.guards ?? []).includes(n)
   const stealth = run.route.at(-1)?.stealth === true
   const ext: Record<string, unknown> = {
