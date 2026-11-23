@@ -1,0 +1,10 @@
+[
+  {
+    "id": "default",
+    "price": {
+      "small": 300,
+      "mid": 1500
+    },
+    "refuse_rep": -3
+  }
+]

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "default",
+    "taxi_base": 25,
+    "taxi_per_km": 4,
+    "taxi_minutes": 10,
+    "taxi_same_km": 2,
+    "taxi_default_km": 10,
+    "km": [],
+    "no_taxi": [],
+    "peak": [
+      "morning",
+      "afternoon"
+    ],
+    "night": [
+      "late"
+    ],
+    "anywhere": false
+  }
+]

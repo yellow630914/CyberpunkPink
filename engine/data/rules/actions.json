@@ -371,5 +371,126 @@
       "narrow": "親密度 +1",
       "fail": "親密度 −2"
     }
+  },
+  {
+    "id": "npc_chat",
+    "name": "聊天",
+    "desc": "聊天",
+    "attr": "charm",
+    "skill": "negotiate",
+    "dc": "normal",
+    "minutes": 30,
+    "max_minutes": 120,
+    "owner": "npcs"
+  },
+  {
+    "id": "npc_gift",
+    "name": "送禮",
+    "desc": "送禮",
+    "attr": "charm",
+    "skill": "negotiate",
+    "dc": "normal",
+    "minutes": 30,
+    "max_minutes": 120,
+    "owner": "npcs"
+  },
+  {
+    "id": "npc_seduce",
+    "name": "誘惑",
+    "desc": "誘惑",
+    "attr": "charm",
+    "skill": "seduce",
+    "dc": "normal",
+    "minutes": 30,
+    "max_minutes": 120,
+    "owner": "npcs"
+  },
+  {
+    "id": "npc_ask_small",
+    "name": "交涉（小請託）",
+    "desc": "交涉（小請託）",
+    "attr": "charm",
+    "skill": "negotiate",
+    "dc": "normal",
+    "minutes": 30,
+    "max_minutes": 120,
+    "owner": "npcs"
+  },
+  {
+    "id": "npc_ask_mid",
+    "name": "交涉（中請託）",
+    "desc": "交涉（中請託）",
+    "attr": "charm",
+    "skill": "negotiate",
+    "dc": "hard",
+    "minutes": 30,
+    "max_minutes": 120,
+    "owner": "npcs"
+  },
+  {
+    "id": "npc_ask_big",
+    "name": "交涉（大請託）",
+    "desc": "交涉（大請託）",
+    "attr": "charm",
+    "skill": "negotiate",
+    "dc": "extreme",
+    "minutes": 30,
+    "max_minutes": 120,
+    "owner": "npcs"
+  },
+  {
+    "id": "npc_intimidate",
+    "name": "威嚇",
+    "desc": "威嚇",
+    "attr": "resolve",
+    "skill": "intimidate",
+    "dc": "normal",
+    "minutes": 15,
+    "max_minutes": 60,
+    "owner": "npcs"
+  },
+  {
+    "id": "npc_steal",
+    "name": "偷竊",
+    "desc": "偷竊",
+    "attr": "reflex",
+    "skill": "stealth",
+    "dc": "normal",
+    "minutes": 15,
+    "max_minutes": 60,
+    "owner": "npcs"
+  },
+  {
+    "id": "npc_read_bridge",
+    "name": "快駭讀橋",
+    "desc": "快駭讀橋",
+    "attr": "intellect",
+    "skill": "interface",
+    "dc": "easy",
+    "minutes": 30,
+    "max_minutes": 120,
+    "owner": "npcs"
+  },
+  {
+    "id": "npc_recruit",
+    "name": "招募",
+    "desc": "招募",
+    "attr": "charm",
+    "skill": "negotiate",
+    "dc": "hard",
+    "minutes": 30,
+    "max_minutes": 120,
+    "owner": "roster"
+  },
+  {
+    "id": "bargain",
+    "name": "殺價",
+    "desc": "殺價",
+    "attr": "charm",
+    "skill": "negotiate",
+    "dc": "normal",
+    "minutes": 15,
+    "max_minutes": 60,
+    "owner": "trade"
   }
 ]

@@ -11,7 +11,10 @@ import type { BlueprintEntry, PartEntry } from '@engine/src/features/gear'
 import type { GearLookup } from '../lib/gearView'
 import { abilitiesOf, capacityOf, applyLoadout, loadoutBlock as abilityLoadoutBlock, learn as abilityLearn, learnBlock as abilityLearnBlock, resonanceOn, treeTier, TREE_XP } from '@engine/src/features/abilities'
 import type { AbilityEntry, PathEntry } from '@engine/src/features/abilities'
-import { acceptDefeat, defeatOf } from '@engine/src/features/defeat'
+import { acceptDefeat, chooseDefeatOption, defeatOf, defeatView, skipDefeat, watchDefeat } from '@engine/src/features/defeat'
+import type { DefeatViewInfo } from '@engine/src/features/defeat'
+import { commissionView } from '@engine/src/features/commission'
+import { sceneSkip } from '@engine/src/features/scene'
 import { setupFromEncounter } from '@engine/src/features/enemies'
 import { arrive as worldArrive, cityGraph, worldView } from '@engine/src/features/world'
 import type { CityGraph, WorldView } from '@engine/src/features/world'
@@ -274,6 +277,49 @@ export const useEngine = defineStore('engine', () => {
     game.commit(acceptDefeat(game.k, game.state))
     refresh()
   }
+  // ---- 戰敗之後（M2-ui-battle-after）：全部轉接 features/defeat 與 commission，畫面不自己判斷 ----
+  /** 把引擎做好的一份報告草稿提交（Game.commit：帶 launch、rewind 的也在同一次提交裡）；被擋下回傳引擎的原因，成功回傳 null */
+  function commitMade(make: () => ReportDraft): string | null {
+    try {
+      game.commit(make())
+      refresh()
+      return null
+    } catch (e) {
+      const why = reasonOf(e)
+      if (why === null) throw e
+      return why
+    }
+  }
+  const defeatFlow = {
+    /** 現在在哪一步、哪一件事件與版本、能做的選擇與原因、接受的話會怎樣（引擎的 defeatView）；沒有在等是 null */
+    view: (): DefeatViewInfo | null => { void state.value; return defeatView(game.k, game.state) },
+    /** 先問的時候選「看」：事件視窗開起來 */
+    watch: (): string | null => commitMade(() => watchDefeat(game.k, game.state)),
+    /** 先問的時候選「不看」：只列出結果 */
+    skip: (): string | null => commitMade(() => skipDefeat(game.k, game.state)),
+    /** 接受結果：被擋下（事件還沒做完……）回傳引擎的原因；在副本裡而且算失敗時，引擎在同一次提交裡回退 */
+    accept: (): string | null => commitMade(() => acceptDefeat(game.k, game.state)),
+    /** 別的功能多給的選項（被贖回……）：選了就結算 */
+    choose: (id: string): string | null => commitMade(() => chooseDefeatOption(game.k, game.state, id)),
+    /** 人在不在委託的副本裡（引擎的 commissionView）；不在是 null */
+    commission: (): { id: string; name: string; stage: number; stages: number } | null => {
+      void state.value
+      const v = commissionView(game.k, game.state)
+      return v ? { id: v.id, name: v.name, stage: v.stage, stages: v.stages } : null
+    },
+  }
+  /**
+   * 事件帶出來的成人場景（俘虜「帶走」、戰敗事件的選項）：場景的畫面是 M2-ui-scene，還沒做之前入口只有「略過」（引擎的 sceneSkip：直接算出結果）。
+   * M2-ui-scene 接上之後這一組換掉。
+   */
+  const sceneGate = {
+    active: (): boolean => { void state.value; return game.k.activity.active(game.state).some((a) => a.kind === 'scene') },
+    /** 略過：回傳引擎的原因（做不到）或 null；結果那一份報告（scene.end）在 state.reports 最後 */
+    skip: (): string | null => commitMade(() => sceneSkip(game.k, game.state)),
+  }
+  /** 有幾個面板把事件視窗嵌在自己裡面（戰敗、戰利品與俘虜）：大於 0 時全域的事件對話框讓出來 */
+  const eventInline = ref(0)
+  const hostEvent = (on: boolean): void => { eventInline.value = Math.max(0, eventInline.value + (on ? 1 : -1)) }
   /** 這個戰場的規則（遮蔽的名字、數值：照這一局的內容，不是預設值）；沒有在打是 null。 */
   function battleMode(): BattleMode | null {
     const b = state.value.battle
@@ -497,5 +543,5 @@ export const useEngine = defineStore('engine', () => {
     scan: (): ScanView | null => { void state.value; return scanView(game.k, game.state) },
   }
 
-  return { state, world, transit, event, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  return { state, world, transit, event, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

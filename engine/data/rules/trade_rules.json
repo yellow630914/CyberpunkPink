@@ -1,0 +1,133 @@
+[
+  {
+    "id": "default",
+    "buy_ratio": 0.4,
+    "sell_area_slope": 0.25,
+    "discount_cap": 0.3,
+    "favor_bands": [
+      20,
+      40,
+      60,
+      80
+    ],
+    "favor_discounts": [
+      0.03,
+      0.06,
+      0.1,
+      0.15
+    ],
+    "keeper_per_point": 0.002,
+    "keeper_cap": 0.1,
+    "hostility_markup_at": 40,
+    "hostility_markup": 1.2,
+    "hostility_refuse_at": 60,
+    "dirty_hostility": 3,
+    "list_size": [
+      6,
+      10
+    ],
+    "stock_by_tag": {
+      "food": [
+        20,
+        20
+      ]
+    },
+    "stock_by_category": {
+      "weapon": [
+        1,
+        1
+      ],
+      "armor": [
+        1,
+        1
+      ],
+      "clothing": [
+        1,
+        1
+      ],
+      "accessory": [
+        1,
+        1
+      ],
+      "blueprint": [
+        1,
+        1
+      ],
+      "misc": [
+        20,
+        20
+      ]
+    },
+    "stock_default": [
+      2,
+      5
+    ],
+    "categories": {
+      "food": "食物",
+      "daily": "日用",
+      "medicine": "藥",
+      "ammo": "彈藥",
+      "weapon": "武器",
+      "apparel": "護甲與服裝",
+      "mech": "機械義體與零件",
+      "bio": "生體件",
+      "electronics": "電子",
+      "fuel": "燃料",
+      "luxury": "奢侈品",
+      "material": "素材與帶子",
+      "furniture": "家具"
+    },
+    "category_by_tag": {
+      "food": "food",
+      "medical": "medicine",
+      "luxury": "luxury",
+      "electronics": "electronics",
+      "fuel": "fuel",
+      "furniture": "furniture"
+    },
+    "category_by_category": {
+      "weapon": "weapon",
+      "armor": "apparel",
+      "clothing": "apparel",
+      "accessory": "apparel",
+      "ammo": "ammo",
+      "consumable": "daily",
+      "tool": "daily",
+      "part": "mech",
+      "blueprint": "material",
+      "cargo": "daily",
+      "misc": "daily"
+    },
+    "category_default": "daily",
+    "market_scale": 1,
+    "market_min": 0.5,
+    "market_max": 2.5,
+    "cargo_ratio": 0.9,
+    "decay_step": 0.03,
+    "decay_max": 0.5,
+    "decay_recover": 5,
+    "bargain_dc": 13,
+    "bargain_affinity_step": 25,
+    "bargain_fame_min": 30,
+    "bargain_tendency_bonus": 2,
+    "bargain_pressure_hostility": 5,
+    "bargain_results": {
+      "critical": {
+        "mult": 0.8,
+        "affinity": 2
+      },
+      "success": {
+        "mult": 0.9,
+        "affinity": 0
+      },
+      "fail": {
+        "mult": 1,
+        "affinity": 0
+      },
+      "fumble": {
+        "mult": 1.1,
+        "affinity": -3
+      }
+    }
+  }
+]

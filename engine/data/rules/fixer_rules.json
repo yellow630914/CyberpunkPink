@@ -1,0 +1,35 @@
+[
+  {
+    "id": "default",
+    "pay_cred": 0.85,
+    "pay_favor": 0.7,
+    "hostility_cred": 2,
+    "haggle_dc_base": 13,
+    "haggle_success": 0.05,
+    "haggle_critical": 0.1,
+    "scout_minutes": 240,
+    "scout_dc_base": 10,
+    "scout_dc_per_grade": 2,
+    "scout_hard_from": 4,
+    "scout_hard_plus": 1,
+    "scout_alert": 15,
+    "intel_per_grade": 300,
+    "rating_bonus": {
+      "S": 0.2,
+      "A": 0.1,
+      "B": 0,
+      "C": -0.1
+    },
+    "rep_done": 2,
+    "rep_fail": -3,
+    "borrow_base": 200,
+    "borrow_mult": 1.5,
+    "boss_shares": 2,
+    "aux_max": 2,
+    "bond_dc_base": 20,
+    "bond_affinity_step": 5,
+    "bond_loyalty": 70,
+    "trip_affinity": 2,
+    "trip_loyalty": 2
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "default",
+    "debt_week": 3,
+    "debt_faction": "eden",
+    "debt_hostility": 10,
+    "debt_rate": 0.05,
+    "debt_rates": {},
+    "debt_pay": {},
+    "debt_pay_default": "cred",
+    "interest_order": 5,
+    "extra_order": 7,
+    "grace_max_days": 7,
+    "tweak_ratio": 0.5,
+    "max_catch_up": 52
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "id": "default",
+    "per_turn": {
+      "blocking": 1,
+      "notices": 2
+    },
+    "city_daily_blocking": 8,
+    "category_recent": 6,
+    "category_penalty": 0.35
+  }
+]

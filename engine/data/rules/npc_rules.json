@@ -1,0 +1,147 @@
+[
+  {
+    "id": "default",
+    "age": {
+      "min": 18,
+      "max": 75,
+      "main": [
+        20,
+        35
+      ],
+      "main_chance": 0.7,
+      "runner": [
+        20,
+        40
+      ]
+    },
+    "gender": {
+      "female": 40,
+      "male": 40,
+      "femboy": 7,
+      "trans_f": 7,
+      "futa": 6
+    },
+    "andro_chance": 0.1,
+    "guard": [
+      12,
+      19
+    ],
+    "wealth": [
+      3,
+      4,
+      3,
+      2,
+      1,
+      0.5
+    ],
+    "persona": {
+      "attrs": [],
+      "attr_count": [
+        1,
+        2
+      ],
+      "quadrants": []
+    },
+    "tendency": {
+      "tag_chance": 0.5,
+      "axis_max": 3,
+      "states": {
+        "latent": 2,
+        "has": 7,
+        "deep": 1
+      },
+      "culture": {},
+      "culture_mult": 3
+    },
+    "bridge": {
+      "none_chance": 0.1,
+      "range": [
+        15,
+        60
+      ],
+      "bridgeless": [],
+      "sink": [
+        5,
+        20
+      ]
+    },
+    "stats": {
+      "attr": [
+        8,
+        12
+      ],
+      "runner_bonus": 1,
+      "hp_base": 20,
+      "skills": {
+        "citizen": [
+          1,
+          1
+        ],
+        "runner": [
+          3,
+          3
+        ],
+        "staff": [
+          1,
+          2
+        ]
+      }
+    },
+    "paths": {
+      "counts": [
+        60,
+        30,
+        10
+      ],
+      "mid_from": 2,
+      "high_from": 4,
+      "tiers": {
+        "low": {
+          "main": [
+            1,
+            2
+          ],
+          "sub": [
+            1,
+            1
+          ],
+          "third": [
+            1,
+            1
+          ]
+        },
+        "mid": {
+          "main": [
+            2,
+            3
+          ],
+          "sub": [
+            1,
+            2
+          ],
+          "third": [
+            1,
+            1
+          ]
+        },
+        "high": {
+          "main": [
+            3,
+            4
+          ],
+          "sub": [
+            2,
+            3
+          ],
+          "third": [
+            1,
+            2
+          ]
+        }
+      },
+      "by_faction": {}
+    },
+    "haunt_count": 2,
+    "name_tries": 30
+  }
+]

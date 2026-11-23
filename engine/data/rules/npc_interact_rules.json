@@ -1,0 +1,135 @@
+[
+  {
+    "id": "default",
+    "affinity_step": 20,
+    "favor": {
+      "high": 60,
+      "high_mod": -1,
+      "low": 20,
+      "low_mod": 1
+    },
+    "hostility": {
+      "at": 40,
+      "mod": 2
+    },
+    "home_mod": 2,
+    "fame_step": 25,
+    "tendency": {
+      "known": -2,
+      "none": 2
+    },
+    "gift": {
+      "dc": -2,
+      "wealth_mult": [
+        0.5,
+        1,
+        2,
+        3,
+        5,
+        8
+      ],
+      "tiers": [
+        [
+          10,
+          1
+        ],
+        [
+          60,
+          2
+        ],
+        [
+          250,
+          4
+        ],
+        [
+          1000,
+          6
+        ]
+      ],
+      "liked": 2,
+      "critical": 1,
+      "offend": -3,
+      "food_tags": [
+        "food"
+      ],
+      "poor_max": 1
+    },
+    "chat": {
+      "critical": 4,
+      "success": 2,
+      "fumble": -2
+    },
+    "seduce": {
+      "critical": 5,
+      "success": 3,
+      "fail": -2,
+      "fumble": -5
+    },
+    "ask": {
+      "fumble": -3
+    },
+    "intimidate": {
+      "success": -3,
+      "fumble_hostility": 3
+    },
+    "steal": {
+      "cash": [
+        [
+          5,
+          20
+        ],
+        [
+          15,
+          50
+        ],
+        [
+          40,
+          120
+        ],
+        [
+          100,
+          300
+        ],
+        [
+          250,
+          700
+        ],
+        [
+          600,
+          2000
+        ]
+      ],
+      "fail": {
+        "affinity": -10,
+        "hostility": 3
+      },
+      "fumble": {
+        "affinity": -20,
+        "hostility": 6
+      }
+    },
+    "read": {
+      "base": 10,
+      "per_tier": 3,
+      "tiers": {
+        "citizen": 0,
+        "runner": 1,
+        "staff": 2
+      },
+      "reveal": [
+        1,
+        2
+      ],
+      "fumble": {
+        "affinity": -10,
+        "hostility": 3,
+        "alert_faction": "nightingale",
+        "alert_hostility": 2
+      }
+    },
+    "fixer_flags": [
+      "fixer",
+      "broker"
+    ]
+  }
+]

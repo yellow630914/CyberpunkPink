@@ -1,0 +1,156 @@
+[
+  {
+    "id": "default",
+    "ap_regen": 3,
+    "fit_start": 20,
+    "init_base": 50,
+    "init_docility_div": 4,
+    "nature_init": {
+      "mutual": 0,
+      "trade": 0,
+      "work": 0,
+      "contract": 0,
+      "forced": -35,
+      "captive": 30
+    },
+    "role_init": {
+      "guest": 20,
+      "holder": 20,
+      "worker": -20,
+      "bound": -20,
+      "none": 0
+    },
+    "load_base": 0.75,
+    "load_div": 200,
+    "glow_bonus": 0.1,
+    "cost": {
+      "dominate": 2,
+      "yield": 2,
+      "tease": 1,
+      "restrain": 1,
+      "talk": 1,
+      "switch": 1
+    },
+    "dominate": {
+      "their": 2,
+      "mine": 1,
+      "fit": 2,
+      "init": 10
+    },
+    "yield": {
+      "their": 1,
+      "mine": 2,
+      "fit": 8,
+      "init": -10
+    },
+    "tease": {
+      "their": 1,
+      "mine": 1,
+      "fit": 4,
+      "init": 5
+    },
+    "restrain_base": 2,
+    "climax_init_self": -15,
+    "climax_init_cause": 10,
+    "upper_drift": 3,
+    "talk_dc": 13,
+    "talk_fit": {
+      "critical": 10,
+      "success": 5,
+      "fail": -2,
+      "fumble": -5
+    },
+    "talk_goal": {
+      "critical": 20,
+      "success": 12,
+      "fail": 4,
+      "fumble": 0
+    },
+    "position_tag_fit": 2,
+    "match_bonus": 12,
+    "partner_restrain_at": 0.7,
+    "partner_weights": {
+      "mutual": {
+        "dominate": 3,
+        "yield": 3,
+        "tease": 2
+      },
+      "trade": {
+        "dominate": 2,
+        "yield": 4,
+        "tease": 2
+      },
+      "work": {
+        "dominate": 1,
+        "yield": 4,
+        "tease": 3
+      },
+      "contract": {
+        "dominate": 4,
+        "yield": 2,
+        "tease": 2
+      },
+      "forced": {
+        "dominate": 5,
+        "yield": 1,
+        "tease": 2
+      },
+      "captive": {
+        "dominate": 1,
+        "yield": 5,
+        "tease": 2
+      }
+    },
+    "quit_fit": 10,
+    "quit_rounds": 3,
+    "bands": [
+      {
+        "min": 85,
+        "id": "unforgettable",
+        "name": "難忘",
+        "affinity": 8,
+        "insight": 20,
+        "bridge": 0.5
+      },
+      {
+        "min": 60,
+        "id": "fit",
+        "name": "合拍",
+        "affinity": 5,
+        "insight": 15,
+        "bridge": 0.25
+      },
+      {
+        "min": 30,
+        "id": "fair",
+        "name": "普通",
+        "affinity": 2,
+        "insight": 10,
+        "bridge": 0
+      },
+      {
+        "min": 0,
+        "id": "poor",
+        "name": "不合",
+        "affinity": -1,
+        "insight": 5,
+        "bridge": 0
+      }
+    ],
+    "first_bonus": 5,
+    "skip_mult": 0.7,
+    "goal_done_at": 60,
+    "goal_stall_per_round": 8,
+    "goal_please_per_climax": 20,
+    "skip": {
+      "base": 35,
+      "per_tag": 15,
+      "sens_div": 2,
+      "spread": 21
+    },
+    "skip_goal": {
+      "base": 20,
+      "cap": 70
+    }
+  }
+]

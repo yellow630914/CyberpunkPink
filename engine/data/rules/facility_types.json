@@ -1,0 +1,331 @@
+[
+  {
+    "id": "convenience_store",
+    "name": "超商",
+    "functions": [
+      "buy",
+      "work"
+    ]
+  },
+  {
+    "id": "market_stall",
+    "name": "市場攤販",
+    "functions": [
+      "buy",
+      "sell",
+      "work"
+    ]
+  },
+  {
+    "id": "pharmacy",
+    "name": "藥局",
+    "functions": [
+      "buy"
+    ]
+  },
+  {
+    "id": "gun_shop",
+    "name": "槍店",
+    "functions": [
+      "buy",
+      "sell"
+    ]
+  },
+  {
+    "id": "cyber_shop",
+    "name": "義體店",
+    "functions": [
+      "buy",
+      "sell"
+    ]
+  },
+  {
+    "id": "electronics_row",
+    "name": "電器行",
+    "functions": [
+      "buy",
+      "sell",
+      "work"
+    ]
+  },
+  {
+    "id": "apparel_shop",
+    "name": "服飾店",
+    "functions": [
+      "buy",
+      "sell"
+    ]
+  },
+  {
+    "id": "maker_direct",
+    "name": "原廠直營",
+    "functions": [
+      "buy"
+    ]
+  },
+  {
+    "id": "fan_stall",
+    "name": "同人攤",
+    "functions": [
+      "buy",
+      "sell"
+    ]
+  },
+  {
+    "id": "black_market",
+    "name": "黑市",
+    "functions": [
+      "buy",
+      "sell",
+      "info"
+    ]
+  },
+  {
+    "id": "bone_yard",
+    "name": "骨場",
+    "functions": [
+      "sell"
+    ]
+  },
+  {
+    "id": "cold_storage",
+    "name": "冷庫",
+    "functions": [
+      "buy",
+      "sell"
+    ]
+  },
+  {
+    "id": "tape_street",
+    "name": "帶子街",
+    "functions": [
+      "buy",
+      "sell"
+    ]
+  },
+  {
+    "id": "gacha_hall",
+    "name": "扭蛋會館",
+    "functions": [
+      "buy"
+    ]
+  },
+  {
+    "id": "furniture_store",
+    "name": "家具行",
+    "functions": [
+      "buy",
+      "sell"
+    ]
+  },
+  {
+    "id": "platform_market",
+    "name": "月台市",
+    "functions": [
+      "work",
+      "rest"
+    ]
+  },
+  {
+    "id": "pawn_shop",
+    "name": "當舖",
+    "functions": [
+      "sell"
+    ]
+  },
+  {
+    "id": "gas_garage",
+    "name": "加油站與修車廠",
+    "functions": [
+      "buy",
+      "work"
+    ]
+  },
+  {
+    "id": "clinic",
+    "name": "診所",
+    "functions": [
+      "heal",
+      "modify",
+      "rest",
+      "sell",
+      "train"
+    ],
+    "sleep": {
+      "rate": 0.6,
+      "cost": 50
+    }
+  },
+  {
+    "id": "tuning_clinic",
+    "name": "調校診所",
+    "functions": [
+      "modify"
+    ]
+  },
+  {
+    "id": "sanatorium",
+    "name": "療養院",
+    "functions": [
+      "heal",
+      "train"
+    ]
+  },
+  {
+    "id": "mission",
+    "name": "傳教所",
+    "functions": [
+      "heal",
+      "rest"
+    ]
+  },
+  {
+    "id": "aid_clinic",
+    "name": "互助診所",
+    "functions": [
+      "heal"
+    ]
+  },
+  {
+    "id": "pod_shop",
+    "name": "潛艙店",
+    "functions": [
+      "dive",
+      "rest",
+      "work"
+    ],
+    "sleep": {
+      "rate": 0.2,
+      "cost": 10
+    }
+  },
+  {
+    "id": "hotel",
+    "name": "旅館",
+    "functions": [
+      "rest",
+      "work"
+    ],
+    "sleep": {
+      "rate": 0.25,
+      "cost": 20
+    }
+  },
+  {
+    "id": "bathhouse",
+    "name": "澡堂與公共浴室",
+    "functions": [
+      "rest",
+      "info"
+    ]
+  },
+  {
+    "id": "diner",
+    "name": "食堂與餐館",
+    "functions": [
+      "buy",
+      "work",
+      "info"
+    ]
+  },
+  {
+    "id": "club_bar",
+    "name": "夜店與酒吧",
+    "functions": [
+      "info",
+      "job_board",
+      "work"
+    ]
+  },
+  {
+    "id": "doll_house",
+    "name": "人偶館",
+    "functions": [
+      "work",
+      "info"
+    ]
+  },
+  {
+    "id": "maid_cafe",
+    "name": "女僕咖啡",
+    "functions": [
+      "work",
+      "job_board"
+    ]
+  },
+  {
+    "id": "studio",
+    "name": "片場",
+    "functions": [
+      "work"
+    ]
+  },
+  {
+    "id": "theater",
+    "name": "舞台與劇場",
+    "functions": [
+      "work"
+    ]
+  },
+  {
+    "id": "casino",
+    "name": "賭場與遊戲中心",
+    "functions": [
+      "info"
+    ]
+  },
+  {
+    "id": "arena",
+    "name": "感官擂台",
+    "functions": []
+  },
+  {
+    "id": "fixer_shop",
+    "name": "中間人的店",
+    "functions": [
+      "job_board",
+      "info"
+    ]
+  },
+  {
+    "id": "notice_board",
+    "name": "牆報板與牆報亭",
+    "functions": [
+      "job_board",
+      "info"
+    ]
+  },
+  {
+    "id": "police_station",
+    "name": "市警分局",
+    "functions": [
+      "train"
+    ]
+  },
+  {
+    "id": "training_site",
+    "name": "訓練的地方",
+    "functions": [
+      "train"
+    ]
+  },
+  {
+    "id": "transit_stop",
+    "name": "交通站點",
+    "functions": [
+      "travel"
+    ]
+  },
+  {
+    "id": "cash_exchange",
+    "name": "現金晶片兌換攤",
+    "functions": []
+  },
+  {
+    "id": "shrine",
+    "name": "神社與禮拜堂",
+    "functions": [
+      "rest"
+    ]
+  }
+]

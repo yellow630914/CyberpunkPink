@@ -526,13 +526,14 @@ import rideSrc from '../../src/components/RidePanel.vue?raw'
 import cityDlgSrc from '../../src/dialogs/CityDialog.vue?raw'
 import transitDlgSrc from '../../src/dialogs/TransitDialog.vue?raw'
 import eventDlgSrc from '../../src/dialogs/EventDialog.vue?raw'
+import eventBodySrc from '../../src/components/EventBody.vue?raw'
 import scanDlgSrc from '../../src/dialogs/ScanDialog.vue?raw'
 import pendingDlgSrc from '../../src/dialogs/PendingDialog.vue?raw'
 import viewSrc from '../../src/lib/worldView.ts?raw'
 
 const SOURCES: Record<string, string> = {
   'screens/MainScreen.vue': mainSrc, 'components/GridMap.vue': gridMapSrc, 'components/CityMap.vue': cityMapSrc, 'components/HereOptions.vue': hereSrc, 'components/RidePanel.vue': rideSrc,
-  'dialogs/CityDialog.vue': cityDlgSrc, 'dialogs/TransitDialog.vue': transitDlgSrc, 'dialogs/EventDialog.vue': eventDlgSrc, 'dialogs/ScanDialog.vue': scanDlgSrc, 'dialogs/PendingDialog.vue': pendingDlgSrc,
+  'dialogs/CityDialog.vue': cityDlgSrc, 'dialogs/TransitDialog.vue': transitDlgSrc, 'dialogs/EventDialog.vue': eventDlgSrc, 'components/EventBody.vue': eventBodySrc, 'dialogs/ScanDialog.vue': scanDlgSrc, 'dialogs/PendingDialog.vue': pendingDlgSrc,
   'lib/worldView.ts': viewSrc,
 }
 const code = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*\/\/.*$/gm, '')
@@ -553,7 +554,7 @@ describe('元件與 worldView.ts 裡沒有機率、車資與 DC 的算式', () =
 })
 
 describe('手機寬度：事件視窗與掃橋的選項直向排、不超出畫面', () => {
-  for (const [name, src] of [['EventDialog', eventDlgSrc], ['ScanDialog', scanDlgSrc]] as const) {
+  for (const [name, src] of [['EventBody', eventBodySrc], ['ScanDialog', scanDlgSrc]] as const) {
     it(`${name}：720 以下選項只有一欄，選項能縮（min-width: 0）、長字會換行`, () => {
       const media = src.match(/@media \(max-width: 720px\) \{([\s\S]*?)\n\}/)
       expect(media, '要有手機的 media').toBeTruthy()

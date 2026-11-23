@@ -1,0 +1,31 @@
+[
+  {
+    "id": "default",
+    "decay_weekly": 5,
+    "decay_quiet": 10,
+    "bribe_per_point": 50,
+    "bribe_step": 20,
+    "bribe_max": 20,
+    "found_banned": 10,
+    "found_permit": 5,
+    "caught_hostility": 5,
+    "fake_dc_base": 13,
+    "fake_dc_per_strength": 2,
+    "fake_recorded_bonus": 2,
+    "hostility_bands": [
+      0,
+      20,
+      40,
+      60,
+      80,
+      100
+    ],
+    "favor_bands": [
+      0,
+      20,
+      40,
+      60,
+      80
+    ]
+  }
+]

@@ -1,0 +1,22 @@
+[
+  {
+    "id": "default",
+    "breath_minutes": 60,
+    "breath_hp": 2,
+    "breath_hp_min": 1,
+    "breath_heals": 2,
+    "sleep_minutes": 480,
+    "sleep_gap_hours": 16,
+    "wild_rate": 0.1,
+    "home_rates": {
+      "0": 0.25,
+      "1": 0.55,
+      "2": 0.6,
+      "3": 0.6
+    },
+    "hurt_ratio": 0.5,
+    "deposit_weeks": 2,
+    "lock_weeks": 2,
+    "rent_order": 1
+  }
+]

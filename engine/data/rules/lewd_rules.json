@@ -1,0 +1,16 @@
+[
+  {
+    "id": "default",
+    "default_bridge": 30,
+    "tolerance_per_layer": 40,
+    "craving_threshold": 60,
+    "craving_divisor": 4,
+    "band_size": 20,
+    "gear_cap": 100,
+    "over_scale": 80,
+    "axis_max": 5,
+    "axis_threshold": 10,
+    "fame_step": 25,
+    "fame_penalty": 1
+  }
+]

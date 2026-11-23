@@ -1,0 +1,158 @@
+[
+  {
+    "id": "default",
+    "stage_minutes": 120,
+    "stealth_fail_alert": 10,
+    "check_fail_alert": 5,
+    "dc_base": 10,
+    "dc_per_grade": 2,
+    "reinforce_count": 2,
+    "hard_alert": 100,
+    "hard_grade_up": 1,
+    "aux_pressure": 10,
+    "aux_rest": 1,
+    "aux_injured_days": 3,
+    "xp_small": 20,
+    "xp_medium": 35,
+    "xp_large": 60,
+    "hostility_base": 5,
+    "hostility_per_assault": 3,
+    "hostility_max": 15,
+    "rating_links": 3,
+    "rating_alert": 60,
+    "rating_peak": 100,
+    "aux_skills": {
+      "meat": [
+        "firearms",
+        "brawl",
+        "stealth",
+        "athletics"
+      ],
+      "net": [
+        "interface"
+      ],
+      "opinion": [
+        "perform",
+        "negotiate"
+      ]
+    },
+    "aux_bonus": {
+      "strong": 4,
+      "mid": 2,
+      "weak": 0,
+      "none": 0
+    },
+    "reward_range": {
+      "1": [
+        300,
+        500
+      ],
+      "2": [
+        900,
+        1500
+      ],
+      "3": [
+        3000,
+        5000
+      ],
+      "4": [
+        10000,
+        16000
+      ],
+      "5": [
+        30000,
+        50000
+      ]
+    },
+    "scales_by_tier": [
+      [
+        "small"
+      ],
+      [
+        "small"
+      ],
+      [
+        "small",
+        "medium"
+      ],
+      [
+        "small",
+        "medium",
+        "large"
+      ],
+      [
+        "medium",
+        "large"
+      ],
+      [
+        "medium",
+        "large"
+      ]
+    ],
+    "encounters": {
+      "1": {
+        "normal": [
+          "minion",
+          "minion",
+          "minion",
+          "minion"
+        ],
+        "last": [
+          "elite",
+          "elite",
+          "minion",
+          "minion"
+        ]
+      },
+      "2": {
+        "normal": [
+          "minion",
+          "minion",
+          "minion",
+          "minion"
+        ],
+        "last": [
+          "boss",
+          "minion",
+          "minion"
+        ]
+      },
+      "3": {
+        "normal": [
+          "minion",
+          "minion",
+          "elite"
+        ],
+        "last": [
+          "boss",
+          "minion",
+          "minion"
+        ]
+      },
+      "4": {
+        "normal": [
+          "minion",
+          "minion",
+          "elite"
+        ],
+        "last": [
+          "boss",
+          "minion",
+          "minion"
+        ]
+      },
+      "5": {
+        "normal": [
+          "minion",
+          "minion",
+          "elite"
+        ],
+        "last": [
+          "boss",
+          "minion",
+          "minion"
+        ]
+      }
+    }
+  }
+]

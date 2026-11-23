@@ -1,0 +1,139 @@
+[
+  {
+    "id": "street",
+    "triggers": {
+      "enter_block": 0.12,
+      "walk": 0.06,
+      "enter_bridge": 0.25,
+      "enter_facility": 0.08
+    },
+    "cooldown_hours": 2,
+    "repeat_days": 3,
+    "daily_cap": 5,
+    "lost": "drop"
+  },
+  {
+    "id": "transit",
+    "triggers": {
+      "transit_wait": 0.08,
+      "transit_stop": 0.1,
+      "transit_taxi": 0.15
+    },
+    "time_mult": {
+      "rush": 1.4,
+      "late": 1.3
+    },
+    "cooldown_hours": 2,
+    "repeat_days": 3,
+    "daily_cap": 5,
+    "lost": "drop"
+  },
+  {
+    "id": "site",
+    "triggers": {
+      "enter_floor": 0.25,
+      "open": 0.1,
+      "rest": 0.2
+    },
+    "cooldown_hours": 1,
+    "repeat_days": 7
+  },
+  {
+    "id": "net",
+    "triggers": {
+      "enter_floor": 0.2,
+      "open": 0.1
+    },
+    "cooldown_hours": 1,
+    "repeat_days": 3
+  },
+  {
+    "id": "commission",
+    "triggers": {
+      "stage": 0.3
+    },
+    "priority": 1,
+    "in_commission": true,
+    "lost": "drop"
+  },
+  {
+    "id": "contract",
+    "triggers": {},
+    "priority": 2,
+    "daily_roll": {
+      "eden": 0.4,
+      "gang": 0.3,
+      "corp": 0.25,
+      "person": [
+        0.15,
+        0.45
+      ]
+    },
+    "satisfaction_mult": [
+      [
+        0,
+        1.5
+      ],
+      [
+        30,
+        1.0
+      ],
+      [
+        70,
+        0.6
+      ]
+    ],
+    "queue_max": 3,
+    "repeat_days": 2,
+    "lost": "defer"
+  },
+  {
+    "id": "home",
+    "triggers": {
+      "home": 0.1,
+      "rest": 0.2
+    },
+    "priority": 3,
+    "cooldown_hours": 6,
+    "repeat_days": 7,
+    "daily_cap": 2,
+    "lost": "defer",
+    "defer_hours": 6
+  },
+  {
+    "id": "adult",
+    "triggers": {},
+    "cooldown_hours": 4,
+    "repeat_days": 5
+  },
+  {
+    "id": "rogue_ai",
+    "triggers": {},
+    "cooldown_hours": 24,
+    "daily_cap": 1,
+    "lost": "defer"
+  },
+  {
+    "id": "work",
+    "triggers": {
+      "work": 0.15
+    },
+    "repeat_days": 3
+  },
+  {
+    "id": "mascot",
+    "triggers": {
+      "walk": 0.02,
+      "transit_stop": 0.05,
+      "stage": 0.01
+    },
+    "cooldown_hours": 72,
+    "daily_cap": 1,
+    "flags_at": [
+      3,
+      6,
+      10
+    ],
+    "lost": "drop"
+  }
+]

@@ -1,0 +1,10 @@
+[
+  {
+    "id": "default",
+    "loadout_minutes": 30,
+    "loadout_facility_types": [
+      "tuning_clinic"
+    ],
+    "xp_home_share": 0.3
+  }
+]

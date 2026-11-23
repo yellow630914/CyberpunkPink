@@ -1,0 +1,116 @@
+[
+  {
+    "id": "default",
+    "memory": {
+      "limit": 200,
+      "recent": 50,
+      "bucket_days": 10,
+      "recall": 6,
+      "text_max": 200,
+      "score": {
+        "pinned": 10,
+        "shared": 3,
+        "place": 2,
+        "within3": 1.5,
+        "within10": 0.75
+      },
+      "gig_actions": [
+        "fixer.accept",
+        "commission.close",
+        "commission.end",
+        "commission.fail",
+        "commission.retreat"
+      ],
+      "gig_bad_tags": [
+        "down",
+        "betray"
+      ],
+      "netrun_bad": [
+        "trapped",
+        "held",
+        "rogue_ai"
+      ],
+      "social_up": [
+        "roster.join",
+        "roster.leave"
+      ],
+      "deal_actions": [
+        "negotiate",
+        "fixer.haggle"
+      ],
+      "downtime_actions": [
+        "roster.join",
+        "roster.leave"
+      ],
+      "bill_prefix": "bill.",
+      "bill_bad": [
+        "overdue",
+        "unpaid",
+        "short",
+        "default"
+      ]
+    },
+    "life": {
+      "every_days": 3,
+      "max_catchup": 10,
+      "min_affinity": 30,
+      "job": {
+        "chance": 0.4,
+        "cash": [
+          150,
+          400
+        ],
+        "promote_chance": 0.15,
+        "max_tier": 5
+      },
+      "injured": {
+        "chance": 0.1,
+        "days": [
+          3,
+          7
+        ]
+      },
+      "arrest": {
+        "base": 0.02,
+        "per": 0.02,
+        "step": 20
+      },
+      "debt": {
+        "chance": 0.06,
+        "poor_max": 1
+      },
+      "sink": {
+        "min": 40,
+        "chance": 0.15,
+        "gain": [
+          3,
+          8
+        ],
+        "edge": 80,
+        "max": 100
+      },
+      "implant": {
+        "chance": 0.05,
+        "attr_max": 20
+      }
+    },
+    "roster": {
+      "chance": 0.25,
+      "season_flag": "city_event:contract_season",
+      "season_mult": 2,
+      "weights": {
+        "join": 3,
+        "leave": 3,
+        "move": 2,
+        "trouble": 1
+      },
+      "die_share": 0.4,
+      "risky": {
+        "oldport": 2,
+        "rustbelt": 2,
+        "underground": 2
+      },
+      "protect_known": true
+    }
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "default",
+    "hours": [
+      2,
+      4,
+      8
+    ],
+    "degree_mult": {
+      "critical": 1.5,
+      "success": 1,
+      "fail": 0.5,
+      "fumble": 0
+    },
+    "fumble_affinity": 3
+  }
+]

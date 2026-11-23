@@ -1,0 +1,32 @@
+[
+  {
+    "id": "default",
+    "cap_base": 3,
+    "cap_per_face": 2,
+    "face_path": "fixer",
+    "face_tree": "人面",
+    "party_max": 4,
+    "tagalong_max": 2,
+    "recruit_base": 16,
+    "recruit_affinity_step": 10,
+    "recruit_per_tier": 2,
+    "recruit_think_margin": 3,
+    "loyalty_start": 30,
+    "loyalty_rescued": 50,
+    "loyalty_introduced": 40,
+    "idle_weeks": 2,
+    "idle_delta": -2,
+    "down_delta": -3,
+    "unpaid_delta": -8,
+    "leave_at": 20,
+    "leave_chance": 0.3,
+    "fee_base": 200,
+    "fee_spread": 0.25,
+    "fee_low_rep": 0.2,
+    "fee_low_loyalty": 0.25,
+    "low_loyalty_min": 20,
+    "low_loyalty_max": 39,
+    "reliability_min": 30,
+    "reliability_max": 80
+  }
+]

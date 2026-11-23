@@ -9,12 +9,15 @@ import ActionRing, { type RingItem } from '../components/combat/ActionRing.vue'
 import HoldButton from '../components/combat/HoldButton.vue'
 import LiveWindow from '../components/combat/LiveWindow.vue'
 import Danmaku from '../components/combat/Danmaku.vue'
+import DefeatPanel from '../components/combat/DefeatPanel.vue'
+import SpoilsPanel from '../components/combat/SpoilsPanel.vue'
 import { COMBAT_ICONS } from '../data/combatIcons'
 import type { LiveEvent } from '../data/media'
 import { pickFlow, type PickOptionView, type PickView } from '../lib/battlePicks'
 import { RING_KEYS, battleView, disabledReason, ringOf, slotLayout, type BattleCell, type SlotPos } from '../lib/battleView'
 import { combatKey, isTyping } from '../lib/keys'
 import { danmakuOf, liveEventsOf } from '../lib/liveEvents'
+import { useAfterBattle } from '../lib/useAfterBattle'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
 import '../styles/battle.css'
@@ -28,6 +31,7 @@ const route = useRoute()
 const router = useRouter()
 const engine = useEngine()
 const ui = useUi()
+const afterBattle = useAfterBattle()
 
 const from = computed(() => (typeof route.query.from === 'string' ? route.query.from : '/'))
 const fast = computed(() => !!route.query.fast)
@@ -244,22 +248,20 @@ function onKey(e: KeyboardEvent): void {
 // ---- 結束與結算 ----
 const RESULT: Record<string, string> = { win: '勝利', lose: '戰敗', fled: '脫離', surrender: '投降' }
 const resultName = computed(() => { const o = battle.value?.result?.outcome; return o ? RESULT[o] ?? o : '' })
-const defeatStory = computed(() => (engine.log.find((r) => r.kind !== 'combat')?.prose ?? []).join('\n\n'))
 function leave(): void {
   liveWin.value?.stop()
+  afterBattle.dismiss()
   router.push(from.value)
 }
+/** 結算：打輸（或投降）留在戰敗面板（引擎在等三選一）；打贏有戰利品或俘虜時開戰利品面板，其餘直接離開 */
 async function settle(): Promise<void> {
   if (settling.value) return
   settling.value = true
   const r = await engine.finishBattle()
   settling.value = false
   if (r.status !== 'applied') { hint.value = r.reason ?? '結算沒有成功。'; return }
-  if (!engine.pendingDefeat) leave()
-}
-function accept(): void {
-  try { engine.acceptDefeat() } catch (e) { hint.value = e instanceof Error ? e.message : String(e); return }
-  leave()
+  if (engine.pendingDefeat) return
+  if (!afterBattle.show()) leave()
 }
 function stage(): void {
   const err = engine.rewindToStage()
@@ -302,20 +304,9 @@ onBeforeUnmount(() => {
         <div class="bt-btns"><button type="button" class="btn pri" @click="router.push('/newgame')">去建角</button></div>
       </section>
 
-      <section v-else-if="!engine.inBattle && engine.pendingDefeat" class="panel cut bt-end lose" data-defeat>
-        <h3>{{ engine.pendingDefeat.outcome === 'surrender' ? '投降' : '戰敗' }}</h3>
-        <p v-if="defeatStory" class="story">{{ defeatStory }}</p>
-        <div v-if="engine.defeat?.lines.length" class="happen">
-          <b>接受的話會發生什麼</b>
-          <ul><li v-for="(l, i) in engine.defeat.lines" :key="i">{{ l }}</li></ul>
-        </div>
-        <div class="bt-btns">
-          <button type="button" class="btn pri" data-defeat-accept @click="accept">接受結果</button>
-          <button type="button" class="btn" data-defeat-retry @click="retry">重來這場戰鬥</button>
-          <button type="button" class="btn" data-defeat-stage @click="stage">回到這個階段開始時</button>
-        </div>
-        <div class="bt-hint" aria-live="polite">{{ hint }}</div>
-      </section>
+      <DefeatPanel v-else-if="!engine.inBattle && engine.pendingDefeat" :note="hint" @leave="leave" @retry="retry" @stage="stage" />
+
+      <SpoilsPanel v-else-if="!engine.inBattle && afterBattle.spoils.value" :spoils="afterBattle.spoils.value" :place="engine.placeName(engine.state.location)" @leave="leave" />
 
       <template v-else-if="battle && options && view">
         <section class="panel cut bt-top">

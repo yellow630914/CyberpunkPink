@@ -1,0 +1,67 @@
+[
+  {
+    "id": "market_stall",
+    "name": "市場攤販",
+    "catalog": [
+      "food",
+      "daily",
+      "furniture"
+    ],
+    "buys": [
+      "food",
+      "misc"
+    ],
+    "grade_max": 1,
+    "cash": true,
+    "scan_registered": false,
+    "shop_mult": 0.9,
+    "temper": -1
+  },
+  {
+    "id": "maker_direct",
+    "name": "原廠直營",
+    "catalog": [
+      "weapon",
+      "armor",
+      "clothing",
+      "accessory",
+      "part",
+      "blueprint"
+    ],
+    "buys": [],
+    "grade_max": 3,
+    "cash": false,
+    "scan_registered": true,
+    "shop_mult": 1.1,
+    "temper": null
+  },
+  {
+    "id": "bone_yard",
+    "name": "骨場",
+    "catalog": [
+      "part"
+    ],
+    "buys": [
+      "misc"
+    ],
+    "grade_max": 3,
+    "cash": true,
+    "scan_registered": false,
+    "shop_mult": 1
+  },
+  {
+    "id": "cold_storage",
+    "name": "冷庫",
+    "catalog": [
+      "part"
+    ],
+    "buys": [
+      "part"
+    ],
+    "grade_max": 4,
+    "cash": "only",
+    "scan_registered": false,
+    "shop_mult": 1,
+    "temper": 1
+  }
+]
