@@ -1,5 +1,5 @@
 // B016（cpp-tester-boundary）：AI 給的體悟一件事最多 5 點（EVENTS 2.4 節的上限表：「insight | 體悟，一件最多 5 點」）。
-// 引擎的量表（features/scene/index.ts）寫 cap: { down: 20, up: 30 }，AI 給 +6～+30 都照收。修好之後搬到 tests/boundary/。
+// 已修（M2-fix-bugs）：量表的 cap 改成 ±5（往下規格沒寫，比照往上；dev/adr/0017 M2 修 bug 批的補記第 17 項）。
 // 重現的資料：tests/boundary/fixtures/B016-insight-ai-cap.json（種子＋輸入＋期望）。
 
 import { readFileSync } from 'node:fs'

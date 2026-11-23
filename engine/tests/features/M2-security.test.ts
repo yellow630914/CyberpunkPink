@@ -11,7 +11,7 @@ import { gearFeature } from '../../src/features/gear'
 import { treatEvent } from '../../src/features/enemies/capture'
 import type { CaptureCandidate } from '../../src/features/enemies/capture'
 import {
-  CLASS_NAME, DEFAULT_SECURITY_RULES, bribe, bribeBlock, bribePrice, bribeUnit, favorTier, favorView, hostilityTier, hostilityView, resolveScan, planScan, scanView, securityFeature,
+  CLASS_NAME, DEFAULT_SECURITY_RULES, bribe, bribeBlock, bribePrice, bribeUnit, favorTier, favorView, floorOf, hostilityTier, hostilityView, resolveScan, planScan, scanView, securityFeature, timedFloors,
 } from '../../src/features/security'
 import type { ScanSetup } from '../../src/features/security'
 import { makeGame, observed } from '../../src/testkit'
@@ -180,12 +180,14 @@ describe('量表：敵對值與好感', () => {
     expect(favor(g)).toBe(0)
   })
 
-  it('AI 不能動下限；內建的可以', () => {
+  it('下限：AI（一般事件）一件事最多 +5、永久、不能降；內建的照寫的算（EVENTS 2.4 的兩列之一）', () => {
     const g = make()
     give(g, [{ kind: 'hostility_floor', key: 'f_alpha', amount: 30 }], 'ai')
-    expect(meterOf(g.k, g.state, 'hostility_floor', 'f_alpha')).toBe(0)
+    expect(meterOf(g.k, g.state, 'hostility_floor', 'f_alpha')).toBe(5)
+    give(g, [{ kind: 'hostility_floor', key: 'f_alpha', amount: -3 }], 'ai')
+    expect(meterOf(g.k, g.state, 'hostility_floor', 'f_alpha')).toBe(5)
     give(g, [{ kind: 'hostility_floor', key: 'f_alpha', amount: 30 }])
-    expect(meterOf(g.k, g.state, 'hostility_floor', 'f_alpha')).toBe(30)
+    expect(meterOf(g.k, g.state, 'hostility_floor', 'f_alpha')).toBe(35)
   })
 
   it('下限抬高：敵對值跟著落在下限之上（一份報告裡）；降不到下限以下', () => {
@@ -1052,5 +1054,108 @@ describe('接上別的功能：俘虜處置的敵對值真的算進去（M2-enem
 describe('預設的規則數字', () => {
   it('照設計書：每週 −5、安靜 −10、收買 50 / 20 點進位 / 最多 20、假身分 13 ＋ 強度 × 2、記名 +2', () => {
     expect(DEFAULT_SECURITY_RULES).toMatchObject({ decay_weekly: 5, decay_quiet: 10, bribe_per_point: 50, bribe_step: 20, bribe_max: 20, fake_dc_base: 13, fake_dc_per_strength: 2, fake_recorded_bonus: 2 })
+  })
+})
+
+// ===================================================================================================================
+describe('敵對值的下限：永久的與有期限的，取最高的、不相加、各自到期（EVENTS 2.4 兩列、FACTIONS 6.3；M2-fix-bugs）', () => {
+  const DAY = 1440
+  const floorFx = (key: string, amount: number, days?: number): Rec => ({ kind: 'hostility_floor', key, amount, ...(days !== undefined ? { days } : {}) })
+  const timed = (g: G): Array<{ faction: string; value: number }> => timedFloors(g.state).map((f) => ({ faction: f.faction, value: f.value }))
+
+  it('有期限的（內建的戰敗與契約事件）：敵對值被推到下限之上，期間內降不下去；寫的是下限本身，不是再加多少', () => {
+    const g = make()
+    const r = give(g, [floorFx('f_alpha', 10, 7)])
+    expect(r.lines).toEqual(['敵對值的下限（阿爾法）：至少 10，7 天'])
+    expect(floorOf(g.k, g.state, 'f_alpha')).toBe(10)
+    expect(hostility(g)).toBe(10)
+    expect(meterOf(g.k, g.state, 'hostility_floor', 'f_alpha')).toBe(0) // 永久的量表沒動
+    give(g, [{ kind: 'hostility', key: 'f_alpha', amount: -50 }])
+    expect(hostility(g)).toBe(10)
+    expect(hostilityView(g.k, g.state).map((x) => [x.faction, x.value, x.floor])).toEqual([['f_alpha', 10, 10]])
+  })
+
+  it('到期解除：剛好滿天數就沒有了，敵對值留在原處；之後可以降下去', () => {
+    const g = make()
+    give(g, [floorFx('f_alpha', 10, 3)])
+    advance(g, 3 * DAY - 1)
+    expect(floorOf(g.k, g.state, 'f_alpha')).toBe(10)
+    advance(g, 1)
+    expect(floorOf(g.k, g.state, 'f_alpha')).toBe(0)
+    expect(hostility(g)).toBe(10)
+    give(g, [{ kind: 'hostility', key: 'f_alpha', amount: -4 }])
+    expect(hostility(g)).toBe(6)
+    expect(hostilityView(g.k, g.state)[0]).toMatchObject({ value: 6, floor: 0 })
+  })
+
+  it('同時有好幾個：取最高的，不相加；各自到期各自解除', () => {
+    const g = make()
+    give(g, [{ kind: 'hostility_floor', key: 'f_alpha', amount: 30 }]) // 永久 30
+    give(g, [floorFx('f_alpha', 10, 3)])
+    expect(floorOf(g.k, g.state, 'f_alpha')).toBe(30) // 不是 40
+    give(g, [floorFx('f_alpha', 50, 2), floorFx('f_alpha', 45, 6)])
+    expect(floorOf(g.k, g.state, 'f_alpha')).toBe(50)
+    expect(hostility(g)).toBe(50)
+    advance(g, 2 * DAY)
+    expect(floorOf(g.k, g.state, 'f_alpha')).toBe(45) // 50 的到期了，45 的還在
+    advance(g, 4 * DAY)
+    expect(floorOf(g.k, g.state, 'f_alpha')).toBe(30) // 都到期，只剩永久的（10 的早到期了）
+    // 到期的在下一次寫入時順手清掉
+    give(g, [floorFx('f_alpha', 12, 1)])
+    expect(timed(g)).toEqual([{ faction: 'f_alpha', value: 12 }])
+    // 別的勢力各算各的
+    give(g, [floorFx('f_beta', 20, 5)])
+    expect(floorOf(g.k, g.state, 'f_beta')).toBe(20)
+    expect(floorOf(g.k, g.state, 'f_alpha')).toBe(30)
+  })
+
+  it('一般事件（AI）：永久的最多 +5、不能降、不能寫 days；玩家要的結果也不能寫 days（只有內建的事件資料）', () => {
+    const g = make()
+    give(g, [floorFx('f_alpha', 9)], 'ai')
+    expect(meterOf(g.k, g.state, 'hostility_floor', 'f_alpha')).toBe(5)
+    for (const source of ['ai', 'player'] as const) {
+      for (const clampAsked of [true, false]) {
+        const r = g.k.effects.resolve([{ ...floorFx('f_alpha', 10, 7), asked: '鎖橋' }], effectCtx(g.k, g.state, { source, clampAsked, playerInput: '鎖橋' }))
+        expect(r.errors.join(), `${source} ${clampAsked}`).toContain('只有戰敗與契約事件')
+        expect(r.changes).toEqual([])
+      }
+    }
+    expect(timed(g)).toEqual([])
+  })
+
+  it('days 的格式：1～365 的整數；下限本身 1～100；不認得的勢力擋下', () => {
+    const g = make()
+    const errors = (fx: Rec): string => g.k.effects.resolve([fx], effectCtx(g.k, g.state, { source: 'builtin' })).errors.join()
+    for (const days of [0, -1, 1.5, 366, '7', null, Number.NaN]) expect(errors(floorFx('f_alpha', 10, days as number)), String(days)).toContain('days 要是 1～365')
+    for (const amount of [0, -5, 101]) expect(errors(floorFx('f_alpha', amount, 7)), String(amount)).toContain('amount（下限本身）')
+    expect(errors(floorFx('f_nobody', 10, 7))).toContain('查不到')
+    expect(errors({ kind: 'hostility_floor', amount: 10, days: 7 })).toContain('key 要寫明')
+    expect(errors(floorFx('f_alpha', 10, 365))).toBe('')
+  })
+
+  it('每週消退照每個週一那一刻的下限算：有期限的下限在中間到期，到期之後的週一才往下掉', () => {
+    const g = make({ patch: { time: { day: 3, hour: 10, minute: 0 } } })
+    give(g, [{ kind: 'hostility', key: 'f_alpha', amount: 10 }], 'builtin')
+    setMeter(g, 'hostility', 'f_alpha', 40)
+    give(g, [floorFx('f_alpha', 40, 10)]) // 到第 13 天 10:00；週一是第 7、14 天 06:00
+    advance(g, 12 * DAY) // 第 15 天 10:00：跨過兩個週一
+    // 第 7 天的週一下限還在（40，不動）；第 14 天的週一下限已經到期，那一週沒有新的敵對值：−10
+    expect(hostility(g)).toBe(30)
+  })
+
+  it('收買：下限是有期限的下限時也算（降不到下限以下）', () => {
+    const g = make()
+    give(g, [{ kind: 'hostility', key: 'f_alpha', amount: 10 }, floorFx('f_alpha', 20, 5)])
+    expect(hostility(g)).toBe(20)
+    expect(bribeBlock(g.k, g.state, 'f_alpha', 1)).toContain('已經降到下限（20）')
+    advance(g, 5 * DAY)
+    expect(bribeBlock(g.k, g.state, 'f_alpha', 1)).toBeNull()
+  })
+
+  it('不變式、存檔：有期限的下限在存檔裡讀得回來', () => {
+    const g = make()
+    give(g, [floorFx('f_alpha', 10, 7)])
+    const saved = JSON.parse(JSON.stringify(g.state)) as GameState
+    expect(timedFloors(saved).map((f) => f.value)).toEqual([10])
   })
 })

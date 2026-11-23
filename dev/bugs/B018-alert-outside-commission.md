@@ -8,3 +8,5 @@
   - 對照：副本裡照收、+21 夾在 +20，是對的。
 - 重現：engine/tests/boundary/fixtures/B018-alert-outside-commission.json（種子 6；城市與副本兩個情境、四筆輸入與期望）；會失敗的測試 engine/tests/pending/B018-alert-outside-commission.test.ts（前兩個照預期失敗，「對照」會過）。
 - 可能的位置（只寫推測，不改）：`engine/src/core/state/meters.ts` 的 `meterKeyProblems`，`keyed: 'map'` 走 `default: return []`，沒有查 `state.maps.instances` 有沒有這個 key（核心，cpp-architect）；「只在副本裡」是量表定義的事，可以讓 `MeterDef` 帶一個「AI 給的時候要在哪種活動裡」的條件，或由 explore 定義 alert 時用 `adjust`／新的掛點擋掉不是副本地圖的鍵。內建的事件照寫的算（EVENTS 2.4 開頭），要不要也擋由 architect 定。
+
+- fixed in: 2026-11-23 M2 修 bug 批。兩處：(1) 核心 `meterKeyProblems` 對 `keyed: 'map'` 查地圖實例存在（效果與核心的 `meter` 變更都擋，不存在的 key 是格式錯誤、整批不收）；(2) 新的量表欄位 `MeterDef.accepts(state, key)`：來源不是內建的效果，這個鍵現在不收就整筆拿掉並提醒；警戒（`features/explore`）問活動登錄表有沒有進行中的 `commission`（探索不認識委託）。內建的事件照寫的算。回歸測試：`engine/tests/boundary/B018-alert-outside-commission.test.ts`、`engine/tests/features/M2-fix-bugs.test.ts`「B018」、`engine/tests/core/meters.test.ts`。

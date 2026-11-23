@@ -102,7 +102,11 @@ export const rosterFeature: Feature = {
     k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
 
     // ---- 量表：忠誠 ----
-    k.meters.define({ kind: 'loyalty', owner: OWNER, name: '忠誠', min: 0, max: 100, start: 30, keyed: 'npc', cap: { down: 10, up: 10 } })
+    // 忠誠只有名冊上的人有（NPC_SYSTEM 10.4 節）：AI 與玩家要的結果對不在名冊上的人整筆拿掉；內建的結算（出身的名冊、每週的冷落）照寫的算
+    k.meters.define({
+      kind: 'loyalty', owner: OWNER, name: '忠誠', min: 0, max: 100, start: 30, keyed: 'npc', cap: { down: 10, up: 10 },
+      accepts: (state, key) => (isMember(state, key) ? null : '忠誠只有名冊上的人有。'),
+    })
 
     // ---- 衍生數值 ----
     k.stats.defineStat({ id: 'roster_cap', owner: OWNER, name: '名冊容量', min: 0, base: (state, actor) => rosterCap(k, state, actor) })

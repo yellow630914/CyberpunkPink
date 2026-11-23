@@ -38,8 +38,29 @@ export interface MeterDef {
   cap?: { down: number; up: number }
   /** 下限是另一種量表同一個鍵的值（例：敵對值的下限是 hostility_floor）。那一種沒有人定義時當作沒有這個下限 */
   floor?: string
+  /**
+   * 另一份會變動的下限（例：有期限的敵對值下限，到期自己解除）：回傳這個鍵現在的下限，和 floor 同時有時取較高的、不相加。
+   * 只能讀 state（包含 state.time）；要是純函式。回傳的數字不是有限的整數時當作沒有。
+   */
+  floorOf?(state: GameState, key: string): number
+  /**
+   * 來源不是內建的（AI 自己生成的、玩家要的）效果現在能不能加在這個鍵上：不能時回傳一句完整的原因（例：「警戒只在委託副本裡有。」），
+   * 那一筆整筆拿掉並提醒玩家；可以回傳 null。內建的事件與程式的結算不問（照寫的算）。鍵本身存不存在由 meterKeyProblems 管（格式錯誤，整批不收）。
+   */
+  accepts?(state: GameState, key: string): string | null
+  /**
+   * 同名的效果由定義它的功能自己註冊（它要多收欄位、換自己的驗證）：核心只替這種量表註冊同名的條件。
+   * 功能要先 k.effects.register 同名的效果、再 k.meters.define；可以用 core/rules 的 meterEffectDef 拿到預設的那一份再包一層。
+   */
+  ownEffect?: boolean
   /** 效果進來時的修正（例：區的倍率）：在夾值之前套（先加倍再夾）；回傳的數字會四捨五入成整數（.5 往離 0 遠的那邊） */
   adjust?(state: GameState, key: string, delta: number): number
+  /**
+   * 效果往上加的上限（規則性的，不是 AI 的合計上限）：回傳這個鍵現在最多能加到多少（例：事件不能讓信譽升階，只能加到下一階門檻的前一分）。
+   * 在範圍夾值之前、照這一批前面幾筆套完的狀態算，所以拆成幾筆也一樣；已經比它高時這一筆不加也不扣。扣的（負的量）不受影響。
+   * 效果寫了 final: true（量是結算算好的，只有內建的來源能寫）、或玩家明說要而且設定關著（floor 那一級）的不受它管。
+   */
+  ceilOf?(state: GameState, key: string): number
 }
 
 /** 安全整數的邊界：沒有上限的量表實際夾在這裡。 */
@@ -113,6 +134,10 @@ export function meterDefProblems(def: MeterDef): string[] {
     else if (def.floor === def.kind) p.push('floor 不能是自己')
   }
   if (def.adjust !== undefined && typeof def.adjust !== 'function') p.push('adjust 要是函式')
+  if (def.floorOf !== undefined && typeof def.floorOf !== 'function') p.push('floorOf 要是函式')
+  if (def.ceilOf !== undefined && typeof def.ceilOf !== 'function') p.push('ceilOf 要是函式')
+  if (def.accepts !== undefined && typeof def.accepts !== 'function') p.push('accepts 要是函式')
+  if (def.ownEffect !== undefined && typeof def.ownEffect !== 'boolean') p.push('ownEffect 要是布林值')
   return p
 }
 
@@ -140,6 +165,7 @@ export function meterKeyProblems(def: Pick<MeterDef, 'keyed' | 'name'>, key: unk
     case 'faction': return content.has('faction', key) ? [] : [`「${def.name}」的 key 要是勢力的 id：查不到 ${key}`]
     case 'district': return content.has('district', key) ? [] : [`「${def.name}」的 key 要是區的 id：查不到 ${key}`]
     case 'npc': return content.has('npc', key) || own(state.actors, key) ? [] : [`「${def.name}」的 key 要是人的 id：內容與存檔裡都查不到 ${key}`]
+    case 'map': return own(state.maps?.instances, key) ? [] : [`「${def.name}」的 key 要是地圖實例的 id：現在沒有 ${key} 這份地圖`]
     default: return []
   }
 }
@@ -159,6 +185,10 @@ export function meterBounds(meters: MeterRegistry, state: GameState, def: MeterD
   let lo = Math.max(def.min, -SAFE)
   const floor = def.floor ? meters.get(def.floor) : undefined
   if (floor) lo = Math.max(lo, meterValue(floor, state, key))
+  if (def.floorOf) {
+    const f = def.floorOf(state, key)
+    if (Number.isFinite(f)) lo = Math.max(lo, Math.trunc(f))
+  }
   return { lo: Math.min(lo, hi), hi }
 }
 

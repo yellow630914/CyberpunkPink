@@ -123,10 +123,13 @@ export const commissionFeature: Feature = {
       }
       if (run.step === 'done') return report.action === 'commission.finish' ? undefined : [finish(k, state)]
       if (state.battle || run.step !== 'play') return
-      if (achieved(k, state, run)) return [milestone(k, state)]
-      // 警戒漲過門檻：接一份帶 pressure 觸發點的報告，導演多擲一次副本內事件（EVENTS 3.1 節）
+      // 警戒漲過門檻：接一份帶 pressure 觸發點的報告，導演多擲一次副本內事件（EVENTS 3.1 節）。
+      // 先問它，再問目標有沒有達成：讓目標達成的那一份報告（打贏的那一場、走到撤離點那一步被監視器拍到）同時讓警戒跨過門檻時，
+      // 這一擲不能被里程碑吃掉（W014）。只回 pressure 這一份：它自己提交之後 report.after 會再看到目標達成，那時接 milestone；
+      // 一起回兩份的話，pressure 底下的那一輪已經接過 milestone，後面那一份會再結算一次同一個階段
       const pressure = pressureDraft(k, state, run)
-      return pressure ? [pressure] : undefined
+      if (pressure) return [pressure]
+      if (achieved(k, state, run)) return [milestone(k, state)]
     })
   },
 

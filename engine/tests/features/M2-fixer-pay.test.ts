@@ -10,7 +10,7 @@ import { ActionBlocked, attachActivityEnd, deriveRng, effectCtx, endActivity, is
 import { chooseBranch, chooseFace, commissionFeature, retreat } from '../../src/features/commission'
 import { favorsFeature, favorsOf } from '../../src/features/favors'
 import {
-  DEFAULT_FIXER_RULES, accept, auxSetup, bondPurpose, borrowOption, borrowPrice, fixerFeature, fixerRules, go, hire, hireBlocks, hireOptions, jobOf, readFixer, ruleProblems,
+  DEFAULT_FIXER_RULES, accept, auxSetup, bondPurpose, borrowOption, borrowPrice, drop, fixerFeature, fixerRules, go, hire, hireBlocks, hireOptions, jobOf, readFixer, repGainOf, ruleProblems,
   splitPreview, unhire,
 } from '../../src/features/fixer'
 import type { AuxFace, HireWay, Offer } from '../../src/features/fixer'
@@ -133,7 +133,7 @@ const give = (g: G, kind: 'owed_to_pc' | 'owed', who: string, size: string): voi
   g.commit(sysDraft(r.changes))
 }
 const setRep = (g: G, n: number): void => {
-  const r = g.k.effects.resolve([{ kind: 'rep', amount: n }], ctxOf(g))
+  const r = g.k.effects.resolve([{ kind: 'rep', amount: n, final: true }], ctxOf(g))
   expect(r.errors).toEqual([])
   g.commit(sysDraft(r.changes))
 }
@@ -575,12 +575,12 @@ describe('入帳：報酬照付法、抽成、出場費、分紅', () => {
     expect(readFixer(g.state).pending).toEqual([])
   })
 
-  it('信譽 +2；一起去的人親密度 +2；錢照說好的付了的人忠誠 +2', () => {
+  it('一起去的人親密度 +2；錢照說好的付了的人忠誠 +2；信譽照委託與主角的級（o_big 是 II 級、主角 I 級：高一級 +4）', () => {
     const g = setup({ party: ['pf', 'ps'] })
     take(g)
     doGo(g)
     endStub(g, 'done', { rating: 'B' })
-    expect(rep(g)).toBe(2)
+    expect(rep(g)).toBe(4)
     expect(aff(g, 'pf')).toBe(2)
     expect(aff(g, 'ps')).toBe(2)
     expect(loy(g, 'pf')).toBe(32)
@@ -843,15 +843,15 @@ describe('撤退：請的人與付的錢都回去', () => {
 describe('規則 fixer_rule', () => {
   it('預設值照規格（G16、COMMISSIONS 6.5、NPC_SYSTEM 10.5）', () => {
     expect(DEFAULT_FIXER_RULES).toMatchObject({
-      rating_bonus: { S: 0.2, A: 0.1, B: 0, C: -0.1 }, rep_done: 2, rep_fail: -3, borrow_base: 200, borrow_mult: 1.5, boss_shares: 2, aux_max: 2, bond_dc_base: 20, bond_affinity_step: 5, bond_loyalty: 70,
+      rating_bonus: { S: 0.2, A: 0.1, B: 0, C: -0.1 }, rep_same: 2, rep_higher: 4, rep_lower: 0, rep_top: 1, rep_failed: -3, rep_abandon: -5, borrow_base: 200, borrow_mult: 1.5, boss_shares: 2, aux_max: 2, bond_dc_base: 20, bond_affinity_step: 5, bond_loyalty: 70,
       trip_affinity: 2, trip_loyalty: 2,
     })
   })
 
   it('資料蓋掉預設：評價加成、信譽、借人倍率、老闆份數、每一面幾個人、親密度與忠誠', () => {
-    const rule = { id: 'default', rating_bonus: { S: 0.5 }, rep_done: 5, rep_fail: -7, borrow_mult: 2, boss_shares: 3, aux_max: 1, trip_affinity: 4, trip_loyalty: 6 }
+    const rule = { id: 'default', rating_bonus: { S: 0.5 }, rep_higher: 5, rep_top: 0, rep_failed: -7, borrow_mult: 2, boss_shares: 3, aux_max: 1, trip_affinity: 4, trip_loyalty: 6 }
     const g = setup({ content: [PACK, { id: 'rules', content: { fixer_rule: [rule] } }], party: ['ps'], cash: 5000 })
-    expect(fixerRules(g.k)).toMatchObject({ rep_done: 5, rep_fail: -7, borrow_mult: 2, boss_shares: 3, aux_max: 1, rating_bonus: { S: 0.5, A: 0.1, B: 0, C: -0.1 } })
+    expect(fixerRules(g.k)).toMatchObject({ rep_higher: 5, rep_top: 0, rep_failed: -7, borrow_mult: 2, boss_shares: 3, aux_max: 1, rating_bonus: { S: 0.5, A: 0.1, B: 0, C: -0.1 } })
     take(g)
     expect(borrowPrice(g.k, job(g))).toBe(1600)
     expect(splitPreview(g.k, g.state, job(g), 'S')).toMatchObject({ reward: 3000, shares: 4 })
@@ -872,12 +872,12 @@ describe('規則 fixer_rule', () => {
   })
 
   it('格式不對的欄位忽略並報問題', () => {
-    expect(ruleProblems({ rep_done: 'x' })).toEqual([expect.stringMatching(/^rep_done /)])
+    expect(ruleProblems({ rep_same: 'x' })).toEqual([expect.stringMatching(/^rep_same /)])
     expect(ruleProblems({ rating_bonus: { Z: 1 } })).toEqual([expect.stringMatching(/^rating_bonus\.Z/)])
     expect(ruleProblems({ rating_bonus: { S: 'x' } })).toEqual([expect.stringMatching(/^rating_bonus\.S /)])
     expect(ruleProblems({ rating_bonus: 3 })).toEqual([expect.stringMatching(/^rating_bonus /)])
     expect(ruleProblems({ aux_max: 3, boss_shares: 0 })).toHaveLength(2)
-    expect(ruleProblems({ rep_done: 3, rating_bonus: { S: 0.3 }, borrow_mult: 2.5 })).toEqual([])
+    expect(ruleProblems({ rep_same: 3, rating_bonus: { S: 0.3 }, borrow_mult: 2.5 })).toEqual([])
     expect(() => setup({ content: [PACK, { id: 'bad', content: { fixer_rule: [{ id: 'default', aux_max: 9 }] } }] })).toThrow(/aux_max/)
   })
 })
@@ -1042,5 +1042,207 @@ describe('接上真的 commission 功能', () => {
     expect(job(g, 'o_real')).toMatchObject({ status: 'active', aux: {}, payout: null })
     expect(rep(g)).toBe(0)
     expect(g.state.ext.commission).toBeUndefined()
+  })
+})
+
+// ===================================================================================================================
+// 街頭信譽新規則（CORE_RULES 8.1、LIFE 1.3 與第 9 節；2026-11-23 使用者定案；M2-fix-bugs）
+// ===================================================================================================================
+
+describe('街頭信譽：完成委託看委託的級和主角的級', () => {
+  /** 主角的級：無名、熟面孔 I；有號 II；搶手 III（rep 0 → 35 → 55）。o_small 是 I、o_big 是 II、o_large 是 III。 */
+  const finish = (rating: 'S' | 'A' | 'B' | 'C', jobId: string, rep0: number): number => {
+    const g = setup()
+    if (rep0 > 0) setRep(g, rep0)
+    take(g, jobId)
+    doGo(g, jobId)
+    endStub(g, 'done', { rating })
+    return rep(g) - rep0
+  }
+
+  it('同級 +2，評價 S 再 +1（無名主角做 I 級、有號做 II 級、搶手做 III 級）', () => {
+    expect(finish('B', 'o_small', 0)).toBe(2)
+    expect(finish('S', 'o_small', 0)).toBe(3)
+    expect(finish('A', 'o_small', 10)).toBe(2) // 熟面孔以下都是 I 級
+    expect(finish('B', 'o_big', 35)).toBe(2)
+    expect(finish('S', 'o_big', 35)).toBe(3)
+    expect(finish('B', 'o_large', 55)).toBe(2)
+  })
+
+  it('高一級以上 +4，評價 S 也再 +1', () => {
+    expect(finish('B', 'o_big', 0)).toBe(4) // II 級對 I 級主角
+    expect(finish('S', 'o_big', 0)).toBe(5)
+    expect(finish('B', 'o_large', 0)).toBe(4) // 高兩級也是 +4，不是更多
+    expect(finish('C', 'o_large', 35)).toBe(4) // III 級對 II 級主角
+  })
+
+  it('比主角低級的委託信譽不變（S 也一樣）；錢照給', () => {
+    expect(finish('B', 'o_small', 35)).toBe(0)
+    expect(finish('S', 'o_small', 55)).toBe(0)
+    expect(finish('S', 'o_big', 55)).toBe(0)
+    const g = setup()
+    setRep(g, 35)
+    take(g, 'o_small')
+    doGo(g, 'o_small')
+    const cash0 = cash(g)
+    const reports = endStub(g, 'done', { rating: 'S' })
+    expect(cash(g)).toBeGreaterThan(cash0)
+    expect(payout(reports).narration?.results?.join('')).not.toMatch(/街頭信譽/)
+  })
+
+  it('委託的結算可以讓人升階（不受非委託來源「不能跨階」的夾值管）：34 做同級 +2 → 36（有號）', () => {
+    const g = setup()
+    setRep(g, 34)
+    take(g, 'o_small') // 熟面孔（I 級）做 I 級
+    doGo(g, 'o_small')
+    endStub(g, 'done', { rating: 'B' })
+    expect(rep(g)).toBe(36)
+    expect(g.k.stats.stat(g.state, 'pc', 'rep_grade')).toBe(2)
+  })
+
+  it('失敗 −3，不分等級；信譽不會掉到 0 以下', () => {
+    for (const [jobId, rep0] of [['o_small', 40], ['o_big', 0], ['o_large', 80]] as const) {
+      const g = setup()
+      if (rep0 > 0) setRep(g, rep0)
+      take(g, jobId)
+      doGo(g, jobId)
+      endStub(g, 'failed')
+      expect(rep(g), jobId).toBe(Math.max(0, rep0 - 3))
+    }
+  })
+
+  it('預告：repGainOf 和入帳用同一份算法（relation、amount、top）', () => {
+    const g = setup()
+    setRep(g, 35)
+    take(g, 'o_small')
+    take(g, 'o_big')
+    take(g, 'o_large')
+    expect(repGainOf(g.k, g.state, job(g, 'o_small'), 'S')).toEqual({ relation: 'lower', amount: 0, top: false })
+    expect(repGainOf(g.k, g.state, job(g, 'o_big'), 'S')).toEqual({ relation: 'same', amount: 3, top: true })
+    expect(repGainOf(g.k, g.state, job(g, 'o_large'), 'B')).toEqual({ relation: 'higher', amount: 4, top: false })
+  })
+
+  it('規則表可以換數字：同級、高一級、低級、S 的加成、失敗、放棄', () => {
+    const rule = { id: 'default', rep_same: 1, rep_higher: 6, rep_lower: 1, rep_top: 2, rep_failed: -1, rep_abandon: -9 }
+    const g = setup({ content: [PACK, { id: 'rules', content: { fixer_rule: [rule] } }] })
+    setRep(g, 35)
+    take(g, 'o_small')
+    take(g, 'o_big')
+    take(g, 'o_large')
+    expect(repGainOf(g.k, g.state, job(g, 'o_small'), 'S').amount).toBe(1) // 低級：rep_lower，S 不加
+    expect(repGainOf(g.k, g.state, job(g, 'o_big'), 'S').amount).toBe(3)
+    expect(repGainOf(g.k, g.state, job(g, 'o_large'), 'S').amount).toBe(8)
+    g.commit(drop(g.k, g.state, 'o_small'))
+    expect(rep(g)).toBe(26)
+  })
+})
+
+describe('放棄手上的委託：街頭信譽 −5（LIFE 第 9 節，暫定）', () => {
+  it('放棄：從手上拿掉、中間人今天不再給這一件、信譽 −5；結果寫在報告裡', () => {
+    const g = setup()
+    setRep(g, 20)
+    take(g, 'o_small')
+    const reports = g.commit(drop(g.k, g.state, 'o_small'))
+    expect(rep(g)).toBe(15)
+    expect(jobOf(g.state, 'o_small')).toBeNull()
+    expect(reports[0]!.narration?.results?.join('')).toContain('街頭信譽')
+  })
+
+  it('信譽 0 放棄不會變負的；放棄比失敗（−3）更糟', () => {
+    const g = setup()
+    take(g, 'o_small')
+    g.commit(drop(g.k, g.state, 'o_small'))
+    expect(rep(g)).toBe(0)
+    const a = setup()
+    setRep(a, 30)
+    take(a, 'o_small')
+    a.commit(drop(a.k, a.state, 'o_small'))
+    const f = setup()
+    setRep(f, 30)
+    take(f, 'o_small')
+    doGo(f, 'o_small')
+    endStub(f, 'failed')
+    expect(rep(a)).toBeLessThan(rep(f))
+  })
+
+  it('撤退不是放棄：委託還在手上，信譽不動（既有的測試也驗）', () => {
+    const g = setup()
+    setRep(g, 30)
+    take(g)
+    doGo(g)
+    retreatStub(g)
+    expect(rep(g)).toBe(30)
+    expect(job(g).status).toBe('active')
+  })
+})
+
+describe('街頭信譽：非委託來源的正值最多加到下一階門檻的前一分（量表的夾值，事件自己不判斷）', () => {
+  const give = (g: G, amount: number, source: 'builtin' | 'ai' | 'player' = 'builtin', more: Rec = {}) => {
+    const r = g.k.effects.resolve([{ kind: 'rep', amount, ...more }], effectCtx(g.k, g.state, { source, clampAsked: true, playerInput: '我要信譽' }))
+    expect(r.errors).toEqual([])
+    if (r.changes.length) g.commit(sysDraft(r.changes))
+    return r
+  }
+  const at = (g: G, n: number) => { g.state.meters.rep = { _: n } }
+
+  it('熟面孔 15～34 加到 34 為止；有號 35～54 加到 54 為止；各階一樣', () => {
+    for (const [from, to] of [[0, 14], [15, 34], [35, 54], [55, 74], [75, 89], [90, 100]] as const) {
+      const g = setup()
+      at(g, from)
+      give(g, 50)
+      expect(rep(g), `${from}`).toBe(to)
+    }
+  }
+  )
+
+  it('已經在階的頂端：再加整筆拿掉（沒有變更、沒有一行結果）；扣的照扣，扣到掉階為止', () => {
+    const g = setup()
+    at(g, 34)
+    const r = give(g, 5)
+    expect(r.changes).toEqual([])
+    expect(r.lines).toEqual([])
+    expect(rep(g)).toBe(34)
+    give(g, -3)
+    expect(rep(g)).toBe(31)
+    at(g, 36)
+    give(g, -3)
+    expect(rep(g)).toBe(33) // 掉階（有號 → 熟面孔）
+  })
+
+  it('一件事裡拆成幾筆也一樣：33 加 +2、+2 合計只到 34', () => {
+    const g = setup()
+    at(g, 33)
+    const r = g.k.effects.resolve([{ kind: 'rep', amount: 2 }, { kind: 'rep', amount: 2 }], effectCtx(g.k, g.state, { source: 'builtin' }))
+    expect(r.errors).toEqual([])
+    g.commit(sysDraft(r.changes))
+    expect(rep(g)).toBe(34)
+  })
+
+  it('AI 一件事最多 ±3，而且照樣不能升階：33 給 +3 只有 +1', () => {
+    const g = setup()
+    at(g, 33)
+    give(g, 3, 'ai')
+    expect(rep(g)).toBe(34)
+    give(g, 3, 'ai')
+    expect(rep(g)).toBe(34)
+  })
+
+  it('AI 與玩家要的結果不能自己寫 final（繞過夾值的內部記號）；內建的可以', () => {
+    const g = setup()
+    at(g, 34)
+    for (const source of ['ai', 'player'] as const) {
+      const r = g.k.effects.resolve([{ kind: 'rep', amount: 2, final: true, asked: '我要信譽' }], effectCtx(g.k, g.state, { source, clampAsked: false, playerInput: '我要信譽' }))
+      expect(r.errors.join(), source).toContain('final 是引擎內部用的記號')
+    }
+    give(g, 2, 'builtin', { final: true })
+    expect(rep(g)).toBe(36)
+  })
+
+  it('玩家明說要、而且設定「玩家要求的結果也夾值」關著的（刻意作弊）不受這條管', () => {
+    const g = setup()
+    at(g, 34)
+    const r = g.k.effects.resolve([{ kind: 'rep', amount: 5, asked: '我要信譽' }], effectCtx(g.k, g.state, { source: 'player', clampAsked: false, playerInput: '我要信譽' }))
+    g.commit(sysDraft(r.changes))
+    expect(rep(g)).toBe(39)
   })
 })

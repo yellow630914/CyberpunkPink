@@ -6,7 +6,8 @@
 // 「玩家要求的結果也夾值」開與關兩條路都走（關著時只有 asked 對得上的免夾，格式的底線照擋）。
 // 整條自由行動的鏈用假的服務商送對抗性的回應：超出上限、不存在的勢力、少了 key、amount 不是整數、壞掉的 JSON、拒絕、逾時、asked 對不上。
 //
-// 已知和規格對不上、另外寫了照預期失敗的測試（engine/tests/pending/）：體悟的上限（B016）、警戒不在副本裡也收（B018）、忠誠給不在名冊上的人（B019）。
+// 已知和規格對不上的三件（體悟的上限 B016、警戒不在副本裡也收 B018、忠誠給不在名冊上的人 B019）已經修好，回歸測試在 engine/tests/features/M2-fix-bugs.test.ts。
+// 信譽的非委託來源不能升階（CORE_RULES 8.1；量表的 ceilOf）：內建的結算要照寫的算要帶 final: true，所以這份測試的信譽那一列內建的效果多帶它。
 
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
@@ -34,6 +35,8 @@ interface MeterRow {
   max: number
   start: number
   spec: string
+  /** 內建的結算多帶的記號：信譽的非委託來源不能升階（量表的 ceilOf），要照寫的算要帶 final: true（結算算好的量） */
+  builtin?: Record<string, unknown>
 }
 
 /** M2 的六種量表（EVENTS 2.4 節的上限表）。忠誠要是名冊上的人：用委託情境裡的行者。 */
@@ -43,7 +46,7 @@ const METERS: MeterRow[] = [
   { kind: 'affinity', key: 'npc_tw_friend', at: 'npc_tw_friend', cap: 8, min: -100, max: 100, start: 0, spec: 'EVENTS 2.4（±8）；NPC_SYSTEM 7' },
   { kind: 'loyalty', key: RUNNER, at: RUNNER, cap: 10, min: 0, max: 100, start: 30, spec: 'EVENTS 2.4（±10）；NPC_SYSTEM 10.4' },
   { kind: 'fame', key: 'tw_hive', at: 'tw_hive', cap: 5, min: 0, max: 100, start: 0, spec: 'EVENTS 2.4（這一區 ±5）；LEWD_SYSTEM 5' },
-  { kind: 'rep', key: undefined, at: '_', cap: 3, min: 0, max: 100, start: 0, spec: 'EVENTS 2.4（±3）；CORE_RULES 8' },
+  { kind: 'rep', key: undefined, at: '_', cap: 3, min: 0, max: 100, start: 0, spec: 'EVENTS 2.4（±3）；CORE_RULES 8', builtin: { final: true } },
 ]
 
 /** 一局委託情境（人在蜂巢的市場、名冊上有行者），只建一次的話各個測試會互相影響，所以每次都建新的。 */
@@ -117,11 +120,11 @@ describe('邊界 EVENTS 2.4：M2 量表的每件上限（AI 給的）', () => {
 
       it('內建的照寫的算（不受上限管），只夾在範圍：下限−1、上限+1 都落回範圍', () => {
         const g = fresh()
-        apply(g, [fx(m, m.max - m.min + 50)], ctx(g, 'builtin'))
+        apply(g, [fx(m, m.max - m.min + 50, m.builtin)], ctx(g, 'builtin'))
         expect(read(g, m)).toBe(m.max)
-        apply(g, [fx(m, -(m.max - m.min) - 50)], ctx(g, 'builtin'))
+        apply(g, [fx(m, -(m.max - m.min) - 50, m.builtin)], ctx(g, 'builtin'))
         expect(read(g, m)).toBe(m.min)
-        apply(g, [fx(m, m.cap * 3)], ctx(g, 'builtin'))
+        apply(g, [fx(m, m.cap * 3, m.builtin)], ctx(g, 'builtin'))
         expect(read(g, m)).toBe(m.min + m.cap * 3)
       })
 
@@ -149,7 +152,7 @@ describe('邊界 EVENTS 2.4：M2 量表的每件上限（AI 給的）', () => {
             for (const a of amounts) want = clampTo(want + a, m.min, m.max)
             const b = fresh()
             put(b, m, start)
-            apply(b, amounts.map((a) => fx(m, a)), ctx(b, 'builtin'))
+            apply(b, amounts.map((a) => fx(m, a, m.builtin)), ctx(b, 'builtin'))
             const p = fresh()
             put(p, m, start)
             const r = apply(p, amounts.map((a) => fx(m, a, { asked: ASKED })), ctx(p, 'player', false))

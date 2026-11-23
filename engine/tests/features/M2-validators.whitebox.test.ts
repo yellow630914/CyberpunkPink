@@ -3,7 +3,7 @@
 // 做法：拿一局完整世界（假世界加資料的規則表）載好的每一筆內容，逐一對每一個欄位做「破壞」：
 // 刪掉、換成別的型別、負數、小數、NaN、無限大、超大整數、空容器、多一個不認得的鍵，再交給檢查。
 // 性質：檢查一定回傳字串陣列（或丟 ContentError），絕不丟 TypeError／RangeError（壞資料要寫成問題清單，不能把載入搞當機）。
-// 已知的漏洞（B020：special_map 的 cells／spots 型別不對時 TypeError）列在 KNOWN_CRASH，重現在 tests/pending/B020-*；修好後把白名單清空。
+// B020（special_map 的 cells／spots 型別不對時 TypeError）已修，重現在 tests/whitebox/B020-*；白名單已清空。
 
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -37,8 +37,8 @@ function setAt(root: Record<string, Json>, path: Path, value: Json | undefined):
 }
 
 const label = (kind: string, path: Path) => `${kind}:${path.map((x) => (typeof x === 'number' ? '#' : x)).join('.')}`
-/** B020：special_map 的 sheets[].cells／spots 型別不對時 validate 丟 TypeError，而不是回問題清單。 */
-const KNOWN_CRASH = (key: string) => /^special_map:sheets\.#\.(cells|spots)(\.|$)/.test(key)
+/** 已知會丟例外的欄位：B020 修好之後沒有了（special_map 的 cells／spots 現在回問題清單）。再出現新的就在這裡登記並寫 bug 報告。 */
+const KNOWN_CRASH = (_key: string): boolean => false
 
 describe('白箱 M2 內容格式檢查：每一個欄位被破壞都只會變成問題清單，不會丟例外', () => {
   const { game } = makeWorldGame()

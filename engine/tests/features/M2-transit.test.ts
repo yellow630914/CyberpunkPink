@@ -11,7 +11,7 @@ import { allFeatures } from '../../src/features'
 import { directorFeature, eventRunFeature } from '../../src/features/director'
 import { securityFeature } from '../../src/features/security'
 import {
-  DEFAULT_TRANSIT_RULES, advance, advanceBlock, alight, board, boardBlock, stationKey, taxi, taxiBlock, transitFeature, transitOf, transitView, wait, waitBlock,
+  DEFAULT_TRANSIT_RULES, advance, advanceBlock, alight, board, boardBlock, stationKey, taxi, taxiArrival, taxiBlock, transitFeature, transitOf, transitView, wait, waitBlock,
 } from '../../src/features/transit'
 import type { BoardInput } from '../../src/features/transit'
 import { arrive, worldFeature } from '../../src/features/world'
@@ -515,6 +515,25 @@ describe('浮空計程車', () => {
     g.commit(d2!)
     expect(g.state.money.cred).toBe(926 - 49)
     expect(min(g) - t0).toBe(20)
+  })
+
+  it('taxiArrival：只做抵達那一份（和 taxi 的第二份同一份）；出發提交之後照現在的狀態重做也一樣；沒有這一站擋下', () => {
+    const g = mk()
+    stand(g, 'b_a')
+    g.state.ext.transit = { visited: [X, stationKey('b_c', 'F1')], trips: 0, trip: null }
+    const [d, a] = taxi(g.k, g.state, X)
+    expect(taxiArrival(g.k, g.state, X)).toEqual(a)
+    g.commit(d!)
+    // 出發的錢付過了、時間過了，帳戶已經不夠再叫一趟也沒關係：抵達不問付不付得起
+    g.state.money.cred = 0
+    const again = taxiArrival(g.k, g.state, X)
+    expect(again.action).toBe('transit.taxi')
+    expect(again.outcome.result).toBe('arrived')
+    expect(again.triggers).toEqual([expect.objectContaining({ point: 'transit_taxi', where: expect.objectContaining({ phase: 'arrive', kind: 'taxi' }) })])
+    g.commit(again)
+    expect(g.state.location).toEqual({ district: 'd_crown', block: 'b_x', facility: 'F1' })
+    expect(transitOf(g.state).visited).toContain(X)
+    expect(() => taxiArrival(g.k, g.state, 'nowhere:F1')).toThrow(ActionBlocked)
   })
 
   it('同一區 taxi_same_km 公里；兩區之間表上沒有的用預設公里；物價低於 1 當 1', () => {

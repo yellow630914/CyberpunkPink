@@ -5,6 +5,7 @@
 
 import type { CellKind, CellPatch, GridPoint } from '../types'
 import type { ContentEntry } from '../content/registry'
+import { isRecord } from '../util/sanitize'
 
 /** 預設的圖例（COMMISSION_MAPS 1.1 節）：字元 → 格子的種類。 */
 export const DEFAULT_LEGEND: Record<string, CellKind> = {
@@ -294,6 +295,40 @@ export interface SheetCheckOpts {
   minSpots?: number
 }
 
+const isGridPoint = (v: unknown): boolean => Array.isArray(v) && v.length === 2 && v.every((n) => Number.isInteger(n))
+
+/** cells、spots、links 的形狀：每一個要是物件、id 與位置合格。回傳問題的清單（空的就是可以往下檢查內容）。 */
+function sheetShapeProblems(def: SheetDef, at: string): string[] {
+  const p: string[] = []
+  const raw = def as unknown as Record<string, unknown>
+  const rows = (key: 'cells' | 'spots' | 'links'): unknown[] => {
+    const v = raw[key]
+    if (v === undefined) return []
+    if (!Array.isArray(v)) {
+      p.push(`${at}：${key} 要是陣列`)
+      return []
+    }
+    return v
+  }
+  rows('cells').forEach((m, i) => {
+    if (!isRecord(m)) return void p.push(`${at}：cells[${i}] 要是物件`)
+    if (typeof m.id !== 'string' || !m.id) p.push(`${at}：cells[${i}] 要有 id`)
+    if (typeof m.mark !== 'string' || !m.mark) p.push(`${at}：cells[${i}]（${String(m.id)}）要有 mark`)
+    if (!isGridPoint(m.at)) p.push(`${at}：cells[${i}]（${String(m.id)}）的 at 要是 [x, y] 兩個整數`)
+  })
+  rows('spots').forEach((s, i) => {
+    if (!isRecord(s)) return void p.push(`${at}：spots[${i}] 要是物件`)
+    if (typeof s.id !== 'string' || !s.id) p.push(`${at}：spots[${i}] 要有 id`)
+    if (!isGridPoint(s.at)) p.push(`${at}：spots[${i}]（${String(s.id)}）的 at 要是 [x, y] 兩個整數`)
+  })
+  rows('links').forEach((l, i) => {
+    if (!isRecord(l)) return void p.push(`${at}：links[${i}] 要是物件`)
+    if (typeof l.to !== 'string' || !l.to) p.push(`${at}：links[${i}] 要有 to（接到的圖）`)
+    if (!Array.isArray(l.at) || !l.at.every(isGridPoint)) p.push(`${at}：links[${i}] 的 at 要是 [x, y] 的陣列`)
+  })
+  return p
+}
+
 /** 一張圖的格式檢查（DATA 9.3 節的資料檢查）。回傳問題的清單。 */
 export function sheetProblems(def: SheetDef, siblings: string[] = [], opts: SheetCheckOpts = {}): string[] {
   const p: string[] = []
@@ -310,6 +345,9 @@ export function sheetProblems(def: SheetDef, siblings: string[] = [], opts: Shee
   })
   if (def.zones !== undefined && !(Array.isArray(def.zones) && def.zones.length === h && def.zones.every((row) => typeof row === 'string' && [...row].length === w))) p.push(`${at}：zones 要和 layout 一樣大`)
   if (p.length) return p
+  // cells、spots、links 的形狀：資料寫壞時回問題清單，不丟例外（GAME_DESIGN 第 3 節第 13 條；B020）
+  const shape = sheetShapeProblems(def, at)
+  if (shape.length) return shape
   const sheet = new Sheet(def)
   // 標記：資料裡列的要和版面上的字元一一對應（id、位置、種類）
   const drawn = markersInLayout(def)

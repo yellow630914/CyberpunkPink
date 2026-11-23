@@ -523,13 +523,16 @@ describe('警戒的量表（COMMISSIONS 2.3 節；0016 第三節）', () => {
     expect(alertOf(t.game)).toBe(100)
   })
 
-  it('效果 alert 落在現在這張地圖上（AI 給的一件事合計最多 ±20）', () => {
-    const { game, id } = setup()
+  it('效果 alert 落在現在這張地圖上（AI 給的一件事合計最多 ±20；只在委託副本裡）', () => {
+    const { game, id } = setup({ features: [commissionActivity] })
     const resolve = (effects: unknown[], source: 'builtin' | 'ai') => game.k.effects.resolve(effects, effectCtx(game.k, game.state, { source }))
     const built = resolve([{ kind: 'alert', amount: 15 }], 'builtin')
     expect(built.changes).toEqual([{ op: 'meter', kind: 'alert', key: id, delta: 15 }])
     commit(game, built.changes)
     expect(alertOf(game)).toBe(15)
+    // 不在委託副本裡（沒有進行中的 commission 活動）：AI 給的整筆拿掉；進了副本才收
+    expect(resolve([{ kind: 'alert', amount: 50 }], 'ai').changes).toEqual([])
+    commit(game, [{ op: 'flag', key: 'in_commission', value: true }])
     const ai = resolve([{ kind: 'alert', amount: 50 }], 'ai')
     expect(ai.changes).toEqual([{ op: 'meter', kind: 'alert', key: id, delta: 20 }])
     // 不在這張地圖上時，兩邊的警戒各記各的：別份實例的數字不動
@@ -537,14 +540,16 @@ describe('警戒的量表（COMMISSIONS 2.3 節；0016 第三節）', () => {
   })
 })
 
+/** 假的委託副本：flags.in_commission 開著時，活動 commission 進行中（探索只問活動登錄表，不認識委託）。 */
+const commissionActivity: Feature = {
+  id: 'fake_commission',
+  install(k) {
+    k.activity.define({ kind: 'commission', owner: 'fake_commission', order: 90, active: (s) => (s.flags.in_commission ? { id: 'cm', label: '委託副本' } : null), allow: [], reason: () => '先把委託做完。' })
+  },
+}
+
 describe('委託副本是封閉的活動：探索的行動放行（k.activity.allow）', () => {
   it("走路、做標記的事、撬鎖（grid.、commit:grid.）在 'commission' 活動進行中放行，別的不放", () => {
-    const commissionActivity: Feature = {
-      id: 'fake_commission',
-      install(k) {
-        k.activity.define({ kind: 'commission', owner: 'fake_commission', order: 90, active: (s) => (s.flags.in_commission ? { id: 'cm', label: '委託副本' } : null), allow: [], reason: () => '先把委託做完。' })
-      },
-    }
     const { game } = setup({ features: [commissionActivity] })
     commit(game, [{ op: 'flag', key: 'in_commission', value: true }])
     for (const doing of ['grid.enter', 'grid.move', 'commit:grid.move', 'commit:grid.use', 'commit:grid.unlock', 'commit:grid.leave']) expect(game.k.activity.blockOf(game.state, doing), doing).toBeNull()

@@ -82,9 +82,17 @@ export interface FixerRules {
   intel_per_grade: number
   /** 評價對報酬的加成（G16：S +20%、A +10%、B 不變、C −10%） */
   rating_bonus: Record<Rating, number>
-  /** 街頭信譽：做完 +2、失敗 −3（G16） */
-  rep_done: number
-  rep_fail: number
+  /**
+   * 街頭信譽（CORE_RULES 8.1 節、LIFE 1.3 節；2026-11-23 定案）：完成委託看委託的級和主角的級（無名、熟面孔 I；有號 II；搶手 III；頂尖 IV；傳說 V）。
+   * 同級 +rep_same、高一級以上 +rep_higher、比主角低級 rep_lower（0：不變，錢與歷練照給）；評價 S 再 +rep_top（低級的委託不加）。
+   * 失敗 rep_failed（−3，不分等級）、中途放棄 rep_abandon（−5，LIFE 第 9 節，暫定）
+   */
+  rep_same: number
+  rep_higher: number
+  rep_lower: number
+  rep_top: number
+  rep_failed: number
+  rep_abandon: number
   /** 借人：價錢 = 等級² × borrow_base × borrow_mult（COMMISSIONS 6.5：出場費的 1.5 倍） */
   borrow_base: number
   borrow_mult: number
@@ -114,7 +122,7 @@ export type Rating = (typeof RATING_KEYS)[number]
 export const DEFAULT_FIXER_RULES: FixerRules = {
   pay_cred: 0.85, pay_favor: 0.7, hostility_cred: 2, haggle_dc_base: 13, haggle_success: 0.05, haggle_critical: 0.1,
   scout_minutes: 240, scout_dc_base: 10, scout_dc_per_grade: 2, scout_hard_from: 4, scout_hard_plus: 1, scout_alert: 15, intel_per_grade: 300,
-  rating_bonus: { S: 0.2, A: 0.1, B: 0, C: -0.1 }, rep_done: 2, rep_fail: -3, borrow_base: 200, borrow_mult: 1.5, boss_shares: 2, aux_max: 2,
+  rating_bonus: { S: 0.2, A: 0.1, B: 0, C: -0.1 }, rep_same: 2, rep_higher: 4, rep_lower: 0, rep_top: 1, rep_failed: -3, rep_abandon: -5, borrow_base: 200, borrow_mult: 1.5, boss_shares: 2, aux_max: 2,
   bond_dc_base: 20, bond_affinity_step: 5, bond_loyalty: 70, trip_affinity: 2, trip_loyalty: 2, favor_done: 3, favor_top: 2, hostile_budget: 1, hostile_alert: 20,
 }
 
@@ -124,7 +132,7 @@ const RULE_FIELDS: Array<[RuleKey, number, number, boolean]> = [
   ['pay_cred', 0, 1, false], ['pay_favor', 0, 1, false], ['hostility_cred', 0, 100, true], ['haggle_dc_base', 0, 40, true], ['haggle_success', 0, 1, false], ['haggle_critical', 0, 1, false],
   ['scout_minutes', 0, 100000, true], ['scout_dc_base', 0, 40, true], ['scout_dc_per_grade', 0, 10, true], ['scout_hard_from', 1, 20, true], ['scout_hard_plus', 0, 10, true],
   ['scout_alert', 0, 100, true], ['intel_per_grade', 0, 100000, true],
-  ['rep_done', -100, 100, true], ['rep_fail', -100, 100, true], ['borrow_base', 0, 100000, true], ['borrow_mult', 0, 10, false], ['boss_shares', 1, 10, true], ['aux_max', 1, 2, true],
+  ['rep_same', -100, 100, true], ['rep_higher', -100, 100, true], ['rep_lower', -100, 100, true], ['rep_top', -100, 100, true], ['rep_failed', -100, 100, true], ['rep_abandon', -100, 100, true], ['borrow_base', 0, 100000, true], ['borrow_mult', 0, 10, false], ['boss_shares', 1, 10, true], ['aux_max', 1, 2, true],
   ['bond_dc_base', 0, 40, true], ['bond_affinity_step', 1, 100, true], ['bond_loyalty', 0, 100, true], ['trip_affinity', 0, 100, true], ['trip_loyalty', 0, 100, true],
   ['favor_done', 0, 100, true], ['favor_top', 0, 100, true], ['hostile_budget', 0, 4, true], ['hostile_alert', 0, 100, true],
 ]

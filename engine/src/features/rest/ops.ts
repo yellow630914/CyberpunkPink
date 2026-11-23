@@ -6,7 +6,7 @@ import type { Change, GameState, Kernel, ReportDraft, ReportTrigger, TimelineBea
 import { ActionBlocked, attrMod, clone, formatAmount, restDone, toMinutes } from '../../core'
 import type { HomeState, Pool, RestState } from './model'
 import {
-  EXT, POOL_NAME, hasCondition, homeOf, maxHpOf, payFor, readRest, rentPayOf, residenceEntry, residencePools, restRules, sleepFacilityAt, spanText, standingAt,
+  EXT, POOL_NAME, depositOf, hasCondition, homeOf, maxHpOf, payFor, readRest, rentPayOf, residenceEntry, residencePools, restRules, sleepFacilityAt, spanText, standingAt,
 } from './model'
 
 const writeRest = (r: RestState): Change => ({ op: 'ext', key: EXT, value: clone(r) as unknown as Record<string, unknown> })
@@ -113,6 +113,8 @@ export interface SleepOption {
   pay: Pool | null
   /** 現在站的就是這裡：不指定睡處時睡的是它 */
   current: boolean
+  /** 醫療床（診所的病床）：睡在這裡算傷口處理過，不受「生命低於一半最多回到一半」的限制（DOWNTIME 2.2、2.3 節） */
+  treated: boolean
   /** 現在選不了的原因（給玩家看的完整句子）；能選是 null */
   block: string | null
 }
@@ -150,14 +152,14 @@ export function sleepOptions(k: Kernel, state: GameState): SleepOption[] {
 
   if (h) {
     const specific = !atHome ? `你不在自己的住處（${h.residence.name}）。` : h.home.locked ? `${h.residence.name}的門鎖被換掉了，房租付清才開。` : null
-    out.push({ id: 'home', name: h.residence.name, rate: rules.home_rates[String(h.residence.level)] ?? 0, cost: 0, pay: null, current: here === 'home', block: general ?? specific })
+    out.push({ id: 'home', name: h.residence.name, rate: rules.home_rates[String(h.residence.level)] ?? 0, cost: 0, pay: null, current: here === 'home', treated: false, block: general ?? specific })
   }
   if (fac) {
     const pay = payFor(state.money, fac.sleep.cost)
     const specific = pay === null ? `睡一晚要 ${formatAmount(fac.sleep.cost)}，帳戶有 ${formatAmount(state.money.cred)}、現金有 ${formatAmount(state.money.cash)}，都不夠。` : null
-    out.push({ id: 'facility', name: fac.name, rate: fac.sleep.rate, cost: fac.sleep.cost, pay: fac.sleep.cost > 0 ? pay : null, current: here === 'facility', block: general ?? specific })
+    out.push({ id: 'facility', name: fac.name, rate: fac.sleep.rate, cost: fac.sleep.cost, pay: fac.sleep.cost > 0 ? pay : null, current: here === 'facility', treated: fac.sleep.treated === true, block: general ?? specific })
   }
-  out.push({ id: 'wild', name: '露宿', rate: rules.wild_rate, cost: 0, pay: null, current: here === 'wild', block: general })
+  out.push({ id: 'wild', name: '露宿', rate: rules.wild_rate, cost: 0, pay: null, current: here === 'wild', treated: false, block: general })
   return out
 }
 
@@ -165,7 +167,7 @@ export function sleepOptions(k: Kernel, state: GameState): SleepOption[] {
 
 /**
  * 睡一覺（480 分鐘）：距上次至少 16 小時，不到給原因；感載、餘韻歸零；生命回「上限 × 睡處的回復率」；
- * 生命低於一半而且身上沒有 treated 的人最多回到一半；發 rest.done（sleep）；帶觸發點 rest，露宿另帶 sleep_out，在自己的住處另帶 home。
+ * 生命低於一半而且身上沒有 treated、睡的地方也不是醫療床（設施的 sleep.treated）的人最多回到一半；發 rest.done（sleep）；帶觸發點 rest，露宿另帶 sleep_out，在自己的住處另帶 home。
  */
 export function sleepDraft(k: Kernel, state: GameState, opts: SleepOpts = {}): ReportDraft {
   const options = sleepOptions(k, state)
@@ -190,8 +192,8 @@ export function sleepDraft(k: Kernel, state: GameState, opts: SleepOpts = {}): R
     const max = maxHpOf(k, state, who)
     let target = Math.min(max, a.hp + Math.floor(Math.round(max * spot.rate * 1e6) / 1e6))
     let capped = false
-    // 重傷限制：低於一半、傷口沒處理過，最多回到一半
-    if (a.hp < max * rules.hurt_ratio && !hasCondition(state, who, 'treated')) {
+    // 重傷限制：低於一半、傷口沒處理過，最多回到一半（睡在醫療床上算處理過：診所的病床，DOWNTIME 2.3 節）
+    if (a.hp < max * rules.hurt_ratio && !spot.treated && !hasCondition(state, who, 'treated')) {
       const cap = Math.ceil(max * rules.hurt_ratio)
       if (target > cap) {
         target = Math.max(a.hp, cap)
@@ -238,7 +240,7 @@ export function rentBlock(k: Kernel, state: GameState, id: string, opts: RentOpt
   if (act) return act
   const cur = homeOf(k, state)
   if (cur) return cur.residence.id === id ? `你已經租著${r.name}了。` : `你已經有一個家了（${cur.residence.name}），要換先退租。`
-  const deposit = r.rent * restRules(k).deposit_weeks
+  const deposit = depositOf(k, r)
   const pools = residencePools(r)
   if (opts.pay && !pools.includes(opts.pay)) return `${r.name}${opts.pay === 'cash' ? '不收現金' : '只收現金'}。`
   if (deposit > 0 && payFor(state.money, deposit, opts.pay, pools) === null) {
@@ -252,7 +254,7 @@ export function rentDraft(k: Kernel, state: GameState, id: string, opts: RentOpt
   const block = rentBlock(k, state, id, opts)
   if (block) throw new ActionBlocked(block)
   const r = residenceEntry(k, id)!
-  const deposit = r.rent * restRules(k).deposit_weeks
+  const deposit = depositOf(k, r)
   const pool = payFor(state.money, deposit, opts.pay, residencePools(r)) ?? residencePools(r)[0]!
   const rest = readRest(state)
   rest.home = { id, deposit, pool, arrears: 0, locked: false }

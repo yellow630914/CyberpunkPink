@@ -196,7 +196,7 @@ describe('狀態與變更：夾值、各記各的、起始值（驗收 1～3）'
   it('keyed: map 省略鍵時用現在站的那張地圖的實例；keyed: none 用 _', () => {
     const { k, state } = setup(testMeter({ kind: 'alert', keyed: 'map' }), testMeter({ kind: 'rep', keyed: 'none' }))
     expect(meterOf(k, state, 'alert')).toBe(0)
-    const on = { ...clone(state), maps: { instances: {}, at: { map: 'mp_7', sheet: 'a', x: 0, y: 0 }, seq: 0 } }
+    const on = { ...clone(state), maps: { instances: { mp_7: { id: 'mp_7', def: 'x', sheets: {} } }, at: { map: 'mp_7', sheet: 'a', x: 0, y: 0 }, seq: 0 } }
     const r = resolve(k, on, [{ kind: 'alert', amount: 20 }, { kind: 'rep', amount: 2 }])
     expect(r.changes).toEqual([meter('alert', 'mp_7', { delta: 20 }), meter('rep', '_', { delta: 2 })])
     const s = applied(k, on, ...r.changes)
@@ -248,7 +248,7 @@ describe('meter 變更的格式與擋下', () => {
       testMeter({ kind: 'm_none' }), testMeter({ kind: 'm_map', keyed: 'map' }), testMeter({ kind: 'm_fac', keyed: 'faction' }),
       testMeter({ kind: 'm_dis', keyed: 'district' }), testMeter({ kind: 'm_npc', keyed: 'npc' }),
     )
-    const s = { ...state, actors: { ...state.actors, gen_walker: { ...state.actors.pc!, id: 'gen_walker', role: 'npc' as const } } }
+    const s = { ...state, actors: { ...state.actors, gen_walker: { ...state.actors.pc!, id: 'gen_walker', role: 'npc' as const } }, maps: { instances: { mp_1: { id: 'mp_1', def: 'x', sheets: {} } }, at: null, seq: 1 } }
     const ok = (kind: string, key: unknown) => k.changes.get('meter')!.validate(s, { op: 'meter', kind, key, delta: 1 })
     for (const kind of ['m_none', 'm_map', 'm_fac', 'm_dis', 'm_npc']) {
       for (const key of ['', 5, null, undefined, '__proto__']) expect(ok(kind, key), `${kind} ${String(key)}`).toEqual([expect.stringContaining('key 要是非空的字串')])
@@ -256,6 +256,8 @@ describe('meter 變更的格式與擋下', () => {
     expect(ok('m_none', '_')).toEqual([])
     expect(ok('m_none', 'x')).toEqual([expect.stringContaining('不分對象')])
     expect(ok('m_map', 'mp_1')).toEqual([])
+    // 地圖實例要存在（B018：key 寫一張不存在的實例是格式錯誤，不是照收）
+    expect(ok('m_map', 'mp_999')).toEqual([expect.stringContaining('現在沒有 mp_999 這份地圖')])
     expect(ok('m_fac', 'f_alpha')).toEqual([])
     expect(ok('m_fac', 'f_zzz')).toEqual([expect.stringContaining('查不到 f_zzz')])
     expect(ok('m_dis', 'd2')).toEqual([])

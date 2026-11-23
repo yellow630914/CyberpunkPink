@@ -20,7 +20,7 @@
 // 帳戶被凍結、洗錢補差額、債的還款。
 
 import type { Change, Condition, Effect, EffectCtx, EffectStepCtx, Feature, GameState, Kernel } from '../../core'
-import { clone, isSafeInt, toMinutes } from '../../core'
+import { clone, formatAmount, isSafeInt, moneyCap, toMinutes } from '../../core'
 import type { Debt, ExtraItem, PayWith, Pool } from './model'
 import { EXT, OWNER, PAY_WITH, RULE_KIND, billRules, currentLines, debtPayOf, isText, readBills, ruleProblems } from './model'
 import { weeklyDrafts } from './settle'
@@ -115,6 +115,17 @@ export const billsFeature: Feature = {
         if (!(PAY_WITH as readonly unknown[]).includes(raw.pay)) p.push('新的項目的 pay 只能是 cred、cash 或 either')
         return p
       },
+      // AI 與設定開著時玩家要的新項目（EVENTS 2.4 節沒寫上限，照 cred 那一格：dev/adr/0017 第 17 項）：一件事裡新項目的總額（每週的金額 × 週數）合計
+      // 不超過信譽那一階的錢的上限；超過的把期數縮短（金額不變），一期都付不起的把金額縮成上限、只收一期。內建的照寫的算
+      budget(e, ctx) {
+        if (e.item !== undefined || ctx.level !== 'cap') return null
+        const cap = moneyCap({ content: ctx.content, grade: ctx.repGrade ?? 1 })
+        return {
+          group: 'bill_new', amount: e.amount * (e.weeks ?? 1), min: -Infinity, max: cap,
+          resize: (to) => (to < e.amount ? { ...e, amount: to, weeks: 1 } : { ...e, weeks: Math.floor(to / e.amount) }),
+          notice: (to) => (to === 0 ? `新的帳單項目一次最多加起來 ${formatAmount(cap)}（每週的金額乘上週數），這一筆沒有算。` : `新的帳單項目一次最多加起來 ${formatAmount(cap)}（每週的金額乘上週數），這一筆縮短了。`),
+        }
+      },
       // 加減不超過那一項金額的一半（連同這一週已經加減的合計）；這一週沒有那一項整筆拿掉
       clamp(e, ctx: EffectStepCtx) {
         if (e.item === undefined) return { effect: e }
@@ -149,8 +160,9 @@ export const billsFeature: Feature = {
       describe: (e) => `帳單：${e.item} 寬限 ${e.days} 天`,
     })
 
+    // debt 是併債與事件資料用的內部效果，不在 EVENTS 2.4 的清單裡：AI 與玩家要的結果不能用（ai: false）
     k.effects.register<DebtEffect>({
-      kind: 'debt', owner: OWNER,
+      kind: 'debt', owner: OWNER, ai: false,
       validate(raw, ctx: EffectCtx) {
         const p: string[] = []
         if (!isText(raw.to)) p.push('to 要是勢力的 id')

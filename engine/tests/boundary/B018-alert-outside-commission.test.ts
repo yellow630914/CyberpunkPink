@@ -1,7 +1,7 @@
 // B018（cpp-tester-boundary）：AI 給的警戒只在委託副本裡（EVENTS 2.4 節：「alert、trace | 警戒只在委託副本裡……；±20」）；
 // 引用的 id 要存在（AI_TASKS 2.5 節：「引用的 id 要存在」，設定關著也照擋）。
 // 引擎（core/rules/meters.ts 的量表效果；features/explore 定義的 alert）在城市的街區地圖上照收，key 寫一張不存在的地圖實例也照收。
-// 重現的資料：tests/boundary/fixtures/B018-alert-outside-commission.json。修好之後搬到 tests/boundary/。
+// 重現的資料：tests/boundary/fixtures/B018-alert-outside-commission.json。已修（M2-fix-bugs）。
 
 import { describe, expect, it } from 'vitest'
 import { clone, effectCtx, meterOf } from '../../src'

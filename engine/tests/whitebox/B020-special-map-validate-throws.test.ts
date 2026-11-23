@@ -1,7 +1,7 @@
 // B020（cpp-tester-whitebox，M2 白箱）：special_map 的 validate 在 sheets[].cells／spots 的型別不對時丟 TypeError。
 // 規格：GAME_DESIGN 第 3 節第 13 條（格式錯誤一律擋下）；內容登錄表的 validate 契約「回傳錯誤訊息（空的就是合格）」（core/content/registry.ts ContentKindDef.validate）。
 // 現況：`sheetProblems`（core/grid/model.ts）直接 `(def.cells ?? []).map(...)`、`m.at[0]`，資料寫壞時是 TypeError，載入整個當機，訊息裡沒有寫是哪一張圖。
-// 重現：tests/whitebox/fixtures/B020-special-map-malformed.json（一張合格的小街加八種壞法）。修好之後搬到 tests/whitebox/ 或 tests/features/。
+// 重現：tests/whitebox/fixtures/B020-special-map-malformed.json（一張合格的小街加八種壞法）。已修（M2-fix-bugs）。
 
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'

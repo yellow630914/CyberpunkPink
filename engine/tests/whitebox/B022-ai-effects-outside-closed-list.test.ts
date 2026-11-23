@@ -3,8 +3,8 @@
 //   `debt`（bills：併債的結果，本金與週利率都是 AI 說了算）、`bargain`（trade：殺價擲出來的結果，AI 不用擲就能指定「大成功」）；
 //   `bill` 新增項目（2.4 節有這一列，但上限那一欄是空的）：金額與週數沒有任何夾值，AI 可以加一個九十億、520 週的帳單。
 // 同一張表裡的錢（cred、cash）是照信譽階夾的（新手 120），所以這三個是漏洞：AI 回的結果在驗證與夾值之後照樣把玩家的帳弄壞。
-// 重現：tests/whitebox/fixtures/B022-ai-effects-outside-closed-list.json。修好之後搬到 tests/whitebox/。
-// 修的方向（只寫推測）：登錄表的效果加一個「AI 可用」的旗標（預設 true，debt／bargain 寫 false，來源是 ai 或玩家要求時整批驗證不過）；bill 新項目的 amount 照 cred 的上限夾。
+// 重現：tests/whitebox/fixtures/B022-ai-effects-outside-closed-list.json。已修（M2-fix-bugs）：EffectDef.ai: false（debt、bargain），來源不是 builtin 時整批驗證不過；
+// bill 新項目的總額（每週的金額 × 週數）一件事合計照 cred 的上限夾（features/bills）。
 
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'

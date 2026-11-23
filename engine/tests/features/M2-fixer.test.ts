@@ -129,7 +129,7 @@ const sysDraft = (changes: ReportDraft['changes'], action = 'test.setup'): Repor
   kind: 'system', action, location: {}, party: [], timeline: [], changes, outcome: { result: 'ok', summary: '測試' },
 })
 const setRep = (g: G, n: number): void => {
-  const r = g.k.effects.resolve([{ kind: 'rep', amount: n }], effectCtx(g.k, g.state, { source: 'builtin' }))
+  const r = g.k.effects.resolve([{ kind: 'rep', amount: n, final: true }], effectCtx(g.k, g.state, { source: 'builtin' }))
   expect(r.errors).toEqual([])
   g.commit(sysDraft(r.changes))
 }

@@ -3,8 +3,9 @@
 // 改狀態的入口都是匯出一個純函式、回傳報告草稿：消退由 time.passed 掛鉤提交，收買由介面交給 Game.commit。
 
 import type { Change, ContentEntry, GameState, GameTime, Kernel, ReportDraft } from '../../core'
-import { ActionBlocked, clone, isRecord, meterOf, weeklyCrossings } from '../../core'
+import { ActionBlocked, clone, isRecord, meterOf, toMinutes, weeklyCrossings } from '../../core'
 import type { TierView } from './model'
+import { FLOOR_CHANGE, FLOOR_METER, floorOf, timedFloors } from './floor'
 import { EXT, favorTierOf, hostilityTierOf, securityRules } from './model'
 
 const nameOf = (k: Pick<Kernel, 'content'>, id: string): string => {
@@ -47,13 +48,15 @@ export function standingBefore(k: Kernel, state: GameState, changes: Change[]): 
     const set = typeof c.set === 'number' ? c.set : undefined
     if (c.kind === 'hostility') {
       if ((delta !== undefined && delta > 0) || (set !== undefined && set > meterOf(k, state, 'hostility', c.key))) fresh[c.key] = true
-    } else if (c.kind === 'hostility_floor') {
-      if ((delta !== undefined && delta > 0) || (set !== undefined && set > meterOf(k, state, 'hostility_floor', c.key))) lift.push(c.key)
+    } else if (c.kind === FLOOR_METER) {
+      if ((delta !== undefined && delta > 0) || (set !== undefined && set > meterOf(k, state, FLOOR_METER, c.key))) lift.push(c.key)
     }
   }
+  // 有期限的下限抬高了：敵對值也要跟上
+  for (const c of changes) if (c.op === FLOOR_CHANGE && typeof c.key === 'string') lift.push(c.key)
   const out: Change[] = []
   if (Object.keys(fresh).length !== Object.keys(known).length) out.push(extChange(state, fresh))
-  for (const faction of lift) out.push({ op: 'meter', kind: 'hostility', key: faction, delta: 0 })
+  for (const faction of new Set(lift)) out.push({ op: 'meter', kind: 'hostility', key: faction, delta: 0 })
   return out
 }
 
@@ -64,7 +67,8 @@ export function standingBefore(k: Kernel, state: GameState, changes: Change[]): 
  * 一次跨過好幾個週一補好幾次（只有第一個週一看「那一週有沒有新的」，之後的週一都沒有新的）。沒有跨過週一回傳 null。
  */
 export function decayDraft(k: Kernel, state: GameState, from: GameTime, to: GameTime): ReportDraft | null {
-  const weeks = weeklyCrossings(from, to, k.timeRules).length
+  const crossings = weeklyCrossings(from, to, k.timeRules)
+  const weeks = crossings.length
   if (weeks === 0) return null
   const rules = securityRules(k)
   const fresh = freshOf(state)
@@ -72,9 +76,13 @@ export function decayDraft(k: Kernel, state: GameState, from: GameTime, to: Game
   for (const faction of Object.keys(state.meters.hostility ?? {}).sort()) {
     const start = meterOf(k, state, 'hostility', faction)
     if (start <= 0) continue
-    const floor = meterOf(k, state, 'hostility_floor', faction)
+    // 下限照每一個週一那一刻算：有期限的下限在中間到期的話，到期之後的週一就往下掉
     let cur = start
-    for (let w = 0; w < weeks && cur > floor; w++) cur = Math.max(floor, cur - (w === 0 && fresh[faction] ? rules.decay_weekly : rules.decay_quiet))
+    for (let w = 0; w < weeks; w++) {
+      const floor = floorOf(k, state, faction, toMinutes(crossings[w]!))
+      if (cur <= floor) continue
+      cur = Math.max(floor, cur - (w === 0 && fresh[faction] ? rules.decay_weekly : rules.decay_quiet))
+    }
     if (cur !== start) rows.push({ faction, from: start, to: cur })
   }
   const hadFresh = Object.keys(fresh).length > 0
@@ -112,7 +120,7 @@ export function bribeBlock(k: Kernel, state: GameState, faction: string, points:
   if (!Number.isInteger(points) || points < 1) return `要收買幾點：1～${rules.bribe_max} 的整數。`
   if (f.bribe !== true) return `${name}不收錢。`
   const h = meterOf(k, state, 'hostility', faction)
-  const floor = meterOf(k, state, 'hostility_floor', faction)
+  const floor = floorOf(k, state, faction)
   if (h <= 0) return `${name}現在沒有在找你麻煩，不用收買。`
   if (h <= floor) return `${name}對你的敵對值已經降到下限（${floor}），錢買不動了。`
   if (points > rules.bribe_max) return `收買一次最多降 ${rules.bribe_max} 點。`
@@ -154,11 +162,11 @@ export interface HostilityRow {
 /** 現在有敵對值的勢力（畫面上只顯示這幾個）：高的在前；每一筆有哪一段與下限。 */
 export function hostilityView(k: Kernel, state: GameState): HostilityRow[] {
   const rules = securityRules(k)
-  const ids = new Set([...Object.keys(state.meters.hostility ?? {}), ...Object.keys(state.meters.hostility_floor ?? {})])
+  const ids = new Set([...Object.keys(state.meters.hostility ?? {}), ...Object.keys(state.meters.hostility_floor ?? {}), ...timedFloors(state).map((f) => f.faction)])
   const rows: HostilityRow[] = []
   for (const faction of ids) {
     const value = meterOf(k, state, 'hostility', faction)
-    const floor = meterOf(k, state, 'hostility_floor', faction)
+    const floor = floorOf(k, state, faction)
     if (value <= 0 && floor <= 0) continue
     rows.push({ faction, name: nameOf(k, faction), value, tier: hostilityTierOf(rules, value), floor, bribe: bribeBlock(k, state, faction, 1) })
   }

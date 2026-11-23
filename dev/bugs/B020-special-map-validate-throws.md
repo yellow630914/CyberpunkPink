@@ -10,3 +10,5 @@
   其他 M2 的內容種類（共 60 幾種、每一個欄位換十五種壞值）都只回問題清單，沒有丟例外；`ready` 那一段（跨內容的檢查）也沒有。
 - 重現：engine/tests/whitebox/fixtures/B020-special-map-malformed.json（一張合格的小街加八種壞法）；會失敗的測試 engine/tests/pending/B020-special-map-validate-throws.test.ts（八筆照預期失敗，對照「合格的那一張驗得過」會過）。通用的掃描在 engine/tests/features/M2-validators.whitebox.test.ts（`KNOWN_CRASH` 白名單只放這一條；修好之後把白名單清空）。
 - 可能的位置（只寫推測，不改）：`engine/src/core/grid/model.ts` 的 `sheetProblems`（第 300～340 行一帶）：進入之前先檢查 `cells`、`spots`、`links` 是陣列、每一筆是物件、`at` 是兩個整數的陣列，不合格就 push 問題後 return。屬於 cpp-architect 的範圍（核心）。
+
+- fixed in: 2026-11-23 M2 修 bug 批。`engine/src/core/grid/model.ts` 的 `sheetProblems` 在讀 `cells`／`spots`／`links` 之前先查形狀（`sheetShapeProblems`）：不是陣列、成員不是物件、`id`／`mark`／`to` 不是字串、`at` 不是兩個整數，都回問題清單（寫出是哪一張圖、哪一個欄位），不丟例外。`M2-validators.whitebox.test.ts` 的 `KNOWN_CRASH` 白名單已清空。回歸測試：`engine/tests/whitebox/B020-special-map-validate-throws.test.ts`、`engine/tests/features/M2-fix-bugs.test.ts`「B020」。

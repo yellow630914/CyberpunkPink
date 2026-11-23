@@ -15,7 +15,7 @@
           "spots": [{ "id": "!1", "at": [2, 2], "cover": "sparse" }, { "id": "!2", "at": [7, 2], "cover": "dense" }]
         }]
       }],
-      "facility_type": [{ "id": "fac_clinic", "name": "診所", "sleep": { "rate": 0.6, "cost": 50 } }, { "id": "fac_home", "name": "公寓" }],
+      "facility_type": [{ "id": "fac_clinic", "name": "診所", "sleep": { "rate": 0.6, "cost": 50, "treated": true } }, { "id": "fac_home", "name": "公寓" }],
       "district": [{ "id": "d_hive", "name": "蜂巢", "grade": 1, "blocks": ["b_hive"] }],
       "block": [{ "id": "b_hive", "district": "d_hive", "name": "四號塔", "kind": "block", "map": "m_street", "exits": {}, "facilities": { "F1": { "type": "fac_clinic", "name": "診所" } } }]
     }

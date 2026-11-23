@@ -1,8 +1,8 @@
 // B021（cpp-tester-whitebox，M2 白箱）：診所的病床算「傷口處理過」（DOWNTIME 2.3 節表：「診所的病床 | 60%，算處理過」；2.2 節重傷限制：處理過＝……診所治療、睡在有醫療床的據點）。
 // 現況：rest 的 sleepDraft 只看身上有沒有 `treated` 狀況，睡在有 sleep 的設施（診所）不會算處理過：生命 5／40 睡診所只回到 20（一半），
 // 付了 50 塊的病床和露宿受一樣的重傷限制；回復率 60% 的意義只剩「沒受傷的人」才看得到。
-// 重現：tests/whitebox/fixtures/B021-clinic-bed-not-treated.json。修好之後搬到 tests/whitebox/（或併進 tests/features/M2-rest-housing.test.ts）。
-// 修的時候要先決定設施怎麼標「醫療床」（例：facility_type 的 sleep 多一個 treated: true，資料 facility_types.json 的 clinic 要加）——cpp-architect 的範圍。
+// 重現：tests/whitebox/fixtures/B021-clinic-bed-not-treated.json。已修（M2-fix-bugs）。
+// 已修：facility_type 的 sleep 多一個 treated: true 標醫療床（診所寫、旅館與潛艙店不寫；資料 facility_types.json 的 clinic 已加；重現的 fixture 也補了）。
 
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'

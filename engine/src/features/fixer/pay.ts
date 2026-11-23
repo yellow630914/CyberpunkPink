@@ -17,6 +17,7 @@ import { fixerDraft as draft } from './board'
 import { feeOf } from './hire'
 import type { AuxEntry, FavorSize, HireWay, Job, PayKind, PayoutRecord, PendingEnd, Rating } from './model'
 import { FAVOR_SIZE_NAME, PAY_NAME, RATING_KEYS, auxList, favorSizeOf, fixerRules, jobOf } from './model'
+import { repChanges, repGainOf } from './rep'
 
 export type Wallet = 'cash' | 'cred'
 export const WALLET_NAME: Record<Wallet, string> = { cash: '現金', cred: '帳戶' }
@@ -214,8 +215,8 @@ function releaseChanges(state: GameState, entries: readonly AuxEntry[]): Change[
 
 /**
  * 副本交回來（activity.end 記下了 pending）之後的入帳（報告 fixer.payout）。
- * done：報酬照付法入帳、抽成與出場費與分紅、信譽 +2、一起去的人親密度 +2、錢照說好的付了的人忠誠 +2、請來的人放掉。
- * failed：沒有報酬、信譽 −3、請來的人放掉；已經付的出場費不退。
+ * done：報酬照付法入帳、抽成與出場費與分紅、信譽（看委託與主角的級，rep.ts）、一起去的人親密度 +2、錢照說好的付了的人忠誠 +2、請來的人放掉。
+ * failed：沒有報酬、信譽 −3（不分等級）、請來的人放掉；已經付的出場費不退。
  * 手上已經沒有這件委託時只把等著的事清掉。
  */
 export function payoutDraft(k: Kernel, state: GameState, pend: PendingEnd): ReportDraft {
@@ -227,7 +228,7 @@ export function payoutDraft(k: Kernel, state: GameState, pend: PendingEnd): Repo
   const lines: string[] = []
 
   if (pend.outcome === 'failed') {
-    const rep = effectChanges(k, state, { kind: 'rep', amount: rules.rep_fail })
+    const rep = repChanges(k, state, rules.rep_failed)
     changes.push(...rep.changes)
     lines.push(`「${job.title}」失敗了：沒有報酬。`, ...rep.lines)
     if (entries.some((e) => (e.cost.cash ?? 0) > 0)) lines.push('已經付出去的出場費不退。')
@@ -251,7 +252,8 @@ export function payoutDraft(k: Kernel, state: GameState, pend: PendingEnd): Repo
     lines.push(...e.lines)
   }
   for (const f of s.segments.filter((x) => x.kind === 'fee' && (x.debt ?? 0) > 0)) lines.push(`${f.name}的出場費還欠 ${formatAmount(f.debt!)}（報酬不夠，你身上也補不出來），這一筆記成欠；忠誠照沒付算。`)
-  const rep = effectChanges(k, state, { kind: 'rep', amount: rules.rep_done })
+  // 街頭信譽：看委託的級和主角現在的級（rep.ts）；比主角低級的不變
+  const rep = repChanges(k, state, repGainOf(k, state, job, s.rating).amount)
   changes.push(...rep.changes)
   lines.push(...rep.lines)
   // 委託人的勢力：完成它當委託人的委託，好感 +3；評價最高再 +2（FACTIONS 5.2 節）。沒有寫委託人勢力、或好感的功能沒裝就沒有

@@ -310,27 +310,36 @@ export function taxiBlock(k: Kernel, state: GameState, to: string): string | nul
 }
 
 /**
+ * 浮空計程車抵達的那一份報告（transit.taxi，phase arrive）：用 move 把人放到那一站、記去過這一站、帶 transit_taxi（where.phase 是 arrive）。
+ * 只做抵達，不問付不付得起、去過沒有（那是出發的事，taxiBlock 管）：出發那一份已經提交之後，畫面照現在的狀態重做這一份用。沒有這一站丟 ActionBlocked。
+ */
+export function taxiArrival(k: Kernel, state: GameState, to: string): ReportDraft {
+  const q = taxiQuote(k, state, to)
+  if (!q) throw new ActionBlocked(`沒有 ${to} 這一站。`)
+  const stop: StopDef = { id: q.station.key, name: q.station.name, block: q.station.block, at: q.station.at }
+  const moved = moveChanges(k, state, stop)
+  return draft(
+    state, 'transit.taxi', `浮空計程車停在${stop.name}站。`,
+    [...moved.changes, { op: 'transit.visit', station: q.station.key }], 'arrived', `你到了${stop.name}站。`,
+    { triggers: [{ point: 'transit_taxi', where: { phase: 'arrive', kind: 'taxi', block: q.station.block, ...(q.districtId ? { district: q.districtId } : {}) } }], data: { to: q.station.key } },
+  )
+}
+
+/**
  * 叫浮空計程車（報告 transit.taxi，出發與抵達各一份，照順序提交）：帳戶付車資（起跳 ＋ 每公里 × 公里數，乘目的地那一區的物價），
- * 出發那一份花 10 分鐘、抵達那一份用 move 把人放到那一站；兩份各帶一個 transit_taxi（where.phase 是 depart 或 arrive）。
+ * 出發那一份花 10 分鐘、抵達那一份（taxiArrival）用 move 把人放到那一站；兩份各帶一個 transit_taxi（where.phase 是 depart 或 arrive）。
  */
 export function taxi(k: Kernel, state: GameState, to: string): ReportDraft[] {
   const block = taxiBlock(k, state, to)
   if (block) throw new ActionBlocked(block)
   const q = taxiQuote(k, state, to)!
-  const stop: StopDef = { id: q.station.key, name: q.station.name, block: q.station.block, at: q.station.at }
   const from = { ...(state.location.district ? { district: state.location.district } : {}), ...(state.location.block ? { block: state.location.block } : {}) }
-  const moved = moveChanges(k, state, stop)
   const depart = draft(
-    state, 'transit.taxi', `你叫了一輛浮空計程車，往${stop.name}站。`,
-    [{ op: 'cred', delta: -q.fare }, { op: 'time', minutes: q.minutes }], 'departed', `你叫了一輛浮空計程車往${stop.name}站，${q.km} 公里，車資 ${formatAmount(q.fare)}（帳戶）。`,
+    state, 'transit.taxi', `你叫了一輛浮空計程車，往${q.station.name}站。`,
+    [{ op: 'cred', delta: -q.fare }, { op: 'time', minutes: q.minutes }], 'departed', `你叫了一輛浮空計程車往${q.station.name}站，${q.km} 公里，車資 ${formatAmount(q.fare)}（帳戶）。`,
     { triggers: [{ point: 'transit_taxi', where: { phase: 'depart', kind: 'taxi', ...from } }], data: { to: q.station.key, km: q.km, fare: q.fare } },
   )
-  const arrive = draft(
-    state, 'transit.taxi', `浮空計程車停在${stop.name}站。`,
-    [...moved.changes, { op: 'transit.visit', station: q.station.key }], 'arrived', `你到了${stop.name}站。`,
-    { triggers: [{ point: 'transit_taxi', where: { phase: 'arrive', kind: 'taxi', block: q.station.block, ...(q.districtId ? { district: q.districtId } : {}) } }], data: { to: q.station.key } },
-  )
-  return [depart, arrive]
+  return [depart, taxiArrival(k, state, to)]
 }
 
 export { stationKey }

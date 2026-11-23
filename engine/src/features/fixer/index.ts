@@ -16,7 +16,7 @@
 //   報告  fixer.hire、fixer.unhire、fixer.payout（kind gig）
 //   掛鉤  activity.end（commission）：做完或失敗記下 pending、撤退記下 retreat；report.after：有 pending 就接著提交 fixer.payout；
 //         rewind.keep：撤退回到進副本之前之後，把請的人全退掉（付出去的錢回來、busy 拿掉、借來的人移除）
-//   規則  fixer_rule 多：rating_bonus、rep_done、rep_fail、borrow_base、borrow_mult、boss_shares、aux_max、bond_*、trip_*（見 model.ts 的 FixerRules）
+//   規則  fixer_rule 多：rating_bonus、rep_same／rep_higher／rep_lower／rep_top／rep_failed／rep_abandon（街頭信譽，見 rep.ts）、borrow_base、borrow_mult、boss_shares、aux_max、bond_*、trip_*（見 model.ts 的 FixerRules）
 //   讀別人的：衍生數值 roster_fee（沒有人註冊當 0）、條件 in_roster、has_favor、變更 favor.spend、效果 owed、owed_to_pc、cash、cred、rep、hostility、loyalty、affinity（沒有人註冊就略過）
 // 委託的生成（M2-commission-gen；gen.ts）：
 //   內容  commission_type（模板）、commission_modifier（詞條）、commission_link（常見的連動）；規則放在 commission_rule/default 的另一部分（reward_range、scales_by_tier、encounters）
@@ -35,6 +35,7 @@ import {
 } from './model'
 import { payoutDraft } from './pay'
 import { retreatRefund } from './hire'
+import { repNonCommissionCeil } from './rep'
 import { LINK_KIND, MODIFIER_KIND, TYPE_KIND, genProblems, linkProblems, modifierProblems, offersFor, typeProblems } from './gen'
 
 export {
@@ -53,6 +54,8 @@ export type { IntelOption, IntelWith, MethodRow, ScoutView, UnknownRow } from '.
 export { auxSetup, bondDc, bondPurpose, borrowOption, borrowPrice, feeOf as hireFeeOf, hire, hireBlocks, hireOptions, retreatRefund, unhire, unhireChanges } from './hire'
 export type { HireInput, HireOption } from './hire'
 export { WALLET_NAME, payoutDraft, splitOf, splitPreview } from './pay'
+export { repChanges, repGainOf, repNonCommissionCeil } from './rep'
+export type { RepGain, RepRelation } from './rep'
 export {
   DEFAULT_GEN_RULES, GEN_FACES, GEN_RETRIES, GEN_RULE_KIND, GEN_SCALES, LINK_KIND, MODIFIER_KIND, OFFERS_PER_DAY, TYPE_KIND,
   commissionIdOf, eligibleTypes, generate, generateTrace, genProblems, genRuleProblems, genRules, linkProblems, modifierProblems, offerIdOf, offerSeed, offersFor, registeredFaces, stagePlan, typeProblems,
@@ -91,7 +94,12 @@ export const fixerFeature: Feature = {
     })
 
     // ---- 街頭信譽 ----
-    k.meters.define({ kind: REP_METER, owner: OWNER, name: '街頭信譽', min: 0, max: 100, start: 0, keyed: 'none', cap: { down: 3, up: 3 } })
+    // 非委託來源（事件、打工、媒體……）的正值最多加到下一階門檻的前一分、不能升階；扣的照扣；玩家明說要而且設定關著的是刻意作弊，不套。
+    // 夾值放在這裡（量表的 ceilOf），走效果 rep 進來的來源都一樣（rep.ts）；委託的結算把算好的量帶 final: true，不被它管
+    k.meters.define({
+      kind: REP_METER, owner: OWNER, name: '街頭信譽', min: 0, max: 100, start: 0, keyed: 'none', cap: { down: 3, up: 3 },
+      ceilOf: (state, key) => repNonCommissionCeil(meterOf(k, state, REP_METER, key)),
+    })
     k.stats.defineStat({
       id: 'rep_grade', owner: OWNER, name: '街頭信譽的等級',
       base: (state, actor) => (actor === state.pc ? gradeOfRepTier(repTierOf(meterOf(k, state, REP_METER))) : 0),

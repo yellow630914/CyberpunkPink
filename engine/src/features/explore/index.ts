@@ -21,8 +21,12 @@ const OWNER = 'explore'
 export const exploreFeature: Feature & { useHere(k: GridKernel, state: GameState, id: string): ReportDraft } = {
   id: OWNER,
   install(k) {
-    // 警戒：照地圖的實例記，0～100；AI 給的效果一件事合計最多 ±20（EVENTS 2.4）
-    k.meters.define({ kind: 'alert', owner: OWNER, name: '警戒', min: 0, max: 100, start: 0, keyed: 'map', cap: { down: 20, up: 20 } })
+    // 警戒：照地圖的實例記，0～100；AI 給的效果一件事合計最多 ±20，而且只在委託副本裡有（EVENTS 2.4）：不在副本裡時 AI 與玩家要的那一筆整筆拿掉。
+    // 地圖實例要存在是格式（量表的鍵檢查）；是不是副本問活動的登錄表，這個功能不知道委託是什麼
+    k.meters.define({
+      kind: 'alert', owner: OWNER, name: '警戒', min: 0, max: 100, start: 0, keyed: 'map', cap: { down: 20, up: 20 },
+      accepts: (state) => (k.activity.active(state).some((a) => a.kind === 'commission') ? null : '警戒只在委託副本裡有。'),
+    })
 
     installWalk(k, OWNER)
     // 副本（或任何開地圖的功能）進圖後問一次：入口就被保全看到時開打或潛行警戒 +5（SITES 12.5）

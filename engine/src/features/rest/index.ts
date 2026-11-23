@@ -26,7 +26,7 @@ import {
 
 export { breathBlock, breathDraft, leaveBlock, leaveDraft, rentBlock, rentDraft, sleepBlock, sleepDraft, sleepOptions } from './ops'
 export type { RentOpts, SleepOption, SleepOpts, SleepSpotId } from './ops'
-export { DEFAULT_REST_RULES, blankRest, homeOf, readRest, restRules, sleepFacilityAt, standingAt } from './model'
+export { DEFAULT_REST_RULES, blankRest, depositOf, homeOf, readRest, residencePools, restRules, sleepFacilityAt, standingAt } from './model'
 export type { HomeState, Level, ResidenceEntry, RestRules, RestState, SleepDef } from './model'
 
 const isHours = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0

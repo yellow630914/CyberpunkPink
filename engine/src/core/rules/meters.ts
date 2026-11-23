@@ -13,6 +13,7 @@
 //      超過的從最後幾筆往回扣，被扣時給白話的提醒（用量表的 name，不出現欄位名）。內建的照寫；玩家明說要的（floor）只擋格式
 //   3. 範圍：夾在 min～max（有 floor 時不低於那張量表同一個鍵的值）。這一步不提醒：數字本來就到頭了，是遊戲的常態，
 //      但 effects 與結果的那一行寫的是實際動的量，已經到頭的那一筆整筆拿掉
+// 往上加的規則性上限 ceilOf 在範圍夾值之前，照前面幾筆套完的狀態算（所以拆成幾筆也一樣）；效果寫 final: true（結算算好的量，只有內建的來源能寫）與玩家明說要而且設定關著的不受它管。
 // 效果裡 adjusted: true 的意思是「amount 已經是修正過的量」：被合計的上限扣過的、以及 resolve 輸出的效果都是；再丟進 resolve 不會再修正一次。
 
 import type { Change, GameState } from '../types'
@@ -21,8 +22,9 @@ import { clampMeter, defaultMeterKey, meterKeyLabel, meterKeyProblems, meterKeyR
 import { isSafeInt } from '../util/sanitize'
 import type { Condition, ConditionDef, ConditionRegistry } from './conditions'
 import type { Effect, EffectDef, EffectRegistry } from './effects'
+import { effectLevel } from './effects'
 
-type MeterEffect = Effect & { key?: string; amount: number; adjusted?: boolean }
+export type MeterEffect = Effect & { key?: string; amount: number; adjusted?: boolean; final?: boolean }
 
 /** 條件組合用的三個名字，不能拿來當量表的名字（ConditionRegistry 先處理它們，量表的條件永遠走不到）。 */
 const COMBINATORS = ['all', 'any', 'not'] as const
@@ -43,7 +45,11 @@ function adjustedAmount(def: MeterDef, e: MeterEffect, state: GameState, key: st
   return roundMeterAmount(def, def.adjust(state, key, e.amount))
 }
 
-function effectDef(def: MeterDef, meters: MeterRegistry): EffectDef<MeterEffect> {
+/**
+ * 一種量表預設的同名效果（registerMeterRules 註冊的就是它）。量表寫了 ownEffect 的，定義它的功能用這個拿到預設的那一份、包一層再自己註冊
+ * （例：敵對值的下限多收 days）。
+ */
+export function meterEffectDef(def: MeterDef, meters: MeterRegistry): EffectDef<MeterEffect> {
   const noteFor = (amount: number, to: number): string => {
     const limit = amount > 0 ? def.cap!.up : def.cap!.down
     if (amount > 0) return to === 0 ? `一次最多讓${def.name}上升 ${limit} 點，這一筆沒有再算。` : `一次最多讓${def.name}上升 ${limit} 點，實際上升了 ${to} 點。`
@@ -54,6 +60,10 @@ function effectDef(def: MeterDef, meters: MeterRegistry): EffectDef<MeterEffect>
     validate: (raw, ctx) => {
       const p: string[] = []
       if (!isSafeInt(raw.amount)) p.push('amount 要是整數（不能是小數、無限、非數，也不能大到失真）')
+      // adjusted 是「量已經是修正過的」的內部記號：只有內建的結算能寫（AI 與玩家要的寫了就不收，不然 adjust 的規則可以繞過去）
+      for (const mark of ['adjusted', 'final'] as const) {
+        if (raw[mark] !== undefined && (typeof raw[mark] !== 'boolean' || effectLevel(raw as Effect, ctx) !== 'builtin')) p.push(`${mark} 是引擎內部用的記號，不能寫`)
+      }
       p.push(...keyFormat(def, raw))
       // 寫明的鍵要查得到（勢力、人、區在內容裡；人另外收存檔裡的角色）
       if (raw.key !== undefined && !p.length) p.push(...meterKeyProblems(def, raw.key, ctx.state, ctx.content))
@@ -63,6 +73,8 @@ function effectDef(def: MeterDef, meters: MeterRegistry): EffectDef<MeterEffect>
     budget: (e, ctx) => {
       if (ctx.level !== 'cap' || !def.cap) return null
       const key = e.key ?? defaultMeterKey(def, ctx.state)
+      // 這個鍵現在不收的整筆拿掉（clamp 會寫提醒），不佔合計的量
+      if (key !== undefined && ctx.level === 'cap' && def.accepts?.(ctx.state, key)) return null
       const amount = adjustedAmount(def, e, ctx.state, key)
       if (amount === 0) return null
       return {
@@ -78,9 +90,15 @@ function effectDef(def: MeterDef, meters: MeterRegistry): EffectDef<MeterEffect>
         const where = def.keyed === 'map' ? '你現在不在任何一張地圖上' : '你現在不在任何一區'
         return { effect: null, note: { from: e.amount, to: 0, notice: `這一筆要算在你現在所在的${def.keyed === 'map' ? '地圖' : '區'}，但${where}，所以沒有記下來。` } }
       }
+      // 來源不是內建的（AI、玩家要的）：這個鍵現在不收就整筆拿掉並提醒（例：警戒只在委託副本裡有、忠誠只有名冊上的人有）
+      const refuse = ctx.level !== 'builtin' ? def.accepts?.(ctx.state, key) : null
+      if (refuse) return { effect: null, note: { from: e.amount, to: 0, notice: `「${def.name}」這一筆沒有算：${refuse}` } }
       const amount = adjustedAmount(def, e, ctx.state, key)
       const now = meterValue(def, ctx.state, key)
-      const actual = clampMeter(meters, ctx.state, def, key, now + amount) - now
+      let target = clampMeter(meters, ctx.state, def, key, now + amount)
+      // 規則性的往上加的上限（例：事件不能讓信譽升階）：照前面幾筆套完的狀態算；結算算好的（final）與玩家明說要而且設定關著的（floor）不受它管
+      if (amount > 0 && def.ceilOf && !e.final && ctx.level !== 'floor') target = Math.min(target, Math.max(now, def.ceilOf(ctx.state, key)))
+      const actual = target - now
       return { effect: actual === 0 ? null : { ...e, key, amount: actual, adjusted: true } }
     },
     toChanges: (e, ctx): Change[] => [{ op: 'meter', kind: def.kind, key: e.key ?? defaultMeterKey(def, ctx.state) ?? '', delta: e.amount }],
@@ -113,8 +131,10 @@ function conditionDef(def: MeterDef): ConditionDef<Condition & { key?: string; m
  */
 export function registerMeterRules(def: MeterDef, meters: MeterRegistry, effects: EffectRegistry, conditions: ConditionRegistry): void {
   if ((COMBINATORS as readonly string[]).includes(def.kind)) throw new Error(`量表種類 ${def.kind} 是條件的組合用字（all、any、not），不能當量表的名字`)
-  if (effects.has(def.kind)) throw new Error(`量表種類 ${def.kind} 和已經註冊的效果撞名，量表（${def.owner}）沒有定義成功`)
+  if (effects.has(def.kind) && !def.ownEffect) throw new Error(`量表種類 ${def.kind} 和已經註冊的效果撞名，量表（${def.owner}）沒有定義成功`)
   if (conditions.kinds().includes(def.kind)) throw new Error(`量表種類 ${def.kind} 和已經註冊的條件撞名，量表（${def.owner}）沒有定義成功`)
-  effects.register(effectDef(def, meters))
+  if (def.ownEffect) {
+    if (!effects.has(def.kind)) throw new Error(`量表種類 ${def.kind}（${def.owner}）寫了 ownEffect，要先註冊同名的效果`)
+  } else effects.register(meterEffectDef(def, meters))
   conditions.register(conditionDef(def))
 }

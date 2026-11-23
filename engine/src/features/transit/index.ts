@@ -12,7 +12,7 @@
 // 報告：transit.board、transit.wait、transit.stop、transit.alight、transit.taxi（出發與抵達各一份）。
 // 觸發點：transit_wait、transit_stop（where: line、kind、stop、block、district、period 是 peak／night／day）、transit_taxi（where.phase 是 depart 或 arrive）。
 // 狀態 state.ext.transit：{ visited, trips, trip }。位置本身用核心的 location（block 與 facility 是站的街區與標記）。
-// 對外：board、wait、advance、alight、taxi（回傳報告草稿）、boardBlock／waitBlock／advanceBlock／alightBlock／taxiBlock（只問不做）、transitView。
+// 對外：board、wait、advance、alight、taxi（回傳報告草稿）、taxiArrival（只做抵達那一份）、boardBlock／waitBlock／advanceBlock／alightBlock／taxiBlock（只問不做）、transitView。
 
 import type { Change, Feature, GameState, GridUse, Kernel } from '../../core'
 import { ContentError, isRecord, isSafeInt } from '../../core'
@@ -23,7 +23,7 @@ import {
   EXT, LINE_KIND, OWNER, PAY_KINDS, RIDE_ACTIVITY, RULE_KIND, lineClosed, lineEntry, linesOf, lineProblems, ruleProblems, stationAt, transitOf, tripProblems,
 } from './model'
 
-export { SCAN_KIND, BOARD_REF, advance, advanceBlock, alight, alightBlock, board, boardBlock, interruptRide, planBoard, taxi, taxiBlock, taxiQuote, wait, waitBlock } from './trip'
+export { SCAN_KIND, BOARD_REF, advance, advanceBlock, alight, alightBlock, board, boardBlock, interruptRide, planBoard, taxi, taxiArrival, taxiBlock, taxiQuote, wait, waitBlock } from './trip'
 export type { BoardInput, BoardPlan, TaxiQuote } from './trip'
 export { transitView } from './view'
 export type { DirectionView, RideStopView, RideView, StationLineView, TaxiDestinationView, TransitView } from './view'

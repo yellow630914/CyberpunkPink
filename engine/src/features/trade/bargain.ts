@@ -5,7 +5,8 @@
 //   - 用人情：不擲，當成大成功；用掉一個店主或他後台勢力欠你的小人情（bargainByFavor）
 //   結果是一個效果 { kind: 'bargain', shop, method, degree }：行動種類的退路（ActionKindDef.fallback）照判定定案的成功程度給它，
 //   而且算回報只照規則（rewardByRules）：結果完全由表決定，AI 沒有東西可以補，所以不會漏交、也不會交出和判定不一致的成功程度；
-//   效果本身也只收表裡的四種結果（別的鏈裡 AI 硬塞進來的也一樣），所以不管誰給的，倍率都在表的四個之內。
+//   效果本身也只收表裡的四種結果，而且是內部結算用的（EffectDef.ai: false，EVENTS 2.4 的封閉清單裡沒有它）：AI 與玩家要的結果不能給它，
+//   只有行動種類的退路（內建的來源）給得了，所以不管誰給的，倍率都在表的四個之內，也不會有人不擲骰就拿到大成功（B022）。
 // 整車每間店每天一次：買的乘倍率、賣的除以倍率（quote 的 bargain 那一步），記到今天結束。
 // 這個功能讀別人的東西只經由：meterOf（affinity、fame、hostility）、k.conditions（has_favor、tendency_tag；沒有人註冊就沒有那一種殺法）、k.content。
 //
@@ -268,8 +269,9 @@ interface BargainEffect extends Effect {
 
 /** 登記效果 bargain（install 時呼叫）。 */
 export function registerBargainEffect(k: Kernel): void {
+  // 殺價擲出來的結果：只有行動種類的退路（照判定定案的成功程度，內建的來源）能給；不在 EVENTS 2.4 的清單裡，AI 與玩家要的結果不能用（ai: false）
   k.effects.register<BargainEffect>({
-    kind: BARGAIN_EFFECT, owner: OWNER,
+    kind: BARGAIN_EFFECT, owner: OWNER, ai: false,
     validate: (raw, ctx) => [
       ...(isText(raw.shop) ? (ctx.content.has('shop', raw.shop) ? [] : [`shop：查不到 ${raw.shop} 這間店`]) : ['shop 要是商店的 id']),
       ...((ROLLED as readonly unknown[]).includes(raw.method) ? [] : [`method 要是 ${ROLLED.join('、')} 其中一個（用人情不擲，不走這個效果）`]),

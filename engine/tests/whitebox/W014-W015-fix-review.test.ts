@@ -1,7 +1,7 @@
-// 白箱找到的兩個問題（M2 引擎修正批之後；cpp-tester-whitebox 2026-11-23）。修好之前照預期失敗。
+// 白箱找到的兩個問題（M2 引擎修正批之後；cpp-tester-whitebox 2026-11-23）。已修（M2-fix-bugs）。
 // W014：dev/bugs/2026-11-23-W014.md，重現 tests/whitebox/fixtures/W014-pressure-lost-when-crossing-starts-fight.json
 // W015：dev/bugs/2026-11-23-W015.md，重現 tests/whitebox/fixtures/W015-weekly-rolled-twice.json
-// 修好之後把這個檔搬到 tests/whitebox/（或 tests/features/），它就進主套件。
+// W014：警戒讓目標達成的那份報告同時跨過門檻時，先發 pressure 再接 milestone；W015：跨過週一時 turn.end 不再收 bill.settle 帶的 weekly（time.passed 已經擲過）。
 
 import { describe, expect, it } from 'vitest'
 import type { ContentPack, Feature } from '../../src'

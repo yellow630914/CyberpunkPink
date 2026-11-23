@@ -1,6 +1,6 @@
 // B019（cpp-tester-boundary）：忠誠只有名冊上的人有（NPC_SYSTEM 10.4 節：「忠誠（0～100）……只有名冊上的人有」）。
 // AI 給不在名冊上的人忠誠，引擎照收（state.meters.loyalty 多一個鍵），結果的那一行寫「忠誠（街坊小周）：+5」，正文會照它寫。
-// 重現的資料：tests/boundary/fixtures/B019-loyalty-non-member.json。修好之後搬到 tests/boundary/。
+// 重現的資料：tests/boundary/fixtures/B019-loyalty-non-member.json。已修（M2-fix-bugs）。
 
 import { describe, expect, it } from 'vitest'
 import { effectCtx, meterOf } from '../../src'

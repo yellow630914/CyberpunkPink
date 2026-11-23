@@ -12,7 +12,7 @@ import type { SpecialMapEntry } from '../../src'
 import { billPreview, billsFeature, currentLines, readBills, setBill } from '../../src/features/bills'
 import { characterFeature } from '../../src/features/character'
 import {
-  breathDraft, homeOf, leaveDraft, readRest, rentDraft, restFeature, sleepDraft, sleepOptions,
+  breathDraft, depositOf, homeOf, leaveDraft, readRest, rentDraft, residencePools, restFeature, restRules, sleepDraft, sleepOptions,
 } from '../../src/features/rest'
 import { arrive, worldFeature } from '../../src/features/world'
 import { METER_CONTENT, makeActor, makeGame, meterFeature, observed, testMeter } from '../../src/testkit'
@@ -438,7 +438,7 @@ describe('觸發點', () => {
 describe('sleepOptions 與站在設施上能做的事', () => {
   it('沒有家、不在設施上：只有露宿', () => {
     const g = make()
-    expect(sleepOptions(g.k, g.state)).toEqual([{ id: 'wild', name: '露宿', rate: 0.1, cost: 0, pay: null, current: true, block: null }])
+    expect(sleepOptions(g.k, g.state)).toEqual([{ id: 'wild', name: '露宿', rate: 0.1, cost: 0, pay: null, current: true, treated: false, block: null }])
   })
 
   it('有家但人在別處：自己的住處列出來但灰掉，寫「你不在自己的住處」', () => {
@@ -883,5 +883,70 @@ describe('報告與不變式', () => {
     g.state.ext.rest = 42
     expect(readRest(g.state)).toEqual({ lastSleep: null, breaths: 0, home: null })
     expect(() => g.commit(sleepDraft(g.k, g.state))).not.toThrow()
+  })
+})
+
+describe('M2-fix-bugs：醫療床、押金與收的錢', () => {
+  const withClinic = (): ContentPack => base((c) => {
+    c.facility_type!.push({ id: 'fac_clinic', name: '診所', sleep: { rate: 0.6, cost: 50, treated: true } })
+    c.block![1]!.facilities.F2 = { type: 'fac_clinic', name: '診所' }
+  })
+
+  it('診所的病床：睡處標 treated；旅館、潛艙店、露宿、自己的住處不標', () => {
+    const g = make({ pack: withClinic(), hp: 5, pc: { attrs: { body: 10 } } })
+    stand(g, 'b_yard', 'F2')
+    const opts = sleepOptions(g.k, g.state)
+    expect(opts.map((o) => [o.id, o.treated])).toEqual([['facility', true], ['wild', false]])
+    const pod = make()
+    stand(pod, 'b_yard', 'F1')
+    expect(sleepOptions(pod.k, pod.state).map((o) => [o.id, o.treated])).toEqual([['facility', false], ['wild', false]])
+    rentHome(pod)
+    stand(pod, 'b_hive', 'F1')
+    expect(sleepOptions(pod.k, pod.state).find((o) => o.id === 'home')!.treated).toBe(false)
+  })
+
+  it('睡在病床上：生命低於一半、沒有 treated 也回得到診所的 60%；睡露宿與旅館還是最多一半', () => {
+    const g = make({ pack: withClinic(), hp: 5, pc: { attrs: { body: 10 } } })
+    stand(g, 'b_yard', 'F2')
+    g.commit(sleepDraft(g.k, g.state, { spot: 'facility' }))
+    expect(pc(g).hp).toBe(29) // 5 ＋ 60% × 40
+    const wild = make({ pack: withClinic(), hp: 5, pc: { attrs: { body: 10 } } })
+    wild.commit(sleepDraft(wild.k, wild.state, { spot: 'wild' }))
+    expect(pc(wild).hp).toBe(9) // 露宿 10%：5 ＋ 4，沒到一半
+    const capsule = make({ hp: 5, pc: { attrs: { body: 10 } }, money: { cred: 1000, cash: 100 } })
+    stand(capsule, 'b_hive', 'F2')
+    capsule.commit(sleepDraft(capsule.k, capsule.state, { spot: 'facility' }))
+    expect(pc(capsule).hp).toBe(15) // 膠囊旅館 25%：5 ＋ 10
+  })
+
+  it('睡在病床上的報告：不說「沒處理過、最多回到一半」，也不帶生命值的數字；treated 的格式要是布林', () => {
+    const g = make({ pack: withClinic(), hp: 5, pc: { attrs: { body: 10 } } })
+    stand(g, 'b_yard', 'F2')
+    const r = g.commit(sleepDraft(g.k, g.state, { spot: 'facility' }))
+    const text = r[0]!.narration?.results?.join('') ?? ''
+    expect(text).not.toMatch(/生命值/)
+    expect(text).not.toContain('沒處理過')
+    expect(text).toContain('傷勢好了不少')
+    const withTreated = (treated: unknown): ContentPack => base((c) => { c.facility_type!.push({ id: 'fac_x', name: '壞的', sleep: { rate: 0.5, cost: 1, treated } }) })
+    expect(() => make({ pack: withTreated('yes') })).toThrow(/sleep\.treated 要是 true 或 false/)
+    expect(() => make({ pack: withTreated(1) })).toThrow(ContentError)
+    expect(() => make({ pack: withTreated(false) })).not.toThrow()
+    expect(() => make({ pack: withTreated(true) })).not.toThrow()
+  })
+
+  it('depositOf 是租的流程用的同一份押金；residencePools 是這個住處收的錢（介面不重算）', () => {
+    const g = make()
+    const k = g.k
+    const weeks = restRules(k).deposit_weeks
+    const unit = k.content.get<{ id: string; rent: number; cash_ok?: boolean | 'only' }>('residence', 'r_unit')!
+    expect(depositOf(k, unit)).toBe(unit.rent * weeks)
+    const before = g.state.money.cred
+    rentHome(g)
+    expect(before - g.state.money.cred).toBe(depositOf(k, unit))
+    expect(readRest(g.state).home!.deposit).toBe(depositOf(k, unit))
+    expect(residencePools({})).toEqual(['cred'])
+    expect(residencePools({ cash_ok: true })).toEqual(['cred', 'cash'])
+    expect(residencePools({ cash_ok: 'only' })).toEqual(['cash'])
+    expect(residencePools(k.content.get<{ id: string; cash_ok?: boolean | 'only' }>('residence', 'r_shack')!)).toEqual(['cash'])
   })
 })

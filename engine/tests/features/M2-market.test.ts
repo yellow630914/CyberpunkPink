@@ -687,7 +687,8 @@ describe('用人情殺價（不擲，當成大成功）', () => {
 })
 
 describe('bargain 效果：只收表裡的四種結果', () => {
-  const ctxOf = (g: G, source: 'ai' | 'builtin' | 'player' = 'ai') => effectCtx(g.k, g.state, { source })
+  // bargain 是內部結算用的效果（行動種類的退路給，內建的來源）：AI 與玩家要的結果不能用（B022），所以這裡預設用 builtin
+  const ctxOf = (g: G, source: 'ai' | 'builtin' | 'player' = 'builtin') => effectCtx(g.k, g.state, { source })
   it('格式：店查得到、殺法是要擲的那三種（用人情不走效果）、成功程度是四種之一', () => {
     const g = mk()
     const ok = { kind: 'bargain', shop: 's_hard', method: 'haggle', degree: 'success' }
@@ -701,7 +702,21 @@ describe('bargain 效果：只收表裡的四種結果', () => {
     expect(trade(g).bargains.s_hard!.mult).toBe(0.9)
   })
 
-  it('已經殺過、被趕出來、不能殺價的店：整筆拿掉並有提醒（AI 重複給也一樣）', async () => {
+  it('AI 與玩家要的結果不能給 bargain（封閉清單：不擲骰就拿到大成功）；內建的照常（B022）', () => {
+    const g = mk()
+    const ok = { kind: 'bargain', shop: 's_hard', method: 'haggle', degree: 'critical' }
+    for (const source of ['ai', 'player'] as const) {
+      for (const clampAsked of [true, false]) {
+        const r = g.k.effects.resolve([{ ...ok, asked: '大成功' }], effectCtx(g.k, g.state, { source, clampAsked, playerInput: '我要大成功' }))
+        expect(r.errors.join(), `${source} ${clampAsked}`).toContain('不是 AI 與玩家要的結果可以用的效果')
+        expect(r.changes).toEqual([])
+      }
+    }
+    expect(g.k.effects.resolve([ok], ctxOf(g)).errors).toEqual([])
+    expect(trade(g).bargains.s_hard).toBeUndefined()
+  })
+
+  it('已經殺過、被趕出來、不能殺價的店：整筆拿掉並有提醒（重複給也一樣）', async () => {
     const g = mk()
     await haggle(g, 's_hard', 'critical')
     const again = g.k.effects.resolve([{ kind: 'bargain', shop: 's_hard', method: 'haggle', degree: 'critical' }], ctxOf(g))

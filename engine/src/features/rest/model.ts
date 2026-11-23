@@ -44,6 +44,8 @@ export interface SleepDef {
   rate: number
   /** 一晚的價錢 */
   cost: number
+  /** 醫療床：睡在這裡算傷口處理過（診所的病床；旅館、潛艙店不寫）。沒寫是 false */
+  treated?: boolean
 }
 
 // ---- 規則 ----
@@ -141,6 +143,7 @@ export function sleepProblems(v: unknown): string[] {
   const p: string[] = []
   if (!isRatio(v.rate)) p.push('sleep.rate 要是 0～1 的數字（生命值上限的幾成）')
   if (!(isSafeInt(v.cost) && v.cost >= 0)) p.push('sleep.cost 要是 0 以上的整數')
+  if (v.treated !== undefined && typeof v.treated !== 'boolean') p.push('sleep.treated 要是 true 或 false（醫療床：睡在這裡算傷口處理過）')
   return p
 }
 
@@ -210,7 +213,7 @@ export function sleepFacilityAt(k: Cx, state: Pick<GameState, 'location'>): { na
   const type = k.content.get<ContentEntry & { sleep?: unknown }>(FACILITY_TYPE_KIND, f.type)
   if (!type || type.sleep === undefined || sleepProblems(type.sleep).length > 0) return null
   const sleep = type.sleep as SleepDef
-  return { name: isText(f.name) ? f.name : f.type, type: f.type, sleep: { rate: sleep.rate, cost: sleep.cost } }
+  return { name: isText(f.name) ? f.name : f.type, type: f.type, sleep: { rate: sleep.rate, cost: sleep.cost, ...(sleep.treated === true ? { treated: true } : {}) } }
 }
 
 /** 付一筆錢用哪一種：指定的就用指定的（不夠回 null）；沒指定先帳戶、不夠再現金。 */
@@ -224,6 +227,9 @@ export function payFor(money: GameState['money'], cost: number, want?: Pool, all
 export function residencePools(r: Pick<ResidenceEntry, 'cash_ok'>): Pool[] {
   return r.cash_ok === 'only' ? ['cash'] : r.cash_ok === true ? ['cred', 'cash'] : ['cred']
 }
+
+/** 租這個住處要付的押金（週租 × deposit_weeks 週；規則表 rest_rule 管幾週）。畫面與租的流程用同一份。 */
+export const depositOf = (k: Cx, r: Pick<ResidenceEntry, 'rent'>): number => r.rent * restRules(k).deposit_weeks
 
 /** 帳單裡房租這一項從哪裡扣（掛點 bill.collect 的 pay）。 */
 export const rentPayOf = (r: Pick<ResidenceEntry, 'cash_ok'>): 'cred' | 'cash' | 'either' => (r.cash_ok === 'only' ? 'cash' : r.cash_ok === true ? 'either' : 'cred')

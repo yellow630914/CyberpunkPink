@@ -55,8 +55,11 @@ export const directorFeature: Feature = {
     // 一個行動的回合結束：這一回合碰到的觸發點。報告帶 rewind 時狀態馬上換成快照那一刻，導演做什麼都不會留下，所以不走
     k.hooks.on('turn.end', OWNER, ({ state, report, reports }) => {
       if (report.rewind) return
-      // 這一回合的觸發點：行動自己那一份加上掛鉤接著提交的報告帶的（例：警戒漲過門檻，副本接一份帶 pressure 的報告）
-      const triggers = reports.flatMap((r) => r.triggers ?? [])
+      // 這一回合的觸發點：行動自己那一份加上掛鉤接著提交的報告帶的（例：警戒漲過門檻，副本接一份帶 pressure 的報告）。
+      // 這一回合跨過週一的話，weekly 已經由 time.passed 在週一 06:00 擲過了：帳單結算那份報告（bill.settle）帶的 weekly 不再擲第二次（W015）；
+      // 沒有跨過週一、卻有人給 weekly 的（別的功能自己發的）照收
+      const crossedMonday = reports.some((r) => weeklyCrossings(r.time.start, r.time.end, k.timeRules).length > 0)
+      const triggers = reports.flatMap((r) => r.triggers ?? []).filter((t) => !(crossedMonday && t.point === 'weekly'))
       const drafts = runPasses(k, state, [{ triggers, at: state.time }], { turnKey: report.id, launchPending: (report.launch?.length ?? 0) > 0 })
       return drafts.length > 0 ? drafts : undefined
     })

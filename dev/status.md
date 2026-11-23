@@ -191,6 +191,23 @@
 - 同類風險已掃過：其他功能的 `narration.results` 沒有「生命值／傷害／感載 ±N」的寫法（效果的 `describe` 本來就寫成描寫），只有 rest 是例外；之後新寫結果句子別帶這種數字。
 - 介面要跟著改的（不在這一批）：見 M2 介面修正批；`ui/` 的示意包不用再濾掉核心包同 id 的 npc；睡覺與喘口氣的結果句子變了；建角的名冊會真的進名冊；`interactions` 多了 `note`；`transit` 的車上事件選開打後人在下一站、`rewindToKind('stage'／'entry')` 在副本裡被擋；`trade_rule` 的欄位名換了（`hostility_markups`）。
 
+## M2 修 bug 批（2026-11-23，cpp-architect；dev/work/M2-fix-bugs.md、dev/adr/0017 最後一節第 16～25 項、不變式第 128～136 條）
+
+使用者裁決：B017 不管（接受、不修）；`hostility_floor` 照場合分兩列；街頭信譽改規則；放棄 −5、兩個下限取較高者（文件代理補的）。引擎主套件 194 個檔、5261 個以上的測試全過，`npx tsc --noEmit` 沒有錯，冒煙 7 個檔過；`test:pending` 只剩 B009；ui 的 vue-tsc 與 620 個測試沒動也全過。
+
+做完：
+- B016 體悟 AI ±5；B018 警戒只在委託副本裡、key 要是存在的地圖實例；B019 忠誠只有名冊上的人（`MeterDef.accepts`，AI 與玩家要的那一筆整筆拿掉並提醒）；B020 `special_map` 的形狀檢查不丟例外；B021 診所病床算處理過（`facility_type.sleep.treated`）；B022 效果登錄表的 AI 可用清單（`EffectDef.ai: false`：`debt`、`bargain`）、`bill` 新項目總額照 `cred` 的上限；W014 警戒讓目標達成同時跨過門檻時先發 pressure；W015 跨過週一 weekly 只擲一次；B017 改成記現況的一般測試。
+- `hostility_floor`：永久的（AI 一件事 +5）與有期限的（`days`，1～365，只有內建的事件資料能寫，下限本身是 `amount`）；同時有好幾個取最高的、不相加、各自到期；每週消退照每個週一的下限算。
+- 街頭信譽新規則：同級 +2、高一級以上 +4、S 再 +1、低級不變、失敗 −3、放棄 −5；非委託來源最多加到下一階門檻 −1（量表的 `ceilOf`），委託的結算可以升階；數字在 `fixer_rule`（`rep_same`、`rep_higher`、`rep_lower`、`rep_top`、`rep_failed`、`rep_abandon`）。
+- 介面回報的缺口：`features/rest` 匯出 `depositOf`、`residencePools`；`features/transit` 匯出 `taxiArrival`。
+
+還沒做、或要使用者決定（細節見 ADR 第 25 項）：
+- 表裡沒寫、但還開著給 AI 的 `perk`、`meet`、`npc_known`、`scout_reveal`。
+- `bill.settle` 帶的 `where.overdue` 沒人收（家園的討債事件要它時，要讓導演的 weekly 向帳單問 `where`）。
+- 戰敗與契約事件的 `hostility_floor` 一定要寫 `days`：等那兩種資料進來時在資料檢查裡做。
+- AI 的體悟往下是 5 還是 0；放棄的 −5 對「還沒出發就放棄」也扣。
+- 介面要跟著改的（不在這一批）：`ui/src/stores/engine.ts` 的深匯入 `@engine/src/features/rest/model` 與 `r.rent * weeks`（改 `depositOf`、`residencePools`）、自己重做的 `taxiArrival`（改引擎的）；放棄委託的確認要說「信譽 −5」（`fixerRules(k).rep_abandon`）；睡處的選項多了 `treated`（診所的病床畫面可以標「算傷口處理過」）；`hostilityView` 的 `floor` 現在是永久與有期限取較高的；示意包的診所設施要加 `sleep.treated: true`。
+
 ## M2-fix-ui 回報（2026-11-23，留給下一批引擎小修）
 
 - rest 匯出 `depositOf`、`residencePools`（介面現在深匯入 model、押金在 store 重算）。

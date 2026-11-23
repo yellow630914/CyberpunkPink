@@ -165,7 +165,7 @@ export function registerFreeActionTasks(k: Kernel, tasks: TaskRegistry): void {
       sections: [
         ['judgment', `${DEGREE_NAME[input.judgment.degree]}。${input.judgment.reason}${input.judgment.twist ? ` 轉折：${input.judgment.twist}` : ''}`],
         ['player', input.pending.input.text ?? ''],
-        ['input', json({ degree: input.judgment.degree, reason: input.judgment.reason, twist: input.judgment.twist, hint: input.hint, grade: input.pending.grade, kinds: k.effects.kinds(), player_text: input.pending.input.text ?? '' })],
+        ['input', json({ degree: input.judgment.degree, reason: input.judgment.reason, twist: input.judgment.twist, hint: input.hint, grade: input.pending.grade, kinds: k.effects.aiKinds(), player_text: input.pending.input.text ?? '' })],
       ],
     }),
     check: (raw, input, ctx) => {

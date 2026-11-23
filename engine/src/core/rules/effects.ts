@@ -86,6 +86,11 @@ export interface EffectBudget<E extends Effect = Effect> {
 export interface EffectDef<E extends Effect = Effect> {
   kind: string
   owner: string
+  /**
+   * AI 生成的與玩家要的結果能不能用這個效果（EVENTS 2.4 節的封閉清單）。沒寫是可以；寫 false 就是只有內建的（事件資料、程式自己的結算）能用，
+   * 來源不是 builtin 的整批驗證不過（夾值關著也一樣：封閉清單不是上限）。例：debt（併債的結果）、bargain（殺價擲出來的結果）是內部結算用的。
+   */
+  ai?: boolean
   /** 格式：欄位、型別、引用的 id 存不存在。回傳錯誤訊息（空的就是合格）。內容底線也在這裡擋。數量要是安全整數（isSafeInt） */
   validate(raw: Record<string, unknown>, ctx: EffectCtx): string[]
   /** 一件事合計的上限：這一筆在這個情境下（看 ctx.level）要不要算進合計、上下限是多少。回傳 null 就是不算 */
@@ -151,6 +156,11 @@ export class EffectRegistry {
     return [...this.defs.keys()]
   }
 
+  /** AI 與玩家要的結果可以用的種類（EVENTS 2.4 節的封閉清單；給 AI 的提示與驗證的錯誤訊息用）。 */
+  aiKinds(): string[] {
+    return [...this.defs].filter(([, d]) => d.ai !== false).map(([kind]) => kind)
+  }
+
   /** 只驗格式（內容載入時檢查事件的 effects 用）。 */
   validate(raw: unknown, ctx: EffectCtx, path = 'effects'): string[] {
     if (!Array.isArray(raw)) return [`${path}：要是一個陣列`]
@@ -160,7 +170,8 @@ export class EffectRegistry {
   private validateOne(e: unknown, ctx: EffectCtx, at: string): string[] {
     if (!isRecord(e)) return [`${at}：要是一個物件`]
     const def = typeof e.kind === 'string' ? this.defs.get(e.kind) : undefined
-    if (!def) return [`${at}.kind：${JSON.stringify(e.kind)} 不在封閉清單裡（可以用的：${this.kinds().join('、')}）`]
+    if (!def) return [`${at}.kind：${JSON.stringify(e.kind)} 不在封閉清單裡（可以用的：${(ctx.source === 'builtin' ? this.kinds() : this.aiKinds()).join('、')}）`]
+    if (def.ai === false && ctx.source !== 'builtin') return [`${at}.kind：${JSON.stringify(e.kind)} 不是 AI 與玩家要的結果可以用的效果（EVENTS 2.4 節的封閉清單；可以用的：${this.aiKinds().join('、')}）`]
     if (e.asked !== undefined && typeof e.asked !== 'string') return [`${at}.asked：要是玩家輸入裡的一段字`]
     return def.validate(e, ctx).map((p) => `${at}：${p}`)
   }

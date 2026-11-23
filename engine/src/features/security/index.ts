@@ -6,8 +6,8 @@
 // 接上核心的地方：
 //   內容  security_rule（id: default，蓋掉內建的規則數字）；多讀的欄位：faction.bribe（收不收錢）、district.hostility_mult（{ 勢力 id 或 *: 倍率 }）、
 //         item.legal 與 tags（fake_id、license）
-//   量表  hostility（0～100、AI ±10、下限是 hostility_floor、效果照區的倍率加）、hostility_floor、favor（0～100、起始 10、AI ±5）；
-//         同名的效果與條件核心自動有
+//   量表  hostility（0～100、AI ±10、下限是 hostility_floor 與有期限的下限裡較高的、效果照區的倍率加）、hostility_floor（永久的下限；AI 一件事最多 +5）、favor（0～100、起始 10、AI ±5）；
+//         同名的效果與條件核心自動有（hostility_floor 的效果自己註冊：多收 days，見 floor.ts）
 //   條件  hostility_tier、favor_tier（{ faction, min?, max? }，段寫 id 或第幾段）、scan_option（掃橋的事件裡選項走不走得通）
 //   活動  scan（setup: { point, name, strength, faction?, need_class? }；activity.end 的 result: { passed, how }）
 //   掛點  scan.carried（這個功能宣告；gear 回答）；report.before（記「那一週有新的敵對值」、下限抬高時讓敵對值跟上）；time.passed（順序 12，每週消退）；
@@ -19,9 +19,12 @@ import type { Condition, ContentEntry, Feature, Kernel } from '../../core'
 import { ContentError, isRecord } from '../../core'
 import { installScan } from './scan'
 import { FAVOR_TIERS, HOSTILITY_TIERS, OWNER, RULE_KIND, favorTier, hostilityTier, ruleProblems, tierIndex } from './model'
+import { FLOOR_DEF, FLOOR_METER, registerFloor, timedFloorAt } from './floor'
 import { decayDraft, standingBefore } from './standing'
 
 export { bribe, bribeBlock, bribePrice, bribeUnit, favorView, hostilityView } from './standing'
+export { FLOOR_CHANGE, MAX_FLOOR_DAYS, floorOf, timedFloorAt, timedFloors } from './floor'
+export type { TimedFloor } from './floor'
 export type { FavorRow, HostilityRow } from './standing'
 export { OPTION_FAKE, OPTION_PROCEED, OPTION_TURN_BACK, SCAN_ACTIVITY, lockOf, planScan, resolveScan, scanView } from './scan'
 export type { Carried, FakePlan, Resolution, ScanItemView, ScanOptionView, ScanPlan, ScanStepView, ScanView } from './scan'
@@ -59,10 +62,13 @@ export const securityFeature: Feature = {
     k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
 
     // ---- 量表 ----
-    // 下限先定義：敵對值的下限讀它（越過粉牆的人貞網局的敵對值永遠 ≥ 30；沉溺與戰敗事件各自寫它）。AI 不能動它
-    k.meters.define({ kind: 'hostility_floor', owner: OWNER, name: '敵對值的下限', min: 0, max: 100, start: 0, keyed: 'faction', cap: { down: 0, up: 0 } })
+    // 下限先定義：敵對值的下限讀它（越過粉牆的人貞網局的敵對值永遠 ≥ 30；沉溺與戰敗事件各自寫它）。
+    // 有兩種：永久的（量表 hostility_floor；AI 一件事最多 +5）與有期限的（效果多寫 days，記在 ext，到期解除；只有內建的事件資料能用）；同時有好幾個取最高的（floor.ts）
+    registerFloor(k)
+    k.meters.define(FLOOR_DEF)
     k.meters.define({
-      kind: 'hostility', owner: OWNER, name: '敵對值', min: 0, max: 100, start: 0, keyed: 'faction', cap: { down: 10, up: 10 }, floor: 'hostility_floor',
+      kind: 'hostility', owner: OWNER, name: '敵對值', min: 0, max: 100, start: 0, keyed: 'faction', cap: { down: 10, up: 10 }, floor: FLOOR_METER,
+      floorOf: (state, key) => timedFloorAt(state, key),
       // 區的倍率（FACTIONS 6.2 節；DISTRICTS 第 2 節）：只算往上加的；照勢力寫，或用 * 寫全部。沒寫就是 1
       adjust(state, key, delta) {
         if (delta <= 0 || !state.location.district) return delta
