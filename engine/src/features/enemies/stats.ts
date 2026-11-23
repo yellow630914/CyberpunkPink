@@ -5,8 +5,8 @@ import type { BattleOverlayInit, BattleSetup, BattleUnitInit, BattleWeapon, Cont
 import { ATTR_IDS, areaGrade, attrMod, enemyCoefFor, gradeDice, weaponFromClass } from '../../core'
 import type { Kernel } from '../../core'
 import { ENEMY_CURVE, OVERLAY_POINTS } from './curve'
-import type { EncounterEntry, EncounterFoe, EnemyEntry } from './kinds'
-import { UNBRIDGED_KINDS, resolveEnemy } from './kinds'
+import type { EncounterEntry, EncounterFoe, EnemyAttached, EnemyEntry } from './kinds'
+import { UNBRIDGED_KINDS, attachedProblems, resolveEnemy } from './kinds'
 
 type Cx = Pick<Kernel, 'content'>
 
@@ -110,7 +110,24 @@ function buildWeapons(content: ContentRegistry, e: EnemyEntry, grade: Grade, att
   })
 }
 
-/** 「誰上場」的 enemy 來源：ref 是 { from: 'enemy', id, grade?, strength?, name? }。 */
+/**
+ * 這個單位開打時帶的附屬單位：UnitRef 寫了 attached 就用它蓋掉兵種自己的（寫空陣列就是不帶），沒寫照兵種的。
+ * 蓋的那一份照同一套格式檢查，每一筆的 enemy 要查得到、而且是掛在格上的兵種；不對就丟錯（訊息寫出是哪一筆）。
+ */
+function attachedOf(k: Cx, e: EnemyEntry, ref: Record<string, unknown>): EnemyAttached[] | undefined {
+  if (ref.attached === undefined) return e.attached
+  const bad = attachedProblems(ref.attached, 'attached')
+  if (bad.length) throw new Error(`${e.name}的附屬單位（UnitRef.attached）格式不對：${bad.join('；')}`)
+  const list = ref.attached as EnemyAttached[]
+  list.forEach((a, i) => {
+    if (!k.content.has('enemy', a.enemy)) throw new Error(`${e.name}的附屬單位 attached[${i}]：沒有 ${a.enemy} 這個敵人`)
+    const o = resolveEnemy(k.content, a.enemy)
+    if (!isOverlay(o)) throw new Error(`${e.name}的附屬單位 attached[${i}]：${o.name}（${a.enemy}）不是掛在格上的兵種（position.size 要是 'overlay'）`)
+  })
+  return list
+}
+
+/** 「誰上場」的 enemy 來源：ref 是 { from: 'enemy', id, grade?, strength?, name?, attached? }。 */
 export function enemyUnit(k: Cx, state: GameState, ref: Record<string, unknown>, ctx: { grade: number; allyCount: number }): BattleUnitInit {
   const id = typeof ref.id === 'string' ? ref.id : ''
   const e = resolveEnemy(k.content, id)
@@ -124,12 +141,13 @@ export function enemyUnit(k: Cx, state: GameState, ref: Record<string, unknown>,
   // 招牌行動：技能的 id 放進 unit.ext.abilities.equipped（技能那一邊本來就認）；還沒轉的敘述 { name, text } 收下、不做效果
   const signature = (e.signature ?? []).filter((x): x is string => typeof x === 'string')
   const angel = e.angel !== undefined && e.angel !== 'none' ? e.angel : undefined
+  const attached = attachedOf(k, e, ref)
   const mine: Record<string, unknown> = {
     ...(e.traits?.length ? { traits: [...e.traits] } : {}),
     ...(sink !== undefined ? { sink } : {}),
     ...(angel ? { angel } : {}),
     // 跟著主人的附屬單位：開打時（battle.start）由 overlays.ts 掛上去
-    ...(e.attached?.length ? { attached: e.attached.map((a) => ({ ...a })) } : {}),
+    ...(attached?.length ? { attached: attached.map((a) => ({ ...a })) } : {}),
   }
   const cyber = e.cyber?.length ? e.cyber.map((c) => ({ kind: c.kind, name: c.name, ...(c.contract ? { contract: true } : {}) })) : undefined
   return {

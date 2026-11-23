@@ -110,6 +110,10 @@ export interface EnemyEntry {
   strength?: number
   defeat?: string | string[]
   adult?: string[] | null
+  /** false：打贏之後不能俘虜（非人形的機器、吉祥物、溺感者；ENEMIES 6.1 節）。沒寫就照種類：human 可以，機器要 humanoid，其餘不行 */
+  capture?: boolean
+  /** 人形的機器（機娘、人偶）：沒有感載，被電磁打到停機時制伏也算俘虜的條件（ENEMIES 6.1 節） */
+  humanoid?: boolean
   signature?: EnemySignature[]
   /** 掉落（ENEMIES 第 7 節；格式見 loot.ts）：{ item, chance, qty?, top? } 或還沒轉的 { text } */
   loot?: unknown[]
@@ -170,6 +174,24 @@ export function resolveEnemy(content: ContentRegistry, id: string, seen: string[
   return mergeBase(base as Record<string, unknown>, e as Record<string, unknown>) as EnemyEntry
 }
 
+/**
+ * 附屬單位清單（兵種自己的 attached，或遭遇的 UnitRef.attached 蓋掉它的）的格式：陣列，每一筆 { enemy, count?, slot? }。
+ * 空陣列合格（UnitRef 寫空陣列就是不帶）。at 是訊息裡的欄位路徑。
+ */
+export function attachedProblems(list: unknown, at: string): string[] {
+  const p: string[] = []
+  if (!Array.isArray(list)) return [`${at} 要是陣列（每一筆 { enemy, count?, slot? }）`]
+  list.forEach((a, i) => {
+    const here = `${at}[${i}]`
+    if (!isRec(a)) return void p.push(`${here} 要是 { enemy, count?, slot? }`)
+    if (!isText(a.enemy)) p.push(`${here}.enemy 要是一個 overlay 兵種的 id`)
+    if (a.count !== undefined && !(isInt(a.count) && a.count >= 1 && a.count <= 4)) p.push(`${here}.count 要是 1～4 的整數`)
+    if (a.slot !== undefined && a.slot !== 'same' && !(isInt(a.slot) && a.slot >= 1 && a.slot <= 4)) p.push(`${here}.slot 要是 'same' 或 1～4 的整數`)
+    for (const key of Object.keys(a)) if (!['enemy', 'count', 'slot'].includes(key)) p.push(`${here}.${key} 不是可以用的鍵（只有 enemy、count、slot）`)
+  })
+  return p
+}
+
 /** 掛在格上的一台（overlay）、附屬單位（attached）與機甲的機體（hull）的格式。partial 時 kind 與 weapons 可能還沒展開，只檢查寫了的。 */
 function overlayProblems(e: Record<string, unknown>, partial: boolean): string[] {
   const p: string[] = []
@@ -186,18 +208,8 @@ function overlayProblems(e: Record<string, unknown>, partial: boolean): string[]
     if (!partial && !isOverlay) p.push("寫了 overlay 的兵種，position.size 要是 'overlay'")
   } else if (isOverlay && !partial) p.push("position.size 是 'overlay' 的兵種要寫 overlay: { kind, fixed? }")
   if (e.attached !== undefined) {
-    if (!Array.isArray(e.attached)) p.push('attached 要是陣列（每一筆 { enemy, count?, slot? }）')
-    else {
-      if (isOverlay) p.push('掛在格上的一台自己不能再帶附屬單位（attached）')
-      e.attached.forEach((a, i) => {
-        const at = `attached[${i}]`
-        if (!isRec(a)) return void p.push(`${at} 要是 { enemy, count?, slot? }`)
-        if (!isText(a.enemy)) p.push(`${at}.enemy 要是一個 overlay 兵種的 id`)
-        if (a.count !== undefined && !(isInt(a.count) && a.count >= 1 && a.count <= 4)) p.push(`${at}.count 要是 1～4 的整數`)
-        if (a.slot !== undefined && a.slot !== 'same' && !(isInt(a.slot) && a.slot >= 1 && a.slot <= 4)) p.push(`${at}.slot 要是 'same' 或 1～4 的整數`)
-        for (const key of Object.keys(a)) if (!['enemy', 'count', 'slot'].includes(key)) p.push(`${at}.${key} 不是可以用的鍵（只有 enemy、count、slot）`)
-      })
-    }
+    if (isOverlay && Array.isArray(e.attached)) p.push('掛在格上的一台自己不能再帶附屬單位（attached）')
+    p.push(...attachedProblems(e.attached, 'attached'))
   }
   if (e.hull !== undefined) {
     const h = e.hull
@@ -305,6 +317,8 @@ function enemyProblems(e: Record<string, unknown>, partial: boolean): string[] {
   opt('strength', (v) => isNum(v) && v > 0 && v <= 2, '（強度係數）要是 0 到 2 之間的數字')
   opt('defeat', (v) => typeof v === 'string' || isTextList(v), '要是字串或字串的陣列')
   opt('adult', (v) => v === null || isTextList(v), '要是字串的陣列或 null')
+  opt('capture', (v) => typeof v === 'boolean', '要是 true 或 false（false：打贏之後不能俘虜）')
+  opt('humanoid', (v) => typeof v === 'boolean', '要是 true 或 false（人形的機器：被電磁打到停機時制伏也算俘虜）')
   opt('signature', Array.isArray, '要是陣列')
   if (Array.isArray(e.signature)) {
     e.signature.forEach((s, i) => {

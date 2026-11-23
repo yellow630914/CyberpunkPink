@@ -1,5 +1,6 @@
 // L6 功能：敵人與遭遇。兩種內容（enemy、encounter）的格式；把一筆敵人資料照「等級與位階的目標表 × 兵種的修正 × 難度 × 強度係數」
 // 變成戰鬥裡的單位（來源 enemy）；遭遇的點數與開打的設定；敵人的士氣（撤退與投降）。
+// 照勢力、等級、位階挑兵種（來源 enemy_pick）在 pick.ts；打贏之後的俘虜在 capture.ts（M2-enemy-encounter）。
 // 掉落的格式與打贏之後的結算在 loot.ts。敵方的無人機與砲塔（position.size: 'overlay'）、附屬單位（attached）、機甲的機體（hull，只收格式）
 // 與會指揮的敵人的行動 enemy.command（M1b-enemy-units）在 overlays.ts；一台怎麼動在 features/summons。
 // 敵人資料多收的欄位（M1b-enemy-moves）：signature（招牌行動：技能的 id 放進 unit.ext.abilities.equipped，技能那一邊本來就認；
@@ -8,6 +9,8 @@
 // 規格：ENEMIES 1.1、1.5、第 2 節、4.4 節、第 5 節、第 13 節；ENEMY_ROSTER 開頭；BALANCE 2.4、7.2；dev/adr/0013（B2、D4～D6）、0015（E10、E11）。
 
 import type { BattleUnit, Feature } from '../../core'
+import { installCapture } from './capture'
+import { enemyPickUnit } from './pick'
 import { checkSignatures } from './signature'
 import { registerAngel } from './angel'
 import { registerOverlays } from './overlays'
@@ -24,6 +27,10 @@ export type { LootDrop, LootEntry, LootText } from './loot'
 export { OVERLAY_KINDS } from './kinds'
 export type { EncounterEntry, EncounterFoe, EnemyAttached, EnemyCyber, EnemyDeck, EnemyEntry, EnemyHull, EnemyOverlay, EnemySignature } from './kinds'
 export type { TraitEntry } from './traits'
+export { pickCandidates, pickEnemy, pickProblems } from './pick'
+export type { PickSpec } from './pick'
+export { ASK_DC, CAPTURE_BASE, CAPTURE_KEY, CAPTURE_MAX_OFFER, CAPTURE_PER_SEDUCE, CAPTIVE_TAG, askDc, canTake, captureCause, captureChance, captureKindOk, captureOf, pickEvent, rollCaptures, treatEvent } from './capture'
+export type { CaptureCandidate, CaptureState } from './capture'
 
 const MORALE_DC = { minion: 13, elite: 10 } as const
 
@@ -33,8 +40,12 @@ export const enemiesFeature: Feature = {
     registerKinds(k)
     registerTraitKind(k)
     k.battle.unitSource('enemy', OWNER, (ref, ctx) => enemyUnit(k, ctx.state, ref, ctx))
+    // 照勢力、等級、位階挑一個兵種（M2-enemy-encounter）
+    k.battle.unitSource('enemy_pick', OWNER, (ref, ctx) => enemyPickUnit(k, ctx.state, ref, ctx))
     // 掉落：打贏之後在戰鬥結束時結算（M1b-loot）
     installLoot(k, OWNER)
+    // 俘虜：打贏時被制伏的敵人擲一次，成功的交給事件視窗處置（M2-enemy-encounter）
+    installCapture(k, OWNER)
     // 特徵：組好單位時算進去（一定帶著的加上開戰時擲的），開打時做 start；天使急救的倒數
     k.battle.on('unit.ready', OWNER, ({ run, unit }) => applyTraits(run, unit))
     k.battle.on('battle.start', OWNER, ({ run }) => runTraitStart(run))
