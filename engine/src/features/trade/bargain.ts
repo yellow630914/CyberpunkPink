@@ -3,8 +3,9 @@
 // 殺價是一個主動行動（kind: bargain，資料寫 owner: 'trade'，由這個功能在 ready 讀進來註冊）：
 //   - 講價、撒嬌、施壓：先擲骰（Game.act；AI 開著時 judge 給成功程度，程式驗證、夾值），結果照表（大成功 ×0.8、成功 ×0.9、失敗不變、大失敗 ×1.1）
 //   - 用人情：不擲，當成大成功；用掉一個店主或他後台勢力欠你的小人情（bargainByFavor）
-//   結果是一個效果 { kind: 'bargain', shop, method, degree }：行動種類的參考範圍（hint）給它，AI 關著時照參考範圍，AI 開著時 reward 照參考範圍交；
-//   效果只收表裡的四種結果，所以不管誰給的，倍率都在表的四個之內。
+//   結果是一個效果 { kind: 'bargain', shop, method, degree }：行動種類的退路（ActionKindDef.fallback）照判定定案的成功程度給它，
+//   而且算回報只照規則（rewardByRules）：結果完全由表決定，AI 沒有東西可以補，所以不會漏交、也不會交出和判定不一致的成功程度；
+//   效果本身也只收表裡的四種結果（別的鏈裡 AI 硬塞進來的也一樣），所以不管誰給的，倍率都在表的四個之內。
 // 整車每間店每天一次：買的乘倍率、賣的除以倍率（quote 的 bargain 那一步），記到今天結束。
 // 這個功能讀別人的東西只經由：meterOf（affinity、fame、hostility）、k.conditions（has_favor、tendency_tag；沒有人註冊就沒有那一種殺法）、k.content。
 //
@@ -307,10 +308,13 @@ export function registerBargainKind(k: Kernel): void {
     if (!(ROLLED as readonly unknown[]).includes(i.method)) return `${BARGAIN_METHODS[i.method].name}不用擲骰，不走行動（交給 bargainByFavor）。`
     return bargainBlock(k, state, i.shop, i.method)
   }
-  def.hint = ({ input, degree }) => {
+  // 結果只看判定定案的成功程度查表（ctx.degree 是夾過的）：算回報這一步固定走這裡，不問 AI；沒有參考範圍可以給 AI，所以不寫 hint
+  def.hint = undefined
+  def.fallback = ({ input, degree }) => {
     const i = asInput(input)
     return typeof i.shop === 'string' && isMethod(i.method) && (ROLLED as readonly unknown[]).includes(i.method) ? [{ kind: BARGAIN_EFFECT, shop: i.shop, method: i.method, degree }] : []
   }
+  def.rewardByRules = true
   k.actions.register(def)
 }
 

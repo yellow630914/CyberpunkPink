@@ -6,11 +6,11 @@
 // 提示詞的內容在 PROMPTS，之後從 data/prompts/tasks.json 載入；這裡的請求只有結構：每一段一個標籤，
 // 其中 <input> 是機器讀的 JSON（假的服務商與測試靠它）。
 
-import type { ClampNote, GameState } from '../../core/types'
+import type { Change, ClampNote, GameState } from '../../core/types'
 import type { Kernel } from '../../core/kernel'
 import type { ActionInput } from '../../core/action/kinds'
 import type { ActionPending, Judgment } from '../../core/action/action'
-import { actionTailChanges, buildActionReport, fallbackJudgment, fallbackReward, prepareAction, rewardHint, sanitizeJudgment } from '../../core/action/action'
+import { actionPrelude, actionTailChanges, buildActionReport, fallbackJudgment, fallbackReward, kindFallback, prepareAction, rewardByRules, rewardHint, sanitizeJudgment } from '../../core/action/action'
 import { DEGREE_NAME, VERDICT_NAME } from '../../core/rules/check'
 import type { Effect, EffectCtx, ResolvedEffects } from '../../core/rules/effects'
 import { effectCtx as makeEffectCtx } from '../../core/rules/grades'
@@ -43,11 +43,29 @@ export interface JudgeOutput {
   clamps: ClampNote[]
 }
 export interface RewardInput {
+  /** 算回報驗證用的狀態：鏈開始時的狀態，先套上行動的起手變更（ActionKindDef.prelude） */
   state: GameState
   pending: ActionPending
   judgment: Judgment
   hint: Effect[]
 }
+/** 算關係（relate）收到的：在場有具名的人，與這一次結算的摘要。 */
+export interface RelateInput {
+  cast: Array<{ id: string; name: string }>
+  report: Record<string, unknown>
+}
+/** 算關係交出的定案結果。M2 還沒有 AI 那一半，退路什麼都不記（AI_TASKS 4.1 節 relate 的退路：「一般的鏈不變」）。 */
+export interface RelateOutput {
+  changes: Change[]
+  lines: string[]
+}
+export const NO_RELATION: RelateOutput = { changes: [], lines: [] }
+
+/** 在場有具名的 NPC（自由行動看隊上與場上的角色；role 是 npc）。 */
+export function castOf(state: GameState): RelateInput['cast'] {
+  return Object.values(state.actors).filter((a) => a.role === 'npc').map((a) => ({ id: a.id, name: a.name }))
+}
+
 export interface NarrateInput {
   mode: string
   /** 報告的摘要（寫正文收到的報告）。自由行動是判定的結果；戰鬥是結果與 timeline；每一條鏈各自決定放什麼 */
@@ -171,11 +189,27 @@ export function registerFreeActionTasks(k: Kernel, tasks: TaskRegistry): void {
       const resolved = k.effects.resolve(effects, effectCtx(input, ctx.settings.clamp_asked, 'player'), 'reward.items')
       return resolved.errors.length ? { ok: false, errors: resolved.errors } : { ok: true, value: resolved, clamps: resolved.clamps }
     },
-    // 照參考範圍的一半，物品給模板的標準品。參考範圍是資料寫的，照理一定合格；萬一套不上去（例：付不出來），退成什麼都不給
+    // 退路：行動種類自己給的（ActionKindDef.fallback：規則表，照內建的來源驗，不受 AI 的上限管）；沒有就照參考範圍的一半，物品給模板的標準品（當成 AI 的來源夾）。
+    // 參考範圍與規則表都是資料與程式寫的，照理一定合格；萬一套不上去（例：付不出來），退成什麼都不給
     fallback: (input) => {
-      const r = k.effects.resolve(fallbackReward(input.hint), effectCtx(input, true, 'ai'), 'reward.items')
-      return r.errors.length ? k.effects.resolve([], effectCtx(input, true, 'ai'), 'reward.items') : r
+      const own = kindFallback(k, input.state, input.pending, input.judgment, input.hint)
+      const source = own ? 'builtin' : 'ai'
+      const r = k.effects.resolve(own ?? fallbackReward(input.hint), effectCtx(input, true, source), 'reward.items')
+      return r.errors.length ? k.effects.resolve([], effectCtx(input, true, source), 'reward.items') : r
     },
+  }
+
+  // 算關係：自由行動與戰鬥結束的鏈在場上有具名的人時都會跑這一步。AI 那一半（submit_relationship）要等關係的記憶與描述有地方存（M2-npc-life 之後），
+  // 所以現在鏈對這個任務固定走退路（relateEnabled 回 false）：什麼都不記，步驟的狀態是 fallback。build 與 check 先寫好格式，AI 那一半接上時只改 relateEnabled 與 check。
+  const relate: TaskDef<RelateInput, RelateOutput> = {
+    id: 'relate', owner: 'shell', size: 'S', output: 'json', onExhausted: 'fallback',
+    schema: { name: 'submit_relationship', schema: { type: 'object', required: ['items'], properties: { items: { type: 'array' } } } },
+    build: (input) => ({
+      system: '你讀這一次的結果，判斷在場的具名 NPC 和主角的關係怎麼變。只算這一次真的有互動的人，每一筆要有依據；用 submit_relationship 的格式交出。',
+      sections: [['report', json(input.report)], ['cast', input.cast.map((c) => `${c.id}：${c.name}`).join('\n') || '（沒有）'], ['input', json(input)]],
+    }),
+    check: () => ({ ok: false, errors: ['算關係的 AI 那一半還沒接上，只收退路的結果'] }),
+    fallback: () => ({ changes: [], lines: [] }),
   }
 
   const narrate: TaskDef<NarrateInput, NarrateOutput> = {
@@ -203,7 +237,11 @@ export function registerFreeActionTasks(k: Kernel, tasks: TaskRegistry): void {
   tasks.register(reward)
   tasks.register(narrate)
   tasks.register(polish)
+  tasks.register(relate)
 }
+
+/** 算關係這一步要不要問 AI：AI 那一半還沒做，固定不問（見 registerFreeActionTasks 的 relate）。 */
+export const relateEnabled = false
 
 function narrateInput(ctx: ChainCtx, mode: string): NarrateInput {
   const pending = ctx.draft.roll as ActionPending
@@ -242,12 +280,24 @@ export function freeActionChain(): ChainDef {
       // 在場有具名的 NPC 才算關係；NPC 與場景在 M2
       cast_present: (ctx) => ctx.k.features.includes('npcs') && Object.values(ctx.state.actors).some((a) => a.role === 'npc'),
     },
-    aiEnabled: (step, ctx) => (step.task === 'judge' ? ctx.settings.judge_free : step.task === 'narrate' ? ctx.settings.narrate : step.task === 'polish' ? ctx.settings.narrate && !!(ctx.draft.text as NarrateOutput | undefined)?.text : true),
+    aiEnabled: (step, ctx) => {
+      switch (step.task) {
+        case 'judge': return ctx.settings.judge_free
+        case 'narrate': return ctx.settings.narrate
+        case 'polish': return ctx.settings.narrate && !!(ctx.draft.text as NarrateOutput | undefined)?.text
+        // 這種行動算回報只照規則（ActionKindDef.rewardByRules）：不問 AI，直接走退路
+        case 'reward': return !rewardByRules(ctx.k, (ctx.draft.roll as ActionPending).input.kind)
+        case 'relate': return relateEnabled
+        default: return true
+      }
+    },
     aiInput: (step, ctx) => {
       const pending = ctx.draft.roll as ActionPending
       if (step.task === 'judge') return { state: ctx.state, pending } satisfies JudgeInput
+      if (step.task === 'relate') return { cast: castOf(ctx.state), report: { action: ctx.k.actions.get(pending.input.kind)?.name ?? pending.input.kind, input: pending.input.text ?? '' } } satisfies RelateInput
       const { judgment } = ctx.draft.judge as JudgeOutput
-      if (step.task === 'reward') return { state: ctx.state, pending, judgment, hint: ctx.draft.hint as Effect[] } satisfies RewardInput
+      // 算回報驗證用的狀態先套上行動的起手變更（ActionKindDef.prelude）
+      if (step.task === 'reward') return { state: actionPrelude(ctx.k, ctx.state, pending.input).after, pending, judgment, hint: ctx.draft.hint as Effect[] } satisfies RewardInput
       if (step.task === 'narrate') return narrateInput(ctx, step.mode ?? 'new')
       if (step.task === 'polish') return { ...narrateInput(ctx, 'polish'), text: (ctx.draft.text as NarrateOutput).text ?? '' }
       throw new Error(`自由行動的鏈不認得 ${String(step.task)} 這個任務`)

@@ -8,7 +8,8 @@
 import type { ReportDraft } from '../core/types'
 import { OUTCOME_NAME, endBattle } from '../core/battle/step'
 import type { ChainDef, ChainTemplate } from './ai/chain'
-import type { NarrateInput, NarrateOutput } from './ai/freeAction'
+import type { NarrateInput, NarrateOutput, RelateInput } from './ai/freeAction'
+import { castOf, relateEnabled } from './ai/freeAction'
 
 export const BATTLE_END_TEMPLATE: ChainTemplate = {
   chain: 'battle_end',
@@ -41,8 +42,13 @@ export function battleEndChain(): ChainDef {
       // 算關係要等 NPC 與關係的系統（M2）
       cast_present: (ctx) => ctx.k.features.includes('npcs') && Object.values(ctx.state.battle?.units ?? {}).some((u) => !!u.actor && ctx.state.actors[u.actor]?.role === 'npc'),
     },
-    aiEnabled: (step, ctx) => (step.task === 'narrate' ? ctx.settings.narrate : true),
+    aiEnabled: (step, ctx) => (step.task === 'narrate' ? ctx.settings.narrate : step.task === 'relate' ? relateEnabled : true),
     aiInput: (step, ctx) => {
+      if (step.task === 'relate') {
+        const draft = ctx.draft.settle as ReportDraft
+        const fighters = new Set(Object.values(ctx.state.battle?.units ?? {}).flatMap((u) => (u.actor ? [u.actor] : [])))
+        return { cast: castOf(ctx.state).filter((c) => fighters.has(c.id)), report: { action: '戰鬥', summary: draft.outcome.summary } } satisfies RelateInput
+      }
       if (step.task !== 'narrate') throw new Error(`戰鬥結束的鏈不認得 ${String(step.task)} 這個任務`)
       const draft = ctx.draft.settle as ReportDraft
       const timeline = clipBeats(draft.timeline.map((b) => b.text))

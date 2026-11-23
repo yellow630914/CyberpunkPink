@@ -2,16 +2,18 @@
 // 改狀態的入口都是匯出一個純函式、回傳報告草稿：介面交給 Game.commit（或 commitNarrated）。任何一條不成立整車不結。
 
 import type { Change, ContentEntry, GameState, Kernel, ReportDraft } from '../../core'
-import { ActionBlocked, clone, formatAmount, isRecord } from '../../core'
+import { ActionBlocked, clone, findByUid, formatAmount, isRecord } from '../../core'
 import type { Pay, Quote, ShopEntry, ShopTypeEntry, TradeItem } from './model'
 import {
   PAYS, PAY_NAME, closedToday, decayMult, hostilityOf, identityClass, intakeCount, itemOf, matches, plainCount, priced, quote, shopEntry, shopTypeOf, soldToday, stockOf,
-  tradeCategoryOf, tradeChange, tradeOf, tradeRules, wornCount,
+  tradeCategoryOf, tradeChange, tradeOf, tradeRules, wornCount, wornUid,
 } from './model'
 
 export interface CartLine {
   item: string
   qty: number
+  /** 賣帶實例資料的那一件（組裝的成品、零件）時指名是哪一件（背包裡 data.uid）；一般的東西不用寫，買的也不用 */
+  uid?: string
 }
 export interface Cart {
   buy?: CartLine[]
@@ -93,8 +95,11 @@ export function buyBlock(k: Kernel, state: GameState, shop: string | ShopEntry, 
   return null
 }
 
-/** 賣 qty 個這樣東西做不做得成（TRADE 3.3、第 2 節的「收」）。 */
-export function sellBlock(k: Kernel, state: GameState, shop: string | ShopEntry, item: string, qty = 1): string | null {
+/**
+ * 賣 qty 個這樣東西做不做得成（TRADE 3.3、第 2 節的「收」）。
+ * 沒給 uid：賣沒有實例資料的那幾疊（扣掉身上穿著的）；給了 uid：賣背包裡 data.uid 是它的那一件（組裝的成品、零件），穿戴中的不能賣。
+ */
+export function sellBlock(k: Kernel, state: GameState, shop: string | ShopEntry, item: string, qty = 1, uid?: string): string | null {
   const entry = shopEntry(k, shop)
   if (!entry) return `沒有 ${String(shop)} 這間店。`
   const type = shopTypeOf(k, entry)
@@ -106,12 +111,20 @@ export function sellBlock(k: Kernel, state: GameState, shop: string | ShopEntry,
   if (!priced(it)) return `${it.name}沒有定價，店不收。`
   if (it.no_sell === true) return `${it.name}不能賣。`
   if (!matches(it, type.buys)) return `這種店（${type.name}）不收${it.name}這一類的東西。`
+  // 指名是哪一件（帶實例資料的）：只看那一疊；核心的 item 變更用 data.uid 拿走它
+  if (uid !== undefined) {
+    const stack = findByUid(state.inventory, item, uid)
+    if (!stack) return `背包裡沒有${it.name}（${uid}）這一件。`
+    if (wornUid(state, uid)) return `${it.name}正穿戴在身上，先脫下來才能賣。`
+    if (qty > stack.qty) return `那一件${it.name}只有 ${stack.qty} 個。`
+    return null
+  }
   const plain = plainCount(state, item)
   const worn = wornCount(state, item)
   const total = state.inventory.reduce((n, s) => (s.id === item ? n + s.qty : n), 0)
   const have = plain - worn
   if (total === 0) return `背包裡沒有${it.name}。`
-  if (plain === 0) return `${it.name}是有記號的那一件（組裝的成品或零件），現在還不能賣。`
+  if (plain === 0) return `${it.name}是有記號的那一件（組裝的成品或零件），賣的時候要指名是哪一件。`
   if (have <= 0) return `${it.name}正穿戴在身上，先脫下來才能賣。`
   if (qty > have) return `背包裡能賣的${it.name}只有 ${have} 個。`
   return null
@@ -121,6 +134,8 @@ export function sellBlock(k: Kernel, state: GameState, shop: string | ShopEntry,
 
 export interface PricedLine {
   item: string
+  /** 賣帶實例資料的那一件時的 uid */
+  uid?: string
   name: string
   qty: number
   /** 第一個的價錢（收購遞減之後，後面的每一個可能更低：看 prices） */
@@ -143,14 +158,18 @@ export interface CheckoutPlan {
   net: number
 }
 
-function merge(lines: CartLine[] | undefined, problems: string[]): CartLine[] {
-  const by = new Map<string, number>()
+function merge(lines: CartLine[] | undefined, problems: string[], sell = false): CartLine[] {
+  const by = new Map<string, CartLine>()
   for (const l of lines ?? []) {
     if (!isRecord(l) || typeof l.item !== 'string' || !l.item) { problems.push('購物車裡有一列沒有寫是哪樣東西。'); continue }
     if (!Number.isSafeInteger(l.qty) || l.qty < 1) { problems.push(`${l.item} 的數量要是 1 以上的整數。`); continue }
-    by.set(l.item, (by.get(l.item) ?? 0) + l.qty)
+    if (l.uid !== undefined && (typeof l.uid !== 'string' || !l.uid || !sell)) { problems.push(`${l.item} 的 uid 只有賣帶記號的那一件時才寫，要是非空的字串。`); continue }
+    const key = `${l.item}\u0000${l.uid ?? ''}`
+    const old = by.get(key)
+    if (old) old.qty += l.qty
+    else by.set(key, { item: l.item, qty: l.qty, ...(l.uid !== undefined ? { uid: l.uid } : {}) })
   }
-  return [...by].map(([item, qty]) => ({ item, qty }))
+  return [...by.values()]
 }
 
 /**
@@ -180,7 +199,7 @@ export function planCheckout(k: Kernel, state: GameState, shop: string | ShopEnt
   if (shut) return { ...plan, problems: [shut] }
   if (!(PAYS as readonly unknown[]).includes(cart.pay)) plan.problems.push('要選一種錢來付：帳戶或現金晶片。')
   const buy = merge(cart.buy, plan.problems)
-  const sell = merge(cart.sell, plan.problems)
+  const sell = merge(cart.sell, plan.problems, true)
   if (buy.length + sell.length === 0 && plan.problems.length === 0) plan.problems.push('購物車是空的。')
   for (const b of buy) if (sell.some((s) => s.item === b.item)) plan.problems.push(`${itemName(k, b.item)}不能在同一車裡又買又賣。`)
   const pay = PAYS.includes(cart.pay) ? cart.pay : undefined
@@ -200,12 +219,12 @@ export function planCheckout(k: Kernel, state: GameState, shop: string | ShopEnt
   // 賣：同一個貿易類別照購物車的順序一件一件遞減（TRADE 3.2），先前累計收的件數（含每天回復）也算進去
   const taken: Record<string, number> = {}
   for (const l of sell) {
-    const why = sellBlock(k, state, entry, l.item, l.qty)
+    const why = sellBlock(k, state, entry, l.item, l.qty, l.uid)
     if (why) { plan.problems.push(why); continue }
     const cat = tradeCategoryOf(k, itemOf(k, l.item)!)
     const { first, prices } = sellPrices(k, state, entry, l.item, l.qty, taken[cat] ?? 0)
     taken[cat] = (taken[cat] ?? 0) + l.qty
-    plan.sell.push({ item: l.item, name: itemName(k, l.item), qty: l.qty, unit: first.price, total: prices.reduce((n, x) => n + x, 0), prices, quote: first })
+    plan.sell.push({ item: l.item, ...(l.uid !== undefined ? { uid: l.uid } : {}), name: itemName(k, l.item), qty: l.qty, unit: first.price, total: prices.reduce((n, x) => n + x, 0), prices, quote: first })
   }
   plan.buyTotal = plan.buy.reduce((n, l) => n + l.total, 0)
   plan.sellTotal = plan.sell.reduce((n, l) => n + l.total, 0)
@@ -228,7 +247,7 @@ export function checkout(k: Kernel, state: GameState, shop: string | ShopEntry, 
   const rules = tradeRules(k)
   const pay = cart.pay
   const changes: Change[] = []
-  for (const l of plan.sell) changes.push({ op: 'item', id: l.item, qty: -l.qty })
+  for (const l of plan.sell) changes.push({ op: 'item', id: l.item, qty: -l.qty, ...(l.uid !== undefined ? { data: { uid: l.uid } } : {}) })
   for (const l of plan.buy) changes.push({ op: 'item', id: l.item, qty: l.qty })
   if (plan.net !== 0) changes.push({ op: pay, delta: -plan.net })
 
@@ -275,7 +294,7 @@ export function checkout(k: Kernel, state: GameState, shop: string | ShopEntry, 
     layer: 'meat' as const, ...(state.pc ? { actor: state.pc } : {}), text: summary, tag: 'trade.checkout',
     data: {
       shop: entry.id, pay, net: plan.net,
-      buy: plan.buy.map((l) => ({ item: l.item, qty: l.qty, unit: l.unit })), sell: plan.sell.map((l) => ({ item: l.item, qty: l.qty, unit: l.unit })),
+      buy: plan.buy.map((l) => ({ item: l.item, qty: l.qty, unit: l.unit })), sell: plan.sell.map((l) => ({ item: l.item, qty: l.qty, unit: l.unit, ...(l.uid !== undefined ? { uid: l.uid } : {}) })),
     },
   })
   return {

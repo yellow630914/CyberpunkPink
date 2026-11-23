@@ -30,15 +30,24 @@ describe('白箱 戰鬥結束的鏈（AI_TASKS 3.9 節；dev/adr/0011）', () =>
     expect(when(ctxOf({ k: { features: ['npcs'] }, state: { battle: null, actors: {} } }))).toBe(false)
   })
 
-  it('aiEnabled：寫正文看設定 narrate；別的任務（算關係）一律開著', () => {
+  it('aiEnabled：寫正文看設定 narrate；算關係的 AI 那一半還沒接上，固定走退路（什麼都不記）', () => {
     expect(chain.aiEnabled!({ task: 'narrate' } as never, ctxOf({ settings: { narrate: true } }))).toBe(true)
     expect(chain.aiEnabled!({ task: 'narrate' } as never, ctxOf({ settings: { narrate: false } }))).toBe(false)
-    expect(chain.aiEnabled!({ task: 'relate' } as never, ctxOf({ settings: { narrate: false } }))).toBe(true)
+    expect(chain.aiEnabled!({ task: 'relate' } as never, ctxOf({ settings: { narrate: true } }))).toBe(false)
+  })
+
+  it('aiInput 的算關係：在場的具名角色只取這場戰鬥裡的人（沒有名字的敵人與場外的人不算）', () => {
+    const draft = { kind: 'combat', action: 'battle.end', party: [], timeline: [], changes: [], outcome: { result: 'win', summary: '打贏了' } } as unknown as ReportDraft
+    const state = {
+      battle: { units: { a1: { actor: 'pc' }, f1: { actor: 'n1' }, f2: {} } },
+      actors: { pc: { id: 'pc', name: '主角', role: 'pc' }, n1: { id: 'n1', name: '甲', role: 'npc' }, n2: { id: 'n2', name: '乙', role: 'npc' } },
+    }
+    expect(chain.aiInput!({ task: 'relate' } as never, ctxOf({ state, draft: { settle: draft } }))).toEqual({ cast: [{ id: 'n1', name: '甲' }], report: { action: '戰鬥', summary: '打贏了' } })
   })
 
   it('aiInput：不認得的任務丟錯；寫正文的輸入帶報告的種類、結果的名字（勝利、戰敗、脫離、投降）與引擎算好的 results', () => {
     const draft = { kind: 'combat', action: 'battle.end', party: [], timeline: [{ layer: 'meat', text: '一拍' }], changes: [], outcome: { result: 'weird', summary: '摘要' }, narration: { results: ['拿到：A'] } } as unknown as ReportDraft
-    expect(() => chain.aiInput!({ task: 'relate' } as never, ctxOf({ draft: { settle: draft } }))).toThrow(/不認得 relate 這個任務/)
+    expect(() => chain.aiInput!({ task: 'no_such_task' } as never, ctxOf({ draft: { settle: draft } }))).toThrow(/不認得 no_such_task 這個任務/)
     const input = chain.aiInput!({ task: 'narrate' } as never, ctxOf({ draft: { settle: draft } })) as { mode: string; report: Record<string, unknown>; results: string[] }
     expect(input.mode).toBe('combat')
     expect(input.results).toEqual(['拿到：A'])

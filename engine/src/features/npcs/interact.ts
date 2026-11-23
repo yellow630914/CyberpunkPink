@@ -5,17 +5,20 @@
 //   dc      照對象算（警覺 − ⌊親密度 ÷ 20⌋ ＋ 情境修正；請託照資料寫的檔位；讀橋 10 ＋ 防護階 × 3）
 //   block   能不能做（一條一句）
 //   hint    只有資料自己寫的參考範圍（'$target' 換成對象的 id）；6.1 節那張表的結果不放在這裡（原因見下面）
-// 6.1 節那張表的結果（AI 關著時的結算）由 report.before 掛鉤加進這份報告的變更，用內建的來源驗與夾（親密度 −20、偷到的錢這類不受 AI 的一件事上限管，
-// 區的倍率照樣算）：AI 關著時行動鏈的退路只給「參考範圍的一半」、而且當成 AI 的來源夾，給不了表上的數。AI 開著時，AI 自己交出的效果
-// （照量表的上限夾）優先：同一種量表同一個鍵、現金、同一件物品、已知的事，AI 已經給了的，表不再加。
-// 每天的次數記在 state.ext.npcs.today（變更 npcs.did），也由同一個掛鉤記。掛鉤要知道對象、禮物與讀橋的類別，但報告上沒有行動的輸入：
-// interactInput 把它們寫在文字結尾的〔npc=… item=… category=…〕，沒帶標記的輸入 block 擋下（要核心在報告上帶行動輸入才能拿掉這個標記，見回報）。
+// 這裡用到核心的四個正式介面（不再把資料藏進文字裡）：
+//   report.args    報告帶著行動的輸入（對象 target、禮物 item、讀橋的類別 category）；report.before 掛鉤靠它記每天的次數與旗標
+//   hint           給 AI 的參考範圍：6.1 節那張表的結果，加上資料自己寫的、表管不到的那幾種（旗標之類）
+//   fallback       退路：6.1 節那張表的結果（AI 關著、被玩家按「用規則代替」或 AI 試到最後都沒過時，算回報那一步用它；內建的來源：親密度 −20、
+//                  偷到的錢這類不受 AI 的一件事上限管，區的倍率照樣算），所以表的結果會在報告的 narration.results 裡；AI 開著而且交出結果時用 AI 的（照量表上限夾）
+//   prelude        起手：不認識但就在這裡的人先認識他（meet），後面的親密度才有鍵
+// 每天的次數記在 state.ext.npcs.today（變更 npcs.did），旗標也由 report.before 掛鉤加進這份報告。
 // 資料沒有某一筆時，那個互動就不存在（interactions 裡沒有它，也不丟錯）。
 //
 // 讀別的功能的數字只經由 meterOf（hostility、favor、fame；沒有人定義就當 0、不加那條修正）、條件與內容；不 import 別的功能。
 
-import type { ActionHint, ActionInput, ActionKindDef, ActionKindEntry, Change, ContentEntry, Effect, GameState, Grade, HintCtx, Kernel } from '../../core'
-import { DC_TIERS, actionKindToDef, blankState, checkParts, clone, computeDegree, countItem, dcFor, deriveRng, effectCtx, isRecord, isSafeInt, meterOf, tagsAllowed } from '../../core'
+import type { ActionHint, ActionInput, ActionKindDef, ActionKindEntry, Change, ContentEntry, Effect, FallbackCtx, GameState, Grade, HintCtx, Kernel } from '../../core'
+import type { Actor } from '../../core'
+import { ATTR_IDS, DC_TIERS, actionKindToDef, blankState, checkParts, clone, computeDegree, countItem, dcFor, deriveRng, fallbackReward, isRecord, isSafeInt, meterOf, tagsAllowed } from '../../core'
 import type { Npc, NpcKind } from './model'
 import { AFFINITY, GENDER_TAG, doneToday, ensureNpcs, knows, knownFacts, npcOf, npcsHere } from './model'
 
@@ -451,10 +454,11 @@ export function tableEffects(k: Cx, state: GameState, kind: InteractKind, n: Npc
   return out
 }
 
-/** 資料自己寫的參考範圍：'$target' 換成對象的 id；這張表管的那幾種效果不收（免得算兩次）。 */
+/** 這張表管的那幾種效果：退路用表的結果，資料自己寫的參考範圍裡這幾種不再算（免得算兩次）。 */
 const TABLE_KINDS = new Set([AFFINITY, 'hostility', 'cash', 'item', 'npc_known', 'meet'])
+/** 資料自己寫的參考範圍：'$target' 換成對象的 id。 */
 function dataHint(list: Effect[], target: string): Effect[] {
-  return list.map((e) => JSON.parse(JSON.stringify(e).split('$target').join(target)) as Effect).filter((e) => !TABLE_KINDS.has(e.kind))
+  return list.map((e) => JSON.parse(JSON.stringify(e).split('$target').join(target)) as Effect)
 }
 
 // ---- 成功率 ----
@@ -475,45 +479,63 @@ export function successChance(k: Cx, state: GameState, def: ActionKindDef, input
 
 // ---- 註冊 ----
 
+export interface InteractDeps {
+  /** 認識一個人要套的變更（index.ts 的 meetChanges；interact.ts 不能 import 它） */
+  meetChanges(k: Kernel, state: GameState, id: string): Change[]
+}
+
+/** 格式檢查時用的替身：參考範圍的 '$target' 要到執行時才換成對象，檢查時換成這個 id，存檔裡放一個同 id 的角色，key 查得到。 */
+const PROBE = 'npc_probe'
+function probeState(): GameState {
+  const state = blankState(0)
+  state.actors[PROBE] = {
+    id: PROBE, name: PROBE, role: 'npc', age: 30, attrs: Object.fromEntries(ATTR_IDS.map((a) => [a, 10])) as Actor['attrs'], skills: {}, perks: [],
+    hp: 1, load: 0, afterglow: 0, sink: 0, conditions: [], ext: {},
+  }
+  return state
+}
+
 function entryProblems(k: Kernel, e: ActionKindEntry): string[] {
   const p: string[] = []
   if (e.skill && !k.content.has('skill', e.skill)) p.push(`沒有 ${e.skill} 這項基本功`)
   if (e.requires !== undefined) p.push(...k.conditions.validate(e.requires, 'requires'))
-  const ctx = { state: blankState(0), actor: 'pc', grade: 1 as Grade, source: 'builtin', clampAsked: true, content: k.content } as Parameters<Kernel['effects']['validate']>[1]
+  const ctx = { state: probeState(), actor: 'pc', grade: 1 as Grade, source: 'builtin', clampAsked: true, content: k.content } as Parameters<Kernel['effects']['validate']>[1]
   const tables: Array<[string, ActionHint | undefined]> = [['hint', e.hint], ...Object.entries(e.hint_by_grade ?? {}).map(([g, t]): [string, ActionHint] => [`hint_by_grade.${g}`, t])]
   for (const [name, table] of tables) {
     for (const [degree, list] of Object.entries(table ?? {})) {
-      // '$target' 在執行時才換成對象：格式檢查時先換成任一個 id
-      const probe = JSON.parse(JSON.stringify(list).split('$target').join('npc_probe')) as unknown[]
-      p.push(...k.effects.validate(probe.filter((x) => !(isRecord(x) && typeof x.kind === 'string' && k.meters.has(x.kind))), ctx, `${name}.${degree}`))
+      p.push(...k.effects.validate(dataHint(list as unknown as Effect[], PROBE), ctx, `${name}.${degree}`))
     }
   }
   return p.map((m) => `行動 ${e.id}：${m}`)
 }
 
-function buildDef(k: Kernel, e: ActionKindEntry & { id: InteractKind }): ActionKindDef {
+function buildDef(k: Kernel, deps: InteractDeps, e: ActionKindEntry & { id: InteractKind }): ActionKindDef {
   const def = actionKindToDef(e, k, OWNER)
   const base = def.hint
   const dataReq = def.block
+  const npcOfInput = (state: GameState, input: ActionInput): Npc | undefined => (typeof input.target === 'string' ? npcOf(k, state, input.target) : undefined)
   def.reportKind = 'social'
-  def.block = (state, input) => {
-    const own = interactBlock(k, state, e.id, input.target, input as NpcActionInput)
-    if (own) return own
-    // 對象、禮物、讀橋的類別要寫在文字結尾的標記裡（interactInput 組的）：掛鉤只看得到報告
-    const m = markOf(input.text)
-    if (!m || m.npc !== input.target || m.item !== (input as NpcActionInput).item || m.category !== (input as NpcActionInput).category) return '互動的輸入要用 interactInput 組出來（文字結尾要帶對象的標記）。'
-    return dataReq?.(state, input) ?? null
-  }
+  def.block = (state, input) => interactBlock(k, state, e.id, input.target, input as NpcActionInput) ?? dataReq?.(state, input) ?? null
   def.dc = (state, input) => {
-    const n = typeof input.target === 'string' ? npcOf(k, state, input.target) : undefined
+    const n = npcOfInput(state, input)
     return n ? difficulty(k, state, e.id, n, e).dc : DC_TIERS.normal
   }
-  def.hint = base
-    ? (ctx: HintCtx) => {
-        const n = typeof ctx.input.target === 'string' ? npcOf(k, ctx.state, ctx.input.target) : undefined
-        return n ? dataHint(base(ctx), n.id) : []
-      }
-    : undefined
+  // 互動讓人認識了他（不認識但就在這裡的人）：起手先認識，後面的親密度才有鍵（生成的人認識之後才是角色）
+  def.prelude = (state, input) => {
+    const n = npcOfInput(state, input)
+    return n && !knows(state, n.id) ? deps.meetChanges(k, state, n.id) : []
+  }
+  // 給 AI 的參考範圍：6.1 節那張表的結果（AI 照量表的上限夾），加上資料自己寫的、表管不到的那幾種（旗標之類）
+  def.hint = (ctx: HintCtx) => {
+    const n = npcOfInput(ctx.state, ctx.input)
+    return n ? [...(base ? dataHint(base(ctx), n.id).filter((x) => !TABLE_KINDS.has(x.kind)) : []), ...tableEffects(k, ctx.state, e.id, n, ctx.input as NpcActionInput, ctx.degree)] : []
+  }
+  // 退路：照 6.1 節那張表（內建的來源，不受 AI 的上限管）；資料自己寫的參考範圍裡表管不到的那幾種照預設的減半一併算
+  def.fallback = (ctx: FallbackCtx) => {
+    const n = npcOfInput(ctx.state, ctx.input)
+    if (!n) return []
+    return [...tableEffects(k, ctx.state, e.id, n, ctx.input as NpcActionInput, ctx.degree), ...fallbackReward(ctx.hint.filter((x) => !TABLE_KINDS.has(x.kind)))]
+  }
   return def
 }
 
@@ -524,12 +546,12 @@ function dataBlock(k: Pick<Kernel, 'conditions' | 'stats' | 'timeRules'>, state:
 }
 
 /** 資料裡 owner 是 npcs 的那幾筆互動：照格式檢查後註冊成行動種類。沒有的那一種互動就不存在。 */
-export function registerInteractions(k: Kernel): void {
+export function registerInteractions(k: Kernel, deps: InteractDeps): void {
   const problems: string[] = []
   const entries = k.content.list<ActionKindEntry>('action_kind').filter((e) => e.owner === OWNER && isInteract(e.id))
   for (const e of entries) problems.push(...entryProblems(k, e))
   if (problems.length > 0) throw new Error(problems.join('；'))
-  for (const e of entries) k.actions.register(buildDef(k, e as ActionKindEntry & { id: InteractKind }))
+  for (const e of entries) k.actions.register(buildDef(k, deps, e as ActionKindEntry & { id: InteractKind }))
 }
 
 // ---- 對外：選單與輸入 ----
@@ -585,7 +607,7 @@ export interface InteractExtra {
   item?: string
   /** 讀橋：要揭開哪一類 */
   category?: ReadCategory
-  /** 玩家自己寫的話（不寫就用預設的一句）；對象的標記一律接在結尾 */
+  /** 玩家自己寫的話（不寫就用預設的一句） */
   text?: string
 }
 
@@ -602,56 +624,15 @@ export function interactInput(k: Kernel, state: GameState, kind: InteractKind, n
     npc_intimidate: `威嚇${n.name}`, npc_steal: `對${n.name}下手偷東西`, npc_read_bridge: `快駭讀${n.name}的橋`,
   }
   return {
-    kind, target: npc, text: `${extra.text ?? verb[kind]}${markText({ npc, ...(extra.item !== undefined ? { item: extra.item } : {}), ...(extra.category !== undefined ? { category: extra.category } : {}) })}`,
+    kind, target: npc, text: extra.text ?? verb[kind],
     ...(extra.item !== undefined ? { item: extra.item } : {}),
     ...(extra.category !== undefined ? { category: extra.category } : {}),
   }
 }
 
-// ---- 報告上的標記、表的結果、每天的次數與旗標：都在互動那份報告提交前一起加 ----
+// ---- 每天的次數、旗標、互動讓人認識了他：都在互動那份報告提交前一起加 ----
 
-export interface Mark {
-  npc: string
-  item?: string
-  category?: string
-}
-const MARK = /〔npc=([A-Za-z0-9_:.-]+)(?: item=([A-Za-z0-9_:.-]+))?(?: category=([a-z_]+))?〕$/
-
-/** 文字結尾的標記（interactInput 接上去的）。 */
-export const markText = (m: Mark): string => `〔npc=${m.npc}${m.item !== undefined ? ` item=${m.item}` : ''}${m.category !== undefined ? ` category=${m.category}` : ''}〕`
-
-/** 讀文字結尾的標記；沒有就是 null。 */
-export function markOf(text: string | undefined): Mark | null {
-  const m = text ? MARK.exec(text) : null
-  return m ? { npc: m[1]!, ...(m[2] !== undefined ? { item: m[2] } : {}), ...(m[3] !== undefined ? { category: m[3] } : {}) } : null
-}
-
-/** 這個效果算的是哪一件事（AI 已經給了同一件，表就不再加）。 */
-function familyOf(e: Effect): string {
-  switch (e.kind) {
-    case 'item': return `item:${String(e.id)}`
-    case 'npc_known': return `known:${String(e.npc)}`
-    case 'cash': return 'cash'
-    default: return `meter:${e.kind}:${String(e.key ?? '')}`
-  }
-}
-function familiesOf(changes: Change[]): Set<string> {
-  const out = new Set<string>()
-  for (const c of changes) {
-    if (c.op === 'meter') out.add(`meter:${String(c.kind)}:${String(c.key)}`)
-    else if (c.op === 'cash') out.add('cash')
-    else if (c.op === 'item') out.add(`item:${String(c.id)}`)
-    else if (c.op === 'npcs.known') out.add(`known:${String(c.npc)}`)
-  }
-  return out
-}
-
-export interface InteractDeps {
-  /** 認識一個人要套的變更（index.ts 的 meetChanges；interact.ts 不能 import 它） */
-  meetChanges(k: Kernel, state: GameState, id: string): Change[]
-}
-
-export function installInteract(k: Kernel, deps: InteractDeps): void {
+export function installInteract(k: Kernel): void {
   k.content.defineKind({ kind: INTERACT_RULE_KIND, owner: OWNER, validate: interactRuleProblems })
 
   // 每個人今天做過哪些互動
@@ -672,26 +653,16 @@ export function installInteract(k: Kernel, deps: InteractDeps): void {
 
   k.hooks.on('report.before', OWNER, ({ state, draft }) => {
     const kind = draft.action
-    if (!isInteract(kind)) return
-    const mark = markOf(draft.input)
-    const n = mark ? npcOf(k, state, mark.npc) : undefined
-    if (!mark || !n) return
+    const args = draft.args as NpcActionInput | undefined
+    if (!isInteract(kind) || !args || typeof args.target !== 'string') return
+    const n = npcOf(k, state, args.target)
+    if (!n) return
     const id = n.id
     const degree = draft.outcome.result as Degree
     const ok = degree === 'critical' || degree === 'success'
     const day = state.time.day
     const rules = interactRules(k)
     const out: Change[] = []
-
-    // 6.1 節那張表：先認識他（還不認識的人），再照表算效果；AI 已經給了的那幾件不再加
-    const work = clone(state)
-    const meet = knows(state, id) ? [] : deps.meetChanges(k, state, id)
-    if (meet.length > 0) k.changes.applyAll(work, meet)
-    const have = familiesOf(draft.changes)
-    const table = tableEffects(k, work, kind, n, { kind, target: id, ...(mark.item !== undefined ? { item: mark.item } : {}), ...(mark.category !== undefined ? { category: mark.category } : {}) }, degree)
-      .filter((e) => !have.has(familyOf(e)))
-    const resolved = k.effects.resolve(table, effectCtx(k, work, { source: 'builtin' }))
-    out.push(...meet, ...(resolved.errors.length === 0 ? resolved.changes : []))
 
     // 每天的次數、旗標
     const did = (what: string): void => void out.push({ op: 'npcs.did', npc: id, what, day })

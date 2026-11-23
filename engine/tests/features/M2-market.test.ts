@@ -759,21 +759,39 @@ describe('AI 開著（假的服務商）：殺價走 judge，結果仍然在表�
     expect(g.state.time.hour * 60 + g.state.time.minute).toBeLessThanOrEqual(8 * 60 + 60 + 24 * 60)
   })
 
-  it('reward 亂給別的店的殺價、不存在的店：格式不合就整批退回規則；合格但不該有的（今天已經殺過）整筆拿掉', async () => {
+  it('算回報只照規則（rewardByRules）：AI 不會被問 reward，劇本給了別的店、別的成功程度都沒有用；步驟的狀態是 fallback，結果照判定定案的成功程度', async () => {
     const g = mk({
       fake: {
         byTask: {
           reward: [
             { json: { items: [{ kind: 'bargain', shop: 's_nope', method: 'haggle', degree: 'critical', from: { source: 'degree' } }] } },
+            { json: { items: [{ kind: 'bargain', shop: 's_hard', method: 'haggle', degree: 'critical', from: { source: 'degree' } }] } },
           ],
         },
       },
     })
     rig(g, 's_hard', 'haggle', DIE.success)
-    const r = await g.act(bargainInput(g.k, g.state, 's_hard', 'haggle'), { autoRules: true })
+    const r = await g.act(bargainInput(g.k, g.state, 's_hard', 'haggle'))
     expect(r.status).toBe('applied')
-    // 退回規則（參考範圍）：成功 ×0.9
+    expect(r.run.steps.find((s) => s.id === 'reward')).toMatchObject({ status: 'fallback' })
+    expect(r.run.steps.find((s) => s.id === 'judge')!.status).toBe('done')
+    // 判定走了 AI（假的服務商自己回合格的），算回報沒有發出請求
     expect(trade(g).bargains.s_hard).toMatchObject({ mult: 0.9, degree: 'success' })
+    expect(r.reports[0]!.narration!.results).toHaveLength(1)
+  })
+
+  it('AI 開著，判定被夾過之後的成功程度才是殺價的結果（不是 AI 另外交的）；效果由退路產生，一定有、一定是報告上那一個', async () => {
+    for (const degree of ['critical', 'success', 'fail', 'fumble'] as const) {
+      const g = mk({ fake: { adversarial: { mode: 'over_cap', tasks: ['judge', 'reward'] } } })
+      rig(g, 's_hard', 'haggle', DIE[degree])
+      const r = await g.act(bargainInput(g.k, g.state, 's_hard', 'haggle'))
+      expect(r.status).toBe('applied')
+      // 假的服務商亂給判定（DC 99、大成功）：DC 被夾回參考值 ±3，成功程度照夾過的算；殺價的結果就是報告上那個成功程度
+      const settled = r.reports[0]!.outcome.result as keyof typeof DIE
+      expect(r.reports[0]!.clamps!.length).toBeGreaterThan(0)
+      expect(trade(g).bargains.s_hard).toMatchObject({ degree: settled, mult: { critical: 0.8, success: 0.9, fail: 1, fumble: 1.1 }[settled] })
+      expect(r.run.steps.find((s) => s.id === 'reward')!.status).toBe('fallback')
+    }
   })
 
   it('AI 關著：同樣走主動行動（沒有 judge 請求），結果照骰面', async () => {

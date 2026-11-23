@@ -6,7 +6,7 @@
 //
 // 三段都是純函式，不改狀態。中間要不要問 AI、問哪個模型，是 L7 任務鏈的事。
 
-import type { ActorId, AttrId, Change, CheckRoll, ClampNote, Degree, GameState, Grade, PartySnapshot, ReportDraft, SkillId } from '../types'
+import type { ActionInput, ActorId, AttrId, Change, CheckRoll, ClampNote, Degree, GameState, Grade, PartySnapshot, ReportDraft, SkillId } from '../types'
 import { ATTR_IDS } from '../types'
 import { clone } from '../util/clone'
 import { clamp, isRecord, isSafeInt, str } from '../util/sanitize'
@@ -17,7 +17,7 @@ import { DEGREE_NAME, checkParts, computeDegree, dcFor, makeCheck, verdictOf } f
 import type { Effect, ResolvedEffects } from '../rules/effects'
 import { askedMatches } from '../rules/effects'
 import { areaGrade } from '../rules/grades'
-import type { ActionInput, ActionKindDef, ActionRegistry } from './kinds'
+import type { ActionKindDef, ActionRegistry, HintCtx } from './kinds'
 
 /** 判定的 DC 預設在參考值 ±3 之內（AI_TASKS 4.1 節）。 */
 export const DC_WINDOW = 3
@@ -184,10 +184,41 @@ export function sanitizeJudgment(k: ActionKernel, state: GameState, pending: Act
   }
 }
 
+/** 參考範圍與退路共用的情境：成功程度是判定定案的那一個（夾過的），narrow 只在成功而且差距不到 3 時為真。 */
+function hintCtx(state: GameState, pending: ActionPending, judgment: Judgment): HintCtx {
+  return { state, input: pending.input, actor: pending.actor, degree: judgment.degree, narrow: judgment.degree === 'success' && judgment.roll.margin < 3, grade: pending.grade }
+}
+
 /** 參考範圍：這種行動、這個成功程度、這一區的等級，平常會拿到什麼。種類沒有定義就是空的。 */
 export function rewardHint(k: ActionKernel, state: GameState, pending: ActionPending, judgment: Judgment): Effect[] {
   const def = k.actions.get(pending.input.kind)!
-  return def.hint?.({ state, input: pending.input, actor: pending.actor, degree: judgment.degree, narrow: judgment.degree === 'success' && judgment.roll.margin < 3, grade: pending.grade }) ?? []
+  return def.hint?.(hintCtx(state, pending, judgment)) ?? []
+}
+
+/**
+ * 行動種類自己給的退路效果（ActionKindDef.fallback）；種類沒寫就是 null（呼叫的人用預設的 fallbackReward）。
+ * hint 是這一次已經算好的參考範圍。回傳的效果要照內建的來源驗與夾（EffectSource 'builtin'）。
+ */
+export function kindFallback(k: ActionKernel, state: GameState, pending: ActionPending, judgment: Judgment, hint: Effect[]): Effect[] | null {
+  const def = k.actions.get(pending.input.kind)
+  return def?.fallback ? def.fallback({ ...hintCtx(state, pending, judgment), hint }) : null
+}
+
+/**
+ * 這次行動的起手變更（ActionKindDef.prelude）與套過之後的狀態（沒有起手變更就是原本那一份，不複製）。
+ * 算回報用 after 驗證；報告把 changes 排在最前面（buildActionReport）。
+ */
+export function actionPrelude(k: ActionKernel, state: GameState, input: ActionInput): { changes: Change[]; after: GameState } {
+  const changes = k.actions.get(input.kind)?.prelude?.(state, input) ?? []
+  if (changes.length === 0) return { changes, after: state }
+  const after = clone(state)
+  k.changes.applyAll(after, changes)
+  return { changes, after }
+}
+
+/** 這種行動算回報只照規則、不問 AI（ActionKindDef.rewardByRules）。 */
+export function rewardByRules(k: ActionKernel, kind: string): boolean {
+  return k.actions.get(kind)?.rewardByRules === true
 }
 
 /** 算回報的退路：照參考範圍的一半，物品給模板的標準品（AI_TASKS 4.1 節）。數量類的欄位（amount）減半，其他原樣。 */
@@ -238,7 +269,7 @@ export function buildActionReport(k: ActionKernel, state: GameState, r: ActionRe
   const def = k.actions.get(r.pending.input.kind)!
   const actor = state.actors[r.pending.actor]!
   const j = r.judgment
-  const changes: Change[] = [...r.reward.changes, ...(r.extraChanges ?? []), ...actionTailChanges(j)]
+  const changes: Change[] = [...actionPrelude(k, state, r.pending.input).changes, ...r.reward.changes, ...(r.extraChanges ?? []), ...actionTailChanges(j)]
   const after = clone(state)
   k.changes.applyAll(after, changes)
   const lines = [...r.reward.lines, ...(r.extraLines ?? [])]
@@ -248,6 +279,7 @@ export function buildActionReport(k: ActionKernel, state: GameState, r: ActionRe
   return {
     kind: def.reportKind, action: def.id, location: clone(state.location), actor: r.pending.actor,
     ...(r.pending.input.text ? { input: r.pending.input.text } : {}),
+    args: clone(r.pending.input),
     party: partySnapshot(k, state, after),
     timeline: [{ layer: 'meat', actor: r.pending.actor, text: j.reason || def.name, roll: j.roll, ...(j.twist ? { twist: j.twist } : {}) }],
     changes,

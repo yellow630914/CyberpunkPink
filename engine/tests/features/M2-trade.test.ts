@@ -288,10 +288,49 @@ describe('做不成的原因（一條一句）', () => {
     give(g, 'i_gun')
     expect(sellBlock(g.k, g.state, 's_beta', 'i_gun', 2)).toBe('背包裡能賣的手槍只有 1 個。')
     expect(sellBlock(g.k, g.state, 's_beta', 'i_gun')).toBeNull()
-    // 有實例資料的那一件（組裝的成品）：賣不了，免得拿錯那一件
+    // 有實例資料的那一件（組裝的成品）：不指名是哪一件就賣不了（免得拿錯）；指名了（uid）才賣得了，見下一條
     g.state.inventory = [{ id: 'i_gun', qty: 1, data: { uid: 'u1' } }]
     g.state.actors.pc!.ext.gear = {}
-    expect(sellBlock(g.k, g.state, 's_beta', 'i_gun')).toBe('手槍是有記號的那一件（組裝的成品或零件），現在還不能賣。')
+    expect(sellBlock(g.k, g.state, 's_beta', 'i_gun')).toBe('手槍是有記號的那一件（組裝的成品或零件），賣的時候要指名是哪一件。')
+  })
+
+  it('指名賣有記號的那一件（uid）：價錢照目錄價；結帳只拿走那一件；穿戴中、沒有這一件、數量不夠都有原因', () => {
+    const g = mk()
+    g.state.inventory = [{ id: 'i_gun', qty: 1, data: { uid: 'u1', tune: 2 } }, { id: 'i_gun', qty: 1, data: { uid: 'u2' } }, { id: 'i_gun', qty: 1 }]
+    expect(sellBlock(g.k, g.state, 's_beta', 'i_gun', 1, 'u1')).toBeNull()
+    expect(sellBlock(g.k, g.state, 's_beta', 'i_gun', 1, 'u9')).toBe('背包裡沒有手槍（u9）這一件。')
+    expect(sellBlock(g.k, g.state, 's_beta', 'i_gun', 2, 'u1')).toBe('那一件手槍只有 1 個。')
+    // 穿戴中的那一件（gear 的格式：值是 uid）不能賣，別的實例不受影響
+    g.state.actors.pc!.ext.gear = { worn: { main: 'u1' } }
+    expect(sellBlock(g.k, g.state, 's_beta', 'i_gun', 1, 'u1')).toBe('手槍正穿戴在身上，先脫下來才能賣。')
+    expect(sellBlock(g.k, g.state, 's_beta', 'i_gun', 1, 'u2')).toBeNull()
+    // 價錢和一般的一把一樣（目錄價；店家倍率照常），結帳拿走的是指名的那一疊，沒有實例資料的那一把與別的實例都還在
+    const plain = planCheckout(g.k, g.state, 's_beta', { sell: [{ item: 'i_gun', qty: 1 }], pay: 'cash' })
+    const named = planCheckout(g.k, g.state, 's_beta', { sell: [{ item: 'i_gun', qty: 1, uid: 'u2' }], pay: 'cash' })
+    expect(named.problems).toEqual([])
+    expect(named.sell[0]).toMatchObject({ item: 'i_gun', uid: 'u2', unit: plain.sell[0]!.unit })
+    const [r] = g.commit(checkout(g.k, g.state, 's_beta', { sell: [{ item: 'i_gun', qty: 1, uid: 'u2' }], pay: 'cash' }))
+    expect(r!.changes.find((c) => c.op === 'item')).toMatchObject({ id: 'i_gun', qty: -1, data: { uid: 'u2' } })
+    expect(g.state.inventory).toEqual([{ id: 'i_gun', qty: 1, data: { uid: 'u1', tune: 2 } }, { id: 'i_gun', qty: 1 }])
+    expect(g.state.money.cash).toBe(500 + named.sellTotal)
+  })
+
+  it('購物車的 uid：只有賣的才能寫、要是非空字串；同一個 uid 的列合併；買的列不能寫', () => {
+    const g = mk()
+    g.state.inventory = [{ id: 'i_gun', qty: 2, data: { uid: 'u1' } }]
+    const plan = (cart: object) => planCheckout(g.k, g.state, 's_beta', { pay: 'cash', ...cart })
+    expect(plan({ sell: [{ item: 'i_gun', qty: 1, uid: 'u1' }, { item: 'i_gun', qty: 1, uid: 'u1' }] }).problems).toEqual([])
+    expect(plan({ sell: [{ item: 'i_gun', qty: 3, uid: 'u1' }] }).problems).toEqual(['那一件手槍只有 2 個。'])
+    expect(plan({ sell: [{ item: 'i_gun', qty: 1, uid: '' }] }).problems[0]).toContain('uid')
+    expect(plan({ buy: [{ item: 'i_med', qty: 1, uid: 'u1' }] }).problems[0]).toContain('uid')
+  })
+
+  it('shopView：有記號的每一件各一列（帶 uid、能不能賣），一般的同一種物品合成一列', () => {
+    const g = mk()
+    g.state.inventory = [{ id: 'i_gun', qty: 1, data: { uid: 'u1' } }, { id: 'i_gun', qty: 2 }, { id: 'i_gun', qty: 1, data: { uid: 'u2' } }]
+    g.state.actors.pc!.ext.gear = { worn: { main: 'u2' } }
+    const sell = shopView(g.k, g.state, 's_beta').sell.filter((r) => r.item === 'i_gun')
+    expect(sell.map((r) => [r.uid ?? null, r.qty, r.block])).toEqual([['u1', 1, null], [null, 2, null], ['u2', 1, '手槍正穿戴在身上，先脫下來才能賣。']])
   })
 
   it('同時有有記號的與沒有記號的：只賣沒有記號的，核心的 item 變更先拿沒有記號的那一疊', () => {
@@ -299,7 +338,7 @@ describe('做不成的原因（一條一句）', () => {
     g.state.inventory = [{ id: 'i_gun', qty: 1, data: { uid: 'u1' } }, { id: 'i_gun', qty: 1 }]
     g.commit(checkout(g.k, g.state, 's_beta', { sell: [{ item: 'i_gun', qty: 1 }], pay: 'cash' }))
     expect(g.state.inventory).toEqual([{ id: 'i_gun', qty: 1, data: { uid: 'u1' } }])
-    expect(sellBlock(g.k, g.state, 's_beta', 'i_gun')).toBe('手槍是有記號的那一件（組裝的成品或零件），現在還不能賣。')
+    expect(sellBlock(g.k, g.state, 's_beta', 'i_gun')).toBe('手槍是有記號的那一件（組裝的成品或零件），賣的時候要指名是哪一件。')
   })
 
   it('錢：只收現金的店選帳戶被擋；不收現金的店選現金被擋；兩種都收的店兩種都行', () => {

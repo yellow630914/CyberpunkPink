@@ -16,6 +16,8 @@ function check(k: Kernel, e: ActionKindEntry): void {
     const problems = k.conditions.validate(e.requires, 'requires')
     if (problems.length > 0) fail(problems.join('；'))
   }
+  // 寫了 owner 的那一筆，參考範圍由那個功能自己檢查（它可以寫 '$target' 這類執行時才換的占位，這裡照字面驗會誤判）；基本功與條件照樣在這裡驗
+  if (e.owner !== undefined) return
   const ctx = { state: blankState(0), actor: 'pc', grade: 1 as Grade, source: 'builtin', clampAsked: true, content: k.content } as Parameters<Kernel['effects']['validate']>[1]
   const tables: Array<[string, ActionHint | undefined]> = [['hint', e.hint], ...Object.entries(e.hint_by_grade ?? {}).map(([g, t]): [string, ActionHint] => [`hint_by_grade.${g}`, t])]
   for (const [name, table] of tables) {

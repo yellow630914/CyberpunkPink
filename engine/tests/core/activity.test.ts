@@ -878,8 +878,13 @@ describe('行動種類的 owner：寫了 owner 的那一筆載得進來，但不
     expect(k.content.validate('action_kind', [kind('x', { owner: 'npcs' })])).toEqual([])
   })
 
-  it('寫了 owner 的那一筆照樣檢查 requires 與參考範圍（資料壞了不因為它是別人的就放過）', () => {
-    expect(() => kernel([kind('gift', { owner: 'npcs', skill: 'no_such_skill' })])).toThrow()
-    expect(() => kernel([kind('gift', { owner: 'npcs', hint: { success: [{ kind: 'no_such_effect' }] } })])).toThrow(/gift/)
+  it('寫了 owner 的那一筆照樣檢查基本功與 requires；參考範圍留給那個功能自己驗（可以寫 $target 這類執行時才換的占位）', () => {
+    expect(() => kernel([kind('gift', { owner: 'npcs', skill: 'no_such_skill' })])).toThrow(/gift/)
+    expect(() => kernel([kind('gift', { owner: 'npcs', requires: { kind: 'no_such_condition' } })])).toThrow(/gift/)
+    // 沒寫 owner 的參考範圍照字面驗：效果不存在就擋下
+    expect(() => kernel([kind('beg', { hint: { success: [{ kind: 'no_such_effect' }] } })])).toThrow(/beg/)
+    // 寫了 owner 的：同樣的壞參考範圍這裡不擋（那個功能自己驗），占位的寫法也不誤判
+    expect(() => kernel([kind('gift', { owner: 'npcs', hint: { success: [{ kind: 'no_such_effect' }] } })])).not.toThrow()
+    expect(() => kernel([kind('gift', { owner: 'npcs', hint: { success: [{ kind: 'flag', key: 'met:$target', value: true }, { kind: 'affinity', key: '$target', amount: 2 }] } })])).not.toThrow()
   })
 })

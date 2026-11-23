@@ -9,7 +9,7 @@ import type { ContentPack, Feature, Kernel, ReportDraft } from '../../src'
 import { MONEY_CAP_BY_GRADE, countItem, inputOf, meterOf, prepareAction } from '../../src'
 import { actionsFeature } from '../../src/features/actions'
 import { lewdFeature } from '../../src/features/lewd'
-import { npcsFeature, interactBlock, interactInput, interactRules, interactions, giftGain, giftTier, DEFAULT_INTERACT_RULES, doneToday, knownFacts, knows, npcOf, readNpcs, tableEffects } from '../../src/features/npcs'
+import { npcsFeature, npcsHere, interactBlock, interactInput, interactRules, interactions, giftGain, giftTier, DEFAULT_INTERACT_RULES, doneToday, knownFacts, knows, npcOf, readNpcs, tableEffects } from '../../src/features/npcs'
 import type { InteractKind } from '../../src/features/npcs'
 import { securityFeature } from '../../src/features/security'
 import { makeGame, observed } from '../../src/testkit'
@@ -92,10 +92,6 @@ const make = (o: Opts = {}) => {
     patch: { time: { day: 3, hour: 10, minute: 0 }, inventory: [{ id: 'it_flower', qty: 2 }, { id: 'it_bread', qty: 1 }, { id: 'it_black', qty: 1 }, { id: 'it_junk', qty: 1 }] },
     ...(o.fake !== undefined ? { fake: o.fake } : {}),
   })
-  // 自由行動的鏈（AI_TASKS 3.1 節第 6 步）在「裝了 npcs 而且場上有 NPC 角色」時要跑 relate 這個 AI 任務，但外殼還沒有這個任務
-  // （freeAction.ts 的 whens.cast_present 與 aiInput；要 L7 補，見回報）：沒補之前，只要有 NPC 在場，任何一次自由行動都會丟錯。
-  // 測試先把 npcs 從「已裝的功能」清單拿掉，讓鏈不去問關係——只影響這一步的判斷，功能的登錄表與掛鉤都還在。
-  game.k.features.splice(game.k.features.indexOf('npcs'), 1)
   // 走進蜂巢的市場（和世界一樣，報告帶一筆 location 變更）：名單建好，固定 NPC 就在這裡
   game.commit(draft([{ op: 'location', to: { district: 'd_hive', block: 'b_market' } }], 'test.go'))
   return { g: game, fake }
@@ -270,6 +266,18 @@ describe('聊天（6.1 節）', () => {
     }
   })
 
+  it('表的結果在報告的 narration.results 裡（寫正文收得到）：一件事一行；沒有結果的行動（失敗）是空的', async () => {
+    const { g } = make()
+    know(g, 'npc_bob', 0)
+    const ok = await act(g, 'npc_chat', 'npc_bob', 'success')
+    expect(ok.reports[0]!.narration!.results).toEqual(['親密度（鮑勃）：+2'])
+    expect(ok.reports[0]!.outcome.summary).toContain('親密度（鮑勃）：+2')
+    const fail = await act(g, 'npc_chat', 'npc_bob', 'fail')
+    expect(fail.reports[0]!.narration!.results).toEqual([])
+    const gift = await act(g, 'npc_gift', 'npc_bob', 'success', { item: 'it_flower' })
+    expect(gift.reports[0]!.narration!.results).toEqual(['親密度（鮑勃）：+1', '失去：一束花'])
+  })
+
   it('同一天第二次聊天不再加（但照樣能聊）；換一天又加；今天做過的記在 state.ext.npcs.today', async () => {
     const { g } = make()
     know(g, 'npc_bob', 0)
@@ -290,19 +298,35 @@ describe('聊天（6.1 節）', () => {
     expect(readNpcs(g.state).today).toEqual({ day: 4, done: { npc_bob: ['chat'] } })
   })
 
-  it('不是用 interactInput 組的輸入（文字結尾沒有對象的標記）被擋下並有原因：掛鉤要靠標記才知道對象', async () => {
+  it('輸入不必用 interactInput 組：自己寫的 { kind, target } 就行；報告帶著行動的輸入（args），文字不帶任何標記', async () => {
     const { g } = make()
     know(g, 'npc_bob', 0)
-    const r = await g.act({ kind: 'npc_chat', target: 'npc_bob' })
-    expect(r.status).toBe('refused')
-    expect(r.reason).toBe('互動的輸入要用 interactInput 組出來（文字結尾要帶對象的標記）。')
-    expect(aff(g, 'npc_bob')).toBe(0)
-    // 自己寫的話可以：標記照樣接在結尾
-    const input = interactInput(g.k, g.state, 'npc_chat', 'npc_bob', { text: '我隨口問他今天過得怎麼樣' })
-    expect(input.text).toBe('我隨口問他今天過得怎麼樣〔npc=npc_bob〕')
-    rig(g, input, 'success')
-    expect((await g.act(input)).status).toBe('applied')
+    const raw = { kind: 'npc_chat', target: 'npc_bob' }
+    rig(g, raw, 'success')
+    const r = await g.act(raw)
+    expect(r.status).toBe('applied')
     expect(aff(g, 'npc_bob')).toBe(2)
+    expect(doneToday(g.state, 'npc_bob')).toEqual(['chat'])
+    expect(r.reports[0]!.args).toEqual(raw)
+    // interactInput 組的文字就是玩家寫的那句，不接任何東西
+    const input = interactInput(g.k, g.state, 'npc_chat', 'npc_bob', { text: '我隨口問他今天過得怎麼樣' })
+    expect(input).toEqual({ kind: 'npc_chat', target: 'npc_bob', text: '我隨口問他今天過得怎麼樣' })
+    nextDay(g)
+    rig(g, input, 'success')
+    const r2 = await g.act(input)
+    expect(r2.reports[0]!.input).toBe('我隨口問他今天過得怎麼樣')
+    expect(r2.reports[0]!.args).toEqual(input)
+  })
+
+  it('報告帶行動的輸入：送禮的 item、讀橋的 category 都在 args 裡；掛鉤用它記每天的次數', async () => {
+    const { g } = make()
+    know(g, 'npc_ann', 0)
+    const gift = await act(g, 'npc_gift', 'npc_ann', 'success', { item: 'it_flower' })
+    expect(gift.reports[0]!.args).toMatchObject({ kind: 'npc_gift', target: 'npc_ann', item: 'it_flower' })
+    expect(doneToday(g.state, 'npc_ann')).toEqual(['gift'])
+    const read = await act(g, 'npc_read_bridge', 'npc_ann', 'success', { category: 'bridge' })
+    expect(read.reports[0]!.args).toMatchObject({ kind: 'npc_read_bridge', target: 'npc_ann', category: 'bridge' })
+    expect(knownFacts(g.state, 'npc_ann')).toContain('bridge')
   })
 
   it('不認識但就在這裡的人：聊天先認識他，再照表加親密度；不認識又不在這裡的被擋下並有原因', async () => {
@@ -322,6 +346,53 @@ describe('聊天（6.1 節）', () => {
 })
 
 // ---- 送禮 ----
+
+describe('不認識的生成人（區的名單裡的路人，認識之後才是角色）', () => {
+  const GEN = { id: 'ng_hive', district: 'd_hive', citizens: 5, runners: 0, occupations: [['攤販', 1]], factions: [['none', 1]], names: ['np_zh'], haunts: [{ block: 'b_market' }] }
+  const POOL = { id: 'np_zh', family: ['陸', '周', '王'], given: ['守仁', '曉雯', '志明', '小芬'] }
+  const stranger = (g: G): string => {
+    const n = npcsHere(g.k, g.state).find((x) => !g.k.content.has('npc', x.id))
+    if (!n) throw new Error('這裡沒有生成的人')
+    return n.id
+  }
+  const withGen = () => make({ content: (c) => { c.npc_gen = [GEN]; c.name_pool = [POOL] } })
+
+  it('聊天：起手先認識他（prelude），再照表加親密度；兩件事都在報告上，親密度的那一行寫的是他的名字', async () => {
+    const { g } = withGen()
+    const id = stranger(g)
+    expect(knows(g.state, id)).toBe(false)
+    expect(g.state.actors[id]).toBeUndefined()
+    const r = await act(g, 'npc_chat', id, 'success')
+    expect(knows(g.state, id)).toBe(true)
+    expect(g.state.actors[id]!.role).toBe('npc')
+    expect(aff(g, id)).toBe(2)
+    // 認識他（npcs.meet）排在親密度前面
+    const ops = r.reports[0]!.changes.map((c) => c.op)
+    expect(ops.indexOf('npcs.meet')).toBeGreaterThanOrEqual(0)
+    expect(ops.indexOf('npcs.meet')).toBeLessThan(ops.indexOf('meter'))
+    expect(r.reports[0]!.narration!.results).toEqual([`親密度（${g.state.actors[id]!.name}）：+2`])
+  })
+
+  it('AI 開著也一樣：AI 給的親密度對一個還不認識的人（起手先認識他，AI 的效果驗證的是認識之後的狀態）', async () => {
+    const { g } = make({ content: (c) => { c.npc_gen = [GEN]; c.name_pool = [POOL] }, fake: {} })
+    const id = stranger(g)
+    const input = interactInput(g.k, g.state, 'npc_chat', id)
+    rig(g, input, 'success')
+    const r = await g.act(input, { autoRules: true })
+    expect(r.status).toBe('applied')
+    expect(knows(g.state, id)).toBe(true)
+    expect(aff(g, id)).toBe(2)
+  })
+
+  it('失敗的互動也算認識了他（照舊）；沒有結果可記的那一次，narration.results 是空的', async () => {
+    const { g } = withGen()
+    const id = stranger(g)
+    const r = await act(g, 'npc_chat', id, 'fail')
+    expect(knows(g.state, id)).toBe(true)
+    expect(aff(g, id)).toBe(0)
+    expect(r.reports[0]!.narration!.results).toEqual([])
+  })
+})
 
 describe('送禮（6.3 節）', () => {
   it('價值先除以財富的倍率再看哪一級：C$70、財富 2 級、倍率照資料——落在 60 以上那一級（+2）；預設倍率 ×2 時是 35，落在 10 以上那一級（+1）', async () => {
@@ -626,13 +697,19 @@ describe('資料裡的參考範圍、格式與規則', () => {
     const { g } = make({
       content: (c) => {
         const chat = c.action_kind!.find((e) => e.id === 'npc_chat')!
-        chat.hint = { success: [{ kind: 'flag', key: 'ai:chatted:$target', value: true }, { kind: 'affinity', key: 'npc_bob', amount: 40 }] }
+        chat.hint = { success: [{ kind: 'flag', key: 'ai:chatted:$target', value: true }, { kind: 'affinity', key: '$target', amount: 40 }] }
       },
     })
     know(g, 'npc_bob', 0)
     await act(g, 'npc_chat', 'npc_bob', 'success')
     expect(g.state.flags['ai:chatted:npc_bob']).toBe(true)
     expect(aff(g, 'npc_bob')).toBe(2)
+  })
+
+  it('資料裡的 $target 寫在量表的鍵上（affinity）也過得了格式檢查：actions 不驗寫了 owner 的參考範圍，npcs 用替身驗；寫錯的效果照樣擋下', () => {
+    expect(() => make({ content: (c) => { c.action_kind!.find((e) => e.id === 'npc_gift')!.hint = { success: [{ kind: 'affinity', key: '$target', amount: 3 }, { kind: 'hostility', key: 'f_alpha', amount: 1 }] } } })).not.toThrow()
+    expect(() => make({ content: (c) => { c.action_kind!.find((e) => e.id === 'npc_gift')!.hint = { fail: [{ kind: 'affinity', key: '$target', amount: 1.5 }] } } })).toThrow(/npc_gift.*amount/)
+    expect(() => make({ content: (c) => { c.action_kind!.find((e) => e.id === 'npc_gift')!.hint_by_grade = { '2': { success: [{ kind: 'hostility', key: 'f_nowhere', amount: 1 }] } } } })).toThrow(/npc_gift.*f_nowhere/)
   })
 
   it('格式壞的資料：參考範圍的效果不存在、不認識的基本功，載入就擋下並寫出是哪一筆', () => {
@@ -699,23 +776,29 @@ describe('AI 開著（假的服務商）：走 judge，AI 給的效果被夾在�
     expect(doneToday(g.state, 'npc_bob')).toEqual(['chat'])
   })
 
-  it('AI 給的是負的、同一件事：親密度 −50 也只扣到 −8；AI 沒有給的別件（偷到的錢）照表', async () => {
-    const { g } = make({ fake: { byTask: { reward: [{ json: { items: [{ kind: 'affinity', key: 'npc_cora', amount: -50, from: { source: 'degree' } }] } }] } } })
+  it('AI 給的是負的、同一件事：親密度 −50 也只扣到 −8；AI 沒交的別件（偷到的錢）就是沒有（AI 開著時算回報由 AI 說了算）；表的結果在給 AI 的參考範圍裡', async () => {
+    const { g, fake } = make({ fake: { byTask: { reward: [{ json: { items: [{ kind: 'affinity', key: 'npc_cora', amount: -50, from: { source: 'degree' } }] } }] } } })
     know(g, 'npc_cora', 0)
     const input = interactInput(g.k, g.state, 'npc_steal', 'npc_cora')
     rig(g, input, 'success')
     const before = cash(g)
-    expect((await g.act(input, { autoRules: true })).status).toBe('applied')
+    const r = await g.act(input, { autoRules: true })
+    expect(r.status).toBe('applied')
     expect(aff(g, 'npc_cora')).toBe(-8)
-    expect(cash(g)).toBeGreaterThan(before)
+    expect(cash(g)).toBe(before)
+    const hint = inputOf<{ hint: Array<{ kind: string; amount?: number }> }>(fake!.requestsFor('reward')[0]!).hint
+    expect(hint.map((e) => e.kind)).toEqual(['cash'])
+    expect(hint[0]!.amount).toBeGreaterThan(0)
   })
 
-  it('AI 開著但沒有交這一件事的效果：照表結算（誘惑大成功 +5、偷竊大失敗 −20 與敵對值 +6）', async () => {
-    const { g } = make({ fake: true })
+  it('AI 開著、算回報走到退路（AI 交的不合格、自動用規則）：照表結算，不受 AI 的上限管（誘惑大成功 +5、偷竊大失敗 −20 與敵對值 +6），結果在 narration.results', async () => {
+    const { g } = make({ fake: { adversarial: { mode: 'unknown_id', tasks: ['reward'] } } })
     know(g, 'npc_cora', 0)
     const s = interactInput(g.k, g.state, 'npc_seduce', 'npc_cora')
     rig(g, s, 'critical')
-    expect((await g.act(s, { autoRules: true })).status).toBe('applied')
+    const r1 = await g.act(s, { autoRules: true })
+    expect(r1.status).toBe('applied')
+    expect(r1.run.steps.find((x) => x.id === 'reward')!.status).toBe('fallback')
     expect(aff(g, 'npc_cora')).toBe(5)
     const t = interactInput(g.k, g.state, 'npc_steal', 'npc_cora')
     rig(g, t, 'fumble')
@@ -724,5 +807,19 @@ describe('AI 開著（假的服務商）：走 judge，AI 給的效果被夾在�
     expect(violations).toEqual([])
     expect(aff(g, 'npc_cora')).toBe(-15)
     expect(host(g, 'f_beta')).toBe(6)
+    expect(result.reports[0]!.narration!.results).toEqual(['親密度（科拉）：−20', '敵對值（貝塔）：+6'])
+  })
+
+  it('AI 開著、交的合格但沒有照表給：AI 說了算（給 AI 的參考範圍是表，但照量表的上限夾：親密度 −20 夾成 −8）', async () => {
+    const { g } = make({ fake: {} })
+    know(g, 'npc_cora', 0)
+    const t = interactInput(g.k, g.state, 'npc_steal', 'npc_cora')
+    rig(g, t, 'fumble')
+    const r = await g.act(t, { autoRules: true })
+    expect(r.status).toBe('applied')
+    expect(r.run.steps.find((x) => x.id === 'reward')!.status).toBe('done')
+    expect(aff(g, 'npc_cora')).toBe(-8)
+    expect(r.reports[0]!.clamps!.length).toBeGreaterThan(0)
+    expect(doneToday(g.state, 'npc_cora')).toEqual([])
   })
 })

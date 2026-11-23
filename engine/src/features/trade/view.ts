@@ -36,12 +36,14 @@ export interface ShelfRow {
 
 export interface SellRow {
   item: string
+  /** 帶實例資料的那一件（組裝的成品、零件；背包裡 data.uid）才有：每一件一列，賣的時候購物車的列要帶同一個 uid */
+  uid?: string
   name: string
   /** 貿易類別（id 與名字）與是不是貨物 */
   tradeCategory: string
   tradeCategoryName: string
   cargo: boolean
-  /** 能賣幾個（沒有實例資料的那幾疊，扣掉身上穿著的） */
+  /** 能賣幾個（沒有實例資料的那幾疊，扣掉身上穿著的；帶 uid 的是那一疊的個數） */
   qty: number
   /** 賣第一個的價錢（收購遞減之後，同一個類別每多賣一個再低一點：prices 是照順序賣 qty 個每一個的價錢） */
   price: number
@@ -112,21 +114,26 @@ export function shopView(k: Kernel, state: GameState, shop: string | ShopEntry):
   }
 
   const sell: SellRow[] = []
-  const seen = new Set<string>()
-  for (const s of state.inventory) {
-    if (seen.has(s.id)) continue
-    seen.add(s.id)
-    const it = itemOf(k, s.id)
-    if (!priced(it) || !matches(it, type.buys)) continue
-    const qty = Math.max(0, plainCount(state, s.id) - wornCount(state, s.id))
-    const q = quote(k, state, entry, s.id, 'sell')
+  const sellRow = (item: string, qty: number, uid?: string): SellRow | null => {
+    const it = itemOf(k, item)
+    if (!priced(it) || !matches(it, type.buys)) return null
+    const q = quote(k, state, entry, item, 'sell')
     const category = tradeCategoryOf(k, it)
     const taken = intakeCount(k, state, entry.id, category)
-    const { prices } = sellPrices(k, state, entry, s.id, Math.max(1, qty))
-    sell.push({
-      item: s.id, name: it.name, tradeCategory: category, tradeCategoryName: categoryName(k, category), cargo: isCargo(it), qty, price: q.price, prices: qty > 0 ? prices : [],
-      taken, decay: decayMult(rules, taken), quote: q, block: sellBlock(k, state, entry, s.id, 1),
-    })
+    const { prices } = sellPrices(k, state, entry, item, Math.max(1, qty))
+    return {
+      item, ...(uid !== undefined ? { uid } : {}), name: it.name, tradeCategory: category, tradeCategoryName: categoryName(k, category), cargo: isCargo(it), qty, price: q.price, prices: qty > 0 ? prices : [],
+      taken, decay: decayMult(rules, taken), quote: q, block: sellBlock(k, state, entry, item, 1, uid),
+    }
+  }
+  const seen = new Set<string>()
+  for (const s of state.inventory) {
+    // 帶 uid 的實例各一列；其餘的同一種物品合成一列（沒有實例資料的那幾疊，扣掉身上穿著的）
+    const uid = typeof s.data?.uid === 'string' ? s.data.uid : undefined
+    if (uid === undefined && seen.has(s.id)) continue
+    if (uid === undefined) seen.add(s.id)
+    const row = sellRow(s.id, uid !== undefined ? s.qty : Math.max(0, plainCount(state, s.id) - wornCount(state, s.id)), uid)
+    if (row) sell.push(row)
   }
 
   return {

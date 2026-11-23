@@ -356,7 +356,7 @@ export const npcsFeature: Feature = {
     k.meters.define({ kind: AFFINITY, owner: OWNER, name: '親密度', min: -100, max: 100, start: 0, keyed: 'npc', cap: { down: 8, up: 8 } })
 
     registerChanges(k)
-    installInteract(k, { meetChanges })
+    installInteract(k)
 
     // ---- 效果 ----
     interface MeetEffect extends Effect { npc: string }
@@ -437,6 +437,6 @@ export const npcsFeature: Feature = {
     const problems = npcsProblems(k)
     if (problems.length > 0) throw new ContentError(problems)
     // 資料裡 owner 是 npcs 的互動（聊天、送禮、誘惑、交涉、威嚇、偷竊、讀橋）：沒有的那一種就不存在
-    registerInteractions(k)
+    registerInteractions(k, { meetChanges })
   },
 }

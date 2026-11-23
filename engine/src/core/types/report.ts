@@ -1,7 +1,7 @@
 // L0 型別：報告與變更（GAME_DESIGN 第 9 節）。報告是事件紀錄；changes 套用之後就是狀態的變化。
 
-import type { CheckRoll } from './check'
-import type { ActorId, ReportId } from './ids'
+import type { CheckRoll, RollPart } from './check'
+import type { ActorId, AttrId, ReportId, SkillId } from './ids'
 import type { GameTime } from './time'
 
 export const REPORT_KINDS = ['gig', 'combat', 'netrun', 'action', 'event', 'broadcast', 'deal', 'social', 'downtime', 'system'] as const
@@ -49,6 +49,23 @@ export interface ReportRewind {
 export interface ReportTrigger {
   point: string
   where?: Record<string, unknown>
+}
+
+/**
+ * 玩家送出的一次行動（行動種類的登錄表與任務鏈的輸入）。型別放在 L0 是因為報告要帶它（Report.args）：
+ * 功能自己的行動多半在這個形狀上加欄位（對象、禮物、店……），多的欄位原樣留在輸入與報告裡。
+ */
+export interface ActionInput {
+  /** 行動種類的 id */
+  kind: string
+  /** 玩家寫的描述（自由行動的本文；asked 要對得上它） */
+  text?: string
+  /** 玩家自己選的屬性與基本功；沒選就用種類的預設 */
+  attr?: AttrId
+  skill?: SkillId
+  target?: ActorId
+  /** 發起的功能自己算好的情境修正 */
+  situation?: RollPart[]
 }
 
 export interface ReportLocation {
@@ -126,6 +143,12 @@ export interface Report {
   actor?: ActorId
   /** 玩家這一回合的輸入原文 */
   input?: string
+  /**
+   * 主動行動的結構化輸入（對象 target、禮物 item、店 shop 等；整份 ActionInput，功能加的欄位都在）。
+   * 只有行動的任務鏈做出來的報告帶它（buildActionReport）；`report.before` 與 `report.after` 的掛鉤靠它知道這一次行動是對誰、用什麼做的，
+   * 不必再把資料藏進文字裡。
+   */
+  args?: ActionInput
   party: PartySnapshot[]
   timeline: TimelineBeat[]
   changes: Change[]

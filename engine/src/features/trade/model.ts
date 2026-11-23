@@ -597,6 +597,19 @@ export function wornCount(state: GameState, item: string): number {
   return n
 }
 
+/** 這一件（帶實例資料的成品或零件，背包裡 data.uid）正穿著、戴著或帶著嗎：同樣讀每個隊員 actor.ext.gear 的 worn／acc／carry，值是 uid。 */
+export function wornUid(state: GameState, uid: string): boolean {
+  for (const id of new Set<ActorId>([...state.party, ...(state.pc ? [state.pc] : [])])) {
+    const gear = state.actors[id]?.ext.gear
+    if (!isRecord(gear)) continue
+    for (const group of ['worn', 'acc', 'carry'] as const) {
+      const slots = gear[group]
+      if (isRecord(slots) && Object.values(slots).includes(uid)) return true
+    }
+  }
+  return false
+}
+
 /** 主角的身分（actor.ext.identity.class；沒寫就是市民）。 */
 export function identityClass(state: GameState): string {
   const raw = state.pc ? state.actors[state.pc]?.ext.identity : undefined

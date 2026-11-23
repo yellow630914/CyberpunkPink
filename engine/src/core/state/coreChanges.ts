@@ -46,7 +46,7 @@ import { formatAmount } from '../util/money'
 import { isId, isRecord, isSafeInt } from '../util/sanitize'
 import { addMinutes, isValidTime, toMinutes } from '../util/time'
 import type { ChangeDef, ChangeRegistry } from './changes'
-import { addItem, countItem, removeItem } from './inventory'
+import { addItem, countItem, findByUid, removeItem, removeItemByUid } from './inventory'
 import type { MeterRegistry } from './meters'
 import { meterKeyLabel, meterKeyProblems, nextMeterValue } from './meters'
 import { sanitizeRules } from './saveRules'
@@ -130,17 +130,26 @@ export function registerCoreChanges(reg: ChangeRegistry, serialize: () => ((stat
     apply: (s, c) => { s.counters[c.key] = (s.counters[c.key] ?? 0) + c.delta },
   })
 
+  // 拿走（qty < 0）時寫 data: { uid } 就是拿走那一件指名的（背包裡 id 與 data.uid 都對得上的那一疊；找不到、不夠都不合法）；
+  // 沒寫就照舊：先拿沒有實例資料的那幾疊（沒收、賣的時候，同一種物品有帶資料的也有不帶的，不會拿錯）。得到（qty > 0）時 data 就是新那一疊的實例資料。
+  const uidOf = (c: { qty: number; data?: Record<string, unknown> }): unknown => (c.qty < 0 && isRecord(c.data) ? c.data.uid : undefined)
   reg.register<Change & { id: string; qty: number; data?: Record<string, unknown> }>({
     op: 'item', owner: 'core',
     validate: (s, c) => {
       if (!isId(c.id)) return ['物品的 id 格式不對']
       if (!isInt(c.qty) || c.qty === 0) return ['qty 要是不為 0 的整數']
+      if (c.qty < 0 && uidOf(c) !== undefined) {
+        const stack = findByUid(s.inventory, c.id, uidOf(c))
+        if (!stack) return [`背包裡沒有 ${c.id}（uid ${String(uidOf(c))}）這一件`]
+        return stack.qty < -c.qty ? [`背包裡的 ${c.id}（uid ${String(uidOf(c))}）不夠 ${-c.qty} 個`] : []
+      }
       if (c.qty < 0 && countItem(s.inventory, c.id) < -c.qty) return [`背包裡的 ${c.id} 不夠 ${-c.qty} 個`]
       if (!isInt(countItem(s.inventory, c.id) + c.qty)) return [`${c.id}：${TOO_BIG}`]
       return []
     },
     apply: (s, c) => {
       if (c.qty > 0) addItem(s.inventory, c.id, c.qty, c.data ? clone(c.data) : undefined)
+      else if (uidOf(c) !== undefined) removeItemByUid(s.inventory, c.id, uidOf(c), -c.qty)
       else removeItem(s.inventory, c.id, -c.qty)
     },
     describe: (c) => `${c.qty > 0 ? '得到' : '失去'} ${c.id} ×${Math.abs(c.qty)}`,
