@@ -18,6 +18,11 @@
 //         rewind.keep：撤退回到進副本之前之後，把請的人全退掉（付出去的錢回來、busy 拿掉、借來的人移除）
 //   規則  fixer_rule 多：rating_bonus、rep_done、rep_fail、borrow_base、borrow_mult、boss_shares、aux_max、bond_*、trip_*（見 model.ts 的 FixerRules）
 //   讀別人的：衍生數值 roster_fee（沒有人註冊當 0）、條件 in_roster、has_favor、變更 favor.spend、效果 owed、owed_to_pc、cash、cred、rep、hostility、loyalty、affinity（沒有人註冊就略過）
+// 委託的生成（M2-commission-gen；gen.ts）：
+//   內容  commission_type（模板）、commission_modifier（詞條）、commission_link（常見的連動）；規則放在 commission_rule/default 的另一部分（reward_range、scales_by_tier、encounters）
+//   掛點  回答自己宣告的 fixer.offers：每個中間人每天三件，seed 是「中間人／日子／第幾件」；有人註冊 enemy_pick 時挑不到敵人的組合重抽（最多三次），還是不行少給一件
+//   對外  generate、generateTrace、offersFor、eligibleTypes、genProblems（載入之後查模板，ready 時一起查）
+//   生成的副本寫 block（中間人那一塊街區，go 會檢查）、詞條帶的 alert_start（go 併進警戒的起始值）
 // 這個功能不 import 別的功能：人情、敵對值、街區只經由效果、條件、變更的登錄表（沒有人註冊就不列、不檢查）。
 // 對外：board、briefOf、payOptions、haggle、accept、drop、scout、scoutView、buyIntel、intelOptions、scoutedOf、go、readFixer、jobOf、jobsOf；
 //   hireOptions、hireBlocks、borrowOption、hire、unhire、splitPreview。
@@ -30,6 +35,7 @@ import {
 } from './model'
 import { payoutDraft } from './pay'
 import { retreatRefund } from './hire'
+import { LINK_KIND, MODIFIER_KIND, TYPE_KIND, genProblems, linkProblems, modifierProblems, offersFor, typeProblems } from './gen'
 
 export {
   AUX_FACES, AUX_FACE_NAME, FAVOR_SIZE_NAME, HIRE_NAME, HIRE_WAYS, RATING_KEYS, auxList,
@@ -47,6 +53,11 @@ export type { IntelOption, IntelWith, MethodRow, ScoutView, UnknownRow } from '.
 export { auxSetup, bondDc, bondPurpose, borrowOption, borrowPrice, feeOf as hireFeeOf, hire, hireBlocks, hireOptions, retreatRefund, unhire, unhireChanges } from './hire'
 export type { HireInput, HireOption } from './hire'
 export { WALLET_NAME, payoutDraft, splitOf, splitPreview } from './pay'
+export {
+  DEFAULT_GEN_RULES, GEN_FACES, GEN_RETRIES, GEN_RULE_KIND, GEN_SCALES, LINK_KIND, MODIFIER_KIND, OFFERS_PER_DAY, TYPE_KIND,
+  commissionIdOf, eligibleTypes, generate, generateTrace, genProblems, genRuleProblems, genRules, linkProblems, modifierProblems, offerIdOf, offerSeed, offersFor, registeredFaces, stagePlan, typeProblems,
+} from './gen'
+export type { DecisiveDef, GenFace, GenOpts, GenRules, GenTrace, LinkEntry, ModifierEffect, ModifierEntry, StageTemplate, TypeEntry } from './gen'
 export type { Split, SplitOutside, SplitSegment, Wallet } from './pay'
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
@@ -69,6 +80,15 @@ export const fixerFeature: Feature = {
   install(k: Kernel) {
     k.content.defineKind({ kind: KIND, owner: OWNER, validate: fixerProblems })
     k.content.defineKind({ kind: RULE_KIND, owner: OWNER, validate: ruleProblems })
+    // 委託的生成（gen.ts；M2-commission-gen）：模板、詞條、常見的連動是資料；規則放在 commission_rule 的另一部分（commission 的功能只讀它自己的欄位）
+    k.content.defineKind({ kind: TYPE_KIND, owner: OWNER, validate: typeProblems })
+    k.content.defineKind({ kind: MODIFIER_KIND, owner: OWNER, validate: modifierProblems })
+    k.content.defineKind({ kind: LINK_KIND, owner: OWNER, validate: linkProblems })
+    // 回答自己宣告的掛點 fixer.offers：每個中間人每天三件，同一天回答一樣的東西
+    k.hooks.on('fixer.offers', OWNER, ({ state, fixer, day }) => {
+      const offers = offersFor(k, state, fixer, day)
+      return offers.length > 0 ? offers : undefined
+    })
 
     // ---- 街頭信譽 ----
     k.meters.define({ kind: REP_METER, owner: OWNER, name: '街頭信譽', min: 0, max: 100, start: 0, keyed: 'none', cap: { down: 3, up: 3 } })
@@ -351,6 +371,7 @@ export const fixerFeature: Feature = {
       if (k.content.hasKind('district') && !k.content.has('district', f.district)) problems.push(`${KIND}/${f.id}：district ${f.district} 查不到`)
       if (f.block !== undefined && k.content.hasKind('block') && !k.content.has('block', f.block)) problems.push(`${KIND}/${f.id}：block ${f.block} 查不到`)
     }
+    problems.push(...genProblems(k))
     if (problems.length > 0) throw new ContentError(problems)
   },
 }
