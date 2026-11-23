@@ -42,3 +42,5 @@ M2-core-activity 做完。做完才能開 M2-commission-run、M2-bills。
 ## 完成時回報
 
 改了哪些檔、測試結果、ADR 做不到的地方。
+
+- 2026-11-23 補（M2-core-activity 回報）：`features/actions` 的 `toDef`（把行動種類資料轉成定義）是私有的；下游功能要註冊帶 owner 的行動種類時沒有共用的寫法。這張順手把它搬進核心（例如 `actionKindToDef`）並匯出。`Report.rewind` 欄位已經有了，這張負責執行。
