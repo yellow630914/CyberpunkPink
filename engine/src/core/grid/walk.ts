@@ -5,7 +5,7 @@
 // - 探索不花遊戲裡的時間（副本沒有另外的時鐘；SERIES 第 6 節）：要花時間的由功能在 enter 裡加 time 變更。
 
 import type { BattleSetup } from '../battle/setup'
-import type { Change, GameState, GridPos, MapInstance, ReportDraft, SheetState } from '../types'
+import type { Change, GameState, GridPos, Launch, MapInstance, ReportDraft, ReportTrigger, SheetState } from '../types'
 import { clone } from '../util/clone'
 import type { GridDir, MarkerDef, SheetDef, SpecialMapEntry } from './model'
 import { GRID_DIRS, Sheet, pointKey } from './model'
@@ -161,15 +161,19 @@ export function gridWalk(k: GridKernel, state: GameState, to: GridDir | [number,
   const changes: Change[] = []
   const followUps: ReportDraft[] = []
   const lines: string[] = []
+  const launch: Launch[] = []
+  const triggers: ReportTrigger[] = []
   let battle: BattleSetup | undefined
   const seen = new Map<string, string[]>([[pos.sheet, [...(start.sheetState.seen)]]])
   const apply = (e: GridEffect | void): boolean => {
     if (!e) return false
     changes.push(...(e.changes ?? []))
     followUps.push(...(e.followUps ?? []))
+    launch.push(...(e.launch ?? []))
+    triggers.push(...(e.triggers ?? []))
     if (e.line) lines.push(e.line)
     if (e.battle && !battle) battle = e.battle
-    return !!e.stop || !!e.followUps?.length || !!e.battle
+    return !!e.stop || !!e.followUps?.length || !!e.launch?.length || !!e.battle
   }
   let steps = 0
   for (const step of path) {
@@ -201,7 +205,10 @@ export function gridWalk(k: GridKernel, state: GameState, to: GridDir | [number,
   changes.push({ op: 'map.at', to: pos })
   const summary = `走了 ${steps} 格。${lines.join('')}`
   return {
-    draft: { kind: 'action', action: 'grid.move', location: clone(state.location), ...(state.pc ? { actor: state.pc } : {}), party: [], timeline: [], changes, outcome: { result: 'moved', summary } },
+    draft: {
+      kind: 'action', action: 'grid.move', location: clone(state.location), ...(state.pc ? { actor: state.pc } : {}), party: [], timeline: [], changes, outcome: { result: 'moved', summary },
+      ...(launch.length ? { launch: clone(launch) } : {}), ...(triggers.length ? { triggers: clone(triggers) } : {}),
+    },
     followUps,
     ...(battle ? { battle } : {}),
   }

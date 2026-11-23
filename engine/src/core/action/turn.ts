@@ -5,18 +5,25 @@
 // 其中任何一份不合法，丟 ChangeError，狀態完全不變（行動那一份也不留）。
 
 import type { GameState, Report, ReportDraft } from '../types'
+import type { CommitTx } from '../state/commit'
 import { commitAtomic, guardHooks } from '../state/commit'
 import type { StateKernel } from '../state/kernel'
 
+/**
+ * 在一次提交（commitAtomic）裡面跑一個回合：提交行動的報告、跑 turn.end、提交它回傳的報告。
+ * 要在同一件事裡接著做別的（外殼處理報告的 launch）就用這個；回傳這一回合提交的所有報告（第一份是行動本身）。
+ */
+export function commitTurnIn(k: StateKernel, tx: CommitTx, draft: ReportDraft): Report[] {
+  const reports = tx.commit(draft)
+  const followUps: ReportDraft[] = []
+  guardHooks(k, tx.work, 'turn.end', () => {
+    for (const { result } of k.hooks.run('turn.end', { state: tx.work, report: reports[0]! })) followUps.push(...result)
+  })
+  for (const f of followUps) reports.push(...tx.commit(f))
+  return reports
+}
+
 /** 提交一個行動的報告並跑回合結束的流程。回傳這一回合提交的所有報告（第一份是行動本身）。 */
 export function commitTurn(k: StateKernel, state: GameState, draft: ReportDraft): Report[] {
-  return commitAtomic(k, state, (tx) => {
-    const reports = tx.commit(draft)
-    const followUps: ReportDraft[] = []
-    guardHooks(k, tx.work, 'turn.end', () => {
-      for (const { result } of k.hooks.run('turn.end', { state: tx.work, report: reports[0]! })) followUps.push(...result)
-    })
-    for (const f of followUps) reports.push(...tx.commit(f))
-    return reports
-  })
+  return commitAtomic(k, state, (tx) => commitTurnIn(k, tx, draft))
 }

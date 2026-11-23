@@ -10,7 +10,6 @@
 // - 核心只登記戰鬥與等著選的戰敗（coreActivities.ts）；其餘由功能 k.activity.define。
 
 import type { Change, GameState, Launch, Origin, ReportDraft, ReportRewind } from '../types'
-import type { ActivityEndReturn } from '../state/hooks'
 import { guardHooks } from '../state/commit'
 import type { Probe } from '../state/probe'
 import type { StateKernel } from '../state/kernel'
@@ -159,26 +158,24 @@ export function endActivity(k: StateKernel, payload: ActivityEndPayload): Activi
   const sent = { ...payload, origin: clone(payload.origin), result: clone(payload.result) }
   const results = guardHooks(k, payload.state, 'activity.end', () => k.hooks.run('activity.end', sent))
   for (const { owner, result } of results) {
-    const bad = (what: string): never => {
-      throw new Error(`activity.end（${payload.kind}）：${owner} 回傳的 ${what} 格式不對`)
-    }
-    const r: ActivityEndReturn = result
-    if (!isRecord(r)) bad('結果')
+    const bad = (what: string): Error => new Error(`activity.end（${payload.kind}）：${owner} 回傳的 ${what} 格式不對`)
+    const r = result as unknown
+    if (!isRecord(r)) throw bad('結果')
     if (r.changes !== undefined) {
-      if (!Array.isArray(r.changes) || r.changes.some((c) => !isRecord(c) || typeof c.op !== 'string')) bad('changes')
-      merged.changes.push(...clone(r.changes!))
+      if (!Array.isArray(r.changes) || r.changes.some((c) => !isRecord(c) || typeof c.op !== 'string')) throw bad('changes')
+      merged.changes.push(...(clone(r.changes) as Change[]))
     }
     if (r.lines !== undefined) {
-      if (!Array.isArray(r.lines) || r.lines.some((l) => typeof l !== 'string')) bad('lines')
-      merged.lines.push(...r.lines!)
+      if (!Array.isArray(r.lines) || r.lines.some((l) => typeof l !== 'string')) throw bad('lines')
+      merged.lines.push(...(r.lines as string[]))
     }
     if (r.launch !== undefined) {
-      if (!Array.isArray(r.launch) || r.launch.some((l) => !isRecord(l) || typeof l.kind !== 'string' || !l.kind)) bad('launch')
-      merged.launch.push(...clone(r.launch!))
+      if (!Array.isArray(r.launch) || r.launch.some((l) => !isRecord(l) || typeof l.kind !== 'string' || !l.kind)) throw bad('launch')
+      merged.launch.push(...(clone(r.launch) as Launch[]))
     }
     if (r.rewind !== undefined && !merged.rewind) {
-      if (!isRecord(r.rewind) || typeof r.rewind.kind !== 'string' || typeof r.rewind.summary !== 'string') bad('rewind')
-      merged.rewind = clone(r.rewind!)
+      if (!isRecord(r.rewind) || typeof r.rewind.kind !== 'string' || typeof r.rewind.summary !== 'string') throw bad('rewind')
+      merged.rewind = clone(r.rewind) as unknown as ReportRewind
     }
   }
   return merged

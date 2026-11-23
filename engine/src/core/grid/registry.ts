@@ -3,7 +3,7 @@
 // 監視器、巡邏、門鎖的檢定（SITES 12.5 節）是 M2 的功能，掛在 pass 與 entered 上。
 
 import type { BattleSetup } from '../battle/setup'
-import type { Change, GameState, GridPos, ReportDraft } from '../types'
+import type { Change, GameState, GridPos, Launch, ReportDraft, ReportTrigger } from '../types'
 import type { Probe } from '../state/probe'
 import type { RulesKernel } from '../rules/kernel'
 import type { MarkerDef, Sheet, SpecialMapEntry } from './model'
@@ -26,6 +26,14 @@ export interface GridEffect {
   followUps?: ReportDraft[]
   /** 在這一格開打（走到敵人那一格就開打；COMBAT_SYSTEM 第 10 節）。這一段路到這一格為止；外殼提交完這一步之後照這份設定開戰 */
   battle?: BattleSetup
+  /**
+   * 這一步提交之後接著開的活動（事件視窗、成人場景、一場戰鬥……；dev/adr/0016）：併進走這一步的那份報告的 launch，
+   * 外殼提交完照順序開；開不成整步不成立（人沒有走過去）。有這個的時候這一段路到這一格為止。
+   * 開戰另有 battle 欄位（原本的寫法，等於 launch 一場戰鬥）。
+   */
+  launch?: Launch[]
+  /** 這一步碰到的觸發點（和報告的 triggers 同一個形狀）：併進走這一步的那份報告，事件導演讀 */
+  triggers?: ReportTrigger[]
   /** 這一段路到這一格為止（不再往下走） */
   stop?: boolean
   /** 給玩家看的一句話（接在這一步的摘要後面） */

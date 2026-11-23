@@ -9,8 +9,9 @@
 //
 // 戰鬥的每一步是一份報告（dev/adr/0011）：戰鬥狀態只經由 battle 變更改變，存檔、回退、探針都照常。
 
-import type { BattleInput, BattleState, BattleTarget, BattleUnit, Change, GameState, ReportDraft, TimelineBeat } from '../types'
+import type { BattleInput, BattleState, BattleTarget, BattleUnit, Change, GameState, Origin, ReportDraft, TimelineBeat } from '../types'
 import { partySnapshot } from '../action/action'
+import { attachActivityEnd, endActivity } from '../action/activity'
 import { clone } from '../util/clone'
 import { currentUnit, poolShort, sameTarget, unitTag } from './field'
 import { BattleBlocked, performAction } from './act'
@@ -221,6 +222,19 @@ export function pendingDefeat(state: GameState): { snapshot: string; battle: str
   return null
 }
 
+/** 這一方還站著的人數（沒有退出的；在後方等著的也算）。 */
+const standing = (b: BattleState, side: 'ally' | 'foe'): number => Object.values(b.units).filter((u) => u.side === side && !u.out).length
+
+/** 一場戰鬥是誰發起的：取自 battle.origin.ext（沒有 by 當 core）；by 與 ref 以外的鍵放在 origin.ext（battleSetupWithOrigin 的反向）。 */
+export function originOfBattle(ext: Record<string, unknown> | undefined): Origin {
+  const { by, ref, ...rest } = ext ?? {}
+  return {
+    by: typeof by === 'string' && by ? by : 'core',
+    ...(typeof ref === 'string' ? { ref } : {}),
+    ...(Object.keys(rest).length ? { ext: clone(rest) } : {}),
+  }
+}
+
 /**
  * 戰鬥分出結果之後的結算：三條軌寫回角色、功能加進來的變更（掉落、用掉的道具、傷勢……）、把這場的每一步收成一份報告。
  * 還沒分出結果就丟錯。回傳 battle.end 的報告草稿；交給提交之後 state.battle 變回 null。
@@ -237,21 +251,26 @@ export function endBattle(k: BattleKernel, state: GameState): ReportDraft {
   const snapshot: Change[] = !state.snapshots.some((x) => x.kind === 'battle') ? []
     : isDefeat(outcome) ? [{ op: 'snapshot.mark', kind: 'battle', data: { lost: { battle: b.id, outcome } } }]
       : [{ op: 'snapshot.drop', kind: 'battle' }]
-  const changes: Change[] = [...core.changes, ...snapshot, ...extras.flatMap((x) => x.changes ?? []), { op: 'battle', state: null, fold: true }, { op: 'rng', advance: 1 }]
-  const lines = [...core.lines, ...extras.flatMap((x) => x.lines ?? [])]
+  // 結束交回（dev/adr/0016 第一節）：發 activity.end，處理函式回傳的變更接在功能的變更後面、句子進結果、launch 與 rewind 放到報告上
+  const end = endActivity(k, {
+    state, kind: 'battle', id: b.id, origin: originOfBattle(b.origin.ext), outcome,
+    result: { battle: b.id, grade: b.grade, standing: { ally: standing(b, 'ally'), foe: standing(b, 'foe') } },
+  })
+  const changes: Change[] = [...core.changes, ...snapshot, ...extras.flatMap((x) => x.changes ?? []), ...end.changes, { op: 'battle', state: null, fold: true }, { op: 'rng', advance: 1 }]
+  const lines = [...core.lines, ...extras.flatMap((x) => x.lines ?? []), ...end.lines]
   const after = clone(state)
   k.changes.applyAll(after, changes)
   const mode = modeOf(k.content, b.mode)
   const foes = Object.values(b.units).filter((u) => u.side === 'foe').map((u) => u.name)
   const summary = `${b.origin.place ? `${b.origin.place}：` : ''}和${[...new Set(foes)].join('、')}打了 ${b.round} 回合，${OUTCOME_NAME[outcome] ?? outcome}。${b.result.text}${lines.map((l) => `${l}。`).join('')}`
-  return {
+  return attachActivityEnd({
     kind: mode?.layer === 'net' ? 'netrun' : 'combat', action: 'battle.end', location: clone(state.location), ...(state.pc ? { actor: state.pc } : {}),
     party: partySnapshot(k, state, after),
     timeline: battleTimeline(state, b),
     changes,
     outcome: { result: outcome, summary },
     narration: { results: lines },
-  }
+  }, end)
 }
 
 /**

@@ -2,6 +2,8 @@
 
 import { ActionRegistry, FREE_ACTION } from './action/kinds'
 import type { ActionKernel } from './action/action'
+import { ActivityRegistry } from './action/activity'
+import { registerCoreActivities } from './action/coreActivities'
 import { registerCoreBattleActions } from './battle/actions'
 import { BattleRegistry } from './battle/registry'
 import { registerBattleKinds, registerWeaponClassKind } from './battle/rules'
@@ -12,6 +14,8 @@ import { createRulesKernel } from './rules/kernel'
 export interface Kernel extends ActionKernel {
   /** 戰鬥的登錄表：行動、掛點、修正、單位的來源（現實與內海共用同一套引擎；dev/adr/0010） */
   battle: BattleRegistry
+  /** 活動的登錄表：誰開誰的東西、進行中擋住什麼、做完交回給誰（戰鬥與等著選的戰敗核心內建；dev/adr/0016） */
+  activity: ActivityRegistry
   /** 格子地圖的登錄表：站上標記會發生什麼、門過不過得去（現實的固定版面與內海的隨機生成共用；dev/adr/0012） */
   grid: GridRegistry
   /** 已經裝上的功能的 id */
@@ -39,7 +43,9 @@ export function createKernel(features: Feature[] = []): Kernel {
   registerCoreBattleActions(battle)
   // 地圖的定義（DATA 9.3 節：一個模板一筆，裡面一到幾張圖）
   base.content.defineKind({ kind: 'special_map', owner: 'core', validate: specialMapProblems })
-  const k: Kernel = Object.assign(base, { actions, battle, grid: new GridRegistry(base.probe), features: [] as string[], pendingReady: [] as Feature[] })
+  const activity = new ActivityRegistry(base.probe)
+  registerCoreActivities(activity)
+  const k: Kernel = Object.assign(base, { actions, battle, activity, grid: new GridRegistry(base.probe), features: [] as string[], pendingReady: [] as Feature[] })
   for (const f of features) installFeature(k, f)
   return k
 }

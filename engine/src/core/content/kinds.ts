@@ -118,6 +118,11 @@ export interface ActionKindEntry extends ContentEntry {
    * 寫了別的鏈的種類先只是資料：那一條鏈搬進來之前不會註冊成可以做的行動。
    */
   chain?: string
+  /**
+   * 這一筆由哪個功能自己註冊（功能的 id；dev/adr/0016）。寫了的那一筆，features/actions 不註冊它，留給那個功能：
+   * 它要加照對象算的 DC、每天的次數這類行動種類本身表達不了的東西（NPC 互動、名冊）。那個功能沒裝，這一筆就只是資料。
+   */
+  owner?: string
   /** 參考範圍裡引擎現在還表達不了的部分（情報、物品、親密度、狀態……），照設計書的原文記下來，等那個系統搬進來再改寫成效果。鍵和 hint 一樣 */
   hint_note?: Partial<Record<(typeof HINT_KEYS)[number], string>>
 }
@@ -287,6 +292,7 @@ export function registerCoreKinds(content: ContentRegistry): void {
         }
       }
       if (e.chain !== undefined && !isId(e.chain)) p.push('chain 要是任務鏈的 id')
+      if (e.owner !== undefined && !isId(e.owner)) p.push('owner 要是功能的 id')
       if (e.hint_note !== undefined && !(isRecord(e.hint_note) && Object.entries(e.hint_note).every(([key, v]) => (HINT_KEYS as readonly string[]).includes(key) && isText(v)))) p.push(`hint_note 的鍵只能是 ${HINT_KEYS.join('、')}，值是一段字`)
       if (e.hint !== undefined) hintProblems(e.hint, 'hint')
       if (e.hint_by_grade !== undefined) {

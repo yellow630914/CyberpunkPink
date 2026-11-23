@@ -1,13 +1,14 @@
 // L7 外殼：一局遊戲的門面。ui 的 store 包住的就是這個：呼叫它的動作、拿回報告、把狀態交給畫面。
 // 這裡不寫規則，只把核心、功能、AI 任務鏈、存檔與回退接在一起。
 
-import type { BattleInput, BattleState, GameState, Report, ReportDraft, SegmentId, SnapshotSlot, Weekday } from '../core/types'
+import type { BattleInput, BattleState, Change, GameState, Launch, Origin, Report, ReportDraft, SegmentId, SnapshotSlot, Weekday } from '../core/types'
 import type { Feature, Kernel } from '../core/kernel'
 import { createKernel, readyFeatures } from '../core/kernel'
 import type { ContentPack } from '../core/content/registry'
 import { ActionBlocked } from '../core/action/action'
 import type { ActionInput } from '../core/action/kinds'
-import { commitTurn } from '../core/action/turn'
+import { battleSetupWithOrigin } from '../core/action/coreActivities'
+import { commitTurn, commitTurnIn } from '../core/action/turn'
 import type { BattleSetup } from '../core/battle/setup'
 import type { GridDir } from '../core/grid/model'
 import type { GridView, OpenMapOpts } from '../core/grid/walk'
@@ -16,9 +17,11 @@ import type { BattleOptions } from '../core/battle/step'
 import { BattleBlocked, abortBattle, battleAct, battleAuto, battleOptions, pendingDefeat, startBattle } from '../core/battle/step'
 import { modeOf, statusRuleOf } from '../core/battle/rules'
 import { blankState } from '../core/state/blank'
-import { commitReport, commitReportAll } from '../core/state/commit'
+import type { CommitTx } from '../core/state/commit'
+import { commitAtomic, commitReport } from '../core/state/commit'
 import { sanitizeRules } from '../core/state/saveRules'
 import { clone, replaceInPlace } from '../core/util/clone'
+import { isRecord } from '../core/util/sanitize'
 import { daysUntilWeekday, segmentOf, segmentWeekdayOf, weekdayOf } from '../core/util/time'
 import type { ChainStatus, StepRequest } from './ai/chain'
 import { ChainRegistry, ChainRun } from './ai/chain'
@@ -102,6 +105,9 @@ export interface StepActions {
 }
 
 type Listener = (state: GameState, reports: Report[]) => void
+
+/** 報告的 launch 最多連開幾層（開出來的活動的開始報告自己又帶 launch……）；超過丟錯，防止兩個功能互相觸發個沒完（dev/adr/0016 第二節）。 */
+export const MAX_LAUNCH_DEPTH = 4
 
 export class Game {
   readonly k: Kernel
@@ -187,17 +193,15 @@ export class Game {
 
   /**
    * 現在這件事做不做得成（不變式第 48、59 條）：回傳擋住的原因（給玩家看的完整句子），可以做回傳 null。什麼都不改。
+   * 只是問活動的登錄表（k.activity.blockOf；dev/adr/0016）：進行中的每一個活動照 order 都要放行，第一個不放行的給原因。
+   * 核心內建的兩個：
    * - 戰鬥中只能做戰鬥的事（戰鬥的每一步、結束的結算、重來）：別的報告、別的任務鏈、走地圖都擋下。
    * - 有等著選的戰敗時，只能三選一：重來、回到快照，或提交一份把開打前的快照丟掉的報告（接受結果）。
-   * doing：chain:<鏈的 id>、commit:<報告的 action>、battle.start、battle.retry、grid.enter、grid.move。
+   * 其餘的活動（事件、成人場景、委託副本）由功能登記。
+   * doing：chain:<鏈的 id>、commit:<報告的 action>、<種類>.start、battle.retry、rewind:<快照的種類>、grid.enter、grid.move。
    */
   blockOf(doing: string, draft?: ReportDraft): string | null {
-    if (this.state.battle) return doing.startsWith('battle.') || doing.startsWith('commit:battle.') || doing === 'chain:battle_end' ? null : '正在戰鬥，先把這一場打完。'
-    if (this.pendingDefeat) {
-      const settles = !!draft?.changes.some((c) => c.op === 'snapshot.drop' && c.kind === 'battle')
-      return doing === 'battle.retry' || settles ? null : '先在戰敗的三個選擇裡選一個：接受結果、重來這場戰鬥，或回到這個階段開始時。'
-    }
-    return null
+    return this.k.activity.blockOf(this.state, doing, draft)
   }
 
   /** 上一條鏈停在半路（等玩家處理）就做了別的事：那一條作廢，它留的那一步回退也拿掉。 */
@@ -222,15 +226,86 @@ export class Game {
     return this.commitNow(draft, opts)
   }
 
-  /** 提交（不問 blockOf）：門面自己的入口已經問過了才用它。 */
+  /** 提交（不問 blockOf）：門面自己的入口已經問過了才用它。報告帶的 launch 一起處理（見 commitWithLaunch）。 */
   private commitNow(draft: ReportDraft, opts: string | CommitOptions = {}): Report[] {
     const o: CommitOptions = typeof opts === 'string' ? { label: opts } : opts
     // 鏈還在跑的時候不能插進別的提交：那條鏈的每一步都是照開始時的狀態算的
     if (this.last?.run.status === 'running') throw new Error('上一條任務鏈還在跑。')
     const before = o.attach ? null : clone(this.state)
-    const reports = o.turn === false ? commitReportAll(this.k, this.state, draft) : commitTurn(this.k, this.state, draft)
+    const reports = this.commitWithLaunch(draft, o.turn !== false)
     this.abandonPaused()
     if (before) this.undo.pushSnapshot(before, o.label ?? draft.outcome.summary)
+    this.notify(reports)
+    return reports
+  }
+
+  // ---- 活動的開始：報告的 launch 與 Game.launch（dev/adr/0016 第一、二節） ----
+
+  /**
+   * 提交一份報告，連同它（與回合結束的流程帶出來的每一份報告）的 launch：整件事是一次提交（commitAtomic）。
+   * turn 是 false 時只提交報告、不跑回合結束的流程。任何一個 launch 開不成就整件事不成立：狀態回到這一步之前（含那份報告本身），
+   * 丟 ActionBlocked；連開超過 MAX_LAUNCH_DEPTH 層丟一般的錯（狀態一樣不動）。
+   * 任務鏈的套用（ChainEnv.commit）、commit、走地圖都走這裡。回傳的第一份是報告本身，開出來的報告接在後面。
+   */
+  private commitWithLaunch(draft: ReportDraft, turn: boolean): Report[] {
+    return commitAtomic(this.k, this.state, (tx) => this.settleIn(tx, draft, turn))
+  }
+
+  /** 在一次提交裡：提交一份報告（回合流程或單純的報告），再照順序開它們帶的 launch。 */
+  private settleIn(tx: CommitTx, draft: ReportDraft, turn: boolean): Report[] {
+    const reports = turn ? commitTurnIn(this.k, tx, draft) : tx.commit(draft)
+    this.launchAll(tx, reports)
+    return reports
+  }
+
+  /** 照順序處理每一份報告的 launch；開出來的報告自己帶的 launch 接著處理（層數照 MAX_LAUNCH_DEPTH）。開出來的報告接在 reports 後面。 */
+  private launchAll(tx: CommitTx, reports: Report[], depth = 1): void {
+    for (const r of [...reports]) {
+      for (const l of r.launch ?? []) {
+        if (depth > MAX_LAUNCH_DEPTH) throw new Error(`活動連開超過 ${MAX_LAUNCH_DEPTH} 層（${r.action ?? r.id} 還在開 ${l.kind}），可能是兩個功能互相觸發。`)
+        const made = this.launchIn(tx, l)
+        reports.push(...made)
+        this.launchAll(tx, made, depth + 1)
+      }
+    }
+  }
+
+  /**
+   * 開一段活動：問放行（<種類>.start；看的是這一次提交到目前為止的狀態）、k.activity.start 拿到草稿、接著提交（不算一個回合，不另留回退）。
+   * 開不成丟 ActionBlocked。戰鬥照原本的 startBattle：開打前的快照照舊（存的是開打之前、這份報告之後的狀態），
+   * origin 的 by、ref 與 ext 併進 setup.origin.ext（所以重來這場戰鬥時 origin 還在）。
+   */
+  private launchIn(tx: CommitTx, l: Launch): Report[] {
+    const block = this.k.activity.blockOf(tx.work, `${l.kind}.start`)
+    if (block) throw new ActionBlocked(block)
+    const origin: Origin = l.origin ?? { by: 'core' }
+    const setup = l.kind === 'battle' && isRecord(l.setup) ? battleSetupWithOrigin(l.setup as unknown as BattleSetup, origin) : l.setup
+    const drafts = this.k.activity.start(this.k, tx.work, l.kind, setup, origin)
+    const out: Report[] = []
+    drafts.forEach((d, i) => {
+      if (l.kind === 'battle' && i === 0) d.changes.push(...this.battleSnapshotChanges(tx.work, setup as BattleSetup))
+      out.push(...tx.commit(d))
+    })
+    return out
+  }
+
+  /**
+   * 開一段活動（對外的入口）：先問放行（<種類>.start），再照種類開始。留一步回退（開始一段活動是玩家的一個動作；
+   * 和 startBattle、enterMap 一樣）；開出來的報告自己帶的 launch 接著開。回傳提交的報告，開始的報告在前。
+   * 不成立（被擋下、沒有這種活動、活動自己開不成）丟 ActionBlocked，狀態與回退的步數都不變。
+   */
+  launch(kind: string, setup: unknown, origin?: Origin, o: { label?: string } = {}): Report[] {
+    const block = this.blockOf(`${kind}.start`)
+    if (block) throw new ActionBlocked(block)
+    if (this.last?.run.status === 'running') throw new Error('上一條任務鏈還在跑。')
+    const before = clone(this.state)
+    const reports = commitAtomic(this.k, this.state, (tx) => {
+      const made = this.launchIn(tx, { kind, setup, ...(origin ? { origin } : {}) })
+      this.launchAll(tx, made)
+      return made
+    })
+    this.abandonPaused()
+    this.undo.pushSnapshot(before, o.label ?? (kind === 'battle' ? '開戰' : (reports[0]?.outcome.summary ?? kind)))
     this.notify(reports)
     return reports
   }

@@ -72,7 +72,8 @@ export const actionsFeature: Feature = {
     const entries = k.content.list<ActionKindEntry>('action_kind')
     for (const e of entries) check(k, e)
     // 走別的任務鏈的種類（誘惑走 3.5 節的鏈……）先只是資料：那一條鏈搬進來之前不註冊成可以做的行動。
+    // 寫了 owner 的那一筆留給那個功能自己註冊（它要加照對象算的 DC、每天的次數）：這裡不註冊。
     // 資料裡的 free 取代核心內建的預設（核心的登錄表允許）
-    for (const e of entries) if (e.chain === undefined || e.chain === FREE_CHAIN) k.actions.register(toDef(e, k))
+    for (const e of entries) if (e.owner === undefined && (e.chain === undefined || e.chain === FREE_CHAIN)) k.actions.register(toDef(e, k))
   },
 }
