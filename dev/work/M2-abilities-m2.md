@@ -48,3 +48,5 @@ M2-core-battle；讀得到名冊的候補（M2-roster）、人情（M2-favors）
 改了哪些檔、測試結果、示意資料動了哪幾筆的機制欄位、dev/adr/0015 E13 的清單裡還剩什麼。
 
 - 2026-11-23 補（M2-favors 回報）：戰鬥的人情池改讀 `state.ext.favors`（衍生數值 favor_small/mid/big），結束時用 `favor.spend { dir: "owed_to_pc", size }` 一筆一筆扣；拿掉 `actor.ext.favors` 舊格式（abilities/use.ts、end.ts、wallet.ts）。
+
+- 2026-11-23 補（M2-commission-close）：登記歷練點效果 `xp`（commission 的結算用這個名字發）；同行夥伴各拿一份、留在家的拿三成（CORE_RULES 7.1）。

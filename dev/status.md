@@ -128,3 +128,4 @@
 - 2026-11-23 commission-run 留下的：進圖開戰時 origin.by 會被補成 core（認副本戰鬥用 origin.ext.commission＋stage）；M3／M5 登記 face.net／face.opinion 時要自己 allow('commission', 'face.net.')；附帶條件檢查、直播目標、隔離區、中途警戒到 100 不升級沒做。
 - 2026-11-23 核心小修待辦（第二批）：defeat 活動的放行要能照階段（三選一等待時不放 chain:free_action，事件開著時才放；COMBAT_SYSTEM 8.4、M1 審查 E1）；事件的 fight 結果在戰敗裡要放行 battle.start（劫囚之類，M2 內容用不到）。
 - 2026-11-23 defeat 留下的：roster 要回答 defeat.companions（同行的人）；M4 裝備與義體的「拿走」效果要回答 defeat.gear；多段戰敗事件的現金上限沒有跨段合計；版本比例、handed_over 轉雇主、police 轉 arrest、pinned（M4）、AI 正文沒做。
+- 2026-11-23 核心小修待辦（第二批，續）：Game.restoreFrom 回退之後的接續報告（例如 commission.failed）有進 state.reports，但不在 commit 回傳與 notify 的報告裡，介面看不到。
