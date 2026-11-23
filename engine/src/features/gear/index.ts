@@ -7,8 +7,8 @@ import type { Feature } from '../../core'
 import { installBattle } from './battle'
 import { installChanges } from './changes'
 import { installKinds } from './kinds'
-import { OWNER } from './model'
-import { armorOf, bodyArmorOf } from './numbers'
+import { OWNER, blueprintOf, stackOf } from './model'
+import { armorOf, bodyArmorOf, scanFinds } from './numbers'
 
 export { equip, equipBlock, unequip } from './equip'
 export { QUICK_CATEGORIES, quickBlock } from './quick'
@@ -26,5 +26,15 @@ export const gearFeature: Feature = {
     // 全身的護甲裡身上那一件的份：軀幹的重創只讓這一份失效，頭盔與（M4 之後）義體上的板材不受影響
     k.stats.defineStat({ id: 'armor_body', owner: OWNER, name: '身上那件護甲', base: (state, actor) => (state.actors[actor] ? bodyArmorOf(k, state, actor) : 0) })
     installBattle(k)
+    // 掃橋（EQUIPMENT 6.3 節）：身上攜帶格裡這一級掃得到的武器（掛點 scan.carried 由 security 宣告；兩邊不互相 import）
+    k.hooks.on('scan.carried', OWNER, ({ state, actor, strength }) => {
+      const out: Array<{ item: string; name: string; legal: string; uid: string }> = []
+      for (const uid of scanFinds(k, state, actor, strength)) {
+        const stack = stackOf(state, uid)
+        const bp = blueprintOf(k, stack)
+        if (stack && bp) out.push({ item: stack.id, name: bp.name, legal: bp.legal, uid })
+      }
+      return out.length > 0 ? out : undefined
+    })
   },
 }
