@@ -5,7 +5,8 @@ import type { Change, ContentEntry, GameState, Kernel, ReportDraft } from '../..
 import { ActionBlocked, clone, formatAmount, isRecord } from '../../core'
 import type { Pay, Quote, ShopEntry, ShopTypeEntry, TradeItem } from './model'
 import {
-  EXT, PAYS, PAY_NAME, hostilityOf, identityClass, itemOf, matches, plainCount, priced, quote, shopEntry, shopTypeOf, soldToday, stockOf, tradeOf, tradeRules, wornCount,
+  PAYS, PAY_NAME, closedToday, decayMult, hostilityOf, identityClass, intakeCount, itemOf, matches, plainCount, priced, quote, shopEntry, shopTypeOf, soldToday, stockOf,
+  tradeCategoryOf, tradeChange, tradeOf, tradeRules, wornCount,
 } from './model'
 
 export interface CartLine {
@@ -25,6 +26,13 @@ const nameOfFaction = (k: Pick<Kernel, 'content'>, id: string): string => {
 }
 const itemName = (k: Pick<Kernel, 'content'>, id: string): string => itemOf(k, id)?.name ?? id
 
+/** 一列的價錢怎麼算出來：每個一樣是「單價 × 個數」；收購遞減之後每個不一樣就把每一個列出來（太多只寫從多少降到多少）。 */
+function priceLine(l: { qty: number; unit: number; total: number; prices: number[] }): string {
+  if (l.prices.every((p) => p === l.prices[0])) return `${formatAmount(l.unit)} × ${l.qty} = ${formatAmount(l.total)}`
+  const detail = l.prices.length <= 5 ? l.prices.map((p) => formatAmount(p)).join(' + ') : `${formatAmount(l.unit)} 起遞減到 ${formatAmount(l.prices[l.prices.length - 1]!)}`
+  return `${detail} = ${formatAmount(l.total)}`
+}
+
 // ---- 做不成的原因（一條一句）----
 
 /** 後台勢力敵對值太高、不做生意的那一句。 */
@@ -32,13 +40,15 @@ export function refuseReason(k: Pick<Kernel, 'content'>, shop: ShopEntry, at: nu
   return `這間店的後台勢力（${shop.backer ? nameOfFaction(k, shop.backer) : ''}）對你的敵對值已經到了 ${at} 以上，不做你的生意。`
 }
 
-/** 這間店現在做不做你的生意：後台勢力的敵對值到了門檻（預設 60）就不做。 */
+/** 這間店現在做不做你的生意：後台勢力的敵對值到了門檻（預設 60）就不做；今天施壓大失敗被趕出來也不做（TRADE 第 5 節）。 */
 export function shopBlock(k: Kernel, state: GameState, shop: string | ShopEntry): string | null {
   const entry = shopEntry(k, shop)
   if (!entry) return `沒有 ${String(shop)} 這間店。`
   if (!shopTypeOf(k, entry)) return `這間店的種類（${entry.type}）查不到。`
   const rules = tradeRules(k)
-  return hostilityOf(k, state, entry) >= rules.hostility_refuse_at ? refuseReason(k, entry, rules.hostility_refuse_at) : null
+  if (hostilityOf(k, state, entry) >= rules.hostility_refuse_at) return refuseReason(k, entry, rules.hostility_refuse_at)
+  if (closedToday(state, entry.id)) return `你剛才在${entry.name}施壓失敗，被趕了出來，今天這間店不做你的生意。`
+  return null
 }
 
 /** 這間店收不收這種錢（TRADE 7、第 2 節的表）。 */
@@ -113,8 +123,12 @@ export interface PricedLine {
   item: string
   name: string
   qty: number
+  /** 第一個的價錢（收購遞減之後，後面的每一個可能更低：看 prices） */
   unit: number
   total: number
+  /** 每一個的價錢（買的每個都一樣；賣的同一個貿易類別照順序遞減） */
+  prices: number[]
+  /** 第一個的拆解 */
   quote: Quote
 }
 
@@ -137,6 +151,24 @@ function merge(lines: CartLine[] | undefined, problems: string[]): CartLine[] {
     by.set(l.item, (by.get(l.item) ?? 0) + l.qty)
   }
   return [...by].map(([item, qty]) => ({ item, qty }))
+}
+
+/**
+ * 賣 qty 個：每一個的價錢（收購遞減：已經先賣掉 before 件同類別，每個再多一件）。第一個的拆解一起回傳。
+ * 降到 decay_max 之後價錢不再變，後面的直接沿用，不一個一個重算（qty 很大時省時間）。
+ */
+export function sellPrices(k: Kernel, state: GameState, shop: ShopEntry, item: string, qty: number, before = 0): { first: Quote; prices: number[] } {
+  const rules = tradeRules(k)
+  let floor = 0
+  while (floor < 10_000 && decayMult(rules, floor) > decayMult(rules, floor + 1)) floor++
+  const base = intakeCount(k, state, shop.id, tradeCategoryOf(k, itemOf(k, item)!))
+  const first = quote(k, state, shop, item, 'sell', { taken: before })
+  const prices = [first.price]
+  for (let i = 1; i < qty; i++) {
+    if (base + before + i - 1 >= floor) prices.push(prices[i - 1]!)
+    else prices.push(quote(k, state, shop, item, 'sell', { taken: before + i }).price)
+  }
+  return { first, prices }
 }
 
 /** 這一車結不結得了：算出每一列的價錢、淨額與所有不成立的原因。不改任何東西。 */
@@ -163,13 +195,17 @@ export function planCheckout(k: Kernel, state: GameState, shop: string | ShopEnt
     if (why && !plan.problems.includes(why)) plan.problems.push(why)
     if (why || !pay) continue
     const q = quote(k, state, entry, l.item, 'buy')
-    plan.buy.push({ item: l.item, name: itemName(k, l.item), qty: l.qty, unit: q.price, total: q.price * l.qty, quote: q })
+    plan.buy.push({ item: l.item, name: itemName(k, l.item), qty: l.qty, unit: q.price, total: q.price * l.qty, prices: Array<number>(l.qty).fill(q.price), quote: q })
   }
+  // 賣：同一個貿易類別照購物車的順序一件一件遞減（TRADE 3.2），先前累計收的件數（含每天回復）也算進去
+  const taken: Record<string, number> = {}
   for (const l of sell) {
     const why = sellBlock(k, state, entry, l.item, l.qty)
     if (why) { plan.problems.push(why); continue }
-    const q = quote(k, state, entry, l.item, 'sell')
-    plan.sell.push({ item: l.item, name: itemName(k, l.item), qty: l.qty, unit: q.price, total: q.price * l.qty, quote: q })
+    const cat = tradeCategoryOf(k, itemOf(k, l.item)!)
+    const { first, prices } = sellPrices(k, state, entry, l.item, l.qty, taken[cat] ?? 0)
+    taken[cat] = (taken[cat] ?? 0) + l.qty
+    plan.sell.push({ item: l.item, name: itemName(k, l.item), qty: l.qty, unit: first.price, total: prices.reduce((n, x) => n + x, 0), prices, quote: first })
   }
   plan.buyTotal = plan.buy.reduce((n, l) => n + l.total, 0)
   plan.sellTotal = plan.sell.reduce((n, l) => n + l.total, 0)
@@ -196,14 +232,21 @@ export function checkout(k: Kernel, state: GameState, shop: string | ShopEntry, 
   for (const l of plan.buy) changes.push({ op: 'item', id: l.item, qty: l.qty })
   if (plan.net !== 0) changes.push({ op: pay, delta: -plan.net })
 
-  // 今天賣掉的數量：其他天的紀錄順手清掉（清單每天重抽，用不到了）
+  // 狀態：今天賣掉的數量、收購遞減的累計件數；過期的紀錄順手清掉（寫回的方式見 tradeChange，殺價與被趕出去的紀錄原樣帶著）
   const day = state.time.day
-  const shops: Record<string, { day: number; sold: Record<string, number> }> = {}
-  for (const [id, v] of Object.entries(tradeOf(state).shops)) if (v.day === day) shops[id] = { day: v.day, sold: { ...v.sold } }
-  const sold = { ...soldToday(state, entry.id) }
-  for (const l of plan.buy) sold[l.item] = (sold[l.item] ?? 0) + l.qty
-  if (plan.buy.length > 0) shops[entry.id] = { day, sold }
-  changes.push({ op: 'ext', key: EXT, value: Object.keys(shops).length > 0 ? { shops } : null })
+  const trade = tradeOf(state)
+  if (plan.buy.length > 0) {
+    const sold = { ...soldToday(state, entry.id) }
+    for (const l of plan.buy) sold[l.item] = (sold[l.item] ?? 0) + l.qty
+    trade.shops[entry.id] = { day, sold }
+  }
+  const byCategory: Record<string, number> = {}
+  for (const l of plan.sell) {
+    const cat = tradeCategoryOf(k, itemOf(k, l.item)!)
+    byCategory[cat] = (byCategory[cat] ?? 0) + l.qty
+  }
+  for (const [cat, n] of Object.entries(byCategory)) (trade.intake[entry.id] ??= {})[cat] = { n: intakeCount(k, state, entry.id, cat) + n, day }
+  changes.push(tradeChange(state, trade, rules.decay_recover))
 
   const timeline: ReportDraft['timeline'] = []
   const text: string[] = []
@@ -214,7 +257,7 @@ export function checkout(k: Kernel, state: GameState, shop: string | ShopEntry, 
   }
   if (plan.sell.length > 0) {
     text.push(`賣了${plan.sell.map((l) => `${l.name} ×${l.qty}`).join('、')}`)
-    for (const l of plan.sell) lines.push(`賣 ${l.name} ×${l.qty}：${formatAmount(l.unit)} × ${l.qty} = ${formatAmount(l.total)}`)
+    for (const l of plan.sell) lines.push(`賣 ${l.name} ×${l.qty}：${priceLine(l)}`)
   }
   const money = plan.net > 0 ? `付了 ${formatAmount(plan.net)}（${PAY_NAME[pay]}）` : plan.net < 0 ? `收進 ${formatAmount(-plan.net)}（${PAY_NAME[pay]}）` : '帳面剛好打平'
   lines.push(`淨額：${money}`)

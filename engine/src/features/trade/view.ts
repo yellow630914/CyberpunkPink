@@ -3,14 +3,23 @@
 import type { ContentEntry, GameState, Kernel } from '../../core'
 import { meterOf } from '../../core'
 import type { Pay, Quote, ShopEntry } from './model'
-import { buyBlock, payBlock, sellBlock, shopBlock } from './checkout'
-import { PAYS, discountOf, hostilityOf, itemOf, matches, plainCount, priced, quote, shopEntry, shopTypeOf, stockOf, tradeRules, wornCount } from './model'
+import type { BargainView } from './bargain'
+import { bargainView, temperOf } from './bargain'
+import { buyBlock, payBlock, sellBlock, sellPrices, shopBlock } from './checkout'
+import {
+  PAYS, categoryName, decayMult, discountOf, hostilityOf, intakeCount, isCargo, itemOf, marketMult, marketOf, matches, plainCount, priced, quote, shopEntry, shopTypeOf, stockOf,
+  tradeCategoryOf, tradeRules, wornCount,
+} from './model'
 
 export interface ShelfRow {
   item: string
   name: string
   grade: number
   category: string
+  /** 貿易類別（id 與名字；TRADE 4.1）與是不是貨物 */
+  tradeCategory: string
+  tradeCategoryName: string
+  cargo: boolean
   legal: string
   tags: string[]
   /** 一個的價錢；拆解的每一步在 quote.steps */
@@ -28,9 +37,18 @@ export interface ShelfRow {
 export interface SellRow {
   item: string
   name: string
+  /** 貿易類別（id 與名字）與是不是貨物 */
+  tradeCategory: string
+  tradeCategoryName: string
+  cargo: boolean
   /** 能賣幾個（沒有實例資料的那幾疊，扣掉身上穿著的） */
   qty: number
+  /** 賣第一個的價錢（收購遞減之後，同一個類別每多賣一個再低一點：prices 是照順序賣 qty 個每一個的價錢） */
   price: number
+  prices: number[]
+  /** 這間店這個貿易類別已經累計收了幾件（含每天回復）與再收一件的遞減倍率 */
+  taken: number
+  decay: number
   quote: Quote
   /** 這一個賣不賣得了；能賣是 null */
   block: string | null
@@ -47,6 +65,10 @@ export interface ShopView {
   pay: Record<Pay, string | null>
   scan_registered: boolean
   temper: number | null
+  /** 這一區的行情（只列有寫的貿易類別；倍率已經夾在 0.5～2.5）：id、名字、倍率 */
+  market: Array<{ category: string; name: string; mult: number }>
+  /** 殺價：DC、今天殺到的倍率、每一種列得出來的殺法與原因 */
+  bargain: BargainView
   /** 整間店不做你的生意的原因；做的話是 null */
   closed: string | null
   /** 現在的折扣（合計與兩個來源）與敵對值加價 */
@@ -85,6 +107,7 @@ export function shopView(k: Kernel, state: GameState, shop: string | ShopEntry):
     shelf.push({
       item: row.item, name: it.name, grade: it.grade, category: it.category, legal: it.legal, tags: it.tags ?? [],
       price: q.price, quote: q, total: row.total, left: row.left, block, pay,
+      tradeCategory: tradeCategoryOf(k, it), tradeCategoryName: categoryName(k, tradeCategoryOf(k, it)), cargo: isCargo(it),
     })
   }
 
@@ -97,7 +120,13 @@ export function shopView(k: Kernel, state: GameState, shop: string | ShopEntry):
     if (!priced(it) || !matches(it, type.buys)) continue
     const qty = Math.max(0, plainCount(state, s.id) - wornCount(state, s.id))
     const q = quote(k, state, entry, s.id, 'sell')
-    sell.push({ item: s.id, name: it.name, qty, price: q.price, quote: q, block: sellBlock(k, state, entry, s.id, 1) })
+    const category = tradeCategoryOf(k, it)
+    const taken = intakeCount(k, state, entry.id, category)
+    const { prices } = sellPrices(k, state, entry, s.id, Math.max(1, qty))
+    sell.push({
+      item: s.id, name: it.name, tradeCategory: category, tradeCategoryName: categoryName(k, category), cargo: isCargo(it), qty, price: q.price, prices: qty > 0 ? prices : [],
+      taken, decay: decayMult(rules, taken), quote: q, block: sellBlock(k, state, entry, s.id, 1),
+    })
   }
 
   return {
@@ -107,7 +136,9 @@ export function shopView(k: Kernel, state: GameState, shop: string | ShopEntry):
     cash: type.cash === 'only' ? 'only' : type.cash ? 'yes' : 'no',
     pay: { cred: payBlock(k, state, entry, 'cred'), cash: payBlock(k, state, entry, 'cash') },
     scan_registered: type.scan_registered !== false,
-    temper: type.temper ?? null,
+    temper: temperOf(k, entry),
+    market: Object.keys(marketOf(k, entry.district)).filter((c) => c in rules.categories).sort().map((c) => ({ category: c, name: categoryName(k, c), mult: marketMult(k, entry.district, c) })),
+    bargain: bargainView(k, state, entry),
     closed,
     discount: { favor: discount.favor, keeper: discount.keeper, total: discount.total },
     markup: hostility >= rules.hostility_markup_at ? rules.hostility_markup : 1,

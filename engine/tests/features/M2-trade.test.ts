@@ -377,7 +377,7 @@ describe('結帳：買與賣同一台購物車', () => {
     const g = mk()
     give(g, 'i_gun', 2)
     g.commit(checkout(g.k, g.state, 's_beta', { buy: [{ item: 'i_food', qty: 1 }], sell: [{ item: 'i_gun', qty: 2 }], pay: 'cred' }))
-    expect(g.state.money).toEqual({ cred: 1000 + 80 - 9, cash: 500 }) // 罐頭 10 × 0.9 = 9；手槍 40 × 2
+    expect(g.state.money).toEqual({ cred: 1000 + 79 - 9, cash: 500 }) // 罐頭 10 × 0.9 = 9；手槍 40 + 39（同一個貿易類別的第二件 −3%，M2-market）
     expect(g.state.inventory).toEqual([{ id: 'i_food', qty: 1 }])
   })
 
@@ -385,7 +385,7 @@ describe('結帳：買與賣同一台購物車', () => {
     const g = mk()
     give(g, 'i_med', 3)
     g.commit(checkout(g.k, g.state, 's_beta', { sell: [{ item: 'i_med', qty: 3 }], pay: 'cash' }))
-    expect(g.state.money.cash).toBe(500 + 60) // 50 × 0.4 = 20，×3
+    expect(g.state.money.cash).toBe(500 + 58) // 50 × 0.4 = 20；同類別第二、三件 −3%、−6%（M2-market）：20 + 19 + 19
     expect(g.state.inventory).toEqual([])
   })
 
@@ -400,7 +400,7 @@ describe('結帳：買與賣同一台購物車', () => {
     give(g, 'i_gun', 2)
     expect(() => g.commit(checkout(g.k, g.state, 's_beta', { buy: [{ item: 'i_med', qty: 1 }], sell: [{ item: 'i_gun', qty: 2 }], pay: 'cred' }))).not.toThrow()
     // 先賣再買的順序：這一台車用淨額算，不會因為「先扣再收」卡住
-    expect(g.state.money.cred).toBe(10 - 45 + 80)
+    expect(g.state.money.cred).toBe(10 - 45 + 79)
   })
 
   it('任何一條不成立整車不結：好的那幾列也不結', () => {
@@ -510,7 +510,7 @@ describe('設施與商店的畫面', () => {
     expect(gun.quote.steps.map((s) => s.value)).toEqual([100, 90, 108, 108, 97, 97])
     expect(v.shelf.map((r) => r.item)).not.toContain('i_noprice')
     // 背包裡這間店收的：手槍（收購價 44）；登記的護甲這種店不收、沒標價的不收
-    expect(v.sell).toEqual([{ item: 'i_gun', name: '手槍', qty: 2, price: 44, quote: expect.anything(), block: null }])
+    expect(v.sell).toMatchObject([{ item: 'i_gun', name: '手槍', qty: 2, price: 44, prices: [44, 43], quote: expect.anything(), block: null }])
   })
 
   it('敵對值 40 以上 markup 是 1.2；沒有後台勢力與店主的店抬頭是 null', () => {

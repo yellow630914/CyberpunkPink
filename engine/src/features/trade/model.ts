@@ -6,13 +6,17 @@
 //   shop_type   { id, name, catalog: [物品的類別或標籤], buys: [...], grade_max, cash: boolean | 'only', scan_registered?, shop_mult, temper?: number | null }
 //   shop        { id, type, name, district, block?, facility?, owner?: npc, backer?: faction, fixed?: [物品 id] }
 //   trade_rule  { id: 'default', ... }（規則的數字，蓋掉下面的 DEFAULT_TRADE_RULES）
-// 物品多讀的欄位：price（沒有就不上架也不收）、trade_category?（貿易類別；M2-market 用）、no_sell?（不能賣）。
+// 物品多讀的欄位：price（沒有就不上架也不收）、trade_category?（貿易類別；沒寫的照 category 與 tags 推）、cargo?: true（貨物）、no_sell?（不能賣）。
 // 「物品的類別或標籤」的比對：物品的 category、tags 裡的任何一個、trade_category，有一個相同就算。
+// 區多讀的欄位：district.market?: { [貿易類別]: 倍率 }（TRADE 4.2；寫在區的資料裡，夾在 0.5～2.5）。
 //
-// 狀態 state.ext.trade：{ shops: { [商店 id]: { day, sold: { [物品 id]: 今天賣掉幾個 } } } }。清單本身不存：每次用（存檔種子、店、第幾天）重算，結果一樣；
-// day 不是今天的紀錄當作沒有賣過（跨日重抽）。
+// 狀態 state.ext.trade（空的欄位不寫）：
+//   shops    { [商店 id]: { day, sold: { [物品 id]: 今天賣掉幾個 } } }。清單本身不存：每次用（存檔種子、店、第幾天）重算，結果一樣；day 不是今天的紀錄當作沒有賣過（跨日重抽）
+//   intake   { [商店 id]: { [貿易類別]: { n, day } } }：收購遞減（TRADE 3.2）；記的是 day 那天的累計，之後每天回復 decay_recover 件
+//   bargains { [商店 id]: { day, mult, method, degree } }：今天整車殺過價（每間店每天一次）與殺到的倍率（TRADE 第 5 節）
+//   closed   { [商店 id]: day }：施壓大失敗被趕出去，day 那天不做你的生意
 
-import type { ActorId, ContentEntry, GameState, ItemEntry, ItemStack, Kernel } from '../../core'
+import type { ActorId, Change, ContentEntry, Degree, GameState, ItemEntry, ItemStack, Kernel } from '../../core'
 import { deriveRng, isRecord, meterOf } from '../../core'
 
 export const OWNER = 'trade'
@@ -52,6 +56,38 @@ export interface TradeRules {
   stock_by_tag: Record<string, [number, number]>
   stock_by_category: Record<string, [number, number]>
   stock_default: [number, number]
+  /** 貿易類別（TRADE 4.1）：id → 名字 */
+  categories: Record<string, string>
+  /** 物品沒寫 trade_category 時照什麼推：先看標籤、再看類別；都沒對上就是 category_default */
+  category_by_tag: Record<string, string>
+  category_by_category: Record<string, string>
+  category_default: string
+  /** 行情（區的 market）的整體幅度（1 + (行情 − 1) × market_scale）與夾值（TRADE 3.2：0.5～2.5） */
+  market_scale: number
+  market_min: number
+  market_max: number
+  /** 貨物的收購比例（TRADE 4.3：90%） */
+  cargo_ratio: number
+  /** 收購遞減（TRADE 3.2）：每多收一件 −3%、最多 −50%、每天回復 5 件 */
+  decay_step: number
+  decay_max: number
+  decay_recover: number
+  /** 殺價（TRADE 第 5 節）：DC = bargain_dc − ⌊店主親密度 ÷ bargain_affinity_step⌋ ＋ 店的脾氣 */
+  bargain_dc: number
+  bargain_affinity_step: number
+  /** 撒嬌要這一區的豔名到這個值；傾向相合時 +bargain_tendency_bonus */
+  bargain_fame_min: number
+  bargain_tendency_bonus: number
+  /** 施壓大失敗：店主後台勢力的敵對值加多少 */
+  bargain_pressure_hostility: number
+  /** 結果的表：價格倍率與店主親密度的變化 */
+  bargain_results: Record<'critical' | 'success' | 'fail' | 'fumble', { mult: number; affinity: number }>
+}
+
+/** 貿易類別（TRADE 4.1）的預設清單。 */
+export const DEFAULT_TRADE_CATEGORIES: Record<string, string> = {
+  food: '食物', daily: '日用', medicine: '藥', ammo: '彈藥', weapon: '武器', apparel: '護甲與服裝', mech: '機械義體與零件', bio: '生體件',
+  electronics: '電子', fuel: '燃料', luxury: '奢侈品', material: '素材與帶子', furniture: '家具',
 }
 
 export const DEFAULT_TRADE_RULES: TradeRules = {
@@ -63,6 +99,20 @@ export const DEFAULT_TRADE_RULES: TradeRules = {
   stock_by_tag: { food: [20, 20] },
   stock_by_category: { weapon: [1, 1], armor: [1, 1], clothing: [1, 1], accessory: [1, 1], blueprint: [1, 1], misc: [20, 20] },
   stock_default: [2, 5],
+  categories: DEFAULT_TRADE_CATEGORIES,
+  category_by_tag: { food: 'food', medical: 'medicine', luxury: 'luxury', electronics: 'electronics', fuel: 'fuel', furniture: 'furniture' },
+  category_by_category: {
+    weapon: 'weapon', armor: 'apparel', clothing: 'apparel', accessory: 'apparel', ammo: 'ammo', consumable: 'daily', tool: 'daily', part: 'mech',
+    blueprint: 'material', cargo: 'daily', misc: 'daily',
+  },
+  category_default: 'daily',
+  market_scale: 1, market_min: 0.5, market_max: 2.5,
+  cargo_ratio: 0.9,
+  decay_step: 0.03, decay_max: 0.5, decay_recover: 5,
+  bargain_dc: 13, bargain_affinity_step: 25, bargain_fame_min: 30, bargain_tendency_bonus: 2, bargain_pressure_hostility: 5,
+  bargain_results: {
+    critical: { mult: 0.8, affinity: 2 }, success: { mult: 0.9, affinity: 0 }, fail: { mult: 1, affinity: 0 }, fumble: { mult: 1.1, affinity: -3 },
+  },
 }
 
 const num = (v: unknown, min: number, max = Infinity): v is number => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
@@ -87,8 +137,35 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
   if (e.list_size !== undefined && !range(e.list_size)) p.push('list_size 要是 [最少, 最多]：兩個 1 以上的整數')
   if (e.stock_default !== undefined && !range(e.stock_default)) p.push('stock_default 要是 [最少, 最多]')
   for (const f of ['stock_by_tag', 'stock_by_category'] as const) if (e[f] !== undefined && !rangeMap(e[f])) p.push(`${f} 要是 { 名稱: [最少, 最多] }`)
+
+  // 行情、貨物、收購遞減、殺價（M2-market）
+  const cats = e.categories !== undefined ? e.categories : DEFAULT_TRADE_CATEGORIES
+  if (!(isRecord(cats) && Object.keys(cats).length > 0 && Object.values(cats).every(isText))) p.push('categories 要是 { 貿易類別 id: 名字 }（至少一種）')
+  const catIds = isRecord(cats) ? Object.keys(cats) : Object.keys(DEFAULT_TRADE_CATEGORIES)
+  for (const f of ['category_by_tag', 'category_by_category'] as const) {
+    if (e[f] === undefined) continue
+    const m = e[f]
+    if (!(isRecord(m) && Object.values(m).every((v) => isText(v) && catIds.includes(v)))) p.push(`${f} 要是 { 標籤或類別: 貿易類別 id }，貿易類別要在 categories 裡`)
+  }
+  if (e.category_default !== undefined && !(isText(e.category_default) && catIds.includes(e.category_default))) p.push('category_default 要是 categories 裡的貿易類別 id')
+  if (e.market_scale !== undefined && !num(e.market_scale, 0)) p.push('market_scale 要是 0 以上的數字')
+  for (const f of ['market_min', 'market_max'] as const) if (e[f] !== undefined && !(num(e[f], 0) && (e[f] as number) > 0)) p.push(`${f} 要是大於 0 的倍率`)
+  if (typeof e.market_min === 'number' && typeof e.market_max === 'number' && e.market_min > e.market_max) p.push('market_min 不能比 market_max 大')
+  if (e.cargo_ratio !== undefined && !num(e.cargo_ratio, 0, 1)) p.push('cargo_ratio 要是 0～1 的數字')
+  for (const f of ['decay_step', 'decay_max'] as const) if (e[f] !== undefined && !num(e[f], 0, 1)) p.push(`${f} 要是 0～1 的數字`)
+  if (e.decay_recover !== undefined && !int(e.decay_recover, 0)) p.push('decay_recover 要是 0 以上的整數')
+  for (const f of ['bargain_dc', 'bargain_fame_min', 'bargain_tendency_bonus', 'bargain_pressure_hostility'] as const) if (e[f] !== undefined && !(typeof e[f] === 'number' && Number.isSafeInteger(e[f]))) p.push(`${f} 要是整數`)
+  if (e.bargain_affinity_step !== undefined && !int(e.bargain_affinity_step, 1)) p.push('bargain_affinity_step 要是 1 以上的整數')
+  if (e.bargain_results !== undefined) {
+    const r = e.bargain_results
+    const keys = ['critical', 'success', 'fail', 'fumble']
+    if (!(isRecord(r) && keys.every((d) => isRecord(r[d]) && num((r[d] as Rec).mult, 0.01) && typeof (r[d] as Rec).affinity === 'number' && Number.isSafeInteger((r[d] as Rec).affinity)))) {
+      p.push('bargain_results 要有 critical、success、fail、fumble 四項，每項是 { mult: 大於 0 的倍率, affinity: 整數 }')
+    }
+  }
   return p
 }
+type Rec = Record<string, unknown>
 
 /** 規則：內容 trade_rule/default 蓋掉預設（沒寫的欄位用預設）。 */
 export function tradeRules(k: Pick<Kernel, 'content'>): TradeRules {
@@ -158,6 +235,7 @@ export const shopTypeOf = (k: Pick<Kernel, 'content'>, shop: ShopEntry): ShopTyp
 
 export interface TradeItem extends ItemEntry {
   trade_category?: string
+  cargo?: boolean
   no_sell?: boolean
 }
 
@@ -176,22 +254,80 @@ export interface ShopDay {
   day: number
   sold: Record<string, number>
 }
+/** 收購遞減：day 那天累計收了 n 件（之後每天回復 decay_recover 件）。 */
+export interface Intake {
+  n: number
+  day: number
+}
+/** 今天整車殺過價：倍率（買的乘、賣的除以）、用什麼殺、判定的成功程度。 */
+export interface BargainRec {
+  day: number
+  mult: number
+  method: string
+  degree: Degree
+}
 export interface TradeState {
   shops: Record<string, ShopDay>
+  intake: Record<string, Record<string, Intake>>
+  bargains: Record<string, BargainRec>
+  closed: Record<string, number>
 }
+
+const DEGREES_ALL: readonly string[] = ['critical', 'success', 'fail', 'fumble']
+
+export const emptyTrade = (): TradeState => ({ shops: {}, intake: {}, bargains: {}, closed: {} })
 
 export function tradeOf(state: Pick<GameState, 'ext'>): TradeState {
   const raw = state.ext[EXT]
-  const shops: Record<string, ShopDay> = {}
-  if (isRecord(raw) && isRecord(raw.shops)) {
+  const out = emptyTrade()
+  if (!isRecord(raw)) return out
+  if (isRecord(raw.shops)) {
     for (const [id, v] of Object.entries(raw.shops)) {
       if (!isRecord(v) || !int(v.day, 0) || !isRecord(v.sold)) continue
       const sold: Record<string, number> = {}
       for (const [item, n] of Object.entries(v.sold)) if (int(n, 1)) sold[item] = n
-      shops[id] = { day: v.day, sold }
+      out.shops[id] = { day: v.day, sold }
     }
   }
-  return { shops }
+  if (isRecord(raw.intake)) {
+    for (const [id, cats] of Object.entries(raw.intake)) {
+      if (!isRecord(cats)) continue
+      const m: Record<string, Intake> = {}
+      for (const [cat, v] of Object.entries(cats)) if (isRecord(v) && int(v.n, 1) && int(v.day, 0)) m[cat] = { n: v.n, day: v.day }
+      if (Object.keys(m).length > 0) out.intake[id] = m
+    }
+  }
+  if (isRecord(raw.bargains)) {
+    for (const [id, v] of Object.entries(raw.bargains)) {
+      if (isRecord(v) && int(v.day, 0) && num(v.mult, 0.01) && typeof v.method === 'string' && DEGREES_ALL.includes(v.degree as string)) {
+        out.bargains[id] = { day: v.day, mult: v.mult, method: v.method, degree: v.degree as Degree }
+      }
+    }
+  }
+  if (isRecord(raw.closed)) for (const [id, d] of Object.entries(raw.closed)) if (int(d, 0)) out.closed[id] = d
+  return out
+}
+
+/**
+ * 把整份狀態寫回去的那一筆變更：過期的紀錄順手清掉（清單每天重抽；殺價與被趕出去只管當天；收購遞減回復到 0 的拿掉），空的欄位不寫，全空就是 null。
+ * 所有改 state.ext.trade 的地方都走這裡，不會互相蓋掉。
+ */
+export function tradeChange(state: Pick<GameState, 'time'>, trade: TradeState, recover: number): Change {
+  const today = state.time.day
+  const value: Record<string, unknown> = {}
+  const shops = Object.fromEntries(Object.entries(trade.shops).filter(([, v]) => v.day === today))
+  const intake: Record<string, Record<string, Intake>> = {}
+  for (const [shop, cats] of Object.entries(trade.intake)) {
+    const kept = Object.fromEntries(Object.entries(cats).filter(([, v]) => v.n - recover * Math.max(0, today - v.day) > 0))
+    if (Object.keys(kept).length > 0) intake[shop] = kept
+  }
+  const bargains = Object.fromEntries(Object.entries(trade.bargains).filter(([, v]) => v.day >= today))
+  const closed = Object.fromEntries(Object.entries(trade.closed).filter(([, d]) => d >= today))
+  if (Object.keys(shops).length > 0) value.shops = shops
+  if (Object.keys(intake).length > 0) value.intake = intake
+  if (Object.keys(bargains).length > 0) value.bargains = bargains
+  if (Object.keys(closed).length > 0) value.closed = closed
+  return { op: 'ext', key: EXT, value: Object.keys(value).length > 0 ? value : null }
 }
 
 /** 今天這間店每樣東西賣掉了幾個。 */
@@ -265,7 +401,7 @@ export function stockOf(k: Pick<Kernel, 'content'>, state: GameState, shop: stri
 // ---- 價格與拆解（TRADE 3.2、9） ----
 
 export interface QuoteStep {
-  id: 'catalog' | 'shop' | 'district' | 'category' | 'discount' | 'hostility' | 'ratio' | 'sell_district' | 'sell_bonus'
+  id: 'catalog' | 'shop' | 'district' | 'category' | 'discount' | 'hostility' | 'ratio' | 'sell_district' | 'decay' | 'sell_bonus' | 'bargain'
   name: string
   /** 這一步乘多少（目錄價那一步是 1） */
   mult: number
@@ -320,20 +456,87 @@ const districtMult = (k: Pick<Kernel, 'content'>, shop: ShopEntry): number => {
   return typeof m === 'number' && Number.isFinite(m) && m > 0 ? m : 1
 }
 
-/**
- * 類別的行情（TRADE 4.2）：M2-market 才接上；這一張固定是 1。步驟照樣列在拆解裡，接上之後只改這一個函式。
- */
-export function categoryMult(_k: Pick<Kernel, 'content'>, _state: GameState, _shop: ShopEntry, _item: TradeItem): number {
-  return 1
+// ---- 貿易類別、行情、貨物（TRADE 4.1～4.3） ----
+
+/** 物品屬於哪一個貿易類別：寫了 trade_category 就照寫的；否則先看標籤、再看類別（規則 category_by_tag、category_by_category），都沒對上是 category_default。 */
+export function tradeCategoryOf(k: Pick<Kernel, 'content'>, it: TradeItem): string {
+  if (typeof it.trade_category === 'string' && it.trade_category) return it.trade_category
+  const rules = tradeRules(k)
+  for (const t of it.tags ?? []) if (rules.category_by_tag[t]) return rules.category_by_tag[t]!
+  return rules.category_by_category[it.category] ?? rules.category_default
+}
+
+export const categoryName = (k: Pick<Kernel, 'content'>, id: string): string => tradeRules(k).categories[id] ?? id
+
+/** 貨物（TRADE 4.3）：寫了 cargo: true，或物品的類別就是 cargo。 */
+export const isCargo = (it: TradeItem): boolean => it.cargo === true || it.category === 'cargo'
+
+/** 這一區的行情表（沒寫的是空的）：只留貿易類別查得到、倍率是正數的。 */
+export function marketOf(k: Pick<Kernel, 'content'>, district: string | undefined): Record<string, number> {
+  const raw = district ? k.content.get<ContentEntry & { market?: unknown }>('district', district)?.market : undefined
+  const out: Record<string, number> = {}
+  if (!isRecord(raw)) return out
+  for (const [cat, m] of Object.entries(raw)) if (typeof m === 'number' && Number.isFinite(m) && m > 0) out[cat] = m
+  return out
+}
+
+/** 一個行情值換成實際的倍率：整體幅度（market_scale）之後夾在 market_min～market_max（預設 0.5～2.5）。 */
+export function clampMarket(rules: Pick<TradeRules, 'market_scale' | 'market_min' | 'market_max'>, m: number): number {
+  const v = 1 + (m - 1) * rules.market_scale
+  return Number(Math.min(rules.market_max, Math.max(rules.market_min, v)).toFixed(6))
+}
+
+/** 這一區這個貿易類別的行情倍率（沒寫是 1）。區域狀態（DOWNTIME 第 6 節）M2 沒有，乘 1。 */
+export function marketMult(k: Pick<Kernel, 'content'>, district: string | undefined, category: string): number {
+  const m = marketOf(k, district)[category]
+  return m === undefined ? 1 : clampMarket(tradeRules(k), m)
 }
 
 /**
- * 一個東西在這間店的價錢與拆解。
- *   買：目錄價 → 店家倍率 → 區倍率 → 類別的行情 → 折扣 → 敵對值的加價
- *   賣：目錄價 → 收購比例 → 收購的區倍率（1 + (區倍率 − 1) × 0.25）→ 類別的行情 → 折扣加成（1 + 折扣 ÷ 2）
- * 每一步四捨五入。沒有定價的東西、店的種類查不到丟錯（呼叫的人要先確認）。
+ * 類別的行情（TRADE 4.2）：這間店所在的區、這個物品的貿易類別的行情倍率，夾在 0.5～2.5；買與賣都乘。
  */
-export function quote(k: Kernel, state: GameState, shop: string | ShopEntry, item: string, side: 'buy' | 'sell'): Quote {
+export function categoryMult(k: Pick<Kernel, 'content'>, _state: GameState, shop: ShopEntry, item: TradeItem): number {
+  return marketMult(k, shop.district, tradeCategoryOf(k, item))
+}
+
+// ---- 收購遞減（TRADE 3.2） ----
+
+/** 今天這間店這個貿易類別已經累計收了幾件：記下來的件數，扣掉過了幾天 × 每天回復的件數。 */
+export function intakeCount(k: Pick<Kernel, 'content'>, state: GameState, shop: string, category: string): number {
+  const rec = tradeOf(state).intake[shop]?.[category]
+  if (!rec) return 0
+  return Math.max(0, rec.n - tradeRules(k).decay_recover * Math.max(0, state.time.day - rec.day))
+}
+
+/** 已經收了 taken 件之後，再收一件的倍率：1 − 每件的折數 × taken，最多折 decay_max。 */
+export function decayMult(rules: Pick<TradeRules, 'decay_step' | 'decay_max'>, taken: number): number {
+  return Number((1 - Math.min(rules.decay_max, rules.decay_step * Math.max(0, taken))).toFixed(6))
+}
+
+// ---- 今天的殺價、被趕出去 ----
+
+/** 今天這間店整車殺過的價；沒殺過是 null。 */
+export function bargainToday(state: GameState, shop: string): BargainRec | null {
+  const b = tradeOf(state).bargains[shop]
+  return b && b.day === state.time.day ? b : null
+}
+
+/** 今天因為施壓大失敗被這間店趕出來了嗎。 */
+export const closedToday = (state: GameState, shop: string): boolean => tradeOf(state).closed[shop] === state.time.day
+
+export interface QuoteOpts {
+  /** 收購：這一車裡同一個貿易類別已經先賣掉幾件（照順序遞減；沒給是 0） */
+  taken?: number
+}
+
+/**
+ * 一個東西在這間店的價錢與拆解（TRADE 3.2）。
+ *   買：目錄價 → 店家倍率 → 區倍率 → 類別的行情 → 折扣 → 敵對值的加價 →（今天殺過價才有）殺價的倍率
+ *   賣：目錄價 → 收購比例（貨物 90%）→ 收購的區倍率（1 + (區倍率 − 1) × 0.25）→ 類別的行情 →（收過同類才有）收購遞減 → 折扣加成（1 + 折扣 ÷ 2）→（今天殺過價才有）殺價的倍率的倒數
+ * 每一步四捨五入。沒有定價的東西、店的種類查不到丟錯（呼叫的人要先確認）。
+ * 收購遞減回傳的是「再收一件」的價錢：這間店這個類別已經累計收的件數（含回復）加上 opts.taken。
+ */
+export function quote(k: Kernel, state: GameState, shop: string | ShopEntry, item: string, side: 'buy' | 'sell', opts: QuoteOpts = {}): Quote {
   const entry = shopEntry(k, shop)
   if (!entry) throw new Error(`沒有 ${String(shop)} 這間店`)
   const type = shopTypeOf(k, entry)
@@ -350,17 +553,22 @@ export function quote(k: Kernel, state: GameState, shop: string | ShopEntry, ite
   }
   const area = districtMult(k, entry)
   const cat = categoryMult(k, state, entry, it)
+  const bargain = bargainToday(state, entry.id)
   if (side === 'buy') {
     push('shop', '店家倍率', type.shop_mult)
     push('district', '區倍率', area)
     push('category', '類別的行情', cat)
     push('discount', '折扣', 1 - discount.total)
     push('hostility', '敵對值的加價', hostilityOf(k, state, entry) >= rules.hostility_markup_at ? rules.hostility_markup : 1)
+    if (bargain) push('bargain', '殺價', bargain.mult)
   } else {
-    push('ratio', '收購比例', rules.buy_ratio)
+    push('ratio', '收購比例', isCargo(it) ? rules.cargo_ratio : rules.buy_ratio)
     push('sell_district', '收購的區倍率', 1 + (area - 1) * rules.sell_area_slope)
     push('category', '類別的行情', cat)
+    const decay = decayMult(rules, intakeCount(k, state, entry.id, tradeCategoryOf(k, it)) + Math.max(0, opts.taken ?? 0))
+    if (decay < 1) push('decay', '收購遞減', decay)
     push('sell_bonus', '折扣加成', 1 + discount.total / 2)
+    if (bargain) push('bargain', '殺價', Number((1 / bargain.mult).toFixed(6)))
   }
   return { item, side, price: v, steps, discount }
 }
