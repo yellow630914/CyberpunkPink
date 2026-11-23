@@ -8,12 +8,13 @@
 // 帳戶改 240（先變 440，付兩項剩 140，第三項 150 付不起）。
 
 import { describe, expect, it } from 'vitest'
-import type { ContentPack, Feature, GameState, Report, ReportDraft } from '../../src'
+import type { ContentPack, Feature, Report, ReportDraft } from '../../src'
 import { ActionBlocked, clone, effectCtx, meterOf, toMinutes } from '../../src'
 import type { BillLine, SettledLine } from '../../src/features/bills'
 import {
   DEFAULT_BILL_RULES, billPreview, billRules, billsFeature, currentLines, overdueWeeks, readBills, setBill,
 } from '../../src/features/bills'
+import { companionNames } from '../../src/features/defeat'
 import { join, muster, rosterFeature, rosterRules, setPay } from '../../src/features/roster'
 import { makeActor, makeGame, meterFeature, METER_CONTENT, observed, testMeter } from '../../src/testkit'
 
@@ -54,9 +55,10 @@ const COMMISSION_STUB: Feature = {
   },
 }
 
+const RUNNER = { paths: [{ path: 'p_gun', slot: 'main', tier: 2 }] }
 const ROSTER_ACTORS = [
-  makeActor({ id: 'r_ann', name: '安', role: 'npc' }),
-  makeActor({ id: 'r_bob', name: '鮑', role: 'npc' }),
+  makeActor({ id: 'r_ann', name: '安', role: 'npc', ext: RUNNER }),
+  makeActor({ id: 'r_bob', name: '鮑', role: 'npc', ext: RUNNER }),
   makeActor({ id: 'c_bob', name: '街坊鮑勃', role: 'npc' }),
 ]
 
@@ -74,6 +76,7 @@ interface Opts {
   commission?: boolean
   seed?: number
   lines?: BillLine[]
+  packs?: ContentPack[]
 }
 
 const line = (id: string, amount: number, o: Partial<BillLine> = {}): BillLine => ({ id, owner: 'collect_stub', name: id, kind: 'due', amount, order: 1, pay: 'cred', ...o })
@@ -86,7 +89,7 @@ const make = (o: Opts = {}) => {
   if (o.roster) features.push(rosterFeature)
   features.push(billsFeature)
   const { game } = makeGame({
-    features, content: [METER_CONTENT, content(o.rule)], seed: o.seed ?? 7, actors: o.roster ? clone(ROSTER_ACTORS) : [],
+    features, content: [METER_CONTENT, content(o.rule), ...(o.packs ?? [])], seed: o.seed ?? 7, actors: o.roster ? clone(ROSTER_ACTORS) : [],
     patch: { time: { day: 3, hour: 10, minute: 0 }, money: { cred: o.cred ?? 0, cash: o.cash ?? 0 } },
   })
   if (o.mult !== undefined) game.state.rules.billMult = o.mult
@@ -255,7 +258,7 @@ describe('收入先入帳、再照順序扣款，錢不夠就停', () => {
     const g = make({ lines: [{ ...line('bad', 10), order: 11 }] })
     expect(() => goTo(g, 8)).toThrow(/collect_stub.*order/)
     const dup = make({ lines: [line('x', 10), line('x', 20)] })
-    expect(() => goTo(g === dup ? g : dup, 8)).toThrow(/重複/)
+    expect(() => goTo(dup, 8)).toThrow(/重複/)
   })
 })
 
@@ -401,7 +404,6 @@ describe('連三週沒付清：第三週併成債、債主敵對值 +10；之後
   it('付清之後欠繳歸零、旗標拿掉；利息照樣每週收（債還在）', () => {
     const g = setup()
     goTo(g, 22)
-    goTo(g, 28)
     put(g, [{ op: 'cred', delta: 1000 }])
     goTo(g, 29)
     expect(overdueWeeks(g.state)).toBe(0)
@@ -446,9 +448,12 @@ describe('連三週沒付清：第三週併成債、債主敵對值 +10；之後
     expect(game.state.meters.hostility).toBeUndefined()
   })
 
-  it('規則裡的格式錯誤欄位被忽略、回到預設', () => {
-    const g = make({ rule: { debt_week: 0, debt_rate: 'x', debt_pay: { a: 'gold' } } })
-    expect(billRules(g.k)).toEqual({ ...DEFAULT_BILL_RULES, debt_faction: 'f_alpha' })
+  it('規則：沒寫的欄位用內建的預設；資料裡的格式錯誤在載入時就擋下', () => {
+    const g = make({ rule: { debt_week: 5 } })
+    expect(billRules(g.k)).toEqual({ ...DEFAULT_BILL_RULES, debt_faction: 'f_alpha', debt_rate: 0.1, debt_week: 5 })
+    for (const bad of [{ debt_week: 0 }, { debt_rate: 'x' }, { debt_pay: { a: 'gold' } }, { interest_order: 11 }, { debt_faction: '' }]) {
+      expect(() => make({ rule: bad }), JSON.stringify(bad)).toThrow(/bill_rule\/default/)
+    }
   })
 
   it('條件 bill_overdue：欠繳週數不少於 min（預設 1）', () => {
@@ -639,8 +644,8 @@ describe('預覽 billPreview 與週日晚上的提醒', () => {
     expect(p.at).toEqual({ day: 7, hour: 6, minute: 0 })
     expect(p.deferred).toBe(false)
     expect(p.stopsAt).toBe('c')
-    expect(p.money.cred).toEqual({ have: 240, income: 200, due: 450, short: 150, enough: false })
-    expect(p.money.cash).toEqual({ have: 0, income: 0, due: 0, short: 0, enough: true })
+    expect(p.money.cred).toEqual({ have: 240, income: 200, due: 450, short: 10, unpaid: 150, enough: false })
+    expect(p.money.cash).toEqual({ have: 0, income: 0, due: 0, short: 0, unpaid: 0, enough: true })
     expect(p.overdue).toBe(0)
     expect(p.slope).toBe(0)
     expect(p.slopeIfShort).toBe(1)
@@ -681,7 +686,7 @@ describe('預覽 billPreview 與週日晚上的提醒', () => {
   it('currentLines：目前所有的項目（含收入、臨時項目、債的利息）', () => {
     const g = make({ cred: 1000, lines: [line('rent', 100), income('job', 5)] })
     give(g, [{ kind: 'bill', name: '分期', amount: 30, weeks: 3, pay: 'cred' }, { kind: 'debt', to: 'f_alpha', amount: 200, rate: 0.1 }])
-    expect(currentLines(g.k, g.state).map((l) => l.id)).toEqual(['job', 'rent', 'debt:d2', 'x1'].filter((id) => id !== 'debt:d2' || true).sort((a, b) => 0).length ? currentLines(g.k, g.state).map((l) => l.id) : [])
+    expect(currentLines(g.k, g.state).map((l) => l.id)).toEqual(['job', 'rent', 'debt:d2', 'x1'])
     expect(currentLines(g.k, g.state).map((l) => l.id).sort()).toEqual(['debt:d2', 'job', 'rent', 'x1'])
   })
 
@@ -789,17 +794,13 @@ describe('名冊的薪水：weeklyPay 接上 bill.collect（order 8、付現金�
     expect(settles(g)).toHaveLength(0)
   })
 
-  it('規則 unpaid_delta 可以蓋；其他項目沒付成不動忠誠', () => {
-    const { game } = makeGame({
-      features: [collectStubFor({ lines: [line('rent', 500)], settled: [], asked: [] }), rosterFeature, billsFeature], content: [METER_CONTENT, content(), { id: 'rr', content: { roster_rule: [{ id: 'default', unpaid_delta: -3 }] } as unknown as ContentPack['content'] }],
-      actors: clone(ROSTER_ACTORS), patch: { time: { day: 3, hour: 10, minute: 0 } },
-    })
-    const g = Object.assign(game, { box: { lines: [], settled: [], asked: [] } as Box }) as G
+  it('規則 unpaid_delta 可以蓋（資料 roster_rule）', () => {
+    const rule: ContentPack = { id: 'rr', content: { roster_rule: [{ id: 'default', unpaid_delta: -3 }] } as unknown as ContentPack['content'] }
+    const g = make({ roster: true, cash: 0, packs: [rule] })
     expect(rosterRules(g.k).unpaid_delta).toBe(-3)
-    g.commit(join(g.k, g.state, 'r_ann'))
+    hire(g, 'r_ann', 100)
     goTo(g, 8)
-    expect(overdueWeeks(g.state)).toBe(1)
-    expect(meterOf(g.k, g.state, 'loyalty', 'r_ann')).toBe(30)
+    expect(loyalty(g, 'r_ann')).toBe(27)
   })
 
   it('沒付成的是別人的項目（不是名冊的）：忠誠不動；現金薪水沒付成不擋扣帳戶的項目', () => {
@@ -809,9 +810,15 @@ describe('名冊的薪水：weeklyPay 接上 bill.collect（order 8、付現金�
     expect(cred(g)).toBe(900)
     expect(loyalty(g, 'r_ann')).toBe(22)
   })
-})
 
-const collectStubFor = (box: Box): Feature => collectStub(box)
+  it('沒付成的是別人的項目：名冊的人忠誠不動', () => {
+    const g = make({ roster: true, cash: 1000, cred: 0, lines: [line('rent', 500)] })
+    hire(g, 'r_ann', 100)
+    goTo(g, 8)
+    expect(overdueWeeks(g.state)).toBe(1)
+    expect(loyalty(g, 'r_ann')).toBe(30)
+  })
+})
 
 describe('名冊回答 defeat.companions：這一趟召集時排的同行', () => {
   const ask = (g: G) => g.k.hooks.run('defeat.companions', { state: g.state, pending: { event: 'x' } as never }).flatMap((r) => r.result)
@@ -822,12 +829,14 @@ describe('名冊回答 defeat.companions：這一趟召集時排的同行', () =
     expect(ask(g)).toEqual([])
   })
 
-  it('召集時排成同行的人，戰敗時跟著被處置；隊上的人不在裡面；名冊外的街坊當同行也算（同行誰都可以）', () => {
+  it('召集時排成同行的名冊成員，戰敗時跟著被處置；隊上的人不在裡面；名冊外的街坊（同行誰都可以排）不回答', () => {
     const g = make({ roster: true })
     g.commit(join(g.k, g.state, 'r_ann'))
     g.commit(join(g.k, g.state, 'r_bob'))
     g.commit(muster(g.k, g.state, { party: ['r_ann'], tagalong: ['r_bob', 'c_bob'] }))
-    expect(ask(g)).toEqual(['r_bob', 'c_bob'])
+    expect(ask(g)).toEqual(['r_bob'])
+    // 戰敗的那一邊（defeat 的 companionNames）拿到的就是名字
+    expect(companionNames(g.k, g.state, { event: 'x' } as never)).toEqual(['鮑'])
     expect(g.state.party).toEqual(['pc', 'r_ann'])
   })
 
@@ -899,6 +908,3 @@ describe('存檔與重播', () => {
     expect(() => goTo(g, 8)).not.toThrow()
   })
 })
-
-// 型別守門：GameState 與 Report 都有 import 的用處
-void (undefined as unknown as GameState)

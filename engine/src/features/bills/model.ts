@@ -407,8 +407,11 @@ export interface BillPreview {
   deferred: boolean
   mult: number
   lines: PlanLine[]
-  /** 兩種錢各自的：現有多少、這一週的收入、要付多少（付得成的）、沒付成的合計（差多少）、夠不夠 */
-  money: Record<Pool, { have: number; income: number; due: number; short: number; enough: boolean }>
+  /**
+   * 兩種錢各自的：現有多少、這一週的收入、這一種錢的項目一共要付多少（due）、帳戶加收入還差多少才付得起全部（short）、
+   * 實際會沒付成的合計（unpaid：錢不夠就停在那一項，後面的都算沒付，所以可能比 short 多）、夠不夠（enough：全部付得起）
+   */
+  money: Record<Pool, { have: number; income: number; due: number; short: number; unpaid: number; enough: boolean }>
   /** 會停在哪一項（第一項沒付成的）；都付得起是 null */
   stopsAt: string | null
   /** 現在的欠繳週數、對到下坡路的哪一格（0 是沒欠；1～4） */
@@ -426,7 +429,8 @@ export function billPreview(k: Pick<Kernel, 'hooks' | 'content' | 'meters' | 'ti
   const atMinutes = bills.due[0] ?? nextMondayMinutes(k, state)
   const plan = planWeek(k, state, fromMinutes(atMinutes))
   const money = (pool: Pool) => ({
-    have: state.money[pool], income: plan.income[pool], due: plan.paid[pool] + plan.unpaid[pool], short: plan.unpaid[pool], enough: plan.unpaid[pool] === 0,
+    have: state.money[pool], income: plan.income[pool], due: plan.paid[pool] + plan.unpaid[pool],
+    short: Math.max(0, plan.paid[pool] + plan.unpaid[pool] - state.money[pool] - plan.income[pool]), unpaid: plan.unpaid[pool], enough: plan.unpaid[pool] === 0,
   })
   const slope = Math.min(bills.overdue, STEPS.length)
   const nextOverdue = Math.min(bills.overdue + 1, STEPS.length)

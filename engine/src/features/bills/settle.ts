@@ -111,7 +111,7 @@ export function weeklyDrafts(k: Kernel, state: GameState, from: GameTime, to: Ga
     })
     return out
   }
-  const notice = noticeDraft(k, state, from, to)
+  const notice = inCommission(k, state) ? null : noticeDraft(k, state, from, to)
   return notice ? [notice] : []
 }
 
