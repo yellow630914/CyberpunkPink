@@ -15,8 +15,8 @@ const MAP: SpecialMapEntry = {
   sheets: [{
     id: 'floor', name: '倉庫', size: [9, 5],
     layout: ['#########', 'E.1.+.2G#', '#...#...#', '#G..#..X#', '#########'],
-    zones: ['#########', 'aaaaabbb#', '#aaa#bbb#', '#aaa#bbb#', '#########'],
-    zone_names: { a: '前廳', b: '後倉' },
+    zones: ['#########', 'aaaaabbb#', '#ccc#bbb#', '#ccc#bbb#', '#########'],
+    zone_names: { a: '前廳', b: '後倉', c: '前廳的角落' },
     cells: [{ id: 'E1', at: [0, 1], mark: 'E', name: '側門' }, { id: 'G1', at: [7, 1], mark: 'G', name: '後倉的崗哨' }, { id: 'G2', at: [1, 3], mark: 'G', name: '前廳的角落' }, { id: 'X1', at: [7, 3], mark: 'X', name: '卸貨口' }],
     spots: [{ id: '!1', at: [2, 1], cover: 'sparse' }, { id: '!2', at: [6, 1], cover: 'dense', field: ['dark'] }],
   }],
@@ -57,7 +57,7 @@ describe('走到敵人那一格就開打', () => {
     expect(game.battle).toBeNull()
   })
 
-  it('另一個保全崗用它自己那一區的遭遇點；那一區有好幾個時用走路最近的', () => {
+  it('另一個保全崗（在區塊 c，沒有遭遇點）：用整張圖走路最近的遭遇點', () => {
     const game = setup()
     const r = game.gridMove([1, 3])
     expect(r.reports.map((x) => x.action)).toEqual(['grid.move', 'battle.start'])

@@ -52,3 +52,5 @@ M2-core-activity、M2-core-shell、M2-explore、M2-enemy-encounter（`enemy_pick
 改了哪些檔、測試結果、COMMISSIONS 第 2～5 節裡沒做的（預期：附帶條件的檢查、輿論戰的開場表、直播目標、隔離區）。
 
 - 2026-11-23 補：戰鬥的 `origin.ext` 加 `employer`（委託人的勢力 id），俘虜「交出去」的好感要它。
+
+- 2026-11-23 補（M2-explore）：進副本地圖時，`enterMap` 之後呼叫 explore 的 `arrive(k, state)`，有回傳報告就一起提交（入口就被保全看到時開打或潛行警戒 +5）。

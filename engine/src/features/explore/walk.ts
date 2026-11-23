@@ -3,11 +3,11 @@
 //
 // 一段路好幾格時，掛點每一格各呼叫一次，而讀到的 state 都是這一段路開始之前的：所以這一段路累積的東西
 // （警戒、巡邏的人走到哪、ext 的新值）記在 Walk 裡，每一格都回傳「到這一格為止」的完整值（後面的變更蓋過前面的）。
-// 「被看到」的算法：每個保全只算一次（ext.seen_by）。開打的規則下，從看不到變成看得到的那一步才算（人走進視線、或巡邏的保全走進視線），
-// 一開始就在視線裡的記成「已經注意到你」、不開打；潛行的規則下一看到就算。走進保全站的那一格一定算。
+// 「被看到」的算法（SITES 12.5 節，照字面）：一步結束時有保全站在同一個區塊、中間沒有牆就算；每個保全只算一次（ext.seen_by）；
+// 潛行時警戒 +5、不開打；走進保全站的那一格一定開打。剛進圖也算一步（arrive）。
 
-import type { BattleSetup, Change, GameState, GridCtx, GridEffect, GridKernel, MarkerDef, SpotDef, UnitRef } from '../../core'
-import { clone, meterOf, pointKey } from '../../core'
+import type { BattleSetup, Change, GameState, GridCtx, GridEffect, GridKernel, MarkerDef, ReportDraft, SpotDef, UnitRef } from '../../core'
+import { clone, gridHere, meterOf, pointKey } from '../../core'
 import type { Ext, GuardPost } from './ext'
 import { extChange, extOf, guardOf, hasKey, isControlled, isRec, strList } from './ext'
 import type { Mover, Patrol, Pt } from './sight'
@@ -68,8 +68,6 @@ interface Walk {
   state: GameState
   map: string
   sheet: string
-  /** 人上一格在哪 */
-  prev: Pt
   ext: Ext
   movers: Record<string, Mover>
   /** 這一段路開始時的警戒 */
@@ -128,49 +126,44 @@ function battleFor(ctx: GridCtx, w: Walk, g: Guard, at: Pt, alertNow: number): {
   return { battle, extChanged }
 }
 
-/** 安裝走路的規則。每個 kernel 一份狀態（這一段路的累積）。 */
-export function installWalk(k: GridKernel, owner: string): void {
-  let walk: Walk | null = null
+function newWalk(k: GridKernel, ctx: GridCtx): Walk {
+  const movers: Record<string, Mover> = {}
+  for (const [id, raw] of Object.entries(ctx.state.maps.instances[ctx.at.map]?.sheets[ctx.at.sheet]?.movers ?? {})) {
+    const m = moverOf(raw)
+    if (m) movers[id] = m
+  }
+  return { state: ctx.state, map: ctx.at.map, sheet: ctx.at.sheet, ext: clone(extOf(ctx.state, ctx.at.map)), movers, base: meterOf(k, ctx.state, 'alert', ctx.at.map), gained: 0, watched: false }
+}
 
-  k.grid.onEnter(owner, (ctx): GridEffect | void => {
-    const inst = ctx.state.maps.instances[ctx.at.map]
-    if (!inst) return
-    const sheetState = inst.sheets[ctx.at.sheet]
-    if (ctx.step <= 1 || !walk || walk.state !== ctx.state || walk.map !== ctx.at.map || walk.sheet !== ctx.at.sheet) {
-      const movers: Record<string, Mover> = {}
-      for (const [id, raw] of Object.entries(sheetState?.movers ?? {})) {
-        const m = moverOf(raw)
-        if (m) movers[id] = m
-      }
-      const start = ctx.state.maps.at
-      walk = {
-        state: ctx.state, map: ctx.at.map, sheet: ctx.at.sheet, prev: start ? [start.x, start.y] : [ctx.at.x, ctx.at.y],
-        ext: clone(extOf(ctx.state, ctx.at.map)), movers, base: meterOf(k, ctx.state, 'alert', ctx.at.map), gained: 0, watched: false,
-      }
-    }
-    const w = walk
-    const me: Pt = [ctx.at.x, ctx.at.y]
-    const { sheet } = ctx
-    let extDirty = false
-    let gainedNow = 0
-    const movedNow: Record<string, Mover> = {}
-    const cells: Record<string, { kind: string }> = {}
-    const lines: string[] = []
+/**
+ * 一步（或剛到地圖）的結算。arrival 是剛進圖：只看保全看不看得到你（不算監視器、不巡邏、不開門）。
+ * 被看到的規則（SITES 12.5 節，照字面）：這一步結束時有保全站在同一個區塊、中間沒有牆，就開他的遭遇；每個保全只算一次（ext.seen_by）；
+ * 潛行時改成警戒 +5、不開打；走到保全現在站的那一格一定開打（潛行除外）。
+ */
+function evaluate(k: GridKernel, ctx: GridCtx, w: Walk, arrival: boolean): GridEffect | void {
+  void k
+  const me: Pt = [ctx.at.x, ctx.at.y]
+  const { sheet } = ctx
+  let extDirty = false
+  let gainedNow = 0
+  const movedNow: Record<string, Mover> = {}
+  const cells: Record<string, { kind: string }> = {}
+  const lines: string[] = []
 
-    // 這一步的變更（每一種都是「到這一步為止的完整值」或加量，後面的蓋過前面的）
-    const flush = (): Change[] => [
-      ...(Object.keys(cells).length ? [{ op: 'map.sheet', map: ctx.at.map, sheet: ctx.at.sheet, cells } as Change] : []),
-      ...(Object.keys(movedNow).length ? [{ op: 'map.sheet', map: ctx.at.map, sheet: ctx.at.sheet, movers: clone(movedNow) } as Change] : []),
-      ...(gainedNow ? [{ op: 'meter', ...alertKey(ctx.at.map), delta: gainedNow } as Change] : []),
-      ...(extDirty ? [extChange(ctx.at.map, w.ext)] : []),
-    ]
-    const addAlert = (n: number): void => { gainedNow += n; w.gained += n }
-    const done = (): GridEffect | void => {
-      w.prev = me
-      const changes = flush()
-      return changes.length || lines.length ? { ...(changes.length ? { changes } : {}), ...(lines.length ? { line: lines.join('') } : {}) } : undefined
-    }
+  // 這一步的變更（每一種都是「到這一步為止的完整值」或加量，後面的蓋過前面的）
+  const flush = (): Change[] => [
+    ...(Object.keys(cells).length ? [{ op: 'map.sheet', map: ctx.at.map, sheet: ctx.at.sheet, cells } as Change] : []),
+    ...(Object.keys(movedNow).length ? [{ op: 'map.sheet', map: ctx.at.map, sheet: ctx.at.sheet, movers: clone(movedNow) } as Change] : []),
+    ...(gainedNow ? [{ op: 'meter', ...alertKey(ctx.at.map), delta: gainedNow } as Change] : []),
+    ...(extDirty ? [extChange(ctx.at.map, w.ext)] : []),
+  ]
+  const addAlert = (n: number): void => { gainedNow += n; w.gained += n }
+  const done = (): GridEffect | void => {
+    const changes = flush()
+    return changes.length || lines.length ? { ...(changes.length ? { changes } : {}), ...(lines.length ? { line: lines.join('') } : {}) } : undefined
+  }
 
+  if (!arrival) {
     // 站上上鎖的門（鑰匙或接管讓它放行）：門改成開的
     if (sheet.kindAt(me[0], me[1]) === 'door_locked') cells[pointKey(me[0], me[1])] = { kind: 'door' }
 
@@ -181,69 +174,88 @@ export function installWalk(k: GridKernel, owner: string): void {
       if (!w.watched) lines.push('監視器拍到你了。')
       w.watched = true
     }
+  }
 
-    const guards = guardsOf(ctx, w.ext, w.movers)
-    const posOf = (g: Guard): Pt => w.movers[g.marker.id]?.at ?? g.marker.at
+  const guards = guardsOf(ctx, w.ext, w.movers)
+  const posOf = (g: Guard): Pt => w.movers[g.marker.id]?.at ?? g.marker.at
+  const noticed = (g: Guard): boolean => strList(w.ext.seen_by).includes(g.marker.id)
+  const markNoticed = (g: Guard): void => {
+    w.ext = { ...w.ext, seen_by: [...strList(w.ext.seen_by), g.marker.id] }
+    extDirty = true
+  }
 
-    const noticed = (g: Guard): boolean => strList(w.ext.seen_by).includes(g.marker.id)
-    const markNoticed = (g: Guard): void => {
-      w.ext = { ...w.ext, seen_by: [...strList(w.ext.seen_by), g.marker.id] }
-      extDirty = true
-    }
-
-    /** 被這個保全看到：潛行時警戒 +5（同一個保全只算一次）、不開打；否則開他的遭遇。 */
-    const spotted = (g: Guard, at: Pt): GridEffect | undefined => {
-      if (w.ext.stealth === true) {
-        if (!noticed(g)) {
-          markNoticed(g)
-          addAlert(SPOTTED_ALERT)
-          lines.push(`${g.marker.name}的保全看到你了，警戒上升。`)
-        }
-        return undefined
+  /** 被這個保全看到：潛行時警戒 +5（同一個保全只算一次）、不開打；否則開他的遭遇。 */
+  const spotted = (g: Guard, at: Pt): GridEffect | undefined => {
+    if (w.ext.stealth === true) {
+      if (!noticed(g)) {
+        markNoticed(g)
+        addAlert(SPOTTED_ALERT)
+        lines.push(`${g.marker.name}的保全看到你了，警戒上升。`)
       }
-      if (!noticed(g)) markNoticed(g)
-      const { battle, extChanged } = battleFor(ctx, w, g, at, Math.min(100, w.base + w.gained))
-      if (extChanged) extDirty = true
-      w.prev = me
-      const changes = flush()
-      return { ...(changes.length ? { changes } : {}), battle, stop: true, line: `${lines.join('')}${g.marker.name}的保全發現了你。` }
+      return undefined
     }
+    if (!noticed(g)) markNoticed(g)
+    const { battle, extChanged } = battleFor(ctx, w, g, at, Math.min(100, w.base + w.gained))
+    if (extChanged) extDirty = true
+    const changes = flush()
+    return { ...(changes.length ? { changes } : {}), battle, stop: true, line: `${lines.join('')}${g.marker.name}的保全發現了你。` }
+  }
 
-    // 2 走進保全現在站的那一格
-    for (const g of guards) {
-      const at = posOf(g)
-      if (samePt(at, me)) {
-        const fight = spotted(g, at)
-        if (fight) return fight
-      }
-    }
-
-    // 3 巡邏：每走一格，有路線的保全往下一個區塊走一格
-    const before = new Map<string, Pt>()
-    for (const g of guards) {
-      if (!g.patrol) continue
-      const cur = w.movers[g.marker.id] ?? startMover(sheet, g.marker.at, g.patrol)
-      before.set(g.marker.id, cur.at)
-      const next = stepMover(sheet, g.patrol, cur)
-      w.movers[g.marker.id] = next
-      movedNow[g.marker.id] = next
-    }
-
-    // 4 保全走到你這一格、或你走進（或他走進）他的視線。
-    // 開打的規則下，這一步開始時就已經在他視線裡的不算被看到（記成他已經注意到你，不開打）：一進圖就在視線裡不會立刻被圍，
-    // 也不會每離開再走回來就再打一次。潛行的規則下看到就算（每個保全只算一次）。
-    for (const g of guards) {
-      const at = posOf(g)
-      let hit = samePt(at, me)
-      if (!hit && sees(sheet, at, me) && !noticed(g)) {
-        if (w.ext.stealth !== true && sees(sheet, before.get(g.marker.id) ?? at, w.prev)) markNoticed(g)
-        else hit = true
-      }
-      if (!hit) continue
+  // 2 走進保全現在站的那一格
+  for (const g of guards) {
+    const at = posOf(g)
+    if (samePt(at, me)) {
       const fight = spotted(g, at)
       if (fight) return fight
     }
-    return done()
+  }
+
+  // 3 巡邏：每走一格，有路線的保全往下一個區塊走一格
+  if (!arrival) {
+    for (const g of guards) {
+      if (!g.patrol) continue
+      const next = stepMover(sheet, g.patrol, w.movers[g.marker.id] ?? startMover(sheet, g.marker.at, g.patrol))
+      w.movers[g.marker.id] = next
+      movedNow[g.marker.id] = next
+    }
+  }
+
+  // 4 保全走到你這一格，或這一步結束時他看得到你
+  for (const g of guards) {
+    const at = posOf(g)
+    if (!samePt(at, me) && !(sees(sheet, at, me) && !noticed(g))) continue
+    const fight = spotted(g, at)
+    if (fight) return fight
+  }
+  return done()
+}
+
+/**
+ * 剛進圖也算一步：進圖的人（開地圖的功能）在 enterMap 之後問這個，入口那一格已經被保全看到就回傳一份報告
+ * （潛行時是警戒 +5；否則帶 launch 開他的遭遇），沒事回傳 null。core 的 openMap 不呼叫掛點，所以要開地圖的人自己呼叫並提交。
+ */
+export function arrive(k: GridKernel, state: GameState): ReportDraft | null {
+  const here = gridHere(k, state)
+  if (!here) return null
+  const effect = evaluate(k, here, newWalk(k, here), true)
+  if (!effect) return null
+  const launch = effect.battle ? [{ kind: 'battle', setup: effect.battle }] : []
+  if (!effect.changes?.length && !launch.length) return null
+  return {
+    kind: 'action', action: 'grid.arrive', location: clone(state.location), ...(state.pc ? { actor: state.pc } : {}), party: [], timeline: [],
+    changes: effect.changes ?? [], outcome: { result: launch.length ? 'spotted' : 'seen', summary: effect.line ?? '' },
+    ...(launch.length ? { launch } : {}),
+  }
+}
+
+/** 安裝走路的規則。每個 kernel 一份狀態（這一段路的累積）。 */
+export function installWalk(k: GridKernel, owner: string): void {
+  let walk: Walk | null = null
+
+  k.grid.onEnter(owner, (ctx): GridEffect | void => {
+    if (!ctx.state.maps.instances[ctx.at.map]) return
+    if (ctx.step <= 1 || !walk || walk.state !== ctx.state || walk.map !== ctx.at.map || walk.sheet !== ctx.at.sheet) walk = newWalk(k, ctx)
+    return evaluate(k, ctx, walk, false)
   })
 
   // 上鎖的門（%）：拿到憑證（K）或那一區被接管就放行（走過去時門改成開的）；否則擋下，原因寫出辦法

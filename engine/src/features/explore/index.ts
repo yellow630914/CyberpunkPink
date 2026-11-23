@@ -10,11 +10,11 @@
 import type { Feature, GameState, GridKernel, ReportDraft } from '../../core'
 import { clone, pointKey } from '../../core'
 import { unlock, useAt, usesAt } from './uses'
-import { installWalk } from './walk'
+import { arrive, installWalk } from './walk'
 
 export type { GuardPost } from './ext'
 export { placeGuards } from './ext'
-export { unlock }
+export { arrive, unlock }
 
 const OWNER = 'explore'
 

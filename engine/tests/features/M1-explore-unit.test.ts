@@ -10,8 +10,8 @@ import { TEST_COMBAT, enemyUnit, makeGame, playOut, testWeapon } from '../../src
 const sheet = (o: Record<string, unknown> = {}) => ({
   id: 'floor', name: '倉庫', size: [9, 5],
   layout: ['#########', 'E.1.+.2G#', '#...#...#', '#G..#..X#', '#########'],
-  zones: ['#########', 'aaaaabbb#', '#aaa#bbb#', '#aaa#bbb#', '#########'],
-  zone_names: { a: '前廳', b: '後倉' },
+  zones: ['#########', 'aaaaabbb#', '#ccc#bbb#', '#ccc#bbb#', '#########'],
+  zone_names: { a: '前廳', b: '後倉', c: '前廳的角落' },
   cells: [{ id: 'E1', at: [0, 1], mark: 'E', name: '側門' }, { id: 'G1', at: [7, 1], mark: 'G', name: '後倉的崗哨' }, { id: 'G2', at: [1, 3], mark: 'G', name: '前廳的角落' }, { id: 'X1', at: [7, 3], mark: 'X', name: '卸貨口' }],
   spots: [{ id: '!1', at: [2, 1], cover: 'sparse' }, { id: '!2', at: [6, 1], cover: 'dense', field: ['dark'] }],
   ...o,

@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Change, ContentPack, Feature, ReportDraft, SpecialMapEntry } from '../../src'
 import { ActionBlocked, effectCtx, meterOf } from '../../src'
-import { exploreFeature, unlock } from '../../src/features/explore'
+import { arrive, exploreFeature, unlock } from '../../src/features/explore'
 import { TEST_COMBAT, enemyUnit, makeGame, playOut, testWeapon } from '../../src/testkit'
 
 type Pt = [number, number]
@@ -134,6 +134,33 @@ describe('被看到（SITES 12.5 節）', () => {
     expect(at(game)).toEqual([5, 2])
     expect(game.battle).toBeNull()
     expect(alertOf(game)).toBe(5)
+  })
+
+  it('一步結束時保全看得到你就算（照字面）：一開始就在視線裡的，第一步就開打', () => {
+    const { game } = setup({ at: 'E1', ext: { controlled: QUIET, guards: { G1: { foes: [foe()] } } } }) // 入口 (5,0) 和 G1 (5,2) 同在開放座位
+    expect(game.gridMove('south').reports.map((x) => x.action)).toEqual(['grid.move', 'battle.start'])
+  })
+
+  it('剛進圖也算一步：arrive 回傳的報告帶 launch 開他的遭遇；潛行時是警戒 +5，只算一次', () => {
+    const open = setup({ at: 'E1', ext: { controlled: QUIET, guards: { G1: { foes: [foe()] } } } })
+    const draft = arrive(open.game.k, open.game.state)!
+    expect(draft.action).toBe('grid.arrive')
+    expect(draft.launch).toHaveLength(1)
+    const reports = open.game.commit(draft)
+    expect(reports.map((x) => x.action)).toEqual(['grid.arrive', 'battle.start'])
+    expect(open.game.battle!.origin.ext).toMatchObject({ guard: 'G1', pre: { spotted: true } })
+
+    const sneak = setup({ at: 'E1', ext: { stealth: true, controlled: QUIET, guards: { G1: { foes: [foe()] } } } })
+    const quiet = arrive(sneak.game.k, sneak.game.state)!
+    expect(quiet.launch).toBeUndefined()
+    sneak.game.commit(quiet)
+    expect(alertOf(sneak.game)).toBe(5)
+    expect(extOf(sneak.game).seen_by).toEqual(['G1'])
+    expect(arrive(sneak.game.k, sneak.game.state)).toBeNull()
+
+    const unseen = setup({ ext: { controlled: QUIET, guards: { G1: { foes: [foe()] } } } }) // 正門 (6,8) 看不到 G1
+    expect(arrive(unseen.game.k, unseen.game.state)).toBeNull()
+    expect(arrive(makeGame({ features: [exploreFeature] }).game.k, makeGame({ features: [exploreFeature] }).game.state)).toBeNull() // 不在地圖上
   })
 
   it('沒有放人的保全崗不會看到你', () => {
