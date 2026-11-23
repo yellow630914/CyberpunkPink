@@ -8,9 +8,9 @@ import Hint from './Hint.vue'
  * 區與街區怎麼連、你在哪裡都是引擎給的（cityGraph、worldView），由外面整理成 districts 傳進來；這裡只畫。
  * 選了之後怎麼去由外面決定（城市地圖對話框：計程車；大眾運輸要到街區圖上的車站搭）。
  */
-const props = defineProps<{ districts: CityDistrictView[]; current: string | null; currentBlock: string | null; pickedBlock?: string | null }>()
+const props = defineProps<{ districts: CityDistrictView[]; current: string | null; currentBlock: string | null; pickedBlock?: string | null; pickedDistrict?: string | null }>()
 const emit = defineEmits<{ (e: 'go', d: string, block: string): void }>()
-const picked = ref<string | null>(props.current ?? props.districts[0]?.id ?? null)
+const picked = ref<string | null>(props.pickedDistrict ?? props.current ?? props.districts[0]?.id ?? null)
 watch(() => props.districts.length, () => { if (!picked.value) picked.value = props.current ?? props.districts[0]?.id ?? null })
 const pickedDistrict = computed(() => props.districts.find(d => d.id === picked.value) ?? null)
 const base = import.meta.env.BASE_URL

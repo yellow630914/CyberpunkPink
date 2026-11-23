@@ -35,13 +35,16 @@ const destName = computed(() => direction.value?.stops.find(s => s.id === dest.v
 
 async function board(andRide: boolean) {
   if (!input.value) return
+  // 上車之後引擎的狀態就不在車站上了（station 變 null、選單會重設），所以先記下目的地的名字
+  const wanted = andRide ? destName.value : null
   const r = await e.transit.board(input.value)
   if (r.status !== 'applied') { ui.toast(r.reason ?? '上不了車。', 'warn'); return }
   ui.close(props.entryId)
-  if (andRide && dest.value) {
+  if (wanted) {
     const t = await e.transit.rideToDest()
     if (t.stopped === 'blocked' && t.reason) ui.toast(t.reason, 'warn')
-    else if (t.stopped === 'dest') ui.toast(`到了${destName.value ?? '目的地'}。要下車請按「下車」。`)
+    else if (t.stopped === 'dest') ui.toast(`到了${wanted}。要下車請按「下車」。`)
+    else if (t.stopped === 'event') ui.toast('路上出了事，先處理它。')
   }
 }
 </script>

@@ -18,6 +18,14 @@ const e = useEngine()
 const ui = useUi()
 const platform = computed(() => props.ride.phase === 'platform')
 const here = computed(() => props.ride.stops[props.ride.at])
+/** 抬頭的一行：在哪、往哪、時刻、每站幾分鐘、付款有沒有留紀錄 */
+const subline = computed(() => [
+  platform.value ? `在${here.value.name}站的月台等車` : `停在${here.value.name}站`,
+  props.ride.toward ? `往${props.ride.toward}` : '環線',
+  PERIOD_NAME[props.ride.period] ?? props.ride.period,
+  `每站 ${props.ride.minutes_per_stop} 分鐘`,
+  `${PAY_NAME[props.ride.pay]}（${props.ride.recorded ? '留紀錄' : '不留紀錄'}）`,
+].join('・'))
 
 async function step(f: () => Promise<{ status: string; reason?: string }>) {
   const r = await f()
@@ -40,12 +48,7 @@ const destWhy = computed(() => (props.ride.dest === null ? '上車時沒有選�
       <span class="grow" />
       <Hint title="搭車">大眾運輸不是傳送：等車、上車、一站一站停。「坐到目的地」會一站一站坐，路上觸發了事件就停在那一站，到了目的地也停下來等你按「下車」。付帳戶的會留乘客紀錄，付現金的不留。</Hint>
     </div>
-    <p class="sub">
-      <template v-if="platform">在{{ here.name }}站的月台等車</template>
-      <template v-else>停在{{ here.name }}站</template>
-      <template v-if="ride.toward">・往{{ ride.toward }}</template><template v-else>・環線</template>
-      ・{{ PERIOD_NAME[ride.period] ?? ride.period }}・每站 {{ ride.minutes_per_stop }} 分鐘・{{ PAY_NAME[ride.pay] }}（{{ ride.recorded ? '留紀錄' : '不留紀錄' }}）
-    </p>
+    <p class="sub">{{ subline }}</p>
     <ol class="strip" aria-label="路線條">
       <li v-for="(s, i) in ride.stops" :key="s.id" :class="stripClass(s)" :aria-current="i === ride.at ? 'true' : undefined">
         <b>{{ s.name }}</b>

@@ -49,7 +49,7 @@ const STATE_NAME = { pass: '過', attention: '注意', na: '不適用' } as cons
 </template>
 
 <style scoped>
-.scan { display: grid; gap: var(--space-4); min-width: 0; }
+.scan { display: grid; gap: var(--space-4); min-width: 0; margin-bottom: var(--space-4); }
 .hd { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
 .nm { font-size: var(--fs-card); }
 .scans { margin: 0; color: var(--ink-2); font-size: var(--fs-sm); }

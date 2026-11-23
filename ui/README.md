@@ -30,6 +30,7 @@ npm run preview   # 在本機看建置結果
 | `src/screens/` | 全頁：標題、主畫面、委託、現實戰鬥、內海戰鬥、輿論戰、成人場景（`AdultSceneScreen`）、開新局與建角、世界編輯器、AI 工坊、家園地圖、子網地圖、地下城 |
 | `src/dialogs/` | 對話框：背包、角色與義體（`character/` 是內海、橋、成人三個分頁）、和 NPC 說話、商店、設定、名冊、關係、技能樹、組裝、頻道、契約、每週帳單、指南、備忘錄、待處理、讀檔與存檔、城市地圖、搭車、中間人的店、直播、素材與剪片、機甲整備、診所、修車廠、自訂難度、染色 |
 | `src/stores/` | Pinia：`game`（假存檔；`serialize()`／`hydrate()` 是存檔的進出口，第 3 版起連 `home` 與 `subnet` 一起存；另有進行中的委託 `job`、媒體 `media`、機甲 `mech`）、`saves`（存檔的格子）、`ui`（對話框堆疊、提示訊息）、`home`、`subnet`、`settings`（設定與 AI 工坊共用） |
+| `src/data/demo/` | **示意世界包**（引擎不再匯入內容，畫面自己帶一份，開新局時由 `stores/engine.ts` 載入；不放進 `engine/data`）：`world.ts`（八個區、街區的版面與設施、設施種類，由 `districts.ts` 轉成引擎的 district、block、special_map、facility_type）、`transit.ts`（五條線與計程車的規則）、`events.ts`（街頭與交通的事件範圍與幾件事件）、`index.ts`（`demoPack()`、`demoStartFeature()` 開局站在四號塔）。之後的介面工單往這裡加自己的檔；正式內容匯入時整包換掉 |
 | `src/data/` | 有型別的假資料：物品（ITEMS；`items2.ts` 是零件、設計圖、構裝、SKIN）、主角與部位、主角第二版的資料（`profile.ts`）、NPC 與名冊、區與街區、商店、家具與家園版面、子網、地下城、建角、組裝、頻道、契約、帳單與待處理、世界編輯器、AI 工坊；`content.generated.ts` 由文件產生 |
 | `src/lib/` | 純邏輯，有測試：`scene/`（成人場景：部位、連接、體位、感載、契合、主動權、結算）、`here`（到達的選單與 E）、`dye`（染色的顏色、價錢、外觀的一句）、`shopEvents`（殺價、特別交易、店內事件）、`combat/`（`field` 兩排四格的共用部分、`real` 現實戰鬥、`net` 內海戰鬥、`opinion` 輿論戰、`rng` 有種子的擲骰）、`useBattle`（戰鬥的回合節奏與按鍵）、`commission`（怎麼付、分帳、踩點、輔助面、連動的效果 `linkMods`、直播目標）、`clinic`（手術費、沉溺成本、休養）、`difficulty`（難度的係數表）、`schemas`（世界編輯器的欄位表）、`lorebook`（世界書的預算、逐行差異）、`keys`（全域快捷鍵）、`transit`（搭車與計程車的車資）、`grid`（尋路、視野）、`home`（佔地、轉向、擺放的檢查、用途、舒適度、儲物）、`grade`、`price`、`skills`（學技能的條件、階、橋的容量、夜課）、`creation`（建角的點數預算、年齡、外觀推出來的三樣 `derivedLooks`）、`crafting`（槽、難度、成功率）、`bills`（帳單的結算與下坡路）、`save`（存檔的格式、回退、快照）、`worldCheck`（世界編輯器的檢查、所有種類的「用在哪」`whereUsed`）、`dungeon`（地下城的刷新）、`useWalk`、`useGuides` |
 | `src/styles/` | `tokens.css`（顏色、兩套皮、等級色、間距、字級）、`base.css`（斜切角、面板、按鈕、標籤） |
@@ -45,7 +46,7 @@ npm run preview   # 在本機看建置結果
 
 **移動與快捷鍵**（第三版，`src/lib/keys.ts`、`App.vue`）：方向鍵與 WASD 隨時走一格、E 和腳下的東西互動，不必先點地圖（打字時、對話框開著時不作用）；手機與觸控的地圖下面有方向鈕。C 角色、B 背包、K 技能樹、R 名冊、L 關係、J 備忘錄、N 待處理、G 組裝、V 頻道、T 契約、Y 帳單、H 家園、M 城市地圖；F5／Ctrl+S 快速存檔、F9 快速讀檔；Esc 關對話框，沒有對話框時開選單。完整的表在設定的「顯示」分頁。
 
-**城市地圖與搭車**：城市地圖是對話框（M），只能叫計程車或開自己的車；地鐵、輕軌、巴士、渡輪在街區圖上的車站，走上去就開選站（`src/data/transit.ts`）。
+**城市地圖與搭車**（M2-ui-world 起接引擎）：街區圖、走路、「這裡」、出口、城市地圖、搭車、事件視窗、掃橋都是引擎的（`features/world`、`transit`、`director`、`security`）；`stores/engine.ts` 的 `world`、`transit`、`event` 只轉接，`lib/worldView.ts` 只整理與排序，元件不算機率、車資、DC。街區圖畫引擎的 `gridView`（看過的格子，沒看過的蓋霧），方向鍵與點格子走 `gridMove`，被擋下時提示列是引擎的原因；走上出口那一格引擎就換到隔壁的街區（所以出口只列在右欄「出口」，點了是走過去）。城市地圖是對話框（M），只能叫浮空計程車（只去去過的車站，原因與車資是引擎的）；自己的車引擎還沒有，按鈕灰掉。地鐵、輕軌、巴士、渡輪在街區圖上的車站，走上去按 E 開選站；上車之後地圖區換成路線條（等車、坐一站、坐到目的地、下車；坐到目的地是一站一站呼叫引擎，路上開了事件就停）。引擎有開著的事件時 `EventDialog` 自動打開、擋住別的操作（正文、選項與灰掉的原因、檢定的成功率、「我要做別的」、選完的擲骰與結果）；事件是掃橋發起的時候換成 `ScanDialog`（四步、身上被掃到的東西、怎麼過）。
 
 **第三版的樣式規則**：做不到的一律 `.is-unavailable`（灰掉）；清單用 `.grid2`（寬的一列兩個）；字級用 `tokens.css` 的階層（`--fs-page`／`--fs-section`／`--fs-card`／`--fs-body`／`--fs-label`／`--fs-fine`）。
 

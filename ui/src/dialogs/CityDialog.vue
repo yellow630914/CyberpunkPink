@@ -43,7 +43,7 @@ async function callTaxi(key: string) {
   <Dialog :entry-id="entryId" :stacked="stacked" title="城市地圖" :sub="`你在 ${w.district?.name ?? '?'}・${w.block?.name ?? '?'}`" size="lg">
     <template #header><Hint title="城市地圖">看自己在哪裡。點一個區看它的街區，點街區看那一塊。從這裡直接過去只有浮空計程車（帳戶付車資，照距離與目的地的物價算；只去去過的車站）。地鐵、輕軌、巴士、渡輪要走到街區圖上的車站，按 E 上車。快捷鍵 M。</Hint></template>
     <div class="cd">
-      <CityMap :districts="districts" :current="w.district?.id ?? null" :current-block="w.block?.id ?? null" :picked-block="target?.block ?? null" @go="pick" />
+      <CityMap :districts="districts" :current="w.district?.id ?? null" :current-block="w.block?.id ?? null" :picked-block="target?.block ?? null" :picked-district="preset?.id ?? null" @go="pick" />
       <aside class="panel cut pad info">
         <p class="h">你在這裡</p>
         <div class="kv"><span>位置</span><b>{{ w.district?.name }}・{{ w.block?.name }}</b></div>
