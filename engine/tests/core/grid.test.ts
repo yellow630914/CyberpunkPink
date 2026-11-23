@@ -39,7 +39,7 @@ const TWO: SpecialMapEntry = {
 
 describe('版面的模型（DATA 9.3 節；COMMISSION_MAPS 第 1 節）', () => {
   it('預設的圖例：每個字元對到一種格子；標記站的那一格可以走；牆、擺設、窗、水不能走', () => {
-    expect(Object.keys(DEFAULT_LEGEND).sort().join('')).toBe([...'#.,~+%=^<>HOo*$&ETDCGSKX123456789'].sort().join(''))
+    expect(Object.keys(DEFAULT_LEGEND).sort().join('')).toBe([...'#.,~+%=^<>HOo*$&ETDCGSKXF123456789'].sort().join(''))
     for (const kind of Object.values(DEFAULT_LEGEND)) expect(CELL_TRAITS[kind], kind).toBeDefined()
     const s = new Sheet(OFFICE)
     expect([s.w, s.h]).toEqual([9, 9])

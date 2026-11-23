@@ -90,7 +90,7 @@ export function gridHere(k: GridKernel, state: GameState): (GridCtx & { instance
   if (!instance) return null
   const map = mapDef(k, instance.def)
   const sheetState = instance.sheets[at.sheet] ?? { seen: [], cells: {}, movers: {} }
-  return { k, state, map, sheet: new Sheet(sheetDef(map, at.sheet), sheetState.cells), at, instance, sheetState }
+  return { k, state, map, sheet: new Sheet(sheetDef(map, at.sheet), sheetState.cells), at, step: 0, last: true, instance, sheetState }
 }
 
 export interface GridView {
@@ -176,11 +176,12 @@ export function gridWalk(k: GridKernel, state: GameState, to: GridDir | [number,
     return !!e.stop || !!e.followUps?.length || !!e.launch?.length || !!e.battle
   }
   let steps = 0
-  for (const step of path) {
-    pos = { ...pos, x: step.x, y: step.y }
+  for (const cell of path) {
+    pos = { ...pos, x: cell.x, y: cell.y }
     steps += 1
     let stop = false
-    const ctx = (): GridCtx => ({ k, state, map, sheet, at: pos })
+    // step 是這一段路的第幾格；last 是計畫裡的最後一格（路過的格子是 false，走到終點才是 true）
+    const ctx = (): GridCtx => ({ k, state, map, sheet, at: pos, step: steps, last: steps === path.length })
     seen.set(pos.sheet, reveal(sheet, seen.get(pos.sheet) ?? instance.sheets[pos.sheet]?.seen ?? [], pos))
     for (const fn of k.grid.enterHooks()) stop = apply(fn(ctx())) || stop
     // 連接格：換到另一張圖（樓梯、電梯、相通的門），站在那一張接回這一張的格子

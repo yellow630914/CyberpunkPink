@@ -16,6 +16,17 @@ export interface GridCtx {
   map: SpecialMapEntry
   /** 走到的位置 */
   at: GridPos
+  /**
+   * 這一段路走到的第幾格（從 1 起算；一個方向就是 1）。不是在走路的時候（畫面問這一格能做什麼、問過不過得去）是 0。
+   * 走到連接格換了圖，後面的格子不走了，所以換圖那一格就是這一段的最後一格。
+   */
+  step: number
+  /**
+   * 這一格是不是這一段路計畫裡的最後一格（路過的不算）：「走到才發生」的事（進設施）看它，沿路經過的不觸發。
+   * 一個方向永遠是 true；不是在走路的時候也是 true。路上被停下來（開打、事件、換圖）的那一格不是計畫的最後一格時是 false：
+   * 沒有走到終點就不算到了。
+   */
+  last: boolean
 }
 
 /** 站上一格之後要發生的事。 */
@@ -72,7 +83,7 @@ export class GridRegistry {
     this.probe.emit('core/grid/registry', 'registry.register', { registry, id, owner })
   }
 
-  /** 站上帶這個標記的格子時觸發（mark：E、T、D、C、G、S、K、X、$、&、!）。 */
+  /** 站上帶這個標記的格子時觸發（mark：E、T、D、C、G、S、K、X、F、$、&、!）。 */
   onMark(mark: string, owner: string, fn: MarkTrigger): void {
     this.marks.set(mark, [...(this.marks.get(mark) ?? []), { owner, fn }])
     this.reg('grid.marks', mark, owner)

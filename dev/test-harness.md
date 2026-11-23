@@ -12,6 +12,8 @@
 - M2 加的（`engine/src/testkit/activity.ts`；dev/adr/0016）：
   - `TEST_ACTIVITY`：玩具活動（種類 `toy`，狀態放 `state.ext.toy`：`{ id, steps, goal, origin }`），給核心與下游的測試當替身，不必等事件、成人場景、委託副本做完。裝在 `makeGame` 的 `features` 裡。放行 `toy.`、`commit:toy.`，其餘全擋（`玩具活動進行中，先把它做完。`，order 20）；要讓它放行別的事用 `game.k.activity.allow('toy', 前綴, 主人)`。
   - 開始：`game.launch('toy', setup, origin?)` 或一份報告的 `launch`；`setup` 是 `{ goal?, refuse?, then? }`（`refuse` 是開不成的原因，一條一句，測 `launch` 開不成的回滾；`then` 是開始的那份報告自己帶的 `launch`，測連開幾層）。走一步 `toyStep(state)`、結束 `toyEnd(k, state, outcome?)` 都回傳報告草稿；`toyEnd` 同時是「活動的主人怎麼用 `endActivity`、`attachActivityEnd` 組結束的那一份報告」的範例（發 `activity.end`，`kind: 'toy'`，`result: { steps, goal }`）。`toyOf(state)` 讀現在的狀態。
+- M2 加的（`engine/src/testkit/factory.ts`；dev/work/M2-core-shell.md）：變更 `snapshot.take` 要核心有序列化函式（`k.serialize`）。`makeGame` 建的 `Game` 自己就帶了（外殼注入的 `snapshotText`）；只有核心、沒有外殼的測試用 `makeKernel(features?)`（`createKernel` 加上序列化函式）、`makeStateKernel()`（`createStateKernel` 加上序列化函式，只測 L3 用）或直接拿 `TEST_SERIALIZE`（和 Game 注入的同一個，寫出來的文字可以交給 `unpackSave`、`Game.rewind`）。沒注入時 `snapshot.take` 不合法。
+- 「像副本」的流程（測撤退、委託失敗、`rewindToStage`）：`makeGame({ features: [TEST_COMBAT] })`，先提交一份第一筆是 `{ op: 'snapshot.take', kind: 'entry', owner, label }` 的報告、再提交 `kind: 'stage'`（帶 `replace: true`）的報告，`game.startBattle(BATTLE_SETUPS.hopeless())` → `playOut` → `await game.finishBattle()` 就停在等著選的戰敗；範例在 `engine/tests/core/shell-m2.test.ts` 的「Game.rewindToStage」。帶 `rewind` 的報告、`game.commitNarrated(草稿, { mode })`（`makeGame({ fake: true })` 看服務商收到的請求：`sectionOf(req, 'mode')`、`req.adult`）的範例在同一個檔。
 
 ## 2. 探針介面
 - 在 L3～L5 開唯讀的觀察點：提交報告前後、每一個掛鉤被呼叫時、登錄表註冊時、任務鏈每一步的狀態變化。

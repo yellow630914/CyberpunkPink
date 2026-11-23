@@ -10,7 +10,7 @@ import type { ContentEntry } from '../content/registry'
 export const DEFAULT_LEGEND: Record<string, CellKind> = {
   '#': 'wall', '.': 'floor', ',': 'ground', '~': 'water', '+': 'door', '%': 'door_locked', '=': 'window', '^': 'vent',
   '<': 'stair_up', '>': 'stair_down', H: 'lift', O: 'cover', o: 'half_cover', '*': 'crowd', $: 'safe', '&': 'hostage',
-  E: 'entry', T: 'target', D: 'data_port', C: 'control', G: 'guard', S: 'camera', K: 'credential', X: 'extract',
+  E: 'entry', T: 'target', D: 'data_port', C: 'control', G: 'guard', S: 'camera', K: 'credential', X: 'extract', F: 'facility',
   1: 'spot', 2: 'spot', 3: 'spot', 4: 'spot', 5: 'spot', 6: 'spot', 7: 'spot', 8: 'spot', 9: 'spot',
 }
 
@@ -25,7 +25,10 @@ export interface CellTraits {
   locked?: boolean
 }
 
-/** 每一種格子的性質。資料的 legend 可以把字元對到這裡沒有的種類：那一種要先用 defineCellKind 註冊。 */
+/**
+ * 每一種格子的性質。資料的 legend 只能把字元對到這張表裡有的種類（查不到的整張圖不收）；要新的種類就加在這裡，和其他的標記格一樣是核心的小改動。
+ * facility 是城市街區上的設施（商店、診所、住處……；DISTRICTS 的設施）：走得上去、看得穿，標記 F，設施的種類與名字在街區的資料裡，不在格子的種類上。
+ */
 export const CELL_TRAITS: Record<CellKind, CellTraits> = {
   wall: { walk: false, see: false },
   floor: { walk: true, see: true },
@@ -53,6 +56,7 @@ export const CELL_TRAITS: Record<CellKind, CellTraits> = {
   camera: { walk: true, see: true, mark: 'S' },
   credential: { walk: true, see: true, mark: 'K' },
   extract: { walk: true, see: true, mark: 'X' },
+  facility: { walk: true, see: true, mark: 'F' },
   spot: { walk: true, see: true, mark: '!' },
 }
 
