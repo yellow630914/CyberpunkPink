@@ -88,7 +88,7 @@
 | `affinity`、`loyalty`（個人） | ±8、±10 | [NPC_SYSTEM](NPC_SYSTEM.md) 第 7 節、10.4 節 |
 | `owed`（人情） | 一個小或中人情 | [FIXER](FIXER.md) 第 8 節 |
 | `fame`（豔名） | 這一區 ±5 | |
-| `rep`（街頭信譽） | ±3 | |
+| `rep`（街頭信譽） | ±3 | 加分最多加到下一階門檻的前一分，事件不能讓人升階；扣分照扣（[CORE_RULES](CORE_RULES.md) 8.1 節）。委託結算的信譽不走這個效果 |
 | `footage` | 一段素材 | [MEDIA](MEDIA.md) 第 2 節 |
 | `condition` | 一個暫時的狀態 | 2.4.1 節的狀態一覽；例：被下藥、受驚、宿醉 |
 | `malware` | 一個惡意韌體的潛伏期 | [CYBERWARE](../gear/CYBERWARE.md) 第 5 節 |
@@ -98,7 +98,7 @@
 | `fight` | 開一場戰鬥，敵人照當下的區與勢力 | |
 | `start_commission` | 生成一件委託，`commission_gen` 寫內容 | |
 | `tuning` | 一個調校 | 強制裝上一個調校（[LEWD_SYSTEM](LEWD_SYSTEM.md) 第 4 節）。拆要手術：義體學 DC 19，或付錢給原廠卸載。只有戰敗事件與流竄 AI 的事件能用 |
-| `hostility_floor` | 一個勢力 +5 | 那個勢力的敵對值**下限**加 N（[FACTIONS](../world/FACTIONS.md) 6.3 節） |
+| `hostility_floor` | 一個勢力 +5，永久 | **一般事件**（AI 可用）版：那個勢力的敵對值**下限**加 N（[FACTIONS](../world/FACTIONS.md) 6.3 節），沒有期限。戰敗與契約事件另有 +10 的有期限版，見下面同名的一列；兩列是同一個效果、兩種上限，不是兩個效果 |
 | `record_leak` | 一個勢力 | 病歷或審訊紀錄流到那個勢力手上：之後它的事件與委託讀得到你的橋參數 |
 | `condition` 的 `habit:<傾向>` | 一個，一週 | 暫時的習慣：一週內那個傾向標籤視為「有」，那一類的蠱惑與事件權重 ×2，定力 −1；一週後消退 |
 | `start_quest` | 開一條特殊任務 | |
@@ -118,7 +118,7 @@
 | `highlight` | 只在直播中：亮點，熱度最多 +3 | [MEDIA](MEDIA.md) |
 | `bill`（新項目） | 每週帳單加一個新的項目（保護費、分期），寫明金額與週數 | |
 | `tuning` | 強制裝上一個調校 | [LEWD_SYSTEM](LEWD_SYSTEM.md) 第 4 節；只在戰敗與契約事件 |
-| `hostility_floor` | 一個勢力的敵對值下限 +10，持續若干天 | 鎖橋、隔離這類戰敗事件 |
+| `hostility_floor` | 一個勢力的敵對值下限 +10，**必須寫持續天數**，到期解除 | 只有戰敗與契約事件能用（鎖橋、隔離這類）；AI 生成的一般事件不能用這一版。沒寫天數的算格式錯誤。同一個勢力同時有兩種下限時，取較高的那個，各自到期各自解除（FACTIONS 6.3 節） |
 | `owed_to_pc` | 別人欠主角一個小或中人情 | 和 `owed` 反方向 |
 | `memory`、`flag` | 共同記憶、劇情旗標 | |
 
