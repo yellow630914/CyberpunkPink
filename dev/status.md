@@ -138,3 +138,14 @@
 - ~~2026-11-23 M2 收尾小修（第二批，ui-world 回報）：導演把「車上」當成別的活動，擋住型 transit_stop／wait 事件在車上一律延後（放行 event.start 的活動不該算）；出口標記用 usesOf 列「過去」；district 內容加地圖位置、治安、風格欄位（示意包先放 map_x/map_y/security/style）；核心 sheetProblems「每張至少 2 個遭遇點」不該套在街區地圖上。~~（M2-closeout 做完，dev/work/M2-closeout.md、dev/adr/0017）
 - ~~2026-11-23 M2 收尾小修（資料對設計書，data-rules 回報）：預設值要改成設計書的數字——遭遇組合點數（ENEMIES 13：一般 4、首領戰 8）、報酬範圍（COMMISSION_TEMPLATES 的表）、債的利息胭脂堂收現金（DOWNTIME 5.1）、讀橋防護階企業主管與保全 3（NPC_SYSTEM 6.4）。人情作價 300／1500 與拒絕 −3 沒有出處，維持暫定。scan_level 種類沒人認得（scan_levels.json 未接）。~~（M2-closeout 做完，dev/work/M2-closeout.md、dev/adr/0017；`scan_level` 沒人認得的部分還在）
 - 2026-11-23 M2-closeout 做完（十項；dev/work/M2-closeout.md、dev/adr/0017）：戰敗的放行照階段與開戰、回到快照之後的接續報告、街區地圖不要求遭遇點、導演不把車上當別的活動、world 出口 `world.go` 與 district 欄位、roster `in_tagalong`、預設值對設計書、俘虜審問的 scout_reveal、規則表可以被後載入的包取代（示意包與測試的繞法拿掉）。**還沒做的**：介面要接 `world.go`（`MainScreen.runUse` 現在給「畫面還沒有接上引擎」；站在出口上按 E 要呼叫 arrive(exit.to, exit.arrive)，store 的 `world.go()` 還沒有）；劫囚（戰敗事件的 fight 結果）打完之後發起那一場的副本不會收到 defeat 的 activity.end（ADR 0017 第 3 點）；讀橋防護階 3 靠旗標 manager、guard，正式 NPC 要加。
+
+## M2-ui-commission 回報的缺口（2026-11-23，待 M2 審查一起處理）
+
+- 舊地下城 `ui/lib/dungeon.ts`、`ui/data/dungeon.ts`（SITES 第 11 節垃圾滑道）還在，`refreshFloor` 有亂數洗牌；要搬進引擎或拿掉。
+- 踩點驚動條件：設計書「自然 1」，引擎是 fumble（自然 1 或大失敗）。
+- `scoutView` 沒給加值與成功率（UI 7.2）。
+- UI 7.4：副本直播、附帶條件、輿論壓力條、踩點看到的連動寫 ????、過去階段的輔助紀錄都沒有資料。
+- 副本裡 `ui.time`/`ui.money`/`ui.legacy` 被放行表擋。
+- 示意包數字：出場費遠大於報酬、委託標題重複、`map_club` 的 `district_weight` 寫 `kabuki42` 對不上示意包 `ave42`。
+- `ui/vitest.pending.config.ts` 已無檔案可跑。
+- `dev/bugs/2026-11-22-ui-stage-outside-dungeon.md` 第二份重現已改走引擎，進度待補。
