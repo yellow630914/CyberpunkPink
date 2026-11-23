@@ -9,7 +9,7 @@ import { allFeatures } from '@engine/src/features'
 import { armorOf, concealment, equip as gearEquip, equipBlock as gearEquipBlock, gearOf, quickBlock, quickCapacity, scanFinds, unequip as gearUnequip, weaponOf } from '@engine/src/features/gear'
 import type { BlueprintEntry, PartEntry } from '@engine/src/features/gear'
 import type { GearLookup } from '../lib/gearView'
-import { abilitiesOf, capacityOf, equipAbilities, learn as abilityLearn, learnBlock as abilityLearnBlock, resonanceOn, treeTier, TREE_XP } from '@engine/src/features/abilities'
+import { abilitiesOf, capacityOf, applyLoadout, loadoutBlock as abilityLoadoutBlock, learn as abilityLearn, learnBlock as abilityLearnBlock, resonanceOn, treeTier, TREE_XP } from '@engine/src/features/abilities'
 import type { AbilityEntry, PathEntry } from '@engine/src/features/abilities'
 import { acceptDefeat, defeatOf } from '@engine/src/features/defeat'
 import { setupFromEncounter } from '@engine/src/features/enemies'
@@ -384,7 +384,10 @@ export const useEngine = defineStore('engine', () => {
     /** 橋四類的容量（used 是裝著的，max 是橋） */
     capacity: () => { void state.value; return capacityOf(game.k, game.state, game.state.pc ?? '') },
     /** 整份換掉裝著的清單；引擎擋下就回傳原因（狀態不動） */
-    equip: (ids: string[]): string | null => commitGear((pc) => equipAbilities(game.k, game.state, pc, ids)),
+    /** 現在換不換得了配置（要在住處或調校診所、不在副本）：引擎的原因，可以換是 null */
+    loadoutBlock: (): string | null => { void state.value; return game.state.pc === null ? NO_PC : game.blockOf('commit:ability.loadout') ?? abilityLoadoutBlock(game.k, game.state, game.state.pc) },
+    /** 套用一整組（引擎的 applyLoadout：花半小時、地點與容量由引擎檢查）；擋下時回傳原因 */
+    equip: (ids: string[]): string | null => commitGear((pc) => applyLoadout(game.k, game.state, pc, ids)),
   }
 
   // ---- 城市、搭車、事件視窗、掃橋（M2-ui-world）：全部轉接 features/world、transit、director、security，畫面不自己判斷 ----
