@@ -130,22 +130,22 @@ describe('白箱 fx 的合併、格式與每一擊的加成（dev/work/M1b-ordna
     expect(mergeFx({ no_cover: true }, { silent: true })).toEqual({ no_cover: true, silent: true })
   })
 
-  it('mergeFx 的 on_use：卡彈相加、上限 100；炸膛的百分比相加（上限 100）、骰數相加；只有一邊有炸膛就是那一邊', () => {
-    expect(mergeFx({ on_use: { jam: 60 } }, { on_use: { jam: 70 } })).toEqual({ on_use: { jam: 100 } })
-    expect(mergeFx({ on_use: { jam: 5 } }, {})).toEqual({ on_use: { jam: 5 } })
-    expect(mergeFx({ on_use: { backfire: { pct: 60, dice: 1 } } }, { on_use: { backfire: { pct: 70, dice: 2 }, jam: 3 } })).toEqual({ on_use: { jam: 3, backfire: { pct: 100, dice: 3 } } })
-    expect(mergeFx({ on_use: { backfire: { pct: 10, dice: 1 } } }, { hit: 1 })).toEqual({ hit: 1, on_use: { backfire: { pct: 10, dice: 1 } } })
+  it('mergeFx 的 on_use：卡彈有一邊就算；炸膛的骰數相加；只有一邊有炸膛就是那一邊', () => {
+    expect(mergeFx({ on_use: { jam: 'natural1' } }, { on_use: { jam: 'natural1' } })).toEqual({ on_use: { jam: 'natural1' } })
+    expect(mergeFx({ on_use: { jam: 'natural1' } }, {})).toEqual({ on_use: { jam: 'natural1' } })
+    expect(mergeFx({ on_use: { backfire: { dice: 1 } } }, { on_use: { backfire: { dice: 2 }, jam: 'natural1' } })).toEqual({ on_use: { jam: 'natural1', backfire: { dice: 3 } } })
+    expect(mergeFx({ on_use: { backfire: { dice: 1 } } }, { hit: 1 })).toEqual({ hit: 1, on_use: { backfire: { dice: 1 } } })
   })
 
   it('fxProblems 與 ammoProblems：欄位型別、不認得的欄位、on_hit 的每一筆、fits 與 fx 的錯各一條；沒有 ammo 欄位的物品合格', () => {
     const a = three()
     const k = a.k
-    expect(fxProblems(k, { hit: 1, dice: 1, pierce: 2, armor_mult: 2, type: 'physical', no_cover: true, silent: true, on_use: { jam: 10, backfire: { pct: 5, dice: 1 } }, on_hit: [{ op: 'heal', amount: 1 }] })).toEqual([])
+    expect(fxProblems(k, { hit: 1, dice: 1, pierce: 2, armor_mult: 2, type: 'physical', no_cover: true, silent: true, on_use: { jam: 'natural1', backfire: { dice: 1 } }, on_hit: [{ op: 'heal', amount: 1 }] })).toEqual([])
     expect(fxProblems(k, 'x')[0]).toMatch(/要是物件/)
     expect(fxProblems(k, { hit: 1.5 })[0]).toMatch(/hit：要是整數/)
     expect(fxProblems(k, { zzz: 1 })[0]).toMatch(/不認得的欄位 zzz/)
-    expect(fxProblems(k, { on_use: { jam: 101 } })[0]).toMatch(/jam：要是 0～100 的整數/)
-    expect(fxProblems(k, { on_use: { backfire: { pct: 5, dice: 0 } } })[0]).toMatch(/1 以上的整數/)
+    expect(fxProblems(k, { on_use: { jam: 101 } })[0]).toMatch(/jam：「101」不在清單裡/)
+    expect(fxProblems(k, { on_use: { backfire: { dice: 0 } } })[0]).toMatch(/1 以上的整數/)
     expect(fxProblems(k, { on_hit: [5] })[0]).toMatch(/每一筆要是/)
     expect(fxProblems(k, { on_hit: [{ op: 'nope' }] })[0]).toMatch(/^on_hit：.*不認得的效果 nope/)
     expect(ammoProblems(k, {})).toEqual([])
@@ -201,33 +201,34 @@ describe('白箱 fx 的合併、格式與每一擊的加成（dev/work/M1b-ordna
     expect(knife.ammo).toBe('x')
   })
 
-  it('卡彈：骰面在百分比以內就取消這一擊（話裡有武器名、attack.cancel 帶 jam），彈匣已扣、不擲命中；骰面在外面就照打（M1b-ordnance 第一節）', () => {
-    const a = three(undefined, [one({ weapon: 'pistol' })])
-    a.ally(1).weapons[0]!.ext = { fx: { on_use: { jam: 30 } } }
-    const hit = go(a, [{ op: 'attack' }], f('f1'), { d: dice(31, 18, 3, 3, 3) })
-    expect(hit.last.hit).toBe(true)
-    const mag = a.ally(1).weapons[0]!.mag!.now
-    const jam = go(a, [{ op: 'attack' }], f('f1'), { d: dice(30) })
-    expect(jam.run.beats.some((b) => b.text.includes('卡彈了'))).toBe(true)
-    expect(jam.last.hit).toBe(false)
-    expect(a.ally(1).weapons[0]!.mag!.now).toBe(mag - 1)
-    expect(a.foe(1).hp!.now).toBeLessThan(a.foe(1).hp!.max)
-  })
-
-  it('炸膛：只在沒卡彈時擲；成立就取消這一擊，開槍的人自己受物理傷害（骰數照 dice）；沒有 on_use 的武器不擲百分比骰', () => {
+  it('卡彈：命中骰自然 1 時那一擊照常結算（失手、擲過傷害骰），之後彈匣清空、標 ext.jammed、記一拍（M1b-review-features E4）；不是 1 就不卡', () => {
     const a = three(undefined, [one({ weapon: 'pistol' })])
     const me = a.ally(1)
-    me.weapons[0]!.ext = { fx: { on_use: { backfire: { pct: 50, dice: 2 } } } }
+    me.weapons[0]!.ext = { fx: { on_use: { jam: 'natural1' } } }
+    const hit = go(a, [{ op: 'attack' }], f('f1'), { d: dice(18, 3, 3, 3) })
+    expect(hit.last.hit).toBe(true)
+    expect(me.weapons[0]!.ext).toEqual({ fx: { on_use: { jam: 'natural1' } } })
+    const jam = go(a, [{ op: 'attack' }], f('f1'), { d: dice(1, 3, 3, 3) })
+    expect(jam.run.beats.some((b) => b.text.includes('卡彈了'))).toBe(true)
+    expect(jam.last.hit).toBe(false)
+    expect(me.weapons[0]!.mag!.now).toBe(0)
+    expect(me.weapons[0]!.ext).toMatchObject({ jammed: true })
+  })
+
+  it('炸膛：命中骰自然 1 時開槍的人自己受物理傷害（骰數照 dice）；不是 1 沒事；沒有 on_use 的武器沒事', () => {
+    const a = three(undefined, [one({ weapon: 'pistol' })])
+    const me = a.ally(1)
+    me.weapons[0]!.ext = { fx: { on_use: { backfire: { dice: 2 } } } }
     const hp = me.hp!.now
-    const r = go(a, [{ op: 'attack' }], f('f1'), { d: dice(50, 4, 4) })
+    const r = go(a, [{ op: 'attack' }], f('f1'), { d: dice(1, 1, 1, 1, 6, 6) })
     expect(r.run.beats.some((b) => b.text.includes('炸膛了'))).toBe(true)
     expect(me.hp!.now).toBeLessThan(hp)
-    // 骰面 51：沒炸，照常擲命中（第一顆是百分比，第二顆才是命中骰）
-    const ok = go(a, [{ op: 'attack' }], f('f1'), { d: dice(51, 20, 3, 3, 3) })
+    const hp2 = me.hp!.now
+    const ok = go(a, [{ op: 'attack' }], f('f1'), { d: dice(20, 3, 3, 3) })
     expect(ok.run.beats.some((b) => b.text.includes('炸膛'))).toBe(false)
-    // 沒有 on_use：不吃百分比骰，第一顆就是命中骰
+    expect(me.hp!.now).toBe(hp2)
     me.weapons[0]!.ext = {}
-    expect(go(a, [{ op: 'attack' }], f('f1'), { d: dice(20, 3, 3, 3) }).last.hit).toBe(true)
+    expect(go(a, [{ op: 'attack' }], f('f1'), { d: dice(1, 3, 3, 3) }).run.beats.some((b) => b.text.includes('炸膛'))).toBe(false)
   })
 
   it('runOnHit：沒打中、沒造成傷害、被擋下、取消了都不做；命中而且有傷害才做，來源是那把武器；打在替身上時目標是那一台掛著的東西', () => {

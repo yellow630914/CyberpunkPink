@@ -938,14 +938,14 @@ const CHECK = (cls: string): Rec => ({ op: 'hack.check', class: cls, stop: true 
 const WAY = { key: 'way', label: '用法', kind: 'choice', required: true }
 const NET_ABILITIES: Rec[] = [
   nab('sk_ctrl', '主控', 'passive', 1, { tags: ['quickhack'], pool: { ram: { max: 3, regen: 1 } }, mods: [{ kind: 'save', value: { by_tier: [1, 2, 2, 3, 4] }, tags: ['hack'] }] }, { layer: 'signature', after: undefined }),
-  nab('sk_ice', '破冰', 'active', 1, { target: 'enemy', do: [CHECK('device'), { op: 'buff', id: 'icebreak', name: '破冰', turns: 1, until: 'source_turn_end', mods: [{ kind: 'firewall', value: -2 }] }] }, { use: { ap: 1, ram: 2 } }),
+  nab('sk_ice', '破冰', 'active', 1, { action_tags: ['hack', 'hack:device'], target: 'enemy', do: [CHECK('device'), { op: 'buff', id: 'icebreak', name: '破冰', turns: 1, until: 'source_turn_end', mods: [{ kind: 'firewall', value: -2 }] }] }, { use: { ap: 1, ram: 2 } }),
   // 「你或一名隊友被快駭」：trigger.who 的 self_or_ally（M1b-core-fix2）
   nab('sk_peek', '偷看是不行的喔', 'reaction', 1, { trigger: { on: 'checked', who: 'self_or_ally', if: 'hack' }, react: { dc: 2 } }, { use: { ram: 1, per_turn: 1 } }),
-  nab('sk_take', '接管', 'active', 1, { target: 'foe_overlay', picks: [WAY], choose: [{ key: 'take', label: '接管', do: [CHECK('device'), { op: 'hack.takeover', turns: 2 }] }, { key: 'rewrite', label: '改寫敵我名單', do: [CHECK('device'), { op: 'hack.takeover', mode: 'rewrite' }] }] }, { use: { ap: 1, ram: 3 } }),
-  nab('sk_loop', '迴圈', 'active', 1, { target: 'enemy', needs: { bridged: true }, do: [CHECK('neural'), { op: 'hack.dot', amount: '1d6+1', turns: 3 }] }, { use: { ap: 1, ram: 3 }, layer: 'back', after: 'sk_ice' }),
+  nab('sk_take', '接管', 'active', 1, { action_tags: ['hack', 'hack:device'], target: 'foe_overlay', picks: [WAY], choose: [{ key: 'take', label: '接管', do: [CHECK('device'), { op: 'hack.takeover', turns: 2 }] }, { key: 'rewrite', label: '改寫敵我名單', do: [CHECK('device'), { op: 'hack.takeover', mode: 'rewrite' }] }] }, { use: { ap: 1, ram: 3 } }),
+  nab('sk_loop', '迴圈', 'active', 1, { action_tags: ['hack', 'hack:neural'], target: 'enemy', needs: { bridged: true }, do: [CHECK('neural'), { op: 'hack.dot', amount: '1d6+1', turns: 3 }] }, { use: { ap: 1, ram: 3 }, layer: 'back', after: 'sk_ice' }),
   // 樹上還有「構裝槽 +1」：槽在甲板上（deck.slots），技能格式沒有改甲板的鍵，寫不出來
   nab('sk_band', '頻寬', 'passive', 1, { pool: { ram: { max: 1 } } }, { layer: 'back', after: 'sk_take', cap: 2 }),
-  nab('sk_heat', '過熱', 'active', 2, { target: 'enemy', needs: { bridged: true }, do: [CHECK('neural'), { op: 'load', amount: '2d6', type: 'neural' }, { op: 'implant', mode: 'off', turns: 1 }] }, { use: { ap: 1, ram: 3 }, after: 'sk_loop' }),
+  nab('sk_heat', '過熱', 'active', 2, { action_tags: ['hack', 'hack:neural'], target: 'enemy', needs: { bridged: true }, do: [CHECK('neural'), { op: 'load', amount: '2d6', type: 'neural' }, { op: 'implant', mode: 'off', turns: 1 }] }, { use: { ap: 1, ram: 3 }, after: 'sk_loop' }),
   // 樹上還有「快駭追蹤各少 1」：追蹤度是 E9（M2、M3），這一波不做
   nab('sk_silent', '靜默', 'stance', 2, { mods: [{ kind: 'evade', value: 1 }] }, { use: { ap: 1 } }),
   // 補一級遮蔽要落在「我方一格」、放防爆門要選一格：choose 的每個用法吃同一個目標，所以補在自己那一格；
@@ -961,7 +961,7 @@ const NET_ABILITIES: Rec[] = [
   nab('sk_focus', '盯～', 'passive', 2, { mods: [{ kind: 'save', value: 1, tags: ['hack:neural'] }] }, { layer: 'back', after: 'sk_heat', cap: 3 }),
   nab('sk_backflow', '逆流', 'reaction', 2, { trigger: { on: 'overload', who: 'self' }, do: [{ op: 'pool', pool: 'ram', amount: 'full', who: 'self' }] }, { use: { ap: 0, per_fight: 1 }, layer: 'back', after: 'sk_silent' }),
   // 快感版的「定力檢定成功可以擋掉其中 1 點」寫不出來（sink 的 save 是成功就整筆擋掉）
-  nab('sk_inflow', '灌頂', 'active', 3, {
+  nab('sk_inflow', '灌頂', 'active', 3, { action_tags: ['hack', 'hack:neural'],
     target: 'enemy', needs: { bridged: true }, picks: [WAY],
     choose: [{ key: 'neural', label: '神經版', do: [CHECK('neural'), { op: 'load', amount: '2d6+2', type: 'neural' }] }, { key: 'pleasure', label: '快感版', do: [CHECK('neural'), { op: 'load', amount: '2d6', type: 'pleasure' }, { op: 'sink', amount: 2 }] }],
   }, { use: { ap: 1, ram: 4 }, cap: 2, after: 'sk_heat' }),
@@ -974,14 +974,14 @@ const NET_ABILITIES: Rec[] = [
   // 「你的神經快駭讓目標過載」：overload 的反應分不出是不是神經快駭，任何你讓敵人過載的都算
   nab('sk_thanks', '謝謝招待', 'reaction', 3, { trigger: { on: 'overload', who: 'foe_by_self' }, do: [{ op: 'pool', pool: 'ram', amount: 1, who: 'self' }] }, { use: { ap: 0, per_turn: 1 }, layer: 'back', cap: 4, after: 'sk_inflow' }),
   nab('sk_mutex', '值機', 'stance', 3, { mods: [{ kind: 'save', value: 2, tags: ['hack:device'] }] }, { use: { ap: 1 }, layer: 'back', cap: 2, after: 'sk_lockdown' }),
-  nab('sk_puppet', '傀儡', 'active', 4, {
+  nab('sk_puppet', '傀儡', 'active', 4, { action_tags: ['hack', 'hack:control'],
     target: 'enemy', needs: { status: 'marked' }, picks: [WAY],
     choose: [{ key: 'jerk', label: '動一下', do: [CHECK('control'), { op: 'ap', amount: -1 }, { op: 'shift', dir: 'push' }] }, { key: 'pin', label: '定住', do: [CHECK('control'), { op: 'status', status: 'pinned' }] }],
   }, { use: { ap: 1, ram: 5 }, cap: 2, after: 'sk_inflow' }),
   nab('sk_mirror', '看錯人囉', 'active', 4, { target: 'ally_or_self', do: [{ op: 'buff', id: 'mirror', name: '看錯人囉', turns: 1, until: 'source_turn_start', mods: [{ kind: 'evade', value: 2 }] }] }, { use: { ap: 1, ram: 3 }, cap: 2, after: 'sk_backdoor' }),
   // 樹上還有「構裝槽 +1」：同頻寬，寫不出來
   nab('sk_multi', '多工', 'passive', 4, { mods: [{ kind: 'action_ap', value: -1, tags: ['hack'], per_turn: 1 }] }, { layer: 'back', cap: 5, after: 'sk_mutex' }),
-  nab('sk_cast', '群播', 'active', 4, { target: 'none', do: [{ op: 'ap', amount: -1, who: 'foes_bridged' }] }, { use: { ap: 1, ram: 6, per_fight: 1 }, layer: 'back', cap: 2, after: 'sk_puppet' }),
+  nab('sk_cast', '群播', 'active', 4, { action_tags: ['hack', 'hack:control'], target: 'none', do: [{ op: 'ap', amount: -1, who: 'foes_bridged' }] }, { use: { ap: 1, ram: 6, per_fight: 1 }, layer: 'back', cap: 2, after: 'sk_puppet' }),
   nab('sk_noleave', '不讓你帶走', 'reaction', 4, { trigger: { on: 'out_before', who: 'ally' }, react: { prevent: { how: ['subdued'] } } }, { use: { ap: 0, ram: 1, per_fight: 1 }, layer: 'back', cap: 2, after: 'sk_mirror' }),
   nab('sk_black', '黑冰', 'active', 5, { target: 'enemy', needs: { bridged: true }, do: [CHECK('neural'), { op: 'load', amount: 'spentd6', type: 'neural' }] }, { use: { ap: 1, ram_all_min: 5, per_fight: 1 }, cap: 3, after: 'sk_puppet' }),
   nab('sk_backup', '備份', 'active', 5, { target: 'none', do: [{ op: 'buff', id: 'backup', name: '備份', turns: 1, until: 'source_turn_start', mods: [{ kind: 'evade', value: 1 }], who: 'allies' }, { op: 'unstatus', kinds: ['debuff', 'mark'], count: 1, who: 'allies' }] }, { use: { ap: 1, ram: 6, per_fight: 1 }, cap: 3, after: 'sk_noleave' }),
@@ -1451,5 +1451,91 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     expect(actionCost(a.run(), a.ally(1), defOf(a, 'hack.qh_noise')).ram).toBe(3)
     // 支援類本來只花 1 點：最少還是 1
     expect(actionCost(net(['sk_root']).run(), net(['sk_root']).ally(1), defOf(net(['sk_root']), 'hack.qh_mark')).ram).toBe(1)
+  })
+})
+
+// =====================================================================================================================
+describe('M1b-review-features：潛網者樹的技能本身也是快駭（SKILL_TREES 潛網者開頭）', () => {
+  it('破冰、接管、迴圈、過熱、灌頂、傀儡、群播都帶 hack 標籤（和類別標籤）：根權限讓第一個少 1 點 RAM、多工讓第一個少 1 點行動點；每回合只有第一個', () => {
+    const a = net(['sk_root', 'sk_multi', 'sk_ice', 'sk_loop'], { tier: 5 })
+    for (const id of ['sk_ice', 'sk_take', 'sk_loop', 'sk_heat', 'sk_inflow', 'sk_puppet', 'sk_cast']) expect(defOf(a, id).tags, id).toContain('hack')
+    expect(defOf(a, 'sk_ice').tags).toEqual(['hack', 'hack:device'])
+    // 破冰：ap 1、ram 2 → ap 0、ram 1
+    expect(actionCost(a.run(), a.ally(1), defOf(a, 'sk_ice'))).toMatchObject({ ap: 0, ram: 1 })
+    cast(a, 'sk_ice', U('f1'))
+    // 第二個（迴圈 ap 1、ram 3）：這一回合的減免用掉了，照原價
+    expect(actionCost(a.run(), a.ally(1), defOf(a, 'sk_loop'))).toMatchObject({ ap: 1, ram: 3 })
+  })
+
+  it('沒帶標籤的技能（例：偷看、靜默的姿態、值機）吃不到減免', () => {
+    const a = net(['sk_root', 'sk_multi', 'sk_silent'], { tier: 5 })
+    expect(defOf(a, 'sk_silent').tags).toBeUndefined()
+    expect(actionCost(a.run(), a.ally(1), defOf(a, 'sk_silent'))).toMatchObject({ ap: 1 })
+  })
+})
+
+describe('M1b-review-features：接管到期時原本的操作者已經退出（COMBAT_SYSTEM 9.1；dev/adr/0015 E6）', () => {
+  const setup = (taken: Partial<BattleOverlay>) => {
+    const a = world({ features: [combatFeature, summonsFeature, hackFeature], foes: [idle(), idle()] })
+    myTurn(a)
+    a.battle.acting = 'a1'
+    const o = overlay(a, { owner: 'f1', auto: false, ...taken })
+    cast(a, 'hack.qh_take', { overlay: o.id })
+    const endTurn = () => a.k.battle.emit('turn.end', { run: a.run(), unit: a.battle.units.a1! })
+    return { a, o, endTurn }
+  }
+
+  it('操作者在接管期間倒下、這一台 autonomous：還回去時沒有操作者、自己動（自律：ext.orphan）', () => {
+    const { a, o, endTurn } = setup({ autonomous: true })
+    expect(o).toMatchObject({ side: 'ally', owner: 'a1' })
+    a.run().setOut(a.foe(1), 'down', a.ally(1))
+    endTurn(); endTurn(); endTurn()
+    expect(o.side).toBe('foe')
+    expect(o.owner).toBeUndefined()
+    expect(o).toMatchObject({ auto: true, autonomous: true, down: false })
+    expect(o.ext).toMatchObject({ orphan: true })
+  })
+
+  it('不是 autonomous 的：還回去時停機（不是掛在那裡的、有一個倒下的操作者）', () => {
+    const { a, o, endTurn } = setup({})
+    a.run().setOut(a.foe(1), 'down', a.ally(1))
+    endTurn(); endTurn(); endTurn()
+    expect(o.down).toBe(true)
+    expect(o.owner).toBeUndefined()
+  })
+
+  it('操作者還在：照舊還給他（owner 回來、不自律）', () => {
+    const { o, endTurn } = setup({ autonomous: true })
+    endTurn(); endTurn(); endTurn()
+    expect(o).toMatchObject({ side: 'foe', owner: 'f1', down: false })
+    expect(o.ext).not.toMatchObject({ orphan: true })
+  })
+})
+
+describe('M1b-review-features：改寫敵我名單的那一台開火時，對被打的人來說它是對面的', () => {
+  it('開火的那一刻替身是做的人那一方（attack.before 的 attacker.side），目標是它原本的隊友；打完它還在原本那一方', () => {
+    const a = world({ foes: [idle(), idle()] })
+    myTurn(a)
+    a.battle.acting = 'a1'
+    const o = overlay(a)
+    cast(a, 'hack.qh_rewrite', { overlay: o.id })
+    const seen: string[] = []
+    a.k.battle.on('attack.before', 'spy', ({ attacker, target }) => { seen.push(`${attacker.side}→${target.side}`) })
+    a.k.battle.emit('round.start', { run: a.run(dice(0, 15)), round: 2 })
+    expect(seen).toEqual(['ally→foe'])
+    expect(o.side).toBe('foe')
+  })
+
+  it('被打的敵人的反應（隊友誤傷不算反應）因此會起：反應看的是攻擊的人和被打的人不同方', () => {
+    const a = world({ foes: [idle(), idle()] })
+    myTurn(a)
+    a.battle.acting = 'a1'
+    const o = overlay(a)
+    cast(a, 'hack.qh_rewrite', { overlay: o.id })
+    // 模擬「同一方不算敵人」的反應判斷（reactions.ts、summons 的守著、立牌都是這樣判）
+    const same: boolean[] = []
+    a.k.battle.on('attack.before', 'spy', ({ attacker, target }) => { same.push(attacker.side === target.side) })
+    a.k.battle.emit('round.start', { run: a.run(dice(0, 15)), round: 2 })
+    expect(same).toEqual([false])
   })
 })

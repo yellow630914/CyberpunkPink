@@ -11,6 +11,7 @@ import { OWNER } from './model'
 import { armorOf, bodyArmorOf } from './numbers'
 
 export { equip, equipBlock, unequip } from './equip'
+export { QUICK_CATEGORIES, quickBlock } from './quick'
 export type { BlueprintEntry, Gear, PartEntry } from './model'
 export { ACCESSORY_SLOTS, CARRY_SLOTS, QUICK_BASE, QUICK_MAX, WEAR_SLOTS, gearOf, quickCapacity } from './model'
 export { armorOf, bodyArmorOf, concealment, scanFinds, weaponOf } from './numbers'

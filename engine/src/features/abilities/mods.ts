@@ -233,4 +233,31 @@ export function registerMods(k: Kernel): void {
 
   k.battle.on('turn.start', OWNER, ({ run, unit }) => tickBuffs(run, 'turn_start', unit))
   k.battle.on('turn.end', OWNER, ({ run, unit }) => tickBuffs(run, 'turn_end', unit))
+
+  // 給的人退出（倒下、制伏、逃走……）：他再也沒有回合，「到他的回合開始／結束」的 buff 沒有人會數，現在結束（W012：和核心的狀態、守著一樣）。
+  // 他自己身上的 buff 不在這裡處理：沒有人會再用到，救回來時清（revive）
+  k.battle.on('out', OWNER, ({ run, unit }) => {
+    for (const holder of Object.values(run.battle.units)) {
+      if (holder === unit) continue
+      const buffs = unitBuffs(holder)
+      const ended = buffs.filter((b) => b.of === unit.id && b.until.startsWith('source_'))
+      if (!ended.length) continue
+      setBuffs(holder, buffs.filter((b) => !ended.includes(b)))
+      for (const b of ended) endBuff(run, holder, b)
+    }
+  })
+
+  // 救回來：狀態清空，buff 也是（W013；dev/adr/0015 revive「狀態清空」）。不做 on_end：被清掉的不是「到期」
+  k.battle.on('revive', OWNER, ({ unit }) => {
+    if (unitBuffs(unit).length) setBuffs(unit, [])
+  })
+
+  // 到下次過載（until: next_overload）：過載的那一刻結束；沒有過載就留到戰鬥結束（不變式第 69 條）
+  k.battle.on('overload', OWNER, ({ run, unit }) => {
+    const buffs = unitBuffs(unit)
+    const ended = buffs.filter((b) => b.until === 'next_overload')
+    if (!ended.length) return
+    setBuffs(unit, buffs.filter((b) => !ended.includes(b)))
+    for (const b of ended) endBuff(run, unit, b)
+  })
 }

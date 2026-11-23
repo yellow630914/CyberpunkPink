@@ -59,61 +59,64 @@ function spyRolls(run: { roll(count: number, sides: number): number[] }): Array<
   return seen
 }
 
-describe('卡彈與炸膛在 attack.before：每一種打人的方式都吃得到', () => {
-  const JAM = { on_use: { jam: 100 } }
+describe('卡彈與炸膛在命中骰自然 1 之後（attack.after；M1b-review-features E4）：每一種打人的方式都吃得到', () => {
+  const JAM = { on_use: { jam: 'natural1' } }
 
-  it('技能效果清單裡的 { op: attack } 也會卡彈：沒有擲命中、一拍卡彈、目標不受傷、彈匣照扣；沒有 on_use 的不擲那一顆骰', () => {
+  it('技能效果清單裡的 { op: attack } 自然 1 也會卡彈：那一擊照常失手、一拍卡彈、目標不受傷、彈匣清空；不是 1 就不卡', () => {
     const a = field({ allies: [withFx('pistol', JAM)] })
     const me = a.ally(1)
     const mag = weaponOf(me).mag!
-    const full = mag.now
     const hp = a.foe(1).hp!.now
-    const run = a.run(dice(50, 15, 6, 6, 6))
+    const run = a.run(dice(1, 6, 6, 6))
     const seen = spyRolls(run)
     run.effects([{ op: 'attack' }], { user: me, target: f('f1'), source: { kind: 'ability', id: 'x', name: '技能' } })
-    expect(texts(run)).toEqual(['你 的手槍卡彈了，這一擊沒有打出去。'])
-    expect(run.beats[0]!.roll).toBeUndefined()
-    expect(run.beats[0]!.data).toMatchObject({ attacker: 'a1', target: 'f1', cancelled: true, jam: true })
-    expect(seen).toEqual([[1, 100]])
+    expect(texts(run)).toEqual(expect.arrayContaining(['你 的手槍卡彈了，要換彈才能再射。']))
+    expect(run.beats[0]!.roll?.natural).toBe(1)
+    expect(run.beats.at(-1)!.data).toMatchObject({ unit: 'a1', jam: true })
+    // 只擲了命中骰（沒有另外擲百分比骰）
+    expect(seen[0]).toEqual([1, 20])
+    expect(seen.some(([, sides]) => sides === 100)).toBe(false)
     expect(a.foe(1).hp!.now).toBe(hp)
-    expect(mag.now).toBe(full - 1)
-    // 效果清單裡的下一筆：這一擊沒有發生，if: hit 不成立
+    expect(mag.now).toBe(0)
+    // 效果清單裡的下一筆：那一擊失手，if: hit 不成立
     const b = field({ allies: [withFx('pistol', JAM)] })
-    const r2 = b.run(dice(50, 6)).effects([{ op: 'attack' }, { op: 'damage', amount: 5, if: 'hit' }], { user: b.ally(1), target: f('f1'), source: { kind: 'ability', id: 'x', name: '技能' } })
+    const r2 = b.run(dice(1, 6)).effects([{ op: 'attack' }, { op: 'damage', amount: 5, if: 'hit' }], { user: b.ally(1), target: f('f1'), source: { kind: 'ability', id: 'x', name: '技能' } })
     expect(r2.hit).toBeFalsy()
     expect(b.foe(1).hp!.now).toBe(b.foe(1).hp!.max)
+    // 命中骰是 15：沒有卡彈，彈匣只少一格
+    const c = field({ allies: [withFx('pistol', JAM)] })
+    c.run(dice(15, 3, 3, 3)).effects([{ op: 'attack' }], { user: c.ally(1), target: f('f1'), source: { kind: 'ability', id: 'x', name: '技能' } })
+    expect(weaponOf(c.ally(1)).mag!.now).toBe(1)
   })
 
-  it('行動點與彈匣照以前扣：射擊花武器的行動點、掃射花 2 格彈匣；卡彈的掃射沒有壓制檢定', () => {
+  it('行動點與彈匣照以前扣：射擊花武器的行動點、掃射花 2 格彈匣；自然 1 卡彈的掃射照樣擲壓制檢定（那一擊照常結算）', () => {
     const lmg = one({ weapons: [{ ...testWeapon('smg', 6), class: 'lmg', name: '輕機槍', traits: ['sweep'], mag: { now: 4, max: 4 }, ext: { fx: JAM } }], wield: 0, ap: AP })
     const a = field({ allies: [lmg] })
     const me = a.ally(1)
     const ap = me.ap.now
     const mag = weaponOf(me).mag!
-    const full = mag.now
-    // 掃射：骰面 50（卡彈）之後如果還擲檢定就會用到 1，用 fixDice 的骰面用完會丟錯來證明沒有檢定
-    const run = act(a, me, 'shoot', f('f1'), { sweep: true }, [50])
-    expect(texts(run)).toEqual(['你 的輕機槍卡彈了，這一擊沒有打出去。'])
+    const run = act(a, me, 'shoot', f('f1'), { sweep: true }, dice(1))
+    expect(texts(run)).toEqual(expect.arrayContaining(['你 的輕機槍卡彈了，要換彈才能再射。']))
     expect(me.ap.now).toBe(ap - (weaponOf(me).ap ?? 2))
-    expect(mag.now).toBe(full - 2)
-    expect(a.foe(1).statuses).toEqual([])
+    expect(mag.now).toBe(0)
     // 普通的射擊：花一格
     const b = field({ allies: [withFx('pistol', JAM)] })
     const mag2 = weaponOf(b.ally(1)).mag!
     const full2 = mag2.now
-    act(b, b.ally(1), 'shoot', f('f1'), undefined, dice(50))
+    act(b, b.ally(1), 'shoot', f('f1'), undefined, dice(15, 3, 3, 3))
     expect(mag2.now).toBe(full2 - 1)
   })
 
-  it('炸膛：一拍「炸膛」在前、開槍的人自己受物理傷害在後；彈匣照扣；特殊彈打空就作廢', () => {
-    const a = field({ allies: [withFx('pistol', { on_use: { backfire: { pct: 100, dice: 1 } } })] })
+  it('炸膛：一拍「炸膛」在前、開槍的人自己受物理傷害在後（那一擊已經失手）；彈匣照扣；特殊彈打空就作廢', () => {
+    const a = field({ allies: [withFx('pistol', { on_use: { backfire: { dice: 1 } } })] })
     const me = a.ally(1)
     const hp = me.hp!.now
-    const run = act(a, me, 'shoot', f('f1'), undefined, dice(50, 6))
+    const run = act(a, me, 'shoot', f('f1'), undefined, dice(1, 1, 1, 1, 6))
     const t = texts(run)
-    expect(t[0]).toMatch(/炸膛/)
-    expect(t[1]).toMatch(/受到 \d+ 點物理傷害/)
-    expect(run.beats[0]!.data).toMatchObject({ backfire: true, cancelled: true })
+    const at = t.findIndex((x) => /炸膛/.test(x))
+    expect(at).toBeGreaterThan(0)
+    expect(t[at + 1]).toMatch(/受到 \d+ 點物理傷害/)
+    expect(run.beats[at]!.data).toMatchObject({ backfire: true })
     expect(me.hp!.now).toBeLessThan(hp)
     expect(a.foe(1).hp!.now).toBe(a.foe(1).hp!.max)
     // 彈匣只剩一格的特殊彈：卡彈把最後一格用掉，特殊彈作廢
@@ -121,26 +124,24 @@ describe('卡彈與炸膛在 attack.before：每一種打人的方式都吃得�
     const w = weaponOf(b.ally(1))
     w.mag!.now = 1
     w.ammo = 'am_hollow'
-    act(b, b.ally(1), 'shoot', f('f1'), undefined, dice(50))
+    act(b, b.ally(1), 'shoot', f('f1'), undefined, dice(1, 1, 1, 1))
     expect([w.mag!.now, w.ammo]).toEqual([0, undefined])
   })
 
-  it('卡彈排在反應之前：卡彈了就沒有人對這一擊起反應；沒卡彈（機率不中）反應照常', () => {
+  it('卡彈不擋反應：反應在擲骰之前（attack.before），自然 1 照樣先起反應；卡彈之後的下一擊在換彈之前射不出去', () => {
     const seen: string[] = []
-    const a = field({ allies: [withFx('pistol', { on_use: { jam: 30 } })], prep: (k) => k.battle.on('attack.before', 'react', () => { seen.push('reaction') }) })
-    act(a, a.ally(1), 'shoot', f('f1'), undefined, dice(30))
-    expect(seen).toEqual([])
-    act(a, a.ally(1), 'shoot', f('f1'), undefined, dice(31, 15, 3, 3, 3))
+    const a = field({ allies: [withFx('pistol', JAM)], prep: (k) => k.battle.on('attack.before', 'react', () => { seen.push('reaction') }) })
+    act(a, a.ally(1), 'shoot', f('f1'), undefined, dice(1, 1, 1, 1))
     expect(seen).toEqual(['reaction'])
+    expect(a.k.battle.getAction('shoot')!.blocks!(a.run(), a.ally(1))).toEqual(['卡彈了，要先換彈。'])
   })
 
-  it('打掛著的東西也卡彈、也吃特殊彈（attackOverlay 發 attack.before）；技能直接 attackOverlay 也一樣', () => {
+  it('打掛著的東西也卡彈、也吃特殊彈（attackOverlay 發 attack.after）；技能直接 attackOverlay 也一樣', () => {
     const a = field({ allies: [withFx('pistol', JAM)] })
     a.battle.overlays.push(overlay('o1', 'foe', 1))
-    const run = a.run(dice(50, 15, 6, 6, 6))
+    const run = a.run(dice(1, 6, 6, 6, 6))
     run.attackOverlay(a.ally(1), a.battle.overlays[0]!)
-    expect(texts(run)).toEqual(['你 的手槍卡彈了，這一擊沒有打出去。'])
-    expect(run.beats[0]!.data).toMatchObject({ attacker: 'a1', overlay: 'o1', cancelled: true })
+    expect(texts(run)).toEqual(expect.arrayContaining(['你 的手槍卡彈了，要換彈才能再射。']))
     expect(a.battle.overlays[0]!.hp.now).toBe(20)
     // 特殊彈：空尖多一顆傷害骰
     const b = field({ allies: [one({ weapon: 'pistol', ap: AP })] })
@@ -150,6 +151,16 @@ describe('卡彈與炸膛在 attack.before：每一種打人的方式都吃得�
     const seen = spyRolls(r2)
     r2.attackOverlay(b.ally(1), b.battle.overlays[0]!)
     expect(seen.filter(([, s]) => s === 6).map(([c]) => c)).toEqual([4])
+  })
+
+  it('開槍的是和人重疊的東西（替身）：炸膛傷在那一台的耐久上，不是丟掉', () => {
+    const a = field({ foes: [foe(), foe(), foe()] })
+    const o = overlay('o1', 'foe', 1, { weapon: { ...testWeapon('pistol', 6), mag: { now: 2, max: 2 }, ext: { fx: { on_use: { backfire: { dice: 1 } } } } } as never, hp: { now: 20, max: 20 } })
+    a.battle.overlays.push(o)
+    const run = a.run(dice(1, 1, 1, 1, 5))
+    run.overlayAttack(o, a.ally(1))
+    expect(texts(run).some((x) => /炸膛/.test(x))).toBe(true)
+    expect(o.hp.now).toBeLessThan(20)
   })
 })
 
@@ -248,7 +259,8 @@ describe('快感的沉溺：定力擋走 gainSink，不再先加再扣', () => {
     expect(fail.r.hit).toBe(true)
     expect(fail.a.foe(1).load!.now).toBeGreaterThan(0)
     expect(fail.atAfter).toEqual([0])
-    expect(fail.asked).toEqual([])
+    // 傷害類型自己的沉溺沒有問 sink.before（noSink）；on_hit 的 sink 效果走 run.gainSink，問一次（沒有傷害類型）
+    expect(fail.asked).toEqual(['undefined'])
     expect(fail.a.foe(1).sink).toBe(1)
     const pass = honey(19)
     expect(pass.atAfter).toEqual([0])

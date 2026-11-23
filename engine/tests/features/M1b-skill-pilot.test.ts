@@ -1120,12 +1120,15 @@ describe('蜂群：多放兩台臨時的攻擊型、不算進上限、三回合�
     nextRound(a)
     nextRound(a)
     expect(overlaysOf(a)).toHaveLength(2)
-    const run = a.run()
     const before = a1(a).load!.now
-    nextRound(a)
+    // 同一個 run 輪完這一輪：收回的那兩拍（expired: true）要在這個 run 的紀錄裡，而且不是被擊落（沒有 overlay.down）
+    const run = a.run(FIX.slice())
+    const round = a.battle.round
+    for (let i = 0; i < 60 && a.battle.round === round; i++) advance(run)
     expect(overlaysOf(a)).toHaveLength(0)
     expect(a1(a).load!.now).toBe(before)
-    expect(run.beats).toBeDefined()
+    expect(run.beats.filter((b) => (b.data as Rec | undefined)?.expired === true)).toHaveLength(2)
+    expect(run.beats.some((b) => b.tag === 'overlay.down')).toBe(false)
   })
 
   it('臨時機被擊落：不加感載；放出來的正式的一台被擊落照加', () => {
@@ -1217,6 +1220,27 @@ describe('敢打我家孩子？：敵人攻擊你的一台無人機之後，其�
     expect(fired(run, ID('intercept'))).toBe(1)
     expect(fired(run, ID('defend_kids'))).toBe(1)
     expect(shots(run)).toHaveLength(2)
+  })
+
+  it('攻擊的是砲塔或沒有操作者的無人機（替身）：不觸發，不花行動點、不用掉每回合的次數（M1b-review-features E5）；敵人的人打還是照常觸發', () => {
+    const a = world(ids, { foes: bigFoes() })
+    const d1 = put(a, 1, 'attack')
+    const d2 = put(a, 2, 'attack')
+    const turret = a.run().addOverlay({ side: 'foe', slot: 1, kind: 'turret', name: '砲塔', hp: { now: 14, max: 14 }, armor: 1, evade: 10, weapon: { ...testWeapon('pistol', 30), mag: { now: 9, max: 9 } }, auto: true, ext: {} })
+    const ap = a1(a).ap.now
+    const run = a.run(dice(10, 4, 4, 4, 4, 4, 4))
+    run.overlayAttack(turret, run.standIn(d1))
+    expect(d1.hp.now).toBeLessThan(d1.hp.max)
+    expect(fired(run, ID('defend_kids'))).toBe(0)
+    expect(shots(run)).toHaveLength(0)
+    expect(a1(a).ap.now).toBe(ap)
+    expect(a1(a).uses[`turn:${ID('defend_kids')}`]).toBeUndefined()
+    expect(d2.used).toBe(false)
+    // 同一回合接著是敵人的人打：次數還在，照常反擊
+    const second = a.run(dice(10, 4, 4, 4, 4, 4, 4))
+    second.attackOverlay(a.foe(1), d1)
+    expect(fired(second, ID('defend_kids'))).toBe(1)
+    expect(shots(second)).toHaveLength(1)
   })
 
   it('反應自己的射擊不再觸發反應（不會連鎖）', () => {

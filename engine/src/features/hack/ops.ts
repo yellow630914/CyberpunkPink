@@ -7,7 +7,7 @@
 // 狀態都記在戰鬥狀態裡（單位的 ext.hack、掛著的東西的 ext.hack），存檔、回退才對得上。
 
 import type { BattleEffectCtx, BattleOverlay, ItemEntry, BattleRun, BattleSide, BattleTarget, BattleUnit, Kernel } from '../../core'
-import { BATTLE_SLOTS, BattleBlocked, amount, onField, overlayAt, unitAt, unitTag } from '../../core'
+import { BATTLE_SLOTS, BattleBlocked, amount, onField, otherSide, overlayAt, unitAt, unitTag } from '../../core'
 import { GRADE_CHECK, OWNER, deckOf } from './deck'
 import { isExplosive } from './actions'
 import { B, F, S, isRecord, oneOf, schema } from './schema'
@@ -164,16 +164,31 @@ function takeoverOp(ctx: Ctx, e: Eff): void {
   ctx.last.ok = true
 }
 
-/** 還回去：原本的那一方、操作者與自己動的設定。那一格被別台佔了就挪到最近的空格，沒有空格就停機。 */
+/**
+ * 還回去：原本的那一方、操作者與自己動的設定。那一格被別台佔了就挪到最近的空格，沒有空格就停機。
+ * 原本的操作者已經退出（接管期間倒下、被打倒）：照操作者退出的規則（COMBAT_SYSTEM 9.1 節；dev/adr/0015 E6）——
+ * autonomous 的沒有操作者、自己動（自律：ext.orphan，命中 −2、不移動）；其餘的停機。
+ */
 function giveBack(run: BattleRun, o: BattleOverlay): void {
   const t = takenOf(o)
   if (!t) return
   delete (o.ext!.hack as Record<string, unknown>).taken
   o.side = t.from.side
-  if (t.from.owner) o.owner = t.from.owner
+  const owner = t.from.owner ? run.battle.units[t.from.owner] : undefined
+  const ownerGone = t.from.owner !== undefined && (!owner || !!owner.out)
+  if (t.from.owner && !ownerGone) o.owner = t.from.owner
   else delete o.owner
   if (t.from.auto) o.auto = true
   if (t.from.autonomous) o.autonomous = true
+  if (ownerGone) {
+    if (!t.from.autonomous) {
+      run.dropOverlay(o, undefined, true)
+      return
+    }
+    o.auto = true
+    o.ext = { ...o.ext, orphan: true }
+    run.say(`${o.name}失去了操作者，進入自律模式。`, 'overlay', { overlay: o.id, kind: o.kind, slot: o.slot, orphan: true })
+  }
   if (run.battle.overlays.some((x) => x !== o && !x.down && x.side === o.side && x.slot === o.slot)) {
     const free = Array.from({ length: BATTLE_SLOTS }, (_, i) => i + 1).filter((s) => !overlayAt(run.battle, o.side, s)).sort((a, b) => Math.abs(a - o.slot) - Math.abs(b - o.slot))[0]
     if (free) o.slot = free
@@ -265,9 +280,20 @@ export function registerOps(k: Kernel): void {
       const target = run.pick(mates, () => 1)
       if (!target) continue
       run.say(`${o.name}的敵我名單被改寫了，朝${unitTag(target)}開火。`, 'overlay', { overlay: o.id, target: target.id, rewrite: true })
-      run.overlayAttack(o, target, { label: '被改寫的射擊' })
+      // 它打的是它原本的隊友：開火的這一刻它算做的人那一方的（替身照 side 組，反應、守著、立牌、距離才把它當成對面）；打完還原
+      o.side = otherSide(t.from.side)
+      try {
+        run.overlayAttack(o, target, { label: '被改寫的射擊' })
+      } finally {
+        o.side = t.from.side
+      }
       if (run.over) return
     }
+  })
+
+  // 救回來：狀態清空，持續型快駭也是（W013；dev/adr/0015 revive「狀態清空」）
+  k.battle.on('revive', OWNER, ({ unit }) => {
+    if (isRecord(unit.ext.hack)) delete unit.ext.hack.dot
   })
 
   // 做的人倒下了：還沒到期的改寫還回去（接管來的，核心在操作者退出時已經停機）

@@ -1,6 +1,6 @@
 // 白箱測試：features/abilities（M1b 第二波與第三批核心之後：守著、臨時遮蔽、branch、buff、條件、消耗與池、戰鬥結束的寫回、保釋、開戰效果、格式）。
 // 補主套件沒有走到的分支與錯誤路徑；每個測試名稱寫明在測哪一條規格（文件與節）或不變式（dev/invariants.md）。
-// 會失敗（和規格不一致）的寫在 tests/pending/W011～W013（dev/bugs/2026-11-23-W011～W013），這裡只放現在就對的行為。
+// 會失敗（和規格不一致）的寫在 tests/pending/W011-W013-ability-timers（W012、W013；W011 已修好、搬進 tests/features/W011-lost-turn-ability-timers.test.ts），這裡只放現在就對的行為。
 // 內容一律是測試自帶的假資料。
 
 import { describe, expect, it } from 'vitest'

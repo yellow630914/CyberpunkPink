@@ -4,12 +4,15 @@
 import type { BattleActionDef, BattlePick, BattleTarget, BattleUnit, BattleView, BattleWeapon } from '../../core'
 import { BattleBlocked, distance, otherSide, unitsOf, wielded } from '../../core'
 import type { AmmoItem } from './fx'
+import { clearJam, isJammed } from './fx'
 
 const OWNER = 'combat'
 const MODES = ['meat']
 
 const isMelee = (w: BattleWeapon | undefined): boolean => !!w?.traits.includes('melee')
 const magEmpty = (w: BattleWeapon): boolean => !!w.mag && w.mag.now <= 0
+/** 彈匣空了的原因（卡彈了要另外說）。 */
+const emptyWhy = (w: BattleWeapon): string => (isJammed(w) ? '卡彈了，要先換彈。' : '彈匣空了，要先換彈。')
 
 /** 射擊與近戰共用的 AI 分數基準（ENEMIES 4.3 節）：命中率低於 35% 時 1，否則 2；打掩體裡的人，霰彈槍與重武器再 +0.5。 */
 function attackScore(view: BattleView, u: BattleUnit, t: BattleUnit | null): number | null {
@@ -31,7 +34,7 @@ const shoot: BattleActionDef = {
     const w = wielded(u)
     if (!w) return ['手上沒有武器。']
     if (isMelee(w)) return ['手上是近戰武器，不能射擊。']
-    if (magEmpty(w)) return ['彈匣空了，要先換彈。']
+    if (magEmpty(w)) return [emptyWhy(w)]
     return []
   },
   targets: (view, u) => [
@@ -150,6 +153,7 @@ const reload: BattleActionDef = {
       // 沒選：裝普通彈，原本裝著的特殊彈剩下的格數作廢
       w.mag.now = w.mag.max
       delete w.ammo
+      clearJam(w)
       run.say(`${u.name} 換彈。`, 'reload', { unit: u.id }, u)
       return
     }
@@ -162,6 +166,7 @@ const reload: BattleActionDef = {
     if (slot.qty <= 0) u.quick = u.quick.filter((q) => q.qty > 0)
     w.mag.now = w.mag.max
     w.ammo = found.id
+    clearJam(w)
     run.say(`${u.name} 換彈，裝上${found.item.name}。`, 'reload', { unit: u.id, ammo: found.id }, u)
   },
   aiScore: (_v, u) => {
@@ -200,7 +205,7 @@ const hitCover: BattleActionDef = {
     const w = wielded(u)
     if (!w) return ['手上沒有武器。']
     if (isMelee(w)) return ['近戰武器打不了遮蔽。']
-    if (magEmpty(w)) return ['彈匣空了，要先換彈。']
+    if (magEmpty(w)) return [emptyWhy(w)]
     return []
   },
   targets: (view, u) => view.battle.cover[otherSide(u.side)]

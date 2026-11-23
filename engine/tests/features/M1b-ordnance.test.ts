@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import type { BattleOverlay, BattleTarget, BattleUnit, ContentPack, Kernel } from '../../src'
 import { BattleBlocked, beginTurn, createKernel, pickApplies, performAction, readyFeatures } from '../../src'
 import { combatFeature } from '../../src/features/combat'
-import { fxOf, mergeFx } from '../../src/features/combat/fx'
+import { fxOf, fxProblems, mergeFx } from '../../src/features/combat/fx'
 import { enemiesFeature } from '../../src/features/enemies'
 import { makeBattleGame, testWeapon } from '../../src/testkit'
 import type { Arena } from '../helpers/battle'
@@ -115,8 +115,8 @@ describe('fx：每一擊都帶的欄位與合併', () => {
     w.ammo = 'am_neural'
     expect(a.k.content.get('item', 'am_neural')).toBeTruthy()
     expect(fxOf(a.k, w)).toEqual({ hit: 1, dice: 0, pierce: 1, type: 'neural', on_hit: [{ op: 'heal', amount: 1 }] })
-    expect(mergeFx({ on_use: { jam: 30, backfire: { pct: 10, dice: 1 } }, silent: true }, { on_use: { jam: 20, backfire: { pct: 5, dice: 2 } }, no_cover: true })).toEqual({
-      silent: true, no_cover: true, on_use: { jam: 50, backfire: { pct: 15, dice: 3 } },
+    expect(mergeFx({ on_use: { jam: 'natural1', backfire: { dice: 1 } }, silent: true }, { on_use: { backfire: { dice: 2 } }, no_cover: true })).toEqual({
+      silent: true, no_cover: true, on_use: { jam: 'natural1', backfire: { dice: 3 } },
     })
     // 兩邊都沒有：沒有 fx
     expect(fxOf(a.k, { ...w, ext: {}, ammo: undefined })).toBeUndefined()
@@ -185,63 +185,104 @@ describe('fx.on_hit：命中而且造成傷害之後做', () => {
   })
 })
 
-describe('fx.on_use：卡彈與炸膛（開火之前擲的）', () => {
-  it('jam: 100：沒有擲命中、彈匣少一格、有一拍說明卡彈、目標不受傷', () => {
-    const a = field({ allies: [withFx('pistol', { on_use: { jam: 100 } })] })
+describe('fx.on_use：卡彈與炸膛（命中骰自然 1 才發生；ITEMS 2.9、2.10 節）', () => {
+  it('jam: natural1：自然 1 那一擊照常結算（失手），之後彈匣清空、標卡彈；目標不受傷', () => {
+    const a = field({ allies: [withFx('pistol', { on_use: { jam: 'natural1' } })] })
     const me = a.ally(1)
     const hp = a.foe(1).hp!.now
-    const run = act(a, me, 'shoot', f('f1'), undefined, dice(50, 15, 6, 6, 6))
-    expect(rolls(run)).toEqual([])
-    expect(weaponOf(me).mag!.now).toBe(1)
-    expect(texts(run)).toMatch(/卡彈/)
+    const run = act(a, me, 'shoot', f('f1'), undefined, dice(1))
+    expect(rolls(run)[0]!.natural).toBe(1)
+    expect(run.beats.some((b) => b.tag === 'miss')).toBe(true)
+    expect(texts(run)).toMatch(/卡彈了，要換彈才能再射/)
+    expect(weaponOf(me).mag!.now).toBe(0)
+    expect(weaponOf(me).ext).toMatchObject({ jammed: true })
     expect(a.foe(1).hp!.now).toBe(hp)
-    expect(run.beats.some((b) => b.tag === 'hit' || b.tag === 'miss')).toBe(false)
   })
 
-  it('卡彈的機率是百分比：擲到 ≤ jam 才卡；沒有 on_use 的武器不擲這一顆骰', () => {
-    const a = field({ allies: [withFx('pistol', { on_use: { jam: 30 } })] })
-    // 30 卡，31 不卡（接著照常擲命中：15）
-    expect(texts(act(a, a.ally(1), 'shoot', f('f1'), undefined, dice(30)))).toMatch(/卡彈/)
-    const ok = act(a, a.ally(1), 'shoot', f('f1'), undefined, dice(31, 15, 3, 3, 3))
-    expect(rolls(ok)).toHaveLength(1)
-    // 沒有 fx：第一顆骰就是命中的 d20（15 命中，傷害是之後的 d6）
+  it('命中骰不是自然 1 就不卡（不另外擲百分比骰：第一顆骰就是命中的 d20）；沒有 on_use 的武器也不卡', () => {
+    const a = field({ allies: [withFx('pistol', { on_use: { jam: 'natural1' } })] })
+    const ok = act(a, a.ally(1), 'shoot', f('f1'), undefined, dice(15, 3, 3, 3))
+    expect(rolls(ok)[0]!.natural).toBe(15)
+    expect(texts(ok)).not.toMatch(/卡彈/)
+    expect(weaponOf(a.ally(1)).mag!.now).toBe(1)
     const plain = field()
-    expect(rolls(act(plain, plain.ally(1), 'shoot', f('f1'), undefined, dice(15, 3, 3, 3)))[0]!.natural).toBe(15)
+    expect(texts(act(plain, plain.ally(1), 'shoot', f('f1'), undefined, dice(1)))).not.toMatch(/卡彈/)
   })
 
-  it('backfire: { pct: 100, dice: 1 }：這一擊不發生，開槍的人自己受傷；彈匣照扣', () => {
-    const a = field({ allies: [withFx('pistol', { on_use: { backfire: { pct: 100, dice: 1 } } })] })
+  it('卡彈之後不能再射（原因寫卡彈），換彈才能再射；換彈清掉卡彈', () => {
+    const a = field({ allies: [withFx('pistol', { on_use: { jam: 'natural1' } })] })
+    const me = a.ally(1)
+    act(a, me, 'shoot', f('f1'), undefined, dice(1))
+    const blocks = (id: string) => a.k.battle.getAction(id)!.blocks!(a.run(), me)
+    expect(blocks('shoot')).toEqual(['卡彈了，要先換彈。'])
+    expect(blocks('hit_cover')).toEqual(['卡彈了，要先換彈。'])
+    expect(blocks('reload')).toEqual([])
+    act(a, me, 'reload')
+    expect(weaponOf(me).mag!.now).toBe(2)
+    expect(weaponOf(me).ext?.jammed).toBeUndefined()
+    expect(blocks('shoot')).toEqual([])
+  })
+
+  it('backfire: { dice }：自然 1 時開槍的人自己受物理傷害（骰數照 dice、護甲照扣）；命中骰不是 1 就沒事', () => {
+    const a = field({ allies: [withFx('pistol', { on_use: { backfire: { dice: 1 } } })] })
     const me = a.ally(1)
     const hp = me.hp!.now
-    const run = act(a, me, 'shoot', f('f1'), undefined, dice(50, 6))
+    const run = act(a, me, 'shoot', f('f1'), undefined, dice(1, 1, 1, 1, 6))
     expect(texts(run)).toMatch(/炸膛/)
     // 1d6 = 6，護甲 2：實際 4 點
     expect(me.hp!.now).toBe(hp - 4)
     expect(weaponOf(me).mag!.now).toBe(1)
-    expect(rolls(run)).toEqual([])
     expect(a.foe(1).hp!.now).toBe(a.foe(1).hp!.max)
+    // 沒有卡彈（只寫了炸膛）
+    expect(weaponOf(me).ext?.jammed).toBeUndefined()
+    const b = field({ allies: [withFx('pistol', { on_use: { backfire: { dice: 1 } } })] })
+    const hp2 = b.ally(1).hp!.now
+    expect(texts(act(b, b.ally(1), 'shoot', f('f1'), undefined, dice(15, 3, 3, 3)))).not.toMatch(/炸膛/)
+    expect(b.ally(1).hp!.now).toBe(hp2)
   })
 
-  it('近戰也走同一道關；打掛著的東西的射擊也會卡彈', () => {
-    const a = field({ allies: [one({ weapons: [{ ...testWeapon('knife', 6), ext: { fx: { on_use: { jam: 100 } } } }], wield: 0 })] })
-    expect(texts(act(a, a.ally(1), 'melee', f('f1'), undefined, dice(50)))).toMatch(/卡彈/)
-    const b = field({ allies: [withFx('pistol', { on_use: { jam: 100 } })] })
-    b.battle.overlays.push(overlay('o1', 'foe', 1))
-    const run = act(b, b.ally(1), 'shoot', { overlay: 'o1' }, undefined, dice(50))
+  it('卡彈與炸膛都寫，自然 1 時兩個都發生', () => {
+    const a = field({ allies: [withFx('pistol', { on_use: { jam: 'natural1', backfire: { dice: 1 } } })] })
+    const me = a.ally(1)
+    const hp = me.hp!.now
+    const run = act(a, me, 'shoot', f('f1'), undefined, dice(1, 1, 1, 1, 6))
     expect(texts(run)).toMatch(/卡彈/)
-    expect(b.battle.overlays[0]!.hp.now).toBe(20)
+    expect(texts(run)).toMatch(/炸膛/)
+    expect(weaponOf(me).mag!.now).toBe(0)
+    expect(me.hp!.now).toBe(hp - 4)
   })
 
-  it('AI 的敵人拿著帶 fx 的武器，卡彈照樣發生；命中燃燒照樣發生', () => {
-    const jammed = { ...testWeapon('pistol', 6), mag: { now: 2, max: 2 }, ext: { fx: { on_use: { jam: 100 } } } }
+  it('近戰沒有彈匣：自然 1 不卡彈；打掛著的東西的射擊自然 1 也會卡彈', () => {
+    const a = field({ allies: [one({ weapons: [{ ...testWeapon('knife', 6), ext: { fx: { on_use: { jam: 'natural1' } } } }], wield: 0 })] })
+    const run = act(a, a.ally(1), 'melee', f('f1'), undefined, dice(1))
+    expect(texts(run)).not.toMatch(/卡彈/)
+    const b = field({ allies: [withFx('pistol', { on_use: { jam: 'natural1' } })] })
+    b.battle.overlays.push(overlay('o1', 'foe', 1))
+    const run2 = act(b, b.ally(1), 'shoot', { overlay: 'o1' }, undefined, dice(1))
+    expect(texts(run2)).toMatch(/卡彈/)
+    expect(weaponOf(b.ally(1)).mag!.now).toBe(0)
+  })
+
+  it('格式：jam 只收 natural1、backfire 要寫 dice（1 以上的整數）；舊的百分比寫法擋下', () => {
+    const k = createKernel()
+    expect(fxProblems(k, { on_use: { jam: 'natural1', backfire: { dice: 2 } } })).toEqual([])
+    expect(fxProblems(k, { on_use: { jam: 30 } })[0]).toMatch(/jam/)
+    expect(fxProblems(k, { on_use: { backfire: { pct: 10, dice: 1 } } })[0]).toMatch(/不認得的欄位 pct/)
+    expect(fxProblems(k, { on_use: { backfire: { dice: 0 } } })[0]).toMatch(/1 以上的整數/)
+  })
+
+  it('AI 的敵人拿著帶 fx 的武器：自然 1 才卡彈（之後下一個動作是換彈）；命中燃燒照樣發生', () => {
+    const jammed = { ...testWeapon('pistol', 6), mag: { now: 2, max: 2 }, ext: { fx: { on_use: { jam: 'natural1' } } } }
     const g1 = makeBattleGame({ features: [combatFeature], content: [PACK], seed: 3, battle: duel([one({ weapon: 'pistol' })], [foe('minion', { weapons: [jammed] })], cover0) }).game
     const reports = []
-    for (let i = 0; i < 12 && g1.battle && !g1.battle.result; i++) reports.push(g1.battleNext({ anyone: true }))
+    for (let i = 0; i < 30 && g1.battle && !g1.battle.result; i++) reports.push(g1.battleNext({ anyone: true }))
     const beats = reports.flatMap((r) => r.reports.flatMap((x) => x.timeline))
-    expect(beats.some((b) => /卡彈/.test(b.text))).toBe(true)
-    // 敵人沒有打出任何一槍：沒有一拍的攻擊者是他
-    expect(beats.filter((b) => (b.tag === 'hit' || b.tag === 'miss' || b.tag === 'crit') && (b.data as { attacker?: string } | undefined)?.attacker === 'f1')).toEqual([])
-    expect(g1.battle!.units.f1!.weapons[0]!.mag!.now).toBeLessThan(2)
+    // 卡彈只發生在敵人自己的自然 1 之後
+    const jamAt = beats.findIndex((b) => /f1.*卡彈|卡彈/.test(b.text))
+    if (jamAt >= 0) {
+      const before = beats.slice(0, jamAt).filter((b) => b.roll && (b.data as { attacker?: string } | undefined)?.attacker === 'f1')
+      expect(before[before.length - 1]!.roll!.natural).toBe(1)
+    }
 
     const fiery = { ...testWeapon('pistol', 60), ext: { fx: { on_hit: [BURN] } } }
     const g2 = makeBattleGame({ features: [combatFeature], content: [PACK], seed: 3, battle: duel([one({ weapon: 'pistol', evade: -50 })], [foe('minion', { weapons: [fiery] })], cover0) }).game
@@ -690,8 +731,8 @@ describe('格式檢查：fx、ammo、throw 的欄位寫錯在載入時擋下，�
     expect(load(ITEM('it_b', '壞彈', { ammo: { fits: ['pistol'], fx: { type: 'laser' } } }))).toThrow(/item\/it_b：.*type/)
     expect(load(ITEM('it_b', '壞彈', { ammo: { fits: ['pistol'], fx: { pierce: 'lots' } } }))).toThrow(/item\/it_b：.*pierce/)
     expect(load(ITEM('it_b', '壞彈', { ammo: { fits: ['pistol'], fx: { mystery: 1 } } }))).toThrow(/item\/it_b：.*mystery/)
-    expect(load(ITEM('it_b', '壞彈', { ammo: { fits: ['pistol'], fx: { on_use: { jam: 150 } } } }))).toThrow(/item\/it_b：.*jam/)
-    expect(load(ITEM('it_b', '壞彈', { ammo: { fits: ['pistol'], fx: { on_use: { backfire: { pct: 10 } } } } }))).toThrow(/item\/it_b：.*dice/)
+    expect(load(ITEM('it_b', '壞彈', { ammo: { fits: ['pistol'], fx: { on_use: { jam: 'always' } } } }))).toThrow(/item\/it_b：.*jam/)
+    expect(load(ITEM('it_b', '壞彈', { ammo: { fits: ['pistol'], fx: { on_use: { backfire: { pct: 10 } } } } }))).toThrow(/item\/it_b：.*pct/)
     // on_hit 裡的效果：不認得的 op、欄位寫錯（訊息裡寫出那個 op）
     expect(load(ITEM('it_b', '壞彈', { ammo: { fits: ['pistol'], fx: { on_hit: [{ op: 'explode' }] } } }))).toThrow(/item\/it_b：.*on_hit.*explode/)
     expect(load(ITEM('it_b', '壞彈', { ammo: { fits: ['pistol'], fx: { on_hit: [{ op: 'status', status: 'burning', turns: '2d6+foo' }] } } }))).toThrow(/item\/it_b：.*on_hit.*status.*turns/)
@@ -725,9 +766,9 @@ describe('格式檢查：fx、ammo、throw 的欄位寫錯在載入時擋下，�
       k.content.loadPack({ id: 'e', content: { battle_status: TEST_STATUSES, skill: SKILLS, weapon_class: WEAPONS, faction: [{ id: 'hizakura', name: '緋櫻重工', short: '緋櫻', class: 'corp' }], enemy: [enemy('en_t', fx)] } })
       return () => readyFeatures(k)
     }
-    expect(mk({ on_hit: [BURN], on_use: { jam: 10 }, silent: true })).not.toThrow()
+    expect(mk({ on_hit: [BURN], on_use: { jam: 'natural1', backfire: { dice: 1 } }, silent: true })).not.toThrow()
     expect(mk({ type: 'laser' })).toThrow(/enemy\/en_t：weapons\[0\]\.fx：.*type/)
     expect(mk({ on_hit: [{ op: 'explode' }] })).toThrow(/enemy\/en_t：weapons\[0\]\.fx：.*explode/)
-    expect(mk({ on_use: { jam: -1 } })).toThrow(/enemy\/en_t：weapons\[0\]\.fx：.*jam/)
+    expect(mk({ on_use: { jam: 10 } })).toThrow(/enemy\/en_t：weapons\[0\]\.fx：.*jam/)
   })
 })

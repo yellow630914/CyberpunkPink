@@ -40,7 +40,7 @@ const PACK: ContentPack = {
     ],
     item: [
       item('it_ring', { tags: ['acc:any'] }), item('it_collar', { tags: ['acc:neck'] }), item('it_garter', { tags: ['acc:leg'] }),
-      item('it_bag', { tags: ['belt'], quick: 2 }), item('it_gel', { category: 'consumable', use: { ap: 1, target: 'self', effects: [{ op: 'heal', amount: 5 }] } }),
+      item('it_bag', { tags: ['belt'], quick: 2 }), item('it_stone', { category: 'consumable' }), item('it_gel', { category: 'consumable', use: { ap: 1, target: 'self', effects: [{ op: 'heal', amount: 5 }] } }),
     ],
   },
 }
@@ -186,7 +186,11 @@ describe('白箱 三種變更（gear.slot、gear.quick、gear.coat；不變式�
     expect(quick([{ item: '', qty: 1 }])).toMatch(/items 要是/)
     expect(quick([{ item: 'it_gel', qty: 3 }])).toMatch(/快取格只有 2 格/)
     expect(quick([{ item: 'it_gel', qty: 2 }, { item: 'it_nope', qty: 0 }])).toMatch(/items 要是/)
-    expect(quick([{ item: 'it_missing', qty: 1 }])).toMatch(/背包裡的it_missing不夠 1 個/)
+    expect(quick([{ item: 'it_stone', qty: 1 }])).toMatch(/背包裡的it_stone不夠 1 個/)
+    // 快取格只放藥、彈匣、手榴彈、工具（E6）：飾品、設計圖、不在目錄裡的都不收，原因排在格數之前
+    expect(quick([{ item: 'it_ring', qty: 1 }])).toMatch(/不能放進快取格/)
+    expect(quick([{ item: 'it_missing', qty: 1 }])).toMatch(/不能放進快取格/)
+    expect(quick([{ item: 'it_gel', qty: 1 }, { item: 'it_ring', qty: 5 }])).toMatch(/不能放進快取格/)
     expect(quick([{ item: 'it_gel', qty: 1 }, { item: 'it_gel', qty: 1 }])).toBe('')
     expect(gearOf(g.state, 'pc').quick).toEqual([{ item: 'it_gel', qty: 1 }, { item: 'it_gel', qty: 1 }])
     expect(reason(g, { op: 'gear.quick', id: 'ghost', items: [] })).toMatch(/沒有 ghost 這個角色/)

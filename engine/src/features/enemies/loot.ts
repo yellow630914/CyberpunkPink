@@ -25,6 +25,8 @@ export type LootEntry = LootDrop | LootText
 export const LOOT_ITEM_KINDS = ['item', 'part', 'blueprint'] as const
 /** 一個人最多掉幾件（件數：每一筆擲中的算一件，不管那一筆發幾個）。 */
 export const LOOT_CAP = { minion: 1, elite: 2, boss: 3 } as const
+/** 一個人至少掉幾件（ENEMIES 第 7 節「件數：雜兵 0～1、精英 1～2、首領 2～3」）：擲中的不夠就從沒擲中的補（機率高的先補），補到有東西可補為止。 */
+export const LOOT_MIN = { minion: 0, elite: 1, boss: 2 } as const
 /** 現金晶片的範圍，照那個人的等級（ENEMIES 第 7 節；每級約 3.2 倍）。 */
 export const CASH_RANGE: Record<number, readonly [number, number]> = {
   1: [40, 120], 2: [130, 380], 3: [400, 1200], 4: [1300, 3900], 5: [4000, 12000],
@@ -83,7 +85,10 @@ function isTaken(u: BattleUnit): boolean {
   return isRec(ext) && !!ext.taken
 }
 
-/** 一個人掉的東西：照 loot 的順序各擲一次，擲中的收進來到位階的上限為止；首領沒掉任何 top 時補上第一件 top。 */
+/**
+ * 一個人掉的東西：照 loot 的順序各擲一次，擲中的收進來到位階的上限為止；首領沒掉任何 top 時補上第一件 top；
+ * 件數不到位階的下限（精英 1、首領 2）時，從沒擲中的補（機率高的先，同機率照 loot 的順序；機率 0 的是「不掉」，不補）。
+ */
 function rollUnit(rng: ReturnType<typeof deriveRng>, e: EnemyEntry, rank: string): Array<{ item: string; qty: number }> {
   const drops = dropsOf(e)
   const cap = LOOT_CAP[rank as keyof typeof LOOT_CAP] ?? 1
@@ -98,6 +103,11 @@ function rollUnit(rng: ReturnType<typeof deriveRng>, e: EnemyEntry, rank: string
     const top = rolled.find((r) => r.drop.top)
     // 補上第一件 top；已經滿了就換掉最後一件，件數不超過首領的上限
     if (top) got = [...(got.length >= cap ? got.slice(0, cap - 1) : got), top]
+  }
+  const min = LOOT_MIN[rank as keyof typeof LOOT_MIN] ?? 0
+  if (got.length < min) {
+    const rest = rolled.filter((r) => !got.includes(r) && r.drop.chance > 0).sort((a, b) => b.drop.chance - a.drop.chance)
+    got = [...got, ...rest.slice(0, min - got.length)]
   }
   return got.map((r) => ({ item: r.drop.item, qty: r.qty }))
 }

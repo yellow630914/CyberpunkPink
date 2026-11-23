@@ -52,6 +52,17 @@ function expireTemps(run: BattleRun, unit: BattleUnit, at: TempCover['until']): 
   }
 }
 
+/** 做的人退出了：他再也沒有回合，升上去的遮蔽現在拿回來（W012：和守著、監視一樣，退出時結束）。 */
+function expireAllTemps(run: BattleRun, unit: BattleUnit): void {
+  const due = tempsOf(unit)
+  if (!due.length) return
+  dataOf(unit).coverTemps = []
+  for (const t of due) {
+    const down = Math.min(t.levels, coverAt(run.battle, t.side, t.slot).level)
+    if (down > 0) run.lowerCover(t.side, t.slot, down)
+  }
+}
+
 export const RANDOM_FROM = ['ally', 'member', 'foe', 'minion'] as const
 type RandomFrom = (typeof RANDOM_FROM)[number]
 
@@ -173,4 +184,5 @@ export function registerOps(k: Kernel): void {
 
   k.battle.on('turn.start', OWNER, ({ run, unit }) => expireTemps(run, unit, 'own_turn_start'))
   k.battle.on('turn.end', OWNER, ({ run, unit }) => expireTemps(run, unit, 'own_turn_end'))
+  k.battle.on('out', OWNER, ({ run, unit }) => expireAllTemps(run, unit))
 }

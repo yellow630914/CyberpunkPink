@@ -3,13 +3,15 @@
 // （數字相加、清單接起來、type 以彈為準）。全部讀格式，不看武器的類型或物品的 id。
 //
 // - 每一擊都帶的（hit、dice、pierce、armor_mult、type、cover_mult_min、no_cover、silent）：在 attack.before 加進這一擊的 opts。
-// - on_hit：命中而且造成傷害之後做的效果清單（attack.after）；on_use：開火之前擲的卡彈與炸膛（attack.before 的處理函式，排在最前面，
-//   設 opts.cancel 取消這一擊；炸膛傷到自己放在 attack.cancel）。每一種打人的方式都走這個掛點，技能效果清單的 { op: 'attack' } 也會卡彈。
+// - on_hit：命中而且造成傷害之後做的效果清單（attack.after）；on_use：命中骰擲出自然 1 時的代價（ITEMS 2.9、2.10 節；ENEMY_ROSTER）：
+//   `jam: 'natural1'` 卡彈——那一擊照常結算（自然 1 本來就失手），之後彈匣清空、標 ext.jammed，要換彈才能再射（換彈清掉）；
+//   `backfire: { dice }` 炸膛——開槍的人自己受 dice 顆 d6 的物理傷害。兩個都寫就都發生。在 attack.after（改打掛著的東西是 attack.redirected）
+//   看這一擊的自然骰面，所以每一種打人的方式都吃得到（技能效果清單的 { op: 'attack' }、反應、打掛著的東西）；沒有彈匣的武器不卡彈。
 // - 特殊彈打空了，weapon.ammo 清掉（那一件已經在換彈時用掉了）；戰鬥結束時沒打完的作廢（BattleWeapon 不寫回快取格）。
 
 import type { AttackOpts, AttackResult, BattleRun, BattleUnit, BattleWeapon, ItemEntry, Kernel } from '../../core'
 import { isRecord, unitTag } from '../../core'
-import { B, S, TYPE, list, num, shape } from './schema'
+import { B, S, TYPE, list, num, oneOf, shape } from './schema'
 
 const OWNER = 'combat'
 type Eff = Record<string, unknown>
@@ -24,7 +26,7 @@ export interface Fx {
   cover_mult_min?: number
   no_cover?: boolean
   on_hit?: Eff[]
-  on_use?: { jam?: number; backfire?: { pct: number; dice: number } }
+  on_use?: { jam?: 'natural1'; backfire?: { dice: number } }
   silent?: boolean
 }
 
@@ -38,7 +40,6 @@ export type AmmoItem = ItemEntry & { ammo?: AmmoDef }
 // ---- 格式檢查 ----
 
 const int: (v: unknown) => string | null = (v) => (typeof v === 'number' && Number.isInteger(v) ? null : '要是整數')
-const pct: (v: unknown) => string | null = (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100 ? null : '要是 0～100 的整數（百分比）')
 
 /**
  * 檢查一份 fx：欄位的型別、不認得的欄位、on_hit 的每一筆效果（op 查得到、欄位對）。回傳每一個問題，空的就是合格。
@@ -49,7 +50,7 @@ export function fxProblems(k: Kernel, fx: unknown): string[] {
   const spec = {
     hit: int, dice: int, pierce: int, armor_mult: num(0), type: TYPE, cover_mult_min: num(0), no_cover: B, silent: B,
     on_hit: list((v) => (isRecord(v) ? null : '每一筆要是 { op, ... }')),
-    on_use: shape({ jam: pct, backfire: shape({ pct, dice: (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 1 ? null : '要是 1 以上的整數（骰幾顆 d6）') }, ['pct', 'dice']) }),
+    on_use: shape({ jam: oneOf(['natural1']), backfire: shape({ dice: (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 1 ? null : '要是 1 以上的整數（骰幾顆 d6）') }, ['dice']) }),
   }
   const why = shape(spec)(fx)
   if (why) return [why]
@@ -81,12 +82,12 @@ export function ammoOf(k: Pick<Kernel, 'content'>, w: BattleWeapon): { id: strin
 
 const sum = (a: number | undefined, b: number | undefined): number | undefined => (a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0))
 
-/** 兩份 fx 合起來：數字相加（armor_mult 是倍率，相乘）、on_hit 接起來、type 以後面（彈）為準、旗標有一個就算。 */
+/** 兩份 fx 合起來：數字相加（armor_mult 是倍率，相乘；炸膛的骰數相加）、on_hit 接起來、type 以後面（彈）為準、旗標與卡彈有一個就算。 */
 export function mergeFx(a: Fx | undefined, b: Fx | undefined): Fx | undefined {
   if (!a) return b
   if (!b) return a
-  const jam = sum(a.on_use?.jam, b.on_use?.jam)
-  const bf = a.on_use?.backfire || b.on_use?.backfire ? { pct: sum(a.on_use?.backfire?.pct, b.on_use?.backfire?.pct)!, dice: sum(a.on_use?.backfire?.dice, b.on_use?.backfire?.dice)! } : undefined
+  const jam = a.on_use?.jam ?? b.on_use?.jam
+  const bf = a.on_use?.backfire || b.on_use?.backfire ? { dice: sum(a.on_use?.backfire?.dice, b.on_use?.backfire?.dice)! } : undefined
   const out: Fx = {}
   for (const key of ['hit', 'dice', 'pierce', 'cover_mult_min'] as const) {
     const v = sum(a[key], b[key])
@@ -100,7 +101,7 @@ export function mergeFx(a: Fx | undefined, b: Fx | undefined): Fx | undefined {
   if (a.silent || b.silent) out.silent = true
   const on_hit = [...(a.on_hit ?? []), ...(b.on_hit ?? [])]
   if (on_hit.length) out.on_hit = on_hit
-  if (jam !== undefined || bf) out.on_use = { ...(jam !== undefined ? { jam: Math.min(100, jam) } : {}), ...(bf ? { backfire: { pct: Math.min(100, bf.pct), dice: bf.dice } } : {}) }
+  if (jam !== undefined || bf) out.on_use = { ...(jam !== undefined ? { jam } : {}), ...(bf ? { backfire: bf } : {}) }
   return out
 }
 
@@ -139,26 +140,42 @@ export function settleAmmo(w: BattleWeapon): void {
   if (w.ammo && w.mag && w.mag.now <= 0) delete w.ammo
 }
 
-// ---- 開火之前：卡彈與炸膛 ----
+// ---- 擲出自然 1：卡彈與炸膛 ----
 
 /**
- * 開火之前擲的（on_use；attack.before 的處理函式）：卡彈 jam（百分比）、炸膛 backfire（百分比）：成立就設 opts.cancel，這一擊不發生
- * （彈匣核心已經扣了；那一句話由核心記成一拍；炸膛開槍的人自己受物理傷害在 attack.cancel）。沒有 on_use 的武器不擲骰。
- * 先擲卡彈、再擲炸膛（卡彈成立就不再擲炸膛）。
+ * 這一擊的命中骰是自然 1 時，付 on_use 的代價（ITEMS 2.9、2.10 節）。那一擊已經照常結算（失手）；
+ * 卡彈：彈匣清空、標 ext.jammed（換彈清掉），沒有彈匣的武器不卡彈；炸膛：開槍的人自己受 dice 顆 d6 的物理傷害
+ * （開槍的是和人重疊的東西的替身時，傷在那一台的耐久上）。沒有發生的一擊（aborted）與沒有擲命中骰的（natural 是 0）不算。
  */
-function gate(user: BattleUnit, w: BattleWeapon, opts: AttackOpts, run: BattleRun): void {
+function misfire(run: BattleRun, attacker: BattleUnit, w: BattleWeapon, result: AttackResult): void {
+  if (result.aborted || result.natural !== 1) return
   const use = fxOf(run.k, w)?.on_use
   if (!use) return
-  if (use.jam && run.roll(1, 100)[0]! <= use.jam) {
-    opts.cancel = `${unitTag(user)} 的${w.name}卡彈了，這一擊沒有打出去。`
-    opts.cancelData = { unit: user.id, jam: true }
-    return
+  if (use.jam && w.mag) {
+    w.mag.now = 0
+    w.ext = { ...w.ext, jammed: true }
+    settleAmmo(w)
+    run.say(`${unitTag(attacker)} 的${w.name}卡彈了，要換彈才能再射。`, undefined, { unit: attacker.id, weapon: w.class, jam: true }, attacker)
   }
-  if (use.backfire && run.roll(1, 100)[0]! <= use.backfire.pct) {
-    opts.cancel = `${unitTag(user)} 的${w.name}炸膛了，這一擊沒有打出去。`
-    opts.cancelData = { unit: user.id, backfire: true }
+  if (use.backfire && !run.over) {
+    run.say(`${unitTag(attacker)} 的${w.name}炸膛了！`, undefined, { unit: attacker.id, weapon: w.class, backfire: true }, attacker)
+    const dealt = run.d6(use.backfire.dice)
+    const hung = run.isStandIn(attacker) ? run.overlayOfStandIn(attacker) : undefined
+    if (hung) run.damageOverlay(hung, dealt, 'physical')
+    else run.damage(attacker, dealt, 'physical')
   }
 }
+
+/** 換彈：卡彈的標記清掉（彈匣由換彈自己補滿）。 */
+export function clearJam(w: BattleWeapon): void {
+  if (w.ext?.jammed) {
+    const { jammed: _gone, ...rest } = w.ext
+    w.ext = rest
+  }
+}
+
+/** 這把武器卡彈了（要先換彈）。 */
+export const isJammed = (w: BattleWeapon): boolean => w.ext?.jammed === true
 
 // ---- 命中之後 ----
 
@@ -178,26 +195,24 @@ export function runOnHit(run: BattleRun, user: BattleUnit, target: BattleUnit, w
 
 // ---- 登錄 ----
 
-/** 卡彈與炸膛要排在所有反應之前（和以前「行動一開始就擲」一樣：卡彈了就沒有人對這一擊起反應）。 */
-const GATE_ORDER = -100
-
 export function registerFx(k: Kernel): void {
-  k.battle.on('attack.before', OWNER, ({ run, attacker, weapon, opts }) => gate(attacker, weapon, opts, run), GATE_ORDER)
   k.battle.on('attack.before', OWNER, ({ run, weapon, opts }) => {
     const fx = fxOf(run.k, weapon)
     if (fx) applyFx(opts, fx)
   })
-  // 取消的後果：彈匣因此空了的特殊彈作廢；炸膛傷到開槍的人（物理，不看是誰的）
-  k.battle.on('attack.cancel', OWNER, ({ run, attacker, weapon, opts }) => {
-    // 先看炸膛（特殊彈的炸膛也算：彈匣空了作廢之前先讀 fx），再收彈匣
-    const bf = opts.cancelData?.backfire === true ? fxOf(run.k, weapon)?.on_use?.backfire : undefined
-    settleAmmo(weapon)
-    if (bf) run.damage(attacker, run.d6(bf.dice), 'physical')
-  })
+  // 被取消的一擊（別的功能設了 opts.cancel）：彈匣因此空了的特殊彈作廢
+  k.battle.on('attack.cancel', OWNER, ({ weapon }) => settleAmmo(weapon))
   k.battle.on('attack.after', OWNER, ({ run, attacker, target, weapon, result }) => {
     const fx = fxOf(run.k, weapon)
     if (fx?.on_hit) runOnHit(run, attacker, target, weapon, result, fx.on_hit)
+    // 命中骰自然 1：卡彈、炸膛（用 fx 讀特殊彈的，所以在彈匣作廢之前）
+    misfire(run, attacker, weapon, result)
     // 這一擊把彈匣打空了：特殊彈作廢
+    settleAmmo(weapon)
+  })
+  // 改打掛著的東西（立牌、擋槍的無人機）的一擊不發 attack.after：自然 1 的代價照付
+  k.battle.on('attack.redirected', OWNER, ({ run, attacker, weapon, result }) => {
+    misfire(run, attacker, weapon, result)
     settleAmmo(weapon)
   })
   // 改打別的東西（立牌）的一擊不發 attack.after：行動做完時再看一次彈匣

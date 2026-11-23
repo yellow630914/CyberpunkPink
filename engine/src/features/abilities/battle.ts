@@ -16,7 +16,8 @@ import { startOnStart } from './onstart'
 import { ransomChanges, registerRansom } from './ransom'
 import { startPrep, bringPrep } from './prep'
 import { suppressAfter } from './suppress'
-import { bumpUses, costOf, setupResources, spentRam, usageBlocks, useOf } from './use'
+import { bumpUses, costOf, setupResources, usageBlocks, useOf } from './use'
+import { syncWallet } from './wallet'
 import { teaseEntry } from './social'
 import type { AbilityEntry, MeatDef, PathEntry, PickDecl, UnitAbilities } from './types'
 import { OWNER } from './types'
@@ -341,6 +342,8 @@ function skillAction(ab: AbilityEntry, order: number): BattleActionDef {
     // 敵人的招牌行動（與寫了 ai 的技能）：AI 用的分數與目標
     ...aiDefsOf(ab, { meat: (v, u) => effectiveMeat(v, u, ab), blocks: blocksOf, targets: targetsOf, picks: (v, u, m) => picksOf(v, u, ab, m) }),
     run(run, u, target, input) {
+      // 隊伍共用的現金與人情：這一步的花費已經從自己的池扣了，先同步給隊友（效果裡的反應才不會再花一次）
+      syncWallet(run)
       bumpUses(u, ab)
       run.say(`${u.name}：${ab.name}。`, 'skill', { unit: u.id, ability: ab.id }, u)
       const m = effectiveMeat(run, u, ab, input)
@@ -350,17 +353,21 @@ function skillAction(ab: AbilityEntry, order: number): BattleActionDef {
       if (m.attack) doAttack(run, u, ab, m, t!, input.pick?.part)
       for (const a of m.apply ?? []) run.applyStatus(t!, a.status, { by: u, ...(a.until ? { until: a.until } : {}) })
       if (m.free_move?.swap_adjacent_pair) doSwap(run, u, t!, input.pick?.with)
-      // 效果清單：do，再加選的那一種用法的 do；同一個 last 傳下去（打倒了再…）
-      const use = useOf(ab)
-      const base = {
-        user: u, target: m.target === 'self' ? { unit: u.id } : target, source: { kind: 'ability' as const, id: ab.id, name: ab.name }, pick: input.pick ?? {},
-        n: { tier: tierIn(u, ab.path), ...(use.ram_all_min !== undefined ? { spent: spentRam(u) } : {}) }, last: {},
-      }
-      if (m.do?.length) run.effects(m.do, base)
-      const entry = m.choose?.find((c) => c.key === input.pick?.[choiceKey(m)])
-      if (entry) run.effects(entry.do, base)
+      // 花掉全部 RAM 的技能：效果要代「實際花了多少」（RAM 的減免之後），行動做完才知道（action.done 的 cost.ram），效果留到那時再做
+      if (useOf(ab).ram_all_min === undefined) skillEffects(run, u, ab, m, target, input)
     },
   }
+}
+
+/** 效果清單：do，再加選的那一種用法的 do；同一個 last 傳下去（打倒了再…）。spent 是花掉全部 RAM 的技能實際花的點數。 */
+function skillEffects(run: BattleRun, u: BattleUnit, ab: AbilityEntry, m: MeatDef, target: BattleTarget | null, input: BattleInput, spent?: number): void {
+  const base = {
+    user: u, target: m.target === 'self' ? { unit: u.id } : target, source: { kind: 'ability' as const, id: ab.id, name: ab.name }, pick: input.pick ?? {},
+    n: { tier: tierIn(u, ab.path), ...(spent !== undefined ? { spent } : {}) }, last: {},
+  }
+  if (m.do?.length) run.effects(m.do, base)
+  const entry = m.choose?.find((c) => c.key === input.pick?.[choiceKey(m)])
+  if (entry) run.effects(entry.do, base)
 }
 
 /** 姿態：開、關、換都花 use.ap；同時只能開一個（開另一個時前一個關掉）；開著的記在 unit.stance。 */
@@ -376,6 +383,7 @@ function stanceAction(ab: AbilityEntry, order: number): BattleActionDef {
     // 關掉自己開著的不看條件；開的時候才看次數與條件
     blocks: (v, u) => (u.stance === ab.id ? [] : [...usageBlocks(v, u, ab), ...whenBlocks(v, u, m.when)]),
     run(run, u) {
+      syncWallet(run)
       if (u.stance === ab.id) {
         delete u.stance
         run.say(`${u.name}：收起${ab.name}。`, 'skill', { unit: u.id, ability: ab.id, stance: 'off' }, u)
@@ -630,6 +638,16 @@ export function registerBattle(k: Kernel): void {
   k.battle.on('action.done', OWNER, ({ run, unit, tags, weapon, base }) => {
     const d = discountFor(run, unit, tags, weapon, base.ap)
     if (d?.perTurn !== undefined) unit.uses[discountKey(d.by)] = (unit.uses[discountKey(d.by)] ?? 0) + 1
+  })
+
+  // 隊伍共用的現金與人情：每個行動做完，把這一步花的同步給隊友（wallet.ts）
+  k.battle.on('action.done', OWNER, ({ run }) => syncWallet(run), -50)
+
+  // 花掉全部 RAM 的技能：行動做完才知道實際花了多少（RAM 的減免之後的 cost.ram），效果在這裡做（skillAction 的 run 不做）
+  k.battle.on('action.done', OWNER, ({ run, unit, action, target, input, cost }) => {
+    const ab = run.k.content.get<AbilityEntry>('ability', action)
+    if (!ab?.meat || useOf(ab).ram_all_min === undefined || !hasAbility(unit, ab.id) || run.over || unit.out) return
+    skillEffects(run, unit, ab, effectiveMeat(run, unit, ab, input), target, input, cost.ram ?? 0)
   })
 
   // 共鳴：這棵樹的階數到了 N，tier <= N 的共鳴都生效（要裝著這棵樹的招牌才算）

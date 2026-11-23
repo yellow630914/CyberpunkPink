@@ -503,8 +503,9 @@ function sinkOp(ctx: Ctx, e: Eff): void {
   }
   const add = Math.max(0, qty(ctx, e.amount, 0))
   if (!add) return
-  unit.sink += add
-  run.say(`${unitTag(unit)} 沉溺 +${add}。`, undefined, { target: unit.id, sink: add })
+  // 沉溺只經由 run.gainSink 加（sink.before 擋得下；已經退出的人、替身加不上；不變式第 68 條）
+  const got = run.gainSink(unit, add, { by: user })
+  if (got > 0) run.say(`${unitTag(unit)} 沉溺 +${got}。`, undefined, { target: unit.id, sink: got })
 }
 
 // ---- 登錄 ----

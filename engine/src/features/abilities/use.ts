@@ -7,6 +7,7 @@ import type { BattleRun, BattleState, BattleUnit, BattleView } from '../../core'
 import { amount } from '../../core'
 import { FAVORS } from './format'
 import { isRec, tierIn } from './unitdata'
+import { rememberPool } from './wallet'
 import type { AbilityEntry, AbilityUse } from './types'
 
 /** 這一組消耗：直接寫的，或照戰場分的 meat 那一組（這一張只讀 meat）。 */
@@ -21,19 +22,13 @@ const poolCost = (u: AbilityUse): boolean => u.ram !== undefined || u.ram_all_mi
 
 export type Cost = { ap: number; [pool: string]: number }
 
-/** 花掉全部 RAM 的技能：花費算出來的當下記下花了多少（核心先問花費、再扣、再做行動，做的時候池已經空了）。 */
-const ramSpent = new WeakMap<BattleUnit, number>()
-export const spentRam = (u: BattleUnit): number => ramSpent.get(u) ?? 0
-
 /** 一個技能要花的：行動點（沒寫行動點、也沒寫別的池時是 1，和舊的一樣）、RAM、現金、人情。 */
 export function costOf(view: BattleView, u: BattleUnit, ab: AbilityEntry): Cost {
   const use = useOf(ab)
   const cost: Cost = { ap: use.ap ?? (poolCost(use) ? 0 : 1) }
   if (use.ram) cost.ram = use.ram
   if (use.ram_all_min !== undefined) {
-    const now = u.pools.ram?.now ?? 0
-    cost.ram = now
-    ramSpent.set(u, now)
+    cost.ram = u.pools.ram?.now ?? 0
   }
   if (use.cash !== undefined) {
     const v = Math.max(0, Math.round(amount({ run: view as unknown as BattleRun, user: u, n: { tier: tierIn(u, ab.path) } }, use.cash)))
@@ -97,23 +92,24 @@ export const favorPool = (f: (typeof FAVORS)[number]): string => `favor_${f}`
 
 /**
  * 單位剛組好、有角色的：建現金與三種人情的池（已經有的不動），把這件委託已經用過的次數讀進 uses。
- * 現金是隊伍的錢包（state.money.cash）；人情讀 actor.ext.favors（沒有是 0）。
+ * 現金是隊伍的錢包（state.money.cash）、人情記在主角名下（FIXER 第 8 節；沒有主角時讀自己的）：同一場戰鬥裡每個人的池是同一個數字
+ * （已經有隊友建好池就照他現在的數字，不是開打時的；之後的花費由 wallet.ts 同步）。
  */
 export function setupResources(run: Pick<BattleRun, 'state' | 'battle'>, u: BattleUnit): void {
   if (!u.actor) return
   const actor = run.state.actors[u.actor]
   if (!actor) return
-  if (!u.pools.cash) {
-    const cash = count(run.state.money.cash)
-    u.pools.cash = { now: cash, max: cash, regen: 0 }
+  const share = (name: string, fallback: number): void => {
+    if (!u.pools[name]) {
+      const mate = Object.values(run.battle.units).find((x) => x !== u && x.actor && x.pools[name])?.pools[name]
+      u.pools[name] = mate ? { now: mate.now, max: mate.max, regen: 0 } : { now: fallback, max: fallback, regen: 0 }
+    }
+    rememberPool(u, name)
   }
-  const favors = isRec(actor.ext.favors) ? actor.ext.favors : {}
-  for (const f of FAVORS) {
-    const name = favorPool(f)
-    if (u.pools[name]) continue
-    const n = count(favors[f])
-    u.pools[name] = { now: n, max: n, regen: 0 }
-  }
+  share('cash', count(run.state.money.cash))
+  const pc = run.state.pc ? run.state.actors[run.state.pc] : undefined
+  const favors = isRec(pc?.ext.favors) ? pc!.ext.favors : isRec(actor.ext.favors) ? actor.ext.favors : {}
+  for (const f of FAVORS) share(favorPool(f), count(favors[f]))
   const mine = actor.ext.abilities
   const stored = isRec(mine) && isRec(mine.commission) ? mine.commission[commissionKeyOf(run.battle)] : undefined
   if (isRec(stored)) for (const [id, n] of Object.entries(stored)) if (typeof n === 'number' && n > 0) u.uses[commissionUse(id)] = n

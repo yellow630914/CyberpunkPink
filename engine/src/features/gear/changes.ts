@@ -5,6 +5,7 @@ import type { Change, GameState, ItemEntry, Kernel } from '../../core'
 import { clone, countItem, isRecord } from '../../core'
 import type { Gear, GearGroup } from './model'
 import { GROUP_SLOTS, OWNER, blueprintOf, gearFromRaw, gearOf, quickCapacity, setSlot, stackOf, sumQty } from './model'
+import { quickBlock } from './quick'
 
 type SlotChange = Change & { id: string; group: GearGroup; slot: string; item: string | null }
 type QuickChange = Change & { id: string; items: Array<{ item: string; qty: number }> }
@@ -52,7 +53,11 @@ export function installChanges(k: Kernel): void {
       const bad = needActor(state, c.id)
       if (bad.length) return bad
       if (!Array.isArray(c.items) || !c.items.every((q) => isRecord(q) && typeof q.item === 'string' && q.item && Number.isSafeInteger(q.qty) && q.qty >= 1)) return ['items 要是 { item, qty } 的陣列，qty 是 1 以上的整數。']
-      // 照順序檢查，第一條不過就只回那一條：先看格數，再看背包夠不夠
+      // 照順序檢查，第一條不過就只回那一條：先看放不放得進快取格，再看格數，最後看背包夠不夠
+      for (const q of c.items) {
+        const why = quickBlock(k, q.item)
+        if (why) return [why]
+      }
       const cap = quickCapacity(k, state, gearOf(state, c.id))
       if (sumQty(c.items) > cap) return [`快取格只有 ${cap} 格。`]
       const want = new Map<string, number>()

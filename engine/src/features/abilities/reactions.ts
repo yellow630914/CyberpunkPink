@@ -8,6 +8,7 @@ import { amount, LOSE_TURN, isWounded, onField, unitsOf } from '../../core'
 import { heldGun, needsBlocks, rangeBlock, whenBlocks } from './conditions'
 import { requestMove } from './social'
 import { bumpUses, costOf, usageBlocks } from './use'
+import { syncWallet } from './wallet'
 import type { AbilityEntry, ReactDef, TriggerDef } from './types'
 import { OWNER } from './types'
 import { equippedOf, isRec, tierIn } from './unitdata'
@@ -125,8 +126,14 @@ function applyReact(run: BattleRun, holder: BattleUnit, ab: AbilityEntry, on: st
   }
 }
 
-/** 這個反應現在有沒有東西可做（沒有就不觸發、不扣消耗）。 */
-function hasWork(run: BattleRun, holder: BattleUnit, on: string, r: ReactDef | undefined, e: Event, reach: number): boolean {
+/**
+ * 這個反應現在有沒有東西可做（沒有就不觸發、不扣消耗）。
+ * do 裡有「朝攻擊的人開火」（drone.act、at: attacker：敢打我家孩子？）時，攻擊的人要是還在場上的敵人：
+ * 砲塔、沒有操作者的無人機（替身）不算——技能寫的是「敵人…朝他射擊」（SKILL_TREES 機師），打機器沒有寫，不觸發也不花行動點與次數。
+ */
+function hasWork(run: BattleRun, holder: BattleUnit, on: string, m: { react?: ReactDef; do?: Array<Record<string, unknown>> }, e: Event, reach: number): boolean {
+  const r = m.react
+  if (m.do?.some((x) => x.op === 'drone.act' && x.at === 'attacker') && !(e.by && !run.isStandIn(e.by) && e.by.side !== holder.side && onField(e.by))) return false
   if (!r) return true
   if (r.redirect === 'overlay' && (run.isStandIn(e.subject) || !overlayFor(run, holder, e.subject, r.reach ?? reach))) return false
   if (r.prevent && !(e.how && r.prevent.how.includes(e.how))) return false
@@ -153,11 +160,12 @@ function fire(run: BattleRun, on: TriggerDef['on'], e: Event): void {
       if (!whoMatches(run, holder, trig.who, e, reach) || !ifHolds(trig.if, on, e)) continue
       if (trig.by && !byHolds(run, holder, trig.by, e)) continue
       if (whenBlocks(run, holder, m.when).length) continue
-      if (!hasWork(run, holder, on, m.react, e, reach)) continue
+      if (!hasWork(run, holder, on, m, e, reach)) continue
       if (usageBlocks(run, holder, ab).length) continue
       const cost = costOf(run, holder, ab)
       if (!run.canAfford(holder, cost)) continue
       run.spend(holder, cost)
+      syncWallet(run)
       bumpUses(holder, ab)
       run.say(`${holder.name}：${ab.name}。`, 'skill', { unit: holder.id, ability: ab.id, ally: e.subject.id }, holder)
       applyReact(run, holder, ab, on, m.react, e, reach)
@@ -198,6 +206,7 @@ function legacy(run: BattleRun, attacker: BattleUnit, target: BattleUnit, opts: 
         if (!w || (w.mag && w.mag.now < 1)) continue
       }
       run.spend(mate, cost)
+      syncWallet(run)
       bumpUses(mate, ab)
       run.say(`${mate.name}：${ab.name}。`, 'skill', { unit: mate.id, ability: ab.id, ally: target.id }, mate)
       if (m.evade) opts.evade = (opts.evade ?? 0) + m.evade
