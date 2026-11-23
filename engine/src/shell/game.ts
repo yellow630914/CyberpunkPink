@@ -566,7 +566,7 @@ export class Game {
    * 回到一份快照那一刻（保留之後的紀錄；見 rewind）。比它晚存的快照與它自己一起丟掉，比它早的留著。
    * 失敗回傳錯誤訊息；成功回傳 null。
    */
-  rewindTo(id: string, opts: { summary: string }): string | null {
+  rewindTo(id: string, opts: { summary: string; fresh?: boolean }): string | null {
     const i = this.state.snapshots.findIndex((x) => x.id === id)
     if (i < 0) return '沒有這份快照。'
     const keep = clone(this.state.snapshots.slice(0, i))
@@ -579,13 +579,14 @@ export class Game {
    * 報告帶 rewind 時外殼提交完會自己呼叫同一套（撤退、委託失敗都是一份帶 rewind 的報告，介面不直接呼叫這個）。
    * 直接呼叫的人先問 blockOf('rewind:<種類>')：這裡也問，被活動擋下回傳它的原因。
    * 找不到那種快照、回不去回傳原因（狀態不變）；成功回傳 null。
+   * o.fresh（見 ReportRewind.fresh）：回去之後亂數的游標往前推，骰子不固定；一般的回退不給。
    */
-  rewindToKind(kind: string, summary: string): string | null {
+  rewindToKind(kind: string, summary: string, o: { fresh?: boolean } = {}): string | null {
     const block = this.blockOf(`rewind:${kind}`)
     if (block) return block
     const slot = [...this.state.snapshots].reverse().find((x) => x.kind === kind)
     if (!slot) return noSnapshotOfKind(kind)
-    return this.rewindTo(slot.id, { summary })
+    return this.rewindTo(slot.id, { summary, ...(o.fresh ? { fresh: true } : {}) })
   }
 
   /**
@@ -600,7 +601,7 @@ export class Game {
     const { kind, summary } = asked[0]!.rewind!
     const at = tx.work.snapshots.map((x) => x.kind).lastIndexOf(kind)
     if (at < 0) throw new ActionBlocked(noSnapshotOfKind(kind))
-    const res = this.restoreFrom(tx.work, tx.work.snapshots[at]!.raw, summary, clone(tx.work.snapshots.slice(0, at)))
+    const res = this.restoreFrom(tx.work, tx.work.snapshots[at]!.raw, summary, clone(tx.work.snapshots.slice(0, at)), asked[0]!.rewind!.fresh === true)
     if (typeof res === 'string') throw new ActionBlocked(res)
     replaceInPlace(tx.work, res.next)
     const retracted = new Set(res.next.reports.filter((r) => r.retracted).map((r) => r.id))
@@ -777,8 +778,8 @@ export class Game {
    * - 最後提交一份報告交代這件事，summary 是那一段特別的敘述（由發起的功能寫）。
    * 失敗時回傳錯誤訊息，狀態不變；成功回傳 null。之後不能回退到這之前。
    */
-  rewind(raw: string, opts: { summary: string }, keepSnapshots?: SnapshotSlot[]): string | null {
-    const res = this.restoreFrom(this.state, raw, opts.summary, keepSnapshots)
+  rewind(raw: string, opts: { summary: string; fresh?: boolean }, keepSnapshots?: SnapshotSlot[]): string | null {
+    const res = this.restoreFrom(this.state, raw, opts.summary, keepSnapshots, opts.fresh === true)
     if (typeof res === 'string') return res
     this.last?.run.cancel()
     replaceInPlace(this.state, res.next)
@@ -793,8 +794,9 @@ export class Game {
    * reports 的第一份是交代回到快照的那一份，之後是掛鉤（report.after）接著提交的報告（例：委託失敗的 commission.failed）：
    * 它們已經在 next.reports 裡，這裡一併回傳，呼叫的人放進回傳與通知的報告。
    * current 是現在的狀態（讀它，不改它）。失敗回傳錯誤訊息。規矩見 rewind。
+   * fresh：亂數的游標接在「現在」之後再往前推一格（比快照的、比現在的都大），回去之後的骰子換一批；沒給就照快照的亂數（固定骰值）。
    */
-  private restoreFrom(current: GameState, raw: string, summary: string, keepSnapshots?: SnapshotSlot[]): { next: GameState; reports: Report[] } | string {
+  private restoreFrom(current: GameState, raw: string, summary: string, keepSnapshots?: SnapshotSlot[], fresh = false): { next: GameState; reports: Report[] } | string {
     const r = unpackSave(raw)
     if (!r.ok) return r.error
     const next = r.file.state
@@ -805,6 +807,7 @@ export class Game {
       next.reports = [...next.reports, ...current.reports.slice(kept).map((x) => ({ ...clone(x), retracted: true }))]
       next.chains = clone(current.chains)
       next.seq = { ...current.seq }
+      if (fresh) next.rng = { seed: next.rng.seed, cursor: Math.max(next.rng.cursor, current.rng.cursor) + 1 }
       // 快照跟著現在的走：沒有指定就留著現在的每一份（rewindTo 會只留比那一份早的），
       // 但「戰鬥開打前」的那一種不留：回到更早的時間點之後，那一場已經不存在，留著只會變成一個隨時能用的回退
       next.snapshots = clone(keepSnapshots ?? current.snapshots.filter((x) => x.kind !== 'battle'))

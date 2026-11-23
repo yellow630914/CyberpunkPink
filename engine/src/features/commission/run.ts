@@ -556,7 +556,7 @@ export function retreat(k: Kernel, state: GameState): ReportDraft {
   end.launch = []
   return attachActivityEnd(draft(state, 'commission.retreat', 'retreat', '你撤退了。', end.changes, {
     narration: { results: end.lines },
-    rewind: { kind: 'entry', summary: '你從副本撤退，所有進度回到進去之前；剛才那段經歷只留下紀錄。' },
+    rewind: { kind: 'entry', summary: '你從副本撤退，所有進度回到進去之前；剛才那段經歷只留下紀錄。', fresh: true },
   }), end)
 }
 

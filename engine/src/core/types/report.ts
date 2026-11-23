@@ -43,6 +43,11 @@ export interface Launch {
 export interface ReportRewind {
   kind: string
   summary: string
+  /**
+   * true：回去之後亂數的游標往前推，重來時骰子不保證和上一趟一樣（SERIES 第 6 節：撤退放棄整趟進度本身就是代價，所以不像一般的回退那樣固定骰值；
+   * dev/adr/0017 M2 修正批 3）。種子不動（種子是這一局的世界：名冊的出場費、NPC、商品庫存都靠它），只有游標換。沒寫是 false：一般的回退固定骰值。
+   */
+  fresh?: boolean
 }
 
 /** 這一回合碰到的觸發點（EVENTS 3.1 的名字）。外殼不做事；事件導演在 turn.end 讀它。 */

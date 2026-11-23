@@ -100,6 +100,7 @@ function commitInto(k: StateKernel, work: GameState, draft: ReportDraft, depth: 
   // 報告的代辦（dev/adr/0016 第二節）：rewind 要寫清楚回到哪一種快照；launch 之後不會再有 rewind，兩個都寫的整份不收
   if (d.rewind !== undefined) {
     if (!isRecord(d.rewind) || typeof d.rewind.kind !== 'string' || !d.rewind.kind || typeof d.rewind.summary !== 'string') throw new ChangeError(['rewind 要有 kind（回到哪一種快照）與 summary（寫成報告的那一句）'])
+    if (d.rewind.fresh !== undefined && typeof d.rewind.fresh !== 'boolean') throw new ChangeError(['rewind.fresh 要是 true 或 false'])
     if (d.launch?.length) throw new ChangeError(['同一份報告不能同時帶 launch 與 rewind：launch 之後不會再有 rewind（要撤退就不要再開新的活動）'])
   }
 

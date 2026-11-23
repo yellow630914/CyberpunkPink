@@ -3,7 +3,9 @@
 
 import { describe, expect, it } from 'vitest'
 import type { ContentPack, Report } from '../../src'
-import { BATTLE_SETUPS, SUNDAY_MORNING, makeCityGame, playOut } from '../../src/testkit'
+import { Rng, hash32 } from '../../src'
+import { BATTLE_SETUPS, STRONG_PC, SUNDAY_MORNING, makeCityGame, makeWorldGame, playOut, stateHash } from '../../src/testkit'
+import { chooseBranch, chooseFace, readRun, retreat } from '../../src/features/commission'
 import { chooseOption, eventView } from '../../src/features/director'
 import { sceneOf } from '../../src/features/scene'
 import { board, advance, transitOf, wait } from '../../src/features/transit'
@@ -139,5 +141,140 @@ describe('必修 1：車上的事件選開打或開場景：這一趟車先結�
     g.commit(chooseOption(g.k, g.state, 'go'))
     expect(sceneOf(g.state)).not.toBeNull()
     expect(transitOf(g.state).trip).toBeNull()
+  })
+})
+
+// ===================================================================================================================
+// 副本的場景：進辦公室的副本（cm_tw_office：第一階段有強攻與潛行兩條路）
+// ===================================================================================================================
+
+function inCommission(seed = 5) {
+  const { game: g } = makeWorldGame({ seed, pc: STRONG_PC, patch: { time: { day: 3, hour: 10, minute: 0 }, money: { cred: 500, cash: 1000 } } })
+  g.commit(arrive(g.k, g.state, 'tw_market', 'E1'))
+  g.launch('commission', { def: 'cm_tw_office' }, { by: 'fix_review', ref: 'cm_tw_office' })
+  return g
+}
+type CG = ReturnType<typeof inCommission>
+
+/** 選現實面、走潛行那條路（擲一次）：回傳擲出的自然骰與擲骰之前的亂數狀態。 */
+function stealthRoll(g: CG): { natural: number; before: { seed: number; cursor: number } } {
+  g.commit(chooseFace(g.k, g.state, 'meat'))
+  const before = { ...g.state.rng }
+  const reports = g.commit(chooseBranch(g.k, g.state, 'duct'))
+  const roll = reports[0]!.timeline.find((b) => b.roll)?.roll
+  if (!roll) throw new Error('這條路沒有擲骰')
+  return { natural: roll.natural, before }
+}
+/** 那一擲的骰子是從哪一個亂數狀態導出來的（種子、游標、用途一樣，結果就一樣）。 */
+const dieOf = (before: { seed: number; cursor: number }): number => new Rng(hash32(before.seed, before.cursor, 'commission/cm_tw_office/1/branch', 0)).state
+
+// ===================================================================================================================
+// 應修 1：回到階段開始、回到入口不是「隨時可用」
+// ===================================================================================================================
+
+describe('應修 1：副本裡沒打輸，回到階段開始與回到入口都被擋；撤退只走 commission.retreat', () => {
+  it('選了面、選了分支之後：rewindToKind(stage／entry) 都被擋，回傳副本進行中的原因，狀態與回退的步數都不變', () => {
+    const g = inCommission()
+    g.commit(chooseFace(g.k, g.state, 'meat'))
+    const hash = stateHash(g.state)
+    for (const kind of ['stage', 'entry']) {
+      expect(g.blockOf(`rewind:${kind}`)).toMatch(/進行中，只能做副本裡的事/)
+      expect(g.rewindToKind(kind, '回去')).toMatch(/進行中，只能做副本裡的事/)
+    }
+    expect(stateHash(g.state)).toBe(hash)
+    expect(readRun(g.state)).toMatchObject({ step: 'branch' })
+    // 還是可以走正式的撤退
+    const reports = g.commit(retreat(g.k, g.state))
+    expect(reports.map((r) => r.action)).toEqual(expect.arrayContaining(['commission.retreat', 'rewind']))
+    expect(readRun(g.state)).toBeNull()
+  })
+
+  it('放行表裡沒有 rewind:stage、rewind:entry（別的前綴照舊）', () => {
+    const g = inCommission()
+    expect(g.k.activity.get('commission')!.allow.filter((p) => p.startsWith('rewind:'))).toEqual([])
+    expect(g.blockOf('commit:commission.face')).toBeNull()
+  })
+
+  it('打輸之後的三選一照舊有「回到這個階段開始時」（Game.rewindToStage 只在等著選的戰敗才成立）', () => {
+    const g = inCommission()
+    expect(g.rewindToStage()).toBe('現在沒有在等戰敗的選擇。')
+  })
+})
+
+// ===================================================================================================================
+// 應修 2：撤退之後再進去，骰子換一批
+// ===================================================================================================================
+
+describe('應修 2：撤退（與委託失敗）回去之後骰子不固定；一般的回退照舊固定', () => {
+  it('同一個種子撤退兩次：三趟的第一擲各用不同的亂數，游標一直往前推，種子不動', () => {
+    const g = inCommission()
+    const seed = g.state.rng.seed
+    const a = stealthRoll(g)
+    g.commit(retreat(g.k, g.state))
+    expect(g.state.rng.seed).toBe(seed)
+    expect(g.state.rng.cursor).toBeGreaterThan(a.before.cursor + 1) // 比第一擲之前、擲完之後都大
+    g.launch('commission', { def: 'cm_tw_office' }, { by: 'fix_review', ref: 'cm_tw_office' })
+    const b = stealthRoll(g)
+    g.commit(retreat(g.k, g.state))
+    g.launch('commission', { def: 'cm_tw_office' }, { by: 'fix_review', ref: 'cm_tw_office' })
+    const c = stealthRoll(g)
+    expect(new Set([a.before.cursor, b.before.cursor, c.before.cursor]).size).toBe(3)
+    expect(new Set([dieOf(a.before), dieOf(b.before), dieOf(c.before)]).size).toBe(3)
+    expect(g.state.rng.seed).toBe(seed)
+  })
+
+  it('看得見的差別：二十個種子，撤退再進去，第一擲的點數多半不一樣（潛行失敗直接開打的種子不能撤退，略過）', () => {
+    let tried = 0
+    let differ = 0
+    for (let seed = 1; seed <= 20; seed++) {
+      const g = inCommission(seed)
+      const a = stealthRoll(g)
+      if (g.state.battle) continue
+      tried++
+      g.commit(retreat(g.k, g.state))
+      g.launch('commission', { def: 'cm_tw_office' }, { by: 'fix_review', ref: 'cm_tw_office' })
+      const b = stealthRoll(g)
+      if (a.natural !== b.natural) differ++
+    }
+    expect(tried).toBeGreaterThanOrEqual(10)
+    expect(differ).toBeGreaterThanOrEqual(Math.floor(tried * 0.6))
+  })
+
+  it('一般的回退不變：回到進去之前（Game.rewindTo、回退一步）之後，同一條路擲出同樣的骰子，亂數回到快照的', () => {
+    const g = inCommission(7)
+    const entry = g.state.snapshots.find((x) => x.kind === 'entry')!
+    const cursorAtEntry = g.state.rng.cursor
+    const a = stealthRoll(g)
+    expect(g.rewindTo(entry.id, { summary: '回到進去之前。' })).toBeNull()
+    expect(g.state.rng.cursor).toBe(cursorAtEntry)
+    g.launch('commission', { def: 'cm_tw_office' }, { by: 'fix_review', ref: 'cm_tw_office' })
+    const b = stealthRoll(g)
+    expect(b.natural).toBe(a.natural)
+    expect(dieOf(b.before)).toBe(dieOf(a.before))
+    // 回退一步（undo）也是固定骰值
+    expect(g.undoSteps(1)).toBe(true)
+    const c = g.commit(chooseBranch(g.k, g.state, 'duct'))[0]!.timeline.find((x) => x.roll)!.roll!
+    expect(c.natural).toBe(a.natural)
+  })
+
+  it('報告的 rewind.fresh 要是布林；Game.rewindToKind 的 fresh 選項只有明講才換骰子（游標比回去之前的還大）', () => {
+    const t = makeCityGame({ seed: 4 })
+    const g = t.game
+    const sys = (changes: Array<Record<string, unknown>>, extra: Record<string, unknown> = {}) => ({
+      kind: 'system' as const, action: 'test.step', location: {}, party: [], timeline: [], changes: changes as never, outcome: { result: 'ok', summary: '測試。' }, ...extra,
+    })
+    expect(() => g.commit(sys([], { rewind: { kind: 'mark', summary: 'x', fresh: 'yes' } }))).toThrow(/fresh/)
+    g.commit(sys([{ op: 'snapshot.take', kind: 'mark', label: '記號', owner: 'test' }]))
+    const atMark = g.state.rng.cursor
+    g.commit(sys([{ op: 'rng', advance: 3 }]))
+    const later = g.state.rng.cursor
+    expect(later).toBe(atMark + 3)
+    expect(g.rewindToKind('mark', '一般的回去。')).toBeNull()
+    expect(g.state.rng.cursor).toBe(atMark) // 一般的回退：亂數回到快照的
+    g.commit(sys([{ op: 'snapshot.take', kind: 'mark', label: '記號', owner: 'test' }]))
+    g.commit(sys([{ op: 'rng', advance: 3 }]))
+    const now = g.state.rng.cursor
+    expect(g.rewindToKind('mark', '重來。', { fresh: true })).toBeNull()
+    expect(g.state.rng.cursor).toBe(now + 1) // 比快照的、比現在的都大
   })
 })

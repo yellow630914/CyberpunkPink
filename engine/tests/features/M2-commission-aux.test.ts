@@ -676,14 +676,17 @@ describe('整趟：同一個種子結果一樣、不變式、交回給發起的�
     expect(naturals.size).toBeGreaterThan(1)
   })
 
-  it('回到這個階段開始時（rewind:stage）：輔助面的結果、連動、受傷、休息全部回去；重新選面，骰面和第一次一樣', () => {
+  it('回到這個階段開始時（戰敗三選一的第三個，用階段的快照回去）：輔助面的結果、連動、受傷、休息全部回去；重新選面，骰面和第一次一樣', () => {
     const g = netGame(1)
     const first = beatOf(facing(g), 'net')!.roll
     const t0 = toMinutes(g.state.time)
     face(g)
     expect(conditionOf(g, 'a')).toBeDefined()
     expect(runOf(g).aux).toBeDefined()
-    expect(g.rewindToKind('stage', '回到這個階段開始時')).toBeNull()
+    // 副本裡不放行 rewind:stage（M2 修正批 2）：回到階段開始的入口是戰敗的三選一（Game.rewindToStage），那一步用的就是這個 rewindTo
+    expect(g.rewindToKind('stage', '回到這個階段開始時')).toMatch(/進行中/)
+    const slot = [...g.state.snapshots].reverse().find((x) => x.kind === 'stage')!
+    expect(g.rewindTo(slot.id, { summary: '回到這個階段開始時' })).toBeNull()
     expect(runOf(g)).toMatchObject({ stage: 1, step: 'face', links: [] })
     expect(runOf(g).aux).toBeUndefined()
     expect(conditionOf(g, 'a')).toBeUndefined()

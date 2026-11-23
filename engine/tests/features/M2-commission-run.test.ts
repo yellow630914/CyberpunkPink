@@ -294,12 +294,13 @@ describe('進去之後只放行副本裡的事（白名單）', () => {
   it('交易、休息、接別的委託這類報告被擋下並有原因；放行清單裡的每一項都過', () => {
     const { game } = setup()
     enter(game)
-    for (const doing of ['commit:trade.checkout', 'commit:rest.sleep', 'commit:fixer.accept', 'commit:world.arrive', 'commit:transit.board', 'commit:bill.settle', 'rewind:battle']) {
+    // rewind:stage、rewind:entry 也不放行（M2 修正批 2）：回到階段開始只在戰敗的三選一裡，回到入口只走撤退
+    for (const doing of ['commit:trade.checkout', 'commit:rest.sleep', 'commit:fixer.accept', 'commit:world.arrive', 'commit:transit.board', 'commit:bill.settle', 'rewind:battle', 'rewind:stage', 'rewind:entry']) {
       expect(game.blockOf(doing), doing).toMatch(/進行中，只能做副本裡的事/)
     }
     for (const prefix of COMMISSION_ALLOW) expect(game.blockOf(`${prefix}x`) ?? game.blockOf(prefix), prefix).toBeNull()
     for (const doing of ['commit:commission.face', 'grid.move', 'grid.enter', 'commit:grid.use', 'battle.start', 'commit:battle.step', 'chain:battle_end', 'battle.retry', 'event.start', 'commit:event.choose',
-      'scene.start', 'commit:scene.act', 'commit:defeat.accept', 'commit:capture.free', 'commit:gear.equip', 'chain:free_action', 'rewind:stage', 'rewind:entry']) {
+      'scene.start', 'commit:scene.act', 'commit:defeat.accept', 'commit:capture.free', 'commit:gear.equip', 'chain:free_action']) {
       expect(game.blockOf(doing), doing).toBeNull()
     }
     // 真的提交：交易的報告丟 ActionBlocked，狀態不變
@@ -312,10 +313,10 @@ describe('進去之後只放行副本裡的事（白名單）', () => {
     expect(() => commitAs(game, 'commission.test')).not.toThrow()
   })
 
-  it('清單就是工單寫的那十七項，一項不多（忘了登記的新功能在副本裡就是用不了）', () => {
+  it('清單就是工單寫的那十五項（十七項拿掉 rewind:stage、rewind:entry），一項不多（忘了登記的新功能在副本裡就是用不了）', () => {
     expect([...COMMISSION_ALLOW].sort()).toEqual([
       'battle.', 'battle.retry', 'chain:battle_end', 'chain:free_action', 'commit:battle.', 'commit:capture.', 'commit:commission.', 'commit:defeat.', 'commit:event.', 'commit:gear.',
-      'commit:grid.', 'event.start', 'grid.', 'rewind:entry', 'rewind:stage', 'scene.start', 'commit:scene.',
+      'commit:grid.', 'event.start', 'grid.', 'scene.start', 'commit:scene.',
     ].sort())
   })
 })
@@ -819,7 +820,7 @@ describe('警戒整趟累計', () => {
     enter(game)
     await playFight(game)
     expect(runOf(game).alert).toBeGreaterThan(0)
-    expect(retreat(game.k, game.state).rewind).toEqual({ kind: 'entry', summary: expect.any(String) })
+    expect(retreat(game.k, game.state).rewind).toEqual({ kind: 'entry', summary: expect.any(String), fresh: true }) // 撤退：回去之後骰子換一批（M2 修正批 3）
   })
 })
 

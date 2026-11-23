@@ -196,7 +196,7 @@ export function onDefeatAccepted(k: Kernel, state: GameState, origin: Origin, re
     return {
       changes: [failedChange(mark)],
       lines: [`「${name}」失敗了。`],
-      rewind: { kind: 'entry', summary: `「${name}」失敗了，所有進度回到進去之前；剛才那段經歷只留下紀錄。` },
+      rewind: { kind: 'entry', summary: `「${name}」失敗了，所有進度回到進去之前；剛才那段經歷只留下紀錄。`, fresh: true },
     }
   }
   return { changes: continueChanges(k, state, run), lines: ['這一趟沒有失敗：你回到這個階段選分支之前，委託還在。'] }

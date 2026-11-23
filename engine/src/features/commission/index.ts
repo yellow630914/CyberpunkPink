@@ -43,10 +43,14 @@ export type { AuxFaceView, CommissionView, LinkRow, TrackNode } from './view'
 export { auxChance, auxPeople, auxSum, classify as classifyAux, pathBonus, settleAux } from './aux'
 export type { AuxChance, AuxPeople, AuxSettlement, AuxSum } from './aux'
 
-/** 進行中放行的 doing 前綴（工單 M2-commission-run 的驗收條件）。探索的 grid.、commit:grid. 由探索自己再登記一次（沒裝探索也一樣放行）。 */
+/**
+ * 進行中放行的 doing 前綴（工單 M2-commission-run 的驗收條件）。探索的 grid.、commit:grid. 由探索自己再登記一次（沒裝探索也一樣放行）。
+ * 不放行 rewind:stage、rewind:entry（dev/adr/0017 M2 修正批 2）：回到階段開始只在戰敗的三選一裡（Game.rewindToStage，等著選的戰敗才成立）；
+ * 回到入口只走 commission.retreat 這份報告（帶 rewind，退出請來的人與付出去的錢）；兩個都不是「隨時可用」的回退。
+ */
 export const COMMISSION_ALLOW: readonly string[] = [
   'commit:commission.', 'grid.', 'commit:grid.', 'battle.', 'commit:battle.', 'chain:battle_end', 'battle.retry',
-  'event.start', 'commit:event.', 'scene.start', 'commit:scene.', 'commit:defeat.', 'commit:capture.', 'commit:gear.', 'chain:free_action', 'rewind:stage', 'rewind:entry',
+  'event.start', 'commit:event.', 'scene.start', 'commit:scene.', 'commit:defeat.', 'commit:capture.', 'commit:gear.', 'chain:free_action',
 ]
 
 const FACE_KINDS: readonly string[] = Object.values(FACE_ACTIVITY)

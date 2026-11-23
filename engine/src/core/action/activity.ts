@@ -208,7 +208,7 @@ export function endActivity(k: StateKernel, payload: ActivityEndPayload): Activi
       merged.launch.push(...(clone(r.launch) as Launch[]))
     }
     if (r.rewind !== undefined && !merged.rewind) {
-      if (!isRecord(r.rewind) || typeof r.rewind.kind !== 'string' || typeof r.rewind.summary !== 'string') throw bad('rewind')
+      if (!isRecord(r.rewind) || typeof r.rewind.kind !== 'string' || typeof r.rewind.summary !== 'string' || (r.rewind.fresh !== undefined && typeof r.rewind.fresh !== 'boolean')) throw bad('rewind')
       merged.rewind = clone(r.rewind) as unknown as ReportRewind
     }
   }
