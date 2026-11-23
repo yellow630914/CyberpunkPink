@@ -1,0 +1,29 @@
+{
+  "id": "W012-timers-outlive-leaving-unit",
+  "note": "W012：計時看的是某個人的回合，那個人退出（倒下、昏過去、被制伏）之後再也沒有回合：臨時遮蔽升上去的那一級整場留著；他在自己的回合裡退出時，核心照樣替他數一次 turn_end（狀態會到期），技能的 buff 不數（advance 不對退出的人發 turn.end）。",
+  "seed": null,
+  "dice": "不擲骰（setOut 直接讓人退出；advance 只輪回合，雙方都沒有行動點）",
+  "setup": {
+    "features": ["combat", "abilities"],
+    "allies": [{ "id": "a1", "slot": 1, "weapon": "pistol" }, { "id": "a2", "slot": 2, "weapon": "pistol" }],
+    "foes": [{ "id": "f1", "slot": 1, "rank": "minion", "hp": 300, "ap": 0 }],
+    "cover": { "ally": [0, 0, 0, 0], "foe": [0, 0, 0, 0] }
+  },
+  "cases": [
+    {
+      "name": "跑位射擊的人在下一回合之前倒下",
+      "apply": [{ "user": "a1", "target": { "unit": "a1" }, "effect": { "op": "cover_temp", "levels": 1 } }],
+      "step": "run.setOut(a1, 'down', f1)，之後 advance 六次（到第 3 回合以後）",
+      "expect": { "cover.ally[0]": 0, "why": "跑位射擊「到你的下一回合開始前」：他已經不會再有回合；比照守著（ward.ts 的 out 掛點）與監視（核心 leave 刪 watch），退出時結束" },
+      "actual": { "cover.ally[0]": 1 }
+    },
+    {
+      "name": "給 buff 的人在自己的回合裡倒下（source_turn_end）",
+      "apply": [{ "user": "a2", "target": { "unit": "a1" }, "effect": { "op": "buff", "id": "src_end", "until": "source_turn_end", "turns": 1, "mods": [{ "kind": "evade", "value": 1 }] } }],
+      "statuses": [{ "unit": "a1", "status": "jammed", "by": "a2", "until": "source_turn_end" }],
+      "step": "輪到 a2（battle.turn、battle.acting 指到 a2），給 buff 與 jammed；run.setOut(a2, 'down', f1)；advance(run)",
+      "expect": { "control": "a1 的 jammed（source_turn_end、a2 給的）在 a2 這個回合結束時拿掉了", "buffs": [] },
+      "actual": { "buffs": ["src_end"] }
+    }
+  ]
+}

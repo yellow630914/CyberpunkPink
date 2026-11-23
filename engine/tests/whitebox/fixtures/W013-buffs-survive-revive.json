@@ -1,0 +1,17 @@
+{
+  "id": "W013-buffs-survive-revive",
+  "note": "W013：被拉回來（run.revive）的人狀態清空，但技能的 buff（unit.ext.abilities.buffs）還在，修正照樣算。",
+  "seed": null,
+  "dice": "不擲骰",
+  "setup": {
+    "features": ["combat", "abilities"],
+    "allies": [{ "id": "a1", "slot": 1, "weapon": "pistol" }, { "id": "a2", "slot": 2, "weapon": "pistol" }],
+    "foes": [{ "id": "f1", "slot": 1, "rank": "minion", "hp": 300 }]
+  },
+  "apply": [{ "user": "a1", "target": { "unit": "a1" }, "effect": { "op": "buff", "id": "b", "until": "battle_end", "mods": [{ "kind": "hit", "value": 1 }] } }],
+  "statuses": [{ "unit": "a1", "status": "marked", "by": "a2" }],
+  "step": "run.setOut(a1, 'down', f1)；run.revive(a1, 5)",
+  "expect": { "statuses": [], "buffs": [], "hit 的技能修正": [] },
+  "actual": { "statuses": [], "buffs": ["b"], "hit 的技能修正": ["b +1"] },
+  "question": "buff 算不算 dev/adr/0015 第一節 revive 說的「狀態」——要 cpp-architect 定"
+}

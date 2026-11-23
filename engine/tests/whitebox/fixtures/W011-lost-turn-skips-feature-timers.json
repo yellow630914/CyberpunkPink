@@ -1,0 +1,52 @@
+{
+  "id": "W011-lost-turn-skips-feature-timers",
+  "note": "W011：失去回合（過載、癱瘓）的那一個回合開始時，核心只數狀態的計時、清監視，不發 turn.start；技能這邊掛在 turn.start 上到期的東西（守著、臨時遮蔽、own_turn_start 與 source_turn_start 的 buff）多留一整輪。",
+  "seed": null,
+  "dice": "不擲骰（beginTurn 只做到期；沒有攻擊）",
+  "setup": {
+    "features": ["combat", "abilities"],
+    "statuses": "tests/helpers/battle.ts 的 TEST_STATUSES，加 guarded（own_turn_start、turns 1，沒有效果，當對照）",
+    "allies": [{ "id": "a1", "slot": 1, "weapon": "pistol", "mag": 5 }],
+    "foes": [{ "id": "f1", "slot": 1, "rank": "minion", "hp": 300 }],
+    "cover": { "ally": [1, 0, 0, 0], "foe": [0, 0, 0, 0] }
+  },
+  "cases": [
+    {
+      "name": "帶著它們的人失去回合",
+      "apply": [
+        { "user": "a1", "target": { "side": "foe", "slot": 1 }, "effect": { "op": "ward", "slot": "target", "do": [{ "op": "attack" }] } },
+        { "user": "a1", "target": { "unit": "a1" }, "effect": { "op": "buff", "id": "own_start", "until": "own_turn_start", "turns": 1, "mods": [{ "kind": "hit", "value": 1 }] } },
+        { "user": "a1", "target": { "unit": "a1" }, "effect": { "op": "cover_temp", "levels": 1 } }
+      ],
+      "statuses": [
+        { "unit": "a1", "status": "guarded", "by": "a1" },
+        { "unit": "a1", "status": "frozen", "by": "f1" }
+      ],
+      "watch": "a1",
+      "step": "beginTurn(run, a1)：a1 帶著 frozen（lose_turn），回傳 false",
+      "expect": {
+        "control": "a1 的 guarded（own_turn_start）拿掉了、監視（watch）清掉了——核心對失去的回合照樣算「回合開始」",
+        "wards": [],
+        "buffs": [],
+        "cover.ally[0]": 1
+      },
+      "actual": { "wards": ["sk_x"], "buffs": ["own_start"], "cover.ally[0]": 2 }
+    },
+    {
+      "name": "給 buff 的人失去回合（source_turn_start）",
+      "apply": [
+        { "user": "f1", "target": { "unit": "a1" }, "effect": { "op": "buff", "id": "src_start", "until": "source_turn_start", "turns": 1, "mods": [{ "kind": "evade", "value": -1 }] } }
+      ],
+      "statuses": [
+        { "unit": "a1", "status": "marked", "by": "f1" },
+        { "unit": "f1", "status": "frozen", "by": "a1" }
+      ],
+      "step": "beginTurn(run, f1)：f1 帶著 frozen，回傳 false",
+      "expect": {
+        "control": "a1 的 marked（source_turn_start、f1 給的）拿掉了",
+        "buffs": []
+      },
+      "actual": { "buffs": ["src_start"] }
+    }
+  ]
+}
