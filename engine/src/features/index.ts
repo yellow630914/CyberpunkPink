@@ -20,13 +20,14 @@ import { gearFeature } from './gear'
 import { lewdFeature } from './lewd'
 import { hackFeature } from './hack'
 import { exploreFeature } from './explore'
+import { npcsFeature } from './npcs'
 import { perksFeature } from './perks'
 import { securityFeature } from './security'
 import { summonsFeature } from './summons'
 import { transitFeature } from './transit'
 import { worldFeature } from './world'
 
-export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [combatFeature.id]: combatFeature, [gearFeature.id]: gearFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature, [exploreFeature.id]: exploreFeature, [summonsFeature.id]: summonsFeature, [abilitiesFeature.id]: abilitiesFeature, [hackFeature.id]: hackFeature, [favorsFeature.id]: favorsFeature, [worldFeature.id]: worldFeature, [transitFeature.id]: transitFeature, [directorFeature.id]: directorFeature, [eventRunFeature.id]: eventRunFeature, [lewdFeature.id]: lewdFeature, [securityFeature.id]: securityFeature }
+export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [combatFeature.id]: combatFeature, [gearFeature.id]: gearFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature, [exploreFeature.id]: exploreFeature, [summonsFeature.id]: summonsFeature, [abilitiesFeature.id]: abilitiesFeature, [hackFeature.id]: hackFeature, [favorsFeature.id]: favorsFeature, [worldFeature.id]: worldFeature, [transitFeature.id]: transitFeature, [directorFeature.id]: directorFeature, [eventRunFeature.id]: eventRunFeature, [lewdFeature.id]: lewdFeature, [securityFeature.id]: securityFeature, [npcsFeature.id]: npcsFeature }
 
 export function allFeatures(): Feature[] {
   return Object.values(FEATURES)
