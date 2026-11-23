@@ -17,6 +17,39 @@ export interface Change {
   [field: string]: unknown
 }
 
+/**
+ * 一段活動是誰發起的（dev/adr/0016 第一節）。by 是功能的 id（沒有人發起、核心自己開的是 core）；
+ * ref 是發起的那件事的 id（委託、事件）；ext 放慣用的鍵（commission、stage、face、pre、defeat_event……）。
+ * 做完交回給發起的人時原樣帶回去（掛點 activity.end 的 origin）。
+ */
+export interface Origin {
+  by: string
+  ref?: string
+  ext?: Record<string, unknown>
+}
+
+/** 一份報告提交之後接著開的一段活動（Game 照順序 k.activity.start 再提交；開不成整步不成立）。setup 的形狀由那種活動定義。 */
+export interface Launch {
+  kind: string
+  setup: unknown
+  origin?: Origin
+}
+
+/**
+ * 提交之後回到最近一份這個種類的快照（撤退、委託失敗；dev/adr/0016 第二節）。
+ * 型別放在這裡是因為掛點 activity.end 的處理函式可以回傳它、核心的結算併進報告；執行的部分是 M2-core-shell。
+ */
+export interface ReportRewind {
+  kind: string
+  summary: string
+}
+
+/** 這一回合碰到的觸發點（EVENTS 3.1 的名字）。外殼不做事；事件導演在 turn.end 讀它。 */
+export interface ReportTrigger {
+  point: string
+  where?: Record<string, unknown>
+}
+
 export interface ReportLocation {
   district?: string
   block?: string
@@ -105,6 +138,14 @@ export interface Report {
    * 標了這個記號的報告只是紀錄：它的 changes 已經不算數。只有 Game.rewind 會標。
    */
   retracted?: boolean
+  /** 這份報告提交之後接著開的活動（dev/adr/0016 第二節）：Game 照順序處理，開不成整步不成立 */
+  launch?: Launch[]
+  /** 這份報告提交之後回到最近一份這個種類的快照（執行的部分在 M2-core-shell） */
+  rewind?: ReportRewind
+  /** 這一回合碰到的觸發點（事件導演讀） */
+  triggers?: ReportTrigger[]
+  /** 這一份是成人場景（GAME_DESIGN 第 9 節的 adult_scene 記號）：寫正文時走成人路由，其餘規則不因它而不同 */
+  adult?: boolean
 }
 
 /** 還沒提交的報告：id 與時間由 commitReport 補上。 */

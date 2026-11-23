@@ -3,8 +3,20 @@
 // 提交當中的掛鉤（report.before、report.after、time.passed、turn.end）拿到的 state 是這次提交的工作副本：
 // 已經包含到目前為止的每一份報告；整串成功才換進正式的狀態，所以不要把它留著以後用。
 
-import type { Change, GameState, GameTime, Report, ReportDraft } from '../types'
+import type { Change, GameState, GameTime, Launch, Origin, Report, ReportDraft, ReportRewind } from '../types'
 import type { Probe } from './probe'
+
+/** 掛點 activity.end 的處理函式可以回傳的東西：活動的主人把它們併進「結束的那一份報告」（共用的函式 endActivity）。 */
+export interface ActivityEndReturn {
+  /** 接在結束報告的變更後面 */
+  changes?: Change[]
+  /** 進結果的句子 */
+  lines?: string[]
+  /** 結束提交之後接著開的活動 */
+  launch?: Launch[]
+  /** 結束提交之後回到最近一份這個種類的快照；好幾個處理函式都回傳時只取第一個 */
+  rewind?: ReportRewind
+}
 
 /**
  * 核心定義的掛點。功能可以用 declare module 擴充這張表，加上自己的掛點（例如戰鬥結束）。
@@ -28,6 +40,13 @@ export interface HookMap {
    * 紀錄由核心保留；功能要保留自己那一塊（性經歷、共同記憶……）就回傳變更，套在 restored 上。
    */
   'rewind.keep': [{ current: GameState; restored: GameState }, Change[] | void]
+  /**
+   * 一段活動結束了（dev/adr/0016 第一節）：收到活動的種類、這一段的 id、當初是誰發起的（origin）、結果（outcome）與結果的細節（result）。
+   * 活動的主人組「結束的那一份報告」時呼叫（共用的函式 endActivity），處理函式回傳的東西併進那一份。
+   * 聽的人看 origin.by 是不是自己。核心的戰鬥結算也發（kind 是 battle，outcome 是 win、lose、fled、surrender）。
+   * state 是結束之前的狀態，唯讀。
+   */
+  'activity.end': [{ state: GameState; kind: string; id: string; origin: Origin; outcome: string; result: Record<string, unknown> }, ActivityEndReturn | void]
 }
 
 export type HookName = keyof HookMap
