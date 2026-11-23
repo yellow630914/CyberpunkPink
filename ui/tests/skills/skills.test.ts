@@ -24,9 +24,14 @@ import { bridgeRows, capCells, cardOf, draftUse, filterRows, gridOf, listTrees, 
 const ab = (id: string, path: string, category: string, tier: number, layer: string, more: Record<string, unknown>) => ({
   id, name: `${id}名`, text: `${id}的說明。`, path, category, tier, layer, kind: 'active', cap: 1, xp: tier * 20, cells: 1, meat: null, net: null, opinion: null, ...more,
 })
+// 換配置要在住處或調校診所（M2：features/abilities/loadout.ts）：測試自帶一塊有調校診所的街區，開局站在診所上
+const CLINIC_MAP = { id: 'm_clinic', kind: 'street', size: [6, 5], sheets: [{ id: 's', name: '診所街', size: [6, 5], layout: ['######', '#F.E.#', '#1..2#', '#....#', '######'], cells: [{ id: 'E1', at: [3, 1], mark: 'E', name: '口' }, { id: 'F1', at: [1, 1], mark: 'F', name: '調校診所' }], spots: [{ id: '!1', at: [1, 2], cover: 'sparse' }, { id: '!2', at: [4, 2], cover: 'dense' }] }] }
 const PACK: ContentPack = {
   id: 'ui_skills_test',
   content: {
+    special_map: [CLINIC_MAP], facility_type: [{ id: 'tuning_clinic', name: '調校診所' }],
+    district: [{ id: 'd_t', name: '測試區', grade: 1, blocks: ['b_t'] }],
+    block: [{ id: 'b_t', district: 'd_t', name: '診所街', kind: 'block', map: 'm_clinic', exits: {}, facilities: { F1: { type: 'tuning_clinic', name: '調校診所' } } }],
     path: [
       { id: 'ta', name: '測試甲', tree: '甲樹', category: 'meat', signature: 'ta_sig', domains: { meat: 'strong', net: 'none', opinion: 'none' }, resonance: [{ tier: 1, cells: 1, text: '先攻 +1。', effect: { initiative: 1 } }, { tier: 2, cells: 1, text: '第二階的共鳴。', effect: { pending: true } }] },
       { id: 'tb', name: '測試乙', tree: '乙樹', category: 'social', signature: 'tb_sig', domains: { meat: 'mid', net: 'none', opinion: 'mid' }, resonance: [{ tier: 1, cells: 1, text: '乙樹的共鳴。', effect: { pending: true } }] },
@@ -60,6 +65,7 @@ function setup(xp = 100) {
   e.newGame({ seed: 7, testContent: [PACK] })
   expect(e.createCharacter(DRAFT)).toEqual([])
   const id = e.state.pc!
+  expect(e.commit({ summary: '站在調校診所。', changes: [{ op: 'location', to: { district: 'd_t', block: 'b_t', facility: 'F1' } }] })).toBeNull()
   expect(e.commit({
     summary: '給技能資料。',
     changes: [
@@ -298,6 +304,21 @@ describe('橋的分頁讀引擎（M1b-ui-skills）', () => {
     e.newGame({ seed: 99, testContent: [PACK] })
     expect(e.load(raw)).toBeNull()
     expect(mineOf(e).equipped).toEqual(draft)
+  })
+
+  it('不在住處或調校診所：套用被擋，原因是引擎的 loadoutBlock，狀態與時間不變；在診所套用花半小時', () => {
+    const { e } = setup(400)
+    learnAll(e, ['ta_sig', 'ta_one'])
+    const t0 = e.state.time.hour * 60 + e.state.time.minute
+    expect(e.skills.loadoutBlock()).toBeNull()
+    expect(e.skills.equip(['ta_one'])).toBeNull()
+    expect(e.state.time.hour * 60 + e.state.time.minute - t0).toBe(30)
+    expect(e.commit({ summary: '走到街上。', changes: [{ op: 'location', to: { district: 'd_t', block: 'b_t' } }] })).toBeNull()
+    const why = e.skills.loadoutBlock()
+    expect(why).toMatch(/才能換技能配置/)
+    const before = mineOf(e)
+    expect(e.skills.equip([])).toBe(why)
+    expect(mineOf(e)).toEqual(before)
   })
 
   it('套用沒學的技能：引擎的原因，狀態不變', () => {

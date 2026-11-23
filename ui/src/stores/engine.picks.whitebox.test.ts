@@ -17,7 +17,7 @@ const DRAFT = {
   skills: { streetwise: 3, negotiate: 3, perform: 2, stealth: 2 },
   perks: ['smooth_talker', 'tough'],
 }
-const WAITING = '先在戰敗的三個選擇裡選一個：接受結果、重來這場戰鬥，或回到這個階段開始時。'
+const WAITING = /眼前有一件事要先回應|先在戰敗的三個選擇裡選一個/
 
 beforeEach(() => setActivePinia(createPinia()))
 
@@ -37,6 +37,15 @@ async function lose(e: ReturnType<typeof useEngine>) {
   expect(e.battleOptions()!.waiting).toBe('over')
   expect((await e.finishBattle()).status).toBe('applied')
   expect(e.pendingDefeat).not.toBeNull()
+}
+/** M2-defeat：打輸之後戰敗事件的視窗可能自己開起來（事件窗開著時要先回應）；一直選第一個選得了的選項到事件演完（最多十次） */
+async function playOutEvents(e: ReturnType<typeof useEngine>) {
+  for (let i = 0; i < 10 && e.event.view(); i++) {
+    const o = e.event.view()!.options.find((x) => !x.locked)
+    expect(o).toBeTruthy()
+    expect((await e.event.choose(o!.id)).status).toBe('applied')
+  }
+  expect(e.event.view()).toBeNull()
 }
 /** 存一份引擎的快照（委託副本的功能在 M2 會這樣存；ADR 0011：種類 stage、entry） */
 function snapshot(e: ReturnType<typeof useEngine>, id: string, kind: string, label: string) {
@@ -193,8 +202,12 @@ describe('舊系統的錢、時間、紀錄被引擎擋下時不當成成功（�
       g.money.cash = cash + 50
       g.advance(10)
       g.addLog({ prose: ['先去喝一杯。'] } as never)
-      expect(ui.toasts.map((t) => t.text)).toEqual([WAITING, WAITING, WAITING])
+      expect(ui.toasts).toHaveLength(3)
+      for (const t of ui.toasts) expect(t.text).toMatch(WAITING)
       expect(e.money.cash).toBe(cash)
+      vi.useRealTimers()
+      await playOutEvents(e)
+      vi.useFakeTimers()
       e.acceptDefeat()
       const after = e.money.cash
       g.money.cash = after + 50

@@ -33,7 +33,9 @@ const shown = computed(() => filterRows(rows.value, filter.value, draft.value))
 const lock = computed(() => eng.skills.lock())
 const changed = computed(() => !sameList(draft.value, mine.value.equipped))
 const refused = ref<string | null>(null)
-const footer = computed(() => lock.value ?? refused.value ?? '可以換。')
+/** 換配置要在住處或調校診所（引擎的 loadoutBlock），換一次花半小時 */
+const place = computed(() => eng.skills.loadoutBlock())
+const footer = computed(() => lock.value ?? refused.value ?? place.value ?? '可以換。')
 
 function toggle(r: BridgeRow) {
   if (lock.value) return void ui.toast(lock.value, 'warn')

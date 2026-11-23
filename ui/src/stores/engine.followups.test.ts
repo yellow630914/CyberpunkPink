@@ -14,6 +14,16 @@ const DRAFT = {
   perks: ['smooth_talker', 'tough'],
 }
 
+/** M2-defeat：打輸之後戰敗事件的視窗可能自己開起來（事件窗開著時要先回應）；一直選第一個選得了的選項到事件演完（最多十次） */
+async function playOutEvents(e: ReturnType<typeof useEngine>) {
+  for (let i = 0; i < 10 && e.event.view(); i++) {
+    const o = e.event.view()!.options.find((x) => !x.locked)
+    expect(o).toBeTruthy()
+    expect((await e.event.choose(o!.id)).status).toBe('applied')
+  }
+  expect(e.event.view()).toBeNull()
+}
+
 describe('store：開打、被擋下的提交、行動的宣告', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
@@ -64,9 +74,13 @@ describe('store：開打、被擋下的提交、行動的宣告', () => {
     expect((await e.finishBattle()).status).toBe('applied')
     expect(e.defeat).not.toBeNull()
     expect(['lose', 'surrender']).toContain(e.pendingDefeat!.outcome)
-    const why = '先在戰敗的三個選擇裡選一個：接受結果、重來這場戰鬥，或回到這個階段開始時。'
-    expect(await e.act({ kind: 'free', text: '回家' })).toEqual({ status: 'refused', reason: why })
-    expect(e.commit({ summary: '去逛街。' })).toBe(why)
+    // 戰敗事件的視窗開著時，原因是事件視窗的；不演的話是三選一的提示
+    const why = e.commit({ summary: '去逛街。' })
+    expect(why).toMatch(/眼前有一件事要先回應|先在戰敗的三個選擇裡選一個/)
+    expect(e.blockOf('commit:ui.legacy')).toBe(why)
+    // 事件還沒演完不能接受
+    if (e.event.view()) expect(() => e.acceptDefeat()).toThrow(/眼前有一件事/)
+    await playOutEvents(e)
     e.acceptDefeat()
     expect(e.defeat).toBeNull()
     expect(e.pendingDefeat).toBeNull()
