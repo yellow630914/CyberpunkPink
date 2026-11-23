@@ -125,3 +125,4 @@
 - 2026-11-23 market 沒做的（TRADE 3～6）：長期折扣、挑毛病與二手、整車出價、以物易物、黑市與收贓、鑑定、服務、區域狀態。
 - 2026-11-23 roster 沒做的（NPC_SYSTEM 10）：關係線、被挖走、沉溺 100 離隊、藏沉溺的檢定、牆報徵人、招募的標籤修正、拿掉人時親密度 −5。
 - 2026-11-23 npc-life 留下的：「認識的人不會因汰換而死」先放旗標 npcs:protect_known（要成正式存檔規則得核心加欄位）；契約季認旗標 city_event:contract_season（之後城市大事照這個名字）；勢力對頭讀 faction.rivals（資料欄位待定案）；npc_life_rule 的 gig_actions／netrun_bad／bill_bad、roster.risky 區 id 是暫定，委託與帳單報告名定案後對一次。被挖走、關係線、救援委託沒做。
+- 2026-11-23 commission-run 留下的：進圖開戰時 origin.by 會被補成 core（認副本戰鬥用 origin.ext.commission＋stage）；M3／M5 登記 face.net／face.opinion 時要自己 allow('commission', 'face.net.')；附帶條件檢查、直播目標、隔離區、中途警戒到 100 不升級沒做。

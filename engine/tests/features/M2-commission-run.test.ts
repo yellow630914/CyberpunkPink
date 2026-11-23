@@ -681,7 +681,7 @@ describe('現實面的一段：照分支的入口開地圖，遭遇變成 enemy_
     expect(edges([1])).toBe(0)
   })
 
-  it('入口被保全看到：進圖就開打（問 map.arrive，探索回答；origin 的 by 被換成 core，但 commission 與 stage 還在，打贏照樣算）', async () => {
+  it('入口被保全看到：進圖就開打（問 map.arrive，真的探索回答；origin 的 by 被換成 core，但 commission 與 stage 還在，打贏照樣算）', async () => {
     const { game } = setup()
     enter(game)
     await playFight(game)
@@ -695,7 +695,7 @@ describe('現實面的一段：照分支的入口開地圖，遭遇變成 enemy_
     expect(runOf(game).stage).toBe(3)
   })
 
-  it('沒有人回答 map.arrive（探索沒接線）也照常運作：只是進圖不問', () => {
+  it('入口那一格沒有被保全看到：探索回答 map.arrive 但沒事，只有進圖那一份報告', () => {
     const plain = JSON.parse(JSON.stringify(DEF)) as Rec
     delete plain.defeat_event
     const t = makeGame({ features: [exploreFeature, enemiesFeature, TEST_COMBAT, GEAR as never, commissionFeature], content: [{ id: 'p', content: { skill: SKILLS, weapon_class: WEAPONS, faction: FACTIONS, special_map: [MAP as never], enemy: ENEMIES as never, commission: [plain as never] } }], pc: STRONG as never })
