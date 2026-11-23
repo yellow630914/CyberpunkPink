@@ -1,0 +1,116 @@
+{
+  "id": "m2-city",
+  "note": "基準（不是 bug）：M2 冒煙的城市那一條。塔下起步，走過閘門到鏽帶、搭地鐵回市場、進商行買東西、碼頭打工一班、中途存檔讀檔、回家、睡一覺跨過週一付帳單。",
+  "seed": 7,
+  "setup": {
+    "named": "city"
+  },
+  "inputs": [
+    {
+      "type": "m2",
+      "do": "walk",
+      "to": "E2"
+    },
+    {
+      "type": "m2",
+      "do": "walk",
+      "to": "E2"
+    },
+    {
+      "type": "m2",
+      "do": "walk",
+      "to": "F1"
+    },
+    {
+      "type": "m2",
+      "do": "ride",
+      "line": "tw_metro",
+      "dest": "s_market"
+    },
+    {
+      "type": "m2",
+      "do": "walk",
+      "to": "F1"
+    },
+    {
+      "type": "m2",
+      "do": "buy",
+      "shop": "s_tw_stall",
+      "item": "i_tw_ration",
+      "qty": 2
+    },
+    {
+      "type": "m2",
+      "do": "buy",
+      "shop": "s_tw_stall",
+      "item": "i_tw_medkit",
+      "qty": 1
+    },
+    {
+      "type": "m2",
+      "do": "walk",
+      "to": "F2"
+    },
+    {
+      "type": "m2",
+      "do": "work",
+      "job": "j_tw_porter",
+      "hours": 4
+    },
+    {
+      "type": "save_load"
+    },
+    {
+      "type": "m2",
+      "do": "walk",
+      "to": "E2"
+    },
+    {
+      "type": "m2",
+      "do": "walk",
+      "to": "F1"
+    },
+    {
+      "type": "m2",
+      "do": "pass_until",
+      "day": 6,
+      "hour": 23
+    },
+    {
+      "type": "m2",
+      "do": "sleep"
+    }
+  ],
+  "expect": {
+    "paths": {
+      "time": {
+        "day": 7,
+        "hour": 7,
+        "minute": 0
+      },
+      "money": {
+        "cred": 196,
+        "cash": 297
+      },
+      "rng.cursor": 2,
+      "location": {
+        "district": "tw_hive",
+        "block": "tw_tower",
+        "facility": "F1"
+      },
+      "party": [
+        "pc"
+      ],
+      "inventory": [
+        {
+          "id": "i_tw_ration",
+          "qty": 2
+        },
+        {
+          "id": "i_tw_medkit",
+          "qty": 1
+        }
+      ]
+    }
+  }
+}

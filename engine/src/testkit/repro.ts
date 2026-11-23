@@ -10,6 +10,8 @@ import type { AdversarialMode, FakeReply } from '../shell/ai/fakeProvider'
 import type { GameSetup, ScenarioId, StateOverrides, TestGame } from './factory'
 import { makeGame } from './factory'
 import { observed } from './invariants'
+import { makeCityGame, makeCommissionGame } from './scenarios'
+import { doStep } from './steps'
 
 export type ReproInput =
   | { type: 'act'; input: ActionInput; autoRules?: boolean }
@@ -21,6 +23,8 @@ export type ReproInput =
   | { type: 'ai'; settings: Record<string, unknown> }
   /** 提交一份程式結算的報告（買東西、休息這類不經過 AI 的動作）；attach 是併進最新一樓、不另留回退 */
   | { type: 'commit'; changes: Change[]; summary?: string; attach?: boolean }
+  /** M2 的步驟（走路、搭車、買東西、打工、睡一覺、接案、進副本、打完一個階段……）：名字與參數見 testkit/steps.ts 的 M2_STEPS */
+  | { type: 'm2'; do: string; [arg: string]: unknown }
 
 export interface Repro {
   id: string
@@ -28,7 +32,10 @@ export interface Repro {
   note: string
   seed: number
   setup: {
-    scenario: ScenarioId
+    /** 工廠的情境（沒寫是空房間）；寫了 named 就不看它 */
+    scenario?: ScenarioId
+    /** 具名的情境（testkit/scenarios.ts）：city 是 makeCityGame、commission 是 makeCommissionGame；帶假世界與全部功能，features 不用寫 */
+    named?: 'city' | 'commission'
     overrides?: Omit<StateOverrides, 'seed'>
     /** AI 的設定；沒有就是 AI 關閉 */
     ai?: Record<string, unknown>
@@ -69,14 +76,15 @@ export interface ReproResult {
 /** 重播一份 repro。features 是「id → 功能」的對照（repro 裡只記 id）。 */
 export async function runRepro(repro: Repro, features: Record<string, Feature> = {}): Promise<ReproResult> {
   const setup: GameSetup = {
-    ...repro.setup.overrides, seed: repro.seed, scenario: repro.setup.scenario, ai: repro.setup.ai,
+    ...repro.setup.overrides, seed: repro.seed, ...(repro.setup.scenario ? { scenario: repro.setup.scenario } : {}), ai: repro.setup.ai,
     ...(repro.setup.fake ? { fake: repro.setup.fake } : {}),
     features: (repro.setup.features ?? []).map((id) => {
       if (!features[id]) throw new Error(`repro ${repro.id} 要的功能 ${id} 沒有給`)
       return features[id]!
     }),
   }
-  const test = makeGame(setup)
+  const extra = { seed: repro.seed, ...(repro.setup.ai ? { ai: repro.setup.ai } : {}), ...(repro.setup.fake ? { fake: repro.setup.fake } : {}) }
+  const test = repro.setup.named === 'city' ? makeCityGame(extra) : repro.setup.named === 'commission' ? makeCommissionGame(extra) : makeGame(setup)
   const { game } = test
   let error: string | undefined
   const { violations } = await observed(game, async () => {
@@ -93,7 +101,7 @@ export async function runRepro(repro: Repro, features: Record<string, Feature> =
         else if (step.type === 'ai') game.setAiSettings(step.settings)
         else if (step.type === 'commit') {
           game.commit({ kind: 'system', action: 'repro.commit', location: {}, party: [], timeline: [], changes: step.changes, outcome: { result: 'ok', summary: step.summary ?? '重現用的提交' } }, { attach: step.attach ?? false })
-        }
+        } else if (step.type === 'm2') await doStep(game, step.do, step)
       }
     } catch (e) {
       error = (e as Error).message

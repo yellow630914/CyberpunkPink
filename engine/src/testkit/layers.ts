@@ -107,3 +107,82 @@ export function checkLayers(files: Record<string, string>): LayerViolation[] {
   }
   return out
 }
+
+// ---- 功能不讀別的功能的 state.ext（dev/adr/0016 第三節；dev/work/M2-plan.md 第 4 條） ----
+
+export interface ExtViolation {
+  file: string
+  /** 讀或寫的那個功能 */
+  feature: string
+  /** state.ext 的鍵 */
+  key: string
+  /** 這個鍵是哪個功能的 */
+  owner: string
+  message: string
+}
+
+/** 看起來是「整局的狀態」的接收者（state、s、st、work、next、fresh、snap、….state、….work）；actor.ext、unit.ext、instance.ext、origin.ext 不算。 */
+const STATE_RECEIVER = /(?:^|[^\w.])(?:state|s|st|work|next|fresh|snap)$|\.(?:state|work)$/
+const EXT_ACCESS = /([\w.]*?)\.ext(?:\.([A-Za-z_][\w]*)|\[\s*(?:'([^']+)'|"([^"]+)"|([A-Za-z_][\w]*))\s*\])/g
+const EXT_CHANGE = /op:\s*'ext'\s*,\s*key:\s*(?:'([^']+)'|([A-Za-z_][\w]*))/g
+const KEY_CONST = /\bconst\s+([A-Za-z_]*EXT[A-Za-z_]*|[A-Za-z_]*_KEY)\s*=\s*'([a-z_][a-z0-9_]*)'/g
+
+/** 每個功能自己定義的常數（功能 → 名字 → 值）、鍵 → 擁有的功能，與去掉註解的原始碼（只收功能的檔案）。 */
+function scanFeatures(files: Record<string, string>): { consts: Map<string, Map<string, string>>; owners: Map<string, string>; code: Map<string, string> } {
+  const consts = new Map<string, Map<string, string>>()
+  const owners = new Map<string, string>()
+  const code = new Map<string, string>()
+  for (const [file, src] of Object.entries(files)) {
+    const l = layerOf(file)
+    const f = l?.layer === 6 ? (l.feature ?? null) : null
+    if (!f || !file.endsWith('.ts') || /\.(test|spec)\.ts$/.test(file)) continue
+    const text = stripComments(src)
+    code.set(file, text)
+    for (const m of text.matchAll(KEY_CONST)) {
+      if (!consts.has(f)) consts.set(f, new Map())
+      consts.get(f)!.set(m[1]!, m[2]!)
+      // 名字帶 EXT 的才是 state.ext 的鍵；_KEY 只用來把常數解成字串（不當成擁有者）
+      if (/EXT/.test(m[1]!) && !owners.has(m[2]!)) owners.set(m[2]!, f)
+    }
+  }
+  return { consts, owners, code }
+}
+
+/** 每一個 state.ext 的鍵是哪個功能的（鍵 → 功能）。測試用它確認掃描真的看到了每個功能的鍵（不是掃了個空）。 */
+export function extOwners(files: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(scanFeatures(files).owners)
+}
+
+/**
+ * 掃 engine/src 的功能（features/<功能>/），找出「讀或寫別的功能的 state.ext.<鍵>」。純函式：吃「路徑 → 原始碼」的表（同 checkLayers）。
+ *
+ * 一個鍵是誰的：在某個功能的檔案裡寫了 `const EXT = '鍵'`（名字帶 EXT 或以 _KEY 結尾）的那個功能。
+ * 抓三種寫法：state.ext.鍵、state.ext['鍵']、state.ext[常數]（常數在同一個功能裡找得到），以及報告的變更 { op: 'ext', key: '鍵' }。
+ * 註解、字串裡的不算；actor.ext、unit.ext 這種不是整局狀態的不算（共用的資料慣例照 0016 第七節，只認格式）。
+ * 功能的總表（features/index.ts）與測試基礎建設、外殼不檢查。
+ */
+export function checkExtReads(files: Record<string, string>): ExtViolation[] {
+  const { consts, owners, code } = scanFeatures(files)
+  const out: ExtViolation[] = []
+  const flag = (file: string, f: string, key: string, how: string): void => {
+    const owner = owners.get(key)
+    if (owner && owner !== f) out.push({ file, feature: f, key, owner, message: `${file}：功能 ${f} ${how}了功能 ${owner} 的 state.ext.${key}（只經由 meterOf、k.stats、k.conditions、內容與核心的狀態讀，經由變更與效果寫）` })
+  }
+  for (const [file, text] of code) {
+    const f = layerOf(file)!.feature!
+    // 字串裡寫的不算（例：說明文字提到 state.ext.xxx）：比對的起點落在某個字串裡就略過；方括號寫法的鍵本身是字串，但「.ext[」在字串外面
+    const strings = [...text.matchAll(/(['"`])(?:\\.|(?!\1)[^\\])*\1/g)].map((m) => [m.index!, m.index! + m[0].length] as const)
+    const inString = (at: number): boolean => strings.some(([a, b]) => at > a && at < b)
+    for (const m of text.matchAll(EXT_ACCESS)) {
+      if (inString(m.index!) || !STATE_RECEIVER.test(m[1]!)) continue
+      const key = m[2] ?? m[3] ?? m[4] ?? consts.get(f)?.get(m[5] ?? '')
+      if (key) flag(file, f, key, '讀寫')
+    }
+    for (const m of text.matchAll(EXT_CHANGE)) {
+      if (inString(m.index!)) continue
+      const key = m[1] ?? consts.get(f)?.get(m[2] ?? '')
+      if (key) flag(file, f, key, '用變更寫')
+    }
+  }
+  return out
+}

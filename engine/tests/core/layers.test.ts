@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { checkLayers, importsOf, layerOf } from '../../src/testkit'
+import { checkExtReads, checkLayers, extOwners, importsOf, layerOf } from '../../src/testkit'
 
 const SRC = fileURLToPath(new URL('../../src', import.meta.url))
 
@@ -86,5 +86,58 @@ describe('分層檢查', () => {
 
   it('不在任何一層的檔案：擋', () => {
     expect(rules({ 'misc/helper.ts': '' })).toEqual(['unknown-layer'])
+  })
+})
+
+// 規格：dev/adr/0016 第三節（功能讀別人的數字只經由 meterOf、k.stats、k.conditions、內容與核心的狀態；不讀別的功能的 state.ext）；
+// dev/work/M2-plan.md「每一張都適用的規定」第 4 條；dev/invariants.md 第 107 條
+describe('功能不讀別的功能的 state.ext', () => {
+  it('engine/src/features 沒有一處讀或寫別的功能的 state.ext.<鍵>', () => {
+    const files = readTree(SRC)
+    expect(checkExtReads(files).map((v) => v.message)).toEqual([])
+  })
+
+  it('掃描真的看到了每個功能的鍵（不是掃了個空）：十幾個鍵、每個鍵都在自己功能的資料夾裡定義', () => {
+    const owners = extOwners(readTree(SRC))
+    expect(Object.keys(owners).length).toBeGreaterThanOrEqual(15)
+    for (const [key, feature] of Object.entries({
+      world: 'world', transit: 'transit', trade: 'trade', work: 'work', rest: 'rest', bills: 'bills', director: 'director', scene: 'scene', npcs: 'npcs', roster: 'roster',
+      fixer: 'fixer', commission: 'commission', commission_failed: 'commission', defeat: 'defeat', favors: 'favors', security: 'security', security_scan: 'security',
+    })) expect(owners[key], key).toBe(feature)
+  })
+
+  const ext = (file: string, src: string, more: Record<string, string> = {}): string[] => checkExtReads({
+    'features/a/model.ts': "export const EXT = 'a_state'\nexport const OTHER_KEY = 'a_other'",
+    'features/b/model.ts': "export const EXT = 'b_state'",
+    [file]: src, ...more,
+  }).map((v) => `${v.feature}→${v.owner}:${v.key}`)
+
+  it('故意寫的反例：讀別的功能的鍵（點、方括號、常數）、寫它（賦值、報告的 ext 變更）都抓得到', () => {
+    expect(ext('features/b/x.ts', 'const v = state.ext.a_state')).toEqual(['b→a:a_state'])
+    expect(ext('features/b/x.ts', "const v = state.ext['a_state']")).toEqual(['b→a:a_state'])
+    expect(ext('features/b/x.ts', 'const v = g.state.ext.a_state')).toEqual(['b→a:a_state'])
+    expect(ext('features/b/x.ts', "const EXT_A = 'a_state'\nconst v = state.ext[EXT_A]")).toEqual(['b→a:a_state'])
+    expect(ext('features/b/x.ts', 'state.ext.a_state = null')).toEqual(['b→a:a_state'])
+    expect(ext('features/b/x.ts', "const c = { op: 'ext', key: 'a_state', value: null }")).toEqual(['b→a:a_state'])
+    expect(ext('features/b/x.ts', "const A_KEY = 'a_state'\nconst c = { op: 'ext', key: A_KEY, value: 1 }")).toEqual(['b→a:a_state'])
+    expect(ext('features/b/deep/y.ts', 'const v = s.ext.a_state')).toEqual(['b→a:a_state'])
+  })
+
+  it('不算的：讀自己的鍵、註解與字串裡寫的、角色與單位與地圖實例的 ext（共用的資料慣例只認格式）、別人的檔案不是功能', () => {
+    expect(ext('features/a/x.ts', 'const v = state.ext.a_state\nconst w = state.ext[EXT]')).toEqual([])
+    expect(ext('features/b/x.ts', '// 不讀 state.ext.a_state\n/* state.ext.a_state */\nconst t = "state.ext.a_state"')).toEqual([])
+    expect(ext('features/b/x.ts', 'const v = actor.ext.a_state\nconst w = unit.ext.a_state\nconst o = origin.ext.a_state\nconst i = inst.ext.a_state')).toEqual([])
+    expect(ext('features/b/x.ts', 'const v = state.ext.not_anyones')).toEqual([])
+    expect(ext('shell/x.ts', 'const v = state.ext.a_state')).toEqual([])
+    expect(ext('features/b/x.test.ts', 'const v = state.ext.a_state')).toEqual([])
+  })
+
+  it('在真的原始碼上加一個違規的檔案：抓得到，而且寫出是誰讀了誰的', () => {
+    const files = { ...readTree(SRC), 'features/world/spy.ts': "import type { GameState } from '../../core'\nexport const peek = (state: GameState) => state.ext.fixer" }
+    const found = checkExtReads(files)
+    expect(found).toHaveLength(1)
+    expect(found[0]).toMatchObject({ file: 'features/world/spy.ts', feature: 'world', owner: 'fixer', key: 'fixer' })
+    expect(found[0]!.message).toContain('world')
+    expect(found[0]!.message).toContain('fixer')
   })
 })
