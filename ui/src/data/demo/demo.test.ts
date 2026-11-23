@@ -76,7 +76,7 @@ describe('示意世界包', () => {
       for (const r of v.shelf) expect(r.quote.steps.length).toBeGreaterThan(0)
     }
   })
-  it('過日子：麵攤與雜貨店有打工；有住處可以租；有兩處有床位的旅店與營地', () => {
+  it('過日子：麵攤與雜貨店有打工；有住處可以租；有床位的旅店、營地與診所（診所的床算傷口處理過）', () => {
     const g = make()
     g.newGame({ seed: 5 })
     const job = g.k.content.get<{ id: string; facility: string }>('job', 'job_alian_counter')!
@@ -85,7 +85,9 @@ describe('示意世界包', () => {
     expect(jobsHere(g.k, g.state).map(j => j.id)).toEqual(['job_alian_counter'])
     expect(g.k.content.list('residence').map(r => r.id)).toEqual(['res_hive_unit', 'res_oldport_container', 'res_ave42_capsule'])
     const noid = g.k.content.list<{ id: string; sleep?: unknown }>('facility_type').filter(t => t.sleep !== undefined && t.id.startsWith('fac_')).map(t => t.id)
-    expect(noid.sort()).toEqual(['fac_camp', 'fac_inn'])
+    expect(noid.sort()).toEqual(['fac_camp', 'fac_clinic', 'fac_inn'])
+    expect(g.k.content.get<{ id: string; sleep?: { treated?: boolean } }>('facility_type', 'fac_clinic')!.sleep?.treated).toBe(true)
+    expect(g.k.content.get<{ id: string; sleep?: { treated?: boolean } }>('facility_type', 'fac_inn')!.sleep?.treated).toBeUndefined()
     // 站在旅店的設施上：引擎的睡處列表多一個設施的選項
     const inn = [...g.k.content.list<{ id: string; facilities: Record<string, { type: string }> }>('block')].flatMap(b => Object.entries(b.facilities).filter(([, f]) => f.type === 'fac_inn').map(([m]) => [b.id, m] as const))[0]!
     g.commit(arrive(g.k, g.state, inn[0], inn[1]))

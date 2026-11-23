@@ -57,7 +57,7 @@ const leave = async () => done(await e.rest.leave(), '現在退不了租。')
       <div v-if="sleepWhy" class="blocking" data-sleep-why>{{ sleepWhy }}</div>
       <div class="opts">
         <div v-for="o in options" :key="o.id" class="opt" :class="{ cur: o.current, 'is-unavailable': !!o.block }" :data-spot="o.id">
-          <b>{{ o.name }}</b><span v-if="o.current" class="tag hot">你在這裡</span>
+          <b>{{ o.name }}</b><span v-if="o.current" class="tag hot">你在這裡</span><span v-if="o.treated" class="tag" data-treated>算傷口處理過</span>
           <div class="kvl"><span>回復</span><b>生命上限的 {{ ratePct(o.rate) }}</b></div>
           <div class="kvl"><span>價錢</span><MoneyTag v-if="o.cost > 0" :kind="moneyKind(o.pay ?? 'cred')" :amount="o.cost" :size="13" /><b v-else>不用錢</b></div>
           <ReasonButton sm pri :reason="o.block" :data-sleep="o.id" @go="sleep(o.id)">睡一覺</ReasonButton>

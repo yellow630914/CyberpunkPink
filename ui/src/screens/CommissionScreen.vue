@@ -12,7 +12,7 @@ import RunTab from '../components/commission/RunTab.vue'
 import { PAY_NAME } from '@engine/src/features/fixer'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
-import { FACE_LABEL, gradeRoman, scaleName } from '../lib/commissionView'
+import { FACE_LABEL, abandonText, gradeRoman, repGainText, scaleName } from '../lib/commissionView'
 import type { FaceId } from '../lib/commissionView'
 
 /**
@@ -58,7 +58,9 @@ watch(jobId, (now, was) => { if (now && !was && tab.value === 'take') tab.value 
 
 function accepted(id: string) { void router.replace({ path: '/commission', query: { job: id } }); tab.value = 'scout' }
 const dropReason = computed(() => e.blockOf('commit:fixer.drop'))
+const confirmDrop = ref(false)
 async function drop() {
+  confirmDrop.value = false
   if (!job.value) return
   const r = await e.fixer.drop(job.value.id)
   if (r.status === 'refused') ui.toast(r.reason ?? '放棄不了。', 'warn')
@@ -95,7 +97,12 @@ const typeName = computed(() => (job.value ? e.contentName('commission_type', St
               <div class="kv"><span>怎麼付</span><b>{{ PAY_NAME[job.terms.pay] }}</b></div>
               <div class="kv"><span>中間人抽成</span><b>{{ Math.round(job.terms.cut * 100) }}%</b></div>
               <div class="kv"><span>規模</span><b>{{ scaleName(String(job.commission.scale ?? '')) }}・{{ job.commission.stages.length }} 階段</b></div>
-              <div class="go"><ReasonButton :reason="dropReason ?? (view ? '副本進行中，要先做完或撤退。' : null)" data-drop @go="drop">放棄這件委託</ReasonButton><button type="button" class="btn" @click="ui.openRoot('fixer', { fixerId: job.fixer })">中間人的店</button><button type="button" class="btn pri" @click="tab = 'scout'">去踩點</button></div>
+              <div class="kv"><span>完成的信譽</span><b data-rep-gain>{{ repGainText(e.fixer.repGain(job.commission)) }}</b></div>
+              <div v-if="confirmDrop" class="warnbox panel pad" data-drop-confirm>
+                <p><b>要放棄嗎？</b><span data-abandon-text>{{ abandonText(e.fixer.abandonRep()) }}</span></p>
+                <div class="go"><button type="button" class="btn" @click="confirmDrop = false">再想想</button><button type="button" class="btn pri" data-drop-yes @click="drop">放棄</button></div>
+              </div>
+              <div class="go"><ReasonButton :reason="dropReason ?? (view ? '副本進行中，要先做完或撤退。' : null)" data-drop @go="confirmDrop = true">放棄這件委託</ReasonButton><button type="button" class="btn" @click="ui.openRoot('fixer', { fixerId: job.fixer })">中間人的店</button><button type="button" class="btn pri" @click="tab = 'scout'">去踩點</button></div>
             </section>
           </div>
           <TakePanel v-else-if="fixerId" :fixer-id="fixerId" @accepted="accepted" @leave="router.push('/')" />

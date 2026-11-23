@@ -34,8 +34,8 @@ const NAME_TO_BLOCK = new Map<string, { id: string; district: string }>()
 for (const d of DISTRICTS) for (const b of d.blocks) NAME_TO_BLOCK.set(b, { id: blockIdOf(d.id, b), district: d.id })
 
 /** sleep：站在這種設施上可以睡一覺（rate 是生命值上限的幾成、cost 是一晚的價錢；格式見 features/rest） */
-const FAC_TYPES: Array<{ id: string; name: string; sleep?: { rate: number; cost: number } }> = [
-  { id: 'fac_shop', name: '商店' }, { id: 'fac_home', name: '住處' }, { id: 'fac_clinic', name: '診所' }, { id: 'fac_talk', name: '談話的地方' },
+const FAC_TYPES: Array<{ id: string; name: string; sleep?: { rate: number; cost: number; treated?: boolean } }> = [
+  { id: 'fac_shop', name: '商店' }, { id: 'fac_home', name: '住處' }, { id: 'fac_clinic', name: '診所', sleep: { rate: 0.5, cost: 30, treated: true } }, { id: 'fac_talk', name: '談話的地方' },
   { id: 'fac_dungeon', name: '地下入口' }, { id: 'fac_transit', name: '車站' }, { id: 'fac_service', name: '服務' },
   { id: 'fac_inn', name: '旅店', sleep: { rate: 0.5, cost: 10 } }, { id: 'fac_camp', name: '營地', sleep: { rate: 0.3, cost: 0 } },
 ]

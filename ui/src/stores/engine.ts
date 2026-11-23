@@ -15,7 +15,7 @@ import { acceptDefeat, chooseDefeatOption, defeatOf, defeatView, skipDefeat, wat
 import type { DefeatViewInfo } from '@engine/src/features/defeat'
 import { auxChance, breathe as commissionBreathe, chooseBranch, chooseFace, commissionView, checkGoal as commissionCheckGoal, playScene as commissionPlayScene, replay as commissionReplay, retreat as commissionRetreat } from '@engine/src/features/commission'
 import type { AuxChance, CommissionView } from '@engine/src/features/commission'
-import { accept as fixerAccept, activeJobs, board as fixerBoard, borrowOption, buyIntel as fixerBuyIntel, drop as fixerDrop, go as fixerGo, goBlock as fixerGoBlock, haggle as fixerHaggle, hire as fixerHire, hireOptions as fixerHireOptions, jobOf, scout as fixerScout, scoutView as fixerScoutView, splitPreview, unhire as fixerUnhire } from '@engine/src/features/fixer'
+import { accept as fixerAccept, activeJobs, board as fixerBoard, borrowOption, buyIntel as fixerBuyIntel, drop as fixerDrop, fixerRules, go as fixerGo, goBlock as fixerGoBlock, haggle as fixerHaggle, hire as fixerHire, hireOptions as fixerHireOptions, jobOf, repGainOf, scout as fixerScout, scoutView as fixerScoutView, splitPreview, unhire as fixerUnhire } from '@engine/src/features/fixer'
 import type { AuxFace, BoardView, FixerEntry, HireInput, HireOption, IntelWith, Job, Offer, PayKind, ScoutView, Split } from '@engine/src/features/fixer'
 import { muster as rosterMuster, musterBlocks, rosterRules, rosterView, recruitBlock as rosterRecruitBlock, recruitDc, recruitInput, readRoster, leave as rosterLeave, isRunner as rosterIsRunner } from '@engine/src/features/roster'
 import type { Candidate as RosterCandidate } from '@engine/src/features/roster'
@@ -30,20 +30,20 @@ import type { SceneInput, SceneMode, SceneOptions, SceneView } from '@engine/src
 import { setupFromEncounter } from '@engine/src/features/enemies'
 import { arrive as worldArrive, cityGraph, worldView } from '@engine/src/features/world'
 import type { CityGraph, WorldView } from '@engine/src/features/world'
-import { advance as transitAdvance, advanceBlock as transitAdvanceBlock, alight as transitAlight, board as transitBoard, boardBlock as transitBoardBlock, taxi as transitTaxi, transitView, wait as transitWait } from '@engine/src/features/transit'
+import { advance as transitAdvance, advanceBlock as transitAdvanceBlock, alight as transitAlight, board as transitBoard, boardBlock as transitBoardBlock, taxi as transitTaxi, taxiArrival as transitTaxiArrival, transitView, wait as transitWait } from '@engine/src/features/transit'
 import type { BoardInput, TransitView } from '@engine/src/features/transit'
 import { chooseOption, directorView, eventView } from '@engine/src/features/director'
 import type { DirectorView, EventView } from '@engine/src/features/director'
-import { scanView } from '@engine/src/features/security'
-import type { ScanView } from '@engine/src/features/security'
+import { toMinutes } from '@engine/src/core/util/time'
+import { hostilityView, scanView, timedFloors } from '@engine/src/features/security'
+import type { HostilityRow, ScanView } from '@engine/src/features/security'
 import { bargainByFavor, bargainInput, checkout as tradeCheckout, planCheckout, routesHint, shopView } from '@engine/src/features/trade'
 import type { BargainMethod, Cart, CheckoutPlan, RoutesHint, ShopView } from '@engine/src/features/trade'
 import { billPreview, setBill } from '@engine/src/features/bills'
 import type { BillPreview, BillSetting } from '@engine/src/features/bills'
 import { jobsHere, shift as workShift } from '@engine/src/features/work'
 import type { JobView } from '@engine/src/features/work'
-import { residencePools } from '@engine/src/features/rest/model'
-import { breathBlock, breathDraft, homeOf, leaveBlock, leaveDraft, readRest, rentBlock, rentDraft, restRules, sleepBlock, sleepDraft, sleepOptions } from '@engine/src/features/rest'
+import { breathBlock, breathDraft, depositOf, homeOf, leaveBlock, leaveDraft, readRest, rentBlock, rentDraft, residencePools, restRules, sleepBlock, sleepDraft, sleepOptions } from '@engine/src/features/rest'
 import type { Level, ResidenceEntry, SleepOption, SleepSpotId } from '@engine/src/features/rest'
 import type { PartyMember } from '../data/types'
 import { DEMO_SCENES, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature } from '../data/demo'
@@ -610,12 +610,8 @@ export const useEngine = defineStore('engine', () => {
       await run(() => game.commitNarrated(d, { mode: 'new' }))
     }
   }
-  /** 計程車抵達那一份，照現在的狀態重做（引擎的 taxi 一次做出發與抵達；車資在出發時已付，所以用一份補足車資的複本問，取後面那份）。 */
-  const taxiArrival = (to: string): ReportDraft => {
-    const s = structuredClone(game.state)
-    s.money.cred += 1_000_000_000
-    return transitTaxi(game.k, s, to)[1]!
-  }
+  /** 計程車抵達那一份，照現在的狀態重做（引擎的 taxiArrival；只做抵達，不問付不付得起）。 */
+  const taxiArrival = (to: string): ReportDraft => transitTaxiArrival(game.k, game.state, to)
 
   const world = {
     /** 現在在哪一區哪一塊、出口與設施（引擎的 worldView） */
@@ -716,6 +712,15 @@ export const useEngine = defineStore('engine', () => {
     /** 接案前的一輪交涉 */
     haggle: (offer: Pick<Offer, 'id' | 'fixer'>) => commitDrafts(() => fixerHaggle(game.k, game.state, offer), '交涉'),
     accept: (offer: Pick<Offer, 'id' | 'fixer'>, pay: PayKind) => commitDrafts(() => fixerAccept(game.k, game.state, offer, { pay }), '接案'),
+    /** 放棄一件委託信譽掉多少（負數；引擎的規則 rep_abandon，確認框寫給玩家看） */
+    abandonRep: (): number => { void state.value; return fixerRules(game.k).rep_abandon },
+    /** 完成這件委託信譽加多少（引擎的 repGainOf，照主角現在的級；評價預設 B，S 的加成另算在 topBonus） */
+    repGain: (commission: Job['commission'], rating: 'S' | 'A' | 'B' | 'C' = 'B'): { amount: number; relation: 'higher' | 'same' | 'lower'; topBonus: number } => {
+      void state.value
+      const g = repGainOf(game.k, game.state, { commission }, rating)
+      const s = repGainOf(game.k, game.state, { commission }, 'S')
+      return { amount: g.amount, relation: g.relation, topBonus: s.amount - g.amount }
+    },
     drop: (jobId: string) => commitDrafts(() => fixerDrop(game.k, game.state, jobId), '放棄委託'),
     /** 踩點頁的資料（未知清單、次數與難度、手段與原因、買情報、上一次的結果） */
     scoutView: (jobId: string): ScoutView => { void state.value; return fixerScoutView(game.k, game.state, jobId) },
@@ -827,12 +832,11 @@ export const useEngine = defineStore('engine', () => {
       const h = homeOf(game.k, game.state)
       return h ? { id: h.residence.id, name: h.residence.name, rent: h.residence.rent, level: h.residence.level, deposit: h.home.deposit, pool: h.home.pool, arrears: h.home.arrears, locked: h.home.locked, lockWeeks: restRules(game.k).lock_weeks } : null
     },
-    /** 內容裡的住處與現在租不租得了（原因是引擎的）；押金是引擎的規則（週租 × 週數） */
+    /** 內容裡的住處與現在租不租得了（原因是引擎的）；押金是引擎的 depositOf */
     residences: (): ResidenceView[] => {
       void state.value
-      const weeks = restRules(game.k).deposit_weeks
       return game.k.content.list<ResidenceEntry>('residence').map((r) => ({
-        id: r.id, name: r.name, rent: r.rent, level: r.level, deposit: r.rent * weeks, pools: residencePools(r),
+        id: r.id, name: r.name, rent: r.rent, level: r.level, deposit: depositOf(game.k, r), pools: residencePools(r),
         block: game.k.content.get<{ id: string; name?: string }>('block', r.block)?.name ?? null, block_reason: rentBlock(game.k, game.state, r.id),
       }))
     },
@@ -943,6 +947,17 @@ export const useEngine = defineStore('engine', () => {
       return [{ id, name: a.name, role: main ? peopleLook.path(main.path) : '', sink: a.sink, hp: [a.hp, statOf(id, 'max_hp', Math.max(1, a.hp))], load: [a.load, statOf(id, 'load_cap', Math.max(1, a.load))], afterglow: a.afterglow, me: id === s.pc }]
     })
   }
+  /** 敵對值清單（引擎的 hostilityView：floor 已是永久與有期限取較高）；timed 是還沒到期的有期限下限，days 是剩幾天（進位） */
+  function hostilityRows(): Array<HostilityRow & { timed: Array<{ value: number; days: number }> }> {
+    void state.value
+    const now = game.state.time
+    const nowMin = toMinutes(now)
+    const timed = timedFloors(game.state)
+    return hostilityView(game.k, game.state).map((r) => ({
+      ...r,
+      timed: timed.filter((f) => f.faction === r.faction && f.until > nowMin).map((f) => ({ value: f.value, days: Math.max(1, Math.ceil((f.until - nowMin) / 1440)) })).sort((a, b) => b.value - a.value),
+    }))
+  }
   /** 敵對值最高的幾個勢力（引擎的量表 hostility；0 的不列）。名字是勢力的短名 */
   function hostilityTop(n = 2): Array<[string, number]> {
     void state.value
@@ -951,5 +966,5 @@ export const useEngine = defineStore('engine', () => {
       .filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, n)
   }
 
-  return { state, feed, partyRows, hostilityTop, world, transit, people, event, fixer, commission, scene, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  return { state, feed, partyRows, hostilityTop, hostilityRows, world, transit, people, event, fixer, commission, scene, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

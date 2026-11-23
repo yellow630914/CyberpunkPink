@@ -35,6 +35,7 @@ const memories = computed(() => (sel.value ? memoryRows(e.people.memoriesOf(sel.
 const news = computed(() => (sel.value ? newsRows(e.people.news(sel.value.id)) : []))
 const owedToYou = computed(() => favorRows(favors.value, 'owed_to_pc', e.people.favorName))
 const youOwe = computed(() => favorRows(favors.value, 'owed_by_pc', e.people.favorName))
+const hostility = computed(() => e.hostilityRows())
 const editing = ref<string | null>(null)
 const draft = ref('')
 
@@ -129,6 +130,15 @@ const answer = (id: string, a: 'do' | 'refuse') => run(e.people.favorAnswer(id, 
             <div v-if="!youOwe.length" class="empty-note">你沒有欠人。</div>
             <div v-for="f in youOwe" :key="f.id" class="frow owe" :data-owe="f.id"><span class="grow"><b class="warn-t">{{ f.whoName }}</b><small class="warn-t">{{ f.size }}<template v-if="f.note">・{{ f.note }}</template></small></span><button type="button" class="btn sm" @click="answer(f.id, 'do')">答應</button><button type="button" class="btn sm ghost" @click="answer(f.id, 'refuse')">回絕</button></div>
           </div>
+        </div>
+      </section>
+
+      <section v-if="hostility.length" class="panel cut pad fav" data-hostility>
+        <p class="h">敵對值<Hint title="敵對值">下限是永久的與有期限的取較高的那個；有期限的下限到期就掉，列在後面（剩幾天）。數字都是引擎的。</Hint></p>
+        <div v-for="h in hostility" :key="h.faction" class="frow" :data-hostility-row="h.faction">
+          <span class="grow"><b>{{ h.name }}</b><small>{{ h.tier.name }}<template v-if="h.floor > 0">・下限 {{ h.floor }}</template></small>
+            <small v-for="t in h.timed" :key="t.value + ':' + t.days" class="warn-t" data-timed-floor>有期限的下限 {{ t.value }}，剩 {{ t.days }} 天</small></span>
+          <b class="mono">{{ h.value }}</b>
         </div>
       </section>
     </div>

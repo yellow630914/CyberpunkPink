@@ -116,3 +116,14 @@ export function loadoutLabels(loadout: readonly string[], abilities: ReadonlyArr
 
 /** 一個踩點的時間範圍「14:00 起 4 小時」之類：只是把分鐘寫成小時 */
 export const hoursOf = (minutes: number): string => (minutes % 60 === 0 ? `${minutes / 60} 小時` : `${minutes} 分鐘`)
+
+/** 信譽預告的一句（數字是引擎 repGainOf 算的；0 寫「信譽不變」，評價 S 另有加成時註明） */
+export function repGainText(g: { amount: number; topBonus: number }): string {
+  if (g.amount === 0 && g.topBonus === 0) return '信譽不變'
+  const base = g.amount === 0 ? '信譽不變' : `信譽 +${g.amount}`
+  return g.topBonus > 0 ? `${base}（評價 S 再 +${g.topBonus}）` : base
+}
+/** 放棄一件委託的確認句（rep 是引擎規則 rep_abandon，負數） */
+export function abandonText(rep: number): string {
+  return rep === 0 ? '放棄這件委託，信譽不變。' : `放棄這件委託，信譽會${rep < 0 ? '掉' : '加'} ${Math.abs(rep)} 點。`
+}

@@ -6,7 +6,7 @@ import MoneyTag from '../MoneyTag.vue'
 import ReasonButton from '../ReasonButton.vue'
 import { useEngine } from '../../stores/engine'
 import { useUi } from '../../stores/ui'
-import { FACE_CLASS, FACE_ICON, gradeRoman, scaleName } from '../../lib/commissionView'
+import { FACE_CLASS, FACE_ICON, gradeRoman, repGainText, scaleName } from '../../lib/commissionView'
 import type { FaceId } from '../../lib/commissionView'
 
 /**
@@ -96,6 +96,7 @@ const acceptReason = computed(() => row.value?.block ?? payNow.value?.block ?? n
             <b class="mono" data-pay-amount><MoneyTag :kind="p.wallet === 'cred' ? 'acc' : 'cash'" :amount="p.amount" :size="13" /><template v-if="p.favor"> ＋<MoneyTag kind="fav" icon-only :size="13" /></template></b>
           </button>
         </div>
+        <p class="t-fine" data-rep-gain>完成這件：{{ repGainText(e.fixer.repGain(row.offer.commission)) }}</p>
         <div class="go">
           <button type="button" class="btn" @click="emit('leave')">不接</button>
           <ReasonButton :reason="row.haggle_block" data-haggle @go="haggle">再談一輪（交涉）</ReasonButton>
