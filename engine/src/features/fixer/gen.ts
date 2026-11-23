@@ -200,8 +200,8 @@ export function modifierProblems(e: Record<string, unknown>): string[] {
     if (!isRecord(l) || !(isSafeInt(l.stage) && l.stage >= 1) || !isFace(l.face)) p.push('effect.lock_face 要是 { stage: 第幾階段, face: 面 }')
   }
   if (ef.attached !== undefined) {
-    if (!Array.isArray(ef.attached) || ef.attached.length === 0 || !ef.attached.every((a) => isRecord(a) && isText(a.enemy) && (a.count === undefined || (isSafeInt(a.count) && a.count >= 1 && a.count <= 6)))) {
-      p.push('effect.attached 要是 [{ enemy, count? }]（至少一台；count 是 1～6）')
+    if (!Array.isArray(ef.attached) || ef.attached.length === 0 || !ef.attached.every((a) => isRecord(a) && isText(a.enemy) && (a.count === undefined || (isSafeInt(a.count) && a.count >= 1 && a.count <= 4)))) {
+      p.push('effect.attached 要是 [{ enemy, count? }]（至少一台；count 是 1～4，同 enemies 的 attached）')
     }
   }
   if (ef.foes_plus !== undefined && !(isSafeInt(ef.foes_plus) && ef.foes_plus >= 1 && ef.foes_plus <= 4)) p.push('effect.foes_plus 要是 1～4 的整數')
@@ -624,7 +624,12 @@ function build(c: Ctx): Offer | string {
           const ef = m.effect
           if (ef.stage !== undefined && ef.stage !== n) continue
           if (ef.foes_plus) (f.encounter as Rank[]).push(...Array.from({ length: ef.foes_plus }, (): Rank => 'minion'))
-          if (ef.attached) f.attached = [...((f.attached as unknown[] | undefined) ?? []), ...ef.attached.map((a) => ({ enemy: a.enemy, count: a.count ?? 1 }))]
+          if (ef.attached) {
+            // 同一種合併、總數夾到 4（enemies 的 attached 每筆最多 4）
+            const merged = new Map<string, number>()
+            for (const a of [...((f.attached as Array<{ enemy: string; count: number }> | undefined) ?? []), ...ef.attached.map((a) => ({ enemy: a.enemy, count: a.count ?? 1 }))]) merged.set(a.enemy, Math.min(4, (merged.get(a.enemy) ?? 0) + a.count))
+            f.attached = [...merged].map(([enemy, count]) => ({ enemy, count }))
+          }
         }
         for (const r of new Set<Rank>([...(f.encounter as Rank[]), 'minion'])) used.push({ stage: n, faction, rank: r })
       }
