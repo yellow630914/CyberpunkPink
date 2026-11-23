@@ -128,7 +128,7 @@ export function entryProblems(e: Raw): string[] {
       const at = `versions.${key}`
       if (!(VERSION_KEYS as readonly string[]).includes(key)) { p.push(`versions 的鍵只能是 default、masc、yuri（拿到 ${key}）`); continue }
       const one = v[key]
-      if (!isRec(one)) { p.push(`${at} 要是 { text, stages }（舊寫法：{ text, effects }）`); continue }
+      if (!isRec(one)) { p.push(`${at} 要是 { text, effects }（舊寫法）或 { text, stages }（事件的寫法）`); continue }
       if (!isText(one.text)) p.push(`${at}.text 要是一段敘事`)
       const shapes = ['effects', 'stages', 'options'].filter((f) => one[f] !== undefined)
       if (shapes.length > 1) p.push(`${at}：effects（舊寫法）、stages、options 只能寫一種`)

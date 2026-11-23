@@ -100,6 +100,7 @@ interface FlatOption {
   check?: unknown
   outcomes?: Raw
   ends?: boolean
+  flags?: unknown
 }
 interface FlatStage {
   text?: string
@@ -207,7 +208,7 @@ export function playSkipped(k: Kernel, state: GameState, entry: DefeatEventEntry
     const chosen = stages[i]!.options.find((op) => needOk(k, state, op.need))
     if (!chosen) continue
     out.path.push(chosen.id)
-    out.flags.push(...(Array.isArray((chosen as { flags?: unknown }).flags) ? ((chosen as { flags: unknown[] }).flags.filter((f): f is string => typeof f === 'string')) : []))
+    if (Array.isArray(chosen.flags)) out.flags.push(...chosen.flags.filter((f): f is string => typeof f === 'string'))
     let degree: Degree | null = null
     const spec = chosen.check !== undefined ? checkOf(chosen.check) : null
     if (spec) {

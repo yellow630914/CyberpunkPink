@@ -52,11 +52,11 @@ describe('冒煙 M1（功能版）：一場現實戰鬥打完、戰敗事件（�
     expect(game.load(game.save('manual', '2026-11-22T00:00:00Z'))).toBeNull()
     expect(stateHash(game.state)).toBe(hash)
 
-    // 打輸了就有戰敗事件（略過版）等著選；重來這場戰鬥回到開打之前
+    // 打輸了就有戰敗事件等著選：存檔規則預設「一律看」，事件視窗（M2-event-run）接著開起來，所以三選一的「接受」要等事件做完（M2-defeat）；重來這場戰鬥回到開打之前
     const { defeatOf } = await import('../../src/features/defeat')
     if (first.outcome === 'lose') {
-      expect(end.reports.map((r) => r.action)).toEqual(['battle.end', 'defeat.pending'])
-      expect(defeatOf(game.state)).toMatchObject({ skipped: true, choices: ['accept', 'retry', 'stage'] })
+      expect(end.reports.map((r) => r.action)).toEqual(['battle.end', 'defeat.pending', 'event.open'])
+      expect(defeatOf(game.state)).toMatchObject({ skipped: false, stage: 'playing', choices: ['accept', 'retry', 'stage'] })
       expect(game.retryBattle()).toBeNull()
       expect(game.battle).toMatchObject({ round: 1 })
       expect(defeatOf(game.state)).toBeNull()

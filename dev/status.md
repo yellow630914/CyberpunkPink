@@ -126,3 +126,5 @@
 - 2026-11-23 roster 沒做的（NPC_SYSTEM 10）：關係線、被挖走、沉溺 100 離隊、藏沉溺的檢定、牆報徵人、招募的標籤修正、拿掉人時親密度 −5。
 - 2026-11-23 npc-life 留下的：「認識的人不會因汰換而死」先放旗標 npcs:protect_known（要成正式存檔規則得核心加欄位）；契約季認旗標 city_event:contract_season（之後城市大事照這個名字）；勢力對頭讀 faction.rivals（資料欄位待定案）；npc_life_rule 的 gig_actions／netrun_bad／bill_bad、roster.risky 區 id 是暫定，委託與帳單報告名定案後對一次。被挖走、關係線、救援委託沒做。
 - 2026-11-23 commission-run 留下的：進圖開戰時 origin.by 會被補成 core（認副本戰鬥用 origin.ext.commission＋stage）；M3／M5 登記 face.net／face.opinion 時要自己 allow('commission', 'face.net.')；附帶條件檢查、直播目標、隔離區、中途警戒到 100 不升級沒做。
+- 2026-11-23 核心小修待辦（第二批）：defeat 活動的放行要能照階段（三選一等待時不放 chain:free_action，事件開著時才放；COMBAT_SYSTEM 8.4、M1 審查 E1）；事件的 fight 結果在戰敗裡要放行 battle.start（劫囚之類，M2 內容用不到）。
+- 2026-11-23 defeat 留下的：roster 要回答 defeat.companions（同行的人）；M4 裝備與義體的「拿走」效果要回答 defeat.gear；多段戰敗事件的現金上限沒有跨段合計；版本比例、handed_over 轉雇主、police 轉 arrest、pinned（M4）、AI 正文沒做。
