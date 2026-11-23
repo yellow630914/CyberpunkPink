@@ -140,7 +140,7 @@ export interface Relation {
   first: GameTime
   last: GameTime
   at?: { district?: string; block?: string }
-  /** 已知的事：tendency:<標籤>、bridge、contract、secret:<關鍵字> */
+  /** 已知的事：tendency:<標籤>、bridge、contract、secret:<關鍵字>、recent:<地方> */
   known: string[]
   watch: boolean
   /** 與主角的關係（一句話） */
@@ -153,6 +153,12 @@ export interface RosterEntry {
   ids: string[]
 }
 
+/** 每個人今天做過哪些互動（M2-npc-interact）：day 是記的那一天（state.time.day），換了一天就當成空的。 */
+export interface TodayState {
+  day: number
+  done: Record<string, string[]>
+}
+
 export interface NpcsState {
   gen: Record<string, Npc>
   rosters: Record<string, RosterEntry>
@@ -160,6 +166,8 @@ export interface NpcsState {
   rel: Record<string, Relation>
   /** 固定 NPC 的變動（淺層蓋掉內容的欄位） */
   over: Record<string, Partial<Npc>>
+  /** 今天做過哪些互動（互動選單的每天次數）；沒有互動過就沒有這個欄位 */
+  today?: TodayState
 }
 
 const emptyState = (): NpcsState => ({ gen: {}, rosters: {}, seq: {}, rel: {}, over: {} })
@@ -169,7 +177,13 @@ export function readNpcs(state: Pick<GameState, 'ext'>): NpcsState {
   const raw = state.ext[EXT]
   if (!isRecord(raw)) return emptyState()
   const f = (key: keyof NpcsState): Record<string, never> => (isRecord(raw[key]) ? (raw[key] as Record<string, never>) : {})
-  return { gen: f('gen'), rosters: f('rosters'), seq: f('seq'), rel: f('rel'), over: f('over') } as NpcsState
+  return { gen: f('gen'), rosters: f('rosters'), seq: f('seq'), rel: f('rel'), over: f('over'), ...(isRecord(raw.today) ? { today: raw.today as unknown as TodayState } : {}) } as NpcsState
+}
+
+/** 今天（state.time.day）這個人做過哪些互動（沒記過、或記的是別天，就是空的）。 */
+export function doneToday(state: Pick<GameState, 'ext' | 'time'>, id: string): string[] {
+  const t = readNpcs(state).today
+  return t && t.day === state.time.day && isRecord(t.done) && Array.isArray(t.done[id]) ? [...(t.done[id] as string[])] : []
 }
 
 /** 變更用：把 npcs 狀態整理好並放回 state.ext，回傳可以直接改的那一份。 */
@@ -594,25 +608,26 @@ export const knows = (state: Pick<GameState, 'ext'>, id: string): boolean => own
 export const knownFacts = (state: Pick<GameState, 'ext'>, id: string): string[] => relationOf(state, id)?.known ?? []
 
 export interface KnownFact {
-  kind: 'tendency' | 'bridge' | 'contract' | 'secret'
-  /** 標籤或關鍵字（bridge 與 contract 沒有） */
+  kind: 'tendency' | 'bridge' | 'contract' | 'secret' | 'recent'
+  /** 標籤、關鍵字或去過的地方（bridge 與 contract 沒有） */
   arg?: string
 }
 
-/** 已知的事的寫法：tendency:<標籤>、bridge、contract、secret:<關鍵字>。 */
+/** 已知的事的寫法：tendency:<標籤>（tendency:none 是讀過、沒有傾向）、bridge、contract、secret:<關鍵字>、recent:<去過的區或街區>。 */
 export function parseFact(fact: unknown): KnownFact | null {
   if (typeof fact !== 'string') return null
   if (fact === 'bridge' || fact === 'contract') return { kind: fact }
-  const m = /^(tendency|secret):(.+)$/.exec(fact)
-  return m ? { kind: m[1] as 'tendency' | 'secret', arg: m[2]! } : null
+  const m = /^(tendency|secret|recent):(.+)$/.exec(fact)
+  return m ? { kind: m[1] as 'tendency' | 'secret' | 'recent', arg: m[2]! } : null
 }
 
 /** 已知的事寫成給玩家看的一小段（接在人名後面）：「的傾向「窺視」」。 */
-export function knowFactText(fact: string, tagName: (tag: string) => string = (t) => t): string {
+export function knowFactText(fact: string, tagName: (tag: string) => string = (t) => t, placeName: (place: string) => string = (p) => p): string {
   const f = parseFact(fact)
   if (!f) return `的一件事`
   switch (f.kind) {
-    case 'tendency': return `的傾向「${tagName(f.arg!)}」`
+    case 'tendency': return f.arg === 'none' ? '沒有特別的傾向' : `的傾向「${tagName(f.arg!)}」`
+    case 'recent': return `最近去過${placeName(f.arg!)}`
     case 'bridge': return '的橋參數'
     case 'contract': return '的契約'
     case 'secret': return `的秘密（${f.arg}）`

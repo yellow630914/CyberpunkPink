@@ -2,7 +2,7 @@
 //
 // 三種人：固定 NPC（內容 npc；存檔只記變動）、生成 NPC（每區一份名單，第一次走進一區時建立）、臨時 NPC（事件的路人；有了關係條目就升格進名單）。
 // 主角和每個認識的人有一個關係條目（meet 之後才有）；親密度是量表 affinity，條目記已知的事、見面的時間、關注與一句話。
-// 互動選單（M2-npc-interact）、共同記憶與名單的變動（M2-npc-life）、名冊（M2-roster）不在這裡。
+// 互動選單（聊天、送禮、誘惑、交涉、威嚇、偷竊、讀橋；interact.ts）也在這個功能；共同記憶與名單的變動（M2-npc-life）、名冊（M2-roster）不在這裡。
 //
 // 接上核心的地方：
 //   內容  npc（核心的種類，載入之後 ready 補查新欄位：kind、guard、wealth、haunts、paths……；只有 id 與名字的舊 id 表照收）、
@@ -10,15 +10,17 @@
 //   量表  affinity（−100～100、照人、AI 一件事最多 ±8）；同名的效果與條件核心自動有
 //   效果  meet（{ npc }：建立關係條目，必要時把人放進 state.actors；臨時角色在這時升格）、npc_known（{ npc, fact }：把一件事記進已知的事，同一件不重複）
 //   條件  knows（{ npc? }）、affinity_stage（{ npc?, min?, max? }，段寫 id 或第幾段）
-//   變更  npcs.roster、npcs.gen、npcs.drop、npcs.promote、npcs.sweep、npcs.meet、npcs.known、npcs.watch、npcs.relation、npcs.patch（形狀見各自的註解）
+//   變更  npcs.roster、npcs.gen、npcs.drop、npcs.promote、npcs.sweep、npcs.meet、npcs.known、npcs.watch、npcs.relation、npcs.patch、npcs.did（今天做過的互動；形狀見各自的註解）
 //   掛鉤  report.before（報告的位置換到還沒有名單的一區，就建那一區的名單）、director.cast（指定的固定 NPC、主角認識的人、照當下的區新生成的人）、
 //         activity.end（事件結束：臨時角色有條目的升格，沒有的清掉）
 //   狀態  state.ext.npcs：{ gen, rosters, seq, rel, over }（形狀見 model.ts）
-// 報告：npc.meet、npc.watch（kind 都是 social）。
+// 行動種類  資料裡 owner 是 npcs 的 npc_chat、npc_gift、npc_seduce、npc_ask_small／mid／big、npc_intimidate、npc_steal、npc_read_bridge（ready 時註冊；interact.ts）
+// 報告：npc.meet、npc.watch、各種互動（kind 都是 social）。
 
 import type { Actor, Change, Condition, ConditionCtx, Effect, Feature, GameState, Kernel, ReportDraft } from '../../core'
 import { ActionBlocked, ContentError, Rng, clone, hash32, isRecord, isSafeInt, isValidTime, meterOf } from '../../core'
 import { generateNpc, planRoster, takenNames } from './generate'
+import { installInteract, registerInteractions } from './interact'
 import type { Npc, NpcKind, PathRow } from './model'
 import {
   AFFINITY, AXES, GEN_KIND, NPC_KIND, NPC_KINDS, OWNER, POOL_KIND, RULE_KIND, TEMP_FLAG,
@@ -26,10 +28,15 @@ import {
 } from './model'
 
 export { genEntryOf, genId, generateNpc, planRoster } from './generate'
+export {
+  CATEGORY_NAME, DEFAULT_INTERACT_RULES, INTERACT_KINDS, INTERACT_RULE_KIND, READ_CATEGORIES, difficulty, factionOf, giftGain, giftLiked, giftTier, hasDeck, interactBlock, interactInput, interactRules, interactions,
+  revealFacts, shieldOf, successChance, tableEffects,
+} from './interact'
+export type { DcMod, InteractExtra, InteractKind, InteractRules, InteractionView, NpcActionInput, ReadCategory } from './interact'
 export type { GenOpts } from './generate'
 export {
   ABSENT_CONDITIONS, AFFINITY, AXES, BODIES, BRIDGE_PARAMS, DEFAULT_NPC_RULES, GENDERS, GENDER_TAG, KIND_NAME, NPC_KINDS, STAGES, TAG_STATES, TEMP_FLAG,
-  affinityStage, hauntMatches, knownFacts, knows, normalizeHaunt, npcEntryProblems, npcOf, npcRules, npcsHere, npcsProblems, parseFact, readNpcs, relationOf, rosterIds, stageIndex, whereIs,
+  affinityStage, doneToday, hauntMatches, knownFacts, knows, normalizeHaunt, npcEntryProblems, npcOf, npcRules, npcsHere, npcsProblems, parseFact, readNpcs, relationOf, rosterIds, stageIndex, whereIs,
 } from './model'
 export type { Axis, BridgeParam, Gender, GenEntry, Haunt, KnownFact, Look, Npc, NpcEntry, NpcKind, NpcRules, NpcsState, PathRow, PoolEntry, Relation, RosterEntry, StageDef, StageView, TagState, Tendencies } from './model'
 
@@ -250,7 +257,7 @@ function registerChanges(k: Kernel): void {
   // 已知的事：同一件不重複
   k.changes.register<Change & { npc: string; fact: string }>({
     op: 'npcs.known', owner: OWNER,
-    validate: (state, c) => [...needKnown(state, c.npc), ...(parseFact(c.fact) ? [] : ['fact 要是 tendency:<標籤>、bridge、contract 或 secret:<關鍵字>'])],
+    validate: (state, c) => [...needKnown(state, c.npc), ...(parseFact(c.fact) ? [] : ['fact 要是 tendency:<標籤>、bridge、contract、secret:<關鍵字> 或 recent:<地方>'])],
     apply(state, c) {
       const r = ensureNpcs(state).rel[c.npc]!
       if (!r.known.includes(c.fact)) r.known.push(c.fact)
@@ -349,6 +356,7 @@ export const npcsFeature: Feature = {
     k.meters.define({ kind: AFFINITY, owner: OWNER, name: '親密度', min: -100, max: 100, start: 0, keyed: 'npc', cap: { down: 8, up: 8 } })
 
     registerChanges(k)
+    installInteract(k, { meetChanges })
 
     // ---- 效果 ----
     interface MeetEffect extends Effect { npc: string }
@@ -365,7 +373,7 @@ export const npcsFeature: Feature = {
     interface KnownEffect extends Effect { npc: string; fact: string }
     k.effects.register<KnownEffect>({
       kind: 'npc_known', owner: OWNER,
-      validate: (raw) => [...(isText(raw.npc) ? [] : ['npc 要是人的 id']), ...(parseFact(raw.fact) ? [] : ['fact 要是 tendency:<標籤>、bridge、contract 或 secret:<關鍵字>'])],
+      validate: (raw) => [...(isText(raw.npc) ? [] : ['npc 要是人的 id']), ...(parseFact(raw.fact) ? [] : ['fact 要是 tendency:<標籤>、bridge、contract、secret:<關鍵字> 或 recent:<地方>'])],
       clamp(e, ctx) {
         if (!knows(ctx.state, e.npc)) return { effect: null, note: { from: e.fact, to: null, limit: 'npc_known', notice: '你還不認識這個人，這件事沒有記下來。' } }
         // 同一件不重複：已經記過的整筆拿掉，不提醒
@@ -374,7 +382,8 @@ export const npcsFeature: Feature = {
       toChanges: (e): Change[] => [{ op: 'npcs.known', npc: e.npc, fact: e.fact }],
       describe(e, ctx) {
         const tagName = (t: string): string => String(k.content.get('tendency_tag', t)?.name ?? t)
-        return `記下了：${nameOf(k, ctx.state, e.npc)}${knowFactText(e.fact, tagName)}`
+        const placeName = (p: string): string => String(k.content.get('block', p)?.name ?? k.content.get('district', p)?.name ?? p)
+        return `記下了：${nameOf(k, ctx.state, e.npc)}${knowFactText(e.fact, tagName, placeName)}`
       },
     })
 
@@ -427,5 +436,7 @@ export const npcsFeature: Feature = {
   ready(k: Kernel) {
     const problems = npcsProblems(k)
     if (problems.length > 0) throw new ContentError(problems)
+    // 資料裡 owner 是 npcs 的互動（聊天、送禮、誘惑、交涉、威嚇、偷竊、讀橋）：沒有的那一種就不存在
+    registerInteractions(k)
   },
 }
