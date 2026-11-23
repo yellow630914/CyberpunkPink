@@ -11,7 +11,7 @@ import { attrMod } from '../rules/check'
 import { isRecord } from '../util/sanitize'
 import { otherSide, unitAt, unitsOf } from './field'
 import type { BattleEffectCtx, BattleEffectInput, BattleEffectLast } from './registry'
-import type { BattleRun } from './run'
+import type { AttackResult, BattleRun } from './run'
 
 // ---- who 與 if：封閉清單。不夠用時加在這裡，不在功能裡各自解析 ----
 
@@ -287,8 +287,30 @@ export function runEffects(run: BattleRun, list: readonly Record<string, unknown
       // 掛著的東西可能被前面幾次擊落：已經擊落的不再做
       if (landing.overlay?.down) continue
       def.fn({ ...base, ...landing }, e)
-      if (last.stop) return last
     }
+    // stop 是「這一筆做完之後」的事：這一筆落在好幾個人身上時，每個落點都做完才停（不是第一個沒過就停）
+    if (last.stop) return last
   }
   return last
+}
+
+/**
+ * 把一擊的結果寫進 ctx.last（做攻擊的 op 都用它，後面的 if 才看得準）。
+ * 沒有發生的一擊（aborted：卡彈、被取消、攻擊的人在反應裡倒下、目標已經不在）既沒有命中也沒有失手：
+ * hit、crit、downed 留 undefined（`if: miss` 不成立，`if: hit` 也不成立），dealt 是 0，另外標 last.aborted；上一筆留下的結果一併清掉。
+ */
+export function noteAttack(last: BattleEffectLast, r: Pick<AttackResult, 'hit' | 'crit' | 'downed' | 'dealt' | 'aborted'>): void {
+  if (r.aborted) {
+    delete last.hit
+    delete last.crit
+    delete last.downed
+    last.dealt = 0
+    last.aborted = true
+    return
+  }
+  delete last.aborted
+  last.hit = r.hit
+  last.crit = r.crit
+  last.downed = r.downed
+  last.dealt = r.dealt
 }

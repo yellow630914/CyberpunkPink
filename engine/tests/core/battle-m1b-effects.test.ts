@@ -250,7 +250,7 @@ describe('run.effects：who、if 與上一筆的結果（dev/adr/0015 第一節�
     expect(log).toEqual(['a2/-'])
   })
 
-  it('last 是同一個物件（呼叫的人給了，整串做完之後看得到最後的結果）；一筆落在好幾個人身上，if 只在這一筆之前看一次；stop 讓後面的都不做', () => {
+  it('last 是同一個物件（呼叫的人給了，整串做完之後看得到最後的結果）；一筆落在好幾個人身上，if 只在這一筆之前看一次；stop 讓後面的筆都不做', () => {
     const a = field()
     const log = recorder(a)
     const last = {}
@@ -263,11 +263,11 @@ describe('run.effects：who、if 與上一筆的結果（dev/adr/0015 第一節�
     log.length = 0
     a.run().effects([{ op: 'mark', who: 'self' }, { op: 'stop_it' }, { op: 'mark', who: 'self' }], input(a))
     expect(log).toEqual(['a2/-'])
-    // stop 設在一筆落在好幾個人身上的效果裡：後面的人也不做
+    // stop 設在一筆落在好幾個人身上的效果裡：這一筆的每個落點都做完，後面的「筆」才不做（ADR 0015「這一筆做完之後」；審查 S1）
     log.length = 0
     a.k.battle.effect('stop_flip', 't', (ctx) => { log.push(ctx.unit!.id); ctx.last.stop = true })
     a.run().effects([{ op: 'stop_flip', who: 'allies' }, { op: 'mark' }], input(a))
-    expect(log).toEqual(['a1'])
+    expect(log).toEqual(['a1', 'a2', 'a3'])
   })
 
   it('ctx 帶的東西：source、pick、n、user、target；來源是道具時 ctx.item 等於 source.id，別的來源沒有', () => {

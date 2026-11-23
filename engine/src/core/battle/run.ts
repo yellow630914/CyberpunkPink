@@ -84,7 +84,7 @@ export interface AttackOpts {
 }
 
 export interface AttackResult {
-  /** 這一擊沒有發生（攻擊者在擲骰之前倒下了） */
+  /** 這一擊沒有發生（攻擊者在擲骰之前退出了，或替身那一台被擊落、收走：run.gone；被 opts.cancel 取消；目標已經不在）。效果用 noteAttack 寫進 last，hit 留 undefined */
   aborted?: boolean
   hit: boolean
   crit: boolean
@@ -148,6 +148,8 @@ export class BattleRun implements BattleView {
   private flushing = false
   /** 正在問 cover_level 的修正：修正的條件裡又問有效遮蔽時（in_cover）回答那一格本身的，不然會問不完 */
   private askingCover = false
+  /** 這一步裡剛失去回合的那個人（beginTurn 設、advance 在發他的 turn.end 時用：帶 lost: true）。不是戰鬥狀態，不存檔 */
+  skippedTurn?: string
 
   /** battle 是工作副本：呼叫的人先複製好；state 是這一步開始時的遊戲狀態，只讀。 */
   constructor(readonly k: BattleKernel, readonly state: GameState, readonly battle: BattleState) {
@@ -354,7 +356,8 @@ export class BattleRun implements BattleView {
     // 反應在擲骰之前（掩護射擊、小心後面！）：可以改這一擊的加減，也可能先把攻擊的人打倒
     this.k.battle.emit('attack.before', { run: this, attacker, target, weapon: w, opts })
     if (opts.cancel !== undefined) return this.cancelStrike(attacker, target, w, opts, { ...none, aborted: true })
-    if (attacker.out || target.out || this.over) return { ...none, aborted: true }
+    // 攻擊的人在反應裡被打下來了（替身是那一台被擊落或收走）：這一擊沒有發生
+    if (this.gone(attacker) || target.out || this.over) return { ...none, aborted: true }
     // 改打掛著的東西（擋槍）：照它的迴避與護甲算，原本的目標不受影響；彈匣上面已經扣過了，不再扣。結算之後發 attack.redirected（不發 attack.after）
     const diverted = opts.redirect ? this.battle.overlays.find((x) => x.id === opts.redirect!.overlay && !x.down) : undefined
     if (diverted) {
@@ -446,7 +449,7 @@ export class BattleRun implements BattleView {
     const standIn = this.standIn(o)
     this.k.battle.emit('attack.before', { run: this, attacker, target: standIn, weapon: w, opts: o2 })
     if (o2.cancel !== undefined) return this.cancelStrike(attacker, standIn, w, o2, { ...none, aborted: true })
-    if (attacker.out || o.down || this.over) return { ...none, aborted: true }
+    if (this.gone(attacker) || o.down || this.over) return { ...none, aborted: true }
     const result = this.strikeOverlay(attacker, o, { ...o2, weapon: w })
     if (!result.aborted) this.k.battle.emit('attack.after', { run: this, attacker, target: standIn, weapon: w, opts: o2, result })
     return result
@@ -824,6 +827,12 @@ export class BattleRun implements BattleView {
       if (o.autonomous) this.orphan(o)
       else this.dropOverlay(o, undefined, true)
     }
+    // 他再也沒有回合了：給別人的、「到他的回合開始／結束」的狀態沒有人會數，現在結束（和監視、守著一樣；W012）
+    for (const holder of Object.values(this.battle.units)) {
+      if (holder === u) continue
+      // 已經退出的人身上的不再記拍（沒有人看得到）
+      for (const st of [...holder.statuses]) if ((st.until.at === 'turn_start' || st.until.at === 'turn_end') && st.until.of === u.id) this.removeStatus(holder, st.id, !!holder.out)
+    }
     this.k.battle.emit('out', { run: this, unit: u, how, ...(by ? { by } : {}) })
     this.compact(u.side)
     this.checkResult()
@@ -832,7 +841,8 @@ export class BattleRun implements BattleView {
   /**
    * 把因為生命歸零倒下的人救回來（out 是 down 的才收；burnout、subdued 與還在場上的回傳 false）。
    * 回到場上：有空格放最後面的空格（和增援同一條，dev/adr/0013 C6），沒有空格就排進後方的最前面；
-   * 生命是給的數字（最少 1、不超過上限），行動點 0，狀態清空，先攻的順位不變。戰鬥已經分出結果之後不能救。
+   * 生命是給的數字（最少 1、不超過上限），行動點 0，狀態與姿態清空，先攻的順位不變。戰鬥已經分出結果之後不能救。
+   * 最後發 revive 掛點：功能記在他身上的限時的東西（buff、持續型快駭）在那裡清（dev/adr/0015 補記 M1b-review-core）。
    */
   revive(u: BattleUnit, hp: number): boolean {
     if (this.over || u.out !== 'down' || !u.hp) return false
@@ -842,6 +852,7 @@ export class BattleRun implements BattleView {
     u.hp.now = clamp(Number.isFinite(hp) ? Math.round(hp) : 1, 1, u.hp.max)
     u.ap.now = 0
     u.statuses = []
+    delete u.stance
     let slot = 0
     for (let s = BATTLE_SLOTS; s >= 1; s--) if (!unitAt(b, u.side, s)) { slot = s; break }
     if (slot) u.slot = slot
@@ -851,6 +862,8 @@ export class BattleRun implements BattleView {
       this.exposed(u)
       this.compact(u.side)
     }
+    // 功能自己記在他身上的限時的東西（buff、持續型快駭）也屬於「狀態清空」：由功能在這個掛點清
+    this.k.battle.emit('revive', { run: this, unit: u })
     return true
   }
 
@@ -931,6 +944,15 @@ export class BattleRun implements BattleView {
   overlayOfStandIn(u: BattleUnit): BattleOverlay | undefined {
     if (!this.isStandIn(u)) return undefined
     return this.battle.overlays.find((x) => x.id === u.ext.overlay && !x.down)
+  }
+
+  /**
+   * 這個單位已經不能再出手了：人退出了（倒下、制伏、逃走……），或是替身而那一台已經被擊落、收走。
+   * 攻擊者在反應裡被打下來之後，「攻擊的人已經退出就停」問的是這個：只看 `u.out` 對替身永遠不成立（替身沒有 out，被擊落的是那一台）。
+   * 不在戰鬥裡的單位（後方排隊的）不算退出。
+   */
+  gone(u: BattleUnit): boolean {
+    return !!u.out || (this.isStandIn(u) && !this.overlayOfStandIn(u))
   }
 
   /**

@@ -1,6 +1,6 @@
-// B015：失去回合的那一個回合，hack 的持續型（迴圈）不結算也不倒數、summons 的守著與停機計時不走（和 W011 同一個根：beginTurn 對失去回合的人不發 turn.start）。
-// 規格出處與說明：dev/bugs/B015-lost-turn-hack-dot-and-summons-timers.md。
-// 每個測試寫的是規格期望的行為；同一個檔裡的「對照」是核心現在就對的那一半（狀態在同一刻到期），會過。修好之前其餘的照預期失敗。
+// B015：失去回合的那一個回合，hack 的持續型（迴圈）要照常結算與倒數、summons 的守著與停機計時要照常走（和 W011 同一個根：beginTurn 對失去回合的人不發 turn.start）。
+// 規格出處與說明：dev/bugs/B015-lost-turn-hack-dot-and-summons-timers.md。修法在核心：失去回合的人也發 turn.start、turn.end（lost: true；dev/adr/0015 補記 M1b-review-core）。
+// 這份原本在 tests/pending/，修好之後搬進主套件。每個測試寫的是規格期望的行為；「對照」是沒有失去回合時本來就對的那一半。
 // 內容一律是測試自帶的假資料；重現就是這個檔（不經過提交，直接在一場戰鬥上呼叫效果與 beginTurn）。
 
 import { describe, expect, it } from 'vitest'

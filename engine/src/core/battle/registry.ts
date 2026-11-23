@@ -248,9 +248,18 @@ export interface BattleHookMap {
    * 處理函式做完之後，核心替它收尾（run.settle：補位、看結果）
    */
   'round.start': { run: BattleRun; round: number }
-  /** 一個單位的回合開始：行動點已經回復、狀態已經結算、確定不是失去回合 */
-  'turn.start': { run: BattleRun; unit: BattleUnit }
-  'turn.end': { run: BattleRun; unit: BattleUnit }
+  /**
+   * 一個單位的回合開始：行動點已經回復、狀態已經結算。**失去回合的人也發**（lost: true；他的回合照樣開始，只是動不了）：
+   * 計時類的東西（守著、臨時遮蔽、buff、持續型快駭、無人機的守著與停機）要照樣數，所以聽這個掛點就對了；
+   * 要「替他做一件事」的處理函式（回合開始時的效果、自己動一次）先看 lost，失去的回合不做（dev/adr/0015 補記 M1b-review-core）。
+   * 發的時候他的失去回合狀態已經拿掉（回合開始前就帶著的那一個）；處理函式裡讓他又過載的，失去的是下一個回合。失去回合的 turn.start 之後 battle.acting 沒有設
+   */
+  'turn.start': { run: BattleRun; unit: BattleUnit; lost?: boolean }
+  /**
+   * 一個單位的回合結束（還在場上的才發；回合裡自己退出的不發：他的計時由 out 結束，見 dev/adr/0015 補記）。
+   * lost: true 是失去的那個回合（他沒有動，但 turn.start 與 turn.end 都照發，計時照數）
+   */
+  'turn.end': { run: BattleRun; unit: BattleUnit; lost?: boolean }
   /**
    * 擲命中之前：反應（掩護射擊、小心後面！）在這裡；可以改 opts（命中、迴避的加減）。
    * attacker 可能是替身（和人重疊的東西自己開火，run.overlayAttack；ext.overlay 是那一台的 id，不在 battle.units 裡）：
@@ -284,15 +293,27 @@ export interface BattleHookMap {
    * type 是造成它的傷害類型；呼叫的人自己決定沉溺的（AttackOpts.noSink）不經過這裡
    */
   'sink.before': { run: BattleRun; unit: BattleUnit; amount: number; type?: import('../types').DamageType; by?: BattleUnit; out: { block?: boolean } }
-  /** 過載了（感載已經歸零、餘韻加了一層、沒有倒下；失去回合或閃斷已經照戰場的規則做了） */
+  /**
+   * 過載了（感載已經歸零、餘韻加了一層、沒有倒下；失去回合或閃斷已經照戰場的規則做了）。
+   * 餘韻已經疊滿再過載（昏過去）的那一次不發這個，先發 out.before（how: burnout），有人擋下就到此為止：
+   * 功能自己記的「到下次過載」的東西（until: next_overload）兩個都要聽（核心的狀態在 overload() 一開頭就拿掉了，不必管）
+   */
   'overload': { run: BattleRun; unit: BattleUnit; by?: BattleUnit }
   /**
    * 有人即將退出（how：down、burnout、subdued、surrendered、fled……）。處理函式把 out.prevent 設成 true 就擋下：setOut 回傳 false、什麼都不做。
    * 因為生命歸零而來的（how 是 down），核心保證擋下之後生命至少 1；其餘的數字（感載、餘韻、狀態）由處理函式自己改
    */
   'out.before': { run: BattleRun; unit: BattleUnit; how: string; by?: BattleUnit; out: { prevent?: boolean } }
-  /** 倒下或退出（how：down、subdued、surrendered、fled……） */
+  /**
+   * 倒下或退出（how：down、subdued、surrendered、fled……）。發的時候核心已經把「他給別人的、算他的回合的狀態」拿掉
+   * （source_turn_start、source_turn_end）；功能自己記的計時（buff、臨時遮蔽、守著）也在這裡結束：他再也沒有回合了
+   */
   'out': { run: BattleRun; unit: BattleUnit; how: string; by?: BattleUnit }
+  /**
+   * 倒下的人被救回來了（run.revive）：發的時候他已經回到場上（或排在後方）、生命已經給了、行動點 0、核心的狀態與姿態已經清空。
+   * 「狀態清空」包括功能自己記在他身上的限時的東西（buff、持續型快駭……）：功能在這裡清自己的
+   */
+  'revive': { run: BattleRun; unit: BattleUnit }
   /**
    * 一個帶著 other（對誰擲的）的檢定（run.save）擲之前。**unit 是擲骰的人**（run.save 的 u：快駭與誘惑是丟程式、出手的人；
    * 對效果擲的豁免是被打的人），**other 是這個檢定對他擲的那個人**（拿 DC 的那一方：被快駭、被誘惑的人；豁免則是下手的人）。
@@ -379,15 +400,20 @@ export interface BattleEffectNumbers {
 /**
  * 上一筆攻擊或檢定的結果：做攻擊與檢定的 op 把結果寫進 ctx.last，後面的 if 看它（整串效果共用同一個物件）。
  * overloaded 是上一筆讓對象過載了（灌感載的 op 寫）；stop 設成 true，這一筆做完之後這一串效果都不做（檢定的 stop 用）。
+ * 攻擊的 op 用 noteAttack 寫結果：沒有發生的一擊 hit 是 undefined，不是 false。
  */
 export interface BattleEffectLast {
+  /** 命中了嗎。沒有發生的一擊（aborted）留 undefined：`if: miss` 不成立（用 noteAttack 寫） */
   hit?: boolean
   crit?: boolean
   downed?: boolean
   overloaded?: boolean
   ok?: boolean
   dealt?: number
+  /** 這一筆做完之後這一串效果都不做（落在好幾個人身上的一筆，每個落點都做完才停） */
   stop?: boolean
+  /** 上一擊沒有發生（卡彈、被取消、攻擊的人在反應裡倒下、目標已經不在）；noteAttack 寫 */
+  aborted?: boolean
 }
 export interface BattleEffectCtx {
   run: BattleRun

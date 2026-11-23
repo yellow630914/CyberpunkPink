@@ -5,7 +5,7 @@
 //   開新遊戲 → 建角 → 帶上武器 → 走進地圖 → 走到保全崗開打 → 一場現實戰鬥打完 → 存讀檔 → 打一場打不贏的 → 戰敗事件（略過版）→ 重來
 
 import { describe, expect, it } from 'vitest'
-import { Game } from '../../src'
+import { BATTLE_EVENTS, Game } from '../../src'
 import { FEATURES, allFeatures } from '../../src/features'
 import { CORE_PACK } from '../../data'
 import { commitViolations, playOut, stateHash } from '../../src/testkit'
@@ -42,6 +42,10 @@ describe('冒煙 M1（功能版）：一場現實戰鬥打完、戰敗事件（�
     const end = await game.finishBattle()
     expect(end.reports[0]).toMatchObject({ kind: 'combat', action: 'battle.end' })
     expect(game.battle).toBeNull()
+    // 戰鬥的每一拍的標籤都在封閉清單裡（不變式第 54 條）；掃原始碼的版本在 tests/core/battle-m1b-review-core.test.ts
+    const seen = new Set(game.state.reports.filter((r) => r.kind === 'combat').flatMap((r) => r.timeline.map((b) => b.tag)).filter(Boolean))
+    expect(seen.size).toBeGreaterThan(3)
+    for (const tag of seen) expect(BATTLE_EVENTS as readonly string[], String(tag)).toContain(tag)
 
     // 存檔再讀檔，狀態一模一樣
     const hash = stateHash(game.state)

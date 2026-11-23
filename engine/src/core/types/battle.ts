@@ -385,5 +385,7 @@ export const BATTLE_EVENTS = [
   'move', 'push', 'pull', 'reload', 'swap', 'item', 'watch', 'watch.fire',
   'status', 'status.end', 'skill', 'support', 'overlay', 'overlay.down', 'node', 'field', 'hull', 'hull.break',
   'revive',
+  // 功能自己的事件：angel（天使急救的小隊把倒下的人帶走）、tease（誘惑沒有橋或太遠）、trait（開戰時敵人特徵上身）
+  'angel', 'tease', 'trait',
 ] as const
 export type BattleEvent = (typeof BATTLE_EVENTS)[number]

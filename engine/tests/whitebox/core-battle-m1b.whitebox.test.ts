@@ -216,7 +216,7 @@ describe('白箱 who 的解析與 runEffects 的退路（dev/adr/0015 第一節�
     expect(hits).toEqual(['f2', 'f3', 'o2'])
   })
 
-  it('不認得的 op、不合格的 who 與 if 在執行時丟錯（載入時由 effectProblems 先擋；這裡是最後一道）；if 不成立就跳過；一筆把 last.stop 設成 true，之後的不做', () => {
+  it('不認得的 op、不合格的 who 與 if 在執行時丟錯（載入時由 effectProblems 先擋；這裡是最後一道）；if 不成立就跳過；一筆把 last.stop 設成 true，這一筆做完之後的不做', () => {
     const a = three()
     const hits = spy(a)
     a.k.battle.effect('halt', 'test', (ctx) => { ctx.last.stop = true })
@@ -232,10 +232,10 @@ describe('白箱 who 的解析與 runEffects 的退路（dev/adr/0015 第一節�
     const last = run.effects([{ op: 'mark', who: 'foes' }, { op: 'halt' }, { op: 'mark', who: 'self' }], { user: u, source: SRC })
     expect(last.stop).toBe(true)
     expect(hits).toEqual(['a1', 'f1', 'f2', 'f3'])
-    // 落在好幾個人上時，中途設了 stop 就連剩下的人也不做
+    // 落在好幾個人上時，中途設了 stop：這一筆的每個落點都做完，後面的筆才不做（審查 S1）
     hits.length = 0
-    run.effects([{ op: 'stop_after_first', who: 'foes' }], { user: u, source: SRC })
-    expect(hits).toEqual(['s:f1'])
+    run.effects([{ op: 'stop_after_first', who: 'foes' }, { op: 'mark', who: 'self' }], { user: u, source: SRC })
+    expect(hits).toEqual(['s:f1', 's:f2', 's:f3'])
   })
 
   it('一筆落在好幾台上，前面的一筆把後面的擊落了：已經擊落的不再做（掛著的東西被前面幾次擊落）', () => {

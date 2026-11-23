@@ -53,6 +53,7 @@ export function startRound(run: BattleRun): void {
 /**
  * 這個人的回合開始。回傳他這一回合能不能動（false：失去回合、或在回合開始時倒下）。
  * 第一個自己的回合不回行動點（從上限開始；被埋伏的從上限 − 2，開打時已經設好）。
+ * 失去回合的人，他的回合照樣開始：核心的狀態照數、發 turn.start（lost: true；功能的計時照數），只是不輪給他。
  */
 export function beginTurn(run: BattleRun, u: BattleUnit): boolean {
   const b = run.battle
@@ -109,6 +110,10 @@ export function beginTurn(run: BattleRun, u: BattleUnit): boolean {
     // 這一回合用掉的是回合開始前就帶著的那一個；發作時才剛過載的，失去的是下一個回合，留著
     for (const s of [...u.statuses]) if (carried.has(s) && run.statusRule(s.id).loseTurn) run.removeStatus(u, s.id, true)
     run.say(`${unitTag(u)} 還動不了，失去這一回合。`, 'turn.skip', { unit: u.id })
+    run.skippedTurn = u.id
+    // 他的回合照樣開始（lost: true）：守著、臨時遮蔽、buff、持續型快駭、無人機的守著與停機這些聽 turn.start 計時的東西，和核心的狀態同一刻照數
+    // （W011、B015）。不設 battle.acting：他沒有「進行中的回合」，也就沒有他給自己的 own_turn_end 要略過的問題
+    run.k.battle.emit('turn.start', { run, unit: u, lost: true })
     return false
   }
   run.say(`輪到 ${unitTag(u)}。`, 'turn', { unit: u.id, round: b.round })
@@ -124,9 +129,11 @@ export function advance(run: BattleRun): void {
   for (let guard = 0; guard < 64 && !run.over; guard++) {
     const cur = currentUnit(b)
     if (cur) {
-      if (!cur.out) run.k.battle.emit('turn.end', { run, unit: cur })
+      // 失去回合的那一個（beginTurn 記在 run.skippedTurn）：turn.end 帶 lost: true
+      if (!cur.out) run.k.battle.emit('turn.end', { run, unit: cur, ...(run.skippedTurn === cur.id ? { lost: true } : {}) })
       tickStatuses(run, 'turn_end', cur.id)
     }
+    delete run.skippedTurn
     delete b.acting
     run.settle()
     if (run.over) return
