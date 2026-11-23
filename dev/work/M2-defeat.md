@@ -46,3 +46,5 @@ M2-event-run、M2-core-activity。M2-commission-close 的最後一條驗收等�
 ## 完成時回報
 
 改了哪些檔、測試結果、ENEMIES 第 6 節與 COMBAT_SYSTEM 8.3 節裡沒做的（預期：版本的比例設定、`handed_over` 轉到雇主的事件、AI 的前後半段正文）。
+
+- 2026-11-23 補：事件 chain 帶出的第二件 origin.by 是 director，不回到原發起的人；戰敗事件要「chain 之後回到戰敗」時讀 result 或另開 launch。

@@ -2,7 +2,9 @@
 //
 // 唯一的導演：讀每一回合報告上的觸發點（report.triggers），照範圍的機率、冷卻、篩選、權重挑事件，照每回合的上限放行或延後。
 // 發觸發點的功能只在自己的報告上寫 triggers，不知道導演存在；導演也不認得任何一個發觸發點的功能。新增一種範圍只要加一筆資料。
-// 事件視窗裡的選項與檢定不在這裡（M2-event-run）：擋住型的事件放行 ＝ 開一段 event 活動（k.activity.start），沒有人登記時改成排隊。
+// 事件視窗裡的選項與檢定不在這個功能裡，在同一個資料夾的另一個功能 eventRunFeature（run.ts、body.ts；M2-event-run）：
+// 擋住型的事件放行 ＝ 開一段 event 活動（k.activity.start），沒有人登記時改成排隊。兩個功能各自安裝（FEATURES 裡 eventRunFeature 排在這個後面）；
+// 沒裝 eventRunFeature 的一局（導演的測試用替身活動）不受影響。開著的事件存在 state.ext.director.open，導演改寫自己的狀態時原樣帶著（flow.ts 的 takeOpen）。
 //
 // 接上核心的地方：
 //   內容  event_scope（每個範圍一筆）、event_rule（id: default，每回合的上限、城裡每天的上限、類型平衡）、event（表頭；內文檢查用 addEventBodyCheck 再掛）

@@ -53,3 +53,5 @@ M2-lewd、M2-core-activity、M2-core-meters。M2-npcs 的 `affinity` 有最好�
 ## 使用者定案（2026-11-23）：精簡版用「自動接線」
 
 LEWD_SYSTEM 3.5 節第八點。引擎加 `autoLink`（設定 `scene_mode: full|simple`，預設 simple）：用技能與道具時沒給部位就由引擎挑（技能寫的部位裡空著的、有標籤的優先、都佔著換掉最早的一條）；切換體位後照新體位把能接的接回；精簡版固定一對一、開場自動挑雙方都會的體位。兩種模式共用同一套規則與數值，驗收要有「同一個種子、同樣的行動序列，完整版手動選到和自動接一樣的部位時結果相同」。介面：設定裡一個開關；精簡版不顯示部位與連接，只顯示持續效果的條數與大概數值。AI 不做每回合呼叫，只留 scene_gate 等接口。
+
+- 2026-11-23 補（M2-event-run 回報）：事件帶出的 `adult_scene` setup 是 DATA 第 4 節原樣 `{ when, gate, nature, role, goal, circles, start_position, tags }`，沒有 `with`：對象從 `circles[0]` 去掉主角取得。`nature` 要收 `captive`（俘虜帶走）。
