@@ -1,0 +1,23 @@
+{
+  "id": "W014-pressure-lost-when-crossing-starts-fight",
+  "note": "W014：警戒在「被保全發現、開打」的那一步跨過 pressure_at（60）時，壓力條那一擲不見了。commission 的 report.after 在戰鬥中不發 pressure（state.battle），打完的 battle.end 讓目標（打贏）達成，先接 milestone、不看 pressure；下一個階段一開地圖警戒就在 60 以上，chooseBranch 直接記成 pressured。",
+  "seed": 5,
+  "setup": {
+    "named": "makeWorldGame",
+    "pc": "STRONG_PC",
+    "time": { "day": 3, "hour": 10, "minute": 0 },
+    "money": { "cred": 500, "cash": 1000 },
+    "features": ["全部功能", "w014_bump：report.before 在帶 snapshot.add（slot.kind battle）的那一份、副本第 1 階段 play 時，加一筆 meter alert set 70"],
+    "content": {
+      "event_scope": [{ "id": "commission", "triggers": { "stage": 0, "pressure": 1 }, "events_as": { "pressure": "stage" }, "priority": 1, "in_commission": true, "unique_in_commission": true, "lost": "drop" }],
+      "event": [{ "id": "ev_w014", "scope": "commission", "triggers": ["stage"], "blocking": false, "text": "警戒升高了。", "effects": [] }]
+    }
+  },
+  "inputs": [
+    { "do": "arrive", "block": "tw_market", "marker": "E1" },
+    { "do": "launch", "kind": "commission", "setup": { "def": "cm_tw_office" } },
+    { "do": "playStage", "branch": "assault" }
+  ],
+  "expect": "第 1 階段的報告裡有 commission.pressure，event.notice 一則（ev_w014）。實際：commission.face commission.branch grid.move battle.start battle.end commission.milestone，沒有 pressure、沒有事件；之後 run.alert 70，第 2 階段開地圖就 pressured。",
+  "test": "engine/tests/pending/W014-W015-fix-review.test.ts 的 W014"
+}

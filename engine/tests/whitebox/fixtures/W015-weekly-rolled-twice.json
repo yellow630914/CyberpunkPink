@@ -1,0 +1,17 @@
+{
+  "id": "W015-weekly-rolled-twice",
+  "note": "W015：跨過一個週一 06:00，weekly 觸發點被導演擲了兩次：一次是導演自己 time.passed（順序 20）的 weekly，一次是 turn.end 從這一回合的每一份報告收觸發點時，收到 bill.settle（帳單 time.passed 接著提交的）帶的 weekly { overdue }。修正批之前 turn.end 只看行動自己那一份，bill.settle 的觸發點沒有人讀。",
+  "seed": 7,
+  "setup": {
+    "named": "city",
+    "content": {
+      "event_scope": [{ "id": "wk_test", "triggers": { "weekly": 1 }, "cooldown_hours": 0, "repeat_days": 0, "lost": "drop" }],
+      "event": [{ "id": "ev_w015", "scope": "wk_test", "triggers": ["weekly"], "blocking": false, "text": "一週又過了。", "effects": [] }]
+    }
+  },
+  "inputs": [
+    { "type": "m2", "do": "pass_until", "day": 7, "hour": 9 }
+  ],
+  "expect": "event.notice 一則。實際：兩則（報告順序 … test.wait bill.settle event.notice event.notice）；拿掉 bills 功能時一則。",
+  "test": "engine/tests/pending/W014-W015-fix-review.test.ts 的 W015"
+}
