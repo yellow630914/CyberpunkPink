@@ -214,3 +214,9 @@
 - transit 匯出 `taxiArrival(k, state, to)`（介面用補足車資的狀態複本權宜重做抵達）。
 - 設定 `billMult`、`xpMult`、`defeatView`、`defeatTakeGear` 還沒交給引擎（`rulesFromUi`）。
 - App.vue 的戰鬥換頁與帳單 watch 只有原始碼檢查與 Playwright 確認，沒有掛載測試。
+
+## 2026-11-23（lead）：M2 收尾
+
+- M2 全部工單、引擎與介面審查、白箱與邊界、三批修正完成。引擎 194 檔 5261 條、冒煙 98 條、介面 628 條全過；pending 只剩 B009。
+- 介面成品 v11、設計書 v180 已發布。
+- 待使用者：AI 可用效果（perk、meet、npc_known、scout_reveal）、AI 能不能扣體悟、出發前放棄委託扣多少；委託結算畫面要不要加信譽預告。
