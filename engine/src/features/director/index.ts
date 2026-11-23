@@ -21,6 +21,10 @@ import { runPasses } from './flow'
 import type { EventEntry } from './model'
 import { EVENT_KIND, MAX_CATCH_UP, OWNER, RULE_KIND, SCOPE_KIND, directorProblems, eventProblems, noticeBodyProblems, ruleProblems, runBodyChecks, scopeProblems } from './model'
 
+export { EVENT_ACTIVITY, EVENT_RUN_OWNER, FREE_OPTION, chooseOption, eventActivity, eventRunFeature, eventView, openEventOf } from './run'
+export type { EventView, OpenEvent, OptionView } from './run'
+export { DC_MAX, DC_MIN, MAX_CAST, MAX_OPTIONS, eventBodyProblems, normalCheck, outcomeList, resolveBody, substitute } from './body'
+export type { CheckSpec, EventBodyFields, OptionDef, ResolvedBody, ResolvedStage, StageDef } from './body'
 export { runPasses } from './flow'
 export type { Pass, RunOpts } from './flow'
 export {

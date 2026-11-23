@@ -252,6 +252,11 @@ export interface DirectorState {
   city: { day: number; blocking: number }
   /** 這一回合（key 是那個行動的報告 id）已經放行了幾件擋住型、幾則通知 */
   turn: { key: string; blocking: number; notices: number }
+  /**
+   * 開著的那一件事件（事件視窗，M2-event-run 管；形狀見 run.ts 的 OpenEvent）。沒有開著的沒有這個欄位。
+   * 導演自己不讀它，只在改寫 state.ext.director 時原樣帶著走（整份是一個 ext 變更，不帶就等於把事件視窗關掉）。
+   */
+  open?: Record<string, unknown>
 }
 
 export const emptyDirector = (): DirectorState => ({ scopes: {}, seen: {}, recent: [], deferred: [], notices: [], city: { day: 0, blocking: 0 }, turn: { key: '', blocking: 0, notices: 0 } })
@@ -272,6 +277,7 @@ export function directorOf(state: Pick<GameState, 'ext'>): DirectorState {
   if (Array.isArray(r.notices)) out.notices = r.notices.filter(isQueued).map((q) => clone(q))
   if (isRecord(r.city) && isSafeInt(r.city.day) && isSafeInt(r.city.blocking)) out.city = { day: r.city.day, blocking: r.city.blocking }
   if (isRecord(r.turn) && typeof r.turn.key === 'string' && isSafeInt(r.turn.blocking) && isSafeInt(r.turn.notices)) out.turn = { key: r.turn.key, blocking: r.turn.blocking, notices: r.turn.notices }
+  if (isRecord(r.open)) out.open = clone(r.open)
   return out
 }
 

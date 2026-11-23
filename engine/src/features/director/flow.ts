@@ -9,7 +9,7 @@
 // 回合的記號是那個行動的報告 id，存在 state.ext.director.turn。
 
 import type { Change, GameState, GameTime, Kernel, ReportDraft, ReportTrigger } from '../../core'
-import { ActionBlocked, clone, deriveRng, effectCtx, tagsAllowed, toMinutes } from '../../core'
+import { ActionBlocked, clone, deriveRng, effectCtx, isRecord, tagsAllowed, toMinutes } from '../../core'
 import type { DirectorState, EventEntry, EventRules, Queued, Scope } from './model'
 import {
   EVENT_KIND, EXT, cityBlockingToday, directorOf, eligibleEvents, eventRules, eventWeight, scopeCountToday, scopeOf, scopesOf,
@@ -77,12 +77,31 @@ export function runPasses(k: Kernel, state: GameState, passes: Pass[], o: RunOpt
   if (run.d.turn.key !== o.turnKey) run.d.turn = { key: o.turnKey, blocking: 0, notices: 0 }
   const scopes = scopesOf(k)
   for (const pass of passes) runPass(run, scopes, pass)
+  takeOpen(run)
   const drafts = [...run.notices, ...run.starts]
   if (!run.changed) return drafts
   const change: Change = { op: 'ext', key: EXT, value: clone(run.d) }
   if (drafts.length > 0) drafts[0]!.changes.push(change)
   else drafts.push({ kind: 'system', action: 'director.queue', location: clone(state.location), party: [], timeline: [], changes: [change], outcome: { result: 'queued', summary: '有一件事排到之後再發生。' } })
   return drafts
+}
+
+/**
+ * 事件視窗（M2-event-run）開的時候把「開著的事件」寫在 state.ext.director.open，也就是和導演自己的狀態同一個 ext 變更。
+ * 導演這一回合還要改自己的部分（冷卻、件數、佇列），最後一筆整份寫回去會把剛開的事件蓋掉：
+ * 所以先把開始的報告裡寫給 state.ext.director 的那一筆拆下來，只取 open 併進導演自己的狀態，由最後那一筆一起寫。
+ */
+function takeOpen(run: Run): void {
+  for (const draft of run.starts) {
+    draft.changes = draft.changes.filter((c) => {
+      if (c.op !== 'ext' || c.key !== EXT) return true
+      const open = isRecord(c.value) ? c.value.open : undefined
+      if (isRecord(open)) run.d.open = clone(open)
+      else delete run.d.open
+      run.changed = true
+      return false
+    })
+  }
 }
 
 function runPass(run: Run, scopes: Scope[], pass: Pass): void {
