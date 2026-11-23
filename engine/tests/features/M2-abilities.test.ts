@@ -426,6 +426,20 @@ describe('偽裝與被識破（戰鬥外開、帶進戰鬥）', () => {
     expect(() => stance(fighting.k, fighting.state, 'pc', 'sk_disguise')).toThrow('戰鬥中的姿態用戰鬥裡的行動開關。')
   })
 
+  it('開著的姿態被卸下（換配置）就跟著關掉，重新裝上時不會自己又開著', () => {
+    const g = game({ equipped: ['sk_root', 'sk_disguise'] })
+    g.commit(stance(g.k, g.state, 'pc', 'sk_disguise'))
+    expect(abilitiesOf(g.state, 'pc').stance).toBe('sk_disguise')
+    g.commit(equipAbilities(g.k, g.state, 'pc', ['sk_root']))
+    expect(abilitiesOf(g.state, 'pc')).not.toHaveProperty('stance')
+    g.commit(equipAbilities(g.k, g.state, 'pc', ['sk_root', 'sk_disguise']))
+    expect(part(perform(g), 'sk_disguise')).toEqual([])
+    // 留著姿態的那個技能時，姿態照舊開著
+    g.commit(stance(g.k, g.state, 'pc', 'sk_disguise'))
+    g.commit(applyLoadout(g.k, g.state, 'pc', ['sk_disguise', 'sk_c1']))
+    expect(abilitiesOf(g.state, 'pc').stance).toBe('sk_disguise')
+  })
+
   it('我演得很像吧、入骨是被動的戰鬥外修正：infiltrate +2、+4（裝著才有；兩個都裝就都在明細裡）', () => {
     const g = game({ equipped: ['sk_root', 'sk_good_actor'] })
     expect(part(perform(g), 'sk_good_actor')).toEqual([2])

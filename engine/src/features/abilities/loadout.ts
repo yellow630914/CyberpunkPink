@@ -9,7 +9,7 @@
 import type { ActorId, Change, ContentEntry, GameState, Kernel, ReportDraft } from '../../core'
 import { isSafeInt } from '../../core'
 import { abilitiesOf, capacityFor, reportOf } from './learn'
-import type { AbilityEntry } from './types'
+import type { AbilityEntry, AbilityState } from './types'
 import { CATEGORIES, CATEGORY_NAME, OWNER } from './types'
 
 // ---- 規則 ----
@@ -58,11 +58,15 @@ export function registerLoadout(k: Kernel): void {
 
 type LoadoutKernel = Pick<Kernel, 'content' | 'activity' | 'conditions' | 'stats' | 'timeRules'>
 
-/** 現在換不換得了技能配置；換不了回傳第一個原因（給玩家看的完整句子），換得了是 null。 */
+/**
+ * 現在換不換得了技能配置；換不了回傳第一個原因（給玩家看的完整句子），換得了是 null。
+ * 戰鬥中由活動的放行擋（Game.blockOf('commit:ability.loadout')，和學技能一樣），這裡不重複問。
+ */
 export function loadoutBlock(k: LoadoutKernel, state: GameState, actor: ActorId): string | null {
   if (!state.actors[actor]) return '沒有這個角色。'
   if (k.activity.active(state).some((a) => a.kind === 'commission')) return '進了委託副本就不能換技能配置，要回到據點或調校診所才行。'
-  if (state.battle) return '戰鬥中不能換技能配置。'
+  // 戰鬥中不在這裡問地點：活動的放行會擋（commit:ability.loadout、commit:ability.equip；原因由活動寫，和學技能一樣）
+  if (state.battle) return null
   if (k.stats.hasStat(LOADOUT_ANYWHERE_STAT) && k.stats.stat(state, actor, LOADOUT_ANYWHERE_STAT) > 0) return null
   const kinds = new Set(k.conditions.kinds())
   const home = kinds.has('at_home')
@@ -114,6 +118,12 @@ function checkSet(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId, 
   }
 }
 
+/** 換成這一組之後的角色資料：戰鬥外開著的姿態如果被卸下了，姿態也關掉（不然重新裝上時它會自己又開著）。 */
+function withEquipped(mine: AbilityState, list: string[]): AbilityState {
+  const { stance, ...rest } = mine
+  return stance !== undefined && list.includes(stance) ? { ...rest, stance, equipped: list } : { ...rest, equipped: list }
+}
+
 const namesOf = (k: Pick<Kernel, 'content'>, list: readonly string[]): string[] => list.map((id) => k.content.get<AbilityEntry>('ability', id)?.name ?? id)
 
 /**
@@ -126,7 +136,7 @@ export function equipAbilities(k: LoadoutKernel, state: GameState, actor: ActorI
   const mine = abilitiesOf(state, actor)
   const list = [...new Set(ids)]
   checkSet(k, state, actor, list)
-  const report = reportOf(state, actor, 'ability.equip', { ...mine, equipped: list }, list.length ? `裝上：${namesOf(k, list).join('、')}。` : '把裝著的技能都卸下了。', 'equipped')
+  const report = reportOf(state, actor, 'ability.equip', withEquipped(mine, list), list.length ? `裝上：${namesOf(k, list).join('、')}。` : '把裝著的技能都卸下了。', 'equipped')
   report.changes.push(...maskChanges(k, state, actor, mine.equipped, list))
   return report
 }
@@ -144,7 +154,7 @@ export function applyLoadout(k: LoadoutKernel, state: GameState, actor: ActorId,
   if (list.length === mine.equipped.length && list.every((id) => mine.equipped.includes(id))) throw new Error('這一組和現在裝著的一樣，不用換。')
   const minutes = loadoutMinutes(k, state, actor)
   const summary = list.length ? `換好了技能配置：${namesOf(k, list).join('、')}。` : '把裝著的技能都卸下了。'
-  const report = reportOf(state, actor, 'ability.loadout', { ...mine, equipped: list }, `${summary}${minutes > 0 ? `花了 ${minutes} 分鐘。` : ''}`, 'loadout')
+  const report = reportOf(state, actor, 'ability.loadout', withEquipped(mine, list), `${summary}${minutes > 0 ? `花了 ${minutes} 分鐘。` : ''}`, 'loadout')
   report.changes = [...(minutes > 0 ? [{ op: 'time', minutes } as Change] : []), ...report.changes, ...maskChanges(k, state, actor, mine.equipped, list)]
   report.timeline = [{ layer: 'meat', actor, text: `${state.actors[actor]!.name}重新配置了技能（${minutes} 分鐘）。`, tag: 'loadout' }]
   return report

@@ -27,3 +27,10 @@
 ## 完成時回報
 
 加了哪些檔、測試結果、功能的預設和設計書對不上的地方（逐條：哪一格、兩邊各是多少）。
+
+## 補（2026-11-23，M2-abilities-m2 回報）
+
+- 新內容種類 `ability_rule`（`loadout_minutes`、`loadout_facility_types`、`xp_home_share`）補一筆 default。
+- 示意資料 `sk_fixer_reinforce`：`meat` 換成 `picks:[{kind:'bench'}]` 加 `do:[{op:'call_in'}]`（拿掉 pending）。
+- 示意資料 `sk_fixer_intel_net`：`use` 改 `{ per_commission: 1 }`，`prep` 加 `effects:[{kind:'scout_reveal', job:'$commission'}]`。
+- 行動種類 `bargain`（owner trade）、`npc_recruit`、npcs 的九筆互動等功能需要的資料列都要有。
