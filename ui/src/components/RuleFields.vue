@@ -81,6 +81,11 @@ void props
         <button type="button" class="switch" role="switch" aria-label="快速移動" :aria-checked="s.fastTravel" :class="{ on: s.fastTravel }" @click="s.fastTravel = !s.fastTravel" />
         <span class="df">預設 <b>開</b></span>
       </div>
+      <div class="setrow" :class="{ chg: !st.isDefault('sceneMode') }" data-scene-mode>
+        <span class="nm">成人場景的操作<Hint>精簡版：用技能與道具時由系統挑部位、換體位後自動接回，畫面只顯示持續效果的條數與大概數值。完整版：自己選每一條連接的部位。兩種的規則與數值完全一樣；下一場開始時生效。</Hint></span>
+        <span class="segs"><button v-for="[v, n] in ([['simple', '精簡'], ['full', '完整']] as const)" :key="v" type="button" :class="{ on: s.sceneMode === v }" :data-scene-mode-set="v" @click="s.sceneMode = v">{{ n }}</button></span>
+        <span class="df">預設 <b>精簡</b></span>
+      </div>
       <div class="setrow" :class="{ chg: !st.isDefault('extraAccessory') }">
         <span class="nm">額外飾品格</span>
         <button type="button" class="switch" role="switch" aria-label="額外飾品格" :aria-checked="s.extraAccessory" :class="{ on: s.extraAccessory }" @click="s.extraAccessory = !s.extraAccessory" />

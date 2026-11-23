@@ -34,6 +34,8 @@ const defaults = {
   extraAccessory: false,
   rosterDeath: false,
   fastTravel: true,
+  /** 成人場景的操作（LEWD_SYSTEM 3.5 節第八點）：精簡版由引擎自動接線、不顯示部位與連接；完整版自己選部位。下一場生效 */
+  sceneMode: 'simple' as 'simple' | 'full',
   // 顯示
   fontSize: 'normal' as 'small' | 'normal' | 'large',
   proseFont: '黑體' as '黑體' | '宋體',
@@ -86,6 +88,8 @@ export const useSettings = defineStore('settings', () => {
   const eng = useEngine()
   // AI 開關改了就交給引擎（引擎只收設定物件）
   watch(() => aiSettingsFromUi(s), () => eng.setAi(s), { immediate: true })
+  // 成人場景的模式：交給引擎（下一場生效）
+  watch(() => s.sceneMode, (m) => eng.scene.setMode(m === 'full' ? 'full' : 'simple'), { immediate: true })
   function apply() {
     const root = document.documentElement
     root.dataset.fontSize = s.fontSize

@@ -27,6 +27,16 @@ watch(() => route.query.dialog, d => {
 }, { immediate: true })
 settings.apply()
 
+// ---- 成人場景進行中：畫面換到場景，別的全頁的入口被擋（引擎也不收別的報告；這裡只是不讓人停在別的畫面上） ----
+const sceneRouter = useRouter()
+watch(() => eng.scene.active(), (on) => {
+  if (on && route.path !== '/scene') void sceneRouter.push({ path: '/scene', query: { from: route.fullPath } })
+}, { immediate: true })
+sceneRouter.beforeEach((to, from) => {
+  if (!eng.scene.active() || to.path === '/scene' || to.path === '/title' || to.path === '/newgame') return true
+  return { path: '/scene', query: { from: from.path === '/scene' ? (from.query.from as string | undefined) ?? '/' : from.fullPath } }
+})
+
 // ---- 全域快捷鍵（UI.md 1.1 節、lib/keys.ts）：不必先點地圖；打字時與對話框開著時不走 ----
 const router = useRouter()
 const IN_GAME = new Set(['/', '/home', '/subnet', '/dungeon'])

@@ -20,7 +20,8 @@ import type { AuxFace, BoardView, FixerEntry, HireInput, HireOption, IntelWith, 
 import { muster as rosterMuster, musterBlocks, rosterView } from '@engine/src/features/roster'
 import { exploreFeature, unlock as exploreUnlock } from '@engine/src/features/explore'
 import type { GridKernel } from '@engine/src'
-import { sceneSkip } from '@engine/src/features/scene'
+import { ratingOf, sceneAct, sceneNext, sceneOf, sceneOptions, sceneRules, sceneSkip, sceneView, setSceneMode, sceneModeOf } from '@engine/src/features/scene'
+import type { SceneInput, SceneMode, SceneOptions, SceneView } from '@engine/src/features/scene'
 import { setupFromEncounter } from '@engine/src/features/enemies'
 import { arrive as worldArrive, cityGraph, worldView } from '@engine/src/features/world'
 import type { CityGraph, WorldView } from '@engine/src/features/world'
@@ -30,9 +31,11 @@ import { chooseOption, directorView, eventView } from '@engine/src/features/dire
 import type { DirectorView, EventView } from '@engine/src/features/director'
 import { scanView } from '@engine/src/features/security'
 import type { ScanView } from '@engine/src/features/security'
-import { demoPack, demoStartFeature } from '../data/demo'
+import { DEMO_SCENES, demoPack, demoSceneChanges, demoStartFeature } from '../data/demo'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
 import { ageBlock, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
+import { debriefOf } from '../lib/scene/sceneView'
+import type { Debrief } from '../lib/scene/sceneView'
 import { aiSettingsFromUi, logEntryOf, type EngineLogEntry, type UiAiFields } from '../lib/engineView'
 
 /**
@@ -45,7 +48,10 @@ export const useEngine = defineStore('engine', () => {
   // 示意世界包（ui/src/data/demo；dev/work/M2-plan.md 使用者定案第 5 項）：引擎不再匯入內容，所以畫面自己帶一份，開新局時載入。
   // 測試自帶最小假資料（testContent）時不載入它。
   // 開局站在哪（示意包的起點）是 game.new 掛點給的變更（demoStartFeature），不另開一份報告，所以紀錄一開始是空的。
-  const build = (extra: ContentPack[] = [], demo = true, features: Feature[] = []): Game => new Game({ features: [...allFeatures(), ...(demo ? [demoStartFeature()] : []), ...features], content: [CORE_PACK, ...(demo ? [demoPack()] : []), ...extra], fakeProvider: new FakeProvider() })
+  // 成人場景的模式（設定 scene_mode，預設精簡；下一場生效）：每個新建的引擎都套上現在的設定
+  let sceneModeNow: SceneMode = 'simple'
+  const build = (extra: ContentPack[] = [], demo = true, features: Feature[] = []): Game => withSceneMode(new Game({ features: [...allFeatures(), ...(demo ? [demoStartFeature()] : []), ...features], content: [CORE_PACK, ...(demo ? [demoPack()] : []), ...extra], fakeProvider: new FakeProvider() }))
+  const withSceneMode = (g: Game): Game => { setSceneMode(g.k, sceneModeNow); return g }
   let game = build()
 
   const snapshot = (): GameState => structuredClone(game.state)
@@ -322,6 +328,78 @@ export const useEngine = defineStore('engine', () => {
     active: (): boolean => { void state.value; return game.k.activity.active(game.state).some((a) => a.kind === 'scene') },
     /** 略過：回傳引擎的原因（做不到）或 null；結果那一份報告（scene.end）在 state.reports 最後 */
     skip: (): string | null => commitMade(() => sceneSkip(game.k, game.state)),
+  }
+  // ---- 成人場景（M2-ui-scene）：全部轉接 features/scene，畫面不算感載、契合、主動權、預覽，也不判斷能不能做 ----
+  /** 這一場結束之後的那一份報告（scene.end）：戰報卡用；按「回去」之後清掉 */
+  const sceneEnded = shallowRef<Report | null>(null)
+  const scene = {
+    active: (): boolean => { void state.value; return sceneOf(game.state) !== null },
+    /** 畫面要的全部；selected 給一個行動就多一份它的原因與預覽 */
+    view: (selected?: SceneInput): SceneView | null => { void state.value; return sceneView(game.k, game.state, selected) },
+    /** 九種行動一次列出來：花費、原因、要選的部位、技能與道具與體位各自的選項、預覽 */
+    options: (): SceneOptions | null => { void state.value; return sceneOptions(game.k, game.state) },
+    /** 內容篩選關掉的題材（存檔規則的 contentOff） */
+    contentOff: (): string[] => [...state.value.rules.contentOff],
+    /** 設定的模式（精簡 simple、完整 full）；下一場生效 */
+    mode: (): SceneMode => sceneModeNow,
+    setMode(mode: SceneMode): void { sceneModeNow = mode; setSceneMode(game.k, mode) },
+    modeOfEngine: (): SceneMode => sceneModeOf(game.k),
+    ended: sceneEnded,
+    /** 示範的場景開場的那一句（確認框的標題）；不是示範的場景是 null */
+    demoOpening: (id: string): string | null => DEMO_SCENES.find((x) => x.id === id)?.opening ?? null,
+    /** 戰報卡的欄位（評價、體悟、關係、餘韻、AI 的正文）；還沒有結束是 null */
+    debrief: (): Debrief | null => {
+      const r = sceneEnded.value
+      return r ? debriefOf(r, (c) => game.k.changes.describe(state.value, c), (fit) => ratingOf(sceneRules(game.k), fit).name) : null
+    },
+    clearEnded(): void { sceneEnded.value = null },
+    /** 提交一份場景的報告；結束的那一份（scene.end）記下來給戰報卡 */
+    async commitStep(make: () => ReportDraft, label: string): Promise<ActOutcome> {
+      const before = game.state.reports.length
+      const r = await commitDrafts(make, label)
+      const fresh = game.state.reports.slice(before)
+      const end = fresh.find((x) => x.action === 'scene.end')
+      if (end) sceneEnded.value = structuredClone(end)
+      return r
+    },
+    /** 玩家的一步 */
+    act(input: SceneInput): Promise<ActOutcome> { return scene.commitStep(() => sceneAct(game.k, game.state, input), '場景') },
+    /** 對方的一步（輪到他的時候） */
+    next(): Promise<ActOutcome> { return scene.commitStep(() => sceneNext(game.k, game.state), '場景') },
+    /** 略過：不操作，引擎直接算出結果 */
+    skip(): Promise<ActOutcome> { return scene.commitStep(() => sceneSkip(game.k, game.state), '略過場景') },
+    /** 輪到對方的時候一步一步呼叫對方的一步，直到交回給玩家或場景結束；wait 是每一步之間等幾毫秒（給畫面看得清楚） */
+    async partnerTurn(wait = 0): Promise<void> {
+      for (let i = 0; i < 40; i++) {
+        const s = sceneOf(game.state)
+        if (!s || s.turn !== 'partner') return
+        if (wait > 0) await new Promise((res) => setTimeout(res, wait))
+        const r = await scene.next()
+        if (r.status !== 'applied') return
+      }
+    },
+    /** 開一場（測試與示範用；平常是委託、戰敗事件、事件的效果開的）：引擎擋下回傳原因，開成回傳 null */
+    begin(setup: unknown, origin: { by: string; ref?: string } = { by: 'ui' }): string | null {
+      try {
+        sceneEnded.value = null
+        game.launch('scene', setup, origin)
+        return null
+      } catch (e) {
+        const w = reasonOf(e)
+        if (w === null) throw e
+        return w
+      }
+    },
+    /** 示範的場景（#/scene?scene=amber|rin）：先把對象與主角的招式放好，再開場。回傳引擎的原因或 null。 */
+    startDemo(id: string): string | null {
+      const d = DEMO_SCENES.find((x) => x.id === id) ?? DEMO_SCENES[0]!
+      const pcId = game.state.pc
+      if (pcId === null) return '還沒有主角：先去建角。'
+      const pcActor = game.state.actors[pcId]!
+      const changes = demoSceneChanges(d, { actor: !!game.state.actors[d.partner.id], pc: pcId, ext: pcActor.ext, items: game.state.inventory.map((x) => x.id) })
+      const why = commit({ summary: '準備示範的場景', action: 'ui.demo_scene', changes }, { attach: true })
+      return why ?? scene.begin(d.setup, { by: 'ui', ref: d.id })
+    },
   }
   /** 有幾個面板把事件視窗嵌在自己裡面（戰敗、戰利品與俘虜）：大於 0 時全域的事件對話框讓出來 */
   const eventInline = ref(0)
@@ -624,5 +702,5 @@ export const useEngine = defineStore('engine', () => {
     unlock: (at: [number, number], how: 'pick' | 'break') => commitDrafts(() => exploreUnlock(game.k as unknown as GridKernel, game.state, at, how), how === 'pick' ? '撬鎖' : '破門'),
   }
 
-  return { state, world, transit, event, fixer, commission, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  return { state, world, transit, event, fixer, commission, scene, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

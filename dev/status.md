@@ -149,3 +149,10 @@
 - 示意包數字：出場費遠大於報酬、委託標題重複、`map_club` 的 `district_weight` 寫 `kabuki42` 對不上示意包 `ave42`。
 - `ui/vitest.pending.config.ts` 已無檔案可跑。
 - `dev/bugs/2026-11-22-ui-stage-outside-dungeon.md` 第二份重現已改走引擎，進度待補。
+
+## M2-ui-scene 回報（2026-11-23）
+
+- 確認框由畫面判斷（step 0、round 1），引擎沒有確認框概念。
+- 正式遊玩沒有給主角夜課技能與體位的來源（夜課學習在 M4），只能靠說話與道具。
+- 內容篩選只有 `filterIntimateBody` 轉成 `contentOff`；拘束、公開場合、契約沒接到引擎。
+- `foldAdult` 只作用在戰報卡，沒接進紀錄列表。
