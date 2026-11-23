@@ -1,6 +1,7 @@
 import type { ContentPack } from '@engine/src'
 import { DISTRICTS, BLOCK_TEMPLATE, blockSpec } from '../districts'
 import { LINES } from '../transit'
+import { DISTRICT_MARKET } from './market'
 import type { DistrictId, Facility } from '../types'
 
 /**
@@ -32,11 +33,15 @@ export const blockIdOf = (district: DistrictId, name: string): string => {
 const NAME_TO_BLOCK = new Map<string, { id: string; district: string }>()
 for (const d of DISTRICTS) for (const b of d.blocks) NAME_TO_BLOCK.set(b, { id: blockIdOf(d.id, b), district: d.id })
 
-const FAC_TYPES: Array<{ id: string; name: string }> = [
+/** sleep：站在這種設施上可以睡一覺（rate 是生命值上限的幾成、cost 是一晚的價錢；格式見 features/rest） */
+const FAC_TYPES: Array<{ id: string; name: string; sleep?: { rate: number; cost: number } }> = [
   { id: 'fac_shop', name: '商店' }, { id: 'fac_home', name: '住處' }, { id: 'fac_clinic', name: '診所' }, { id: 'fac_talk', name: '談話的地方' },
   { id: 'fac_dungeon', name: '地下入口' }, { id: 'fac_transit', name: '車站' }, { id: 'fac_service', name: '服務' },
+  { id: 'fac_inn', name: '旅店', sleep: { rate: 0.5, cost: 10 } }, { id: 'fac_camp', name: '營地', sleep: { rate: 0.3, cost: 0 } },
 ]
-const typeOf = (f: Facility): string => `fac_${f.kind}`
+/** 有床位的舊設施（舊資料的 rest 服務裡睡一晚的那兩處）：種類換成有 sleep 的 */
+const SLEEP_TYPE: Record<string, string> = { noid: 'fac_inn', camp: 'fac_camp' }
+const typeOf = (f: Facility): string => SLEEP_TYPE[f.id] ?? `fac_${f.kind}`
 
 /** 營業時間（示意）：酒吧與俱樂部夜裡開、商店與診所白天到晚上，其餘一直開。 */
 const DAY = ['morning', 'noon', 'afternoon', 'prime']
@@ -156,6 +161,12 @@ export const stationMarkerOf = (blockId: string): string | null => BY_ID.get(blo
 /** 畫面還沒搬進引擎的舊服務（商店、診所、住處……）：依街區與標記找回舊的設施資料。引擎接上那些功能之後就不需要了。 */
 export const legacyFacilityAt = (blockId: string, marker: string | null | undefined): Facility | null => (marker ? BY_ID.get(blockId)?.facilities.get(marker)?.fac ?? null : null)
 
+/** 這塊街區裡舊設施（用舊的 id 找）的標記（找不到是 null）：示意包的商店、打工、住處指到版面上的設施用 */
+export function markerOfFacility(blockId: string, facilityId: string): string | null {
+  for (const [marker, f] of BY_ID.get(blockId)?.facilities ?? []) if (f.fac.id === facilityId) return marker
+  return null
+}
+
 const exitName = (to: string): string => BY_ID.get(to)?.name ?? to
 
 export function worldContent(): NonNullable<ContentPack['content']> {
@@ -184,6 +195,8 @@ export function worldContent(): NonNullable<ContentPack['content']> {
   const district = DISTRICTS.map(d => ({
     id: d.id, name: d.name, grade: GRADE[d.id] ?? 1, price_mult: d.price, ...(STEP_MINUTES[d.id] ? { step_minutes: STEP_MINUTES[d.id] } : {}),
     blocks: d.blocks.map(b => blockIdOf(d.id, b)),
+    // 區的行情（TRADE 4.2：類別的倍率；引擎的 district.market，貿易類別的 id）
+    ...(DISTRICT_MARKET[d.id] ? { market: DISTRICT_MARKET[d.id] } : {}),
     // 城市地圖的熱點位置、治安與風格的說明：引擎的 district 內容的欄位（畫面讀，引擎的規則不讀）
     map_x: d.x, map_y: d.y, security: d.security, style: d.style,
     // 目標勢力從這裡抽（生成委託用）

@@ -31,6 +31,14 @@ import { chooseOption, directorView, eventView } from '@engine/src/features/dire
 import type { DirectorView, EventView } from '@engine/src/features/director'
 import { scanView } from '@engine/src/features/security'
 import type { ScanView } from '@engine/src/features/security'
+import { bargainByFavor, bargainInput, checkout as tradeCheckout, planCheckout, routesHint, shopView } from '@engine/src/features/trade'
+import type { BargainMethod, Cart, CheckoutPlan, RoutesHint, ShopView } from '@engine/src/features/trade'
+import { billPreview, setBill } from '@engine/src/features/bills'
+import type { BillPreview, BillSetting } from '@engine/src/features/bills'
+import { jobsHere, shift as workShift } from '@engine/src/features/work'
+import type { JobView } from '@engine/src/features/work'
+import { breathBlock, breathDraft, homeOf, leaveBlock, leaveDraft, readRest, rentBlock, rentDraft, restRules, sleepBlock, sleepDraft, sleepOptions } from '@engine/src/features/rest'
+import type { Level, ResidenceEntry, SleepOption, SleepSpotId } from '@engine/src/features/rest'
 import { DEMO_SCENES, demoPack, demoSceneChanges, demoStartFeature } from '../data/demo'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
 import { ageBlock, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
@@ -43,6 +51,11 @@ import { aiSettingsFromUi, logEntryOf, type EngineLogEntry, type UiAiFields } fr
  * 引擎的 state 是普通物件、會被整份換掉內容，所以每次變化後把一份複製放進 shallowRef。
  */
 export interface ActOutcome { status: ActStatus | 'busy'; reason?: string }
+
+/** 住處的抬頭（引擎的住處與押金、欠繳）：哪一間、週租、押金、欠了幾週、鎖了沒有 */
+export interface HomeView { id: string; name: string; rent: number; level: Level; deposit: number; pool: 'cred' | 'cash'; arrears: number; locked: boolean; lockWeeks: number }
+/** 內容裡的一處住處：押金照引擎的規則（週租 × 週數）；block_reason 是現在租不了的原因（引擎的 rentBlock），租得了是 null */
+export interface ResidenceView { id: string; name: string; rent: number; level: Level; deposit: number; pools: Array<'cred' | 'cash'>; block: string | null; block_reason: string | null }
 
 export const useEngine = defineStore('engine', () => {
   // 示意世界包（ui/src/data/demo；dev/work/M2-plan.md 使用者定案第 5 項）：引擎不再匯入內容，所以畫面自己帶一份，開新局時載入。
@@ -702,5 +715,78 @@ export const useEngine = defineStore('engine', () => {
     unlock: (at: [number, number], how: 'pick' | 'break') => commitDrafts(() => exploreUnlock(game.k as unknown as GridKernel, game.state, at, how), how === 'pick' ? '撬鎖' : '破門'),
   }
 
-  return { state, world, transit, event, fixer, commission, scene, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  // ---- 過日子（M2-ui-life）：全部轉接 features/trade、bills、work、rest，畫面不算價錢、報酬、回復量，也不判斷能不能做 ----
+  const shopExists = (id: string): boolean => !!game.k.content.get('shop', id)
+  const trade = {
+    has: (id: string): boolean => { void state.value; return shopExists(id) },
+    /** 一間店的畫面（抬頭、貨架與每一列的價錢拆解與原因、背包裡這間店收的東西、殺價）；沒有這間店是 null */
+    view: (id: string): ShopView | null => { void state.value; return shopExists(id) ? shopView(game.k, game.state, id) : null },
+    /** 進行中的活動（委託副本……）擋住結帳與殺價時的原因；可以做是 null */
+    lock: (): string | null => { void state.value; return game.blockOf('commit:trade.checkout') },
+    /** 這一車結不結得了：每一列的價錢、淨額與所有不成立的原因（引擎的 planCheckout）；不改任何東西 */
+    plan: (id: string, cart: Cart): CheckoutPlan => { void state.value; return planCheckout(game.k, game.state, id, cart) },
+    /** 這樣東西在哪幾區便宜、哪幾區貴（價差提示）；沒有定價是 null */
+    routes: (item: string): RoutesHint | null => {
+      void state.value
+      try { return routesHint(game.k, game.state, item) } catch { return null }
+    },
+    checkout: (id: string, cart: Cart) => commitDrafts(() => tradeCheckout(game.k, game.state, id, cart), '結帳'),
+    /** 殺價（整車、每間店每天一次）：擲骰的送主動行動，用人情的直接提交 */
+    bargain: (id: string, method: BargainMethod): Promise<ActOutcome> =>
+      method === 'favor' ? commitDrafts(() => bargainByFavor(game.k, game.state, id), '殺價') : act(bargainInput(game.k, game.state, id, method)),
+  }
+
+  const bills = {
+    /** 下一次要付的每一項、帳戶與現金夠不夠、會停在哪一項、下坡的四格（引擎的 billPreview） */
+    preview: (): BillPreview => { void state.value; return billPreview(game.k, game.state) },
+    /** 改設定被活動擋住的原因（副本裡不能改）；可以改是 null */
+    lock: (): string | null => { void state.value; return game.blockOf('commit:bill.set') },
+    /** 一項改成用現金付、或這一項不付了 */
+    set: (item: string, patch: BillSetting) => commitDrafts(() => setBill(game.k, game.state, item, patch), '帳單'),
+    /** 最近一份結算的報告（bill.settle）；還沒結過是 null。每一項付了多少、欠多少在 timeline 的 data */
+    lastSettle: (): Report | null => {
+      const list = state.value.reports
+      for (let i = list.length - 1; i >= 0; i--) if (list[i]!.action === 'bill.settle') return structuredClone(list[i]!)
+      return null
+    },
+  }
+
+  const work = {
+    /** 站的這個位置能做的工作（階段、升階的條件與進度、預計的錢與成功率、現在不能做的原因、上一班） */
+    here: (): JobView[] => { void state.value; return jobsHere(game.k, game.state) },
+    lock: (): string | null => { void state.value; return game.blockOf('commit:work.shift') },
+    /** 上一班：升階的詢問是事件，做完之後事件視窗自己打開 */
+    shift: (job: string, hours: number) => commitDrafts(() => workShift(game.k, game.state, job, hours), '打工'),
+  }
+
+  const rest = {
+    /** 睡處的選項（回復率、價錢、選不了的原因） */
+    options: (): SleepOption[] => { void state.value; return sleepOptions(game.k, game.state) },
+    /** 睡一覺本身現在不能做的原因（活動擋住、距上次太近）；能是 null */
+    sleepBlock: (): string | null => { void state.value; return sleepBlock(game.k, game.state) },
+    breathBlock: (): string | null => { void state.value; return breathBlock(game.k, game.state) },
+    /** 兩次睡一覺之間喘口氣會回生命值的次數：已經用了幾次、一共幾次 */
+    breaths: (): { used: number; heals: number } => { void state.value; return { used: readRest(game.state).breaths, heals: restRules(game.k).breath_heals } },
+    sleep: (spot?: SleepSpotId, pay?: 'cred' | 'cash') => commitDrafts(() => sleepDraft(game.k, game.state, { ...(spot ? { spot } : {}), ...(pay ? { pay } : {}) }), '睡一覺'),
+    breath: () => commitDrafts(() => breathDraft(game.k, game.state), '喘口氣'),
+    home: (): HomeView | null => {
+      void state.value
+      const h = homeOf(game.k, game.state)
+      return h ? { id: h.residence.id, name: h.residence.name, rent: h.residence.rent, level: h.residence.level, deposit: h.home.deposit, pool: h.home.pool, arrears: h.home.arrears, locked: h.home.locked, lockWeeks: restRules(game.k).lock_weeks } : null
+    },
+    /** 內容裡的住處與現在租不租得了（原因是引擎的）；押金是引擎的規則（週租 × 週數） */
+    residences: (): ResidenceView[] => {
+      void state.value
+      const weeks = restRules(game.k).deposit_weeks
+      return game.k.content.list<ResidenceEntry>('residence').map((r) => ({
+        id: r.id, name: r.name, rent: r.rent, level: r.level, deposit: r.rent * weeks, pools: r.cash_ok === 'only' ? ['cash'] : r.cash_ok === true ? ['cred', 'cash'] : ['cred'],
+        block: game.k.content.get<{ id: string; name?: string }>('block', r.block)?.name ?? null, block_reason: rentBlock(game.k, game.state, r.id),
+      }))
+    },
+    leaveBlock: (): string | null => { void state.value; return leaveBlock(game.k, game.state) },
+    rent: (id: string, pay?: 'cred' | 'cash') => commitDrafts(() => rentDraft(game.k, game.state, id, pay ? { pay } : {}), '租房'),
+    leave: () => commitDrafts(() => leaveDraft(game.k, game.state), '退租'),
+  }
+
+  return { state, world, transit, event, fixer, commission, scene, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

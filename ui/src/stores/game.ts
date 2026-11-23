@@ -11,7 +11,7 @@ import { MORE_NPCS, ROSTER } from '../data/roster'
 import { START_BASICS, START_LEARNED, START_NIGHT, START_PARAMS, START_TENDENCY, START_FAME, START_SEX, START_DECK, START_GUIDES } from '../data/profile'
 import { START_CHANNEL } from '../data/channel'
 import { HELD } from '../data/contracts'
-import { BILL_ITEMS, PENDING } from '../data/weekly'
+import { PENDING } from '../data/weekly'
 import { START_FILL } from '../data/crafting'
 import { SKILL_TREES } from '../data/content.generated'
 import { skillXp } from '../lib/skills'
@@ -38,7 +38,9 @@ export interface SaveShape {
   quick: Array<string | null>; coatClosed: boolean; npcs: Record<string, import('../data/types').Npc>; loc: { district: DistrictId; block: string; pos?: Point; facility: string | null }; log: LogEntry[]
   basics: Record<string, number>; learned: string[]; nightLearned: string[]; params: typeof START_PARAMS; tendency: typeof START_TENDENCY
   fame: Record<string, number>; sexRecord: typeof START_SEX; deck: typeof START_DECK; roster: typeof ROSTER; channel: typeof START_CHANNEL; contracts: { held: typeof HELD }
-  bills: { items: typeof BILL_ITEMS; overdueWeeks: number }; pending: typeof PENDING; craftFill: Record<string, Record<string, string>>; guides: typeof START_GUIDES; dungeonSeed: number; vehicles?: string[]
+  /** 舊存檔的假帳單（帳單搬進引擎之後不再使用；讀到就略過） */
+  bills?: unknown
+  pending: typeof PENDING; craftFill: Record<string, Record<string, string>>; guides: typeof START_GUIDES; dungeonSeed: number; vehicles?: string[]
   media?: typeof START_MEDIA
   mech?: MechState
   /** 第 3 版：家園與子網的 store（null 是 v2 升上來的存檔，讀的時候不動） */
@@ -101,7 +103,6 @@ export const useGame = defineStore('game', () => {
   const roster = ref(structuredClone(ROSTER))
   const channel = reactive(structuredClone(START_CHANNEL))
   const contracts = reactive({ held: structuredClone(HELD) })
-  const bills = reactive({ items: structuredClone(BILL_ITEMS), overdueWeeks: 0 })
   const pending = ref(structuredClone(PENDING))
   const craftFill = reactive<Record<string, Record<string, string>>>(structuredClone(START_FILL))
   const guides = reactive(structuredClone(START_GUIDES))
@@ -257,7 +258,7 @@ export const useGame = defineStore('game', () => {
       money: { fav: money.fav }, hostility: { ...hostility }, character: { ...character }, party: [...party],
       inventory: inventory.value, cyber: { ...cyber }, equip: { ...equip }, quick: quick.value, coatClosed: coatClosed.value, npcs: { ...npcs }, loc: { ...loc },
       basics: { ...basics }, learned: learned.value, nightLearned: nightLearned.value, params: { ...params }, tendency: { ...tendency },
-      fame: { ...fame }, sexRecord: { ...sexRecord }, deck: { ...deck }, roster: roster.value, channel: { ...channel }, contracts: { ...contracts }, bills: { ...bills },
+      fame: { ...fame }, sexRecord: { ...sexRecord }, deck: { ...deck }, roster: roster.value, channel: { ...channel }, contracts: { ...contracts },
       pending: pending.value, craftFill: { ...craftFill }, guides: { ...guides }, dungeonSeed: dungeonSeed.value, vehicles: vehicles.value, media: { ...media }, mech: { ...mech },
       home: useHome().serialize(), subnet: useSubnet().serialize(), dyes: { ...dyes },
     })) as SaveShape
@@ -289,7 +290,6 @@ export const useGame = defineStore('game', () => {
     if (d.roster) roster.value = structuredClone(d.roster)
     if (d.channel) Object.assign(channel, structuredClone(d.channel))
     if (d.contracts) Object.assign(contracts, structuredClone(d.contracts))
-    if (d.bills) Object.assign(bills, structuredClone(d.bills))
     if (d.pending) pending.value = structuredClone(d.pending)
     if (d.craftFill) put(craftFill, d.craftFill)
     if (d.guides) Object.assign(guides, structuredClone(d.guides))
@@ -334,7 +334,7 @@ export const useGame = defineStore('game', () => {
     day, minutes, money, hostility, character, party, inventory, cyber, equip, quick, coatClosed, npcs, loc, log,
     timeLabel, weekday, billIn, district, facility, placeLabel, topHostility, carriedWeight, sinkFloor, quickCap, coveredSlots,
     advance, addLog, addItem, removeItem, stackOf, equipItem, unequip, cyberAt, changeAffinity, itemName,
-    basics, learned, nightLearned, params, tendency, fame, sexRecord, deck, roster, channel, contracts, bills, pending, craftFill, guides, dungeonSeed, vehicles, media, mech, lastBattle, snapshots,
+    basics, learned, nightLearned, params, tendency, fame, sexRecord, deck, roster, channel, contracts, pending, craftFill, guides, dungeonSeed, vehicles, media, mech, lastBattle, snapshots,
     dyes, setDye, learnSkill, syncTrees, learnNight, setQuick, serialize, hydrate, saveMeta, packed, takeSnapshot, rollback,
   }
 })

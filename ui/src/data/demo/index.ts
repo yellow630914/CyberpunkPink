@@ -5,6 +5,7 @@ import { transitContent } from './transit'
 import { eventContent } from './events'
 import { commissionContent } from './commission'
 import { sceneContent } from './scene'
+import { lifeContent } from './life'
 
 /**
  * 示意世界包（dev/work/M2-plan.md 使用者定案第 5 項）：引擎不再匯入內容，畫面接上引擎之後城市是空的，
@@ -13,7 +14,7 @@ import { sceneContent } from './scene'
  *
  * 格式：就是引擎的 ContentPack（區、街區與版面、設施、路線、事件與範圍），一種內容一個檔：
  *   world.ts 區、街區、版面、設施種類　　transit.ts 路線與計程車的規則　　events.ts 事件的範圍與事件
- *   commission.ts 中間人與委託的類型　　scene.ts 成人場景的體位、夜課技能、道具、標籤與兩場示範的場景
+ *   commission.ts 中間人與委託的類型　　life.ts 商店與貨、打工、住處（M2-ui-life）　　market.ts 區的行情　　scene.ts 成人場景的體位、夜課技能、道具、標籤與兩場示範的場景
  * 之後的介面工單（商店、人）往這裡加自己的檔。
  */
 export const DEMO_PACK_ID = 'demo_world'
@@ -21,7 +22,12 @@ export const DEMO_PACK_ID = 'demo_world'
 export function demoPack(): ContentPack {
   // 規則表（事件範圍 street 與 transit、計程車的規則 transit_rule……）和引擎的核心包（CORE_PACK）同一個 id 時，後載入的取代前面的
   // （內容種類的 overridable，dev/adr/0017）：示意包放在核心包後面，用自己的機率與公里數表
-  return { id: DEMO_PACK_ID, content: { ...worldContent(), ...transitContent(), ...eventContent(), ...commissionContent(), ...sceneContent() } }
+  // 同一種內容在好幾個檔裡有（物品：成人場景的道具與商店的貨）：把每個檔的接起來，不互相蓋掉
+  const merged: Record<string, unknown[]> = {}
+  for (const part of [worldContent(), transitContent(), eventContent(), commissionContent(), sceneContent(), lifeContent()] as Array<Record<string, unknown[]>>) {
+    for (const [kind, list] of Object.entries(part)) merged[kind] = [...(merged[kind] ?? []), ...list]
+  }
+  return { id: DEMO_PACK_ID, content: merged as unknown as ContentPack['content'] }
 }
 
 /**

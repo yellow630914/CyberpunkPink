@@ -6,12 +6,11 @@ import Hint from '../components/Hint.vue'
 import MoneyTag from '../components/MoneyTag.vue'
 import ReasonButton from '../components/ReasonButton.vue'
 import { useGame } from '../stores/game'
-import { useSettings } from '../stores/settings'
 import { useUi } from '../stores/ui'
 import TakePanel from '../components/commission/TakePanel.vue'
 import { useEngine } from '../stores/engine'
 import { gradeRoman } from '../lib/commissionView'
-import { settleBills, billMultiplier, downhillStage, DOWNHILL } from '../lib/bills'
+import { STEP_TEXT, STEPS } from '@engine/src/features/bills'
 import { fmt } from '../lib/price'
 
 /**
@@ -21,7 +20,6 @@ import { fmt } from '../lib/price'
  */
 const props = defineProps<{ entryId: number; stacked?: boolean; fixerId?: string }>()
 const g = useGame()
-const st = useSettings()
 const ui = useUi()
 const router = useRouter()
 const e = useEngine()
@@ -38,8 +36,9 @@ const beatOf = (jobId: string): string => {
   return j && j.scouts > 0 ? `踩點 ${j.scouts} 次` : '接案了、還沒踩點'
 }
 const owes = computed(() => Object.values(g.npcs).filter(n => n.favor).map(n => ({ id: n.id, name: n.name, favor: n.favor!, why: n.relation })))
-const bills = computed(() => settleBills(g.bills.items, [], { acc: g.money.acc, cash: g.money.cash }, billMultiplier(st.s.billRule, st.s.billMult)))
-const stage = computed(() => downhillStage(bills.value.owing, g.bills.overdueWeeks, st.s.billRule))
+// 這週的帳單：引擎的預覽（和真的結算同一個算法）
+const bills = computed(() => e.bills.preview())
+const stage = computed(() => bills.value.slope)
 const useMenu = ref<string | null>(null)
 const FAVOR_USES = ['請一位行者幫一次忙（不付出場費）', '委託的分帳換一份不抽成', '踩點時直接揭開一項', '戰敗時把戰敗事件換成比較輕的']
 function useFavor(id: string, what: string) {
@@ -84,9 +83,9 @@ function accepted(jobId: string) { open(jobId) }
         <section class="panel cut pad">
           <p class="h">這週的帳單</p>
           <div class="kv"><span>收租日</span><b>{{ g.billIn }} 天後</b></div>
-          <div class="kv"><span>帳戶要付</span><b>{{ fmt(bills.dueAcc) }}</b></div>
-          <div class="kv"><span>現金要付</span><b>{{ fmt(bills.dueCash) }}</b></div>
-          <div class="kv"><span>下坡路</span><b :class="{ 'warn-t': stage > 0 }">{{ stage > 0 ? DOWNHILL[stage - 1] : '沒事' }}</b></div>
+          <div class="kv"><span>帳戶要付</span><b>{{ fmt(bills.money.cred.due) }}</b></div>
+          <div class="kv"><span>現金要付</span><b>{{ fmt(bills.money.cash.due) }}</b></div>
+          <div class="kv"><span>下坡路</span><b :class="{ 'warn-t': stage > 0 }">{{ stage > 0 ? STEP_TEXT[STEPS[stage - 1]!] : '沒事' }}</b></div>
           <div class="go left"><button type="button" class="btn sm" @click="ui.open('bills')">看帳單</button></div>
         </section>
       </div>

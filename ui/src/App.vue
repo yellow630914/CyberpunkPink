@@ -27,6 +27,17 @@ watch(() => route.query.dialog, d => {
 }, { immediate: true })
 settings.apply()
 
+// ---- 每週帳單（M2-ui-life）：引擎出了 bill.settle（跨過週一）就把帳單打開，bill.notice（週日晚上的提醒）顯示成通知 ----
+let seenReport = eng.state.reports.at(-1)?.id ?? null
+watch(() => eng.state.reports.at(-1)?.id ?? null, () => {
+  const list = eng.state.reports
+  const fresh: typeof list = []
+  for (let i = list.length - 1; i >= 0 && list[i]!.id !== seenReport; i--) fresh.unshift(list[i]!)
+  seenReport = list.at(-1)?.id ?? null
+  if (fresh.some((r) => r.action === 'bill.settle')) ui.open('bills', { settled: true })
+  for (const r of fresh) if (r.action === 'bill.notice') ui.toast(r.outcome.summary, 'warn')
+})
+
 // ---- 成人場景進行中：畫面換到場景，別的全頁的入口被擋（引擎也不收別的報告；這裡只是不讓人停在別的畫面上） ----
 const sceneRouter = useRouter()
 watch(() => eng.scene.active(), (on) => {

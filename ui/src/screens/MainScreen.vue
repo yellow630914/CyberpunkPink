@@ -15,7 +15,7 @@ import { useEngine } from '../stores/engine'
 import { useUi, PENDING_DIALOGS, type DialogName } from '../stores/ui'
 import { useSettings } from '../stores/settings'
 import { useGuides } from '../lib/useGuides'
-import { settleBills, billMultiplier } from '../lib/bills'
+import { lifeDialogOf } from '../lib/lifeView'
 import { fmt } from '../lib/price'
 import type { Point, Facility } from '../data/types'
 import { KEY_OF } from '../lib/keys'
@@ -63,16 +63,19 @@ function onStep(d: Point) { go(d.x > 0 ? 'east' : d.x < 0 ? 'west' : d.y > 0 ? '
 const here = computed(() => (w.value.facility ? w.value.facilities.find(f => f.marker === w.value.facility!.marker) ?? null : null))
 /** 引擎列的項目要打開的畫面；還沒有畫面的給一句話 */
 async function runUse(id: string) {
-  if (id === 'transit.board') ui.openRoot('transit')
+  const life = lifeDialogOf(id)
+  if (life) ui.openRoot(life.name, life.props)
+  else if (id === 'transit.board') ui.openRoot('transit')
   else if (id === 'world.go') {
     // 站在出口上「前往」：引擎的 arrive(出口的 to, 出口的 arrive)；被擋下顯示引擎的原因
     const r = await e.world.go()
     if (r.status === 'refused') ui.toast(r.reason ?? '現在過不去。', 'warn')
   } else ui.toast('這一項的畫面還沒有接上引擎。')
 }
-/** 還沒搬進引擎的舊服務（商店、診所、住處……；示意資料）：設施開著才列。搭車已經是引擎的，不重複。 */
+/** 還沒搬進引擎的舊服務（診所、家園……；示意資料）：設施開著才列。搭車、商店、睡覺與休息已經是引擎的（右欄由格子上的項目列出），不重複。 */
+const ENGINE_SERVICES = ['transit', 'shop', 'rest']
 function optionsOf(f: Facility): HereOption[] {
-  const svcs = (f.services ?? []).filter(s => s.action !== 'transit').map((s, i) => ({ id: `svc${i}`, name: s.name, sub: s.price ? `現金 ${fmt(s.price)}` : undefined, run: () => service(f, s) }))
+  const svcs = (f.services ?? []).filter(s => !ENGINE_SERVICES.includes(s.action ?? '')).map((s, i) => ({ id: `svc${i}`, name: s.name, sub: s.price ? `現金 ${fmt(s.price)}` : undefined, run: () => service(s) }))
   const talks = (f.npcIds ?? []).map(id => ({ id: `talk-${id}`, name: `和${g.npcs[id]?.name ?? id}說話`, run: () => ui.openRoot('talk', { npcId: id }) }))
   return [...svcs, ...talks]
 }
@@ -93,14 +96,12 @@ watch(() => ride.value !== null, on => { if (on) mobileTab.value = 'map' })
 
 // ---- 這裡 ----
 const people = computed(() => (g.facility?.npcIds ?? []).map(id => g.npcs[id]))
-function service(f: Facility, s: NonNullable<Facility['services']>[number]) {
+function service(s: NonNullable<Facility['services']>[number]) {
   switch (s.action) {
-    case 'shop': ui.openRoot('shop', { shopId: f.shopId }); break
     case 'home': router.push('/home'); break
     case 'dungeon': router.push('/dungeon'); break
     case 'garage': case 'mech': case 'clinic': case 'fixer': case 'cut': case 'dye': ui.openRoot(s.action, s.props ?? {}); break
     case 'scene': router.push({ path: '/scene', query: { scene: String(s.props?.scene ?? ''), from: '/' } }); break
-    case 'rest': g.advance(60); g.addLog({ prose: [`你在${f.name}待了一個小時，感載退了一些。`], changes: [{ text: '感載 −3', kind: 'plus' }] }); g.character.load[0] = Math.max(0, g.character.load[0] - 3); break
     default: ui.toast(`「${s.name}」的畫面在第四版做。`)
   }
 }
@@ -125,7 +126,7 @@ function tool(id: string) {
   else if (id === 'city') ui.openRoot('city')
   else ui.openRoot(id as DialogName)
 }
-const billDue = computed(() => settleBills(g.bills.items, [], { acc: g.money.acc, cash: g.money.cash }, billMultiplier(st.s.billRule, st.s.billMult)))
+const billDue = computed(() => e.bills.preview())
 
 // ---- 行動列 ----
 /** 自由行動：交給引擎（擲骰、DC、結算都在引擎；判定開著時由 AI 選屬性與基本功）。被擋下時顯示引擎給的原因。 */
@@ -247,7 +248,7 @@ const jobLine = computed(() => (run.value ? `第 ${Math.min(run.value.stage, run
           <p class="h">進行中</p>
           <button type="button" class="ong ongb" @click="router.push('/commission')"><span class="k2" style="background: var(--ap)">委託</span>{{ job?.title ?? '沒有進行中的委託' }}<small>{{ jobLine }}</small></button>
           <button type="button" class="ong ongb" @click="ui.openRoot('relations', { npcId: 'npc_xiaomai' })"><span class="k2" style="background: var(--ep)">人情</span>小麥欠你 1<small>小人情</small></button>
-          <button type="button" class="ong ongb" @click="ui.openRoot('bills')"><span class="k2" style="background: var(--warn)">帳單</span>{{ g.billIn }} 天後收租<small>帳戶要付 {{ fmt(billDue.dueAcc) }}</small></button>
+          <button type="button" class="ong ongb" @click="ui.openRoot('bills')"><span class="k2" style="background: var(--warn)">帳單</span>{{ g.billIn }} 天後收租<small>帳戶要付 {{ fmt(billDue.money.cred.due) }}</small></button>
         </section>
       </div>
 
