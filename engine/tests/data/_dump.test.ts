@@ -1,0 +1,25 @@
+import { it } from 'vitest'
+import { writeFileSync } from 'node:fs'
+import { DEFAULT_EVENT_RULES } from '../../src/features/director/model'
+import { DEFAULT_SECURITY_RULES } from '../../src/features/security/model'
+import { DEFAULT_COMMISSION_RULES } from '../../src/features/commission/model'
+import { DEFAULT_FIXER_RULES } from '../../src/features/fixer/model'
+import { DEFAULT_GEN_RULES } from '../../src/features/fixer/gen'
+import { DEFAULT_TRADE_RULES } from '../../src/features/trade/model'
+import { DEFAULT_BILL_RULES } from '../../src/features/bills/model'
+import { DEFAULT_REST_RULES } from '../../src/features/rest/model'
+import { DEFAULT_WORK_RULES } from '../../src/features/work/model'
+import { DEFAULT_SCENE_RULES } from '../../src/features/scene/model'
+import { DEFAULT_LEWD_RULES } from '../../src/features/lewd/model'
+import { DEFAULT_INTERACT_RULES } from '../../src/features/npcs/interact'
+import { DEFAULT_ROSTER_RULES } from '../../src/features/roster/model'
+import { DEFAULT_FAVOR_RULES } from '../../src/features/favors/model'
+import { DEFAULT_NPC_RULES } from '../../src/features/npcs/model'
+import { DEFAULT_LIFE_RULES } from '../../src/features/npcs/lifeRules'
+import { DEFAULT_TRANSIT_RULES } from '../../src/features/transit/model'
+import { DEFAULT_ABILITY_RULES } from '../../src/features/abilities/loadout'
+it('dump', () => {
+  const d = '/tmp/claude-0/-home-user-CyberpunkPink/59ded358-0440-5225-ba4d-18b6cdad343b/scratchpad/dump/'
+  const all: Record<string, unknown> = { event: DEFAULT_EVENT_RULES, security: DEFAULT_SECURITY_RULES, commission: DEFAULT_COMMISSION_RULES, fixer: DEFAULT_FIXER_RULES, gen: DEFAULT_GEN_RULES, trade: DEFAULT_TRADE_RULES, bill: DEFAULT_BILL_RULES, rest: DEFAULT_REST_RULES, work: DEFAULT_WORK_RULES, scene: DEFAULT_SCENE_RULES, lewd: DEFAULT_LEWD_RULES, interact: DEFAULT_INTERACT_RULES, roster: DEFAULT_ROSTER_RULES, favor: DEFAULT_FAVOR_RULES, npc: DEFAULT_NPC_RULES, life: DEFAULT_LIFE_RULES, transit: DEFAULT_TRANSIT_RULES, ability: DEFAULT_ABILITY_RULES }
+  for (const [k, v] of Object.entries(all)) writeFileSync(d + k + '.json', JSON.stringify(v, null, 2))
+})
