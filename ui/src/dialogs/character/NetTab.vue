@@ -4,6 +4,7 @@ import ItemSlot from '../../components/ItemSlot.vue'
 import GradeBadge from '../../components/GradeBadge.vue'
 import Hint from '../../components/Hint.vue'
 import ReasonButton from '../../components/ReasonButton.vue'
+import { useEngine } from '../../stores/engine'
 import { useGame } from '../../stores/game'
 import { useUi } from '../../stores/ui'
 import { ITEMS } from '../../data/items'
@@ -43,7 +44,8 @@ function takeOut() {
 }
 function setGuard(id: string) { g.deck.activeGuard = id; ui.toast(`防護改開「${ITEMS[id].name}」；同時只能開一個。`) }
 const atAccess = computed(() => g.loc.facility === 'myhome')
-const skinBlock = computed(() => (g.inRun ? '戰鬥中與委託副本裡不能換 SKIN。' : atAccess.value ? null : '換 SKIN 要在接入點：據點的接入艙、潛艙店。'))
+const eng = useEngine()
+const skinBlock = computed(() => (eng.inBattle || eng.commission.view() !== null ? '戰鬥中與委託副本裡不能換 SKIN。' : atAccess.value ? null : '換 SKIN 要在接入點：據點的接入艙、潛艙店。'))
 const worn = computed(() => ITEMS[g.deck.skinWorn])
 const skinInfo = computed(() => (worn.value.net && worn.value.net.cls === 'SKIN' ? worn.value.net : null))
 const attr = (n: string) => g.character.attrs.find(a => a.name === n)!.eff

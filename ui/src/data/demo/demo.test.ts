@@ -4,6 +4,7 @@ import { CORE_PACK } from '@engine/data'
 import { allFeatures } from '@engine/src/features'
 import { arrive, cityGraph, worldProblems, worldView } from '@engine/src/features/world'
 import { transitView } from '@engine/src/features/transit'
+import { board, genProblems } from '@engine/src/features/fixer'
 import { demoPack, demoStartFeature } from '.'
 
 /** 示意世界包能被引擎載入：內容的格式、引用、出口成對、車站在街區的設施上，都由引擎的檢查把關。 */
@@ -40,5 +41,22 @@ describe('示意世界包', () => {
     g.commit(arrive(g.k, g.state, b, st.marker))
     const t = transitView(g.k, g.state)
     expect(t.station?.lines.map(l => l.id)).toEqual(['line_red'])
+  })
+  it('委託：兩位中間人、兩種類型、詞條與連動都能生成，沒有生成的問題；每位每天有案子', () => {
+    const g = make()
+    g.newGame({ seed: 3 })
+    expect(genProblems(g.k)).toEqual([])
+    for (const id of ['fx_alian', 'fx_monroe']) {
+      const b = board(g.k, g.state, id)
+      expect(b.open).toBe(true)
+      expect(b.problems).toEqual([])
+      expect(b.offers.length).toBeGreaterThan(0)
+      for (const o of b.offers) expect(o.brief.stages).toBeGreaterThanOrEqual(3)
+    }
+  })
+  it('中間人的店在街區上：阿蓮雜貨在天井市場、夢露在中城段・北', () => {
+    const g = make()
+    expect(g.k.content.get('fixer', 'fx_alian')?.block).toBe('b_hive_1')
+    expect(g.k.content.get('fixer', 'fx_monroe')?.block).toBe('b_ave42_2')
   })
 })

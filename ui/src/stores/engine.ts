@@ -13,7 +13,13 @@ import { abilitiesOf, capacityOf, applyLoadout, loadoutBlock as abilityLoadoutBl
 import type { AbilityEntry, PathEntry } from '@engine/src/features/abilities'
 import { acceptDefeat, chooseDefeatOption, defeatOf, defeatView, skipDefeat, watchDefeat } from '@engine/src/features/defeat'
 import type { DefeatViewInfo } from '@engine/src/features/defeat'
-import { commissionView } from '@engine/src/features/commission'
+import { auxChance, breathe as commissionBreathe, chooseBranch, chooseFace, commissionView, checkGoal as commissionCheckGoal, playScene as commissionPlayScene, replay as commissionReplay, retreat as commissionRetreat } from '@engine/src/features/commission'
+import type { AuxChance, CommissionView } from '@engine/src/features/commission'
+import { accept as fixerAccept, activeJobs, board as fixerBoard, borrowOption, buyIntel as fixerBuyIntel, drop as fixerDrop, go as fixerGo, goBlock as fixerGoBlock, haggle as fixerHaggle, hire as fixerHire, hireOptions as fixerHireOptions, jobOf, scout as fixerScout, scoutView as fixerScoutView, splitPreview, unhire as fixerUnhire } from '@engine/src/features/fixer'
+import type { AuxFace, BoardView, FixerEntry, HireInput, HireOption, IntelWith, Job, Offer, PayKind, ScoutView, Split } from '@engine/src/features/fixer'
+import { muster as rosterMuster, musterBlocks, rosterView } from '@engine/src/features/roster'
+import { exploreFeature, unlock as exploreUnlock } from '@engine/src/features/explore'
+import type { GridKernel } from '@engine/src'
 import { sceneSkip } from '@engine/src/features/scene'
 import { setupFromEncounter } from '@engine/src/features/enemies'
 import { arrive as worldArrive, cityGraph, worldView } from '@engine/src/features/world'
@@ -480,6 +486,17 @@ export const useEngine = defineStore('engine', () => {
     grid: (): GridView | null => { void state.value; return game.gridView() },
     /** 把人帶到一塊街區（報告 world.arrive）。測試與還沒有出口的畫面用；平常是走到出口那一格。 */
     arrive: (block: string, at?: string) => commitDrafts(() => worldArrive(game.k, game.state, block, at)),
+    /**
+     * 站在出口那一格上「前往」（引擎在這一格列的 world.go，GO_USE）：照出口的 to 與 arrive 叫引擎的 arrive。
+     * 不在出口上時引擎沒有列這一項，這裡回傳 refused 與原因，狀態不動。
+     */
+    go(): Promise<ActOutcome> {
+      const view = worldView(game.k, game.state)
+      const at = game.gridView()?.at
+      const exit = at ? view.exits.find(x => x.at !== null && x.at[0] === at[0] && x.at[1] === at[1]) : undefined
+      if (!exit) return Promise.resolve({ status: 'refused', reason: '這一格不是出口。' })
+      return commitDrafts(() => worldArrive(game.k, game.state, exit.to, exit.arrive))
+    },
     /** 走：一個方向（一格）或一個目的地（照最短路走，遇到事情就停）。被擋下回傳引擎的原因。 */
     walk(to: GridDir | [number, number]): { ok: boolean; reason?: string } {
       const r = game.gridMove(to)
@@ -543,5 +560,69 @@ export const useEngine = defineStore('engine', () => {
     scan: (): ScanView | null => { void state.value; return scanView(game.k, game.state) },
   }
 
-  return { state, world, transit, event, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+
+  // ---- 中間人與委託（M2-ui-commission）：全部轉接 features/fixer、commission、roster、explore，畫面不自己判斷 ----
+  const fixer = {
+    /** 內容裡的中間人（id 照內容的順序）與一位的資料 */
+    ids: (): string[] => game.k.content.list<FixerEntry>('fixer').map((f) => f.id),
+    entry: (id: string): FixerEntry | undefined => game.k.content.get<FixerEntry>('fixer', id),
+    /** 這位中間人今天的委託、信譽夠不夠、簡報與三種付法（引擎的 board） */
+    board: (id: string): BoardView => { void state.value; return fixerBoard(game.k, game.state, id) },
+    /** 手上進行中的委託（最近接的在最前） */
+    jobs: (): Job[] => { void state.value; return structuredClone(activeJobs(game.state)) },
+    job: (id: string): Job | null => { void state.value; const j = jobOf(game.state, id); return j ? structuredClone(j) : null },
+    /** 接案前的一輪交涉 */
+    haggle: (offer: Pick<Offer, 'id' | 'fixer'>) => commitDrafts(() => fixerHaggle(game.k, game.state, offer), '交涉'),
+    accept: (offer: Pick<Offer, 'id' | 'fixer'>, pay: PayKind) => commitDrafts(() => fixerAccept(game.k, game.state, offer, { pay }), '接案'),
+    drop: (jobId: string) => commitDrafts(() => fixerDrop(game.k, game.state, jobId), '放棄委託'),
+    /** 踩點頁的資料（未知清單、次數與難度、手段與原因、買情報、上一次的結果） */
+    scoutView: (jobId: string): ScoutView => { void state.value; return fixerScoutView(game.k, game.state, jobId) },
+    scout: (jobId: string, method: string) => commitDrafts(() => fixerScout(game.k, game.state, jobId, method), '踩點'),
+    buyIntel: (jobId: string, unknownId: string, pay: IntelWith) => commitDrafts(() => fixerBuyIntel(game.k, game.state, jobId, unknownId, pay), '買情報'),
+    /** 召集：分帳預覽、輔助面請人的辦法與原因、借人、請與退 */
+    split: (jobId: string): Split | null => { void state.value; const j = jobOf(game.state, jobId); return j ? splitPreview(game.k, game.state, j) : null },
+    hireOptions: (jobId: string, face: AuxFace, actor: string): HireOption[] => { void state.value; const j = jobOf(game.state, jobId); return j ? fixerHireOptions(game.k, game.state, j, face, actor) : [] },
+    borrowOption: (jobId: string, face: AuxFace): HireOption | null => { void state.value; const j = jobOf(game.state, jobId); return j ? borrowOption(game.k, game.state, j, face) : null },
+    hire: (jobId: string, input: HireInput) => commitDrafts(() => fixerHire(game.k, game.state, jobId, input), '請人'),
+    unhire: (jobId: string, actor: string) => commitDrafts(() => fixerUnhire(game.k, game.state, jobId, actor), '退人'),
+    /** 派這些人去這一面的算式與成功率（還沒進副本也能問）；沒有人是 null */
+    auxChance: (jobId: string, face: AuxFace, actors: string[], borrowed: string[] = []): AuxChance | null => {
+      void state.value
+      const j = jobOf(game.state, jobId)
+      return j ? auxChance(game.k, game.state, j.commission as never, face, actors, borrowed) : null
+    },
+    /** 出發不成立的原因（可以出發是 null；戰鬥中、事件開著等引擎的放行也算） */
+    goBlock: (jobId: string): string | null => {
+      void state.value
+      const j = jobOf(game.state, jobId)
+      return j ? fixerGoBlock(game.k, game.state, j) ?? game.blockOf('commit:fixer.go') : '手上沒有這件委託。'
+    },
+    go: (jobId: string) => commitDrafts(() => fixerGo(game.k, game.state, jobId), '出發'),
+    /** 名冊（成員、容量、有沒有空）與召集 */
+    roster: () => { void state.value; return rosterView(game.k, game.state) },
+    musterBlocks: (party: string[], tagalong: string[]): string[] => { void state.value; return musterBlocks(game.k, game.state, { party, tagalong }) },
+    muster: (party: string[], tagalong: string[]) => commitDrafts(() => rosterMuster(game.k, game.state, { party, tagalong }), '召集'),
+    /** 隊上現在的人（含主角） */
+    party: (): string[] => { void state.value; return [...game.state.party] },
+    /** 角色的名字（顯示用） */
+    actorName: (id: string): string => game.state.actors[id]?.name ?? id,
+  }
+
+  const commission = {
+    /** 現在這件副本的樣子（階段軌、面、分支與原因、連動、警戒、喘口氣與撤退、評價預估）；不在副本裡是 null */
+    view: (): CommissionView | null => { void state.value; return commissionView(game.k, game.state) },
+    chooseFace: (face: 'meat' | 'net' | 'opinion') => commitDrafts(() => chooseFace(game.k, game.state, face), '選面'),
+    chooseBranch: (id: string) => commitDrafts(() => chooseBranch(game.k, game.state, id), '進入這一段'),
+    breathe: () => commitDrafts(() => commissionBreathe(game.k, game.state), '喘口氣'),
+    retreat: () => commitDrafts(() => commissionRetreat(game.k, game.state), '撤退'),
+    check: () => commitDrafts(() => commissionCheckGoal(game.k, game.state), '動手'),
+    scene: () => commitDrafts(() => commissionPlayScene(game.k, game.state), '場景'),
+    replay: () => commitDrafts(() => commissionReplay(game.k, game.state), '再來一次'),
+    /** 這一格能做的事（引擎的 grid.here.uses；id 對應 explore 的 take、plug、key、seize、open、carry、leave） */
+    use: (id: string) => commitDrafts(() => exploreFeature.useHere(game.k as unknown as GridKernel, game.state, id), '這一格'),
+    /** 身邊上鎖的門：撬鎖（pick）或破門（break） */
+    unlock: (at: [number, number], how: 'pick' | 'break') => commitDrafts(() => exploreUnlock(game.k as unknown as GridKernel, game.state, at, how), how === 'pick' ? '撬鎖' : '破門'),
+  }
+
+  return { state, world, transit, event, fixer, commission, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

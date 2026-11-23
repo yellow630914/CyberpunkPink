@@ -62,9 +62,13 @@ function onStep(d: Point) { go(d.x > 0 ? 'east' : d.x < 0 ? 'west' : d.y > 0 ? '
  */
 const here = computed(() => (w.value.facility ? w.value.facilities.find(f => f.marker === w.value.facility!.marker) ?? null : null))
 /** 引擎列的項目要打開的畫面；還沒有畫面的給一句話 */
-function runUse(id: string) {
+async function runUse(id: string) {
   if (id === 'transit.board') ui.openRoot('transit')
-  else ui.toast('這一項的畫面還沒有接上引擎。')
+  else if (id === 'world.go') {
+    // 站在出口上「前往」：引擎的 arrive(出口的 to, 出口的 arrive)；被擋下顯示引擎的原因
+    const r = await e.world.go()
+    if (r.status === 'refused') ui.toast(r.reason ?? '現在過不去。', 'warn')
+  } else ui.toast('這一項的畫面還沒有接上引擎。')
 }
 /** 還沒搬進引擎的舊服務（商店、診所、住處……；示意資料）：設施開著才列。搭車已經是引擎的，不重複。 */
 function optionsOf(f: Facility): HereOption[] {
@@ -137,12 +141,15 @@ async function freeAction() {
 /** 任務鏈列：st.s.chainRow 是顯示偏好（隱藏、一直展開、出錯時展開）。 */
 const showChain = computed(() => e.chainSteps.length > 0 && (st.s.chainRow === '一直展開' || (st.s.chainRow !== '隱藏' && e.chainSteps.some(x => x.status === 'failed'))))
 
-const stages = [
-  { name: '踩點', face: ['m'], state: 'done' },
-  { name: '潛入子網', face: ['n'], state: 'now' },
-  { name: '第三倉', face: ['m', 'n'], state: '' },
-  { name: '收尾', face: ['m', 'o'], state: '' },
-]
+// ---- 進行中的委託（引擎的 fixer.jobs 與 commission.view） ----
+const job = computed(() => e.fixer.jobs()[0] ?? null)
+const run = computed(() => e.commission.view())
+/** 委託條的每一格：副本開著照引擎的階段軌（沒揭開的寫「？」），還沒出發只有接案、踩點、召集、出發四拍 */
+const stages = computed(() => {
+  if (run.value) return run.value.track.map(n => ({ name: n.known ? n.name : '？', face: (n.faces ?? []).map(f => ({ meat: 'm', net: 'n', opinion: 'o' }[f])), state: n.state === 'done' ? 'done' : n.state === 'current' ? 'now' : '' }))
+  return [{ name: '接案', face: [], state: 'done' }, { name: '踩點', face: [], state: job.value && job.value.scouts > 0 ? 'done' : 'now' }, { name: '召集', face: [], state: '' }, { name: '副本', face: [], state: '' }]
+})
+const jobLine = computed(() => (run.value ? `第 ${Math.min(run.value.stage, run.value.stages)} 階段` : job.value ? '還沒出發' : '去中間人那裡接案'))
 </script>
 
 <template>
@@ -170,9 +177,9 @@ const stages = [
         </section>
         <section class="panel cut pad job">
           <p class="h">委託<Hint title="委託條">進行中的委託與它的階段。每一格寫階段名與可選的面（灰是現實、薄荷是內海、紫是輿論），現在的那格是粉色。點任一格打開委託頁（接案、踩點、召集、副本）。</Hint></p>
-          <b>藍鯨的帳本</b> <span class="tag">竊取・中型</span> <span class="tag">夢露</span>
+          <template v-if="job"><b>{{ job.title }}</b> <span class="tag">{{ e.fixer.entry(job.fixer)?.name ?? job.fixer }}</span></template><span v-else class="empty-note">手上沒有進行中的委託。</span>
           <div class="stages">
-            <button v-for="s in stages" :key="s.name" type="button" class="stage" :class="s.state" @click="router.push('/commission')">
+            <button v-for="(s, i) in stages" :key="i" type="button" class="stage" :class="s.state" @click="router.push('/commission')">
               {{ s.name }}<span class="faces"><i v-for="f in s.face" :key="f" :class="f" /></span>
             </button>
           </div>
@@ -238,7 +245,7 @@ const stages = [
         </section>
         <section class="panel cut pad">
           <p class="h">進行中</p>
-          <button type="button" class="ong ongb" @click="router.push('/commission')"><span class="k2" style="background: var(--ap)">委託</span>藍鯨的帳本<small>{{ g.job.offer ? `第 ${g.job.stage + 1} 階段` : '還沒接・夢露手上' }}</small></button>
+          <button type="button" class="ong ongb" @click="router.push('/commission')"><span class="k2" style="background: var(--ap)">委託</span>{{ job?.title ?? '沒有進行中的委託' }}<small>{{ jobLine }}</small></button>
           <button type="button" class="ong ongb" @click="ui.openRoot('relations', { npcId: 'npc_xiaomai' })"><span class="k2" style="background: var(--ep)">人情</span>小麥欠你 1<small>小人情</small></button>
           <button type="button" class="ong ongb" @click="ui.openRoot('bills')"><span class="k2" style="background: var(--warn)">帳單</span>{{ g.billIn }} 天後收租<small>帳戶要付 {{ fmt(billDue.dueAcc) }}</small></button>
         </section>

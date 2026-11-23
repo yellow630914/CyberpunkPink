@@ -160,8 +160,6 @@ function crack() {
   s.unlocked = 2
   s.setFloor(1)
 }
-// 委託副本（SERIES 第 6 節）：進入入口的那一刻與這個階段開始時各存一個快照；每場戰鬥開打前再存一個
-if (!g.inRun) { g.inRun = true; g.takeSnapshot('入口', '進入入口的那一刻'); g.takeSnapshot('階段', '階段 ② 開始時') }
 function fight() {
   g.takeSnapshot('戰鬥', `戰鬥開打前・${here.value!.name}`)
   s.addTrace(9); s.done.add(here.value!.key)
@@ -175,9 +173,6 @@ function sneak() {
 }
 function logout(reason: string) {
   g.addLog({ prose: [reason], net: [`子網・藍鯨物流：追蹤度 ${s.trace}${s.loot.length ? `；帶出來的：${s.loot.join('、')}` : ''}。`] })
-  // 委託副本的一段：登出之後回到委託頁，推進階段
-  if (g.job.waiting) { g.lastBattle = { kind: 'subnet', result: 'win', text: reason }; g.job.pressure.trace = s.trace; router.push('/commission'); return }
-  g.inRun = false
   g.snapshots = []
   router.push('/')
 }

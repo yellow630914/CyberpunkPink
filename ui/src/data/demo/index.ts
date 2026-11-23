@@ -3,6 +3,7 @@ import { planArrive } from '@engine/src/features/world'
 import { demoStart, legacyFacilityAt, blockIdOf, stationMarkerOf, worldContent } from './world'
 import { transitContent } from './transit'
 import { eventContent } from './events'
+import { commissionContent } from './commission'
 
 /**
  * 示意世界包（dev/work/M2-plan.md 使用者定案第 5 項）：引擎不再匯入內容，畫面接上引擎之後城市是空的，
@@ -18,7 +19,7 @@ export const DEMO_PACK_ID = 'demo_world'
 export function demoPack(): ContentPack {
   // 規則表（事件範圍 street 與 transit、計程車的規則 transit_rule……）和引擎的核心包（CORE_PACK）同一個 id 時，後載入的取代前面的
   // （內容種類的 overridable，dev/adr/0017）：示意包放在核心包後面，用自己的機率與公里數表
-  return { id: DEMO_PACK_ID, content: { ...worldContent(), ...transitContent(), ...eventContent() } }
+  return { id: DEMO_PACK_ID, content: { ...worldContent(), ...transitContent(), ...eventContent(), ...commissionContent() } }
 }
 
 /**

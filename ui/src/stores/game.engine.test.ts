@@ -133,10 +133,10 @@ describe('存檔的形狀（M0-ui-engine 第五節第 3 步：引擎的那幾樣
   })
 })
 
-describe('委託副本的快照（SERIES 第 6 節）', () => {
-  it('SERIES 第 6 節：回到這個階段開始時，錢回到當時；紀錄保留並多一則說明', () => {
+describe('戰鬥開打前的快照（地下城、子網的舊戰場；委託副本的階段快照在引擎）', () => {
+  it('回到戰鬥開打前：錢回到當時；紀錄保留並多一則說明', () => {
     const g = useGame()
-    const s = g.takeSnapshot('階段', '第一階段')
+    const s = g.takeSnapshot('戰鬥', '戰鬥開打前')
     g.money.cash -= 200
     g.addLog({ prose: ['打了一架'] })
     g.rollback(s.id)
@@ -150,15 +150,5 @@ describe('委託副本的快照（SERIES 第 6 節）', () => {
     const before = json(e.state)
     g.rollback('nope')
     expect(json(e.state)).toBe(before)
-  })
-
-  it('撤退（入口）之後快照清空、離開副本', () => {
-    const g = useGame()
-    g.inRun = true
-    const s = g.takeSnapshot('入口', '入口')
-    g.takeSnapshot('戰鬥', '第一場')
-    g.rollback(s.id)
-    expect(g.snapshots).toEqual([])
-    expect(g.inRun).toBe(false)
   })
 })

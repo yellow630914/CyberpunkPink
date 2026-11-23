@@ -11,7 +11,7 @@ import { useUi } from '../stores/ui'
 import { ITEMS } from '../data/items'
 import { BODY_PARTS } from '../data/character'
 import { SURGEONS, installQuote, removeQuote, freeSlot, TUNE_FEE, type Surgeon } from '../lib/clinic'
-import { chance } from '../lib/commission'
+import { chance } from '../lib/odds'
 import { fmt } from '../lib/price'
 import type { BodyPartId } from '../data/types'
 

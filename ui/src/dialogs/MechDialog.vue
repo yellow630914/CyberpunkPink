@@ -7,7 +7,7 @@ import ReasonButton from '../components/ReasonButton.vue'
 import { useGame } from '../stores/game'
 import { useUi } from '../stores/ui'
 import { MECH_WEAPONS, PLATE_HP, AUX_PARTS, UPKEEP_WEEK, BACKLASH, MECH_CAP, OVERHAUL_PARTS, mechMax, mechStatus, repairQuote, overhaulQuote, upgradeQuote, carRepairQuote, applyOverhaul, applyUpgrade, vehicleById } from '../data/garage'
-import { chance } from '../lib/commission'
+import { chance } from '../lib/odds'
 import { fmt } from '../lib/price'
 
 /**

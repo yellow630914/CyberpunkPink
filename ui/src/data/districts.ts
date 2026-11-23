@@ -72,7 +72,7 @@ export const BLOCKS: Record<string, BlockSpec> = {
   '天井市場': {
     district: 'hive', name: '天井市場',
     facilities: [
-      { id: 'alian', name: '阿蓮雜貨', icon: 'ic-fac_conv', kind: 'shop', shopId: 'alian', npcIds: ['npc_lian'], services: [{ name: '買賣', action: 'shop' }, { name: '中間人的店', action: 'fixer', props: { fixerId: 'alian' } }] },
+      { id: 'alian', name: '阿蓮雜貨', icon: 'ic-fac_conv', kind: 'shop', shopId: 'alian', npcIds: ['npc_lian'], services: [{ name: '買賣', action: 'shop' }, { name: '中間人的店', action: 'fixer', props: { fixerId: 'fx_alian' } }] },
       svc('peach', '桃子屋蜂巢店', 'ic-fac_food', [{ name: '便當', price: 12, action: 'none' }]),
       svc('parts', '零件攤', 'ic-fac_scrapyard'),
       svc('gacha', '義體扭蛋攤', 'ic-fac_gacha', [{ name: '轉一次', price: 30, action: 'none' }]),
@@ -248,7 +248,7 @@ export const BLOCKS: Record<string, BlockSpec> = {
 /** 沒有寫資料的街區：用通用的設施名，只能看、不能用。 */
 /** 通用版面的街區另外加的設施（第三版：夢露的店在中城段・北；舊港碼頭邊真白的車廠） */
 const GENERIC_EXTRA: Record<string, Facility[]> = {
-  '中城段・北': [svc('monroe', '夢露的店・後場', 'ic-fac_bar', [{ name: '中間人的店', action: 'fixer', props: { fixerId: 'npc_monroe' } }])],
+  '中城段・北': [svc('monroe', '夢露的店・後場', 'ic-fac_bar', [{ name: '中間人的店', action: 'fixer', props: { fixerId: 'fx_monroe' } }])],
   '碼頭': [svc('mashiro', '真白的車廠', 'ic-fac_garage', [{ name: '買車', action: 'garage', props: { place: '舊港・真白的車廠' } }, { name: '機甲整備', action: 'mech' }])],
 }
 export function blockSpec(district: DistrictId, name: string): BlockSpec {

@@ -8,7 +8,7 @@ import { legacyFacilityAt } from '../data/demo'
 import { ITEMS, itemDef } from '../data/items'
 import { EQUIP_SLOTS } from '../data/character'
 import { MORE_NPCS, ROSTER } from '../data/roster'
-import { START_BASICS, START_LEARNED, START_LOADOUT, START_NIGHT, START_PARAMS, START_TENDENCY, START_FAME, START_SEX, START_DECK, START_GUIDES } from '../data/profile'
+import { START_BASICS, START_LEARNED, START_NIGHT, START_PARAMS, START_TENDENCY, START_FAME, START_SEX, START_DECK, START_GUIDES } from '../data/profile'
 import { START_CHANNEL } from '../data/channel'
 import { HELD } from '../data/contracts'
 import { BILL_ITEMS, PENDING } from '../data/weekly'
@@ -16,13 +16,12 @@ import { START_FILL } from '../data/crafting'
 import { SKILL_TREES } from '../data/content.generated'
 import { skillXp } from '../lib/skills'
 import { START_MEDIA } from '../data/media'
-import { START_JOB, type JobState } from '../data/commission'
 import { START_MECH, type MechState } from '../data/garage'
 import { useHome } from './home'
 import { useSubnet } from './subnet'
 import { useEngine } from './engine'
 import { useUi } from './ui'
-import { packSave, rollbackKeeping, type Snapshot, type SnapshotKind } from '../lib/save'
+import { packSave, rollbackKeeping, type Snapshot } from '../lib/save'
 import { sanitizeDyes, type Dye } from '../lib/dye'
 
 /**
@@ -37,11 +36,10 @@ export interface SaveShape {
   day: number; minutes: number; money: { fav: number }; hostility: Record<string, number>
   character: typeof PROTAGONIST; party: typeof PARTY; inventory: ItemStack[]; cyber: typeof START_CYBER; equip: Partial<Record<EquipSlotId, string>>
   quick: Array<string | null>; coatClosed: boolean; npcs: Record<string, import('../data/types').Npc>; loc: { district: DistrictId; block: string; pos?: Point; facility: string | null }; log: LogEntry[]
-  basics: Record<string, number>; learned: string[]; loadout: string[]; nightLearned: string[]; params: typeof START_PARAMS; tendency: typeof START_TENDENCY
+  basics: Record<string, number>; learned: string[]; nightLearned: string[]; params: typeof START_PARAMS; tendency: typeof START_TENDENCY
   fame: Record<string, number>; sexRecord: typeof START_SEX; deck: typeof START_DECK; roster: typeof ROSTER; channel: typeof START_CHANNEL; contracts: { held: typeof HELD }
   bills: { items: typeof BILL_ITEMS; overdueWeeks: number }; pending: typeof PENDING; craftFill: Record<string, Record<string, string>>; guides: typeof START_GUIDES; dungeonSeed: number; vehicles?: string[]
   media?: typeof START_MEDIA
-  job?: JobState
   mech?: MechState
   /** 第 3 版：家園與子網的 store（null 是 v2 升上來的存檔，讀的時候不動） */
   home?: Record<string, unknown> | null
@@ -91,7 +89,6 @@ export const useGame = defineStore('game', () => {
   // ---- 第二版 ----
   const basics = reactive<Record<string, number>>({ ...START_BASICS })
   const learned = ref<string[]>([...START_LEARNED])
-  const loadout = ref<string[]>([...START_LOADOUT])
   const nightLearned = ref<string[]>([...START_NIGHT])
   const params = reactive({ ...START_PARAMS })
   const tendency = reactive(structuredClone(START_TENDENCY))
@@ -111,8 +108,6 @@ export const useGame = defineStore('game', () => {
   const dungeonSeed = ref(1)
   /** 紀錄、素材、片（MEDIA 第 1～5 節） */
   const media = reactive(structuredClone(START_MEDIA))
-  /** 進行中的委託（FIXER 第 2 節的四拍；UI.md 第 7 節的委託頁） */
-  const job = reactive<JobState>(structuredClone(START_JOB))
   /** 機甲（ITEMS 14.2 節、CRAFTING 第 15 節）：假存檔有一具除役的野馬 II */
   const mech = reactive<MechState>(structuredClone(START_MECH))
   /** 最近一場戰鬥的結果：戰鬥畫面離開時寫，委託頁讀了推進階段（不進存檔） */
@@ -120,7 +115,6 @@ export const useGame = defineStore('game', () => {
   /** 染色（EQUIPMENT 第 9 節）：背包裡的一疊或穿著的一格染成的主色調與副色調；沒有就是預設的顏色 */
   const dyes = reactive<Record<string, Dye>>({})
   const snapshots = ref<Snapshot[]>([])
-  const inRun = ref(false)
   /** 紀錄：引擎的報告轉成的（最新的在最前面） */
   const log = computed<LogEntry[]>(() => eng.log)
   let uidSeq = 100
@@ -262,9 +256,9 @@ export const useGame = defineStore('game', () => {
     return JSON.parse(JSON.stringify({
       money: { fav: money.fav }, hostility: { ...hostility }, character: { ...character }, party: [...party],
       inventory: inventory.value, cyber: { ...cyber }, equip: { ...equip }, quick: quick.value, coatClosed: coatClosed.value, npcs: { ...npcs }, loc: { ...loc },
-      basics: { ...basics }, learned: learned.value, loadout: loadout.value, nightLearned: nightLearned.value, params: { ...params }, tendency: { ...tendency },
+      basics: { ...basics }, learned: learned.value, nightLearned: nightLearned.value, params: { ...params }, tendency: { ...tendency },
       fame: { ...fame }, sexRecord: { ...sexRecord }, deck: { ...deck }, roster: roster.value, channel: { ...channel }, contracts: { ...contracts }, bills: { ...bills },
-      pending: pending.value, craftFill: { ...craftFill }, guides: { ...guides }, dungeonSeed: dungeonSeed.value, vehicles: vehicles.value, media: { ...media }, job: { ...job }, mech: { ...mech },
+      pending: pending.value, craftFill: { ...craftFill }, guides: { ...guides }, dungeonSeed: dungeonSeed.value, vehicles: vehicles.value, media: { ...media }, mech: { ...mech },
       home: useHome().serialize(), subnet: useSubnet().serialize(), dyes: { ...dyes },
     })) as SaveShape
   }
@@ -286,7 +280,6 @@ export const useGame = defineStore('game', () => {
     // 所在地在引擎的存檔裡（loc 是舊存檔的欄位，讀的時候不碰）
     if (d.basics) Object.assign(basics, d.basics)
     if (d.learned) learned.value = [...d.learned]
-    if (d.loadout) loadout.value = [...d.loadout]
     if (d.nightLearned) nightLearned.value = [...d.nightLearned]
     if (d.params) Object.assign(params, d.params)
     if (d.tendency) Object.assign(tendency, structuredClone(d.tendency))
@@ -303,7 +296,6 @@ export const useGame = defineStore('game', () => {
     if (typeof d.dungeonSeed === 'number') dungeonSeed.value = d.dungeonSeed
     if (Array.isArray(d.vehicles)) vehicles.value = [...d.vehicles]
     if (d.media) Object.assign(media, structuredClone(d.media))
-    if (d.job) Object.assign(job, structuredClone(d.job))
     if (d.mech) Object.assign(mech, structuredClone(d.mech))
     if (d.home) useHome().hydrate(d.home)
     if (d.subnet) useSubnet().hydrate(d.subnet)
@@ -314,11 +306,14 @@ export const useGame = defineStore('game', () => {
   }
   function packed(kind: '手動' | '自動' | '快照' = '手動') { return packSave(serialize(), saveMeta(kind)) }
 
-  /** 委託副本的快照：每個階段開始時與每場戰鬥開打前各存一個（SERIES 第 6 節）。 */
+  /**
+   * 戰鬥開打前的快照（地下城、子網這些還沒搬進引擎的舊戰場用）：只留最新的一份。
+   * 委託副本的「入口」「階段」快照在引擎裡（state.snapshots，kind entry、stage；撤退與回到階段開始時都是引擎的回退），不在這裡。
+   */
   let snapSeq = 1
-  function takeSnapshot(kind: SnapshotKind, label: string) {
+  function takeSnapshot(kind: '戰鬥', label: string) {
     const s: Snapshot = { id: `snap${snapSeq++}`, kind, label, at: `第 ${day.value} 天 ${timeLabel.value}`, state: JSON.stringify(serialize()), engine: eng.save() }
-    if (kind === '戰鬥') snapshots.value = snapshots.value.filter(x => x.kind !== '戰鬥')
+    snapshots.value = snapshots.value.filter(x => x.kind !== kind)
     snapshots.value.push(s)
     return s
   }
@@ -333,15 +328,13 @@ export const useGame = defineStore('game', () => {
     // 時間、錢、紀錄在引擎：引擎的時間只往前，所以用快照裡的引擎存檔讀回去（連回退的堆疊一起清掉）
     if (s.engine) eng.rewind(s.engine, note.prose[0]!)
     else addLog(note)
-    if (s.kind === '入口') { snapshots.value = []; inRun.value = false }
-    else if (s.kind === '階段') snapshots.value = snapshots.value.filter(x => x.kind !== '戰鬥' || snapshots.value.indexOf(x) < snapshots.value.indexOf(s))
   }
 
   return {
     day, minutes, money, hostility, character, party, inventory, cyber, equip, quick, coatClosed, npcs, loc, log,
     timeLabel, weekday, billIn, district, facility, placeLabel, topHostility, carriedWeight, sinkFloor, quickCap, coveredSlots,
     advance, addLog, addItem, removeItem, stackOf, equipItem, unequip, cyberAt, changeAffinity, itemName,
-    basics, learned, loadout, nightLearned, params, tendency, fame, sexRecord, deck, roster, channel, contracts, bills, pending, craftFill, guides, dungeonSeed, vehicles, media, job, mech, lastBattle, snapshots, inRun,
+    basics, learned, nightLearned, params, tendency, fame, sexRecord, deck, roster, channel, contracts, bills, pending, craftFill, guides, dungeonSeed, vehicles, media, mech, lastBattle, snapshots,
     dyes, setDye, learnSkill, syncTrees, learnNight, setQuick, serialize, hydrate, saveMeta, packed, takeSnapshot, rollback,
   }
 })

@@ -17,7 +17,7 @@ export type UiStep =
   | { type: 'spend'; money: 'acc' | 'cash'; amount: number }
   | { type: 'advance'; minutes: number }
   | { type: 'undo' }
-  | { type: 'snapshot'; kind: '入口' | '階段' | '戰鬥'; label: string }
+  | { type: 'snapshot'; kind: '戰鬥'; label: string }
   | { type: 'rollback' }
   /** 同時送出兩個自由行動：記下第二個結束時（第一個還在跑）busy 是什麼 */
   | { type: 'actTwice'; text: string }
@@ -27,6 +27,16 @@ export type UiStep =
   | { type: 'loseBattle' }
   /** 戰敗三選一的「回到這個階段開始時」（useEngine().rewindToStage）：記下回傳的原因 */
   | { type: 'rewindToStage' }
+  /** 把人帶到一塊街區（world.arrive；委託的出發要人在中間人那一塊） */
+  | { type: 'arrive'; block: string }
+  /** 在中間人那裡接他今天的第 index 件委託（預設第 0 件），用現金付 */
+  | { type: 'takeJob'; fixer: string; index?: number }
+  /** 手上最近接的那件委託出發（引擎的 fixer.go：開委託副本） */
+  | { type: 'depart' }
+  /** 副本裡選面、選分支（引擎的 commission.chooseFace、chooseBranch；進入這一段時引擎開地圖） */
+  | { type: 'enterStage'; face: 'meat' | 'net' | 'opinion'; branch: string }
+  /** 在副本的地圖上走 count 步（照 北、南、東、西 的順序挑走得過去的方向；每一步引擎加時間） */
+  | { type: 'walk'; count: number }
   /** 戰敗三選一的「重來這場戰鬥」（useEngine().retryBattle）：記下回傳的原因 */
   | { type: 'retryBattle' }
 
@@ -54,6 +64,10 @@ export interface UiView {
   choiceResult: string | null | undefined
   inBattle: boolean
   pendingDefeat: boolean
+  /** 委託副本：沒有在副本裡是 null */
+  commission: { stage: number; step: string } | null
+  /** 手上進行中的委託有幾件 */
+  jobs: number
   thrown: string[]
 }
 
@@ -117,6 +131,40 @@ export async function runUiRepro(r: UiRepro): Promise<UiView> {
           await e.finishBattle()
           break
         }
+        case 'arrive': {
+          const r = await e.world.arrive(step.block)
+          if (r.status !== 'applied') throw new Error(`到不了 ${step.block}：${r.reason ?? r.status}`)
+          break
+        }
+        case 'takeJob': {
+          const offer = e.fixer.board(step.fixer).offers[step.index ?? 0]
+          if (!offer) throw new Error(`${step.fixer} 今天沒有第 ${step.index ?? 0} 件委託。`)
+          const r = await e.fixer.accept({ id: offer.id, fixer: step.fixer }, 'cash')
+          if (r.status !== 'applied') throw new Error(`接不了：${r.reason ?? r.status}`)
+          break
+        }
+        case 'depart': {
+          const job = e.fixer.jobs()[0]
+          if (!job) throw new Error('手上沒有委託。')
+          const r = await e.fixer.go(job.id)
+          if (r.status !== 'applied') throw new Error(`出發不了：${r.reason ?? r.status}`)
+          break
+        }
+        case 'enterStage': {
+          const a = await e.commission.chooseFace(step.face)
+          if (a.status !== 'applied') throw new Error(`選不了面：${a.reason ?? a.status}`)
+          const b = await e.commission.chooseBranch(step.branch)
+          if (b.status !== 'applied') throw new Error(`選不了分支：${b.reason ?? b.status}`)
+          break
+        }
+        case 'walk': {
+          for (let i = 0; i < step.count; i++) {
+            const dirs = (['north', 'south', 'east', 'west'] as const).filter((d) => e.world.grid()?.moves[d] === null)
+            if (!dirs.length) break
+            e.world.walk(dirs[i % dirs.length]!)
+          }
+          break
+        }
         case 'rewindToStage': choiceResult = e.rewindToStage(); break
         case 'retryBattle': choiceResult = e.retryBattle(); break
       }
@@ -139,6 +187,8 @@ export async function runUiRepro(r: UiRepro): Promise<UiView> {
     choiceResult,
     inBattle: e.inBattle,
     pendingDefeat: e.pendingDefeat !== null,
+    commission: ((v) => (v ? { stage: v.stage, step: v.step } : null))(e.commission.view()),
+    jobs: e.fixer.jobs().length,
     thrown,
   }
 }

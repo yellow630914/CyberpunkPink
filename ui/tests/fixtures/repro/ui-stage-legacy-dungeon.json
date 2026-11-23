@@ -1,0 +1,100 @@
+{
+  "id": "ui-stage-legacy-dungeon",
+  "bug": "2026-11-22-ui-stage-outside-dungeon",
+  "note": "COMBAT_SYSTEM 8.4 節＋SERIES 第 6 節：委託副本裡，「回到這個階段開始時」回到這個階段剛開始的時候（不是進副本的那一刻）。副本是引擎的委託：接案、出發（入口的快照，08:30）、過一段時間、選面（階段的快照，09:00）、過一段時間（09:30）、打輸，Game.rewindToStage 回到開打前那份快照之前最近的 stage 快照。",
+  "draft": {
+    "name": "露",
+    "gender": "female",
+    "age": 22,
+    "origin": "hive",
+    "originChoice": {
+      "favor": "lonestar"
+    },
+    "attrPick": {
+      "reflex": 15,
+      "charm": 14,
+      "intellect": 13,
+      "body": 12,
+      "resolve": 10,
+      "tech": 8
+    },
+    "attrBonus": {
+      "tech": -4,
+      "reflex": 3,
+      "resolve": 3
+    },
+    "skills": {
+      "streetwise": 3,
+      "negotiate": 3,
+      "perform": 2,
+      "stealth": 2
+    },
+    "perks": [
+      "smooth_talker",
+      "tough"
+    ]
+  },
+  "steps": [
+    {
+      "type": "ai",
+      "useAi": false
+    },
+    {
+      "type": "newGame",
+      "seed": 7
+    },
+    {
+      "type": "create"
+    },
+    {
+      "type": "act",
+      "text": "先在街上走走"
+    },
+    {
+      "type": "arrive",
+      "block": "b_hive_1"
+    },
+    {
+      "type": "takeJob",
+      "fixer": "fx_alian"
+    },
+    {
+      "type": "depart"
+    },
+    {
+      "type": "act",
+      "text": "檢查一下裝備"
+    },
+    {
+      "type": "enterStage",
+      "face": "meat",
+      "branch": "assault"
+    },
+    {
+      "type": "act",
+      "text": "在入口附近觀察"
+    },
+    {
+      "type": "loseBattle"
+    },
+    {
+      "type": "rewindToStage"
+    }
+  ],
+  "expect": {
+    "choiceResult": null,
+    "inBattle": false,
+    "pendingDefeat": false,
+    "commission": {
+      "stage": 1,
+      "step": "face"
+    },
+    "jobs": 1,
+    "time": {
+      "day": 1,
+      "hour": 9,
+      "minute": 0
+    },
+    "thrown": []
+  }
+}

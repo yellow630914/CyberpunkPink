@@ -278,7 +278,6 @@ function start() {
   for (const sk of eSkills) b[sk.name] = (basics[sk.id] ?? 0) + (eo.value.skill_bonus[sk.id] ?? 0)
   for (const k of Object.keys(g.basics)) g.basics[k] = b[k] ?? 0
   g.learned = [...learned.value]
-  g.loadout = []
   g.syncTrees()
   for (const d of picks.gear) g.addItem(d.id)
   g.addLog({ prose: [`${basic.name.trim()}，${basic.age} 歲，${origin.value.line}。故事從${origin.value.home}開始。`], place: origin.value.home })

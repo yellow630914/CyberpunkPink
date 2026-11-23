@@ -105,9 +105,9 @@ describe('第 3 版：家園與子網跟著存檔與快照走', () => {
     expect(s2.pos).toEqual({ x: 1, y: 0 })
     expect(s2.isExplored({ x: 0, y: 0 })).toBe(true)
   })
-  it('委託副本的快照帶著子網：回退時追蹤度也回去', () => {
+  it('戰鬥開打前的快照帶著子網：回退時追蹤度也回去', () => {
     const g = useGame(), s = useSubnet()
-    const snap = g.takeSnapshot('階段', '階段開始時')
+    const snap = g.takeSnapshot('戰鬥', '戰鬥開打前')
     s.addTrace(30)
     g.rollback(snap.id)
     expect(s.trace).toBe(34)

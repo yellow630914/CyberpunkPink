@@ -13,6 +13,12 @@ import type { DistrictId, Facility } from '../types'
  * 設施的 `icon` 是示意包多給的欄位（畫面讀，引擎不讀）。
  */
 
+/** 區裡有哪些勢力（目標勢力從這裡抽；引擎的 district 內容欄位 factions） */
+export const DISTRICT_FACTIONS: Record<string, string[]> = {
+  hive: ['lonestar'], ave42: ['strippers', 'guard'], sakura: ['hizakura'], crown: ['starbelle', 'kunlun'],
+  oldport: ['tokko', 'nora'], glass: ['eden'], rust: ['blackspring'], under: ['netvigil'],
+}
+
 const GRADE: Record<string, number> = { hive: 1, ave42: 2, sakura: 2, crown: 5, oldport: 1, glass: 5, rust: 2, under: 1 }
 /** 走一格幾分鐘（G8）：鏽帶 2，其餘用預設 1 */
 const STEP_MINUTES: Record<string, number> = { rust: 2 }
@@ -180,6 +186,8 @@ export function worldContent(): NonNullable<ContentPack['content']> {
     blocks: d.blocks.map(b => blockIdOf(d.id, b)),
     // 城市地圖的熱點位置、治安與風格的說明：引擎的 district 內容的欄位（畫面讀，引擎的規則不讀）
     map_x: d.x, map_y: d.y, security: d.security, style: d.style,
+    // 目標勢力從這裡抽（生成委託用）
+    factions: DISTRICT_FACTIONS[d.id] ?? [],
   }))
   return { special_map, block, district, facility_type: FAC_TYPES } as unknown as NonNullable<ContentPack['content']>
 }
