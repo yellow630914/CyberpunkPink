@@ -2,8 +2,9 @@
 // 規格：FIXER 第 1、2 節；COMMISSIONS 2.3 節「分支」、第 4 節；LIFE 1.1 節；CORE_RULES 第 8 節；UI 7.1、7.2 節；dev/adr/0016 第三節與 G18；dev/work/M2-fixer.md。
 //
 // 這個功能不 import 別的功能：副本只經由報告的 launch（活動 commission）與 activity.end；敵對值、人情、信譽只經由量表、效果、條件與變更。
+// 召集請人（hire.ts）與入帳分帳（pay.ts；M2-fixer-pay）的規則數字也在這裡（fixer_rule）。
 
-import type { ActorId, CheckRoll, ContentEntry, GameState, Kernel } from '../../core'
+import type { ActorId, AttrId, CheckRoll, ContentEntry, GameState, Kernel } from '../../core'
 import { ActionBlocked, REP_TIERS, REP_TIER_NAME, clone, isRecord, isSafeInt, repTierOf, rollCheck } from '../../core'
 
 export const OWNER = 'fixer'
@@ -76,20 +77,56 @@ export interface FixerRules {
   scout_alert: number
   /** 買情報：每一級的價錢 */
   intel_per_grade: number
+  /** 評價對報酬的加成（G16：S +20%、A +10%、B 不變、C −10%） */
+  rating_bonus: Record<Rating, number>
+  /** 街頭信譽：做完 +2、失敗 −3（G16） */
+  rep_done: number
+  rep_fail: number
+  /** 借人：價錢 = 等級² × borrow_base × borrow_mult（COMMISSIONS 6.5：出場費的 1.5 倍） */
+  borrow_base: number
+  borrow_mult: number
+  /** 分紅：主角（老闆）拿幾份（NPC_SYSTEM 10.5：多拿一份，總共兩份） */
+  boss_shares: number
+  /** 每一面最多請幾個人（COMMISSIONS 6.5） */
+  aux_max: number
+  /** 靠交情：DC = 基準 − 親密度 ÷ 步長；忠誠到這個數字以上不用擲 */
+  bond_dc_base: number
+  bond_affinity_step: number
+  bond_loyalty: number
+  /** 一起去的人：做完之後親密度加多少、錢照說好的付了的人忠誠加多少（NPC_SYSTEM 7.3、10.4） */
+  trip_affinity: number
+  trip_loyalty: number
 }
+
+/** 委託的評價四級（M2-commission-close 的 rate 給的）。 */
+export const RATING_KEYS = ['S', 'A', 'B', 'C'] as const
+export type Rating = (typeof RATING_KEYS)[number]
 
 export const DEFAULT_FIXER_RULES: FixerRules = {
   pay_cred: 0.85, pay_favor: 0.7, hostility_cred: 2, haggle_dc_base: 13, haggle_success: 0.05, haggle_critical: 0.1,
   scout_minutes: 240, scout_dc_base: 10, scout_dc_per_grade: 2, scout_hard_from: 4, scout_hard_plus: 1, scout_alert: 15, intel_per_grade: 300,
+  rating_bonus: { S: 0.2, A: 0.1, B: 0, C: -0.1 }, rep_done: 2, rep_fail: -3, borrow_base: 200, borrow_mult: 1.5, boss_shares: 2, aux_max: 2,
+  bond_dc_base: 20, bond_affinity_step: 5, bond_loyalty: 70, trip_affinity: 2, trip_loyalty: 2,
 }
 
-type RuleKey = keyof FixerRules
+type RuleKey = Exclude<keyof FixerRules, 'rating_bonus'>
 const RULE_FIELDS: Array<[RuleKey, number, number, boolean]> = [
   // [鍵, 下限, 上限, 整數]
   ['pay_cred', 0, 1, false], ['pay_favor', 0, 1, false], ['hostility_cred', 0, 100, true], ['haggle_dc_base', 0, 40, true], ['haggle_success', 0, 1, false], ['haggle_critical', 0, 1, false],
   ['scout_minutes', 0, 100000, true], ['scout_dc_base', 0, 40, true], ['scout_dc_per_grade', 0, 10, true], ['scout_hard_from', 1, 20, true], ['scout_hard_plus', 0, 10, true],
   ['scout_alert', 0, 100, true], ['intel_per_grade', 0, 100000, true],
+  ['rep_done', -100, 100, true], ['rep_fail', -100, 100, true], ['borrow_base', 0, 100000, true], ['borrow_mult', 0, 10, false], ['boss_shares', 1, 10, true], ['aux_max', 1, 2, true],
+  ['bond_dc_base', 0, 40, true], ['bond_affinity_step', 1, 100, true], ['bond_loyalty', 0, 100, true], ['trip_affinity', 0, 100, true], ['trip_loyalty', 0, 100, true],
 ]
+
+const ratingBonusProblem = (v: unknown): string | null => {
+  if (!isRecord(v)) return 'rating_bonus 要是 { S?, A?, B?, C? }，每一項是 −1～5 的數字（加成的比例）'
+  for (const [key, x] of Object.entries(v)) {
+    if (!(RATING_KEYS as readonly string[]).includes(key)) return `rating_bonus.${key}：評價只有 ${RATING_KEYS.join('、')}`
+    if (!(typeof x === 'number' && Number.isFinite(x) && x >= -1 && x <= 5)) return `rating_bonus.${key} 要是 −1～5 的數字`
+  }
+  return null
+}
 
 export function ruleProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
@@ -98,16 +135,21 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
     if (v === undefined) continue
     if (!(typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi && (!int || Number.isInteger(v)))) p.push(`${key} 要是 ${lo}～${hi} 的${int ? '整數' : '數字'}`)
   }
+  if (e.rating_bonus !== undefined) {
+    const bad = ratingBonusProblem(e.rating_bonus)
+    if (bad) p.push(bad)
+  }
   return p
 }
 
 /** 現在生效的規則：資料 fixer_rule/default 蓋掉內建的預設（格式不對的欄位忽略）。 */
 export function fixerRules(k: Pick<Kernel, 'content'>): FixerRules {
   const e = k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default')
-  const out: FixerRules = { ...DEFAULT_FIXER_RULES }
+  const out: FixerRules = { ...DEFAULT_FIXER_RULES, rating_bonus: { ...DEFAULT_FIXER_RULES.rating_bonus } }
   if (!e) return out
-  const bad = new Set(ruleProblems(e).map((m) => m.split(' ')[0]))
+  const bad = new Set(ruleProblems(e).map((m) => m.split(' ')[0]!.split('.')[0]!))
   for (const [key] of RULE_FIELDS) if (e[key] !== undefined && !bad.has(key)) out[key] = e[key] as number
+  if (e.rating_bonus !== undefined && !bad.has('rating_bonus')) Object.assign(out.rating_bonus, e.rating_bonus)
   return out
 }
 
@@ -235,6 +277,36 @@ export interface ScoutEntry {
 
 export type JobStatus = 'active' | 'done' | 'failed'
 
+// ---- 召集請人（M2-fixer-pay）----
+
+/** 輔助面的三個面（COMMISSIONS 2.1）。 */
+export const AUX_FACES = ['meat', 'net', 'opinion'] as const
+export type AuxFace = (typeof AUX_FACES)[number]
+export const AUX_FACE_NAME: Record<AuxFace, string> = { meat: '現實', net: '內海', opinion: '輿論' }
+
+/** 請人的辦法（COMMISSIONS 6.5）：付錢、用人情、欠人情、靠交情；向中間人借是第五種（只能付錢）。 */
+export const HIRE_WAYS = ['pay', 'use_favor', 'owe_favor', 'bond', 'borrow'] as const
+export type HireWay = (typeof HIRE_WAYS)[number]
+export const HIRE_NAME: Record<HireWay, string> = { pay: '付錢', use_favor: '用人情', owe_favor: '欠人情', bond: '靠交情', borrow: '向中間人借人' }
+
+export type FavorSize = 'small' | 'mid' | 'big'
+export const FAVOR_SIZE_NAME: Record<FavorSize, string> = { small: '小', mid: '中', big: '大' }
+
+/** 請一個人付出的代價（記下來，退人時才知道退什麼）：cash 是付出去的現金；favor 是用掉的（used）或欠下的（owed）人情。 */
+export interface HireCost {
+  cash?: number
+  favor?: { kind: 'used' | 'owed'; who: string; size: FavorSize }
+}
+
+export interface AuxEntry {
+  actor: string
+  way: HireWay
+  cost: HireCost
+}
+
+/** 每一面請了誰（每一面最多 aux_max 個）。 */
+export type Aux = Partial<Record<AuxFace, AuxEntry[]>>
+
 export interface Job {
   /** 就是那件委託的 id（出發時 origin.ref 也是它） */
   id: string
@@ -260,6 +332,36 @@ export interface Job {
   alert_start: number
   trace_start: number
   log: ScoutEntry[]
+  /** 替輔助面請的人（M2-fixer-pay） */
+  aux: Aux
+  /** 靠交情已經失敗過的人（這一件不能再用這個辦法） */
+  bond_failed: string[]
+  /** 借過幾個人（借來的角色的流水號） */
+  borrow_n: number
+  /** 入帳之後留下的紀錄（分帳的數字；進行中是 null） */
+  payout: PayoutRecord | null
+}
+
+/** 入帳之後記在手上那一件的分帳紀錄（給畫面與之後的帳單看）。 */
+export interface PayoutRecord {
+  outcome: 'done' | 'failed'
+  rating: Rating | null
+  reward: number
+  wallet: 'cash' | 'cred'
+  gross: number
+  cut: number
+  pool: number
+  /** 主角實拿（扣掉補的） */
+  pc_net: number
+  /** 付不出來、記成欠的出場費 */
+  debt: number
+}
+
+/** 副本交回來之後等著結算的事（activity.end 記下，report.after 接著提交 fixer.payout；撤退的由 rewind.keep 退人）。 */
+export interface PendingEnd {
+  job: string
+  outcome: 'done' | 'failed' | 'retreat'
+  rating?: Rating
 }
 
 /** 中間人某一天的桌面：每件委託交涉的結果、報酬、有沒有被收回去。 */
@@ -279,10 +381,24 @@ export interface FixerState {
   seq: number
   jobs: Job[]
   table: Record<string, TableDay>
+  pending: PendingEnd[]
 }
 
 export const DEGREES: readonly Degree[] = ['critical', 'success', 'fail', 'fumble']
 const isJob = (v: unknown): v is Job => isRecord(v) && isText(v.id) && isText(v.fixer) && Array.isArray(v.unknowns) && Array.isArray(v.revealed) && isRecord(v.terms) && isRecord(v.commission)
+
+const isPending = (v: unknown): v is PendingEnd => isRecord(v) && isText(v.job) && (v.outcome === 'done' || v.outcome === 'failed' || v.outcome === 'retreat')
+
+/** 舊的存檔、M2-fixer 時存下的手上委託沒有這幾個欄位：補上預設值。 */
+function normJob(j: Job): Job {
+  return {
+    ...j,
+    aux: isRecord(j.aux) ? (j.aux as Aux) : {},
+    bond_failed: Array.isArray(j.bond_failed) ? j.bond_failed.filter(isText) : [],
+    borrow_n: isSafeInt(j.borrow_n) && j.borrow_n >= 0 ? j.borrow_n : 0,
+    payout: isRecord(j.payout) ? (j.payout as unknown as PayoutRecord) : null,
+  }
+}
 
 /** 讀 state.ext.fixer：沒有、或壞掉的部分當成空的（回傳的是複製品，改它不會動到狀態）。 */
 export function readFixer(state: Pick<GameState, 'ext'>): FixerState {
@@ -292,7 +408,10 @@ export function readFixer(state: Pick<GameState, 'ext'>): FixerState {
   if (isRecord(r.table)) {
     for (const [id, d] of Object.entries(r.table)) if (isRecord(d) && isSafeInt(d.day) && isRecord(d.offers)) table[id] = clone(d) as unknown as TableDay
   }
-  return { seq: isSafeInt(r.seq) && r.seq >= 0 ? r.seq : 0, jobs: Array.isArray(r.jobs) ? r.jobs.filter(isJob).map((j) => clone(j)) : [], table }
+  return {
+    seq: isSafeInt(r.seq) && r.seq >= 0 ? r.seq : 0, jobs: Array.isArray(r.jobs) ? r.jobs.filter(isJob).map((j) => normJob(clone(j))) : [], table,
+    pending: Array.isArray(r.pending) ? r.pending.filter(isPending).map((x) => clone(x)) : [],
+  }
 }
 
 export const jobsOf = (state: Pick<GameState, 'ext'>): Job[] => readFixer(state).jobs
@@ -305,6 +424,11 @@ export function jobByRef(state: Pick<GameState, 'ext'>, ref: string): Job | null
 /** 手上進行中的委託，最近接的排最前面。 */
 export const activeJobs = (state: Pick<GameState, 'ext'>): Job[] => jobsOf(state).filter((j) => j.status === 'active').sort((a, b) => b.seq - a.seq)
 export const latestJob = (state: Pick<GameState, 'ext'>): Job | null => activeJobs(state)[0] ?? null
+
+/** 這件委託請了的人，一人一列（帶是哪一面）。 */
+export function auxList(job: Pick<Job, 'aux'>): Array<AuxEntry & { face: AuxFace }> {
+  return AUX_FACES.flatMap((face) => (job.aux[face] ?? []).map((e) => ({ ...e, face })))
+}
 
 /** 這個中間人今天的桌面（日子不對就是空的）。 */
 export function tableOf(state: Pick<GameState, 'ext' | 'time'>, fixer: string): Record<string, TableEntry> {
@@ -349,7 +473,7 @@ export function factionName(k: Pick<Kernel, 'content'>, id: string): string {
 
 // ---- 擲骰 ----
 
-const SKILL_ATTR: Record<string, string> = {
+export const SKILL_ATTR: Record<string, string> = {
   stealth: 'reflex', investigate: 'intellect', streetwise: 'intellect', negotiate: 'charm', interface: 'intellect', seduce: 'charm', perform: 'charm',
 }
 
@@ -358,13 +482,16 @@ export interface Rolled {
   skill: string
 }
 
+/** 一項基本功擲骰用哪一項屬性：內容寫了用內容的，沒寫用預設的對照，都沒有是魅力。 */
+export const attrOfSkill = (k: Pick<Kernel, 'content'>, skill: string): AttrId => ((k.content.get('skill', skill)?.attr as string | undefined) ?? SKILL_ATTR[skill] ?? 'charm') as AttrId
+
 /** 擲一次檢定（主角）：幾種基本功都行時取合計最高的。骰面從存檔的亂數導出，報告裡的 rng 變更讓下一次換一顆。 */
 export function rollBest(k: Kernel, state: GameState, skills: string[], dc: number, purpose: string, tags: string[]): Rolled {
   const actor: ActorId | null = state.pc
   if (!actor || !state.actors[actor]) throw new ActionBlocked('還沒有主角。')
   let best: Rolled | undefined
   for (const skill of skills) {
-    const attr = ((k.content.get('skill', skill)?.attr as string | undefined) ?? SKILL_ATTR[skill] ?? 'charm') as never
+    const attr = attrOfSkill(k, skill)
     const roll = rollCheck(k.stats, state, { actor, attr, skill, dc, purpose, tags })
     if (!best || roll.total > best.roll.total) best = { roll, skill }
   }

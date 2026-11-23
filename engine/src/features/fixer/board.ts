@@ -294,7 +294,7 @@ export function accept(k: Kernel, state: GameState, offer: Pick<Offer, 'id' | 'f
   const job: Omit<Job, 'seq'> = {
     id: o.id, fixer: fixer.id, npc: fixer.npc, title: o.title, brief: o.brief, commission: clone(o.commission), unknowns: clone(o.unknowns),
     terms: { reward: o.reward, pay: option.id, cut: fixer.cut }, haggled: row.haggled, status: 'active', day: state.time.day,
-    revealed: [], scouts: 0, alert_start: 0, trace_start: 0, log: [],
+    revealed: [], scouts: 0, alert_start: 0, trace_start: 0, log: [], aux: {}, bond_failed: [], borrow_n: 0, payout: null,
   }
   const lines = [`接了「${o.title}」：報酬 ${formatAmount(o.reward)}，${option.name}，到手 ${formatAmount(option.amount)}${option.favor ? `，另外多一個${SIZE_NAME[option.favor.size]}人情` : ''}。`, option.cost]
   return draft(state, 'fixer.accept', 'accepted', `接了「${o.title}」。`, [{ op: 'fixer.take', job }], { narration: { results: lines } })
