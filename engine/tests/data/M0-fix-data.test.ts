@@ -48,7 +48,8 @@ const byId = () => Object.fromEntries(entries().map((e) => [e.id, e]))
 
 describe('M0-fix-data：行動種類的資料（AI_TASKS 3.1 節）', () => {
   it('十九種，順序照表格由上到下（殺價、打工、日常直播等那三個系統搬進來再加）', () => {
-    expect(entries().map((e) => e.id)).toEqual(Object.keys(TABLE))
+    // M2 起表後面接了有 owner 的行動種類（npcs、roster、trade 註冊），前十九筆照 AI_TASKS 3.1
+    expect(entries().filter((e) => !(e as { owner?: string }).owner).map((e) => e.id)).toEqual(Object.keys(TABLE))
     expect(SOURCES.action_kind).toMatch(/AI_TASKS/)
   })
 
@@ -97,7 +98,8 @@ describe('M0-fix-data：行動種類的資料（AI_TASKS 3.1 節）', () => {
   it('裝上所有功能：十八種可以做（free 用資料的那一筆）；誘惑先不註冊（它的鏈還沒搬進來）', () => {
     const game = new Game({ features: allFeatures(), content: [CORE_PACK], strict: true })
     const ids = game.k.actions.list().map((a) => a.id).sort()
-    expect(ids).toEqual(Object.keys(TABLE).filter((id) => id !== 'flirt').sort())
+    const owned = entries().filter((e) => (e as { owner?: string }).owner).map((e) => e.id)
+    expect(ids).toEqual([...Object.keys(TABLE).filter((id) => id !== 'flirt'), ...owned].sort())
     expect(game.k.actions.get('free')).toMatchObject({ owner: 'actions', name: '自由行動', attr: 'intellect', minutes: 30, maxMinutes: 240 })
     // free 的參考範圍不給現金（2026-11-22 定案）：資料沒有寫 hint，所以沒有參考範圍
     expect(game.k.actions.get('free')!.hint).toBeUndefined()

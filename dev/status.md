@@ -136,3 +136,4 @@
 - 2026-11-23 scene 沒做的（LEWD 3.5）：多人分圈、換檔、觸手例外、技能 needs、夜課學習與共鳴、對方性別／NTR 等篩選開關、外部打斷來源、AI 每回合與 scene_gate（只留接口）。精簡版換體位後自動接回是免費的。
 - 2026-11-23 abilities-m2 留下的：roster 要註冊同行條件 in_tagalong {who}（xp 才分得出同行與留家）；增援的 fallback「他支援三次」沒有效果可寫；被識破時換臉、千面這類戰鬥中戴上的面具要不要一起失效（待使用者）；日常（daily）技能、M3／M5 欄位、M4 的戰地手術裝義體。
 - 2026-11-23 M2 收尾小修（第二批，ui-world 回報）：導演把「車上」當成別的活動，擋住型 transit_stop／wait 事件在車上一律延後（放行 event.start 的活動不該算）；出口標記用 usesOf 列「過去」；district 內容加地圖位置、治安、風格欄位（示意包先放 map_x/map_y/security/style）；核心 sheetProblems「每張至少 2 個遭遇點」不該套在街區地圖上。
+- 2026-11-23 M2 收尾小修（資料對設計書，data-rules 回報）：預設值要改成設計書的數字——遭遇組合點數（ENEMIES 13：一般 4、首領戰 8）、報酬範圍（COMMISSION_TEMPLATES 的表）、債的利息胭脂堂收現金（DOWNTIME 5.1）、讀橋防護階企業主管與保全 3（NPC_SYSTEM 6.4）。人情作價 300／1500 與拒絕 −3 沒有出處，維持暫定。scan_level 種類沒人認得（scan_levels.json 未接）。
