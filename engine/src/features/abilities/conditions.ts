@@ -4,6 +4,7 @@
 import type { BattleUnit, BattleView, ItemEntry, UnitRank } from '../../core'
 import { distance, hasStatus, isWounded, onField, statusRuleOf, wielded } from '../../core'
 import type { AbilityEntry, NeedsDef, WhenDef } from './types'
+import { spotted } from './unitdata'
 
 /** 單位這一場發動過幾次攻擊（social.ts 的 attack.after 記；偽裝的「第一次攻擊」看它）。 */
 export const ATTACKS_MADE = 'attacks_made'
@@ -43,6 +44,7 @@ export function whenBlocks(view: BattleView, u: BattleUnit, w: WhenDef | undefin
   if (w.first_round && view.battle.round !== 1) out.push('只能在第一回合用。')
   if (w.wounded && !isWounded(u)) out.push('自己要是重傷（生命低於一半）才能用。')
   if (w.first_attack && (u.uses[ATTACKS_MADE] ?? 0) > 0) out.push('只有這一場的第一次攻擊才能用，已經攻擊過了。')
+  if (w.not_spotted && spotted(view.battle)) out.push('這一場開打前就被識破了，偽裝派不上用場。')
   if (w.in_cover && view.coverOf(u) < 1) out.push('自己要站在有遮蔽的格子才能用。')
   if (w.other_exposed && !(other && view.isExposed(other))) out.push('對手要站在暴露的格子才能用。')
   if (w.other_cyber && !((other?.cyber ?? 0) > 0)) out.push('對手要有義體才能用。')

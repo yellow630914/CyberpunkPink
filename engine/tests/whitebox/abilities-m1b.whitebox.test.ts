@@ -431,7 +431,7 @@ describe('白箱 消耗與次數（dev/work/M1b-skill-format.md 第一節；dev/
     const s = a.state
     s.money.cash = 500
     const pcId = s.pc!
-    s.actors[pcId]!.ext = { favors: { small: 2 }, abilities: { commission: { [a.battle.id]: { sk_a: 1, sk_b: 0, sk_c: 'x' } } } }
+    s.actors[pcId]!.ext = { abilities: { commission: { [a.battle.id]: { sk_a: 1, sk_b: 0, sk_c: 'x' } } } }
     const u = a.ally(1)
     u.pools.cash = { now: 9, max: 9, regen: 0 }
     u.pools.favor_small = { now: 7, max: 7, regen: 0 }

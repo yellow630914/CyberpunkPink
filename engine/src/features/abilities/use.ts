@@ -3,7 +3,7 @@
 // 錢與人情是池（pools.cash、pools.favor_small／favor_mid／favor_big）：行動的 cost() 把它們一起回傳，核心照池檢查與扣；
 // 戰鬥結束時差額寫回（end.ts）。每件委託的次數記在 unit.uses['commission:<技能 id>']，開打時讀進來、結束時寫回。
 
-import type { BattleRun, BattleState, BattleUnit, BattleView } from '../../core'
+import type { BattleKernel, BattleRun, BattleState, BattleUnit, BattleView, GameState } from '../../core'
 import { amount } from '../../core'
 import { FAVORS } from './format'
 import { isRec, tierIn } from './unitdata'
@@ -99,11 +99,21 @@ const count = (v: unknown): number => (typeof v === 'number' && Number.isFinite(
 export const favorPool = (f: (typeof FAVORS)[number]): string => `favor_${f}`
 
 /**
+ * 主角名下欠你的人情有幾個（衍生數值 favor_small／favor_mid／favor_big，人情的功能註冊，資料在 state.ext.favors；沒有人註冊或沒有主角就是 0）。
+ * 戰鬥的人情池讀它（M2-favors）；舊的 actor.ext.favors 格式不再讀。
+ */
+export function favorCountOf(k: Pick<BattleKernel, 'stats'> | undefined, state: Pick<GameState, 'pc' | 'actors'>, f: (typeof FAVORS)[number]): number {
+  const id = `favor_${f}`
+  if (!k || !state.pc || !state.actors[state.pc] || !k.stats.hasStat(id)) return 0
+  return count(k.stats.stat(state as GameState, state.pc, id))
+}
+
+/**
  * 單位剛組好、有角色的：建現金與三種人情的池（已經有的不動），把這件委託已經用過的次數讀進 uses。
- * 現金是隊伍的錢包（state.money.cash）、人情記在主角名下（FIXER 第 8 節；沒有主角時讀自己的）：同一場戰鬥裡每個人的池是同一個數字
+ * 現金是隊伍的錢包（state.money.cash）、人情是主角名下欠你的（favorCountOf；FIXER 第 8 節）：同一場戰鬥裡每個人的池是同一個數字
  * （已經有隊友建好池就照他現在的數字，不是開打時的；之後的花費由 wallet.ts 同步）。
  */
-export function setupResources(run: Pick<BattleRun, 'state' | 'battle'>, u: BattleUnit): void {
+export function setupResources(run: Pick<BattleRun, 'state' | 'battle'> & { k?: Pick<BattleKernel, 'stats'> }, u: BattleUnit): void {
   if (!u.actor) return
   const actor = run.state.actors[u.actor]
   if (!actor) return
@@ -115,9 +125,7 @@ export function setupResources(run: Pick<BattleRun, 'state' | 'battle'>, u: Batt
     rememberPool(u, name)
   }
   share('cash', count(run.state.money.cash))
-  const pc = run.state.pc ? run.state.actors[run.state.pc] : undefined
-  const favors = isRec(pc?.ext.favors) ? pc!.ext.favors : isRec(actor.ext.favors) ? actor.ext.favors : {}
-  for (const f of FAVORS) share(favorPool(f), count(favors[f]))
+  for (const f of FAVORS) share(favorPool(f), favorCountOf(run.k, run.state, f))
   const mine = actor.ext.abilities
   const stored = isRec(mine) && isRec(mine.commission) ? mine.commission[commissionKeyOf(run.battle)] : undefined
   if (isRec(stored)) for (const [id, n] of Object.entries(stored)) if (typeof n === 'number' && n > 0) u.uses[commissionUse(id)] = n

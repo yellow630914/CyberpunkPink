@@ -24,7 +24,7 @@ export const UNIT_TARGETS: readonly string[] = ['enemy', 'ally', 'ally_or_self',
 export const MEAT_KEYS = [
   'target', 'attack', 'apply', 'free_move', 'cost', 'weapon_cost', 'trigger', 'evade', 'on_hit', 'give_ap', 'call', 'instinct', 'pending',
   'needs', 'when', 'range', 'picks', 'do', 'choose', 'mods', 'react', 'do_on', 'do_off', 'tags', 'action_tags', 'pool', 'alter', 'ransom', 'on_start', 'on_give_ap',
-  'mask', 'tease',
+  'mask', 'tease', 'out', 'out_mods',
 ] as const
 export const CALL_OPTIONS = ['shot', 'cover_up', 'cover_down', 'heal', 'vent'] as const
 /** 叫人的選項裡要自己寫數字的（call.heal、call.vent） */
@@ -34,10 +34,10 @@ const LEGACY_TRIGGERS = ['ally_attacked', 'ally_attacked_adjacent'] as const
 export const USE_KEYS = ['ap', 'ram', 'ram_all_min', 'cash', 'favor', 'per_turn', 'per_fight', 'per_commission', 'first_round', 'not_first_round', 'group', 'slot', 'note'] as const
 export const FAVORS = ['small', 'mid', 'big'] as const
 export const WHEN_MEAT = ['wield', 'mag_min', 'hull', 'stance', 'slot', 'node_taken', 'wounded'] as const
-export const WHEN_MODS = [...WHEN_MEAT, 'first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_status', 'other_contract', 'target_near', 'first_attack'] as const
+export const WHEN_MODS = [...WHEN_MEAT, 'first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_status', 'other_contract', 'target_near', 'first_attack', 'not_spotted'] as const
 export const NEEDS_KEYS = ['bridged', 'cyber', 'status', 'no_rank', 'rank', 'wounded', 'afterglow', 'tag', 'cache_tag', 'implant_off', 'any'] as const
 export const MOD_WHO = ['self', 'adjacent', 'allies', 'behind'] as const
-export const PICK_KINDS = ['foe', 'ally', 'ally_slot', 'foe_slot', 'choice', 'drone', 'foe_overlay'] as const
+export const PICK_KINDS = ['foe', 'ally', 'ally_slot', 'foe_slot', 'choice', 'drone', 'foe_overlay', 'bench'] as const
 export const PREP_SCOPES = ['next_battle', 'commission'] as const
 
 /** 反應的 who（誰遇到這件事）：照 on 分。 */
@@ -134,7 +134,7 @@ export function whenProblems(at: string, w: unknown, allowed: readonly string[])
   if (w.stance !== undefined && !isText(w.stance)) p.push(`${at}.stance 要是姿態技能的 id`)
   if (w.slot !== undefined && !((isInt(w.slot) && w.slot >= 1 && w.slot <= 4) || (Array.isArray(w.slot) && w.slot.length > 0 && w.slot.every((x) => isInt(x) && x >= 1 && x <= 4)))) p.push(`${at}.slot 要是 1～4 的整數（或整數的陣列）`)
   if (w.node_taken !== undefined && !(w.node_taken === true || isText(w.node_taken))) p.push(`${at}.node_taken 要是 true 或控制節點的種類`)
-  for (const key of ['first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_contract', 'target_near', 'first_attack'] as const) {
+  for (const key of ['first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_contract', 'target_near', 'first_attack', 'not_spotted'] as const) {
     if (w[key] !== undefined && w[key] !== true) p.push(`${at}.${key} 只能是 true`)
   }
   if (w.other_status !== undefined && !isText(w.other_status)) p.push(`${at}.other_status 要是狀態的 id`)
@@ -337,6 +337,22 @@ export function poolProblems(at: string, pool: unknown): string[] {
   return p
 }
 
+/** 戰鬥外的檢定修正 { tags?, skill?, value }：tags 與 skill 至少要寫一個。 */
+export function outModProblems(at: string, m: unknown): string[] {
+  if (!isRec(m)) return [`${at} 要是 { tags?, skill?, value }`]
+  const p = onlyKeys(at, m, ['tags', 'skill', 'value'])
+  if (m.tags !== undefined && !(Array.isArray(m.tags) && m.tags.length > 0 && m.tags.every(isText))) p.push(`${at}.tags 要是標籤的陣列（檢定帶著這些標籤才算）`)
+  if (m.skill !== undefined && !isText(m.skill)) p.push(`${at}.skill 要是基本功的 id`)
+  if (m.tags === undefined && m.skill === undefined) p.push(`${at}：tags 與 skill 至少要寫一個`)
+  if (!isNum(m.value) || m.value === 0) p.push(`${at}.value 要是數字（檢定加多少，不能是 0）`)
+  return p
+}
+
+export function outModListProblems(at: string, list: unknown): string[] {
+  if (!Array.isArray(list) || list.length === 0) return [`${at} 要是修正的陣列（每一筆 { tags?, skill?, value }）`]
+  return list.flatMap((m, i) => outModProblems(`${at}[${i}]`, m))
+}
+
 /** 誘惑攻擊的格式（meat.tease 與效果 { op: 'tease' } 共用欄位）：k 沒給就不查 on_ok、on_overload 裡的 op。 */
 export function teaseFieldProblems(at: string, t: Record<string, unknown>, k?: Pick<Kernel, 'battle'>): string[] {
   const p: string[] = []
@@ -438,6 +454,22 @@ export function meatProblems(m: Record<string, unknown>, kind: unknown, k?: Pick
     }
   }
   if (m.tease !== undefined) p.push(...teaseProblems(m, kind, k))
+
+  // ---- 戰鬥外（偽裝、我演得很像吧、入骨） ----
+  if (m.out !== undefined) {
+    if (kind !== 'stance') p.push('meat.out 只有姿態（kind 是 stance）用：戰鬥外也開得了的姿態')
+    if (!isRec(m.out)) p.push('meat.out 要是 { check, on_start? }')
+    else {
+      p.push(...onlyKeys('meat.out', m.out, ['check', 'on_start']))
+      if (m.out.check === undefined) p.push('meat.out.check 一定要寫（{ tags, skill, value }：開著的時候戰鬥外的檢定加多少）')
+      else p.push(...outModProblems('meat.out.check', m.out.check))
+      if (m.out.on_start !== undefined) p.push(...effectsProblems(k, 'meat.out.on_start', m.out.on_start))
+    }
+  }
+  if (m.out_mods !== undefined) {
+    if (kind !== 'passive') p.push('meat.out_mods 只有被動（kind 是 passive）用：裝著的時候戰鬥外的檢定加多少')
+    p.push(...outModListProblems('meat.out_mods', m.out_mods))
+  }
 
   // ---- 通用格式 ----
   if (m.needs !== undefined) {
@@ -549,7 +581,7 @@ export function meatProblems(m: Record<string, unknown>, kind: unknown, k?: Pick
 export function prepProblems(prep: unknown, kind: unknown, k?: Pick<Kernel, 'battle'>): string[] {
   if (prep === undefined || prep === null) return []
   if (!isRec(prep)) return ['prep 要是物件或 null']
-  const p = onlyKeys('prep', prep, ['text', 'slot', 'scope', 'meat'])
+  const p = onlyKeys('prep', prep, ['text', 'slot', 'scope', 'meat', 'effects', 'target', 'out_mods'])
   if (prep.text !== undefined && typeof prep.text !== 'string') p.push('prep.text 要是字串')
   if (prep.slot !== undefined && !(isInt(prep.slot) && prep.slot >= 0)) p.push('prep.slot 要是 0 以上的整數（幾個時段；0 是不花時段，戰前佈置、情報網）')
   if (prep.scope !== undefined && !(PREP_SCOPES as readonly unknown[]).includes(prep.scope)) p.push(`prep.scope「${String(prep.scope)}」不在清單裡（可以寫：${PREP_SCOPES.join('、')}）`)
@@ -565,6 +597,21 @@ export function prepProblems(prep: unknown, kind: unknown, k?: Pick<Kernel, 'bat
       if (m.mods !== undefined) p.push(...modsProblems('prep.meat.mods', m.mods))
       if (m.do !== undefined) p.push(...effectsProblems(k, 'prep.meat.do', m.do))
     }
+  }
+  // 預備當下結算的效果（走 k.effects，種類登記了沒有要到執行時才知道：只查形狀）、要選一個人、戰鬥外的檢定修正
+  if (prep.effects !== undefined) {
+    if (kind !== 'prep') p.push('prep.effects 只有預備技能（kind 是 prep）用')
+    if (!Array.isArray(prep.effects) || prep.effects.length === 0) p.push('prep.effects 要是效果的陣列（每一筆 { kind, ... }；字串裡可以寫 $target、$commission、$tendency）')
+    else prep.effects.forEach((e, i) => { if (!isRec(e) || !isText(e.kind)) p.push(`prep.effects[${i}] 要是 { kind, ... }（kind 是效果的種類）`) })
+  }
+  if (prep.meat === undefined && (prep.effects !== undefined || prep.out_mods !== undefined)) {
+    if (prep.slot === undefined) p.push('prep.slot 一定要寫（預備花幾個時段）')
+    if (prep.scope === undefined) p.push('prep.scope 一定要寫（next_battle 或 commission）')
+  }
+  if (prep.target !== undefined && prep.target !== 'person') p.push("prep.target 只能是 'person'（預備時要選一個人）")
+  if (prep.out_mods !== undefined) {
+    p.push(...outModListProblems('prep.out_mods', prep.out_mods))
+    if (prep.target !== 'person') p.push("prep.out_mods 要和 target: 'person' 一起寫（只對選的那個人有效）")
   }
   return p
 }

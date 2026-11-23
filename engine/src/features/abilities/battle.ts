@@ -6,6 +6,7 @@
 import type { BattleActionDef, BattleInput, BattlePick, BattlePickOption, BattleRun, BattleTarget, BattleTargetOption, BattleUnit, BattleView, BattleWeapon, Kernel, RollPart } from '../../core'
 import { BATTLE_SLOTS, BattleBlocked, WOUND_PARTS, coverAt, gradeDice, onField, otherSide, unitAt, unitsOf, wielded } from '../../core'
 import { aiDefsOf, registerAiStance } from './ai'
+import { companionAbilities, hasOwnRecord } from './companion'
 import { endChanges } from './end'
 import { needsBlocks, rangeBlock, whenBlocks, heldGun } from './conditions'
 import { applySet } from './format'
@@ -14,6 +15,7 @@ import { treeTierOf } from './learn'
 import { featureTotal } from './mods'
 import { startOnStart } from './onstart'
 import { ransomChanges, registerRansom } from './ransom'
+import { carryStance, startOutStance } from './out'
 import { startPrep, bringPrep } from './prep'
 import { suppressAfter } from './suppress'
 import { bumpUses, costOf, setupResources, usageBlocks, useOf } from './use'
@@ -239,6 +241,23 @@ function overlayOptions(view: BattleView, u: BattleUnit): BattlePickOption[] {
     .map((o) => ({ value: o.id, label: o.name, blocks: [], at: { overlay: o.id } as BattleTarget }))
 }
 
+/**
+ * 候補（pick 的 kind 是 bench）：view.bench 列出來的每一個人，值是候補的 id；現在叫不了的列著並帶原因（blocks）。
+ * 增援的效果 call_in 讀 pick[key] 去叫他（run.callIn）。
+ */
+function benchOptions(view: BattleView, u: BattleUnit): BattlePickOption[] {
+  return view.bench(u.side).map((b) => ({ value: b.id, label: b.name, blocks: [...b.blocks] }))
+}
+
+/** 這個技能有 bench 的選擇、而且名冊上現在一個叫得到的人都沒有：灰掉並寫原因（沒有人可以選，行動沒有意義）。 */
+function benchBlocks(view: BattleView, u: BattleUnit, m: MeatDef): string[] {
+  if (!m.picks?.some((d) => d.kind === 'bench' && (d.required ?? true))) return []
+  const list = view.bench(u.side)
+  if (!list.length) return ['名冊上沒有可以叫來的人。']
+  if (list.every((b) => b.blocks.length > 0)) return ['名冊上的人現在都叫不來（看每個人旁邊的原因）。']
+  return []
+}
+
 /** 幾種用法挑一種：選項的條件（when）灰掉自己的原因；目標的條件（needs）只讓適用的目標看到這一項。 */
 function chooseOptions(view: BattleView, u: BattleUnit, m: MeatDef): BattlePickOption[] {
   const units = candidates(view, u, m)
@@ -280,6 +299,7 @@ function picksOf(view: BattleView, u: BattleUnit, ab: AbilityEntry, m: MeatDef):
     if (d.kind === 'choice') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: chooseOptions(view, u, m) })
     else if (d.kind === 'drone') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: droneOptions(u) })
     else if (d.kind === 'foe_overlay') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: overlayOptions(view, u) })
+    else if (d.kind === 'bench') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: benchOptions(view, u) })
     else out.push({ key: d.key, label: d.label, kind: d.kind, required: d.required ?? true, options: declaredOptions(view, u, d.kind, d.adjacent === true, d.apart ? pickTargets(view, u, m, d.kind) : [], d) })
   }
   if (m.choose?.length && !m.picks?.some((p) => p.kind === 'choice')) out.push({ key: 'choice', label: '用法', kind: 'choice', required: true, options: chooseOptions(view, u, m) })
@@ -294,7 +314,7 @@ function picksOf(view: BattleView, u: BattleUnit, ab: AbilityEntry, m: MeatDef):
 /** 做的時候照宣告查：一定要選的有沒有選、選的在不在選項裡、選的用法條件成不成立。 */
 function checkPicks(run: BattleRun, u: BattleUnit, m: MeatDef, input: BattleInput, target: BattleUnit | undefined): void {
   for (const d of m.picks ?? []) {
-    const options = d.kind === 'choice' ? chooseOptions(run, u, m) : d.kind === 'drone' ? droneOptions(u) : d.kind === 'foe_overlay' ? overlayOptions(run, u) : declaredOptions(run, u, d.kind, d.adjacent === true, [], d)
+    const options = d.kind === 'choice' ? chooseOptions(run, u, m) : d.kind === 'drone' ? droneOptions(u) : d.kind === 'foe_overlay' ? overlayOptions(run, u) : d.kind === 'bench' ? benchOptions(run, u) : declaredOptions(run, u, d.kind, d.adjacent === true, [], d)
     const v = input.pick?.[d.key]
     if (d.apart && v !== undefined && target && v === target.id && pickTargets(run, u, m, d.kind).length) throw new BattleBlocked([`${d.label}不能選${target.name}（和目標是同一個人）。`])
     if (v === undefined) {
@@ -327,7 +347,7 @@ function skillAction(ab: AbilityEntry, order: number): BattleActionDef {
   const hasPicks = (v: Pick<BattleView, 'k'>, u: BattleUnit): boolean => !!(wantsPart(m0) || m0.free_move?.swap_adjacent_pair || m0.picks || m0.choose || equippedOf(v, u).some((o) => o.meat?.alter?.some((a) => a.ability === ab.id && a.as_pick)))
   const blocksOf = (v: BattleView, u: BattleUnit): string[] => {
     const m = effectiveMeat(v, u, ab)
-    return [...usageBlocks(v, u, ab), ...whenBlocks(v, u, m.when), ...(m.attack ? attackBlocks(u, m.attack) : [])]
+    return [...usageBlocks(v, u, ab), ...whenBlocks(v, u, m.when), ...(m.attack ? attackBlocks(u, m.attack) : []), ...benchBlocks(v, u, m)]
   }
   return {
     id: ab.id, owner: OWNER, name: ab.name, desc: ab.text, group: 'skill', icon: iconOf(m0), modes: ['meat'],
@@ -599,12 +619,18 @@ export function registerBattle(k: Kernel): void {
   // 單位剛組好：照開打那一刻填上裝著的技能與每棵樹的階；已經有資料的單位不動
   k.battle.on('unit.ready', OWNER, ({ run, unit }) => {
     if (!isRec(unit.ext.abilities) && unit.actor) {
-      const mine = run.state.actors[unit.actor]?.ext.abilities
-      const r = isRec(mine) ? mine : {}
-      const tiers: Record<string, number> = {}
-      if (isRec(r.spent)) for (const [path, v] of Object.entries(r.spent)) if (typeof v === 'number') tiers[path] = treeTierOf(v)
-      unit.ext.abilities = { equipped: Array.isArray(r.equipped) ? r.equipped.filter((x) => typeof x === 'string') : [], tiers } satisfies UnitAbilities
+      // 夥伴（有 ext.paths、沒有自己的學習紀錄）：路數那棵樹、階數以內的全部算裝著（G4）；其他人照自己學的與裝的
+      const mate = hasOwnRecord(run.state, unit.actor) ? undefined : companionAbilities(run.k, run.state, unit.actor)
+      if (mate) unit.ext.abilities = mate
+      else {
+        const mine = run.state.actors[unit.actor]?.ext.abilities
+        const r = isRec(mine) ? mine : {}
+        const tiers: Record<string, number> = {}
+        if (isRec(r.spent)) for (const [path, v] of Object.entries(r.spent)) if (typeof v === 'number') tiers[path] = treeTierOf(v)
+        unit.ext.abilities = { equipped: Array.isArray(r.equipped) ? r.equipped.filter((x) => typeof x === 'string') : [], tiers } satisfies UnitAbilities
+      }
     }
+    carryStance(run, unit)
     applyPassives(run, unit)
     setupResources(run, unit)
     bringPrep(run, unit)
@@ -616,12 +642,13 @@ export function registerBattle(k: Kernel): void {
   k.battle.on('battle.start', OWNER, ({ run }) => {
     startPrep(run)
     startOnStart(run)
+    startOutStance(run)
   })
 
   // 戰鬥結束：現金與人情的差額、每件委託的次數、用掉的預備
   k.battle.onEnd(OWNER, ({ k: bk, state, battle, outcome }) => {
     // 輸了而且隊上有人裝著保釋：記下「被贖回」的贖金（戰敗的功能經 defeat.options 問）
-    const changes = [...endChanges(state, battle), ...ransomChanges(bk, state, battle, outcome)]
+    const changes = [...endChanges(state, battle, bk), ...ransomChanges(bk, state, battle, outcome)]
     return changes.length ? { changes } : undefined
   })
   registerRansom(k)

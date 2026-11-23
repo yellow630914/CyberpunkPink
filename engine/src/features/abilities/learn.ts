@@ -4,7 +4,7 @@
 import type { ActorId, GameState, Kernel, ReportDraft } from '../../core'
 import { clone } from '../../core'
 import type { AbilityEntry, AbilityState, Category, PathEntry, PreparedEntry } from './types'
-import { CATEGORIES, CATEGORY_NAME, TREE_XP } from './types'
+import { CATEGORIES, TREE_XP } from './types'
 
 const isRec = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
@@ -25,11 +25,11 @@ export function abilitiesOf(state: GameState, actor: ActorId): AbilityState {
     }
   }
   const prepared: PreparedEntry[] = Array.isArray(r.prepared)
-    ? r.prepared.filter((x): x is PreparedEntry => isRec(x) && typeof x.id === 'string' && (x.scope === 'next_battle' || x.scope === 'commission')).map((x) => ({ id: x.id, scope: x.scope, ...(typeof x.key === 'string' ? { key: x.key } : {}) }))
+    ? r.prepared.filter((x): x is PreparedEntry => isRec(x) && typeof x.id === 'string' && (x.scope === 'next_battle' || x.scope === 'commission')).map((x) => ({ id: x.id, scope: x.scope, ...(typeof x.key === 'string' ? { key: x.key } : {}), ...(typeof x.target === 'string' ? { target: x.target } : {}) }))
     : []
   return {
     xp: typeof r.xp === 'number' && Number.isFinite(r.xp) ? r.xp : 0, learned: list(r.learned), equipped: list(r.equipped), spent,
-    ...(Object.keys(commission).length ? { commission } : {}), ...(prepared.length ? { prepared } : {}),
+    ...(Object.keys(commission).length ? { commission } : {}), ...(prepared.length ? { prepared } : {}), ...(typeof r.stance === 'string' && r.stance ? { stance: r.stance } : {}),
   }
 }
 
@@ -74,7 +74,7 @@ export function learnBlock(k: Pick<Kernel, 'content'>, state: GameState, actor: 
   return null
 }
 
-const reportOf = (state: GameState, actor: ActorId, action: string, value: AbilityState, summary: string, result: string): ReportDraft => ({
+export const reportOf = (state: GameState, actor: ActorId, action: string, value: AbilityState, summary: string, result: string): ReportDraft => ({
   kind: 'action', action, location: clone(state.location), actor, party: [], timeline: [],
   changes: [{ op: 'actor.ext', id: actor, key: 'abilities', value }],
   outcome: { result, summary },
@@ -111,7 +111,7 @@ export function capacityOf(k: Pick<Kernel, 'content'>, state: GameState, actor: 
   return capacityFor(k, state, actor, abilitiesOf(state, actor).equipped)
 }
 
-function capacityFor(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId, ids: string[]): Record<Category, { used: number; max: number }> {
+export function capacityFor(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId, ids: string[]): Record<Category, { used: number; max: number }> {
   const max = bridgeCapacity(state, actor)
   const out = {} as Record<Category, { used: number; max: number }>
   for (const c of CATEGORIES) out[c] = { used: 0, max: max[c] }
@@ -120,20 +120,4 @@ function capacityFor(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorI
     if (ab && out[ab.category]) out[ab.category].used += ab.cap
   }
   return out
-}
-
-/** 整份換掉裝著的清單。有沒學的、或某一類裝不下就丟錯（不動狀態）。不花遊戲時間。 */
-export function equipAbilities(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId, ids: string[]): ReportDraft {
-  const mine = abilitiesOf(state, actor)
-  const list = [...new Set(ids)]
-  for (const id of list) {
-    if (k.content.get<AbilityEntry>('ability', id)?.enemy) throw new Error(NOT_LEARNABLE)
-    if (!mine.learned.includes(id)) throw new Error(`還沒學會${k.content.get<AbilityEntry>('ability', id)?.name ?? id}。`)
-  }
-  const cap = capacityFor(k, state, actor, list)
-  for (const c of CATEGORIES) {
-    if (cap[c].used > cap[c].max) throw new Error(`${CATEGORY_NAME[c]}的容量不夠（要 ${cap[c].used}，橋只有 ${cap[c].max}）。`)
-  }
-  const names = list.map((id) => k.content.get<AbilityEntry>('ability', id)?.name ?? id)
-  return reportOf(state, actor, 'ability.equip', { ...mine, equipped: list }, list.length ? `裝上：${names.join('、')}。` : '把裝著的技能都卸下了。', 'equipped')
 }

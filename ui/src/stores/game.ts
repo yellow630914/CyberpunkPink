@@ -3,7 +3,8 @@ import { ref, computed, reactive } from 'vue'
 import type { BodyPartId, DistrictId, EquipSlotId, ItemStack, Point, Condition } from '../data/types'
 import { PROTAGONIST, PARTY, START_INVENTORY, START_CYBER, START_EQUIP, START_QUICK } from '../data/character'
 import { NPCS, affinityStage } from '../data/npcs'
-import { DISTRICTS, blockSpec, buildBlockMap } from '../data/districts'
+import { DISTRICTS } from '../data/districts'
+import { legacyFacilityAt } from '../data/demo'
 import { ITEMS, itemDef } from '../data/items'
 import { EQUIP_SLOTS } from '../data/character'
 import { MORE_NPCS, ROSTER } from '../data/roster'
@@ -35,7 +36,7 @@ export interface LogEntry { id: number | string; time: string; place: string; pr
 export interface SaveShape {
   day: number; minutes: number; money: { fav: number }; hostility: Record<string, number>
   character: typeof PROTAGONIST; party: typeof PARTY; inventory: ItemStack[]; cyber: typeof START_CYBER; equip: Partial<Record<EquipSlotId, string>>
-  quick: Array<string | null>; coatClosed: boolean; npcs: Record<string, import('../data/types').Npc>; loc: { district: DistrictId; block: string; pos: Point; facility: string | null }; log: LogEntry[]
+  quick: Array<string | null>; coatClosed: boolean; npcs: Record<string, import('../data/types').Npc>; loc: { district: DistrictId; block: string; pos?: Point; facility: string | null }; log: LogEntry[]
   basics: Record<string, number>; learned: string[]; loadout: string[]; nightLearned: string[]; params: typeof START_PARAMS; tendency: typeof START_TENDENCY
   fame: Record<string, number>; sexRecord: typeof START_SEX; deck: typeof START_DECK; roster: typeof ROSTER; channel: typeof START_CHANNEL; contracts: { held: typeof HELD }
   bills: { items: typeof BILL_ITEMS; overdueWeeks: number }; pending: typeof PENDING; craftFill: Record<string, Record<string, string>>; guides: typeof START_GUIDES; dungeonSeed: number; vehicles?: string[]
@@ -120,7 +121,6 @@ export const useGame = defineStore('game', () => {
   const dyes = reactive<Record<string, Dye>>({})
   const snapshots = ref<Snapshot[]>([])
   const inRun = ref(false)
-  const loc = reactive<{ district: DistrictId; block: string; pos: Point; facility: string | null }>({ district: 'hive', block: '四號塔', pos: { x: 3, y: 1 }, facility: 'rooftop' })
   /** 紀錄：引擎的報告轉成的（最新的在最前面） */
   const log = computed<LogEntry[]>(() => eng.log)
   let uidSeq = 100
@@ -134,11 +134,17 @@ export const useGame = defineStore('game', () => {
   const weekday = computed(() => WEEKDAYS[clock.value.weekday])
   /** 到下一個週一收租日還有幾天（今天就是週一時，顯示成 7 天後：收租日是今天已經過的那一次） */
   const billIn = computed(() => clock.value.daysToMonday === 0 ? 7 : clock.value.daysToMonday)
-  const district = computed(() => DISTRICTS.find(d => d.id === loc.district)!)
-  const block = computed(() => blockSpec(loc.district, loc.block))
-  const blockMap = computed(() => buildBlockMap(block.value))
-  const facility = computed(() => block.value.facilities.find(f => f.id === loc.facility) ?? null)
-  const placeLabel = computed(() => [district.value.name, loc.block, facility.value?.name].filter(Boolean).join(' · '))
+  // 所在地的真相在引擎（features/world 的 worldView）：這裡是投影。區的資料（治安、風格）還是舊的示意資料，由區的 id 對上。
+  const where = computed(() => eng.world.view())
+  const district = computed(() => DISTRICTS.find(d => d.id === where.value.district?.id) ?? DISTRICTS[0])
+  /** 站的這間設施：舊的示意資料（商店、診所、住處的服務與在場的人）；還沒搬進引擎的部分用它，找不到是 null */
+  const facility = computed(() => legacyFacilityAt(where.value.block?.id ?? '', where.value.facility?.marker))
+  const loc = reactive({
+    get district(): DistrictId { return district.value.id },
+    get block(): string { return where.value.block?.name ?? '' },
+    get facility(): string | null { return facility.value?.id ?? null },
+  })
+  const placeLabel = computed(() => [where.value.district?.name, where.value.block?.name, where.value.facility?.name].filter(Boolean).join(' · '))
   const topHostility = computed(() => Object.entries(hostility).sort((a, b) => b[1] - a[1]).slice(0, 2))
 
   const carriedWeight = computed(() => {
@@ -163,23 +169,6 @@ export const useGame = defineStore('game', () => {
     const why = eng.commit({ summary: e.prose[0] ?? '', prose, results: (e.changes ?? []).map(c => c.text), place: e.place ?? placeLabel.value })
     if (why) useUi().toast(why, 'warn')
   }
-  /** 換街區。viaExit：從哪個出口來就站在那個出口；'@station'：站在車站（搭車、計程車、開車到的時候）。 */
-  function moveBlock(d: DistrictId, block: string, viaExit?: string) {
-    const changed = loc.block !== block || loc.district !== d
-    loc.district = d
-    loc.block = block
-    loc.facility = null
-    const m = buildBlockMap(blockSpec(d, block))
-    // 從哪個出口來，就站在那個出口；不然站在第一個出口
-    let start: Point | null = null
-    for (const [k, to] of m.exitAt) if (to === viaExit) { const [x, y] = k.split(',').map(Number); start = { x, y } }
-    if (viaExit === '@station') for (const [k, f] of m.facilityAt) if (f.kind === 'transit') { const [x, y] = k.split(',').map(Number); start = { x, y } }
-    if (!start) { const k = [...m.exitAt.keys()][0] ?? '6,2'; const [x, y] = k.split(',').map(Number); start = { x, y } }
-    loc.pos = start
-    if (changed) addLog({ prose: [`你走到${district.value.name}的${block}。`], place: `${district.value.name} · ${block}` })
-  }
-  function setFacility(id: string | null) { loc.facility = id }
-
   function addItem(def: string, qty = 1, condition: Condition = '全新', dye?: Dye | null) {
     // 染過的那一疊不和沒染的合併
     const st = dye ? null : inventory.value.find(s => s.def === def && s.condition === condition && !s.unknown && !dyes[`uid:${s.uid}`])
@@ -294,7 +283,7 @@ export const useGame = defineStore('game', () => {
     if (d.quick) quick.value = [...d.quick]
     if (typeof d.coatClosed === 'boolean') coatClosed.value = d.coatClosed
     if (d.npcs) Object.assign(npcs, structuredClone(d.npcs))
-    if (d.loc) Object.assign(loc, structuredClone(d.loc))
+    // 所在地在引擎的存檔裡（loc 是舊存檔的欄位，讀的時候不碰）
     if (d.basics) Object.assign(basics, d.basics)
     if (d.learned) learned.value = [...d.learned]
     if (d.loadout) loadout.value = [...d.loadout]
@@ -350,8 +339,8 @@ export const useGame = defineStore('game', () => {
 
   return {
     day, minutes, money, hostility, character, party, inventory, cyber, equip, quick, coatClosed, npcs, loc, log,
-    timeLabel, weekday, billIn, district, block, blockMap, facility, placeLabel, topHostility, carriedWeight, sinkFloor, quickCap, coveredSlots,
-    advance, addLog, moveBlock, setFacility, addItem, removeItem, stackOf, equipItem, unequip, cyberAt, changeAffinity, itemName,
+    timeLabel, weekday, billIn, district, facility, placeLabel, topHostility, carriedWeight, sinkFloor, quickCap, coveredSlots,
+    advance, addLog, addItem, removeItem, stackOf, equipItem, unequip, cyberAt, changeAffinity, itemName,
     basics, learned, loadout, nightLearned, params, tendency, fame, sexRecord, deck, roster, channel, contracts, bills, pending, craftFill, guides, dungeonSeed, vehicles, media, job, mech, lastBattle, snapshots, inRun,
     dyes, setDye, learnSkill, syncTrees, learnNight, setQuick, serialize, hydrate, saveMeta, packed, takeSnapshot, rollback,
   }

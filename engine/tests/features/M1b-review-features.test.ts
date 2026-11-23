@@ -11,6 +11,7 @@ import { abilitiesFeature } from '../../src/features/abilities'
 import { syncWallet, walletOf } from '../../src/features/abilities/wallet'
 import { endChanges } from '../../src/features/abilities/end'
 import { combatFeature } from '../../src/features/combat'
+import { favorsFeature } from '../../src/features/favors'
 import { QUICK_CATEGORIES, quickBlock } from '../../src/features/gear'
 import { hackFeature } from '../../src/features/hack'
 import { makeActor, makeBattleGame, testWeapon } from '../../src/testkit'
@@ -18,7 +19,7 @@ import type { Arena } from '../helpers/battle'
 import { TEST_STATUSES, arena, duel, foe, one } from '../helpers/battle'
 
 type Rec = Record<string, unknown>
-const FEATURES = [combatFeature, abilitiesFeature, hackFeature]
+const FEATURES = [combatFeature, abilitiesFeature, hackFeature, favorsFeature]
 const SRC = { kind: 'ability', id: 'sk_x', name: '測試' } as const
 
 // ---- 假資料 ----
@@ -56,12 +57,17 @@ const BASE = { id: 'review_base', content: { battle_status: TEST_STATUSES } } as
 const dice = (...v: number[]) => [...v, ...Array(200).fill(1)]
 const equip = (ids: string[]) => ({ abilities: { equipped: ids, tiers: { tree: 3 } } })
 /** 兩個隊員（主角 pc 與夥伴 buddy）各裝著這幾個技能、各自拿手槍；錢包 money.cash。 */
-function party(ids: string[], o: { cash?: number; pcExt?: Rec; buddyExt?: Rec; foes?: unknown[]; ram?: number } = {}) {
+/** 人情（欠你的）：每個大小幾個，記在 state.ext.favors（人情的功能 favors 的格式）。 */
+const owedToPc = (n: { small?: number; mid?: number; big?: number }) => {
+  const list = (['small', 'mid', 'big'] as const).flatMap((size) => Array.from({ length: n[size] ?? 0 }, () => size))
+  return { owed_to_pc: list.map((size, i) => ({ id: `fv_${i + 1}`, who: 'someone', size, at: { day: 1, hour: 8, minute: 0 } })), owed_by_pc: [], seq: list.length }
+}
+function party(ids: string[], o: { cash?: number; favors?: { small?: number; mid?: number; big?: number }; pcExt?: Rec; buddyExt?: Rec; foes?: unknown[]; ram?: number } = {}) {
   const ram = o.ram === undefined ? {} : { tags: ['quickhack'], pools: { ram: { now: o.ram, max: o.ram, regen: 0 } } }
   const deck = o.ram === undefined ? {} : { deck: { grade: 3, firewall: 12, slots: [] } }
   const buddy = makeActor({ id: 'buddy', name: '夥伴', role: 'companion', ext: o.buddyExt ?? {} })
   return makeBattleGame({
-    features: FEATURES, content: [PACK], seed: 7, actors: [buddy], pc: { ext: o.pcExt ?? {} }, patch: { money: { cred: 0, cash: o.cash ?? 1000 } },
+    features: FEATURES, content: [PACK], seed: 7, actors: [buddy], pc: { ext: o.pcExt ?? {} }, patch: { money: { cred: 0, cash: o.cash ?? 1000 }, ...(o.favors ? { ext: { favors: owedToPc(o.favors) } } : {}) },
     battle: duel(
       [one({ actor: 'pc', weapon: 'pistol', ap: { now: 20, max: 20, regen: 3 }, ext: { ...equip(ids), ...deck }, ...ram } as never), one({ actor: 'buddy', weapon: 'pistol', ap: { now: 20, max: 20, regen: 3 }, ext: { ...equip(ids), ...deck }, ...ram } as never, 2)],
       o.foes ?? [foe('minion', { ap: { now: 0, max: 0, regen: 0 }, hp: { now: 300, max: 300 } } as never), foe('minion', { ap: { now: 0, max: 0, regen: 0 } } as never)],
@@ -126,16 +132,17 @@ describe('E2：現金與人情是隊伍共用的一份（FIXER 第 8 節；dev/a
     expect(endChanges(party(['sk_bribe']).state, party(['sk_bribe']).state.battle!).filter((c) => c.op === 'cash')).toEqual([])
   })
 
-  it('人情記在主角名下：夥伴自己的 ext.favors 不算；主角的一個中人情夥伴也用得到，用掉之後主角沒有了、結束時寫回主角', async () => {
-    const g = party(['sk_owe'], { pcExt: { favors: { small: 0, mid: 1, big: 0 } }, buddyExt: { favors: { small: 5, mid: 5, big: 5 } } })
+  it('人情記在主角名下（state.ext.favors，衍生數值 favor_*）：夥伴自己的 ext.favors 不算；主角的一個中人情夥伴也用得到，用掉之後結束時發一筆 favor.spend', async () => {
+    const g = party(['sk_owe'], { favors: { mid: 1 }, buddyExt: { favors: { small: 5, mid: 5, big: 5 } } })
     expect([unit(g, 'a2').pools.favor_mid!.now, unit(g, 'a2').pools.favor_small!.now]).toEqual([1, 0])
     turnTo(g, 'a2')
     expect(g.battleAct({ action: 'sk_owe', target: { unit: 'a2' } }).status).toBe('applied')
     expect(unit(g, 'a1').pools.favor_mid!.now).toBe(0)
     turnTo(g, 'a1')
     expect(opt(g, 'sk_owe').ok).toBe(false)
-    await finish(g)
-    expect(g.state.actors.pc!.ext.favors).toEqual({ small: 0, mid: 0, big: 0 })
+    const end = await finish(g)
+    expect(end.changes.filter((c) => c.op === 'favor.spend')).toEqual([{ op: 'favor.spend', dir: 'owed_to_pc', size: 'mid' }])
+    expect((g.state.ext.favors as { owed_to_pc: unknown[] }).owed_to_pc).toEqual([])
     expect(g.state.actors.buddy!.ext.favors).toEqual({ small: 5, mid: 5, big: 5 })
   })
 

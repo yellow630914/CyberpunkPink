@@ -27,6 +27,7 @@ import ClinicDialog from '../dialogs/ClinicDialog.vue'
 import GarageDialog from '../dialogs/GarageDialog.vue'
 import DifficultyDialog from '../dialogs/DifficultyDialog.vue'
 import DyeDialog from '../dialogs/DyeDialog.vue'
+import EventDialog from '../dialogs/EventDialog.vue'
 
 /** 對話框層：照 ui.stack 的順序畫。Esc 關最上面那一個（App.vue 的全域快捷鍵）。 */
 const REGISTRY: Record<DialogName, Component> = {
@@ -40,6 +41,8 @@ const ui = useUi()
 
 <template>
   <component :is="REGISTRY[d.name]" v-for="(d, i) in ui.stack" :key="d.id" :entry-id="d.id" :stacked="i > 0" v-bind="d.props" />
+  <!-- 事件視窗不在對話框的堆疊裡：引擎有開著的事件就自動打開、擋住別的操作（沒有關閉鈕、Esc 不關） -->
+  <EventDialog />
   <div class="toasts" aria-live="polite">
     <div v-for="t in ui.toasts" :key="t.id" class="toast" :class="t.kind">{{ t.text }}</div>
   </div>

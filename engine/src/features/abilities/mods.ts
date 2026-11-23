@@ -10,7 +10,7 @@ import { whenBlocks } from './conditions'
 import { modsProblems } from './format'
 import type { AbilityEntry, AnyModKind, FeatureModKind, ModEntry, PathEntry, UnitBuff } from './types'
 import { OWNER } from './types'
-import { broughtPrep, equippedOf, isRec, setBuffs, tierIn, unitAbilities, unitBuffs } from './unitdata'
+import { broughtPrep, broughtTargets, equippedOf, isPerson, isRec, setBuffs, tierIn, unitAbilities, unitBuffs } from './unitdata'
 
 /** 一批修正的來源：哪個技能（或共鳴、預備、buff）、誰是給的人、這棵樹幾階。 */
 interface Source {
@@ -21,6 +21,8 @@ interface Source {
   mods: ModEntry[]
   /** buff 的給的人（vs_source 的修正認它） */
   by?: string
+  /** 只對這個人有效（預備選了人：讀人）：問修正時的對手要是他 */
+  vs?: string
 }
 
 function sourcesOf(view: Pick<BattleView, 'k'>, holder: BattleUnit): Source[] {
@@ -42,10 +44,11 @@ function sourcesOf(view: Pick<BattleView, 'k'>, holder: BattleUnit): Source[] {
     }
   }
   for (const b of unitBuffs(holder)) out.push({ key: `buff:${b.id}`, name: b.name, holder, tier: b.tier, mods: b.mods, by: b.by })
+  const targets = broughtTargets(holder)
   for (const id of broughtPrep(holder)) {
     const ab = view.k.content.get<AbilityEntry>('ability', id)
     const mods = ab?.prep?.meat?.mods
-    if (ab && mods) out.push({ key: `prep:${id}`, name: ab.name, holder, tier: tierIn(holder, ab.path), mods })
+    if (ab && mods) out.push({ key: `prep:${id}`, name: ab.name, holder, tier: tierIn(holder, ab.path), mods, ...(ab.prep?.target === 'person' ? { vs: targets[id] ?? '' } : {}) })
   }
   return out
 }
@@ -95,6 +98,7 @@ function applied(view: BattleView, unit: BattleUnit, kind: AnyModKind, tags: rea
         if (entry.tags_any && !entry.tags_any.some((t) => tags.includes(t))) return
         if (entry.when && whenBlocks(view, holder, entry.when, other).length) return
         if (entry.vs_source && !(other && src.by !== undefined && other.id === src.by)) return
+        if (src.vs !== undefined && !(other && src.vs !== '' && isPerson(other, src.vs))) return
         if (entry.per_fight !== undefined && (unit.uses[counterKey(src, index, false)] ?? 0) >= entry.per_fight) return
         if (entry.per_turn !== undefined && (unit.uses[counterKey(src, index, true)] ?? 0) >= entry.per_turn) return
         out.push({ src, index, entry, value: valueOf(view, src, entry, base) })

@@ -1,7 +1,7 @@
 // 戰鬥裡單位身上的技能資料（unit.ext.abilities）：裝著什麼、每棵樹幾階、buff、這一場帶進來的預備。
 // 讀的函式不改單位；要寫的人用 dataOf（沒有就補一份空的）。
 
-import type { BattleUnit, Kernel } from '../../core'
+import type { BattleState, BattleUnit, Kernel } from '../../core'
 import type { AbilityEntry, UnitAbilities, UnitBuff } from './types'
 
 export const isRec = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -50,4 +50,20 @@ export function setBuffs(u: BattleUnit, buffs: UnitBuff[]): void {
 export function broughtPrep(u: BattleUnit): string[] {
   const d = u.ext.abilities
   return isRec(d) && Array.isArray(d.brought) ? d.brought.filter((x): x is string => typeof x === 'string') : []
+}
+
+/** 這一場帶進來的預備裡，選了人的（技能 id → 他）：讀人。 */
+export function broughtTargets(u: BattleUnit): Record<string, string> {
+  const d = u.ext.abilities
+  const raw = isRec(d) && isRec(d.read) ? d.read : {}
+  return Object.fromEntries(Object.entries(raw).filter((e): e is [string, string] => typeof e[1] === 'string'))
+}
+
+/** 這個單位就是那個人嗎：單位的角色，或單位自己記的 ext.npc。 */
+export const isPerson = (u: BattleUnit, person: string): boolean => u.actor === person || u.ext.npc === person
+
+/** 這一場開打前被識破了嗎：開戰設定的 origin.ext.pre.spotted 是 true（偽裝與入戲的「第一回合不被當成目標」這一場不生效）。 */
+export function spotted(battle: Pick<BattleState, 'origin'>): boolean {
+  const pre = battle.origin?.ext?.pre
+  return isRec(pre) && pre.spotted === true
 }

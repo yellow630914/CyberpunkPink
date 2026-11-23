@@ -1,35 +1,33 @@
-// 戰鬥結束時技能這邊要寫回去的：現金的差額（一筆變更）、人情的差額（寫回 actor.ext.favors）、
-// 每件委託的次數與預備（寫回 actor.ext.abilities）。dev/adr/0015 E2、E3、E4。
+// 戰鬥結束時技能這邊要寫回去的：現金的差額（一筆變更）、人情用掉幾個（每個一筆 favor.spend）、
+// 每件委託的次數與預備（寫回 actor.ext.abilities）。dev/adr/0015 E2、E3、E4；M2-favors。
 
-import type { BattleState, Change, GameState } from '../../core'
+import type { BattleKernel, BattleState, Change, GameState } from '../../core'
 import { FAVORS } from './format'
 import { abilitiesOf } from './learn'
 import type { AbilityState } from './types'
-import { commissionKeyOf, favorPool } from './use'
-import { broughtPrep, isRec } from './unitdata'
+import { commissionKeyOf, favorCountOf, favorPool } from './use'
+import { broughtPrep } from './unitdata'
 import { walletActor, walletOf } from './wallet'
 
-export function endChanges(state: GameState, battle: BattleState): Change[] {
+/**
+ * 結束時的變更。k 給了而且有人註冊 favor.spend（人情的功能裝著）時，人情池用掉幾個就發幾筆 `favor.spend { dir: 'owed_to_pc', size }`
+ * （每筆用掉那個大小最早記下的一筆；不超過現在實際還有的個數）；沒給 k 或沒有人註冊就不發（人情沒裝的一局，池是 0 本來就用不了）。
+ */
+export function endChanges(state: GameState, battle: BattleState, k?: Pick<BattleKernel, 'stats' | 'changes'>): Change[] {
   const changes: Change[] = []
   const key = commissionKeyOf(battle)
 
-  // 現金與人情是隊伍共用的一份（wallet.ts）：只算一次差額。現金扣隊伍的錢包；人情寫回主角名下
+  // 現金與人情是隊伍共用的一份（wallet.ts）：只算一次差額。現金扣隊伍的錢包；人情用掉的記在主角名下（欠你的）
   const cash = walletOf(battle, 'cash')
   const cashSpent = cash ? Math.max(0, cash.max - cash.now) : 0
   const owner = walletActor(state, battle)
-  const ownerActor = owner ? state.actors[owner] : undefined
-  if (owner && ownerActor) {
-    const before = isRec(ownerActor.ext.favors) ? ownerActor.ext.favors : {}
-    const favors: Record<string, unknown> = { ...before }
-    let favorChanged = false
+  if (k && owner && owner === state.pc && k.changes.get('favor.spend')) {
     for (const f of FAVORS) {
       const pool = walletOf(battle, favorPool(f))
-      if (pool && pool.now !== pool.max) {
-        favors[f] = pool.now
-        favorChanged = true
-      }
+      if (!pool) continue
+      const used = Math.min(Math.max(0, pool.max - pool.now), favorCountOf(k, state, f))
+      for (let i = 0; i < used; i++) changes.push({ op: 'favor.spend', dir: 'owed_to_pc', size: f })
     }
-    if (favorChanged) changes.push({ op: 'actor.ext', id: owner, key: 'favors', value: favors })
   }
 
   for (const u of Object.values(battle.units)) {

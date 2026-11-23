@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
-import type { ActionInput, ContentPack, ItemEntry, Actor, AttributeEntry, BattleInput, BattleMode, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, Report, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
+import type { ActionInput, ContentEntry, Feature, ContentPack, ItemEntry, Actor, AttributeEntry, BattleInput, BattleMode, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, GridDir, GridView, Report, ReportDraft, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
 import { ActionBlocked, ChangeError, FakeProvider, Game, modeOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
 import type { ActStatus, StepActions } from '@engine/src'
 import type { StepRecord } from '@engine/src'
@@ -13,6 +13,15 @@ import { abilitiesOf, capacityOf, equipAbilities, learn as abilityLearn, learnBl
 import type { AbilityEntry, PathEntry } from '@engine/src/features/abilities'
 import { acceptDefeat, defeatOf } from '@engine/src/features/defeat'
 import { setupFromEncounter } from '@engine/src/features/enemies'
+import { arrive as worldArrive, cityGraph, worldView } from '@engine/src/features/world'
+import type { CityGraph, WorldView } from '@engine/src/features/world'
+import { advance as transitAdvance, advanceBlock as transitAdvanceBlock, alight as transitAlight, board as transitBoard, boardBlock as transitBoardBlock, taxi as transitTaxi, transitView, wait as transitWait } from '@engine/src/features/transit'
+import type { BoardInput, TransitView } from '@engine/src/features/transit'
+import { chooseOption, directorView, eventView } from '@engine/src/features/director'
+import type { DirectorView, EventView } from '@engine/src/features/director'
+import { scanView } from '@engine/src/features/security'
+import type { ScanView } from '@engine/src/features/security'
+import { demoPack, demoStartFeature } from '../data/demo'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
 import { ageBlock, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
 import { aiSettingsFromUi, logEntryOf, type EngineLogEntry, type UiAiFields } from '../lib/engineView'
@@ -24,7 +33,10 @@ import { aiSettingsFromUi, logEntryOf, type EngineLogEntry, type UiAiFields } fr
 export interface ActOutcome { status: ActStatus | 'busy'; reason?: string }
 
 export const useEngine = defineStore('engine', () => {
-  const build = (extra: ContentPack[] = []): Game => new Game({ features: allFeatures(), content: [CORE_PACK, ...extra], fakeProvider: new FakeProvider() })
+  // 示意世界包（ui/src/data/demo；dev/work/M2-plan.md 使用者定案第 5 項）：引擎不再匯入內容，所以畫面自己帶一份，開新局時載入。
+  // 測試自帶最小假資料（testContent）時不載入它。
+  // 開局站在哪（示意包的起點）是 game.new 掛點給的變更（demoStartFeature），不另開一份報告，所以紀錄一開始是空的。
+  const build = (extra: ContentPack[] = [], demo = true, features: Feature[] = []): Game => new Game({ features: [...allFeatures(), ...(demo ? [demoStartFeature()] : []), ...features], content: [CORE_PACK, ...(demo ? [demoPack()] : []), ...extra], fakeProvider: new FakeProvider() })
   let game = build()
 
   const snapshot = (): GameState => structuredClone(game.state)
@@ -49,8 +61,16 @@ export const useEngine = defineStore('engine', () => {
   const timeLabel = computed(() => `${String(state.value.time.hour).padStart(2, '0')}:${String(state.value.time.minute).padStart(2, '0')}`)
   const log = computed<EngineLogEntry[]>(() => {
     const describe = (c: Change[]): string[] => game.k.changes.describe(state.value, c)
-    return state.value.reports.filter((r) => r.action !== 'game.new' && r.action !== 'ui.money' && r.action !== 'ui.time').map((r) => logEntryOf(r, describe)).reverse()
+    // 走路（grid.move）每一步都是一份報告，不放進紀錄（位置與時間在狀態列；到了哪、碰到什麼事各有自己的報告）
+    return state.value.reports.filter((r) => r.action !== 'game.new' && r.action !== 'ui.money' && r.action !== 'ui.time' && r.action !== 'grid.move').map((r) => logEntryOf(r, describe, placeName)).reverse()
   })
+  /** 報告上的地點（區、街區、設施的 id）換成名字；查不到的照原樣 */
+  const placeName = (loc: { district?: string; block?: string; facility?: string }): string => {
+    const d = loc.district ? game.k.content.get<ContentEntry & { name?: string }>('district', loc.district)?.name ?? loc.district : ''
+    const b = loc.block ? game.k.content.get<ContentEntry & { name?: string; facilities?: Record<string, { name?: string }> }>('block', loc.block) : undefined
+    const f = loc.facility ? b?.facilities?.[loc.facility]?.name ?? loc.facility : ''
+    return [d, loc.block ? b?.name ?? loc.block : '', f].filter(Boolean).join(' · ')
+  }
   const chainSteps = computed(() => steps.value)
   const canUndo = computed(() => undoSize.value > 0)
 
@@ -64,11 +84,11 @@ export const useEngine = defineStore('engine', () => {
   }
 
   /** 開新局；有 draft 時開局與建角一起提交（被擋下就原樣回傳是哪一步，原本那一局完全不動）。 */
-  function newGame(opts: { seed: number; rules?: object; draft?: CreationDraft; testContent?: ContentPack[] }): CreationBlock[] {
-    const { draft, testContent, ...rest } = opts
+  function newGame(opts: { seed: number; rules?: object; draft?: CreationDraft; testContent?: ContentPack[]; testFeatures?: Feature[] }): CreationBlock[] {
+    const { draft, testContent, testFeatures, ...rest } = opts
     // 只給測試用：把測試自帶的最小內容接在核心的內容後面，換一個新的引擎（畫面與正式的流程不傳這個參數）
     if (testContent) {
-      game = build(testContent)
+      game = build(testContent, false, testFeatures)
       game.subscribe(refresh)
     }
     if (draft) {
@@ -135,7 +155,11 @@ export const useEngine = defineStore('engine', () => {
       refresh()
     }
   }
-  const act = (input: ActionInput) => run(() => game.act(input))
+  const act = async (input: ActionInput): Promise<ActOutcome> => {
+    const r = await run(() => game.act(input))
+    await drainQueued() // 事件用自由行動收掉之後，留著的草稿（計程車的抵達）接著提交
+    return r
+  }
   const retryStep = (id: string) => run(() => game.retryStep(id))
   const useRules = (id: string) => run(() => game.useRules(id))
   const reroll = () => run(() => game.reroll())
@@ -363,5 +387,112 @@ export const useEngine = defineStore('engine', () => {
     equip: (ids: string[]): string | null => commitGear((pc) => equipAbilities(game.k, game.state, pc, ids)),
   }
 
-  return { state, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  // ---- 城市、搭車、事件視窗、掃橋（M2-ui-world）：全部轉接 features/world、transit、director、security，畫面不自己判斷 ----
+  /** 把一份（或幾份）報告草稿交給引擎提交（走 commitNarrated：AI 關著就是一般的提交）。草稿做不出來（被擋下）回傳原因。 */
+  const queued: ReportDraft[] = []
+  async function commitDrafts(make: () => ReportDraft | ReportDraft[], label?: string): Promise<ActOutcome> {
+    let drafts: ReportDraft[]
+    try {
+      const made = make()
+      drafts = Array.isArray(made) ? made : [made]
+    } catch (e) {
+      const why = reasonOf(e)
+      if (why === null) throw e
+      return { status: 'refused', reason: why }
+    }
+    let last: ActOutcome = { status: 'applied' }
+    for (const [i, d] of drafts.entries()) {
+      const r = await run(() => game.commitNarrated(d, { mode: 'new', ...(label ? { label } : {}) }))
+      last = r
+      if (r.status !== 'applied') {
+        // 前面的已經提交了、這一份被擋下（例：出發之後事件開了）：留著，等引擎放行再提交（計程車的抵達）
+        if (i > 0 || r.status === 'refused') queued.push(...drafts.slice(i))
+        return r
+      }
+    }
+    return last
+  }
+  /** 引擎放行了就把留著的草稿提交掉（事件做完之後呼叫） */
+  async function drainQueued(): Promise<void> {
+    while (queued.length > 0 && game.blockOf(`commit:${queued[0]!.action}`) === null) {
+      const d = queued.shift()!
+      await run(() => game.commitNarrated(d, { mode: 'new' }))
+    }
+  }
+
+  const world = {
+    /** 現在在哪一區哪一塊、出口與設施（引擎的 worldView） */
+    view: (): WorldView => { void state.value; return worldView(game.k, game.state) },
+    /** 區與街區怎麼連（城市地圖用） */
+    graph: (): CityGraph => { void state.value; return cityGraph(game.k) },
+    /** 內容的原始資料（區、街區的名字與示意包多給的欄位；顯示用，不是規則） */
+    entry: <T extends object>(kind: string, id: string): T | undefined => game.k.content.get<T & { id: string }>(kind, id),
+    /** 現在這一塊的格子：看過的格子、站的位置、這一格能做的事、四個方向走不走得過去 */
+    grid: (): GridView | null => { void state.value; return game.gridView() },
+    /** 把人帶到一塊街區（報告 world.arrive）。測試與還沒有出口的畫面用；平常是走到出口那一格。 */
+    arrive: (block: string, at?: string) => commitDrafts(() => worldArrive(game.k, game.state, block, at)),
+    /** 走：一個方向（一格）或一個目的地（照最短路走，遇到事情就停）。被擋下回傳引擎的原因。 */
+    walk(to: GridDir | [number, number]): { ok: boolean; reason?: string } {
+      const r = game.gridMove(to)
+      if (r.status === 'refused') return { ok: false, reason: r.reason ?? '現在走不了。' }
+      return { ok: true }
+    },
+  }
+
+  const transit = {
+    view: (): TransitView => { void state.value; return transitView(game.k, game.state) },
+    /** 上車的原因（可以上車回傳 null） */
+    boardBlock: (input: BoardInput): string | null => { void state.value; return game.blockOf('commit:transit.board') ?? transitBoardBlock(game.k, game.state, input) },
+    board: (input: BoardInput) => commitDrafts(() => transitBoard(game.k, game.state, input)),
+    wait: () => commitDrafts(() => transitWait(game.k, game.state)),
+    advance: () => commitDrafts(() => transitAdvance(game.k, game.state)),
+    alight: () => commitDrafts(() => transitAlight(game.k, game.state)),
+    /** 計程車：出發與抵達各一份報告，照順序提交 */
+    taxi: (to: string) => commitDrafts(() => transitTaxi(game.k, game.state, to), '叫計程車'),
+    /**
+     * 坐到目的地：一站一站呼叫引擎，路上開了事件（或引擎說坐不下去）就停。到了目的地也停，不自動下車。
+     * stopped：dest 到了、event 路上開了事件、blocked 引擎擋下（reason 是它的原因）、none 沒有目的地。
+     */
+    async rideToDest(): Promise<{ stopped: 'dest' | 'event' | 'blocked' | 'none'; stops: number; reason?: string }> {
+      let stops = 0
+      for (let guard = 0; guard < 200; guard++) {
+        const ride = transitView(game.k, game.state).ride
+        if (!ride || ride.dest === null) return { stopped: 'none', stops }
+        if (ride.toDest === null) return { stopped: 'dest', stops }
+        if (ride.phase === 'platform') {
+          const w = await commitDrafts(() => transitWait(game.k, game.state))
+          if (w.status !== 'applied') return { stopped: 'blocked', stops, ...(w.reason ? { reason: w.reason } : {}) }
+          if (eventView(game.k, game.state)) return { stopped: 'event', stops }
+          continue
+        }
+        const why = transitAdvanceBlock(game.k, game.state)
+        if (why) return { stopped: 'blocked', stops, reason: why }
+        const r = await commitDrafts(() => transitAdvance(game.k, game.state))
+        if (r.status !== 'applied') return { stopped: 'blocked', stops, ...(r.reason ? { reason: r.reason } : {}) }
+        stops += 1
+        if (eventView(game.k, game.state)) return { stopped: 'event', stops }
+      }
+      return { stopped: 'blocked', stops, reason: '坐了太多站，先停一下。' }
+    },
+  }
+
+  const event = {
+    /** 開著的事件（正文、選項、檢定的成功率）；沒有是 null */
+    view: (): EventView | null => { void state.value; return eventView(game.k, game.state) },
+    /** 延後的事件、排隊的通知有幾件 */
+    director: (): DirectorView => { void state.value; return directorView(game.state) },
+    /** 選一個選項；做完回傳這一步提交的報告（擲骰與結果在裡面）。被擋下回傳原因。 */
+    async choose(id: string): Promise<ActOutcome & { reports?: Report[] }> {
+      const before = game.state.reports.length
+      const r = await commitDrafts(() => chooseOption(game.k, game.state, id))
+      await drainQueued()
+      return { ...r, reports: structuredClone(game.state.reports.slice(before)) }
+    },
+    /** 事件開著時直接做自由行動（「我要做別的」）；做完事件以 free 收尾，留著的草稿接著提交 */
+    free: (text: string) => act({ kind: 'free', text }),
+    /** 掃橋的事件開著時：四步、身上會被掃到的東西、怎麼過；沒有是 null */
+    scan: (): ScanView | null => { void state.value; return scanView(game.k, game.state) },
+  }
+
+  return { state, world, transit, event, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

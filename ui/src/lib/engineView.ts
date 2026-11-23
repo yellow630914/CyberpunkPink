@@ -91,9 +91,9 @@ function legacyOr(report: Report, lines: string[]): string[] {
 }
 
 /** 一份報告轉成紀錄的一則（LogView 吃的樣子）。describe 沒給時用一個只有核心變更的核心來描述。 */
-export function logEntryOf(report: Report, describe: (changes: Change[]) => string[] = plainDescribe): EngineLogEntry {
+export function logEntryOf(report: Report, describe: (changes: Change[]) => string[] = plainDescribe, placeName?: (loc: Report['location']) => string): EngineLogEntry {
   const loc = report.location
-  const place = [loc.district, loc.block, loc.facility].filter((x): x is string => !!x).join(' · ')
+  const place = placeName ? placeName(loc) : [loc.district, loc.block, loc.facility].filter((x): x is string => !!x).join(' · ')
   const prose = report.narration?.text
     ? report.narration.text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
     : [report.outcome.summary]

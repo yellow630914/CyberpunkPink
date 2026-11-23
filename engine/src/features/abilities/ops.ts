@@ -9,10 +9,13 @@
 //   挑不出人（沒有隊友、沒有雜兵）就把 pick[key] 拿掉，後面落在他身上的效果自己跳過。亂數是 deriveRng(state.rng, 'battle/<戰鬥>/<技能>/<單位>/<key>')：同一個種子同一個結果，不動別的擲骰的順序。
 // one_of：{ op: 'one_of', key, options: [{ key, label, do }] }——選項裡隨機挑一種做它的 do（戰前佈置：藏貨、安排人、打點）。選項裡的 pick_random 挑不出人的那一種不算（不會抽到什麼都沒發生的）；
 //   都不算就什麼都不做。key 是這一筆自己的名字（亂數的用途；同一個技能裡的 one_of 不能重複）。選項裡的效果共用同一個 pick 與 last。
+// call_in：{ op: 'call_in', key?, fallback? }——增援：用 run.callIn 叫 pick[key]（預設 bench）選的那個候補（view.bench 列出來的人）進我方：下一輪開頭站上最後面的空格，
+//   照他自己的資料、由玩家操縱，當我方的單位打到戰鬥結束。我方四格都滿了（callIn 回傳 null）就做 fallback（效果清單，例：他支援三次）。不算叫人的次數。
+//   沒選、選的不在候補裡、或是現在叫不了的（有 blocks）擋下整個行動（BattleBlocked）。
 // cover_temp：{ op: 'cover_temp', levels, until? }——這個人那一格的遮蔽升幾級（最高到掩體），到期（預設自己的下一回合開始）時把升上去的那幾級拿回來（跑位射擊）。
 
 import type { BattleEffectCtx, BattleRun, BattleTarget, BattleUnit, Kernel } from '../../core'
-import { coverAt, deriveRng, onField, otherSide, unitTag, unitsOf } from '../../core'
+import { BattleBlocked, coverAt, deriveRng, onField, otherSide, unitTag, unitsOf } from '../../core'
 import { needsBlocks, whenBlocks } from './conditions'
 import { needsProblems, whenProblems, WHEN_MEAT } from './format'
 import { OWNER } from './types'
@@ -108,7 +111,34 @@ function oneOf(ctx: BattleEffectCtx, e: Record<string, unknown>): void {
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.length > 0
 
+/** 增援（call_in）：叫 pick[key] 選的候補；沒有空格改做 fallback。 */
+function callIn(ctx: BattleEffectCtx, e: Record<string, unknown>): void {
+  const { run, user } = ctx
+  const key = typeof e.key === 'string' ? e.key : 'bench'
+  const chosen = ctx.pick[key]
+  const id = typeof chosen === 'string' ? chosen : isRec(chosen) && typeof chosen.id === 'string' ? chosen.id : undefined
+  if (!id) throw new BattleBlocked(['要選一個候補。'])
+  const entry = run.bench(user.side).find((b) => b.id === id)
+  if (!entry) throw new BattleBlocked(['那個人不在候補名單上。'])
+  if (entry.blocks.length) throw new BattleBlocked(entry.blocks)
+  const unit = run.callIn(user.side, entry.ref, { by: user })
+  ctx.last.ok = unit !== null
+  if (unit) return
+  const fallback = Array.isArray(e.fallback) ? (e.fallback as Array<Record<string, unknown>>) : []
+  run.say(`${unitTag(user)}：${ctx.source.name}，我方的格子都滿了，${entry.name}進不來${fallback.length ? '，改做備案' : ''}。`, 'skill', { unit: user.id, ability: ctx.source.id, call_in: 'full', bench: entry.id }, user)
+  if (fallback.length) run.effects(fallback, { user, target: ctx.target, source: ctx.source, pick: ctx.pick, n: ctx.n, last: ctx.last })
+}
+
 export function registerOps(k: Kernel): void {
+  k.battle.effect('call_in', OWNER, callIn, {
+    problems: (e) => {
+      const p = Object.keys(e).filter((key) => !['op', 'who', 'if', 'key', 'fallback'].includes(key)).map((key) => `${key}：不認得的欄位（可以寫：key、fallback）`)
+      if (e.key !== undefined && !isText(e.key)) p.push('key：要是 pick 的鍵（預設 bench）')
+      if (e.fallback !== undefined) p.push(...(Array.isArray(e.fallback) && e.fallback.length ? k.battle.effectProblems(e.fallback).map((m) => `fallback：${m}`) : ['fallback：要是效果的陣列（我方沒有空格時做）']))
+      return p
+    },
+  })
+
   k.battle.effect('pick_random', OWNER, pickRandom, {
     problems: (e) => {
       const p = Object.keys(e).filter((key) => !['op', 'who', 'if', 'key', 'from'].includes(key)).map((key) => `${key}：不認得的欄位（可以寫：key、from）`)

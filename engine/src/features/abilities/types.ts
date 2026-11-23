@@ -98,6 +98,8 @@ export interface WhenDef {
   wounded?: true
   /** true：自己這一場還沒發動過攻擊（連射、反應裡的攻擊都算一次；偽裝的「第一次攻擊」） */
   first_attack?: true
+  /** true：這一場開打前沒有被識破（開戰設定 origin.ext.pre.spotted 不是 true；偽裝：被識破的這一場不生效） */
+  not_spotted?: true
 }
 
 /** 目標的條件（每一項一句灰掉的原因）。 */
@@ -175,8 +177,9 @@ export interface PickDecl {
   /**
    * drone：選單位上 ext.summons.drones 裡的哪一台（值是第幾台，給 drone.deploy 的 drone 讀）。
    * foe_overlay：選敵方沒被擊落的哪一台掛著的東西（值是那一台的 id，效果 who: 'foe_overlay' 讀 pick.overlay，所以鍵要叫 overlay；畫面用 choice 列出）
+   * bench：選哪一個候補（選項來自 view.bench：值是候補的 id；沒空的列著並帶原因；增援的效果 call_in 讀 pick[key]）
    */
-  kind: 'foe' | 'ally' | 'ally_slot' | 'foe_slot' | 'choice' | 'drone' | 'foe_overlay'
+  kind: 'foe' | 'ally' | 'ally_slot' | 'foe_slot' | 'choice' | 'drone' | 'foe_overlay' | 'bench'
   required?: boolean
   /** kind 是 ally 時：只有和自己相鄰的隊友選得了（掩護撤退） */
   adjacent?: true
@@ -224,6 +227,13 @@ export interface TeaseDef {
   on_ok?: Array<Record<string, unknown>>
   on_overload?: Array<Record<string, unknown>>
   targets?: 1 | 2
+}
+
+/** 戰鬥外的檢定修正：帶這些標籤（tags 全部都要有）、用這項基本功（skill，沒寫不限）的檢定加 value。tags 與 skill 至少要寫一個。 */
+export interface OutMod {
+  tags?: string[]
+  skill?: string
+  value: number
 }
 
 /** `meat` 欄的封閉清單（M1-abilities 第四節＋M1b-skill-format 第二～四節）。 */
@@ -279,6 +289,13 @@ export interface MeatDef {
   // ---- 名媛（M1b-skill-social） ----
   /** 入戲：戴著面具（被動，裝著就有）。到第 rounds 回合為止（含），AI 挑目標時不挑她，除非她是唯一打得到的目標，或她這一回合已經攻擊過那個敵人 */
   mask?: { rounds: number }
+  /**
+   * 姿態：戰鬥外也開得了（偽裝）。check：開著的時候，戰鬥外帶這些標籤（tags 全部都要有）、用這項基本功（skill，沒寫不限）的檢定加 value；
+   * on_start：這個姿態從戰鬥外開著帶進一場戰鬥時，開打做一次的效果。開打還開著，單位的姿態就是它（照一般的姿態：第一回合第一次攻擊命中 +2 等寫在 mods）
+   */
+  out?: { check: OutMod; on_start?: Array<Record<string, unknown>> }
+  /** 被動：裝著的時候，戰鬥外帶這些標籤的檢定加多少（我演得很像吧、入骨：infiltrate +2、+4） */
+  out_mods?: OutMod[]
   /** 誘惑攻擊。主動技能：這個技能的行動就是一次誘惑攻擊（目標是有橋、距離 2 以內的敵人）；被動（入戲）：多一個基本的誘惑攻擊行動（2 點、每回合 1 次，組 tease）。反應用 { op: 'tease' } */
   tease?: TeaseDef
 }
@@ -314,6 +331,15 @@ export interface PrepDef {
   slot?: number
   scope?: 'next_battle' | 'commission'
   meat?: { mods?: ModEntry[]; do?: Array<Record<string, unknown>> }
+  /**
+   * 預備的當下就在戰鬥外結算的效果（走 k.effects；沒有人註冊的種類略過那一筆）。字串裡的 $target、$commission、$tendency 換成輸入的人、
+   * 輸入的委託、那個人傾向裡的一個標籤（tendency:<標籤>；讀不到是 tendency:none）。
+   */
+  effects?: Array<Record<string, unknown>>
+  /** person：預備時要選一個人（輸入的 target）；帶進戰鬥的 meat.mods 只對那個人有效 */
+  target?: 'person'
+  /** 戰鬥外的檢定修正（只對選的那個人有效，要有 target: 'person'）：讀人的「對他的誘惑與交涉檢定 +2」。預備用掉之前一直有效 */
+  out_mods?: OutMod[]
 }
 
 /**
@@ -365,6 +391,8 @@ export interface PreparedEntry {
   id: string
   scope: 'next_battle' | 'commission'
   key?: string
+  /** 選的那個人（prep.target 是 person 的預備） */
+  target?: string
 }
 
 /** 角色身上的資料（actor.ext.abilities）。 */
@@ -377,6 +405,8 @@ export interface AbilityState {
   commission?: Record<string, Record<string, number>>
   /** 預備好的（dev/adr/0015 E4） */
   prepared?: PreparedEntry[]
+  /** 戰鬥外開著的姿態（技能 id；要有 meat.out）。開打還開著就帶進戰鬥 */
+  stance?: string
 }
 
 /** 戰鬥裡每個單位的資料（unit.ext.abilities）。 */

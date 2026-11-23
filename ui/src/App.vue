@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DialogHost from './components/DialogHost.vue'
 import { useGame } from './stores/game'
+import { useEngine } from './stores/engine'
 import { useSettings } from './stores/settings'
 import { useUi, DIALOG_TITLES, type DialogName } from './stores/ui'
 import { useSaves } from './stores/saves'
@@ -11,6 +12,7 @@ import { keyAction, isTyping } from './lib/keys'
 /** 外殼：全頁由路由切換，對話框層蓋在上面。子網與內海戰鬥的全頁換成內海皮。 */
 const route = useRoute()
 const g = useGame()
+const eng = useEngine()
 const settings = useSettings()
 const ui = useUi()
 // 換全頁時關掉所有對話框：對話框只屬於打開它的那一頁
@@ -31,7 +33,7 @@ const IN_GAME = new Set(['/', '/home', '/subnet', '/dungeon'])
 function onKey(e: KeyboardEvent) {
   if (e.defaultPrevented) return // 畫面自己處理掉的（例：家園擺設時的 R 與 Esc）
   const a = keyAction(e, {
-    typing: isTyping(e.target), dialogOpen: ui.stack.length > 0, canMove: !!ui.mover && !ui.menuOpen,
+    typing: isTyping(e.target), dialogOpen: ui.stack.length > 0 || eng.event.view() !== null, canMove: !!ui.mover && !ui.menuOpen,
     inGame: IN_GAME.has(route.path), onMain: route.path === '/',
   })
   if (!a) return

@@ -7,6 +7,7 @@ import type { BattleActionOption, BattleInput, BattleSetup, BattleTarget, Battle
 import { BattleBlocked, BattleRun, LOSE_TURN, battleAct, pickApplies, pickProblems, readyFeatures, toMinutes } from '../../src'
 import { abilitiesFeature, equipAbilities, learn, prep, prepBlock } from '../../src/features/abilities'
 import { combatFeature } from '../../src/features/combat'
+import { favorsFeature } from '../../src/features/favors'
 import { makeBattleGame, makeGame, testWeapon } from '../../src/testkit'
 import type { Arena } from '../helpers/battle'
 import { TEST_STATUSES, arena, duel, foe, one } from '../helpers/battle'
@@ -35,6 +36,7 @@ const idle = (o: Rec = {}) => foe('minion', { ap: { now: 0, max: 0, regen: 0 }, 
 const dice = (...v: number[]) => [...v, ...Array(120).fill(1)]
 
 interface PlayOpts {
+  features?: Array<(typeof FEATURES)[number]>
   mates?: unknown[]
   foes?: unknown[]
   me?: Rec
@@ -49,7 +51,7 @@ interface PlayOpts {
 function play(abilities: Rec[], o: PlayOpts = {}) {
   const ids = abilities.map((a) => a.id as string)
   return makeBattleGame({
-    features: FEATURES, content: [pack(abilities, o.extra, o.tree)], seed: o.seed ?? 7, ...(o.game ?? {}),
+    features: o.features ?? FEATURES, content: [pack(abilities, o.extra, o.tree)], seed: o.seed ?? 7, ...(o.game ?? {}),
     battle: duel([me(ids, o.me), ...(o.mates ?? [one({ weapon: 'pistol' }, 2), one({ weapon: 'pistol' }, 3)])], o.foes ?? [idle(), idle()], o.cover, o.more),
   }).game
 }
@@ -270,23 +272,29 @@ describe('消耗：照戰場分、行動點以外的池（RAM、現金、人情�
 
   describe('use.favor（E2）', () => {
     const skill = ab('sk_owe', 'active', { use: { ap: 1, favor: 'mid' }, meat: { target: 'enemy', do: [{ op: 'attack' }] } })
-    it('池是 0 時灰掉；有的時候用掉一個，戰鬥結束時差額寫回 actor.ext.favors', async () => {
-      const none = play([skill])
+    // M2：人情池讀衍生數值 favor_*（人情的功能 favors，資料在 state.ext.favors），結束時每用掉一個發一筆 favor.spend；舊的 actor.ext.favors 格式不再讀
+    const owed = (...sizes: string[]) => ({ owed_to_pc: sizes.map((size, i) => ({ id: `fv_${i + 1}`, who: 'someone', size, at: { day: 1, hour: 8, minute: 0 } })), owed_by_pc: [], seq: sizes.length })
+    it('池是 0 時灰掉；有的時候用掉一個，戰鬥結束時用掉幾個發幾筆 favor.spend', async () => {
+      const none = play([skill], { features: [...FEATURES, favorsFeature] })
       turnTo(none, 'a1')
       expect(unit(none, 'a1').pools.favor_mid).toEqual({ now: 0, max: 0, regen: 0 })
       expect(opt(none, 'sk_owe').cost).toEqual({ ap: 1, favor_mid: 1 })
       expect(opt(none, 'sk_owe').ok).toBe(false)
       expect(opt(none, 'sk_owe').blocks.join('')).toMatch(/要 1.*現在 0/)
 
-      const g = play([skill], { game: { pc: { ext: { favors: { small: 2, mid: 1, big: 0 } } } } })
+      const g = play([skill], { features: [...FEATURES, favorsFeature], game: { patch: { ext: { favors: owed('small', 'mid', 'small') } } } })
       turnTo(g, 'a1')
       expect(unit(g, 'a1').pools.favor_small!.now).toBe(2)
       expect(g.battleAct({ action: 'sk_owe', target: { unit: 'f1' } }).status).toBe('applied')
       expect(unit(g, 'a1').pools.favor_mid!.now).toBe(0)
       turnTo(g, 'a1')
       expect(opt(g, 'sk_owe').ok).toBe(false)
-      await finish(g)
-      expect(g.state.actors.pc!.ext.favors).toEqual({ small: 2, mid: 0, big: 0 })
+      const end = await finish(g)
+      expect(end.changes.filter((c) => c.op === 'favor.spend')).toEqual([{ op: 'favor.spend', dir: 'owed_to_pc', size: 'mid' }])
+      expect((g.state.ext.favors as { owed_to_pc: Array<{ size: string }> }).owed_to_pc.map((f) => f.size)).toEqual(['small', 'small'])
+      // 舊格式不再讀：只寫在角色身上的 ext.favors 沒有池
+      const old = play([skill], { features: [...FEATURES, favorsFeature], game: { pc: { ext: { favors: { small: 2, mid: 1, big: 0 } } } } })
+      expect(unit(old, 'a1').pools.favor_mid!.now).toBe(0)
     })
   })
 

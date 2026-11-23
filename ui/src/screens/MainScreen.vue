@@ -1,9 +1,10 @@
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
 import GridMap, { type CellView, type MapToken } from '../components/GridMap.vue'
+import RidePanel from '../components/RidePanel.vue'
 import LogView from '../components/LogView.vue'
 import ChainBar from '../components/ChainBar.vue'
 import PartyRow from '../components/PartyRow.vue'
@@ -16,16 +17,16 @@ import { useSettings } from '../stores/settings'
 import { useGuides } from '../lib/useGuides'
 import { settleBills, billMultiplier } from '../lib/bills'
 import { fmt } from '../lib/price'
-import { useWalk } from '../lib/useWalk'
 import type { Point, Facility } from '../data/types'
 import { KEY_OF } from '../lib/keys'
-import { NPCS } from '../data/npcs'
 import HereOptions from '../components/HereOptions.vue'
 import { pressE, type HereOption } from '../lib/here'
+import { cellInfo, exitList, facilityIcons, fogOf, hereItems } from '../lib/worldView'
 
 /**
  * 主畫面（UI.md 第 3 節）：左欄現在這一塊的街區圖（城市地圖是對話框，工具列「城市」或 M）、小隊、委託條；中欄工具列、紀錄、行動列；右欄這裡的人、地點、進行中。
  * 手機：上面狀態列，下面四個分頁（地圖、紀錄、這裡、工具）。
+ * 街區圖、走路、「這裡」能做的事、出口、搭車都是引擎的（features/world、transit）：這裡只畫，不判斷。
  */
 const g = useGame()
 const e = useEngine()
@@ -36,72 +37,55 @@ const router = useRouter()
 const mobileTab = ref<'map' | 'log' | 'here' | 'tools'>('log')
 const freeText = ref('')
 
-// ---- 街區格子 ----
-const bm = computed(() => g.blockMap)
-const passable = (x: number, y: number) => { const c = bm.value.cells[y]?.[x]; return c !== undefined && c !== '#' }
-const { path, walkTo } = useWalk({
-  grid: () => ({ w: bm.value.w, h: bm.value.h, passable }),
-  pos: () => g.loc.pos,
-  step: p => { g.loc.pos = p; g.advance(1) },
-})
+// ---- 街區格子（引擎的 gridView 與 worldView） ----
+const w = computed(() => e.world.view())
+const grid = computed(() => e.world.grid())
+const icons = computed(() => facilityIcons(e.world.entry('block', w.value.block?.id ?? '')))
+const ride = computed(() => e.transit.view().ride)
 function cellView(x: number, y: number): CellView {
-  const c = bm.value.cells[y][x]
-  const k = `${x},${y}`
-  const f = bm.value.facilityAt.get(k)
-  if (f) return { kind: 'fac', icon: f.icon, title: f.name, tint: f.id === g.loc.facility ? 'var(--a)' : undefined }
-  const ex = bm.value.exitAt.get(k)
-  if (ex) return { kind: 'exit', mark: '→', title: `往${ex}` }
-  return { kind: c === '#' ? 'building' : 'street' }
+  return grid.value ? cellInfo(x, y, grid.value, w.value, icons.value) : { kind: 'void' }
 }
-const tokens = computed<MapToken[]>(() => {
-  const t: MapToken[] = [{ id: 'me', x: g.loc.pos.x, y: g.loc.pos.y, label: '你', kind: 'me' }]
-  for (const [k, f] of bm.value.facilityAt) for (const id of f.npcIds ?? []) {
-    const [x, y] = k.split(',').map(Number)
-    if (x === g.loc.pos.x && y === g.loc.pos.y) continue
-    t.push({ id, x, y, label: NPCS[id].name.slice(0, 1), kind: 'npc', title: NPCS[id].name })
-  }
-  return t
-})
-function onCell(p: Point) {
-  if (!passable(p.x, p.y)) return
-  g.setFacility(null)
-  walkTo(p, () => arrive(p))
+const fog = (x: number, y: number) => (grid.value ? fogOf(x, y, grid.value) : 'hidden')
+const tokens = computed<MapToken[]>(() => (grid.value ? [{ id: 'me', x: grid.value.at[0], y: grid.value.at[1], label: '你', kind: 'me' }] : []))
+/** 走：一個方向或一個目的地交給引擎（碰到事情它會停）；被擋下把引擎的原因放提示列。 */
+function go(to: [number, number] | 'north' | 'south' | 'east' | 'west') {
+  const r = e.world.walk(to)
+  if (!r.ok) { ui.toast(r.reason ?? '現在走不了。', 'warn'); return }
+  if (w.value.facility && window.innerWidth <= 720) mobileTab.value = 'here'
 }
-/** 鍵盤：方向鍵或 WASD 走一格（App.vue 的全域快捷鍵，不必先點地圖）；走到哪裡就和那裡互動。 */
-function onStep(d: Point) {
-  const n = { x: g.loc.pos.x + d.x, y: g.loc.pos.y + d.y }
-  if (!passable(n.x, n.y)) return
-  g.setFacility(null)
-  g.loc.pos = n
-  g.advance(1)
-  arrive(n)
-}
+function onCell(p: Point) { go([p.x, p.y]) }
+/** 鍵盤：方向鍵或 WASD 走一格（App.vue 的全域快捷鍵，不必先點地圖） */
+function onStep(d: Point) { go(d.x > 0 ? 'east' : d.x < 0 ? 'west' : d.y > 0 ? 'south' : 'north') }
 /**
- * 到了就看得到選單、按 E 才做（UI.md 1.1 節，第四版）：走到設施上，右欄「這裡」立刻列出能做的事，但不自動執行；
- * 走到出口也只列出「往某某」。E 做這一格的預設選項：出口就換街區，設施就做第一個服務（黃框、帶 E）。點任何一個選項照樣能做。
+ * 到了就看得到選單、按 E 才做（UI.md 1.1 節，第四版）：站在設施上，右欄「這裡」立刻列出引擎給的每一項能做的事（灰掉的帶引擎的原因），但不自動執行。
+ * E 做這一格的預設選項。出口：引擎在走上出口那一格時就換到隔壁那一塊（走路是引擎的），所以出口只列在右欄「出口」裡，點了是走過去。
  */
+const here = computed(() => (w.value.facility ? w.value.facilities.find(f => f.marker === w.value.facility!.marker) ?? null : null))
+/** 引擎列的項目要打開的畫面；還沒有畫面的給一句話 */
+function runUse(id: string) {
+  if (id === 'transit.board') ui.openRoot('transit')
+  else ui.toast('這一項的畫面還沒有接上引擎。')
+}
+/** 還沒搬進引擎的舊服務（商店、診所、住處……；示意資料）：設施開著才列。搭車已經是引擎的，不重複。 */
 function optionsOf(f: Facility): HereOption[] {
-  const svcs = (f.services ?? []).map((s, i) => ({ id: `svc${i}`, name: s.name, sub: s.price ? `現金 ${fmt(s.price)}` : undefined, run: () => service(f, s) }))
+  const svcs = (f.services ?? []).filter(s => s.action !== 'transit').map((s, i) => ({ id: `svc${i}`, name: s.name, sub: s.price ? `現金 ${fmt(s.price)}` : undefined, run: () => service(f, s) }))
   const talks = (f.npcIds ?? []).map(id => ({ id: `talk-${id}`, name: `和${g.npcs[id]?.name ?? id}說話`, run: () => ui.openRoot('talk', { npcId: id }) }))
   return [...svcs, ...talks]
 }
-const hereExit = computed(() => bm.value.exitAt.get(`${g.loc.pos.x},${g.loc.pos.y}`) ?? null)
 const hereOpts = computed<HereOption[]>(() => {
-  if (hereExit.value) { const to = hereExit.value; return [{ id: 'exit', name: `往${to}`, exit: true, run: () => g.moveBlock(g.loc.district, to, g.loc.block) }] }
-  return g.facility ? optionsOf(g.facility) : []
+  const mine: HereOption[] = hereItems(grid.value).map(i => ({ id: i.id, name: i.name, reason: i.reason, run: () => runUse(i.id) }))
+  if (here.value?.open && g.facility) mine.push(...optionsOf(g.facility))
+  return mine
 })
-function arrive(p: Point) {
-  const f = bm.value.facilityAt.get(`${p.x},${p.y}`)
-  g.setFacility(f?.id ?? null)
-  if ((f || bm.value.exitAt.get(`${p.x},${p.y}`)) && window.innerWidth <= 720) mobileTab.value = 'here'
-}
 function onEnter() {
   const msg = pressE(hereOpts.value)
   if (msg) ui.toast(msg, 'warn')
 }
-/** 這一塊街區的出口（右欄「這裡」裡的換地圖按鈕）：點了是明確的選擇，走過去就換街區 */
-const exits = computed(() => [...bm.value.exitAt.entries()].map(([k, to]) => { const [x, y] = k.split(',').map(Number); return { to, x, y } }))
-function goExit(e: { to: string; x: number; y: number }) { g.setFacility(null); walkTo({ x: e.x, y: e.y }, () => g.moveBlock(g.loc.district, e.to, g.loc.block)) }
+/** 這一塊街區的出口（右欄「出口」）：點了走過去，走上出口那一格引擎就換街區 */
+const exits = computed(() => exitList(w.value))
+function goExit(x: { at: [number, number] | null }) { if (x.at) go([x.at[0], x.at[1]]) }
+// 上車之後地圖區換成車上的畫面，手機上切到「地圖」分頁
+watch(() => ride.value !== null, on => { if (on) mobileTab.value = 'map' })
 
 // ---- 這裡 ----
 const people = computed(() => (g.facility?.npcIds ?? []).map(id => g.npcs[id]))
@@ -110,7 +94,6 @@ function service(f: Facility, s: NonNullable<Facility['services']>[number]) {
     case 'shop': ui.openRoot('shop', { shopId: f.shopId }); break
     case 'home': router.push('/home'); break
     case 'dungeon': router.push('/dungeon'); break
-    case 'transit': ui.openRoot('transit'); break
     case 'garage': case 'mech': case 'clinic': case 'fixer': case 'cut': case 'dye': ui.openRoot(s.action, s.props ?? {}); break
     case 'scene': router.push({ path: '/scene', query: { scene: String(s.props?.scene ?? ''), from: '/' } }); break
     case 'rest': g.advance(60); g.addLog({ prose: [`你在${f.name}待了一個小時，感載退了一些。`], changes: [{ text: '感載 −3', kind: 'plus' }] }); g.character.load[0] = Math.max(0, g.character.load[0] - 3); break
@@ -168,16 +151,18 @@ const stages = [
     <div class="main" :data-mtab="mobileTab">
       <!-- 左欄 -->
       <div class="col left">
-        <section class="panel cut map pad">
+        <RidePanel v-if="ride" :ride="ride" />
+        <section v-else class="panel cut map pad">
           <span class="tick" />
           <div class="maphd">
-            <p class="h">{{ g.district.name }}・{{ g.loc.block }}</p>
+            <p class="h">{{ w.district?.name }}・{{ w.block?.name }}</p>
             <span class="grow" />
             <button type="button" class="btn sm" title="城市地圖（M）" @click="ui.openRoot('city')"><Icon id="ic-fac_metro" :size="16" fit />城市<kbd>M</kbd></button>
-            <Hint title="地圖">街區是 13 × 9 的格子：點設施走過去：到了右欄「這裡」就列出能做的事，不會自動做；黃框、帶 E 的是預設，按 E 做它。走到邊上的箭頭再按 E 換街區（出口也列在「這裡」，點了直接走過去換）。車站也是設施：走上去按 E 開選站。城市地圖（M）看你在哪裡，從那裡只能叫計程車或開自己的車。鍵盤：方向鍵或 WASD 走一格，E 做腳下的預設選項；不必先點地圖。</Hint>
+            <Hint title="地圖">街區是 13 × 9 的格子：點設施走過去：到了右欄「這裡」就列出能做的事，不會自動做；黃框、帶 E 的是預設，按 E 做它。走上邊上的出口就換到隔壁的街區（出口也列在右欄，點了走過去）。看不到的地方蓋著霧，走近才看得見。車站也是設施：走上去按 E 開選站。城市地圖（M）看你在哪裡，從那裡只能叫計程車。鍵盤：方向鍵或 WASD 走一格，E 做腳下的預設選項；不必先點地圖。</Hint>
           </div>
-          <GridMap :w="bm.w" :h="bm.h" :cell="cellView" :tokens="tokens" :path="path" :max-cell="30" :label="`${g.loc.block}的街區圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
-          <div class="legend"><span><i class="lg fac" />設施</span><span><i class="lg exit" />出口</span><span><i class="lg me" />你</span><span><i class="lg npc" />人</span></div>
+          <GridMap v-if="grid" :w="grid.size[0]" :h="grid.size[1]" :cell="cellView" :fog="fog" :tokens="tokens" :max-cell="30" :label="`${w.block?.name ?? ''}的街區圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
+          <div v-else class="empty-note">現在不在街區上。</div>
+          <div class="legend"><span><i class="lg fac" />設施</span><span><i class="lg exit" />出口</span><span><i class="lg me" />你</span></div>
         </section>
         <section class="panel cut pad party">
           <p class="h">小隊</p>
@@ -236,14 +221,20 @@ const stages = [
           </div>
         </section>
         <section class="panel cut pad">
-          <p class="h">地點<template v-if="g.facility">：{{ g.facility.name }}</template><template v-else-if="hereExit">：往{{ hereExit }}的出口</template><Hint>到了就列出能做的事，不會自動做。黃框、帶 E 的是預設：按 E 做它（出口是換街區）；點任何一個也可以。</Hint></p>
-          <div v-if="!g.facility && !hereExit" class="empty-note">在街區圖上點一個設施走過去。</div>
-          <template v-else>
-            <HereOptions :options="hereOpts" data-here />
-            <div v-if="g.facility && !hereOpts.length" class="empty-note">這個設施沒有可以用的服務。</div>
+          <template v-if="ride">
+            <p class="h">車上<Hint>上車之後，主畫面的地圖區換成這一趟的路線條。車廂裡的人、車上能做的事（打聽、整理背包、看窗外）還沒有接上引擎。</Hint></p>
+            <div class="empty-note">你在{{ ride.line.name }}上；到站、下車在左邊的路線條上做。</div>
           </template>
-          <p class="h" style="margin-top: 10px">出口<Hint>走到出口直接換街區；也可以點這裡，你會走過去。</Hint></p>
-          <div class="exits"><button v-for="e in exits" :key="e.to" type="button" class="svc" :data-exit="e.to" @click="goExit(e)"><span>往{{ e.to }}</span><span aria-hidden="true">→</span></button></div>
+          <template v-else>
+            <p class="h">地點<template v-if="w.facility">：{{ w.facility.name }}</template><Hint>到了就列出能做的事，不會自動做。黃框、帶 E 的是預設：按 E 做它；點任何一個也可以。灰掉的點了會說原因。</Hint></p>
+            <div v-if="!w.facility" class="empty-note">在街區圖上點一個設施走過去。</div>
+            <template v-else>
+              <HereOptions :options="hereOpts" data-here />
+              <div v-if="!hereOpts.length" class="empty-note">這個設施沒有可以用的服務。</div>
+            </template>
+            <p class="h" style="margin-top: 10px">出口<Hint>走到出口那一格就會換到隔壁的街區；也可以點這裡，你會走過去。</Hint></p>
+            <div class="exits"><button v-for="x in exits" :key="x.marker" type="button" class="svc" :data-exit="x.to" @click="goExit(x)"><span>往{{ x.toName }}</span><span aria-hidden="true">→</span></button></div>
+          </template>
         </section>
         <section class="panel cut pad">
           <p class="h">進行中</p>
