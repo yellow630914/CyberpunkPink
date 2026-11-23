@@ -4,7 +4,7 @@
 // 殺價的骰子：換 state.seq.chain 找出想要的骰面（行動的骰面只看存檔的亂數與這個序號），再用 Game.act 真的跑一次主動行動。
 
 import { describe, expect, it } from 'vitest'
-import type { Change, ContentPack, Feature, GameState, Kernel, ReportDraft } from '../../src'
+import type { Change, ContentPack, Feature, Kernel, ReportDraft } from '../../src'
 import { ActionBlocked, ContentError, effectCtx, prepareAction } from '../../src'
 import { favorsFeature } from '../../src/features/favors'
 import { lewdFeature } from '../../src/features/lewd'
@@ -59,6 +59,11 @@ const BARGAIN = { id: 'bargain', name: '殺價', desc: '殺價。', attr: 'charm
 
 const content = (patch: (c: Record<string, Rec[]>) => void = () => {}): ContentPack => {
   const c: Record<string, Rec[]> = {
+    skill: [
+      { id: 'negotiate', name: '交涉', attr: 'charm', desc: '講價、說服。' },
+      { id: 'seduce', name: '誘惑', attr: 'charm', desc: '撒嬌、放電。' },
+      { id: 'intimidate', name: '威嚇', attr: 'resolve', desc: '施壓。' },
+    ],
     district: structuredClone(DISTRICTS_CONTENT), item: structuredClone(ITEMS), shop_type: structuredClone(SHOP_TYPES), shop: structuredClone(SHOPS), action_kind: [structuredClone(BARGAIN)],
   }
   patch(c)
@@ -142,14 +147,17 @@ describe('類別的行情（TRADE 4.2）', () => {
     g.commit(checkout(g.k, g.state, 's_b', { sell: [{ item: 'i_chip', qty: 1 }], pay: 'cred' }))
     expect(g.state.money.cred - start).toBe(117 - 70)
     expect(g.state.inventory).toEqual([])
-    // 一般的晶片：甲區買 70、乙區賣 100 × 0.4 × 1.3 = 52
-    expect(buyPrice(g, 's_a', 'i_plainchip')).toBe(70)
-    expect(sellPrice(g, 's_b', 'i_plainchip')).toBe(52)
-    const before = g.state.money.cred
-    g.commit(checkout(g.k, g.state, 's_a', { buy: [{ item: 'i_plainchip', qty: 1 }], pay: 'cred' }))
-    g.commit(checkout(g.k, g.state, 's_b', { sell: [{ item: 'i_plainchip', qty: 1 }], pay: 'cred' }))
-    expect(g.state.money.cred - before).toBe(52 - 70)
+    // 一般的晶片（另開一局：同一間店同一個類別剛收過貨物，會接著遞減）：甲區買 70、乙區賣 100 × 0.4 × 1.3 = 52
+    const h = mk()
+    expect(buyPrice(h, 's_a', 'i_plainchip')).toBe(70)
+    expect(sellPrice(h, 's_b', 'i_plainchip')).toBe(52)
+    const before = h.state.money.cred
+    h.commit(checkout(h.k, h.state, 's_a', { buy: [{ item: 'i_plainchip', qty: 1 }], pay: 'cred' }))
+    h.commit(checkout(h.k, h.state, 's_b', { sell: [{ item: 'i_plainchip', qty: 1 }], pay: 'cred' }))
+    expect(h.state.money.cred - before).toBe(52 - 70)
     expect(52 - 70).toBeLessThan(0)
+    // 同一局裡貨物賣過之後，同一個類別（電子）接著遞減：52 × 0.97 = 50
+    expect(sellPrice(g, 's_b', 'i_plainchip')).toBe(50)
   })
 
   it('貨物的收購比例是 90%（別的東西照預設 40%）；存檔規則 trade_rule 可以改兩個比例', () => {
@@ -282,8 +290,10 @@ describe('收購遞減（TRADE 3.2）', () => {
     expect(sellPrice(g, 's_b', 'i_bulk2')).toBe(400) // 別間店
     expect(trade(g).intake).toEqual({ s_c: { ammo: { n: 2, day: 1 } } })
     // 同一台車裡兩種同類別的東西：照購物車的順序接著遞減
+    give(g, 'i_bulk')
     const plan = planCheckout(g.k, g.state, 's_b', { sell: [{ item: 'i_bulk', qty: 1 }, { item: 'i_bulk2', qty: 2 }], pay: 'cash' })
-    expect(plan.sell.map((l) => l.prices)).toEqual([[], [], []].length ? [[400], [388, 376]] : [])
+    expect(plan.problems).toEqual([])
+    expect(plan.sell.map((l) => l.prices)).toEqual([[400], [388, 376]])
     // shopView 的收購那一列帶著累計與遞減
     const row = shopView(g.k, g.state, 's_c').sell.find((r) => r.item === 'i_bulk2')!
     expect(row).toMatchObject({ tradeCategory: 'ammo', tradeCategoryName: '彈藥', cargo: false, taken: 2, decay: 0.94, price: 376, prices: [376, 364] })
@@ -355,14 +365,12 @@ describe('殺價的 DC（TRADE 第 5 節）', () => {
 
   it('不能殺價的店（temper 是 null）有原因：bargainBlock、bargainView、直接送出行動都一樣；沒寫 temper 的店當一般的店', () => {
     const g = mk()
-    const why = 's_corp：'
     expect(bargainDc(g.k, g.state, 's_corp')).toBeNull()
     expect(bargainBlock(g.k, g.state, 's_corp', 'haggle')).toBe('原廠店不能殺價（原廠直營的店只談長期折扣）。')
     const v = bargainView(g.k, g.state, 's_corp')
     expect(v).toMatchObject({ dc: null, options: [], block: '原廠店不能殺價（原廠直營的店只談長期折扣）。' })
     expect(shopView(g.k, g.state, 's_corp').temper).toBeNull()
     expect(() => prepareAction(g.k, g.state, bargainInput(g.k, g.state, 's_corp', 'haggle'))).toThrow(ActionBlocked)
-    void why
     const h = mk({ pack: content((c) => { delete (c.shop_type![0] as Rec).temper }) })
     expect(bargainDc(h.k, h.state, 's_c')).toBe(13)
     expect(shopView(h.k, h.state, 's_c').temper).toBe(0)
@@ -372,27 +380,26 @@ describe('殺價的 DC（TRADE 第 5 節）', () => {
     const g = mk()
     expect(bargainBlock(g.k, g.state, 's_c', 'nag')).toBe('不知道「nag」這種殺法。')
     expect(bargainBlock(g.k, g.state, 's_nope', 'haggle')).toBe('沒有 s_nope 這間店。')
+    const seq = g.state.seq.report
     expect((await g.act({ kind: 'bargain' })).reason).toBe('要先選一間店。')
     expect((await g.act({ kind: 'bargain', shop: 's_c' } as never)).reason).toBe('要先選一種殺法。')
     expect((await g.act({ kind: 'bargain', shop: 's_c', method: 'favor' } as never)).reason).toContain('不用擲骰')
-    expect(g.state.reports.length).toBe(0)
+    expect(g.state.seq.report).toBe(seq)
   })
 })
 
 describe('殺價的結果（固定骰面，Game.act 真的擲一次）', () => {
+  // buy／sell：甲區的店的手槍（武器行情 ×0.5，買 50、收購 40 × 0.5 = 20）殺價之後的價錢；hard：難纏的店（沒有行情）的手槍（買 100、收購 40）
   const table = [
-    { degree: 'critical', mult: 0.8, aff: 2, buy: 80, sell: 50 },
-    { degree: 'success', mult: 0.9, aff: 0, buy: 90, sell: 44 },
-    { degree: 'fail', mult: 1, aff: 0, buy: 100, sell: 40 },
-    { degree: 'fumble', mult: 1.1, aff: -3, buy: 110, sell: 36 },
+    { degree: 'critical', mult: 0.8, aff: 2, buy: 40, sell: 25, hard: [80, 50] },
+    { degree: 'success', mult: 0.9, aff: 0, buy: 45, sell: 22, hard: [90, 44] },
+    { degree: 'fail', mult: 1, aff: 0, buy: 50, sell: 20, hard: [100, 40] },
+    { degree: 'fumble', mult: 1.1, aff: -3, buy: 55, sell: 18, hard: [110, 36] },
   ] as const
   for (const t of table) {
     it(`${t.degree}：價錢 ×${t.mult}（買的乘、賣的除以）、店主親密度 ${t.aff >= 0 ? '+' : ''}${t.aff}；報告是 bargain 自己的報告`, async () => {
       const g = mk()
-      setMeter(g, 'affinity', 'npc_ann', 10)
-      expect([buyPrice(g, 's_a', 'i_plainchip'), sellPrice(g, 's_c', 'i_gun')]).toEqual([70, 40])
-      const base = buyPrice(g, 's_c', 'i_gun')
-      expect(base).toBe(100)
+      expect([buyPrice(g, 's_a', 'i_gun'), sellPrice(g, 's_a', 'i_gun'), buyPrice(g, 's_c', 'i_gun')]).toEqual([50, 20, 100])
       const { status, reports } = await haggle(g, 's_a', t.degree)
       expect(status).toBe('applied')
       expect(reports).toHaveLength(1)
@@ -403,30 +410,28 @@ describe('殺價的結果（固定骰面，Game.act 真的擲一次）', () => {
       expect(r.narration?.results?.length).toBe(1)
       // 倍率與紀錄
       expect(trade(g).bargains).toEqual({ s_a: { day: 1, mult: t.mult, method: 'haggle', degree: t.degree } })
-      expect(g.state.meters.affinity!.npc_ann).toBe(10 + t.aff)
-      // 這間店今天：買的乘、賣的除以（拆解多一步「殺價」；甲區的店：槍的行情 0.5 → 先換成丙區的比較）
+      expect(g.state.meters.affinity?.npc_ann ?? 0).toBe(t.aff)
+      // 這間店今天：買的乘、賣的除以（拆解多一步「殺價」）
       const buy = quote(g.k, g.state, 's_a', 'i_gun', 'buy')
       expect(buy.steps.at(-1)).toEqual({ id: 'bargain', name: '殺價', mult: t.mult, value: buy.price })
-      expect(buy.price).toBe(Math.round(Math.round(100 * 0.5) * t.mult)) // 武器 ×0.5（夾過的行情）
+      expect(buy.price).toBe(t.buy)
       const sell = quote(g.k, g.state, 's_a', 'i_gun', 'sell')
       expect(sell.steps.at(-1)).toEqual({ id: 'bargain', name: '殺價', mult: expect.closeTo(1 / t.mult, 5), value: sell.price })
-      expect(sell.price).toBe(Math.round(Math.round(40 * 0.5) / t.mult)) // 收購 40 × 行情 0.5 = 20，再除以倍率
+      expect(sell.price).toBe(t.sell)
       // 別間店不受影響
-      expect(buyPrice(g, 's_c', 'i_gun')).toBe(base)
+      expect(buyPrice(g, 's_c', 'i_gun')).toBe(100)
       expect(sellPrice(g, 's_c', 'i_gun')).toBe(40)
     })
   }
 
-  it('殺過之後今天這間店的買價與賣價：一件沒有行情的東西（丙區的店不殺，換有店主的難纏店）對得上表', async () => {
-    const g = mk()
-    const out: Array<[number, number]> = []
+  it('殺過之後今天這間店的買價與賣價：一件沒有行情的東西（難纏的店的手槍）對得上表：買 100 × 倍率、收購 40 ÷ 倍率', async () => {
+    const out: Array<readonly [number, number]> = []
     for (const t of table) {
       const h = mk()
       await haggle(h, 's_hard', t.degree)
       out.push([buyPrice(h, 's_hard', 'i_gun'), sellPrice(h, 's_hard', 'i_gun')])
     }
-    expect(out).toEqual(table.map((t) => [t.buy, t.sell]))
-    void g
+    expect(out).toEqual(table.map((t) => t.hard))
   })
 
   it('第二次殺被擋（同一間店每天一次，不管結果）：行動回傳 refused 與原因、狀態不動；別間店還能殺；隔天恢復', async () => {
@@ -716,8 +721,6 @@ describe('AI 開著（假的服務商）：殺價走 judge，結果仍然在表�
 
   it('判定走 judge：請求裡有這次的骰值與 DC；判定的成功程度被夾回骰子（骰到 10 是失敗，AI 說大成功也只是失敗）', async () => {
     const g = mk({ fake: { byTask: { judge: [{ json: { degree: 'critical', dc: 13, reason: '老闆被逗笑了。', twist: '', minutes: 15, new_person: false } }] } } })
-    const { game, fake } = (() => ({ game: g, fake: (g as unknown as { chainEnv?: unknown }) }))()
-    void game; void fake
     rig(g, 's_hard', 'haggle', DIE.fail)
     const r = await g.act(bargainInput(g.k, g.state, 's_hard', 'haggle'))
     expect(r.status).toBe('applied')
