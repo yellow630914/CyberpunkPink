@@ -58,7 +58,8 @@ export const useGame = defineStore('game', () => {
   // 還沒開過新局（引擎是空的）時，照原本假存檔的樣子放一個示範的局：第 14 天週一 17:20、帳戶 4620、現金 3700。開新局與讀檔會整個換掉它。
   if (eng.state.reports.length === 0) {
     eng.newGame({ seed: 1 })
-    eng.ledger([{ op: 'cred', delta: 4620 }, { op: 'cash', delta: 3700 }, { op: 'time', minutes: 13 * 24 * 60 + 9 * 60 + 20 }])
+    // 示意名冊（小麥、雷）放進同一筆帳。推進十三天，引擎會補那幾天的人事（名單的變動、名冊上的人的日子）：開局的紀錄多一則「近況」（kind: downtime）
+    eng.ledger([{ op: 'cred', delta: 4620 }, { op: 'cash', delta: 3700 }, { op: 'time', minutes: 13 * 24 * 60 + 9 * 60 + 20 }, ...eng.people.demoChanges()])
   }
   const day = computed(() => eng.state.time.day)
   const minutes = computed(() => eng.state.time.hour * 60 + eng.state.time.minute)

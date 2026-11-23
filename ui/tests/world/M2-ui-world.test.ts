@@ -512,7 +512,8 @@ describe('示意世界包下的投影（useGame）', () => {
     expect(g.loc.facility).toBe('rooftop')
     const e = useEngine()
     expect(e.world.view().exits.length).toBeGreaterThan(0)
-    expect(e.log).toEqual([])
+    // 示範局推進了十三天，引擎補了那幾天的人事（kind: downtime）；其餘的紀錄是空的
+    expect(e.log.filter((x) => x.kind !== 'downtime')).toEqual([])
   })
 })
 

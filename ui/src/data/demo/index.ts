@@ -1,4 +1,4 @@
-import type { ContentPack, Feature, GridKernel, Kernel } from '@engine/src'
+import type { ContentPack, Feature, GridKernel } from '@engine/src'
 import { planArrive } from '@engine/src/features/world'
 import { demoStart, legacyFacilityAt, blockIdOf, stationMarkerOf, worldContent } from './world'
 import { transitContent } from './transit'
@@ -6,7 +6,7 @@ import { eventContent } from './events'
 import { commissionContent } from './commission'
 import { sceneContent } from './scene'
 import { lifeContent } from './life'
-import { DEMO_NPC_IDS, demoPeopleChanges, peopleContent } from './people'
+import { DEMO_NPC_IDS, peopleContent } from './people'
 
 /**
  * 示意世界包（dev/work/M2-plan.md 使用者定案第 5 項）：引擎不再匯入內容，畫面接上引擎之後城市是空的，
@@ -55,12 +55,11 @@ export function demoStartFeature(): Feature {
         const start = demoStart()
         return planArrive(k, state, start.block, start.at).changes
       })
-      // 開局的名冊與候選人（示意包的人；名冊成員要在 state 有角色、帶路數才進得了隊伍）
-      k.hooks.on('game.new', 'demo_people', ({ state }) => demoPeopleChanges(kernel as unknown as Kernel, state))
     },
   }
 }
 
+export { demoPeopleChanges } from './people'
 export { DEMO_SCENES, demoSceneChanges } from './scene'
 export type { DemoScene } from './scene'
 export { demoStart, legacyFacilityAt, blockIdOf, stationMarkerOf }

@@ -11,13 +11,15 @@ import { DISTRICTS } from '../districts'
  * - 固定 NPC 用 engine/data 已經有的 id（那邊只有 id 與名字）。`npc` 不是規則表，同一個 id 不能載兩次，
  *   所以載入時由 `demoCoreWithoutPeople`（index.ts）把核心包裡被這裡重寫的那幾筆拿掉，完整的資料放在這裡。
  * - 每區一筆生成規則（npc_gen）加一份名字池：第一次走進一區時引擎照它生成街坊與行者，種子相同名單就相同。
- * - 開局的名冊（小麥、雷在名冊上；奈奈、喬是候選人）由 `demoPeopleChanges`（game.new 掛點）給：成員要在 state 有角色、帶路數才進得了隊伍。
+ * - 開局的名冊（小麥、雷在名冊上；奈奈、喬是候選人）由 `demoPeopleChanges` 給（stores/engine.ts 開新局之後附在開局那份報告上）：
+ *   成員要在 state 有角色、帶路數才進得了隊伍。
  */
 
 type Rec = Record<string, unknown>
 
 const DAY = ['morning', 'noon', 'afternoon']
 const EVENING = ['prime', 'late']
+const AFTERNOON_ON = ['afternoon', 'prime', 'late']
 const ALL = ['dawn', 'morning', 'noon', 'afternoon', 'prime', 'late']
 
 const bridge = (sensitivity: number, tolerance: number, craving: number, docility: number) => ({ sensitivity, tolerance, craving, docility })
@@ -26,9 +28,10 @@ const NPCS: Rec[] = [
   {
     id: 'npc_xiaomai', name: '小麥', kind: 'runner', age: 22, gender: 'female', occupation: '蜂巢的信差', guard: 13, wealth: 1,
     haunts: [
-      { district: 'hive', block: blockIdOf('hive', '四號塔'), facility: 'fac_talk', time: EVENING, weight: 4 },
-      { district: 'hive', block: blockIdOf('hive', '四號塔'), time: DAY, weight: 2 },
-      { district: 'hive', block: blockIdOf('hive', '天井市場'), time: DAY, weight: 1 },
+      // 下午到夜裡在四號塔的晾衣場（開局那一刻就在那裡）；早上與中午在街上跑信
+      { district: 'hive', block: blockIdOf('hive', '四號塔'), facility: 'fac_talk', time: AFTERNOON_ON },
+      { district: 'hive', block: blockIdOf('hive', '四號塔'), time: ['morning', 'noon'], weight: 2 },
+      { district: 'hive', block: blockIdOf('hive', '天井市場'), time: ['morning', 'noon'], weight: 1 },
     ],
     persona: { attrs: ['嘴甜'], quadrants: ['愛熱鬧', '護短'] },
     tendencies: { axes: { relation: 1, sense: 0, body: 0, costume: 0 }, tags: { tg_sub: 'has' } },
@@ -133,7 +136,7 @@ const START_MEMBERS: Array<{ id: string; affinity: number; pay: 'share'; fixed: 
 const START_CANDIDATES = ['npc_nana', 'npc_jo']
 
 /**
- * game.new 掛點給的變更：開局的名冊（成員先認識、變成角色、進名冊）與候選人。
+ * 開局的名冊（成員先認識、變成角色、進名冊）與候選人。
  * 全部走引擎自己的函式（meetChanges、joinChanges、roster.candidate）；這裡只決定「誰」。
  */
 export function demoPeopleChanges(k: Kernel, state: GameState): Change[] {

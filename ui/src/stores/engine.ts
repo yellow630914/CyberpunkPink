@@ -44,7 +44,7 @@ import { jobsHere, shift as workShift } from '@engine/src/features/work'
 import type { JobView } from '@engine/src/features/work'
 import { breathBlock, breathDraft, homeOf, leaveBlock, leaveDraft, readRest, rentBlock, rentDraft, restRules, sleepBlock, sleepDraft, sleepOptions } from '@engine/src/features/rest'
 import type { Level, ResidenceEntry, SleepOption, SleepSpotId } from '@engine/src/features/rest'
-import { DEMO_SCENES, demoCoreWithoutPeople, demoPack, demoSceneChanges, demoStartFeature } from '../data/demo'
+import { DEMO_SCENES, demoCoreWithoutPeople, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature } from '../data/demo'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
 import { ageBlock, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
 import { debriefOf } from '../lib/scene/sceneView'
@@ -71,6 +71,8 @@ export const useEngine = defineStore('engine', () => {
   const build = (extra: ContentPack[] = [], demo = true, features: Feature[] = []): Game => withSceneMode(new Game({ features: [...allFeatures(), ...(demo ? [demoStartFeature()] : []), ...features], content: [...(demo ? [demoCoreWithoutPeople(CORE_PACK), demoPack()] : [CORE_PACK]), ...extra], fakeProvider: new FakeProvider() }))
   const withSceneMode = (g: Game): Game => { setSceneMode(g.k, sceneModeNow); return g }
   let game = build()
+  /** 這一局載的是示意世界包（測試自帶內容時不是）：開新局之後附上示意的名冊 */
+  let demoOn = true
 
   const snapshot = (): GameState => structuredClone(game.state)
   const state = shallowRef<GameState>(snapshot())
@@ -107,6 +109,8 @@ export const useEngine = defineStore('engine', () => {
   const chainSteps = computed(() => steps.value)
   const canUndo = computed(() => undoSize.value > 0)
 
+  /** 示意世界包的開局名冊（小麥、雷在名冊上，奈奈、喬是候選人）的變更：併進建角那份報告（開局不多一份紀錄） */
+  const seedChanges = (): Change[] => (demoOn ? demoPeopleChanges(game.k, game.state) : [])
   /** 建角畫面還沒開始時預覽用的規則（難度、特質點）：有設定時，建角的檢查拿一份只有這些規則的空狀態去問引擎，不動現在這一局。 */
   const previewRules = shallowRef<object | null>(null)
   const cstate = (): GameState => {
@@ -117,11 +121,12 @@ export const useEngine = defineStore('engine', () => {
   }
 
   /** 開新局；有 draft 時開局與建角一起提交（被擋下就原樣回傳是哪一步，原本那一局完全不動）。 */
-  function newGame(opts: { seed: number; rules?: object; draft?: CreationDraft; testContent?: ContentPack[]; testFeatures?: Feature[] }): CreationBlock[] {
-    const { draft, testContent, testFeatures, ...rest } = opts
+  function newGame(opts: { seed: number; rules?: object; draft?: CreationDraft; testContent?: ContentPack[]; testFeatures?: Feature[]; people?: boolean }): CreationBlock[] {
+    const { draft, testContent, testFeatures, people, ...rest } = opts
     // 只給測試用：把測試自帶的最小內容接在核心的內容後面，換一個新的引擎（畫面與正式的流程不傳這個參數）
     if (testContent) {
       game = build(testContent, false, testFeatures)
+      demoOn = false
       game.subscribe(refresh)
     }
     if (draft) {
@@ -130,7 +135,7 @@ export const useEngine = defineStore('engine', () => {
       const blocks = creationBlocks(game.k, probe, draft)
       if (blocks.length > 0) return blocks
       previewRules.value = null
-      game.newGame({ ...rest, setup: (state) => buildCreationReport(game.k, state, draft) })
+      game.newGame({ ...rest, setup: (state) => withPeople(buildCreationReport(game.k, state, draft), state, people !== false) })
       return []
     }
     previewRules.value = null
@@ -138,6 +143,7 @@ export const useEngine = defineStore('engine', () => {
     return []
   }
 
+  const withPeople = (r: ReportDraft, state: GameState, on: boolean): ReportDraft => (on && demoOn ? { ...r, changes: [...r.changes, ...demoPeopleChanges(game.k, state)] } : r)
   /** 先問引擎每一步行不行；有問題原樣回傳、狀態不動；沒問題才提交。 */
   function createCharacter(draft: CreationDraft): CreationBlock[] {
     const blocks = creationBlocks(game.k, game.state, draft)
@@ -808,6 +814,8 @@ export const useEngine = defineStore('engine', () => {
   }
   const people = {
     look: peopleLook,
+    /** 示意局（第 14 天）用：示意名冊的變更，放進推到第 14 天那一筆帳裡（沒有載示意包是空的） */
+    demoChanges: (): Change[] => seedChanges(),
     /** 這個位置、時段與星期對得上出沒表的人（引擎的 npcsHere） */
     here: (): Npc[] => { void state.value; return npcsHere(game.k, game.state) },
     npc: (id: string): Npc | null => { void state.value; return npcOf(game.k, game.state, id) ?? null },

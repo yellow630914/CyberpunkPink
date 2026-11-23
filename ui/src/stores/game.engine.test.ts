@@ -11,6 +11,9 @@ const json = (v: unknown) => JSON.stringify(v)
 
 beforeEach(() => setActivePinia(createPinia()))
 
+/** 示範局推進了十三天，引擎補了那幾天的人事（kind: downtime，名單的變動與名冊上的人的日子）：這幾條測試看的是別的紀錄，所以把這一則濾掉 */
+const quiet = <T extends object>(log: T[]): T[] => log.filter((x) => (x as { kind?: string }).kind !== 'downtime')
+
 describe('時間與錢是引擎的投影', () => {
   it('還沒開過新局時放一個示範的局：第 14 天週一 17:20、帳戶 4620、現金 3700；紀錄是空的', () => {
     const g = useGame()
@@ -18,7 +21,7 @@ describe('時間與錢是引擎的投影', () => {
     expect([g.day, g.timeLabel, g.weekday, g.billIn]).toEqual([14, '17:20', '週一', 7])
     expect({ ...g.money }).toEqual({ acc: 4620, cash: 3700, fav: 2 })
     expect(e.money).toEqual({ cred: 4620, cash: 3700 })
-    expect(g.log).toEqual([])
+    expect(quiet(g.log)).toEqual([])
   })
 
   it('引擎已經有一局時，useGame 不蓋掉它', () => {
@@ -40,7 +43,7 @@ describe('時間與錢是引擎的投影', () => {
     expect(e.state.reports).toHaveLength(n + 1)
     expect(e.state.reports.at(-1)).toMatchObject({ action: 'ui.time', changes: [{ op: 'time', minutes: 420 }] })
     expect([g.day, g.timeLabel, g.minutes]).toEqual([15, '00:20', 20])
-    expect(g.log).toEqual([])
+    expect(quiet(g.log)).toEqual([])
   })
 
   it('不變式第 7 條「時間只往前走」：advance(0) 與負數什麼都不做', () => {
@@ -62,7 +65,7 @@ describe('時間與錢是引擎的投影', () => {
       ['ui.money', [{ op: 'cred', delta: -620 }]],
       ['ui.money', [{ op: 'cash', delta: 300 }]],
     ])
-    expect(g.log).toEqual([])
+    expect(quiet(g.log)).toEqual([])
   })
 
   it('寫一樣的值不提交', () => {
@@ -98,7 +101,7 @@ describe('addLog：舊系統寫一則紀錄，交給引擎提交成一份報告'
     const e = useEngine()
     g.addLog({ prose: ['第一段'], quotes: ['「引言」'], net: ['網內'], changes: [{ text: '好感 +1', kind: 'plus' }, { text: '現金 −5', kind: 'minus' }] })
     expect(e.state.reports.at(-1)).toMatchObject({ kind: 'system', action: 'ui.legacy', outcome: { summary: '第一段' } })
-    expect(g.log).toHaveLength(1)
+    expect(quiet(g.log)).toHaveLength(1)
     expect(g.log[0]).toMatchObject({ prose: ['第一段', '「引言」', '網內'], place: g.placeLabel, time: '第 14 天 17:20' })
     expect(g.log[0]!.changes).toEqual([{ text: '好感 +1', kind: 'plus' }, { text: '現金 −5', kind: 'minus' }])
   })
@@ -141,7 +144,7 @@ describe('戰鬥開打前的快照（地下城、子網的舊戰場；委託副�
     g.addLog({ prose: ['打了一架'] })
     g.rollback(s.id)
     expect(g.money.cash).toBe(3700)
-    expect(g.log.map((x) => x.prose[0])).toEqual([expect.stringContaining('這一段經歷被收回了'), '打了一架'])
+    expect(quiet(g.log).map((x) => (x as { prose: string[] }).prose[0])).toEqual([expect.stringContaining('這一段經歷被收回了'), '打了一架'])
   })
 
   it('找不到的快照什麼都不做', () => {

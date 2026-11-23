@@ -198,5 +198,5 @@ const readRow = computed(() => rows.value.find((r) => r.needs === 'category'))
 .memo small { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font: 700 var(--fs-tiny) var(--mono); color: var(--ink-3); }
 .imp { display: inline-flex; gap: 2px; } .imp i { width: 6px; height: 6px; border-radius: 50%; background: #45375A; } .imp i.on { background: var(--a); }
 @media (max-width: 1100px) { .talk-grid { grid-template-columns: 250px minmax(0, 1fr); } .mem { grid-column: 1 / -1; } }
-@media (max-width: 720px) { .talk-grid { grid-template-columns: 1fr; min-height: 0; } .conv { max-height: none; } .por { height: 110px; } .por svg { height: 100px; } .irow { grid-template-columns: minmax(0, 1fr) auto auto; } .irow .dc { display: none; } }
+@media (max-width: 720px) { .talk-grid { grid-template-columns: 1fr; min-height: 0; } .talkp { order: -1; } .conv { max-height: 34vh; } .por { height: 110px; } .por svg { height: 100px; } .irow { grid-template-columns: minmax(0, 1fr) auto auto; } .irow .dc { display: none; } }
 </style>
