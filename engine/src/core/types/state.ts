@@ -9,8 +9,9 @@ import type { GameTime } from './time'
 /**
  * 狀態的版本。第 2 版（M1）：多了 battle（進行中的戰鬥）、maps（格子地圖的實例與位置）、snapshots（快照），
  * 存檔規則多了敵人的係數（enemyCoef）、戰敗扣錢的金額上限（defeatMoneyCap）、重創要不要留傷勢（heavyWounds）。
+ * 第 3 版（M2）：多了 meters（量表：照對象分開記、有範圍的數字；dev/adr/0016 第三節）。
  */
-export const STATE_VERSION = 2
+export const STATE_VERSION = 3
 
 /** 亂數狀態：種子與游標。每一次要擲骰，從（種子、游標、用途、重擲次數）導出一顆骰子的種子。 */
 export interface RngState {
@@ -174,6 +175,12 @@ export interface GameState {
   maps: MapsState
   /** 快照：回到那一刻用的（撤退、戰敗後重來）。照存的順序 */
   snapshots: SnapshotSlot[]
+  /**
+   * 量表（dev/adr/0016 第三節）：照種類、再照對象（勢力、人、區、地圖實例、`_`）分開記的有範圍的數字。
+   * 只記寫過的鍵：沒寫過的讀出來是那張量表的起始值（`meterOf`）。範圍、夾值、自動註冊的效果與條件由量表的定義（`k.meters.define`）管；
+   * 沒有人定義的種類（那個功能這一局沒裝）也照樣留在存檔裡。只經由 `meter` 變更改。
+   */
+  meters: Record<string, Record<string, number>>
   /** 流水號 */
   seq: { report: number; chain: number; uid: number; floor: number }
   /** 功能自己的狀態，鍵是功能 id */

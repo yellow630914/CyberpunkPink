@@ -53,6 +53,7 @@ export function blankState(seed: number): GameState {
     battle: null,
     maps: { instances: {}, at: null, seq: 0 },
     snapshots: [],
+    meters: {},
     seq: { report: 0, chain: 0, uid: 0, floor: 0 },
     ext: {},
   }
