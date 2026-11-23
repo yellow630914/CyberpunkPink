@@ -22,13 +22,14 @@ import { hackFeature } from './hack'
 import { exploreFeature } from './explore'
 import { npcsFeature } from './npcs'
 import { perksFeature } from './perks'
+import { rosterFeature } from './roster'
 import { securityFeature } from './security'
 import { summonsFeature } from './summons'
 import { tradeFeature } from './trade'
 import { transitFeature } from './transit'
 import { worldFeature } from './world'
 
-export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [combatFeature.id]: combatFeature, [gearFeature.id]: gearFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature, [exploreFeature.id]: exploreFeature, [summonsFeature.id]: summonsFeature, [abilitiesFeature.id]: abilitiesFeature, [hackFeature.id]: hackFeature, [favorsFeature.id]: favorsFeature, [worldFeature.id]: worldFeature, [transitFeature.id]: transitFeature, [directorFeature.id]: directorFeature, [eventRunFeature.id]: eventRunFeature, [lewdFeature.id]: lewdFeature, [securityFeature.id]: securityFeature, [npcsFeature.id]: npcsFeature, [tradeFeature.id]: tradeFeature }
+export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [combatFeature.id]: combatFeature, [gearFeature.id]: gearFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature, [exploreFeature.id]: exploreFeature, [summonsFeature.id]: summonsFeature, [abilitiesFeature.id]: abilitiesFeature, [hackFeature.id]: hackFeature, [favorsFeature.id]: favorsFeature, [worldFeature.id]: worldFeature, [transitFeature.id]: transitFeature, [directorFeature.id]: directorFeature, [eventRunFeature.id]: eventRunFeature, [lewdFeature.id]: lewdFeature, [securityFeature.id]: securityFeature, [npcsFeature.id]: npcsFeature, [rosterFeature.id]: rosterFeature, [tradeFeature.id]: tradeFeature }
 
 export function allFeatures(): Feature[] {
   return Object.values(FEATURES)
