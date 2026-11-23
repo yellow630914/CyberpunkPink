@@ -96,6 +96,8 @@ export interface InteractRules {
     per_tier: number
     /** 沒有寫防護階（旗標 shield:N）的人，照身分類的預設（6.4 節：街坊 0、行者 1、職員 2） */
     tiers: Record<NpcKind, number>
+    /** 帶這些旗標的人的防護階（6.4 節：企業的主管 manager、保全 guard 是 3）；和身分類的預設取高的，旗標 shield:N 仍然優先 */
+    flag_tiers: Record<string, number>
     /** 成功、大成功揭開幾項（6.4 節：1、2） */
     reveal: Pair
     /** 大失敗（6.1 節）：親密度 −10、勢力敵對值 +3；夜鶯的敵對值 +2 */
@@ -125,7 +127,7 @@ export const DEFAULT_INTERACT_RULES: InteractRules = {
     fumble: { affinity: -20, hostility: 6 },
   },
   read: {
-    base: 10, per_tier: 3, tiers: { citizen: 0, runner: 1, staff: 2 }, reveal: [1, 2],
+    base: 10, per_tier: 3, tiers: { citizen: 0, runner: 1, staff: 2 }, flag_tiers: { manager: 3, guard: 3 }, reveal: [1, 2],
     fumble: { affinity: -10, hostility: 3, alert_faction: 'nightingale', alert_hostility: 2 },
   },
   fixer_flags: ['fixer', 'broker'],
@@ -198,10 +200,11 @@ export function factionOf(k: Pick<Kernel, 'content'>, state: GameState, n: Npc):
 const isHere = (k: Cx, state: GameState, id: string): boolean => npcsHere(k, state).some((n) => n.id === id)
 const isFixer = (rules: InteractRules, n: Npc): boolean => n.flags.some((f) => rules.fixer_flags.includes(f))
 
-/** 防護階（6.4 節）：旗標 shield:N 寫明的優先，否則照身分類。 */
+/** 防護階（6.4 節）：旗標 shield:N 寫明的優先；否則身分類的預設與旗標（manager、guard 是 3）取高的。 */
 export function shieldOf(rules: InteractRules, n: Npc): number {
   const f = n.flags.find((x) => /^shield:\d+$/.test(x))
-  return f ? Number(f.slice(7)) : rules.read.tiers[n.kind]
+  if (f) return Number(f.slice(7))
+  return Math.max(rules.read.tiers[n.kind], ...n.flags.map((x) => (Object.hasOwn(rules.read.flag_tiers, x) ? rules.read.flag_tiers[x]! : 0)))
 }
 
 /** 隊上有沒有人帶甲板：隊員的 ext.deck 有等級，或主角背包裡有帶 deck 標籤的東西。 */
@@ -633,7 +636,7 @@ export function interactInput(k: Kernel, state: GameState, kind: InteractKind, n
 // ---- 每天的次數、旗標、互動讓人認識了他：都在互動那份報告提交前一起加 ----
 
 export function installInteract(k: Kernel): void {
-  k.content.defineKind({ kind: INTERACT_RULE_KIND, owner: OWNER, validate: interactRuleProblems })
+  k.content.defineKind({ kind: INTERACT_RULE_KIND, owner: OWNER, overridable: true, validate: interactRuleProblems })
 
   // 每個人今天做過哪些互動
   k.changes.register<Change & { npc: string; what: string; day: number }>({

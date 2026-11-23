@@ -392,8 +392,9 @@ describe('設施', () => {
     const g = world({ time: { day: 1, hour: 1, minute: 0 } })
     go(g, 'b_yard', 'F1')
     expect(g.gridView()!.here.uses).toEqual([])
+    // 站在出口上：列「前往」（M2-closeout 第 6 項；走上出口就換街區，所以人站在出口上是被帶到那一格）
     go(g, 'b_yard', 'E1')
-    expect(g.gridView()!.here.uses).toEqual([])
+    expect(g.gridView()!.here.uses).toEqual([{ id: 'world.go', name: '前往閘門', block: null }])
   })
 })
 

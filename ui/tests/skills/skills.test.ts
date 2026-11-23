@@ -29,7 +29,7 @@ const CLINIC_MAP = { id: 'm_clinic', kind: 'street', size: [6, 5], sheets: [{ id
 const PACK: ContentPack = {
   id: 'ui_skills_test',
   content: {
-    special_map: [CLINIC_MAP],
+    special_map: [CLINIC_MAP], facility_type: [{ id: 'tuning_clinic', name: '調校診所' }],
     district: [{ id: 'd_t', name: '測試區', grade: 1, blocks: ['b_t'] }],
     block: [{ id: 'b_t', district: 'd_t', name: '診所街', kind: 'block', map: 'm_clinic', exits: {}, facilities: { F1: { type: 'tuning_clinic', name: '調校診所' } } }],
     path: [

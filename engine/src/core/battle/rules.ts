@@ -283,7 +283,7 @@ export interface BattleStatusEntry extends ContentEntry {
 
 export function registerBattleKinds(content: ContentRegistry): void {
   content.defineKind<BattleModeEntry>({
-    kind: 'battle_mode', owner: 'core',
+    kind: 'battle_mode', owner: 'core', overridable: true,
     validate: (e) => {
       const p: string[] = []
       if (!isText(e.name)) p.push('要有 name')
@@ -303,7 +303,7 @@ export function registerBattleKinds(content: ContentRegistry): void {
   })
 
   content.defineKind<DamageTypeEntry>({
-    kind: 'damage_type', owner: 'core',
+    kind: 'damage_type', owner: 'core', overridable: true,
     validate: (e) => {
       const p: string[] = []
       if (!(DAMAGE_TYPES as readonly unknown[]).includes(e.id)) p.push(`id 只能是 ${DAMAGE_TYPES.join('、')}`)
@@ -320,7 +320,7 @@ export function registerBattleKinds(content: ContentRegistry): void {
   })
 
   content.defineKind<BattleStatusEntry>({
-    kind: 'battle_status', owner: 'core',
+    kind: 'battle_status', owner: 'core', overridable: true,
     validate: (e) => {
       const p: string[] = []
       if (!isText(e.name)) p.push('要有 name')
@@ -414,7 +414,7 @@ export interface WeaponClassEntry extends ContentEntry {
 
 export function registerWeaponClassKind(content: ContentRegistry): void {
   content.defineKind<WeaponClassEntry>({
-    kind: 'weapon_class', owner: 'core',
+    kind: 'weapon_class', owner: 'core', overridable: true,
     validate: (e) => {
       const p: string[] = []
       const int = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v)

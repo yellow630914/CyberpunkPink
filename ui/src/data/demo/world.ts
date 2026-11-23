@@ -49,7 +49,6 @@ interface Built {
   facilities: Map<string, { fac: Facility; at: [number, number] }>
   exitMarkers: Array<{ marker: string; at: [number, number]; to: string }>
   station: string | null
-  spots: Array<{ id: string; at: [number, number] }>
 }
 
 const W = 13
@@ -138,16 +137,7 @@ function build(): Built[] {
         if (stationAt === `${x},${y}`) station = `F${fn}`
       }
     }))
-    // 引擎的版面每一張至少要有兩個遭遇點（核心的格式規定）：在街道上放兩個。街區上沒有人登記遭遇點的觸發，走上去什麼都不會發生
-    const streets: Array<[number, number]> = []
-    cells.forEach((row, y) => row.forEach((c, x) => { if (c === '.' && x > 0 && x < W - 1 && y > 0 && y < H - 1) streets.push([x, y]) }))
-    const spots: Built['spots'] = []
-    for (const at of [streets[Math.floor(streets.length / 4)], streets[Math.floor((streets.length * 3) / 4)]]) {
-      if (!at) continue
-      spots.push({ id: `!${spots.length + 1}`, at })
-      cells[at[1]][at[0]] = String(spots.length)
-    }
-    out.push({ id, district: d.id, name, layout: cells.map(r => r.join('')), facilities, exitMarkers, station, spots })
+    out.push({ id, district: d.id, name, layout: cells.map(r => r.join('')), facilities, exitMarkers, station })
   }
   return out
 }
@@ -164,14 +154,14 @@ const exitName = (to: string): string => BY_ID.get(to)?.name ?? to
 
 export function worldContent(): NonNullable<ContentPack['content']> {
   const special_map = BUILT.map(b => ({
-    id: `m_${b.id}`, kind: 'street', size: [W, H] as [number, number],
+    // kind 是 block：街區的地圖不要求遭遇點（核心的 STREET_MAP_KINDS）
+    id: `m_${b.id}`, kind: 'block', size: [W, H] as [number, number],
     sheets: [{
       id: 'street', name: b.name, size: [W, H] as [number, number], layout: b.layout,
       cells: [
         ...b.exitMarkers.map(e => ({ id: e.marker, at: e.at, mark: 'E', name: `往${exitName(e.to)}` })),
         ...[...b.facilities].map(([marker, f]) => ({ id: marker, at: f.at, mark: 'F', name: f.fac.name })),
       ].sort((p, q) => (p.at[1] - q.at[1]) || (p.at[0] - q.at[0])),
-      spots: b.spots.map(sp => ({ id: sp.id, at: sp.at, cover: 'sparse' })),
     }],
   }))
   const block = BUILT.map(b => ({
@@ -188,7 +178,7 @@ export function worldContent(): NonNullable<ContentPack['content']> {
   const district = DISTRICTS.map(d => ({
     id: d.id, name: d.name, grade: GRADE[d.id] ?? 1, price_mult: d.price, ...(STEP_MINUTES[d.id] ? { step_minutes: STEP_MINUTES[d.id] } : {}),
     blocks: d.blocks.map(b => blockIdOf(d.id, b)),
-    // 示意包多給的欄位（城市地圖的熱點位置、治安與風格的說明）：畫面讀，引擎不讀
+    // 城市地圖的熱點位置、治安與風格的說明：引擎的 district 內容的欄位（畫面讀，引擎的規則不讀）
     map_x: d.x, map_y: d.y, security: d.security, style: d.style,
   }))
   return { special_map, block, district, facility_type: FAC_TYPES } as unknown as NonNullable<ContentPack['content']>

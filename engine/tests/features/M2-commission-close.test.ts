@@ -428,7 +428,8 @@ describe('戰敗被接受：委託失敗並回到入口（測試自己發的 act
 
     const reports = acceptStub(game, true)
     expect(reports[0]).toMatchObject({ action: 'defeat.accept', retracted: true })
-    expect(reports.at(-1)!.action).toBe('rewind')
+    // 回到快照之後 report.after 接著提交的（委託失敗）也在回傳裡（M2-closeout 第 3 項）
+    expect(reports.slice(-2).map((r) => r.action)).toEqual(['rewind', 'commission.failed'])
     // 回到進去之前
     expect(game.state.time).toEqual(before.time)
     expect(game.state.money).toEqual(before.money)
@@ -606,7 +607,8 @@ describe('串起來的一條：在副本裡真的打輸 → 戰敗事件 → 接
     expect(game.pendingDefeat).not.toBeNull()
     SEEN.ends.length = 0
     const reports = game.commit(acceptDefeat(game.k, game.state))
-    expect(reports.at(-1)!.action).toBe('rewind')
+    // 回到快照之後 report.after 接著提交的（委託失敗）也在回傳裡（M2-closeout 第 3 項）
+    expect(reports.slice(-2).map((r) => r.action)).toEqual(['rewind', 'commission.failed'])
     expect(game.state.time).toEqual(t0)
     expect(game.state.money).toMatchObject({ cred: 100, cash: 500 })
     expect(readRun(game.state)).toBeNull()

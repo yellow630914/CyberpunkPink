@@ -37,7 +37,7 @@ export const restFeature: Feature = {
     const k = kernel as Kernel
 
     k.content.defineKind<ResidenceEntry>({ kind: RESIDENCE_KIND, owner: OWNER, validate: residenceProblems })
-    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, validate: ruleProblems })
+    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
 
     // ---- 條件 ----
     k.conditions.register<Condition>({ kind: 'has_home', owner: OWNER, validate: () => [], test: (_c, { state }: ConditionCtx) => !!homeOf(k, state) })

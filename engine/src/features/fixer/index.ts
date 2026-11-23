@@ -79,7 +79,7 @@ export const fixerFeature: Feature = {
   id: OWNER,
   install(k: Kernel) {
     k.content.defineKind({ kind: KIND, owner: OWNER, validate: fixerProblems })
-    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, validate: ruleProblems })
+    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
     // 委託的生成（gen.ts；M2-commission-gen）：模板、詞條、常見的連動是資料；規則放在 commission_rule 的另一部分（commission 的功能只讀它自己的欄位）
     k.content.defineKind({ kind: TYPE_KIND, owner: OWNER, validate: typeProblems })
     k.content.defineKind({ kind: MODIFIER_KIND, owner: OWNER, validate: modifierProblems })

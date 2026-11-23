@@ -99,7 +99,7 @@ interface AddEffect extends Effect { who: string; source?: (typeof SOURCES)[numb
 export const rosterFeature: Feature = {
   id: OWNER,
   install(k: Kernel) {
-    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, validate: ruleProblems })
+    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
 
     // ---- 量表：忠誠 ----
     k.meters.define({ kind: 'loyalty', owner: OWNER, name: '忠誠', min: 0, max: 100, start: 30, keyed: 'npc', cap: { down: 10, up: 10 } })

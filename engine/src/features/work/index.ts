@@ -56,7 +56,7 @@ export const workFeature: Feature = {
       kind: JOB_KIND, owner: OWNER, validate: jobProblems,
       refs: (e) => (typeof e.employer === 'string' ? [['npc', e.employer]] : []),
     })
-    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, validate: ruleProblems })
+    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
 
     k.conditions.register<StageCondition>({
       kind: 'job_stage', owner: OWNER,

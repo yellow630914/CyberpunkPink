@@ -345,7 +345,7 @@ function registerLifeChanges(k: Kernel): void {
 // ---- 安裝 ----
 
 export function installLife(k: Kernel, deps: LifeDeps): void {
-  k.content.defineKind({ kind: LIFE_RULE_KIND, owner: OWNER, validate: lifeRuleProblems })
+  k.content.defineKind({ kind: LIFE_RULE_KIND, owner: OWNER, overridable: true, validate: lifeRuleProblems })
   registerLifeChanges(k)
   registerMemory(k)
   k.hooks.on('time.passed', OWNER, ({ state, from, to }) => {

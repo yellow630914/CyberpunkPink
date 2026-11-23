@@ -258,7 +258,7 @@ export function registerCoreKinds(content: ContentRegistry): void {
 
   const CREATION_INTS = ['attr_free', 'attr_max', 'attr_min', 'skill_points', 'skill_max', 'perk_points', 'perk_max', 'flaw_max', 'min_age', 'start_money'] as const
   content.defineKind<CreationRuleEntry>({
-    kind: 'creation_rule', owner: 'core',
+    kind: 'creation_rule', owner: 'core', overridable: true,
     validate: (e) => [
       ...(Array.isArray(e.attr_array) && e.attr_array.length === ATTR_IDS.length && e.attr_array.every(isInt) ? [] : [`attr_array 要是 ${ATTR_IDS.length} 個整數`]),
       ...CREATION_INTS.filter((f) => !isInt(e[f]) || (e[f] as number) < 0).map((f) => `${f} 要是 0 以上的整數`),
@@ -268,12 +268,12 @@ export function registerCoreKinds(content: ContentRegistry): void {
   })
 
   content.defineKind({
-    kind: 'effect_cap', owner: 'core',
+    kind: 'effect_cap', owner: 'core', overridable: true,
     validate: (e) => (isRecord(e.by_grade) && ['1', '2', '3', '4', '5'].every((g) => isInt((e.by_grade as Record<string, unknown>)[g])) ? [] : ['by_grade 要有 1～5 五個等級的整數']),
   })
 
   content.defineKind<ActionKindEntry>({
-    kind: 'action_kind', owner: 'core',
+    kind: 'action_kind', owner: 'core', overridable: true,
     validate: (e) => {
       const p: string[] = []
       if (!isText(e.name)) p.push('要有 name')

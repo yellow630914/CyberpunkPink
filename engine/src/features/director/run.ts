@@ -416,7 +416,12 @@ interface CloseBase {
 }
 
 function closeDraft(k: Kernel, state: GameState, l: Loaded, base: CloseBase, fin: Finish): ReportDraft {
-  const result: Record<string, unknown> = { event: l.open.event, option: fin.option, flags: fin.flags, stage: l.open.stage, version: l.open.version, ...(fin.degree ? { degree: fin.degree } : {}) }
+  // launch：這件事結束之後接著開的活動種類（場景、戰鬥、下一件事件）。臨時的登場角色要留到那段活動做完（npcs 看這個決定要不要現在清）
+  const launched = (base.launch ?? []).map((x) => x.kind)
+  const result: Record<string, unknown> = {
+    event: l.open.event, option: fin.option, flags: fin.flags, stage: l.open.stage, version: l.open.version, ...(fin.degree ? { degree: fin.degree } : {}),
+    ...(launched.length > 0 ? { launch: launched } : {}),
+  }
   const end = endActivity(k, { state, kind: EVENT_ACTIVITY, id: l.open.id, origin: l.open.origin, outcome: fin.degree ?? (fin.option === FREE_OPTION ? FREE_OPTION : 'done'), result })
   const lines = [...base.lines, ...end.lines]
   const draft: ReportDraft = {

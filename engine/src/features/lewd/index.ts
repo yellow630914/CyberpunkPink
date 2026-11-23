@@ -42,7 +42,7 @@ export const lewdFeature: Feature = {
   id: OWNER,
   install(k: Kernel) {
     k.content.defineKind({ kind: TAG_KIND, owner: OWNER, validate: tagProblems })
-    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, validate: ruleProblems })
+    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
 
     // ---- 豔名（LEWD_SYSTEM 第 5 節）：照區、0～100、AI 一件事最多 ±5 ----
     k.meters.define({ kind: 'fame', owner: OWNER, name: '豔名', min: 0, max: 100, start: 0, keyed: 'district', cap: { down: 5, up: 5 } })

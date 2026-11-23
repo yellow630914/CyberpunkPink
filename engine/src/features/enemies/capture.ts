@@ -11,7 +11,7 @@
 //            只有一個就直接開處置。處置的選項：帶走（對象非自願沒被關掉、有人登記 scene、這個兵種沒寫 adult: null 才列；adult_scene 性質是 captive）、
 //            問話（威嚇或交涉，哪個對主角比較有利就用哪個；DC 10 ＋ 等級 × 2，精英 +2、首領 +4）、交出去、放走。
 //   敵對值   帶走 +1、問話 +1（成功失敗都一樣）、交出去 +2（收的人好感 +1；沒寫收的人就沒有這一筆）、放走不加（ENEMIES 6.1 節的表）。
-//            效果 hostility／favor／scout_reveal 沒有人註冊就略過那一筆（security、fixer 沒裝也跑得起來）。
+//            效果 hostility／favor／scout_reveal 沒有人註冊就略過那一筆（security、fixer 沒裝也跑得起來）；scout_reveal 只在副本裡的戰鬥才放（origin.ext.commission）。
 //   狀態     state.ext.capture：這一場可以帶走的人與走到哪一步；處置完（activity.end）記下結果，capture.done 報告清掉它。
 //   報告     capture.offer（戰鬥結束之後：誰可以帶走）、capture.done（處置完：做了什麼）。
 // 這一張不做：帶走之後的成人場景本身、交給委託人的報酬 +10%、放走之後再遇到他（見 dev/work/M2-enemy-encounter.md 的完成回報）。
@@ -175,7 +175,9 @@ export function treatEvent(k: Pick<Kernel, 'effects' | 'activity' | 'stats'>, st
   const ask = askCheck(k, state)
   const info: Fx = { kind: 'flag', key: `capture:info:${c.faction}`, value: true }
   const credential: Fx = { kind: 'flag', key: `capture:credential:${c.faction}`, value: true }
-  const reveal: Fx[] = k.effects.has('scout_reveal') ? [{ kind: 'scout_reveal', ...(ctx.commission ? { job: ctx.commission } : {}) }] : []
+  // 審問問出來的未知是替「這件委託」揭開的：沒有委託（副本外的戰鬥）就沒有東西可以揭開，不放這一筆
+  // （scout_reveal 的格式檢查在手上沒有進行中的委託時不合格，放了整件事件開不起來、這一場戰鬥結算不了）
+  const reveal: Fx[] = ctx.commission && k.effects.has('scout_reveal') ? [{ kind: 'scout_reveal', job: ctx.commission }] : []
   options.push({
     id: 'ask', text: `審問${c.name}。`,
     check: [ask.skill, ask.attr, askDc(c.grade, c.rank)],

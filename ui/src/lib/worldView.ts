@@ -59,7 +59,7 @@ export function hereItems(grid: GridView | null): HereItem[] {
 
 export interface CityDistrictView { id: string; name: string; grade: number; x: number; y: number; price: number | null; security: string; style: string; blocks: Array<{ id: string; name: string; kind: 'block' | 'bridge' }> }
 
-/** 區與街區怎麼連（cityGraph）加上區的資料（地圖位置、物價、治安與風格：示意包多給的欄位，沒有就空著）。 */
+/** 區與街區怎麼連（cityGraph）加上區的資料（地圖位置 map_x／map_y、物價、治安 security 與風格 style：district 內容的欄位，沒寫就空著）。 */
 export function cityMapView(graph: CityGraph, entry: (kind: string, id: string) => Record<string, unknown> | undefined): CityDistrictView[] {
   return graph.districts.map(d => {
     const e = entry('district', d.id) ?? {}

@@ -265,7 +265,7 @@ describe('模板、詞條、連動、規則的格式', () => {
     const g = setup({ content: [pack({ commission_rule: [{ id: 'default', reward_range: { 1: [1000, 1000], 2: [2000, 2000] }, scales_by_tier: { 0: ['small'] }, encounters: { 1: { normal: ['elite'], last: ['boss'] } } }] })] })
     const r = genRules(g.k)
     expect(r.reward_range[1]).toEqual([1000, 1000])
-    expect(r.reward_range[3]).toEqual([3000, 5000])
+    expect(r.reward_range[3]).toEqual([2400, 7200]) // 沒寫的那一級用預設（COMMISSION_TEMPLATES 的表：III 級小 2,400、大 7,200）
     for (const o of many(g, 30)) {
       expect(o.reward).toBe(gradeOf(o) === 1 ? 1000 : 2000)
       if (gradeOf(o) === 1) {

@@ -49,8 +49,8 @@ export function shopsAt(k: Pick<Kernel, 'content'>, block: string | undefined, m
 export const tradeFeature: Feature = {
   id: OWNER,
   install(k: Kernel) {
-    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, validate: ruleProblems })
-    k.content.defineKind<ShopTypeEntry>({ kind: SHOP_TYPE_KIND, owner: OWNER, validate: shopTypeProblems })
+    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
+    k.content.defineKind<ShopTypeEntry>({ kind: SHOP_TYPE_KIND, owner: OWNER, overridable: true, validate: shopTypeProblems })
     k.content.defineKind<ShopEntry>({
       kind: SHOP_KIND, owner: OWNER, validate: shopProblems,
       refs: (e) => [

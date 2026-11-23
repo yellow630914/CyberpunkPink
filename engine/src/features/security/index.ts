@@ -56,7 +56,7 @@ function tierCondition(k: Kernel, kind: string, defs: typeof HOSTILITY_TIERS | t
 export const securityFeature: Feature = {
   id: OWNER,
   install(k: Kernel) {
-    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, validate: ruleProblems })
+    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
 
     // ---- 量表 ----
     // 下限先定義：敵對值的下限讀它（越過粉牆的人貞網局的敵對值永遠 ≥ 30；沉溺與戰敗事件各自寫它）。AI 不能動它

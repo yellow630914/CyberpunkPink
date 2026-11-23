@@ -83,7 +83,11 @@ export function failsAfter(base: boolean, flags: readonly string[]): boolean {
 
 /** 戰鬥結束的處理（k.battle.onEnd）：全隊倒下或投降時，選一件事件與版本，寫下等待中的戰敗。 */
 export function onBattleEnd(k: Kernel, state: GameState, battle: BattleState, outcome: string): { changes: Change[] } | undefined {
-  if (outcome !== 'lose' && outcome !== 'surrender') return undefined
+  if (outcome !== 'lose' && outcome !== 'surrender') {
+    // 戰敗的事件裡的 fight（劫囚之類）打贏或脫離了：那一場戰敗已經被取代（新的戰鬥開打時把它開打前的快照丟掉了），等待中的紀錄不留
+    const old = defeatOf(state)
+    return old && old.battle !== battle.id ? { changes: [extChange(null)] } : undefined
+  }
   const roll = deriveRng(state.rng, `defeat/${battle.id}`).next()
   const w = winnersOf(k, battle)
   const event = originEventOf(battle)

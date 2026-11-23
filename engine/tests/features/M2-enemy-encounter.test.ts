@@ -13,6 +13,8 @@ import {
   ASK_DC, CAPTURE_BASE, CAPTURE_KEY, askDc, captureCause, captureChance, captureKindOk, captureOf, enemiesFeature, pickCandidates, pickEnemy, pickProblems, rollCaptures,
 } from '../../src/features/enemies'
 import type { Game } from '../../src'
+import { chooseOption, directorFeature, eventRunFeature, eventView } from '../../src/features/director'
+import { fixerFeature } from '../../src/features/fixer'
 import { BATTLE_SETUPS, TEST_COMBAT, makeBattleGame, makeGame, observed, stateHash } from '../../src/testkit'
 
 type Rec = Record<string, unknown>
@@ -168,12 +170,14 @@ interface FightOpts {
   rules?: Rec
   /** 結算之前把 state.rng 的種子換成這個（讓每個人擲的骰面固定） */
   rngSeed?: number
+  /** 內容包（預設是這個檔的 PACK） */
+  content?: ContentPack[]
 }
 const ALL = [enemiesFeature, TEST_COMBAT, FAKE_EVENT, FAKE_SCENE, FAKE_METERS, FAKE_REVEAL]
 
 function arrange(o: FightOpts) {
   const test = makeBattleGame({
-    features: o.features ?? ALL, content: [PACK], seed: o.seed ?? 3, ...(o.pc ? { pc: o.pc as never } : {}), ...(o.rules ? { patch: { rules: o.rules } as never } : {}),
+    features: o.features ?? ALL, content: o.content ?? [PACK], seed: o.seed ?? 3, ...(o.pc ? { pc: o.pc as never } : {}), ...(o.rules ? { patch: { rules: o.rules } as never } : {}),
     battle: {
       mode: 'meat', grade: 1, cover: 'medium', allies: BATTLE_SETUPS.encounter(1).allies,
       foes: o.foes.map((f) => ({ from: 'enemy', id: f.id, ...(f.grade ? { grade: f.grade } : {}) })) as never,
@@ -786,5 +790,57 @@ describe('格式：capture 與 humanoid', () => {
     const { game } = makeGame({ features: [enemiesFeature, TEST_COMBAT], content: [PACK] })
     expect(game.k.content.get('enemy', 'en_c_mook')).toBeDefined()
     expect(game.k.battle.getUnitSource('enemy_pick')).toBeDefined()
+  })
+})
+
+// ===================================================================================================================
+// M2-closeout 第 9 項：副本外的戰鬥（沒有進行中的委託）打贏之後的俘虜
+// ===================================================================================================================
+
+const chooseOptionOf = (g: Game, id: string): ReportDraft => chooseOption(g.k, g.state, id)
+
+describe('M2-closeout 9：不在委託裡的俘虜（審問選項的 scout_reveal 只在副本裡放）', () => {
+  // 真的事件視窗與真的 fixer（scout_reveal 的格式檢查：手上沒有進行中的委託就不合格）；成人場景與量表效果仍是替身
+  const REAL = [enemiesFeature, TEST_COMBAT, directorFeature, eventRunFeature, FAKE_SCENE, FAKE_METERS, fixerFeature]
+  const REAL_PACK: ContentPack = { id: 'm2_closeout_real', content: { ...PACK.content, event_scope: [{ id: 'capture', triggers: {}, cooldown_hours: 0, repeat_days: 0, lost: 'drop' }] } as ContentPack['content'] }
+  const real = (o: Partial<FightOpts> = {}) => oneCaptive({ features: REAL, content: [REAL_PACK], ...o })
+
+  it('擲中一個、沒有委託：打贏的結算照常成立（以前整步被擋），處置的事件開起來，審問的結果裡沒有 scout_reveal', async () => {
+    const r = await real()
+    expect(r.actions).toContain('battle.end')
+    expect(r.game.state.battle).toBeNull()
+    const ev = eventView(r.game.k, r.game.state)
+    expect(ev).not.toBeNull()
+    expect(ev!.options.map((o) => o.id)).toEqual(expect.arrayContaining(['ask', 'handover', 'release']))
+    // 審問的選項在引擎裡：用事件視窗開著的那一件（內嵌的）看它的結果
+    const open = r.game.state.ext.director as { open?: { inline?: { options: Rec[] } } }
+    const ask = (open.open!.inline!.options as Rec[]).find((o) => o.id === 'ask')!
+    expect(JSON.stringify(ask.outcomes)).not.toContain('scout_reveal')
+    expect(JSON.stringify(ask.outcomes)).toContain('capture:info:starbelle')
+    // 處置得下去：放走之後俘虜的狀態清掉
+    r.game.commit(chooseOptionOf(r.game, 'release'))
+    expect(captureOf(r.game.state)).toBeNull()
+  })
+
+  it('沒有 scout_reveal 的效果（fixer 沒裝）與副本外的戰鬥：同樣沒有那一筆；副本裡（origin.ext.commission）才放', async () => {
+    const plain = await oneCaptive()
+    expect(JSON.stringify(optionOf(plain.launched!, 'ask').outcomes)).not.toContain('scout_reveal')
+    const inJob = await oneCaptive({ ext: { commission: 'job_7' } })
+    expect(JSON.stringify(optionOf(inJob.launched!, 'ask').outcomes)).toContain('"scout_reveal"')
+  })
+
+  it('擲中好幾個：先挑一個，挑完之後處置的事件也開得起來（以前挑完開不起來）', async () => {
+    const base: FightOpts = {
+      foes: [{ id: 'en_c_mook', how: 'subdue_load' }, { id: 'en_c_mook2', how: 'subdue_load' }], features: REAL, content: [REAL_PACK],
+    }
+    const probe = arrange(base)
+    const r = await fight({ ...base, rngSeed: winSeed(probe.game, 4) })
+    const first = eventView(r.game.k, r.game.state)!
+    expect(first.options.every((o) => o.id.startsWith('pick:'))).toBe(true)
+    expect(first.options.length).toBeGreaterThanOrEqual(2)
+    r.game.commit(chooseOptionOf(r.game, first.options[0]!.id))
+    const treat = eventView(r.game.k, r.game.state)
+    expect(treat).not.toBeNull()
+    expect(treat!.options.map((o) => o.id)).toEqual(expect.arrayContaining(['ask', 'handover', 'release']))
   })
 })

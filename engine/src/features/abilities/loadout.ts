@@ -48,7 +48,7 @@ export const LOADOUT_MINUTES_STAT = 'loadout_minutes'
 export const LOADOUT_ANYWHERE_STAT = 'loadout_anywhere'
 
 export function registerLoadout(k: Kernel): void {
-  k.content.defineKind({ kind: RULE_KIND, owner: OWNER, validate: abilityRuleProblems })
+  k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: abilityRuleProblems })
   k.stats.defineStat({ id: LOADOUT_MINUTES_STAT, owner: OWNER, name: '換技能配置的時間（分鐘）', base: () => abilityRules(k).loadout_minutes })
   // 大於 0：不必在據點或調校診所（織女 標準；橋的型號等 M4）。基礎是 0
   k.stats.defineStat({ id: LOADOUT_ANYWHERE_STAT, owner: OWNER, name: '哪裡都能換配置', base: () => 0, max: 1 })

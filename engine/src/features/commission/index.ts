@@ -63,7 +63,7 @@ export const commissionFeature: Feature = {
         ...(Array.isArray(e.stages) ? e.stages.flatMap((s) => (typeof s?.faces?.meat?.map === 'string' ? [['special_map', s.faces.meat.map] as [string, string]] : [])) : []),
       ],
     })
-    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, validate: ruleProblems })
+    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
 
     k.activity.define({
       kind: ACTIVITY, owner: OWNER, order: 90,

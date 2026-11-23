@@ -51,7 +51,7 @@ export const transitFeature: Feature = {
       kind: LINE_KIND, owner: OWNER, validate: lineProblems,
       refs: (e) => [...e.stops.map((s): [string, string] => ['block', s.block]), ...(e.faction !== undefined ? [['faction', e.faction] as [string, string]] : [])],
     })
-    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, validate: ruleProblems })
+    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
 
     // ---- 變更 ----
     k.changes.register<Change & { trip: Trip | null }>({

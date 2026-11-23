@@ -21,7 +21,8 @@ const eventStub: Feature = {
     k.activity.define({
       kind: 'event', owner: 'event_stub', order: 30,
       active: (s) => (s.ext[STUB_EXT] ? { id: 'ev1', label: '事件視窗' } : null),
-      allow: ['event.', 'commit:event.', 'commit:test.'],
+      // 和真的事件視窗一樣不放行 event.start（開著的時候不能再開一件；導演靠這個知道「另一個活動進行中」）
+      allow: ['commit:event.', 'commit:test.'],
       reason: () => '先回應事件。',
       start(_k, state, setup, origin) {
         if (state.flags.stub_refuse) throw new ActionBlocked('事件視窗現在開不起來。')

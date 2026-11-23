@@ -200,7 +200,7 @@ export const worldFeature: Feature = {
         ...Object.values(facilitiesOf(e)).flatMap((f): Array<[string, string]> => [[FACILITY_TYPE_KIND, f.type], ...(f.npc !== undefined ? [['npc', f.npc] as [string, string]] : [])]),
       ],
     })
-    k.content.defineKind<FacilityTypeEntry>({ kind: FACILITY_TYPE_KIND, owner: OWNER, validate: facilityTypeProblems })
+    k.content.defineKind<FacilityTypeEntry>({ kind: FACILITY_TYPE_KIND, owner: OWNER, overridable: true, validate: facilityTypeProblems })
 
     k.changes.register<Change & { block: string; instance?: string }>({
       op: 'world.visit', owner: OWNER,

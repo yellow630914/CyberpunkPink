@@ -116,6 +116,10 @@
         "runner": 1,
         "staff": 2
       },
+      "flag_tiers": {
+        "manager": 3,
+        "guard": 3
+      },
       "reveal": [
         1,
         2

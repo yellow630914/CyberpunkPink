@@ -46,7 +46,7 @@ const sign = (n: number): string => (n >= 0 ? `+${n}` : `−${-n}`)
 export const billsFeature: Feature = {
   id: OWNER,
   install(k: Kernel) {
-    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, validate: ruleProblems })
+    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
 
     // ---- 變更（效果的結果；結算與玩家的設定整份寫 ext） ----
     k.changes.register<Change & { item: string; delta: number }>({

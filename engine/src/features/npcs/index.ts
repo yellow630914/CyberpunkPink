@@ -362,7 +362,7 @@ export const npcsFeature: Feature = {
   install(k: Kernel) {
     k.content.defineKind({ kind: GEN_KIND, owner: OWNER, validate: genProblems })
     k.content.defineKind({ kind: POOL_KIND, owner: OWNER, validate: poolProblems })
-    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, validate: ruleProblems })
+    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
 
     // ---- 量表：個人的親密度（NPC_SYSTEM 第 7 節；效果與條件核心自動有，key 是人的 id） ----
     k.meters.define({ kind: AFFINITY, owner: OWNER, name: '親密度', min: -100, max: 100, start: 0, keyed: 'npc', cap: { down: 8, up: 8 } })
@@ -434,8 +434,11 @@ export const npcsFeature: Feature = {
     })
 
     // ---- 事件結束：臨時角色有條目的升格、沒有的清掉。要等這一份報告的變更都套上去才知道有沒有條目（結局的效果可能正好 meet），所以是一筆照套用時的狀態整理的變更 ----
-    k.hooks.on('activity.end', OWNER, ({ state, kind }) => {
-      if (kind !== 'event') return
+    // 這件事接著開了別的活動（把俘虜帶走：成人場景；劫囚：戰鬥）時先不清：臨時的登場角色就是那段活動的對象，
+    // 等場景做完（kind scene）或下一件事件結束再清（M2-closeout 第 9 項：不然場景開不起來，「找不到對象」）
+    k.hooks.on('activity.end', OWNER, ({ state, kind, result }) => {
+      if (kind !== 'event' && kind !== 'scene') return
+      if (kind === 'event' && Array.isArray(result.launch) && result.launch.length > 0) return
       return Object.values(state.actors).some((a) => a.ext[TEMP_FLAG] === true) ? { changes: [{ op: 'npcs.sweep' }] } : undefined
     })
 

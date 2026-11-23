@@ -964,6 +964,24 @@ describe('忠誠量表與條件', () => {
     expect(g.k.conditions.validate({ kind: 'in_roster' })).not.toEqual([])
     expect(g.k.conditions.validate({ kind: 'in_party', who: 'r_ann' })).toEqual([])
   })
+
+  it('條件 in_tagalong（M2-closeout 第 7 項）：這一趟召集時排的同行才是；留在家的、隊上的、不在名冊上的都不是；離開名冊或重新召集就變', () => {
+    const g = make()
+    add(g, 'r_ann', 'r_bob', 'r_cora')
+    expect(test(g, { kind: 'in_tagalong', who: 'r_bob' })).toBe(false)
+    g.commit(muster(g.k, g.state, { party: ['r_ann'], tagalong: ['r_bob'] }))
+    expect(test(g, { kind: 'in_tagalong', who: 'r_bob' })).toBe(true)
+    expect(test(g, { kind: 'in_tagalong', who: 'r_cora' })).toBe(false) // 留在家
+    expect(test(g, { kind: 'in_tagalong', who: 'r_ann' })).toBe(false) // 在隊上（上場的，不是同行）
+    expect(test(g, { kind: 'in_tagalong', who: 'c_bob' })).toBe(false) // 不在名冊上
+    g.commit(muster(g.k, g.state, { party: ['r_ann'], tagalong: ['r_cora'] }))
+    expect(test(g, { kind: 'in_tagalong', who: 'r_bob' })).toBe(false)
+    expect(test(g, { kind: 'in_tagalong', who: 'r_cora' })).toBe(true)
+    g.commit(leave(g.state, 'r_cora'))
+    expect(test(g, { kind: 'in_tagalong', who: 'r_cora' })).toBe(false)
+    expect(g.k.conditions.validate({ kind: 'in_tagalong' })).not.toEqual([])
+    expect(g.k.conditions.validate({ kind: 'in_tagalong', who: 'r_bob' })).toEqual([])
+  })
 })
 
 // ---- 規則 ----

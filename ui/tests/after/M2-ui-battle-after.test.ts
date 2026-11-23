@@ -73,6 +73,8 @@ const PACK: ContentPack = {
     item: ITEMS,
     enemy: [foe('en_ui_thug', { loot: [{ item: 'it_ui_chip', chance: 1, qty: 2 }] })],
     defeat_event: [TWO, SOFT],
+    // 場景要有雙方都會的體位才開得起來（核心包沒有場景的內容）：一個最小的
+    position: [{ id: 'pos_ui', name: '面對面', people: 2, roles: [{ id: 'a', upper: true }, { id: 'b', upper: false }], mult: { a: 1, b: 1 }, initiative_drift: 0, tags: [], unlocked_by: null, links: [{ from: ['a', 'hand_l'], to: ['b', 'chest'] }, { from: ['a', 'mouth'], to: ['b', 'mouth'] }] }],
   } as unknown as ContentPack['content'],
 }
 
@@ -523,23 +525,26 @@ describe('打贏：戰利品', () => {
 })
 
 describe('打贏：俘虜的處置（事件視窗的選項嵌在面板裡）', () => {
-  /** 找一個擲得中俘虜的種子（引擎的亂數是種子導出來的，同一個種子永遠同一個結果） */
+  /**
+   * 找一個擲中好幾個俘虜（引擎先開「挑一個」的事件：選項都是 pick:<單位>）的種子（引擎的亂數是種子導出來的，同一個種子永遠同一個結果）。
+   * 只擲中一個時直接開處置的事件（M2-closeout 第 9 項之後也結算得了；引擎的測試守著），這裡走好幾個的那條，挑完再看處置的事件。
+   */
   async function withCaptive() {
     for (let seed = 1; seed <= 60; seed++) {
       const s = setup({ seed })
       winSetup(s.e, 4, 'subdued')
       await s.e.finishBattle()
-      if (s.e.event.view()) return s
+      const v = s.e.event.view()
+      if (v && v.options.every((o) => o.id.startsWith('pick:'))) return s
     }
-    throw new Error('找不到擲得中俘虜的種子')
+    throw new Error('找不到擲得中好幾個俘虜的種子')
   }
 
   it('有俘虜：選項照引擎的（帶走在有場景、對象非自願沒關時才列），面板的選項和引擎的一模一樣；選完之後面板關掉', async () => {
     const { e, pinia } = await withCaptive()
     const a = useAfterBattle()
     expect(a.show()).toBe(true)
-    // 成功的不只一個時，引擎先開「挑一個」（選項 pick:<單位>）；面板列的和引擎的一模一樣。
-    // （挑完之後的處置事件現在開不起來：引擎的 scout_reveal 在沒有委託時格式不合，見回報；所以這裡走「全部放走」收尾）
+    // 成功的不只一個時，引擎先開「挑一個」（選項 pick:<單位>）；面板列的和引擎的一模一樣。這裡走「全部放走」收尾；挑完之後的處置見下一條
     const ev = e.event.view()!
     const ids = ev.options.map((o) => o.id)
     expect(ids.length).toBeGreaterThanOrEqual(2)
@@ -568,6 +573,9 @@ describe('打贏：俘虜的處置（事件視窗的選項嵌在面板裡）', (
     const { e, pinia } = await withCaptive()
     const a = useAfterBattle()
     a.show()
+    // 挑一個之後，處置的事件開起來（沒有委託時引擎不放 scout_reveal，格式檢查過得了；M2-closeout 第 9 項）
+    await pick(e, e.event.view()!.options[0]!.id)
+    expect(e.event.view()!.options.map((o) => o.id)).toEqual(expect.arrayContaining(['ask', 'handover', 'release']))
     const take = e.event.view()!.options.find((o) => o.id === 'take')
     if (!take) return // 帶走沒有列（引擎說這一局沒有人登記成人場景或被篩掉）：沒有場景要略過
     expect(take.locked ?? null).toBeNull()

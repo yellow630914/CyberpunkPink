@@ -19,6 +19,14 @@ export interface ContentKindDef<T extends ContentEntry = ContentEntry> {
   validate(entry: Record<string, unknown>): string[]
   /** 這一筆引用了哪些別的內容：[kind, id]。checkRefs 用它找出引用不存在的東西。 */
   refs?(entry: T): Array<[kind: string, id: string]>
+  /**
+   * 規則表（數字、種類表：各種 `*_rule`、事件範圍、設施種類、店的種類、戰鬥的模式與狀態……）：
+   * 後載入的包可以用同一個 id 整筆取代前面的（核心包 CORE_PACK 先載入，示意世界包、測試、模組後載入）。
+   * 內容類（技能、物品、敵人、事件、勢力……）不寫這個：id 重複照舊整批擋下；要改內容用覆蓋（applyOverlays）。
+   * 取代是整筆換掉、不是合併：沒寫的欄位由功能自己的預設補（每個功能讀規則表都是「資料蓋掉內建的預設」）。
+   * 同一個包裡 id 重複照舊擋下。dev/adr/0017。
+   */
+  overridable?: boolean
 }
 
 export class ContentError extends Error {
@@ -64,6 +72,11 @@ export class ContentRegistry {
     return this.kinds.has(kind)
   }
 
+  /** 這個種類是不是規則表（後載入的包可以取代同一個 id）。沒有這個種類回傳 false。 */
+  isOverridable(kind: string): boolean {
+    return this.kinds.get(kind)?.overridable === true
+  }
+
   kindIds(): string[] {
     return [...this.kinds.keys()]
   }
@@ -86,21 +99,29 @@ export class ContentRegistry {
     return problems
   }
 
-  /** 載入一批內容。有任何格式錯誤或 id 已經存在就整批不收，丟出 ContentError。 */
-  load(kind: string, entries: unknown, opts: { replace?: boolean } = {}): void {
-    const problems = this.validate(kind, entries)
+  /** 已經載入過的 id 又出現：規則表（overridable）可以取代，其餘算重複。replace 沒給就看這個種類是不是規則表。 */
+  private duplicates(kind: string, entries: unknown, replace?: boolean): string[] {
     const store = this.stores.get(kind)
-    if (store && !opts.replace && Array.isArray(entries)) {
-      for (const e of entries) if (isRecord(e) && typeof e.id === 'string' && store.has(e.id)) problems.push(`${kind}/${e.id}：id 重複（已經載入過）`)
-    }
+    if (!store || !Array.isArray(entries) || (replace ?? this.kinds.get(kind)?.overridable === true)) return []
+    return entries.flatMap((e) => (isRecord(e) && typeof e.id === 'string' && store.has(e.id) ? [`${kind}/${e.id}：id 重複（已經載入過）`] : []))
+  }
+
+  /**
+   * 載入一批內容。有任何格式錯誤或 id 已經存在就整批不收，丟出 ContentError。
+   * 規則表（overridable 的種類）或 opts.replace 是 true：id 已經存在就取代。
+   */
+  load(kind: string, entries: unknown, opts: { replace?: boolean } = {}): void {
+    const problems = [...this.validate(kind, entries), ...this.duplicates(kind, entries, opts.replace)]
     if (problems.length) throw new ContentError(problems)
-    for (const e of entries as ContentEntry[]) store!.set(e.id, clone(e))
+    const store = this.stores.get(kind)!
+    for (const e of entries as ContentEntry[]) store.set(e.id, clone(e))
     for (const fn of this.listeners) fn({ type: 'load', kind, owner: this.kinds.get(kind)!.owner, count: (entries as unknown[]).length })
   }
 
+  /** 載入一個包：每一種的格式與重複先全部檢查，有問題整包不收（不會載到一半）。規則表後載入的取代前面的。 */
   loadPack(pack: ContentPack): void {
     const problems: string[] = []
-    for (const [kind, entries] of Object.entries(pack.content)) problems.push(...this.validate(kind, entries))
+    for (const [kind, entries] of Object.entries(pack.content)) problems.push(...this.validate(kind, entries), ...this.duplicates(kind, entries))
     if (problems.length) throw new ContentError(problems)
     for (const [kind, entries] of Object.entries(pack.content)) this.load(kind, entries)
   }

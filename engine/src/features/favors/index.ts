@@ -70,7 +70,7 @@ function effectDef(kind: 'owed_to_pc' | 'owed', dir: FavorDir) {
 export const favorsFeature: Feature = {
   id: OWNER,
   install(k: Kernel) {
-    k.content.defineKind({ kind: FAVOR_RULE_KIND, owner: OWNER, validate: favorRuleProblems })
+    k.content.defineKind({ kind: FAVOR_RULE_KIND, owner: OWNER, overridable: true, validate: favorRuleProblems })
 
     k.changes.register<AddChange>({
       op: 'favor.add', owner: OWNER,

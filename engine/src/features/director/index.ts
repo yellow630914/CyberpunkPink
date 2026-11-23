@@ -38,8 +38,8 @@ export type { DirectorState, DirectorView, EligibleOpts, EventBodyCheck, EventCa
 export const directorFeature: Feature = {
   id: OWNER,
   install(k: Kernel) {
-    k.content.defineKind({ kind: SCOPE_KIND, owner: OWNER, validate: scopeProblems })
-    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, validate: ruleProblems })
+    k.content.defineKind({ kind: SCOPE_KIND, owner: OWNER, overridable: true, validate: scopeProblems })
+    k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
     k.content.defineKind({
       kind: EVENT_KIND, owner: OWNER,
       validate: (e) => {
