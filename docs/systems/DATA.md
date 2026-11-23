@@ -142,6 +142,7 @@
 | `npc_shen_tang` | 沈棠 | 第 5 節 |  |
 | `npc_nora_sin` | 諾拉·辛 | 第 5 節 |  |
 | `npc_elena_moretti` | 伊蓮娜·莫雷蒂 | 第 5 節 |  |
+| `npc_suzuran` | 鈴蘭（Suzuran） | 第 5 節 |  |
 | `npc_frost` | 霜 | 第 5 節 |  |
 | `npc_lenora` | 蕾諾拉 | 第 5 節 |  |
 | `npc_selene_wu` | 賽琳·吳 | 第 5 節 |  |
