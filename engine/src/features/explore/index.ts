@@ -25,6 +25,8 @@ export const exploreFeature: Feature & { useHere(k: GridKernel, state: GameState
     k.meters.define({ kind: 'alert', owner: OWNER, name: '警戒', min: 0, max: 100, start: 0, keyed: 'map', cap: { down: 20, up: 20 } })
 
     installWalk(k, OWNER)
+    // 副本（或任何開地圖的功能）進圖後問一次：入口就被保全看到時開打或潛行警戒 +5（SITES 12.5）
+    k.hooks.on('map.arrive', OWNER, ({ state }) => arrive(k, state) ?? undefined)
 
     // 打贏了：那個保全崗清掉（站著的記成 used；巡邏的記成 gone）
     k.battle.onEnd(OWNER, ({ state, battle, outcome }) => {
