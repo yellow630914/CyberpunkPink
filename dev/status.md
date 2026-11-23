@@ -117,3 +117,4 @@
 - 2026-11-22 技能效果盤點 artifact：https://claude.ai/artifact/2JCokMDuMapwcEskFvVAww（資料 dev/reports/skill-effects.json）。
 - 2026-11-23 核心的 ITEM_CATEGORIES 沒有 drug（藥現在靠 drug 標籤才能進快取格），M4 做藥時補類別。名冊卡彈與炸膛的變體（連射 1d6 卡彈、煙花自傷一半）還沒有格式。匯入正式潛網者資料時七個快駭技能要寫 action_tags ['hack','hack:<類別>']。
 - 2026-11-23 world 待跟進（等 M2-core-shell 補 GridCtx.step/last 與 facility 格子種類）：設施只在最後一格觸發、拿掉最短路推算、圖例改用 F。DISTRICTS 1.2 沒做的（橋接區封鎖繞路、追逐、地下層入口與要地、區域狀態、公共交通、日夜人口表）排 M2-transit 或之後。
+- 2026-11-23 lewd 留下的：核心 unitFromActor 與角色的 load_cap 讀 ext.bridge 的基本值，義體或藥物加的有效值（bridge_<參數>）不會進戰鬥（M4 定誰負責）；把橋拿掉（unbridged）需要核心明寫「沒有橋」的辦法。LEWD_SYSTEM 第 1 節表上沒有數字的格子（同步深度門檻、義體效率、抵抗修正、開銷）留到 M4。
