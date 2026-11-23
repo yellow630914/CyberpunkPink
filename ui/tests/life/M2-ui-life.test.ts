@@ -27,7 +27,7 @@ import ShopDialog from '../../src/dialogs/ShopDialog.vue'
 import BillsDialog from '../../src/dialogs/BillsDialog.vue'
 import WorkDialog from '../../src/dialogs/WorkDialog.vue'
 import RestDialog from '../../src/dialogs/RestDialog.vue'
-import { addRow, billRows, failText, lifeDialogOf, needLack, removeRow, settledRows, slopeCells, stepText, toCart } from '../../src/lib/lifeView'
+import { addRow, billRows, failText, stepLine, lifeDialogOf, needLack, removeRow, settledRows, slopeCells, stepText, toCart } from '../../src/lib/lifeView'
 
 // ---- 假資料 ----
 
@@ -201,6 +201,9 @@ describe('商店（TRADE；引擎的 trade）', () => {
       expect(t.value).toBe(s.value)
       expect(t.arrow).toBe(s.mult > 1 ? '▲' : s.mult < 1 ? '▼' : '')
     }
+    expect(stepLine({ id: 'catalog', name: '目錄價', mult: 1, value: 1000 })).toBe('目錄價 → 1,000')
+    expect(stepLine({ id: 'district', name: '區倍率', mult: 0.8, value: 800 })).toBe('區倍率 ×0.80 ▼ −20% → 800')
+    expect(stepLine({ id: 'shop', name: '店家倍率', mult: 1, value: 800 })).toBe('店家倍率 ×1.00 → 800')
     expect(stepText({ id: 'district', name: '區倍率', mult: 0.8, value: 8 })).toMatchObject({ mult: '×0.80', arrow: '▼', pct: '−20%' })
     expect(stepText({ id: 'discount', name: '折扣', mult: 1.2, value: 12 })).toMatchObject({ mult: '×1.20', arrow: '▲', pct: '+20%' })
   })

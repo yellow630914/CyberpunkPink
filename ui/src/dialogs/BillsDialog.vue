@@ -118,7 +118,8 @@ const stateText = (r: BillRow): string => ({ paid: '付得起', short: `${POOL_N
 .go.left { justify-content: flex-start; flex-wrap: wrap; }
 .mt { margin-top: 14px; }
 .down { display: grid; gap: 4px; margin-bottom: 8px; }
-.step { padding: 6px 10px; background: var(--bg-2); font-size: var(--fs-sm); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.step { padding: 6px 10px; background: var(--bg-2); font-size: var(--fs-sm); display: grid; grid-template-columns: 1.2em minmax(0, 1fr); gap: 2px 8px; align-items: baseline; }
+.step .tag { grid-column: 2; justify-self: start; }
 .step.now { box-shadow: inset 0 0 0 2px var(--danger); }
 .step.next { box-shadow: inset 0 0 0 2px var(--warn); }
 .step .mono { color: var(--ink-3); }

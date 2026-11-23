@@ -11,7 +11,7 @@ import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
 import { fmt } from '../lib/price'
 import { legalName } from '../lib/gearView'
-import { DEGREE_NAME, POOL_NAME, addRow, failText, moneyKind, removeRow, rowKey, slotItemOf, stepText, toCart, type CartRow, type Pool } from '../lib/lifeView'
+import { DEGREE_NAME, POOL_NAME, addRow, failText, moneyKind, removeRow, rowKey, slotItemOf, stepLine, toCart, type CartRow, type Pool } from '../lib/lifeView'
 
 /**
  * 商店（UI.md 3.8 節、TRADE 第 3 節）：抬頭、買／賣兩個分頁、右邊是購物車（買賣一起結）、價格拆解、付款方式、殺價。
@@ -24,6 +24,8 @@ const look = e.gear.look
 
 const view = computed(() => e.trade.view(props.shopId))
 const lock = computed(() => e.trade.lock())
+/** 引擎給的折扣（小數）的顯示：整數百分比 */
+const discountPct = computed(() => Math.round((view.value?.discount.total ?? 0) * 100))
 const tab = ref('buy')
 const rows = ref<CartRow[]>([])
 const focus = ref<{ mode: 'buy' | 'sell'; item: string; uid?: string } | null>(null)
@@ -96,8 +98,8 @@ const METHOD_TEXT = (m: string): string => view.value?.bargain.options.find((o) 
       <section class="panel cut pad">
         <div v-if="lock" class="blocking" data-lock>{{ lock }}</div>
         <div v-else-if="view.closed" class="blocking" data-closed>{{ view.closed }}</div>
-        <div v-if="view.discount.total > 0 || view.markup !== 1 || view.market.length" class="meta">
-          <span v-if="view.discount.total > 0" class="tag">折扣 {{ Math.round(view.discount.total * 100) }}%<Hint>後台勢力的好感與店主的親密度折的（上限在引擎）。</Hint></span>
+        <div v-if="discountPct > 0 || view.markup !== 1 || view.market.length" class="meta">
+          <span v-if="discountPct > 0" class="tag">折扣 {{ discountPct }}%<Hint>後台勢力的好感與店主的親密度折的（上限在引擎）。</Hint></span>
           <span v-if="view.markup !== 1" class="tag warn">敵對值加價 ×{{ view.markup }}</span>
           <span v-for="m in view.market" :key="m.category" class="tag" :class="{ warn: m.mult > 1 }">{{ m.name }}行情 ×{{ m.mult.toFixed(2) }}</span>
         </div>
@@ -136,7 +138,7 @@ const METHOD_TEXT = (m: string): string => view.value?.bargain.options.find((o) 
         <template v-if="focusQuote">
           <p class="h mt">{{ focusQuote.name }}・{{ focusQuote.mode === 'buy' ? '價格' : '收購價' }}拆解<Hint>每一步照引擎算的：名字、乘多少、▲ 變貴 ▼ 變便宜，到這一步為止的數字。</Hint></p>
           <div class="brk" data-breakdown>
-            <div v-for="s in focusQuote.quote.steps" :key="s.id" :class="s.mult > 1 ? 'u' : s.mult < 1 ? 'd' : ''">{{ stepText(s).name }} <template v-if="s.id !== 'catalog'">{{ stepText(s).mult }} {{ stepText(s).arrow }} {{ stepText(s).pct }} </template>→ {{ fmt(s.value) }}</div>
+            <div v-for="s in focusQuote.quote.steps" :key="s.id" :class="s.mult > 1 ? 'u' : s.mult < 1 ? 'd' : ''">{{ stepLine(s) }}</div>
             <div>＝ {{ fmt(focusQuote.quote.price) }}</div>
           </div>
           <div v-if="routes && routes.best" class="k note" data-routes>價差：{{ routes.categoryName }}在{{ districtName(routes.best.buy.district) }}最便宜（{{ fmt(routes.best.buy.price) }}），{{ districtName(routes.best.sell.district) }}賣最好（{{ fmt(routes.best.sell.price) }}）<Hint>{{ routes.best.margin < 0 ? '搬過去賣是虧的。' : '搬過去賣有賺。' }}不含店家倍率、折扣與收購遞減。</Hint></div>

@@ -66,7 +66,7 @@ describe('示意世界包', () => {
     const g = make()
     g.newGame({ seed: 5 })
     for (const [id, block, name] of [['alian', 'b_hive_1', '阿蓮雜貨'], ['gunshop', 'b_oldport_4', '回火'], ['cybershop', 'b_ave42_4', '義體零件行']] as const) {
-      const shop = g.k.content.get<{ block: string; facility: string; name: string }>('shop', id)!
+      const shop = g.k.content.get<{ id: string; block: string; facility: string; name: string }>('shop', id)!
       expect(shop.block).toBe(block)
       expect(shop.name).toContain(name)
       g.commit(arrive(g.k, g.state, shop.block, shop.facility))
@@ -79,7 +79,7 @@ describe('示意世界包', () => {
   it('過日子：麵攤與雜貨店有打工；有住處可以租；有兩處有床位的旅店與營地', () => {
     const g = make()
     g.newGame({ seed: 5 })
-    const job = g.k.content.get<{ facility: string }>('job', 'job_alian_counter')!
+    const job = g.k.content.get<{ id: string; facility: string }>('job', 'job_alian_counter')!
     const [block, marker] = job.facility.split('/')
     g.commit(arrive(g.k, g.state, block!, marker))
     expect(jobsHere(g.k, g.state).map(j => j.id)).toEqual(['job_alian_counter'])

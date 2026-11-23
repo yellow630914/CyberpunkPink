@@ -80,7 +80,7 @@ function optionsOf(f: Facility): HereOption[] {
   return [...svcs, ...talks]
 }
 const hereOpts = computed<HereOption[]>(() => {
-  const mine: HereOption[] = hereItems(grid.value).map(i => ({ id: i.id, name: i.name, reason: i.reason, run: () => runUse(i.id) }))
+  const mine: HereOption[] = hereItems(grid.value).map(i => ({ id: i.id, name: i.name, reason: i.reason, run: () => runUse(i.id), ...(i.id.startsWith('trade.shop:') ? { auto: true } : {}) }))
   if (here.value?.open && g.facility) mine.push(...optionsOf(g.facility))
   return mine
 })

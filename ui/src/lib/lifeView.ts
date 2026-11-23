@@ -12,6 +12,7 @@ import type { Degree } from '@engine/src'
 import type { Grade } from '../data/types'
 import type { SlotItem } from './gearView'
 import { legalName } from './gearView'
+import { fmt } from './price'
 
 export type Pool = 'cred' | 'cash'
 /** MoneyTag 的種類：引擎的 cred 是帳戶（acc）、cash 是現金晶片 */
@@ -71,6 +72,13 @@ export function stepText(s: QuoteStep): StepText {
   const arrow = s.mult > 1 ? '▲' : s.mult < 1 ? '▼' : ''
   const diff = Math.round((s.mult - 1) * 100)
   return { name: s.name, mult: `×${s.mult.toFixed(2)}`, arrow, pct: diff === 0 ? '' : `${diff > 0 ? '+' : '−'}${Math.abs(diff)}%`, value: s.value }
+}
+
+/** 一步一行：名字、乘多少、▲▼ 與百分比、到這一步為止的數字（目錄價那一步沒有乘數） */
+export function stepLine(s: QuoteStep): string {
+  const t = stepText(s)
+  const mid = s.id === 'catalog' ? '' : ` ${[t.mult, t.arrow, t.pct].filter(Boolean).join(' ')}`
+  return `${t.name}${mid} → ${fmt(t.value)}`
 }
 
 // ---- 每週帳單 ----
