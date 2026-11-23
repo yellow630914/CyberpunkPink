@@ -5,6 +5,9 @@ import { allFeatures } from '@engine/src/features'
 import { arrive, cityGraph, worldProblems, worldView } from '@engine/src/features/world'
 import { transitView } from '@engine/src/features/transit'
 import { board, genProblems } from '@engine/src/features/fixer'
+import { shopView } from '@engine/src/features/trade'
+import { sleepOptions } from '@engine/src/features/rest'
+import { jobsHere } from '@engine/src/features/work'
 import { demoPack, demoStartFeature } from '.'
 
 /** 示意世界包能被引擎載入：內容的格式、引用、出口成對、車站在街區的設施上，都由引擎的檢查把關。 */
@@ -58,5 +61,34 @@ describe('示意世界包', () => {
     const g = make()
     expect(g.k.content.get('fixer', 'fx_alian')?.block).toBe('b_hive_1')
     expect(g.k.content.get('fixer', 'fx_monroe')?.block).toBe('b_ave42_2')
+  })
+  it('過日子：三間店在自己的設施上列「進店」，貨架有東西、都有價錢與拆解', () => {
+    const g = make()
+    g.newGame({ seed: 5 })
+    for (const [id, block, name] of [['alian', 'b_hive_1', '阿蓮雜貨'], ['gunshop', 'b_oldport_4', '回火'], ['cybershop', 'b_ave42_4', '義體零件行']] as const) {
+      const shop = g.k.content.get<{ block: string; facility: string; name: string }>('shop', id)!
+      expect(shop.block).toBe(block)
+      expect(shop.name).toContain(name)
+      g.commit(arrive(g.k, g.state, shop.block, shop.facility))
+      expect(g.gridView()!.here.uses.map(u => u.id)).toContain(`trade.shop:${id}`)
+      const v = shopView(g.k, g.state, id)
+      expect(v.shelf.length).toBeGreaterThan(0)
+      for (const r of v.shelf) expect(r.quote.steps.length).toBeGreaterThan(0)
+    }
+  })
+  it('過日子：麵攤與雜貨店有打工；有住處可以租；有兩處有床位的旅店與營地', () => {
+    const g = make()
+    g.newGame({ seed: 5 })
+    const job = g.k.content.get<{ facility: string }>('job', 'job_alian_counter')!
+    const [block, marker] = job.facility.split('/')
+    g.commit(arrive(g.k, g.state, block!, marker))
+    expect(jobsHere(g.k, g.state).map(j => j.id)).toEqual(['job_alian_counter'])
+    expect(g.k.content.list('residence').map(r => r.id)).toEqual(['res_hive_unit', 'res_oldport_container', 'res_ave42_capsule'])
+    const noid = g.k.content.list<{ id: string; sleep?: unknown }>('facility_type').filter(t => t.sleep !== undefined && t.id.startsWith('fac_')).map(t => t.id)
+    expect(noid.sort()).toEqual(['fac_camp', 'fac_inn'])
+    // 站在旅店的設施上：引擎的睡處列表多一個設施的選項
+    const inn = [...g.k.content.list<{ id: string; facilities: Record<string, { type: string }> }>('block')].flatMap(b => Object.entries(b.facilities).filter(([, f]) => f.type === 'fac_inn').map(([m]) => [b.id, m] as const))[0]!
+    g.commit(arrive(g.k, g.state, inn[0], inn[1]))
+    expect(sleepOptions(g.k, g.state).map(o => o.id)).toContain('facility')
   })
 })
