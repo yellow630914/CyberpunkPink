@@ -11,9 +11,10 @@ import {
   ActionBlocked, DEGREE_NAME, attachActivityEnd, clone, endActivity, formatAmount, gridHere, mapDef, meterOf, openMap, pointKey, restDone, rollCheck, Sheet,
 } from '../../core'
 import { settleAux } from './aux'
+import { resultOf, settleDone } from './close'
 import type { BranchDef, BranchKind, CommissionEntry, Face, FaceDef, GoalDef, Rank, Run, RouteEntry } from './model'
 import {
-  ACTIVITY, FACE_ACTIVITY, FACE_NAME, KIND, branchName, clamp, commissionMapProblems, commissionProblems, commissionRules, dcBaseOf, effectsFor, encounterAfter, faceOf, gradeOf,
+  ACTIVITY, FAILED_EXT, FACE_ACTIVITY, FACE_NAME, KIND, branchName, clamp, commissionMapProblems, commissionProblems, commissionRules, dcBaseOf, effectsFor, encounterAfter, faceOf, gradeOf,
   isLast, normalSetup, readRun, runChange, stageName, stagesOf,
 } from './model'
 
@@ -161,6 +162,8 @@ export function enterDraft(k: Kernel, state: GameState, setup: unknown, origin: 
   if (needsPick && !k.battle.getUnitSource('enemy_pick')) throw new ActionBlocked('這件副本的遭遇要照勢力挑敵人，但還沒有「enemy_pick」這種單位來源（敵人的功能沒有裝）。')
   return [draft(state, 'commission.enter', 'entered', `你進了「${def.name ?? def.id}」，共 ${stagesOf(run)} 個階段。`, [
     { op: 'snapshot.take', kind: 'entry', label: '進入副本前', owner: def.id },
+    // 上一趟失敗留下的記號到這裡就沒有用了（回退之後它由 rewind.keep 帶過去，不是從快照來的）
+    ...(state.ext[FAILED_EXT] !== undefined ? [{ op: 'ext', key: FAILED_EXT, value: null } as Change] : []),
     runChange(run),
   ])]
 }
@@ -540,17 +543,6 @@ export function breathe(k: Kernel, state: GameState): ReportDraft {
 
 // ---- 撤退與做完 ----
 
-function resultOf(run: Run): Record<string, unknown> {
-  return {
-    commission: run.def.id, kind: run.def.kind, main: run.def.main, scale: run.def.scale, grade: gradeOf(run.def.grade),
-    target_faction: run.def.target_faction, district: run.def.district, ...(run.def.employer !== undefined ? { employer: run.def.employer } : {}),
-    stages: stagesOf(run), route: clone(run.route), links: run.links.map((l) => l.id), alert: run.alert, peak: run.peak,
-    ...(run.def.conditions ? { conditions: clone(run.def.conditions) } : {}),
-    ...(run.setup.terms !== undefined ? { terms: clone(run.setup.terms) } : {}), ...(run.setup.aux !== undefined ? { aux: clone(run.setup.aux) } : {}),
-    ...(run.aux && run.aux.log.length > 0 ? { aux_log: clone(run.aux.log) } : {}),
-  }
-}
-
 /** 撤退：回到進去之前（時間、錢、背包、警戒、旗標、階段進度全部回去；紀錄留著並標成被收回），委託的活動結束。戰鬥中不能撤退。 */
 export function retreat(k: Kernel, state: GameState): ReportDraft {
   const run = needRun(state)
@@ -568,8 +560,10 @@ export function retreat(k: Kernel, state: GameState): ReportDraft {
 export function finish(k: Kernel, state: GameState): ReportDraft {
   const run = needRun(state)
   if (run.step !== 'done') throw new ActionBlocked(run.step === 'play' ? '最後一個階段還沒有做完。' : STEP_TEXT[run.step])
-  const end = endActivity(k, { state, kind: ACTIVITY, id: run.def.id, origin: run.origin, outcome: 'done', result: resultOf(run) })
+  // 評價、路線留下的後果（敵對值）、歷練點（close.ts）：變更接在清掉狀態的後面，結果（rating、xp、terms……）交給 activity.end
+  const settled = settleDone(k, state, run)
+  const end = endActivity(k, { state, kind: ACTIVITY, id: run.def.id, origin: run.origin, outcome: 'done', result: resultOf(run, settled.result) })
   const mine = state.snapshots.filter((s) => s.owner === run.def.id && (s.kind === 'entry' || s.kind === 'stage'))
-  const changes: Change[] = [{ op: 'ext', key: 'commission', value: null }, ...mine.map((s) => ({ op: 'snapshot.drop', id: s.id }) as Change), ...end.changes]
-  return attachActivityEnd(draft(state, 'commission.finish', 'done', `「${run.def.name ?? run.def.id}」做完了。`, changes, { narration: { results: end.lines } }), end)
+  const changes: Change[] = [{ op: 'ext', key: 'commission', value: null }, ...mine.map((s) => ({ op: 'snapshot.drop', id: s.id }) as Change), ...settled.changes, ...end.changes]
+  return attachActivityEnd(draft(state, 'commission.finish', 'done', `「${run.def.name ?? run.def.id}」做完了。`, changes, { narration: { results: [...settled.lines, ...end.lines] } }), end)
 }

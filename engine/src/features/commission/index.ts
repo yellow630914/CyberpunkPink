@@ -14,22 +14,28 @@
 // 對外：commissionView、chooseFace、chooseBranch、breathe、retreat、checkGoal、playScene、replay、milestone、finish。
 // 輔助面每個階段的結算（aux.ts，M2-commission-aux）寫在 commission.face 那一份報告裡（每個擲了的面一拍，標籤 aux）；
 // 做完之後的結算（M2-commission-close）聽 activity.end（result.aux_log 有每一次輔助結算）。
+// 做完與做不完的結算（close.ts，M2-commission-close）：finish 算評價、路線的後果（目標勢力的敵對值）、歷練點，交給 activity.end（outcome done；result 多 rating、xp、hostility）；
+//   聽戰敗被接受（activity.end kind defeat，那一場是這件委託的）：fails_commission 是 true → 留失敗的記號（state.ext.commission_failed）並回到入口（rewind entry），
+//   回去之後那份 rewind 報告套用之後接一份 commission.failed 發 activity.end（outcome failed）；是 false → 不回退，留在這個階段、回到選分支之前。
 // 輔助面（aux.ts）：setup.aux 是 { meat?, net?, opinion?, borrowed? }；規則 commission_rule 多 aux_skills、aux_bonus、aux_pressure、aux_rest、aux_injured_days；
 //   對外 auxChance（還沒進副本也能問成功率）、commissionView().aux。
 
 import type { Feature, Kernel, ReportDraft } from '../../core'
 import { ContentError } from '../../core'
-import type { CommissionEntry, Run } from './model'
+import type { CommissionEntry } from './model'
 import { ACTIVITY, FACE_ACTIVITY, KIND, OWNER, RULE_KIND, commissionMapProblems, commissionProblems, readRun, ruleProblems, runChange } from './model'
+import { failedDraft, keepFailed, mineOf, onDefeatAccepted } from './close'
 import { achieved, enterDraft, finish, milestone } from './run'
 
 export {
-  ACTIVITY, BRANCH_KINDS, DEFAULT_COMMISSION_RULES, EXT, FACES, FACE_ACTIVITY, FACE_NAME, GOAL_KINDS, KIND, LINK_TYPES, OWNER, RULE_KIND, SCALE_STAGES,
+  ACTIVITY, BRANCH_KINDS, DEFAULT_COMMISSION_RULES, EXT, FACES, FAILED_EXT, FACE_ACTIVITY, FACE_NAME, GOAL_KINDS, KIND, LINK_TYPES, OWNER, RULE_KIND, SCALE_STAGES,
   commissionMapProblems, commissionProblems, commissionRules, dcBaseOf, effectsFor, encounterAfter, gradeOf, readRun, ruleProblems, stageName,
 } from './model'
 export type {
   AuxOutcome, AuxResult, AuxState, BranchDef, BranchKind, CommissionEntry, CommissionRules, Face, FaceDef, GoalDef, LinkDef, LinkEffect, Need, Rank, RouteEntry, Run, RunLink, RunSetup, StageDef, StageEffects, Step,
 } from './model'
+export { RATINGS, XP_EFFECT, HOSTILITY_EFFECT, failedOf, fallout, forecast, rate, xpFor } from './close'
+export type { CloseForecast, FailedMark, Fallout, Rating, RatingParts } from './close'
 export { achieved, branchViews, breathe, breatheBlock, checkGoal, chooseBranch, chooseFace, enterDraft, faceViews, finish, goalView, milestone, playScene, replay, retreat } from './run'
 export type { BranchView, FaceView, GoalView } from './run'
 export { REINFORCE_MARK, commissionView, stageEffects } from './view'
@@ -44,13 +50,6 @@ export const COMMISSION_ALLOW: readonly string[] = [
 ]
 
 const FACE_KINDS: readonly string[] = Object.values(FACE_ACTIVITY)
-
-/** 這一件活動 end 是不是這個副本這一段發起的。 */
-function mineOf(run: Run, origin: { ext?: Record<string, unknown> }): boolean {
-  const ext = origin.ext
-  // 看 ext 的 commission 與 stage（而不是 by）：探索進圖時開的戰鬥是 launch 出來的，by 會被換成 core，ext 的鍵還在
-  return !!ext && ext.commission === run.def.id && ext.stage === run.stage
-}
 
 export const commissionFeature: Feature = {
   id: OWNER,
@@ -82,6 +81,8 @@ export const commissionFeature: Feature = {
 
     // 目標的進度：這一段發起的戰鬥打贏了、場景做完了、別的面做完了
     k.hooks.on('activity.end', OWNER, ({ state, kind, origin, outcome, result }) => {
+      // 戰敗被接受（M2-commission-close）：算失敗就留記號、回到進去之前；不算失敗就留在這個階段、回到選分支之前
+      if (kind === 'defeat' && outcome === 'accept') return onDefeatAccepted(k, state, origin, result)
       const run = readRun(state)
       if (!run || run.step !== 'play' || !mineOf(run, origin)) return
       if (kind === 'battle') {
@@ -98,9 +99,17 @@ export const commissionFeature: Feature = {
       }
     })
 
+    // 回到快照：還沒發的失敗記號帶到回去之後的狀態（紀錄由核心留；其餘的都回去）
+    k.hooks.on('rewind.keep', OWNER, ({ current }) => keepFailed(current))
+
     // 一份報告套用之後：開了地圖（問有沒有被看到）、目標達成（接里程碑）、最後一個階段做完（接 finish）
     k.hooks.on('report.after', OWNER, ({ state, report }): ReportDraft[] | void => {
       if (report.rewind) return
+      // 回去之後的那一份報告（action rewind）：有還沒發的失敗記號，接著提交 commission.failed，在那一份裡發 activity.end（outcome failed）
+      if (report.action === 'rewind') {
+        const failed = failedDraft(k, state)
+        return failed ? [failed] : undefined
+      }
       const run = readRun(state)
       if (!run) return
       if (report.action === 'commission.branch' || report.action === 'commission.replay') {

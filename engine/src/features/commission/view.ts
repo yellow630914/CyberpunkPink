@@ -4,6 +4,8 @@
 import type { GameState, Kernel } from '../../core'
 import { meterOf } from '../../core'
 import type { AuxChance } from './aux'
+import type { CloseForecast } from './close'
+import { forecast } from './close'
 import { auxChance, auxPeople, openFaces, peopleAt, resting } from './aux'
 import type { AuxResult, Face, LinkEffect, RouteEntry, Step } from './model'
 import { FACES, FACE_NAME, commissionRules, effectsFor, gradeOf, readRun, stageName, stagesOf } from './model'
@@ -91,6 +93,8 @@ export interface CommissionView {
   alert: { value: number; reinforce: number; hard: number; peak: number }
   breathe: { can: boolean; reason: string | null }
   retreat: { can: boolean; reason: string | null }
+  /** 現在做完的話：預估的評價（與每一項加減）、現在的路線會留下的敵對值、歷練點（M2-commission-close） */
+  close: CloseForecast
 }
 
 function auxViews(k: Kernel, state: GameState, run: NonNullable<ReturnType<typeof readRun>>, alertNow: number): AuxFaceView[] {
@@ -153,6 +157,7 @@ export function commissionView(k: Kernel, state: GameState): CommissionView | nu
     alert: { value: alertNow, reinforce: REINFORCE_MARK, hard: rules.hard_alert, peak: Math.max(run.peak, alertNow) },
     breathe: { can: breatheWhy === null, reason: breatheWhy },
     retreat: { can: retreatWhy === null, reason: retreatWhy },
+    close: forecast(state, run, rules, alertNow, Math.max(run.peak, alertNow)),
   }
 }
 

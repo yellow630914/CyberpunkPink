@@ -118,10 +118,11 @@ export interface RosterRules {
   loyalty_start: number
   loyalty_rescued: number
   loyalty_introduced: number
-  /** 連續 idle_weeks 週沒召集，忠誠加 idle_delta（10.4：2 週、−2）；戰鬥裡倒下 down_delta（−3） */
+  /** 連續 idle_weeks 週沒召集，忠誠加 idle_delta（10.4：2 週、−2）；戰鬥裡倒下 down_delta（−3）；週薪沒付成 unpaid_delta（−8，DOWNTIME 5.1 節第 8 項） */
   idle_weeks: number
   idle_delta: number
   down_delta: number
+  unpaid_delta: number
   /** 每週結帳時，忠誠 leave_at 以下的人有 leave_chance 的機會離開（10.4：20、30%） */
   leave_at: number
   leave_chance: number
@@ -142,7 +143,7 @@ export const DEFAULT_ROSTER_RULES: RosterRules = {
   party_max: 4, tagalong_max: 2,
   recruit_base: 16, recruit_affinity_step: 10, recruit_per_tier: 2, recruit_think_margin: 3,
   loyalty_start: 30, loyalty_rescued: 50, loyalty_introduced: 40,
-  idle_weeks: 2, idle_delta: -2, down_delta: -3,
+  idle_weeks: 2, idle_delta: -2, down_delta: -3, unpaid_delta: -8,
   leave_at: 20, leave_chance: 0.3,
   fee_base: 200, fee_spread: 0.25, fee_low_rep: 0.2, fee_low_loyalty: 0.25, low_loyalty_min: 20, low_loyalty_max: 39,
   reliability_min: 30, reliability_max: 80,
@@ -156,7 +157,7 @@ const NUM_FIELDS: Array<[keyof RosterRules, number, number]> = [
   ['fee_base', 0, 100000], ['reliability_min', 0, 100], ['reliability_max', 0, 100],
 ]
 const RATIO_FIELDS: Array<[keyof RosterRules, number, number]> = [['leave_chance', 0, 1], ['fee_spread', 0, 1], ['fee_low_rep', 0, 5], ['fee_low_loyalty', 0, 5]]
-const NEG_FIELDS: Array<keyof RosterRules> = ['idle_delta', 'down_delta']
+const NEG_FIELDS: Array<keyof RosterRules> = ['idle_delta', 'down_delta', 'unpaid_delta']
 const TEXT_FIELDS: Array<keyof RosterRules> = ['face_path', 'face_tree']
 
 export function ruleProblems(e: Record<string, unknown>): string[] {

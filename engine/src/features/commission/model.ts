@@ -15,6 +15,8 @@ export const KIND = 'commission'
 export const RULE_KIND = 'commission_rule'
 /** 活動的種類 */
 export const ACTIVITY = 'commission'
+/** state.ext 的鍵：失敗的記號（委託失敗回到入口之後留著的那一點；見 close.ts） */
+export const FAILED_EXT = 'commission_failed'
 
 export const FACES = ['meat', 'net', 'opinion'] as const
 export type Face = (typeof FACES)[number]
@@ -139,19 +141,35 @@ export interface CommissionRules {
   aux_skills: Record<'meat' | 'net' | 'opinion', string[]>
   /** 分量修正（6.4 節：強 +4、中 +2、弱 0；路數在那個戰場沒有效果（none）當弱） */
   aux_bonus: { strong: number; mid: number; weak: number; none: number }
+  /** 歷練點（COMMISSIONS 2.3 節的表、CORE_RULES 7.1 節）：小 20、中 35、大 60；不看評價，另乘存檔規則的歷練倍率 */
+  xp_small: number
+  xp_medium: number
+  xp_large: number
+  /** 路線的後果（COMMISSIONS 第 8 節、FACTIONS 6.2 節：+5～15）：有階段走了現實，目標勢力的敵對值 +5，每個強攻的階段再 +3，最多 +15 */
+  hostility_base: number
+  hostility_per_assault: number
+  hostility_max: number
+  /** 評價（G16）：從 B 起算；拿到幾個連動以上 +1、警戒最後在幾以上 −1、到過幾 −1；每個潛行或交涉成功的階段 +1 */
+  rating_links: number
+  rating_alert: number
+  rating_peak: number
 }
 
 export const DEFAULT_COMMISSION_RULES: CommissionRules = {
   stage_minutes: 120, stealth_fail_alert: 10, check_fail_alert: 5, dc_base: 10, dc_per_grade: 2, reinforce_count: 2, hard_alert: 100, hard_grade_up: 1,
   aux_pressure: 10, aux_rest: 1, aux_injured_days: 3,
+  xp_small: 20, xp_medium: 35, xp_large: 60, hostility_base: 5, hostility_per_assault: 3, hostility_max: 15, rating_links: 3, rating_alert: 60, rating_peak: 100,
   aux_skills: { meat: ['firearms', 'brawl', 'stealth', 'athletics'], net: ['interface'], opinion: ['perform', 'negotiate'] },
   aux_bonus: { strong: 4, mid: 2, weak: 0, none: 0 },
 }
 
 type NumericRule = 'stage_minutes' | 'stealth_fail_alert' | 'check_fail_alert' | 'dc_base' | 'dc_per_grade' | 'reinforce_count' | 'hard_alert' | 'hard_grade_up' | 'aux_pressure' | 'aux_rest' | 'aux_injured_days'
+  | 'xp_small' | 'xp_medium' | 'xp_large' | 'hostility_base' | 'hostility_per_assault' | 'hostility_max' | 'rating_links' | 'rating_alert' | 'rating_peak'
 const RULE_FIELDS: Array<[NumericRule, number, number]> = [
   ['stage_minutes', 0, 100000], ['stealth_fail_alert', 0, 100], ['check_fail_alert', 0, 100], ['dc_base', 0, 40], ['dc_per_grade', 0, 10],
   ['reinforce_count', 0, 8], ['hard_alert', 1, 100], ['hard_grade_up', 0, 4], ['aux_pressure', 0, 100], ['aux_rest', 0, 3], ['aux_injured_days', 0, 30],
+  ['xp_small', 0, 1000], ['xp_medium', 0, 1000], ['xp_large', 0, 1000], ['hostility_base', 0, 100], ['hostility_per_assault', 0, 100], ['hostility_max', 0, 100],
+  ['rating_links', 1, 20], ['rating_alert', 1, 100], ['rating_peak', 1, 100],
 ]
 const AUX_FACES = ['meat', 'net', 'opinion'] as const
 const AUX_BONUS_KEYS = ['strong', 'mid', 'weak', 'none'] as const

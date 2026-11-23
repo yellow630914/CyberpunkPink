@@ -11,6 +11,8 @@
 //   變更  roster.join、roster.leave、roster.muster、roster.candidate、roster.think、roster.pay（形狀見各自的註解）
 //   效果  roster_add：{ who, source? }（進候選；source 是 rescued 救過的、introduced 介紹的，決定忠誠的起始值）
 //   條件  in_roster { who }、in_party { who }
+//   掛點  bill.collect（回 weeklyPay 的每一筆：order 8、付現金）、bill.settled（沒付成的週薪：那個人忠誠 −8）：宣告在 features/bills，這裡只掛處理函式；
+//         defeat.companions（同行的人：這一趟召集時排的同行，跟著主角一起被處置）：宣告在 features/defeat
 //   掛鉤  time.passed（順序 14：連續沒召集的忠誠、忠誠太低的人離開）、activity.end（戰鬥裡倒下的成員忠誠 −3）、rest.done（睡一覺之後「再想想」的人可以再問）、
 //         report.before（招募成功進名冊、差一點的「再想想」）
 //   候補  k.battle.bench：名冊上不在這一場裡的人；沒空的列出來帶原因（blocks）
@@ -18,21 +20,24 @@
 // 報告：roster.join、roster.leave、roster.muster、roster.weekly（連續沒召集的忠誠）、roster.pay（改出場費或週薪）；招募走行動 npc_recruit。
 // 對外：muster、join、leave、setPay、recruitInput、recruitDc、recruitBlock、feeOf、payOf、weeklyPay、rosterCap、rosterView、candidatesOf、availability。
 //
-// 不在這裡（NPC_SYSTEM 第 10 節）：關係線的五段、被挖走、主角沉溺到 100 時的離隊、藏著沉溺的檢定、牆報徵人、拿掉人時的親密度 −5；
-// 薪水付不出來的忠誠 −8 由每週帳單（M2-bills）接上 weeklyPay 與 bill.settled。
+// 不在這裡（NPC_SYSTEM 第 10 節）：關係線的五段、被挖走、主角沉溺到 100 時的離隊、藏著沉溺的檢定、牆報徵人、拿掉人時的親密度 −5。
 
 import type { ActionInput, ActionKindEntry, Change, Condition, Effect, EffectCtx, Feature, GameState, Kernel } from '../../core'
 import { ContentError, actionKindToDef, blankState, isRecord, isSafeInt, isValidTime, meterOf } from '../../core'
 import { joinBlock, joinChanges, weeklyDrafts } from './ops'
 import type { Candidate, PayKind } from './model'
 import {
-  EXT, OWNER, PAY_KINDS, RECRUIT_KIND, RULE_KIND, SOURCES, busyReasons, feeOf, isMember, isRunner, mainTier, nameOf, readRoster, recruitBlock, recruitDc, rosterCap, rosterRules, ruleProblems, writeRoster,
+  EXT, OWNER, PAY_KINDS, RECRUIT_KIND, RULE_KIND, SOURCES, busyReasons, feeOf, isMember, isRunner, mainTier, nameOf, readRoster, recruitBlock, recruitDc, rosterCap, rosterRules, ruleProblems, weeklyPay, writeRoster,
 } from './model'
 
 export { DEFAULT_ROSTER_RULES, SOURCES, feeOf, mainTier, faceTier, isRunner, payOf, readRoster, recruitBlock, recruitDc, reliabilityOf, rosterCap, rosterRules, rosterSize, weeklyPay } from './model'
 export type { Candidate, CandidateSource, DcMod, Member, PathRow, PayKind, RosterRules, RosterState } from './model'
 export { join, joinBlock, joinChanges, leave, leaveChanges, memberOf, muster, musterBlocks, setPay, weeklyDrafts } from './ops'
 export type { JoinOpts, LeaveReason, MusterInput } from './ops'
+
+/** 週薪那一筆在帳單上的 id 前綴與順序（DOWNTIME 5.1 節那張表的第 8 項） */
+const SALARY_PREFIX = 'salary:'
+const SALARY_ORDER = 8
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
 const own = (o: object, key: string): boolean => Object.hasOwn(o, key)
@@ -286,6 +291,32 @@ export const rosterFeature: Feature = {
         changes: [...down].sort().map((id): Change => ({ op: 'meter', kind: 'loyalty', key: id, delta })),
         lines: [...down].sort().map((id) => `${nameOf(state, id)}在戰鬥裡倒下，忠誠 ${delta}`),
       }
+    })
+
+    // ---- 每週薪水（DOWNTIME 5.1 節第 8 項：小隊的薪水，付現金；沒付成的人忠誠 −8）：接上每週帳單的兩個掛點 ----
+    k.hooks.on('bill.collect', OWNER, ({ state }) => {
+      const lines = weeklyPay(state).filter((p) => own(state.actors, p.who)).map((p) => ({
+        id: `${SALARY_PREFIX}${p.who}`, owner: OWNER, name: `${p.name}的週薪`, kind: 'due' as const, amount: p.amount, order: SALARY_ORDER, pay: 'cash' as const,
+      }))
+      return lines.length > 0 ? lines : undefined
+    })
+    k.hooks.on('bill.settled', OWNER, ({ state, lines }) => {
+      const delta = rosterRules(k).unpaid_delta
+      if (delta === 0) return
+      const changes: Change[] = []
+      for (const l of lines) {
+        if (l.owner !== OWNER || l.kind !== 'due' || l.unpaid <= 0 || l.skipped || !l.id.startsWith(SALARY_PREFIX)) continue
+        const who = l.id.slice(SALARY_PREFIX.length)
+        if (isMember(state, who) && own(state.actors, who)) changes.push({ op: 'meter', kind: 'loyalty', key: who, delta })
+      }
+      return changes.length > 0 ? changes : undefined
+    })
+
+    // ---- 同行的人在戰敗時跟著主角一起被處置（NPC_SYSTEM 10.0）：這一趟召集時排的同行，還在名冊上、角色還在的 ----
+    k.hooks.on('defeat.companions', OWNER, ({ state }) => {
+      const r = readRoster(state)
+      const ids = r.tagalong.filter((id) => own(r.members, id) && own(state.actors, id))
+      return ids.length > 0 ? ids : undefined
     })
 
     // ---- 戰鬥的候補：名冊上不在這一場裡的人，沒空的列出來帶原因 ----
