@@ -48,3 +48,5 @@ M2-fixer-pay 之後（同一個資料夾）；最後一條驗收要 M2-commissio
 ## 完成時回報
 
 改了哪些檔、測試結果、COMMISSIONS 第 7、9 節裡沒做的（預期：十九種類型裡主面不是現實的、內海與輿論面的參數、同一件事從兩邊接、流竄 AI 發的委託、`commission_gen` 的 AI）。
+
+- 2026-11-23 補（M2-fixer）：生成的委託寫 `commission.block`（中間人那一塊街區，go 會檢查）；回答 `fixer.offers` 掛點（同一天回答一樣的東西）。

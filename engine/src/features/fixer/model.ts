@@ -297,6 +297,11 @@ export function readFixer(state: Pick<GameState, 'ext'>): FixerState {
 
 export const jobsOf = (state: Pick<GameState, 'ext'>): Job[] => readFixer(state).jobs
 export const jobOf = (state: Pick<GameState, 'ext'>, id: string): Job | null => jobsOf(state).find((j) => j.id === id) ?? null
+/** 用委託的 id 或它的副本的 id 找手上的一件（敵人的功能問話之後揭開未知，帶的是副本的 id）；先比委託的 id，再找進行中的。 */
+export function jobByRef(state: Pick<GameState, 'ext'>, ref: string): Job | null {
+  const all = jobsOf(state)
+  return all.find((j) => j.id === ref) ?? all.find((j) => j.status === 'active' && j.commission.id === ref) ?? null
+}
 /** 手上進行中的委託，最近接的排最前面。 */
 export const activeJobs = (state: Pick<GameState, 'ext'>): Job[] => jobsOf(state).filter((j) => j.status === 'active').sort((a, b) => b.seq - a.seq)
 export const latestJob = (state: Pick<GameState, 'ext'>): Job | null => activeJobs(state)[0] ?? null

@@ -18,6 +18,7 @@ import { defeatFeature } from './defeat'
 import { directorFeature, eventRunFeature } from './director'
 import { enemiesFeature } from './enemies'
 import { favorsFeature } from './favors'
+import { fixerFeature } from './fixer'
 import { gearFeature } from './gear'
 import { lewdFeature } from './lewd'
 import { hackFeature } from './hack'
@@ -32,7 +33,7 @@ import { tradeFeature } from './trade'
 import { transitFeature } from './transit'
 import { worldFeature } from './world'
 
-export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [combatFeature.id]: combatFeature, [gearFeature.id]: gearFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature, [exploreFeature.id]: exploreFeature, [summonsFeature.id]: summonsFeature, [abilitiesFeature.id]: abilitiesFeature, [hackFeature.id]: hackFeature, [favorsFeature.id]: favorsFeature, [worldFeature.id]: worldFeature, [transitFeature.id]: transitFeature, [directorFeature.id]: directorFeature, [eventRunFeature.id]: eventRunFeature, [lewdFeature.id]: lewdFeature, [securityFeature.id]: securityFeature, [npcsFeature.id]: npcsFeature, [rosterFeature.id]: rosterFeature, [billsFeature.id]: billsFeature, [restFeature.id]: restFeature, [tradeFeature.id]: tradeFeature, [commissionFeature.id]: commissionFeature }
+export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [combatFeature.id]: combatFeature, [gearFeature.id]: gearFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature, [exploreFeature.id]: exploreFeature, [summonsFeature.id]: summonsFeature, [abilitiesFeature.id]: abilitiesFeature, [hackFeature.id]: hackFeature, [favorsFeature.id]: favorsFeature, [worldFeature.id]: worldFeature, [transitFeature.id]: transitFeature, [directorFeature.id]: directorFeature, [eventRunFeature.id]: eventRunFeature, [lewdFeature.id]: lewdFeature, [securityFeature.id]: securityFeature, [npcsFeature.id]: npcsFeature, [rosterFeature.id]: rosterFeature, [billsFeature.id]: billsFeature, [restFeature.id]: restFeature, [tradeFeature.id]: tradeFeature, [commissionFeature.id]: commissionFeature, [fixerFeature.id]: fixerFeature }
 
 export function allFeatures(): Feature[] {
   return Object.values(FEATURES)

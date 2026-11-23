@@ -9,7 +9,7 @@
 //   量表  rep（街頭信譽：0～100、AI ±3）；同名的效果與條件核心自動有。衍生數值 rep_grade（用核心的 repTierOf 與 gradeOfRepTier）
 //   掛點  fixer.offers（這個功能宣告，生成委託的功能回答）；activity.end（kind commission、origin.by 是自己）
 //   變更  fixer.take、fixer.status、fixer.drop、fixer.table、fixer.scout、fixer.reveal
-//   效果  scout_reveal { job?, cat?, count? }：替手上的一件委託揭開未知；沒寫 job 就是最近接的那一件
+//   效果  scout_reveal { job?, cat?, count? }：替手上的一件委託揭開未知；job 寫委託的 id 或它的副本的 id；沒寫就是最近接的那一件
 //   報告  fixer.accept、fixer.haggle、fixer.scout、fixer.buy_intel、fixer.go、fixer.drop（kind gig）
 // 這個功能不 import 別的功能：人情、敵對值、街區只經由效果、條件、變更的登錄表（沒有人註冊就不列、不檢查）。
 // 對外：board、briefOf、payOptions、haggle、accept、drop、scout、scoutView、buyIntel、intelOptions、scoutedOf、go、readFixer、jobOf、jobsOf。
@@ -17,11 +17,11 @@
 import type { Change, Effect, EffectCtx, Feature, GameState, Kernel } from '../../core'
 import { ContentError, clone, gradeOfRepTier, isRecord, isSafeInt, meterOf, repTierOf } from '../../core'
 import type { Cat, Job, ScoutEntry, TableEntry } from './model'
-import { CATS, DEGREES, EXT, KIND, OWNER, REP_METER, RULE_KIND, SCOUT_METHODS, fixerProblems, hiddenUnknowns, jobOf, latestJob, readFixer, ruleProblems } from './model'
+import { CATS, DEGREES, EXT, KIND, OWNER, REP_METER, RULE_KIND, SCOUT_METHODS, fixerProblems, hiddenUnknowns, jobByRef, jobOf, latestJob, readFixer, ruleProblems } from './model'
 
 export {
   CATS, CAT_NAME, DEFAULT_FIXER_RULES, EXT, KIND, LOCKED_METHODS, OWNER, PAY_KINDS, PAY_NAME, REP_METER, RULE_KIND, SCOUT_METHODS,
-  activeJobs, favorSizeOf, fixerProblems, fixerRules, gradeOf, hiddenUnknowns, jobOf, jobsOf, latestJob, methodOf, offerProblems, readFixer, repBlock, ruleProblems, scoutDc, scoutedOf, tableOf,
+  activeJobs, favorSizeOf, fixerProblems, fixerRules, gradeOf, hiddenUnknowns, jobByRef, jobOf, jobsOf, latestJob, methodOf, offerProblems, readFixer, repBlock, ruleProblems, scoutDc, scoutedOf, tableOf,
 } from './model'
 export type {
   Cat, CommissionDef, Degree, FixerEntry, FixerRules, FixerState, Job, JobStatus, Offer, PayKind, Reveal, ScoutEntry, ScoutMethod, Scouted, TableDay, TableEntry, Terms, UnknownItem,
@@ -188,7 +188,7 @@ export const fixerFeature: Feature = {
         if (raw.count !== undefined && !(isSafeInt(raw.count) && raw.count >= 1 && raw.count <= 20)) p.push('count 要是 1～20 的整數')
         if (p.length > 0) return p
         if (isText(raw.job)) {
-          const j = jobOf(ctx.state, raw.job)
+          const j = jobByRef(ctx.state, raw.job)
           return j && j.status === 'active' ? [] : [`手上沒有進行中的 ${raw.job} 這件委託`]
         }
         return latestJob(ctx.state) ? [] : ['手上沒有進行中的委託，沒有東西可以揭開']
@@ -200,12 +200,12 @@ export const fixerFeature: Feature = {
         return { group: 'scout_reveal', amount: count, min: -Infinity, max: 1, resize: (to) => ({ ...e, count: to }), notice: () => '一件事最多只替你揭開一項未知，多的沒有算。' }
       },
       toChanges(e, ctx): Change[] {
-        const job = e.job ?? latestJob(ctx.state)?.id
+        const job = (e.job ? jobByRef(ctx.state, e.job) : latestJob(ctx.state))?.id
         if (!job) return []
         return [{ op: 'fixer.reveal', job, ...(e.cat ? { cat: e.cat } : {}), count: e.count ?? 1 }]
       },
       describe(e, ctx) {
-        const job = e.job ? jobOf(ctx.state, e.job) : latestJob(ctx.state)
+        const job = e.job ? jobByRef(ctx.state, e.job) : latestJob(ctx.state)
         if (!job) return '踩點：沒有可以揭開的委託'
         const ids = revealTargets(job, { ...(e.cat ? { cat: e.cat } : {}), count: e.count ?? 1 })
         const lines = ids.map((id) => job.unknowns.find((u) => u.id === id)!.text)

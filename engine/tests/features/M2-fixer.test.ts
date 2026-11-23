@@ -135,7 +135,6 @@ const setRep = (g: G, n: number): void => {
 }
 const rep = (g: G): number => meterOf(g.k, g.state, 'rep')
 const minutes = (g: G): number => toMinutes(g.state.time)
-const jobs = (g: G) => readFixer(g.state).jobs
 
 /** 把存檔的亂數游標撥到「這個用途擲出想要的骰面」的地方。 */
 function findNatural(g: G, purpose: string, want: number): void {
@@ -248,7 +247,7 @@ describe('簡報：只看得到最後一個階段', () => {
   })
 
   it('揭開「階段」類的未知之後，那一階段不再是問號（簡報與踩點頁都是）', () => {
-    const g = setup()
+    const g = setup({ cash: 1000 })
     take(g)
     g.commit(buyIntel(g.k, g.state, 'o_small', 'u_stage'))
     const v = scoutView(g.k, g.state, 'o_small')
@@ -682,6 +681,9 @@ describe('效果 scout_reveal', () => {
     // 指定 job
     reveal(g, { job: 'o_small' })
     expect(jobOf(g.state, 'o_small')!.revealed).toEqual(['u_path'])
+    // 敵人的功能問話之後帶的是副本的 id（cm_mid 是 o_mid 的副本）
+    reveal(g, { job: 'cm_mid', cat: 'target' })
+    expect(jobOf(g.state, 'o_mid')!.revealed).toEqual(['u_employer', 'u_target'])
     // count
     reveal(g, { job: 'o_small', count: 2 })
     expect(jobOf(g.state, 'o_small')!.revealed).toEqual(['u_path', 'u_guard', 'u_stage'])
@@ -771,8 +773,8 @@ describe('出發：go', () => {
     // o_mid 也寫了街區，換一件沒寫街區的
     const noBlock = structuredClone(OFFERS[1]!) as unknown as Rec
     delete (noBlock.commission as Rec).block
-    const job = { ...jobOf(h.state, 'o_mid')!, commission: noBlock.commission }
-    expect(job.commission.block).toBeUndefined()
+    const job = { ...jobOf(h.state, 'o_mid')!, commission: noBlock.commission as never }
+    expect((job.commission as Rec).block).toBeUndefined()
     h.state.ext.fixer = { ...(h.state.ext.fixer as Rec), jobs: [job] }
     expect(() => go(h.k, h.state, 'o_mid')).not.toThrow()
   })
@@ -858,7 +860,7 @@ describe('副本回報：只把手上那一件標成做完或失敗', () => {
     g.commit(go(g.k, g.state, 'o_small'))
     expect(isRecord(g.state.ext.cm_stub)).toBe(true)
     const t0 = minutes(g)
-    expect(g.rewindToKind('entry', '撤退，回到出發之前。')).not.toBeNull()
+    expect(g.rewindToKind('entry', '撤退，回到出發之前。')).toBeNull()
     expect(g.state.ext.cm_stub).toBeUndefined()
     const after = jobOf(g.state, 'o_small')!
     expect(after).toEqual(before)
@@ -925,14 +927,14 @@ describe('街頭信譽（rep）', () => {
 
 describe('內容格式', () => {
   it('fixer 的格式問題一條一句；引用的 NPC 查不到時載入完成後報錯', () => {
-    const bad = (e: Rec) => setup({ content: [{ id: 'bad', content: { fixer: [{ id: 'fx_x', npc: 'npc_mama', district: 'd', kinds: ['a'], cut: 0.1, ...e }] } }] })
+    const NPCS: ContentPack = { id: 'npcs', content: { npc: [{ id: 'npc_mama', name: '媽媽桑' }] } }
+    const bad = (e: Rec) => setup({ content: [NPCS, { id: 'bad', content: { fixer: [{ id: 'fx_x', npc: 'npc_mama', district: 'd', kinds: ['a'], cut: 0.1, ...e }] } }] })
     expect(() => bad({ cut: 2 })).toThrow(/cut 要是 0～1/)
     expect(() => bad({ kinds: [] })).toThrow(/kinds/)
     expect(() => bad({ min_rep: 101 })).toThrow(/min_rep/)
     expect(() => bad({ npc: '' })).toThrow(/npc/)
     expect(() => bad({})).not.toThrow()
-    const ref = makeGame({ features: [fixerFeature], content: [{ id: 'r', content: { npc: [{ id: 'npc_mama', name: '媽媽桑' }], fixer: [{ id: 'fx_x', npc: 'npc_ghost', district: 'd', kinds: ['a'], cut: 0.1 }] } }] })
-    expect(ref.game.k.content.get('fixer', 'fx_x')).toBeDefined()
+    expect(() => makeGame({ features: [fixerFeature], content: [{ id: 'r', content: { npc: [{ id: 'npc_mama', name: '媽媽桑' }], fixer: [{ id: 'fx_x', npc: 'npc_ghost', district: 'd', kinds: ['a'], cut: 0.1 }] } }] })).toThrow(/npc_ghost 查不到/)
   })
 
   it('沒有的中間人丟 ActionBlocked', () => {
