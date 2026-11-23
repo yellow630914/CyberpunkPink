@@ -4,8 +4,9 @@ import Dialog from '../components/Dialog.vue'
 import Tabs from '../components/Tabs.vue'
 import Hint from '../components/Hint.vue'
 import { GUIDE_LIST, GUIDE_PAGES } from '../data/content.generated'
-import { FAVORS } from '../data/roster'
 import { useGame } from '../stores/game'
+import { useEngine } from '../stores/engine'
+import { favorRows } from '../lib/peopleView'
 import { useUi } from '../stores/ui'
 
 /**
@@ -15,6 +16,9 @@ import { useUi } from '../stores/ui'
 const props = defineProps<{ entryId: number; stacked?: boolean; tab?: string }>()
 const g = useGame()
 const ui = useUi()
+const eng = useEngine()
+// 人情是引擎的（features/favors）：欠你的與你欠的
+const favors = computed(() => [...favorRows(eng.people.favors(), 'owed_to_pc', eng.people.favorName), ...favorRows(eng.people.favors(), 'owed_by_pc', eng.people.favorName)])
 const unseen = computed(() => g.guides.collected.filter(id => !g.guides.seen.includes(id)))
 const tab = ref(props.tab ?? (unseen.value.length ? 'guides' : 'notes'))
 const tabs = computed(() => [{ id: 'notes', label: '筆記' }, { id: 'guides', label: '指南', dot: unseen.value.length > 0 }])
@@ -33,7 +37,7 @@ const NOTES = [
     <section v-if="tab === 'notes'" class="row-list">
       <div class="grid2"><div v-for="n in NOTES" :key="n.t" class="lrow note"><div class="grow"><b>{{ n.t }}</b><small>{{ n.b }}</small></div></div></div>
       <p class="h mt">人情</p>
-      <div class="grid2"><div v-for="f in FAVORS" :key="f.who" class="lrow"><span class="grow"><b>{{ g.npcs[f.who]?.name ?? f.who }}</b><small>{{ f.why }}</small></span><span :class="f.dir === 'you-owe' ? 'warn-t' : 'ok-t'" class="mono">{{ f.dir === 'you-owe' ? '你欠' : '欠你' }}・{{ f.size }}</span></div></div>
+      <div class="grid2"><div v-for="f in favors" :key="f.id" class="lrow"><span class="grow"><b>{{ f.whoName }}</b><small>{{ f.note || f.when }}</small></span><span :class="f.dir === 'owed_by_pc' ? 'warn-t' : 'ok-t'" class="mono">{{ f.dir === 'owed_by_pc' ? '你欠' : '欠你' }}・{{ f.size }}</span></div><div v-if="!favors.length" class="empty-note">沒有人情的往來。</div></div>
     </section>
     <section v-else class="guides">
       <p class="h">還沒碰過的系統不列出來<Hint>紅點是收進來但還沒看的。關掉「跳出指南」之後，新的指南直接收到這裡。</Hint></p>

@@ -22,6 +22,7 @@ import { KEY_OF } from '../lib/keys'
 import HereOptions from '../components/HereOptions.vue'
 import { pressE, type HereOption } from '../lib/here'
 import { cellInfo, exitList, facilityIcons, fogOf, hereItems } from '../lib/worldView'
+import { factionOf, favorTotals, identityOf } from '../lib/peopleView'
 
 /**
  * 主畫面（UI.md 第 3 節）：左欄現在這一塊的街區圖（城市地圖是對話框，工具列「城市」或 M）、小隊、委託條；中欄工具列、紀錄、行動列；右欄這裡的人、地點、進行中。
@@ -76,8 +77,7 @@ async function runUse(id: string) {
 const ENGINE_SERVICES = ['transit', 'shop', 'rest']
 function optionsOf(f: Facility): HereOption[] {
   const svcs = (f.services ?? []).filter(s => !ENGINE_SERVICES.includes(s.action ?? '')).map((s, i) => ({ id: `svc${i}`, name: s.name, sub: s.price ? `現金 ${fmt(s.price)}` : undefined, run: () => service(s) }))
-  const talks = (f.npcIds ?? []).map(id => ({ id: `talk-${id}`, name: `和${g.npcs[id]?.name ?? id}說話`, run: () => ui.openRoot('talk', { npcId: id }) }))
-  return [...svcs, ...talks]
+  return svcs
 }
 const hereOpts = computed<HereOption[]>(() => {
   const mine: HereOption[] = hereItems(grid.value).map(i => ({ id: i.id, name: i.name, reason: i.reason, run: () => runUse(i.id), ...(i.id.startsWith('trade.shop:') ? { auto: true } : {}) }))
@@ -95,7 +95,9 @@ function goExit(x: { at: [number, number] | null }) { if (x.at) go([x.at[0], x.a
 watch(() => ride.value !== null, on => { if (on) mobileTab.value = 'map' })
 
 // ---- 這裡 ----
-const people = computed(() => (g.facility?.npcIds ?? []).map(id => g.npcs[id]))
+/** 引擎的 npcsHere：這個位置、時段與星期對得上出沒表的人；親密度與階段也是引擎的 */
+const people = computed(() => e.people.here().map(n => ({ npc: n, known: e.people.known().includes(n.id), affinity: e.people.affinity(n.id), stage: e.people.stage(n.id).name })))
+const favorTotal = computed(() => favorTotals(e.people.favors()))
 function service(s: NonNullable<Facility['services']>[number]) {
   switch (s.action) {
     case 'home': router.push('/home'); break
@@ -114,7 +116,7 @@ const tools = computed(() => [
   { id: 'bag', name: '背包', icon: 'ic-cargo' },
   { id: 'skills', name: '技能樹', icon: 'ic-sk_gun_passive' },
   { id: 'roster', name: '名冊', icon: 'ic-bs_negotiate' },
-  { id: 'relations', name: '關係', icon: 'ic-bs_seduce', badge: 1 },
+  { id: 'relations', name: '關係', icon: 'ic-bs_seduce', badge: favorTotal.value.youOwe || undefined },
   { id: 'memo', name: '備忘錄', icon: 'ic-bs_investigate', dot: guides.unseen.value.length > 0 },
   { id: 'craft', name: '組裝', icon: 'ic-tool' },
   { id: 'channel', name: '頻道', icon: 'ic-footage', badge: g.channel.events.length },
@@ -215,15 +217,15 @@ const jobLine = computed(() => (run.value ? `第 ${Math.min(run.value.stage, run
         <section class="panel cut pad here">
           <p class="h">這裡的人</p>
           <div v-if="!people.length" class="empty-note">這裡沒有認識的人。</div>
-          <div v-for="n in people" :key="n.id" class="person">
+          <div v-for="p in people" :key="p.npc.id" class="person" :data-here-person="p.npc.id">
             <div class="ava" aria-hidden="true" />
             <div>
-              <b>{{ n.name }}</b> <span class="fac-tag">{{ n.district }}</span>
-              <div class="r">{{ n.identity }}</div>
-              <div class="heart">♥ {{ n.affinity }} {{ n.stage }}</div>
+              <b>{{ p.npc.name }}</b> <span v-if="p.npc.faction" class="fac-tag">{{ factionOf(p.npc, e.people.look) }}</span>
+              <div class="r">{{ identityOf(p.npc) }}</div>
+              <div class="heart">{{ p.known ? `♥ ${p.affinity} ${p.stage}` : '還不認識' }}</div>
               <div class="acts">
-                <button type="button" class="hot" @click="ui.openRoot('talk', { npcId: n.id })">談</button>
-                <button type="button" @click="ui.openRoot('relations', { npcId: n.id })">關係</button>
+                <button type="button" class="hot" data-talk @click="ui.openRoot('talk', { npcId: p.npc.id })">談</button>
+                <button v-if="p.known" type="button" @click="ui.openRoot('relations', { npcId: p.npc.id })">關係</button>
               </div>
             </div>
           </div>
@@ -247,7 +249,7 @@ const jobLine = computed(() => (run.value ? `第 ${Math.min(run.value.stage, run
         <section class="panel cut pad">
           <p class="h">進行中</p>
           <button type="button" class="ong ongb" @click="router.push('/commission')"><span class="k2" style="background: var(--ap)">委託</span>{{ job?.title ?? '沒有進行中的委託' }}<small>{{ jobLine }}</small></button>
-          <button type="button" class="ong ongb" @click="ui.openRoot('relations', { npcId: 'npc_xiaomai' })"><span class="k2" style="background: var(--ep)">人情</span>小麥欠你 1<small>小人情</small></button>
+          <button type="button" class="ong ongb" data-favor-row @click="ui.openRoot('relations')"><span class="k2" style="background: var(--ep)">人情</span>欠你 {{ favorTotal.owedToYou }}<template v-if="favorTotal.youOwe">・<span class="warn-t">你欠 {{ favorTotal.youOwe }}</span></template><small>點開看是誰、多大</small></button>
           <button type="button" class="ong ongb" @click="ui.openRoot('bills')"><span class="k2" style="background: var(--warn)">帳單</span>{{ g.billIn }} 天後收租<small>帳戶要付 {{ fmt(billDue.money.cred.due) }}</small></button>
         </section>
       </div>
@@ -318,6 +320,7 @@ const jobLine = computed(() => (run.value ? `第 ${Math.min(run.value.stage, run
 .ong { padding: 8px 10px; background: var(--bg-2); border-radius: 10px; margin-bottom: 6px; font-size: var(--fs-ui); }
 .ong small { display: block; color: var(--ink-3); font-size: var(--fs-fine); margin-top: 2px; }
 .k2 { font-size: var(--fs-tiny); font-weight: 900; padding: 1px 6px; border-radius: 5px; margin-right: 6px; color: #17111F; }
+.warn-t { color: var(--warn); }
 .mtabs { display: none; }
 .tgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 10px; padding-top: 6px; }
 .tgrid .tool { flex-direction: column; padding: 12px 6px; justify-content: center; }

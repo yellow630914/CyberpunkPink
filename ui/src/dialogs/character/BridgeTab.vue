@@ -11,7 +11,7 @@ import type { BridgeRow } from '../../lib/skillView'
 /**
  * 角色的「橋」分頁（UI 8.3 節）：只裝已經學會的技能。容量條與「套用」的結果都是引擎的答案（stores/engine.ts 的 skills）。
  * 勾選改的是一份暫存的清單，按「套用」才提交；被引擎擋下時，那一句原因寫在最下面一行。
- * 戰鬥中、等著選戰敗時整頁唯讀（store 給原因）。調校槽、夜課、「換配置要在據點花半小時」引擎還沒有，沒有畫。
+ * 戰鬥中、等著選戰敗時整頁唯讀（store 給原因）。調校槽、夜課引擎還沒有，沒有畫。換配置能不能換（地點、委託副本）與要花幾分鐘都是引擎的（loadoutBlock、loadout_minutes），寫在最下面一行；委託副本裡整頁唯讀並寫原因。
  */
 const eng = useEngine()
 const ui = useUi()
@@ -33,8 +33,9 @@ const shown = computed(() => filterRows(rows.value, filter.value, draft.value))
 const lock = computed(() => eng.skills.lock())
 const changed = computed(() => !sameList(draft.value, mine.value.equipped))
 const refused = ref<string | null>(null)
-/** 換配置要在住處或調校診所（引擎的 loadoutBlock），換一次花半小時 */
+/** 換配置要在住處或調校診所（引擎的 loadoutBlock）；花多久是引擎的衍生數值 loadout_minutes */
 const place = computed(() => eng.skills.loadoutBlock())
+const minutes = computed(() => eng.skills.loadoutMinutes())
 const footer = computed(() => lock.value ?? refused.value ?? place.value ?? '可以換。')
 
 function toggle(r: BridgeRow) {
@@ -75,10 +76,11 @@ const barOf = (c: (typeof CATEGORIES)[number]) => capCells(cap.value[c].max, use
       <div v-if="!shown.length" class="empty-note pad" data-empty>這裡沒有學會的技能。學技能在技能樹。</div>
     </div>
     <footer class="panel cut pad ft">
-      <span class="grow k" :class="{ why: !!(lock || refused) }" data-footer>{{ footer }}</span>
+      <span class="grow k" :class="{ why: !!(lock || refused || place) }" data-footer>{{ footer }}</span>
+      <span v-if="minutes > 0" class="k mono" data-minutes>套用要花 {{ minutes }} 分鐘</span>
       <button type="button" class="btn sm" @click="ui.open('skills')">打開技能樹</button>
       <ReasonButton sm :reason="lock ?? (changed ? null : '沒有改動。')" @go="reset">還原</ReasonButton>
-      <ReasonButton pri :reason="lock ?? (changed ? null : '沒有改動。')" data-act="apply" @go="apply">套用</ReasonButton>
+      <ReasonButton pri :reason="lock ?? place ?? (changed ? null : '沒有改動。')" data-act="apply" @go="apply">套用</ReasonButton>
     </footer>
   </section>
 </template>

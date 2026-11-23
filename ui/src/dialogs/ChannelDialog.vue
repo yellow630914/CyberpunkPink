@@ -8,6 +8,7 @@ import TrackBar from '../components/TrackBar.vue'
 import ReasonButton from '../components/ReasonButton.vue'
 import GradeBadge from '../components/GradeBadge.vue'
 import { useGame } from '../stores/game'
+import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
 import { SHOWS, TIERS, GRADES, channelLevel, staffSlots, episodePreview } from '../data/channel'
 import { fmt } from '../lib/price'
@@ -71,7 +72,10 @@ const showBlock = (id: string) => {
   }
   return null
 }
-const visibleShows = computed(() => SHOWS.filter(s => !s.path || g.roster.some(r => r.paths.some(p => p.tree === s.path))))
+// 名冊是引擎的（M2-ui-people）：名冊上的人帶著哪幾條路數，節目才開得出來
+const eng = useEngine()
+const rosterTrees = computed(() => new Set(eng.people.roster().members.flatMap(m => (eng.people.npc(m.id)?.paths ?? []).map(p => eng.people.look.path(p.path)))))
+const visibleShows = computed(() => SHOWS.filter(s => !s.path || rosterTrees.value.has(s.path)))
 const blockReason = computed(() => {
   if (showBlock(showId.value)) return showBlock(showId.value)
   if (!h.value.media && mode.value === '直播' && (showId.value === 'feature' || (showId.value === 'stream' && tierId.value === 'adult'))) return '沒有媒體型技能的人開不出這種直播。'

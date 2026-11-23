@@ -1,8 +1,8 @@
 import type { Npc } from './types'
 
 /**
- * 名冊與關係（NPC_SYSTEM 第 7、10 節、FIXER 第 6 節、UI 第 13 節與 3.9 節）。人物取自 docs/world/NPCS.md，
- * 數字是這一份假存檔的狀態。灰鴿與小契是生成的行者（NPC_SYSTEM 10.7 節），不在 NPCS 裡。所有人都是成年人。
+ * 舊的假人物（NPC_SYSTEM 第 7、10 節、UI 第 13 節）：只剩舊的假存檔的 `npcs`（契約、頻道、中間人的店還在用）。
+ * 名冊、關係、人情已經是引擎的（M2-ui-people）；示意世界包的人在 data/demo/people.ts。所有人都是成年人。
  */
 const base = (n: Partial<Npc> & Pick<Npc, 'id' | 'name' | 'district' | 'age' | 'identity'>): Npc => ({
   tags: [], relation: '', affinity: 0, stage: '生', loyalty: 0, lineStage: 1, known: [], memories: [], mood: '平常', ...n,
@@ -25,37 +25,3 @@ export const MORE_NPCS: Record<string, Npc> = {
   npc_monroe: base({ id: 'npc_monroe', name: '夢露', district: '四十二番街', age: 39, identity: '四十二番街的中間人', group: '中間人', tags: ['中間人'], relation: '藍鯨的帳本是她給你的案子。', affinity: 22, stage: '熟', favor: 0 }),
   npc_fengfeng: base({ id: 'npc_fengfeng', name: '縫縫', district: '蜂巢', age: 35, identity: '地下室診所的無照改造師', group: '熟人', tags: ['改造師'], relation: '替你裝過兩件義體，收費公道。', affinity: 27, stage: '熟', favor: 1 }),
 }
-
-/** 名冊的一列（UI 第 13 節）：狀況、出場費或分紅、可靠度、忠誠。 */
-export interface RosterEntry {
-  npc: string
-  kind: '夥伴' | '行者' | '契約人'
-  /** 有空、受傷、躲風頭、欠你一次、在派工、被捕、在頻道 */
-  status: string
-  statusNote?: string
-  paths: Array<{ tree: string; tier: number }>
-  /** 強在哪個戰場 */
-  strong: '現實' | '內海' | '輿論' | '社交'
-  pay: { kind: '分紅' | '出場費' | '照契約'; amount?: number }
-  reliability: number
-  contract?: boolean
-}
-export const ROSTER_CAP = 9
-export const ROSTER: RosterEntry[] = [
-  { npc: 'npc_xiaomai', kind: '夥伴', status: '有空', paths: [{ tree: '掮客', tier: 3 }, { tree: '名媛', tier: 2 }], strong: '社交', pay: { kind: '分紅' }, reliability: 77 },
-  { npc: 'npc_ray', kind: '夥伴', status: '有空', paths: [{ tree: '掮客', tier: 3 }, { tree: '槍手', tier: 2 }], strong: '現實', pay: { kind: '分紅' }, reliability: 74 },
-  { npc: 'npc_zero', kind: '夥伴', status: '有空', paths: [{ tree: '潛網者', tier: 3 }, { tree: '改造師', tier: 1 }], strong: '內海', pay: { kind: '分紅' }, reliability: 72 },
-  { npc: 'npc_nana', kind: '夥伴', status: '有空', paths: [{ tree: '掮客', tier: 2 }, { tree: '名媛', tier: 1 }, { tree: '槍手', tier: 1 }], strong: '現實', pay: { kind: '分紅' }, reliability: 80 },
-  { npc: 'npc_jo', kind: '行者', status: '被捕', statusNote: '第七分局；保釋金 1,200', paths: [{ tree: '槍手', tier: 3 }, { tree: '機師', tier: 1 }], strong: '現實', pay: { kind: '出場費', amount: 450 }, reliability: 66 },
-  { npc: 'npc_penny', kind: '夥伴', status: '在頻道', statusNote: '頻道的製作', paths: [{ tree: '主播', tier: 2 }, { tree: '潛網者', tier: 1 }], strong: '輿論', pay: { kind: '分紅' }, reliability: 58 },
-  { npc: 'npc_huige', kind: '行者', status: '在派工', statusNote: '明天 10:00 回來', paths: [{ tree: '改造師', tier: 2 }], strong: '現實', pay: { kind: '出場費', amount: 300 }, reliability: 41 },
-  { npc: 'npc_xiaoqi', kind: '契約人', status: '有空', paths: [{ tree: '名媛', tier: 2 }], strong: '社交', pay: { kind: '照契約' }, reliability: 70, contract: true },
-]
-
-/** 人情（FIXER 第 8 節）：誰欠誰、大小、來由。 */
-export const FAVORS = [
-  { who: 'npc_xiaomai', dir: 'owes-you' as const, size: '小人情', why: '你替她付了一次義耳的訂閱。' },
-  { who: 'npc_fengfeng', dir: 'owes-you' as const, size: '小人情', why: '你替診所趕走了收保護費的人。' },
-  { who: 'npc_nana', dir: 'you-owe' as const, size: '小人情', why: '她替你在海棠樓說了一句話。' },
-  { who: 'npc_lian', dir: 'you-owe' as const, size: '中人情', why: '那一筆債，和她沒問的那件事。' },
-]

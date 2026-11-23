@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useGame } from '../stores/game'
+import { useEngine } from '../stores/engine'
+import { favorTotals } from '../lib/peopleView'
+import { computed } from 'vue'
 import { useUi, type DialogName } from '../stores/ui'
 import MoneyTag from './MoneyTag.vue'
 import Logo from './Logo.vue'
@@ -10,6 +13,8 @@ import { FULL_PAGES } from '../router'
 /** 狀態列（UI.md 3.1 節）：時間、所在、錢、帳單倒數、敵對值最高的兩個、鈴鐺、選單。全頁共用。 */
 const props = defineProps<{ title?: string; back?: boolean }>()
 const g = useGame()
+const eng = useEngine()
+const favor = computed(() => favorTotals(eng.people.favors()))
 const ui = useUi()
 const router = useRouter()
 function go(path: string) { ui.menuOpen = false; router.push(path) }
@@ -29,7 +34,7 @@ void props
     <div class="sep hide-m" />
     <div class="st hide-t"><span class="pill hot">{{ g.district.name }}</span>{{ g.loc.block }}<template v-if="g.facility">・{{ g.facility.name }}</template></div>
     <div class="sep hide-t" />
-    <div class="st money-st"><MoneyTag kind="acc" :amount="g.money.acc" /><MoneyTag kind="cash" :amount="g.money.cash" class="hide-xs" /></div>
+    <div class="st money-st"><MoneyTag kind="acc" :amount="g.money.acc" /><MoneyTag kind="cash" :amount="g.money.cash" class="hide-xs" /><MoneyTag kind="fav" :amount="favor.owedToYou" class="hide-m" data-favor-owed /><MoneyTag v-if="favor.youOwe" kind="fav" owe :amount="favor.youOwe" data-favor-owe /></div>
     <div class="st hide-m">帳單 <b>{{ g.billIn }} 天</b><Hint title="每週帳單">每週一收租日結算房租、義體訂閱、債的利息與薪水。付不起的那幾項照順序走下坡路。</Hint></div>
     <div class="st hide-t">敵對值<span v-for="[f, v] in g.topHostility" :key="f" class="hos">▲{{ f }} {{ v }}</span></div>
     <div class="grow" />

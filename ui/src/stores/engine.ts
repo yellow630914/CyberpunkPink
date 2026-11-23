@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import type { ActionInput, ContentEntry, Feature, ContentPack, ItemEntry, Actor, AttributeEntry, BattleInput, BattleMode, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, GridDir, GridView, Report, ReportDraft, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
-import { ActionBlocked, ChangeError, FakeProvider, Game, modeOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
+import { ActionBlocked, ChangeError, FakeProvider, Game, meterOf, modeOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
 import type { ActStatus, StepActions } from '@engine/src'
 import type { StepRecord } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
@@ -9,7 +9,7 @@ import { allFeatures } from '@engine/src/features'
 import { armorOf, concealment, equip as gearEquip, equipBlock as gearEquipBlock, gearOf, quickBlock, quickCapacity, scanFinds, unequip as gearUnequip, weaponOf } from '@engine/src/features/gear'
 import type { BlueprintEntry, PartEntry } from '@engine/src/features/gear'
 import type { GearLookup } from '../lib/gearView'
-import { abilitiesOf, capacityOf, applyLoadout, loadoutBlock as abilityLoadoutBlock, learn as abilityLearn, learnBlock as abilityLearnBlock, resonanceOn, treeTier, TREE_XP } from '@engine/src/features/abilities'
+import { abilitiesOf, capacityOf, applyLoadout, loadoutMinutes, loadoutBlock as abilityLoadoutBlock, learn as abilityLearn, learnBlock as abilityLearnBlock, resonanceOn, treeTier, TREE_XP } from '@engine/src/features/abilities'
 import type { AbilityEntry, PathEntry } from '@engine/src/features/abilities'
 import { acceptDefeat, chooseDefeatOption, defeatOf, defeatView, skipDefeat, watchDefeat } from '@engine/src/features/defeat'
 import type { DefeatViewInfo } from '@engine/src/features/defeat'
@@ -17,7 +17,12 @@ import { auxChance, breathe as commissionBreathe, chooseBranch, chooseFace, comm
 import type { AuxChance, CommissionView } from '@engine/src/features/commission'
 import { accept as fixerAccept, activeJobs, board as fixerBoard, borrowOption, buyIntel as fixerBuyIntel, drop as fixerDrop, go as fixerGo, goBlock as fixerGoBlock, haggle as fixerHaggle, hire as fixerHire, hireOptions as fixerHireOptions, jobOf, scout as fixerScout, scoutView as fixerScoutView, splitPreview, unhire as fixerUnhire } from '@engine/src/features/fixer'
 import type { AuxFace, BoardView, FixerEntry, HireInput, HireOption, IntelWith, Job, Offer, PayKind, ScoutView, Split } from '@engine/src/features/fixer'
-import { muster as rosterMuster, musterBlocks, rosterView } from '@engine/src/features/roster'
+import { muster as rosterMuster, musterBlocks, rosterView, recruitBlock as rosterRecruitBlock, recruitDc, recruitInput, readRoster, leave as rosterLeave, isRunner as rosterIsRunner } from '@engine/src/features/roster'
+import type { Candidate as RosterCandidate } from '@engine/src/features/roster'
+import { affinityStage, doneToday, editMemory, forgetMemory, interactInput, interactions, memoriesOf, meetNpc, newsOf, npcOf, npcsHere, readNpcs, recall, relationOf, successChance, watchNpc } from '@engine/src/features/npcs'
+import type { InteractExtra, InteractKind, InteractionView, Memory, MemoryPatch, NewsItem, Npc, Relation, StageView } from '@engine/src/features/npcs'
+import { call as favorCall, favorsOf, spend as favorSpend, spendBlock as favorSpendBlock } from '@engine/src/features/favors'
+import type { FavorsState } from '@engine/src/features/favors'
 import { exploreFeature, unlock as exploreUnlock } from '@engine/src/features/explore'
 import type { GridKernel } from '@engine/src'
 import { ratingOf, sceneAct, sceneNext, sceneOf, sceneOptions, sceneRules, sceneSkip, sceneView, setSceneMode, sceneModeOf } from '@engine/src/features/scene'
@@ -39,7 +44,7 @@ import { jobsHere, shift as workShift } from '@engine/src/features/work'
 import type { JobView } from '@engine/src/features/work'
 import { breathBlock, breathDraft, homeOf, leaveBlock, leaveDraft, readRest, rentBlock, rentDraft, restRules, sleepBlock, sleepDraft, sleepOptions } from '@engine/src/features/rest'
 import type { Level, ResidenceEntry, SleepOption, SleepSpotId } from '@engine/src/features/rest'
-import { DEMO_SCENES, demoPack, demoSceneChanges, demoStartFeature } from '../data/demo'
+import { DEMO_SCENES, demoCoreWithoutPeople, demoPack, demoSceneChanges, demoStartFeature } from '../data/demo'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
 import { ageBlock, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
 import { debriefOf } from '../lib/scene/sceneView'
@@ -63,7 +68,7 @@ export const useEngine = defineStore('engine', () => {
   // 開局站在哪（示意包的起點）是 game.new 掛點給的變更（demoStartFeature），不另開一份報告，所以紀錄一開始是空的。
   // 成人場景的模式（設定 scene_mode，預設精簡；下一場生效）：每個新建的引擎都套上現在的設定
   let sceneModeNow: SceneMode = 'simple'
-  const build = (extra: ContentPack[] = [], demo = true, features: Feature[] = []): Game => withSceneMode(new Game({ features: [...allFeatures(), ...(demo ? [demoStartFeature()] : []), ...features], content: [CORE_PACK, ...(demo ? [demoPack()] : []), ...extra], fakeProvider: new FakeProvider() }))
+  const build = (extra: ContentPack[] = [], demo = true, features: Feature[] = []): Game => withSceneMode(new Game({ features: [...allFeatures(), ...(demo ? [demoStartFeature()] : []), ...features], content: [...(demo ? [demoCoreWithoutPeople(CORE_PACK), demoPack()] : [CORE_PACK]), ...extra], fakeProvider: new FakeProvider() }))
   const withSceneMode = (g: Game): Game => { setSceneMode(g.k, sceneModeNow); return g }
   let game = build()
 
@@ -529,6 +534,8 @@ export const useEngine = defineStore('engine', () => {
     /** 整份換掉裝著的清單；引擎擋下就回傳原因（狀態不動） */
     /** 現在換不換得了配置（要在住處或調校診所、不在副本）：引擎的原因，可以換是 null */
     loadoutBlock: (): string | null => { void state.value; return game.state.pc === null ? NO_PC : game.blockOf('commit:ability.loadout') ?? abilityLoadoutBlock(game.k, game.state, game.state.pc) },
+    /** 換一次配置要花幾分鐘（引擎的衍生數值 loadout_minutes）；沒有主角是 0 */
+    loadoutMinutes: (): number => { void state.value; return game.state.pc === null ? 0 : loadoutMinutes(game.k, game.state, game.state.pc) },
     /** 套用一整組（引擎的 applyLoadout：花半小時、地點與容量由引擎檢查）；擋下時回傳原因 */
     equip: (ids: string[]): string | null => commitGear((pc) => applyLoadout(game.k, game.state, pc, ids)),
   }
@@ -788,5 +795,93 @@ export const useEngine = defineStore('engine', () => {
     leave: () => commitDrafts(() => leaveDraft(game.k, game.state), '退租'),
   }
 
-  return { state, world, transit, event, fixer, commission, scene, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+
+  // ---- 人（M2-ui-people）：全部轉接 features/npcs、roster、favors、abilities，畫面不算 DC、成功率、親密度的階段、容量 ----
+  /** 查內容的名字（顯示用，不是規則） */
+  const nameIn = (kind: string, id: string): string => game.k.content.get<{ id: string; name?: string; short?: string }>(kind, id)?.name ?? id
+  const peopleLook = {
+    tag: (id: string): string => nameIn('tendency_tag', id),
+    faction: (id: string): string => game.k.content.get<{ id: string; short?: string; name?: string }>('faction', id)?.short ?? nameIn('faction', id),
+    path: (id: string): string => nameIn('path', id),
+    item: (id: string): string => nameIn('item', id),
+    place: (loc: { district?: string; block?: string; facility?: string }): string => placeName(loc),
+  }
+  const people = {
+    look: peopleLook,
+    /** 這個位置、時段與星期對得上出沒表的人（引擎的 npcsHere） */
+    here: (): Npc[] => { void state.value; return npcsHere(game.k, game.state) },
+    npc: (id: string): Npc | null => { void state.value; return npcOf(game.k, game.state, id) ?? null },
+    /** 認識的人（有關係條目）的 id */
+    known: (): string[] => { void state.value; return Object.keys(readNpcs(game.state).rel).sort() },
+    rel: (id: string): Relation | null => { void state.value; return relationOf(game.state, id) ?? null },
+    affinity: (id: string): number => { void state.value; return meterOf(game.k, game.state, 'affinity', id) },
+    stage: (id: string): StageView => { void state.value; return affinityStage(meterOf(game.k, game.state, 'affinity', id)) },
+    /** 忠誠（名冊上的人才有意義；不在名冊上是 null） */
+    loyalty: (id: string): number | null => { void state.value; return Object.hasOwn(readRoster(game.state).members, id) ? meterOf(game.k, game.state, 'loyalty', id) : null },
+    /** 對這個人每一種互動：能不能做、原因、DC 與成功率（引擎的 interactions） */
+    interactions: (id: string): InteractionView[] => { void state.value; return interactions(game.k, game.state, id) },
+    /** 這個人今天做過哪些互動（引擎的 doneToday：chat、gift、ask_small…） */
+    done: (id: string): string[] => { void state.value; return doneToday(game.state, id) },
+    /** 送出一個互動（主動行動：先擲骰再判定）；被擋下的原因是引擎的 */
+    interact: (kind: InteractKind, id: string, extra: InteractExtra = {}): Promise<ActOutcome> => {
+      try {
+        return act(interactInput(game.k, game.state, kind, id, extra))
+      } catch (e) {
+        return Promise.resolve({ status: 'refused', reason: reasonOf(e) ?? '現在做不了。' })
+      }
+    },
+    /** 還不認識的人在這裡：先認識他（引擎的 meetNpc） */
+    meet: (id: string) => commitDrafts(() => meetNpc(game.k, game.state, id), '認識'),
+    watch: (id: string, on: boolean) => commitDrafts(() => watchNpc(game.k, game.state, id, on), on ? '關注' : '取消關注'),
+    /** 共同記憶：這個人的（照引擎的檢索取前幾筆，沒給 limit 就是引擎的預設）或全部 */
+    recall: (id: string, limit?: number): Memory[] => {
+      void state.value
+      const l = game.state.location
+      return recall(game.k, game.state, { who: id, where: { ...(l.district ? { district: l.district } : {}), ...(l.block ? { block: l.block } : {}), ...(l.facility ? { facility: l.facility } : {}) }, ...(limit !== undefined ? { limit } : {}) })
+    },
+    memoriesOf: (id: string): Memory[] => { void state.value; return memoriesOf(game.state).filter((m) => m.who.includes(id)) },
+    editMemory: (id: string, patch: MemoryPatch) => commitDrafts(() => editMemory(game.k, game.state, id, patch), '改記憶'),
+    forgetMemory: (id: string) => commitDrafts(() => forgetMemory(game.k, game.state, id), '刪記憶'),
+    news: (id: string): NewsItem[] => { void state.value; return newsOf(game.state, id) },
+    /** 和這個人的互動紀錄（引擎的報告，照時間，最新的在最下面） */
+    talkLog: (id: string, limit = 12): EngineLogEntry[] => {
+      void state.value
+      return game.state.reports.filter((r) => r.args?.target === id && r.action !== 'ui.legacy').slice(-limit)
+        .map((r) => logEntryOf(r, (c: Change[]) => game.k.changes.describe(game.state, c), placeName))
+    },
+    /** 名冊：容量、成員（出場費、忠誠、有空沒有）、候選人、同行 */
+    roster: () => { void state.value; return rosterView(game.k, game.state) },
+    isRunner: (id: string): boolean => { void state.value; return rosterIsRunner(game.state, id) },
+    /** 招募：現在能不能（引擎的原因）、DC 與每一條來源、成功率 */
+    recruitInfo: (id: string): { block: string | null; dc: number; mods: Array<{ label: string; value: number }>; chance: number | null } => {
+      void state.value
+      const block = rosterRecruitBlock(game.k, game.state, id)
+      const d = recruitDc(game.k, game.state, id)
+      const def = game.k.actions.get('npc_recruit')
+      const input = { kind: 'npc_recruit', target: id }
+      let chance: number | null = null
+      try { chance = def ? successChance(game.k, game.state, def, input, d.dc) : null } catch { chance = null }
+      return { block, dc: d.dc, mods: d.mods, chance }
+    },
+    recruit: (id: string): Promise<ActOutcome> => {
+      try {
+        return act(recruitInput(game.k, game.state, id))
+      } catch (e) {
+        return Promise.resolve({ status: 'refused', reason: reasonOf(e) ?? '現在招募不了。' })
+      }
+    },
+    /** 把成員拿出名冊（引擎的 leave） */
+    removeMember: (id: string) => commitDrafts(() => rosterLeave(game.state, id, 'removed'), '拿出名冊'),
+    /** 這個人是候選人嗎（候選人名單的列） */
+    candidates: (): RosterCandidate[] => { void state.value; return readRoster(game.state).candidates },
+    /** 人情：欠你的與你欠的（引擎的 favorsOf） */
+    favors: (): FavorsState => { void state.value; return favorsOf(game.state) },
+    favorName: (who: string): string => game.state.actors[who]?.name ?? nameIn('npc', who) ?? nameIn('faction', who),
+    favorUseBlock: (id: string): string | null => { void state.value; return favorSpendBlock(game.k, game.state, { id }) },
+    favorUse: (id: string) => commitDrafts(() => favorSpend(game.k, game.state, { id }), '用掉人情'),
+    /** 被討：答應（do）或回絕（refuse） */
+    favorAnswer: (id: string, answer: 'do' | 'refuse') => commitDrafts(() => favorCall(game.k, game.state, id, answer), answer === 'do' ? '答應' : '回絕'),
+  }
+
+  return { state, world, transit, people, event, fixer, commission, scene, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })
