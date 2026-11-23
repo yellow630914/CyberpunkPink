@@ -164,6 +164,9 @@
 | `npc_theo_mensah` | 西奧（館主） | 第 6 節 |  |
 | `npc_saya` | 梶原沙耶（局長） | 第 6 節 |  |
 | `npc_runa` | 水城瑠奈（金盞花） | 第 6 節 |  |
+| `npc_pudding` | 布丁（Pudding） | 第 6 節 |  |
+| `npc_nagi` | 凪（Nagi） | 第 6 節 |  |
+| `npc_dolly` | 多莉（Dolly） | 第 6 節 |  |
 | `npc_crow` | 老鴉（拆體客的具名精英） | [QUESTS](../content/QUESTS.md) | ✓ |
 | `npc_shirayuri` | 白百合（鎮溺隊越線的隊員） | [QUESTS](../content/QUESTS.md) | ✓ |
 
