@@ -125,7 +125,7 @@ const FIXER: Rec[] = [
     },
   }),
   f('sk_fixer_block', 2, 'reaction', { name: '擋', use: { meat: { favor: 'small', per_fight: 2 } }, meat: { trigger: { on: 'hit', who: 'ally', if: 'wound' }, react: { no_wound: true } } }),
-  f('sk_fixer_black_market', 2, 'passive', { name: '黑市門路', meat: { on_start: [{ op: 'mag', who: 'pick:mate', amount: 1, over_cap: true }] } }),
+  f('sk_fixer_black_market', 2, 'passive', { name: '黑市門路', meat: { on_start: [{ op: 'pick_random', key: 'mate', from: 'ally' }, { op: 'mag', who: 'pick:mate', amount: 1, over_cap: true }] } }),
   f('sk_fixer_bribe', 3, 'active', {
     name: '收買', use: { meat: { ap: 2, cash: 'grade*500', per_fight: 1 } },
     meat: { target: 'enemy', needs: { no_rank: ['boss'] }, do: [{ op: 'status', status: 'lose_turn' }] },
@@ -384,12 +384,14 @@ describe('戰鬥直覺：開戰分配、重分配、每項上限（SKILL_TREES �
     expect(fitAlloc({ initiative: 9, hit: 0, evade: 0 }, 9, 3)).toEqual({ initiative: 3, hit: 0, evade: 0 })
   })
 
-  it('2 階的人有 2 點：沒選就是預設（2 點都給命中）；自己選的先攻、命中、迴避各多對的數字', () => {
+  it('2 階的人有 2 點：沒選就是隨機分（總共 2 點、每項不超過 3 點）；自己選的先攻、命中、迴避各多對的數字', () => {
     const plain = field(instinctIds, { tiers: { gunner: 2 } })
-    expect(modsOf(plain, 'hit', 'a1').map((p) => [p.label, p.value])).toEqual([['戰鬥直覺', 2]])
-    expect(modsOf(plain, 'evade', 'a1')).toEqual([])
-    expect(modsOf(plain, 'initiative', 'a1')).toEqual([])
-    // 預設只給有裝戰鬥直覺的人；隊友沒有
+    const alloc = plain.ally(1).ext.instinct as Rec
+    expect((alloc.initiative as number) + (alloc.hit as number) + (alloc.evade as number)).toBe(2)
+    expect(modsOf(plain, 'hit', 'a1').reduce((n, p) => n + p.value, 0)).toBe(alloc.hit)
+    expect(modsOf(plain, 'evade', 'a1').reduce((n, p) => n + p.value, 0)).toBe(alloc.evade)
+    expect(modsOf(plain, 'initiative', 'a1').reduce((n, p) => n + p.value, 0)).toBe((alloc.initiative as number) * 3)
+    // 只給有裝戰鬥直覺的人；隊友沒有
     expect(modsOf(plain, 'hit', 'a2')).toEqual([])
 
     const chosen = field(instinctIds, { tiers: { gunner: 2 }, allies: [me(instinctIds, { ext: { ...equip(instinctIds, { gunner: 2 }), instinct: { initiative: 1, hit: 0, evade: 1 } } }), one({ weapon: 'pistol' }, 2)] })
@@ -408,23 +410,13 @@ describe('戰鬥直覺：開戰分配、重分配、每項上限（SKILL_TREES �
     expect(withInstinct.ally(1).initiative - base.ally(1).initiative).toBe(9)
   })
 
-  it('玩家開打前選的（角色的 preset）會用上；選的超過點數、超過每項上限的，夾回合法的', () => {
-    const owner = (instinct: Rec) => ({ pc: { ext: { abilities: { xp: 0, learned: ['sk_gunner_instinct'], equipped: ['sk_gunner_instinct'], spent: { gunner: 120 }, preset: { instinct } } } } })
-    const start = (instinct: Rec) => {
-      const game = makeGame({ features: FEATURES, content: [pack()], ...owner(instinct) }).game
-      game.startBattle(duel([one({ actor: 'pc', weapon: 'pistol' } as never)], [idle()]))
-      return game
-    }
-    const game = start({ initiative: 0, hit: 1, evade: 2 })
+  it('舊存檔裡角色的 preset 不再讀：開戰時一律是隨機分（總數是階數的點數、每項不超過 3 點）', () => {
+    const game = makeGame({ features: FEATURES, content: [pack()], pc: { ext: { abilities: { xp: 0, learned: ['sk_gunner_instinct'], equipped: ['sk_gunner_instinct'], spent: { gunner: 120 }, preset: { instinct: { initiative: 0, hit: 1, evade: 2 } } } } } }).game
+    game.startBattle(duel([one({ actor: 'pc', weapon: 'pistol' } as never)], [idle()]))
+    const alloc = game.state.battle!.units.a1!.ext.instinct as Rec
     // 120 點歷練 = 3 階 = 3 點
-    expect(game.state.battle!.units.a1!.ext.instinct).toEqual({ initiative: 0, hit: 1, evade: 2 })
-    // 學、裝的報告不會丟掉開打前的選擇
-    expect((game.state.actors.pc!.ext.abilities as Rec).preset).toEqual({ instinct: { initiative: 0, hit: 1, evade: 2 } })
-    // 一共 9 點、每項 3 點：超過 3 點的夾回 3、總數超過的從迴避、命中、先攻依序減
-    const over = start({ initiative: 3, hit: 3, evade: 3 })
-    const run = new BattleRun(over.k, over.state, over.state.battle!)
-    const r = run.mods('hit', run.unit('a1')).concat(run.mods('evade', run.unit('a1')), run.mods('initiative', run.unit('a1')))
-    expect(r.map((p) => [p.label, p.value])).toEqual([['戰鬥直覺', 0], ['戰鬥直覺', 0], ['戰鬥直覺', 9]].filter((x) => x[1] !== 0))
+    expect(Object.values(alloc).reduce((n: number, v) => n + (v as number), 0)).toBe(3)
+    expect(Object.values(alloc).every((v) => (v as number) >= 0 && (v as number) <= 3)).toBe(true)
   })
 
   it('重分配：花 1 行動點、每回合一次（第二次灰掉，原因是完整的句子）；每一項最多 3 點；總數不能超過點數', () => {
@@ -435,8 +427,8 @@ describe('戰鬥直覺：開戰分配、重分配、每項上限（SKILL_TREES �
     expect(o.picks.map((p) => [p.key, p.label, p.required, p.options.map((x) => x.value)])).toEqual([
       ['initiative', '先攻', true, [0, 1, 2, 3]], ['hit', '命中', true, [0, 1, 2, 3]], ['evade', '迴避', true, [0, 1, 2, 3]],
     ])
-    // 4 階 = 4 點：開戰時預設 1／2／1
-    expect(a1.ext.instinct).toEqual({ initiative: 1, hit: 2, evade: 1 })
+    // 4 階 = 4 點：開戰時隨機分
+    expect(Object.values(a1.ext.instinct as Rec).reduce((n: number, v) => n + (v as number), 0)).toBe(4)
     // 每一項最多 3 點，超過的選項根本沒有；硬送也擋下
     expect(tryAct(game, { action: 'sk_gunner_instinct.realloc', pick: { initiative: 4, hit: 0, evade: 0 } })?.[0]).toBe('先攻要是 0～3 點的整數（每一項最多 3 點）。')
     // 總數超過點數
@@ -459,11 +451,11 @@ describe('戰鬥直覺：開戰分配、重分配、每項上限（SKILL_TREES �
 
   it('共鳴 5（點數 +1）：5 階的人有 6 點；沒到 5 階的共鳴不算', () => {
     const five = field(instinctIds, { tiers: { gunner: 5 } })
-    // 6 點 → 預設每項 2
-    expect(five.ally(1).ext.instinct).toEqual({ initiative: 2, hit: 2, evade: 2 })
-    expect(modsOf(five, 'initiative', 'a1')[0]!.value).toBe(6)
+    // 6 點隨機分（每項最多 3 點）
+    const sum = (a: Arena) => Object.values(a.ally(1).ext.instinct as Rec).reduce((n: number, v) => n + (v as number), 0)
+    expect(sum(five)).toBe(6)
     const four = field(instinctIds, { tiers: { gunner: 4 } })
-    expect(four.ally(1).ext.instinct).toEqual({ initiative: 1, hit: 2, evade: 1 })
+    expect(sum(four)).toBe(4)
   })
 
   it('心流：三個回合點數 +2、每一項上限 5、重分配不花行動點（每回合還是一次）；結束之後夾回', () => {
@@ -471,7 +463,7 @@ describe('戰鬥直覺：開戰分配、重分配、每項上限（SKILL_TREES �
     turnTo(game, 'a1')
     expect(game.battleAct({ action: 'sk_gunner_flow' }).status).toBe('applied')
     // 開戰時的分配不變（多出來的 2 點等玩家重分配才用）
-    expect(unit(game, 'a1').ext.instinct).toEqual({ initiative: 1, hit: 2, evade: 1 })
+    expect(Object.values(unit(game, 'a1').ext.instinct as Rec).reduce((n: number, v) => n + (v as number), 0)).toBe(4)
     const o = opt(game, 'sk_gunner_instinct.realloc')
     expect(o.cost).toEqual({ ap: 0 })
     expect(o.picks[0]!.options.map((x) => x.value)).toEqual([0, 1, 2, 3, 4, 5])
@@ -1199,22 +1191,21 @@ describe('擋、保釋、大局、全城欠我、黑市門路', () => {
     expect(opt(game, 'sk_fixer_city_owes_me').blocks.join('')).toContain('只能在第一回合用')
   })
 
-  it('黑市門路：開戰時，你指定的一名隊友彈匣多一格，可以超過容量；沒有指定就沒有效果', () => {
+  it('黑市門路：開戰時，隨機一名隊友彈匣多一格，可以超過容量；自己不算，沒有隊友就沒有效果', () => {
     const ids = ['sk_fixer_face', 'sk_fixer_black_market']
-    const owner = (picks?: Rec) => ({ pc: { ext: { abilities: { xp: 0, learned: ids, equipped: ids, spent: { fixer: 120 }, ...(picks ? { preset: { picks } } : {}) } } } })
-    const start = (picks?: Rec) => {
-      const game = makeGame({ features: FEATURES, content: [pack()], ...owner(picks) }).game
-      game.startBattle(duel([one({ actor: 'pc', weapon: 'pistol' } as never), one({ weapon: 'pistol', actor: 'mate' } as never, 2), one({ weapon: 'pistol' } as never, 3)], [idle()]))
+    const owner = { pc: { ext: { abilities: { xp: 0, learned: ids, equipped: ids, spent: { fixer: 120 } } } } }
+    const start = (mates: number) => {
+      const game = makeGame({ features: FEATURES, content: [pack()], ...owner }).game
+      game.startBattle(duel([one({ actor: 'pc', weapon: 'pistol' } as never), ...Array.from({ length: mates }, (_, i) => one({ weapon: 'pistol' } as never, i + 2))], [idle()]))
       return game
     }
-    const withMate = start({ mate: 'a2' })
-    expect(withMate.state.battle!.units.a2!.weapons[0]!.mag).toEqual({ now: 3, max: 2 })
-    expect(withMate.state.battle!.units.a3!.weapons[0]!.mag).toEqual({ now: 2, max: 2 })
-    expect(withMate.state.battle!.units.a1!.weapons[0]!.mag).toEqual({ now: 2, max: 2 })
-    // 用角色 id 指定也可以
-    const byActor = start({ mate: 'mate' })
-    expect(byActor.state.battle!.units.a2!.weapons[0]!.mag!.now).toBe(3)
-    expect(start().state.battle!.units.a2!.weapons[0]!.mag!.now).toBe(2)
+    const mags = (game: ReturnType<typeof start>) => ['a1', 'a2', 'a3'].map((id) => game.state.battle!.units[id]?.weapons[0]!.mag?.now)
+    const g = start(2)
+    // 兩個隊友裡有一個 3 格，另一個和自己照舊
+    expect(mags(g)[0]).toBe(2)
+    expect(mags(g).filter((n) => n === 3)).toHaveLength(1)
+    // 沒有隊友：沒有效果
+    expect(mags(start(0))[0]).toBe(2)
   })
 })
 

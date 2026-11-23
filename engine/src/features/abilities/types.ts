@@ -272,7 +272,7 @@ export interface MeatDef {
   alter?: AlterEntry[]
   /** 保釋：裝著的人在隊上時，全隊倒下的戰敗事件多一個「被贖回」，付這個數字的現金（公式，例 'grade*1000'） */
   ransom?: { cash: number | string }
-  /** 開戰時做一次（黑市門路；指定的隊友從開打前的指定來，見 AbilityState.preset.picks） */
+  /** 開戰時做一次（黑市門路；要指定誰的一律隨機：先 pick_random 再 who: 'pick:<key>'） */
   on_start?: Array<Record<string, unknown>>
   /** 姿態開著時，指揮把行動點讓給一名隊友之後對他做的效果（號令） */
   on_give_ap?: Array<Record<string, unknown>>
@@ -377,16 +377,12 @@ export interface AbilityState {
   commission?: Record<string, Record<string, number>>
   /** 預備好的（dev/adr/0015 E4） */
   prepared?: PreparedEntry[]
-  /** 開打前的指定（開打時才讀；沒有就用預設）：戰鬥直覺的分配、黑市門路指定的隊友 */
-  preset?: { instinct?: { initiative: number; hit: number; evade: number }; picks?: Record<string, string> }
 }
 
 /** 戰鬥裡每個單位的資料（unit.ext.abilities）。 */
 export interface UnitAbilities {
   equipped: string[]
   tiers: Record<string, number>
-  /** 開打前的指定（黑市門路指定的隊友：鍵 → 隊友的角色 id 或單位 id） */
-  picks?: Record<string, string>
 }
 
 /** 一段時間的修正（buff 這個效果掛的）：到期時做 on_end。 */

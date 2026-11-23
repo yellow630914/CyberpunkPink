@@ -18,7 +18,7 @@ import { startPrep, bringPrep } from './prep'
 import { suppressAfter } from './suppress'
 import { bumpUses, costOf, setupResources, spentRam, usageBlocks, useOf } from './use'
 import { teaseEntry } from './social'
-import type { AbilityEntry, AbilityState, MeatDef, PathEntry, PickDecl, UnitAbilities } from './types'
+import type { AbilityEntry, MeatDef, PathEntry, PickDecl, UnitAbilities } from './types'
 import { OWNER } from './types'
 import { equippedOf, hasAbility, isRec, tierIn, unitAbilities } from './unitdata'
 
@@ -595,8 +595,7 @@ export function registerBattle(k: Kernel): void {
       const r = isRec(mine) ? mine : {}
       const tiers: Record<string, number> = {}
       if (isRec(r.spent)) for (const [path, v] of Object.entries(r.spent)) if (typeof v === 'number') tiers[path] = treeTierOf(v)
-      const preset = isRec(r.preset) ? (r.preset as NonNullable<AbilityState['preset']>) : undefined
-      unit.ext.abilities = { equipped: Array.isArray(r.equipped) ? r.equipped.filter((x) => typeof x === 'string') : [], tiers, ...(preset?.picks ? { picks: { ...preset.picks } } : {}) } satisfies UnitAbilities
+      unit.ext.abilities = { equipped: Array.isArray(r.equipped) ? r.equipped.filter((x) => typeof x === 'string') : [], tiers } satisfies UnitAbilities
     }
     applyPassives(run, unit)
     setupResources(run, unit)

@@ -49,9 +49,9 @@ const rolls = (run: { beats: Array<{ roll?: { natural: number; dc: number; parts
 const f = (id: string): BattleTarget => ({ unit: id })
 
 describe('登錄：這張清單上的 op 都由 combat 註冊，每個都帶格式檢查', () => {
-  it('二十六個 op 都查得到、owner 是 combat；舊的五個道具效果（heal、cleanse、afterglow、vent、soft_cover）在同一張表上', () => {
+  it('二十七個 op 都查得到、owner 是 combat；舊的五個道具效果（heal、cleanse、afterglow、vent、soft_cover）在同一張表上', () => {
     const a = three()
-    const ops = ['attack', 'strike', 'damage', 'load', 'heal', 'vent', 'afterglow', 'status', 'unstatus', 'cleanse', 'soft_cover', 'check', 'shift', 'move', 'swap', 'cover', 'ap', 'mag', 'pool', 'implant', 'revive', 'wound', 'out', 'field', 'order', 'sink']
+    const ops = ['attack', 'strike', 'damage', 'load', 'heal', 'vent', 'afterglow', 'status', 'unstatus', 'cleanse', 'soft_cover', 'check', 'shift', 'move', 'swap', 'cover', 'ap', 'mag', 'mag_cap', 'pool', 'implant', 'revive', 'wound', 'out', 'field', 'order', 'sink']
     for (const op of ops) expect(a.k.battle.getEffect(op), op).toMatchObject({ op, owner: 'combat' })
     for (const op of ops) expect(a.k.battle.getEffect(op)!.problems, op).toBeTypeOf('function')
     // 另外有兩個是 M1b-ordnance 註冊的（投擲物 throw、立牌 decoy），也是 combat 的

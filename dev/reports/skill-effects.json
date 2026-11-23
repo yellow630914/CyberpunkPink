@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-22",
+ "generated": "2026-11-22（2026-11-23 更新：M1b-random-picks）",
  "effects": [
   {
    "op": "attack",
@@ -151,7 +151,9 @@
     "sk_fixer_bribe",
     "sk_fixer_hit_him",
     "sk_fixer_lets_talk",
-    "sk_fixer_city_owes_me"
+    "sk_fixer_city_owes_me",
+    "sk_fixer_prep",
+    "sk_fixer_intel_net"
    ]
   },
   {
@@ -263,7 +265,8 @@
    "usedBy": [
     "sk_rewrite",
     "sk_lockdown",
-    "sk_admin"
+    "sk_admin",
+    "sk_fixer_prep"
    ]
   },
   {
@@ -292,6 +295,44 @@
    "usedBy": [
     "sk_fixer_proxy",
     "sk_fixer_black_market"
+   ]
+  },
+  {
+   "op": "mag_cap",
+   "owner": "combat",
+   "desc": "手上武器的彈匣容量加 amount 格，最多到 max（預設與上限都是 4）；多出來的那一格是裝滿的（幫槍槍保養）。沒有彈匣的武器與已經到上限的沒有效果。",
+   "params": [
+    "amount",
+    "max"
+   ],
+   "usedBy": [
+    "sk_gunner_gun_care"
+   ]
+  },
+  {
+   "op": "pick_random",
+   "owner": "abilities",
+   "desc": "開打前要「指定」的東西一律隨機：在 from（ally 隊友不含自己、member 我方每個人、foe 敵人、minion 敵方雜兵）的在場的人裡隨機挑一個，記進這一串效果的 pick[key]，後面的效果用 who: pick:<key> 落在他身上；挑不出人就把那個 pick 拿掉，後面的效果跳過。亂數是 deriveRng(state.rng, battle/<戰鬥>/<技能>/<單位>/<key>)。",
+   "params": [
+    "key",
+    "from"
+   ],
+   "usedBy": [
+    "sk_fixer_prep",
+    "sk_fixer_black_market",
+    "sk_fixer_intel_net"
+   ]
+  },
+  {
+   "op": "one_of",
+   "owner": "abilities",
+   "desc": "選項裡隨機挑一種做它的 do（戰前佈置的三選一）；選項裡的 pick_random 挑不出人的那一種不算，都不算就什麼都不做。",
+   "params": [
+    "key",
+    "options"
+   ],
+   "usedBy": [
+    "sk_fixer_prep"
    ]
   },
   {
@@ -524,7 +565,8 @@
     "sk_fixer_hit_him",
     "sk_fixer_all_out",
     "sk_fixer_hold_the_line",
-    "sk_fixer_command"
+    "sk_fixer_command",
+    "sk_fixer_prep"
    ]
   },
   {
@@ -816,7 +858,9 @@
    "kind": "initiative",
    "owner": "core",
    "desc": "先攻加減。",
-   "usedBy": []
+   "usedBy": [
+    "sk_fixer_intel_net"
+   ]
   },
   {
    "kind": "ap_regen",
@@ -1017,7 +1061,8 @@
    "desc": "叫人每場的次數加減（派工網、人脈）。",
    "usedBy": [
     "sk_fixer_dispatch_net",
-    "sk_fixer_connections"
+    "sk_fixer_connections",
+    "sk_fixer_prep"
    ]
   },
   {
@@ -2119,7 +2164,9 @@
     "sk_gunner_next_one",
     "sk_pilot_ram_in",
     "sk_fixer_black_market",
-    "sk_fixer_city_owes_me"
+    "sk_fixer_city_owes_me",
+    "sk_fixer_prep",
+    "sk_fixer_intel_net"
    ]
   },
   {
@@ -2529,7 +2576,7 @@
   },
   {
    "key": "prep",
-   "desc": "預備（kind: prep）：{ slot, scope: next_battle|commission, meat: { mods?, do? } }，下一場現實戰鬥帶進去。",
+   "desc": "預備（kind: prep）：{ slot（0 是不花時段）, scope: next_battle|commission, meat: { mods?, do? } }，下一場現實戰鬥帶進去。",
    "usedBy": [
     "sk_gunner_gun_care",
     "sk_pilot_overhaul",
@@ -2632,11 +2679,11 @@
      "tier": 1,
      "kind": "signature",
      "status": "done",
-     "text": "每場戰鬥開始時，把和這棵樹已開的階數一樣多的點數，分到先攻、命中、迴避三項；每 1 點是先攻 +3、命中 +1 或迴避 +1，每一項最多 3 點。戰鬥中每回合可以花 1 行動點重分配一次。",
+     "text": "每場戰鬥開始時，把和這棵樹已開的階數一樣多的點數，隨機分到先攻、命中、迴避三項；每 1 點是先攻 +3、命中 +1 或迴避 +1，每一項最多 3 點。戰鬥中每回合可以花 1 行動點，自己重新分配一次。",
      "keys": [
       "meat.instinct"
      ],
-     "note": "招牌（meat.instinct）：開戰分配點數、戰鬥中每回合花 1 行動點重分配；引擎讀 preset.instinct，但開打前的指定還沒有報告與介面寫入。"
+     "note": "招牌（meat.instinct）：開戰時點數隨機分配（deriveRng，同種子同結果、每項不超過上限）、戰鬥中每回合花 1 行動點自己重分配。2026-11-23 起不再讀開打前的指定（preset）。"
     },
     {
      "id": "sk_gunner_aimed_shot",
@@ -2783,12 +2830,13 @@
      "name": "幫槍槍保養",
      "tier": 2,
      "kind": "prep",
-     "status": "missing",
+     "status": "done",
      "text": "—",
      "keys": [
+      "mag_cap",
       "prep"
      ],
-     "note": "預備的效果（主武器彈匣容量 +1、最多 4 格）寫不出來：資料只有說明文字、沒有 prep.meat，格式也沒有改彈匣容量上限的修正；表格現實欄是「—」，效果寫在預備段。"
+     "note": "下一場現實戰鬥主武器的彈匣容量 +1（最多 4 格，多的那一格裝滿），用掉就清；prep.slot 1、scope next_battle。「進副本前或兩個階段之間」的時機不另外限制。（M1b-random-picks）"
     },
     {
      "id": "sk_gunner_pierce",
@@ -5077,13 +5125,20 @@
      "name": "戰前佈置",
      "tier": 1,
      "kind": "prep",
-     "status": "missing",
+     "status": "done",
      "text": "—",
      "keys": [
+      "buff",
+      "cover",
+      "one_of",
+      "pick_random",
       "prep",
-      "use.per_fight"
+      "status",
+      "use.per_fight",
+      "who.pick",
+      "who.self"
      ],
-     "note": "預備三選一（藏貨、安排人、打點）要玩家選，但預備沒有 pick，寫不出來；資料只有說明文字，內海的兩選一版屬 M3。"
+     "note": "開打時隨機一種：藏貨（隨機一名隊友的那一格遮蔽 +1）、安排人（call_uses +1，整場）、打點（隨機一名雜兵第一回合壓制；敵方沒有雜兵時不抽這一種）；prep.slot 0（不花時段）。內海的兩選一屬 M3，「每個階段可以用一次」沒有限制。（M1b-random-picks）"
     },
     {
      "id": "sk_fixer_swap",
@@ -5194,14 +5249,15 @@
      "tier": 2,
      "kind": "passive",
      "status": "done",
-     "text": "開戰時，你指定的一名隊友彈匣多一格，可以超過容量；那一格用掉就沒了。",
+     "text": "開戰時，隨機一名隊友（不含你自己）彈匣多一格，可以超過容量；那一格用掉就沒了。",
      "keys": [
       "daily",
       "mag",
       "meat.on_start",
+      "pick_random",
       "who.pick"
      ],
-     "note": "開戰時指定的隊友彈匣多一格（可超過容量）；指定的隊友由 preset.picks 讀，但開打前的指定還沒有報告與介面寫入。"
+     "note": "開戰時隨機一名隊友彈匣多一格（可超過容量）；沒有隊友就沒有效果。2026-11-23 起不再讀開打前的指定。"
     },
     {
      "id": "sk_fixer_bribe",
@@ -5242,12 +5298,16 @@
      "name": "情報網",
      "tier": 3,
      "kind": "prep",
-     "status": "missing",
+     "status": "approx",
      "text": "—",
      "keys": [
-      "prep"
+      "mod.initiative",
+      "pick_random",
+      "prep",
+      "status",
+      "who.pick"
      ],
-     "note": "預備的現實效果（全隊先攻 +3、指定一名敵人開場被標記）要玩家指定敵人，預備沒有 pick，寫不出來；踩點多揭開一項未知屬 M2；資料只有說明文字。"
+     "note": "全隊先攻 +3、隨機一名敵人開場被標記（到情報網的人的第二個回合結束）已做，帶進下一場；「每件委託一次」沒有限制，「踩點多揭開一項未知」屬 M2，輿論面的「知道對手強度與性格」沒有。（M1b-random-picks）"
     },
     {
      "id": "sk_fixer_hit_him",

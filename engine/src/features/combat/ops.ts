@@ -349,6 +349,22 @@ function magOp(ctx: Ctx, e: Eff): void {
   if (d) ctx.run.say(`${unitTag(unit)} 的彈匣 ${d > 0 ? '+' : '−'}${Math.abs(d)} 格。`, undefined, { target: unit.id, mag: d })
 }
 
+/** 彈匣容量的上限（BattleWeapon 的 mag 與 rules 的 1～4 格一致）。 */
+const MAG_CAP_LIMIT = 4
+
+/** 手上這把武器的彈匣容量加 amount 格（最多到 max，max 預設與上限都是 4）；多出來的那一格是裝滿的（開戰時預備用：幫槍槍保養）。已經到上限就沒有效果。 */
+function magCapOp(ctx: Ctx, e: Eff): void {
+  const unit = who(ctx)
+  const mag = unit ? wielded(unit)?.mag : undefined
+  if (!unit || !mag) return
+  const limit = typeof e.max === 'number' ? Math.min(MAG_CAP_LIMIT, e.max) : MAG_CAP_LIMIT
+  const delta = Math.min(Math.max(0, qty(ctx, e.amount, 0)), Math.max(0, limit - mag.max))
+  if (!delta) return
+  mag.max += delta
+  mag.now += delta
+  ctx.run.say(`${unitTag(unit)} 的彈匣容量 +${delta}（現在 ${mag.max} 格）。`, undefined, { target: unit.id, mag: delta, magMax: mag.max })
+}
+
 function poolOp(ctx: Ctx, e: Eff): void {
   const unit = who(ctx)
   const pool = unit ? unit.pools[String(e.pool)] : undefined
@@ -555,6 +571,7 @@ export function registerOps(k: Kernel): void {
   op('cover', coverOp, schema({ levels: F, max: pair }, ['levels']))
   op('ap', apOp, schema({ amount: F, over_cap: B }, ['amount']))
   op('mag', magOp, schema({ amount: orWord('full'), over_cap: B }, ['amount']))
+  op('mag_cap', magCapOp, schema({ amount: F, max: num(1) }, ['amount']))
   op('pool', poolOp, schema({ pool: S, amount: orWord('full') }, ['pool', 'amount']))
   const implantSchema = schema({ mode: oneOf(['off', 'boost']), kind: S, turns: F, until: UNTIL, take: B }, ['mode'])
   op('implant', implantOp, (e) => [

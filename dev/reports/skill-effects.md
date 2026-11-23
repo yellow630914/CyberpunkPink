@@ -1,12 +1,12 @@
 # 技能效果清單
 
-產生日期：2026-11-22。唯讀盤點，沒有改任何程式。資料版本在 `dev/reports/skill-effects.json`，這份是同一份內容的表格版。
+產生日期：2026-11-22（2026-11-23 更新：M1b-random-picks，幫槍槍保養、戰前佈置、情報網寫成，開打前要選的東西改隨機）。唯讀盤點，沒有改任何程式。資料版本在 `dev/reports/skill-effects.json`，這份是同一份內容的表格版。
 
 ## 一、總覽
 
 | 項目 | 數量 |
 |---|---|
-| 效果（`k.battle.effect` 登錄的 op） | 46 |
+| 效果（`k.battle.effect` 登錄的 op） | 49 |
 | 修正種類 | 40（核心 MOD_KINDS 29、技能功能自己認的 11） |
 | 反應的觸發（trigger.on） | 9（新寫法 7、舊字串寫法 2） |
 | 條件（when／needs／range／效果的 if） | 37 |
@@ -18,15 +18,15 @@
 
 | 樹 | 完成 | 近似 | 寫不出來 | 等後面批次 | 無現實效果 | 合計 |
 |---|---|---|---|---|---|---|
-| 槍手 | 25 | 1 | 1 | 0 | 0 | 27 |
+| 槍手 | 26 | 1 | 0 | 0 | 0 | 27 |
 | 機師 | 15 | 6 | 0 | 6 | 0 | 27 |
 | 改造師 | 17 | 7 | 0 | 3 | 0 | 27 |
 | 潛網者 | 17 | 8 | 0 | 0 | 2 | 27 |
 | 名媛 | 18 | 3 | 0 | 2 | 4 | 27 |
-| 掮客 | 19 | 3 | 2 | 1 | 2 | 27 |
+| 掮客 | 20 | 4 | 0 | 1 | 2 | 27 |
 | 主播 | 0 | 0 | 0 | 0 | 27 | 27 |
 | 偶像 | 0 | 0 | 0 | 0 | 27 | 27 |
-| **合計** | **111** | **28** | **3** | **12** | **62** | **216** |
+| **合計** | **113** | **29** | **0** | **12** | **62** | **216** |
 
 ### 八棵樹的共鳴狀態（每棵 5 階）
 
@@ -47,12 +47,12 @@
 - 狀態：**完成**是現實欄照設計書寫成；**近似**是寫成了但比設計書寬或窄（原因寫在說明）；**寫不出來**是現在的格式與引擎表達不了（或資料還沒補）；**等後面批次**是標了 `pending`、要等 M2／M3／M4／M6；**無現實效果**是設計書現實欄是「—」，或這棵樹（主播、偶像）在現實沒有效果。
 - 近似的技能若有一半在等後面的批次，`later` 欄也會寫那一批（例如機師有機甲那一半的技能寫 M6）。
 - 判斷的依據：技能的資料是各棵樹的驗收測試裡的假資料（槍手與掮客另有 `engine/data/rules/abilities.json`，已照測試改寫）；哪些近似、哪些寫不出來照測試註解、`dev/status.md` 與 ADR 0015 的實作補記對過設計書 `docs/content/SKILL_TREES.md` 逐條確認。哪一批：ADR 0015 E12（機甲）→ M6、E13（名冊、義體系統、滲透與豔名）→ M2／M4、追蹤度（E9）→ M3、日常 → M4。
-- 預備與日常技能的表格現實欄多半是「—」，但它們的效果寫在表格下方的預備與日常段，所以狀態看的是預備與日常段的效果有沒有寫成：寫成了的算完成或近似（整備、後門、千面），沒寫成的算寫不出來（幫槍槍保養、戰前佈置、情報網）或等後面批次（讀人、改造師的三個日常）。真正沒有任何現實效果的才算「無現實效果」。
+- 預備與日常技能的表格現實欄多半是「—」，但它們的效果寫在表格下方的預備與日常段，所以狀態看的是預備與日常段的效果有沒有寫成：寫成了的算完成或近似（整備、後門、千面、幫槍槍保養、戰前佈置、情報網），沒寫成的算寫不出來（目前沒有）或等後面批次（讀人、改造師的三個日常）。真正沒有任何現實效果的才算「無現實效果」。
 - 技能 id 來自測試的假資料（潛網者的 `sk_ctrl` 這類最終要由資料改寫）；沒有資料可查的技能（潛網者現實欄是「—」的兩個、主播與偶像的 54 個）用 `sk_<樹>_t<階>_<序>` 當暫代 id，JSON 裡標 `idPlaceholder: true`。
 - 技能的 `keys` 是這個技能用到的格式鍵：效果的 op 直接寫名字；其他加前綴（`mod.`、`trigger.`、`when.`、`needs.`、`use.`、`who.`、`if.`、`target.`、`pick.`、`react.`、`meat.`），對得上下面各張表的第一欄。`usedBy` 只統計八棵樹的技能（共鳴另記在 `usedByResonance`）；標「其他來源」的效果是被道具、招牌行動、快駭程式用。
 - 所有效果都另外接受共同的 `who`（落點）與 `if`（看上一筆的結果）兩個欄位，下表的參數不重複列。
 
-## 三、效果（46 個）
+## 三、效果（49 個）
 
 | op | 擁有者 | 參數 | 說明 | 使用的技能 |
 |---|---|---|---|---|
@@ -63,7 +63,7 @@
 | `heal` | combat | amount | 替目標回復生命值，數量可以寫公式；做的人的 heal_dealt 修正會加進來。 | 戰場急救、不痛不痛、排好隊喔、戰地手術、全面翻修 |
 | `vent` | combat | amount | 替目標排掉感載，數量可以寫公式；做的人的 vent_dealt 修正會加進來。 | 呼呼不燙了、護盤 |
 | `afterglow` | combat | amount、layers | 增減目標的餘韻層數，最少 0、最多到他的承受層數上限。 | 呼呼不燙了、全面翻修、極限超頻、銷魂 |
-| `status` | combat | status、turns、until、data、save | 替目標加上一個戰鬥狀態，可指定回合數、結束時機與數值；寫了 save 時目標先擲豁免，過了就不加。 | 掩護撤退、堡壘姿態、短路、拆光、傀儡、跟我說嘛、暈乎乎、眾生相、勸降、收買、打他打他！、有話好好說…（共 13 個） |
+| `status` | combat | status、turns、until、data、save | 替目標加上一個戰鬥狀態，可指定回合數、結束時機與數值；寫了 save 時目標先擲豁免，過了就不加。 | 掩護撤退、堡壘姿態、短路、拆光、傀儡、跟我說嘛、暈乎乎、眾生相、勸降、收買、打他打他！、有話好好說…（共 15 個） |
 | `unstatus` | combat | status、kinds、count | 拿掉目標身上指定的狀態，或依種類（控制、減益、增益、重創、標記）拿掉指定數量。 | 堡壘姿態、備份 |
 | `cleanse` | combat | by、status | 以某種解除方式（例如急救）或指定的狀態 id，解掉目標身上的狀態。 | 戰場急救、不痛不痛 |
 | `soft_cover` | combat | kind、rounds、also | 在目標那一格放上一種臨時的軟遮蔽（煙霧之類），可限定回合數；also 為真時連玩家選的相鄰一格也放。 | （其他來源）煙霧彈等道具（engine/data/rules/items.json）使用；八棵樹的技能沒有用到。 |
@@ -71,9 +71,12 @@
 | `shift` | combat | dir、n | 把目標往後推或往前拉幾格，遇到邊界或擋住就停。 | 走開啦、手手拿開、傀儡 |
 | `move` | combat | to | 讓目標換到玩家選的那一格（pick.slot）；to 為 adjacent 時只能換到相鄰的格。 | 跑位射擊、掩護撤退 |
 | `swap` | combat | with | 讓目標和玩家選的另一名隊友對調位置。 | （其他來源）目前只有 M1b-ops 的測試使用；八棵樹的技能沒有用到（換個位子嘛走舊的 free_move 寫法）。 |
-| `cover` | combat | levels、max | 替目標所在的那一格升或降遮蔽等級；正數升（可限制最高級），負數降。 | 改寫地形、封鎖、管理員 |
+| `cover` | combat | levels、max | 替目標所在的那一格升或降遮蔽等級；正數升（可限制最高級），負數降。 | 改寫地形、封鎖、管理員、戰前佈置 |
 | `ap` | combat | amount、over_cap | 增減目標的行動點，預設不超過上限，over_cap 可以超過，減不會低於 0。 | 獵殺節奏、傀儡、群播、總攻令 |
 | `mag` | combat | amount、over_cap | 增減目標手上武器的彈匣格數；amount 為 full 時補滿，over_cap 可以超過容量。 | 代理、黑市門路 |
+| `mag_cap` | combat | amount、max | 手上武器的彈匣容量加 amount 格，最多到 max（預設與上限都是 4）；多出來的那一格是裝滿的。沒有彈匣的武器與已經到上限的沒有效果。 | 幫槍槍保養 |
+| `pick_random` | abilities | key、from | 開打前要「指定」的東西一律隨機：在 from（ally 隊友不含自己、member 我方每個人、foe 敵人、minion 敵方雜兵）的在場的人裡隨機挑一個，記進這一串效果的 pick[key]，後面的效果用 who: pick:<key> 落在他身上；挑不出人就把那個 pick 拿掉，後面的效果跳過。 | 戰前佈置、黑市門路、情報網 |
+| `one_of` | abilities | key、options | 選項裡隨機挑一種做它的 do；選項裡的 pick_random 挑不出人的那一種不算，都不算就什麼都不做。 | 戰前佈置 |
 | `pool` | combat | pool、amount | 增減目標的某個資源池（RAM、現金、人情等），amount 為 full 時補滿。 | 逆流、謝謝招待 |
 | `implant` | combat | mode、kind、turns、until、take | 讓目標的一件義體失效（off）或超頻（boost），可指定種類、持續時間；take 讓它到戰鬥結束都失效並記成被卸下。 | 拆解、超頻、卸下、拆光、手手拿開、過熱 |
 | `revive` | combat | hp | 讓因生命歸零倒下的目標以指定生命值回到場上。 | 拉回來 |
@@ -89,7 +92,7 @@
 | `hack.takeover` | hack | turns、until、mode | 接管敵方一台無人機或砲塔指定回合（或到戰鬥結束），變成我方、由做的人指揮；mode 為 rewrite 時只改寫敵我名單，到期前它每輪攻擊原本的隊友；到期後還回去。 | 接管、管理員 |
 | `hack.node` | hack | — | 拿下一個控制節點。 | （其他來源）快駭程式（拿下控制節點）使用；八棵樹的技能沒有用到。 |
 | `hack.detonate` | hack | dice、type、cover | 引爆目標快取格裡的一件爆裂物：那一格受一擊（預設熱能 2d6）、遮蔽降級，那件道具消失。 | 改寫地形 |
-| `buff` | abilities | id、name、turns、until、mods、on_end、mask | 替目標掛一段限時的修正（mods），到期時做 on_end；同一個 id 再掛是重算時間；mask 讓它同時算戴著面具。 | 死線、心流、火力牆、子彈時間、去陪陪他、穹頂、不痛不痛、超頻、極限超頻、破冰、看錯人囉、備份…（共 20 個） |
+| `buff` | abilities | id、name、turns、until、mods、on_end、mask | 替目標掛一段限時的修正（mods），到期時做 on_end；同一個 id 再掛是重算時間；mask 讓它同時算戴著面具。 | 死線、心流、火力牆、子彈時間、去陪陪他、穹頂、不痛不痛、超頻、極限超頻、破冰、看錯人囉、備份…（共 21 個） |
 | `ward` | abilities | slot、until、on、do | 守著敵方的一格：到期之前站在那一格的人第一次換位、補位或攻擊時，守著的人立刻做 do（通常是朝他開一槍），用過就沒了。 | 不准動喔 |
 | `tease` | abilities | hit、bonus、on_ok、on_overload、targets | 誘惑攻擊：魅力與誘惑對目標的意志與定力一次檢定，過了造成 2d6 快感傷害（不看護甲與遮蔽），再做 on_ok；讓目標過載時再做 on_overload；targets 為 2 時多選第二個目標。 | 欺負人家要賠喔 |
 | `branch` | abilities | needs、when、do、else | 看這一筆落在的人（needs）與做的人（when）符不符合條件，符合做 do、不符合做 else。 | 找縫、短路、全面翻修、勸降、全城欠我 |
@@ -116,7 +119,7 @@
 | `armor` | 核心 | 護甲加減。 | 堡壘姿態 |
 | `crit_margin` | 核心 | 要害門檻（超過迴避幾以上算要害），負的是更容易；資料可以用 to 直接指定門檻。 | 獵眼、人槍合一 |
 | `save` | 核心 | 豁免與戰鬥裡各種檢定的加減，可用標籤限定是哪一種檢定（hack、tease、subdue、resist:suppressed 等）。 | 死線、不痛不痛、拆拆好好玩、解鎖匠、主控、盯～、值機、有我在；共鳴：medic:3、netrunner:1、socialite:1 |
-| `initiative` | 核心 | 先攻加減。 | — |
+| `initiative` | 核心 | 先攻加減。 | 情報網 |
 | `ap_regen` | 核心 | 每回合回復的行動點加減；設計書限制只有終極技能可以動它。 | 子彈時間、極限超頻 |
 | `load_dealt_pct` | 核心 | 自己造成的感載的百分比加減。 | — |
 | `load_taken_pct` | 核心 | 自己受到的感載的百分比加減（同步檔位的 ×0.5 是 −50）。 | — |
@@ -139,7 +142,7 @@
 | `instinct_points` | 技能功能 | 戰鬥直覺可以分配的點數加減（共鳴 5、心流）；features/abilities 自己認的修正。 | 心流；共鳴：gunner:5 |
 | `instinct_cap` | 技能功能 | 戰鬥直覺每一項的點數上限加減（心流）；features/abilities 自己認的修正。 | 心流 |
 | `instinct_free` | 技能功能 | 大於 0 時，戰鬥直覺的重分配不花行動點（心流）。 | 心流 |
-| `call_uses` | 技能功能 | 叫人每場的次數加減（派工網、人脈）。 | 派工網、人脈 |
+| `call_uses` | 技能功能 | 叫人每場的次數加減（派工網、人脈）。 | 派工網、人脈、戰前佈置 |
 | `call_hit` | 技能功能 | 叫人的支援射擊的命中加減（人脈）。 | 人脈 |
 | `aim_all` | 技能功能 | 大於 0 時，這個人的每一次射擊都算瞄準過的（子彈時間）。 | 子彈時間 |
 | `no_wound` | 技能功能 | 大於 0 時，打在他身上的重創改成一般的命中（擋、護盤、第二張臉）。 | 第二張臉、護盤 |
@@ -269,7 +272,7 @@ react 能改的東西（依 on 分）：
 | `area` | 效果的 who | 目標那一格加玩家選的相鄰一格上的每個人與每一台掛著的東西。 | 0 |
 | `attacker` | 效果的 who | 反應裡正在攻擊的人。 | 4 |
 | `victim` | 效果的 who | 反應裡被打的人。 | 0 |
-| `pick` | 效果的 who | pick:<鍵>：玩家在 picks 裡選的那個單位。 | 5 |
+| `pick` | 效果的 who | pick:<鍵>：玩家在 picks 裡選的、或 pick_random 隨機挑的那個單位。 | 7 |
 | `enemy` | 技能的 target | 技能的目標是一個敵人。 | 34 |
 | `ally` | 技能的 target | 技能的目標是一名隊友（不含自己）。 | 3 |
 | `self` | 技能的 target | 技能的目標是自己。 | 1 |
@@ -316,7 +319,7 @@ react 能改的東西（依 on 分）：
 | `meat.on_give_ap` | 姿態開著時，指揮把行動點讓給隊友之後對他做的效果（號令）。 | 1 |
 | `meat.mask` | 入戲：戴著面具到第 rounds 回合為止，AI 挑目標時不挑她。 | 1 |
 | `meat.tease` | 誘惑攻擊：這個技能的行動就是一次誘惑攻擊，可帶 hit、bonus、on_ok、on_overload、targets。 | 6 |
-| `prep` | 預備（kind: prep）：{ slot, scope: next_battle\|commission, meat: { mods?, do? } }，下一場現實戰鬥帶進去。 | 7 |
+| `prep` | 預備（kind: prep）：{ slot（0 是不花時段）, scope: next_battle\|commission, meat: { mods?, do? } }，下一場現實戰鬥帶進去。 | 7 |
 | `daily` | 日常（kind: daily）：戰鬥外的效果，只有說明文字；格式還寫不出來，等 M4。 | 7 |
 | `resonance.effect` | 共鳴的效果（封閉清單）：initiative、free_move、mods、pool、load_max、hp_max、pending。 | 0 |
 | `pick.foe` | picks 的種類：玩家要選一個敵人。 | 6 |
@@ -347,7 +350,7 @@ react 能改的東西（依 on 分）：
 
 | 階 | 技能 | id | 種類 | 狀態 | 用到的鍵 | 說明 |
 |---|---|---|---|---|---|---|
-| 1 | 戰鬥直覺 | `sk_gunner_instinct` | signature | 完成 | `meat.instinct` | 招牌（meat.instinct）：開戰分配點數、戰鬥中每回合花 1 行動點重分配；引擎讀 preset.instinct，但開打前的指定還沒有報告與介面寫入。 |
+| 1 | 戰鬥直覺 | `sk_gunner_instinct` | signature | 完成 | `meat.instinct` | 招牌（meat.instinct）：開戰時點數隨機分配（deriveRng，同種子同結果、每項不超過上限）、戰鬥中每回合花 1 行動點自己重分配。2026-11-23 起不再讀開打前的指定（preset）。 |
 | 1 | 要害射擊 | `sk_gunner_aimed_shot` | active | 完成 | `meat.attack`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 1 | 掩護射擊 | `sk_gunner_cover_fire` | reaction | 完成 | `meat.attack`、`meat.on_hit`、`trigger.ally_attacked_adjacent` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 1 | 連射控制 | `sk_gunner_burst` | active | 完成 | `meat.attack`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 |
@@ -358,7 +361,7 @@ react 能改的東西（依 on 分）：
 | 2 | 構裝精通 | `sk_gunner_loadout_mastery` | passive | 完成 | `mod.action_ap` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 2 | 就是你了 | `sk_gunner_thats_you` | active | 完成 | `meat.apply`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 2 | 走開啦 | `sk_gunner_back_off` | active | 完成 | `attack`、`if.hit`、`shift`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 |
-| 2 | 幫槍槍保養 | `sk_gunner_gun_care` | prep | 寫不出來 | `prep` | 預備的效果（主武器彈匣容量 +1、最多 4 格）寫不出來：資料只有說明文字、沒有 prep.meat，格式也沒有改彈匣容量上限的修正；表格現實欄是「—」，效果寫在預備段。 |
+| 2 | 幫槍槍保養 | `sk_gunner_gun_care` | prep | 完成 | `mag_cap`、`prep` | 下一場現實戰鬥主武器的彈匣容量 +1（最多 4 格，多的那一格裝滿），用掉就清；prep.slot 1、scope next_battle。「進副本前或兩個階段之間」的時機不另外限制。（M1b-random-picks） |
 | 3 | 穿透 | `sk_gunner_pierce` | active | 完成 | `attack`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 3 | 跑位射擊 | `sk_gunner_run_and_gun` | active | 完成 | `attack`、`cover_temp`、`meat.picks`、`move`、`pick.ally_slot`、`target.enemy`、`who.self` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 3 | 死線 | `sk_gunner_deadline` | reaction | 完成 | `attack`、`buff`、`mod.hit`、`mod.save`、`trigger.hp_half`、`when.wounded`、`who.attacker`、`who.self` | 照設計書的現實欄寫成，沒有已知的差異。 |
@@ -580,7 +583,7 @@ react 能改的東西（依 on 分）：
 | 1 | 人面 | `sk_fixer_face` | signature | 近似（M2） | `daily`、`meat.call`、`meat.give_ap` | 指揮（讓行動點）與叫人（三選一）已做；叫人的支援射擊用暫定的固定數字，不是名冊上那個人的資料，戰後的出場費與人情也沒有記，要等名冊（M2）。 |
 | 1 | 集火 | `sk_fixer_focus_fire` | active | 完成 | `meat.apply`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 1 | 小心後面！ | `sk_fixer_watch_out` | reaction | 完成 | `meat.evade`、`trigger.ally_attacked` | 照設計書的現實欄寫成，沒有已知的差異。 |
-| 1 | 戰前佈置 | `sk_fixer_prep` | prep | 寫不出來 | `prep` | 預備三選一（藏貨、安排人、打點）要玩家選，但預備沒有 pick，寫不出來；資料只有說明文字，內海的兩選一版屬 M3。 |
+| 1 | 戰前佈置 | `sk_fixer_prep` | prep | 完成 | `buff`、`cover`、`one_of`、`pick_random`、`prep`、`status`、`use.per_fight`、`who.pick`、`who.self` | 開打時隨機一種：藏貨（隨機一名隊友的那一格遮蔽 +1）、安排人（call_uses +1，整場）、打點（隨機一名雜兵第一回合壓制；敵方沒有雜兵時不抽這一種）；prep.slot 0（不花時段）。內海的兩選一屬 M3，「每個階段可以用一次」沒有限制。（M1b-random-picks） |
 | 1 | 換個位子嘛 | `sk_fixer_swap` | active | 近似 | `meat.free_move`、`target.ally` | 兩名相鄰隊友對調位置已做；「換到的那一格有遮蔽的人迴避 +1 到他的下一回合」沒有寫。 |
 | 1 | 有我在 | `sk_fixer_im_here` | passive | 完成 | `mod.save` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 1 | 代理 | `sk_fixer_proxy` | active | 完成 | `mag`、`target.ally` | 照設計書的現實欄寫成，沒有已知的差異。 |
@@ -588,10 +591,10 @@ react 能改的東西（依 on 分）：
 | 2 | 擋 | `sk_fixer_block` | reaction | 完成 | `react.no_wound`、`trigger.hit` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 2 | 買版面 | `sk_fixer_buy_space` | active | 無現實效果 | — | 設計書現實欄是「—」，這個技能只有輿論欄。 |
 | 2 | 再加一點嘛 | `sk_fixer_a_bit_more` | active | 無現實效果 | — | 設計書現實欄是「—」，這個技能只有輿論欄。 |
-| 2 | 黑市門路 | `sk_fixer_black_market` | passive | 完成 | `daily`、`mag`、`meat.on_start`、`who.pick` | 開戰時指定的隊友彈匣多一格（可超過容量）；指定的隊友由 preset.picks 讀，但開打前的指定還沒有報告與介面寫入。 |
+| 2 | 黑市門路 | `sk_fixer_black_market` | passive | 完成 | `daily`、`mag`、`meat.on_start`、`pick_random`、`who.pick` | 開戰時隨機一名隊友彈匣多一格（可超過容量）；沒有隊友就沒有效果。2026-11-23 起不再讀開打前的指定。 |
 | 3 | 收買 | `sk_fixer_bribe` | active | 完成 | `needs.no_rank`、`status`、`target.enemy` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 3 | 保釋 | `sk_fixer_bail` | reaction | 完成 | `meat.ransom`、`react.prevent`、`trigger.out_before` | 照設計書的現實欄寫成，沒有已知的差異。測試資料的註解：保釋：隊友被制伏時，制伏解除；全隊倒下時，戰敗事件多一個「被贖回」（付等級×1,000 C$）。 |
-| 3 | 情報網 | `sk_fixer_intel_net` | prep | 寫不出來 | `prep` | 預備的現實效果（全隊先攻 +3、指定一名敵人開場被標記）要玩家指定敵人，預備沒有 pick，寫不出來；踩點多揭開一項未知屬 M2；資料只有說明文字。 |
+| 3 | 情報網 | `sk_fixer_intel_net` | prep | 近似 | `mod.initiative`、`pick_random`、`prep`、`status`、`who.pick` | 全隊先攻 +3、隨機一名敵人開場被標記（到情報網的人的第二個回合結束）已做，帶進下一場；「每件委託一次」沒有限制，「踩點多揭開一項未知」屬 M2，輿論面的「知道對手強度與性格」沒有。（M1b-random-picks） |
 | 3 | 打他打他！ | `sk_fixer_hit_him` | active | 完成 | `buff`、`mod.damage_roll`、`status`、`target.enemy`、`when.other_status`、`who.allies` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 3 | 派工網 | `sk_fixer_dispatch_net` | passive | 完成 | `daily`、`mod.call_uses` | 照設計書的現實欄寫成，沒有已知的差異。 |
 | 4 | 增援 | `sk_fixer_reinforce` | active | 等後面批次（M2） | `meat.pending` | 名冊上的人進場當我方單位要名冊（M2，ADR 0015 E13），meat 標 pending。 |

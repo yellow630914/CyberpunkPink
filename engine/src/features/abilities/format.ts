@@ -551,7 +551,7 @@ export function prepProblems(prep: unknown, kind: unknown, k?: Pick<Kernel, 'bat
   if (!isRec(prep)) return ['prep 要是物件或 null']
   const p = onlyKeys('prep', prep, ['text', 'slot', 'scope', 'meat'])
   if (prep.text !== undefined && typeof prep.text !== 'string') p.push('prep.text 要是字串')
-  if (prep.slot !== undefined && !(isInt(prep.slot) && prep.slot >= 1)) p.push('prep.slot 要是 1 以上的整數（幾個時段）')
+  if (prep.slot !== undefined && !(isInt(prep.slot) && prep.slot >= 0)) p.push('prep.slot 要是 0 以上的整數（幾個時段；0 是不花時段，戰前佈置、情報網）')
   if (prep.scope !== undefined && !(PREP_SCOPES as readonly unknown[]).includes(prep.scope)) p.push(`prep.scope「${String(prep.scope)}」不在清單裡（可以寫：${PREP_SCOPES.join('、')}）`)
   if (prep.meat !== undefined) {
     const m = prep.meat

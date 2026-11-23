@@ -1,11 +1,12 @@
 // 戰鬥直覺（SKILL_TREES 槍手：戰鬥直覺；M1b-skill-gunner-broker）：開打時把「這棵樹的階數」點分到先攻、命中、迴避，
 // 每 1 點是先攻 +3、命中 +1 或迴避 +1，每一項最多 3 點；戰鬥中每回合可以花 1 行動點重分配一次。
 // 點數與上限可以被修正改：instinct_points（共鳴 5：+1；心流：+2）、instinct_cap（心流：+2）、instinct_free（心流：重分配不花行動點）。
-// 分配記在 unit.ext.instinct（不放進 unit.ext.abilities：那一份只放裝著什麼與階數）；開打時的來源：單位自己帶的（測試、敵人）→ 角色的 actor.ext.abilities.preset.instinct（玩家開打前選的）→
-// 預設（AI 與沒選的玩家）：平均分、多的給命中。只有現實戰鬥（內海的版本這一張不做）。
+// 分配記在 unit.ext.instinct（不放進 unit.ext.abilities：那一份只放裝著什麼與階數）；開打時的來源：單位自己帶的（測試、敵人）→
+// 隨機（使用者 2026-11-23 定案：開打前要選的東西一律隨機，不做開打前選擇的介面）：把點數一點一點隨機放進還沒到上限的那幾項，
+// 亂數是 deriveRng(state.rng, 'battle/<戰鬥>/<技能>/<單位>')，同一個種子同一個結果。戰鬥中仍可花 1 行動點重分配（玩家自己選）。只有現實戰鬥（內海的版本這一張不做）。
 
 import type { BattleActionDef, BattleInput, BattlePick, BattleRun, BattleUnit, BattleView, Kernel } from '../../core'
-import { BattleBlocked } from '../../core'
+import { BattleBlocked, deriveRng } from '../../core'
 import { featureTotal } from './mods'
 import type { AbilityEntry } from './types'
 import { OWNER } from './types'
@@ -44,6 +45,17 @@ export function defaultAlloc(points: number, cap: number): Alloc {
   return out
 }
 
+/** 開戰時的隨機分配：一點一點隨機放進還沒到上限的項；三項都滿了，剩下的點數就沒有地方放。 */
+export function randomAlloc(rng: Pick<ReturnType<typeof deriveRng>, 'pick'>, points: number, cap: number): Alloc {
+  const out: Alloc = { initiative: 0, hit: 0, evade: 0 }
+  for (let i = 0; i < points; i++) {
+    const open = INSTINCT_KEYS.filter((key) => out[key] < cap)
+    if (!open.length) break
+    out[rng.pick(open)] += 1
+  }
+  return out
+}
+
 /** 把一份分配夾進現在的上限與點數（每項不超過上限；總數超過就從迴避、命中、先攻依序減）。 */
 export function fitAlloc(a: Alloc, points: number, cap: number): Alloc {
   const out: Alloc = { initiative: Math.min(cap, Math.max(0, a.initiative)), hit: Math.min(cap, Math.max(0, a.hit)), evade: Math.min(cap, Math.max(0, a.evade)) }
@@ -74,9 +86,7 @@ export function setupInstinct(run: BattleRun, u: BattleUnit): void {
   const ab = instinctOf(run, u)
   if (!ab) return
   if (isAlloc(u.ext.instinct)) return
-  const preset = u.actor ? run.state.actors[u.actor]?.ext.abilities : undefined
-  const chosen = isRec(preset) && isRec(preset.preset) ? preset.preset.instinct : undefined
-  u.ext.instinct = isAlloc(chosen) ? chosen : defaultAlloc(instinctPoints(run, u, ab), instinctCap(run, u))
+  u.ext.instinct = randomAlloc(deriveRng(run.state.rng, `battle/${run.battle.id}/${ab.id}/${u.id}`), instinctPoints(run, u, ab), instinctCap(run, u))
 }
 
 // ---- 重分配 ----

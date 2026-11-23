@@ -35,9 +35,9 @@ export function prep(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorI
   const slots = def.slot!
   return {
     kind: 'action', action: 'ability.prep', location: clone(state.location), actor, party: [],
-    timeline: [{ layer: 'meat', actor, text: `${state.actors[actor]!.name}做了預備：${ab.name}（花 ${slots} 個時段）。`, tag: 'prep' }],
-    changes: [{ op: 'time', minutes: slots * SEGMENT_HOURS * 60 }, { op: 'actor.ext', id: actor, key: 'abilities', value: next }],
-    outcome: { result: 'prepared', summary: `預備了${ab.name}，花了 ${slots} 個時段。下一場${def.scope === 'commission' ? '委託裡的戰鬥' : '現實戰鬥'}帶進去。` },
+    timeline: [{ layer: 'meat', actor, text: `${state.actors[actor]!.name}做了預備：${ab.name}（${slots ? `花 ${slots} 個時段` : '不花時段'}）。`, tag: 'prep' }],
+    changes: [...(slots ? [{ op: 'time' as const, minutes: slots * SEGMENT_HOURS * 60 }] : []), { op: 'actor.ext', id: actor, key: 'abilities', value: next }],
+    outcome: { result: 'prepared', summary: `預備了${ab.name}，${slots ? `花了 ${slots} 個時段` : '不花時段'}。下一場${def.scope === 'commission' ? '委託裡的戰鬥' : '現實戰鬥'}帶進去。` },
   }
 }
 
