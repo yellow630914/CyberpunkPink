@@ -32,7 +32,7 @@ const ABILITIES = [
   ab('sk_bail', 'passive', { name: '保釋', meat: { ransom: { cash: 'grade*1000' } } }),
   ab('sk_bail_cheap', 'passive', { name: '便宜的保釋', meat: { ransom: { cash: 'grade*100' } } }),
   ab('sk_free', 'passive', { name: '白給的保釋', meat: { ransom: { cash: 0 } } }),
-  ab('sk_rally', 'passive', { name: '集合', meat: { on_start: [{ op: 'status', who: 'pick:mate', status: 'marked' }] } }),
+  ab('sk_rally', 'passive', { name: '集合', meat: { on_start: [{ op: 'pick_random', key: 'mate', from: 'ally' }, { op: 'status', who: 'pick:mate', status: 'marked' }] } }),
 ]
 const pack = (): ContentPack => ({ id: 'wb_m1b', content: { battle_status: STATUSES, path: [PATH], ability: ABILITIES } } as unknown as ContentPack)
 const dice = (...v: number[]): number[] => [...v, ...Array(200).fill(1)]
@@ -510,22 +510,27 @@ describe('白箱 保釋與被贖回（SKILL_TREES 掮客：保釋；features/abi
   })
 })
 
-describe('白箱 開戰時做一次的效果（SKILL_TREES 掮客：黑市門路「你指定的一名隊友」；features/abilities/onstart.ts）', () => {
-  const start = (picks: Rec, mode = 'meat', extraAllies: unknown[] = [shooter({ actor: 'mate' }, 2)]) => {
-    const a = arena(duel([shooter({ ext: { abilities: { equipped: ['sk_rally'], tiers: {}, picks } } }), ...extraAllies], [tough()], undefined, { mode } as never), FEATURES, (k: Kernel) => {
+describe('白箱 開戰時做一次的效果（SKILL_TREES 掮客：黑市門路「你指定的一名隊友」改成隨機；features/abilities/onstart.ts、ops.ts pick_random）', () => {
+  const start = (mode = 'meat', extraAllies: unknown[] = [shooter({}, 2)]) =>
+    arena(duel([shooter({ ext: { abilities: { equipped: ['sk_rally'], tiers: {} } } }), ...extraAllies], [tough()], undefined, { mode } as never), FEATURES, (k: Kernel) => {
       k.content.loadPack(pack())
       readyFeatures(k)
     })
-    return a
-  }
 
-  it('指定的值是角色 id：換成他在這場戰鬥裡的單位；值不是字串、或找不到的人略過（那一筆不做）', () => {
-    const a = start({ mate: 'mate' })
-    expect(a.ally(2).statuses.map((s) => s.id)).toContain('marked')
-    const b = start({ mate: 7 })
-    expect(b.ally(2).statuses).toEqual([])
-    const c = start({ mate: 'nobody' })
-    expect(c.ally(2).statuses).toEqual([])
+  it('pick_random 從隊友（不含自己）裡隨機挑一個，後面 who: pick:<key> 落在他身上；同一個種子同一個結果（SKILL_TREES 掮客：黑市門路）', () => {
+    const a = start('meat', [shooter({}, 2), shooter({}, 3)])
+    const marked = [a.ally(2), a.ally(3)].filter((u) => u.statuses.some((s) => s.id === 'marked'))
+    expect(marked).toHaveLength(1)
+    expect(a.ally(1).statuses).toEqual([])
+    const b = start('meat', [shooter({}, 2), shooter({}, 3)])
+    expect([b.ally(2), b.ally(3)].map((u) => u.statuses.length)).toEqual([a.ally(2), a.ally(3)].map((u) => u.statuses.length))
+  })
+
+  it('沒有隊友可挑：把 pick 拿掉，後面落在他身上的那一筆自己跳過（不丟錯）；不是現實戰場不做（onstart.ts）', () => {
+    const a = start('meat', [])
+    expect(a.ally(1).statuses).toEqual([])
+    const net = start('net', [shooter({}, 2)])
+    expect(net.ally(2).statuses).toEqual([])
   })
 })
 
@@ -638,9 +643,14 @@ describe('白箱 技能格式的每一條原因（dev/work/M1b-skill-format.md�
     expect(meatProblems(m as Rec, 'active').join('\n')).toMatch(re)
   })
 
+  it('prep.slot 是 0 合格（戰前佈置、情報網不花時段；2026-11-23 定案）', () => {
+    expect(prepProblems({ slot: 0, scope: 'next_battle', meat: { mods: [{ kind: 'hit', value: 1 }] } }, 'prep').join('\n')).not.toMatch(/slot/)
+  })
+
   it.each([
     [{ text: 3 }, /prep\.text 要是字串/],
-    [{ slot: 0 }, /prep\.slot 要是 1 以上的整數/],
+    [{ slot: -1 }, /prep\.slot 要是 0 以上的整數/],
+    [{ slot: 1.5 }, /prep\.slot 要是/],
     [{ meat: { do: [{ op: 'x' }] } }, /prep\.slot 一定要寫/],
     [{ slot: 1, meat: { do: [{ op: 'x' }] } }, /prep\.scope 一定要寫/],
     [{ slot: 1, scope: 'next_battle', meat: 3 }, /prep\.meat 要是 \{ mods\?, do\? \}/],

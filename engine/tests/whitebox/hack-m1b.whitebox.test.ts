@@ -183,9 +183,9 @@ describe('白箱 甲板與主控的讀法（deck.ts）', () => {
     expect(treeTier(u({ deck: { grade: 1 }, abilities: 5 }))).toBe(1)
     const enemy = { ...u({ deck: { grade: 1 } }), enemy: 'en_x', grade: 3 } as BattleUnit
     expect(treeTier(enemy)).toBe(3)
-    expect(treeTier({ ...enemy, grade: 9 } as BattleUnit)).toBe(5)
-    expect(treeTier({ ...enemy, grade: Number.NaN } as BattleUnit)).toBe(1)
-    expect(treeTier({ ...enemy, grade: 0 } as BattleUnit)).toBe(1)
+    expect(treeTier({ ...enemy, grade: 9 } as unknown as BattleUnit)).toBe(5)
+    expect(treeTier({ ...enemy, grade: Number.NaN } as unknown as BattleUnit)).toBe(1)
+    expect(treeTier({ ...enemy, grade: 0 } as unknown as BattleUnit)).toBe(1)
   })
 
   it('levelOfTier、runLevel、canHack、cyberCount、GRADE_CHECK：階對照等級、與甲板取低；沒有甲板 0；義體數優先看 cyber、再看 implants', () => {

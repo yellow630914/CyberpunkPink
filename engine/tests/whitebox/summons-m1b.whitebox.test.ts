@@ -518,7 +518,9 @@ describe('白箱 hooks／auto：沒有操作者的每輪自己動、停機、到
     expect(t2.used).toBe(true)
     expect(t3.ext!.stun).toBeUndefined()
     expect(run.beats.some((b) => b.text.includes('這一輪停機'))).toBe(true)
-    expect(t4.used).toBe(false)
+    // 有操作者的：不歸這裡管（沒有人替它清 used，也不自己動）
+    expect(t4.used).toBe(true)
+    expect(t1.used).toBe(true)
     // 打倒最後一個人：後面的不再動
     const b = world({ allies: [one({ hp: { now: 1, max: 1 } })], foes: [idle()] })
     const x = ghostTurret(b, 1, { weapon: testWeapon('pistol', 99, 5) })
@@ -562,17 +564,12 @@ describe('白箱 hooks／auto：沒有操作者的每輪自己動、停機、到
     odd.kind = 'mystery' as never
     const rb = roundStart(b, 2, dice(15, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3))
     expect(scout.used).toBe(true)
-    expect(med.used).toBe(false)
+    expect(med.used).toBe(true)
+    expect(mate.hp!.now).toBeGreaterThan(1)
     expect(shield.ext!.guard).toBe('battle_end')
     expect(odd.used).toBe(false)
     expect(rb.beats.some((x) => x.text.includes('標記了'))).toBe(true)
-    // 醫療型：同一格的人受傷才救
-    med.slot = 2
-    mate.slot = 2
-    mate.hp!.now = 1
-    roundStart(b, 3, dice(3, 3, 3, 3, 3, 3, 3, 3, 3, 3))
-    expect(mate.hp!.now).toBeGreaterThan(1)
-    expect(med.used).toBe(true)
+    // 醫療型：同一格的人沒受傷就不動
     const full = world()
     const m2 = drone(full, 'medic', 1)
     delete m2.owner

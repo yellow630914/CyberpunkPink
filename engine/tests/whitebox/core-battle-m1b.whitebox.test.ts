@@ -524,7 +524,7 @@ describe('白箱 turn／step／setup 的退路', () => {
     const first = game.state.battle!.units[game.state.battle!.order[game.state.battle!.turn]!]!
     expect(first.control).toBe('player')
     const draft = battleAct(game.k, game.state, { action: 'blast' } as never)
-    const after = draft.changes.find((c) => c.op === 'battle') as { state: GameState['battle'] }
+    const after = draft.changes.find((c) => c.op === 'battle') as unknown as { state: GameState['battle'] }
     expect(after.state!.units[first.id]!.out).toBe('down')
     expect(after.state!.acting).not.toBe(first.id)
   })
@@ -541,7 +541,7 @@ describe('白箱 turn／step／setup 的退路', () => {
     const opts = battleOptions(game.k, game.state)!
     const o = opts.actions.find((x) => x.id === 'odd')!
     expect(o.ok).toBe(false)
-    expect(o.blocks).toEqual(['mana不夠（要 2，現在 0）。'])
+    expect(o.blocks).toEqual(['mana 不夠（要 2，現在 0）。'])
   })
 
   it('endBattle：結果名稱不在表裡就照原字；abortBattle：內海是 netrun、有地點時摘要帶地點（step.ts）', () => {

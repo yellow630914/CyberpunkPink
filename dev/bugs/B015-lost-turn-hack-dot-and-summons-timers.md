@@ -1,0 +1,12 @@
+# B015：失去回合的那個回合，快駭的持續型不結算、無人機的守著與停機計時不走（和 W011 同一個根）
+- 發現者：cpp-tester-whitebox（M1b 第二波白箱）
+- 嚴重度：小問題到錯誤（過載就失去一回合，現實戰鬥常發生；影響迴圈這類持續型快駭、護盾型無人機的守著、被電磁打到的停機）
+- 規格出處：
+  - SKILL_TREES 潛網者「迴圈」：「持續型：目標**每回合開始時**受 1d6＋1 感載，共 3 回合」；NETRUNNING 第 2 節（神經類的「迴圈」是持續型）。失去回合的人，他的回合照樣開始（核心的 `beginTurn` 對他照樣數狀態、清監視），只是動不了。
+  - COMBAT_SYSTEM 9.1「被擊落與回灌」、dev/work/M1b-skill-pilot.md：守著（`drone.guard`，預設 `own_turn_start`）到**操作者的下一個回合開始**結束；ENEMIES 第 10 節與 COMBAT_SYSTEM 2.5：被電磁打到的一台「停機一回合」。
+  - dev/adr/0015 補記（M1b-core-fix3）第二節與 W011 已寫的：核心的 `own_turn_start`、`source_turn_start` 狀態在失去的回合開始時照樣數一次。
+- 實際行為：`beginTurn`（engine/src/core/battle/turn.ts）對失去回合的人數完狀態之後 `return false`，不發 `turn.start` 掛點（W011 已回報；`advance` 接著照樣對他發 `turn.end`）。W011 寫的是 features/abilities 的三個計時；同一個根還讓另外兩個功能的計時走不動：
+  - features/hack/ops.ts 的 `tickDot` 聽 `turn.start`：中了迴圈的人這個回合失去回合，這一次感載不結算、`dot.turns` 也不減，迴圈多撐一整輪（「共 3 回合」變成最多 3 次**回合開始**，被癱瘓幾輪就延後幾輪）。
+  - features/summons/hooks.ts 的 `turn.start` 處理函式：操作者失去回合時，`guard: 'own_turn_start'` 沒有被拿掉（和 W011 的不准動喔同一種）；被電磁打到的 `stun: 1` 沒有變成 2，停機不是「一回合」而是被操作者的失去回合再往後拖一輪。
+- 重現：engine/tests/pending/B015-lost-turn-hack-summons-timers.test.ts（不經過提交，直接在一場戰鬥上呼叫效果與 `beginTurn`；五個測試，兩個「對照」會過、三個照預期失敗）。
+- 可能的位置（只寫推測，不改）：核心 `beginTurn` 的失去回合分支沒有任何掛點讓功能知道「他的回合開始了（雖然失去）」；W011 建議另開掛點（例如 `turn.skip`，或在 `turn.start` 帶 `lost: true`）。修的時候 hack 的 `tickDot`、summons 的守著與停機三處和 abilities 的三處一起改聽它；要注意 `tickDot` 在失去回合時要不要吃（迴圈照規格要吃），而 summons 的 `emHit` 與姿態類處理函式不要因此在失去的回合裡做事。屬於 cpp-architect 的範圍。
