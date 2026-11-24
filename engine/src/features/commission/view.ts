@@ -8,7 +8,7 @@ import type { CloseForecast } from './close'
 import { forecast } from './close'
 import { auxChance, auxPeople, openFaces, peopleAt, resting } from './aux'
 import type { AuxResult, Face, LinkEffect, RouteEntry, Step } from './model'
-import { FACES, FACE_NAME, commissionRules, effectsFor, gradeOf, readRun, stageName, stagesOf } from './model'
+import { FACES, FACE_NAME, commissionRules, effectsFor, gradeOf, netRules, readRun, stageName, stagesOf } from './model'
 import type { BranchView, FaceView, GoalView } from './run'
 import { branchViews, breatheBlock, faceViews, goalView } from './run'
 
@@ -162,7 +162,7 @@ export function commissionView(k: Kernel, state: GameState): CommissionView | nu
     trace: { value: run.trace, marks: [...TRACE_MARKS], peak: Math.max(run.net_peak, run.trace) },
     breathe: { can: breatheWhy === null, reason: breatheWhy },
     retreat: { can: retreatWhy === null, reason: retreatWhy },
-    close: forecast(state, run, rules, alertNow, Math.max(run.peak, alertNow)),
+    close: forecast(state, run, rules, alertNow, Math.max(run.peak, alertNow), netRules(k)),
   }
 }
 

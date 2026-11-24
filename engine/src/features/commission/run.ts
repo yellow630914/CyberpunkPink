@@ -61,8 +61,8 @@ export interface FaceView {
   block: string | null
   /** 玩家選了這一面 */
   chosen: boolean
-  /** 隔離區的原因（沒拿到 locked_by 的連動）；不是隔離區或已經打開是 null（這時的 block 不是這一條） */
-  locked: string | null
+  /** 隔離區的原因（沒拿到 locked_by 的連動；這時 block 也是這一句）；不是隔離區或已經打開就沒有這個欄位 */
+  locked?: string
 }
 
 /** 隔離區的原因：這個階段的內海面寫了 locked_by，而這件委託還沒拿到那個連動。 */
@@ -86,7 +86,7 @@ function faceBlock(k: Kernel, run: Run, face: Face, probing = false): string | n
 export function faceViews(k: Kernel, run: Run, probing = false): FaceView[] {
   return (['meat', 'net', 'opinion'] as const).map((face) => ({
     face, name: FACE_NAME[face], open: !!run.def.stages[run.stage - 1]?.faces[face], block: faceBlock(k, run, face, probing), chosen: run.face === face,
-    locked: run.def.stages[run.stage - 1]?.faces[face] ? lockOf(run, face) : null,
+    ...(run.def.stages[run.stage - 1]?.faces[face] && lockOf(run, face) ? { locked: AIRGAP_TEXT } : {}),
   }))
 }
 

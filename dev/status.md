@@ -361,3 +361,11 @@
 - 內海分頁接引擎 deck；示意包開局送 II 級入門甲板與構裝、腳本、SKIN（`ui/src/data/demo/net.ts`）。
 - 示意包暫時補了 `jam_weapon`、`jam_defense`、`jam_tool` 三個 battle_status；M3-data-rules 補進正式規則表時要拿掉。
 - 引擎沒給、所以沒顯示：染色、SKIN 風格與曝露度、牌子脾氣、藥與義體對同步的影響、換 SKIN 的地點限制（M3-dive）、換檔次數。
+
+## M3-commission-net 回報（2026-11-24）
+
+- 委託副本的內海面：layer、lace、objective、controls、隔離區（locked_by）、六個新連動鍵、Run.trace、內海評價與後果；face.net 的 retreat 回到進副本之前、located 算失敗並 +5 敵對值。
+- 內海規則另放 `DEFAULT_NET_RULES`（M3-data-rules 加進 `commission_rule/default`）。
+- **給 M3-fixer-net**：生成的內海面要寫 `layer`，之後把 `netFaceProblems` 的 layer 改回必填。
+- 為了不破 M2 的 toEqual 測試而留的權宜（M3 收尾或修正批清掉）：`FaceView.locked` 只在鎖住時出現；`defeat_event`、`employer` 放在 setup 不放 origin.ext；fallout 的 net 欄位只在走內海時出現；舊的 `aux.pressure.net` 仍寫入鏡像。
+- 寫不出來：內海竄改班表的「增援延後」。

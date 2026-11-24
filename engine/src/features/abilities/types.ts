@@ -25,9 +25,10 @@ export const TREE_XP: readonly number[] = [0, 40, 120, 240, 400]
  * aim_all 大於 0 時這個人的每一次射擊都算瞄準過的；no_wound 大於 0 時打在他身上的重創改成一般的命中；
  * damage_roll 造成的傷害多這個公式（可以擲骰：打他打他！的 1d3，在命中確定之後才算一次）；
  * give_ap_cap 指揮每回合能讓的行動點加減；
- * tease_hit、tease_bonus 誘惑攻擊的命中與傷害加減（媚態的 1d3、繞指柔、共鳴 5 的 +1；tease_bonus 的公式可以擲骰，在傷害要算的那一刻才問一次）。
+ * tease_hit、tease_bonus 誘惑攻擊的命中與傷害加減（媚態的 1d3、繞指柔、共鳴 5 的 +1；tease_bonus 的公式可以擲骰，在傷害要算的那一刻才問一次）；
+ * use_extra 某個技能每場的次數加幾次（M3-skill-net-a：名醫「除錯每場可以用兩次」；tags 寫那個技能的 id，只算寫了 per_fight 的技能）。
  */
-export const FEATURE_MOD_KINDS = ['instinct_points', 'instinct_cap', 'instinct_free', 'call_uses', 'call_hit', 'aim_all', 'no_wound', 'damage_roll', 'give_ap_cap', 'tease_hit', 'tease_bonus'] as const
+export const FEATURE_MOD_KINDS = ['instinct_points', 'instinct_cap', 'instinct_free', 'call_uses', 'call_hit', 'aim_all', 'no_wound', 'damage_roll', 'give_ap_cap', 'tease_hit', 'tease_bonus', 'use_extra'] as const
 export type FeatureModKind = (typeof FEATURE_MOD_KINDS)[number]
 export type AnyModKind = ModKind | FeatureModKind
 
@@ -153,6 +154,8 @@ export interface TriggerDef {
   who: string
   /** attacked 沒有；hit：wound；after：miss、hit、melee、bridged；checked：檢定的標籤 */
   if?: string
+  /** attacked、hit、after 專用：這一擊帶著這個標籤才算（攻擊效果的 tags，例如超頻的 overclock；M3-skill-net-a：點放「每場第一次超頻之後」） */
+  tag?: string
   /** 做這件事的人（攻擊的人、讓他過載的人、擲檢定的人、讓他退出的人）要符合的條件：needs 同技能的 needs，range 是和反應的人的距離（欺負人家要賠喔：有橋、距離 2 以內）。沒帶 by 的事不觸發 */
   by?: { needs?: NeedsDef; range?: [number, number] }
 }
@@ -171,6 +174,13 @@ export interface ReactDef {
   prevent?: { how: string[] }
   /** hit 專用：這一擊的穿甲加減（獵殺節奏） */
   pierce?: number | string
+  /** attacked 專用：這一擊的傷害加減（負的是少；偷看是不行的喔：感載 −4）。傷害不會低於 0 */
+  damage?: number | string
+  /**
+   * overload 專用（內海的閃斷；M3-skill-net-a）：改寫這一次過載的閃斷。ram：歸零的那一池補回去多少（half 是歸零之前的一半，進位；before 是全部補回；full 是補滿）；
+   * end：拿掉閃斷的狀態（RAM 照樣在下個回合開始時回復）。死線 { ram: 'half' }、逆流 { ram: 'full', end: true }、急凍 { ram: 'before', end: true }。現實的過載（失去回合）不做
+   */
+  flash?: { ram?: 'half' | 'before' | 'full'; end?: true }
   /** hit 專用：這一擊結算完之後，被打的人換到相鄰的一格（有空格先去空格，沒有就和相鄰的隊友交換），不花行動點（替身）。要和 negate 一起寫 */
   then_move?: true
 }
@@ -269,7 +279,11 @@ export interface MeatDef {
   on_hit?: { hit_against_ally?: number }
   give_ap?: { max: 'one_plus_half_tier' }
   call?: { options: CallOption[]; per_fight: 'half_tier_up'; ap: number; heal?: number | string; vent?: number | string }
-  instinct?: true
+  /**
+   * 戰鬥直覺。現實欄寫 true（點數是樹階，戰鬥中每回合可以重分配）；內海欄寫物件（M3-skill-net-a）：points 是點數除以幾進位（槍手 3：階數 ÷ 3 無條件進位）、
+   * only 是只能分到哪幾項（命中、迴避）、fixed 是整場不能重分配（開戰時隨機分配之後，之後點數增加的部分也是照種子隨機放進還沒到上限的項）
+   */
+  instinct?: true | InstinctNet
   pending?: true
   /** 給玩家看的說明（pending 的欄用它寫原文；不影響效果） */
   text?: string
@@ -316,6 +330,20 @@ export interface MeatDef {
   sync_cap?: number
   /** 這一欄是招牌的專屬構裝：佔一個構裝槽（衍生數值 deck_slots_reserved），淺檔整欄不生效（ITEMS 11.7、CYBERSPACE 6.4） */
   unique?: true
+  /** 被動（kind 是 passive）的技能在這一欄多一個主動的行動（改造師招牌手術刀的「除錯」）：有 target、do 或 choose 的欄才成立；用 use 的那一組消耗 */
+  action?: true
+  /** 技能做的快駭的追蹤度（正整數；帶 hack 標籤的行動，內海每用一次追蹤度加它，現實被發現時給敵對值；dev/status.md M3-hack-net 回報）。兩欄各寫各的 */
+  trace?: number
+}
+
+/** 內海欄的戰鬥直覺（見 MeatDef.instinct）。 */
+export interface InstinctNet {
+  /** 點數 = ceil(樹階 / div) */
+  div: number
+  /** 只能分到這幾項 */
+  only: Array<'initiative' | 'hit' | 'evade'>
+  /** 整場不能重分配 */
+  fixed: true
 }
 
 /** 一組消耗。`use` 可以直接寫一組（每個戰場都一樣），或照戰場分 meat、net、opinion（E1）。 */
@@ -326,6 +354,8 @@ export interface AbilityUse {
   admin?: number
   /** 花掉手上全部的 RAM，至少要有這麼多；花掉的數字是公式的 spent */
   ram_all_min?: number
+  /** true：再加上手上武器構裝自己的 RAM 花費（武器的 pool.ram，沒寫是 1；只有內海用：瞄準過的攻擊、帶攻擊的技能「照常花 RAM」） */
+  weapon_ram?: true
   /** 現金（公式，例 'grade*500'） */
   cash?: number | string
   favor?: 'small' | 'mid' | 'big'

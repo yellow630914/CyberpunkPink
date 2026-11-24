@@ -28,6 +28,8 @@ export const MEAT_KEYS = [
   'mask', 'tease', 'out', 'out_mods',
   // 內海（M3-abilities-net）：兩欄都可以寫
   'slots', 'admin', 'sync_cap', 'unique',
+  // 內海（M3-skill-net-a）：被動的技能在這一欄多一個主動的行動（action）、技能做的快駭的追蹤度（trace）
+  'action', 'trace',
   // 給玩家看的說明（還沒有做成機制的 pending 欄用它寫原文；介面的技能卡讀它）
   'text',
 ] as const
@@ -36,7 +38,7 @@ export const CALL_OPTIONS = ['shot', 'cover_up', 'cover_down', 'heal', 'vent'] a
 const CALL_AMOUNT = ['heal', 'vent'] as const
 export const SUPPRESS_AREAS = ['adjacent', 'row'] as const
 const LEGACY_TRIGGERS = ['ally_attacked', 'ally_attacked_adjacent'] as const
-export const USE_KEYS = ['ap', 'ram', 'admin', 'ram_all_min', 'cash', 'favor', 'per_turn', 'per_fight', 'per_commission', 'first_round', 'not_first_round', 'group', 'slot', 'note'] as const
+export const USE_KEYS = ['ap', 'ram', 'admin', 'ram_all_min', 'cash', 'favor', 'per_turn', 'per_fight', 'per_commission', 'first_round', 'not_first_round', 'group', 'slot', 'note', 'weapon_ram'] as const
 export const FAVORS = ['small', 'mid', 'big'] as const
 export const WHEN_MEAT = ['wield', 'mag_min', 'hull', 'stance', 'slot', 'node_taken', 'wounded', 'sync_min', 'sync_max'] as const
 export const WHEN_MODS = [...WHEN_MEAT, 'first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_status', 'other_contract', 'target_near', 'first_attack', 'not_spotted'] as const
@@ -60,13 +62,13 @@ export const TRIGGER_WHO: Record<string, readonly string[]> = {
 const TRIGGER_IF: Record<string, readonly string[]> = { hit: ['wound', 'crit'], after: ['miss', 'hit', 'crit', 'melee', 'bridged'] }
 /** react 可以做的：照 on 分。 */
 export const REACT_BY_ON: Record<string, readonly string[]> = {
-  attacked: ['evade', 'hit', 'redirect', 'reach', 'no_wound'],
+  attacked: ['evade', 'hit', 'redirect', 'reach', 'no_wound', 'damage'],
   hit: ['negate', 'no_wound', 'pierce', 'then_move'],
-  overload: ['keep_turn'],
+  overload: ['keep_turn', 'flash'],
   checked: ['dc'],
   out_before: ['prevent'],
 }
-const REACT_KEYS = ['evade', 'hit', 'redirect', 'reach', 'no_wound', 'negate', 'keep_turn', 'dc', 'prevent', 'pierce', 'then_move'] as const
+const REACT_KEYS = ['evade', 'hit', 'redirect', 'reach', 'no_wound', 'negate', 'keep_turn', 'dc', 'prevent', 'pierce', 'then_move', 'damage', 'flash'] as const
 
 // ---- 公式 ----
 
@@ -110,6 +112,7 @@ function useSetProblems(at: string, u: Record<string, unknown>, kind: unknown): 
     else if (kind !== 'prep' && kind !== 'daily') p.push(`${at}.slot 只有預備與日常（kind 是 prep、daily）用`)
   }
   if (u.note !== undefined && typeof u.note !== 'string') p.push(`${at}.note 要是字串`)
+  if (u.weapon_ram !== undefined && u.weapon_ram !== true) p.push(`${at}.weapon_ram 只能是 true（再加上手上武器構裝自己的 RAM 花費）`)
   return p
 }
 
@@ -126,6 +129,7 @@ export function useProblems(u: unknown, kind: unknown): string[] {
         p.push(...useSetProblems(`use.${col}`, u[col] as Record<string, unknown>, kind))
         // 管理行動是內海的消耗：現實與輿論那一組不能寫
         if (col !== 'net' && (u[col] as Record<string, unknown>).admin !== undefined) p.push(`use.${col}.admin 只有內海用（寫在 use.net，或直接寫的那一組）`)
+        if (col !== 'net' && (u[col] as Record<string, unknown>).weapon_ram !== undefined) p.push(`use.${col}.weapon_ram 只有內海用（寫在 use.net，或直接寫的那一組）`)
       }
     }
     return p
@@ -287,7 +291,11 @@ function triggerProblems(m: Record<string, unknown>): string[] {
     return p
   }
   if (!isRec(t)) return [`meat.trigger 要是 { on, who, if? }（或舊的字串 ${LEGACY_TRIGGERS.join('、')}）`]
-  const p = onlyKeys('meat.trigger', t, ['on', 'who', 'if', 'by'])
+  const p = onlyKeys('meat.trigger', t, ['on', 'who', 'if', 'by', 'tag'])
+  if (t.tag !== undefined) {
+    if (!isText(t.tag)) p.push('meat.trigger.tag 要是標籤（這一擊帶著這個標籤才算）')
+    else if (!['attacked', 'hit', 'after'].includes(t.on as string)) p.push('meat.trigger.tag 只有 attacked、hit、after 用（看這一擊的標籤）')
+  }
   if (t.by !== undefined) {
     const b = t.by
     if (!isRec(b)) p.push('meat.trigger.by 要是 { needs?, range? }（做這件事的人要符合的條件）')
@@ -319,7 +327,17 @@ function triggerProblems(m: Record<string, unknown>): string[] {
     else {
       p.push(...onlyKeys('meat.react', r, REACT_KEYS))
       for (const key of Object.keys(r)) if ((REACT_KEYS as readonly string[]).includes(key) && !ok.includes(key)) p.push(`meat.react.${key} 不能用在 ${on}（${on} 的 react 只有 ${ok.length ? ok.join('、') : '沒有；用 do'}）`)
-      for (const key of ['evade', 'hit', 'dc', 'pierce'] as const) if (r[key] !== undefined) p.push(...plainFormula(`meat.react.${key}`, r[key]))
+      for (const key of ['evade', 'hit', 'dc', 'pierce', 'damage'] as const) if (r[key] !== undefined) p.push(...plainFormula(`meat.react.${key}`, r[key]))
+      if (r.flash !== undefined) {
+        const f = r.flash
+        if (!isRec(f)) p.push("meat.react.flash 要是 { ram?: 'half' | 'before' | 'full', end?: true }")
+        else {
+          p.push(...onlyKeys('meat.react.flash', f, ['ram', 'end']))
+          if (f.ram !== undefined && !['half', 'before', 'full'].includes(f.ram as string)) p.push(`meat.react.flash.ram 只能是 half、before、full（拿到 ${String(f.ram)}）`)
+          if (f.end !== undefined && f.end !== true) p.push('meat.react.flash.end 只能是 true')
+          if (f.ram === undefined && f.end === undefined) p.push('meat.react.flash 要寫 ram 或 end')
+        }
+      }
       if (r.redirect !== undefined && r.redirect !== 'overlay') p.push("meat.react.redirect 只能是 'overlay'")
       if (r.reach !== undefined) {
         if (!(isInt(r.reach) && r.reach >= 0 && r.reach <= 3)) p.push('meat.react.reach 要是 0～3 的整數（擋槍的無人機和被打的人差幾格以內）')
@@ -455,7 +473,22 @@ function columnProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kern
       }
     }
   }
-  if (m.instinct !== undefined && m.instinct !== true) p.push('meat.instinct 只能是 true')
+  if (m.instinct !== undefined && m.instinct !== true) {
+    const i = m.instinct
+    if (!isRec(i)) p.push('meat.instinct 只能是 true（現實欄），或 { div, only, fixed: true }（內海欄）')
+    else {
+      p.push(...onlyKeys('meat.instinct', i, ['div', 'only', 'fixed']))
+      if (!(isInt(i.div) && i.div >= 1)) p.push('meat.instinct.div 要是 1 以上的整數（點數 = 樹階 ÷ div 進位）')
+      if (!(Array.isArray(i.only) && i.only.length > 0 && i.only.every((x) => ['initiative', 'hit', 'evade'].includes(x as string)))) p.push('meat.instinct.only 要是 initiative、hit、evade 裡的幾項（只能分到這幾項）')
+      if (i.fixed !== true) p.push('meat.instinct.fixed 只能是 true（整場不能重分配）')
+    }
+  }
+  if (m.action !== undefined) {
+    if (m.action !== true) p.push('meat.action 只能是 true')
+    else if (kind !== 'passive') p.push('meat.action 只有被動（kind 是 passive）用：被動的技能在這一欄多一個主動的行動；主動技能本來就是行動')
+    else if (!(m.target || m.do || m.choose)) p.push('meat.action 要有 target、do 或 choose（那個行動做什麼）')
+  }
+  if (m.trace !== undefined && !(isInt(m.trace) && m.trace >= 1)) p.push('meat.trace 要是 1 以上的整數（快駭的追蹤度）')
   if (m.pending !== undefined && m.pending !== true) p.push('meat.pending 只能是 true')
   if (m.text !== undefined && typeof m.text !== 'string') p.push('meat.text 要是字串（給玩家看的說明）')
 
@@ -604,7 +637,6 @@ function columnProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kern
 const NET_BLOCKED_KEYS: Record<string, string> = {
   call: '叫人是現實戰鬥的名冊支援',
   give_ap: '指揮是現實戰鬥的隊伍行動點',
-  instinct: '戰鬥直覺是現實戰鬥的點數分配',
   tease: '誘惑攻擊打的是快感，內海沒有成人場景',
   mask: '面具是現實裡被認出來的機制',
   ransom: '保釋是現實戰敗的事件',
@@ -614,6 +646,8 @@ const NET_BLOCKED_KEYS: Record<string, string> = {
   evade: '那是舊的 ally_attacked 寫法的附屬',
 }
 const NET_BLOCKED_ATTACK = ['spend', 'min_mag', 'dice', 'free_mag', 'suppress']
+/** 花掉全部 RAM 的技能（use.ram_all_min：超頻、黑冰）內海欄的 attack 才能寫 spend: 'all'、dice、suppress：花掉的 RAM 就是那個「花掉的格數」 */
+const NET_ALL_RAM_BLOCKED_ATTACK = ['min_mag', 'free_mag']
 const NET_BLOCKED_WHEN = ['mag_min', 'hull', 'node_taken', 'wounded', 'other_cyber', 'other_contract', 'not_spotted']
 const NET_BLOCKED_NEEDS = ['cyber', 'implant_off', 'cache_tag', 'wounded']
 const NET_BLOCKED_MODS = ['instinct_points', 'instinct_cap', 'instinct_free', 'call_uses', 'call_hit', 'give_ap_cap', 'tease_hit', 'tease_bonus', 'no_wound']
@@ -628,12 +662,30 @@ function blockedNeeds(at: string, n: unknown): string[] {
   return p
 }
 
-/** 內海欄裡現實才有意義的東西（回傳的訊息已經是 net. 開頭）。 */
-function netBlockedProblems(m: Record<string, unknown>): string[] {
+/** 這個技能在內海花不花掉全部的 RAM（use 直接寫一組，或照戰場分的 net 那一組）。 */
+const allRam = (use: unknown): boolean => {
+  if (!isRec(use)) return false
+  const u = 'meat' in use || 'net' in use || 'opinion' in use ? use.net : use
+  return isRec(u) && u.ram_all_min !== undefined
+}
+
+/** 內海欄裡現實才有意義的東西（回傳的訊息已經是 net. 開頭）。use 是技能的 use（花掉全部 RAM 的技能才能寫彈匣的花法與壓制）。 */
+function netBlockedProblems(m: Record<string, unknown>, use?: unknown): string[] {
   const p: string[] = []
   for (const [key, why] of Object.entries(NET_BLOCKED_KEYS)) if (m[key] !== undefined) p.push(`net.${key} 在內海沒有意義（${why}）`)
+  if (m.instinct === true) p.push('net.instinct 在內海沒有意義（戰鬥直覺是現實戰鬥的點數分配；內海欄要寫 { div, only, fixed: true }）')
   if (typeof m.trigger === 'string') p.push(`net.trigger 不能用舊的字串寫法「${m.trigger}」（那是現實的隊友掩護）；寫成 { on, who, if? }`)
-  if (isRec(m.attack)) p.push(...blockedIn('net.attack', m.attack, NET_BLOCKED_ATTACK, '內海的構裝沒有彈匣，也沒有壓制'))
+  if (isRec(m.attack)) {
+    const a = m.attack
+    if (allRam(use)) {
+      p.push(...blockedIn('net.attack', a, NET_ALL_RAM_BLOCKED_ATTACK, '內海的構裝沒有彈匣'))
+      if (a.spend !== undefined && a.spend !== 'all') p.push('net.attack.spend 在內海沒有意義（花 RAM 的技能只能寫 \'all\'：花掉手上全部的 RAM）')
+    } else {
+      // 壓制姿態（auto）不花彈匣、不檢定：內海也成立（只在第一回合）；其餘的壓制要花掉全部 RAM 的技能才有
+      const keys = isRec(a.suppress) && a.suppress.auto === true ? NET_BLOCKED_ATTACK.filter((x) => x !== 'suppress') : NET_BLOCKED_ATTACK
+      p.push(...blockedIn('net.attack', a, keys, '內海的構裝沒有彈匣，也沒有壓制（花掉全部 RAM 的技能與壓制姿態除外）'))
+    }
+  }
   p.push(...blockedWhen('net.when', m.when), ...blockedNeeds('net.needs', m.needs))
   if (isRec(m.trigger) && isRec(m.trigger.by)) p.push(...blockedNeeds('net.trigger.by.needs', m.trigger.by.needs))
   if (Array.isArray(m.mods)) {
@@ -653,10 +705,10 @@ function netBlockedProblems(m: Record<string, unknown>): string[] {
  * 一欄的格式檢查：只能用封閉清單裡的鍵。col 是 meat（預設）或 net，兩欄同一套，內海欄再擋掉現實才有意義的鍵（NET_BLOCKED_*），訊息的前綴是欄名。
  * k 沒給就不查 do 裡的 op（只有單獨驗格式時）。
  */
-export function meatProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kernel, 'battle'>, col: 'meat' | 'net' = 'meat'): string[] {
+export function meatProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kernel, 'battle'>, col: 'meat' | 'net' = 'meat', use?: unknown): string[] {
   const p = columnProblems(m, kind, k)
-  if (col === 'meat') return p
-  return [...p.map((x) => x.replaceAll('meat.', 'net.')), ...netBlockedProblems(m)]
+  if (col === 'meat') return isRec(m.instinct) ? [...p, 'meat.instinct 的物件寫法是內海欄的（現實欄寫 true）'] : p
+  return [...p.map((x) => x.replaceAll('meat.', 'net.')), ...netBlockedProblems(m, use)]
 }
 
 // ---- prep ----

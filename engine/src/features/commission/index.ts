@@ -31,11 +31,11 @@ import { failedDraft, keepFailed, mineOf, netEnd, onDefeatAccepted } from './clo
 import { achieved, enterDraft, finish, milestone, pressureDraft } from './run'
 
 export {
-  ACTIVITY, BRANCH_KINDS, DEFAULT_COMMISSION_RULES, EXT, FACES, FAILED_EXT, FACE_ACTIVITY, FACE_NAME, GOAL_KINDS, KIND, LINK_TYPES, NET_LACES, NET_LAYERS, NET_OBJECTIVES, OWNER, RULE_KIND, SCALE_STAGES, TRACE_MIN,
-  commissionMapProblems, commissionProblems, commissionRules, dcBaseOf, effectsFor, encounterAfter, gradeOf, netFx, readRun, ruleProblems, stageName,
+  ACTIVITY, BRANCH_KINDS, DEFAULT_COMMISSION_RULES, DEFAULT_NET_RULES, EXT, FACES, FAILED_EXT, FACE_ACTIVITY, FACE_NAME, GOAL_KINDS, KIND, LINK_TYPES, NET_LACES, NET_LAYERS, NET_OBJECTIVES, OWNER, RULE_KIND, SCALE_STAGES, TRACE_MIN,
+  commissionMapProblems, commissionProblems, commissionRules, dcBaseOf, effectsFor, encounterAfter, gradeOf, netFx, netRules, readRun, ruleProblems, stageName,
 } from './model'
 export type {
-  AuxOutcome, AuxResult, AuxState, BranchDef, BranchKind, CommissionEntry, CommissionRules, Face, FaceDef, GoalDef, LinkDef, LinkEffect, Need, Rank, RouteEntry, Run, RunLink, RunSetup, StageDef, StageEffects, Step,
+  AuxOutcome, AuxResult, AuxState, BranchDef, BranchKind, CommissionEntry, CommissionRules, NetRules, Face, FaceDef, GoalDef, LinkDef, LinkEffect, Need, Rank, RouteEntry, Run, RunLink, RunSetup, StageDef, StageEffects, Step,
 } from './model'
 export { RATINGS, XP_EFFECT, HOSTILITY_EFFECT, RETREAT_REWIND, failedOf, fallout, forecast, netEnd, rate, retreatEnd, xpFor } from './close'
 export type { CloseForecast, FailedMark, Fallout, Rating, RatingParts } from './close'

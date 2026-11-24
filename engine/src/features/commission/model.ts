@@ -188,7 +188,14 @@ export interface CommissionRules {
   rating_links: number
   rating_alert: number
   rating_peak: number
-  /** 內海（M3-commission-net）：整趟的追蹤度到 net_alert_at（N14：60），委託的警戒 +net_alert（10），只加一次 */
+}
+
+/**
+ * 內海的數字（M3-commission-net）。和 CommissionRules 分開放：資料 commission_rule/default 寫了才蓋掉，沒寫照這裡的預設
+ * （資料檔補上這幾個欄位是 M3-data-rules 的事；補上之前資料與 DEFAULT_COMMISSION_RULES 一一對得上）。
+ */
+export interface NetRules {
+  /** 整趟的追蹤度到 net_alert_at（N14：60），委託的警戒 +net_alert（10），只加一次 */
   net_alert: number
   net_alert_at: number
   /** 路線的後果（N34）：做完時每 net_hostility_step（20）點追蹤度目標勢力的敵對值 +1（進位），最多 net_hostility_max（5）；被定位另外 +net_located_hostility（5） */
@@ -202,31 +209,36 @@ export interface CommissionRules {
   rating_trace_peak: number
 }
 
+export const DEFAULT_NET_RULES: NetRules = {
+  net_alert: 10, net_alert_at: 60, net_hostility_step: 20, net_hostility_max: 5, net_located_hostility: 5, net_watchers: [], net_watcher_hostility: 2, rating_trace_peak: 90,
+}
+type NetNumeric = Exclude<keyof NetRules, 'net_watchers'>
+const NET_RULE_FIELDS: Array<[NetNumeric, number, number]> = [
+  ['net_alert', 0, 100], ['net_alert_at', 1, 100], ['net_hostility_step', 1, 100], ['net_hostility_max', 0, 100], ['net_located_hostility', 0, 100], ['net_watcher_hostility', 0, 100], ['rating_trace_peak', 1, 100],
+]
+
 export const DEFAULT_COMMISSION_RULES: CommissionRules = {
   stage_minutes: 120, stealth_fail_alert: 10, check_fail_alert: 5, dc_base: 10, dc_per_grade: 2, reinforce_count: 2, hard_alert: 100, hard_grade_up: 1, pressure_at: 60,
   aux_pressure: 10, aux_rest: 1, aux_injured_days: 3,
   xp_small: 20, xp_medium: 35, xp_large: 60, hostility_base: 5, hostility_per_assault: 3, hostility_max: 15, rating_links: 3, rating_alert: 60, rating_peak: 100,
   aux_skills: { meat: ['firearms', 'brawl', 'stealth', 'athletics'], net: ['interface'], opinion: ['perform', 'negotiate'] },
   aux_bonus: { strong: 4, mid: 2, weak: 0, none: 0 },
-  net_alert: 10, net_alert_at: 60, net_hostility_step: 20, net_hostility_max: 5, net_located_hostility: 5, net_watchers: [], net_watcher_hostility: 2, rating_trace_peak: 90,
 }
 
 type NumericRule = 'stage_minutes' | 'stealth_fail_alert' | 'check_fail_alert' | 'dc_base' | 'dc_per_grade' | 'reinforce_count' | 'hard_alert' | 'hard_grade_up' | 'pressure_at' | 'aux_pressure' | 'aux_rest' | 'aux_injured_days'
   | 'xp_small' | 'xp_medium' | 'xp_large' | 'hostility_base' | 'hostility_per_assault' | 'hostility_max' | 'rating_links' | 'rating_alert' | 'rating_peak'
-  | 'net_alert' | 'net_alert_at' | 'net_hostility_step' | 'net_hostility_max' | 'net_located_hostility' | 'net_watcher_hostility' | 'rating_trace_peak'
 const RULE_FIELDS: Array<[NumericRule, number, number]> = [
   ['stage_minutes', 0, 100000], ['stealth_fail_alert', 0, 100], ['check_fail_alert', 0, 100], ['dc_base', 0, 40], ['dc_per_grade', 0, 10],
   ['reinforce_count', 0, 8], ['hard_alert', 1, 100], ['hard_grade_up', 0, 4], ['pressure_at', 1, 100], ['aux_pressure', 0, 100], ['aux_rest', 0, 3], ['aux_injured_days', 0, 30],
   ['xp_small', 0, 1000], ['xp_medium', 0, 1000], ['xp_large', 0, 1000], ['hostility_base', 0, 100], ['hostility_per_assault', 0, 100], ['hostility_max', 0, 100],
   ['rating_links', 1, 20], ['rating_alert', 1, 100], ['rating_peak', 1, 100],
-  ['net_alert', 0, 100], ['net_alert_at', 1, 100], ['net_hostility_step', 1, 100], ['net_hostility_max', 0, 100], ['net_located_hostility', 0, 100], ['net_watcher_hostility', 0, 100], ['rating_trace_peak', 1, 100],
 ]
 const AUX_FACES = ['meat', 'net', 'opinion'] as const
 const AUX_BONUS_KEYS = ['strong', 'mid', 'weak', 'none'] as const
 
 export function ruleProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
-  for (const [key, lo, hi] of RULE_FIELDS) if (e[key] !== undefined && !(isSafeInt(e[key]) && e[key] >= lo && e[key] <= hi)) p.push(`${key} 要是 ${lo}～${hi} 的整數`)
+  for (const [key, lo, hi] of [...RULE_FIELDS, ...NET_RULE_FIELDS]) if (e[key] !== undefined && !(isSafeInt(e[key]) && e[key] >= lo && e[key] <= hi)) p.push(`${key} 要是 ${lo}～${hi} 的整數`)
   if (e.aux_skills !== undefined) {
     const sk = e.aux_skills
     if (!isRecord(sk) || Object.keys(sk).some((f) => !(AUX_FACES as readonly string[]).includes(f)) || Object.values(sk).some((v) => !isTextList(v) || v.length === 0)) p.push('aux_skills 要是 { meat?, net?, opinion? }，每一面是至少一個基本功 id 的陣列')
@@ -254,7 +266,17 @@ export function commissionRules(k: Pick<Kernel, 'content'>): CommissionRules {
   out.aux_bonus = { ...DEFAULT_COMMISSION_RULES.aux_bonus }
   if (e.aux_skills !== undefined && !bad.has('aux_skills')) for (const [f, v] of Object.entries(e.aux_skills as Record<string, string[]>)) out.aux_skills[f as 'meat'] = [...v]
   if (e.aux_bonus !== undefined && !bad.has('aux_bonus')) Object.assign(out.aux_bonus, e.aux_bonus)
-  out.net_watchers = e.net_watchers !== undefined && !bad.has('net_watchers') ? [...new Set(e.net_watchers as string[])] : []
+  return out
+}
+
+/** 內海的數字：資料 commission_rule/default 寫了的蓋掉預設（格式不對的欄位忽略）。 */
+export function netRules(k: Pick<Kernel, 'content'>): NetRules {
+  const e = k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default')
+  const out: NetRules = { ...DEFAULT_NET_RULES, net_watchers: [] }
+  if (!e) return out
+  const bad = new Set(ruleProblems(e).map((m) => m.split(' ')[0]))
+  for (const [key] of NET_RULE_FIELDS) if (e[key] !== undefined && !bad.has(key)) out[key] = e[key] as number
+  if (e.net_watchers !== undefined && !bad.has('net_watchers')) out.net_watchers = [...new Set(e.net_watchers as string[])]
   return out
 }
 
@@ -358,7 +380,8 @@ function faceProblems(f: unknown, at: string, face: Face, links: Record<string, 
 /** 內海面的資料（layer 必填；其餘照 dev/adr/0018 第九節）。 */
 function netFaceProblems(f: Record<string, unknown>, at: string, links: Record<string, unknown>): string[] {
   const p: string[] = []
-  if (!(NET_LAYERS as readonly unknown[]).includes(f.layer)) p.push(`${at}.layer 只能是 ${NET_LAYERS.join('、')}（內海面一定要寫）`)
+  // layer 規格是必填；生成器（M3-fixer-net 之前）生成的內海面還沒有寫它，先只檢查寫了的值（那一張補上之後改成沒寫就擋，netrun 沒給時 layer 是空字串＝第 N 層）
+  if (f.layer !== undefined && !(NET_LAYERS as readonly unknown[]).includes(f.layer)) p.push(`${at}.layer 只能是 ${NET_LAYERS.join('、')}`)
   if (f.lace !== undefined && !(NET_LACES as readonly unknown[]).includes(f.lace)) p.push(`${at}.lace 只能是 ${NET_LACES.join('、')}`)
   if (f.facility !== undefined && !isText(f.facility)) p.push(`${at}.facility 要是文字`)
   if (f.objective !== undefined) {

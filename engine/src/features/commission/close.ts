@@ -15,8 +15,8 @@
 import type { ActivityEndMerged, ActivityEndReturn, Change, GameState, Kernel, Origin, ReportDraft, ReportRewind } from '../../core'
 import { clone, effectCtx, endActivity, isRecord, meterOf } from '../../core'
 import type { Run } from './model'
-import { ACTIVITY, FAILED_EXT, SCALE_STAGES, TRACE_MIN, clamp, commissionRules, gradeOf, readRun, runChange } from './model'
-import type { CommissionRules } from './model'
+import { ACTIVITY, DEFAULT_NET_RULES, FAILED_EXT, SCALE_STAGES, TRACE_MIN, clamp, commissionRules, gradeOf, netRules, readRun, runChange } from './model'
+import type { CommissionRules, NetRules } from './model'
 
 /** 評價的四級，由低到高 */
 export const RATINGS = ['C', 'B', 'A', 'S'] as const
@@ -48,11 +48,11 @@ export interface RatingParts {
  * 評價（G16）：從 B 起算；每個潛行或交涉成功的階段 +1、三個以上連動 +1、警戒最後在 60 以上 −1、到過 100 再 −1；夾在 C～S 四級之內。
  * 內海面（M3-commission-net）的壓力條照同一個門檻看追蹤度：最後在 60 以上 −1（和警戒同一項，兩條都過了也只扣一次）、到過 90 再 −1（同樣是那一項）。
  */
-export function rate(run: Run, rules: CommissionRules, alert: number, peak: number): { rating: Rating; parts: RatingParts } {
+export function rate(run: Run, rules: CommissionRules, alert: number, peak: number, net: NetRules = DEFAULT_NET_RULES): { rating: Rating; parts: RatingParts } {
   const stealth = new Set(run.route.filter((r) => r.roll === 'pass').map((r) => r.stage)).size
   const links = run.links.length >= rules.rating_links ? 1 : 0
   const high = alert >= rules.rating_alert || (run.trace ?? 0) >= rules.rating_alert ? -1 : 0
-  const top = peak >= rules.rating_peak || (run.net_peak ?? 0) >= rules.rating_trace_peak ? -1 : 0
+  const top = peak >= rules.rating_peak || (run.net_peak ?? 0) >= net.rating_trace_peak ? -1 : 0
   const score = stealth + links + high + top
   return { rating: RATINGS[clamp(BASE_RATING + score, 0, RATINGS.length - 1)]!, parts: { stealth, links, alert: high, peak: top, score } }
 }
@@ -68,10 +68,10 @@ export interface Fallout {
   reality: number
   /** 其中強攻的階段數（強攻，或潛行與交涉沒過、照強攻走的） */
   assault: number
-  /** 走了內海留下的那一份（N34）：走了幾個內海的階段、整趟最後的追蹤度、被定位算進去的那一份、目標勢力的內海敵對值（delta 已經包含它） */
-  net: { stages: number; trace: number; located: number; delta: number }
-  /** 管網路的勢力各加多少（net_watchers；走了內海才有） */
-  watchers: Array<{ faction: string; delta: number }>
+  /** 走了內海留下的那一份（N34；有階段走了內海才有這個欄位）：走了幾個內海的階段、整趟最後的追蹤度、被定位算進去的那一份、目標勢力的內海敵對值（delta 已經包含它） */
+  net?: { stages: number; trace: number; located: number; delta: number }
+  /** 管網路的勢力各加多少（net_watchers；有階段走了內海才有這個欄位） */
+  watchers?: Array<{ faction: string; delta: number }>
 }
 
 /**
@@ -79,16 +79,17 @@ export interface Fallout {
  * 有階段走了內海（N34）：每 20 點追蹤度（做完時整趟最後的值）目標勢力的敵對值 +1（進位、最多 5），不算被定位的那一次（不算失敗的戰敗而且是被定位：另外 +5）；
  * 管網路的勢力（規則表 net_watchers）各 +2。
  */
-export function fallout(run: Run, rules: CommissionRules): Fallout {
+export function fallout(run: Run, rules: CommissionRules, netR: NetRules = DEFAULT_NET_RULES): Fallout {
   const faction = run.def.target_faction !== 'none' && run.def.target_faction.trim() ? run.def.target_faction : null
   const real = run.route.filter((r) => r.face === 'meat' && r.roll !== 'pass')
   const assault = real.filter((r) => r.kind === 'assault' || r.roll === 'fail').length
   const meat = faction !== null && real.length > 0 ? Math.min(rules.hostility_max, rules.hostility_base + rules.hostility_per_assault * assault) : 0
   const stages = new Set(run.route.filter((r) => r.face === 'net').map((r) => r.stage)).size
+  if (stages === 0) return { faction, delta: meat, reality: real.length, assault }
   const trace = run.trace ?? 0
-  const located = stages > 0 && run.net_located === true ? rules.net_located_hostility : 0
-  const net = faction !== null && stages > 0 ? Math.min(rules.net_hostility_max, Math.ceil(Math.max(0, trace) / rules.net_hostility_step)) + located : 0
-  const watchers = stages > 0 && rules.net_watcher_hostility > 0 ? rules.net_watchers.map((f) => ({ faction: f, delta: rules.net_watcher_hostility })) : []
+  const located = run.net_located === true ? netR.net_located_hostility : 0
+  const net = faction !== null ? Math.min(netR.net_hostility_max, Math.ceil(Math.max(0, trace) / netR.net_hostility_step)) + located : 0
+  const watchers = netR.net_watcher_hostility > 0 ? netR.net_watchers.map((f) => ({ faction: f, delta: netR.net_watcher_hostility })) : []
   return { faction, delta: meat + net, reality: real.length, assault, net: { stages, trace, located, delta: net }, watchers }
 }
 
@@ -114,9 +115,9 @@ export interface CloseForecast {
 }
 
 /** 預估：照現在的路線、連動與警戒（alert 是現在的、peak 是到過的最高）算做完的話會是什麼。 */
-export function forecast(state: GameState, run: Run, rules: CommissionRules, alert: number, peak: number): CloseForecast {
-  const r = rate(run, rules, alert, peak)
-  return { rating: r.rating, parts: r.parts, fallout: fallout(run, rules), xp: xpFor(state, rules, run.def.scale) }
+export function forecast(state: GameState, run: Run, rules: CommissionRules, alert: number, peak: number, net: NetRules = DEFAULT_NET_RULES): CloseForecast {
+  const r = rate(run, rules, alert, peak, net)
+  return { rating: r.rating, parts: r.parts, fallout: fallout(run, rules, net), xp: xpFor(state, rules, run.def.scale) }
 }
 
 // ---- 結果 ----
@@ -138,8 +139,9 @@ export function resultOf(run: Run, extra: Record<string, unknown> = {}): Record<
 /** 做完（finish）要套的：敵對值與歷練點的變更、給玩家看的句子、算出來的數字（放進 result）。沒有人註冊的效果種類不套（功能沒裝）。 */
 export function settleDone(k: Kernel, state: GameState, run: Run): { changes: Change[]; lines: string[]; result: Record<string, unknown> } {
   const rules = commissionRules(k)
-  const { rating, parts } = rate(run, rules, run.alert, run.peak)
-  const fall = fallout(run, rules)
+  const nr = netRules(k)
+  const { rating, parts } = rate(run, rules, run.alert, run.peak, nr)
+  const fall = fallout(run, rules, nr)
   const xp = xpFor(state, rules, run.def.scale)
   const changes: Change[] = []
   const lines: string[] = [`評價 ${rating}。`]
@@ -147,7 +149,7 @@ export function settleDone(k: Kernel, state: GameState, run: Run): { changes: Ch
   // 同一個勢力（目標勢力也在管網路的清單裡）只結算一次
   const hostile = new Map<string, number>()
   if (fall.faction !== null && fall.delta > 0) hostile.set(fall.faction, fall.delta)
-  for (const w of fall.watchers) if (w.delta > 0) hostile.set(w.faction, (hostile.get(w.faction) ?? 0) + w.delta)
+  for (const w of fall.watchers ?? []) if (w.delta > 0) hostile.set(w.faction, (hostile.get(w.faction) ?? 0) + w.delta)
   if (k.effects.has(HOSTILITY_EFFECT)) {
     for (const [faction, amount] of hostile) {
       const res = k.effects.resolve([{ kind: HOSTILITY_EFFECT, key: faction, amount }], ctx)
@@ -166,7 +168,7 @@ export function settleDone(k: Kernel, state: GameState, run: Run): { changes: Ch
   }
   return {
     changes, lines,
-    result: { rating, rating_parts: parts, xp, hostility: { faction: fall.faction, delta: fall.delta, reality: fall.reality, assault: fall.assault, net: fall.net, watchers: fall.watchers } },
+    result: { rating, rating_parts: parts, xp, hostility: { faction: fall.faction, delta: fall.delta, reality: fall.reality, assault: fall.assault, ...(fall.net ? { net: fall.net, watchers: fall.watchers } : {}) } },
   }
 }
 
@@ -201,7 +203,7 @@ export function netEnd(k: Kernel, state: GameState, run: Run, outcome: string, r
   }
   if (outcome === 'located') return failReturn(k, run, { located: true, net: true, ...(typeof result.trace === 'number' ? { trace: result.trace } : {}) }, true)
   if (outcome !== 'done') return { changes: [runChange({ ...run, done: false })], lines: ['這一段沒有完成，可以再來一次。'] }
-  const rules = commissionRules(k)
+  const rules = netRules(k)
   const trace = clamp(intOr(result.trace, run.trace), TRACE_MIN, 100)
   const peak = Math.max(run.net_peak, trace, clamp(intOr(result.peak, trace), TRACE_MIN, 100))
   const lines = ['這一段完成了。']
@@ -271,7 +273,7 @@ export function onDefeatAccepted(k: Kernel, state: GameState, origin: Origin, re
  */
 export function failReturn(k: Pick<Kernel, 'content'>, run: Run, defeat: Record<string, unknown>, located: boolean): ActivityEndReturn {
   const name = run.def.name ?? run.def.id
-  const rules = commissionRules(k)
+  const rules = netRules(k)
   const faction = run.def.target_faction !== 'none' && run.def.target_faction.trim() ? run.def.target_faction : null
   const hostile = located && faction !== null && rules.net_located_hostility > 0 ? { faction, amount: rules.net_located_hostility } : null
   const mark: FailedMark = {

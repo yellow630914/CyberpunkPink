@@ -83,7 +83,7 @@ function enemyAbilityProblems(e: Record<string, unknown>, k: Pick<Kernel, 'battl
   if (e.meat !== undefined && e.meat !== null && !isRec(e.meat)) p.push('meat 要是物件或 null')
   if (e.net !== undefined && e.net !== null && !isRec(e.net)) p.push('net 要是物件或 null')
   if (isRec(e.meat)) p.push(...meatProblems(e.meat, e.kind, k))
-  if (isRec(e.net)) p.push(...meatProblems(e.net, e.kind, k, 'net'))
+  if (isRec(e.net)) p.push(...meatProblems(e.net, e.kind, k, 'net', e.use))
   if (e.opinion !== undefined && e.opinion !== null && !isRec(e.opinion)) p.push('opinion 要是物件或 null')
   return p
 }
@@ -119,7 +119,7 @@ function playerAbilityProblems(e: Record<string, unknown>, k: Pick<Kernel, 'batt
     else if (v !== null && !isRec(v)) p.push(`${col} 要是物件或 null`)
   }
   if (isRec(e.meat)) p.push(...meatProblems(e.meat, e.kind, k))
-  if (isRec(e.net)) p.push(...meatProblems(e.net, e.kind, k, 'net'))
+  if (isRec(e.net)) p.push(...meatProblems(e.net, e.kind, k, 'net', e.use))
   p.push(...prepProblems(e.prep, e.kind, k))
   if (e.daily !== undefined && e.daily !== null && !isRec(e.daily)) p.push('daily 要是物件或 null')
   return p
@@ -194,7 +194,7 @@ export function checkAbilities(k: Pick<Kernel, 'content' | 'battle'>): void {
           problems.push(`${a.id}：${col}.alter[${i}] 要改的 ${alt.ability} 沒有 ${col}`)
           continue
         }
-        const changed = meatProblems(applySet(targetCol as Record<string, unknown>, alt.set), target.kind, k, col)
+        const changed = meatProblems(applySet(targetCol as Record<string, unknown>, alt.set), target.kind, k, col, target.use)
         for (const msg of changed) problems.push(`${a.id}：${col}.alter[${i}] 改過 ${alt.ability} 之後不合格：${msg}`)
       }
     }
