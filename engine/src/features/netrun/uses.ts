@@ -5,6 +5,7 @@
 import type { Change, GameState, GridCtx, GridUse, Kernel, MarkerDef, ReportDraft } from '../../core'
 import { ActionBlocked, Sheet, clone, gridHere, instanceDef, sightOf } from '../../core'
 import { draft, runRegion } from './common'
+import { backdoorDraft, backdoorUse } from './dig'
 import { fightDraft, foeNeighbours, foeNodeOf, sneakDraft } from './fight'
 import type { NetExt, NetRun } from './model'
 import { ACT_FACE, netExt, nodeAt, readRun, runChange } from './model'
@@ -53,8 +54,8 @@ export function gateBlock(state: GameState, run: NetRun, net: NetExt, sheetId: s
   return null
 }
 
-/** 這張地圖的閘門 DC：地圖的 DC，追蹤度到過門檻（t1）之後加 gate_t1_dc（NETRUNNING 第 5 節；破解閘門的那一張讀它）。 */
-export const gateDc = (k: Kernel, net: NetExt): number => net.dc + (net.t30 ? netrunRules(k).gate_t1_dc : 0)
+/** 這張地圖的閘門 DC：地圖的 DC，追蹤度到過門檻（t1）之後加 gate_t1_dc（NETRUNNING 第 5 節；破解閘門的那一張讀它），再加詞條的 gate_dc（系統更新 −2）。 */
+export const gateDc = (k: Kernel, net: NetExt): number => net.dc + (net.t30 ? netrunRules(k).gate_t1_dc : 0) + (net.dig?.fx.gate_dc ?? 0)
 
 /** 一個標記現在能做的事（畫面走到上面立刻列出來，按了才做）。遭遇節點是站在旁邊才列。 */
 export function usesOfMarker(k: Kernel, state: GameState, run: NetRun, net: NetExt, sheetId: string, marker: MarkerDef): GridUse[] {
@@ -83,8 +84,7 @@ export function usesOfMarker(k: Kernel, state: GameState, run: NetRun, net: NetE
 /** 不在哪一格都能做的事（探索中的管理行動：擦痕跡）；沒有主控的隊伍沒有。 */
 export function freeUses(k: Kernel, state: GameState): GridUse[] {
   const h = hereOf(k, state)
-  const use = h ? wipeUse(k, state, h.run, h.net) : undefined
-  return use ? [use] : []
+  return h ? [wipeUse(k, state, h.run, h.net), backdoorUse(k, state, h.run, h.net)].filter((u): u is GridUse => !!u) : []
 }
 
 /** 現在站的這一格能做的事（站在遭遇節點旁邊的不在這裡，見 netrunView.near）。 */
@@ -107,6 +107,8 @@ export function useNode(k: Kernel, state: GameState, id: string, at?: string): R
   const sheetId = h.at.sheet
   // 擦痕跡：做在哪一格都可以
   if (id === 'wipe') return wipeDraft(k, state, run, net)
+  // 留後門：自己去挖的子網，做在哪一格都可以
+  if (id === 'backdoor') return backdoorDraft(k, state, run, net)
   const standing = h.sheet.markerAt(h.at.x, h.at.y)
   let marker = standing
   if (at !== undefined) {

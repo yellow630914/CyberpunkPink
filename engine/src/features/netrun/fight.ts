@@ -8,7 +8,7 @@ import { beatOf, decayChanges, draft, roundHook, runRegion } from './common'
 import type { FoeNode, NetExt, NetRun } from './model'
 import { ACT_FACE, NET_MODE, OWNER, TRACE, netExtChange, readRun, runChange, netExt } from './model'
 import { moverChanges } from './patrol'
-import { teamStealth } from './rounds'
+import { roundTime, teamStealth } from './rounds'
 import { netrunRules } from './rules'
 import { layerLabel, partyOf, setupOf } from './start'
 
@@ -77,9 +77,11 @@ export function battleLaunch(k: Kernel, state: GameState, run: NetRun, net: NetE
     const v = given[key] ?? run.setup[key]
     if (v !== undefined && v !== null) ext[key] = clone(v)
   }
+  // 寂靜（詞條 first_ambush）：第一場遭遇我方先手（潛行沒過的先攻在對方，優先；巡邏不算）
+  const ambush = edge === undefined && !target.patrol && net.dig?.fx.first_ambush === true && run.ambush_used !== true
   ext.net = {
     run: run.id, map: run.map, sheet: sheetId, node: target.id, region: run.region, dc: net.dc,
-    reinforce: reinforceOf(k, state, run), locate_rounds: rules.locate_rounds, ...(target.patrol ? { patrol: true } : {}),
+    reinforce: reinforceOf(k, state, run), locate_rounds: rules.locate_rounds, ...(target.patrol ? { patrol: true } : {}), ...(ambush ? { ambush: true } : {}),
   }
   const field: Record<string, boolean | number> = {}
   if (region.pressure === 'trace' && k.meters.has(TRACE)) field.trace = meterOf(k, state, TRACE, run.map)
@@ -87,7 +89,7 @@ export function battleLaunch(k: Kernel, state: GameState, run: NetRun, net: NetE
   const setup: BattleSetup = {
     mode: NET_MODE, grade: run.grade as never, cover: clone(region.cover), field,
     allies: partyOf(state).map((id) => ({ from: 'actor', id })), foes: clone(target.foes),
-    ...(edge ? { edge } : {}),
+    ...(edge ? { edge } : ambush ? { edge: 'ally' as const } : {}),
     origin: { escapable: true, place: `${layerLabel(setupOf(run).layers[run.layer], run.layer)}・${target.name}`, ...(target.faction ? { faction: target.faction } : {}) },
   }
   return { kind: 'battle', setup, origin: { by: OWNER, ref: run.id, ext } }
@@ -148,6 +150,7 @@ export function onBattleEnd(k: Kernel, state: GameState, battle: BattleState, ou
   const changes: Change[] = []
   const lines: string[] = []
   let next: NetRun = clone(run)
+  if (link.ambush === true) next.ambush_used = true
   // 追蹤度寫回量表（戰鬥裡的追蹤度是場地上的一個數字；沒有這個欄位就是沒有追蹤度的地方）
   const trace = battle.field.trace
   if (typeof trace === 'number' && Number.isFinite(trace) && k.meters.has(TRACE)) {
@@ -184,7 +187,7 @@ export function onBattleEnd(k: Kernel, state: GameState, battle: BattleState, ou
   if (unpinned) {
     for (let i = 0; i < netrunRules(k).unpinned_rounds; i++) {
       next = { ...next, round: next.round + 1, ...(next.located !== undefined ? { located: Math.max(0, next.located - 1) } : {}) }
-      changes.push(...decayChanges(k, state, true), ...roundHook(k, state, next))
+      changes.push(...decayChanges(k, state, true), ...roundHook(k, state, next), ...roundTime(k, next, 1))
     }
     lines.push('釘子拆掉花了一點時間。')
   }

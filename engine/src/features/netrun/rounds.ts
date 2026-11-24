@@ -9,7 +9,7 @@ import { checkBeat, passed, pickOf, rollPicked, skillAttr } from './checks'
 import { decayChanges, draft, roundHook, runRegion } from './common'
 import { battleLaunch } from './fight'
 import type { NetExt, NetRun, Patrol, TrapState } from './model'
-import { DEFAULT_TRAP, TRACE, netExtChange, runChange } from './model'
+import { ACT_NET, DEFAULT_TRAP, TRACE, netExtChange, runChange } from './model'
 import { moverChanges, nearPatrols, stepPatrols } from './patrol'
 import { netrunRules } from './rules'
 import { partyOf, setupOf } from './start'
@@ -62,7 +62,7 @@ export function advanceRound(k: Kernel, state: GameState, w: Work, out: Out): bo
       out.lines.push('定位的倒數到了。')
     }
   }
-  out.changes.push(...decayChanges(k, state), ...roundHook(k, state, w.run))
+  out.changes.push(...decayChanges(k, state), ...roundHook(k, state, w.run), ...roundTime(k, w.run, 1))
   if (w.run.round % rules.patrol_every === 0) {
     const sheet = w.run.layers[w.run.layer]!
     const moved = stepPatrols(w.net, sheet)
@@ -72,6 +72,12 @@ export function advanceRound(k: Kernel, state: GameState, w: Work, out: Out): bo
     }
   }
   return located
+}
+
+/** 自己的那一趟每個探索回合過 round_minutes 分鐘（N35；委託的階段不算：里程碑的 120 分鐘已經含在裡面；戰鬥不另外算）。 */
+export function roundTime(k: Kernel, run: Pick<NetRun, 'kind'>, rounds: number): Change[] {
+  const minutes = netrunRules(k).round_minutes * rounds
+  return run.kind === ACT_NET && minutes > 0 ? [{ op: 'time', minutes }] : []
 }
 
 // ---- 巡邏撞上 ----

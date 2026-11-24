@@ -29,7 +29,7 @@ export function layerName(run: NetRun): string {
 export const beatOf = (actor: string | undefined, text: string, extra: Partial<TimelineBeat> = {}): TimelineBeat => ({ layer: 'net', ...(actor ? { actor } : {}), text, ...extra })
 
 /**
- * 隊上每個人感載消退 decay ＋ mod(意志)（CYBERSPACE 8.1 節「探索不算脫離戰鬥」；餘韻不動）。
+ * 隊上每個人感載消退 decay ＋ mod(意志) ＋ 甲板的冷卻（CYBERSPACE 8.1 節「探索不算脫離戰鬥」；餘韻不動）。
  * 預設只替感載還大於 0 的人產生變更；force 是不看現在的感載（一段路好幾格、或戰鬥結算之前讀到的是舊的感載時）。
  */
 export function decayChanges(k: Kernel, state: GameState, force = false): Change[] {
@@ -37,7 +37,9 @@ export function decayChanges(k: Kernel, state: GameState, force = false): Change
   const out: Change[] = []
   for (const id of partyOf(state)) {
     if (!force && state.actors[id]!.load <= 0) continue
-    const dec = Math.max(0, rules.decay + attrMod(k.stats.effectiveAttr(state, id, 'resolve')))
+    // 甲板的冷卻（deck_cooling：deck 的衍生數值，沒有人定義就是 0）多消退幾點
+    const cooling = k.stats.hasStat('deck_cooling') ? Math.max(0, k.stats.stat(state, id, 'deck_cooling')) : 0
+    const dec = Math.max(0, rules.decay + attrMod(k.stats.effectiveAttr(state, id, 'resolve')) + cooling)
     if (dec > 0) out.push({ op: 'actor.track', id, track: 'load', delta: -dec })
   }
   return out

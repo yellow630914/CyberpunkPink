@@ -5,6 +5,7 @@ import type { GameState, GridUse, Kernel } from '../../core'
 import { meterOf, sightOf } from '../../core'
 import { layerName, runRegion } from './common'
 import { controlsTaken, logoutBlock, logoutNote } from './close'
+import { isDigRun } from './dig'
 import type { LootEntry, NetRun } from './model'
 import { TRACE, netExt, readRun } from './model'
 import { nodePos } from './patrol'
@@ -47,6 +48,8 @@ export interface NetrunView {
   controls: Array<{ id: string; sheet: string; name?: string; node?: string }>
   /** 能不能登出與原因；note 是登出會怎樣的一句（委託的階段：會回到進副本之前） */
   logout: { block: string | null; note: string | null }
+  /** 自己去挖的子網：鍵、設施類型、擲到的詞條（名字）、留了後門的層（名字）、進去過幾次。不是自己去挖的是 null */
+  dig: { site: string; facility: string; affixes: Array<{ id: string; name: string }>; backdoors: string[]; visits: number } | null
 }
 
 const GOAL_TEXT = (run: NetRun): string => {
@@ -109,5 +112,12 @@ export function netrunView(k: Kernel, state: GameState): NetrunView | null {
     keys: net.keys.length,
     controls: controlsTaken(net),
     logout: { block: logoutBlock(state), note: logoutNote(run) },
+    dig: net.dig && isDigRun(run)
+      ? {
+          site: net.dig.site, facility: net.dig.facility, visits: net.dig.visits,
+          affixes: net.dig.affixes.map((id) => ({ id, name: String(k.content.get('net_affix', id)?.name ?? id) })),
+          backdoors: net.backdoors.map((sheet) => layerName({ ...run, layer: Math.max(0, run.layers.indexOf(sheet)) })),
+        }
+      : null,
   }
 }

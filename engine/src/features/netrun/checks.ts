@@ -6,6 +6,7 @@
 import type { ActorId, AttrId, Change, CheckRoll, GameState, Kernel, RollPart, TimelineBeat } from '../../core'
 import { DEGREE_NAME, checkParts, clone, countItem, isRecord, rollCheck } from '../../core'
 import { beatOf } from './common'
+import { netExt, readRun } from './model'
 import { netrunRules } from './rules'
 import { partyOf } from './start'
 
@@ -90,7 +91,12 @@ export const pickOf = (k: Kernel, state: GameState, ids: readonly ActorId[], ski
 
 /** 擲一次。purpose 要夠獨特（一份狀態同一個用途的骰面一定一樣）。 */
 export function rollPicked(k: Kernel, state: GameState, p: Picked, dc: number, purpose: string, tags: string[]): CheckRoll {
-  return rollCheck(k.stats, state, { actor: p.id, attr: p.attr, ...(p.skill ? { skill: p.skill } : {}), dc, purpose, tags, ...(p.situation.length ? { situation: p.situation } : {}) })
+  // 訊號不穩（詞條 check_mod）：所有的介面檢定加減（管理行動、察覺陷阱、對人快駭用的基本功）
+  const rules = netrunRules(k)
+  const run = readRun(state)
+  const mod = run && p.skill && (rules.admin_skills.includes(p.skill) || rules.hack_skills.includes(p.skill)) ? (netExt(state, run.map)?.dig?.fx.check_mod ?? 0) : 0
+  const situation = mod !== 0 ? [...p.situation, { label: '訊號不穩', value: mod, source: 'situation' }] : p.situation
+  return rollCheck(k.stats, state, { actor: p.id, attr: p.attr, ...(p.skill ? { skill: p.skill } : {}), dc, purpose, tags, ...(situation.length ? { situation } : {}) })
 }
 
 /** 一次檢定的一拍（給報告的 timeline）。 */

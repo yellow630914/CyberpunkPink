@@ -8,7 +8,7 @@
 // 第二張（M3-netrun-nodes）加了：檔案庫的表（net_region.archive_table）、陷阱的數字（net_region.trap）、六種目標、控制節點、人、陷阱、巡邏、後門鑰匙與憑證、
 // 擦痕跡與破解、帶出去才算數；它們的狀態在地圖實例的 ext.net（traps、patrols、controls、keys、wiped、used、opened）與這一趟的 goal、loot。
 
-import type { ActivityEndMerged, Change, GameState, GenResult, GridPoint, Origin, UnitRef } from '../../core'
+import type { ActivityEndMerged, Change, ContentEntry, GameState, GenResult, GridPoint, Origin, UnitRef } from '../../core'
 import { clone, isRecord } from '../../core'
 
 export const OWNER = 'netrun'
@@ -123,7 +123,7 @@ export const AFFIX_FLAG_KEYS = ['no_patrol', 'trap_marked', 'all_pink', 'first_a
 export const AFFIX_KEYS: readonly string[] = [...AFFIX_NUMBER_KEYS, ...AFFIX_SIGNED_KEYS, ...AFFIX_FLAG_KEYS, 'oneway']
 
 /** 設施類型（CYBERSPACE 8.3 節「設施類型」的表）：層的名字、隔離區從幾級起可能有、每一層放幾個控制節點。內容種類 net_facility。 */
-export interface NetFacility {
+export interface NetFacility extends ContentEntry {
   id: string
   name: string
   layers: string[]
@@ -131,7 +131,7 @@ export interface NetFacility {
   controls: number
 }
 
-export interface NetAffix {
+export interface NetAffix extends ContentEntry {
   id: string
   name: string
   region?: string
@@ -370,6 +370,8 @@ export interface NetExt {
   rested: string[]
   t30?: true
   t60?: true
+  /** 追蹤度到 30 時多放的巡邏已經放過了（再進去又跨過 30 不再放） */
+  t30_patrols?: true
   /** 看不到的陷阱：圖的 id → 每一個 */
   traps: Record<string, TrapState[]>
   /** 巡邏（每一隊記自己在哪一層） */

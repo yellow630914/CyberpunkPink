@@ -135,19 +135,21 @@ function lootDraft(k: Kernel, state: GameState, run: NetRun, net: NetExt, sheetI
     summary = '拿到了要帶出去的東西。倒下的話這一件一定會丟，快走到出口或安全點。'
   } else {
     const rows = runRegion(k, w.run).archive_table ?? []
-    const row = rows.length ? deriveRng(state.rng, `netrun/${w.run.id}/archive/${sheetId}/${marker.id}`).weighted(rows, (r) => r.weight) : undefined
-    if (!row) summary = '檔案庫是空的。'
-    else {
+    // 熱點與多一層（自己去挖的詞條）：這個檔案庫多擲幾次，每一次各給一份
+    const times = 1 + (w.net.dig?.rolls[sheetId]?.[marker.id] ?? 0)
+    const parts: string[] = []
+    for (let n = 0; n < times && rows.length; n++) {
+      const row = deriveRng(state.rng, `netrun/${w.run.id}/archive/${sheetId}/${marker.id}${n > 0 ? `/${n}` : ''}`).weighted(rows, (r) => r.weight)
       const got = give(k, state, w.run, row.give, from)
       if ('problem' in got) {
-        summary = `「${row.name}」壞掉了，什麼都沒拿到。`
-      } else {
-        changes.push(...got.changes)
-        w.run.loot = [...w.run.loot, ...got.loot]
-        summary = `開了檔案庫：${row.name}。${got.lines.join('；')}`
-        if (got.lines.length) summary += '。'
+        parts.push(`「${row.name}」壞掉了，什麼都沒拿到。`)
+        continue
       }
+      changes.push(...got.changes)
+      w.run.loot = [...w.run.loot, ...got.loot]
+      parts.push(`開了檔案庫：${row.name}。${got.lines.join('；')}${got.lines.length ? '。' : ''}`)
     }
+    summary = parts.length ? parts.join('') : '檔案庫是空的。'
   }
   w.runDirty = true
   markUsed(w, sheetId, marker, out)

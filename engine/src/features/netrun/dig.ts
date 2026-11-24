@@ -12,7 +12,7 @@
 // 這個功能不 import 別的功能：敵對值只問條件 hostility_tier 與效果 hostility（沒有人登記就沒有），主控的階數走 checks.ts 的 masterTier。
 
 import type { Change, GameState, GridUse, Kernel, MapInstance, Origin, ReportDraft, UnitRef } from '../../core'
-import { ActionBlocked, Sheet, clone, closeMap, deriveRng, effectCtx, isRecord, seedRand, sightOf, toMinutes } from '../../core'
+import { ActionBlocked, Sheet, clone, closeMap, effectCtx, isRecord, seedRand, sightOf, toMinutes } from '../../core'
 import { bestTier } from './checks'
 import { draft } from './common'
 import type { AffixFx, DigInfo, NetAffix, NetExt, NetFacility, NetRegion, NetRun, NetrunRules } from './model'
@@ -57,7 +57,7 @@ export function combineFx(list: ReadonlyArray<AffixFx | undefined>): AffixFx {
 
 /** 詞條表：這一區的（region.affixes，沒寫是 net_affix 裡 region 等於這一區的）與共通的（沒有 region 的）。只收查得到的。 */
 export function affixTables(k: Pick<Kernel, 'content'>, region: NetRegion): { region: string[]; common: string[] } {
-  const all = k.content.list<NetAffix & { region?: string }>(AFFIX_KIND)
+  const all = k.content.list<NetAffix>(AFFIX_KIND)
   const byId = new Set(all.map((a) => a.id))
   const own = region.affixes ? region.affixes.filter((id) => byId.has(id)) : all.filter((a) => a.region === region.id).map((a) => a.id)
   return { region: [...own].sort(), common: all.filter((a) => a.region === undefined).map((a) => a.id).sort() }

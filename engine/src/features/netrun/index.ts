@@ -20,14 +20,18 @@
 import type { Feature, Kernel } from '../../core'
 import { onDefeatAccepted, afterReport } from './close'
 import { onBattleEnd } from './fight'
-import { ACT_FACE, ACT_NET, OWNER, REGION_KIND, RULE_KIND, TRACE, readRun, regionProblems, ruleProblems } from './model'
+import { expireDraft } from './dig'
+import { ACT_FACE, ACT_NET, AFFIX_KIND, FACILITY_KIND, OWNER, REGION_KIND, RULE_KIND, TRACE, affixProblems, facilityProblems, readRun, regionProblems, ruleProblems } from './model'
 import { startRun, setupOf } from './start'
+import { toMinutes } from '../../core'
 import { installWalk } from './walk'
 
 export {
-  ACT_FACE, ACT_NET, DEFAULT_REGIONS, DEFAULT_RULES, EXT, NET_MODE, REGION_KIND, RULE_KIND, TRACE, encounterAfter, gradeOf, netExt, nodeAt, readRun, regionProblems, ruleProblems,
+  ACT_FACE, ACT_NET, AFFIX_KEYS, AFFIX_KIND, DEFAULT_REGIONS, DEFAULT_RULES, EXT, FACILITY_KIND, NET_MODE, REGION_KIND, RULE_KIND, TRACE, affixFxProblems, affixProblems, encounterAfter, facilityProblems, gradeOf,
+  netExt, nodeAt, readRun, regionProblems, ruleProblems,
 } from './model'
-export type { ArchiveRow, CloseOutcome, CloseReturn, ControlState, Fx, FoeNode, Goal, LayerCounts, LootEntry, NetExt, NetRegion, NetRun, NetrunRules, ObjectiveKind, Patrol, Rank, RunKind, TrapState } from './model'
+export type { AffixFx, ArchiveRow, CloseOutcome, CloseReturn, ControlState, DigInfo, Fx, FoeNode, Goal, LayerCounts, LootEntry, NetAffix, NetExt, NetFacility, NetRegion, NetRun, NetrunRules, ObjectiveKind, Patrol, Rank, RunKind, TrapState } from './model'
+export { backdoorClears, combineFx, digOwner, expireDraft, expired, hostilityStart, isDigRun, keptOf, rollAffixes } from './dig'
 export { DEFAULT_TRAP, OBJECTIVE_KINDS } from './model'
 export { countsOf, netrunRules, regionOf } from './rules'
 export { LAYER_NAME, layerLabel, layerSpec, parseSetup, startRun } from './start'
@@ -54,6 +58,9 @@ export const netrunFeature: Feature = {
   install(k: Kernel) {
     k.content.defineKind({ kind: REGION_KIND, owner: OWNER, overridable: true, validate: regionProblems })
     k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
+    // 自己去挖的子網（M3-netrun-dig）：設施類型（層數與名字）與詞條（封閉的鍵）
+    k.content.defineKind({ kind: FACILITY_KIND, owner: OWNER, overridable: true, validate: facilityProblems })
+    k.content.defineKind({ kind: AFFIX_KIND, owner: OWNER, overridable: true, validate: affixProblems })
 
     // 追蹤度：一座子網一條（鍵是這一趟的地圖實例），往下一層不歸零。AI 與玩家要的效果只在這個功能的行程進行中時收；連動讓這一段的上升減半（trace_half）只管效果進來的量
     k.meters.define({
@@ -91,6 +98,14 @@ export const netrunFeature: Feature = {
 
     // 一份報告套用之後：門檻、通過、被定位、全員拔線之後的收尾
     k.hooks.on('report.after', OWNER, ({ state, report }) => afterReport(k, state, report))
+
+    // 時間過了：自己去挖的子網留著超過 keep_days 天的清掉（下次再進去重新生成）
+    k.hooks.on('time.passed', OWNER, ({ state, to }) => {
+      const last = state.reports[state.reports.length - 1]
+      if (!last || last.rewind) return undefined
+      const d = expireDraft(k, state, toMinutes(to))
+      return d ? [d] : undefined
+    })
   },
 }
 
