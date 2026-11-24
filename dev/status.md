@@ -313,3 +313,10 @@
 - 給 M3-skill-net-a/b：abilities 格式要收 `trace` 鍵（兩欄），否則技能做的快駭讀不到。
 - 腳本沒有 `trace` 欄位；誤報 IV、牌子的追蹤加減、跳線沒做。
 - ITEMS 11.9 十六支程式缺的效果（誤報增援延後、斷藥、遺忘、誘導、繳械、推檔、白噪等）留給規則資料或後續工單。
+
+## M3-defeat-net 回報（2026-11-24）
+
+- 內海戰敗認得被定位（目標勢力的預設）、白蕾絲不算贏的人、扣線狀態進戰敗畫面；條件 `defeat_net`、`defeat_tethered`。
+- 內海戰敗接受後 `activity.end` 的 result 多 `net`、`tethered`、`located`（給 netrun 決定被定位的敵對值 +5）。
+- `origin.ext.located_event` 由 netrun 填。
+- 野生粉蕾絲、迷宮館「不扣線」要在 netcombat／enemies 加 `wild` 之類欄位（未做）。

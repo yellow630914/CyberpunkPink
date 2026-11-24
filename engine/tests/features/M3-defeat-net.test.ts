@@ -125,7 +125,7 @@ describe('選哪一件', () => {
   })
 
   it('天使急救優先於被定位的事件', () => {
-    const withAngel = { ...PACK, content: { ...PACK.content, defeat_event: [...EVENTS, ev('df_angel', { angel: true, fails_commission: false })] } } as ContentPack
+    const withAngel = { ...PACK, content: { ...PACK.content, defeat_event: [...EVENTS, ev('df_angel', { angel: true, fails_commission: false })] } } as unknown as ContentPack
     const b = makeGame({ features: [defeatFeature, TEST_NET_COMBAT, enemyStub], content: [withAngel], patch: { flags: { angel_member: true } as never } }).game
     expect(pickDefeat(b.k, b.state, { located: true, locatedEvent: 'df_located', faction: 'a', roll: 0.1 })).toMatchObject({ event: 'df_angel', tier: 'angel' })
     // 沒有天使的資格：被定位的事件
