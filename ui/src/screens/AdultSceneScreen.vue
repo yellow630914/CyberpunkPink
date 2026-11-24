@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { ScenePair, ScenePick, SceneInput } from '@engine/src/features/scene'
+import type { SyncGear } from '@engine/src/core'
 import StatusBar from '../components/StatusBar.vue'
 import Hint from '../components/Hint.vue'
 import TrackBar from '../components/TrackBar.vue'
@@ -63,6 +64,17 @@ async function perform(input: SceneInput): Promise<void> {
   } finally {
     playing.value = false
   }
+}
+/** 同步按鈕的原因：全是引擎的（檔位本身的 blocks，加上行動 gear 那一列的選項 blocks，例如這回合換過了、還沒輪到） */
+function gearReasons(id: string, own: readonly string[]): string[] {
+  const c = opts.value?.actions.find((a) => a.id === 'gear')?.choices?.find((x) => x.id === id)
+  return [...new Set([...own, ...(c?.blocks ?? [])])]
+}
+async function shiftGear(id: string, current: boolean, own: readonly string[]): Promise<void> {
+  if (playing.value || current) return
+  const why = gearReasons(id, own)
+  if (why.length > 0) { ui.toast(reasonText(why), 'warn'); return }
+  await perform({ kind: 'gear', gear: id as SyncGear } as SceneInput)
 }
 async function skip(): Promise<void> {
   if (playing.value) return
@@ -182,7 +194,7 @@ const bar = ref<InstanceType<typeof SceneActions> | null>(null)
 function onKey(ev: KeyboardEvent): void {
   if (showGate.value || debrief.value || isTyping(ev.target) || ui.stack.length || ev.ctrlKey || ev.metaKey || ev.altKey) return
   if (/^[1-9]$/.test(ev.key)) {
-    const a = opts.value?.actions[Number(ev.key) - 1]
+    const a = opts.value?.actions.filter((x) => x.id !== 'gear')[Number(ev.key) - 1]
     if (a) { ev.preventDefault(); bar.value?.press(a.id) }
   } else if (ev.key === ' ') {
     ev.preventDefault()
@@ -211,8 +223,8 @@ function onKey(ev: KeyboardEvent): void {
         </div>
         <span class="grow" />
         <div class="seg" aria-label="同步檔位" data-sync>
-          <span class="k">同步<Hint>同步檔位（淺、深、全）還沒有開放：這一版固定「標準」，受到的感載不加減。</Hint></span>
-          <button v-for="n in ['淺', '標準', '深', '全']" :key="n" type="button" :class="{ on: n === '標準', 'is-unavailable': n !== '標準' }" :title="n === '標準' ? '現在的檔位。' : '還沒有開放。'" @click="n !== '標準' && ui.toast('還沒有開放。', 'warn')">{{ n }}</button>
+          <span class="k">同步<Hint>同步檔位：換檔不花行動點，但每個回合只能換一次。開不了的檔會寫原因。</Hint></span>
+          <button v-for="g in v.people.pc.gear.gears" :key="g.id" type="button" :class="{ on: g.current, 'is-unavailable': !g.current && gearReasons(g.id, g.blocks).length > 0 }" :title="g.current ? '現在的檔位。' : gearReasons(g.id, g.blocks).length ? reasonText(gearReasons(g.id, g.blocks)) : undefined" :data-gear="g.id" @click="shiftGear(g.id, g.current, g.blocks)">{{ g.name }}</button>
         </div>
         <span class="tag" title="還沒有開放。">直播：關<Hint>場景裡的直播還沒有開放。</Hint></span>
       </header>

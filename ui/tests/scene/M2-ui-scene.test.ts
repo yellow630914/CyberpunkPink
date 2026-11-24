@@ -85,9 +85,13 @@ describe('2 行動：灰掉的寫引擎的原因', () => {
   it('九種行動都列出來，花費是引擎的；行動點在畫面上', async () => {
     const s = setup()
     const o = s.e.scene.options()!
-    expect(o.actions.map((a) => a.id)).toEqual(['dominate', 'yield', 'tease', 'restrain', 'skill', 'talk', 'item', 'switch', 'stop'])
+    expect(o.actions.map((a) => a.id)).toEqual(['dominate', 'yield', 'tease', 'restrain', 'skill', 'talk', 'item', 'switch', 'gear', 'stop'])
     const h = await page(s)
-    for (const a of o.actions) expect(h).toContain(`data-act="${a.id}"`)
+    // 換檔不在行動列，只在上方的同步按鈕
+    for (const a of o.actions.filter((x) => x.id !== 'gear')) expect(h).toContain(`data-act="${a.id}"`)
+    expect(h).not.toContain('data-act="gear"')
+    const sync = h.slice(h.indexOf('data-sync'), h.indexOf('</div>', h.indexOf('data-sync')))
+    for (const g of ['shallow', 'standard', 'deep', 'full']) expect(sync).toContain(`data-gear="${g}"`)
     expect(attrOf(tagOf(h, 'data-ap'), 'aria-label')).toBe(`行動點 ${o.ap.now}／${o.ap.max}`)
   })
 })
@@ -289,13 +293,41 @@ describe('7 內容篩選與同步檔位', () => {
     expect(partLabels(['mouth', 'chest', 'front', 'hand_l'], names, true)).toEqual({ mouth: '口', chest: '部位①', front: '部位②', hand_l: '左手' })
     expect(partLabels(['mouth', 'chest'], names, false)).toEqual({ mouth: '口', chest: '胸' })
   })
-  it('同步檔位固定「標準」，其餘寫「還沒有開放。」；直播關', async () => {
+  it('同步檔位照引擎：四檔、現在的亮起、開不了的寫引擎的原因；換檔後畫面與引擎一致；直播關', async () => {
     const s = setup()
-    const h = await page(s)
-    const sync = h.slice(h.indexOf('data-sync'), h.indexOf('data-sync') + 1800)
-    expect(sync).toContain('還沒有開放。')
-    expect(text(sync)).toContain('標準')
+    const v0 = s.e.scene.view()!
+    const gv = v0.people.pc.gear
+    let h = await page(s)
+    const sync = (x: string): string => x.slice(x.indexOf('data-sync'), x.indexOf('</div>', x.indexOf('data-sync')))
+    expect(sync(h)).not.toContain('還沒有開放。')
+    expect(text(sync(h))).toContain(gv.name)
+    expect(attrOf(tagOf(h, `data-gear="${gv.now}"`), 'class')).toContain('on')
+    for (const g of gv.gears) {
+      const t = tagOf(h, `data-gear="${g.id}"`)
+      if (g.blocks.length && !g.current) {
+        expect(t).toContain('is-unavailable')
+        expect(attrOf(t, 'title')).toContain(g.blocks[0]!)
+      }
+    }
+    expect(text(h)).not.toContain('還沒有開放。同步')
     expect(text(h)).toContain('直播：關')
+    // 換到一個開得了的檔：畫面的檔位與引擎一致，這回合不能再換
+    const to = gv.gears.find((g) => !g.current && g.blocks.length === 0)
+    if (to) {
+      const r = await s.e.scene.act({ kind: 'gear', gear: to.id })
+      expect(r.status).toBe('applied')
+      const v1 = s.e.scene.view()!
+      expect(v1.people.pc.gear.now).toBe(to.id)
+      expect(v1.people.pc.gear.shifted).toBe(true)
+      h = await page(s)
+      expect(attrOf(tagOf(h, `data-gear="${to.id}"`), 'class')).toContain('on')
+      const other = v1.people.pc.gear.gears.find((g) => !g.current)!
+      const why = s.e.scene.options()!.actions.find((a) => a.id === 'gear')!.choices!.find((c) => c.id === other.id)!.blocks
+      expect(why.length).toBeGreaterThan(0)
+      expect(tagOf(h, `data-gear="${other.id}"`)).toContain('is-unavailable')
+      expect(attrOf(tagOf(h, `data-gear="${other.id}"`), 'title')).toContain(why[0]!)
+    }
+    expect(text(h)).toContain(v0.people.partner.gear.name)
   })
 })
 

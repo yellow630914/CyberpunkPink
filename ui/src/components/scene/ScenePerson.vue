@@ -20,7 +20,7 @@ defineEmits<{ (e: 'part', id: string): void }>()
 
 <template>
   <article class="panel cut pad person" :class="who" :data-actor="who">
-    <div class="who"><b class="t-card">{{ person.name }}</b><small>{{ roleText ? `${roleText}・` : '' }}敏感度 {{ person.sensitivity }}</small></div>
+    <div class="who"><b class="t-card">{{ person.name }}</b><small>{{ roleText ? `${roleText}・` : '' }}敏感度 {{ person.sensitivity }}</small><small data-gear-now>同步：{{ person.gear.name }}</small></div>
     <TrackBar label="感載" :value="person.load.now" :max="person.load.max" color="var(--load)" striped />
     <div class="after" :aria-label="`餘韻 ${person.glow.now}／${person.glow.max}`" data-glow>
       <span class="k">餘韻</span><i v-for="n in person.glow.max" :key="n" :class="{ on: n <= person.glow.now }" />

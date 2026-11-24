@@ -17,6 +17,8 @@ const talkText = ref('')
 
 const GROUPS = ['skill', 'item', 'switch'] as const
 const isGroup = (id: string): id is (typeof GROUPS)[number] => (GROUPS as readonly string[]).includes(id)
+/** 換檔在畫面上方的「同步」按鈕，行動列不重複放 */
+const shown = computed(() => props.opts.actions.filter((a) => a.id !== 'gear'))
 const yours = computed(() => props.opts.turn === 'pc')
 
 function why(blocks: readonly string[]): void { ui.toast(reasonText(blocks), 'warn') }
@@ -50,7 +52,7 @@ const lines = computed(() => previewLines(current.value?.preview, props.theirNam
 const endWhy = computed(() => props.opts.end_turn.blocks)
 function endTurn(): void { if (props.playing) return; if (endWhy.value.length > 0) why(endWhy.value); else emit('end-turn') }
 /** 鍵盤的 1～9 與空白鍵 */
-function pressId(id: string): void { const a = props.opts.actions.find((x) => x.id === id); if (a) press(a) }
+function pressId(id: string): void { const a = shown.value.find((x) => x.id === id); if (a) press(a) }
 defineExpose({ press: pressId, endTurn })
 const choiceLines = (c: ChoiceOption): string => previewLines(c.preview, props.theirName).join('・')
 </script>
@@ -66,7 +68,7 @@ const choiceLines = (c: ChoiceOption): string => previewLines(c.preview, props.t
     </div>
     <div class="abtns">
       <button
-        v-for="(a, i) in opts.actions" :key="a.id" type="button" class="ab"
+        v-for="(a, i) in shown" :key="a.id" type="button" class="ab"
         :class="{ on: selected === a.id, 'is-unavailable': a.blocks.length > 0 || playing, stop: a.id === 'stop' }"
         :title="a.blocks.length ? reasonText(a.blocks) : undefined" :data-act="a.id" @click="press(a)"
       ><span class="kn mono">{{ i + 1 }}</span>{{ a.name }}<small>{{ a.id === 'stop' ? '' : a.ap > 0 || !isGroup(a.id) ? `${a.ap} 點` : '▾' }}</small></button>
