@@ -4,7 +4,7 @@
 // 報告 grid.use 的時間軸有一拍標籤 mark:<標記>（做成了才有；沒做成的是 mark_fail:<標記>）。不知道這件事對哪個委託有什麼意義。
 
 import type { Change, CheckRoll, GameState, GridCtx, GridKernel, GridUse, MarkerDef, ReportDraft, TimelineBeat } from '../../core'
-import { ActionBlocked, DEGREE_NAME, clone, closeMap, gridHere, pointKey, rollCheck } from '../../core'
+import { ActionBlocked, DEGREE_NAME, clone, closeMap, gridHere, isNetMapKind, pointKey, rollCheck } from '../../core'
 import type { Ext } from './ext'
 import { dcBase, extChange, extOf, hasKey, isControlled, strList, zoneKey } from './ext'
 
@@ -27,6 +27,7 @@ const usedAt = (state: GameState, at: { map: string; sheet: string }, x: number,
 
 /** 這個標記現在能做的事（畫面走到上面立刻列出來，按了才做）。 */
 export function usesAt(_k: GridKernel, ctx: GridCtx, marker: MarkerDef): GridUse[] {
+  if (isNetMapKind(ctx.map.kind)) return []
   const spec = USES.find((u) => u.mark === marker.mark)
   if (!spec) return []
   if (marker.mark === 'X') return [{ id: spec.id, name: spec.name, block: null }]

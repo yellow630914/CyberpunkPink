@@ -12,11 +12,11 @@
 // 沒有事件視窗可用（沒有人登記活動 event）時照 M1：只列出結果，一律是不演。
 
 import type { ActivityEndReturn, Change, Effect, GameState, Kernel, Launch, Origin, ReportDraft, TimelineBeat } from '../../core'
-import { ActionBlocked, attachActivityEnd, clone, deriveRng, effectCtx, endActivity, originOfBattle } from '../../core'
+import { ActionBlocked, attachActivityEnd, clone, deriveRng, effectCtx, endActivity, isRecord, modeOf, originOfBattle } from '../../core'
 import type { BattleState } from '../../core'
 import { inlineEvent, playSkipped, rewriteEffects } from './body'
 import type { Rewrite } from './body'
-import { originEventOf, pick, winnersOf } from './choose'
+import { locatedEventOf, locatedOf, originEventOf, pick, winnersOf } from './choose'
 import type { DefeatEventEntry, DefeatOption, DefeatStage, PendingDefeat, PlayedResult } from './model'
 import { EVENT_ACTIVITY, EXT, KIND, OWNER, defeatOf, moneyLimit, stageOf } from './model'
 
@@ -79,6 +79,20 @@ export function failsAfter(base: boolean, flags: readonly string[]): boolean {
   return fails
 }
 
+// ---- 內海的戰敗 ----
+
+/**
+ * 這一場輸掉之後，我方有人被扣線了沒有（內海；netcombat 在分出結果的那一刻標：單位的 ext.net.tethered，並記一拍 tag tether、data.tethered）。
+ * 只有打輸算（投降不扣線，N12）；兩個來源都認：單位上的標記，與這一場的紀錄裡 data.tethered 為 true 的那一拍。
+ */
+function tetheredOf(state: GameState, battle: BattleState, outcome: string): boolean {
+  if (outcome !== 'lose') return false
+  const marked = Object.values(battle.units).some((u) => u.side === 'ally' && isRecord(u.ext.net) && u.ext.net.tethered === true)
+  if (marked) return true
+  const steps = new Set(battle.steps)
+  return state.reports.some((r) => steps.has(r.id) && r.timeline.some((b) => b.tag === 'tether' && isRecord(b.data) && b.data.tethered === true))
+}
+
 // ---- 打輸的那一刻：選事件，記下等待中的戰敗 ----
 
 /** 戰鬥結束的處理（k.battle.onEnd）：全隊倒下或投降時，選一件事件與版本，寫下等待中的戰敗。 */
@@ -90,8 +104,17 @@ export function onBattleEnd(k: Kernel, state: GameState, battle: BattleState, ou
   }
   const roll = deriveRng(state.rng, `defeat/${battle.id}`).next()
   const w = winnersOf(k, battle)
+  const net = modeOf(k.content, battle.mode)?.layer === 'net'
+  const located = net && locatedOf(battle)
+  const tethered = net && tetheredOf(state, battle, outcome)
+  // 被定位：用目標勢力（場地的 origin.faction）的現實預設；沒寫就看贏的那一方
+  const faction = located ? (battle.origin.faction ?? w.faction) : w.faction
   const event = originEventOf(battle)
-  const r = pick(k, state, { roll, ...(w.faction !== undefined ? { faction: w.faction } : {}), ...(event !== undefined ? { event } : {}), enemies: w.enemies })
+  const locatedEvent = located ? locatedEventOf(battle) : undefined
+  const r = pick(k, state, {
+    roll, ...(faction !== undefined ? { faction } : {}), ...(event !== undefined ? { event } : {}), enemies: w.enemies,
+    ...(located ? { located: true } : {}), ...(locatedEvent !== undefined ? { locatedEvent } : {}),
+  })
   // 沒有任何可用的戰敗事件：沒有後果可以接受，這一場就這樣定案——不留等待中的戰敗，開打前的快照也丟掉
   // （核心在打輸時把它留著等玩家三選一；留著而沒有人接受，之後什麼事都做不了）
   if (!r) return { changes: [{ op: 'snapshot.drop', kind: 'battle' }] }
@@ -99,9 +122,10 @@ export function onBattleEnd(k: Kernel, state: GameState, battle: BattleState, ou
   const view = state.rules.defeatView
   const skipped = !k.activity.get(EVENT_ACTIVITY) || view === 'never'
   const value: PendingDefeat = {
-    event: r.entry.id, version: r.version, ...(w.faction !== undefined ? { faction: w.faction } : {}), outcome,
+    event: r.entry.id, version: r.version, ...(faction !== undefined ? { faction } : {}), outcome,
     fails_commission: r.entry.fails_commission, lines: s.errors.length > 0 ? [] : [...s.lines, ...s.notes], choices: ['accept', 'retry', 'stage'],
     view, skipped, battle: battle.id, stage: skipped ? 'played' : 'ask', tier: r.tier, origin: originOfBattle(battle.origin.ext),
+    ...(net ? { net: true, tethered, located } : {}),
   }
   return { changes: [extChange(value)] }
 }
@@ -239,11 +263,14 @@ export function chooseDefeatOption(k: Kernel, state: GameState, id: string): Rep
   if (block) throw new ActionBlocked(block)
   const end = endActivity(k, {
     state, kind: 'defeat', id: pending.battle, origin: pending.origin ?? { by: 'core' }, outcome: 'accept',
-    result: { battle: pending.battle, event: pending.event, kind: kindOf(k, pending), fails_commission: pending.fails_commission, option: option.id },
+    result: { battle: pending.battle, event: pending.event, kind: kindOf(k, pending), fails_commission: pending.fails_commission, option: option.id, ...netResult(pending) },
   })
   const lines = [...option.lines, ...end.lines]
   return attachActivityEnd(draft(state, 'defeat.option', option.summary, option.id, [...option.changes, ...end.changes, extChange(null), DROP], { narration: { results: lines } }), end)
 }
+
+/** 內海的戰敗多交回去的三個欄位（現實的不帶，結果照舊）：發起的人（netrun）照這個收一趟。 */
+const netResult = (p: PendingDefeat): Record<string, unknown> => (p.net ? { net: true, tethered: p.tethered === true, located: p.located === true } : {})
 
 const kindOf = (k: Pick<Kernel, 'content'>, pending: PendingDefeat): string => k.content.get<DefeatEventEntry>(KIND, pending.event)?.kind ?? 'generic'
 
@@ -279,7 +306,7 @@ export function acceptDefeat(k: Kernel, state: GameState): ReportDraft {
   const fails = played ? pending.fails_commission : failsAfter(pending.fails_commission, flags)
   const end = endActivity(k, {
     state, kind: 'defeat', id: pending.battle, origin: pending.origin ?? { by: 'core' }, outcome: 'accept',
-    result: { battle: pending.battle, event: pending.event, kind: entry.kind, fails_commission: fails, option: played ? played.option : 'skip' },
+    result: { battle: pending.battle, event: pending.event, kind: entry.kind, fails_commission: fails, option: played ? played.option : 'skip', ...netResult(pending) },
   })
   const results = [...lines, ...companionLine(k, state, pending), ...end.lines]
   const out: ReportDraft = {
@@ -312,6 +339,12 @@ export interface DefeatViewInfo {
   /** 走不演版 */
   skipped: boolean
   event: { id: string; name: string; kind: string; version: string; adult: boolean; tier: string | null; angel: boolean }
+  /** 這一場是內海的戰鬥 */
+  net: boolean
+  /** 內海：被扣線（意識留在網內）；現實的戰鬥一定是 false */
+  tethered: boolean
+  /** 內海：是被定位而結束的 */
+  located: boolean
   /** 事件視窗或場景之類進行中的活動（等它做完才能三選一）；沒有是 null */
   inner: { kind: string; id: string; label: string } | null
   choices: DefeatChoice[]
@@ -346,6 +379,7 @@ export function defeatView(k: Kernel, state: GameState): DefeatViewInfo | null {
   return {
     battle: pending.battle, outcome: pending.outcome, step: inner && stage === 'played' ? 'playing' : stage, setting: pending.view, skipped: pending.skipped,
     event: { id: pending.event, name: entry?.name ?? pending.event, kind: entry?.kind ?? 'generic', version: pending.version, adult: entry?.adult === true, tier: pending.tier ?? null, angel: entry?.angel === true },
+    net: pending.net === true, tethered: pending.tethered === true, located: pending.located === true,
     inner, choices,
     accept: {
       fails_commission: pending.fails_commission, money_max: moneyLimit(state), gear_taken: state.rules.defeatTakeGear,

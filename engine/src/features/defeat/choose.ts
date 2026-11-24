@@ -6,6 +6,8 @@
 //   3. 打贏的那一方裡個別敵人寫的（敵人資料的 defeat；字串或字串陣列，好幾個時照骰值挑一個）
 //   4. 贏的那一方的勢力的預設（機器贏了用它所屬的勢力，沒有就用場地的 origin.faction）
 //   5. 通用的那一件（標 default: true）
+// 內海那一場是被定位而結束的（battle.field.located 是 true；M3-defeat-net）：天使急救 → origin.ext.located_event → 贏的那一方勢力的預設
+// （跳過個別敵人寫的 defeat，也不看 defeat_event）→ 通用的。
 // 版本：照主角的性別與骰值（pickVersion）。
 
 import type { BattleState, BattleUnit, RulesKernel } from '../../core'
@@ -25,6 +27,10 @@ export interface PickOpts {
   enemies?: string[]
   /** 主角有天使急救的資格；沒給就看旗標 angel_member */
   angel?: boolean
+  /** 這一場是被定位而結束的：不看 event 與 enemies，改看 locatedEvent */
+  located?: boolean
+  /** 副本自訂的「被定位」事件（origin.ext.located_event） */
+  locatedEvent?: string
 }
 
 export interface Picked {
@@ -45,11 +51,12 @@ export function chooseEntry(k: Pick<RulesKernel, 'content'>, state: Pick<GameSta
       const e = all.find((x) => x.angel === true)
       if (e) return { entry: e, tier: 'angel' }
     }
-    if (o.event !== undefined) {
-      const e = get(o.event)
+    const custom = o.located ? o.locatedEvent : o.event
+    if (custom !== undefined) {
+      const e = get(custom)
       if (e) return { entry: e, tier: 'origin' }
     }
-    const own = [...new Set(o.enemies ?? [])].filter((id) => get(id))
+    const own = o.located ? [] : [...new Set(o.enemies ?? [])].filter((id) => get(id))
     if (own.length > 0) {
       // 第二顆骰值：和版本的骰值錯開，不然「挑第幾件」和「抽哪個版本」連在一起
       const r2 = (Math.min(Math.max(o.roll, 0), 0.999999) * 7919) % 1
@@ -81,6 +88,9 @@ export function pick(k: Pick<RulesKernel, 'content'>, state: Pick<GameState, 'ru
 
 const MACHINE_KINDS = ['machine', 'vehicle']
 
+/** 贏的那一方不算數的單位：白蕾絲只叫人、不會打贏人（ENEMIES 第 9 節；dev/adr/0018 N17）。 */
+const NOT_A_WINNER = 'lace:white'
+
 export interface Winners {
   /** 打贏的那一方裡個別敵人寫的戰敗事件 */
   enemies: string[]
@@ -93,13 +103,17 @@ export interface Winners {
 /**
  * 戰鬥打輸之後，贏的那一方（敵方還站著的人；沒有人站著就看所有敵方）：
  * - 個別敵人寫的戰敗事件（敵人資料的 defeat）；
+ * - 帶 lace:white 標籤的單位不算贏的人（不列；只剩牠們站著時，只用場地的勢力）；
  * - 勢力：贏的全是非人形的機器（無人機、砲塔、機械獵犬這類不進成人場景的）用它所屬的勢力，沒有就用場地的 origin.faction；
  *   其餘用場地的 origin.faction（原本的做法），沒有再用站著的人裡第一個有勢力的。
  */
 export function winnersOf(k: Pick<RulesKernel, 'content'>, battle: BattleState): Winners {
-  const foes: BattleUnit[] = Object.values(battle.units).filter((u) => u.side === 'foe')
+  const allFoes: BattleUnit[] = Object.values(battle.units).filter((u) => u.side === 'foe')
+  // 白蕾絲不列：只剩牠們站著時沒有贏的人可以看，勢力用場地的
+  const foes = allFoes.filter((u) => !u.tags.includes(NOT_A_WINNER))
   const standing = foes.filter((u) => !u.out)
-  const side = standing.length > 0 ? standing : foes
+  const onlyWhiteStands = standing.length === 0 && allFoes.some((u) => !u.out)
+  const side = standing.length > 0 ? standing : onlyWhiteStands ? [] : foes
   const entries = side.map((u) => (u.enemy ? k.content.get('enemy', u.enemy) : undefined)).filter((e): e is NonNullable<typeof e> => !!e)
   const enemies: string[] = []
   for (const e of entries) {
@@ -124,3 +138,12 @@ export const originEventOf = (battle: BattleState): string | undefined => {
   return typeof e === 'string' && e ? e : undefined
 }
 
+
+/** 這一場是被定位而結束的（內海；battle.field.located 倒數到了是 true，倒數中是數字、還不算）。 */
+export const locatedOf = (battle: BattleState): boolean => battle.field.located === true
+
+/** 副本自訂的「被定位」事件（origin.ext.located_event）。 */
+export const locatedEventOf = (battle: BattleState): string | undefined => {
+  const e = battle.origin.ext?.located_event
+  return typeof e === 'string' && e ? e : undefined
+}

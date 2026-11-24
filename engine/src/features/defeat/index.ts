@@ -10,17 +10,17 @@
 // 不替任何一種 kind 寫專屬的程式（dev/adr/0016 G5）：kind 只是資料上的標籤，每一種都用通用的事件格式加封閉的效果清單寫。
 // 不 import features/director 與 features/commission：事件視窗只經 k.activity 開，委託失敗只把 fails_commission 交出去。
 
-import type { Feature, Launch } from '../../core'
+import type { Condition, Feature, Launch } from '../../core'
 import type { RulesKernel, GameState } from '../../core'
 import { afterBattleEnd, onBattleEnd, onEventEnd } from './flow'
 import { pick as pickEntry } from './choose'
 import type { PickOpts } from './choose'
-import { EVENT_ACTIVITY, KIND, OWNER, entryProblems } from './model'
+import { EVENT_ACTIVITY, KIND, OWNER, defeatOf, entryProblems } from './model'
 import type { DefeatEventEntry } from './model'
 
 export { acceptDefeat, chooseDefeatOption, companionNames, defeatOptions, defeatView, failsAfter, rewriteOf, skipDefeat, watchDefeat } from './flow'
 export type { DefeatChoice, DefeatViewInfo } from './flow'
-export { hasAngel, winnersOf } from './choose'
+export { hasAngel, locatedEventOf, locatedOf, winnersOf } from './choose'
 export type { PickOpts } from './choose'
 export { inlineEvent, playSkipped, rewriteEffects } from './body'
 export type { Rewrite, SkipPlay } from './body'
@@ -63,6 +63,10 @@ export const defeatFeature: Feature = {
         ...(e.fallback ? [[KIND, e.fallback] as [string, string]] : []),
       ],
     })
+
+    // 條件（事件的選項寫 need: { kind: 'defeat_tethered' }）：等待中的戰敗是內海的、被扣線了
+    k.conditions.register<Condition>({ kind: 'defeat_net', owner: OWNER, validate: () => [], test: (_c, { state }) => defeatOf(state)?.net === true })
+    k.conditions.register<Condition>({ kind: 'defeat_tethered', owner: OWNER, validate: () => [], test: (_c, { state }) => defeatOf(state)?.tethered === true })
 
     // 打輸或投降：選事件與版本，記下等待中的戰敗
     k.battle.onEnd(OWNER, ({ state, battle, outcome }) => onBattleEnd(k, state, battle, outcome))

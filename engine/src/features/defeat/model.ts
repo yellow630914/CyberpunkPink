@@ -99,6 +99,12 @@ export interface PendingDefeat {
   origin?: Origin
   /** 事件做完的結果 */
   played?: PlayedResult
+  /** 這一場是內海的戰鬥（舊的存檔沒有這個欄位，當成不是） */
+  net?: boolean
+  /** 內海的戰鬥：被扣線了（意識留在網內，netcombat 在戰後標的）；只有 net 才會是 true */
+  tethered?: boolean
+  /** 內海的戰鬥：是被定位而結束的（選事件時走「被定位」的順序） */
+  located?: boolean
 }
 
 export const isRec = (v: unknown): v is Raw => typeof v === 'object' && v !== null && !Array.isArray(v)

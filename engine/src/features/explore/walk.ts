@@ -7,7 +7,7 @@
 // 潛行時警戒 +5、不開打；走進保全站的那一格一定開打。剛進圖也算一步（arrive）。
 
 import type { BattleSetup, Change, GameState, GridCtx, GridEffect, GridKernel, MarkerDef, ReportDraft, SpotDef, UnitRef } from '../../core'
-import { clone, gridHere, meterOf, pointKey } from '../../core'
+import { clone, gridHere, isNetMapKind, meterOf, pointKey } from '../../core'
 import type { Ext, GuardPost } from './ext'
 import { extChange, extOf, guardOf, hasKey, isControlled, isRec, strList } from './ext'
 import type { Mover, Patrol, Pt } from './sight'
@@ -236,7 +236,7 @@ function evaluate(k: GridKernel, ctx: GridCtx, w: Walk, arrival: boolean): GridE
  */
 export function arrive(k: GridKernel, state: GameState): ReportDraft | null {
   const here = gridHere(k, state)
-  if (!here) return null
+  if (!here || isNetMapKind(here.map.kind)) return null
   const effect = evaluate(k, here, newWalk(k, here), true)
   if (!effect) return null
   const launch = effect.battle ? [{ kind: 'battle', setup: effect.battle }] : []
@@ -253,6 +253,7 @@ export function installWalk(k: GridKernel, owner: string): void {
   let walk: Walk | null = null
 
   k.grid.onEnter(owner, (ctx): GridEffect | void => {
+    if (isNetMapKind(ctx.map.kind)) return
     if (!ctx.state.maps.instances[ctx.at.map]) return
     if (ctx.step <= 1 || !walk || walk.state !== ctx.state || walk.map !== ctx.at.map || walk.sheet !== ctx.at.sheet) walk = newWalk(k, ctx)
     return evaluate(k, ctx, walk, false)
@@ -260,6 +261,7 @@ export function installWalk(k: GridKernel, owner: string): void {
 
   // 上鎖的門（%）：拿到憑證（K）或那一區被接管就放行（走過去時門改成開的）；否則擋下，原因寫出辦法
   k.grid.passRule('door_locked', owner, (ctx, x, y) => {
+    if (isNetMapKind(ctx.map.kind)) return '這裡不是現實的門。'
     const ext = extOf(ctx.state, ctx.at.map)
     if (hasKey(ext) || isControlled(ext, ctx.at.sheet, ctx.sheet.zoneAt(x, y))) return null
     return '門鎖著。兩種辦法：一是拿到憑證（找憑證點），或接管這一區的控制面板，門就會放行；二是動手，撬鎖（機械，失敗警戒 +5）或破門（運動，不論成敗警戒 +10）。'

@@ -3,7 +3,7 @@
 import type { Kernel } from '../../core'
 import { clone, isRecord } from '../../core'
 import type { LayerCounts, NetRegion, NetrunRules, Rank } from './model'
-import { COUNT_KEYS, DEFAULT_REGIONS, DEFAULT_RULES, RANKS, REGION_KIND, RULE_KIND, regionProblems, ruleProblems } from './model'
+import { COUNT_KEYS, DEFAULT_REGIONS, DEFAULT_RULES, REGION_KIND, RULE_KIND, regionProblems, ruleProblems } from './model'
 
 type Cx = Pick<Kernel, 'content'>
 
@@ -58,5 +58,3 @@ export function regionOf(k: Cx, region: unknown): { region: NetRegion } | { prob
 /** 這一趟要用的那一組密度：委託的階段（face.net）用 commission 那一組，沒有就用 layer。 */
 export const countsOf = (region: NetRegion, kind: string): LayerCounts => (kind === 'face.net' && region.commission ? region.commission : region.layer)
 
-export type { Rank }
-export { RANKS }
