@@ -494,13 +494,14 @@ function stanceAction(ab: AbilityEntry, order: number, layers: Layer[]): BattleA
 
 // ---- 掮客的招牌：指揮與叫人 ----
 
-function giveApAction(ab: AbilityEntry, order: number): BattleActionDef {
-  const id = `${ab.id}.give_ap`
-  // 每回合最多讓幾點：1 ＋ 人面階數的一半（無條件捨去）＋ 修正（號令：+1）
-  const limit = (v: BattleView, u: BattleUnit) => 1 + Math.floor(tierIn(u, ab.path) / 2) + featureTotal(v, u, 'give_ap_cap')
+function giveApAction(ab: AbilityEntry, order: number, layer: Layer = 'meat'): BattleActionDef {
+  const net = layer === 'net'
+  const id = net ? `${ab.id}.command` : `${ab.id}.give_ap`
+  // 每回合最多讓幾點：現實是 1 ＋ 人面階數的一半（無條件捨去）＋ 修正（號令：+1）；內海是欄寫的 command.max（人面：1 點）＋ 修正
+  const limit = (v: BattleView, u: BattleUnit) => (net ? colOf(ab, 'net')?.command?.max ?? 1 : 1 + Math.floor(tierIn(u, ab.path) / 2)) + featureTotal(v, u, 'give_ap_cap')
   return {
-    id, owner: OWNER, name: '指揮', desc: '把自己的行動點讓給一名隊友，1 點換 1 點。', group: 'skill', icon: 'skill', modes: ['meat'], target: 'ally', order,
-    has: (_v, u) => hasAbility(u, ab.id),
+    id, owner: OWNER, name: '指揮', desc: '把自己的行動點讓給一名隊友，1 點換 1 點。', group: 'skill', icon: 'skill', modes: [layer], target: 'ally', order,
+    has: (v, u) => hasAbility(u, ab.id) && (layerOf(v) !== layer || !!colIn(v, u, ab)),
     cost: () => ({ ap: 1 }),
     blocks: (v, u) => ((u.uses[`turn:${id}`] ?? 0) >= limit(v, u) ? [`這一回合已經讓了 ${limit(v, u)} 點，不能再讓。`] : []),
     targets: (v, u) => unitsOf(v.battle, u.side).filter((t) => t.id !== u.id).map((t) => ({ target: { unit: t.id }, blocks: t.ap.now >= t.ap.max ? ['他的行動點已經滿了。'] : [] })),
@@ -512,7 +513,7 @@ function giveApAction(ab: AbilityEntry, order: number): BattleActionDef {
       run.say(`${u.name}：指揮，把 1 點行動點讓給 ${t.name}。`, 'skill', { unit: u.id, ability: ab.id, to: t.id }, u)
       // 開著的姿態有 on_give_ap（號令）：拿到行動點的人多一段修正
       const stance = u.stance ? run.k.content.get<AbilityEntry>('ability', u.stance) : undefined
-      const list = stance?.meat?.on_give_ap
+      const list = stance ? colOf(stance, layerOf(run))?.on_give_ap : undefined
       if (stance && list?.length) run.effects(list, { user: u, target: { unit: t.id }, source: { kind: 'ability', id: stance.id, name: stance.name }, n: { tier: tierIn(u, stance.path) } })
     },
   }
@@ -613,6 +614,95 @@ function callAction(ab: AbilityEntry, order: number): BattleActionDef {
   }
 }
 
+/**
+ * 遠端叫人（內海版的叫人；M3-skill-net-b）：叫名冊上帶 remote_call.path 路數的人在網外出一次手，他不進場。
+ * hack：對一個敵人丟一次他的快駭（智識加介面對防火牆，加他的路數階數；過了造成 2d6 感載）；wall：替我方一格補一級防火牆；vent：替一名隊友排感載。
+ * 每場次數是 remote_call.per_fight 加修正 remote_uses（派工網、人脈）。
+ */
+function remoteCallAction(ab: AbilityEntry, order: number): BattleActionDef {
+  const id = `${ab.id}.remote_call`
+  const callOf = (v: Pick<BattleView, 'k' | 'mode'>, u: BattleUnit, input?: BattleInput) => effectiveMeat(v, u, ab, input).remote_call ?? ab.net!.remote_call!
+  const times = (v: BattleView, u: BattleUnit) => Math.max(0, callOf(v, u).per_fight + featureTotal(v, u, 'remote_uses'))
+  const runners = (v: BattleView, u: BattleUnit): BenchEntry[] => benchOf(v, u, callOf(v, u).path)
+  const slots = (side: 'ally' | 'foe'): BattleTarget[] => Array.from({ length: BATTLE_SLOTS }, (_, i) => ({ side, slot: i + 1 }))
+  const mates = (v: BattleView, u: BattleUnit): BattleUnit[] => unitsOf(v.battle, u.side).filter((t) => t.id !== u.id)
+  const NAME: Record<string, string> = { hack: '快駭：對一個敵人丟一次他的快駭', wall: '補防火牆：替我方一格補一級防火牆', vent: '排感載：替一名隊友排掉感載' }
+  const tierOf = (v: Pick<BattleView, 'state' | 'k'>, e: BenchEntry, path: string): number => {
+    const who = e.ref.from === 'actor' && typeof e.ref.id === 'string' ? e.ref.id : e.id
+    return pathRows(v.state, who).find((r) => r.path === path)?.tier ?? 1
+  }
+  return {
+    id, owner: OWNER, name: '遠端叫人', desc: '遠端叫名冊上的潛網者出手一次：丟一次快駭，或替我方一格補一級防火牆。', group: 'skill', icon: 'skill', modes: ['net'], order,
+    target: 'mixed',
+    has: (v, u) => hasAbility(u, ab.id) && !!colIn(v, u, ab)?.remote_call,
+    cost: (v, u) => ({ ap: callOf(v, u).ap }),
+    blocks: (v, u) => {
+      const why: string[] = []
+      if ((u.uses[id] ?? 0) >= times(v, u)) why.push(`這一場遠端叫人的次數用完了（${times(v, u)} 次）。`)
+      const list = runners(v, u)
+      if (!list.length) why.push(`名冊上沒有帶「${pathName(v, callOf(v, u).path)}」路數的人可以叫。`)
+      else if (list.every((b) => b.blocks.length > 0)) why.push('名冊上的潛網者現在都叫不來（看每個人旁邊的原因）。')
+      return why
+    },
+    targets: (v, u) => {
+      const call = callOf(v, u)
+      return [
+        ...(call.options.includes('wall') ? slots(u.side).map((target) => ({ target, blocks: [] as string[] })) : []),
+        ...(call.options.includes('hack') ? unitsOf(v.battle, otherSide(u.side)).map((t) => ({ target: { unit: t.id } as BattleTarget, blocks: [] as string[] })) : []),
+        ...(call.options.includes('vent') ? mates(v, u).map((t) => ({ target: { unit: t.id } as BattleTarget, blocks: [] as string[] })) : []),
+      ]
+    },
+    picks: (v, u): BattlePick[] => {
+      const call = callOf(v, u)
+      return [
+        { key: 'runner', label: '叫誰', kind: 'choice', required: true, options: runners(v, u).map((b) => ({ value: b.id, label: b.name, blocks: [...b.blocks] })) },
+        {
+          key: 'option', label: '叫他做什麼', kind: 'choice', required: true,
+          options: call.options.map((o) => ({
+            value: o, label: NAME[o] ?? o, blocks: [],
+            for: o === 'wall' ? slots(u.side) : o === 'vent' ? mates(v, u).filter((t) => !!t.load).map((t): BattleTarget => ({ unit: t.id })) : unitsOf(v.battle, otherSide(u.side)).map((t): BattleTarget => ({ unit: t.id })),
+          })),
+        },
+      ]
+    },
+    run(run, u, _target, input) {
+      const call = callOf(run, u, input)
+      const bad = new BattleBlocked(['遠端叫人要選叫誰，和他做什麼：快駭一個敵人，或替我方一格補防火牆。'])
+      const option = input.pick?.option
+      const t = input.target
+      const runner = runners(run, u).find((b) => b.id === input.pick?.runner)
+      if (typeof option !== 'string' || !(call.options as string[]).includes(option) || !t || !runner) throw bad
+      if (runner.blocks.length) throw new BattleBlocked(runner.blocks)
+      const tier = tierOf(run, runner, call.path)
+      const source = { kind: 'ability' as const, id: ab.id, name: '遠端叫人' }
+      if (option === 'wall') {
+        if (!('side' in t) || t.side !== u.side || t.slot < 1 || t.slot > BATTLE_SLOTS) throw bad
+        u.uses[id] = (u.uses[id] ?? 0) + 1
+        run.say(`${u.name}：遠端叫人，${runner.name}替我方第 ${t.slot} 格補了一級防火牆。`, 'support', { unit: u.id, option, runner: runner.id }, u)
+        run.raiseCover(t.side, t.slot, 1)
+        return
+      }
+      if (!('unit' in t)) throw bad
+      const target = run.battle.units[t.unit]
+      if (option === 'hack') {
+        if (!target || target.side === u.side || !onField(target)) throw bad
+        u.uses[id] = (u.uses[id] ?? 0) + 1
+        run.say(`${u.name}：遠端叫人，${runner.name}朝 ${target.name} 丟了一次快駭。`, 'support', { unit: u.id, option, runner: runner.id, target: target.id }, u)
+        run.effects([
+          { op: 'check', attr: 'intellect', skill: 'interface', vs: { firewall: true }, bonus: 'tier', tags: ['hack'], label: `${runner.name}的快駭`, stop: true },
+          { op: 'load', amount: '2d6', type: 'neural' },
+        ], { user: u, target: { unit: target.id }, source, pick: {}, n: { tier }, last: {} })
+        return
+      }
+      if (!target || target.side !== u.side || target.id === u.id || !onField(target)) throw bad
+      if (!target.load) throw new BattleBlocked([`${target.name}沒有橋，沒有感載可以排。`])
+      u.uses[id] = (u.uses[id] ?? 0) + 1
+      run.say(`${u.name}：遠端叫人，${runner.name}替 ${target.name} 排掉感載。`, 'support', { unit: u.id, option, runner: runner.id, target: target.id }, u)
+      run.effects([{ op: 'vent', amount: call.vent! }], { user: u, target: { unit: target.id }, source, pick: {}, n: { tier }, last: {} })
+    },
+  }
+}
+
 /** 內容載入之後：照內容註冊行動。 */
 export function registerActions(k: Kernel): void {
   k.content.list<AbilityEntry>('ability').forEach((ab, order) => {
@@ -635,10 +725,14 @@ export function registerActions(k: Kernel): void {
       const layers = (['meat', 'net'] as const).filter((l) => { const c = colOf(ab, l); return !!c && !c.pending })
       if (layers.length) k.battle.action(stanceAction(ab, order, layers))
     }
-    // 掮客招牌的指揮與叫人、戰鬥直覺的重分配：現實的東西
+    // 掮客招牌的指揮與叫人、戰鬥直覺的重分配：現實的東西；內海版是 command 與 remote_call、偶像招牌的 link
     if (m?.give_ap) k.battle.action(giveApAction(ab, order))
     if (m?.call) k.battle.action(callAction(ab, order))
     if (m?.instinct) k.battle.action(instinctAction(ab, order))
+    const n = ab.net && !ab.net.pending ? ab.net : null
+    if (n?.command) k.battle.action(giveApAction(ab, order, 'net'))
+    if (n?.remote_call) k.battle.action(remoteCallAction(ab, order))
+    if (n?.link) k.battle.action(linkAction(ab, order))
   })
 }
 
@@ -707,6 +801,7 @@ function applyAdmin(run: BattleRun, unit: BattleUnit): void {
 }
 
 export function registerBattle(k: Kernel): void {
+  registerLink(k)
   registerInstinct(k)
   registerAiStance(k)
   // 單位剛組好：照開打那一刻填上裝著的技能與每棵樹的階；已經有資料的單位不動
