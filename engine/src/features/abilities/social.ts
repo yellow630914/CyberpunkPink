@@ -47,17 +47,30 @@ export function maskOn(view: Pick<BattleView, 'k' | 'battle' | 'mode'>, unit: Ba
 
 // ---- 誘惑攻擊：把技能改寫成一般的技能行動 ----
 
-/** 誘惑攻擊要的條件：目標有橋、距離 2 以內（技能自己寫了 needs、range 的照它的）。targets 是 2 時多一個選第二個目標。 */
-function teaseMeat(m: MeatDef): MeatDef {
-  const { tease, ...rest } = m
-  const t = tease ?? {}
+/** 這一欄的誘惑攻擊（現實欄的 tease、內海欄的 lure）。 */
+export const teaseOf = (m: MeatDef | null | undefined) => (m && !m.pending ? m.tease ?? m.lure : undefined)
+
+// ---- 面具（內海版）：戰鬥結束的報告標出 data.masked ----
+
+/** 現在戴著內海版的面具嗎：裝著的被動、內海欄寫了 masked。 */
+export const netMasked = (view: Pick<BattleView, 'k' | 'mode' | 'battle'>, unit: BattleUnit): boolean => layerOf(view) === 'net' && liveCols(view, unit).some(({ ab, m }) => ab.kind === 'passive' && m.masked === true)
+
+/**
+ * 誘惑攻擊要的條件：目標有橋、距離 2 以內（內海 3 以內，目標還要有人格）。技能自己寫了 needs、range 的照它的。targets 是 2 時多選一個目標。
+ * 內海的人格：蕾絲裡只有帶 persona 標籤的打得到（化身也行）；寫成 needs.persona，灰掉時說出原因。
+ */
+function teaseMeat(m: MeatDef, net = false): MeatDef {
+  const { tease, lure, ...rest } = m
+  const t = (net ? lure : tease) ?? {}
+  const reach = net ? LURE_RANGE : TEASE_RANGE
+  const needs = { bridged: true, ...(net ? { persona: true as const } : {}) }
   return {
     ...rest,
     target: 'enemy',
-    needs: { bridged: true, ...(m.needs ?? {}) },
-    range: m.range ?? [1, TEASE_RANGE],
+    needs: { ...needs, ...(m.needs ?? {}) },
+    range: m.range ?? [1, reach],
     do: [{ op: 'tease', ...t }],
-    ...(t.targets === 2 ? { picks: [{ key: 'second', label: '第二個目標', kind: 'foe' as const, required: true, apart: true, needs: { bridged: true }, range: [1, TEASE_RANGE] as [number, number] }] } : {}),
+    ...(t.targets === 2 ? { picks: [{ key: 'second', label: '第二個目標', kind: 'foe' as const, required: true, apart: true, needs, range: [1, reach] as [number, number] }] } : {}),
   }
 }
 
