@@ -1,6 +1,6 @@
 // 技能的型別：兩種內容（path 路數、ability 技能）與角色、單位上的資料。規格：SKILLS 1.1～1.4、1.8 節；dev/work/M1-abilities.md 第二、四節。
 
-import type { ModKind, StatusUntil } from '../../core'
+import type { ModKind, StatusUntil, SyncGear } from '../../core'
 
 export const OWNER = 'abilities'
 
@@ -100,6 +100,10 @@ export interface WhenDef {
   first_attack?: true
   /** true：這一場開打前沒有被識破（開戰設定 origin.ext.pre.spotted 不是 true；偽裝：被識破的這一場不生效） */
   not_spotted?: true
+  /** 同步檔位至少是這一檔才算（看單位的 sync:<檔> 標籤，沒有標籤的單位當標準；M3-abilities-net） */
+  sync_min?: SyncGear
+  /** 同步檔位至多是這一檔才算 */
+  sync_max?: SyncGear
 }
 
 /** 目標的條件（每一項一句灰掉的原因）。 */
@@ -236,7 +240,10 @@ export interface OutMod {
   value: number
 }
 
-/** `meat` 欄的封閉清單（M1-abilities 第四節＋M1b-skill-format 第二～四節）。 */
+/**
+ * 欄的封閉清單（M1-abilities 第四節＋M1b-skill-format 第二～四節）：`meat`（現實）與 `net`（內海）同一套，照戰場的 layer 選哪一欄（column.ts）。
+ * 型別叫 MeatDef 是歷史；內海欄有幾個鍵沒有意義、載入時擋掉（format.ts 的 NET_BLOCKED_KEYS）。
+ */
 export interface MeatDef {
   target?: MeatTarget
   attack?: {
@@ -298,12 +305,23 @@ export interface MeatDef {
   out_mods?: OutMod[]
   /** 誘惑攻擊。主動技能：這個技能的行動就是一次誘惑攻擊（目標是有橋、距離 2 以內的敵人）；被動（入戲）：多一個基本的誘惑攻擊行動（2 點、每回合 1 次，組 tease）。反應用 { op: 'tease' } */
   tease?: TeaseDef
+  // ---- 內海（M3-abilities-net；兩欄都可以寫，內海用得到） ----
+  /** 構裝槽加減（戰鬥外也算：衍生數值 deck_slots 的來源；欄裡兩邊都有寫時內海欄優先） */
+  slots?: number
+  /** 管理行動的基數（內海戰鬥開打時寫成 unit.ext.net.admin）：'tier' 是這棵樹的階數；多個來源加起來 */
+  admin?: 'tier' | number
+  /** 同步檔位的上限加幾級（戰鬥外也算：衍生數值 sync_cap_bonus 的來源；姿態在戰鬥裡用的是修正 sync_cap） */
+  sync_cap?: number
+  /** 這一欄是招牌的專屬構裝：佔一個構裝槽（衍生數值 deck_slots_reserved），淺檔整欄不生效（ITEMS 11.7、CYBERSPACE 6.4） */
+  unique?: true
 }
 
 /** 一組消耗。`use` 可以直接寫一組（每個戰場都一樣），或照戰場分 meat、net、opinion（E1）。 */
 export interface AbilityUse {
   ap?: number
   ram?: number
+  /** 花幾次管理行動（只有內海用：結算時走效果 net.admin_spend，次數不夠時行動灰掉） */
+  admin?: number
   /** 花掉手上全部的 RAM，至少要有這麼多；花掉的數字是公式的 spent */
   ram_all_min?: number
   /** 現金（公式，例 'grade*500'） */
@@ -331,6 +349,11 @@ export interface PrepDef {
   slot?: number
   scope?: 'next_battle' | 'commission'
   meat?: { mods?: ModEntry[]; do?: Array<Record<string, unknown>> }
+  /**
+   * 預備帶進內海戰鬥的（mods、do 照 meat 的做法）；trace_start 是這件委託內海階段追蹤度起始值的加減
+   * （衍生數值 net_trace_start：scope 是 commission、綁在進行中的那件委託上的預備才算）
+   */
+  net?: { mods?: ModEntry[]; do?: Array<Record<string, unknown>>; trace_start?: number }
   /**
    * 預備的當下就在戰鬥外結算的效果（走 k.effects；沒有人註冊的種類略過那一筆）。字串裡的 $target、$commission、$tendency 換成輸入的人、
    * 輸入的委託、那個人傾向裡的一個標籤（tendency:<標籤>；讀不到是 tendency:none）。
@@ -379,7 +402,7 @@ export interface AbilityEntry {
   ai?: AbilityAi
   use?: AbilityUse
   meat: MeatDef | null
-  net: Record<string, unknown> | null
+  net: MeatDef | null
   opinion: Record<string, unknown> | null
   prep?: PrepDef | null
   daily?: Record<string, unknown> | null

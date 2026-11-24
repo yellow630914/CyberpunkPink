@@ -37,6 +37,20 @@ export interface NetcombatRules {
   shift_split: number
   /** 全檔管理行動的次數加幾次（CYBERSPACE 6.4 節） */
   admin_full: number
+  /** 戰鬥裡的追蹤度（CYBERSPACE 6.8 節；NETRUNNING 第 5 節的門檻） */
+  trace: TraceRules
+  /** 倒下（昏過去、被釘住）之後幾分鐘內不能再潛入：角色的狀況 net_burn（CYBERSPACE 6.7 節） */
+  burn_minutes: number
+}
+
+/** 戰鬥裡的追蹤度：第 2 輪起每輪開頭加 round，敵方在場有白蕾絲再加 white（不疊）；t1、t2、t3 是三個門檻（增援、增援、定位）；定位之後 locate_rounds 輪強制斷線。 */
+export interface TraceRules {
+  round: number
+  white: number
+  t1: number
+  t2: number
+  t3: number
+  locate_rounds: number
 }
 
 export const DEFAULT_NETCOMBAT_RULES: NetcombatRules = {
@@ -46,6 +60,8 @@ export const DEFAULT_NETCOMBAT_RULES: NetcombatRules = {
   sync_shifts: 1,
   shift_split: 0.6,
   admin_full: 1,
+  trace: { round: 3, white: 5, t1: 30, t2: 60, t3: 90, locate_rounds: 3 },
+  burn_minutes: 60,
 }
 
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v)
@@ -53,11 +69,16 @@ const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFin
 export const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
 
 const AP_KEYS = Object.keys(DEFAULT_NETCOMBAT_RULES.ap) as Array<keyof NetActionAp>
+const TRACE_KEYS = Object.keys(DEFAULT_NETCOMBAT_RULES.trace) as Array<keyof TraceRules>
+const RULE_FIELDS = ['id', 'refill', 'ap', 'jam_wall_mult', 'sync_shifts', 'shift_split', 'admin_full', 'trace', 'burn_minutes']
+/** 追蹤度的數字要在量表的範圍裡（−30～100；dev/adr/0018 第七節）。 */
+const TRACE_MIN = -30
+const TRACE_MAX = 100
 
 export function ruleProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
-  for (const key of Object.keys(e)) if (!['id', 'refill', 'ap', 'jam_wall_mult', 'sync_shifts', 'shift_split', 'admin_full'].includes(key)) p.push(`${key}：沒有這個欄位（可以寫的：refill、ap、jam_wall_mult、sync_shifts、shift_split、admin_full）`)
-  for (const f of ['refill', 'sync_shifts', 'admin_full'] as const) if (e[f] !== undefined && !(isInt(e[f]) && (e[f] as number) >= 0)) p.push(`${f} 要是 0 以上的整數`)
+  for (const key of Object.keys(e)) if (!RULE_FIELDS.includes(key)) p.push(`${key}：沒有這個欄位（可以寫的：${RULE_FIELDS.filter((x) => x !== 'id').join('、')}）`)
+  for (const f of ['refill', 'sync_shifts', 'admin_full', 'burn_minutes'] as const) if (e[f] !== undefined && !(isInt(e[f]) && (e[f] as number) >= 0)) p.push(`${f} 要是 0 以上的整數`)
   if (e.jam_wall_mult !== undefined && !(isNum(e.jam_wall_mult) && e.jam_wall_mult >= 0)) p.push('jam_wall_mult 要是 0 以上的數字')
   if (e.shift_split !== undefined && !(isNum(e.shift_split) && e.shift_split > 0 && e.shift_split <= 1)) p.push('shift_split 要是 0～1 之間的數字（不含 0）')
   if (e.ap !== undefined) {
@@ -69,17 +90,33 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
       }
     }
   }
+  if (e.trace !== undefined) {
+    if (!isRecord(e.trace)) p.push(`trace 要是 { ${TRACE_KEYS.join('、')} } 各自的數字`)
+    else {
+      for (const [key, v] of Object.entries(e.trace)) {
+        if (!(TRACE_KEYS as string[]).includes(key)) p.push(`trace.${key}：沒有這個欄位（可以寫的：${TRACE_KEYS.join('、')}）`)
+        else if (key === 'round' || key === 'white') {
+          if (!(isInt(v) && v >= 0 && v <= 50)) p.push(`trace.${key} 要是 0～50 的整數`)
+        } else if (key === 'locate_rounds') {
+          if (!(isInt(v) && v >= 1 && v <= 20)) p.push('trace.locate_rounds 要是 1～20 的整數')
+        } else if (!(isInt(v) && v >= TRACE_MIN && v <= TRACE_MAX)) p.push(`trace.${key} 要是 ${TRACE_MIN}～${TRACE_MAX} 的整數（追蹤度的範圍）`)
+      }
+      const t = { ...DEFAULT_NETCOMBAT_RULES.trace, ...e.trace } as Record<string, unknown>
+      if (isInt(t.t1) && isInt(t.t2) && isInt(t.t3) && !(t.t1 < t.t2 && t.t2 < t.t3)) p.push('trace 的三個門檻 t1、t2、t3 要由小到大')
+    }
+  }
   return p
 }
 
 /** 現在生效的規則：資料（netcombat_rule/default）有寫、而且格式沒壞的欄位蓋掉內建的預設。 */
 export function netcombatRules(k: Pick<Kernel, 'content'>): NetcombatRules {
-  const out: NetcombatRules = { ...DEFAULT_NETCOMBAT_RULES, ap: { ...DEFAULT_NETCOMBAT_RULES.ap } }
+  const out: NetcombatRules = { ...DEFAULT_NETCOMBAT_RULES, ap: { ...DEFAULT_NETCOMBAT_RULES.ap }, trace: { ...DEFAULT_NETCOMBAT_RULES.trace } }
   if (!k.content.hasKind(RULE_KIND)) return out
   const e = k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default')
   if (!e) return out
   const bad = new Set(ruleProblems(e).map((m) => m.split(/[ .：]/)[0]))
-  for (const f of ['refill', 'sync_shifts', 'admin_full', 'jam_wall_mult', 'shift_split'] as const) if (e[f] !== undefined && !bad.has(f)) out[f] = e[f] as number
+  for (const f of ['refill', 'sync_shifts', 'admin_full', 'jam_wall_mult', 'shift_split', 'burn_minutes'] as const) if (e[f] !== undefined && !bad.has(f)) out[f] = e[f] as number
+  if (isRecord(e.trace) && !bad.has('trace')) for (const key of TRACE_KEYS) if (isInt(e.trace[key])) out.trace[key] = e.trace[key] as number
   if (isRecord(e.ap)) {
     for (const key of AP_KEYS) {
       const v = e.ap[key]

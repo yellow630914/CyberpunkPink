@@ -5,16 +5,18 @@
 
 import type { BattleKernel, BattleRun, BattleState, BattleUnit, BattleView, GameState } from '../../core'
 import { amount } from '../../core'
+import type { Layer } from './column'
+import { layerOf } from './column'
 import { FAVORS } from './format'
 import { isRec, tierIn } from './unitdata'
 import { rememberPool } from './wallet'
 import type { AbilityEntry, AbilityUse } from './types'
 
-/** 這一組消耗：直接寫的，或照戰場分的 meat 那一組（這一張只讀 meat）。 */
-export function useOf(ab: Pick<AbilityEntry, 'use'>): AbilityUse {
+/** 這一組消耗：直接寫的（每個戰場都一樣），或照戰場分的那一組（layer 是 meat 或 net；沒寫那一組就是空的）。沒給 layer 是現實（預備與戰鬥外用）。 */
+export function useOf(ab: Pick<AbilityEntry, 'use'>, layer: Layer = 'meat'): AbilityUse {
   const u = ab.use
   if (!u) return {}
-  if ('meat' in u || 'net' in u || 'opinion' in u) return u.meat ?? {}
+  if ('meat' in u || 'net' in u || 'opinion' in u) return u[layer] ?? {}
   return u
 }
 
@@ -32,7 +34,7 @@ export type Cost = { ap: number; [pool: string]: number }
 
 /** 一個技能要花的：行動點（沒寫行動點、也沒寫別的池時是 1，和舊的一樣）、RAM、現金、人情。 */
 export function costOf(view: BattleView, u: BattleUnit, ab: AbilityEntry): Cost {
-  const use = useOf(ab)
+  const use = useOf(ab, layerOf(view))
   const cost: Cost = { ap: use.ap ?? (poolCost(use) ? 0 : 1) }
   if (use.ram) cost.ram = use.ram
   if (use.ram_all_min !== undefined) {
@@ -50,13 +52,30 @@ const groupKey = (g: string): string => `turn:group:${g}`
 export const commissionUse = (id: string): string => `commission:${id}`
 
 /** 每場幾次：寫了 per_fight 照寫的；低血才解開的招牌行動（ai.unlock: 'low'）每場一次。 */
-const perFightOf = (ab: AbilityEntry): number | undefined => useOf(ab).per_fight ?? (ab.ai?.unlock === 'low' ? 1 : undefined)
+const perFightOf = (ab: AbilityEntry, layer: Layer): number | undefined => useOf(ab, layer).per_fight ?? (ab.ai?.unlock === 'low' ? 1 : undefined)
+
+// ---- 管理行動（只有內海）----
+// 次數的資料慣例（dev/adr/0018 第十三節；features/netcombat 的管理行動寫與讀同一份）：基數是 unit.ext.net.admin（開打時由技能寫、敵人由資料寫），
+// 加上修正 admin_uses；這一回合用掉的記在 unit.uses['turn:admin']（核心每個回合開始清掉 'turn:' 開頭的鍵）。實際扣一次走效果 net.admin_spend。
+
+/** 管理行動的次數上限（基數加修正）。 */
+export function adminCap(view: Pick<BattleView, 'mods'>, u: BattleUnit): number {
+  const n = isRec(u.ext.net) && typeof u.ext.net.admin === 'number' ? u.ext.net.admin : 0
+  return Math.max(0, n + view.mods('admin_uses', u).reduce((sum, p) => sum + p.value, 0))
+}
+
+/** 這個回合還剩幾次。 */
+export const adminLeft = (view: Pick<BattleView, 'mods'>, u: BattleUnit): number => Math.max(0, adminCap(view, u) - (u.uses['turn:admin'] ?? 0))
+
+/** 這個技能的管理行動消耗（內海才有；現實一律 0）。 */
+export const adminNeed = (ab: AbilityEntry, layer: Layer): number => (layer === 'net' ? useOf(ab, layer).admin ?? 0 : 0)
 
 /** 這個技能現在用不了的原因（次數類的）。錢與行動點不夠由核心列。 */
-export function usageBlocks(view: Pick<BattleView, 'battle'>, u: BattleUnit, ab: AbilityEntry): string[] {
-  const use = useOf(ab)
+export function usageBlocks(view: Pick<BattleView, 'battle' | 'mode' | 'mods'>, u: BattleUnit, ab: AbilityEntry): string[] {
+  const layer = layerOf(view)
+  const use = useOf(ab, layer)
   const out: string[] = []
-  const perFight = perFightOf(ab)
+  const perFight = perFightOf(ab, layer)
   if (perFight !== undefined && (u.uses[ab.id] ?? 0) >= perFight) out.push('這一場已經用過了。')
   if (use.per_commission !== undefined && (u.uses[commissionUse(ab.id)] ?? 0) >= use.per_commission) out.push(`這件委託的次數用完了（每件委託 ${use.per_commission} 次）。`)
   if (use.first_round && view.battle.round !== 1) out.push('只能在第一回合用。')
@@ -71,13 +90,19 @@ export function usageBlocks(view: Pick<BattleView, 'battle'>, u: BattleUnit, ab:
     const now = u.pools.ram?.now ?? 0
     if (now < use.ram_all_min) out.push(`要有 ${use.ram_all_min} 點以上的 RAM 才能用（現在 ${now} 點）。`)
   }
+  const need = adminNeed(ab, layer)
+  if (need > 0) {
+    const cap = adminCap(view, u)
+    const used = u.uses['turn:admin'] ?? 0
+    if (cap - used < need) out.push(cap <= 0 ? '沒有管理行動的次數（要有主控這類管理權限）。' : `這一回合的管理行動只剩 ${Math.max(0, cap - used)} 次（一回合 ${cap} 次，已經用了 ${used} 次；這個技能要 ${need} 次）。`)
+  }
   return out
 }
 
 /** 用掉一次：記每場、每回合（同一組的合起來記）、每件委託的次數。 */
-export function bumpUses(u: BattleUnit, ab: AbilityEntry): void {
-  const use = useOf(ab)
-  if (perFightOf(ab) !== undefined) u.uses[ab.id] = (u.uses[ab.id] ?? 0) + 1
+export function bumpUses(u: BattleUnit, ab: AbilityEntry, layer: Layer = 'meat'): void {
+  const use = useOf(ab, layer)
+  if (perFightOf(ab, layer) !== undefined) u.uses[ab.id] = (u.uses[ab.id] ?? 0) + 1
   if (use.per_turn !== undefined) {
     const key = use.group !== undefined ? groupKey(use.group) : `turn:${ab.id}`
     u.uses[key] = (u.uses[key] ?? 0) + 1

@@ -11,6 +11,7 @@
 
 import type { BattleEffectCtx, BattleEffectLast, BattleRun, BattleUnit, BattleView, Kernel } from '../../core'
 import { BATTLE_SLOTS, amount, coverAt, coverLevel, distance, isRecord, onField, unitAt, unitTag } from '../../core'
+import { colIn } from './column'
 import { ATTACKS_MADE } from './conditions'
 import { teaseFieldProblems } from './format'
 import { featureMods } from './mods'
@@ -32,12 +33,12 @@ const maskHitKey = (id: string): string => `mask_hit:${id}`
  * 現在戴著面具嗎：裝著的被動（meat.mask，到第 rounds 回合為止）或一段 buff（mask：有 rounds 的看回合，沒有的在這一段還在時都算）。
  * 這一場開打前被識破了（origin.ext.pre.spotted），被動的面具這一場不生效（SKILL_TREES 入戲：開打前被識破的那一場）；換臉、千面這類 buff 是戰鬥中另外戴上的，不受影響。
  */
-export function maskOn(view: Pick<BattleView, 'k' | 'battle'>, unit: BattleUnit): boolean {
+export function maskOn(view: Pick<BattleView, 'k' | 'battle' | 'mode'>, unit: BattleUnit): boolean {
   const round = view.battle.round
   if (!spotted(view.battle)) {
     for (const ab of equippedOf(view, unit)) {
-      const m = ab.meat
-      if (ab.kind === 'passive' && m && !m.pending && m.mask && round <= m.mask.rounds) return true
+      const m = colIn(view, unit, ab)
+      if (ab.kind === 'passive' && m?.mask && round <= m.mask.rounds) return true
     }
   }
   return unitBuffs(unit).some((b) => b.mask && (b.mask.rounds === undefined || round <= b.mask.rounds))

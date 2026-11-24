@@ -5,6 +5,7 @@
 
 import type { BattleRun, BattleUnit, SkillId } from '../../core'
 import { onField, unitsOf } from '../../core'
+import { colIn } from './column'
 import type { AbilityEntry, SuppressDef } from './types'
 import { OWNER } from './types'
 import type { Kernel } from '../../core'
@@ -37,7 +38,7 @@ export function registerSuppress(k: Kernel): void {
     if (!result.hit || run.isStandIn(attacker) || run.isStandIn(target) || target.out || !onField(target) || !attacker.stance) return
     if (weapon.traits.includes('melee')) return
     const ab = run.k.content.get<AbilityEntry>('ability', attacker.stance)
-    const sup = ab?.meat?.attack?.suppress
+    const sup = (ab ? colIn(run, attacker, ab) : null)?.attack?.suppress
     if (!ab || !sup?.auto) return
     if (sup.per_turn !== undefined && (attacker.uses[autoKey(ab)] ?? 0) >= sup.per_turn) return
     attacker.uses[autoKey(ab)] = (attacker.uses[autoKey(ab)] ?? 0) + 1

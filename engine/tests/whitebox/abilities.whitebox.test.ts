@@ -184,7 +184,7 @@ describe('白箱 內容載入之後跨筆的檢查（ready；dev/work/M1-abiliti
   })
 
   it('樹在某一欄寫 none，技能那一欄就要是 null；cost.ability 不存在；cost.per_turn 對到的不是主動技能', () => {
-    expect(ready([PATH], [ABILITIES[0], { ...ABILITIES[1]!, net: { x: 1 } }])).toThrow(/戰鬥直覺在內海沒有效果（domains\.net 是 none），net 要是 null/)
+    expect(ready([PATH], [ABILITIES[0], { ...ABILITIES[1]!, net: { pending: true } }])).toThrow(/戰鬥直覺在內海沒有效果（domains\.net 是 none），net 要是 null/)
     expect(ready([PATH], [ABILITIES[0], { ...ABILITIES[1]!, opinion: { x: 1 } }])).toThrow(/在輿論沒有效果/)
     expect(ready([PATH], [ABILITIES[0], { ...ABILITIES[1]!, meat: { cost: { ability: 'sk_ghost', ap: 1 } } }])).toThrow(/meat\.cost\.ability 的 sk_ghost 不存在/)
     expect(ready([PATH], [ABILITIES[0], { ...ABILITIES[1]!, meat: { cost: { ability: 'sk_instinct', ap: 1, per_turn: 1 } } }])).toThrow(/sk_instinct 不是主動技能/)

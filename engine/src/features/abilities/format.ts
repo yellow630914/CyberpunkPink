@@ -3,7 +3,8 @@
 // 訊息的開頭是欄位的路徑，裡面寫出那個不對的字（鍵、who、on、公式）。
 
 import type { Kernel } from '../../core'
-import { MOD_KINDS, STATUS_UNTILS, UNIT_RANKS, amountProblems } from '../../core'
+import { MOD_KINDS, STATUS_UNTILS, SYNC_GEARS, UNIT_RANKS, amountProblems, syncGearIndex } from '../../core'
+import type { SyncGear } from '../../core'
 import { FEATURE_MOD_KINDS, TRIGGER_ON } from './types'
 
 export const isRec = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -25,15 +26,17 @@ export const MEAT_KEYS = [
   'target', 'attack', 'apply', 'free_move', 'cost', 'weapon_cost', 'trigger', 'evade', 'on_hit', 'give_ap', 'call', 'instinct', 'pending',
   'needs', 'when', 'range', 'picks', 'do', 'choose', 'mods', 'react', 'do_on', 'do_off', 'tags', 'action_tags', 'pool', 'alter', 'ransom', 'on_start', 'on_give_ap',
   'mask', 'tease', 'out', 'out_mods',
+  // 內海（M3-abilities-net）：兩欄都可以寫
+  'slots', 'admin', 'sync_cap', 'unique',
 ] as const
 export const CALL_OPTIONS = ['shot', 'cover_up', 'cover_down', 'heal', 'vent'] as const
 /** 叫人的選項裡要自己寫數字的（call.heal、call.vent） */
 const CALL_AMOUNT = ['heal', 'vent'] as const
 export const SUPPRESS_AREAS = ['adjacent', 'row'] as const
 const LEGACY_TRIGGERS = ['ally_attacked', 'ally_attacked_adjacent'] as const
-export const USE_KEYS = ['ap', 'ram', 'ram_all_min', 'cash', 'favor', 'per_turn', 'per_fight', 'per_commission', 'first_round', 'not_first_round', 'group', 'slot', 'note'] as const
+export const USE_KEYS = ['ap', 'ram', 'admin', 'ram_all_min', 'cash', 'favor', 'per_turn', 'per_fight', 'per_commission', 'first_round', 'not_first_round', 'group', 'slot', 'note'] as const
 export const FAVORS = ['small', 'mid', 'big'] as const
-export const WHEN_MEAT = ['wield', 'mag_min', 'hull', 'stance', 'slot', 'node_taken', 'wounded'] as const
+export const WHEN_MEAT = ['wield', 'mag_min', 'hull', 'stance', 'slot', 'node_taken', 'wounded', 'sync_min', 'sync_max'] as const
 export const WHEN_MODS = [...WHEN_MEAT, 'first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_status', 'other_contract', 'target_near', 'first_attack', 'not_spotted'] as const
 export const NEEDS_KEYS = ['bridged', 'cyber', 'status', 'no_rank', 'rank', 'wounded', 'afterglow', 'tag', 'cache_tag', 'implant_off', 'any'] as const
 export const MOD_WHO = ['self', 'adjacent', 'allies', 'behind'] as const
@@ -85,6 +88,7 @@ function useSetProblems(at: string, u: Record<string, unknown>, kind: unknown): 
   const p = onlyKeys(at, u, USE_KEYS)
   if (u.ap !== undefined && !(isInt(u.ap) && u.ap >= 0)) p.push(`${at}.ap 要是 0 以上的整數`)
   if (u.ram !== undefined && !(isInt(u.ram) && u.ram >= 0)) p.push(`${at}.ram 要是 0 以上的整數`)
+  if (u.admin !== undefined && !(isInt(u.admin) && u.admin >= 1)) p.push(`${at}.admin 要是 1 以上的整數（花幾次管理行動）`)
   if (u.ram_all_min !== undefined && !(isInt(u.ram_all_min) && u.ram_all_min >= 1)) p.push(`${at}.ram_all_min 要是 1 以上的整數`)
   if (u.ram !== undefined && u.ram_all_min !== undefined) p.push(`${at}.ram 與 ${at}.ram_all_min 只能寫一個`)
   if (u.cash !== undefined) p.push(...plainFormula(`${at}.cash`, u.cash))
@@ -110,13 +114,17 @@ function useSetProblems(at: string, u: Record<string, unknown>, kind: unknown): 
 /** use：直接一組，或照戰場分 meat、net、opinion。 */
 export function useProblems(u: unknown, kind: unknown): string[] {
   if (u === undefined) return []
-  if (!isRec(u)) return ['use 要是 { ap?, ram?, cash?, favor?, per_turn?, per_fight?, per_commission?, ... }，或照戰場分的 { meat?, net?, opinion? }']
+  if (!isRec(u)) return ['use 要是 { ap?, ram?, admin?, cash?, favor?, per_turn?, per_fight?, per_commission?, ... }，或照戰場分的 { meat?, net?, opinion? }']
   if ('meat' in u || 'net' in u || 'opinion' in u) {
     const p = onlyKeys('use', u, ['meat', 'net', 'opinion'])
     for (const col of ['meat', 'net', 'opinion']) {
       if (u[col] === undefined) continue
       if (!isRec(u[col])) p.push(`use.${col} 要是一組消耗的物件`)
-      else p.push(...useSetProblems(`use.${col}`, u[col] as Record<string, unknown>, kind))
+      else {
+        p.push(...useSetProblems(`use.${col}`, u[col] as Record<string, unknown>, kind))
+        // 管理行動是內海的消耗：現實與輿論那一組不能寫
+        if (col !== 'net' && (u[col] as Record<string, unknown>).admin !== undefined) p.push(`use.${col}.admin 只有內海用（寫在 use.net，或直接寫的那一組）`)
+      }
     }
     return p
   }
@@ -139,6 +147,10 @@ export function whenProblems(at: string, w: unknown, allowed: readonly string[])
   }
   if (w.other_status !== undefined && !isText(w.other_status)) p.push(`${at}.other_status 要是狀態的 id`)
   if (w.wounded !== undefined && w.wounded !== true) p.push(`${at}.wounded 只能是 true`)
+  for (const key of ['sync_min', 'sync_max'] as const) {
+    if (w[key] !== undefined && !(SYNC_GEARS as readonly unknown[]).includes(w[key])) p.push(`${at}.${key} 要是同步檔位：${SYNC_GEARS.join('、')}（拿到 ${String(w[key])}）`)
+  }
+  if ((SYNC_GEARS as readonly unknown[]).includes(w.sync_min) && (SYNC_GEARS as readonly unknown[]).includes(w.sync_max) && syncGearIndex(w.sync_min as SyncGear) > syncGearIndex(w.sync_max as SyncGear)) p.push(`${at}.sync_min 不能比 sync_max 深（${String(w.sync_min)} > ${String(w.sync_max)}，這樣永遠不成立）`)
   return p
 }
 
@@ -375,8 +387,8 @@ function teaseProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kerne
   return p
 }
 
-/** `meat` 欄：只能用封閉清單裡的鍵。k 沒給就不查 do 裡的 op（只有單獨驗格式時）。 */
-export function meatProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kernel, 'battle'>): string[] {
+/** 欄的格式（meat 與 net 同一套；訊息的前綴先寫 meat，meatProblems 對 net 欄換成 net）。k 沒給就不查 do 裡的 op（只有單獨驗格式時）。 */
+function columnProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kernel, 'battle'>): string[] {
   const p = onlyKeys('meat', m, MEAT_KEYS)
   if (m.target !== undefined && !(MEAT_TARGETS as readonly unknown[]).includes(m.target)) p.push(`meat.target 只能是 ${MEAT_TARGETS.join('、')}`)
   if (m.attack !== undefined) p.push(...attackProblems(m.attack))
@@ -573,7 +585,75 @@ export function meatProblems(m: Record<string, unknown>, kind: unknown, k?: Pick
       })
     }
   }
+  // ---- 內海（M3-abilities-net）：兩欄都可以寫 ----
+  for (const key of ['slots', 'sync_cap'] as const) {
+    if (m[key] !== undefined && !(isInt(m[key]) && m[key] !== 0)) p.push(`meat.${key} 要是整數（${key === 'slots' ? '構裝槽' : '同步檔位的上限'}加減幾，不能是 0）`)
+  }
+  if (m.admin !== undefined && m.admin !== 'tier' && !(isInt(m.admin) && m.admin >= 1)) p.push("meat.admin 要是 'tier'（這棵樹的階數）或 1 以上的整數（管理行動的基數）")
+  if (m.unique !== undefined && m.unique !== true) p.push('meat.unique 只能是 true（這一欄是招牌的專屬構裝：佔一個槽、淺檔不生效）')
+  if (Array.isArray(m.tags) && m.tags.includes('overclock') && kind !== 'active') p.push('meat.tags 的 overclock 只有主動技能（kind 是 active）用：帶這個標籤的行動淺檔做不了')
   return p
+}
+
+// ---- 內海欄：現實才有意義的鍵擋掉 ----
+
+/** 內海欄不能寫的鍵與原因（現實的東西：彈匣、重創、義體、名冊支援、戰敗事件、戰鬥外）。 */
+const NET_BLOCKED_KEYS: Record<string, string> = {
+  call: '叫人是現實戰鬥的名冊支援',
+  give_ap: '指揮是現實戰鬥的隊伍行動點',
+  instinct: '戰鬥直覺是現實戰鬥的點數分配',
+  tease: '誘惑攻擊打的是快感，內海沒有成人場景',
+  mask: '面具是現實裡被認出來的機制',
+  ransom: '保釋是現實戰敗的事件',
+  out: '戰鬥外的姿態只有現實',
+  out_mods: '戰鬥外的檢定修正只有現實',
+  on_hit: '那是舊的 ally_attacked 寫法的附屬',
+  evade: '那是舊的 ally_attacked 寫法的附屬',
+}
+const NET_BLOCKED_ATTACK = ['spend', 'min_mag', 'dice', 'free_mag', 'suppress']
+const NET_BLOCKED_WHEN = ['mag_min', 'hull', 'node_taken', 'wounded', 'other_cyber', 'other_contract', 'not_spotted']
+const NET_BLOCKED_NEEDS = ['cyber', 'implant_off', 'cache_tag', 'wounded']
+const NET_BLOCKED_MODS = ['instinct_points', 'instinct_cap', 'instinct_free', 'call_uses', 'call_hit', 'give_ap_cap', 'tease_hit', 'tease_bonus', 'no_wound']
+
+function blockedIn(at: string, v: unknown, keys: readonly string[], why: string): string[] {
+  return isRec(v) ? keys.filter((key) => v[key] !== undefined).map((key) => `${at}.${key} 在內海沒有意義（${why}）`) : []
+}
+const blockedWhen = (at: string, w: unknown): string[] => blockedIn(at, w, NET_BLOCKED_WHEN, '彈匣、機甲、重傷、義體、控制節點、被識破都是現實的條件')
+function blockedNeeds(at: string, n: unknown): string[] {
+  const p = blockedIn(at, n, NET_BLOCKED_NEEDS, '義體、快取格、重傷是現實的條件')
+  if (isRec(n) && Array.isArray(n.any)) n.any.forEach((x, i) => p.push(...blockedNeeds(`${at}.any[${i}]`, x)))
+  return p
+}
+
+/** 內海欄裡現實才有意義的東西（回傳的訊息已經是 net. 開頭）。 */
+function netBlockedProblems(m: Record<string, unknown>): string[] {
+  const p: string[] = []
+  for (const [key, why] of Object.entries(NET_BLOCKED_KEYS)) if (m[key] !== undefined) p.push(`net.${key} 在內海沒有意義（${why}）`)
+  if (typeof m.trigger === 'string') p.push(`net.trigger 不能用舊的字串寫法「${m.trigger}」（那是現實的隊友掩護）；寫成 { on, who, if? }`)
+  if (isRec(m.attack)) p.push(...blockedIn('net.attack', m.attack, NET_BLOCKED_ATTACK, '內海的構裝沒有彈匣，也沒有壓制'))
+  p.push(...blockedWhen('net.when', m.when), ...blockedNeeds('net.needs', m.needs))
+  if (isRec(m.trigger) && isRec(m.trigger.by)) p.push(...blockedNeeds('net.trigger.by.needs', m.trigger.by.needs))
+  if (Array.isArray(m.mods)) {
+    m.mods.forEach((e, i) => {
+      if (!isRec(e)) return
+      if (NET_BLOCKED_MODS.includes(e.kind as string)) p.push(`net.mods[${i}].kind「${String(e.kind)}」在內海沒有意義（那是現實戰鬥的機制）`)
+      p.push(...blockedWhen(`net.mods[${i}].when`, e.when))
+    })
+  }
+  if (Array.isArray(m.choose)) m.choose.forEach((x, i) => p.push(...blockedWhen(`net.choose[${i}].when`, isRec(x) ? x.when : undefined), ...blockedNeeds(`net.choose[${i}].needs`, isRec(x) ? x.needs : undefined)))
+  if (Array.isArray(m.picks)) m.picks.forEach((x, i) => p.push(...blockedNeeds(`net.picks[${i}].needs`, isRec(x) ? x.needs : undefined)))
+  if (Array.isArray(m.alter)) m.alter.forEach((x, i) => p.push(...blockedWhen(`net.alter[${i}].when`, isRec(x) ? x.when : undefined)))
+  return p
+}
+
+/**
+ * 一欄的格式檢查：只能用封閉清單裡的鍵。col 是 meat（預設）或 net，兩欄同一套，內海欄再擋掉現實才有意義的鍵（NET_BLOCKED_*），訊息的前綴是欄名。
+ * k 沒給就不查 do 裡的 op（只有單獨驗格式時）。
+ */
+export function meatProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kernel, 'battle'>, col: 'meat' | 'net' = 'meat'): string[] {
+  const p = columnProblems(m, kind, k)
+  if (col === 'meat') return p
+  return [...p.map((x) => x.replaceAll('meat.', 'net.')), ...netBlockedProblems(m)]
 }
 
 // ---- prep ----
@@ -581,7 +661,7 @@ export function meatProblems(m: Record<string, unknown>, kind: unknown, k?: Pick
 export function prepProblems(prep: unknown, kind: unknown, k?: Pick<Kernel, 'battle'>): string[] {
   if (prep === undefined || prep === null) return []
   if (!isRec(prep)) return ['prep 要是物件或 null']
-  const p = onlyKeys('prep', prep, ['text', 'slot', 'scope', 'meat', 'effects', 'target', 'out_mods'])
+  const p = onlyKeys('prep', prep, ['text', 'slot', 'scope', 'meat', 'net', 'effects', 'target', 'out_mods'])
   if (prep.text !== undefined && typeof prep.text !== 'string') p.push('prep.text 要是字串')
   if (prep.slot !== undefined && !(isInt(prep.slot) && prep.slot >= 0)) p.push('prep.slot 要是 0 以上的整數（幾個時段；0 是不花時段，戰前佈置、情報網）')
   if (prep.scope !== undefined && !(PREP_SCOPES as readonly unknown[]).includes(prep.scope)) p.push(`prep.scope「${String(prep.scope)}」不在清單裡（可以寫：${PREP_SCOPES.join('、')}）`)
@@ -598,13 +678,30 @@ export function prepProblems(prep: unknown, kind: unknown, k?: Pick<Kernel, 'bat
       if (m.do !== undefined) p.push(...effectsProblems(k, 'prep.meat.do', m.do))
     }
   }
+  if (prep.net !== undefined) {
+    const m = prep.net
+    if (kind !== 'prep') p.push('prep.net 只有預備技能（kind 是 prep）用')
+    if (prep.slot === undefined) p.push('prep.slot 一定要寫（預備花幾個時段）')
+    if (prep.scope === undefined) p.push('prep.scope 一定要寫（next_battle 或 commission）')
+    if (!isRec(m)) p.push('prep.net 要是 { mods?, do?, trace_start? }')
+    else {
+      p.push(...onlyKeys('prep.net', m, ['mods', 'do', 'trace_start']))
+      if (m.mods === undefined && m.do === undefined && m.trace_start === undefined) p.push('prep.net 要寫 mods、do 或 trace_start')
+      if (m.mods !== undefined) p.push(...modsProblems('prep.net.mods', m.mods))
+      if (m.do !== undefined) p.push(...effectsProblems(k, 'prep.net.do', m.do))
+      if (m.trace_start !== undefined) {
+        if (!(isInt(m.trace_start) && m.trace_start !== 0 && m.trace_start >= -100 && m.trace_start <= 100)) p.push('prep.net.trace_start 要是 −100～100 的整數（這件委託內海階段追蹤度起始值的加減，不能是 0）')
+        else if (prep.scope !== undefined && prep.scope !== 'commission') p.push("prep.net.trace_start 只有 scope 是 commission 的預備用（綁在一件委託上）")
+      }
+    }
+  }
   // 預備當下結算的效果（走 k.effects，種類登記了沒有要到執行時才知道：只查形狀）、要選一個人、戰鬥外的檢定修正
   if (prep.effects !== undefined) {
     if (kind !== 'prep') p.push('prep.effects 只有預備技能（kind 是 prep）用')
     if (!Array.isArray(prep.effects) || prep.effects.length === 0) p.push('prep.effects 要是效果的陣列（每一筆 { kind, ... }；字串裡可以寫 $target、$commission、$tendency）')
     else prep.effects.forEach((e, i) => { if (!isRec(e) || !isText(e.kind)) p.push(`prep.effects[${i}] 要是 { kind, ... }（kind 是效果的種類）`) })
   }
-  if (prep.meat === undefined && (prep.effects !== undefined || prep.out_mods !== undefined)) {
+  if (prep.meat === undefined && prep.net === undefined && (prep.effects !== undefined || prep.out_mods !== undefined)) {
     if (prep.slot === undefined) p.push('prep.slot 一定要寫（預備花幾個時段）')
     if (prep.scope === undefined) p.push('prep.scope 一定要寫（next_battle 或 commission）')
   }

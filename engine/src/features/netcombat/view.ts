@@ -3,7 +3,8 @@
 
 import type { BattleKernel, GameState, SyncGear } from '../../core'
 import { BattleRun, SYNC_GEARS, clone, currentUnit, modeOf, syncRuleOf } from '../../core'
-import { brokenOf, constructEntry, gearAt, netOf } from './model'
+import { brokenOf, constructEntry, gearAt, netOf, netcombatRules } from './model'
+import { traceOf } from './out'
 import { capIndex, gearBlocks, shiftLimit, shiftsUsed } from './sync'
 
 export interface NetGearView {
@@ -43,6 +44,14 @@ export interface NetBattleView {
   battle: string
   round: number
   units: NetUnitView[]
+  /** 追蹤度（battle.field.trace）；這一場沒有追蹤度（樂園島的場館）是 null */
+  trace: number | null
+  /** 三個門檻（規則表 netcombat_rule 的 trace.t1、t2、t3）：增援、增援、定位 */
+  thresholds: { t1: number; t2: number; t3: number }
+  /** 定位的倒數：還剩幾輪；沒有在倒數是 null，已經被定位（時間到）是 0 */
+  located: number | null
+  /** 這一場是不是在委託副本裡（origin.ext.commission）：拔線要提醒「會回到進副本之前」 */
+  commission: boolean
 }
 
 /** 現在這場內海戰鬥的畫面資料；沒有在打、或打的不是內海回傳 null。 */
@@ -71,5 +80,12 @@ export function netBattleView(k: BattleKernel, state: GameState): NetBattleView 
       shiftsLeft: Math.max(0, shiftLimit(run, u) - used),
     })
   }
-  return { battle: b.id, round: b.round, units }
+  const { t1, t2, t3 } = netcombatRules(k).trace
+  const located = b.field.located
+  return {
+    battle: b.id, round: b.round, units,
+    trace: traceOf(b) ?? null, thresholds: { t1, t2, t3 },
+    located: typeof located === 'number' ? located : located === true ? 0 : null,
+    commission: b.origin.ext?.commission !== undefined && b.origin.ext.commission !== null && b.origin.ext.commission !== false,
+  }
 }

@@ -5,6 +5,7 @@
 
 import type { BattleActionDef, BattlePick, BattleTarget, BattleTargetOption, BattleUnit, BattleView, Kernel } from '../../core'
 import { actionCost, otherSide, performAction, sameTarget, unitAt } from '../../core'
+import { colIn } from './column'
 import { whenBlocks } from './conditions'
 import type { AbilityEntry, MeatDef } from './types'
 import { OWNER } from './types'
@@ -89,7 +90,8 @@ export function registerAiStance(k: Kernel): void {
   k.battle.on('ai.step', OWNER, ({ run, unit }) => {
     if (unit.control !== 'ai' || unit.out || unit.stance) return
     for (const ab of equippedOf(run, unit)) {
-      if (ab.enemy !== true || ab.kind !== 'stance' || !ab.meat || ab.meat.pending) continue
+      // 這一層有欄、而且算數的姿態（照戰場選欄）
+      if (ab.enemy !== true || ab.kind !== 'stance' || !colIn(run, unit, ab)) continue
       const key = `ai_stance:${ab.id}`
       if (unit.uses[key]) continue
       const def = run.k.battle.getAction(ab.id)

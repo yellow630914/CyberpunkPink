@@ -10,6 +10,8 @@
 
 import type { ActorId, BattleRun, BattleUnit, Change, GameState, Kernel, ReportDraft } from '../../core'
 import { SEGMENT_HOURS, clone, deriveRng, effectCtx, isRecord, toMinutes } from '../../core'
+import type { Layer } from './column'
+import { layerOf } from './column'
 import { abilitiesOf } from './learn'
 import type { AbilityEntry, AbilityState, PreparedEntry } from './types'
 import { commissionKeyOf, useOf } from './use'
@@ -72,7 +74,7 @@ export function prepBlock(k: PrepKernel, state: GameState, actor: ActorId, id: s
   if (!mine.learned.includes(id)) return `還沒學會${ab.name}。`
   if (!mine.equipped.includes(id)) return `要先裝上${ab.name}。`
   const def = ab.prep
-  if (!def || def.slot === undefined || !def.scope || (!def.meat && !def.effects && !def.out_mods)) return `${ab.name}還沒有可以帶進戰鬥的效果。`
+  if (!def || def.slot === undefined || !def.scope || (!def.meat && !def.net && !def.effects && !def.out_mods)) return `${ab.name}還沒有可以帶進戰鬥的效果。`
   if (def.target === 'person' && !(typeof input.target === 'string' && input.target.length > 0)) return `${ab.name}要先選一個人。`
   if (def.target === 'person' && input.target === actor) return `${ab.name}要選別人，不能選自己。`
   // 每件委託的次數：照輸入的委託記，沒給就擋下
@@ -99,7 +101,9 @@ export function prep(k: PrepKernel, state: GameState, actor: ActorId, id: string
   const ab = k.content.get<AbilityEntry>('ability', id)!
   const def = ab.prep!
   const mine = abilitiesOf(state, actor)
-  const entry: PreparedEntry = { id, scope: def.scope!, ...(def.target === 'person' ? { target: input.target! } : {}) }
+  // 帶 trace_start 的預備在預備時就綁在指定的那件委託上（內海階段開始前讀 net_trace_start，等不到第一場戰鬥結束才綁）
+  const bound = def.net?.trace_start !== undefined && def.scope === 'commission' && typeof input.commission === 'string' && input.commission.length > 0 ? { key: input.commission } : {}
+  const entry: PreparedEntry = { id, scope: def.scope!, ...bound, ...(def.target === 'person' ? { target: input.target! } : {}) }
   let next: AbilityState = { ...mine, prepared: [...(mine.prepared ?? []).filter((x) => x.id !== id), entry] }
   if (useOf(ab).per_commission !== undefined) {
     const key = input.commission!
@@ -118,13 +122,20 @@ export function prep(k: PrepKernel, state: GameState, actor: ActorId, id: string
 
 // ---- 帶進戰鬥 ----
 
-/** 單位剛組好（現實戰鬥）：這個角色預備好的、這一場用得上的，記進單位（unit.ext.abilities.brought；選了人的另記 read）。 */
-export function bringPrep(run: Pick<BattleRun, 'state' | 'battle' | 'mode'>, u: BattleUnit): void {
-  if (!u.actor || run.mode.layer !== 'meat') return
+/**
+ * 這一筆預備這一層帶不帶：內海只帶有 prep.net 的；現實帶除了「只有 prep.net」之外的全部（和以前一樣：只有 effects 或 out_mods 的預備也算用掉）。
+ * 找不到內容的預備（技能已經不在）當成現實的。
+ */
+const bringsIn = (ab: AbilityEntry | undefined, layer: Layer): boolean => (layer === 'net' ? !!ab?.prep?.net : !(ab?.prep?.net && !ab.prep.meat))
+
+/** 單位剛組好：這個角色預備好的、這一場（照戰場的層）用得上的，記進單位（unit.ext.abilities.brought；選了人的另記 read）。 */
+export function bringPrep(run: Pick<BattleRun, 'state' | 'battle' | 'mode' | 'k'>, u: BattleUnit): void {
+  if (!u.actor) return
+  const layer = layerOf(run)
   const prepared = abilitiesOf(run.state, u.actor).prepared
   if (!prepared?.length) return
   const key = commissionKeyOf(run.battle)
-  const here = prepared.filter((p) => p.scope === 'next_battle' || p.key === undefined || p.key === key)
+  const here = prepared.filter((p) => (p.scope === 'next_battle' || p.key === undefined || p.key === key) && bringsIn(run.k.content.get<AbilityEntry>('ability', p.id), layer))
   if (!here.length) return
   dataOf(u).brought = here.map((p) => p.id)
   const read = Object.fromEntries(here.filter((p) => p.target !== undefined).map((p) => [p.id, p.target!]))
@@ -136,7 +147,7 @@ export function startPrep(run: BattleRun): void {
   for (const u of Object.values(run.battle.units)) {
     for (const id of broughtPrep(u)) {
       const ab = run.k.content.get<AbilityEntry>('ability', id)
-      const list = ab?.prep?.meat?.do
+      const list = (layerOf(run) === 'net' ? ab?.prep?.net : ab?.prep?.meat)?.do
       if (!ab || !list?.length) continue
       run.say(`${u.name}：${ab.name}（預備）。`, 'skill', { unit: u.id, ability: ab.id, prep: true }, u)
       run.effects(list, { user: u, target: null, source: { kind: 'ability', id: ab.id, name: ab.name }, n: { tier: tierIn(u, ab.path) } })

@@ -6,6 +6,8 @@
 import type { BattleActionDef, BattleInput, BattlePick, BattlePickOption, BattleRun, BattleTarget, BattleTargetOption, BattleUnit, BattleView, BattleWeapon, Kernel, RollPart } from '../../core'
 import { BATTLE_SLOTS, BattleBlocked, WOUND_PARTS, coverAt, gradeDice, onField, otherSide, unitAt, unitsOf, wielded } from '../../core'
 import { aiDefsOf, registerAiStance } from './ai'
+import type { Layer } from './column'
+import { OVERCLOCK, colIn, colOf, gearBlocks, layerOf, liveCols } from './column'
 import { companionAbilities, hasOwnRecord } from './companion'
 import { endChanges } from './end'
 import { needsBlocks, rangeBlock, whenBlocks, heldGun } from './conditions'
@@ -18,7 +20,7 @@ import { ransomChanges, registerRansom } from './ransom'
 import { carryStance, startOutStance } from './out'
 import { startPrep, bringPrep } from './prep'
 import { suppressAfter } from './suppress'
-import { bumpUses, costOf, setupResources, usageBlocks, useOf } from './use'
+import { adminNeed, bumpUses, costOf, setupResources, usageBlocks, useOf } from './use'
 import { syncWallet } from './wallet'
 import { teaseEntry } from './social'
 import type { AbilityEntry, MeatDef, PathEntry, PickDecl, UnitAbilities } from './types'
@@ -51,11 +53,11 @@ interface Discount {
  * tags 是核心問花費時帶的標籤（行動的 id 在裡面），weapon 是手上那一把，base 是行動自己算的原價。
  * 每回合型的：這回合的次數用完了、或沒有比原價便宜，就不算。
  */
-function discountFor(view: Pick<BattleView, 'k'>, u: BattleUnit, tags: readonly string[], weapon: BattleWeapon | undefined, base: number | undefined): Discount | undefined {
+function discountFor(view: Pick<BattleView, 'k' | 'mode'>, u: BattleUnit, tags: readonly string[], weapon: BattleWeapon | undefined, base: number | undefined): Discount | undefined {
   if (base === undefined) return undefined
   let best: Discount | undefined
   for (const by of equippedOf(view, u)) {
-    const m = by.meat
+    const m = colIn(view, u, by)
     const c = m?.cost && tags.includes(m.cost.ability) ? m.cost
       : m?.weapon_cost && tags.includes('weapon_attack') && weapon?.traits.includes(m.weapon_cost.trait) ? m.weapon_cost
         : undefined
@@ -69,7 +71,9 @@ function discountFor(view: Pick<BattleView, 'k'>, u: BattleUnit, tags: readonly 
 // ---- 條件 ----
 
 /** attack 的條件：要拿著槍、彈匣夠。有 min_mag 時「彈匣空了」併進「彈匣裡要有幾格」那一條。 */
-function attackBlocks(u: BattleUnit, atk: NonNullable<MeatDef['attack']>): string[] {
+function attackBlocks(u: BattleUnit, atk: NonNullable<MeatDef['attack']>, layer: Layer = 'meat'): string[] {
+  // 內海：用裝著的攻擊構裝（沒有彈匣，近戰的構裝也行）；彈匣的條件是現實的（格式擋了 spend、min_mag）
+  if (layer === 'net') return wielded(u) ? [] : ['手上沒有攻擊構裝。']
   const w = heldGun(u)
   if (!w) return ['要拿著槍才能用。']
   if (atk.min_mag !== undefined) return (w.mag?.now ?? 0) < atk.min_mag ? [`彈匣裡要有 ${atk.min_mag} 格以上才能連射。`] : []
@@ -82,11 +86,11 @@ function attackBlocks(u: BattleUnit, atk: NonNullable<MeatDef['attack']>): strin
  * 這一次實際用的 meat：別的裝著的技能的 alter 改在上面（路徑照那個技能 meat 裡的）。
  * 有 as_pick 的要玩家這一步開了那個選項（input.pick[key] 是 true）才算；沒給 input（問條件、問目標時）一律不算 as_pick 的。
  */
-function effectiveMeat(view: Pick<BattleView, 'k'>, u: BattleUnit, ab: AbilityEntry, input?: BattleInput): MeatDef {
-  const base = ab.meat!
+function effectiveMeat(view: Pick<BattleView, 'k' | 'mode'>, u: BattleUnit, ab: AbilityEntry, input?: BattleInput): MeatDef {
+  const base = colOf(ab, layerOf(view))!
   let m: Record<string, unknown> | undefined
   for (const other of equippedOf(view, u)) {
-    for (const alt of other.meat?.alter ?? []) {
+    for (const alt of colIn(view, u, other)?.alter ?? []) {
       if (alt.ability !== ab.id) continue
       if (alt.as_pick && input?.pick?.[alt.as_pick.key] !== true) continue
       if (alt.when && whenBlocks(view as BattleView, u, alt.when).length) continue
@@ -304,7 +308,7 @@ function picksOf(view: BattleView, u: BattleUnit, ab: AbilityEntry, m: MeatDef):
   }
   if (m.choose?.length && !m.picks?.some((p) => p.kind === 'choice')) out.push({ key: 'choice', label: '用法', kind: 'choice', required: true, options: chooseOptions(view, u, m) })
   for (const other of equippedOf(view, u)) {
-    for (const alt of other.meat?.alter ?? []) {
+    for (const alt of colIn(view, u, other)?.alter ?? []) {
       if (alt.ability === ab.id && alt.as_pick) out.push({ key: alt.as_pick.key, label: alt.as_pick.label, kind: 'toggle', required: false, options: [{ value: true, label: alt.as_pick.label, blocks: [] }] })
     }
   }
@@ -342,29 +346,64 @@ function checkPicks(run: BattleRun, u: BattleUnit, m: MeatDef, input: BattleInpu
 
 // ---- 行動 ----
 
-function skillAction(ab: AbilityEntry, order: number): BattleActionDef {
-  const m0 = ab.meat!
-  const hasPicks = (v: Pick<BattleView, 'k'>, u: BattleUnit): boolean => !!(wantsPart(m0) || m0.free_move?.swap_adjacent_pair || m0.picks || m0.choose || equippedOf(v, u).some((o) => o.meat?.alter?.some((a) => a.ability === ab.id && a.as_pick)))
-  const blocksOf = (v: BattleView, u: BattleUnit): string[] => {
-    const m = effectiveMeat(v, u, ab)
-    return [...usageBlocks(v, u, ab), ...whenBlocks(v, u, m.when), ...(m.attack ? attackBlocks(u, m.attack) : []), ...benchBlocks(v, u, m)]
+/** 管理行動的消耗：先走效果 net.admin_spend（次數不夠它丟 BattleBlocked；features/netcombat 註冊，這裡不 import）。 */
+function payAdmin(run: BattleRun, u: BattleUnit, ab: AbilityEntry, layer: Layer): void {
+  const n = adminNeed(ab, layer)
+  if (n > 0) run.effects([{ op: 'net.admin_spend', who: 'self', amount: n }], { user: u, target: { unit: u.id }, source: { kind: 'ability', id: ab.id, name: ab.name }, n: { tier: tierIn(u, ab.path) } })
+}
+
+/** 這個技能的欄裡，當成行動的有哪幾層（主動技能：有目標、效果清單或用法的那一欄；pending 的不算）。 */
+function actionLayers(ab: AbilityEntry): Layer[] {
+  return (['meat', 'net'] as const).filter((l) => {
+    const m = colOf(ab, l)
+    return ab.kind === 'active' && !!m && !m.pending && !!(m.target || m.do || m.choose)
+  })
+}
+
+/** 行動圓環上的圖示（兩欄都有時先看現實那一欄）。 */
+function iconFor(ab: AbilityEntry): string {
+  const m = ab.meat && !ab.meat.pending ? ab.meat : ab.net
+  return m ? iconOf(m) : 'skill'
+}
+
+/**
+ * 主動技能的行動。兩欄都有的技能是同一個行動，執行時照戰場選欄與選 use（layers 是有欄的那幾層，也是行動的 modes）；
+ * 專屬構裝（unique）淺檔、帶 overclock 標籤的行動淺檔都灰掉並寫原因（欄本身不被拿掉：column.ts 的 gearBlocks）。
+ */
+function skillAction(ab: AbilityEntry, order: number, layers: Layer[]): BattleActionDef {
+  const m0 = colOf(ab, layers[0]!)!
+  const colNow = (v: Pick<BattleView, 'mode'>): MeatDef | null => {
+    const l = layerOf(v)
+    return layers.includes(l) ? colOf(ab, l) : null
   }
+  const hasPicks = (v: Pick<BattleView, 'k' | 'mode'>, u: BattleUnit): boolean => {
+    const m = colNow(v)
+    return !!(m && (wantsPart(m) || m.free_move?.swap_adjacent_pair || m.picks || m.choose || equippedOf(v, u).some((o) => colIn(v, u, o)?.alter?.some((a) => a.ability === ab.id && a.as_pick))))
+  }
+  const blocksOf = (v: BattleView, u: BattleUnit): string[] => {
+    const m = colNow(v) ? effectiveMeat(v, u, ab) : undefined
+    if (!m) return ['這個技能在這個戰場沒有效果。']
+    return [...usageBlocks(v, u, ab), ...gearBlocks(u, m), ...whenBlocks(v, u, m.when), ...(m.attack ? attackBlocks(u, m.attack, layerOf(v)) : []), ...benchBlocks(v, u, m)]
+  }
+  const actionTags = [...new Set(layers.flatMap((l) => [...(colOf(ab, l)?.action_tags ?? []), ...(colOf(ab, l)?.tags?.includes(OVERCLOCK) ? [OVERCLOCK] : [])]))]
   return {
-    id: ab.id, owner: OWNER, name: ab.name, desc: ab.text, group: 'skill', icon: iconOf(m0), modes: ['meat'],
-    ...(m0.action_tags?.length ? { tags: [...m0.action_tags] } : {}),
+    id: ab.id, owner: OWNER, name: ab.name, desc: ab.text, group: 'skill', icon: iconFor(ab), modes: [...layers],
+    ...(actionTags.length ? { tags: actionTags } : {}),
     target: TARGET_KIND[m0.target ?? 'none'], order,
-    has: (_v, u) => hasAbility(u, ab.id),
-    // 技能自己的消耗（行動點、RAM、現金、人情）；別的被動技能給的減免（meat.cost）是花費的修正，核心會加上去
+    has: (v, u) => hasAbility(u, ab.id) && !!colNow(v),
+    // 技能自己的消耗（行動點、RAM、現金、人情；照戰場選 use.meat 或 use.net）；別的被動技能給的減免（meat.cost）是花費的修正，核心會加上去
     cost: (v, u) => costOf(v, u, ab),
     blocks: (v, u) => blocksOf(v, u),
-    targets: (v, u) => targetsOf(v, u, effectiveMeat(v, u, ab)),
+    targets: (v, u) => (colNow(v) ? targetsOf(v, u, effectiveMeat(v, u, ab)) : []),
     picks: (v, u) => (hasPicks(v, u) ? picksOf(v, u, ab, effectiveMeat(v, u, ab)) : []),
     // 敵人的招牌行動（與寫了 ai 的技能）：AI 用的分數與目標
     ...aiDefsOf(ab, { meat: (v, u) => effectiveMeat(v, u, ab), blocks: blocksOf, targets: targetsOf, picks: (v, u, m) => picksOf(v, u, ab, m) }),
     run(run, u, target, input) {
+      const layer = layerOf(run)
       // 隊伍共用的現金與人情：這一步的花費已經從自己的池扣了，先同步給隊友（效果裡的反應才不會再花一次）
       syncWallet(run)
-      bumpUses(u, ab)
+      bumpUses(u, ab, layer)
+      payAdmin(run, u, ab, layer)
       run.say(`${u.name}：${ab.name}。`, 'skill', { unit: u.id, ability: ab.id }, u)
       const m = effectiveMeat(run, u, ab, input)
       const t = unitOfTarget(run, u, m, target)
@@ -374,7 +413,7 @@ function skillAction(ab: AbilityEntry, order: number): BattleActionDef {
       for (const a of m.apply ?? []) run.applyStatus(t!, a.status, { by: u, ...(a.until ? { until: a.until } : {}) })
       if (m.free_move?.swap_adjacent_pair) doSwap(run, u, t!, input.pick?.with)
       // 花掉全部 RAM 的技能：效果要代「實際花了多少」（RAM 的減免之後），行動做完才知道（action.done 的 cost.ram），效果留到那時再做
-      if (useOf(ab).ram_all_min === undefined) skillEffects(run, u, ab, m, target, input)
+      if (useOf(ab, layer).ram_all_min === undefined) skillEffects(run, u, ab, m, target, input)
     },
   }
 }
@@ -390,19 +429,30 @@ function skillEffects(run: BattleRun, u: BattleUnit, ab: AbilityEntry, m: MeatDe
   if (entry) run.effects(entry.do, base)
 }
 
-/** 姿態：開、關、換都花 use.ap；同時只能開一個（開另一個時前一個關掉）；開著的記在 unit.stance。 */
-function stanceAction(ab: AbilityEntry, order: number): BattleActionDef {
-  const m = ab.meat!
+/**
+ * 姿態：開、關、換都花 use.ap；同時只能開一個（開另一個時前一個關掉）；開著的記在 unit.stance。
+ * 兩欄都有的姿態是同一個行動，照戰場選欄（開關的效果、條件、消耗）；專屬構裝的姿態淺檔開不了。
+ */
+function stanceAction(ab: AbilityEntry, order: number, layers: Layer[]): BattleActionDef {
+  const colNow = (v: Pick<BattleView, 'mode'>): MeatDef | null => {
+    const l = layerOf(v)
+    return layers.includes(l) ? colOf(ab, l) : null
+  }
   const run1 = (run: BattleRun, u: BattleUnit, list: Array<Record<string, unknown>> | undefined, of: AbilityEntry): void => {
     if (list?.length) run.effects(list, { user: u, target: { unit: u.id }, source: { kind: 'ability', id: of.id, name: of.name }, n: { tier: tierIn(u, of.path) } })
   }
   return {
-    id: ab.id, owner: OWNER, name: ab.name, desc: ab.text, group: 'skill', icon: 'skill', modes: ['meat'], target: 'none', order,
-    has: (_v, u) => hasAbility(u, ab.id),
+    id: ab.id, owner: OWNER, name: ab.name, desc: ab.text, group: 'skill', icon: 'skill', modes: [...layers], target: 'none', order,
+    has: (v, u) => hasAbility(u, ab.id) && !!colNow(v),
     cost: (v, u) => costOf(v, u, ab),
     // 關掉自己開著的不看條件；開的時候才看次數與條件
-    blocks: (v, u) => (u.stance === ab.id ? [] : [...usageBlocks(v, u, ab), ...whenBlocks(v, u, m.when)]),
+    blocks: (v, u) => {
+      const m = colNow(v)
+      return u.stance === ab.id || !m ? [] : [...usageBlocks(v, u, ab), ...gearBlocks(u, m), ...whenBlocks(v, u, m.when)]
+    },
     run(run, u) {
+      const layer = layerOf(run)
+      const m = colOf(ab, layer)!
       syncWallet(run)
       if (u.stance === ab.id) {
         delete u.stance
@@ -413,9 +463,10 @@ function stanceAction(ab: AbilityEntry, order: number): BattleActionDef {
       const prev = u.stance ? run.k.content.get<AbilityEntry>('ability', u.stance) : undefined
       if (prev) {
         run.say(`${u.name}：收起${prev.name}。`, 'skill', { unit: u.id, ability: prev.id, stance: 'off' }, u)
-        run1(run, u, prev.meat?.do_off, prev)
+        run1(run, u, colOf(prev, layer)?.do_off, prev)
       }
-      bumpUses(u, ab)
+      bumpUses(u, ab, layer)
+      payAdmin(run, u, ab, layer)
       u.stance = ab.id
       run.say(`${u.name}：進入${ab.name}。`, 'skill', { unit: u.id, ability: ab.id, stance: 'on' }, u)
       run1(run, u, m.do_on, ab)
@@ -470,7 +521,7 @@ const CALL_NAME: Record<string, string> = {
 function callAction(ab: AbilityEntry, order: number): BattleActionDef {
   const id = `${ab.id}.call`
   // 叫人的選項與數字可以被別的技能改（我有認識的人：alter 多兩個選項）；每場次數吃修正 call_uses（派工網、人脈）
-  const callOf = (v: Pick<BattleView, 'k'>, u: BattleUnit, input?: BattleInput) => effectiveMeat(v, u, ab, input).call ?? ab.meat!.call!
+  const callOf = (v: Pick<BattleView, 'k' | 'mode'>, u: BattleUnit, input?: BattleInput) => effectiveMeat(v, u, ab, input).call ?? ab.meat!.call!
   const times = (v: BattleView, u: BattleUnit) => Math.max(0, Math.ceil(tierIn(u, ab.path) / 2) + featureTotal(v, u, 'call_uses'))
   const slots = (side: 'ally' | 'foe'): BattleTarget[] => Array.from({ length: BATTLE_SLOTS }, (_, i) => ({ side, slot: i + 1 }))
   const mates = (v: BattleView, u: BattleUnit): BattleUnit[] => unitsOf(v.battle, u.side).filter((t) => t.id !== u.id)
@@ -544,24 +595,29 @@ function callAction(ab: AbilityEntry, order: number): BattleActionDef {
   }
 }
 
-/** 誘惑攻擊的行動：主動技能照自己的名字與消耗；被動（入戲）是另一個行動「誘惑攻擊」，id 加 .tease，消耗固定 2 點、每回合 1 次、同一組。 */
-function teaseAction(ab: AbilityEntry, order: number): BattleActionDef {
-  const def = skillAction(teaseEntry(ab), order)
-  return ab.kind === 'passive' ? { ...def, id: `${ab.id}.tease` } : def
-}
-
 /** 內容載入之後：照內容註冊行動。 */
 export function registerActions(k: Kernel): void {
   k.content.list<AbilityEntry>('ability').forEach((ab, order) => {
-    const m = ab.meat
-    if (!m || m.pending) return
-    // 誘惑攻擊：主動技能的行動就是一次誘惑攻擊；被動（入戲）多一個基本的誘惑攻擊行動（social.ts 把它們改寫成一般的技能行動）
-    if (m.tease) k.battle.action(teaseAction(ab, order))
-    else if (ab.kind === 'active' && (m.target || m.do || m.choose)) k.battle.action(skillAction(ab, order))
-    if (ab.kind === 'stance') k.battle.action(stanceAction(ab, order))
-    if (m.give_ap) k.battle.action(giveApAction(ab, order))
-    if (m.call) k.battle.action(callAction(ab, order))
-    if (m.instinct) k.battle.action(instinctAction(ab, order))
+    const m = ab.meat && !ab.meat.pending ? ab.meat : null
+    // 誘惑攻擊：主動技能的行動就是一次誘惑攻擊；被動（入戲）多一個基本的誘惑攻擊行動（social.ts 把它們改寫成一般的技能行動）。只有現實欄（內海欄不能寫 tease）
+    if (m?.tease) {
+      const entry = teaseEntry(ab)
+      const layers: Layer[] = ['meat', ...(ab.kind === 'active' && actionLayers(ab).includes('net') ? (['net'] as const) : [])]
+      const def = skillAction(entry, order, layers)
+      k.battle.action(ab.kind === 'passive' ? { ...def, id: `${ab.id}.tease` } : def)
+    } else {
+      const layers = actionLayers(ab)
+      if (layers.length) k.battle.action(skillAction(ab, order, layers))
+    }
+    // 姿態：有欄（沒有 pending）的那幾層
+    if (ab.kind === 'stance') {
+      const layers = (['meat', 'net'] as const).filter((l) => { const c = colOf(ab, l); return !!c && !c.pending })
+      if (layers.length) k.battle.action(stanceAction(ab, order, layers))
+    }
+    // 掮客招牌的指揮與叫人、戰鬥直覺的重分配：現實的東西
+    if (m?.give_ap) k.battle.action(giveApAction(ab, order))
+    if (m?.call) k.battle.action(callAction(ab, order))
+    if (m?.instinct) k.battle.action(instinctAction(ab, order))
   })
 }
 
@@ -589,10 +645,10 @@ function bumpPool(unit: BattleUnit, id: string, d: { max?: number; regen?: numbe
  * 共鳴：這棵樹的階數到了 N，tier <= N 的共鳴都生效（要裝著這棵樹的招牌才算，和其他共鳴一樣）。
  */
 function applyPassives(run: BattleRun, unit: BattleUnit): void {
-  for (const ab of equippedOf(run, unit)) {
-    const m = ab.meat
-    if (!m || m.pending) continue
-    for (const t of m.tags ?? []) if (!unit.tags.includes(t)) unit.tags.push(t)
+  // 照戰場選欄（內海戰鬥讀 net 欄，現實讀 meat 欄）；專屬構裝淺檔不算、pending 不算
+  for (const { m } of liveCols(run, unit)) {
+    // overclock 是行動的標籤（淺檔做不了），不是單位的標籤
+    for (const t of m.tags ?? []) if (t !== OVERCLOCK && !unit.tags.includes(t)) unit.tags.push(t)
     for (const [id, d] of Object.entries(m.pool ?? {})) bumpPool(unit, id, d)
   }
   const d = unitAbilities(unit)
@@ -611,6 +667,22 @@ function applyPassives(run: BattleRun, unit: BattleUnit): void {
       }
     }
   }
+}
+
+/**
+ * 管理行動的基數（內海）：裝著的技能這一欄的 admin（'tier' 是那棵樹的階數）加起來，寫成 unit.ext.net.admin。
+ * 和別人寫的合併，不整個蓋掉 unit.ext.net（netcombat 的檔位、破損在同一個物件裡）；單位原本就有基數（敵人的資料）時加在它上面。
+ */
+function applyAdmin(run: BattleRun, unit: BattleUnit): void {
+  if (run.mode.layer !== 'net') return
+  let n = 0
+  for (const { ab, m } of liveCols(run, unit)) {
+    if (m.admin === 'tier') n += tierIn(unit, ab.path)
+    else if (typeof m.admin === 'number') n += m.admin
+  }
+  if (n === 0) return
+  const cur = isRec(unit.ext.net) ? unit.ext.net : {}
+  unit.ext.net = { ...cur, admin: (typeof cur.admin === 'number' ? cur.admin : 0) + n }
 }
 
 export function registerBattle(k: Kernel): void {
@@ -632,6 +704,7 @@ export function registerBattle(k: Kernel): void {
     }
     carryStance(run, unit)
     applyPassives(run, unit)
+    applyAdmin(run, unit)
     setupResources(run, unit)
     bringPrep(run, unit)
     // 戰鬥直覺：開打時的分配（在擲先攻之前，先攻的修正才讀得到）
@@ -673,7 +746,7 @@ export function registerBattle(k: Kernel): void {
   // 花掉全部 RAM 的技能：行動做完才知道實際花了多少（RAM 的減免之後的 cost.ram），效果在這裡做（skillAction 的 run 不做）
   k.battle.on('action.done', OWNER, ({ run, unit, action, target, input, cost }) => {
     const ab = run.k.content.get<AbilityEntry>('ability', action)
-    if (!ab?.meat || useOf(ab).ram_all_min === undefined || !hasAbility(unit, ab.id) || run.over || unit.out) return
+    if (!ab || !colOf(ab, layerOf(run)) || useOf(ab, layerOf(run)).ram_all_min === undefined || !hasAbility(unit, ab.id) || run.over || unit.out) return
     skillEffects(run, unit, ab, effectiveMeat(run, unit, ab, input), target, input, cost.ram ?? 0)
   })
 

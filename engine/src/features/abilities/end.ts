@@ -5,7 +5,7 @@ import type { BattleKernel, BattleState, Change, GameState } from '../../core'
 import { modeOf } from '../../core'
 import { FAVORS } from './format'
 import { abilitiesOf } from './learn'
-import type { AbilityState } from './types'
+import type { AbilityEntry, AbilityState } from './types'
 import { commissionKeyOf, favorCountOf, favorPool } from './use'
 import { broughtPrep } from './unitdata'
 import { walletActor, walletOf } from './wallet'
@@ -16,8 +16,8 @@ import { walletActor, walletOf } from './wallet'
  */
 export function endChanges(state: GameState, battle: BattleState, k?: Pick<BattleKernel, 'stats' | 'changes'> & { content?: BattleKernel['content'] }): Change[] {
   const changes: Change[] = []
-  // 預備只在現實戰鬥帶進來（看戰場的 layer；沒給核心時只認核心自帶的 meat）
-  const meat = k?.content ? modeOf(k.content, battle.mode)?.layer === 'meat' : battle.mode === 'meat'
+  // 預備照戰場的層帶進來（現實帶 prep.meat 的、內海只帶 prep.net 的：prep.ts 的 bringPrep），這一場用掉的才清；沒給核心時只認核心自帶的 meat
+  const layer = k?.content ? modeOf(k.content, battle.mode)?.layer : battle.mode === 'meat' ? 'meat' : undefined
   const key = commissionKeyOf(battle)
 
   // 現金與人情是隊伍共用的一份（wallet.ts）：只算一次差額。現金扣隊伍的錢包；人情用掉的記在主角名下（欠你的）
@@ -44,7 +44,7 @@ export function endChanges(state: GameState, battle: BattleState, k?: Pick<Battl
     const used = Object.entries(u.uses).filter(([id, n]) => id.startsWith('commission:') && n > 0).map(([id, n]) => [id.slice('commission:'.length), n] as const)
     const old = mine.commission?.[key] ?? {}
     if (used.some(([id, n]) => old[id] !== n)) next = { ...next, commission: { ...mine.commission, [key]: { ...old, ...Object.fromEntries(used) } } }
-    const brought = meat ? broughtPrep(u) : []
+    const brought = layer === 'meat' ? broughtPrep(u) : layer === 'net' && k?.content ? broughtPrep(u).filter((id) => k.content!.get<AbilityEntry>('ability', id)?.prep?.net) : []
     if (brought.length && mine.prepared?.length) {
       const prepared = mine.prepared
         .filter((p) => !(p.scope === 'next_battle' && brought.includes(p.id)))

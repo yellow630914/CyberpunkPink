@@ -5,9 +5,10 @@
 
 import type { AttackOpts, AttackResult, BattleRun, BattleUnit, BattleWeapon, Kernel } from '../../core'
 import { amount, LOSE_TURN, isWounded, onField, unitsOf } from '../../core'
+import { colIn, layerOf } from './column'
 import { heldGun, needsBlocks, rangeBlock, whenBlocks } from './conditions'
 import { requestMove } from './social'
-import { bumpUses, costOf, usageBlocks } from './use'
+import { adminNeed, bumpUses, costOf, usageBlocks } from './use'
 import { syncWallet } from './wallet'
 import type { AbilityEntry, ReactDef, TriggerDef } from './types'
 import { OWNER } from './types'
@@ -150,9 +151,10 @@ function fire(run: BattleRun, on: TriggerDef['on'], e: Event): void {
   for (const holder of [...unitsOf(run.battle, 'ally'), ...unitsOf(run.battle, 'foe')]) {
     if (!onField(holder)) continue
     for (const ab of equippedOf(run, holder)) {
-      const m = ab.meat
+      // 照戰場選欄；專屬構裝淺檔不生效（沒有欄就是沒有反應）
+      const m = colIn(run, holder, ab)
       const t = m?.trigger
-      if (!m || m.pending || !isRec(t) || (t as TriggerDef).on !== on) continue
+      if (!m || !isRec(t) || (t as TriggerDef).on !== on) continue
       const trig = t as TriggerDef
       // 掛著的東西被打也會發掛點（target 是替身）：只有 who: own_overlay 的反應管它；管人的（self、adjacent、near、ally、with_own_overlay）不管替身
       if (run.isStandIn(e.subject) && trig.who !== 'own_overlay' && trig.who !== 'foe_by_self') continue
@@ -166,7 +168,8 @@ function fire(run: BattleRun, on: TriggerDef['on'], e: Event): void {
       if (!run.canAfford(holder, cost)) continue
       run.spend(holder, cost)
       syncWallet(run)
-      bumpUses(holder, ab)
+      bumpUses(holder, ab, layerOf(run))
+      if (adminNeed(ab, layerOf(run)) > 0) run.effects([{ op: 'net.admin_spend', who: 'self', amount: adminNeed(ab, layerOf(run)) }], { user: holder, target: { unit: holder.id }, source: { kind: 'ability', id: ab.id, name: ab.name }, n: { tier: tierIn(holder, ab.path) } })
       run.say(`${holder.name}：${ab.name}。`, 'skill', { unit: holder.id, ability: ab.id, ally: e.subject.id }, holder)
       applyReact(run, holder, ab, on, m.react, e, reach)
       if (m.do?.length) {
@@ -194,7 +197,7 @@ function legacy(run: BattleRun, attacker: BattleUnit, target: BattleUnit, opts: 
   for (const mate of sideMates(run, target)) {
     if (mate.id === target.id) continue
     for (const ab of equippedOf(run, mate)) {
-      const m = ab.meat
+      const m = colIn(run, mate, ab)
       if (typeof m?.trigger !== 'string') continue
       if (run.gone(attacker) || target.out || run.over) return
       if (m.trigger === 'ally_attacked_adjacent' && Math.abs(mate.slot - target.slot) !== 1) continue
@@ -207,7 +210,7 @@ function legacy(run: BattleRun, attacker: BattleUnit, target: BattleUnit, opts: 
       }
       run.spend(mate, cost)
       syncWallet(run)
-      bumpUses(mate, ab)
+      bumpUses(mate, ab, layerOf(run))
       run.say(`${mate.name}：${ab.name}。`, 'skill', { unit: mate.id, ability: ab.id, ally: target.id }, mate)
       if (m.evade) opts.evade = (opts.evade ?? 0) + m.evade
       if (m.attack) {
@@ -222,7 +225,7 @@ function legacy(run: BattleRun, attacker: BattleUnit, target: BattleUnit, opts: 
 
 /** 場上有沒有人裝著 hp_half 的反應（沒有就不用看：也不在單位身上記號）。 */
 function anyHalfReaction(run: BattleRun): boolean {
-  return Object.values(run.battle.units).some((u) => equippedOf(run, u).some((ab) => isRec(ab.meat?.trigger) && (ab.meat!.trigger as TriggerDef).on === 'hp_half' && !ab.meat!.pending))
+  return Object.values(run.battle.units).some((u) => equippedOf(run, u).some((ab) => { const m = colIn(run, u, ab); return isRec(m?.trigger) && (m!.trigger as TriggerDef).on === 'hp_half' }))
 }
 
 /**

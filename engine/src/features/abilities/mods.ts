@@ -6,6 +6,7 @@
 
 import type { BattleRun, BattleUnit, BattleView, Kernel, ModQuery, RollPart } from '../../core'
 import { STATUS_UNTILS, amount, onField, statusRuleOf, unitTag, unitsOf } from '../../core'
+import { colIn, layerOf } from './column'
 import { whenBlocks } from './conditions'
 import { modsProblems } from './format'
 import type { AbilityEntry, AnyModKind, FeatureModKind, ModEntry, PathEntry, UnitBuff } from './types'
@@ -25,13 +26,14 @@ interface Source {
   vs?: string
 }
 
-function sourcesOf(view: Pick<BattleView, 'k'>, holder: BattleUnit): Source[] {
+function sourcesOf(view: Pick<BattleView, 'k' | 'mode'>, holder: BattleUnit): Source[] {
   const out: Source[] = []
   const d = unitAbilities(holder)
   if (d.equipped.length) {
     for (const ab of equippedOf(view, holder)) {
-      const m = ab.meat
-      if (!m?.mods || m.pending) continue
+      // 這一層的那一欄（照戰場；淺檔的專屬構裝整欄不算）
+      const m = colIn(view, holder, ab)
+      if (!m?.mods) continue
       if (ab.kind === 'passive' || (ab.kind === 'stance' && holder.stance === ab.id)) out.push({ key: ab.id, name: ab.name, holder, tier: tierIn(holder, ab.path), mods: m.mods })
     }
     // 共鳴：這棵樹的階數到了 N，tier <= N 的共鳴都生效（要裝著這棵樹的招牌才算）
@@ -47,7 +49,7 @@ function sourcesOf(view: Pick<BattleView, 'k'>, holder: BattleUnit): Source[] {
   const targets = broughtTargets(holder)
   for (const id of broughtPrep(holder)) {
     const ab = view.k.content.get<AbilityEntry>('ability', id)
-    const mods = ab?.prep?.meat?.mods
+    const mods = layerOf(view) === 'net' ? ab?.prep?.net?.mods : ab?.prep?.meat?.mods
     if (ab && mods) out.push({ key: `prep:${id}`, name: ab.name, holder, tier: tierIn(holder, ab.path), mods, ...(ab.prep?.target === 'person' ? { vs: targets[id] ?? '' } : {}) })
   }
   return out

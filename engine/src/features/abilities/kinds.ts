@@ -3,7 +3,8 @@
 
 import type { Kernel } from '../../core'
 import { aiProblems, applySet, meatProblems, modsProblems, onlyKeys, poolProblems, prepProblems, useProblems } from './format'
-import type { AbilityEntry, PathEntry } from './types'
+import { isActionCol } from './column'
+import type { AbilityEntry, MeatDef, PathEntry } from './types'
 import { CATEGORIES, DOMAIN_LEVELS, KINDS, LAYERS, OWNER } from './types'
 
 export { CALL_OPTIONS } from './format'
@@ -12,6 +13,12 @@ const isRec = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v)
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
+
+/** 主動技能的 target 對到行動的目標種類（battle.ts 的 TARGET_KIND 同一張：兩欄的行動要選同一種目標）。 */
+const TARGET_KINDS: Record<string, string> = {
+  enemy: 'foe', ally: 'ally', self: 'none', none: 'none', ally_slot: 'ally_slot', enemy_slot: 'foe_slot', foe_slot: 'foe_slot',
+  ally_or_self: 'unit', near: 'unit', downed_near: 'unit', own_overlay: 'overlay', foe_overlay: 'overlay',
+}
 
 const RESONANCE_KEYS = ['initiative', 'free_move', 'mods', 'pool', 'load_max', 'hp_max', 'pending'] as const
 
@@ -54,6 +61,15 @@ function pathProblems(e: Record<string, unknown>): string[] {
 /** 敵人的招牌行動只有這四種（姿態、反應、被動不用分數：裝著就有）。 */
 const ENEMY_KINDS = ['active', 'passive', 'reaction', 'stance'] as const
 
+/**
+ * use.admin（花管理行動）結算時走效果 net.admin_spend（features/netcombat 註冊）：沒有裝它時用到的技能載入就被擋。
+ * 效果的格式是 { op: 'net.admin_spend', who: 'self', amount }。
+ */
+function adminProblems(use: unknown, k: Pick<Kernel, 'battle'>): string[] {
+  if (!isRec(use) || ![use, use.net].some((x) => isRec(x) && x.admin !== undefined)) return []
+  return k.battle.effectProblems([{ op: 'net.admin_spend', who: 'self', amount: 1 }]).map((m) => `use.admin：${m}`)
+}
+
 /** 標了 enemy 的招牌行動：不必寫 path、tier、layer、cap、xp、after、category；kind、use、meat、text 照一般的技能。 */
 function enemyAbilityProblems(e: Record<string, unknown>, k: Pick<Kernel, 'battle'>): string[] {
   const p: string[] = []
@@ -61,10 +77,14 @@ function enemyAbilityProblems(e: Record<string, unknown>, k: Pick<Kernel, 'battl
   if (!isText(e.text)) p.push('要有 text（說明）')
   if (!(ENEMY_KINDS as readonly unknown[]).includes(e.kind)) p.push(`敵人的招牌行動 kind 只能是 ${ENEMY_KINDS.join('、')}`)
   if (e.cells !== undefined && !isNum(e.cells)) p.push('cells 要是數字（份量）')
-  p.push(...useProblems(e.use, e.kind))
-  if (!isRec(e.meat)) p.push('敵人的招牌行動要有 meat（物件）：效果寫在這裡')
-  else p.push(...meatProblems(e.meat, e.kind, k))
-  for (const col of ['net', 'opinion'] as const) if (e[col] !== undefined && e[col] !== null && !isRec(e[col])) p.push(`${col} 要是物件或 null`)
+  p.push(...useProblems(e.use, e.kind), ...adminProblems(e.use, k))
+  // 現實與內海各一欄：照戰場選（只寫 meat 的招牌在內海沒有，寫了 net 的才有）；至少要有一欄
+  if (!isRec(e.meat) && !isRec(e.net)) p.push('敵人的招牌行動要有 meat 或 net（物件）：效果寫在這裡')
+  if (e.meat !== undefined && e.meat !== null && !isRec(e.meat)) p.push('meat 要是物件或 null')
+  if (e.net !== undefined && e.net !== null && !isRec(e.net)) p.push('net 要是物件或 null')
+  if (isRec(e.meat)) p.push(...meatProblems(e.meat, e.kind, k))
+  if (isRec(e.net)) p.push(...meatProblems(e.net, e.kind, k, 'net'))
+  if (e.opinion !== undefined && e.opinion !== null && !isRec(e.opinion)) p.push('opinion 要是物件或 null')
   return p
 }
 
@@ -91,7 +111,7 @@ function playerAbilityProblems(e: Record<string, unknown>, k: Pick<Kernel, 'batt
   if (e.layer !== 'signature' && !isText(e.after)) p.push('招牌以外的技能要有 after（前置技能的 id）')
   else if (e.after !== undefined && !isText(e.after)) p.push('after 要是前置技能的 id')
 
-  p.push(...useProblems(e.use, e.kind))
+  p.push(...useProblems(e.use, e.kind), ...adminProblems(e.use, k))
 
   for (const col of ['meat', 'net', 'opinion'] as const) {
     const v = e[col]
@@ -99,6 +119,7 @@ function playerAbilityProblems(e: Record<string, unknown>, k: Pick<Kernel, 'batt
     else if (v !== null && !isRec(v)) p.push(`${col} 要是物件或 null`)
   }
   if (isRec(e.meat)) p.push(...meatProblems(e.meat, e.kind, k))
+  if (isRec(e.net)) p.push(...meatProblems(e.net, e.kind, k, 'net'))
   p.push(...prepProblems(e.prep, e.kind, k))
   if (e.daily !== undefined && e.daily !== null && !isRec(e.daily)) p.push('daily 要是物件或 null')
   return p
@@ -156,22 +177,31 @@ export function checkAbilities(k: Pick<Kernel, 'content' | 'battle'>): void {
     for (const [col, name] of DOMAIN_COLUMNS) {
       if (path && path.domains[col] === 'none' && a[col] !== null) problems.push(`${a.id}：${path.tree}在${name}沒有效果（domains.${col} 是 none），${col} 要是 null`)
     }
-    const cost = a.meat?.cost
-    if (cost && !abilities.has(cost.ability)) problems.push(`${a.id}：meat.cost.ability 的 ${cost.ability} 不存在`)
-    else if (cost?.per_turn !== undefined && abilities.get(cost.ability)!.kind !== 'active') problems.push(`${a.id}：meat.cost.per_turn 的 ${cost.ability} 不是主動技能，每回合第幾次的減免沒有行動可以套`)
-    // alter：被改的技能要存在，改完的 meat 還要是合格的格式
-    for (const [i, alt] of (a.meat?.alter ?? []).entries()) {
-      const target = abilities.get(alt.ability)
-      if (!target) {
-        problems.push(`${a.id}：meat.alter[${i}].ability 的 ${alt.ability} 不存在`)
-        continue
+    // 兩欄各自的：cost 引用的技能要存在、alter 要改的技能要存在，而且改完的那一欄還要是合格的格式
+    for (const col of ['meat', 'net'] as const) {
+      const m = a[col]
+      const cost = m?.cost
+      if (cost && !abilities.has(cost.ability)) problems.push(`${a.id}：${col}.cost.ability 的 ${cost.ability} 不存在`)
+      else if (cost?.per_turn !== undefined && abilities.get(cost.ability)!.kind !== 'active') problems.push(`${a.id}：${col}.cost.per_turn 的 ${cost.ability} 不是主動技能，每回合第幾次的減免沒有行動可以套`)
+      for (const [i, alt] of (m?.alter ?? []).entries()) {
+        const target = abilities.get(alt.ability)
+        if (!target) {
+          problems.push(`${a.id}：${col}.alter[${i}].ability 的 ${alt.ability} 不存在`)
+          continue
+        }
+        const targetCol = target[col]
+        if (!targetCol) {
+          problems.push(`${a.id}：${col}.alter[${i}] 要改的 ${alt.ability} 沒有 ${col}`)
+          continue
+        }
+        const changed = meatProblems(applySet(targetCol as Record<string, unknown>, alt.set), target.kind, k, col)
+        for (const msg of changed) problems.push(`${a.id}：${col}.alter[${i}] 改過 ${alt.ability} 之後不合格：${msg}`)
       }
-      if (!target.meat) {
-        problems.push(`${a.id}：meat.alter[${i}] 要改的 ${alt.ability} 沒有 meat`)
-        continue
-      }
-      const changed = meatProblems(applySet(target.meat as Record<string, unknown>, alt.set), target.kind, k)
-      for (const m of changed) problems.push(`${a.id}：meat.alter[${i}] 改過 ${alt.ability} 之後不合格：${m}`)
+    }
+    // 兩欄都有主動的行動時是同一個行動（照戰場選欄）：目標的種類要一樣，圓環才對得上
+    if (a.kind === 'active' && isActionCol(a.meat) && isActionCol(a.net)) {
+      const kindOf = (m: MeatDef): string => TARGET_KINDS[m.tease ? 'enemy' : (m.target ?? 'none')] ?? 'none'
+      if (kindOf(a.meat) !== kindOf(a.net)) problems.push(`${a.id}：meat 與 net 兩欄都是主動的行動，目標的種類要一樣（meat 是 ${kindOf(a.meat)}、net 是 ${kindOf(a.net)}）；目標不同的寫成兩個技能`)
     }
   }
   if (problems.length) throw new Error(`技能內容的檢查沒過（${problems.length} 個）：\n${problems.slice(0, 20).join('\n')}`)

@@ -146,11 +146,11 @@ const sumOf = (parts: Array<{ value: number }>): number => parts.reduce((s, p) =
 // ---- 一、行動表 ----
 
 describe('內海的行動表（CYBERSPACE 6.3 節）', () => {
-  it('內海戰鬥的圓環有表上的九種（工具照裝著的數量），沒有任何現實的行動；現實戰鬥沒有它們', () => {
+  it('內海戰鬥的圓環有表上的九種加釘住、拔線、投降（M3-netcombat-out；工具照裝著的數量），沒有任何現實的行動；現實戰鬥沒有它們', () => {
     const a = arena(setup([ally(1, { ext: { net: NET(), deck: DECK([{ id: 'cs_cooler', class: 'tool' }, { id: 'cs_drain', class: 'tool' }, { id: 'cs_pass', class: 'tool' }]) } })], [lace()]))
     turnTo(a, 'a1')
     const ids = options(a).actions.map((x) => x.id).sort()
-    expect(ids).toEqual([END_TURN, MOVE, 'net_attack', 'net_melee', 'net_refill', 'net_swap', 'net_script', 'net_tool:cs_cooler', 'net_tool:cs_drain', 'net_hit_wall', 'net_watch', 'net_shift'].sort())
+    expect(ids).toEqual([END_TURN, MOVE, 'net_attack', 'net_melee', 'net_refill', 'net_swap', 'net_script', 'net_tool:cs_cooler', 'net_tool:cs_drain', 'net_hit_wall', 'net_watch', 'net_shift', 'net_pin', 'net_jack_out', 'net_surrender'].sort())
     // 被動的工具構裝不是行動；沒裝著的工具沒有行動
     expect(ids).not.toContain('net_tool:cs_pass')
     const bare = arena(setup([ally(1)], [lace()]))
@@ -852,7 +852,7 @@ describe('和 features/deck 一起裝：角色進場', () => {
     b.turn = b.order.indexOf('a1')
     u.ap.now = u.ap.max
     const ids = g.battleOptions()!.actions.map((x) => x.id).sort()
-    expect(ids).toEqual([END_TURN, MOVE, 'net_attack', 'net_melee', 'net_refill', 'net_swap', 'net_script', 'net_tool:cs_cooler', 'net_hit_wall', 'net_watch', 'net_shift'].sort())
+    expect(ids).toEqual([END_TURN, MOVE, 'net_attack', 'net_melee', 'net_refill', 'net_swap', 'net_script', 'net_tool:cs_cooler', 'net_hit_wall', 'net_watch', 'net_shift', 'net_pin', 'net_jack_out', 'net_surrender'].sort())
     const o = (id: string) => g.battleOptions()!.actions.find((x) => x.id === id)!
     expect(o('net_attack').ok).toBe(true)
     expect(o('net_attack').cost).toEqual({ ap: 2, ram: 1 })
