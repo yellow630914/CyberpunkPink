@@ -340,3 +340,11 @@
 - 自慰／單人場景（直播的成人時段、拍親密素材、住處紓解、流竄 AI 的夢）目前不存在；設計與實作都移到 M4，和多人分圈、夜課一起做。
 - 設計時要列出哪些技能與體位在單人模式不能用（使用者提醒）。提案草稿：節奏取代契合、沒有主動權、主導/迎合改加快/放慢、說話只在直播對觀眾、直播時彈幕要求當直播目標。
 - 2026-11-24：媒體設計書改了（雜談、七種剪片角度、頻道搬到 MEDIA 第 4 節）。ui 的舊示範（`data/channel.ts`、`data/media.ts`、`dialogs/CutDialog.vue`、`lib/combat/opinion.ts`）還是舊的四種角度與「實況」，M5 換引擎時一起改；engine 沒有寫死。
+
+## M3-ui-netcombat 回報（2026-11-24）
+
+- 內海與現實共用 `BattleBoard.vue`／`useBattle.ts`；同步檔位、追蹤度、管理行動三個面板；舊 Demo 的內海與現實規則刪除。
+- 缺正式圖示：refill、script、tool、shift、admin、hack（暫借別的圖，別名在 combatIcons.ts 末尾）。
+- 給核心或 netcombat：匯出行動 id 常數（`net_shift`、`adm_` 前綴、`net_attack`）；`BattleActionOption` 給 `admin` 欄；`netBattleView` 只有我方單位（敵方檔位與破損沒有資料）。
+- 給 M3-commission-net／ui-commission-net：`tests/commission/M2-ui-commission.test.ts`〈面卡：沒有開放的面〉期望 `face.net` 未開放，現在 netrun 已放行，測試要改。
+- 給 M3-ui-subnet：`SubnetScreen`、`stores/subnet.ts` 還送舊的 `/netcombat?enc=`，要接引擎的戰鬥。

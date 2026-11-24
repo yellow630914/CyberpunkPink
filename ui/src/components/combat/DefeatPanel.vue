@@ -5,6 +5,7 @@ import EventBody from '../EventBody.vue'
 import SceneGate from './SceneGate.vue'
 import { DEFEAT_NAME, TIER_NAME, asking, choiceGroups, consequences, defeatStory } from '../../lib/afterBattleView'
 import type { EngineLogEntry } from '../../lib/engineView'
+import { defeatNetRows } from '../../lib/netView'
 import { useEngine } from '../../stores/engine'
 
 /**
@@ -26,6 +27,8 @@ const groups = computed(() => (v.value ? choiceGroups(v.value) : null))
 const story = computed(() => defeatStory(engine.state.reports))
 const cons = computed(() => (v.value ? consequences(v.value, engine.defeatFlow.commission()) : null))
 const place = computed(() => engine.placeName(engine.state.location))
+/** 內海的戰敗多顯示被定位、被扣線（引擎的 defeatView；現實是空的） */
+const netRows = computed(() => (v.value ? defeatNetRows(v.value) : []))
 const winner = computed(() => {
   const f = engine.defeat?.faction
   return f ? engine.contentName('faction', f) ?? f : '對方'
@@ -91,7 +94,7 @@ function acceptIt(): void { if (say(engine.defeatFlow.accept())) emit('leave') }
       <div class="da-right" data-defeat-consequences>
         <section class="cell" data-cell="now">
           <b class="h">{{ cons.now.title }}</b>
-          <dl class="rows"><template v-for="r in cons.now.rows" :key="r.k"><dt>{{ r.k }}</dt><dd :class="r.tone">{{ r.v }}</dd></template></dl>
+          <dl class="rows"><template v-for="r in [...cons.now.rows, ...netRows]" :key="r.k + r.v"><dt>{{ r.k }}</dt><dd :class="r.tone">{{ r.v }}</dd></template></dl>
           <template v-if="cons.now.lines.length">
             <small class="t-fine">接受的話會發生</small>
             <ul class="lines" data-defeat-lines><li v-for="(l, i) in cons.now.lines" :key="i">{{ l }}</li></ul>

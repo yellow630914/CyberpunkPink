@@ -3,10 +3,10 @@
 // 每次有變就把整份 run 與 ext.net 寫進變更（後面的蓋掉前面的，最後一筆是這一段路走完的樣子）。
 // 規格：CYBERSPACE 8.1 節（探索回合、巡邏、陷阱的感載）；dev/adr/0018 N5、N6、N8、N24。
 
-import type { Change, GameState, GridPos, Kernel, Launch, Sheet, TimelineBeat } from '../../core'
-import { ActionBlocked, attrMod, clone, pointKey, rollCheck, sightOf } from '../../core'
+import type { Change, GameState, GridPos, Kernel, Launch, ReportDraft, Sheet, TimelineBeat } from '../../core'
+import { attrMod, clone, pointKey, rollCheck, sightOf } from '../../core'
 import { checkBeat, passed, pickOf, rollPicked, skillAttr } from './checks'
-import { decayChanges, draft, layerName, roundHook, runRegion } from './common'
+import { decayChanges, draft, roundHook, runRegion } from './common'
 import { battleLaunch } from './fight'
 import type { NetExt, NetRun, Patrol, TrapState } from './model'
 import { DEFAULT_TRAP, TRACE, netExtChange, runChange } from './model'
@@ -39,7 +39,7 @@ export interface Out {
   beats: TimelineBeat[]
   launch: Launch[]
   /** 接著要提交的報告（迴圈碎片把人送回入口） */
-  followUps: Array<ReturnType<typeof draft>>
+  followUps: ReportDraft[]
   /** 這一段路到這裡為止 */
   stop: boolean
 }
@@ -84,11 +84,11 @@ export function teamStealth(k: Kernel, state: GameState, dc: number, purpose: st
   for (const id of partyOf(state)) {
     let best: { roll: ReturnType<typeof rollCheck>; skill: string } | undefined
     for (const skill of rules.sneak_skills) {
-      const roll = rollCheck(k.stats, state, { actor: id, attr: skillAttr(k, skill), skill, dc, purpose: `${purpose}/${id}`, tags: ['netrun', 'sneak', 'infiltrate'] })
+      const roll = rollCheck(k.stats, state, { actor: id, attr: skillAttr(k, skill, 'reflex'), skill, dc, purpose: `${purpose}/${id}`, tags: ['netrun', 'sneak', 'infiltrate'] })
       if (!best || roll.total > best.roll.total) best = { roll, skill }
     }
     if (!passed(best!.roll)) ok = false
-    beats.push(checkBeat(k, state, { id, attr: skillAttr(k, best!.skill), skill: best!.skill, situation: [], mod: 0 }, best!.roll, '潛行'))
+    beats.push(checkBeat(k, state, { id, attr: skillAttr(k, best!.skill, 'reflex'), skill: best!.skill, situation: [], mod: 0 }, best!.roll, '潛行'))
   }
   return { ok, beats }
 }
@@ -116,12 +116,13 @@ export function meetPatrols(k: Kernel, state: GameState, w: Work, out: Out, node
     }
     const roll = teamStealth(k, state, w.net.dc, `netrun/${w.run.id}/patrol/${p.id}/${w.run.round}`)
     out.beats.push(...roll.beats)
+    const detail = `（${roll.beats.map((b) => b.text).join('；')}）`
     if (roll.ok) {
       p.calm = true
-      out.lines.push('巡邏的蕾絲擦身而過，沒有發現你們。')
+      out.lines.push(`巡邏的蕾絲擦身而過，沒有發現你們${detail}。`)
       continue
     }
-    out.lines.push('巡邏的蕾絲發現了你們，先動手了。')
+    out.lines.push(`巡邏的蕾絲發現了你們，先動手了${detail}。`)
     return p
   }
   return null
@@ -155,9 +156,11 @@ export function revealTraps(k: Kernel, state: GameState, w: Work, out: Out, shee
     t.found = true
     out.changes.push({ op: 'map.sheet', map: w.run.map, sheet: sheetId, cells: { [pointKey(t.at[0], t.at[1])]: { kind: t.kind } } })
     out.beats.push(checkBeat(k, state, pick, roll, '察覺了陷阱', 'netrun.detect'))
-    out.lines.push(`察覺了一個陷阱（${TRAP_NAME[t.kind]}）。`)
+    out.lines.push(`${state.actors[pick.id]!.name}察覺了一個陷阱（${TRAP_NAME[t.kind]}）。`)
   }
 }
+
+const rngStep: Change = { op: 'rng', advance: 1 }
 
 export const TRAP_NAME: Record<TrapState['kind'], string> = { net_alarm: '警報節點', net_loop: '迴圈碎片' }
 
@@ -204,18 +207,17 @@ export function springTrap(k: Kernel, state: GameState, w: Work, out: Out, at: G
     const room = Math.min(add, loadRoom(k, state, id))
     if (room > 0) changes.push({ op: 'actor.track', id, track: 'load', delta: room })
   }
+  const entry = sheetEntry(state, w.run, sheetId)
+  const names = failed.map((id) => state.actors[id]!.name).join('、')
   if (!failed.length) {
-    out.beats.push(...beats)
     out.lines.push('踩到了迴圈碎片，全隊都擋住了。')
+    out.followUps.push(draft(state, w.run, 'netrun.trap', 'loop_held', '迴圈碎片沒能困住你們：全隊都擋住了。', [rngStep], { timeline: beats }))
     return
   }
-  const entry = (w.run.layers[w.run.layer] === sheetId ? sheetEntry(state, w.run, sheetId) : null)
-  const names = failed.map((id) => state.actors[id]!.name).join('、')
   out.lines.push(`踩到了迴圈碎片：${names}被灌了 ${add} 點感載，全隊被送回這一層的入口。`)
-  out.beats.push(...beats)
-  const back: Change[] = [...changes, { op: 'rng', advance: 1 }]
+  const back: Change[] = [...changes, rngStep]
   if (entry) back.push({ op: 'map.at', to: { map: w.run.map, sheet: sheetId, x: entry[0], y: entry[1] } })
-  out.followUps.push(draft(state, w.run, 'netrun.trap', 'loop', `迴圈碎片把全隊送回了這一層的入口。${failed.length ? `${names}的感載上升了。` : ''}`, back))
+  out.followUps.push(draft(state, w.run, 'netrun.trap', 'loop', `迴圈碎片把全隊送回了這一層的入口，${names}的感載上升了。`, back, { timeline: beats }))
 }
 
 /** 這一層入口的格子。 */
@@ -230,4 +232,3 @@ export function onGoalCell(run: NetRun, at: Pick<GridPos, 'sheet' | 'x' | 'y'>):
   return !!g && g.sheet === at.sheet && g.pos[0] === at.x && g.pos[1] === at.y
 }
 
-void ActionBlocked

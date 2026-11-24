@@ -1,12 +1,13 @@
 // L6 功能 netrun：開始一趟（兩種活動共用）。檢查擋下的情況（各一句）→ 照區的規則表組每一層的 spec → 用種子生成 → 開地圖實例 → 放遭遇 → 追蹤度的起點 → 第一筆報告 netrun.enter。
 // 規格：CYBERSPACE 8.1 節（生成的順序、密度表）；dev/adr/0018 第六、九節與 N2、N16、N26、N6；dev/work/M3-netrun.md 要做的第 2 項。
 
-import type { Change, GameState, GenPlace, GenResult, GenSpec, Kernel, Origin, ReportDraft, UnitRef } from '../../core'
+import type { Change, GameState, GenPlace, GenResult, GenSpec, Kernel, MarkerDef, Origin, ReportDraft, UnitRef } from '../../core'
 import {
   ActionBlocked, NET_MAP_KINDS, clone, deriveRng, generateSheet, isRecord, openMap, seedRand, toMinutes,
 } from '../../core'
-import type { Fx, Goal, LayerCounts, NetExt, NetRegion, NetRun, NetrunRules, Rank, RunKind } from './model'
-import { ACT_FACE, NET_MODE, OWNER, RANKS, TRACE, encounterAfter, gradeOf, isInt, isText, nodeAt, readRun, runChange } from './model'
+import type { Fx, Goal, LayerCounts, NetExt, NetRegion, NetRun, NetrunRules, ObjectiveKind, Patrol, Rank, RunKind } from './model'
+import { ACT_FACE, NET_MODE, OBJECTIVE_KINDS, OWNER, RANKS, TRACE, encounterAfter, gradeOf, isInt, isText, nodeAt, readRun, runChange } from './model'
+import { makePatrol, moverChanges, nextPatrolId } from './patrol'
 import { countsOf, netrunRules, regionOf } from './rules'
 
 /** 層的名字（資料的 layer 欄位）→ 給玩家看的。 */
@@ -28,6 +29,8 @@ export interface Parsed {
   decisive: boolean
   where?: Record<string, unknown>
   objective?: Record<string, unknown>
+  /** 要放進這座網的控制節點（對到現實的哪個控制節點；M3-commission-net 算好給）：副本的 cn_ 開頭的 id，layer 沒寫放在管理層、沒有管理層放員工層 */
+  controls: Array<{ node: string; name?: string; layer?: string }>
 }
 
 /** 這一趟的設定：照格式讀；不合格的欄位寫成一條一句，讀得出來的照樣回傳（沒有問題時 problems 是空的）。 */
@@ -66,13 +69,37 @@ export function parseSetup(raw: unknown): { parsed: Parsed; problems: string[] }
   if (s.seed !== undefined && !isInt(s.seed)) p.push('seed 要是整數。')
   if (s.trace !== undefined && !isInt(s.trace)) p.push('trace（追蹤度的起始值）要是整數。')
   if (s.faction !== undefined && !isText(s.faction)) p.push('faction 要是勢力的 id。')
+  let objective: Record<string, unknown> | undefined
+  if (s.objective !== undefined) {
+    const o = s.objective
+    if (!isRecord(o) || !isText(o.kind)) p.push('objective 要是 { kind, ... }，kind 是 download、seize、find、defeat、plant、extract（或 pass、clear）。')
+    else if (![...OBJECTIVE_KINDS, 'pass', 'clear'].includes(o.kind as never)) p.push(`objective.kind 不認得「${o.kind}」（${[...OBJECTIVE_KINDS, 'pass', 'clear'].join('、')}）。`)
+    else {
+      if (o.turns !== undefined && !(isInt(o.turns) && o.turns >= 1 && o.turns <= 10)) p.push('objective.turns 要是 1～10 的整數。')
+      if (o.kind === 'defeat' && o.foe !== undefined && !isText(o.foe)) p.push('objective.foe 要是敵人的 id。')
+      if (o.item !== undefined && !isText(o.item)) p.push('objective.item 要是物品的 id。')
+      if (o.node !== undefined && !isText(o.node)) p.push('objective.node 要是控制節點的 id。')
+      objective = clone(o)
+    }
+  }
+  const controls: Parsed['controls'] = []
+  if (s.controls !== undefined) {
+    if (!Array.isArray(s.controls)) p.push('controls 要是控制節點的清單（id，或 { node, name?, layer? }）。')
+    else {
+      for (const c of s.controls) {
+        const node = typeof c === 'string' ? c : isRecord(c) ? c.node : undefined
+        if (!isText(node)) p.push('controls 的每一筆要是控制節點的 id，或 { node, name?, layer? }。')
+        else controls.push({ node, ...(isRecord(c) && isText(c.name) ? { name: c.name } : {}), ...(isRecord(c) && isText(c.layer) ? { layer: c.layer } : {}) })
+      }
+    }
+  }
   return {
     problems: p,
     parsed: {
       region: s.region === undefined ? 'subnet' : s.region, grade: grade ?? 1, ...(isText(s.faction) ? { faction: s.faction } : {}), layers,
       ...(encounter ? { encounter } : {}), ...(color ? { color } : {}), ...(isInt(s.seed) ? { seed: s.seed } : {}), trace: isInt(s.trace) ? s.trace : 0, fx,
       stealth: s.stealth === true, decisive: s.decisive === true,
-      ...(isRecord(s.where) ? { where: clone(s.where) } : {}), ...(isRecord(s.objective) ? { objective: clone(s.objective) } : {}),
+      ...(isRecord(s.where) ? { where: clone(s.where) } : {}), ...(objective ? { objective } : {}), controls,
     },
   }
 }
@@ -82,15 +109,31 @@ export const setupOf = (run: Pick<NetRun, 'setup'>): Parsed => parseSetup(run.se
 
 // ---- 生成 ----
 
-/** 一層的 spec：密度照區的規則表（委託的階段用 commission 那一組），位置的挑法見 core/grid/gen.ts。 */
-export function layerSpec(region: NetRegion, counts: LayerCounts, id: string, name: string, last: boolean, noFoe: boolean): GenSpec {
+/** 目標的那個節點在版面上的名字（生成器用名字認它）。 */
+export const GOAL_NAME = '目標'
+
+/** 這一層多放的東西：目標（kind 是下載、接管、找人、放東西、帶出來才放節點；打倒放在遭遇上，不另外放）與要連到現實的控制節點（各一個，名字不同）。 */
+export interface LayerExtra {
+  objective?: ObjectiveKind
+  controls?: string[]
+}
+
+/** 一層的 spec：密度照區的規則表（委託的階段用 commission 那一組），位置的挑法見 core/grid/gen.ts。目標先放（先寫的先挑位置，放在離入口最遠的那一半）。 */
+export function layerSpec(region: NetRegion, counts: LayerCounts, id: string, name: string, last: boolean, noFoe: boolean, extra: LayerExtra = {}): GenSpec {
   const places: GenPlace[] = []
   const add = (kind: string, count: [number, number], where: GenPlace['where'], label: string, more: Partial<GenPlace> = {}): void => {
     if (count[1] > 0) places.push({ kind, count, where, name: label, ...more })
   }
+  const defeat = extra.objective === 'defeat'
+  // 目標：檔案庫（下載、放東西、帶出來）、控制節點（接管）、人（找人）；打倒指定一場遭遇，至少要有一場
+  const goalKind: Partial<Record<ObjectiveKind, string>> = { download: 'net_archive', plant: 'net_archive', extract: 'net_archive', seize: 'net_control', find: 'net_person' }
+  const goalPlace = extra.objective ? goalKind[extra.objective] : undefined
+  if (goalPlace) add(goalPlace, [1, 1], 'far_half', GOAL_NAME, { apart: 1 })
+  for (const name of extra.controls ?? []) add('net_control', [1, 1], 'any', name)
+  const foe: [number, number] = defeat ? [Math.max(1, counts.foe[0]), Math.max(1, counts.foe[1])] : counts.foe
   // 先寫的先挑位置：休息點在入口到出口那條路的一半左右，不貼著入口（8.1 節）
   add('net_rest', counts.rest, 'mid_path', '休息點', { apart: 1 })
-  add('net_foe', noFoe ? [0, 0] : counts.foe, 'far_half', '遭遇', { apart: 1 })
+  add('net_foe', noFoe && !defeat ? [0, 0] : foe, 'far_half', '遭遇', { apart: 1 })
   add('net_archive', counts.archive, 'dead_end', '檔案庫', { apart: 1 })
   add('net_safe', counts.safe, 'any', '安全點', { apart: 1 })
   add('net_control', counts.control, 'any', '控制節點')
@@ -116,24 +159,63 @@ interface Built {
   results: GenResult[]
   /** 所有要挑的敵人，開始之前先問過挑不挑得到 */
   refs: UnitRef[]
+  /** 目標放在哪（沒有節點的目標 pass、clear 沒有） */
+  goalAt?: NonNullable<Goal['at']>
 }
 
-/** 生成每一層、決定每一個遭遇節點放誰（閘門前那一場最重；離入口越遠越重的取捨：只有守閘門的那一場用 encounter 的組合，其餘用一般的）。 */
+/** 目標放在第幾層：objective.layer 寫了層的名字就放那一層，沒寫放最後一層（委託的階段只有一層）。 */
+function goalLayer(parsed: Parsed): number {
+  const want = parsed.objective?.layer
+  const i = typeof want === 'string' ? parsed.layers.indexOf(want) : -1
+  return i >= 0 ? i : parsed.layers.length - 1
+}
+
+/** 要連到現實的控制節點放在第幾層：寫了層的名字就放那一層；沒寫放管理層，沒有管理層放員工層，再沒有就第一層。 */
+function controlLayer(parsed: Parsed, layer: string | undefined): number {
+  for (const want of [layer, 'control', 'staff']) {
+    const i = want === undefined ? -1 : parsed.layers.indexOf(want)
+    if (i >= 0) return i
+  }
+  return 0
+}
+
+const objectiveOf = (parsed: Parsed): ObjectiveKind | undefined => {
+  const kind = parsed.objective?.kind
+  return (OBJECTIVE_KINDS as readonly unknown[]).includes(kind) ? (kind as ObjectiveKind) : undefined
+}
+
+/** 一個一層的擲骰：由這一趟的種子與用途導出。 */
+const randOf = (seed: number, mapId: string, what: string): (() => number) => seedRand(seed, `${mapId}/${what}`)
+
+/** 生成每一層、決定每一個遭遇節點放誰（閘門前那一場最重；離入口越遠越重的取捨：只有守閘門的那一場用 encounter 的組合，其餘用一般的）、巡邏、看不到的陷阱。 */
 function build(region: NetRegion, kind: RunKind, parsed: Parsed, rules: NetrunRules, seed: number, mapId: string): Built {
   const counts = countsOf(region, kind)
   const noFoe = parsed.encounter !== undefined && parsed.encounter.length === 0
+  const objective = objectiveOf(parsed)
+  const goalAtLayer = objective ? goalLayer(parsed) : -1
   const sheets: GenResult['sheet'][] = []
   const results: GenResult[] = []
   const net: NetExt = {
     region: region.id, grade: parsed.grade, ...(parsed.faction ? { faction: parsed.faction } : {}), dc: region.dc[parsed.grade - 1]!,
     graph: {}, hidden: {}, safe_path: {}, foes: {}, rested: [],
+    traps: {}, patrols: [], controls: {}, keys: [], wiped: {}, used: {}, opened: [],
   }
   const refs: UnitRef[] = []
+  let goalAt: Built['goalAt']
+  // 要連到現實的控制節點：每一個一個名字不同的節點
+  const taken = new Set<string>([GOAL_NAME, '控制節點'])
+  const controlNames = parsed.controls.map((c, n) => {
+    let name = c.name ?? c.node
+    if (taken.has(name)) name = `${name}（${n + 1}）`
+    taken.add(name)
+    return name
+  })
   parsed.layers.forEach((name, i) => {
     const last = i === parsed.layers.length - 1
     const sheetId = `l${i + 1}`
     const label = layerLabel(name, i)
-    const spec = layerSpec(region, counts, sheetId, label, last, noFoe)
+    const here = parsed.controls.map((c, n) => ({ c, n })).filter(({ c }) => controlLayer(parsed, c.layer) === i)
+    const spec = layerSpec(region, counts, sheetId, label, last, noFoe, { ...(objective && goalAtLayer === i ? { objective } : {}), controls: here.map(({ n }) => controlNames[n]!) })
     let result: GenResult
     try {
       result = generateSheet(spec, seedRand(seed, `${mapId}/layer/${i}`))
@@ -145,8 +227,26 @@ function build(region: NetRegion, kind: RunKind, parsed: Parsed, rules: NetrunRu
     net.graph[sheetId] = result.graph
     net.hidden[sheetId] = result.hidden
     net.safe_path[sheetId] = result.safe_path
+    // 看不到的陷阱（N8）：照生成器的 hidden 記下來，察覺與踩過各自記
+    net.traps[sheetId] = result.hidden.filter((h) => h.trap && (h.kind === 'net_alarm' || h.kind === 'net_loop')).map((h) => ({ kind: h.kind as 'net_alarm' | 'net_loop', at: [h.at[0], h.at[1]] }))
+    const cells = result.sheet.cells ?? []
+    // 控制節點：要連到現實的對到那個節點，其餘的（密度表放的）沒有對應
+    net.controls[sheetId] = {}
+    for (const m of cells.filter((x) => x.mark === 'c')) {
+      const link = here.find(({ n }) => controlNames[n] === m.name)
+      net.controls[sheetId]![m.id] = link ? { node: link.c.node, name: link.c.name ?? link.c.node } : {}
+    }
+    // 目標
+    const goalMarker = (mark: string): MarkerDef | undefined => cells.find((x) => x.mark === mark && x.name === GOAL_NAME)
+    if (objective && goalAtLayer === i) {
+      const found = objective === 'seize' ? goalMarker('c') : objective === 'find' ? goalMarker('p') : objective === 'defeat' ? undefined : goalMarker('a')
+      if (found) {
+        goalAt = { sheet: sheetId, id: found.id, pos: [found.at[0], found.at[1]] }
+        if (objective === 'seize') net.controls[sheetId]![found.id] = { ...(typeof parsed.objective?.node === 'string' ? { node: parsed.objective.node } : {}), name: '目標' }
+      } else if (objective !== 'defeat') throw new ActionBlocked(`這座網生成不出來（${label}：放不下目標）。`)
+    }
     // 遭遇節點：離入口最遠的那一個守閘門（8.1 節：離入口越遠的遭遇越重，閘門前那一場是層主）
-    const foes = (result.sheet.cells ?? []).filter((m) => m.mark === 'f').map((m) => ({ m, depth: nodeAt(net, sheetId, m.at)?.depth ?? 0 }))
+    const foes = cells.filter((m) => m.mark === 'f').map((m) => ({ m, depth: nodeAt(net, sheetId, m.at)?.depth ?? 0 }))
     foes.sort((a, b) => b.depth - a.depth || (a.m.id < b.m.id ? -1 : 1))
     net.foes[sheetId] = {}
     foes.forEach(({ m }, j) => {
@@ -157,11 +257,32 @@ function build(region: NetRegion, kind: RunKind, parsed: Parsed, rules: NetrunRu
         from: 'enemy_pick', faction: parsed.faction ?? 'none', grade: parsed.grade, rank, seed: `${seed}/${i}/${m.id}/${n}`,
         ...(parsed.color ? { color: parsed.color } : {}), layer: isText(name) ? name : label,
       }))
+      // 打倒：指定的敵人加進守閘門的那一場
+      if (objective === 'defeat' && goalAtLayer === i && guard) {
+        const foe = typeof parsed.objective?.foe === 'string' ? parsed.objective.foe : undefined
+        if (foe) list.push({ from: 'enemy', id: foe, grade: parsed.grade })
+        goalAt = { sheet: sheetId, id: m.id, pos: [m.at[0], m.at[1]] }
+      }
       refs.push(...list)
       net.foes[sheetId]![m.id] = { foes: list, ...(parsed.faction ? { faction: parsed.faction } : {}), ...(guard ? { gate: true as const } : {}) }
     })
+    if (objective === 'defeat' && goalAtLayer === i && !goalAt) throw new ActionBlocked(`這座網生成不出來（${label}：沒有遭遇可以放要打倒的敵人）。`)
+    // 巡邏（N2：委託的階段也有一隊可以躲的；密度表 patrol）
+    const rand = randOf(seed, mapId, `patrol/${i}`)
+    const [lo, hi] = counts.patrol
+    const n = lo + Math.floor(rand() * (hi - lo + 1))
+    for (let j = 0; j < n; j++) {
+      const id = nextPatrolId(net)
+      const patrol = makePatrol({
+        id, sheet: sheetId, graph: result.graph, rand, grade: parsed.grade, ...(parsed.faction ? { faction: parsed.faction } : {}), fx: parsed.fx,
+        ...(parsed.color ? { color: parsed.color } : {}), layerName: isText(name) ? name : label, rules, seed: `${seed}/${i}/${id}`,
+      })
+      if (!patrol) break
+      net.patrols.push(patrol)
+      refs.push(...patrol.foes)
+    }
   })
-  return { sheets, net, results, refs }
+  return { sheets, net, results, refs, ...(goalAt ? { goalAt } : {}) }
 }
 
 /** 入口放在閘門前一個走得上去的節點（fx.skip、fx.near_core）：沿著保證的路從出口往回找；找不到就是入口。 */
@@ -219,13 +340,13 @@ export function startRun(k: Kernel, state: GameState, kind: RunKind, rawSetup: u
 
   // 敵人先問過挑不挑得到：挑不到整步不成立（發起的那一份報告沒有套用）
   if (built.refs.length) {
-    const source = k.battle.getUnitSource('enemy_pick')
-    if (!source) throw new ActionBlocked('這座網的遭遇要照勢力挑敵人，但還沒有「enemy_pick」這種單位來源（敵人的功能沒有裝）。')
     const seen = new Set<string>()
     for (const ref of built.refs) {
-      const key = `${ref.faction}/${ref.rank}/${ref.color ?? ''}`
+      const key = `${ref.from}/${String(ref.id ?? '')}/${String(ref.faction ?? '')}/${String(ref.rank ?? '')}/${String(ref.color ?? '')}`
       if (seen.has(key)) continue
       seen.add(key)
+      const source = k.battle.getUnitSource(ref.from)
+      if (!source) throw new ActionBlocked(`這座網的遭遇要用「${ref.from}」這種單位來源，但還沒有（敵人的功能沒有裝）。`)
       try {
         source(ref, { k, state, side: 'foe', mode: NET_MODE, grade: parsed.grade as never, allyCount: partyOf(state).length })
       } catch (e) {
@@ -252,12 +373,18 @@ export function startRun(k: Kernel, state: GameState, kind: RunKind, rawSetup: u
   const goal: Goal = parsed.objective && isText(parsed.objective.kind)
     ? { ...clone(parsed.objective), kind: parsed.objective.kind as string }
     : { kind: kind === ACT_FACE ? 'pass' : 'clear' }
+  if (built.goalAt) goal.at = built.goalAt
+  if (goal.kind === 'download' && goal.turns === undefined) goal.turns = rules.download_turns
+  if (goal.kind === 'plant' && goal.turns === undefined) goal.turns = rules.plant_turns
   const run: NetRun = {
     id, kind, origin: clone(origin), region: region.id, grade: parsed.grade, ...(parsed.faction ? { faction: parsed.faction } : {}),
     map: opened.id, layers: built.sheets.map((s) => s.id), layer: 0, round: 0, goal, setup: clone(isRecord(rawSetup) ? rawSetup : {}), loot: [],
     peak: Math.max(0, traceStart), entered: [],
   }
-  const changes: Change[] = [{ op: 'uid', advance: 1 }, ...opened.changes, ...(region.pressure === 'trace' && k.meters.has(TRACE) ? [{ op: 'meter', kind: TRACE, key: opened.id, set: traceStart } as Change] : []), runChange(run)]
+  const changes: Change[] = [
+    { op: 'uid', advance: 1 }, ...opened.changes, ...(region.pressure === 'trace' && k.meters.has(TRACE) ? [{ op: 'meter', kind: TRACE, key: opened.id, set: traceStart } as Change] : []),
+    ...moverChanges({ map: opened.id }, built.net, built.net.patrols as Patrol[]), runChange(run),
+  ]
   const notes: string[] = []
   if (parsed.fx.trace_start) notes.push(`連動讓追蹤度從 ${traceStart} 起算。`)
   if (parsed.fx.skip || parsed.fx.near_core) notes.push('不必從頭探索，直接到了閘門前面。')

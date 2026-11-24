@@ -3178,7 +3178,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "cost": "",
     "weight": "招牌",
     "real": "—",
-    "net": "能用本樹的導流技能（曝光、灌流、洗版、圍觀、插播一下喔、直擊）。導流階照 MEDIA 第 10 節算：訂閱的位數減 3，公信力 60 以上再 +1，沒有頻道是 0。",
+    "net": "能用本樹的導流技能（曝光、灌流、洗版、圍觀、插播一下喔、直擊）。導流階照 MEDIA 4.1 節算：訂閱的位數減 3，公信力 60 以上再 +1，沒有頻道是 0。",
     "opinion": "坐上編輯台時，每回合的編輯點是 2＋聚光燈的樹階的一半（無條件進位），照 OPINION 4.3b。能用本樹的輿論技能，也能把偽造素材剪成的片（假料）放進牌庫。",
     "icon": "sk_streamer_48e431",
     "line": -1
@@ -5819,14 +5819,14 @@ export const GUIDE_LIST: GuideMeta[] = [
   "category": "媒體",
   "title": "頻道：預算、開一集",
   "trigger": "第一次打開頻道",
-  "source": "OPINION 第 2 節"
+  "source": "MEDIA 第 4 節"
  },
  {
   "id": "g_sponsor",
   "category": "媒體",
   "title": "贊助、公帳與額度",
   "trigger": "第一次接贊助",
-  "source": "OPINION 2.1"
+  "source": "MEDIA 4.2"
  },
  {
   "id": "g_idol",

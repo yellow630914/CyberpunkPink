@@ -17,8 +17,8 @@ export const passed = (r: Pick<CheckRoll, 'degree'>): boolean => r.degree === 'c
 const ATTR_OF: Record<string, AttrId> = { stealth: 'reflex', interface: 'intellect', negotiate: 'charm' }
 
 /** 一項基本功對的屬性（內容裡有就用內容的）。 */
-export function skillAttr(k: Pick<Kernel, 'content'>, skill: string): AttrId {
-  return ((k.content.get('skill', skill)?.attr as string | undefined) ?? ATTR_OF[skill] ?? 'intellect') as AttrId
+export function skillAttr(k: Pick<Kernel, 'content'>, skill: string, fallback: AttrId = 'intellect'): AttrId {
+  return ((k.content.get('skill', skill)?.attr as string | undefined) ?? ATTR_OF[skill] ?? fallback) as AttrId
 }
 
 // ---- 主控 ----

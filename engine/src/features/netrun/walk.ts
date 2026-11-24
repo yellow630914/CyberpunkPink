@@ -3,20 +3,20 @@
 // 自己去的那一趟（活動 netrun）進每一層的第一步帶觸發點 enter_floor（EVENTS 4.3 的「子網與內海」範圍）；委託的階段不帶（它屬於委託副本的範圍，EVENTS 4.4）。
 // 走過一次就斷的鏈路（net_bridge）走過之後改成牆；單向的鏈路（net_valve）從對的那一邊才過得去；遭遇節點（net_foe）走不上去。
 
-import type { Change, GameState, GridCtx, GridEffect, Kernel, ReportTrigger } from '../../core'
+import type { GameState, GridCtx, GridEffect, Kernel, ReportTrigger } from '../../core'
 import { clone, isNetMapKind, pointKey, valveAllows } from '../../core'
-import { decayChanges, layerName, roundHook } from './common'
+import { layerName } from './common'
 import type { NetRun } from './model'
-import { ACT_NET, netExt, nodeAt, readRun, runChange } from './model'
+import { ACT_NET, netExt, nodeAt, readRun } from './model'
+import { advanceRound, newOut, onGoalCell, patrolFight, revealTraps, springTrap, workChanges, workOf } from './rounds'
+import type { Work } from './rounds'
 import { usesOfMarker } from './uses'
 
 interface Walk {
   state: GameState
   map: string
-  /** 這一段路已經過了幾個探索回合 */
-  rounds: number
-  located: number | undefined
-  entered: string[]
+  /** 這一段路的工作用的一份（run 與 ext.net 的拷貝，一格一格改下去） */
+  w: Work
 }
 
 const inRun = (ctx: Pick<GridCtx, 'map' | 'state' | 'at'>): NetRun | null => {
@@ -33,44 +33,42 @@ export function installWalk(k: Kernel, owner: string): void {
     const run = inRun(ctx)
     const net = run ? netExt(ctx.state, run.map) : null
     if (!run || !net) return
-    if (ctx.step <= 1 || !walk || walk.state !== ctx.state || walk.map !== ctx.at.map) walk = { state: ctx.state, map: ctx.at.map, rounds: 0, located: run.located, entered: [...run.entered] }
-    const w = walk
-    const changes: Change[] = []
+    if (ctx.step <= 1 || !walk || walk.state !== ctx.state || walk.map !== ctx.at.map) walk = { state: ctx.state, map: ctx.at.map, w: workOf(run, net) }
+    const w = walk.w
+    const out = newOut()
     const triggers: ReportTrigger[] = []
-    const lines: string[] = []
-    let stop = false
     // 自己去的那一趟：進每一層的第一步發一次 enter_floor
-    let dirty = false
-    if (run.kind === ACT_NET && !w.entered.includes(ctx.at.sheet)) {
-      w.entered.push(ctx.at.sheet)
-      dirty = true
+    if (run.kind === ACT_NET && !w.run.entered.includes(ctx.at.sheet)) {
+      w.run.entered.push(ctx.at.sheet)
+      w.runDirty = true
       triggers.push({ point: 'enter_floor', where: { ...(typeof run.setup.where === 'object' && run.setup.where ? (clone(run.setup.where) as Record<string, unknown>) : { face: 'net', region: run.region }), layer: layerName({ ...run, layer: run.layers.indexOf(ctx.at.sheet) }) } })
     }
     // 走過一次就斷的鏈路：走過之後改成牆
     if (ctx.sheet.kindAt(ctx.at.x, ctx.at.y) === 'net_bridge') {
-      changes.push({ op: 'map.sheet', map: ctx.at.map, sheet: ctx.at.sheet, cells: { [pointKey(ctx.at.x, ctx.at.y)]: { kind: 'wall' } } })
-      lines.push('身後的鏈路斷了。')
+      out.changes.push({ op: 'map.sheet', map: ctx.at.map, sheet: ctx.at.sheet, cells: { [pointKey(ctx.at.x, ctx.at.y)]: { kind: 'wall' } } })
+      out.lines.push('身後的鏈路斷了。')
     }
-    // 站上一個節點：一個探索回合
-    if (nodeAt(net, ctx.at.sheet, ctx.at)) {
-      w.rounds += 1
-      dirty = true
-      if (w.located !== undefined && w.located > 0) {
-        w.located -= 1
-        if (w.located === 0) {
-          stop = true
-          lines.push('定位的倒數到了。')
-        }
-      }
-      changes.push(...decayChanges(k, ctx.state), ...roundHook(k, ctx.state, { ...run, round: run.round + w.rounds, ...(w.located !== undefined ? { located: w.located } : {}) }))
+    // 離開目標的那一格：下載與放東西的進度歸零（N7）
+    if ((w.run.goal.progress ?? 0) > 0 && w.run.goal.done !== true && !onGoalCell(w.run, ctx.at)) {
+      w.run.goal = { ...w.run.goal, progress: 0 }
+      w.runDirty = true
+      out.lines.push('離開了目標的節點，進度歸零了。')
     }
-    if (dirty) {
-      const next: NetRun = { ...clone(run), round: run.round + w.rounds, entered: [...w.entered] }
-      if (w.located !== undefined) next.located = w.located
-      changes.push(runChange(next))
+    // 陷阱：進到視野的察覺一次；踩上去就觸發
+    revealTraps(k, ctx.state, w, out, ctx.sheet, ctx.at)
+    springTrap(k, ctx.state, w, out, ctx.at)
+    // 站上一個節點：一個探索回合；巡邏照回合走，撞上了先擲潛行
+    const node = nodeAt(w.net, ctx.at.sheet, ctx.at)
+    if (node) {
+      if (advanceRound(k, ctx.state, w, out)) out.stop = true
+      patrolFight(k, ctx.state, w, out, node.id)
     }
-    if (!changes.length && !triggers.length && !lines.length) return undefined
-    return { changes, ...(triggers.length ? { triggers } : {}), ...(stop ? { stop: true } : {}), ...(lines.length ? { line: lines.join('') } : {}) }
+    const changes = [...out.changes, ...workChanges(ctx.state, w)]
+    if (!changes.length && !triggers.length && !out.lines.length && !out.beats.length) return undefined
+    return {
+      changes, ...(triggers.length ? { triggers } : {}), ...(out.stop ? { stop: true } : {}), ...(out.lines.length ? { line: out.lines.join('') } : {}),
+      ...(out.launch.length ? { launch: out.launch } : {}), ...(out.followUps.length ? { followUps: out.followUps } : {}),
+    }
   })
 
   // 遭遇節點：走不上去。站到它旁邊，選開戰或潛行繞過
@@ -86,6 +84,6 @@ export function installWalk(k: Kernel, owner: string): void {
   k.grid.usesOf(owner, (ctx, marker) => {
     const run = inRun(ctx)
     const net = run ? netExt(ctx.state, run.map) : null
-    return run && net ? usesOfMarker(ctx.state, run, net, ctx.at.sheet, marker) : []
+    return run && net ? usesOfMarker(ctx.k as Kernel, ctx.state, run, net, ctx.at.sheet, marker) : []
   })
 }

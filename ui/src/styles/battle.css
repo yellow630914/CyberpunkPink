@@ -37,7 +37,8 @@
 .bt-pips.l i { border-radius: 50%; }
 .bt-pips.l i.f { background: var(--load); }
 .bt-pips.m i.f { background: var(--ink-2); }
-.bt-pips.r i { transform: rotate(45deg); }
+.bt-pips.r { flex-wrap: nowrap; gap: 1px; }
+.bt-pips.r i { transform: rotate(45deg) scale(.82); }
 .bt-pips.r i.f { background: var(--ram); }
 .bt-st { display: flex; gap: 3px; flex-wrap: wrap; min-height: 18px; }
 .bt-st span { font-size: var(--fs-tiny); font-weight: 800; padding: 0 6px; border-radius: 4px; background: var(--bg-term); color: var(--ink-2); }

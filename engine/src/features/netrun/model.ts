@@ -464,9 +464,9 @@ declare module '../../core' {
     'netrun.round': [{ state: GameState; run: NetRun }, Change[] | void]
     /**
      * 這一趟結束了：outcome 是怎麼結束的（done、left、retreat、located；戰敗被接受是 defeat）。回答的人回傳要加的變更與給玩家看的句子
-     * （迷宮館結算評價、押金）。run 是結束之前的那一趟，唯讀。
+     * （迷宮館結算評價、押金）。run 是結束之前的那一趟，唯讀。lost 是這一趟倒下或被定位時丟掉的東西（帶出去才算數；沒有丟東西的時候沒有這個欄位）。
      */
-    'netrun.close': [{ state: GameState; run: NetRun; outcome: CloseOutcome }, CloseReturn | void]
+    'netrun.close': [{ state: GameState; run: NetRun; outcome: CloseOutcome; lost?: LootEntry[] }, CloseReturn | void]
   }
 }
 

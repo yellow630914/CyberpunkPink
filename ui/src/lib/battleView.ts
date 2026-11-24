@@ -36,8 +36,12 @@ export interface CellUnit {
   ap: { now: number; max: number }
   weapon: string
   mag?: { now: number; max: number }
+  /** RAM（沒有這個池的單位沒有；內海用分格畫） */
+  ram?: { now: number; max: number }
   /** 狀態的名字（查得到內容就用名字，查不到用 id） */
   statuses: string[]
+  /** 狀態的 id（和 statuses 同一個順序）：畫面挑標記用 */
+  statusIds: string[]
   out?: string
   control: 'player' | 'ai'
 }
@@ -66,7 +70,10 @@ function cellUnit(u: BattleUnit, nameOf?: NameOf): CellUnit {
     id: u.id, name: u.name, side: u.side, rank: u.rank, layers: u.layers, layersMax: u.layersMax,
     ap: { now: u.ap.now, max: u.ap.max }, weapon: w?.name ?? '', control: u.control,
     statuses: u.statuses.map((s) => nameOf?.('battle_status', s.id) ?? s.id),
+    statusIds: u.statuses.map((s) => s.id),
   }
+  const ram = u.pools.ram
+  if (ram) out.ram = { now: ram.now, max: ram.max }
   if (u.hp) out.hp = { now: u.hp.now, max: u.hp.max }
   if (u.load) out.load = { now: u.load.now, max: u.load.max }
   if (w?.mag) out.mag = { now: w.mag.now, max: w.mag.max }
@@ -99,7 +106,9 @@ export function battleView(battle: BattleState, options: BattleOptions, mode: Ba
   })
   const distances: BattleViewModel['distances'] = []
   if (options.waiting === 'player') {
-    for (const t of options.actions.find((a) => a.id === 'shoot')?.targets ?? []) {
+    // 現實是射擊、內海是攻擊（net_attack）：看有的那一個
+    const shooter = options.actions.find((a) => a.id === 'shoot') ?? options.actions.find((a) => a.id === 'net_attack')
+    for (const t of shooter?.targets ?? []) {
       const d = t.hint?.distance
       const u = 'unit' in t.target ? battle.units[t.target.unit] : undefined
       if (typeof d === 'number' && u) distances.push({ id: u.id, name: u.name, distance: d })

@@ -42,6 +42,12 @@ const battleRouter = useRouter()
 watch(() => eng.inBattle || !!eng.pendingDefeat, (on) => {
   if (on && !BATTLE_ELSEWHERE.has(route.path)) void battleRouter.push({ path: '/combat', query: { from: route.fullPath } })
 }, { immediate: true })
+// 現實戰鬥與內海戰鬥是兩個網址、同一組元件：看引擎開的戰場在哪一層（battle.mode 對到的戰場 layer），不看網址參數；打到一半（讀檔、事件接戰鬥）也照這個換
+const BATTLE_PAGES = { net: '/netcombat', meat: '/combat' } as const
+watch(() => [eng.battleLayer(), route.path] as const, ([layer, path]) => {
+  const want = layer === 'net' ? BATTLE_PAGES.net : layer ? BATTLE_PAGES.meat : null
+  if (want && (path === '/combat' || path === '/netcombat') && path !== want) void battleRouter.replace({ path: want, query: route.query })
+}, { immediate: true })
 
 // ---- 成人場景進行中：畫面換到場景，別的全頁的入口被擋（引擎也不收別的報告；這裡只是不讓人停在別的畫面上） ----
 const sceneRouter = useRouter()
@@ -81,11 +87,13 @@ function onKey(e: KeyboardEvent) {
 }
 onMounted(() => window.addEventListener('keydown', onKey))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
+// 內海皮：子網、內海戰鬥的頁面；戰鬥頁看引擎開的是哪一層的戰場（現實戰鬥頁上打的若是內海的戰鬥，也是內海皮）
 const NET_PAGES = new Set(['/subnet', '/netcombat'])
-const skin = computed(() => (NET_PAGES.has(route.path) ? 'net' : 'real'))
+const netSkin = computed(() => (route.path === '/combat' || route.path === '/netcombat' ? (eng.inBattle ? eng.battleLayer() === 'net' : route.path === '/netcombat') : NET_PAGES.has(route.path)))
+const skin = computed(() => (netSkin.value ? 'net' : 'real'))
 watchEffect(() => {
   document.documentElement.dataset.skin = skin.value
-  document.documentElement.dataset.district = NET_PAGES.has(route.path) ? 'net' : g.loc.district
+  document.documentElement.dataset.district = netSkin.value ? 'net' : g.loc.district
 })
 </script>
 

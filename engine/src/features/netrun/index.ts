@@ -25,11 +25,17 @@ import { installWalk } from './walk'
 export {
   ACT_FACE, ACT_NET, DEFAULT_REGIONS, DEFAULT_RULES, EXT, NET_MODE, REGION_KIND, RULE_KIND, TRACE, encounterAfter, gradeOf, netExt, nodeAt, readRun, regionProblems, ruleProblems,
 } from './model'
-export type { CloseOutcome, CloseReturn, Fx, FoeNode, Goal, LayerCounts, NetExt, NetRegion, NetRun, NetrunRules, Rank, RunKind } from './model'
+export type { ArchiveRow, CloseOutcome, CloseReturn, ControlState, Fx, FoeNode, Goal, LayerCounts, LootEntry, NetExt, NetRegion, NetRun, NetrunRules, ObjectiveKind, Patrol, Rank, RunKind, TrapState } from './model'
+export { DEFAULT_TRAP, OBJECTIVE_KINDS } from './model'
 export { countsOf, netrunRules, regionOf } from './rules'
 export { LAYER_NAME, layerLabel, layerSpec, parseSetup, startRun } from './start'
-export { closeDraft, logout, logoutBlock } from './close'
-export { descend, gateBlock, gateDc, gateOpen, nodeUses, usesOfMarker, useNode } from './uses'
+export { closeDraft, controlsTaken, logout, logoutBlock } from './close'
+export { descend, freeUses, gateBlock, gateDc, gateOpen, nodeUses, tickRun, usesOfMarker, useNode } from './uses'
+export { lossOf } from './loss'
+export { adjacency, makePatrol, patrolAt, pickRoute, pingpong } from './patrol'
+export { GOAL_NAME } from './start'
+export { masterTier, mastersOf, keysIn } from './checks'
+export { scaleByGrade, isGoalNode } from './nodes'
 export { netrunView } from './view'
 export type { NetrunView, NodeRef } from './view'
 
@@ -79,7 +85,7 @@ export const netrunFeature: Feature = {
     k.battle.onEnd(OWNER, ({ k: kernel, state, battle, outcome }) => onBattleEnd(kernel as Kernel, state, battle, outcome))
 
     // 戰敗被接受：只把這一趟收掉（關地圖、清狀態），不另外發 activity.end（0018 第十節）
-    k.hooks.on('activity.end', OWNER, ({ state, kind, origin, outcome }) => (kind === 'defeat' && outcome === 'accept' ? onDefeatAccepted(k, state, origin) : undefined))
+    k.hooks.on('activity.end', OWNER, ({ state, kind, origin, outcome, result }) => (kind === 'defeat' && outcome === 'accept' ? onDefeatAccepted(k, state, origin, result) : undefined))
 
     // 一份報告套用之後：門檻、通過、被定位、全員拔線之後的收尾
     k.hooks.on('report.after', OWNER, ({ state, report }) => afterReport(k, state, report))

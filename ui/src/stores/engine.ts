@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import type { ActionInput, ContentEntry, Feature, ContentPack, ItemEntry, Actor, AttributeEntry, BattleInput, BattleMode, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, GridDir, GridView, Report, ReportDraft, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
-import { ActionBlocked, ChangeError, FakeProvider, Game, meterOf, modeOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
+import { ActionBlocked, ChangeError, FakeProvider, Game, meterOf, modeOf, statusRuleOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
 import type { ActStatus, StepActions } from '@engine/src'
 import type { StepRecord } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
@@ -9,7 +9,7 @@ import { allFeatures } from '@engine/src/features'
 import { armorOf, concealment, equip as gearEquip, equipBlock as gearEquipBlock, gearOf, quickBlock, quickCapacity, scanFinds, unequip as gearUnequip, weaponOf } from '@engine/src/features/gear'
 import type { BlueprintEntry, PartEntry } from '@engine/src/features/gear'
 import type { GearLookup } from '../lib/gearView'
-import { abilitiesOf, capacityOf, applyLoadout, loadoutMinutes, loadoutBlock as abilityLoadoutBlock, learn as abilityLearn, learnBlock as abilityLearnBlock, resonanceOn, treeTier, TREE_XP } from '@engine/src/features/abilities'
+import { abilitiesOf, usesOf as abilityUses, capacityOf, applyLoadout, loadoutMinutes, loadoutBlock as abilityLoadoutBlock, learn as abilityLearn, learnBlock as abilityLearnBlock, resonanceOn, treeTier, TREE_XP } from '@engine/src/features/abilities'
 import type { AbilityEntry, PathEntry } from '@engine/src/features/abilities'
 import { acceptDefeat, chooseDefeatOption, defeatOf, defeatView, skipDefeat, watchDefeat } from '@engine/src/features/defeat'
 import type { DefeatViewInfo } from '@engine/src/features/defeat'
@@ -28,6 +28,8 @@ import type { GridKernel } from '@engine/src'
 import { ratingOf, sceneAct, sceneNext, sceneOf, sceneOptions, sceneRules, sceneSkip, sceneView, setSceneMode, sceneModeOf } from '@engine/src/features/scene'
 import type { SceneInput, SceneMode, SceneOptions, SceneView } from '@engine/src/features/scene'
 import { setupFromEncounter } from '@engine/src/features/enemies'
+import { netBattleView } from '@engine/src/features/netcombat'
+import type { NetBattleView } from '@engine/src/features/netcombat'
 import { arrive as worldArrive, cityGraph, worldView } from '@engine/src/features/world'
 import type { CityGraph, WorldView } from '@engine/src/features/world'
 import { advance as transitAdvance, advanceBlock as transitAdvanceBlock, alight as transitAlight, board as transitBoard, boardBlock as transitBoardBlock, taxi as transitTaxi, taxiArrival as transitTaxiArrival, transitView, wait as transitWait } from '@engine/src/features/transit'
@@ -451,6 +453,25 @@ export const useEngine = defineStore('engine', () => {
   function battleMode(): BattleMode | null {
     const b = state.value.battle
     return b ? modeOf(game.k.content, b.mode) ?? null : null
+  }
+  /** 這個戰場在哪一層（現實 meat、內海 net；引擎的戰場資料）；沒有在打是 null。畫面照它換頁與換皮，不看網址 */
+  function battleLayer(): string | null { return battleMode()?.layer ?? null }
+  /**
+   * 內海戰鬥的畫面資料（features/netcombat 的 netBattleView：每個我方單位的檔位與每一檔的原因、破損的槽、管理行動的次數、追蹤度與門檻、定位的倒數、是不是在委託副本裡）。
+   * 沒有在打、或打的不是內海是 null。
+   */
+  function netBattle(): NetBattleView | null {
+    void state.value
+    return state.value.battle ? netBattleView(game.k, state.value) : null
+  }
+  /** 戰鬥狀態的名字（引擎的規則表，核心自帶的失去回合與閃斷也查得到）；查不到是 undefined */
+  const statusName = (id: string): string | undefined => statusRuleOf(game.k.content, id)?.name
+  /** 一個技能這一次要花幾次管理行動（內海；引擎的技能資料 use.net.admin）；不花是 0。技能清單用它標出來 */
+  function skillAdminCost(id: string): number {
+    const ab = game.k.content.get<AbilityEntry>('ability', id)
+    if (!ab) return 0
+    const net = abilityUses(ab).find((u) => u.field === 'net' || u.field === null)
+    return net?.use.admin ?? 0
   }
   /** 內容的名字（道具、狀態……；顯示用，查內容不是規則）；查不到是 undefined */
   const contentName = (kind: string, id: string): string | undefined => game.k.content.get<{ id: string; name?: string }>(kind, id)?.name
@@ -978,5 +999,5 @@ export const useEngine = defineStore('engine', () => {
       .filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, n)
   }
 
-  return { state, feed, partyRows, hostilityTop, hostilityRows, world, transit, people, event, fixer, commission, scene, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  return { state, feed, partyRows, hostilityTop, hostilityRows, world, transit, people, event, fixer, commission, scene, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

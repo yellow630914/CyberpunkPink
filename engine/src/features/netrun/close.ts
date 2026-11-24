@@ -4,12 +4,14 @@
 // 戰鬥打輸不由這裡交回：戰敗被接受之後只把這一趟收掉（關地圖、清狀態），不另外發自己的 activity.end（副本已經從戰敗的 activity.end 知道結果，再發一次會把同一個階段處理兩遍）。
 
 import type { ActivityEndReturn, Change, GameState, Kernel, Origin, Report, ReportDraft } from '../../core'
-import { ActionBlocked, attachActivityEnd, clone, closeMap, endActivity, isRecord, meterOf } from '../../core'
+import { ActionBlocked, attachActivityEnd, clone, closeMap, endActivity, isRecord, meterOf, seedRand } from '../../core'
 import { draft, layerName, runRegion } from './common'
-import type { CloseOutcome, NetRun } from './model'
-import { ACT_FACE, TRACE, netExt, netExtChange, readRun, runChange } from './model'
-import { netrunRules } from './rules'
-import { setupOf } from './start'
+import type { CloseOutcome, LootEntry, NetExt, NetRun, Patrol } from './model'
+import { ACT_FACE, ACT_NET, NET_MODE, TRACE, netExt, netExtChange, nodeAt, readRun, runChange } from './model'
+import { lossOf } from './loss'
+import { makePatrol, moverChanges, nextPatrolId } from './patrol'
+import { countsOf, netrunRules } from './rules'
+import { layerLabel, partyOf, setupOf } from './start'
 
 type Ending = Exclude<CloseOutcome, 'defeat'>
 
@@ -25,13 +27,22 @@ export function traceOf(k: Kernel, state: GameState, run: NetRun): number {
   return runRegion(k, run).pressure === 'trace' ? meterOf(k, state, TRACE, run.map) : 0
 }
 
-/** 問 netrun.close：之後的區結算自己的東西（迷宮館的評價、押金）。 */
-function closeHooks(k: Kernel, state: GameState, run: NetRun, outcome: CloseOutcome): { changes: Change[]; lines: string[] } {
+/** 問 netrun.close：之後的區結算自己的東西（迷宮館的評價、押金）。lost 是這一趟丟掉的東西（帶出去才算數；沒有丟的是沒有這個欄位）。 */
+function closeHooks(k: Kernel, state: GameState, run: NetRun, outcome: CloseOutcome, lost?: LootEntry[]): { changes: Change[]; lines: string[] } {
   const out = { changes: [] as Change[], lines: [] as string[] }
-  for (const h of k.hooks.run('netrun.close', { state, run: clone(run), outcome })) {
+  for (const h of k.hooks.run('netrun.close', { state, run: clone(run), outcome, ...(lost ? { lost: clone(lost) } : {}) })) {
     if (!isRecord(h.result)) continue
     if (Array.isArray(h.result.changes)) out.changes.push(...clone(h.result.changes))
     if (Array.isArray(h.result.lines)) out.lines.push(...(h.result.lines as string[]))
+  }
+  return out
+}
+
+/** 接管了的控制節點（result.controls；副本拿去給連動）：node 是對到現實的哪個控制節點（沒有對應的沒有這一項）。 */
+export function controlsTaken(net: NetExt | null): Array<{ id: string; sheet: string; name?: string; node?: string }> {
+  const out: Array<{ id: string; sheet: string; name?: string; node?: string }> = []
+  for (const [sheet, list] of Object.entries(net?.controls ?? {})) {
+    for (const [id, c] of Object.entries(list)) if (c.taken) out.push({ id, sheet, ...(c.name ? { name: c.name } : {}), ...(c.node ? { node: c.node } : {}) })
   }
   return out
 }
@@ -42,14 +53,17 @@ function closeHooks(k: Kernel, state: GameState, run: NetRun, outcome: CloseOutc
  */
 export function closeDraft(k: Kernel, state: GameState, run: NetRun, outcome: Ending, action: 'netrun.end' | 'netrun.logout' | 'netrun.located'): ReportDraft {
   const trace = traceOf(k, state, run)
+  // 帶出去才算數：自己去的那一趟被定位（沒有回到快照）時，拿到的東西每一件擲一次；委託的階段被定位是委託失敗、回到進去之前，不用丟
+  const loss = outcome === 'located' && run.kind === ACT_NET ? lossOf(k, state, run) : null
   const result: Record<string, unknown> = {
     trace, peak: Math.max(run.peak, trace), rounds: run.round, loot: clone(run.loot), layer: run.layer + 1, layers: run.layers.length, region: run.region,
-    ...(outcome === 'located' ? { located: true } : {}),
+    goal: run.goal.done === true, controls: controlsTaken(netExt(state, run.map)),
+    ...(outcome === 'located' ? { located: true } : {}), ...(loss ? { lost: clone(loss.lost) } : {}),
   }
-  const closed = closeHooks(k, state, run, outcome)
+  const closed = closeHooks(k, state, run, outcome, loss?.lost)
   const end = endActivity(k, { state, kind: run.kind, id: run.id, origin: run.origin, outcome, result })
-  const lines = [...closed.lines, ...end.lines]
-  const changes: Change[] = [...closed.changes, ...end.changes, runChange(null), ...closeMap(state, run.map)]
+  const lines = [...closed.lines, ...(loss?.lines ?? []), ...end.lines]
+  const changes: Change[] = [...closed.changes, ...(loss?.changes ?? []), ...end.changes, runChange(null), ...closeMap(state, run.map)]
   const d = draft(state, run, action, outcome, `${SUMMARY[outcome]}${lines.join('')}`, changes, lines.length ? { narration: { results: lines } } : {})
   return attachActivityEnd(d, end)
 }
@@ -73,15 +87,56 @@ export function logout(k: Kernel, state: GameState): ReportDraft {
 export const logoutNote = (run: NetRun): string | null => (run.kind === ACT_FACE ? '登出算撤退：會回到進副本之前。' : null)
 
 /** 這一場戰敗被接受之後（掛點 activity.end，kind defeat、outcome accept、那一場是這一趟的）：把這一趟收掉，不發自己的 activity.end。 */
-export function onDefeatAccepted(k: Kernel, state: GameState, origin: Origin): ActivityEndReturn | undefined {
+export function onDefeatAccepted(k: Kernel, state: GameState, origin: Origin, result: Record<string, unknown> = {}): ActivityEndReturn | undefined {
   const run = readRun(state)
   const net = isRecord(origin.ext) ? origin.ext.net : undefined
   if (!run || !isRecord(net) || net.run !== run.id) return undefined
-  const closed = closeHooks(k, state, run, 'defeat')
-  return { changes: [...closed.changes, runChange(null), ...closeMap(state, run.map)], ...(closed.lines.length ? { lines: closed.lines } : {}) }
+  // 帶出去才算數：沒有回到快照的才丟（自己的那一趟；不算委託失敗的戰敗）。算委託失敗的回到進副本之前，東西本來就不在
+  const loss = run.kind === ACT_NET || result.fails_commission !== true ? lossOf(k, state, run) : null
+  const closed = closeHooks(k, state, run, 'defeat', loss?.lost)
+  const lines = [...closed.lines, ...(loss?.lines ?? [])]
+  return { changes: [...closed.changes, ...(loss?.changes ?? []), runChange(null), ...closeMap(state, run.map)], ...(lines.length ? { lines } : {}) }
 }
 
 // ---- 追蹤度的門檻（探索中；每一個只觸發一次） ----
+
+/**
+ * 追蹤度第一次到 t1：現在這一層與更深的每一層多 patrol_t1 隊巡邏（CYBERSPACE 8.3 節「剩下的每一層巡邏 +1」；這一區沒有巡邏的不加）。現在這一層的新一隊從離隊伍最遠的地方出發。
+ * 挑不到敵人的（單位來源挑不出那一組）不放。回傳新放的（已經加進 net）。
+ */
+function morePatrols(k: Kernel, state: GameState, run: NetRun, net: NetExt): Patrol[] {
+  const rules = netrunRules(k)
+  // 這一區沒有巡邏的（密度表寫 0、寂靜）追蹤度再高也不會多出來
+  if (countsOf(runRegion(k, run), run.kind).patrol[1] <= 0) return []
+  const seed = state.maps.instances[run.map]?.gen?.seed ?? 0
+  const parsed = setupOf(run)
+  const source = k.battle.getUnitSource('enemy_pick')
+  const at = state.maps.at
+  const added: Patrol[] = []
+  for (let i = run.layer; i < run.layers.length; i++) {
+    const sheet = run.layers[i]!
+    const graph = net.graph[sheet]
+    if (!graph) continue
+    const here = i === run.layer && at ? nodeAt(net, sheet, at)?.id : undefined
+    const name = parsed.layers[i]
+    for (let n = 0; n < rules.patrol_t1; n++) {
+      const id = nextPatrolId(net)
+      const patrol = makePatrol({
+        id, sheet, graph, rand: seedRand(seed, `${run.map}/t30/${sheet}/${n}`), grade: run.grade, ...(run.faction ? { faction: run.faction } : {}), fx: parsed.fx,
+        ...(parsed.color ? { color: parsed.color } : {}), layerName: typeof name === 'string' && name ? name : layerLabel(name, i), rules, seed: `${seed}/${i}/${id}/t30`, ...(here ? { from: here } : {}),
+      })
+      if (!patrol || !source) continue
+      try {
+        for (const ref of patrol.foes) source(ref, { k, state, side: 'foe', mode: NET_MODE, grade: run.grade as never, allyCount: partyOf(state).length })
+      } catch {
+        continue
+      }
+      net.patrols.push(patrol)
+      added.push(patrol)
+    }
+  }
+  return added
+}
 
 /**
  * 追蹤度跨過門檻的事（NETRUNNING 第 5 節；CYBERSPACE 8.3 節）：到 30 記 t30（閘門的 DC +2）；到 60 接一份 netrun.pressure，帶 pressure 觸發點；
@@ -97,9 +152,12 @@ function thresholdDraft(k: Kernel, state: GameState, run: NetRun): ReportDraft |
   const lines: string[] = []
   let pressure = false
   if (v > next.peak) next.peak = v
+  const moved: Change[] = []
   if (v >= rules.t1 && !nextNet.t30) {
     nextNet.t30 = true
-    lines.push(`追蹤度到了 ${rules.t1}：系統起疑了，閘門的 DC +${rules.gate_t1_dc}。`)
+    const added = morePatrols(k, state, next, nextNet)
+    if (added.length) moved.push(...moverChanges(next, nextNet, added))
+    lines.push(`追蹤度到了 ${rules.t1}：系統起疑了，閘門的 DC +${rules.gate_t1_dc}${added.length ? `，剩下的每一層多了 ${rules.patrol_t1} 隊巡邏` : ''}。`)
   }
   if (v >= rules.t2 && !nextNet.t60) {
     nextNet.t60 = true
@@ -116,7 +174,7 @@ function thresholdDraft(k: Kernel, state: GameState, run: NetRun): ReportDraft |
   const runChanged = JSON.stringify(next) !== JSON.stringify(run)
   const netChanged = JSON.stringify(nextNet) !== JSON.stringify(net)
   if (!runChanged && !netChanged) return undefined
-  const changes: Change[] = []
+  const changes: Change[] = [...moved]
   if (runChanged) changes.push(runChange(next))
   if (netChanged) changes.push(netExtChange(state, run.map, nextNet))
   const where = setupOf(run).where ?? { face: 'net', region: run.region, layer: layerName(run) }

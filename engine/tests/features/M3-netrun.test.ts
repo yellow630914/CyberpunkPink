@@ -29,11 +29,11 @@ const lace = (id: string, rank: string, color: string, more: Rec = {}): Rec => (
   position: { prefer: [2, 3], cover_use: 0.5 }, ai: { prefer: 'overloaded', focus: 1, flee_below: 0 }, ...more,
 })
 
-/** 小一點的子網：9 × 7；自己去的那一趟一場遭遇、休息點一個；委託的階段只有那一場。 */
+/** 小一點的子網：9 × 7；自己去的那一趟一場遭遇、休息點一個；委託的階段只有那一場。這一份測的是本體，沒有陷阱（陷阱踩上去會停下來，第二張 M3-netrun-nodes 才測）。 */
 const TINY = {
   id: 'tiny', name: '小子網', map_kind: 'subnet', size: [9, 7], carve: [16, 22], sight: 2, pressure: 'trace', cover: 'medium', dc: [10, 13, 16, 19, 22],
-  layer: { foe: [1, 1], patrol: [0, 0], archive: [0, 1], trap: [0, 1], rest: [1, 1], safe: [0, 0], control: [0, 0], person: [0, 0] },
-  commission: { foe: [1, 1], patrol: [0, 0], archive: [0, 0], trap: [1, 1], rest: [1, 1], safe: [0, 0], control: [0, 0], person: [0, 0] },
+  layer: { foe: [1, 1], patrol: [0, 0], archive: [0, 1], trap: [0, 0], rest: [1, 1], safe: [0, 0], control: [0, 0], person: [0, 0] },
+  commission: { foe: [1, 1], patrol: [0, 0], archive: [0, 0], trap: [0, 0], rest: [1, 1], safe: [0, 0], control: [0, 0], person: [0, 0] },
 }
 /** 單向與會斷的鏈路都多（挖完再打通幾處讓路成環）。 */
 const TWISTY = { ...TINY, id: 'twisty', name: '彎彎曲曲的網', size: [11, 9], carve: [30, 40], oneway: 1, fragile: 1, loops: 3, layer: { ...TINY.layer, foe: [0, 0] } }

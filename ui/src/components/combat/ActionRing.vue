@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { COMBAT_ICONS } from '../../data/combatIcons'
-import type { RingAction } from '../../lib/combat/real'
 
 /**
  * 行動圓環（COMBAT_SYSTEM 第 10 節）：中心是技能、內環攻擊、中環補充與切換、外環戰術。
  * 每格是圖示，底下是行動點，左上是數字鍵（1～9）。滑過哪一格只有那一格放大；泡泡跟著游標，寫名稱、花費、說明與做不到的原因。
  * 觸控：點一下先看泡泡，再點一次才執行。做不到的格子變暗（.is-unavailable 的同一套樣式）。
  */
-export interface RingItem extends RingAction { cost: number; reason: string | null; key: number }
+/** 圓環的一格：g 是哪一圈（atk 內環、res 中環、tac 外環）；icon 是 COMBAT_ICONS 的鍵；ram 是要花的 RAM（內海才有）；reason 是做不到的原因（引擎的句子） */
+export interface RingItem { k: string; n: string; c: number; g: 'atk' | 'res' | 'tac'; icon: string; d: string; w: string; ram?: string; cost: number; reason: string | null; key: number }
 const props = defineProps<{ items: RingItem[]; selected: string | null; off?: boolean; skillOpen?: boolean; ramLabel?: boolean }>()
 const emit = defineEmits<{ (e: 'act', k: string): void; (e: 'skill'): void }>()
 
