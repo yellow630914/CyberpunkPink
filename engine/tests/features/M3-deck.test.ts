@@ -92,6 +92,7 @@ interface Opts {
   ext?: Rec
   seed?: number
 }
+const UNCAPPED = { id: 'rule', content: { deck_rule: [{ id: 'default', cap_construct_grade: false }] } } as never
 const setup = (o: Opts = {}) => {
   const t = makeGame({
     features: o.features ?? [characterFeature, deckFeature, HELPER, TEST_COMBAT, TEST_NET_COMBAT], content: [PACK, ...(o.packs ?? [])], seed: o.seed,
@@ -256,16 +257,15 @@ describe('構裝槽', () => {
     expect(info(g).equipped.map((p) => [p.id, p.kind])).toEqual([['qh_noise', 'quickhack'], ['cs_blade', 'construct']])
   })
 
-  it('等級高過甲板的不擋；deckView 標出照哪一級算（預設構裝照自己的等級算，規則 cap_construct_grade 打開才照甲板）', () => {
+  it('等級高過甲板的不擋；預設照甲板的等級算，deckView 寫「甲板無法發揮這項構裝的所有性能」（使用者 2026-11-24）；規則 cap_construct_grade 關掉才照構裝自己的', () => {
     const g = setup()
     wear(g)
     install(g, 'cs_rifle_3')
-    const v = deckView(g.k, g.state, 'pc')
-    expect(v.equipped[0]).toMatchObject({ over: true, note: null, piece: { id: 'cs_rifle_3', grade: 3, runsAt: 3 } })
-    const capped = setup({ packs: [{ id: 'rule', content: { deck_rule: [{ id: 'default', cap_construct_grade: true }] } } as never] })
-    wear(capped)
-    install(capped, 'cs_rifle_3')
-    expect(deckView(capped.k, capped.state, 'pc').equipped[0]).toMatchObject({ over: true, note: '等級比甲板高（3 級對 2 級），會照甲板的等級跑。', piece: { runsAt: 2 } })
+    expect(deckView(g.k, g.state, 'pc').equipped[0]).toMatchObject({ over: true, note: '甲板無法發揮這項構裝的所有性能（構裝 3 級、甲板 2 級，照 2 級算）。', piece: { id: 'cs_rifle_3', grade: 3, runsAt: 2 } })
+    const free = setup({ packs: [UNCAPPED] })
+    wear(free)
+    install(free, 'cs_rifle_3')
+    expect(deckView(free.k, free.state, 'pc').equipped[0]).toMatchObject({ over: true, note: null, piece: { runsAt: 3 } })
   })
 
   it('專屬構裝佔掉的槽與槽數的加成：能用的槽是 資料 +2 −1；加成拿掉時超出的件不算進去，槽回來又算', () => {
@@ -328,8 +328,9 @@ describe('防護', () => {
 // ---- 帶進內海戰鬥 ----
 
 describe('內海的 loadout', () => {
+  // 這一段驗 III 級構裝自己的公式，所以關掉「照甲板等級」的夾值
   const armed = (): G => {
-    const g = setup()
+    const g = setup({ packs: [UNCAPPED] })
     wear(g)
     install(g, 'cs_rifle_3', 'cs_blade', 'cs_jam')
     return g

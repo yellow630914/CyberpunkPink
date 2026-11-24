@@ -120,7 +120,7 @@ export const DEFAULT_DECK_RULES: DeckRules = {
   script_extra: 1,
   swap_minutes: 1,
   ram_regen: 2,
-  cap_construct_grade: false,
+  cap_construct_grade: true,
 }
 
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v)

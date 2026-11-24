@@ -30,7 +30,7 @@ export interface DeckView {
   cells: DeckCell[]
   /** 背包裡還沒裝、裝得上或裝不上的構裝與快駭程式（裝得上的在前） */
   candidates: DeckCandidate[]
-  /** 槽上的每一件現在能不能卸下（原因是完整的一句；能卸是 null），以及等級高過甲板時的提示（「會照甲板的等級跑」） */
+  /** 槽上的每一件現在能不能卸下（原因是完整的一句；能卸是 null），以及等級高過甲板時的提示（「甲板無法發揮這項構裝的所有性能」） */
   equipped: Array<{ piece: Piece; removeBlock: string | null; over: boolean; note: string | null }>
   /** 背包裡的甲板（可以裝上的 uid）與現在裝不裝得上 */
   decks: Array<{ uid: string; item: string; name: string; grade: number; slots: number; firewall: number; current: boolean; block: string | null }>
@@ -43,7 +43,7 @@ const nameOf = (k: Kernel, item: string): string => k.content.get<ItemEntry>('it
 /** 構裝或快駭程式等級高過甲板時的提示：實際照幾級算寫在 piece.runsAt；照甲板的等級跑才有這句。 */
 function overNote(piece: Piece, deckGrade: number): { over: boolean; note: string | null } {
   const over = piece.grade > deckGrade
-  return { over, note: over && piece.runsAt < piece.grade ? `等級比甲板高（${piece.grade} 級對 ${deckGrade} 級），會照甲板的等級跑。` : null }
+  return { over, note: over && piece.runsAt < piece.grade ? `甲板無法發揮這項構裝的所有性能（構裝 ${piece.grade} 級、甲板 ${deckGrade} 級，照 ${piece.runsAt} 級算）。` : null }
 }
 
 export function deckView(k: Kernel, state: GameState, actor: string): DeckView {

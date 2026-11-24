@@ -97,7 +97,8 @@ const turnTo = (g: WorldGame, id: string): BattleUnit => {
 describe('內海戰鬥的行動表（0018 第一節；CYBERSPACE 6.1 節）', () => {
   it('每一個只寫了現實的行動都標了 modes: [meat]：內海的行動表只剩核心的兩個與測試的兩個', () => {
     const g = world()
-    const net = g.game.k.battle.actionsFor('net').map((a) => a.id).sort()
+    // net_ 開頭的是 features/netcombat 的正式行動表（M3-netcombat；它自己的驗收測試守）：這裡只看沒有現實的行動混進來
+    const net = g.game.k.battle.actionsFor('net').map((a) => a.id).filter((id) => !id.startsWith('net_')).sort()
     expect(net).toEqual([END_TURN, MOVE, NET_ATTACK, NET_REFILL].sort())
     // 現實那一邊照舊：射擊、近戰、換彈、換武器、道具、打遮蔽、監視、制伏、脫離、投降都在
     const meat = g.game.k.battle.actionsFor('meat').map((a) => a.id)
@@ -110,7 +111,7 @@ describe('內海戰鬥的行動表（0018 第一節；CYBERSPACE 6.1 節）', ()
     const me = netAlly({ ext: { abilities: { equipped: ['sk_aud', 'sk_shot'], tiers: { audit_tree: 1 } } }, quick: [{ item: 'it_zip_tie', qty: 2 }, { item: 'it_aud_gel', qty: 1 }] })
     g.game.startBattle(netSetup([me], [netFoe()]))
     turnTo(g, 'a1')
-    const ids = g.game.battleOptions()!.actions.map((a) => a.id).sort()
+    const ids = g.game.battleOptions()!.actions.map((a) => a.id).filter((id) => !id.startsWith('net_')).sort()
     expect(ids).toEqual([END_TURN, MOVE, NET_ATTACK, NET_REFILL].sort())
     for (const id of ['shoot', 'melee', 'reload', 'swap', 'hit_cover', 'item', 'subdue', 'flee', 'vehicle.call', 'sk_shot']) expect(ids, id).not.toContain(id)
   })
