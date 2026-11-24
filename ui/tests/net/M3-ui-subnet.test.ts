@@ -13,7 +13,7 @@ import { netWeapon, TEST_ACTIVITY } from '@engine/src/testkit'
 import { useEngine } from '../../src/stores/engine'
 import SubnetScreen from '../../src/screens/SubnetScreen.vue'
 import src from '../../src/screens/SubnetScreen.vue?raw'
-import { LINK_MARK, leaveTo, patrolTokens, traceStages, watchRunEnd } from '../../src/lib/netrunView'
+import { LINK_MARK, leaveTo, logoutFlow, patrolTokens, traceStages, watchRunEnd } from '../../src/lib/netrunView'
 import { pressE } from '../../src/lib/here'
 import { hereOptions } from '../../src/lib/netrunView'
 
@@ -419,19 +419,25 @@ describe('登出', () => {
     const h = clean(await render(pinia))
     expect(h).toContain('data-logout-note')
     expect(text(h)).toContain(v.logout.note!)
-    // 確認框不在畫面上時沒有送出任何報告；原始碼裡登出的按鈕只開確認框（askLogout），確認框的「登出」才呼叫 e.net.logout
+    // 真的走一遍確認流程（lib 的 logoutFlow，畫面的按鈕就接它）：按登出只開框、取消不送、確認才送
     expect(h).not.toContain('data-confirm')
-    expect(src).toMatch(/function askLogout\(\)[\s\S]*confirm\.value = true/)
-    const ask = src.match(/function askLogout\(\) \{[\s\S]*?\n\}/)![0]
-    expect(ask).not.toContain('e.net.logout')
-    expect(src).toMatch(/data-cancel @click="confirm = false"/)
+    const f = logoutFlow({ block: () => e.net.view()?.logout.block ?? null, logout: () => e.net.logout(), toast: () => {} })
+    const n0 = e.state.reports.length
+    f.ask()
+    expect(f.confirm.value).toBe(true)
+    expect(e.state.reports.length).toBe(n0)
+    f.cancel()
+    expect(f.confirm.value).toBe(false)
+    expect(e.net.view()).not.toBeNull()
+    expect(e.state.reports.length).toBe(n0)
+    expect(src).toMatch(/data-cancel @click="flow.cancel"/)
     expect(src).toMatch(/data-ok @click="doLogout"/)
     expect(e.net.view()).not.toBeNull()
-    // 確認才送
-    const before = e.state.reports.length
-    expect((await e.net.logout()).status).toBe('applied')
-    expect(e.state.reports.length).toBeGreaterThan(before)
+    f.ask()
+    await f.ok()
+    expect(f.confirm.value).toBe(false)
     expect(e.net.view()).toBeNull()
+    expect(e.state.reports.length).toBeGreaterThan(n0)
   })
 
   it('自己潛進去的那一趟：沒有「回到進副本之前」那一句', async () => {
@@ -532,5 +538,29 @@ describe('掃原始碼：畫面沒有自己的規則', () => {
   it('SubnetScreen.vue 沒有 addTrace、movePatrols 這類自己算的函式，也不寫死色碼', () => {
     for (const w of ['addTrace', 'movePatrols', 'patrolPos', 'Math.random', 'stepTo', 'reveal(']) expect(src, w).not.toContain(w)
     expect(src).not.toMatch(/#[0-9a-fA-F]{6}\b/)
+  })
+})
+
+describe('S3：這一趟的帳（runMemo、lastEnd）讀檔、回退、開新局都清掉', () => {
+  it('先前一趟自己去挖的帳不會被讀檔之後的委託內海段拿去結算', async () => {
+    const { e } = start({ begin: false })
+    const raw = e.save()
+    expect(e.net.begin({ ...BASE }, 'netrun', { by: 'ui' })).toBeNull()
+    expect(e.net.view()!.kind).toBe('netrun')
+    // 讀回那份存檔：行程沒了，舊的帳不留
+    expect(e.load(raw)).toBeNull()
+    expect(e.net.view()).toBeNull()
+    expect(e.commit({ summary: '假委託', action: 'toy.test', changes: [{ op: 'ext', key: 'toy', value: { id: 't1', steps: 0, goal: 1, origin: { by: 'test' } } }] as never })).toBeNull()
+    expect(e.net.begin({ ...BASE, layer: 'staff', commission: 'c1', stage: 1, face: 'net' }, 'face.net', { by: 'commission', ref: 'c1', ext: { commission: 'c1', stage: 1, face: 'net' } })).toBeNull()
+    expect((await e.net.logout()).status).toBe('applied')
+    expect(e.net.view()).toBeNull()
+    expect(e.dive.lastEnd()).toBeNull()
+  })
+  it('自己去挖的一趟登出之後有結算；開新局清掉', async () => {
+    const { e } = start()
+    expect((await e.net.logout()).status).toBe('applied')
+    expect(e.dive.lastEnd()).not.toBeNull()
+    e.newGame({ seed: 3 })
+    expect(e.dive.lastEnd()).toBeNull()
   })
 })

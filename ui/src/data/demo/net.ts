@@ -88,7 +88,7 @@ function divepodAt(): { district: string; block: string; marker: string } {
 /** 自己去挖的子網的去處：蜂巢的企業（藍鯨物流是這一區委託的目標勢力）。租來的甲板也能去（need: rental）；同一個 site 七天內再進去是同一張圖。 */
 export const DIG_SITE = 'site_dig_lonestar'
 const net_site: Rec[] = [
-  { id: DIG_SITE, name: '藍鯨物流的外圍網', kind: 'netrun', need: 'rental', desc: '自己去挖的子網：離開時追蹤度會化成那家企業對你的敵對值；七天內再進來是同一張圖。', setup: { region: 'subnet', entry: 'dig', site: 'dig_lonestar_1', grade: 2, faction: 'lonestar' } },
+  { id: DIG_SITE, name: '藍鯨物流的外圍網', kind: 'netrun', need: 'rental', desc: '自己去挖的子網：離開時追蹤度會化成那家企業對你的敵對值；一段時間內再進來是同一張圖。', setup: { region: 'subnet', entry: 'dig', site: 'dig_lonestar_1', grade: 2, faction: 'lonestar' } },
 ]
 /** 設施類型與詞條（CYBERSPACE 8.3 節的表：層的名字、隔離區從幾級起、每層幾個控制節點）：示意用的兩種 */
 const net_facility: Rec[] = [

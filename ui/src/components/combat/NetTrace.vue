@@ -26,7 +26,7 @@ watch(() => props.bump?.n, () => {
     <span v-if="bump?.delta && pulse" class="mono delta" :class="bump.delta > 0 ? 'up' : 'down'" data-trace-delta>{{ bump.delta > 0 ? '+' : '−' }}{{ Math.abs(bump.delta) }}</span>
     <div class="bar"><TrackBar :value="Math.min(100, bar.value)" :max="100" :color="color" :marks="bar.marks" /></div>
     <span v-if="bar.located !== null" class="tag warn" data-located>{{ bar.located > 0 ? `定位倒數 ${bar.located} 輪` : '已經被定位' }}</span>
-    <Hint title="追蹤度">每過一輪往上加；到第一道刻度現實的人注意到你，第二道對方的潛網者上線，到第三道開始定位倒數，倒數完全隊被強制斷線。管理行動與失敗的檢定也會加。</Hint>
+    <Hint title="追蹤度">戰鬥每過一回合往上加。第一道刻度系統起疑（一隻白蕾絲加入、閘門更難破解），第二道現實的保全進入警戒、對方的潛網者或精英蕾絲加入，第三道被定位並開始倒數，倒數完全隊被強制斷線。管理行動與失敗的檢定也會加。</Hint>
   </div>
 </template>
 

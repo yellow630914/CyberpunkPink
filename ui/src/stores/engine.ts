@@ -141,8 +141,12 @@ export const useEngine = defineStore('engine', () => {
   function rememberRun(): void {
     const nv = netrunView(game.k, game.state)
     if (nv && nv.kind === 'netrun' && runMemo.value?.id !== nv.id) lastEnd.value = null
+    // 行程沒了又沒有結束報告收走（接受戰敗、回退……）：舊的帳不留
+    if (!nv && runMemo.value) runMemo.value = null
     if (nv && nv.kind === 'netrun') runMemo.value = { id: nv.id, kind: nv.kind, region: nv.region.name, loot: nv.loot.map((l) => ({ name: l.name, qty: l.qty })), layers: nv.layer.total, rounds: nv.round, site: nv.dig?.site ?? null }
   }
+  /** 讀檔、回退、開新局、重來：這一趟的帳都不算數了，清掉（之後只認引擎現在的行程） */
+  function clearMemos(): void { runMemo.value = null; lastEnd.value = null; netStageMemo.value = null; rememberRun(); rememberNetStage() }
   function recordEnd(reports: Report[]): void {
     const end = reports.find((r) => r.action === 'netrun.logout' || r.action === 'netrun.end' || r.action === 'netrun.located')
     const memo = runMemo.value
@@ -655,7 +659,7 @@ export const useEngine = defineStore('engine', () => {
   interface Queued { action: string; make: () => ReportDraft }
   const queued: Queued[] = []
   /** 開新局、讀檔、回退、回到階段開始、重來戰鬥：狀態換了，留著的草稿都是舊的，全部丟掉 */
-  const clearQueued = (): void => { queued.length = 0 }
+  const clearQueued = (): void => { queued.length = 0; clearMemos() }
   /**
    * 把一份（或幾份）報告草稿交給引擎提交（走 commitNarrated：AI 關著就是一般的提交）。草稿做不出來（被擋下）回傳原因。
    * remake(i)：第 i 份草稿（i ≥ 1）若要留著等放行，放行時用它照當下狀態重做；沒給就用原來那一份。

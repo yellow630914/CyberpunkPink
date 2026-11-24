@@ -9,6 +9,7 @@ import { pickFlow, type PickOptionView, type PickView } from './battlePicks'
 import { RING_KEYS, battleView, disabledReason, ringOf, slotLayout, type BattleCell, type SlotPos } from './battleView'
 import { combatKey, isTyping } from './keys'
 import { danmakuOf, liveEventsOf } from './liveEvents'
+import { netBattleLeaveTo } from './netrunView'
 import { NET_SHIFT, adminPanel, gearPanel, isAdminAction, netUnitOf, shiftInput, traceBar, traceDelta } from './netView'
 import { useAfterBattle } from './useAfterBattle'
 import { useEngine } from '../stores/engine'
@@ -288,7 +289,12 @@ export function useBattle(opts: BattleOpts) {
   function leave(): void {
     opts.beforeLeave?.()
     afterBattle.dismiss()
-    router.push(opts.from())
+    const from = opts.from()
+    // 內海戰鬥：行程可能在戰鬥裡結束了（拔線、接受戰敗、回到階段開始），照引擎的狀態決定回哪頁
+    const to = route.path === '/netcombat'
+      ? netBattleLeaveTo(from, { run: !!engine.net.view(), commission: !!engine.commission.view(), jobs: engine.fixer.jobs().length > 0 })
+      : from
+    void router.push(to)
   }
   /** 結算：打輸（或投降）留在戰敗面板（引擎在等三選一）；打贏有戰利品或俘虜時開戰利品面板，其餘直接離開 */
   async function settle(): Promise<void> {

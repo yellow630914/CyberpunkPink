@@ -34,7 +34,7 @@ const selEntry = computed(() => (selPiece.value ? eng.deck.construct(selPiece.va
 const pick = (i: number, c: { reserved?: boolean }) => { if (c.reserved) { ui.toast('這一槽被專屬構裝佔掉了。', 'warn'); return } sel.value = i }
 
 const say = (why: string | null, ok?: string) => { if (why) ui.toast(why, 'warn'); else if (ok) ui.toast(ok) }
-const swapNote = '（裝與卸各多花 1 分鐘）'
+const swapNote = '（裝與卸都要花一點時間）'
 const reasonOf = (own: string | null) => lock.value ?? own
 const install = (item: string) => say(eng.deck.install(item), '裝上了。')
 const remove = (item: string) => { say(eng.deck.remove(item), '卸下了。'); sel.value = null }
@@ -61,7 +61,7 @@ const legal = computed(() => (view.value?.equipped ?? []).map((e) => ({ name: e.
 <template>
   <section class="net">
     <div class="panel cut pad">
-      <p v-if="lock" class="blocking" data-testid="deck-lock">{{ lock }}整頁唯讀。</p>
+      <p v-if="lock" class="blocking" data-testid="deck-lock">{{ lock }}甲板、構裝與腳本唯讀。</p>
       <p class="h">甲板<Hint>有甲板才有 RAM。甲板決定構裝槽幾格與防火牆；構裝體佔兩格。換甲板時裝不下的構裝退回背包。</Hint></p>
       <div v-if="deck?.has" class="dh">
         <ItemSlot :item="deckSlot({ item: deck.deck!, name: deck.name!, grade: deck.grade })" size="md" inert />
@@ -96,7 +96,7 @@ const legal = computed(() => (view.value?.equipped ?? []).map((e) => ({ name: e.
           <div class="kv"><span>{{ selPiece.piece.name }}</span><b><GradeBadge :grade="grade(selPiece.piece.grade)" /></b></div>
           <div v-for="l in constructLines(selEntry)" :key="l[0]" class="kv"><span>{{ l[0] }}</span><b>{{ l[1] }}</b></div>
           <p v-if="selPiece.note" class="warn-t note" data-testid="over-note">{{ selPiece.note }}</p>
-          <div class="go"><ReasonButton sm :reason="reasonOf(selPiece.removeBlock)" data-remove @go="remove(selPiece.piece.id)">卸下（1 分鐘）</ReasonButton></div>
+          <div class="go"><ReasonButton sm :reason="reasonOf(selPiece.removeBlock)" data-remove @go="remove(selPiece.piece.id)">卸下</ReasonButton></div>
         </template>
         <template v-else>
           <p class="h">背包裡裝得上的<Hint>灰掉的裝不上，點了會說原因。{{ swapNote }}</Hint></p>
@@ -111,7 +111,7 @@ const legal = computed(() => (view.value?.equipped ?? []).map((e) => ({ name: e.
         </template>
       </div>
 
-      <p class="h mt">腳本・帶 {{ view?.scripts.carried.reduce((n, s) => n + s.qty, 0) ?? 0 }}／{{ view?.scripts.limit ?? 0 }}<Hint>一次性的程式，不佔構裝槽；最多帶「甲板等級 ＋1」支。打完用掉的從背包扣。沒有甲板不能帶。</Hint></p>
+      <p class="h mt">腳本・帶 {{ view?.scripts.carried.reduce((n, s) => n + s.qty, 0) ?? 0 }}／{{ view?.scripts.limit ?? 0 }}<Hint>一次性的程式，不佔構裝槽；帶得上幾支有上限（標題寫帶幾支／上限）。打完用掉的從背包扣。沒有甲板不能帶。</Hint></p>
       <div v-if="!scriptRows.length" class="empty-note">背包裡沒有腳本。</div>
       <div class="list" data-testid="scripts">
         <div v-for="s in scriptRows" :key="s.item" class="row two">
@@ -126,7 +126,7 @@ const legal = computed(() => (view.value?.equipped ?? []).map((e) => ({ name: e.
       <p class="h mt">SKIN・{{ view?.skins.length ?? 0 }} 套<Hint>化身的穿著，只是外觀；背包裡有才穿得上。戰鬥中不能換。</Hint></p>
       <div v-if="!view?.skins.length" class="empty-note">背包裡沒有 SKIN。</div>
       <div class="cgrid" data-testid="skins">
-        <ItemSlot v-for="s in view?.skins" :key="s.item" :item="skinSlot(s)" slot-icon="ic-skin" show-name :selected="s.worn" :label="s.worn ? '穿著' : undefined" :dye="g.dyes[`skin:${s.item}`] ?? null" :unavailable="s.worn ? null : reasonOf(s.block)" @select="s.worn ? null : say(eng.deck.skin(s.item), '換好 SKIN 了。')" />
+        <ItemSlot v-for="s in view?.skins" :key="s.item" :item="skinSlot(s)" slot-icon="ic-skin" show-name :selected="s.worn" :label="s.worn ? '穿著' : undefined" :dye="g.dyes[`skin:${s.item}`] ?? null" :unavailable="s.worn ? null : s.block" @select="s.worn ? null : say(eng.deck.skin(s.item), '換好 SKIN 了。')" />
       </div>
       <div class="go left"><ReasonButton sm :reason="worn ? null : '沒有穿著的 SKIN。'" data-open-dye @go="ui.open('dye', { dyeKey: `skin:${worn!.item}`, where: 'net', place: '化身編輯' })">染 SKIN 的顏色</ReasonButton></div>
     </div>

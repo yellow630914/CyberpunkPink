@@ -151,9 +151,9 @@ export function hasNetStage(v: Pick<CommissionView, 'main' | 'track'>): boolean 
 export const traceText = (value: number): string => String(Math.round(value))
 
 /** 離開內海那一段之後的一行：離開時的追蹤度（引擎的 trace.value）與拿到的東西（子網裡看到的 loot）；沒有東西就只寫追蹤度 */
-export function netStageLine(stage: number, trace: number, loot: ReadonlyArray<{ name: string; qty: number }>): string {
-  const got = loot.length ? `；拿到 ${loot.map(l => (l.qty > 1 ? `${l.name} ×${l.qty}` : l.name)).join('、')}` : '；沒有帶東西出來'
-  return `第 ${stage} 階段（內海）做完：離開時追蹤度 ${traceText(trace)}${got}。`
+export function netStageLine(stage: number, trace: number, loot: ReadonlyArray<{ name: string; qty: number }> | null): string {
+  const got = loot === null ? '' : loot.length ? `；拿到 ${loot.map(l => (l.qty > 1 ? `${l.name} ×${l.qty}` : l.name)).join('、')}` : '；沒有帶東西出來'
+  return `第 ${stage} 階段（內海）做完：追蹤度 ${traceText(trace)}${got}。`
 }
 
 /** 路線的後果的一行（內海那一份）：走了幾個內海階段、追蹤度、目標勢力與管網路的勢力各加多少；沒有走內海是 null */

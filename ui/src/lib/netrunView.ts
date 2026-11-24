@@ -1,4 +1,4 @@
-import { watch, type Ref } from 'vue'
+import { ref, watch, type Ref } from 'vue'
 import type { GridView, GridUse } from '@engine/src'
 import type { NetrunView } from '@engine/src/features/netrun'
 import type { MazeView } from '@engine/src/features/maze'
@@ -80,9 +80,9 @@ export function patrolTokens(view: NetrunView): Array<{ id: string; x: number; y
 /** 追蹤度三個刻度各自會發生什麼（NETRUNNING 第 5 節；數字是引擎給的刻度） */
 export function traceStages(marks: [number, number, number]): Array<{ at: number; name: string; text: string }> {
   return [
-    { at: marks[0], name: '起疑', text: '系統起疑：閘門更難破解，每一層多一隊巡邏。' },
-    { at: marks[1], name: '確認入侵', text: '確認入侵：現實的保全進入警戒，對方派更強的敵人。' },
-    { at: marks[2], name: '定位', text: '定位：開始倒數，歸零就全隊被強制斷線。' },
+    { at: marks[0], name: '起疑', text: '系統起疑：一隻白蕾絲加入（牠不打人，在場時追蹤度每回合再往上加），閘門更難破解。' },
+    { at: marks[1], name: '確認入侵', text: '確認入侵：現實的保全進入警戒，對方的潛網者或一隻精英蕾絲加入。' },
+    { at: marks[2], name: '定位', text: '定位：對方知道你的身體在哪，現實的增援往接入點去；倒數歸零全隊被強制斷線。' },
   ]
 }
 export const STAGE_NAME: Record<string, string> = { quiet: '沒人知道', suspect: '起疑', alert: '確認入侵', located: '已被定位' }
@@ -115,6 +115,16 @@ export function goalLine(view: NetrunView): string {
 export const leaveTo = (kind: string | null): string => (kind === 'face.net' ? '/commission' : '/')
 
 /**
+ * 內海戰鬥結束離開時去哪（P1）：照引擎的狀態，不照戰鬥開始時的 from。
+ * 行程還在回 from（子網）；行程沒了而副本還在、或手上還有委託回副本頁；其餘回主畫面。
+ */
+export function netBattleLeaveTo(from: string, st: { run: boolean; commission: boolean; jobs: boolean }): string {
+  if (!from.startsWith('/subnet')) return from
+  if (st.run) return from
+  return st.commission || st.jobs ? '/commission' : '/'
+}
+
+/**
  * 這一趟結束（引擎沒有進行中的行程了）就離開這一頁：go 收到要去的路徑，done 在離開前叫一次（提示這一趟的結果）。
  * 一開始就沒有行程不算「結束」（那一頁自己顯示一句話）。回傳停止監看的函式。
  */
@@ -134,3 +144,32 @@ export function mazeOptions(view: MazeView, use: (id: string, at: string) => voi
 
 /** 迷宮館的回合數對標準的比例條（0～1.5 夾在 0～100%）：只換算畫面的長度，標準與評價是引擎的 */
 export const ratioWidth = (ratio: number): number => Math.max(0, Math.min(100, Math.round((ratio / 1.5) * 100)))
+
+/**
+ * 登出的確認流程（子網頁用）：按登出只開確認框，取消不送，確認才呼叫引擎的 logout。被擋下（block）直接顯示原因、不開框。
+ * 能不能登出與那一句說明都是引擎給的（view().logout）；這裡只管框開不開。
+ */
+export function logoutFlow(deps: { block: () => string | null; logout: () => Promise<{ status: string; reason?: string }>; toast: (s: string) => void }) {
+  const confirm = ref(false)
+  return {
+    confirm,
+    ask(): void {
+      const b = deps.block()
+      if (b) { deps.toast(b); return }
+      confirm.value = true
+    },
+    cancel(): void { confirm.value = false },
+    async ok(): Promise<void> {
+      confirm.value = false
+      const r = await deps.logout()
+      if (r.status !== 'applied' && r.reason) deps.toast(r.reason)
+    },
+  }
+}
+
+/** 離開結算：清掉結算、換完頁，才回到去處（換頁會關掉所有對話框，所以對話框要等換完頁再開） */
+export async function leaveSettlement(deps: { clear: () => void; go: (path: string) => Promise<unknown>; diving: boolean; openDive: () => void }): Promise<void> {
+  deps.clear()
+  await deps.go('/')
+  if (deps.diving) deps.openDive()
+}

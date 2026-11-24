@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
 import GridMap, { type CellView, type FogState, type MapToken } from '../components/GridMap.vue'
@@ -14,7 +14,7 @@ import MoneyTag from '../components/MoneyTag.vue'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
 import { pressE } from '../lib/here'
-import { LEGEND_ORDER, NODE_INFO, STAGE_NAME, cellOf, fogOf, goalLine, hereOptions, mazeOptions, patrolTokens, ratioWidth, traceStages, watchRunEnd } from '../lib/netrunView'
+import { LEGEND_ORDER, leaveSettlement, logoutFlow, NODE_INFO, STAGE_NAME, cellOf, fogOf, goalLine, hereOptions, mazeOptions, patrolTokens, ratioWidth, traceStages, watchRunEnd } from '../lib/netrunView'
 import type { Point } from '../data/types'
 
 /**
@@ -39,9 +39,7 @@ const diving = computed(() => e.dive.view().diving)
 watchRunEnd(view, path => { if (!ended.value) void router.replace(path) }, () => { if (!ended.value) ui.toast(e.state.reports.at(-1)?.outcome.summary ?? '這一趟結束了。') })
 /** 離開結算：還在潛入中就回到去處的清單，否則回主畫面 */
 function leaveEnd() {
-  e.dive.clearEnd()
-  void router.replace('/')
-  if (diving.value) ui.openRoot('dive')
+  return leaveSettlement({ clear: () => e.dive.clearEnd(), go: p => router.replace(p), diving: diving.value, openDive: () => ui.openRoot('dive') })
 }
 
 // ---- 自己去挖與迷宮館的抬頭 ----
@@ -101,16 +99,10 @@ function onEnter() {
 const admin = computed(() => view.value?.admin ?? [])
 
 // ---- 登出 ----
-const confirm = ref(false)
-function askLogout() {
-  if (view.value?.logout.block) { ui.toast(view.value.logout.block, 'warn'); return }
-  confirm.value = true
-}
-async function doLogout() {
-  confirm.value = false
-  const r = await e.net.logout()
-  if (r.status !== 'applied' && r.reason) ui.toast(r.reason, 'warn')
-}
+const flow = logoutFlow({ block: () => view.value?.logout.block ?? null, logout: () => e.net.logout(), toast: m => ui.toast(m, 'warn') })
+const confirm = flow.confirm
+const askLogout = flow.ask
+const doLogout = flow.ok
 
 // ---- 抬頭 ----
 const layerTabs = computed(() => (view.value ? view.value.layer.names.map((n, i) => ({ id: String(i + 1), label: `${n}（${i + 1}／${view.value!.layer.total}）`, disabled: i + 1 !== view.value!.layer.index })) : []))
@@ -214,7 +206,7 @@ const hereName = computed(() => view.value?.here.marker?.name ?? null)
         <h3>要登出嗎？</h3>
         <p data-confirm-note>{{ view.logout.note ?? '離開這座子網，回到現實。' }}</p>
         <div class="go">
-          <button type="button" class="btn sm" data-cancel @click="confirm = false">取消</button>
+          <button type="button" class="btn sm" data-cancel @click="flow.cancel">取消</button>
           <button type="button" class="btn sm pri" data-ok @click="doLogout">登出</button>
         </div>
       </div>

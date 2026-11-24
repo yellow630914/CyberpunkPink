@@ -23,7 +23,7 @@ export async function autoBattle(e: Eng): Promise<string | undefined> {
   return outcome
 }
 /** 站到遭遇節點旁邊：試四個鄰格 */
-function standNextToFoe(e: Eng): string {
+export function standNextToFoe(e: Eng): string {
   reveal(e)
   const foe = e.net.sheet()!.markers.find((m) => m.mark === 'f' && !m.used)!
   const g = e.net.grid()!

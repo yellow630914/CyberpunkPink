@@ -313,20 +313,19 @@ describe('7 內容篩選與同步檔位', () => {
     expect(text(h)).toContain('直播：關')
     // 換到一個開得了的檔：畫面的檔位與引擎一致，這回合不能再換
     const to = gv.gears.find((g) => !g.current && g.blocks.length === 0)
-    if (to) {
-      const r = await s.e.scene.act({ kind: 'gear', gear: to.id })
-      expect(r.status).toBe('applied')
-      const v1 = s.e.scene.view()!
-      expect(v1.people.pc.gear.now).toBe(to.id)
-      expect(v1.people.pc.gear.shifted).toBe(true)
-      h = await page(s)
-      expect(attrOf(tagOf(h, `data-gear="${to.id}"`), 'class')).toContain('on')
-      const other = v1.people.pc.gear.gears.find((g) => !g.current)!
-      const why = s.e.scene.options()!.actions.find((a) => a.id === 'gear')!.choices!.find((c) => c.id === other.id)!.blocks
-      expect(why.length).toBeGreaterThan(0)
-      expect(tagOf(h, `data-gear="${other.id}"`)).toContain('is-unavailable')
-      expect(attrOf(tagOf(h, `data-gear="${other.id}"`), 'title')).toContain(why[0]!)
-    }
+    expect(to, '要有一個開得了的檔可以換').toBeTruthy()
+    const r = await s.e.scene.act({ kind: 'gear', gear: to!.id })
+    expect(r.status).toBe('applied')
+    const v1 = s.e.scene.view()!
+    expect(v1.people.pc.gear.now).toBe(to!.id)
+    expect(v1.people.pc.gear.shifted).toBe(true)
+    h = await page(s)
+    expect(attrOf(tagOf(h, `data-gear="${to!.id}"`), 'class')).toContain('on')
+    const other = v1.people.pc.gear.gears.find((g) => !g.current)!
+    const why = s.e.scene.options()!.actions.find((a) => a.id === 'gear')!.choices!.find((c) => c.id === other.id)!.blocks
+    expect(why.length).toBeGreaterThan(0)
+    expect(tagOf(h, `data-gear="${other.id}"`)).toContain('is-unavailable')
+    expect(attrOf(tagOf(h, `data-gear="${other.id}"`), 'title')).toContain(why[0]!)
     expect(text(h)).toContain(v0.people.partner.gear.name)
   })
 })

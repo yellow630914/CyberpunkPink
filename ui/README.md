@@ -80,11 +80,11 @@ npm run preview   # 在本機看建置結果
 
 **過日子接引擎**（M2-ui-life）：商店、每週帳單、打工、休息與住處（`ShopDialog`、`BillsDialog`、`WorkDialog`、`RestDialog`）只編排，`stores/engine.ts` 的 `trade`、`bills`、`work`、`rest` 只轉接 `features/trade`、`bills`、`work`、`rest`；`lib/lifeView.ts` 只整理與排序（購物車列、拆解的字、帳單分支出與收入、下坡的四格、升階的條件進度），沒有價錢、報酬、回復量的算式。站在店、打工的設施、自己的住處或有床位的設施上，「這裡」列引擎給的項目（`trade.shop:<店>`、`work.shift`、`rest.sleep`、`rest.breath`），點了打開對應的對話框（`#/?dialog=shop&shopId=alian`、`dialog=work`、`dialog=rest`、`dialog=bills`）；有活動進行時入口灰掉，原因是引擎的 `blockOf`。結帳之後買到的進引擎的背包、存檔帶著走。引擎出了 `bill.settle`（跨過週一）App 把帳單打開、`bill.notice`（週日晚上）顯示成通知。價錢的拆解、殺價（每間店每天一次）、結帳都是引擎的；洗錢、AI 的當日優惠、派別人去打工、家園的地圖還沒有開放。
 
-**子網接引擎**（M3-ui-subnet）：`SubnetScreen` 只編排，`stores/engine.ts` 的 `net` 只轉接 `features/netrun`（`netrunView`、`useNode`、`descend`、`logout`）與核心的格子（`gridView`、`gridMove`）；`lib/netrunView.ts` 只整理（格子種類的圖示與顏色、迷霧、巡邏代幣、追蹤度刻度的說明、「這裡」與按 E 的選項、結束後離開這一頁）。地圖畫引擎看過的格子（沒看過的蓋霧、看過但不在視野裡的變暗、處理過的節點打勾、目標加星），巡邏的代幣在 `netrunView.patrols` 說的位置（只畫 `visible` 的）；遭遇節點站不上去，站在旁邊時右欄列開戰與潛行繞過；層的分頁只有目前這一層能選，換層只經由閘門的「往下一層」；登出先跳確認框（委託的那一段寫「會回到進副本之前」）。開戰之後 `App.vue` 換到內海戰鬥，打完回到這一頁；這一趟結束（引擎沒有行程了）離開：委託的那一段回副本頁，其餘回主畫面。主畫面的「潛入」與工具列的「子網」、家園的接入室：自己潛進去的入口還沒有開放（灰掉、寫「還沒有開放。」），已經在網內時變成「回到子網」。舊的 `stores/subnet.ts`、`data/subnet.ts`（藍鯨物流、自己算的巡邏與追蹤度）已刪除，存檔不再帶子網（舊存檔的 `subnet` 欄位讀到就略過）。
+**子網接引擎**（M3-ui-subnet）：`SubnetScreen` 只編排，`stores/engine.ts` 的 `net` 只轉接 `features/netrun`（`netrunView`、`useNode`、`descend`、`logout`）與核心的格子（`gridView`、`gridMove`）；`lib/netrunView.ts` 只整理（格子種類的圖示與顏色、迷霧、巡邏代幣、追蹤度刻度的說明、「這裡」與按 E 的選項、結束後離開這一頁）。地圖畫引擎看過的格子（沒看過的蓋霧、看過但不在視野裡的變暗、處理過的節點打勾、目標加星），巡邏的代幣在 `netrunView.patrols` 說的位置（只畫 `visible` 的）；遭遇節點站不上去，站在旁邊時右欄列開戰與潛行繞過；層的分頁只有目前這一層能選，換層只經由閘門的「往下一層」；登出先跳確認框（委託的那一段寫「會回到進副本之前」）。開戰之後 `App.vue` 換到內海戰鬥，打完回到這一頁；這一趟結束（引擎沒有行程了）離開：委託的那一段回副本頁，其餘回主畫面。自己潛進去的入口是接入點（潛艙店等，`dive`）與迷宮館（M3-ui-dive）；已經在網內時主畫面與工具列變成「回到子網」。舊的 `stores/subnet.ts`、`data/subnet.ts`（藍鯨物流、自己算的巡邏與追蹤度）已刪除，存檔不再帶子網（舊存檔的 `subnet` 欄位讀到就略過）。
 
 ## 還沒做（第五版）
 
-- 成人場景的多人（分圈、換圈）、場景裡的直播、同步檔位、每回合的 AI（`scene_turn`、`scene_talk`）、夜課的學習（技能與體位的來源）。
+- 成人場景的多人（分圈、換圈）、場景裡的直播、每回合的 AI（`scene_turn`、`scene_talk`）、夜課的學習（技能與體位的來源）。
 - 戰鬥其餘的主動技能、機甲的部位與開艙、載具叫來當掩體、其他三種無人機；輿論戰其餘的對手與城市事件、公信力。
 - 委託其餘十二型、中型與大型的 2a／2b 階段、附帶條件與報酬公式、詞條、踩點開出來的路。
 - 機甲武器與零件的買賣；另外三處住處、買斷與假身分；商店的長期折扣；染色接上 AI 的外觀描述。
@@ -95,3 +95,12 @@ npm run preview   # 在本機看建置結果
 - **佇列**：`stores/engine.ts` 的 `commitDrafts` 只在「同一個動作的前一份已提交、後面那份被擋」時才留草稿（計程車的抵達，放行時照當下狀態重做）；整個動作被擋下的不留。開新局、讀檔、回退、undo、重來戰鬥、回到階段開始都清空。
 - **全域換頁**：`App.vue` 看 `inBattle` 與等著選的戰敗，不在戰鬥相關頁面就換到 `/combat`；帳單與通知看 store 的 `feed`（這一步提交新產生的報告），不靠報告 id。
 - **讀引擎**：小隊（`partyRows`）、狀態列的敵對值（`hostilityTop`）、中間人的店的人情、召集的人數上限（`fixer.crewRules`）、互動列的 `note`、勢力人情的名字；主畫面「休息」開休息對話框、臥室睡一覺走 `rest.sleep`。設定的快速移動與名冊會死經 `rulesFromUi` 交給引擎。
+
+## M3 介面修正批（2026-11-24）
+
+- **內海戰鬥結束回哪頁**：`useBattle.leave()` 在 `/netcombat` 時用 `lib/netrunView.ts` 的 `netBattleLeaveTo` 照引擎的狀態決定：行程還在回子網；行程沒了而副本還在或手上有委託回 `/commission`；其餘主畫面（全員拔線、接受戰敗、回到階段開始都不再落在空的子網頁）。戰敗等三選一時內海戰鬥頁藏「← 主畫面」。
+- **子網離開結算**：`leaveSettlement` 先換完頁才打開「去處」對話框；登出確認抽成 `logoutFlow`（按登出只開框、取消不送、確認才送），兩個都有真的走一遍的測試。
+- **這一趟的帳**：store 的 `runMemo`、`lastEnd`、`netStageMemo` 在開新局、讀檔、回退、undo、重來戰鬥、回到階段開始時清掉並重抄引擎現在的行程；行程沒了又沒有結束報告收走時也清。
+- **內海分頁**：潛入中整頁鎖只套甲板、構裝、腳本；SKIN 用引擎 `deckView().skins[].block`（`skinBlock`）。
+- **說明文字**：不再寫死「1 分鐘」「甲板等級 ＋1」「七天內」「不限」這些會被資料蓋掉的數字；追蹤度三道刻度的說明照 NETRUNNING 第 5 節，內海戰鬥與子網頁同一份。副本頁讀檔後沒有「這一段拿到的東西」的記錄時只寫追蹤度，不寫「沒有帶東西出來」。
+- 測試：`tests/commission/M3-fix-ui.test.ts`（新）；`netFixtures.ts` 是委託內海面測試共用的假資料與開局。沒有 DOM 環境，「點」是呼叫 `useBattle` 與 lib 的流程函式。

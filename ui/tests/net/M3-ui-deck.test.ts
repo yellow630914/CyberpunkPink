@@ -9,7 +9,7 @@ import { createSSRApp } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import type { ContentPack, Feature } from '@engine/src'
 import { toMinutes } from '@engine/src'
-import { laceUnit, netAvatar } from '@engine/src/testkit'
+import { laceUnit, netAvatar, TEST_ACTIVITY } from '@engine/src/testkit'
 import { useEngine } from '../../src/stores/engine'
 import NetTab from '../../src/dialogs/character/NetTab.vue'
 import { DEMO_DECK, DEMO_DECK_UID } from '../../src/data/demo'
@@ -238,6 +238,29 @@ describe('戰鬥中打開是唯讀的', () => {
     const h = clean(await render(pinia))
     expect(h).toContain('data-testid="deck-lock"')
     expect(text(h)).toContain(why!)
+  })
+})
+
+describe('潛入中（網內的行程進行中）：甲板與構裝唯讀，SKIN 照引擎的 skinBlock', () => {
+  it('整頁的鎖是引擎的；SKIN 那一格沒有被灰掉（引擎放行換 SKIN）', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const e = useEngine()
+    const ALLOW: Feature = { id: 'deck_ui_allow', install(k) { k.activity.allow('toy', 'commit:deck.skin', 'deck_ui_allow') } }
+    e.newGame({ seed: 7, testContent: [PACK], testFeatures: [HELPER, TEST_ACTIVITY, ALLOW] })
+    expect(e.createCharacter(DRAFT)).toEqual([])
+    expect(e.commit({ summary: '給東西', changes: BAG as never })).toBeNull()
+    expect(e.deck.equip('D1')).toBeNull()
+    expect(e.commit({ summary: '潛入', action: 'toy.test', changes: [{ op: 'ext', key: 'toy', value: { id: 't1', steps: 0, goal: 1, origin: { by: 'test' } } }] as never })).toBeNull()
+    expect(e.deck.lock()).toBeTruthy()
+    const b = e.deck.view()!.skins.find((s) => !s.worn)!
+    expect(b.block).toBeNull()
+    expect(e.deck.install('cs_b')).toBe(e.deck.lock())
+    const h = clean(await render(pinia))
+    expect(h).toContain('data-testid="deck-lock"')
+    const skins = h.slice(h.indexOf('data-testid="skins"'))
+    expect(skins.slice(0, skins.indexOf('data-open-dye'))).not.toContain('is-unavailable')
+    expect(e.deck.skin(b.item)).toBeNull()
   })
 })
 

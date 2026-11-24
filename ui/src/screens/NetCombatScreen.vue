@@ -22,7 +22,7 @@ const place = computed(() => engine.battle?.origin.place ?? '')
 
 <template>
   <div class="bt-screen net">
-    <StatusBar back :title="engine.inBattle ? `內海戰鬥${place ? `：${place}` : ''}` : '內海戰鬥'" />
+    <StatusBar :back="!engine.pendingDefeat" :title="engine.inBattle ? `內海戰鬥${place ? `：${place}` : ''}` : '內海戰鬥'" />
     <BattleBoard :from="from" :fast="fast" :enc="enc" />
   </div>
 </template>

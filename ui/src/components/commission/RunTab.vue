@@ -49,7 +49,7 @@ const lastNet = computed(() => {
   const n = x.step === 'done' ? x.stages : x.stage - 1
   const went = x.route.filter(r => r.stage === n).at(-1)
   if (!went || went.face !== 'net') return null
-  return netStageLine(n, x.trace.value, e.commission.netStage(n)?.loot ?? [])
+  return netStageLine(n, x.trace.value, e.commission.netStage(n)?.loot ?? null)
 })
 const hoursText = computed(() => (v.value ? `${v.value.stageMinutes / 60} 小時` : ''))
 

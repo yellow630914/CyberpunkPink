@@ -30,7 +30,7 @@ export function costParts(o: Pick<DiveOptions, 'fee' | 'deposit' | 'cost'>): Arr
 export const sortSites = (rows: SiteRow[]): SiteRow[] => [...rows].sort((a, b) => Number(a.block !== null) - Number(b.block !== null))
 
 /** 留著的子網離開了幾天的一句 */
-export const keptLine = (k: { daysAgo: number; located: boolean }): string => `上次離開：${k.daysAgo <= 0 ? '今天' : `${k.daysAgo} 天前`}${k.located ? '（被定位）' : ''}。七天內再進去是同一張圖。`
+export const keptLine = (k: { daysAgo: number; located: boolean }): string => `上次離開：${k.daysAgo <= 0 ? '今天' : `${k.daysAgo} 天前`}${k.located ? '（被定位）' : ''}。`
 
 /** 迷宮館的組別列的 key（無差別組有兩個等級，id 一樣） */
 export const bracketKey = (r: Pick<BracketRow, 'id' | 'grade'>): string => `${r.id}:${r.grade}`
@@ -38,7 +38,7 @@ export const bracketKey = (r: Pick<BracketRow, 'id' | 'grade'>): string => `${r.
 /** 這一組的構裝規則（給畫面的字樣：數字來自引擎的 own、maxGrade、deck） */
 export function bracketRule(r: BracketRow): string {
   if (!r.own) return '只能用館方發的比賽版構裝與比賽甲板。'
-  return r.maxGrade >= 5 ? '自己的構裝不限。' : `比賽版，或自己 ${roman(r.maxGrade)} 級以下的構裝。`
+  return `比賽版，或自己 ${roman(r.maxGrade)} 級以下的構裝。`
 }
 
 /** 迷宮館結算的資料（maze.result 報告 timeline 的 data；引擎的 MazeResult） */
