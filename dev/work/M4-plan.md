@@ -1,0 +1,209 @@
+# M4：批次計畫
+
+- 寫的人：cpp-architect（2026-11-24）。設計在 dev/adr/0019；這一份是工單的清單、相依、順序、收尾與要使用者先定的事。
+- 範圍（MIGRATION 第 6 節 M4 那一列，加上使用者定進來的與 dev/status.md 標了 M4 的待辦）：義體；組裝；醫療與藥；沉溺、蠱惑、惡意韌體；調校；契約（兩個方向）；夜課、多人分圈、單人模式、內海的成人場景；簾後館；建角第 5、6、8、9 步進引擎；甲板改成腦部義體；橋參數的有效值；對應的介面。
+- **開工的時間**：M3 收尾（冒煙、審查、三批修正）做完之後。工單可以先看、先問，不要先做：M3 的修正批還會動 `engine/`。工單引用的 M3 介面以 dev/adr/0018 與各功能檔頭的註解為準；開工時名字和工單寫的不一樣，以程式為準，在回報裡寫出來。
+- 和 M2、M3 一樣：**只做機制，不匯入內容**；工單**沒有預先寫好的驗收測試**，每一張列的是驗收條件，做的人自己寫成測試（測試自帶最小假資料）。
+
+## 每一張都適用的規定
+
+1. 不 commit、不 push（總指揮統一做）。做完跑 `engine/` 的 `npm test`、`npx tsc --noEmit`（介面的跑 `ui/` 的 `npm test` 與 `vue-tsc`）。
+2. 內容資料一律用測試自帶的最小假資料，不讀也不改 `engine/data` 的內容類。測試放工單指定的路徑，直接進主套件。
+3. 新功能放 `engine/src/features/<功能>/`，只 import `'../../core'`；做完在 `engine/src/features/index.ts` 的 `FEATURES` 加一行（順序有要求的寫在工單裡）。
+4. 讀別的功能的東西只經由 `k.stats`、`k.conditions`、`k.content`、`meterOf`、核心的狀態，與 dev/adr/0019 第十四節那張「共用的資料慣例」表；寫只經由變更與效果；**不讀別的功能的 `state.ext`**。別的功能宣告的掛點用名字掛（型別照 `features/maze/index.ts` 掛 `netrun.round` 的做法自己轉）。工單寫「有人註冊才…」的地方，那個功能沒裝時要照樣跑得起來。
+5. 報告的 `action` 用自己的前綴（0019 第十四節）；改狀態的入口都是「匯出一個純函式，回傳報告草稿」，不成立時丟 `ActionBlocked` 或回傳原因，原因寫成給玩家看的完整句子、一條一個條件。
+6. 規則的數字在功能裡寫一份照設計書的預設（`DEFAULT_…`），並開一種規則的內容種類（`overridable: true`）讓資料蓋掉；資料檔最後由 M4-data-rules 補。設計書沒寫或對不上的照 0019 第十五節（P1～P64），做的時候看到設計書有相反的寫法就停下來回報。
+7. **一直生效的加減一律寫成被動效果**（0019 第二節），用 `k.passives.register` 一次註冊，不要自己往 `k.stats`、`k.battle.modifier` 各掛一遍；**往下降沉溺一律走 `sink` 效果**。
+8. 所有登場角色都是成年人。成人的內容只寫機制與數字，不寫內文；給 AI 寫正文用的「結果」句子不帶機制數字（0017 第 12 項），也不寫露骨的文字。被內容篩選關掉的題材：對應的選項、技能、事件不出現，機制（感載、沉溺、橋參數）照舊。
+9. 核心的四張（M4-core-…、M4-smoke）改的是 `coreDirs`：派 cpp-architect 角色、指定 sonnet，派工時明說可以改哪些核心路徑。它們回報「ADR 做不到」的地方，先回到 cpp-architect 改設計，再往下。
+
+## 工單
+
+| # | 工單 | 交給 | 做什麼 | 主要動到 |
+|---|---|---|---|---|
+| 1 | M4-core-product | cpp-architect，sonnet | 設計圖、零件、成品的格式進核心；`productOf`、`slotProblems`、`productPrice`；物品類別 `drug` | `core/content`、`core/rules`、`features/gear`（改 import） |
+| 2 | M4-core-passive | cpp-architect，sonnet | 被動效果的來源；節奏資源合計 +1；橋參數的有效值進戰鬥；沒有橋；`sink_floor` | `core/rules`、`core/battle`、`core/kernel.ts`、`features/character`、`features/lewd` |
+| 3 | M4-gear-m4 | cpp-feature | 裝備補完：品質與瑕疵、重量、曝露度與風格、外套、染色 | `features/gear` |
+| 4 | M4-cyberware | cpp-feature | 新功能：部位、手術（四種人動刀）、沉溺成本、效果、休養與併發症 | `features/cyberware`（新） |
+| 5 | M4-cyber-bridge | cpp-feature | 橋是一件義體：四類容量的衍生數值、機能、換橋、沒有橋 | `features/cyberware`、`features/abilities`、`features/lewd` |
+| 6 | M4-cyber-deck | cpp-feature | 甲板是腦部的義體：`deck.source`、舊存檔搬家 | `features/deck`、`features/cyberware` |
+| 7 | M4-cyber-battle | cpp-feature | 義體進戰鬥：`implants`、`cyber_count`、設計圖的 `battle` 欄位、`implant_install` | `features/cyberware` |
+| 8 | M4-cyber-lock | cpp-feature | 授權鎖、訂閱、二手與殘響；`cyber_install`／`cyber_take`／`cyber_lock`；`defeat.gear`、`scan.person` | `features/cyberware` |
+| 9 | M4-craft | cpp-feature | 新功能：會做的設計圖、預覽、組裝的檢定與品質、誰來做、超規；成品進交易 | `features/craft`（新）、`features/trade`、`features/rest`（條件） |
+| 10 | M4-craft-salvage | cpp-feature | 拆解、換零件、畫設計圖、敵人身上的義體（解剖的現實面） | `features/craft`、`features/enemies` |
+| 11 | M4-medical | cpp-feature | 新功能：急救、診所治療、重創的手術與戰鬥外的效果、修理、`wound_treat` | `features/medical`（新） |
+| 12 | M4-drugs | cpp-feature | 新功能：藥、持續與副作用、成癮與戒斷、抑制劑 | `features/drugs`（新） |
+| 13 | M4-sink | cpp-feature | 新功能：沉溺的分段、每週消退、治療、藏、100 以上 | `features/sink`（新）、`features/rest`（計數器） |
+| 14 | M4-abilities-m4 | cpp-feature | 技能在 M4 的部分：日常技能四個、手術刀的減免、夜課延伸的技能、橋的機能要的鍵、條件 `ability` | `features/abilities` |
+| 15 | M4-creation-body | cpp-feature | 建角第 6、8、9 步：掛點 `creation.step`、點數、白給的；各功能的回答 | `features/creation`，與 `cyberware`、`abilities`、`gear`、`deck` 各一小段 |
+| 16 | M4-creation-lifepath | cpp-feature | 建角第 5 步：生命軌跡 | `features/creation`、`features/npcs`、`features/lewd` |
+| 17 | M4-scene-seats | cpp-feature | 場景的狀態從兩個人改成座位（行為不變）；之後要的接口 | `features/scene` |
+| 18 | M4-scene-circles | cpp-feature | 多人：三到四人的體位、一圈的回合、分圈、換圈 | `features/scene` |
+| 19 | M4-scene-solo | cpp-feature | 單人模式 | `features/scene` |
+| 20 | M4-nightclass | cpp-feature | 新功能：夜課的開階、學習、看得到哪些、NPC 會哪些 | `features/nightclass`（新） |
+| 21 | M4-scene-net | cpp-feature | 內海的場景、化身的部位、SKIN 的風格與曝露度 | `features/scene`、`features/deck` |
+| 22 | M4-scene-close | cpp-feature | 場景的結算補齊；收 AI 收尾任務的結果 | `features/scene` |
+| 23 | M4-tuning | cpp-feature | 新功能：調校、強制安裝、靜室 | `features/tuning`（新） |
+| 24 | M4-core-scene-ai | cpp-architect，sonnet | 七個 AI 任務與兩條鏈 | `shell/ai`、`shell/` |
+| 25 | M4-contract | cpp-feature | 新功能：主角是契約人：紀錄、指令佇列、抗拒、滿意、逾期、規矩、收入歸屬、身分 | `features/contract`（新） |
+| 26 | M4-contract-holder | cpp-feature | 主角是持約人：面板兩頁、觸發事件、調整、解約 | `features/contract` |
+| 27 | M4-malware | cpp-feature | 新功能：惡意韌體的階段、來源、清除 | `features/malware`（新） |
+| 28 | M4-lure | cpp-feature | 新功能：流竄 AI 的蠱惑 | `features/lure`（新） |
+| 29 | M4-venues | cpp-feature | 人偶館的兩種模式；新功能感官擂台 | `features/work`、`features/arena`（新） |
+| 30 | M4-security-m4 | cpp-feature | 掃橋讀義體、沉溺、契約；掛點 `scan.person` | `features/security` |
+| 31 | M4-followups | cpp-feature | 既有功能的 M4 待辦：戰敗、名冊、帳單、休息、打工 | `features/defeat`、`roster`、`bills`、`rest`、`work` |
+| 32 | M4-enemies-m4 | cpp-feature | 敵人的雙形象、五種效果記號、沉溺高的敵人 | `features/enemies` |
+| 33 | M4-curtain-entry | cpp-feature | 簾後館：會員、席次、保證金、會費、口味單、檔期主題、報名 | `features/curtain`（新） |
+| 34 | M4-curtain-run | cpp-feature | 簾後館：四幕、點單、場熱、賞箱、化妝室、近道、條文、結算、加演 | `features/curtain` |
+| 35 | M4-curtain-fall | cpp-feature | 簾後館：落幕、補演、三條路、母帶 | `features/curtain` |
+| 36 | M4-data-rules | cpp-data | M4 的規則表（不含內容） | `engine/data/rules/` |
+| 37 | M4-ui-body | cpp-ui | 角色的身體分頁、診所、藥與調校；舊的 `lib/clinic.ts` 拿掉 | `ui/` |
+| 38 | M4-ui-craft | cpp-ui | 組裝畫面接引擎；`lib/crafting.ts`、`lib/dye.ts` 的規則拿掉 | `ui/` |
+| 39 | M4-ui-creation | cpp-ui | 建角第 5、6、8、9 步接引擎；`lib/creation.ts`、`lib/skills.ts` 的規則拿掉 | `ui/` |
+| 40 | M4-ui-scene | cpp-ui | 場景畫面：多人、單人、內海皮；夜課的學習頁 | `ui/` |
+| 41 | M4-ui-contract | cpp-ui | 契約面板的兩面、指令、掃橋多的幾行、沉溺與蠱惑的呈現 | `ui/` |
+| 42 | M4-ui-curtain | cpp-ui | 簾後館的會員、報名、點單、場熱、落幕 | `ui/` |
+| 43 | M4-smoke | cpp-architect，sonnet | 具名的情境、M4 的冒煙主幹、種子重播、test-harness 與不變式 | `testkit/`、`tests/smoke` |
+
+dev/status.md 標了 M4 的待辦各落在哪一張：`cyber_count` 與 AI 偏好 `bridged`（7）；物品類別 `drug`（1）；橋參數的有效值不進戰鬥、明寫「沒有橋」（2）；LEWD_SYSTEM 第 1 節表上沒有數字的格子（5、23，寫不出來的列在回報）；成品沒有目錄價（1、9）；security 的義體與沉溺掃描（30；寄放與拘留不在這一批）；roster 的沉溺 100 離隊與藏沉溺（31）；defeat 的 `defeat.gear`（8、3）與丙丁戊三組的效果（8、23、27、25、31）；bills 的鎖義體與簽契約（31）；work 的契約人收入歸屬（25）與公式型時薪（31）；rest 的治療與 `net_broken`（11、31）；scene 沒做的（17～22）；正式遊玩沒有夜課的來源（20）；abilities 的日常技能與戰地手術裝義體（14、7）；M3-deck 留的換掉處（6）；M3 計畫留給 M4 的惡意韌體植入（27，netcombat 的效果查得到 `malware` 才給）、SKIN 的風格與曝露度（21）；建角第 6、8、9 步與起始裝備（15）、第 5 步（16）；技能介面等的「橋的物品資料與新角色的預設橋」（5、15）；gear 的組裝、品質、拆解、染色、重量（3、9、10）；`hostility_floor` 一定要寫 `days`（31）；單人模式（19）。
+
+## 相依
+
+```
+1 core-product ─┬─ 3 gear-m4
+                ├─ 4 cyberware（要 2）─┬─ 5 cyber-bridge ─ 6 cyber-deck
+                │                      ├─ 7 cyber-battle
+                │                      └─ 8 cyber-lock
+                └─ 9 craft ─ 10 craft-salvage
+2 core-passive ─┬─ 11 medical、12 drugs、13 sink、23 tuning、27 malware
+                └─ 4 cyberware
+14 abilities-m4（要 5、7、9、11）─ 15 creation-body（要 3、5、6）─ 16 creation-lifepath
+17 scene-seats ─ 18 scene-circles ─ 19 scene-solo ─ 21 scene-net（要 6）─ 22 scene-close ─ 24 core-scene-ai
+20 nightclass（要 17）
+25 contract（要 2；8、23 沒裝也跑得起來）─ 26 contract-holder
+28 lure（27 沒裝也跑得起來）
+29 venues、30 security-m4（要 8、13、25）、31 followups（要 8、13、25、27）
+32 enemies-m4 ─ 33 curtain-entry ─ 34 curtain-run ─ 35 curtain-fall（要 18、22）
+介面：37（要 4～8、11～13、23 的引擎介面；23 還沒做的那一塊先留空）─ 38（要 9、10、3）─ 39（要 15、16）─ 40（要 17～22）─ 41（要 25、26、28、30）─ 42（要 33～35）
+36 data-rules、43 smoke：引擎的功能都做完之後
+```
+
+**不要同時做的**（改同一批檔）：核心的三張彼此（1、2、24 都要補 `core/index.ts` 或 `shell/index.ts` 的匯出與 dev/invariants.md）；4～8（`features/cyberware`）；9、10（`features/craft`）；17、18、19、21、22（`features/scene`）；25、26（`features/contract`）；33、34、35（`features/curtain`）；14 與任何還在改 `features/abilities` 的事（5 會改 `learn.ts` 讀容量的那一段）；15 會在 `cyberware`、`abilities`、`gear`、`deck` 各加一段掛點的回答，那時候這四個資料夾不要有別的工單；13 與 31 都會碰 `features/rest`；29 與 31 都會碰 `features/work`；介面的六張彼此（都改 `stores/engine.ts`）。新功能在 `FEATURES` 的位置：`cyberware` 排在 `deckFeature` 前面（`deck` 問它 `deck.source`，掛點在安裝時就要有人掛）；`sink` 排在 `rosterFeature` 前面；其餘沒有要求。
+
+## 建議的順序（同時最多兩張）
+
+| 步 | 甲 | 乙 |
+|---|---|---|
+| 一 | 1 core-product | 17 scene-seats |
+| 二 | 2 core-passive | 18 scene-circles |
+| 三 | 4 cyberware | 19 scene-solo |
+| 四 | 5 cyber-bridge | 3 gear-m4 |
+| 五 | 6 cyber-deck | 9 craft |
+| 六 | 7 cyber-battle | 10 craft-salvage |
+| 七 | 8 cyber-lock | 11 medical |
+| 八 | 12 drugs | 13 sink |
+| 九 | 14 abilities-m4 | 37 ui-body |
+| 十 | 15 creation-body | 38 ui-craft |
+| 十一 | 16 creation-lifepath | 20 nightclass |
+| 十二 | 39 ui-creation | 23 tuning |
+| 十三 | 21 scene-net | 27 malware |
+| 十四 | 22 scene-close | 25 contract |
+| 十五 | 24 core-scene-ai | 26 contract-holder |
+| 十六 | 40 ui-scene | 28 lure |
+| 十七 | 29 venues | 30 security-m4 |
+| 十八 | 31 followups | 32 enemies-m4 |
+| 十九 | 41 ui-contract | 33 curtain-entry |
+| 二十 | 34 curtain-run | （前三波的引擎審查可以先開始） |
+| 二十一 | 35 curtain-fall | 36 data-rules |
+| 二十二 | 42 ui-curtain | 43 smoke |
+
+- **四波**，每一波做完都是玩得到的一圈：
+  - **第一波：身體**（到第十二步的 39）：建角選橋與義體、起始的技能與裝備 → 診所裝一件義體、沉溺的下限跟著墊高 → 組一把槍 → 打一場、受重創、治療 → 吃藥、成癮。
+  - **第二波：成人場景**（到第十六步的 40）：學夜課 → 三個人的一場、分圈 → 單人 → 內海裡的一場 → 結算（沉溺、橋參數、性經歷）；AI 開著時走 `scene_gate` 與收尾的任務。
+  - **第三波：契約與長線**（到第十九步的 41）：簽下一份契約 → 收到指令、抗拒或照做、逾期 → 當持約人；惡意韌體從潛伏走到發作；蠱惑；人偶館與擂台。
+  - **第四波：簾後館**（到第二十二步）：入會、報名、四幕、落幕與補演。
+- 使用者要砍範圍的話，從後面的波整段拿掉：第四波拿掉時 32 只做「沉溺高的敵人」那一段、36 與 43 不寫簾後館的表與冒煙；第三波拿掉時 30、31 只剩義體與沉溺的部分。
+- 第二步做完時核心的介面就定了。第 1、2 張回報「ADR 做不到」的地方，先回到 cpp-architect 改設計，再往下。17、18、19 不靠核心的新介面，所以和核心的兩張並行。
+- 每一步兩張都回來、主套件全綠之後再開下一步。
+
+## 收尾（照 M3 的做法）
+
+| 步 | 誰 | 做什麼 | 產出 |
+|---|---|---|---|
+| 甲 | M4-smoke（第 43 張） | 具名的情境、冒煙主幹、種子重播、分層檢查、test-harness 與不變式對一次 | `engine/tests/smoke/m4*.test.ts`、斷掉的寫 bug 報告 |
+| 乙 | cpp-reviewer（引擎一份、介面一份，可以同時） | 審查這一批的引擎與介面 | dev/reviews/<日期>-M4.md、<日期>-M4-ui.md |
+| 丙 | cpp-tester-whitebox、cpp-tester-boundary（可以同時）；cpp-tester-probe 兩支（一次手術到沉溺的下限、一條契約指令從送達到逾期） | 白箱補分支、邊界找數值與對抗性的 AI 回應；探針追每一份報告與掛鉤 | 測試、dev/bugs/<日期>-<id>.md、dev/probes/cyberware-<日期>.md、contract-<日期>.md |
+| 丁 | 總指揮 → 使用者 | 審查與 bug 報告裡要定的事成批問，每題附建議 | 裁決記進 dev/status.md |
+| 戊 | cpp-architect 開修正的工單，sonnet 實作（核心派 cpp-architect 角色，其餘 cpp-feature／cpp-ui） | 三批：`M4-fix-review`、`M4-fix-bugs`、`M4-fix-ui` | 修正、回歸測試、0019 的實作補記、不變式 |
+| 己 | 總指揮 | 介面重建並發布介面成品；設計書跟著這一批的裁決改完之後跑 `python3 tools/docs/check.py`、重建並發布設計書成品（project.md「設計書成品同步」）；dev/status.md 記收尾；commit 與 push | 介面成品、設計書的新版 |
+
+審查與測試的重點（寫給乙、丙）：
+
+- **被動效果**：每一個來源（`cyber`、`drug`、`tuning`、`quirk`、`malware`、`sink`、`withdrawal`）拿掉之後數字完全回來；節奏資源合計 +1 只夾該夾的來源；橋參數的有效值在戰鬥、場景、同步上限三處是同一個數字。
+- **沉溺的下限**：任何一條路都不會讓沉溺低於下限（性質測試：隨機裝拆義體、吃藥、治療、場景結算）；裝上義體時補到下限；抑制劑的反彈。
+- **手術**：四種人動刀的費用、成本、併發症；休養中不生效；拆下來的東西和裝上去之前對得上（零件一個不少）；鎖住的拆不了。
+- **舊存檔**：M3 的存檔（背包裡裝著的甲板、一對一進行到一半的場景）讀進來接著玩的結果合理，不丟錯。
+- **場景**：改成座位之後一對一的結果和之前逐欄相同；多人的行動點、連接、每一對的契合不串；單人沒有任何「對方」的欄位漏出來；內容篩選關掉的技能、體位、性質都不出現。
+- **契約**：指令的每一種狀態轉移；期限在委託副本裡暫停；收入歸屬只在「工作」的指令生效；解約之後身分、光紋、佇列都清乾淨；回到快照（撤退）之後佇列與滿意跟著回去。
+- **白名單**：簾後館的一趟、擂台的一場、場景進行中放行的清單。
+- **AI 的對抗**：`scene_turn` 交「停下」、交不合法的行動、交別圈的人；`sink` 交超過 ±4；`scene_gate` 交被篩選關掉的性質；新的效果（`cyber_install`、`contract_sign`、`malware`……）AI 一律給不出來。
+- **成年人的底線**：臨時生成的角色（補演的對象、蠱惑的碎片）年齡照核心的下限；化身的資料不能繞過。
+
+## 這一批刻意不做的
+
+- **義體與組裝**：零件的合成（N 組的 `fusion`，設計書只有 MIGRATION 的一句）；訂做零件（要 AI 任務 `design_part` 與固定 NPC 的交情）；向固定 NPC 學工藝；生體件的成長（成熟度、營養劑、長出新屬性；CRAFTING 8.3 節）與獸化的套裝加成；原廠全套的套裝加成只收資料；槍靈；機甲與載具的整備（M6）；拼裝橋的隨機容量與怪癖表（內容）。
+- **醫療與藥**：天使急救的會員與出勤費（跟戰敗的 `angel` 一起，等內容）；藥泵以外的自動用藥；V 級的藥；糰糧這類日用品的長期效果。
+- **沉溺與牆外**：過牆、群落、居民的任務線、當中間人的流竄 AI 與牠們的委託、牆外的契約（誓約、自己選主人）、永晝園：M6。夥伴往下走的關係線事件是內容。溺感者的「傳播」只留條件。
+- **契約**：九條脫身的路裡只做「還清」與效果 `contract_end`（其餘是任務與事件的內容）；出借的「另一個人暫時有權限」只做成一條指令的種類；拍賣行（契約的轉讓、稀有義體的拍賣）；持約人派契約人去打工（派工，M5）；伊甸園的回收員。
+- **成人場景**：玩家操作主角以外的人；直播裡的場景與彈幕的要求（M5；單人模式的「對觀眾說話」先灰掉）；感官帶的素材（M5）；AI 每回合替別的圈寫字（照設計書本來就不跑）。
+- **場所**：拍賣行、各區的氛圍（N 組的 `charm`，設計書只有 MIGRATION 的一句）、調校診所以外的量測服務、感官擂台場邊的下注與線上版、片場的素材（M5）、愛情旅館的安全屋（M5 家園）。
+- **簾後館**：內場直播與內場帶、檔期榜上別隊的模擬與月榜升席、贊助人的委託線頭（只給旗標）、臨檢夜等 `nt_curtain_*` 事件（內容）、八個夜約四十種敵人（內容；測試與示意包各兩三種）。
+- **安全**：寄放與拘留、降敵對值的其他方式、分段的後果。
+- **建角**：快速開始的十四個預設角色與每個出身的建議組合（內容）；AI 把生命軌跡寫成一段背景；自訂特質由 AI 定價。
+- **內容**：設計圖、零件、藥、調校、惡意韌體、夜課技能、體位、流竄 AI、蠱惑事件、指令事件、戰敗事件都不匯入。介面要看得到東西的，放 `ui/src/data/demo/` 的示意世界包。
+
+## 要使用者先定的事（每一項附建議）
+
+1. **M4 分四波、要不要砍**（身體；成人場景；契約與長線；簾後館；一共 43 張工單、二十二步）。
+   建議：四波都做，照這個順序；每一波做完先看一次成品。額度吃緊的話先砍第四波（簾後館），它不擋別的東西。
+2. **「N 組的其餘」做哪些**：調校與靜室、人偶館的兩種模式、感官擂台、惡意韌體、光紋刺青有設計書；拍賣行、各區的氛圍、零件的合成、訂做零件、向 NPC 學工藝在設計書裡只有一句，或者要 AI 任務與內容。
+   建議：前五樣做；後五樣這一批不做，等設計書補了規則再排（要的話請文件代理先補 LEWD_SYSTEM 第 6 節與 CRAFTING 第 11 節）。
+3. **手術費照設計書還是照介面的示意**（P3）：TRADE 3.4 節是成品價的五成（正規）、三成（無照）、四成（黑診所）；`ui` 的示意是一成與半成。
+   建議：照設計書。介面跟著改。
+4. **併發症、休養、診所的沉溺減免這幾個沒寫的數字**（P4～P7）：無照 10%、黑診所 15%；休養照侵入度 0／4 小時／1 天／2 天／4 天、換橋 3 天、生體 ×3，休養中那一件不生效；正規診所沉溺成本 −10%；換橋暫時 +5 沉溺、7 天退回。
+   建議：先照這些，交給平衡的 session 之後看。
+5. **節奏資源「全身合計最多 +1」怎麼落**（P13）：義體、藥、裝備、構裝給的每回合行動點與 RAM 回復，各自合計最多 +1，由核心在加總時夾。
+   建議：照這樣。資料上「RAM 回復 +1」的甲板與藥要標成這一類（匯入內容時處理）。
+6. **舊存檔的甲板**（P50）：M3 的甲板是背包裡的成品，M4 變成腦部的義體。
+   建議：讀檔時自動搬進腦部的槽，不收費、不休養，沉溺的下限照加（沉溺不到的補上）。示意世界包開局改成「已經裝著一副入門甲板」。
+7. **建角能不能不要橋**（P53）：設計書寫這是一種可選的建角方式，介面現在一定要選一座。
+   建議：開放，畫面先講清楚後果（沒有感載、沒有技能、不能潛入）。
+8. **建角的點數怎麼算**（P52、P54、P55）：義體一件照設計圖寫的點數，沒寫照（成品價 ×1.5）÷ 500 進位；學的技能照順序自動裝到容量滿；白給的東西寫在出身的資料。
+   建議：照這樣。
+9. **單人模式的規則**（P38～P40；0019 第九節）：節奏取代契合、沒有主動權與體位、加快與放慢取代主導與迎合、說話只有直播開著時能用；評價用同一張表；體悟打五折；不算進性經歷的次數與對象（另記單人的次數）；沉溺預設不動。
+   建議：照這樣；直播接上（M5）之前「對觀眾說話」與所有要觀眾的技能先灰掉。
+10. **單人模式不能用的技能與體位**（0019 第十六節的表）：所有體位（三個基本的與體位技能開的）都不能用，所以十個體位技能也不能用；其餘五十四個技能建議三十四個不能用、九個要有觀眾才能用、十一個可以用（接自己的，或效果只落在自己身上的）。
+    建議：請使用者看那張表逐條確認；確認之後每個技能的資料多一個 `solo` 欄位，NIGHT_LESSONS 加一欄。
+11. **多人的場景只記主角的每一對**（P33、P34）：一圈裡 NPC 對 NPC 不記契合與主動權，只算感載；體位由「把主角壓得最低的那個人」或主角決定。
+    建議：照這樣（設計書的結算與評價本來就只看主角的對象）。
+12. **精簡版遇到多人的場景**（P37）：設計書寫精簡版固定一對一。
+    建議：精簡版只展開主角與第一個對象，其餘的人在旁邊不展開；要玩三人以上的體位請切到完整版。
+13. **場景的 AI 任務這一批做不做**（0019 第十三節）：`scene_gate`、每回合的 `scene_turn` 與 `scene_talk`、收尾的 `sex_record`、`sink`、`tendency`、`relate`。M2 的裁決是只接整場的正文。
+    建議：做（第 24 張，一張核心的工單），七個都有規則的退路，AI 關著時行為不變。額度吃緊的話這一張可以整張延到 M4 收尾之後。
+14. **AI 關著時場景的沉溺**（P43）：M2 做成不變；AI_TASKS 4.2 節的退路是親密而且兩情相悅 −2、交易與工作 0、被迫 +2。
+    建議：改照退路。
+15. **沉溺分段 M4 做到哪**（P17、P18）：做檢定的加減、承受層數、每週的衝動觸發點、每週的敵對值、100 以上的三條規則；80～99 的「加倍」只加倍檢定的加減與餘韻的正面效果。
+    建議：照這樣；過牆與溺感者的委託等 M6。
+16. **抑制劑與藏沉溺**（P20、P21）：付了帳單的那一週下限 −10、別人看到的沉溺低一段；沒付反彈 +15 兩週；掃描看穿的檢定是 d20＋強度 ×3 對 10＋意志調整值＋定力＋每種手段 2。
+    建議：照這樣。
+17. **蠱惑多常來**（P22、P23）：設計書只有「一天最多一件」。
+    建議：登入 15%、進子網的一層 10%、長休醒來 15%，冷卻 24 小時；誰來照 LURE_EVENTS 的權重抽。
+18. **契約怎麼簽下去**（0019 第八節）：引擎只提供效果 `contract_sign`，這一批接兩個入口：每週帳單的下坡路走到底（`bills` 現在只有旗標）、戰敗事件的戊組；自願簽約與買下別人的契約是內容。
+    建議：照這樣。示意世界包放一個「主角是契約人」與一個「主角是持約人」的開局各一，介面才看得到。
+19. **契約的幾個沒寫的數字**（P27～P30）：持約人下哪一種指令的權重、滿意的加減（照做 +5、主動要求 +8、抗拒成功 −5、逾期 −10）、每照做三次馴化 +1、贖身是剩餘的債 ×1.5（滿意 80 以上可以談到 ×1.2）、規矩只自動檢查禁區與宵禁。
+    建議：先照這些。
+20. **沒有直播的簾後館**（P57）：照 MIGRATION，場熱只算戰鬥與場景；內場直播、內場帶、檔期榜上別隊的模擬等 M5。
+    建議：照這樣；M5 的計畫要記得回來補。
+21. **其餘的暫定值**（P1、P2、P8～P12、P16、P19、P24～P26、P31、P32、P35、P36、P41、P42、P44～P49、P51、P56、P58～P64）：部位的 id、沉溺成本的算法、橋的容量怎麼分、反射加速器與冷卻迴路的數字、二手件、組裝的難度、惡意韌體的天數、夜課的條件格式、NPC 會哪些夜課、別的圈怎麼算、化身的部位、橋參數那一點落在哪、刺青、重創在戰鬥外、戰地手術裝義體、調校的費用、成品甲板的沉溺成本、邀請函、擲文化、補演的對象、場內契約與記帳、五種效果記號、擂台、人偶館、部位的敏感度。
+    建議：都先照表，平衡與內容進來時一起看。
+22. **文件要補的幾處**（裁決之後交文件代理，指定 sonnet）：CYBERWARE 第 2 節補手術的四種人、休養、併發症的數字（第 3、4 題）與部位的 id（P1）；CRAFTING 第 7 節補配分的格式（P8）、10.1 節補難度的數字（P16）；TRADE 3.4 節對齊；LEWD_SYSTEM 3.5 節加第九點「單人」（第 9、10 題）、第七點補「只記主角的每一對」、第八點補精簡版遇到多人（第 12 題）；NIGHT_LESSONS 加「單人」一欄；CORE_RULES 4.3 節註明 80～99 加倍的是哪些（第 15 題）；EVENTS 4.8 節補蠱惑的機率（第 17 題）、4.5 節補指令種類的權重與滿意的數字（第 19 題）；DATA 7.1、7.2 節補義體設計圖與零件多的欄位、第 3 節補 `solo`、`needs`、`requires.conditions`；CHARACTER 2.1 節補點數的算法與無橋（第 7、8 題）；AI_TASKS 4.2 節註明退路改了（第 14 題）。

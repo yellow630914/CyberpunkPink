@@ -1,0 +1,135 @@
+{
+  "id": "m3-net-commission",
+  "seed": 6,
+  "note": "基準（不是 bug）：M3 冒煙的內海委託那一條。已經接了掮客桌上寫好的四階段內海委託、隊伍兩個人都有甲板、站在市場；出發、第一階段選內海走到遭遇旁邊、退回入口再走一次、存檔讀檔、開戰打完、通過閘門、第二與第三階段現實、第四階段內海下載到一半存檔讀檔、做完入帳。",
+  "setup": {
+    "named": "net_commission"
+  },
+  "inputs": [
+    {
+      "type": "m3",
+      "do": "go"
+    },
+    {
+      "type": "m3",
+      "do": "net_stage",
+      "stop_at": "foe"
+    },
+    {
+      "type": "m3",
+      "do": "net_walk",
+      "to": "entry"
+    },
+    {
+      "type": "m3",
+      "do": "net_stage",
+      "no_face": true,
+      "stop_at": "foe"
+    },
+    {
+      "type": "save_load"
+    },
+    {
+      "type": "m3",
+      "do": "net_use",
+      "what": "fight",
+      "at": "f1"
+    },
+    {
+      "type": "m3",
+      "do": "until_idle"
+    },
+    {
+      "type": "m3",
+      "do": "net_stage",
+      "no_face": true
+    },
+    {
+      "type": "m3",
+      "do": "stage"
+    },
+    {
+      "type": "m3",
+      "do": "stage"
+    },
+    {
+      "type": "m3",
+      "do": "net_stage",
+      "save_at": "download"
+    }
+  ],
+  "expect": {
+    "paths": {
+      "time": {
+        "day": 3,
+        "hour": 18,
+        "minute": 8
+      },
+      "money": {
+        "cred": 500,
+        "cash": 1669
+      },
+      "rng.cursor": 4,
+      "location": {
+        "district": "tw_hive",
+        "block": "tw_market"
+      },
+      "party": [
+        "pc",
+        "a_tw_runner"
+      ],
+      "inventory": [
+        {
+          "id": "dk_tw_ii",
+          "qty": 1,
+          "data": {
+            "uid": "D1"
+          }
+        },
+        {
+          "id": "dk_tw_ii",
+          "qty": 1,
+          "data": {
+            "uid": "D2"
+          }
+        },
+        {
+          "id": "cs_tw_gun",
+          "qty": 1
+        },
+        {
+          "id": "cs_tw_blade",
+          "qty": 1
+        },
+        {
+          "id": "cs_tw_jam",
+          "qty": 1
+        },
+        {
+          "id": "cs_tw_guard",
+          "qty": 1
+        },
+        {
+          "id": "cs_tw_probe",
+          "qty": 1
+        },
+        {
+          "id": "qh_tw_zap",
+          "qty": 1
+        },
+        {
+          "id": "cs_tw_gun_rent",
+          "qty": 1
+        },
+        {
+          "id": "cs_tw_blade_rent",
+          "qty": 1
+        },
+        {
+          "id": "it_tw_script",
+          "qty": 2
+        }
+      ]
+    }
+  }
+}

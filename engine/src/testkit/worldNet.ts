@@ -5,7 +5,7 @@
 //   構裝    cs_tw_gun（槍）、cs_tw_blade（近戰）、cs_tw_jam（干擾）、cs_tw_guard（防護）、cs_tw_probe（工具）、cs_tw_blade_rent 與 cs_tw_gun_rent（比賽版）
 //   道具    it_tw_script（腳本：回填包）、it_tw_chip（迷宮館的籌碼的替身不用，只當 maze_table 的獎品）
 //   快駭    qh_tw_zap（一支快駭程式）
-//   蕾絲    en_tw_white（白）、en_tw_pink_m（粉雜兵）、en_tw_pink_e（粉精英）、en_tw_gate（閘門守衛：程式、首領）——都是野良幫（f_gang，蜂巢的那個勢力）的，一碰就倒
+//   蕾絲    en_tw_white（白）、en_tw_pink_m（粉雜兵）、en_tw_pink_e（粉精英）、en_tw_gate（閘門守衛：粉蕾絲的首領）——都是野良幫（f_gang，蜂巢的那個勢力）的，一碰就倒
 //   區      tw_subnet（一般子網，小一點的密度：9 × 7）
 //   設施    nf_tw_office（網內的設施類型：兩層，自己去挖的子網用）
 //   委託    類型 t_tw_steal（主面內海、三個階段、帶隔離區）、一件寫好的四階段副本 cm_tw_net（前兩階段現實與內海都可選、第三階段現實、第四階段內海下載而且是隔離區）加三個連動
@@ -66,7 +66,8 @@ const LACES = [
   lace('en_tw_white', '野良的白蕾絲', 'minion', { color: 'white', position: { prefer: [4] }, ai: { prefer: 'netrunner', focus: 1, flee_below: 0 }, constructs: undefined, defeat: undefined }),
   lace('en_tw_pink_m', '野良的粉蕾絲', 'minion'),
   lace('en_tw_pink_e', '野良的粉蕾絲（精英）', 'elite'),
-  lace('en_tw_gate', '野良的閘門守衛', 'boss', { kind: 'program', color: undefined, ai: { focus: 1, flee_below: 0, never_flee: true } }),
+  // 閘門守衛：粉蕾絲的首領（中間人生成的委託最後一個內海階段的決定性戰鬥是首領，面寫了 lace: pink，所以首領也要有粉的；顏色只有 kind 是 lace 的兵種可以寫）
+  lace('en_tw_gate', '野良的閘門守衛', 'boss', { ai: { focus: 1, flee_below: 0, never_flee: true } }),
 ]
 
 // ---- 區與設施 ----
@@ -146,7 +147,7 @@ export const NET_SITES = [
 ]
 
 /**
- * 迷宮館的小表：只有新手組（館方發 dk_tw_rent 與比賽版構裝、押金 50、獎金 300）；三層各標準 3 回合；寶箱表與獎品表各一列、固定給籌碼。
+ * 迷宮館的小表：只有新手組（館方發 dk_tw_rent 與比賽版構裝、押金 50、獎金 300）；每層只有守閘門的那一場遭遇；寶箱表與獎品表各一列、固定給籌碼；層數、標準回合數與評價照內建的預設。
  * 規則表（maze_rule）通常不放進假世界；這一份是為了新手組能用假世界的構裝（資料的 kit 是空的）。
  */
 export const MAZE_RULE = {
@@ -157,13 +158,6 @@ export const MAZE_RULE = {
   faction: NET_FACTION, mimic: 0, chest_table: 'mzt_tw_chest', prize_table: 'mzt_tw_prize',
   // 每層只有守閘門的那一場（一個人也打得贏）；機關一個、寶箱一兩個
   region: { layer: { foe: [1, 1], patrol: [0, 0], archive: [1, 1], trap: [0, 0], rest: [0, 0], safe: [0, 0], control: [0, 0], person: [0, 0] } },
-  layers: [{ name: '前庭', standard: 3 }, { name: '迴廊', standard: 3 }, { name: '館主廳', standard: 3 }],
-  rating: [
-    { rating: 'S', ratio: 1, downs: 0, mult: 1.5 },
-    { rating: 'A', ratio: 1.5, downs: 1, mult: 1.2 },
-    { rating: 'B', ratio: 2, downs: 2, mult: 1 },
-    { rating: 'C', mult: 0.8 },
-  ],
 }
 export const MAZE_TABLES = [
   { id: 'mzt_tw_chest', kind: 'chest', rows: [{ weight: 1, name: '比賽籌碼', chips: [3, 3] }] },

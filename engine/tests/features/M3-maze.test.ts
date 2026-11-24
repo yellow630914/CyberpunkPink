@@ -4,7 +4,7 @@
 // netrun 用真的（活動、生成、探索回合、閘門）；deck 用真的（deck_rental、deck_grade）；戰鬥用 TEST_NET_COMBAT 加一把很強的攻擊構裝；敵人用真的 enemies。
 // 骰面：檢定與擲表的骰面由狀態的亂數導出，要某一種結果的測試掃種子（先在乾淨的一局上試，再用找到的種子正式做）。
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { Change, ContentPack, Feature, Origin } from '../../src'
 import { ActionBlocked, Sheet, clone, endActivity, gridHere, gridView, meterOf, pointKey } from '../../src'
 import { deckFeature } from '../../src/features/deck'
@@ -22,6 +22,9 @@ import { TEST_NET_COMBAT, makeActor, makeGame, netWeapon, observed, playOut } fr
 import { snapshotText, validateState } from '../../src/shell/save'
 
 type Rec = Record<string, any>
+
+// 走完一整趟迷宮館要打八場真的內海戰鬥（一個測試約 2～3 秒）；全套一起跑、機器忙的時候會慢好幾倍，預設的十秒不夠（M3 冒煙查到的：data-rules 回報全套跑時逾時一次，單獨跑 7 秒多）
+vi.setConfig({ testTimeout: 60_000 })
 
 // ===================================================================================================================
 // 假資料
@@ -872,29 +875,37 @@ describe('結算：破關', () => {
     expect(mazeView(g.k, g.state)).toBeNull()
   })
 
-  it('評價照回合數與倒下的人數：獎金乘倍率（A ×1.2、B ×1、C ×0.7）', async () => {
-    const play = async (total: number, downs: number): Promise<{ g: G; data: Rec }> => {
-      const g = rookie({ extra: { maze_table: [CHEST, { id: 'prize', kind: 'prize', rows: [{ weight: 1, name: '一枚籌碼', chips: 1 }] }] } })
-      await clearLayer(g)
-      await clearLayer(g)
-      await winFoes(g)
-      // 把總回合數補到要的數字（打真的戰鬥的回合數少，補在第一層）
-      const extraRounds = total - mazeView(g.k, g.state)!.rounds
-      expect(extraRounds).toBeGreaterThan(0)
-      commit(g, [
-        { op: 'counter', key: roundKey(mz(g).id, 0), delta: extraRounds },
-        ...(downs ? [{ op: 'counter', key: downKey(mz(g).id), delta: downs } as Change] : []),
-      ])
-      teleport(g, marks(g, 'g')[0]!.at)
-      g.commit(useNode(g.k, g.state, 'pass'))
-      return { g, data: finalData(g) }
-    }
-    const a = await play(40, 0)
+  /** 走完三層，把總回合數補到 total、倒下的人數補到 downs，破關；回傳結算的資料（一個測試只走一趟：一趟約 2～3 秒）。 */
+  const playRated = async (total: number, downs: number): Promise<{ g: G; data: Rec }> => {
+    const g = rookie({ extra: { maze_table: [CHEST, { id: 'prize', kind: 'prize', rows: [{ weight: 1, name: '一枚籌碼', chips: 1 }] }] } })
+    await clearLayer(g)
+    await clearLayer(g)
+    await winFoes(g)
+    // 把總回合數補到要的數字（打真的戰鬥的回合數少，補在第一層）
+    const extraRounds = total - mazeView(g.k, g.state)!.rounds
+    expect(extraRounds).toBeGreaterThan(0)
+    commit(g, [
+      { op: 'counter', key: roundKey(mz(g).id, 0), delta: extraRounds },
+      ...(downs ? [{ op: 'counter', key: downKey(mz(g).id), delta: downs } as Change] : []),
+    ])
+    teleport(g, marks(g, 'g')[0]!.at)
+    g.commit(useNode(g.k, g.state, 'pass'))
+    return { g, data: finalData(g) }
+  }
+
+  it('評價照回合數與倒下的人數：回合 40、沒人倒下是 A（獎金 ×1.2）', async () => {
+    const a = await playRated(40, 0)
     expect(a.data).toMatchObject({ rating: 'A', mult: 1.2, prize: 360, refund: 50, chipCash: 10 })
     expect(cash(a.g)).toBe(1950 + 360 + 50 + 10)
-    const b = await play(55, 2)
+  })
+
+  it('評價照回合數與倒下的人數：回合 55、倒下 2 人次是 B（獎金 ×1）', async () => {
+    const b = await playRated(55, 2)
     expect(b.data).toMatchObject({ rating: 'B', mult: 1, prize: 300 })
-    const c = await play(80, 0)
+  })
+
+  it('評價照回合數與倒下的人數：回合 80 是 C（獎金 ×0.7）', async () => {
+    const c = await playRated(80, 0)
     expect(c.data).toMatchObject({ rating: 'C', mult: 0.7, prize: 210 })
     expect(cash(c.g)).toBe(1950 + 210 + 50 + 10)
   })

@@ -1,0 +1,136 @@
+{
+  "id": "m3-dive",
+  "seed": 4,
+  "note": "基準（不是 bug）：M3 第二波冒煙的潛入那一條。站在潛艙店、有自己的甲板；換成比賽版構裝、潛入、自己去挖的子網走完一層登出、再進去同一張圖、存檔讀檔、迷宮館新手組報名、存檔讀檔、走完三層結算、登出回到現實。",
+  "setup": {
+    "named": "dive"
+  },
+  "inputs": [
+    {
+      "type": "m3",
+      "do": "maze",
+      "op": "refit"
+    },
+    {
+      "type": "m3",
+      "do": "dive",
+      "op": "enter"
+    },
+    {
+      "type": "m3",
+      "do": "dive",
+      "op": "go",
+      "site": "ns_tw_dig"
+    },
+    {
+      "type": "m3",
+      "do": "net_stage",
+      "no_face": true,
+      "layers": 1
+    },
+    {
+      "type": "m3",
+      "do": "net_logout"
+    },
+    {
+      "type": "m3",
+      "do": "dive",
+      "op": "go",
+      "site": "ns_tw_dig"
+    },
+    {
+      "type": "save_load"
+    },
+    {
+      "type": "m3",
+      "do": "net_logout"
+    },
+    {
+      "type": "m3",
+      "do": "maze",
+      "op": "enter",
+      "bracket": "rookie",
+      "seed": 11
+    },
+    {
+      "type": "save_load"
+    },
+    {
+      "type": "m3",
+      "do": "maze",
+      "op": "play"
+    },
+    {
+      "type": "m3",
+      "do": "dive",
+      "op": "exit"
+    }
+  ],
+  "expect": {
+    "paths": {
+      "time": {
+        "day": 6,
+        "hour": 13,
+        "minute": 1
+      },
+      "money": {
+        "cred": 500,
+        "cash": 1310
+      },
+      "rng.cursor": 12,
+      "location": {
+        "district": "tw_hive",
+        "block": "tw_tower",
+        "facility": "F3"
+      },
+      "party": [
+        "pc"
+      ],
+      "inventory": [
+        {
+          "id": "dk_tw_ii",
+          "qty": 1,
+          "data": {
+            "uid": "D1"
+          }
+        },
+        {
+          "id": "cs_tw_gun",
+          "qty": 1
+        },
+        {
+          "id": "cs_tw_blade",
+          "qty": 1
+        },
+        {
+          "id": "cs_tw_jam",
+          "qty": 1
+        },
+        {
+          "id": "cs_tw_guard",
+          "qty": 1
+        },
+        {
+          "id": "cs_tw_probe",
+          "qty": 1
+        },
+        {
+          "id": "qh_tw_zap",
+          "qty": 1
+        },
+        {
+          "id": "cs_tw_gun_rent",
+          "qty": 1
+        },
+        {
+          "id": "cs_tw_blade_rent",
+          "qty": 1
+        },
+        {
+          "id": "it_tw_script",
+          "qty": 2
+        }
+      ]
+    }
+  }
+}

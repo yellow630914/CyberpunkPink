@@ -27,6 +27,14 @@
   - 步驟（`steps.ts`，冒煙與種子重播共用）：`playStage(game)`（一個副本階段強攻到底：選面、選分支、走到保全崗、打贏、拿東西走到撤離點）、`engage`、`rideTo`、`surrender`；步驟表 `M2_STEPS` 與 `doStep(game, 名字, 參數)`（`walk`、`pass`、`pass_until`、`flag`、`rent`、`ride`、`buy`、`work`、`sleep`、`until_idle`、`offer`、`scout`、`muster`、`go`、`stage`、`retreat`、`surrender`、`accept_defeat`、`rewind_stage`）。
   - `flow(名字)`：冒煙的「斷在哪一步」。`await f.step('步名', () => …)`，任何一步丟錯（含 `expect` 沒過），訊息開頭寫「冒煙「條」斷在第 n 步「步名」（前面做完：…）：原因」。
   - 兩個陷阱：工廠做的主角沒有橋參數，第一次讀檔會被補上一份（`save.repair`），讀檔前後的狀態就不一樣——`CITY_PC`、`STRONG_PC` 已經帶了；街區之間的出口站著的那一格不算「走進去」，要先離開再走回去。
+- M3 加的（`src/testkit/worldNet.ts`、`scenariosNet.ts`、`netPlay.ts`；dev/work/M3-smoke.md）：**假世界多了內海的幾筆**，加上內海的具名情境與小工具。單一功能的驗收測試照舊各自帶最小假資料，不用它。
+  - 內容（`worldNet.ts` 的 `netContent()`，`testWorld()` 把它併進 `TEST_WORLD`；每一種只放驗主幹用得到的最少幾筆）：甲板兩副（`dk_tw_ii` II 級六槽；`dk_tw_rent` 租用的 I 級）、構裝七個（`cs_tw_gun`、`cs_tw_blade`、`cs_tw_jam`、`cs_tw_guard`、`cs_tw_probe`，加新手組的兩件比賽版 `cs_tw_gun_rent`、`cs_tw_blade_rent`）、一支腳本（`it_tw_script`：回填包）、一支快駭程式（`qh_tw_zap`）、野良幫（`f_gang`，蜂巢的那個勢力）的四種蕾絲（`en_tw_white`、`en_tw_pink_m`、`en_tw_pink_e`、`en_tw_gate` 粉蕾絲的首領當閘門守衛；`mods.load` 壓到 0.5、攻擊與防火牆壓低：一碰就倒）、一區小一點的子網（`tw_subnet`，9 × 7；委託的階段一場遭遇、一個陷阱、一個休息點、沒有巡邏；自己去挖只有守閘門那一場）、一種設施類型（`nf_tw_office`，兩層）、主面是內海的委託類型 `t_tw_steal`（`airgap: 1`）與一件寫好的四階段副本 `cm_tw_net`（前兩階段現實與內海都可選、第三階段現實拿到 `tw_airgap`、第四階段內海下載兩次而且是隔離區；現實面用 `tw_room`，內海面都寫 `lace: pink`）、一件 `pinned` 的戰敗事件 `df_tw_pinned`（算委託失敗；蕾絲自己寫 `defeat`，所以副本不必指定）。第二波：潛艙店（塔下的 F3，`fac_tw_pod`，帶 `dive`）、兩筆去處（`ns_tw_dig` 要有甲板、`ns_tw_guest` 訪客也進得去）、迷宮館的小表（`maze_rule` 新手組一種、館方發 `dk_tw_rent` 與比賽版構裝、每層只有守閘門的那一場；`maze_table` 兩筆固定給籌碼）。另一位中間人 `fx_tw_netbroker`（站在市場，門路是 `t_tw_steal`）；`TEST_NET_OFFER`（testkit 的功能，回答 `fixer.offers`）讓他桌上多一件寫好的 `cm_tw_net`。**假世界現在有兩份「規則表」例外**：三個 `jam_*` 的 `battle_status`（干擾的構裝載入時要，資料也有同樣三筆）與 `maze_rule`（新手組要能用假世界的構裝；資料的 `kit` 是空的）。
+  - `worldFor` 多兩種濾法（M3）：格式不合的筆（例：構裝工具的效果 `load` 是 `combat` 註冊的）與第二段（`ready`）檢查不過的筆（例：腳本的效果 `net.ram` 是 `netcombat` 註冊的）整筆濾掉並記在 `droppedEntries`。**改假世界要看 `worldFor(worldFeatures())` 的 `droppedEntries` 是空的**（`m2-world.test.ts`「沒有拿掉任何功能時濾掉的是空的」守著）：內容寫壞（例如蕾絲首領寫了 `kind: 'program'` 又寫 `color`）會被當成「這個功能被拿掉」濾掉，不會丟錯。
+  - 具名的情境（`scenariosNet.ts`）：`makeNetBattleGame({ foes?, color?, noBattle? })`（四個有甲板的化身：主角 `NET_PC` 加三個隊友，對四隻粉蕾絲，遮蔽「中」，已經開打；主角第一個輪到；種子 5）、`makeNetCommissionGame({ offer? })`（接了掮客桌上寫好的四階段內海委託、付現金；隊伍是主角加名冊上的行者，兩個人都有甲板；站在市場；還沒出發；種子 6；`offer: 'generated'` 是接桌上照類型生成的第一件）、`makeDiveGame({ noDeck? })`（站在潛艙店 F3、有自己的甲板、現金 500；種子 4；`noDeck` 是沒有甲板的人，租用）。三者都帶 `TEST_NET_ADMIN`（有 `actor.ext.test_admin` 的角色開戰時 `unit.ext.net.admin` 是那個數字並加 `admin`、`netrunner` 標籤：管理行動的真正來源是技能樹的內海欄，那一段有 abilities 自己的測試；冒煙只要戰鬥裡有人做得了管理行動）。`equipParty(game, ids)` 走真正的 deck 報告（`deck.equip`、`deck.install`、`deck.scripts`）給隊上的人穿甲板、裝構裝（第一個人全套，其他人槍加防護）；`netInventory(n)` 是背包要有的東西。
+  - 小工具：`netWalkTo(game, 節點的 id | 'entry' | [x, y])`、`netWalkCell`（路上踩到陷阱停在半路會接著走；戰鬥開了交給呼叫的人）、`netWalkRounds(game, n)`（在入口與旁邊一格之間來回走 n 個探索回合，被定位倒數用）、`netUse(game, 做什麼, 節點?)`（`fight`、`sneak`、`descend`、`pass`、`download`、`rest`……）、`standBeside`、`netMarkers`；`playNetStage(game, { branch?, noFace?, stopAt?: 'foe' | 'gate', layers?, allowLoss?, checkpoint? })`（一個內海階段強攻到底：選面、選分支、走到遭遇旁邊開戰、打贏、通過閘門；目標是下載的走到目標上做滿；`stopAt` 走到就停、`layers` 只走幾層、`checkpoint('download')` 在第一次下載之後叫）、`playMaze(game)`（迷宮館三層：機關、遭遇、寶箱、閘門，擋路的先處理）、`refitForRookie(game)`（把構裝換成新手組的比賽版；**潛入中不能換構裝，要在潛入之前**）、`mazeSignUp`、`diveIn`；`prefixProblems(game)` 與 `M3_ACTION_PREFIXES`（報告的前綴清單）。
+  - **內海戰鬥的我方由 `playNetOut` 出手**（`netPlay.ts`）：有攻擊構裝就打、手上的破損了就換、RAM 不夠就回填、其餘結束回合；敵方照常 AI。`fightOut`／`untilIdle` 遇到內海的戰鬥自動走它。原因是 `playOut`（雙方都 AI）讓我方化身自己打時，構裝破損之後 AI 不會換（`net_swap` 沒有 `aiScore`，dev/bugs/B023），整場會拖成僵局。
+  - `TEST_GEAR`（主角的現實武器）現在只在現實的戰場給（`mode === 'net'` 不給）：內海的武器是甲板上的構裝。
+  - 範圍：內海的戰鬥在核心的測試用 `BATTLE_SETUPS.net`、`TEST_NET_COMBAT`（上面 M3 加的那一段）；只有要所有 M3 功能一起跑才用這裡的情境。
 - 「像副本」的流程（測撤退、委託失敗、`rewindToStage`）：`makeGame({ features: [TEST_COMBAT] })`，先提交一份第一筆是 `{ op: 'snapshot.take', kind: 'entry', owner, label }` 的報告、再提交 `kind: 'stage'`（帶 `replace: true`）的報告，`game.startBattle(BATTLE_SETUPS.hopeless())` → `playOut` → `await game.finishBattle()` 就停在等著選的戰敗；範例在 `engine/tests/core/shell-m2.test.ts` 的「Game.rewindToStage」。帶 `rewind` 的報告、`game.commitNarrated(草稿, { mode })`（`makeGame({ fake: true })` 看服務商收到的請求：`sectionOf(req, 'mode')`、`req.adult`）的範例在同一個檔。
 
 ## 2. 探針介面
@@ -44,10 +52,12 @@
 - 測試失敗時把種子、初始狀態的建構方式與輸入序列存成 `engine/tests/fixtures/repro/<id>.json`。
 - 一個共用的測試（`tests/repro/replay.test.ts`）會自動把 repro 資料夾裡的每一份重播兩次（結果的雜湊要一樣、不變式沒有違規），再對照 `expect`（`paths`：狀態裡幾個位置的值，或 `hash`、`throws`），變成回歸測試。
 - M2 加的：`setup.named`（`city`、`commission`：具名的情境，見第 1 節；`scenario` 與 `features` 不用寫）與輸入 `{ "type": "m2", "do": "<步驟名>", …參數 }`（步驟表 `M2_STEPS`，見第 1 節）。固定檔有兩份：`m2-city.json`（走到另一區、搭地鐵、買東西、打工、中途存檔讀檔、睡一覺跨週一）與 `m2-commission.json`（踩點、出發、三個階段、中途存檔讀檔、做完入帳）。`expect.paths` 只記時間、錢、`rng.cursor`、位置、隊伍與背包：改了規則、功能多發了一份報告不會讓它紅，骰面或結算變了才會。要重錄：照 `tests/smoke/m2.test.ts` 的流程跑一遍，把這幾個位置的值抄進去。
+- M3 加的：輸入 `{ "type": "m3", "do": "<步驟名>", …參數 }`（步驟表 `M3_STEPS` ＝ `M2_STEPS` 加六個：`net_stage { branch?, no_face?, layers?, stop_at?: 'foe' | 'gate', save_at?: 'download' }`、`net_walk { to }`、`net_use { what, at? }`、`net_logout`、`dive { op: 'enter' | 'go' | 'exit', site? }`、`maze { op: 'refit' | 'enter' | 'play', bracket?, seed? }`；細節在 `src/testkit/steps.ts`），`setup.named` 多 `net_commission`（`makeNetCommissionGame`）與 `dive`（`makeDiveGame`）。固定檔兩份：`m3-net-commission.json`（出發、第一階段內海走到遭遇旁邊、`net_walk` 退回入口、再走一次、存檔讀檔、開戰、`until_idle` 打完、通過閘門、兩個現實階段、第四階段內海下載到一半存檔讀檔、入帳；`expect.paths` 是時間、錢、`rng.cursor`、位置、隊伍、背包）與 `m3-dive.json`（換比賽版構裝、潛入、自己去挖走完一層登出、再進去、存檔讀檔、迷宮館報名、存檔讀檔、走完三層、登出）。要重錄：改了假世界的內容（骰面、數字會變）之後 `tests/repro/replay.test.ts` 會紅，失敗訊息裡有新的值，確認是預期的改動就抄進 `expect.paths`。給下游的失敗重現（B024）放 `tests/pending/fixtures/`，不放 `tests/fixtures/repro/`（後者每次主套件都重播，會讓主套件變紅）。
 
 ## 5. 分層檢查腳本
 - 掃描 import，違反 CODESCAN 第 3 節的規則就讓測試失敗（L6 之間互相 import、下層 import 上層）。`src/testkit/layers.ts` 的 `checkLayers`，測試在 `tests/core/layers.test.ts`。
 - M2 加的（dev/adr/0016 第三節；不變式第 107 條）：`checkExtReads` 掃 `features/` 底下有沒有「讀或寫別的功能的 `state.ext.<鍵>`」（`state.ext.鍵`、`state.ext['鍵']`、`state.ext[常數]`、報告的 `{ op: 'ext', key }`；鍵是誰的看哪個功能寫了 `const EXT = '鍵'`；`actor`、`unit`、地圖實例、`origin` 的 `ext` 不算）。測試用真的原始碼、故意寫的反例，以及「在真的原始碼上加一個違規的檔案」都驗過。同一個檔還守著 M2-plan 的兩條規定：每個功能的資料夾都在 `FEATURES` 裡、各功能的驗收測試不 import `engine/data`。
+- M3 加的（`src/testkit/layers.ts`；測試在 `tests/core/layers.test.ts`「M3 每一張都適用的規定」；dev/work/M3-plan.md 規定第 2、3、6、7 條）：`checkCoreOnlyImports(files, 功能的名字)`（`deck`、`netcombat`、`netrun`、`dive`、`maze` 只 import 自己的檔案與核心）；`scanActionDefs` 與 `checkActionModes`（`features/` 底下每一個戰鬥行動的定義都寫了 `modes`：掃物件字面最外層同時有 `owner`、`group`、`run` 的；核心自己的兩個行動在 `core/battle`，不在範圍）；`checkGridWorldGuards(files, 功能的名字)`（`netrun`、`maze`、`explore` 的 `k.grid` 處理函式前 600 個字裡先看是哪個世界的地圖：`isNetMapKind`、`inRun`、`hereOf`、`isMazeInstance`；只是轉給同一個功能裡別的函式的，看那個函式）。三個檢查都用真的原始碼、故意寫的反例、「在真的原始碼上加一個違規的檔案」驗過，也驗過「寫錯功能名字會紅」（不會變成什麼都沒掃）。`checkExtReads` 掃得到的鍵多了 `netrun`、`dive`、`maze`（三個功能的 `const EXT`），別的功能讀或寫它們抓得到。同一個檔還守著 M3 規則表與區的內容種類都是 `overridable`、M3 各功能的驗收測試不 import `engine/data`。
 
 ## 6. 四種測試
 
@@ -67,9 +77,19 @@
   - 整體：整條主幹的每一份報告前綴都在 0016 第七節的清單裡、不變式（`observed`）沒有違規；兩份種子重播的固定檔在、步驟名對得上
   - `m2-world.test.ts`：`TEST_WORLD` 帶全部功能載入（嚴格模式）；`FEATURES` 的每一個功能逐一拿掉，其餘照樣載得起來（引用沒斷）、開新局、自由行動、回退、存檔讀檔、時間過一個週一都照常；每一個功能拿掉時濾掉什麼寫成表，新增功能或內容種類時這張表會紅
   - `invariants-doc.test.ts`：`dev/invariants.md` 的編號連續、每一條有出處與哪裡驗、寫的測試檔存在
-- M3 加：潛入內海、一場網內戰鬥
+- M3 加（`engine/tests/smoke/m3.test.ts`；`m2-world.test.ts` 補 M3 的拿掉；固定種子、AI 關著，用 `TEST_WORLD`——內海的幾筆在 `worldNet.ts`——與全部功能；每一條是一串有名字的步驟，斷了會寫出斷在第幾步）：
+  - 內海戰鬥：開打 → 換檔 → 攻擊到一隻過載（閃斷）→ 回填 → 管理行動造牆 → 釘住 → 打贏；另一條全員拔線（`jack_out`）
+  - 委託（內海）：接案（掮客桌上寫好的四階段）→ 出發 → 第一階段選內海、走子網、打一場（主角用一次管理行動：追蹤度 +1）、通過閘門 → 第二階段選現實 → 第三階段現實拿到開路的連動 → 第四階段內海下載（隔離區）→ 做完入帳；追蹤度整趟累計對得上（第一段交回的＝副本記的＝第四段開始時的量表值；做完的 `result.trace` ＝第四段交回的）。另一條：掮客桌上照類型生成的內海委託（竊密、小型、三階段、最後是隔離區）從接案走到入帳
+  - 撤退：內海階段探索中登出 → 一份 `netrun.logout` 加 `rewind`，回到進副本之前、地圖實例沒了、委託還在手上可以再出發
+  - 戰敗：內海階段投降 → `pinned` 的戰敗事件 → 接受 → 委託失敗、回到進去之前、只有 `defeat` 與 `commission` 發 `activity.end`；另一條選「回到這個階段開始時」，改選現實面走完
+  - 被定位：追蹤度推到 90、走三個探索回合 → `netrun.located`、委託失敗、敵對值 +5
+  - 存檔讀檔：子網走到一半、內海戰鬥打到一半、下載到一半各存一次，最後的狀態（雜湊）和沒有中斷的一遍一模一樣；戰敗的三選一與被定位的倒數也存得下
+  - 潛入（第二波）：潛艙店潛入 → 自己去挖走完一層登出 → 再進去是同一張圖 → 迷宮館報新手組走完三層結算 → 登出回到現實；另一條沒有甲板的人租一副（費用加押金，登出退押金）
+  - 整體：報告的前綴（`M3_ACTION_PREFIXES`：M2 的加 `deck`、`netrun`、`dive`、`maze`）、不變式（`observed`）沒有違規；兩份種子重播的固定檔在、步驟名對得上
+  - `m2-world.test.ts`（M3 補的）：`TEST_WORLD` 帶全部功能（含內海的幾筆）嚴格載入；逐一拿掉每一個功能的表 `DROPS` 補上 `combat`、`netcombat`、`netrun`、`deck`、`hack`、`dive`、`maze`；另有三條：拿掉 `netrun`（現實的委託照樣跑、內海的委託進不去並寫原因）、拿掉 `deck`（沒有人有 RAM、現實的快駭回到沒有甲板的樣子）、拿掉 `netcombat`（內海戰鬥只剩移動與結束回合）
+  - 起頭的 `vi.setConfig({ testTimeout: 60_000 })`：走完一整趟委託要打七八場真的內海戰鬥（約 2～5 秒），機器忙的時候（別的測試同時在跑）會慢好幾倍，預設的十秒不夠（M3-maze 的〈評價〉那一條就是這樣逾時過：一個測試走三趟迷宮館，單獨跑 7 秒多；已拆成三個測試並加了逾時）
 - 之後每一批加一步
-整套（`npm run test:smoke`）在一分鐘內跑完：M2 加了之後約 15 秒（多個檔案同時跑；最慢的 `m2.test.ts` 約 12 秒，大部分花在真的戰鬥：每一場打十幾步、每一步一次提交）。主套件整體的時間主要是 `tests/boundary/combat-battle.boundary.test.ts` 與 `tests/whitebox/sweep-m1b.whitebox.test.ts`，不是冒煙。
+整套（`npm run test:smoke`）在一分鐘內跑完：M2 加了之後約 15 秒（多個檔案同時跑；最慢的 `m2.test.ts` 約 12 秒，大部分花在真的戰鬥：每一場打十幾步、每一步一次提交）；M3 加了之後約 19 秒（`m3.test.ts` 單獨約 16 秒；最慢的三條是生成的內海委託約 5 秒、內海委託中途三次存檔讀檔約 4 秒、`m2.test.ts` 的整條主幹約 4 秒）。主套件整體的時間主要是 `tests/boundary/combat-battle.boundary.test.ts` 與 `tests/whitebox/sweep-m1b.whitebox.test.ts`，不是冒煙。
 
 ### 探針（engine/tests/probe/）
 每支腳本對一個系統：建情境 → 開探針 → 執行 → 輸出事件串。

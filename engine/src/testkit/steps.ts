@@ -173,12 +173,19 @@ export async function doStep(game: Game, name: string, args: Args = {}): Promise
 
 /**
  * M3 的步驟：M2 的全部加上
- *   net_stage { branch?, no_face?, layers? }（玩一個內海階段到底，或只走 layers 層）、net_walk { to: 節點的 id、'entry' 或 [x, y] }、net_use { what, at? }（在節點上做一件事：fight、sneak、descend、pass、download、rest……）、net_logout（網內的行程登出）、
+ *   net_stage { branch?, no_face?, layers?, stop_at?: 'foe' | 'gate', save_at?: 'download' }（玩一個內海階段到底，或只走 layers 層、走到遭遇旁邊或閘門就停；save_at 是下載做到一半時存檔讀檔）、net_walk { to: 節點的 id、'entry' 或 [x, y] }、net_use { what, at? }（在節點上做一件事：fight、sneak、descend、pass、download、rest……）、net_logout（網內的行程登出）、
  *   dive { op: 'enter' | 'go' | 'exit', site? }（潛艙店潛入、選去處、登出；站在潛艙店上）、maze { op: 'refit' | 'enter' | 'play', bracket?, seed? }（迷宮館：換成比賽版構裝、報名、走完三層；換構裝要在潛入之前）
  */
 export const M3_STEPS: Record<string, (game: Game, a: Args) => void | Promise<void>> = {
   ...M2_STEPS,
-  net_stage: async (g, a) => void (await playNetStage(g, { ...(typeof a.branch === 'string' ? { branch: a.branch } : {}), ...(a.no_face === true ? { noFace: true } : {}), ...(typeof a.layers === 'number' ? { layers: a.layers } : {}) })),
+  net_stage: async (g, a) => {
+    const save = a.save_at === 'download'
+    await playNetStage(g, {
+      ...(typeof a.branch === 'string' ? { branch: a.branch } : {}), ...(a.no_face === true ? { noFace: true } : {}), ...(typeof a.layers === 'number' ? { layers: a.layers } : {}),
+      ...(a.stop_at === 'foe' || a.stop_at === 'gate' ? { stopAt: a.stop_at } : {}),
+      ...(save ? { checkpoint: () => void g.load(g.save('manual', '2026-11-24T00:00:00Z', 'repro')) } : {}),
+    })
+  },
   net_walk: (g, a) => void netWalkTo(g, Array.isArray(a.to) ? (a.to as Cell) : str(a, 'to')),
   net_use: (g, a) => void netUse(g, str(a, 'what'), typeof a.at === 'string' ? a.at : undefined),
   net_logout: (g) => commit(g, netLogout(g.k, g.state)),

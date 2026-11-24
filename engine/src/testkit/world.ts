@@ -246,7 +246,7 @@ export function testWorld(): ContentPack {
         street('tw_gate', '閘門', []),
         street('tw_yard', '院子', [['F1', '院子站']]),
         { id: 'tw_office', kind: 'office_small', size: [9, 9], sheets: [OFFICE] },
-        { id: 'tw_room', kind: 'room', size: [9, 5], fits: ['t_tw_hit'], sheets: [ROOM] },
+        { id: 'tw_room', kind: 'room', size: [9, 5], fits: ['t_tw_hit', 't_tw_steal'], sheets: [ROOM] },
       ] as unknown as Rec[],
       // world
       facility_type: [{ id: 'fac_shop', name: '商店' }, { id: 'fac_dock', name: '碼頭' }, { id: 'fac_station', name: '車站' }, { id: 'fac_home', name: '住處' }],

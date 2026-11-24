@@ -10,10 +10,20 @@ import { Game, createKernel } from '../../src'
 import { FEATURES, allFeatures } from '../../src/features'
 import { arrive } from '../../src/features/world'
 import { latestJob, jobOf } from '../../src/features/fixer'
-import { TEST_WORLD, doStep, makeCommissionGame, makeWorldGame, passTime, testWorld, walkAcross, worldFeatures, worldFor } from '../../src/testkit'
+import { ActionBlocked } from '../../src'
+import { go } from '../../src/features/fixer'
+import { TEST_NET_ADMIN, NET_PC, TEST_WORLD, doStep, equipParty, makeCommissionGame, makeNetCommissionGame, makeWorldGame, netInventory, passTime, testWorld, walkAcross, worldFeatures, worldFor } from '../../src/testkit'
 
 /** 拿掉這個功能時，TEST_WORLD 濾掉的內容種類（kinds）與跟著斷掉的幾筆（entries）。沒寫的功能什麼都不濾。 */
 const DROPS: Record<string, { kinds: string[]; entries?: string[] }> = {
+  // M3：構裝的工具與快駭程式的效果（load）是 combat 註冊的；腳本的效果（net.ram）是 netcombat 註冊的——拿掉它們，用到那個效果的幾筆整筆濾掉
+  combat: { kinds: [], entries: ['construct/cs_tw_probe', 'quickhack/qh_tw_zap'] },
+  netcombat: { kinds: [], entries: ['item/it_tw_script'] },
+  netrun: { kinds: ['net_region', 'net_facility'] },
+  deck: { kinds: ['deck', 'construct'] },
+  hack: { kinds: ['quickhack'] },
+  dive: { kinds: ['net_site'] },
+  maze: { kinds: ['maze_rule', 'maze_table'] },
   enemies: { kinds: ['enemy'] },
   defeat: { kinds: ['defeat_event'] },
   world: { kinds: ['facility_type', 'district', 'block'], entries: ['transit_line/tw_metro', 'shop/s_tw_stall'] },
@@ -50,31 +60,43 @@ describe('TEST_WORLD：帶著全部功能載入沒有錯', () => {
     expect(TEST_WORLD.content.block!.filter((b) => b.kind === 'bridge')).toHaveLength(1)
     expect(TEST_WORLD.content.transit_line![0]!.stops).toHaveLength(3)
     expect(count('shop')).toBe(1)
-    expect(count('item')).toBe(6)
+    expect(count('item')).toBe(8) // 六樣店裡的東西、內海的腳本與迷宮館的獎品晶片
     expect(count('job')).toBe(1)
     expect((TEST_WORLD.content.job![0]!.stages as unknown[]).length).toBe(2)
     expect(count('residence')).toBe(1)
     expect(count('faction')).toBe(2)
-    expect(count('npc')).toBe(3)
+    expect(count('npc')).toBe(4) // 三個固定 NPC 加掮客
     expect(count('npc_gen')).toBe(1)
-    expect(count('fixer')).toBe(1)
-    expect(count('commission_type')).toBe(1)
-    expect(count('commission')).toBe(1)
+    expect(count('fixer')).toBe(2) // 市場的中間人與桌上有內海委託的掮客
+    expect(count('commission_type')).toBe(2) // 暗殺（現實）與竊密（主面內海）
+    expect(count('commission_link')).toBe(5)
+    expect(count('commission')).toBe(2) // 三階段的辦公室副本與四階段的內海副本
     expect((TEST_WORLD.content.commission![0]!.stages as unknown[]).length).toBe(3)
-    expect(count('enemy')).toBe(3)
+    expect(count('enemy')).toBe(7) // 野良的三個現實兵種加四種蕾絲
+    expect(TEST_WORLD.content.enemy!.filter((e) => e.kind === 'lace' || e.kind === 'program')).toHaveLength(4)
     expect(count('event')).toBe(2)
-    expect(count('defeat_event')).toBe(2)
+    expect(count('defeat_event')).toBe(3) // 通用、兩段的、pinned
     expect(count('position')).toBe(3)
+    // M3 內海的幾筆（src/testkit/worldNet.ts）
+    expect(count('deck')).toBe(2) // II 級甲板、館方租的 I 級
+    expect(count('construct')).toBe(7) // 槍、近戰、干擾、防護、工具加新手組的兩件比賽版
+    expect(count('quickhack')).toBe(1)
+    expect(count('net_region')).toBe(1)
+    expect(count('net_facility')).toBe(1)
+    expect(count('net_site')).toBe(2)
+    expect(count('maze_table')).toBe(2)
+    expect(count('facility_type')).toBe(5) // 商店、碼頭、車站、住處、潛艙店
   })
 
   it('每一次拿到的是獨立的一份：改它不會動到下一次拿到的', () => {
     const a = testWorld()
     a.content.item!.length = 0
-    expect(testWorld().content.item).toHaveLength(6)
+    expect(testWorld().content.item).toHaveLength(8)
   })
 
-  it('不放規則表（*_rule）：每個功能自己帶一份預設；資料的規則表疊在前面也載得進來（後載入的假世界蓋掉同 id 的規則）', () => {
-    expect(Object.keys(TEST_WORLD.content).filter((kind) => kind.endsWith('_rule'))).toEqual([])
+  it('不放規則表（*_rule），只有一份例外（M3 的迷宮館）：每個功能自己帶一份預設；資料的規則表疊在前面也載得進來（後載入的假世界蓋掉同 id 的規則）', () => {
+    // 例外：maze_rule——新手組要用假世界自己的比賽版構裝與甲板（資料的 kit 是空的），所以假世界帶一份小的（組別只有新手組、館方發甲板與構裝、一層一場遭遇）
+    expect(Object.keys(TEST_WORLD.content).filter((kind) => kind.endsWith('_rule'))).toEqual(['maze_rule'])
     const k = createKernel(worldFeatures())
     const rules = Object.fromEntries(Object.entries(CORE_PACK.content).filter(([kind]) => k.content.isOverridable(kind)))
     const game = new Game({ features: worldFeatures(), content: [{ id: 'core_skill', content: { skill: CORE_PACK.content.skill! } }, { id: 'core_rules', content: rules }, withoutSkills(testWorld())], strict: true })
@@ -146,5 +168,59 @@ describe('拿掉接縫另一邊的功能，副本照樣從接案走到入帳', (
     expect(jobOf(g.state, job)!.status).toBe('done')
     expect(jobOf(g.state, job)!.payout).toMatchObject({ outcome: 'done' })
     expect(g.k.features).not.toContain(id)
+  })
+})
+
+// M3：內海的功能逐一拿掉（dev/work/M3-smoke.md 第 6 點）。接縫在登錄表與資料慣例：沒裝的那一邊「有人註冊才…」的地方照樣跑。
+describe('拿掉內海的功能（M3）', () => {
+  const FOES = [0, 1].map((i) => ({ from: 'enemy_pick', faction: 'f_gang', grade: 1, rank: 'minion', color: 'pink', seed: `s${i}` }))
+  const netSetup = { mode: 'net', grade: 1, cover: 'medium', allies: [{ from: 'actor', id: 'pc' }], foes: FOES, origin: { escapable: true, place: '測試用的子網', faction: 'f_gang' } } as never
+  const meatSetup = { mode: 'meat', grade: 1, cover: 'medium', allies: [{ from: 'actor', id: 'pc' }], foes: [{ from: 'enemy_pick', faction: 'f_gang', grade: 1, rank: 'minion', seed: 'm' }], origin: { escapable: true, place: '測試用的巷子', faction: 'f_gang' } } as never
+
+  it('拿掉 netrun：現實面的委託照樣從接案走到入帳；主面是內海的委託進不去（寫出原因，委託還在手上）', async () => {
+    const t = makeCommissionGame({ without: ['netrun'] })
+    const { game: g, job } = t
+    for (const step of ['scout', 'go', 'stage', 'stage', 'stage']) await doStep(g, step)
+    expect(jobOf(g.state, job)!.status).toBe('done')
+    expect(g.k.features).not.toContain('netrun')
+    expect(g.k.content.hasKind('net_region')).toBe(false)
+    // 沒有人登記 face.net：內海的面選不了，只開內海的階段（隔離區）整件進不去
+    const n = makeNetCommissionGame({ without: ['netrun'] })
+    expect(() => n.game.commit(go(n.game.k, n.game.state, n.job))).toThrow(ActionBlocked)
+    expect(() => n.game.commit(go(n.game.k, n.game.state, n.job))).toThrow(/現在進不去/)
+    expect(jobOf(n.game.state, n.job)!.status).toBe('active')
+    expect(n.game.k.activity.get('face.net')).toBeUndefined()
+  })
+
+  it('拿掉 deck：沒有人有甲板、沒有 RAM、沒有構裝；現實的快駭回到沒有甲板的樣子（單位沒有 ext.deck，也沒有 RAM 那一池）', () => {
+    for (const mode of ['net', 'meat'] as const) {
+      const { game: g } = makeWorldGame({ without: ['deck'], seed: 5, pc: NET_PC, features: [TEST_NET_ADMIN] })
+      g.startBattle(mode === 'net' ? netSetup : meatSetup)
+      const u = g.battle!.units.a1!
+      expect(u.pools.ram, mode).toBeUndefined()
+      expect(u.ext.deck, mode).toBeUndefined()
+      expect(mode === 'net' ? u.weapons : [], mode).toEqual([])
+      expect(g.k.stats.hasStat('deck_grade')).toBe(false)
+    }
+    // 對照：裝著 deck 的話，兩個戰場的單位都帶著甲板與 RAM
+    const { game: g } = makeWorldGame({ seed: 5, pc: NET_PC, features: [TEST_NET_ADMIN], patch: { inventory: netInventory(1) as never } })
+    equipParty(g, ['pc'])
+    g.startBattle(meatSetup)
+    expect(g.battle!.units.a1!.pools.ram).toBeDefined()
+    expect(g.battle!.units.a1!.ext.deck).toMatchObject({ grade: 2, slots: ['qh_tw_zap'] })
+  })
+
+  it('拿掉 netcombat：內海戰鬥只剩核心的兩個行動（移動、結束回合）；構裝與 RAM 還在單位身上（那是 deck 的）', () => {
+    const { game: g } = makeWorldGame({ without: ['netcombat'], seed: 5, pc: NET_PC, features: [TEST_NET_ADMIN], patch: { inventory: netInventory(1) as never } })
+    equipParty(g, ['pc'])
+    g.startBattle(netSetup)
+    expect(g.battleOptions()!.actions.map((a) => a.id)).toEqual(['move', 'end_turn'])
+    expect(g.battle!.units.a1!.pools.ram).toBeDefined()
+    expect(g.battle!.units.a1!.weapons.map((w) => w.id)).toEqual(['cs_tw_gun', 'cs_tw_blade', 'cs_tw_jam'])
+    // 對照：裝著 netcombat 的內海戰鬥有它的整組行動
+    const full = makeWorldGame({ seed: 5, pc: NET_PC, features: [TEST_NET_ADMIN], patch: { inventory: netInventory(1) as never } }).game
+    equipParty(full, ['pc'])
+    full.startBattle(netSetup)
+    expect(full.battleOptions()!.actions.map((a) => a.id)).toEqual(expect.arrayContaining(['net_attack', 'net_refill', 'net_shift', 'net_pin', 'net_jack_out', 'net_surrender', 'adm_wall']))
   })
 })

@@ -186,3 +186,174 @@ export function checkExtReads(files: Record<string, string>): ExtViolation[] {
   }
   return out
 }
+
+// ---- M3：新的功能只 import 核心；戰鬥行動都寫 modes；地圖的處理函式開頭先看是哪個世界的（dev/work/M3-plan.md 規定第 3、7 條；dev/work/M3-smoke.md 第 5 點） ----
+
+export interface M3Violation {
+  file: string
+  rule: 'core-only' | 'action-modes' | 'grid-world'
+  message: string
+}
+
+/** 把字串與模板字串的內容換成同樣長度的空白（位置不變；結構掃描用）。 */
+function blankStrings(code: string): string {
+  return code.replace(/(['"`])(?:\\.|(?!\1)[^\\])*\1/g, (m) => `${m[0]}${' '.repeat(Math.max(0, m.length - 2))}${m[m.length - 1]}`)
+}
+
+/**
+ * 這幾個功能（features/<名字>/ 底下的每個檔案）只 import 自己的檔案與核心（'../../core'、'../../core/…'）：不 import 別的功能、外殼、測試基礎建設、功能的總表。
+ * checkLayers 已經擋功能之間與往上；這一條更窄一點：點名的功能一個都不能用核心以外的東西，而且至少掃到一個檔案（名字寫錯不會變成什麼都沒掃）。
+ */
+export function checkCoreOnlyImports(files: Record<string, string>, features: readonly string[]): M3Violation[] {
+  const out: M3Violation[] = []
+  for (const f of features) {
+    const mine = Object.keys(files).filter((p) => p.startsWith(`features/${f}/`) && p.endsWith('.ts') && !/\.(test|spec)\.ts$/.test(p))
+    if (mine.length === 0) out.push({ file: `features/${f}/`, rule: 'core-only', message: `features/${f}/ 底下沒有檔案可以掃（功能的名字寫錯了？）` })
+    for (const file of mine) {
+      for (const spec of importsOf(files[file]!)) {
+        if (!spec.startsWith('.')) {
+          out.push({ file, rule: 'core-only', message: `${file} import 了套件 ${spec}` })
+          continue
+        }
+        const target = resolve(file, spec)
+        if (target.startsWith(`features/${f}/`) || target === `features/${f}` || target === 'core' || target.startsWith('core/')) continue
+        out.push({ file, rule: 'core-only', message: `${file} import 了 ${spec}（${target}）：功能只能 import 自己的檔案與核心（core）` })
+      }
+    }
+  }
+  return out
+}
+
+/** 一個物件字面（{…}）的最外層的鍵：照逗號分，取每一段開頭的名字；展開（...x）記成 '...'。 */
+function topKeys(literal: string): Set<string> {
+  const keys = new Set<string>()
+  let depth = 0
+  let start = 1
+  const flush = (end: number): void => {
+    const part = literal.slice(start, end).trim()
+    const m = /^(?:async\s+|get\s+|set\s+)?(\.\.\.|[A-Za-z_$][\w$]*|['"][^'"]*['"])/.exec(part)
+    if (m) keys.add(m[1]!.replace(/['"]/g, ''))
+    start = end + 1
+  }
+  for (let i = 0; i < literal.length; i++) {
+    const c = literal[i]!
+    if (c === '{' || c === '(' || c === '[') depth++
+    else if (c === '}' || c === ')' || c === ']') {
+      depth--
+      if (depth === 0) flush(i)
+    } else if (c === ',' && depth === 1) flush(i)
+  }
+  return keys
+}
+
+export interface ActionDefFound {
+  file: string
+  /** 行動的 id（寫成字串的才讀得到；用算的寫成 ?） */
+  id: string
+  /** 最外層有沒有寫 modes（有展開 ...x 的算有：它的來源另外查） */
+  modes: boolean
+}
+
+/** features/ 底下的每一個「戰鬥行動的定義」：一個物件字面，最外層同時有 owner、group、run。 */
+export function scanActionDefs(files: Record<string, string>): ActionDefFound[] {
+  const out: ActionDefFound[] = []
+  for (const [file, src] of Object.entries(files)) {
+    if (!/^features\/.+\.ts$/.test(file) || /\.(test|spec)\.ts$/.test(file) || file === 'features/index.ts') continue
+    const raw = stripComments(src)
+    const code = blankStrings(raw)
+    const stack: number[] = []
+    for (let i = 0; i < code.length; i++) {
+      if (code[i] === '{') stack.push(i)
+      else if (code[i] === '}') {
+        const open = stack.pop()
+        if (open === undefined) continue
+        const keys = topKeys(code.slice(open, i + 1))
+        if (!(keys.has('owner') && keys.has('group') && keys.has('run'))) continue
+        const id = /\bid:\s*(?:`([^`$]*)`|'([^']*)'|"([^"]*)")/.exec(raw.slice(open, i + 1))
+        out.push({ file, id: id ? (id[1] ?? id[2] ?? id[3]!) : '?', modes: keys.has('modes') || keys.has('...') })
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * features/ 底下每一個戰鬥行動的定義都寫了 modes（沒寫就是每一個戰場都有這個行動，現實與內海的行動會互相漏進對方的圓環）。
+ * 核心自己的兩個行動（移動、結束回合）在 core/battle，不在掃描範圍。最外層有展開（...def）的不查：它的來源另外查。回傳每一個漏寫的行動。
+ */
+export function checkActionModes(files: Record<string, string>): M3Violation[] {
+  return scanActionDefs(files).filter((d) => !d.modes).map((d) => ({ file: d.file, rule: 'action-modes' as const, message: `${d.file}：戰鬥行動 ${d.id} 沒有寫 modes（沒寫就是每一個戰場都有；現實與內海的行動要各寫自己的戰場）` }))
+}
+
+const GRID_GUARD = /\b(?:isNetMapKind|inRun|hereOf|isMazeInstance)\s*\(/
+const GRID_HOOKS = /\bk\.grid\.(onEnter|usesOf|onMark)\s*\(/g
+
+/** 從 code[at]（一個 '(' 或 '{'）起，找到配對的右括號的位置；找不到是 -1。 */
+function matchClose(code: string, at: number): number {
+  let depth = 0
+  for (let i = at; i < code.length; i++) {
+    const c = code[i]!
+    if (c === '(' || c === '{' || c === '[') depth++
+    else if (c === ')' || c === '}' || c === ']') {
+      depth--
+      if (depth === 0) return i
+    }
+  }
+  return -1
+}
+
+/** 最外層的逗號把 args 切開。 */
+function splitArgs(args: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < args.length; i++) {
+    const c = args[i]!
+    if (c === '(' || c === '{' || c === '[') depth++
+    else if (c === ')' || c === '}' || c === ']') depth--
+    else if (c === ',' && depth === 0) {
+      parts.push(args.slice(start, i))
+      start = i + 1
+    }
+  }
+  parts.push(args.slice(start))
+  return parts.map((p) => p.trim()).filter((p) => p.length > 0)
+}
+
+/**
+ * 地圖的處理函式（k.grid 的 onEnter、usesOf、onMark）一開頭就先看這是哪一個世界的地圖：現實的街區與房間、還是網內的生成地圖
+ * （isNetMapKind、這一趟的行程 inRun、迷宮館的 hereOf／isMazeInstance）。不先看的話，同一個功能的處理函式會在另一個世界的地圖上作用。
+ * 看的範圍：處理函式的前 600 個字；處理函式只是呼叫同一個功能裡的另一個函式時（例：usesOf(OWNER, (ctx, m) => usesAt(k, ctx, m))），看那個函式的前 600 個字。
+ * features 是要查的功能（資料夾名字）；每一個都要掃到至少一個 k.grid 的註冊（名字寫錯不會變成什麼都沒掃）。
+ */
+export function checkGridWorldGuards(files: Record<string, string>, features: readonly string[]): M3Violation[] {
+  const out: M3Violation[] = []
+  for (const f of features) {
+    const mine = Object.entries(files).filter(([p]) => p.startsWith(`features/${f}/`) && p.endsWith('.ts') && !/\.(test|spec)\.ts$/.test(p))
+    const code = new Map(mine.map(([p, src]) => [p, blankStrings(stripComments(src))]))
+    const bodyOf = (name: string): string | null => {
+      for (const c of code.values()) {
+        const m = new RegExp(`\\bfunction\\s+${name}\\b[^{]*\\{|\\bconst\\s+${name}\\b[^=]*=\\s*(?:async\\s*)?\\([^)]*\\)[^=]*=>\\s*\\{?`).exec(c)
+        if (m) return c.slice(m.index + m[0].length, m.index + m[0].length + 600)
+      }
+      return null
+    }
+    let seen = 0
+    for (const [file, c] of code) {
+      for (const m of c.matchAll(GRID_HOOKS)) {
+        seen++
+        const open = m.index! + m[0].length - 1
+        const close = matchClose(c, open)
+        const args = splitArgs(c.slice(open + 1, close < 0 ? c.length : close))
+        const handler = args[args.length - 1] ?? ''
+        const arrow = handler.indexOf('=>')
+        let body = arrow >= 0 ? handler.slice(arrow + 2, arrow + 2 + 600) : (bodyOf(handler) ?? '')
+        const call = /^\s*\(?\s*([A-Za-z_$][\w$]*)\s*\(/.exec(body)
+        if (!GRID_GUARD.test(body) && call) body = bodyOf(call[1]!) ?? body
+        if (!GRID_GUARD.test(body.slice(0, 600))) out.push({ file, rule: 'grid-world', message: `${file}：k.grid.${m[1]} 的處理函式一開頭沒有先看是哪個世界的地圖（isNetMapKind、inRun、hereOf、isMazeInstance 其中一個）` })
+      }
+    }
+    if (seen === 0) out.push({ file: `features/${f}/`, rule: 'grid-world', message: `features/${f}/ 底下找不到任何 k.grid 的處理函式可以掃（功能的名字寫錯了？）` })
+  }
+  return out
+}

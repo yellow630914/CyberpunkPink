@@ -99,7 +99,8 @@ export function equipParty(game: Game, ids: readonly string[]): void {
   ids.forEach((id, i) => {
     commit(game, equipDraft(k, game.state, id, `D${i + 1}`))
     for (const item of i === 0 ? PC_SLOTS : MATE_SLOTS) commit(game, installDraft(k, game.state, id, item))
-    if (i === 0) commit(game, scriptsDraft(k, game.state, id, [{ item: 'it_tw_script', qty: 2 }]))
+    // 腳本的效果（net.ram）是 netcombat 註冊的：拿掉它，假世界就沒有那支腳本（worldFor）
+    if (i === 0 && k.content.has('item', 'it_tw_script')) commit(game, scriptsDraft(k, game.state, id, [{ item: 'it_tw_script', qty: 2 }]))
   })
 }
 
@@ -146,19 +147,25 @@ export interface NetCommissionGame extends CommissionGame {
 }
 
 /**
- * 接了那件主面是內海的委託（中間人 fx_tw_netbroker 桌上寫好的四階段副本、付現金）、隊伍兩個人（主角加名冊上的行者，行者分紅）都有甲板、站在委託地點（市場的西口）；還沒出發。
+ * 接了那件主面是內海的委託（中間人 fx_tw_netbroker 桌上寫好的四階段副本、付現金；offer: 'generated' 是桌上照類型生成的第一件）、隊伍兩個人（主角加名冊上的行者，行者分紅）都有甲板、站在委託地點（市場的西口）；還沒出發。
  * 強主角（NET_PC）、第 3 天上午 10:00、帳戶 500、現金 1,000；種子預設 6。
  */
-export function makeNetCommissionGame(o: CommissionOptions = {}): NetCommissionGame {
-  const { pc, pay, patch, actors, ...rest } = o
+export interface NetCommissionOptions extends CommissionOptions {
+  /** 接哪一件：written 是桌上寫好的四階段那一件（預設）；generated 是掮客的桌上照類型（竊密）生成的第一件（小型、三階段、最後一個內海面是隔離區） */
+  offer?: 'written' | 'generated'
+}
+
+export function makeNetCommissionGame(o: NetCommissionOptions = {}): NetCommissionGame {
+  const { pc, pay, patch, actors, offer, ...rest } = o
   const t = makeWorldGame({
     seed: 6, ...rest, pc: pc ?? NET_PC, actors: [makeRunner(), ...(actors ?? [])], features: [...(o.features ?? []), TEST_NET_ADMIN],
     patch: { time: { day: 3, hour: 10, minute: 0 }, money: { cred: 500, cash: 1000 }, inventory: netInventory(2) as never, ...patch },
   })
   const { game } = t
   game.commit(arrive(game.k, game.state, 'tw_market', 'E1'))
-  const row = board(game.k, game.state, NET_FIXER).offers.find((r) => r.id === NET_OFFER_ID)
-  if (!row) throw new Error('makeNetCommissionGame：掮客的桌上沒有那件內海的委託')
+  const rows = board(game.k, game.state, NET_FIXER).offers
+  const row = offer === 'generated' ? rows.find((r) => r.id !== NET_OFFER_ID) : rows.find((r) => r.id === NET_OFFER_ID)
+  if (!row) throw new Error(offer === 'generated' ? 'makeNetCommissionGame：掮客的桌上沒有生成的內海委託' : 'makeNetCommissionGame：掮客的桌上沒有那件內海的委託')
   game.commit(accept(game.k, game.state, { id: row.id, fixer: NET_FIXER }, { pay: pay ?? 'cash' }))
   game.commit(join(game.k, game.state, RUNNER, { pay: 'share' }))
   game.commit(muster(game.k, game.state, { party: [RUNNER], tagalong: [] }))
@@ -408,7 +415,8 @@ export function mazeSignUp(game: Game, bracket = 'rookie', seed?: number): Repor
 }
 
 /**
- * 把迷宮館這一趟走完（三層）：每一層解機關（站到旁邊解，失敗再解）、開寶箱（走到上面開）、一個一個打贏遭遇、走到閘門往下一層（最後一層通過出口）。
+ * 把迷宮館這一趟走完（三層）：每一層解機關（站到旁邊解，失敗再解）、一個一個打贏遭遇、開寶箱（走到上面開）、走到閘門往下一層（最後一層通過出口）。
+ * 擋路的東西（還沒解的機關、還沒打的遭遇）會讓後面的格子走不到：每一輪從現在走得到的事裡挑一件做，一件都做不了才丟錯。
  * 結算（maze.result）由迷宮館自己在通過之後接著發。回傳每一份報告。
  */
 export async function playMaze(game: Game): Promise<Report[]> {
@@ -421,40 +429,52 @@ export async function playMaze(game: Game): Promise<Report[]> {
     }
     return true
   }
-  for (let guard = 0; guard < 30 && readNetRun(game.state); guard++) {
+  /** 走到（鄰接）某個地方；走不過去回傳 false。 */
+  const reach = async (go: () => Promise<Report[]>): Promise<boolean> => {
+    try {
+      out.push(...(await go()))
+      return true
+    } catch (e) {
+      if (e instanceof WalkRefused || /走不到/.test((e as Error).message)) return false
+      throw e
+    }
+  }
+  for (let guard = 0; guard < 60 && readNetRun(game.state); guard++) {
     const marks = netMarkers(game)
-    const sheet = game.gridView()
-    if (!sheet) throw new Error('playMaze：現在不在迷宮館的地圖上')
+    let did = false
     // 機關：站到旁邊解開
-    const puzzle = marks.find((m) => m.mark === 'm' && isPuzzleOpen(game, m.id))
-    if (puzzle) {
-      out.push(...(await standBeside(game, puzzle.id, win)))
-      for (let i = 0; i < 8 && isPuzzleOpen(game, puzzle.id); i++) out.push(...game.commit(mazeSolve(game.k, game.state, puzzle.id)))
-      if (isPuzzleOpen(game, puzzle.id)) throw new Error('playMaze：機關解了八次還沒開')
-      continue
+    for (const p of marks.filter((m) => m.mark === 'm' && isPuzzleOpen(game, m.id))) {
+      if (!(await reach(() => standBeside(game, p.id, win)))) continue
+      for (let i = 0; i < 8 && isPuzzleOpen(game, p.id); i++) out.push(...game.commit(mazeSolve(game.k, game.state, p.id)))
+      if (isPuzzleOpen(game, p.id)) throw new Error('playMaze：機關解了八次還沒開')
+      did = true
+      break
     }
-    // 寶箱：走到上面開一次
-    const chest = marks.find((m) => m.mark === 'a' && !chestOpened(game, m.id))
-    if (chest) {
-      out.push(...(await netWalkCell(game, chest.at, win)))
-      if (!readNetRun(game.state)) break
-      out.push(...game.commit(mazeOpen(game.k, game.state, chest.id)))
-      if (!chestOpened(game, chest.id)) throw new Error('playMaze：寶箱開了還沒記成開過')
-      continue
-    }
+    if (did) continue
     // 遭遇：一個一個打
-    const foe = marks.find((m) => m.mark === 'f' && foeOpen(game, m.id))
-    if (foe) {
-      out.push(...(await standBeside(game, foe.id, win)))
-      if (!readNetRun(game.state)) break
+    for (const foe of marks.filter((m) => m.mark === 'f' && foeOpen(game, m.id))) {
+      if (!(await reach(() => standBeside(game, foe.id, win)))) continue
+      if (!readNetRun(game.state)) return out
       if (foeOpen(game, foe.id)) out.push(...netUse(game, 'fight', foe.id))
       await win()
-      continue
+      did = true
+      break
     }
+    if (did) continue
+    // 寶箱：走得到的就走到上面開一次（走不到的不要了，不影響過關）
+    for (const chest of marks.filter((m) => m.mark === 'a' && !chestOpened(game, m.id))) {
+      if (!(await reach(() => netWalkCell(game, chest.at, win)))) continue
+      if (!readNetRun(game.state)) return out
+      out.push(...game.commit(mazeOpen(game.k, game.state, chest.id)))
+      if (!chestOpened(game, chest.id)) throw new Error('playMaze：寶箱開了還沒記成開過')
+      did = true
+      break
+    }
+    if (did) continue
     // 閘門
     const gate = marks.find((m) => m.mark === 'g')
     if (!gate) throw new Error('playMaze：這一層沒有閘門')
-    out.push(...(await netWalkCell(game, gate.at, win)))
+    if (!(await reach(() => netWalkCell(game, gate.at, win)))) throw new Error(`playMaze：卡住了：機關、遭遇、寶箱都處理完了，閘門還是走不到（在 ${posOf(game).join(',')}）`)
     if (!readNetRun(game.state)) break
     const here = netrunView(game.k, game.state)!
     const use = here.here.uses.find((u) => (u.id === 'pass' || u.id === 'descend') && !u.block)

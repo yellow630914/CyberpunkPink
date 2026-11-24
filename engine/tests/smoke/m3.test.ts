@@ -25,13 +25,12 @@ import { chooseBranch, chooseFace, commissionView, readRun } from '../../src/fea
 import { acceptDefeat, defeatOf } from '../../src/features/defeat'
 import { deckOf } from '../../src/features/deck'
 import { exit as diveExit, go as diveGo, diveOptions, readDive, sites } from '../../src/features/dive'
-import { go, jobOf } from '../../src/features/fixer'
+import { board, go, jobOf } from '../../src/features/fixer'
 import { MAZE_EXT, mazeView, readMaze } from '../../src/features/maze'
 import { logout, netExt, netrunView, readRun as readNetRun } from '../../src/features/netrun'
-import { chooseOption } from '../../src/features/director'
 import type { Flow, Repro } from '../../src/testkit'
 import {
-  M3_ACTION_PREFIXES, M3_STEPS, NET_FIXER, NET_COMMISSION, diveIn, flow, makeDiveGame, makeNetBattleGame, makeNetCommissionGame, mazeSignUp, netUse, netWalkRounds, observed,
+  FIXER, M2_STEPS, M3_ACTION_PREFIXES, M3_STEPS, NET_FIXER, NET_COMMISSION, diveIn, flow, makeDiveGame, makeNetBattleGame, makeNetCommissionGame, mazeSignUp, netUse, netWalkRounds, observed,
   playMaze, playNetOut, playNetStage, playStage, prefixProblems, refitForRookie, stateHash, untilIdle,
 } from '../../src/testkit'
 import type { Game } from '../../src/shell/game'
@@ -287,7 +286,9 @@ async function netCommissionFlow(f: Flow, g: Game, job: string, checkpoint: Chec
     expect(actions(reports)).toEqual(expect.arrayContaining(['netrun.use', 'netrun.end', 'commission.milestone']))
     const end = ends.find((e) => e.kind === 'face.net')!
     expect(end.outcome).toBe('done')
-    expect(end.result).toMatchObject({ trace: t1, layers: 1, region: 'tw_subnet', located: undefined })
+    expect(end.result).toMatchObject({ trace: t1, layers: 1, region: 'tw_subnet' })
+    expect(end.result).not.toHaveProperty('located')
+    expect(end.result.rounds as number).toBeGreaterThan(0)
     expect(readNetRun(g.state)).toBeNull()
     expect(readRun(g.state)).toMatchObject({ stage: 2, step: 'face', trace: t1 })
     expect(view(g).trace.value).toBe(t1)
@@ -350,6 +351,46 @@ describe('冒煙 M3：委託（內海）', () => {
     // 掃得到東西：這一趟碰到了內海的前綴
     const seen = new Set(g.state.reports.map((r) => r.action!.split('.')[0]))
     for (const p of ['deck', 'netrun', 'commission', 'fixer', 'battle', 'grid', 'roster']) expect(seen, p).toContain(p)
+  })
+})
+
+describe('冒煙 M3：中間人生成的內海委託', () => {
+  it('掮客桌上照類型（竊密）生成的委託：接案 → 第一階段內海 → 第二階段現實（給資料埠）→ 第三階段內海（隔離區，鑰匙在手）→ 做完入帳', async () => {
+    const f = flow('委託（內海）・生成的')
+    const { game: g, job } = makeNetCommissionGame({ offer: 'generated' })
+    const { k } = g
+    await guarded(g, async () => {
+      await f.step('接案：生成的委託，主面內海、三階段（現實或內海、現實、內海）；最後的內海面是隔離區（要資料埠的連動），資料埠由現實那個階段給', () => {
+        const j = jobOf(g.state, job)!
+        expect(j.id).not.toBe('of_tw_net')
+        const def = j.commission as unknown as { main: string; scale: string; stages: Array<{ faces: Record<string, { gives?: string; locked_by?: string }> }> }
+        expect(def).toMatchObject({ main: 'net', scale: 'small' })
+        expect(def.stages.map((st) => Object.keys(st.faces).sort())).toEqual([['meat', 'net'], ['meat'], ['net']])
+        expect(def.stages[2]!.faces.net!.locked_by).toBe('lk_tw_airgap')
+        expect(def.stages[1]!.faces.meat!.gives).toBe('lk_tw_airgap')
+      })
+      await f.step('出發、第一階段選內海面、走完（子網的敵人是粉蕾絲）', async () => {
+        g.commit(go(k, g.state, job))
+        const reports = await playNetStage(g)
+        expect(actions(reports)).toEqual(expect.arrayContaining(['commission.face', 'netrun.enter', 'netrun.end', 'commission.milestone']))
+        expect(readRun(g.state)).toMatchObject({ stage: 2, step: 'face' })
+      })
+      await f.step('第二階段：現實面（強攻、走地圖、打贏），資料埠的連動記進手上', async () => {
+        await playStage(g)
+        expect(readRun(g.state)).toMatchObject({ stage: 3, step: 'face' })
+        expect(readRun(g.state)!.links.map((l) => l.id)).toContain('lk_tw_airgap')
+      })
+      await f.step('第三階段：隔離區打開了，選內海面走完；做完入帳', async () => {
+        expect(view(g).faces.find((x) => x.face === 'net')).toMatchObject({ open: true, block: null })
+        await playNetStage(g)
+        expect(readRun(g.state)).toBeNull()
+        const j = jobOf(g.state, job)!
+        expect(j.status).toBe('done')
+        expect(j.payout).toMatchObject({ outcome: 'done' })
+        expect(g.state.reports.filter((r) => r.action === 'fixer.payout')).toHaveLength(1)
+        expect(prefixProblems(g)).toEqual([])
+      })
+    })
   })
 })
 
@@ -697,6 +738,38 @@ describe('冒煙 M3：潛入（第二波）', () => {
   })
 })
 
+describe('冒煙 M3：租用甲板的潛入（第二波）', () => {
+  it('沒有自己的甲板：潛艙店租一副（費用加押金）→ 去訪客也進得去的子網 → 登出：退押金、收回租來的甲板', async () => {
+    const f = flow('潛入（租甲板）')
+    const { game: g } = makeDiveGame({ noDeck: true })
+    const { k } = g
+    await guarded(g, async () => {
+      const cash = await f.step('站在潛艙店，沒有甲板：問得到租用的價錢（費用 30、押金 50）', () => {
+        expect(deckOf(k, g.state, 'pc').has).toBe(false)
+        expect(diveOptions(k, g.state)).toMatchObject({ ok: true, deck: 'rental', fee: 30, deposit: 50, cost: 80 })
+        return g.state.money.cash
+      })
+      await f.step('潛入：付 80，用的是租來的甲板（館方的 I 級）', () => {
+        diveIn(g)
+      })
+      await f.step('選訪客也進得去的去處：子網開起來；沒有構裝的人先登出（東西都帶走）', () => {
+        expect(g.state.money.cash).toBe(cash - 80)
+        expect(deckOf(k, g.state, 'pc')).toMatchObject({ source: 'rental', grade: 1 })
+        g.commit(diveGo(k, g.state, 'ns_tw_guest'))
+        expect(netrunView(k, g.state)).toMatchObject({ region: { id: 'tw_subnet' }, dig: { site: 'tw_site_b' } })
+        g.commit(logout(k, g.state))
+      })
+      await f.step('登出回到現實：押金退回（現金少了費用 30），租來的甲板收回', () => {
+        g.commit(diveExit(k, g.state))
+        expect(g.state.money.cash).toBe(cash - 30)
+        expect(deckOf(k, g.state, 'pc').has).toBe(false)
+        expect(readDive(g.state)).toBeNull()
+        expect(prefixProblems(g)).toEqual([])
+      })
+    })
+  })
+})
+
 // ===================================================================================================================
 // 種子重播的固定檔
 // ===================================================================================================================
@@ -718,12 +791,13 @@ describe('冒煙 M3：種子重播的固定檔（engine/tests/fixtures/repro/）
 
   it('兩份固定檔涵蓋冒煙的內海委託與潛入兩條：委託有出發、四個階段（兩個內海、兩個現實）、下載到一半存讀檔；潛入有潛入、自己去挖兩次、迷宮館、登出', () => {
     const net = stepsOf(load('m3-net-commission'))
-    expect(net.filter((s) => s === 'net_stage')).toHaveLength(3)
+    expect(net.filter((s) => s === 'net_stage')).toHaveLength(4)
     expect(net.filter((s) => s === 'stage')).toHaveLength(2)
     for (const s of ['go', 'net_walk', 'net_use', 'save_load', 'until_idle']) expect(net, s).toContain(s)
     const dive = stepsOf(load('m3-dive'))
-    expect(dive.filter((s) => s === 'dive')).toHaveLength(5)
-    for (const s of ['maze', 'net_stage', 'net_logout', 'save_load']) expect(dive, s).toContain(s)
+    expect(dive.filter((s) => s === 'dive')).toHaveLength(4)
+    expect(dive.filter((s) => s === 'net_logout')).toHaveLength(2)
+    for (const s of ['maze', 'net_stage', 'save_load']) expect(dive, s).toContain(s)
   })
 })
 
@@ -732,16 +806,36 @@ describe('冒煙 M3：種子重播的固定檔（engine/tests/fixtures/repro/）
 // ===================================================================================================================
 
 describe('冒煙 M3：整體', () => {
-  it('報告的前綴清單：M2 的加上 deck、netrun、dive、maze（0018 第十三節）；清單裡每個前綴都是「小寫英文」', () => {
+  it('報告的前綴清單：M2 的加上 deck、netrun、dive、maze（0018 第十三節）；清單裡每個前綴都是「小寫英文」、沒有重複', () => {
     expect(M3_ACTION_PREFIXES).toEqual(expect.arrayContaining(['deck', 'netrun', 'dive', 'maze', 'commission', 'battle']))
     expect(M3_ACTION_PREFIXES.every((p) => /^[a-z_]+$/.test(p))).toBe(true)
     expect(new Set(M3_ACTION_PREFIXES).size).toBe(M3_ACTION_PREFIXES.length)
+    // 反例：沒有前綴的動詞、別人的前綴、大小寫都抓得到
+    const g = makeNetBattleGame({ noBattle: true }).game
+    expect(prefixProblems(g)).toEqual([])
+    g.commit({ kind: 'system', action: 'netrun.test', location: {}, party: [], timeline: [], changes: [], outcome: { result: 'ok', summary: '測試' } })
+    g.commit({ kind: 'system', action: 'test.ok', location: {}, party: [], timeline: [], changes: [], outcome: { result: 'ok', summary: '測試' } })
+    expect(prefixProblems(g)).toEqual([])
+    g.state.reports[g.state.reports.length - 1]!.action = 'wait'
+    g.state.reports[g.state.reports.length - 2]!.action = 'mystery.go'
+    expect(prefixProblems(g)).toEqual(['mystery.go', 'wait'])
   })
 
-  it('接案時桌上的那件內海委託在：掮客桌上有它，現實的中間人的桌面不受影響（三件、都是現實的）', () => {
+  it('步驟表：M2 的步驟都在，加上 net_stage、net_walk、net_use、net_logout、dive、maze；種子重播的步驟名對得上', () => {
+    expect(Object.keys(M3_STEPS)).toEqual(expect.arrayContaining([...Object.keys(M2_STEPS), 'net_stage', 'net_walk', 'net_use', 'net_logout', 'dive', 'maze']))
+    expect(Object.keys(M3_STEPS)).toHaveLength(Object.keys(M2_STEPS).length + 6)
+  })
+
+  it('接了那件委託之後，掮客桌上只剩生成的幾件、現實的中間人桌面不受影響（三件、都是現實的）', () => {
     const { game: g, job } = makeNetCommissionGame()
     expect(job).toBe('of_tw_net')
-    expect(chooseOption).toBeDefined()
     expect(g.state.party).toEqual(['pc', 'a_tw_runner'])
+    const net = board(g.k, g.state, NET_FIXER)
+    expect(net.offers.map((o) => o.id)).not.toContain('of_tw_net')
+    expect(net.offers.length).toBeGreaterThan(0)
+    // 現實的中間人：市場那一位，三件、類型都是暗殺
+    const market = board(g.k, g.state, FIXER)
+    expect(market.offers).toHaveLength(3)
+    expect(market.offers.every((o) => (o.offer.commission as { main?: string }).main === 'meat')).toBe(true)
   })
 })

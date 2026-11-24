@@ -2,8 +2,9 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { FEATURES } from '../../src/features'
-import { checkExtReads, checkLayers, extOwners, importsOf, layerOf } from '../../src/testkit'
+import { createKernel } from '../../src'
+import { FEATURES, allFeatures } from '../../src/features'
+import { checkActionModes, checkCoreOnlyImports, checkExtReads, checkGridWorldGuards, checkLayers, extOwners, importsOf, layerOf, scanActionDefs } from '../../src/testkit'
 
 const SRC = fileURLToPath(new URL('../../src', import.meta.url))
 
@@ -105,6 +106,8 @@ describe('功能不讀別的功能的 state.ext', () => {
       world: 'world', transit: 'transit', trade: 'trade', work: 'work', rest: 'rest', bills: 'bills', director: 'director', scene: 'scene', npcs: 'npcs', roster: 'roster',
       fixer: 'fixer', commission: 'commission', commission_failed: 'commission', defeat: 'defeat', favors: 'favors', security: 'security', security_scan: 'security', security_floors: 'security',
       capture: 'enemies', // 俘虜的鍵（常數 CAPTURE_EXT；以前叫 CAPTURE_KEY，掃描認不得，M2 修正批 11 改名）
+      // M3 的三個：一趟網內的行程、潛入、迷宮館（dev/adr/0018 第六、八節）
+      netrun: 'netrun', dive: 'dive', maze: 'maze',
     })) expect(owners[key], key).toBe(feature)
   })
 
@@ -142,6 +145,19 @@ describe('功能不讀別的功能的 state.ext', () => {
     expect(found[0]!.message).toContain('world')
     expect(found[0]!.message).toContain('fixer')
   })
+
+  it('M3 的三個鍵（netrun、dive、maze）：別的功能讀或寫它們，抓得到；它們自己讀自己的不算', () => {
+    const files = readTree(SRC)
+    const bad = {
+      ...files,
+      'features/enemies/spy1.ts': "export const a = (state: { ext: Record<string, unknown> }) => state.ext.netrun",
+      'features/summons/spy2.ts': "export const b = (state: { ext: Record<string, unknown> }) => state.ext['maze']",
+      'features/hack/spy3.ts': "export const c = { op: 'ext', key: 'dive', value: null }",
+    }
+    expect(checkExtReads(bad).map((v) => `${v.feature}→${v.owner}:${v.key}`).sort()).toEqual(['enemies→netrun:netrun', 'hack→dive:dive', 'summons→maze:maze'])
+    // 自己讀自己的：在 netrun 裡讀 state.ext.netrun 不算
+    expect(checkExtReads({ ...files, 'features/netrun/self.ts': 'export const d = (state: { ext: Record<string, unknown> }) => state.ext.netrun' })).toEqual([])
+  })
 })
 
 // 規格：dev/work/M2-plan.md「每一張都適用的規定」第 2、3 條（能用測試守的）
@@ -171,5 +187,91 @@ describe('M2 每一張都適用的規定', () => {
     const walk = (dir: string): string[] => readdirSync(dir).flatMap((n) => (statSync(join(dir, n)).isDirectory() ? walk(join(dir, n)) : [join(dir, n)]))
     const text = walk(data).map((f) => readFileSync(f, 'utf8')).join('\n')
     for (const id of ids) expect(text, id).not.toContain(id)
+  })
+})
+
+// 規格：dev/work/M3-plan.md「每一張都適用的規定」第 2、3、6、7 條（能用測試守的）；dev/work/M3-smoke.md 第 5 點
+describe('M3 每一張都適用的規定', () => {
+  const TESTS = fileURLToPath(new URL('..', import.meta.url))
+  /** M3 新做的功能（整個資料夾是這一批寫的）。 */
+  const M3_FEATURES = ['deck', 'netcombat', 'netrun', 'dive', 'maze'] as const
+
+  it('第 3 條：新的功能都只 import 核心（自己的檔案與 core，不碰別的功能、外殼、測試基礎建設）；每個功能都有檔案可以掃', () => {
+    const files = readTree(SRC)
+    expect(checkCoreOnlyImports(files, M3_FEATURES).map((v) => v.message)).toEqual([])
+    for (const f of M3_FEATURES) expect(Object.keys(files).filter((p) => p.startsWith(`features/${f}/`)).length, f).toBeGreaterThan(2)
+  })
+
+  it('第 3 條的反例：import 別的功能、外殼、測試基礎建設、套件、功能的總表、寫錯名字的功能，都抓得到；import 核心與自己的不算', () => {
+    const base = { 'features/netrun/a.ts': "import { x } from './b'\nimport { k } from '../../core'\nimport { y } from '../../core/battle/run'", 'features/netrun/b.ts': '', 'features/maze/m.ts': '', 'core/index.ts': '' }
+    expect(checkCoreOnlyImports(base, ['netrun'])).toEqual([])
+    const bad = (line: string) => checkCoreOnlyImports({ ...base, 'features/netrun/c.ts': line }, ['netrun']).map((v) => v.rule)
+    expect(bad("import { m } from '../maze/m'")).toEqual(['core-only'])
+    expect(bad("import { g } from '../../shell/game'")).toEqual(['core-only'])
+    expect(bad("import { t } from '../../testkit'")).toEqual(['core-only'])
+    expect(bad("import { F } from '../index'")).toEqual(['core-only'])
+    expect(bad("import { v } from 'vue'")).toEqual(['core-only'])
+    expect(checkCoreOnlyImports(base, ['nope']).map((v) => v.message)[0]).toContain('名字寫錯')
+    // 在真的原始碼上加一個違規的檔案
+    const real = { ...readTree(SRC), 'features/dive/spy.ts': "import { enter } from '../maze'\nexport const e = enter" }
+    expect(checkCoreOnlyImports(real, M3_FEATURES).map((v) => v.file)).toEqual(['features/dive/spy.ts'])
+  })
+
+  it('第 7 條（戰場）：features/ 裡每一個戰鬥行動都寫了 modes；掃得到三十幾個行動（內海的每一個都在）', () => {
+    const files = readTree(SRC)
+    const defs = scanActionDefs(files)
+    expect(defs.length).toBeGreaterThanOrEqual(30)
+    const ids = defs.map((d) => d.id)
+    for (const id of ['net_attack', 'net_refill', 'net_pin', 'net_jack_out', 'net_surrender', 'net_shift', 'shoot', 'reload', 'surrender']) expect(ids, id).toContain(id)
+    expect(checkActionModes(files).map((v) => v.message)).toEqual([])
+  })
+
+  it('第 7 條（戰場）的反例：漏寫 modes 的行動抓得到（寫出是哪個檔案哪個行動）；寫了 modes 的、展開別人的不算；一個不是行動的物件不算', () => {
+    const def = (extra: string) => `export const a = { id: 'x.go', owner: 'x', name: '走', desc: '走一步。', group: 'tactic', target: 'none', ${extra}cost: () => ({ ap: 1 }), run(run, u) { run.say('走', 'x') } }`
+    expect(checkActionModes({ 'features/x/a.ts': def('') }).map((v) => v.message)).toEqual(['features/x/a.ts：戰鬥行動 x.go 沒有寫 modes（沒寫就是每一個戰場都有；現實與內海的行動要各寫自己的戰場）'])
+    expect(checkActionModes({ 'features/x/a.ts': def("modes: ['net'], ") })).toEqual([])
+    expect(checkActionModes({ 'features/x/a.ts': def('...base, ') })).toEqual([])
+    expect(checkActionModes({ 'features/x/a.ts': "export const o = { id: 'y', owner: 'x', name: '不是行動' }" })).toEqual([])
+    // 註解與字串裡寫的 modes 不算
+    expect(checkActionModes({ 'features/x/a.ts': def("note: 'modes: [net]', ").replace("note: 'modes: [net]', ", "// modes: ['net']\n") })).toHaveLength(1)
+    // 在真的原始碼上加一個漏寫的行動
+    const real = { ...readTree(SRC), 'features/netcombat/bad.ts': def('') }
+    expect(checkActionModes(real).map((v) => v.file)).toEqual(['features/netcombat/bad.ts'])
+  })
+
+  it('第 7 條（地圖）：netrun、maze、explore 的 k.grid 處理函式（onEnter、usesOf、onMark）一開頭就先看是哪個世界的地圖', () => {
+    expect(checkGridWorldGuards(readTree(SRC), ['netrun', 'maze', 'explore']).map((v) => v.message)).toEqual([])
+  })
+
+  it('第 7 條（地圖）的反例：沒先看的處理函式抓得到（內嵌的、轉給同一個功能裡別的函式的、直接給函式名的）；先看了的不算；寫錯功能名字抓得到', () => {
+    const reg = (handler: string, more = '') => ({ 'features/x/index.ts': `export function install(k: Kernel) {\n  k.grid.usesOf(OWNER, ${handler})\n}\n${more}` })
+    const bad = (files: Record<string, string>) => checkGridWorldGuards(files, ['x']).map((v) => v.rule)
+    expect(bad(reg('(ctx, marker) => {\n    const here = look(ctx)\n    return []\n  }'))).toEqual(['grid-world'])
+    expect(bad(reg('(ctx, marker) => {\n    if (isNetMapKind(ctx.map.kind)) return []\n    return look(ctx)\n  }'))).toEqual([])
+    expect(bad(reg('(ctx, marker) => usesAt(ctx, marker)', 'function usesAt(ctx, marker) {\n  if (isNetMapKind(ctx.map.kind)) return []\n  return []\n}'))).toEqual([])
+    expect(bad(reg('(ctx, marker) => usesAt(ctx, marker)', 'function usesAt(ctx, marker) {\n  const spec = USES.find(() => true)\n  return []\n}'))).toEqual(['grid-world'])
+    expect(bad(reg('hereUses', 'function hereUses(ctx, marker) {\n  const run = inRun(ctx)\n  return run ? [] : []\n}'))).toEqual([])
+    expect(bad(reg('hereUses', 'function hereUses(ctx, marker) {\n  return []\n}'))).toEqual(['grid-world'])
+    expect(bad({ 'features/x/index.ts': 'export const nothing = 1' })).toEqual(['grid-world'])
+    // 在真的原始碼上加一個沒先看的處理函式
+    const real = { ...readTree(SRC), 'features/maze/spy.ts': 'export function install(k: Kernel) {\n  k.grid.onEnter(OWNER, (ctx) => {\n    return { stop: true }\n  })\n}' }
+    expect(checkGridWorldGuards(real, ['netrun', 'maze', 'explore']).map((v) => v.file)).toEqual(['features/maze/spy.ts'])
+  })
+
+  it('第 6 條：每個 M3 功能的規則表與區的內容種類都是「可以被後載入的包取代」的（overridable）', () => {
+    const k = createKernel(allFeatures())
+    for (const kind of ['sync_rule', 'deck_rule', 'netcombat_rule', 'netrun_rule', 'net_region', 'net_facility', 'net_affix', 'net_enemy_rule', 'maze_rule']) {
+      expect(k.content.hasKind(kind), kind).toBe(true)
+      expect(k.content.isOverridable(kind), kind).toBe(true)
+    }
+    // 一筆一筆的內容（不是規則）：不能被取代
+    for (const kind of ['deck', 'construct', 'net_site', 'maze_table']) expect(k.content.isOverridable(kind), kind).toBe(false)
+  })
+
+  it('第 2 條：M3 各功能的驗收測試（tests/features/M3-<功能>.test.ts）用測試自帶的最小假資料，不 import engine/data（資料的測試在 tests/data）', () => {
+    const files = readdirSync(join(TESTS, 'features')).filter((n) => /^M3-.*\.test\.ts$/.test(n))
+    expect(files.length).toBeGreaterThan(15)
+    const bad = files.filter((n) => /from\s+['"](?:\.\.\/)+data(?:\/[^'"]*)?['"]/.test(readFileSync(join(TESTS, 'features', n), 'utf8')))
+    expect(bad).toEqual([])
   })
 })
