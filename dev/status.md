@@ -433,3 +433,10 @@
 - 接縫建議（審查／修正批）：netrun 加「踩陷阱」與 `netrun.descend` 掛點（現在靠 action 字串）；ext.net.traps 形狀寫進 0018 第十三節；FEATURES 順序 maze 必須在 dive 後（dive 的 afterReport 不冪等）；deck 提供「租用時預裝槽」讓新手組發比賽版構裝。
 - 沒做：延長賽、直播、主題 d8、詞條、籌碼物品與兌換（暫用現金計數）；engine/data 沒有 maze_rule/maze_table（寶箱表空的）。
 - ADR 0018 待補「實作補記：M3-maze」。
+
+## M3-ui-dive 回報（2026-11-24）
+
+- 潛入與登出對話框、去處、迷宮館報名與面板、自己去挖的抬頭、離開結算頁；示意包加潛艙店的潛入、自己去挖的去處與兩種設施、迷宮館的遊戲敵人與寶箱獎品表。
+- 給引擎（審查或修正批）：net_site 沒有迷宮館的種類（建議 `kind: 'maze'` 或 sites() 列出迷宮館）；netrunView.dig 缺 `left`（上次離開的日子、剩幾天重整）；離開那份報告的 timeline 應帶 `data: result`（loot、敵對值數字）。
+- 平衡疑慮：示意主角（夜巡 III）打 grade 3 的迷宮館遊戲敵人卡在 AP 0 僵局 54 回合以上——審查或平衡看。
+- 潛入中主畫面仍可走格子和做現實的「這裡」（引擎放行 commit:world.），沒擋——審查確認。
