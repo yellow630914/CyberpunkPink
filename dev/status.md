@@ -261,3 +261,13 @@
 - 生成器 `core/grid/gen.ts`（醉漢走路加修整；單向只把人往出口推、斷橋全斷也走得到）；不變式 151～153。
 - 給 M3-netrun：`graph`、`hidden`、`safe_path` 存進實例 `ext.net`；`net_valve` 放行用 `valveAllows`；巡邏路線、層主、遠處遭遇較重、層間出入口都由用的人從 `graph` 自己挑。
 - 迷宮館密度實測約 9 個節點（設計書 6～8），由 maze 調 spec。
+
+## M3-netcombat 回報（2026-11-24）
+
+- 內海行動九種、同步檔位、進階與終極、干擾、破損、監視；規則表 `netcombat_rule`。
+- 給 M3-data-rules：補 `battle_status` 的 `jam_weapon`、`jam_defense`、`jam_tool`（一回合、own_turn_end、debuff），沒有時有干擾武器會擋。
+- `net_broken` 角色狀況沒人清（設計書：下一次休息拿掉）——rest 要補。
+- 構裝 `traits` 維持字串陣列；DATA 7.3 範例的物件寫法建議文件改成字串。
+- 給 M3-lace：會換檔的敵人 `ext.net.shift = true`；敵人 `weapon.id` 要等於構裝 id。
+- 給 M3-netcombat-out：拔線、投降用 system order 1、2；釘住 tactic order 4。
+- 給 M3-ui-netcombat：缺圖示 `refill`、`script`、`tool`、`shift`。
