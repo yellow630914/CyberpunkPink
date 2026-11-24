@@ -293,7 +293,7 @@ AI 任務 `flavor_shop`（[AI_TASKS](../plan/AI_TASKS.md) 2.2 節）：每間店
 |---|---|
 | `title`、`desc` | 名稱與一句話 |
 | `gives` | 玩家付出：帳上的錢、現金晶片、時間（幫忙搬貨）、物品、人情 |
-| `gets` | 玩家得到：目錄裡的物品；一個訂做零件的規格（走 `design_part` 的夾值，[CRAFTING](../gear/CRAFTING.md) 第 11 節）；店主親密度；一則傳聞；`ai:` 開頭的旗標 |
+| `gets` | 玩家得到：目錄裡的物品；一件未登錄零件（走 `design_part` 與引擎驗證，[CRAFTING](../gear/CRAFTING.md) 11.1 節）；店主親密度；一則傳聞；`ai:` 開頭的旗標 |
 | `price` | 總價 |
 | `flavor` | 氣氛交易的焦點（請客、聊天、幫忙）：只寫氣氛，不帶任何隱藏的效果 |
 
