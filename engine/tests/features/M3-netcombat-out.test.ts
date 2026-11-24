@@ -814,8 +814,8 @@ describe('三個新行動的宣告', () => {
     expect(k.battle.actionsFor('meat').map((d) => d.id)).not.toContain('net_pin')
   })
 
-  it('內海的行動表只有這個功能與核心的：行動 id 都是 net_ 開頭，或換位、結束回合', () => {
+  it('內海的行動表只有這個功能與核心的：行動 id 都是 net_ 開頭（管理行動是 adm_），或換位、結束回合', () => {
     const a = arena(BATTLE_SETUPS.net())
-    for (const d of a.k.battle.actionsFor('net')) expect(['end_turn', 'move'].includes(d.id) || d.id.startsWith('net_'), d.id).toBe(true)
+    for (const d of a.k.battle.actionsFor('net')) expect(['end_turn', 'move'].includes(d.id) || d.id.startsWith('net_') || d.id.startsWith('adm_'), d.id).toBe(true)
   })
 })

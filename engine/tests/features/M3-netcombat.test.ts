@@ -158,7 +158,7 @@ describe('內海的行動表（CYBERSPACE 6.3 節）', () => {
     expect(options(bare).actions.some((x) => x.id.startsWith('net_tool:'))).toBe(false)
     // 現實的行動一個都沒有
     for (const id of ['shoot', 'melee', 'reload', 'swap', 'item', 'hit_cover', 'watch', 'subdue', 'flee', 'surrender']) expect(ids, id).not.toContain(id)
-    for (const d of bare.k.battle.actionsFor('net')) expect([END_TURN, MOVE].includes(d.id) || d.id.startsWith('net_'), d.id).toBe(true)
+    for (const d of bare.k.battle.actionsFor('net')) expect([END_TURN, MOVE].includes(d.id) || d.id.startsWith('net_') || d.id.startsWith('adm_'), d.id).toBe(true)
     // 現實戰鬥沒有 net_ 開頭的行動
     expect(bare.k.battle.actionsFor('meat').filter((d) => d.id.startsWith('net_'))).toEqual([])
   })

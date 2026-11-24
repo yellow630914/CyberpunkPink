@@ -292,3 +292,9 @@
 - 待決定：共鳴（path.resonance）不分欄，現實共鳴在內海仍生效。
 - 開戰時套用的池與標籤看那一刻的 `sync:` 標籤，若 netcombat 還沒寫上，淺檔的專屬欄池會照樣加上（審查時查）。
 - ADR 0018 待補「實作補記：M3-abilities-net」。ui 的 vue-tsc 確認過沒壞。
+
+## M3-netadmin 回報（2026-11-24）
+
+- 七種管理行動（造牆、拆牆、斷路、接管、破解、擦痕跡、標記）、駭入程式的 admin 欄合併規則、後門鑰匙；`netBattleView` 有 admin 次數。
+- 暫定：紅點的標記加值用 `amount` 寫總數（不是 +2 之上再加）；同時兩格不限相鄰；接管檢定失敗一律 +1 +5 追蹤度。
+- 給 M3-lace：敵方潛網者要 `admin` 標籤、`ext.net.admin`、RAM 池。給 M3-netrun：破解結果 `fled`，拍子 `data.cracked`。給 M3-data-rules：`netcombat_rule.admin`。

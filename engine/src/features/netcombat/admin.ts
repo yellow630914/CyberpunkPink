@@ -202,8 +202,8 @@ function extraSlots(main: number, count: number, chosen: readonly unknown[], pre
 /** 一格的遮蔽（暴露 0、半掩體 1、掩體 2）；打不破的（煙霧、人群）另外標。 */
 const coverCell = (view: Pick<BattleView, 'battle'>, side: BattleSide, slot: number) => view.battle.cover[side][slot - 1]
 
-function slotPick(key: string, label: string, side: BattleSide): BattlePick {
-  return { key, label, kind: 'foe_slot', required: false, options: slotsOf().map((s) => ({ value: s, label: `第 ${s} 格`, blocks: [] as string[], at: cell(side, s) })) }
+function slotPick(label: string, side: BattleSide): BattlePick {
+  return { key: 'also', label, kind: 'foe_slot', required: false, options: slotsOf().map((s) => ({ value: s, label: `第 ${s} 格`, blocks: [] as string[], at: cell(side, s) })) }
 }
 
 const targetSlot = (target: BattleTarget | null, side: BattleSide): number | undefined => (target && 'slot' in target && target.side === side ? target.slot : undefined)
@@ -308,7 +308,7 @@ const breach = adminAction({
       return { target: cell(foe, slot), blocks, hint: { dc: adminDc(view), level: c?.level ?? 0 } }
     })
   },
-  picks: (view, u): BattlePick[] => (adminCalc(view, u, 'breach').slots > 1 ? [slotPick('also', '另一格（同時拆）', otherSide(u.side))] : []),
+  picks: (view, u): BattlePick[] => (adminCalc(view, u, 'breach').slots > 1 ? [slotPick('另一格（同時拆）', otherSide(u.side))] : []),
   run: (run, u, target, input, n) => {
     const foe = otherSide(u.side)
     const slot = targetSlot(target, foe)
@@ -335,7 +335,7 @@ const cut = adminAction({
   name: 'cut', order: 2, target: 'foe_slot',
   desc: '把敵方一格斷路：這一輪結束前，站在那一格的人換不了位，後面的人也補不進來。要過一次檢定（智識加介面，對這張地圖的 DC）；花 2 RAM，不花行動點；追蹤度 +1。',
   targets: (view, u) => slotsOf().map((slot) => ({ target: cell(otherSide(u.side), slot), blocks: [], hint: { dc: adminDc(view) } })),
-  picks: (view, u): BattlePick[] => (adminCalc(view, u, 'cut').slots > 1 ? [slotPick('also', '另一格（同時斷）', otherSide(u.side))] : []),
+  picks: (view, u): BattlePick[] => (adminCalc(view, u, 'cut').slots > 1 ? [slotPick('另一格（同時斷）', otherSide(u.side))] : []),
   run: (run, u, target, input, n) => {
     const foe = otherSide(u.side)
     const slot = targetSlot(target, foe)
