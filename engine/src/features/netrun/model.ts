@@ -257,6 +257,8 @@ export interface Patrol {
   at: string
   step: number
   calm?: true
+  /** 打贏了、沒有了（留著紀錄，編號不重複） */
+  gone?: true
 }
 
 /** 控制節點：node 是對到現實的哪個控制節點（副本的 cn_ 開頭），taken 是接管了。 */
