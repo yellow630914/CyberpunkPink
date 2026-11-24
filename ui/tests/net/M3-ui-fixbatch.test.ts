@@ -1,6 +1,7 @@
 // M3 修正批的介面跟改：委託夥伴有橋、內海面的 block、輔助結算多出留下的夥伴、每輪追蹤度減半的字。
 import { describe, expect, it } from 'vitest'
 import { auxLine } from '../../src/lib/commissionView'
+import { disabledReason } from '../../src/lib/battleView'
 import { beatText } from '../../src/lib/netView'
 import { person } from '../commission/fixtures'
 import { start, depart } from '../commission/netFixtures'
@@ -28,6 +29,11 @@ describe('M3 修正批：介面', () => {
     const two = auxLine({ ...base, people: ['a', 'b'] } as never, nameOf, (x) => x, (x) => x)
     expect(one).not.toContain('在場')
     expect(two).toContain('（在場：人a、人b）')
+  })
+
+  it('閃斷中的行動灰掉：原因整句照引擎顯示，不截斷', () => {
+    const why = '閃斷中：這個回合只能做不花 RAM 的事（換位、換構裝、回填）。'
+    expect(disabledReason({ ok: false, blocks: [why], targets: [] })).toBe(why)
   })
 
   it('每輪追蹤度那一拍帶 data.halved：顯示「連動讓上升減半」，引擎已經寫了就不重複', () => {
