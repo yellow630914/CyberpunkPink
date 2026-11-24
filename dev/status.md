@@ -401,3 +401,11 @@
 
 - 副本頁的追蹤度條、隔離區面卡、回到子網、內海階段的結果行與路線後果；網內行程一開就導到 /subnet；接案與踩點的內海提示。示意包：內海類型 steal_net、寫好的四階段內海委託（阿蓮雜貨後間）、三勢力的蕾絲、子網區、潛艙店「浮標」。
 - 給引擎（審查或修正批）：`commission_link` 內容的檢查不認六個內海新鍵；內海階段的 loot 與接管的控制節點只在 activity.end 的 result，建議記進 RouteEntry 或 Run（讀檔後副本頁看不到）；輔助失敗那一行沒資料；lace 指定顏色時閘門守衛也只挑那個顏色。
+
+## M3-skill-net-b 回報（2026-11-24）
+
+- 名媛、掮客、主播、偶像的內海欄（測試資料 engine/tests/fixtures/skills/）；新鍵 lure、masked、command、remote_call、flow、link/song 等；`resonance.net`（只在內海生效的共鳴，媒體型用）。
+- 缺的核心掛點（交 M3 審查／修正批）：`load.before`（偶像分擔只能事後對帳）、釘住發 `check.before`、追蹤度跨門檻掛點、戰鬥裡的偽裝被看穿與協力、現金百分比修正。
+- 待使用者：應援連結的人怎麼選（現在照站位）；哪些導流技能 0 階灰掉；老粉都在沒頻道也加 1；名媛、掮客的共鳴兩邊都算；內海欄放行 tease_hit、tease_bonus、give_ap_cap。
+- 給 M3-data-rules：`focused`、`pacified`、`drowsy` 狀態要補進正式規則表。
+- ADR 0018 待補「實作補記：M3-skill-net-b」。
