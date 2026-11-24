@@ -208,9 +208,17 @@ export function hostilityStart(k: Kernel, state: GameState, faction: string | un
   return at('wanted') ? 30 : at('recorded') ? 15 : 0
 }
 
-/** 新的一座的起始追蹤度：敵對值的分段，加詞條的 trace_start、設定寫的、全隊的 net_trace_start。 */
+/**
+ * 起始追蹤度的算法（N16：幾個來源取最高的，再加連動與後門的加減；M3 審查建議 5：自己去挖與委託同一個寫法）：
+ * 來源是敵對值的分段、設定寫的起點（net_site 的 trace）、詞條的起點（稽核週「從 10 起算」）；取最高。再加連動的 trace_start 與全隊預備的 net_trace_start（都是加減）。
+ */
+export function traceStartOf(sources: readonly number[], delta: number): number {
+  return Math.max(0, ...sources) + delta
+}
+
+/** 新的一座的起始追蹤度：敵對值的分段、設定寫的、詞條的起點三個取最高，加連動的 trace_start 與全隊的 net_trace_start。 */
 export function digTraceStart(k: Kernel, state: GameState, parsed: Parsed, plan: DigPlan, fromParty: number): number {
-  return hostilityStart(k, state, parsed.faction) + parsed.trace + (parsed.fx.trace_start ?? 0) + (plan.fx.trace_start ?? 0) + fromParty
+  return traceStartOf([hostilityStart(k, state, parsed.faction), parsed.trace, plan.fx.trace_start ?? 0], (parsed.fx.trace_start ?? 0) + fromParty)
 }
 
 // ---- 再進去 ----
@@ -253,7 +261,7 @@ export function reviveDig(k: Kernel, state: GameState, parsed: Parsed, origin: O
   // 追蹤度：後門是 0；否則敵對值分段的起始值（加詞條）與上次離開時的一半取高的
   const fromParty = k.stats.hasStat('net_trace_start') ? partyOf(state).reduce((s, a) => s + k.stats.stat(state, a, 'net_trace_start'), 0) : 0
   const half = Math.floor(Math.max(0, net.left.trace) * rules.revisit_trace)
-  const first = hostilityStart(k, state, typeof setup.faction === 'string' ? setup.faction : undefined) + parsed.trace + (parsed.fx.trace_start ?? 0) + (dig.fx.trace_start ?? 0) + fromParty
+  const first = traceStartOf([hostilityStart(k, state, typeof setup.faction === 'string' ? setup.faction : undefined), parsed.trace, dig.fx.trace_start ?? 0], (parsed.fx.trace_start ?? 0) + fromParty)
   const traceStart = parsed.fromBackdoor ? 0 : Math.max(first, half)
 
   // 留著的那一份：回到起點的巡邏、被定位過的多一個雜兵、這一趟的追蹤度門檻重新算
