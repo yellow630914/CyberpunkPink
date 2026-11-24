@@ -5,6 +5,8 @@
 //   - 整趟是一份地圖實例（trace 量表的鍵就是它），每一層是實例裡的一張圖（sheet）；往下一層是把人放到下一張圖的入口，追蹤度不歸零。
 //   - 生成器吐出的節點圖、藏起來的東西、保證的路存在實例的 ext.net（不在版面裡），每一個遭遇節點放誰也在那裡。
 // 這個功能不 import 別的功能：敵人只經由單位來源 enemy_pick、副本的事只從 setup 與 origin 來、甲板只問衍生數值 deck_grade。
+// 第二張（M3-netrun-nodes）加了：檔案庫的表（net_region.archive_table）、陷阱的數字（net_region.trap）、六種目標、控制節點、人、陷阱、巡邏、後門鑰匙與憑證、
+// 擦痕跡與破解、帶出去才算數；它們的狀態在地圖實例的 ext.net（traps、patrols、controls、keys、wiped、used、opened）與這一趟的 goal、loot。
 
 import type { ActivityEndMerged, Change, GameState, GenResult, GridPoint, Origin, UnitRef } from '../../core'
 import { clone, isRecord } from '../../core'
@@ -64,7 +66,19 @@ export interface NetRegion {
   layer: LayerCounts
   /** 委託的階段用的那一組（蓋掉 layer） */
   commission?: LayerCounts
+  /** 檔案庫的表（CYBERSPACE 8.3 節「檔案庫」d6）：每個檔案庫擲一次（照權重）；give 是一串效果（內建來源），數字可以寫照等級的五個值。沒有表的區開了是空的 */
+  archive_table?: ArchiveRow[]
+  /** 陷阱的數字（8.1 節：警報節點追蹤度 +10；迴圈碎片感載 +8，I 級的數字，照等級乘） */
+  trap?: { alarm: number; loop_load: number }
 }
+
+export interface ArchiveRow {
+  weight: number
+  name: string
+  give: Array<Record<string, unknown>>
+}
+
+export const DEFAULT_TRAP = { alarm: 10, loop_load: 8 }
 
 /** 內建的一般子網（CYBERSPACE 8.1 節「每一層的密度」一般子網那一列；委託的階段照 N2：只有階段寫的那一場，加一隊可以躲的巡邏與一兩個陷阱）。 */
 export const DEFAULT_REGIONS: Record<string, NetRegion> = {
@@ -94,11 +108,40 @@ export interface NetrunRules {
   sneak_skills: string[]
   /** 遭遇的組合（位階；ENEMIES 第 13 節的點數：一般 4 點、層主 6 點、最後一場的首領戰 8 點）：plain 一般、guard 閘門前的層主、boss 最後一層的閘門守衛 */
   encounter: { plain: Rank[]; guard: Rank[]; boss: Rank[] }
+  // ---- 第二張：節點 ----
+  /** 下載與放東西沒寫 turns 時要做幾次「繼續」（8.1 節：2～4 個回合；放東西 2 個） */
+  download_turns: number
+  plant_turns: number
+  /** 下載每回合追蹤度 +幾（放東西不加） */
+  download_trace: number
+  /** 管理行動（破解、接管、擦痕跡、對人快駭）每做一次追蹤度 +幾；檢定失敗再 +幾（CYBERSPACE 6.6 節、N23）；交涉與找人的檢定失敗也照失敗的數字 */
+  admin_trace: number
+  fail_trace: number
+  /** 擦痕跡降多少 */
+  wipe: number
+  /** 巡邏：隊伍每過幾個探索回合走一個節點、路線幾個節點（最少、最多）、一隊的組合（位階；隨機挑一種）、追蹤度到 t1 時每層多幾隊 */
+  patrol_every: number
+  patrol_route: Range2
+  patrol: Rank[][]
+  patrol_t1: number
+  /** 帶出去才算數：擲 d6，這個數字以下丟掉（1～3） */
+  lose_max: number
+  /** 戰鬥的等級倍率（BALANCE 2.1 節：×1、1.22、1.49、1.82、2.22）；陷阱的感載照它乘 */
+  load_mult: number[]
+  /** 主控屬於哪一路數（actor.ext.paths 的 path；階數就是管理行動的次數與檢定的加值） */
+  master_path: string
+  /** 各種檢定看哪幾項基本功（取加值最高的那一項） */
+  talk_skills: string[]
+  admin_skills: string[]
+  hack_skills: string[]
 }
 
 export const DEFAULT_RULES: NetrunRules = {
   decay: 2, t1: 30, t2: 60, t3: 90, locate_rounds: 3, gate_t1_dc: 2, unpinned_rounds: 1, sneak_skills: ['stealth'],
   encounter: { plain: ['minion', 'minion', 'minion', 'minion'], guard: ['elite', 'elite', 'minion'], boss: ['boss', 'minion', 'minion', 'minion'] },
+  download_turns: 3, plant_turns: 2, download_trace: 2, admin_trace: 1, fail_trace: 5, wipe: 5,
+  patrol_every: 3, patrol_route: [3, 5], patrol: [['elite'], ['minion', 'minion']], patrol_t1: 1,
+  lose_max: 3, load_mult: [1, 1.22, 1.49, 1.82, 2.22], master_path: 'netrunner', talk_skills: ['negotiate'], admin_skills: ['interface'], hack_skills: ['interface'],
 }
 
 // ---- 設定與狀態 ----
@@ -117,11 +160,39 @@ export interface Fx {
 
 export type RunKind = typeof ACT_NET | typeof ACT_FACE
 
-/** 這一趟的目標。這一張只做 pass（通過這一層的閘門；委託的階段預設）與 clear（走完最後一層；自己去的那一趟預設）；別的種類只收下。 */
+/** 目標的種類（CYBERSPACE 8.1 節「把固定目標放進生成的地圖」的表）。pass（通過這一層的閘門；委託的階段預設）與 clear（走完最後一層；自己去的那一趟預設）不放節點。 */
+export const OBJECTIVE_KINDS = ['download', 'seize', 'find', 'defeat', 'plant', 'extract'] as const
+export type ObjectiveKind = (typeof OBJECTIVE_KINDS)[number]
+
+/**
+ * 這一趟的目標。除了 pass 與 clear，六種都在生成時放進一個節點，位置記在 at（圖的 id、標記的 id、格子）。
+ * turns 是下載與放東西要做幾次「繼續」（沒寫照規則表）；progress 是做了幾次（離開那一格歸零）；foe 是打倒要指定的敵人（enemy 的 id）；
+ * item 是帶出來要的東西（物品的 id；沒有這個物品就只記在 loot）；node 是接管對到現實的哪個控制節點；got 是帶出來已經拿到了；done 是完成了。
+ */
 export interface Goal {
   kind: string
   done?: boolean
+  turns?: number
+  progress?: number
+  foe?: string
+  item?: string
+  node?: string
+  got?: boolean
+  layer?: string
+  at?: { sheet: string; id: string; pos: [number, number] }
   [field: string]: unknown
+}
+
+/** 這一趟拿到的東西的一件（帶出去才算數：倒下與被定位時每一件擲一次 d6）。goal 是目標的那一件（帶出來：倒下一定丟）。 */
+export interface LootEntry {
+  kind: 'item' | 'cred' | 'cash'
+  /** 物品的 id（kind 是 item 時） */
+  id?: string
+  qty: number
+  name: string
+  goal?: true
+  /** 從哪個節點來（圖的 id／標記的 id） */
+  from?: string
 }
 
 export interface NetRun {
@@ -144,8 +215,8 @@ export interface NetRun {
   goal: Goal
   /** 開始時的設定（整份留著：區是整筆給的、fx、where、stealth 之後都要讀） */
   setup: Record<string, unknown>
-  /** 這一趟拿到的東西（下一張 M3-netrun-nodes 寫） */
-  loot: unknown[]
+  /** 這一趟拿到的東西（檔案庫與目標；帶出去才算數） */
+  loot: LootEntry[]
   /** 追蹤度最高到過多少 */
   peak: number
   /** 被定位之後還剩幾個探索回合；沒有被定位是沒有這個欄位 */
@@ -167,6 +238,34 @@ export interface FoeNode {
   done?: true
 }
 
+/** 看不到的陷阱（N8；生成器放的 hidden）：found 是察覺了（那一格改成看得到的 net_alarm 或 net_loop）、checked 是察覺的檢定擲過了、used 是踩過了（失效）。 */
+export interface TrapState {
+  kind: 'net_alarm' | 'net_loop'
+  at: [number, number]
+  found?: true
+  checked?: true
+  used?: true
+}
+
+/** 一隊巡邏（會動的遭遇；CYBERSPACE 8.1 節）：route 是節點圖上的節點 id（來回走）、at 是現在在哪個節點、step 是走了幾步（路線的位置由它導出）。calm 是剛擦身而過、離開之前不再擲。 */
+export interface Patrol {
+  id: string
+  sheet: string
+  route: string[]
+  foes: UnitRef[]
+  faction?: string
+  at: string
+  step: number
+  calm?: true
+}
+
+/** 控制節點：node 是對到現實的哪個控制節點（副本的 cn_ 開頭），taken 是接管了。 */
+export interface ControlState {
+  node?: string
+  name?: string
+  taken?: true
+}
+
 /** 地圖實例的 ext.net（這個功能寫）。圖、藏起來的東西與遭遇各自照圖（sheet）的 id 分開：一份實例有好幾層。 */
 export interface NetExt {
   region: string
@@ -183,6 +282,20 @@ export interface NetExt {
   rested: string[]
   t30?: true
   t60?: true
+  /** 看不到的陷阱：圖的 id → 每一個 */
+  traps: Record<string, TrapState[]>
+  /** 巡邏（每一隊記自己在哪一層） */
+  patrols: Patrol[]
+  /** 控制節點：圖的 id → 標記 id */
+  controls: Record<string, Record<string, ControlState>>
+  /** 拿到的憑證（交涉或快駭人拿到的；過閘門用掉一張） */
+  keys: string[]
+  /** 擦痕跡做了幾次：圖的 id → 次數（每一層最多主控的階數次） */
+  wiped: Record<string, number>
+  /** 處理過的檔案庫與人：圖的 id → 標記 id */
+  used: Record<string, string[]>
+  /** 閘門已經開了的圖（破解、憑證、後門鑰匙；守著它的遭遇還在） */
+  opened: string[]
 }
 
 // ---- 讀寫 ----
@@ -199,7 +312,9 @@ export const runChange = (run: NetRun | null): Change => ({ op: 'ext', key: EXT,
 /** 地圖實例的 ext.net（不是這個功能開的地圖是 null）。 */
 export function netExt(state: GameState, map: string): NetExt | null {
   const v = state.maps.instances[map]?.ext?.net
-  return isRecord(v) && isRecord(v.graph) && isRecord(v.foes) ? (v as unknown as NetExt) : null
+  if (!isRecord(v) || !isRecord(v.graph) || !isRecord(v.foes)) return null
+  // 第二張才有的欄位：舊的存檔沒有就補空的（拷貝，不動存檔裡的）
+  return { traps: {}, patrols: [], controls: {}, keys: [], wiped: {}, used: {}, opened: [], ...v } as unknown as NetExt
 }
 
 /** 換掉實例的 ext.net（其餘的鍵不動）。 */
@@ -273,18 +388,49 @@ export function regionProblems(e: Record<string, unknown>): string[] {
   if (!(Array.isArray(e.dc) && e.dc.length === 5 && e.dc.every((n) => isInt(n) && n >= 0 && n <= 60))) p.push('dc 要是五個整數（I～V 級各一）')
   p.push(...countsProblems(e.layer, 'layer'))
   if (e.commission !== undefined) p.push(...countsProblems(e.commission, 'commission'))
+  if (e.archive_table !== undefined) {
+    if (!Array.isArray(e.archive_table)) p.push('archive_table 要是一串列：{ weight, name, give }')
+    else {
+      e.archive_table.forEach((row, i) => {
+        const at = `archive_table[${i}]`
+        if (!isRecord(row)) p.push(`${at} 要是 { weight, name, give }`)
+        else {
+          if (!(typeof row.weight === 'number' && Number.isFinite(row.weight) && row.weight > 0)) p.push(`${at}.weight 要是大於 0 的數字`)
+          if (!isText(row.name)) p.push(`${at}.name 要有名字`)
+          if (!(Array.isArray(row.give) && row.give.every(isRecord))) p.push(`${at}.give 要是一串效果（每一筆是一個物件）`)
+        }
+      })
+    }
+  }
+  if (e.trap !== undefined) {
+    const t = e.trap
+    if (!isRecord(t)) p.push('trap 要是 { alarm, loop_load }')
+    else {
+      for (const key of Object.keys(t)) if (key !== 'alarm' && key !== 'loop_load') p.push(`trap.${key} 不認得（alarm、loop_load）`)
+      for (const key of ['alarm', 'loop_load'] as const) if (t[key] !== undefined && !(isInt(t[key]) && t[key] >= 0 && t[key] <= 100)) p.push(`trap.${key} 要是 0～100 的整數`)
+    }
+  }
   return p
 }
 
-const NUMERIC_RULES: Array<[keyof Omit<NetrunRules, 'sneak_skills' | 'encounter'>, number, number]> = [
+type NumericRule = 'decay' | 't1' | 't2' | 't3' | 'locate_rounds' | 'gate_t1_dc' | 'unpinned_rounds' | 'download_turns' | 'plant_turns' | 'download_trace' | 'admin_trace' | 'fail_trace' | 'wipe'
+  | 'patrol_every' | 'patrol_t1' | 'lose_max'
+export const NUMERIC_RULES: Array<[NumericRule, number, number]> = [
   ['decay', 0, 20], ['t1', 1, 100], ['t2', 1, 100], ['t3', 1, 100], ['locate_rounds', 1, 20], ['gate_t1_dc', 0, 10], ['unpinned_rounds', 0, 5],
+  ['download_turns', 1, 10], ['plant_turns', 1, 10], ['download_trace', 0, 20], ['admin_trace', 0, 20], ['fail_trace', 0, 30], ['wipe', 0, 30],
+  ['patrol_every', 1, 20], ['patrol_t1', 0, 3], ['lose_max', 0, 6],
 ]
+export const TEXT_LIST_RULES = ['sneak_skills', 'talk_skills', 'admin_skills', 'hack_skills'] as const
 
 /** 探索的數字的格式檢查（內容種類 netrun_rule）。 */
 export function ruleProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
   for (const [key, lo, hi] of NUMERIC_RULES) if (e[key] !== undefined && !(isInt(e[key]) && e[key] >= lo && e[key] <= hi)) p.push(`${key} 要是 ${lo}～${hi} 的整數`)
-  if (e.sneak_skills !== undefined && !(Array.isArray(e.sneak_skills) && e.sneak_skills.length > 0 && e.sneak_skills.every(isText))) p.push('sneak_skills 要是至少一個基本功 id 的陣列')
+  for (const key of TEXT_LIST_RULES) if (e[key] !== undefined && !(Array.isArray(e[key]) && (e[key] as unknown[]).length > 0 && (e[key] as unknown[]).every(isText))) p.push(`${key} 要是至少一個基本功 id 的陣列`)
+  if (e.patrol_route !== undefined && !isRange(e.patrol_route, 2, 8)) p.push('patrol_route 要是 [最少, 最多]，2～8 個節點')
+  if (e.patrol !== undefined && !(Array.isArray(e.patrol) && e.patrol.length > 0 && e.patrol.every((g) => Array.isArray(g) && g.length >= 1 && g.length <= 4 && g.every((r) => (RANKS as readonly unknown[]).includes(r))))) p.push(`patrol 要是一串巡邏的組合（每一組是 1～4 個位階：${RANKS.join('、')}）`)
+  if (e.load_mult !== undefined && !(Array.isArray(e.load_mult) && e.load_mult.length === 5 && e.load_mult.every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 20))) p.push('load_mult 要是五個數字（I～V 級各一）')
+  if (e.master_path !== undefined && !isText(e.master_path)) p.push('master_path 要是路數的 id')
   if (e.encounter !== undefined) {
     const en = e.encounter
     if (!isRecord(en)) p.push('encounter 要是 { plain?, guard?, boss? }')

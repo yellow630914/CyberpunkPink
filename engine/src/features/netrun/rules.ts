@@ -3,18 +3,22 @@
 import type { Kernel } from '../../core'
 import { clone, isRecord } from '../../core'
 import type { LayerCounts, NetRegion, NetrunRules, Rank } from './model'
-import { COUNT_KEYS, DEFAULT_REGIONS, DEFAULT_RULES, REGION_KIND, RULE_KIND, regionProblems, ruleProblems } from './model'
+import { COUNT_KEYS, DEFAULT_REGIONS, DEFAULT_RULES, DEFAULT_TRAP, NUMERIC_RULES, REGION_KIND, RULE_KIND, TEXT_LIST_RULES, regionProblems, ruleProblems } from './model'
 
 type Cx = Pick<Kernel, 'content'>
 
 /** 現在生效的探索規則：netrun_rule/default 蓋掉內建的預設（格式不對的欄位忽略）。 */
 export function netrunRules(k: Cx): NetrunRules {
   const e = k.content.get(RULE_KIND, 'default') as Record<string, unknown> | undefined
-  const out: NetrunRules = { ...DEFAULT_RULES, sneak_skills: [...DEFAULT_RULES.sneak_skills], encounter: clone(DEFAULT_RULES.encounter) }
+  const out: NetrunRules = clone(DEFAULT_RULES)
   if (!e) return out
-  const bad = new Set(ruleProblems(e).map((m) => m.split(/[ .]/)[0]))
-  for (const key of ['decay', 't1', 't2', 't3', 'locate_rounds', 'gate_t1_dc', 'unpinned_rounds'] as const) if (typeof e[key] === 'number' && !bad.has(key)) out[key] = e[key] as number
-  if (Array.isArray(e.sneak_skills) && !bad.has('sneak_skills')) out.sneak_skills = [...(e.sneak_skills as string[])]
+  const bad = new Set(ruleProblems(e).map((m) => m.split(/[ .[]/)[0]))
+  for (const [key] of NUMERIC_RULES) if (typeof e[key] === 'number' && !bad.has(key)) out[key] = e[key] as number
+  for (const key of TEXT_LIST_RULES) if (Array.isArray(e[key]) && !bad.has(key)) out[key] = [...(e[key] as string[])]
+  if (Array.isArray(e.patrol_route) && !bad.has('patrol_route')) out.patrol_route = [...(e.patrol_route as [number, number])]
+  if (Array.isArray(e.patrol) && !bad.has('patrol')) out.patrol = (e.patrol as Rank[][]).map((g) => [...g])
+  if (Array.isArray(e.load_mult) && !bad.has('load_mult')) out.load_mult = [...(e.load_mult as number[])]
+  if (typeof e.master_path === 'string' && !bad.has('master_path')) out.master_path = e.master_path
   if (isRecord(e.encounter) && !bad.has('encounter')) for (const key of ['plain', 'guard', 'boss'] as const) if (Array.isArray(e.encounter[key])) out.encounter[key] = [...(e.encounter[key] as Rank[])]
   return out
 }
@@ -34,6 +38,8 @@ function complete(e: Record<string, unknown>): NetRegion {
     pressure: e.pressure as 'trace' | 'none', ...(e.safe === true ? { safe: true } : {}),
     cover: e.cover === undefined ? base.cover : clone(e.cover as NetRegion['cover']), dc: [...(e.dc as number[])],
     layer: counts(e.layer, base.layer), ...(e.commission !== undefined ? { commission: counts(e.commission, base.layer) } : {}),
+    ...(Array.isArray(e.archive_table) ? { archive_table: clone(e.archive_table as NetRegion['archive_table']) } : {}),
+    ...(isRecord(e.trap) ? { trap: { alarm: typeof e.trap.alarm === 'number' ? e.trap.alarm : DEFAULT_TRAP.alarm, loop_load: typeof e.trap.loop_load === 'number' ? e.trap.loop_load : DEFAULT_TRAP.loop_load } } : {}),
   }
 }
 
