@@ -114,7 +114,19 @@ export interface FixerRules {
   /** 目標勢力的敵對值到「找麻煩」：出發時遭遇預算加幾點（一點一個雜兵）；到「追捕」：警戒起始加多少（FACTIONS 6.1 節：+1、+20） */
   hostile_budget: number
   hostile_alert: number
+  /**
+   * 內海階段追蹤度的起始值（NETRUNNING 第 5 節、dev/adr/0018 N16）：目標勢力的敵對值到「記名」以上 noted（15）、到「通緝」wanted（30）；
+   * 踩點的內海手段自然 1 驚動目標 scout_alert（15）。幾個來源取最高的（連動與後門的加減在副本與網內那邊算）。
+   */
+  trace_start: { noted: number; wanted: number; scout_alert: number }
+  /** 一件委託有幾個內海階段，各用哪幾層（照階段的順序；最後一個一定是核心層）：1 個 core、2 個 staff core、3 個 guest staff core、4 個加 control；多的往前補第一層 */
+  net_layers: Record<number, string[]>
+  /** 內海的潛行分支看哪幾項基本功（每一件委託照種子挑一項寫進分支的 need） */
+  net_branch_skills: string[]
 }
+
+/** 內海的層（網內地圖的層，由淺到深）。 */
+export const NET_LAYER_IDS = ['guest', 'staff', 'control', 'core'] as const
 
 /** 委託的評價四級（M2-commission-close 的 rate 給的）。 */
 export const RATING_KEYS = ['S', 'A', 'B', 'C'] as const
@@ -125,9 +137,12 @@ export const DEFAULT_FIXER_RULES: FixerRules = {
   scout_minutes: 240, scout_dc_base: 10, scout_dc_per_grade: 2, scout_hard_from: 4, scout_hard_plus: 1, scout_alert: 15, intel_per_grade: 300,
   rating_bonus: { S: 0.2, A: 0.1, B: 0, C: -0.1 }, rep_same: 2, rep_higher: 4, rep_lower: 0, rep_top: 1, rep_failed: -3, rep_abandon: -5, rep_abandon_early: -2, borrow_base: 200, borrow_mult: 1.5, boss_shares: 2, aux_max: 2,
   bond_dc_base: 20, bond_affinity_step: 5, bond_loyalty: 70, trip_affinity: 2, trip_loyalty: 2, favor_done: 3, favor_top: 2, hostile_budget: 1, hostile_alert: 20,
+  trace_start: { noted: 15, wanted: 30, scout_alert: 15 },
+  net_layers: { 1: ['core'], 2: ['staff', 'core'], 3: ['guest', 'staff', 'core'], 4: ['guest', 'staff', 'control', 'core'] },
+  net_branch_skills: ['interface', 'stealth'],
 }
 
-type RuleKey = Exclude<keyof FixerRules, 'rating_bonus'>
+type RuleKey = Exclude<keyof FixerRules, 'rating_bonus' | 'trace_start' | 'net_layers' | 'net_branch_skills'>
 const RULE_FIELDS: Array<[RuleKey, number, number, boolean]> = [
   // [鍵, 下限, 上限, 整數]
   ['pay_cred', 0, 1, false], ['pay_favor', 0, 1, false], ['hostility_cred', 0, 100, true], ['haggle_dc_base', 0, 40, true], ['haggle_success', 0, 1, false], ['haggle_critical', 0, 1, false],
@@ -158,23 +173,68 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
     const bad = ratingBonusProblem(e.rating_bonus)
     if (bad) p.push(bad)
   }
+  p.push(...netRuleProblems(e))
+  return p
+}
+
+const TRACE_START_KEYS = ['noted', 'wanted', 'scout_alert'] as const
+
+/** 內海的三個規則欄位（trace_start、net_layers、net_branch_skills）的問題。 */
+function netRuleProblems(e: Record<string, unknown>): string[] {
+  const p: string[] = []
+  if (e.trace_start !== undefined) {
+    if (!isRecord(e.trace_start)) p.push('trace_start 要是 { noted?, wanted?, scout_alert? }，每一項是 0～100 的整數')
+    else {
+      for (const [key, v] of Object.entries(e.trace_start)) {
+        if (!(TRACE_START_KEYS as readonly string[]).includes(key)) p.push(`trace_start.${key} 不是可以用的鍵（${TRACE_START_KEYS.join('、')}）`)
+        else if (!(typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100)) p.push(`trace_start.${key} 要是 0～100 的整數`)
+      }
+    }
+  }
+  if (e.net_layers !== undefined) {
+    if (!isRecord(e.net_layers)) p.push('net_layers 要是 { 內海階段數: [層, ...] }，階段數 1～4')
+    else {
+      for (const [n, list] of Object.entries(e.net_layers)) {
+        const count = Number(n)
+        if (!(/^[1-4]$/.test(n))) p.push(`net_layers.${n}：內海階段數只有 1～4`)
+        else if (!(Array.isArray(list) && list.length === count && list.every((x) => (NET_LAYER_IDS as readonly unknown[]).includes(x)))) p.push(`net_layers.${n} 要剛好 ${count} 層（${NET_LAYER_IDS.join('、')}）`)
+        else if (list[count - 1] !== 'core') p.push(`net_layers.${n}：最後一層要是 core`)
+      }
+    }
+  }
+  if (e.net_branch_skills !== undefined && !(Array.isArray(e.net_branch_skills) && e.net_branch_skills.length > 0 && e.net_branch_skills.every((x) => typeof x === 'string' && x.trim().length > 0))) {
+    p.push('net_branch_skills 要是至少一項基本功 id 的陣列')
+  }
   return p
 }
 
 /** 現在生效的規則：資料 fixer_rule/default 蓋掉內建的預設（格式不對的欄位忽略）。 */
 export function fixerRules(k: Pick<Kernel, 'content'>): FixerRules {
   const e = k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default')
-  const out: FixerRules = { ...DEFAULT_FIXER_RULES, rating_bonus: { ...DEFAULT_FIXER_RULES.rating_bonus } }
+  const out: FixerRules = {
+    ...DEFAULT_FIXER_RULES, rating_bonus: { ...DEFAULT_FIXER_RULES.rating_bonus }, trace_start: { ...DEFAULT_FIXER_RULES.trace_start },
+    net_layers: Object.fromEntries(Object.entries(DEFAULT_FIXER_RULES.net_layers).map(([n, l]) => [n, [...l]])), net_branch_skills: [...DEFAULT_FIXER_RULES.net_branch_skills],
+  }
   if (!e) return out
   const bad = new Set(ruleProblems(e).map((m) => m.split(' ')[0]!.split('.')[0]!))
   for (const [key] of RULE_FIELDS) if (e[key] !== undefined && !bad.has(key)) out[key] = e[key] as number
   if (e.rating_bonus !== undefined && !bad.has('rating_bonus')) Object.assign(out.rating_bonus, e.rating_bonus)
+  // 內海的三項：寫對的欄位才蓋（trace_start 與 net_layers 是一項一項蓋）
+  if (isRecord(e.trace_start)) for (const key of TRACE_START_KEYS) { const v = e.trace_start[key]; if (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100) out.trace_start[key] = v }
+  if (isRecord(e.net_layers)) {
+    for (const [n, list] of Object.entries(e.net_layers)) {
+      if (/^[1-4]$/.test(n) && Array.isArray(list) && list.length === Number(n) && list.every((x) => (NET_LAYER_IDS as readonly unknown[]).includes(x)) && list[Number(n) - 1] === 'core') out.net_layers[Number(n)] = [...(list as string[])]
+    }
+  }
+  if (Array.isArray(e.net_branch_skills) && e.net_branch_skills.length > 0 && e.net_branch_skills.every((x) => typeof x === 'string' && x.trim().length > 0)) out.net_branch_skills = [...(e.net_branch_skills as string[])]
   return out
 }
 
 // ---- 敵對值的後果（FACTIONS 6.1 節） ----
 
-/** 敵對值的分段 id（安全功能的 hostility_tier 條件認得的名字）：找麻煩、追捕、懸賞。 */
+/** 敵對值的分段 id（安全功能的 hostility_tier 條件認得的名字）：記名、找麻煩、追捕、懸賞、通緝。 */
+export const HOSTILITY_TIER_RECORDED = 'recorded'
+export const HOSTILITY_TIER_WANTED = 'wanted'
 export const HOSTILITY_TIER_TROUBLE = 'trouble'
 export const HOSTILITY_TIER_PURSUIT = 'pursuit'
 export const HOSTILITY_TIER_BOUNTY = 'bounty'
@@ -204,6 +264,8 @@ export interface UnknownItem {
   /** 揭開之後給玩家看的內容 */
   text: string
   reveal: Reveal
+  /** 這一項說的是哪一面（M3：內海階段的蕾絲、守備、路標 net；沒寫是整個階段或現實面） */
+  face?: 'meat' | 'net'
 }
 
 /** 一件具體的副本（commission 這個內容種類的格式）；這個功能只讀它的幾個欄位，其餘原樣帶進副本。 */
@@ -270,6 +332,7 @@ export function offerProblems(o: unknown): string[] {
       else seen.add(u.id)
       if (!(CATS as readonly unknown[]).includes(u.cat)) p.push(`${at}.cat 只能是 ${CATS.join('、')}`)
       if (!isText(u.text)) p.push(`${at}.text 要是文字`)
+      if (u.face !== undefined && u.face !== 'meat' && u.face !== 'net') p.push(`${at}.face 只能是 meat 或 net`)
       const r = revealProblem(u.reveal, stages)
       if (r) p.push(`${at}.${r}`)
     })

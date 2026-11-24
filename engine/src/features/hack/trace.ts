@@ -43,12 +43,17 @@ export function noteCheck(user: BattleUnit, ok: boolean, _at: BattleTarget): voi
   ext.checks = list
 }
 
-/** 這個行動的 trace：這個功能自己的程式讀 quickhack 的 trace；技能做的快駭讀技能資料的 trace。沒寫、不是正數是 0。 */
-export function traceOfAction(k: Pick<Kernel, 'battle' | 'content'>, action: string): number {
+/** 這個行動的 trace：這個功能自己的程式讀 quickhack 的 trace；技能做的快駭讀技能資料的 trace（layer 給了先看那一欄的 trace）。沒寫、不是正數是 0。 */
+export function traceOfAction(k: Pick<Kernel, 'battle' | 'content'>, action: string, layer?: string): number {
   const def = k.battle.getAction(action)
   let raw: unknown
   if (def?.owner === OWNER) raw = k.content.get<QuickhackEntry>('quickhack', action.slice(`${OWNER}.`.length))?.trace
-  else if (k.content.hasKind(ABILITY_KIND)) raw = (k.content.get(ABILITY_KIND, action) as { trace?: unknown } | undefined)?.trace
+  else if (k.content.hasKind(ABILITY_KIND)) {
+    // 技能的資料：先看這一層的那一欄（meat.trace、net.trace；M3-skill-net-a：兩欄各寫各的），沒寫再看技能本身的 trace
+    const ab = k.content.get(ABILITY_KIND, action) as ({ trace?: unknown } & Record<string, unknown>) | undefined
+    const col = layer ? ab?.[layer] : undefined
+    raw = isRecord(col) && col.trace !== undefined ? col.trace : ab?.trace
+  }
   return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0
 }
 
@@ -69,9 +74,9 @@ export function registerTrace(k: Kernel): void {
     const checks = ext && Array.isArray(ext.checks) ? (ext.checks as CheckNote[]) : []
     if (ext) delete ext.checks
     if (!tags.includes('hack') || unit.side !== 'ally') return
-    const trace = traceOfAction(run.k, action)
-    if (trace <= 0) return
     const layer = run.mode.layer
+    const trace = traceOfAction(run.k, action, layer)
+    if (trace <= 0) return
     if (layer === 'net') {
       // 內海：每用一次（不論成敗）追蹤度加 trace。沒有人註冊 net.trace，或這一場沒有追蹤度，就不加
       if (run.k.battle.getEffect(TRACE_EFFECT) && !run.over) {

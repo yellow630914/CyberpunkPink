@@ -4,7 +4,7 @@
 // 帶 reaction 標籤的攻擊、以及反應自己的效果裡做出來的攻擊，都不再觸發反應。
 
 import type { AttackOpts, AttackResult, BattleRun, BattleUnit, BattleWeapon, Kernel } from '../../core'
-import { amount, LOSE_TURN, isWounded, onField, unitsOf } from '../../core'
+import { amount, FLASH, LOSE_TURN, isWounded, onField, unitsOf } from '../../core'
 import { colIn, layerOf } from './column'
 import { heldGun, needsBlocks, rangeBlock, whenBlocks } from './conditions'
 import { requestMove } from './social'
@@ -31,6 +31,8 @@ interface Event {
   check?: { dc: number; bonus: number }
   result?: AttackResult
   weapon?: BattleWeapon
+  /** overload 專用：內海的閃斷（歸零的是哪一池、歸零之前有多少；現實的過載沒有） */
+  flash?: { pool: string; before: number }
 }
 
 const sideMates = (run: BattleRun, a: BattleUnit): BattleUnit[] => unitsOf(run.battle, a.side)
@@ -104,6 +106,7 @@ function applyReact(run: BattleRun, holder: BattleUnit, ab: AbilityEntry, on: st
     if (r.evade !== undefined) e.opts.evade = (e.opts.evade ?? 0) + num(run, holder, ab, r.evade)
     if (r.hit !== undefined) e.opts.hit = (e.opts.hit ?? 0) + num(run, holder, ab, r.hit)
     if (r.no_wound) e.opts.noWound = true
+    if (r.damage !== undefined) e.opts.damage = (e.opts.damage ?? 0) + num(run, holder, ab, r.damage)
     if (r.redirect === 'overlay') {
       const o = overlayFor(run, holder, e.subject, r.reach ?? reach)
       if (o) e.opts.redirect = { overlay: o.id }
@@ -117,6 +120,15 @@ function applyReact(run: BattleRun, holder: BattleUnit, ab: AbilityEntry, on: st
     if (r.pierce !== undefined && e.opts) e.opts.pierce = (e.opts.pierce ?? 0) + num(run, holder, ab, r.pierce)
   } else if (on === 'overload') {
     if (r.keep_turn) run.removeStatus(e.subject, LOSE_TURN, true)
+    // 內海的閃斷：RAM 補回去（一半、原本的、滿的）、拿掉閃斷的狀態（死線、逆流、急凍）
+    if (r.flash && e.flash) {
+      const pool = e.subject.pools[e.flash.pool]
+      if (pool && r.flash.ram) {
+        const back = r.flash.ram === 'full' ? pool.max : r.flash.ram === 'before' ? e.flash.before : Math.ceil(e.flash.before / 2)
+        pool.now = Math.min(pool.max, Math.max(pool.now, back))
+      }
+      if (r.flash.end) run.removeStatus(e.subject, FLASH, true)
+    }
   } else if (on === 'checked' && e.check) {
     if (r.dc !== undefined) e.check.dc += num(run, holder, ab, r.dc)
   } else if (on === 'out_before' && e.out && r.prevent) {
@@ -160,6 +172,7 @@ function fire(run: BattleRun, on: TriggerDef['on'], e: Event): void {
       if (run.isStandIn(e.subject) && trig.who !== 'own_overlay' && trig.who !== 'foe_by_self') continue
       const reach = reachOf(trig, m.react)
       if (!whoMatches(run, holder, trig.who, e, reach) || !ifHolds(trig.if, on, e)) continue
+      if (trig.tag !== undefined && !(e.opts?.tags ?? []).includes(trig.tag)) continue
       if (trig.by && !byHolds(run, holder, trig.by, e)) continue
       if (whenBlocks(run, holder, m.when).length) continue
       if (!hasWork(run, holder, on, m, e, reach)) continue
@@ -260,7 +273,7 @@ export function registerReactions(k: Kernel): void {
   })
   // 改打掛著的東西（擋槍）的那一擊不發 attack.after：自己的無人機替人挨了一擊，也算「自己的一台被打之後」（敢打我家孩子？）
   k.battle.on('attack.redirected', OWNER, ({ run, attacker, overlay, weapon, opts, result }) => fire(run, 'after', { subject: run.standIn(overlay), by: attacker, opts, result, weapon }))
-  k.battle.on('overload', OWNER, ({ run, unit, by }) => fire(run, 'overload', { subject: unit, ...(by ? { by } : {}) }))
+  k.battle.on('overload', OWNER, ({ run, unit, by, flash }) => fire(run, 'overload', { subject: unit, ...(by ? { by } : {}), ...(flash ? { flash } : {}) }))
   // check.before 的 unit 是擲骰的人、other 是檢定對他擲的那個人（dev/adr/0015 補記）：反應的主角是 other，擲骰的 unit 是對他下手的人
   k.battle.on('check.before', OWNER, ({ run, unit, other, tags, opts }) => fire(run, 'checked', { subject: other, by: unit, tags, check: opts }))
   k.battle.on('out.before', OWNER, ({ run, unit, how, by, out }) => fire(run, 'out_before', { subject: unit, ...(by ? { by } : {}), how, out }))

@@ -11,6 +11,10 @@
 //                          branches: { stealth?, talk? }（基本功的 id）, brief（一句帶空格的話：{faction}、{district}、{place}、{fixer}）, gives: { [面]: [連動的 id] } }
 //   commission_modifier  { id, name, text, effect: { lock_face?: { stage, face }, attached?: [{ enemy, count? }], foes_plus?, alert_start?, stage? } }
 //   commission_link      { id, name, from: 面, to: 面, type: skip|ease|open, effect? }
+// 內海面（M3-fixer-net；dev/adr/0018 第九節）：模板多選填的 net: { facility?, objectives?, airgap?, lace? }（見 NetTemplate）；階段的面列了 net 就生成內海那一面：
+//   layer 照這件委託的內海階段數與順序（fixer_rule.net_layers）、encounter 同現實面的點數、分支至少一條強攻，加潛行（看 fixer_rule.net_branch_skills）與連動開出來的路、
+//   主面是內海時最後一個階段的 objective 從模板的清單照種子抽（沒寫是下載、turns 3）、照 airgap 的機率把決定性的那一面加 locked_by 並保證前面有一個只開現實的階段給那個連動（隔離區）。
+//   內海面的挑選一律用另一顆亂數（'commission_gen/<seed>/net'），沒有內海面的委託與以前一模一樣。
 // 規則（commission_rule/default 的另一部分，commission 的功能只讀它自己的欄位）：reward_range（每一級的報酬範圍）、scales_by_tier（每個信譽階給哪幾種規模）、
 //   encounters（每一級的遭遇組合：normal 是一般的階段、last 是最後一個階段）。
 //
@@ -26,7 +30,7 @@
 import type { ContentEntry, GameState, Kernel } from '../../core'
 import { UNIT_RANKS, clone, compareText, deriveRng, isRecord, isSafeInt, repGrade, repTierOf, meterOf } from '../../core'
 import type { CommissionDef, FixerEntry, Offer, Reveal, UnknownItem } from './model'
-import { CATS, factionName, offerProblems } from './model'
+import { CATS, factionName, fixerRules, offerProblems } from './model'
 import type { Cat } from './model'
 
 export const TYPE_KIND = 'commission_type'
@@ -89,6 +93,20 @@ export interface DecisiveDef {
   nature?: string
 }
 
+/** 模板的內海參數（選填）：facility 是這一型內海面的設施（原樣寫進每個內海面）、objectives 是決定性的一步可以抽的目標種類、airgap 是隔離區的機率（0～1）、lace 是蕾絲的顏色。 */
+export interface NetTemplate {
+  facility?: string
+  objectives?: string[]
+  airgap?: number
+  lace?: 'white' | 'pink' | 'black'
+}
+const NET_TEMPLATE_KEYS = ['facility', 'objectives', 'airgap', 'lace'] as const
+const NET_OBJECTIVE_KINDS = ['download', 'seize', 'find', 'defeat', 'plant', 'extract'] as const
+const NET_LACE_COLORS = ['white', 'pink', 'black'] as const
+/** 內海的層給玩家看的名字（網內的一層；netrun 也有一份，這個功能不 import 它） */
+const LAYER_NAME: Record<string, string> = { guest: '訪客層', staff: '員工層', control: '管理層', core: '核心層' }
+const LACE_NAME: Record<string, string> = { white: '白蕾絲', pink: '粉蕾絲', black: '黑蕾絲' }
+
 export interface TypeEntry extends ContentEntry {
   name: string
   main: GenFace
@@ -98,6 +116,7 @@ export interface TypeEntry extends ContentEntry {
   branches: { stealth?: string; talk?: string }
   brief: string
   gives: Partial<Record<GenFace, string[]>>
+  net?: NetTemplate
 }
 
 export interface ModifierEffect {
@@ -150,6 +169,17 @@ function decisiveProblems(d: unknown, main: unknown): string[] {
   return p
 }
 
+function netTemplateProblems(n: unknown): string[] {
+  if (!isRecord(n)) return ['net 要是 { facility?, objectives?, airgap?, lace? }']
+  const p: string[] = []
+  for (const key of Object.keys(n)) if (!(NET_TEMPLATE_KEYS as readonly string[]).includes(key)) p.push(`net.${key} 不是可以用的鍵（${NET_TEMPLATE_KEYS.join('、')}）`)
+  if (n.facility !== undefined && !isText(n.facility)) p.push('net.facility 要是文字')
+  if (n.objectives !== undefined && !(Array.isArray(n.objectives) && n.objectives.length > 0 && n.objectives.every((o) => (NET_OBJECTIVE_KINDS as readonly unknown[]).includes(o)))) p.push(`net.objectives 要是至少一個目標種類的陣列（${NET_OBJECTIVE_KINDS.join('、')}）`)
+  if (n.airgap !== undefined && !(typeof n.airgap === 'number' && Number.isFinite(n.airgap) && n.airgap >= 0 && n.airgap <= 1)) p.push('net.airgap 要是 0～1 的機率')
+  if (n.lace !== undefined && !(NET_LACE_COLORS as readonly unknown[]).includes(n.lace)) p.push(`net.lace 只能是 ${NET_LACE_COLORS.join('、')}`)
+  return p
+}
+
 /** 一種類型的模板格式問題（一條一句）。 */
 export function typeProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
@@ -174,6 +204,7 @@ export function typeProblems(e: Record<string, unknown>): string[] {
     for (const key of Object.keys(e.branches)) if (key !== 'stealth' && key !== 'talk') p.push(`branches.${key} 不是可以用的鍵（stealth、talk）`)
     for (const key of ['stealth', 'talk'] as const) if (e.branches[key] !== undefined && !isText(e.branches[key])) p.push(`branches.${key} 要是基本功的 id`)
   }
+  if (e.net !== undefined) p.push(...netTemplateProblems(e.net))
   if (!isText(e.brief)) p.push('brief 要是一句帶空格的話')
   else {
     for (const m of e.brief.matchAll(/\{([^{}]*)\}/g)) if (!(PLACEHOLDERS as readonly string[]).includes(m[1]!)) p.push(`brief 的空格 {${m[1]}} 不認得（可以用 ${PLACEHOLDERS.map((x) => `{${x}}`).join('、')}）`)
@@ -455,7 +486,8 @@ function rankSummary(ranks: readonly Rank[]): string {
   return UNIT_RANKS.filter((r) => n.has(r)).map((r) => `${rankName(r)} ${n.get(r)}`).join('、')
 }
 
-interface LinkCand { link: LinkEntry; from: number; to: number }
+/** lock 是隔離區的鎖：這個連動只是內海那一面的 locked_by（不開出一條分支） */
+interface LinkCand { link: LinkEntry; from: number; to: number; lock?: true }
 
 /** 現在還能挑的連動：前面的階段（from）的某一面給、後面的階段（to）的某一面用；同一個階段同一面只給一個、每個連動只用一次。 */
 function linkCands(type: TypeEntry, links: readonly LinkEntry[], faces: ReadonlyArray<readonly GenFace[]>, chosen: readonly LinkCand[]): LinkCand[] {
@@ -499,6 +531,17 @@ interface Ctx {
   rules: GenRules
   reg: GenFace[]
   seed: string
+  /** 這一次抽的亂數標籤（重抽時加 #r 次數）；內海面另用一顆亂數 */
+  label: string
+}
+
+/** 這件委託有 count 個內海階段時各用哪一層（照階段的順序）；超過 4 個往前補第一層。 */
+function netLayersFor(rules: ReturnType<typeof fixerRules>, count: number): string[] {
+  if (count <= 0) return []
+  const exact = rules.net_layers[count]
+  if (exact) return [...exact]
+  const four = rules.net_layers[4] ?? ['guest', 'staff', 'control', 'core']
+  return [...Array.from({ length: count - four.length }, () => four[0]!), ...four]
 }
 
 /** 挑一次；回傳一件委託，或不成立的原因。 */
@@ -551,6 +594,29 @@ function build(c: Ctx): Offer | string {
   }
   if (chosenMods.length < MODIFIERS_MIN && mods.length > 0) return '詞條都用不上這一件。'
 
+  // 內海面用另一顆亂數：沒有內海面的委託，上面與下面的抽籤一個都不變
+  const nrng = deriveRng(c.state.rng, `commission_gen/${c.label}/net`)
+  const fixerR = fixerRules(k)
+  const netT = type.net
+  // 隔離區（COMMISSIONS 2.2、第 4 節「必經的階段」）：照機率把決定性的內海面鎖起來，前面挑一個階段改成只開現實，由它給鑰匙連動
+  let airgap: { link: LinkEntry; stage: number } | null = null
+  if (netT && (netT.airgap ?? 0) > 0 && type.main === 'net' && stages[total - 1]!.faces.includes('net') && nrng.chance(netT.airgap!)) {
+    const listed = type.gives.meat
+    const keys = allLinks.filter((l) => l.from === 'meat' && l.to === 'net' && l.type === 'open' && (!listed || listed.length === 0 || listed.includes(l.id)))
+    if (keys.length > 0) {
+      const link = nrng.pick(keys)
+      // 離最後一個階段最近的、有現實面的階段（改成只開現實之後，還要有至少一個階段可以選兩個以上的面）
+      for (let i = total - 2; i >= 0; i--) {
+        if (!stages[i]!.faces.includes('meat')) continue
+        const after = stages.map((st, j) => (j === i ? { ...st, faces: ['meat' as GenFace] } : st))
+        if (multi && !hasMulti(after)) continue
+        stages[i]!.faces = ['meat']
+        airgap = { link, stage: i + 1 }
+        break
+      }
+    }
+  }
+
   // 現實面用哪張圖：fits 含這個類型、照區的權重抽
   const meatIdx = stages.map((s, i) => (s.faces.includes('meat') ? i : -1)).filter((i) => i >= 0)
   const decisiveMark = type.main === 'meat' && (type.decisive.kind === 'take' || type.decisive.kind === 'reach' || type.decisive.kind === 'check') ? type.decisive.at : undefined
@@ -568,6 +634,12 @@ function build(c: Ctx): Offer | string {
 
   // 連動 2～4 個：前面的階段的某一面給、後面的階段的某一面用
   const chosen = pickLinks(rng, type, allLinks, stages.map((x) => x.faces), rng.int(LINKS_MIN, LINKS_MAX))
+  if (airgap) {
+    // 鑰匙連動由那個只開現實的階段給：同一個連動不重複、那個階段的現實面不再給別的
+    const kept = chosen.filter((x) => x.link.id !== airgap!.link.id && !(x.from === airgap!.stage && x.link.from === 'meat'))
+    chosen.length = 0
+    chosen.push(...kept, { link: airgap.link, from: airgap.stage, to: total, lock: true })
+  }
   if (chosen.length < LINKS_MIN) return '接得上的連動不夠（前面的階段給、後面的階段用）。'
 
   // 每個階段每一面
@@ -575,6 +647,11 @@ function build(c: Ctx): Offer | string {
   const meatSet = new Set(meatIdx)
   // 踩點開出來的路放在哪幾個現實面的階段上
   const scoutStages = shuffle(rng, meatIdx).slice(0, SCOUT_BRANCH_MAX).sort((a, b) => a - b)
+  // 內海面：第幾個內海階段打哪一層；踩點開出來的路也可以放在內海階段上（現實面挑中的階段，加上沒有現實面的內海階段補到最多兩個）
+  const netIdx = stages.map((x, i) => (x.faces.includes('net') ? i : -1)).filter((i) => i >= 0)
+  const netLayers = netLayersFor(fixerR, netIdx.length)
+  const netOnly = netIdx.filter((i) => !meatSet.has(i))
+  const scoutNet = new Set<number>([...netIdx.filter((i) => scoutStages.includes(i)), ...shuffle(nrng, netOnly).slice(0, Math.max(0, SCOUT_BRANCH_MAX - scoutStages.length))])
   const enc = rules.encounters[grade] ?? DEFAULT_GEN_RULES.encounters[grade]!
   const alertTotal = chosenMods.reduce((s, m) => s + (m.effect.alert_start ?? 0), 0)
   const decisive = type.decisive
@@ -590,17 +667,35 @@ function build(c: Ctx): Offer | string {
     const nextEntry = (): string => entries[entryAt++ % entries.length]!
     for (const face of st.faces) {
       const meat = face === 'meat'
+      const net = face === 'net'
       const branches: Branch[] = [{ id: 'assault', kind: 'assault', name: '正面強攻', ...(meat ? { entry: nextEntry() } : {}) }]
-      if (type.branches.stealth) branches.push({ id: 'stealth', kind: 'stealth', name: '潛進去', ...(meat ? { entry: nextEntry() } : {}), need: { basic: type.branches.stealth, level: lvl } })
-      if (type.branches.talk) branches.push({ id: 'talk', kind: 'talk', name: '交涉', ...(meat ? { entry: nextEntry() } : {}), need: { basic: type.branches.talk, level: lvl } })
+      if (net) {
+        // 內海面：潛行看 net_branch_skills 裡的一項（照種子挑）；沒有交涉
+        if (type.branches.stealth) branches.push({ id: 'stealth', kind: 'stealth', name: '潛進去', need: { basic: nrng.pick(fixerR.net_branch_skills), level: lvl } })
+      } else {
+        if (type.branches.stealth) branches.push({ id: 'stealth', kind: 'stealth', name: '潛進去', ...(meat ? { entry: nextEntry() } : {}), need: { basic: type.branches.stealth, level: lvl } })
+        if (type.branches.talk) branches.push({ id: 'talk', kind: 'talk', name: '交涉', ...(meat ? { entry: nextEntry() } : {}), need: { basic: type.branches.talk, level: lvl } })
+      }
       for (const ch of chosen) {
-        if (ch.to === n && ch.link.to === face && ch.link.type === 'open') {
+        if (ch.to === n && ch.link.to === face && ch.link.type === 'open' && !ch.lock) {
           branches.push({ id: `via_${ch.link.id}`, kind: 'linked', name: `借助「${ch.link.name}」`, ...(meat ? { entry: nextEntry() } : {}), need: { link: ch.link.id } })
         }
       }
       if (meat && scoutStages.includes(i)) branches.push({ id: `back_s${n}`, kind: 'scouted', name: '踩點才知道的路', entry: nextEntry(), need: { scouted: `route_s${n}` } })
+      if (net && scoutNet.has(i)) branches.push({ id: `back_s${n}`, kind: 'scouted', name: '踩點才知道的路', need: { scouted: `route_s${n}` } })
       const ranks = [...(last ? enc.last : enc.normal)]
       const f: Record<string, unknown> = { branches, encounter: ranks }
+      if (net) {
+        f.layer = netLayers[netIdx.indexOf(i)]
+        if (netT?.lace) f.lace = netT.lace
+        if (netT?.facility) f.facility = netT.facility
+        // 主面是內海：最後一個階段的目標從模板的清單抽（沒寫是下載，turns 3）；中間的內海階段通過閘門就算
+        if (last && type.main === 'net') {
+          const kind = nrng.pick(netT?.objectives ?? ['download'])
+          f.objective = { kind, ...(kind === 'download' ? { turns: 3 } : {}) }
+        }
+        if (airgap && last) f.locked_by = airgap.link.id
+      }
       const give = chosen.find((ch) => ch.from === n && ch.link.from === face)
       if (give) f.gives = give.link.id
       if (meat && map && sheet) {
@@ -680,7 +775,7 @@ function build(c: Ctx): Offer | string {
   }
 
   // 未知清單 4～8 項：每一項都指到副本裡真的東西（目標、雇主先只給旗標）
-  interface Cand2 { cat: Cat; text: string; reveal: Reveal }
+  interface Cand2 { cat: Cat; text: string; reveal: Reveal; face?: 'meat' | 'net' }
   const paths: Cand2[] = []
   const rest: Cand2[] = []
   stages.forEach((s, i) => {
@@ -692,6 +787,15 @@ function build(c: Ctx): Offer | string {
       const b = m.branches?.find((x) => x.kind === 'scouted')
       if (b) paths.push({ cat: 'path', text: `第 ${n} 階段多一條路：${b.name}。`, reveal: { branch: String((b.need as { scouted: string }).scouted) } })
     }
+    // 內海的階段（M3）：蕾絲與層、沒有現實面時的守備、只有內海面才有的踩點的路；都標 face: net
+    const nf = s.built.net as { encounter?: Rank[]; branches?: Branch[]; layer?: string; lace?: string } | undefined
+    if (nf) {
+      const layerName = LAYER_NAME[String(nf.layer)] ?? String(nf.layer)
+      rest.push({ cat: 'lace', text: nf.lace ? `第 ${n} 階段的內海面在${layerName}，由${LACE_NAME[nf.lace] ?? nf.lace}看守。` : `第 ${n} 階段的內海面在${layerName}。`, reveal: { flag: `lace_s${n}` }, face: 'net' })
+      if (!m) rest.push({ cat: 'guard', text: `第 ${n} 階段內海的守備：${(nf.encounter ?? []).length} 個守衛（${rankSummary(nf.encounter ?? [])}）。`, reveal: { guards: n }, face: 'net' })
+      const nb = nf.branches?.find((x) => x.kind === 'scouted')
+      if (nb && !m?.branches?.some((x) => x.kind === 'scouted')) paths.push({ cat: 'path', text: `第 ${n} 階段的內海面多一條路：${nb.name}。`, reveal: { branch: String((nb.need as { scouted: string }).scouted) }, face: 'net' })
+    }
   })
   for (const m of chosenMods) rest.push({ cat: 'modifier', text: `${m.name}：${m.text}`, reveal: { modifier: m.id } })
   rest.push({ cat: 'target', text: '目標的行蹤與作息摸清楚了。', reveal: { flag: 'target_known' } })
@@ -700,7 +804,7 @@ function build(c: Ctx): Offer | string {
   const picked = [...paths, ...shuffle(rng, rest)].slice(0, want)
   if (picked.length < UNKNOWN_MIN) return '未知清單湊不到 4 項。'
   const ordered = picked.map((u, idx) => ({ u, idx })).sort((a, b) => CATS.indexOf(a.u.cat) - CATS.indexOf(b.u.cat) || a.idx - b.idx).map((x) => x.u)
-  const unknowns: UnknownItem[] = ordered.map((u, i) => ({ id: `u${i + 1}_${u.cat}`, cat: u.cat, text: u.text, reveal: u.reveal }))
+  const unknowns: UnknownItem[] = ordered.map((u, i) => ({ id: `u${i + 1}_${u.cat}`, cat: u.cat, text: u.text, reveal: u.reveal, ...(u.face ? { face: u.face } : {}) }))
 
   const offer: Offer = { id: offerIdOf(c.seed), commission, title, brief, reward, unknowns }
 
@@ -732,7 +836,7 @@ export function generateTrace(k: Kernel, state: GameState, opts: GenOpts): GenTr
   for (let a = 0; a <= GEN_RETRIES; a++) {
     const label = a === 0 ? opts.seed : `${opts.seed}#r${a}`
     const rng = deriveRng(state.rng, `commission_gen/${label}`)
-    const r = build({ k, state, fixer: opts.fixer, rng, rules: genRules(k), reg: registeredFaces(k), seed: opts.seed })
+    const r = build({ k, state, fixer: opts.fixer, rng, rules: genRules(k), reg: registeredFaces(k), seed: opts.seed, label })
     if (typeof r !== 'string') {
       tries.push(null)
       return { offer: r, tries }

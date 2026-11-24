@@ -250,14 +250,16 @@ function effectsProblems(k: Pick<Kernel, 'battle'> | undefined, at: string, list
 
 function suppressProblems(s: unknown): string[] {
   if (!isRec(s)) return ['meat.attack.suppress 要是 { dc, skill }（可以再加 area、dc_bonus；姿態是 { auto: true, per_turn? }）']
-  const p = onlyKeys('meat.attack.suppress', s, ['dc', 'skill', 'area', 'dc_bonus', 'auto', 'per_turn'])
+  const p = onlyKeys('meat.attack.suppress', s, ['dc', 'skill', 'area', 'dc_bonus', 'auto', 'per_turn', 'first_round'])
   if (s.auto !== undefined) {
     if (s.auto !== true) p.push('meat.attack.suppress.auto 只能是 true')
     for (const key of ['dc', 'skill', 'area', 'dc_bonus']) if (s[key] !== undefined) p.push(`meat.attack.suppress.${key} 不能和 auto 一起寫（auto 是命中就壓制、不必檢定）`)
     if (s.per_turn !== undefined && !(isInt(s.per_turn) && s.per_turn >= 1)) p.push('meat.attack.suppress.per_turn 要是 1 以上的整數')
+    if (s.first_round !== undefined && s.first_round !== true) p.push('meat.attack.suppress.first_round 只能是 true')
     return p
   }
   if (s.per_turn !== undefined) p.push('meat.attack.suppress.per_turn 只有 auto 用')
+  if (s.first_round !== undefined) p.push('meat.attack.suppress.first_round 只有 auto 用')
   if (!(s.dc === 'spent' || (isNum(s.dc) && s.dc > 0))) p.push("meat.attack.suppress.dc 要是 'spent' 或正數")
   if (!isText(s.skill)) p.push('meat.attack.suppress.skill 要是基本功的 id')
   if (s.area !== undefined && !(SUPPRESS_AREAS as readonly unknown[]).includes(s.area)) p.push(`meat.attack.suppress.area「${String(s.area)}」不在清單裡（可以寫：${SUPPRESS_AREAS.join('、')}）`)

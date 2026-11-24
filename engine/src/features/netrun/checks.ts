@@ -1,6 +1,6 @@
 // L6 功能 netrun：節點上的檢定與用掉的東西（第二張 M3-netrun-nodes）。
 // 檢定都經核心的 rollCheck（骰面由狀態的亂數加用途導出，同一份狀態、同一個用途骰面一定一樣；每一份做檢定的報告都帶一筆 rng，下一次骰面就不同）。
-// 「主控」：不 import 技能的功能，只讀共用的資料慣例 actor.ext.paths（路數與階數；DATA 第 8 節）：這個角色有 master_path 那一路、階數 1 以上就是有主控。
+// 「主控」：不 import 技能的功能，讀衍生數值 master_tier（技能的功能給，主角與夥伴都算）與共用的資料慣例 actor.ext.paths（路數與階數；DATA 第 8 節）：階數 1 以上就是有主控。
 // 後門鑰匙：背包裡帶 backdoor_key 標籤、等級等於這一趟的道具（快取格與腳本裡的也在背包裡；ITEMS 11.4 節「I 級只對 I 級閘門有效」）。
 
 import type { ActorId, AttrId, Change, CheckRoll, GameState, Kernel, RollPart, TimelineBeat } from '../../core'
@@ -23,12 +23,23 @@ export function skillAttr(k: Pick<Kernel, 'content'>, skill: string, fallback: A
 
 // ---- 主控 ----
 
-/** 這個人主控的階數（0 是沒有主控）：actor.ext.paths 裡 master_path 那一路的階數，夾在 0～5；壞掉的列略過。 */
+/** 技能那邊提供的衍生數值：這個人主控的樹階（features/abilities 定義；主角看裝著的招牌與學習紀錄，夥伴看路數；沒有裝技能的功能就沒有這個數值）。 */
+export const MASTER_TIER_STAT = 'master_tier'
+
+/**
+ * 這個人主控的階數（0 是沒有主控）。兩個來源取高的：衍生數值 master_tier（技能的功能給：主角的學習紀錄、夥伴的路數）；
+ * 共用的資料慣例 actor.ext.paths 裡 master_path 那一路的階數（DATA 第 8 節；沒有裝技能的功能時只有這一個）。夾在 0～5；壞掉的列略過。
+ * 不 import 技能的功能：衍生數值只經 k.stats 查，沒有人定義就當 0。
+ */
 export function masterTier(k: Kernel, state: GameState, id: ActorId): number {
-  const raw = state.actors[id]?.ext.paths
-  if (!Array.isArray(raw)) return 0
-  const path = netrunRules(k).master_path
   let best = 0
+  if (state.actors[id] && k.stats.hasStat(MASTER_TIER_STAT)) {
+    const v = k.stats.stat(state, id, MASTER_TIER_STAT)
+    if (Number.isFinite(v)) best = Math.max(0, Math.min(5, Math.floor(v)))
+  }
+  const raw = state.actors[id]?.ext.paths
+  if (!Array.isArray(raw)) return best
+  const path = netrunRules(k).master_path
   for (const r of raw) if (isRecord(r) && r.path === path && typeof r.tier === 'number' && Number.isFinite(r.tier)) best = Math.max(best, Math.min(5, Math.floor(r.tier)))
   return best
 }

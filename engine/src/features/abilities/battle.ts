@@ -183,7 +183,7 @@ function doAttack(run: BattleRun, u: BattleUnit, ab: AbilityEntry, m: MeatDef, t
   // 花掉的格數：spend 'all' 是彈匣現在的全部（內海：行動做完才知道實際花掉的 RAM，spentRam），數字是那麼多格，沒寫是 1 格；free_mag 的格數照算（傷害、壓制），只是不扣彈匣
   const spent = atk.spend === 'all' ? (spentRam ?? w?.mag?.now ?? 1) : typeof atk.spend === 'number' ? atk.spend : 1
   const result = run.attack(u, target, {
-    aimed: atk.aimed, hit: atk.hit, label: ab.name, tags: ['skill'],
+    aimed: atk.aimed, hit: atk.hit, label: ab.name, tags: m.tags?.includes(OVERCLOCK) ? ['skill', OVERCLOCK] : ['skill'],
     ...(atk.spend !== undefined ? { spend: atk.free_mag ? 0 : spent } : {}),
     ...(atk.dice === 'spent_minus_1' ? { dice: spent - 1 } : {}),
     ...(typeof part === 'string' ? { part } : {}),

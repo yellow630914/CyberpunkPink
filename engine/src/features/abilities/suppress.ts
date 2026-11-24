@@ -40,6 +40,7 @@ export function registerSuppress(k: Kernel): void {
     const ab = run.k.content.get<AbilityEntry>('ability', attacker.stance)
     const sup = (ab ? colIn(run, attacker, ab) : null)?.attack?.suppress
     if (!ab || !sup?.auto) return
+    if (sup.first_round && run.battle.round !== 1) return
     if (sup.per_turn !== undefined && (attacker.uses[autoKey(ab)] ?? 0) >= sup.per_turn) return
     attacker.uses[autoKey(ab)] = (attacker.uses[autoKey(ab)] ?? 0) + 1
     run.say(`${attacker.name}：${ab.name}，${target.name}直接被壓制。`, 'skill', { unit: attacker.id, ability: ab.id, target: target.id }, attacker)

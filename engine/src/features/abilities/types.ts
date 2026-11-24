@@ -227,6 +227,8 @@ export interface SuppressDef {
   auto?: true
   /** auto 專用：每回合前幾次 */
   per_turn?: number
+  /** auto 專用：只在第一回合（內海的壓制姿態） */
+  first_round?: true
 }
 
 /**

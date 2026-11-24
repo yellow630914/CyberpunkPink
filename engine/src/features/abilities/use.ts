@@ -4,10 +4,11 @@
 // 戰鬥結束時差額寫回（end.ts）。每件委託的次數記在 unit.uses['commission:<技能 id>']，開打時讀進來、結束時寫回。
 
 import type { BattleKernel, BattleRun, BattleState, BattleUnit, BattleView, GameState } from '../../core'
-import { amount } from '../../core'
+import { amount, wielded } from '../../core'
 import type { Layer } from './column'
 import { layerOf } from './column'
 import { FAVORS } from './format'
+import { featureTotal } from './mods'
 import { isRec, tierIn } from './unitdata'
 import { rememberPool } from './wallet'
 import type { AbilityEntry, AbilityUse } from './types'
@@ -40,6 +41,8 @@ export function costOf(view: BattleView, u: BattleUnit, ab: AbilityEntry): Cost 
   if (use.ram_all_min !== undefined) {
     cost.ram = u.pools.ram?.now ?? 0
   }
+  // 內海：照常花手上武器構裝的 RAM（武器自己寫的 pool.ram，沒寫是 1）；現實的武器沒有 RAM，不算
+  if (use.weapon_ram && layerOf(view) === 'net' && wielded(u)) cost.ram = (cost.ram ?? 0) + (wielded(u)!.pool?.ram ?? 1)
   if (use.cash !== undefined) {
     const v = Math.max(0, Math.round(amount({ run: view as unknown as BattleRun, user: u, n: { tier: tierIn(u, ab.path) } }, use.cash)))
     if (v) cost.cash = v
@@ -75,7 +78,9 @@ export function usageBlocks(view: Pick<BattleView, 'battle' | 'mode' | 'mods'>, 
   const layer = layerOf(view)
   const use = useOf(ab, layer)
   const out: string[] = []
-  const perFight = perFightOf(ab, layer)
+  // 每場的次數可以被修正 use_extra 加（tags 是技能的 id；名醫：除錯每場可以用兩次）
+  const base = perFightOf(ab, layer)
+  const perFight = base === undefined ? undefined : base + featureTotal(view as BattleView, u, 'use_extra', [ab.id])
   if (perFight !== undefined && (u.uses[ab.id] ?? 0) >= perFight) out.push('這一場已經用過了。')
   if (use.per_commission !== undefined && (u.uses[commissionUse(ab.id)] ?? 0) >= use.per_commission) out.push(`這件委託的次數用完了（每件委託 ${use.per_commission} 次）。`)
   if (use.first_round && view.battle.round !== 1) out.push('只能在第一回合用。')

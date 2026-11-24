@@ -3,12 +3,16 @@
 // 點數與上限可以被修正改：instinct_points（共鳴 5：+1；心流：+2）、instinct_cap（心流：+2）、instinct_free（心流：重分配不花行動點）。
 // 分配記在 unit.ext.instinct（不放進 unit.ext.abilities：那一份只放裝著什麼與階數）；開打時的來源：單位自己帶的（測試、敵人）→
 // 隨機（使用者 2026-11-23 定案：開打前要選的東西一律隨機，不做開打前選擇的介面）：把點數一點一點隨機放進還沒到上限的那幾項，
-// 亂數是 deriveRng(state.rng, 'battle/<戰鬥>/<技能>/<單位>')，同一個種子同一個結果。戰鬥中仍可花 1 行動點重分配（玩家自己選）。只有現實戰鬥（內海的版本這一張不做）。
+// 亂數是 deriveRng(state.rng, 'battle/<戰鬥>/<技能>/<單位>')，同一個種子同一個結果。戰鬥中仍可花 1 行動點重分配（玩家自己選）。
+// 內海的版本（M3-skill-net-a；SKILL_TREES 槍手：戰鬥直覺的內海欄）：內海欄寫 instinct: { div, only, fixed }——點數是樹階 ÷ div 進位、只分到 only 那幾項（命中、迴避）、整場不能重分配
+// （沒有重分配的行動）。戰鬥中點數增加（心流：+1）時，多出來的點照同一個做法隨機放進還沒到上限的項，放了就記在單位上（action.done 與 turn.start 時補放）；點數少了就從迴避、命中、先攻依序拿掉。
 
 import type { BattleActionDef, BattleInput, BattlePick, BattleRun, BattleUnit, BattleView, Kernel } from '../../core'
 import { BattleBlocked, deriveRng } from '../../core'
 import { featureTotal } from './mods'
-import type { AbilityEntry } from './types'
+import { colOf, layerOf } from './column'
+import type { Layer } from './column'
+import type { AbilityEntry, InstinctNet } from './types'
 import { OWNER } from './types'
 import { equippedOf, hasAbility, isRec, tierIn } from './unitdata'
 
@@ -24,10 +28,26 @@ export const INSTINCT_KEYS = ['initiative', 'hit', 'evade'] as const
 const KEY_LABEL: Record<(typeof INSTINCT_KEYS)[number], string> = { initiative: '先攻', hit: '命中', evade: '迴避' }
 const BASE_CAP = 3
 
-/** 這個人裝著的戰鬥直覺（有 meat.instinct 的那個技能）。 */
-export const instinctOf = (view: Pick<BattleView, 'k'>, u: BattleUnit): AbilityEntry | undefined => equippedOf(view, u).find((a) => a.meat?.instinct === true && !a.meat.pending)
+/** 這個人裝著的戰鬥直覺（這一層的那一欄有 instinct 的那個技能：現實欄是 true，內海欄是 { div, only, fixed }）。 */
+export const instinctOf = (view: Pick<BattleView, 'k' | 'mode'>, u: BattleUnit): AbilityEntry | undefined => {
+  const layer = layerOf(view)
+  return equippedOf(view, u).find((a) => {
+    const m = colOf(a, layer)
+    return !!m && !m.pending && (layer === 'meat' ? m.instinct === true : isRec(m.instinct))
+  })
+}
 
-export const instinctPoints = (view: BattleView, u: BattleUnit, ab: AbilityEntry): number => Math.max(0, tierIn(u, ab.path) + featureTotal(view, u, 'instinct_points'))
+/** 內海欄的戰鬥直覺（沒有是 undefined）。 */
+export const netInstinctOf = (ab: AbilityEntry): InstinctNet | undefined => (isRec(ab.net?.instinct) ? (ab.net!.instinct as InstinctNet) : undefined)
+
+/** 能分到的項：現實三項都行，內海看欄裡的 only。 */
+const keysOf = (layer: Layer, ab: AbilityEntry): readonly (typeof INSTINCT_KEYS)[number][] => (layer === 'net' ? (netInstinctOf(ab)?.only ?? []) : INSTINCT_KEYS)
+
+export const instinctPoints = (view: BattleView, u: BattleUnit, ab: AbilityEntry): number => {
+  const net = layerOf(view) === 'net' ? netInstinctOf(ab) : undefined
+  const base = net ? Math.ceil(tierIn(u, ab.path) / net.div) : tierIn(u, ab.path)
+  return Math.max(0, base + featureTotal(view, u, 'instinct_points'))
+}
 export const instinctCap = (view: BattleView, u: BattleUnit): number => Math.max(0, BASE_CAP + featureTotal(view, u, 'instinct_cap'))
 
 const sum = (a: Alloc): number => a.initiative + a.hit + a.evade
@@ -46,10 +66,10 @@ export function defaultAlloc(points: number, cap: number): Alloc {
 }
 
 /** 開戰時的隨機分配：一點一點隨機放進還沒到上限的項；三項都滿了，剩下的點數就沒有地方放。 */
-export function randomAlloc(rng: Pick<ReturnType<typeof deriveRng>, 'pick'>, points: number, cap: number): Alloc {
-  const out: Alloc = { initiative: 0, hit: 0, evade: 0 }
+export function randomAlloc(rng: Pick<ReturnType<typeof deriveRng>, 'pick'>, points: number, cap: number, keys: readonly (typeof INSTINCT_KEYS)[number][] = INSTINCT_KEYS, from: Alloc = { initiative: 0, hit: 0, evade: 0 }): Alloc {
+  const out: Alloc = { ...from }
   for (let i = 0; i < points; i++) {
-    const open = INSTINCT_KEYS.filter((key) => out[key] < cap)
+    const open = keys.filter((key) => out[key] < cap)
     if (!open.length) break
     out[rng.pick(open)] += 1
   }
@@ -69,24 +89,39 @@ export function fitAlloc(a: Alloc, points: number, cap: number): Alloc {
 
 const isAlloc = (v: unknown): v is Alloc => isRec(v) && INSTINCT_KEYS.every((key) => typeof v[key] === 'number' && Number.isInteger(v[key]) && (v[key] as number) >= 0)
 
-/** 這個人現在的分配（已經夾進現在的上限與點數）；沒有裝戰鬥直覺、不是現實戰鬥是 null。 */
+/** 這個人現在的分配（已經夾進現在的上限與點數）；沒有裝戰鬥直覺（這一層的那一欄）是 null。內海沒有預設的分法：還沒定下來的是全部 0。 */
 export function allocOf(view: BattleView, u: BattleUnit): { ab: AbilityEntry; alloc: Alloc; points: number; cap: number } | null {
-  if (view.mode.layer !== 'meat') return null
   const ab = instinctOf(view, u)
   if (!ab) return null
+  const layer = layerOf(view)
   const points = instinctPoints(view, u, ab)
   const cap = instinctCap(view, u)
   const stored = u.ext.instinct
-  return { ab, points, cap, alloc: fitAlloc(isAlloc(stored) ? stored : defaultAlloc(points, cap), points, cap) }
+  const start = isAlloc(stored) ? stored : layer === 'net' ? { initiative: 0, hit: 0, evade: 0 } : defaultAlloc(points, cap)
+  return { ab, points, cap, alloc: fitAlloc(start, points, cap) }
 }
 
 /** 單位剛組好：定下開打時的分配（記在單位上）。 */
 export function setupInstinct(run: BattleRun, u: BattleUnit): void {
-  if (run.mode.layer !== 'meat') return
   const ab = instinctOf(run, u)
   if (!ab) return
   if (isAlloc(u.ext.instinct)) return
-  u.ext.instinct = randomAlloc(deriveRng(run.state.rng, `battle/${run.battle.id}/${ab.id}/${u.id}`), instinctPoints(run, u, ab), instinctCap(run, u))
+  u.ext.instinct = randomAlloc(deriveRng(run.state.rng, `battle/${run.battle.id}/${ab.id}/${u.id}`), instinctPoints(run, u, ab), instinctCap(run, u), keysOf(layerOf(run), ab))
+}
+
+/**
+ * 內海：點數變了（修正 instinct_points：心流）之後把分配記下來。多的點數隨機放進還沒到上限的項（亂數是 deriveRng(state.rng, '…/extra/<已經放了幾點>')，
+ * 放了就記在單位上，之後不再變）；少了的從迴避、命中、先攻依序拿掉。現實不用（玩家自己重分配）。
+ */
+export function syncNetInstinct(run: BattleRun, u: BattleUnit): void {
+  if (run.mode.layer !== 'net' || u.out) return
+  const a = allocOf(run, u)
+  if (!a) return
+  const have = sum(a.alloc)
+  if (have < a.points) {
+    const rng = deriveRng(run.state.rng, `battle/${run.battle.id}/${a.ab.id}/${u.id}/extra/${have}`)
+    u.ext.instinct = randomAlloc(rng, a.points - have, a.cap, keysOf('net', a.ab), a.alloc)
+  } else u.ext.instinct = a.alloc
 }
 
 // ---- 重分配 ----
@@ -132,6 +167,13 @@ export function instinctAction(ab: AbilityEntry, order: number): BattleActionDef
 
 /** 先攻、命中、迴避的修正：每點先攻 +3、命中 +1、迴避 +1（明細的名字是技能的名字）。 */
 export function registerInstinct(k: Kernel): void {
+  // 內海：點數變了就把分配記下來（心流的 +1；整場不能重分配，多出來的點由亂數放）
+  const syncAll = (run: BattleRun): void => {
+    if (run.mode.layer !== 'net') return
+    for (const u of Object.values(run.battle.units)) if (u.side === 'ally' || u.side === 'foe') syncNetInstinct(run, u)
+  }
+  k.battle.on('action.done', OWNER, ({ run }) => syncAll(run))
+  k.battle.on('turn.start', OWNER, ({ run }) => syncAll(run))
   k.battle.modifier(OWNER, (q) => {
     if (q.kind !== 'initiative' && q.kind !== 'hit' && q.kind !== 'evade') return []
     if (q.view.battle.units[q.unit.id] !== q.unit) return []
