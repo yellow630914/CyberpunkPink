@@ -148,12 +148,14 @@ export const BRACKET_ORDER = ['rookie', 'open', 'unlimited']
 
 // ---- 格式檢查 ----
 
+/** 一個組別的格式檢查：內建有的組別（新手、公開、無差別）可以只寫要改的欄位；新的組別要有 name 與 grades。 */
 function bracketProblems(id: string, b: unknown): string[] {
   const at = `brackets.${id}`
   if (!isRecord(b)) return [`${at} 要是 { name, grades, own, max_grade, deck?, kit?, guard? }`]
   const p: string[] = []
-  if (!isText(b.name)) p.push(`${at}.name 要有名字`)
-  if (!(Array.isArray(b.grades) && b.grades.length >= 1 && b.grades.length <= 5 && b.grades.every((g) => isRecord(g) && isInt(g.grade) && g.grade >= 1 && g.grade <= 5 && isInt(g.deposit) && g.deposit >= 0 && isInt(g.prize) && g.prize >= 0))) p.push(`${at}.grades 要是一到五筆 { grade（1～5）, deposit, prize }（0 以上的整數）`)
+  const known = Object.hasOwn(DEFAULT_RULES.brackets, id)
+  if (b.name !== undefined || !known) if (!isText(b.name)) p.push(`${at}.name 要有名字`)
+  if (b.grades !== undefined || !known) if (!(Array.isArray(b.grades) && b.grades.length >= 1 && b.grades.length <= 5 && b.grades.every((g) => isRecord(g) && isInt(g.grade) && g.grade >= 1 && g.grade <= 5 && isInt(g.deposit) && g.deposit >= 0 && isInt(g.prize) && g.prize >= 0))) p.push(`${at}.grades 要是一到五筆 { grade（1～5）, deposit, prize }（0 以上的整數）`)
   if (b.own !== undefined && typeof b.own !== 'boolean') p.push(`${at}.own 要是布林值`)
   if (b.max_grade !== undefined && !(isInt(b.max_grade) && b.max_grade >= 0 && b.max_grade <= 5)) p.push(`${at}.max_grade 要是 0～5 的整數`)
   if (b.deck !== undefined && !isText(b.deck)) p.push(`${at}.deck 要是甲板的 id`)

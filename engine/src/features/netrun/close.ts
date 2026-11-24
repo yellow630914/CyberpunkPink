@@ -113,7 +113,7 @@ export function onDefeatAccepted(k: Kernel, state: GameState, origin: Origin, re
 function morePatrols(k: Kernel, state: GameState, run: NetRun, net: NetExt): Patrol[] {
   const rules = netrunRules(k)
   // 這一區沒有巡邏的（密度表寫 0、寂靜）追蹤度再高也不會多出來
-  if (countsOf(runRegion(k, run), run.kind).patrol[1] <= 0) return []
+  if (countsOf(runRegion(k, run), run.kind).patrol[1] <= 0 || net.dig?.fx.no_patrol) return []
   const seed = state.maps.instances[run.map]?.gen?.seed ?? 0
   const parsed = setupOf(run)
   const source = k.battle.getUnitSource('enemy_pick')

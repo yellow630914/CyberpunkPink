@@ -89,7 +89,7 @@ export function enterBlocks(k: Kernel, state: GameState, bracketId: string, grad
   const party = partyOf(state)
   if (!party.length) p.push('隊上沒有人，沒有人可以報名。')
   if (party.length > rules.max_party) p.push(`一隊最多 ${rules.max_party} 個人（現在隊上有 ${party.length} 個）。`)
-  if (state.money.cash < g.deposit) p.push(`押金不夠：${b.name}要 ${formatAmount(g.deposit)}，你只有 ${formatAmount(state.money.cash)}。`)
+  if (state.money.cash < g.deposit) p.push(`押金不夠：${b.name}要 C$${formatAmount(g.deposit)}，你只有 C$${formatAmount(state.money.cash)}。`)
   const now = toMinutes(state.time)
   const burned = party.filter((id) => state.actors[id]!.conditions.some((c) => c.id === 'net_burn' && (c.until === undefined || c.until > now)))
   if (burned.length) p.push(`${burned.map((id) => nameOf(state, id)).join('、')}剛在網內倒下，還在燒傷中，一個小時內不能再潛入。`)
@@ -578,7 +578,8 @@ export function resultDraft(state: GameState, m: MazeState): ReportDraft {
     ? `迷宮館結算：評價 ${r.rating}（×${r.mult}）。${nums}。獎金 ${formatAmount(r.prize)}、押金 ${formatAmount(r.refund)} 退回。`
     : `迷宮館結算：這一趟沒闖過。${nums}。押金 ${formatAmount(r.forfeited)} 沒收。`
   const lines = done ? [`你闖過了迷宮館，評價 ${r.rating}。`] : ['你沒能闖過迷宮館，在回復室醒了過來。']
-  return draftOf(state, 'maze.result', done ? (r.rating ?? 'done') : 'forfeit', summary, [mazeChange(null)], { lines })
+  const beat: TimelineBeat = { layer: 'net', ...(state.pc ? { actor: state.pc } : {}), text: lines[0]!, tag: 'maze.result', data: clone(r) as unknown as Record<string, unknown> }
+  return draftOf(state, 'maze.result', done ? (r.rating ?? 'done') : 'forfeit', summary, [mazeChange(null)], { lines, beats: [beat] })
 }
 
 /** 一份有 over 的狀態（等著發結果）。 */

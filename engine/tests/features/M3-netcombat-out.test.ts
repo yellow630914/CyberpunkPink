@@ -386,6 +386,33 @@ describe('扣線、拆釘子、net_burn', () => {
     expect(b.a(1).ext.net).not.toHaveProperty('tethered')
   })
 
+  it('打輸而對面有 tether，但場地是 safe（迷宮館的熔斷）、或贏的人全是野生（標籤 wild）：不扣線；還是會有 net_burn（M3-maze）', () => {
+    const lose = (s: BattleSetup) => {
+      const a = arena(s)
+      const run = a.run()
+      for (const u of Object.values(a.battle.units).filter((x) => x.side === 'ally')) run.setOut(u, 'down')
+      expect(a.battle.result!.outcome).toBe('lose')
+      return { a, run }
+    }
+    const tethers = (r: { a: Arena; run: BattleRun }) => r.run.beats.some((x) => x.data && x.data.tethered === true) || !!(r.a.a(1).ext.net as Rec | undefined)?.tethered
+    const pink = (tags: string[]) => lace('elite', { tags: ['lace', 'lace:pink', 'tether', ...tags] })
+    // 對照：沒有 safe 就扣線
+    expect(tethers(lose(setup([ally(1), ally(2)], [pink([])])))).toBe(true)
+    // 場地 safe：不扣線
+    const safe = lose(setup([ally(1), ally(2)], [pink([])], { field: { safe: true } }))
+    expect(tethers(safe)).toBe(false)
+    expect(tagged(safe.run.beats, 'tether')).toHaveLength(0)
+    // net.tether 標上的人也一樣不扣
+    const marked = arena(setup([ally(1), ally(2)], [lace()], { field: { safe: true } }))
+    const mr = marked.run()
+    mr.effects([{ op: 'net.tether', who: 'target' }], { user: marked.f(1), target: { unit: 'a1' }, source: SRC })
+    for (const u of Object.values(marked.battle.units).filter((x) => x.side === 'ally')) mr.setOut(u, 'down')
+    expect(tagged(mr.beats, 'tether').some((b) => b.data?.tethered === true)).toBe(false)
+    // 贏的人全是野生的：不扣線；只要有一個不是野生的就照扣
+    expect(tethers(lose(setup([ally(1), ally(2)], [pink(['wild'])])))).toBe(false)
+    expect(tethers(lose(setup([ally(1), ally(2)], [pink(['wild']), pink([])])))).toBe(true)
+  })
+
   it('net.tether：這一場倒下的人不能斷線；打輸時就算對面沒有 tether，被標上的人也被扣線（其他人不算）；打贏時不留下什麼', () => {
     const a = arena(setup([ally(1), ally(2)], [lace()]))
     const run = a.run()
