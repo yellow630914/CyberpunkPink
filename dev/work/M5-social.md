@@ -2,7 +2,7 @@
 
 - 交給：cpp-feature（sonnet）
 - 目標：新功能 `social`：社群帳號的追蹤、用素材或片發文（算式照設計書）、每週的轉換與流失、一面只有氛圍數字的動態牆。
-- 規格出處：MEDIA 第 13 節（全部）、第 10 節（追蹤那一列）、2.1 節（發文扣一次）、第 2 節（新鮮度、獨家）；SERIES 5.3 節（動態牆不算得知）；LEWD_SYSTEM 第 5 節（豔名的來源，只看發文那一條）；dev/adr/0020 第四節、第十三節、P29、P30、P54。
+- 規格出處：MEDIA 第 13 節（全部）、第 10 節（追蹤那一列）、2.1 節（發文扣一次）、第 2 節（新鮮度、獨家）；SERIES 5.3 節（動態牆不算得知）；LEWD_SYSTEM 第 5 節（豔名的來源，只看發文那一條）；dev/adr/0020 第四節、第十三節、V29、V30、V54。
 - 可以改的路徑：`engine/src/features/social/`（新）、`engine/src/features/index.ts`、`engine/tests/features/M5-social.test.ts`。
 - 可以用的介面：`k.meters.define`；掛點 `media.materials`、`media.spend`；`meterOf`（`subs`、`reco`、`credibility`、`popularity`、`fame`、`affinity`）；效果 `fame`、`subs`（先問有沒有人註冊）；掛鉤 `time.passed`（順序 11）、`game.new`；`weeklyCrossings`；`state.reports`、`state.rng.seed`、`state.time`、`state.location`；`time` 變更；`state.rules.contentOff`。
 - 不可以做的事：不 import 別的功能；發文不給街頭信譽、不動公信力、不加敵對值、不動親密度（MEDIA 13.1 寫明之後再定）；動態牆不改任何狀態、不給素材、不算得知一條線索；不加 AI 任務（貼文與留言的字用模板）；共同的規定見 dev/work/M5-plan.md。

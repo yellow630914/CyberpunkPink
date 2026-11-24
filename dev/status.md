@@ -291,7 +291,7 @@
 - 給 skill-net-a：超頻「每多 1 RAM 多 1 顆骰」要查 `attack` 效果收不收骰數公式。
 - 待決定：共鳴（path.resonance）不分欄，現實共鳴在內海仍生效。
 - 開戰時套用的池與標籤看那一刻的 `sync:` 標籤，若 netcombat 還沒寫上，淺檔的專屬欄池會照樣加上（審查時查）。
-- ADR 0018 待補「實作補記：M3-abilities-net」。ui 的 vue-tsc 確認過沒壞。
+- ~~ADR 0018 待補實作補記~~：M3-smoke 補齊。
 
 ## M3-netadmin 回報（2026-11-24）
 
@@ -305,7 +305,7 @@
 - 暫定：內海士氣只剩首領倒、同伴倒一半，失敗一律撤退；shift 敵人最高深檔；白蕾絲門檻 60 寫成常數（改 netcombat 規則表要同步）。
 - 寫不出來：依橋參數挑手段、流形蕾絲中途變色、野生粉蕾絲與迷宮館「不扣線」（需 `wild` 之類欄位，給 defeat-net／maze）、野生白蕾絲警報、閘門守衛打倒等於破解（歸 netrun）。
 - 平衡疑慮：會換檔的首領退淺檔後受感載 ×0.5，低一級隊伍打 IV 級黑蕾絲首領要 86 回合——審查／平衡看。
-- ADR 0018 待補「實作補記：M3-lace」與「M3-abilities-net」。
+- ~~ADR 0018 待補實作補記~~：M3-smoke 補齊。
 
 ## M3-hack-net 回報（2026-11-24）
 
@@ -376,7 +376,7 @@
 - 規則另放 `DEFAULT_FIXER_NET_RULES`（給 M3-data-rules：補進 fixer_rule/default 並讓 M2-data-rules 測試認這三個欄位）。
 - 解讀待確認：還沒登記 face.net 時內海面照 M2 寫法；潛行 need 只能一項基本功（照種子挑）；兩次內海踩點自然 1 的追蹤度仍疊加；生成時不檢查內海敵人挑不挑得到。
 - 五型：竊密能做；抹除、竄改、心智只能近似；網內打撈不做。
-- ADR 0018 待補「實作補記：M3-fixer-net」。
+- ~~ADR 0018 待補實作補記~~：M3-smoke 補齊。
 
 ## M3-skill-net-a 回報（2026-11-24）
 
@@ -386,7 +386,7 @@
 - 順手修：技能花管理行動送 `net.admin_spend` 用 `n`（原本送 `amount` 會被擋）。
 - 缺的效果與修正 13 項（net.cut、技能管理行動的追蹤度、net.unpin、讓人拔線、ram_regen、overloaded、改目標、免疫釘住、牆減傷、破損輕重、net.fix 全部、每場次數、我方／敵方格目標）→ 交 M3 審查或修正批決定。
 - 待確認：超頻骰數取「花掉的 RAM − 1」；內海壓制只對花全部 RAM 的技能與壓制姿態放行；SKILL_TREES 沒寫技能快駭的追蹤度數字；共鳴不分欄。
-- ADR 0018 待補「實作補記：M3-skill-net-a」「M3-fixer-net」。
+- ~~ADR 0018 待補實作補記~~：M3-smoke 補齊。
 
 ## M3-ui-subnet 回報（2026-11-24）
 
@@ -408,7 +408,7 @@
 - 缺的核心掛點（交 M3 審查／修正批）：`load.before`（偶像分擔只能事後對帳）、釘住發 `check.before`、追蹤度跨門檻掛點、戰鬥裡的偽裝被看穿與協力、現金百分比修正。
 - 待使用者：應援連結的人怎麼選（現在照站位）；哪些導流技能 0 階灰掉；老粉都在沒頻道也加 1；名媛、掮客的共鳴兩邊都算；內海欄放行 tease_hit、tease_bonus、give_ap_cap。
 - 給 M3-data-rules：`focused`、`pacified`、`drowsy` 狀態要補進正式規則表。
-- ADR 0018 待補「實作補記：M3-skill-net-b」。
+- ~~ADR 0018 待補實作補記~~：M3-smoke 補齊。
 - 2026-11-24 使用者裁決（skill-net-b，照建議）：應援連結維持自動（從站位前面接）；洗版、圍觀、插播要導流 ≥1，曝光、灌流、直擊 0 階可用；老粉都在沒頻道算不算等 M5 定；名媛、掮客共鳴兩邊都算、媒體型用 resonance.net；內海欄放行 tease_hit、tease_bonus、give_ap_cap。
 - 2026-11-24 使用者裁決（駐顏，照建議）：變貌潮 2030 年代、重新包裝 2050～2054 認可；路人性別比例維持兩成；用字維持「扶他」；轉換療程維持「先驗受體」。
 
@@ -417,14 +417,14 @@
 - 從接入點潛入（付費、租甲板、訪客）、選去處（net_site）、登出、被強制斷線自動登出；活動 dive 與放行清單；格子用途 dive.enter／dive.exit。
 - 缺：甲板 cooling 需要衍生數值 `deck_cooling` 給 netrun 的探索回合讀（交修正批或 netrun-dig）；`safe` 欄位沒人讀；投影、帶潛、多人一起潛、身體在現實出事都沒做。
 - 待確認：潛入中任何網內戰敗被接受都自動登出（認 result.net），但被定位只認 origin.by === 'dive'（迷宮館那一趟被定位要迷宮館自己處理）。
-- ADR 0018 待補「實作補記：M3-dive」（連同 skill-net-a/b、fixer-net）。
+- ~~ADR 0018 待補實作補記~~：M3-smoke 補齊。
 
 ## M3-netrun-dig 回報（2026-11-24）
 
 - 自己去挖的子網：設施類型與詞條（net_facility、net_affix）、追蹤度起點、7 天內再進去是同一張圖、留後門、被定位後多雜兵、每探索回合 5 分鐘、離開時的敵對值；衍生數值 `deck_cooling` 讓所有 netrun 探索回合多消退感載。
 - 待確認：每探索回合 5 分鐘目前也套到迷宮館（maze 不想吃要在 rounds.ts 的 roundTime 加條件）；「再進去」的細節照代理暫定；`trap_marked` 讓所有陷阱一開始就看得到。
 - 詞條與企業脾氣有不少要加鍵（換班、內鬼、維修通道、星旗定位倒數、控制節點多一個等），交修正批或內容匯入。
-- ADR 0018 待補「實作補記：M3-netrun-dig」。
+- ~~ADR 0018 待補實作補記~~：M3-smoke 補齊。
 
 ## M3-maze 回報（2026-11-24）
 
@@ -432,7 +432,7 @@
 - 動到 netrun 的 4 處選填加法：NetRegion.puzzle、handled；layerSpec 放機關；usesOfMarker 略過 handled 標記。
 - 接縫建議（審查／修正批）：netrun 加「踩陷阱」與 `netrun.descend` 掛點（現在靠 action 字串）；ext.net.traps 形狀寫進 0018 第十三節；FEATURES 順序 maze 必須在 dive 後（dive 的 afterReport 不冪等）；deck 提供「租用時預裝槽」讓新手組發比賽版構裝。
 - 沒做：延長賽、直播、主題 d8、詞條、籌碼物品與兌換（暫用現金計數）；engine/data 沒有 maze_rule/maze_table（寶箱表空的）。
-- ADR 0018 待補「實作補記：M3-maze」。
+- ~~ADR 0018 待補實作補記~~：M3-smoke 補齊。
 
 ## M3-ui-dive 回報（2026-11-24）
 
@@ -446,3 +446,9 @@
 - 新增規則表：sync_rules、deck_rules、netcombat_rules、netrun_rules、net_regions（subnet、maze、wreck、deep）、net_facilities（六種）、net_enemy_rules、maze_rules、maze_tables；battle_modes 加 net；battle_statuses 加 7 個；event_scopes 的 net 加 login/logout；commission、fixer 加內海欄位；暫定格子列在 data/index.ts 的 PROVISIONAL_M3。
 - 待定：net_facility 每層控制節點數設計書沒寫；深海壓力條是沉溺但 net_region.pressure 只收 trace/none；scene 的 PARTNER_GEAR_DOWN_AT、SINK_CAP 未進資料。
 - 全套跑時 M3-maze〈評價照回合數與倒下人數〉一次逾時，單獨跑過——冒煙或修正批查。
+
+## M3-smoke 回報（2026-11-24）
+
+- 冒煙全過（內海戰鬥、內海委託、生成的內海委託、撤退、戰敗、被定位、中途存讀檔、潛入、自己去挖、迷宮館）；逐一拿掉功能全過；兩份重播檔；不變式 156～170；分層檢查多三條。
+- bug：B023（內海 AI 武器構裝破損後不換構裝，拖成僵局）、B024（潛入中還能在現實街上走、跨區、買東西）。
+- 既有待確認實測：中間人生成委託不檢查內海敵人挑不挑得到，兵種表缺首領時整件做不完。

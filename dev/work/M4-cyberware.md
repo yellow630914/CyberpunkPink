@@ -24,7 +24,7 @@
 4. 寫進狀態：背包那一疊拿掉（依 `uid`）、`pieces` 多一件、扣錢、時間加 `surgery_minutes`、`ready_at`＝現在＋休養（生體 ×3），角色掛狀況 `recovering`（`until` 是身上最晚的 `ready_at`）。沉溺低於新的下限就補到下限（一筆 `actor.track`）。
 5. 被動效果（來源 `cyber`）：每一件都給 `{ stat: 'sink_floor', amount: sink }`（休養中、`off` 的也給）；已經好了而且沒有 `off` 的再給設計圖的 `effects`、每個零件的 `effects`、板材 `stats.armor` 的合計（一筆 `{ stat: 'armor' }`）。帶著的 `quirk` 的 `effects` 用來源 `quirk`。
 6. 拆下：費用是安裝費 × `remove_fee_mult`（自己動刀不收、照樣擲，失敗時一個隨機的零件報廢）；`off.why === 'lock'` 的拆不了（「有授權鎖，要先解鎖。」）；橋這一張不能拆。拆下來的變回背包裡的一疊，`state: 'used'`；全生體的那一件直接沒有了（結果的句子寫明），混裝的只留下機械的零件。下限跟著降，沉溺本身不動。
-7. `scene.body`：回答這個人每一件好了的義體的 `scene_parts`（多出來的部位、各部位敏感度的修正；皮膚類寫 `all` 的展開到每個部位）。
+7. `scene.body`（只在問的 `layer` 是 `meat` 時回答；內海用的是化身）：回答這個人每一件好了的義體的 `scene_parts`（多出來的部位、各部位敏感度的修正；皮膚類寫 `all` 的展開到每個部位）。
 8. 規則的數字都從 `cyber_rule` 讀。
 
 ## 驗收條件（`engine/tests/features/M4-cyberware.test.ts`；測試自帶義眼（一般、成本 3）、義臂（侵入、成本 6、板材 `stats.armor: 2`、`effects: [{ attr: 'body', amount: 1 }]`）、全生體的獸耳、三種診所的設施、兩筆併發症）

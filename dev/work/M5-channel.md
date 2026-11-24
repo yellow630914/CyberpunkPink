@@ -2,10 +2,10 @@
 
 - 交給：cpp-feature（sonnet）
 - 目標：新功能 `channel` 的前半：開頻道、三張長期的量表（訂閱、公信力、推薦權重）、預算（自有資金與公帳、可支領額度）、贊助、每週的結算、`flow_tier` 的來源。節目、編制、設備在下一張（M5-channel-shows）。
-- 規格出處：MEDIA 第 4 節開頭、4.1 節、4.2 節、4.7 節（只看觸發的時機）、4.8 節；EVENTS 3.1 節（觸發點）、2.4 節（`credibility`）；SKILL_TREES 聚光燈（導流階）；dev/adr/0020 第二節、第十三節的量表表、P12～P16、P18、P19。
+- 規格出處：MEDIA 第 4 節開頭、4.1 節、4.2 節、4.7 節（只看觸發的時機）、4.8 節；EVENTS 3.1 節（觸發點）、2.4 節（`credibility`）；SKILL_TREES 聚光燈（導流階）；dev/adr/0020 第二節、第十三節的量表表、V12～V16、V18、V19。
 - 可以改的路徑：`engine/src/features/channel/`（新）、`engine/src/features/index.ts`、`engine/tests/features/M5-channel.test.ts`。
 - 可以用的介面：`k.meters.define`；`k.stats.addStatProvider('flow_tier', …)`（`flow_tier` 由 abilities 定義，先問 `hasStat`）；掛鉤 `time.passed`（順序 11）、`activity.end`、`game.new`；`weeklyCrossings`；`cred`、`cash` 變更；效果 `favor`、`hostility`（先問有沒有人註冊）；`k.effects.register`、`k.conditions.register`；報告的 `triggers`。
-- 不可以做的事：不 import 別的功能；不走 `bill.collect`（預算不是主角身上的錢，P15）；不寫節目與開一集；事件的內容不寫（只發觸發點）；共同的規定見 dev/work/M5-plan.md。
+- 不可以做的事：不 import 別的功能；不走 `bill.collect`（預算不是主角身上的錢，V15）；不寫節目與開一集；事件的內容不寫（只發觸發點）；共同的規定見 dev/work/M5-plan.md。
 
 ## 新的格式與鍵
 
@@ -25,7 +25,7 @@
 2. **`flow_tier`**：訂閱的位數 −3（一千 1、一萬 2、十萬 3、百萬 4；不到一千是 0），公信力 60 以上 +1。
 3. **預算**：補貼（從主角的帳戶或現金投進自有的同一格）；開銷先扣公帳（照金主加入的先後）、再扣自有，只收一種錢的開銷那一格不夠就付不出來；拿出來——自有沒有代價；公帳在額度內沒有代價並扣額度；超過額度的部分每滿 500，那個勢力好感 −1、敵對值 +1。
 4. **贊助**：每到期撥款進那個勢力的公帳，額度加撥款的 20%；終止時那個勢力公帳剩的錢收回、額度歸零。`eps_since_plug` 由下一張在每一集加；這一張只留欄位與條件用的查詢。
-5. **每週**（週一 06:00；人在委託副本裡時照帳單的做法延到出來之後：問 `k.activity.active` 有沒有 `commission`）：贊助撥款 → 流失（這一週 `episodes + lives` 大於 0 是 2%，否則 5%；P12）→ 自然成長（訂閱 × 推薦權重 × 1%，可以是負的）→ 推薦權重往 0 回一格（P13）→ 清掉這一週的計數 → 一份 `channel.weekly`，帶觸發點 `channel_week`（`where`：這一週開了幾集、訂閱、公信力）。薪水由下一張掛進同一份。沒開頻道什麼都不做。
+5. **每週**（週一 06:00；人在委託副本裡時照帳單的做法延到出來之後：問 `k.activity.active` 有沒有 `commission`）：贊助撥款 → 流失（這一週 `episodes + lives` 大於 0 是 2%，否則 5%；V12）→ 自然成長（訂閱 × 推薦權重 × 1%，可以是負的）→ 推薦權重往 0 回一格（V13）→ 清掉這一週的計數 → 一份 `channel.weekly`，帶觸發點 `channel_week`（`where`：這一週開了幾集、訂閱、公信力）。薪水由下一張掛進同一份。沒開頻道什麼都不做。
 6. **聽直播的收播**（`activity.end`，`kind === 'live'`）：`result.to_channel !== false` 時 `week.lives` +1、在 `log` 加一筆。訂閱與打賞是直播自己用效果加的，這裡不重算。
 7. 效果 `aired` 給節目與別的來源用（同一件事）。
 
@@ -48,4 +48,4 @@
 
 ## 完成時回報
 
-改了哪些檔、測試結果、`subs` 的 AI 上限怎麼做的、P12～P15 做的時候和設計書對不上的地方。
+改了哪些檔、測試結果、`subs` 的 AI 上限怎麼做的、V12～V15 做的時候和設計書對不上的地方。

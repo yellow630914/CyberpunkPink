@@ -2,10 +2,10 @@
 
 - 交給：cpp-feature（sonnet）
 - 目標：`opinion` 的第三塊：活動 `face.opinion`（委託副本開的那一段）——照副本給的開場表開戰、把結果交回；決定性的一場沒贏時的三選一；收買；找上門（數值結算）；外包給 NPC 記者。
-- 規格出處：OPINION 4.5 節、5.1 節、5.2 節（收買、找上門兩列）、第 6 節（全部）、第 7 節（「沒有人」那一列）；COMMISSIONS 2.3 節（輿論面在一個階段裡玩什麼）、第 5 節（連動表裡和輿論有關的列）；DATA 9.1 節（`opinion_setup`）；COMMISSION_TEMPLATES「opinion_setup 的骨架」；COMBAT_SYSTEM 8.4 節（三選一的三個選項是什麼）；dev/adr/0020 第六節、P35～P38；dev/adr/0016 第一、二節（`launch`、`rewind`、`snapshot.take`）；dev/work/M5-opinion.md、M5-opinion-desk.md。
+- 規格出處：OPINION 4.5 節、5.1 節、5.2 節（收買、找上門兩列）、第 6 節（全部）、第 7 節（「沒有人」那一列）；COMMISSIONS 2.3 節（輿論面在一個階段裡玩什麼）、第 5 節（連動表裡和輿論有關的列）；DATA 9.1 節（`opinion_setup`）；COMMISSION_TEMPLATES「opinion_setup 的骨架」；COMBAT_SYSTEM 8.4 節（三選一的三個選項是什麼）；dev/adr/0020 第六節、V35～V38；dev/adr/0016 第一、二節（`launch`、`rewind`、`snapshot.take`）；dev/work/M5-opinion.md、M5-opinion-desk.md。
 - 可以改的路徑：`engine/src/features/opinion/`、`engine/tests/features/M5-opinion-face.test.ts`。
 - 可以用的介面：前兩張的全部；`k.activity.define`、`k.activity.allow('commission', …)`；`snapshot.take`（種類 `opinion`，`replace`）、報告的 `rewind`、掛鉤 `rewind.keep`；`state.party`、`actor.skills`、`actor.ext.paths`；效果 `cash`、`credibility`、`favor`；條件 `live_on`（先看有沒有人註冊）；`k.battle` 不用。
-- 不可以做的事：不 import `features/commission`、`features/fixer`、`features/defeat`；不讀副本的 `state.ext`（要的東西都在 `setup`）；找上門不切到戰鬥（P35）；不自己處理「委託失敗」（交回 `lost`，副本接）；共同的規定見 dev/work/M5-plan.md。
+- 不可以做的事：不 import `features/commission`、`features/fixer`、`features/defeat`；不讀副本的 `state.ext`（要的東西都在 `setup`）；找上門不切到戰鬥（V35）；不自己處理「委託失敗」（交回 `lost`，副本接）；共同的規定見 dev/work/M5-plan.md。
 
 ## 新的格式與鍵
 
@@ -19,12 +19,12 @@
 ## 要做的
 
 1. **開場**：`opinion.base` 加上每一個「`setup.links` 裡有」的 `from_links`（加一張牌：`add_card` 是 `opinion_card` 的 id；聲量；風向；多佔的格子；對手第一回合的公關點），再加分支的 `open`，最後才是 `opinion.open` 掛點的回答。`rounds` 沒寫：`decisive` 是 6、否則 4。誰坐編輯台與帶哪些料由 `setup.desk`、`setup.bring` 給（介面在選分支之前先問好；沒給就是主角一個人、不帶料）。開戰那一份的第一筆變更是 `snapshot.take`（種類 `opinion`、`replace`、`owner` 是委託的 id）。
-2. **收買**（`pending: 'bribe'`，P36）：對手用了收買，戰役停在等玩家回應。拒絕：照常往下。接受：錢進帳（對手資料的 `offer_per_grade` × 等級；第二次 ×1.5）、公信力 −5、戰役結束算敗、`result.bribed` 是金額；在委託裡另外委託人的好感 −5（`setup` 有 `employer` 時）。這一張也把 `solo` 模式的收買補完整（錢與公信力）。
-3. **找上門**（P35）：對手的 `once` 條件成立（預設落後 4 分以上；資料可以寫 2）而且這一場還沒用過：d20 ＋ 留守的人（隊伍裡沒坐編輯台的）最高的戰鬥基本功（槍械、格鬥）＋（留守的人數 − 1）對 DC；沒有人留守直接擋不住。擋住：照常；這一場正在直播（條件 `live_on` 成立）時牌庫多一張「找上門的直播」（料 +4）。擋不住：對手資料 `capture: true` 的，戰役立刻結束算敗、`result.captured: true`；其餘你下一回合不能行動（編輯點 0、不能佔領）。`solo` 模式同一套。
+2. **收買**（`pending: 'bribe'`，V36）：對手用了收買，戰役停在等玩家回應。拒絕：照常往下。接受：錢進帳（對手資料的 `offer_per_grade` × 等級；第二次 ×1.5）、公信力 −5、戰役結束算敗、`result.bribed` 是金額；在委託裡另外委託人的好感 −5（`setup` 有 `employer` 時）。這一張也把 `solo` 模式的收買補完整（錢與公信力）。
+3. **找上門**（V35）：對手的 `once` 條件成立（預設落後 4 分以上；資料可以寫 2）而且這一場還沒用過：d20 ＋ 留守的人（隊伍裡沒坐編輯台的）最高的戰鬥基本功（槍械、格鬥）＋（留守的人數 − 1）對 DC；沒有人留守直接擋不住。擋住：照常；這一場正在直播（條件 `live_on` 成立）時牌庫多一張「找上門的直播」（料 +4）。擋不住：對手資料 `capture: true` 的，戰役立刻結束算敗、`result.captured: true`；其餘你下一回合不能行動（編輯點 0、不能佔領）。`solo` 模式同一套。
 4. **交回**：
    - 不是決定性的：結束時直接發 `activity.end`（`outcome` 四種之一）。
    - 決定性的而且小勝以上：同上。
-   - 決定性的而且平手或敗（P37）：不發 `activity.end`，`war.pending = 'lost'`，等三選一——`retryWar`（回到種類 `opinion` 的快照：帶進牌庫的料扣掉的次數跟著回去，重來時骰子不保證一樣，照 0017 的 `fresh`）、`backToStage`（回到 `stage` 的快照）、`acceptLoss`（這時才發 `activity.end`，`outcome: 'lost'`）。
+   - 決定性的而且平手或敗（V37）：不發 `activity.end`，`war.pending = 'lost'`，等三選一——`retryWar`（回到種類 `opinion` 的快照：帶進牌庫的料扣掉的次數跟著回去，重來時骰子不保證一樣，照 0017 的 `fresh`）、`backToStage`（回到 `stage` 的快照）、`acceptLoss`（這時才發 `activity.end`，`outcome: 'lost'`）。
    - 收買被接受、被帶走：直接發 `lost`，沒有三選一。
    - `result` 多 `decisive`、`bribed?`、`captured?`、`stage`、`commission`。
 5. **收買的錢與公信力不回去**（`rewind.keep`）：回去之前的狀態裡這一場是 `bribed` 的，就把那筆錢、公信力與好感的變更套在回去之後的狀態上，各一次。
@@ -50,4 +50,4 @@ M5-opinion-desk。和 M5-live-slot 可以同時做。副本那一邊（真的給
 
 ## 完成時回報
 
-改了哪些檔、測試結果、`setup` 還缺什麼（給 M5-commission-opinion）、三選一的「重來」用 `rewind` 做有沒有做不到的地方、P35～P38 對不上的地方。
+改了哪些檔、測試結果、`setup` 還缺什麼（給 M5-commission-opinion）、三選一的「重來」用 `rewind` 做有沒有做不到的地方、V35～V38 對不上的地方。

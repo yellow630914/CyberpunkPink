@@ -2,7 +2,7 @@
 
 - 交給：cpp-feature（sonnet）
 - 目標：委託副本的輿論面，副本這一邊：開 `face.opinion` 時給什麼、交回來收什麼、決定性與否、收買與被帶走、輿論面的資料檢查；另外補兩個給別的功能讀的資料慣例（進副本與里程碑那一拍的 `data`）與「直播中不能走潛行」。
-- 規格出處：COMMISSIONS 2.1、2.3 節、第 3、4、5 節、6.4 節（輿論面沒有壓力條）、7.1 節（主面是輿論的四型）、第 8 節、第 11 節（`stream_goals`、`opinion_opening`）；DATA 9.1 節；COMMISSION_TEMPLATES「opinion_setup 的骨架」；OPINION 第 6 節；MEDIA 1.2 節（副本直播的風險與目標）；dev/adr/0020 第六節、第十三節（資料慣例）、P36～P38；dev/work/M5-opinion-face.md（`setup` 與 `activity.end` 的 `result`）、M3-commission-net.md（內海面當初怎麼接的，照同一個做法）。
+- 規格出處：COMMISSIONS 2.1、2.3 節、第 3、4、5 節、6.4 節（輿論面沒有壓力條）、7.1 節（主面是輿論的四型）、第 8 節、第 11 節（`stream_goals`、`opinion_opening`）；DATA 9.1 節；COMMISSION_TEMPLATES「opinion_setup 的骨架」；OPINION 第 6 節；MEDIA 1.2 節（副本直播的風險與目標）；dev/adr/0020 第六節、第十三節（資料慣例）、V36～V38；dev/work/M5-opinion-face.md（`setup` 與 `activity.end` 的 `result`）、M3-commission-net.md（內海面當初怎麼接的，照同一個做法）。
 - 可以改的路徑：`engine/src/features/commission/`、`engine/tests/features/M5-commission-opinion.test.ts`（既有的 `M2-commission-*`、`M3-commission-net` 測試只在行為真的改了的地方改，並在回報裡列出）。
 - 可以用的介面：現有的 `faceLaunch`、`activity.end` 的處理、`Run`、`LinkDef`、里程碑與失敗的流程（`close.ts` 的 `onDefeatAccepted`、`netEnd` 是範本）；條件 `live_on`（先看 `k.conditions.kinds()`）；量表 `alert`、效果 `hostility`、`favor`。
 - 不可以做的事：不 import `features/opinion`、`features/live`、`features/media`；不在副本裡寫任何棋盤的規則；不改現實面與內海面的行為；共同的規定見 dev/work/M5-plan.md。
@@ -23,7 +23,7 @@
 1. **開這一段**：`faceLaunch` 對輿論面多給 `opinion`（副本的 `opinion_setup` 蓋上這一面的 `rounds`、`opponent`；一樣東西都沒有時整步不成立，原因：「這件委託沒有寫輿論戰的設定。」——資料檢查先擋，這裡是保險）、`route`、`decisive`、`where`、`employer`、分支的 `open`、`desk`、`bring`。同一個副本有兩場輿論戰時，前一場的結果（`op_major`、`op_minor`、`op_lost`）已經在 `links` 裡，後一場的 `from_links` 自然讀得到。
 2. **交回**（`activity.end`，`kind === 'face.opinion'`；照 `netEnd` 的寫法另開一個 `opinionEnd`）：
    - 記進 `Run.opinion`。
-   - 不是最後一個階段（P38）：`major` 給 `op_major`（副本有寫才給）與這一面的 `gives`；`minor` 給 `op_minor` 與 `gives`；`draw` 什麼都不給；`lost` 給 `op_lost`（有寫才給）、警戒 +10、目標勢力敵對值 +3。四種都把這個階段標成做完，接里程碑。
+   - 不是最後一個階段（V38）：`major` 給 `op_major`（副本有寫才給）與這一面的 `gives`；`minor` 給 `op_minor` 與 `gives`；`draw` 什麼都不給；`lost` 給 `op_lost`（有寫才給）、警戒 +10、目標勢力敵對值 +3。四種都把這個階段標成做完，接里程碑。
    - 最後一個階段：`major`、`minor` 標成做完（接里程碑與 `finish`）；`lost`（opinion 已經處理過三選一，交回來的就是被接受的）照「戰敗被接受而且算失敗」的同一條路：留失敗的記號、回到入口。`result.captured` 是 `true` 時，先開戰敗事件（副本自訂的 `defeat_event`，沒有就是目標勢力預設的）再走那條路——做法照現有戰敗的流程，做不到就回報、先只回到入口。
 3. **評價與後果**：有階段走了輿論而且贏了，算一個「交涉成功的階段」那樣 +1（G16 的寫法）；路線的後果加一條「有階段走了輿論：一個公開的敵人」——目標勢力敵對值照規則另加（預設 +3，一件委託一次）。`commissionView` 多每一場輿論階段的結果。
 4. **資料檢查**：有任何一個階段開了輿論面而副本沒有 `opinion_setup`（或它缺 `topic`、`opponent`）就不收；主面是輿論的委託最後一個階段只有輿論面；輿論面的分支種類；`from_links` 指到的連動要存在於 `links` 或是那三個保留的鍵；`stream_goals` 是字串的陣列。
