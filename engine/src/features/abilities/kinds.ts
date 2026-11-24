@@ -37,21 +37,26 @@ function pathProblems(e: Record<string, unknown>): string[] {
   else {
     e.resonance.forEach((r, i) => {
       const at = `resonance[${i}]`
-      if (!isRec(r)) return void p.push(`${at} 要是 { tier, cells, text, effect? }`)
+      if (!isRec(r)) return void p.push(`${at} 要是 { tier, cells, text, effect?, net? }`)
       if (!(isInt(r.tier) && r.tier >= 1 && r.tier <= 5)) p.push(`${at}.tier 要是 1～5 的整數`)
       if (!isNum(r.cells)) p.push(`${at}.cells 要是數字`)
       if (!isText(r.text)) p.push(`${at}.text 要是完整的句子`)
-      if (r.effect !== undefined) {
-        const f = r.effect
-        if (!isRec(f)) return void p.push(`${at}.effect 要是物件`)
-        p.push(...onlyKeys(`${at}.effect`, f, RESONANCE_KEYS))
-        if (f.initiative !== undefined && !isNum(f.initiative)) p.push(`${at}.effect.initiative 要是數字`)
-        if (f.free_move !== undefined && !(isRec(f.free_move) && isInt(f.free_move.per_fight) && f.free_move.per_fight >= 1)) p.push(`${at}.effect.free_move 要是 { per_fight: 1 以上的整數 }`)
-        if (f.mods !== undefined) p.push(...modsProblems(`${at}.effect.mods`, f.mods))
-        if (f.pool !== undefined) p.push(...poolProblems(`${at}.effect.pool`, f.pool))
-        if (f.load_max !== undefined && !(isInt(f.load_max) && f.load_max !== 0)) p.push(`${at}.effect.load_max 要是整數（感載上限加減幾點，不能是 0）`)
-        if (f.hp_max !== undefined && !(isInt(f.hp_max) && f.hp_max !== 0)) p.push(`${at}.effect.hp_max 要是整數（生命上限加減幾點，不能是 0）`)
-        if (f.pending !== undefined && f.pending !== true) p.push(`${at}.effect.pending 只能是 true`)
+      for (const key of ['effect', 'net'] as const) {
+        const f = r[key]
+        if (f === undefined) continue
+        const where = `${at}.${key}`
+        if (!isRec(f)) {
+          p.push(`${where} 要是物件`)
+          continue
+        }
+        p.push(...onlyKeys(where, f, RESONANCE_KEYS))
+        if (f.initiative !== undefined && !isNum(f.initiative)) p.push(`${where}.initiative 要是數字`)
+        if (f.free_move !== undefined && !(isRec(f.free_move) && isInt(f.free_move.per_fight) && f.free_move.per_fight >= 1)) p.push(`${where}.free_move 要是 { per_fight: 1 以上的整數 }`)
+        if (f.mods !== undefined) p.push(...modsProblems(`${where}.mods`, f.mods))
+        if (f.pool !== undefined) p.push(...poolProblems(`${where}.pool`, f.pool))
+        if (f.load_max !== undefined && !(isInt(f.load_max) && f.load_max !== 0)) p.push(`${where}.load_max 要是整數（感載上限加減幾點，不能是 0）`)
+        if (f.hp_max !== undefined && !(isInt(f.hp_max) && f.hp_max !== 0)) p.push(`${where}.hp_max 要是整數（生命上限加減幾點，不能是 0）`)
+        if (f.pending !== undefined && f.pending !== true) p.push(`${where}.pending 只能是 true`)
       }
     })
   }

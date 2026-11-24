@@ -18,7 +18,6 @@ import { skillXp } from '../lib/skills'
 import { START_MEDIA } from '../data/media'
 import { START_MECH, type MechState } from '../data/garage'
 import { useHome } from './home'
-import { useSubnet } from './subnet'
 import { useEngine } from './engine'
 import { useUi } from './ui'
 import { packSave, rollbackKeeping, type Snapshot } from '../lib/save'
@@ -43,7 +42,7 @@ export interface SaveShape {
   pending: typeof PENDING; craftFill: Record<string, Record<string, string>>; guides: typeof START_GUIDES; dungeonSeed: number; vehicles?: string[]
   media?: typeof START_MEDIA
   mech?: MechState
-  /** 第 3 版：家園與子網的 store（null 是 v2 升上來的存檔，讀的時候不動） */
+  /** 第 3 版：家園的 store（null 是 v2 升上來的存檔，讀的時候不動）。subnet 是舊存檔留下的欄位（子網搬進引擎之後不再使用，讀到就略過） */
   home?: Record<string, unknown> | null
   subnet?: Record<string, unknown> | null
   /** 第 4 版：染色（key 是「uid:背包那一疊」或「slot:穿著的格子」） */
@@ -253,7 +252,7 @@ export const useGame = defineStore('game', () => {
       basics: { ...basics }, learned: learned.value, nightLearned: nightLearned.value, params: { ...params }, tendency: { ...tendency },
       fame: { ...fame }, sexRecord: { ...sexRecord }, channel: { ...channel }, contracts: { ...contracts },
       pending: pending.value, craftFill: { ...craftFill }, guides: { ...guides }, dungeonSeed: dungeonSeed.value, vehicles: vehicles.value, media: { ...media }, mech: { ...mech },
-      home: useHome().serialize(), subnet: useSubnet().serialize(), dyes: { ...dyes },
+      home: useHome().serialize(), dyes: { ...dyes },
     })) as SaveShape
   }
   type SaveState = SaveShape
@@ -289,7 +288,6 @@ export const useGame = defineStore('game', () => {
     if (d.media) Object.assign(media, structuredClone(d.media))
     if (d.mech) Object.assign(mech, structuredClone(d.mech))
     if (d.home) useHome().hydrate(d.home)
-    if (d.subnet) useSubnet().hydrate(d.subnet)
     if (d.dyes) { for (const k of Object.keys(dyes)) delete dyes[k]; Object.assign(dyes, sanitizeDyes(d.dyes)) }
   }
   function saveMeta(kind: '手動' | '自動' | '快照' = '手動') {

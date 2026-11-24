@@ -26,9 +26,15 @@ export const TREE_XP: readonly number[] = [0, 40, 120, 240, 400]
  * damage_roll 造成的傷害多這個公式（可以擲骰：打他打他！的 1d3，在命中確定之後才算一次）；
  * give_ap_cap 指揮每回合能讓的行動點加減；
  * tease_hit、tease_bonus 誘惑攻擊的命中與傷害加減（媚態的 1d3、繞指柔、共鳴 5 的 +1；tease_bonus 的公式可以擲骰，在傷害要算的那一刻才問一次）；
- * use_extra 某個技能每場的次數加幾次（M3-skill-net-a：名醫「除錯每場可以用兩次」；tags 寫那個技能的 id，只算寫了 per_fight 的技能）。
+ * use_extra 某個技能每場的次數加幾次（M3-skill-net-a：名醫「除錯每場可以用兩次」；tags 寫那個技能的 id，只算寫了 per_fight 的技能）；
+ * M3-skill-net-b：remote_uses 遠端叫人每場次數加減（內海欄的叫人；現實的 call_uses 在內海欄寫不了）；no_flash 大於 0 時這個人過載不閃斷（RAM 不歸零、閃斷拿掉：護盤）；
+ * ram_free 帶這些標籤的行動花掉的 RAM 做完退回來（定調、曝光的共鳴；tags 或 tags_any 寫行動的 id，per_fight 每場只退幾次）；no_pin 大於 0 時這個人釘不住（為你而唱）；
+ * link_relief 偶像替隊友分擔感載時自己少受幾點（我還可以！）。
  */
-export const FEATURE_MOD_KINDS = ['instinct_points', 'instinct_cap', 'instinct_free', 'call_uses', 'call_hit', 'aim_all', 'no_wound', 'damage_roll', 'give_ap_cap', 'tease_hit', 'tease_bonus', 'use_extra'] as const
+export const FEATURE_MOD_KINDS = [
+  'instinct_points', 'instinct_cap', 'instinct_free', 'call_uses', 'call_hit', 'aim_all', 'no_wound', 'damage_roll', 'give_ap_cap', 'tease_hit', 'tease_bonus', 'use_extra',
+  'remote_uses', 'no_flash', 'ram_free', 'no_pin', 'link_relief',
+] as const
 export type FeatureModKind = (typeof FEATURE_MOD_KINDS)[number]
 export type AnyModKind = ModKind | FeatureModKind
 
@@ -51,6 +57,8 @@ export interface Resonance {
   cells: number
   text: string
   effect?: ResonanceEffect
+  /** 只在內海戰鬥生效的效果（M3-skill-net-b：媒體型現實沒有效果，effect 寫不了；內海戰鬥時 effect 與 net 兩份都算） */
+  net?: ResonanceEffect
 }
 
 export interface PathEntry {
@@ -105,6 +113,8 @@ export interface WhenDef {
   sync_min?: SyncGear
   /** 同步檔位至多是這一檔才算 */
   sync_max?: SyncGear
+  /** 導流階（衍生數值 flow_tier）至少是這麼多才算（主播的導流技能；0 階時原因是「還沒有頻道。」；M3-skill-net-b） */
+  flow_min?: number
 }
 
 /** 目標的條件（每一項一句灰掉的原因）。 */
@@ -121,6 +131,10 @@ export interface NeedsDef {
   cache_tag?: string
   /** true：目標身上已經有一件被干擾的義體（off_* 或 jammed 狀態）：找縫的「無視 4 點」 */
   implant_off?: true
+  /** 目標帶著這些標籤裡的任何一個就不行（安撫對黑蕾絲無效：'lace:black'；M3-skill-net-b） */
+  no_tag?: string | string[]
+  /** true：目標有人格（化身，或帶 persona 標籤的蕾絲；沒有 persona 的蕾絲與程式沒有；M3-skill-net-b） */
+  persona?: true
   /** 幾組條件成立任何一組就算（「重傷，或疊著餘韻」）；每一組裡不能再寫 any */
   any?: Array<Omit<NeedsDef, 'any'>>
 }
@@ -134,7 +148,7 @@ export interface ModEntry {
   tags_any?: string[]
   /** 算出來的數字不低於這個（義體學代替格鬥：差是負的就不加） */
   min?: number
-  who?: 'self' | 'adjacent' | 'allies' | 'behind'
+  who?: 'self' | 'adjacent' | 'allies' | 'behind' | 'linked'
   when?: WhenDef
   per_fight?: number
   per_turn?: number
@@ -181,6 +195,8 @@ export interface ReactDef {
    * end：拿掉閃斷的狀態（RAM 照樣在下個回合開始時回復）。死線 { ram: 'half' }、逆流 { ram: 'full', end: true }、急凍 { ram: 'before', end: true }。現實的過載（失去回合）不做
    */
   flash?: { ram?: 'half' | 'before' | 'full'; end?: true }
+  /** overload 專用（偶像的大家不要走）：這一次過載不斷開同步、被接上的隊友不吃脫鉤衝擊 */
+  keep_link?: true
   /** hit 專用：這一擊結算完之後，被打的人換到相鄰的一格（有空格先去空格，沒有就和相鄰的隊友交換），不花行動點（替身）。要和 negate 一起寫 */
   then_move?: true
 }
@@ -194,6 +210,8 @@ export interface PickDecl {
    * bench：選哪一個候補（選項來自 view.bench：值是候補的 id；沒空的列著並帶原因；增援的效果 call_in 讀 pick[key]）
    */
   kind: 'foe' | 'ally' | 'ally_slot' | 'foe_slot' | 'choice' | 'drone' | 'foe_overlay' | 'bench'
+  /** kind 是 bench 時：只列這條路數的人（名冊上帶這個路數的角色：ext.paths；掮客遠端叫潛網者寫 netrunner） */
+  path?: string
   required?: boolean
   /** kind 是 ally 時：只有和自己相鄰的隊友選得了（掩護撤退） */
   adjacent?: true
@@ -336,6 +354,27 @@ export interface MeatDef {
   action?: true
   /** 技能做的快駭的追蹤度（正整數；帶 hack 標籤的行動，內海每用一次追蹤度加它，現實被發現時給敵對值；dev/status.md M3-hack-net 回報）。兩欄各寫各的 */
   trace?: number
+  // ---- 內海（M3-skill-net-b；只有內海欄能寫：現實欄寫了整筆擋下。現實的 tease、mask、give_ap、call 在內海欄仍然擋掉，這幾個是內海版） ----
+  /** 誘惑攻擊的內海版（格式同 tease）：距離 3 以內、傷害 2d6 ＋ mod(魅力)；目標要有人格（needs.persona：化身或帶 persona 標籤的蕾絲） */
+  lure?: TeaseDef
+  /** 戴著面具（被動，裝著就有）：戰鬥結束時的報告標出 data.masked（敵對值與豔名不連到本人；「留下痕跡」的變更這一批沒有來源）。不影響敵人挑目標 */
+  masked?: true
+  /** 指揮的內海版：每回合最多讓 max 點行動點（行動 <技能 id>.command；號令的 on_give_ap 照樣生效） */
+  command?: { max: number }
+  /** 叫人的內海版：遠端叫名冊上帶 path 路數的人出手（行動 <技能 id>.remote_call）。hack：對一個敵人丟一次他的快駭；wall：替我方一格補一級防火牆；vent：替一名隊友排感載（vent 寫數字） */
+  remote_call?: { options: Array<'hack' | 'wall' | 'vent'>; per_fight: number; ap: number; path: string; vent?: number | string }
+  /** 這一欄的效果裡公式的 tier 讀導流階（衍生數值 flow_tier），夾在 cap 以內（灌流：傷害加導流階，最多 +3） */
+  flow?: { cap?: number }
+  /** 被動：導流階 +n（衍生數值 flow_tier 的 provider；老粉都在） */
+  flow_bonus?: number
+  /** 應援（共鳴）：被動，裝著就有一個行動 <技能 id>.link（花 use.ap 接上最多「樹階 + 1」名隊友、之後每回合自動維持、分擔感載、過載時斷開、開著時每回合追蹤度 +1） */
+  link?: true
+  /** 曲目（姿態）：同步檔位在淺檔時，這一欄所有修正的數字減半（無條件捨去）；when 的 sync_min／sync_max 寫「深檔以上」那一條 */
+  song?: true
+  /** 曲目：開著時，同步中的隊友讓敵人過載，那名隊友做這些效果（每個回合全隊一次；安可退還 1 點行動點）。落在那名隊友身上 */
+  on_link_overload?: Array<Record<string, unknown>>
+  /** 曲目：開著時，替隊友分擔感載改成全額承受（絕唱） */
+  link_full?: true
 }
 
 /** 內海欄的戰鬥直覺（見 MeatDef.instinct）。 */

@@ -4,6 +4,7 @@
 import type { BattleUnit, BattleView, ItemEntry, UnitRank } from '../../core'
 import { distance, hasStatus, isWounded, onField, statusRuleOf, syncGearIndex, wielded } from '../../core'
 import { gearName, gearOf } from './column'
+import { flowTierOf } from './stats'
 import type { AbilityEntry, NeedsDef, WhenDef } from './types'
 import { spotted } from './unitdata'
 
@@ -17,6 +18,9 @@ const orJoin = (v: string[]): string => v.join('或')
 function statusName(view: Pick<BattleView, 'k'>, id: string): string {
   return statusRuleOf(view.k.content, id)?.name ?? id
 }
+
+/** 這個單位有人格嗎：帶 persona 標籤的，或不是蕾絲也不是程式的（化身）。 */
+export const hasPersona = (t: Pick<BattleUnit, 'tags'>): boolean => t.tags.includes('persona') || !(t.tags.includes('lace') || t.tags.includes('program'))
 
 /** 自己的條件：每一項不成立各一句。other 是這一步的對手（只有 mods 的 other_* 用得到）。 */
 export function whenBlocks(view: BattleView, u: BattleUnit, w: WhenDef | undefined, other?: BattleUnit): string[] {
@@ -52,6 +56,11 @@ export function whenBlocks(view: BattleView, u: BattleUnit, w: WhenDef | undefin
     if (w.sync_min !== undefined && at < syncGearIndex(w.sync_min)) out.push(`同步檔位要在${gearName(view.k, w.sync_min)}以上才能用（現在是${gearName(view.k, gearOf(u))}）。`)
     if (w.sync_max !== undefined && at > syncGearIndex(w.sync_max)) out.push(`同步檔位要在${gearName(view.k, w.sync_max)}以下才能用（現在是${gearName(view.k, gearOf(u))}）。`)
   }
+  // 導流階（衍生數值 flow_tier；M5 的媒體功能註冊 provider 之前是 0）：0 階時原因是「還沒有頻道。」
+  if (w.flow_min !== undefined) {
+    const at = flowTierOf(view, u)
+    if (at < w.flow_min) out.push(at === 0 ? '還沒有頻道。' : `導流階要在 ${w.flow_min} 階以上才能用（現在 ${at} 階）。`)
+  }
   if (w.in_cover && view.coverOf(u) < 1) out.push('自己要站在有遮蔽的格子才能用。')
   if (w.other_exposed && !(other && view.isExposed(other))) out.push('對手要站在暴露的格子才能用。')
   if (w.other_cyber && !((other?.cyber ?? 0) > 0)) out.push('對手要有義體才能用。')
@@ -80,6 +89,12 @@ export function needsBlocks(view: BattleView, t: BattleUnit, n: NeedsDef | undef
   if (n.wounded && !isWounded(t)) out.push(`${t.name}要是重傷（生命低於一半）才能用。`)
   if (n.afterglow !== undefined && t.layers < n.afterglow) out.push(`${t.name}要疊著 ${n.afterglow} 層以上的餘韻才能用（現在 ${t.layers} 層）。`)
   if (n.tag !== undefined && !t.tags.includes(n.tag)) out.push(`${t.name}要帶著「${n.tag}」標籤才能用。`)
+  if (n.no_tag !== undefined) {
+    const bad = list(n.no_tag).find((tag) => t.tags.includes(tag))
+    if (bad !== undefined) out.push(`不能對帶著「${bad}」標籤的${t.name}用。`)
+  }
+  // 有人格：化身，或帶 persona 標籤的蕾絲；沒有 persona 的蕾絲與程式沒有
+  if (n.persona && !hasPersona(t)) out.push(`${t.name}沒有人格（只有化身與帶人格的蕾絲才行）。`)
   if (n.implant_off && !t.statuses.some((s) => s.id.startsWith('off_') || s.id === 'jammed')) out.push(`${t.name}身上要已經有一件被干擾的義體才能用。`)
   if (n.cache_tag !== undefined && !t.quick.some((q) => q.qty > 0 && view.k.content.get<ItemEntry>('item', q.item)?.tags?.includes(n.cache_tag!))) out.push(`${t.name}的快取格裡要有帶「${n.cache_tag}」標籤的道具才能用。`)
   // any：成立任何一組就算；全都不成立時合成一句（每一組的原因用「，或」接起來）

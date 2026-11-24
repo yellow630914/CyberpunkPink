@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { packSave, unpackSave, rollbackKeeping, underageAt, snapshotUse, migrateSave, SAVE_VERSION, type Snapshot } from './save'
 import { useHome } from '../stores/home'
-import { useSubnet } from '../stores/subnet'
 import { useGame } from '../stores/game'
 
 describe('存檔的打包與讀回', () => {
@@ -79,37 +78,31 @@ describe('回退（SERIES 第 6 節）', () => {
   })
 })
 
-describe('第 3 版：家園與子網跟著存檔與快照走', () => {
+describe('第 3 版：家園跟著存檔與快照走', () => {
   beforeEach(() => setActivePinia(createPinia()))
-  it('v2 的存檔升到現在（v4）：補上 home、subnet 與空的染色表', () => {
+  it('v2 的存檔升到現在（v4）：補上 home、subnet（舊欄位，null）與空的染色表', () => {
     const f = migrateSave({ format: 'cyberpunkpink-save', version: 2, meta: { label: '', day: 1, time: '', place: '', savedAt: '' }, state: { day: 3 } as Record<string, unknown> })
     expect(SAVE_VERSION).toBe(4)
     expect(f.version).toBe(4)
     expect(f.state).toMatchObject({ day: 3, home: null, subnet: null, dyes: {} })
   })
-  it('家園的等級、家具與子網的追蹤度存了再讀回來', () => {
-    const g = useGame(), h = useHome(), s = useSubnet()
+  it('家園的等級與家具存了再讀回來', () => {
+    const g = useGame(), h = useHome()
     h.upgrade()
     h.addSafehouse('container')
-    s.addTrace(20)
-    s.stepTo({ x: 1, y: 0 })
     const raw = packSave(g.serialize(), g.saveMeta())
     setActivePinia(createPinia())
-    const g2 = useGame(), h2 = useHome(), s2 = useSubnet()
+    const g2 = useGame(), h2 = useHome()
     expect(h2.tier).toBe(1)
     const r = unpackSave<ReturnType<typeof g2.serialize>>(raw)
     if (r.ok) g2.hydrate(r.file.state)
     expect(h2.tier).toBe(2)
     expect(h2.safehouses).toEqual(['container'])
-    expect(s2.trace).toBe(54)
-    expect(s2.pos).toEqual({ x: 1, y: 0 })
-    expect(s2.isExplored({ x: 0, y: 0 })).toBe(true)
   })
-  it('戰鬥開打前的快照帶著子網：回退時追蹤度也回去', () => {
-    const g = useGame(), s = useSubnet()
-    const snap = g.takeSnapshot('戰鬥', '戰鬥開打前')
-    s.addTrace(30)
-    g.rollback(snap.id)
-    expect(s.trace).toBe(34)
+  it('舊存檔裡的子網欄位讀進來略過（子網搬進引擎之後不再存在畫面的 store）', () => {
+    const g = useGame()
+    const state = { ...g.serialize(), subnet: { trace: 50 } }
+    expect(() => g.hydrate(state)).not.toThrow()
+    expect('subnet' in g.serialize()).toBe(false)
   })
 })

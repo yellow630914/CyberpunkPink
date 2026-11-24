@@ -1,3 +1,4 @@
+import { watch, type Ref } from 'vue'
 import type { GridView, GridUse } from '@engine/src'
 import type { NetrunView } from '@engine/src/features/netrun'
 import type { HereOption } from './here'
@@ -61,10 +62,11 @@ export function cellOf(x: number, y: number, grid: GridView, markers: SheetMarke
   }
 }
 
-/** 迷霧：沒看過的蓋住；看過但現在不在視野裡的變暗；巡邏現在站的格子（引擎說看得到）算看得到 */
+/** 迷霧：沒看過的蓋住；看過但現在不在視野裡的變暗；巡邏現在站的格子（引擎說看得到）一定算看得到（視野的算法以引擎為準） */
 export function fogOf(x: number, y: number, grid: GridView, visible: Set<string>, extra: Array<[number, number]> = []): 'hidden' | 'seen' | 'visible' {
+  if (extra.some((p) => p[0] === x && p[1] === y)) return 'visible'
   if (!grid.cells[y]?.[x]) return 'hidden'
-  return visible.has(`${x},${y}`) || extra.some((p) => p[0] === x && p[1] === y) ? 'visible' : 'seen'
+  return visible.has(`${x},${y}`) ? 'visible' : 'seen'
 }
 
 /** 巡邏的代幣：只畫引擎說看得到的 */
@@ -106,4 +108,19 @@ export function goalLine(view: NetrunView): string {
   if (g.progress !== null && g.turns !== null && g.turns > 0) return `進度 ${g.progress}／${g.turns}`
   if (g.kind === 'extract') return g.got ? '東西在手上。' : '還沒拿到。'
   return '還沒做到。'
+}
+
+/** 這一趟結束了，離開這一頁去哪：委託的那一段回副本頁，其餘（自己潛進去的）回主畫面。kind 是離開前最後看到的行程種類 */
+export const leaveTo = (kind: string | null): string => (kind === 'face.net' ? '/commission' : '/')
+
+/**
+ * 這一趟結束（引擎沒有進行中的行程了）就離開這一頁：go 收到要去的路徑，done 在離開前叫一次（提示這一趟的結果）。
+ * 一開始就沒有行程不算「結束」（那一頁自己顯示一句話）。回傳停止監看的函式。
+ */
+export function watchRunEnd(view: Ref<{ kind: string } | null>, go: (path: string) => void, done: () => void) {
+  let seen: string | null = view.value ? view.value.kind : null
+  return watch(view, (v, old) => {
+    if (v) seen = v.kind
+    else if (old) { done(); go(leaveTo(seen)) }
+  })
 }

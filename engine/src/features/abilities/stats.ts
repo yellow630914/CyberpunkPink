@@ -9,7 +9,7 @@
 //   階數是那棵樹累計花的歷練點對到的階；夥伴（沒有自己的學習紀錄、有 actor.ext.paths）：路數那一列的階數。features/netrun 的管理行動檢定與次數讀它（它不 import 技能）。
 // 欄的 slots 與 sync_cap：內海欄優先、沒寫才看現實欄（兩欄都可以寫、同一個技能不會算兩次）；unique 兩欄任何一欄有就算一個。
 
-import type { ActorId, GameState, Kernel, RollPart } from '../../core'
+import type { ActorId, BattleUnit, BattleView, GameState, Kernel, RollPart } from '../../core'
 import { hasOwnRecord, pathRows } from './companion'
 import { abilitiesOf, treeTierOf } from './learn'
 import type { AbilityEntry, MeatDef, PathEntry } from './types'
@@ -57,14 +57,22 @@ export function masterTierOf(k: Pick<Kernel, 'content'>, state: GameState, actor
   return sig !== undefined && mine.equipped.includes(sig) ? treeTierOf(mine.spent[MASTER_PATH] ?? 0) : 0
 }
 
+/** 這個單位現在的導流階（衍生數值 flow_tier；沒有角色、沒有人定義是 0）。 */
+export function flowTierOf(view: Pick<BattleView, 'k' | 'state'>, u: Pick<BattleUnit, 'actor'>): number {
+  if (!u.actor || !view.state.actors[u.actor] || !view.k.stats.hasStat(FLOW_TIER_STAT)) return 0
+  const v = view.k.stats.stat(view.state, u.actor, FLOW_TIER_STAT)
+  return Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 0
+}
+
 export function registerStats(k: Kernel): void {
   k.stats.defineStat({ id: MASTER_TIER_STAT, owner: OWNER, name: '主控的樹階', base: (state, actor) => masterTierOf(k, state, actor), min: 0, max: 5 })
   k.stats.defineStat({ id: TRACE_START_STAT, owner: OWNER, name: '內海追蹤度的起始加減', base: (state, actor) => traceStartOf(k, state, actor), min: -100, max: 100 })
-  k.stats.defineStat({ id: FLOW_TIER_STAT, owner: OWNER, name: '導流階', base: () => 0 })
+  k.stats.defineStat({ id: FLOW_TIER_STAT, owner: OWNER, name: '導流階', base: () => 0, min: 0, max: 9 })
 
   const part = (ab: AbilityEntry, value: number): RollPart[] => (value === 0 ? [] : [{ label: ab.name, value, source: 'skill' }])
   k.stats.addStatProvider('deck_slots', OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, numberOf(ab, 'slots'))))
   k.stats.addStatProvider('deck_slots_reserved', OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, [ab.net, ab.meat].some((m) => live(m) && m.unique === true) ? 1 : 0)))
+  k.stats.addStatProvider(FLOW_TIER_STAT, OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, live(ab.net) && typeof ab.net.flow_bonus === 'number' ? ab.net.flow_bonus : 0)))
   k.stats.addStatProvider(SYNC_CAP_STAT, OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, numberOf(ab, 'sync_cap'))))
 }
 

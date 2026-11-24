@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
 import GridMap, { type CellView, type FogState, type MapToken } from '../components/GridMap.vue'
@@ -12,7 +12,7 @@ import Icon from '../components/Icon.vue'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
 import { pressE } from '../lib/here'
-import { LEGEND_ORDER, NODE_INFO, STAGE_NAME, cellOf, fogOf, goalLine, hereOptions, patrolTokens, traceStages } from '../lib/netrunView'
+import { LEGEND_ORDER, NODE_INFO, STAGE_NAME, cellOf, fogOf, goalLine, hereOptions, patrolTokens, traceStages, watchRunEnd } from '../lib/netrunView'
 import type { Point } from '../data/types'
 
 /**
@@ -31,14 +31,7 @@ const sheet = computed(() => (view.value ? e.net.sheet() : null))
 const party = computed(() => (view.value ? e.net.party() : []))
 
 // ---- 這一趟結束了就離開這一頁：委託的那一段回副本頁，其餘回主畫面 ----
-const kindSeen = ref<string | null>(null)
-watch(view, (v, old) => {
-  if (v) kindSeen.value = v.kind
-  if (!v && old) {
-    ui.toast(e.state.reports.at(-1)?.outcome.summary ?? '這一趟結束了。')
-    void router.replace(kindSeen.value === 'face.net' ? '/commission' : '/')
-  }
-}, { immediate: true })
+watchRunEnd(view, path => void router.replace(path), () => ui.toast(e.state.reports.at(-1)?.outcome.summary ?? '這一趟結束了。'))
 
 // ---- 地圖 ----
 const patrolAts = computed<Array<[number, number]>>(() => (view.value ? view.value.patrols.filter(p => p.visible).map(p => p.at) : []))
@@ -98,7 +91,7 @@ async function doLogout() {
 const layerTabs = computed(() => (view.value ? view.value.layer.names.map((n, i) => ({ id: String(i + 1), label: `${n}（${i + 1}／${view.value!.layer.total}）`, disabled: i + 1 !== view.value!.layer.index })) : []))
 const stages = computed(() => (view.value ? traceStages(view.value.trace.marks) : []))
 const traceColor = computed(() => (view.value?.trace.stage === 'located' || view.value?.trace.stage === 'alert' ? 'var(--hp)' : view.value?.trace.stage === 'suspect' ? 'var(--warn)' : 'var(--ram)'))
-const log = computed(() => e.state.reports.filter(r => r.action.startsWith('netrun.') || (r.action.startsWith('grid.') && r.outcome.summary)).slice(-8).reverse())
+const log = computed(() => e.state.reports.filter(r => (r.action ?? '').startsWith('netrun.') || ((r.action ?? '').startsWith('grid.') && !!r.outcome.summary)).slice(-8).reverse())
 const hereName = computed(() => view.value?.here.marker?.name ?? null)
 </script>
 
@@ -137,7 +130,7 @@ const hereName = computed(() => view.value?.here.marker?.name ?? null)
           <p class="h">目標<Hint title="這一趟的目標">{{ view.goal.text }}</Hint></p>
           <p class="goal" data-goal>{{ view.goal.text }}</p>
           <div class="goalr"><span class="tag" :class="{ ok: view.goal.done }" data-goal-line>{{ goalLine(view) }}</span><span v-if="view.keys" class="tag">憑證 ×{{ view.keys }}</span></div>
-          <div v-if="view.loot.length" class="loot" data-loot><span v-for="(l, i) in view.loot" :key="i" class="tag">{{ l.name ?? l.id ?? l.kind }}<template v-if="l.qty && l.qty > 1"> ×{{ l.qty }}</template></span></div>
+          <div v-if="view.loot.length" class="loot" data-loot><span v-for="(l, i) in view.loot" :key="i" class="tag">{{ l.name }}<template v-if="l.qty > 1"> ×{{ l.qty }}</template></span></div>
           <p v-if="view.controls.length" class="note">接管了：{{ view.controls.map(c => c.name ?? c.id).join('、') }}</p>
         </section>
         <section class="panel cut pad" data-party>
