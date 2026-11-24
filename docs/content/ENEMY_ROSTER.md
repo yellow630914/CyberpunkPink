@@ -4325,3 +4325,4 @@
 - **沉船帶**（十一個）：牆語者的打撈手（`en_whisper_salvager`）、領航人（`en_whisper_navigator`）、守礁人（`en_whisper_reefwarden`）；殘留的程式：舊客服（`en_ghost_greeter`）、沒人關的獵犬（`en_ghost_oldhound`）、舊管理員（`en_ghost_sysop`）、船魂（`en_ghost_shipheart`）；野生蕾絲：走失的提燈（`en_lace_wild_lamp`）、沒有主人的侍女（`en_lace_wild_maid`）、舊紗（`en_lace_wild_veil`）、蕾絲的巢（`en_lace_wild_nest`）。
 - **迷宮館**（五個）：關卡小兵（`en_game_grunt`）、砲台小兵（`en_game_turret`）、寶箱怪（`en_game_mimic`）、中頭目（`en_game_midboss`）、館主（`en_game_master`）。
 - **深海**（十二個）：浮游的殘夢（`en_deep_drift`）、不登出的人（`en_deep_stayer`）、繫線水母（`en_deep_tether`）、呼名者（`en_deep_caller`）、暖流（`en_deep_warmth`）、靜默（`en_deep_hush`）、珊瑚的擁抱（`en_deep_coral`）、花苞（`en_deep_bud`）、空衣（`en_deep_garment`）、倒影（`en_deep_reflection`）、漩渦之心（`en_deep_vortex`）、鯨落（`en_deep_whalefall`）。
+- **預定新增**（還沒寫，對照在 [CYBERSPACE](../systems/CYBERSPACE.md) 8.8、8.9 節）：簾後館的企業主題敵人（萬華鏡、伊甸園、胭脂堂、織女電子、蜜腺生技各 3～4 種，大部分是既有條目換成館內的用法，新條目是替身演員、人偶店員、型錄模特兒、當夜的主角、莊家、出貨主任、最新款、封面模特兒）；永晝園的住客（四個園區、每位流竄 AI 衍生 1～2 種，約五十種碎片，加永遠的接待員與巡邏的舊程式）。
