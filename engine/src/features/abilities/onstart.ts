@@ -5,7 +5,7 @@ import type { BattleRun } from '../../core'
 import { equippedOf, tierIn } from './unitdata'
 
 export function startOnStart(run: BattleRun): void {
-  if (run.battle.mode !== 'meat') return
+  if (run.mode.layer !== 'meat') return
   for (const u of Object.values(run.battle.units)) {
     if (u.out || u.slot < 1) continue
     for (const ab of equippedOf(run, u)) {

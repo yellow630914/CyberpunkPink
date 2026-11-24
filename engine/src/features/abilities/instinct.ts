@@ -71,7 +71,7 @@ const isAlloc = (v: unknown): v is Alloc => isRec(v) && INSTINCT_KEYS.every((key
 
 /** 這個人現在的分配（已經夾進現在的上限與點數）；沒有裝戰鬥直覺、不是現實戰鬥是 null。 */
 export function allocOf(view: BattleView, u: BattleUnit): { ab: AbilityEntry; alloc: Alloc; points: number; cap: number } | null {
-  if (view.battle.mode !== 'meat') return null
+  if (view.mode.layer !== 'meat') return null
   const ab = instinctOf(view, u)
   if (!ab) return null
   const points = instinctPoints(view, u, ab)
@@ -82,7 +82,7 @@ export function allocOf(view: BattleView, u: BattleUnit): { ab: AbilityEntry; al
 
 /** 單位剛組好：定下開打時的分配（記在單位上）。 */
 export function setupInstinct(run: BattleRun, u: BattleUnit): void {
-  if (run.battle.mode !== 'meat') return
+  if (run.mode.layer !== 'meat') return
   const ab = instinctOf(run, u)
   if (!ab) return
   if (isAlloc(u.ext.instinct)) return

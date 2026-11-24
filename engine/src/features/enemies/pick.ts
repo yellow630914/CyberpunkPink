@@ -82,7 +82,7 @@ export function pickEnemy(k: Cx, state: GameState, spec: PickSpec, seed = ''): s
 }
 
 /** 「誰上場」的 enemy_pick 來源：先挑兵種，再交給 enemy 來源做出單位（strength、name、attached 照 enemy 的寫法）。 */
-export function enemyPickUnit(k: Cx, state: GameState, ref: Record<string, unknown>, ctx: { grade: number; allyCount: number }): BattleUnitInit {
+export function enemyPickUnit(k: Cx, state: GameState, ref: Record<string, unknown>, ctx: { grade: number; allyCount: number; mode?: string }): BattleUnitInit {
   const seed = ref.seed === undefined ? '' : typeof ref.seed === 'string' || typeof ref.seed === 'number' ? String(ref.seed) : undefined
   if (seed === undefined) throw new Error('enemy_pick 的 seed 要是字串或數字')
   const spec = { faction: ref.faction, grade: ref.grade, rank: ref.rank } as PickSpec

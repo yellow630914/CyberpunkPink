@@ -63,7 +63,8 @@ export const enemiesFeature: Feature = {
       const mine = units.filter((u) => u.side === unit.side)
       const theirs = units.filter((u) => u.side !== unit.side)
       const bossOut = mine.some((u) => u.rank === 'boss' && u.out)
-      const low = !!unit.hp && !!unit.ai && unit.hp.now / unit.hp.max < unit.ai.fleeBelow
+      // 生命比例只有現實才算：內海的單位沒有生命（也沒有人規定它用什麼比例）
+      const low = run.mode.layer === 'meat' && !!unit.hp && !!unit.ai && unit.hp.now / unit.hp.max < unit.ai.fleeBelow
       // 「同伴倒了一半」的分母是開打時記下的人數（核心在開打時寫進 origin.headcount）：之後叫來的增援不會把它墊高
       const started = run.battle.origin.headcount?.[unit.side] ?? mine.length
       const halfGone = mine.filter((u) => u.out).length * 2 >= started

@@ -148,6 +148,8 @@ export function settleAmmo(w: BattleWeapon): void {
  * （開槍的是和人重疊的東西的替身時，傷在那一台的耐久上）。沒有發生的一擊（aborted）與沒有擲命中骰的（natural 是 0）不算。
  */
 function misfire(run: BattleRun, attacker: BattleUnit, w: BattleWeapon, result: AttackResult): void {
+  // 彈匣與炸膛只有現實才有（內海的武器是構裝，沒有彈匣）
+  if (run.mode.layer !== 'meat') return
   if (result.aborted || result.natural !== 1) return
   const use = fxOf(run.k, w)?.on_use
   if (!use) return

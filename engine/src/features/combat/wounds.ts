@@ -1,7 +1,7 @@
 // L6 功能 combat：重創的部位與輕重兩級（COMBAT_SYSTEM 第 6 節）、戰後的紀錄與「要活的」的條件（8.5 節、第 7 節）。
 
 import type { BattleUnit, Change, Kernel } from '../../core'
-import { clamp, unitTag } from '../../core'
+import { clamp, modeOf, unitTag } from '../../core'
 
 const OWNER = 'combat'
 export type Part = 'limb' | 'head' | 'torso' | 'bridge'
@@ -14,6 +14,8 @@ export const TORSO_HP_LOSS = 5
 
 export function registerWounds(k: Kernel): void {
   k.battle.on('wound', OWNER, ({ run, attacker, target, part: asked }) => {
+    // 重創的部位只有現實才有：內海的重創是破損（netcombat 在同一個掛點自己處理）
+    if (run.mode.layer !== 'meat') return
     // 部位：瞄準過的射擊由攻擊者選；沒有就擲（各佔四分之一）
     let part: Part
     if (isPart(asked)) part = asked
@@ -55,8 +57,9 @@ export function registerWounds(k: Kernel): void {
   k.battle.onEnd(OWNER, ({ state, battle, outcome }) => {
     const changes: Change[] = []
     const lines: string[] = []
+    const meat = modeOf(k.content, battle.mode)?.layer === 'meat'
     for (const u of Object.values(battle.units) as BattleUnit[]) {
-      if (u.side !== 'ally' || !u.actor || !state.actors[u.actor]) continue
+      if (!meat || u.side !== 'ally' || !u.actor || !state.actors[u.actor]) continue
       for (const part of ['limb', 'head', 'torso'] as const) {
         if (u.wounds[part] !== 2) continue
         lines.push(`重傷：${u.name}的${PART_NAME[part]}（要治療）`)

@@ -404,5 +404,8 @@ export const BATTLE_EVENTS = [
   'call_in',
   // 功能自己的事件：angel（天使急救的小隊把倒下的人帶走）、tease（誘惑沒有橋或太遠）、trait（開戰時敵人特徵上身）
   'angel', 'tease', 'trait',
+  // 內海的事件（dev/adr/0018 第一節；行動表在 features/netcombat）：shift 換同步檔位、jam 干擾（構裝停用）、break 破損（構裝槽失效）、
+  // pin 釘住、tether 扣線（倒下也不能斷線）、jack_out 拔線離開、admin 管理行動、trace 追蹤度上升、located 被定位（倒數開始）
+  'shift', 'jam', 'break', 'pin', 'tether', 'jack_out', 'admin', 'trace', 'located',
 ] as const
 export type BattleEvent = (typeof BATTLE_EVENTS)[number]

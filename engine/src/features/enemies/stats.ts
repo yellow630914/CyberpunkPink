@@ -2,7 +2,7 @@
 // dev/work/M1-enemies.md 第四、五節。
 
 import type { BattleOverlayInit, BattleSetup, BattleUnitInit, BattleWeapon, ContentRegistry, GameState, Grade, UnitRank, UnitRef, WeaponClassEntry } from '../../core'
-import { ATTR_IDS, areaGrade, attrMod, enemyCoefFor, gradeDice, weaponFromClass } from '../../core'
+import { ATTR_IDS, areaGrade, attrMod, enemyCoefFor, gradeDice, modeOf, weaponFromClass } from '../../core'
 import type { Kernel } from '../../core'
 import { ENEMY_CURVE, OVERLAY_POINTS } from './curve'
 import type { EncounterEntry, EncounterFoe, EnemyAttached, EnemyEntry } from './kinds'
@@ -128,7 +128,7 @@ function attachedOf(k: Cx, e: EnemyEntry, ref: Record<string, unknown>): EnemyAt
 }
 
 /** 「誰上場」的 enemy 來源：ref 是 { from: 'enemy', id, grade?, strength?, name?, attached? }。 */
-export function enemyUnit(k: Cx, state: GameState, ref: Record<string, unknown>, ctx: { grade: number; allyCount: number }): BattleUnitInit {
+export function enemyUnit(k: Cx, state: GameState, ref: Record<string, unknown>, ctx: { grade: number; allyCount: number; mode?: string }): BattleUnitInit {
   const id = typeof ref.id === 'string' ? ref.id : ''
   const e = resolveEnemy(k.content, id)
   if (isOverlay(e)) throw new Error(`${e.name}（${id}）是掛在格上的一台，不是一個單位：放進遭遇的 foes 由 setupFromEncounter 掛上去，或直接寫在 origin.ext.enemies.overlays`)
@@ -159,7 +159,8 @@ export function enemyUnit(k: Cx, state: GameState, ref: Record<string, unknown>,
     ap: { now: st.ap, max: st.ap, regen: 3 }, pools: {},
     weapons: buildWeapons(k.content, e, grade, st.attack), wield: 0,
     evade: st.evade, initBonus: attrMod(attrs.reflex), statuses: [], dmgMult: st.dmgMult, tags,
-    quick: e.quick ? e.quick.map((q) => ({ ...q })) : e.mode === 'capture' ? [{ item: 'it_zip_tie', qty: 2 }] : [],
+    // 要活的敵人白給兩條束帶：只在現實（內海是釘住，不用束帶）。資料明寫的 quick 照給
+    quick: e.quick ? e.quick.map((q) => ({ ...q })) : e.mode === 'capture' && (ctx.mode === undefined || modeOf(k.content, ctx.mode)?.layer === 'meat') ? [{ item: 'it_zip_tie', qty: 2 }] : [],
     uses: {}, wounds: {},
     ...(cyber ? { implants: cyber, cyber: cyber.length } : {}),
     ext: {

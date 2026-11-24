@@ -228,7 +228,9 @@ function doneLine(d: NonNullable<CaptureState['done']>): string {
 
 export function installCapture(k: Kernel, owner: string): void {
   // 制伏的那一刻：記下他是不是「感載滿了、失去回合」（退出之後失去回合的狀態就拿掉了）
-  k.battle.on('out.before', owner, ({ unit, how }) => {
+  k.battle.on('out.before', owner, ({ run, unit, how }) => {
+    // 制伏（束帶）只在現實；內海是釘住
+    if (run.mode.layer !== 'meat') return
     if (how !== 'subdued' || unit.side !== 'foe' || !unit.enemy || !k.content.has('enemy', unit.enemy)) return
     const cause = captureCause(resolveEnemy(k.content, unit.enemy), unit)
     if (cause) enemyData(unit).capturable = cause

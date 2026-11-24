@@ -78,8 +78,8 @@ export function stance(k: Pick<Kernel, 'content'>, state: GameState, actor: Acto
 // ---- 帶進戰鬥 ----
 
 /** 單位剛組好：戰鬥外開著的姿態（還裝著、是現實戰鬥）帶進來，單位的姿態就是它；記下來讓開打時做 meat.out.on_start。 */
-export function carryStance(run: Pick<BattleRun, 'state' | 'battle' | 'k'>, unit: BattleUnit): void {
-  if (!unit.actor || run.battle.mode !== 'meat' || unit.stance) return
+export function carryStance(run: Pick<BattleRun, 'state' | 'battle' | 'k' | 'mode'>, unit: BattleUnit): void {
+  if (!unit.actor || run.mode.layer !== 'meat' || unit.stance) return
   const id = abilitiesOf(run.state, unit.actor).stance
   if (!id || !unitAbilities(unit).equipped.includes(id)) return
   const ab = run.k.content.get<AbilityEntry>('ability', id)

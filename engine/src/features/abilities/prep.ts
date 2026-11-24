@@ -119,8 +119,8 @@ export function prep(k: PrepKernel, state: GameState, actor: ActorId, id: string
 // ---- 帶進戰鬥 ----
 
 /** 單位剛組好（現實戰鬥）：這個角色預備好的、這一場用得上的，記進單位（unit.ext.abilities.brought；選了人的另記 read）。 */
-export function bringPrep(run: Pick<BattleRun, 'state' | 'battle'>, u: BattleUnit): void {
-  if (!u.actor || run.battle.mode !== 'meat') return
+export function bringPrep(run: Pick<BattleRun, 'state' | 'battle' | 'mode'>, u: BattleUnit): void {
+  if (!u.actor || run.mode.layer !== 'meat') return
   const prepared = abilitiesOf(run.state, u.actor).prepared
   if (!prepared?.length) return
   const key = commissionKeyOf(run.battle)

@@ -165,7 +165,7 @@ const vehicleCall: BattleActionDef = {
 // ---- 控制節點 ----
 
 const nodeUse: BattleActionDef = {
-  id: 'node.use', owner: OWNER, name: '控制節點', group: 'tactic', icon: 'node', order: 9, target: 'node',
+  id: 'node.use', owner: OWNER, name: '控制節點', group: 'tactic', icon: 'node', modes: ['meat'], order: 9, target: 'node',
   desc: '用一個已經拿下的控制節點改變戰場：關燈（場地變成黑暗）、放下防爆門（替一格造出掩體）。',
   cost: () => ({ ap: 1 }),
   has: (view) => view.battle.nodes.length > 0,

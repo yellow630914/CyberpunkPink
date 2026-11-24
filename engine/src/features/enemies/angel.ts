@@ -9,13 +9,16 @@ import { enemyData, peekEnemy } from './unitdata'
 const FELL = ['down', 'burnout']
 
 export function registerAngel(k: Kernel): void {
-  k.battle.on('out', OWNER, ({ unit, how }) => {
+  k.battle.on('out', OWNER, ({ run, unit, how }) => {
+    // 天使急救只在現實
+    if (run.mode.layer !== 'meat') return
     const n = ANGEL_ROUNDS[String(peekEnemy(unit).angel)]
     if (!n || !FELL.includes(how) || peekEnemy(unit).taken) return
     enemyData(unit).angelLeft = n
   })
 
   k.battle.on('round.start', OWNER, ({ run }) => {
+    if (run.mode.layer !== 'meat') return
     for (const u of Object.values(run.battle.units)) {
       const d = peekEnemy(u)
       if (typeof d.angelLeft !== 'number') continue

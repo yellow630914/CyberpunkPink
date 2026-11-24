@@ -15,12 +15,14 @@ const totals = (list: ReadonlyArray<{ item: string; qty: number }>): Map<string,
 export function installBattle(k: Kernel): void {
   k.battle.loadout(OWNER, (state, actor, mode) => {
     if (!state.actors[actor]) return
-    // 槍械只帶進現實的戰鬥；內海的武器是構裝（M3）
-    const meat = modeOf(k.content, mode)?.layer !== 'net'
-    return { weapons: meat ? carriedBattleWeapons(k, state, actor) : [], quick: gearOf(state, actor).quick }
+    // 槍械與快取格只帶進現實的戰鬥：內海的武器是構裝、腳本由甲板的功能給（M3）
+    if (modeOf(k.content, mode)?.layer !== 'meat') return { weapons: [], quick: [] }
+    return { weapons: carriedBattleWeapons(k, state, actor), quick: gearOf(state, actor).quick }
   })
 
   k.battle.onEnd(OWNER, ({ state, battle }) => {
+    // 戰後用掉的快取格只看現實：內海的單位沒帶快取格，拿來比會當成全部用掉
+    if (modeOf(k.content, battle.mode)?.layer !== 'meat') return
     const changes: Change[] = []
     const lines: string[] = []
     const seen = new Set<string>()

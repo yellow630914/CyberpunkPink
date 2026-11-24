@@ -2,6 +2,7 @@
 // 每件委託的次數與預備（寫回 actor.ext.abilities）。dev/adr/0015 E2、E3、E4；M2-favors。
 
 import type { BattleKernel, BattleState, Change, GameState } from '../../core'
+import { modeOf } from '../../core'
 import { FAVORS } from './format'
 import { abilitiesOf } from './learn'
 import type { AbilityState } from './types'
@@ -13,8 +14,10 @@ import { walletActor, walletOf } from './wallet'
  * 結束時的變更。k 給了而且有人註冊 favor.spend（人情的功能裝著）時，人情池用掉幾個就發幾筆 `favor.spend { dir: 'owed_to_pc', size }`
  * （每筆用掉那個大小最早記下的一筆；不超過現在實際還有的個數）；沒給 k 或沒有人註冊就不發（人情沒裝的一局，池是 0 本來就用不了）。
  */
-export function endChanges(state: GameState, battle: BattleState, k?: Pick<BattleKernel, 'stats' | 'changes'>): Change[] {
+export function endChanges(state: GameState, battle: BattleState, k?: Pick<BattleKernel, 'stats' | 'changes'> & { content?: BattleKernel['content'] }): Change[] {
   const changes: Change[] = []
+  // 預備只在現實戰鬥帶進來（看戰場的 layer；沒給核心時只認核心自帶的 meat）
+  const meat = k?.content ? modeOf(k.content, battle.mode)?.layer === 'meat' : battle.mode === 'meat'
   const key = commissionKeyOf(battle)
 
   // 現金與人情是隊伍共用的一份（wallet.ts）：只算一次差額。現金扣隊伍的錢包；人情用掉的記在主角名下（欠你的）
@@ -41,7 +44,7 @@ export function endChanges(state: GameState, battle: BattleState, k?: Pick<Battl
     const used = Object.entries(u.uses).filter(([id, n]) => id.startsWith('commission:') && n > 0).map(([id, n]) => [id.slice('commission:'.length), n] as const)
     const old = mine.commission?.[key] ?? {}
     if (used.some(([id, n]) => old[id] !== n)) next = { ...next, commission: { ...mine.commission, [key]: { ...old, ...Object.fromEntries(used) } } }
-    const brought = battle.mode === 'meat' ? broughtPrep(u) : []
+    const brought = meat ? broughtPrep(u) : []
     if (brought.length && mine.prepared?.length) {
       const prepared = mine.prepared
         .filter((p) => !(p.scope === 'next_battle' && brought.includes(p.id)))
