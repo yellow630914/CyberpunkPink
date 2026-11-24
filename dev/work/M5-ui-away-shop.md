@@ -1,0 +1,39 @@
+# M5-ui-away-shop
+
+- 交給：cpp-ui（sonnet）　（**第二波**）
+- 目標：三塊小的畫面接上引擎：名冊的「派工」、每週帳單裡派工與店面的那幾列、家園的店面分頁（種類、店長、這一週的營收、在自己的店工作）；順便把親衛隊的小面板放進角色頁。
+- 規格出處：docs/art/UI.md 第 13 節（名冊：狀況的「在派工（回來的時間）」、操作的「派工」）、3.10 節（每週帳單）、第 12 節最後幾條（店面是第二張地圖、用分頁切換）、3.12 節（打工的畫面）；FIXER 第 7 節；DOWNTIME 7.11、4.1b 節；MEDIA 9.3 節；dev/adr/0020 第八、九、十節、V42、V44、V45、V51；dev/work/M5-away.md、M5-shop.md、M5-idol.md 的匯出。
+- 可以改的路徑：`ui/src/dialogs/RosterDialog.vue`、`BillsDialog.vue`、`WorkDialog.vue`（只加「在自己的店工作」的入口）、`ui/src/dialogs/CharacterDialog.vue` 或 `dialogs/character/`（加親衛隊的一塊）、`ui/src/screens/HomeScreen.vue`（店面的分頁）、`ui/src/lib/`（新增 `awayView.ts`、`shopView.ts`）、`ui/src/stores/engine.ts`（只加轉接）、`ui/src/data/demo/`、`ui/tests/away/`；刪 `ui/src/data/roster.ts`、`data/weekly.ts` 裡還在用的假資料（先確認沒有別的檔在用）。
+- 可以用的介面：`@engine/src/features/away` 的 `awayView`、`assign`、`recall`、`assignBlock`、`awayChance`；`@engine/src/features/home` 的 `shopView`、`shopKinds`、`openShop`、`setManager`、`workShift`、`closeShop`；`@engine/src/features/idol` 的 `idolView`、`useGuard`；`@engine/src/features/bills` 的 `billPreview`；`Game.commit`／`commitNarrated`。
+- 不可以做的事：不改 `engine/`；成功率、錢、能不能派都讀引擎；派工不做成一個玩法的畫面（它只是一個選單與結果的一行）；共同的規定見 dev/work/M5-plan.md。
+
+## 要做的
+
+1. **名冊**：每張卡的狀況多「在派工（週一回來）」；操作多「派工」——點開一個小選單：這個人可以派去的每一件事（名字、看哪一項基本功、成功率、預估的錢；有等級的可以選等級；打工要選一份工作；灰掉的帶原因）；確認才送。已經派出去的卡上有「叫回來」（先確認：這一週不能再派他）。標題旁邊一行：「這一週派出去 2 人」。篩選多一個「在派工」。
+2. **上一週的結果**：名冊對話框最上面一條可以收起的列——每個人去做了什麼、擲了多少對多少、結果、帶回什麼、出了什麼事（讀 `awayView().last`）。
+3. **每週帳單**：收入那一段多「派工：誰做了什麼」每人一列、「店面：這一週的營收」一列（預估值讀 `billPreview`，旁邊「?」是式子）；支出多家務的工錢、雇來的店長、管理費（這些引擎的帳單本來就會列，確認名字與順序顯示得對）。
+4. **店面的分頁**（家園；只有三級而且開了店才有，沒開的時候是「開店」的面板）：
+   - 開店：這個住處能開的每一種（裝潢費、每週基礎營收、經營看哪一項基本功、附帶一行；不能開的灰掉並有原因），選了先確認。
+   - 開了之後：一樓的地圖（同一個 `GridMap`，前場與後場）；側欄——種類、店長（是誰、名冊或雇來的；換人）、這一週預估的營收（式子的每一項：基礎、區倍率、經營結果的四種機率、主角待了幾班的加成、營運費）、附帶、上一週的結果；「在自己的店工作」（選 4 或 8 小時；顯示這一班可能得到什麼）。
+   - 打工的對話框在自己的店裡多列這一項（引擎的 `usesOf` 給的）。
+5. **親衛隊**（角色頁的名聲那一塊下面；只有人氣 20 以上的偶像才顯示）：級與樣子的一句話、人氣、這一週還能動用幾次、能叫他們做的事（打聽、帶話；灰掉的帶原因）、做過頭的次數。
+6. **示意包**：一位可以派的名冊成員、一份可以派去的打工、一處可以升到三級的住處（給店面看）。
+
+## 驗收條件（`ui/tests/away/M5-ui-away-shop.test.ts`；用引擎真的 `away`、`home`、`roster`、`bills`）
+
+- 派工的選單等於 `awayView`；派出去之後那張卡顯示「在派工」、召集的畫面選不到他（原因是引擎的）。
+- 叫回來先確認；確認之後狀況恢復、這一週的選單是灰的。
+- 過了週一：「上一週的結果」有那個人的一列，數字等於引擎的 `last`；帳單的收入有他那一筆。
+- 店面：二級時分頁不出現；三級沒開店時是開店的面板、種類的灰與原因等於 `shopKinds`；開了之後預估的營收等於 `shopView`。
+- 在自己的店工作一班：時間過了、這一週的班數 +1、預估的營收跟著變。
+- 親衛隊：人氣 19 不顯示、20 顯示；次數用完按鈕灰掉。
+- 掃原始碼：`RosterDialog.vue`、`HomeScreen.vue` 沒有自己算成功率或營收的函式；`data/roster.ts`、`data/weekly.ts` 的假資料沒有被 import。
+- `npm test` 與 `vue-tsc` 全過。
+
+## 依賴
+
+M5-away、M5-shop、M5-idol。排在 M5-ui-home 之後。
+
+## 完成時回報
+
+改了哪些檔、測試結果、引擎沒給所以沒顯示的、UI 第 12、13 節與 3.10 節要跟著改的地方。

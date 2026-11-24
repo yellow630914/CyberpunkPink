@@ -76,7 +76,7 @@ dev/status.md 標了 M5 的待辦各落在哪一張：日常直播這種行動�
 34 data-rules、35 smoke：引擎的功能都做完之後
 ```
 
-**不要同時做的**（改同一批檔）：2、3（`features/media`）；4、5（`features/channel`）；6、7、31（`features/live`）；9、10、11（`features/opinion`）；14、15、16（`features/abilities`），18 也改技能的測試資料，排在 16 之後；25、26、27、28（`features/home`）；介面的七張彼此，以及 33 的介面那一半（都改 `stores/engine.ts`）；12 與任何還在改 `features/commission` 的事；10 會改 `features/director/body.ts`（只加指示 `start`），那時候不要有別的工單在改 director；24 會改 `features/idol`（只加出征），排在 17 之後；25 會改 `features/rest`（住處搬走）與 `features/explore`（家的地圖上不作用），那時候不要有別的工單在改這兩個；28 會改 `features/work`（只加「在自己的店工作」的條件）。`FEATURES` 的順序：`mediaFeature` 在 `channelFeature`、`liveFeature`、`socialFeature`、`opinionFeature` 前面（它們的 `ready` 不依賴順序，但掛點的回答者先裝比較好查）；`homeFeature` 排在 `restFeature` 前面（條件 `at_home`、`has_home` 由它註冊）。
+**不要同時做的**（改同一批檔）：2、3（`features/media`）；4、5（`features/channel`）；6、7、31（`features/live`）；9、10、11（`features/opinion`）；14、15、16（`features/abilities`），18 也改技能的測試資料，排在 16 之後；25、26、27、28（`features/home`）；介面的七張彼此，以及 33 的介面那一半（都改 `stores/engine.ts`）；12 與任何還在改 `features/commission` 的事；10 會改 `features/director/body.ts`（只加指示 `start`），那時候不要有別的工單在改 director；24 會改 `features/idol`（只加出征），排在 17 之後；25 會改 `features/rest`（住處搬走）與 `features/explore`（家的地圖上不作用），那時候不要有別的工單在改這兩個；28 會改 `features/work`（只加「在自己的店工作」的條件）；31 會改 `features/maze` 與 M4 的 `features/curtain`（各幾行），那時候不要有別的工單在改這兩個。`FEATURES` 的順序：`mediaFeature` 在 `channelFeature`、`liveFeature`、`socialFeature`、`opinionFeature` 前面（它們的 `ready` 不依賴順序，但掛點的回答者先裝比較好查）；`homeFeature` 排在 `restFeature` 前面（條件 `at_home`、`has_home` 由它註冊）。
 
 ## 建議的順序（同時最多兩張）
 
@@ -198,7 +198,7 @@ dev/status.md 標了 M5 的待辦各落在哪一張：日常直播這種行動�
     建議：人在家裡由引擎照時段定在哪一間，怎麼走是畫面的事；每個住處每一級一張版面，高一級的要包含低一級的；舒適度的回復率加在這一次睡覺上，其餘是到下次睡覺的狀況；儲物的「種」是物品加實例資料；上門照式子每週一擲、只發觸發點；假身分、耳目、被駭的後果等內容；網內的房間不做。
 24. **和 M4 撞名的 `heat`，與依賴 M4 的其餘假設**（0020 第十四節 D1～D10）。
     - **`heat` 要在 M4 開工前定**：0019 把簾後館的場熱定成量表 `heat`（效果與條件自動同名），而 EVENTS 2.4 節的效果 `heat` 是「直播的熱度 ±3」；兩個不能同名（第二個註冊的會丟錯）。建議：M4 的量表改名 `stage_heat`，`heat` 留給設計書寫的直播熱度；M4 不改的話 M5 的效果叫 `live_heat`，直播事件的資料在匯入時轉。
-    - 其餘九項（錄影義體用被動效果寫 `rec_grade`、單人場景怎麼知道直播開著、曝露度、簾後館、契約人、`at_home` 換主人時保留 `level_min`、在家組裝的材料、義體與藥與裝備給的編輯點合計最多 +1）。建議：照表上的假設先寫；M4 做完、M5 開工之前對一次。錄影義體在 M4 的內容進來之前，示意世界包放一件能錄影的隨身裝備。
+    - 其餘九項（錄影義體用被動效果寫 `rec_grade`、單人場景的 `audience` 由開場的人給、曝露度、簾後館、契約人、`at_home` 換主人時保留 `level_min`、在家組裝的材料、義體與藥與裝備給的編輯點合計最多 +1）。建議：照表上的假設先寫；M4 做完、M5 開工之前對一次。錄影義體在 M4 的內容進來之前，示意世界包放一件能錄影的隨身裝備。
 25. **其餘的暫定值**（V6、V8、V19、V20、V25、V30、V52、V53、V55）：不准錄的地方是資料的欄位、匿名上架風險 −5 而且效果七成、業配與贊助的欄位、公演要站在有舞台的設施上、收播的換算、動態牆先接三種來源、簾後館的內場帶一律是親密類、UI 第 6 節照 MEDIA 改。
     建議：都先照表，平衡與內容進來時一起看。
 26. **文件要補的幾處**（裁決之後交文件代理）：EVENTS 3.1、3.3 的頻道範圍與觸發點、2.4 的指示 `start`；CORE_RULES 8.1「非委託來源」拿掉「媒體的片」（V54），第 8 節的表加「聲望」（第 19 項）；MEDIA 第 2 節的品質與「素材庫」、第 5 節三種做法的算式、1.2 開播的時機、4.1 與 4.8 的流失、4.3 的推薦權重、4.2 指向 NPC_SYSTEM 10.5 的那一句、9.3 親衛隊與技能的關係；OPINION 4.2 的順序、4.3a 的換算、5.1 的平手、第 6 節與 AI_TASKS 3.11 的找上門、第 9 節的數字；DATA 6.3、9.1 樣本裡的 `murmur`；AI_TASKS 3.1 的 `stream_daily`（時段直播不是行動種類）、4.5 補新的任務（第 13 項）；CYBERSPACE 8.8 內場帶的類型（V53）；UI 補社交媒體一節、第 6 節照 MEDIA 改（V55）；DOWNTIME 4.3 與 FIXER 第 7 節的派工、7.6 舒適度的效果套在哪。
