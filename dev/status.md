@@ -219,4 +219,14 @@
 
 - M2 全部工單、引擎與介面審查、白箱與邊界、三批修正完成。引擎 194 檔 5261 條、冒煙 98 條、介面 628 條全過；pending 只剩 B009。
 - 介面成品 v11、設計書 v180 已發布。
-- 待使用者：AI 可用效果（perk、meet、npc_known、scout_reveal）、AI 能不能扣體悟、出發前放棄委託扣多少；委託結算畫面要不要加信譽預告。
+- ~~待使用者：AI 可用效果（perk、meet、npc_known、scout_reveal）、AI 能不能扣體悟、出發前放棄委託扣多少；委託結算畫面要不要加信譽預告。~~（2026-11-24 使用者「都照建議」，見下一段）
+
+## 2026-11-24（M2 最後一小批）
+
+使用者裁決「都照建議」，做完（dev/adr/0017 最後一節第 26～31 項、不變式第 128、131 條改與第 137、138 條新增；設計書 EVENTS 2.4、LIFE 第 9 節、CORE_RULES 8.1、DECISIONS 同步）：
+- AI 可用效果：`perk`、`scout_reveal` 標 `ai: false`；`meet`、`npc_known` 保留給 AI。
+- 體悟：AI 只能加（0～+5）不能扣；內建的不受影響。
+- 放棄委託：出發前 −2（`rep_abandon_early`）、出發後 −5（`rep_abandon`）。「出發後」＝`fixer.go` 記了 `Job.departed`，撤退回到手上也算（進副本的快照在 go 之後存）；`abandonRepOf` 給畫面。
+- 結算：`PayoutRecord.rep { from, to }` 記信譽實際的變化；介面副本頁加信譽預告（做完／失敗），結算框（`CommissionScreen` 的 `data-settle`）寫評價、實拿與實際的信譽變化，放棄的確認框照出發前後讀對的數字。
+- 還沒做：副本進行中放棄（現在被活動擋掉，只能撤退或失敗）；`bill.settle` 的 `where.overdue`；戰敗與契約事件的 `hostility_floor` 一定要寫 `days`；介面第 25 項列的其餘跟改。
+

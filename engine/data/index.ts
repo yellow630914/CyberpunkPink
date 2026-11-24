@@ -112,7 +112,7 @@ export const SOURCES: Record<string, string> = {
 export const PROVISIONAL: Record<string, string[]> = {
   security_rule: ['found_banned', 'found_permit', 'caught_hostility', 'fake_dc_base', 'fake_dc_per_strength', 'fake_recorded_bonus'],
   commission_rule: ['stage_minutes', 'stealth_fail_alert', 'check_fail_alert', 'reinforce_count', 'hard_alert', 'hard_grade_up', 'aux_injured_days', 'aux_skills', 'rating_links', 'rating_alert', 'rating_peak', 'scales_by_tier'],
-  fixer_rule: ['haggle_dc_base', 'haggle_success', 'haggle_critical', 'rating_bonus', 'rep_same', 'rep_higher', 'rep_lower', 'rep_top', 'rep_failed', 'rep_abandon', 'bond_dc_base', 'bond_affinity_step', 'bond_loyalty', 'trip_affinity', 'trip_loyalty'],
+  fixer_rule: ['haggle_dc_base', 'haggle_success', 'haggle_critical', 'rating_bonus', 'rep_same', 'rep_higher', 'rep_lower', 'rep_top', 'rep_failed', 'rep_abandon', 'rep_abandon_early', 'bond_dc_base', 'bond_affinity_step', 'bond_loyalty', 'trip_affinity', 'trip_loyalty'],
   trade_rule: ['dirty_hostility', 'list_size'],
   bill_rule: ['debt_rate'],
   scene_rule: ['bands', 'skip', 'skip_goal', 'goal_done_at', 'goal_stall_per_round', 'goal_please_per_climax', 'partner_weights'],

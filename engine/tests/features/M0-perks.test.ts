@@ -96,6 +96,13 @@ describe('M0-perks：取得與放掉（CHARACTER 4.4、5.3 節）', () => {
     expect(got.r.errors).toEqual([])
     expect(got.after.actors.pc!.perks).toEqual(['smooth_talker'])
     expect(got.r.lines[0]).toContain('能言善道')
+    // 不在 EVENTS 2.4 的 AI 效果表裡：AI 與玩家要的整批不收，內建的照收（上面）
+    for (const source of ['ai', 'player'] as const) {
+      const r = k.effects.resolve([{ kind: 'perk', id: 'smooth_talker' }], ctxOf(k, makeState(), source))
+      expect(r.errors.join(), source).toContain('不是 AI 與玩家要的結果可以用的效果')
+      expect(r.changes, source).toEqual([])
+    }
+    expect(k.effects.aiKinds()).not.toContain('perk')
     const lost = apply(k, makeState({ pc: { perks: ['smooth_talker'] } }), [{ kind: 'perk', id: 'smooth_talker', remove: true }])
     expect(lost.after.actors.pc!.perks).toEqual([])
   })

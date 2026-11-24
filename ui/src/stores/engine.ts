@@ -15,7 +15,7 @@ import { acceptDefeat, chooseDefeatOption, defeatOf, defeatView, skipDefeat, wat
 import type { DefeatViewInfo } from '@engine/src/features/defeat'
 import { auxChance, breathe as commissionBreathe, chooseBranch, chooseFace, commissionView, checkGoal as commissionCheckGoal, playScene as commissionPlayScene, replay as commissionReplay, retreat as commissionRetreat } from '@engine/src/features/commission'
 import type { AuxChance, CommissionView } from '@engine/src/features/commission'
-import { accept as fixerAccept, activeJobs, board as fixerBoard, borrowOption, buyIntel as fixerBuyIntel, drop as fixerDrop, fixerRules, go as fixerGo, goBlock as fixerGoBlock, haggle as fixerHaggle, hire as fixerHire, hireOptions as fixerHireOptions, jobOf, repGainOf, scout as fixerScout, scoutView as fixerScoutView, splitPreview, unhire as fixerUnhire } from '@engine/src/features/fixer'
+import { abandonRepOf, accept as fixerAccept, activeJobs, board as fixerBoard, borrowOption, buyIntel as fixerBuyIntel, drop as fixerDrop, fixerRules, go as fixerGo, goBlock as fixerGoBlock, haggle as fixerHaggle, hire as fixerHire, hireOptions as fixerHireOptions, jobOf, jobsOf, repGainOf, scout as fixerScout, scoutView as fixerScoutView, splitPreview, unhire as fixerUnhire } from '@engine/src/features/fixer'
 import type { AuxFace, BoardView, FixerEntry, HireInput, HireOption, IntelWith, Job, Offer, PayKind, ScoutView, Split } from '@engine/src/features/fixer'
 import { muster as rosterMuster, musterBlocks, rosterRules, rosterView, recruitBlock as rosterRecruitBlock, recruitDc, recruitInput, readRoster, leave as rosterLeave, isRunner as rosterIsRunner } from '@engine/src/features/roster'
 import type { Candidate as RosterCandidate } from '@engine/src/features/roster'
@@ -712,8 +712,20 @@ export const useEngine = defineStore('engine', () => {
     /** 接案前的一輪交涉 */
     haggle: (offer: Pick<Offer, 'id' | 'fixer'>) => commitDrafts(() => fixerHaggle(game.k, game.state, offer), '交涉'),
     accept: (offer: Pick<Offer, 'id' | 'fixer'>, pay: PayKind) => commitDrafts(() => fixerAccept(game.k, game.state, offer, { pay }), '接案'),
-    /** 放棄一件委託信譽掉多少（負數；引擎的規則 rep_abandon，確認框寫給玩家看） */
-    abandonRep: (): number => { void state.value; return fixerRules(game.k).rep_abandon },
+    /** 放棄一件委託信譽掉多少（負數；引擎的 abandonRepOf：出發前 rep_abandon_early、出發過 rep_abandon；沒給 id 或找不到那件就是出發前的），確認框寫給玩家看 */
+    abandonRep: (jobId?: string): number => {
+      void state.value
+      const j = jobId ? jobOf(game.state, jobId) : null
+      return abandonRepOf(game.k, j ?? {})
+    },
+    /** 失敗一件委託信譽掉多少（負數；引擎的規則 rep_failed），副本裡的預告寫給玩家看 */
+    repFailed: (): number => { void state.value; return fixerRules(game.k).rep_failed },
+    /** 一件副本剛結束、入帳過的那件委託（done 或 failed；有入帳紀錄，信譽實際的變化在 payout.rep）；撤退（委託還在手上）與找不到是 null */
+    settledJob: (commissionId: string): Job | null => {
+      void state.value
+      const j = jobsOf(game.state).filter((x) => x.commission.id === commissionId && x.status !== 'active' && x.payout !== null).sort((a, b) => b.seq - a.seq)[0]
+      return j ? structuredClone(j) : null
+    },
     /** 完成這件委託信譽加多少（引擎的 repGainOf，照主角現在的級；評價預設 B，S 的加成另算在 topBonus） */
     repGain: (commission: Job['commission'], rating: 'S' | 'A' | 'B' | 'C' = 'B'): { amount: number; relation: 'higher' | 'same' | 'lower'; topBonus: number } => {
       void state.value

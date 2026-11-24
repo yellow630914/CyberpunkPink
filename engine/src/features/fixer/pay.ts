@@ -17,7 +17,7 @@ import { fixerDraft as draft } from './board'
 import { feeOf } from './hire'
 import type { AuxEntry, FavorSize, HireWay, Job, PayKind, PayoutRecord, PendingEnd, Rating } from './model'
 import { FAVOR_SIZE_NAME, PAY_NAME, RATING_KEYS, auxList, favorSizeOf, fixerRules, jobOf } from './model'
-import { repChanges, repGainOf } from './rep'
+import { repChanges, repGainOf, repOutcomeOf } from './rep'
 
 export type Wallet = 'cash' | 'cred'
 export const WALLET_NAME: Record<Wallet, string> = { cash: '現金', cred: '帳戶' }
@@ -233,7 +233,8 @@ export function payoutDraft(k: Kernel, state: GameState, pend: PendingEnd): Repo
     lines.push(`「${job.title}」失敗了：沒有報酬。`, ...rep.lines)
     if (entries.some((e) => (e.cost.cash ?? 0) > 0)) lines.push('已經付出去的出場費不退。')
     changes.push(...releaseChanges(state, entries))
-    const record: PayoutRecord = { outcome: 'failed', rating: null, reward: 0, wallet: 'cash', gross: 0, cut: 0, pool: 0, pc_net: 0, debt: 0 }
+    const repOut = repOutcomeOf(k, state, rep.changes)
+    const record: PayoutRecord = { outcome: 'failed', rating: null, reward: 0, wallet: 'cash', gross: 0, cut: 0, pool: 0, pc_net: 0, debt: 0, ...(repOut ? { rep: repOut } : {}) }
     changes.push({ op: 'fixer.settle', job: job.id, payout: record })
     return draft(state, 'fixer.payout', 'failed', `「${job.title}」失敗了，沒有報酬。`, changes, { narration: { results: lines } })
   }
@@ -277,7 +278,8 @@ export function payoutDraft(k: Kernel, state: GameState, pend: PendingEnd): Repo
   }
   if (s.went.length > 0) lines.push(`一起去的人親密度 +${rules.trip_affinity}。`)
   changes.push(...releaseChanges(state, entries))
-  const record: PayoutRecord = { outcome: 'done', rating: s.rating, reward: s.reward, wallet: s.wallet, gross: s.gross, cut: s.cut, pool: s.pool, pc_net: s.pc_net, debt: s.debt }
+  const repOut = repOutcomeOf(k, state, rep.changes)
+  const record: PayoutRecord = { outcome: 'done', rating: s.rating, reward: s.reward, wallet: s.wallet, gross: s.gross, cut: s.cut, pool: s.pool, pc_net: s.pc_net, debt: s.debt, ...(repOut ? { rep: repOut } : {}) }
   changes.push({ op: 'fixer.settle', job: job.id, payout: record })
   return draft(state, 'fixer.payout', 'paid', `「${job.title}」入帳：你實拿 ${formatAmount(s.pc_net)} ${WALLET_NAME[s.wallet]}。`, changes, {
     timeline: [{ layer: 'meat', tag: 'fixer.payout', text: s.lines.join(' '), data: { split: clone(s) as unknown as Record<string, unknown> } }],

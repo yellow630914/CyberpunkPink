@@ -17,15 +17,25 @@ const commit = (g: CityGame, changes: Parameters<CityGame['commit']>[0]['changes
   g.commit({ kind: 'event', action: 'event.test', location: {}, party: [], timeline: [], changes, outcome: { result: 'ok', summary: '測試' } })
 
 // ===================================================================================================================
-describe('B016：體悟（AI 一件事 ±5）', () => {
-  it('AI 往下也是 5：從 8 給 −9 只扣 5；內建的結算照寫的算（−9 扣到 0 為止）', () => {
+describe('B016：體悟（AI 一件事只能加 0～+5，不能扣）', () => {
+  it('AI 往下不行：從 8 給 −9 拿到 0 變動；內建的結算照寫的算（−9 扣到 0 為止）', () => {
     const { game: g } = makeCityGame({ seed: 6 })
     commit(g, [{ op: 'meter', kind: 'insight', key: '_', set: 8 }])
     const ai = resolve(g, [{ kind: 'insight', amount: -9 }], 'ai')
-    expect(ai.changes).toEqual([{ op: 'meter', kind: 'insight', key: '_', delta: -5 }])
-    expect(ai.clamps[0]).toMatchObject({ from: -9, to: -5 })
+    expect(ai.errors).toEqual([])
+    expect(ai.changes.every((c) => c.op !== 'meter' || (c as { delta?: number }).delta === 0 || (c as { delta?: number }).delta === undefined)).toBe(true)
+    commit(g, ai.changes)
+    expect(meterOf(g.k, g.state, 'insight')).toBe(8)
+    expect(ai.clamps[0]).toMatchObject({ from: -9, to: 0 })
     const builtin = resolve(g, [{ kind: 'insight', amount: -9 }], 'builtin')
     expect(builtin.changes).toEqual([{ op: 'meter', kind: 'insight', key: '_', delta: -8 }])
+  })
+
+  it('AI 往上照舊：+9 只收 5；量表的 cap 是 { down: 0, up: 5 }', () => {
+    const { game: g } = makeCityGame({ seed: 6 })
+    expect(g.k.meters.get('insight')!.cap).toEqual({ down: 0, up: 5 })
+    const ai = resolve(g, [{ kind: 'insight', amount: 9 }], 'ai')
+    expect(ai.changes).toEqual([{ op: 'meter', kind: 'insight', key: '_', delta: 5 }])
   })
 })
 
@@ -109,7 +119,7 @@ describe('B019：忠誠只有名冊上的人有', () => {
 
 // ===================================================================================================================
 describe('B022：封閉清單（AI 可以用的效果）', () => {
-  it('aiKinds 沒有 debt、bargain；其餘的都在；錯誤訊息列的是 AI 能用的', () => {
+  it('aiKinds 沒有 debt、bargain、perk、scout_reveal；meet、npc_known 保留給 AI；其餘的都在；錯誤訊息列的是 AI 能用的', () => {
     const { game: g } = makeCityGame({ seed: 7 })
     const all = g.k.effects.kinds()
     const ai = g.k.effects.aiKinds()
@@ -117,13 +127,29 @@ describe('B022：封閉清單（AI 可以用的效果）', () => {
     expect(ai).not.toContain('debt')
     expect(ai).not.toContain('bargain')
     expect(ai).toEqual(expect.arrayContaining(['bill', 'cred', 'cash', 'hostility', 'insight']))
-    expect(all.filter((k) => !ai.includes(k)).sort()).toEqual(['bargain', 'debt'])
+    expect(ai).toEqual(expect.arrayContaining(['meet', 'npc_known']))
+    expect(all.filter((k) => !ai.includes(k)).sort()).toEqual(['bargain', 'debt', 'perk', 'scout_reveal'])
     const err = resolve(g, [{ kind: 'debt', to: 'f_corp', amount: 100, rate: 0.1 }], 'ai').errors.join()
     expect(err).toContain('不是 AI 與玩家要的結果可以用的效果')
     expect(err).not.toContain('debt、') // 可以用的清單裡不列 debt
     const unknown = resolve(g, [{ kind: 'nope', amount: 1 }], 'ai').errors.join()
     expect(unknown).toContain('不在封閉清單裡')
     expect(unknown).not.toContain('bargain')
+  })
+
+  it('perk、scout_reveal 不給 AI（整批不收）；內建的不被封閉清單擋（perk 內建照收見 M0-perks）；meet、npc_known 仍給 AI', () => {
+    const { game: g } = makeCityGame({ seed: 7 })
+    const cases: Array<[string, Record<string, unknown>]> = [['perk', { kind: 'perk', id: 'smooth_talker' }], ['scout_reveal', { kind: 'scout_reveal', job: 'nope' }]]
+    for (const [kind, effect] of cases) {
+      for (const source of ['ai', 'player'] as const) {
+        const r = resolve(g, [effect], source)
+        expect(r.errors.join(), `${kind}/${source}`).toContain('不是 AI 與玩家要的結果可以用的效果')
+        expect(r.changes, `${kind}/${source}`).toEqual([])
+      }
+      // 內建的來源不被封閉清單擋（scout_reveal 指到沒有的委託只是沒東西可揭，不是被擋）
+      expect(resolve(g, [effect], 'builtin').errors.join(), `${kind}/builtin`).not.toContain('不是 AI 與玩家要的結果可以用的效果')
+    }
+    expect(g.k.effects.aiKinds()).toEqual(expect.arrayContaining(['meet', 'npc_known']))
   })
 
   it('玩家要的結果也不能用（夾值關著、asked 對得上也一樣：封閉清單不是上限）；內建的照常', () => {

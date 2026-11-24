@@ -10,7 +10,7 @@ import { ActionBlocked, attachActivityEnd, deriveRng, effectCtx, endActivity, is
 import { chooseBranch, chooseFace, commissionFeature, retreat } from '../../src/features/commission'
 import { favorsFeature, favorsOf } from '../../src/features/favors'
 import {
-  DEFAULT_FIXER_RULES, accept, auxSetup, bondPurpose, borrowOption, borrowPrice, drop, fixerFeature, fixerRules, go, hire, hireBlocks, hireOptions, jobOf, readFixer, repGainOf, ruleProblems,
+  DEFAULT_FIXER_RULES, abandonRepOf, accept, auxSetup, bondPurpose, borrowOption, borrowPrice, drop, fixerFeature, fixerRules, go, hire, hireBlocks, hireOptions, jobOf, readFixer, repGainOf, ruleProblems,
   splitPreview, unhire,
 } from '../../src/features/fixer'
 import type { AuxFace, HireWay, Offer } from '../../src/features/fixer'
@@ -843,7 +843,7 @@ describe('撤退：請的人與付的錢都回去', () => {
 describe('規則 fixer_rule', () => {
   it('預設值照規格（G16、COMMISSIONS 6.5、NPC_SYSTEM 10.5）', () => {
     expect(DEFAULT_FIXER_RULES).toMatchObject({
-      rating_bonus: { S: 0.2, A: 0.1, B: 0, C: -0.1 }, rep_same: 2, rep_higher: 4, rep_lower: 0, rep_top: 1, rep_failed: -3, rep_abandon: -5, borrow_base: 200, borrow_mult: 1.5, boss_shares: 2, aux_max: 2, bond_dc_base: 20, bond_affinity_step: 5, bond_loyalty: 70,
+      rating_bonus: { S: 0.2, A: 0.1, B: 0, C: -0.1 }, rep_same: 2, rep_higher: 4, rep_lower: 0, rep_top: 1, rep_failed: -3, rep_abandon: -5, rep_abandon_early: -2, borrow_base: 200, borrow_mult: 1.5, boss_shares: 2, aux_max: 2, bond_dc_base: 20, bond_affinity_step: 5, bond_loyalty: 70,
       trip_affinity: 2, trip_loyalty: 2,
     })
   })
@@ -1019,6 +1019,7 @@ describe('接上真的 commission 功能', () => {
     const reward = job(g, 'o_real').payout!.reward
     expect(cash(g)).toBe(cash0 + reward - Math.round(reward * 0.1))
     expect(rep(g)).toBe(2)
+    expect(job(g, 'o_real').payout!.rep).toEqual({ from: 0, to: 2 }) // 入帳記下信譽實際的變化（畫面的結算讀它）
     expect(aff(g, 'ann')).toBe(2)
     expect(loy(g, 'ann')).toBe(32)
     expect(g.state.actors.ann!.conditions.some((c) => c.id === 'busy')).toBe(false)
@@ -1042,6 +1043,19 @@ describe('接上真的 commission 功能', () => {
     expect(job(g, 'o_real')).toMatchObject({ status: 'active', aux: {}, payout: null })
     expect(rep(g)).toBe(0)
     expect(g.state.ext.commission).toBeUndefined()
+  })
+
+  it('撤退之後才放棄算出發後（真的 commission.retreat：快照回到進副本之前，出發過的記號還在）', () => {
+    const g = setupReal()
+    setRep(g, 20)
+    take(g, 'o_real')
+    doGo(g, 'o_real')
+    g.commit(chooseFace(g.k, g.state, 'net'))
+    g.commit(retreat(g.k, g.state))
+    expect(job(g, 'o_real')).toMatchObject({ status: 'active', departed: true })
+    expect(rep(g)).toBe(20)
+    g.commit(drop(g.k, g.state, 'o_real'))
+    expect(rep(g)).toBe(15)
   })
 })
 
@@ -1123,7 +1137,7 @@ describe('街頭信譽：完成委託看委託的級和主角的級', () => {
   })
 
   it('規則表可以換數字：同級、高一級、低級、S 的加成、失敗、放棄', () => {
-    const rule = { id: 'default', rep_same: 1, rep_higher: 6, rep_lower: 1, rep_top: 2, rep_failed: -1, rep_abandon: -9 }
+    const rule = { id: 'default', rep_same: 1, rep_higher: 6, rep_lower: 1, rep_top: 2, rep_failed: -1, rep_abandon: -9, rep_abandon_early: -4 }
     const g = setup({ content: [PACK, { id: 'rules', content: { fixer_rule: [rule] } }] })
     setRep(g, 35)
     take(g, 'o_small')
@@ -1133,22 +1147,52 @@ describe('街頭信譽：完成委託看委託的級和主角的級', () => {
     expect(repGainOf(g.k, g.state, job(g, 'o_big'), 'S').amount).toBe(3)
     expect(repGainOf(g.k, g.state, job(g, 'o_large'), 'S').amount).toBe(8)
     g.commit(drop(g.k, g.state, 'o_small'))
-    expect(rep(g)).toBe(26)
+    expect(rep(g)).toBe(31) // 還沒出發：rep_abandon_early（−4）
+    doGo(g, 'o_big')
+    retreatStub(g)
+    g.commit(drop(g.k, g.state, 'o_big'))
+    expect(rep(g)).toBe(22) // 出發過：rep_abandon（−9）
   })
 })
 
-describe('放棄手上的委託：街頭信譽 −5（LIFE 第 9 節，暫定）', () => {
-  it('放棄：從手上拿掉、中間人今天不再給這一件、信譽 −5；結果寫在報告裡', () => {
+describe('放棄手上的委託：街頭信譽 出發前 −2、出發後 −5（LIFE 第 9 節；使用者 2026-11-24 裁決）', () => {
+  it('出發前放棄：從手上拿掉、中間人今天不再給這一件、信譽 −2；結果寫在報告裡', () => {
     const g = setup()
     setRep(g, 20)
     take(g, 'o_small')
+    expect(job(g, 'o_small').departed).toBeUndefined()
+    expect(abandonRepOf(g.k, job(g, 'o_small'))).toBe(-2)
     const reports = g.commit(drop(g.k, g.state, 'o_small'))
-    expect(rep(g)).toBe(15)
+    expect(rep(g)).toBe(18)
     expect(jobOf(g.state, 'o_small')).toBeNull()
     expect(reports[0]!.narration?.results?.join('')).toContain('街頭信譽')
   })
 
-  it('信譽 0 放棄不會變負的；放棄比失敗（−3）更糟', () => {
+  it('出發後放棄（出發之後、副本還沒結束就回到手上的情況見下一條）：go 記下出發過了，之後放棄 −5', () => {
+    const g = setup()
+    setRep(g, 20)
+    take(g, 'o_small')
+    doGo(g, 'o_small')
+    expect(job(g, 'o_small').departed).toBe(true)
+    expect(abandonRepOf(g.k, job(g, 'o_small'))).toBe(-5)
+    // 副本進行中放棄被活動擋掉；做完前沒有別的路，這裡用替身撤退回到手上
+    retreatStub(g)
+    expect(job(g, 'o_small')).toMatchObject({ status: 'active', departed: true })
+    g.commit(drop(g.k, g.state, 'o_small'))
+    expect(rep(g)).toBe(15)
+  })
+
+  it('規則表兩個數字各自管各自的；舊存檔的委託沒有 departed 當成沒出發', () => {
+    const g = setup({ content: [PACK, { id: 'rules', content: { fixer_rule: [{ id: 'default', rep_abandon: -7, rep_abandon_early: -1 }] } }] })
+    setRep(g, 30)
+    take(g, 'o_small')
+    expect(abandonRepOf(g.k, job(g, 'o_small'))).toBe(-1)
+    expect(abandonRepOf(g.k, { ...job(g, 'o_small'), departed: true })).toBe(-7)
+    g.commit(drop(g.k, g.state, 'o_small'))
+    expect(rep(g)).toBe(29)
+  })
+
+  it('信譽 0 放棄不會變負的；出發後放棄比失敗（−3）更糟、出發前放棄比失敗輕', () => {
     const g = setup()
     take(g, 'o_small')
     g.commit(drop(g.k, g.state, 'o_small'))
@@ -1162,7 +1206,28 @@ describe('放棄手上的委託：街頭信譽 −5（LIFE 第 9 節，暫定）
     take(f, 'o_small')
     doGo(f, 'o_small')
     endStub(f, 'failed')
-    expect(rep(a)).toBeLessThan(rep(f))
+    expect(rep(a)).toBeGreaterThan(rep(f))
+    const late = setup()
+    setRep(late, 30)
+    take(late, 'o_small')
+    doGo(late, 'o_small')
+    retreatStub(late)
+    late.commit(drop(late.k, late.state, 'o_small'))
+    expect(rep(late)).toBeLessThan(rep(f))
+  })
+
+  it('失敗的入帳也記信譽實際的變化：信譽 0 失敗扣不下去是 0→0；有信譽就是 from→to', () => {
+    const a = setup()
+    take(a, 'o_small')
+    doGo(a, 'o_small')
+    endStub(a, 'failed')
+    expect(job(a, 'o_small').payout).toMatchObject({ outcome: 'failed', rep: { from: 0, to: 0 } })
+    const b = setup()
+    setRep(b, 30)
+    take(b, 'o_small')
+    doGo(b, 'o_small')
+    endStub(b, 'failed')
+    expect(job(b, 'o_small').payout!.rep).toEqual({ from: 30, to: 27 })
   })
 
   it('撤退不是放棄：委託還在手上，信譽不動（既有的測試也驗）', () => {

@@ -8,7 +8,7 @@
 //   內容  fixer（中間人）、fixer_rule（id: default，蓋掉內建的規則數字）
 //   量表  rep（街頭信譽：0～100、AI ±3）；同名的效果與條件核心自動有。衍生數值 rep_grade（用核心的 repTierOf 與 gradeOfRepTier）
 //   掛點  fixer.offers（這個功能宣告，生成委託的功能回答）；activity.end（kind commission、origin.by 是自己）
-//   變更  fixer.take、fixer.status、fixer.drop、fixer.table、fixer.scout、fixer.reveal
+//   變更  fixer.take、fixer.status、fixer.depart（出發過的記號）、fixer.drop、fixer.table、fixer.scout、fixer.reveal
 //   效果  scout_reveal { job?, cat?, count? }：替手上的一件委託揭開未知；job 寫委託的 id 或它的副本的 id；沒寫就是最近接的那一件
 //   報告  fixer.accept、fixer.haggle、fixer.scout、fixer.buy_intel、fixer.go、fixer.drop（kind gig）
 // 召集與入帳（M2-fixer-pay；hire.ts、pay.ts）：
@@ -16,7 +16,7 @@
 //   報告  fixer.hire、fixer.unhire、fixer.payout（kind gig）
 //   掛鉤  activity.end（commission）：做完或失敗記下 pending、撤退記下 retreat；report.after：有 pending 就接著提交 fixer.payout；
 //         rewind.keep：撤退回到進副本之前之後，把請的人全退掉（付出去的錢回來、busy 拿掉、借來的人移除）
-//   規則  fixer_rule 多：rating_bonus、rep_same／rep_higher／rep_lower／rep_top／rep_failed／rep_abandon（街頭信譽，見 rep.ts）、borrow_base、borrow_mult、boss_shares、aux_max、bond_*、trip_*（見 model.ts 的 FixerRules）
+//   規則  fixer_rule 多：rating_bonus、rep_same／rep_higher／rep_lower／rep_top／rep_failed／rep_abandon_early／rep_abandon（街頭信譽，見 rep.ts）、borrow_base、borrow_mult、boss_shares、aux_max、bond_*、trip_*（見 model.ts 的 FixerRules）
 //   讀別人的：衍生數值 roster_fee（沒有人註冊當 0）、條件 in_roster、has_favor、變更 favor.spend、效果 owed、owed_to_pc、cash、cred、rep、hostility、loyalty、affinity（沒有人註冊就略過）
 // 委託的生成（M2-commission-gen；gen.ts）：
 //   內容  commission_type（模板）、commission_modifier（詞條）、commission_link（常見的連動）；規則放在 commission_rule/default 的另一部分（reward_range、scales_by_tier、encounters）
@@ -41,7 +41,7 @@ import { LINK_KIND, MODIFIER_KIND, TYPE_KIND, genProblems, linkProblems, modifie
 export {
   AUX_FACES, AUX_FACE_NAME, FAVOR_SIZE_NAME, HIRE_NAME, HIRE_WAYS, RATING_KEYS, auxList,
   CATS, CAT_NAME, DEFAULT_FIXER_RULES, EXT, KIND, LOCKED_METHODS, OWNER, PAY_KINDS, PAY_NAME, REP_METER, RULE_KIND, SCOUT_METHODS,
-  activeJobs, favorSizeOf, fixerProblems, fixerRules, gradeOf, hiddenUnknowns, jobByRef, jobOf, jobsOf, latestJob, methodOf, offerProblems, readFixer, repBlock, ruleProblems, scoutDc, scoutedOf, tableOf,
+  abandonRepOf, activeJobs, favorSizeOf, fixerProblems, fixerRules, gradeOf, hiddenUnknowns, jobByRef, jobOf, jobsOf, latestJob, methodOf, offerProblems, readFixer, repBlock, ruleProblems, scoutDc, scoutedOf, tableOf,
 } from './model'
 export type {
   Aux, AuxEntry, AuxFace, FavorSize, HireCost, HireWay, PayoutRecord, PendingEnd, Rating,
@@ -136,6 +136,18 @@ export const fixerFeature: Feature = {
         store(state, f)
       },
       describe: (c, state) => `委託「${jobOf(state, c.id)?.title ?? c.id}」${c.status === 'done' ? '做完了' : '失敗了'}`,
+    })
+
+    // 出發過了的記號（fixer.go 帶；撤退之後還在，放棄的信譽看它：dev/adr/0017 最後一批的補記）
+    k.changes.register<Change & { id: string }>({
+      op: 'fixer.depart', owner: OWNER,
+      validate: (state, c) => (jobOf(state, c.id) ? [] : [`手上沒有 ${String(c.id)} 這件委託`]),
+      apply(state, c) {
+        const f = fixerState(state)
+        const j = f.jobs.find((x) => x.id === c.id)
+        if (j) j.departed = true
+        store(state, f)
+      },
     })
 
     k.changes.register<Change & { id: string }>({
@@ -304,8 +316,9 @@ export const fixerFeature: Feature = {
     })
 
     // ---- 效果：替手上的一件委託揭開未知（不花時間、不算踩點的次數）----
+    // 不在 EVENTS 2.4 的 AI 效果表裡：AI 與玩家要的結果不能給（ai: false）；內建的事件資料照常能給
     k.effects.register<RevealEffect>({
-      kind: 'scout_reveal', owner: OWNER,
+      kind: 'scout_reveal', owner: OWNER, ai: false,
       validate(raw, ctx: EffectCtx) {
         const p: string[] = []
         if (raw.job !== undefined && !isText(raw.job)) p.push('job 要是手上委託的 id')

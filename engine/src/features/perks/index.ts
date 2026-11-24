@@ -39,7 +39,8 @@ export const perksFeature: Feature = {
     })
 
     k.effects.register<PerkEffect>({
-      kind: 'perk', owner: OWNER,
+      // 特質不在 EVENTS 2.4 的 AI 效果表裡：AI 與玩家要的結果不能給（ai: false，dev/adr/0017 M2 最後一批的補記）；內建的事件資料照常能給
+      kind: 'perk', owner: OWNER, ai: false,
       validate(raw, ctx) {
         const id = raw.id
         const perk = typeof id === 'string' ? ctx.content.get<PerkEntry>('perk', id) : undefined

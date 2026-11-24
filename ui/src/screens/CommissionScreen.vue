@@ -12,7 +12,7 @@ import RunTab from '../components/commission/RunTab.vue'
 import { PAY_NAME } from '@engine/src/features/fixer'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
-import { FACE_LABEL, abandonText, gradeRoman, repGainText, scaleName } from '../lib/commissionView'
+import { FACE_LABEL, abandonText, gradeRoman, repChangeText, repGainText, scaleName } from '../lib/commissionView'
 import type { FaceId } from '../lib/commissionView'
 
 /**
@@ -47,10 +47,17 @@ const tabs = computed(() => [
   { id: 'call', label: '3 召集', disabled: !job.value },
   { id: 'run', label: '4 副本', disabled: !view.value },
 ])
-// 出發之後換到副本；撤退或做完之後回到召集（做完了就回接案）
+/** 剛結算的那件委託（做完或失敗入帳之後；網址 settled 可以直接指定）：畫面上方的結算框讀它的入帳紀錄，信譽的數字是引擎記的 */
+const settledId = ref<string | null>(typeof route.query.settled === 'string' ? route.query.settled : null)
+const settled = computed(() => (settledId.value ? e.fixer.job(settledId.value) : null))
+const settledPay = computed(() => settled.value?.payout ?? null)
+// 出發之後換到副本；撤退或做完之後回到召集（做完了就回接案）；做完或失敗（有入帳）就把結算擺出來
 watch(() => view.value?.id ?? null, (now, was) => {
-  if (now && !was) tab.value = 'run'
-  else if (!now && was) tab.value = job.value ? 'call' : 'take'
+  if (now && !was) { tab.value = 'run'; settledId.value = null }
+  else if (!now && was) {
+    tab.value = job.value ? 'call' : 'take'
+    settledId.value = e.fixer.settledJob(was)?.id ?? null
+  }
 })
 // 網址換了分頁（例如從中間人的店「進行中的委託」連過來）：跟著換
 watch(() => route.query.tab, t => { if (typeof t === 'string') tab.value = t })
@@ -86,6 +93,14 @@ const typeName = computed(() => (job.value ? e.contentName('commission_type', St
       <div v-if="!e.hasCharacter" class="panel cut pad"><p class="empty-note">還沒有主角：先去建角。</p><div class="go left"><button type="button" class="btn pri" @click="router.push('/newgame')">去建角</button></div></div>
 
       <template v-else>
+        <!-- 結算：副本做完或失敗入帳之後（撤退沒有）；實際的信譽變化是引擎入帳時記的（PayoutRecord.rep），不在這裡算 -->
+        <section v-if="settled && settledPay" class="panel cut pad stack" data-settle>
+          <p class="h">「{{ settled.title }}」{{ settledPay.outcome === 'done' ? '結算' : '失敗了' }}</p>
+          <div v-if="settledPay.rating" class="kv"><span>評價</span><b data-settle-rating>{{ settledPay.rating }}</b></div>
+          <div v-if="settledPay.outcome === 'done'" class="kv"><span>你實拿</span><b data-settle-net><MoneyTag :kind="settledPay.wallet === 'cred' ? 'acc' : 'cash'" :amount="settledPay.pc_net" :size="14" /></b></div>
+          <div class="kv"><span>街頭信譽</span><b data-settle-rep>{{ repChangeText(settledPay.rep) }}</b></div>
+          <div class="go left"><button type="button" class="btn" data-settle-close @click="settledId = null">知道了</button></div>
+        </section>
         <!-- 1 接案：手上有這一件就看條件，沒有就是中間人的清單 -->
         <div v-if="tab === 'take'">
           <div v-if="job" class="cols2" data-taken>
@@ -99,7 +114,7 @@ const typeName = computed(() => (job.value ? e.contentName('commission_type', St
               <div class="kv"><span>規模</span><b>{{ scaleName(String(job.commission.scale ?? '')) }}・{{ job.commission.stages.length }} 階段</b></div>
               <div class="kv"><span>完成的信譽</span><b data-rep-gain>{{ repGainText(e.fixer.repGain(job.commission)) }}</b></div>
               <div v-if="confirmDrop" class="warnbox panel pad" data-drop-confirm>
-                <p><b>要放棄嗎？</b><span data-abandon-text>{{ abandonText(e.fixer.abandonRep()) }}</span></p>
+                <p><b>要放棄嗎？</b><span data-abandon-text>{{ abandonText(e.fixer.abandonRep(job.id), !!job.departed) }}</span></p>
                 <div class="go"><button type="button" class="btn" @click="confirmDrop = false">再想想</button><button type="button" class="btn pri" data-drop-yes @click="drop">放棄</button></div>
               </div>
               <div class="go"><ReasonButton :reason="dropReason ?? (view ? '副本進行中，要先做完或撤退。' : null)" data-drop @go="confirmDrop = true">放棄這件委託</ReasonButton><button type="button" class="btn" @click="ui.openRoot('fixer', { fixerId: job.fixer })">中間人的店</button><button type="button" class="btn pri" @click="tab = 'scout'">去踩點</button></div>

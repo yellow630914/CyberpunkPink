@@ -701,12 +701,21 @@ describe('效果 scout_reveal', () => {
     expect(reveal(g, { job: 'o_small' }).errors[0]).toMatch(/o_small/)
   })
 
-  it('什麼都揭開了就不再動；AI 給的一件事最多揭開一項', () => {
+  it('AI 與玩家要的 scout_reveal 整批不收（不在 EVENTS 2.4 的 AI 效果表；ai: false）；內建的照收', () => {
     const g = setup()
     take(g)
     const r = reveal(g, { count: 2 }, 'ai')
+    expect(r.errors.join()).toContain('不是 AI 與玩家要的結果可以用的效果')
+    expect(r.changes).toEqual([])
+    expect(jobOf(g.state, 'o_small')!.revealed).toHaveLength(0)
+    expect(g.k.effects.aiKinds()).not.toContain('scout_reveal')
+    reveal(g, { count: 1 })
     expect(jobOf(g.state, 'o_small')!.revealed).toHaveLength(1)
-    expect(r.clamps[0]?.notice).toMatch(/最多只替你揭開一項/)
+  })
+
+  it('什麼都揭開了就不再動', () => {
+    const g = setup()
+    take(g)
     for (let i = 0; i < 8; i++) reveal(g, { count: 5 })
     expect(jobOf(g.state, 'o_small')!.revealed).toHaveLength(7)
     expect(() => reveal(g, {})).not.toThrow()
@@ -863,7 +872,7 @@ describe('副本回報：只把手上那一件標成做完或失敗', () => {
     expect(g.rewindToKind('entry', '撤退，回到出發之前。')).toBeNull()
     expect(g.state.ext.cm_stub).toBeUndefined()
     const after = jobOf(g.state, 'o_small')!
-    expect(after).toEqual(before)
+    expect(after).toEqual({ ...before, departed: true }) // 出發過了的記號留著（放棄的信譽看它）
     expect(after).toMatchObject({ status: 'active', scouts: 1, revealed: ['u_path', 'u_guard', 'u_lace'] })
     expect(g.state.money.cash).toBe(cash)
     expect(minutes(g)).toBe(t0)

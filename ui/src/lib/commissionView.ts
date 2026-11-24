@@ -123,7 +123,19 @@ export function repGainText(g: { amount: number; topBonus: number }): string {
   const base = g.amount === 0 ? '信譽不變' : `信譽 +${g.amount}`
   return g.topBonus > 0 ? `${base}（評價 S 再 +${g.topBonus}）` : base
 }
-/** 放棄一件委託的確認句（rep 是引擎規則 rep_abandon，負數） */
-export function abandonText(rep: number): string {
-  return rep === 0 ? '放棄這件委託，信譽不變。' : `放棄這件委託，信譽會${rep < 0 ? '掉' : '加'} ${Math.abs(rep)} 點。`
+/** 放棄一件委託的確認句（rep 是引擎的 abandonRepOf，負數；departed：這件出發過了，寫成「已經出發過」，沒出發寫「還沒出發」） */
+export function abandonText(rep: number, departed = false): string {
+  const when = departed ? '這件已經出發過，' : '這件還沒出發，'
+  return rep === 0 ? `${when}放棄它，信譽不變。` : `${when}放棄它，信譽會${rep < 0 ? '掉' : '加'} ${Math.abs(rep)} 點。`
+}
+/** 副本裡做完的預告：做完的信譽（引擎的 repGainOf，照現在預估的評價）與失敗的（引擎規則 rep_failed，負數） */
+export function repForecastText(g: { amount: number; topBonus: number }, failed: number): string {
+  return `做完：${repGainText(g)}；失敗：${failed === 0 ? '信譽不變' : `信譽 ${failed < 0 ? '−' : '+'}${Math.abs(failed)}`}`
+}
+/** 結算之後實際的信譽變化（引擎入帳時記的 PayoutRecord.rep：夾值之後的 from→to；沒有紀錄不寫數字） */
+export function repChangeText(rep: { from: number; to: number } | null | undefined): string {
+  if (!rep) return '信譽沒有變化'
+  const d = rep.to - rep.from
+  if (d === 0) return `信譽不變（${rep.to}）`
+  return `信譽 ${rep.from} → ${rep.to}（${d > 0 ? '+' : '−'}${Math.abs(d)}）`
 }

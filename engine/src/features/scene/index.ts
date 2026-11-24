@@ -249,9 +249,9 @@ export const sceneFeature: Feature = {
     k.content.defineKind({ kind: SKILL_KIND, owner: OWNER, validate: skillProblems })
     k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
 
-    // 體悟（LEWD_SYSTEM 第 10 節）：單一、0 起、沒有上限。AI 一件事最多給 5 點（EVENTS 2.4 節；規格只寫一個數字，往下也比照，dev/adr/0017 第 17 項）。
+    // 體悟（LEWD_SYSTEM 第 10 節）：單一、0 起、沒有上限。AI 一件事只能加（0～+5）、不能扣（EVENTS 2.4 節；使用者 2026-11-24 裁決，dev/adr/0017 最後一批的補記）。
     // 成人場景收尾照契合給的 5～20 點是內建的結算，不受這張表管
-    k.meters.define({ kind: 'insight', owner: OWNER, name: '體悟', min: 0, max: Infinity, start: 0, keyed: 'none', cap: { down: 5, up: 5 } })
+    k.meters.define({ kind: 'insight', owner: OWNER, name: '體悟', min: 0, max: Infinity, start: 0, keyed: 'none', cap: { down: 0, up: 5 } })
 
     k.activity.define(sceneActivity)
 

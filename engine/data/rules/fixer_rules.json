@@ -26,6 +26,7 @@
     "rep_top": 1,
     "rep_failed": -3,
     "rep_abandon": -5,
+    "rep_abandon_early": -2,
     "borrow_base": 200,
     "borrow_mult": 1.5,
     "boss_shares": 2,

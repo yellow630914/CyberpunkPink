@@ -10,7 +10,7 @@ import TrackBar from '../TrackBar.vue'
 import { useEngine } from '../../stores/engine'
 import { useUi } from '../../stores/ui'
 import type { Point } from '../../data/types'
-import { FACE_CLASS, FACE_ICON, FACE_LABEL, NOT_OPEN, auxLine, branchChar, gradeRoman, linkKind, linkWhere, lockedNear, mapCell, scaleName, stepPips } from '../../lib/commissionView'
+import { FACE_CLASS, FACE_ICON, FACE_LABEL, NOT_OPEN, auxLine, branchChar, gradeRoman, linkKind, linkWhere, lockedNear, mapCell, repForecastText, scaleName, stepPips } from '../../lib/commissionView'
 import type { FaceId } from '../../lib/commissionView'
 
 /**
@@ -22,6 +22,8 @@ const ui = useUi()
 const router = useRouter()
 
 const v = computed(() => e.commission.view())
+/** 這一趟是手上哪件委託（信譽預告要它的級） */
+const job = computed(() => (v.value ? e.fixer.jobs().find(j => j.commission.id === v.value!.id) ?? null : null))
 const grid = computed(() => e.world.grid())
 const working = ref(false)
 const sel = ref<string | null>(null)
@@ -176,6 +178,7 @@ const needText = (b: NonNullable<typeof v.value>['branches'][number]): string =>
           </template>
         </section>
         <p class="t-fine">現在做完的話預估評價 {{ v.close.rating }}，歷練點 {{ v.close.xp }}。</p>
+        <p v-if="job" class="t-fine" data-rep-forecast>街頭信譽（照預估的評價）：{{ repForecastText(e.fixer.repGain(job.commission, v.close.rating), e.fixer.repFailed()) }}。</p>
       </div>
 
       <aside class="stack">

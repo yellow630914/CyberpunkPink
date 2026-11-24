@@ -11,13 +11,14 @@ import type { ContentPack, Feature } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
 import { allFeatures } from '@engine/src/features'
 import { depositOf, sleepOptions } from '@engine/src/features/rest'
-import { fixerRules, repGainOf } from '@engine/src/features/fixer'
+import { abandonRepOf, fixerRules, jobOf, repGainOf } from '@engine/src/features/fixer'
 import { useEngine } from '../../src/stores/engine'
-import { abandonText, repGainText } from '../../src/lib/commissionView'
+import { abandonText, repChangeText, repForecastText, repGainText } from '../../src/lib/commissionView'
 import RestDialog from '../../src/dialogs/RestDialog.vue'
 import RelationsDialog from '../../src/dialogs/RelationsDialog.vue'
 import CommissionScreen from '../../src/screens/CommissionScreen.vue'
 import TakePanel from '../../src/components/commission/TakePanel.vue'
+import RunTab from '../../src/components/commission/RunTab.vue'
 import { PACK as CPACK, PROVIDER, html as chtml } from '../commission/fixtures'
 import storeSrc from '../../src/stores/engine.ts?raw'
 import commissionSrc from '../../src/screens/CommissionScreen.vue?raw'
@@ -137,13 +138,28 @@ describe('委託：放棄的確認框與信譽預告', () => {
     expect(e.createCharacter(DRAFT)).toEqual([])
     return { pinia, e }
   }
-  it('abandonRep 讀引擎的 rep_abandon（改規則會跟著變）；文字寫出掉多少', async () => {
+  it('abandonRep 讀引擎的 abandonRepOf：出發前 rep_abandon_early、出發過 rep_abandon（撤退回來也算）；文字寫出掉多少與出發前後', async () => {
     const { e } = await started()
-    expect(e.fixer.abandonRep()).toBe(fixerRules(oracle(e, [CPACK], [PROVIDER]).k).rep_abandon)
-    expect(abandonText(-5)).toContain('掉 5 點')
+    const k = oracle(e, [CPACK], [PROVIDER]).k
+    const rules = fixerRules(k)
+    expect(rules.rep_abandon_early).not.toBe(rules.rep_abandon)
+    // 沒給委託的 id 或找不到：出發前的
+    expect(e.fixer.abandonRep()).toBe(rules.rep_abandon_early)
+    const row = e.fixer.board('fx_ui').offers.find((o) => o.id === 'of_ui_a')!
+    expect((await e.fixer.accept({ id: row.id, fixer: 'fx_ui' }, row.pay.find((p) => p.block === null)!.id)).status).toBe('applied')
+    expect(e.fixer.abandonRep('of_ui_a')).toBe(rules.rep_abandon_early)
+    expect(e.fixer.abandonRep('of_ui_a')).toBe(abandonRepOf(k, jobOf(e.state, 'of_ui_a')!))
+    // 出發、撤退回到手上：出發過了，放棄要掉的是 rep_abandon
+    expect((await e.fixer.go('of_ui_a')).status).toBe('applied')
+    expect((await e.commission.retreat()).status).toBe('applied')
+    expect(e.fixer.job('of_ui_a')).toMatchObject({ status: 'active', departed: true })
+    expect(e.fixer.abandonRep('of_ui_a')).toBe(rules.rep_abandon)
+    expect(abandonText(-2)).toContain('還沒出發')
+    expect(abandonText(-5, true)).toContain('已經出發過')
+    expect(abandonText(-5, true)).toContain('掉 5 點')
     expect(abandonText(-12)).toContain('掉 12 點')
     expect(abandonText(0)).toContain('信譽不變')
-    expect(commissionSrc).not.toMatch(/-?5 點/)
+    expect(commissionSrc).not.toMatch(/-?[25] 點/)
   })
   it('repGain 是引擎的 repGainOf；低級的寫「信譽不變」，S 的加成另寫', async () => {
     const { e } = await started()
@@ -171,10 +187,84 @@ describe('委託：放棄的確認框與信譽預告', () => {
     expect(page).toContain('data-drop')
     expect(page).not.toContain('data-drop-confirm') // 還沒按
     expect(commissionSrc).toContain('v-if="confirmDrop"')
-    expect(commissionSrc).toContain('abandonText(e.fixer.abandonRep())')
+    expect(commissionSrc).toContain('abandonText(e.fixer.abandonRep(job.id), !!job.departed)')
     expect(commissionSrc).toMatch(/@go="confirmDrop = true"/)
     // 直接呼叫 drop 會真的放棄（確認框只是畫面）
     expect((await e.fixer.drop('of_ui_a')).status).toBe('applied')
     expect(e.fixer.jobs()).toHaveLength(0)
+  })
+})
+
+describe('委託：副本裡的信譽預告與結算後實際的信譽變化', () => {
+  async function started() {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const e = useEngine()
+    e.newGame({ seed: 7, testContent: [CPACK], testFeatures: [PROVIDER] })
+    e.setAi({ useAi: false })
+    expect(e.createCharacter(DRAFT)).toEqual([])
+    return { pinia, e }
+  }
+  const take = async (e: Eng) => {
+    const row = e.fixer.board('fx_ui').offers.find((o) => o.id === 'of_ui_a')!
+    expect((await e.fixer.accept({ id: row.id, fixer: 'fx_ui' }, row.pay.find((p) => p.block === null)!.id)).status).toBe('applied')
+  }
+
+  it('副本頁有信譽預告：做完的數字是引擎 repGainOf 照預估的評價算的，失敗的是規則 rep_failed', async () => {
+    const { pinia, e } = await started()
+    await take(e)
+    expect((await e.fixer.go('of_ui_a')).status).toBe('applied')
+    const v = e.commission.view()!
+    const k = oracle(e, [CPACK], [PROVIDER]).k
+    const job = jobOf(e.state, 'of_ui_a')!
+    const gain = repGainOf(k, e.state, job, v.close.rating)
+    const top = repGainOf(k, e.state, job, 'S')
+    const h = await chtml(pinia, RunTab)
+    expect(h).toContain('data-rep-forecast')
+    const want = repForecastText({ amount: gain.amount, topBonus: top.amount - gain.amount }, fixerRules(k).rep_failed)
+    expect(strip(h)).toContain(want)
+    expect(want).toContain(`信譽 +${gain.amount}`)
+    expect(e.fixer.repFailed()).toBe(fixerRules(k).rep_failed)
+    expect(strip(h)).toContain('失敗：信譽 −3')
+  })
+
+  it('做完入帳之後：settledJob 讀引擎記的入帳紀錄（信譽 from→to）；結算框把它寫出來，沒有指定就不出現', async () => {
+    const { pinia, e } = await started()
+    await take(e)
+    expect((await e.fixer.go('of_ui_a')).status).toBe('applied')
+    for (let i = 0; i < 3; i++) {
+      expect((await e.commission.chooseFace('meat')).status).toBe('applied')
+      expect((await e.commission.chooseBranch('assault')).status).toBe('applied')
+      expect(e.world.walk([4, 2]).ok).toBe(true)
+    }
+    expect(e.commission.view()).toBeNull()
+    const j = e.fixer.settledJob('cm_ui_a')!
+    expect(j.status).toBe('done')
+    const rep = j.payout!.rep!
+    expect(rep.to).toBe(e.state.meters.rep!._) // 實際的結果就是現在的信譽
+    expect(rep.to).toBeGreaterThan(rep.from)
+    const open = await chtml(pinia, CommissionScreen, {}, '/commission?settled=of_ui_a')
+    expect(open).toContain('data-settle')
+    expect(strip(open)).toContain(repChangeText(rep))
+    expect(strip(open)).toContain(`信譽 ${rep.from} → ${rep.to}`)
+    expect(open).toContain(`data-settle-rating`)
+    expect(await chtml(pinia, CommissionScreen, {}, '/commission')).not.toContain('data-settle')
+    expect(commissionSrc).toContain('e.fixer.settledJob(was)')
+    expect(commissionSrc).toContain('repChangeText(settledPay.rep)')
+  })
+
+  it('撤退（委託還在手上、沒有入帳）沒有結算（失敗入帳的信譽紀錄由引擎測試驗）', async () => {
+    const { e } = await started()
+    await take(e)
+    expect((await e.fixer.go('of_ui_a')).status).toBe('applied')
+    expect((await e.commission.retreat()).status).toBe('applied')
+    expect(e.fixer.settledJob('cm_ui_a')).toBeNull()
+  })
+
+  it('repChangeText：加、扣、不變、沒有紀錄', () => {
+    expect(repChangeText({ from: 10, to: 14 })).toBe('信譽 10 → 14（+4）')
+    expect(repChangeText({ from: 30, to: 27 })).toBe('信譽 30 → 27（−3）')
+    expect(repChangeText({ from: 0, to: 0 })).toBe('信譽不變（0）')
+    expect(repChangeText(undefined)).toBe('信譽沒有變化')
   })
 })

@@ -230,7 +230,7 @@ const startBonus = (c: Record<string, unknown>): number => (typeof c.alert_start
 
 /**
  * 出發（FIXER 第 2 節③的開頭）：這份報告開一場副本（launch commission），帶著這件委託的副本、踩到的東西（scouted）、警戒的起始值與談好的條件（terms）。
- * 請了人（hire）的話，aux 也併進 setup（每一面的角色 id、哪些是借來的）。origin 是 { by: 'fixer', ref: 這件委託的 id }。出發本身不改狀態（撤退時狀態回到出發之後、進副本之前：委託還在手上，踩過的點還在）。
+ * 請了人（hire）的話，aux 也併進 setup（每一面的角色 id、哪些是借來的）。origin 是 { by: 'fixer', ref: 這件委託的 id }。出發只記一個「出發過了」（fixer.depart；放棄的信譽看它）：撤退時狀態回到出發之後、進副本之前，委託還在手上，踩過的點與這個記號都還在。
  */
 export function go(k: Kernel, state: GameState, jobId: string): ReportDraft {
   const job = needJob(state, jobId)
@@ -252,7 +252,7 @@ export function go(k: Kernel, state: GameState, jobId: string): ReportDraft {
     ...(aux ? { aux } : {}),
   }
   const warn = pursued ? '對方正在追捕你，警戒一開始就比平常高。' : troubled ? '對方在找你麻煩，守備比平常多。' : null
-  return draft(state, 'fixer.go', 'go', `出發去做「${job.title}」。`, [], {
+  return draft(state, 'fixer.go', 'go', `出發去做「${job.title}」。`, [{ op: 'fixer.depart', id: job.id }], {
     launch: [{ kind: COMMISSION_ACTIVITY, setup, origin: { by: 'fixer', ref: job.id } }],
     narration: { results: [`你帶著這件委託出發了：${job.title}。`, ...(warn ? [warn] : [])] },
   })

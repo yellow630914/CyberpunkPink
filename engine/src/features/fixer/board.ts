@@ -6,7 +6,7 @@
 import type { Change, GameState, Kernel, ReportDraft } from '../../core'
 import { ActionBlocked, DEGREE_NAME, clone, formatAmount, meterOf } from '../../core'
 import type { Degree, FixerEntry, FixerRules, Job, Offer, PayKind, TableEntry, UnknownItem } from './model'
-import { CAT_NAME, HOSTILITY_TIER_BOUNTY, KIND, PAY_KINDS, PAY_NAME, factionName, favorSizeOf, fixerRules, gradeOf, hostilityAtLeast, jobsOf, offerProblems, repBlock, rollBest, stageCount, tableOf } from './model'
+import { CAT_NAME, HOSTILITY_TIER_BOUNTY, abandonRepOf, KIND, PAY_KINDS, PAY_NAME, factionName, favorSizeOf, fixerRules, gradeOf, hostilityAtLeast, jobsOf, offerProblems, repBlock, rollBest, stageCount, tableOf } from './model'
 import { repChanges } from './rep'
 
 declare module '../../core' {
@@ -307,14 +307,15 @@ export function accept(k: Kernel, state: GameState, offer: Pick<Offer, 'id' | 'f
 }
 
 /**
- * 放棄手上的一件委託（接了又不做）：從手上拿掉，這位中間人今天不再給這一件；街頭信譽 −5（LIFE 第 9 節「接了就做完」，數字是暫定，fixer_rule.rep_abandon）。
+ * 放棄手上的一件委託（接了又不做）：從手上拿掉，這位中間人今天不再給這一件；街頭信譽：出發前 −2（fixer_rule.rep_abandon_early）、
+ * 出發之後 −5（rep_abandon；出發過、撤退回來又放棄也算；LIFE 第 9 節「接了就做完」）。出發過沒有，看 Job.departed（fixer.go 記）。
  * 撤退（commission.retreat）不是放棄：那是回到進去之前，委託還在手上。
  */
 export function drop(k: Kernel, state: GameState, jobId: string): ReportDraft {
   const job = jobsOf(state).find((j) => j.id === jobId)
   if (!job) throw new ActionBlocked(`手上沒有 ${jobId} 這件委託。`)
   if (job.status !== 'active') throw new ActionBlocked(`「${job.title}」已經${job.status === 'done' ? '做完' : '失敗'}了，沒有什麼好放棄的。`)
-  const rep = repChanges(k, state, fixerRules(k).rep_abandon)
+  const rep = repChanges(k, state, abandonRepOf(k, job))
   return draft(state, 'fixer.drop', 'dropped', `放棄了「${job.title}」。`, [
     { op: 'fixer.drop', id: job.id },
     { op: 'fixer.table', fixer: job.fixer, day: state.time.day, offer: job.id, patch: { banned: true } },

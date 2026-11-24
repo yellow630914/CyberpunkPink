@@ -8,9 +8,9 @@
 // 純函式：讀狀態、回傳數字或變更。
 
 import type { Change, GameState, Kernel } from '../../core'
-import { REP_TIER_MIN, effectCtx, repGrade, repTierOf } from '../../core'
+import { REP_TIER_MIN, clone, effectCtx, meterOf, repGrade, repTierOf } from '../../core'
 import type { Job, Rating } from './model'
-import { fixerRules, gradeOf } from './model'
+import { REP_METER, fixerRules, gradeOf } from './model'
 
 /** 非委託來源最多能把信譽加到多少：現在這一階門檻的下一階前一分（最高一階是 100）。信譽量表的 ceilOf 用它。 */
 export function repNonCommissionCeil(rep: number): number {
@@ -48,4 +48,15 @@ export function repChanges(k: Kernel, state: GameState, amount: number): { chang
   if (amount === 0 || !k.effects.has('rep')) return { changes: [], lines: [] }
   const res = k.effects.resolve([{ kind: 'rep', amount, final: true }], effectCtx(k, state, { source: 'builtin' }))
   return res.errors.length > 0 ? { changes: [], lines: [] } : { changes: res.changes, lines: res.lines }
+}
+
+/**
+ * 這些信譽變更套下去之後，信譽實際從多少變成多少（夾值、掉階、0 與 100 的邊界之後的結果；畫面的結算寫「實際的」用）。
+ * 沒有人定義信譽就是 undefined；沒有變更（量是 0、已經在邊界）是 from 等於 to。照 state 複製一份套，不動原本的。
+ */
+export function repOutcomeOf(k: Kernel, state: GameState, changes: Change[]): { from: number; to: number } | undefined {
+  if (!k.meters.get(REP_METER)) return undefined
+  const probe = clone(state)
+  k.changes.applyAll(probe, changes)
+  return { from: meterOf(k, state, REP_METER), to: meterOf(k, probe, REP_METER) }
 }

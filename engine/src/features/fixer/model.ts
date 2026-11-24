@@ -85,7 +85,7 @@ export interface FixerRules {
   /**
    * 街頭信譽（CORE_RULES 8.1 節、LIFE 1.3 節；2026-11-23 定案）：完成委託看委託的級和主角的級（無名、熟面孔 I；有號 II；搶手 III；頂尖 IV；傳說 V）。
    * 同級 +rep_same、高一級以上 +rep_higher、比主角低級 rep_lower（0：不變，錢與歷練照給）；評價 S 再 +rep_top（低級的委託不加）。
-   * 失敗 rep_failed（−3，不分等級）、中途放棄 rep_abandon（−5，LIFE 第 9 節，暫定）
+   * 失敗 rep_failed（−3，不分等級）；放棄手上的委託：出發前 rep_abandon_early（−2）、出發之後（進過副本，撤退回來也算）rep_abandon（−5）（LIFE 第 9 節；使用者 2026-11-24 裁決）
    */
   rep_same: number
   rep_higher: number
@@ -93,6 +93,7 @@ export interface FixerRules {
   rep_top: number
   rep_failed: number
   rep_abandon: number
+  rep_abandon_early: number
   /** 借人：價錢 = 等級² × borrow_base × borrow_mult（COMMISSIONS 6.5：出場費的 1.5 倍） */
   borrow_base: number
   borrow_mult: number
@@ -122,7 +123,7 @@ export type Rating = (typeof RATING_KEYS)[number]
 export const DEFAULT_FIXER_RULES: FixerRules = {
   pay_cred: 0.85, pay_favor: 0.7, hostility_cred: 2, haggle_dc_base: 13, haggle_success: 0.05, haggle_critical: 0.1,
   scout_minutes: 240, scout_dc_base: 10, scout_dc_per_grade: 2, scout_hard_from: 4, scout_hard_plus: 1, scout_alert: 15, intel_per_grade: 300,
-  rating_bonus: { S: 0.2, A: 0.1, B: 0, C: -0.1 }, rep_same: 2, rep_higher: 4, rep_lower: 0, rep_top: 1, rep_failed: -3, rep_abandon: -5, borrow_base: 200, borrow_mult: 1.5, boss_shares: 2, aux_max: 2,
+  rating_bonus: { S: 0.2, A: 0.1, B: 0, C: -0.1 }, rep_same: 2, rep_higher: 4, rep_lower: 0, rep_top: 1, rep_failed: -3, rep_abandon: -5, rep_abandon_early: -2, borrow_base: 200, borrow_mult: 1.5, boss_shares: 2, aux_max: 2,
   bond_dc_base: 20, bond_affinity_step: 5, bond_loyalty: 70, trip_affinity: 2, trip_loyalty: 2, favor_done: 3, favor_top: 2, hostile_budget: 1, hostile_alert: 20,
 }
 
@@ -132,7 +133,7 @@ const RULE_FIELDS: Array<[RuleKey, number, number, boolean]> = [
   ['pay_cred', 0, 1, false], ['pay_favor', 0, 1, false], ['hostility_cred', 0, 100, true], ['haggle_dc_base', 0, 40, true], ['haggle_success', 0, 1, false], ['haggle_critical', 0, 1, false],
   ['scout_minutes', 0, 100000, true], ['scout_dc_base', 0, 40, true], ['scout_dc_per_grade', 0, 10, true], ['scout_hard_from', 1, 20, true], ['scout_hard_plus', 0, 10, true],
   ['scout_alert', 0, 100, true], ['intel_per_grade', 0, 100000, true],
-  ['rep_same', -100, 100, true], ['rep_higher', -100, 100, true], ['rep_lower', -100, 100, true], ['rep_top', -100, 100, true], ['rep_failed', -100, 100, true], ['rep_abandon', -100, 100, true], ['borrow_base', 0, 100000, true], ['borrow_mult', 0, 10, false], ['boss_shares', 1, 10, true], ['aux_max', 1, 2, true],
+  ['rep_same', -100, 100, true], ['rep_higher', -100, 100, true], ['rep_lower', -100, 100, true], ['rep_top', -100, 100, true], ['rep_failed', -100, 100, true], ['rep_abandon', -100, 100, true], ['rep_abandon_early', -100, 100, true], ['borrow_base', 0, 100000, true], ['borrow_mult', 0, 10, false], ['boss_shares', 1, 10, true], ['aux_max', 1, 2, true],
   ['bond_dc_base', 0, 40, true], ['bond_affinity_step', 1, 100, true], ['bond_loyalty', 0, 100, true], ['trip_affinity', 0, 100, true], ['trip_loyalty', 0, 100, true],
   ['favor_done', 0, 100, true], ['favor_top', 0, 100, true], ['hostile_budget', 0, 4, true], ['hostile_alert', 0, 100, true],
 ]
@@ -357,6 +358,11 @@ export interface Job {
   /** 交涉過沒有、結果（沒談過是 null） */
   haggled: Degree | null
   status: JobStatus
+  /**
+   * 出發過了（fixer.go 記的；之後撤退回到進副本之前，這個記號也在：快照是進副本時存的）。沒寫是還沒出發過。
+   * 放棄時分兩種：沒出發過 rep_abandon_early，出發過 rep_abandon（dev/adr/0017 最後一批的補記）。
+   */
+  departed?: true
   /** 哪一天接的 */
   day: number
   /** 揭開的未知 id */
@@ -389,6 +395,8 @@ export interface PayoutRecord {
   pc_net: number
   /** 付不出來、記成欠的出場費 */
   debt: number
+  /** 這一次入帳信譽實際從多少變成多少（夾值之後；沒有信譽的量表、舊存檔沒有）。畫面的結算寫「實際的」用，不要自己算 */
+  rep?: { from: number; to: number }
 }
 
 /** 副本交回來之後等著結算的事（activity.end 記下，report.after 接著提交 fixer.payout；撤退的由 rewind.keep 退人）。 */
@@ -419,6 +427,12 @@ export interface FixerState {
 }
 
 export const DEGREES: readonly Degree[] = ['critical', 'success', 'fail', 'fumble']
+/** 放棄這一件委託信譽會掉多少（負數）：出發過了（含撤退回來）用 rep_abandon，還沒出發用 rep_abandon_early。畫面的確認框與 drop 共用。 */
+export function abandonRepOf(k: Pick<Kernel, 'content'>, job: Pick<Job, 'departed'>): number {
+  const rules = fixerRules(k)
+  return job.departed ? rules.rep_abandon : rules.rep_abandon_early
+}
+
 const isJob = (v: unknown): v is Job => isRecord(v) && isText(v.id) && isText(v.fixer) && Array.isArray(v.unknowns) && Array.isArray(v.revealed) && isRecord(v.terms) && isRecord(v.commission)
 
 const isPending = (v: unknown): v is PendingEnd => isRecord(v) && isText(v.job) && (v.outcome === 'done' || v.outcome === 'failed' || v.outcome === 'retreat')

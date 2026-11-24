@@ -205,15 +205,17 @@ describe('白箱 L6 特質（CHARACTER 4.1、4.3、4.4、5.2、5.3）', () => {
     expect(k.stats.statParts(makeState(), 'ghost', 'afterglow_cap')).toEqual([{ label: '基礎', value: 3, source: 'base' }])
   })
 
+  // perk 不給 AI 與玩家要的結果（ai: false）：驗證與結算都用內建的來源；AI 被擋見 M0-perks
+  const ctxB = (k: Kernel, state: GameState, o: Partial<EffectCtx> = {}): EffectCtx => ctxOf(k, state, { source: 'builtin', ...o })
   it('perk 效果：id 不是字串、不存在、拿掉沒有的、加已經有的（EVENTS 2.4；CHARACTER 4.4）', () => {
     const k = kernelWith([perksFeature])
     const s = makeState({ pc: { perks: ['tough'] } })
-    const v = (e: Record<string, unknown>) => k.effects.validate([{ kind: 'perk', ...e }], ctxOf(k, s))
+    const v = (e: Record<string, unknown>) => k.effects.validate([{ kind: 'perk', ...e }], ctxB(k, s))
     expect(v({ id: 3 })).toEqual(['effects[0]：特質 3 不存在'])
     expect(v({})).toEqual(['effects[0]：特質  不存在'])
     expect(v({ id: 'smooth_talker', remove: true })[0]).toMatch(/沒有 能言善道/)
     expect(v({ id: 'tough' })[0]).toMatch(/已經有 耐打/)
-    expect(k.effects.validate([{ kind: 'perk', id: 'tough' }], ctxOf(k, s, { actor: 'ghost' }))).toEqual([])
+    expect(k.effects.validate([{ kind: 'perk', id: 'tough' }], ctxB(k, s, { actor: 'ghost' }))).toEqual([])
   })
 
   it('perk 效果：上限 8 個不含出身與缺陷；creation_rule 沒載入時用 8；描述「學會、染上、放掉」（CHARACTER 4.4）', () => {
@@ -222,16 +224,16 @@ describe('白箱 L6 特質（CHARACTER 4.1、4.3、4.4、5.2、5.3）', () => {
     const pack = { id: 'many', content: { perk: full.map((id) => ({ id, name: id, category: 'social', cost: 1, flaw: false, desc: '測試用。' })) } }
     k.content.loadPack(pack)
     const s = makeState({ pc: { perks: [...full.slice(0, 7), 'origin_hive', 'loose_lips', 'not_loaded'] } })
-    const ok = k.effects.resolve([{ kind: 'perk', id: 'a8' }], ctxOf(k, s))
+    const ok = k.effects.resolve([{ kind: 'perk', id: 'a8' }], ctxB(k, s))
     expect(ok.errors).toEqual([])
     expect(ok.lines).toEqual(['學會：a8'])
     s.actors.pc!.perks.push('a8')
-    expect(k.effects.validate([{ kind: 'perk', id: 'tough' }], ctxOf(k, s))[0]).toMatch(/特質最多 8 個/)
+    expect(k.effects.validate([{ kind: 'perk', id: 'tough' }], ctxB(k, s))[0]).toMatch(/特質最多 8 個/)
     // 缺陷與出身特質不佔名額
-    const flaw = k.effects.resolve([{ kind: 'perk', id: 'old_wound' }], ctxOf(k, s))
+    const flaw = k.effects.resolve([{ kind: 'perk', id: 'old_wound' }], ctxB(k, s))
     expect(flaw.lines).toEqual(['染上：舊傷'])
-    expect(k.effects.validate([{ kind: 'perk', id: 'origin_oldport' }], ctxOf(k, s))).toEqual([])
-    const rm = k.effects.resolve([{ kind: 'perk', id: 'a8', remove: true }], ctxOf(k, s))
+    expect(k.effects.validate([{ kind: 'perk', id: 'origin_oldport' }], ctxB(k, s))).toEqual([])
+    const rm = k.effects.resolve([{ kind: 'perk', id: 'a8', remove: true }], ctxB(k, s))
     expect(rm.changes).toEqual([{ op: 'actor.perk', id: 'pc', perk: 'a8', remove: true }])
     expect(rm.lines).toEqual(['放掉：a8'])
   })
