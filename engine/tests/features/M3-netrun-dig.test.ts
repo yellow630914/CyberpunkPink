@@ -430,14 +430,14 @@ describe('詞條：各驗一條', () => {
     standNear()
     const d = useNode(g.k, g.state, 'fight', foe.id)
     expect(d.launch![0]!.setup).toMatchObject({ edge: 'ally' })
-    expect((d.launch![0]!.origin!.ext!.net as Rec).ambush).toBe(true)
+    expect(((d.launch![0]!.origin!.ext as Rec).net as Rec).ambush).toBe(true)
     // 沒有這一條的：沒有 edge
     const { game: h } = setup()
     dig(h, { affixes: ['a_no_patrol', 'a_no_trap'], seed: 5 })
     const f2 = marks(h, 'l1', 'f')[0]!
     const reach = currentSheet(h).reachable({ x: h.state.maps.at!.x, y: h.state.maps.at!.y })
     goTo(h, ([[0, -1], [1, 0], [0, 1], [-1, 0]] as const).map(([dx, dy]) => [f2.at[0] + dx, f2.at[1] + dy] as [number, number]).find((p) => reach.has(key(p)))!)
-    expect(useNode(h.k, h.state, 'fight', f2.id).launch![0]!.setup.edge).toBeUndefined()
+    expect((useNode(h.k, h.state, 'fight', f2.id).launch![0]!.setup as Rec).edge).toBeUndefined()
   })
 
   it('oneway：單向的鏈路（有的種子放得出來）', () => {
@@ -900,8 +900,10 @@ describe('留著三座子網的存檔讀回來一樣', () => {
     advance(a, 3)
     expect(Object.values(a.state.maps.instances).filter((m) => m.owner?.startsWith('netrun:dig:'))).toHaveLength(3)
     const raw = a.save()
-    // eslint-disable-next-line no-console
-    console.info(`[M3-netrun-dig] 留著三座子網（兩層、四層、兩層）的存檔：${raw.length} 個字元（約 ${(raw.length / 1024).toFixed(1)} KB）`)
+    // 回報用的數字：留著三座子網（兩層、四層、兩層）的存檔大小；比沒有留著的那一份大多少
+    const maps = JSON.stringify(a.state.maps).length
+    process.stderr.write(`[M3-netrun-dig] 存檔 ${raw.length} 字元（${(raw.length / 1024).toFixed(1)} KB），其中 state.maps ${maps} 字元（${(maps / 1024).toFixed(1)} KB）\n`)
+    expect(raw.length).toBeLessThan(400 * 1024)
     const { game: b } = setup({ seed: 123 })
     expect(b.load(raw)).toBeNull()
     expect(b.state.maps).toEqual(a.state.maps)
