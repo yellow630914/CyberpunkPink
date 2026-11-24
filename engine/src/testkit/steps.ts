@@ -12,8 +12,11 @@ import { rentDraft, sleepDraft } from '../features/rest'
 import { checkout } from '../features/trade'
 import { advance, alight, board as boardRide, wait } from '../features/transit'
 import { shift } from '../features/work'
+import { exit as diveExit, go as diveGo } from '../features/dive'
+import { logout as netLogout } from '../features/netrun'
 import type { Game } from '../shell/game'
 import { FIXER, RUNNER, fightOut, passTime, passUntil, untilIdle, walkAcross, walkTo } from './scenarios'
+import { diveIn, mazeSignUp, netUse, netWalkTo, playMaze, playNetStage, refitForRookie } from './scenariosNet'
 
 type Cell = [number, number]
 
@@ -165,3 +168,39 @@ export async function doStep(game: Game, name: string, args: Args = {}): Promise
   await fn(game, args)
 }
 
+
+// ---- M3 的步驟（內海與竄網；dev/work/M3-smoke.md 第 4 點） ----
+
+/**
+ * M3 的步驟：M2 的全部加上
+ *   net_stage { branch?, no_face?, layers? }（玩一個內海階段到底，或只走 layers 層）、net_walk { to: 節點的 id、'entry' 或 [x, y] }、net_use { what, at? }（在節點上做一件事：fight、sneak、descend、pass、download、rest……）、net_logout（網內的行程登出）、
+ *   dive { op: 'enter' | 'go' | 'exit', site? }（潛艙店潛入、選去處、登出；站在潛艙店上）、maze { op: 'refit' | 'enter' | 'play', bracket?, seed? }（迷宮館：換成比賽版構裝、報名、走完三層；換構裝要在潛入之前）
+ */
+export const M3_STEPS: Record<string, (game: Game, a: Args) => void | Promise<void>> = {
+  ...M2_STEPS,
+  net_stage: async (g, a) => void (await playNetStage(g, { ...(typeof a.branch === 'string' ? { branch: a.branch } : {}), ...(a.no_face === true ? { noFace: true } : {}), ...(typeof a.layers === 'number' ? { layers: a.layers } : {}) })),
+  net_walk: (g, a) => void netWalkTo(g, Array.isArray(a.to) ? (a.to as Cell) : str(a, 'to')),
+  net_use: (g, a) => void netUse(g, str(a, 'what'), typeof a.at === 'string' ? a.at : undefined),
+  net_logout: (g) => commit(g, netLogout(g.k, g.state)),
+  dive: (g, a) => {
+    const op = str(a, 'op')
+    if (op === 'enter') void diveIn(g)
+    else if (op === 'go') commit(g, diveGo(g.k, g.state, str(a, 'site')))
+    else if (op === 'exit') commit(g, diveExit(g.k, g.state))
+    else throw new Error(`dive 的 op 只有 enter、go、exit（拿到 ${op}）`)
+  },
+  maze: async (g, a) => {
+    const op = str(a, 'op')
+    if (op === 'refit') refitForRookie(g)
+    else if (op === 'enter') void mazeSignUp(g, typeof a.bracket === 'string' ? a.bracket : 'rookie', typeof a.seed === 'number' ? a.seed : undefined)
+    else if (op === 'play') await playMaze(g)
+    else throw new Error(`maze 的 op 只有 refit、enter、play（拿到 ${op}）`)
+  },
+}
+
+/** 做一個 M3 的步驟（含 M2 的）。 */
+export async function doStep3(game: Game, name: string, args: Args = {}): Promise<void> {
+  const fn = M3_STEPS[name]
+  if (!fn) throw new Error(`沒有「${name}」這個步驟（可以用的：${Object.keys(M3_STEPS).join('、')}）`)
+  await fn(game, args)
+}

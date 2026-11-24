@@ -22,10 +22,11 @@
 // 規則表（*_rule）一律不放：每個功能自己帶一份預設（DEFAULT_…），測試與真正的資料（engine/data 的規則表）的對照在 tests/data/M2-data-rules.test.ts。
 // 拿掉某個功能時，用 worldFor(features) 把「那個功能的內容種類」濾掉（見下面）。
 
-import type { ContentPack } from '../core/content/registry'
+import type { ContentEntry, ContentPack } from '../core/content/registry'
 import type { Feature } from '../core/kernel'
-import { createKernel } from '../core/kernel'
+import { createKernel, readyFeatures } from '../core/kernel'
 import { testWeapon } from './battle'
+import { netContent } from './worldNet'
 
 type Rec = Record<string, unknown>
 
@@ -99,7 +100,11 @@ const SKILLS = [
   { id: 'investigate', attr: 'intellect' }, { id: 'streetwise', attr: 'intellect' },
 ].map((s) => ({ ...s, name: s.id, desc: `${s.id}。` }))
 
-const WEAPON_CLASSES = [{ id: 'pistol', name: '手槍', dice: 3, type: 'physical', range: [1, 4], mag: 2, cover_mult: 0.25, pierce: 0, traits: [], attr: 'reflex', skill: 'firearms' }]
+const WEAPON_CLASSES = [
+  { id: 'pistol', name: '手槍', dice: 3, type: 'physical', range: [1, 4], mag: 2, cover_mult: 0.25, pierce: 0, traits: [], attr: 'reflex', skill: 'firearms' },
+  // 內海的近戰構裝用（M3）
+  { id: 'blade', name: '近戰', dice: 3, type: 'physical', range: [1, 1], cover_mult: 0, pierce: 0, traits: ['melee'], attr: 'body', skill: 'brawl' },
+]
 
 const FACTIONS = [
   { id: 'f_corp', name: '緋櫻重工', short: '緋櫻', class: 'corp' },
@@ -230,14 +235,14 @@ const POSITIONS = [
  * 主幹會碰到的東西都在這裡，其餘不放。回傳的是新的物件（呼叫的人可以改，不會動到下一次拿到的）。
  */
 export function testWorld(): ContentPack {
-  return structuredClone({
+  const pack = structuredClone({
     id: 'test_world',
     content: {
       // 核心與共用
       skill: SKILLS, weapon_class: WEAPON_CLASSES, faction: FACTIONS, item: ITEMS,
       special_map: [
         street('tw_market', '市場', [['F1', '商行的門面'], ['F2', '碼頭'], ['F3', '市場站']]),
-        street('tw_tower', '塔下', [['F1', '四號塔的單位'], ['F2', '塔下站']]),
+        street('tw_tower', '塔下', [['F1', '四號塔的單位'], ['F2', '塔下站'], ['F3', '潛艙店']]),
         street('tw_gate', '閘門', []),
         street('tw_yard', '院子', [['F1', '院子站']]),
         { id: 'tw_office', kind: 'office_small', size: [9, 9], sheets: [OFFICE] },
@@ -251,7 +256,7 @@ export function testWorld(): ContentPack {
       ],
       block: [
         { id: 'tw_market', district: 'tw_hive', name: '市場', kind: 'block', map: 'm_tw_market', exits: { E2: { to: 'tw_tower', arrive: 'E1' } }, facilities: { F1: { type: 'fac_shop', name: '商行的門面' }, F2: { type: 'fac_dock', name: '碼頭' }, F3: { type: 'fac_station', name: '市場站' } } },
-        { id: 'tw_tower', district: 'tw_hive', name: '塔下', kind: 'block', map: 'm_tw_tower', exits: { E1: { to: 'tw_market', arrive: 'E2' }, E2: { to: 'tw_gate', arrive: 'E1' } }, facilities: { F1: { type: 'fac_home', name: '四號塔的單位' }, F2: { type: 'fac_station', name: '塔下站' } } },
+        { id: 'tw_tower', district: 'tw_hive', name: '塔下', kind: 'block', map: 'm_tw_tower', exits: { E1: { to: 'tw_market', arrive: 'E2' }, E2: { to: 'tw_gate', arrive: 'E1' } }, facilities: { F1: { type: 'fac_home', name: '四號塔的單位' }, F2: { type: 'fac_station', name: '塔下站' }, F3: { type: 'fac_tw_pod', name: '潛艙店' } } },
         { id: 'tw_gate', district: 'tw_hive', name: '閘門', kind: 'bridge', map: 'm_tw_gate', exits: { E1: { to: 'tw_tower', arrive: 'E2' }, E2: { to: 'tw_yard', arrive: 'E1' } }, facilities: {} },
         { id: 'tw_yard', district: 'tw_rust', name: '院子', kind: 'block', map: 'm_tw_yard', exits: { E1: { to: 'tw_gate', arrive: 'E2' } }, facilities: { F1: { type: 'fac_station', name: '院子站' } } },
       ],
@@ -297,6 +302,9 @@ export function testWorld(): ContentPack {
       commission: [CM_OFFICE],
     } as unknown as ContentPack['content'],
   })
+  // 內海的幾筆（M3；worldNet.ts）併在後面：同一種內容種類接在同一個陣列上
+  for (const [kind, entries] of Object.entries(netContent())) pack.content[kind] = [...(pack.content[kind] ?? []), ...(structuredClone(entries) as unknown as ContentEntry[])]
+  return pack
 }
 
 /** 一份新的 TEST_WORLD（每次呼叫是獨立的複本）。 */
@@ -311,23 +319,42 @@ export function worldFor(features: Feature[], pack: ContentPack = testWorld()): 
   const droppedEntries: string[] = []
   const content: ContentPack['content'] = {}
   const known = createKernel(features).content
+  const drop = (kind: string, id: string): void => {
+    content[kind] = (content[kind] ?? []).filter((e) => e.id !== id)
+    if (!droppedEntries.includes(`${kind}/${id}`)) droppedEntries.push(`${kind}/${id}`)
+  }
   for (const [kind, entries] of Object.entries(pack.content)) {
     if (known.hasKind(kind)) content[kind] = entries
     else dropped.push(kind)
   }
-  // 引用斷掉的筆：每濾掉一批，可能又有別的筆跟著斷，所以濾到沒有為止
+  // 格式不合的筆（例：它的效果由被拿掉的功能註冊）：整筆濾掉
+  for (const kind of Object.keys(content)) {
+    for (const p of known.validate(kind, content[kind])) {
+      const m = /^([a-z0-9_]+)\/([A-Za-z0-9_]+)：/.exec(p)
+      if (m) drop(m[1]!, m[2]!)
+    }
+  }
+  // 引用斷掉的筆、第二段（ready）檢查不過的筆：每濾掉一批，可能又有別的筆跟著斷，所以濾到沒有為止
   for (let round = 0; round < 10; round++) {
     const k = createKernel(features)
     for (const [kind, entries] of Object.entries(content)) k.content.load(kind, entries)
-    const gone = k.content.checkRefs().flatMap((p) => {
+    let gone = k.content.checkRefs().flatMap((p) => {
       const m = /^([a-z0-9_]+)\/([A-Za-z0-9_]+)：/.exec(p)
       return m ? [`${m[1]}/${m[2]}`] : []
     })
+    if (gone.length === 0) {
+      try {
+        readyFeatures(k)
+      } catch (e) {
+        const m = /^([a-z0-9_]+)\/([A-Za-z0-9_]+)：/.exec(e instanceof Error ? e.message : '')
+        if (!m) throw e
+        gone = [`${m[1]}/${m[2]}`]
+      }
+    }
     if (gone.length === 0) break
     for (const key of gone) {
       const [kind, id] = key.split('/') as [string, string]
-      content[kind] = (content[kind] ?? []).filter((e) => e.id !== id)
-      if (!droppedEntries.includes(key)) droppedEntries.push(key)
+      drop(kind, id)
     }
   }
   return { pack: { ...pack, content }, dropped, droppedEntries }
@@ -340,6 +367,7 @@ export function worldFor(features: Feature[], pack: ContentPack = testWorld()): 
 export const TEST_GEAR: Feature = {
   id: 'test_gear',
   install(k) {
-    k.battle.loadout('test_gear', () => ({ weapons: [testWeapon('pistol', 5, 30)] }))
+    // 只在現實的戰場給（內海的武器是甲板上的構裝，M3）
+    k.battle.loadout('test_gear', (_state, _actor, mode) => (mode === 'net' ? undefined : { weapons: [testWeapon('pistol', 5, 30)] }))
   },
 }

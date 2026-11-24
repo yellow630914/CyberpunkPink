@@ -22,9 +22,11 @@ import { sceneAct, sceneOf } from '../features/scene'
 import { arrive } from '../features/world'
 import type { Game } from '../shell/game'
 import { playOut } from './battle'
+import { playNetOut } from './netPlay'
 import type { ActorOverrides, GameSetup, TestGame } from './factory'
 import { makeActor, makeGame } from './factory'
 import { TEST_GEAR, testWorld, worldFor } from './world'
+import { TEST_NET_OFFER } from './worldNet'
 
 // ---- 帶著假世界的一局 ----
 
@@ -52,7 +54,7 @@ export interface WorldGame extends TestGame {
 /** 全部功能（FEATURES 的總表）加上主角的武器；without 的拿掉。 */
 export function worldFeatures(without: string[] = [], gear = true): Feature[] {
   const all = allFeatures().filter((f) => !without.includes(f.id))
-  return gear ? [...all, TEST_GEAR] : all
+  return gear ? [...all, TEST_GEAR, TEST_NET_OFFER] : all
 }
 
 /**
@@ -209,10 +211,10 @@ export function passUntil(game: Game, time: { day: number; hour: number; minute?
   return passTime(game, left)
 }
 
-/** 把一場戰鬥打完（雙方程式選動作）並結算；沒有戰鬥就什麼都不做。回傳結果與結算的報告。 */
+/** 把一場戰鬥打完（雙方程式選動作；內海的戰鬥我方照 playNetOut）並結算；沒有戰鬥就什麼都不做。回傳結果與結算的報告。 */
 export async function fightOut(game: Game): Promise<{ outcome: string; reports: Report[] } | null> {
   if (!game.battle) return null
-  const { outcome } = playOut(game)
+  const { outcome } = game.battle.mode === 'net' ? playNetOut(game) : playOut(game)
   const done = await game.finishBattle()
   return { outcome, reports: done.reports }
 }
