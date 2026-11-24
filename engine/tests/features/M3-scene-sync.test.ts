@@ -175,7 +175,7 @@ describe('換檔：第十種行動', () => {
     expect(c.shallow).toEqual([])
     expect(c.standard).toEqual(['已經是標準檔了。'])
     expect(c.deep).toEqual(['同步要 3 級才能開深檔（現在 0 級）。'])
-    expect(c.full).toEqual(['同步要 5 級才能開全檔（現在 0 級）。'])
+    expect(c.full).toEqual(['同步要 5 級才能開全檔（現在 0 級）。', '敏感度要 70 才能開全檔（現在 50）。'])
   })
 
   it('同步 3 級、敏感度 40 的主角開得了深檔；全檔灰掉並寫出缺的是同步 5 級與敏感度 70', () => {
@@ -484,7 +484,8 @@ describe('沒有人換檔時和原來一樣', () => {
     const plain = playthrough({})
     const able = playthrough({ pc: { skills: { sync: 3 } } })
     expect(plain.length).toBeGreaterThan(12)
-    expect(able.map((x) => x.replace(/"sync":3/g, ''))).toEqual(plain)
+    const noSkills = (x: string): string => x.replace(/"skills":\{("sync":3)?\},/g, '')
+    expect(able.map(noSkills)).toEqual(plain.map(noSkills))
     // 每一步的場景裡檔位都是標準、沒有換過、沒有累積沉溺
     const first = JSON.parse(plain[1]!)[0] as SceneState
     expect(first).toMatchObject({ gear: { pc: 'standard', partner: 'standard' }, max_gear: { pc: 'standard', partner: 'standard' }, shifted: { pc: false, partner: false }, sink_gain: { pc: 0, partner: 0 } })
