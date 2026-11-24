@@ -63,11 +63,11 @@ const ENEMY_KINDS = ['active', 'passive', 'reaction', 'stance'] as const
 
 /**
  * use.admin（花管理行動）結算時走效果 net.admin_spend（features/netcombat 註冊）：沒有裝它時用到的技能載入就被擋。
- * 效果的格式是 { op: 'net.admin_spend', who: 'self', amount }。
+ * 效果的格式是 { op: 'net.admin_spend', who: 'self', n }（features/netcombat 認 n；舊的寫法 amount 一起帶著，替身效果認它）；這裡只查有沒有註冊，不帶數字。
  */
 function adminProblems(use: unknown, k: Pick<Kernel, 'battle'>): string[] {
   if (!isRec(use) || ![use, use.net].some((x) => isRec(x) && x.admin !== undefined)) return []
-  return k.battle.effectProblems([{ op: 'net.admin_spend', who: 'self', amount: 1 }]).map((m) => `use.admin：${m}`)
+  return k.battle.effectProblems([{ op: 'net.admin_spend', who: 'self' }]).map((m) => `use.admin：${m}`)
 }
 
 /** 標了 enemy 的招牌行動：不必寫 path、tier、layer、cap、xp、after、category；kind、use、meat、text 照一般的技能。 */

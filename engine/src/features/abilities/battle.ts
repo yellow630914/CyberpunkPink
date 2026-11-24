@@ -177,11 +177,11 @@ function unitOfTarget(run: BattleRun, u: BattleUnit, m: MeatDef, target: BattleT
 }
 
 /** 主動技能的 attack：照鍵組出 run.attack 的選項，打完之後的壓制（suppress.ts）。 */
-function doAttack(run: BattleRun, u: BattleUnit, ab: AbilityEntry, m: MeatDef, target: BattleUnit, part: unknown): void {
+function doAttack(run: BattleRun, u: BattleUnit, ab: AbilityEntry, m: MeatDef, target: BattleUnit, part: unknown, spentRam?: number): void {
   const atk = m.attack!
   const w = wielded(u)
-  // 花掉的格數：spend 'all' 是彈匣現在的全部，數字是那麼多格，沒寫是 1 格；free_mag 的格數照算（傷害、壓制），只是不扣彈匣
-  const spent = atk.spend === 'all' ? (w?.mag?.now ?? 1) : typeof atk.spend === 'number' ? atk.spend : 1
+  // 花掉的格數：spend 'all' 是彈匣現在的全部（內海：行動做完才知道實際花掉的 RAM，spentRam），數字是那麼多格，沒寫是 1 格；free_mag 的格數照算（傷害、壓制），只是不扣彈匣
+  const spent = atk.spend === 'all' ? (spentRam ?? w?.mag?.now ?? 1) : typeof atk.spend === 'number' ? atk.spend : 1
   const result = run.attack(u, target, {
     aimed: atk.aimed, hit: atk.hit, label: ab.name, tags: ['skill'],
     ...(atk.spend !== undefined ? { spend: atk.free_mag ? 0 : spent } : {}),
@@ -272,7 +272,7 @@ function chooseOptions(view: BattleView, u: BattleUnit, m: MeatDef): BattlePickO
 }
 
 /** 這個技能會打出瞄準過的一擊（attack.aimed，或 do 裡有 aimed 的 attack）：打出重創時部位由玩家選（pick.part）。 */
-const wantsPart = (m: MeatDef): boolean => !!(m.attack?.aimed || m.do?.some((e) => e.op === 'attack' && e.aimed === true) || m.choose?.some((c) => c.do.some((e) => e.op === 'attack' && e.aimed === true)))
+const wantsPart = (m: MeatDef, layer: Layer = 'meat'): boolean => layer === 'meat' && !!(m.attack?.aimed || m.do?.some((e) => e.op === 'attack' && e.aimed === true) || m.choose?.some((c) => c.do.some((e) => e.op === 'attack' && e.aimed === true)))
 
 /** 技能的目標是人、選的也是人（foe、ally）時，選的不能是目標自己：回傳可以當目標的那些人（沒有這回事就是空的）。 */
 function pickTargets(view: BattleView, u: BattleUnit, m: MeatDef, kind: string): BattleUnit[] {
@@ -287,7 +287,7 @@ const choiceKey = (m: MeatDef): string => m.picks?.find((p) => p.kind === 'choic
  */
 function picksOf(view: BattleView, u: BattleUnit, ab: AbilityEntry, m: MeatDef): BattlePick[] {
   const out: BattlePick[] = []
-  if (wantsPart(m)) {
+  if (wantsPart(m, layerOf(view))) {
     // 瞄準過的射擊打出重創時，部位由攻擊者選（COMBAT_SYSTEM 第 6 節）；不選就照擲的
     out.push({ key: 'part', label: '瞄準哪個部位', kind: 'choice', required: false, options: WOUND_PARTS.map((p) => ({ value: p.id, label: p.name, blocks: [] })) })
   }
@@ -349,14 +349,14 @@ function checkPicks(run: BattleRun, u: BattleUnit, m: MeatDef, input: BattleInpu
 /** 管理行動的消耗：先走效果 net.admin_spend（次數不夠它丟 BattleBlocked；features/netcombat 註冊，這裡不 import）。 */
 function payAdmin(run: BattleRun, u: BattleUnit, ab: AbilityEntry, layer: Layer): void {
   const n = adminNeed(ab, layer)
-  if (n > 0) run.effects([{ op: 'net.admin_spend', who: 'self', amount: n }], { user: u, target: { unit: u.id }, source: { kind: 'ability', id: ab.id, name: ab.name }, n: { tier: tierIn(u, ab.path) } })
+  if (n > 0) run.effects([{ op: 'net.admin_spend', who: 'self', n, amount: n }], { user: u, target: { unit: u.id }, source: { kind: 'ability', id: ab.id, name: ab.name }, n: { tier: tierIn(u, ab.path) } })
 }
 
 /** 這個技能的欄裡，當成行動的有哪幾層（主動技能：有目標、效果清單或用法的那一欄；pending 的不算）。 */
 function actionLayers(ab: AbilityEntry): Layer[] {
   return (['meat', 'net'] as const).filter((l) => {
     const m = colOf(ab, l)
-    return ab.kind === 'active' && !!m && !m.pending && !!(m.target || m.do || m.choose)
+    return (ab.kind === 'active' || m?.action === true) && !!m && !m.pending && !!(m.target || m.do || m.choose)
   })
 }
 
@@ -378,7 +378,7 @@ function skillAction(ab: AbilityEntry, order: number, layers: Layer[]): BattleAc
   }
   const hasPicks = (v: Pick<BattleView, 'k' | 'mode'>, u: BattleUnit): boolean => {
     const m = colNow(v)
-    return !!(m && (wantsPart(m) || m.free_move?.swap_adjacent_pair || m.picks || m.choose || equippedOf(v, u).some((o) => colIn(v, u, o)?.alter?.some((a) => a.ability === ab.id && a.as_pick))))
+    return !!(m && (wantsPart(m, layerOf(v)) || m.free_move?.swap_adjacent_pair || m.picks || m.choose || equippedOf(v, u).some((o) => colIn(v, u, o)?.alter?.some((a) => a.ability === ab.id && a.as_pick))))
   }
   const blocksOf = (v: BattleView, u: BattleUnit): string[] => {
     const m = colNow(v) ? effectiveMeat(v, u, ab) : undefined
@@ -409,11 +409,12 @@ function skillAction(ab: AbilityEntry, order: number, layers: Layer[]): BattleAc
       const t = unitOfTarget(run, u, m, target)
       if ((m.attack || m.apply || m.free_move) && !t) throw new BattleBlocked(['那一格沒有人。'])
       checkPicks(run, u, m, input, t)
-      if (m.attack) doAttack(run, u, ab, m, t!, input.pick?.part)
+      // 花掉全部 RAM 的技能：攻擊與效果要代「實際花了多少」（RAM 的減免之後），行動做完才知道（action.done 的 cost.ram），攻擊與效果留到那時再做
+      const allRam = useOf(ab, layer).ram_all_min !== undefined
+      if (m.attack && !allRam) doAttack(run, u, ab, m, t!, input.pick?.part)
       for (const a of m.apply ?? []) run.applyStatus(t!, a.status, { by: u, ...(a.until ? { until: a.until } : {}) })
       if (m.free_move?.swap_adjacent_pair) doSwap(run, u, t!, input.pick?.with)
-      // 花掉全部 RAM 的技能：效果要代「實際花了多少」（RAM 的減免之後），行動做完才知道（action.done 的 cost.ram），效果留到那時再做
-      if (useOf(ab, layer).ram_all_min === undefined) skillEffects(run, u, ab, m, target, input)
+      if (!allRam) skillEffects(run, u, ab, m, target, input)
     },
   }
 }
@@ -747,7 +748,13 @@ export function registerBattle(k: Kernel): void {
   k.battle.on('action.done', OWNER, ({ run, unit, action, target, input, cost }) => {
     const ab = run.k.content.get<AbilityEntry>('ability', action)
     if (!ab || !colOf(ab, layerOf(run)) || useOf(ab, layerOf(run)).ram_all_min === undefined || !hasAbility(unit, ab.id) || run.over || unit.out) return
-    skillEffects(run, unit, ab, effectiveMeat(run, unit, ab, input), target, input, cost.ram ?? 0)
+    const m = effectiveMeat(run, unit, ab, input)
+    const spent = cost.ram ?? 0
+    if (m.attack) {
+      const t = unitOfTarget(run, unit, m, target)
+      if (t) doAttack(run, unit, ab, m, t, input.pick?.part, spent)
+    }
+    skillEffects(run, unit, ab, m, target, input, spent)
   })
 
   // 共鳴：這棵樹的階數到了 N，tier <= N 的共鳴都生效（要裝著這棵樹的招牌才算）

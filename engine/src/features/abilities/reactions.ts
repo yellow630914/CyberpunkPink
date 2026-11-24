@@ -169,7 +169,7 @@ function fire(run: BattleRun, on: TriggerDef['on'], e: Event): void {
       run.spend(holder, cost)
       syncWallet(run)
       bumpUses(holder, ab, layerOf(run))
-      if (adminNeed(ab, layerOf(run)) > 0) run.effects([{ op: 'net.admin_spend', who: 'self', amount: adminNeed(ab, layerOf(run)) }], { user: holder, target: { unit: holder.id }, source: { kind: 'ability', id: ab.id, name: ab.name }, n: { tier: tierIn(holder, ab.path) } })
+      if (adminNeed(ab, layerOf(run)) > 0) run.effects([{ op: 'net.admin_spend', who: 'self', n: adminNeed(ab, layerOf(run)), amount: adminNeed(ab, layerOf(run)) }], { user: holder, target: { unit: holder.id }, source: { kind: 'ability', id: ab.id, name: ab.name }, n: { tier: tierIn(holder, ab.path) } })
       run.say(`${holder.name}：${ab.name}。`, 'skill', { unit: holder.id, ability: ab.id, ally: e.subject.id }, holder)
       applyReact(run, holder, ab, on, m.react, e, reach)
       if (m.do?.length) {
