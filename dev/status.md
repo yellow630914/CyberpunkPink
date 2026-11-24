@@ -387,3 +387,11 @@
 - 缺的效果與修正 13 項（net.cut、技能管理行動的追蹤度、net.unpin、讓人拔線、ram_regen、overloaded、改目標、免疫釘住、牆減傷、破損輕重、net.fix 全部、每場次數、我方／敵方格目標）→ 交 M3 審查或修正批決定。
 - 待確認：超頻骰數取「花掉的 RAM − 1」；內海壓制只對花全部 RAM 的技能與壓制姿態放行；SKILL_TREES 沒寫技能快駭的追蹤度數字；共鳴不分欄。
 - ADR 0018 待補「實作補記：M3-skill-net-a」「M3-fixer-net」。
+
+## M3-ui-subnet 回報（2026-11-24）
+
+- 子網畫面重寫接引擎（地圖、迷霧、層、探索回合、追蹤度、目標、化身、這裡、管理行動、登出確認）；刪掉舊的 stores/subnet、data/subnet。
+- 給引擎（審查或修正批）：巡邏 `visible` 用曼哈頓距離、`seen` 用視線，不一致；`netrunView` 要給這一層看過的標記（id、名字、種類、處理過沒）、擦痕跡剩餘次數、巡邏名字、選項的 RAM/DC；追蹤度三段說明沒資料。
+- 缺正式圖示：機關、印記、休息點、安全點。
+- 給 M3-ui-commission-net：委託開了內海面時導到 `/subnet`。
+- 可清：ui/stores/game.ts 的 `lastBattle.kind` 'subnet'。

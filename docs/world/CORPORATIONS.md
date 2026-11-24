@@ -396,7 +396,7 @@
 
 **怎麼拴住你**：橋權（[LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 7 節）。
 
-**玩法**：每週帳單那條下坡路的終點（[FIXER](../systems/FIXER.md) 第 4 節）；蜜糖會的死對頭；和契約有關的事，多半要和它對上。會員部與債權部是暗礁簾後館的出資方之一：在館裡還不出的帳，最後也流到債權部（[CYBERSPACE](../systems/CYBERSPACE.md) 8.8 節）。
+**玩法**：每週帳單那條下坡路的終點（[FIXER](../systems/FIXER.md) 第 4 節）；蜜糖會的死對頭；和契約有關的事，多半要和它對上。會員部是暗礁簾後館的出資方之一，提供會員名簿與場內契約的樣板（[CYBERSPACE](../systems/CYBERSPACE.md) 8.8 節）；館裡的欠款只是錢，不流到債權部。
 
 ## 7. 一覽
 

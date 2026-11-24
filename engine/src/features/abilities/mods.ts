@@ -6,12 +6,12 @@
 
 import type { BattleRun, BattleUnit, BattleView, Kernel, ModQuery, RollPart } from '../../core'
 import { STATUS_UNTILS, amount, onField, statusRuleOf, unitTag, unitsOf } from '../../core'
-import { colIn, layerOf } from './column'
+import { colIn, gearOf, layerOf } from './column'
 import { whenBlocks } from './conditions'
 import { modsProblems } from './format'
 import type { AbilityEntry, AnyModKind, FeatureModKind, ModEntry, PathEntry, UnitBuff } from './types'
 import { OWNER } from './types'
-import { broughtPrep, broughtTargets, equippedOf, isPerson, isRec, setBuffs, tierIn, unitAbilities, unitBuffs } from './unitdata'
+import { broughtPrep, broughtTargets, equippedOf, isPerson, isRec, linkedIds, setBuffs, tierIn, unitAbilities, unitBuffs } from './unitdata'
 
 /** 一批修正的來源：哪個技能（或共鳴、預備、buff）、誰是給的人、這棵樹幾階。 */
 interface Source {
@@ -24,6 +24,8 @@ interface Source {
   by?: string
   /** 只對這個人有效（預備選了人：讀人）：問修正時的對手要是他 */
   vs?: string
+  /** 曲目：給的人的同步檔位在淺檔時，數字減半（無條件捨去） */
+  song?: true
 }
 
 function sourcesOf(view: Pick<BattleView, 'k' | 'mode'>, holder: BattleUnit): Source[] {
@@ -34,7 +36,7 @@ function sourcesOf(view: Pick<BattleView, 'k' | 'mode'>, holder: BattleUnit): So
       // 這一層的那一欄（照戰場；淺檔的專屬構裝整欄不算）
       const m = colIn(view, holder, ab)
       if (!m?.mods) continue
-      if (ab.kind === 'passive' || (ab.kind === 'stance' && holder.stance === ab.id)) out.push({ key: ab.id, name: ab.name, holder, tier: tierIn(holder, ab.path), mods: m.mods })
+      if (ab.kind === 'passive' || (ab.kind === 'stance' && holder.stance === ab.id)) out.push({ key: ab.id, name: ab.name, holder, tier: tierIn(holder, ab.path), mods: m.mods, ...(m.song ? { song: true as const } : {}) })
     }
     // 共鳴：這棵樹的階數到了 N，tier <= N 的共鳴都生效（要裝著這棵樹的招牌才算）
     for (const p of view.k.content.list<PathEntry>('path')) {
@@ -42,6 +44,8 @@ function sourcesOf(view: Pick<BattleView, 'k' | 'mode'>, holder: BattleUnit): So
       const tier = d.tiers[p.id] ?? 1
       p.resonance.forEach((r, i) => {
         if (r.effect?.mods && r.tier <= tier) out.push({ key: `res:${p.id}:${i}`, name: p.tree, holder, tier, mods: r.effect.mods })
+        // 只在內海生效的共鳴（media 型現實沒有效果；M3-skill-net-b）
+        if (layerOf(view) === 'net' && r.net?.mods && r.tier <= tier) out.push({ key: `res:${p.id}:${i}:net`, name: p.tree, holder, tier, mods: r.net.mods })
       })
     }
   }
@@ -68,6 +72,7 @@ function valueOf(view: BattleView, src: Source, e: ModEntry, base?: number): num
   else if (typeof v === 'number') n = v
   else if (typeof v === 'string') n = Math.round(amount({ run: view as unknown as BattleRun, user: src.holder, n: { tier: src.tier } }, v))
   else if (isRec(v) && Array.isArray(v.by_tier)) n = Number(v.by_tier[Math.min(4, Math.max(0, src.tier - 1))] ?? 0)
+  if (src.song && gearOf(src.holder) === 'shallow') n = Math.trunc(n / 2)
   return e.min !== undefined ? Math.max(e.min, n) : n
 }
 
@@ -95,6 +100,7 @@ function applied(view: BattleView, unit: BattleUnit, kind: AnyModKind, tags: rea
           case 'adjacent': if (holder === unit || !onField(holder) || !onField(unit) || Math.abs(holder.slot - unit.slot) !== 1) return; break
           case 'allies': if (!onField(holder)) return; break
           case 'behind': if (!onField(holder) || !onField(unit) || unit.slot !== holder.slot + 1) return; break
+          case 'linked': if (holder === unit || !linkedIds(holder).includes(unit.id)) return; break
         }
         if (entry.tags && !entry.tags.every((t) => tags.includes(t))) return
         if (entry.tags_any && !entry.tags_any.some((t) => tags.includes(t))) return
@@ -206,10 +212,16 @@ export function registerMods(k: Kernel): void {
 
   // 每場、每回合只有前幾次的修正：行動做完時記一次（和定點射的減免同一個做法）。
   // 這時候次數還沒加，照同樣的條件再問一次，拿到的就是剛才算花費時用的那幾筆
-  k.battle.on('action.done', OWNER, ({ run, unit, tags, base }) => {
-    for (const [kind, baseValue] of [['action_ap', base.ap], ['action_ram', base.ram ?? 0]] as const) {
+  k.battle.on('action.done', OWNER, ({ run, unit, tags, base, cost }) => {
+    for (const [kind, baseValue] of [['action_ap', base.ap], ['action_ram', base.ram ?? 0], ['ram_free', cost.ram ?? 0]] as const) {
       if (!baseValue) continue
-      for (const a of applied(run, unit, kind, tags, undefined, baseValue)) {
+      const hits = applied(run, unit, kind, tags, undefined, baseValue)
+      // 花掉的 RAM 做完退回來（定調、曝光的共鳴）：同一個行動只退一次
+      if (kind === 'ram_free' && hits.some((a) => a.value !== 0) && unit.pools.ram) {
+        unit.pools.ram.now = Math.min(unit.pools.ram.max, unit.pools.ram.now + baseValue)
+        run.say(`${unit.name}：這個行動不花 RAM，${baseValue} 點退回來了。`, 'skill', { unit: unit.id, refund: 'ram', amount: baseValue }, unit)
+      }
+      for (const a of hits) {
         if (a.value === 0) continue
         if (a.entry.per_fight !== undefined) unit.uses[counterKey(a.src, a.index, false)] = (unit.uses[counterKey(a.src, a.index, false)] ?? 0) + 1
         if (a.entry.per_turn !== undefined) unit.uses[counterKey(a.src, a.index, true)] = (unit.uses[counterKey(a.src, a.index, true)] ?? 0) + 1

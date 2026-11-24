@@ -67,3 +67,36 @@ export function spotted(battle: Pick<BattleState, 'origin'>): boolean {
   const pre = battle.origin?.ext?.pre
   return isRec(pre) && pre.spotted === true
 }
+
+// ---- 應援（M3-skill-net-b）：偶像現在接著的隊友 ----
+// 資料慣例：偶像單位的 unit.ext.abilities.link = { with: 單位 id 的陣列, last: { 單位 id: 上一次對帳時的感載 } }；沒有就是沒接著人。
+// 被接上的隊友身上多一個標籤 linked（技能的 needs.tag 認得它：聽我唱、休息一下下只對同步中的隊友用）。
+
+export const LINKED_TAG = 'linked'
+
+export interface LinkData {
+  with: string[]
+  last: Record<string, number>
+}
+
+/** 這個偶像接著的隊友（單位 id）。 */
+export function linkedIds(u: BattleUnit): string[] {
+  const d = u.ext.abilities
+  const l = isRec(d) ? d.link : undefined
+  return isRec(l) && Array.isArray(l.with) ? l.with.filter((x): x is string => typeof x === 'string') : []
+}
+
+export function linkOf(u: BattleUnit): LinkData | undefined {
+  const d = u.ext.abilities
+  const l = isRec(d) ? d.link : undefined
+  if (!isRec(l) || !Array.isArray(l.with)) return undefined
+  const last: Record<string, number> = {}
+  if (isRec(l.last)) for (const [id, v] of Object.entries(l.last)) if (typeof v === 'number') last[id] = v
+  return { with: l.with.filter((x): x is string => typeof x === 'string'), last }
+}
+
+export function setLink(u: BattleUnit, link: LinkData | undefined): void {
+  const d = dataOf(u)
+  if (link && link.with.length) d.link = link
+  else delete d.link
+}
