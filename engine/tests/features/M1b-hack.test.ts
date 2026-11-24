@@ -151,10 +151,10 @@ describe('甲板與 RAM（NETRUNNING 第 1 節）', () => {
     expect(ring(a, 'a1').filter((x) => x.startsWith('hack.'))).toEqual([])
   })
 
-  it('只有裝在 deck.slots 裡的程式才是行動；程式是 group: skill、modes: meat、標籤 hack 與 hack:<類>、圖示 hack', () => {
+  it('只有裝在 deck.slots 裡的程式才是行動；程式是 group: skill、modes: meat 與 net（M3-hack-net 加了內海）、標籤 hack 與 hack:<類>、圖示 hack', () => {
     const a = world({ allies: [hacker(['qh_noise', 'qh_mark']), one({}, 2)] })
     expect(ring(a).filter((x) => x.startsWith('hack.')).sort()).toEqual(['hack.qh_mark', 'hack.qh_noise'])
-    expect(defOf(a, 'hack.qh_noise')).toMatchObject({ group: 'skill', modes: ['meat'], tags: ['hack', 'hack:neural'], icon: 'hack', owner: 'hack' })
+    expect(defOf(a, 'hack.qh_noise')).toMatchObject({ group: 'skill', modes: ['meat', 'net'], tags: ['hack', 'hack:neural'], icon: 'hack', owner: 'hack' })
     expect(defOf(a, 'hack.qh_mark').tags).toEqual(['hack', 'hack:support'])
     // 戰鬥中不能換程式：甲板上的清單就是圓環
     expect(ring(a, 'a2').filter((x) => x.startsWith('hack.'))).toEqual([])

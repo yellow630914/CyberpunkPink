@@ -1,6 +1,6 @@
 // L6 功能 hack：內容種類 quickhack（快駭程式；DATA 7.5 節、ITEMS 11.9 節）。
 // 欄位：id、name、desc、class、grades（有哪幾級）、ram、ap、target、needs（目標的條件）、do（效果清單）、by_grade（各級蓋掉的欄位與檢定的加值）、bonus（檢定的額外加值）。
-// trace、legal、price、script_twin（還有 brand）收下不讀（追蹤度、合法與價格是 M2 以後的事）。
+// trace（追蹤：內海加追蹤度、現實被發現時加敵對值，M3-hack-net 讀）；legal、price、script_twin（還有 brand）收下不讀（合法與價格是 M2 以後的事）。
 
 import type { ContentEntry, Kernel } from '../../core'
 import { OWNER, HACK_CLASSES } from './deck'
@@ -33,6 +33,8 @@ export interface QuickhackEntry extends ContentEntry {
   do: Array<Record<string, unknown>>
   by_grade?: Record<string, GradeOverride>
   bonus?: number | string
+  /** 追蹤：每用一次，內海的追蹤度加這麼多；現實被發現時那個勢力的敵對值加這麼多（沒寫是 0） */
+  trace?: number
 }
 
 const KEYS = ['name', 'desc', 'class', 'grades', 'ram', 'ap', 'target', 'needs', 'do', 'by_grade', 'bonus', 'trace', 'legal', 'price', 'script_twin', 'brand']
@@ -63,6 +65,7 @@ function problemsOf(e: Record<string, unknown>, k: Pick<Kernel, 'battle'>): stri
   if (!Array.isArray(e.do) || e.do.length === 0) p.push('do 要是效果的陣列（每一筆 { op, ... }）')
   else p.push(...k.battle.effectProblems(e.do).map((m) => `do：${m}`))
   if (e.bonus !== undefined && F(e.bonus)) p.push(`bonus：${F(e.bonus)}`)
+  if (e.trace !== undefined && !(isInt(e.trace) && e.trace >= 0)) p.push('trace 要是 0 以上的整數（追蹤）')
   if (e.by_grade !== undefined) {
     const g = e.by_grade
     if (!isRecord(g)) p.push('by_grade 要是 { "<級>": { ram?, ap?, do?, bonus? } }')

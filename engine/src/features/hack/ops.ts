@@ -10,6 +10,7 @@ import type { BattleEffectCtx, BattleOverlay, ItemEntry, BattleRun, BattleSide, 
 import { BATTLE_SLOTS, BattleBlocked, amount, onField, otherSide, overlayAt, unitAt, unitTag } from '../../core'
 import { GRADE_CHECK, OWNER, deckOf } from './deck'
 import { isExplosive } from './actions'
+import { noteCheck } from './trace'
 import { B, F, S, isRecord, oneOf, schema } from './schema'
 
 type Ctx = BattleEffectCtx
@@ -60,6 +61,7 @@ function checkOp(ctx: Ctx, e: Eff): void {
   const bonus = [{ label: '等級加值', value: GRADE_CHECK[grade] ?? 0 }, { label: '程式加值', value: e.bonus === undefined ? 0 : e.bonus }]
   const done = run.effects([{ op: 'check', attr: 'intellect', skill: 'interface', vs, bonus, tags, label: '快駭' }], { user, target: at, source: ctx.source, pick: ctx.pick, n: ctx.n })
   ctx.last.ok = done.ok === true
+  noteCheck(user, ctx.last.ok, at)
   if (!ctx.last.ok) {
     run.say(`${ctx.source.name}沒有效果（RAM 已經花掉了）。`, undefined, { hack: ctx.source.id, ok: false }, user)
     if (e.stop === true) ctx.last.stop = true

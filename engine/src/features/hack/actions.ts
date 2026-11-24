@@ -1,9 +1,9 @@
 // L6 功能 hack：快駭程式變成行動。每一支裝在 deck.slots 裡的程式是一個行動（group: skill、modes: meat、標籤 hack 與 hack:<類>）。
-// 誰有：有 quickhack 標籤、而且 deck.slots 裡有它。跑幾級：主控的樹階對照與甲板的等級取低的，程式沒有那一級就用它有的最高一級。
+// 兩個戰場都能用（現實 meat、內海 net；內海加追蹤度、現實被發現加敵對值在 trace.ts）。誰有：有 quickhack 標籤、而且 deck.slots 裡有它。跑幾級：主控的樹階對照與甲板的等級取低的，程式沒有那一級就用它有的最高一級。
 // 花費：ram 與 ap（支援類 0 點行動點、每回合一次、不必檢定）。檢定與效果清單由 hack.check 與 do 做（run.effects）。
 
 import type { BattleActionDef, BattleInput, BattleOverlay, ItemEntry, BattleTarget, BattleTargetOption, BattleUnit, BattleView, Kernel } from '../../core'
-import { BattleBlocked, otherSide, overlayAt, unitsOf } from '../../core'
+import { BattleBlocked, isRecord, otherSide, overlayAt, unitsOf } from '../../core'
 import { CLASS_NAME, OWNER, ROMAN, canHack, cyberCount, deckOf, levelOfTier, runLevel, treeTier } from './deck'
 import type { HackClass } from './deck'
 import type { QuickhackEntry } from './kinds'
@@ -102,7 +102,7 @@ function programAction(e: QuickhackEntry, order: number): BattleActionDef {
   const id = `hack.${e.id}`
   const shownGrade = (u: BattleUnit): number => gradeFor(e, runLevel(u)) ?? Math.min(...e.grades)
   const def: BattleActionDef = {
-    id, owner: OWNER, name: e.name, desc: e.desc, group: 'skill', icon: 'hack', modes: ['meat'], tags: ['hack', `hack:${e.class}`],
+    id, owner: OWNER, name: e.name, desc: e.desc, group: 'skill', icon: 'hack', modes: ['meat', 'net'], tags: ['hack', `hack:${e.class}`],
     target: TARGET_KIND[e.target], order,
     has: (_v, u) => canHack(u) && deckOf(u)!.slots.includes(e.id),
     cost: (_v, u) => {
@@ -123,6 +123,8 @@ function runProgram(run: Parameters<BattleActionDef['run']>[0], u: BattleUnit, e
   const grade = gradeFor(e, level)
   if (grade === null) throw new BattleBlocked(levelBlocks(u, e))
   const s = shapeAt(e, grade)
+  // 這一次的檢定結果從頭記（trace.ts 在行動做完時看）
+  if (isRecord(u.ext.hack)) delete u.ext.hack.checks
   if (e.class === 'support') u.uses[SUPPORT_USED] = (u.uses[SUPPORT_USED] ?? 0) + 1
   run.say(`${u.name} 跑${e.name}（${ROMAN[grade]}級）。`, 'skill', { unit: u.id, hack: e.id, grade, class: e.class }, u)
   const t = e.target === 'self' ? ({ unit: u.id } as BattleTarget) : target
