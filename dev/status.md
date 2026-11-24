@@ -277,7 +277,7 @@
 - 釘住、拔線、投降三個行動；追蹤度每輪加、30/60 叫增援、90 倒數被定位；戰後扣線、拆釘子、`net_burn`。
 - 追蹤度從 20 起每輪 +3，第 5 輪才跨 30（工單寫第 4 輪，照本文做）。
 - 扣線、拆釘子記在戰鬥紀錄拍子（tag `tether`、`pin`，data 帶單位），報告沒有 data 欄位；defeat-net／netrun 從 timeline 讀。
-- 給核心（之後修正批）：`leave()` 認得 `pinned`（一句「被釘住」與 tag `pin`）。
+- ~~給核心（之後修正批）：`leave()` 認得 `pinned`（一句「被釘住」與 tag `pin`）。~~ 已做（M3-core-fix-a）：核心記一拍「被釘住了」標籤 `pin`，netcombat 的 `pinUnit` 自己記的那一行拿掉了。
 - `net_burn` 靠讀時比對 `until`，核心不自動清。
 - 投降不扣線（只有 lose 才扣）——照預設，待審查時一起確認。
 - 給 M3-netadmin：管理行動加追蹤度用 `addTrace(run, amount)`。
@@ -331,7 +331,7 @@
 ## M3-summons-net 回報（2026-11-24）
 
 - 內海的守衛程式：`net_guard_deploy/command/move/recall`（另開 id，因核心行動名稱是靜態字串）；上限內海基底 1 加 `overlay_cap`；指揮花型號的 RAM；醫療型在內海排感載。
-- 核心缺口：`run.overlayHurt`／`damageOverlay` 對感載類傷害一律 0，內海打不到守衛程式（測試以 `it.fails` 留著）→ M3-core-fix-a。
+- ~~核心缺口：`run.overlayHurt`／`damageOverlay` 對感載類傷害一律 0，內海打不到守衛程式（測試以 `it.fails` 留著）→ M3-core-fix-a。~~ 已做（M3-core-fix-a）：內海的感載類傷害打在耐久上、無視護甲，現實仍無效；`it.fails` 改成 `it`。
 - 給 enemies：敵方 `enemy.command` 只有現實；給 abilities：`kind: drone` 選項要照 `net` 旗標過濾。
 - 構裝體（M6）、群眾（M5）沒做。
 
