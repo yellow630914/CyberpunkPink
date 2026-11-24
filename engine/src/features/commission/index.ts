@@ -11,6 +11,9 @@
 //   掛鉤  report.after（目標達成就接里程碑、做完接 finish、開了地圖問 map.arrive）、activity.end（戰鬥打贏、場景與別的面做完，記進目標的進度）
 //   掛點  map.arrive（這個功能宣告、探索回答：剛進圖入口那一格有沒有被看到）；rest.done（kind: stage，喘口氣時發）
 //   別的面  有人登記活動 face.net、face.opinion（M3、M5）才選得了；沒有的面列出來但選不了
+//   內海面（M3-commission-net）：face.net 交回 done（Run.trace、net_peak 記下來；第一次到過 60 警戒 +10；寫了 controls 而沒有接管就不給 gives）、
+//     retreat（和 retreat 一樣：發 commission 的 retreat 再回到進去之前）、located（照戰敗被接受而且算失敗：留記號、回到進去之前，被定位另外加敵對值）；
+//     隔離區（locked_by）、連動多六種（trace_start、trace_half、lace_down、gate_open、near_core、controls）、commissionView().trace
 // 對外：commissionView、chooseFace、chooseBranch、breathe、retreat、checkGoal、playScene、replay、milestone、finish。
 // 輔助面每個階段的結算（aux.ts，M2-commission-aux）寫在 commission.face 那一份報告裡（每個擲了的面一拍，標籤 aux）；
 // 做完之後的結算（M2-commission-close）聽 activity.end（result.aux_log 有每一次輔助結算）。
@@ -24,21 +27,21 @@ import type { Feature, Kernel, ReportDraft } from '../../core'
 import { ContentError } from '../../core'
 import type { CommissionEntry } from './model'
 import { ACTIVITY, FACE_ACTIVITY, KIND, OWNER, RULE_KIND, commissionMapProblems, commissionProblems, readRun, ruleProblems, runChange } from './model'
-import { failedDraft, keepFailed, mineOf, onDefeatAccepted } from './close'
+import { failedDraft, keepFailed, mineOf, netEnd, onDefeatAccepted } from './close'
 import { achieved, enterDraft, finish, milestone, pressureDraft } from './run'
 
 export {
-  ACTIVITY, BRANCH_KINDS, DEFAULT_COMMISSION_RULES, EXT, FACES, FAILED_EXT, FACE_ACTIVITY, FACE_NAME, GOAL_KINDS, KIND, LINK_TYPES, OWNER, RULE_KIND, SCALE_STAGES,
-  commissionMapProblems, commissionProblems, commissionRules, dcBaseOf, effectsFor, encounterAfter, gradeOf, readRun, ruleProblems, stageName,
+  ACTIVITY, BRANCH_KINDS, DEFAULT_COMMISSION_RULES, EXT, FACES, FAILED_EXT, FACE_ACTIVITY, FACE_NAME, GOAL_KINDS, KIND, LINK_TYPES, NET_LACES, NET_LAYERS, NET_OBJECTIVES, OWNER, RULE_KIND, SCALE_STAGES, TRACE_MIN,
+  commissionMapProblems, commissionProblems, commissionRules, dcBaseOf, effectsFor, encounterAfter, gradeOf, netFx, readRun, ruleProblems, stageName,
 } from './model'
 export type {
   AuxOutcome, AuxResult, AuxState, BranchDef, BranchKind, CommissionEntry, CommissionRules, Face, FaceDef, GoalDef, LinkDef, LinkEffect, Need, Rank, RouteEntry, Run, RunLink, RunSetup, StageDef, StageEffects, Step,
 } from './model'
-export { RATINGS, XP_EFFECT, HOSTILITY_EFFECT, failedOf, fallout, forecast, rate, xpFor } from './close'
+export { RATINGS, XP_EFFECT, HOSTILITY_EFFECT, RETREAT_REWIND, failedOf, fallout, forecast, netEnd, rate, retreatEnd, xpFor } from './close'
 export type { CloseForecast, FailedMark, Fallout, Rating, RatingParts } from './close'
-export { achieved, branchViews, breathe, breatheBlock, checkGoal, chooseBranch, chooseFace, enterDraft, faceViews, finish, goalView, milestone, playScene, replay, retreat } from './run'
+export { AIRGAP_TEXT, achieved, branchViews, breathe, breatheBlock, checkGoal, chooseBranch, chooseFace, enterDraft, faceViews, finish, goalView, milestone, playScene, replay, retreat } from './run'
 export type { BranchView, FaceView, GoalView } from './run'
-export { REINFORCE_MARK, commissionView, stageEffects } from './view'
+export { REINFORCE_MARK, TRACE_MARKS, commissionView, stageEffects } from './view'
 export type { AuxFaceView, CommissionView, LinkRow, TrackNode } from './view'
 export { auxChance, auxPeople, auxSum, classify as classifyAux, pathBonus, settleAux } from './aux'
 export type { AuxChance, AuxPeople, AuxSettlement, AuxSum } from './aux'
@@ -97,6 +100,7 @@ export const commissionFeature: Feature = {
         const ok = result.goal_done === true
         return { changes: [runChange({ ...run, scene: ok ? 'done' : 'failed' })], lines: [ok ? '這一場達成了目的。' : '這一場沒有達成目的。'] }
       }
+      if (kind === FACE_ACTIVITY.net) return netEnd(k, state, run, outcome, result)
       if (FACE_KINDS.includes(kind)) {
         const ok = outcome === 'done' || outcome === 'win'
         return { changes: [runChange({ ...run, done: ok })], lines: [ok ? '這一段完成了。' : '這一段沒有完成，可以再來一次。'] }

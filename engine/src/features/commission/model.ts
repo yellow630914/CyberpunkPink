@@ -2,6 +2,7 @@
 // 規格：COMMISSIONS 2.3、第 3～5 節、6.2 節、第 11 節；SITES 12.5 節（DC 基準）；dev/adr/0016 第一、二、五、六節與 G2、G9、G12；dev/work/M2-commission-run.md。
 //
 // 這個功能不 import 別的功能：警戒只經由量表 alert（meterOf）、敵人只經由單位來源 enemy_pick 的 UnitRef、探索只經由地圖實例的 ext。
+// 內海面（M3-commission-net）：整趟的追蹤度是 Run.trace（副本帶著；每個內海階段開始時交給 face.net，做完收回來）。
 
 import type { CheckRoll, ContentEntry, GameState, GameTime, Kernel, Origin } from '../../core'
 import { UNIT_RANKS, clone, isRecord, isSafeInt } from '../../core'
@@ -30,6 +31,12 @@ export const BRANCH_KINDS = ['assault', 'stealth', 'talk', 'linked', 'scouted'] 
 export type BranchKind = (typeof BRANCH_KINDS)[number]
 export const LINK_TYPES = ['skip', 'ease', 'open'] as const
 export const GOAL_KINDS = ['fight', 'reach', 'take', 'check', 'scene'] as const
+/** 內海面的資料（M3-commission-net）：層、蕾絲的顏色、目標的種類 */
+export const NET_LAYERS = ['guest', 'staff', 'control', 'core'] as const
+export const NET_LACES = ['white', 'pink', 'black'] as const
+export const NET_OBJECTIVES = ['download', 'seize', 'find', 'defeat', 'plant', 'extract'] as const
+/** 給內海階段的連動效果的旗標（真假） */
+const NET_FLAGS = ['trace_half', 'lace_down', 'gate_open', 'near_core'] as const
 export type GoalKind = (typeof GOAL_KINDS)[number]
 export type Rank = (typeof UNIT_RANKS)[number]
 
@@ -66,6 +73,18 @@ export interface FaceDef {
   goal?: GoalDef
   /** 做完給哪個連動（links 的鍵） */
   gives?: string
+  // ---- 內海面（face.net；資料原樣交給那一段，見 dev/adr/0018 第九節） ----
+  /** 內海：這一段打哪一層（guest、staff、control、core） */
+  layer?: string
+  /** 內海：蕾絲的顏色 */
+  lace?: string
+  facility?: string
+  /** 內海：這一段的目標；沒寫是通過這一層的閘門 */
+  objective?: { kind: string; turns?: number }
+  /** 內海：這一層的控制節點對到現實的哪幾個控制區（接管了才算數） */
+  controls?: string[]
+  /** 隔離區：沒拿到這個連動時這一面列著但選不了 */
+  locked_by?: string
   [extra: string]: unknown
 }
 
@@ -87,6 +106,20 @@ export interface LinkEffect {
   alert_frozen?: boolean
   /** 這一段開始時警戒加減多少（負的是降低） */
   alert_start?: number
+  // ---- 給內海階段的（M3-commission-net；副本算好放進 face.net 的 setup.fx） ----
+  /** 追蹤度的起始值加減（−100～100） */
+  trace_start?: number
+  /** 這一段追蹤度的上升減半 */
+  trace_half?: boolean
+  /** 蕾絲降一級 */
+  lace_down?: boolean
+  /** 閘門不用破解 */
+  gate_open?: boolean
+  /** 從目標附近進來 */
+  near_core?: boolean
+  // ---- 給現實階段的 ----
+  /** 開這一段地圖時，把這幾個控制區（"<圖的 id>:<區塊>"），或這張地圖全部的控制區（true）寫進 ext.controlled */
+  controls?: true | string[]
 }
 
 export interface LinkDef {
@@ -155,6 +188,18 @@ export interface CommissionRules {
   rating_links: number
   rating_alert: number
   rating_peak: number
+  /** 內海（M3-commission-net）：整趟的追蹤度到 net_alert_at（N14：60），委託的警戒 +net_alert（10），只加一次 */
+  net_alert: number
+  net_alert_at: number
+  /** 路線的後果（N34）：做完時每 net_hostility_step（20）點追蹤度目標勢力的敵對值 +1（進位），最多 net_hostility_max（5）；被定位另外 +net_located_hostility（5） */
+  net_hostility_step: number
+  net_hostility_max: number
+  net_located_hostility: number
+  /** 管網路的勢力（勢力的資料匯入前是空的）：走了內海的路線各 +net_watcher_hostility（2） */
+  net_watchers: string[]
+  net_watcher_hostility: number
+  /** 評價：內海的追蹤度到過這麼多再 −1（和現實的警戒到過 rating_peak 同一項；最後在 rating_alert 以上的那一項兩邊共用） */
+  rating_trace_peak: number
 }
 
 export const DEFAULT_COMMISSION_RULES: CommissionRules = {
@@ -163,15 +208,18 @@ export const DEFAULT_COMMISSION_RULES: CommissionRules = {
   xp_small: 20, xp_medium: 35, xp_large: 60, hostility_base: 5, hostility_per_assault: 3, hostility_max: 15, rating_links: 3, rating_alert: 60, rating_peak: 100,
   aux_skills: { meat: ['firearms', 'brawl', 'stealth', 'athletics'], net: ['interface'], opinion: ['perform', 'negotiate'] },
   aux_bonus: { strong: 4, mid: 2, weak: 0, none: 0 },
+  net_alert: 10, net_alert_at: 60, net_hostility_step: 20, net_hostility_max: 5, net_located_hostility: 5, net_watchers: [], net_watcher_hostility: 2, rating_trace_peak: 90,
 }
 
 type NumericRule = 'stage_minutes' | 'stealth_fail_alert' | 'check_fail_alert' | 'dc_base' | 'dc_per_grade' | 'reinforce_count' | 'hard_alert' | 'hard_grade_up' | 'pressure_at' | 'aux_pressure' | 'aux_rest' | 'aux_injured_days'
   | 'xp_small' | 'xp_medium' | 'xp_large' | 'hostility_base' | 'hostility_per_assault' | 'hostility_max' | 'rating_links' | 'rating_alert' | 'rating_peak'
+  | 'net_alert' | 'net_alert_at' | 'net_hostility_step' | 'net_hostility_max' | 'net_located_hostility' | 'net_watcher_hostility' | 'rating_trace_peak'
 const RULE_FIELDS: Array<[NumericRule, number, number]> = [
   ['stage_minutes', 0, 100000], ['stealth_fail_alert', 0, 100], ['check_fail_alert', 0, 100], ['dc_base', 0, 40], ['dc_per_grade', 0, 10],
   ['reinforce_count', 0, 8], ['hard_alert', 1, 100], ['hard_grade_up', 0, 4], ['pressure_at', 1, 100], ['aux_pressure', 0, 100], ['aux_rest', 0, 3], ['aux_injured_days', 0, 30],
   ['xp_small', 0, 1000], ['xp_medium', 0, 1000], ['xp_large', 0, 1000], ['hostility_base', 0, 100], ['hostility_per_assault', 0, 100], ['hostility_max', 0, 100],
   ['rating_links', 1, 20], ['rating_alert', 1, 100], ['rating_peak', 1, 100],
+  ['net_alert', 0, 100], ['net_alert_at', 1, 100], ['net_hostility_step', 1, 100], ['net_hostility_max', 0, 100], ['net_located_hostility', 0, 100], ['net_watcher_hostility', 0, 100], ['rating_trace_peak', 1, 100],
 ]
 const AUX_FACES = ['meat', 'net', 'opinion'] as const
 const AUX_BONUS_KEYS = ['strong', 'mid', 'weak', 'none'] as const
@@ -187,6 +235,7 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
     const b = e.aux_bonus
     if (!isRecord(b) || Object.keys(b).some((x) => !(AUX_BONUS_KEYS as readonly string[]).includes(x)) || Object.values(b).some((v) => !(isSafeInt(v) && v >= 0 && v <= 20))) p.push('aux_bonus 要是 { strong?, mid?, weak?, none? }，每一項是 0～20 的整數')
   }
+  if (e.net_watchers !== undefined && !isTextList(e.net_watchers)) p.push('net_watchers 要是勢力 id 的陣列')
   return p
 }
 
@@ -205,6 +254,7 @@ export function commissionRules(k: Pick<Kernel, 'content'>): CommissionRules {
   out.aux_bonus = { ...DEFAULT_COMMISSION_RULES.aux_bonus }
   if (e.aux_skills !== undefined && !bad.has('aux_skills')) for (const [f, v] of Object.entries(e.aux_skills as Record<string, string[]>)) out.aux_skills[f as 'meat'] = [...v]
   if (e.aux_bonus !== undefined && !bad.has('aux_bonus')) Object.assign(out.aux_bonus, e.aux_bonus)
+  out.net_watchers = e.net_watchers !== undefined && !bad.has('net_watchers') ? [...new Set(e.net_watchers as string[])] : []
   return out
 }
 
@@ -301,6 +351,29 @@ function faceProblems(f: unknown, at: string, face: Face, links: Record<string, 
     if (!f.branches.some((b: unknown) => isRecord(b) && b.kind === 'assault')) p.push(`${at}：每一面至少要有一條強攻（assault），這樣永遠走得下去`)
   }
   if (f.goal !== undefined) p.push(...goalProblems(f.goal, `${at}.goal`, f as FaceDef))
+  if (face === 'net') p.push(...netFaceProblems(f, at, links))
+  return p
+}
+
+/** 內海面的資料（layer 必填；其餘照 dev/adr/0018 第九節）。 */
+function netFaceProblems(f: Record<string, unknown>, at: string, links: Record<string, unknown>): string[] {
+  const p: string[] = []
+  if (!(NET_LAYERS as readonly unknown[]).includes(f.layer)) p.push(`${at}.layer 只能是 ${NET_LAYERS.join('、')}（內海面一定要寫）`)
+  if (f.lace !== undefined && !(NET_LACES as readonly unknown[]).includes(f.lace)) p.push(`${at}.lace 只能是 ${NET_LACES.join('、')}`)
+  if (f.facility !== undefined && !isText(f.facility)) p.push(`${at}.facility 要是文字`)
+  if (f.objective !== undefined) {
+    const o = f.objective
+    if (!isRecord(o) || !(NET_OBJECTIVES as readonly unknown[]).includes(o.kind)) p.push(`${at}.objective 要是 { kind, turns? }，kind 是 ${NET_OBJECTIVES.join('、')}`)
+    else {
+      if (o.turns !== undefined && !(isSafeInt(o.turns) && o.turns >= 1 && o.turns <= 10)) p.push(`${at}.objective.turns 要是 1～10 的整數`)
+      if (Object.keys(o).some((x) => x !== 'kind' && x !== 'turns')) p.push(`${at}.objective 只能寫 kind 與 turns`)
+    }
+  }
+  if (f.controls !== undefined && !(isTextList(f.controls) && f.controls.length > 0)) p.push(`${at}.controls 要是控制區（"<圖的 id>:<區塊>"）的陣列，至少一個`)
+  if (f.locked_by !== undefined) {
+    if (!isText(f.locked_by)) p.push(`${at}.locked_by 要是連動的 id`)
+    else if (!own(links, f.locked_by)) p.push(`${at}.locked_by 寫了 ${f.locked_by}，links 裡沒有這個連動`)
+  }
   return p
 }
 
@@ -329,11 +402,14 @@ export function commissionProblems(e: Record<string, unknown>): string[] {
       if (l.effect !== undefined) {
         if (!isRecord(l.effect)) { p.push(`${at}.effect 要是物件`); continue }
         const ef = l.effect
-        for (const key of Object.keys(ef)) if (!['stage', 'encounter_half', 'foes_minus', 'skip_explore', 'alert_frozen', 'alert_start'].includes(key)) p.push(`${at}.effect.${key} 不是可以用的鍵（stage、encounter_half、foes_minus、skip_explore、alert_frozen、alert_start）`)
+        const EFFECT_KEYS = ['stage', 'encounter_half', 'foes_minus', 'skip_explore', 'alert_frozen', 'alert_start', 'trace_start', 'controls', ...NET_FLAGS]
+        for (const key of Object.keys(ef)) if (!EFFECT_KEYS.includes(key)) p.push(`${at}.effect.${key} 不是可以用的鍵（${EFFECT_KEYS.join('、')}）`)
         if (ef.stage !== undefined && !(isSafeInt(ef.stage) && ef.stage >= 1 && (stagesWanted === undefined || ef.stage <= stagesWanted))) p.push(`${at}.effect.stage 要是 1～${stagesWanted ?? '階段數'} 的整數（第幾階段）`)
         if (ef.foes_minus !== undefined && !(isSafeInt(ef.foes_minus) && ef.foes_minus >= 0)) p.push(`${at}.effect.foes_minus 要是 0 以上的整數`)
         if (ef.alert_start !== undefined && !(isSafeInt(ef.alert_start) && Math.abs(ef.alert_start) <= 100)) p.push(`${at}.effect.alert_start 要是 −100～100 的整數`)
-        for (const key of ['encounter_half', 'skip_explore', 'alert_frozen'] as const) if (ef[key] !== undefined && typeof ef[key] !== 'boolean') p.push(`${at}.effect.${key} 要是 true 或 false`)
+        if (ef.trace_start !== undefined && !(isSafeInt(ef.trace_start) && Math.abs(ef.trace_start) <= 100)) p.push(`${at}.effect.trace_start 要是 −100～100 的整數`)
+        if (ef.controls !== undefined && ef.controls !== true && !(isTextList(ef.controls) && ef.controls.length > 0)) p.push(`${at}.effect.controls 要是 true（這張地圖全部的控制區）或控制區（"<圖的 id>:<區塊>"）的陣列`)
+        for (const key of ['encounter_half', 'skip_explore', 'alert_frozen', ...NET_FLAGS] as const) if (ef[key] !== undefined && typeof ef[key] !== 'boolean') p.push(`${at}.effect.${key} 要是 true 或 false`)
       }
     }
   }
@@ -350,6 +426,13 @@ export function commissionProblems(e: Record<string, unknown>): string[] {
       for (const [face, f] of Object.entries(s.faces)) {
         if (!(FACES as readonly string[]).includes(face)) p.push(`${at}.faces 的鍵只能是 ${FACES.join('、')}（拿到 ${face}）`)
         else p.push(...faceProblems(f, `${at}.faces.${face}`, face as Face, links))
+      }
+      // 隔離區：locked_by 的連動要有某個更早的階段會給（任何一面的 gives；沒拿到時玩家永遠進不去這一面）
+      const netFace = (s.faces as Record<string, unknown>).net
+      if (isRecord(netFace) && isText(netFace.locked_by) && own(links, netFace.locked_by)) {
+        const lock = netFace.locked_by
+        const earlier = stageList.slice(0, i).some((x) => isRecord(x) && isRecord(x.faces) && Object.values(x.faces).some((ff) => isRecord(ff) && ff.gives === lock))
+        if (!earlier) p.push(`${at}.faces.net.locked_by 寫了 ${lock}，但沒有任何更早的階段會給這個連動（隔離區永遠打不開）`)
       }
       // 最後一個階段只有主面（COMMISSIONS 4 節）
       if (i === stageList.length - 1 && (FACES as readonly unknown[]).includes(e.main)) {
@@ -423,7 +506,11 @@ export interface AuxResult {
   rest_until?: number
 }
 
-/** 輔助面的狀態：內海的壓力（追蹤度，先記著給 M3；現實的壓力就是 run.alert）、哪一面撤到第幾階段為止、每個階段的結算紀錄。 */
+/**
+ * 輔助面的狀態：哪一面撤到第幾階段為止、每個階段的結算紀錄。
+ * pressure.net 是舊欄位（M2：內海的壓力先記在這裡）：現在內海的壓力就是 run.trace（失敗的 +10 加在它上面），這裡只在輔助面失敗時照寫一份給舊的讀法；
+ * 舊存檔裡有值而 run.trace 還沒有時，readRun 把它併進 run.trace。現實的壓力是 run.alert。
+ */
 export interface AuxState {
   pressure: Partial<Record<Face, number>>
   rest: Partial<Record<Face, number>>
@@ -464,6 +551,16 @@ export interface Run {
   alert: number
   /** 警戒到過的最高值 */
   peak: number
+  /** 整趟的追蹤度（M3-commission-net）：開內海那一段時交給 face.net（第一次是進副本時的 trace_start），做完收回來；輔助面在內海失敗的 +10 也加在這裡 */
+  trace: number
+  /** 追蹤度到過的最高值（內海的階段交回的 peak、輔助面加上去之後的值） */
+  net_peak: number
+  /** 這件委託第一次到過 net_alert_at（60）的那一次，警戒加過了（只加一次） */
+  net_alerted?: true
+  /** 不算失敗的戰敗而且是被定位：做完時目標勢力的敵對值另外 +net_located_hostility */
+  net_located?: true
+  /** 這一段內海面寫了 controls、face.net 交回來卻沒有接管任何控制節點：里程碑不給這一面的 gives */
+  no_gives?: true
   /** 這兩個階段之間喘過氣了沒有 */
   breathed: boolean
   /** 這一段的地圖實例 */
@@ -490,7 +587,12 @@ const asTimes = (v: unknown): number[] => (Array.isArray(v) ? v.filter((x): x is
 export function readRun(state: Pick<GameState, 'ext'>): Run | null {
   const raw = state.ext[EXT]
   if (!isRecord(raw) || !isRecord(raw.def) || !Array.isArray(raw.def.stages) || !isSafeInt(raw.stage) || !(STEPS as readonly unknown[]).includes(raw.step)) return null
-  return clone(raw) as unknown as Run
+  const run = clone(raw) as unknown as Run
+  // M2 的存檔：內海的壓力記在 aux.pressure.net；併進 run.trace（run.trace 已經有值就以它為準）
+  const old = isRecord(run.aux) && isRecord(run.aux.pressure) && isSafeInt(run.aux.pressure.net) ? run.aux.pressure.net : 0
+  if (!isSafeInt(run.trace)) run.trace = clamp(old, TRACE_MIN, 100)
+  if (!isSafeInt(run.net_peak)) run.net_peak = Math.max(run.trace, 0)
+  return run
 }
 
 /** 變更用：整份換掉 state.ext.commission 的變更。 */
@@ -519,7 +621,7 @@ export function auxProblem(raw: unknown): string | null {
   return null
 }
 
-export function normalSetup(raw: unknown): { def: unknown; setup: RunSetup; alert_start: number } | string {
+export function normalSetup(raw: unknown): { def: unknown; setup: RunSetup; alert_start: number; trace_start: number } | string {
   if (!isRecord(raw)) return '開副本要給 { def: 委託的 id 或整筆 }。'
   if (!(isText(raw.def) || isRecord(raw.def))) return '開副本要給 def（委託的 id，或整筆副本的資料）。'
   const s = raw.scouted
@@ -541,7 +643,9 @@ export function normalSetup(raw: unknown): { def: unknown; setup: RunSetup; aler
   }
   const a = raw.alert_start
   if (a !== undefined && !(isSafeInt(a) && a >= 0 && a <= 100)) return 'alert_start 要是 0～100 的整數。'
-  return { def: raw.def, setup, alert_start: (a as number | undefined) ?? 0 }
+  const t = raw.trace_start
+  if (t !== undefined && !(isSafeInt(t) && t >= TRACE_MIN && t <= 100)) return `trace_start 要是 ${TRACE_MIN}～100 的整數。`
+  return { def: raw.def, setup, alert_start: (a as number | undefined) ?? 0, trace_start: (t as number | undefined) ?? 0 }
 }
 
 // ---- 連動的效果 ----
@@ -554,11 +658,19 @@ export interface StageEffects {
   alertDelta: number
   /** 哪幾個連動在生效（給報告與畫面用） */
   from: string[]
+  // ---- 給內海階段的（M3-commission-net） ----
+  traceStart: number
+  traceHalf: boolean
+  laceDown: boolean
+  gateOpen: boolean
+  nearCore: boolean
+  /** 給現實階段的：開地圖時寫進 ext.controlled 的控制區（true 是那張地圖全部的）；沒有是 null */
+  controls: true | string[] | null
 }
 
 /** 連動對第 n 階段的效果：每一個拿到的連動，effect.stage（沒寫是拿到它的下一個階段）就是 n 的才算。 */
 export function effectsFor(run: Run, n: number): StageEffects {
-  const out: StageEffects = { half: false, minus: 0, skip: false, frozen: false, alertDelta: 0, from: [] }
+  const out: StageEffects = { half: false, minus: 0, skip: false, frozen: false, alertDelta: 0, from: [], traceStart: 0, traceHalf: false, laceDown: false, gateOpen: false, nearCore: false, controls: null }
   for (const l of run.links) {
     const ef = run.def.links[l.id]?.effect
     if (!ef) continue
@@ -569,6 +681,16 @@ export function effectsFor(run: Run, n: number): StageEffects {
     if (ef.skip_explore) { out.skip = true; used = true }
     if (ef.alert_frozen) { out.frozen = true; used = true }
     if (ef.alert_start) { out.alertDelta += ef.alert_start; used = true }
+    if (ef.trace_start) { out.traceStart += ef.trace_start; used = true }
+    if (ef.trace_half) { out.traceHalf = true; used = true }
+    if (ef.lace_down) { out.laceDown = true; used = true }
+    if (ef.gate_open) { out.gateOpen = true; used = true }
+    if (ef.near_core) { out.nearCore = true; used = true }
+    if (ef.controls === true) { out.controls = true; used = true }
+    else if (Array.isArray(ef.controls) && ef.controls.length > 0) {
+      if (out.controls !== true) out.controls = [...new Set([...(out.controls ?? []), ...ef.controls])]
+      used = true
+    }
     if (used) out.from.push(l.id)
   }
   return out
@@ -583,4 +705,16 @@ export function encounterAfter(ranks: Rank[], fx: Pick<StageEffects, 'half' | 'm
   return ranks.slice(0, n)
 }
 
+/** 給 face.net 的 setup.fx：這個階段生效的連動效果（只寫有生效的鍵；netrun 讀不到副本的資料，所以副本算好了給）。 */
+export function netFx(fx: StageEffects): Record<string, unknown> {
+  return {
+    ...(fx.half ? { half: true } : {}), ...(fx.minus > 0 ? { minus: fx.minus } : {}), ...(fx.skip ? { skip: true } : {}),
+    ...(fx.traceStart !== 0 ? { trace_start: clamp(fx.traceStart, -100, 100) } : {}), ...(fx.traceHalf ? { trace_half: true } : {}),
+    ...(fx.laceDown ? { lace_down: true } : {}), ...(fx.gateOpen ? { gate_open: true } : {}), ...(fx.nearCore ? { near_core: true } : {}),
+  }
+}
+
 export const clamp = (n: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, n))
+
+/** 追蹤度的下限（量表 trace 是 −30～100：負的起始值是後門與伊甸園的條款要的） */
+export const TRACE_MIN = -30

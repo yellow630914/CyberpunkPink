@@ -6,16 +6,16 @@
 // 現實面的一段：照分支的入口開一份地圖實例，把守備（遭遇的位階變成 enemy_pick）、增援、DC、警戒寫在實例的 ext 上，探索的功能照那份 ext 運作；
 // 這個功能不知道探索與敵人的內部：只靠 ext 的慣用鍵、量表 alert 與單位來源 enemy_pick 的 UnitRef。
 
-import type { ActivityEndMerged, Change, GameState, Kernel, Launch, MarkerDef, Origin, ReportDraft, UnitRef } from '../../core'
+import type { Change, GameState, Kernel, Launch, MarkerDef, Origin, ReportDraft, UnitRef } from '../../core'
 import {
   ActionBlocked, DEGREE_NAME, attachActivityEnd, clone, endActivity, formatAmount, gridHere, mapDef, meterOf, openMap, pointKey, restDone, rollCheck, Sheet,
 } from '../../core'
 import { settleAux } from './aux'
-import { resultOf, settleDone } from './close'
+import { RETREAT_REWIND, resultOf, retreatEnd, settleDone } from './close'
 import type { BranchDef, BranchKind, CommissionEntry, Face, FaceDef, GoalDef, Rank, Run, RouteEntry } from './model'
 import {
   ACTIVITY, FAILED_EXT, FACE_ACTIVITY, FACE_NAME, KIND, branchName, clamp, commissionMapProblems, commissionProblems, commissionRules, dcBaseOf, effectsFor, encounterAfter, faceOf, gradeOf,
-  isLast, normalSetup, readRun, runChange, stageName, stagesOf,
+  isLast, netFx, normalSetup, readRun, runChange, stageName, stagesOf,
 } from './model'
 
 declare module '../../core' {
@@ -61,19 +61,32 @@ export interface FaceView {
   block: string | null
   /** 玩家選了這一面 */
   chosen: boolean
+  /** 隔離區的原因（沒拿到 locked_by 的連動）；不是隔離區或已經打開是 null（這時的 block 不是這一條） */
+  locked: string | null
 }
 
-function faceBlock(k: Kernel, run: Run, face: Face): string | null {
+/** 隔離區的原因：這個階段的內海面寫了 locked_by，而這件委託還沒拿到那個連動。 */
+export const AIRGAP_TEXT = '隔離區還沒有打開：要先在現實面插上資料埠。'
+function lockOf(run: Run, face: Face): string | null {
+  const lock = face === 'net' ? run.def.stages[run.stage - 1]?.faces.net?.locked_by : undefined
+  return typeof lock === 'string' && !run.links.some((l) => l.id === lock) ? AIRGAP_TEXT : null
+}
+
+/** probing 是進副本時的檢查（每個階段都要有選得了的面）：隔離區不算擋（格式檢查保證更早的階段會給它的連動）。 */
+function faceBlock(k: Kernel, run: Run, face: Face, probing = false): string | null {
   if (!run.def.stages[run.stage - 1]?.faces[face]) return '這個階段沒有開這一面。'
   if (isLast(run) && face !== run.def.main) return '決定性的一步只能在主面完成。'
+  const locked = lockOf(run, face)
+  if (locked && !probing) return locked
   if (face !== 'meat' && !k.activity.get(FACE_ACTIVITY[face])) return '這一面還沒有開放。'
   return null
 }
 
 /** 現在這個階段的三個面各自能不能選（沒有開的面也列出來）。 */
-export function faceViews(k: Kernel, run: Run): FaceView[] {
+export function faceViews(k: Kernel, run: Run, probing = false): FaceView[] {
   return (['meat', 'net', 'opinion'] as const).map((face) => ({
-    face, name: FACE_NAME[face], open: !!run.def.stages[run.stage - 1]?.faces[face], block: faceBlock(k, run, face), chosen: run.face === face,
+    face, name: FACE_NAME[face], open: !!run.def.stages[run.stage - 1]?.faces[face], block: faceBlock(k, run, face, probing), chosen: run.face === face,
+    locked: run.def.stages[run.stage - 1]?.faces[face] ? lockOf(run, face) : null,
   }))
 }
 
@@ -148,12 +161,13 @@ export function enterDraft(k: Kernel, state: GameState, setup: unknown, origin: 
   if (!state.pc) throw new ActionBlocked('還沒有主角，進不了副本。')
   const def = resolveDef(k, s.def)
   const run: Run = {
-    def, origin: clone(origin), setup: s.setup, stage: 1, step: 'face', links: [], route: [], alert: s.alert_start, peak: s.alert_start, breathed: false, started: clone(state.time),
+    def, origin: clone(origin), setup: s.setup, stage: 1, step: 'face', links: [], route: [], alert: s.alert_start, peak: s.alert_start, trace: s.trace_start, net_peak: s.trace_start,
+    breathed: false, started: clone(state.time),
   }
   // 每個階段都要有選得了的面：一個可選的面都沒有的階段，這件副本進去了也做不完
   for (let n = 1; n <= stagesOf(run); n++) {
     const probe = { ...run, stage: n }
-    if (!faceViews(k, probe).some((f) => f.block === null)) {
+    if (!faceViews(k, probe, true).some((f) => f.block === null)) {
       const names = (Object.keys(def.stages[n - 1]!.faces) as Face[]).map((f) => FACE_NAME[f]).join('、')
       throw new ActionBlocked(`${stageName(def, n)}沒有選得了的面（這個階段只開了${names}，那一面還沒有開放），這件副本現在進不去。`)
     }
@@ -264,6 +278,13 @@ function sheetIdOf(k: Kernel, face: FaceDef): { map: ReturnType<typeof mapDef>; 
   return { map, sheet: face.sheet ?? map.sheets[0]!.id }
 }
 
+/** 連動 controls 的效果：true 是這張地圖每一張圖的全部控制區，清單原樣；寫成 "<圖的 id>:<區塊>"（探索認的寫法）。 */
+function controlledZones(map: ReturnType<typeof mapDef>, want: true | string[] | null): string[] {
+  if (want === null) return []
+  const all = want === true ? map.sheets.flatMap((sh) => (sh.controls ?? []).flatMap((c) => c.zones.map((z) => `${sh.id}:${z}`))) : want
+  return [...new Set(all)]
+}
+
 /**
  * 開這一段的地圖（現實面）：照連動的效果算遭遇與入口、寫好實例的 ext、把警戒放到新的實例上。
  * alertFrom 是這一段開始前的警戒；失敗的潛行再加 stealth_fail_alert。
@@ -289,8 +310,11 @@ function planMeat(k: Kernel, state: GameState, run: Run, b: BranchDef, extraAler
   const guards = post && ranks.length > 0 ? { [post.id]: { foes: ranks.map((r, i) => foeRef(def, n, grade, r, i + 1, i === 0 ? face.attached as unknown[] | undefined : undefined)), faction: def.target_faction } } : {}
   const scoutedGuards = (run.setup.scouted?.guards ?? []).includes(n)
   const stealth = run.route.at(-1)?.stealth === true
+  // 內海那邊接管了控制節點：連動寫明的控制區（或這張地圖全部的）進 ext.controlled，探索本來就認
+  const controlled = controlledZones(map, fx.controls)
   const ext: Record<string, unknown> = {
     commission: def.id, stage: n, grade: baseGrade, dc_base: dcBaseOf(rules, baseGrade), guards,
+    ...(controlled.length > 0 ? { controlled } : {}),
     reinforce: Array.from({ length: rules.reinforce_count }, (_, i) => foeRef(def, n, grade, 'minion', `r${i + 1}`)),
     // 守備沒有踩到：敵人多一次先攻的機會（G7）；踩到了就沒有
     ...(scoutedGuards ? {} : { edge: 'foe' }),
@@ -310,20 +334,32 @@ function planMeat(k: Kernel, state: GameState, run: Run, b: BranchDef, extraAler
   if (fx.from.length > 0) notes.push(`連動生效：${fx.from.map((id) => def.links[id]?.name ?? id).join('、')}。`)
   if (ranks.length < (face.encounter?.length ?? 0)) notes.push(`守備只剩 ${ranks.length} 個。`)
   if (ranks.length > base.length) notes.push('對方認得你，守備多了人。')
+  if (controlled.length > 0) notes.push('內海那邊接管了控制節點，那幾區的監視器與門鎖聽你的。')
   if (direct) notes.push('不必探索，直接到了遭遇的地方。')
   if (hard) notes.push('警戒滿了，這一段的敵人高了一級。')
   return { changes, map: opened.id, start_alert: start, frozen: fx.frozen, notes }
 }
 
-/** 別的面的玩法（活動 face.net、face.opinion）的開法：setup 帶這一段的條件，origin 是這件委託。 */
+/**
+ * 別的面的玩法（活動 face.net、face.opinion）的開法：setup 帶這一段的條件，origin 是這件委託。
+ * 內海面多給（dev/adr/0018 第九節）：fx（連動對這一段的效果，副本算好了給）、trace（整趟到目前為止的追蹤度）、decisive、where、defeat_event、employer；
+ * 面的資料（layer、encounter、lace、facility、objective、controls）原樣帶過去。
+ */
 function faceLaunch(run: Run, b: BranchDef, stealth: boolean): Launch {
   const face = faceOf(run)!
-  const { branches: _b, gives: _g, goal: _goal, ...rest } = face
+  const { branches: _b, gives: _g, goal: _goal, locked_by: _l, ...rest } = face
+  const net = run.face === 'net'
+  const terms = run.setup.terms as { employer?: unknown } | undefined
   return {
     kind: FACE_ACTIVITY[run.face as Exclude<Face, 'meat'>],
     setup: {
       commission: run.def.id, stage: run.stage, face: run.face, branch: b.id, branch_kind: b.kind, stealth, grade: gradeOf(run.def.grade), faction: run.def.target_faction,
       links: run.links.map((l) => l.id), alert: run.alert, ...clone(rest),
+      ...(net ? {
+        fx: netFx(effectsFor(run, run.stage)), trace: run.trace, decisive: isLast(run), where: stageWhere(run, 'net'),
+        ...(run.def.defeat_event !== undefined ? { defeat_event: run.def.defeat_event } : {}),
+        ...(typeof run.def.employer === 'string' ? { employer: run.def.employer } : isText(terms?.employer) ? { employer: terms.employer } : {}),
+      } : {}),
     },
     origin: { by: 'commission', ref: run.def.id, ext: { commission: run.def.id, stage: run.stage, face: run.face } },
   }
@@ -360,6 +396,7 @@ export function chooseBranch(k: Kernel, state: GameState, branchId: string): Rep
   const entry: RouteEntry = { stage: n, face: run.face, branch: b.id, kind: b.kind, ...(roll ? { roll } : {}), ...(roll === 'pass' ? { stealth: true } : {}) }
   const next: Run = { ...run, step: 'play', branch: b.id, route: [...run.route, entry], won: false, checked: false, done: false }
   delete next.scene
+  delete next.no_gives
   const how = roll === 'pass' ? '成功了，這一段是悄悄進去的。' : roll === 'fail' ? `沒有成功，警戒 +${rules.stealth_fail_alert}，只好照強攻走。` : ''
   const launch: Launch[] = []
   if (run.face === 'meat') {
@@ -479,13 +516,14 @@ export function milestone(k: Kernel, state: GameState): ReportDraft {
     if (state.maps.instances[run.map]) changes.push({ op: 'map.close', id: run.map })
   }
   const links = [...run.links]
-  if (face?.gives && !links.some((l) => l.id === face.gives)) {
+  if (face?.gives && run.no_gives) lines.push(`內海那一段沒有接管任何控制節點，連動「${run.def.links[face.gives]?.name ?? face.gives}」沒有拿到。`)
+  else if (face?.gives && !links.some((l) => l.id === face.gives)) {
     links.push({ id: face.gives, from: n, face: run.face! })
     lines.push(`拿到連動「${run.def.links[face.gives]?.name ?? face.gives}」。`)
   }
   const last = isLast(run)
   const next: Run = { ...run, stage: n + 1, step: last ? 'done' : 'face', links, alert, peak: Math.max(run.peak, alert), breathed: false }
-  for (const key of ['face', 'branch', 'map', 'start_alert', 'frozen', 'won', 'checked', 'scene', 'done', 'pressured'] as const) delete next[key]
+  for (const key of ['face', 'branch', 'map', 'start_alert', 'frozen', 'won', 'checked', 'scene', 'done', 'pressured', 'no_gives'] as const) delete next[key]
   changes.push(runChange(next))
   return draft(state, 'commission.milestone', last ? 'decisive' : 'milestone', `${stageName(run.def, n)}完成，城裡過了 ${rules.stage_minutes / 60} 小時。${last ? '決定性的一步做到了。' : ''}`, changes, { narration: { results: lines } })
 }
@@ -572,12 +610,10 @@ export function breathe(k: Kernel, state: GameState): ReportDraft {
 export function retreat(k: Kernel, state: GameState): ReportDraft {
   const run = needRun(state)
   if (state.battle) throw new ActionBlocked('戰鬥中不能撤退，先把這一場打完。')
-  const end: ActivityEndMerged = endActivity(k, { state, kind: ACTIVITY, id: run.def.id, origin: run.origin, outcome: 'retreat', result: resultOf(run) })
-  // 撤退之後不會再開新的活動（launch 與 rewind 不能同時有）：處理函式要的 launch 丟掉
-  end.launch = []
+  const end = retreatEnd(k, state, run)
   return attachActivityEnd(draft(state, 'commission.retreat', 'retreat', '你撤退了。', end.changes, {
     narration: { results: end.lines },
-    rewind: { kind: 'entry', summary: '你從副本撤退，所有進度回到進去之前；剛才那段經歷只留下紀錄。', fresh: true },
+    rewind: { ...RETREAT_REWIND },
   }), end)
 }
 

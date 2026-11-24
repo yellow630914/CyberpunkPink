@@ -14,6 +14,8 @@ import { branchViews, breatheBlock, faceViews, goalView } from './run'
 
 /** 警戒到這麼多增援加進下一場遭遇（COMMISSIONS 2.3 節；畫面的刻度）。 */
 export const REINFORCE_MARK = 60
+/** 追蹤度條的刻度（CYBERSPACE 8.3 節：30 巡邏與 DC 加、60 增援與警戒、90 開始倒數被定位） */
+export const TRACE_MARKS: readonly number[] = [30, 60, 90]
 
 export interface TrackNode {
   index: number
@@ -54,7 +56,7 @@ export interface AuxFaceView {
   resting: boolean
   /** 這個階段如果玩家沒選這一面，會擲（這一面開著、有人、沒在休息） */
   rolls: boolean
-  /** 這一面的壓力：現實是警戒、內海是追蹤度（先記著給 M3）、輿論沒有壓力條是 null */
+  /** 這一面的壓力：現實是警戒、內海是整趟的追蹤度（Run.trace）、輿論沒有壓力條是 null */
   pressure: number | null
   /** 派這些人擲一次的算式與機率；沒有人時沒有 */
   chance?: AuxChance
@@ -91,6 +93,8 @@ export interface CommissionView {
   aux: AuxFaceView[]
   route: RouteEntry[]
   alert: { value: number; reinforce: number; hard: number; peak: number }
+  /** 整趟的追蹤度（內海）：到目前為止的值（內海的階段做完才收回來）、畫面的刻度、到過的最高值 */
+  trace: { value: number; marks: number[]; peak: number }
   breathe: { can: boolean; reason: string | null }
   retreat: { can: boolean; reason: string | null }
   /** 現在做完的話：預估的評價（與每一項加減）、現在的路線會留下的敵對值、歷練點（M2-commission-close） */
@@ -110,7 +114,7 @@ function auxViews(k: Kernel, state: GameState, run: NonNullable<ReturnType<typeo
       people: people.map((id) => ({ id, name: state.actors[id]?.name ?? id, borrowed: all.borrowed.includes(id) })),
       restUntil: run.aux?.rest[face] ?? null, resting: sit,
       rolls: open.includes(face) && run.face !== face && people.length > 0 && !sit && run.step === 'face',
-      pressure: face === 'meat' ? alertNow : face === 'net' ? (run.aux?.pressure.net ?? 0) : null,
+      pressure: face === 'meat' ? alertNow : face === 'net' ? run.trace : null,
       ...(chance ? { chance } : {}), ...(result ? { result } : {}),
     }
   })
@@ -155,6 +159,7 @@ export function commissionView(k: Kernel, state: GameState): CommissionView | nu
     ...(play ? { goal: goalView(k, state, run) } : {}),
     links, aux: done ? [] : auxViews(k, state, run, alertNow), route: run.route.map((r) => ({ ...r })),
     alert: { value: alertNow, reinforce: REINFORCE_MARK, hard: rules.hard_alert, peak: Math.max(run.peak, alertNow) },
+    trace: { value: run.trace, marks: [...TRACE_MARKS], peak: Math.max(run.net_peak, run.trace) },
     breathe: { can: breatheWhy === null, reason: breatheWhy },
     retreat: { can: retreatWhy === null, reason: retreatWhy },
     close: forecast(state, run, rules, alertNow, Math.max(run.peak, alertNow)),

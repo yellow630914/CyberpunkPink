@@ -9,7 +9,7 @@
 import type { Change, CheckRoll, ContentEntry, GameState, Kernel, TimelineBeat } from '../../core'
 import { MINUTES_PER_DAY, clone, deriveRng, isRecord, makeCheck, toMinutes } from '../../core'
 import type { AuxOutcome, AuxResult, AuxState, CommissionEntry, CommissionRules, Face, Run } from './model'
-import { FACES, FACE_NAME, clamp, commissionRules, dcBaseOf, gradeOf } from './model'
+import { FACES, FACE_NAME, TRACE_MIN, clamp, commissionRules, dcBaseOf, gradeOf } from './model'
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
 
@@ -224,10 +224,12 @@ export function settleAux(k: Kernel, state: GameState, run: Run): AuxSettlement 
           next.peak = Math.max(next.peak, next.alert)
           result.pressure = next.alert - before
         } else {
-          const before = aux.pressure[face] ?? 0
-          const after = clamp(before + rules.aux_pressure, 0, 100)
-          aux.pressure[face] = after
-          result.pressure = after - before
+          // 內海的壓力就是整趟的追蹤度（M3-commission-net）；aux.pressure 照寫一份只給舊的讀法
+          const before = next.trace
+          next.trace = clamp(before + rules.aux_pressure, TRACE_MIN, 100)
+          next.net_peak = Math.max(next.net_peak, next.trace)
+          aux.pressure[face] = next.trace
+          result.pressure = next.trace - before
         }
         notes.push(face === 'meat' ? `警戒 +${result.pressure}。` : `壓力 +${result.pressure}。`)
       } else notes.push('沒拿到連動。')
