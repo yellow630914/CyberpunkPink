@@ -6,26 +6,33 @@
 // 敵人資料多收的欄位（M1b-enemy-moves）：signature（招牌行動：技能的 id 放進 unit.ext.abilities.equipped，技能那一邊本來就認；
 // 還沒轉的敘述 { name, text } 收下、不做效果）、traits 與內容種類 enemy_trait（traits.ts）、cyber（變成 implants）、deck（放到 ext.deck）、
 // mods.sink（記在 ext.enemies.sink）、angel（angel.ts）、defeat（字串或字串陣列）。蕾絲與網內的敵人還不在這裡。
-// 規格：ENEMIES 1.1、1.5、第 2 節、4.4 節、第 5 節、第 13 節；ENEMY_ROSTER 開頭；BALANCE 2.4、7.2；dev/adr/0013（B2、D4～D6）、0015（E10、E11）。
+// 內海面（M3-lace）：同一個來源 enemy 與 enemy_pick 拿到的戰場是內海時，照內海表組單位（stats.ts 的 netUnit）：沒有生命、有防護、RAM、武器構裝（constructs）、
+// 固定的同步檔位（sync）、蕾絲的顏色（color 變標籤）、管理行動的次數（admin）；enemy_pick 照層挑網內的兵種（pick.ts）；掉落只有解剖拿得到的構裝與憑證（loot.ts）；
+// 偏好深檔的 AI 與白蕾絲的撤走在 lace.ts；規則表 net_enemy_rule（憑證是哪件物品）。蕾絲的行為是招牌行動的資料加 AI 的參數，不替顏色寫程式。
+// 規格：ENEMIES 1.1、1.5、第 2 節、4.4 節、第 5 節、第 9 節、第 13 節；ENEMY_ROSTER 開頭；BALANCE 2.4、7.2；dev/adr/0013（B2、D4～D6）、0015（E10、E11）、0018 第四節與 N18～N20。
 
 import type { BattleUnit, Feature } from '../../core'
 import { installCapture } from './capture'
 import { enemyPickUnit } from './pick'
 import { checkSignatures } from './signature'
 import { registerAngel } from './angel'
+import { registerLace } from './lace'
 import { registerOverlays } from './overlays'
 import { enemyUnit } from './stats'
 import { OWNER, registerKinds } from './kinds'
 import { installLoot } from './loot'
 import { applyTraits, moraleDcBonus, registerTraitKind, runTraitStart } from './traits'
 
-export { ENEMY_CURVE, ENCOUNTER_BUDGET } from './curve'
+export { DEEP_SYNC_PCT, DEFAULT_SYNC, ENEMY_CURVE, ENCOUNTER_BUDGET, NET_CURVE, WHITE_LEAVES_AT } from './curve'
 export { encounterPoints, enemyStats, overlayInit, setupFromEncounter } from './stats'
-export type { EnemyStats } from './stats'
+export type { EnemyStats, NetStats } from './stats'
+export { NET_RULE_KIND, credentialItem } from './lace'
+export type { NetEnemyRule } from './lace'
 export { CASH_RANGE, LOOT_CAP } from './loot'
-export type { LootDrop, LootEntry, LootText } from './loot'
+export type { LootConstruct, LootCredential, LootDrop, LootEntry, LootText } from './loot'
 export { OVERLAY_KINDS } from './kinds'
-export type { EncounterEntry, EncounterFoe, EnemyAttached, EnemyCyber, EnemyDeck, EnemyEntry, EnemyHull, EnemyOverlay, EnemySignature } from './kinds'
+export { LACE_COLORS, NET_ONLY_KINDS, NET_SYNC_VALUES, enemyMode, netCapable } from './kinds'
+export type { EncounterEntry, EncounterFoe, EnemyAttached, EnemyConstruct, EnemyCyber, EnemyDeck, EnemyEntry, EnemyHull, EnemyOverlay, EnemySignature } from './kinds'
 export type { TraitEntry } from './traits'
 export { pickCandidates, pickEnemy, pickProblems } from './pick'
 export type { PickSpec } from './pick'
@@ -50,6 +57,8 @@ export const enemiesFeature: Feature = {
     k.battle.on('unit.ready', OWNER, ({ run, unit }) => applyTraits(run, unit))
     k.battle.on('battle.start', OWNER, ({ run }) => runTraitStart(run))
     registerAngel(k)
+    // 內海面：規則表 net_enemy_rule、偏好深檔的 AI、白蕾絲追蹤度夠高就撤走（M3-lace）
+    registerLace(k)
     // 敵方的無人機與砲塔、附屬單位：開打時掛上去；會指揮的敵人多一個行動 enemy.command（一台怎麼動在 summons）
     registerOverlays(k)
 
@@ -63,8 +72,9 @@ export const enemiesFeature: Feature = {
       const mine = units.filter((u) => u.side === unit.side)
       const theirs = units.filter((u) => u.side !== unit.side)
       const bossOut = mine.some((u) => u.rank === 'boss' && u.out)
-      // 生命比例只有現實才算：內海的單位沒有生命（也沒有人規定它用什麼比例）
-      const low = run.mode.layer === 'meat' && !!unit.hp && !!unit.ai && unit.hp.now / unit.hp.max < unit.ai.fleeBelow
+      // 生命比例只有現實才算：內海的單位沒有生命，改看感載還剩多少空間（1 − 感載 ÷ 上限；flee_below 寫 0 的蕾絲永遠不因此撤退）
+      const net = run.mode.layer === 'net'
+      const low = !!unit.ai && (net ? !!unit.load && 1 - unit.load.now / unit.load.max < unit.ai.fleeBelow : run.mode.layer === 'meat' && !!unit.hp && unit.hp.now / unit.hp.max < unit.ai.fleeBelow)
       // 「同伴倒了一半」的分母是開打時記下的人數（核心在開打時寫進 origin.headcount）：之後叫來的增援不會把它墊高
       const started = run.battle.origin.headcount?.[unit.side] ?? mine.length
       const halfGone = mine.filter((u) => u.out).length * 2 >= started
@@ -74,6 +84,11 @@ export const enemiesFeature: Feature = {
       // 特徵可以把 DC 加高或降低（老兵 −3、新人 +3）
       const { ok } = run.save(unit, 'resolve', 'composure', MORALE_DC[unit.rank] + moraleDcBonus(unit), '士氣', [], ['morale'])
       if (ok) return
+      // 內海沒有投降（蕾絲與程式不被俘虜）：失敗一律是撤退，被踢出網（fled）
+      if (net) {
+        run.setOut(unit, 'fled')
+        return true
+      }
       // 被困在第 4 格（站在第 4 格，前面三格沒有還站著的同伴），或對方還站著的人數是自己這一方的兩倍以上就投降，否則撤退（ENEMIES 4.4 節；dev/adr/0013 D4）
       const standing = (list: BattleUnit[]) => list.filter((u) => !u.out).length
       const trapped = unit.slot === 4 && !mine.some((u) => u !== unit && !u.out && u.slot >= 1 && u.slot <= 3)

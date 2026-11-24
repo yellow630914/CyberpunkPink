@@ -1,12 +1,12 @@
 // 把一筆敵人資料變成單位的數字：目標表 × 兵種的修正 × 難度 × 強度係數（ENEMIES 1.5、第 13 節；ENEMY_ROSTER 開頭；BALANCE 7.2）。
 // dev/work/M1-enemies.md 第四、五節。
 
-import type { BattleOverlayInit, BattleSetup, BattleUnitInit, BattleWeapon, ContentRegistry, GameState, Grade, UnitRank, UnitRef, WeaponClassEntry } from '../../core'
-import { ATTR_IDS, areaGrade, attrMod, enemyCoefFor, gradeDice, modeOf, weaponFromClass } from '../../core'
+import type { BattleMode, BattleOverlayInit, BattleSetup, BattleUnitInit, BattleWeapon, ContentRegistry, GameState, Grade, SyncGear, UnitRank, UnitRef, WeaponClassEntry } from '../../core'
+import { ATTR_IDS, areaGrade, attrMod, battleAttr, enemyCoefFor, gradeDice, modeOf, weaponFromClass } from '../../core'
 import type { Kernel } from '../../core'
-import { ENEMY_CURVE, OVERLAY_POINTS } from './curve'
+import { DEFAULT_SYNC, ENEMY_CURVE, NET_CURVE, OVERLAY_POINTS, SHIFT_GEAR } from './curve'
 import type { EncounterEntry, EncounterFoe, EnemyAttached, EnemyEntry } from './kinds'
-import { UNBRIDGED_KINDS, attachedProblems, resolveEnemy } from './kinds'
+import { NET_ONLY_KINDS, UNBRIDGED_KINDS, attachedProblems, enemyMode, netCapable, resolveEnemy } from './kinds'
 
 type Cx = Pick<Kernel, 'content'>
 
@@ -132,7 +132,12 @@ export function enemyUnit(k: Cx, state: GameState, ref: Record<string, unknown>,
   const id = typeof ref.id === 'string' ? ref.id : ''
   const e = resolveEnemy(k.content, id)
   if (isOverlay(e)) throw new Error(`${e.name}（${id}）是掛在格上的一台，不是一個單位：放進遭遇的 foes 由 setupFromEncounter 掛上去，或直接寫在 origin.ext.enemies.overlays`)
+  // 戰場：內海的戰場照內海的表組（net），其餘都是現實（沒給戰場也是）。放錯戰場的兵種整步不成立
+  const mode = ctx.mode === undefined ? undefined : modeOf(k.content, ctx.mode)
+  const net = mode?.layer === 'net'
+  wrongField(e, id, net, mode?.name ?? ctx.mode ?? '現實')
   const grade = typeof ref.grade === 'number' ? asGrade(ref.grade) : gradeIn(e, ctx.grade)
+  if (net) return netUnit(k, state, ref, e, id, grade, ctx.allyCount, mode!)
   const st = statsOf(state, e, grade, ctx.allyCount, typeof ref.strength === 'number' ? ref.strength : undefined)
   const attrs = Object.fromEntries(ATTR_IDS.map((a) => [a, e.attrs?.[a] ?? 10])) as BattleUnitInit['attrs']
   const bridged = st.load !== undefined
@@ -148,6 +153,7 @@ export function enemyUnit(k: Cx, state: GameState, ref: Record<string, unknown>,
     ...(angel ? { angel } : {}),
     // 跟著主人的附屬單位：開打時（battle.start）由 overlays.ts 掛上去
     ...(attached?.length ? { attached: attached.map((a) => ({ ...a })) } : {}),
+    ...pickedExt(ref),
   }
   const cyber = e.cyber?.length ? e.cyber.map((c) => ({ kind: c.kind, name: c.name, ...(c.contract ? { contract: true } : {}) })) : undefined
   return {
@@ -172,6 +178,141 @@ export function enemyUnit(k: Cx, state: GameState, ref: Record<string, unknown>,
       focus: e.ai.focus, floor: e.ai.floor ?? 1, ...(e.ai.prefer !== undefined ? { prefer: e.ai.prefer } : {}), mode: e.mode, fleeBelow: e.ai.flee_below,
       ...(e.ai.never_flee !== undefined ? { neverFlee: e.ai.never_flee } : {}),
       prefer_slots: [...e.position.prefer], coverUse: e.position.cover_use ?? 0.5,
+    },
+  }
+}
+
+// ---- 內海（M3-lace；ENEMIES 1.5 節的內海表、第 2 節、第 9 節；dev/adr/0018 第四節與 N18、N19） ----
+
+/** UnitRef 帶的 color、layer（enemy_pick 的選填欄位）：原樣放到 ext.enemies，不影響數字。 */
+function pickedExt(ref: Record<string, unknown>): Record<string, unknown> {
+  const layer = ref.layer
+  return {
+    ...(typeof ref.color === 'string' ? { color: ref.color } : {}),
+    ...(typeof layer === 'string' || (typeof layer === 'number' && Number.isFinite(layer)) ? { layer } : {}),
+  }
+}
+
+/** 放錯戰場的兵種：蕾絲與網內的程式不能進現實；沒有構裝（也不是蕾絲、程式）的不能進內海。訊息寫出兵種與戰場。 */
+function wrongField(e: EnemyEntry, id: string, net: boolean, fieldName: string): void {
+  if (!net && NET_ONLY_KINDS.includes(e.kind)) throw new Error(`${e.name}（${id}，${e.kind}）是網內的兵種，不能放進現實的戰鬥（戰場：${fieldName}）`)
+  if (net && !netCapable(e)) throw new Error(`${e.name}（${id}，${e.kind}）沒有 constructs，也不是蕾絲或程式，不能放進內海的戰鬥（戰場：${fieldName}）`)
+}
+
+export interface NetStats {
+  grade: Grade
+  rank: UnitRank
+  load: number
+  guard: number
+  ram: number
+  ramRegen: number
+  firewall: number
+  attack: number
+  ap: number
+  layers: number
+  sensitivity: number
+  dmgMult: { hp: number; load: number }
+}
+
+/** 內海的數字：內海表 × 兵種的修正 × 難度 × 強度係數。位階的傷害倍率在內海不用（hp 倍率是 1，感載照難度與強度）。 */
+function netStatsOf(state: GameState, e: EnemyEntry, grade: Grade, allies: number, override?: number): NetStats {
+  const g = grade - 1
+  const m = e.mods ?? {}
+  const c = enemyCoefFor(state.rules, grade, e.rank === 'boss')
+  const s = strengthOf(e, allies, override)
+  return {
+    grade, rank: e.rank,
+    load: Math.round(ENEMY_CURVE.load[e.rank][g]! * (m.load ?? 1) * c.load),
+    guard: Math.max(0, NET_CURVE.guard[g]! + (m.guard ?? 0)),
+    ram: Math.max(1, NET_CURVE.ram[e.rank][g]! + (m.ram ?? 0)),
+    ramRegen: NET_CURVE.ramRegen[g]!,
+    firewall: NET_CURVE.firewall + grade + (m.evade ?? 0),
+    attack: NET_CURVE.attack[g]! + (m.attack ?? 0),
+    ap: Math.max(1, ENEMY_CURVE.ap[e.rank] + (e.rank !== 'minion' && grade >= 4 ? 1 : 0) + (m.ap ?? 0)),
+    layers: Math.max(1, ENEMY_CURVE.layers[e.rank] + (m.layers ?? 0)),
+    sensitivity: m.sensitivity ?? 50,
+    dmgMult: { hp: 1, load: c.dmg * s.dmg },
+  }
+}
+
+/** 內海的武器構裝：武器類型只決定距離、遮蔽倍率與特性；骰數照位階（雜兵 4、精英 5、首領 6）加等級骰；花 RAM、沒有彈匣；預設神經。id 是構裝的 id。 */
+function buildConstructs(k: Cx, e: EnemyEntry, grade: Grade, attack: number, mode: BattleMode): BattleWeapon[] {
+  return (e.constructs ?? []).map((c) => {
+    const cls = k.content.get<WeaponClassEntry>('weapon_class', c.class)
+    if (!cls) throw new Error(`沒有 ${c.class} 這種武器的類型（${e.name}的構裝 ${c.id}）`)
+    const w = weaponFromClass(k.content, c.class, {
+      id: c.id, name: c.name ?? cls.name, hit: attack,
+      // 總骰數 = 位階的骰數 ＋ 等級骰（類型自己的骰數換掉）
+      extraDice: NET_CURVE.dice[e.rank] + gradeDice(grade) - cls.dice,
+      type: (c.type ?? (cls.type === 'pleasure' ? 'pleasure' : 'neural')) as BattleWeapon['type'],
+      ...(c.traits !== undefined ? { traits: c.traits } : {}), ...(c.range !== undefined ? { range: c.range } : {}),
+    })
+    delete w.mag
+    w.attr = battleAttr(mode, cls.attr)
+    w.pool = { ram: c.ram ?? 1 }
+    return w
+  })
+}
+
+/** 固定的檔位、上限與會不會換檔：沒寫是雜兵標準、精英深、首領 shift；shift 先開深檔（上限深檔），自己的回合開始時照感載換（netcombat，N25）。 */
+function syncOf(e: EnemyEntry): { sync: SyncGear; max: SyncGear; shift: boolean } {
+  const want = e.sync ?? DEFAULT_SYNC[e.rank]
+  if (want === 'shift') return { sync: SHIFT_GEAR, max: SHIFT_GEAR, shift: true }
+  return { sync: want, max: want, shift: false }
+}
+
+/** 內海的單位：沒有生命、防護、RAM、武器構裝、固定的同步檔位、蕾絲的顏色、管理行動的次數。 */
+function netUnit(k: Cx, state: GameState, ref: Record<string, unknown>, e: EnemyEntry, id: string, grade: Grade, allyCount: number, mode: BattleMode): BattleUnitInit {
+  const st = netStatsOf(state, e, grade, allyCount, typeof ref.strength === 'number' ? ref.strength : undefined)
+  const attrs = Object.fromEntries(ATTR_IDS.map((a) => [a, e.attrs?.[a] ?? 10])) as BattleUnitInit['attrs']
+  const { sync, max, shift } = syncOf(e)
+  const admin = typeof e.admin === 'number' && e.admin > 0 ? e.admin : 0
+  const lace = e.kind === 'lace'
+  const sink = e.mods?.sink
+  const tags = [...new Set<string>([
+    e.kind, ...(lace && e.color ? ['lace', `lace:${e.color}`] : []), ...(lace && e.color === 'pink') || admin > 0 ? ['tether'] : [],
+    ...(admin > 0 ? ['admin', 'netrunner'] : []), ...(e.persona ? ['persona'] : []), `sync:${sync}`,
+    ...(e.traits ?? []), ...(sink !== undefined && sink >= SINK_EDGE ? ['sink_edge'] : []),
+  ])]
+  const signature = (e.signature ?? []).filter((x): x is string => typeof x === 'string')
+  const attached = attachedOf(k, e, ref)
+  const mine: Record<string, unknown> = {
+    ...(e.traits?.length ? { traits: [...e.traits] } : {}),
+    ...(sink !== undefined ? { sink } : {}),
+    ...(attached?.length ? { attached: attached.map((a) => ({ ...a })) } : {}),
+    ...(e.color ? { color: e.color } : {}),
+    ...pickedExt(ref),
+  }
+  const constructs = buildConstructs(k, e, grade, st.attack, mode)
+  const deck = e.deck
+  return {
+    name: typeof ref.name === 'string' ? ref.name : e.name, enemy: id, control: 'ai', grade, rank: e.rank,
+    attrs, skills: e.skills ? { ...e.skills } : { composure: e.rank === 'minion' ? 0 : 2 },
+    armor: st.guard,
+    load: { now: 0, max: st.load },
+    layers: 0, layersMax: st.layers, sensitivity: st.sensitivity, sink: 0,
+    ap: { now: st.ap, max: st.ap, regen: 3 }, pools: { ram: { now: st.ram, max: st.ram, regen: st.ramRegen } },
+    weapons: constructs, wield: 0,
+    evade: st.firewall, initBonus: attrMod(attrs.reflex), statuses: [], dmgMult: st.dmgMult, tags,
+    quick: e.quick ? e.quick.map((q) => ({ ...q })) : [],
+    uses: {}, wounds: {},
+    ext: {
+      ...(signature.length ? { abilities: { equipped: [...signature], tiers: {} } } : {}),
+      net: { sync, sync_max: max, ...(shift ? { shift: true } : {}), ...(admin > 0 ? { admin } : {}) },
+      // 讓破損與駭入程式的讀法和角色一樣（netcombat、hack 讀 unit.ext.deck）
+      deck: {
+        grade: deck?.grade ?? Math.min(4, grade), firewall: deck?.firewall ?? st.firewall, slots: deck ? [...deck.slots] : [], ...(deck?.tree ? { tree: deck.tree } : {}),
+        constructs: (e.constructs ?? []).map((c) => ({ id: c.id, class: 'weapon', grade })),
+      },
+      ...(Object.keys(mine).length ? { enemies: mine } : {}),
+    },
+    ai: {
+      focus: e.ai.focus, floor: e.ai.floor ?? 1, ...(e.ai.prefer !== undefined ? { prefer: e.ai.prefer } : {}),
+      // 內海的單位沒有生命：lethal 一律改看感載
+      mode: enemyMode(e) === 'capture' ? 'capture' : 'neural', fleeBelow: e.ai.flee_below,
+      ...(e.ai.never_flee !== undefined ? { neverFlee: e.ai.never_flee } : {}),
+      prefer_slots: [...e.position.prefer], coverUse: e.position.cover_use ?? 0.5,
+      ...(e.ai.prefer_deep_sync === true ? { ext: { preferDeepSync: true } } : {}),
     },
   }
 }
@@ -222,7 +363,7 @@ export function encounterPoints(k: Cx, foes: EncounterFoe[], grade: number): num
 }
 
 /** 照遭遇的資料組出開打的設定。找不到就丟錯。 */
-export function setupFromEncounter(k: Cx, _state: GameState, encounterId: string, o: { allies: UnitRef[] }): BattleSetup {
+export function setupFromEncounter(k: Cx, _state: GameState, encounterId: string, o: { allies: UnitRef[]; mode?: string }): BattleSetup {
   const enc = k.content.get<EncounterEntry>('encounter', encounterId)
   if (!enc) throw new Error(`沒有 ${encounterId} 這個遭遇`)
   // 沒寫勢力時用位階最高的那個敵人的（一樣高取前面的；none 就不寫）
@@ -251,7 +392,7 @@ export function setupFromEncounter(k: Cx, _state: GameState, encounterId: string
   if (!foes.length) throw new Error(`遭遇 ${encounterId} 的敵人都是掛在格上的一台：要有至少一個佔格的敵人`)
   const ext = { ...(enc.traits === false ? { traits: false } : {}), ...(overlays.length ? { enemies: { overlays } } : {}) }
   return {
-    mode: 'meat', grade: enc.grade as Grade, cover: enc.cover, allies: o.allies, foes,
+    mode: o.mode ?? 'meat', grade: enc.grade as Grade, cover: enc.cover, allies: o.allies, foes,
     // 開戰時擲特徵（E10）：遭遇寫 traits: false 就不擲（基準遭遇在資料裡寫）；掛在格上的敵人放 ext.enemies.overlays
     origin: {
       encounter: encounterId, escapable: enc.escapable ?? true, place: enc.name, ...(faction && faction !== 'none' ? { faction } : {}),

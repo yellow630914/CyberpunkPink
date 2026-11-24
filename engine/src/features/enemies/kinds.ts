@@ -17,6 +17,11 @@ export const COVER_LAYOUT_IDS = ['dense', 'medium', 'sparse', 'one_sided'] as co
 export const OVERLAY_KINDS = ['attack', 'shield', 'scout', 'medic', 'jammer', 'turret'] as const
 /** 一定要帶武器的種類：不帶武器的 attack、jammer、turret 沒有東西可以做。 */
 const ARMED_OVERLAY_KINDS: readonly string[] = ['attack', 'jammer', 'turret']
+/** 內海的敵人（M3-lace）：同步檔位（shift 是會換檔的）與蕾絲的顏色。 */
+export const NET_SYNC_VALUES = ['shallow', 'standard', 'deep', 'full', 'shift'] as const
+export const LACE_COLORS = ['white', 'pink', 'black'] as const
+/** 只在內海戰鬥裡的種類：蕾絲與網內的程式（寫了 constructs 的別的種類也能進內海，見 netCapable）。 */
+export const NET_ONLY_KINDS: readonly string[] = ['lace', 'program']
 /** 沒有橋的種類：沒有感載這一條（ENEMIES 第 2 節的欄位表）。 */
 export const UNBRIDGED_KINDS: readonly string[] = ['unbridged', 'machine', 'vehicle', 'mascot']
 
@@ -31,7 +36,20 @@ export interface EnemyWeapon {
   /** 附帶效果（命中燃燒、義體失效、卡彈、炸膛……；格式由 features/combat 查）：buildWeapons 複製到 BattleWeapon.ext.fx */
   fx?: Record<string, unknown>
 }
+/** 內海的武器構裝（ENEMIES 第 2 節與第 15 節；DATA 6.2 節）：class 是 weapon_class 的 id（原型：距離、遮蔽倍率、特性），傷害骰照位階與等級。 */
+export interface EnemyConstruct {
+  id: string
+  class: string
+  name?: string
+  type?: string
+  ram?: number
+  range?: [number, number]
+  traits?: string[]
+}
 export interface EnemyMods {
+  /** 內海：防護與 RAM 上限的加減（ENEMIES 第 2 節） */
+  guard?: number
+  ram?: number
   hp?: number
   load?: number
   armor?: number
@@ -100,7 +118,17 @@ export interface EnemyEntry {
   hull?: EnemyHull
   mode: (typeof ENEMY_MODES)[number]
   weapons: EnemyWeapon[]
-  ai: { prefer?: string; focus: number; flee_below: number; floor?: number; never_flee?: boolean; morale?: unknown }
+  /** 內海：武器構裝（蕾絲與網內的敵人寫它，不寫 weapons） */
+  constructs?: EnemyConstruct[]
+  /** 內海：固定的同步檔位；shift 是會換檔的。沒寫：雜兵標準、精英深、首領 shift */
+  sync?: (typeof NET_SYNC_VALUES)[number]
+  /** 只有 kind: lace：白、粉、黑 */
+  color?: (typeof LACE_COLORS)[number]
+  /** 內海：每回合幾次管理行動（對方的潛網者） */
+  admin?: number
+  /** 內海：有人格（可以被說服、誘惑） */
+  persona?: boolean
+  ai: { prefer?: string; focus: number; flee_below: number; floor?: number; never_flee?: boolean; morale?: unknown; mode?: string; prefer_deep_sync?: boolean }
   mods?: EnemyMods
   attrs?: Record<string, number>
   skills?: Record<string, number>
@@ -162,6 +190,18 @@ const oneOf = (list: readonly unknown[], v: unknown) => list.includes(v)
 /** 有 base 的那一筆：先拿 base 的整筆，再用自己寫的欄位蓋上去（淺的合併）。 */
 export function mergeBase(base: Record<string, unknown>, own: Record<string, unknown>): Record<string, unknown> {
   return { ...base, ...own }
+}
+
+/** 這個兵種進得了內海的戰鬥嗎：蕾絲、網內的程式，或寫了 constructs 的（企業潛網者的化身）。 */
+export function netCapable(e: { kind?: unknown; constructs?: unknown }): boolean {
+  return (typeof e.kind === 'string' && NET_ONLY_KINDS.includes(e.kind)) || (Array.isArray(e.constructs) && e.constructs.length > 0)
+}
+
+/** 這個兵種的打法：top-level 的 mode，沒寫就看 ai.mode（ENEMIES 第 15 節的樣本寫在 ai 裡）；網內的兵種都沒寫時是 neural。 */
+export function enemyMode(e: Pick<EnemyEntry, 'kind' | 'ai'> & { mode?: unknown; constructs?: unknown }): (typeof ENEMY_MODES)[number] {
+  if (oneOf(ENEMY_MODES, e.mode)) return e.mode as (typeof ENEMY_MODES)[number]
+  const m = isRec(e.ai) ? e.ai.mode : undefined
+  return oneOf(ENEMY_MODES, m) ? (m as (typeof ENEMY_MODES)[number]) : 'neural'
 }
 
 /** 一筆敵人資料，base 一層一層展開之後的樣子。找不到或繞圈就丟錯。 */
@@ -230,6 +270,39 @@ function overlayProblems(e: Record<string, unknown>, partial: boolean): string[]
   return p
 }
 
+/** 內海的欄位（constructs、sync、color、admin、persona）的格式。 */
+function netProblems(e: Record<string, unknown>): string[] {
+  const p: string[] = []
+  if (e.constructs !== undefined) {
+    if (!Array.isArray(e.constructs)) p.push('constructs 要是陣列（每一筆 { id, class, name?, type?, ram?, range?, traits? }）')
+    else {
+      const seen = new Set<string>()
+      e.constructs.forEach((c, i) => {
+        const at = `constructs[${i}]`
+        if (!isRec(c)) return void p.push(`${at} 要是 { id, class, name?, type?, ram?, range?, traits? }`)
+        if (!isText(c.id)) p.push(`${at}.id 要是構裝的 id（戰鬥裡這把武器的 id）`)
+        else if (seen.has(c.id)) p.push(`${at}.id：${c.id} 重複`)
+        else seen.add(c.id)
+        if (!isText(c.class)) p.push(`${at}.class 要是武器類型（weapon_class）的 id`)
+        if (c.name !== undefined && !isText(c.name)) p.push(`${at}.name 要是名字`)
+        if (c.type !== undefined && !oneOf(DAMAGE_TYPES, c.type)) p.push(`${at}.type 只能是 ${DAMAGE_TYPES.join('、')}`)
+        if (c.ram !== undefined && !(isInt(c.ram) && c.ram >= 1 && c.ram <= 6)) p.push(`${at}.ram 要是 1～6 的整數（每次攻擊花的 RAM）`)
+        if (c.range !== undefined && !(Array.isArray(c.range) && c.range.length === 2 && c.range.every(isInt) && c.range[0]! >= 1 && c.range[0]! <= c.range[1]! && c.range[1]! <= 7)) p.push(`${at}.range 要是 [近, 遠]，在 1～7 之間`)
+        if (c.traits !== undefined && !isTextList(c.traits)) p.push(`${at}.traits 要是字串的陣列`)
+        for (const key of Object.keys(c)) if (!['id', 'class', 'name', 'type', 'ram', 'range', 'traits'].includes(key)) p.push(`${at}.${key} 不是可以用的鍵（只有 id、class、name、type、ram、range、traits）`)
+      })
+    }
+  }
+  if (e.sync !== undefined && !oneOf(NET_SYNC_VALUES, e.sync)) p.push(`sync 只能是 ${NET_SYNC_VALUES.join('、')}`)
+  if (e.color !== undefined) {
+    if (!oneOf(LACE_COLORS, e.color)) p.push(`color 只能是 ${LACE_COLORS.join('、')}`)
+    else if (e.kind !== undefined && e.kind !== 'lace') p.push("color 只有 kind 是 'lace' 的兵種可以寫")
+  }
+  if (e.admin !== undefined && !(isInt(e.admin) && e.admin >= 1 && e.admin <= 6)) p.push('admin 要是 1～6 的整數（每回合幾次管理行動）')
+  if (e.persona !== undefined && typeof e.persona !== 'boolean') p.push('persona 要是 true 或 false')
+  return p
+}
+
 /**
  * 檢查一筆敵人。partial 是「有 base 但 base 現在還找不到」（同一批內容裡還沒載入）：這時只檢查寫了的欄位的格式，不檢查必填；
  * 必填留到 base 展開之後（resolveEnemy 之後的使用處）。
@@ -249,7 +322,9 @@ function enemyProblems(e: Record<string, unknown>, partial: boolean): string[] {
   need('rank', (v) => oneOf(UNIT_RANKS, v), `只能是 ${UNIT_RANKS.join('、')}`)
   need('grades', (v) => Array.isArray(v) && v.length === 2 && v.every(isInt) && v[0]! >= 1 && v[1]! <= 5 && v[0]! <= v[1]!, '要是 [最低, 最高]，1～5，最低不超過最高')
   need('kind', (v) => oneOf(ENEMY_KINDS, v), `只能是 ${ENEMY_KINDS.join('、')}`)
-  need('mode', (v) => oneOf(ENEMY_MODES, v), `只能是 ${ENEMY_MODES.join('、')}`)
+  // 內海的兵種（蕾絲、程式、寫了 constructs 的）可以不寫 mode（照 ai.mode，再沒有就是 neural）與 weapons
+  const net = netCapable(e)
+  if (e.mode !== undefined || !net) need('mode', (v) => oneOf(ENEMY_MODES, v), `只能是 ${ENEMY_MODES.join('、')}`)
 
   need('position', (v) => isRec(v), '要是 { prefer, cover_use? }')
   if (isRec(e.position)) {
@@ -260,7 +335,8 @@ function enemyProblems(e: Record<string, unknown>, partial: boolean): string[] {
   }
   p.push(...overlayProblems(e, partial))
 
-  need('weapons', (v) => Array.isArray(v), '要是武器的陣列（可以是空的：沒有武器的單位不攻擊，戰鬥裡手上沒有武器）')
+  if (e.weapons !== undefined || !net) need('weapons', (v) => Array.isArray(v), '要是武器的陣列（可以是空的：沒有武器的單位不攻擊，戰鬥裡手上沒有武器）')
+  p.push(...netProblems(e))
   if (Array.isArray(e.weapons)) {
     e.weapons.forEach((w, i) => {
       const at = `weapons[${i}]`
@@ -285,6 +361,8 @@ function enemyProblems(e: Record<string, unknown>, partial: boolean): string[] {
     if (!(isNum(ai.flee_below) && ai.flee_below >= 0 && ai.flee_below <= 1)) p.push('ai.flee_below 要是 0～1 的數字')
     if (ai.floor !== undefined && !isNum(ai.floor)) p.push('ai.floor 要是數字')
     if (ai.never_flee !== undefined && typeof ai.never_flee !== 'boolean') p.push('ai.never_flee 要是 true 或 false')
+    if (ai.mode !== undefined && !oneOf(ENEMY_MODES, ai.mode)) p.push(`ai.mode 只能是 ${ENEMY_MODES.join('、')}`)
+    if (ai.prefer_deep_sync !== undefined && typeof ai.prefer_deep_sync !== 'boolean') p.push('ai.prefer_deep_sync 要是 true 或 false（優先打同步檔位開得深的人）')
   }
 
   if (e.mods !== undefined) {
@@ -292,10 +370,10 @@ function enemyProblems(e: Record<string, unknown>, partial: boolean): string[] {
     else {
       for (const [k, v] of Object.entries(e.mods)) {
         if (k === 'hp' || k === 'load') { if (!(isNum(v) && v >= 0.5 && v <= 1.5)) p.push(`mods.${k} 要是 0.5～1.5 的倍數`) }
-        else if (k === 'armor' || k === 'evade' || k === 'attack' || k === 'ap' || k === 'layers') { if (!isInt(v)) p.push(`mods.${k} 要是整數（加減）`) }
+        else if (k === 'armor' || k === 'evade' || k === 'attack' || k === 'ap' || k === 'layers' || k === 'guard' || k === 'ram') { if (!isInt(v)) p.push(`mods.${k} 要是整數（加減）`) }
         else if (k === 'sensitivity') { if (!(isNum(v) && v >= 0 && v <= 100)) p.push('mods.sensitivity 要是 0～100') }
         else if (k === 'sink') { if (!(isNum(v) && v >= 0 && v <= 120)) p.push('mods.sink 要是 0～120（沉溺）') }
-        else p.push(`mods.${k} 不是可以修正的鍵（只有 hp、load、armor、evade、attack、ap、layers、sensitivity、sink）`)
+        else p.push(`mods.${k} 不是可以修正的鍵（只有 hp、load、armor、evade、attack、ap、layers、sensitivity、sink，內海另有 guard、ram）`)
       }
     }
   }
@@ -373,6 +451,7 @@ export function registerKinds(k: Pick<Kernel, 'content'>): void {
     refs: (e) => [
       ...(e.faction && e.faction !== 'none' ? [['faction', e.faction] as [string, string]] : []),
       ...(Array.isArray(e.weapons) ? e.weapons.map((w) => ['weapon_class', w.class] as [string, string]) : []),
+      ...(Array.isArray(e.constructs) ? e.constructs.filter((c) => isRec(c) && typeof c.class === 'string').map((c) => ['weapon_class', c.class] as [string, string]) : []),
       ...(e.base ? [['enemy', e.base] as [string, string]] : []),
       // 附屬單位：要查得到（是不是 overlay 的兵種由 ready 的檢查看）
       ...(Array.isArray(e.attached) ? e.attached.filter((a) => isRec(a) && typeof a.enemy === 'string').map((a) => ['enemy', a.enemy] as [string, string]) : []),
