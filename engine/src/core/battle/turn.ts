@@ -36,6 +36,8 @@ function endRound(run: BattleRun): void {
       run.say(`${side === 'ally' ? '我方' : '敵方'}第 ${i + 1} 格的煙霧散了。`, 'field', { side, slot: i + 1, kind: 'clear' })
     })
   }
+  // 斷路（run.cutSlot）到這一輪結束為止：解除之後被擋住的補位補回來
+  run.releaseCuts()
   b.round += 1
   run.say(`—— 第 ${b.round} 回合 ——`, 'round', { round: b.round })
   startRound(run)
@@ -63,9 +65,10 @@ export function beginTurn(run: BattleRun, u: BattleUnit): boolean {
   const first = !u.uses.turns
   u.uses.turns = (u.uses.turns ?? 0) + 1
   if (!first) {
-    // 沒用完的留到下回合，不超過上限
-    u.ap.now = Math.min(u.ap.max, u.ap.now + Math.max(0, u.ap.regen + sum(run.mods('ap_regen', u))))
-    for (const p of Object.values(u.pools)) p.now = Math.min(p.max, p.now + p.regen)
+    // 帶著 noRegen 的狀態（閃斷：RAM 不回復）的人，那幾池這個回合不回；其餘照常。沒用完的留到下回合，不超過上限
+    const frozen = new Set(u.statuses.flatMap((s) => run.statusRule(s.id).noRegen ?? []))
+    if (!frozen.has('ap')) u.ap.now = Math.min(u.ap.max, u.ap.now + Math.max(0, u.ap.regen + sum(run.mods('ap_regen', u))))
+    for (const [key, p] of Object.entries(u.pools)) if (!frozen.has(key)) p.now = Math.min(p.max, p.now + p.regen)
   }
   // 感載每回合自然消退 = 2 ＋ mod(意志)（CORE_RULES 4.2 節）
   if (u.load && u.load.now > 0) {

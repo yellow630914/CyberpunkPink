@@ -320,9 +320,11 @@ export interface BattleHookMap {
   /**
    * 過載了（感載已經歸零、餘韻加了一層、沒有倒下；失去回合或閃斷已經照戰場的規則做了）。
    * 餘韻已經疊滿再過載（昏過去）的那一次不發這個，先發 out.before（how: burnout），有人擋下就到此為止：
-   * 功能自己記的「到下次過載」的東西（until: next_overload）兩個都要聽（核心的狀態在 overload() 一開頭就拿掉了，不必管）
+   * 功能自己記的「到下次過載」的東西（until: next_overload）兩個都要聽（核心的狀態在 overload() 一開頭就拿掉了，不必管）。
+   * flash：這個戰場的過載是閃斷（內海）時才有——歸零的是哪一池（pool）、歸零之前有多少（before）；那一池已經歸零、單位已經帶著狀態 flash。
+   * 處理函式可以把池補回去（過載時 RAM 回滿、只減半：補的留著，flash 的 noRegen 只管下個回合開始的回復）、改 flash 的時間（閃斷持續兩回合）、拿掉它
    */
-  'overload': { run: BattleRun; unit: BattleUnit; by?: BattleUnit }
+  'overload': { run: BattleRun; unit: BattleUnit; by?: BattleUnit; flash?: { pool: string; before: number } }
   /**
    * 有人即將退出（how：down、burnout、subdued、surrendered、fled……）。處理函式把 out.prevent 設成 true 就擋下：setOut 回傳 false、什麼都不做。
    * 因為生命歸零而來的（how 是 down），核心保證擋下之後生命至少 1；其餘的數字（感載、餘韻、狀態）由處理函式自己改

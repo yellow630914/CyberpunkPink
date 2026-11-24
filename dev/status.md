@@ -230,3 +230,13 @@
 - 結算：`PayoutRecord.rep { from, to }` 記信譽實際的變化；介面副本頁加信譽預告（做完／失敗），結算框（`CommissionScreen` 的 `data-settle`）寫評價、實拿與實際的信譽變化，放棄的確認框照出發前後讀對的數字。
 - 還沒做：副本進行中放棄（現在被活動擋掉，只能撤退或失敗）；`bill.settle` 的 `where.overdue`；戰敗與契約事件的 `hostility_floor` 一定要寫 `days`；介面第 25 項列的其餘跟改。
 
+
+## M3-mode-audit 回報（2026-11-24，留給後面的 M3 工單）
+
+- 內海的 `armor`：`unitFromActor` 兩邊都讀衍生 `armor`，等 M3-core-battle 的 `guard_stat` 改。
+- 敵人士氣在內海：生命比例只在現實；內海的觸發（感載比例？）與退出方式（拔線？）設計書沒寫，M3-lace／netcombat 定。
+- 武器 fx `on_hit` 在內海暫定兩邊都作用。
+- `node.use`（關燈、防爆門）判為只有現實；網內控制節點歸 M3-netrun-nodes。
+- 技能 `meat` 欄的被動、資源池在內海也會被讀到，歸 M3-abilities-net 第 1 項；現金與人情資源池在內海要不要建立未定。
+- `BattleActionDef.modes` 比對戰場 id 不是 layer，之後有第二個現實戰場要改（核心）。
+- 兩條舊測試「內海快取格照帶」已改成不帶（照工單與 ADR 0018）。

@@ -4,8 +4,8 @@
 // 現實與內海是同一套戰鬥（MIGRATION 第 5 節第 2 點；CYBERSPACE 第 6 節「不另外做一套」）：兩個戰場只差在這個檔的 BattleMode 的幾個欄位，
 // 以及功能各自註冊的行動（射擊與換彈、攻擊與回填……）。dev/adr/0010。
 
-import type { BattleStatus, DamageType, Grade, UnitRank } from '../types'
-import { DAMAGE_TYPES, UNIT_RANKS } from '../types'
+import type { AttrId, BattleStatus, DamageType, Grade, UnitRank } from '../types'
+import { ATTR_IDS, DAMAGE_TYPES, UNIT_RANKS } from '../types'
 import type { ContentEntry, ContentRegistry } from '../content/registry'
 import { isRecord } from '../util/sanitize'
 
@@ -91,6 +91,18 @@ export interface BattleMode {
   /** 「遮蔽」這個字在這個戰場怎麼說 */
   coverWord: string
   numbers: BattleNumbers
+  /**
+   * 這個戰場裡某個屬性由另一個代替（內海：體格由意志代替，CYBERSPACE 4.1 節；dev/adr/0018 第一節）。
+   * run.save 在這個戰場把屬性照它換過再算；組武器的功能（構裝的命中與固定傷害）用 battleAttr（rules/sync.ts）查。沒寫就是不換
+   */
+  attrAs?: Partial<Record<AttrId, AttrId>>
+  /** 角色的護甲（防護）讀哪一個衍生數值（unitFromActor）：現實是 armor（裝備的功能註冊），內海是 net_guard（防護構裝）。沒有人註冊那個數值就是 0 */
+  guardStat?: string
+  /**
+   * 個人的脫離（N12）：我方每一個人都是用 out 這種方式退出、而且一方在場與後方都沒有人時，這一場的結果是 outcome，不是 lose
+   * （待遇照 fled：不是戰敗、不留等著選的戰敗）。有人是別的方式退出（倒下、被釘住、被制伏）就照舊是 lose。內海是 { out: 'jacked_out', outcome: 'jack_out' }
+   */
+  leave?: { out: string; outcome: string }
 }
 
 /** 核心帶的兩個戰場（CORE_RULES 4.2 節的表；CYBERSPACE 6.1 節的對照表）。資料裡有 battle_mode 時以資料為準。 */
@@ -99,12 +111,14 @@ export const DEFAULT_MODES: Record<string, BattleMode> = {
     id: 'meat', name: '現實', layer: 'meat', tracks: ['hp', 'load'], overload: 'lose_turn',
     afterglow: { roll: -1, loadDealtPct: 10 }, armorOnLoad: false,
     coverNames: ['暴露', '半掩體', '掩體'], coverWord: '遮蔽', numbers: DEFAULT_NUMBERS,
+    guardStat: 'armor',
   },
   net: {
     id: 'net', name: '內海', layer: 'net', tracks: ['load'], overload: 'flash', flashPool: 'ram',
     afterglow: { roll: 1, loadDealtPct: 10 }, armorOnLoad: true,
     coverNames: ['暴露', '半防火牆', '防火牆'], coverWord: '防火牆',
     numbers: { ...DEFAULT_NUMBERS, rankDamage: { minion: 1, elite: 1, boss: 1 } },
+    attrAs: { body: 'resolve' }, guardStat: 'net_guard', leave: { out: 'jacked_out', outcome: 'jack_out' },
   },
 }
 
@@ -191,6 +205,15 @@ export const MOD_KINDS = [
    * 寫成 { kind: 'cover_level', value: 1, who: 'behind' }）。多出來的級數是加上去的、不是那一格的遮蔽本身：打不破（遮蔽的耐久只看那一格自己的），
    * 修正一消失（姿態關了、換了位）就沒了；迴避、暴露（監視）、AI 挑目標看的是加過的（技能的 in_cover、other_exposed 條件還看那一格本身的，見 dev/adr/0015 補記）
    */ 'cover_level',
+  /**
+   * 內海的六種（dev/adr/0018 第一節）：核心只認得名字（狀態、技能的資料寫得進來），用到的是 features/netcombat 與 features/netrun。
+   * admin_uses：每回合管理行動的次數加減幾次（問的是做管理行動的人）
+   */ 'admin_uses',
+  /** 回填多回幾點 RAM（問的是回填的人；負的是少） */ 'refill',
+  /** 戰鬥每回合加的追蹤度加減幾點（問的是開戰的那一方的人；netcombat 每回合問一次） */ 'trace_round',
+  /** 每次管理行動加的追蹤度加減幾點（問的是做管理行動的人） */ 'trace_admin',
+  /** 同步檔位的上限加減幾級（問的是換檔的人；和 rules/sync.ts 的 syncCapOf 算出來的上限相加，最高到全檔） */ 'sync_cap',
+  /** 每回合可以換檔幾次的加減（基本 1 次；問的是換檔的人） */ 'sync_shifts',
 ] as const
 export type ModKind = (typeof MOD_KINDS)[number]
 
@@ -209,6 +232,8 @@ export interface BattleStatusRule {
   noMove?: boolean
   /** 失去回合：輪到他時直接跳過，並拿掉這個狀態（過載、癱瘓） */
   loseTurn?: boolean
+  /** 帶著它的人，回合開始時這幾池不回復（池的 id：ram；ap 是行動點）。閃斷用它：RAM 斷了，到他的回合結束前不回 */
+  noRegen?: string[]
   /** 每個自己的回合開始時：行動點加減、生命加減（流血 −2）、擲幾顆骰扣生命（燃燒 1d6）、感載加減 */
   turnStart?: { ap?: number; hp?: number; hpDice?: number; load?: number }
   /** turnStart 只發生一次，發生完就拿掉（暈眩：下回合行動點 −2） */
@@ -222,10 +247,13 @@ export interface BattleStatusRule {
   cleansedBy?: string[]
 }
 
-/** 核心一定有的狀態：過載之後的失去回合。其餘（壓制、暈眩、流血、標記、燃燒……）由資料給。 */
+/** 核心一定有的狀態：過載之後的失去回合（現實）、閃斷（內海）。其餘（壓制、暈眩、流血、標記、燃燒……）由資料給。 */
 export const LOSE_TURN = 'lose_turn'
+/** 閃斷（CYBERSPACE 6.2 節；dev/adr/0018 N3）：內海過載之後的狀態。RAM 歸零，到他下一個自己的回合結束前不回復（那個回合照樣能做不花 RAM 的事）。 */
+export const FLASH = 'flash'
 export const DEFAULT_STATUSES: Record<string, BattleStatusRule> = {
   [LOSE_TURN]: { id: LOSE_TURN, name: '失去回合', desc: '這個人動不了：輪到他的時候直接跳過。這段時間可以被制伏。', loseTurn: true, until: 'own_turn_start', turns: 1, kind: 'control' },
+  [FLASH]: { id: FLASH, name: '閃斷', desc: '剛被灌到過載，RAM 斷了：到他下一個自己的回合結束前，RAM 不回復，只能做不花 RAM 的事（換位、換檔、回填）。', noRegen: ['ram'], until: 'own_turn_end', turns: 1, kind: 'debuff' },
 }
 
 /** 遭遇點的四種遮蔽配置（SITES 12.2 節；COMMISSION_MAPS 1.3 節）：每一方四格，索引 0 是第 1 格（最前面）。 */
@@ -253,6 +281,12 @@ export interface BattleModeEntry extends ContentEntry {
   cover_word: string
   /** 只寫和預設不同的數字；鍵和 BattleNumbers 一樣 */
   numbers?: Partial<BattleNumbers>
+  /** 這個戰場裡某個屬性由另一個代替（內海：{ body: 'resolve' }）。沒寫照這個戰場的核心預設；寫 {} 是不換 */
+  attr_as?: Partial<Record<AttrId, AttrId>>
+  /** 角色的護甲讀哪一個衍生數值（現實 armor、內海 net_guard）。沒寫照這個戰場的核心預設 */
+  guard_stat?: string
+  /** 個人的脫離：我方每一個人都以 out 退出時，結果是 outcome（不是戰敗）。沒寫照這個戰場的核心預設 */
+  leave?: { out: string; outcome: string }
 }
 
 export interface DamageTypeEntry extends ContentEntry {
@@ -273,6 +307,8 @@ export interface BattleStatusEntry extends ContentEntry {
   mods?: Partial<Record<ModKind, number>>
   no_move?: boolean
   lose_turn?: boolean
+  /** 帶著它的人，回合開始時這幾池不回復 */
+  no_regen?: string[]
   turn_start?: { ap?: number; hp?: number; hp_dice?: number; load?: number }
   once?: boolean
   until: StatusUntil
@@ -297,6 +333,21 @@ export function registerBattleKinds(content: ContentRegistry): void {
       if (e.numbers !== undefined) {
         if (!isRecord(e.numbers)) p.push('numbers 要是一個物件')
         else for (const key of Object.keys(e.numbers)) if (!(key in DEFAULT_NUMBERS)) p.push(`numbers.${key}：沒有這個數字（可以寫的：${Object.keys(DEFAULT_NUMBERS).join('、')}）`)
+      }
+      if (e.attr_as !== undefined) {
+        if (!isRecord(e.attr_as)) p.push('attr_as 要是 { 屬性: 屬性 }（例：{ body: "resolve" }）')
+        else for (const [from, to] of Object.entries(e.attr_as)) {
+          if (!(ATTR_IDS as readonly string[]).includes(from)) p.push(`attr_as.${from}：不是屬性的 id（${ATTR_IDS.join('、')}）`)
+          else if (!(ATTR_IDS as readonly unknown[]).includes(to)) p.push(`attr_as.${from}：要代替的屬性要是 ${ATTR_IDS.join('、')} 的其中一個`)
+        }
+      }
+      if (e.guard_stat !== undefined && !isText(e.guard_stat)) p.push('guard_stat 要是衍生數值的 id（現實 armor、內海 net_guard）')
+      if (e.leave !== undefined) {
+        if (!isRecord(e.leave) || !isText(e.leave.out) || !isText(e.leave.outcome)) p.push('leave 要是 { out, outcome }（怎麼退出的、這一場的結果）')
+        else {
+          if (['down', 'burnout'].includes(e.leave.out)) p.push('leave.out 不能是 down 或 burnout（那是倒下，不是脫離）')
+          if (['win', 'lose', 'surrender'].includes(e.leave.outcome)) p.push('leave.outcome 不能是 win、lose、surrender（脫離不是勝利，也不是戰敗；內海寫 jack_out）')
+        }
       }
       return p
     },
@@ -337,6 +388,7 @@ export function registerBattleKinds(content: ContentRegistry): void {
       if (e.turns !== undefined && !(Number.isInteger(e.turns) && (e.turns as number) >= 1)) p.push('turns 要是 1 以上的整數')
       if (!['control', 'debuff', 'buff', 'wound', 'mark'].includes(e.kind as string)) p.push('kind 只能是 control、debuff、buff、wound、mark')
       for (const f of ['no_move', 'lose_turn', 'once'] as const) if (e[f] !== undefined && typeof e[f] !== 'boolean') p.push(`${f} 要是布林值`)
+      if (e.no_regen !== undefined && !(Array.isArray(e.no_regen) && e.no_regen.every(isText))) p.push('no_regen 要是池的 id 的陣列（ram、ap）')
       return p
     },
   })
@@ -347,11 +399,17 @@ export function registerBattleKinds(content: ContentRegistry): void {
 export function modeOf(content: ContentRegistry, id: string): BattleMode | undefined {
   const e = content.get<BattleModeEntry>('battle_mode', id)
   if (!e) return DEFAULT_MODES[id]
-  const base = DEFAULT_MODES[id]?.numbers ?? DEFAULT_NUMBERS
+  const preset = DEFAULT_MODES[id]
+  const base = preset?.numbers ?? DEFAULT_NUMBERS
+  // 屬性的代替、護甲讀的數值、個人的脫離：資料沒寫的照這個戰場的核心預設（和 numbers 一樣只蓋寫了的）
+  const attrAs = e.attr_as ?? preset?.attrAs
+  const guardStat = e.guard_stat ?? preset?.guardStat ?? (e.layer === 'net' ? 'net_guard' : 'armor')
+  const leave = e.leave ?? preset?.leave
   return {
     id: e.id, name: e.name, layer: e.layer, tracks: [...e.tracks], overload: e.overload, ...(e.flash_pool ? { flashPool: e.flash_pool } : {}),
     afterglow: { roll: e.afterglow.roll, loadDealtPct: e.afterglow.load_dealt_pct }, armorOnLoad: e.armor_on_load ?? false,
     coverNames: [...e.cover_names] as [string, string, string], coverWord: e.cover_word, numbers: { ...base, ...(e.numbers ?? {}) },
+    ...(attrAs && Object.keys(attrAs).length ? { attrAs: { ...attrAs } } : {}), ...(guardStat ? { guardStat } : {}), ...(leave ? { leave: { ...leave } } : {}),
   }
 }
 
@@ -370,6 +428,7 @@ export function statusRuleOf(content: ContentRegistry, id: string): BattleStatus
   const t = e.turn_start
   return {
     id: e.id, name: e.name, desc: e.desc, ...(e.mods ? { mods: { ...e.mods } } : {}), ...(e.no_move ? { noMove: true } : {}), ...(e.lose_turn ? { loseTurn: true } : {}),
+    ...(e.no_regen ? { noRegen: [...e.no_regen] } : {}),
     ...(t ? { turnStart: { ...(t.ap !== undefined ? { ap: t.ap } : {}), ...(t.hp !== undefined ? { hp: t.hp } : {}), ...(t.hp_dice !== undefined ? { hpDice: t.hp_dice } : {}), ...(t.load !== undefined ? { load: t.load } : {}) } } : {}),
     ...(e.once ? { once: true } : {}), until: e.until, turns: e.turns ?? 1, kind: e.kind, ...(e.cleansed_by ? { cleansedBy: [...e.cleansed_by] } : {}),
   }

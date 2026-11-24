@@ -406,7 +406,7 @@ describe('白箱 護甲與武器的算式（COMBAT_SYSTEM 第 4、5 節；EQUIPM
 })
 
 describe('白箱 帶進戰鬥與戰鬥結束（EQUIPMENT 4.1 節）', () => {
-  it('loadout：不認得的角色什麼都不給；內海的戰鬥不帶槍、快取格照帶', () => {
+  it('loadout：不認得的角色什麼都不給；內海的戰鬥不帶槍、也不帶快取格（M3-mode-audit，ADR 0018）', () => {
     const g = setup()
     wear(g, 'p1')
     apply(g, [{ op: 'gear.quick', id: 'pc', items: [{ item: 'it_gel', qty: 1 }] }])
@@ -414,7 +414,7 @@ describe('白箱 帶進戰鬥與戰鬥結束（EQUIPMENT 4.1 節）', () => {
     expect(g.k.battle.loadoutOf(g.state, 'pc', 'meat').weapons.map((w) => w.id)).toEqual(['p1'])
     const net = g.k.battle.loadoutOf(g.state, 'pc', 'net')
     expect(net.weapons).toEqual([])
-    expect(net.quick).toEqual([{ item: 'it_gel', qty: 1 }])
+    expect(net.quick).toEqual([])
   })
 
   it('戰鬥結束：沒有對應角色的我方單位、同一個角色出現兩次都不會壞；快取格沒有變化就不留變更', async () => {

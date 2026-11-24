@@ -107,14 +107,34 @@ export function isWounded(u: BattleUnit): boolean {
   return !!u.hp && u.hp.now * 2 < u.hp.max
 }
 
+/** 斷路（run.cutSlot）記在 battle.field 的鍵：cut:<方>:<格>，值是到第幾輪結束為止（dev/adr/0018 第一節）。 */
+export const cutKey = (side: BattleSide, slot: number): string => `cut:${side}:${slot}`
+
+/** 這一格被斷路到第幾輪結束；沒有被斷路（或已經過期、還沒被清掉）是 undefined。 */
+export function cutUntil(b: BattleState, side: BattleSide, slot: number): number | undefined {
+  const v = b.field[cutKey(side, slot)]
+  return typeof v === 'number' && Number.isFinite(v) && v >= b.round ? v : undefined
+}
+
+/** 這一格現在被斷路了嗎：不能換位進出，後面的人也補不進來。 */
+export const isCut = (b: BattleState, side: BattleSide, slot: number): boolean => cutUntil(b, side, slot) !== undefined
+
+/** 被斷路到什麼時候的一句話（「這一輪」「到第 3 回合結束」）。 */
+const cutWhen = (b: BattleState, until: number): string => (until <= b.round ? '這一輪' : `到第 ${until} 回合結束`)
+
 /**
  * 換到那一格行不行；不行就回傳原因（給玩家看的句子）。noMove 是「帶著不能換位的狀態」（由呼叫的人查資料）。
  * - 只能換到相鄰的格：和那一格的隊友交換，或移到空格。
  * - 往後退到空格、讓原本那一格空著：原本那一格要有遮蔽（掩體、半掩體或煙霧）。沒有遮蔽的空格撐不住線，退了也會被補位推回來。
+ * - 被斷路的那一格（run.cutSlot）不能換位進出：站在上面的人出不去，別人也換不進去。
  */
 export function moveBlock(b: BattleState, u: BattleUnit, to: number, noMove: boolean): string | null {
   if (to < 1 || to > BATTLE_SLOTS) return '沒有這一格。'
   if (Math.abs(to - u.slot) !== 1) return '只能換到相鄰的格。'
+  const from = cutUntil(b, u.side, u.slot)
+  if (from !== undefined) return `第 ${u.slot} 格被斷路了，${cutWhen(b, from)}站在這一格的人換不了位。`
+  const into = cutUntil(b, u.side, to)
+  if (into !== undefined) return `第 ${to} 格被斷路了，${cutWhen(b, into)}換不進這一格。`
   if (noMove) return '被壓制了，這一回合不能換位。'
   if (unitAt(b, u.side, to)) return null
   if (to > u.slot && coverLevel(coverAt(b, u.side, u.slot)) === 0) return '往後退、讓前面空著的時候，原本那一格要有遮蔽（掩體、半掩體或煙霧）；沒有遮蔽的空格撐不住線。'

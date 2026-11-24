@@ -306,11 +306,11 @@ describe('數字的邊界', () => {
     expect(concealment(g.k, g.state, 'pc').capacity).toBe(1)
   })
 
-  it('內海的戰鬥不帶槍：武器是構裝（M3）；快取格照帶', () => {
+  it('內海的戰鬥不帶槍：武器是構裝（M3）；快取格也不帶（M3-mode-audit，ADR 0018）', () => {
     const g = setup()
     wear(g, 'p1')
     setQuick(g, [{ item: 'it_medgel_1', qty: 1 }])
-    expect(g.k.battle.loadoutOf(g.state, 'pc', 'net')).toMatchObject({ weapons: [], quick: [{ item: 'it_medgel_1', qty: 1 }], armor: 0 })
+    expect(g.k.battle.loadoutOf(g.state, 'pc', 'net')).toMatchObject({ weapons: [], quick: [], armor: 0 })
     expect(g.k.battle.loadoutOf(g.state, 'pc', 'meat').weapons.map((w) => w.id)).toEqual(['p1'])
   })
 })

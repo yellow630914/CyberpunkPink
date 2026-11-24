@@ -8,15 +8,16 @@
 import type { AttrId, BattleCover, BattleImplant, BattleOverlay, BattleOverlayInit, BattleSide, BattleState, BattleStatus, BattleUnit, BattleUntil, BattleWeapon, CheckRoll, CoverLevel, DamageType, GameState, RollPart, SkillId, TimelineBeat } from '../types'
 import { ATTR_IDS, BATTLE_SLOTS } from '../types'
 import { attrMod, computeDegree, verdictOf } from '../rules/check'
+import { battleAttr } from '../rules/sync'
 import { deriveRng } from '../util/rng'
 import { clamp, isRecord } from '../util/sanitize'
 import { clone } from '../util/clone'
 import { BattleBlocked } from './act'
 import { runEffects } from './effects'
-import { SIDE_NAME, afterglowFull, coverAt, coverLevel, coverOf, currentUnit, distance, isWounded, onField, otherSide, overlayAt, poolName, rangeMod, standing, unitAt, unitTag, unitsOf, wielded } from './field'
+import { SIDE_NAME, afterglowFull, coverAt, coverLevel, coverOf, currentUnit, cutKey, distance, isCut, isWounded, onField, otherSide, overlayAt, poolName, rangeMod, standing, unitAt, unitTag, unitsOf, wielded } from './field'
 import type { BattleEffectInput, BattleEffectLast, BattleKernel, BattleView, BenchEntry, UnitSourceCtx } from './registry'
 import type { BattleMode, BattleNumbers, BattleStatusRule, ModKind, StatusUntil } from './rules'
-import { LOSE_TURN, coverHpFor, damageTypeOf, modeOf, statusMod, statusRuleOf } from './rules'
+import { FLASH, LOSE_TURN, coverHpFor, damageTypeOf, modeOf, statusMod, statusRuleOf } from './rules'
 import type { UnitRef } from './units'
 import { buildUnit, resolveUnit } from './units'
 
@@ -646,7 +647,12 @@ export class BattleRun implements BattleView {
     return v
   }
 
-  /** 過載：感載歸零（多的不留）、疊一層餘韻；已經疊滿就倒下。沒倒下的照戰場的規則失去下一個回合（現實）或閃斷（內海）。 */
+  /**
+   * 過載：感載歸零（多的不留）、疊一層餘韻；已經疊滿就倒下。沒倒下的照戰場的規則失去下一個回合（現實）或閃斷（內海）。
+   * 閃斷（N3；dev/adr/0018）：flashPool 那一池歸零，給狀態 flash（到他下一個自己的回合結束前，RAM 不回復）；
+   * 在別人的回合被灌到過載的，flash 到他的下一個回合結束；在自己的回合裡（回合開始的結算、自己的行動、反應）過載的，到這個回合結束。
+   * overload 掛點帶 flash: { pool, before }（歸零的是哪一池、歸零之前有多少）：處理函式可以把池補回去（補的留著）、改 flash 的時間或拿掉它。
+   */
   overload(target: BattleUnit, by?: BattleUnit): void {
     if (!target.load || target.out) return
     target.load.now = 0
@@ -660,15 +666,23 @@ export class BattleRun implements BattleView {
       return
     }
     target.layers += 1
+    let flash: { pool: string; before: number } | undefined
     if (this.mode.overload === 'lose_turn') {
       this.say(`${unitTag(target)} 過載！失去下一個回合，餘韻 ${target.layers} 層。`, 'overload', { target: target.id, layers: target.layers }, by)
       this.applyStatus(target, LOSE_TURN, { force: true, ...(by ? { by } : {}) })
     } else {
-      const pool = this.mode.flashPool ? target.pools[this.mode.flashPool] : undefined
+      const poolId = this.mode.flashPool
+      const pool = poolId ? target.pools[poolId] : undefined
+      if (poolId) flash = { pool: poolId, before: pool?.now ?? 0 }
       if (pool) pool.now = 0
       this.say(`${unitTag(target)} 過載！閃斷，餘韻 ${target.layers} 層。`, 'overload', { target: target.id, layers: target.layers, flash: true }, by)
+      // 閃斷的狀態：自己給自己的 own_turn_end 照一般的規矩會從下一個回合才開始數；閃斷不是，在自己的回合裡過載的就到這個回合結束
+      if (this.applyStatus(target, FLASH, { quiet: true, ...(by ? { by } : {}) })) {
+        const st = target.statuses.find((x) => x.id === FLASH)
+        if (st && st.until.at === 'turn_end') delete st.until.skip
+      }
     }
-    this.k.battle.emit('overload', { run: this, unit: target, ...(by ? { by } : {}) })
+    this.k.battle.emit('overload', { run: this, unit: target, ...(by ? { by } : {}), ...(flash ? { flash } : {}) })
   }
 
   /**
@@ -705,6 +719,8 @@ export class BattleRun implements BattleView {
   save(u: BattleUnit, attr: AttrId, skill: SkillId | undefined, dc: number, label: string, extra: RollPart[] = [], tags: string[] = [], other?: BattleUnit): { ok: boolean; roll: CheckRoll } {
     const opts = { dc, bonus: 0 }
     if (other) this.k.battle.emit('check.before', { run: this, unit: u, other, tags, opts })
+    // 這個戰場裡屬性由別的代替的（內海：體格由意志代替；CYBERSPACE 4.1 節）照換過的算；檢定記下的也是實際用的那一個
+    attr = battleAttr(this.mode, attr)
     const parts: RollPart[] = [
       { label: this.k.stats.attrName(attr), value: attrMod(u.attrs[attr] ?? 10), source: 'attr' },
       ...(skill ? [{ label: this.k.stats.skillName(skill), value: u.skills[skill] ?? 0, source: 'skill' }] : []),
@@ -838,8 +854,8 @@ export class BattleRun implements BattleView {
       this.battle.reserve[u.side] = this.battle.reserve[u.side].filter((id) => id !== u.id)
     }
     u.statuses = u.statuses.filter((s) => s.id !== LOSE_TURN)
-    const words: Record<string, string> = { down: u.side === 'foe' ? '被打倒了' : '倒下了', burnout: '昏了過去', subdued: '被制伏，退出戰鬥', surrendered: '投降了', fled: '逃走了', removed: '被帶走了' }
-    const tag = how === 'subdued' ? 'subdue' : how === 'surrendered' ? 'surrender' : how === 'fled' ? 'flee' : 'down'
+    const words: Record<string, string> = { down: u.side === 'foe' ? '被打倒了' : '倒下了', burnout: '昏了過去', subdued: '被制伏，退出戰鬥', surrendered: '投降了', fled: '逃走了', removed: '被帶走了', jacked_out: '拔線離開了' }
+    const tag = how === 'subdued' ? 'subdue' : how === 'surrendered' ? 'surrender' : how === 'fled' ? 'flee' : how === 'jacked_out' ? 'jack_out' : 'down'
     if (how !== 'burnout') this.say(`${unitTag(u)} ${words[how] ?? '退出了戰鬥'}。`, tag, { target: u.id, how, rank: u.rank, side: u.side, ...(by ? { by: by.id } : {}) }, by)
     else this.say(`${unitTag(u)} 倒下了。`, 'down', { target: u.id, how, rank: u.rank, side: u.side, ...(by ? { by: by.id } : {}) }, by)
     // 操作者退出（COMBAT_SYSTEM 9.1 節；dev/adr/0015 第三節）：他的東西，autonomous 的沒有操作者、自己動（自律）；其餘的停機
@@ -874,8 +890,8 @@ export class BattleRun implements BattleView {
     u.ap.now = 0
     u.statuses = []
     delete u.stance
-    let slot = 0
-    for (let s = BATTLE_SLOTS; s >= 1; s--) if (!unitAt(b, u.side, s)) { slot = s; break }
+    // 最後面的空格（被斷路的格子跳過：補位進不去）
+    const slot = this.lastFreeSlot(u.side)
     if (slot) u.slot = slot
     else b.reserve[u.side].unshift(u.id)
     this.say(`${unitTag(u)} 重新站了起來（生命 ${u.hp.now}）${slot ? `，回到第 ${slot} 格` : '，在後方等著補上來'}。`, 'revive', { unit: u.id, hp: u.hp.now, slot, side: u.side }, u)
@@ -1046,8 +1062,13 @@ export class BattleRun implements BattleView {
   /** 一方全部倒下或退出：分出結果。 */
   checkResult(): void {
     if (this.battle.result) return
-    if (standing(this.battle, 'ally') === 0) this.finish('lose', '全隊倒下：戰敗。')
-    else if (standing(this.battle, 'foe') === 0) this.finish('win', '敵人全部倒下或退出：勝利。')
+    if (standing(this.battle, 'ally') === 0) {
+      // 個人的脫離（N12）：我方每一個人都是用 mode.leave.out 退出（內海：全員拔線）才算脫離，待遇照 fled；有一個人不是（倒下、被釘住、被制伏）就是戰敗
+      const leave = this.mode.leave
+      const mine = Object.values(this.battle.units).filter((u) => u.side === 'ally')
+      if (leave && mine.length > 0 && mine.every((u) => u.out === leave.out)) this.finish(leave.outcome, '全隊都平安離開了這場戰鬥：不算戰敗。')
+      else this.finish('lose', '全隊倒下：戰敗。')
+    } else if (standing(this.battle, 'foe') === 0) this.finish('win', '敵人全部倒下或退出：勝利。')
   }
 
   /** 這場戰鬥分出結果了（勝、敗、脫離、投降，或功能自己的結果）。之後不再有人行動；結束的報告由外殼提交。 */
@@ -1172,13 +1193,52 @@ export class BattleRun implements BattleView {
     this.say(`${SIDE_NAME[side]}第 ${slot} 格起了${kind === 'smoke' ? '煙霧' : kind === 'crowd' ? '人群' : kind}：算打不破的${this.mode.coverNames[1]}。`, 'field', { side, slot, kind })
   }
 
+  /**
+   * 斷路（dev/adr/0018 第一節；兩個戰場都能用）：把某一方的某一格「凍結」到第 untilRound 回合結束為止——
+   * 站在上面的人換不了位（moveBlock 的原因一句；run.move、shift、place 也擋），別人換不進來，補位與增援跳過它。
+   * 記在 battle.field 的 cut:<方>:<格>（值是到第幾輪結束為止）；那一輪結束時自動解除。這一格已經被斷路的，取比較晚的期限。
+   * untilRound 比現在的輪還早（已經過了）什麼都不做；格子不在 1～4 丟錯。
+   */
+  cutSlot(side: BattleSide, slot: number, untilRound: number, by?: BattleUnit): void {
+    if (!Number.isInteger(slot) || slot < 1 || slot > BATTLE_SLOTS) throw new Error(`斷路要指定第 1～${BATTLE_SLOTS} 格，不是 ${String(slot)}`)
+    if (!Number.isFinite(untilRound) || untilRound < this.battle.round) return
+    const key = cutKey(side, slot)
+    const old = this.battle.field[key]
+    const until = Math.round(typeof old === 'number' && old >= this.battle.round ? Math.max(old, untilRound) : untilRound)
+    this.battle.field[key] = until
+    this.say(`${SIDE_NAME[side]}第 ${slot} 格被斷路了：${until <= this.battle.round ? '這一輪' : `到第 ${until} 回合結束前`}，站在這一格的人換不了位，後面的人也補不進來。`, 'field', { side, slot, kind: 'cut', until }, by)
+  }
+
+  /**
+   * 一輪結束時解除到期的斷路（turn.ts 的 endRound 在回合數加一之前呼叫）：記一拍，並讓被擋住的補位補回來。
+   */
+  releaseCuts(): void {
+    const b = this.battle
+    const freed: BattleSide[] = []
+    for (const side of ['ally', 'foe'] as const) {
+      for (let slot = 1; slot <= BATTLE_SLOTS; slot++) {
+        const key = cutKey(side, slot)
+        const v = b.field[key]
+        if (v === undefined || (typeof v === 'number' && v > b.round)) continue
+        delete b.field[key]
+        this.say(`${SIDE_NAME[side]}第 ${slot} 格的斷路解除了。`, 'field', { side, slot, kind: 'uncut' })
+        if (!freed.includes(side)) freed.push(side)
+      }
+    }
+    for (const side of freed) this.compact(side)
+  }
+
   /** 有人站上暴露的格子：記下來，這個動作結算完再交給監視。 */
   exposed(u: BattleUnit): void {
     if (this.isExposed(u) && !this.exposedQueue.includes(u.id)) this.exposedQueue.push(u.id)
   }
 
-  /** 換位：和相鄰那一格的隊友交換，或移到相鄰的空格。合不合法由呼叫的人先用 moveBlock 檢查。 */
-  move(u: BattleUnit, to: number): void {
+  /**
+   * 換位：和相鄰那一格的隊友交換，或移到相鄰的空格。合不合法由呼叫的人先用 moveBlock 檢查（原因一句，給玩家看）。
+   * 被斷路的格子（run.cutSlot）不能進出：這一格或目的格被斷路時什麼都不做、回傳 false；做了回傳 true。
+   */
+  move(u: BattleUnit, to: number): boolean {
+    if (isCut(this.battle, u.side, u.slot) || isCut(this.battle, u.side, to)) return false
     const other = unitAt(this.battle, u.side, to)
     const from = u.slot
     if (other) other.slot = from
@@ -1188,6 +1248,7 @@ export class BattleRun implements BattleView {
     if (other) this.exposed(other)
     this.k.battle.emit('moved', { run: this, unit: u, from, to, by: 'action' })
     this.compact(u.side)
+    return true
   }
 
   /** 推（+1 往後）或拉（−1 往前）一格；目的格有人就兩個人交換（COMBAT_SYSTEM 2.4 節）。到底了就不動。 */
@@ -1198,6 +1259,11 @@ export class BattleRun implements BattleView {
   /** 把人放到某一格（抓捕索把後排的人拉到第 1 格）；那一格有人就交換。 */
   place(u: BattleUnit, to: number, by?: BattleUnit): boolean {
     if (!onField(u) || this.isStandIn(u) || to < 1 || to > BATTLE_SLOTS || to === u.slot) return false
+    // 被斷路的格子不能進出：推不動、拉不動（斷路：run.cutSlot）
+    if (isCut(this.battle, u.side, u.slot) || isCut(this.battle, u.side, to)) {
+      this.say(`${unitTag(u)} 所在的格子被斷路了，推拉都動不了他。`, 'field', { unit: u.id, kind: 'cut_hold', from: u.slot, to }, by)
+      return false
+    }
     const other = unitAt(this.battle, u.side, to)
     const from = u.slot
     if (other) other.slot = from
@@ -1224,6 +1290,8 @@ export class BattleRun implements BattleView {
         if (unitAt(this.battle, side, s) || coverLevel(coverAt(this.battle, side, s)) > 0) continue
         const back = unitsOf(this.battle, side).filter((u) => u.slot > s)
         if (!back.length) continue
+        // 被斷路的格子（run.cutSlot）出不去也進不來：這一排只要有一格被斷路，這一次就不補（整排連同遮蔽往前移會動到它）
+        if (this.anyCut(side, s)) continue
         for (const u of back) {
           if (!from.has(u.id)) from.set(u.id, u.slot)
           u.slot -= 1
@@ -1255,10 +1323,16 @@ export class BattleRun implements BattleView {
     }
   }
 
-  /** 這一方最後面的空格（沒有就是 0）。 */
+  /** 這一方最後面的空格（沒有就是 0）。被斷路的格子（run.cutSlot）跳過：補位、增援、救回來的人都進不去。 */
   private lastFreeSlot(side: BattleSide): number {
-    for (let s = BATTLE_SLOTS; s >= 1; s--) if (!unitAt(this.battle, side, s)) return s
+    for (let s = BATTLE_SLOTS; s >= 1; s--) if (!unitAt(this.battle, side, s) && !isCut(this.battle, side, s)) return s
     return 0
+  }
+
+  /** 從第 from 格到最後一格，有沒有被斷路的。 */
+  private anyCut(side: BattleSide, from: number): boolean {
+    for (let s = from; s <= BATTLE_SLOTS; s++) if (isCut(this.battle, side, s)) return true
+    return false
   }
 
   /**

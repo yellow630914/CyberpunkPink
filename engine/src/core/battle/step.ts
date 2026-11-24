@@ -187,9 +187,10 @@ function writeBack(k: BattleKernel, state: GameState, b: BattleState): { changes
     // 倒下的人帶著傷回來：戰鬥外生命最少剩 1（EVENTS 2.4 節的底線；dev/adr/0013）
     if (u.hp) track('hp', Math.min(Math.max(u.hp.now, 1), Math.max(1, cap(a.id, 'max_hp', u.hp.max))))
     if (u.load) track('load', Math.min(u.load.now, Math.max(0, cap(a.id, 'load_cap', u.load.max) - 1)))
-    // 餘韻跟著人走；餘韻疊滿再過載而倒下的：醒來時餘韻清空，沉溺 +2（CORE_RULES 4.2 節）
+    // 餘韻跟著人走；餘韻疊滿再過載而倒下的：醒來時餘韻清空，沉溺 +2（CORE_RULES 4.2 節）。
+    // battle.field.safe 的場地（迷宮館的熔斷保護，CYBERSPACE 8.2 節；dev/adr/0018）不加這 +2（戰鬥中自己累積的沉溺照算）
     track('afterglow', u.out === 'burnout' ? 0 : u.layers)
-    const sink = u.sink + (u.out === 'burnout' ? 2 : 0)
+    const sink = u.sink + (u.out === 'burnout' && b.field.safe !== true ? 2 : 0)
     if (sink) track('sink', a.sink + sink)
   }
   for (const u of Object.values(b.units)) if (u.side === 'foe' && u.out === 'subdued') lines.push(`制伏：${u.name}`)
@@ -206,7 +207,7 @@ export function battleTimeline(state: GameState, b: BattleState): TimelineBeat[]
   return clone([...beats.slice(0, head), { layer: beats[0]!.layer, text: `（中間略過 ${skipped} 拍）` }, ...beats.slice(-tail)])
 }
 
-export const OUTCOME_NAME: Record<string, string> = { win: '勝利', lose: '戰敗', fled: '脫離', surrender: '投降' }
+export const OUTCOME_NAME: Record<string, string> = { win: '勝利', lose: '戰敗', fled: '脫離', surrender: '投降', jack_out: '全員拔線' }
 
 /** 這個結果算不算戰敗（全隊倒下，或投降；COMBAT_SYSTEM 8.1、8.5 節）：戰敗之後等玩家三選一（8.4 節）。 */
 export const isDefeat = (outcome: string): boolean => outcome === 'lose' || outcome === 'surrender'

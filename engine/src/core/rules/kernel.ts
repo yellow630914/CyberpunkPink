@@ -7,6 +7,7 @@ import { registerCoreEffects } from './coreEffects'
 import { EffectRegistry } from './effects'
 import { registerMeterRules } from './meters'
 import { StatRegistry } from './stats'
+import { registerSyncRuleKind } from './sync'
 
 export interface RulesKernel extends StateKernel {
   stats: StatRegistry
@@ -16,6 +17,8 @@ export interface RulesKernel extends StateKernel {
 
 export function createRulesKernel(): RulesKernel {
   const base = createStateKernel()
+  // 同步原則的表（CORE_RULES 第 5 節；規則表，資料 sync_rule/default 蓋得掉預設）
+  registerSyncRuleKind(base.content)
   const effects = new EffectRegistry(base.probe, base.changes)
   registerCoreEffects(effects)
   const conditions = new ConditionRegistry(base.probe)

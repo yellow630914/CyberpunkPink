@@ -4,6 +4,8 @@
 //   這是測試用的基準（不讀資料檔）；正式的敵人由資料加上敵人的功能組出來。
 // - TEST_COMBAT 是一組最小的行動（攻擊、換彈、監視），只用核心的基本動作，讓核心的測試、冒煙、探針不必等現實戰鬥的功能。
 //   正式的行動表（COMBAT_SYSTEM 1.3 節）在 features/combat；裝了它就不要再裝這一組（行動的 id 不同，可以並存，但 AI 會兩邊都用）。
+// - TEST_NET_COMBAT 是內海的那一組（攻擊：2 行動點加 1 RAM；回填：1 行動點、RAM +2；只在內海），BATTLE_SETUPS.net 是內海的情境
+//   （四個化身對四個雜兵蕾絲；數字照 ENEMIES 1.5 節的內海表）。M3 的核心與下游功能的測試不必等 features/netcombat（dev/adr/0018 第一節）。
 
 import type { BattleUnit, BattleWeapon, Grade, UnitRank } from '../core/types'
 import type { Feature } from '../core/kernel'
@@ -41,6 +43,20 @@ export const PARTY_TARGETS = {
   apMax: [5, 5, 5, 6, 6] as Five,
   /** 槍管的傷害（份量全押）加技能給的傷害（BALANCE 2.3 節） */
   flat: [1, 3, 5, 7, 10] as Five,
+}
+/**
+ * ENEMIES 1.5 節「內海」那張表（BALANCE 2.4、2.6 節）：每一級的攻擊加值、防護、RAM（雜／精／首）、每回合回 RAM；感載上限與現實同。
+ * 傷害骰與防火牆（迴避）表上沒有，照 dev/adr/0018 的暫定：位階定骰數（雜兵 4、精英 5、首領 6，III 級起再加等級骰；N18）、防火牆 11 ＋ 等級（N19）。
+ */
+export const NET_TARGETS = {
+  attack: [3, 4, 5, 6, 7] as Five,
+  guard: [1, 2, 3, 4, 5] as Five,
+  ram: { minion: [4, 4, 5, 5, 6] as Five, elite: [6, 6, 7, 7, 8] as Five, boss: [8, 8, 9, 9, 10] as Five },
+  ramRegen: [2, 2, 2, 3, 3] as Five,
+  dice: { minion: 4, elite: 5, boss: 6 },
+  /** 主角這一邊的化身：RAM 上限與每回合回（CYBERSPACE 6.3 節：普通人上限 4～5、每回合回 2） */
+  avatarRam: 5,
+  avatarRamRegen: 2,
 }
 
 const ATTRS = { body: 10, reflex: 10, tech: 10, intellect: 10, resolve: 10, charm: 10 }
@@ -110,6 +126,54 @@ export function partyUnit(i = 0, grade: Grade = 1, o: UnitOverrides = {}): Battl
   }
 }
 
+/** 內海的武器構裝（花 RAM、沒有彈匣；神經傷害）。dice 是總顆數。 */
+export function netWeapon(hit: number, dice: number, o: Partial<BattleWeapon> = {}): BattleWeapon {
+  return {
+    id: 'construct', name: '攻擊構裝', class: 'smg', dice, flat: 0, type: 'neural', range: [1, 5], pierce: 0, hit, attr: 'reflex', skill: 'firearms',
+    pool: { ram: 1 }, coverMult: 0.5, traits: [], ...o,
+  }
+}
+
+/** 內海的一個化身（我方）：同級的主力（BALANCE 2.2 節）：沒有生命，防護與感載上限照主力的護甲與感載，RAM 5、每回合回 2。 */
+export function netAvatar(i = 0, grade: Grade = 1, o: UnitOverrides = {}): BattleUnitInit {
+  const base = partyUnit(i, grade)
+  const g = grade - 1
+  const { weapon: _weapon, ...rest } = o
+  const unit: BattleUnitInit = {
+    ...base,
+    armor: PARTY_TARGETS.armor[g]!,
+    pools: { ram: { now: NET_TARGETS.avatarRam, max: NET_TARGETS.avatarRam, regen: NET_TARGETS.avatarRamRegen } },
+    weapons: [netWeapon(PARTY_TARGETS.attack[g]!, NET_TARGETS.dice.minion + ENEMY_TARGETS.gradeDice[g]!)],
+    ai: { focus: 1, floor: 1, prefer: 'weakest', mode: 'neural', fleeBelow: 0, prefer_slots: [i % 4 + 1], coverUse: 0.5 },
+    tags: ['netrunner'],
+    ...rest,
+  }
+  delete unit.hp
+  return unit
+}
+
+/** 內海的一隻蕾絲（敵方）：ENEMIES 1.5 節內海表那一級、那個位階的數字。沒有生命，防火牆 11 ＋ 等級。 */
+export function laceUnit(rank: UnitRank = 'minion', grade: Grade = 1, o: UnitOverrides & { name?: string } = {}): BattleUnitInit {
+  const g = grade - 1
+  const t = ENEMY_TARGETS
+  const { weapon: _weapon, ...rest } = o
+  const elitePlus = rank !== 'minion' && grade >= 4 ? 1 : 0
+  const ram = NET_TARGETS.ram[rank][g]!
+  const unit: BattleUnitInit = {
+    name: o.name ?? '雜兵蕾絲', control: 'ai', grade, rank,
+    attrs: { ...ATTRS }, skills: { composure: rank === 'minion' ? 0 : 2 },
+    armor: NET_TARGETS.guard[g]!,
+    load: { now: 0, max: t.load[rank][g]! }, layers: 0, layersMax: t.layers[rank], sensitivity: 50, sink: 0,
+    ap: { now: t.ap[rank] + elitePlus, max: t.ap[rank] + elitePlus, regen: 3 }, pools: { ram: { now: ram, max: ram, regen: NET_TARGETS.ramRegen[g]! } },
+    weapons: [netWeapon(NET_TARGETS.attack[g]!, NET_TARGETS.dice[rank] + t.gradeDice[g]!)], wield: 0, evade: 11 + grade, initBonus: 0, statuses: [],
+    dmgMult: { hp: 1, load: 1 }, tags: ['lace'], quick: [], uses: {}, wounds: {},
+    ext: {},
+    ai: { focus: 1, floor: 1, mode: 'neural', fleeBelow: 0, prefer_slots: rank === 'boss' ? [3] : [1, 2], coverUse: 0.5 },
+    ...rest,
+  }
+  return unit
+}
+
 const raw = (unit: BattleUnitInit, slot?: number): UnitRef => ({ from: 'unit', unit: unit as unknown as Record<string, unknown>, ...(slot ? { slot } : {}) })
 const partyOf = (grade: Grade): UnitRef[] => [0, 1, 2, 3].map((i) => raw(partyUnit(i, grade)))
 
@@ -139,6 +203,15 @@ export const BATTLE_SETUPS = {
     foes: [0, 1, 2, 3].map(() => raw(enemyUnit('minion', grade, { capture: true }))),
     origin: { escapable: true, place: '測試用的走廊' },
   }),
+  /**
+   * 內海的一場：同級的四個化身對四個雜兵蕾絲（ENEMIES 1.5 節的內海表），遮蔽（防火牆）是「中」。
+   * 要用 TEST_NET_COMBAT（makeBattleGame 看到內海的情境、又沒給 features 時自動裝它）。
+   */
+  net: (grade: Grade = 1): BattleSetup => ({
+    mode: 'net', grade, cover: 'medium', allies: [0, 1, 2, 3].map((i) => raw(netAvatar(i, grade))),
+    foes: [0, 1, 2, 3].map(() => raw(laceUnit('minion', grade))),
+    origin: { escapable: true, place: '測試用的子網' },
+  }),
   /** 一定會輸的一場：主角一個人、只剩一口氣，對三個首領（戰敗的流程用） */
   hopeless: (grade: Grade = 1): BattleSetup => ({
     mode: 'meat', grade, cover: 'sparse',
@@ -166,7 +239,7 @@ export const TEST_COMBAT: Feature = {
     k.battle.action({
       id: ATTACK, owner: 'test_combat', name: '攻擊', desc: '用手上的武器攻擊一個敵人。', group: 'attack', icon: 'shoot', tags: ['weapon_attack'], target: 'foe', order: 1,
       cost: (_v, u) => ({ ap: wielded(u)?.ap ?? 2 }),
-      blocks: (_v, u) => (loaded(u) ? [] : ['彈匣空了，要先換彈。']),
+      blocks: (_v, u) => (!wielded(u) ? ['手上沒有武器。'] : loaded(u) ? [] : ['彈匣空了，要先換彈。']),
       targets: (v, u) => unitsOf(v.battle, otherSide(u.side)).map((t) => ({ target: { unit: t.id }, blocks: inReach(u, t) ? [] : ['近戰只能打近身（雙方的第 1 格）。'] })),
       run: (run, u, target) => {
         if (target && 'unit' in target) run.attack(u, run.unit(target.unit))
@@ -209,6 +282,47 @@ export const TEST_COMBAT: Feature = {
 
 export const TEST_ACTIONS = { ATTACK, RELOAD, WATCH }
 
+const NET_ATTACK = 'test.net.attack', NET_REFILL = 'test.net.refill'
+/** TEST_NET_COMBAT 的行動 id。 */
+export const TEST_NET_ACTIONS = { ATTACK: NET_ATTACK, REFILL: NET_REFILL }
+
+/**
+ * 一組最小的內海行動（只在內海戰場）：攻擊（2 行動點加 1 RAM；沒有彈匣）、回填（1 行動點，RAM +2，吃 refill 的修正）。
+ * 只用核心的基本動作；AI 的分數：攻擊 2（命中率低於 35% 時 1）、回填在 RAM 不夠打一下時 3。
+ * 正式的行動表在 features/netcombat（M3）；裝了它就不要再裝這一組。
+ */
+export const TEST_NET_COMBAT: Feature = {
+  id: 'test_net_combat',
+  install(k) {
+    const spare = (u: BattleUnit) => u.pools.ram?.now ?? 0
+    k.battle.action({
+      id: NET_ATTACK, owner: 'test_net_combat', name: '攻擊', desc: '用裝著的攻擊構裝攻擊一個敵人，花 1 點 RAM。', group: 'attack', icon: 'shoot', tags: ['weapon_attack'], modes: ['net'], target: 'foe', order: 1,
+      cost: (_v, u) => ({ ap: wielded(u)?.ap ?? 2, ram: wielded(u)?.pool?.ram ?? 1 }),
+      blocks: (_v, u) => (wielded(u) ? [] : ['手上沒有攻擊構裝。']),
+      targets: (v, u) => unitsOf(v.battle, otherSide(u.side)).map((t) => ({ target: { unit: t.id }, blocks: [] })),
+      run: (run, u, target) => {
+        if (target && 'unit' in target) run.attack(u, run.unit(target.unit))
+      },
+      aiScore: (v, u, t) => (t && wielded(u) ? (v.hitChance(u, t) < 35 ? 1 : 2) : null),
+    })
+    k.battle.action({
+      id: NET_REFILL, owner: 'test_net_combat', name: '回填', desc: '把 RAM 補回 2 點。', group: 'supply', icon: 'refill', modes: ['net'], target: 'none', order: 1,
+      cost: () => ({ ap: 1 }),
+      blocks: (_v, u) => {
+        const p = u.pools.ram
+        return !p ? ['沒有 RAM 可以補。'] : p.now >= p.max ? ['RAM 是滿的。'] : []
+      },
+      run: (run, u) => {
+        const p = u.pools.ram!
+        const got = Math.min(p.max - p.now, Math.max(0, 2 + run.mods('refill', u).reduce((s, x) => s + x.value, 0)))
+        p.now += got
+        run.say(`${u.name} 回填：RAM +${got}。`, 'support', { unit: u.id, ram: got }, u)
+      },
+      aiScore: (_v, u) => (u.pools.ram && spare(u) < 1 ? 3 : null),
+    })
+  },
+}
+
 export interface BattleGameSetup extends GameSetup {
   /** 具名的情境，或直接給開打的設定 */
   battle?: BattleScenarioId | BattleSetup
@@ -217,11 +331,12 @@ export interface BattleGameSetup extends GameSetup {
 
 /**
  * 一局已經開打的遊戲：狀態來自工廠，戰鬥來自具名的情境（預設是一般遭遇）。
- * 沒有給 features 時裝 TEST_COMBAT；給了 features 就照給的（現實戰鬥的功能做完之後，測試給 allFeatures()）。
+ * 沒有給 features 時裝 TEST_COMBAT（內海的情境裝 TEST_NET_COMBAT）；給了 features 就照給的（現實戰鬥的功能做完之後，測試給 allFeatures()）。
  */
 export function makeBattleGame(o: BattleGameSetup = {}): TestGame {
-  const test = makeGame({ ...o, features: o.features ?? [TEST_COMBAT] })
   const setup = typeof o.battle === 'object' ? o.battle : BATTLE_SETUPS[o.battle ?? 'encounter'](o.grade ?? 1)
+  // 內海的情境裝內海的那一組行動，其餘是現實的那一組
+  const test = makeGame({ ...o, features: o.features ?? [setup.mode === 'net' ? TEST_NET_COMBAT : TEST_COMBAT] })
   test.game.startBattle(setup)
   return test
 }
