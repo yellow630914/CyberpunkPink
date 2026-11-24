@@ -9,7 +9,7 @@
 
 ## 新的格式與鍵
 
-- `actor.ext.cyber = { pieces: CyberPiece[] }`。`CyberPiece`＝核心的 `ProductData` 加上：`bp`（設計圖的 id）、`slot`（`bridge`、`brain`、`eye`、`ear_throat`、`torso`、`skin`、`arm_l`、`arm_r`、`leg_l`、`leg_r`、`intimate`）、`sink`（裝上時算定的沉溺成本）、`at`（裝上的時間，分鐘）、`ready_at?`（休養到什麼時候；沒有就是已經好了）、`off?`（`{ why, until? }`：不生效）。資料壞掉的讀成沒有那一件，不丟錯。
+- `actor.ext.cyber = { pieces: CyberPiece[] }`。`CyberPiece`＝核心的 `ProductData` 加上：`bp`（設計圖的 id）、`slot`（`bridge`、`brain`、`eye`、`ear_throat`、`torso`、`skin`、`arm_l`、`arm_r`、`leg_l`、`leg_r`、`intimate`）、`sink`（裝上時算定的沉溺成本）、`at`（裝上的時間，分鐘）、`ready_at?`（休養到什麼時候；沒有就是已經好了）、`off?`（`{ why, until? }`：不生效）、`registered?`（正規診所裝的是 true：登記在橋 ID 上；無照、黑診所、自己動刀是 false）。資料壞掉的讀成沒有那一件，不丟錯。
 - 規則 `cyber_rule`（`overridable`，id `default`）：`slots`（每個部位幾槽：1、3、2、2、3、2、2、2、2、2、2）、`surgeons`（`clinic`、`unlicensed`、`black`、`self` 各一筆：`fee`（成品價的幾成：0.5、0.3、0.4、0）、`sink_pct`（−10、0、0、0）、`complication`（0、0.10、0.15、0））、`remove_fee_mult`（0.5）、`recovery_minutes`（照侵入度：0、240、1440、2880、5760）、`bio_recovery_mult`（3）、`mixed_sink_mult`（0.5）、`surgery_minutes`（60）、`self_requires`（條件的陣列，預設 `[{ kind: 'ability', daily: 'surgery' }]`）、`self_skill`（`cyberware`）。
 - 設施種類多讀 `clinic?: { grade: 'clinic' | 'unlicensed' | 'black' }`。
 - 衍生數值：`surgery_sink_pct`（動刀的人讓沉溺成本加減百分之幾；基礎 0，別人加 provider；夾在 −25～0）。

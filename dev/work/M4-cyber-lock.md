@@ -25,7 +25,7 @@
 3. 補繳：`payLockDraft` 付清 `owed` 就解開。破解：動刀的人擲技術＋義體學對（設計圖等級的標準 DC ＋ `crack_dc_bonus`）；成功把 `lock` 拿掉；失敗觸發回報（`holder` 是勢力時那個勢力的敵對值 + `crack_hostility`，查不到量表就只寫一句）；大失敗另外讓那一件壞掉（`off: { why: 'broken' }`，要修）。條件 `ability`（`daily: 'unlock'`）成立的人檢定 +2、失敗不觸發回報（SKILL_TREES 解鎖匠的日常；沒有人註冊這個條件就沒有這一條）。
 4. 二手（P12）：裝上一件 `state: 'used'` 而且身上沒有 `echo` 類 `quirk` 的義體時，照 `uid` 當種子從 `pool` 含 `used` 的 `quirk` 抽一筆加上去；效果登錄表查得到 `malware` 時，照 `used_malware` 的機率給一筆 `{ kind: 'malware', pool: 'used', piece: uid }`。這一步掛在 M4-cyberware 的 `installDraft` 後面（同一份報告）。
 5. `defeat.gear`：對 `cyber_install`、`cyber_take`、`cyber_lock` 回答 true。
-6. `scan.person`：回答 `{ cyber: { count, items: Array<{ name, legal }> } }`。全生體的、帶 `scan_proof` 特性的零件佔全部的那一件不列；合法性用 `productOf().legal`。
+6. `scan.person`：回答 `{ cyber: { count, items: Array<{ uid, name, legal, registered }> } }`。全生體的、帶 `scan_proof` 特性的零件佔全部的那一件不列；合法性用 `productOf().legal`。
 7. 光紋刺青（P45）：設計圖帶 `tattoo` 的義體照一般的皮膚義體裝；這一張只加條件 `cyber` 的兩個鍵（`tattoo: 'deco' | 'gang'`、`faction`）與 `cyberView` 的標示，效果都是資料的 `effects`。
 8. 有期限的鎖（`hours`）：讀的時候比對時間，過期的當成沒有；下一次寫 `pieces` 時順手清掉。
 9. 修理：壞掉的那一件（`off.why === 'broken'`；破解大失敗、之後的事件）用 `repairBlock`／`repairDraft(k, state, { actor, uid, via, by? })` 修好：診所收成品價的兩成；自己修要在有工作台的住處（條件 `at_home` 帶 `level_min: 2`）或診所，擲技術＋義體學對 13，失敗只花掉時間（DOWNTIME 3.1 節最後一條）。
