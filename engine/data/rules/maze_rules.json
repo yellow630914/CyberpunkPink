@@ -1,0 +1,135 @@
+[
+  {
+    "id": "default",
+    "brackets": {
+      "rookie": {
+        "name": "新手組",
+        "grades": [
+          {
+            "grade": 1,
+            "deposit": 50,
+            "prize": 300
+          }
+        ],
+        "own": false,
+        "max_grade": 1,
+        "kit": [],
+        "guard": [
+          "elite",
+          "elite",
+          "minion"
+        ]
+      },
+      "open": {
+        "name": "公開組",
+        "grades": [
+          {
+            "grade": 2,
+            "deposit": 150,
+            "prize": 900
+          }
+        ],
+        "own": true,
+        "max_grade": 2,
+        "kit": [],
+        "guard": [
+          "elite",
+          "elite",
+          "minion"
+        ]
+      },
+      "unlimited": {
+        "name": "無差別組",
+        "grades": [
+          {
+            "grade": 3,
+            "deposit": 500,
+            "prize": 3000
+          },
+          {
+            "grade": 4,
+            "deposit": 1600,
+            "prize": 9800
+          }
+        ],
+        "own": true,
+        "max_grade": 5,
+        "kit": []
+      }
+    },
+    "layers": [
+      {
+        "name": "前庭",
+        "standard": 12
+      },
+      {
+        "name": "迴廊",
+        "standard": 15
+      },
+      {
+        "name": "館主廳",
+        "standard": 10
+      }
+    ],
+    "rating": [
+      {
+        "rating": "S",
+        "ratio": 1,
+        "downs": 0,
+        "mult": 1.5
+      },
+      {
+        "rating": "A",
+        "ratio": 1.25,
+        "downs": 1,
+        "mult": 1.2
+      },
+      {
+        "rating": "B",
+        "ratio": 1.6,
+        "downs": 2,
+        "mult": 1
+      },
+      {
+        "rating": "C",
+        "mult": 0.7
+      }
+    ],
+    "puzzle_load": 8,
+    "load_mult": [
+      1,
+      1.22,
+      1.49,
+      1.82,
+      2.22
+    ],
+    "mimic": 0.1,
+    "chip": 10,
+    "rest_load": 10,
+    "max_party": 4,
+    "faction": "maze",
+    "solve": [
+      {
+        "id": "interface",
+        "name": "介面",
+        "attr": "intellect",
+        "skill": "interface"
+      },
+      {
+        "id": "street",
+        "name": "街頭直覺",
+        "attr": "intellect",
+        "skill": "streetwise"
+      },
+      {
+        "id": "body",
+        "name": "體格",
+        "attr": "body"
+      }
+    ],
+    "mimic_foes": [
+      "minion",
+      "minion"
+    ]
+  }
+]

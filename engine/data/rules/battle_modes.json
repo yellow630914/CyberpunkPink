@@ -72,6 +72,43 @@
         "base": 10,
         "perGrade": 2
       }
+    },
+    "guard_stat": "armor"
+  },
+  {
+    "id": "net",
+    "name": "內海",
+    "layer": "net",
+    "tracks": [
+      "load"
+    ],
+    "overload": "flash",
+    "flash_pool": "ram",
+    "afterglow": {
+      "roll": 1,
+      "load_dealt_pct": 10
+    },
+    "armor_on_load": true,
+    "cover_names": [
+      "暴露",
+      "半防火牆",
+      "防火牆"
+    ],
+    "cover_word": "防火牆",
+    "numbers": {
+      "rankDamage": {
+        "minion": 1,
+        "elite": 1,
+        "boss": 1
+      }
+    },
+    "attr_as": {
+      "body": "resolve"
+    },
+    "guard_stat": "net_guard",
+    "leave": {
+      "out": "jacked_out",
+      "outcome": "jack_out"
     }
   }
 ]

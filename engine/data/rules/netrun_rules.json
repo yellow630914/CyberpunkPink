@@ -1,0 +1,82 @@
+[
+  {
+    "id": "default",
+    "decay": 2,
+    "t1": 30,
+    "t2": 60,
+    "t3": 90,
+    "locate_rounds": 3,
+    "gate_t1_dc": 2,
+    "unpinned_rounds": 1,
+    "sneak_skills": [
+      "stealth"
+    ],
+    "encounter": {
+      "plain": [
+        "minion",
+        "minion",
+        "minion",
+        "minion"
+      ],
+      "guard": [
+        "elite",
+        "elite",
+        "minion"
+      ],
+      "boss": [
+        "boss",
+        "minion",
+        "minion",
+        "minion"
+      ]
+    },
+    "download_turns": 3,
+    "plant_turns": 2,
+    "download_trace": 2,
+    "admin_trace": 1,
+    "fail_trace": 5,
+    "wipe": 5,
+    "patrol_every": 3,
+    "patrol_route": [
+      3,
+      5
+    ],
+    "patrol": [
+      [
+        "elite"
+      ],
+      [
+        "minion",
+        "minion"
+      ]
+    ],
+    "patrol_t1": 1,
+    "lose_max": 3,
+    "load_mult": [
+      1,
+      1.22,
+      1.49,
+      1.82,
+      2.22
+    ],
+    "master_path": "netrunner",
+    "talk_skills": [
+      "negotiate"
+    ],
+    "admin_skills": [
+      "interface"
+    ],
+    "hack_skills": [
+      "interface"
+    ],
+    "round_minutes": 5,
+    "keep_days": 7,
+    "revisit_trace": 0.5,
+    "located_foe_plus": 1,
+    "leave_hostility": 20,
+    "leave_hostility_max": 5,
+    "located_hostility": 5,
+    "backdoor_clear": 0.5,
+    "dig_archive_plus": 1
+  }
+]

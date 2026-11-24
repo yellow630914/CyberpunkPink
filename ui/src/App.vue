@@ -97,7 +97,9 @@ onMounted(() => window.addEventListener('keydown', onKey))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 // 內海皮：子網、內海戰鬥的頁面；戰鬥頁看引擎開的是哪一層的戰場（現實戰鬥頁上打的若是內海的戰鬥，也是內海皮）
 const NET_PAGES = new Set(['/subnet', '/netcombat'])
-const netSkin = computed(() => (route.path === '/combat' || route.path === '/netcombat' ? (eng.inBattle ? eng.battleLayer() === 'net' : route.path === '/netcombat') : NET_PAGES.has(route.path)))
+// 潛入中（意識在內海，身體躺在接入艙）：主畫面等現實的頁面也套內海皮（M3-ui-dive）；登出就換回來
+const diving = computed(() => eng.dive.view().diving)
+const netSkin = computed(() => (route.path === '/combat' || route.path === '/netcombat' ? (eng.inBattle ? eng.battleLayer() === 'net' : route.path === '/netcombat') : NET_PAGES.has(route.path) || (diving.value && route.path !== '/title' && route.path !== '/newgame')))
 const skin = computed(() => (netSkin.value ? 'net' : 'real'))
 watchEffect(() => {
   document.documentElement.dataset.skin = skin.value

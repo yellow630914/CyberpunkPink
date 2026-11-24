@@ -9,10 +9,12 @@ import TrackBar from '../components/TrackBar.vue'
 import ReasonButton from '../components/ReasonButton.vue'
 import HereOptions from '../components/HereOptions.vue'
 import Icon from '../components/Icon.vue'
+import EndCard from '../components/EndCard.vue'
+import MoneyTag from '../components/MoneyTag.vue'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
 import { pressE } from '../lib/here'
-import { LEGEND_ORDER, NODE_INFO, STAGE_NAME, cellOf, fogOf, goalLine, hereOptions, patrolTokens, traceStages, watchRunEnd } from '../lib/netrunView'
+import { LEGEND_ORDER, NODE_INFO, STAGE_NAME, cellOf, fogOf, goalLine, hereOptions, mazeOptions, patrolTokens, ratioWidth, traceStages, watchRunEnd } from '../lib/netrunView'
 import type { Point } from '../data/types'
 
 /**
@@ -31,7 +33,21 @@ const sheet = computed(() => (view.value ? e.net.sheet() : null))
 const party = computed(() => (view.value ? e.net.party() : []))
 
 // ---- 這一趟結束了就離開這一頁：委託的那一段回副本頁，其餘回主畫面 ----
-watchRunEnd(view, path => void router.replace(path), () => ui.toast(e.state.reports.at(-1)?.outcome.summary ?? '這一趟結束了。'))
+// 自己潛進去的一趟（自己去挖、迷宮館）離開時先停在結算：列帶走的東西、敵對值、迷宮館的評價與獎金，按鈕才離開（M3-ui-dive）
+const ended = computed(() => e.dive.lastEnd())
+const diving = computed(() => e.dive.view().diving)
+watchRunEnd(view, path => { if (!ended.value) void router.replace(path) }, () => { if (!ended.value) ui.toast(e.state.reports.at(-1)?.outcome.summary ?? '這一趟結束了。') })
+/** 離開結算：還在潛入中就回到去處的清單，否則回主畫面 */
+function leaveEnd() {
+  e.dive.clearEnd()
+  void router.replace('/')
+  if (diving.value) ui.openRoot('dive')
+}
+
+// ---- 自己去挖與迷宮館的抬頭 ----
+const dig = computed(() => view.value?.dig ?? null)
+const maze = computed(() => (view.value ? e.maze.view() : null))
+const mazeLayerSub = computed(() => (maze.value?.layers ?? []).map(l => `${l.name} ${l.used}／${l.standard}`).join('　'))
 
 // ---- 地圖 ----
 const patrolAts = computed<Array<[number, number]>>(() => (view.value ? view.value.patrols.filter(p => p.visible).map(p => p.at) : []))
@@ -67,7 +83,16 @@ function use(id: string, at?: string) {
   if (id === 'safe_logout' && view.value?.logout.note) { confirm.value = true; return }
   void doUse(id, at)
 }
-const opts = computed(() => (view.value ? hereOptions(view.value, use) : []))
+/** 迷宮館的寶箱與機關由 maze 處理（netrun 不列）：引擎的 mazeView.near；做不到顯示引擎的原因 */
+async function doMaze(id: string, at: string) {
+  const r = await e.maze.use(id, at)
+  if (r.status !== 'applied' && r.reason) ui.toast(r.reason, 'warn')
+}
+const opts = computed(() => {
+  if (!view.value) return []
+  const m = maze.value
+  return m ? [...hereOptions(view.value, use).filter(o => o.id !== 'open' && !o.id.startsWith('solve')), ...mazeOptions(m, doMaze)] : hereOptions(view.value, use)
+})
 function onEnter() {
   if (confirm.value) return
   const msg = pressE(opts.value)
@@ -97,8 +122,13 @@ const hereName = computed(() => view.value?.here.marker?.name ?? null)
 
 <template>
   <div class="screen">
-    <StatusBar back :title="view ? `子網：${view.region.name}` : '子網'" />
-    <div v-if="!view" class="empty panel cut pad" data-empty>
+    <StatusBar back :title="view ? `${maze ? '迷宮館' : '子網'}：${view.region.name}` : ended ? '離開結算' : '子網'" />
+    <div v-if="!view && ended" class="empty panel cut pad" data-settle>
+      <EndCard :end="ended">
+        <div class="go left"><button type="button" class="btn pri" data-leave @click="leaveEnd">{{ diving ? '回到去處' : '回主畫面' }}</button></div>
+      </EndCard>
+    </div>
+    <div v-else-if="!view" class="empty panel cut pad" data-empty>
       <p>現在沒有潛進任何子網。</p>
       <button type="button" class="btn pri" @click="router.push('/')">回主畫面</button>
     </div>
@@ -109,6 +139,12 @@ const hereName = computed(() => view.value?.here.marker?.name ?? null)
           <Hint title="子網地圖">點看得到或看過的格子，化身照最短的路走過去；沒探索的格子在迷霧裡。站上節點算一個探索回合。節點站上去，右欄「這裡」列出能做的事，不會自動做；黃框那一個按 E。遭遇站不上去，走到它旁邊再選開戰或潛行繞過。</Hint>
           <span class="rnd mono" data-round>探索回合 <b>{{ view.round }}</b></span>
         </div>
+        <div v-if="dig" class="digh" data-dig>
+          <span class="tag" data-dig-facility>{{ e.contentName('net_facility', dig.facility) ?? dig.facility }}</span>
+          <span class="tag" data-dig-visits>第 {{ dig.visits }} 次進來</span>
+          <span v-for="a in dig.affixes" :key="a.id" class="tag warn" data-dig-affix>{{ a.name }}</span>
+          <span v-if="dig.backdoors.length" class="tag ok" data-dig-backdoors>後門：{{ dig.backdoors.join('、') }}</span>
+        </div>
         <GridMap v-if="grid" :w="grid.size[0]" :h="grid.size[1]" :cell="cellView" :fog="fog" :tokens="tokens" :max-cell="64" :label="`${grid.name}的子網圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
         <div class="legend">
           <span v-for="k in LEGEND_ORDER" :key="k"><Icon :id="NODE_INFO[k]!.icon" :size="14" fit />{{ NODE_INFO[k]!.name }}<Hint :text="NODE_INFO[k]!.hint" /></span>
@@ -116,7 +152,17 @@ const hereName = computed(() => view.value?.here.marker?.name ?? null)
         </div>
       </section>
       <aside class="side">
-        <section class="panel cut pad" data-trace-panel>
+        <section v-if="maze" class="panel cut pad" data-maze-panel>
+          <div class="trh"><b>迷宮館・{{ maze.name }}（{{ ['', 'I', 'II', 'III', 'IV', 'V'][maze.grade] }}）</b><span class="tag hot" data-maze-rating>預估 {{ maze.rating }}</span></div>
+          <div class="kv"><span>回合</span><b data-maze-rounds>{{ maze.rounds }}／標準 {{ maze.standard }}</b></div>
+          <div class="ratio" aria-hidden="true"><i :style="{ width: ratioWidth(maze.ratio) + '%' }" /></div>
+          <p class="note" data-maze-layers>{{ mazeLayerSub }}</p>
+          <div class="kv"><span>倒下</span><b data-maze-downs>{{ maze.downs }} 人次</b></div>
+          <div class="kv"><span>籌碼</span><b data-maze-chips>{{ maze.chips }} 枚（每枚 <MoneyTag kind="cash" :amount="maze.chipValue" />）</b></div>
+          <div class="kv"><span>押金</span><b><MoneyTag kind="cash" :amount="maze.deposit" /></b></div>
+          <div class="kv"><span>獎金</span><b data-maze-prize><MoneyTag kind="cash" :amount="maze.prize" />（照預估的評價）</b></div>
+        </section>
+        <section v-else class="panel cut pad" data-trace-panel>
           <div class="trh"><b>追蹤度</b><span class="tv mono" data-trace-value>{{ view.trace.value ?? '—' }}</span><span v-if="view.trace.stage" class="tag warn" data-trace-stage>{{ STAGE_NAME[view.trace.stage] }}</span>
             <Hint title="追蹤度">一座子網一條，往下一層不歸零。管理行動與下載會往上加，擦痕跡往下降。<template v-for="s in stages" :key="s.at"><br>{{ s.at }}　{{ s.text }}</template></Hint></div>
           <template v-if="view.trace.value !== null">
@@ -181,6 +227,9 @@ const hereName = computed(() => view.value?.here.marker?.name ?? null)
 .empty { margin: var(--space-5); display: grid; gap: var(--space-4); justify-items: start; }
 .sub { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--space-4); padding: var(--space-4); align-items: start; }
 .mapp { min-width: 0; }
+.digh { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.ratio { height: 6px; background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--line-2); margin: var(--space-2) 0; }
+.ratio i { display: block; height: 100%; background: var(--ap); }
 .mh { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); min-width: 0; }
 .rnd { margin-left: auto; flex: none; font-size: var(--fs-sm); color: var(--ink-2); }
 .legend { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-3); font-size: var(--fs-fine); color: var(--ink-2); font-weight: 700; }

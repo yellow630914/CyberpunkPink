@@ -234,5 +234,70 @@
     "no_move": true,
     "until": "battle_end",
     "kind": "buff"
+  },
+  {
+    "id": "flash",
+    "name": "閃斷",
+    "desc": "剛被灌到過載，RAM 斷了：到他下一個自己的回合結束前，RAM 不回復，只能做不花 RAM 的事（換位、換檔、回填）。",
+    "no_regen": [
+      "ram"
+    ],
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "debuff"
+  },
+  {
+    "id": "jam_weapon",
+    "name": "武器構裝停用",
+    "desc": "武器類的構裝被干擾，停用到他這個回合結束：不能做兩個攻擊行動，也不能打牆。",
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "debuff"
+  },
+  {
+    "id": "jam_defense",
+    "name": "防護構裝停用",
+    "desc": "防護類的構裝被干擾，停用到他這個回合結束：防護當作 0。",
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "debuff"
+  },
+  {
+    "id": "jam_tool",
+    "name": "工具構裝停用",
+    "desc": "工具類的構裝被干擾，停用到他這個回合結束：不能用工具構裝，也不能用腳本。",
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "debuff"
+  },
+  {
+    "id": "focused",
+    "name": "被集火",
+    "desc": "到給他標記的人的下一回合開始前，全隊打他命中 +1。",
+    "mods": {
+      "hit_against": 1
+    },
+    "until": "source_turn_start",
+    "turns": 1,
+    "kind": "mark"
+  },
+  {
+    "id": "pacified",
+    "name": "被安撫",
+    "desc": "這個人被安撫了：到他這個回合結束前不做攻擊類的行動，還是會移動與用工具。",
+    "until": "own_turn_end",
+    "turns": 1,
+    "kind": "debuff"
+  },
+  {
+    "id": "drowsy",
+    "name": "昏沉",
+    "desc": "被誘惑攻擊弄得恍神：他的下一個回合行動點 −1，只算一次。",
+    "turn_start": {
+      "ap": -1
+    },
+    "once": true,
+    "until": "battle_end",
+    "kind": "debuff"
   }
 ]

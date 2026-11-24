@@ -1,6 +1,7 @@
 import { watch, type Ref } from 'vue'
 import type { GridView, GridUse } from '@engine/src'
 import type { NetrunView } from '@engine/src/features/netrun'
+import type { MazeView } from '@engine/src/features/maze'
 import type { HereOption } from './here'
 
 /**
@@ -124,3 +125,12 @@ export function watchRunEnd(view: Ref<{ kind: string } | null>, go: (path: strin
     else if (old) { done(); go(leaveTo(seen)) }
   })
 }
+
+
+/** 迷宮館的機關與寶箱（引擎的 mazeView.near）：站在旁邊的機關列解的辦法、腳下的寶箱列開箱；名字前面寫是哪個節點，順序是引擎給的 */
+export function mazeOptions(view: MazeView, use: (id: string, at: string) => void): HereOption[] {
+  return view.near.flatMap((n) => n.uses.map((u) => toOption({ ...u, name: `${u.name}：${n.marker.name}` }, () => use(u.id, n.marker.id), { id: `${u.id}@${n.marker.id}` })))
+}
+
+/** 迷宮館的回合數對標準的比例條（0～1.5 夾在 0～100%）：只換算畫面的長度，標準與評價是引擎的 */
+export const ratioWidth = (ratio: number): number => Math.max(0, Math.min(100, Math.round((ratio / 1.5) * 100)))

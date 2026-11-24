@@ -35,9 +35,10 @@ const ui = useUi()
 const st = useSettings()
 void PENDING_DIALOGS
 const router = useRouter()
-/** 潛入與子網：自己潛進去的入口還沒有開放；已經在網內（委託副本的內海面開的）就回到子網那一頁 */
+/** 潛入與子網：在網內的一趟行程裡就回到子網那一頁；其餘打開「潛入與登出」（站在接入點上列費用，潛入中列去處與登出；做不到的原因是引擎的） */
 const netOn = computed(() => e.net.view() !== null)
-function toNet() { if (netOn.value) void router.push('/subnet'); else ui.toast('還沒有開放。', 'warn') }
+const diving = computed(() => e.dive.view().diving)
+function toNet() { if (netOn.value) void router.push('/subnet'); else ui.openRoot('dive') }
 const mobileTab = ref<'map' | 'log' | 'here' | 'tools'>('log')
 const freeText = ref('')
 
@@ -210,7 +211,7 @@ const jobLine = computed(() => (run.value ? `第 ${Math.min(run.value.stage, run
           </form>
           <div class="ctx">
             <button type="button" class="btn" data-rest @click="ui.openRoot('rest')">休息</button>
-            <button type="button" class="btn" :class="{ 'is-unavailable': !netOn }" :aria-disabled="netOn ? undefined : 'true'" :title="netOn ? undefined : '還沒有開放。'" data-dive @click="toNet">{{ netOn ? '回到子網' : '潛入' }}</button>
+            <button type="button" class="btn" :class="{ pri: diving }" data-dive @click="toNet">{{ netOn ? '回到子網' : diving ? '去處與登出' : '潛入' }}</button>
             <button type="button" class="btn" @click="ui.openRoot('live')">直播</button>
           </div>
         </section>
@@ -266,7 +267,7 @@ const jobLine = computed(() => (run.value ? `第 ${Math.min(run.value.stage, run
             <button v-for="t in tools" :key="t.id" type="button" class="tool cut-bg" @click="tool(t.id)"><Icon :id="t.icon" :size="22" fit />{{ t.name }}<span v-if="t.badge" class="badge-n" data-badge>{{ t.badge }}</span><i v-if="t.dot" class="badge-dot" data-badge aria-label="有沒看過的指南" /></button>
             <button type="button" class="tool cut-bg" @click="ui.openRoot('bills')"><Icon id="ic-fac_barter" :size="22" fit />帳單</button>
             <button type="button" class="tool cut-bg" @click="ui.openRoot('saves')"><Icon id="ic-footage" :size="22" fit />存檔</button>
-            <button type="button" class="tool cut-bg" :class="{ 'is-unavailable': !netOn }" :aria-disabled="netOn ? undefined : 'true'" :title="netOn ? undefined : '還沒有開放。'" data-subnet-tool @click="toNet"><Icon id="ic-net_hack" :size="22" fit />子網</button>
+            <button type="button" class="tool cut-bg" data-subnet-tool @click="toNet"><Icon id="ic-net_hack" :size="22" fit />子網</button>
             <button type="button" class="tool cut-bg" @click="router.push('/dungeon')"><Icon id="ic-fac_under" :size="22" fit />地下城</button>
             <button type="button" class="tool cut-bg" @click="ui.openRoot('settings')"><Icon id="ic-tool" :size="22" fit />設定</button>
           </div>

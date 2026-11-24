@@ -1,0 +1,63 @@
+[
+  {
+    "id": "default",
+    "refill": 2,
+    "ap": {
+      "attack": 2,
+      "melee": 2,
+      "refill": 1,
+      "swap": 1,
+      "script": 1,
+      "wall": 2,
+      "watch": 2
+    },
+    "jam_wall_mult": 2,
+    "sync_shifts": 1,
+    "shift_split": 0.6,
+    "admin_full": 1,
+    "trace": {
+      "round": 3,
+      "white": 5,
+      "t1": 30,
+      "t2": 60,
+      "t3": 90,
+      "locate_rounds": 3
+    },
+    "burn_minutes": 60,
+    "admin": {
+      "wall": {
+        "ram": 2,
+        "levels": 1,
+        "amount": 0
+      },
+      "breach": {
+        "ram": 2,
+        "levels": 1,
+        "slots": 1
+      },
+      "cut": {
+        "ram": 2,
+        "slots": 1,
+        "turns": 1
+      },
+      "seize": {
+        "ram": 3,
+        "turns": 1
+      },
+      "crack": {
+        "ram": 2
+      },
+      "wipe": {
+        "ram": 1,
+        "amount": 5
+      },
+      "mark": {
+        "ram": 1,
+        "amount": 2,
+        "targets": 1
+      },
+      "trace": 1,
+      "fail_trace": 5
+    }
+  }
+]

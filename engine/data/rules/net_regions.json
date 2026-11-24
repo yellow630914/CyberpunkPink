@@ -1,0 +1,273 @@
+[
+  {
+    "id": "subnet",
+    "name": "一般子網",
+    "map_kind": "subnet",
+    "size": [
+      11,
+      9
+    ],
+    "carve": [
+      30,
+      40
+    ],
+    "sight": 2,
+    "pressure": "trace",
+    "cover": "medium",
+    "dc": [
+      10,
+      13,
+      16,
+      19,
+      22
+    ],
+    "layer": {
+      "foe": [
+        2,
+        3
+      ],
+      "patrol": [
+        1,
+        1
+      ],
+      "archive": [
+        1,
+        2
+      ],
+      "trap": [
+        1,
+        2
+      ],
+      "rest": [
+        1,
+        1
+      ],
+      "safe": [
+        0,
+        0
+      ],
+      "control": [
+        0,
+        0
+      ],
+      "person": [
+        0,
+        0
+      ]
+    },
+    "commission": {
+      "foe": [
+        1,
+        1
+      ],
+      "patrol": [
+        1,
+        1
+      ],
+      "archive": [
+        0,
+        0
+      ],
+      "trap": [
+        1,
+        2
+      ],
+      "rest": [
+        1,
+        1
+      ],
+      "safe": [
+        0,
+        0
+      ],
+      "control": [
+        0,
+        0
+      ],
+      "person": [
+        0,
+        0
+      ]
+    }
+  },
+  {
+    "id": "maze",
+    "name": "迷宮館",
+    "map_kind": "maze",
+    "size": [
+      9,
+      7
+    ],
+    "carve": [
+      18,
+      24
+    ],
+    "sight": 2,
+    "pressure": "none",
+    "safe": true,
+    "cover": "medium",
+    "dc": [
+      10,
+      13,
+      16,
+      19,
+      22
+    ],
+    "layer": {
+      "foe": [
+        2,
+        2
+      ],
+      "patrol": [
+        0,
+        0
+      ],
+      "archive": [
+        1,
+        2
+      ],
+      "trap": [
+        0,
+        1
+      ],
+      "rest": [
+        0,
+        0
+      ],
+      "safe": [
+        0,
+        0
+      ],
+      "control": [
+        0,
+        0
+      ],
+      "person": [
+        0,
+        0
+      ]
+    },
+    "puzzle": [
+      1,
+      1
+    ],
+    "trap": {
+      "alarm": 0,
+      "loop_load": 8
+    },
+    "handled": [
+      "a",
+      "m"
+    ]
+  },
+  {
+    "id": "wreck",
+    "name": "沉船帶",
+    "map_kind": "wreck",
+    "size": [
+      11,
+      9
+    ],
+    "carve": [
+      30,
+      40
+    ],
+    "pressure": "trace",
+    "dc": [
+      10,
+      13,
+      16,
+      19,
+      22
+    ],
+    "layer": {
+      "foe": [
+        2,
+        4
+      ],
+      "patrol": [
+        0,
+        1
+      ],
+      "archive": [
+        2,
+        3
+      ],
+      "trap": [
+        1,
+        2
+      ],
+      "rest": [
+        1,
+        1
+      ],
+      "safe": [
+        1,
+        1
+      ],
+      "control": [
+        0,
+        0
+      ],
+      "person": [
+        0,
+        0
+      ]
+    }
+  },
+  {
+    "id": "deep",
+    "name": "深海",
+    "map_kind": "deep",
+    "size": [
+      11,
+      9
+    ],
+    "carve": [
+      24,
+      34
+    ],
+    "pressure": "none",
+    "dc": [
+      10,
+      13,
+      16,
+      19,
+      22
+    ],
+    "layer": {
+      "foe": [
+        2,
+        3
+      ],
+      "patrol": [
+        1,
+        1
+      ],
+      "archive": [
+        1,
+        2
+      ],
+      "trap": [
+        0,
+        0
+      ],
+      "rest": [
+        1,
+        1
+      ],
+      "safe": [
+        0,
+        1
+      ],
+      "control": [
+        0,
+        0
+      ],
+      "person": [
+        0,
+        0
+      ]
+    }
+  }
+]

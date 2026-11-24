@@ -1,0 +1,39 @@
+[
+  {
+    "id": "default",
+    "skill": "sync",
+    "sink_bonus_at": 60,
+    "gears": {
+      "shallow": {
+        "name": "淺",
+        "check": -2,
+        "load_pct": 50,
+        "need_skill": 0,
+        "need_sensitivity": 0
+      },
+      "standard": {
+        "name": "標準",
+        "check": 0,
+        "load_pct": 100,
+        "need_skill": 0,
+        "need_sensitivity": 0
+      },
+      "deep": {
+        "name": "深",
+        "check": 2,
+        "load_pct": 150,
+        "need_skill": 3,
+        "need_sensitivity": 40
+      },
+      "full": {
+        "name": "全",
+        "check": 4,
+        "load_pct": 250,
+        "need_skill": 5,
+        "need_sensitivity": 70,
+        "ap_regen": 1,
+        "sink_on_overload": 2
+      }
+    }
+  }
+]

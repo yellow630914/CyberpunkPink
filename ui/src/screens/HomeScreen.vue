@@ -181,7 +181,7 @@ const ROOM_ACTS: Record<string, { name: string; run: () => void }> = {
   workshop: { name: '組裝', run: () => ui.openRoot('craft') },
   // 工作間也是自己染色的地方（EQUIPMENT 第 9 節）：選單裡的第二個選項，見 hereOpts
 
-  netroom: { name: '從家裡潛入', run: () => { if (e.net.view()) void router.push('/subnet'); else ui.toast('還沒有開放。', 'warn') } },
+  netroom: { name: '從家裡潛入', run: () => { if (e.net.view()) void router.push('/subnet'); else ui.openRoot('dive') } },
   studio: { name: '開直播', run: () => ui.openRoot('live') },
   clinic: { name: '診療', run: () => ui.openRoot('clinic') },
   garage: { name: '機甲整備', run: () => ui.openRoot('mech') },

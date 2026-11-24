@@ -43,7 +43,9 @@
     "id": "net",
     "triggers": {
       "enter_floor": 0.2,
-      "open": 0.1
+      "open": 0.1,
+      "login": 0.1,
+      "logout": 0.1
     },
     "cooldown_hours": 1,
     "repeat_days": 3

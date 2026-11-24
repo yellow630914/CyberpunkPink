@@ -161,6 +161,14 @@
           "minion"
         ]
       }
-    }
+    },
+    "net_alert": 10,
+    "net_alert_at": 60,
+    "net_hostility_step": 20,
+    "net_hostility_max": 5,
+    "net_located_hostility": 5,
+    "net_watchers": [],
+    "net_watcher_hostility": 2,
+    "rating_trace_peak": 90
   }
 ]

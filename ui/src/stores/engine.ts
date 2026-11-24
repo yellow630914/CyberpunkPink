@@ -140,6 +140,7 @@ export const useEngine = defineStore('engine', () => {
   const lastEnd = shallowRef<EndRecord | null>(null)
   function rememberRun(): void {
     const nv = netrunView(game.k, game.state)
+    if (nv && nv.kind === 'netrun' && runMemo.value?.id !== nv.id) lastEnd.value = null
     if (nv && nv.kind === 'netrun') runMemo.value = { id: nv.id, kind: nv.kind, region: nv.region.name, loot: nv.loot.map((l) => ({ name: l.name, qty: l.qty })), layers: nv.layer.total, rounds: nv.round, site: nv.dig?.site ?? null }
   }
   function recordEnd(reports: Report[]): void {

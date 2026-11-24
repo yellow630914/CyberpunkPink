@@ -1,0 +1,31 @@
+[
+  {
+    "id": "default",
+    "grade_bonus": {
+      "1": {
+        "hit": 0,
+        "dice": 0
+      },
+      "2": {
+        "hit": 1,
+        "dice": 0
+      },
+      "3": {
+        "hit": 1,
+        "dice": 1
+      },
+      "4": {
+        "hit": 2,
+        "dice": 2
+      },
+      "5": {
+        "hit": 2,
+        "dice": 2
+      }
+    },
+    "script_extra": 1,
+    "swap_minutes": 1,
+    "ram_regen": 2,
+    "cap_construct_grade": true
+  }
+]

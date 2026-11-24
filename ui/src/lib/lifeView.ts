@@ -31,12 +31,13 @@ export function failText(r: { status: string; reason?: string }, fallback: strin
 
 // ---- 從設施打開哪一個畫面 ----
 
-export interface LifeDialog { name: 'shop' | 'work' | 'rest'; props: Record<string, unknown> }
+export interface LifeDialog { name: 'shop' | 'work' | 'rest' | 'dive'; props: Record<string, unknown> }
 /** 引擎在格子上列的項目（grid.here.uses 的 id）要打開的過日子畫面；不是這四塊的是 null */
 export function lifeDialogOf(useId: string): LifeDialog | null {
   if (useId.startsWith('trade.shop:')) return { name: 'shop', props: { shopId: useId.slice('trade.shop:'.length) } }
   if (useId === 'work.shift') return { name: 'work', props: {} }
   if (useId === 'rest.sleep' || useId === 'rest.breath') return { name: 'rest', props: {} }
+  if (useId === 'dive.enter' || useId === 'dive.exit') return { name: 'dive', props: {} }
   return null
 }
 

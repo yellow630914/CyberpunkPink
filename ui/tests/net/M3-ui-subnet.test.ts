@@ -509,16 +509,16 @@ describe('這一格與旁邊能做的事（E）', () => {
   })
 })
 
-describe('假入口', () => {
-  it('主畫面的「潛入」「子網」與家園的接入室：沒有行程時灰掉、寫「還沒有開放。」；在網內時回到子網', () => {
+describe('入口', () => {
+  it('主畫面的「潛入」「子網」與家園的接入室（M3-ui-dive 之後）：沒有行程時打開潛入與登出，不再是假的；在網內時回到子網', () => {
     const files = import.meta.glob(['../../src/screens/MainScreen.vue', '../../src/screens/HomeScreen.vue'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>
     const main = Object.entries(files).find(([k]) => k.endsWith('MainScreen.vue'))![1]
     const home = Object.entries(files).find(([k]) => k.endsWith('HomeScreen.vue'))![1]
-    expect(main).toContain("ui.toast('還沒有開放。', 'warn')")
-    expect(main).toContain("'is-unavailable': !netOn")
+    expect(main).toContain("ui.openRoot('dive')")
+    expect(main).not.toContain('還沒有開放。')
     expect(main).toContain('e.net.view() !== null')
-    expect(home).toContain("e.net.view()")
-    expect(home).toContain('還沒有開放。')
+    expect(home).toContain('e.net.view()')
+    expect(home).toContain("ui.openRoot('dive')")
   })
 })
 

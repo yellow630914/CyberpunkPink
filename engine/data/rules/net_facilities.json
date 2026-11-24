@@ -1,0 +1,55 @@
+[
+  {
+    "id": "nf_1_office",
+    "name": "辦公樓",
+    "layers": [
+      "staff",
+      "control",
+      "core"
+    ]
+  },
+  {
+    "id": "nf_2_depot",
+    "name": "倉儲與物流",
+    "layers": [
+      "staff",
+      "core"
+    ]
+  },
+  {
+    "id": "nf_3_lab",
+    "name": "研發與工廠",
+    "layers": [
+      "guest",
+      "staff",
+      "control",
+      "core"
+    ]
+  },
+  {
+    "id": "nf_4_server",
+    "name": "機房",
+    "layers": [
+      "staff",
+      "control",
+      "core"
+    ],
+    "airgap_at": 3
+  },
+  {
+    "id": "nf_5_venue",
+    "name": "門市與場館",
+    "layers": [
+      "guest",
+      "core"
+    ]
+  },
+  {
+    "id": "nf_6_residence",
+    "name": "宅邸與私人",
+    "layers": [
+      "staff",
+      "core"
+    ]
+  }
+]
