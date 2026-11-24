@@ -109,7 +109,7 @@ const netFace = (layer: string, extra: Rec = {}): Rec => ({
 export const DEMO_NET_COMMISSION: Rec = {
   id: 'cm_demo_net4', name: '藍鯨物流的帳本', kind: 'steal_net', main: 'net', scale: 'medium', grade: 2, target_faction: 'lonestar', district: 'hive', conditions: [],
   stages: [
-    { name: '外圍', faces: { meat: meatFace('badge', 'T3'), net: netFace('guest', { gives: 'cred', objective: { kind: 'download', turns: 2 }, lace: 'white' }) } },
+    { name: '外圍', faces: { meat: meatFace('badge', 'T3'), net: netFace('guest', { gives: 'cred', objective: { kind: 'download', turns: 2 } }) } },
     { name: '員工層', faces: { meat: meatFace(undefined, 'T3'), net: netFace('staff', { objective: { kind: 'download', turns: 2 } }) } },
     { name: '現實的資料埠', faces: { meat: meatFace('airgap_open', 'D1') } },
     { name: '隔離區', faces: { net: netFace('core', { encounter: ['boss'], locked_by: 'airgap_open', objective: { kind: 'download', turns: 2 }, lace: 'pink' }) } },
@@ -124,7 +124,7 @@ export const DEMO_NET_COMMISSION: Rec = {
 const DEMO_NET_OFFER_ENTRY: Rec = {
   id: DEMO_NET_OFFER, title: '藍鯨物流的帳本', brief: '藍鯨物流的帳本在內海裡，要潛進去下載。第三階段要先在現實插上資料埠。', reward: 1800, min_rep: 0, commission: DEMO_NET_COMMISSION,
   unknowns: [
-    { id: 'u_lace', cat: 'lace', text: '第一階段的訪客網由白蕾絲看守。', reveal: { flag: 'lace_s1' }, face: 'net' },
+    { id: 'u_lace', cat: 'lace', text: '第一階段的訪客網有蕾絲看守。', reveal: { flag: 'lace_s1' }, face: 'net' },
     { id: 'u_gate', cat: 'path', text: '員工層的現實面有一扇員工門，潛行過得去。', reveal: { stage: 2 } },
   ],
 }

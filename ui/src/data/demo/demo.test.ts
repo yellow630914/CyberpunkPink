@@ -1,4 +1,9 @@
 import { describe, it, expect } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { useEngine } from '../../stores/engine'
+import { DRAFT } from '../../../tests/commission/fixtures'
+import { playNetStage } from '../../../tests/commission/netPlay'
+import { DEMO_NET_OFFER } from './commission'
 import { FakeProvider, Game } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
 import { allFeatures } from '@engine/src/features'
@@ -92,5 +97,59 @@ describe('示意世界包', () => {
     const inn = [...g.k.content.list<{ id: string; facilities: Record<string, { type: string }> }>('block')].flatMap(b => Object.entries(b.facilities).filter(([, f]) => f.type === 'fac_inn').map(([m]) => [b.id, m] as const))[0]!
     g.commit(arrive(g.k, g.state, inn[0], inn[1]))
     expect(sleepOptions(g.k, g.state).map(o => o.id)).toContain('facility')
+  })
+  it('內海：蕾絲、子網的區、潛艙店都載得進來；潛艙店在街區的設施上', () => {
+    const g = make()
+    for (const f of ['lonestar', 'strippers', 'guard']) {
+      const lace = g.k.content.list<{ id: string; faction: string; kind: string; rank: string }>('enemy').filter(e => e.faction === f && e.kind === 'lace')
+      expect(lace.map(e => e.rank).sort()).toEqual(['boss', 'elite', 'minion', 'minion'])
+    }
+    expect(g.k.content.get('net_region', 'subnet')).toBeDefined()
+    const shop = g.k.content.get<{ id: string; block: string; facility: string }>('shop', 'divepod')!
+    g.newGame({ seed: 5 })
+    g.commit(arrive(g.k, g.state, shop.block, shop.facility))
+    expect(g.gridView()!.here.uses.map(u => u.id)).toContain('trade.shop:divepod')
+  })
+  it('內海的類型生成得出來（沒有生成的問題）', () => {
+    const g = make()
+    g.newGame({ seed: 9 })
+    expect(genProblems(g.k)).toEqual([])
+    expect(g.k.content.get('fixer', 'fx_monroe')).toBeDefined()
+  })
+  it('寫好的內海委託：從接案走到做完（四階段：內海、現實、現實、隔離區的內海），戰鬥與下載自動走', async () => {
+    setActivePinia(createPinia())
+    const e = useEngine()
+    expect(e.newGame({ seed: 11, draft: DRAFT as never })).toEqual([])
+    expect((await e.world.arrive('b_hive_1')).status).toBe('applied')
+    const offer = e.fixer.board('fx_alian').offers.find(o => o.id === DEMO_NET_OFFER)!
+    expect(offer.net).not.toBeNull()
+    expect((await e.fixer.accept({ id: offer.id, fixer: 'fx_alian' }, 'cash')).status).toBe('applied')
+    expect((await e.fixer.go(offer.id)).status).toBe('applied')
+    const meatTo = (x: number, y: number) => {
+      const at = e.state.maps.at!
+      expect(e.commit({ summary: '傳送', action: 'commission.test', changes: [{ op: 'map.at', to: { map: at.map, sheet: at.sheet, x, y } }] as never })).toBeNull()
+    }
+    // 1 內海
+    expect((await e.commission.chooseFace('net')).reason).toBeUndefined()
+    expect((await e.commission.chooseBranch('assault')).reason).toBeUndefined()
+    await playNetStage(e)
+    expect(e.commission.view()!.stage).toBe(2)
+    // 2、3 現實
+    expect((await e.commission.chooseFace('meat')).reason).toBeUndefined()
+    expect((await e.commission.chooseBranch('assault')).reason).toBeUndefined()
+    meatTo(1, 5)
+    expect(e.commission.view()!.stage).toBe(3)
+    expect((await e.commission.chooseFace('meat')).reason).toBeUndefined()
+    expect((await e.commission.chooseBranch('assault')).reason).toBeUndefined()
+    meatTo(1, 3)
+    // 4 隔離區：拿到資料埠才選得了
+    const v = e.commission.view()!
+    expect(v.stage).toBe(4)
+    expect(v.faces.find(f => f.face === 'net')!.block).toBeNull()
+    expect((await e.commission.chooseFace('net')).reason).toBeUndefined()
+    expect((await e.commission.chooseBranch('assault')).reason).toBeUndefined()
+    await playNetStage(e)
+    expect(e.commission.view()).toBeNull()
+    expect(e.fixer.settledJob('cm_demo_net4')).not.toBeNull()
   })
 })

@@ -396,3 +396,8 @@
 - 給 M3-ui-commission-net：委託開了內海面時導到 `/subnet`。
 - 可清：ui/stores/game.ts 的 `lastBattle.kind` 'subnet'。
 - 2026-11-24 使用者裁決（skill-net-a）：被動技能欄的 `action: true`（手術刀的除錯）認可；超頻骰數取「花掉的 RAM − 1」；內海壓制只對花全部 RAM 的技能與壓制姿態放行；共鳴不分現實與內海（不用分欄）。
+
+## M3-ui-commission-net 回報（2026-11-24）
+
+- 副本頁的追蹤度條、隔離區面卡、回到子網、內海階段的結果行與路線後果；網內行程一開就導到 /subnet；接案與踩點的內海提示。示意包：內海類型 steal_net、寫好的四階段內海委託（阿蓮雜貨後間）、三勢力的蕾絲、子網區、潛艙店「浮標」。
+- 給引擎（審查或修正批）：`commission_link` 內容的檢查不認六個內海新鍵；內海階段的 loot 與接管的控制節點只在 activity.end 的 result，建議記進 RouteEntry 或 Run（讀檔後副本頁看不到）；輔助失敗那一行沒資料；lace 指定顏色時閘門守衛也只挑那個顏色。
