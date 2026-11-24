@@ -145,6 +145,14 @@ export function payOptions(k: Kernel, offer: Pick<Offer, 'commission' | 'reward'
 
 // ---- 這位中間人今天的委託 ----
 
+/** 主面是內海的委託給畫面的提醒（M3-fixer-net）。 */
+export interface NetNote {
+  /** 一句話：這件委託的最後一步一定在網內做 */
+  text: string
+  /** 「要有甲板」的提醒：隊上沒有人有甲板（衍生數值 deck_grade 都是 0）才有；沒有人定義 deck_grade（甲板的功能沒裝）時不看，是 null */
+  deck_warn: string | null
+}
+
 export interface BoardRow {
   id: string
   fixer: string
@@ -160,6 +168,8 @@ export interface BoardRow {
   haggle_block: string | null
   brief: BriefView
   pay: PayOption[]
+  /** 主面是內海才有；其餘是 null */
+  net: NetNote | null
 }
 
 export interface BoardView {
@@ -193,7 +203,19 @@ export function rawOffers(k: Kernel, state: GameState, fixer: FixerEntry): { off
   return { offers, problems }
 }
 
-function rowOf(k: Kernel, fixer: FixerEntry, offer: Offer, entry: TableEntry | undefined, rep: number, rules: FixerRules): BoardRow {
+/** 主面是內海的委託的提醒：沒有甲板的話，這件委託最後一步做不了。 */
+export function netNoteOf(k: Pick<Kernel, 'stats'>, state: GameState, commission: Pick<Offer['commission'], 'main'>): NetNote | null {
+  if (commission.main !== 'net') return null
+  const party = state.party.filter((id) => !!state.actors[id])
+  const ids = party.length > 0 ? party : state.pc ? [state.pc] : []
+  const noDeck = k.stats.hasStat('deck_grade') && ids.every((id) => k.stats.stat(state, id, 'deck_grade') <= 0)
+  return {
+    text: '主面是內海：最後一個階段一定要潛進網內做完，前面的階段可以走現實或內海。',
+    deck_warn: noDeck ? '隊上現在沒有人有甲板：要先弄到一副甲板，才潛得進網內。' : null,
+  }
+}
+
+function rowOf(k: Kernel, state: GameState, fixer: FixerEntry, offer: Offer, entry: TableEntry | undefined, rep: number, rules: FixerRules): BoardRow {
   const min = Math.max(offer.min_rep ?? 0, fixer.min_rep ?? 0)
   const shown: Offer = { ...offer, reward: entry?.reward ?? offer.reward }
   const haggled = entry?.haggle ?? null
@@ -201,7 +223,7 @@ function rowOf(k: Kernel, fixer: FixerEntry, offer: Offer, entry: TableEntry | u
   return {
     id: offer.id, fixer: fixer.id, offer: shown, min_rep: min, block, haggled,
     haggle_block: haggled ? '這件委託已經談過一輪了。' : block,
-    brief: briefOf(k, shown), pay: payOptions(k, shown, fixer.npc, rules),
+    brief: briefOf(k, shown), pay: payOptions(k, shown, fixer.npc, rules), net: netNoteOf(k, state, offer.commission),
   }
 }
 
@@ -224,7 +246,7 @@ export function board(k: Kernel, state: GameState, fixerId: string): BoardView {
   const table = tableOf(state, fixer.id)
   const hand = new Set(jobsOf(state).map((j) => j.id))
   const rules = fixerRules(k)
-  const rows = offers.filter((o) => !hand.has(o.id) && !table[o.id]?.banned).map((o) => rowOf(k, fixer, o, table[o.id], rep, rules))
+  const rows = offers.filter((o) => !hand.has(o.id) && !table[o.id]?.banned).map((o) => rowOf(k, state, fixer, o, table[o.id], rep, rules))
   return { fixer: fixer.id, name, open: true, reason: null, rep, offers: rows, problems }
 }
 

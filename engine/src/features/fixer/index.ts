@@ -41,15 +41,16 @@ import { LINK_KIND, MODIFIER_KIND, TYPE_KIND, genProblems, linkProblems, modifie
 export {
   AUX_FACES, AUX_FACE_NAME, FAVOR_SIZE_NAME, HIRE_NAME, HIRE_WAYS, RATING_KEYS, auxList,
   CATS, CAT_NAME, DEFAULT_FIXER_RULES, EXT, KIND, LOCKED_METHODS, OWNER, PAY_KINDS, PAY_NAME, REP_METER, RULE_KIND, SCOUT_METHODS,
+  HOSTILITY_TIER_RECORDED, HOSTILITY_TIER_WANTED, NET_LAYER_IDS,
   abandonRepOf, activeJobs, favorSizeOf, fixerProblems, fixerRules, gradeOf, hiddenUnknowns, jobByRef, jobOf, jobsOf, latestJob, methodOf, offerProblems, readFixer, repBlock, ruleProblems, scoutDc, scoutedOf, tableOf,
 } from './model'
 export type {
   Aux, AuxEntry, AuxFace, FavorSize, HireCost, HireWay, PayoutRecord, PendingEnd, Rating,
   Cat, CommissionDef, Degree, FixerEntry, FixerRules, FixerState, Job, JobStatus, Offer, PayKind, Reveal, ScoutEntry, ScoutMethod, Scouted, TableDay, TableEntry, Terms, UnknownItem,
 } from './model'
-export { accept, board, boardRow, briefOf, drop, haggle, haggledPurpose, payOptions, rawOffers, revealedStages, unknownLine } from './board'
-export type { AcceptOpts, BoardRow, BoardView, BriefStageRow, BriefView, PayOption } from './board'
-export { buyIntel, buyable, go, goBlock, intelOptions, scout, scoutBlock, scoutPurpose, scoutView } from './scout'
+export { accept, board, boardRow, briefOf, drop, haggle, haggledPurpose, netNoteOf, payOptions, rawOffers, revealedStages, unknownLine } from './board'
+export type { AcceptOpts, BoardRow, BoardView, BriefStageRow, BriefView, NetNote, PayOption } from './board'
+export { buyIntel, buyable, go, goBlock, hasNetStage, intelOptions, scout, scoutBlock, scoutPurpose, scoutView, traceStartOf } from './scout'
 export type { IntelOption, IntelWith, MethodRow, ScoutView, UnknownRow } from './scout'
 export { auxSetup, bondDc, bondPurpose, borrowOption, borrowPrice, feeOf as hireFeeOf, hire, hireBlocks, hireOptions, retreatRefund, unhire, unhireChanges } from './hire'
 export type { HireInput, HireOption } from './hire'
@@ -60,7 +61,7 @@ export {
   DEFAULT_GEN_RULES, GEN_FACES, GEN_RETRIES, GEN_RULE_KIND, GEN_SCALES, LINK_KIND, MODIFIER_KIND, OFFERS_PER_DAY, TYPE_KIND,
   commissionIdOf, eligibleTypes, generate, generateTrace, genProblems, genRuleProblems, genRules, linkProblems, modifierProblems, offerIdOf, offerSeed, offersFor, registeredFaces, stagePlan, typeProblems,
 } from './gen'
-export type { DecisiveDef, GenFace, GenOpts, GenRules, GenTrace, LinkEntry, ModifierEffect, ModifierEntry, StageTemplate, TypeEntry } from './gen'
+export type { DecisiveDef, GenFace, GenOpts, GenRules, GenTrace, LinkEntry, ModifierEffect, ModifierEntry, NetTemplate, StageTemplate, TypeEntry } from './gen'
 export type { Split, SplitOutside, SplitSegment, Wallet } from './pay'
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0

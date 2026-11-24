@@ -380,8 +380,7 @@ function faceProblems(f: unknown, at: string, face: Face, links: Record<string, 
 /** 內海面的資料（layer 必填；其餘照 dev/adr/0018 第九節）。 */
 function netFaceProblems(f: Record<string, unknown>, at: string, links: Record<string, unknown>): string[] {
   const p: string[] = []
-  // layer 規格是必填；生成器（M3-fixer-net 之前）生成的內海面還沒有寫它，先只檢查寫了的值（那一張補上之後改成沒寫就擋，netrun 沒給時 layer 是空字串＝第 N 層）
-  if (f.layer !== undefined && !(NET_LAYERS as readonly unknown[]).includes(f.layer)) p.push(`${at}.layer 只能是 ${NET_LAYERS.join('、')}`)
+  if (!(NET_LAYERS as readonly unknown[]).includes(f.layer)) p.push(`${at}.layer 要寫（內海面一定要有）：${NET_LAYERS.join('、')}`)
   if (f.lace !== undefined && !(NET_LACES as readonly unknown[]).includes(f.lace)) p.push(`${at}.lace 只能是 ${NET_LACES.join('、')}`)
   if (f.facility !== undefined && !isText(f.facility)) p.push(`${at}.facility 要是文字`)
   if (f.objective !== undefined) {

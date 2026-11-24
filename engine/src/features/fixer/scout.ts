@@ -2,13 +2,13 @@
 // 規格：FIXER 第 2 節②（含「踩點的規則」整段）與③的開頭；COMMISSIONS 2.3 節「分支」、第 4 節；UI 7.2 節；dev/adr/0016 第一節；dev/work/M2-fixer.md。
 
 import type { Change, GameState, Kernel, ReportDraft } from '../../core'
-import { ActionBlocked, DEGREE_NAME, clone, formatAmount } from '../../core'
+import { ActionBlocked, DEGREE_NAME, clone, formatAmount, isRecord } from '../../core'
 import { briefOf, fixerDraft as draft, revealedStages } from './board'
 import type { BriefView } from './board'
 import type { Cat, Job, ScoutEntry, ScoutMethod, UnknownItem } from './model'
 import { auxSetup } from './hire'
 import {
-  CAT_NAME, COMMISSION_ACTIVITY, HOSTILITY_TIER_PURSUIT, HOSTILITY_TIER_TROUBLE, auxList, LOCKED_METHODS, SCOUT_METHODS, fixerRules, gradeOf, hiddenUnknowns, hostilityAtLeast, jobOf, methodOf, methodsFor, methodTargets, rollBest, scoutDc, scoutedOf, stageCount,
+  CAT_NAME, COMMISSION_ACTIVITY, HOSTILITY_TIER_PURSUIT, HOSTILITY_TIER_RECORDED, HOSTILITY_TIER_TROUBLE, HOSTILITY_TIER_WANTED, auxList, LOCKED_METHODS, SCOUT_METHODS, fixerRules, gradeOf, hiddenUnknowns, hostilityAtLeast, jobOf, methodOf, methodsFor, methodTargets, rollBest, scoutDc, scoutedOf, stageCount,
 } from './model'
 
 function needJob(state: GameState, id: string): Job {
@@ -54,12 +54,12 @@ export function scout(k: Kernel, state: GameState, jobId: string, method: string
   const picked: UnknownItem[] = degree === 'critical' ? targets.slice(0, 2) : degree === 'success' ? targets.slice(0, 1) : []
   const entry: ScoutEntry = {
     n, method: m.id, skill: r.skill, natural: r.roll.natural, total: r.roll.total, dc, degree, revealed: picked.map((u) => u.id), day: state.time.day,
-    ...(degree === 'fumble' ? (m.layer === 'net' ? { trace: rules.scout_alert } : { alert: rules.scout_alert }) : {}),
+    ...(degree === 'fumble' ? (m.layer === 'net' ? { trace: rules.trace_start.scout_alert } : { alert: rules.scout_alert }) : {}),
   }
   const lines: string[] = picked.map((u) => `揭開了（${CAT_NAME[u.cat]}）：${u.text}`)
   if (degree === 'critical' && picked.some((u) => u.cat === 'path')) lines.push('踩出了一條路：進去的時候多一條走法。')
   if (picked.length === 0 && degree !== 'fumble') lines.push('什麼都沒有查到。')
-  if (degree === 'fumble') lines.push(m.layer === 'net' ? `你驚動了目標：進內海的時候，追蹤度的起始值 +${rules.scout_alert}。` : `你驚動了目標：進去的時候，警戒的起始值 +${rules.scout_alert}。`)
+  if (degree === 'fumble') lines.push(m.layer === 'net' ? `你驚動了目標：進內海的時候，追蹤度的起始值 +${rules.trace_start.scout_alert}。` : `你驚動了目標：進去的時候，警戒的起始值 +${rules.scout_alert}。`)
   const changes: Change[] = [
     { op: 'rng', advance: 1 },
     ...(rules.scout_minutes > 0 ? [{ op: 'time', minutes: rules.scout_minutes } as Change] : []),
@@ -150,6 +150,8 @@ export interface UnknownRow {
   cat: Cat
   cat_name: string
   revealed: boolean
+  /** 這一項說的是哪一面：內海階段的蕾絲、守備、路是 net；整個階段或現實面是 null（畫面照面標出來） */
+  face: 'meat' | 'net' | null
   /** 揭開了才有內容；沒揭開是 null（畫面寫「？？？？」） */
   text: string | null
   /** 哪些手段揭得開（沒揭開的格子下面寫） */
@@ -176,6 +178,8 @@ export interface ScoutView {
   brief: BriefView
   alert_start: number
   trace_start: number
+  /** 現在出發的話，追蹤度會從幾開始（敵對值與踩點取最高；沒有內海階段的委託只算踩點驚動的）：畫面提醒用 */
+  trace_depart: number
 }
 
 /** 踩點頁（UI 7.2 節）要的資料：未知清單、踩點的次數與難度、手段、上一次的結果、副本的樣子。 */
@@ -192,7 +196,7 @@ export function scoutView(k: Kernel, state: GameState, jobId: string): ScoutView
     job: job.id, done: job.scouts, max, next_dc: dc, hard_from: rules.scout_hard_from, minutes: rules.scout_minutes,
     unknowns: job.unknowns.map((u) => {
       const revealed = job.revealed.includes(u.id)
-      return { id: u.id, cat: u.cat, cat_name: CAT_NAME[u.cat], revealed, text: revealed ? u.text : null, methods: methodsFor(u.cat).map((m) => m.id) }
+      return { id: u.id, cat: u.cat, cat_name: CAT_NAME[u.cat], face: u.face ?? null, revealed, text: revealed ? u.text : null, methods: methodsFor(u.cat).map((m) => m.id) }
     }),
     methods: SCOUT_METHODS.map((m) => ({
       id: m.id, name: m.name, skills: [...m.skills], cats: [...m.cats], layer: m.layer,
@@ -202,7 +206,7 @@ export function scoutView(k: Kernel, state: GameState, jobId: string): ScoutView
     intel: active ? intelOptions(k, state, job) : [],
     last: job.log.at(-1) ? clone(job.log.at(-1)!) : null,
     brief: briefOf(k, job, revealedStages(job)),
-    alert_start: job.alert_start, trace_start: job.trace_start,
+    alert_start: job.alert_start, trace_start: job.trace_start, trace_depart: traceStartOf(k, state, job),
   }
 }
 
@@ -225,6 +229,23 @@ export function goBlock(k: Kernel, state: GameState, job: Job): string | null {
   return null
 }
 
+/** 這件委託有沒有內海階段（任何一個階段列了內海面）。 */
+export const hasNetStage = (c: Pick<Job['commission'], 'stages'>): boolean => c.stages.some((st) => isRecord(st.faces) && isRecord(st.faces.net))
+
+/**
+ * 出發時追蹤度的起始值（NETRUNNING 第 5 節、dev/adr/0018 N16）：目標勢力的敵對值到「記名」以上 trace_start.noted（15）、到「通緝」trace_start.wanted（30）；
+ * 踩點驚動過是 15（踩的時候就記在手上那一件）；取最高的。敵對值的部分只有這件委託有內海階段才算；沒有人登記 hostility_tier 當作沒有敵對。
+ * 連動與後門、全隊的加減在副本與網內那邊再加。
+ */
+export function traceStartOf(k: Kernel, state: GameState, job: Job): number {
+  const tr = fixerRules(k).trace_start
+  const target = typeof job.commission.target_faction === 'string' && job.commission.target_faction !== 'none' ? job.commission.target_faction : null
+  const hostile = target !== null && hasNetStage(job.commission)
+    ? (hostilityAtLeast(k, state, target, HOSTILITY_TIER_WANTED) ? tr.wanted : hostilityAtLeast(k, state, target, HOSTILITY_TIER_RECORDED) ? tr.noted : 0)
+    : 0
+  return Math.min(100, Math.max(hostile, job.trace_start))
+}
+
 /** 詞條讓警戒一開始就比較高：生成的副本帶 alert_start 欄位（gen.ts），沒寫是 0。 */
 const startBonus = (c: Record<string, unknown>): number => (typeof c.alert_start === 'number' && Number.isSafeInteger(c.alert_start) && c.alert_start > 0 ? c.alert_start : 0)
 
@@ -244,16 +265,19 @@ export function go(k: Kernel, state: GameState, jobId: string): ReportDraft {
   const troubled = target !== null && hostilityAtLeast(k, state, target, HOSTILITY_TIER_TROUBLE)
   const pursued = target !== null && hostilityAtLeast(k, state, target, HOSTILITY_TIER_PURSUIT)
   const plus = troubled ? rules.hostile_budget : 0
+  const trace = traceStartOf(k, state, job)
   const setup = {
     // 警戒的起始值：踩點驚動的加上詞條帶的（生成的副本的 alert_start 欄位）、追捕的加成
     def: clone(job.commission), scouted: s.scouted, alert_start: Math.min(100, s.alert_start + startBonus(job.commission) + (pursued ? rules.hostile_alert : 0)), terms: clone(job.terms),
     ...(plus > 0 ? { encounter_plus: plus } : {}),
-    ...(s.trace_start > 0 ? { trace_start: s.trace_start } : {}),
+    ...(trace > 0 ? { trace_start: trace } : {}),
     ...(aux ? { aux } : {}),
   }
   const warn = pursued ? '對方正在追捕你，警戒一開始就比平常高。' : troubled ? '對方在找你麻煩，守備比平常多。' : null
+  // 內海：敵對值讓追蹤度一開始就有數字（只有敵對值造成的才說；踩點驚動的踩點時已經說過）
+  const warnNet = trace > s.trace_start ? '對方已經盯上你的名字了，進內海的時候追蹤度一開始就不是 0。' : null
   return draft(state, 'fixer.go', 'go', `出發去做「${job.title}」。`, [{ op: 'fixer.depart', id: job.id }], {
     launch: [{ kind: COMMISSION_ACTIVITY, setup, origin: { by: 'fixer', ref: job.id } }],
-    narration: { results: [`你帶著這件委託出發了：${job.title}。`, ...(warn ? [warn] : [])] },
+    narration: { results: [`你帶著這件委託出發了：${job.title}。`, ...(warn ? [warn] : []), ...(warnNet ? [warnNet] : [])] },
   })
 }
