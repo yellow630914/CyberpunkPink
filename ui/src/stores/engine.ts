@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import type { ActionInput, ContentEntry, Feature, ContentPack, ItemEntry, Actor, AttributeEntry, BattleInput, BattleMode, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, GridDir, GridView, Report, ReportDraft, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
-import { ActionBlocked, ChangeError, FakeProvider, Game, SYNC_GEARS, meterOf, syncBlocks, syncCapOf, syncRuleOf, modeOf, statusRuleOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
+import { ActionBlocked, ChangeError, FakeProvider, Game, NET_LEGEND, SYNC_GEARS, gridHere, meterOf, sightOf, syncBlocks, syncCapOf, syncRuleOf, modeOf, statusRuleOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
 import type { ActStatus, StepActions } from '@engine/src'
 import type { StepRecord } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
@@ -32,6 +32,8 @@ import { netBattleView } from '@engine/src/features/netcombat'
 import { deckOf, deckView, equipDraft as deckEquipDraft, installDraft as deckInstallDraft, removeDraft as deckRemoveDraft, scriptsBlock as deckScriptsBlock, scriptsDraft as deckScriptsDraft, skinDraft as deckSkinDraft, deckExtOf } from '@engine/src/features/deck'
 import type { ConstructEntry, DeckView, ScriptEntry } from '@engine/src/features/deck'
 import type { NetBattleView } from '@engine/src/features/netcombat'
+import { descend as netDescend, logout as netLogout, netrunView, useNode as netUseNode } from '@engine/src/features/netrun'
+import type { NetrunView } from '@engine/src/features/netrun'
 import { arrive as worldArrive, cityGraph, worldView } from '@engine/src/features/world'
 import type { CityGraph, WorldView } from '@engine/src/features/world'
 import { advance as transitAdvance, advanceBlock as transitAdvanceBlock, alight as transitAlight, board as transitBoard, boardBlock as transitBoardBlock, taxi as transitTaxi, taxiArrival as transitTaxiArrival, transitView, wait as transitWait } from '@engine/src/features/transit'
@@ -666,6 +668,60 @@ export const useEngine = defineStore('engine', () => {
     },
   }
 
+  // ---- 子網（M3-ui-subnet）：全部轉接 features/netrun 與核心的格子；畫面不自己判斷（巡邏、陷阱、追蹤度、能不能做都是引擎的） ----
+  /** 這一層看過的標記（名字、位置、種類、處理過了沒有）與視野半徑：畫面用它畫節點的圖示與打勾；沒看過的格子不給 */
+  interface NetMarker { id: string; name: string; mark: string; kind: string; at: [number, number]; used: boolean }
+  interface NetSheet { sight: number; visible: Set<string>; markers: NetMarker[] }
+  const net = {
+    /** 現在這一趟的畫面資料（引擎的 netrunView）；沒有在網內是 null */
+    view: (): NetrunView | null => { void state.value; return netrunView(game.k, game.state) },
+    /** 這一層的格子（看過的、站的位置）：和街區圖同一份 gridView */
+    grid: (): GridView | null => { void state.value; return game.gridView() },
+    /** 這一層看過的標記與現在看得到的格子（視野半徑與看穿是引擎的） */
+    sheet: (): NetSheet | null => {
+      void state.value
+      const h = gridHere(game.k, game.state)
+      if (!h) return null
+      const sight = sightOf(h.sheet.def)
+      const seen = (x: number, y: number): boolean => h.sheetState.seen[y]?.[x] === '1'
+      const markers = (h.sheet.def.cells ?? []).filter((m) => seen(m.at[0], m.at[1])).map((m): NetMarker => ({
+        id: m.id, name: m.name, mark: m.mark, kind: NET_LEGEND[m.mark] ?? 'floor', at: [m.at[0], m.at[1]], used: h.sheetState.cells[`${m.at[0]},${m.at[1]}`]?.used === true,
+      }))
+      const visible = new Set<string>()
+      for (const key of h.sheet.visibleFrom({ x: h.at.x, y: h.at.y }, sight)) visible.add(key)
+      return { sight, visible, markers }
+    },
+    /** 隊員的化身：感載、餘韻與同步檔位上限（引擎的衍生數值與規則） */
+    party: (): Array<{ id: string; name: string; load: [number, number]; afterglow: number; syncCap: string; me: boolean }> => {
+      void state.value
+      const rule = syncRuleOf(game.k.content)
+      return game.state.party.flatMap((id) => {
+        const a = game.state.actors[id]
+        if (!a) return []
+        const cap = rule.gears[syncCapOf(game.k, game.state, id)]
+        return [{ id, name: a.name, load: [a.load, statOf(id, 'load_cap', Math.max(1, a.load))] as [number, number], afterglow: a.afterglow, syncCap: cap?.name ?? '', me: id === game.state.pc }]
+      })
+    },
+    /** 走（一個方向或一個目的地，照最短路走，遇到事情就停）；被擋下回傳引擎的原因 */
+    walk: (to: GridDir | [number, number]): { ok: boolean; reason?: string } => world.walk(to),
+    /** 做一件事：id 是引擎列的（fight、sneak、rest、descend、pass、download、crack、wipe……），at 是站在旁邊的遭遇節點的 id */
+    use: (id: string, at?: string): Promise<ActOutcome> => commitDrafts(() => netUseNode(game.k, game.state, id, at)),
+    descend: (): Promise<ActOutcome> => commitDrafts(() => netDescend(game.k, game.state)),
+    logout: (): Promise<ActOutcome> => commitDrafts(() => netLogout(game.k, game.state)),
+    /** 開一趟（測試與示範用；平常是委託副本的內海面與自己潛進去的入口開的）：引擎擋下回傳原因，開成回傳 null */
+    begin(setup: unknown, kind: 'netrun' | 'face.net' = 'netrun', origin: { by: string; ref?: string; ext?: Record<string, unknown> } = { by: 'ui' }): string | null {
+      try {
+        game.launch(kind, setup, origin)
+        refresh()
+        return null
+      } catch (e) {
+        const w = reasonOf(e)
+        if (w === null) throw e
+        return w
+      }
+    },
+  }
+
   const transit = {
     view: (): TransitView => { void state.value; return transitView(game.k, game.state) },
     /** 上車的原因（可以上車回傳 null） */
@@ -1041,5 +1097,5 @@ export const useEngine = defineStore('engine', () => {
     scripts: (list: ScriptEntry[]): string | null => commitGear((pc) => deckScriptsDraft(game.k, game.state, pc, list)),
   }
 
-  return { state, feed, partyRows, hostilityTop, hostilityRows, world, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  return { state, feed, partyRows, hostilityTop, hostilityRows, world, net, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

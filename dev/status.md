@@ -377,3 +377,13 @@
 - 解讀待確認：還沒登記 face.net 時內海面照 M2 寫法；潛行 need 只能一項基本功（照種子挑）；兩次內海踩點自然 1 的追蹤度仍疊加；生成時不檢查內海敵人挑不挑得到。
 - 五型：竊密能做；抹除、竄改、心智只能近似；網內打撈不做。
 - ADR 0018 待補「實作補記：M3-fixer-net」。
+
+## M3-skill-net-a 回報（2026-11-24）
+
+- 槍手、潛網者、改造師、機師四棵樹的內海欄（測試資料在 engine/tests/fixtures/skills/）：槍手 23 做 1 近似；潛網者 15 做 9 近似 2 寫不出來；改造師 14 做 4 近似 4 寫不出來；機師 6 做 3 近似 9 等 M6。
+- 新鍵：欄的 `instinct`、`action: true`（被動技能在這一欄多一個行動，手術刀用，**待使用者認可**）、`trace`、`use.weapon_ram`、`trigger.tag`、`react.damage`、`react.flash`、`attack.suppress.first_round`、修正 `use_extra`。
+- `master_tier` 衍生數值（主角裝著潛網者招牌、照累計歷練點）；netrun 的 masterTier 改讀它。
+- 順手修：技能花管理行動送 `net.admin_spend` 用 `n`（原本送 `amount` 會被擋）。
+- 缺的效果與修正 13 項（net.cut、技能管理行動的追蹤度、net.unpin、讓人拔線、ram_regen、overloaded、改目標、免疫釘住、牆減傷、破損輕重、net.fix 全部、每場次數、我方／敵方格目標）→ 交 M3 審查或修正批決定。
+- 待確認：超頻骰數取「花掉的 RAM − 1」；內海壓制只對花全部 RAM 的技能與壓制姿態放行；SKILL_TREES 沒寫技能快駭的追蹤度數字；共鳴不分欄。
+- ADR 0018 待補「實作補記：M3-skill-net-a」「M3-fixer-net」。

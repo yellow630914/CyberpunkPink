@@ -315,7 +315,7 @@
 
 **怎麼拴住你**：演算法。它不禁止任何內容，它只決定沒人看得到什麼。
 
-**玩法**：見 [MEDIA](../systems/MEDIA.md) 第 8 節。
+**玩法**：見 [MEDIA](../systems/MEDIA.md) 第 8 節。製作部不掛名的外包組是簾後館的出資方之一，限幅後的內場帶賣進它的成人帶系列（[CYBERSPACE](../systems/CYBERSPACE.md) 8.8 節）。
 
 ## 5. 民生與能源
 
@@ -396,7 +396,7 @@
 
 **怎麼拴住你**：橋權（[LEWD_SYSTEM](../systems/LEWD_SYSTEM.md) 第 7 節）。
 
-**玩法**：每週帳單那條下坡路的終點（[FIXER](../systems/FIXER.md) 第 4 節）；蜜糖會的死對頭；和契約有關的事，多半要和它對上。
+**玩法**：每週帳單那條下坡路的終點（[FIXER](../systems/FIXER.md) 第 4 節）；蜜糖會的死對頭；和契約有關的事，多半要和它對上。會員部與債權部是暗礁簾後館的出資方之一：在館裡還不出的帳，最後也流到債權部（[CYBERSPACE](../systems/CYBERSPACE.md) 8.8 節）。
 
 ## 7. 一覽
 

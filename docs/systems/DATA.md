@@ -1008,7 +1008,7 @@
 
 ## 10. 網內的生成地圖
 
-規則在 [CYBERSPACE](CYBERSPACE.md) 8.1～8.6 節，這裡只定存檔裡的一筆長什麼樣。生成的結果存在存檔裡，同一座子網、同一艘船離開再回來還是同一張圖：版面由 `seed` 重新生成，`state` 記玩家改變過的東西。迷宮館與深海每一趟重新生成，這一筆只在那一趟裡有效。
+規則在 [CYBERSPACE](CYBERSPACE.md) 8.1～8.9 節，這裡只定存檔裡的一筆長什麼樣。生成的結果存在存檔裡，同一座子網、同一艘船離開再回來還是同一張圖：版面由 `seed` 重新生成，`state` 記玩家改變過的東西。迷宮館、簾後館、深海與永晝園每一趟重新生成，這一筆只在那一趟裡有效。
 
 ```json
 {
@@ -1033,9 +1033,9 @@
 | 欄位 | 內容 |
 |---|---|
 | `id` | `nm_` 開頭。委託副本的內海面用 `nm_<委託副本的 id>_net` |
-| `region` | `maze`（迷宮館）、`subnet`（一般子網）、`reef`（暗礁的通路）、`wreck`（沉船帶）、`deep`（深海） |
+| `region` | `maze`（迷宮館）、`curtain`（簾後館）、`subnet`（一般子網）、`reef`（暗礁的通路）、`wreck`（沉船帶）、`deep`（深海）、`evergleam`（永晝園） |
 | `grade` | 地圖的等級，1～5 |
-| `theme` | 主題的 id，要在那一區的主題表裡（`reef` 沒有） |
+| `theme` | 主題的 id，要在那一區的主題表裡（`reef`、`evergleam` 沒有） |
 | `layers` | 每一層的名字，照順序。子網寫權限層（`guest`、`staff`、`control`、`core`）；其他區寫那一區的層名 |
 | `affixes` | 詞條的 id。資料檢查要對每一個 id 是否在那一區的詞條表或 8.1 節的共通詞條表裡 |
 | `objective` | 有委託或任務時才有：`kind`（`download`、`seize`、`find`、`defeat`、`plant`、`extract`）、放在哪一層、需要的回合或對象 |
@@ -1051,6 +1051,8 @@
 | `reef` | `reach`、`legs`、`chart` | 去哪一段（`near`、`mid`、`wall`）；每一段的檢定結果與過礁事件；水道圖的來源與失效的日子。這一區沒有格子圖，`layers` 與 `theme` 留空（8.4 節） |
 | `wreck` | `ship`、`reach`、`signal` | 船的種類；位置（`near`、`mid`、`wall`）；目前的追蹤度（8.5 節） |
 | `deep` | `biomes`、`depth`、`sea` | 走過的海域 id，照順序；現在的深度；每個海域擲到的海況（8.6 節） |
+| `curtain` | `seat`、`menu`、`heat`、`encore` | 席次（`stand`、`box`、`vip`）；口味單；場熱 0～100；加演開了沒有（8.8 節）；檔期主題寫在 `theme`。會員證與欠款不在這一筆，在存檔的勢力欄 |
+| `evergleam` | `zones`、`depth`、`shadows` | 這一趟擲到的園區 id，照順序；現在的層；已留下的殘影（旗標 `evergleam:shadow:<園區>`，8.9 節）。`theme` 留空，園區就是主題 |
 
 ## 11. 素材、片與直播模板
 
