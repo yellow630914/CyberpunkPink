@@ -96,3 +96,7 @@ L0 型別 → L1 純工具 → L2 內容 → L3 狀態核心 → L4 規則核心
 ## 回報
 
 用繁體中文。先講結論（過或不過、做完或卡住），再列細節。
+
+## 設計書成品同步（使用者 2026-11-24）
+
+使用者只看設計書成品（https://claude.ai/artifact/BHwtMYmiWEydrSVzSur4pg）。**每次提交 docs/ 的修改之後，總指揮都要重建並發布成品**：`python3 tools/book/build.py --artifact <scratchpad>/artifact/design-book.html`，再用 Artifact publish 同一個 url（files 帶 content-catalog、content-events、content-quests 三個 html）。回報時寫上新的版本號。
