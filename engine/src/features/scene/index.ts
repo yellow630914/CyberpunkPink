@@ -1,4 +1,4 @@
-// L6 功能：成人場景的最小可操作版（LEWD_SYSTEM 第 3 節，3.5 節是完整的規則；DATA 第 3 節、第 4 節 adult_scene；CORE_RULES 4.2 節；UI 第 10 節；
+// L6 功能：成人場景的最小可操作版，第十種行動「換檔」是 M3-scene-sync（LEWD_SYSTEM 第 3 節，3.5 節是完整的規則；DATA 第 3 節、第 4 節 adult_scene；CORE_RULES 4.2 節；UI 第 10 節；
 // dev/adr/0016 第一、二節、G6、G11；dev/work/M2-scene.md）。
 //
 // 一種活動 scene（order 20）：一對一、回合制。行動點、感載與餘韻、契合、主動權、體位、部位與連接、目的的進度；玩家按「停下」才結束（或三種強制結束），
@@ -22,14 +22,14 @@
 //
 // 對外：sceneStart／startProblems、sceneAct、sceneNext、sceneSkip、sceneInterrupt、sceneView、sceneOptions、scenePreview、sceneOf、setSceneMode。
 
-import type { Feature, GameState, Kernel, Origin, ReportDraft } from '../../core'
+import type { Feature, GameState, Kernel, Origin, ReportDraft, SyncGear } from '../../core'
 import { ActionBlocked, ContentError, clone, isRecord } from '../../core'
 import type { ActivityDef } from '../../core'
 import { endDraft, logBeats, sceneDraft, stepDraft } from './end'
 import type { Dice, Goal, Nature, PositionEntry, Role, SceneMode, SceneState, Who } from './model'
 import {
   ACTIVITY, EXT, GOALS, NATURES, NATURE_FILTER, NATURE_NAME, OWNER, POSITION_KIND, ROLES, RULE_KIND, SKILL_KIND, beat, docilityOf, hasTendencyTag, isGoal, isMode, isNature, isRole,
-  knownPositions, positionProblems, readSceneDef, ruleProblems, sceneModeOf, sceneOf, sceneRules, sexRecordOf, skillProblems, tendencyTagIds,
+  knownPositions, positionProblems, readSceneDef, ruleProblems, sceneModeOf, sceneOf, sceneRules, sexRecordOf, skillProblems, startGear, tendencyTagIds,
 } from './model'
 import type { SceneInput } from './play'
 import { Play, diceOf, inputProblem } from './play'
@@ -38,10 +38,14 @@ export * from './model'
 export type { Preview, PreviewLoad, SceneInput, PartPick } from './play'
 export { Play } from './play'
 export { sceneOptions, scenePreview, sceneView } from './view'
-export type { ActionOption, ChoiceOption, LinkView, PartView, PersonView, ScenePick, ScenePickOption, ScenePair, SceneOptions, SceneView } from './view'
+export type { ActionOption, ChoiceOption, GearView, LinkView, PartView, PersonView, ScenePick, ScenePickOption, ScenePair, SceneOptions, SceneView } from './view'
 
 /** 測試用：換掉骰子（拿到一個 int(min, max) 的東西）。沒給就照存檔的亂數導出：同一個種子、同樣的行動序列，結果一樣。 */
-export interface SceneEnv { dice?: Dice }
+export interface SceneEnv {
+  dice?: Dice
+  /** 對方這個回合換到哪一檔（之後 scene_turn 的 AI 給；沒給走規則：感載七成以上退一檔）。不合規（超過他的上限、這回合換過了）就當沒給 */
+  partner_gear?: SyncGear
+}
 
 /** 開場景的設定：事件帶出來的是 DATA 第 4 節的 adult_scene 原樣（沒有 with，對象從 circles[0] 去掉主角取得）；委託、俘虜等用 with。 */
 export interface SceneSetup {
@@ -150,11 +154,17 @@ function startScene(k: Kernel, state: GameState, setup: unknown, origin: Origin)
     id: `sc${state.seq.uid + 1}`, mode: o.mode, pc: o.pc, partner: o.partner, nature: o.nature, role: o.role, goal: o.goal, ...(o.place ? { place: o.place } : {}), tags: o.tags,
     round: 1, turn: 'pc', step: 0, ap: { pc: 0, partner: 0 }, fit: rules.fit_start, init: openingInit(k, state, o), goal_progress: o.goal ? 0 : null,
     position: '', roles: { pc: '', partner: '' }, links: [], link_seq: 0, teased: { pc: false, partner: false }, restrained: { pc: false, partner: false },
+    gear: { pc: 'standard', partner: 'standard' }, max_gear: { pc: 'standard', partner: 'standard' }, shifted: { pc: false, partner: false }, sink_gain: { pc: 0, partner: 0 }, turn_began: false,
     climax: { pc: 0, partner: 0 }, received: { pc: 0, partner: 0 }, used_positions: [], touched: [...o.tags], lines: [],
     first_person: sexRecordOf(state.actors[o.pc]).people[o.partner] === undefined, origin: clone(origin),
   }
   const p = new Play(k, state, scene, diceOf(state, scene))
   p.s.ap = { pc: p.apMax.pc, partner: p.apMax.partner }
+  // 起始的檔位是標準；上限不到標準的人是淺（Play 把欄位補齊時已算；這裡是起始的明確寫入）
+  for (const w of ['pc', 'partner'] as const) {
+    p.s.gear[w] = startGear(p.gearCap[w])
+    p.s.max_gear[w] = p.s.gear[w]
+  }
   // 起始的體位：寫了而且雙方都會就用它；沒寫（或不能用）就挑第一個基本的
   const both = knownBoth(k, state, o.pc, o.partner)
   const start = (o.start ? both.find((x) => x.id === o.start) : undefined) ?? both[0]!
@@ -192,6 +202,7 @@ export function sceneNext(k: Kernel, state: GameState, env: SceneEnv = {}): Repo
   const scene = needScene(state)
   if (scene.turn !== 'partner') throw new ActionBlocked('還沒輪到對方。')
   const p = new Play(k, state, scene, env.dice ?? diceOf(state, scene))
+  p.partnerTurnStart(env.partner_gear)
   const choice = p.partnerChoice()
   if (choice) p.perform('partner', choice)
   if (!p.ended && (!choice || p.s.ap.partner <= 0)) p.settleRound()

@@ -2,12 +2,12 @@
 // 拿現在的狀態做一份工作副本（Play），照規則改它，改完由 end.ts 與 index.ts 把差異寫成報告的變更。
 // 規格：LEWD_SYSTEM 3.5 節（一～六點、第八點）；CORE_RULES 4.2 節；dev/work/M2-scene.md。
 
-import type { ActorId, GameState, Kernel, TimelineBeat } from '../../core'
-import { attrMod, checkParts, clone, deriveRng, makeCheck } from '../../core'
+import type { ActorId, GameState, Kernel, RollPart, SyncGear, SyncRule, TimelineBeat } from '../../core'
+import { SYNC_GEARS, attrMod, checkParts, clone, deriveRng, isSyncGear, makeCheck, syncBlocks, syncRuleOf } from '../../core'
 import type { ActionId, Die, Dice, EndReason, LinkRec, PositionEntry, SceneDef, SceneRules, SceneState, Who } from './model'
 import {
-  ACTION_NAME, POSITION_KIND, TALK_PARTS, beat, dieRange, hasTendencyTag, isNoDie, knowOf, knownPositions, knownSkills, other, parseDie, partName, partsOf, rollDie,
-  sceneDefOf, sceneRules, sensitivityOf, statOr, MAX_LINES,
+  ACTION_NAME, POSITION_KIND, TALK_PARTS, beat, dieRange, gearCapOf, gearIndexOf, hasTendencyTag, isNoDie, knowOf, knownPositions, knownSkills, normalizeGear, other, parseDie,
+  partName, partsOf, rollDie, sceneDefOf, sceneRules, sensitivityOf, statOr, MAX_LINES,
 } from './model'
 
 // ---- 輸入 ----
@@ -21,8 +21,9 @@ export type SceneInput =
   | { kind: 'item'; id: string; pick?: PartPick }
   | { kind: 'talk'; text?: string; pick?: PartPick }
   | { kind: 'switch'; position: string }
+  | { kind: 'gear'; gear: SyncGear }
 
-const KINDS: readonly string[] = ['dominate', 'yield', 'tease', 'restrain', 'stop', 'end_turn', 'skill', 'item', 'talk', 'switch']
+const KINDS: readonly string[] = ['dominate', 'yield', 'tease', 'restrain', 'stop', 'end_turn', 'skill', 'item', 'talk', 'switch', 'gear']
 
 /** 輸入的格式問題（一句）；沒有問題是 null。 */
 export function inputProblem(input: unknown): string | null {
@@ -31,6 +32,7 @@ export function inputProblem(input: unknown): string | null {
   if (!KINDS.includes(i.kind as string)) return `沒有「${String(i.kind)}」這種行動。`
   if ((i.kind === 'skill' || i.kind === 'item') && (typeof i.id !== 'string' || !i.id)) return `${ACTION_NAME[i.kind]}要指明是哪一個（id）。`
   if (i.kind === 'switch' && (typeof i.position !== 'string' || !i.position)) return '切換體位要指明換成哪個體位（position）。'
+  if (i.kind === 'gear' && !isSyncGear(i.gear)) return `換檔要指明換到哪一檔（gear：${SYNC_GEARS.join('、')}）。`
   if (i.pick !== undefined) {
     const p = i.pick as Record<string, unknown>
     if (typeof p !== 'object' || p === null || (p.my_part !== undefined && typeof p.my_part !== 'string') || (p.their_part !== undefined && typeof p.their_part !== 'string')) return 'pick 要是 { my_part?, their_part? }。'
@@ -67,6 +69,9 @@ export class Play {
   readonly glowMax: Record<Who, number>
   readonly apMax: Record<Who, number>
   readonly sens: Record<Who, number>
+  /** 同步原則的表（核心）與每個人現在開得到的最高一檔 */
+  readonly sync: SyncRule
+  readonly gearCap: Record<Who, SyncGear>
   /** 這一步開始時的感載與餘韻（寫變更時算差） */
   readonly was: { load: Record<Who, number>; glow: Record<Who, number> }
   ended: EndReason | null = null
@@ -86,6 +91,9 @@ export class Play {
     this.glowMax = both((w) => statOr(k, state, this.id(w), 'afterglow_cap', 3))
     this.apMax = both((w) => Math.max(1, statOr(k, state, this.id(w), 'ap_max', 4 + Math.floor((mod(w, 'reflex') + mod(w, 'charm')) / 2))))
     this.sens = both((w) => sensitivityOf(k, state, this.id(w)))
+    this.sync = syncRuleOf(k.content)
+    this.gearCap = both((w) => gearCapOf(k, state, this.id(w)))
+    normalizeGear(this.s, this.gearCap)
     this.load = both((w) => clamp(state.actors[this.id(w)]!.load, 0, this.loadMax[w] - 1))
     this.glow = both((w) => state.actors[this.id(w)]!.afterglow)
     this.was = { load: { ...this.load }, glow: { ...this.glow } }
@@ -103,6 +111,17 @@ export class Play {
   mult(w: Who): number { return this.pos.mult[this.s.roles[w]] ?? 1 }
   isUpper(w: Who): boolean { return this.pos.roles.find((r) => r.id === this.s.roles[w])?.upper === true }
   tagName(tag: string): string { return (this.k.content.get('tendency_tag', tag)?.name as string | undefined) ?? tag }
+  /** 這個人現在那一檔的規則（檢定加減、感載倍率、全檔的行動點與沉溺）。 */
+  gearRule(w: Who): SyncRule['gears'][SyncGear] { return this.sync.gears[this.s.gear[w]] }
+  /** 受到的感載乘這一檔的倍率（淺 ×0.5、標準 ×1、深 ×1.5、全 ×2.5）。 */
+  gearMult(w: Who): number { return this.gearRule(w).loadPct / 100 }
+  /** 自己擲的檢定加這一檔的加減（來源 sync）。 */
+  gearParts(w: Who): RollPart[] {
+    const r = this.gearRule(w)
+    return r.check ? [{ label: `${r.name}檔`, value: r.check, source: 'sync' }] : []
+  }
+  /** 這個人開不了這一檔的原因，每個沒夠的條件一句（核心 syncBlocks；開得了是空的）。 */
+  gearReasons(w: Who, gear: SyncGear): string[] { return syncBlocks(this.k, this.state, this.id(w), gear) }
   /** 自己造成的感載與契合：每一層餘韻 +10%。 */
   boost(src: Who): number { return 1 + this.rules.glow_bonus * this.glow[src] }
 
@@ -114,10 +133,10 @@ export class Play {
 
   // ---- 感載、契合、主動權 ----
 
-  /** 受到的感載 = 原始值 ×（0.75 ＋ 敏感度 ÷ 200）× 體位的倍率 ×（1 ＋ 0.1 × 造成的人的餘韻）。滿了就是高潮。回傳實際加了多少。 */
+  /** 受到的感載 = 原始值 ×（0.75 ＋ 敏感度 ÷ 200）× 體位的倍率 ×（1 ＋ 0.1 × 造成的人的餘韻）× 同步檔位的倍率。滿了就是高潮。回傳實際加了多少。 */
   hurt(target: Who, raw: number, src: Who): number {
     if (this.ended || raw <= 0) return 0
-    const n = Math.round(raw * (this.rules.load_base + this.sens[target] / this.rules.load_div) * this.mult(target) * this.boost(src))
+    const n = Math.round(raw * (this.rules.load_base + this.sens[target] / this.rules.load_div) * this.mult(target) * this.boost(src) * this.gearMult(target))
     this.load[target] += n
     this.s.received[target] += n
     while (!this.ended && this.load[target] >= this.loadMax[target]) this.climax(target, src)
@@ -147,6 +166,9 @@ export class Play {
   /** 過載就是高潮：感載歸零，疊一層餘韻，不失去回合；自己高潮主動權 −15，讓對方高潮的人 +10。餘韻疊滿之後又高潮就失神。 */
   climax(target: Who, src: Who): void {
     this.load[target] = 0
+    // 全檔過載時沉溺加（資料的 sink_on_overload；結算時一次加，每場最多 sink_cap）
+    const sink = this.gearRule(target).sinkOnOverload
+    if (sink) this.s.sink_gain[target] += sink
     if (this.glow[target] >= this.glowMax[target]) {
       this.line(target, target === 'pc' ? '你失神了。' : `${this.name(target)}失神了。`, 'out')
       this.ended = target === 'pc' ? 'pc_out' : 'partner_out'
@@ -276,6 +298,14 @@ export class Play {
         break
       case 'restrain':
         break
+      case 'gear': {
+        const g = input.gear
+        const name = `${this.sync.gears[g].name}檔`
+        if (s.shifted[w]) out.push('這個回合已經換過檔了。')
+        if (g === s.gear[w]) out.push(`已經是${name}了。`)
+        else out.push(...this.gearReasons(w, g))
+        break
+      }
       case 'talk': {
         const r = this.pairFor(w, { mine: [...TALK_PARTS], theirs: partsOf(this.actor(other(w))), tag: null }, input.pick, probe)
         if ('reasons' in r) out.push(...r.reasons)
@@ -398,7 +428,7 @@ export class Play {
     const skill = (a.skills.seduce ?? 0) >= (a.skills.negotiate ?? 0) ? 'seduce' : 'negotiate'
     // M2 用骰子代替判定：魅力加交涉或誘惑對 13
     const check = makeCheck({
-      natural: this.dice.int(1, 20), parts: checkParts(this.k.stats, this.state, this.id(w), { attr: 'charm', skill, tags: ['social', 'scene'] }), dc: this.rules.talk_dc, attr: 'charm', skill,
+      natural: this.dice.int(1, 20), parts: checkParts(this.k.stats, this.state, this.id(w), { attr: 'charm', skill, tags: ['social', 'scene'] }, this.gearParts(w)), dc: this.rules.talk_dc, attr: 'charm', skill,
     })
     const fit = this.addFit(this.rules.talk_fit[check.degree], w)
     let goal = 0
@@ -447,6 +477,16 @@ export class Play {
     if (this.s.mode === 'simple') this.relink(old)
   }
 
+  /** 換檔：0 點、每回合一次、只能在自己的回合（blocks 管）。 */
+  private shiftTo(w: Who, gear: SyncGear): void {
+    const from = this.s.gear[w]
+    this.s.gear[w] = gear
+    this.s.shifted[w] = true
+    if (gearIndexOf(gear) > gearIndexOf(this.s.max_gear[w])) this.s.max_gear[w] = gear
+    const name = `${this.sync.gears[gear].name}檔`
+    this.line(w, w === 'pc' ? `你換到${name}。` : `${this.name(w)}換到${name}。`, 'gear', { from, to: gear })
+  }
+
   /** 做一個行動（blocks 已經看過）。stop 與 end_turn 只改狀態。 */
   perform(w: Who, input: SceneInput): void {
     switch (input.kind) {
@@ -455,6 +495,7 @@ export class Play {
       case 'skill': case 'item': return this.use(w, input.kind, input.id, input.pick)
       case 'talk': return this.talk(w, input)
       case 'switch': return this.switchTo(w, input.position)
+      case 'gear': return this.shiftTo(w, input.gear)
       case 'stop':
         this.line(w, '你停了下來。', 'stop')
         this.ended = 'stop'
@@ -484,6 +525,20 @@ export class Play {
       if (r <= 0) return items[i]!
     }
     return items[items.length - 1]!
+  }
+
+  /**
+   * 對方的回合開頭（每回合第一次）：換不換檔走規則、不呼叫 AI——感載到上限的七成以上退一檔，否則維持。
+   * want 是外面（之後 scene_turn 的 AI）建議的檔位：照樣要過 blocks（上限、每回合一次），不合規就當沒給。
+   */
+  partnerTurnStart(want?: SyncGear): void {
+    const s = this.s
+    if (s.turn_began) return
+    s.turn_began = true
+    let to: SyncGear = s.gear.partner
+    if (want !== undefined && isSyncGear(want)) to = want
+    else if (this.load.partner >= this.rules.partner_gear_down_at * this.loadMax.partner) to = SYNC_GEARS[Math.max(0, gearIndexOf(s.gear.partner) - 1)]!
+    if (to !== s.gear.partner && this.blocks('partner', { kind: 'gear', gear: to }).length === 0) this.perform('partner', { kind: 'gear', gear: to })
   }
 
   /**
@@ -546,8 +601,10 @@ export class Play {
       return
     }
     s.round += 1
-    for (const w of ['pc', 'partner'] as const) s.ap[w] = Math.min(this.apMax[w], s.ap[w] + this.rules.ap_regen)
+    for (const w of ['pc', 'partner'] as const) s.ap[w] = Math.min(this.apMax[w], s.ap[w] + this.rules.ap_regen + (this.gearRule(w).apRegen ?? 0))
     s.restrained = { pc: false, partner: false }
+    s.shifted = { pc: false, partner: false }
+    s.turn_began = false
     s.turn = 'pc'
   }
 
@@ -560,7 +617,7 @@ export class Play {
       if (isNoDie(d)) return null
       const extra = this.s.teased[w] && d.n > 0 ? 1 : 0
       const r = dieRange(d, extra)
-      const m = d.sign > 0 ? (this.rules.load_base + this.sens[target] / this.rules.load_div) * this.mult(target) * this.boost(w) : 1
+      const m = d.sign > 0 ? (this.rules.load_base + this.sens[target] / this.rules.load_div) * this.mult(target) * this.boost(w) * this.gearMult(target) : 1
       return { dice: dieTextOf(d, extra), mult: round2(m), min: Math.round(r.min * m), max: Math.round(r.max * m), avg: round1(r.avg * m) }
     }
     const basic = (kind: 'dominate' | 'yield' | 'tease'): Preview => {
@@ -578,6 +635,10 @@ export class Play {
       }
       case 'talk': return { ap: this.rules.cost.talk, target_load: null, my_load: null, fit: this.rules.talk_fit.fumble, fit_max: this.rules.talk_fit.critical, init: 0, link: true }
       case 'switch': return { ap: this.rules.cost.switch, target_load: null, my_load: null, fit: 0, init: 0, link: false }
+      case 'gear': {
+        const g = this.sync.gears[input.gear]
+        return { ap: 0, target_load: null, my_load: null, fit: 0, init: 0, link: false, gear: { id: input.gear, name: `${g.name}檔`, check: g.check, load_pct: g.loadPct, ap_regen: g.apRegen ?? 0, sink_on_overload: g.sinkOnOverload ?? 0 } }
+      }
       case 'skill': case 'item': {
         const info = sceneDefOf(this.k, input.kind, input.id)
         if (!info) return { ap: 0, target_load: null, my_load: null, fit: 0, init: 0, link: false }
@@ -605,6 +666,8 @@ export interface Preview {
   init: number
   /** 會不會建立連接 */
   link: boolean
+  /** 換檔：那一檔的樣子（自己的檢定加減、受到的感載是原本的幾 %、每回合多回的行動點、過載時加的沉溺） */
+  gear?: { id: SyncGear; name: string; check: number; load_pct: number; ap_regen: number; sink_on_overload: number }
   /** 之後每回合自動生效的數值（技能與道具） */
   per_round?: { target_load: PreviewLoad | null; my_load: PreviewLoad | null; fit: number }
 }

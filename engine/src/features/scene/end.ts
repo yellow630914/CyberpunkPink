@@ -120,7 +120,17 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
 
   // 目的
   const goalDone = s.goal !== null && (s.goal_progress ?? 0) >= rules.goal_done_at
-  const result = { with: s.partner, fit: s.fit, rating: band.name, goal: s.goal, goal_done: goalDone, reason }
+  // 同步：全檔過載累積的沉溺（每場最多 sink_cap）；這一場開過的最高檔位（橋參數的成長之後要用）
+  const sinkLines: string[] = []
+  const sinkChanges: Change[] = []
+  for (const w of ['pc', 'partner'] as const) {
+    const n = Math.min(rules.sink_cap, s.sink_gain[w])
+    if (n <= 0) continue
+    sinkChanges.push({ op: 'actor.track', id: p.id(w), track: 'sink', delta: n })
+    sinkLines.push(`${w === 'pc' ? '你' : partner.name}在${p.sync.gears.full.name}檔過載：沉溺 +${n}。`)
+  }
+  const maxGear = { pc: s.max_gear.pc, partner: s.max_gear.partner }
+  const result = { with: s.partner, fit: s.fit, rating: band.name, goal: s.goal, goal_done: goalDone, reason, max_gear: maxGear }
   const end = endActivity(k, { state, kind: ACTIVITY, id: s.id, origin: s.origin, outcome: reason, result })
   if (end.rewind) end.launch = []
 
@@ -129,14 +139,14 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
     ...trackChanges(p, true),
     ...(p.consumed ? [{ op: 'item', id: p.consumed, qty: -1 } as Change] : []),
     ...(insight !== 0 ? [{ op: 'meter', kind: 'insight', key: '_', delta: insight } as Change] : []),
-    ...fx.changes, ...records, ...end.changes,
+    ...sinkChanges, ...fx.changes, ...records, ...end.changes,
   ]
   const results = [
-    `${END_NAME[reason]}。`, `契合 ${s.fit}：${band.name}。`, `體悟 +${insight}${notes.length > 0 ? `（${notes.join('、')}）` : ''}。`, ...fx.lines,
+    `${END_NAME[reason]}。`, `契合 ${s.fit}：${band.name}。`, `體悟 +${insight}${notes.length > 0 ? `（${notes.join('、')}）` : ''}。`, ...fx.lines, ...sinkLines,
     ...(s.goal ? [`目的「${GOAL_NAME[s.goal]}」：${goalDone ? '達成了' : '沒有達成'}。`] : []),
     `餘韻：你 ${p.glow.pc}／${p.glowMax.pc} 層、${partner.name} ${p.glow.partner}／${p.glowMax.partner} 層。`, ...end.lines,
   ]
-  const finalBeat = beat(s.pc, `場景結束：${END_NAME[reason]}。契合 ${s.fit}，${band.name}。`, 'scene.end', { reason, fit: s.fit, rating: band.id, insight })
+  const finalBeat = beat(s.pc, `場景結束：${END_NAME[reason]}。契合 ${s.fit}，${band.name}。`, 'scene.end', { reason, fit: s.fit, rating: band.id, insight, max_gear: maxGear })
   const d = sceneDraft(state, p, 'scene.end', [...lead, ...p.beats, finalBeat], changes, reason, `${END_NAME[reason]}。契合 ${s.fit}，${band.name}。`)
   d.narration = { results }
   if (fx.clamps.length > 0) d.clamps = fx.clamps

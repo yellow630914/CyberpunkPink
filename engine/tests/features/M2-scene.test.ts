@@ -11,7 +11,7 @@ import type { ContentPack, Feature, GameState, Kernel, Origin } from '../../src'
 import { ActionBlocked, ContentError, Rng, deriveRng } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { lewdFeature } from '../../src/features/lewd'
-import type { Dice, SceneInput, SceneState } from '../../src/features/scene'
+import type { Dice, SceneInput, SceneState, SyncGear } from '../../src/features/scene'
 import {
   DEFAULT_SCENE_RULES, sceneAct, sceneFeature, sceneInterrupt, sceneNext, sceneOf, sceneOptions, scenePreview, sceneSkip, sceneView, setSceneMode, startProblems,
 } from '../../src/features/scene'
@@ -309,11 +309,11 @@ describe('九種行動：現在能不能做與原因', () => {
     expect(blocked(() => sceneAct(g.k, g.state, null as never))).toMatch(/要給一個行動/)
   })
 
-  it('sceneOptions 一次列出九種行動，順序是主導、迎合、挑逗、克制、技能、說話、道具、切換體位、停下；花費照表', () => {
+  it('sceneOptions 一次列出十種行動，順序是主導、迎合、挑逗、克制、技能、說話、道具、切換體位、換檔、停下；花費照表（M3-scene-sync 加了換檔）', () => {
     const g = game()
     begin(g)
     const o = sceneOptions(g.k, g.state)!
-    expect(o.actions.map((a) => [a.id, a.ap])).toEqual([['dominate', 2], ['yield', 2], ['tease', 1], ['restrain', 1], ['skill', 1], ['talk', 1], ['item', 0], ['switch', 1], ['stop', 0]])
+    expect(o.actions.map((a) => [a.id, a.ap])).toEqual([['dominate', 2], ['yield', 2], ['tease', 1], ['restrain', 1], ['skill', 1], ['talk', 1], ['item', 0], ['switch', 1], ['gear', 0], ['stop', 0]])
     expect(o.ap).toEqual({ now: 4, max: 4 })
     expect(o.turn).toBe('pc')
     expect(o.actions.find((a) => a.id === 'item')!.blocks).toEqual(['你身上沒有在場景裡用得出來的東西。'])
@@ -890,7 +890,8 @@ describe('對方的一步（sceneNext）', () => {
     talk(g)
     act(g, { kind: 'end_turn' })
     const rs = next(g)
-    expect(rs[0]!.timeline[0]!.tag).toBe('restrain')
+    // 感載七成以上：回合開頭先退一檔（M3-scene-sync），再克制
+    expect(rs[0]!.timeline.map((b) => b.tag)).toEqual(['gear', 'restrain'])
     expect(ann(g).load).toBe(24)
     expect(S(g).restrained.partner).toBe(true)
     const again = next(g, dice(1, 1, 1, 1, 1))
@@ -996,7 +997,7 @@ describe('結束與結算', () => {
     expect(rec('pc').people.npc_ann).toBe(2)
     expect(rec('npc_ann').times).toBe(1)
     expect(rec('npc_ann').people.pc).toBe(1)
-    expect(heard).toEqual([{ outcome: 'stop', result: { with: 'npc_ann', fit: 62, rating: '合拍', goal: 'info', goal_done: false, reason: 'stop' }, origin: { by: 'caller', ref: 'job1' } }])
+    expect(heard).toEqual([{ outcome: 'stop', result: { with: 'npc_ann', fit: 62, rating: '合拍', goal: 'info', goal_done: false, reason: 'stop', max_gear: { pc: 'standard', partner: 'standard' } }, origin: { by: 'caller', ref: 'job1' } }])
     expect(report.narration!.results).toEqual(expect.arrayContaining(['契合 62：合拍。', '體悟 +15。', '發起的人收到了場景的結果']))
   })
 
@@ -1407,6 +1408,7 @@ describe('隨機走一整場：每一步之後的不變式', () => {
               for (const c of a.choices) {
                 if (c.blocks.length > 0) continue
                 if (a.id === 'switch') ok.push({ kind: 'switch', position: c.id })
+                else if (a.id === 'gear') ok.push({ kind: 'gear', gear: c.id as SyncGear })
                 else {
                   const pair = c.pairs.find((x) => x.blocks.length === 0)
                   ok.push({ kind: a.id as 'skill' | 'item', id: c.id, ...(pair ? { pick: { my_part: pair.my_part, their_part: pair.their_part } } : {}) })

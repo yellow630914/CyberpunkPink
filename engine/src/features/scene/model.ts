@@ -3,8 +3,8 @@
 //       CORE_RULES 4.2 節；dev/adr/0016 G6、G11；dev/work/M2-scene.md。
 // 不 import 別的功能：橋參數與傾向只認 DATA 第 8 節的格式（actor.ext.bridge、actor.ext.tendency），敏感度優先問 k.stats 的 bridge_sensitivity。
 
-import type { Actor, ActorId, ContentEntry, GameState, Kernel, Origin, TimelineBeat } from '../../core'
-import { clone, isRecord } from '../../core'
+import type { Actor, ActorId, ContentEntry, GameState, Kernel, Origin, SyncGear, TimelineBeat } from '../../core'
+import { SYNC_GEARS, clone, isRecord, isSyncGear, syncCapOf, syncGearIndex } from '../../core'
 
 export const OWNER = 'scene'
 /** state.ext 的鍵、活動的種類。 */
@@ -51,11 +51,11 @@ export const TALK_PARTS: readonly string[] = ['mouth', 'hand_l', 'hand_r']
 export type Who = 'pc' | 'partner'
 export const other = (w: Who): Who => (w === 'pc' ? 'partner' : 'pc')
 
-/** 九種行動（LEWD_SYSTEM 3.5 節第五點；M2 沒有換檔）。end_turn 不是行動，是把回合交出去。 */
-export const ACTIONS = ['dominate', 'yield', 'tease', 'restrain', 'skill', 'talk', 'item', 'switch', 'stop'] as const
+/** 十種行動（LEWD_SYSTEM 3.5 節第五點；第十種「換檔」是 M3-scene-sync 加的）。end_turn 不是行動，是把回合交出去。 */
+export const ACTIONS = ['dominate', 'yield', 'tease', 'restrain', 'skill', 'talk', 'item', 'switch', 'gear', 'stop'] as const
 export type ActionId = (typeof ACTIONS)[number]
 export const ACTION_NAME: Record<ActionId | 'end_turn', string> = {
-  dominate: '主導', yield: '迎合', tease: '挑逗', restrain: '克制', skill: '技能', talk: '說話', item: '道具', switch: '切換體位', stop: '停下', end_turn: '結束回合',
+  dominate: '主導', yield: '迎合', tease: '挑逗', restrain: '克制', skill: '技能', talk: '說話', item: '道具', switch: '切換體位', gear: '換檔', stop: '停下', end_turn: '結束回合',
 }
 
 // ---- 骰子 ----
@@ -156,6 +156,10 @@ export interface SceneRules {
   match_bonus: number
   /** 對方的感載達到上限的這個比例以上，他就想克制 */
   partner_restrain_at: number
+  /** 對方的回合開始時，感載達到上限的這個比例以上，他退一檔（同步檔位；LEWD_SYSTEM 3.5 節第五點「換檔」） */
+  partner_gear_down_at: number
+  /** 一場裡過載（全檔）加的沉溺，結算時最多加這麼多（CORE_RULES 4.3 節：每場 −4～+4） */
+  sink_cap: number
   /** 對方的一步裡主導、迎合、挑逗的權重，照性質 */
   partner_weights: Record<Nature, { dominate: number; yield: number; tease: number }>
   /** 契合 ≤ quit_fit 而且過了 quit_rounds 回合：對方不玩了 */
@@ -200,6 +204,8 @@ export const DEFAULT_SCENE_RULES: SceneRules = {
   position_tag_fit: 2,
   match_bonus: 12,
   partner_restrain_at: 0.7,
+  partner_gear_down_at: 0.7,
+  sink_cap: 4,
   partner_weights: {
     mutual: { dominate: 3, yield: 3, tease: 2 },
     trade: { dominate: 2, yield: 4, tease: 2 },
@@ -511,6 +517,12 @@ export interface SceneState {
   teased: Record<Who, boolean>
   /** 克制：這回合連接的自動效果對自己減半 */
   restrained: Record<Who, boolean>
+  /** 同步檔位（CORE_RULES 第 5 節）：現在的檔、這一場開過的最高檔、這個回合換過檔了沒有、過載累積的沉溺（結算時加）、對方這個回合的開頭處理過了沒有 */
+  gear: Record<Who, SyncGear>
+  max_gear: Record<Who, SyncGear>
+  shifted: Record<Who, boolean>
+  sink_gain: Record<Who, number>
+  turn_began: boolean
   /** 到了幾次、受到的感載總量 */
   climax: Record<Who, number>
   received: Record<Who, number>
@@ -653,3 +665,28 @@ export function tendencyTagIds(actor: Actor | undefined): string[] {
   const t = actor && isRecord(actor.ext.tendency) && isRecord(actor.ext.tendency.tags) ? actor.ext.tendency.tags : {}
   return Object.keys(t).filter((id) => hasTendencyTag(actor, id))
 }
+
+// ---- 同步檔位（核心的 rules/sync.ts 是表；這裡只管場景裡的落點） ----
+
+/** 起始的檔位：標準；上限不到標準的人是淺（LEWD_SYSTEM 3.5 節第一點、CORE_RULES 第 5 節）。 */
+export function startGear(cap: SyncGear): SyncGear {
+  return syncGearIndex(cap) >= syncGearIndex('standard') ? 'standard' : 'shallow'
+}
+
+/** 舊存檔（沒有檔位欄位的場景）補成標準檔，並確保欄位齊全。 */
+export function normalizeGear(s: SceneState, cap: Record<Who, SyncGear>): void {
+  const both = <T>(f: (w: Who) => T): Record<Who, T> => ({ pc: f('pc'), partner: f('partner') })
+  const gear = both((w) => (isSyncGear(s.gear?.[w]) ? s.gear[w] : startGear(cap[w])))
+  s.gear = gear
+  s.max_gear = both((w) => (isSyncGear(s.max_gear?.[w]) && syncGearIndex(s.max_gear[w]) >= syncGearIndex(gear[w]) ? s.max_gear[w] : gear[w]))
+  s.shifted = both((w) => s.shifted?.[w] === true)
+  s.sink_gain = both((w) => (typeof s.sink_gain?.[w] === 'number' ? s.sink_gain[w] : 0))
+  s.turn_began = s.turn_began === true
+}
+
+export { SYNC_GEARS }
+export type { SyncGear }
+export const gearIndexOf = syncGearIndex
+
+/** 這個人的同步上限（核心的 syncCapOf：同步等級與敏感度；生成的 NPC 沒有同步的等級當 0 級，只到標準）。 */
+export const gearCapOf = (k: Pick<Kernel, 'stats' | 'content'>, state: GameState, id: ActorId): SyncGear => syncCapOf(k, state, id)

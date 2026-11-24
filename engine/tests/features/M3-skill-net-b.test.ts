@@ -9,13 +9,14 @@ import { describe, expect, it } from 'vitest'
 import type { BattleInput, BattleOptions, BattleSetup, BattleUnit, ContentPack, Feature, GameState, Kernel, TimelineBeat } from '../../src'
 import { BattleBlocked, BattleRun, battleAct, battleOptions, clone, createKernel, performAction, readyFeatures, setupBattle } from '../../src'
 import { FLOW_TIER_STAT, abilitiesFeature } from '../../src/features/abilities'
+import { aiStep } from '../../src/core/battle/ai'
 import { featureMods } from '../../src/features/abilities/mods'
 import { combatFeature } from '../../src/features/combat'
 import { deckFeature } from '../../src/features/deck'
 import { hackFeature } from '../../src/features/hack'
 import { netcombatFeature } from '../../src/features/netcombat'
 import { summonsFeature } from '../../src/features/summons'
-import { TEST_NET_COMBAT, fixDice, laceUnit, makeActor, makeState, netAvatar } from '../../src/testkit'
+import { fixDice, laceUnit, makeActor, makeState, netAvatar } from '../../src/testkit'
 import { NET_TREES_B, netPack } from '../fixtures/skills'
 import type { Tree } from '../fixtures/skills'
 import { TEST_STATUSES } from '../helpers/battle'
@@ -638,5 +639,491 @@ describe('掮客：指揮在內海每回合最多 1 點、遠端叫人', () => {
     const r = opt(a, F('reinforce'))!
     expect(r.picks.find((p) => p.key === 'bench')!.options.map((x) => x.value)).toEqual(['n1'])
     expect(opt(a, F('big_picture'))!.ok).toBe(true)
+  })
+})
+
+// ===================================================================================================================
+// 四、主播
+// ===================================================================================================================
+
+describe('主播：導流階（衍生數值 flow_tier）與導流技能', () => {
+  const SP = ST('spotlight')
+  const ids = [SP, ST('expose'), ST('check_it'), ST('flood'), ST('spam'), ST('old_fans'), ST('bystanders'), ST('cut_in'), ST('strike'), ST('fix_tone'), ST('cant_stop')]
+  const streamer = (list: string[] = ids, o: Rec = {}) => avatar(1, { streamer: 5 }, list, { actor: 'pc', ...o })
+
+  it('導流階是 0（沒有頻道）：洗版、圍觀、插播一下喔灰掉，原因是「還沒有頻道。」；曝光、灌流、直擊 0 階照樣能用', () => {
+    const a = arena(setup([streamer([SP, ST('expose'), ST('flood'), ST('spam'), ST('bystanders'), ST('cut_in'), ST('strike')])], [lace()]))
+    turnTo(a, 'a1')
+    for (const id of [ST('spam'), ST('bystanders'), ST('cut_in')]) {
+      const o = opt(a, id)!
+      expect(o.ok, id).toBe(false)
+      expect(o.blocks, id).toContain('還沒有頻道。')
+      expect(reasons(a, { action: id }).join(''), id).toMatch(/還沒有頻道。/)
+    }
+    expect(opt(a, ST('expose'))!.ok).toBe(true)
+    expect(opt(a, ST('flood'))!.ok).toBe(true)
+    expect(a.run().state.actors.pc).toBeDefined()
+  })
+
+  it('測試加 provider 給 2 之後用得了；洗版讓追蹤度 −10（每場 2 次，1 行動點加 1 RAM）', () => {
+    const a = arena(setup([streamer()], [lace()]), { extra: [FLOW(2)] })
+    turnTo(a, 'a1')
+    expect(opt(a, ST('spam'))!.ok).toBe(true)
+    expect(opt(a, ST('spam'))!.cost).toEqual({ ap: 1, ram: 1 })
+    const t0 = trace(a)
+    doAct(a, 'a1', { action: ST('spam') })
+    expect(trace(a)).toBe(t0 - 10)
+    doAct(a, 'a1', { action: ST('spam') })
+    expect(trace(a)).toBe(t0 - 20)
+    expect(opt(a, ST('spam'))!.blocks.join('')).toMatch(/用過了/)
+    // 導流階 1 以上但不到門檻的原因寫得出數字：圍觀、插播沒有更高的門檻；0 階才是「還沒有頻道」
+    expect(a.run().state.actors.pc).toBeDefined()
+  })
+
+  it('灌流：傷害加上導流階（最多 +3）；0 階加 0、老粉都在 +1（導流階 +1，灌流的上限仍是 +3）', () => {
+    const dealt = (flow: number, withFans: boolean): number => {
+      const a = arena(setup([streamer([SP, ST('expose'), ST('flood'), ...(withFans ? [ST('old_fans')] : [])])], [lace({ load: { now: 0, max: 200 } })]), { extra: flow ? [FLOW(flow)] : [] })
+      // 導流階的 provider 看角色身上裝著什麼（state），不看單位：把裝著的寫進主角
+      a.state.actors.pc!.ext.abilities = { xp: 0, learned: [], equipped: withFans ? [SP, ST('old_fans')] : [SP], spent: {} }
+      turnTo(a, 'a1')
+      expect(opt(a, ST('flood'))!.cost).toEqual({ ap: 2, ram: 2 })
+      doAct(a, 'a1', { action: ST('flood'), target: { unit: 'f1' } }, [15])
+      return a.f(1).load!.now
+    }
+    const base = dealt(0, false)
+    expect(base).toBeGreaterThan(0)
+    expect(dealt(2, false) - base).toBe(2)
+    expect(dealt(5, false) - base).toBe(3)
+    // 老粉都在：0 階變 1 階；2 階變 3 階；5 階變 6 階，灌流還是最多 +3
+    expect(dealt(0, true) - base).toBe(1)
+    expect(dealt(2, true) - base).toBe(3)
+    expect(dealt(5, true) - base).toBe(3)
+  })
+
+  it('老粉都在是衍生數值 flow_tier 的 provider（沒有頻道也加 1）；沒有裝時是 0', () => {
+    const a = arena(setup([streamer([SP, ST('old_fans')])], [lace()]))
+    expect(a.k.stats.stat(a.state, 'pc', FLOW_TIER_STAT)).toBe(0)
+    a.state.actors.pc!.ext.abilities = { xp: 0, learned: [], equipped: [SP, ST('old_fans')], spent: {} }
+    expect(a.k.stats.stat(a.state, 'pc', FLOW_TIER_STAT)).toBe(1)
+  })
+
+  it('曝光：標記敵人到我方的下個回合（全隊打他命中 +1）；我查查看：解除隊友的標記與干擾；直擊：只打被標記的，骰多 1 顆、無視 2 點防護', () => {
+    const a = arena(setup([streamer([SP, ST('expose'), ST('check_it'), ST('flood'), ST('spam'), ST('old_fans'), ST('bystanders'), ST('cut_in'), ST('strike')]), mate(2)], [lace(), lace()]))
+    turnTo(a, 'a1')
+    expect(opt(a, ST('strike'))!.targets.every((t) => t.blocks.join('').match(/標記|集火/))).toBe(true)
+    expect(opt(a, ST('expose'))!.cost).toEqual({ ap: 1, ram: 1 })
+    doAct(a, 'a1', { action: ST('expose'), target: { unit: 'f1' } })
+    expect(statusIds(a.f(1))).toContain('focused')
+    expect(modsOf(a, 'hit_against', 'f1')).toBe(1)
+    const t = opt(a, ST('strike'))!.targets
+    expect(t.find((x) => 'unit' in x.target && x.target.unit === 'f1')!.blocks).toEqual([])
+    expect(t.find((x) => 'unit' in x.target && x.target.unit === 'f2')!.blocks.length).toBeGreaterThan(0)
+    // 直擊：比普通的攻擊多一顆骰（4＋1 顆 d6 ＝ 骰面全 3）、無視 2 點防護
+    const run = a.run([15, ...FILL])
+    const seen: Array<[number, number]> = []
+    const roll = run.roll.bind(run)
+    run.roll = (count, sides) => (seen.push([count, sides]), roll(count, sides))
+    const plain = a.a(1).weapons[0]!.dice
+    performAction(run, run.unit('a1'), a.k.battle.getAction(ST('strike'))!, { unit: 'f1' }, { action: ST('strike'), target: { unit: 'f1' } })
+    expect(seen.filter(([, sd]) => sd === 6).reduce((s, [n]) => s + n, 0)).toBeGreaterThanOrEqual(plain + 1)
+    // 我查查看：解除標記與干擾
+    a.run().applyStatus(a.a(2), 'marked')
+    a.run().applyStatus(a.a(2), 'jam_weapon')
+    expect(statusIds(a.a(2))).toEqual(expect.arrayContaining(['marked', 'jam_weapon']))
+    doAct(a, 'a1', { action: ST('check_it'), target: { unit: 'a2' } })
+    expect(statusIds(a.a(2))).not.toContain('marked')
+    expect(statusIds(a.a(2))).not.toContain('jam_weapon')
+  })
+
+  it('圍觀：追蹤度立刻 +10，敵人的釘住檢定 −4（蕾絲幾乎釘不住）到戰鬥結束；每場 1 次；插播一下喔：敵方整排被標記、追蹤度 −5', () => {
+    const a = arena(setup([streamer()], [lace(), elite({ tags: ['lace', 'lace:pink'] })]), { extra: [FLOW(1)] })
+    turnTo(a, 'a1')
+    const t0 = trace(a)
+    doAct(a, 'a1', { action: ST('bystanders') })
+    expect(trace(a)).toBe(t0 + 10)
+    expect(buffIds(a.f(1))).toEqual(expect.arrayContaining(['bystanders']))
+    expect(modsOf(a, 'save', 'f1', ['pin'])).toBe(-4 - 26)
+    expect(modsOf(a, 'save', 'f2', ['pin'])).toBe(-4 - 26)
+    expect(opt(a, ST('bystanders'))!.blocks.join('')).toMatch(/用過了/)
+    doAct(a, 'a1', { action: ST('cut_in') })
+    expect(trace(a)).toBe(t0 + 5)
+    expect(statusIds(a.f(1))).toContain('focused')
+    expect(statusIds(a.f(2))).toContain('focused')
+    expect(opt(a, ST('cut_in'))!.cost).toEqual({ ap: 2, ram: 2 })
+  })
+
+  it('定調：這一回合全隊用灌流、曝光、直擊不花 RAM（做完退回）；共鳴 2（5 階）：每場第一次曝光不花 RAM', () => {
+    const a = arena(setup([streamer(), mate(2)], [lace(), lace()]), { extra: [FLOW(1)] })
+    turnTo(a, 'a1')
+    // 共鳴 2：第一次曝光 RAM 退回；第二次花 1 點
+    const ram0 = a.a(1).pools.ram!.now
+    doAct(a, 'a1', { action: ST('expose'), target: { unit: 'f1' } })
+    expect(a.a(1).pools.ram!.now).toBe(ram0)
+    doAct(a, 'a1', { action: ST('expose'), target: { unit: 'f2' } })
+    expect(a.a(1).pools.ram!.now).toBe(ram0 - 1)
+    // 定調：灌流 2 點 RAM 退回來
+    doAct(a, 'a1', { action: ST('fix_tone') })
+    expect(buffIds(a.a(1))).toEqual(['fix_tone'])
+    const ram1 = a.a(1).pools.ram!.now
+    doAct(a, 'a1', { action: ST('flood'), target: { unit: 'f1' } }, [15])
+    expect(a.a(1).pools.ram!.now).toBe(ram1)
+    // 不在清單裡的行動（洗版）照花
+    doAct(a, 'a1', { action: ST('spam') })
+    expect(a.a(1).pools.ram!.now).toBe(ram1 - 1)
+  })
+
+  it('還不能下播：過載時不閃斷，RAM 反而回滿；每場 1 次', () => {
+    const a = arena(setup([streamer([SP, ST('fix_tone'), ST('cant_stop')], { pools: { ram: { now: 3, max: 6, regen: 2 } } })], [lace()]))
+    a.run().overload(a.a(1))
+    expect(a.a(1).pools.ram!.now).toBe(6)
+    expect(statusIds(a.a(1))).not.toContain('flash')
+    a.run().overload(a.a(1))
+    expect(a.a(1).pools.ram!.now).toBe(0)
+  })
+})
+
+// ===================================================================================================================
+// 五、偶像
+// ===================================================================================================================
+
+const LINK = `${I('cheer_on')}.link`
+const gearOfUnit = (u: BattleUnit): string => u.tags.find((t) => t.startsWith('sync:'))!.slice(5)
+
+describe('偶像：應援（共鳴）', () => {
+  const idol = (tier: number, ids: string[] = [I('cheer_on')], o: Rec = {}) => avatar(1, { idol: tier }, ids, o)
+  const team = (tier: number, ids?: string[], o: Rec = {}) => setup([idol(tier, ids, o), mate(2), mate(3), mate(4)], [lace()])
+  const linked = (u: BattleUnit): string[] => (((u.ext.abilities as Rec).link as Rec | undefined)?.with as string[] | undefined) ?? []
+  /** 讓動作做完（掛點 action.done 對帳）：換一個姿態當成「做了一個行動」。 */
+  const settleBy = (a: Arena): void => void doAct(a, 'a1', { action: I('march') })
+
+  it('3 階接上四個人裡的三個（自己不算）；共鳴 1：每場第一次接上不花行動點；接上的隊友有 linked 標籤；已經接滿了再接灰掉', () => {
+    const a = arena(team(3))
+    turnTo(a, 'a1')
+    const o = opt(a, LINK)!
+    expect(o.cost).toEqual({ ap: 0 })
+    expect(a.k.battle.getAction(LINK)!.modes).toEqual(['net'])
+    doAct(a, 'a1', { action: LINK })
+    expect(linked(a.a(1))).toEqual(['a2', 'a3', 'a4'])
+    expect(a.a(1).ap.now).toBe(a.a(1).ap.max)
+    for (const i of [2, 3, 4]) expect(a.a(i).tags).toContain('linked')
+    expect(a.a(1).tags).not.toContain('linked')
+    const after = opt(a, LINK)!
+    expect(after.ok).toBe(false)
+    expect(after.blocks.join('')).toMatch(/每一位隊友都已經接上了/)
+  })
+
+  it('樹階 1（最多 2 名）只接得上兩個；指定要接誰；超過上限被擋；沒有指定就從前面接起', () => {
+    const a = arena(team(1))
+    turnTo(a, 'a1')
+    const o = opt(a, LINK)!
+    expect(o.picks.map((p) => p.key)).toEqual(['link:a2', 'link:a3', 'link:a4'])
+    doAct(a, 'a1', { action: LINK })
+    expect(linked(a.a(1))).toEqual(['a2', 'a3'])
+    expect(a.a(4).tags).not.toContain('linked')
+    expect(opt(a, LINK)!.blocks.join('')).toMatch(/已經接滿了（最多 2 名）/)
+    const b = arena(team(1))
+    turnTo(b, 'a1')
+    doAct(b, 'a1', { action: LINK, pick: { 'link:a4': true } })
+    expect(linked(b.a(1))).toEqual(['a4'])
+    expect(reasons(b, { action: LINK, pick: { 'link:a2': true, 'link:a3': true } }).join('')).toMatch(/最多再接 1 名/)
+    // 沒有橋的隊友不能接
+    const c = arena(setup([idol(2), mate(2, { load: undefined })], [lace()]))
+    turnTo(c, 'a1')
+    expect(opt(c, LINK)!.blocks.join('')).toMatch(/沒有可以接上的隊友/)
+  })
+
+  it('被接上的人受 10 點感載時偶像替他承受 5（隊友只剩 5）；沒接上的隊友照吃', () => {
+    const a = arena(team(3, [I('cheer_on'), I('march')]))
+    turnTo(a, 'a1')
+    doAct(a, 'a1', { action: LINK })
+    a.a(1).uses = {}
+    a.run().addLoad(a.a(2), 10, undefined, { exact: true })
+    expect(a.a(2).load!.now).toBe(10)
+    settleBy(a)
+    expect(a.a(2).load!.now).toBe(5)
+    expect(a.a(1).load!.now).toBe(5)
+    // 沒接上的
+    const b = arena(team(3, [I('cheer_on'), I('march')]))
+    turnTo(b, 'a1')
+    b.run().addLoad(b.a(2), 10, undefined, { exact: true })
+    settleBy(b)
+    expect(b.a(2).load!.now).toBe(10)
+    expect(b.a(1).load!.now).toBe(0)
+  })
+
+  it('我還可以！：替隊友分擔時自己少受 1 點；絕唱開著：全額承受（隊友不受）；打在隊友身上的攻擊也一樣（攻擊結算完對帳）', () => {
+    const ids = [I('cheer_on'), I('march'), I('stance'), I('im_ok'), I('swan_song'), I('lullaby'), I('encore'), I('chorus')]
+    const a = arena(team(4, ids))
+    turnTo(a, 'a1')
+    doAct(a, 'a1', { action: LINK })
+    const base = a.a(1).load!.max
+    a.a(1).uses = {}
+    a.run().addLoad(a.a(2), 10, undefined, { exact: true })
+    settleBy(a)
+    expect(a.a(2).load!.now).toBe(5)
+    expect(a.a(1).load!.now).toBe(4)
+    expect(a.a(1).load!.max).toBeGreaterThan(base - 1)
+    // 絕唱：全額
+    a.a(1).load!.now = 0
+    a.a(2).load!.now = 0
+    turnTo(a, 'a1')
+    doAct(a, 'a1', { action: I('swan_song') })
+    a.run().addLoad(a.a(3), 10, undefined, { exact: true })
+    a.run([19, ...FILL]).attack(a.f(1), a.a(4))
+    const gotAttack = a.a(4).load!.now
+    expect(a.a(3).load!.now).toBe(0)
+    expect(a.a(1).load!.now).toBeGreaterThanOrEqual(10)
+    expect(gotAttack).toBe(0)
+  })
+
+  it('偶像過載之後連接全斷、每個人感載 +10 並暈眩一回合（脫鉤衝擊）；大家不要走：同步不斷開、隊友不吃衝擊、也不閃斷', () => {
+    const a = arena(team(3, [I('cheer_on'), I('dont_go')]))
+    turnTo(a, 'a1')
+    doAct(a, 'a1', { action: LINK })
+    a.run().overload(a.a(1))
+    // 大家不要走（每場 1 次）：反應擋下斷開
+    expect(linked(a.a(1))).toEqual(['a2', 'a3', 'a4'])
+    for (const i of [2, 3, 4]) expect(a.a(i).load!.now).toBe(0)
+    expect(statusIds(a.a(1))).not.toContain('flash')
+    // 第二次：反應用完，全部斷開
+    a.run().overload(a.a(1))
+    expect(linked(a.a(1))).toEqual([])
+    for (const i of [2, 3, 4]) {
+      expect(a.a(i).load!.now, `a${i}`).toBe(10)
+      expect(statusIds(a.a(i)), `a${i}`).toContain('dazed')
+      expect(a.a(i).tags).not.toContain('linked')
+    }
+    // 沒有反應的對照
+    const b = arena(team(2, [I('cheer_on')]))
+    turnTo(b, 'a1')
+    doAct(b, 'a1', { action: LINK })
+    b.run().overload(b.a(1))
+    expect(linked(b.a(1))).toEqual([])
+    for (const i of [2, 3, 4]) expect(b.a(i).load!.now).toBe(10)
+  })
+
+  it('偶像倒下：同步斷開（不吃脫鉤衝擊）；隊友倒下：從名單拿掉', () => {
+    const a = arena(team(3))
+    turnTo(a, 'a1')
+    doAct(a, 'a1', { action: LINK })
+    a.run().setOut(a.a(3), 'jacked_out')
+    settleBy(a)
+    expect(linked(a.a(1))).toEqual(['a2', 'a4'])
+    expect(a.a(3).tags).not.toContain('linked')
+    a.run().setOut(a.a(1), 'jacked_out')
+    expect(linked(a.a(1))).toEqual([])
+    expect(a.a(2).load!.now).toBe(0)
+  })
+
+  it('開著時每輪追蹤度多 1（修正 trace_round）；沒有接上人就沒有', () => {
+    const roundTrace = (withLink: boolean): number => {
+      const a = arena(team(3))
+      turnTo(a, 'a1')
+      if (withLink) doAct(a, 'a1', { action: LINK })
+      const t0 = trace(a)
+      a.k.battle.emit('round.start', { run: a.run(), round: 2 })
+      return trace(a) - t0
+    }
+    expect(roundTrace(true) - roundTrace(false)).toBe(1)
+    expect(roundTrace(false)).toBeGreaterThan(0)
+  })
+
+  it('曲目：同時只有一首（換歌）；進行曲的命中 +1 只給同步中的隊友；淺檔減半成 0，深檔以上迴避也 +1', () => {
+    const ids = [I('cheer_on'), I('march'), I('lullaby')]
+    const a = arena(team(3, ids))
+    turnTo(a, 'a1')
+    doAct(a, 'a1', { action: LINK, pick: { 'link:a2': true } })
+    expect(modsOf(a, 'hit', 'a2')).toBe(0)
+    doAct(a, 'a1', { action: I('march') })
+    expect(a.a(1).stance).toBe(I('march'))
+    expect(modsOf(a, 'hit', 'a2')).toBe(1)
+    expect(modsOf(a, 'hit', 'a3')).toBe(0)
+    expect(modsOf(a, 'evade', 'a2')).toBe(0)
+    setGear(a.a(1), 'deep')
+    expect(modsOf(a, 'evade', 'a2')).toBe(1)
+    expect(modsOf(a, 'hit', 'a2')).toBe(1)
+    // 淺檔：命中 +1 減半捨去成 0
+    setGear(a.a(1), 'shallow')
+    expect(modsOf(a, 'hit', 'a2')).toBe(0)
+    expect(modsOf(a, 'evade', 'a2')).toBe(0)
+    // 換歌：搖籃曲取代進行曲
+    setGear(a.a(1), 'standard')
+    doAct(a, 'a1', { action: I('lullaby') })
+    expect(a.a(1).stance).toBe(I('lullaby'))
+    expect(modsOf(a, 'hit', 'a2')).toBe(0)
+  })
+
+  it('曲目在淺檔數字減半：搖籃曲每回合多消退 3 點（標準）、5 點（深檔以上）、淺檔 1 點', () => {
+    const decay = (gear: string): number => {
+      const a = arena(team(3, [I('cheer_on'), I('march'), I('lullaby')]))
+      turnTo(a, 'a1')
+      doAct(a, 'a1', { action: LINK })
+      doAct(a, 'a1', { action: I('lullaby') })
+      setGear(a.a(1), gear)
+      return modsOf(a, 'decay', 'a2')
+    }
+    expect(decay('standard')).toBe(3)
+    expect(decay('deep')).toBe(5)
+    expect(decay('full')).toBe(5)
+    expect(decay('shallow')).toBe(1)
+  })
+
+  it('安可：同步中的隊友讓敵人過載，退還 1 點行動點（全隊每輪一次）；沒接上的隊友沒有', () => {
+    const a = arena(team(3, [I('cheer_on'), I('march'), I('encore')]))
+    turnTo(a, 'a1')
+    doAct(a, 'a1', { action: LINK, pick: { 'link:a2': true } })
+    doAct(a, 'a1', { action: I('encore') })
+    for (const i of [2, 3]) a.a(i).ap.now = 0
+    const over = (by: BattleUnit): void => {
+      a.f(1).layers = 0
+      a.run().overload(a.f(1), by)
+    }
+    over(a.a(3))
+    expect(a.a(3).ap.now).toBe(0)
+    over(a.a(2))
+    expect(a.a(2).ap.now).toBe(1)
+    a.a(2).ap.now = 0
+    over(a.a(2))
+    expect(a.a(2).ap.now).toBe(0)
+    a.battle.round += 1
+    over(a.a(2))
+    expect(a.a(2).ap.now).toBe(1)
+  })
+
+  it('安撫成功的粉精英下一個回合不攻擊（攻擊類的行動花費加上一大筆，AI 列不出）；失敗、黑蕾絲、首領、沒有 persona 的程式與雜兵不行', () => {
+    const ids = [I('cheer_on'), I('march'), I('encore'), I('soothe')]
+    const strong = (tags: string[]) => elite({ tags, ap: { now: 6, max: 6, regen: 3 }, name: '粉蕾絲' })
+    const a = arena(setup([idol(3, ids), mate(2)], [strong(['lace', 'lace:pink', 'persona']), lace(), strong(['lace', 'lace:black', 'persona']), laceUnit('boss', 1, { tags: ['lace', 'persona'], ext: { net: NET(), deck: DECK() } } as never)]))
+    turnTo(a, 'a1')
+    const o = opt(a, I('soothe'))!
+    expect(o.cost).toEqual({ ap: 2, ram: 1 })
+    const why = (id: string) => o.targets.find((t) => 'unit' in t.target && t.target.unit === id)!.blocks.join('')
+    expect(why('f1')).toBe('')
+    expect(why('f2')).toMatch(/persona|program/)
+    expect(why('f3')).toMatch(/lace:black/)
+    expect(why('f4')).toMatch(/首領/)
+    // 遺魂（程式）打得到
+    const c = arena(setup([idol(3, ids), mate(2)], [lace({ tags: ['program'], name: '遺魂' })]))
+    turnTo(c, 'a1')
+    expect(opt(c, I('soothe'))!.targets.find((t) => 'unit' in t.target && t.target.unit === 'f1')!.blocks).toEqual([])
+    // 失敗：沒有狀態
+    doAct(a, 'a1', { action: I('soothe'), target: { unit: 'f1' } }, [1])
+    expect(statusIds(a.f(1))).not.toContain('pacified')
+    // 成功：pacified；AI 做一步不攻擊（沒被安撫的同樣的敵人會攻擊）
+    doAct(a, 'a1', { action: I('soothe'), target: { unit: 'f1' } }, [20])
+    expect(statusIds(a.f(1))).toContain('pacified')
+    const attacked = (pacified: boolean): boolean => {
+      const b = arena(setup([idol(3, ids), mate(2)], [strong(['lace', 'lace:pink', 'persona'])]))
+      if (pacified) b.run().applyStatus(b.f(1), 'pacified')
+      const run = b.run(FILL.map((_, i) => (i === 0 ? 15 : 3)))
+      aiStep(run, b.f(1))
+      return run.beats.some((x) => x.tag === 'hit' || x.tag === 'miss' || x.tag === 'attack' || x.tag === 'crit')
+    }
+    expect(attacked(false)).toBe(true)
+    expect(attacked(true)).toBe(false)
+  })
+
+  it('聽我唱～、休息一下下只對同步中的隊友；休息一下下排 8 點感載並消一層餘韻', () => {
+    const ids = [I('cheer_on'), I('march'), I('stance'), I('support'), I('encore'), I('sing_to_me'), I('soothe'), I('chorus'), I('swan_song'), I('rest_a_bit')]
+    const a = arena(setup([idol(4, ids), mate(2, { load: { now: 20, max: 40 }, layers: 1, layersMax: 3 }), mate(3, { load: { now: 20, max: 40 }, layers: 1, layersMax: 3 })], [lace()]))
+    turnTo(a, 'a1')
+    doAct(a, 'a1', { action: LINK, pick: { 'link:a2': true } })
+    const o = opt(a, I('rest_a_bit'))!
+    expect(o.targets.find((t) => 'unit' in t.target && t.target.unit === 'a3')!.blocks.join('')).toMatch(/linked/)
+    expect(o.targets.find((t) => 'unit' in t.target && t.target.unit === 'a2')!.blocks).toEqual([])
+    const before = a.a(2).load!.now
+    doAct(a, 'a1', { action: I('rest_a_bit'), target: { unit: 'a2' } })
+    expect(a.a(2).load!.now).toBe(before - 8)
+    expect(a.a(2).layers).toBe(0)
+    doAct(a, 'a1', { action: I('sing_to_me'), target: { unit: 'a2' } })
+    expect(modsOf(a, 'hit', 'a2')).toBe(2)
+  })
+
+  it('畢業公演（隊友各排 8 點感載、傷害骰 +1）、為你而唱（各消一層餘韻、排 8 點、釘不住）、我來擋（同步中的隊友要被釘住時擋下）', () => {
+    const ids = [I('cheer_on'), I('march'), I('stance'), I('support'), I('encore'), I('sing_to_me'), I('soothe'), I('chorus'), I('swan_song'), I('one_line'), I('rally'), I('ill_take_it'), I('dome'), I('concert'), I('graduation'), I('for_you')]
+    const a = arena(setup([idol(5, ids), mate(2, { load: { now: 20, max: 40 }, layers: 1, layersMax: 3 }), mate(3, { load: { now: 20, max: 40 }, layers: 1, layersMax: 3 })], [elite()]))
+    turnTo(a, 'a1')
+    doAct(a, 'a1', { action: LINK, pick: { 'link:a2': true } })
+    a.a(1).load!.now = 0
+    const before = a.a(2).load!.now
+    doAct(a, 'a1', { action: I('graduation') })
+    expect(a.a(2).load!.now).toBe(before - 8)
+    expect(a.a(3).load!.now).toBe(20)
+    expect(modsOf(a, 'dice', 'a2')).toBe(1)
+    expect(modsOf(a, 'dice', 'a3')).toBe(0)
+    doAct(a, 'a1', { action: I('for_you') })
+    expect(a.a(2).layers).toBe(0)
+    // 釘不住：疊滿餘韻的隊友被釘住被擋下（同步中的才有）
+    a.a(2).layers = a.a(2).layersMax
+    expect(a.run().setOut(a.a(2), 'pinned', a.f(1))).toBe(false)
+    // 我來擋：為你而唱到期之後，同步中的隊友要被釘住時擋下（每場 1 次）
+    ;(a.a(2).ext.abilities as Rec).buffs = []
+    expect(a.run().setOut(a.a(2), 'pinned', a.f(1))).toBe(false)
+    expect(a.a(1).uses[I('ill_take_it')]).toBe(1)
+    expect(a.run().setOut(a.a(2), 'pinned', a.f(1))).toBe(true)
+    // 沒接上的隊友不受保護
+    expect(a.run().setOut(a.a(3), 'pinned', a.f(1))).toBe(true)
+  })
+
+  it('絕唱：換掉（關掉）這首歌時把自己現在的感載灌給敵人（最多 20，深檔以上 30），自己歸零並疊一層餘韻；每場一次', () => {
+    const ids = [I('cheer_on'), I('march'), I('encore'), I('chorus'), I('swan_song')]
+    const run = (gear: string, load: number): { foe: number; idol: number; layers: number } => {
+      const a = arena(setup([idol(4, ids, { load: { now: 0, max: 80 } }), mate(2)], [lace({ load: { now: 0, max: 200 }, armor: 0 })]))
+      turnTo(a, 'a1')
+      doAct(a, 'a1', { action: I('swan_song') })
+      setGear(a.a(1), gear)
+      a.a(1).load!.now = load
+      doAct(a, 'a1', { action: I('swan_song') })
+      return { foe: a.f(1).load!.now, idol: a.a(1).load!.now, layers: a.a(1).layers }
+    }
+    expect(run('standard', 15)).toEqual({ foe: 15, idol: 0, layers: 1 })
+    expect(run('standard', 50).foe).toBe(20)
+    expect(run('deep', 50).foe).toBe(30)
+    // 每場一次：第二次關掉沒有灌
+    const a = arena(setup([idol(4, ids, { load: { now: 0, max: 80 } }), mate(2)], [lace({ load: { now: 0, max: 200 }, armor: 0 })]))
+    turnTo(a, 'a1')
+    doAct(a, 'a1', { action: I('swan_song') })
+    a.a(1).load!.now = 10
+    doAct(a, 'a1', { action: I('swan_song') })
+    const first = a.f(1).load!.now
+    doAct(a, 'a1', { action: I('swan_song') })
+    a.a(1).load!.now = 10
+    doAct(a, 'a1', { action: I('swan_song') })
+    expect(a.f(1).load!.now).toBe(first)
+  })
+
+  it('全員同步：同步中的隊友套用偶像的檔位（命中與檢定 +2、受到的感載 ×1.5：深檔）；偶像在標準檔時沒有變化', () => {
+    const ids = [I('cheer_on'), I('march'), I('encore'), I('chorus'), I('swan_song'), I('all_sync')]
+    const a = arena(team(5, ids))
+    turnTo(a, 'a1')
+    doAct(a, 'a1', { action: LINK, pick: { 'link:a2': true } })
+    doAct(a, 'a1', { action: I('all_sync') })
+    expect(a.a(1).stance).toBe(I('all_sync'))
+    expect(modsOf(a, 'hit', 'a2')).toBe(0)
+    setGear(a.a(1), 'deep')
+    expect(gearOfUnit(a.a(1))).toBe('deep')
+    expect(modsOf(a, 'hit', 'a2')).toBe(2)
+    expect(modsOf(a, 'save', 'a2')).toBe(2)
+    expect(modsOf(a, 'load_taken_pct', 'a2')).toBe(50)
+    expect(modsOf(a, 'hit', 'a3')).toBe(0)
+    setGear(a.a(1), 'full')
+    expect(modsOf(a, 'hit', 'a2')).toBe(4)
+    expect(modsOf(a, 'load_taken_pct', 'a2')).toBe(150)
+    expect(modsOf(a, 'ap_regen', 'a2')).toBe(1)
+    setGear(a.a(1), 'shallow')
+    expect(modsOf(a, 'hit', 'a2')).toBe(-2)
+    expect(modsOf(a, 'load_taken_pct', 'a2')).toBe(-50)
+  })
+
+  it('共鳴 3 與 5：感載上限 +4、同步檔位上限 +1 級（只在內海；偶像的現實沒有效果）；召集、合唱寫不出來／等 M5，圓環上沒有', () => {
+    const all = Object.values(NET_TREES_B.idol!.abilities).map((x) => x.id as string)
+    const a = arena(team(5, all))
+    const base = arena(team(2, [I('cheer_on')]))
+    expect(a.a(1).load!.max - base.a(1).load!.max).toBe(4 + 3)
+    expect(modsOf(a, 'sync_cap', 'a1')).toBe(1)
+    expect(modsOf(base, 'sync_cap', 'a1')).toBe(0)
+    turnTo(a, 'a1')
+    expect(ringIds(a)).toContain(LINK)
+    for (const id of [I('chorus'), I('summon')]) expect(ringIds(a), id).not.toContain(id)
   })
 })

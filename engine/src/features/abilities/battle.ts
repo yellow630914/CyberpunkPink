@@ -772,13 +772,16 @@ function applyPassives(run: BattleRun, unit: BattleUnit): void {
     if (!d.equipped.includes(p.signature)) continue
     const tier = d.tiers[p.id] ?? 1
     for (const r of p.resonance) {
-      const f = r.effect
-      if (!f || r.tier > tier) continue
-      for (const [id, pool] of Object.entries(f.pool ?? {})) bumpPool(unit, id, pool)
-      if (f.load_max && unit.load) unit.load.max = Math.max(1, unit.load.max + f.load_max)
-      if (f.hp_max && unit.hp) {
-        unit.hp.max = Math.max(1, unit.hp.max + f.hp_max)
-        unit.hp.now = Math.min(unit.hp.max, Math.max(1, unit.hp.now + f.hp_max))
+      if (r.tier > tier) continue
+      // effect 兩個戰場都算；net 只在內海戰鬥算（媒體型現實沒有效果）
+      for (const f of [r.effect, run.mode.layer === 'net' ? r.net : undefined]) {
+        if (!f) continue
+        for (const [id, pool] of Object.entries(f.pool ?? {})) bumpPool(unit, id, pool)
+        if (f.load_max && unit.load) unit.load.max = Math.max(1, unit.load.max + f.load_max)
+        if (f.hp_max && unit.hp) {
+          unit.hp.max = Math.max(1, unit.hp.max + f.hp_max)
+          unit.hp.now = Math.min(unit.hp.max, Math.max(1, unit.hp.now + f.hp_max))
+        }
       }
     }
   }
@@ -882,10 +885,12 @@ export function registerBattle(k: Kernel): void {
       if (!d.equipped.includes(p.signature)) continue
       const tier = d.tiers[p.id] ?? 1
       for (const r of p.resonance) {
-        const f = r.effect
-        if (!f || r.tier > tier) continue
-        if (q.kind === 'initiative' && typeof f.initiative === 'number') out.push({ label: p.tree, value: f.initiative, source: 'skill' })
-        if (q.kind === 'move_ap' && f.free_move && (q.unit.uses.free_move ?? 0) < f.free_move.per_fight) out.push({ label: p.tree, value: -1, source: 'skill' })
+        if (r.tier > tier) continue
+        for (const f of [r.effect, q.view.mode.layer === 'net' ? r.net : undefined]) {
+          if (!f) continue
+          if (q.kind === 'initiative' && typeof f.initiative === 'number') out.push({ label: p.tree, value: f.initiative, source: 'skill' })
+          if (q.kind === 'move_ap' && f.free_move && (q.unit.uses.free_move ?? 0) < f.free_move.per_fight) out.push({ label: p.tree, value: -1, source: 'skill' })
+        }
       }
     }
     return out

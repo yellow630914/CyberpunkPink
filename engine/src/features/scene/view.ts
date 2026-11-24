@@ -1,9 +1,10 @@
-// L6 功能 scene 的畫面資料：sceneView（畫面要的全部）、sceneOptions（九種行動一次列出來，每一種現在能不能做與原因）、scenePreview（選中行動的預覽）。
+// L6 功能 scene 的畫面資料：sceneView（畫面要的全部）、sceneOptions（十種行動一次列出來，每一種現在能不能做與原因）、scenePreview（選中行動的預覽）。
 // 數字都是引擎算的，畫面不算。規格：UI 第 10 節；LEWD_SYSTEM 3.5 節；dev/work/M2-scene.md 第 2、8 點。
 
 import type { GameState, Kernel } from '../../core'
+import type { SyncGear } from '../../core'
 import type { ActionId, LinkRec, PositionEntry, SceneLine, SceneState, Who } from './model'
-import { ACTION_NAME, GOAL_NAME, NATURE_NAME, ROLE_NAME, TALK_PARTS, dieRange, knownPositions, knownSkills, other, parseDie, partName, partsOf, ratingOf, sceneDefOf, tendencyTagIds } from './model'
+import { SYNC_GEARS, ACTION_NAME, GOAL_NAME, NATURE_NAME, ROLE_NAME, TALK_PARTS, dieRange, knownPositions, knownSkills, other, parseDie, partName, partsOf, ratingOf, sceneDefOf, tendencyTagIds } from './model'
 import type { Preview, SceneInput } from './play'
 import { Play, candOf, diceOf } from './play'
 
@@ -34,6 +35,24 @@ export interface PersonView {
   tags: string[]
   /** 這一場到了幾次 */
   climax: number
+  /** 同步檔位 */
+  gear: GearView
+}
+
+export interface GearView {
+  /** 現在的檔、名字（「深檔」）、這個人開得到的最高一檔、自己的檢定加減、受到的感載是原本的幾 % */
+  now: SyncGear
+  name: string
+  cap: SyncGear
+  cap_name: string
+  check: number
+  load_pct: number
+  /** 這個回合換過檔了 */
+  shifted: boolean
+  /** 這一場開過的最高一檔 */
+  max: SyncGear
+  /** 四檔各自：開不開得了的原因（缺的是同步幾級、敏感度多少，現在是多少；一條一個條件，空的就是開得了）與那一檔的樣子 */
+  gears: Array<{ id: SyncGear; name: string; current: boolean; check: number; load_pct: number; ap_regen: number; sink_on_overload: number; blocks: string[] }>
 }
 
 export interface LinkView {
@@ -93,12 +112,25 @@ function linkView(p: Play, l: LinkRec): LinkView {
   const t = other(l.by)
   const their = parseDie(l.link.their_load)!
   const mine = parseDie(l.link.my_load)!
-  const mult = (w: Who): number => (p.rules.load_base + p.sens[w] / p.rules.load_div) * p.mult(w) * p.boost(l.by)
+  const mult = (w: Who): number => (p.rules.load_base + p.sens[w] / p.rules.load_div) * p.mult(w) * p.boost(l.by) * p.gearMult(w)
   const avg = (d: typeof their, w: Who): number => round1(dieRange(d).avg * (d.sign > 0 ? mult(w) : 1))
   const text = (d: typeof their): string => (d.n === 0 && d.flat === 0 ? '0' : (d.sign < 0 ? '−' : '') + (d.n > 0 ? `${d.n}d${d.sides}` : String(d.flat)))
   return {
     id: l.id, by: l.by, kind: l.kind, source: l.source, name: l.name, mine: l.mine, mine_name: partName(l.mine), theirs: l.theirs, theirs_name: partName(l.theirs),
     per_round: { target_load: text(their), my_load: text(mine), fit: l.link.fit, target_avg: avg(their, t), my_avg: avg(mine, l.by) }, fresh: l.round === p.s.round,
+  }
+}
+
+function gearView(p: Play, w: Who): GearView {
+  const now = p.s.gear[w]
+  const rule = p.gearRule(w)
+  const cap = p.gearCap[w]
+  return {
+    now, name: `${rule.name}檔`, cap, cap_name: `${p.sync.gears[cap].name}檔`, check: rule.check, load_pct: rule.loadPct, shifted: p.s.shifted[w], max: p.s.max_gear[w],
+    gears: SYNC_GEARS.map((id) => {
+      const g = p.sync.gears[id]
+      return { id, name: `${g.name}檔`, current: id === now, check: g.check, load_pct: g.loadPct, ap_regen: g.apRegen ?? 0, sink_on_overload: g.sinkOnOverload ?? 0, blocks: p.gearReasons(w, id) }
+    }),
   }
 }
 
@@ -113,7 +145,7 @@ function personView(p: Play, w: Who): PersonView {
   }
   return {
     id: a.id, name: a.name, load: { now: p.load[w], max: p.loadMax[w] }, glow: { now: p.glow[w], max: p.glowMax[w] }, ap: { now: p.s.ap[w], max: p.apMax[w] }, sensitivity: p.sens[w],
-    role: p.s.roles[w], upper: p.isUpper(w), parts, tags: w === 'pc' ? tendencyTagIds(a) : [], climax: p.s.climax[w],
+    role: p.s.roles[w], upper: p.isUpper(w), parts, tags: w === 'pc' ? tendencyTagIds(a) : [], climax: p.s.climax[w], gear: gearView(p, w),
   }
 }
 
@@ -147,7 +179,7 @@ export function scenePreview(k: Kernel, state: GameState, input: SceneInput): Pr
   return s && typeof s.id === 'string' ? playOf(k, state, s).preview('pc', input) : null
 }
 
-// ---- 九種行動 ----
+// ---- 十種行動 ----
 
 export interface ScenePickOption {
   value: string
@@ -228,7 +260,7 @@ function picksOf(p: Play, mine: string[], theirs: string[], pairs: ScenePair[]):
 }
 
 /**
- * 九種行動一次列出來（工單第 2 點）：花費、現在能不能做與原因、要選的部位（照戰鬥 picks 的樣子宣告）、技能與道具與體位各自的選項、預覽。
+ * 十種行動一次列出來（工單第 2 點；換檔的四檔在 choices，開不了的帶核心 syncBlocks 的原因）：花費、現在能不能做與原因、要選的部位（照戰鬥 picks 的樣子宣告）、技能與道具與體位各自的選項、預覽。
  * 沒有場景是 null。一直問的是主角（玩家）。
  */
 export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
@@ -264,6 +296,10 @@ export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
     const input: SceneInput = { kind: 'switch', position: pos.id }
     return { id: pos.id, name: pos.name, ap: p.rules.cost.switch, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input) }
   })
+  const gears = SYNC_GEARS.map((g: SyncGear): ChoiceOption => {
+    const input: SceneInput = { kind: 'gear', gear: g }
+    return { id: g, name: `${p.sync.gears[g].name}檔`, ap: 0, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input) }
+  })
   const turn = p.blocks(w, { kind: 'restrain' }, true).filter((x) => x.startsWith('還沒輪到'))
   const minAp = (list: ChoiceOption[]): number => (list.length > 0 ? Math.min(...list.map((x) => x.ap)) : 0)
   const group = (list: ChoiceOption[], none: string): string[] => (turn.length > 0 ? turn : list.length === 0 ? [none] : list.every((x) => x.blocks.length > 0) ? [list[0]!.blocks[0]!] : [])
@@ -276,6 +312,7 @@ export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
     },
     { id: 'item', name: ACTION_NAME.item, ap: minAp(items), blocks: group(items, '你身上沒有在場景裡用得出來的東西。'), picks: [], pairs: [], choices: items, preview: null },
     { id: 'switch', name: ACTION_NAME.switch, ap: p.rules.cost.switch, blocks: group(switches.filter((x) => x.id !== s.position), '沒有別的體位可以換。'), picks: [], pairs: [], choices: switches, preview: null },
+    { id: 'gear', name: ACTION_NAME.gear, ap: 0, blocks: group(gears.filter((x) => x.id !== s.gear.pc), '沒有別的檔位可以換。'), picks: [], pairs: [], choices: gears, preview: null },
     simple('stop'),
   ]
   return { turn: s.turn, round: s.round, ap: { now: s.ap.pc, max: p.apMax.pc }, actions, end_turn: { blocks: turn } }

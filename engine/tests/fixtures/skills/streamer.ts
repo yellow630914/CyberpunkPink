@@ -75,7 +75,7 @@ T.skill(s('bystanders'), '圍觀', 3, 'front', 'active', 2, 6, s('spam'),
       do: [
         { op: 'net.trace', amount: 10 },
         buff('bystanders', '圍觀', { who: 'foes', until: 'battle_end', mods: [{ kind: 'save', value: -4, tags: ['pin'] }] }),
-        { op: 'branch', who: 'foes', needs: { tag: 'lace' }, do: [buff('bystanders_lace', '圍觀（蕾絲）', { until: 'battle_end', mods: [{ kind: 'save', value: -26, tags: ['pin'] }] })] },
+        { op: 'branch', who: 'foes', needs: { tag: 'lace' }, do: [buff('bystanders_lace', '圍觀（蕾絲）', { who: 'target', until: 'battle_end', mods: [{ kind: 'save', value: -26, tags: ['pin'] }] })] },
       ],
     },
   })

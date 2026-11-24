@@ -26,6 +26,10 @@ import { LINKED_TAG, equippedOf, hasAbility, isRec, linkOf, setLink, tierIn } fr
 /** 脫鉤衝擊：感載 +10、暈眩一回合（NETRUNNING 第 3 節）。 */
 export const UNHOOK_LOAD = 10
 const DAZED = 'dazed'
+/** 安撫給的狀態；帶著它的人花費加 PACIFY_COST 的行動標籤（用武器攻擊、快駭）。 */
+export const PACIFIED = 'pacified'
+const PACIFY_BLOCKED = ['weapon_attack', 'hack']
+const PACIFY_COST = 100
 
 /** 這個偶像現在開著的曲目（姿態；內海欄）。 */
 function songOf(view: Pick<BattleView, 'k' | 'mode'>, idol: BattleUnit): { ab: AbilityEntry } | undefined {
@@ -221,6 +225,12 @@ export function registerLink(k: Kernel): void {
     if (syncGearIndex(gearOf(q.unit)) === syncGearIndex(gearOf(idol))) return []
     const v = q.kind === 'load_taken_pct' ? theirs.loadPct - mine.loadPct : q.kind === 'ap_regen' ? (theirs.apRegen ?? 0) - (mine.apRegen ?? 0) : theirs.check - mine.check
     return v ? [{ label: '全員同步', value: v, source: 'sync' }] : []
+  })
+
+  // 被安撫的人這個回合不攻擊（安撫；狀態 pacified 由規則表給）：攻擊類的行動（用武器攻擊、快駭）花費加上一大筆，AI 付不起就列不出來；還是會移動與用工具
+  k.battle.modifier(OWNER, (q): RollPart[] => {
+    if (q.kind !== 'action_ap' || q.view.mode.layer !== 'net' || !q.unit.statuses.some((s) => s.id === PACIFIED)) return []
+    return q.tags.some((t) => PACIFY_BLOCKED.includes(t)) ? [{ label: '被安撫', value: PACIFY_COST, source: 'status' }] : []
   })
 
   // 這個人釘不住（為你而唱）
