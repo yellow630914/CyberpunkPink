@@ -7,7 +7,7 @@ import ReasonButton from '../../components/ReasonButton.vue'
 import { useEngine } from '../../stores/engine'
 import { useGame } from '../../stores/game'
 import { useUi } from '../../stores/ui'
-import { LEGAL_NAME, bumpScript, candidateLine, constructLines, deckSlot, pieceSlot, skinSlot, slotRows, slotsText } from '../../lib/deckView'
+import { LEGAL_NAME, grade, bumpScript, candidateLine, constructLines, deckSlot, pieceSlot, skinSlot, slotRows, slotsText } from '../../lib/deckView'
 
 /**
  * 角色的「內海」分頁（UI 8.2 節，ITEMS 11.9 節、CYBERSPACE 4.2、4.3 節）：甲板、構裝槽、帶著的腳本、SKIN；右欄是網內的數字。
@@ -68,7 +68,7 @@ const legal = computed(() => (view.value?.equipped ?? []).map((e) => ({ name: e.
         <div>
           <div class="k">{{ deck.source === 'rental' ? '租來的甲板' : '腦的甲板' }}</div>
           <h3 :style="{ color: `var(--g${deck.grade})` }">{{ deck.name }}</h3>
-          <div class="chips"><GradeBadge :grade="deck.grade" /><span class="tag">構裝槽 {{ deck.slotsTotal }}</span><span class="tag">防火牆 {{ deck.firewall }}</span></div>
+          <div class="chips"><GradeBadge :grade="grade(deck.grade)" /><span class="tag">構裝槽 {{ deck.slotsTotal }}</span><span class="tag">防火牆 {{ deck.firewall }}</span></div>
         </div>
       </div>
       <div v-else class="nodeck" data-testid="no-deck">沒有甲板：沒有 RAM、不能在網內戰鬥</div>
@@ -93,7 +93,7 @@ const legal = computed(() => (view.value?.equipped ?? []).map((e) => ({ name: e.
 
       <div v-if="deck?.has && selCell" class="swap" data-testid="slot-detail">
         <template v-if="selPiece">
-          <div class="kv"><span>{{ selPiece.piece.name }}</span><b><GradeBadge :grade="selPiece.piece.grade" /></b></div>
+          <div class="kv"><span>{{ selPiece.piece.name }}</span><b><GradeBadge :grade="grade(selPiece.piece.grade)" /></b></div>
           <div v-for="(l, i) in constructLines(selEntry)" :key="i" class="kv"><span>{{ l.split('：')[0] }}</span><b>{{ l.includes('：') ? l.split('：').slice(1).join('：') : '' }}</b></div>
           <p v-if="selPiece.note" class="warn-t note" data-testid="over-note">{{ selPiece.note }}</p>
           <div class="go"><ReasonButton sm :reason="reasonOf(selPiece.removeBlock)" data-remove @go="remove(selPiece.piece.id)">卸下（1 分鐘）</ReasonButton></div>

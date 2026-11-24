@@ -12,7 +12,7 @@ export const CLASS_NAME: Record<string, string> = { weapon: '武器', defense: '
 /** 構裝的種類圖標（第 2 層）；快駭程式用駭入的 */
 const CLASS_ICON: Record<string, string> = { weapon: 'ic-net_weapon', defense: 'ic-net_defense', tool: 'ic-net_tool', hack: 'ic-net_hack', body: 'ic-net_body', unique: 'ic-net_unique' }
 export const LEGAL_NAME: Record<string, string> = { free: '自由', register: '登記', permit: '許可', banned: '違禁' }
-const grade = (g: number): Grade => (Math.max(1, Math.min(5, Math.round(g))) as Grade)
+export const grade = (g: number): Grade => (Math.max(1, Math.min(5, Math.round(g))) as Grade)
 
 /** 一件構裝或快駭程式的物品格資料（圖標：舊資料有同 id 的用它的第 3 層圖標，沒有就用種類的第 2 層）。 */
 export function pieceSlot(p: { id: string; name: string; grade: number; class?: string; kind?: string }): SlotItem {
