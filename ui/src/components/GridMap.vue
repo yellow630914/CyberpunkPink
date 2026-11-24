@@ -129,6 +129,9 @@ function over(e: MouseEvent) {
 [data-skin="net"] .k-link, [data-skin="net"] .k-node { box-shadow: inset 0 0 0 2px var(--o); }
 .k-node { background: var(--tile-fac); }
 .k-node.f-visible { box-shadow: inset 0 0 0 2px var(--o), 0 0 0 1px var(--tint, transparent); }
+.k-valve { background: var(--tile-floor); box-shadow: inset 0 0 0 2px var(--o), inset 0 0 0 4px var(--warn); }
+.k-bridge { background: var(--tile-floor); box-shadow: inset 0 0 0 2px var(--o); border: 2px dashed var(--warn); }
+.k-valve .mk, .k-bridge .mk { position: static; color: var(--warn); font-size: var(--fs-tiny); }
 .k-trap { background: color-mix(in srgb, var(--tile-floor) 80%, var(--warn)); }
 .c.path::after { content: ""; position: absolute; inset: 34%; border-radius: 50%; background: var(--a); opacity: .7; }
 .ci { position: relative; z-index: 1; --o: var(--bg-term); }
