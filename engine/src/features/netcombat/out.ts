@@ -44,7 +44,7 @@ function pinCheckOf(u: BattleUnit): { attr: 'intellect' | 'resolve'; skill: 'int
 
 /**
  * 釘住一次（行動與效果 net.pin 共用；不花費）：條件不成立回傳 false、什麼都不做；檢定沒過回傳 false（檢定自己記一拍）；
- * 成功就讓目標以 pinned 退出（out.before 掛點可以擋下：技能「不讓你帶走」），記一拍 pin。回傳目標有沒有真的被釘住。
+ * 成功就讓目標以 pinned 退出（out.before 掛點可以擋下：技能「不讓你帶走」）；「被釘住了」那一拍（標籤 pin，data 帶 target、by、side）核心的 leave 記，這裡不再另記。回傳目標有沒有真的被釘住。
  */
 export function pinUnit(run: BattleRun, user: BattleUnit, t: BattleUnit): boolean {
   if (t.out || run.isStandIn(t) || run.isStandIn(user) || t.side === user.side || pinBlocks(user.slot, t).length) return false
@@ -55,7 +55,6 @@ export function pinUnit(run: BattleRun, user: BattleUnit, t: BattleUnit): boolea
     run.say(`${unitTag(user)} 沒能把${unitTag(t)}釘在線上：有東西擋下了。`, undefined, { unit: user.id, target: t.id }, user)
     return false
   }
-  run.say(`${unitTag(t)} 被釘在線上，退出戰鬥，登不出去。`, 'pin', { target: t.id, by: user.id, side: t.side }, user)
   return true
 }
 

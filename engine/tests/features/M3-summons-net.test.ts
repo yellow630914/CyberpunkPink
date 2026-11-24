@@ -290,9 +290,9 @@ describe('守衛程式：被擊落與自律', () => {
     expect(run.unit('a1').load!.now).toBe(before)
   })
 
-  // 規格：「在內海受到的傷害照內海的規則（神經與快感打得到它）」。核心的 overlayHurt 與 damageOverlay 對感載類的傷害一律無效（沒有橋），
-  // 不分戰場，所以內海的蕾絲（只有神經與快感）現在打不到守衛程式：需要核心補一條（見回報）。補了之後這一條會開始通過，把 it.fails 改成 it。
-  it.fails('守衛程式被神經傷害打掉：操作者受回灌的感載、那一格空出來', () => {
+  // 規格：「在內海受到的傷害照內海的規則（神經與快感打得到它）」。核心的 overlayHurt 與 damageOverlay 在內海（mode.layer === 'net'）讓感載類的傷害
+  // 打在守衛程式的耐久上（護甲照那一種傷害的 armor 比例，神經與快感無視護甲）；現實維持無效（M3-core-fix-a；tests/core/M3-core-fix-a.test.ts）。
+  it('守衛程式被神經傷害打掉：操作者受回灌的感載、那一格空出來', () => {
     const a = arena(setup('net', [pilotNet([GUARD_ATK])], [lace()]))
     turnTo(a, 'a1')
     deploy(a, 0, 1)

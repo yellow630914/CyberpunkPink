@@ -510,7 +510,7 @@ export class BattleRun implements BattleView {
     }
     const baseDice = w.far && distance(attacker, o) > w.far.beyond ? w.far.dice : w.dice
     const raw = Math.max(0, this.d6(Math.max(1, baseDice + (damageTypeOf(this.k.content, opts.type ?? w.type).dice ?? 0) + (opts.dice ?? 0))) + w.flat + (opts.damage ?? 0))
-    // 照傷害類型算（COMBAT_SYSTEM 第 5 節）：和打人同一份算法；無人機與砲塔是機器；沒有橋，感載類的傷害對它無效
+    // 照傷害類型算（COMBAT_SYSTEM 第 5 節）：和打人同一份算法；無人機與砲塔是機器；現實沒有橋，感載類的傷害對它無效（內海打得到：overlayHurt）
     const dealt = this.overlayHurt(o, raw, opts.type ?? w.type, attacker, { pierce: w.pierce + (opts.pierce ?? 0), ...(opts.armorMult !== undefined ? { armorMult: opts.armorMult } : {}) })
     this.say(`${head}命中，${o.name}受到 ${dealt} 點傷害。`, 'hit', { ...ids, natural, amount: dealt }, attacker, roll)
     const downed = o.hp.now <= 0
@@ -518,24 +518,35 @@ export class BattleRun implements BattleView {
     return { ...none, hit: true, natural, total, evade, raw, dealt, track: 'hp', downed }
   }
 
-  /** 一筆傷害打在一台和人重疊的東西上的算法（不記拍、不擊落）：感載類無效；護甲（可以乘倍率）、穿甲、類型對機器的倍率、做的人的傷害倍率；扣耐久。回傳實際扣了多少。 */
+  /**
+   * 一筆傷害打在一台和人重疊的東西上的算法（不記拍、不擊落）：護甲（可以乘倍率）、穿甲、類型對機器的倍率、做的人的傷害倍率；扣耐久。回傳實際扣了多少。
+   * 感載類（神經、快感）：現實沒有橋，無效（0）；內海（`mode.layer === 'net'`）守衛程式就是程式，打在它的耐久上，護甲照那一種傷害的 `armor` 比例
+   * （神經與快感是 0，無視護甲），做的人的倍率用 `dmgMult.load`（dev/adr/0018 N27 與實作補記 M3-core-fix-a）。
+   */
   private overlayHurt(o: BattleOverlay, raw: number, typeId: DamageType, by: BattleUnit | undefined, opts: { pierce?: number; armorMult?: number } = {}): number {
-    if (damageTypeOf(this.k.content, typeId).track === 'load') return 0
+    const load = damageTypeOf(this.k.content, typeId).track === 'load'
+    if (load && !this.overlayTakesLoad()) return 0
     const armor = opts.armorMult !== undefined ? Math.round(o.armor * opts.armorMult) : o.armor
-    const dealt = this.hpDamage(raw, typeId, armor, OVERLAY_TAGS, by, { pierce: opts.pierce ?? 0 })
+    const dealt = this.hpDamage(raw, typeId, armor, OVERLAY_TAGS, by, { pierce: opts.pierce ?? 0, ...(load ? { mult: 'load' as const } : {}) })
     o.hp.now = Math.max(0, o.hp.now - dealt)
     return dealt
   }
 
+  /** 感載類的傷害打不打得到掛著的東西：內海打得到（它是程式），現實沒有橋、無效。 */
+  private overlayTakesLoad(): boolean {
+    return this.mode.layer === 'net'
+  }
+
   /**
    * 一筆直接的傷害打在一台和人重疊的東西上（不擲命中：效果的 damage、爆炸；dev/adr/0015）。算法和 attackOverlay 一樣
-   * （照傷害類型扣它的護甲、穿甲抵銷護甲、電磁對機器加倍、做的人的傷害倍率；感載類的傷害對它無效，沒有橋）；耐久歸零就被擊落（overlay.down 掛點）。
+   * （照傷害類型扣它的護甲、穿甲抵銷護甲、電磁對機器加倍、做的人的傷害倍率；感載類的傷害在現實對它無效、沒有橋，在內海照 overlayHurt 打在它的耐久上）；
+   * 耐久歸零就被擊落（overlay.down 掛點）。
    * 記一拍 damage；那一台已經被擊落回傳 { dealt: 0, downed: false }。回傳實際造成的量與有沒有擊落。
    */
   damageOverlay(o: BattleOverlay, raw: number, typeId: DamageType, by?: BattleUnit, opts: { pierce?: number; armorMult?: number } = {}): { dealt: number; downed: boolean } {
     if (o.down) return { dealt: 0, downed: false }
     const type = damageTypeOf(this.k.content, typeId)
-    if (type.track === 'load') {
+    if (type.track === 'load' && !this.overlayTakesLoad()) {
       this.say(`${o.name}沒有橋，${type.name}傷害對它無效。`, 'damage', { overlay: o.id, type: typeId, amount: 0 }, by)
       return { dealt: 0, downed: false }
     }
@@ -552,12 +563,16 @@ export class BattleRun implements BattleView {
     return this.n.pierceOverflow ? Math.max(0, v - eff + pierce) : Math.max(0, v - Math.max(0, eff - pierce))
   }
 
-  /** 生命傷害的算法（打人與打和人重疊的東西共用）：照類型扣護甲 → 類型對標籤的倍率 → 攻擊者的位階與難度倍率。 */
-  private hpDamage(raw: number, typeId: DamageType, armor: number, tags: readonly string[], by?: BattleUnit, o: { pierce?: number } = {}): number {
+  /**
+   * 生命傷害的算法（打人與打和人重疊的東西共用）：照類型扣護甲 → 類型對標籤的倍率 → 攻擊者的位階與難度倍率。
+   * o.mult 是讀攻擊者哪一個傷害倍率（沒寫是 hp；內海的感載類傷害打在掛著的東西上讀 load）。
+   */
+  private hpDamage(raw: number, typeId: DamageType, armor: number, tags: readonly string[], by?: BattleUnit, o: { pierce?: number; mult?: 'hp' | 'load' } = {}): number {
     const type = damageTypeOf(this.k.content, typeId)
     let dm = this.armorAfter(raw, armor, type.armor, o.pierce)
     for (const [tag, mult] of Object.entries(type.vs ?? {})) if (tags.includes(tag)) dm *= mult
-    if (by && dm > 0 && by.dmgMult.hp !== 1) dm = Math.max(1, Math.round(dm * by.dmgMult.hp))
+    const mult = by ? by.dmgMult[o.mult ?? 'hp'] : 1
+    if (by && dm > 0 && mult !== 1) dm = Math.max(1, Math.round(dm * mult))
     return Math.round(dm)
   }
 
@@ -822,7 +837,8 @@ export class BattleRun implements BattleView {
 
   /**
    * 這個人退出戰鬥。how：down（生命歸零倒下）、burnout（餘韻疊滿再過載，昏過去）、subdued（被制伏）、
-   * surrendered（投降）、fled（逃走）、removed（被帶走）。戰鬥中沒有人會死（COMBAT_SYSTEM 8.2 節）。
+   * surrendered（投降）、fled（逃走）、removed（被帶走）；內海另有 jacked_out（拔線）與 pinned（被釘住，登不出去；紀錄標籤 pin）。
+   * 戰鬥中沒有人會死（COMBAT_SYSTEM 8.2 節）。
    * 先問 out.before 掛點有沒有人擋下：擋下的回傳 false、什麼都不做（生命歸零而來的，生命至少 1；其餘由處理函式自己改）。
    * 回傳這一次有沒有讓他退出（已經退出的也回傳 false）。
    */
@@ -854,8 +870,8 @@ export class BattleRun implements BattleView {
       this.battle.reserve[u.side] = this.battle.reserve[u.side].filter((id) => id !== u.id)
     }
     u.statuses = u.statuses.filter((s) => s.id !== LOSE_TURN)
-    const words: Record<string, string> = { down: u.side === 'foe' ? '被打倒了' : '倒下了', burnout: '昏了過去', subdued: '被制伏，退出戰鬥', surrendered: '投降了', fled: '逃走了', removed: '被帶走了', jacked_out: '拔線離開了' }
-    const tag = how === 'subdued' ? 'subdue' : how === 'surrendered' ? 'surrender' : how === 'fled' ? 'flee' : how === 'jacked_out' ? 'jack_out' : 'down'
+    const words: Record<string, string> = { down: u.side === 'foe' ? '被打倒了' : '倒下了', burnout: '昏了過去', subdued: '被制伏，退出戰鬥', surrendered: '投降了', fled: '逃走了', removed: '被帶走了', jacked_out: '拔線離開了', pinned: '被釘住了，退出戰鬥，登不出去' }
+    const tag = how === 'subdued' ? 'subdue' : how === 'surrendered' ? 'surrender' : how === 'fled' ? 'flee' : how === 'jacked_out' ? 'jack_out' : how === 'pinned' ? 'pin' : 'down'
     if (how !== 'burnout') this.say(`${unitTag(u)} ${words[how] ?? '退出了戰鬥'}。`, tag, { target: u.id, how, rank: u.rank, side: u.side, ...(by ? { by: by.id } : {}) }, by)
     else this.say(`${unitTag(u)} 倒下了。`, 'down', { target: u.id, how, rank: u.rank, side: u.side, ...(by ? { by: by.id } : {}) }, by)
     // 操作者退出（COMBAT_SYSTEM 9.1 節；dev/adr/0015 第三節）：他的東西，autonomous 的沒有操作者、自己動（自律）；其餘的停機
