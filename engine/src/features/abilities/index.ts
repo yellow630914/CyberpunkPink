@@ -12,6 +12,10 @@
 // use.weapon_ram（照常花武器構裝的 RAM）、花掉全部 RAM 的技能（use.ram_all_min）內海欄可以寫 attack.spend／dice／suppress（超頻、黑冰）、attack.suppress.first_round（壓制姿態）、
 // trigger.tag、react.damage、react.flash（死線、逆流、急凍：改寫閃斷）、被動技能的 net.action（手術刀的除錯）、修正 use_extra（名醫）、欄的 trace（技能做的快駭的追蹤度）；
 // 衍生數值 master_tier（stats.ts：主角看裝著的招牌與學習紀錄，夥伴看 ext.paths；features/netrun 的 masterTier 讀它）。
+// M3-skill-net-b（dev/work/M3-skill-net-b.md）：名媛、掮客、主播、偶像四棵樹的內海欄補的通用鍵：net.lure（誘惑攻擊的內海版：距離 3、傷害加魅力調整值、needs.persona）、net.masked（面具；
+// 戰鬥結束標 data.masked）、net.command（指揮每回合 1 點）、net.remote_call（遠端叫名冊上帶某路數的人）、pick bench 的 path、net.flow／flow_bonus 與 when.flow_min（導流階）、
+// net.link／song／on_link_overload／link_full／link_gear（偶像的應援與曲目，link.ts）、needs.no_tag、resonance.net（只在內海生效的共鳴）、修正 remote_uses／no_flash／ram_free／no_pin／link_relief／turn_extra、
+// react.keep_link、mods 與反應的 who: linked、效果 link.each／link.dump、狀態 pacified（安撫：攻擊類行動的花費加一大筆）。
 // 不 import 別的功能（射擊、換彈在 features/combat；技能自己用 run.attack）。
 
 import type { Feature } from '../../core'
