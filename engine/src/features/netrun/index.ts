@@ -48,11 +48,12 @@ export { netrunView } from './view'
 export type { NetrunView, NodeRef } from './view'
 
 /**
- * 進行中放行的 doing 前綴（工單 M3-netrun 的驗收條件守著這張清單）：這一趟自己的報告、走格子、戰鬥與戰鬥結束的結算、重來、事件、戰敗的選擇、自由行動。
+ * 進行中放行的 doing 前綴（工單 M3-netrun 的驗收條件守著這張清單）：這一趟自己的報告、走格子、戰鬥與戰鬥結束的結算、重來、事件、戰敗的選擇、
+ * 成人場景（使用者 2026-11-24：網內放行所有成人場景；戰敗事件開的場景與流竄 AI 的場景都要開得起來）、自由行動。
  * 其餘（交易、休息、接委託……）一律擋下，原因是一句話。
  */
 export const NETRUN_ALLOW: readonly string[] = [
-  'commit:netrun.', 'grid.', 'commit:grid.', 'battle.', 'commit:battle.', 'chain:battle_end', 'battle.retry', 'event.start', 'commit:event.', 'commit:defeat.', 'chain:free_action',
+  'commit:netrun.', 'grid.', 'commit:grid.', 'battle.', 'commit:battle.', 'chain:battle_end', 'battle.retry', 'event.start', 'commit:event.', 'commit:defeat.', 'scene.start', 'commit:scene.', 'chain:free_action',
 ]
 
 export const netrunFeature: Feature = {

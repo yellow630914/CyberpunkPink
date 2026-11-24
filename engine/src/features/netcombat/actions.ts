@@ -171,6 +171,12 @@ const swap: BattleActionDef = {
     u.wield = to
     run.say(`${u.name} 換上構裝「${u.weapons[to]!.name}」。`, 'swap', { unit: u.id, weapon: u.weapons[to]!.class }, u)
   },
+  // 手上的武器構裝破損了、身上還有沒破損的別的構裝：先換（B023；分數比攻擊 2 高，破損的攻擊本來就灰掉，不換就整場不再出手）
+  aiScore: (_view, u) => {
+    const w = wielded(u)
+    if (!w || !brokenOf(u).includes(w.id)) return null
+    return u.weapons.some((x, i) => i !== u.wield && !brokenOf(u).includes(x.id)) ? 2.5 : null
+  },
 }
 
 // 腳本：快取格裡帶進來的一次性程式（物品的 use）。做法同現實的使用道具：用掉一支、效果照 use.effects、對誰用看 use.target

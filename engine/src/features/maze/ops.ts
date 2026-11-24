@@ -8,7 +8,7 @@ import type { ActorId, Change, CheckRoll, Effect, GameState, GridCtx, GridEffect
 import { ActionBlocked, DEGREE_NAME, attrMod, checkParts, clone, deriveRng, effectCtx, formatAmount, gridHere, isRecord, pointKey, rollCheck, toMinutes } from '../../core'
 import type { BracketDef, BracketGrade, MazeResult, MazeRules, MazeState, MazeTable, SolveOption, TableRow } from './model'
 import {
-  ACT_NETRUN, ORIGIN_BY, REGION_ID, chipKey, downKey, isText, mazeChange, mazeRegion, mazeRules, rate, readMaze, resetTally, roundKey, tableOf, tallyOf, BRACKET_ORDER,
+  ACT_DIVE, ACT_NETRUN, ORIGIN_BY, REGION_ID, chipKey, downKey, isText, mazeChange, mazeRegion, mazeRules, rate, readMaze, resetTally, roundKey, tableOf, tallyOf, BRACKET_ORDER,
 } from './model'
 
 const BUSY = '正在戰鬥，先把這一場打完。'
@@ -88,6 +88,12 @@ export function enterBlocks(k: Kernel, state: GameState, bracketId: string, grad
   if (other) p.push(other)
   const party = partyOf(state)
   if (!party.length) p.push('隊上沒有人，沒有人可以報名。')
+  // 迷宮館在網內（CYBERSPACE 8.2、2.3）：要先潛入，而且每個隊員都要有橋。沒有登記 dive 的世界（單獨測迷宮館）照舊不查
+  if (k.activity.get(ACT_DIVE)) {
+    if (!k.activity.active(state).some((a) => a.kind === ACT_DIVE)) p.push('迷宮館在網內：要先從接入點潛入，才報得了名。')
+    const bridgeless = party.filter((id) => !isRecord(state.actors[id]?.ext.bridge))
+    if (bridgeless.length) p.push(`${bridgeless.map((id) => nameOf(state, id)).join('、')}沒有橋：沒有橋的人進不了內海。`)
+  }
   if (party.length > rules.max_party) p.push(`一隊最多 ${rules.max_party} 個人（現在隊上有 ${party.length} 個）。`)
   if (state.money.cash < g.deposit) p.push(`押金不夠：${b.name}要 C$${formatAmount(g.deposit)}，你只有 C$${formatAmount(state.money.cash)}。`)
   const now = toMinutes(state.time)

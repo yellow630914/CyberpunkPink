@@ -8,7 +8,7 @@ import type { ContentPack, Feature, GridCtx, MarkerDef, Origin, ReportDraft } fr
 import { ActionBlocked, ContentError, attachActivityEnd, clone, endActivity, toMinutes } from '../../src'
 import { deckFeature } from '../../src/features/deck'
 import {
-  DIVE_ALLOW, diveFeature, diveOptions, diveView, enter, enterBlock, exit, exitBlock, go, goBlock, netSiteProblems, readDive, sites,
+  DIVE_ALLOW, DIVE_NET_ONLY, diveFeature, diveOptions, diveView, enter, enterBlock, exit, exitBlock, go, goBlock, inNet, netSiteProblems, readDive, sites,
 } from '../../src/features/dive'
 import { makeGame } from '../../src/testkit'
 
@@ -288,9 +288,13 @@ describe('潛入中現實的事做不了（白名單）', () => {
     for (const doing of ['commit:rest.sleep', 'commit:rest.breath', 'commit:transit.board', 'commit:fixer.accept', 'commit:commission.start', 'commit:work.shift', 'commit:deck.equip', 'commit:bills.pay']) {
       expect(g.blockOf(doing), doing).toBe(why)
     }
+    // 腳下是現實的街（身體躺的那個地方）：走格子、世界的移動、交易、對話都擋下，原因是先登出（B024）
+    for (const doing of ['grid.move', 'commit:grid.move', 'commit:world.go', 'commit:trade.checkout', 'commit:npc.talk']) {
+      expect(g.blockOf(doing), doing).toBe(why)
+    }
     for (const doing of [
-      'commit:dive.go', 'netrun.start', 'commit:netrun.use', 'commit:maze.enter', 'grid.move', 'commit:grid.move', 'commit:world.go', 'battle.start', 'commit:battle.act', 'chain:battle_end', 'battle.retry',
-      'event.start', 'commit:event.choose', 'commit:defeat.accept', 'commit:trade.checkout', 'commit:npc.talk', 'commit:deck.skin', 'chain:free_action',
+      'commit:dive.go', 'netrun.start', 'commit:netrun.use', 'commit:maze.enter', 'battle.start', 'commit:battle.act', 'chain:battle_end', 'battle.retry',
+      'event.start', 'commit:event.choose', 'commit:defeat.accept', 'scene.start', 'commit:scene.end', 'commit:deck.skin', 'chain:free_action',
     ]) {
       expect(g.blockOf(doing), doing).toBeNull()
     }
@@ -448,6 +452,32 @@ describe('選去處（go）與那一趟結束', () => {
     commit(g, exit(g.k, g.state))
     expect(g.state.location).toEqual(before)
     expect(dive(g)).toBeNull()
+  })
+})
+
+describe('腳下是網內還是現實（B024）', () => {
+  it('身體躺著、腳下還是現實的街：走格子、世界的移動、交易、對話都擋下，原因是先登出；選了網內的街區之後這幾樣放行；登出之後又擋回來（沒潛入不擋）', () => {
+    const g = setup()
+    const why = '你的意識在網內，身體躺在潛艙店。先登出。'
+    diveIn(g)
+    for (const doing of DIVE_NET_ONLY) expect(g.blockOf(`${doing}x`), doing).toBe(why)
+    expect(inNet(g.k, g.state)).toBe(false)
+    commit(g, go(g.k, g.state, 'site_harbor'))
+    expect(inNet(g.k, g.state)).toBe(true)
+    for (const doing of DIVE_NET_ONLY) expect(g.blockOf(`${doing}x`), doing).toBeNull()
+    // 網內的街區裡現實的事照樣做不了
+    expect(g.blockOf('commit:rest.sleep')).toBe(why)
+    commit(g, exit(g.k, g.state))
+    for (const doing of DIVE_NET_ONLY) expect(g.blockOf(`${doing}x`), doing).toBeNull()
+  })
+
+  it('成人場景放行（M3 修正批：網內放行所有成人場景）：scene.start 與 commit:scene. 在現實的街上潛入中也不擋', () => {
+    const g = setup()
+    diveIn(g)
+    expect(g.blockOf('scene.start')).toBeNull()
+    expect(g.blockOf('commit:scene.end')).toBeNull()
+    expect(DIVE_ALLOW).toContain('scene.start')
+    expect(DIVE_ALLOW).toContain('commit:scene.')
   })
 })
 

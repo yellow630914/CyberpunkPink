@@ -19,6 +19,8 @@ export const RULE_KIND = 'maze_rule'
 export const TABLE_KIND = 'maze_table'
 /** 一趟網內的行程的活動名字（features/netrun 的）：只用名字，不 import。 */
 export const ACT_NETRUN = 'netrun'
+/** 潛入的活動名字（features/dive 的）：只用名字，不 import。迷宮館在網內，報名要在潛入中。 */
+export const ACT_DIVE = 'dive'
 /** 這一區的 id（也是 net_region 的一筆、地圖實例 ext.net.region 的值）。 */
 export const REGION_ID = 'maze'
 /** 開那一趟時 origin.by 寫這個，掛點收到的 run.origin.by 用它認得「這是迷宮館開的」。 */

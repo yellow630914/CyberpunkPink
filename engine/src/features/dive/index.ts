@@ -16,8 +16,8 @@
 // 報告（kind netrun）：dive.enter、dive.go、dive.exit；觸發點 login、logout（範圍「子網與內海」）。
 // 對外：diveOptions、enter、sites、go、exit、diveView（以及 enterBlock、goBlock、exitBlock、readDive）。
 
-import type { ContentEntry, Feature, GridUse, Kernel } from '../../core'
-import { ContentError, isNetMapKind, formatAmount } from '../../core'
+import type { ContentEntry, Feature, GameState, GridUse, Kernel } from '../../core'
+import { ContentError, gridHere, isNetMapKind, formatAmount } from '../../core'
 import type { NetSiteEntry } from './model'
 import { ACT, BLOCK_KIND, DECK_KIND, FACILITY_TYPE_KIND, OWNER, SITE_KIND, accessName, diveDefProblems, netSiteProblems, readDive } from './model'
 import { diveOptions } from './options'
@@ -33,13 +33,27 @@ export { ACT as DIVE_ACTIVITY, EXT as DIVE_EXT, SITE_KIND, diveChange, netSitePr
 export type { DeckSource, DiveDef, DiveState, NetSiteEntry, Need, OverKind, SiteKind } from './model'
 
 /**
- * 潛入中放行的 doing 前綴（工單 M3-dive 的驗收條件守著這張清單）：這個功能自己的報告、開一趟網內的行程與它的報告、迷宮館的報告、走格子、戰鬥與戰鬥結束的結算、重來、
- * 世界的移動（網內的街區）、事件、戰敗的選擇、交易與對話（內海裡買東西、找人）、換 SKIN、自由行動。其餘（休息、車、委託的接案……）一律擋下。
+ * 潛入中一律放行的 doing 前綴（工單 M3-dive 的驗收條件守著這張清單）：這個功能自己的報告、開一趟網內的行程與它的報告、迷宮館的報告、戰鬥與戰鬥結束的結算、重來、
+ * 事件、戰敗的選擇、成人場景（M3 修正批：網內放行所有成人場景，戰敗事件與流竄 AI 的場景都開得起來）、換 SKIN、自由行動。其餘（休息、車、委託的接案……）一律擋下。
  */
 export const DIVE_ALLOW: readonly string[] = [
-  'commit:dive.', 'netrun.start', 'commit:netrun.', 'commit:maze.', 'grid.', 'commit:grid.', 'commit:world.', 'battle.', 'commit:battle.', 'chain:battle_end', 'battle.retry',
-  'event.start', 'commit:event.', 'commit:defeat.', 'commit:trade.', 'commit:npc.', 'commit:deck.skin', 'chain:free_action',
+  'commit:dive.', 'netrun.start', 'commit:netrun.', 'commit:maze.', 'battle.', 'commit:battle.', 'chain:battle_end', 'battle.retry',
+  'event.start', 'commit:event.', 'commit:defeat.', 'scene.start', 'commit:scene.', 'commit:deck.skin', 'chain:free_action',
 ]
+
+/**
+ * 潛入中「腳下是網內的地方」才放行的 doing 前綴（B024）：走格子、世界的移動、交易與對話。身體躺在接入點不動：腳下是現實的街時這些都擋下（原因是「先登出」）；
+ * 站在網內生成的地圖上，或站在 net_site 登記的網內街區裡才放行。
+ */
+export const DIVE_NET_ONLY: readonly string[] = ['grid.', 'commit:grid.', 'commit:world.', 'commit:trade.', 'commit:npc.']
+
+/** 腳下是網內的地方嗎：網內生成的地圖（子網、迷宮館、殘骸、深海），或 net_site 登記為 block 的網內街區。 */
+export function inNet(k: Kernel, state: GameState): boolean {
+  const g = gridHere(k, state)
+  if (g && isNetMapKind(g.map.kind)) return true
+  const block = state.location.block
+  return !!block && k.content.list<NetSiteEntry>(SITE_KIND).some((s) => s.kind === 'block' && s.block === block)
+}
 
 export const diveFeature: Feature = {
   id: OWNER,
@@ -58,6 +72,7 @@ export const diveFeature: Feature = {
       reason: (state) => `你的意識在網內，身體躺在${(readDive(state) ? accessName(readDive(state)!) : '接入點')}。先登出。`,
       start: (kk, state) => [enter(kk as Kernel, state)],
     })
+    for (const prefix of DIVE_NET_ONLY) k.activity.allow(ACT, prefix, OWNER, (state) => inNet(k, state))
 
     // 一趟結束：被定位、戰敗被接受之後標成被強制斷線
     k.hooks.on('activity.end', OWNER, ({ state, kind, origin, outcome, result }) => onEnd(state, kind, origin, outcome, result))

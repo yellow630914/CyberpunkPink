@@ -29,6 +29,8 @@ export interface Parsed {
   fx: Fx
   stealth: boolean
   decisive: boolean
+  /** 這件委託的預備（技能「後門」之類，衍生數值 net_trace_start）已經在前面的內海階段套用過了：整趟只在第一個內海階段加一次（M3 審查應修 1；副本算好了給） */
+  prepDone: boolean
   where?: Record<string, unknown>
   objective?: Record<string, unknown>
   /** 要放進這座網的控制節點（對到現實的哪個控制節點；M3-commission-net 算好給）：副本的 cn_ 開頭的 id，layer 沒寫放在管理層、沒有管理層放員工層 */
@@ -123,7 +125,7 @@ export function parseSetup(raw: unknown): { parsed: Parsed; problems: string[] }
       ...(isText(s.from_backdoor) ? { fromBackdoor: s.from_backdoor } : {}), ...(affixes ? { affixes } : {}),
       region: s.region === undefined ? 'subnet' : s.region, grade: grade ?? 1, ...(isText(s.faction) ? { faction: s.faction } : {}), layers,
       ...(encounter ? { encounter } : {}), ...(color ? { color } : {}), ...(isInt(s.seed) ? { seed: s.seed } : {}), trace: isInt(s.trace) ? s.trace : 0, fx,
-      stealth: s.stealth === true, decisive: s.decisive === true,
+      stealth: s.stealth === true, decisive: s.decisive === true, prepDone: s.prep_done === true,
       ...(isRecord(s.where) ? { where: clone(s.where) } : {}), ...(objective ? { objective } : {}), controls,
     },
   }
@@ -412,8 +414,9 @@ export function startRun(k: Kernel, state: GameState, kind: RunKind, rawSetup: u
     throw new ActionBlocked(`這座網生成的地圖不合格（${(e as Error).message}）。`)
   }
 
-  // 追蹤度的起點：setup.trace 加連動的 trace_start 加全隊的 net_trace_start（有人定義才讀）
-  const fromParty = k.stats.hasStat('net_trace_start') ? partyOf(state).reduce((s, a) => s + k.stats.stat(state, a, 'net_trace_start'), 0) : 0
+  // 追蹤度的起點：setup.trace 加連動的 trace_start 加全隊的 net_trace_start（有人定義才讀）。
+  // 預備的 net_trace_start 整趟委託只加一次：後面的內海階段 setup.trace 已經是整趟累計（含第一段加過的），副本給 prep_done 就不再加（M3 審查應修 1）
+  const fromParty = !parsed.prepDone && k.stats.hasStat('net_trace_start') ? partyOf(state).reduce((s, a) => s + k.stats.stat(state, a, 'net_trace_start'), 0) : 0
   // 自己去挖：那家的敵對值分段（N16）加詞條的起始值（再進去的另外從上次離開的一半起算，那是 reviveDig 的事）
   const traceStart = plan ? digTraceStart(k, state, parsed, plan, fromParty) : parsed.trace + (parsed.fx.trace_start ?? 0) + fromParty
   const goal: Goal = parsed.objective && isText(parsed.objective.kind)

@@ -364,12 +364,12 @@ describe('開始：自己潛進去的一趟（netrun）', () => {
 })
 
 describe('放行清單', () => {
-  it('netrun 進行中放行的只有那十一項：交易、休息、接委託這類報告被擋並有原因', () => {
+  it('netrun 進行中放行的只有那十三項（含成人場景的 scene.start 與 commit:scene.）：交易、休息、接委託這類報告被擋並有原因', () => {
     for (const kind of [ACT_NET, ACT_FACE]) {
       const { game: g } = setup()
       launch(g, kind, { ...SETUP, encounter: [] }, kind === ACT_FACE ? ORIGIN : { by: 'core' })
       expect(g.k.activity.get(kind)!.allow).toEqual([...NETRUN_ALLOW])
-      expect(NETRUN_ALLOW).toHaveLength(11)
+      expect(NETRUN_ALLOW).toHaveLength(13)
       for (const doing of NETRUN_ALLOW) expect(g.blockOf(doing), doing).toBeNull()
       for (const doing of ['commit:trade.checkout', 'commit:rest.sleep', 'commit:fixer.accept', 'commit:commission.enter', 'commit:work.start', 'trade.start', 'rest.start', 'netrun.start', 'face.net.start', 'rewind:stage']) {
         const reason = g.blockOf(doing)

@@ -357,6 +357,8 @@ function faceLaunch(run: Run, b: BranchDef, stealth: boolean): Launch {
       links: run.links.map((l) => l.id), alert: run.alert, ...clone(rest),
       ...(net ? {
         fx: netFx(effectsFor(run, run.stage)), trace: run.trace, decisive: isLast(run), where: stageWhere(run, 'net'),
+        // 預備（net_trace_start）整趟只在第一個內海階段加一次：前面已經走過內海階段的，告訴 netrun 不要再加（M3 審查應修 1）
+        ...(run.route.some((r) => r.face === 'net') ? { prep_done: true } : {}),
         ...(run.def.defeat_event !== undefined ? { defeat_event: run.def.defeat_event } : {}),
         ...(typeof run.def.employer === 'string' ? { employer: run.def.employer } : isText(terms?.employer) ? { employer: terms.employer } : {}),
       } : {}),
