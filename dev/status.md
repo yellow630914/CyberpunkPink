@@ -271,3 +271,14 @@
 - 給 M3-lace：會換檔的敵人 `ext.net.shift = true`；敵人 `weapon.id` 要等於構裝 id。
 - 給 M3-netcombat-out：拔線、投降用 system order 1、2；釘住 tactic order 4。
 - 給 M3-ui-netcombat：缺圖示 `refill`、`script`、`tool`、`shift`。
+
+## M3-netcombat-out 回報（2026-11-24）
+
+- 釘住、拔線、投降三個行動；追蹤度每輪加、30/60 叫增援、90 倒數被定位；戰後扣線、拆釘子、`net_burn`。
+- 追蹤度從 20 起每輪 +3，第 5 輪才跨 30（工單寫第 4 輪，照本文做）。
+- 扣線、拆釘子記在戰鬥紀錄拍子（tag `tether`、`pin`，data 帶單位），報告沒有 data 欄位；defeat-net／netrun 從 timeline 讀。
+- 給核心（之後修正批）：`leave()` 認得 `pinned`（一句「被釘住」與 tag `pin`）。
+- `net_burn` 靠讀時比對 `until`，核心不自動清。
+- 投降不扣線（只有 lose 才扣）——照預設，待審查時一起確認。
+- 給 M3-netadmin：管理行動加追蹤度用 `addTrace(run, amount)`。
+- 給 M3-netrun：`net.trace` 沒有 ±20 上限，AI 限制歸 trace 量表。
