@@ -350,7 +350,7 @@ function triggerProblems(m: Record<string, unknown>): string[] {
         if (!(isInt(r.reach) && r.reach >= 0 && r.reach <= 3)) p.push('meat.react.reach 要是 0～3 的整數（擋槍的無人機和被打的人差幾格以內）')
         else if (r.redirect !== 'overlay') p.push("meat.react.reach 要和 redirect: 'overlay' 一起寫")
       }
-      for (const key of ['no_wound', 'negate', 'keep_turn', 'then_move'] as const) if (r[key] !== undefined && r[key] !== true) p.push(`meat.react.${key} 只能是 true`)
+      for (const key of ['no_wound', 'negate', 'keep_turn', 'then_move', 'keep_link'] as const) if (r[key] !== undefined && r[key] !== true) p.push(`meat.react.${key} 只能是 true`)
       if (r.then_move === true && r.negate !== true) p.push('meat.react.then_move 要和 negate 一起寫（這一擊沒有傷害，被打的人才換位）')
       if (r.prevent !== undefined) {
         const pv = r.prevent
@@ -605,7 +605,8 @@ function columnProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kern
       m.picks.forEach((x, i) => {
         const at = `meat.picks[${i}]`
         if (!isRec(x)) return void p.push(`${at} 要是 { key, label, kind, required }`)
-        p.push(...onlyKeys(at, x, ['key', 'label', 'kind', 'required', 'adjacent', 'apart', 'needs', 'range']))
+        p.push(...onlyKeys(at, x, ['key', 'label', 'kind', 'required', 'adjacent', 'apart', 'needs', 'range', 'path']))
+        if (x.path !== undefined && (!isText(x.path) || x.kind !== 'bench')) p.push(`${at}.path 要是路數的 id，而且只有 kind 是 bench 的用（只列名冊上帶這條路數的人）`)
         if (x.needs !== undefined) {
           if (x.kind !== 'foe' && x.kind !== 'ally') p.push(`${at}.needs 只有 kind 是 foe、ally 的用`)
           else p.push(...needsProblems(`${at}.needs`, x.needs))
