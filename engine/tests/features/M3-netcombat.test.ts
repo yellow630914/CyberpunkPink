@@ -534,7 +534,7 @@ describe('構裝的進階與終極效果（ITEMS 11.1 節）', () => {
 
   it('武器構裝自己的 do 在命中時對目標做（深檔以上接上進階的 do）；沒中不做', () => {
     const drained = (gear: string, natural: number) => {
-      const a = arena(setup([ally(1, { weapons: [gun('cs_stinger')], ext: { net: NET({ sync: gear }), deck: DECK([{ id: 'cs_stinger', class: 'weapon' }]) }, tags: ['netrunner', `sync:${gear}`] })], [lace()]))
+      const a = arena(setup([ally(1, { weapons: [gun('cs_stinger')], ext: { net: NET({ sync: gear }), deck: DECK([{ id: 'cs_stinger', class: 'weapon' }]) }, tags: ['netrunner', `sync:${gear}`] })], [lace('minion', { load: { now: 0, max: 500 } })]))
       const before = a.f(1).pools.ram!.now
       a.run().attack(a.a(1), a.f(1), { natural, spend: 0 })
       return before - a.f(1).pools.ram!.now

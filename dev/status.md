@@ -255,3 +255,9 @@
 - 給 M3-netrun：處理完的遭遇節點改成 `floor` 並寫 `used: true`；`net_bridge` 走過改 `wall`；explore 的 `onEnter` 要加 `isNetMapKind` 判斷。
 - 給 M3-smoke：testkit 的 `markerByMark`、`markerAt` 要改用 `instanceDef`。
 - `Game.enterMap` 仍只收 id；生成的地圖用 `openMap` 加 commit。
+
+## M3-core-mapgen 回報（2026-11-24）
+
+- 生成器 `core/grid/gen.ts`（醉漢走路加修整；單向只把人往出口推、斷橋全斷也走得到）；不變式 151～153。
+- 給 M3-netrun：`graph`、`hidden`、`safe_path` 存進實例 `ext.net`；`net_valve` 放行用 `valveAllows`；巡邏路線、層主、遠處遭遇較重、層間出入口都由用的人從 `graph` 自己挑。
+- 迷宮館密度實測約 9 個節點（設計書 6～8），由 maze 調 spec。
