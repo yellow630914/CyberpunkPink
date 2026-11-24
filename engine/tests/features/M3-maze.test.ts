@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import type { Change, ContentPack, Feature, Origin } from '../../src'
 import { ActionBlocked, Sheet, clone, endActivity, gridHere, gridView, meterOf, pointKey } from '../../src'
 import { deckFeature } from '../../src/features/deck'
+import { diveFeature, exit as diveExit, readDive } from '../../src/features/dive'
 import { enemiesFeature } from '../../src/features/enemies'
 import { logout as netrunLogout, netExt, netrunFeature, readRun, regionOf, regionProblems, useNode } from '../../src/features/netrun'
 import { generateSheet, seedRand } from '../../src'
@@ -17,7 +18,8 @@ import {
 } from '../../src/features/maze'
 import { closeRun } from '../../src/features/maze/ops'
 import { chipKey, downKey, roundKey } from '../../src/features/maze/model'
-import { TEST_NET_COMBAT, makeActor, makeGame, netWeapon, playOut } from '../../src/testkit'
+import { TEST_NET_COMBAT, makeActor, makeGame, netWeapon, observed, playOut } from '../../src/testkit'
+import { snapshotText, validateState } from '../../src/shell/save'
 
 type Rec = Record<string, any>
 
@@ -871,11 +873,14 @@ describe('結算：破關', () => {
   })
 
   it('評價照回合數與倒下的人數：獎金乘倍率（A ×1.2、B ×1、C ×0.7）', async () => {
-    const play = async (extraRounds: number, downs: number): Promise<{ g: G; data: Rec }> => {
+    const play = async (total: number, downs: number): Promise<{ g: G; data: Rec }> => {
       const g = rookie({ extra: { maze_table: [CHEST, { id: 'prize', kind: 'prize', rows: [{ weight: 1, name: '一枚籌碼', chips: 1 }] }] } })
       await clearLayer(g)
       await clearLayer(g)
       await winFoes(g)
+      // 把總回合數補到要的數字（打真的戰鬥的回合數少，補在第一層）
+      const extraRounds = total - mazeView(g.k, g.state)!.rounds
+      expect(extraRounds).toBeGreaterThan(0)
       commit(g, [
         { op: 'counter', key: roundKey(mz(g).id, 0), delta: extraRounds },
         ...(downs ? [{ op: 'counter', key: downKey(mz(g).id), delta: downs } as Change] : []),
@@ -884,7 +889,7 @@ describe('結算：破關', () => {
       g.commit(useNode(g.k, g.state, 'pass'))
       return { g, data: finalData(g) }
     }
-    const a = await play(37, 0)
+    const a = await play(40, 0)
     expect(a.data).toMatchObject({ rating: 'A', mult: 1.2, prize: 360, refund: 50, chipCash: 10 })
     expect(cash(a.g)).toBe(1950 + 360 + 50 + 10)
     const b = await play(55, 2)
@@ -994,5 +999,75 @@ describe('結算：打輸只是斷線', () => {
     expect(readMaze(g.state)).toBeNull()
     const r = g.k.hooks.run('netrun.close', { state: g.state, run: run(g), outcome: 'done' } as never)
     expect(r).toEqual([])
+  })
+})
+
+// ===================================================================================================================
+// 九、接口：netrun 的兩個欄位、潛入中報名、不變式、存檔
+// ===================================================================================================================
+
+/** 照 features/index.ts 的順序：潛入在迷宮館前面（迷宮館的結果報告接在潛入自動登出的後面，登出才不會被問兩次）。 */
+const WITH_DIVE: Feature[] = [enemiesFeature, deckFeature, netrunFeature, TEST_NET_COMBAT, COMBAT, diveFeature, mazeFeature]
+
+describe('接口與整合', () => {
+  it('netrun 新收的兩個區欄位（puzzle、handled）：格式不對擋下；沒寫不影響一般的子網', () => {
+    const r = mazeRegion(DEFAULT_RULES)
+    expect(regionProblems({ ...r, puzzle: [3, 1] } as never)).not.toEqual([])
+    expect(regionProblems({ ...r, puzzle: 'one' } as never)).not.toEqual([])
+    expect(regionProblems({ ...r, handled: ['ab'] } as never)).not.toEqual([])
+    expect(regionProblems({ ...r, handled: 'a' } as never)).not.toEqual([])
+    expect(regionProblems(r as never)).toEqual([])
+    const { puzzle: _p, handled: _h, ...plain } = r
+    expect(regionProblems(plain as never)).toEqual([])
+  })
+
+  it('潛入中也能報名（dive 放行 commit:maze.）：打完之後還在潛入，登出得了；戰敗被接受則被強制斷線、自動登出', async () => {
+    const g = setup({ features: WITH_DIVE })
+    const dive = (): Change[] => [{ op: 'ext', key: 'dive', value: { since: 0, body: { location: clone(g.state.location) }, access: { type: 'fac_pod', safe: 1, name: '潛艙店' }, deck: 'none' } }]
+    commit(g, dive(), 'dive.test')
+    expect(g.k.activity.active(g.state).map((a) => a.kind)).toEqual(['dive'])
+    g.commit(enter(g.k, g.state, 'rookie', { seed: 11 }))
+    expect(g.k.activity.active(g.state).map((a) => a.kind)).toEqual(['netrun', 'dive'])
+    await clearLayer(g)
+    await clearLayer(g)
+    await clearLayer(g)
+    expect(reportsOf(g, 'maze.result')).toHaveLength(1)
+    expect(readDive(g.state)).not.toBeNull()
+    expect(g.k.activity.active(g.state).map((a) => a.kind)).toEqual(['dive'])
+    g.commit(diveExit(g.k, g.state))
+    expect(readDive(g.state)).toBeNull()
+    // 戰敗被接受：迷宮館結算押金沒收，潛入的那一頭被標成被強制斷線、自動登出
+    const h = setup({ features: WITH_DIVE })
+    commit(h, [{ op: 'ext', key: 'dive', value: { since: 0, body: { location: clone(h.state.location) }, access: { type: 'fac_pod', safe: 1, name: '潛艙店' }, deck: 'none' } }], 'dive.test')
+    h.commit(enter(h.k, h.state, 'rookie', { seed: 11 }))
+    fightAt(h, marks(h, 'f')[0]!.id)
+    const link = h.battle!.origin.ext!.net as Rec
+    const end = endActivity(h.k, { state: h.state, kind: 'defeat', id: 'b1', origin: { by: 'netrun', ref: run(h).id, ext: { net: link } }, outcome: 'accept', result: { net: true } })
+    commit(h, [{ op: 'battle', state: null, fold: true }], 'battle.abort')
+    commit(h, [{ op: 'snapshot.drop', kind: 'battle' }, ...end.changes], 'defeat.accept')
+    expect(finalData(h)).toMatchObject({ outcome: 'defeat', forfeited: 50 })
+    expect(readMaze(h.state)).toBeNull()
+    expect(readDive(h.state)).toBeNull()
+    expect(reportsOf(h, 'dive.exit')).toHaveLength(1)
+  })
+
+  it('報名到解機關、開寶箱、打一場、往下一層，每一份報告都守得住不變式；存檔再讀回來這一趟還在、狀態一樣', async () => {
+    const g = setup()
+    const { violations } = await observed(g, async () => {
+      g.commit(enter(g.k, g.state, 'rookie', { seed: 11 }))
+      standNear(g, marks(g, 'm')[0]!.at)
+      g.commit(solve(g.k, g.state))
+      teleport(g, marks(g, 'a')[0]!.at)
+      g.commit(open(g.k, g.state))
+      await winFoes(g)
+      teleport(g, marks(g, 'g')[0]!.at)
+      g.commit(useNode(g.k, g.state, 'descend'))
+    })
+    expect(violations).toEqual([])
+    const text = snapshotText(g.state)
+    const back = (JSON.parse(text) as { state: { ext: Rec; counters: Rec } }).state
+    expect(back.ext.maze).toMatchObject({ bracket: 'rookie', grade: 1, deposit: 50 })
+    expect(Object.keys(back.counters).some((k) => k.startsWith('maze:'))).toBe(true)
+    expect(validateState(back as never)).toEqual([])
   })
 })
