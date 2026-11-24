@@ -11,10 +11,10 @@ import { defeatFeature } from '../../src/features/defeat'
 import { ENCOUNTER_BUDGET, encounterPoints, enemiesFeature } from '../../src/features/enemies'
 import { exploreFeature } from '../../src/features/explore'
 import {
-  accept, board, buyIntel, eligibleTypes, fixerFeature, generate, generateTrace, genProblems, go, jobOf, offerProblems, offersFor, registeredFaces, scout, scoutPurpose, scoutView, traceStartOf, typeProblems,
+  board, buyIntel, eligibleTypes, fixerFeature, generate, generateTrace, genProblems, go, jobOf, offerProblems, offersFor, registeredFaces, scout, scoutPurpose, scoutView, traceStartOf, typeProblems,
 } from '../../src/features/fixer'
 import type { FixerEntry, Offer } from '../../src/features/fixer'
-import { fixerRules, ruleProblems } from '../../src/features/fixer'
+import { fixerNetRules, ruleProblems } from '../../src/features/fixer'
 import { securityFeature } from '../../src/features/security'
 import { summonsFeature } from '../../src/features/summons'
 import { TEST_COMBAT, makeGame, testWeapon } from '../../src/testkit'
@@ -215,8 +215,8 @@ describe('竊密：主面是內海', () => {
 
   it('規則 fixer_rule.net_layers 可以換；格式不對的忽略並在 ruleProblems 裡說出來', () => {
     const g = setup({ rep: 0, content: [pack({ fixer_rule: [{ id: 'default', net_layers: { 3: ['staff', 'control', 'core'] } }] })] })
-    expect(fixerRules(g.k).net_layers[3]).toEqual(['staff', 'control', 'core'])
-    expect(fixerRules(g.k).net_layers[2]).toEqual(['staff', 'core'])
+    expect(fixerNetRules(g.k).net_layers[3]).toEqual(['staff', 'control', 'core'])
+    expect(fixerNetRules(g.k).net_layers[2]).toEqual(['staff', 'core'])
     const o = gen(g, 'rule', 't_steal')
     const layers = netFaces(o).map((n) => n.face.layer)
     if (layers.length === 3) expect(layers).toEqual(['staff', 'control', 'core'])
@@ -229,8 +229,8 @@ describe('竊密：主面是內海', () => {
     expect(ruleProblems({ trace_start: { noted: 20, wanted: 40, scout_alert: 10 }, net_layers: { 1: ['core'] }, net_branch_skills: ['interface'] })).toEqual([])
     // 格式不對的欄位不蓋（載入時內容種類的檢查會擋，這裡直接餵 fixerRules）
     const fake = { content: { get: () => ({ id: 'default', trace_start: { noted: 200, wanted: 40 }, net_layers: { 2: ['core'], 3: ['guest', 'staff', 'core'] } }) } } as never
-    expect(fixerRules(fake).trace_start).toEqual({ noted: 15, wanted: 40, scout_alert: 15 })
-    expect(fixerRules(fake).net_layers[2]).toEqual(['staff', 'core'])
+    expect(fixerNetRules(fake).trace_start).toEqual({ noted: 15, wanted: 40, scout_alert: 15 })
+    expect(fixerNetRules(fake).net_layers[2]).toEqual(['staff', 'core'])
   })
 
   it('每個內海的面有強攻；潛行分支看 net_branch_skills 的一項；內海面沒有交涉；蕾絲與設施照模板', () => {

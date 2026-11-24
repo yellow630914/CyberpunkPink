@@ -114,6 +114,12 @@ export interface FixerRules {
   /** 目標勢力的敵對值到「找麻煩」：出發時遭遇預算加幾點（一點一個雜兵）；到「追捕」：警戒起始加多少（FACTIONS 6.1 節：+1、+20） */
   hostile_budget: number
   hostile_alert: number
+}
+
+/**
+ * 內海的規則（M3-fixer-net）。和 FixerRules 分開放：資料 fixer_rule/default 寫了才蓋掉，沒寫照 DEFAULT_FIXER_NET_RULES（M3-data-rules 再把它們加進資料檔）。
+ */
+export interface FixerNetRules {
   /**
    * 內海階段追蹤度的起始值（NETRUNNING 第 5 節、dev/adr/0018 N16）：目標勢力的敵對值到「記名」以上 noted（15）、到「通緝」wanted（30）；
    * 踩點的內海手段自然 1 驚動目標 scout_alert（15）。幾個來源取最高的（連動與後門的加減在副本與網內那邊算）。
@@ -137,12 +143,15 @@ export const DEFAULT_FIXER_RULES: FixerRules = {
   scout_minutes: 240, scout_dc_base: 10, scout_dc_per_grade: 2, scout_hard_from: 4, scout_hard_plus: 1, scout_alert: 15, intel_per_grade: 300,
   rating_bonus: { S: 0.2, A: 0.1, B: 0, C: -0.1 }, rep_same: 2, rep_higher: 4, rep_lower: 0, rep_top: 1, rep_failed: -3, rep_abandon: -5, rep_abandon_early: -2, borrow_base: 200, borrow_mult: 1.5, boss_shares: 2, aux_max: 2,
   bond_dc_base: 20, bond_affinity_step: 5, bond_loyalty: 70, trip_affinity: 2, trip_loyalty: 2, favor_done: 3, favor_top: 2, hostile_budget: 1, hostile_alert: 20,
+}
+
+export const DEFAULT_FIXER_NET_RULES: FixerNetRules = {
   trace_start: { noted: 15, wanted: 30, scout_alert: 15 },
   net_layers: { 1: ['core'], 2: ['staff', 'core'], 3: ['guest', 'staff', 'core'], 4: ['guest', 'staff', 'control', 'core'] },
   net_branch_skills: ['interface', 'stealth'],
 }
 
-type RuleKey = Exclude<keyof FixerRules, 'rating_bonus' | 'trace_start' | 'net_layers' | 'net_branch_skills'>
+type RuleKey = Exclude<keyof FixerRules, 'rating_bonus'>
 const RULE_FIELDS: Array<[RuleKey, number, number, boolean]> = [
   // [鍵, 下限, 上限, 整數]
   ['pay_cred', 0, 1, false], ['pay_favor', 0, 1, false], ['hostility_cred', 0, 100, true], ['haggle_dc_base', 0, 40, true], ['haggle_success', 0, 1, false], ['haggle_critical', 0, 1, false],
@@ -211,15 +220,22 @@ function netRuleProblems(e: Record<string, unknown>): string[] {
 /** 現在生效的規則：資料 fixer_rule/default 蓋掉內建的預設（格式不對的欄位忽略）。 */
 export function fixerRules(k: Pick<Kernel, 'content'>): FixerRules {
   const e = k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default')
-  const out: FixerRules = {
-    ...DEFAULT_FIXER_RULES, rating_bonus: { ...DEFAULT_FIXER_RULES.rating_bonus }, trace_start: { ...DEFAULT_FIXER_RULES.trace_start },
-    net_layers: Object.fromEntries(Object.entries(DEFAULT_FIXER_RULES.net_layers).map(([n, l]) => [n, [...l]])), net_branch_skills: [...DEFAULT_FIXER_RULES.net_branch_skills],
-  }
+  const out: FixerRules = { ...DEFAULT_FIXER_RULES, rating_bonus: { ...DEFAULT_FIXER_RULES.rating_bonus } }
   if (!e) return out
   const bad = new Set(ruleProblems(e).map((m) => m.split(' ')[0]!.split('.')[0]!))
   for (const [key] of RULE_FIELDS) if (e[key] !== undefined && !bad.has(key)) out[key] = e[key] as number
   if (e.rating_bonus !== undefined && !bad.has('rating_bonus')) Object.assign(out.rating_bonus, e.rating_bonus)
-  // 內海的三項：寫對的欄位才蓋（trace_start 與 net_layers 是一項一項蓋）
+  return out
+}
+
+/** 現在生效的內海規則：資料 fixer_rule/default 寫了的、格式對的欄位蓋掉內建的預設（trace_start 與 net_layers 是一項一項蓋）。 */
+export function fixerNetRules(k: Pick<Kernel, 'content'>): FixerNetRules {
+  const e = k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default')
+  const out: FixerNetRules = {
+    trace_start: { ...DEFAULT_FIXER_NET_RULES.trace_start },
+    net_layers: Object.fromEntries(Object.entries(DEFAULT_FIXER_NET_RULES.net_layers).map(([n, l]) => [n, [...l]])), net_branch_skills: [...DEFAULT_FIXER_NET_RULES.net_branch_skills],
+  }
+  if (!e) return out
   if (isRecord(e.trace_start)) for (const key of TRACE_START_KEYS) { const v = e.trace_start[key]; if (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100) out.trace_start[key] = v }
   if (isRecord(e.net_layers)) {
     for (const [n, list] of Object.entries(e.net_layers)) {

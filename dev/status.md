@@ -369,3 +369,11 @@
 - **給 M3-fixer-net**：生成的內海面要寫 `layer`，之後把 `netFaceProblems` 的 layer 改回必填。
 - 為了不破 M2 的 toEqual 測試而留的權宜（M3 收尾或修正批清掉）：`FaceView.locked` 只在鎖住時出現；`defeat_event`、`employer` 放在 setup 不放 origin.ext；fallout 的 net 欄位只在走內海時出現；舊的 `aux.pressure.net` 仍寫入鏡像。
 - 寫不出來：內海竄改班表的「增援延後」。
+
+## M3-fixer-net 回報（2026-11-24）
+
+- 生成委託的內海面（layer、lace、facility、目標、隔離區與鑰匙連動）、出發追蹤度照敵對值（記名 15、通緝 30）與踩點取最高、任務板的內海提示；commission 的 layer 改回必填（ui 的測試 fixture 已補 layer）。
+- 規則另放 `DEFAULT_FIXER_NET_RULES`（給 M3-data-rules：補進 fixer_rule/default 並讓 M2-data-rules 測試認這三個欄位）。
+- 解讀待確認：還沒登記 face.net 時內海面照 M2 寫法；潛行 need 只能一項基本功（照種子挑）；兩次內海踩點自然 1 的追蹤度仍疊加；生成時不檢查內海敵人挑不挑得到。
+- 五型：竊密能做；抹除、竄改、心智只能近似；網內打撈不做。
+- ADR 0018 待補「實作補記：M3-fixer-net」。

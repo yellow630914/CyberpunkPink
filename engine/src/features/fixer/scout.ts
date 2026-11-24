@@ -8,7 +8,7 @@ import type { BriefView } from './board'
 import type { Cat, Job, ScoutEntry, ScoutMethod, UnknownItem } from './model'
 import { auxSetup } from './hire'
 import {
-  CAT_NAME, COMMISSION_ACTIVITY, HOSTILITY_TIER_PURSUIT, HOSTILITY_TIER_RECORDED, HOSTILITY_TIER_TROUBLE, HOSTILITY_TIER_WANTED, auxList, LOCKED_METHODS, SCOUT_METHODS, fixerRules, gradeOf, hiddenUnknowns, hostilityAtLeast, jobOf, methodOf, methodsFor, methodTargets, rollBest, scoutDc, scoutedOf, stageCount,
+  CAT_NAME, COMMISSION_ACTIVITY, HOSTILITY_TIER_PURSUIT, HOSTILITY_TIER_RECORDED, HOSTILITY_TIER_TROUBLE, HOSTILITY_TIER_WANTED, auxList, LOCKED_METHODS, SCOUT_METHODS, fixerNetRules, fixerRules, gradeOf, hiddenUnknowns, hostilityAtLeast, jobOf, methodOf, methodsFor, methodTargets, rollBest, scoutDc, scoutedOf, stageCount,
 } from './model'
 
 function needJob(state: GameState, id: string): Job {
@@ -45,6 +45,7 @@ export function scout(k: Kernel, state: GameState, jobId: string, method: string
   const block = scoutBlock(job, m)
   if (block) throw new ActionBlocked(block)
   const rules = fixerRules(k)
+  const netRules = fixerNetRules(k)
   const n = job.scouts + 1
   const grade = gradeOf(job.commission)
   const dc = scoutDc(rules, grade, n)
@@ -54,12 +55,12 @@ export function scout(k: Kernel, state: GameState, jobId: string, method: string
   const picked: UnknownItem[] = degree === 'critical' ? targets.slice(0, 2) : degree === 'success' ? targets.slice(0, 1) : []
   const entry: ScoutEntry = {
     n, method: m.id, skill: r.skill, natural: r.roll.natural, total: r.roll.total, dc, degree, revealed: picked.map((u) => u.id), day: state.time.day,
-    ...(degree === 'fumble' ? (m.layer === 'net' ? { trace: rules.trace_start.scout_alert } : { alert: rules.scout_alert }) : {}),
+    ...(degree === 'fumble' ? (m.layer === 'net' ? { trace: netRules.trace_start.scout_alert } : { alert: rules.scout_alert }) : {}),
   }
   const lines: string[] = picked.map((u) => `揭開了（${CAT_NAME[u.cat]}）：${u.text}`)
   if (degree === 'critical' && picked.some((u) => u.cat === 'path')) lines.push('踩出了一條路：進去的時候多一條走法。')
   if (picked.length === 0 && degree !== 'fumble') lines.push('什麼都沒有查到。')
-  if (degree === 'fumble') lines.push(m.layer === 'net' ? `你驚動了目標：進內海的時候，追蹤度的起始值 +${rules.trace_start.scout_alert}。` : `你驚動了目標：進去的時候，警戒的起始值 +${rules.scout_alert}。`)
+  if (degree === 'fumble') lines.push(m.layer === 'net' ? `你驚動了目標：進內海的時候，追蹤度的起始值 +${netRules.trace_start.scout_alert}。` : `你驚動了目標：進去的時候，警戒的起始值 +${rules.scout_alert}。`)
   const changes: Change[] = [
     { op: 'rng', advance: 1 },
     ...(rules.scout_minutes > 0 ? [{ op: 'time', minutes: rules.scout_minutes } as Change] : []),
@@ -238,7 +239,7 @@ export const hasNetStage = (c: Pick<Job['commission'], 'stages'>): boolean => c.
  * 連動與後門、全隊的加減在副本與網內那邊再加。
  */
 export function traceStartOf(k: Kernel, state: GameState, job: Job): number {
-  const tr = fixerRules(k).trace_start
+  const tr = fixerNetRules(k).trace_start
   const target = typeof job.commission.target_faction === 'string' && job.commission.target_faction !== 'none' ? job.commission.target_faction : null
   const hostile = target !== null && hasNetStage(job.commission)
     ? (hostilityAtLeast(k, state, target, HOSTILITY_TIER_WANTED) ? tr.wanted : hostilityAtLeast(k, state, target, HOSTILITY_TIER_RECORDED) ? tr.noted : 0)

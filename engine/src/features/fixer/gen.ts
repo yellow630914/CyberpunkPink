@@ -30,7 +30,7 @@
 import type { ContentEntry, GameState, Kernel } from '../../core'
 import { UNIT_RANKS, clone, compareText, deriveRng, isRecord, isSafeInt, repGrade, repTierOf, meterOf } from '../../core'
 import type { CommissionDef, FixerEntry, Offer, Reveal, UnknownItem } from './model'
-import { CATS, factionName, fixerRules, offerProblems } from './model'
+import { CATS, factionName, fixerNetRules, offerProblems } from './model'
 import type { Cat } from './model'
 
 export const TYPE_KIND = 'commission_type'
@@ -536,7 +536,7 @@ interface Ctx {
 }
 
 /** 這件委託有 count 個內海階段時各用哪一層（照階段的順序）；超過 4 個往前補第一層。 */
-function netLayersFor(rules: ReturnType<typeof fixerRules>, count: number): string[] {
+function netLayersFor(rules: ReturnType<typeof fixerNetRules>, count: number): string[] {
   if (count <= 0) return []
   const exact = rules.net_layers[count]
   if (exact) return [...exact]
@@ -596,7 +596,7 @@ function build(c: Ctx): Offer | string {
 
   // 內海面用另一顆亂數：沒有內海面的委託，上面與下面的抽籤一個都不變
   const nrng = deriveRng(c.state.rng, `commission_gen/${c.label}/net`)
-  const fixerR = fixerRules(k)
+  const fixerR = fixerNetRules(k)
   const netT = type.net
   // 隔離區（COMMISSIONS 2.2、第 4 節「必經的階段」）：照機率把決定性的內海面鎖起來，前面挑一個階段改成只開現實，由它給鑰匙連動
   let airgap: { link: LinkEntry; stage: number } | null = null

@@ -44,7 +44,7 @@ const ROOM_LOCK = {
 const branch = (id: string, kind: string, entry: string, need?: Rec): Rec => ({ id, kind, entry, ...(need ? { need } : {}) })
 const faces = (names: string[], map: string, goal?: Rec): Rec => Object.fromEntries(names.map((f) => [f, f === 'meat'
   ? { map, encounter: [], ...(goal ? { goal } : {}), gives: f === 'meat' ? undefined : undefined, branches: [branch('assault', 'assault', 'E1'), branch('duct', 'stealth', 'E1', { basic: 'stealth', level: 5 }), branch('bribe', 'talk', 'E1', { basic: 'negotiate', level: 5 }), branch('pass', 'linked', 'E1', { link: 'lk_pass' })] }
-  : { branches: [{ id: 'assault', kind: 'assault' }] }]))
+  : f === 'net' ? { layer: 'guest', branches: [{ id: 'assault', kind: 'assault' }] } : { branches: [{ id: 'assault', kind: 'assault' }] }]))
 
 /** 三階段的假委託：每個階段都只要走到 T1。第一階段另開了內海與輿論（輔助面能派人）。 */
 function commission(id: string, map: string, extra: Rec = {}, scale: 'small' | 'medium' = 'small'): Rec {

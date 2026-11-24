@@ -26,7 +26,7 @@
 // 內海面（M3-fixer-net；gen.ts、scout.ts、board.ts；dev/adr/0018 第九節、N16）：
 //   模板  commission_type 多選填的 net: { facility?, objectives?, airgap?, lace? }；階段的面列了 net 就生成內海那一面（layer、lace、facility、encounter、強攻加潛行加連動開的路、
 //         主面是內海時最後一個階段的 objective、airgap 的機率把決定性的面加 locked_by 並讓前面一個階段只開現實給鑰匙連動）；沒有人登記 face.net 時主面是內海的類型抽不到
-//   規則  fixer_rule 多 trace_start: { noted, wanted, scout_alert }、net_layers（內海階段數 → 各用哪一層）、net_branch_skills（內海潛行分支看哪幾項基本功）
+//   規則  fixer_rule 多（另放 DEFAULT_FIXER_NET_RULES、fixerNetRules 讀；資料檔之後由 M3-data-rules 補）trace_start: { noted, wanted, scout_alert }、net_layers（內海階段數 → 各用哪一層）、net_branch_skills（內海潛行分支看哪幾項基本功）
 //   出發  go 算 setup.trace_start：目標勢力的敵對值（問條件 hostility_tier：記名以上 noted、通緝 wanted；委託有內海階段才算）與踩點驚動的取最高的；traceStartOf 是同一個算法
 //   未知  內海階段多蕾絲、守備、路的未知（UnknownItem.face 標 net；scoutView 的 UnknownRow.face 照面標出來）；簡報 BoardRow.net 給「主面是內海」的一句話與「要有甲板」的提醒（衍生數值 deck_grade）
 // 這個功能不 import 別的功能：人情、敵對值、街區只經由效果、條件、變更的登錄表（沒有人註冊就不列、不檢查）。
@@ -47,12 +47,12 @@ import { LINK_KIND, MODIFIER_KIND, TYPE_KIND, genProblems, linkProblems, modifie
 export {
   AUX_FACES, AUX_FACE_NAME, FAVOR_SIZE_NAME, HIRE_NAME, HIRE_WAYS, RATING_KEYS, auxList,
   CATS, CAT_NAME, DEFAULT_FIXER_RULES, EXT, KIND, LOCKED_METHODS, OWNER, PAY_KINDS, PAY_NAME, REP_METER, RULE_KIND, SCOUT_METHODS,
-  HOSTILITY_TIER_RECORDED, HOSTILITY_TIER_WANTED, NET_LAYER_IDS,
-  abandonRepOf, activeJobs, favorSizeOf, fixerProblems, fixerRules, gradeOf, hiddenUnknowns, jobByRef, jobOf, jobsOf, latestJob, methodOf, offerProblems, readFixer, repBlock, ruleProblems, scoutDc, scoutedOf, tableOf,
+  DEFAULT_FIXER_NET_RULES, HOSTILITY_TIER_RECORDED, HOSTILITY_TIER_WANTED, NET_LAYER_IDS,
+  abandonRepOf, activeJobs, favorSizeOf, fixerNetRules, fixerProblems, fixerRules, gradeOf, hiddenUnknowns, jobByRef, jobOf, jobsOf, latestJob, methodOf, offerProblems, readFixer, repBlock, ruleProblems, scoutDc, scoutedOf, tableOf,
 } from './model'
 export type {
   Aux, AuxEntry, AuxFace, FavorSize, HireCost, HireWay, PayoutRecord, PendingEnd, Rating,
-  Cat, CommissionDef, Degree, FixerEntry, FixerRules, FixerState, Job, JobStatus, Offer, PayKind, Reveal, ScoutEntry, ScoutMethod, Scouted, TableDay, TableEntry, Terms, UnknownItem,
+  Cat, CommissionDef, Degree, FixerEntry, FixerNetRules, FixerRules, FixerState, Job, JobStatus, Offer, PayKind, Reveal, ScoutEntry, ScoutMethod, Scouted, TableDay, TableEntry, Terms, UnknownItem,
 } from './model'
 export { accept, board, boardRow, briefOf, drop, haggle, haggledPurpose, netNoteOf, payOptions, rawOffers, revealedStages, unknownLine } from './board'
 export type { AcceptOpts, BoardRow, BoardView, BriefStageRow, BriefView, NetNote, PayOption } from './board'
