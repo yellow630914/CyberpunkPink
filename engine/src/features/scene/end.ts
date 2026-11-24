@@ -5,7 +5,7 @@
 import type { Change, ClampNote, GameState, Kernel, ReportDraft, TimelineBeat } from '../../core'
 import { attachActivityEnd, clone, contentAllowed, effectCtx, endActivity } from '../../core'
 import type { EndReason } from './model'
-import { ACTIVITY, END_NAME, EXT, GOAL_NAME, beat, ratingOf, recordScene, sexRecordOf, sceneOf } from './model'
+import { ACTIVITY, END_NAME, SINK_CAP, EXT, GOAL_NAME, beat, ratingOf, recordScene, sexRecordOf, sceneOf } from './model'
 import type { Play } from './play'
 
 type Fx = Record<string, unknown>
@@ -124,7 +124,7 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
   const sinkLines: string[] = []
   const sinkChanges: Change[] = []
   for (const w of ['pc', 'partner'] as const) {
-    const n = Math.min(rules.sink_cap, s.sink_gain[w])
+    const n = Math.min(SINK_CAP, s.sink_gain[w])
     if (n <= 0) continue
     sinkChanges.push({ op: 'actor.track', id: p.id(w), track: 'sink', delta: n })
     sinkLines.push(`${w === 'pc' ? '你' : partner.name}在${p.sync.gears.full.name}檔過載：沉溺 +${n}。`)

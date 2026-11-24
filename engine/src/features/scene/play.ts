@@ -6,7 +6,7 @@ import type { ActorId, GameState, Kernel, RollPart, SyncGear, SyncRule, Timeline
 import { SYNC_GEARS, attrMod, checkParts, clone, deriveRng, isSyncGear, makeCheck, syncBlocks, syncRuleOf } from '../../core'
 import type { ActionId, Die, Dice, EndReason, LinkRec, PositionEntry, SceneDef, SceneRules, SceneState, Who } from './model'
 import {
-  ACTION_NAME, POSITION_KIND, TALK_PARTS, beat, dieRange, gearCapOf, gearIndexOf, hasTendencyTag, isNoDie, knowOf, knownPositions, knownSkills, normalizeGear, other, parseDie,
+  ACTION_NAME, PARTNER_GEAR_DOWN_AT, POSITION_KIND, TALK_PARTS, beat, dieRange, gearCapOf, gearIndexOf, hasTendencyTag, isNoDie, knowOf, knownPositions, knownSkills, normalizeGear, other, parseDie,
   partName, partsOf, rollDie, sceneDefOf, sceneRules, sensitivityOf, statOr, MAX_LINES,
 } from './model'
 
@@ -537,7 +537,7 @@ export class Play {
     s.turn_began = true
     let to: SyncGear = s.gear.partner
     if (want !== undefined && isSyncGear(want)) to = want
-    else if (this.load.partner >= this.rules.partner_gear_down_at * this.loadMax.partner) to = SYNC_GEARS[Math.max(0, gearIndexOf(s.gear.partner) - 1)]!
+    else if (this.load.partner >= PARTNER_GEAR_DOWN_AT * this.loadMax.partner) to = SYNC_GEARS[Math.max(0, gearIndexOf(s.gear.partner) - 1)]!
     if (to !== s.gear.partner && this.blocks('partner', { kind: 'gear', gear: to }).length === 0) this.perform('partner', { kind: 'gear', gear: to })
   }
 

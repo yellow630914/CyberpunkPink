@@ -321,7 +321,7 @@ describe('檔位的效果', () => {
     expect(run('full')).toEqual({ sink: 2, climaxed: 1 })
   })
 
-  it('過載累積的沉溺一場最多加 4（sink_cap）', () => {
+  it('過載累積的沉溺一場最多加 4（SINK_CAP）', () => {
     const g = game(FULL_PC)
     begin(g)
     S(g).sink_gain.pc = 10
