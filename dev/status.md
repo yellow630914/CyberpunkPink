@@ -247,3 +247,11 @@
 - 讀 `deck_slots` 的功能要走 `deckOf`（沒有甲板時衍生數值本身不是 0）。
 - 構裝 `traits` 只收字串陣列，DATA 7.3 範例的物件寫法等 netcombat 定。
 - M4 義體接上時要換：`state.ts` 的 `rawDeck`、`ops.ts` 的 `equipBlock`／`equipDraft`／`deckStack`。
+
+## M3-core-grid 回報（2026-11-24；程式已在 162f55a 一起提交）
+
+- 網內十三種格子、生成的地圖存在實例（`gen`）、放行規則看從哪一邊來、視野 `sight`、存檔第 4 版（不變式 146～150）。
+- 給 M3-core-mapgen：生成的圖寫 `legend: NET_LEGEND`；`cells` 列出每個有標記的格子（id 用 `markersInLayout`）；`sight` 從區的規則表寫進 `SheetDef.sight`。
+- 給 M3-netrun：處理完的遭遇節點改成 `floor` 並寫 `used: true`；`net_bridge` 走過改 `wall`；explore 的 `onEnter` 要加 `isNetMapKind` 判斷。
+- 給 M3-smoke：testkit 的 `markerByMark`、`markerAt` 要改用 `instanceDef`。
+- `Game.enterMap` 仍只收 id；生成的地圖用 `openMap` 加 commit。
