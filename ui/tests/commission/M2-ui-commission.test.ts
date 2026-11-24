@@ -326,10 +326,11 @@ describe('4 副本', () => {
     const { pinia, e } = setup()
     await depart(e)
     const v = e.commission.view()!
-    const net = v.faces.find((f) => f.face === 'net')!
-    expect(net.block).toBe('這一面還沒有開放。')
+    // 內海面 M3 已經開放；輿論面（M5）還沒有，拿它驗「未開放的面變淡並寫原因」
+    const opinion = v.faces.find((f) => f.face === 'opinion')!
+    expect(opinion.block).toBe('這一面還沒有開放。')
     const h = await html(pinia, RunTab)
-    const chunk = h.slice(h.indexOf('data-face="net"'), h.indexOf('data-face="net"') + 600)
+    const chunk = h.slice(h.indexOf('data-face="opinion"'), h.indexOf('data-face="opinion"') + 600)
     expect(text(chunk)).toContain('這一面還沒有開放。')
     expect(h.slice(h.indexOf('data-face="meat"'), h.indexOf('data-face="meat"') + 300)).not.toContain('data-face-block')
   })

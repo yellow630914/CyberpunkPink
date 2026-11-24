@@ -76,7 +76,7 @@ const legal = computed(() => (view.value?.equipped ?? []).map((e) => ({ name: e.
         <p class="h">背包裡的甲板<Hint>換上之後，原本那一副留在背包。</Hint></p>
         <div class="list">
           <div v-for="d in view.decks.filter((x) => !x.current)" :key="d.uid" class="row">
-            <ItemSlot :item="deckSlot(d)" size="sm" inert />
+            <span class="ic"><ItemSlot :item="deckSlot(d)" size="sm" inert /></span>
             <span class="nm">{{ d.name }}<small>{{ d.grade }} 級・槽 {{ d.slots }}・防火牆 {{ d.firewall }}</small></span>
             <ReasonButton sm :pri="!reasonOf(d.block)" :reason="reasonOf(d.block)" @go="say(eng.deck.equip(d.uid), '換好甲板了。')">裝上</ReasonButton>
           </div>
@@ -94,7 +94,7 @@ const legal = computed(() => (view.value?.equipped ?? []).map((e) => ({ name: e.
       <div v-if="deck?.has && selCell" class="swap" data-testid="slot-detail">
         <template v-if="selPiece">
           <div class="kv"><span>{{ selPiece.piece.name }}</span><b><GradeBadge :grade="grade(selPiece.piece.grade)" /></b></div>
-          <div v-for="(l, i) in constructLines(selEntry)" :key="i" class="kv"><span>{{ l.split('：')[0] }}</span><b>{{ l.includes('：') ? l.split('：').slice(1).join('：') : '' }}</b></div>
+          <div v-for="l in constructLines(selEntry)" :key="l[0]" class="kv"><span>{{ l[0] }}</span><b>{{ l[1] }}</b></div>
           <p v-if="selPiece.note" class="warn-t note" data-testid="over-note">{{ selPiece.note }}</p>
           <div class="go"><ReasonButton sm :reason="reasonOf(selPiece.removeBlock)" data-remove @go="remove(selPiece.piece.id)">卸下（1 分鐘）</ReasonButton></div>
         </template>
@@ -103,7 +103,7 @@ const legal = computed(() => (view.value?.equipped ?? []).map((e) => ({ name: e.
           <div v-if="!view?.candidates.length" class="empty-note">背包裡沒有構裝或快駭程式。</div>
           <div class="list">
             <div v-for="c in view?.candidates" :key="c.item" class="row" :class="{ 'is-unavailable': !!reasonOf(c.block) }" :data-cand="c.item">
-              <ItemSlot :item="pieceSlot(c.piece)" size="sm" inert />
+              <span class="ic"><ItemSlot :item="pieceSlot(c.piece)" size="sm" inert /></span>
               <span class="nm">{{ c.piece.name }}<small>{{ candidateLine(c) }}</small><small v-if="c.block" class="why">{{ c.block }}</small></span>
               <ReasonButton sm :pri="!reasonOf(c.block)" :reason="reasonOf(c.block)" @go="install(c.item)">裝上</ReasonButton>
             </div>
@@ -161,6 +161,7 @@ const legal = computed(() => (view.value?.equipped ?? []).map((e) => ({ name: e.
 .swap { margin-top: 10px; padding: 10px; background: var(--bg-2); }
 .list { display: grid; gap: 8px; }
 .row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.row .ic { width: 56px; }
 .row .nm { display: grid; gap: 2px; font-size: var(--fs-sm); font-weight: 800; min-width: 0; }
 .row .nm small { color: var(--ink-3); font-weight: 600; font-size: var(--fs-xs); }
 .row .nm small.why { color: var(--warn); }

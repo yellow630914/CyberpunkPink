@@ -36,18 +36,15 @@ export function candidateLine(c: DeckCandidate): string {
   return `${c.piece.kind === 'quickhack' ? '快駭' : CLASS_NAME[c.piece.class ?? ''] ?? '構裝'}・${c.piece.grade} 級${c.piece.size > 1 ? `・佔 ${c.piece.size} 槽` : ''}`
 }
 
-/** 構裝本身的數字一行行（資料上寫的，原樣列出；怎麼算不在這裡）。 */
-export function constructLines(e: ConstructEntry | undefined): string[] {
+/** 構裝本身的數字一行行（資料上寫的，原樣列出；怎麼算不在這裡）：[名稱, 值]。 */
+export function constructLines(e: ConstructEntry | undefined): Array<[string, string]> {
   if (!e) return []
-  const out: string[] = []
-  if (e.class === 'weapon') {
-    out.push(`每次攻擊 RAM ${e.ram ?? 0}`, e.type === 'jam' ? '類型：干擾' : e.type === 'pleasure' ? '類型：快感' : '類型：神經')
-    if (e.archetype) out.push(`原型：${e.archetype}`)
-  }
-  if (e.class === 'defense') out.push(`防護 ${e.guard ?? 0}`)
-  if (e.class === 'tool') out.push(e.passive ? '被動：裝著就有效' : `行動點 ${e.ap ?? 0}・RAM ${e.ram ?? 0}`)
-  if (e.brand) out.push(`牌子：${e.brand}`)
-  out.push(`合法性：${LEGAL_NAME[e.legal] ?? e.legal}`)
+  const out: Array<[string, string]> = []
+  if (e.class === 'weapon') out.push(['每次攻擊 RAM', String(e.ram ?? 0)], ['類型', e.type === 'jam' ? '干擾' : e.type === 'pleasure' ? '快感' : '神經'])
+  if (e.class === 'defense') out.push(['防護', String(e.guard ?? 0)])
+  if (e.class === 'tool') out.push(e.passive ? ['被動', '裝著就有效'] : ['行動點', String(e.ap ?? 0)], ...(e.passive ? [] : [['RAM', String(e.ram ?? 0)] as [string, string]]))
+  if (e.brand) out.push(['牌子', e.brand])
+  out.push(['合法性', LEGAL_NAME[e.legal] ?? e.legal])
   return out
 }
 

@@ -355,3 +355,9 @@
 - **要補**：主角的主控階數讀不到（只讀 `actor.ext.paths`）。由 abilities 提供衍生數值 `master_tier`，netrun 的 `masterTier`（checks.ts）改讀它 → 交給 M3-skill-net-a。
 - 隱形類構裝讓巡邏擦身而過沒做（要 netcombat／deck 介面）；印記、機關等詞條歸 netrun-dig。
 - 給 M3-commission-net：setup 的 `objective`、`controls`；result 的 `goal`、`controls`、`lost`。給 M3-ui-subnet：`netrunView` 新欄位與節點用途 id。
+
+## M3-ui-deck 回報（2026-11-24）
+
+- 內海分頁接引擎 deck；示意包開局送 II 級入門甲板與構裝、腳本、SKIN（`ui/src/data/demo/net.ts`）。
+- 示意包暫時補了 `jam_weapon`、`jam_defense`、`jam_tool` 三個 battle_status；M3-data-rules 補進正式規則表時要拿掉。
+- 引擎沒給、所以沒顯示：染色、SKIN 風格與曝露度、牌子脾氣、藥與義體對同步的影響、換 SKIN 的地點限制（M3-dive）、換檔次數。
