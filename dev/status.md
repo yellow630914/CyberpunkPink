@@ -395,3 +395,4 @@
 - 缺正式圖示：機關、印記、休息點、安全點。
 - 給 M3-ui-commission-net：委託開了內海面時導到 `/subnet`。
 - 可清：ui/stores/game.ts 的 `lastBattle.kind` 'subnet'。
+- 2026-11-24 使用者裁決（skill-net-a）：被動技能欄的 `action: true`（手術刀的除錯）認可；超頻骰數取「花掉的 RAM − 1」；內海壓制只對花全部 RAM 的技能與壓制姿態放行；共鳴不分現實與內海（不用分欄）。
