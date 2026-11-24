@@ -72,9 +72,9 @@ export const enemiesFeature: Feature = {
       const mine = units.filter((u) => u.side === unit.side)
       const theirs = units.filter((u) => u.side !== unit.side)
       const bossOut = mine.some((u) => u.rank === 'boss' && u.out)
-      // 生命比例只有現實才算：內海的單位沒有生命，改看感載還剩多少空間（1 − 感載 ÷ 上限；flee_below 寫 0 的蕾絲永遠不因此撤退）
+      // 生命比例只有現實才算：內海的單位沒有生命，flee_below 在內海不用（只剩「首領倒下、同伴倒了一半」兩個觸發；M3-lace 定）
       const net = run.mode.layer === 'net'
-      const low = !!unit.ai && (net ? !!unit.load && 1 - unit.load.now / unit.load.max < unit.ai.fleeBelow : run.mode.layer === 'meat' && !!unit.hp && unit.hp.now / unit.hp.max < unit.ai.fleeBelow)
+      const low = run.mode.layer === 'meat' && !!unit.hp && !!unit.ai && unit.hp.now / unit.hp.max < unit.ai.fleeBelow
       // 「同伴倒了一半」的分母是開打時記下的人數（核心在開打時寫進 origin.headcount）：之後叫來的增援不會把它墊高
       const started = run.battle.origin.headcount?.[unit.side] ?? mine.length
       const halfGone = mine.filter((u) => u.out).length * 2 >= started

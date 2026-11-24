@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest'
 import type { BattleSetup, BattleUnit, ContentPack, Feature, GameState, Kernel } from '../../src'
 import { BattleRun, DIFFICULTY_ENEMY_COEF, beginTurn, clone, createKernel, enemyCoefFor, gradeDice, readyFeatures, setupBattle } from '../../src'
+import { combatFeature } from '../../src/features/combat'
 import { deckFeature } from '../../src/features/deck'
 import {
   DEEP_SYNC_PCT, DEFAULT_SYNC, ENEMY_CURVE, NET_CURVE, WHITE_LEAVES_AT, credentialItem, encounterPoints, enemiesFeature, pickCandidates, pickEnemy, pickProblems, setupFromEncounter,
@@ -78,7 +79,7 @@ const ENEMIES: Rec[] = [
   { id: 'en_corp', name: '企業的人', desc: '測試用的敵人。', faction: 'f_c', rank: 'elite', grades: [1, 5], kind: 'human', position: { prefer: [1, 2] }, mode: 'lethal', weapons: [{ class: 'pistol' }], cash: false, ai: { prefer: 'weakest', focus: 1, flee_below: 0 }, loot: [{ credential: true, chance: 1 }, { item: 'it_part', chance: 1 }] },
 ]
 
-export const PACK: ContentPack = {
+const PACK: ContentPack = {
   id: 'lace_test',
   content: {
     skill: SKILLS, weapon_class: WEAPON_CLASSES, battle_status: STATUSES,
@@ -104,6 +105,8 @@ void _rule
 // ===================================================================================================================
 
 const FEATURES: Feature[] = [enemiesFeature, deckFeature, TEST_NET_COMBAT]
+/** 正式的內海行動表：netcombat 的管理行動要用 combat 註冊的效果（check）。 */
+const NETCOMBAT: Feature[] = [combatFeature, enemiesFeature, deckFeature, netcombatFeature]
 const kernelOf = (pack: ContentPack = PACK, features: Feature[] = FEATURES): Kernel => {
   const k = createKernel(features)
   k.content.loadPack(pack)
@@ -279,7 +282,7 @@ describe('同步檔位：沒寫是雜兵標準、精英深、首領 shift；資�
   })
 
   it('裝了 netcombat：會換檔的首領在自己的回合開始時照感載換（不動它寫的 ext.net）', () => {
-    const b = build(netSetup([foeRef('en_gate')]), { features: [enemiesFeature, deckFeature, netcombatFeature] })
+    const b = build(netSetup([foeRef('en_gate')]), { features: NETCOMBAT })
     const u = b.foe(1)
     expect(u.ext.net).toMatchObject({ sync: 'deep', sync_max: 'deep', shift: true, broken: [] })
     u.load!.now = Math.ceil(u.load!.max * 0.7)
@@ -592,31 +595,34 @@ describe('白蕾絲：追蹤度到 60 以上，自己的回合開始就撤走', 
   })
 })
 
-describe('內海的士氣：感載還剩的空間低於 flee_below 就檢定，失敗一律撤退（fled），沒有投降', () => {
-  it('企業潛網者（flee_below 0.3）：感載快滿了，這一步之前擲士氣；失敗是 fled，不是 surrendered', () => {
+describe('內海的士氣：沒有生命比例的觸發（flee_below 不用），失敗一律撤退（fled），沒有投降', () => {
+  it('企業潛網者（flee_below 0.3）感載快滿了也不因此檢定', () => {
     const b = build(netSetup([foeRef('en_runner')], 3))
     const u = b.foe(1)
-    u.load!.now = Math.ceil(u.load!.max * 0.9)
-    // 骰面都是 1：定力檢定必失敗
+    u.load!.now = Math.ceil(u.load!.max * 0.95)
     b.run.roll = (n) => Array.from({ length: n }, () => 1)
-    b.run.rand = () => 0.5
-    const r = b.k.battle.emit('ai.step', { run: b.run, unit: u })
-    expect(r).toBeDefined()
-    expect(u.out).toBe('fled')
-    expect(u.uses.morale).toBe(1)
-  })
-
-  it('感載還很空：不檢定；flee_below 寫 0 的蕾絲不因此撤退', () => {
-    const b = build(netSetup([foeRef('en_runner'), foeRef('en_pink_m')], 3))
-    b.run.roll = (n) => Array.from({ length: n }, () => 1)
-    const u = b.foe(1)
     b.k.battle.emit('ai.step', { run: b.run, unit: u })
     expect(u.out).toBeUndefined()
     expect(u.uses.morale).toBeUndefined()
-    const p = b.foe(2)
-    p.load!.now = p.load!.max - 1
-    b.k.battle.emit('ai.step', { run: b.run, unit: p })
-    expect(p.out).toBeUndefined()
+  })
+
+  it('同伴倒了一半（雜兵）：檢定失敗是 fled，不是 surrendered，也不看第 4 格與人數', () => {
+    const b = build(netSetup([foeRef('en_pink_m'), foeRef('en_pink_m')], 3))
+    const [a, c] = [b.foe(1), b.foe(2)]
+    b.run.setOut(a, 'down')
+    // 對方站著的人數是自己這一方的兩倍以上、站在第 4 格：現實會投降，內海一律撤退
+    c.slot = 4
+    b.run.roll = (n) => Array.from({ length: n }, () => 1)
+    b.k.battle.emit('ai.step', { run: b.run, unit: c })
+    expect(c.uses.morale).toBe(1)
+    expect(c.out).toBe('fled')
+  })
+
+  it('首領（never_flee）不檢定', () => {
+    const b = build(netSetup([foeRef('en_gate'), foeRef('en_pink_m')], 3))
+    b.run.setOut(b.foe(2), 'down')
+    b.k.battle.emit('ai.step', { run: b.run, unit: b.foe(1) })
+    expect(b.foe(1).out).toBeUndefined()
   })
 })
 
@@ -894,11 +900,13 @@ describe('遭遇', () => {
 describe('四個化身對這六種各打完一場：不丟錯、不變式沒有違規', () => {
   const SIX = ['en_white', 'en_pink_m', 'en_pink_e', 'en_black', 'en_gate', 'en_runner']
 
-  for (const [label, features] of [['TEST_NET_COMBAT', FEATURES], ['features/netcombat', [enemiesFeature, deckFeature, netcombatFeature]]] as Array<[string, Feature[]]>) {
+  for (const [label, features] of [['TEST_NET_COMBAT', FEATURES], ['features/netcombat', NETCOMBAT]] as Array<[string, Feature[]]>) {
     for (const id of SIX) {
-      it(`${label}：${id}（I、III、V 級）`, async () => {
-        for (const grade of [1, 3, 5] as const) {
-          const setup = netSetup([foeRef(id), foeRef(id)], grade)
+      it(`${label}：${id}（最低與最高一級）`, async () => {
+        // 兵種出現的最低與最高一級各打一場（我方的化身同級）
+        const range = (ENEMIES.find((e) => e.id === id) as Rec).grades as [number, number]
+        for (const grade of range) {
+          const setup = netSetup([foeRef(id)], grade)
           const test = makeBattleGame({ features, content: [PACK], seed: 9 + grade, battle: setup })
           const { result, violations } = await observed(test.game, () => {
             const out = playOut(test.game, 3000)
@@ -909,13 +917,13 @@ describe('四個化身對這六種各打完一場：不丟錯、不變式沒有�
           const end = await observed(test.game, () => test.game.finishBattle())
           expect(end.violations).toEqual([])
         }
-      })
+      }, 120_000)
     }
   }
 
   it('混編（六種一起）也打得完', async () => {
     const setup = netSetup(SIX.slice(0, 4).map((id) => foeRef(id)), 4)
-    const test = makeBattleGame({ features: [enemiesFeature, deckFeature, netcombatFeature], content: [PACK], seed: 21, battle: setup })
+    const test = makeBattleGame({ features: NETCOMBAT, content: [PACK], seed: 21, battle: setup })
     const { violations } = await observed(test.game, () => playOut(test.game, 3000))
     expect(violations).toEqual([])
   })

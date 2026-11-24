@@ -60,6 +60,8 @@ const PACK: ContentPack = {
     enemy: [{
       id: 'en_aud_catch', name: '要活的打手', desc: '測試用的敵人。', faction: 'f_gang', rank: 'minion', grades: [1, 5], kind: 'human',
       position: { prefer: [1, 2], cover_use: 0.5 }, mode: 'capture', weapons: [{ class: 'pistol' }], ai: { prefer: 'weakest', focus: 1, flee_below: 0.5 },
+      // M3-lace 之後：放進內海要有 constructs（沒有的整步不成立）；現實照舊用 weapons
+      constructs: [{ id: 'aud_c', class: 'pistol' }],
     }],
     blueprint: [
       { id: 'bp_aud_pistol', kind: 'weapon', name: '手槍', desc: '手槍。', brand: 'b', grade: 1, legal: 'free', price: 0, size: 1, weight: 1, require: [], optional: [], class: 'pistol', carry: 'side' },
@@ -320,7 +322,7 @@ describe('敵人的士氣、天使急救與束帶（ENEMIES 4.4 節、第 5 節�
     const mkUnit = (mode: string) => enemyUnit(g.game.k, g.game.state, { id: 'en_aud_catch' }, { grade: 1, allyCount: 1, mode })
     expect(mkUnit('meat').quick).toEqual([{ item: 'it_zip_tie', qty: 2 }])
     expect(mkUnit('net').quick).toEqual([])
-    // 經由開戰：來源 enemy 在內海照舊組出現實的單位（那是 M3-lace 的事），只是不帶束帶
+    // 經由開戰：來源 enemy 在內海組內海的單位（M3-lace；寫了 constructs 的兵種才進得來），不帶束帶
     g.game.startBattle({ mode: 'net', grade: 1, cover: 'medium', allies: [raw(netAlly())], foes: [{ from: 'enemy', id: 'en_aud_catch' }] } as BattleSetup)
     expect(g.game.state.battle!.units.f1!.quick).toEqual([])
   })
