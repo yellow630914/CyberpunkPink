@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { createSSRApp } from 'vue'
+import { createSSRApp, defineComponent, h as vh } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import type { Component } from 'vue'
 import type { ContentPack, Feature } from '@engine/src'
@@ -20,6 +20,8 @@ import endSrc from '../../src/components/EndCard.vue?raw'
 import viewSrc from '../../src/lib/diveView.ts?raw'
 import { bracketKey, bracketRule, costParts, deckLine, endParts, keptLine, mazeResultOf, sortSites } from '../../src/lib/diveView'
 import { lifeDialogOf } from '../../src/lib/lifeView'
+import { useBattle } from '../../src/lib/useBattle'
+import { netBattleLeaveTo } from '../../src/lib/netrunView'
 import { DIG_SITE, DIVE_SHOP } from '../../src/data/demo/net'
 
 vi.mock('../../src/router', () => ({ FULL_PAGES: [{ path: '/', name: '主畫面' }], router: {} }))
@@ -457,3 +459,96 @@ describe('示意世界包：潛艙店「浮標」與去處', () => {
     expect((await e.dive.exit()).status).toBe('applied')
   })
 })
+
+
+// ===================================================================================================================
+describe('M3 修正批：迷宮館的報名原因、打輸、潛入中現實的操作', () => {
+  it('報名的新原因逐字是引擎的 blocks：要先潛入、有人沒橋、沒有能用的武器構裝', async () => {
+    const { e } = await start({ cash: 1000 })
+    // 還沒潛入
+    const before = e.maze.brackets()[0]!
+    expect(before.block).toContain('要先從接入點潛入')
+    await e.dive.enter()
+    expect(e.maze.brackets()[0]!.block).toBeNull()
+    // 沒有能用的武器構裝（潛入中不能換，所以在潛入之前卸）
+    const k2 = await start({ cash: 1000 })
+    expect(k2.e.commit({ summary: '卸構裝', changes: [{ op: 'actor.ext', id: k2.e.state.pc!, key: 'deck', value: { slots: [], scripts: [] } }] as never })).toBeNull()
+    await k2.e.dive.enter()
+    const noKit = k2.e.maze.brackets()[0]!
+    expect(noKit.block).toContain('要有能用的武器構裝')
+    const hh = clean(await render(k2.pinia, DiveDialog, { entryId: 1 }))
+    expect(tag(hh, `data-enroll="${bracketKey(noKit)}"`)).toContain('aria-disabled')
+    expect(within(hh, `data-bracket="${bracketKey(noKit)}"`)).toContain(noKit.block!)
+    expect((await k2.e.maze.enter('rookie', 1)).reason).toBe(noKit.block)
+    // 有人沒橋
+    const k3 = await start({ cash: 1000 })
+    expect(k3.e.commit({ summary: '拆橋', changes: [{ op: 'actor.ext', id: k3.e.state.pc!, key: 'bridge', value: null }] as never })).toBeNull()
+    // 沒有橋進不了內海：潛入本身就被擋，迷宮館的報名一併把「沒有橋」與「要先潛入」兩條原因都列出來（引擎的 blocks 原樣）
+    const noBridge = k3.e.maze.brackets()[0]!
+    expect(noBridge.blocks.some((b) => b.includes('沒有橋'))).toBe(true)
+    expect(noBridge.block).toBe(noBridge.blocks.join(''))
+  })
+
+  it('迷宮館打輸：不開戰敗三選一；戰鬥結束是 netrun.logout（defeat）與 maze.result，人還在潛入中，離開戰鬥回子網頁的結算', async () => {
+    const { e, pinia } = await start({ cash: 1000 })
+    await e.dive.enter()
+    expect((await e.maze.enter('rookie', 1)).status).toBe('applied')
+    reveal(e)
+    const foe = markersOf(e, 'f').find((f) => e.net.grid()!.cells[f.at[1]]![f.at[0]] === 'net_foe')!
+    standNear(e, foe.at)
+    expect((await e.net.use('fight', foe.id)).status).toBe('applied')
+    expect(e.battleLayer()).toBe('net')
+    const r = router2()
+    await r.push('/netcombat')
+    await r.isReady()
+    let bt!: ReturnType<typeof useBattle>
+    const Probe = defineComponent({ setup() { bt = useBattle({ from: () => '/subnet', fast: () => true, enc: () => undefined, fallback: false }); return () => vh('div') } })
+    const app = createSSRApp(Probe)
+    app.use(pinia)
+    app.use(r)
+    await renderToString(app)
+    // 投降
+    for (let i = 0; i < 200 && e.battleOptions()!.waiting !== 'over'; i++) {
+      if (e.battleOptions()!.waiting === 'ai') e.battleNext()
+      else expect(e.battleAct({ action: 'net_surrender' } as never).status).toBe('applied')
+    }
+    expect(e.battleOptions()!.waiting).toBe('over')
+    await bt.settle()
+    await new Promise((ok) => setTimeout(ok, 0))
+    expect(e.pendingDefeat).toBeNull()
+    expect(e.net.view()).toBeNull()
+    expect(e.dive.view().diving).toBe(true)
+    const end = e.dive.lastEnd()!
+    expect(end.action).toBe('netrun.logout')
+    expect(end.maze).not.toBeNull()
+    expect(mazeResultOf(end.maze!.data)).toMatchObject({ done: false, forfeited: 50 })
+    expect(r.currentRoute.value.path).toBe('/subnet')
+    // 結算頁在 /subnet 看得到
+    expect(clean(await render(pinia, SubnetScreen, {}, '/subnet'))).toContain('data-settle')
+  })
+
+  it('netBattleLeaveTo：行程沒了、人還在潛入中而且結算還在，回結算頁；其餘照舊', () => {
+    expect(netBattleLeaveTo('/subnet', { run: false, commission: false, jobs: false, settle: true })).toBe('/subnet')
+    expect(netBattleLeaveTo('/subnet', { run: false, commission: false, jobs: false })).toBe('/')
+    expect(netBattleLeaveTo('/subnet', { run: false, commission: true, jobs: false })).toBe('/commission')
+    expect(netBattleLeaveTo('/subnet', { run: true, commission: false, jobs: false })).toBe('/subnet')
+  })
+
+  it('潛入中腳下是現實街：走格子、商店結帳、對話、這裡的選項都被擋，原因是引擎的「先登出」，沒有靜默失敗', async () => {
+    const { e } = await start({ cash: 1000 })
+    await e.dive.enter()
+    const w = e.world.walk('east')
+    expect(w.ok).toBe(false)
+    expect(w.reason).toContain('先登出')
+    expect(e.blockOf('commit:trade.checkout')).toContain('先登出')
+    expect(e.blockOf('commit:npc.talk')).toContain('先登出')
+    expect(e.trade.lock()).toContain('先登出')
+    const r = await e.world.go()
+    expect(r.status).toBe('refused')
+    expect(r.reason).toBeTruthy()
+    // 登出之後都恢復
+    expect((await e.dive.exit()).status).toBe('applied')
+    expect(e.trade.lock()).toBeNull()
+  })
+})
+const router2 = () => createRouter({ history: createMemoryHistory(), routes: ['/', '/subnet', '/netcombat', '/commission'].map((path) => ({ path, component: { render: () => null } })) })
