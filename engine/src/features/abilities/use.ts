@@ -86,10 +86,12 @@ export function usageBlocks(view: Pick<BattleView, 'battle' | 'mode' | 'mods'>, 
   if (use.first_round && view.battle.round !== 1) out.push('只能在第一回合用。')
   if (use.not_first_round && view.battle.round === 1) out.push('第一回合不能用。')
   if (use.per_turn !== undefined) {
+    // 每回合的次數可以被修正 turn_extra 加（tags 是技能的 id 或組的名字；繞指柔）
+    const turnCap = use.per_turn + featureTotal(view as BattleView, u, 'turn_extra', [use.group ?? ab.id])
     if (use.group !== undefined) {
       const n = u.uses[groupKey(use.group)] ?? 0
-      if (n >= use.per_turn) out.push(`這一回合「${use.group}」這一組的技能已經用了 ${n} 次，不能再用。`)
-    } else if ((u.uses[`turn:${ab.id}`] ?? 0) >= use.per_turn) out.push('這一回合已經用過了。')
+      if (n >= turnCap) out.push(`這一回合「${use.group}」這一組的技能已經用了 ${n} 次，不能再用。`)
+    } else if ((u.uses[`turn:${ab.id}`] ?? 0) >= turnCap) out.push('這一回合已經用過了。')
   }
   if (use.ram_all_min !== undefined) {
     const now = u.pools.ram?.now ?? 0

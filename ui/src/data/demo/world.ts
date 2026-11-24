@@ -40,7 +40,7 @@ const FAC_TYPES: Array<{ id: string; name: string; sleep?: { rate: number; cost:
   { id: 'fac_inn', name: '旅店', sleep: { rate: 0.5, cost: 10 } }, { id: 'fac_camp', name: '營地', sleep: { rate: 0.3, cost: 0 } },
 ]
 /** 有床位的舊設施（舊資料的 rest 服務裡睡一晚的那兩處）：種類換成有 sleep 的 */
-const SLEEP_TYPE: Record<string, string> = { noid: 'fac_inn', camp: 'fac_camp' }
+const SLEEP_TYPE: Record<string, string> = { noid: 'fac_inn', camp: 'fac_camp', divepod: 'fac_dive' }
 const typeOf = (f: Facility): string => SLEEP_TYPE[f.id] ?? `fac_${f.kind}`
 
 /** 營業時間（示意）：酒吧與俱樂部夜裡開、商店與診所白天到晚上，其餘一直開。 */

@@ -12,7 +12,7 @@ import { adminNeed, bumpUses, costOf, usageBlocks } from './use'
 import { syncWallet } from './wallet'
 import type { AbilityEntry, ReactDef, TriggerDef } from './types'
 import { OWNER } from './types'
-import { equippedOf, isRec, tierIn } from './unitdata'
+import { equippedOf, isRec, linkedIds, tierIn } from './unitdata'
 
 /** 正在做某個反應的效果：這段時間裡發生的攻擊不再觸發反應。 */
 const reacting = new WeakSet<BattleRun>()
@@ -59,6 +59,8 @@ function whoMatches(run: BattleRun, holder: BattleUnit, who: string, e: Event, r
     case 'adjacent': return mate && s !== holder && onField(s) && Math.abs(s.slot - holder.slot) === 1
     case 'ally': return mate && s !== holder
     case 'self_or_ally': return mate
+    // 偶像接著的隊友（同步中）：holder 的 link 名單裡有他（M3-skill-net-b）
+    case 'linked': return mate && s !== holder && linkedIds(holder).includes(s.id)
     case 'near': return mate && onField(s) && Math.abs(s.slot - holder.slot) <= 1
     case 'foe_by_self': return !mate && e.by === holder
     // 自己的一台被打（敢打我家孩子？）：被打的是自己的無人機（替身）

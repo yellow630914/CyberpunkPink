@@ -29,11 +29,11 @@ export const TREE_XP: readonly number[] = [0, 40, 120, 240, 400]
  * use_extra 某個技能每場的次數加幾次（M3-skill-net-a：名醫「除錯每場可以用兩次」；tags 寫那個技能的 id，只算寫了 per_fight 的技能）；
  * M3-skill-net-b：remote_uses 遠端叫人每場次數加減（內海欄的叫人；現實的 call_uses 在內海欄寫不了）；no_flash 大於 0 時這個人過載不閃斷（RAM 不歸零、閃斷拿掉：護盤）；
  * ram_free 帶這些標籤的行動花掉的 RAM 做完退回來（定調、曝光的共鳴；tags 或 tags_any 寫行動的 id，per_fight 每場只退幾次）；no_pin 大於 0 時這個人釘不住（為你而唱）；
- * link_relief 偶像替隊友分擔感載時自己少受幾點（我還可以！）。
+ * link_relief 偶像替隊友分擔感載時自己少受幾點（我還可以！）；turn_extra 寫了 per_turn 的技能（或同一組）每回合多幾次（tags 寫技能的 id 或組的名字；繞指柔：誘惑攻擊每回合 2 次）。
  */
 export const FEATURE_MOD_KINDS = [
   'instinct_points', 'instinct_cap', 'instinct_free', 'call_uses', 'call_hit', 'aim_all', 'no_wound', 'damage_roll', 'give_ap_cap', 'tease_hit', 'tease_bonus', 'use_extra',
-  'remote_uses', 'no_flash', 'ram_free', 'no_pin', 'link_relief',
+  'remote_uses', 'no_flash', 'ram_free', 'no_pin', 'link_relief', 'turn_extra',
 ] as const
 export type FeatureModKind = (typeof FEATURE_MOD_KINDS)[number]
 export type AnyModKind = ModKind | FeatureModKind

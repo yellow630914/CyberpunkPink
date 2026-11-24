@@ -3,7 +3,7 @@ import { planArrive } from '@engine/src/features/world'
 import { demoStart, legacyFacilityAt, blockIdOf, stationMarkerOf, worldContent } from './world'
 import { transitContent } from './transit'
 import { eventContent } from './events'
-import { commissionContent } from './commission'
+import { commissionContent, demoCommissionFeature } from './commission'
 import { sceneContent } from './scene'
 import { lifeContent } from './life'
 import { peopleContent } from './people'
@@ -42,6 +42,7 @@ export function demoStartFeature(): Feature {
   return {
     id: 'demo_start',
     install(kernel) {
+      demoCommissionFeature().install(kernel)
       const k = kernel as unknown as GridKernel
       k.hooks.on('game.new', 'demo_start', ({ state }) => {
         const start = demoStart()

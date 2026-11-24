@@ -1,4 +1,6 @@
 import type { Change, ContentEntry } from '@engine/src'
+import { DISTRICTS, blockSpec } from '../districts'
+import { blockIdOf, markerOfFacility } from './world'
 
 /**
  * 示意世界包的「內海」部分（M3-ui-deck；dev/adr/0018 第三節、dev/work/M3-deck.md 的格式）：
@@ -35,10 +37,54 @@ const skin: Rec[] = [
   { id: 'it_d212f6', name: '應援 T', style: '偶像', style_value: 2, exposure: 0, cut: 'neutral', adult: false, price: 130 },
 ]
 
+
+// ---- 委託的內海面要的（M3-ui-commission-net；dev/work/M3-plan.md 第 15 題） ----
+
+/** 蕾絲掛在哪些勢力下面：示意包裡有內海委託的區（蜂巢、四十二番街）的勢力 */
+export const NET_FACTIONS = ['lonestar', 'strippers', 'guard'] as const
+
+/** 目標勢力的四種蕾絲：白（雜兵）、粉雜兵、粉精英、閘門守衛（粉・首領）。數字是引擎照位階算的，這裡只有名字與位置偏好 */
+const lace = (faction: string, rank: 'minion' | 'elite' | 'boss', color: 'white' | 'pink', name: string, desc: string): Rec => ({
+  id: `en_net_${faction}_${rank}_${color}`, name, desc, faction, rank, grades: [1, 5], kind: 'lace', color,
+  position: { prefer: color === 'white' ? [4] : [2, 3], cover_use: 0.5 }, ai: { prefer: 'overloaded', focus: 1, flee_below: 0 },
+})
+const enemy: Rec[] = NET_FACTIONS.flatMap((f) => [
+  lace(f, 'minion', 'white', '白蕾絲「訪客」', '訪客網的接待員。不打人，追蹤度高了它就把你的位置報上去。'),
+  lace(f, 'minion', 'pink', '粉蕾絲「侍者」', '會黏人的粉紅色小東西，沒有生命，只有防火牆與記憶體。'),
+  lace(f, 'elite', 'pink', '粉蕾絲「領班」', '帶著一組腳本的領班，打它要花更多記憶體。'),
+  lace(f, 'boss', 'pink', '閘門守衛', '守在閘門前的大傢伙：不打倒它，閘門就不開。'),
+])
+
+/** 子網的區：示意用的一般子網（蓋掉引擎內建的 subnet；委託的階段用 commission 那一組密度） */
+const net_region: Rec[] = [{
+  id: 'subnet', name: '一般子網（示意）', map_kind: 'subnet', size: [11, 9], carve: [30, 40], sight: 2, pressure: 'trace', cover: 'medium', dc: [10, 13, 16, 19, 22],
+  layer: { foe: [2, 3], patrol: [1, 1], archive: [1, 2], trap: [1, 2], rest: [1, 1], safe: [0, 0], control: [0, 0], person: [0, 0] },
+  commission: { foe: [1, 1], patrol: [1, 1], archive: [0, 0], trap: [1, 2], rest: [1, 1], safe: [0, 0], control: [0, 0], person: [0, 0] },
+}]
+
+/** 設施種類：潛艙店（CYBERSPACE 第 2 節：街上的付費隔間；示意包的潛艙店賣腳本，甲板與構裝的店是內容，等匯入） */
+const facility_type: Rec[] = [{ id: 'fac_dive', name: '潛艙店' }]
+export const DIVE_SHOP = 'divepod'
+const shop_type: Rec[] = [{ id: 'demo_divepod', name: '潛艙店', catalog: ['stock_divepod'], buys: ['stock_divepod'], grade_max: 3, cash: true, scan_registered: false, shop_mult: 1, temper: 0 }]
+/** 潛艙店在示意包的哪一塊街區的哪個設施（舊資料的設施 id 是 divepod；找不到會丟錯） */
+function divepodAt(): { district: string; block: string; marker: string } {
+  for (const d of DISTRICTS) for (const name of d.blocks) {
+    if (!blockSpec(d.id, name).facilities.some((f) => f.id === DIVE_SHOP)) continue
+    const block = blockIdOf(d.id, name)
+    const marker = markerOfFacility(block, DIVE_SHOP)
+    if (marker) return { district: d.id, block, marker }
+  }
+  throw new Error('示意包：找不到潛艙店。')
+}
+
 const item: Rec[] = [
   {
-    id: DEMO_SCRIPT, name: '腳本「回填包」II', desc: 'RAM 立刻回 3 點，不超過上限。一次性，存在甲板裡。', category: 'consumable', grade: 2, size: 0, legal: 'free', price: 90, tags: ['script'],
+    id: DEMO_SCRIPT, name: '腳本「回填包」II', desc: 'RAM 立刻回 3 點，不超過上限。一次性，存在甲板裡。', category: 'consumable', grade: 2, size: 0, legal: 'free', price: 90, tags: ['script', 'stock_divepod'], trade_category: 'electronics',
     use: { ap: 1, target: 'self', effects: [{ op: 'net.ram', amount: 3, who: 'self' }] },
+  },
+  {
+    id: 'it_script_refill1', name: '腳本「回填包」I', desc: 'RAM 立刻回 2 點，不超過上限。一次性，存在甲板裡。', category: 'consumable', grade: 1, size: 0, legal: 'free', price: 40, tags: ['script', 'stock_divepod'], trade_category: 'electronics',
+    use: { ap: 1, target: 'self', effects: [{ op: 'net.ram', amount: 2, who: 'self' }] },
   },
 ]
 
@@ -48,7 +94,9 @@ const battle_status: Rec[] = (['weapon', 'defense', 'tool'] as const).map((s) =>
 }))
 
 export function netContent(): Record<string, ContentEntry[]> {
-  return { deck, construct, skin, item, battle_status } as unknown as Record<string, ContentEntry[]>
+  const at = divepodAt()
+  const shop: Rec[] = [{ id: DIVE_SHOP, type: 'demo_divepod', name: '潛艙店「浮標」', district: at.district, block: at.block, facility: at.marker }]
+  return { deck, construct, skin, item, battle_status, enemy, net_region, facility_type, shop_type, shop } as unknown as Record<string, ContentEntry[]>
 }
 
 /**

@@ -37,7 +37,7 @@ function pathProblems(e: Record<string, unknown>): string[] {
   else {
     e.resonance.forEach((r, i) => {
       const at = `resonance[${i}]`
-      if (!isRec(r)) return void p.push(`${at} 要是 { tier, cells, text, effect?, net? }`)
+      if (!isRec(r)) return void p.push(`${at} 要是 { tier, cells, text, effect? }`)
       if (!(isInt(r.tier) && r.tier >= 1 && r.tier <= 5)) p.push(`${at}.tier 要是 1～5 的整數`)
       if (!isNum(r.cells)) p.push(`${at}.cells 要是數字`)
       if (!isText(r.text)) p.push(`${at}.text 要是完整的句子`)

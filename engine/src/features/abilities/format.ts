@@ -58,7 +58,7 @@ export const TRIGGER_WHO: Record<string, readonly string[]> = {
   hp_half: ['self', 'near'],
   overload: ['self', 'ally', 'self_or_ally', 'foe_by_self'],
   checked: ['self', 'ally', 'self_or_ally', 'linked'],
-  out_before: ['self', 'ally', 'self_or_ally'],
+  out_before: ['self', 'ally', 'self_or_ally', 'linked'],
 }
 /** 反應的 if：沒列的 on 不能寫 if（checked 的 if 是檢定的標籤，任何字都行）。 */
 const TRIGGER_IF: Record<string, readonly string[]> = { hit: ['wound', 'crit'], after: ['miss', 'hit', 'crit', 'melee', 'bridged'] }
