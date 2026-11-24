@@ -327,3 +327,10 @@
 - 取捨（審查看）：`ext.net.foes` 等照圖分開；探索回合算節點圖上每個節點；守閘門的是離入口最遠的遭遇；`fx.trace_half` 只減半效果進來的正數；追蹤度量表一趟結束後不清；休息點「不在遭遇前面」生成器不保證。
 - 給 M3-commission-net（重要）：`FACE_KINDS` 處理要把 `face.net` 的 `retreat` 改成帶 `rewind: entry`、`located` 照戰敗算失敗。
 - 給 M3-netrun-nodes：檔案庫與下載、控制節點、人、陷阱、巡邏、安全點、六種目標都歸它；用途往 `usesOfMarker` 加。
+
+## M3-summons-net 回報（2026-11-24）
+
+- 內海的守衛程式：`net_guard_deploy/command/move/recall`（另開 id，因核心行動名稱是靜態字串）；上限內海基底 1 加 `overlay_cap`；指揮花型號的 RAM；醫療型在內海排感載。
+- 核心缺口：`run.overlayHurt`／`damageOverlay` 對感載類傷害一律 0，內海打不到守衛程式（測試以 `it.fails` 留著）→ M3-core-fix-a。
+- 給 enemies：敵方 `enemy.command` 只有現實；給 abilities：`kind: drone` 選項要照 `net` 旗標過濾。
+- 構裝體（M6）、群眾（M5）沒做。
