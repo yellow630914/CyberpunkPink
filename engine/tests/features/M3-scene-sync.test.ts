@@ -484,7 +484,7 @@ describe('沒有人換檔時和原來一樣', () => {
     const plain = playthrough({})
     const able = playthrough({ pc: { skills: { sync: 3 } } })
     expect(plain.length).toBeGreaterThan(12)
-    const noSkills = (x: string): string => x.replace(/"skills":\{("sync":3)?\},/g, '')
+    const noSkills = (x: string): string => x.replace(/,?"skills":\{("sync":3)?\}/g, '')
     expect(able.map(noSkills)).toEqual(plain.map(noSkills))
     // 每一步的場景裡檔位都是標準、沒有換過、沒有累積沉溺
     const first = JSON.parse(plain[1]!)[0] as SceneState
