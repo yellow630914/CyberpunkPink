@@ -346,6 +346,8 @@ export interface MeatDef {
   slots?: number
   /** 管理行動的基數（內海戰鬥開打時寫成 unit.ext.net.admin）：'tier' 是這棵樹的階數；多個來源加起來 */
   admin?: 'tier' | number
+  /** 內海裡每個回合多消退幾點感載（戰鬥每輪與探索回合都算；衍生數值 net_load_decay 的來源之一：內海的基礎消退是 0，使用者 2026-11-24）。1 以上的整數 */
+  decay?: number
   /** 同步檔位的上限加幾級（戰鬥外也算：衍生數值 sync_cap_bonus 的來源；姿態在戰鬥裡用的是修正 sync_cap） */
   sync_cap?: number
   /** 這一欄是招牌的專屬構裝：佔一個構裝槽（衍生數值 deck_slots_reserved），淺檔整欄不生效（ITEMS 11.7、CYBERSPACE 6.4） */

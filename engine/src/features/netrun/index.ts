@@ -6,7 +6,7 @@
 // 六種目標（下載、接管、找人、打倒、放東西、帶出來）、探索中的管理行動（破解閘門、擦痕跡）與「帶出去才算數」。
 //   nodes.ts（節點上的事）、rounds.ts（探索回合的引擎、巡邏撞上、陷阱）、patrol.ts（路線與位置）、loss.ts（帶出去才算數）、checks.ts（主控、檢定、後門鑰匙）。
 // 第三張（M3-netrun-dig）加了自己去挖的一般子網（setup.entry: 'dig'）：dig.ts——設施類型（net_facility）決定層數、詞條（net_affix）、離開之後留著七天（同一個 site 是同一張圖）、
-//   再進去追蹤度從一半起算、後門、離開時那家企業的敵對值、被定位之後清後門與多一個雜兵；自己的那一趟每個探索回合算 round_minutes 分鐘；甲板的冷卻（deck_cooling）讓感載多消退。
+//   再進去追蹤度從一半起算、後門、離開時那家企業的敵對值、被定位之後清後門與多一個雜兵；自己的那一趟每個探索回合算 round_minutes 分鐘；感載在內海不自然消退（基礎 0，M3 修正批）：探索回合只消退衍生數值 net_load_decay（甲板的散熱 deck_cooling、技能、藥……）那麼多。
 //
 // 接上核心的地方：
 //   內容  net_region（區的規則表，overridable；內建 subnet）、netrun_rule（探索的數字，id: default）、net_facility（設施類型）、net_affix（詞條）
@@ -42,7 +42,7 @@ export { descend, freeUses, gateBlock, gateDc, gateOpen, nodeUses, tickRun, uses
 export { lossOf } from './loss'
 export { adjacency, makePatrol, patrolAt, pickRoute, pingpong } from './patrol'
 export { GOAL_NAME } from './start'
-export { masterTier, mastersOf, keysIn } from './checks'
+export { masterTier, mastersOf, keysIn, spendKey } from './checks'
 export { scaleByGrade, isGoalNode } from './nodes'
 export { netrunView } from './view'
 export type { NetrunView, NodeRef } from './view'
@@ -68,7 +68,11 @@ export const netrunFeature: Feature = {
     // 追蹤度：一座子網一條（鍵是這一趟的地圖實例），往下一層不歸零。AI 與玩家要的效果只在這個功能的行程進行中時收；連動讓這一段的上升減半（trace_half）只管效果進來的量
     k.meters.define({
       kind: TRACE, owner: OWNER, name: '追蹤度', min: -30, max: 100, start: 0, keyed: 'map', cap: { down: 20, up: 20 },
-      accepts: (state) => (readRun(state) ? null : '追蹤度只在潛進網內的一趟裡有。'),
+      // 只收這一趟自己的地圖的追蹤度（自己去挖的子網離開後地圖留七天：別座還留著的圖不能被效果改，M3 審查建議 2）
+      accepts: (state, key) => {
+        const run = readRun(state)
+        return run ? (key === run.map ? null : '追蹤度只能動這一趟的那座網。') : '追蹤度只在潛進網內的一趟裡有。'
+      },
       adjust: (state, _key, delta) => {
         const run = readRun(state)
         return run && delta > 0 && setupOf(run).fx.trace_half ? delta / 2 : delta

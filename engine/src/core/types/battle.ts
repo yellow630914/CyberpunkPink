@@ -182,6 +182,11 @@ export interface BattleUnit {
   armor: number
   /** 感載。沒有橋的（機器、純人）沒有這一條：神經與快感對他無效 */
   load?: BattleMeter
+  /**
+   * 這個人每回合自然消退的感載（只有戰場寫了 decayStat 才有：內海。單位建立時從那個衍生數值抄進來，沒寫是 0；使用者 2026-11-24：內海的基礎消退是 0，
+   * 消退量只來自技能、構裝、藥、狀態與甲板的散熱）。現實的消退照 decayBase ＋ mod(意志)，不看這一欄
+   */
+  decay?: number
   /** 餘韻的層數與承受層數 */
   layers: number
   layersMax: number

@@ -31,7 +31,7 @@ function equippedAbilities(k: Pick<Kernel, 'content'>, state: GameState, actor: 
 const live = (m: MeatDef | null | undefined): m is MeatDef => !!m && !m.pending
 
 /** 內海欄優先、沒寫才看現實欄。 */
-function numberOf(ab: AbilityEntry, key: 'slots' | 'sync_cap'): number {
+function numberOf(ab: AbilityEntry, key: 'slots' | 'sync_cap' | 'decay'): number {
   for (const m of [ab.net, ab.meat]) if (live(m) && typeof m[key] === 'number') return m[key]!
   return 0
 }
@@ -73,6 +73,8 @@ export function registerStats(k: Kernel): void {
   k.stats.addStatProvider('deck_slots', OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, numberOf(ab, 'slots'))))
   k.stats.addStatProvider('deck_slots_reserved', OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, [ab.net, ab.meat].some((m) => live(m) && m.unique === true) ? 1 : 0)))
   k.stats.addStatProvider(FLOW_TIER_STAT, OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, live(ab.net) && typeof ab.net.flow_bonus === 'number' ? ab.net.flow_bonus : 0)))
+  // 內海的感載消退（deck 定義 net_load_decay，基礎 0；甲板的散熱、技能、藥、狀態加上去）：技能的欄寫 decay 就多消退幾點，戰鬥與探索都算
+  k.stats.addStatProvider('net_load_decay', OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, numberOf(ab, 'decay'))))
   k.stats.addStatProvider(SYNC_CAP_STAT, OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, numberOf(ab, 'sync_cap'))))
 }
 

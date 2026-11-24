@@ -10,7 +10,7 @@ import type { Change, GameState, Kernel, Launch, MarkerDef, Origin, ReportDraft,
 import {
   ActionBlocked, DEGREE_NAME, attachActivityEnd, clone, endActivity, formatAmount, gridHere, mapDef, meterOf, openMap, pointKey, restDone, rollCheck, Sheet,
 } from '../../core'
-import { settleAux } from './aux'
+import { netTeam, settleAux } from './aux'
 import { RETREAT_REWIND, resultOf, retreatEnd, settleDone } from './close'
 import type { BranchDef, BranchKind, CommissionEntry, Face, FaceDef, GoalDef, Rank, Run, RouteEntry } from './model'
 import {
@@ -72,20 +72,21 @@ function lockOf(run: Run, face: Face): string | null {
   return typeof lock === 'string' && !run.links.some((l) => l.id === lock) ? AIRGAP_TEXT : null
 }
 
-/** probing 是進副本時的檢查（每個階段都要有選得了的面）：隔離區不算擋（格式檢查保證更早的階段會給它的連動）。 */
-function faceBlock(k: Kernel, run: Run, face: Face, probing = false): string | null {
+/** probing 是進副本時的檢查（每個階段都要有選得了的面）：隔離區不算擋（格式檢查保證更早的階段會給它的連動）。state 給了才查人（選面與畫面）。 */
+function faceBlock(k: Kernel, run: Run, face: Face, probing = false, state?: GameState): string | null {
   if (!run.def.stages[run.stage - 1]?.faces[face]) return '這個階段沒有開這一面。'
   if (isLast(run) && face !== run.def.main) return '決定性的一步只能在主面完成。'
   const locked = lockOf(run, face)
   if (locked && !probing) return locked
   if (face !== 'meat' && !k.activity.get(FACE_ACTIVITY[face])) return '這一面還沒有開放。'
+  if (face === 'net' && state && !probing && netTeam(k, state).length === 0) return '隊上沒有人有橋與甲板，進不了內海：先備齊再來，或選別的面。'
   return null
 }
 
 /** 現在這個階段的三個面各自能不能選（沒有開的面也列出來）。 */
-export function faceViews(k: Kernel, run: Run, probing = false): FaceView[] {
+export function faceViews(k: Kernel, run: Run, probing = false, state?: GameState): FaceView[] {
   return (['meat', 'net', 'opinion'] as const).map((face) => ({
-    face, name: FACE_NAME[face], open: !!run.def.stages[run.stage - 1]?.faces[face], block: faceBlock(k, run, face, probing), chosen: run.face === face,
+    face, name: FACE_NAME[face], open: !!run.def.stages[run.stage - 1]?.faces[face], block: faceBlock(k, run, face, probing, state), chosen: run.face === face,
     ...(run.def.stages[run.stage - 1]?.faces[face] && lockOf(run, face) ? { locked: AIRGAP_TEXT } : {}),
   }))
 }
@@ -187,7 +188,7 @@ export function enterDraft(k: Kernel, state: GameState, setup: unknown, origin: 
 export function chooseFace(k: Kernel, state: GameState, face: Face): ReportDraft {
   const run = needRun(state)
   if (run.step !== 'face') throw new ActionBlocked(STEP_TEXT[run.step])
-  const view = faceViews(k, run).find((f) => f.face === face)
+  const view = faceViews(k, run, false, state).find((f) => f.face === face)
   if (!view) throw new ActionBlocked('沒有這一面。')
   if (view.block) throw new ActionBlocked(view.block)
   const n = run.stage
@@ -345,7 +346,7 @@ function planMeat(k: Kernel, state: GameState, run: Run, b: BranchDef, extraAler
  * 內海面多給（dev/adr/0018 第九節）：fx（連動對這一段的效果，副本算好了給）、trace（整趟到目前為止的追蹤度）、decisive、where、defeat_event、employer；
  * 面的資料（layer、encounter、lace、facility、objective、controls）原樣帶過去。
  */
-function faceLaunch(run: Run, b: BranchDef, stealth: boolean): Launch {
+function faceLaunch(run: Run, b: BranchDef, stealth: boolean, team?: string[]): Launch {
   const face = faceOf(run)!
   const { branches: _b, gives: _g, goal: _goal, locked_by: _l, ...rest } = face
   const net = run.face === 'net'
@@ -359,6 +360,8 @@ function faceLaunch(run: Run, b: BranchDef, stealth: boolean): Launch {
         fx: netFx(effectsFor(run, run.stage)), trace: run.trace, decisive: isLast(run), where: stageWhere(run, 'net'),
         // 預備（net_trace_start）整趟只在第一個內海階段加一次：前面已經走過內海階段的，告訴 netrun 不要再加（M3 審查應修 1）
         ...(run.route.some((r) => r.face === 'net') ? { prep_done: true } : {}),
+        // 進網內的人：有橋、有甲板的；沒有的留在現實當輔助（M3 審查應修 5）。沒有甲板功能的世界不給（整隊）
+        ...(team ? { party: team } : {}),
         ...(run.def.defeat_event !== undefined ? { defeat_event: run.def.defeat_event } : {}),
         ...(typeof run.def.employer === 'string' ? { employer: run.def.employer } : isText(terms?.employer) ? { employer: terms.employer } : {}),
       } : {}),
@@ -411,7 +414,7 @@ export function chooseBranch(k: Kernel, state: GameState, branchId: string): Rep
     lines.push(...plan.notes)
   } else {
     // 別的面：把它的玩法開起來，等它的 activity.end（M3、M5）
-    launch.push(faceLaunch(run, b, roll === 'pass'))
+    launch.push(faceLaunch(run, b, roll === 'pass', run.face === 'net' && k.stats.hasStat('deck_grade') ? netTeam(k, state) : undefined))
     delete next.map
   }
   changes.push(runChange(next))
@@ -580,7 +583,7 @@ export function replay(k: Kernel, state: GameState): ReportDraft {
   if (!b) throw new ActionBlocked('找不到這一段選的那條路。')
   if (run.face !== 'meat') {
     if (run.done) throw new ActionBlocked('這一面已經做完了。')
-    return draft(state, 'commission.replay', 'launch', `再來一次：${FACE_NAME[run.face]}面。`, [], { launch: [faceLaunch(run, b, run.route.at(-1)?.stealth === true)] })
+    return draft(state, 'commission.replay', 'launch', `再來一次：${FACE_NAME[run.face]}面。`, [], { launch: [faceLaunch(run, b, run.route.at(-1)?.stealth === true, run.face === 'net' && k.stats.hasStat('deck_grade') ? netTeam(k, state) : undefined)] })
   }
   if (run.map && state.maps.instances[run.map]) throw new ActionBlocked('這一段的地圖還開著，不用再進去。')
   const left = run.map ? meterOf(k, state, 'alert', run.map) : (run.start_alert ?? run.alert)

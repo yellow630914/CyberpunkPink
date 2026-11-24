@@ -231,9 +231,9 @@ describe('區的規則表（net_region）與內建的一般子網', () => {
     expect(regionOf(g.k, { ...TINY, size: [1, 1] })).toMatchObject({ problem: expect.stringContaining('格式不對') })
   })
 
-  it('探索的數字（netrun_rule）有內建的預設：消退 2、門檻 30／60／90、倒數 3 個回合', () => {
+  it('探索的數字（netrun_rule）有內建的預設：基礎消退 0、門檻 30／60／90、倒數 3 個回合', () => {
     const { game: g } = setup()
-    expect(netrunRules(g.k)).toMatchObject({ decay: 2, t1: 30, t2: 60, t3: 90, locate_rounds: 3, gate_t1_dc: 2 })
+    expect(netrunRules(g.k)).toMatchObject({ decay: 0, t1: 30, t2: 60, t3: 90, locate_rounds: 3, gate_t1_dc: 2 })
   })
 })
 
@@ -395,7 +395,7 @@ describe('放行清單', () => {
 // ===================================================================================================================
 
 describe('走路：站上節點算一個探索回合（N5）', () => {
-  it('走到一個節點格 round +1；感載消退 2 ＋ mod(意志)；餘韻不動；走在鏈路上不變', () => {
+  it('走到一個節點格 round +1；感載不消退（內海的基礎消退是 0）；餘韻不動；走在鏈路上不變', () => {
     // 找一個入口旁邊先經過鏈路格的種子
     const seed = seedWhere({ commission: true }, (g) => {
       launch(g, ACT_FACE, { ...SETUP, encounter: [] })
@@ -418,9 +418,9 @@ describe('走路：站上節點算一個探索回合（N5）', () => {
     go(g, target.at)
     expect(expected).toBeGreaterThan(0)
     expect(run(g).round).toBe(expected)
-    // resolve 14 → mod 2 → 每個回合消退 4；同伴的 1 點消完就是 0
-    expect(g.state.actors.pc!.load).toBe(Math.max(0, 12 - 4 * expected))
-    expect(g.state.actors.c1!.load).toBe(0)
+    // 內海的基礎消退是 0（使用者 2026-11-24）：意志 14 也不消退；同伴的 1 點還在
+    expect(g.state.actors.pc!.load).toBe(12)
+    expect(g.state.actors.c1!.load).toBe(1)
     expect(g.state.actors.pc!.afterglow).toBe(2)
   })
 

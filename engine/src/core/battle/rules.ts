@@ -8,6 +8,7 @@ import type { AttrId, BattleStatus, DamageType, Grade, UnitRank } from '../types
 import { ATTR_IDS, DAMAGE_TYPES, UNIT_RANKS } from '../types'
 import type { ContentEntry, ContentRegistry } from '../content/registry'
 import { isRecord } from '../util/sanitize'
+import { battleAttr } from '../rules/sync'
 
 /** 戰鬥的數字（COMBAT_SYSTEM 第 1～7 節；ENEMIES 1.5 節）。每一個戰場各一份，沒寫的用這裡的預設。 */
 export interface BattleNumbers {
@@ -37,7 +38,10 @@ export interface BattleNumbers {
   aimCover: { mult: number; min: number }
   /** 黑暗：全場迴避 +2（有夜視的攻擊不算） */
   darkEvade: number
-  /** 感載每回合自然消退 = decayBase ＋ mod(意志)（CORE_RULES 4.2 節）；最少 0 */
+  /**
+   * 感載每回合自然消退的基礎。現實：decayBase ＋ mod(意志)（CORE_RULES 4.2 節）；最少 0。
+   * 戰場寫了 decayStat 的（內海）：decayBase ＋ 那個衍生數值（單位的 decay）＋ 修正 decay，沒有 mod(意志)；內海的 decayBase 是 0（使用者 2026-11-24：內海裡感載不自然消退）
+   */
   decayBase: number
   /** 穿甲超過護甲的部分算不算額外的傷害。false：穿甲只抵銷護甲（BALANCE 的模擬照這個算）。dev/adr/0013 */
   pierceOverflow: boolean
@@ -99,6 +103,11 @@ export interface BattleMode {
   /** 角色的護甲（防護）讀哪一個衍生數值（unitFromActor）：現實是 armor（裝備的功能註冊），內海是 net_guard（防護構裝）。沒有人註冊那個數值就是 0 */
   guardStat?: string
   /**
+   * 感載每回合自然消退讀哪一個衍生數值（單位的 decay；unitFromActor 抄進來）。有寫的戰場：消退 = numbers.decayBase ＋ 這個數值 ＋ 修正 decay，沒有 mod(意志)。
+   * 內海是 net_load_decay（基本 0；甲板的散熱、技能、構裝、藥、狀態可以加）。沒有人註冊那個數值就是 0。沒寫的戰場（現實）照 decayBase ＋ mod(意志)
+   */
+  decayStat?: string
+  /**
    * 個人的脫離（N12）：我方每一個人都是用 out 這種方式退出、而且一方在場與後方都沒有人時，這一場的結果是 outcome，不是 lose
    * （待遇照 fled：不是戰敗、不留等著選的戰敗）。有人是別的方式退出（倒下、被釘住、被制伏）就照舊是 lose。內海是 { out: 'jacked_out', outcome: 'jack_out' }
    */
@@ -117,8 +126,8 @@ export const DEFAULT_MODES: Record<string, BattleMode> = {
     id: 'net', name: '內海', layer: 'net', tracks: ['load'], overload: 'flash', flashPool: 'ram',
     afterglow: { roll: 1, loadDealtPct: 10 }, armorOnLoad: true,
     coverNames: ['暴露', '半防火牆', '防火牆'], coverWord: '防火牆',
-    numbers: { ...DEFAULT_NUMBERS, rankDamage: { minion: 1, elite: 1, boss: 1 } },
-    attrAs: { body: 'resolve' }, guardStat: 'net_guard', leave: { out: 'jacked_out', outcome: 'jack_out' },
+    numbers: { ...DEFAULT_NUMBERS, decayBase: 0, rankDamage: { minion: 1, elite: 1, boss: 1 } },
+    attrAs: { body: 'resolve' }, guardStat: 'net_guard', decayStat: 'net_load_decay', leave: { out: 'jacked_out', outcome: 'jack_out' },
   },
 }
 
@@ -285,6 +294,7 @@ export interface BattleModeEntry extends ContentEntry {
   attr_as?: Partial<Record<AttrId, AttrId>>
   /** 角色的護甲讀哪一個衍生數值（現實 armor、內海 net_guard）。沒寫照這個戰場的核心預設 */
   guard_stat?: string
+  decay_stat?: string
   /** 個人的脫離：我方每一個人都以 out 退出時，結果是 outcome（不是戰敗）。沒寫照這個戰場的核心預設 */
   leave?: { out: string; outcome: string }
 }
@@ -342,6 +352,7 @@ export function registerBattleKinds(content: ContentRegistry): void {
         }
       }
       if (e.guard_stat !== undefined && !isText(e.guard_stat)) p.push('guard_stat 要是衍生數值的 id（現實 armor、內海 net_guard）')
+      if (e.decay_stat !== undefined && !isText(e.decay_stat)) p.push('decay_stat 要是衍生數值的 id（內海 net_load_decay；有寫的戰場感載的自然消退只來自這個數值與修正）')
       if (e.leave !== undefined) {
         if (!isRecord(e.leave) || !isText(e.leave.out) || !isText(e.leave.outcome)) p.push('leave 要是 { out, outcome }（怎麼退出的、這一場的結果）')
         else {
@@ -404,13 +415,19 @@ export function modeOf(content: ContentRegistry, id: string): BattleMode | undef
   // 屬性的代替、護甲讀的數值、個人的脫離：資料沒寫的照這個戰場的核心預設（和 numbers 一樣只蓋寫了的）
   const attrAs = e.attr_as ?? preset?.attrAs
   const guardStat = e.guard_stat ?? preset?.guardStat ?? (e.layer === 'net' ? 'net_guard' : 'armor')
+  const decayStat = e.decay_stat ?? preset?.decayStat ?? (e.layer === 'net' ? 'net_load_decay' : undefined)
   const leave = e.leave ?? preset?.leave
   return {
     id: e.id, name: e.name, layer: e.layer, tracks: [...e.tracks], overload: e.overload, ...(e.flash_pool ? { flashPool: e.flash_pool } : {}),
     afterglow: { roll: e.afterglow.roll, loadDealtPct: e.afterglow.load_dealt_pct }, armorOnLoad: e.armor_on_load ?? false,
     coverNames: [...e.cover_names] as [string, string, string], coverWord: e.cover_word, numbers: { ...base, ...(e.numbers ?? {}) },
-    ...(attrAs && Object.keys(attrAs).length ? { attrAs: { ...attrAs } } : {}), ...(guardStat ? { guardStat } : {}), ...(leave ? { leave: { ...leave } } : {}),
+    ...(attrAs && Object.keys(attrAs).length ? { attrAs: { ...attrAs } } : {}), ...(guardStat ? { guardStat } : {}), ...(decayStat ? { decayStat } : {}), ...(leave ? { leave: { ...leave } } : {}),
   }
+}
+
+/** 這個戰場裡實際用哪個屬性（戰鬥外、同一個世界的檢定也照它換：內海的機關、節點、潛行用意志代替體格；CYBERSPACE 4.1 節）。沒有這個戰場就是原本的。 */
+export function modeAttr(content: ContentRegistry, modeId: string, attr: AttrId): AttrId {
+  return battleAttr(modeOf(content, modeId), attr)
 }
 
 export function damageTypeOf(content: ContentRegistry, id: DamageType): DamageTypeRule {

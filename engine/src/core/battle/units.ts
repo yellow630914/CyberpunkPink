@@ -35,6 +35,7 @@ function unarmed(attrs: Record<AttrId, number>, skills: Record<string, number>):
  * 上限讀衍生數值（角色的功能註冊的 max_hp、load_cap、ap_max、afterglow_cap、ram_max）；沒有人註冊時照設計書的公式算。
  * 武器、護甲、快取格來自裝備的功能（battle.loadout）；沒有武器：有生命這一條的戰場（現實）是空手，沒有生命這一條的（內海）就是沒有武器。
  * 護甲（防護）讀 mode.guardStat 那個衍生數值（現實 armor、內海 net_guard；沒有人註冊是 0）加 loadout 的 armor：穿著防彈衣進內海不算防護。
+ * 感載每回合的自然消退：戰場寫了 decayStat（內海 net_load_decay）就把那個數值抄成單位的 decay（沒有人註冊是 0）；現實不抄。
  */
 export function unitFromActor(k: BattleKernel, state: GameState, actorId: ActorId, mode: BattleMode, grade: Grade): BattleUnitInit {
   const a = state.actors[actorId]
@@ -53,11 +54,14 @@ export function unitFromActor(k: BattleKernel, state: GameState, actorId: ActorI
   // 內海沒有空手：沒有生命那一條的戰場，沒給武器的人手上就是空的（核心裡用到「手上那一把」的地方都接受沒有武器）
   const weapons = lo.weapons.length ? clone(lo.weapons) : mode.tracks.includes('hp') ? [unarmed(attrs, a.skills)] : []
   const guard = mode.guardStat ? statOr(k, state, actorId, mode.guardStat, 0) : 0
+  // 這個戰場的感載自然消退讀衍生數值（內海 net_load_decay；沒有人註冊是 0）
+  const decay = mode.decayStat ? Math.max(0, Math.floor(statOr(k, state, actorId, mode.decayStat, 0))) : undefined
   return {
     name: a.name, actor: actorId, control: 'player', grade, rank: 'elite',
     attrs, skills: { ...a.skills },
     ...(mode.tracks.includes('hp') ? { hp: { now: clamp(a.hp, 0, hpMax), max: hpMax } } : {}),
     armor: guard + lo.armor,
+    ...(decay !== undefined ? { decay } : {}),
     load: { now: clamp(a.load, 0, Math.max(0, loadMax - 1)), max: Math.max(1, loadMax) },
     layers: a.afterglow, layersMax: statOr(k, state, actorId, 'afterglow_cap', 3), sensitivity, sink: 0,
     // 身上的義體數：義體的功能（M4）註冊 cyber_count 之前都是 0

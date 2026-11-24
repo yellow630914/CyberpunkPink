@@ -3,7 +3,7 @@
 
 import type { BattleInput, BattleState, Change, GameState, Launch, Origin, Report, ReportDraft, SegmentId, SnapshotSlot, Weekday } from '../core/types'
 import type { Feature, Kernel } from '../core/kernel'
-import { createKernel, readyFeatures } from '../core/kernel'
+import { contentWarnings, createKernel, readyFeatures } from '../core/kernel'
 import type { ContentPack } from '../core/content/registry'
 import { ActionBlocked } from '../core/action/action'
 import type { ActionInput } from '../core/action/kinds'
@@ -163,6 +163,11 @@ export class Game {
     this.chains.register(battleEndChain())
     this.chains.register(narratedChain())
     this.state = blankState(0)
+  }
+
+  /** 資料檢查的警告（格式合格、但多半不是你要的；不擋載入）：載入的內容與裝上的功能決定。給世界編輯器與介面的資料頁看。 */
+  contentWarnings(): string[] {
+    return contentWarnings(this.k)
   }
 
   subscribe(fn: Listener): () => void {

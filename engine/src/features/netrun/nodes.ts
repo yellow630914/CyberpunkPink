@@ -15,7 +15,7 @@ import type { Change, GameState, GridUse, Grade, Kernel, MarkerDef, ReportDraft 
 import { ActionBlocked, deriveRng, effectCtx, isRecord, pointKey } from '../../core'
 import { bestTier, checkBeat, keysIn, mastersOf, passed, pickAdmin, pickOf, rollPicked, spendKey } from './checks'
 import { closeDraft, logoutBlock } from './close'
-import { draft, runRegion } from './common'
+import { draft, runRegion, traceDelta } from './common'
 import type { LootEntry, NetExt, NetRun } from './model'
 import { ACT_FACE, TRACE, nodeAt } from './model'
 import { advanceRound, newOut, patrolFight, workChanges, workOf } from './rounds'
@@ -32,7 +32,8 @@ export const isGoalNode = (run: NetRun, sheetId: string, marker: Pick<MarkerDef,
 
 /** 追蹤度加減（這一區沒有追蹤度就沒有）。 */
 export function traceChanges(k: Kernel, run: NetRun, delta: number): Change[] {
-  return delta !== 0 && runRegion(k, run).pressure === 'trace' && k.meters.has(TRACE) ? [{ op: 'meter', kind: TRACE, key: run.map, delta }] : []
+  const d = traceDelta(run, delta)
+  return d !== 0 && runRegion(k, run).pressure === 'trace' && k.meters.has(TRACE) ? [{ op: 'meter', kind: TRACE, key: run.map, delta: d }] : []
 }
 
 const usedHere = (net: NetExt, sheetId: string, id: string): boolean => (net.used[sheetId] ?? []).includes(id)

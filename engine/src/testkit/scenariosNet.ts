@@ -77,6 +77,12 @@ export function makeNetMate(id: string, name: string, role: 'companion' | 'npc' 
   return makeActor({ id, name, role, attrs: { body: 14, reflex: 15, tech: 14, intellect: 14, resolve: 14, charm: 12 }, skills: { firearms: 2, brawl: 2, sync: 2, composure: 2 }, ext: { bridge: BRIDGE } })
 }
 
+/** 內海委託裡的行者（名冊上的人）：和 makeRunner 一樣，加一份橋參數：沒有橋的人進不了內海，會自動留在現實當輔助（M3 修正批），測試要他一起進網內。 */
+export function makeNetRunner() {
+  const r = makeRunner()
+  return makeActor({ id: r.id, name: r.name, role: r.role, ext: { ...r.ext, bridge: BRIDGE } })
+}
+
 /** 主角的構裝與快駭程式（甲板 6 槽：槍、近戰、干擾、防護、工具、快駭）。 */
 export const PC_SLOTS = ['cs_tw_gun', 'cs_tw_blade', 'cs_tw_jam', 'cs_tw_guard', 'cs_tw_probe', 'qh_tw_zap']
 /** 隊友的構裝（槍加防護）。 */
@@ -158,7 +164,7 @@ export interface NetCommissionOptions extends CommissionOptions {
 export function makeNetCommissionGame(o: NetCommissionOptions = {}): NetCommissionGame {
   const { pc, pay, patch, actors, offer, ...rest } = o
   const t = makeWorldGame({
-    seed: 6, ...rest, pc: pc ?? NET_PC, actors: [makeRunner(), ...(actors ?? [])], features: [...(o.features ?? []), TEST_NET_ADMIN],
+    seed: 6, ...rest, pc: pc ?? NET_PC, actors: [makeNetRunner(), ...(actors ?? [])], features: [...(o.features ?? []), TEST_NET_ADMIN],
     patch: { time: { day: 3, hour: 10, minute: 0 }, money: { cred: 500, cash: 1000 }, inventory: netInventory(2) as never, ...patch },
   })
   const { game } = t

@@ -96,6 +96,7 @@
     ],
     "cover_word": "防火牆",
     "numbers": {
+      "decayBase": 0,
       "rankDamage": {
         "minion": 1,
         "elite": 1,
@@ -106,6 +107,7 @@
       "body": "resolve"
     },
     "guard_stat": "net_guard",
+    "decay_stat": "net_load_decay",
     "leave": {
       "out": "jacked_out",
       "outcome": "jack_out"

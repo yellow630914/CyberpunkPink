@@ -154,7 +154,7 @@ export function commissionView(k: Kernel, state: GameState): CommissionView | nu
     target_faction: run.def.target_faction, district: run.def.district, conditions: run.def.conditions ? [...run.def.conditions] : [],
     stages: total, stage, stageName: done ? '全部做完了' : stageName(run.def, stage), step: run.step, stageMinutes: rules.stage_minutes,
     track,
-    faces: done ? [] : faceViews(k, run),
+    faces: done ? [] : faceViews(k, run, false, state),
     branches: run.step === 'branch' || play ? branchViews(k, state, run) : [],
     ...(play ? { goal: goalView(k, state, run) } : {}),
     links, aux: done ? [] : auxViews(k, state, run, alertNow), route: run.route.map((r) => ({ ...r })),

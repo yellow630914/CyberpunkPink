@@ -39,7 +39,16 @@ const enemy = (id: string, rank: string, faction: string): Rec => ({
   id, name: `${faction}的${rank}`, desc: '測試用的敵人。', faction, rank, grades: [1, 5], kind: 'human', mods: { hp: 0.5, evade: -30, attack: -8 },
   position: { prefer: [1, 2], cover_use: 0.5 }, mode: 'lethal', weapons: [{ class: 'pistol' }], ai: { prefer: 'weakest', focus: 1, flee_below: 0 },
 })
-const ENEMIES = (['f_a', 'f_b'] as const).flatMap((f) => (['minion', 'elite', 'boss'] as const).map((r) => enemy(`en_${f}_${r}`, r, f)))
+/** 網內的兵種（蕾絲，有 constructs）：中間人生成內海面時要先問過挑得到（M3 修正批）；每個勢力每個位階各一個粉的、一個黑的。 */
+const lace = (id: string, rank: string, faction: string, color: string): Rec => ({
+  id, name: `${faction}的${color}蕾絲（${rank}）`, desc: '測試用的網內敵人。', faction, rank, grades: [1, 5], kind: 'lace', color,
+  position: { prefer: [1, 2], cover_use: 0.5 }, ai: { prefer: 'overloaded', focus: 1, flee_below: 0 },
+  constructs: [{ id: `cs_${id}`, class: 'pistol', type: 'neural', ram: 1 }], mods: { load: 0.5, attack: -10, evade: -6 },
+})
+const ENEMIES = [
+  ...(['f_a', 'f_b'] as const).flatMap((f) => (['minion', 'elite', 'boss'] as const).map((r) => enemy(`en_${f}_${r}`, r, f))),
+  ...(['f_a', 'f_b'] as const).flatMap((f) => (['minion', 'elite', 'boss'] as const).flatMap((r) => (['pink', 'black'] as const).map((c) => lace(`la_${f}_${r}_${c}`, r, f, c)))),
+]
 
 /** 一間敞開的小房間（三個入口、一個保全崗、一個目標點、一個撤離點）。 */
 const room = (sheet: string): Rec => ({
@@ -767,5 +776,41 @@ describe('性質', () => {
       expect(stagesOf(oa).map((s) => s.faces.meat?.map)).toEqual(stagesOf(ob).map((s) => s.faces.meat?.map))
       expect(stagesOf(oa).map((s) => s.faces.meat?.post)).toEqual(stagesOf(ob).map((s) => s.faces.meat?.post))
     }
+  })
+})
+
+// ===================================================================================================================
+// 內海的敵人挑得到嗎（M3 修正批：審查列為應修）
+// ===================================================================================================================
+
+describe('生成時先問內海的敵人挑不挑得到', () => {
+  const withEnemies = (list: Rec[]): ContentPack => ({ ...pack(), content: { ...pack().content, enemy: list as never } }) as ContentPack
+  const base = pack().content.enemy as unknown as Rec[]
+
+  it('一個網內的兵種都沒有：主面是內海的竊密與有內海階段的奪取都生成不出來，每一次抽的原因都是「挑不到內海的敵人」；不會生成一件做不完的委託', () => {
+    const g = setup({ rep: 75, content: [withEnemies(base.filter((e) => e.kind !== 'lace'))] })
+    for (const type of ['t_steal', 't_seize']) {
+      const t = generateTrace(g.k, g.state, { fixer: { ...fixerOf(g), kinds: [type] } as FixerEntry, seed: `nolace_${type}` })
+      expect(t.offer, type).toBeNull()
+      expect(t.tries.every((x) => typeof x === 'string' && /挑不到內海的敵人/.test(x)), type).toBe(true)
+    }
+    expect(offersFor(g.k, g.state, fixerOf(g), 1)).toEqual([])
+  })
+
+  it('缺的是首領（有雜兵與精英的蕾絲、沒有首領）：竊密最後一個階段要首領，挑不到；奪取的內海階段不用首領時照樣生成得出來', () => {
+    const g = setup({ rep: 75, content: [withEnemies(base.filter((e) => e.kind !== 'lace' || e.rank !== 'boss'))] })
+    const steal = generateTrace(g.k, g.state, { fixer: { ...fixerOf(g), kinds: ['t_steal'] } as FixerEntry, seed: 'noboss' })
+    expect(steal.offer).toBeNull()
+    expect(steal.tries.some((x) => /位階 boss/.test(x ?? ''))).toBe(true)
+  })
+
+  it('對照：有網內的兵種（粉與黑）時照常生成；現實面的挑選（lethal）不受網內兵種影響', () => {
+    const g = setup({ rep: 75 })
+    expect(generateTrace(g.k, g.state, { fixer: { ...fixerOf(g), kinds: ['t_steal'] } as FixerEntry, seed: 'ok' }).offer).not.toBeNull()
+    // 只有網內的兵種、沒有現實的兵種：現實面挑不到（舊的行為不變）
+    const h = setup({ rep: 75, content: [withEnemies(base.filter((e) => e.kind === 'lace'))] })
+    const t = generateTrace(h.k, h.state, { fixer: { ...fixerOf(h), kinds: ['t_seize'] } as FixerEntry, seed: 'nomeat' })
+    expect(t.offer).toBeNull()
+    expect(t.tries.some((x) => /挑不到敵人/.test(x ?? '') && !/內海/.test(x ?? ''))).toBe(true)
   })
 })

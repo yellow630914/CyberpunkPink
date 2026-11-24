@@ -553,15 +553,16 @@ describe('戰鬥裡的追蹤度（CYBERSPACE 6.8 節）', () => {
     expect(traceOf(a)).toBe(64)
   })
 
-  it('60 的增援同理：reinforce.t60 的人在跨過 60 的那一輪叫、各只叫一次；兩個門檻同一輪都跨過就都叫', () => {
+  it('60 的增援同理：reinforce.t60 的人在跨過 60 的那一輪叫、各只叫一次；兩個門檻同一刻都跨過就都叫', () => {
     const elite = { from: 'unit', unit: lace('elite', { name: '精英蕾絲', weapons: [] }) }
-    const a = mk(58, { reinforce: { t30: [WHITE()], t60: [elite] } })
-    // 第 2 輪 +3：61，一口氣跨過 30 與 60
-    const beats = rounds(a, 1)
+    const a = mk(20, { reinforce: { t30: [WHITE()], t60: [elite] } })
+    // 這一場裡一口氣加到 61（net.trace +41）：同時跨過 30 與 60
+    const run = a.run()
+    run.effects([{ op: 'net.trace', amount: 41 }], { user: a.a(1), source: SRC })
     expect(traceOf(a)).toBe(61)
     expect(a.battle.field.t30).toBe(true)
     expect(a.battle.field.t60).toBe(true)
-    expect(tagged(beats, 'call_in')).toHaveLength(2)
+    expect(tagged(run.beats, 'call_in')).toHaveLength(2)
     rounds(a, 3)
     expect(Object.values(a.battle.units).filter((u) => u.name === '精英蕾絲')).toHaveLength(1)
     expect(Object.values(a.battle.units).filter((u) => u.name === '白蕾絲')).toHaveLength(1)

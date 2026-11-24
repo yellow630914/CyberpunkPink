@@ -7,8 +7,9 @@ import type { Probe } from '../state/probe'
 import type { RulesKernel } from '../rules/kernel'
 import { isRecord } from '../util/sanitize'
 import { ifProblem, whoProblem } from './effects'
-import { sameTarget, wielded } from './field'
+import { poolName, sameTarget, wielded } from './field'
 import type { BattleMode, BattleNumbers, ModKind } from './rules'
+import { FLASH } from './rules'
 import type { BattleRun } from './run'
 import type { UnitRef } from './units'
 
@@ -238,6 +239,17 @@ export function actionCost(view: BattleView, unit: BattleUnit, def: BattleAction
   const ramDelta = ram > 0 ? view.mods('action_ram', unit, undefined, weapon, tags, ram).reduce((sum, p) => sum + p.value, 0) : 0
   if (!delta && !ramDelta) return base
   return { ...base, ...(delta ? { ap: Math.max(0, base.ap + delta) } : {}), ...(ramDelta ? { ram: Math.max(1, ram + ramDelta) } : {}) }
+}
+
+/**
+ * 閃斷的那一回合只能做不花 RAM 的事（CYBERSPACE 6.2 節；dev/adr/0018 N3；使用者 2026-11-24：可以回填，不能用花 RAM 的攻擊）：
+ * 這個單位帶著閃斷的狀態（flash）、行動的花費裡有 flashPool 那一池（內海是 RAM）時，這個行動做不了；回傳灰掉的原因（給玩家看的完整句子），沒事回傳 null。
+ * 回填（只花行動點）、換位、換構裝、腳本（不花 RAM）照做，回填補回來的 RAM 留到下一個回合用。步驟的條件、AI 挑行動、performAction 都問它。
+ */
+export function flashBlock(view: Pick<BattleView, 'mode'>, u: BattleUnit, cost: { ap: number; [pool: string]: number }): string | null {
+  const pool = view.mode.flashPool
+  if (!pool || !u.statuses.some((s) => s.id === FLASH) || !((cost[pool] ?? 0) > 0)) return null
+  return `閃斷中：這個回合只能做不花 ${poolName(pool)} 的事（換位、換構裝、回填）。`
 }
 
 /** 問一個數字的修正時帶的情境。 */

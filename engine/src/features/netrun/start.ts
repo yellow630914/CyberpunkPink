@@ -29,6 +29,11 @@ export interface Parsed {
   fx: Fx
   stealth: boolean
   decisive: boolean
+  /**
+   * 進網內的人（角色 id）：委託的內海階段由副本算好給（有橋、有甲板的人；沒有橋或沒有甲板的人留在現實當輔助，使用者 2026-11-24）。沒寫是整隊。
+   * 這一趟進行中，partyOf 只回傳這幾個人（照隊伍的順序）
+   */
+  party?: string[]
   /** 這件委託的預備（技能「後門」之類，衍生數值 net_trace_start）已經在前面的內海階段套用過了：整趟只在第一個內海階段加一次（M3 審查應修 1；副本算好了給） */
   prepDone: boolean
   where?: Record<string, unknown>
@@ -80,6 +85,11 @@ export function parseSetup(raw: unknown): { parsed: Parsed; problems: string[] }
   if (s.seed !== undefined && !isInt(s.seed)) p.push('seed 要是整數。')
   if (s.trace !== undefined && !isInt(s.trace)) p.push('trace（追蹤度的起始值）要是整數。')
   if (s.faction !== undefined && !isText(s.faction)) p.push('faction 要是勢力的 id。')
+  let party: string[] | undefined
+  if (s.party !== undefined) {
+    if (Array.isArray(s.party) && s.party.every(isText)) party = [...new Set(s.party as string[])]
+    else p.push('party 要是角色 id 的陣列（進網內的人）。')
+  }
   let objective: Record<string, unknown> | undefined
   if (s.objective !== undefined) {
     const o = s.objective
@@ -124,7 +134,7 @@ export function parseSetup(raw: unknown): { parsed: Parsed; problems: string[] }
       ...(entry ? { entry } : {}), ...(isText(s.facility) ? { facility: s.facility } : {}), ...(isText(s.site) ? { site: s.site } : {}),
       ...(isText(s.from_backdoor) ? { fromBackdoor: s.from_backdoor } : {}), ...(affixes ? { affixes } : {}),
       region: s.region === undefined ? 'subnet' : s.region, grade: grade ?? 1, ...(isText(s.faction) ? { faction: s.faction } : {}), layers,
-      ...(encounter ? { encounter } : {}), ...(color ? { color } : {}), ...(isInt(s.seed) ? { seed: s.seed } : {}), trace: isInt(s.trace) ? s.trace : 0, fx,
+      ...(party ? { party } : {}), ...(encounter ? { encounter } : {}), ...(color ? { color } : {}), ...(isInt(s.seed) ? { seed: s.seed } : {}), trace: isInt(s.trace) ? s.trace : 0, fx,
       stealth: s.stealth === true, decisive: s.decisive === true, prepDone: s.prep_done === true,
       ...(isRecord(s.where) ? { where: clone(s.where) } : {}), ...(objective ? { objective } : {}), controls,
     },
@@ -332,8 +342,15 @@ function nearGate(result: GenResult, sheet: GenResult['sheet']): [number, number
   return undefined
 }
 
-/** 隊上的人（還在名冊裡的）。 */
-export const partyOf = (state: GameState): string[] => state.party.filter((id) => !!state.actors[id])
+/**
+ * 進網內的人：隊上還在名冊裡的。這一趟進行中而且設定寫了 party（委託的內海階段：有橋、有甲板的人）時只有那幾個人；
+ * only 是還沒開始的那一刻（startRun 自己讀的設定）。
+ */
+export function partyOf(state: GameState, only?: readonly string[]): string[] {
+  const list = state.party.filter((id) => !!state.actors[id])
+  const want = only ?? (Array.isArray(readRun(state)?.setup.party) ? (readRun(state)!.setup.party as unknown[]).filter(isText) : undefined)
+  return want ? list.filter((id) => want.includes(id)) : list
+}
 
 /** net_burn 還沒過期的人（倒下之後一小時內不能再潛入）。 */
 export function burnedOf(state: GameState, ids: string[]): string[] {
@@ -342,10 +359,10 @@ export function burnedOf(state: GameState, ids: string[]): string[] {
 }
 
 /** 這一趟開不開得了：回傳擋下的原因（一條一句）；空的就是開得了。 */
-export function startProblems(k: Kernel, state: GameState, parsedProblems: string[]): string[] {
+export function startProblems(k: Kernel, state: GameState, parsedProblems: string[], only?: readonly string[]): string[] {
   const p = [...parsedProblems]
-  const party = partyOf(state)
-  if (!party.length) p.push('隊上沒有人，沒有人可以潛進去。')
+  const party = partyOf(state, only)
+  if (!party.length) p.push(only ? '隊上沒有人有橋與甲板，進不了網內。' : '隊上沒有人，沒有人可以潛進去。')
   // 沒有人定義 deck_grade（甲板的功能沒裝）就不看
   if (party.length && k.stats.hasStat('deck_grade') && party.every((id) => k.stats.stat(state, id, 'deck_grade') <= 0)) p.push('隊上沒有人有甲板，潛不進網內。')
   const burned = burnedOf(state, party)
@@ -358,7 +375,7 @@ export function startRun(k: Kernel, state: GameState, kind: RunKind, rawSetup: u
   const problems: string[] = []
   if (readRun(state)) problems.push('已經有一趟網內的行程在進行，先把它做完。')
   const { parsed, problems: bad } = parseSetup(rawSetup)
-  problems.push(...startProblems(k, state, bad))
+  problems.push(...startProblems(k, state, bad, parsed.party))
   const found = regionOf(k, parsed.region)
   if ('problem' in found) problems.push(found.problem)
   else if (!NET_MAP_KINDS.includes(found.region.map_kind)) problems.push(`這一區（${found.region.id}）的地圖種類 ${found.region.map_kind} 不是網內的地圖。`)
@@ -395,7 +412,7 @@ export function startRun(k: Kernel, state: GameState, kind: RunKind, rawSetup: u
       const source = k.battle.getUnitSource(ref.from)
       if (!source) throw new ActionBlocked(`這座網的遭遇要用「${ref.from}」這種單位來源，但還沒有（敵人的功能沒有裝）。`)
       try {
-        source(ref, { k, state, side: 'foe', mode: NET_MODE, grade: parsed.grade as never, allyCount: partyOf(state).length })
+        source(ref, { k, state, side: 'foe', mode: NET_MODE, grade: parsed.grade as never, allyCount: partyOf(state, parsed.party).length })
       } catch (e) {
         throw new ActionBlocked(`這座網守著節點的敵人挑不到（${(e as Error).message}）。`)
       }
@@ -416,7 +433,7 @@ export function startRun(k: Kernel, state: GameState, kind: RunKind, rawSetup: u
 
   // 追蹤度的起點：setup.trace 加連動的 trace_start 加全隊的 net_trace_start（有人定義才讀）。
   // 預備的 net_trace_start 整趟委託只加一次：後面的內海階段 setup.trace 已經是整趟累計（含第一段加過的），副本給 prep_done 就不再加（M3 審查應修 1）
-  const fromParty = !parsed.prepDone && k.stats.hasStat('net_trace_start') ? partyOf(state).reduce((s, a) => s + k.stats.stat(state, a, 'net_trace_start'), 0) : 0
+  const fromParty = !parsed.prepDone && k.stats.hasStat('net_trace_start') ? partyOf(state, parsed.party).reduce((s, a) => s + k.stats.stat(state, a, 'net_trace_start'), 0) : 0
   // 自己去挖：那家的敵對值分段（N16）加詞條的起始值（再進去的另外從上次離開的一半起算，那是 reviveDig 的事）
   const traceStart = plan ? digTraceStart(k, state, parsed, plan, fromParty) : parsed.trace + (parsed.fx.trace_start ?? 0) + fromParty
   const goal: Goal = parsed.objective && isText(parsed.objective.kind)

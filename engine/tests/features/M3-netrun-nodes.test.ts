@@ -95,7 +95,22 @@ const FAKE_COMMISSION: Feature = {
   },
 }
 
-const FEATURES = [enemiesFeature, exploreFeature, netrunFeature, TEST_NET_COMBAT, STATS, COMBAT, SPY, TEST_ACTIVITY, FAKE_COMMISSION]
+/** deck 的效果 deck_script_use 的替身（netrun 不直接改寫 actor.ext.deck，要扣帶著的腳本就開這個效果；真的那一個在 deck，M3-fix-review.test.ts 用真的測）。 */
+const SCRIPT_USE: Feature = {
+  id: 'nodes_script_use',
+  install(k) {
+    k.effects.register<{ kind: 'deck_script_use'; item: string; qty?: number; who?: string }>({
+      kind: 'deck_script_use', owner: 'nodes_script_use', ai: false, validate: () => [],
+      toChanges: (e, ctx) => {
+        const actor = e.who ?? ctx.actor
+        const deck = ctx.state.actors[actor]!.ext.deck as { slots: string[]; scripts: Array<{ item: string; qty: number }> }
+        return [{ op: 'actor.ext', id: actor, key: 'deck', value: { ...deck, scripts: deck.scripts.map((x) => (x.item === e.item ? { ...x, qty: x.qty - (e.qty ?? 1) } : x)).filter((x) => x.qty > 0) } }]
+      },
+      describe: () => '用掉腳本',
+    })
+  },
+}
+const FEATURES = [enemiesFeature, exploreFeature, netrunFeature, TEST_NET_COMBAT, STATS, COMBAT, SPY, TEST_ACTIVITY, FAKE_COMMISSION, SCRIPT_USE]
 
 const ORIGIN: Origin = { by: 'commission', ref: 'c1', ext: { commission: 'c1', stage: 1, face: 'net' } }
 const BASE = { grade: 1, faction: 'f_a', encounter: [] as string[] }

@@ -27,7 +27,7 @@ export const MEAT_KEYS = [
   'needs', 'when', 'range', 'picks', 'do', 'choose', 'mods', 'react', 'do_on', 'do_off', 'tags', 'action_tags', 'pool', 'alter', 'ransom', 'on_start', 'on_give_ap',
   'mask', 'tease', 'out', 'out_mods',
   // 內海（M3-abilities-net）：兩欄都可以寫
-  'slots', 'admin', 'sync_cap', 'unique',
+  'slots', 'admin', 'sync_cap', 'unique', 'decay',
   // 內海（M3-skill-net-a）：被動的技能在這一欄多一個主動的行動（action）、技能做的快駭的追蹤度（trace）
   'action', 'trace',
   // 內海（M3-skill-net-b）：只有內海欄能寫
@@ -693,6 +693,7 @@ function columnProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kern
   for (const key of ['slots', 'sync_cap'] as const) {
     if (m[key] !== undefined && !(isInt(m[key]) && m[key] !== 0)) p.push(`meat.${key} 要是整數（${key === 'slots' ? '構裝槽' : '同步檔位的上限'}加減幾，不能是 0）`)
   }
+  if (m.decay !== undefined && !(isInt(m.decay) && m.decay >= 1)) p.push('meat.decay 要是 1 以上的整數（內海裡每個回合（戰鬥與探索）多消退幾點感載：內海的基礎消退是 0，消退量只來自這一類的東西）')
   if (m.admin !== undefined && m.admin !== 'tier' && !(isInt(m.admin) && m.admin >= 1)) p.push("meat.admin 要是 'tier'（這棵樹的階數）或 1 以上的整數（管理行動的基數）")
   if (m.unique !== undefined && m.unique !== true) p.push('meat.unique 只能是 true（這一欄是招牌的專屬構裝：佔一個槽、淺檔不生效）')
   if (Array.isArray(m.tags) && m.tags.includes('overclock') && kind !== 'active') p.push('meat.tags 的 overclock 只有主動技能（kind 是 active）用：帶這個標籤的行動淺檔做不了')

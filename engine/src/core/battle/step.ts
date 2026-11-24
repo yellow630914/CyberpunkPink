@@ -17,7 +17,7 @@ import { currentUnit, distancesFrom, poolShort, sameTarget, unitTag } from './fi
 import { BattleBlocked, performAction } from './act'
 import { aiStep } from './ai'
 import type { BattleActionDef, BattleActionGroup, BattleKernel, BattlePick, BattleTargetKind, BattleTargetOption } from './registry'
-import { actionCost, actionIcon } from './registry'
+import { actionCost, actionIcon, flashBlock } from './registry'
 import { modeOf } from './rules'
 import { BattleRun } from './run'
 import type { BattleSetup } from './setup'
@@ -72,6 +72,8 @@ function optionOf(run: BattleRun, u: BattleUnit, def: BattleActionDef): BattleAc
   const blocks: string[] = []
   if (cost.ap > u.ap.now) blocks.push(`行動點不夠（要 ${cost.ap} 點，現在 ${u.ap.now} 點）。`)
   for (const [pool, v] of Object.entries(cost)) if (pool !== 'ap' && v > (u.pools[pool]?.now ?? 0)) blocks.push(poolShort(pool, v, u.pools[pool]?.now ?? 0))
+  const flash = flashBlock(run, u, cost)
+  if (flash) blocks.push(flash)
   blocks.push(...(def.blocks?.(run, u) ?? []))
   const targets = def.target === 'none' ? [] : (def.targets?.(run, u) ?? [])
   if (def.target !== 'none' && targets.length === 0) blocks.push('沒有可以選的目標。')

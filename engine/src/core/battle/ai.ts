@@ -13,7 +13,7 @@ import type { BattleInput, BattleTarget, BattleUnit } from '../types'
 import { BATTLE_SLOTS } from '../types'
 import { coverAt, coverLevel, distance, isWounded, losingTurn, moveBlock, otherSide, sameTarget, unitAt, unitsOf, wielded } from './field'
 import type { BattleActionDef, BattleView } from './registry'
-import { actionCost } from './registry'
+import { actionCost, flashBlock } from './registry'
 import type { BattleRun } from './run'
 import { performAction } from './act'
 
@@ -46,6 +46,7 @@ function slotActionScore(view: BattleView, u: BattleUnit, slot: number): number 
   for (const def of view.k.battle.actionsFor(view.battle.mode)) {
     if (!def.aiSlotScore || (def.has && !def.has(view, u))) continue
     const cost = actionCost(view, u, def)
+    if (flashBlock(view, u, cost)) continue
     if (!view.canAfford(u, { ...cost, ap: cost.ap + (slot === u.slot ? 0 : MOVE_AP) })) continue
     if (def.blocks?.(view, u).length) continue
     best = Math.max(best, def.aiSlotScore(view, u, slot))
@@ -121,7 +122,8 @@ function tryReposition(run: BattleRun, u: BattleUnit): boolean {
 /** 這個行動現在對這個目標做不做得到；做得到就回傳要用的目標。 */
 function usable(run: BattleRun, u: BattleUnit, def: BattleActionDef, enemy: BattleUnit | null): { target: BattleTarget | null } | null {
   if (def.has && !def.has(run, u)) return null
-  if (!run.canAfford(u, actionCost(run, u, def))) return null
+  const cost = actionCost(run, u, def)
+  if (!run.canAfford(u, cost) || flashBlock(run, u, cost)) return null
   if (def.blocks?.(run, u).length) return null
   if (def.target === 'none') return { target: null }
   const want = def.aiTarget ? def.aiTarget(run, u, enemy) : enemy ? { unit: enemy.id } : null

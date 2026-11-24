@@ -4,9 +4,9 @@
 // 後門鑰匙：背包裡帶 backdoor_key 標籤、等級等於這一趟的道具（快取格與腳本裡的也在背包裡；ITEMS 11.4 節「I 級只對 I 級閘門有效」）。
 
 import type { ActorId, AttrId, Change, CheckRoll, GameState, Kernel, RollPart, TimelineBeat } from '../../core'
-import { DEGREE_NAME, checkParts, clone, countItem, isRecord, rollCheck } from '../../core'
+import { DEGREE_NAME, checkParts, countItem, effectCtx, isRecord, modeAttr, rollCheck } from '../../core'
 import { beatOf } from './common'
-import { netExt, readRun } from './model'
+import { NET_MODE, netExt, readRun } from './model'
 import { netrunRules } from './rules'
 import { partyOf } from './start'
 
@@ -17,9 +17,12 @@ export const passed = (r: Pick<CheckRoll, 'degree'>): boolean => r.degree === 'c
 
 const ATTR_OF: Record<string, AttrId> = { stealth: 'reflex', interface: 'intellect', negotiate: 'charm' }
 
-/** 一項基本功對的屬性（內容裡有就用內容的）。 */
+/**
+ * 一項基本功對的屬性（內容裡有就用內容的）。在網內，體格由意志代替（CYBERSPACE 4.1 節；戰場 net 的 attr_as）：戰鬥外、網內的檢定也照這個換
+ * （M3 審查應修 3），所以基本功的屬性是體格的，擲的是意志。
+ */
 export function skillAttr(k: Pick<Kernel, 'content'>, skill: string, fallback: AttrId = 'intellect'): AttrId {
-  return ((k.content.get('skill', skill)?.attr as string | undefined) ?? ATTR_OF[skill] ?? fallback) as AttrId
+  return modeAttr(k.content, NET_MODE, ((k.content.get('skill', skill)?.attr as string | undefined) ?? ATTR_OF[skill] ?? fallback) as AttrId)
 }
 
 // ---- 主控 ----
@@ -120,7 +123,10 @@ export function keysIn(k: Kernel, state: GameState, grade: number): Array<{ id: 
   return out
 }
 
-/** 用掉一把後門鑰匙的變更：背包少一件；腳本裡記的比背包還多時，從記著它的人的腳本扣掉（deck 的 ext.deck.scripts 是 { item, qty }）。 */
+/**
+ * 用掉一把後門鑰匙的變更：背包少一件；腳本裡記的比背包還多時，從記著它的人的腳本扣掉。
+ * 帶著的腳本是 deck 的資料（actor.ext.deck.scripts）：這裡只讀它的共用格式，扣的時候走 deck 的效果 deck_script_use，不直接改寫 actor.ext.deck（M3 審查應修 8）。
+ */
 export function spendKey(k: Kernel, state: GameState, id: string): Change[] {
   const changes: Change[] = [{ op: 'item', id, qty: -1 }]
   const left = countItem(state.inventory, id) - 1
@@ -128,17 +134,13 @@ export function spendKey(k: Kernel, state: GameState, id: string): Change[] {
   for (const actor of partyOf(state)) over += scriptQty(state, actor, id)
   for (const actor of partyOf(state)) {
     if (over <= 0) break
-    const deck = state.actors[actor]?.ext.deck
-    if (!isRecord(deck) || !Array.isArray(deck.scripts)) continue
-    const scripts = clone(deck.scripts as unknown[]).filter(isRecord)
-    const row = scripts.find((s) => s.item === id && typeof s.qty === 'number' && s.qty >= 1)
-    if (!row) continue
-    const cut = Math.min(over, row.qty as number)
-    row.qty = (row.qty as number) - cut
+    const cut = Math.min(over, scriptQty(state, actor, id))
+    if (cut <= 0) continue
     over -= cut
-    changes.push({ op: 'actor.ext', id: actor, key: 'deck', value: { ...clone(deck), scripts: scripts.filter((s) => (s.qty as number) >= 1) } })
+    if (!k.effects.has('deck_script_use')) continue
+    const res = k.effects.resolve([{ kind: 'deck_script_use', item: id, qty: cut, who: actor }], effectCtx(k, state, { source: 'builtin' }))
+    if (!res.errors.length) changes.push(...res.changes)
   }
-  void k
   return changes
 }
 

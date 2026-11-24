@@ -197,6 +197,28 @@ export function netCapable(e: { kind?: unknown; constructs?: unknown }): boolean
   return (typeof e.kind === 'string' && NET_ONLY_KINDS.includes(e.kind)) || (Array.isArray(e.constructs) && e.constructs.length > 0)
 }
 
+/**
+ * 網內的敵人資料的警告（資料檢查；M3 修正批）：蕾絲與網內的程式（白蕾絲除外）沒有寫 constructs，進內海之後手上沒有武器構裝，打不了任何人，
+ * 戰鬥只能靠玩家一下一下磨完（M3 審查平衡一節：示意包的三個遊戲敵人就是這樣）。只有白蕾絲是故意不帶武器的（ENEMIES 第 9 節）。
+ * 有 base 的先展開；展開失敗的不報（那是引用檢查的事）。回傳一串完整的句子。
+ */
+export function netEnemyWarnings(content: ContentRegistry): string[] {
+  const out: string[] = []
+  if (!content.hasKind('enemy')) return out
+  for (const entry of content.list<EnemyEntry>('enemy')) {
+    let e: EnemyEntry
+    try {
+      e = resolveEnemy(content, entry.id)
+    } catch {
+      continue
+    }
+    if (typeof e.kind !== 'string' || !NET_ONLY_KINDS.includes(e.kind) || e.color === 'white') continue
+    if (Array.isArray(e.constructs) && e.constructs.length > 0) continue
+    out.push(`敵人 ${entry.id}（${typeof e.name === 'string' ? e.name : entry.id}）是網內的${e.kind === 'lace' ? '蕾絲' : '程式'}、不是白蕾絲，但沒有寫 constructs：進內海之後手上沒有武器構裝，打不了任何人，戰鬥會拖成只能由玩家一下一下磨完。`)
+  }
+  return out
+}
+
 /** 這個兵種的打法：top-level 的 mode，沒寫就看 ai.mode（ENEMIES 第 15 節的樣本寫在 ai 裡）；網內的兵種都沒寫時是 neural。 */
 export function enemyMode(e: Pick<EnemyEntry, 'kind' | 'ai'> & { mode?: unknown; constructs?: unknown }): (typeof ENEMY_MODES)[number] {
   if (oneOf(ENEMY_MODES, e.mode)) return e.mode as (typeof ENEMY_MODES)[number]

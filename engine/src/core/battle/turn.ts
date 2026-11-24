@@ -70,9 +70,11 @@ export function beginTurn(run: BattleRun, u: BattleUnit): boolean {
     if (!frozen.has('ap')) u.ap.now = Math.min(u.ap.max, u.ap.now + Math.max(0, u.ap.regen + sum(run.mods('ap_regen', u))))
     for (const [key, p] of Object.entries(u.pools)) if (!frozen.has(key)) p.now = Math.min(p.max, p.now + p.regen)
   }
-  // 感載每回合自然消退 = 2 ＋ mod(意志)（CORE_RULES 4.2 節）
+  // 感載每回合自然消退：現實是 2 ＋ mod(意志)（CORE_RULES 4.2 節）；戰場寫了 decayStat（內海）是 decayBase（0）＋ 單位的 decay（衍生數值 net_load_decay：甲板的散熱、技能、構裝、藥、狀態）、
+  // 沒有 mod(意志)（使用者 2026-11-24：內海裡感載不自然消退，敵我都一樣；有技能或特殊效果的例外）。兩邊都再加修正 decay
   if (u.load && u.load.now > 0) {
-    const decay = Math.max(0, run.n.decayBase + attrMod(u.attrs.resolve ?? 10) + sum(run.mods('decay', u)))
+    const natural = run.mode.decayStat ? run.n.decayBase + (u.decay ?? 0) : run.n.decayBase + attrMod(u.attrs.resolve ?? 10)
+    const decay = Math.max(0, natural + sum(run.mods('decay', u)))
     u.load.now = Math.max(0, u.load.now - decay)
   }
   // 這一回合用過的東西清掉；監視到自己的下一回合開始前為止

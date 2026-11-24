@@ -269,7 +269,8 @@ describe('敵人的士氣、天使急救與束帶（ENEMIES 4.4 節、第 5 節�
     const u = g.game.state.battle!.units.f1!
     expect(u.uses.morale).toBeUndefined()
     expect(u.ext.enemies).toEqual({ angel: 'gold' })
-    expect(g.game.state.battle!.units.f1!.out).toBeDefined()
+    // 內海的感載不自然消退（M3 修正批）：打到分出結果的是哪一方不一定；只要這一場打得完、士氣的掛點沒有出事
+    expect(g.game.state.battle!.result).toBeDefined()
   })
 
   it('內海：敵人倒下之後 round.start 不數天使急救（沒有 angelLeft，也不會被帶走）', () => {

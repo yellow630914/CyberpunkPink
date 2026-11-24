@@ -5,7 +5,7 @@
 // 迷宮館是「一趟網內的行程」的第二個使用者：它只靠 features/netrun 的活動 netrun（launch，setup.region 整筆放這一區的規則）、掛點 netrun.round 與 netrun.close、
 // 地圖實例的 ext.net（只讀格式）與 k.grid 的註冊接上去，不 import netrun。
 //
-// 狀態：state.ext.maze（只有這個功能寫）：{ id, bracket, grade, deposit, rented, origin, over? }。
+// 狀態：state.ext.maze（只有這個功能寫）：{ id, bracket, grade, deposit, rented, prior?, origin, over? }。
 //   累積的東西（每一層的探索與戰鬥回合、倒下的人次、籌碼）不放在這裡，放在核心的計數器 counters（鍵 maze:<id>:r<層>、maze:<id>:down、maze:<id>:chip）：
 //   掛點 netrun.round 一段路好幾格時每一格各呼叫一次、讀到的狀態都是這一段路開始之前的，用「讀出來再寫回」的做法會漏算；計數器是加法，不會。結算之後歸零。
 
@@ -301,6 +301,8 @@ export interface MazeState {
   deposit: number
   /** 租了館方甲板的人（結算時收回） */
   rented: ActorId[]
+  /** 報名前這幾個人身上租的甲板（潛艙店附的那一副；actor.ext.deck.rental.deck）：結算時還原，不是收成沒有（M3 審查應修 4）。沒有租的不列 */
+  prior?: Record<ActorId, string>
   /** 從誰那裡報的名（原樣記著，交回時用） */
   origin: Origin
   /** 結算完了、等著發 maze.result 的那一份報告收尾（結果在這裡） */
@@ -314,6 +316,7 @@ export function readMaze(state: Pick<GameState, 'ext'>): MazeState | null {
   return {
     id: raw.id, bracket: raw.bracket, grade: raw.grade, deposit: raw.deposit,
     rented: Array.isArray(raw.rented) ? raw.rented.filter(isText) : [],
+    ...(isRecord(raw.prior) ? { prior: Object.fromEntries(Object.entries(raw.prior).filter(([, v]) => isText(v))) as Record<ActorId, string> } : {}),
     origin: isRecord(raw.origin) && isText(raw.origin.by) ? (clone(raw.origin) as unknown as Origin) : { by: ORIGIN_BY },
     ...(isRecord(raw.over) ? { over: clone(raw.over) as unknown as MazeResult } : {}),
   }

@@ -40,6 +40,10 @@ const enemy = (id: string, rank: string, faction: string, more: Rec = {}): Rec =
 })
 const ENEMIES = [
   ...(['f_a', 'f_b'] as const).flatMap((f) => (['minion', 'elite', 'boss'] as const).map((r) => enemy(`en_${f}_${r}`, r, f))),
+  // 網內的兵種（M3 修正批：中間人生成內海面時先問過網內的敵人挑得到；粉與黑各一）
+  ...(['f_a', 'f_b'] as const).flatMap((f) => (['minion', 'elite', 'boss'] as const).flatMap((r) => (['pink', 'black'] as const).map((c) => enemy(`la_${f}_${r}_${c}`, r, f, {
+    kind: 'lace', color: c, mode: undefined, weapons: undefined, constructs: [{ id: `cs_${f}_${r}_${c}`, class: 'pistol', type: 'neural', ram: 1 }],
+  })))),
   // 獵犬：掛在格上的一台（enemy_pick 不會挑它）
   enemy('en_hound', 'minion', 'f_a', { name: '機械獵犬', kind: 'machine', position: { prefer: [2, 3], size: 'overlay' }, overlay: { kind: 'attack' } }),
 ]

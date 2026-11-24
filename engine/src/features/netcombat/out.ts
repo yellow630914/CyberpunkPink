@@ -148,6 +148,23 @@ function locateRounds(run: BattleRun): number {
   return typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : netcombatRules(run.k).trace.locate_rounds
 }
 
+/**
+ * 開戰時已經在門檻上的：算「這座子網以前到過」，不再叫增援（使用者 2026-11-24：增援只在這一場裡跨過門檻才叫；M3 審查建議 3）。
+ * 第一輪開頭做一次：追蹤度已經 ≥ 門檻的，把 field.t30／t60 記成叫過了、已經叫進的人數記成全部（之後每輪補空格也不會叫）。定位的倒數照舊（到了 90 就是到了）。
+ */
+function markStarting(run: BattleRun): void {
+  const b = run.battle
+  const v = traceOf(b)
+  if (v === undefined) return
+  const rules = netcombatRules(run.k).trace
+  for (const [key, at] of [['t30', rules.t1], ['t60', rules.t2]] as const) {
+    if (v >= at && b.field[key] === undefined) {
+      b.field[key] = true
+      b.field[doneKey(key)] = reinforcements(b, key).length
+    }
+  }
+}
+
 /** 跨過門檻的事（增援、定位的倒數開始與取消）。每次追蹤度變動之後問一次。 */
 function crossings(run: BattleRun): void {
   const b = run.battle
@@ -173,17 +190,21 @@ function crossings(run: BattleRun): void {
 
 /**
  * 追蹤度加減 amount 點（戰鬥每輪、管理行動、檢定失敗、效果 net.trace 共用），夾在 −30～100；沒有追蹤度的場地不做。
+ * 連動讓這一段的上升減半（開戰的人在 origin.ext.net.trace_half 給 true；M3 審查應修 2）：正的量減半（進位），減少的不動。
  * 每次變動記一拍 trace（data 帶新的值 value 與實際加了多少 amount）；跨過門檻的事照上面做。回傳實際加了多少（沒有變動是 0）。
  */
 export function addTrace(run: BattleRun, amount: number, o: { by?: BattleUnit; text?: string } = {}): number {
   const b = run.battle
   const from = traceOf(b)
   if (from === undefined || run.over || !Number.isFinite(amount)) return 0
-  const to = Math.max(TRACE_MIN, Math.min(TRACE_MAX, from + Math.round(amount)))
+  const halved = Math.round(amount) > 0 && originNet(b).trace_half === true
+  const add = halved ? Math.ceil(Math.round(amount) / 2) : Math.round(amount)
+  const to = Math.max(TRACE_MIN, Math.min(TRACE_MAX, from + add))
   if (to === from) return 0
   b.field.trace = to
   const diff = to - from
-  run.say(o.text ?? `追蹤度 ${diff > 0 ? '+' : '−'}${Math.abs(diff)}（現在 ${to}）。`, 'trace', { value: to, amount: diff, ...(o.by ? { by: o.by.id } : {}) }, o.by)
+  const text = halved ? `追蹤度 +${diff}（連動讓上升減半，現在 ${to}）。` : (o.text ?? `追蹤度 ${diff > 0 ? '+' : '−'}${Math.abs(diff)}（現在 ${to}）。`)
+  run.say(text, 'trace', { value: to, amount: diff, ...(halved ? { halved: true } : {}), ...(o.by ? { by: o.by.id } : {}) }, o.by)
   crossings(run)
   return diff
 }
@@ -227,6 +248,7 @@ export function installOut(k: Kernel): void {
 
   k.battle.on('round.start', OWNER, ({ run, round }) => {
     if (run.mode.layer !== 'net') return
+    if (round === 1) markStarting(run)
     roundStart(run, round)
   })
 

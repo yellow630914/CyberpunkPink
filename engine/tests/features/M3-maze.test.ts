@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Change, ContentPack, Feature, Origin } from '../../src'
 import { ActionBlocked, Sheet, clone, endActivity, gridHere, gridView, meterOf, pointKey } from '../../src'
 import { deckFeature } from '../../src/features/deck'
+import { defeatFeature } from '../../src/features/defeat'
 import { diveFeature, exit as diveExit, readDive } from '../../src/features/dive'
 import { enemiesFeature } from '../../src/features/enemies'
 import { logout as netrunLogout, netExt, netrunFeature, readRun, regionOf, regionProblems, useNode } from '../../src/features/netrun'
@@ -96,6 +97,8 @@ interface Opts {
   /** 主角裝著的構裝與自己的甲板 */
   slots?: string[]
   ownDeck?: boolean
+  /** 每個人有橋（潛入中報名要每個隊員都有橋） */
+  bridge?: boolean
   extra?: Rec
   /** 不載入的內容種類（那個功能沒裝） */
   drop?: string[]
@@ -103,7 +106,7 @@ interface Opts {
 type G = ReturnType<typeof makeGame>['game']
 
 function setup(o: Opts = {}) {
-  const ext = (own: boolean) => ({ deck: { ...(own ? { uid: 'D1' } : {}), slots: o.slots ?? [], scripts: [] } })
+  const ext = (own: boolean) => ({ deck: { ...(own ? { uid: 'D1' } : {}), slots: o.slots ?? [], scripts: [] }, ...(o.bridge ? { bridge: { sensitivity: 30, tolerance: 30, craving: 30, docility: 30 } } : {}) })
   const pc = { attrs: { intellect: 14, body: 12, resolve: 14, reflex: 14 }, skills: { interface: 3, streetwise: 2, firearms: 3 }, ext: ext(o.ownDeck === true) }
   const actors = Array.from({ length: (o.party ?? 2) - 1 }, (_, i) => makeActor({ id: `c${i + 1}`, name: `同伴${i + 1}`, role: 'companion', ext: ext(o.ownDeck === true) }))
   const inventory = o.ownDeck ? [{ id: 'dk_own', qty: 1, data: { uid: 'D1' } }] : []
@@ -591,7 +594,8 @@ describe('機關（net_puzzle）', () => {
     const by = (option?: string) => solve(g.k, g.state, p.id, option).timeline[0]!.roll!
     expect(by('interface')).toMatchObject({ attr: 'intellect', skill: 'interface' })
     expect(by('street')).toMatchObject({ attr: 'intellect', skill: 'streetwise' })
-    expect(by('body')).toMatchObject({ attr: 'body' })
+    // 迷宮館在網內：體格由意志代替（CYBERSPACE 4.1 節；M3 審查應修 3），「體格」這個辦法擲的是意志
+    expect(by('body')).toMatchObject({ attr: 'resolve' })
     expect(by('body').skill).toBeUndefined()
     // 主角智識 14、介面 3：自動挑到的是介面
     expect(by()).toMatchObject({ attr: 'intellect', skill: 'interface' })
@@ -601,7 +605,7 @@ describe('機關（net_puzzle）', () => {
     const g = rookie()
     standNear(g, puzzleOf(g).at)
     expect(useMaze(g.k, g.state, 'solve').action).toBe('maze.use')
-    expect(useMaze(g.k, g.state, 'solve:body', puzzleOf(g).id).timeline[0]!.roll).toMatchObject({ attr: 'body' })
+    expect(useMaze(g.k, g.state, 'solve:body', puzzleOf(g).id).timeline[0]!.roll).toMatchObject({ attr: 'resolve' })
     expect(() => useMaze(g.k, g.state, 'dance')).toThrow(/沒有「dance」可以做/)
   })
 })
@@ -1018,7 +1022,7 @@ describe('結算：打輸只是斷線', () => {
 // ===================================================================================================================
 
 /** 照 features/index.ts 的順序：潛入在迷宮館前面（迷宮館的結果報告接在潛入自動登出的後面，登出才不會被問兩次）。 */
-const WITH_DIVE: Feature[] = [enemiesFeature, deckFeature, netrunFeature, TEST_NET_COMBAT, COMBAT, diveFeature, mazeFeature]
+const WITH_DIVE: Feature[] = [enemiesFeature, defeatFeature, deckFeature, netrunFeature, TEST_NET_COMBAT, COMBAT, diveFeature, mazeFeature]
 
 describe('接口與整合', () => {
   it('netrun 新收的兩個區欄位（puzzle、handled）：格式不對擋下；沒寫不影響一般的子網', () => {
@@ -1032,9 +1036,9 @@ describe('接口與整合', () => {
     expect(regionProblems(plain as never)).toEqual([])
   })
 
-  it('潛入中也能報名（dive 放行 commit:maze.）：打完之後還在潛入，登出得了；戰敗被接受則被強制斷線、自動登出', async () => {
-    const g = setup({ features: WITH_DIVE })
-    const dive = (): Change[] => [{ op: 'ext', key: 'dive', value: { since: 0, body: { location: clone(g.state.location) }, access: { type: 'fac_pod', safe: 1, name: '潛艙店' }, deck: 'none' } }]
+  it('潛入中也能報名（dive 放行 commit:maze.）：打完之後還在潛入，登出得了；在館裡打輸（熔斷）：不走戰敗事件、不強制登出、潛艙店的押金不沒收，只有迷宮館的押金沒收', async () => {
+    const g = setup({ features: WITH_DIVE, bridge: true, slots: ['cs_kit'] })
+    const dive = (): Change[] => [{ op: 'ext', key: 'dive', value: { since: 0, body: { location: clone(g.state.location) }, access: { type: 'fac_pod', safe: 1, name: '潛艙店' }, deck: 'none', paid: { fee: 30, deposit: 80 } } }]
     commit(g, dive(), 'dive.test')
     expect(g.k.activity.active(g.state).map((a) => a.kind)).toEqual(['dive'])
     g.commit(enter(g.k, g.state, 'rookie', { seed: 11 }))
@@ -1047,19 +1051,22 @@ describe('接口與整合', () => {
     expect(g.k.activity.active(g.state).map((a) => a.kind)).toEqual(['dive'])
     g.commit(diveExit(g.k, g.state))
     expect(readDive(g.state)).toBeNull()
-    // 戰敗被接受：迷宮館結算押金沒收，潛入的那一頭被標成被強制斷線、自動登出
-    const h = setup({ features: WITH_DIVE })
-    commit(h, [{ op: 'ext', key: 'dive', value: { since: 0, body: { location: clone(h.state.location) }, access: { type: 'fac_pod', safe: 1, name: '潛艙店' }, deck: 'none' } }], 'dive.test')
+    // 在館裡打輸（館方的熔斷）：沒有等著三選一的戰敗，迷宮館結算押金沒收；潛入還在、沒有被強制斷線、潛艙店的押金還在（登出時退）
+    const h = setup({ features: WITH_DIVE, bridge: true, slots: ['cs_kit'] })
+    commit(h, [{ op: 'ext', key: 'dive', value: { since: 0, body: { location: clone(h.state.location) }, access: { type: 'fac_pod', safe: 1, name: '潛艙店' }, deck: 'none', paid: { fee: 30, deposit: 80 } } }], 'dive.test')
     h.commit(enter(h.k, h.state, 'rookie', { seed: 11 }))
     fightAt(h, marks(h, 'f')[0]!.id)
-    const link = h.battle!.origin.ext!.net as Rec
-    const end = endActivity(h.k, { state: h.state, kind: 'defeat', id: 'b1', origin: { by: 'netrun', ref: run(h).id, ext: { net: link } }, outcome: 'accept', result: { net: true } })
-    commit(h, [{ op: 'battle', state: null, fold: true }], 'battle.abort')
-    commit(h, [{ op: 'snapshot.drop', kind: 'battle' }, ...end.changes], 'defeat.accept')
+    expect(h.battle!.field.safe).toBe(true)
+    h.state.battle!.result = { outcome: 'lose', text: '全隊倒下。' }
+    await h.finishBattle()
+    expect(h.pendingDefeat).toBeNull()
     expect(finalData(h)).toMatchObject({ outcome: 'defeat', forfeited: 50 })
     expect(readMaze(h.state)).toBeNull()
-    expect(readDive(h.state)).toBeNull()
-    expect(reportsOf(h, 'dive.exit')).toHaveLength(1)
+    expect(readRun(h.state)).toBeNull()
+    expect(readDive(h.state)).not.toBeNull()
+    expect(readDive(h.state)!.over).toBeUndefined()
+    expect(reportsOf(h, 'dive.exit')).toHaveLength(0)
+    expect(h.k.activity.active(h.state).map((a) => a.kind)).toEqual(['dive'])
   })
 
   it('報名到解機關、開寶箱、打一場、往下一層，每一份報告都守得住不變式；存檔再讀回來這一趟還在、狀態一樣', async () => {

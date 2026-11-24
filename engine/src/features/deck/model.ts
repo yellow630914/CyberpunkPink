@@ -40,7 +40,7 @@ export interface DeckEntry extends ContentEntry {
   firewall: number
   /** RAM 的加值：max 加在 ram_max、regen 加在 ram_regen */
   ram?: { max?: number; regen?: number }
-  /** 潛入時每回合感載多消退幾點（M3-dive 讀；這裡收下不讀） */
+  /** 散熱：潛入時每回合（戰鬥與探索）感載多消退幾點。是內海感載消退量（衍生數值 net_load_decay）的一個來源；內海的基礎消退是 0（M3 修正批） */
   cooling?: number
   brand?: string
   legal: string

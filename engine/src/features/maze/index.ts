@@ -10,7 +10,9 @@
 //   掛鉤  report.after：往下一層之後的休息（感載 −10）、結算之後發 maze.result 並把狀態清乾淨
 //   效果  只用別人登記的：deck_rental（新手組租館方的比賽甲板、結算時收回）
 //   放行  netrun 進行中放行 commit:maze.（解機關、開寶箱、層間休息、結果）
-//   狀態  state.ext.maze：{ id, bracket, grade, deposit, rented, origin, over? }；累積的（每層回合、倒下、籌碼）在核心的計數器 maze:<id>:…
+//   報名  登記了 dive 時要在潛入中、每個隊員都有橋、有能用的武器構裝（M3 修正批；不 import dive，只認活動的名字 dive）；結算把潛艙店租的甲板換回來（MazeState.prior）
+//   打輸  熔斷場地（field.safe）：defeat 不接手，netrun 收掉這一趟、迷宮館結算押金沒收；人還在潛入中（醒在館方的回復室）
+//   狀態  state.ext.maze：{ id, bracket, grade, deposit, rented, prior?, origin, over? }；累積的（每層回合、倒下、籌碼）在核心的計數器 maze:<id>:…
 // 這一區的預設（9 × 7、挖 18～24 步、沒有追蹤度、倒下不加沉溺、每層 2 場遭遇、機關 1、寶箱 1～2、陷阱 0～1）寫在 model.ts 的 DEFAULT_REGION；資料的 maze_rule.region 可以蓋掉。
 // 對外：brackets、enter（報名）、solve、open、useMaze、mazeView、mazeRules、mazeRegion。
 //

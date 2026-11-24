@@ -6,7 +6,7 @@
 import type { Change, GameState, GridPos, Kernel, Launch, ReportDraft, Sheet, TimelineBeat } from '../../core'
 import { attrMod, clone, pointKey, rollCheck, sightOf } from '../../core'
 import { checkBeat, passed, pickOf, rollPicked, skillAttr } from './checks'
-import { decayChanges, draft, roundHook, runRegion } from './common'
+import { decayChanges, draft, roundHook, runRegion, traceDelta } from './common'
 import { battleLaunch } from './fight'
 import type { NetExt, NetRun, Patrol, TrapState } from './model'
 import { ACT_NET, DEFAULT_TRAP, TRACE, netExtChange, runChange } from './model'
@@ -192,8 +192,9 @@ export function springTrap(k: Kernel, state: GameState, w: Work, out: Out, at: G
   out.changes.push({ op: 'map.sheet', map: w.run.map, sheet: sheetId, cells: { [pointKey(at.x, at.y)]: { kind: 'floor' } } })
   out.stop = true
   if (t.kind === 'net_alarm') {
-    out.changes.push({ op: 'meter', kind: TRACE, key: w.run.map, delta: trap.alarm })
-    out.lines.push(`踩到了警報節點：追蹤度 +${trap.alarm}。`)
+    const up = traceDelta(w.run, trap.alarm)
+    out.changes.push({ op: 'meter', kind: TRACE, key: w.run.map, delta: up })
+    out.lines.push(`踩到了警報節點：追蹤度 +${up}。`)
     return
   }
   // 迴圈碎片：每個人擲介面或意志（取加值高的那一項）對 DC，失敗的人感載 +trap.loop_load（照等級乘）；有人失敗全隊被送回這一層的入口

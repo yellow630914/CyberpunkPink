@@ -4,7 +4,7 @@
 import type { BattleInput, BattleTarget, BattleUnit } from '../types'
 import { wielded } from './field'
 import type { BattleActionDef } from './registry'
-import { actionCost, actionTags } from './registry'
+import { actionCost, actionTags, flashBlock } from './registry'
 import type { BattleRun } from './run'
 
 /** 這一步做不成：原因一條一條列（給玩家看的句子）。狀態不變。 */
@@ -23,6 +23,8 @@ export class BattleBlocked extends Error {
 export function performAction(run: BattleRun, unit: BattleUnit, def: BattleActionDef, target: BattleTarget | null, input: BattleInput): void {
   // 花費可以看這一步選了什麼（替別人用道具比較貴）：照這一步實際的花費再檢查一次
   const cost = actionCost(run, unit, def, input)
+  const flash = flashBlock(run, unit, cost)
+  if (flash) throw new BattleBlocked([flash])
   if (!run.canAfford(unit, cost)) throw new BattleBlocked([`行動點不夠（要 ${cost.ap} 點，現在 ${unit.ap.now} 點）。`])
   const base = def.cost(run, unit, input)
   // 標籤帶上行動自己的 costTags（用的是哪一類道具：item:medical），和問花費時的標籤一致；要在 def.run 之前問：用掉道具之後快取格可能空了

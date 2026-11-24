@@ -90,7 +90,8 @@ const STATS: Feature = {
   id: 'netrun_dig_stats',
   install(k) {
     k.stats.defineStat({ id: 'deck_grade', owner: 'netrun_dig_stats', name: '甲板', base: (state, actor) => (state.actors[actor]?.ext.testdeck ? 1 : 0) })
-    k.stats.defineStat({ id: 'deck_cooling', owner: 'netrun_dig_stats', name: '冷卻', base: (state, actor) => Number(state.actors[actor]?.ext.cooling ?? 0) })
+    // 內海的感載消退量（M3 修正批：基礎 0，甲板的散熱、技能、藥……加上去；真的 deck 的那一份在 M3-fix-review.test.ts）
+    k.stats.defineStat({ id: 'net_load_decay', owner: 'netrun_dig_stats', name: '內海的感載消退', base: (state, actor) => Number(state.actors[actor]?.ext.cooling ?? 0) })
   },
 }
 const COMBAT: Feature = {
@@ -496,11 +497,14 @@ describe('進去的起點：那家的敵對值分段、詞條、後門、再進�
     expect(start(0)).toBe(0)
     expect(start(25)).toBe(15)
     expect(start(100)).toBe(30)
-    // 加詞條的起始值
+    // 詞條的起始值（稽核週：從 10 起算）和敵對值分段的起始值取最高的，不相加（N16、M3 審查建議 5）：記名 15 對 10 取 15；沒有敵對值時詞條的 10
     const { game: g } = setup()
     setHostility(g, 25)
     dig(g, { affixes: ['a_trace10'] })
-    expect(trace(g)).toBe(25)
+    expect(trace(g)).toBe(15)
+    const { game: h } = setup()
+    dig(h, { affixes: ['a_trace10'] })
+    expect(trace(h)).toBe(10)
   })
 
   it('沒有裝敵對值的功能（沒有條件 hostility_tier）：照 0 起算，不丟錯', () => {
@@ -587,7 +591,7 @@ describe('走完兩層從出口離開：done、東西都在、時間照探索回
     expect(minutes(t.game) - t1).toBe(6)
   })
 
-  it('甲板的冷卻（deck_cooling）讓探索回合的感載多消退；沒有人定義就照舊', () => {
+  it('內海的基礎消退是 0：探索回合的感載不消退；衍生數值 net_load_decay（甲板的散熱、技能、藥……）有多少，每個探索回合就消退多少', () => {
     const load = (cooling: number): number => {
       const { game: g } = setup({ cooling })
       digClear(g)
@@ -595,7 +599,8 @@ describe('走完兩層從出口離開：done、東西都在、時間照探索回
       advance(g, 1)
       return g.state.actors.pc!.load
     }
-    expect(load(0) - load(3)).toBe(3)
+    expect(load(0)).toBe(12)
+    expect(load(3)).toBe(9)
   })
 
   it('deck 定義衍生數值 deck_cooling：讀甲板的 cooling，沒有甲板是 0', () => {

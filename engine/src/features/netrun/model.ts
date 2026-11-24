@@ -158,7 +158,7 @@ export const DEFAULT_REGIONS: Record<string, NetRegion> = {
 // ---- 探索的數字（規則表 netrun_rule） ----
 
 export interface NetrunRules {
-  /** 每個探索回合感載消退 decay ＋ mod(意志)（CYBERSPACE 8.1 節「探索不算脫離戰鬥」） */
+  /** 每個探索回合感載消退的基礎量（預設 0；使用者 2026-11-24：內海裡感載不自然消退）。實際的消退 = decay ＋ 衍生數值 net_load_decay（甲板的散熱、技能、構裝、藥、狀態），不再加 mod(意志) */
   decay: number
   /** 追蹤度的三個門檻（NETRUNNING 第 5 節；戰鬥那一份在 netcombat_rule，兩邊一樣） */
   t1: number
@@ -220,7 +220,7 @@ export interface NetrunRules {
 }
 
 export const DEFAULT_RULES: NetrunRules = {
-  decay: 2, t1: 30, t2: 60, t3: 90, locate_rounds: 3, gate_t1_dc: 2, unpinned_rounds: 1, sneak_skills: ['stealth'],
+  decay: 0, t1: 30, t2: 60, t3: 90, locate_rounds: 3, gate_t1_dc: 2, unpinned_rounds: 1, sneak_skills: ['stealth'],
   encounter: { plain: ['minion', 'minion', 'minion', 'minion'], guard: ['elite', 'elite', 'minion'], boss: ['boss', 'minion', 'minion', 'minion'] },
   download_turns: 3, plant_turns: 2, download_trace: 2, admin_trace: 1, fail_trace: 5, wipe: 5,
   patrol_every: 3, patrol_route: [3, 5], patrol: [['elite'], ['minion', 'minion']], patrol_t1: 1,
@@ -312,7 +312,7 @@ export interface NetRun {
   /** 寂靜（first_ambush）：第一場遭遇的先手已經用掉了 */
   ambush_used?: true
   /** 戰鬥裡全員拔線：這一趟要結束了（戰鬥的結算套用之後由 report.after 接著收尾）。retreat 是委託副本（N13）、left 是自己去的那一趟 */
-  over?: 'retreat' | 'left'
+  over?: 'retreat' | 'left' | 'defeat'
 }
 
 export interface FoeNode {

@@ -414,14 +414,15 @@ export function eligibleTypes(k: Pick<Kernel, 'content' | 'activity'>, fixer: Pi
 }
 
 /** 挑得到這個勢力、這一級、這個位階的敵人嗎（有人註冊 enemy_pick 才問；沒有人註冊就不檢查）。 */
-function pickable(k: Kernel, state: GameState, faction: string, grade: number, rank: Rank, cache: Map<string, boolean>): boolean {
+function pickable(k: Kernel, state: GameState, faction: string, grade: number, rank: Rank, cache: Map<string, boolean>, net?: { color?: string }): boolean {
   const source = k.battle.getUnitSource('enemy_pick')
   if (!source) return true
-  const key = `${faction}/${grade}/${rank}`
+  // 內海面的遭遇照內海的戰場挑（網內的兵種、顏色；那個勢力沒有就退到 none；M3 審查：生成時先問，免得整件委託做不完）
+  const key = `${net ? `net${net.color ? `:${net.color}` : ''}/` : ''}${faction}/${grade}/${rank}`
   let ok = cache.get(key)
   if (ok === undefined) {
     try {
-      source({ from: 'enemy_pick', faction, grade, rank, seed: 'commission_gen/check' }, { k: k as never, state, side: 'foe', mode: 'lethal', grade, allyCount: 4 })
+      source({ from: 'enemy_pick', faction, grade, rank, seed: 'commission_gen/check', ...(net?.color ? { color: net.color } : {}) }, { k: k as never, state, side: 'foe', mode: net ? 'net' : 'lethal', grade, allyCount: 4 })
       ok = true
     } catch {
       ok = false
@@ -658,6 +659,7 @@ function build(c: Ctx): Offer | string {
   const alertTotal = chosenMods.reduce((s, m) => s + (m.effect.alert_start ?? 0), 0)
   const decisive = type.decisive
   const used: Array<{ stage: number; faction: string; rank: Rank }> = []
+  const usedNet: Array<{ stage: number; faction: string; rank: Rank; color?: string }> = []
 
   stages.forEach((st, i) => {
     const n = i + 1
@@ -688,6 +690,7 @@ function build(c: Ctx): Offer | string {
       const ranks = [...(last ? enc.last : enc.normal)]
       const f: Record<string, unknown> = { branches, encounter: ranks }
       if (net) {
+        if (netLive) for (const r of new Set<Rank>(ranks)) usedNet.push({ stage: n, faction, rank: r, ...(netT?.lace ? { color: netT.lace } : {}) })
         f.layer = netLayers[netIdx.indexOf(i)]
         if (netT?.lace) f.lace = netT.lace
         if (netT?.facility) f.facility = netT.facility
@@ -742,6 +745,13 @@ function build(c: Ctx): Offer | string {
   for (const u of used) {
     if (!pickable(k, state, u.faction, grade, u.rank, cache) || (u.stage === total && !pickable(k, state, u.faction, highest, u.rank, cache))) {
       return `挑不到敵人：勢力 ${u.faction}、等級 ${grade}、位階 ${u.rank}。`
+    }
+  }
+
+  // 內海面的遭遇：網內的兵種挑得到嗎（挑不到整件委託做不完，只能放棄、扣信譽；挑不到就整件重抽：換類型、換勢力）
+  for (const u of usedNet) {
+    if (!pickable(k, state, u.faction, grade, u.rank, cache, { ...(u.color ? { color: u.color } : {}) })) {
+      return `挑不到內海的敵人：勢力 ${u.faction}、等級 ${grade}、位階 ${u.rank}${u.color ? `、顏色 ${u.color}` : ''}。`
     }
   }
 

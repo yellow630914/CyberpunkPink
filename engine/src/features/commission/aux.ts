@@ -27,6 +27,22 @@ export function auxPeople(raw: unknown): AuxPeople {
   return { meat: list(r.meat), net: list(r.net), opinion: list(r.opinion), borrowed: list(r.borrowed) }
 }
 
+/**
+ * 進得了內海的人（M3 審查應修 5；使用者 2026-11-24）：隊上有橋、有甲板的人。沒有橋或沒有甲板的人自動留在現實當輔助（settleAux 把他們算進現實面），不拉進網內。
+ * 橋：共用的資料慣例 actor.ext.bridge（物件）。甲板：衍生數值 deck_grade 大於 0；沒有人定義它（甲板的功能沒裝）就不看甲板、也不看橋（這個世界沒有內海的玩法，沿用 M2 的整隊）。
+ */
+export function netTeam(k: Kernel, state: GameState): string[] {
+  const party = state.party.filter((id) => !!state.actors[id])
+  if (!k.stats.hasStat('deck_grade')) return party
+  return party.filter((id) => isRecord(state.actors[id]!.ext.bridge) && k.stats.stat(state, id, 'deck_grade') > 0)
+}
+
+/** 選內海面時留在現實的人（隊上、不在 netTeam 裡的）。 */
+export const stayBehind = (k: Kernel, state: GameState): string[] => {
+  const team = new Set(netTeam(k, state))
+  return state.party.filter((id) => !!state.actors[id] && !team.has(id))
+}
+
 // ---- 一個面的算式 ----
 
 type Level = keyof CommissionRules['aux_bonus']
@@ -182,6 +198,8 @@ export function settleAux(k: Kernel, state: GameState, run: Run): AuxSettlement 
   const n = run.stage
   const rules = commissionRules(k)
   const people = auxPeople(run.setup.aux)
+  // 選的是內海面：隊上沒有橋或沒有甲板的人留在現實當輔助，和派去現實的人一起擲現實面（M3 審查應修 5）
+  if (run.face === 'net') people.meat = [...new Set([...people.meat, ...stayBehind(k, state)])]
   const aux: AuxState = run.aux ? clone(run.aux) : { pressure: {}, rest: {}, log: [] }
   const next: Run = { ...run, links: [...run.links] }
   const changes: Change[] = []

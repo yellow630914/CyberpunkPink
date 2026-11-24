@@ -4,8 +4,8 @@
 //
 // 報告（kind netrun）：maze.enter（報名）、maze.use（解機關、開寶箱、寶箱怪）、maze.rest（層與層之間的休息）、maze.result（結算）。
 
-import type { ActorId, Change, CheckRoll, Effect, GameState, GridCtx, GridEffect, GridUse, Kernel, Launch, MarkerDef, Origin, ReportDraft, TimelineBeat, UnitRef } from '../../core'
-import { ActionBlocked, DEGREE_NAME, attrMod, checkParts, clone, deriveRng, effectCtx, formatAmount, gridHere, isRecord, pointKey, rollCheck, toMinutes } from '../../core'
+import type { ActorId, AttrId, Change, CheckRoll, Effect, GameState, GridCtx, GridEffect, GridUse, Kernel, Launch, MarkerDef, Origin, ReportDraft, TimelineBeat, UnitRef } from '../../core'
+import { ActionBlocked, DEGREE_NAME, attrMod, checkParts, clone, deriveRng, effectCtx, formatAmount, gridHere, isRecord, modeAttr, pointKey, rollCheck, toMinutes } from '../../core'
 import type { BracketDef, BracketGrade, MazeResult, MazeRules, MazeState, MazeTable, SolveOption, TableRow } from './model'
 import {
   ACT_DIVE, ACT_NETRUN, ORIGIN_BY, REGION_ID, chipKey, downKey, isText, mazeChange, mazeRegion, mazeRules, rate, readMaze, resetTally, roundKey, tableOf, tallyOf, BRACKET_ORDER,
@@ -61,16 +61,23 @@ export interface BracketRow {
 const bracketIds = (rules: MazeRules): string[] => [...BRACKET_ORDER.filter((id) => rules.brackets[id]), ...Object.keys(rules.brackets).filter((id) => !BRACKET_ORDER.includes(id)).sort()]
 
 /** 隊上的人裝著的構裝（actor.ext.deck.slots 的格式；內容查得到 construct 的才算，快駭程式不算）。 */
-function constructsOf(k: Kernel, state: GameState, actor: ActorId): Array<{ id: string; name: string; grade: number }> {
+function constructsOf(k: Kernel, state: GameState, actor: ActorId): Array<{ id: string; name: string; grade: number; weapon: boolean }> {
   const deck = state.actors[actor]?.ext.deck
   const slots = isRecord(deck) && Array.isArray(deck.slots) ? deck.slots.filter(isText) : []
   if (!k.content.hasKind('construct')) return []
-  const out: Array<{ id: string; name: string; grade: number }> = []
+  const out: Array<{ id: string; name: string; grade: number; weapon: boolean }> = []
   for (const id of slots) {
     const e = k.content.get('construct', id)
-    if (e) out.push({ id, name: isText(e.name) ? e.name : id, grade: typeof e.grade === 'number' ? e.grade : 1 })
+    if (e) out.push({ id, name: isText(e.name) ? e.name : id, grade: typeof e.grade === 'number' ? e.grade : 1, weapon: e.class === 'weapon' })
   }
   return out
+}
+
+/** 報名前這個人身上租的甲板（潛艙店附的；actor.ext.deck.rental.deck 的共用格式）；沒有租是 undefined。 */
+function rentalOf(state: GameState, actor: ActorId): string | undefined {
+  const deck = state.actors[actor]?.ext.deck
+  const r = isRecord(deck) ? deck.rental : undefined
+  return isRecord(r) && isText(r.deck) ? r.deck : undefined
 }
 
 /** 報這一組、這一級現在報不了的原因（一條一個條件）。 */
@@ -93,6 +100,13 @@ export function enterBlocks(k: Kernel, state: GameState, bracketId: string, grad
     if (!k.activity.active(state).some((a) => a.kind === ACT_DIVE)) p.push('迷宮館在網內：要先從接入點潛入，才報得了名。')
     const bridgeless = party.filter((id) => !isRecord(state.actors[id]?.ext.bridge))
     if (bridgeless.length) p.push(`${bridgeless.map((id) => nameOf(state, id)).join('、')}沒有橋：沒有橋的人進不了內海。`)
+    // 潛入中不能換構裝：這一組能用的武器構裝一件都沒有，報得進去也一場打不贏（M3 審查應修 4 的一併查）
+    if (party.length && k.activity.active(state).some((a) => a.kind === ACT_DIVE) && k.content.hasKind('construct')) {
+      const usable = (c: { id: string; grade: number; weapon: boolean }): boolean => c.weapon && (b.kit.includes(c.id) || (b.own && c.grade <= b.max_grade))
+      if (!party.some((id) => constructsOf(k, state, id).some(usable))) {
+        p.push(`${b.name}要有能用的武器構裝（${b.own ? `館方的比賽版，或 ${roman(b.max_grade)} 級以下` : '館方的比賽版'}）：隊上沒有人裝著，而潛入中不能換構裝，要先登出、裝好再來。`)
+      }
+    }
   }
   if (party.length > rules.max_party) p.push(`一隊最多 ${rules.max_party} 個人（現在隊上有 ${party.length} 個）。`)
   if (state.money.cash < g.deposit) p.push(`押金不夠：${b.name}要 C$${formatAmount(g.deposit)}，你只有 C$${formatAmount(state.money.cash)}。`)
@@ -150,6 +164,11 @@ export function enter(k: Kernel, state: GameState, bracketId: string, o: EnterOp
   const changes: Change[] = [{ op: 'uid', advance: 1 }]
   if (g.deposit > 0) changes.push({ op: 'cash', delta: -g.deposit })
   const rented: ActorId[] = []
+  const prior: Record<ActorId, string> = {}
+  for (const who of party) {
+    const r = rentalOf(state, who)
+    if (b.deck && r) prior[who] = r
+  }
   if (b.deck) {
     const effects: Effect[] = party.map((who) => ({ kind: 'deck_rental', deck: b.deck!, who }))
     const res = k.effects.resolve(effects, effectCtx(k, state, { source: 'builtin' }))
@@ -158,7 +177,7 @@ export function enter(k: Kernel, state: GameState, bracketId: string, o: EnterOp
     rented.push(...party)
   }
   const origin: Origin = { by: ORIGIN_BY, ref: bracketId, ext: { maze: { id, bracket: bracketId, grade: g.grade } } }
-  const maze: MazeState = { id, bracket: bracketId, grade: g.grade, deposit: g.deposit, rented, origin }
+  const maze: MazeState = { id, bracket: bracketId, grade: g.grade, deposit: g.deposit, rented, ...(Object.keys(prior).length ? { prior } : {}), origin }
   changes.push(mazeChange(maze))
   const setup: Record<string, unknown> = {
     region: mazeRegion(rules), grade: g.grade, faction: rules.faction, layers: rules.layers.map((l) => l.name),
@@ -209,12 +228,15 @@ const dcOf = (here: Here): number => (typeof here.net.dc === 'number' ? here.net
 /** 這一格有沒有處理過（寶箱打開過、機關解開過）。 */
 const usedAt = (here: Here, x: number, y: number): boolean => here.g.sheetState.cells[pointKey(x, y)]?.used === true
 
+/** 解機關的辦法實際擲哪個屬性：迷宮館在網內，體格由意志代替（CYBERSPACE 4.1 節；M3 審查應修 3）。 */
+const attrOf = (k: Kernel, opt: SolveOption): AttrId => modeAttr(k.content, 'net', opt.attr as AttrId)
+
 /** 隊上能解的辦法裡加值最高的那一組（辦法指定了就只看那一個）。 */
 function bestSolver(k: Kernel, state: GameState, options: SolveOption[]): { id: ActorId; opt: SolveOption; mod: number } | null {
   let best: { id: ActorId; opt: SolveOption; mod: number } | null = null
   for (const id of partyOf(state)) {
     for (const opt of options) {
-      const mod = checkParts(k.stats, state, id, { attr: opt.attr as never, ...(opt.skill ? { skill: opt.skill } : {}), tags: [] }).reduce((s, p) => s + p.value, 0)
+      const mod = checkParts(k.stats, state, id, { attr: attrOf(k, opt), ...(opt.skill ? { skill: opt.skill } : {}), tags: [] }).reduce((s, p) => s + p.value, 0)
       if (!best || mod > best.mod) best = { id, opt, mod }
     }
   }
@@ -271,7 +293,7 @@ export function solve(k: Kernel, state: GameState, markerId?: string, option?: s
   const pick = bestSolver(k, state, options)!
   const dc = dcOf(here)
   const roll = rollCheck(k.stats, state, {
-    actor: pick.id, attr: pick.opt.attr as never, ...(pick.opt.skill ? { skill: pick.opt.skill } : {}), dc,
+    actor: pick.id, attr: attrOf(k, pick.opt), ...(pick.opt.skill ? { skill: pick.opt.skill } : {}), dc,
     purpose: `maze/${here.maze.id}/solve/${here.sheetId}/${marker.id}`, tags: ['maze', 'puzzle'],
   })
   const ok = isRoll(roll)
@@ -563,7 +585,8 @@ export function closeRun(k: Kernel, state: GameState, run: RunLike, outcome: str
   if (cash > 0) changes.push({ op: 'cash', delta: cash })
   // 收回比賽甲板
   if (m.rented.length && k.effects.has('deck_rental')) {
-    const res = k.effects.resolve(m.rented.filter((id) => !!state.actors[id]).map((who) => ({ kind: 'deck_rental', deck: null, who }) as Effect), effectCtx(k, state, { source: 'builtin' }))
+    // 收回館方的比賽甲板；報名前身上租的是潛艙店那一副的，換回那一副（不是收成沒有：人還在潛入中，M3 審查應修 4）
+    const res = k.effects.resolve(m.rented.filter((id) => !!state.actors[id]).map((who) => ({ kind: 'deck_rental', deck: m.prior?.[who] ?? null, who }) as Effect), effectCtx(k, state, { source: 'builtin' }))
     if (!res.errors.length) changes.push(...res.changes)
   }
   changes.push(...resetTally(state, m, rules.layers.length))

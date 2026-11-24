@@ -22,6 +22,8 @@ export interface Kernel extends ActionKernel {
   features: string[]
   /** 還沒跑第二段的功能 */
   pendingReady: Feature[]
+  /** 會給內容警告的功能（Feature.warnings）；contentWarnings 照順序問它們 */
+  warners: Feature[]
 }
 
 /** 一個 L6 的功能：只往下 import 核心，用登錄表與掛鉤把自己接上。功能之間不直接 import。 */
@@ -31,6 +33,11 @@ export interface Feature {
   install(kernel: Kernel): void
   /** 第二段（可以沒有）：內容載入之後呼叫一次。要讀內容才能註冊的東西放這裡（例：照資料註冊行動種類） */
   ready?(kernel: Kernel): void
+  /**
+   * 資料檢查的警告（可以沒有）：內容載入之後問，回傳一串完整的句子（寫出是哪一筆內容、哪裡不對勁、為什麼要緊）。
+   * 警告不擋載入、不丟錯：只是「格式合格、但多半不是你要的」（例：網內的敵人沒有武器構裝，進內海之後打不了任何人）。唯讀，不改任何東西。
+   */
+  warnings?(kernel: Kernel): string[]
 }
 
 export function createKernel(features: Feature[] = []): Kernel {
@@ -45,7 +52,7 @@ export function createKernel(features: Feature[] = []): Kernel {
   base.content.defineKind({ kind: 'special_map', owner: 'core', validate: specialMapProblems })
   const activity = new ActivityRegistry(base.probe)
   registerCoreActivities(activity)
-  const k: Kernel = Object.assign(base, { actions, battle, activity, grid: new GridRegistry(base.probe), features: [] as string[], pendingReady: [] as Feature[] })
+  const k: Kernel = Object.assign(base, { actions, battle, activity, grid: new GridRegistry(base.probe), features: [] as string[], pendingReady: [] as Feature[], warners: [] as Feature[] })
   for (const f of features) installFeature(k, f)
   return k
 }
@@ -55,6 +62,7 @@ export function installFeature(k: Kernel, f: Feature): void {
   f.install(k)
   k.features.push(f.id)
   if (f.ready) k.pendingReady.push(f)
+  if (f.warnings) k.warners.push(f)
   k.probe.emit('core/kernel', 'feature.install', { id: f.id })
 }
 
@@ -64,4 +72,9 @@ export function readyFeatures(k: Kernel): void {
     f.ready!(k)
     k.probe.emit('core/kernel', 'feature.ready', { id: f.id })
   }
+}
+
+/** 內容載入之後問每個功能有沒有警告（資料檢查；Feature.warnings）：照功能安裝的順序、每個功能內部的順序接起來。沒有警告是空陣列。 */
+export function contentWarnings(k: Kernel): string[] {
+  return k.warners.flatMap((f) => f.warnings!(k))
 }

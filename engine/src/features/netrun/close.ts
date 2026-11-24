@@ -2,6 +2,7 @@
 // 規格：CYBERSPACE 6.8、8.1 節（追蹤度、帶出去才算數）；NETRUNNING 第 5 節；dev/adr/0018 第六、七、十節與 N13、N15；dev/work/M3-netrun.md 要做的第 6、9、10、11 項。
 // 離開的四種方式與交回的 outcome：done（目標達成）、left（探索中拔線登出，東西全部帶走）、retreat（委託副本裡全員拔線或探索中登出：等於撤退）、located（探索中被定位）。
 // 戰鬥打輸不由這裡交回：戰敗被接受之後只把這一趟收掉（關地圖、清狀態），不另外發自己的 activity.end（副本已經從戰敗的 activity.end 知道結果，再發一次會把同一個階段處理兩遍）。
+// 例外：熔斷的場地（battle.field.safe，迷宮館）打輸沒有戰敗事件：fight.ts 把這一趟標成 over: 'defeat'，這裡交回 defeat（迷宮館結算押金；人還在潛入中，醒在回復室）。
 
 import type { ActivityEndReturn, Change, GameState, Kernel, Origin, Report, ReportDraft } from '../../core'
 import { ActionBlocked, attachActivityEnd, clone, closeMap, endActivity, isRecord, meterOf, seedRand } from '../../core'
@@ -14,13 +15,14 @@ import { makePatrol, moverChanges, nextPatrolId } from './patrol'
 import { countsOf, netrunRules } from './rules'
 import { layerLabel, partyOf, setupOf } from './start'
 
-type Ending = Exclude<CloseOutcome, 'defeat'>
+type Ending = CloseOutcome
 
 const SUMMARY: Record<Ending, string> = {
   done: '穿過了最後的閘門，這一趟做完了。',
   left: '你登出了：東西都帶走了。',
   retreat: '你們登出了：委託的這一段撤退，回到進去之前。',
   located: '被定位了：現實的增援趕到接入點，全隊被強制斷線。',
+  defeat: '熔斷的場地沒有真的倒下：館方把你們送回了回復室。',
 }
 
 /** 這一趟現在的追蹤度（這一區沒有追蹤度是 0）。 */

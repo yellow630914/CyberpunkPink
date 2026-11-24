@@ -6,9 +6,10 @@
 //
 // 接上核心的地方：
 //   內容  net_site（網內去得了的地方，一筆一個）；設施種類（world 的 facility_type）多讀 dive?: { fee, rental, deposit, safe }，functions 有 dive 的才讀（載入之後 ready 檢查格式）
-//   活動  dive（order 85）：進行中放行 DIVE_ALLOW，其餘擋下，原因「你的意識在網內，身體躺在<接入點>。先登出。」
+//   活動  dive（order 85）：進行中放行 DIVE_ALLOW，加上腳下是網內時才放行的 DIVE_NET_ONLY（走格子、世界的移動、交易、對話；B024），其餘擋下，原因「你的意識在網內，身體躺在<接入點>。先登出。」
 //   格子  usesOf：站在帶 dive 的設施上列「潛入」；潛入中站在身體躺的那一格列「登出」
-//   掛鉤  activity.end：自己開的那一趟被定位、網內的戰敗被接受之後標成被強制斷線；report.after：標了而且手上沒有別的事，自動登出（押金沒收）
+//   掛鉤  activity.end：自己開的那一趟被定位、網內的戰敗被接受之後標成被強制斷線；report.after：標了而且手上沒有別的事，自動登出（押金沒收）。
+//         熔斷場地（迷宮館）打輸沒有戰敗被接受這一步（defeat 不接手，netrun 直接收掉那一趟）：不標、不強制登出、押金照退（M3 修正批）
 //   效果  只用別人登記的：deck_rental（租用與收回）、move（把人放到網內的街區、回到身體的位置；沒有人登記就不用）
 //   條件  只用別人登記的：at_facility（站在哪一種設施；沒有人登記就沒有接入點）
 //   狀態  state.ext.dive：{ since, body: { location, at? }, access: { facility?, type, safe, name? }, deck, paid?, over? }（只經由報告裡的 ext 變更寫）

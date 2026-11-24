@@ -102,6 +102,9 @@ export function onBattleEnd(k: Kernel, state: GameState, battle: BattleState, ou
     const old = defeatOf(state)
     return old && old.battle !== battle.id ? { changes: [extChange(null)] } : undefined
   }
+  // 熔斷的場地（battle.field.safe：迷宮館的比賽、之後的場館）：倒下沒有真的後果，不走戰敗事件、不留等著三選一的戰敗，只把開打前的快照丟掉；
+  // 這一趟怎麼收（醒在館方的回復室）是開戰的那個功能的事（使用者 2026-11-24；M3 審查應修 7）
+  if (battle.field.safe === true) return { changes: [{ op: 'snapshot.drop', kind: 'battle' }] }
   const roll = deriveRng(state.rng, `defeat/${battle.id}`).next()
   const w = winnersOf(k, battle)
   const net = modeOf(k.content, battle.mode)?.layer === 'net'

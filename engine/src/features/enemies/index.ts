@@ -19,7 +19,7 @@ import { registerAngel } from './angel'
 import { registerLace } from './lace'
 import { registerOverlays } from './overlays'
 import { enemyUnit } from './stats'
-import { OWNER, registerKinds } from './kinds'
+import { OWNER, netEnemyWarnings, registerKinds } from './kinds'
 import { installLoot } from './loot'
 import { applyTraits, moraleDcBonus, registerTraitKind, runTraitStart } from './traits'
 
@@ -31,7 +31,7 @@ export type { NetEnemyRule } from './lace'
 export { CASH_RANGE, LOOT_CAP } from './loot'
 export type { LootConstruct, LootCredential, LootDrop, LootEntry, LootText } from './loot'
 export { OVERLAY_KINDS } from './kinds'
-export { LACE_COLORS, NET_ONLY_KINDS, NET_SYNC_VALUES, enemyMode, netCapable } from './kinds'
+export { LACE_COLORS, NET_ONLY_KINDS, NET_SYNC_VALUES, enemyMode, netCapable, netEnemyWarnings } from './kinds'
 export type { EncounterEntry, EncounterFoe, EnemyAttached, EnemyConstruct, EnemyCyber, EnemyDeck, EnemyEntry, EnemyHull, EnemyOverlay, EnemySignature } from './kinds'
 export type { TraitEntry } from './traits'
 export { pickCandidates, pickEnemy, pickProblems } from './pick'
@@ -99,5 +99,9 @@ export const enemiesFeature: Feature = {
   // 內容載入之後：招牌行動寫技能 id 的，要查得到而且標了 enemy（查不到由引用檢查擋下；這裡擋「查得到但不是招牌行動」的）
   ready(k) {
     checkSignatures(k)
+  },
+  // 資料檢查的警告（不擋載入）：網內的敵人沒有 constructs（白蕾絲除外）
+  warnings(k) {
+    return netEnemyWarnings(k.content)
   },
 }

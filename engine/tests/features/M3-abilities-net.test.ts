@@ -423,6 +423,25 @@ describe('招牌（unique、admin: tier、tags: admin）', () => {
     expect(stat(both.k, both, 'deck_slots')).toBe(7)
   })
 
+  it('decay（M3 修正批）：內海每個回合多消退幾點感載，1 以上的整數；經 provider 加到衍生數值 net_load_decay（那個數值是 deck 定義的；沒有人定義就沒有人問）', () => {
+    const load = (a: Rec) => () => {
+      const k = createKernel(FEATURES)
+      k.content.loadPack(pack([a]))
+    }
+    expect(load(ab('sk_x', 'passive', { net: { decay: 0 } }))).toThrow(/net\.decay/)
+    expect(load(ab('sk_x', 'passive', { net: { decay: 1.5 } }))).toThrow(/net\.decay/)
+    expect(load(ab('sk_x', 'passive', { net: { decay: 2 } }))).not.toThrow()
+    const DECAY: Feature = { id: 'abilities_net_decay_stat', install: (k) => k.stats.defineStat({ id: 'net_load_decay', owner: 'abilities_net_decay_stat', name: '內海的感載消退', base: () => 0 }) }
+    const owner = (...ids: string[]) => ({ pc: { ext: { abilities: { xp: 0, learned: ids, equipped: ids, spent: { tree: 120 } } } } })
+    const skills = [...SKILLS, ab('sk_cool', 'passive', { net: { decay: 2 } }), ab('sk_cool2', 'passive', { meat: { decay: 1 } })]
+    const g = playNet([], { ...owner('sk_cool', 'sk_cool2'), skills, features: [...FEATURES, DECAY] })
+    expect(stat(g.k, g, 'net_load_decay')).toBe(3)
+    const none = playNet([], { ...owner(), skills, features: [...FEATURES, DECAY] })
+    expect(stat(none.k, none, 'net_load_decay')).toBe(0)
+    // 沒有人定義那個數值（沒有 deck）：不丟錯
+    expect(() => playNet([], { ...owner('sk_cool'), skills })).not.toThrow()
+  })
+
   it('沒有別人定義 sync_cap_bonus 時由技能這邊定義（基本 0）；別人定義了就不重複定義', () => {
     // FEATURES 沒有別人定義 sync_cap_bonus：技能定義了
     expect(createKernel(FEATURES).stats.hasStat('sync_cap_bonus')).toBe(false)

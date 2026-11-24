@@ -82,6 +82,8 @@ export function battleLaunch(k: Kernel, state: GameState, run: NetRun, net: NetE
   ext.net = {
     run: run.id, map: run.map, sheet: sheetId, node: target.id, region: run.region, dc: net.dc,
     reinforce: reinforceOf(k, state, run), locate_rounds: rules.locate_rounds, ...(target.patrol ? { patrol: true } : {}), ...(ambush ? { ambush: true } : {}),
+    // 連動讓這一段的追蹤度上升減半：戰鬥裡的每一次上升也減半（M3 審查應修 2）
+    ...(setupOf(run).fx.trace_half ? { trace_half: true } : {}),
   }
   const field: Record<string, boolean | number> = {}
   if (region.pressure === 'trace' && k.meters.has(TRACE)) field.trace = meterOf(k, state, TRACE, run.map)
@@ -193,6 +195,9 @@ export function onBattleEnd(k: Kernel, state: GameState, battle: BattleState, ou
   }
   // 全員拔線：委託的階段是撤退（N13），自己去的那一趟是離開；這一份報告套用之後 report.after 接著收尾
   if (outcome === 'jack_out') next.over = run.kind === ACT_FACE ? 'retreat' : 'left'
+  // 熔斷的場地（battle.field.safe：迷宮館）打輸或投降：沒有戰敗事件（defeat 不接手），這一趟直接收掉，人醒在館方的回復室（使用者 2026-11-24；M3 審查應修 7）。
+  // 自己去的那一趟交回 defeat（迷宮館押金沒收；潛艙店的押金與潛入不受影響），委託的階段當撤退
+  if ((outcome === 'lose' || outcome === 'surrender') && battle.field.safe === true) next.over = run.kind === ACT_FACE ? 'retreat' : 'defeat'
   changes.push(runChange(next))
   return { changes, lines }
 }
