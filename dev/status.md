@@ -240,3 +240,10 @@
 - 技能 `meat` 欄的被動、資源池在內海也會被讀到，歸 M3-abilities-net 第 1 項；現金與人情資源池在內海要不要建立未定。
 - `BattleActionDef.modes` 比對戰場 id 不是 layer，之後有第二個現實戰場要改（核心）。
 - 兩條舊測試「內海快取格照帶」已改成不帶（照工單與 ADR 0018）。
+
+## M3-deck 回報（2026-11-24）
+
+- 待使用者：構裝等級高過甲板時要不要夾在甲板等級（`deck_rule.cap_construct_grade`，現在預設 false，照構裝自己的等級）。
+- 讀 `deck_slots` 的功能要走 `deckOf`（沒有甲板時衍生數值本身不是 0）。
+- 構裝 `traits` 只收字串陣列，DATA 7.3 範例的物件寫法等 netcombat 定。
+- M4 義體接上時要換：`state.ts` 的 `rawDeck`、`ops.ts` 的 `equipBlock`／`equipDraft`／`deckStack`。
