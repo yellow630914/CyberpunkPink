@@ -75,10 +75,10 @@ const ENEMIES: Rec[] = [
   base('en_loot_rand', 'minion', { faction: 'f_c', color: 'pink', constructs: [gun('lr')], loot: [{ construct: 'random', chance: 1, needs: 'dissect' }] }),
   base('en_loot_elite', 'elite', { faction: 'f_c', color: 'pink', constructs: [gun('le')], loot: [{ construct: 'cs_w1', chance: 0.00001, needs: 'dissect' }] }),
   // 現實的人帶憑證與零件：現實照擲
-  { id: 'en_corp', name: '企業的人', desc: '測試用的敵人。', faction: 'f_c', rank: 'minion', grades: [1, 5], kind: 'human', position: { prefer: [1, 2] }, mode: 'lethal', weapons: [{ class: 'pistol' }], cash: false, ai: { prefer: 'weakest', focus: 1, flee_below: 0 }, loot: [{ credential: true, chance: 1 }, { item: 'it_part', chance: 1 }] },
+  { id: 'en_corp', name: '企業的人', desc: '測試用的敵人。', faction: 'f_c', rank: 'elite', grades: [1, 5], kind: 'human', position: { prefer: [1, 2] }, mode: 'lethal', weapons: [{ class: 'pistol' }], cash: false, ai: { prefer: 'weakest', focus: 1, flee_below: 0 }, loot: [{ credential: true, chance: 1 }, { item: 'it_part', chance: 1 }] },
 ]
 
-const PACK: ContentPack = {
+export const PACK: ContentPack = {
   id: 'lace_test',
   content: {
     skill: SKILLS, weapon_class: WEAPON_CLASSES, battle_status: STATUSES,
@@ -700,7 +700,7 @@ describe('內海打贏之後的掉落：不掉現金與零件，只有解剖拿�
     const pack: ContentPack = { id: 'tmp', content: { ...PACK.content, enemy: [...ENEMIES, base('en_cred', 'elite', { color: 'pink', constructs: [gun('cr')], loot: [{ credential: true, chance: 1, needs: 'dissect' }, { construct: 'cs_w1', chance: 1 }] })] } } as unknown as ContentPack
     const r = await fight(['en_cred'], { dissect: [0], pack })
     expect(r.items).toEqual([['it_cred', 1], ['cs_w1', 1]])
-    const bare: ContentPack = { ...BARE, content: { ...BARE.content, enemy: pack.content.enemy } } as unknown as ContentPack
+    const bare: ContentPack = { ...BARE, content: { ...BARE.content, enemy: [base('en_cred', 'elite', { color: 'pink', constructs: [gun('cr')], loot: [{ credential: true, chance: 1, needs: 'dissect' }] })] } } as unknown as ContentPack
     const none = await fight(['en_cred'], { dissect: [0], pack: bare })
     expect(none.items).toEqual([])
   })
@@ -719,7 +719,7 @@ describe('內海打贏之後的掉落：不掉現金與零件，只有解剖拿�
   })
 
   it('構裝: random 在沒有人定義 construct 的遊戲裡略過（不丟錯）', async () => {
-    const pack: ContentPack = { id: 'tmp', content: { skill: SKILLS, weapon_class: WEAPON_CLASSES, item: [item('it_part', '零件')], enemy: [base('en_loot_rand', 'minion', { faction: 'f_c', color: 'pink', constructs: [gun('lr')], loot: [{ construct: 'random', chance: 1, needs: 'dissect' }] })] } } as unknown as ContentPack
+    const pack: ContentPack = { id: 'tmp', content: { skill: SKILLS, weapon_class: WEAPON_CLASSES, item: [item('it_part', '零件')], enemy: [base('en_loot_rand', 'minion', { faction: 'none', color: 'pink', constructs: [gun('lr')], loot: [{ construct: 'random', chance: 1, needs: 'dissect' }] })] } } as unknown as ContentPack
     const test = makeBattleGame({ features: [enemiesFeature, TEST_NET_COMBAT], content: [pack], battle: { ...netSetup([foeRef('en_loot_rand')]), allies: [raw(netAvatar(0, 3, { tags: ['dissect'] }))] } })
     const g = test.game
     for (const u of Object.values(g.state.battle!.units)) if (u.side === 'foe') u.out = 'down'
