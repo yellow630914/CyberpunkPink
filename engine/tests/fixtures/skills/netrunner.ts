@@ -114,9 +114,10 @@ T.skill(n('inject'), '灌頂', 3, 'front', 'active', 2, 3, n('overheat'),
     net: { target: 'enemy', action_tags: ['hack'], do: [{ op: 'hack.check', class: 'neural', stop: true }, { op: 'load', amount: '4d6' }, { op: 'branch', needs: { status: 'flash' }, do: [{ op: 'load', amount: '1d6' }] }] },
   })
 
-T.gap(n('backdoor'), '後門', 3, 'front', 'prep', 2, 3, n('silence'), {
-  use: { slot: 1 }, prep: { slot: 1, scope: 'commission', net: { trace_start: -15 } },
-})
+T.skill(n('backdoor'), '後門', 3, 'front', 'prep', 2, 3, n('silence'),
+  '（預備，踩點時 1 時段，每件委託一次）這次潛入的追蹤度從 −15 起算（追蹤度要先漲回 0 才開始累積），而且下次可以從這一層的後門直接進來，不必從訪客層走。', 'approx',
+  '預備：prep.net.trace_start −15（衍生數值 net_trace_start 給 netrun 開那一趟時讀）；net 欄是 null；「下次從後門直接進來」是 netrun 的安全點（後門）的事，技能格式沒有對應的鍵',
+  { use: { slot: 1 }, prep: { slot: 1, scope: 'commission', net: { trace_start: -15 } } })
 
 T.skill(n('lockdown'), '封鎖', 3, 'front', 'active', 2, 6, n('rewrite_terrain'),
   '敵方整排這一回合不能換位、不能補位，而且每一格的遮蔽降一級。', 'approx', '做了「每一格的遮蔽降一級」（cover who: foes −1）；「不能換位、不能補位」要斷路（缺 net.cut）',

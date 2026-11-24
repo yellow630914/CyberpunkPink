@@ -8,6 +8,10 @@
 // 情報網（prep.effects）、換配置（地點與時間，loadout.ts）、人情池（讀衍生數值 favor_*，結束時 favor.spend）、歷練點的效果 xp。
 // M3-abilities-net（dev/work/M3-abilities-net.md）：net 欄與 meat 欄同一套格式，戰鬥裡照戰場的 layer 選欄（column.ts）；use 照戰場選；
 // 內海才有的鍵（admin、slots、sync_cap、unique、overclock、when.sync_min／sync_max、prep.net）；衍生數值 net_trace_start、flow_tier 與三個 provider（stats.ts）。
+// M3-skill-net-a（dev/work/M3-skill-net-a.md）：四棵樹的內海欄（槍手、潛網者、改造師、機師）逐條寫成測試資料時補的通用鍵：內海欄的 instinct { div, only, fixed }（戰鬥直覺）、
+// use.weapon_ram（照常花武器構裝的 RAM）、花掉全部 RAM 的技能（use.ram_all_min）內海欄可以寫 attack.spend／dice／suppress（超頻、黑冰）、attack.suppress.first_round（壓制姿態）、
+// trigger.tag、react.damage、react.flash（死線、逆流、急凍：改寫閃斷）、被動技能的 net.action（手術刀的除錯）、修正 use_extra（名醫）、欄的 trace（技能做的快駭的追蹤度）；
+// 衍生數值 master_tier（stats.ts：主角看裝著的招牌與學習紀錄，夥伴看 ext.paths；features/netrun 的 masterTier 讀它）。
 // 不 import 別的功能（射擊、換彈在 features/combat；技能自己用 run.attack）。
 
 import type { Feature } from '../../core'

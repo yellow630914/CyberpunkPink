@@ -164,6 +164,7 @@ describe('四棵樹的內海欄資料：格式檢查過、用到的效果都查�
         const ab = t.abilities.find((x) => x.id === n.id)!
         if (n.text === '—') expect(ab.net, n.id).toBeNull()
         else if (n.status === 'none' || n.status === 'wait') expect(ab.net as Rec, n.id).toMatchObject({ pending: true })
+        else if (ab.kind === 'prep') expect(ab.prep as Rec, n.id).toMatchObject({ net: { trace_start: expect.any(Number) } })
         else expect(ab.net, n.id).not.toBeNull()
       }
     }
