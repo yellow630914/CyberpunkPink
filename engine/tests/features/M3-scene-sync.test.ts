@@ -8,7 +8,7 @@ import { ActionBlocked } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { lewdFeature } from '../../src/features/lewd'
 import type { Dice, SceneInput, SceneState, SyncGear } from '../../src/features/scene'
-import { sceneAct, sceneFeature, sceneNext, sceneOf, sceneOptions, sceneSkip, sceneView, setSceneMode } from '../../src/features/scene'
+import { sceneAct, sceneFeature, sceneNext, sceneOf, sceneOptions, sceneSkip, sceneView } from '../../src/features/scene'
 import type { ActorOverrides } from '../../src/testkit'
 import { METER_CONTENT, makeActor, makeGame, meterFeature, testMeter } from '../../src/testkit'
 
@@ -56,6 +56,7 @@ const PACK: ContentPack = {
       },
       { id: 'it_calm', name: '冷靜貼片', desc: '一個測試用的貼片。', category: 'consumable', grade: 1, size: 0, legal: 'free', consumable: true, scene: { ap: 1, on_use: { my_load: '-1d6' } } },
     ],
+    skill: [{ id: 'sync', name: '同步', attr: 'resolve', desc: '撐住回灌。' }],
     tendency_tag: [{ id: 'tg_dom', name: '支配', axis: 'relation' }, { id: 'tg_kiss', name: '親吻', axis: 'sense' }],
   },
 }
@@ -173,7 +174,7 @@ describe('換檔：第十種行動', () => {
     const c = Object.fromEntries(gearOpt(g).choices!.map((x) => [x.id, x.blocks]))
     expect(c.shallow).toEqual([])
     expect(c.standard).toEqual(['已經是標準檔了。'])
-    expect(c.deep).toEqual(['同步要 3 級才能開深檔（現在 0 級）。', '敏感度要 40 才能開深檔（現在 50）。'].slice(0, 1))
+    expect(c.deep).toEqual(['同步要 3 級才能開深檔（現在 0 級）。'])
     expect(c.full).toEqual(['同步要 5 級才能開全檔（現在 0 級）。'])
   })
 
@@ -229,7 +230,7 @@ describe('換檔：第十種行動', () => {
     const packs: ContentPack[] = [{ id: 'sync_hi', content: { sync_rule: [{ id: 'default', gears: { standard: { name: '標準', check: 0, load_pct: 100, need_skill: 0, need_sensitivity: 60 } } }] } }]
     const g = game({ packs })
     begin(g)
-    expect(S(g).gear).toEqual({ pc: 'shallow', partner: 'shallow' })
+    expect(S(g).gear).toEqual({ pc: 'shallow', partner: 'standard' }) // 安的敏感度 100，夠
     expect(S(g).max_gear.pc).toBe('shallow')
     const c = Object.fromEntries(gearOpt(g).choices!.map((x) => [x.id, x.blocks]))
     expect(c.shallow).toEqual(['已經是淺檔了。'])
@@ -286,7 +287,7 @@ describe('檔位的效果', () => {
     const run = (gear: SyncGear): number => {
       const g = game(FULL_PC)
       begin(g)
-      act(g, { kind: 'gear', gear })
+      if (gear !== 'standard') act(g, { kind: 'gear', gear })
       // 把四點都用掉：說話、挑逗（固定骰 1）、克制、說話
       talk(g)
       act(g, { kind: 'tease' }, dice(1, 1))
@@ -422,10 +423,7 @@ describe('對方的檔位（走規則、不呼叫 AI）', () => {
 // ======================================================================
 describe('結算：這一場開過的最高檔位', () => {
   it('scene.end 的最後一拍與 activity.end 的結果帶 max_gear（深過又退回標準，記的是深）', () => {
-    const heard: unknown[] = []
     const g = game({ ...FULL_PC })
-    g.k.activity.onEnd?.('scene', () => undefined)
-    void heard
     begin(g)
     act(g, { kind: 'gear', gear: 'deep' })
     act(g, { kind: 'end_turn' })
@@ -448,16 +446,15 @@ describe('結算：這一場開過的最高檔位', () => {
 
 // ======================================================================
 describe('沒有人換檔時和原來一樣', () => {
-  /** 一套固定的行動（精簡版）：每一步之後的場景狀態、角色的感載與結算的結果。 */
-  const playthrough = (o: Opts): unknown[] => {
-    setSceneMode(o.fake ? {} : ({} as object), 'simple')
+  /** 一套固定的行動（精簡版）：每一步之後的場景狀態、角色的感載與結算；做不到的行動（行動點不夠這類）略過。 */
+  const playthrough = (o: Opts): string[] => {
     const g = game({ ...o, seed: 7 })
     begin(g, { ...SETUP, mode: 'simple' })
-    const out: unknown[] = []
-    const snap = () => out.push(JSON.stringify([sceneOf(g.state), g.state.actors.pc!.load, g.state.actors.npc_ann!.load, g.state.actors.pc!.afterglow, g.state.actors.npc_ann!.afterglow]))
+    const out: string[] = []
+    const snap = () => out.push(JSON.stringify([sceneOf(g.state), pc(g).load, ann(g).load, pc(g).afterglow, ann(g).afterglow]))
     const script: SceneInput[] = [
       { kind: 'talk', pick: talkParts }, { kind: 'dominate' }, { kind: 'skill', id: 'nt_hold' }, { kind: 'end_turn' }, { kind: 'yield' }, { kind: 'tease' }, { kind: 'restrain' }, { kind: 'dominate' },
-      { kind: 'end_turn' }, { kind: 'tease' }, { kind: 'yield' },
+      { kind: 'end_turn' }, { kind: 'tease' }, { kind: 'yield' }, { kind: 'end_turn' }, { kind: 'dominate' }, { kind: 'tease' }, { kind: 'end_turn' },
     ]
     for (const input of script) {
       for (let i = 0; i < 12 && sceneOf(g.state)?.turn === 'partner'; i++) {
@@ -465,8 +462,13 @@ describe('沒有人換檔時和原來一樣', () => {
         snap()
       }
       if (!sceneOf(g.state)) break
-      if (sceneAct && sceneOptions(g.k, g.state)!.actions.some((a) => a.id === (input.kind === 'end_turn' ? '' : input.kind) && a.blocks.length > 0)) continue
-      act(g, input)
+      try {
+        act(g, input)
+      } catch (e) {
+        if (!(e instanceof ActionBlocked)) throw e
+        out.push(`blocked:${e.reason}`)
+        continue
+      }
       snap()
     }
     for (let i = 0; i < 12 && sceneOf(g.state)?.turn === 'partner'; i++) next(g)
@@ -478,21 +480,14 @@ describe('沒有人換檔時和原來一樣', () => {
     return out
   }
 
-  it('精簡版走完一整場：開得了深檔、全檔但沒有人換檔，逐步與標準檔的主角逐欄相同', () => {
+  it('精簡版走完一整場：主角開得了深檔但沒有換，逐步、逐欄和標準檔的主角相同（只差角色身上的同步等級）', () => {
     const plain = playthrough({})
-    const able = playthrough({ ...FULL_PC })
-    expect(plain.length).toBeGreaterThan(8)
-    // 差在主角的同步等級與敏感度本身（橋參數）：把會不同的兩個欄位換成同一個再比
-    const norm = (x: unknown): string => String(x).replace(/"sync":5,?/g, '').replace(/"sensitivity":70/g, '"sensitivity":50')
-    expect(plain.slice(0, -1).length).toBe(able.slice(0, -1).length)
-    // 敏感度不同會讓感載不同：這一條只比「沒有開檔」的狀態欄位（檔位、換檔旗標、沉溺累積）
-    const gearFields = (x: unknown): unknown => {
-      const m = /"gear":(\{[^}]*\}),"max_gear":(\{[^}]*\}),"shifted":(\{[^}]*\}),"sink_gain":(\{[^}]*\})/.exec(String(x))
-      return m ? m.slice(1) : null
-    }
-    expect(gearFields(plain[0])).toEqual(gearFields(able[0]))
-    expect(gearFields(plain[0])).toEqual(['{"pc":"standard","partner":"standard"}', '{"pc":"standard","partner":"standard"}', '{"pc":false,"partner":false}', '{"pc":0,"partner":0}'])
-    void norm
+    const able = playthrough({ pc: { skills: { sync: 3 } } })
+    expect(plain.length).toBeGreaterThan(12)
+    expect(able.map((x) => x.replace(/"sync":3/g, ''))).toEqual(plain)
+    // 每一步的場景裡檔位都是標準、沒有換過、沒有累積沉溺
+    const first = JSON.parse(plain[1]!)[0] as SceneState
+    expect(first).toMatchObject({ gear: { pc: 'standard', partner: 'standard' }, max_gear: { pc: 'standard', partner: 'standard' }, shifted: { pc: false, partner: false }, sink_gain: { pc: 0, partner: 0 } })
   })
 
   it('同一個種子、同樣的行動序列、兩次跑出來逐欄相同（亂數沒有被換檔多吃）', () => {
