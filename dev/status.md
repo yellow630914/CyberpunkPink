@@ -440,3 +440,9 @@
 - 給引擎（審查或修正批）：net_site 沒有迷宮館的種類（建議 `kind: 'maze'` 或 sites() 列出迷宮館）；netrunView.dig 缺 `left`（上次離開的日子、剩幾天重整）；離開那份報告的 timeline 應帶 `data: result`（loot、敵對值數字）。
 - 平衡疑慮：示意主角（夜巡 III）打 grade 3 的迷宮館遊戲敵人卡在 AP 0 僵局 54 回合以上——審查或平衡看。
 - 潛入中主畫面仍可走格子和做現實的「這裡」（引擎放行 commit:world.），沒擋——審查確認。
+
+## M3-data-rules 回報（2026-11-24）
+
+- 新增規則表：sync_rules、deck_rules、netcombat_rules、netrun_rules、net_regions（subnet、maze、wreck、deep）、net_facilities（六種）、net_enemy_rules、maze_rules、maze_tables；battle_modes 加 net；battle_statuses 加 7 個；event_scopes 的 net 加 login/logout；commission、fixer 加內海欄位；暫定格子列在 data/index.ts 的 PROVISIONAL_M3。
+- 待定：net_facility 每層控制節點數設計書沒寫；深海壓力條是沉溺但 net_region.pressure 只收 trace/none；scene 的 PARTNER_GEAR_DOWN_AT、SINK_CAP 未進資料。
+- 全套跑時 M3-maze〈評價照回合數與倒下人數〉一次逾時，單獨跑過——冒煙或修正批查。
