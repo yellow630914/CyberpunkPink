@@ -42,6 +42,7 @@ const PACK: ContentPack = {
       cs('cs_rifle_3', 'weapon', { name: '夜巡', grade: 3, archetype: 'rifle', type: 'neural', ram: 1, advanced: { mods: { hit: 2 } }, ultimate: { mods: { damage: 3 } } }),
       cs('cs_blade', 'weapon', { name: '光刃', archetype: 'melee', type: 'neural', ram: 1 }),
       cs('cs_jam', 'weapon', { name: '靜電', archetype: 'pistol', type: 'jam', ram: 1 }),
+      cs('cs_stinger', 'weapon', { name: '電刺', archetype: 'pistol', type: 'neural', ram: 1, do: [{ op: 'net.ram', amount: -1, who: 'target' }], advanced: { do: [{ op: 'net.ram', amount: -1, who: 'target' }] } }),
       cs('cs_guard_4', 'defense', { name: '客服窗', guard: 4 }),
       cs('cs_guard_2', 'defense', { name: '散熱罩', guard: 2 }),
       cs('cs_cooler', 'tool', { name: '冷卻扇', grade: 3, ap: 1, ram: 1, target: 'none', do: [SELF_RAM(2)], advanced: { do: [SELF_RAM(1)] }, ultimate: { do: [SELF_RAM(1)] } }),
@@ -529,6 +530,16 @@ describe('構裝的進階與終極效果（ITEMS 11.1 節）', () => {
     }
     // 花 1 點 RAM，do 回 2；深檔再 +1、全檔再 +1
     expect([ram('standard'), ram('deep'), ram('full')]).toEqual([1 - 1 + 2, 1 - 1 + 2 + 1, 1 - 1 + 2 + 1 + 1])
+  })
+
+  it('武器構裝自己的 do 在命中時對目標做（深檔以上接上進階的 do）；沒中不做', () => {
+    const drained = (gear: string, natural: number) => {
+      const a = arena(setup([ally(1, { weapons: [gun('cs_stinger')], ext: { net: NET({ sync: gear }), deck: DECK([{ id: 'cs_stinger', class: 'weapon' }]) }, tags: ['netrunner', `sync:${gear}`] })], [lace()]))
+      const before = a.f(1).pools.ram!.now
+      a.run().attack(a.a(1), a.f(1), { natural, spend: 0 })
+      return before - a.f(1).pools.ram!.now
+    }
+    expect([drained('standard', 15), drained('deep', 15), drained('deep', 1)]).toEqual([1, 2, 0])
   })
 
   it('破損的構裝不給進階的加成', () => {

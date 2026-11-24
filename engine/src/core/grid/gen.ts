@@ -644,13 +644,11 @@ export function generateSheet(spec: GenSpec, rand: GenRand): GenResult {
     const r = attempt(spec, rand)
     if ('fail' in r) {
       last = r.fail
-      console.error('PLACE-FAIL', tries, r.fail.slice(0, 60))
       continue
     }
     const problems = genProblems(spec, r)
     if (!problems.length) return r
     last = `結果沒有通過檢查：${problems[0]}`
-    console.error('SELFCHECK-FAIL', problems[0])
   }
   throw new Error(`生成「${spec.id}」失敗（重挖 ${GEN_MAX_RECARVE} 次）：${last}`)
 }
