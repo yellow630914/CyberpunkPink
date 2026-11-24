@@ -3,12 +3,12 @@
 // 被動與共鳴變成修正（mods.ts）、反應（reactions.ts）、花費的減免是 action_ap 的修正（次數在 action.done 記）。
 // 不 import 別的功能：技能自己用 run.attack 與 run.effects，不呼叫 features/combat 的行動。
 
-import type { BattleActionDef, BattleInput, BattlePick, BattlePickOption, BattleRun, BattleTarget, BattleTargetOption, BattleUnit, BattleView, BattleWeapon, Kernel, RollPart } from '../../core'
+import type { BattleActionDef, BattleInput, BenchEntry, BattlePick, BattlePickOption, BattleRun, BattleTarget, BattleTargetOption, BattleUnit, BattleView, BattleWeapon, Kernel, RollPart } from '../../core'
 import { BATTLE_SLOTS, BattleBlocked, WOUND_PARTS, coverAt, gradeDice, onField, otherSide, unitAt, unitsOf, wielded } from '../../core'
 import { aiDefsOf, registerAiStance } from './ai'
 import type { Layer } from './column'
 import { OVERCLOCK, colIn, colOf, gearBlocks, layerOf, liveCols } from './column'
-import { companionAbilities, hasOwnRecord } from './companion'
+import { companionAbilities, hasOwnRecord, pathRows } from './companion'
 import { endChanges } from './end'
 import { needsBlocks, rangeBlock, whenBlocks, heldGun } from './conditions'
 import { applySet } from './format'
@@ -21,11 +21,13 @@ import { carryStance, startOutStance } from './out'
 import { startPrep, bringPrep } from './prep'
 import { suppressAfter } from './suppress'
 import { adminNeed, bumpUses, costOf, setupResources, usageBlocks, useOf } from './use'
+import { flowTierOf } from './stats'
 import { syncWallet } from './wallet'
 import { teaseEntry, teaseOf } from './social'
 import type { AbilityEntry, MeatDef, PathEntry, PickDecl, UnitAbilities } from './types'
 import { OWNER } from './types'
 import { equippedOf, hasAbility, isRec, tierIn, unitAbilities } from './unitdata'
+import { linkAction, registerLink } from './link'
 
 export { unitAbilities }
 
@@ -118,6 +120,8 @@ function candidates(view: BattleView, u: BattleUnit, m: MeatDef): BattleUnit[] {
     default: return []
   }
 }
+
+const pathName = (view: Pick<BattleView, 'k'>, id: string): string => view.k.content.get<PathEntry>('path', id)?.name ?? id
 
 const adjacentTo = (u: BattleUnit, t: BattleUnit): boolean => Math.abs(t.slot - u.slot) === 1
 
@@ -249,15 +253,26 @@ function overlayOptions(view: BattleView, u: BattleUnit): BattlePickOption[] {
  * 候補（pick 的 kind 是 bench）：view.bench 列出來的每一個人，值是候補的 id；現在叫不了的列著並帶原因（blocks）。
  * 增援的效果 call_in 讀 pick[key] 去叫他（run.callIn）。
  */
-function benchOptions(view: BattleView, u: BattleUnit): BattlePickOption[] {
-  return view.bench(u.side).map((b) => ({ value: b.id, label: b.name, blocks: [...b.blocks] }))
+function benchOptions(view: BattleView, u: BattleUnit, path?: string): BattlePickOption[] {
+  return benchOf(view, u, path).map((b) => ({ value: b.id, label: b.name, blocks: [...b.blocks] }))
+}
+
+/** 候補（可以只列名冊上帶某條路數的人：pick 的 path；名冊的人是 { from: 'actor', id }，路數看角色的 ext.paths）。 */
+export function benchOf(view: Pick<BattleView, 'bench' | 'state'>, u: BattleUnit, path?: string): BenchEntry[] {
+  const list = view.bench(u.side)
+  if (path === undefined) return list
+  return list.filter((b) => {
+    const id = b.ref.from === 'actor' && typeof b.ref.id === 'string' ? b.ref.id : b.id
+    return pathRows(view.state, id).some((r) => r.path === path)
+  })
 }
 
 /** 這個技能有 bench 的選擇、而且名冊上現在一個叫得到的人都沒有：灰掉並寫原因（沒有人可以選，行動沒有意義）。 */
 function benchBlocks(view: BattleView, u: BattleUnit, m: MeatDef): string[] {
-  if (!m.picks?.some((d) => d.kind === 'bench' && (d.required ?? true))) return []
-  const list = view.bench(u.side)
-  if (!list.length) return ['名冊上沒有可以叫來的人。']
+  const decl = m.picks?.find((d) => d.kind === 'bench' && (d.required ?? true))
+  if (!decl) return []
+  const list = benchOf(view, u, decl.path)
+  if (!list.length) return [decl.path ? `名冊上沒有帶「${pathName(view, decl.path)}」路數的人可以叫來。` : '名冊上沒有可以叫來的人。']
   if (list.every((b) => b.blocks.length > 0)) return ['名冊上的人現在都叫不來（看每個人旁邊的原因）。']
   return []
 }
@@ -303,7 +318,7 @@ function picksOf(view: BattleView, u: BattleUnit, ab: AbilityEntry, m: MeatDef):
     if (d.kind === 'choice') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: chooseOptions(view, u, m) })
     else if (d.kind === 'drone') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: droneOptions(u) })
     else if (d.kind === 'foe_overlay') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: overlayOptions(view, u) })
-    else if (d.kind === 'bench') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: benchOptions(view, u) })
+    else if (d.kind === 'bench') out.push({ key: d.key, label: d.label, kind: 'choice', required: d.required ?? true, options: benchOptions(view, u, d.path) })
     else out.push({ key: d.key, label: d.label, kind: d.kind, required: d.required ?? true, options: declaredOptions(view, u, d.kind, d.adjacent === true, d.apart ? pickTargets(view, u, m, d.kind) : [], d) })
   }
   if (m.choose?.length && !m.picks?.some((p) => p.kind === 'choice')) out.push({ key: 'choice', label: '用法', kind: 'choice', required: true, options: chooseOptions(view, u, m) })
@@ -318,7 +333,7 @@ function picksOf(view: BattleView, u: BattleUnit, ab: AbilityEntry, m: MeatDef):
 /** 做的時候照宣告查：一定要選的有沒有選、選的在不在選項裡、選的用法條件成不成立。 */
 function checkPicks(run: BattleRun, u: BattleUnit, m: MeatDef, input: BattleInput, target: BattleUnit | undefined): void {
   for (const d of m.picks ?? []) {
-    const options = d.kind === 'choice' ? chooseOptions(run, u, m) : d.kind === 'drone' ? droneOptions(u) : d.kind === 'foe_overlay' ? overlayOptions(run, u) : d.kind === 'bench' ? benchOptions(run, u) : declaredOptions(run, u, d.kind, d.adjacent === true, [], d)
+    const options = d.kind === 'choice' ? chooseOptions(run, u, m) : d.kind === 'drone' ? droneOptions(u) : d.kind === 'foe_overlay' ? overlayOptions(run, u) : d.kind === 'bench' ? benchOptions(run, u, d.path) : declaredOptions(run, u, d.kind, d.adjacent === true, [], d)
     const v = input.pick?.[d.key]
     if (d.apart && v !== undefined && target && v === target.id && pickTargets(run, u, m, d.kind).length) throw new BattleBlocked([`${d.label}不能選${target.name}（和目標是同一個人）。`])
     if (v === undefined) {
@@ -421,9 +436,11 @@ function skillAction(ab: AbilityEntry, order: number, layers: Layer[]): BattleAc
 
 /** 效果清單：do，再加選的那一種用法的 do；同一個 last 傳下去（打倒了再…）。spent 是花掉全部 RAM 的技能實際花的點數。 */
 function skillEffects(run: BattleRun, u: BattleUnit, ab: AbilityEntry, m: MeatDef, target: BattleTarget | null, input: BattleInput, spent?: number): void {
+  // 導流技能（col.flow）：公式裡的 tier 是導流階（衍生數值 flow_tier），夾在 cap 以內
+  const tier = m.flow ? Math.min(flowTierOf(run, u), m.flow.cap ?? Number.POSITIVE_INFINITY) : tierIn(u, ab.path)
   const base = {
     user: u, target: m.target === 'self' ? { unit: u.id } : target, source: { kind: 'ability' as const, id: ab.id, name: ab.name }, pick: input.pick ?? {},
-    n: { tier: tierIn(u, ab.path), ...(spent !== undefined ? { spent } : {}) }, last: {},
+    n: { tier, ...(spent !== undefined ? { spent } : {}) }, last: {},
   }
   if (m.do?.length) run.effects(m.do, base)
   const entry = m.choose?.find((c) => c.key === input.pick?.[choiceKey(m)])
