@@ -320,3 +320,10 @@
 - 內海戰敗接受後 `activity.end` 的 result 多 `net`、`tethered`、`located`（給 netrun 決定被定位的敵對值 +5）。
 - `origin.ext.located_event` 由 netrun 填。
 - 野生粉蕾絲、迷宮館「不扣線」要在 netcombat／enemies 加 `wild` 之類欄位（未做）。
+
+## M3-netrun 回報（2026-11-24）
+
+- 子網一趟（開始、生成、探索回合、閘門、休息點、遭遇開戰或潛行繞過、登出、被定位）；放行清單 `NETRUN_ALLOW`；ADR 0018 補記三段。
+- 取捨（審查看）：`ext.net.foes` 等照圖分開；探索回合算節點圖上每個節點；守閘門的是離入口最遠的遭遇；`fx.trace_half` 只減半效果進來的正數；追蹤度量表一趟結束後不清；休息點「不在遭遇前面」生成器不保證。
+- 給 M3-commission-net（重要）：`FACE_KINDS` 處理要把 `face.net` 的 `retreat` 改成帶 `rewind: entry`、`located` 照戰敗算失敗。
+- 給 M3-netrun-nodes：檔案庫與下載、控制節點、人、陷阱、巡邏、安全點、六種目標都歸它；用途往 `usesOfMarker` 加。

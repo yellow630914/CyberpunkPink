@@ -29,7 +29,9 @@ function complete(e: Record<string, unknown>): NetRegion {
   }
   return {
     id: String(e.id), name: String(e.name), map_kind: String(e.map_kind), size: [...(e.size as [number, number])], carve: [...(e.carve as [number, number])],
-    sight: typeof e.sight === 'number' ? e.sight : base.sight, pressure: e.pressure as 'trace' | 'none', ...(e.safe === true ? { safe: true } : {}),
+    sight: typeof e.sight === 'number' ? e.sight : base.sight,
+    ...(typeof e.oneway === 'number' ? { oneway: e.oneway } : {}), ...(typeof e.fragile === 'number' ? { fragile: e.fragile } : {}), ...(typeof e.loops === 'number' ? { loops: e.loops } : {}),
+    pressure: e.pressure as 'trace' | 'none', ...(e.safe === true ? { safe: true } : {}),
     cover: e.cover === undefined ? base.cover : clone(e.cover as NetRegion['cover']), dc: [...(e.dc as number[])],
     layer: counts(e.layer, base.layer), ...(e.commission !== undefined ? { commission: counts(e.commission, base.layer) } : {}),
   }

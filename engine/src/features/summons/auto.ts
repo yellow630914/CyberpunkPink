@@ -7,14 +7,14 @@
 
 import type { BattleOverlay, BattleRun, BattleUnit, BattleWeapon } from '../../core'
 import { otherSide, targetWeight, unitAt, unitsOf } from '../../core'
-import { droneWeapon, guard } from './drones'
+import { droneWeapon, guard, layerOf, shotType } from './drones'
 
 /** 自律之後的攻擊、干擾型沒有自己的武器：照記在 ext.operator 的那位（已經倒下的）操作者的操縱算出一把。 */
 function weaponOf(run: BattleRun, o: BattleOverlay): BattleWeapon | undefined {
   if (o.weapon) return o.weapon
   if (o.kind !== 'attack' && o.kind !== 'jammer') return undefined
   const operator = typeof o.ext?.operator === 'string' ? run.battle.units[o.ext.operator] : undefined
-  return operator ? droneWeapon(operator, o, o.kind === 'jammer' ? 'em' : 'physical') : undefined
+  return operator ? droneWeapon(operator, o, shotType(layerOf(run), o.kind)) : undefined
 }
 
 /** 挑一個敵人：核心的權重，用這一台的替身當挑的人（有 ai_target_pct 排除了所有人時當成沒有這個修正）。 */
@@ -39,9 +39,16 @@ export function autoAct(run: BattleRun, o: BattleOverlay): void {
     run.applyStatus(foe, 'marked', { until: 'own_turn_end' })
   } else if (o.kind === 'medic') {
     const mate = unitAt(run.battle, o.side, o.slot)
-    if (!mate?.hp || mate.hp.now >= mate.hp.max) return
-    run.say(`${o.name}替${mate.name}急救。`, 'overlay', { ...ids, target: mate.id })
-    run.heal(mate, run.d6(2))
+    if (layerOf(run) === 'net') {
+      // 內海的人沒有生命這一條：同樣的 2d6 排在感載上
+      if (!mate?.load || mate.load.now <= 0) return
+      run.say(`${o.name}替${mate.name}排掉感載。`, 'overlay', { ...ids, target: mate.id })
+      run.vent(mate, run.d6(2))
+    } else {
+      if (!mate?.hp || mate.hp.now >= mate.hp.max) return
+      run.say(`${o.name}替${mate.name}急救。`, 'overlay', { ...ids, target: mate.id })
+      run.heal(mate, run.d6(2))
+    }
     run.cleanse(mate, 'first_aid')
   } else if (o.kind === 'shield') {
     if (o.ext?.guard === undefined) guard(run, o, 'battle_end')

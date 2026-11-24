@@ -8,6 +8,7 @@ import { draft, roundHook } from './common'
 import { fightDraft, foeNeighbours, foeNodeOf, sneakDraft } from './fight'
 import type { NetExt, NetRun } from './model'
 import { ACT_FACE, netExt, netExtChange, readRun, runChange } from './model'
+import { netrunRules } from './rules'
 import { partyOf, setupOf } from './start'
 
 const BUSY = '正在戰鬥，先把這一場打完。'
@@ -42,6 +43,9 @@ export function gateBlock(state: GameState, run: NetRun, net: NetExt, sheetId: s
   if (isLast(run) && !['pass', 'clear'].includes(run.goal.kind)) return `這一趟的目標是「${run.goal.kind}」，還沒做到，不能就這樣離開。`
   return null
 }
+
+/** 這張地圖的閘門 DC：地圖的 DC，追蹤度到過門檻（t1）之後加 gate_t1_dc（NETRUNNING 第 5 節；破解閘門的那一張讀它）。 */
+export const gateDc = (k: Kernel, net: NetExt): number => net.dc + (net.t30 ? netrunRules(k).gate_t1_dc : 0)
 
 /** 一個標記現在能做的事（畫面走到上面立刻列出來，按了才做）。遭遇節點是站在旁邊才列。 */
 export function usesOfMarker(state: GameState, run: NetRun, net: NetExt, sheetId: string, marker: MarkerDef): GridUse[] {

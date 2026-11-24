@@ -29,7 +29,7 @@ export type { CloseOutcome, CloseReturn, Fx, FoeNode, Goal, LayerCounts, NetExt,
 export { countsOf, netrunRules, regionOf } from './rules'
 export { LAYER_NAME, layerLabel, layerSpec, parseSetup, startRun } from './start'
 export { closeDraft, logout, logoutBlock } from './close'
-export { descend, gateBlock, gateOpen, nodeUses, usesOfMarker, useNode } from './uses'
+export { descend, gateBlock, gateDc, gateOpen, nodeUses, usesOfMarker, useNode } from './uses'
 export { netrunView } from './view'
 export type { NetrunView, NodeRef } from './view'
 

@@ -7,14 +7,14 @@
 //         attack.after、attack.redirected：被電磁傷害打到、沒被擊落的一台停一回合；機器的單位（佔一格的）被電磁打到失去下一個回合
 //         turn.end：有操作者的一台，停機到操作者這個回合結束拿掉
 //   修正  hit：自律（ext.orphan）的一台自己開火，命中 −2（替身是攻擊者）
-//         overlay.down：被擊落：這一場不能再放，操作者感載 +5（overlay_backlash 的修正加減；資料寫了 no_backlash 的不灌：蜂群的資料有寫，臨時機本身不是理由）
+//         overlay.down：被擊落（現實的無人機、內海的守衛程式同一個數字）：這一場不能再放，操作者感載 +5（overlay_backlash 的修正加減；資料寫了 no_backlash 的不灌：蜂群的資料有寫，臨時機本身不是理由）
 // COMBAT_SYSTEM 9.1、2.5 節；dev/work/M1b-skill-pilot.md。
 
 import type { AttackResult, BattleOverlay, BattleRun, BattleUnit, BattleView, BattleWeapon, Kernel } from '../../core'
 import { LOSE_TURN, onField } from '../../core'
 import type { AttackOpts } from '../../core'
 import { autoAct, skipIfStunned } from './auto'
-import { BACKLASH, OWNER, heldBy, isDrone } from './drones'
+import { BACKLASH, OWNER, heldBy, isDrone, layerOf, wordsOf } from './drones'
 
 /** 這個人（護航編隊開著的操作者）的哪幾格受惠：他的無人機掛的格，從前面數起最多 max 格。 */
 function escortSlots(view: BattleView, holder: BattleUnit): number[] {
@@ -68,11 +68,11 @@ export function registerHooks(k: Kernel): void {
     if (q.kind === 'see_dark') {
       // 偵察型：和它同一格的同一方的人
       const seen = b.overlays.some((o) => o.kind === 'scout' && !o.down && o.side === q.unit.side && o.slot === q.unit.slot)
-      return seen ? [{ label: '偵察無人機', value: 1, source: 'overlay' }] : []
+      return seen ? [{ label: `偵察${wordsOf(layerOf(q.view)).thing}`, value: 1, source: 'overlay' }] : []
     }
     const out = []
     // 護盾型：同一格的人迴避 +2（COMBAT_SYSTEM 9.1 節）
-    if (b.overlays.some((o) => o.kind === 'shield' && !o.down && o.side === q.unit.side && o.slot === q.unit.slot)) out.push({ label: '護盾無人機', value: 2, source: 'overlay' })
+    if (b.overlays.some((o) => o.kind === 'shield' && !o.down && o.side === q.unit.side && o.slot === q.unit.slot)) out.push({ label: `護盾${wordsOf(layerOf(q.view)).thing}`, value: 2, source: 'overlay' })
     // 護航編隊：每一台和隊友同一格的無人機讓那個隊友迴避加成，最多兩格
     for (const holder of Object.values(b.units)) {
       if (holder.side !== q.unit.side || !onField(holder)) continue
@@ -143,6 +143,6 @@ export function registerHooks(k: Kernel): void {
     if (idx >= 0) owner.uses[`drone:${idx}`] = 2
     if (overlay.ext?.noBacklash) return
     const backlash = Math.max(0, BACKLASH + run.mods('overlay_backlash', owner, undefined, undefined, [overlay.kind]).reduce((n, p) => n + p.value, 0))
-    if (!owner.out && owner.slot > 0 && backlash > 0) run.addLoad(owner, backlash, by, { exact: true, label: '無人機被擊落' })
+    if (!owner.out && owner.slot > 0 && backlash > 0) run.addLoad(owner, backlash, by, { exact: true, label: `${wordsOf(layerOf(run)).thing}被擊落` })
   })
 }

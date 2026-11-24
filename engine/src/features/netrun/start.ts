@@ -102,6 +102,7 @@ export function layerSpec(region: NetRegion, counts: LayerCounts, id: string, na
   return {
     id, name, size: [region.size[0], region.size[1]], carve: [region.carve[0], region.carve[1]], entry: { name: '入口' },
     exit: { kind: 'net_gate', name: last ? '出口' : '閘門' }, places, sight: region.sight,
+    ...(region.oneway !== undefined ? { oneway: region.oneway } : {}), ...(region.fragile !== undefined ? { fragile: region.fragile } : {}), ...(region.loops !== undefined ? { loops: region.loops } : {}),
   }
 }
 

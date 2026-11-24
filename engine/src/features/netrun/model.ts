@@ -49,6 +49,10 @@ export interface NetRegion {
   carve: Range2
   /** 視野的半徑（N26：子網 2 格） */
   sight: number
+  /** 鏈路裡單向的、走過就斷的比例（0～1；生成器放得下幾個還看圖）、挖完之後最多再打通幾處讓路成環（0～6）。沒寫就是沒有單向、沒有會斷的 */
+  oneway?: number
+  fragile?: number
+  loops?: number
   /** 壓力條：trace 是追蹤度，none 沒有 */
   pressure: 'trace' | 'none'
   /** true：這一區開的戰鬥帶場地效果 safe（倒下不加沉溺；迷宮館的熔斷保護） */
@@ -256,6 +260,8 @@ export function regionProblems(e: Record<string, unknown>): string[] {
   if (!(Array.isArray(e.size) && e.size.length === 2 && e.size.every((n) => isInt(n) && n >= 5 && n <= 41))) p.push('size 要是 [寬, 高]，各 5～41 的整數')
   if (!isRange(e.carve, 1, 500)) p.push('carve 要是 [最少, 最多]，1～500 的整數')
   if (e.sight !== undefined && !(isInt(e.sight) && e.sight >= 1 && e.sight <= 9)) p.push('sight 要是 1～9 的整數')
+  for (const f of ['oneway', 'fragile'] as const) if (e[f] !== undefined && !(typeof e[f] === 'number' && e[f] >= 0 && e[f] <= 1)) p.push(`${f} 要是 0～1 的數字`)
+  if (e.loops !== undefined && !(isInt(e.loops) && e.loops >= 0 && e.loops <= 6)) p.push('loops 要是 0～6 的整數')
   if (e.pressure !== 'trace' && e.pressure !== 'none') p.push("pressure 只能是 'trace' 或 'none'")
   if (e.safe !== undefined && typeof e.safe !== 'boolean') p.push('safe 要是布林值')
   if (e.cover !== undefined) {

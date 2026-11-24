@@ -13,9 +13,9 @@
 //
 // 落點：這一台是誰——which: 'target'（預設）看 ctx.overlay、ctx.target 的那一台，目標是一格或一個人時就是那一格上操作者的一台。
 
-import type { BattleEffectCtx, BattleOverlay, BattleUnit, Kernel } from '../../core'
+import type { BattleEffectCtx, BattleOverlay, BattleRun, BattleUnit, Kernel } from '../../core'
 import { BATTLE_SLOTS, BattleBlocked, amount, amountProblems, isRecord, overlayAt } from '../../core'
-import { KIND_NAME, OWNER, capBlock, dronesOf, driveOnce, guard, hang, heldBy, isDrone, isKind, isShooter, isStunned, moveTo, stateOf } from './drones'
+import { KIND_NAME, OWNER, capBlock, dronesOf, driveOnce, guard, hang, heldBy, isDrone, isKind, isShooter, isStunned, layerOf, modelLayer, moveTo, noneSentence, stateOf, usedSentence } from './drones'
 import type { DroneDef, DroneKind } from './drones'
 
 type Ctx = BattleEffectCtx
@@ -76,7 +76,7 @@ function targetOverlay(ctx: Ctx): BattleOverlay | undefined {
 /** 做的人自己的一台（沒被擊落）；不是就丟一句完整的話。 */
 function mine(ctx: Ctx): BattleOverlay {
   const o = targetOverlay(ctx)
-  if (!o || o.owner !== ctx.user.id || o.down) throw new BattleBlocked(['沒有這一台無人機。'])
+  if (!o || o.owner !== ctx.user.id || o.down) throw new BattleBlocked([noneSentence(layerOf(ctx.run))])
   return o
 }
 
@@ -133,7 +133,7 @@ function actOp(ctx: Ctx, e: Eff): void {
   let list: BattleOverlay[]
   if (which === 'target') {
     const o = mine(ctx)
-    if (o.used && e.ignore_used !== true) throw new BattleBlocked(['這一台這一回合動過了。'])
+    if (o.used && e.ignore_used !== true) throw new BattleBlocked([usedSentence(layerOf(run))])
     list = [o]
   } else {
     list = setOf(ctx, which, e)
@@ -156,9 +156,10 @@ function actOp(ctx: Ctx, e: Eff): void {
 // ---- drone.deploy ----
 
 /** pick 的值（第幾台，或種類）換成單位上的索引：種類就取第一台還在手上的。 */
-function indexOf(user: BattleUnit, v: unknown): number | undefined {
+function indexOf(run: BattleRun, user: BattleUnit, v: unknown): number | undefined {
   if (typeof v === 'number' && Number.isInteger(v)) return v
-  if (typeof v === 'string') return dronesOf(user).findIndex((d, i) => d.kind === v && stateOf(user, i) === 0)
+  // 種類：這個戰場的型號（內海 net: true、現實沒帶的）裡第一台還在手上的
+  if (typeof v === 'string') return dronesOf(user).findIndex((d, i) => d.kind === v && stateOf(user, i) === 0 && modelLayer(d) === layerOf(run))
   return undefined
 }
 
@@ -181,9 +182,9 @@ function deployOp(ctx: Ctx, e: Eff): void {
     ...(overCap ? { overCap: true } : {}), ...(e.no_backlash === true ? { noBacklash: true } : {}),
   }
   if (typeof e.drone === 'string') {
-    const idx = indexOf(user, ctx.pick[e.drone])
+    const idx = indexOf(run, user, ctx.pick[e.drone])
     const def: DroneDef | undefined = idx === undefined ? undefined : dronesOf(user)[idx]
-    if (idx === undefined || !def || !isKind(def.kind) || stateOf(user, idx) !== 0) throw new BattleBlocked(['沒有這一台無人機。'])
+    if (idx === undefined || !def || !isKind(def.kind) || stateOf(user, idx) !== 0) throw new BattleBlocked([noneSentence(layerOf(run))])
     if (targetSlot === undefined) throw new BattleBlocked(['要選我方的一格。'])
     if (!overCap) {
       const why = capBlock(run, user, def.kind)
