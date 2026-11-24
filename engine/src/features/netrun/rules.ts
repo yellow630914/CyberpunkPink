@@ -2,8 +2,8 @@
 
 import type { Kernel } from '../../core'
 import { clone, isRecord } from '../../core'
-import type { LayerCounts, NetRegion, NetrunRules, Rank } from './model'
-import { COUNT_KEYS, DEFAULT_REGIONS, DEFAULT_RULES, DEFAULT_TRAP, NUMERIC_RULES, REGION_KIND, RULE_KIND, TEXT_LIST_RULES, regionProblems, ruleProblems } from './model'
+import type { AffixFx, LayerCounts, NetRegion, NetrunRules, Rank } from './model'
+import { COUNT_KEYS, DEFAULT_REGIONS, DEFAULT_RULES, DEFAULT_TRAP, NUMERIC_RULES, RATIO_RULES, REGION_KIND, RULE_KIND, TEXT_LIST_RULES, regionProblems, ruleProblems } from './model'
 
 type Cx = Pick<Kernel, 'content'>
 
@@ -14,6 +14,7 @@ export function netrunRules(k: Cx): NetrunRules {
   if (!e) return out
   const bad = new Set(ruleProblems(e).map((m) => m.split(/[ .[]/)[0]))
   for (const [key] of NUMERIC_RULES) if (typeof e[key] === 'number' && !bad.has(key)) out[key] = e[key] as number
+  for (const key of RATIO_RULES) if (typeof e[key] === 'number' && !bad.has(key)) out[key] = e[key] as number
   for (const key of TEXT_LIST_RULES) if (Array.isArray(e[key]) && !bad.has(key)) out[key] = [...(e[key] as string[])]
   if (Array.isArray(e.patrol_route) && !bad.has('patrol_route')) out.patrol_route = [...(e.patrol_route as [number, number])]
   if (Array.isArray(e.patrol) && !bad.has('patrol')) out.patrol = (e.patrol as Rank[][]).map((g) => [...g])
@@ -36,9 +37,12 @@ function complete(e: Record<string, unknown>): NetRegion {
     sight: typeof e.sight === 'number' ? e.sight : base.sight,
     ...(typeof e.oneway === 'number' ? { oneway: e.oneway } : {}), ...(typeof e.fragile === 'number' ? { fragile: e.fragile } : {}), ...(typeof e.loops === 'number' ? { loops: e.loops } : {}),
     pressure: e.pressure as 'trace' | 'none', ...(e.safe === true ? { safe: true } : {}),
+    ...(Array.isArray(e.puzzle) ? { puzzle: [...(e.puzzle as [number, number])] as [number, number] } : {}), ...(Array.isArray(e.handled) ? { handled: [...(e.handled as string[])] } : {}),
     cover: e.cover === undefined ? base.cover : clone(e.cover as NetRegion['cover']), dc: [...(e.dc as number[])],
     layer: counts(e.layer, base.layer), ...(e.commission !== undefined ? { commission: counts(e.commission, base.layer) } : {}),
     ...(Array.isArray(e.archive_table) ? { archive_table: clone(e.archive_table as NetRegion['archive_table']) } : {}),
+    ...(Array.isArray(e.affixes) ? { affixes: [...(e.affixes as string[])] } : {}),
+    ...(isRecord(e.temper) ? { temper: clone(e.temper) as Record<string, AffixFx> } : {}),
     ...(isRecord(e.trap) ? { trap: { alarm: typeof e.trap.alarm === 'number' ? e.trap.alarm : DEFAULT_TRAP.alarm, loop_load: typeof e.trap.loop_load === 'number' ? e.trap.loop_load : DEFAULT_TRAP.loop_load } } : {}),
   }
 }

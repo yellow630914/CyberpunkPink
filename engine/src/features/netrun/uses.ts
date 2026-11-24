@@ -4,7 +4,7 @@
 
 import type { Change, GameState, GridCtx, GridUse, Kernel, MarkerDef, ReportDraft } from '../../core'
 import { ActionBlocked, Sheet, clone, gridHere, instanceDef, sightOf } from '../../core'
-import { draft } from './common'
+import { draft, runRegion } from './common'
 import { fightDraft, foeNeighbours, foeNodeOf, sneakDraft } from './fight'
 import type { NetExt, NetRun } from './model'
 import { ACT_FACE, netExt, nodeAt, readRun, runChange } from './model'
@@ -58,6 +58,8 @@ export const gateDc = (k: Kernel, net: NetExt): number => net.dc + (net.t30 ? ne
 
 /** 一個標記現在能做的事（畫面走到上面立刻列出來，按了才做）。遭遇節點是站在旁邊才列。 */
 export function usesOfMarker(k: Kernel, state: GameState, run: NetRun, net: NetExt, sheetId: string, marker: MarkerDef): GridUse[] {
+  // 區的主人自己處理的標記（region.handled；例：迷宮館的寶箱與機關）：這裡不列
+  if (runRegion(k, run).handled?.includes(marker.mark)) return []
   switch (marker.mark) {
     case 'g':
       return [

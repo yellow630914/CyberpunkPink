@@ -18,6 +18,9 @@ export const ACT_NET = 'netrun'
 export const ACT_FACE = 'face.net'
 export const REGION_KIND = 'net_region'
 export const RULE_KIND = 'netrun_rule'
+/** 自己去挖的子網（M3-netrun-dig）：設施類型（CYBERSPACE 8.3 節的表）與詞條 */
+export const FACILITY_KIND = 'net_facility'
+export const AFFIX_KIND = 'net_affix'
 export const TRACE = 'trace'
 /** 網內的戰場（核心的 battle_mode）。 */
 export const NET_MODE = 'net'
@@ -59,6 +62,10 @@ export interface NetRegion {
   pressure: 'trace' | 'none'
   /** true：這一區開的戰鬥帶場地效果 safe（倒下不加沉溺；迷宮館的熔斷保護） */
   safe?: boolean
+  /** 每一層放幾個機關（net_puzzle；迷宮館的謎題，走不上去、解開才變地板）。沒寫是沒有 */
+  puzzle?: Range2
+  /** 這一區的主人自己處理的標記（例：迷宮館處理 a 寶箱與 m 機關）：這個功能不列它們的用途，也不替它們做事 */
+  handled?: string[]
   /** 遭遇的遮蔽：COVER_LAYOUTS 的名字，或八格逐格寫 */
   cover: string | { ally: number[]; foe: number[] }
   /** DC 照等級（I～V） */
@@ -70,6 +77,65 @@ export interface NetRegion {
   archive_table?: ArchiveRow[]
   /** 陷阱的數字（8.1 節：警報節點追蹤度 +10；迴圈碎片感載 +8，I 級的數字，照等級乘） */
   trap?: { alarm: number; loop_load: number }
+  /** 這一區的詞條表（net_affix 的 id；自己去挖時擲一次）。沒寫是 net_affix 裡 region 等於這一區的那幾條 */
+  affixes?: string[]
+  /** 各家企業的脾氣裡寫得出來的（照勢力 id；效果只收詞條的封閉的鍵）：自己去挖那家企業的子網時一律套用 */
+  temper?: Record<string, AffixFx>
+}
+
+/**
+ * 詞條的效果（內容種類 net_affix 的 fx；只收這些封閉的鍵，AI 與資料都寫不出別的）。
+ * 數字的加減都是「每一層」：foe_plus 每層多幾場遭遇、patrol_plus 每層多幾隊巡邏、archive_plus／archive_minus 每層檔案庫加減、trap_minus 每層陷阱少幾個。
+ * 同時有好幾條時：數字相加、旗標有一條就算、oneway 取最高。
+ */
+export interface AffixFx {
+  foe_plus?: number
+  foe_minus?: number
+  patrol_plus?: number
+  no_patrol?: true
+  archive_plus?: number
+  archive_minus?: number
+  trap_minus?: number
+  /** 陷阱一開始就看得到（不必擲察覺） */
+  trap_marked?: true
+  /** 層數 +1（多的那一層在最後一層之前；最後一層的檔案庫多擲一次） */
+  layer_plus?: number
+  /** 單向的鏈路的比例（0～1） */
+  oneway?: number
+  /** 閘門的 DC 加減 */
+  gate_dc?: number
+  /** 追蹤度的起始加減 */
+  trace_start?: number
+  /** 每一層多幾隻白蕾絲 */
+  white_plus?: number
+  /** 蕾絲全是粉的 */
+  all_pink?: true
+  /** 介面的檢定加減（訊號不穩 −1） */
+  check_mod?: number
+  /** 第一場遭遇我方先手 */
+  first_ambush?: true
+  /** 一場遭遇的敵人等級 +1，那一場後面的檔案庫多擲一次 */
+  hot_spot?: true
+}
+export const AFFIX_NUMBER_KEYS = ['foe_plus', 'foe_minus', 'patrol_plus', 'archive_plus', 'archive_minus', 'trap_minus', 'layer_plus', 'white_plus'] as const
+export const AFFIX_SIGNED_KEYS = ['gate_dc', 'trace_start', 'check_mod'] as const
+export const AFFIX_FLAG_KEYS = ['no_patrol', 'trap_marked', 'all_pink', 'first_ambush', 'hot_spot'] as const
+export const AFFIX_KEYS: readonly string[] = [...AFFIX_NUMBER_KEYS, ...AFFIX_SIGNED_KEYS, ...AFFIX_FLAG_KEYS, 'oneway']
+
+/** 設施類型（CYBERSPACE 8.3 節「設施類型」的表）：層的名字、隔離區從幾級起可能有、每一層放幾個控制節點。內容種類 net_facility。 */
+export interface NetFacility {
+  id: string
+  name: string
+  layers: string[]
+  airgap_at?: number
+  controls: number
+}
+
+export interface NetAffix {
+  id: string
+  name: string
+  region?: string
+  fx: AffixFx
 }
 
 export interface ArchiveRow {
@@ -134,6 +200,23 @@ export interface NetrunRules {
   talk_skills: string[]
   admin_skills: string[]
   hack_skills: string[]
+  // ---- 第三張：自己去挖的子網（M3-netrun-dig） ----
+  /** 自己的那一趟每個探索回合算幾分鐘（N35；委託的階段不算） */
+  round_minutes: number
+  /** 離開之後子網留幾天（過了就清掉，下次重新生成） */
+  keep_days: number
+  /** 再進去：追蹤度從上次離開時的幾分之幾起算（0.5 是一半，向下取整；和敵對值分段的起始值取高的） */
+  revisit_trace: number
+  /** 被定位過的子網，保留期間每一場遭遇多幾個雜兵 */
+  located_foe_plus: number
+  /** 離開時每多少追蹤度那家的敵對值 +1（進位）、最多加幾；被定位另外加幾 */
+  leave_hostility: number
+  leave_hostility_max: number
+  located_hostility: number
+  /** 被定位之後每個後門被清掉的機會（0～1；骰面由種子、層與第幾次進去固定） */
+  backdoor_clear: number
+  /** 自己去挖的每一層檔案庫多幾個（沒有委託的目標：8.3 節「每一層的檔案庫多一個」） */
+  dig_archive_plus: number
 }
 
 export const DEFAULT_RULES: NetrunRules = {
@@ -142,6 +225,7 @@ export const DEFAULT_RULES: NetrunRules = {
   download_turns: 3, plant_turns: 2, download_trace: 2, admin_trace: 1, fail_trace: 5, wipe: 5,
   patrol_every: 3, patrol_route: [3, 5], patrol: [['elite'], ['minion', 'minion']], patrol_t1: 1,
   lose_max: 3, load_mult: [1, 1.22, 1.49, 1.82, 2.22], master_path: 'netrunner', talk_skills: ['negotiate'], admin_skills: ['interface'], hack_skills: ['interface'],
+  round_minutes: 5, keep_days: 7, revisit_trace: 0.5, located_foe_plus: 1, leave_hostility: 20, leave_hostility_max: 5, located_hostility: 5, backdoor_clear: 0.5, dig_archive_plus: 1,
 }
 
 // ---- 設定與狀態 ----
@@ -225,6 +309,8 @@ export interface NetRun {
   entered: string[]
   /** setup.stealth 的第一次自動成功用掉了 */
   stealth_used?: boolean
+  /** 寂靜（first_ambush）：第一場遭遇的先手已經用掉了 */
+  ambush_used?: true
   /** 戰鬥裡全員拔線：這一趟要結束了（戰鬥的結算套用之後由 report.after 接著收尾）。retreat 是委託副本（N13）、left 是自己去的那一趟 */
   over?: 'retreat' | 'left'
 }
@@ -298,6 +384,30 @@ export interface NetExt {
   used: Record<string, string[]>
   /** 閘門已經開了的圖（破解、憑證、後門鑰匙；守著它的遭遇還在） */
   opened: string[]
+  /** 留下的後門：圖的 id（下次可以直接從那一層進來，追蹤度從 0 起算）。只有自己去挖的子網有 */
+  backdoors: string[]
+  /** 自己去挖的子網記的東西（沒有是委託或迷宮館那種一次用完的） */
+  dig?: DigInfo
+  /** 上次離開的時候：at 是總分鐘、trace 是離開時的追蹤度、located 是被定位了。人在裡面時沒有這一項 */
+  left?: { at: number; trace: number; located?: true }
+}
+
+/**
+ * 自己去挖的子網（地圖實例 ext.net.dig）：七天內再進去用同一份。
+ * site 是鍵；facility 是設施類型的 id；names 是每一層的名字（含詞條多出來的）；affixes 是這座子網擲到的詞條、fx 是合起來的效果（執行時讀）；
+ * setup 是生成時的設定（再進去照它重開一趟）；visits 是進去過幾次；rolls 是檔案庫多擲幾次（圖的 id → 標記 id → 次數）；
+ * located_plus 是被定位之後多放的雜兵已經放過了。
+ */
+export interface DigInfo {
+  site: string
+  facility: string
+  names: string[]
+  affixes: string[]
+  fx: AffixFx
+  setup: Record<string, unknown>
+  visits: number
+  rolls: Record<string, Record<string, number>>
+  located_plus?: true
 }
 
 // ---- 讀寫 ----
@@ -316,7 +426,7 @@ export function netExt(state: GameState, map: string): NetExt | null {
   const v = state.maps.instances[map]?.ext?.net
   if (!isRecord(v) || !isRecord(v.graph) || !isRecord(v.foes)) return null
   // 第二張才有的欄位：舊的存檔沒有就補空的（拷貝，不動存檔裡的）
-  return { traps: {}, patrols: [], controls: {}, keys: [], wiped: {}, used: {}, opened: [], ...v } as unknown as NetExt
+  return { traps: {}, patrols: [], controls: {}, keys: [], wiped: {}, used: {}, opened: [], backdoors: [], ...v } as unknown as NetExt
 }
 
 /** 換掉實例的 ext.net（其餘的鍵不動）。 */
@@ -381,6 +491,8 @@ export function regionProblems(e: Record<string, unknown>): string[] {
   if (e.loops !== undefined && !(isInt(e.loops) && e.loops >= 0 && e.loops <= 6)) p.push('loops 要是 0～6 的整數')
   if (e.pressure !== 'trace' && e.pressure !== 'none') p.push("pressure 只能是 'trace' 或 'none'")
   if (e.safe !== undefined && typeof e.safe !== 'boolean') p.push('safe 要是布林值')
+  if (e.puzzle !== undefined && !isRange(e.puzzle, 0, 20)) p.push('puzzle 要是 [最少, 最多]，0～20 的整數')
+  if (e.handled !== undefined && !(Array.isArray(e.handled) && e.handled.every((m) => typeof m === 'string' && m.length === 1))) p.push('handled 要是標記（一個字元）的陣列')
   if (e.cover !== undefined) {
     const c = e.cover
     const okName = typeof c === 'string' && COVER_NAMES.includes(c)
@@ -404,6 +516,11 @@ export function regionProblems(e: Record<string, unknown>): string[] {
       })
     }
   }
+  if (e.affixes !== undefined && !(Array.isArray(e.affixes) && e.affixes.length <= 40 && e.affixes.every(isText))) p.push('affixes 要是詞條（net_affix）的 id 的陣列')
+  if (e.temper !== undefined) {
+    if (!isRecord(e.temper)) p.push('temper 要是 { 勢力的 id: 詞條的效果 }')
+    else for (const [faction, fx] of Object.entries(e.temper)) p.push(...affixFxProblems(fx).map((m) => `temper.${faction}.${m}`))
+  }
   if (e.trap !== undefined) {
     const t = e.trap
     if (!isRecord(t)) p.push('trap 要是 { alarm, loop_load }')
@@ -416,11 +533,13 @@ export function regionProblems(e: Record<string, unknown>): string[] {
 }
 
 type NumericRule = 'decay' | 't1' | 't2' | 't3' | 'locate_rounds' | 'gate_t1_dc' | 'unpinned_rounds' | 'download_turns' | 'plant_turns' | 'download_trace' | 'admin_trace' | 'fail_trace' | 'wipe'
-  | 'patrol_every' | 'patrol_t1' | 'lose_max'
+  | 'patrol_every' | 'patrol_t1' | 'lose_max' | 'round_minutes' | 'keep_days' | 'located_foe_plus' | 'leave_hostility' | 'leave_hostility_max' | 'located_hostility' | 'dig_archive_plus'
+export const RATIO_RULES = ['revisit_trace', 'backdoor_clear'] as const
 export const NUMERIC_RULES: Array<[NumericRule, number, number]> = [
   ['decay', 0, 20], ['t1', 1, 100], ['t2', 1, 100], ['t3', 1, 100], ['locate_rounds', 1, 20], ['gate_t1_dc', 0, 10], ['unpinned_rounds', 0, 5],
   ['download_turns', 1, 10], ['plant_turns', 1, 10], ['download_trace', 0, 20], ['admin_trace', 0, 20], ['fail_trace', 0, 30], ['wipe', 0, 30],
   ['patrol_every', 1, 20], ['patrol_t1', 0, 3], ['lose_max', 0, 6],
+  ['round_minutes', 0, 120], ['keep_days', 1, 60], ['located_foe_plus', 0, 3], ['leave_hostility', 1, 100], ['leave_hostility_max', 0, 20], ['located_hostility', 0, 20], ['dig_archive_plus', 0, 3],
 ]
 export const TEXT_LIST_RULES = ['sneak_skills', 'talk_skills', 'admin_skills', 'hack_skills'] as const
 
@@ -428,6 +547,7 @@ export const TEXT_LIST_RULES = ['sneak_skills', 'talk_skills', 'admin_skills', '
 export function ruleProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
   for (const [key, lo, hi] of NUMERIC_RULES) if (e[key] !== undefined && !(isInt(e[key]) && e[key] >= lo && e[key] <= hi)) p.push(`${key} 要是 ${lo}～${hi} 的整數`)
+  for (const key of RATIO_RULES) if (e[key] !== undefined && !(typeof e[key] === 'number' && Number.isFinite(e[key]) && e[key] >= 0 && e[key] <= 1)) p.push(`${key} 要是 0～1 的數字`)
   for (const key of TEXT_LIST_RULES) if (e[key] !== undefined && !(Array.isArray(e[key]) && (e[key] as unknown[]).length > 0 && (e[key] as unknown[]).every(isText))) p.push(`${key} 要是至少一個基本功 id 的陣列`)
   if (e.patrol_route !== undefined && !isRange(e.patrol_route, 2, 8)) p.push('patrol_route 要是 [最少, 最多]，2～8 個節點')
   if (e.patrol !== undefined && !(Array.isArray(e.patrol) && e.patrol.length > 0 && e.patrol.every((g) => Array.isArray(g) && g.length >= 1 && g.length <= 4 && g.every((r) => (RANKS as readonly unknown[]).includes(r))))) p.push(`patrol 要是一串巡邏的組合（每一組是 1～4 個位階：${RANKS.join('、')}）`)
@@ -444,6 +564,43 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
       }
     }
   }
+  return p
+}
+
+/** 詞條的效果的格式檢查（只收封閉的鍵）。 */
+export function affixFxProblems(fx: unknown): string[] {
+  if (!isRecord(fx)) return ['fx 要是一個物件（只收：' + AFFIX_KEYS.join('、') + '）']
+  const p: string[] = []
+  for (const key of Object.keys(fx)) {
+    const v = fx[key]
+    if (!AFFIX_KEYS.includes(key)) p.push(`fx.${key} 不認得（只收：${AFFIX_KEYS.join('、')}）`)
+    else if ((AFFIX_FLAG_KEYS as readonly string[]).includes(key)) {
+      if (v !== true) p.push(`fx.${key} 要是 true`)
+    } else if (key === 'oneway') {
+      if (!(typeof v === 'number' && v >= 0 && v <= 1)) p.push('fx.oneway 要是 0～1 的數字（單向的鏈路的比例）')
+    } else if ((AFFIX_SIGNED_KEYS as readonly string[]).includes(key)) {
+      if (!(isInt(v) && v >= -30 && v <= 30)) p.push(`fx.${key} 要是 −30～30 的整數`)
+    } else if (!(isInt(v) && v >= 0 && v <= 4)) p.push(`fx.${key} 要是 0～4 的整數`)
+  }
+  return p
+}
+
+/** 一筆詞條的格式檢查（內容種類 net_affix）。 */
+export function affixProblems(e: Record<string, unknown>): string[] {
+  const p: string[] = []
+  if (!isText(e.name)) p.push('要有 name')
+  if (e.region !== undefined && !isText(e.region)) p.push('region 要是區的 id（沒寫是共通詞條）')
+  p.push(...affixFxProblems(e.fx))
+  return p
+}
+
+/** 一筆設施類型的格式檢查（內容種類 net_facility）。 */
+export function facilityProblems(e: Record<string, unknown>): string[] {
+  const p: string[] = []
+  if (!isText(e.name)) p.push('要有 name')
+  if (!(Array.isArray(e.layers) && e.layers.length >= 1 && e.layers.length <= 6 && e.layers.every(isText))) p.push('layers 要是一到六個層的名字（guest、staff、control、core 或自己的名字）')
+  if (e.airgap_at !== undefined && !(isInt(e.airgap_at) && e.airgap_at >= 1 && e.airgap_at <= 5)) p.push('airgap_at 要是 1～5 的整數（從幾級起可能有隔離區）')
+  if (e.controls !== undefined && !(isInt(e.controls) && e.controls >= 0 && e.controls <= 4)) p.push('controls 要是 0～4 的整數（每一層放幾個控制節點）')
   return p
 }
 
