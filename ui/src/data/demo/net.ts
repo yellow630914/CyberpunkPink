@@ -50,6 +50,8 @@ export const NET_FACTIONS = ['lonestar', 'strippers', 'guard'] as const
 const lace = (faction: string, rank: 'minion' | 'elite' | 'boss', color: 'white' | 'pink', name: string, desc: string): Rec => ({
   id: `en_net_${faction}_${rank}_${color}`, name, desc, faction, rank, grades: [1, 5], kind: 'lace', color,
   position: { prefer: color === 'white' ? [4] : [2, 3], cover_use: 0.5 }, ai: { prefer: 'overloaded', focus: 1, flee_below: 0 },
+  // 白蕾絲不打人；粉蕾絲要有武器構裝，不然進內海之後手上沒有東西可打（Game.contentWarnings 會點名）
+  ...(color === 'white' ? {} : { constructs: [{ id: `cs_${faction}_${rank}_probe`, class: 'pistol', name: rank === 'boss' ? '閘門的鎖喉' : '訪客網的探針' }] }),
 })
 const enemy: Rec[] = NET_FACTIONS.flatMap((f) => [
   lace(f, 'minion', 'white', '白蕾絲「訪客」', '訪客網的接待員。不打人，追蹤度高了它就把你的位置報上去。'),
@@ -107,6 +109,8 @@ const net_affix: Rec[] = [
 const program = (id: string, rank: string): Rec => ({
   id, name: { mz_slime: '遊戲敵人「史萊姆」', mz_knight: '遊戲敵人「騎士」', mz_king: '遊戲敵人「館主」' }[id], desc: '迷宮館的遊戲敵人：打倒不會死，只是被送回回復室。', faction: 'maze', rank, grades: [1, 5], kind: 'program',
   position: { prefer: [2, 3], cover_use: 0.5 }, ai: { prefer: 'overloaded', focus: 1, flee_below: 0 },
+  // 遊戲敵人要有武器構裝：館方的遊戲裡每個角色都有一把「道具劍」（Game.contentWarnings 會點名沒有的）
+  constructs: [{ id: `cs_${id}_sword`, class: 'pistol', name: '遊戲道具' }],
 })
 const maze_extra: Rec = {
   faction: [{ id: 'maze', name: '迷宮館', short: '館', class: 'corp' }],

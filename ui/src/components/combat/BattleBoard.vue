@@ -85,7 +85,7 @@ const noBattle = computed(() => !engine.inBattle && !engine.pendingDefeat && !af
           <button v-else type="button" class="btn sm" :class="{ pri: liveOn }" @click="liveOn = !liveOn">直播</button>
         </template>
         <button type="button" class="btn sm" :disabled="live.on" :title="live.on ? '直播中不能重新開始' : undefined" data-restart @click="retry">重新開始</button>
-        <Hint v-if="isNet" title="內海戰鬥">和現實同一個版面：卡片上只有感載一條，遮蔽換成防火牆。攻擊花 RAM；同步檔位每回合換一次：越深檢定越高、受到的感載越重。餘韻在內海裡是加成。追蹤度隨回合往上，過了刻度對方會增援，被定位就會被強制斷線。過載的人會閃斷：RAM 斷了，到狀態結束才回復。拔線（長按）讓這個人登出；全隊都拔線就是撤退。鍵盤：1～9 按圓環的格，Tab 換目標、Enter 確定、Esc 取消，空白鍵結束回合。</Hint>
+        <Hint v-if="isNet" title="內海戰鬥">和現實同一個版面：卡片上只有感載一條，遮蔽換成防火牆。攻擊花 RAM；同步檔位每回合換一次：越深檢定越高、受到的感載越重。餘韻在內海裡是加成。感載在內海不會自己消退（基礎是 0）：只有技能與甲板的散熱、休息點與腳本會把它降下來。追蹤度隨回合往上，過了刻度對方會增援，被定位就會被強制斷線。過載的人會閃斷：RAM 斷了，到狀態結束才回復。拔線（長按）讓這個人登出；全隊都拔線就是撤退。鍵盤：1～9 按圓環的格，Tab 換目標、Enter 確定、Esc 取消，空白鍵結束回合。</Hint>
         <Hint v-else title="現實戰鬥">雙方各一排四格，面對面；格子底下是那一格的遮蔽。卡片上紅的是生命、粉的是感載，圓點是餘韻（疊滿之後再過載就倒下）。鍵盤：1～9 按圓環的格，Tab 換目標、Enter 確定、Esc 取消，空白鍵結束回合。脫離與投降要長按。手機上敵人在上排、我方在下排，兩排的第 1 格都在左邊。</Hint>
         <div class="bt-order" aria-label="先攻條" style="flex-basis: 100%">
           <span v-for="o in view.order" :key="o.id" class="bt-chip" :class="{ e: o.side === 'foe', now: o.now, gone: !!o.out, pinned: o.out === 'pinned' }" :title="o.out ? outLabel(o.out) : undefined" :data-out="o.out || undefined">{{ o.name }}<small v-if="o.out === 'pinned' || o.out === 'jacked_out'">　{{ outLabel(o.out) }}</small></span>

@@ -10,7 +10,7 @@ import { RING_KEYS, battleView, disabledReason, ringOf, slotLayout, type BattleC
 import { combatKey, isTyping } from './keys'
 import { danmakuOf, liveEventsOf } from './liveEvents'
 import { netBattleLeaveTo } from './netrunView'
-import { NET_SHIFT, adminPanel, gearPanel, isAdminAction, netUnitOf, shiftInput, traceBar, traceDelta } from './netView'
+import { NET_SHIFT, adminPanel, beatText, gearPanel, isAdminAction, netUnitOf, shiftInput, traceBar, traceDelta } from './netView'
 import { useAfterBattle } from './useAfterBattle'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
@@ -134,7 +134,7 @@ export function useBattle(opts: BattleOpts) {
     for (const rep of reports) {
       for (const b of rep.timeline) {
         const good = b.tag === 'crit' || b.tag === 'down' || b.tag === 'subdue' || b.tag === 'overload'
-        lines.value.push({ t: b.text, c: good ? 'h' : b.tag === 'wound' ? 'r' : '' })
+        lines.value.push({ t: beatText(b), c: good ? 'h' : b.tag === 'wound' ? 'r' : '' })
       }
     }
     if (!fresh) return
@@ -292,7 +292,7 @@ export function useBattle(opts: BattleOpts) {
     const from = opts.from()
     // 內海戰鬥：行程可能在戰鬥裡結束了（拔線、接受戰敗、回到階段開始），照引擎的狀態決定回哪頁
     const to = route.path === '/netcombat'
-      ? netBattleLeaveTo(from, { run: !!engine.net.view(), commission: !!engine.commission.view(), jobs: engine.fixer.jobs().length > 0 })
+      ? netBattleLeaveTo(from, { run: !!engine.net.view(), commission: !!engine.commission.view(), jobs: engine.fixer.jobs().length > 0, settle: engine.dive.view().diving && !!engine.dive.lastEnd() })
       : from
     void router.push(to)
   }

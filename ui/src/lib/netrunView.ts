@@ -116,11 +116,13 @@ export const leaveTo = (kind: string | null): string => (kind === 'face.net' ? '
 
 /**
  * 內海戰鬥結束離開時去哪（P1）：照引擎的狀態，不照戰鬥開始時的 from。
- * 行程還在回 from（子網）；行程沒了而副本還在、或手上還有委託回副本頁；其餘回主畫面。
+ * 行程還在回 from（子網）；行程沒了但人還在潛入中、離開的結算還在（迷宮館打輸）回 from 看結算；行程沒了而副本還在、或手上還有委託回副本頁；其餘回主畫面。
  */
-export function netBattleLeaveTo(from: string, st: { run: boolean; commission: boolean; jobs: boolean }): string {
+export function netBattleLeaveTo(from: string, st: { run: boolean; commission: boolean; jobs: boolean; settle?: boolean }): string {
   if (!from.startsWith('/subnet')) return from
   if (st.run) return from
+  // 迷宮館打輸：行程收尾了（netrun.logout、maze.result），人還在潛入中、離開的帳還沒看——回子網頁的結算
+  if (st.settle) return from
   return st.commission || st.jobs ? '/commission' : '/'
 }
 

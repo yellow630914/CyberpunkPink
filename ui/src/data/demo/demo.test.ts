@@ -23,6 +23,9 @@ describe('示意世界包', () => {
     const g = make()
     expect(worldProblems(g.k)).toEqual([])
   })
+  it('資料檢查沒有警告：網內的敵人（蕾絲、遊戲敵人）都有 constructs', () => {
+    expect(make().contentWarnings()).toEqual([])
+  })
   it('八個區、每個區至少一塊街區，城市圖的走道成對', () => {
     const g = make()
     const c = cityGraph(g.k)

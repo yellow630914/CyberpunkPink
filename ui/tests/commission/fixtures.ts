@@ -98,7 +98,7 @@ export function person(id: string, name: string): Actor {
   return {
     id, name, role: 'npc', age: 27, perks: [], hp: 40, load: 0, afterglow: 0, sink: 0, conditions: [],
     attrs: { body: 12, reflex: 12, tech: 12, intellect: 12, resolve: 12, charm: 12 }, skills: { stealth: 3, firearms: 3, negotiate: 3, interface: 3, perform: 3 },
-    ext: { paths: [{ path: 'gunner', slot: 'main', tier: 2 }] },
+    ext: { paths: [{ path: 'gunner', slot: 'main', tier: 2 }], bridge: { sensitivity: 30, tolerance: 30, craving: 30, docility: 30 } },
   }
 }
 export const CREW = ['jo', 'ann', 'bob', 'cy', 'dee'].map((id) => person(id, `人${id}`))

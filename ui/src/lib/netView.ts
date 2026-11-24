@@ -81,6 +81,11 @@ export function traceBar(view: NetBattleView | null): TraceBar | null {
   return { value: view.trace, marks, zone, located: view.located }
 }
 
+/** 一拍紀錄要寫的字：追蹤度那一拍帶 data.halved（連動讓上升減半）時，引擎的句子沒提到就補上「連動讓上升減半」 */
+export function beatText(b: { text: string; tag?: string; data?: Record<string, unknown> }): string {
+  return b.tag === 'trace' && b.data?.halved === true && !b.text.includes('連動讓上升減半') ? `${b.text}（連動讓上升減半）` : b.text
+}
+
 /** 這一份報告裡追蹤度變了多少（那一拍的 trace 事件的 data.amount 合計）；沒有變是 0 */
 export function traceDelta(reports: ReadonlyArray<{ timeline: ReadonlyArray<{ tag?: string; data?: Record<string, unknown> }> }>): number {
   let d = 0

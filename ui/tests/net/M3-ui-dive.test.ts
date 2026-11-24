@@ -60,6 +60,7 @@ const PACK: ContentPack = {
     ],
     district: [{ id: 'd_t', name: '測試區', grade: 1, price_mult: 1, blocks: ['b_t'] }],
     block: [{ id: 'b_t', district: 'd_t', name: '測試街', kind: 'block', map: 'm_t', exits: {}, facilities: { F1: { type: 'fac_pod', name: '潛艙店「測試」' }, F2: { type: 'fac_plain', name: '雜貨店' }, F3: { type: 'fac_plain', name: '空地' } } }],
+    construct: [{ id: 'cs_kit', class: 'weapon', name: '比賽版構裝', desc: '館方的比賽版。', grade: 1, brand: '館', ram: 1, type: 'neural', archetype: 'rifle', legal: 'free' }],
     deck: [{ id: 'dk_rent', name: '租用甲板', desc: '租的。', grade: 1, slots: 2, firewall: 10, legal: 'free' }],
     item: [{ id: 'it_chip', name: '舊晶片', desc: '一枚舊晶片。', category: 'misc', grade: 1, size: 0, legal: 'free' }, { id: 'it_prize', name: '紀念品', desc: '館主給的。', category: 'misc', grade: 1, size: 0, legal: 'free' }],
     weapon_class: [{ id: 'rifle', name: '步槍', dice: 4, type: 'physical', range: [3, 7], mag: 3, cover_mult: 0.5, pierce: 2, traits: ['long'], attr: 'reflex', skill: 'firearms' }],
@@ -74,7 +75,7 @@ const PACK: ContentPack = {
       { id: 'site_own', name: '深處的網', kind: 'netrun', need: 'deck', desc: '只有自己的甲板進得去。', setup: { region: 'sub_dig', entry: 'dig', site: 'dig_b', grade: 1, faction: 'f_a' } },
     ],
     maze_table: [{ id: 'mz_chest', kind: 'chest', rows: [{ weight: 1, name: '籌碼', chips: [3, 5] }] }, { id: 'mz_prize', kind: 'prize', rows: [{ weight: 1, name: '紀念品', give: [{ kind: 'item', id: 'it_prize', qty: 1 }], chips: 5 }] }],
-    maze_rule: [{ id: 'default', brackets: { rookie: { deck: 'dk_rent', kit: [] } }, mimic: 0, chest_table: 'mz_chest', prize_table: 'mz_prize' }],
+    maze_rule: [{ id: 'default', brackets: { rookie: { deck: 'dk_rent', kit: ['cs_kit'] } }, mimic: 0, chest_table: 'mz_chest', prize_table: 'mz_prize' }],
   },
 } as unknown as ContentPack
 
@@ -101,6 +102,8 @@ async function start(o: { facility?: string; cash?: number } = {}) {
   const e = useEngine()
   e.newGame({ seed: 7, testContent: [PACK], testFeatures: [HELPER] })
   expect(e.createCharacter(DRAFT)).toEqual([])
+  // 迷宮館在潛入中報名要有能用的武器構裝（潛入中不能換）：先把館方的比賽版裝好
+  expect(e.commit({ summary: '裝比賽版構裝', changes: [{ op: 'actor.ext', id: e.state.pc!, key: 'deck', value: { slots: ['cs_kit'], scripts: [] } }] as never })).toBeNull()
   if (o.cash !== undefined) expect(e.commit({ summary: '設定現金', changes: [{ op: 'cash', delta: o.cash - e.money.cash }] })).toBeNull()
   expect((await e.world.arrive('b_t', o.facility ?? 'F1')).status).toBe('applied')
   return { e, pinia }

@@ -60,8 +60,10 @@ export function auxLine(r: AuxResult, nameOf: (id: string) => string, linkName: 
   // 加值的每一項（基本功、路數、人手）是引擎擲骰時記下的 parts，合計也是引擎的 total：這裡只接成一行字
   const parts = r.roll.parts.filter(p => p.value !== 0).map(p => `${p.value > 0 ? '+' : '−'} ${Math.abs(p.value)}`).join(' ')
   const head = `輔助・${FACE_LABEL[r.face]}：${nameOf(r.roller)}　${skillName(r.skill)} 骰 ${r.roll.natural}${parts ? ` ${parts}` : ''} = ${r.roll.total}，對 ${r.roll.dc}`
+  // 在場的人不只擲骰的那一位（派去的、借來的，與內海面留在現實的夥伴）：照引擎的 people 全寫出來
+  const crowd = r.people.length > 1 ? `（在場：${r.people.map(nameOf).join('、')}）` : ''
   const tail = r.link ? `拿到連動「${linkName(r.link)}」` : (OUTCOME_NAME[r.outcome] ?? r.outcome)
-  return `${head} → ${tail}${r.injured ? `；${nameOf(r.injured)}受傷了` : ''}`
+  return `${head}${crowd} → ${tail}${r.injured ? `；${nameOf(r.injured)}受傷了` : ''}`
 }
 
 // ---- 階段軌 ----
