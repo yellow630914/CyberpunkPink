@@ -651,7 +651,9 @@ function build(c: Ctx): Offer | string {
   const netIdx = stages.map((x, i) => (x.faces.includes('net') ? i : -1)).filter((i) => i >= 0)
   const netLayers = netLayersFor(fixerR, netIdx.length)
   const netOnly = netIdx.filter((i) => !meatSet.has(i))
-  const scoutNet = new Set<number>([...netIdx.filter((i) => scoutStages.includes(i)), ...shuffle(nrng, netOnly).slice(0, Math.max(0, SCOUT_BRANCH_MAX - scoutStages.length))])
+  // 還沒有人登記內海的玩法時，內海的面只是列著：不放踩點的路，也不寫內海的未知（踩了也揭不出東西）
+  const netLive = reg.includes('net')
+  const scoutNet = new Set<number>(netLive ? [...netIdx.filter((i) => scoutStages.includes(i)), ...shuffle(nrng, netOnly).slice(0, Math.max(0, SCOUT_BRANCH_MAX - scoutStages.length))] : [])
   const enc = rules.encounters[grade] ?? DEFAULT_GEN_RULES.encounters[grade]!
   const alertTotal = chosenMods.reduce((s, m) => s + (m.effect.alert_start ?? 0), 0)
   const decisive = type.decisive
@@ -669,8 +671,8 @@ function build(c: Ctx): Offer | string {
       const meat = face === 'meat'
       const net = face === 'net'
       const branches: Branch[] = [{ id: 'assault', kind: 'assault', name: '正面強攻', ...(meat ? { entry: nextEntry() } : {}) }]
-      if (net) {
-        // 內海面：潛行看 net_branch_skills 裡的一項（照種子挑）；沒有交涉
+      if (net && netLive) {
+        // 內海面（有人登記了內海的玩法）：潛行看 net_branch_skills 裡的一項（照種子挑）；沒有交涉。還沒有人登記時內海的面只是列著，分支照現實面的寫法（M2 的樣子）
         if (type.branches.stealth) branches.push({ id: 'stealth', kind: 'stealth', name: '潛進去', need: { basic: nrng.pick(fixerR.net_branch_skills), level: lvl } })
       } else {
         if (type.branches.stealth) branches.push({ id: 'stealth', kind: 'stealth', name: '潛進去', ...(meat ? { entry: nextEntry() } : {}), need: { basic: type.branches.stealth, level: lvl } })
@@ -788,7 +790,7 @@ function build(c: Ctx): Offer | string {
       if (b) paths.push({ cat: 'path', text: `第 ${n} 階段多一條路：${b.name}。`, reveal: { branch: String((b.need as { scouted: string }).scouted) } })
     }
     // 內海的階段（M3）：蕾絲與層、沒有現實面時的守備、只有內海面才有的踩點的路；都標 face: net
-    const nf = s.built.net as { encounter?: Rank[]; branches?: Branch[]; layer?: string; lace?: string } | undefined
+    const nf = netLive ? (s.built.net as { encounter?: Rank[]; branches?: Branch[]; layer?: string; lace?: string } | undefined) : undefined
     if (nf) {
       const layerName = LAYER_NAME[String(nf.layer)] ?? String(nf.layer)
       rest.push({ cat: 'lace', text: nf.lace ? `第 ${n} 階段的內海面在${layerName}，由${LACE_NAME[nf.lace] ?? nf.lace}看守。` : `第 ${n} 階段的內海面在${layerName}。`, reveal: { flag: `lace_s${n}` }, face: 'net' })

@@ -23,6 +23,12 @@
 //   掛點  回答自己宣告的 fixer.offers：每個中間人每天三件，seed 是「中間人／日子／第幾件」；有人註冊 enemy_pick 時挑不到敵人的組合重抽（最多三次），還是不行少給一件
 //   對外  generate、generateTrace、offersFor、eligibleTypes、genProblems（載入之後查模板，ready 時一起查）
 //   生成的副本寫 block（中間人那一塊街區，go 會檢查）、詞條帶的 alert_start（go 併進警戒的起始值）
+// 內海面（M3-fixer-net；gen.ts、scout.ts、board.ts；dev/adr/0018 第九節、N16）：
+//   模板  commission_type 多選填的 net: { facility?, objectives?, airgap?, lace? }；階段的面列了 net 就生成內海那一面（layer、lace、facility、encounter、強攻加潛行加連動開的路、
+//         主面是內海時最後一個階段的 objective、airgap 的機率把決定性的面加 locked_by 並讓前面一個階段只開現實給鑰匙連動）；沒有人登記 face.net 時主面是內海的類型抽不到
+//   規則  fixer_rule 多 trace_start: { noted, wanted, scout_alert }、net_layers（內海階段數 → 各用哪一層）、net_branch_skills（內海潛行分支看哪幾項基本功）
+//   出發  go 算 setup.trace_start：目標勢力的敵對值（問條件 hostility_tier：記名以上 noted、通緝 wanted；委託有內海階段才算）與踩點驚動的取最高的；traceStartOf 是同一個算法
+//   未知  內海階段多蕾絲、守備、路的未知（UnknownItem.face 標 net；scoutView 的 UnknownRow.face 照面標出來）；簡報 BoardRow.net 給「主面是內海」的一句話與「要有甲板」的提醒（衍生數值 deck_grade）
 // 這個功能不 import 別的功能：人情、敵對值、街區只經由效果、條件、變更的登錄表（沒有人註冊就不列、不檢查）。
 // 對外：board、briefOf、payOptions、haggle、accept、drop、scout、scoutView、buyIntel、intelOptions、scoutedOf、go、readFixer、jobOf、jobsOf；
 //   hireOptions、hireBlocks、borrowOption、hire、unhire、splitPreview。

@@ -380,7 +380,7 @@ function faceProblems(f: unknown, at: string, face: Face, links: Record<string, 
 /** 內海面的資料（layer 必填；其餘照 dev/adr/0018 第九節）。 */
 function netFaceProblems(f: Record<string, unknown>, at: string, links: Record<string, unknown>): string[] {
   const p: string[] = []
-  if (!(NET_LAYERS as readonly unknown[]).includes(f.layer)) p.push(`${at}.layer 要寫（內海面一定要有）：${NET_LAYERS.join('、')}`)
+  if (!(NET_LAYERS as readonly unknown[]).includes(f.layer)) p.push(`${at}.layer 只能是 ${NET_LAYERS.join('、')}（內海面一定要寫）`)
   if (f.lace !== undefined && !(NET_LACES as readonly unknown[]).includes(f.lace)) p.push(`${at}.lace 只能是 ${NET_LACES.join('、')}`)
   if (f.facility !== undefined && !isText(f.facility)) p.push(`${at}.facility 要是文字`)
   if (f.objective !== undefined) {
