@@ -215,7 +215,7 @@ export interface BattleUnit {
   dmgMult: { hp: number; load: number }
   /**
    * 倒下或退出：out 寫的是怎麼退出的。down 是生命歸零倒下；burnout 是餘韻疊滿之後再過載、昏過去（沒受傷）；
-   * subdued 被制伏、surrendered 投降、fled 逃走、removed 被帶走。戰鬥中沒有人會死（COMBAT_SYSTEM 8.2 節）
+   * subdued 被制伏、surrendered 投降、fled 逃走、removed 被帶走、jacked_out 拔線離開（內海；我方每一個人都這樣退出時這一場是 jack_out，不是戰敗）。戰鬥中沒有人會死（COMBAT_SYSTEM 8.2 節）
    */
   out?: string
   /** 這場戰鬥裡沉溺加了多少（快感傷害每次命中 +1）；結束時寫回角色 */
@@ -325,7 +325,8 @@ export interface BattleOrigin {
   ext?: Record<string, unknown>
 }
 
-export type BattleOutcome = 'win' | 'lose' | 'fled' | 'surrender' | string
+/** jack_out：內海的全員拔線（戰場的 leave.outcome；待遇照 fled，不是戰敗）。 */
+export type BattleOutcome = 'win' | 'lose' | 'fled' | 'surrender' | 'jack_out' | string
 
 export interface BattleState {
   /** 這場戰鬥的 id：b1、b2…… */
@@ -352,7 +353,10 @@ export interface BattleState {
   cover: Record<BattleSide, BattleCover[]>
   overlays: BattleOverlay[]
   nodes: BattleNode[]
-  /** 場地效果（COMBAT_SYSTEM 2.5 節）：dark 黑暗；其餘由功能加 */
+  /**
+   * 場地效果（COMBAT_SYSTEM 2.5 節）：dark 黑暗；safe 這一場倒下不加沉溺（迷宮館的熔斷保護）；cut:<方>:<格> 被斷路到第幾輪結束（run.cutSlot）；
+   * 內海的 trace、t30、t60、located 由 features/netcombat 與開戰的人用（dev/adr/0018 第十三節）；其餘由功能加
+   */
   field: Record<string, boolean | number | string>
   /** 這場戰鬥已經擲了幾次骰：下一顆的種子從（存檔的種子、游標、戰鬥 id、這個數字）導出 */
   rolls: number

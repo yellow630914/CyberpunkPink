@@ -4,18 +4,12 @@
 // 同步原則（core/rules/sync.ts）的驗收在 tests/core/sync.test.ts。
 
 import { describe, expect, it } from 'vitest'
-import type { BattleSetup, BattleState, BattleUnit, Feature, Game, Kernel } from '../../src'
-import { BATTLE_EVENTS, BattleRun, DEFAULT_MODES, DEFAULT_STATUSES, FLASH, LOSE_TURN, MOD_KINDS, MOVE, advance, battleOptions, battleProblems, clone, createKernel, currentUnit, endBattle, losingTurn, modeOf, pendingDefeat, setupBattle, unitFromActor, unitsOf } from '../../src'
+import type { BattleState, BattleUnit, Change, Feature, Game, Kernel } from '../../src'
+import { BATTLE_EVENTS, BattleRun, DEFAULT_MODES, DEFAULT_STATUSES, FLASH, LOSE_TURN, MOD_KINDS, MOVE, advance, battleProblems, clone, createKernel, currentUnit, endBattle, losingTurn, modeOf, moveBlock, pendingDefeat, setupBattle, unitFromActor, unitsOf } from '../../src'
 import { BATTLE_SETUPS, TEST_COMBAT, TEST_NET_ACTIONS, TEST_NET_COMBAT, laceUnit, makeBattleGame, makeGame, makeKernel, makeState, netAvatar, observed, playOut, stateHash } from '../../src/testkit'
-import { arena, duel, foe, one, raw } from '../helpers/battle'
+import { arena, duel, foe, netArena, netDuel, one, raw } from '../helpers/battle'
 
 // ---- 小工具 ----
-
-/** 內海的小場地：化身對蕾絲，遮蔽（防火牆）逐格給（預設全部暴露）。 */
-function netDuel(allies: unknown[], foes: unknown[], more: Partial<BattleSetup> = {}): BattleSetup {
-  return { mode: 'net', grade: 1, cover: { ally: [0, 0, 0, 0], foe: [0, 0, 0, 0] }, allies: allies.map((u) => raw(u)), foes: foes.map((u) => raw(u)), ...more }
-}
-const netArena = (setup: BattleSetup, prepare: (k: Kernel) => void = () => {}) => arena(setup, [TEST_NET_COMBAT], prepare)
 
 /** 一直輪下去，直到輪到某個人（測試用：不管輪到的是誰都往下輪）。 */
 const runTo = (run: BattleRun, id: string): void => {
@@ -32,6 +26,12 @@ const tagged = (r: BattleRun, tag: string) => r.beats.filter((b) => b.tag === ta
 /** 一場內海戰鬥提交一步（直接把整份戰鬥狀態交上去，和 tests/core/activity.test.ts 的 decide 同一個做法）。 */
 const commitStep = (g: Game, b: BattleState): void => {
   g.commit({ kind: 'combat', action: 'battle.step', location: {}, party: [], timeline: [], changes: [{ op: 'battle', state: b, step: true }], outcome: { result: b.result?.outcome ?? 'step', summary: '一步。' } }, { attach: true, turn: false })
+}
+
+/** 結算的變更裡，角色沉溺的那一筆（沒有就是沒變）。 */
+const sinkChange = (changes: Change[]): { delta: number } | undefined => {
+  const c = changes.find((x) => x.op === 'actor.track' && x.track === 'sink')
+  return c ? { delta: Number(c.delta) } : undefined
 }
 
 const defineStat = (k: Kernel, id: string, value: number): void => k.stats.defineStat({ id, owner: 'test', name: id, base: () => value })
@@ -698,38 +698,44 @@ describe.each(['meat', 'net'] as const)('斷路（run.cutSlot；兩個戰場都�
     expect(battleProblems(a.battle)).toEqual([])
   })
 
-  it('空格不只一個：增援補進沒被切的那一格', () => {
-    const a = field([1, 2], 1)
+  it('空格不只一個：叫來的人補進沒被切的那一格（最後面的空格是 4，4 被切就補第 3 格）', () => {
+    const a = field([1, 2])
     const run = a.run()
     run.cutSlot('ally', 4, a.battle.round)
-    // 兩個空格 3、4：後方的人本來補第 4 格，4 被切就補第 3 格
-    a.battle.reserve.ally = []
     const late = run.callIn('ally', raw(kit.ally(3)))!
     expect(late).not.toBeNull()
     toRound(run, 2)
     expect(late.slot).toBe(3)
+    expect(a.battle.called).toBeUndefined()
   })
 
-  it('叫來的人（admitCalled）也跳過被切的格子：沒有可進的格就留在後方，不再算叫來的', () => {
+  it('叫來的人（admitCalled）也跳過被切的格子：沒有可進的格就留在後方，不再算叫來的；斷路解除之後照平常的補位進場', () => {
     const a = field([1, 2, 3])
     const run = a.run()
     const late = run.callIn('ally', raw(kit.ally(4)))!
-    run.cutSlot('ally', 4, a.battle.round)
+    run.cutSlot('ally', 4, 2)
     toRound(run, 2)
     expect(late.slot).toBe(0)
     expect(a.battle.called).toBeUndefined()
     expect(a.battle.reserve.ally).toEqual([late.id])
     expect(battleProblems(a.battle)).toEqual([])
+    toRound(run, 3)
+    expect(a.battle.field['cut:ally:4']).toBeUndefined()
+    expect(late.slot).toBe(4)
+    expect(a.battle.reserve.ally).toEqual([])
   })
 
   it('那一輪結束時自動解除；到第 n 輪結束的，撐到第 n 輪；之後一切照常', () => {
     const a = field([1, 2, 3, 4])
     const run = a.run()
-    run.cutSlot('ally', 2, 2)
+    run.cutSlot('ally', 2, 3)
     toRound(run, 2)
-    expect(a.battle.field['cut:ally:2']).toBe(2)
-    expect(moveBlockOf(a, a.ally(1), 2)).toMatch(/到第 2 回合結束.*換不進/)
+    expect(a.battle.field['cut:ally:2']).toBe(3)
+    expect(moveBlockOf(a, a.ally(1), 2)).toMatch(/到第 3 回合結束.*換不進/)
     toRound(run, 3)
+    expect(a.battle.field['cut:ally:2']).toBe(3)
+    expect(moveBlockOf(a, a.ally(1), 2)).toMatch(/這一輪.*換不進/)
+    toRound(run, 4)
     expect(a.battle.field['cut:ally:2']).toBeUndefined()
     expect(moveBlockOf(a, a.ally(1), 2)).toBeNull()
     expect(run.move(a.ally(1), 2)).toBe(true)
@@ -741,7 +747,7 @@ describe.each(['meat', 'net'] as const)('斷路（run.cutSlot；兩個戰場都�
     expect(moveBlockOf(a, a.ally(1), 2)).toBeNull()
   })
 
-  it('敵方的格子也能切：敵人 AI 不會往被切的格子移，battleAuto 打得完', () => {
+  it('敵方的格子也能切：站在上面的敵人換不了位（AI 的換位也先問 moveBlock）', () => {
     const a = field([1, 2, 3, 4])
     const run = a.run()
     run.cutSlot('foe', 1, 99)
@@ -758,9 +764,8 @@ describe.each(['meat', 'net'] as const)('斷路（run.cutSlot；兩個戰場都�
 })
 
 function moveBlockOf(a: { battle: BattleState }, u: BattleUnit, to: number): string | null {
-  return moveBlockCore(a.battle, u, to)
+  return moveBlock(a.battle, u, to, false)
 }
-import { moveBlock as moveBlockCore } from '../../src'
 
 // ---- 8. safe 的場地 ----
 
@@ -776,8 +781,7 @@ describe('battle.field.safe：這一場倒下不加沉溺（迷宮館的熔斷�
     b.result = { outcome: 'lose', text: '全隊倒下：戰敗。' }
     state.battle = b
     const draft = endBattle(k, state)
-    const change = draft.changes.find((c) => c.op === 'actor.track' && (c as { track: string }).track === 'sink') as { delta: number } | undefined
-    return change?.delta ?? 0
+    return sinkChange(draft.changes)?.delta ?? 0
   }
 
   it('沒有 safe：餘韻疊滿再過載而昏過去，沉溺 +2；有 safe：沒有', () => {
@@ -799,7 +803,7 @@ describe('battle.field.safe：這一場倒下不加沉溺（迷宮館的熔斷�
     b.units.a1!.out = 'burnout'
     b.result = { outcome: 'lose', text: '戰敗。' }
     state.battle = b
-    expect(endBattle(k, state).changes.some((c) => c.op === 'actor.track' && (c as { track: string }).track === 'sink')).toBe(false)
+    expect(sinkChange(endBattle(k, state).changes)).toBeUndefined()
   })
 })
 
@@ -821,7 +825,7 @@ describe('BATTLE_SETUPS.net 與 TEST_NET_COMBAT（dev/test-harness.md 第 1 節�
     }
     expect(b.units.f1).toMatchObject({ name: '雜兵蕾絲', rank: 'minion', armor: 1, load: { max: 22 }, evade: 12, pools: { ram: { max: 4, regen: 2 } } })
     expect(b.units.a1).toMatchObject({ rank: 'elite', armor: 2, load: { max: 38 }, pools: { ram: { max: 5, regen: 2 } } })
-    expect(b.cover.ally.map((c) => c.level)).toEqual([1, 1, 2, 2])
+    expect(b.cover.ally.map((c) => c.level)).toEqual([0, 1, 1, 2])
   })
 
   it('可以給等級：III 級的雜兵蕾絲防護 3、RAM 5、傷害骰 4＋1（等級骰）', () => {
@@ -902,7 +906,8 @@ describe('BATTLE_SETUPS.net 與 TEST_NET_COMBAT（dev/test-harness.md 第 1 節�
       for (let i = 0; i < 600 && !game.battle!.result; i++) {
         if (i === saveAt) {
           expect(game.load(game.save('manual', 't'))).toBeNull()
-          if (i === 0) expect(hasStatus(game.battle!.units.a2!, FLASH) || game.battle!.units.a2!.statuses.length === 0).toBe(true)
+          // 剛存剛讀（還沒打任何一步）：flash 還在他身上
+          if (i === 0) expect(hasStatus(game.battle!.units.a2!, FLASH)).toBe(true)
           expect(battleProblems(game.battle!)).toEqual([])
         }
         game.battleNext({ anyone: true })

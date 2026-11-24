@@ -1066,7 +1066,7 @@ export class BattleRun implements BattleView {
       // 個人的脫離（N12）：我方每一個人都是用 mode.leave.out 退出（內海：全員拔線）才算脫離，待遇照 fled；有一個人不是（倒下、被釘住、被制伏）就是戰敗
       const leave = this.mode.leave
       const mine = Object.values(this.battle.units).filter((u) => u.side === 'ally')
-      if (leave && mine.length > 0 && mine.every((u) => u.out === leave.out)) this.finish(leave.outcome, '全隊都平安離開了這場戰鬥：不算戰敗。')
+      if (leave && mine.length > 0 && mine.every((u) => u.out === leave.out)) this.finish(leave.outcome, '全隊都平安離開了這場戰鬥。')
       else this.finish('lose', '全隊倒下：戰敗。')
     } else if (standing(this.battle, 'foe') === 0) this.finish('win', '敵人全部倒下或退出：勝利。')
   }

@@ -1,7 +1,7 @@
 // 戰鬥測試共用的小工具：建一場不經過提交的戰鬥、釘死骰面、拿單位。
 import type { BattleSetup, BattleState, BattleUnit, Feature, GameState, Kernel } from '../../src'
 import { BattleRun, clone, createKernel, setupBattle } from '../../src'
-import { BATTLE_SETUPS, TEST_COMBAT, enemyUnit, fixDice, makeState, partyUnit } from '../../src/testkit'
+import { BATTLE_SETUPS, TEST_COMBAT, TEST_NET_COMBAT, enemyUnit, fixDice, makeState, partyUnit } from '../../src/testkit'
 
 export const raw = (unit: unknown, slot?: number) => ({ from: 'unit', unit: unit as Record<string, unknown>, ...(slot ? { slot } : {}) })
 
@@ -47,3 +47,14 @@ export const TEST_STATUSES = [
   { id: 'jammed', name: '失效', desc: '義體與智慧武器失效一回合。', until: 'own_turn_end', turns: 1, kind: 'debuff' },
   { id: 'frozen', name: '癱瘓', desc: '被癱瘓：失去下一個回合。', lose_turn: true, until: 'own_turn_start', turns: 1, kind: 'control' },
 ]
+
+/**
+ * 內海的小場地：化身（testkit 的 netAvatar）對蕾絲（laceUnit），戰場 net，遮蔽（防火牆）逐格給（預設全部暴露）。
+ * 用 `netArena(netDuel([netAvatar(0)], [laceUnit()]))` 建一場不經過提交的內海戰鬥（裝 TEST_NET_COMBAT）。
+ */
+export function netDuel(allies: unknown[], foes: unknown[], more: Partial<BattleSetup> = {}): BattleSetup {
+  return { mode: 'net', grade: 1, cover: { ally: [0, 0, 0, 0], foe: [0, 0, 0, 0] }, allies: allies.map((u) => raw(u)), foes: foes.map((u) => raw(u)), ...more }
+}
+
+/** arena 的內海版：行動表裝 TEST_NET_COMBAT。 */
+export const netArena = (setup: BattleSetup, prepare: (k: Kernel) => void = () => {}): Arena => arena(setup, [TEST_NET_COMBAT], prepare)

@@ -15,6 +15,7 @@
 // | item | items.json | ITEMS 第 5 節（消耗品、彈藥、日用品）；EQUIPMENT 第 4、6 節（大小、合法性、快取格）。M1 加 |
 // | battle_mode、damage_type、battle_status | 在 core/battle/rules.ts | COMBAT_SYSTEM 第 1～7 節。M1 加 |
 // | special_map | 在 core/grid/model.ts | DATA 9.3 節；COMMISSION_MAPS。M1 加 |
+// | sync_rule | 在 core/rules/sync.ts | CORE_RULES 第 5 節；CYBERSPACE 6.4 節。M3 加（規則表） |
 
 import { ATTR_IDS } from '../types/ids'
 import { isId, isRecord } from '../util/sanitize'
