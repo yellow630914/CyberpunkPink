@@ -120,8 +120,8 @@
 | 敵人：等級與位階、AI、戰敗事件的種類、各勢力的敵人 | [systems/ENEMIES](systems/ENEMIES.md) |
 | 內海：分區、化身、構裝、網內戰鬥、精神污染 | [systems/CYBERSPACE](systems/CYBERSPACE.md) |
 | 竄網：快駭、蕾絲、追蹤度、粉牆 | [systems/NETRUNNING](systems/NETRUNNING.md) |
-| 輿論戰：頻道經營與議題戰役 | [systems/OPINION](systems/OPINION.md) |
-| 媒體：拍片與直播、素材與片、訂閱與公信力；偶像 | [systems/MEDIA](systems/MEDIA.md) |
+| 輿論戰：議題戰役（九個格子、回合、牌、對手） | [systems/OPINION](systems/OPINION.md) |
+| 媒體：拍片與直播、素材與片、剪的角度、頻道經營（訂閱與公信力、預算、節目、編制）；偶像 | [systems/MEDIA](systems/MEDIA.md) |
 | 委託副本：階段、面、連動、輔助面的結算 | [systems/COMMISSIONS](systems/COMMISSIONS.md) |
 | 系列：把事件、線索、特殊任務、委託副本分組 | [systems/SERIES](systems/SERIES.md) |
 | 事件：一個事件導演與它的範圍 | [systems/EVENTS](systems/EVENTS.md) |

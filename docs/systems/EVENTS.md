@@ -116,7 +116,7 @@
 | `bill` | 這一週的帳單增減，不超過那一項金額的一半 | 罰單、減免、多出來的一筆費用（[DOWNTIME](DOWNTIME.md) 第 5 節） |
 | `grace` | 寬限：一項欠款延後，最多 7 天 | 欠繳的週數在寬限期間不往上加 |
 | `item`（負數） | 拿走一件物品、快取格的東西，或一件義體（醒來少了） | 戰敗、搜查、沒收；拿走義體只在戰敗事件 |
-| `credibility` | 公信力 ±5 | [MEDIA](MEDIA.md) 第 4 節 |
+| `credibility` | 公信力 ±5 | [MEDIA](MEDIA.md) 4.1 節 |
 | `highlight` | 只在直播中：亮點，熱度最多 +3 | [MEDIA](MEDIA.md) |
 | `bill`（新項目） | 每週帳單加一個新的項目（保護費、分期），寫明金額與週數 | |
 | `tuning` | 強制裝上一個調校 | [LEWD_SYSTEM](LEWD_SYSTEM.md) 第 4 節；只在戰敗與契約事件 |

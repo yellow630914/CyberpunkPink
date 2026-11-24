@@ -1071,7 +1071,7 @@
 }
 ```
 
-- 片的 `card` 是它進輿論戰牌庫時的樣子：`angle` 是揭弊或英雄時是 `line`（說法），數字用 `trust`；是煽情或抹黑時是 `fuel`（料），數字用 `draw`。和議題無關的片進不了牌庫（[OPINION](OPINION.md) 4.3a 節）。
+- 片的 `card` 是它進輿論戰牌庫時的樣子：`angle` 有七種（`documentary` 紀實、`daily` 日常、`fun` 娛樂、`hero` 英雄、`expose` 揭弊、`sensational` 煽情、`smear` 抹黑）：紀實、英雄、揭弊是 `line`（說法），數字用 `trust`；煽情、抹黑是 `fuel`（料），數字用 `draw`；日常的 `card` 是 `null`，不能當牌；娛樂的 `card` 是 `{ "kind": "decoy" }`，只能當轉移焦點的燃料。和議題無關的片進不了牌庫（[OPINION](OPINION.md) 4.3a 節）。
 
 ## 12. 設施的種類
 
