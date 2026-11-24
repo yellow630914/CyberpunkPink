@@ -40,7 +40,7 @@ export const SHALLOW_UNIQUE = '淺檔時專屬構裝不能用，要換到標準�
 export const SHALLOW_OVERCLOCK = '淺檔不能超頻，要換到標準檔以上。'
 
 /** 這個欄會不會被當成動作（主動技能的行動）：有目標、效果清單或用法。 */
-export const isActionCol = (m: MeatDef | null | undefined): m is MeatDef => !!m && !m.pending && !!(m.target || m.do || m.choose || m.tease)
+export const isActionCol = (m: MeatDef | null | undefined): m is MeatDef => !!m && !m.pending && !!(m.target || m.do || m.choose || m.tease || m.lure)
 
 /**
  * 這個單位身上現在算數的這一欄：照戰場選欄；pending 的、專屬構裝在淺檔的都是 null。

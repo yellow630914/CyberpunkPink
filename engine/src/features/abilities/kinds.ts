@@ -205,7 +205,7 @@ export function checkAbilities(k: Pick<Kernel, 'content' | 'battle'>): void {
     }
     // 兩欄都有主動的行動時是同一個行動（照戰場選欄）：目標的種類要一樣，圓環才對得上
     if (a.kind === 'active' && isActionCol(a.meat) && isActionCol(a.net)) {
-      const kindOf = (m: MeatDef): string => TARGET_KINDS[m.tease ? 'enemy' : (m.target ?? 'none')] ?? 'none'
+      const kindOf = (m: MeatDef): string => TARGET_KINDS[m.tease || m.lure ? 'enemy' : (m.target ?? 'none')] ?? 'none'
       if (kindOf(a.meat) !== kindOf(a.net)) problems.push(`${a.id}：meat 與 net 兩欄都是主動的行動，目標的種類要一樣（meat 是 ${kindOf(a.meat)}、net 是 ${kindOf(a.net)}）；目標不同的寫成兩個技能`)
     }
   }

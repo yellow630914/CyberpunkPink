@@ -22,7 +22,7 @@ import { startPrep, bringPrep } from './prep'
 import { suppressAfter } from './suppress'
 import { adminNeed, bumpUses, costOf, setupResources, usageBlocks, useOf } from './use'
 import { syncWallet } from './wallet'
-import { teaseEntry } from './social'
+import { teaseEntry, teaseOf } from './social'
 import type { AbilityEntry, MeatDef, PathEntry, PickDecl, UnitAbilities } from './types'
 import { OWNER } from './types'
 import { equippedOf, hasAbility, isRec, tierIn, unitAbilities } from './unitdata'
@@ -600,12 +600,15 @@ function callAction(ab: AbilityEntry, order: number): BattleActionDef {
 export function registerActions(k: Kernel): void {
   k.content.list<AbilityEntry>('ability').forEach((ab, order) => {
     const m = ab.meat && !ab.meat.pending ? ab.meat : null
-    // 誘惑攻擊：主動技能的行動就是一次誘惑攻擊；被動（入戲）多一個基本的誘惑攻擊行動（social.ts 把它們改寫成一般的技能行動）。只有現實欄（內海欄不能寫 tease）
-    if (m?.tease) {
+    // 誘惑攻擊：主動技能的行動就是一次誘惑攻擊；被動（入戲）多一個基本的誘惑攻擊行動（social.ts 把它們改寫成一般的技能行動）。
+    // 現實欄寫 tease、內海欄寫 lure（兩欄各自改寫；M3-skill-net-b）
+    if (teaseOf(ab.meat) || teaseOf(ab.net)) {
       const entry = teaseEntry(ab)
-      const layers: Layer[] = ['meat', ...(ab.kind === 'active' && actionLayers(ab).includes('net') ? (['net'] as const) : [])]
-      const def = skillAction(entry, order, layers)
-      k.battle.action(ab.kind === 'passive' ? { ...def, id: `${ab.id}.tease` } : def)
+      const layers = actionLayers(entry)
+      if (layers.length) {
+        const def = skillAction(entry, order, layers)
+        k.battle.action(ab.kind === 'passive' ? { ...def, id: `${ab.id}.tease` } : def)
+      }
     } else {
       const layers = actionLayers(ab)
       if (layers.length) k.battle.action(skillAction(ab, order, layers))

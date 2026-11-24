@@ -10,17 +10,18 @@
 // 不 import 別的功能：檢定、傷害、狀態一律經由 run.effects。
 
 import type { BattleEffectCtx, BattleEffectLast, BattleRun, BattleUnit, BattleView, Kernel } from '../../core'
-import { BATTLE_SLOTS, amount, coverAt, coverLevel, distance, isRecord, onField, unitAt, unitTag } from '../../core'
-import { colIn } from './column'
-import { ATTACKS_MADE } from './conditions'
+import { BATTLE_SLOTS, amount, coverAt, coverLevel, distance, isRecord, onField, unitAt, unitTag, unitsOf } from '../../core'
+import { colIn, layerOf, liveCols } from './column'
+import { ATTACKS_MADE, hasPersona } from './conditions'
 import { teaseFieldProblems } from './format'
 import { featureMods } from './mods'
 import type { AbilityEntry, MeatDef } from './types'
 import { OWNER } from './types'
 import { equippedOf, spotted, unitBuffs } from './unitdata'
 
-/** 誘惑攻擊的距離上限（SKILL_TREES 入戲：距離 2 以內）、基本行動的消耗。 */
+/** 誘惑攻擊的距離上限（SKILL_TREES 入戲：現實距離 2 以內、內海距離 3 以內）、基本行動的消耗。 */
 export const TEASE_RANGE = 2
+export const LURE_RANGE = 3
 export const TEASE_AP = 2
 /** 基本的誘惑攻擊與主動的誘惑技能共用每回合 1 次的那一組。 */
 export const TEASE_GROUP = 'tease'
@@ -65,11 +66,12 @@ function teaseMeat(m: MeatDef): MeatDef {
  * 被動（入戲）是一個基本的行動「誘惑攻擊」：2 點、每回合 1 次、同一組。技能的 id 不變（裝著才有、次數記在 id 上）。
  */
 export function teaseEntry(ab: AbilityEntry): AbilityEntry {
-  const meat = teaseMeat(ab.meat!)
-  if (ab.kind !== 'passive') return { ...ab, meat }
+  const meat = teaseOf(ab.meat) ? teaseMeat(ab.meat!) : ab.meat
+  const net = teaseOf(ab.net) ? teaseMeat(ab.net!, true) : ab.net
+  if (ab.kind !== 'passive') return { ...ab, meat, net }
   return {
-    ...ab, kind: 'active', name: '誘惑攻擊', text: '對距離 2 以內一名有橋的目標做一次誘惑攻擊：擲魅力與誘惑對他的意志與定力，過了造成快感傷害。',
-    use: { ap: TEASE_AP, per_turn: 1, group: TEASE_GROUP }, meat,
+    ...ab, kind: 'active', name: '誘惑攻擊', text: '對距離 2 以內（內海 3 以內）一名有橋的目標做一次誘惑攻擊：擲魅力與誘惑對他的意志與定力，過了造成快感傷害。',
+    use: { ap: TEASE_AP, per_turn: 1, group: TEASE_GROUP }, meat, net,
   }
 }
 
@@ -90,13 +92,20 @@ function pickedUnit(ctx: BattleEffectCtx, key: string): BattleUnit | undefined {
 function teaseOne(ctx: BattleEffectCtx, e: Record<string, unknown>, t: BattleUnit): void {
   const { run, user } = ctx
   if (t.out || !onField(t) || run.isStandIn(t)) return
+  const net = run.mode.layer === 'net'
+  const reach = net ? LURE_RANGE : TEASE_RANGE
   if (!t.load) {
     run.say(`${unitTag(t)} 沒有橋，誘惑攻擊對他無效。`, 'tease', { unit: user.id, target: t.id, blocked: 'bridge' }, user)
     ctx.last.ok = false
     return
   }
-  if (distance(user, t) > TEASE_RANGE) {
-    run.say(`${unitTag(t)} 太遠了（距離 ${distance(user, t)}），誘惑攻擊只打得到距離 ${TEASE_RANGE} 以內的人。`, 'tease', { unit: user.id, target: t.id, blocked: 'range' }, user)
+  if (net && !hasPersona(t)) {
+    run.say(`${unitTag(t)} 沒有人格，誘惑攻擊對它無效（內海只有化身與帶人格的蕾絲打得到）。`, 'tease', { unit: user.id, target: t.id, blocked: 'persona' }, user)
+    ctx.last.ok = false
+    return
+  }
+  if (distance(user, t) > reach) {
+    run.say(`${unitTag(t)} 太遠了（距離 ${distance(user, t)}），誘惑攻擊只打得到距離 ${reach} 以內的人。`, 'tease', { unit: user.id, target: t.id, blocked: 'range' }, user)
     ctx.last.ok = false
     return
   }
@@ -115,8 +124,8 @@ function teaseOne(ctx: BattleEffectCtx, e: Record<string, unknown>, t: BattleUni
   ctx.last.overloaded = false
   if (!ok) return
 
-  // 傷害：2d6（＋ bonus ＋ tease_bonus 的修正）快感傷害，不看護甲與遮蔽
-  let raw = amount(ctx, '2d6')
+  // 傷害：2d6（＋ bonus ＋ tease_bonus 的修正）快感傷害，不看護甲與遮蔽；內海照網內的規則再加魅力的調整值
+  let raw = amount(ctx, net ? '2d6+mod:charm' : '2d6')
   if (e.bonus !== undefined) raw += amount(ctx, e.bonus as number | string)
   for (const p of featureMods(run, user, 'tease_bonus', ['tease'], t)) raw += p.value
   const before = { layers: t.layers, out: t.out }
@@ -140,7 +149,7 @@ function teaseOp(ctx: BattleEffectCtx, e: Record<string, unknown>): void {
   // 傾城：第二個目標（pick.second）各擲各的；選錯的（同一個人、自己人、沒有橋、太遠）不做
   if (e.targets === 2 && !ctx.user.out) {
     const second = pickedUnit(ctx, 'second')
-    if (second && second.id !== first.id && second.side !== ctx.user.side && !!second.load && distance(ctx.user, second) <= TEASE_RANGE) teaseOne(ctx, e, second)
+    if (second && second.id !== first.id && second.side !== ctx.user.side && !!second.load && distance(ctx.user, second) <= (ctx.run.mode.layer === 'net' ? LURE_RANGE : TEASE_RANGE)) teaseOne(ctx, e, second)
   }
 }
 
@@ -178,6 +187,15 @@ export function registerSocial(k: Kernel): void {
     if (q.view.battle.units[u.id] !== u || !maskOn(q.view, u)) return []
     if (u.uses[maskHitKey(q.other.id)] === q.view.battle.round) return []
     return [{ label: '面具', value: -100, source: 'skill' }]
+  })
+
+  // 內海版的面具：分出結果的那一刻，戴著面具的化身在報告裡標 data.masked（敵對值與豔名不連到本人；「留下痕跡」的變更這一批沒有來源）
+  k.battle.on('battle.result', OWNER, ({ run }) => {
+    if (run.mode.layer !== 'net') return
+    for (const u of unitsOf(run.battle, 'ally')) {
+      if (!netMasked(run, u)) continue
+      run.say(`${u.name} 戴著面具：這一場的敵對值與豔名不連到本人。`, 'skill', { unit: u.id, masked: true }, u)
+    }
   })
 
   // 每一次攻擊：記攻擊過幾次、攻擊過誰（面具的例外）；替身的換位
