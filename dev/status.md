@@ -348,3 +348,10 @@
 - 給核心或 netcombat：匯出行動 id 常數（`net_shift`、`adm_` 前綴、`net_attack`）；`BattleActionOption` 給 `admin` 欄；`netBattleView` 只有我方單位（敵方檔位與破損沒有資料）。
 - 給 M3-commission-net／ui-commission-net：`tests/commission/M2-ui-commission.test.ts`〈面卡：沒有開放的面〉期望 `face.net` 未開放，現在 netrun 已放行，測試要改。
 - 給 M3-ui-subnet：`SubnetScreen`、`stores/subnet.ts` 還送舊的 `/netcombat?enc=`，要接引擎的戰鬥。
+
+## M3-netrun-nodes 回報（2026-11-24）
+
+- 檔案庫與下載、放東西、控制節點、人、閘門破解／憑證／後門鑰匙、擦痕跡、安全點、六種目標、巡邏、陷阱、帶出去才算數。暫定數字都在 `netrun_rule`。
+- **要補**：主角的主控階數讀不到（只讀 `actor.ext.paths`）。由 abilities 提供衍生數值 `master_tier`，netrun 的 `masterTier`（checks.ts）改讀它 → 交給 M3-skill-net-a。
+- 隱形類構裝讓巡邏擦身而過沒做（要 netcombat／deck 介面）；印記、機關等詞條歸 netrun-dig。
+- 給 M3-commission-net：setup 的 `objective`、`controls`；result 的 `goal`、`controls`、`lost`。給 M3-ui-subnet：`netrunView` 新欄位與節點用途 id。

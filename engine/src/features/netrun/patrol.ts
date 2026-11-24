@@ -153,6 +153,6 @@ export function nearPatrols(net: NetExt, sheet: string, node: string): Patrol[] 
   return net.patrols.filter((p) => p.sheet === sheet && !p.gone && (p.at === node || (adj.get(node) ?? []).includes(p.at)))
 }
 
-/** 新一隊的編號：p1、p2……（打贏了的也留在清單裡，編號不重複）。 */
-export const nextPatrolId = (net: NetExt): string => `p${net.patrols.length + 1}`
+/** 新一隊的編號：pt1、pt2……（和人的標記 p1 分開；打贏了的也留在清單裡，編號不重複）。 */
+export const nextPatrolId = (net: NetExt): string => `pt${net.patrols.length + 1}`
 

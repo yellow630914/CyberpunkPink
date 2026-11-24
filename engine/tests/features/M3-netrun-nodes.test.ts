@@ -1154,7 +1154,7 @@ describe('巡邏：挑一條 3～5 個節點的路線、每三個探索回合走
       const ranks = p!.foes.map((f) => f.rank as string)
       expect(['elite', 'minion,minion']).toContain(ranks.join(','))
       expect(p!.foes.every((f) => f.from === 'enemy_pick' && f.faction === 'f_a')).toBe(true)
-      expect(p!).toMatchObject({ id: 'p1', sheet: 'l1', step: 0, at: p!.route[0] })
+      expect(p!).toMatchObject({ id: 'pt1', sheet: 'l1', step: 0, at: p!.route[0] })
       const mover = g.state.maps.instances[run(g).map]!.sheets.l1!.movers[p!.id]!
       expect(mover.at).toEqual(graph.nodes.find((n) => n.id === p!.at)!.at)
     }
@@ -1299,7 +1299,7 @@ describe('巡邏：挑一條 3～5 個節點的路線、每三個探索回合走
     expect(patrols(g)).toHaveLength(2)
     setTrace(g, 31)
     expect(patrols(g)).toHaveLength(4)
-    expect(patrols(g).map((p) => p.id)).toEqual(['p1', 'p2', 'p3', 'p4'])
+    expect(patrols(g).map((p) => p.id)).toEqual(['pt1', 'pt2', 'pt3', 'pt4'])
     expect(patrols(g).filter((p) => p.sheet === 'l1')).toHaveLength(2)
     expect(patrols(g).filter((p) => p.sheet === 'l2')).toHaveLength(2)
     expect(ext(g).t30).toBe(true)
@@ -1320,7 +1320,7 @@ describe('巡邏：挑一條 3～5 個節點的路線、每三個探索回合走
     open(g, PATROL())
     const v = netrunView(g.k, g.state)!
     expect(v.patrols).toHaveLength(1)
-    expect(v.patrols[0]).toMatchObject({ id: 'p1', node: patrols(g)[0]!.at, calm: false })
+    expect(v.patrols[0]).toMatchObject({ id: 'pt1', node: patrols(g)[0]!.at, calm: false })
     const pos = ext(g).graph.l1!.nodes.find((n) => n.id === patrols(g)[0]!.at)!.at
     expect(v.patrols[0]!.at).toEqual(pos)
     expect(typeof v.patrols[0]!.visible).toBe('boolean')

@@ -43,8 +43,5 @@ export const START_SEX = {
   ],
 }
 
-/** 甲板與構裝（CYBERSPACE 4.2 節、ITEMS 第 11 節）：入門甲板-200 構裝槽 4、防火牆 12。 */
-export const START_DECK = { slots: ['cs_kefu1', 'cs_window1', 'cs_probe2', null] as Array<string | null>, activeGuard: 'cs_window1' as string | null, skins: ['it_64cfe6', 'it_d212f6', 'it_0f2ab1'], skinWorn: 'it_d212f6' }
-
 /** 備忘錄：收進來的指南（看過的與沒看過的）。 */
 export const START_GUIDES = { collected: ['g_check', 'g_money', 'g_run', 'g_combat'], seen: ['g_check', 'g_money'] }

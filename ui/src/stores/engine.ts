@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import type { ActionInput, ContentEntry, Feature, ContentPack, ItemEntry, Actor, AttributeEntry, BattleInput, BattleMode, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, GridDir, GridView, Report, ReportDraft, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
-import { ActionBlocked, ChangeError, FakeProvider, Game, meterOf, modeOf, statusRuleOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
+import { ActionBlocked, ChangeError, FakeProvider, Game, SYNC_GEARS, meterOf, syncBlocks, syncCapOf, syncRuleOf, modeOf, statusRuleOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
 import type { ActStatus, StepActions } from '@engine/src'
 import type { StepRecord } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
@@ -29,6 +29,8 @@ import { ratingOf, sceneAct, sceneNext, sceneOf, sceneOptions, sceneRules, scene
 import type { SceneInput, SceneMode, SceneOptions, SceneView } from '@engine/src/features/scene'
 import { setupFromEncounter } from '@engine/src/features/enemies'
 import { netBattleView } from '@engine/src/features/netcombat'
+import { deckOf, deckView, equipDraft as deckEquipDraft, installDraft as deckInstallDraft, removeDraft as deckRemoveDraft, scriptsBlock as deckScriptsBlock, scriptsDraft as deckScriptsDraft, skinDraft as deckSkinDraft, deckExtOf } from '@engine/src/features/deck'
+import type { ConstructEntry, DeckView, ScriptEntry } from '@engine/src/features/deck'
 import type { NetBattleView } from '@engine/src/features/netcombat'
 import { arrive as worldArrive, cityGraph, worldView } from '@engine/src/features/world'
 import type { CityGraph, WorldView } from '@engine/src/features/world'
@@ -48,7 +50,7 @@ import type { JobView } from '@engine/src/features/work'
 import { breathBlock, breathDraft, depositOf, homeOf, leaveBlock, leaveDraft, readRest, rentBlock, rentDraft, residencePools, restRules, sleepBlock, sleepDraft, sleepOptions } from '@engine/src/features/rest'
 import type { Level, ResidenceEntry, SleepOption, SleepSpotId } from '@engine/src/features/rest'
 import type { PartyMember } from '../data/types'
-import { DEMO_SCENES, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature } from '../data/demo'
+import { DEMO_SCENES, demoNetChanges, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature } from '../data/demo'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
 import { ageBlock, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
 import { debriefOf } from '../lib/scene/sceneView'
@@ -161,7 +163,7 @@ export const useEngine = defineStore('engine', () => {
   }
 
   /** 建角的開新局：名冊的成員是引擎照出身的名冊放的，示意包只補候選人 */
-  const withPeople = (r: ReportDraft, state: GameState, on: boolean, origin: string): ReportDraft => (on && demoOn ? { ...r, changes: [...r.changes, ...demoPeopleChanges(game.k, state, { origin: (originView(game.k, origin)?.roster ?? []).map((n) => n.id) })] } : r)
+  const withPeople = (r: ReportDraft, state: GameState, on: boolean, origin: string): ReportDraft => (on && demoOn ? { ...r, changes: [...r.changes, ...demoNetChanges(), ...demoPeopleChanges(game.k, state, { origin: (originView(game.k, origin)?.roster ?? []).map((n) => n.id) })] } : r)
   /** 先問引擎每一步行不行；有問題原樣回傳、狀態不動；沒問題才提交。 */
   function createCharacter(draft: CreationDraft): CreationBlock[] {
     const blocks = creationBlocks(game.k, game.state, draft)
@@ -999,5 +1001,45 @@ export const useEngine = defineStore('engine', () => {
       .filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, n)
   }
 
-  return { state, feed, partyRows, hostilityTop, hostilityRows, world, transit, people, event, fixer, commission, scene, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+
+  // ---- 內海分頁：甲板、構裝槽、SKIN、腳本（features/deck；M3-ui-deck）。這裡只轉接，能不能裝、為什麼、數字都是引擎的答案 ----
+  const deckStat = (id: string): number => { const pc = game.state.pc; return pc !== null && game.k.stats.hasStat(id) ? game.k.stats.stat(game.state, pc, id) : 0 }
+  const deck = {
+    /** 現在的主角（沒有是 null） */
+    get actor(): string | null { void state.value; return game.state.pc },
+    /** 整頁唯讀的原因（戰鬥中、網內的行程進行中……；引擎的那一句）；可以動是 null */
+    lock: (): string | null => { void state.value; return game.blockOf('commit:deck.install') },
+    view: (): DeckView | null => { void state.value; return game.state.pc === null ? null : deckView(game.k, game.state, game.state.pc) },
+    /** 構裝的內容（畫面寫它的種類與數字；查不到是 undefined） */
+    construct: (id: string): ConstructEntry | undefined => game.k.content.get<ConstructEntry>('construct', id),
+    /** 網內的數字（引擎的衍生數值）；沒有主角全是 0 */
+    numbers: () => {
+      void state.value
+      const pc = game.state.pc
+      const info = pc === null ? null : deckOf(game.k, game.state, pc)
+      return {
+        ramMax: deckStat('ram_max'), ramRegen: deckStat('ram_regen'), guard: deckStat('net_guard'), firewall: deckStat('deck_firewall'), slots: deckStat('deck_slots'), reserved: deckStat('deck_slots_reserved'),
+        loadCap: deckStat('load_cap'), layers: deckStat('afterglow_cap'), grade: deckStat('deck_grade'), hasDeck: info?.has ?? false,
+      }
+    },
+    /** 同步四檔：名字、開得到不到（上限那一檔以下可以）、開不了的原因（引擎每個沒夠的條件一句） */
+    sync: (): { cap: string; gears: Array<{ id: string; name: string; ok: boolean; why: string[] }> } | null => {
+      void state.value
+      const pc = game.state.pc
+      if (pc === null) return null
+      const rule = syncRuleOf(game.k.content)
+      return { cap: syncCapOf(game.k, game.state, pc), gears: SYNC_GEARS.map((g) => { const why = syncBlocks(game.k, game.state, pc, g); return { id: g, name: `${rule.gears[g].name}檔`, ok: why.length === 0, why } }) }
+    },
+    /** 帶著的腳本（原樣，改的時候整份換） */
+    scriptList: (): ScriptEntry[] => { void state.value; return game.state.pc === null ? [] : deckExtOf(game.state, game.state.pc).scripts.map((s) => ({ ...s })) },
+    install: (item: string): string | null => commitGear((pc) => deckInstallDraft(game.k, game.state, pc, item)),
+    remove: (item: string): string | null => commitGear((pc) => deckRemoveDraft(game.k, game.state, pc, item)),
+    equip: (uid: string | null): string | null => commitGear((pc) => deckEquipDraft(game.k, game.state, pc, uid)),
+    skin: (item: string | null): string | null => commitGear((pc) => deckSkinDraft(game.k, game.state, pc, item)),
+    /** 這一份腳本清單帶不帶得了（引擎的原因；可以是 null） */
+    scriptsBlock: (list: ScriptEntry[]): string | null => { void state.value; return game.state.pc === null ? '還沒有主角。' : deckScriptsBlock(game.k, game.state, game.state.pc, list) },
+    scripts: (list: ScriptEntry[]): string | null => commitGear((pc) => deckScriptsDraft(game.k, game.state, pc, list)),
+  }
+
+  return { state, feed, partyRows, hostilityTop, hostilityRows, world, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

@@ -7,6 +7,7 @@ import ReasonButton from '../components/ReasonButton.vue'
 import MoneyTag from '../components/MoneyTag.vue'
 import { useGame } from '../stores/game'
 import { useUi } from '../stores/ui'
+import { useEngine } from '../stores/engine'
 import { ITEMS } from '../data/items'
 import { EQUIP_SLOTS } from '../data/character'
 import type { EquipSlotId, ItemDef } from '../data/types'
@@ -20,13 +21,14 @@ import { PALETTE, hexOf, colorName, defaultDye, currentDye, dyeCost, dyePhrase, 
 const props = defineProps<{ entryId: number; stacked?: boolean; dyeKey?: string; where?: DyeWhere; place?: string }>()
 const g = useGame()
 const ui = useUi()
+const eng = useEngine()
 const where = computed<DyeWhere>(() => props.where ?? 'shop')
 const WHERE_NAME: Record<DyeWhere, string> = { shop: '店家代染', home: '在家的工作台自己染', net: '內海的化身編輯' }
 
 /** 能染的東西：穿著的每一格、背包裡的每一疊、內海的 SKIN */
 interface Target { key: string; def: ItemDef; label: string }
 const targets = computed<Target[]>(() => {
-  if (where.value === 'net') return g.deck.skins.map(id => ({ key: `skin:${id}`, def: ITEMS[id], label: g.deck.skinWorn === id ? 'SKIN・穿著' : 'SKIN' }))
+  if (where.value === 'net') return (eng.deck.view()?.skins ?? []).filter(s => ITEMS[s.item]).map(s => ({ key: `skin:${s.item}`, def: ITEMS[s.item], label: s.worn ? 'SKIN・穿著' : 'SKIN' }))
   const out: Target[] = []
   for (const s of EQUIP_SLOTS) { const id = g.equip[s.id as EquipSlotId]; if (id && dyeable(ITEMS[id])) out.push({ key: `slot:${s.id}`, def: ITEMS[id], label: `穿著・${s.name}` }) }
   for (const st of g.inventory) if (!st.unknown && ITEMS[st.def] && dyeable(ITEMS[st.def])) out.push({ key: `uid:${st.uid}`, def: ITEMS[st.def], label: st.qty > 1 ? `背包・${st.qty} 件一起染` : '背包' })
