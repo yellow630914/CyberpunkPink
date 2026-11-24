@@ -241,6 +241,8 @@ export function installOut(k: Kernel): void {
       run.say(`贏了：${nameList(pinned)}身上的釘子自動拆掉了。`, 'pin', { unpinned: pinned.map((u) => u.id) })
     } else if (outcome === 'lose') {
       const winners = Object.values(run.battle.units).filter((u) => u.side === 'foe' && !u.out)
+      // 不扣線：場地 safe（館方的熔斷設定，迷宮館；CYBERSPACE 8.2 節）、或贏的那一方全是沒有主人的野生程式（標籤 wild；ENEMIES 第 9 節「打倒全隊之後放人斷線，不扣線」）
+      if (run.battle.field.safe === true || (winners.length > 0 && winners.every((u) => u.tags.includes('wild')))) return
       const caught = allies.filter((u) => u.out !== 'jacked_out')
       const by = winners.some((u) => u.tags.includes('tether')) ? caught : allies.filter((u) => isRecord(u.ext.net) && u.ext.net.tethered === true)
       if (!by.length) return

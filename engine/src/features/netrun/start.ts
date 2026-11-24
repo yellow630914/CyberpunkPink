@@ -374,7 +374,7 @@ export function startRun(k: Kernel, state: GameState, kind: RunKind, rawSetup: u
   const seed = parsed.seed ?? deriveRng(state.rng, `netrun/${id}/seed`).int(1, 2_000_000_000)
   const mapId = `net_${id}`
   // 自己去挖的新的一座：設施類型（層數與名字）、詞條（擲出來的）；過期留著的那一份在同一份報告裡清掉
-  const plan = parsed.entry === 'dig' ? digPlan(k, state, parsed, found.region, seed, mapId) : undefined
+  const plan = parsed.entry === 'dig' ? digPlan(k, state, parsed, found.region, seed, mapId, rawSetup) : undefined
   const region = plan ? plan.region : found.region
   const genParsed: Parsed = plan ? { ...parsed, layers: plan.names } : parsed
   const built = build(region, kind, genParsed, rules, seed, mapId, plan)

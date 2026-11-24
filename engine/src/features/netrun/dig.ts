@@ -23,6 +23,9 @@ import { netrunRules, regionOf } from './rules'
 import { layerLabel, partyOf } from './start'
 import type { Parsed } from './start'
 
+/** 每一趟自己的設定：再進去時照這一趟新給的，不照生成時留下的。 */
+const PER_RUN_KEYS = ['stealth', 'from_backdoor', 'trace', 'seed', 'fx', 'where'] as const
+
 /** 自己去挖的子網的地圖實例的 owner：同一個 site 同一時間只有一份。 */
 export const digOwner = (site: string): string => `${OWNER}:dig:${site}`
 const DIG_PREFIX = `${OWNER}:dig:`
@@ -108,7 +111,7 @@ function facilityFor(k: Kernel, parsed: Parsed, seed: number, mapId: string): Ne
 }
 
 /** 新的一座的計畫。詞條寫了（setup.affixes）就用它，沒寫就擲；查不到的 id 擋下。 */
-export function digPlan(k: Kernel, state: GameState, parsed: Parsed, region: NetRegion, seed: number, mapId: string): DigPlan {
+export function digPlan(k: Kernel, state: GameState, parsed: Parsed, region: NetRegion, seed: number, mapId: string, rawSetup: unknown): DigPlan {
   const site = parsed.site!
   const old = keptOf(state, site)
   const facility = facilityFor(k, parsed, seed, mapId)
@@ -123,12 +126,11 @@ export function digPlan(k: Kernel, state: GameState, parsed: Parsed, region: Net
   const names = [...facility.layers]
   for (let i = 0; i < (fx.layer_plus ?? 0) && names.length < 8; i++) names.splice(names.length - 1, 0, names[Math.max(0, names.length - 2)]!)
   const out: NetRegion = { ...clone(region), ...(fx.oneway !== undefined ? { oneway: Math.max(region.oneway ?? 0, fx.oneway) } : {}) }
-  // 生成時的設定：之後再進去照它重開一趟（stealth、from_backdoor 是每一趟自己的，不留）
-  const setup: Record<string, unknown> = {
-    entry: 'dig', site, region: parsed.region, grade: parsed.grade, ...(parsed.faction ? { faction: parsed.faction } : {}), facility: facility.id, layers: names, affixes,
-    ...(parsed.color ? { lace: parsed.color } : {}), ...(parsed.where ? { where: clone(parsed.where) } : {}),
-  }
-  const info: DigInfo = { site, facility: facility.id, names, affixes, fx, setup: clone(setup), visits: 1, rolls: {} }
+  // 這一趟的設定：寫的原樣留著，加上擲出來的設施類型、層的名字與詞條。留給再進去用的（info.setup）不含這一趟自己的（悄悄潛進來、後門、追蹤度的加減、種子）
+  const setup: Record<string, unknown> = { ...clone(isRecord(rawSetup) ? rawSetup : {}), entry: 'dig', site, facility: facility.id, layers: names, affixes }
+  const stored = clone(setup)
+  for (const key of PER_RUN_KEYS) delete stored[key]
+  const info: DigInfo = { site, facility: facility.id, names, affixes, fx, setup: stored, visits: 1, rolls: {} }
   return { region: out, facility, names, affixes, fx, setup, info, dropped: old ? closeMap(state, old.id) : [] }
 }
 
@@ -232,8 +234,9 @@ export function reviveDig(k: Kernel, state: GameState, parsed: Parsed, origin: O
   const dig = net.dig
   const layers = inst.gen.map.sheets.map((s) => s.id)
   const raw = isRecord(rawSetup) ? rawSetup : {}
-  // 這一趟的設定：生成時的設定，加這一趟自己的（悄悄潛進來、觸發點的位置）
-  const setup: Record<string, unknown> = { ...clone(dig.setup), ...(raw.stealth === true ? { stealth: true } : {}), ...(isRecord(raw.where) ? { where: clone(raw.where) } : {}), ...(parsed.fromBackdoor ? { from_backdoor: parsed.fromBackdoor } : {}) }
+  // 這一趟的設定：生成時的設定，加這一趟自己的（悄悄潛進來、連動、觸發點的位置、從哪個後門進來）
+  const setup: Record<string, unknown> = { ...clone(dig.setup) }
+  for (const key of PER_RUN_KEYS) if (raw[key] !== undefined && key !== 'seed') setup[key] = clone(raw[key])
   const found = regionOf(k, setup.region)
   if ('problem' in found) throw new ActionBlocked(found.problem)
   const region = found.region
@@ -250,7 +253,7 @@ export function reviveDig(k: Kernel, state: GameState, parsed: Parsed, origin: O
   // 追蹤度：後門是 0；否則敵對值分段的起始值（加詞條）與上次離開時的一半取高的
   const fromParty = k.stats.hasStat('net_trace_start') ? partyOf(state).reduce((s, a) => s + k.stats.stat(state, a, 'net_trace_start'), 0) : 0
   const half = Math.floor(Math.max(0, net.left.trace) * rules.revisit_trace)
-  const first = hostilityStart(k, state, typeof setup.faction === 'string' ? setup.faction : undefined) + parsed.trace + (dig.fx.trace_start ?? 0) + fromParty
+  const first = hostilityStart(k, state, typeof setup.faction === 'string' ? setup.faction : undefined) + parsed.trace + (parsed.fx.trace_start ?? 0) + (dig.fx.trace_start ?? 0) + fromParty
   const traceStart = parsed.fromBackdoor ? 0 : Math.max(first, half)
 
   // 留著的那一份：回到起點的巡邏、被定位過的多一個雜兵、這一趟的追蹤度門檻重新算
