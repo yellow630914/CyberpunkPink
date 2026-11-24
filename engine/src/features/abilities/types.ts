@@ -271,6 +271,8 @@ export interface MeatDef {
   call?: { options: CallOption[]; per_fight: 'half_tier_up'; ap: number; heal?: number | string; vent?: number | string }
   instinct?: true
   pending?: true
+  /** 給玩家看的說明（pending 的欄用它寫原文；不影響效果） */
+  text?: string
   // ---- 通用格式（M1b-skill-format） ----
   needs?: NeedsDef
   when?: WhenDef

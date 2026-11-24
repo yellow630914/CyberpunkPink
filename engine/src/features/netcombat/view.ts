@@ -1,8 +1,9 @@
 // L6 功能 netcombat：給畫面的整理（netBattleView）。只讀，不改狀態：每個我方單位的檔位、上限、每一檔開不開得了與原因、破損的槽、這一回合換過檔沒有。
 // 規則都在 sync.ts 與 jam.ts；這裡把它們排成畫面要的樣子（畫面不自己判斷）。
 
-import type { BattleKernel, GameState, SyncGear } from '../../core'
+import type { BattleKernel, BattleUnit, GameState, SyncGear } from '../../core'
 import { BattleRun, SYNC_GEARS, clone, currentUnit, modeOf, syncRuleOf } from '../../core'
+import { adminLimit, adminUsed, isAdmin } from './admin'
 import { brokenOf, constructEntry, gearAt, netOf, netcombatRules } from './model'
 import { traceOf } from './out'
 import { capIndex, gearBlocks, shiftLimit, shiftsUsed } from './sync'
@@ -38,6 +39,8 @@ export interface NetUnitView {
   /** 這一回合換過檔沒有（換過了不能再換）與還能換幾次 */
   shifted: boolean
   shiftsLeft: number
+  /** 管理行動：每回合幾次、這一回合用了幾次；沒有 admin 標籤的人是 null */
+  admin: { limit: number; used: number; left: number } | null
 }
 
 export interface NetBattleView {
@@ -52,6 +55,13 @@ export interface NetBattleView {
   located: number | null
   /** 這一場是不是在委託副本裡（origin.ext.commission）：拔線要提醒「會回到進副本之前」 */
   commission: boolean
+}
+
+function adminState(run: BattleRun, u: BattleUnit): { limit: number; used: number; left: number } {
+  const limit = adminLimit(run, u)
+  // 次數每個自己的回合開始時歸零：不是現在這個人的回合，就當作還沒用過
+  const used = currentUnit(run.battle)?.id === u.id ? adminUsed(u) : 0
+  return { limit, used, left: Math.max(0, limit - used) }
 }
 
 /** 現在這場內海戰鬥的畫面資料；沒有在打、或打的不是內海回傳 null。 */
@@ -78,6 +88,7 @@ export function netBattleView(k: BattleKernel, state: GameState): NetBattleView 
       diceLoss: typeof net.dice_loss === 'number' ? net.dice_loss : 0,
       shifted: used > 0,
       shiftsLeft: Math.max(0, shiftLimit(run, u) - used),
+      admin: isAdmin(u) ? adminState(run, u) : null,
     })
   }
   const { t1, t2, t3 } = netcombatRules(k).trace

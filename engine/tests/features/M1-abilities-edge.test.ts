@@ -491,7 +491,7 @@ describe('內容的檢查', () => {
   })
 
   it('樹的戰場寫 none 的那一欄一定是 null：內海與現實同理，訊息有技能的 id 與樹的名字', () => {
-    expect(bad('sk_n1', { net: { overclock: 1 } })).toThrow('sk_n1：戰鬥直覺在內海沒有效果（domains.net 是 none），net 要是 null')
+    expect(bad('sk_n1', { net: { pending: true } })).toThrow('sk_n1：戰鬥直覺在內海沒有效果（domains.net 是 none），net 要是 null')
     expect(bad('sk_n2', { opinion: { voice: 1 } })).toThrow('sk_n2：戰鬥直覺在輿論沒有效果（domains.opinion 是 none），opinion 要是 null')
     const noMeat = [{ ...PATHS[0]!, domains: { meat: 'none', net: 'weak', opinion: 'none' } }, PATHS[1]!]
     const k = kernel({ path: noMeat, ability: [...ABILITIES.filter((a) => a.path === 'fixer'), sk('sk_gunner_instinct', '戰鬥直覺', 'gunner', 1, 'passive', 3, { layer: 'signature', meat: { instinct: true } })] })

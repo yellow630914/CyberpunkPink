@@ -41,6 +41,33 @@ export interface NetcombatRules {
   trace: TraceRules
   /** 倒下（昏過去、被釘住）之後幾分鐘內不能再潛入：角色的狀況 net_burn（CYBERSPACE 6.7 節） */
   burn_minutes: number
+  /** 管理行動七種的 RAM 與數字（CYBERSPACE 6.6 節）、每做一次加的追蹤度、檢定失敗再加的追蹤度（admin.ts） */
+  admin: AdminRules
+}
+
+/** 管理行動的名字（行動 id 是 adm_<名字>，標籤是 admin:<名字>）。 */
+export const ADMIN_NAMES = ['wall', 'breach', 'cut', 'seize', 'crack', 'wipe', 'mark'] as const
+export type AdminName = (typeof ADMIN_NAMES)[number]
+
+/**
+ * 一種管理行動的數字（規則表的預設；駭入程式的 admin 欄位用同一組鍵蓋過它）：
+ * ram 花幾點 RAM；levels 降或升幾級（拆牆、造牆）；slots 一次動幾格（拆牆、斷路）；turns 持續幾回合（斷路：到第幾輪結束；接管：聽幾回合）；
+ * amount 主要的數字（擦痕跡擦多少點、標記讓全隊命中加多少、造牆的耐久多幾 %）；targets 一次標幾個敵人。
+ */
+export interface AdminNumbers {
+  ram: number
+  levels?: number
+  slots?: number
+  turns?: number
+  amount?: number
+  targets?: number
+}
+
+export interface AdminRules extends Record<AdminName, AdminNumbers> {
+  /** 每做一次管理行動追蹤度加幾點（修正 trace_admin 再加減，最少 0） */
+  trace: number
+  /** 檢定失敗時追蹤度再加幾點 */
+  fail_trace: number
 }
 
 /** 戰鬥裡的追蹤度：第 2 輪起每輪開頭加 round，敵方在場有白蕾絲再加 white（不疊）；t1、t2、t3 是三個門檻（增援、增援、定位）；定位之後 locate_rounds 輪強制斷線。 */
@@ -62,6 +89,17 @@ export const DEFAULT_NETCOMBAT_RULES: NetcombatRules = {
   admin_full: 1,
   trace: { round: 3, white: 5, t1: 30, t2: 60, t3: 90, locate_rounds: 3 },
   burn_minutes: 60,
+  admin: {
+    wall: { ram: 2, levels: 1, amount: 0 },
+    breach: { ram: 2, levels: 1, slots: 1 },
+    cut: { ram: 2, slots: 1, turns: 1 },
+    seize: { ram: 3, turns: 1 },
+    crack: { ram: 2 },
+    wipe: { ram: 1, amount: 5 },
+    mark: { ram: 1, amount: 2, targets: 1 },
+    trace: 1,
+    fail_trace: 5,
+  },
 }
 
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v)
@@ -70,7 +108,10 @@ export const isText = (v: unknown): v is string => typeof v === 'string' && v.tr
 
 const AP_KEYS = Object.keys(DEFAULT_NETCOMBAT_RULES.ap) as Array<keyof NetActionAp>
 const TRACE_KEYS = Object.keys(DEFAULT_NETCOMBAT_RULES.trace) as Array<keyof TraceRules>
-const RULE_FIELDS = ['id', 'refill', 'ap', 'jam_wall_mult', 'sync_shifts', 'shift_split', 'admin_full', 'trace', 'burn_minutes']
+const RULE_FIELDS = ['id', 'refill', 'ap', 'jam_wall_mult', 'sync_shifts', 'shift_split', 'admin_full', 'trace', 'burn_minutes', 'admin']
+/** 管理行動每一個數字可以寫的範圍（規則表與駭入程式共用的鍵）。 */
+const ADMIN_FIELD_RANGE: Record<keyof AdminNumbers, [number, number]> = { ram: [0, 6], levels: [1, 2], slots: [1, 4], turns: [1, 9], amount: [0, 100], targets: [1, 4] }
+const ADMIN_NUM_KEYS = Object.keys(ADMIN_FIELD_RANGE) as Array<keyof AdminNumbers>
 /** 追蹤度的數字要在量表的範圍裡（−30～100；dev/adr/0018 第七節）。 */
 const TRACE_MIN = -30
 const TRACE_MAX = 100
@@ -105,17 +146,46 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
       if (isInt(t.t1) && isInt(t.t2) && isInt(t.t3) && !(t.t1 < t.t2 && t.t2 < t.t3)) p.push('trace 的三個門檻 t1、t2、t3 要由小到大')
     }
   }
+  if (e.admin !== undefined) p.push(...adminProblems(e.admin))
   return p
 }
 
+function adminProblems(v: unknown): string[] {
+  if (!isRecord(v)) return [`admin 要是 { ${ADMIN_NAMES.join('、')}、trace、fail_trace } 各自的數字`]
+  const p: string[] = []
+  for (const [key, x] of Object.entries(v)) {
+    if (key === 'trace' || key === 'fail_trace') {
+      if (!(isInt(x) && x >= 0 && x <= 50)) p.push(`admin.${key} 要是 0～50 的整數`)
+    } else if (!(ADMIN_NAMES as readonly string[]).includes(key)) p.push(`admin.${key}：沒有這個管理行動（可以寫的：${ADMIN_NAMES.join('、')}、trace、fail_trace）`)
+    else if (!isRecord(x)) p.push(`admin.${key} 要是 { ${ADMIN_NUM_KEYS.join('、')} } 各自的數字`)
+    else {
+      for (const [f, n] of Object.entries(x)) {
+        const range = (ADMIN_FIELD_RANGE as Record<string, [number, number] | undefined>)[f]
+        if (!range) p.push(`admin.${key}.${f}：沒有這個欄位（可以寫的：${ADMIN_NUM_KEYS.join('、')}）`)
+        else if (!(isInt(n) && n >= range[0] && n <= range[1])) p.push(`admin.${key}.${f} 要是 ${range[0]}～${range[1]} 的整數`)
+      }
+    }
+  }
+  return p
+}
+
+const cloneAdmin = (a: AdminRules): AdminRules => ({ ...a, ...Object.fromEntries(ADMIN_NAMES.map((n) => [n, { ...a[n] }])) } as AdminRules)
+
 /** 現在生效的規則：資料（netcombat_rule/default）有寫、而且格式沒壞的欄位蓋掉內建的預設。 */
 export function netcombatRules(k: Pick<Kernel, 'content'>): NetcombatRules {
-  const out: NetcombatRules = { ...DEFAULT_NETCOMBAT_RULES, ap: { ...DEFAULT_NETCOMBAT_RULES.ap }, trace: { ...DEFAULT_NETCOMBAT_RULES.trace } }
+  const out: NetcombatRules = { ...DEFAULT_NETCOMBAT_RULES, ap: { ...DEFAULT_NETCOMBAT_RULES.ap }, trace: { ...DEFAULT_NETCOMBAT_RULES.trace }, admin: cloneAdmin(DEFAULT_NETCOMBAT_RULES.admin) }
   if (!k.content.hasKind(RULE_KIND)) return out
   const e = k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default')
   if (!e) return out
   const bad = new Set(ruleProblems(e).map((m) => m.split(/[ .：]/)[0]))
   for (const f of ['refill', 'sync_shifts', 'admin_full', 'jam_wall_mult', 'shift_split', 'burn_minutes'] as const) if (e[f] !== undefined && !bad.has(f)) out[f] = e[f] as number
+  if (isRecord(e.admin) && !bad.has('admin')) {
+    for (const key of ['trace', 'fail_trace'] as const) if (isInt(e.admin[key])) out.admin[key] = e.admin[key] as number
+    for (const name of ADMIN_NAMES) {
+      const x = e.admin[name]
+      if (isRecord(x)) out.admin[name] = { ...out.admin[name], ...x } as AdminNumbers
+    }
+  }
   if (isRecord(e.trace) && !bad.has('trace')) for (const key of TRACE_KEYS) if (isInt(e.trace[key])) out.trace[key] = e.trace[key] as number
   if (isRecord(e.ap)) {
     for (const key of AP_KEYS) {
@@ -148,6 +218,8 @@ export interface ConstructInfo extends ContentEntry {
   mods?: Partial<Record<string, number>>
   advanced?: ModTier | null
   ultimate?: ModTier | null
+  /** 駭入程式（ITEMS 11.5 節）：{ <管理行動的名字>: { ram?, bonus?, levels?, slots?, turns?, amount?, targets?, fail_trace? } }，admin.ts 讀 */
+  admin?: unknown
 }
 
 export const constructEntry = (k: Pick<Kernel, 'content'>, id: string): ConstructInfo | undefined => (k.content.hasKind(CONSTRUCT_KIND) ? k.content.get<ConstructInfo>(CONSTRUCT_KIND, id) : undefined)

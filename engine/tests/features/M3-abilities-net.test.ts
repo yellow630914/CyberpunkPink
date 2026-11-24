@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import type { BattleOptions, BattleUnit, ContentPack, Feature, Kernel } from '../../src'
 import { BattleRun, createKernel, readyFeatures } from '../../src'
 import { abilitiesFeature, abilitiesOf, prep, traceStartOf } from '../../src/features/abilities'
-import { TEST_COMBAT, TEST_NET_COMBAT, fixDice, laceUnit, makeBattleGame, netAvatar, partyUnit } from '../../src/testkit'
+import { TEST_COMBAT, TEST_NET_COMBAT, fixDice, laceUnit, makeBattleGame, netAvatar, partyUnit, playOut } from '../../src/testkit'
 import { duel, netDuel } from '../helpers/battle'
 
 type Rec = Record<string, unknown>
@@ -620,5 +620,24 @@ describe('敵人的招牌行動照同一條路選欄', () => {
     const rm = run(m)
     expect(m.k.battle.getAction('en_meat')!.has!(rm, rm.unit('f1'))).toBe(true)
     expect(m.k.battle.getAction('en_net')!.has!(rm, rm.unit('f1'))).toBe(false)
+  })
+})
+
+describe('AI 代打：內海欄的招牌行動進得了 AI 的選擇', () => {
+  it('敵人的 net 欄招牌行動（寫了 ai）AI 會用；只有 meat 欄的不會；整場打得完', () => {
+    const skills = [
+      ab('en_net_ai', 'active', { enemy: true, path: undefined, tier: undefined, layer: undefined, cap: undefined, xp: undefined, after: undefined, category: undefined, use: { net: { ap: 1 } }, ai: { score: 9 }, net: { target: 'none', do: [buff('b_en_net_ai')] } }),
+      ab('en_meat_ai', 'active', { enemy: true, path: undefined, tier: undefined, layer: undefined, cap: undefined, xp: undefined, after: undefined, category: undefined, use: { ap: 1 }, ai: { score: 9 }, meat: { target: 'none', do: [buff('b_en_meat_ai')] } }),
+    ]
+    const g = makeBattleGame({
+      features: FEATURES, content: [pack(skills)], seed: 3,
+      battle: netDuel([meNet([]), netAvatar(1, 1)], [laceUnit('minion', 1, { ext: { abilities: { equipped: ['en_net_ai', 'en_meat_ai'], tiers: {} }, net: NET() } } as never)]),
+    } as never).game
+    const out = playOut(g)
+    expect(['win', 'lose']).toContain(out.outcome)
+    const used = (g.state.battle!.units.f1!.ext.abilities as Rec).buffs as Array<{ id: string }> | undefined
+    const ids = (used ?? []).map((b) => b.id)
+    expect(ids).toContain('b_en_net_ai')
+    expect(ids).not.toContain('b_en_meat_ai')
   })
 })

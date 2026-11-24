@@ -28,6 +28,8 @@ export const MEAT_KEYS = [
   'mask', 'tease', 'out', 'out_mods',
   // 內海（M3-abilities-net）：兩欄都可以寫
   'slots', 'admin', 'sync_cap', 'unique',
+  // 給玩家看的說明（還沒有做成機制的 pending 欄用它寫原文；介面的技能卡讀它）
+  'text',
 ] as const
 export const CALL_OPTIONS = ['shot', 'cover_up', 'cover_down', 'heal', 'vent'] as const
 /** 叫人的選項裡要自己寫數字的（call.heal、call.vent） */
@@ -455,6 +457,7 @@ function columnProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kern
   }
   if (m.instinct !== undefined && m.instinct !== true) p.push('meat.instinct 只能是 true')
   if (m.pending !== undefined && m.pending !== true) p.push('meat.pending 只能是 true')
+  if (m.text !== undefined && typeof m.text !== 'string') p.push('meat.text 要是字串（給玩家看的說明）')
 
   // ---- 名媛 ----
   if (m.mask !== undefined) {

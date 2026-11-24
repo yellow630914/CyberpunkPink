@@ -282,3 +282,13 @@
 - 投降不扣線（只有 lose 才扣）——照預設，待審查時一起確認。
 - 給 M3-netadmin：管理行動加追蹤度用 `addTrace(run, amount)`。
 - 給 M3-netrun：`net.trace` 沒有 ±20 上限，AI 限制歸 trace 量表。
+
+## M3-abilities-net 回報（2026-11-24）
+
+- 技能照戰場 layer 選欄（meat／net）；淺檔時專屬欄不生效、超頻灰掉；管理行動次數 `adminCap`／`adminLeft`；衍生數值 `net_trace_start`、`flow_tier`、`sync_cap_bonus`。
+- 內海欄擋掉的鍵清單（叫人、指揮、誘惑、面具、保釋、戰鬥直覺等）見 abilities/format.ts。
+- 給 M3-netadmin：`net.admin_spend` 收 `who`、`amount`，不夠丟 BattleBlocked，成功加 `uses['turn:admin']`；七個管理行動在淺檔要不要擋需決定（ITEMS 11.7：專屬構裝淺檔不能用）。
+- 給 skill-net-a：超頻「每多 1 RAM 多 1 顆骰」要查 `attack` 效果收不收骰數公式。
+- 待決定：共鳴（path.resonance）不分欄，現實共鳴在內海仍生效。
+- 開戰時套用的池與標籤看那一刻的 `sync:` 標籤，若 netcombat 還沒寫上，淺檔的專屬欄池會照樣加上（審查時查）。
+- ADR 0018 待補「實作補記：M3-abilities-net」。ui 的 vue-tsc 確認過沒壞。
