@@ -23,7 +23,7 @@ describe('M1-data-rules：戰鬥的規則數值', () => {
 
   it('戰場 meat（現實）：數字逐項照 COMBAT_SYSTEM；資料寫的和核心的預設一樣（預設就是照設計書寫的）', () => {
     const k = kernel()
-    expect(k.content.list('battle_mode').map((e) => e.id)).toEqual(['meat'])
+    expect(k.content.list('battle_mode').map((e) => e.id)).toEqual(['meat', 'net']) // 內海 net 在 M3-data-rules 加（M3-data-rules.test.ts 驗它）
     const m = modeOf(k.content, 'meat')!
     expect(m).toEqual(DEFAULT_MODES.meat)
     // 資料裡要逐項寫出來（不是靠預設值補）：這份資料是 COMBAT_SYSTEM 的數字在引擎裡的那一份

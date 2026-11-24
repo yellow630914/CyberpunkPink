@@ -2,21 +2,22 @@
 import { computed } from 'vue'
 import MoneyTag from './MoneyTag.vue'
 import type { EndRecord } from '../stores/engine'
-import { endTitle, mazeResultOf } from '../lib/diveView'
+import { endParts, endTitle, mazeResultOf } from '../lib/diveView'
 
 /**
  * 自己潛進去的一趟離開時的結算（M3-ui-dive）：引擎報告的句子（敵對值、後門、丟掉的東西都是它寫的）、帶走的東西；
  * 迷宮館再加評價、獎金、獎品、籌碼與押金退了沒有（maze.result 的資料）。只顯示，不算。
  */
 const props = defineProps<{ end: EndRecord }>()
+const parts = computed(() => endParts(props.end))
 const maze = computed(() => (props.end.maze ? mazeResultOf(props.end.maze.data) : null))
 </script>
 
 <template>
   <section class="end" data-end>
     <h3 data-end-title>{{ endTitle(end) }}<small>{{ end.region }}</small></h3>
-    <p class="sum" data-end-summary>{{ end.summary }}</p>
-    <p v-for="(l, i) in end.lines" :key="i" class="ln" data-end-line>{{ l }}</p>
+    <p v-if="parts.head" class="sum" data-end-summary>{{ parts.head }}</p>
+    <p v-for="(l, i) in parts.lines" :key="i" class="ln" data-end-line>{{ l }}</p>
     <div v-if="!maze" class="loot" data-end-loot>
       <template v-if="end.loot.length"><span class="tag">帶走</span><span v-for="(l, i) in end.loot" :key="i" class="tag ok">{{ l.name }}<template v-if="l.qty > 1"> ×{{ l.qty }}</template></span></template>
       <span v-else class="note">這一趟沒有帶走東西。</span>
@@ -28,7 +29,6 @@ const maze = computed(() => (props.end.maze ? mazeResultOf(props.end.maze.data) 
       <div class="kv"><span>獎金</span><b data-m-prize><MoneyTag kind="cash" :amount="maze.prize" /></b></div>
       <div class="kv"><span>籌碼</span><b data-m-chips>{{ maze.chips }} 枚（換 <MoneyTag kind="cash" :amount="maze.chipCash" />）</b></div>
       <div class="kv"><span>押金</span><b data-m-deposit>{{ maze.done ? '退回 ' : '沒收 ' }}<MoneyTag kind="cash" :amount="maze.done ? maze.refund : maze.forfeited" /></b></div>
-      <p v-for="(l, i) in maze.lines" :key="i" class="ln" data-m-line>{{ l }}</p>
     </div>
     <slot />
   </section>

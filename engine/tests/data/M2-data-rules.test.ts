@@ -105,14 +105,16 @@ describe('M2-data-rules：資料和功能的預設一致（逐格）', () => {
   ]
   for (const [kind, def, resolved] of cases) {
     it(`${kind}：資料的每一格等於預設，功能讀出來的也一樣`, () => {
-      expect(raw(g, kind)).toEqual(JSON.parse(JSON.stringify(def)))
+      // M3 加的內海欄位（fixer_rule 的 trace_start、net_layers、net_branch_skills）由 M3-data-rules.test.ts 對 DEFAULT_FIXER_NET_RULES 驗
+      const { trace_start: _t, net_layers: _l, net_branch_skills: _b, ...own } = raw(g, kind)
+      expect(kind === 'fixer_rule' ? own : raw(g, kind)).toEqual(JSON.parse(JSON.stringify(def)))
       expect(JSON.parse(JSON.stringify(resolved))).toEqual(JSON.parse(JSON.stringify(def)))
     })
   }
 
   it('commission_rule：副本的欄位和生成的三個欄位在同一筆，各自等於兩邊的預設', () => {
     const r = raw(g, 'commission_rule')
-    const { reward_range, scales_by_tier, encounters, ...own } = r
+    const { reward_range, scales_by_tier, encounters, net_alert: _a, net_alert_at: _b, net_hostility_step: _c, net_hostility_max: _d, net_located_hostility: _e, net_watchers: _f, net_watcher_hostility: _g, rating_trace_peak: _h, ...own } = r // 內海的八個欄位由 M3-data-rules.test.ts 驗
     expect(own).toEqual(JSON.parse(JSON.stringify(DEFAULT_COMMISSION_RULES)))
     expect({ reward_range, scales_by_tier, encounters }).toEqual(JSON.parse(JSON.stringify(DEFAULT_GEN_RULES)))
     expect(JSON.parse(JSON.stringify(commissionRules(g.k)))).toEqual(JSON.parse(JSON.stringify(DEFAULT_COMMISSION_RULES)))

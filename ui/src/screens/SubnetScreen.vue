@@ -122,7 +122,7 @@ const hereName = computed(() => view.value?.here.marker?.name ?? null)
 
 <template>
   <div class="screen">
-    <StatusBar back :title="view ? `${maze ? '迷宮館' : '子網'}：${view.region.name}` : ended ? '離開結算' : '子網'" />
+    <StatusBar back :title="view ? `${maze ? `迷宮館・${maze.name}` : `子網：${view.region.name}`}` : ended ? '離開結算' : '子網'" />
     <div v-if="!view && ended" class="empty panel cut pad" data-settle>
       <EndCard :end="ended">
         <div class="go left"><button type="button" class="btn pri" data-leave @click="leaveEnd">{{ diving ? '回到去處' : '回主畫面' }}</button></div>

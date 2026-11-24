@@ -93,7 +93,7 @@ describe('M3-data-rules：戰場與狀態（和核心的預設逐欄相同）', 
   })
 
   it('event_scope：net 加登入與登出各 0.1（EVENTS 3.3），原本的 enter_floor 0.2、open 0.1 不動', () => {
-    const net = (eventScopes as Array<{ id: string; triggers: Record<string, number> }>).find((s) => s.id === 'net')!
+    const net = (eventScopes as unknown as Array<{ id: string; triggers: Record<string, number> }>).find((s) => s.id === 'net')!
     expect(net.triggers).toEqual({ enter_floor: 0.2, open: 0.1, login: 0.1, logout: 0.1 })
     expect(g.k.content.get('event_scope', 'net')).toMatchObject({ cooldown_hours: 1, repeat_days: 3 })
   })
@@ -129,10 +129,10 @@ describe('M3-data-rules：資料和功能的預設一致（逐格）', () => {
   })
 
   it('net_region：subnet 與 maze 等於功能的預設，讀出來的也一樣', () => {
-    expect(raw(g, 'net_region', 'subnet')).toEqual({ ...plain(DEFAULT_REGIONS.subnet), id: undefined, name: '一般子網' })
+    expect(raw(g, 'net_region', 'subnet')).toEqual((() => { const { id: _id, ...rest } = DEFAULT_REGIONS.subnet!; return plain(rest) })())
     expect(raw(g, 'net_region', 'maze')).toEqual((() => { const { id: _id, ...rest } = DEFAULT_REGION; return plain(rest) })())
     expect(plain((regionOf(g.k, 'subnet') as { region: unknown }).region)).toEqual(plain(DEFAULT_REGIONS.subnet))
-    const maze = (regionOf(g.k, 'maze') as { region: Rec }).region
+    const maze = (regionOf(g.k, 'maze') as unknown as { region: Rec }).region
     expect(maze).toMatchObject({ map_kind: 'maze', size: [9, 7], carve: [18, 24], pressure: 'none', safe: true })
     expect(plain(mazeRegion(mazeRules(g.k)))).toMatchObject({ size: [9, 7], carve: [18, 24] })
   })

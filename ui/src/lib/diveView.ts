@@ -77,3 +77,13 @@ export function diveBanner(v: DiveView): string {
   if (!v.dive) return ''
   return `潛入中：${v.dive.name}（${DECK_NAME[v.dive.deck]}）${v.dive.over ? `，${OVER_NAME[v.dive.over]}` : ''}`
 }
+
+/**
+ * 離開那份報告的句子拆成「開頭那一句」與「引擎寫的每一行」（敵對值、後門、丟掉的東西、迷宮館的結算句）：報告的 summary 就是開頭加上所有行接起來，
+ * 這裡只是把它們分開排版，沒有改字。
+ */
+export function endParts(e: Pick<EndRecord, 'summary' | 'lines'>): { head: string; lines: string[] } {
+  const joined = e.lines.join('')
+  const head = joined && e.summary.endsWith(joined) ? e.summary.slice(0, e.summary.length - joined.length) : e.summary
+  return { head, lines: e.lines }
+}

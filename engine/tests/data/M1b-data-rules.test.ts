@@ -24,7 +24,7 @@ describe('M1b-data-rules：義體失效、超頻與其他戰鬥狀態', () => {
     expect(k.content.checkRefs()).toEqual([])
     const ids = k.content.list('battle_status').map((e) => e.id)
     expect(ids).toEqual(expect.arrayContaining([...OLD_IDS, ...NEW_IDS]))
-    expect(ids).toHaveLength(OLD_IDS.length + NEW_IDS.length)
+    expect(ids).toHaveLength(OLD_IDS.length + NEW_IDS.length + 7) // 另外 7 個是 M3-data-rules 加的（flash、jam_*、focused、pacified、drowsy）
     expect(SOURCES.battle_status).toContain('M1b-data-rules')
   })
 

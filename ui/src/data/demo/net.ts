@@ -132,16 +132,11 @@ const item: Rec[] = [
   },
 ]
 
-// 干擾武器要規則表裡有三個停用的狀態（正式的由 M3-data-rules 寫；規則表是可以被取代的內容，之後載入的同 id 會蓋掉這一份）
-const battle_status: Rec[] = (['weapon', 'defense', 'tool'] as const).map((s) => ({
-  id: `jam_${s}`, name: `${{ weapon: '武器', defense: '防護', tool: '工具' }[s]}構裝停用`, desc: `一類構裝（${s}）被干擾，停用一回合。`, until: 'own_turn_end', turns: 1, kind: 'debuff',
-}))
-
 export function netContent(): Record<string, ContentEntry[]> {
   const at = divepodAt()
   const shop: Rec[] = [{ id: DIVE_SHOP, type: 'demo_divepod', name: '潛艙店「浮標」', district: at.district, block: at.block, facility: at.marker }]
   return {
-    deck: [...deck, ...(maze_extra.deck as Rec[])], construct: [...construct, ...(maze_extra.construct as Rec[])], skin, item: [...item, ...(maze_extra.item as Rec[])], battle_status,
+    deck: [...deck, ...(maze_extra.deck as Rec[])], construct: [...construct, ...(maze_extra.construct as Rec[])], skin, item: [...item, ...(maze_extra.item as Rec[])],
     enemy: [...enemy, ...(maze_extra.enemy as Rec[])], net_region, facility_type, shop_type, shop, net_site, net_facility, net_affix,
     faction: maze_extra.faction, maze_table: maze_extra.maze_table, maze_rule: maze_extra.maze_rule,
   } as unknown as Record<string, ContentEntry[]>

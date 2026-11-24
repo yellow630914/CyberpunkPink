@@ -18,7 +18,7 @@ import SubnetScreen from '../../src/screens/SubnetScreen.vue'
 import diveSrc from '../../src/dialogs/DiveDialog.vue?raw'
 import endSrc from '../../src/components/EndCard.vue?raw'
 import viewSrc from '../../src/lib/diveView.ts?raw'
-import { bracketKey, bracketRule, costParts, deckLine, keptLine, mazeResultOf, sortSites } from '../../src/lib/diveView'
+import { bracketKey, bracketRule, costParts, deckLine, endParts, keptLine, mazeResultOf, sortSites } from '../../src/lib/diveView'
 import { lifeDialogOf } from '../../src/lib/lifeView'
 import { DIG_SITE, DIVE_SHOP } from '../../src/data/demo/net'
 
@@ -412,6 +412,8 @@ describe('整理的函式與只轉接的規定', () => {
     expect(keptLine({ daysAgo: 3, located: true })).toContain('3 天前')
     expect(deckLine({ deck: 'own', here: null })).toBe('自己的甲板')
     expect(deckLine({ deck: 'none', here: null })).toContain('訪客')
+    expect(endParts({ summary: '你登出了。敵對值 +2。', lines: ['敵對值 +2。'] })).toEqual({ head: '你登出了。', lines: ['敵對值 +2。'] })
+    expect(endParts({ summary: '你登出了。', lines: [] })).toEqual({ head: '你登出了。', lines: [] })
     expect(mazeResultOf({ outcome: 'forfeit', rounds: 3 })).toMatchObject({ done: false, rating: null, rounds: 3, prize: 0 })
   })
 
