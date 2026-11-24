@@ -425,3 +425,11 @@
 - 待確認：每探索回合 5 分鐘目前也套到迷宮館（maze 不想吃要在 rounds.ts 的 roundTime 加條件）；「再進去」的細節照代理暫定；`trap_marked` 讓所有陷阱一開始就看得到。
 - 詞條與企業脾氣有不少要加鍵（換班、內鬼、維修通道、星旗定位倒數、控制節點多一個等），交修正批或內容匯入。
 - ADR 0018 待補「實作補記：M3-netrun-dig」。
+
+## M3-maze 回報（2026-11-24）
+
+- 合法迷宮館：三組報名（新手組租比賽甲板）、9×7 三層、機關、寶箱與寶箱怪、警報叫兵、層間休息、回合計數（核心計數器）、評價與獎金結算；打輸只斷線（field.safe 或贏的人全帶 wild 標籤就不扣線）。
+- 動到 netrun 的 4 處選填加法：NetRegion.puzzle、handled；layerSpec 放機關；usesOfMarker 略過 handled 標記。
+- 接縫建議（審查／修正批）：netrun 加「踩陷阱」與 `netrun.descend` 掛點（現在靠 action 字串）；ext.net.traps 形狀寫進 0018 第十三節；FEATURES 順序 maze 必須在 dive 後（dive 的 afterReport 不冪等）；deck 提供「租用時預裝槽」讓新手組發比賽版構裝。
+- 沒做：延長賽、直播、主題 d8、詞條、籌碼物品與兌換（暫用現金計數）；engine/data 沒有 maze_rule/maze_table（寶箱表空的）。
+- ADR 0018 待補「實作補記：M3-maze」。

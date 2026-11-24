@@ -32,7 +32,11 @@ import { netBattleView } from '@engine/src/features/netcombat'
 import { deckOf, deckView, equipDraft as deckEquipDraft, installDraft as deckInstallDraft, removeDraft as deckRemoveDraft, scriptsBlock as deckScriptsBlock, scriptsDraft as deckScriptsDraft, skinDraft as deckSkinDraft, deckExtOf } from '@engine/src/features/deck'
 import type { ConstructEntry, DeckView, ScriptEntry } from '@engine/src/features/deck'
 import type { NetBattleView } from '@engine/src/features/netcombat'
-import { descend as netDescend, logout as netLogout, netrunView, useNode as netUseNode } from '@engine/src/features/netrun'
+import { descend as netDescend, keptOf, logout as netLogout, netExt, netrunView, useNode as netUseNode } from '@engine/src/features/netrun'
+import { diveOptions, diveView, enter as diveEnter, exit as diveExit, go as diveGo } from '@engine/src/features/dive'
+import type { DiveOptions, DiveView } from '@engine/src/features/dive'
+import { brackets as mazeBrackets, enter as mazeEnter, mazeView, useMaze } from '@engine/src/features/maze'
+import type { BracketRow, MazeView } from '@engine/src/features/maze'
 import type { NetrunView } from '@engine/src/features/netrun'
 import { arrive as worldArrive, cityGraph, worldView } from '@engine/src/features/world'
 import type { CityGraph, WorldView } from '@engine/src/features/world'
@@ -64,6 +68,20 @@ import { aiSettingsFromUi, logEntryOf, type EngineLogEntry, type UiAiFields } fr
  * 引擎的 state 是普通物件、會被整份換掉內容，所以每次變化後把一份複製放進 shallowRef。
  */
 export interface ActOutcome { status: ActStatus | 'busy'; reason?: string }
+/** 自己潛進去的一趟離開時的帳（見 store 的 lastEnd）：報告的句子、拿到的東西、迷宮館的結算 */
+export interface EndRecord {
+  seq: number
+  action: string
+  outcome: string
+  summary: string
+  lines: string[]
+  loot: Array<{ name: string; qty: number }>
+  region: string
+  layers: number
+  rounds: number
+  dig: boolean
+  maze: { summary: string; data: Record<string, unknown> } | null
+}
 
 /** 住處的抬頭（引擎的住處與押金、欠繳）：哪一間、週租、押金、欠了幾週、鎖了沒有 */
 export interface HomeView { id: string; name: string; rent: number; level: Level; deposit: number; pool: 'cred' | 'cash'; arrears: number; locked: boolean; lockWeeks: number }
@@ -114,10 +132,34 @@ export const useEngine = defineStore('engine', () => {
     if (!nv || nv.kind !== 'face.net') return
     netStageMemo.value = { run: nv.id, commission: cv.id, stage: cv.stage, loot: nv.loot.map((l) => ({ name: l.name, qty: l.qty })), controls: nv.controls.length, layers: nv.layer.total, rounds: nv.round }
   }
+  /**
+   * 自己潛進去的那一趟（netrun）離開時的帳（M3-ui-dive）：拿到的東西只在 activity.end 的 result 裡，所以畫面開著的時候每次提交都抄一份引擎的 netrunView（loot、設施、層數），
+   * 離開那一份報告（netrun.logout／end／located）進來時，連同報告的句子（敵對值、後門、丟掉的東西是引擎寫的）與迷宮館的結算（maze.result 的資料）收成一份給畫面。不算任何東西。
+   */
+  const runMemo = shallowRef<{ id: string; kind: string; region: string; loot: Array<{ name: string; qty: number }>; layers: number; rounds: number; site: string | null } | null>(null)
+  const lastEnd = shallowRef<EndRecord | null>(null)
+  function rememberRun(): void {
+    const nv = netrunView(game.k, game.state)
+    if (nv && nv.kind === 'netrun') runMemo.value = { id: nv.id, kind: nv.kind, region: nv.region.name, loot: nv.loot.map((l) => ({ name: l.name, qty: l.qty })), layers: nv.layer.total, rounds: nv.round, site: nv.dig?.site ?? null }
+  }
+  function recordEnd(reports: Report[]): void {
+    const end = reports.find((r) => r.action === 'netrun.logout' || r.action === 'netrun.end' || r.action === 'netrun.located')
+    const memo = runMemo.value
+    if (!end || !memo) return
+    const maze = reports.find((r) => r.action === 'maze.result')
+    lastEnd.value = {
+      seq: feed.value.seq, action: end.action ?? '', outcome: end.outcome.result, summary: end.outcome.summary, lines: [...(end.narration?.results ?? [])],
+      loot: memo.loot, region: memo.region, layers: memo.layers, rounds: memo.rounds, dig: memo.site !== null,
+      maze: maze ? { summary: maze.outcome.summary, data: (maze.timeline[0]?.data ?? {}) as Record<string, unknown> } : null,
+    }
+    runMemo.value = null
+  }
   const onCommit = (_state: GameState, reports: Report[]): void => {
     if (reports.length > 0) feed.value = { seq: feed.value.seq + 1, reports: structuredClone(reports) }
     refresh()
     rememberNetStage()
+    recordEnd(reports)
+    rememberRun()
   }
   game.subscribe(onCommit)
 
@@ -735,6 +777,37 @@ export const useEngine = defineStore('engine', () => {
     },
   }
 
+  // ---- 潛入與登出（M3-ui-dive）：全部轉接 features/dive 與 features/maze；費用、能不能去、評價、押金都是引擎的 ----
+  const dive = {
+    options: (): DiveOptions => { void state.value; return diveOptions(game.k, game.state) },
+    view: (): DiveView => { void state.value; return diveView(game.k, game.state) },
+    /** 潛入（付費、租甲板、記下身體在哪）；被擋下回傳引擎的原因 */
+    enter: (): Promise<ActOutcome> => commitDrafts(() => diveEnter(game.k, game.state), '潛入'),
+    /** 選一個去處（自己去挖的子網、街區……） */
+    go: (siteId: string): Promise<ActOutcome> => commitDrafts(() => diveGo(game.k, game.state, siteId), '前往'),
+    /** 登出：回到身體的位置、收回租的甲板、退押金 */
+    exit: (): Promise<ActOutcome> => commitDrafts(() => diveExit(game.k, game.state), '登出'),
+    /** 留著的那座子網（自己去挖的，七天內再進去是同一張圖）上次離開的時間（總分鐘）與現在的差幾天；沒有留著的是 null */
+    kept(site: string): { daysAgo: number; trace: number; located: boolean } | null {
+      void state.value
+      const inst = keptOf(game.state, site)
+      const left = inst ? netExt(game.state, inst.id)?.left : undefined
+      if (!left) return null
+      return { daysAgo: Math.floor((toMinutes(game.state.time) - left.at) / 1440), trace: left.trace, located: left.located === true }
+    },
+    /** 上一趟離開的帳；看過就清掉 */
+    lastEnd: (): EndRecord | null => lastEnd.value,
+    clearEnd: (): void => { lastEnd.value = null },
+  }
+  // 迷宮館（報名、機關與寶箱、這一趟的回合數與預估的評價）
+  const maze = {
+    brackets: (): BracketRow[] => { void state.value; return mazeBrackets(game.k, game.state) },
+    view: (): MazeView | null => { void state.value; return mazeView(game.k, game.state) },
+    enter: (bracket: string, grade?: number): Promise<ActOutcome> => commitDrafts(() => mazeEnter(game.k, game.state, bracket, grade !== undefined ? { grade } : {}), '報名'),
+    /** 開寶箱或解機關：id 是引擎列的（open、solve:<辦法>），at 是機關或寶箱的標記 */
+    use: (id: string, at?: string): Promise<ActOutcome> => commitDrafts(() => useMaze(game.k, game.state, id, at), '迷宮館'),
+  }
+
   const transit = {
     view: (): TransitView => { void state.value; return transitView(game.k, game.state) },
     /** 上車的原因（可以上車回傳 null） */
@@ -1117,5 +1190,5 @@ export const useEngine = defineStore('engine', () => {
     scripts: (list: ScriptEntry[]): string | null => commitGear((pc) => deckScriptsDraft(game.k, game.state, pc, list)),
   }
 
-  return { state, feed, partyRows, hostilityTop, hostilityRows, world, net, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  return { state, feed, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })
