@@ -375,6 +375,8 @@ export interface MeatDef {
   on_link_overload?: Array<Record<string, unknown>>
   /** 曲目：開著時，替隊友分擔感載改成全額承受（絕唱） */
   link_full?: true
+  /** 曲目：開著時，同步中的隊友套用偶像現在的同步檔位（全員同步） */
+  link_gear?: true
 }
 
 /** 內海欄的戰鬥直覺（見 MeatDef.instinct）。 */

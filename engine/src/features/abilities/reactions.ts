@@ -120,6 +120,8 @@ function applyReact(run: BattleRun, holder: BattleUnit, ab: AbilityEntry, on: st
     if (r.pierce !== undefined && e.opts) e.opts.pierce = (e.opts.pierce ?? 0) + num(run, holder, ab, r.pierce)
   } else if (on === 'overload') {
     if (r.keep_turn) run.removeStatus(e.subject, LOSE_TURN, true)
+    // 偶像：這一次過載同步不斷開（大家不要走；features/abilities/link.ts 的 overload 掛點讀這個記號）
+    if (r.keep_link) e.subject.uses.link_keep = 1
     // 內海的閃斷：RAM 補回去（一半、原本的、滿的）、拿掉閃斷的狀態（死線、逆流、急凍）
     if (r.flash && e.flash) {
       const pool = e.subject.pools[e.flash.pool]

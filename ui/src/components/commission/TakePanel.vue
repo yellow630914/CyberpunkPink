@@ -78,6 +78,11 @@ const acceptReason = computed(() => row.value?.block ?? payNow.value?.block ?? n
           <div class="kv"><span>條件</span><b class="warn-t">{{ row.brief.conditions.length ? row.brief.conditions.join('、') : '沒有附帶條件' }}</b></div>
         </div>
         <blockquote class="says">「{{ row.brief.brief }}」<small v-if="row.brief.main_text"> {{ row.brief.main_text }}</small></blockquote>
+        <div v-if="row.net" class="netnote" data-net-note>
+          <b>這是一件要潛進去的委託</b>
+          <span>{{ row.net.text }}</span>
+          <span v-if="row.net.deck_warn" class="warn-t" data-deck-warn>{{ row.net.deck_warn }}</span>
+        </div>
         <p class="h">後面的階段（要踩點才知道）</p>
         <div class="track">
           <span v-for="s in row.brief.rows" :key="s.n" class="node" :class="{ key: s.last }" :data-stage-row="s.n">
@@ -133,5 +138,6 @@ const acceptReason = computed(() => row.value?.block ?? payNow.value?.block ?? n
 .track { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .node { padding: var(--space-2) var(--space-3); background: var(--bg-2); font-size: var(--fs-xs); font-weight: 800; color: var(--ink-2); }
 .node.key { box-shadow: inset 0 0 0 2px var(--ap); color: var(--ap); }
+.netnote { display: grid; gap: 2px; padding: var(--space-3); background: var(--bg-term); box-shadow: inset 3px 0 0 var(--net); font-size: var(--fs-xs); color: var(--ink-2); }
 .roll { padding: var(--space-3); background: var(--bg-term); box-shadow: inset 3px 0 0 var(--a); font-size: var(--fs-xs); color: var(--ink-2); }
 </style>

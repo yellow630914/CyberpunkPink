@@ -31,7 +31,7 @@ export const MEAT_KEYS = [
   // 內海（M3-skill-net-a）：被動的技能在這一欄多一個主動的行動（action）、技能做的快駭的追蹤度（trace）
   'action', 'trace',
   // 內海（M3-skill-net-b）：只有內海欄能寫
-  'lure', 'masked', 'command', 'remote_call', 'flow', 'flow_bonus', 'link', 'song', 'on_link_overload', 'link_full',
+  'lure', 'masked', 'command', 'remote_call', 'flow', 'flow_bonus', 'link', 'song', 'on_link_overload', 'link_full', 'link_gear',
   // 給玩家看的說明（還沒有做成機制的 pending 欄用它寫原文；介面的技能卡讀它）
   'text',
 ] as const
@@ -417,7 +417,7 @@ function teaseProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kerne
 }
 
 /** 內海才有的鍵（M3-skill-net-b）：現實欄寫了整筆擋下；內海欄的格式在 netOnlyProblems。 */
-export const NET_ONLY_KEYS = ['lure', 'masked', 'command', 'remote_call', 'flow', 'flow_bonus', 'link', 'song', 'on_link_overload', 'link_full'] as const
+export const NET_ONLY_KEYS = ['lure', 'masked', 'command', 'remote_call', 'flow', 'flow_bonus', 'link', 'song', 'on_link_overload', 'link_full', 'link_gear'] as const
 
 function netOnlyProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kernel, 'battle'>): string[] {
   const p: string[] = []
@@ -461,9 +461,10 @@ function netOnlyProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Ker
     if (m.song !== true) p.push('meat.song 只能是 true')
     else if (kind !== 'stance') p.push('meat.song 只有姿態（kind 是 stance）用：曲目')
   }
-  if (m.link_full !== undefined) {
-    if (m.link_full !== true) p.push('meat.link_full 只能是 true')
-    else if (kind !== 'stance') p.push('meat.link_full 只有姿態（kind 是 stance）用：曲目')
+  for (const key of ['link_full', 'link_gear'] as const) {
+    if (m[key] === undefined) continue
+    if (m[key] !== true) p.push(`meat.${key} 只能是 true`)
+    else if (kind !== 'stance') p.push(`meat.${key} 只有姿態（kind 是 stance）用：曲目`)
   }
   if (m.on_link_overload !== undefined) {
     p.push(...effectsProblems(k, 'meat.on_link_overload', m.on_link_overload))

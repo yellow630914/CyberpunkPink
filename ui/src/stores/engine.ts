@@ -102,9 +102,22 @@ export const useEngine = defineStore('engine', () => {
    * 讀檔、開新局不算新報告（讀進來的舊紀錄不會再觸發一次）。
    */
   const feed = shallowRef<{ seq: number; reports: Report[] }>({ seq: 0, reports: [] })
+  /**
+   * 委託的內海階段離開時的那份帳（M3-ui-commission-net）：引擎把這一趟拿到的東西放在 activity.end 的結果裡，不留在副本的狀態上，
+   * 畫面在這一段還開著的時候每次提交都抄一份引擎的 netrunView（loot、controls、層數），這一段結束後副本頁拿它寫「拿到的東西」。不算任何東西。
+   */
+  const netStageMemo = shallowRef<{ run: string; commission: string; stage: number; loot: Array<{ name: string; qty: number }>; controls: number; layers: number; rounds: number } | null>(null)
+  function rememberNetStage(): void {
+    const nv = netrunView(game.k, game.state)
+    const cv = commissionView(game.k, game.state)
+    if (!cv) { netStageMemo.value = null; return }
+    if (!nv || nv.kind !== 'face.net') return
+    netStageMemo.value = { run: nv.id, commission: cv.id, stage: cv.stage, loot: nv.loot.map((l) => ({ name: l.name, qty: l.qty })), controls: nv.controls.length, layers: nv.layer.total, rounds: nv.round }
+  }
   const onCommit = (_state: GameState, reports: Report[]): void => {
     if (reports.length > 0) feed.value = { seq: feed.value.seq + 1, reports: structuredClone(reports) }
     refresh()
+    rememberNetStage()
   }
   game.subscribe(onCommit)
 
@@ -851,6 +864,13 @@ export const useEngine = defineStore('engine', () => {
   const commission = {
     /** 現在這件副本的樣子（階段軌、面、分支與原因、連動、警戒、喘口氣與撤退、評價預估）；不在副本裡是 null */
     view: (): CommissionView | null => { void state.value; return commissionView(game.k, game.state) },
+    /** 剛做完的內海階段留下的帳（離開時拿到的東西）；這件委託與這個階段對得上才給 */
+    netStage: (stage: number): { loot: Array<{ name: string; qty: number }>; controls: number; layers: number; rounds: number } | null => {
+      void state.value
+      const m = netStageMemo.value
+      const cv = commissionView(game.k, game.state)
+      return m && cv && m.commission === cv.id && m.stage === stage ? m : null
+    },
     chooseFace: (face: 'meat' | 'net' | 'opinion') => commitDrafts(() => chooseFace(game.k, game.state, face), '選面'),
     chooseBranch: (id: string) => commitDrafts(() => chooseBranch(game.k, game.state, id), '進入這一段'),
     breathe: () => commitDrafts(() => commissionBreathe(game.k, game.state), '喘口氣'),

@@ -65,13 +65,14 @@ async function buy() {
     <section class="panel cut pad stack">
       <p class="h">未知清單・已揭開 {{ sv.unknowns.filter(u => u.revealed).length }}／{{ sv.unknowns.length }}</p>
       <div class="grid2" style="--col-min: 200px">
-        <div v-for="u in sv.unknowns" :key="u.id" class="unk" :class="{ open: u.revealed, fresh: fresh.has(u.id) }" :data-unknown="u.id">
-          <span class="kc">{{ u.cat_name }}</span><b>{{ u.revealed ? u.text : '？？？？' }}</b>
+        <div v-for="u in sv.unknowns" :key="u.id" class="unk" :class="{ open: u.revealed, fresh: fresh.has(u.id), net: u.face === 'net' }" :data-unknown="u.id" :data-face="u.face ?? undefined">
+          <span class="kc">{{ u.cat_name }}<em v-if="u.face === 'net'" class="fm" data-face-mark>內海</em></span><b>{{ u.revealed ? u.text : '？？？？' }}</b>
           <small v-if="!u.revealed">{{ u.methods.map(methodName).join('・') }}可以揭開</small>
         </div>
       </div>
       <p class="h" style="margin-top: 12px">踩點次數 <span data-scouts>{{ sv.done }}／{{ sv.max }}</span><Hint>最多踩階段數那麼多次。第 {{ sv.hard_from }} 次起難度 +1（橘框）。大失敗（含自然 1）會驚動目標（駭入：內海的追蹤度起始值加；其他：現實的警戒起始值加）。</Hint></p>
       <div class="pips"><i v-for="n in sv.max" :key="n" :class="{ used: n <= sv.done, hard: n >= sv.hard_from }" /></div>
+      <p v-if="sv.trace_depart > 0" class="t-fine" data-trace-depart>現在出發的話，追蹤度從 {{ sv.trace_depart }} 開始（目標勢力對你的敵對值與踩點驚動，取高的）。</p>
       <p v-if="sv.alert_start > 0 || sv.trace_start > 0" class="t-fine warn-t" data-alarm>驚動了目標：進去的時候{{ sv.alert_start > 0 ? `警戒起始 +${sv.alert_start}` : '' }}{{ sv.trace_start > 0 ? `　追蹤度起始 +${sv.trace_start}` : '' }}。</p>
     </section>
 
@@ -118,6 +119,8 @@ async function buy() {
 <style scoped>
 .unk { background: var(--bg-2); padding: var(--space-3); display: grid; gap: 2px; background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--ink) 5%, transparent) 6px 8px); }
 .unk.open { background-image: none; }
+.unk.net { box-shadow: inset 3px 0 0 var(--net); }
+.unk .fm { font-style: normal; margin-left: 6px; padding: 0 5px; border-radius: 4px; background: var(--net); color: var(--bg); }
 .unk.fresh { box-shadow: inset 0 0 0 2px var(--a); }
 .unk small { color: var(--ink-3); font-size: var(--fs-fine); }
 .kc { font-size: var(--fs-fine); font-weight: 800; color: var(--ink-3); }

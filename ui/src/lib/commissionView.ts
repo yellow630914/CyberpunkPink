@@ -139,3 +139,27 @@ export function repChangeText(rep: { from: number; to: number } | null | undefin
   if (d === 0) return `信譽不變（${rep.to}）`
   return `信譽 ${rep.from} → ${rep.to}（${d > 0 ? '+' : '−'}${Math.abs(d)}）`
 }
+
+// ---- 內海的階段（M3-ui-commission-net） ----
+
+/** 這件委託有沒有內海的階段（主面是內海，或階段軌上看得到的階段有開內海面）：追蹤度條只有這時顯示 */
+export function hasNetStage(v: Pick<CommissionView, 'main' | 'track'>): boolean {
+  return v.main === 'net' || v.track.some(n => n.faces?.includes('net'))
+}
+
+/** 追蹤度的數字：整數，負數照寫（引擎夾在 −30～100） */
+export const traceText = (value: number): string => String(Math.round(value))
+
+/** 離開內海那一段之後的一行：離開時的追蹤度（引擎的 trace.value）與拿到的東西（子網裡看到的 loot）；沒有東西就只寫追蹤度 */
+export function netStageLine(stage: number, trace: number, loot: ReadonlyArray<{ name: string; qty: number }>): string {
+  const got = loot.length ? `；拿到 ${loot.map(l => (l.qty > 1 ? `${l.name} ×${l.qty}` : l.name)).join('、')}` : '；沒有帶東西出來'
+  return `第 ${stage} 階段（內海）做完：離開時追蹤度 ${traceText(trace)}${got}。`
+}
+
+/** 路線的後果的一行（內海那一份）：走了幾個內海階段、追蹤度、目標勢力與管網路的勢力各加多少；沒有走內海是 null */
+export function netFalloutLine(f: CommissionView['close']['fallout'], factionName: (id: string) => string): string | null {
+  if (!f.net) return null
+  const target = f.faction ? `${factionName(f.faction)}的敵對值內海這一份 +${f.net.delta}` : '沒有目標勢力'
+  const watch = (f.watchers ?? []).filter(w => w.delta > 0).map(w => `${factionName(w.faction)} +${w.delta}`)
+  return `內海 ${f.net.stages} 個階段、追蹤度 ${traceText(f.net.trace)}：${target}${f.net.located > 0 ? `（含被定位 +${f.net.located}）` : ''}${watch.length ? `；管網路的勢力：${watch.join('、')}` : ''}。`
+}

@@ -10,7 +10,7 @@ import TrackBar from '../TrackBar.vue'
 import { useEngine } from '../../stores/engine'
 import { useUi } from '../../stores/ui'
 import type { Point } from '../../data/types'
-import { FACE_CLASS, FACE_ICON, FACE_LABEL, NOT_OPEN, auxLine, branchChar, gradeRoman, linkKind, linkWhere, lockedNear, mapCell, repForecastText, scaleName, stepPips } from '../../lib/commissionView'
+import { FACE_CLASS, FACE_ICON, FACE_LABEL, NOT_OPEN, auxLine, branchChar, gradeRoman, hasNetStage, linkKind, linkWhere, lockedNear, mapCell, netFalloutLine, netStageLine, repForecastText, scaleName, stepPips, traceText } from '../../lib/commissionView'
 import type { FaceId } from '../../lib/commissionView'
 
 /**
@@ -35,7 +35,22 @@ const linkName = (id: string): string => v.value?.links.find(l => l.id === id)?.
 const branchName = (id: string): string => v.value?.branches.find(b => b.id === id)?.name ?? id
 const pips = computed(() => (v.value ? stepPips(v.value.step) : []))
 const auxLines = computed(() => (v.value?.aux ?? []).filter(a => a.result).map(a => auxLine(a.result!, nameOf, linkName, skillName)))
-const trace = computed(() => v.value?.aux.find(a => a.face === 'net')?.pressure ?? 0)
+/** 追蹤度條：這件委託有內海的階段才顯示；值與刻度是引擎的 commissionView().trace */
+const showTrace = computed(() => (v.value ? hasNetStage(v.value) : false))
+const factionName = (id: string): string => e.contentName('faction', id) ?? id
+const netFallout = computed(() => (v.value ? netFalloutLine(v.value.close.fallout, factionName) : null))
+/** 現在這一段是內海、而且網內的行程還開著（回到這一頁看看的時候給一個回去的按鈕） */
+const inNet = computed(() => v.value?.step === 'play' && v.value.faces.find(f => f.chosen)?.face === 'net' && e.net.view() !== null)
+/** 剛做完的上一段若走的是內海：離開時的追蹤度與拿到的東西（追蹤度是引擎的；東西是子網裡抄下來的那份帳） */
+const lastNet = computed(() => {
+  const x = v.value
+  if (!x) return null
+  if (x.step === 'play') return null
+  const n = x.step === 'done' ? x.stages : x.stage - 1
+  const went = x.route.filter(r => r.stage === n).at(-1)
+  if (!went || went.face !== 'net') return null
+  return netStageLine(n, x.trace.value, e.commission.netStage(n)?.loot ?? [])
+})
 const hoursText = computed(() => (v.value ? `${v.value.stageMinutes / 60} 小時` : ''))
 
 /** 打輸了、或走到敵人那一格開打了：換到戰鬥的畫面（打完回到這一頁） */
@@ -107,7 +122,10 @@ const needText = (b: NonNullable<typeof v.value>['branches'][number]): string =>
         <TrackBar :value="v.alert.value" :max="100" color="var(--warn)" label="警戒" :marks="[v.alert.reinforce]" />
         <small class="t-fine">到 {{ v.alert.reinforce }} 增援加進下一場遭遇</small>
       </div>
-      <div class="pres"><TrackBar :value="trace" :max="100" color="var(--net)" label="追蹤度" /></div>
+      <div v-if="showTrace" class="pres" data-trace :data-value="v.trace.value">
+        <TrackBar :value="v.trace.value" :max="100" color="var(--net)" label="追蹤度" :marks="v.trace.marks" />
+        <small class="t-fine">刻度在 {{ v.trace.marks.join('、') }}<template v-if="v.trace.peak > v.trace.value">・到過 {{ traceText(v.trace.peak) }}</template></small>
+      </div>
       <label class="live"><input type="checkbox" disabled aria-label="副本直播" /> 副本直播<small>（{{ NOT_OPEN }}）</small></label>
       <ReasonButton :reason="v.breathe.reason" data-breathe @go="breathe">喘口氣</ReasonButton>
       <ReasonButton :reason="v.retreat.reason" data-retreat @go="confirmRetreat = true">撤退</ReasonButton>
@@ -126,16 +144,18 @@ const needText = (b: NonNullable<typeof v.value>['branches'][number]): string =>
           <div class="steps" aria-label="這一段的五步"><span v-for="p in pips" :key="p.label" :class="p.state === 'done' ? 'ok' : p.state === 'now' ? 'now' : ''" :data-step="p.state">{{ p.label }}</span></div>
 
           <div v-if="v.step !== 'done'" class="faces3" data-faces>
-            <button v-for="f in v.faces" :key="f.face" type="button" class="facec" :class="{ selectable: v.step === 'face', on: f.chosen, off: !f.open || !!f.block }" :aria-disabled="(!!f.block && !f.chosen) || undefined" :data-face="f.face" @click="v.step !== 'face' ? undefined : f.block ? ui.toast(f.block, 'warn') : chooseFace(f.face)">
+            <button v-for="f in v.faces" :key="f.face" type="button" class="facec" :class="{ selectable: v.step === 'face', on: f.chosen, off: !f.open || !!f.block, closed: !f.open, locked: !!f.locked }" :aria-disabled="(!!f.block && !f.chosen) || undefined" :data-face="f.face" :data-locked="f.locked ? '1' : undefined" @click="v.step !== 'face' ? undefined : f.block ? ui.toast(f.block, 'warn') : chooseFace(f.face)">
               <span class="fc" :class="FACE_CLASS[f.face]">{{ FACE_ICON[f.face] }}</span>
               <b>{{ f.name }}<em v-if="f.chosen">・你在這裡</em></b>
               <small v-if="f.block" data-face-block>{{ f.block }}</small>
+              <small v-else-if="f.face === 'net' && f.chosen" data-net-hint>要潛進內海做這一段，做完回到這一頁。</small>
               <small v-else-if="v.aux.find(a => a.face === f.face)?.people.length">輔助：{{ v.aux.find(a => a.face === f.face)!.people.map(p => p.name).join('、') }}</small>
               <small v-else-if="f.chosen">你選了這一面。</small>
               <small v-else>可以選這一面。</small>
             </button>
           </div>
 
+          <p v-if="lastNet" class="netnote" data-net-last>{{ lastNet }}</p>
           <div v-if="auxLines.length" class="aux" data-aux><p v-for="(l, i) in auxLines" :key="i" class="mono">{{ l }}</p></div>
 
           <template v-if="v.step === 'branch'">
@@ -150,7 +170,14 @@ const needText = (b: NonNullable<typeof v.value>['branches'][number]): string =>
             <div class="go"><ReasonButton pri :reason="sel ? e.blockOf('commit:commission.branch') : '先選一條路。'" data-enter @go="enter">進入這一段</ReasonButton></div>
           </template>
 
-          <template v-if="v.step === 'play'">
+          <template v-if="v.step === 'play' && inNet">
+            <div class="goal" data-goal><span><b>這一段的目標</b>：{{ v.goal?.text }}</span></div>
+            <div class="netgo" data-in-net>
+              <p>這一段在內海裡做：網內的行程還開著，登出會回到進副本之前。</p>
+              <button type="button" class="btn pri" data-to-subnet @click="router.push('/subnet')">回到子網</button>
+            </div>
+          </template>
+          <template v-else-if="v.step === 'play'">
             <div class="goal" data-goal><span><b>這一段的目標</b>：{{ v.goal?.text }}</span><span v-if="v.goal?.done" class="tag hot">達成了</span></div>
             <div v-if="grid" class="mapwrap">
               <GridMap :w="grid.size[0]" :h="grid.size[1]" :cell="cell" :fog="fog" :tokens="tokens" :max-cell="44" :label="`${grid.name}的地圖`" @cell="onCell" @step="onStep" @enter="onEnter" />
@@ -178,6 +205,7 @@ const needText = (b: NonNullable<typeof v.value>['branches'][number]): string =>
           </template>
         </section>
         <p class="t-fine">現在做完的話預估評價 {{ v.close.rating }}，歷練點 {{ v.close.xp }}。</p>
+        <p v-if="netFallout" class="t-fine" data-net-fallout>路線的後果：{{ netFallout }}</p>
         <p v-if="job" class="t-fine" data-rep-forecast>街頭信譽（照預估的評價）：{{ repForecastText(e.fixer.repGain(job.commission, v.close.rating), e.fixer.repFailed()) }}。</p>
       </div>
 
@@ -214,11 +242,15 @@ const needText = (b: NonNullable<typeof v.value>['branches'][number]): string =>
 .facec { display: grid; cursor: default; gap: var(--space-2); justify-items: start; text-align: left; padding: var(--space-4); background: var(--bg-2); border: 0; color: var(--ink); font: inherit; cursor: pointer; }
 .facec.selectable { cursor: pointer; }
 .facec.on { box-shadow: inset 0 0 0 3px var(--a); }
+.facec.locked { box-shadow: inset 3px 0 0 var(--net); }
 .facec.off { opacity: .55; background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--ink) 6%, transparent) 6px 8px); }
 .facec small { color: var(--ink-2); font-size: var(--fs-xs); }
 .facec em { font-style: normal; color: var(--a); }
 .fc { width: 30px; height: 30px; display: grid; place-items: center; font-weight: 900; border-radius: 6px; background: var(--bg-3); }
 .fc.m { background: var(--ink-2); color: var(--bg); } .fc.n { background: var(--net); color: var(--bg); } .fc.o { background: var(--ep); color: var(--bg); }
+.netnote { margin: 0; padding: var(--space-3); background: var(--bg-term); box-shadow: inset 3px 0 0 var(--net); font-size: var(--fs-xs); color: var(--ink-2); }
+.netgo { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; padding: var(--space-3); background: var(--bg-term); box-shadow: inset 3px 0 0 var(--net); }
+.netgo p { margin: 0; flex: 1 1 220px; font-size: var(--fs-sm); color: var(--ink-2); }
 .aux { padding: var(--space-3); background: var(--bg-term); box-shadow: inset 3px 0 0 var(--ram); font-size: var(--fs-xs); color: var(--ink-2); display: grid; gap: 2px; }
 .br .bt { width: 26px; height: 26px; display: grid; place-items: center; font-weight: 900; background: var(--bg-3); flex: none; }
 .br .bt.link { background: var(--ram); color: var(--bg); } .br .bt.scouted { background: var(--ap); color: var(--bg); }
@@ -237,7 +269,7 @@ const needText = (b: NonNullable<typeof v.value>['branches'][number]): string =>
 @media (max-width: 860px) { .mapwrap { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 720px) {
   .faces3 { grid-template-columns: minmax(0, 1fr); }
-  .facec.off { display: none; }
+  .facec.closed { display: none; }
   .rh { gap: var(--space-2); }
 }
 </style>

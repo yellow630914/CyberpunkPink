@@ -49,6 +49,14 @@ watch(() => [eng.battleLayer(), route.path] as const, ([layer, path]) => {
   if (want && (path === '/combat' || path === '/netcombat') && path !== want) void battleRouter.replace({ path: want, query: route.query })
 }, { immediate: true })
 
+// ---- 引擎開了一趟網內的行程（委託副本的內海面、自己潛進去的）：畫面換到子網（M3-ui-commission-net）。照進行中的活動換，不照按鈕 ----
+// 戰鬥、場景、標題與編輯器那幾頁自己管（打完戰鬥會回來）；讀檔讀到一半在網內的也一樣落到子網頁。
+const NET_ELSEWHERE = new Set([...BATTLE_ELSEWHERE, '/subnet'])
+const netRouter = useRouter()
+watch(() => eng.net.view()?.id ?? null, (id) => {
+  if (id && !NET_ELSEWHERE.has(route.path)) void netRouter.push('/subnet')
+}, { immediate: true })
+
 // ---- 成人場景進行中：畫面換到場景，別的全頁的入口被擋（引擎也不收別的報告；這裡只是不讓人停在別的畫面上） ----
 const sceneRouter = useRouter()
 watch(() => eng.scene.active(), (on) => {
