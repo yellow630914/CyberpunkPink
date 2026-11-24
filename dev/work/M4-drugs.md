@@ -4,7 +4,7 @@
 - 目標：新功能 `drugs`：藥的使用（戰鬥內外）、持續與副作用、成癮與戒斷、治療、抑制劑。
 - 規格出處：ITEMS 第 4 節（4.1 的每一條、4.2 的份量表以上；藥的目錄只當例子）；DOWNTIME 3.4、3.5 節；CYBERWARE 第 2 節抑制劑那一條；LIFE 第 6 節；CRAFTING 5.5 節節奏資源那一條；dev/adr/0019 第五節與 P13、P20。
 - 可以改的路徑：`engine/src/features/drugs/`（新）、`engine/src/features/index.ts`、`engine/tests/features/M4-drugs.test.ts`。
-- 可以用的介面：內容種類 `item`（類別 `drug`；多讀的欄位在功能的 `ready` 查格式，做法看 `features/scene` 查物品的 `scene` 欄位）；`k.passives.register`（來源 `drug`、`withdrawal`）、`passiveProblems`；`k.effects`（把一串戰鬥外的效果變成變更：`effectCtx` 與登錄表的用法看 `features/director/body.ts`）；`k.battle.registerEffect`（op `drug`）、`k.battle.modifier`、`k.battle.on('turn.start')`、`k.battle.onEnd`、`k.battle.on('battle.start')` 這一類現有的掛點（名字以 `core/battle/registry.ts` 為準）；掛點 `time.passed`、`rest.done`、`bill.collect`、`bill.settled`；`weeklyCrossings`、`toMinutes`；條件 `sunk`（M4-sink 註冊；沒有人註冊當作不成立）、`at_facility`；核心的 `item`、`actor.ext`、`cred`／`cash`、`time` 變更。
+- 可以用的介面：內容種類 `item`（類別 `drug`；多讀的欄位在功能的 `ready` 查格式，做法看 `features/scene` 查物品的 `scene` 欄位）；`k.passives.register`（來源 `drug`、`withdrawal`）、`passiveProblems`；`k.effects`（把一串戰鬥外的效果變成變更：`effectCtx` 與登錄表的用法看 `features/director/body.ts`）；`k.battle.effect`（op `drug`）、`k.battle.modifier`、`k.battle.on('turn.start')`、`k.battle.onEnd`、`k.battle.on('battle.start')` 這一類現有的掛點（名字以 `core/battle/registry.ts` 為準）；掛點 `time.passed`、`rest.done`、`bill.collect`、`bill.settled`；`weeklyCrossings`、`toMinutes`；條件 `sunk`（M4-sink 註冊；沒有人註冊當作不成立）、`at_facility`；核心的 `item`、`actor.ext`、`cred`／`cash`、`time` 變更。
 - 不可以做的事：不寫任何一種藥的內容；不做藥泵（`cyberware` 的）；不 import 別的功能；戰鬥中不直接改角色的狀態（成癮在戰鬥結束時寫）；共同的規定見 dev/work/M4-plan.md。
 
 ## 新的格式與鍵

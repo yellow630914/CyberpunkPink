@@ -4,7 +4,7 @@
 - 目標：義體進戰鬥：單位上的 `implants`、衍生數值 `cyber_count`、設計圖的 `battle` 欄位（反射加速器、熱驅動、冷卻迴路、藥泵都是資料）、戰地手術的「裝上一件義體」、重的重創讓義體失效。
 - 規格出處：CYBERWARE 第 3、4 節；CRAFTING 5.5 節「反射加速器是明寫的例外」；COMBAT_SYSTEM 第 6 節重創的表（肢體、頭兩列的「重」）；SKILL_TREES 改造師的「戰地手術」那一列；ITEMS 4.1 節「預裝在藥泵裡的藥不花行動點」；ENEMIES 4.1 節（AI 偏好 `bridged`）；dev/adr/0015 第三節（`implants`、失效與超頻）、E13；dev/adr/0019 第三節與 P9、P10、P46、P47。
 - 可以改的路徑：`engine/src/features/cyberware/`、`engine/tests/features/M4-cyber-battle.test.ts`。
-- 可以用的介面：`k.battle.loadout`（回傳 `implants`）、`k.battle.register`（行動；宣告 `icon`、`picks`，dev/adr/0014）、`k.battle.modifier`、`k.battle.on('round.start' | 'turn.start' | 'overload' | 'unit.ready')`、`k.battle.onEnd`、`k.battle.registerEffect`（戰鬥的效果 op；寫法看 `features/combat/ops.ts`）、`k.battle.effectProblems`、`run.implantStatus`、`run.performAction`、`syncCapOf`、`syncRuleOf`；功能的第二段 `ready(k)`（內容載入之後照資料註冊行動）；`modeOf`。
+- 可以用的介面：`k.battle.loadout`（回傳 `implants`）、`k.battle.action`（行動；宣告 `icon`、`picks`，dev/adr/0014）、`k.battle.modifier`、`k.battle.on('round.start' | 'turn.start' | 'overload' | 'unit.ready')`、`k.battle.onEnd`、`k.battle.effect`（戰鬥的效果 op；寫法看 `features/combat/ops.ts`）、`k.battle.effectProblems`、`run.implantStatus`、`run.performAction`、`syncCapOf`、`syncRuleOf`；功能的第二段 `ready(k)`（內容載入之後照資料註冊行動）；`modeOf`。
 - 不可以做的事：不改核心；戰鬥中不寫角色的狀態（裝上去的那一件在戰鬥結束的報告裡才寫進 `actor.ext.cyber`）；每一種義體不另外寫程式（只認 `battle` 欄位的格式）；內海戰鬥不給 `implants`；共同的規定見 dev/work/M4-plan.md。
 
 ## 新的格式與鍵

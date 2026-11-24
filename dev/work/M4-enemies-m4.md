@@ -4,7 +4,7 @@
 - 目標：敵人在 M4 的三件事：雙形象（一個敵人兩份名字與外觀，一場戰鬥擲一次）、成人地城的五種效果記號（縛、灌、挑、疊、範）、沉溺高的敵人。
 - 規格出處：CYBERSPACE 8.7 節（「兩座的敵人都打感載」的記號表、「雙形象」的表與下面兩條）；ENEMIES 第 5 節（開戰時擲的特徵裡沉溺那一條）、第 6 節（版本的精神）；CYBERWARE 第 6 節「NPC 也會溺感」；CORE_RULES 4.2 節承受層數表最後一列、4.3 節最後第二條；DATA 第 1 節的性別五個值、第 6 節；dev/adr/0019 第十二節與 P61。
 - 可以改的路徑：`engine/src/features/enemies/`、`engine/tests/features/M4-enemies-m4.test.ts`。
-- 可以用的介面：`features/enemies` 現有的資料格式（`kinds.ts`）、單位的組法（`stats.ts`、`lace.ts`）、招牌行動（技能格式，`enemy: true`）、`unitdata.ts`；`k.battle.registerEffect`（效果的 op；寫法看 `features/combat/ops.ts`、`features/netcombat` 註冊 `net.*` 的地方）、`k.battle.on('overload' | 'unit.out' | 'turn.start')`、`run.applyStatus`、`battle_status` 的資料；`tagsAllowed`（`male_partner` 等五個）；`deriveRng`；角色的性別（`actor.gender`）與 `actor.ext.deck.avatar.gender`（只認格式）。
+- 可以用的介面：`features/enemies` 現有的資料格式（`kinds.ts`）、單位的組法（`stats.ts`、`lace.ts`）、招牌行動（技能格式，`enemy: true`）、`unitdata.ts`；`k.battle.effect`（效果的 op；寫法看 `features/combat/ops.ts`、`features/netcombat` 註冊 `net.*` 的地方）、`k.battle.on('overload' | 'out' | 'turn.start')`、`run.applyStatus`、`battle_status` 的資料；`tagsAllowed`（`male_partner` 等五個）；`deriveRng`；角色的性別（`actor.gender`）與 `actor.ext.deck.avatar.gender`（只認格式）。
 - 不可以做的事：不寫任何一種敵人的內容（八個夜約四十種是內容）；不改戰鬥的核心；數字兩個形象完全相同（只換名字與描寫）；和 M4-craft-salvage 不要同時做；共同的規定見 dev/work/M4-plan.md。
 
 ## 新的格式與鍵

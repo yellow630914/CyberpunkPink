@@ -4,7 +4,7 @@
 - 目標：新功能 `medical`：急救、診所治療、重的重創在戰鬥外的效果與手術、戰地手術處理重創；「傷口處理過」。
 - 規格出處：DOWNTIME 第 2.2 節（重傷限制）、3.1 節（治療的表與下面三條）；COMBAT_SYSTEM 第 6 節（重創的表）；CORE_RULES 4.1 節；SKILL_TREES 改造師「戰地手術」「全面翻修」那兩列與日常的「手術」第二項；dev/adr/0013 D3；dev/adr/0019 第五節與 P46。
 - 可以改的路徑：`engine/src/features/medical/`（新）、`engine/src/features/index.ts`、`engine/tests/features/M4-medical.test.ts`。
-- 可以用的介面：角色身上的狀況 `wound_limb`、`wound_head`、`wound_torso`（`features/combat/wounds.ts` 在戰鬥結束時給）、`treated`（`features/rest` 在讀：先看 `features/rest/model.ts` 第 242 行附近怎麼判斷）；`k.passives.register`（來源 `wound`）；衍生數值 `max_hp`、`armor_body`；條件 `at_facility`、`ability`（`daily: 'surgery'`）；設施種類的 `clinic.grade`（和 `cyberware` 讀同一欄）；`makeCheck`、`checkParts`；核心的 `actor.track`（往上補血）、`actor.condition`、`cred`／`cash`、`time` 變更；戰鬥的效果登錄（`k.battle.registerEffect`，寫法看 `features/combat/ops.ts`）與單位上的 `wounds`（`features/combat/wounds.ts`）；`k.effects.register`。
+- 可以用的介面：角色身上的狀況 `wound_limb`、`wound_head`、`wound_torso`（`features/combat/wounds.ts` 在戰鬥結束時給）、`treated`（`features/rest` 在讀：先看 `features/rest/model.ts` 第 242 行附近怎麼判斷）；`k.passives.register`（來源 `wound`）；衍生數值 `max_hp`、`armor_body`；條件 `at_facility`、`ability`（`daily: 'surgery'`）；設施種類的 `clinic.grade`（和 `cyberware` 讀同一欄）；`makeCheck`、`checkParts`；核心的 `actor.track`（往上補血）、`actor.condition`、`cred`／`cash`、`time` 變更；戰鬥的效果登錄（`k.battle.effect`，寫法看 `features/combat/ops.ts`）與單位上的 `wounds`（`features/combat/wounds.ts`）；`k.effects.register`。
 - 不可以做的事：不做義體的修理（`cyberware` 的）；不做沉溺的治療（M4-sink）、成癮的治療（M4-drugs）、天使急救；戰鬥裡現有的急救道具與技能不動；不 import 別的功能；共同的規定見 dev/work/M4-plan.md。
 
 ## 新的格式與鍵
