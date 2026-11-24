@@ -101,9 +101,9 @@ describe('白箱 Sheet 的模型（DATA 9.3 節；COMMISSION_MAPS 1.1 節）', (
     expect(markersInLayout({ id: 'x', name: 'x', size: [4, 1], layout: ['EE.T'] }).map((m) => m.id)).toEqual(['E1', 'E2', 'T1'])
   })
 
-  it('預設圖例的每個字元都有性質；標記站的那一格走得上去', () => {
+  it('預設圖例的每個字元都有性質；標記站的那一格走得上去（網內要條件才過得去的遭遇節點與機關除外：走不上去、locked，處理完改成地板）', () => {
     for (const ch of Object.keys(DEFAULT_LEGEND)) expect(CELL_TRAITS[DEFAULT_LEGEND[ch]!], ch).toBeDefined()
-    for (const [kind, t] of Object.entries(CELL_TRAITS)) if (t.mark) expect(t.walk, kind).toBe(true)
+    for (const [kind, t] of Object.entries(CELL_TRAITS)) if (t.mark && !t.locked) expect(t.walk, kind).toBe(true)
   })
 })
 

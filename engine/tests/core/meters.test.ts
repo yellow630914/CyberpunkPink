@@ -682,14 +682,16 @@ describe('性質：任意一串變更與效果之後，每一個值都在範圍�
   })
 })
 
-describe('存檔第 3 版（驗收 7）', () => {
-  it('STATE_VERSION 與 SAVE_VERSION 是 3；遷移步驟表每一版一步、不缺號，第 2 版升第 3 版有一步', () => {
-    expect(STATE_VERSION).toBe(3)
-    expect(SAVE_VERSION).toBe(3)
-    expect(MIGRATIONS.map((m) => m.from)).toEqual([1, 2])
+// 第 4 版（M3；dev/work/M3-core-grid.md）只多了地圖實例選填的 gen，第 3 版讀進來不用補東西；這一段的存檔版本一律照現在的版本（SAVE_VERSION）
+describe('存檔第 3 版（驗收 7）：量表', () => {
+  it('STATE_VERSION 與 SAVE_VERSION 是 4；遷移步驟表每一版一步、不缺號，第 2 版升第 3 版有一步（量表）、第 3 版升第 4 版有一步（地圖實例的 gen）', () => {
+    expect(STATE_VERSION).toBe(4)
+    expect(SAVE_VERSION).toBe(4)
+    expect(MIGRATIONS.map((m) => m.from)).toEqual([1, 2, 3])
     expect(MIGRATIONS.find((m) => m.from === 2)!.note).toMatch(/meters/)
+    expect(MIGRATIONS.find((m) => m.from === 3)!.note).toMatch(/gen/)
     expect(blankState(1).meters).toEqual({})
-    expect(blankState(1).version).toBe(3)
+    expect(blankState(1).version).toBe(4)
   })
 
   it('第 2 版的舊檔（tests/fixtures/saves/v2-m1.json）讀得進來、meters 是空的、其餘原樣；裡面的第 2 版快照回得去', async () => {
@@ -702,8 +704,8 @@ describe('存檔第 3 版（驗收 7）', () => {
     expect(r).toMatchObject({ ok: true, fromVersion: 2 })
     if (!r.ok) return
     const s = r.file.state
-    expect(s.version).toBe(3)
-    expect(r.file.version).toBe(3)
+    expect(s.version).toBe(4)
+    expect(r.file.version).toBe(4)
     expect(s.meters).toEqual({})
     for (const k of Object.keys(old.state)) if (k !== 'version') expect(s[k as keyof typeof s], k).toEqual(old.state[k])
     // 讀進來的那一份存得下去、再讀回來一模一樣
@@ -717,24 +719,24 @@ describe('存檔第 3 版（驗收 7）', () => {
     game.commit(draft([meter('mood', '_', { delta: 9 })]))
     expect(meterOf(game.k, game.state, 'mood')).toBe(9)
     expect(game.rewindToKind('stage', '回到階段。')).toBeNull()
-    expect(game.state.version).toBe(3)
+    expect(game.state.version).toBe(4)
     expect(game.state.meters).toEqual({})
     expect(game.state.reports.some((x) => x.retracted)).toBe(true)
   })
 
-  it('第 1 版的舊檔也讀得進來（一路升到第 3 版），meters 是空的', async () => {
+  it('第 1 版的舊檔也讀得進來（一路升到現在的版本），meters 是空的', async () => {
     const { readFileSync } = await import('node:fs')
     const r = unpackSave(readFileSync(new URL('../fixtures/saves/v1-m0.json', import.meta.url), 'utf8'))
-    expect(r).toMatchObject({ ok: true, fromVersion: 1, file: { version: 3 } })
+    expect(r).toMatchObject({ ok: true, fromVersion: 1, file: { version: 4 } })
     if (r.ok) expect(r.file.state.meters).toEqual({})
   })
 
-  it('第 3 版存了再讀，數字一樣；Game.save、Game.load 也是', () => {
+  it('存了再讀，量表的數字一樣；Game.save、Game.load 也是', () => {
     const { game } = makeGame({ features: [meterFeature(testMeter({ kind: 'favor', keyed: 'faction' }), testMeter({ kind: 'rep' }))], content: [METER_CONTENT] })
     game.commit(draft([meter('favor', 'f_alpha', { delta: 33 }), meter('favor', 'f_beta', { set: 7 }), meter('rep', '_', { delta: 12 })]))
     const hash = stateHash(game.state)
     const text = game.save('manual', 'now')
-    expect(JSON.parse(text).version).toBe(3)
+    expect(JSON.parse(text).version).toBe(4)
     expect(JSON.parse(text).state.meters).toEqual({ favor: { f_alpha: 33, f_beta: 7 }, rep: { _: 12 } })
     game.commit(draft([meter('favor', 'f_alpha', { delta: 50 })]))
     expect(game.state.meters.favor!.f_alpha).toBe(83)

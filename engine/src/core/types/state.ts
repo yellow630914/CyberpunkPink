@@ -10,8 +10,9 @@ import type { GameTime } from './time'
  * 狀態的版本。第 2 版（M1）：多了 battle（進行中的戰鬥）、maps（格子地圖的實例與位置）、snapshots（快照），
  * 存檔規則多了敵人的係數（enemyCoef）、戰敗扣錢的金額上限（defeatMoneyCap）、重創要不要留傷勢（heavyWounds）。
  * 第 3 版（M2）：多了 meters（量表：照對象分開記、有範圍的數字；dev/adr/0016 第三節）。
+ * 第 4 版（M3）：地圖實例可以自己帶定義（maps.instances[].gen：生成的地圖，整份存在實例裡；dev/adr/0018 第五節）。形狀只是多一個選填的欄位，第 3 版讀進來不用補東西。
  */
-export const STATE_VERSION = 3
+export const STATE_VERSION = 4
 
 /** 亂數狀態：種子與游標。每一次要擲骰，從（種子、游標、用途、重擲次數）導出一顆骰子的種子。 */
 export interface RngState {

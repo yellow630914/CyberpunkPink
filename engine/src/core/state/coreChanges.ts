@@ -27,7 +27,7 @@
 // | narration | report, text?, uncovered?, results? | 替一份已經提交的報告補上正文（寫正文在結果之後才有） |
 // | uid | advance | 流水號往前（戰鬥、地圖實例這類要一個不重複的 id 的東西） |
 // | battle | state（null 是結束）, step?, fold? | 整份換掉進行中的戰鬥；step 把這份報告記成這場戰鬥的一步；fold 在結束時把每一步的報告收掉（dev/adr/0011） |
-// | map.open | instance | 開一份地圖的實例 |
+// | map.open | instance | 開一份地圖的實例。實例可以自己帶定義（gen：生成的地圖，整份存在實例裡）：定義要過內容種類 special_map 的檢查、id 等於 def、seed 是安全整數、by 是字串，不合格整筆不收；記進紀錄時 gen 只留 seed 與 by，不留整份定義（它在 state.maps） |
 // | map.close | id | 清掉一份實例（人還站在裡面就不行） |
 // | map.at | to（null 是離開格子地圖） | 換位置 |
 // | map.sheet | map, sheet, seen?, cells?, movers? | 改一張圖的狀態：看過的格子、改過的格子、會動的東西 |
@@ -50,6 +50,20 @@ import { addItem, countItem, findByUid, removeItem, removeItemByUid } from './in
 import type { MeterRegistry } from './meters'
 import { meterKeyLabel, meterKeyProblems, nextMeterValue } from './meters'
 import { sanitizeRules } from './saveRules'
+
+/**
+ * 地圖實例自己帶的定義（MapInstance.gen）的形狀：是物件、map 是物件而且它的 id 等於實例的 def、seed 是安全整數、by 是非空的字串。
+ * 定義本身合不合格（版面、標記……）是 L5 的 specialMapProblems：提交時問內容登錄表的 special_map 種類，存檔驗證用 core/grid 的 genMapProblems。
+ */
+export function genShapeProblems(gen: unknown, def: string): string[] {
+  if (!isRecord(gen)) return ['gen 要是一個物件（map、seed、by）']
+  const p: string[] = []
+  if (!isRecord(gen.map)) p.push('gen.map 要是地圖的定義（一個物件）')
+  else if (gen.map.id !== def) p.push(`gen.map.id（${String(gen.map.id)}）要等於實例的 def（${def}）`)
+  if (!isSafeInt(gen.seed)) p.push('gen.seed 要是安全整數')
+  if (typeof gen.by !== 'string' || !gen.by.trim()) p.push('gen.by 要是非空的字串（誰生成的）')
+  return p
+}
 
 /** 只保留最近幾樓的任務鏈細節（AI_TASKS 5.5 節）。 */
 export const CHAIN_FLOORS_KEPT = 5
@@ -361,8 +375,22 @@ export function registerCoreChanges(reg: ChangeRegistry, serialize: () => ((stat
     validate: (s, c) => {
       const m = c.instance
       if (!isRecord(m) || !isId(m.id) || !isId(m.def) || !isRecord(m.sheets)) return ['instance 要有 id、def、sheets']
-      return s.maps.instances[m.id] ? [`地圖實例的 id 重複：${m.id}`] : []
+      const p: string[] = []
+      if (s.maps.instances[m.id]) p.push(`地圖實例的 id 重複：${m.id}`)
+      if (m.gen !== undefined) {
+        // 生成的地圖：定義整份在實例裡，不合格整筆不收（訊息寫出問題）。版面的檢查是 L5 的（special_map 種類的 validate），問內容登錄表
+        const shape = genShapeProblems(m.gen, m.def)
+        p.push(...shape)
+        if (!shape.length) {
+          const content = meterEnv?.content
+          if (!content?.hasKind('special_map')) p.push('沒有地圖定義的檢查（special_map 這個內容種類），收不了生成的地圖')
+          else p.push(...content.validate('special_map', [(m.gen as { map: unknown }).map]).map((x) => `生成的地圖不合格：${x}`))
+        }
+      }
+      return p
     },
+    // 記進紀錄時 gen 不留整份定義（它在 state.maps），只留種子與是誰生成的
+    forLog: (c) => (c.instance.gen ? { op: 'map.open', instance: { ...c.instance, gen: { seed: c.instance.gen.seed, by: c.instance.gen.by } } } : c),
     apply: (s, c) => {
       s.maps.instances[c.instance.id] = clone(c.instance)
       s.maps.seq += 1

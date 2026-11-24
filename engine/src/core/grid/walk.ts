@@ -5,14 +5,11 @@
 // - 探索不花遊戲裡的時間（副本沒有另外的時鐘；SERIES 第 6 節）：要花時間的由功能在 enter 裡加 time 變更。
 
 import type { BattleSetup } from '../battle/setup'
-import type { Change, GameState, GridPos, Launch, MapInstance, ReportDraft, ReportTrigger, SheetState } from '../types'
+import type { Change, GameState, GridPos, Launch, MapInstance, MarkerDef, ReportDraft, ReportTrigger, SheetDef, SheetState, SpecialMapEntry } from '../types'
 import { clone } from '../util/clone'
-import type { GridDir, MarkerDef, SheetDef, SpecialMapEntry } from './model'
-import { GRID_DIRS, Sheet, pointKey } from './model'
+import type { GridDir } from './model'
+import { GRID_DIRS, Sheet, genMapProblems, pointKey, sightOf } from './model'
 import type { GridCtx, GridEffect, GridKernel, GridUse } from './registry'
-
-/** 視野的半徑：平常 5 格；整張沒有燈的圖（排水道、隧道）只剩腳下與相鄰的格（SITES 第 11 節）。 */
-export const SIGHT = { lit: 5, dark: 1 }
 
 export class GridBlocked extends Error {
   constructor(public readonly reason: string) {
@@ -27,6 +24,14 @@ export function mapDef(k: GridKernel, id: string): SpecialMapEntry {
   return def
 }
 
+/**
+ * 這份實例用的地圖定義：有 gen（生成的地圖）用它自己帶的，不查內容；沒有就照 def 查內容（special_map）。
+ * 核心裡一切「照實例找定義」的地方都走這裡（dev/adr/0018 第五節），不要自己拿 instance.def 去查內容。
+ */
+export function instanceDef(k: GridKernel, instance: MapInstance): SpecialMapEntry {
+  return instance.gen ? instance.gen.map : mapDef(k, instance.def)
+}
+
 function sheetDef(map: SpecialMapEntry, id: string): SheetDef {
   const s = map.sheets.find((x) => x.id === id)
   if (!s) throw new Error(`地圖 ${map.id} 沒有 ${id} 這一張圖`)
@@ -38,7 +43,7 @@ const blankSeen = (def: SheetDef): string[] => def.layout.map((row) => '0'.repea
 /** 從 from 看得到的格子併進 seen。 */
 function reveal(sheet: Sheet, seen: string[], at: { x: number; y: number }): string[] {
   const rows = (seen.length === sheet.h ? seen : blankSeen(sheet.def)).map((r) => [...r])
-  for (const key of sheet.visibleFrom(at, sheet.def.dark ? SIGHT.dark : SIGHT.lit)) {
+  for (const key of sheet.visibleFrom(at, sightOf(sheet.def))) {
     const [x, y] = key.split(',').map(Number) as [number, number]
     if (rows[y]?.[x] !== undefined) rows[y]![x] = '1'
   }
@@ -53,26 +58,39 @@ export interface OpenMapOpts {
   /** 站到哪：標記的 id（E2），或座標。沒寫是那一張的第一個入口 */
   at?: string | [number, number]
   ext?: Record<string, unknown>
+  /** 生成用的種子（def 是整筆定義時記進實例的 gen；沒寫是 0）。def 是 id 時不看 */
+  seed?: number
+  /** 誰生成的（功能或區的 id；def 是整筆定義時記進實例的 gen；沒寫是 'gen'）。def 是 id 時不看 */
+  by?: string
 }
 
-/** 開一份地圖的實例並站進去。回傳變更（map.open、map.sheet、map.at）與新實例的 id。 */
-export function openMap(k: GridKernel, state: GameState, defId: string, o: OpenMapOpts = {}): { id: string; changes: Change[] } {
-  const map = mapDef(k, defId)
-  const def = sheetDef(map, o.sheet ?? map.sheets[0]!.id)
-  const sheet = new Sheet(def)
+/**
+ * 開一份地圖的實例並站進去。回傳變更（map.open、map.sheet、map.at）與新實例的 id。
+ * def 可以是內容裡的地圖 id，也可以是整筆定義（生成的地圖）：整筆的話定義整份存進實例（gen；dev/adr/0018 第五節），
+ * 先過 specialMapProblems，不合格丟錯、訊息寫出問題；內容裡不必有它。
+ */
+export function openMap(k: GridKernel, state: GameState, def: string | SpecialMapEntry, o: OpenMapOpts = {}): { id: string; changes: Change[] } {
+  const gen = typeof def === 'string' ? undefined : { map: clone(def), seed: o.seed ?? 0, by: o.by ?? 'gen' }
+  if (gen) {
+    const problems = genMapProblems(gen, gen.map.id)
+    if (problems.length) throw new Error(`生成的地圖不合格：${problems.slice(0, 5).join('；')}`)
+  }
+  const map = gen ? gen.map : mapDef(k, def as string)
+  const sheetDefn = sheetDef(map, o.sheet ?? map.sheets[0]!.id)
+  const sheet = new Sheet(sheetDefn)
   const marker = typeof o.at === 'string' ? sheet.marker(o.at) : undefined
-  if (typeof o.at === 'string' && !marker) throw new Error(`${def.id} 沒有 ${o.at} 這個標記`)
-  const entry = marker ?? (Array.isArray(o.at) ? undefined : (def.cells ?? []).find((m) => m.mark === 'E'))
-  const [x, y] = Array.isArray(o.at) ? o.at : (entry?.at ?? def.links?.[0]?.at[0] ?? [-1, -1])
-  if (!sheet.walkable(x, y)) throw new Error(`${def.id} 的 ${x},${y} 站不上去`)
+  if (typeof o.at === 'string' && !marker) throw new Error(`${sheetDefn.id} 沒有 ${o.at} 這個標記`)
+  const entry = marker ?? (Array.isArray(o.at) ? undefined : (sheetDefn.cells ?? []).find((m) => m.mark === 'E'))
+  const [x, y] = Array.isArray(o.at) ? o.at : (entry?.at ?? sheetDefn.links?.[0]?.at[0] ?? [-1, -1])
+  if (!sheet.walkable(x, y)) throw new Error(`${sheetDefn.id} 的 ${x},${y} 站不上去`)
   const id = `m${state.maps.seq + 1}`
-  const instance: MapInstance = { id, def: defId, ...(o.owner ? { owner: o.owner } : {}), sheets: {}, ...(o.ext ? { ext: clone(o.ext) } : {}) }
+  const instance: MapInstance = { id, def: map.id, ...(o.owner ? { owner: o.owner } : {}), ...(gen ? { gen } : {}), sheets: {}, ...(o.ext ? { ext: clone(o.ext) } : {}) }
   return {
     id,
     changes: [
       { op: 'map.open', instance },
-      { op: 'map.sheet', map: id, sheet: def.id, seen: reveal(sheet, [], { x, y }) },
-      { op: 'map.at', to: { map: id, sheet: def.id, x, y } },
+      { op: 'map.sheet', map: id, sheet: sheetDefn.id, seen: reveal(sheet, [], { x, y }) },
+      { op: 'map.at', to: { map: id, sheet: sheetDefn.id, x, y } },
     ],
   }
 }
@@ -88,7 +106,7 @@ export function gridHere(k: GridKernel, state: GameState): (GridCtx & { instance
   if (!at) return null
   const instance = state.maps.instances[at.map]
   if (!instance) return null
-  const map = mapDef(k, instance.def)
+  const map = instanceDef(k, instance)
   const sheetState = instance.sheets[at.sheet] ?? { seen: [], cells: {}, movers: {} }
   return { k, state, map, sheet: new Sheet(sheetDef(map, at.sheet), sheetState.cells), at, step: 0, last: true, instance, sheetState }
 }
@@ -107,16 +125,22 @@ export interface GridView {
   moves: Record<GridDir, string | null>
 }
 
+/**
+ * 從 ctx.at（現在站的那一格）走進 (x, y) 過不過得去；過得去是 null，否則是原因。
+ * 要條件的格子（locked）：問登錄表的放行規則（規則拿到的 ctx.at 就是現在站的那一格，單向的鏈路靠它判斷從哪一邊來），
+ * 有一條放行就過；沒有人註冊、或註冊的都不放行又沒說原因時，用那種格子預設的原因（CellTraits.lockedReason，沒寫是「門鎖著。」）。
+ */
 function passBlock(ctx: GridCtx, x: number, y: number): string | null {
   const { sheet } = ctx
   if (!sheet.inBounds(x, y)) return '那邊沒有路。'
   const traits = sheet.traitsAt(x, y)
   if (traits.walk) return null
   if (!traits.locked) return '那邊走不過去。'
+  const fallback = traits.lockedReason ?? '門鎖著。'
   const rules = ctx.k.grid.passRules(sheet.kindAt(x, y))
-  if (!rules.length) return '門鎖著。'
+  if (!rules.length) return fallback
   const reasons = rules.map((fn) => fn(ctx, x, y))
-  return reasons.some((r) => r === null) ? null : (reasons.find((r) => r) ?? '門鎖著。')
+  return reasons.some((r) => r === null) ? null : (reasons.find((r) => r) ?? fallback)
 }
 
 /** 給畫面的：現在這一張圖看過的格子、站的位置、這一格能做的事、四個方向能不能走。 */
@@ -148,7 +172,8 @@ export function gridWalk(k: GridKernel, state: GameState, to: GridDir | [number,
   let pos: GridPos = { ...start.at }
   let path: Array<{ x: number; y: number }>
   if (Array.isArray(to)) {
-    const pass = (x: number, y: number) => passBlock({ ...start, sheet, at: pos }, x, y) === null
+    // 放行規則拿到的 at 是「從哪一格往那一格走」：尋路時每一格都用它的前一格問（單向的鏈路才認得出從哪一邊來）
+    const pass = (x: number, y: number, from?: { x: number; y: number }) => passBlock({ ...start, sheet, at: from ? { ...pos, x: from.x, y: from.y } : pos }, x, y) === null
     const found = sheet.findPath({ x: pos.x, y: pos.y }, { x: to[0], y: to[1] }, pass)
     if (!found) throw new GridBlocked('走不到那裡。')
     path = found.slice(1)

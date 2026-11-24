@@ -8,6 +8,7 @@
 
 import type { GameState } from '../core/types'
 import { STATE_VERSION } from '../core/types'
+import { genMapProblems } from '../core/grid/model'
 import { blankState } from '../core/state/blank'
 import { battleProblems, underageAt, validateActor } from '../core/state/coreChanges'
 import { sanitizeRules } from '../core/state/saveRules'
@@ -64,6 +65,11 @@ export const MIGRATIONS: Migration[] = [
     from: 2,
     note: 'M2：多了 meters（量表：照種類與對象分開記、有範圍的數字；dev/adr/0016 第三節）。第 2 版的存檔讀進來補一張空的表。',
     run: (state) => ({ ...state, meters: isRecord(state.meters) ? state.meters : {} }),
+  },
+  {
+    from: 3,
+    note: 'M3：地圖實例可以自己帶定義（maps.instances[].gen：生成的地圖，整份存在實例裡；dev/adr/0018 第五節）。多的是一個選填的欄位，第 3 版讀進來不用補東西。',
+    run: (state) => state,
   },
 ]
 
@@ -127,6 +133,10 @@ export function validateState(s: unknown): string[] {
   // 壞掉的戰鬥讀進來會卡死：每一步都丟錯，又因為「正在戰鬥」什麼別的都不能做
   if (s.battle !== null && s.battle !== undefined) for (const e of battleProblems(s.battle)) p.push(`battle：${e}`)
   if (!isRecord(s.maps) || !isRecord(s.maps.instances) || !(s.maps.at === null || isRecord(s.maps.at))) p.push('maps：要有 instances 與 at')
+  // 生成的地圖（第 4 版）：實例自己帶的定義要合格（形狀與版面；沒有 gen 的實例是第 3 版以前的寫法，合法）。壞掉的定義讀進來會讓走路與畫面當機
+  else for (const [id, m] of Object.entries(s.maps.instances)) {
+    if (isRecord(m) && m.gen !== undefined) for (const e of genMapProblems(m.gen, String(m.def))) p.push(`maps.instances.${id}：${e}`)
+  }
   if (!Array.isArray(s.snapshots) || s.snapshots.some((x) => !isRecord(x) || typeof x.id !== 'string' || typeof x.kind !== 'string' || typeof x.raw !== 'string' || (x.owner !== undefined && typeof x.owner !== 'string'))) p.push('snapshots：每一份要有 id、kind 與 raw（owner 有的話要是字串）')
   // 量表（第 3 版）：種類 → 鍵 → 整數。種類有沒有人定義、值在不在範圍內這裡不看（沒有 kernel）：沒有人定義的種類照樣留著
   // （那個功能這一局沒裝，之後裝上就接得起來），範圍由變更套用時夾

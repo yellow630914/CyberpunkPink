@@ -3,10 +3,10 @@
 // 監視器、巡邏、門鎖的檢定（SITES 12.5 節）是 M2 的功能，掛在 pass 與 entered 上。
 
 import type { BattleSetup } from '../battle/setup'
-import type { Change, GameState, GridPos, Launch, ReportDraft, ReportTrigger } from '../types'
+import type { Change, GameState, GridPos, Launch, MarkerDef, ReportDraft, ReportTrigger, SpecialMapEntry } from '../types'
 import type { Probe } from '../state/probe'
 import type { RulesKernel } from '../rules/kernel'
-import type { MarkerDef, Sheet, SpecialMapEntry } from './model'
+import type { Sheet } from './model'
 
 export interface GridCtx {
   k: GridKernel

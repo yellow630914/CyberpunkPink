@@ -3,9 +3,9 @@
 // 一格一個字元、圖例把字元對到格子的種類、區塊另外一張同樣大小的圖、標記一筆一筆列出來。
 // 同一個模型給現實的固定版面（special_map）與內海的隨機生成（M3：生成器吐出同樣的 SheetDef）用。dev/adr/0012。
 
-import type { CellKind, CellPatch, GridPoint } from '../types'
-import type { ContentEntry } from '../content/registry'
-import { isRecord } from '../util/sanitize'
+import type { CellKind, CellPatch, GridPoint, MapGen, MarkerDef, SheetDef, SpotDef, LinkDef } from '../types'
+import { genShapeProblems } from '../state/coreChanges'
+import { isId, isRecord } from '../util/sanitize'
 
 /** 預設的圖例（COMMISSION_MAPS 1.1 節）：字元 → 格子的種類。 */
 export const DEFAULT_LEGEND: Record<string, CellKind> = {
@@ -24,6 +24,8 @@ export interface CellTraits {
   mark?: string
   /** 要條件才過得去（上鎖的門）：條件由功能註冊（機械檢定、憑證、接管控制區） */
   locked?: boolean
+  /** 要條件的格子沒有人註冊放行規則（或註冊的規則沒說原因）時，擋住的原因（給玩家看的句子）；沒寫是「門鎖著。」 */
+  lockedReason?: string
 }
 
 /**
@@ -59,89 +61,52 @@ export const CELL_TRAITS: Record<CellKind, CellTraits> = {
   extract: { walk: true, see: true, mark: 'X' },
   facility: { walk: true, see: true, mark: 'F' },
   spot: { walk: true, see: true, mark: '!' },
+  // ---- 網內的節點（M3；CYBERSPACE 8.1 節的「節點」表；dev/adr/0018 第五節）：標記用小寫字母，和現實的大寫不撞（C 是現實的控制面板、c 是網內的控制節點）。
+  // 鏈路是 floor，不通的地方是 wall；全部看得穿。節點的規則（處理過改成什麼、放行的條件）由 netrun 這類功能註冊，核心只有這十三種的性質 ----
+  net_gate: { walk: true, see: true, mark: 'g' },
+  net_archive: { walk: true, see: true, mark: 'a' },
+  net_control: { walk: true, see: true, mark: 'c' },
+  // 遭遇節點、機關、單向鏈路走不上去（N6：站在旁邊才列出開戰、潛行繞過、交涉，點地圖尋路不會誤闖進一場戰鬥）：沒有人放行就過不去，處理完改成 floor
+  net_foe: { walk: false, see: true, mark: 'f', locked: true, lockedReason: '有東西守在這個節點上。' },
+  net_person: { walk: true, see: true, mark: 'p' },
+  net_alarm: { walk: true, see: true, mark: 'w' },
+  net_loop: { walk: true, see: true, mark: 'o' },
+  net_puzzle: { walk: false, see: true, mark: 'm', locked: true, lockedReason: '這裡有一道機關擋著。' },
+  net_imprint: { walk: true, see: true, mark: 'i' },
+  net_rest: { walk: true, see: true, mark: 'r' },
+  net_safe: { walk: true, see: true, mark: 'b' },
+  // 單向的鏈路：放行規則拿到的 ctx.at 是現在站的那一格，功能靠它判斷從哪一邊來。沒有標記（版面上用 NET_LEGEND 的 v）
+  net_valve: { walk: false, see: true, locked: true, lockedReason: '這條鏈路是單向的，從這一邊過不去。' },
+  // 走過一次就斷的鏈路：走得上去；走過之後由功能把那一格改成 wall。沒有標記（版面上用 NET_LEGEND 的 x）
+  net_bridge: { walk: true, see: true },
 }
 
-/** 一個標記（DATA 9.3 節的 cells）。 */
-export interface MarkerDef {
-  /** 照「由上到下、由左到右」編號：E1、T2、$1、&1 */
-  id: string
-  at: [number, number]
-  mark: string
-  name: string
-  /** 入口的種類與條件（COMMISSION_TEMPLATES 的 entries[].need）；其他標記沒有 */
-  kind?: string
-  need?: Record<string, unknown>
+/**
+ * 網內地圖的圖例（生成器用；M3-core-mapgen）：# 牆、. 地板（鏈路）、E 入口，加上面十三種格子各一個字元
+ * （標記的字母本身；net_valve 用 v、net_bridge 用 x，它們沒有標記）。寫進每一張生成的圖的 legend：
+ * 其中的 o（迴圈碎片）蓋掉預設圖例的 o（半掩體），所以網內的圖一定要帶它。
+ */
+export const NET_LEGEND: Record<string, CellKind> = {
+  '#': 'wall', '.': 'floor', E: 'entry',
+  g: 'net_gate', a: 'net_archive', c: 'net_control', f: 'net_foe', p: 'net_person', w: 'net_alarm', o: 'net_loop', m: 'net_puzzle',
+  i: 'net_imprint', r: 'net_rest', b: 'net_safe', v: 'net_valve', x: 'net_bridge',
 }
 
-/** 遭遇點：在這裡開打時，戰場的八格遮蔽照它的配置。 */
-export interface SpotDef {
-  /** 模板的編號：!1、!2 */
-  id: string
-  at: [number, number]
-  /** dense、medium、sparse、one_sided，或八格逐格寫 */
-  cover: string | { ally: number[]; foe: number[] }
-  /** 場地效果：dark、crowd…… */
-  field?: string[]
-}
+/** 視野的半徑：平常 5 格；整張沒有燈（排水道、隧道）的圖只剩腳下與相鄰的格（SITES 第 11 節）。SheetDef.sight 可以蓋掉它。 */
+export const SIGHT = { lit: 5, dark: 1 }
 
-export interface ControlDef {
-  id: string
-  at: [number, number]
-  zones: string[]
-  /** 子網裡對應的控制節點 id（cn_ 開頭） */
-  node: string
-  devices: string[]
-}
-
-export interface LinkDef {
-  /** 這一張圖上的一格或幾格（樓梯、電梯、相通的門） */
-  at: Array<[number, number]>
-  /** 接到哪一張圖 */
-  to: string
-  /** 到了那一張站在哪；沒寫就站在那一張接回這一張的連接格 */
-  land?: [number, number]
-}
-
-export interface PatrolDef {
-  guard: string
-  /** 照順序走過的區塊 */
-  route: string[]
-}
-
-/** 一張圖（DATA 9.3 節的 sheets[]）。 */
-export interface SheetDef {
-  id: string
-  name: string
-  size: [number, number]
-  layout: string[]
-  legend?: Record<string, CellKind>
-  zones?: string[]
-  zone_names?: Record<string, string>
-  cells?: MarkerDef[]
-  spots?: SpotDef[]
-  controls?: ControlDef[]
-  patrols?: PatrolDef[]
-  links?: LinkDef[]
-  scout?: Array<{ reveal: string; at: string }>
-  /** 整張沒有燈（排水道、隧道）：視野只剩腳下（SITES 第 11 節） */
-  dark?: boolean
-}
-
-/** 一個地圖的定義（DATA 9.3 節；一個模板一筆，裡面一到幾張圖）。內容種類 special_map。 */
-export interface SpecialMapEntry extends ContentEntry {
-  /** 模板的種類（office_small、club……） */
-  kind: string
-  size: [number, number]
-  max_maps?: number
-  district_weight?: Record<string, number>
-  fits?: string[]
-  sheets: SheetDef[]
+/** 一張圖的視野半徑：有寫 sight 用它（1～9），否則沒有燈是 1、平常是 5。 */
+export function sightOf(def: SheetDef): number {
+  return typeof def.sight === 'number' && Number.isInteger(def.sight) && def.sight >= 1 && def.sight <= 9 ? def.sight : def.dark ? SIGHT.dark : SIGHT.lit
 }
 
 export const pointKey = (x: number, y: number): string => `${x},${y}`
 const DIRS: Array<[number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]]
 export const GRID_DIRS = { east: [1, 0], west: [-1, 0], south: [0, 1], north: [0, -1] } as const
 export type GridDir = keyof typeof GRID_DIRS
+
+/** 過不過得去：(x, y) 是要走進的那一格，from 是從哪一格過來（沒有時是 undefined）。 */
+export type PassFn = (x: number, y: number, from?: GridPoint) => boolean
 
 /** 一張讀好的圖：每一格的種類，加上查詢。patch 是這一份實例上被改過的格子（門開了）。 */
 export class Sheet {
@@ -196,10 +161,14 @@ export class Sheet {
     return (this.def.links ?? []).find((l) => l.at.some(([lx, ly]) => lx === x && ly === y))
   }
 
-  /** 四方向的最短路（BFS）。回傳含起點與終點的路；走不到回傳 null。pass 可以多放行幾種格子（已經打開的鎖）。 */
-  findPath(from: GridPoint, to: GridPoint, pass: (x: number, y: number) => boolean = (x, y) => this.walkable(x, y)): GridPoint[] | null {
-    if (!this.inBounds(to.x, to.y) || !pass(to.x, to.y)) return null
-    if (from.x === to.x && from.y === to.y) return [from]
+  /**
+   * 四方向的最短路（BFS）。回傳含起點與終點的路；走不到回傳 null。
+   * pass 可以多放行幾種格子（已經打開的鎖）；第三個參數是「從哪一格往這一格走」（單向的鏈路要看從哪一邊來）：
+   * 每個鄰格都用它的前一格問；起點等於終點時是起點自己。
+   */
+  findPath(from: GridPoint, to: GridPoint, pass: PassFn = (x, y) => this.walkable(x, y)): GridPoint[] | null {
+    if (!this.inBounds(to.x, to.y)) return null
+    if (from.x === to.x && from.y === to.y) return pass(to.x, to.y, from) ? [from] : null
     const prev = new Map<string, GridPoint>()
     const seen = new Set<string>([pointKey(from.x, from.y)])
     const queue: GridPoint[] = [from]
@@ -208,7 +177,7 @@ export class Sheet {
       for (const [dx, dy] of DIRS) {
         const n = { x: cur.x + dx, y: cur.y + dy }
         const key = pointKey(n.x, n.y)
-        if (seen.has(key) || !this.inBounds(n.x, n.y) || !pass(n.x, n.y)) continue
+        if (seen.has(key) || !this.inBounds(n.x, n.y) || !pass(n.x, n.y, cur)) continue
         seen.add(key)
         prev.set(key, cur)
         if (n.x === to.x && n.y === to.y) {
@@ -226,8 +195,8 @@ export class Sheet {
     return null
   }
 
-  /** 從起點走得到的所有格子（'x,y'）。 */
-  reachable(from: GridPoint, pass: (x: number, y: number) => boolean = (x, y) => this.walkable(x, y)): Set<string> {
+  /** 從起點走得到的所有格子（'x,y'）。pass 的第三個參數和 findPath 一樣。 */
+  reachable(from: GridPoint, pass: PassFn = (x, y) => this.walkable(x, y)): Set<string> {
     const seen = new Set<string>([pointKey(from.x, from.y)])
     const queue: GridPoint[] = [from]
     while (queue.length) {
@@ -235,7 +204,7 @@ export class Sheet {
       for (const [dx, dy] of DIRS) {
         const x = cur.x + dx, y = cur.y + dy
         const key = pointKey(x, y)
-        if (seen.has(key) || !this.inBounds(x, y) || !pass(x, y)) continue
+        if (seen.has(key) || !this.inBounds(x, y) || !pass(x, y, cur)) continue
         seen.add(key)
         queue.push({ x, y })
       }
@@ -290,8 +259,17 @@ export const STREET_MAP_KINDS: readonly string[] = ['block', 'bridge']
 /** 這個種類的地圖是不是城市的街區地圖（不要求遭遇點）。 */
 export const isStreetMapKind = (kind: unknown): boolean => typeof kind === 'string' && STREET_MAP_KINDS.includes(kind)
 
+/**
+ * 網內的地圖（M3）：special_map 的 kind 是這幾種之一，就是網內的世界（子網、迷宮館、沉船帶、深海），不要求每張圖有 2 個遭遇點
+ * （遭遇是節點，不是遭遇點）。和街區地圖同一個做法：現實的探索（features/explore）看到網內的地圖一律不作用，netrun 只在網內的地圖上作用。
+ */
+export const NET_MAP_KINDS: readonly string[] = ['subnet', 'maze', 'wreck', 'deep']
+
+/** 這個種類的地圖是不是網內的地圖。 */
+export const isNetMapKind = (kind: unknown): boolean => typeof kind === 'string' && NET_MAP_KINDS.includes(kind)
+
 export interface SheetCheckOpts {
-  /** 每一張至少要有幾個遭遇點；預設 2（COMMISSION_MAPS 第 1 節），街區地圖是 0 */
+  /** 每一張至少要有幾個遭遇點；預設 2（COMMISSION_MAPS 第 1 節），街區地圖與網內的地圖是 0 */
   minSpots?: number
 }
 
@@ -344,6 +322,7 @@ export function sheetProblems(def: SheetDef, siblings: string[] = [], opts: Shee
     else for (const ch of row) if (!legend[ch] || !CELL_TRAITS[legend[ch]!]) p.push(`${at}：layout 第 ${y} 列有圖例沒有的字元 ${JSON.stringify(ch)}`)
   })
   if (def.zones !== undefined && !(Array.isArray(def.zones) && def.zones.length === h && def.zones.every((row) => typeof row === 'string' && [...row].length === w))) p.push(`${at}：zones 要和 layout 一樣大`)
+  if (def.sight !== undefined && !(Number.isInteger(def.sight) && def.sight >= 1 && def.sight <= 9)) p.push(`${at}：sight（視野的半徑）要是 1～9 的整數`)
   if (p.length) return p
   // cells、spots、links 的形狀：資料寫壞時回問題清單，不丟例外（GAME_DESIGN 第 3 節第 13 條；B020）
   const shape = sheetShapeProblems(def, at)
@@ -385,7 +364,19 @@ export function specialMapProblems(e: Record<string, unknown>): string[] {
   const sheets = e.sheets as SheetDef[]
   const ids = sheets.map((s) => s?.id)
   if (new Set(ids).size !== ids.length) p.push('sheets 的 id 不能重複')
-  const opts: SheetCheckOpts = isStreetMapKind(e.kind) ? { minSpots: 0 } : {}
+  const opts: SheetCheckOpts = isStreetMapKind(e.kind) || isNetMapKind(e.kind) ? { minSpots: 0 } : {}
   for (const s of sheets) p.push(...sheetProblems(s, ids as string[], opts))
   return p
+}
+
+/**
+ * 地圖實例自己帶的定義（MapInstance.gen）合不合格：形狀（genShapeProblems：是物件、map 的 id 等於 def、seed 是安全整數、by 是字串）
+ * 加上定義本身過 specialMapProblems。存檔的驗證用它；提交 map.open 時 L3 沒有 L5 的檢查，改問內容登錄表的 special_map 種類（同一個函式）。
+ */
+export function genMapProblems(gen: unknown, def: string): string[] {
+  const p = genShapeProblems(gen, def)
+  if (p.length) return p
+  const map = (gen as MapGen).map
+  if (!isId(map.id)) p.push('gen.map.id 的格式不對（小寫英文、數字與底線）')
+  return [...p, ...specialMapProblems(map as unknown as Record<string, unknown>)]
 }
