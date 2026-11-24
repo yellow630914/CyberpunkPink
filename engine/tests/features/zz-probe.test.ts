@@ -1,15 +1,20 @@
 import { it } from 'vitest'
-import { makeBattleGame, playOut, netAvatar } from '../../src/testkit'
+import { makeBattleGame, netAvatar } from '../../src/testkit'
 import { enemiesFeature } from '../../src/features/enemies'
 import { deckFeature } from '../../src/features/deck'
 import { TEST_NET_COMBAT } from '../../src/testkit'
 import { raw } from '../helpers/battle'
 import { PACK } from './M3-lace.test'
+import { writeFileSync } from 'node:fs'
 it('probe', () => {
-  for (const grade of [1, 3, 5] as const) {
-    const setup = { mode: 'net', grade, cover: 'medium', allies: [0,1,2,3].map((i) => raw(netAvatar(i, grade))), foes: [{ from: 'enemy', id: 'en_gate' }, { from: 'enemy', id: 'en_gate' }], origin: {} } as never
-    const t = makeBattleGame({ features: [enemiesFeature, deckFeature, TEST_NET_COMBAT], content: [PACK], seed: 9 + grade, battle: setup })
-    const t0 = Date.now()
-    try { const r = playOut(t.game, 3000); console.log(grade, r, Date.now() - t0) } catch (e) { console.log(grade, 'ERR', (e as Error).message, Date.now() - t0) }
+  const grade = 1
+  const setup = { mode: 'net', grade, cover: 'medium', allies: [0,1,2,3].map((i) => raw(netAvatar(i, grade))), foes: [{ from: 'enemy', id: 'en_gate' }, { from: 'enemy', id: 'en_gate' }], origin: {} } as never
+  const t = makeBattleGame({ features: [enemiesFeature, deckFeature, TEST_NET_COMBAT], content: [PACK], seed: 9 + grade, battle: setup })
+  let log = ''
+  for (let i = 0; i < 400 && !t.game.battle?.result; i++) {
+    const b = t.game.battle!
+    log += `${i} r${b.round} turn ${b.order[b.turn]} ${JSON.stringify(Object.values(b.units).map((u) => [u.id, u.load?.now, u.pools.ram?.now, u.ap.now, u.out]))}\n`
+    writeFileSync('/tmp/claude-0/-home-user-CyberpunkPink/59ded358-0440-5225-ba4d-18b6cdad343b/scratchpad/probe.log', log)
+    t.game.battleNext({ anyone: true })
   }
 })
