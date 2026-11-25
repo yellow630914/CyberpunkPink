@@ -3,7 +3,8 @@
 // 設計圖、零件的格式與讀零件的小工具在核心（core/content/product.ts；M4-core-product，dev/adr/0019 第一節）：這裡只留 gear 自己的名字。
 
 import type { ActorId, BlueprintEntry, CarrySlot, FittedPart, GameState, ItemEntry, ItemStack, Kernel, PartEntry, PartNeed, WearSlot } from '../../core'
-import { BLUEPRINT_KINDS, CARRY_SLOTS, WEAR_SLOTS, WEIGHT_CLASSES, blueprintOf as blueprintOfContent, isRecord, partsOf as partsOfContent, stackOf } from '../../core'
+import type { ProductInfo } from '../../core'
+import { BLUEPRINT_KINDS, CARRY_SLOTS, WEAR_SLOTS, WEIGHT_CLASSES, blueprintOf as blueprintOfContent, isRecord, partsOf as partsOfContent, productOf, stackOf } from '../../core'
 
 // 設計圖與零件的格式搬進核心之後，gear 照舊從這裡拿這些名字
 export { BLUEPRINT_KINDS, CARRY_SLOTS, WEAR_SLOTS, WEIGHT_CLASSES, stackOf }
@@ -78,6 +79,11 @@ export function blueprintOf(k: Kernel, stack: ItemStack | undefined): BlueprintE
 /** 一件成品裝著的零件（找不到的零件 id 略過；內嵌的零件也讀得到：經核心的 partOf）。type 是裝在哪一類（parts 的鍵）。 */
 export function partsOf(k: Kernel, stack: ItemStack): FittedPart[] {
   return partsOfContent(k.content, stack.data)
+}
+
+/** 這一疊成品合起來是什麼（核心的 productOf：零件、drawback、quirk、精工的 bonus 都在 stats 裡）；不是成品、查不到設計圖是 undefined。 */
+export function productOfStack(k: Kernel, stack: ItemStack | undefined): ProductInfo | undefined {
+  return stack ? productOf(k.content, stack.id, stack.data) : undefined
 }
 
 export interface WornPiece {

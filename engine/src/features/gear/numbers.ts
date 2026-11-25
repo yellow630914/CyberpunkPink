@@ -3,20 +3,28 @@
 import type { BattleWeapon, GameState, ItemEntry, ItemStack, Kernel, WeaponClassEntry } from '../../core'
 import { attrMod, gradeDice, weaponFromClass } from '../../core'
 import type { BlueprintEntry, Gear } from './model'
-import { CARRY_SLOTS, blueprintOf, gearOf, num, partStat, partsOf, stackOf, wornPieces } from './model'
+import { CARRY_SLOTS, blueprintOf, gearOf, num, partStat, partsOf, productOfStack, stackOf, wornPieces } from './model'
 
 // ---- 護甲 ----
 
-/** 一件 ＝ 設計圖的基礎 ＋ 纖維 ＋ 最好的一塊板材 ＋ 其他每塊板材的一半（還沒捨去）。 */
-function pieceArmor(k: Kernel, stack: ItemStack, bp: BlueprintEntry): number {
+/**
+ * 一件 ＝ 設計圖的基礎 ＋ 纖維 ＋ 最好的一塊板材 ＋ 其他每塊板材的一半（還沒捨去）。
+ * 再加上零件以外給的護甲（零件的 drawback、怪癖、精工的 bonus：核心 productOf 的 stats 扣掉每個零件自己的 stats）；全部加起來最少 0。
+ */
+export function pieceArmor(k: Kernel, stack: ItemStack, bp: BlueprintEntry): number {
+  const info = productOfStack(k, stack)
+  const fitted = info?.parts ?? partsOf(k, stack)
   let fiber = 0
+  let own = 0
   const plates: number[] = []
-  for (const { type, part } of partsOf(k, stack)) {
+  for (const { type, part } of fitted) {
+    own += partStat(part, 'armor')
     if (type === 'fiber') fiber += partStat(part, 'armor')
     else if (type === 'plate') plates.push(partStat(part, 'armor'))
   }
   plates.sort((a, b) => b - a)
-  return num(bp.armor) + fiber + (plates[0] ?? 0) + plates.slice(1).reduce((n, v) => n + v / 2, 0)
+  const extra = info ? (info.stats.armor ?? 0) - own : 0
+  return Math.max(0, num(bp.armor) + fiber + (plates[0] ?? 0) + plates.slice(1).reduce((n, v) => n + v / 2, 0) + extra)
 }
 
 /** 身上最高的那一件（不疊；佔頭的那一件不算在這裡）與頭盔（佔 head 的那一件，值大於 0 就 +1）。 */
@@ -55,8 +63,10 @@ export function bodyArmorOf(k: Kernel, state: GameState, actor: string): number 
 function buildWeapon(k: Kernel, state: GameState, actor: string, stack: ItemStack, bp: BlueprintEntry): BattleWeapon {
   const uid = stack.data!.uid as string
   const cls = k.content.require<WeaponClassEntry>('weapon_class', bp.class ?? '')
-  const parts = partsOf(k, stack)
-  const sum = (key: string) => parts.reduce((n, p) => n + partStat(p.part, key), 0)
+  // 零件、零件的 drawback、帶著的怪癖與精工的 bonus 都在 productOf 的 stats 裡
+  const info = productOfStack(k, stack)
+  const parts = info?.parts ?? partsOf(k, stack)
+  const sum = (key: string) => (info ? info.stats[key] ?? 0 : parts.reduce((n, p) => n + partStat(p.part, key), 0))
   const melee = cls.traits.includes('melee')
   // 決定傷害的零件：槍是槍管，近戰是刃；有好幾個時看最高的等級
   const damagePart = melee ? 'blade' : 'barrel'
