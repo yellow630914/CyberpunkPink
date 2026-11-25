@@ -7,7 +7,10 @@
 
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+// 這個檔掃整份原始碼，全套平行跑時常超過 10 秒（2026-11-25）。
+vi.setConfig({ testTimeout: 30_000 })
 import { allFeatures } from '../../src/features'
 import { makeWorldGame } from '../../src/testkit'
 
