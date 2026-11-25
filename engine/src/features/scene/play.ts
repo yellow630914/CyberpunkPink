@@ -142,7 +142,9 @@ export class Play {
     const mod = (id: ActorId, attr: 'resolve' | 'reflex' | 'charm'): number => attrMod(k.stats.effectiveAttr(state, id, attr))
     this.res = per((id) => resonanceOf(k, state, id, this.s.kind === 'solo'))
     // 共鳴 load_cap：成人場景裡感載上限的加減（只在場景裡有效，所以不走衍生數值；NIGHT_LESSONS 身體 2 階）
-    this.loadMax = per((id) => Math.max(1, statOr(k, state, id, 'load_cap', 20 + mod(id, 'resolve') * 3) + (this.res[id]?.load_cap ?? 0)))
+    // 進行中的場景裡，衍生數值 load_cap 已經帶著共鳴那一筆（被動效果的來源 night）：先扣掉再加，才不會算兩次（場景還沒開、在別的狀態上試算時沒有那一筆，扣的是 0）
+    const nightCap = (id: ActorId): number => k.passives.parts(state, id, 'stat', 'load_cap').filter((x) => x.source === 'night').reduce((n, x) => n + x.value, 0)
+    this.loadMax = per((id) => Math.max(1, statOr(k, state, id, 'load_cap', 20 + mod(id, 'resolve') * 3) - nightCap(id) + (this.res[id]?.load_cap ?? 0)))
     this.glowMax = per((id) => statOr(k, state, id, 'afterglow_cap', 3))
     this.apMax = per((id) => Math.max(1, statOr(k, state, id, 'ap_max', 4 + Math.floor((mod(id, 'reflex') + mod(id, 'charm')) / 2))))
     this.sens = per((id) => sensitivityOf(k, state, id))

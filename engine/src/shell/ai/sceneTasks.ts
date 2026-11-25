@@ -205,8 +205,14 @@ export interface TurnOutput {
 
 export const TURN_LINE_MAX = 60
 
-/** scene_turn 可以交的行動種類：十種裡沒有 stop（場景由玩家結束）；換圈與叫人是主角的行動，這裡不收。 */
-export const TURN_KINDS: readonly string[] = ['dominate', 'yield', 'tease', 'restrain', 'end_turn', 'skill', 'item', 'talk', 'switch', 'gear', 'faster', 'slower']
+/**
+ * scene_turn 可以交的行動種類：十種裡沒有 stop（場景由玩家結束）；換圈與叫人是主角的行動，這裡不收。
+ * once（共鳴給的每場一次的特殊動作：set_init、fit_floor）與 dress（脫下或換上一件衣服）是夜課共鳴給的行動（M4-followups-2 第 12 項）：
+ * 合法才會出現在 <legal> 裡（程式問過 blocks），AI 只能從清單裡選。
+ */
+export const TURN_KINDS: readonly string[] = ['dominate', 'yield', 'tease', 'restrain', 'end_turn', 'skill', 'item', 'talk', 'switch', 'gear', 'faster', 'slower', 'once', 'dress']
+/** once 的 id 與 set_init 的值（共鳴寫 70 或 30）。 */
+export const ONCE_IDS: readonly string[] = ['set_init', 'fit_floor']
 
 /** 一個行動的格式問題（一句）；沒有問題是 null。只看格式：合不合規由功能在 env.moves 驗。回傳整理過的行動（只留 SceneInput 的欄位）。 */
 export function moveShape(m: unknown): { move: SceneInput } | { problem: string } {
@@ -225,6 +231,14 @@ export function moveShape(m: unknown): { move: SceneInput } | { problem: string 
   if (m.kind === 'gear') {
     if (typeof m.gear !== 'string' || !(SYNC_GEARS as readonly string[]).includes(m.gear)) return { problem: `gear 要是 ${SYNC_GEARS.join('、')} 其中一個` }
     out.gear = m.gear
+  }
+  if (m.kind === 'once') {
+    if (typeof m.id !== 'string' || !ONCE_IDS.includes(m.id)) return { problem: `once 要指明是哪一個（id：${ONCE_IDS.join('、')}）` }
+    out.id = m.id
+    if (m.value !== undefined) {
+      if (typeof m.value !== 'number' || !Number.isFinite(m.value)) return { problem: 'once 的 value 要是數字' }
+      out.value = m.value
+    }
   }
   if (m.target !== undefined) {
     if (typeof m.target !== 'string' || !m.target) return { problem: 'target 要是角色的 id' }

@@ -51,6 +51,13 @@ function plainStatuses(u: CellUnit): string[] {
   const shown = new Set(marksOf(u).map((m) => m.key))
   return u.statuses.filter((_, i) => !shown.has(`st:${u.statusIds[i]}`))
 }
+/**
+ * 有雙形象的敵人（CYBERSPACE 8.7 節）：名牌與立繪的鍵讀引擎的 unitFormView（對它鎖定的目標是 A 還是擲到的那一個；沒鎖定照主角）。
+ * 引擎的戰鬥單位沒有「現在鎖定誰」這個欄位（已回報），所以目前一律沒有鎖定：照主角；有了欄位之後把它回在 lockOf。名字與外觀由引擎給，畫面不判斷性別。
+ */
+const lockOf = (_foeId: string): string | null => null
+const formOf = (id: string) => (engine.inBattle ? engine.curtain.unitForm(id, lockOf(id)) : null)
+const nameOf = (u: { id: string; name: string; side: string }): string => (u.side === 'foe' ? formOf(u.id)?.current.name ?? u.name : u.name)
 const noBattle = computed(() => !engine.inBattle && !engine.pendingDefeat && !afterBattle.spoils.value)
 </script>
 
@@ -91,7 +98,7 @@ const noBattle = computed(() => !engine.inBattle && !engine.pendingDefeat && !af
         <Hint v-if="isNet" title="內海戰鬥">和現實同一個版面：卡片上只有感載一條，遮蔽換成防火牆。攻擊花 RAM；同步檔位每回合換一次：越深檢定越高、受到的感載越重。餘韻在內海裡是加成。感載在內海不會自己消退（基礎是 0）：只有技能與甲板的散熱、休息點與腳本會把它降下來。追蹤度隨回合往上，過了刻度對方會增援，被定位就會被強制斷線。過載的人會閃斷：RAM 斷了，到狀態結束才回復。拔線（長按）讓這個人登出；全隊都拔線就是撤退。鍵盤：1～9 按圓環的格，Tab 換目標、Enter 確定、Esc 取消，空白鍵結束回合。</Hint>
         <Hint v-else title="現實戰鬥">雙方各一排四格，面對面；格子底下是那一格的遮蔽。卡片上紅的是生命、粉的是感載，圓點是餘韻（疊滿之後再過載就倒下）。鍵盤：1～9 按圓環的格，Tab 換目標、Enter 確定、Esc 取消，空白鍵結束回合。脫離與投降要長按。手機上敵人在上排、我方在下排，兩排的第 1 格都在左邊。</Hint>
         <div class="bt-order" aria-label="先攻條" style="flex-basis: 100%">
-          <span v-for="o in view.order" :key="o.id" class="bt-chip" :class="{ e: o.side === 'foe', now: o.now, gone: !!o.out, pinned: o.out === 'pinned' }" :title="o.out ? outLabel(o.out) : undefined" :data-out="o.out || undefined">{{ o.name }}<small v-if="o.out === 'pinned' || o.out === 'jacked_out'">　{{ outLabel(o.out) }}</small></span>
+          <span v-for="o in view.order" :key="o.id" class="bt-chip" :class="{ e: o.side === 'foe', now: o.now, gone: !!o.out, pinned: o.out === 'pinned' }" :title="o.out ? outLabel(o.out) : undefined" :data-out="o.out || undefined">{{ nameOf(o) }}<small v-if="o.out === 'pinned' || o.out === 'jacked_out'">　{{ outLabel(o.out) }}</small></span>
         </div>
       </section>
 
@@ -115,10 +122,10 @@ const noBattle = computed(() => !engine.inBattle && !engine.pendingDefeat && !af
                 </div>
                 <div v-if="cellOf(p)!.unit" class="bt-u" :class="[{ e: p.side === 'foe', act: cellOf(p)!.unit!.id === options.current && !over }, stateOf(unitHit(cellOf(p)!)), { foc: isFocused(`u:${cellOf(p)!.unit!.id}`) }]"
                   :role="unitHit(cellOf(p)!) ? 'button' : undefined" :tabindex="unitHit(cellOf(p)!) ? 0 : undefined"
-                  :data-unit="cellOf(p)!.unit!.id" :aria-label="`${cellOf(p)!.unit!.name}，${cellOf(p)!.unit!.hp ? `生命 ${cellOf(p)!.unit!.hp!.now}，` : ''}感載 ${cellOf(p)!.unit!.load?.now ?? '無'}`"
+                  :data-unit="cellOf(p)!.unit!.id" :data-form="formOf(cellOf(p)!.unit!.id)?.current.form" :title="formOf(cellOf(p)!.unit!.id)?.current.look" :aria-label="`${nameOf(cellOf(p)!.unit!)}，${cellOf(p)!.unit!.hp ? `生命 ${cellOf(p)!.unit!.hp!.now}，` : ''}感載 ${cellOf(p)!.unit!.load?.now ?? '無'}`"
                   @click.stop="activate(unitHit(cellOf(p)!))"
                   @keydown.enter.stop.prevent="activate(unitHit(cellOf(p)!))">
-                  <div class="bt-nm"><b>{{ cellOf(p)!.unit!.name }}</b><small><span v-if="chanceOf(unitHit(cellOf(p)!))" class="hc" data-chance>{{ chanceOf(unitHit(cellOf(p)!)) }}</span> {{ rankLabel(p.side, cellOf(p)!.unit!.rank) }}</small></div>
+                  <div class="bt-nm"><b data-nameplate>{{ nameOf(cellOf(p)!.unit!) }}</b><small><span v-if="chanceOf(unitHit(cellOf(p)!))" class="hc" data-chance>{{ chanceOf(unitHit(cellOf(p)!)) }}</span> {{ rankLabel(p.side, cellOf(p)!.unit!.rank) }}</small></div>
                   <div v-if="cellOf(p)!.unit!.hp" class="bt-row" style="color: var(--hp)" data-row="hp"><svg class="bt-i" viewBox="0 0 512 512" aria-label="生命"><path :d="COMBAT_ICONS.hp" /></svg><span class="bt-bar"><i :style="{ width: pct(cellOf(p)!.unit!.hp!.now, cellOf(p)!.unit!.hp!.max), background: 'var(--hp)' }" /></span><span class="num">{{ cellOf(p)!.unit!.hp!.now }}</span></div>
                   <div v-if="cellOf(p)!.unit!.load" class="bt-row" style="color: var(--load)" data-row="load"><svg class="bt-i" viewBox="0 0 512 512" aria-label="感載"><path :d="COMBAT_ICONS.load" /></svg><span class="bt-bar"><i :style="{ width: pct(cellOf(p)!.unit!.load!.now, cellOf(p)!.unit!.load!.max), background: 'var(--load)' }" /></span><span class="num">{{ cellOf(p)!.unit!.load!.now }}</span></div>
                   <div class="bt-row" :title="isNet ? '餘韻層數（每層檢定加成；疊滿之後再過載就斷線）' : '餘韻層數（疊滿之後再過載就倒下）'"><span class="bt-pips l"><i v-for="n in cellOf(p)!.unit!.layersMax" :key="n" :class="{ f: n <= cellOf(p)!.unit!.layers }" /></span></div>
@@ -156,7 +163,7 @@ const noBattle = computed(() => !engine.inBattle && !engine.pendingDefeat && !af
         <section class="panel cut bt-actp" :data-phase="myTurn ? 'player' : over ? 'over' : 'enemy'">
           <ActionRing :items="ringItems" :selected="selId" :off="!myTurn" :skill-open="skillOpen" ram-label @act="chooseAction" @skill="skillOpen = !skillOpen" />
           <div class="bt-side">
-            <div v-if="cur" class="bt-who"><span class="k">現在</span><b>{{ cur.side === 'foe' ? '敵・' : '' }}{{ cur.name }}</b><span class="t-fine">第 {{ cur.slot }} 格</span><span v-if="myTurn" class="t-fine" data-ap>行動點 {{ cur.ap.now }}／{{ cur.ap.max }}<template v-if="cur.pools.ram">・RAM {{ cur.pools.ram.now }}／{{ cur.pools.ram.max }}</template><small class="mono" data-ap-regen title="每個回合開始回的行動點（COMBAT_SYSTEM 1.2 節）；上限另外算。">每回合回 {{ cur.ap.regen }}</small></span></div>
+            <div v-if="cur" class="bt-who"><span class="k">現在</span><b>{{ cur.side === 'foe' ? '敵・' : '' }}{{ nameOf(cur) }}</b><span class="t-fine">第 {{ cur.slot }} 格</span><span v-if="myTurn" class="t-fine" data-ap>行動點 {{ cur.ap.now }}／{{ cur.ap.max }}<template v-if="cur.pools.ram">・RAM {{ cur.pools.ram.now }}／{{ cur.pools.ram.max }}</template><small class="mono" data-ap-regen title="每個回合開始回的行動點（COMBAT_SYSTEM 1.2 節）；上限另外算。">每回合回 {{ cur.ap.regen }}</small></span></div>
             <div v-if="view.distances.length" class="t-fine" data-distances>距離：{{ view.distances.map((d) => `${d.name} ${d.distance}`).join('・') }}</div>
             <NetSync v-if="gears" :panel="gears" @shift="shiftTo" />
             <NetAdmin v-if="admin" :panel="admin" :selected="selId" @pick="chooseAction" />

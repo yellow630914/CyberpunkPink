@@ -103,12 +103,14 @@ describe('M0-actions：行動種類由資料驅動（AI_TASKS 3.1 節；CORE_RUL
     expect(judged(k, makeState(), 'beg', 'critical', 9)).toEqual([{ kind: 'cash', amount: 40 }])
   })
 
-  it('資料裡的 free 取代核心內建的自由行動（多了參考範圍）；寫了別的任務鏈的種類先不註冊（那一條鏈搬進來之前只是資料）', () => {
-    const k = kernel([{ ...ACTIONS[0], id: 'free', name: '自由行動', attr: 'intellect', skill: undefined, minutes: 30, max_minutes: 240 }, { ...ACTIONS[1], id: 'flirt', chain: 'adult_action', hint_note: { success: '親密度 +3，可能進場景' } }, { ...ACTIONS[2], id: 'plain', chain: 'free_action' }])
+  it('資料裡的 free 取代核心內建的自由行動（多了參考範圍）；adult_action 的種類註冊成行動（帶 chain，M4-followups-2 第 7 項）；寫了別的任務鏈的種類先不註冊（那一條鏈搬進來之前只是資料）', () => {
+    const k = kernel([{ ...ACTIONS[0], id: 'free', name: '自由行動', attr: 'intellect', skill: undefined, minutes: 30, max_minutes: 240 }, { ...ACTIONS[1], id: 'flirt', chain: 'adult_action', hint_note: { success: '親密度 +3，可能進場景' } }, { ...ACTIONS[2], id: 'plain', chain: 'free_action' }, { ...ACTIONS[2], id: 'later', chain: 'media_stream' }])
     expect(k.actions.get('free')).toMatchObject({ owner: 'actions', attr: 'intellect', minutes: 30, maxMinutes: 240 })
     expect(k.actions.get('free')!.hint).toBeDefined()
-    expect(k.actions.get('flirt')).toBeUndefined()
+    expect(k.actions.get('flirt')).toMatchObject({ owner: 'actions', chain: 'adult_action' })
     expect(k.actions.get('plain')).toBeDefined()
+    expect(k.actions.get('plain')!.chain).toBeUndefined()
+    expect(k.actions.get('later')).toBeUndefined()
     // 沒有載入 free 的資料時，核心內建的預設還在
     expect(kernel([ACTIONS[0]!]).actions.get('free')).toMatchObject({ owner: 'core' })
     // 寫了別的鏈的種類照樣檢查格式與引用

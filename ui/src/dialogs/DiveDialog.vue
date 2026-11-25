@@ -45,6 +45,16 @@ async function exit() {
   if (report(await e.dive.exit(), '現在登不出。')) { ui.toast(e.state.reports.at(-1)?.outcome.summary ?? '登出了。'); ui.close() }
 }
 const confirmOut = ref(false)
+// 簾後館（M4-ui-curtain）：入口只在這裡（會員與面談、口味單、報名在簾後館的對話框）；能不能報名的原因是引擎的 doorBlock 與 enterBlocks
+const curtainMember = computed(() => e.curtain.member())
+const curtainDoor = computed(() => e.curtain.door())
+const curtainFall = computed(() => e.curtain.fall())
+const curtainLine = computed(() => {
+  const m = curtainMember.value
+  if (!m) return ''
+  if (m.member && !m.member.suspended) return `${m.member.name}會員・今晚還能報 ${m.runsLeft} 場`
+  return m.invite ? `有邀請函（還有 ${m.invite.daysLeft} 天），還沒有會員證` : '沒有會員證'
+})
 async function mazeEnter(b: { id: string; grade: number }) { report(await e.maze.enter(b.id, b.grade), '現在報不了名。') }
 </script>
 
@@ -96,6 +106,14 @@ async function mazeEnter(b: { id: string; grade: number }) { report(await e.maze
             <ReasonButton sm pri :reason="b.block" :data-enroll="bracketKey(b)" @go="mazeEnter(b)">報名</ReasonButton>
           </div>
         </div>
+      </section>
+
+      <section class="panel cut pad mt" data-curtain>
+        <p class="h">簾後館<Hint title="簾後館">暗礁裡會員制的成人地城：邀請函、面談、會員證、每週會費，一趟四幕，場熱換打賞。要站在簾口才能報名；簾口每週換位置，持有效的邀請函，領位員會帶你過去。</Hint></p>
+        <div class="kv"><span>你</span><b data-curtain-line>{{ curtainLine }}</b></div>
+        <div v-if="curtainFall" class="blocking" data-curtain-fall>落幕之後還有事要處理：補演與設備費、違約金。</div>
+        <div v-if="curtainDoor" class="note" data-curtain-door>{{ curtainDoor }}</div>
+        <div class="go left"><button type="button" class="btn sm pri" data-curtain-open @click="ui.open('curtain')">簾後館</button></div>
       </section>
 
       <section class="panel cut pad mt" data-exit>

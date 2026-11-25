@@ -617,8 +617,11 @@ describe('誰來做', () => {
     know(g, 'bp_pistol')
     const parts = { barrel: 'pt_barrel_3h', action: 'pt_action' }
     const pv = assemblyPreview(g.k, g.state, opts({ maker: 'doujin', parts }))
-    expect(pv).toMatchObject({ fee: 120, block: null, check: null })
-    expect(pv.difficulty!.overspec).toBe(3) // 難度只是參考：同人一定成功
+    // 同人社團的成功率高：照主角的檢定，DC 比設計圖的難度低 4（CRAFTING 10.1 節；M4-followups-2 第 4 項），不是一定成功
+    expect(pv).toMatchObject({ fee: 120, block: null })
+    expect(pv.check).not.toBeNull()
+    expect(pv.check!.dc).toBe(pv.difficulty!.total - 4)
+    expect(pv.difficulty!.overspec).toBe(3)
     g.commit(withDice(0.5, () => assembleDraft(g.k, g.state, opts({ maker: 'doujin', parts }))))
     expect(g.state.money.cred).toBe(5000 - 120)
     const made = product(g)!

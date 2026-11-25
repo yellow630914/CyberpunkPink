@@ -41,20 +41,6 @@ function judgeable(c: Condition, kinds: Set<string>): boolean {
   return kinds.has(c.kind)
 }
 
-/**
- * 量表的條件寫 key: 'any'（M4-night-resonance：豔名在任一區 20 以上）：這張量表的每一個鍵各試一次，有一個成立就算（區的、勢力的、角色的量表各查內容與角色；其餘的量表沒有鍵可展開，原樣）。
- * 只在夜課的學習條件裡展開（條件系統本身不認 any 這個鍵）；all、any、not 的裡面也展開。
- */
-function expandAnyKey(k: Pick<Kernel, 'content' | 'meters'>, state: GameState, c: Condition): Condition {
-  if (c.kind === 'all' || c.kind === 'any') return Array.isArray(c.of) ? { ...c, of: (c.of as Condition[]).map((x) => expandAnyKey(k, state, x)) } : c
-  if (c.kind === 'not') return isRecord(c.of) ? { ...c, of: expandAnyKey(k, state, c.of as Condition) } : c
-  if (c.key !== 'any' || !k.meters.has(c.kind)) return c
-  const keyed = k.meters.get(c.kind)?.keyed
-  const kind = keyed === 'district' ? 'district' : keyed === 'faction' ? 'faction' : null
-  const keys = kind !== null ? (k.content.hasKind(kind) ? k.content.list(kind).map((e) => e.id) : []) : keyed === 'npc' ? Object.keys(state.actors).filter((id) => id !== state.pc) : []
-  return { kind: 'any', of: keys.map((key) => ({ ...c, key })) }
-}
-
 /** 學習條件裡的每一條沒過的原因（階以外的：橋參數、性經歷、條件）；一條一句。 */
 function requireBlocks(k: Ctx, state: GameState, actor: ActorId, s: NightSkill): string[] {
   const out: string[] = []
@@ -83,7 +69,8 @@ function requireBlocks(k: Ctx, state: GameState, actor: ActorId, s: NightSkill):
       }
       let ok = false
       try {
-        ok = k.conditions.test(expandAnyKey(k, state, c), { state, actor, stats: k.stats, timeRules: k.timeRules })
+        // 量表的條件寫 key: 'any'（豔名在任一區 20 以上）由量表自己的條件展開（核心 rules/meters.ts；M4-followups-2 第 11 項），這裡不用特別處理
+        ok = k.conditions.test(c, { state, actor, stats: k.stats, timeRules: k.timeRules })
       } catch {
         out.push('這個條件現在還判斷不了。')
         continue

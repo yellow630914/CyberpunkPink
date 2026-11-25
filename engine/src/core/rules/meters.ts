@@ -17,9 +17,12 @@
 // 效果裡 adjusted: true 的意思是「amount 已經是修正過的量」：被合計的上限扣過的、以及 resolve 輸出的效果都是；再丟進 resolve 不會再修正一次。
 
 import type { Change, GameState } from '../types'
+import type { ContentRegistry } from '../content/registry'
 import type { MeterDef, MeterRegistry } from '../state/meters'
 import { clampMeter, defaultMeterKey, meterKeyLabel, meterKeyProblems, meterKeyRequired, meterValue, roundMeterAmount } from '../state/meters'
 import { isSafeInt } from '../util/sanitize'
+
+const own = (o: object | undefined, key: string): boolean => !!o && Object.hasOwn(o, key)
 import type { Condition, ConditionDef, ConditionRegistry } from './conditions'
 import type { Effect, EffectDef, EffectRegistry } from './effects'
 import { effectLevel } from './effects'
@@ -110,15 +113,36 @@ export function meterEffectDef(def: MeterDef, meters: MeterRegistry): EffectDef<
   }
 }
 
-function conditionDef(def: MeterDef): ConditionDef<Condition & { key?: string; min?: number; max?: number }> {
+/** key 寫 'any' 的意思（M4-followups-2 第 11 項；本來只有夜課的學習條件展開）：這張量表的每一個鍵各試一次，有一個成立就算（豔名在任一區 20 以上）。 */
+export const ANY_KEY = 'any'
+
+/**
+ * 條件 key: 'any' 要試的鍵：區、勢力的量表是內容裡每一筆（加上存檔裡寫過的鍵）；人的量表是存檔裡每一個主角以外的角色與內容裡每一個人；
+ * 地圖的量表是現在每一份地圖實例；不分對象的量表只有 `_`。沒有任何鍵（內容沒載入那一類）就是空的：任一個都不成立。
+ */
+export function anyKeysOf(def: Pick<MeterDef, 'kind' | 'keyed'>, state: GameState, content: ContentRegistry): string[] {
+  const written = Object.keys(own(state.meters, def.kind) ? state.meters[def.kind]! : {})
+  const listed = (kind: string): string[] => (content.hasKind(kind) ? content.list(kind).map((e) => e.id) : [])
+  switch (def.keyed) {
+    case 'none': return ['_']
+    case 'district': return [...new Set([...listed('district'), ...written])]
+    case 'faction': return [...new Set([...listed('faction'), ...written])]
+    case 'npc': return [...new Set([...listed('npc'), ...Object.keys(state.actors).filter((id) => id !== state.pc), ...written])]
+    case 'map': return Object.keys(state.maps?.instances ?? {})
+    default: return written
+  }
+}
+
+function conditionDef(def: MeterDef, content: ContentRegistry): ConditionDef<Condition & { key?: string; min?: number; max?: number }> {
   return {
     kind: def.kind, owner: def.owner,
     validate: (raw) => [
       ...keyFormat(def, raw),
-      ...(raw.key === undefined || def.keyed !== 'none' || raw.key === '_' ? [] : ['這張量表不分對象，key 只能是 _']),
+      ...(raw.key === undefined || raw.key === ANY_KEY || def.keyed !== 'none' || raw.key === '_' ? [] : ['這張量表不分對象，key 只能是 _']),
       ...(['min', 'max'] as const).every((k) => raw[k] === undefined || (typeof raw[k] === 'number' && !Number.isNaN(raw[k]))) ? [] : ['min、max 要是數字'],
     ],
     test: (c, { state }) => {
+      if (c.key === ANY_KEY) return anyKeysOf(def, state, content).some((key) => inRange(meterValue(def, state, key), c))
       const at = c.key ?? defaultMeterKey(def, state)
       if (at === undefined && meterKeyRequired(def)) throw new Error(`條件 ${def.kind}（${def.name}）要寫明 key`)
       return inRange(at === undefined ? def.start : meterValue(def, state, at), c)
@@ -129,12 +153,12 @@ function conditionDef(def: MeterDef): ConditionDef<Condition & { key?: string; m
 /**
  * 量表的定義進來時（MeterRegistry.onDefine 呼叫）：註冊同名的效果與條件。先確認兩邊都沒有撞名才註冊，所以丟錯時什麼都沒留下。
  */
-export function registerMeterRules(def: MeterDef, meters: MeterRegistry, effects: EffectRegistry, conditions: ConditionRegistry): void {
+export function registerMeterRules(def: MeterDef, meters: MeterRegistry, effects: EffectRegistry, conditions: ConditionRegistry, content: ContentRegistry): void {
   if ((COMBINATORS as readonly string[]).includes(def.kind)) throw new Error(`量表種類 ${def.kind} 是條件的組合用字（all、any、not），不能當量表的名字`)
   if (effects.has(def.kind) && !def.ownEffect) throw new Error(`量表種類 ${def.kind} 和已經註冊的效果撞名，量表（${def.owner}）沒有定義成功`)
   if (conditions.kinds().includes(def.kind)) throw new Error(`量表種類 ${def.kind} 和已經註冊的條件撞名，量表（${def.owner}）沒有定義成功`)
   if (def.ownEffect) {
     if (!effects.has(def.kind)) throw new Error(`量表種類 ${def.kind}（${def.owner}）寫了 ownEffect，要先註冊同名的效果`)
   } else effects.register(meterEffectDef(def, meters))
-  conditions.register(conditionDef(def))
+  conditions.register(conditionDef(def, content))
 }

@@ -52,6 +52,7 @@ import { foeRefExtra } from './culture'
 import { gigTick, onReplayEnd, tabLine } from './fall'
 import { restDraft as restDraftAt, useAt, usesOfMarker } from './nodes'
 import { orderChoices as orderChoicesOf } from './orders'
+import { registerFallEffects } from './effects'
 import { registerPatch } from './patch'
 import { closeRun } from './settle'
 
@@ -59,6 +60,7 @@ export { enterBlocks, enterDraft, enterQuote, layerCountsOf } from './enter'
 export { buybackBlock, buybackDraft, callOffBlock, callOffDraft, fallEventFor, fallView, fineOf, gigMult, gigSlot, payTabBlock, payTabDraft, pathsOf, replayBand, replayBlock, replayDraft, replayTips, settleBlock, settleDraft, tabCap, tapeChance, tapeRoll } from './fall'
 export type { FallView, HowSettle, PathView } from './fall'
 export { doorBlock } from './door'
+export { FLAG_LEAD_PREFIX as CURTAIN_FLAG_LEAD_PREFIX, GIG_EFFECT as CURTAIN_GIG_EFFECT, LEAD_EFFECT as CURTAIN_LEAD_EFFECT, PATRON_EFFECT as CURTAIN_PATRON_EFFECT } from './effects'
 export { foeGradeOf } from './culture'
 export { curtainView } from './view'
 export type { CurtainView, HeatBand } from './view'
@@ -126,6 +128,8 @@ export const curtainFeature: Feature = {
       accepts: () => '場熱是觀眾的興致，只由戰鬥與場景的結果決定，不能自己加減。',
     })
     registerPatch(k, OWNER)
+    // 戰敗事件與事件資料用的效果：curtain_gig（從事件直接簽檔期）、curtain_patron（贊助人的名片）、curtain_lead（委託線頭）（M4-followups-2 第 9 項）
+    registerFallEffects(k)
 
     // ---- 效果 curtain_invite：邀請函（內建的來源才收：誰給邀請函是內容，P56） ----
     k.effects.register<InviteEffect>({

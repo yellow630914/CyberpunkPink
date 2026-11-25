@@ -11,8 +11,11 @@ import HereOptions from '../components/HereOptions.vue'
 import Icon from '../components/Icon.vue'
 import EndCard from '../components/EndCard.vue'
 import MoneyTag from '../components/MoneyTag.vue'
+import CurtainPanel from '../components/curtain/CurtainPanel.vue'
+import FallPanel from '../components/curtain/FallPanel.vue'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
+import { curtainOptions } from '../lib/curtainView'
 import { pressE } from '../lib/here'
 import { LEGEND_ORDER, leaveSettlement, logoutFlow, NODE_INFO, STAGE_NAME, cellOf, fogOf, goalLine, hereOptions, mazeOptions, patrolTokens, ratioWidth, traceStages, watchRunEnd } from '../lib/netrunView'
 import type { Point } from '../data/types'
@@ -86,9 +89,18 @@ async function doMaze(id: string, at: string) {
   const r = await e.maze.use(id, at)
   if (r.status !== 'applied' && r.reason) ui.toast(r.reason, 'warn')
 }
+/** 簾後館的點單、賞箱、條文、近道、獎品室與包場由 curtain 處理（netrun 不列）：引擎的 curtainView；遭遇的開戰與潛行繞過仍是 netrunView 的 */
+async function doCurtain(id: string, at?: string) {
+  const r = await e.curtain.use(id, at)
+  if (r.status !== 'applied' && r.reason) ui.toast(r.reason, 'warn')
+}
+const curtain = computed(() => (view.value ? e.curtain.view() : null))
+const fall = computed(() => e.curtain.fall())
 const opts = computed(() => {
   if (!view.value) return []
   const m = maze.value
+  const c = curtain.value
+  if (c) return [...hereOptions(view.value, use), ...curtainOptions(c, doCurtain)]
   return m ? [...hereOptions(view.value, use).filter(o => o.id !== 'open' && !o.id.startsWith('solve')), ...mazeOptions(m, doMaze)] : hereOptions(view.value, use)
 })
 function onEnter() {
@@ -114,12 +126,13 @@ const hereName = computed(() => view.value?.here.marker?.name ?? null)
 
 <template>
   <div class="screen">
-    <StatusBar back :title="view ? `${maze ? `迷宮館・${maze.name}` : `子網：${view.region.name}`}` : ended ? '離開結算' : '子網'" />
+    <StatusBar back :title="view ? `${curtain ? `簾後館・${curtain.night.name}` : maze ? `迷宮館・${maze.name}` : `子網：${view.region.name}`}` : ended ? '離開結算' : fall ? '落幕' : '子網'" />
     <div v-if="!view && ended" class="empty panel cut pad" data-settle>
       <EndCard :end="ended">
         <div class="go left"><button type="button" class="btn pri" data-leave @click="leaveEnd">{{ diving ? '回到去處' : '回主畫面' }}</button></div>
       </EndCard>
     </div>
+    <div v-else-if="!view && fall" class="empty panel cut pad" data-fall-page><FallPanel :fall="fall" /></div>
     <div v-else-if="!view" class="empty panel cut pad" data-empty>
       <p>現在沒有潛進任何子網。</p>
       <button type="button" class="btn pri" @click="router.push('/')">回主畫面</button>
@@ -144,7 +157,8 @@ const hereName = computed(() => view.value?.here.marker?.name ?? null)
         </div>
       </section>
       <aside class="side">
-        <section v-if="maze" class="panel cut pad" data-maze-panel>
+        <CurtainPanel v-if="curtain" :view="curtain" />
+        <section v-else-if="maze" class="panel cut pad" data-maze-panel>
           <div class="trh"><b>迷宮館・{{ maze.name }}（{{ ['', 'I', 'II', 'III', 'IV', 'V'][maze.grade] }}）</b><span class="tag hot" data-maze-rating>預估 {{ maze.rating }}</span></div>
           <div class="kv"><span>回合</span><b data-maze-rounds>{{ maze.rounds }}／標準 {{ maze.standard }}</b></div>
           <div class="ratio" aria-hidden="true"><i :style="{ width: ratioWidth(maze.ratio) + '%' }" /></div>

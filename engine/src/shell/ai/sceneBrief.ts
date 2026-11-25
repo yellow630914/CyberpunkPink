@@ -84,6 +84,10 @@ export function legalMoves(p: Play, w: ActorId, max = 40): LegalMove[] {
   if (others.length <= 1) push({ kind: 'talk' })
   else for (const t of others) push({ kind: 'talk', target: t })
   if (!p.solo) for (const pos of knownPositions(p.k, p.state, w, p.activeIds().length)) push({ kind: 'switch', position: pos.id }, pos.name)
+  // 夜課共鳴給的：每場一次的特殊動作（set_init 的值是共鳴寫的主動權 70 或 30，兩個都問 blocks）與脫下或換上一件衣服（M4-followups-2 第 12 項）
+  for (const id of ['fit_floor'] as const) push({ kind: 'once', id }, '夜課的功夫（契合）')
+  for (const value of [70, 30]) push({ kind: 'once', id: 'set_init', value }, `夜課的功夫（主動權 ${value}）`)
+  push({ kind: 'dress' }, '換一身樣子')
   return out
 }
 

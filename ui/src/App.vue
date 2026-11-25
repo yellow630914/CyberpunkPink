@@ -57,6 +57,11 @@ watch(() => eng.net.view()?.id ?? null, (id) => {
   if (id && !NET_ELSEWHERE.has(route.path)) void netRouter.push('/subnet')
 }, { immediate: true })
 
+// ---- 簾後館落幕之後（M4-ui-curtain）：引擎有等著處理的一筆（補演的確認、三條路）就把簾後館的對話框打開；戰鬥、場景、標題那幾頁自己管（回到主畫面時再開） ----
+watch(() => [eng.curtain.fall()?.step ?? null, route.path] as const, ([step, path]) => {
+  if (step && !BATTLE_ELSEWHERE.has(path) && !eng.inBattle && !eng.scene.active() && ui.top?.name !== 'curtain') ui.openRoot('curtain')
+}, { immediate: true, flush: 'post' })
+
 // ---- 成人場景進行中：畫面換到場景，別的全頁的入口被擋（引擎也不收別的報告；這裡只是不讓人停在別的畫面上） ----
 const sceneRouter = useRouter()
 watch(() => eng.scene.active(), (on) => {

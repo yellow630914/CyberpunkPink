@@ -475,6 +475,25 @@ export const npcsFeature: Feature = {
       },
     })
 
+    // 條件 look { field, value, who? }（M4-followups-2 第 11 項）：外觀詞條（CHARACTER 第 1 節、DATA 第 8 節 look）：欄位的詞條等於 value（欄位是陣列就包含 value）。
+    // 主角看建角寫的 actor.ext.profile.look，具名人與生成的人看他自己的 look；who 沒寫是這一次條件問的那個人（沒有就是主角）。沒有這個欄位、不認得的人不成立
+    k.conditions.register<Condition & { field: string; value: string; who?: string }>({
+      kind: 'look', owner: OWNER,
+      validate: (raw) => [
+        ...(isText(raw.field) ? [] : ['field 要是外觀的欄位名']),
+        ...(isText(raw.value) ? [] : ['value 要是詞條（字串）']),
+        ...(raw.who === undefined || isText(raw.who) ? [] : ['who 要是人的 id']),
+      ],
+      test(c, ctx) {
+        const id = typeof c.who === 'string' ? c.who : (ctx.actor ?? ctx.state.pc ?? '')
+        const a = own(ctx.state.actors, id) ? ctx.state.actors[id] : undefined
+        const prof = a && isRecord(a.ext.profile) ? a.ext.profile : undefined
+        const look = prof && isRecord(prof.look) ? prof.look : npcOf(k, ctx.state, id)?.look
+        const v = look?.[c.field]
+        return Array.isArray(v) ? v.includes(c.value) : v === c.value
+      },
+    })
+
     // ---- 第一次走進一區就建那一區的名單：報告走到哪一區（location 變更的最後一筆，沒有就是現在的位置）----
     k.hooks.on('report.before', OWNER, ({ state, draft: d }) => {
       let district = state.location.district

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import MoneyTag from './MoneyTag.vue'
+import ResultCard from './curtain/ResultCard.vue'
 import type { EndRecord } from '../stores/engine'
 import { endParts, endTitle, mazeResultOf } from '../lib/diveView'
 
@@ -18,7 +19,8 @@ const maze = computed(() => (props.end.maze ? mazeResultOf(props.end.maze.data) 
     <h3 data-end-title>{{ endTitle(end) }}<small>{{ end.region }}</small></h3>
     <p v-if="parts.head" class="sum" data-end-summary>{{ parts.head }}</p>
     <p v-for="(l, i) in parts.lines" :key="i" class="ln" data-end-line>{{ l }}</p>
-    <div v-if="!maze" class="loot" data-end-loot>
+    <ResultCard v-if="end.curtain" :data="end.curtain.data" :summary="end.curtain.summary" actions />
+    <div v-if="!maze && !end.curtain" class="loot" data-end-loot>
       <template v-if="end.loot.length"><span class="tag">帶走</span><span v-for="(l, i) in end.loot" :key="i" class="tag ok">{{ l.name }}<template v-if="l.qty > 1"> ×{{ l.qty }}</template></span></template>
       <span v-else class="note">這一趟沒有帶走東西。</span>
     </div>

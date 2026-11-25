@@ -12,6 +12,7 @@ import { bodyContent } from './body'
 import { craftContent } from './craft'
 import { creationContent } from './creation'
 import { contractContent } from './contract'
+import { curtainContent, CURTAIN_BLOCK, CURTAIN_DISTRICT } from './curtain'
 
 /**
  * 示意世界包（dev/work/M2-plan.md 使用者定案第 5 項）：引擎不再匯入內容，畫面接上引擎之後城市是空的，
@@ -28,6 +29,7 @@ import { contractContent } from './contract'
  * creation.ts 生命軌跡的條目與傾向標籤、出身白給的（withDemoOrigins）、買得到的橋與衣服、建角第 6 與第 9 步的清單（M4-ui-creation）。
  * contract.ts 阿音、範圍 contract 的觸發點與幾件示意事件、「主角是持約人」的開局 demoHolderChanges（M4-contract-holder）；
  *   M4-ui-contract 補：「主角是契約人」的開局 demoBoundChanges、三件指令事件、流竄 AI 與兩件蠱惑事件、牠的吻、調校靜水與聚光、可以請教的老何。
+ * curtain.ts 簾後館：簾口設施與去處、兩個夜（兩種文化）、雙形象的敵人與層主、三張表、落幕的戰敗事件（M4-ui-curtain）。
  * 之後的介面工單往這裡加自己的檔。
  */
 export const DEMO_PACK_ID = 'demo_world'
@@ -37,9 +39,11 @@ export function demoPack(): ContentPack {
   // （內容種類的 overridable，dev/adr/0017）：示意包放在核心包後面，用自己的機率與公里數表
   // 同一種內容在好幾個檔裡有（物品：成人場景的道具與商店的貨）：把每個檔的接起來，不互相蓋掉
   const merged: Record<string, unknown[]> = {}
-  for (const part of [worldContent(), transitContent(), eventContent(), commissionContent(), sceneContent(), lifeContent(), peopleContent(), netContent(), bodyContent(), craftContent(), creationContent(), contractContent()] as Array<Record<string, unknown[]>>) {
+  for (const part of [worldContent(), transitContent(), eventContent(), commissionContent(), sceneContent(), lifeContent(), peopleContent(), netContent(), bodyContent(), craftContent(), creationContent(), contractContent(), curtainContent()] as Array<Record<string, unknown[]>>) {
     for (const [kind, list] of Object.entries(part)) merged[kind] = [...(merged[kind] ?? []), ...list]
   }
+  // 簾口的街區放在「地下層」底下（區的內容是整筆的，這裡把它的街區清單接上一塊）
+  merged.district = (merged.district ?? []).map(d => ((d as { id?: string }).id === CURTAIN_DISTRICT ? { ...(d as object), blocks: [...(((d as { blocks?: string[] }).blocks) ?? []), CURTAIN_BLOCK] } : d))
   return { id: DEMO_PACK_ID, content: merged as unknown as ContentPack['content'] }
 }
 
@@ -69,5 +73,6 @@ export { demoCraftChanges } from './craft'
 export { withDemoOrigins, BRIDGE_LIST, CYBER_LIST, GEAR_LIST, SUGGESTED_KITS, CYBER_LOOK, GEAR_STYLE, DAILY_WEAR } from './creation'
 export type { CyberLook } from './creation'
 export { DEMO_SCENES, demoSceneChanges } from './scene'
+export { CURTAIN_BLOCK, CURTAIN_SITE, CURTAIN_NIGHTS, CURTAIN_CULTURES } from './curtain'
 export type { DemoScene } from './scene'
 export { demoStart, legacyFacilityAt, blockIdOf, stationMarkerOf }

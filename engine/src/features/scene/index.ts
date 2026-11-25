@@ -44,7 +44,7 @@
 // 外面來的東西（SceneEnv）：dice、moves（外殼從 scene_turn 拿到的某個人這一步的一串行動）、talk（scene_talk 的結果）、gears（每個人這一步換到哪一檔；partner_gear 是舊的鍵）、
 //   closing（結束時 AI 的收尾結果：sink、tendency、sex_record、relate；程式驗過才用，AI 關著就全照規則；M4-scene-close，結算的細節在 close.ts 與 end.ts）。
 
-import type { ActorId, Condition, Feature, GameState, Kernel, Origin, ReportDraft, SyncGear } from '../../core'
+import type { ActorId, Condition, Feature, GameState, Kernel, Origin, PassiveEffect, ReportDraft, SyncGear } from '../../core'
 import { ActionBlocked, ContentError, clone, isRecord } from '../../core'
 import type { ActivityDef } from '../../core'
 import type { Closing } from './close'
@@ -55,7 +55,7 @@ import {
   genderIn, hasTendencyTag, isGoal, isMode, isNature, isRole, knownAll, openingFit, openingInit, openingPace, positionProblems, readSceneDef, ruleProblems, sceneModeOf, sceneRawOf, sceneRules, sexRecordOf, skillProblems, soloPoseProblems, soloPoses, startGear, tendencyTagIds,
 } from './model'
 import type { RevealView } from './night'
-import { RESONANCE_KIND, resonanceProblems, revealFor } from './night'
+import { RESONANCE_KIND, resonanceOf, resonanceProblems, revealFor } from './night'
 import type { SceneInput, TalkEnv } from './play'
 import { MAX_MOVES, Play, diceOf, inputProblem } from './play'
 import { sceneWindow } from './window'
@@ -624,6 +624,16 @@ const sceneActivity: ActivityDef = {
   start: (k, state, setup, origin) => startScene(k, state, setup, origin),
 }
 
+/** 來源 night：場景進行中、這個人在場時，共鳴給的感載上限（沒有共鳴的資料或 load_cap 是 0 就沒有）。 */
+function nightPassives(k: Kernel, state: GameState, actor: string): PassiveEffect[] {
+  const s = sceneRawOf(state)
+  if (!s || !state.actors[actor]) return []
+  const here = s.seats.some((x) => x.id === actor) || s.circles.some((c) => c.people.includes(actor) || (c.out ?? []).includes(actor))
+  if (!here) return []
+  const n = resonanceOf(k, state, actor, s.kind === 'solo').load_cap
+  return n !== 0 ? [{ stat: 'load_cap', amount: n }] : []
+}
+
 export const sceneFeature: Feature = {
   id: OWNER,
   install(k: Kernel) {
@@ -634,6 +644,10 @@ export const sceneFeature: Feature = {
     k.content.defineKind({ kind: SKILL_KIND, owner: OWNER, validate: skillProblems })
     // 夜課的共鳴（M4-nightclass；每個分支開到第幾階就有幾個）：場景開始時照每個人開到的階生效（night.ts）
     k.content.defineKind({ kind: RESONANCE_KIND, owner: OWNER, validate: resonanceProblems })
+    // 夜課共鳴的感載上限（身體 2 階：成人場景裡 +4；M4-followups-2 第 11 項）：場景進行時這個人（在場的）這一筆經被動效果的來源 night 給衍生數值 load_cap，
+    // 數字和 Play 用的是同一個（resonanceOf）；場景以外不給（設計書：共鳴只在成人場景裡有效）。Play 自己算場景的感載上限時先把這一筆扣掉、再加共鳴，所以兩邊不會算兩次。
+    // 曝露度的加成（扮相 4 階 tease_exposure）是挑逗時才算的一個式子，不是屬性、衍生數值、檢定、戰鬥修正或標籤其中一種，仍直接算在場景裡
+    k.passives.register(OWNER, 'night', (state, actor) => nightPassives(k, state, actor), '夜課的功夫')
     // 單人姿勢（內建五個；資料寫同一個 id 換掉、寫新的 id 多一個）
     k.content.defineKind({ kind: SOLO_POSE_KIND, owner: OWNER, validate: soloPoseProblems })
     k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })

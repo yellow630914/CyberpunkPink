@@ -32,13 +32,13 @@ import type { Condition, ConditionRegistry } from './conditions'
 import type { CheckCtx, StatRegistry } from './stats'
 
 /** 被動效果的來源（封閉）。source 會原樣寫進 RollPart.source，畫面照它分組。 */
-export const PASSIVE_SOURCES = ['cyber', 'drug', 'tuning', 'quirk', 'malware', 'sink', 'withdrawal', 'wound', 'contract', 'gear'] as const
+export const PASSIVE_SOURCES = ['cyber', 'drug', 'tuning', 'quirk', 'malware', 'sink', 'withdrawal', 'wound', 'contract', 'gear', 'night'] as const
 export type PassiveSource = (typeof PASSIVE_SOURCES)[number]
 export const isPassiveSource = (v: unknown): v is PassiveSource => (PASSIVE_SOURCES as readonly unknown[]).includes(v)
 
 /** 來源的名字（沒寫 label 時給玩家看的）。 */
 export const PASSIVE_SOURCE_NAMES: Record<PassiveSource, string> = {
-  cyber: '義體', drug: '藥物', tuning: '調校', quirk: '怪癖', malware: '惡意韌體', sink: '沉溺', withdrawal: '戒斷', wound: '傷勢', contract: '契約', gear: '裝備',
+  cyber: '義體', drug: '藥物', tuning: '調校', quirk: '怪癖', malware: '惡意韌體', sink: '沉溺', withdrawal: '戒斷', wound: '傷勢', contract: '契約', gear: '裝備', night: '夜課',
 }
 
 /**

@@ -49,6 +49,8 @@ export interface LifepathTendency {
 export interface LifepathResult {
   effects?: Array<Record<string, unknown>>
   npc?: LifepathNpc
+  /** 那位人物所屬勢力的敵對值（CHARACTER 第 6 節 took_the_fall 的寫法：和 npc 並排）；也可以寫在 npc.hostility 裡，兩種都認（M4-followups-2 第 7 項），不能同時寫 */
+  hostility?: number
   /** 個人目標的 id：變成旗標 goal:<id>（達成階段給歷練點是之後任務線的事） */
   goal?: string
   tendency?: LifepathTendency[]
@@ -72,7 +74,7 @@ export interface LifepathEntry extends ContentEntry {
   result: LifepathResult
 }
 
-const RESULT_KEYS = ['effects', 'npc', 'goal', 'tendency', 'axis', 'sex_record', 'bridge'] as const
+const RESULT_KEYS = ['effects', 'npc', 'hostility', 'goal', 'tendency', 'axis', 'sex_record', 'bridge'] as const
 const NPC_KEYS = ['role', 'faction_from', 'affinity', 'hostility', 'roster'] as const
 const SEX_KEYS = ['times', 'partners', 'service_times'] as const
 /** 結果的鍵只有哪幾張表能用（CHARACTER 5.5 節：性經歷記錄與橋參數只有性經歷那張表；傾向與標籤只有性經歷與潛在性癖兩張表）。 */
@@ -114,6 +116,11 @@ export function resultProblems(raw: unknown, table: unknown): string[] {
       if (n.hostility !== undefined && !(isInt(n.hostility) && n.hostility >= 1 && n.hostility <= 100)) p.push('result.npc.hostility 要是 1～100 的整數')
       if (n.roster !== undefined && typeof n.roster !== 'boolean') p.push('result.npc.roster 要是 true 或 false')
     }
+  }
+  if (raw.hostility !== undefined) {
+    if (!(isInt(raw.hostility) && raw.hostility >= 1 && raw.hostility <= 100)) p.push('result.hostility 要是 1～100 的整數')
+    if (!isRecord(raw.npc)) p.push('result.hostility 要搭配 result.npc（敵對值是那位人物所屬勢力的）')
+    else if (raw.npc.hostility !== undefined) p.push('敵對值寫在 result.hostility 或 result.npc.hostility 其中一處就好，不要兩處都寫')
   }
   if (raw.goal !== undefined && !(isText(raw.goal) && /^[a-z0-9_]+$/.test(raw.goal))) p.push('result.goal 要是個人目標的 id（小寫英文、數字與底線）')
   if (raw.tendency !== undefined) {
@@ -321,7 +328,12 @@ export interface LifepathAsk {
  */
 export function askLifepath(k: Pick<Kernel, 'hooks' | 'content'>, state: GameState, draft: CreationDraft, actorExt: Record<string, unknown>, favor: string | undefined): LifepathAsk {
   const chosen = chosenOf(k, draft)
-  const picks = chosen.map((c) => ({ table: c.table, entry: c.entry.id, text: c.text, ...clone(c.entry.result) }))
+  // 敵對值兩種寫法都認（result.hostility 與 result.npc.hostility）：交給別的功能時一律併進 npc
+  const picks = chosen.map((c) => {
+    const { hostility, ...rest } = clone(c.entry.result)
+    const npc = rest.npc !== undefined && hostility !== undefined && rest.npc.hostility === undefined ? { ...rest.npc, hostility } : rest.npc
+    return { table: c.table, entry: c.entry.id, text: c.text, ...rest, ...(npc ? { npc } : {}) }
+  })
   const out: LifepathAsk = { ext: {}, changes: [], roster: [], notes: [] }
   const took = new Set<number>()
   const answers = k.hooks.run('creation.step', { state, draft, step: 'lifepath', picks, limits: creationLimits(k, state), actorExt: clone(actorExt), ...(favor !== undefined ? { favor } : {}) })
@@ -424,7 +436,8 @@ export function lifepathSummary(k: Kernel, draft: CreationDraft, previewState: G
       const n = r.npc
       const parts = [`認識一位${ROLE_NAME[n.role]}`]
       if (n.affinity !== undefined) parts.push(`親密度 ${signed(n.affinity)}`)
-      if (n.hostility !== undefined) parts.push(`所屬勢力的敵對值 ${signed(n.hostility)}`)
+      const host = n.hostility ?? r.hostility
+      if (host !== undefined) parts.push(`所屬勢力的敵對值 ${signed(host)}`)
       if (n.roster) parts.push('開場就在名冊上')
       outcomes.push({ kind: 'npc', text: parts.join('，') })
     }

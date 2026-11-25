@@ -9,7 +9,7 @@
 //   量表  loyalty（0～100、照人、AI 一件事最多 ±10）；同名的效果與條件核心自動有
 //   衍生  roster_cap（3 ＋ mod(魅力) ＋ 人面階數 × 2）、roster_fee（這個人一件委託的出場費；拿分紅的與不在名冊上的是 0）
 //   變更  roster.join、roster.leave、roster.muster、roster.candidate、roster.think、roster.pay（形狀見各自的註解）
-//   效果  roster_add：{ who, source? }（進候選；source 是 rescued 救過的、introduced 介紹的，決定忠誠的起始值）
+//   效果  roster_add：{ who, source?, direct? }（進候選；source 是 rescued 救過的、introduced 介紹的，決定忠誠的起始值；direct: true 直接成為成員，名冊滿了退成候選：持約人取得契約用）
 //   條件  in_roster { who }、in_party { who }、in_tagalong { who }（這一趟召集時排的同行：abilities 的歷練點分得出同行與留家的）
 //   掛點  bill.collect（回 weeklyPay 的每一筆：order 8、付現金）、bill.settled（沒付成的週薪：那個人忠誠 −8）：宣告在 features/bills，這裡只掛處理函式；
 //         defeat.companions（同行的人：這一趟召集時排的同行，跟著主角一起被處置）：宣告在 features/defeat
@@ -98,7 +98,7 @@ export function availability(state: GameState, id: string): string[] | null {
 
 // ---- 註冊 ----
 
-interface AddEffect extends Effect { who: string; source?: (typeof SOURCES)[number] }
+interface AddEffect extends Effect { who: string; source?: (typeof SOURCES)[number]; direct?: boolean }
 
 export const rosterFeature: Feature = {
   id: OWNER,

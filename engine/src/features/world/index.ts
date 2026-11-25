@@ -250,16 +250,21 @@ export const worldFeature: Feature = {
       validate: (raw) => listProblem(raw, 'blocks', 'block'),
       test: (c, { state }) => !!state.location.block && (listOf(c, 'blocks', 'block') ?? []).includes(state.location.block),
     })
-    k.conditions.register<Condition & { types?: string[]; type?: string }>({
+    // at_facility：站在哪一種設施上；open: true 是這個設施現在開著（open 的時段與星期，沒寫 open 的設施一直開）、open: false 是現在沒開（M4-followups-2 第 10 項：機構的營業時段）
+    k.conditions.register<Condition & { types?: string[]; type?: string; open?: boolean }>({
       kind: 'at_facility', owner: OWNER,
-      validate: (raw) => (raw.types === undefined && raw.type === undefined ? [] : listProblem(raw, 'types', 'type')),
+      validate: (raw) => [
+        ...(raw.types === undefined && raw.type === undefined ? [] : listProblem(raw, 'types', 'type')),
+        ...(raw.open === undefined || typeof raw.open === 'boolean' ? [] : ['open 要是 true（現在開著）或 false（現在沒開）']),
+      ],
       test(c, { state }: ConditionCtx) {
         const marker = state.location.facility
         if (!marker) return false
-        const want = listOf(c, 'types', 'type')
-        if (!want) return true
         const block = blockEntry(k, state.location.block)
         const f = block ? facilitiesOf(block)[marker] : undefined
+        if (c.open !== undefined && !(f && facilityOpen(k, state, f) === c.open)) return false
+        const want = listOf(c, 'types', 'type')
+        if (!want) return true
         return !!f && want.includes(f.type)
       },
     })

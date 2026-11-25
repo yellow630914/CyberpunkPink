@@ -76,7 +76,7 @@ function registerPassiveBattle(k: Pick<Kernel, 'passives'>, battle: BattleRegist
     const parts = k.passives.modParts(q.view.state, q.unit.actor, q.kind, { layer: q.view.mode.layer, tags: q.tags, tracks: unitTracks(q.unit) })
     // 斷藥（M4-followups-2 第 1 項；ITEMS 4.2 節「戰鬥藥的效果也暫停」）：帶著狀態 pump_jam 的單位，戰鬥外吃的藥（來源 drug）經這裡進來的修正先不算，狀態一過又回來。
     // 這一場吃的藥的修正由 features/drugs 自己掛、自己看 pump_jam；unit_tag 開打時就加好了，不隨狀態收放
-    return q.unit.statuses.some((s) => s.id === PUMP_JAM) ? parts.filter((p) => p.source !== 'drug') : parts
+    return q.unit.statuses?.some((s) => s.id === PUMP_JAM) ? parts.filter((p) => p.source !== 'drug') : parts
   })
   battle.on('unit.ready', 'passives', ({ run, unit }) => {
     if (!unit.actor || !run.state.actors[unit.actor]) return

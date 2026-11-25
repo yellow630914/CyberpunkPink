@@ -3,6 +3,7 @@
 
 import type { ActorId, AttrId, FlagValue, GameState, SegmentId, Weekday } from '../types'
 import { ATTR_IDS, SEGMENT_IDS } from '../types'
+import type { ContentRegistry } from '../content/registry'
 import type { Probe } from '../state/probe'
 import { isRecord } from '../util/sanitize'
 import type { TimeRules } from '../util/time'
@@ -71,7 +72,7 @@ export class ConditionRegistry {
 const inRange = (v: number, c: { min?: number; max?: number }) => (c.min === undefined || v >= c.min) && (c.max === undefined || v <= c.max)
 const rangeOk = (raw: Record<string, unknown>) => (['min', 'max'] as const).every((k) => raw[k] === undefined || typeof raw[k] === 'number')
 
-export function registerCoreConditions(reg: ConditionRegistry): void {
+export function registerCoreConditions(reg: ConditionRegistry, content?: Pick<ContentRegistry, 'get'>): void {
   reg.register<Condition & { key: string; eq?: FlagValue }>({
     kind: 'flag', owner: 'core',
     validate: (raw) => (typeof raw.key === 'string' && raw.key ? [] : ['key 要是字串']),
@@ -120,9 +121,24 @@ export function registerCoreConditions(reg: ConditionRegistry): void {
     test: (c, { state }) => inRange(c.wallet === 'total' ? state.money.cred + state.money.cash : state.money[c.wallet], c),
   })
 
-  reg.register<Condition & { id: string; min?: number }>({
+  // has_item：id（那一種東西）或 tag（物品或設計圖的 tags 裡有這個字的任何東西；M4-followups-2 第 11 項）；兩個都寫要兩個都對上。min 是件數（沒寫 1）
+  reg.register<Condition & { id?: string; tag?: string; min?: number }>({
     kind: 'has_item', owner: 'core',
-    validate: (raw) => (typeof raw.id === 'string' ? [] : ['要有物品的 id']),
-    test: (c, { state }) => state.inventory.reduce((n, s) => (s.id === c.id ? n + s.qty : n), 0) >= (c.min ?? 1),
+    validate: (raw) => [
+      ...(raw.id === undefined && raw.tag === undefined ? ['要有物品的 id，或物品標籤 tag'] : []),
+      ...(raw.id !== undefined && typeof raw.id !== 'string' ? ['id 要是物品的 id'] : []),
+      ...(raw.tag !== undefined && !(typeof raw.tag === 'string' && raw.tag) ? ['tag 要是物品標籤'] : []),
+    ],
+    test: (c, { state }) => {
+      const tagged = (id: string): boolean => {
+        if (c.tag === undefined) return true
+        for (const kind of ['item', 'blueprint'] as const) {
+          const tags = (content?.get(kind, id) as { tags?: unknown } | undefined)?.tags
+          if (Array.isArray(tags) && tags.includes(c.tag)) return true
+        }
+        return false
+      }
+      return state.inventory.reduce((n, s) => ((c.id === undefined || s.id === c.id) && tagged(s.id) ? n + s.qty : n), 0) >= (c.min ?? 1)
+    },
   })
 }

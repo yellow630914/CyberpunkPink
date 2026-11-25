@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import type { ActionInput, ContentEntry, ItemStack, Feature, ContentPack, ItemEntry, Actor, AttributeEntry, BattleInput, BattleMode, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, GridDir, GridView, Report, ReportDraft, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
-import { ActionBlocked, ChangeError, FakeProvider, Game, stackPart, partTypeName, productOf, productPrice, slotProblems, NET_LEGEND, SYNC_GEARS, gridHere, meterOf, sightOf, syncBlocks, syncCapOf, syncRuleOf, modeOf, statusRuleOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
+import { ActionBlocked, ChangeError, FakeProvider, Game, effectCtx, stackPart, partTypeName, productOf, productPrice, slotProblems, NET_LEGEND, SYNC_GEARS, gridHere, meterOf, sightOf, syncBlocks, syncCapOf, syncRuleOf, modeOf, statusRuleOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
 import type { ActStatus, StepActions } from '@engine/src'
 import type { StepRecord } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
@@ -9,7 +9,10 @@ import { allFeatures } from '@engine/src/features'
 import { WEAR_SLOTS, CAP_STAT, LOAD_STAT, armorOf, concealment, dyeBlock as gearDyeBlock, dyeDraft as gearDyeDraft, dyeOf as gearDyeOf, dyeShopHere, equip as gearEquip, equipBlock as gearEquipBlock, gearOf, gearRules, overweight as gearOverweight, quickBlock, quickCapacity, scanFinds, styleOf, unequip as gearUnequip, weaponOf } from '@engine/src/features/gear'
 import type { DyeOpts } from '@engine/src/features/gear'
 import * as craftFx from '@engine/src/features/craft'
-import { dissectDraft, dissectOptions } from '@engine/src/features/enemies'
+import { dissectDraft, dissectOptions, unitFormView } from '@engine/src/features/enemies'
+import type { UnitFormView } from '@engine/src/features/enemies'
+import * as curtainFx from '@engine/src/features/curtain'
+import { tabLine as curtainTabLine } from '@engine/src/features/curtain/fall'
 import type { DissectOption } from '@engine/src/features/enemies'
 import type { BlueprintEntry, PartEntry } from '@engine/src/features/gear'
 import type { GearLookup } from '../lib/gearView'
@@ -113,6 +116,8 @@ export interface EndRecord {
   rounds: number
   dig: boolean
   maze: { summary: string; data: Record<string, unknown> } | null
+  /** 簾後館的結算（curtain.result 的資料：獎金、打賞、票根、保證金；引擎算好的） */
+  curtain: { summary: string; data: Record<string, unknown> } | null
 }
 
 /** 住處的抬頭（引擎的住處與押金、欠繳）：哪一間、週租、押金、欠了幾週、鎖了沒有 */
@@ -184,10 +189,12 @@ export const useEngine = defineStore('engine', () => {
     const memo = runMemo.value
     if (!end || !memo) return
     const maze = reports.find((r) => r.action === 'maze.result')
+    const curtainResult = reports.find((r) => r.action === 'curtain.result')
     lastEnd.value = {
       seq: feed.value.seq, action: end.action ?? '', outcome: end.outcome.result, summary: end.outcome.summary, lines: [...(end.narration?.results ?? [])],
       loot: memo.loot, region: memo.region, layers: memo.layers, rounds: memo.rounds, dig: memo.site !== null,
       maze: maze ? { summary: maze.outcome.summary, data: (maze.timeline[0]?.data ?? {}) as Record<string, unknown> } : null,
+      curtain: curtainResult ? { summary: curtainResult.outcome.summary, data: (curtainResult.timeline[0]?.data ?? {}) as Record<string, unknown> } : null,
     }
     runMemo.value = null
   }
@@ -1767,5 +1774,77 @@ export const useEngine = defineStore('engine', () => {
     skillName: (id: string): string => game.k.content.get<{ id: string; name?: string }>('skill', id)?.name ?? id,
   }
 
-  return { state, feed, body, contract, malware, tuning, lure, training, craft, dye, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, night, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  // ---- 簾後館（M4-ui-curtain）：全部轉接 features/curtain 與 enemies 的 unitFormView；入會、費用、場熱、打賞、三條路的數字與能不能做都是引擎的 ----
+  const curtain = {
+    /** 會員的全貌（邀請函、席次、會費、這一週的主打、今晚還能報幾場、每個席次能不能升與原因）；引擎的 memberView */
+    member: (): curtainFx.MemberView | null => ask(() => curtainFx.memberView(game.k, game.state), null),
+    /** 簾口：現在站的位置不是簾口時報名不成立的原因；站在簾口或這一局沒有簾口這回事是 null（引擎的 doorBlock） */
+    door: (): string | null => ask(() => curtainFx.doorBlock(game.k, game.state), null),
+    interviewBlocks: (o: curtainFx.InterviewOpts): string[] => ask(() => curtainFx.interviewBlocks(game.k, game.state, o), ['現在談不了。']),
+    interviewBlock: (o: curtainFx.InterviewOpts): string | null => ask(() => curtainFx.interviewBlock(game.k, game.state, o), '現在談不了。'),
+    interview: (o: curtainFx.InterviewOpts): Promise<ActOutcome> => commitDrafts(() => curtainFx.interviewDraft(game.k, game.state, o), '面談'),
+    tasteOptions: (): curtainFx.TasteOption[] => ask(() => curtainFx.tasteOptions(game.k, game.state), []),
+    tasteBlock: (tags: string[]): string | null => ask(() => curtainFx.tasteBlock(game.k, game.state, tags), '現在改不了口味單。'),
+    taste: (tags: string[]): Promise<ActOutcome> => commitDrafts(() => curtainFx.tasteDraft(game.k, game.state, tags), '口味單'),
+    /** 這一週抽得到的夜（口味單與內容篩選之下）與是不是純舞台場次 */
+    pool: (): curtainFx.NightPool | null => ask(() => curtainFx.nightPool(game.k, game.state), null),
+    quote: (o: curtainFx.EnterOpts): curtainFx.EnterQuote | null => ask(() => curtainFx.enterQuote(game.k, game.state, o), null),
+    enterBlocks: (o: curtainFx.EnterOpts): string[] => ask(() => curtainFx.enterBlocks(game.k, game.state, o), ['現在報不了名。']),
+    enter: (o: curtainFx.EnterOpts): Promise<ActOutcome> => commitDrafts(() => curtainFx.enterDraft(game.k, game.state, o), '報名'),
+    /** 一趟裡的畫面資料（第幾幕、場熱與三段、票根、點單、贊助人、這裡能做的事）；沒有在簾後館的一趟裡是 null */
+    view: (): curtainFx.CurtainView | null => ask(() => curtainFx.curtainView(game.k, game.state), null),
+    /** 做一件事：id 是引擎列的（order、order:accept、order:refuse、chest、clause、clause:sign、shortcut、prize、book），at 是節點的 id；合演的對象用 opts.with */
+    use: (id: string, at?: string, opts: { with?: string } = {}): Promise<ActOutcome> => commitDrafts(() => curtainFx.useCurtain(game.k, game.state, id, at, opts), '簾後館'),
+    /** 看過、等著決定的點單（內容、接受與拒絕各自能不能做、合演可以選的對象） */
+    orders: (): ReturnType<typeof curtainFx.orderChoices> => ask(() => curtainFx.orderChoices(game.k, game.state), null),
+    /** 化妝室：book 是贊助人在場時的包場 */
+    rest: (o: { book?: boolean } = {}): Promise<ActOutcome> => commitDrafts(() => curtainFx.restDraft(game.k, game.state, o), '化妝室'),
+    /** 最近一次進化妝室的那一份報告的句子（引擎寫的） */
+    roomLines: (): string[] => { void state.value; const r = [...game.state.reports].reverse().find((x) => x.action === 'curtain.rest'); return r ? [...(r.narration?.results ?? [r.outcome.summary])] : [] },
+    encoreBlocks: (): string[] => ask(() => curtainFx.encoreBlocks(game.k, game.state), ['現在沒有加演。']),
+    encoreOf: (): curtainFx.EncoreRec | null => ask(() => curtainFx.encoreOf(game.state), null),
+    encore: (): Promise<ActOutcome> => commitDrafts(() => curtainFx.encoreDraft(game.k, game.state), '加演'),
+    /** 帳與母帶（不必在落幕之後也看得到）：欠款與上限與每週利息（引擎的 tabCap、tabLine）、簽著的檔期、每一支母帶；都沒有是 null 與空的 */
+    account: (): { tab: { owed: number; cap: number; weekly: number } | null; gig: { until: number; missed: number } | null; tapes: Array<{ id: string; leaked: boolean; price: number; bought: boolean }> } => ask(() => {
+      const c = curtainFx.curtainOf(game.state)
+      const rules = curtainFx.curtainRules(game.k)
+      const tier = rules.tiers.find((t) => t.id === (c.member?.tier ?? c.fall?.tier))
+      return {
+        tab: c.tab ? { owed: c.tab.owed, cap: tier ? curtainFx.tabCap(rules, tier) : 0, weekly: curtainTabLine(game.k, game.state, curtainFx.CURTAIN_TAB_BILL_ID, 'curtain', 0)?.amount ?? 0 } : null,
+        gig: c.gig ? { until: c.gig.until, missed: c.gig.missed } : null,
+        tapes: c.tapes.map((t) => ({ id: t.id, leaked: t.leaked, price: t.price, bought: t.bought === true })),
+      }
+    }, { tab: null, gig: null, tapes: [] }),
+    /** 落幕之後：現在在哪一步（補演或三條路）、數字與能不能選（引擎的 fallView）；沒有是 null */
+    fall: (): curtainFx.FallView | null => ask(() => curtainFx.fallView(game.k, game.state), null),
+    replay: (): Promise<ActOutcome> => commitDrafts(() => curtainFx.replayDraft(game.k, game.state), '補演'),
+    callOff: (): Promise<ActOutcome> => commitDrafts(() => curtainFx.callOffDraft(game.k, game.state), '喊停'),
+    settleBlock: (how: curtainFx.HowSettle): string | null => ask(() => curtainFx.settleBlock(game.k, game.state, how), '現在選不了。'),
+    settle: (how: curtainFx.HowSettle): Promise<ActOutcome> => commitDrafts(() => curtainFx.settleDraft(game.k, game.state, { how }), '落幕之後'),
+    payTabBlock: (amount?: number): string | null => ask(() => curtainFx.payTabBlock(game.k, game.state, amount === undefined ? {} : { amount }), '現在還不了。'),
+    payTab: (amount?: number): Promise<ActOutcome> => commitDrafts(() => curtainFx.payTabDraft(game.k, game.state, amount === undefined ? {} : { amount }), '還款'),
+    buybackBlock: (tape: string): string | null => ask(() => curtainFx.buybackBlock(game.k, game.state, { tape }), '現在買不回來。'),
+    buyback: (tape: string): Promise<ActOutcome> => commitDrafts(() => curtainFx.buybackDraft(game.k, game.state, { tape }), '買回母帶'),
+    /** 敵人的名牌與立繪：這個敵人現在對 target（它鎖定的目標；沒有就照主角）是哪一個形象，與兩種可能的樣子（引擎的 unitFormView）；沒有雙形象是 null */
+    unitForm: (unitId: string, targetId?: string | null): UnitFormView | null => ask(() => {
+      const b = game.state.battle
+      const u = b?.units[unitId]
+      if (!b || !u) return null
+      return unitFormView(game.k, game.state, u, targetId ? b.units[targetId] ?? null : null) ?? null
+    }, null),
+    /** 內容裡的名字（夜、勢力、傾向標籤） */
+    nameOf: (kind: string, id: string): string => game.k.content.get<{ id: string; name?: string }>(kind, id)?.name ?? id,
+    /** 示意用：直接給一張邀請函（引擎的效果 curtain_invite；誰給邀請函是內容）。被擋下回傳原因 */
+    invite: (days?: number): string | null => commitMade(() => {
+      const fx = [{ kind: curtainFx.CURTAIN_INVITE_EFFECT, ...(days ? { days } : {}) }]
+      const ctx = effectCtx(game.k, game.state, { source: 'builtin', actor: game.state.pc ?? undefined })
+      const errors = game.k.effects.validate(fx as never, ctx)
+      if (errors.length) throw new ActionBlocked(errors.join(''))
+      const res = game.k.effects.resolve(fx as never, ctx)
+      if (res.errors.length) throw new ActionBlocked(res.errors.join(''))
+      return { kind: 'system', action: 'curtain.invite_demo', location: {}, party: [], timeline: [], changes: res.changes, outcome: { result: 'ok', summary: '你拿到一張簾後館的邀請函。' } }
+    }),
+  }
+
+  return { state, feed, curtain, body, contract, malware, tuning, lure, training, craft, dye, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, night, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

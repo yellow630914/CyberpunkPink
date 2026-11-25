@@ -77,6 +77,8 @@ export type { ModifyOpts, ModifyQuote } from './modify'
 export { usedExtras } from './used'
 export type { DeckSourceAnswer } from './deck'
 
+/** 獸化改造的設計圖標籤（條件 beast 看它）。 */
+export const BEAST_TAG = 'beast'
 const CAT_NAME = { meat: '現實', net: '內海', social: '社交', media: '媒體' } as const
 type CyberCondition = Condition & { slot?: string; bp?: string; tag?: string; min?: number; tattoo?: string; faction?: string }
 const SLOT_WORDS: readonly string[] = [...PART_IDS, 'arm', 'leg']
@@ -137,6 +139,20 @@ export const cyberwareFeature: Feature = {
           return true
         }).length
         return n >= (c.min ?? 1)
+      },
+    })
+
+    // 條件 beast { who? }：身上有獸化改造（M4-followups-2 第 11 項）：任何一件身上的義體，設計圖的 tags 裡有 beast（獸耳、尾巴、獸爪……的設計圖寫這個標籤）
+    k.conditions.register<Condition & { who?: string }>({
+      kind: 'beast', owner: OWNER,
+      validate: (raw) => (raw.who === undefined || isText(raw.who) ? [] : ['who 要是人的 id']),
+      test(c, { state, actor }: ConditionCtx) {
+        const id = c.who ?? actor ?? state.pc
+        if (!id || !state.actors[id]) return false
+        return cyberOf(state, id).some((piece) => {
+          const tags = (pieceBlueprint(k, piece) as { tags?: unknown } | undefined)?.tags
+          return Array.isArray(tags) && tags.includes(BEAST_TAG)
+        })
       },
     })
 

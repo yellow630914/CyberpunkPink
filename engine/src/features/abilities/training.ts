@@ -77,7 +77,7 @@ export function teachableSkills(k: Pick<Kernel, 'content'>, state: GameState, st
 // ---- 設施 ----
 
 /** 腳下的設施種類裡，有這一項的 teach 的那一筆（沒有 facility_type 內容、沒有人註冊 at_facility 都是 null）。 */
-function facilityHere(k: TrainKernel, state: GameState, actor: ActorId, skill: string, only?: string): { id: string; name: string; teach: FacilityTeach } | null {
+function facilityHere(k: TrainKernel, state: GameState, actor: ActorId, skill: string, only?: string): { id: string; name: string; teach: FacilityTeach; open: boolean } | null {
   if (!k.conditions.kinds().includes('at_facility') || !k.content.hasKind(FACILITY_KIND)) return null
   for (const t of k.content.list<ContentEntry & { name?: unknown; teach?: unknown }>(FACILITY_KIND)) {
     if (only !== undefined && t.id !== only) continue
@@ -85,7 +85,9 @@ function facilityHere(k: TrainKernel, state: GameState, actor: ActorId, skill: s
     const row = (t.teach as FacilityTeach[]).find((r) => r.skill === skill)
     if (!row) continue
     if (!k.conditions.test({ kind: 'at_facility', types: [t.id] }, condCtx(k, state, actor))) continue
-    return { id: t.id, name: typeof t.name === 'string' && t.name ? t.name : t.id, teach: row }
+    // 營業時段（M4-followups-2 第 10 項）：站在那裡但現在沒開，還是回傳這一筆（open: false），上課那一步寫「現在沒有營業」
+    const open = k.conditions.test({ kind: 'at_facility', types: [t.id], open: true }, condCtx(k, state, actor))
+    return { id: t.id, name: typeof t.name === 'string' && t.name ? t.name : t.id, teach: row, open }
   }
   return null
 }
@@ -232,6 +234,7 @@ function plan(k: TrainKernel, state: GameState, o: LessonOpts): Plan {
     if (!facilityRow) return fail(`${base.fromName}沒有開${name}的課。`)
     base.need = facilityRow.slots
     if (!row) base.problems.push(`你不在${base.fromName}，要站在那裡才能上課。`)
+    else if (!row.open) base.problems.push(`${base.fromName}現在沒有營業，要等開門的時段才能上課。`)
   }
   base.max = max
 

@@ -69,6 +69,7 @@ export function mazeResultOf(data: Record<string, unknown>): MazeResultView {
 /** 離開的結算：標題與句子（引擎的報告句子原樣；拿到的東西另外列） */
 export function endTitle(e: EndRecord): string {
   if (e.maze) return '迷宮館結算'
+  if (e.curtain) return '簾後館結算'
   return e.action === 'netrun.located' ? '被定位了' : '離開了子網'
 }
 

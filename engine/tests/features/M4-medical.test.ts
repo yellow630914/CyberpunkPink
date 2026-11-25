@@ -629,7 +629,10 @@ describe('戰地手術處理重創：戰鬥的效果 op wound_treat', () => {
     const def = g.k.battle.getEffect('wound_treat')!
     expect(def.problems!({ op: 'wound_treat', all: true })).toEqual([])
     expect(def.problems!({ op: 'wound_treat', who: 'target', if: [] })).toEqual([])
-    expect(def.problems!({ op: 'wound_treat', part: 'limb' }).join()).toContain('part')
+    // part 現在收了（combat 的 wound 轉呼叫這一套；M4-followups-2 第 5 項）：寫對的部位合格、寫錯的被擋
+    expect(def.problems!({ op: 'wound_treat', part: 'limb' })).toEqual([])
+    expect(def.problems!({ op: 'wound_treat', part: 'tail' }).join()).toContain('part')
+    expect(def.problems!({ op: 'wound_treat', mode: 'x' }).join()).toContain('mode')
     expect(def.problems!({ op: 'wound_treat', all: 'yes' }).join()).toContain('all')
   })
 })

@@ -218,7 +218,8 @@ export function installEffects(k: Kernel): void {
       const ext = extOf(state)
       if (c.side === 'bound') {
         const m = ext.mine
-        return !!m && (c.type === undefined || m.type === c.type) && (c.holder_kind === undefined || m.holder.kind === c.holder_kind)
+        // npc 在契約人這一邊也收（M4-followups-2 第 11 項）：持約人是這個人（個人持約人的 holder.npc；勢力持約人沒有 npc，指定 npc 就不成立）
+        return !!m && (c.type === undefined || m.type === c.type) && (c.holder_kind === undefined || m.holder.kind === c.holder_kind) && (c.npc === undefined || m.holder.npc === c.npc)
       }
       return Object.entries(ext.held).some(([id, h]) => (c.npc === undefined || id === c.npc) && (c.type === undefined || h.type === c.type) && (c.holder_kind === undefined || h.holder.kind === c.holder_kind))
     },

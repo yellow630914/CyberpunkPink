@@ -388,11 +388,15 @@ describe('二十五個共鳴：每一個都有資料、每一個都有行為', (
       expect(fit(0)).toBe(1)
     })
 
-    it('2 階：成人場景裡自己的感載上限 +4（只在場景裡，不改衍生數值）', () => {
+    it('2 階：成人場景裡自己的感載上限 +4（走被動效果的來源 night，只在場景進行中算；M4-followups-2 第 11 項）', () => {
       const cap = (n: number): number => play(at('body', n)).loadMax.pc!
       expect(cap(2)).toBe(cap(1) + 4)
+      // 場景進行中衍生數值 load_cap 帶著那一筆（來源 night）；Play 自己算的上限沒有算兩次（上面的 cap 就是）
       const stat = (n: number): number => { const g = at('body', n); return g.k.stats.stat(g.state, 'pc', 'load_cap') }
-      expect(stat(2)).toBe(stat(1))
+      expect(stat(2)).toBe(stat(1) + 4)
+      const parts = (n: number) => { const g = at('body', n); return g.k.stats.statParts(g.state, 'pc', 'load_cap').filter((x) => x.source === 'night').map((x) => x.value) }
+      expect(parts(2)).toEqual([4])
+      expect(parts(1)).toEqual([])
       // 每個人各看各的
       const p = play(at('body', 2))
       expect(p.loadMax[ann]).toBe(play(at('body', 1)).loadMax[ann])
