@@ -86,7 +86,7 @@ const FACTIONS = [
   { id: 'f_plain', name: '路邊幫', short: '路幫', class: 'street' },
 ]
 
-const pack = (o: { unreg?: boolean; sources?: Rec; offers?: boolean } = {}): ContentPack => {
+const pack = (o: { unreg?: boolean; sources?: Rec; offers?: boolean; patch?: (c: Record<string, Rec[]>) => void } = {}): ContentPack => {
   const c: Record<string, Rec[]> = {
     skill: SKILLS, faction: FACTIONS, npc: [{ id: 'npc_boss', name: '社團的老闆' }, { id: 'npc_fx', name: '帳房' }],
     special_map: [MAP, ROOM],
@@ -115,6 +115,7 @@ const pack = (o: { unreg?: boolean; sources?: Rec; offers?: boolean } = {}): Con
   if (o.unreg !== false) {
     c.unreg_rule = [{ id: 'default', options: structuredClone(OPTIONS), ...(o.sources ? { sources: structuredClone(o.sources) } : {}) }]
   }
+  o.patch?.(c)
   return { id: 'm4_part_sources', content: c as unknown as ContentPack['content'] }
 }
 
@@ -166,11 +167,11 @@ const STALL = { district: 'd_hive', block: 'b_shops', facility: 'F3' }
 const SHOP = { district: 'd_hive', block: 'b_shops', facility: 'F1' }
 const LOW = { district: 'd_low', block: 'b_low', facility: 'F1' }
 
-interface Opts { seed?: number; unreg?: boolean; favors?: boolean; sources?: Rec; cash?: number; day?: number; hour?: number; rep?: number; at?: Record<string, string> }
+interface Opts { seed?: number; unreg?: boolean; favors?: boolean; sources?: Rec; cash?: number; day?: number; hour?: number; rep?: number; at?: Record<string, string>; patch?: (c: Record<string, Rec[]>) => void }
 const make = (o: Opts = {}) => {
   const features: Feature[] = [worldFeature, securityFeature, ...(o.favors === false ? [] : [favorsFeature]), fixerFeature, STUB, PROVIDER, ...(o.unreg === false ? [] : [unregFeature])]
   const { game } = makeGame({
-    features, content: [pack({ unreg: o.unreg, sources: o.sources })], seed: o.seed ?? 7, pc: PC as never,
+    features, content: [pack({ unreg: o.unreg, sources: o.sources, patch: o.patch })], seed: o.seed ?? 7, pc: PC as never,
     patch: { time: { day: o.day ?? 10, hour: o.hour ?? 10, minute: 0 }, money: { cred: 5000, cash: o.cash ?? 3000 } },
   })
   game.state.location = { ...(o.at ?? DESK) }
@@ -322,7 +323,9 @@ describe('掛點 fixer.reward（offer）：生成時擲 chance，報酬欄多一
           expect(extra!.by).toBe('unreg')
           expect(extra!.cash_pct).toBe(0.6)
           const e = extra!.effects[0] as Rec
-          expect(e).toMatchObject({ kind: 'part_unreg', source: 'reward', brand: 'doujin', from: '委託的報酬' })
+          // 牌子是委託人勢力資料的 brand（生成時寫進 commission.employer；沒寫牌子的勢力是 doujin）
+          expect(e).toMatchObject({ kind: 'part_unreg', source: 'reward', from: '委託的報酬' })
+          expect(e.brand).toBe(o.commission.employer === 'f_brand' ? 'hz' : 'doujin')
           expect(e.grade).toBe(Math.min(grade, 3))
           // 類型：t_hit 寫了 part_types，t_plain 沒寫（從十二種抽）
           if (o.commission.kind === 't_hit') expect(['skin', 'plate']).toContain(e.type)
@@ -514,8 +517,90 @@ describe('結算：fixer.payout 多給一件（談好的，或雇主多給的）
     expect(pend).toHaveLength(1)
     expect(pend[0]!.frame.grade).toBeLessThanOrEqual(Math.min(picked!.commission.grade as number, 3))
     expect(['skin', 'plate']).toContain(pend[0]!.frame.type)
-    expect(pend[0]!.frame.brand).toBe('doujin')
+    expect(pend[0]!.frame.brand).toBe(picked!.commission.employer === 'f_brand' ? 'hz' : 'doujin')
     expect(readFixer(g.state).pending).toEqual([])
+  })
+})
+
+// ===================================================================================================================
+// 生成的委託寫入委託人（commission.employer；M4-core-part-ai 的總指揮補記）
+// ===================================================================================================================
+
+describe('生成委託時寫入 commission.employer', () => {
+  const district = (g: G): string[] => (g.k.content.get('district', 'd_hive') as unknown as { factions: string[] }).factions
+
+  it('每一件生成的委託都有委託人：是那一區的勢力、不是目標勢力本身；委託的格式照樣合格', () => {
+    const g = make({ rep: 55 })
+    const all = [...offersOver(g, 'fx_a', DAYS), ...offersOver(g, 'fx_b', DAYS)]
+    expect(all.length).toBeGreaterThan(40)
+    for (const o of all) {
+      const c = o.commission as Rec
+      expect(district(g), `${o.id} 的委託人`).toContain(c.employer)
+      expect(c.employer).not.toBe(c.target_faction)
+      expect(offerProblems(o)).toEqual([])
+    }
+    // 兩個勢力都當得了委託人（目標是另一個的時候）
+    expect(new Set(all.map((o) => (o.commission as Rec).employer))).toEqual(new Set(['f_plain', 'f_brand']))
+  })
+
+  it('同一個種子逐欄相同、不動存檔亂數的游標、同一天問幾次一樣（用另一顆亂數，不動別的抽籤）', () => {
+    const g = make({ rep: 55 })
+    const cursor = g.state.rng.cursor
+    const a = offersOver(g, 'fx_a', DAYS)
+    g.state.rng.cursor += 13
+    const b = offersOver(g, 'fx_a', DAYS)
+    expect(b).toEqual(a)
+    g.state.rng.cursor = cursor
+    expect(g.state.rng.cursor).toBe(cursor)
+    expect(offersOver(make({ rep: 55 }), 'fx_a', DAYS)).toEqual(a)
+  })
+
+  it('類型資料寫了 employers：候選就是那一份（去掉目標）；目標正好是它就沒有委託人；沒寫的類型照那一區的勢力', () => {
+    const g = make({ rep: 55, patch: (c) => { c.commission_type![0]!.employers = ['f_brand'] } })
+    const hit = offersOver(g, 'fx_a', DAYS).filter((o) => o.commission.kind === 't_hit')
+    expect(hit.length).toBeGreaterThan(10)
+    for (const o of hit) {
+      const c = o.commission as Rec
+      expect(c.employer, `${o.id}（目標 ${c.target_faction}）`).toBe(c.target_faction === 'f_brand' ? undefined : 'f_brand')
+    }
+    expect(hit.some((o) => (o.commission as Rec).employer === undefined)).toBe(true)
+    expect(hit.some((o) => (o.commission as Rec).employer === 'f_brand')).toBe(true)
+    // 沒寫 employers 的 t_plain 照一般的規則
+    const plain = offersOver(g, 'fx_b', DAYS).filter((o) => o.commission.kind === 't_plain')
+    for (const o of plain) expect((o.commission as Rec).employer).toBe((o.commission as Rec).target_faction === 'f_plain' ? 'f_brand' : 'f_plain')
+  })
+
+  it('那一區只有一個勢力、又剛好是目標：沒有候選就不寫委託人（和以前一樣沒有這一欄）', () => {
+    const g = make({ rep: 55, patch: (c) => { c.district![0]!.factions = ['f_plain'] } })
+    const all = offersOver(g, 'fx_a', DAYS)
+    expect(all.length).toBeGreaterThan(10)
+    for (const o of all) expect('employer' in (o.commission as Rec)).toBe(false)
+  })
+
+  it('employers 的格式：空陣列、非字串、查不到的勢力都在載入時擋下', () => {
+    expect(() => make({ patch: (c) => { c.commission_type![0]!.employers = [] } })).toThrow(/employers/)
+    expect(() => make({ patch: (c) => { c.commission_type![0]!.employers = [3] } })).toThrow(/employers/)
+    expect(() => make({ patch: (c) => { c.commission_type![0]!.employers = ['f_nope'] } })).toThrow(/f_nope/)
+    expect(() => make({ patch: (c) => { c.commission_type![0]!.employers = ['f_brand'] } })).not.toThrow()
+  })
+
+  it('整合：接下生成的委託、做完，委託人勢力的好感加了（FACTIONS 5.2：+3，評價 S 再 +2）；報酬零件的牌子是委託人的', () => {
+    const g = make({ rep: 55, sources: { reward: { chance: 1, s_chance: 0 } } })
+    let picked: Offer | null = null
+    for (const day of DAYS) {
+      g.state.time = { ...g.state.time, day }
+      const row = board(g.k, g.state, 'fx_a').offers.find((r) => r.offer.extra && !r.block)
+      if (row) { picked = row.offer; break }
+    }
+    expect(picked).not.toBeNull()
+    const employer = (picked!.commission as Rec).employer as string
+    expect(employer).toBeDefined()
+    const before = meterOf(g.k, g.state, 'favor', employer)
+    take(g, picked!.id, 'fx_a')
+    doGo(g, picked!.id)
+    endStub(g, 'done', { rating: 'B' })
+    expect(meterOf(g.k, g.state, 'favor', employer)).toBe(before + 3)
+    expect(rewardPendings(g)[0]!.frame.brand).toBe(employer === 'f_brand' ? 'hz' : 'doujin')
   })
 })
 

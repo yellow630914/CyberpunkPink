@@ -10,3 +10,4 @@
 - （M4-auction-bid）`once` 的拍品被 NPC 買走也記進 `sold`（世界上只有一件）；拍賣進行中的放行只列 `auction.bid`、`auction.leave`、`auction.close`；`ReportOutcome` 的拍賣欄位改成正式型別（不用轉型）。
 - （M4-followups-2）斷線靜修改成進行中的活動，期間關橋、禁止潛入（等使用者同意）。
 - （M4-craft-teach）條件登錄表給條件一個說明句欄位，擋住的原因能寫成自然的句子（例：牆語者要你在回聲的好感 20 以上）。
+- （M4-core-part-ai）trade 的 `productSellBase` 走 `fittedPrice`（帶二手零件的成品照實際狀態算）；cyberware 的 `modify.ts` 小手術換零件同步 `part_states`（`setPartState`）。

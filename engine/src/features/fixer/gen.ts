@@ -117,6 +117,8 @@ export interface TypeEntry extends ContentEntry {
   brief: string
   gives: Partial<Record<GenFace, string[]>>
   net?: NetTemplate
+  /** 這種委託常見的委託人（勢力的 id）；沒寫就從那一區的勢力抽（M4-core-part-ai：生成委託時寫進 commission.employer） */
+  employers?: string[]
 }
 
 export interface ModifierEffect {
@@ -205,6 +207,7 @@ export function typeProblems(e: Record<string, unknown>): string[] {
     for (const key of ['stealth', 'talk'] as const) if (e.branches[key] !== undefined && !isText(e.branches[key])) p.push(`branches.${key} 要是基本功的 id`)
   }
   if (e.net !== undefined) p.push(...netTemplateProblems(e.net))
+  if (e.employers !== undefined && !(Array.isArray(e.employers) && e.employers.length > 0 && e.employers.every(isText))) p.push('employers 要是至少一個勢力 id 的陣列（這種委託常見的委託人）')
   if (!isText(e.brief)) p.push('brief 要是一句帶空格的話')
   else {
     for (const m of e.brief.matchAll(/\{([^{}]*)\}/g)) if (!(PLACEHOLDERS as readonly string[]).includes(m[1]!)) p.push(`brief 的空格 {${m[1]}} 不認得（可以用 ${PLACEHOLDERS.map((x) => `{${x}}`).join('、')}）`)
@@ -359,6 +362,9 @@ export function genProblems(k: Pick<Kernel, 'content'>): string[] {
       for (const [face, list] of Object.entries(t.gives)) {
         if (Array.isArray(list)) for (const id of list) if (isText(id) && !links.has(id)) p.push(`${TYPE_KIND}/${t.id}：gives.${face} 的連動 ${id} 在 ${LINK_KIND} 裡查不到`)
       }
+    }
+    if (Array.isArray(t.employers) && k.content.hasKind('faction')) {
+      for (const id of t.employers) if (isText(id) && !k.content.has('faction', id)) p.push(`${TYPE_KIND}/${t.id}：employers 的勢力 ${id} 查不到`)
     }
   }
   if (k.content.hasKind('enemy')) {
@@ -545,6 +551,16 @@ function netLayersFor(rules: ReturnType<typeof fixerNetRules>, count: number): s
   return [...Array.from({ length: count - four.length }, () => four[0]!), ...four]
 }
 
+/**
+ * 委託人的勢力（commission.employer；M4-core-part-ai）：不是目標勢力本身。候選是類型資料寫的 employers（沒寫就是那一區的勢力）去掉目標；沒有候選就不寫（沒有委託人）。
+ * 用另一顆亂數（'commission_gen/<標籤>/employer'）：不動前面與後面的任何一次抽籤，所以加了委託人之後，同一個種子生出來的階段、報酬、未知清單和以前一模一樣。
+ */
+function pickEmployer(c: Ctx, type: TypeEntry, districtFactions: string[], target: string): string | undefined {
+  const listed = Array.isArray(type.employers) ? type.employers.filter(isText) : []
+  const pool = (listed.length > 0 ? listed : districtFactions).filter((f) => f !== target)
+  return pool.length > 0 ? deriveRng(c.state.rng, `commission_gen/${c.label}/employer`).pick(pool) : undefined
+}
+
 /** 挑一次；回傳一件委託，或不成立的原因。 */
 function build(c: Ctx): Offer | string {
   const { k, state, fixer, rng, rules, reg } = c
@@ -564,6 +580,7 @@ function build(c: Ctx): Offer | string {
   const factions = inDistrict.length > 0 ? inDistrict : k.content.list('faction').map((f) => f.id)
   if (factions.length === 0) return '查不到可以當目標的勢力。'
   const faction = rng.pick(factions)
+  const employer = pickEmployer(c, type, factions, faction)
 
   // 階段照模板
   const plan = stagePlan(type, scale)!
@@ -780,6 +797,7 @@ function build(c: Ctx): Offer | string {
     id: commissionIdOf(c.seed), name: title, kind: type.id, main: type.main, scale, grade, target_faction: faction, district: fixer.district,
     ...(isText(fixer.block) ? { block: fixer.block } : {}),
     client: fixer.id,
+    ...(employer !== undefined ? { employer } : {}),
     ...(chosenMods.length > 0 ? { modifiers: chosenMods.map((m) => m.id) } : {}),
     ...(alertTotal > 0 ? { alert_start: clamp(alertTotal, 0, 100) } : {}),
     stages: stages.map((s) => ({ name: s.name, faces: s.built as Record<string, unknown> })),

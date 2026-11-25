@@ -216,6 +216,13 @@ export interface ProductData {
   uid: string
   /** 槽（零件類型）→ 零件的引用或陣列 */
   parts: Record<string, PartRef | PartRef[]>
+  /**
+   * 每個零件各自的狀態（二手零件進成品時留下來；2026-11-25 M4-core-part-ai）：槽（零件類型）→ 一個陣列，和 `parts[類型]` 的順序一一對應；
+   * 值是這一個零件的狀態（蓋掉零件自己的 `state`），`null` 是沿用零件自己的。只對內容的零件（字串引用）有意義，內嵌的零件自帶 `state`。
+   * 改了 `parts`（換掉、插入、拿掉一個零件）的人要跟著改這裡：用 `setPartState`，不要只改 `parts`。
+   * `productOf`、`partsOf` 把它套上去（`FittedPart.part.state`）；`productPrice` 照零件的實際狀態算（二手 ×0.5）。
+   */
+  part_states?: Record<string, Array<PartState | null>>
   quality?: ProductQuality
   /** 精工多的那一項（逐鍵加進 stats） */
   bonus?: Record<string, number>
@@ -481,6 +488,47 @@ function numRecord(v: unknown): Record<string, number> | undefined {
 }
 
 /**
+ * 整理 `part_states`：只留 parts 裡有的類型、認得的狀態；陣列不比該類型的零件多、結尾的 null 去掉；整個類型都是 null 的拿掉；一筆都沒有就是 undefined。
+ * 內嵌的零件（不是字串的引用）不吃這一欄（自帶 state），那一格一律當 null。
+ */
+function readPartStates(raw: unknown, parts: ProductData['parts']): ProductData['part_states'] | undefined {
+  if (!isRecord(raw)) return undefined
+  const out: Record<string, Array<PartState | null>> = {}
+  for (const [type, v] of Object.entries(raw)) {
+    if (unsafeKey(type) || !Array.isArray(v)) continue
+    const have = parts[type]
+    if (have === undefined) continue
+    const refs = Array.isArray(have) ? have : [have]
+    const list: Array<PartState | null> = refs.map((ref, i) => (typeof ref === 'string' && inList(PART_STATES, v[i]) ? (v[i] as PartState) : null))
+    while (list.length > 0 && list[list.length - 1] === null) list.pop()
+    if (list.length > 0) out[type] = list
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/** 這個零件（槽 type 裡的第 index 個）在成品資料裡被指定的狀態；沒有指定回 undefined。data 是 stack.data 或 ProductData（不整理，壞掉的值當沒有）。 */
+export function partStateAt(data: unknown, type: string, index: number): PartState | undefined {
+  const states = isRecord(data) && isRecord(data.part_states) ? data.part_states[type] : undefined
+  const v = Array.isArray(states) ? states[index] : undefined
+  return inList(PART_STATES, v) ? (v as PartState) : undefined
+}
+
+/**
+ * 改一個零件的狀態：回傳新的 `part_states`（不改傳進來的）。state 是 null 就是「沿用零件自己的」（結尾的 null 與整個類型的 null 會被拿掉）。
+ * 換掉某一格的零件時（assemble、swap）用它把新零件的狀態寫進同一格。
+ */
+export function setPartState(states: ProductData['part_states'] | undefined, type: string, index: number, state: PartState | null): ProductData['part_states'] | undefined {
+  const next: Record<string, Array<PartState | null>> = {}
+  for (const [t, list] of Object.entries(states ?? {})) next[t] = [...list]
+  const list = next[type] ?? (next[type] = [])
+  while (list.length <= index) list.push(null)
+  list[index] = state
+  while (list.length > 0 && list[list.length - 1] === null) list.pop()
+  if (list.length === 0) delete next[type]
+  return Object.keys(next).length > 0 ? next : undefined
+}
+
+/**
  * 把存檔或背包裡的成品資料整理成合格的 ProductData：不認得的鍵丟掉，壞掉的值丟掉（零件不是字串也不是合格的內嵌零件、
  * quirks 混了數字……），不丟錯。回傳全新的物件，不改傳進來的東西。沒有 uid 的當 ''。
  * content 有給時，內嵌零件的 quirk 也要查得到才留下；沒給只查格式（查不到的零件 id 與 quirk 之後由 partOf 略過）。
@@ -500,6 +548,8 @@ export function readProduct(raw: unknown, content?: ContentLookup): ProductData 
       }
     }
   }
+  const states = readPartStates(r.part_states, out.parts)
+  if (states) out.part_states = states
   if (inList(PRODUCT_QUALITIES, r.quality)) out.quality = r.quality as ProductQuality
   const bonus = numRecord(r.bonus)
   if (bonus && Object.keys(bonus).length > 0) out.bonus = bonus
@@ -524,10 +574,13 @@ export function partsOf(content: ContentLookup, data: unknown): FittedPart[] {
   if (!isRecord(raw)) return []
   const out: FittedPart[] = []
   for (const [type, v] of Object.entries(raw)) {
-    for (const ref of Array.isArray(v) ? v : [v]) {
+    ;(Array.isArray(v) ? v : [v]).forEach((ref, i) => {
       const part = partOf(content, ref)
-      if (part) out.push({ type, part })
-    }
+      if (!part) return
+      // 成品資料指定了這一個零件的狀態（二手零件進成品）：內容的零件換成蓋過狀態的複本（登錄表裡的那一筆不能改）；內嵌的自帶 state
+      const state = typeof ref === 'string' ? partStateAt(data, type, i) : undefined
+      out.push({ type, part: state !== undefined && state !== part.state ? { ...part, state } : part })
+    })
   }
   return out
 }

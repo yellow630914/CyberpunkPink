@@ -6,8 +6,8 @@
 // 背包裡的那一疊是哪個零件一律經核心的 stackPart／partOf 讀：帶 uid 的那一疊可能是內嵌的零件（未登錄零件，dev/adr/0019 第十七節），
 // 放進成品的是 data.part 那一整筆，不是 id（M4-plan 規定 10）。
 
-import type { ActorId, AttrId, BlueprintEntry, GameState, ItemStack, Kernel, PartEntry, PartNeed, PartRef, ProductData, ProductInfo, RollPart } from '../../core'
-import { checkParts, clone, dcFor, formatAmount, isRecord, makeCheck, partOf, partTypeName, productOf, productPrice, slotProblems } from '../../core'
+import type { ActorId, AttrId, BlueprintEntry, GameState, ItemStack, Kernel, PartEntry, PartNeed, PartRef, PartState, ProductData, ProductInfo, RollPart } from '../../core'
+import { checkParts, clone, dcFor, formatAmount, isRecord, makeCheck, partOf, partTypeName, productOf, productPrice, setPartState, slotProblems, stackPart } from '../../core'
 import type { CraftRules, MakerKind, MakerRule, Pool } from './model'
 import { ASSEMBLE_ACTION, MAKER_KINDS, MAKER_NAME, craftHere, craftRules, inParty, isKnown, isMakerKind, selfPlaceBlock } from './model'
 
@@ -200,6 +200,8 @@ export interface Picked {
   plain: boolean
   ref: PartRef
   part: PartEntry
+  /** 這一疊帶的狀態和零件自己的不一樣（拆下來的二手件）：放進成品時寫進 part_states。內嵌的零件自帶 state，沒有這一欄 */
+  state?: PartState
   problems: string[]
   overspec: boolean
 }
@@ -253,13 +255,15 @@ function resolvePicks(k: Kernel, state: GameState, bp: BlueprintEntry, parts: Re
       }
       if (!stack) continue
       const ref = refOfStack(k, stack)
-      const part = ref === undefined ? undefined : partOf(k.content, ref)
+      // 背包這一疊是哪個零件經核心的 stackPart（二手件帶 data.state，回傳的零件狀態已經換成它；內嵌的整筆）
+      const part = ref === undefined ? undefined : stackPart(k.content, stack)
       if (ref === undefined || !part) {
         problems.push(`背包裡的「${key}」不是能組裝的零件。`)
         continue
       }
       const sp = slotProblems(k.content, bp, type, ref)
-      picks.push({ type, key, stack, plain, ref, part, problems: sp.problems, overspec: sp.overspec })
+      const own = typeof ref === 'string' ? partOf(k.content, ref) : undefined
+      picks.push({ type, key, stack, plain, ref, part, ...(own && own.state !== part.state ? { state: part.state as PartState } : {}), problems: sp.problems, overspec: sp.overspec })
     }
   }
   return { picks, problems }
@@ -270,6 +274,20 @@ export function partsRecord(picks: readonly Picked[]): Record<string, PartRef | 
   const by = new Map<string, PartRef[]>()
   for (const p of picks) by.set(p.type, [...(by.get(p.type) ?? []), clone(p.ref)])
   return Object.fromEntries([...by].map(([type, refs]) => [type, refs.length === 1 ? refs[0]! : refs]))
+}
+
+/**
+ * 一組 picks 的零件狀態（成品資料的 part_states；二手件放進成品時留下來，和 partsRecord 的順序一一對應）。沒有任何一個是二手的就是 undefined。
+ */
+export function partStatesRecord(picks: readonly Picked[]): ProductData['part_states'] | undefined {
+  let states: ProductData['part_states'] | undefined
+  const count = new Map<string, number>()
+  for (const p of picks) {
+    const i = count.get(p.type) ?? 0
+    count.set(p.type, i + 1)
+    if (p.state !== undefined) states = setPartState(states, p.type, i, p.state)
+  }
+  return states
 }
 
 export const missingText = (missing: string[]): string => {
@@ -395,7 +413,8 @@ export function planAssembly(k: Kernel, state: GameState, o: PreviewOpts): Plan 
   if (missing.length > 0) problems.push(`缺零件：${missingText(missing)}。`)
 
   // 成品合起來是什麼（一個零件都沒放時不看：productOf 會拿設計圖的原廠組合補上）
-  const data: ProductData = { uid: '', parts: partsRecord(picks) }
+  const states = partStatesRecord(picks)
+  const data: ProductData = { uid: '', parts: partsRecord(picks), ...(states ? { part_states: states } : {}) }
   const info = picks.length > 0 ? productOf(k.content, bp.id, data) : undefined
   const overspec = picks.filter((p) => p.overspec)
   const brands = info?.brands ?? [bp.brand]

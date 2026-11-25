@@ -33,6 +33,11 @@ export interface AiSettings {
    * 選填：沒寫就是預設（closing；用 sceneAiOf 讀）。cpp-ai-v1 的形狀（mockups 的 AI0）沒有這一格，所以預設的物件裡不放它。
    */
   sceneAi?: SceneAiMode
+  /**
+   * 未登錄零件的起名與怪癖（任務 design_part；M4-core-part-ai）：false 時 Game.unregDeliver 不發請求，直接用預設清單的文字交貨。
+   * 選填：沒寫就是開（用 partAiOf 讀）。和 sceneAi 一樣，預設的物件裡不放它（cpp-ai-v1 的形狀不變）。
+   */
+  partAi?: boolean
   bg_flavor_shop: boolean
   bg_flavor_roster: boolean
   bg_npc_news: boolean
@@ -75,7 +80,7 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
 }
 
 /** 沒有另外指定時，每個任務用哪個來源（mockups 的 SRC0）。 */
-export const DEFAULT_TASK_SOURCE: Record<string, string> = { judge: '主力', narrate: '主力', reward: '便宜的小模型', relate: '便宜的小模型', flavor_shop: '便宜的小模型' }
+export const DEFAULT_TASK_SOURCE: Record<string, string> = { judge: '主力', narrate: '主力', design_part: '主力', reward: '便宜的小模型', relate: '便宜的小模型', flavor_shop: '便宜的小模型' }
 export const DEFAULT_SOURCE_NAME = '主力'
 
 /**
@@ -107,11 +112,15 @@ export function sanitizeAiSettings(raw: unknown): AiSettings {
     else if (typeof dv === 'number') out[k] = Math.max(0, int(r[k], dv))
   }
   if ((SCENE_AI_MODES as readonly unknown[]).includes(r.sceneAi)) out.sceneAi = r.sceneAi
+  if (r.partAi === true || r.partAi === false || r.partAi === 1 || r.partAi === 0) out.partAi = bool(r.partAi, true)
   out.polish = record(r.polish, (x) => (x === true || x === 1 ? true : x === false || x === 0 ? false : undefined))
   out.retry = record(r.retry, (x) => (typeof x === 'number' && Number.isFinite(x) ? clamp(Math.round(x), 0, RETRY_MAX) : undefined))
   for (const k of ['src', 'fb', 'adult'] as const) out[k] = record(r[k], (x) => (typeof x === 'string' && x ? x : undefined))
   return out as unknown as AiSettings
 }
+
+/** 未登錄零件的起名要不要問 AI（沒寫是要）。 */
+export const partAiOf = (settings: Pick<AiSettings, 'partAi'>): boolean => settings.partAi !== false
 
 /** 成人場景的 AI 開到哪一層（沒寫是 closing）。 */
 export const sceneAiOf = (settings: Pick<AiSettings, 'sceneAi'>): SceneAiMode => settings.sceneAi ?? 'closing'

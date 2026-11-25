@@ -12,7 +12,7 @@ import { clone } from '../util/clone'
 
 /** 成品目錄價＝零件的目錄價合計 × 1.2（組裝與通路）× 型係數（ITEMS 1.4 節）。 */
 export const PRODUCT_PRICE_MARKUP = 1.2
-/** 二手的成品 ×0.5（dev/adr/0019 P11）。 */
+/** 二手的成品 ×0.5（dev/adr/0019 P11）；單一個二手零件放進成品時，那一個零件的價錢也 ×0.5（`fittedPrice`）。 */
 export const USED_PRICE_MULT = 0.5
 /** 品質的價錢係數（暫定，M4-core-product 回報；使用者尚未定）：精工 ×1.1、照規格 ×1、帶瑕疵 ×0.8。 */
 export const QUALITY_PRICE_MULT: Readonly<Record<string, number>> = { fine: 1.1, standard: 1, flawed: 0.8 }
@@ -66,7 +66,11 @@ const legalRank = (legal: unknown): number => {
 /** 這個成品實際用的零件資料：沒有 parts（或是空的）而設計圖有 stock 時用 stock。 */
 function resolve(content: ContentLookup, bp: BlueprintEntry, data: unknown): ProductData {
   const d = readProduct(data, content)
-  if (Object.keys(d.parts).length === 0 && bp.stock) d.parts = clone(bp.stock)
+  if (Object.keys(d.parts).length === 0 && bp.stock) {
+    d.parts = clone(bp.stock)
+    // 原廠的組合每個零件都是全新的：成品資料上的零件狀態是對著它自己的 parts 寫的，不套在 stock 上
+    delete d.part_states
+  }
   return d
 }
 
@@ -156,6 +160,15 @@ export function slotProblems(content: ContentLookup, bp: BlueprintEntry | string
 }
 
 /**
+ * 裝在成品裡的一個零件算多少目錄價：二手的零件（`part.state` 是 used，例如拆下來的、成品資料的 `part_states` 指定的）×0.5（`USED_PRICE_MULT`）；
+ * 成品自己整件是二手時（`productState`）不再重複折：那一個 ×0.5 已經算過了。
+ */
+export function fittedPrice(part: Pick<PartEntry, 'price' | 'state'>, productState?: string): number {
+  const price = isNum(part.price) ? part.price : 0
+  return part.state === 'used' && productState !== 'used' ? price * USED_PRICE_MULT : price
+}
+
+/**
  * 成品的目錄價：零件的 price 合計 × 1.2 × 設計圖的 price_mult（沒寫是 1），四捨五入到整數；
  * 成品 state 是 used 再 ×0.5；quality 是 fine ×1.1、flawed ×0.8（暫定）。沒有零件、查不到設計圖回 0。
  * 設計圖有 stock 而 data 沒有 parts 時用 stock（目錄上的原廠成品）。
@@ -166,7 +179,7 @@ export function productPrice(content: ContentLookup, bpId: string, data?: unknow
   const d = resolve(content, bp, data)
   const parts = partsOf(content, d)
   if (parts.length === 0) return 0
-  const sum = parts.reduce((n, p) => n + (isNum(p.part.price) ? p.part.price : 0), 0)
+  const sum = parts.reduce((n, p) => n + fittedPrice(p.part, d.state), 0)
   const mult = isNum(bp.price_mult) && bp.price_mult > 0 ? bp.price_mult : 1
   const used = d.state === 'used' ? USED_PRICE_MULT : 1
   const quality = QUALITY_PRICE_MULT[d.quality ?? 'standard'] ?? 1

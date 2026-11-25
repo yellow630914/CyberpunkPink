@@ -36,10 +36,14 @@ import { freeActionChain, registerFreeActionTasks } from './ai/freeAction'
 import type { AdultActionInput, SceneRoundInput, SceneRoundMode } from './ai/sceneChains'
 import { ADULT_ACTION_CHAIN, DIRECTION_MAX, SCENE_ROUND_CHAIN, adultActionChain, aiTurnNeeded, sceneRoundChain } from './ai/sceneChains'
 import { registerSceneTasks } from './ai/sceneTasks'
+import type { PartChainInput } from './ai/partChain'
+import { PART_CHAIN, partChain } from './ai/partChain'
+import { PART_TASK, registerPartTask } from './ai/partTask'
+import { deliverBlock, deliverDraft } from '../features/unreg'
 import type { Provider, ProviderSource } from './ai/provider'
 import { Limiter } from './ai/provider'
 import type { AiSettings } from './ai/settings'
-import { ProviderHub, sanitizeAiSettings, sceneAiOf } from './ai/settings'
+import { ProviderHub, partAiOf, sanitizeAiSettings, sceneAiOf } from './ai/settings'
 import type { TaskEnv } from './ai/tasks'
 import { IDLE_TIMEOUT_MS, TaskRegistry } from './ai/tasks'
 import type { SaveMeta } from './save'
@@ -185,6 +189,8 @@ export class Game {
    */
   private last: { run: ChainRun; before: GameState; seqAfter: number | null; pushed: boolean } | null = null
   private listeners: Listener[] = []
+  /** 正在跑 part_unreg 的那幾筆（同一筆同時只跑一條；Game.unregDeliver） */
+  private unregBusy = new Map<string, Promise<ActResult>>()
   private taskEnv: TaskEnv
   /** 任務鏈的環境：套用時的提交走 commitWithLaunch（報告帶的 launch 在同一次提交裡開；開不成整條鏈的套用不成立） */
   private readonly chainEnv: ChainEnv
@@ -205,12 +211,14 @@ export class Game {
     this.chainEnv = { k: this.k, tasks: this.tasks, taskEnv: this.taskEnv, commit: (draft) => this.commitWithLaunch(draft, true) }
     registerFreeActionTasks(this.k, this.tasks)
     registerSceneTasks(this.k, this.tasks)
+    registerPartTask(this.k, this.tasks)
     this.chains.register(freeActionChain())
     this.chains.register(adultActionChain())
     this.chains.register(sceneRoundChain())
     this.chains.register(battleEndChain())
     this.chains.register(narratedChain())
     this.chains.register(narratedChain(true))
+    this.chains.register(partChain())
     this.state = blankState(0)
   }
 
@@ -550,6 +558,50 @@ export class Game {
 
   reroll(stepId = 'roll', opts: ActOptions = {}): Promise<ActResult> {
     return this.request('reroll', stepId, opts)
+  }
+
+  // ---- 未登錄零件交貨（M4-core-part-ai；dev/adr/0019 第十七節；AI_TASKS 3.20 節） ----
+
+  /**
+   * 替一件等著交貨的未登錄零件（features/unreg 的 pending）交貨，回傳 ActResult。外殼不在提交之後自己偷偷交：這是明確的入口，由介面或測試呼叫（種子重播才對得上）。
+   * - AI 開著（總開關開、`partAi` 沒關、有服務商）：跑任務鏈 part_unreg（讀框架 → design_part 起名與怪癖 → 組交貨的草稿 → 寫正文 → 套用）。
+   *   design_part 驗證不過重來最多 2 次，仍不過、被拒絕、逾時都用預設清單的文字交貨；零件的數字完全相同，差別只有名字、說明與怪癖的那一句。
+   * - 否則直接 `commit(deliverDraft(k, state, { id }))`，不發任何請求；回傳的 run 是一條沒有跑的空鏈（每一步 skipped）。
+   * 現在交不了（進行中的活動擋著、訂做的還沒到、查不到那一筆）丟 ActionBlocked（原因照功能與活動的），狀態不動、那一筆 pending 留著，之後再呼叫。
+   * 同一筆同時只跑一條（再呼叫拿到同一個 Promise）；回退、讀檔、開新局時還在跑的那條被取消（回傳 status 'cancelled'），pending 還在，再叫一次就好。
+   * 寫正文步驟失敗而停在半路（paused）時，鏈留著等玩家重試或用規則代替；opts.autoRules 自動改用規則。
+   */
+  unregDeliver(id: string, opts: ActOptions = {}): Promise<ActResult> {
+    const live = this.unregBusy.get(id)
+    if (live) return live
+    const run = this.unregRun(id, opts).finally(() => { this.unregBusy.delete(id) })
+    this.unregBusy.set(id, run)
+    return run
+  }
+
+  /** 這一局交貨走不走 AI：總開關開、partAi 沒關、有人接得住 design_part。 */
+  private partLive(): boolean {
+    return this.settings.ai && partAiOf(this.settings) && this.hub.resolve(this.settings, PART_TASK) !== null
+  }
+
+  private async unregRun(id: string, opts: ActOptions): Promise<ActResult> {
+    const block = deliverBlock(this.k, this.state, id)
+    if (block) throw new ActionBlocked(block)
+    const label = '收下未登錄零件'
+    const input: PartChainInput = { id }
+    if (this.partLive()) {
+      const r = await this.startChain(PART_CHAIN, input, opts, label, { doing: 'commit:unreg.deliver' })
+      // 行動本身被擋下（活動、或套用時開不成）：這個入口一律丟 ActionBlocked，狀態不變
+      if (r.status === 'refused') throw new ActionBlocked(r.reason ?? '現在交不了貨。')
+      return r
+    }
+    const reports = this.commit(deliverDraft(this.k, this.state, { id }), label)
+    // 沒有跑任務鏈：回一條空的、每一步都略過的鏈，ActResult 的形狀和跑過的一樣
+    const run = new ChainRun(this.chainEnv, this.chains.get(PART_CHAIN)!, this.state, input, this.settings)
+    run.status = 'applied'
+    run.reports = reports
+    for (const s of run.steps) s.status = 'skipped'
+    return { status: 'applied', run, reports }
   }
 
   // ---- 戰鬥（COMBAT_SYSTEM；dev/adr/0010、0011）：每一步是一份報告，直接提交；結束時跑 battle_end 這條鏈 ----

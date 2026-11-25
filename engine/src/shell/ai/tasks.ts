@@ -41,6 +41,11 @@ export interface TaskDef<I = unknown, O = unknown> {
   schema?: { name: string; schema: Record<string, unknown> }
   /** 自動重試都失敗之後：wait 停下來等玩家（判定與寫正文），fallback 自動用規則代替（其他任務） */
   onExhausted: 'wait' | 'fallback'
+  /**
+   * 這個任務自己固定的自動重試次數（不看設定的重試次數）：design_part 是 2（CRAFTING 11.1 節「最多 2 次」）。沒寫就照設定（retriesFor）。
+   * 只管格式、驗證、逾時、網路這幾類會自動重試的錯；被拒絕不重試。
+   */
+  retries?: number
   /** 永遠走成人路由（PROMPTS 7.2 節：scene_gate、scene_turn、scene_talk、sex_record、sink、tendency）；不寫就看這一步所在的鏈（TaskCtx.adult） */
   adult?: boolean
   build(input: I, ctx: TaskCtx): TaskPrompt
@@ -181,7 +186,7 @@ export async function runTask<I, O>(env: TaskEnv, def: TaskDef<I, O>, input: I, 
 
   out.model = `${provider.source.provider}/${provider.source.model}`
   const prompt = def.build(input, ctx)
-  const maxAttempts = 1 + retriesFor(ctx.settings, def.id)
+  const maxAttempts = 1 + (def.retries ?? retriesFor(ctx.settings, def.id))
   let previousError = [...(opts.previousError ?? [])]
 
   for (let n = 1; n <= maxAttempts; n++) {

@@ -6,10 +6,10 @@
 //   店家（maker: 'shop'）：站在帶 craft.by === 'shop' 的設施；一定成功、不做超規、收工錢（設計圖等級 × 店家的 fee_per_grade × swap_shop_ratio，暫定一半）。
 // 換下來的零件回背包：內容的零件是 { state: 'used', uid } 的一疊，內嵌的零件整筆放回（M4-plan 規定 10）；生體的零件換下來就報廢（拆了就死）。
 // 骰子一律 deriveRng（用途 craft.swap/<成品的 uid>）；擲過骰的報告多一筆 { op: 'rng', advance: 1 }。
-// 已知的限制：二手零件放進成品時「二手」的狀態會丟（核心的 ProductData 沒有每個零件的狀態；M4-craft-salvage 回報）。
+// 二手零件換上去時，「二手」的狀態寫進成品資料的 part_states（核心 ProductData；M4-core-part-ai）：價錢與預覽照零件實際的狀態算。
 
-import type { ActorId, BlueprintEntry, Change, CheckRoll, GameState, ItemStack, Kernel, PartEntry, PartRef, ProductData, ProductInfo, ReportDraft, RollPart, TimelineBeat } from '../../core'
-import { ActionBlocked, DEGREE_NAME, checkParts, clone, deriveRng, formatAmount, partOf, partTypeName, productOf, productPrice, rollCheck, slotProblems } from '../../core'
+import type { ActorId, BlueprintEntry, Change, CheckRoll, GameState, ItemStack, Kernel, PartEntry, PartRef, PartState, ProductData, ProductInfo, ReportDraft, RollPart, TimelineBeat } from '../../core'
+import { ActionBlocked, DEGREE_NAME, checkParts, clone, deriveRng, formatAmount, partOf, partTypeName, productOf, productPrice, rollCheck, setPartState, slotProblems, stackPart } from '../../core'
 import type { CheckPreview, Difficulty } from './preview'
 import { difficultyOf, oddsOf, payPool, refOfStack, skillFor, slotOf, workshopOf } from './preview'
 import type { CraftRules, Pool } from './model'
@@ -169,7 +169,8 @@ function planSwap(k: Kernel, state: GameState, o: SwapOpts): SwapPlan {
   if (!taken) problems.push(`背包裡沒有可以拿來換的零件「${String(o.part)}」。`)
   else {
     newRef = refOfStack(k, taken)
-    newPart = newRef === undefined ? undefined : partOf(k.content, newRef)
+    // 背包這一疊是哪個零件經核心的 stackPart：二手件的狀態是 used（不是內容那一筆的 new）
+    newPart = newRef === undefined ? undefined : stackPart(k.content, taken)
     if (newRef === undefined || !newPart) problems.push(`背包裡的「${o.part}」不是能組裝的零件。`)
     else if (slot) {
       const sp = slotProblems(k.content, bp, o.type, newRef)
@@ -189,6 +190,11 @@ function planSwap(k: Kernel, state: GameState, o: SwapOpts): SwapPlan {
   const list = nextBy[o.type] ?? (nextBy[o.type] = [])
   list[index] = clone(newRef)
   const next: ProductData = { ...clone(data), parts: toPartsRecord(nextBy) }
+  // 換上去的零件和它自己的內容不同狀態（二手件）：寫進同一格的 part_states；換上全新的就把那一格清掉
+  const own = typeof newRef === 'string' ? partOf(k.content, newRef) : undefined
+  const states = setPartState(data.part_states, o.type, index, own && own.state !== newPart.state ? (newPart.state as PartState) : null)
+  if (states) next.part_states = states
+  else delete next.part_states
   const info = productOf(k.content, bp.id, next)!
   const overN = overspecCount(k, bp, nextBy)
   const after = resultOf(k, bp, next, info, overN)

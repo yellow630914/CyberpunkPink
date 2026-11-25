@@ -58,6 +58,10 @@ export function fakeHeadline(report: unknown): string {
   return line ? `${line}。` : ''
 }
 
+const KANJI = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+/** 把一個數字寫成國字（逐位：12 → 一二）。 */
+const kanji = (n: number): string => [...String(Math.max(0, Math.floor(n)))].map((d) => KANJI[Number(d)]).join('')
+
 /** 自動模式：每個任務一份合格的回應。 */
 export function goodReply(req: AiRequest): FakeReply {
   const input = inputOf<Record<string, any>>(req)
@@ -90,6 +94,11 @@ export function goodReply(req: AiRequest): FakeReply {
       return { json: { kind: input.rule.kind, amount: input.rule.amount, reason: '（假的服務商）照規則。' } }
     case 'tendency':
       return { json: { tags: ((input.touched as Array<{ id: string }>) ?? []).map((t) => t.id) } }
+    // 未登錄零件（M4-core-part-ai）：名字是「測試件」加流水號的國字（流水號取 <input>.id 裡的數字，每一件不同），說明與怪癖各一句、沒有數字
+    case 'design_part': {
+      const n = Number(/\d+/.exec(String(input.id ?? ''))?.[0] ?? 0)
+      return { json: { name: `測試件${kanji(n)}`, desc: '（假的服務商）一件合規的測試零件。', quirk: input.quirk ? '（假的服務商）它偶爾會自己嗡嗡作響。' : '' } }
+    }
     case 'relate':
       return { json: input.scene ? { items: (input.cast as Array<{ id: string; range: [number, number] }>).map((c) => ({ id: c.id, amount: Math.round((c.range[0] + c.range[1]) / 2) })) } : {} }
     default:
@@ -127,6 +136,33 @@ export function sceneAdversary(name: SceneAdversary, o: { target?: string } = {}
  */
 export function sceneScript(name: SceneAdversary, o: { target?: string; times?: number } = {}): FakeScriptEntry[] {
   return Array.from({ length: o.times ?? 4 }, () => sceneAdversary(name, o))
+}
+
+/** 未登錄零件的對抗劇本（M4-core-part-ai）：每一個是 design_part 交出不合規的回應。不放進 ADVERSARIAL_MODES（那一組會被每個任務的測試逐個跑），另外放這一組。 */
+export const PART_ADVERSARIES = ['bad_json', 'name_digit', 'name_dup', 'desc_long', 'extra_stats', 'refusal'] as const
+export type PartAdversary = (typeof PART_ADVERSARIES)[number]
+
+/**
+ * 一個對抗劇本的回應（req 是 design_part 的請求，好的部分照它的 <input> 算）：bad_json 交一半的 JSON；name_digit 名字帶阿拉伯數字；
+ * name_dup 名字和內容裡一個零件同名（o.dup 給那個名字；沒給就用 <input>.samples 的第一筆）；desc_long 說明超過 60 字；
+ * extra_stats 多一個 stats 欄位（想偷偷改數字）；refusal 服務商拒絕。
+ */
+export function partAdversary(name: PartAdversary, req: AiRequest, o: { dup?: string } = {}): FakeReply {
+  const good = goodReply(req).json as { name: string; desc: string; quirk: string }
+  const samples = (inputOf<{ samples?: string[] }>(req).samples ?? []) as string[]
+  switch (name) {
+    case 'bad_json': return { text: '{"name": "壞掉的回應' }
+    case 'name_digit': return { json: { ...good, name: '測試件3號' } }
+    case 'name_dup': return { json: { ...good, name: o.dup ?? samples[0] ?? good.name } }
+    case 'desc_long': return { json: { ...good, desc: '一件很長很長的測試零件說明。'.repeat(6) } }
+    case 'extra_stats': return { json: { ...good, stats: { damage: 99 } } }
+    case 'refusal': return { refusal: true }
+  }
+}
+
+/** 劇本用的：同一個對抗回應排 times 次（自動重試也拿到同一份壞的；預設 4 次，重試上限是 2），之後照自動模式。用法 new FakeProvider({ byTask: { design_part: partScript('desc_long') } })。 */
+export function partScript(name: PartAdversary, o: { dup?: string; times?: number } = {}): FakeScriptEntry[] {
+  return Array.from({ length: o.times ?? 4 }, () => (req: AiRequest) => partAdversary(name, req, o))
 }
 
 /** 把一份合格的回應弄壞。不適用於這個任務的模式回傳原樣的合格回應。 */
