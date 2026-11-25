@@ -224,6 +224,8 @@ describe('格式：內容種類與載入時的檢查', () => {
     expect(DEFAULT_AUCTION_RULES).toEqual({
       grades: [3, 4], reserve_pct: 0.5, step_pct: 0.1, step_min: 50, budget: [0.8, 1.6], fake: { chance: 0.15, dc: 16, skills: ['cyberware', 'investigate'], minutes: 10 },
       preview: { days_before: 1, from_hour: 8, to_hour: 18 }, ref: { favor: 'small', affinity: 40 }, ban_days: 28,
+      // M4-auction-bid 多讀的鍵
+      rounds_max: 8, raise_max: 3, interest: { yes: 0.7, no: 0.15, after_raise: 0.1 }, fee_pct: 0.1, min_minutes: 60, cred_dirty: { amount: 2, factions: [] },
     })
     const o = make({ mod: (c) => c.auction_rule = [{ id: 'default', ban_days: 7, fake: { dc: 12 }, preview: { from_hour: 9 }, budget: [1, 1.2], bid_rounds: 8 }] })
     const r = auctionRules(o.k)

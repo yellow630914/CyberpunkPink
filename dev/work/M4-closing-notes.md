@@ -7,3 +7,5 @@
 - （M4-ui-curtain）核心 `BattleUnit` 加「現在鎖定誰」，ui 的 `BattleBoard.lockOf` 改讀它（名牌跟著鎖定的目標換形象）。
 - （M4-ui-curtain）curtain 從 index 匯出 `tabLine`，或 `memberView` 帶 tab、gig、tapes；ui 拿掉深路徑 import。
 - （M4-ui-curtain）示意局的補演對象要有街上人物的生成規則（npcs 的 `castGen`）；示意局的邀請函與信譽來源（內容）。
+- （M4-auction-bid）`once` 的拍品被 NPC 買走也記進 `sold`（世界上只有一件）；拍賣進行中的放行只列 `auction.bid`、`auction.leave`、`auction.close`；`ReportOutcome` 的拍賣欄位改成正式型別（不用轉型）。
+- （M4-followups-2）斷線靜修改成進行中的活動，期間關橋、禁止潛入（等使用者同意）。
