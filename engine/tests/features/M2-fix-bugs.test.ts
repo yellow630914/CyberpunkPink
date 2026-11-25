@@ -119,7 +119,7 @@ describe('B019：忠誠只有名冊上的人有', () => {
 
 // ===================================================================================================================
 describe('B022：封閉清單（AI 可以用的效果）', () => {
-  it('aiKinds 沒有 debt、bargain、perk、scout_reveal、deck_rental、deck_script_use；meet、npc_known 保留給 AI；其餘的都在；錯誤訊息列的是 AI 能用的', () => {
+  it('aiKinds 沒有 debt、bargain、perk、scout_reveal、deck_rental、deck_script_use、gear_take；meet、npc_known 保留給 AI；其餘的都在；錯誤訊息列的是 AI 能用的', () => {
     const { game: g } = makeCityGame({ seed: 7 })
     const all = g.k.effects.kinds()
     const ai = g.k.effects.aiKinds()
@@ -128,7 +128,7 @@ describe('B022：封閉清單（AI 可以用的效果）', () => {
     expect(ai).not.toContain('bargain')
     expect(ai).toEqual(expect.arrayContaining(['bill', 'cred', 'cash', 'hostility', 'insight']))
     expect(ai).toEqual(expect.arrayContaining(['meet', 'npc_known']))
-    expect(all.filter((k) => !ai.includes(k)).sort()).toEqual(['bargain', 'debt', 'deck_rental', 'deck_script_use', 'perk', 'scout_reveal'])
+    expect(all.filter((k) => !ai.includes(k)).sort()).toEqual(['bargain', 'debt', 'deck_rental', 'deck_script_use', 'gear_take', 'perk', 'scout_reveal'])
     const err = resolve(g, [{ kind: 'debt', to: 'f_corp', amount: 100, rate: 0.1 }], 'ai').errors.join()
     expect(err).toContain('不是 AI 與玩家要的結果可以用的效果')
     expect(err).not.toContain('debt、') // 可以用的清單裡不列 debt

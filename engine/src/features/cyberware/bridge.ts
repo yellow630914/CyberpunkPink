@@ -62,7 +62,7 @@ const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFin
  * 一件橋的容量（P8；工單 M4-cyber-bridge 第 1 條）：
  *   晶片（好幾個時取 bridge.capacity 最高的）給總量 T；軟體的 bridge.split 給四類的份數（好幾套就逐類相加；沒有軟體或份數全是 0 當四類等分）。
  *   照份數分、無條件捨去，剩下的點數照小數部分由大到小補（一樣大照 meat、net、social、media 的順序）；
- *   任何一類不到 cap_min 的補到 cap_min，差額從目前最多的那一類扣（一次一點；扣到它也只剩 cap_min 就換次多的；全都只剩 cap_min 就不再扣）；
+ *   任何一類不到 cap_min 的補到 cap_min，差額從目前最多的那一類整筆扣（扣到它也只剩 cap_min 就換次多的；全都只剩 cap_min 就不再扣，合計會超過晶片）；
  *   最後每一類加上所有零件 affinity 那一類的值（不再夾）。
  */
 export function capacityOfProduct(k: Pick<Kernel, 'content'>, bpId: string, data: unknown, capMin: number): BridgeCapacity {
@@ -99,14 +99,18 @@ export function capacityOfProduct(k: Pick<Kernel, 'content'>, bpId: string, data
     share[r.cat] += 1
     left -= 1
   }
-  // 補到下限，從最多的那一類扣
+  // 補到下限：不到 cap_min 的補到 cap_min（一定補）；差額從目前最多的那一類整筆扣，它只剩 cap_min 了就換次多的（一樣多照四類的順序）；沒有人有多的就不扣
   const level: Record<BridgeCat, number> = { ...share }
   for (const cat of BRIDGE_CATS) {
-    while (level[cat] < capMin) {
+    let need = capMin - level[cat]
+    if (need <= 0) continue
+    level[cat] = capMin
+    while (need > 0) {
       const donor = BRIDGE_CATS.reduce<BridgeCat | null>((best, c) => (c !== cat && level[c] > capMin && (best === null || level[c] > level[best]) ? c : best), null)
-      level[cat] += 1
-      if (donor) level[donor] -= 1
-      else break
+      if (!donor) break
+      const take = Math.min(need, level[donor] - capMin)
+      level[donor] -= take
+      need -= take
     }
   }
   const out = zeroCap()
