@@ -5,7 +5,7 @@
 - 規格出處：docs/art/UI.md 1.1 節（規則 1 與「做不到的一律灰掉」）、3.5 節（兩種錢的圖示）；LEWD_SYSTEM 6.2 節；dev/adr/0019 第十八節；dev/work/M4-auction.md、M4-auction-bid.md 的「匯出」。UI 設計書沒有拍賣的版面：這一張照下面的欄位做最小的一版，回報裡附版面給使用者看。
 - 可以改的路徑：`ui/src/dialogs/AuctionDialog.vue`（新）、`ui/src/lib/`（新增 `auctionView.ts`；`here.ts` 多一項）、`ui/src/data/districts.ts`（`svc('auction', …)` 那一筆接上，不再是假的）、`ui/src/stores/engine.ts`（只加轉接）、`ui/src/data/demo/`（新增 `auction.ts`）、`ui/tests/auction/`。
 - 可以用的介面：`@engine/src/features/auction` 的 `housesHere`、`sessionOf`、`catalogView`、`memberOf`、`refOptions`、`refDraft`、`inspectOptions`、`inspectDraft`、`enterBlocks`、`enterDraft`、`auctionView`、`bidOptions`、`bidDraft`、`leaveDraft`；`Game.commit`、`Game.commitNarrated`（結束的那一份）；`Game.blockOf`（進行中別的入口灰掉的原因）。
-- 不可以做的事：不改 `engine/`；底價、一階、佣金、能不能加價、誰退出、誰得標都讀引擎；競標者的預算與拍品是不是仿品不能出現在畫面或前端的狀態裡（引擎的 `catalogView`、`auctionView` 本來就不給）；不寫拍品與競標者的正式內容；不做寄拍、暗標；共同的規定見 dev/work/M4-plan.md。
+- 不可以做的事：不改 `engine/`；底價、一階、佣金、能不能加價、誰退出、誰得標都讀引擎；競標者的預算與拍品是不是仿品不能出現在畫面上：只用 `catalogView`、`auctionView`、`bidOptions` 的回傳畫，元件與 `lib/auctionView.ts` 不直接讀 `state.ext.auction`（那兩樣記在狀態裡，給引擎算用的）；不寫拍品與競標者的正式內容；不做寄拍、暗標；共同的規定見 dev/work/M4-plan.md。
 
 ## 要做的
 
@@ -22,7 +22,7 @@
 
 - 階段的顯示跟著時間變：週三是「還沒公布」、週四白天是「預展中」、週五 19:00 之後是「開槌中」。
 - 不是會員：進場的按鈕灰掉、原因逐字相同；換了推薦之後亮起來。
-- 目錄每一欄等於 `catalogView`；看貨成功之後那一件有標示；元件的資料裡找不到 `fake` 與任何預算的數字（掃渲染出來的內容與 store 的狀態）。
+- 目錄每一欄等於 `catalogView`；看貨成功之後那一件有標示；渲染出來的內容裡找不到仿品的記號與任何競標者的預算；掃原始碼：`AuctionDialog.vue` 與 `lib/auctionView.ts` 沒有讀 `ext.auction`。
 - 競價：加價的每個按鈕上的數字等於 `bidOptions`；錢不夠的那一個灰掉；玩家是最高的人時只有「等」亮著；一回合之後現價與最高的人等於引擎的狀態；落槌之後進到下一件。
 - 離場之後有結算頁、時間是引擎的時間、同一場不能再進。
 - 進行中「這裡」的其他項目灰掉、原因是引擎的那一句。

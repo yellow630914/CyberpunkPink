@@ -4,7 +4,7 @@
 - 目標：`auction` 的後半：進場、一場拍賣是一個活動、一件拍品一回合一回合地喊（玩家加價、等、退出；NPC 照預算與興趣決定）、落槌、付款與佣金、當場取貨（零件、義體、藝術品、機密、契約）、仿品到手才發現、結束。
 - 規格出處：LEWD_SYSTEM 6.2 節「一場拍賣」的時間那一條、「競價的回合」五步、「成交」三條；LIFE 1.1 節（兩種錢；用帳戶做髒交易）；CRAFTING 第 4 節（二手的狀態）；LEWD_SYSTEM 第 7 節開頭與 7.5 節（買下的契約：只用效果 `contract_hold`）；dev/adr/0016 第一節（活動）；dev/adr/0019 第十八節與 P78～P80、P82、P83。
 - 可以改的路徑：`engine/src/features/auction/`、`engine/tests/features/M4-auction-bid.test.ts`。
-- 可以用的介面：M4-auction 的 `sessionOf`、`catalogOf`、`memberOf`、`auctionRules`、`state.ext.auction`；`k.activity.define`（寫法看 `features/transit` 的搭車與 `features/netrun`）、掛點 `activity.end`（結束時發，寫法看 `features/transit/index.ts`）；`deriveRng`；核心的 `productOf`、`readProduct`、成品編號的現有做法（M4-craft 買原廠成品的那一段）；內容種類 `quirk`（`pool` 含 `flaw`）；核心的 `item`、`cash`、`cred`、`time`、`ext` 變更；效果用登錄表跑（`contract_hold`、拍品的 `effects`、量表 `hostility` 的效果；查不到略過）；報告上的 `triggers`；`contentAllowed`。
+- 可以用的介面：M4-auction 的 `sessionOf`、`catalogOf`、`memberOf`、`auctionRules`、`state.ext.auction`；`k.activity.define`（寫法看 `features/transit` 的搭車與 `features/netrun`）、核心的 `endActivity` 與 `attachActivityEnd`（結束的那一份報告用它們發 `activity.end`，寫法看 `features/transit/trip.ts`）；`deriveRng`；核心的 `productOf`、`readProduct`、成品編號的現有做法（M4-craft 買原廠成品的那一段）；內容種類 `quirk`（`pool` 含 `flaw`）；核心的 `item`、`cash`、`cred`、`time`、`ext` 變更；效果用登錄表跑（`contract_hold`、拍品的 `effects`、量表 `hostility` 的效果；查不到略過）；報告上的 `triggers`；`contentAllowed`。
 - 不可以做的事：不改 M4-auction 的目錄與會員規則；NPC 的決定只看預算、興趣與這一回合有沒有人加過價（有脾氣、記仇、暗標、買斷、舉報、玩家寄拍都不做：IDEAS 的「真正的競拍系統」）；不叫 AI；鬧事只有 M4-auction 的效果 `auction_ban`，這一張不做搶標與威脅的動作；不 import `contract`、`craft`、`security`；共同的規定見 dev/work/M4-plan.md。
 
 ## 新的格式與鍵
@@ -29,7 +29,7 @@
    - 義體：加一疊成品（設計圖的 id、`ProductData` 是它的 `stock`，新的 `uid`）；仿品而沒看出來時 `state: 'used'`、`quality: 'flawed'`、多一筆 `pool` 含 `flaw` 的 `quirk`（查不到就不加），同樣多那一句。預展看出來是仿品還照標的，東西一樣是那個樣子，只是沒有那一句。
    - 藝術品與機密：`item` 加那一件（有寫才加），再跑拍品的 `effects`（內建的來源）。契約：跑效果 `contract_hold`（拍品的 `contract` 加上 `npc`，`origin` 是拍賣行的名字）。
    - `once` 的記進 `sold`。`pay` 是帳戶，而且這一件是違禁（`productOf` 或零件的 `legal` 是 `banned`）或契約：`cred_dirty.factions` 的每個勢力加敵對值（清單是空的就什麼都不做）。
-5. 全部拍品都落槌之後（或 `leaveDraft`：剩下的每一件都當成玩家退出，由程式算完）發 `auction.close`：時間推到這個時段結束，而且從進場算起至少 `min_minutes`；`done[house]` 記這一場；`run` 清掉；發 `activity.end`（`kind: 'auction'`、`result: { house, won, spent, log }`）；帶一個觸發點 `auction_done`（`where: { house, won: 得標幾件 }`）。
+5. 全部拍品都落槌之後（或 `leaveDraft`：剩下的每一件都當成玩家退出，由程式算完）發 `auction.close`：時間推到這個時段結束，而且從進場算起至少 `min_minutes`；`done[house]` 記這一場；`run` 清掉；用 `endActivity` 發 `activity.end`（`kind: 'auction'`、`outcome: 'done'`、`result: { house, won, spent, log }`）並把回來的東西併進這一份報告；帶一個觸發點 `auction_done`（`where: { house, won: 得標幾件 }`）。
 6. `auctionView`（給畫面）：第幾件之幾、這一件的名字與種類與鑑定書、底價、現價、一階、誰是最高、第幾回合、倒數的狀態、還在場的競標者（名字，預算不給）、這一場花了多少與得標的清單、身上那一種錢還剩多少。`bidOptions`：三種動作各自能不能做與原因、每一種加價之後的價錢與含佣金的總數。兩個都不改狀態。
 7. 存檔在一場中途讀回來接得下去（東西都在 `run`）；回退照核心的做法一步一回合。
 
