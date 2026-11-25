@@ -13,14 +13,17 @@ export const NET_RULE_KIND = 'net_enemy_rule'
 export interface NetEnemyRule extends ContentEntry {
   /** 網內的敵人與企業的人掉的「憑證」是哪一件物品（item 的 id）；不寫或內容裡沒有就不掉憑證 */
   credential_item?: string
+  /** 雙形象：這一場擲到形象 B 的機率，0～1（M4-enemies-m4；CYBERSPACE 8.7 節，暫定 0.6）。沒寫用 DEFAULT_FORM_B_CHANCE */
+  form_b_chance?: number
 }
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
 
 export function ruleProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
-  for (const key of Object.keys(e)) if (key !== 'id' && key !== 'credential_item') p.push(`${key}：沒有這個欄位（可以寫的：credential_item）`)
+  for (const key of Object.keys(e)) if (key !== 'id' && key !== 'credential_item' && key !== 'form_b_chance') p.push(`${key}：沒有這個欄位（可以寫的：credential_item、form_b_chance）`)
   if (e.credential_item !== undefined && !isText(e.credential_item)) p.push('credential_item 要是物品的 id')
+  if (e.form_b_chance !== undefined && !(typeof e.form_b_chance === 'number' && e.form_b_chance >= 0 && e.form_b_chance <= 1)) p.push('form_b_chance 要是 0～1 的數字（雙形象擲到形象 B 的機率）')
   return p
 }
 

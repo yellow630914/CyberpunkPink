@@ -4,7 +4,7 @@
 import type { BattleMode, BattleOverlayInit, BattleSetup, BattleUnitInit, BattleWeapon, ContentRegistry, GameState, Grade, SyncGear, UnitRank, UnitRef, WeaponClassEntry } from '../../core'
 import { ATTR_IDS, areaGrade, attrMod, battleAttr, enemyCoefFor, gradeDice, modeOf, weaponFromClass } from '../../core'
 import type { Kernel } from '../../core'
-import { DEFAULT_SYNC, ENEMY_CURVE, NET_CURVE, OVERLAY_POINTS, SHIFT_GEAR } from './curve'
+import { DEFAULT_SYNC, ENEMY_CURVE, NET_CURVE, OVERLAY_POINTS, SHIFT_GEAR, SINK_EDGE, sinkLayers } from './curve'
 import type { EncounterEntry, EncounterFoe, EnemyAttached, EnemyEntry } from './kinds'
 import { NET_ONLY_KINDS, UNBRIDGED_KINDS, attachedProblems, enemyMode, netCapable, resolveEnemy } from './kinds'
 
@@ -12,8 +12,6 @@ type Cx = Pick<Kernel, 'content'>
 
 /** 掛在格上的東西的迴避加成（COMBAT_SYSTEM 9.1 節：迴避 13 = 目標表 + 3）。 */
 const OVERLAY_EVADE = 3
-/** 沉溺到這個數字以上算溺感邊緣（ENEMIES 第 5 節）：多一個標籤 sink_edge。 */
-const SINK_EDGE = 80
 
 export interface EnemyStats {
   grade: Grade
@@ -70,7 +68,7 @@ function statsOf(state: GameState, e: EnemyEntry, grade: Grade, allies: number, 
     evade: ENEMY_CURVE.evade[g]! + (m.evade ?? 0),
     attack: ENEMY_CURVE.attack[g]! + (m.attack ?? 0),
     ap: Math.max(1, ENEMY_CURVE.ap[e.rank] + (e.rank !== 'minion' && grade >= 4 ? 1 : 0) + (m.ap ?? 0)),
-    layers: Math.max(1, ENEMY_CURVE.layers[e.rank] + (m.layers ?? 0)),
+    layers: Math.max(1, ENEMY_CURVE.layers[e.rank] + (m.layers ?? 0) + sinkLayers(m.sink)),
     sensitivity: m.sensitivity ?? 50,
     dmgMult: { hp: ENEMY_CURVE.rankDamage[e.rank] * c.dmg * s.dmg, load: c.dmg * s.dmg },
   }
@@ -229,7 +227,7 @@ function netStatsOf(state: GameState, e: EnemyEntry, grade: Grade, allies: numbe
     firewall: NET_CURVE.firewall + grade + (m.evade ?? 0),
     attack: NET_CURVE.attack[g]! + (m.attack ?? 0),
     ap: Math.max(1, ENEMY_CURVE.ap[e.rank] + (e.rank !== 'minion' && grade >= 4 ? 1 : 0) + (m.ap ?? 0)),
-    layers: Math.max(1, ENEMY_CURVE.layers[e.rank] + (m.layers ?? 0)),
+    layers: Math.max(1, ENEMY_CURVE.layers[e.rank] + (m.layers ?? 0) + sinkLayers(m.sink)),
     sensitivity: m.sensitivity ?? 50,
     dmgMult: { hp: 1, load: c.dmg * s.dmg },
   }

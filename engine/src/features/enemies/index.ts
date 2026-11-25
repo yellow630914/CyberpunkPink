@@ -9,13 +9,17 @@
 // 內海面（M3-lace）：同一個來源 enemy 與 enemy_pick 拿到的戰場是內海時，照內海表組單位（stats.ts 的 netUnit）：沒有生命、有防護、RAM、武器構裝（constructs）、
 // 固定的同步檔位（sync）、蕾絲的顏色（color 變標籤）、管理行動的次數（admin）；enemy_pick 照層挑網內的兵種（pick.ts）；掉落只有解剖拿得到的構裝與憑證（loot.ts）；
 // 偏好深檔的 AI 與白蕾絲的撤走在 lace.ts；規則表 net_enemy_rule（憑證是哪件物品）。蕾絲的行為是招牌行動的資料加 AI 的參數，不替顏色寫程式。
-// 規格：ENEMIES 1.1、1.5、第 2 節、4.4 節、第 5 節、第 9 節、第 13 節；ENEMY_ROSTER 開頭；BALANCE 2.4、7.2；dev/adr/0013（B2、D4～D6）、0015（E10、E11）、0018 第四節與 N18～N20。
+// M4-enemies-m4：雙形象（forms.ts：一場擲一次，名牌與紀錄照目標換字）、縛／疊的效果與解開束縛（bind.ts）、沉溺高的敵人（承受層數在 stats.ts，被推過線在 sunk.ts）。
+// 規格：ENEMIES 1.1、1.5、第 2 節、4.4 節、第 5 節、第 9 節、第 13 節；CYBERSPACE 8.7 節；ENEMY_ROSTER 開頭；BALANCE 2.4、7.2；dev/adr/0013（B2、D4～D6）、0015（E10、E11）、0018 第四節與 N18～N20。
 
 import type { BattleUnit, Feature } from '../../core'
 import { installCapture } from './capture'
 import { enemyPickUnit } from './pick'
 import { checkSignatures } from './signature'
 import { registerAngel } from './angel'
+import { bindWarnings, registerBind } from './bind'
+import { installForms } from './forms'
+import { installSunk } from './sunk'
 import { registerLace } from './lace'
 import { registerOverlays } from './overlays'
 import { enemyUnit } from './stats'
@@ -37,6 +41,13 @@ export { OVERLAY_KINDS } from './kinds'
 export { LACE_COLORS, NET_ONLY_KINDS, NET_SYNC_VALUES, enemyMode, netCapable, netEnemyWarnings } from './kinds'
 export type { EncounterEntry, EncounterFoe, EnemyAttached, EnemyConstruct, EnemyCyber, EnemyDeck, EnemyEntry, EnemyHull, EnemyOverlay, EnemySignature } from './kinds'
 export type { TraitEntry } from './traits'
+export { BIND_STATUS, UNBIND, UNBIND_AP, isBound } from './bind'
+export { DEFAULT_FORM_B_CHANCE, SINK_EDGE, SINK_LAYER_STEPS, SINK_LINE, sinkLayers } from './curve'
+export { GENDER_FILTER_TAG, chooseForm, formBChance, formFor, formKeyFor, formUsable, formViewOf, genderOf, hasForms, pickForm, rollFormKey, unitFormView, usableForms } from './forms'
+export type { FormKey, FormView, UnitFormView } from './forms'
+export { ENEMY_GENDERS } from './kinds'
+export type { EnemyForm, EnemyFormMove, EnemyGender, EnemyNeutral } from './kinds'
+export { FOE_SUNK_POINT, SUNK, SUNK_EXT, dataSink, pendingSunk, sunkUnits } from './sunk'
 export { pickCandidates, pickEnemy, pickProblems } from './pick'
 export type { PickSpec } from './pick'
 export { ASK_DC, CAPTURE_BASE, CAPTURE_EXT, CAPTURE_MAX_OFFER, CAPTURE_PER_SEDUCE, CAPTIVE_TAG, askDc, canTake, captureCause, captureChance, captureKindOk, captureOf, pickEvent, rollCaptures, treatEvent } from './capture'
@@ -62,6 +73,10 @@ export const enemiesFeature: Feature = {
     k.battle.on('unit.ready', OWNER, ({ run, unit }) => applyTraits(run, unit))
     k.battle.on('battle.start', OWNER, ({ run }) => runTraitStart(run))
     registerAngel(k)
+    // 雙形象（一場擲一次；名牌與紀錄照目標換字）、成人地城的效果記號（縛、疊）與解開束縛、沉溺高的敵人被推過線（M4-enemies-m4）
+    installForms(k)
+    registerBind(k)
+    installSunk(k)
     // 內海面：規則表 net_enemy_rule、偏好深檔的 AI、白蕾絲追蹤度夠高就撤走（M3-lace）
     registerLace(k)
     // 敵方的無人機與砲塔、附屬單位：開打時掛上去；會指揮的敵人多一個行動 enemy.command（一台怎麼動在 summons）
@@ -107,6 +122,6 @@ export const enemiesFeature: Feature = {
   },
   // 資料檢查的警告（不擋載入）：網內的敵人沒有 constructs（白蕾絲除外）
   warnings(k) {
-    return netEnemyWarnings(k.content)
+    return [...netEnemyWarnings(k.content), ...bindWarnings(k)]
   },
 }

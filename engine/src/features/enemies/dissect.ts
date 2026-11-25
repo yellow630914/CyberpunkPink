@@ -28,7 +28,7 @@ export const DISSECT_MINUTES = 60
 export const DISSECT_SINK = 1
 export const DISSECT_HOSTILITY = 5
 /** 算解剖對象的退出方式：被打倒、昏過去、被制伏。投降、逃走與被帶走的不算。 */
-const DISSECTABLE_OUT: readonly string[] = ['down', 'burnout', 'subdued']
+const DISSECTABLE_OUT: readonly string[] = ['down', 'burnout', 'subdued', 'sunk']
 /** 算「人」的兵種（kind）：有血有肉的對象；機器、載具、機甲、吉祥物、蕾絲與程式不算。 */
 const HUMAN_KINDS: readonly string[] = ['human', 'unbridged']
 /** 成品的 uid 前綴（和 craft 的組裝同一個慣例：核心流水號 seq.uid ＋ 1）。 */

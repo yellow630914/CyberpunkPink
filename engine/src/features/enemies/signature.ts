@@ -16,6 +16,10 @@ export function checkSignatures(k: Pick<Kernel, 'content'>): void {
       try { att = resolveEnemy(k.content, a.enemy) } catch { continue }
       if (att.position.size !== 'overlay') problems.push(`enemy/${e.id}：附屬單位 ${a.enemy} 不是 overlay 的兵種（position.size 要是 'overlay'）`)
     }
+    // 雙形象：每個形象寫的招牌行動（moves 的鍵）要是這個敵人招牌行動裡的技能 id
+    const ids = (merged.signature ?? []).filter((x): x is string => typeof x === 'string')
+    const moveSets: Array<[string, Record<string, unknown> | undefined]> = [['forms.a', merged.forms?.a.moves], ['forms.b', merged.forms?.b.moves], ['neutral', merged.neutral?.moves]]
+    for (const [at, moves] of moveSets) for (const id of Object.keys(moves ?? {})) if (!ids.includes(id)) problems.push(`enemy/${e.id}：${at}.moves 寫了 ${id}，但它不是這個敵人的招牌行動（signature 裡沒有這個技能）`)
     for (const s of merged.signature ?? []) {
       if (typeof s !== 'string') continue
       const ab = k.content.get('ability', s)

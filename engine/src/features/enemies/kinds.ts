@@ -100,6 +100,31 @@ export interface EnemyAttached {
 }
 /** 招牌行動：技能的 id（標了 enemy 的技能），或還沒轉的敘述 { name, text }（收下、不做效果）。 */
 export type EnemySignature = string | { name: string; text: string }
+/** 雙形象（CYBERSPACE 8.7 節；M4-enemies-m4）：性別的五個值（DATA 第 1 節）。 */
+export const ENEMY_GENDERS = ['male', 'female', 'femboy', 'trans_f', 'futa'] as const
+export type EnemyGender = (typeof ENEMY_GENDERS)[number]
+/** 一個形象裡某個招牌行動換掉的名字與描寫（鍵是招牌行動的技能 id）。 */
+export interface EnemyFormMove {
+  name: string
+  text?: string
+}
+/**
+ * 一個形象：名稱、外觀、招牌行動的名字與描寫。數字（位階、感載上限、防護、攻擊的效果）兩個形象完全相同，不在這裡。
+ * points_at：這個形象的描寫指向哪幾類對象（內容篩選的 male_partner 等五個；被關掉的類，指向它的形象不能用）；neutral: true 是本來就指向誰也不指（不受篩選影響）。
+ */
+export interface EnemyForm {
+  name: string
+  look: string
+  moves?: Record<string, EnemyFormMove>
+  points_at?: EnemyGender[]
+  neutral?: boolean
+}
+/** 兩個形象都被篩選排除時用的中性外觀（沒寫就用資料的 name 與 desc）。 */
+export interface EnemyNeutral {
+  name: string
+  look: string
+  moves?: Record<string, EnemyFormMove>
+}
 export interface EnemyEntry {
   id: string
   name: string
@@ -143,6 +168,11 @@ export interface EnemyEntry {
   /** 人形的機器（機娘、人偶）：沒有感載，被電磁打到停機時制伏也算俘虜的條件（ENEMIES 6.1 節） */
   humanoid?: boolean
   signature?: EnemySignature[]
+  /** 雙形象（M4-enemies-m4）：一場戰鬥開始時擲一次是 a 還是 b，整場固定；對 male 的目標一律 a */
+  forms?: { a: EnemyForm; b: EnemyForm }
+  neutral?: EnemyNeutral
+  /** 簾後館擲文化用的標籤（M4-curtain-entry 讀；這裡只收格式） */
+  culture?: string
   /** 掉落（ENEMIES 第 7 節；格式見 loot.ts）：{ item, chance, qty?, top? } 或還沒轉的 { text } */
   loot?: unknown[]
   /** 照等級掉現金晶片；false 是企業的人（身上沒有現金）。預設 true */
@@ -292,6 +322,52 @@ function overlayProblems(e: Record<string, unknown>, partial: boolean): string[]
   return p
 }
 
+/** moves：{ 招牌行動的 id: { name, text? } }。 */
+function movesProblems(v: unknown, at: string): string[] {
+  const p: string[] = []
+  if (!isRec(v)) return [`${at} 要是 { 招牌行動的 id: { name, text? } }`]
+  for (const [id, m] of Object.entries(v)) {
+    if (!isRec(m) || !isText(m.name) || (m.text !== undefined && !isText(m.text))) p.push(`${at}.${id} 要是 { name, text? }（名字與描寫都要是文字）`)
+    else for (const key of Object.keys(m)) if (key !== 'name' && key !== 'text') p.push(`${at}.${id}.${key} 不是可以用的鍵（只有 name、text）`)
+  }
+  return p
+}
+
+/** 雙形象的欄位（forms、neutral、culture）的格式。partial 時 forms 可能還在 base 裡，只檢查寫了的。 */
+function formProblems(e: Record<string, unknown>): string[] {
+  const p: string[] = []
+  if (e.forms !== undefined) {
+    if (!isRec(e.forms)) p.push('forms 要是 { a: 形象, b: 形象 }')
+    else {
+      for (const key of Object.keys(e.forms)) if (key !== 'a' && key !== 'b') p.push(`forms.${key} 不是可以用的鍵（只有 a、b）`)
+      for (const side of ['a', 'b'] as const) {
+        const f = e.forms[side]
+        const at = `forms.${side}`
+        if (f === undefined) { p.push(`forms 要兩個形象都寫：缺 ${side}`); continue }
+        if (!isRec(f)) { p.push(`${at} 要是 { name, look, moves?, points_at?, neutral? }`); continue }
+        if (!isText(f.name)) p.push(`${at}.name 要是名稱`)
+        if (!isText(f.look)) p.push(`${at}.look 要是外觀的描寫（一句話）`)
+        if (f.moves !== undefined) p.push(...movesProblems(f.moves, `${at}.moves`))
+        if (f.points_at !== undefined && !(Array.isArray(f.points_at) && f.points_at.every((g) => oneOf(ENEMY_GENDERS, g)))) p.push(`${at}.points_at 要是性別的陣列，只能用 ${ENEMY_GENDERS.join('、')}`)
+        if (f.neutral !== undefined && typeof f.neutral !== 'boolean') p.push(`${at}.neutral 要是 true 或 false`)
+        for (const key of Object.keys(f)) if (!['name', 'look', 'moves', 'points_at', 'neutral'].includes(key)) p.push(`${at}.${key} 不是可以用的鍵（只有 name、look、moves、points_at、neutral）`)
+      }
+    }
+  }
+  if (e.neutral !== undefined) {
+    const n = e.neutral
+    if (!isRec(n)) p.push('neutral 要是 { name, look, moves? }')
+    else {
+      if (!isText(n.name)) p.push('neutral.name 要是名稱')
+      if (!isText(n.look)) p.push('neutral.look 要是外觀的描寫（一句話）')
+      if (n.moves !== undefined) p.push(...movesProblems(n.moves, 'neutral.moves'))
+      for (const key of Object.keys(n)) if (!['name', 'look', 'moves'].includes(key)) p.push(`neutral.${key} 不是可以用的鍵（只有 name、look、moves）`)
+    }
+  }
+  if (e.culture !== undefined && !isText(e.culture)) p.push('culture 要是文化的標籤（文字）')
+  return p
+}
+
 /** 內海的欄位（constructs、sync、color、admin、persona）的格式。 */
 function netProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
@@ -427,6 +503,7 @@ function enemyProblems(e: Record<string, unknown>, partial: boolean): string[] {
       p.push(`signature[${i}] 要是技能的 id（字串），或還沒轉的敘述 { name, text }`)
     })
   }
+  p.push(...formProblems(e))
   p.push(...lootProblems(e))
   opt('traits', isTextList, '要是字串的陣列')
   if (e.cyber !== undefined) {

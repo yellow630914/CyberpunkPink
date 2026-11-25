@@ -62,7 +62,7 @@ export const CASH_RANGE: Record<number, readonly [number, number]> = {
   1: [40, 120], 2: [130, 380], 3: [400, 1200], 4: [1300, 3900], 5: [4000, 12000],
 }
 /** 算掉落的退出方式：被打倒、昏過去、被制伏、投降。逃走與被帶走的不算。 */
-const COUNTED_OUT: readonly string[] = ['down', 'burnout', 'subdued', 'surrendered']
+const COUNTED_OUT: readonly string[] = ['down', 'burnout', 'subdued', 'surrendered', 'sunk']
 
 const isRec = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v)

@@ -101,7 +101,8 @@ describe('內海戰鬥的行動表（0018 第一節；CYBERSPACE 6.1 節）', ()
     const g = world()
     // net_ 與 adm_（管理行動）開頭的是 features/netcombat 的正式行動表（M3-netcombat；它自己的驗收測試守）：這裡只看沒有現實的行動混進來
     // hack.<程式 id> 是 features/hack 照內容裡的每一支快駭程式註冊的行動，兩個戰場都能用（modes: ['meat', 'net']，NETRUNNING 第 2 節）；假世界（M3 冒煙加了一支 qh_tw_zap）載進來就有一個
-    const net = g.game.k.battle.actionsFor('net').map((a) => a.id).filter((id) => !id.startsWith('net_') && !id.startsWith('adm_') && !id.startsWith('hack.')).sort()
+    // unbind 是 features/enemies 的「替隊友解開束縛」（M4-enemies-m4），兩個戰場都能用（modes: ['meat', 'net']）
+    const net = g.game.k.battle.actionsFor('net').map((a) => a.id).filter((id) => !id.startsWith('net_') && !id.startsWith('adm_') && !id.startsWith('hack.') && id !== 'unbind').sort()
     expect(net).toEqual([END_TURN, MOVE, NET_ATTACK, NET_REFILL].sort())
     // 現實那一邊照舊：射擊、近戰、換彈、換武器、道具、打遮蔽、監視、制伏、脫離、投降都在
     const meat = g.game.k.battle.actionsFor('meat').map((a) => a.id)

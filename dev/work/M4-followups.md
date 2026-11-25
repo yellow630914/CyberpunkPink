@@ -171,3 +171,7 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 事件資料的 `adult_scene.gate: ai`：director 開場景前走 `scene_gate`。
 - 六個場景任務的預設模型照 AI_TASKS 的「小」：`DEFAULT_TASK_SOURCE` 對它們用小模型的來源。
 - 總指揮同意：場景的 gate、每回合兩個、收尾五個被服務商拒絕時走退路（`softFail`），是 AI_TASKS 2.6 的局部例外；寫正文照舊停下等玩家。文件代理在 AI_TASKS 2.6 補一句。
+
+## 總指揮補記（2026-11-25，M4-enemies-m4 回報）
+- 照設計書：雙形象都被篩掉、用中性外觀時，招式名自動換成「挑逗」「灌注」「綁縛」（照效果種類），`neutral.moves` 寫了的照寫的。
+- 別人打這個敵人的那幾拍，名字也照目標主角的形象換（現在只換敵人自己出手那一步）。

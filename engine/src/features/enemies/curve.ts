@@ -50,3 +50,15 @@ export const ENCOUNTER_BUDGET = { light: 2, normal: 4, heavy: 5.5, boss: 8 } as 
 
 /** 掛在格上的小型無人機與砲塔每一台的點數（ENEMIES 第 13 節）。 */
 export const OVERLAY_POINTS = 0.5
+
+/**
+ * 沉溺高的敵人的承受層數（CORE_RULES 4.2 節「重度改造、高沉溺的人比同類高 1～2」；M4-enemies-m4）：資料的 mods.sink 在 60 以上 +1、100 以上再 +1（合計 +2）。
+ * 溺感邊緣的特徵（enemy_trait 的 layers_max）是另外的加成，兩個不互相取代。
+ */
+export const SINK_LAYER_STEPS = [{ at: 60, plus: 1 }, { at: 100, plus: 1 }] as const
+export const sinkLayers = (sink: number | undefined): number => (sink === undefined ? 0 : SINK_LAYER_STEPS.reduce((n, s) => n + (sink >= s.at ? s.plus : 0), 0))
+/** 沉溺 80 以上的敵人被灌倒（餘韻疊滿再過載）算被推過線（ENEMIES 12.1 節、CYBERWARE 第 6 節）；沉溺到 100 是溺感者。 */
+export const SINK_EDGE = 80
+export const SINK_LINE = 100
+/** 雙形象：擲到形象 B 的機率（CYBERSPACE 8.7 節，暫定 60%；規則表 net_enemy_rule 的 form_b_chance 蓋掉它）。 */
+export const DEFAULT_FORM_B_CHANCE = 0.6
