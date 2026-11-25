@@ -99,29 +99,11 @@ export function netInventory(n: number): Array<{ id: string; qty: number; data?:
 
 const commit = (game: Game, d: ReportDraft): Report[] => game.commit(d)
 
-/**
- * 把背包裡編號 uid 的那一副甲板給 id 用。沒有人掛 deck.source（沒裝義體功能）時走 deck 的 equipDraft；有人掛時甲板是腦部的義體（M4-cyber-deck），
- * 這裡直接把那一疊放進腦部的槽（不經手術、不收費、不休養、不算沉溺：場景只要「這個人有甲板」）。
- */
-function wearDeck(game: Game, id: string, uid: string): ReportDraft {
-  const { k, state } = game
-  if (k.hooks.owners('deck.source').length === 0) return equipDraft(k, state, id, uid)
-  const stack = state.inventory.find((s) => s.data?.uid === uid)
-  if (!stack) throw new Error(`wearDeck：背包裡沒有編號 ${uid} 的甲板`)
-  const raw = state.actors[id]?.ext.cyber as { pieces?: unknown[] } | undefined
-  const pieces = [...(Array.isArray(raw?.pieces) ? raw!.pieces : []), { uid, bp: stack.id, kind_of: 'deck', slot: 'brain', sink: 0, at: 0, parts: {} }]
-  return {
-    kind: 'action', action: 'cyber.install', location: { ...state.location }, actor: id, party: [], timeline: [],
-    changes: [{ op: 'item', id: stack.id, qty: -1, data: { uid } }, { op: 'actor.ext', id, key: 'cyber', value: { ...(raw ?? {}), pieces } }] as never,
-    outcome: { result: 'installed', summary: '甲板裝進了腦部。' },
-  }
-}
-
 /** 給隊上的人（依序）穿上甲板、裝構裝（第一個人全套，其他人槍加防護）、帶腳本：走真正的 deck 報告。 */
 export function equipParty(game: Game, ids: readonly string[]): void {
   const { k } = game
   ids.forEach((id, i) => {
-    commit(game, wearDeck(game, id, `D${i + 1}`))
+    commit(game, equipDraft(k, game.state, id, `D${i + 1}`))
     for (const item of i === 0 ? PC_SLOTS : MATE_SLOTS) commit(game, installDraft(k, game.state, id, item))
     // 腳本的效果（net.ram）是 netcombat 註冊的：拿掉它，假世界就沒有那支腳本（worldFor）
     if (i === 0 && k.content.has('item', 'it_tw_script')) commit(game, scriptsDraft(k, game.state, id, [{ item: 'it_tw_script', qty: 2 }]))

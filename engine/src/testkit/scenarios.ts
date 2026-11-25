@@ -53,7 +53,7 @@ export interface WorldGame extends TestGame {
 
 /** 全部功能（FEATURES 的總表）加上主角的武器；without 的拿掉。 */
 export function worldFeatures(without: string[] = [], gear = true): Feature[] {
-  const all = allFeatures().filter((f) => !without.includes(f.id))
+  const all = allFeatures().filter((f) => !without.includes(f.id) && f.id !== 'cyberware')
   return gear ? [...all, TEST_GEAR, TEST_NET_OFFER] : all
 }
 
