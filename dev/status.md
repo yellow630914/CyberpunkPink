@@ -514,3 +514,4 @@
 - 2026-11-25 M4 第十五步完成（core-scene-ai、contract-holder）：engine 7901、smoke 147、ui 754。
 - 2026-11-25 **M4 第二波（成人場景）完成**（第十六步 ui-scene、lure）。engine 7957、smoke 149、ui 793。
 - 2026-11-25 介面示意 v15 發布（M4 第二波）。
+- 2026-11-25 M4 第十七步完成（venues、enemies-m4）。待使用者：打工一班 4 小時還是 6 小時。

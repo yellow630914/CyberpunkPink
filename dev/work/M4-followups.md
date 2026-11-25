@@ -175,3 +175,6 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 ## 總指揮補記（2026-11-25，M4-enemies-m4 回報）
 - 照設計書：雙形象都被篩掉、用中性外觀時，招式名自動換成「挑逗」「灌注」「綁縛」（照效果種類），`neutral.moves` 寫了的照寫的。
 - 別人打這個敵人的那幾拍，名字也照目標主角的形象換（現在只換敵人自己出手那一步）。
+
+## 總指揮補記（2026-11-25，M4-venues 回報）
+- `outcome.amnesia` 的報告：共同記憶、性經歷、傾向與沉溺累計、寫正文要略過（讀 `report.outcome.amnesia`）。
