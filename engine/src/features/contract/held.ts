@@ -49,8 +49,8 @@ export function holdPlan(k: Kernel, state: GameState, pc: ActorId, e: HoldInput)
   const text = `你成了${nameOf(state, e.npc)}的持約人，他的名字進了你的名冊。`
   ext.notes.push({ kind: 'hold', text, npc: e.npc })
   const changes: Change[] = [extChange(ext), identityChange(state, e.npc, BOUND)]
-  // 進入名冊（7.5 節）：有人註冊 roster_add 才放；已經在名冊上的由那個效果自己落空
-  const roster = builtinFx(k, state, pc, [{ kind: 'roster_add', who: e.npc }])
+  // 進入名冊（7.5 節）：有人註冊 roster_add 才放（direct：直接成為成員，契約就是綁著他；名冊滿了退成候選）；已經在名冊上的由那個效果自己落空
+  const roster = builtinFx(k, state, pc, [{ kind: 'roster_add', who: e.npc, direct: true }])
   if (roster.ok) changes.push(...roster.changes)
   return { changes, text, held }
 }

@@ -236,17 +236,21 @@ export const rosterFeature: Feature = {
         if (!isText(raw.who)) p.push('who 要是角色的 id')
         else if (raw.who === ctx.state.pc) p.push('who：主角不能是自己的候選人')
         if (raw.source !== undefined && !(SOURCES as readonly unknown[]).includes(raw.source)) p.push(`source 只能是 ${SOURCES.join('、')}`)
+        if (raw.direct !== undefined && typeof raw.direct !== 'boolean') p.push('direct 要是 true 或 false')
         return p
       },
       // 一件事最多帶進一位候選人（AI 給的才算）
       budget: (e, ctx) => (ctx.level === 'cap' ? { group: 'roster_add', amount: 1, min: -Infinity, max: 1, resize: () => e, notice: () => '一件事最多只會帶出一位名冊候選人，多的沒有算。' } : null),
       // 已經是成員或已經在候選名單的不重複加（也不留空的變更）
+      // direct: true（持約人取得契約：契約就是綁著他，不必再問他願不願意；M4-followups-2 第 7 項）直接成為成員；名冊滿了或放不進去就退成候選
       toChanges(e, ctx): Change[] {
         const r = readRoster(ctx.state)
-        if (own(r.members, e.who) || r.candidates.some((x) => x.who === e.who)) return []
+        if (own(r.members, e.who)) return []
+        if (e.direct === true && joinBlock(k, ctx.state, e.who) === null) return joinChanges(k, ctx.state, e.who, e.source !== undefined ? { source: e.source } : {})
+        if (r.candidates.some((x) => x.who === e.who)) return []
         return [{ op: 'roster.candidate', who: e.who, at: { ...ctx.state.time }, ...(e.source !== undefined ? { source: e.source } : {}) }]
       },
-      describe: (e, ctx) => `名冊候選：${nameOf(ctx.state, e.who)}`,
+      describe: (e, ctx) => (e.direct === true && joinBlock(k, ctx.state, e.who) === null ? `進了名冊：${nameOf(ctx.state, e.who)}` : `名冊候選：${nameOf(ctx.state, e.who)}`),
     })
 
     k.conditions.register<Condition & { who: string }>({
