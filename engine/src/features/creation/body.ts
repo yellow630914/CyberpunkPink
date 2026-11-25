@@ -46,6 +46,8 @@ export interface StepAnswer {
   sink?: number
   /** 橋的四類容量 */
   capacity?: CapacitySplit
+  /** 第 5 步（生命軌跡）：要進出身名冊的人（id；寫進主角的 ext.origin.roster，roster 在 creation.commit 之後把這一欄的人放進名冊） */
+  roster?: string[]
   /** 身上已經有的 */
   owned?: OwnedItem[]
   /** 這一步要先讓玩家知道的事（例：沒有橋的後果） */
@@ -55,9 +57,13 @@ export interface StepAnswer {
 export interface StepPayload {
   state: GameState
   draft: CreationDraft
-  step: BodyStep
+  step: BodyStep | 'lifepath'
   picks: unknown[]
   limits: CreationLimits
+  /** 只有生命軌跡：放進主角時 actor.ext 已經有的東西（出身、外觀、第 6、8、9 步的 ext；唯讀）。橋有沒有、傾向本來是什麼，要看它 */
+  actorExt?: Record<string, unknown>
+  /** 只有生命軌跡：出身給好感的那個勢力（選定之後；出身沒有這個資料或還沒選好是 undefined） */
+  favor?: string
 }
 
 declare module '../../core' {

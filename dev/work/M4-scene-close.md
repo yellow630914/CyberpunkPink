@@ -41,3 +41,5 @@ M4-scene-net 之後（同一個資料夾）。做完才能開 M4-core-scene-ai�
 ## 完成時回報
 
 改了哪些檔、測試結果、因為行為改變而改了既有測試的地方（逐條）、dev/invariants.md 第 33 條現在在哪裡驗。
+
+- 總指揮補記（2026-11-25，M4-creation-lifepath 回報）：`recordScene` 更新性經歷時 `partners` 取較大值（建角給的起始對象人數不能被第一場場景蓋成 1）。

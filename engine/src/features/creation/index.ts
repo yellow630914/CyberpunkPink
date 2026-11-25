@@ -1,18 +1,23 @@
 // L6 功能：建角。檢查建角草稿的每一步（基本資料、出身、屬性、基本功、特質，加上義體與裝備點數換成的錢），把合格的草稿變成放進主角的報告
 // （CHARACTER 第 1、2、5.1、5.3、5.4、5.6 節；UI 第 14 節的年齡；DATA 第 1、8 節）。全部是純函式：不改傳進來的東西，也不自己提交。
 // 第 6、8、9 步（橋與義體、技能、裝備）不 import 別的功能：經掛點 creation.step 問各功能（body.ts；M4-creation-body），這裡只管點數的上限與沒花完的換多少現金；
-// 草稿沒給選的東西時，義體與裝備花了幾點由呼叫的人算好交進來（cyberSpent、gearSpent）。不做生命軌跡。
+// 草稿沒給選的東西時，義體與裝備花了幾點由呼叫的人算好交進來（cyberSpent、gearSpent）。
+// 第 5 步生命軌跡（lifepath.ts；M4-creation-lifepath）：內容種類 lifepath_entry，結果是效果清單、個人目標、性經歷記錄（creation 自己處理）與 NPC、傾向、橋參數（經掛點 creation.step 的 lifepath 交給 npcs、lewd）。
 // 檢查回傳 string | null：null 是沒問題，字串是擋住的原因（給玩家看的完整句子）。
 
 import type { Actor, AttrId, ContentEntry, FactionEntry, Feature, GameState, Kernel, NpcEntry, OriginEntry, PerkEntry, ReportDraft, SkillId } from '../../core'
-import { ATTR_IDS, CONTENT_TAG_INTIMATE_BODY, ContentError, GENDER_IDS, MIN_AGE, SKILL_MAX, attrMod, clone, contentAllowed, isRecord } from '../../core'
+import { ATTR_IDS, CONTENT_TAG_INTIMATE_BODY, ContentError, blankState, GENDER_IDS, MIN_AGE, SKILL_MAX, attrMod, clone, contentAllowed, isRecord } from '../../core'
 import { abilitiesStepBlock, askStep, cyberStepBlock, dedupeExt, gearStepBlock, leftoverCash, pointsSpent } from './body'
 import type { BodyStep } from './body'
+import { LIFEPATH_KIND, TENDENCY_TAG_KIND, askLifepath, entryProblems, lifepathBlock, lifepathEffects, lifepathRefs, lifepathSummary } from './lifepath'
+import type { LifepathEntry, LifepathSummaryRow } from './lifepath'
 import { creationLimits, rule } from './model'
 import type { CreationBlock, CreationDraft, CreationLook, CreationStep, LookPrivate } from './model'
 
-export type { CreationBlock, CreationDraft, CreationLimits, CreationLook, CreationStep, LookPrivate } from './model'
-export { DEFAULT_GEAR_KINDS, creationLimits } from './model'
+export type { CreationBlock, CreationDraft, CreationLimits, CreationLook, CreationStep, LifepathTable, LookPrivate } from './model'
+export { DEFAULT_GEAR_KINDS, LIFEPATH_TABLES, creationLimits } from './model'
+export { BRIDGE_TWEAK_MAX, LIFEPATH_KIND, MAX_KINKS, NPC_ROLES, ROLE_NAME, TABLE_NAME, kinkChoices, lifepathBlock, lifepathProblems, lifepathRoll, lifepathTables, textOf } from './lifepath'
+export type { LifepathEntry, LifepathNpc, LifepathOption, LifepathOutcome, LifepathResult, LifepathSummaryRow, LifepathTableView, LifepathTendency, NpcRole } from './lifepath'
 export { BODY_STEPS, abilitiesStepBlock, askStep, creationSummary, cyberStepBlock, gearStepBlock, leftoverCash, pointsSpent } from './body'
 export type { BodyStep, CapacitySplit, CreationSummary, OwnedItem, PointSummary, StepAnswer, StepPayload, StepResult } from './body'
 
@@ -191,6 +196,7 @@ export function creationBlocks(k: Kernel, state: GameState, draft: CreationDraft
   add('origin', origin === undefined ? '沒有這個出身。' : (favorOf(k, origin, draft) as { block?: string }).block)
   add('attrs', attrBlock(k, draft.attrPick, draft.attrBonus))
   add('skills', skillBlock(k, state, draft.skills))
+  add('lifepath', lifepathBlock(k, state, draft)?.reason)
   const addBlock = (b: CreationBlock | null): void => {
     if (b) out.push(b)
   }
@@ -240,6 +246,14 @@ export function buildCreationReport(k: Kernel, state: GameState, draft: Creation
   for (const r of steps) Object.assign(actor.ext, clone(r.ext))
   const stepChanges = dedupeExt(steps.flatMap((r) => clone(r.changes)))
 
+  // 第 5 步：生命軌跡。問掛點的結果（傾向、橋參數、性經歷記錄、出身名冊）併進角色，NPC、關係、豔名與旗標接在後面
+  const lp = askLifepath(k, state, draft, actor.ext, favor)
+  Object.assign(actor.ext, lp.ext)
+  if (lp.roster.length > 0) {
+    const o = actor.ext.origin as { roster: string[] }
+    for (const id of lp.roster) if (!o.roster.includes(id)) o.roster.push(id)
+  }
+
   // 生命值從上限開始（有功能註冊了 max_hp 的話）：把角色放進一份複製的狀態算（選的義體也算進去）
   if (k.stats.hasStat('max_hp')) {
     const trial = clone(state)
@@ -255,19 +269,41 @@ export function buildCreationReport(k: Kernel, state: GameState, draft: Creation
   // 起始的錢全部放現金；沒花完的義體與裝備點數換的也是現金（CHARACTER 5.4 節）
   const money = startMoney(k, state, draft).total
   if (money > 0) changes.push({ op: 'cash', delta: money })
+  changes.push(...lp.changes)
+  // 生命軌跡的效果清單：用內建的來源落在主角身上，沒有功能認得的一筆整筆拿掉、寫進提醒
+  const fx = lifepathEffects(k, state, draft, changes)
+  changes.push(...fx.changes)
+  const notes = [...lp.notes, ...fx.notes]
   return {
     kind: 'system', action: 'creation.commit', location: clone(state.location), actor: 'pc',
     party: [], timeline: [],
     changes,
+    ...(notes.length > 0 ? { clamps: notes } : {}),
     outcome: { result: 'created', summary: `${actor.name}的故事從${origin.name}開始。` },
   }
+}
+
+/**
+ * 第 5 步每一條選的條目提交時會變成什麼（總覽頁用）：條目的文字（照出身換好）與每一種結果的一句話。
+ * 效果用一份放了主角的狀態算白話的一行；沒有功能接得住的結果寫明這一局不會生效。
+ */
+export function lifepathResults(k: Kernel, state: GameState, draft: CreationDraft): LifepathSummaryRow[] {
+  const preview = clone(state)
+  preview.actors.pc = {
+    id: 'pc', role: 'pc', name: draft.name.trim() || '主角', age: 18, gender: draft.gender, attrs: attrTotals(draft.attrPick, draft.attrBonus), skills: {}, perks: [],
+    hp: 1, load: 0, afterglow: 0, sink: 0, conditions: [], ext: {},
+  }
+  preview.pc = 'pc'
+  return lifepathSummary(k, draft, preview)
 }
 
 const CREATION_NUMBERS = ['cyber_point_price', 'cyber_install_mult', 'gear_point_price', 'gear_grade_max'] as const
 
 export const creationFeature: Feature = {
   id: 'creation',
-  install() {},
+  install(k) {
+    k.content.defineKind<LifepathEntry>({ kind: LIFEPATH_KIND, owner: 'creation', validate: entryProblems, refs: lifepathRefs })
+  },
   ready(k) {
     // creation_rule 多的幾個欄位（核心的格式檢查不認得它們）
     const problems: string[] = []
@@ -277,6 +313,20 @@ export const creationFeature: Feature = {
         if (v !== undefined && !(typeof v === 'number' && Number.isFinite(v) && v > 0)) problems.push(`creation_rule/${e.id}：${f} 要是大於 0 的數字`)
       }
       if (e.gear_kinds !== undefined && !(Array.isArray(e.gear_kinds) && e.gear_kinds.every((x) => typeof x === 'string' && x.length > 0))) problems.push(`creation_rule/${e.id}：gear_kinds 要是類別的字串陣列`)
+    }
+    // 生命軌跡：結果引用的傾向標籤、勢力要查得到；已經有功能註冊的效果種類，格式要對（沒註冊的留到提交時寫進提醒）
+    const fxCtx = { state: blankState(0), actor: 'pc', grade: 1, source: 'builtin', clampAsked: true, content: k.content } as unknown as Parameters<Kernel['effects']['validate']>[1]
+    for (const e of k.content.list<LifepathEntry>(LIFEPATH_KIND)) {
+      const at = `${LIFEPATH_KIND}/${e.id}`
+      const r = e.result
+      if (k.content.hasKind(TENDENCY_TAG_KIND)) {
+        for (const t of r.tendency ?? []) if (!k.content.has(TENDENCY_TAG_KIND, t.tag)) problems.push(`${at}：result.tendency 引用了不存在的傾向標籤 ${t.tag}`)
+      }
+      const f = r.npc?.faction_from
+      if (f !== undefined && f !== 'origin' && !k.content.has('faction', f)) problems.push(`${at}：result.npc.faction_from 引用了不存在的勢力 ${f}`)
+      for (const [i, fx] of (r.effects ?? []).entries()) {
+        if (k.effects.has(fx.kind as string)) problems.push(...k.effects.validate([fx], fxCtx, `result.effects[${i}]`).map((m) => `${at}：${m}`))
+      }
     }
     if (problems.length) throw new ContentError(problems)
   },

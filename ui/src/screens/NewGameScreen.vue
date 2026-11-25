@@ -224,7 +224,7 @@ const draft = computed(() => {
     attrPick: { ...attrs }, attrBonus: { ...attrBonus }, skills: { ...basics }, perks: [...picks.perks],
   }
 })
-const BLOCK_STEP = { basics: 1, origin: 2, attrs: 3, skills: 4, cyber: 6, perks: 7, abilities: 8, gear: 9 } as const
+const BLOCK_STEP = { basics: 1, origin: 2, attrs: 3, skills: 4, lifepath: 5, cyber: 6, perks: 7, abilities: 8, gear: 9 } as const
 
 // ---- 每一步擋住「下一步」的原因 ----
 const engineBlocks = computed(() => e.creation.blocks(draft.value))

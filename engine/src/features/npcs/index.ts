@@ -11,7 +11,7 @@
 //   效果  meet（{ npc }：建立關係條目，必要時把人放進 state.actors；臨時角色在這時升格）、npc_known（{ npc, fact }：把一件事記進已知的事，同一件不重複）
 //   條件  knows（{ npc? }）、affinity_stage（{ npc?, min?, max? }，段寫 id 或第幾段）
 //   變更  npcs.roster、npcs.gen、npcs.drop、npcs.promote、npcs.sweep、npcs.meet、npcs.known、npcs.watch、npcs.relation、npcs.patch、npcs.did（今天做過的互動；形狀見各自的註解）
-//   掛鉤  report.before（報告的位置換到還沒有名單的一區，就建那一區的名單）、director.cast（指定的固定 NPC、主角認識的人、照當下的區新生成的人）、
+//   掛鉤  creation.step（建角第 5 步：生命軌跡帶 npc 的結果，生成一個人、認識、進名單、設關係；creation.ts）、report.before（報告的位置換到還沒有名單的一區，就建那一區的名單）、director.cast（指定的固定 NPC、主角認識的人、照當下的區新生成的人）、
 //         activity.end（事件結束：臨時角色有條目的升格，沒有的清掉）
 //   狀態  state.ext.npcs：{ gen, rosters, seq, rel, over }（形狀見 model.ts）
 // 行動種類  資料裡 owner 是 npcs 的 npc_chat、npc_gift、npc_seduce、npc_ask_small／mid／big、npc_intimidate、npc_steal、npc_read_bridge（ready 時註冊；interact.ts）
@@ -22,6 +22,7 @@
 
 import type { Actor, Change, Condition, ConditionCtx, Effect, Feature, GameState, Kernel, ReportDraft } from '../../core'
 import { ActionBlocked, ContentError, Rng, clone, hash32, isRecord, isSafeInt, isValidTime, meterOf } from '../../core'
+import { answerCreation as answerLifepath } from './creation'
 import { generateNpc, planRoster, takenNames } from './generate'
 import { installInteract, registerInteractions } from './interact'
 import { installLife } from './life'
@@ -441,6 +442,9 @@ export const npcsFeature: Feature = {
       if (kind === 'event' && Array.isArray(result.launch) && result.launch.length > 0) return
       return Object.values(state.actors).some((a) => a.ext[TEMP_FLAG] === true) ? { changes: [{ op: 'npcs.sweep' }] } : undefined
     })
+
+    // ---- 建角的第 5 步（M4-creation-lifepath）：生命軌跡裡有關係的人（掛點 creation.step 由 features/creation 宣告，這裡只認名字） ----
+    ;(k.hooks.on.bind(k.hooks) as unknown as (name: string, owner: string, fn: (payload: never) => unknown) => void)('creation.step', OWNER, ((p: Parameters<typeof answerLifepath>[1]) => answerLifepath(k, p, { buildActor: (n) => buildActor(k, n) })) as never)
 
     // ---- 登場角色：指定的固定 NPC、主角認識的人（照條件挑）、照當下的區新生成的人 ----
     k.hooks.on('director.cast', OWNER, ({ state, event, role, spec }) => {

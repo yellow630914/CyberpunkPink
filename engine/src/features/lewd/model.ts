@@ -240,6 +240,13 @@ export function stepTendency(t: TendencyRecord, tag: string, axis: Axis, rules: 
   return { next, did, levelUp }
 }
 
+/** 建角時直接寫一個標籤的狀態（has 或 latent）：不累積那一軸的點數、不升級（CHARACTER 5.5 節：只有 axis 寫了才加級）。 */
+export function stepTendencyFree(t: TendencyRecord, tag: string, state: Extract<TagState, 'has' | 'latent'>): TendencyRecord {
+  const next = clone(t)
+  next.tags[tag] = state
+  return next
+}
+
 // ---- 狀況 ----
 
 /** 這個角色身上有沒有這個暫時的狀態（到期的不算；沒寫 until 的不會自己消退）。 */

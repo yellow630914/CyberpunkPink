@@ -3,8 +3,12 @@
 
 import type { AttrId, CreationRuleEntry, GameState, Kernel, SkillId } from '../../core'
 
-/** 建角的步驟（CHARACTER 第 1 節）：basics 第 1 步、origin 第 2 步、attrs 第 3 步、skills 第 4 步、cyber 第 6 步、perks 第 7 步、abilities 第 8 步、gear 第 9 步。 */
-export type CreationStep = 'basics' | 'origin' | 'attrs' | 'skills' | 'cyber' | 'perks' | 'abilities' | 'gear'
+/** 建角的步驟（CHARACTER 第 1 節）：basics 第 1 步、origin 第 2 步、attrs 第 3 步、skills 第 4 步、lifepath 第 5 步、cyber 第 6 步、perks 第 7 步、abilities 第 8 步、gear 第 9 步。 */
+export type CreationStep = 'basics' | 'origin' | 'attrs' | 'skills' | 'lifepath' | 'cyber' | 'perks' | 'abilities' | 'gear'
+
+/** 生命軌跡的八張表（CHARACTER 第 3 節）：家人、那件事、朋友、仇人、舊情、想要的、性經歷、潛在性癖。 */
+export const LIFEPATH_TABLES = ['family', 'incident', 'friend', 'enemy', 'ex', 'want', 'sex', 'kink'] as const
+export type LifepathTable = (typeof LIFEPATH_TABLES)[number]
 export interface CreationBlock { step: CreationStep; reason: string }
 
 /** 私處的外觀（DATA 第 8 節的 look.private）：選的詞條加上自由輸入的一段。成人內容，受內容篩選「身體的私密描寫」控制。 */
@@ -54,6 +58,10 @@ export interface CreationDraft {
   skills: Record<SkillId, number>
   /** 買的特質與缺陷（不含出身特質） */
   perks: string[]
+  /** 第 5 步：每張表選的條目（lifepath_entry 的 id）；'skip' 或沒寫是跳過（M4-creation-lifepath） */
+  lifepath?: Partial<Record<LifepathTable, string>>
+  /** 第 5 步：自己挑的潛在性癖，最多 2 個；latent 為真的標成「潛在」（建角時只記下來，第一次碰到時才揭開），否則直接是「有」 */
+  kinks?: Array<{ tag: string; latent?: boolean }>
 }
 
 /** 可以用裝備點數買的類別（物品的 category，加上設計圖的 weapon、armor 與 construct、skin、deck 三種）。 */

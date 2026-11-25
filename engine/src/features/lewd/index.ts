@@ -15,10 +15,12 @@
 //         afterglow_cap 加一個 provider：耐受的效力每 40 點 +1 層。感載上限那一半（耐受 ÷ 2）角色的功能已經算了，這裡不碰
 //   檢定  修正：帶 infiltrate 標籤的檢定，主角在這一區的豔名每 25 點 −1，身上有 masked 時沒有（ADR G10）
 //   戰鬥  unit.ready：有橋的人慾求高於 60，開戰帶著（慾求 − 60）÷ 4 點感載，最多到感載上限的一半（ADR G14）
+//   建角  creation.step 的 lifepath（第 5 步）：出身資料多讀 tendency?（軸與標籤）、fame?（區 → 豔名），回答生命軌跡的傾向、軸、橋參數與自己挑的潛在性癖（creation.ts）
 //   掛鉤  report.before：報告裡新增主角而沒有 bridge 這一欄，補預設值；save.loaded：讀進來的主角沒有 bridge 這一欄也補（有欄位而是 null 的是沒有橋，不動）
 
 import type { Change, Condition, Effect, Feature, Kernel } from '../../core'
-import { clone, contentAllowed, isRecord, isSafeInt, meterOf } from '../../core'
+import { ContentError, clone, contentAllowed, isRecord, isSafeInt, meterOf } from '../../core'
+import { answerCreation, originProblems } from './creation'
 import type { Axis, BridgeParam, TagEntry, TagState } from './model'
 import {
   AXES, AXIS_NAME, BRIDGE_EFFECTIVE_MAX, BRIDGE_PARAMS, INFILTRATE_TAG, MASKED, OWNER, PARAM_NAME, RULE_KIND, TAG_KIND, baseBridge, bridgeOf, hasCondition, isAxis, isParam, lewdRules,
@@ -27,7 +29,7 @@ import {
 
 export {
   AXES, AXIS_NAME, BRIDGE_EFFECTIVE_MAX, BRIDGE_PARAMS, DEFAULT_LEWD_RULES, INFILTRATE_TAG, MASKED, PARAM_NAME, RULE_KIND, TAG_KIND, TAG_STATES,
-  baseBridge, bridgeOf, emptyTendency, hasCondition, hasTag, lewdRules, powerOf, readBridge, stepTendency, tagStateOf, tendencyOf,
+  baseBridge, bridgeOf, emptyTendency, hasCondition, hasTag, lewdRules, powerOf, readBridge, stepTendency, stepTendencyFree, tagStateOf, tendencyOf,
 } from './model'
 export type { Axis, BridgeParam, BridgeParamView, BridgeRecord, BridgeView, LewdRules, TagEntry, TagState, TendencyRecord, TendencyStep } from './model'
 
@@ -200,5 +202,14 @@ export const lewdFeature: Feature = {
       const pc = state.pc ? state.actors[state.pc] : undefined
       return pc && pc.ext.bridge === undefined ? [{ op: 'actor.ext', id: pc.id, key: 'bridge', value: defaultBridge() }] : undefined
     })
+
+    // ---- 建角的第 5 步（M4-creation-lifepath）：出身的固定傾向與豔名、生命軌跡的傾向與橋參數、自己挑的潛在性癖（掛點 creation.step 由 features/creation 宣告，這裡只認名字；creation.ts） ----
+    ;(k.hooks.on.bind(k.hooks) as unknown as (name: string, owner: string, fn: (payload: never) => unknown) => void)('creation.step', OWNER, ((p: Parameters<typeof answerCreation>[1]) => answerCreation(k, p)) as never)
+  },
+
+  // 出身資料多讀的兩欄（tendency、fame）格式要對
+  ready(k: Kernel) {
+    const problems = originProblems(k)
+    if (problems.length > 0) throw new ContentError(problems)
   },
 }

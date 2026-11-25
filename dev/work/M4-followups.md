@@ -133,3 +133,6 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 內海 SKIN 染色：`dyeDraft` 收 SKIN（純外觀、免費），ui 的 `DyeDialog` 拿掉 `where: 'net'` 的舊分支與 `data/items.ts` 的依賴。
 - 組裝、換零件、拆解、解剖的「誰來做」：畫面加隊友選擇（引擎有 `by`）。
 - 舊假目錄 `ui/src/data/items.ts` 還有 game.ts、deckView.ts、HomeScreen、NewGameScreen、creation.test 在用：之後的介面工單逐步換掉。
+
+## 總指揮補記（2026-11-25，M4-creation-lifepath 回報）
+- 設計書優先：生命軌跡條目的 `hostility` 也收 `result` 層（CHARACTER 第 6 節 `took_the_fall` 的寫法），和 `result.npc.hostility` 兩種都認。
