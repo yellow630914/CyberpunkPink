@@ -15,3 +15,5 @@
 
 ## 驗收
 - 每一項至少一條行為測試；做不到的照實回報。engine tsc、npm test、test:smoke 全過；ui npm test、vue-tsc 全過。不 commit。
+
+9. （M4-curtain-fall 回報）效果 `curtain_gig`（從事件直接簽檔期）、贊助人名片／委託線頭的效果，給 8.8 節貴賓席競標包場與接簽檔期的戰敗事件用。

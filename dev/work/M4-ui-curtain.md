@@ -31,3 +31,5 @@ M4-curtain-entry、M4-curtain-run、M4-curtain-fall、M4-enemies-m4、M4-ui-scen
 ## 完成時回報
 
 改了哪些檔、測試結果、缺的圖示（點單、賞箱、條文、化妝室）、給 M5 的畫面接口（直播的面板要放在哪）。
+
+- 總指揮補記（2026-11-25，M4-curtain-fall 回報）：遭遇的開戰與潛行繞過改讀 `netrunView`（`curtainView.near` 不列遭遇）；補演讀 `fallView`（step、replay.can_start／can_call_off、三條路 paths），開演 `replayDraft`、喊停 `callOffDraft`、結清 `settleDraft({ how })`；母帶 `buybackDraft`；簾口 `doorBlock`。
