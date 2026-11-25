@@ -111,3 +111,10 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 檢定標籤 `perception`、`resist_lure`、`resist_control` 現在沒有任何檢定帶：社交勸降、控制類快駭、契約指令（M4-contract、M4-lure）發起檢定時要帶。
 - 斷線靜修期間關橋、禁止潛入：沒做，這一張補。
 - 治療費乘區的倍率：M4-data-rules（和手術、治療同一件）。
+
+## 總指揮補記（2026-11-25，M4-drugs 回報）
+- commission 的放行清單加 `commit:drug.`、`commit:medical.`（副本進行中戰鬥外可以吃藥、急救）。
+- 療程「蜜糖會好感 30 以上免費」接好感條件。
+- 被戰鬥接住的「一場戰鬥」型藥：喘口氣、階段結束、睡覺都會結束（總指揮同意多加睡覺），不另設時間上限。
+- ITEMS 4.2 寫不出來的藥效（止痛劑的四段顯示、強效止痛劑收回上限、諦聽與睡蓮對別人用、蝶粉的看到的沉溺、牆灰 10% 種吻、量表加減、搶拍只多第一回合）：能用現有效果寫的寫進資料並測，寫不出來的列給 M4-data-rules。
+- `passiveProblems` 收下「`stat: ap_regen／ram_regen` 擋下」：見前面 core-passive 段，同一件事。
