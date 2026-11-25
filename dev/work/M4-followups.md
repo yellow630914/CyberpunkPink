@@ -182,3 +182,8 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 ## 使用者裁決（2026-11-25）打工
 - 一班可選 2、4、6、8 小時（`work_rules.json` 的 `hours` 改成 [2,4,6,8]，連同 work 的預設、M2-data-rules 與 M2-work.boundary 的期望一起改）；人偶館一班 6 小時。
 - 升階改看累計時數：第二階段 30 小時、第三階段 72 小時（DOWNTIME 4.1a 已改）。work 的升階判斷由班數改成時數（`JobState` 記累計分鐘），模式的 `every` 也改成每 N 小時；M2-work、M4-venues 的測試跟著改。
+
+## 總指揮補記（2026-11-25，M4-security-m4 回報）
+- 藏沉溺的手段回答 `scan.person` 的 `{ hide: 1 }`：drugs（抑制劑、蝶粉）、tuning（冰后等）、abilities（面具）。
+- cyberware 回答 `scan.person` 的 `items` 多帶 `item`（設計圖 id），security 用 `license:<id>` 查特定義體的執照。
+- 介面：`ScanDialog.vue` 顯示 `scanView.person`（排進 M4-ui-contract）。

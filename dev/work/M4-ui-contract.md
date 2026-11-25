@@ -35,3 +35,5 @@ M4-contract、M4-contract-holder、M4-security-m4、M4-lure、M4-malware、M4-tu
 改了哪些檔、測試結果、缺的圖示、UI 第 11 節因為引擎還沒有而沒顯示的（預期：脫身的九條路只有還清、出借的對象）。
 
 - 總指揮補記（2026-11-25，M4-contract-holder 回報）：新局畫面加「持約人開局」選項，`withPeople` 呼叫 `demoHolderChanges`；`ContractDialog.vue` 換成讀 `holderContractView`／`holderEvents`／`adjustDraft`／`releaseDraft`／`triggerDraft`；面板加「身上被裝了什麼」（讀 cyberware 的 `cyberView`）。
+
+- 總指揮補記（2026-11-25，M4-security-m4 回報）：掃描對話框顯示 `scanView.person`（義體、沉溺、契約、看穿）。

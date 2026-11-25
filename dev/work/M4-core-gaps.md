@@ -26,3 +26,4 @@
 17. （M4-ui-scene 回報）features/scene：開場設定（或摘要）存進 `SceneRaw`／提供 `sceneGateSummary`；直接的 `canSkip`；`SceneView` 的 `position.mult`／`roles` 與 `lines[].who` 改成每個座位（角色 id），拿掉 `people.partner`；`sceneOptions` 的 `pairs` 收指定對象；director 的 `adult_scene` 可以開單人（不帶 `circles`）。ui 跟著改讀新欄位、拿掉 `setupOf` 與複本試跑。
 18. （M4-enemies-m4 回報）狀態的 `until` 多一種「到下一次攻擊」（挑：下一次命中 −1）；`BattleEndExtra` 收 `triggers`，enemies 的 `foe_sunk` 直接掛在 `battle.end` 報告上，拿掉 `enemies.foe_sunk` 那份跟進報告。
 19. （M4-venues 回報）`ReportOutcome` 補選填 `amnesia?: boolean`，work 拿掉型別轉換。
+20. （M4-security-m4 回報）記憶庫「被駭時讀走」：netrun 被駭時問一個掛點（例 `net.hacked`），cyberware 回答讀走什麼；或 `PersonAnswer` 加 `readable?`。由這張定介面。
