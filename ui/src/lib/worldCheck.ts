@@ -1,6 +1,7 @@
 /**
  * 世界編輯器的檢查（UI 第 15 節、GAME_DESIGN 第 3 節第 13 條）：只擋格式錯誤與內容的底線，不檢查強弱。
- * 格式錯誤：欄位不對、id 重複、引用到不存在的東西。內容的底線：所有角色都是成年人（年齡低於 18）、不寫血腥、不寫懷孕。
+ * 格式錯誤：欄位不對、id 重複、引用到不存在的東西。內容的底線只剩一條：所有角色都是成年人（年齡低於 18）。
+ * 血腥、懷孕這些是世界的固定規則，寫在 AI 工坊的任務提示詞裡，預設帶著，可以在 AI 工坊改；這裡不比對字串（使用者 2026-11-25）。
  * 另外列兩種提醒（不擋）：宣告了卻沒有人推的計數器、寫了卻沒有人讀的旗標。純函式。
  */
 import { SCHEMAS, fieldError } from './schemas'
@@ -14,21 +15,12 @@ export interface WorldEntry {
   /** 其餘欄位照 DATA 的格式；這裡只看檢查要用的幾個 */
   [k: string]: unknown
 }
-export type IssueCode = 'FIELD' | 'DUP' | 'REF' | 'AGE' | 'FLOOR' | 'WARN'
+export type IssueCode = 'FIELD' | 'DUP' | 'REF' | 'AGE' | 'WARN'
 export interface Issue { code: IssueCode; id: string; where: string; text: string; blocking: boolean }
 
 const REQUIRED: Partial<Record<EntryKind, string[]>> = {
   event: ['id', 'name', 'text', 'options'], npc: ['id', 'name', 'age'], enemy: ['id', 'name', 'grade'], item: ['id', 'name', 'grade'],
   counter: ['id', 'name', 'range'], facility: ['id', 'name', 'functions'], series: ['id', 'name', 'members'], site: ['id', 'name'],
-}
-const FLOOR_WORDS = ['懷孕', '懷上', '受孕', '血肉模糊', '肚破腸流', '斷肢', '內臟']
-
-/** 找出一筆內容裡所有的字串（檢查內容的底線用）。 */
-function strings(v: unknown): string[] {
-  if (typeof v === 'string') return [v]
-  if (Array.isArray(v)) return v.flatMap(strings)
-  if (v && typeof v === 'object') return Object.values(v).flatMap(strings)
-  return []
 }
 
 export function checkWorld(entries: WorldEntry[], builtin: { items: Set<string>; counters: Set<string>; flagsRead?: Set<string> } = { items: new Set(), counters: new Set() }): Issue[] {
@@ -53,8 +45,6 @@ export function checkWorld(entries: WorldEntry[], builtin: { items: Set<string>;
     }
     if (e.kind === 'npc' && typeof e.age === 'number' && e.age < 18) out.push({ code: 'AGE', id: e.id, where: 'age', text: `年齡低於 18：「${e.name}」age ${e.age}。所有角色都是成年人，這一筆不能存進遊戲`, blocking: true })
     if (e.kind === 'npc' && e.age !== undefined && (typeof e.age !== 'number' || !Number.isInteger(e.age))) out.push({ code: 'FIELD', id: e.id, where: 'age', text: '年齡要是整數', blocking: true })
-    const bad = strings(e).flatMap(s => FLOOR_WORDS.filter(w => s.includes(w)))
-    if (bad.length) out.push({ code: 'FLOOR', id: e.id, where: 'text', text: `碰到內容的底線（不寫血腥、不寫懷孕）：${[...new Set(bad)].join('、')}`, blocking: true })
     if (e.kind === 'event') {
       const opts = Array.isArray(e.options) ? (e.options as Array<Record<string, unknown>>) : []
       opts.forEach((o, i) => {

@@ -22,7 +22,7 @@ import type { ContentEntry, Feature, Kernel, ReportDraft } from '../../core'
 import { ContentError, isRecord, passiveProblems } from '../../core'
 import { installBattle } from './battle'
 import { installEffects } from './effects'
-import { tuningBody, tuningPassives } from './passive'
+import { hideOf, tuningBody, tuningPassives } from './passive'
 import { bridgeChanged, weeklyDrafts } from './weekly'
 import { FACILITY_TYPE_KIND, KIND, OWNER, RULE_KIND, entryProblems, readExt, ruleProblems, tuningRules } from './model'
 import type { TuningExt } from './model'
@@ -67,6 +67,11 @@ export const tuningFeature: Feature = {
 
     // 場景問身體
     const on = k.hooks.on.bind(k.hooks) as unknown as AnyHook
+    // 掃橋：藏沉溺的手段（調校算一種）；掛點 scan.person 是 features/security 宣告的
+    on('scan.person', OWNER, (({ state, actor }: { state: GameState; actor: string }) => {
+      const hide = hideOf(k, state, actor)
+      return hide > 0 ? { hide } : undefined
+    }) as never)
     on('scene.body', OWNER, (({ state, actor, layer }: { state: GameState; actor: string; layer: string }) => tuningBody(k, state, actor, layer)) as never)
 
     // 每週一：sink_weekly

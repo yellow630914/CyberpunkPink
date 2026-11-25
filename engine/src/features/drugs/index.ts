@@ -18,12 +18,12 @@
 // 沒做：藥泵（cyberware 的）、對別人用的藥（諦聽、睡蓮）、止痛劑的「生命值只看得到四段」與「高一段」這類顯示效果、牆灰的 10% 妖精的吻（要 malware 效果）、藥的內容；
 //       戒斷療程的價錢還沒有乘區的倍率。
 
-import type { ContentEntry, Feature, Kernel, ReportDraft } from '../../core'
+import type { ContentEntry, Feature, GameState, Kernel, ReportDraft } from '../../core'
 import { ContentError, blankState, isRecord, passiveProblems } from '../../core'
 import { installBills } from './bill'
 import { installBattle } from './battle'
 import { registerEffects } from './dose'
-import { drugPassives, withdrawalPassives } from './passive'
+import { drugPassives, hideOf, withdrawalPassives } from './passive'
 import { FACILITY_TYPE_KIND, ITEM_KIND, OWNER, RULE_KIND, drugProblems, drugRules, liveDrugs, readDrugs, ruleProblems } from './model'
 import { noticeDrafts, restDone, timePassed } from './time'
 
@@ -109,6 +109,12 @@ export const drugsFeature: Feature = {
 
     // ---- 每週帳單：抑制劑 ----
     installBills(k)
+
+    // ---- 掃橋：藏沉溺的手段（抑制劑、蝶粉：給負的 sink_shown 的藥）算一種；掛點 scan.person 是 features/security 宣告的，這裡只認名字 ----
+    ;(k.hooks.on.bind(k.hooks) as unknown as (name: string, owner: string, fn: (payload: never) => unknown) => void)('scan.person', OWNER, (({ state, actor }: { state: GameState; actor: string }) => {
+      const hide = hideOf(k, state, actor)
+      return hide > 0 ? { hide } : undefined
+    }) as never)
   },
 
   ready(kernel) {

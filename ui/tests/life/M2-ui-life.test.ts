@@ -77,7 +77,7 @@ const PACK: ContentPack = {
     ],
     job: [{
       id: 'job_t', name: '麵攤幫工', facility: 'b_t/F2', district: 'd_t', wage: 10, pay: 'cash',
-      stages: [{ name: '洗碗', mult: 1 }, { name: '掌勺', mult: 1.5, need: { shifts: 2, affinity: 0 } }],
+      stages: [{ name: '洗碗', mult: 1 }, { name: '掌勺', mult: 1.5, need: { hours: 4, affinity: 0 } }],
     }],
     residence: [{ id: 'res_t', name: '出租屋', district: 'd_t', block: 'b_t', facility: 'F3', level: 1, rent: 100, cash_ok: true }],
   } as unknown as ContentPack['content'],
@@ -352,9 +352,9 @@ describe('打工（引擎的 work）', () => {
     const { e } = await setup({ at: 'F2' })
     const j0 = e.work.here()[0]!
     expect(j0.next?.number).toBe(2)
-    expect(needLack(j0.next!.need)).toBe('做滿的班數還差 2')
+    expect(needLack(j0.next!.need)).toBe('累計做滿的小時數還差 4')
     expect((await e.work.shift(j0.id, 2)).status).toBe('applied')
-    expect(needLack(e.work.here()[0]!.next!.need)).toBe('做滿的班數還差 1')
+    expect(needLack(e.work.here()[0]!.next!.need)).toBe('累計做滿的小時數還差 2')
     expect(e.event.view()).toBeNull()
     expect((await e.work.shift(j0.id, 2)).status).toBe('applied')
     expect(e.work.here()[0]!.next!.need!.met).toBe(true)

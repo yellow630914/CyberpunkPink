@@ -4,8 +4,8 @@
 // 鎖住是那一件的 off: { why: 'lock' }；有 until 的是有期限的鎖，讀的時候比對時間（model.ts 的 readPieces），到了就當沒有，下一次寫 pieces 時順手清掉。
 //
 //   訂閱  每週帳單（掛點 bill.collect、bill.settled；bills 宣告，這裡只認名字與格式）：主角身上每一件 lock.kind 是 subscription 的各出一行（order 2、帳戶）；
-//         沒付成就鎖住並把欠的加進 owed；付了而且 owed 是 0 的解開。被玩家停掉的、寬限中的（skipped）不動它。
-//   效果  cyber_install、cyber_take、cyber_lock、cyber_unlock（內建的來源才收，ai: false）。掛點 defeat.gear 對前三種回答 true（戰敗時拿走義體的規則關著，它們就從事件裡拿掉）。
+//         沒付成就鎖住並把欠的加進 owed；付了而且 owed 是 0 的解開。玩家停掉的（skipped、why 是 stopped）鎖住那一件、不算欠；寬限中的（grace）不動它。
+//   效果  cyber_install、cyber_take、cyber_lock、cyber_unlock（內建的來源才收，ai: false）。cyber_lock 可以不寫選擇器（帳單與契約的鎖）：on: true 鎖照槽順序第一件非橋、還沒停著的，on: false 解開所有 off.why 等於 why 的件。掛點 defeat.gear 對前三種回答 true（戰敗時拿走義體的規則關著，它們就從事件裡拿掉）。
 //   掃橋  掛點 scan.person（M4-security-m4 宣告）：回答 { cyber: { count, items } }；沒有人問也不會壞。
 // 補繳、破解在 crack.ts；修理在 repair.ts；小手術在 modify.ts。契約（kind: 'contract'）目前只有「帶著它」：掃橋看得到、破解可以拿掉；遠端接管不做。
 
@@ -131,11 +131,13 @@ interface SettledLine {
   paid: number
   unpaid: number
   skipped?: true
+  /** skipped 的原因：stopped 玩家停掉的、grace 寬限中的（沒寫當成 grace：不動它） */
+  why?: string
 }
 
 /**
  * 結算完：沒付成的那一件鎖住（off.why 是 lock，已經是壞掉的不蓋它）並把欠的加進 owed；付了而且 owed 是 0 的解開。
- * skipped（玩家停掉的、寬限中的）不動它。回傳要套的變更。
+ * skipped：寬限中的（why 是 grace）不動它；玩家停掉的（why 是 stopped；不算欠、owed 不加）鎖住那一件，之後恢復付費、付清才解開。回傳要套的變更。
  */
 export function subscriptionSettled(state: GameState, lines: readonly SettledLine[]): Change[] {
   const pc = state.pc
@@ -146,7 +148,13 @@ export function subscriptionSettled(state: GameState, lines: readonly SettledLin
   const pieces = cyberOf(state, pc).map((piece) => {
     const lock = readLock(piece.lock)
     const line = mine.get(`${SUBSCRIPTION_PREFIX}${piece.uid}`)
-    if (lock?.kind !== 'subscription' || !line || line.skipped) return piece
+    if (lock?.kind !== 'subscription' || !line) return piece
+    // 玩家停掉的訂閱：鎖住那一件（不算欠）；寬限中的不動
+    if (line.skipped) {
+      if (line.why !== 'stopped' || piece.off) return piece
+      touched = true
+      return { ...piece, off: { why: LOCK_OFF } }
+    }
     if (line.unpaid > 0) {
       touched = true
       return { ...piece, lock: lockWritten(piece.lock, { ...lock, owed: lock.owed + line.unpaid }), off: piece.off ?? { why: LOCK_OFF } }
@@ -347,8 +355,12 @@ interface LockPlan {
 
 function planLock(k: Kernel, state: GameState, actor: ActorId, e: LockEffect): LockPlan {
   const pieces = cyberOf(state, actor)
-  const hit = new Set(select(pieces, e).map((p) => p.uid))
   const why = e.why ?? LOCK_OFF
+  const bare = e.slot === undefined && e.bp === undefined && e.uid === undefined
+  // 不寫選擇器（帳單與契約的鎖）：鎖是照槽順序第一件非橋、還沒停著的；解開是所有因為同一個 why 停著的
+  const hit = new Set((bare
+    ? e.on ? select(pieces.filter((p) => !isBridge(p) && !p.off), {}).slice(0, 1) : pieces.filter((p) => p.off?.why === why)
+    : select(pieces, e)).map((p) => p.uid))
   const names: string[] = []
   const next = pieces.map((p) => {
     if (!hit.has(p.uid)) return p
@@ -372,7 +384,7 @@ function lockEffect(k: Kernel): void {
   k.effects.register<LockEffect>({
     kind: LOCK_EFFECT, owner: OWNER, ai: false,
     validate(raw, ctx) {
-      const p = [...actorOk(ctx), ...selectorProblems(raw, true)]
+      const p = [...actorOk(ctx), ...selectorProblems(raw, false)]
       if (typeof raw.on !== 'boolean') p.push('on 要是布林值（true 是鎖住，false 是解開）')
       if (raw.hours !== undefined && !(typeof raw.hours === 'number' && Number.isFinite(raw.hours) && raw.hours > 0 && raw.hours <= 24 * 365)) p.push('hours 要是大於 0 的數字（小時）')
       if (raw.why !== undefined && !isText(raw.why)) p.push('why 要是一句短的原因代號')
@@ -432,19 +444,19 @@ export function installEffects(k: Kernel): void {
 // ---- 掛點 ----
 
 /** 掃橋讀到的義體（掛點 scan.person 的 cyber）：全生體的或每個零件都帶 scan_proof 的那幾件不列；不含橋。 */
-export function scanAnswer(k: Kernel, state: GameState, actor: ActorId): { cyber: { count: number; items: Array<{ uid: string; name: string; legal: string; registered: boolean }> } } | undefined {
-  const items: Array<{ uid: string; name: string; legal: string; registered: boolean }> = []
+export function scanAnswer(k: Kernel, state: GameState, actor: ActorId): { cyber: { count: number; items: Array<{ uid: string; name: string; legal: string; registered: boolean; item: string }> } } | undefined {
+  const items: Array<{ uid: string; name: string; legal: string; registered: boolean; item: string }> = []
   for (const piece of cyberOf(state, actor)) {
     if (isBridge(piece)) continue
     if (piece.kind_of === 'deck') {
       const legal = (deckContentOf(k, piece.bp) as { legal?: unknown } | undefined)?.legal
-      items.push({ uid: piece.uid, name: pieceName(k, piece), legal: (LEGALITIES as readonly unknown[]).includes(legal) ? (legal as string) : 'free', registered: piece.registered === true })
+      items.push({ uid: piece.uid, name: pieceName(k, piece), legal: (LEGALITIES as readonly unknown[]).includes(legal) ? (legal as string) : 'free', registered: piece.registered === true, item: piece.bp })
       continue
     }
     const info = productOf(k.content, piece.bp, piece)
     if (!info) continue
     if (info.parts.length > 0 && info.parts.every((p) => p.part.material === 'bio' || p.part.traits?.includes('scan_proof'))) continue
-    items.push({ uid: piece.uid, name: info.bp.name, legal: info.legal, registered: piece.registered === true })
+    items.push({ uid: piece.uid, name: info.bp.name, legal: info.legal, registered: piece.registered === true, item: piece.bp })
   }
   return items.length > 0 ? { cyber: { count: items.length, items } } : undefined
 }

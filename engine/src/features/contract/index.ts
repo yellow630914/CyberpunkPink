@@ -24,7 +24,7 @@
 //       payoffQuote／payoffBlock／payoffDraft、coverMarkBlock／coverMarkDraft、scanAnswer、contractRules。
 //
 // 沒有做：任何一件指令事件的內容；牆外的契約；契約鎖（lock.kind: contract）擋破解與遠端接管（那是 cyberware 的 crack.ts 要問的事，見回報）；NTR 篩選（只管持約人那一面）；
-//       規矩的服裝與不准見的人（只記錄）；轉讓、買下別人的契約（內容）。
+//       規矩的服裝（只記錄）；轉讓、買下別人的契約（內容）。
 
 import type { Feature, GameState, Kernel, ReportDraft } from '../../core'
 import { afterDrafts, incomeBefore, timeDrafts } from './time'

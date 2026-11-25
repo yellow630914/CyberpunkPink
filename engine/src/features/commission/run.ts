@@ -161,8 +161,11 @@ export function enterDraft(k: Kernel, state: GameState, setup: unknown, origin: 
   if (readRun(state)) throw new ActionBlocked('已經在一件委託的副本裡了，要先做完或撤退。')
   if (!state.pc) throw new ActionBlocked('還沒有主角，進不了副本。')
   const def = resolveDef(k, s.def)
+  // 竊聽花（惡意韌體）：你做的事對方都知道，警戒起始值上升（條件 malware_leak 有人註冊、成立才加）
+  const leak = k.conditions.kinds().includes('malware_leak') && k.conditions.test({ kind: 'malware_leak' }, { state, stats: k.stats, timeRules: k.timeRules })
+  const startAlert = Math.min(100, s.alert_start + (leak ? commissionRules(k).leak_alert : 0))
   const run: Run = {
-    def, origin: clone(origin), setup: s.setup, stage: 1, step: 'face', links: [], route: [], alert: s.alert_start, peak: s.alert_start, trace: s.trace_start, net_peak: s.trace_start,
+    def, origin: clone(origin), setup: s.setup, stage: 1, step: 'face', links: [], route: [], alert: startAlert, peak: startAlert, trace: s.trace_start, net_peak: s.trace_start,
     breathed: false, started: clone(state.time),
   }
   // 每個階段都要有選得了的面：一個可選的面都沒有的階段，這件副本進去了也做不完

@@ -136,6 +136,19 @@ export interface RosterRules {
   /** 可靠度生成的範圍（10.4 只說「生成時決定、幾乎不變」，範圍設計書沒寫） */
   reliability_min: number
   reliability_max: number
+  /** 他的沉溺到這裡就離開名冊（NPC_SYSTEM 10.6 節：100；原因 sunk，旗標 sunk_away:<npc>） */
+  sink_away_at: number
+  /** 主角的沉溺（別人看到的）到這裡，名冊的反應發生一次（10.6 節：100）；忠誠在 pc_sunk_leave 以下的人離開（70）；
+   *  親密度 follow_affinity 以上而且他自己沉溺 follow_sink 以上的人跟著走（80、40，旗標 follows_down:<npc>） */
+  pc_sunk_at: number
+  pc_sunk_leave: number
+  follow_affinity: number
+  follow_sink: number
+  /** 看穿藏著的沉溺（10.6 節）：他的 see_skills 裡最高的一項，加親密度每 see_per_affinity 點 +1，對 see_base ＋ mod(意志) ＋ 定力 ＋ 隱藏手段 × see_per_hide（10、2） */
+  see_skills: string[]
+  see_base: number
+  see_per_affinity: number
+  see_per_hide: number
 }
 
 export const DEFAULT_ROSTER_RULES: RosterRules = {
@@ -147,6 +160,8 @@ export const DEFAULT_ROSTER_RULES: RosterRules = {
   leave_at: 20, leave_chance: 0.3,
   fee_base: 200, fee_spread: 0.25, fee_low_rep: 0.2, fee_low_loyalty: 0.25, low_loyalty_min: 20, low_loyalty_max: 39,
   reliability_min: 30, reliability_max: 80,
+  sink_away_at: 100, pc_sunk_at: 100, pc_sunk_leave: 70, follow_affinity: 80, follow_sink: 40,
+  see_skills: ['investigate', 'streetwise'], see_base: 10, see_per_affinity: 20, see_per_hide: 2,
 }
 
 const NUM_FIELDS: Array<[keyof RosterRules, number, number]> = [
@@ -155,6 +170,8 @@ const NUM_FIELDS: Array<[keyof RosterRules, number, number]> = [
   ['loyalty_start', 0, 100], ['loyalty_rescued', 0, 100], ['loyalty_introduced', 0, 100],
   ['idle_weeks', 1, 52], ['leave_at', 0, 100], ['low_loyalty_min', 0, 100], ['low_loyalty_max', 0, 100],
   ['fee_base', 0, 100000], ['reliability_min', 0, 100], ['reliability_max', 0, 100],
+  ['sink_away_at', 1, 1000], ['pc_sunk_at', 1, 1000], ['pc_sunk_leave', 0, 100], ['follow_affinity', 0, 100], ['follow_sink', 0, 1000],
+  ['see_base', 0, 60], ['see_per_affinity', 1, 100], ['see_per_hide', 0, 20],
 ]
 const RATIO_FIELDS: Array<[keyof RosterRules, number, number]> = [['leave_chance', 0, 1], ['fee_spread', 0, 1], ['fee_low_rep', 0, 5], ['fee_low_loyalty', 0, 5]]
 const NEG_FIELDS: Array<keyof RosterRules> = ['idle_delta', 'down_delta', 'unpaid_delta']
@@ -166,6 +183,7 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
   for (const [key, lo, hi] of RATIO_FIELDS) if (e[key] !== undefined && !(typeof e[key] === 'number' && Number.isFinite(e[key]) && e[key] >= lo && e[key] <= hi)) p.push(`${key} 要是 ${lo}～${hi} 的數字`)
   for (const key of NEG_FIELDS) if (e[key] !== undefined && !(isSafeInt(e[key]) && e[key] <= 0)) p.push(`${key} 要是 0 或負整數（忠誠的減少）`)
   for (const key of TEXT_FIELDS) if (e[key] !== undefined && !isText(e[key])) p.push(`${key} 要是文字`)
+  if (e.see_skills !== undefined && !(Array.isArray(e.see_skills) && e.see_skills.length > 0 && e.see_skills.every(isText))) p.push('see_skills 要是基本功 id 的陣列（至少一個）')
   if (e.reliability_min !== undefined && e.reliability_max !== undefined && isSafeInt(e.reliability_min) && isSafeInt(e.reliability_max) && e.reliability_min > e.reliability_max) p.push('reliability_min 不能比 reliability_max 大')
   if (e.low_loyalty_min !== undefined && e.low_loyalty_max !== undefined && isSafeInt(e.low_loyalty_min) && isSafeInt(e.low_loyalty_max) && e.low_loyalty_min > e.low_loyalty_max) p.push('low_loyalty_min 不能比 low_loyalty_max 大')
   return p

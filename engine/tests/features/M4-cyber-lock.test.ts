@@ -627,7 +627,7 @@ describe('掛點 defeat.gear 與 scan.person', () => {
     expect(answer).toEqual({
       cyber: {
         count: 2,
-        items: [{ uid: 's1', name: '企業義眼', legal: 'register', registered: true }, { uid: 'a1', name: '義臂', legal: 'register', registered: false }],
+        items: [{ uid: 's1', name: '企業義眼', legal: 'register', registered: true, item: 'bp_subeye' }, { uid: 'a1', name: '義臂', legal: 'register', registered: false, item: 'bp_arm' }],
       },
     })
     const bare = make()

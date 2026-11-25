@@ -207,8 +207,8 @@ describe('M2-data-rules：抽查設計書的數字', () => {
     expect(raw(g, 'bill_rule')).toMatchObject({ debt_week: 3, debt_faction: 'eden', debt_hostility: 10, interest_order: 5, extra_order: 7, grace_max_days: 7 })
   })
 
-  it('打工（DOWNTIME 4.1、4.2）：2、4、8 小時；大成功 1.5、成功 1、失敗 0.5、大失敗 0 與親密度 −3', () => {
-    expect(raw(g, 'work_rule')).toMatchObject({ hours: [2, 4, 8], degree_mult: { critical: 1.5, success: 1, fail: 0.5, fumble: 0 }, fumble_affinity: 3 })
+  it('打工（DOWNTIME 4.1、4.2）：2、4、6、8 小時；大成功 1.5、成功 1、失敗 0.5、大失敗 0 與親密度 −3', () => {
+    expect(raw(g, 'work_rule')).toMatchObject({ hours: [2, 4, 6, 8], degree_mult: { critical: 1.5, success: 1, fail: 0.5, fumble: 0 }, fumble_affinity: 3 })
   })
 
   it('成人場景（LEWD_SYSTEM 3.5）：主導 2 點、迎合契合 +8、評價表四段', () => {

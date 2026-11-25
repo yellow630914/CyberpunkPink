@@ -37,12 +37,12 @@ const MAP: SpecialMapEntry = {
 
 const stages2 = (): Rec[] => [
   { name: '搬貨', mult: 1 },
-  { name: '領班', mult: 1.5, need: { shifts: 5, affinity: 20 }, perks: [{ kind: 'cash', amount: 3 }] },
+  { name: '領班', mult: 1.5, need: { hours: 40, affinity: 20 }, perks: [{ kind: 'cash', amount: 3 }] },
 ]
 const stages3 = (): Rec[] => [
   { name: '吧台', mult: 1 },
-  { name: '包廂', mult: 1.5, need: { shifts: 5, affinity: 20 }, adult: true, tags: ['x_mid'] },
-  { name: '貴賓室', mult: 2.5, need: { shifts: 12, affinity: 40, extra: { kind: 'fame', min: 10 } }, adult: true, tags: ['x_deep'] },
+  { name: '包廂', mult: 1.5, need: { hours: 40, affinity: 20 }, adult: true, tags: ['x_mid'] },
+  { name: '貴賓室', mult: 2.5, need: { hours: 96, affinity: 40, extra: { kind: 'fame', min: 10 } }, adult: true, tags: ['x_deep'] },
 ]
 
 /** dc 是搬貨與夜班那一擲的難度：測試用 forDegree 調成想要的成功程度。 */
@@ -50,8 +50,8 @@ const jobs = (dc: number): Rec[] => [
   { id: 'j_porter', name: '搬貨', facility: 'fac_market', employer: 'npc_boss', check: { attr: 'body', dc }, wage: 10, pay: 'cash', stages: stages2() },
   { id: 'j_bar', name: '夜班', facility: 'fac_club', employer: 'npc_ann', check: { attr: 'charm', dc }, wage: 10, pay: 'cred', perks: [{ kind: 'fame', amount: 1 }], stages: stages3() },
   { id: 'j_stage', name: '舞台', facility: 'fac_club', employer: 'npc_ann', wage: 14, pay: 'cred', days: { weekday: [3], time: ['late'] }, stages: stages2() },
-  { id: 'j_back', name: '診所助手', facility: 'b_hive/F3', wage: 9, pay: 'cash', stages: [{ name: '助手', mult: 1 }, { name: '主助手', mult: 1.5, need: { shifts: 3, affinity: 0 } }] },
-  { id: 'j_far', name: '鏽帶的活', facility: 'fac_market', district: 'd_rust', wage: 5, pay: 'cash', stages: [{ name: '一', mult: 1 }, { name: '二', mult: 2, need: { shifts: 1, affinity: 0 } }] },
+  { id: 'j_back', name: '診所助手', facility: 'b_hive/F3', wage: 9, pay: 'cash', stages: [{ name: '助手', mult: 1 }, { name: '主助手', mult: 1.5, need: { hours: 24, affinity: 0 } }] },
+  { id: 'j_far', name: '鏽帶的活', facility: 'fac_market', district: 'd_rust', wage: 5, pay: 'cash', stages: [{ name: '一', mult: 1 }, { name: '二', mult: 2, need: { hours: 8, affinity: 0 } }] },
 ]
 
 const base = (dc = 13, patch: (c: Record<string, Rec[]>) => void = () => {}): ContentPack => {
@@ -150,7 +150,8 @@ const fame = (g: G) => meterOf(g.k, g.state, 'fame', 'd_hive')
 /** 直接記下一份工作做了幾班、在第幾階段（測試的起點不是一個行動，所以用 ext 變更放進去） */
 const setJob = (g: G, id: string, js: Partial<ReturnType<typeof jobStateOf>>) => {
   const w = readWork(g.state)
-  w.jobs[id] = { ...jobStateOf(g.state, id), ...js }
+  // 升階看累計時數：測試起點寫「做了幾班」時，一班照 8 小時記成分鐘
+  w.jobs[id] = { ...jobStateOf(g.state, id), ...(js.shifts !== undefined && js.minutes === undefined ? { minutes: js.shifts * 480 } : {}), ...js }
   put(g, [{ op: 'ext', key: 'work', value: w as unknown as Record<string, unknown> }])
 }
 const rollOf = (d: ReportDraft) => d.timeline.find((b) => b.roll)?.roll
@@ -198,14 +199,14 @@ describe('一班的結算：時數 × 時薪 × 階段的倍率 × 成功程度'
     expect(last(g).triggers![0]!.where).toMatchObject({ stage: '2' })
   })
 
-  it('2、4、8 小時照比例；時薪乘出來不是整數就四捨五入', () => {
+  it('2、4、6、8 小時照比例；時薪乘出來不是整數就四捨五入', () => {
     const g = forDegree('success')
     const before = g.state.money.cash
     const probe = shift(g.k, g.state, 'j_porter', 2)
     expect(rollOf(probe)!.degree).toBe('success') // 骰面和做幾小時無關
     g.commit(probe)
     expect(g.state.money.cash - before).toBe(20)
-    const h = forDegree('success', { pack: variant((c) => { c.job![0]!.wage = 7; c.job![0]!.stages = [{ name: '搬貨', mult: 1 }, { name: '二', mult: 1.5, need: { shifts: 5, affinity: 0 } }] }) })
+    const h = forDegree('success', { pack: variant((c) => { c.job![0]!.wage = 7; c.job![0]!.stages = [{ name: '搬貨', mult: 1 }, { name: '二', mult: 1.5, need: { hours: 40, affinity: 0 } }] }) })
     const b = h.state.money.cash
     h.commit(shift(h.k, h.state, 'j_porter', 4))
     expect(h.state.money.cash - b).toBe(28)
@@ -352,7 +353,7 @@ describe('能不能做：設施、日子與時段、區、活動', () => {
 
   it('一班只能做規則裡的幾小時；沒有這份工作、還沒有主角都擋下', () => {
     const g = make()
-    for (const h of [0, 1, 3, 12]) expect(reasonOf(() => shift(g.k, g.state, 'j_porter', h))).toMatch(/2、4、8 小時/)
+    for (const h of [0, 1, 3, 12]) expect(reasonOf(() => shift(g.k, g.state, 'j_porter', h))).toMatch(/2、4、6、8 小時/)
     expect(reasonOf(() => shift(g.k, g.state, 'j_none', 8))).toMatch(/沒有 j_none/)
     const nobody = make()
     delete (nobody.state as { pc?: string }).pc
@@ -509,7 +510,7 @@ describe('升階：做滿班數、雇主親密度到了、額外條件成立，�
     expect(promotionDue(g.k, g.state, job, jobStateOf(g.state, 'j_bar'))).toBe(true)
     expect(needProgress(g.k, g.state, job, jobStateOf(g.state, 'j_bar'), 0)).toBeNull()
     expect(needProgress(g.k, g.state, job, jobStateOf(g.state, 'j_bar'), 2)).toEqual({
-      shifts: { have: 5, need: 12, ok: false }, affinity: { have: 25, need: 40, ok: false }, extra: false, met: false,
+      hours: { have: 40, need: 96, ok: false }, affinity: { have: 25, need: 40, ok: false }, extra: false, met: false,
     })
   })
 })
@@ -580,14 +581,15 @@ describe('jobsHere 與格子上的「打工」', () => {
     expect(bar.stages.map((s) => [s.number, s.name, s.wage, s.adult, s.current, s.reached])).toEqual([
       [1, '吧台', 10, false, true, true], [2, '包廂', 15, true, false, false], [3, '貴賓室', 25, true, false, false],
     ])
-    expect(bar.next).toMatchObject({ number: 2, name: '包廂', need: { shifts: { have: 3, need: 5, ok: false }, affinity: { have: 12, need: 20, ok: false }, extra: null, met: false } })
+    expect(bar.next).toMatchObject({ number: 2, name: '包廂', need: { hours: { have: 24, need: 40, ok: false }, affinity: { have: 12, need: 20, ok: false }, extra: null, met: false } })
     expect(bar.stages[2]!.need!.extra).toBe(false)
     expect(bar.options.map((o) => [o.hours, o.expected, o.by_degree])).toEqual([
       [2, 20, { critical: 30, success: 20, fail: 10, fumble: 0 }],
       [4, 40, { critical: 60, success: 40, fail: 20, fumble: 0 }],
+      [6, 60, { critical: 90, success: 60, fail: 30, fumble: 0 }],
       [8, 80, { critical: 120, success: 80, fail: 40, fumble: 0 }],
     ])
-    expect(toMinutes(bar.options[2]!.to) - toMinutes(bar.options[2]!.from)).toBe(480)
+    expect(toMinutes(bar.options[3]!.to) - toMinutes(bar.options[3]!.from)).toBe(480)
     expect(bar.check).toMatchObject({ attr: 'charm', dc: 13 })
     const chances = bar.check!.chances
     expect(Object.values(chances).reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10)
@@ -646,10 +648,10 @@ describe('內容的格式：載入時擋下', () => {
 
   it('階段要兩個或三個；第一個沒有 need，其餘都要有；時薪、付哪種錢、檢定、日子的格式', () => {
     expect(bad((j) => { j.stages = [j.stages[0]] })).toThrow(ContentError)
-    expect(bad((j) => { j.stages = [...stages3(), { name: '四', mult: 3, need: { shifts: 20, affinity: 50 } }] })).toThrow(ContentError)
+    expect(bad((j) => { j.stages = [...stages3(), { name: '四', mult: 3, need: { hours: 160, affinity: 50 } }] })).toThrow(ContentError)
     expect(bad((j) => { j.stages[0].need = { shifts: 1, affinity: 0 } })).toThrow(ContentError)
     expect(bad((j) => { delete j.stages[1].need })).toThrow(ContentError)
-    expect(bad((j) => { j.stages[1].need.shifts = 0 })).toThrow(ContentError)
+    expect(bad((j) => { j.stages[1].need.hours = 0 })).toThrow(ContentError)
     expect(bad((j) => { j.wage = -1 })).toThrow(ContentError)
     expect(bad((j) => { j.pay = 'gold' })).toThrow(ContentError)
     expect(bad((j) => { j.check = { attr: 'luck', dc: 10 } })).toThrow(ContentError)
@@ -675,7 +677,7 @@ describe('內容的格式：載入時擋下', () => {
   it('額外條件可以寫一個或一串', () => {
     const g = make({ pack: variant((c) => { c.job![0]!.stages[1].need.extra = [{ kind: 'flag', key: 'a', value: true }, { kind: 'fame', min: 1 }] }) })
     const job = g.k.content.get('job', 'j_porter') as never
-    expect(needProgress(g.k, g.state, job, { shifts: 5 }, 1)!.extra).toBe(false)
+    expect(needProgress(g.k, g.state, job, { minutes: 5 * 480 }, 1)!.extra).toBe(false)
   })
 })
 
@@ -697,8 +699,8 @@ describe('交界', () => {
   it('存檔的狀態讀得回來：state.ext.work 形狀不對的部分當成空的，不丟錯', () => {
     const g = make()
     g.state.ext.work = { jobs: { j_porter: { shifts: 'x', stage: -3, last: { degree: 'great' } }, j_bar: 7 }, announce: 'oops' }
-    expect(jobStateOf(g.state, 'j_porter')).toEqual({ shifts: 0, stage: 0, asked: false, last: null })
-    expect(jobStateOf(g.state, 'j_bar')).toEqual({ shifts: 0, stage: 0, asked: false, last: null })
+    expect(jobStateOf(g.state, 'j_porter')).toEqual({ shifts: 0, minutes: 0, stage: 0, asked: false, last: null })
+    expect(jobStateOf(g.state, 'j_bar')).toEqual({ shifts: 0, minutes: 0, stage: 0, asked: false, last: null })
     expect(readWork(g.state).announce).toBeNull()
     delete g.state.ext.work
     expect(readWork(g.state)).toEqual({ jobs: {}, announce: null })

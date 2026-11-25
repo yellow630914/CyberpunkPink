@@ -238,24 +238,38 @@ describe('邀請函與面談（CYBERSPACE 8.8 節「怎麼進去」）', () => {
   it('過了：領會員證，從散座起；邀請函用掉、會費繳到下一個週一、破關次數從 0 起', () => {
     const g = seeded((n) => n >= 3 && n <= 19, { rep: 40 })
     invite(g)
+    const t0 = now(g)
     const r = g.commit(interviewDraft(g.k, g.state, { tier: 'floor', skill: 'negotiate' }))[0]!
     expect(r.action).toBe(CURTAIN_INTERVIEW_ACTION)
     expect(r.outcome.result).toBe('joined')
     expect(r.timeline.some((b) => b.roll)).toBe(true)
-    expect(cur(g).member).toEqual({ tier: 'floor', since: now(g), paid_until: curtainMondayOf(g.k, curtainWeekIndex(g.k, now(g)) + 1), clears: 0 })
+    // 面談花一個小時（interview_minutes）；會員證的時間記的是面談開始那一刻
+    expect(now(g)).toBe(t0 + 60)
+    expect(cur(g).member).toEqual({ tier: 'floor', since: t0, paid_until: curtainMondayOf(g.k, curtainWeekIndex(g.k, t0) + 1), clears: 0 })
     expect(cur(g).invite).toBeUndefined()
     expect(cur(g).interview_at).toBeUndefined()
     // 擲交涉與表演都可以；已經是會員就不能再談同一席
     expect(interviewBlock(g.k, g.state, { tier: 'floor', skill: 'perform' })).toContain('已經是')
   })
 
+  it('面談花的時間可以用規則表改（interview_minutes）', () => {
+    const g = seeded((n) => n >= 3 && n <= 19, { rep: 40, rule: { interview_minutes: 15 } })
+    invite(g)
+    const t0 = now(g)
+    g.commit(interviewDraft(g.k, g.state, { tier: 'floor', skill: 'negotiate' }))
+    expect(now(g)).toBe(t0 + 15)
+    expect(cur(g).member?.since).toBe(t0)
+  })
+
   it('面談失敗：記下時間，七天內再談被擋；滿七天（新的邀請函）又可以', () => {
     const g = seeded((n) => n <= 10, { weak: true, rep: 40 })
     invite(g)
+    const t0 = now(g)
     const r = g.commit(interviewDraft(g.k, g.state, { tier: 'floor', skill: 'negotiate' }))[0]!
     expect(r.outcome.result).toBe('failed')
     expect(cur(g).member).toBeUndefined()
-    expect(cur(g).interview_at).toBe(now(g))
+    expect(cur(g).interview_at).toBe(t0)
+    expect(now(g)).toBe(t0 + 60)
     invite(g)
     const why = interviewBlock(g.k, g.state, { tier: 'floor', skill: 'negotiate' })!
     expect(why).toContain('7 天')
@@ -642,7 +656,7 @@ describe('報名並開一趟（CYBERSPACE 8.8 節「一趟的結構」）', () =
     expect(reasonOf(() => enterDraft(g.k, g.state, { party: party(1) }))).toContain('今晚')
     // 午夜過了還算同一晚；清晨三點之後是新的一晚
     advance(g, 4 * 60 + 30)
-    expect(g.state.time).toMatchObject({ day: 9, hour: 0, minute: 30 })
+    expect(g.state.time).toMatchObject({ day: 9, hour: 1, minute: 30 })
     expect(memberView(g.k, g.state).runsLeft).toBe(0)
     advance(g, 3 * 60)
     expect(memberView(g.k, g.state).runsLeft).toBe(2)
@@ -752,7 +766,7 @@ describe('條件 curtain_member 與唯讀的函式', () => {
   it('讀到的 state.ext.curtain 形狀不對的部分當成沒有', () => {
     const g = setup()
     commit(g, [{ op: 'ext', key: 'curtain', value: { member: { tier: 'gold' }, taste: [1, 'a', 'a'], invite: { until: 'x' }, week: 3 } as never }])
-    expect(cur(g)).toEqual({ taste: ['a'] })
+    expect(cur(g)).toEqual({ taste: ['a'], tapes: [] })
     expect(memberView(g.k, g.state).member).toBeNull()
   })
 })

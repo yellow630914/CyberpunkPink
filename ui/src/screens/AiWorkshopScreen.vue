@@ -60,7 +60,7 @@ const recent = ref(RECENT[0])
 /** 預覽：照實際的順序排出請求的每一塊，標字數、是否在快取段、來源。 */
 const preview = computed(() => {
   const rows = [
-    { n: '硬規則 {{hard_rules}}', len: 1180, cache: true, src: '預設・鎖住' },
+    { n: '硬規則 {{hard_rules}}', len: 1180, cache: true, src: '預設・鎖住（H5、H16、H17 可改）' },
     { n: '內容界線 {{limits}}', len: 320, cache: true, src: '由篩選產生・只讀' },
     { n: '城市常駐條目', len: 1460, cache: true, src: '預設' },
     { n: `任務規則・${task.value.name}`, len: 640, cache: true, src: '預設' },
@@ -101,6 +101,16 @@ const IKEY = 'cpp-ui-image-v1'
 const img = reactive(loadLS(IKEY, IMAGE_DEFAULTS))
 watch(img, v => { try { localStorage.setItem(IKEY, JSON.stringify(v)) } catch { /* 存不了就算了 */ } }, { deep: true })
 function resetImage() { Object.assign(img, structuredClone(IMAGE_DEFAULTS)); ui.toast('生圖恢復預設了。') }
+// ---- 世界的固定規則（PROMPTS 2.5 節：H5 成年、H16 不寫血腥、H17 不寫懷孕；預設帶著，玩家可以改寫、刪掉、恢復預設；使用者 2026-11-25） ----
+const WORLD_RULES = [
+  { id: 'H5', name: '所有人物都是成年人', def: '所有登場的人物都是成年人。' },
+  { id: 'H16', name: '不寫血腥', def: '受傷與倒下用狀態與動作帶過，不寫斷肢、內臟、大量出血的細節。' },
+  { id: 'H17', name: '不寫懷孕', def: '不寫受孕、懷孕、孕期與生育（這個遊戲沒有這套系統）。' },
+] as const
+const WKEY = 'cpp-ui-world-rules-v1'
+const worldRules = reactive<Record<string, string>>(loadLS(WKEY, Object.fromEntries(WORLD_RULES.map(r => [r.id, r.def]))))
+watch(worldRules, v => { try { localStorage.setItem(WKEY, JSON.stringify(v)) } catch { /* 存不了就算了 */ } }, { deep: true })
+function resetWorldRule(id: string) { const d = WORLD_RULES.find(r => r.id === id); if (d) { worldRules[id] = d.def; ui.toast(`${id} 恢復預設了。`) } }
 // ---- 和預設比較（提示詞組與匯入） ----
 const showDiff = ref(false)
 const taskDiffs = computed(() => Object.entries(custom).filter(([, b]) => b.pre || b.post || b.temp !== 0.8).map(([id, b]) => ({ id, name: ALL_TASKS.find(t => t.id === id)?.name ?? id, pre: lineDiff('', b.pre), post: lineDiff('', b.post), temp: b.temp })))
@@ -139,7 +149,7 @@ function stepLimit(k: 'event' | 'hook' | 'other', d: number) { const v = s.hookL
       <button type="button" class="btn sm pri" @click="ui.toast('存下來了；提示詞組存在這個瀏覽器，所有存檔共用。')">存下來</button>
       <Tabs v-model="top" :tabs="[{ id: 'shop', label: '工坊' }, { id: 'vars', label: '變數字典' }, { id: 'sets', label: '提示詞組與匯入' }]" />
     </header>
-    <div class="lockline frame"><span class="lk">LOCK</span><b>有些東西在這裡看得到，但是不能改。</b><Hint>硬規則 H1～H15、由內容篩選產生的內容界線、輸出格式、工具定義與退路都鎖住。任務的清單與任務鏈的主幹由遊戲決定，不能新增任務。遊戲的內容在世界編輯器裡改，這裡只管它們怎麼送給 AI。</Hint></div>
+    <div class="lockline frame"><span class="lk">LOCK</span><b>有些東西在這裡看得到，但是不能改。</b><Hint>硬規則 H1～H15（其中 H5、H16、H17 是世界的固定規則，可以在下面改）、由內容篩選產生的內容界線、輸出格式、工具定義與退路都鎖住。任務的清單與任務鏈的主幹由遊戲決定，不能新增任務。遊戲的內容在世界編輯器裡改，這裡只管它們怎麼送給 AI。</Hint></div>
 
     <div v-if="top === 'shop'" class="cols">
       <!-- 左：樹 -->
@@ -169,6 +179,8 @@ function stepLimit(k: 'event' | 'hook' | 'other', d: number) { const v = s.hookL
           <div class="kv"><span>什麼時候跑</span><b>{{ task.when }}</b></div>
           <div class="kv"><span>模型的大小</span><b>{{ task.model }}</b></div>
           <div class="locked"><b>任務規則與硬規則</b><span class="k">鎖住：硬規則</span></div>
+          <p class="setgrp">世界的固定規則<Hint title="世界的固定規則">H5、H16、H17 預設寫在每個任務的規則裡，這裡可以改寫、清空（等於刪掉）或恢復預設。只有年齡是底線：建角、匯入與世界編輯器都會擋下低於 18 的年齡。</Hint></p>
+          <div v-for="r in WORLD_RULES" :key="r.id" class="fld"><span>{{ r.id }}・{{ r.name }}</span><textarea v-model="worldRules[r.id]" class="inp" rows="2" :aria-label="`${r.id} ${r.name}`" /><button type="button" class="btn sm" @click="resetWorldRule(r.id)">恢復預設</button></div>
           <label class="fld"><span>前段自訂<Hint>前段在快取段裡（斷點①②之前），每次都會變的變數放這裡會讓快取失效。</Hint></span><textarea v-model="blk.pre" class="inp" rows="4" /></label>
           <label class="fld"><span>後段自訂</span><textarea v-model="blk.post" class="inp" rows="4" /></label>
           <div class="setrow"><span class="nm">來源</span><select v-model="src" class="inp sel"><option v-for="o in SOURCES" :key="o.id" :value="o.id">{{ o.name }}</option></select><span class="df">設定裡也有</span></div>
@@ -241,7 +253,7 @@ function stepLimit(k: 'event' | 'hook' | 'other', d: number) { const v = s.hookL
         <template v-else-if="cat === 'image'">
           <h3>生圖<Hint title="生圖">照搬那邊的兩個任務（image_prompt、storyboard）。介面本身的美術不畫露骨的圖；這一頁只管玩家自己用生圖產生的紀錄插圖與立繪。</Hint></h3>
           <label class="fld"><span>預處理（image_prompt）</span><textarea v-model="img.preprocess" class="inp" rows="3" /></label>
-          <div class="locked"><b>所有人物都是成年人</b><span class="k">鎖住：H5</span></div>
+          <div class="locked"><b>所有人物都是成年人</b><span class="k">世界的固定規則 H5：到「工坊」的任務頁改</span></div>
           <label class="fld"><span>分鏡（storyboard）</span><textarea v-model="img.storyboard" class="inp" rows="3" /></label>
           <p class="setgrp">畫風預設</p>
           <div class="row-list"><button v-for="x in img.styles" :key="x.id" type="button" class="lrow" :class="{ on: img.style === x.id }" @click="img.style = x.id"><span class="grow"><b>{{ x.name }}</b><small class="mono">{{ x.tags }}</small></span></button></div>

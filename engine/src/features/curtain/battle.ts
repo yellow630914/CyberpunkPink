@@ -4,14 +4,15 @@
 // 一趟的回合數、倒下的人次不放在這一趟的紀錄裡，放在核心的計數器（加法）：一段路好幾格時 netrun.round 每一格各問一次、讀到的狀態都是這一段路開始之前的，
 // 「讀出來再寫回」會漏算（和迷宮館同一個理由）。場熱是量表的 delta，也是加法。
 
-import type { BattleState, Change, GameState, Kernel } from '../../core'
+import type { ActivityEndReturn, BattleRun, BattleState, Change, GameState, Kernel } from '../../core'
 import { isRecord } from '../../core'
-import { defOf } from './ctx'
+import { defOf, netOf } from './ctx'
+import { fallEventFor } from './fall'
 import { heatDelta, highlightHeat, highlightsOf } from './heat'
 import type { CurtainRules, RunRecord } from './model'
-import { NIGHT_KIND, ORIGIN_BY, curtainRules, isInt, readCurtain } from './model'
+import { NIGHT_KIND, ORIGIN_BY, curtainRules, isInt, isText, readCurtain } from './model'
 import type { NightEntry } from './model'
-import { duetEnded, resolvePending } from './orders'
+import { duetEnded, resolvePending, skinOkFor } from './orders'
 import { runPatch } from './patch'
 import { exploreKey, roundKey } from './nodes'
 import { rewardOf } from './tables'
@@ -37,6 +38,42 @@ export function onRound(k: Kernel, state: GameState, run: RunLike): Change[] | u
   const changes: Change[] = [{ op: 'counter', key: roundKey(r.id, act), delta: 1 }, { op: 'counter', key: exploreKey(r.id, act), delta: 1 }]
   if (run.round > 0 && run.round % rules.heat.explore_per === 0) changes.push(...heatDelta(run.map, rules.heat.explore_pen))
   return changes
+}
+
+/**
+ * 戰鬥開打（掛點 battle.start；遭遇是 netrun 放的、netrun 開的戰）：認得是這一趟的（origin.ext.net.map 是這一趟的地圖）之後，在這一場的 origin.ext 記上
+ *   curtain       這一趟、哪一層哪個節點、第幾幕、是不是守閘門的那一場與最後一層、等著的換裝點單開打時全隊穿對了沒有（skin_ok）；戰鬥打完（onBattleEnd）與兩個行動掛點看它
+ *   defeat_event  輸在這一幕走哪一件戰敗事件（規則表 fall.events；純舞台或篩選擋掉了改用 _plain 版本）
+ *   defeat_play   熔斷的場地也走戰敗事件（defeat 與 netrun 認它）：落幕
+ */
+export function onBattleStart(k: Kernel, run: BattleRun): void {
+  const b = run.battle
+  const ext = (b.origin.ext ??= {})
+  const link = isRecord(ext.net) ? ext.net : undefined
+  const r = readCurtain(run.state).run
+  if (!link || !r || r.over || !r.map || link.map !== r.map || !isText(link.sheet) || !isText(link.node)) return
+  const net = netOf(run.state, r.map)
+  if (!net) return
+  const rules = curtainRules(k)
+  const sheets = Object.keys(net.graph)
+  const layer = Math.max(0, sheets.indexOf(link.sheet))
+  const act = actOf(rules, r, layer)
+  const guard = net.foes[link.sheet]?.[link.node]?.gate === true
+  const night = k.content.get<NightEntry>(NIGHT_KIND, r.night)
+  const skinOk = r.pending?.kind === 'skin' && night ? skinOkFor(k, run.state, r, night, r.pending.style) : undefined
+  ext.curtain = { run: r.id, sheet: link.sheet, node: link.node, act, guard, last: layer === sheets.length - 1, ...(skinOk !== undefined ? { skin_ok: skinOk } : {}) }
+  const event = fallEventFor(k, run.state, rules, r, act)
+  if (event !== undefined) ext.defeat_event = event
+  ext.defeat_play = true
+}
+
+/** 戰敗被接受（activity.end，kind defeat；開戰的是這一趟）：記下戰敗事件說了什麼（哪一件、什麼種類、哪個版本），落幕時看它有沒有補演。 */
+export function onDefeatAccepted(state: GameState, origin: { ext?: Record<string, unknown> }, result: Record<string, unknown>): ActivityEndReturn | undefined {
+  const link = isRecord(origin.ext) ? origin.ext.curtain : undefined
+  const r = readCurtain(state).run
+  if (!r || r.over || !isRecord(link) || link.run !== r.id || !isText(result.event)) return undefined
+  const lost_event = { event: result.event, kind: isText(result.kind) ? result.kind : 'generic', ...(isText(result.version) ? { version: result.version } : {}) }
+  return { changes: [runPatch({ set: { lost_event } })] }
 }
 
 type EndBattle = Pick<BattleState, 'round' | 'origin' | 'units' | 'steps' | 'field'>

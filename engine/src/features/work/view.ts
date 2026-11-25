@@ -22,7 +22,7 @@ export interface StageView {
   current: boolean
   /** 已經到過（含現在） */
   reached: boolean
-  /** 怎麼升上來（第一階段是 null）。進度照現在的班數與雇主親密度 */
+  /** 怎麼升上來（第一階段是 null）。進度照現在的累計時數與雇主親密度 */
   need: NeedProgress | null
 }
 
@@ -48,9 +48,9 @@ export interface ModeView {
   check: { attr: string; skill?: string; dc: number; bonus: number; chances: Record<Degree, number> } | null
   /** 這一種的那一班自己不記得過程 */
   amnesia: boolean
-  /** 這一種做了幾班 */
-  shifts: number
-  /** 一班 2、4、8 小時各自的預計（照現在的階段） */
+  /** 這一種累計做了幾小時 */
+  hours: number
+  /** 一班 2、4、6、8 小時各自的預計（照現在的階段） */
   options: ShiftOptionView[]
 }
 
@@ -66,6 +66,8 @@ export interface JobView {
   check: { attr: string; skill?: string; dc: number; bonus: number; chances: Record<Degree, number> } | null
   /** 這份工作總共做滿幾班 */
   shifts: number
+  /** 這份工作累計做了幾小時（升階看它） */
+  hours: number
   /** 現在第幾階段（從 1 起算；被內容篩選卡住的算前一階） */
   stage: number
   /** 沒有被內容篩選關掉的階段（關掉的不顯示） */
@@ -74,7 +76,7 @@ export interface JobView {
   next: StageView | null
   /** 這一階升階的事件問過了沒有 */
   asked: boolean
-  /** 一班 2、4、8 小時各自的預計（照現在的階段）；有 modes 的工作是第一種做法的 */
+  /** 一班 2、4、6、8 小時各自的預計（照現在的階段）；有 modes 的工作是第一種做法的 */
   options: ShiftOptionView[]
   /** 可以選的做法（沒有 modes 的工作是空的）；上班前要選一種，shift 的 mode 就是它的 id */
   modes: ModeView[]
@@ -133,7 +135,7 @@ export function jobView(k: Kernel, state: GameState, job: JobEntry): JobView {
     return {
       id, name: m.name, wage: p.pay.wage ?? 0,
       check: p.plan && c ? { attr: p.plan.attr, ...(p.plan.skill ? { skill: p.plan.skill } : {}), dc: p.plan.dc, bonus: p.plan.bonus, chances: c } : null,
-      amnesia: m.amnesia === true, shifts: js.modes?.[id] ?? 0, options: optionsOf(k, state, job, m, at),
+      amnesia: m.amnesia === true, hours: Math.floor((js.modes?.[id] ?? 0) / 60), options: optionsOf(k, state, job, m, at),
     }
   })
   return {
@@ -141,7 +143,7 @@ export function jobView(k: Kernel, state: GameState, job: JobEntry): JobView {
     employer: job.employer ? { id: job.employer, name: npcName(k, job.employer), affinity: meterOf(k, state, 'affinity', job.employer) } : null,
     pay: job.pay,
     check: plan && chances ? { attr: plan.attr, ...(plan.skill ? { skill: plan.skill } : {}), dc: plan.dc, bonus: plan.bonus, chances } : null,
-    shifts: js.shifts, stage: at + 1, stages, next: stages.find((s) => s.number === at + 2) ?? null, asked: js.asked,
+    shifts: js.shifts, hours: Math.floor(js.minutes / 60), stage: at + 1, stages, next: stages.find((s) => s.number === at + 2) ?? null, asked: js.asked,
     options: optionsOf(k, state, job, first, at), modes,
     block: jobBlock(k, state, job), last: js.last,
   }

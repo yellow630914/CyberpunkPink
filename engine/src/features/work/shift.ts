@@ -155,7 +155,8 @@ export function shiftBlock(k: Kernel, state: GameState, jobId: string, hours: nu
 // ---- 階段與升階 ----
 
 export interface NeedProgress {
-  shifts: { have: number; need: number; ok: boolean }
+  /** 累計做了幾小時、要幾小時（升階看累計時數，不看班數） */
+  hours: { have: number; need: number; ok: boolean }
   affinity: { have: number; need: number; ok: boolean }
   /** 沒有額外條件是 null */
   extra: boolean | null
@@ -164,15 +165,15 @@ export interface NeedProgress {
 }
 
 /** 升到第 target 階段（從 0 起算）的進度；第一階段沒有條件是 null。state 是看雇主親密度與額外條件的狀態。 */
-export function needProgress(k: Kernel, state: GameState, job: JobEntry, js: Pick<JobState, 'shifts'>, target: number): NeedProgress | null {
+export function needProgress(k: Kernel, state: GameState, job: JobEntry, js: Pick<JobState, 'minutes'>, target: number): NeedProgress | null {
   const need = job.stages[target]?.need
   if (!need) return null
   const have = job.employer ? meterOf(k, state, 'affinity', job.employer) : 0
   const extraList: Condition[] = need.extra === undefined ? [] : Array.isArray(need.extra) ? need.extra : [need.extra]
   const extra = extraList.length === 0 ? null : extraList.every((c) => k.conditions.test(c, condCtx(k, state)))
-  const shifts = { have: js.shifts, need: need.shifts, ok: js.shifts >= need.shifts }
+  const hours = { have: Math.floor(js.minutes / 60), need: need.hours, ok: js.minutes >= need.hours * 60 }
   const affinity = { have, need: need.affinity, ok: have >= need.affinity }
-  return { shifts, affinity, extra, met: shifts.ok && affinity.ok && extra !== false }
+  return { hours, affinity, extra, met: hours.ok && affinity.ok && extra !== false }
 }
 
 /** 現在該不該問升階：停在記下來的階段（沒被內容篩選卡住）、下一階沒被關掉、這一階還沒問過、三項條件都到了。 */
@@ -204,7 +205,7 @@ export function promoteEvent(k: Kernel, job: JobEntry, from: number, to: number)
 export const AMNESIA_RESIDUE = '這一班的事只剩一段模糊的殘留，怎麼也想不起細節。'
 
 /**
- * 打一班工（hours 要在規則的 hours 裡，預設 2、4、8；有 modes 的工作要給 mode）：
+ * 打一班工（hours 要在規則的 hours 裡，預設 2、4、6、8；有 modes 的工作要給 mode）：
  *  - 時間加 hours 小時；有 check 擲一次（沒有的當成功），報酬 = 時數 × 時薪（模式、公式、分帳都算）× 階段的倍率 × 成功程度，付工作寫的那一種錢；
  *  - 大失敗雇主親密度 −3（沒有人定義 affinity 時略過）；每一班的附帶效果（工作的加上模式的、這個階段的、模式 every 到班數的）經 k.effects 結算；班數 +1；
  *  - amnesia 的模式：報告的 outcome 多 amnesia: true、結果只有兩句（賺了多少、一句模糊的殘留），時間照過、變更照做；
@@ -249,9 +250,16 @@ export function shift(k: Kernel, state: GameState, jobId: string, hours: number,
     }
   }
 
-  // 這個模式做了幾班（這一班算進去）；every 是「每做滿幾班」給一次的效果
-  const modeCount = mode ? (js.modes?.[mode[0]] ?? 0) + 1 : 0
-  const every = mode ? (mode[1].every ?? []).filter((x) => modeCount % x.shifts === 0).flatMap((x) => x.effects) : []
+  // 這個模式累計做了多少分鐘（這一班算進去）；every 是「每累計做滿幾小時」給一次的效果，一班跨過幾個倍數就給幾次
+  const modeBefore = mode ? (js.modes?.[mode[0]] ?? 0) : 0
+  const modeMinutes = mode ? modeBefore + minutes : 0
+  const every = mode
+    ? (mode[1].every ?? []).flatMap((x) => {
+      const step = x.hours * 60
+      const times = Math.floor(modeMinutes / step) - Math.floor(modeBefore / step)
+      return Array.from({ length: Math.max(0, times) }, () => x.effects).flat()
+    })
+    : []
 
   // 每一班的附帶效果：工作的加上模式的、這個階段的、模式的 every
   const perks = [...(job.perks ?? []), ...(mode?.[1].perks ?? []), ...(stage.perks ?? []), ...every]
@@ -263,7 +271,7 @@ export function shift(k: Kernel, state: GameState, jobId: string, hours: number,
   }
 
   // 升階的檢查：照這一班做完之後的狀態（錢、豔名、雇主親密度都算進去）
-  const done: JobState = { shifts: js.shifts + 1, stage: js.stage, asked: js.asked, last: null, ...(mode || js.modes ? { modes: { ...js.modes, ...(mode ? { [mode[0]]: modeCount } : {}) } } : {}) }
+  const done: JobState = { shifts: js.shifts + 1, minutes: js.minutes + minutes, stage: js.stage, asked: js.asked, last: null, ...(mode || js.modes ? { modes: { ...js.modes, ...(mode ? { [mode[0]]: modeMinutes } : {}) } } : {}) }
   let launch: Launch[] | undefined
   if (k.activity.get(EVENT_ACTIVITY)) {
     const sim = clone(state)

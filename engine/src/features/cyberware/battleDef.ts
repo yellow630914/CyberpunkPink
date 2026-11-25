@@ -7,7 +7,7 @@
 //   battle.scaling?  照現在的感載給修正（熱驅動）：[{ mod, per_load, amount, tags? }]；tags 寫 melee 是「手上拿的是近戰武器」
 //   battle.vs?       對手帶某個標籤時才有的修正（駭入接頭：裝置裡的蕾絲打進身上，感載 ×1.5）：[{ mod, amount, other_tags: 標籤（有一個就算）, tags? }]
 //   battle.pump?     藥泵：true（一座放 cyber_rule.pump_doses 劑）或 { doses }
-// 設計圖多讀 implant_kind?（失效與超頻用的種類：arm、eye、reflex……；沒寫用設計圖的 slot，甲板是 deck）。
+// 設計圖多讀 implant_kind?（失效與超頻用的種類：limb、eye、reflex……；沒寫用設計圖的 slot，arm 與 leg 都是 limb，甲板是 deck）。
 
 import type { BlueprintEntry, Kernel, ProductData } from '../../core'
 import { SYNC_GEARS, isRecord, isSafeInt, passiveProblems } from '../../core'
@@ -112,10 +112,11 @@ export function readBattle(raw: unknown): BattleDef | undefined {
   return { actions, ...(toggle ? { toggle } : {}), scaling, vs, ...(pump ? { pump } : {}) }
 }
 
-/** 這一件的失效與超頻的種類：implant_kind，沒寫用設計圖的部位（arm、leg、eye……），甲板是 deck。 */
+/** 這一件的失效與超頻的種類：implant_kind，沒寫用設計圖的部位（eye……；手臂與腿都算 limb，規則表有 off_limb、boost_limb），甲板是 deck。 */
 export function kindOfBlueprint(bp: Pick<BlueprintEntry, 'slot' | 'deck'> & { implant_kind?: unknown }): string {
   if (isText(bp.implant_kind)) return bp.implant_kind
   if (bp.deck) return 'deck'
+  if (bp.slot === 'arm' || bp.slot === 'leg') return 'limb'
   return bp.slot ?? 'generic'
 }
 

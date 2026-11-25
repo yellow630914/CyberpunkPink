@@ -18,7 +18,7 @@ import { inlineEvent, playSkipped, rewriteEffects } from './body'
 import type { Rewrite } from './body'
 import { locatedEventOf, locatedOf, originEventOf, pick, winnersOf } from './choose'
 import type { DefeatEventEntry, DefeatOption, DefeatStage, PendingDefeat, PlayedResult } from './model'
-import { EVENT_ACTIVITY, EXT, KIND, OWNER, defeatOf, moneyLimit, stageOf } from './model'
+import { EVENT_ACTIVITY, EXT, KIND, OWNER, STAGE_KIND, defeatOf, moneyLimit, stageOf } from './model'
 
 // ---- 掛點（兩邊不互相 import：型別用 declare module 補在核心的掛點表上） ----
 
@@ -104,7 +104,8 @@ export function onBattleEnd(k: Kernel, state: GameState, battle: BattleState, ou
   }
   // 熔斷的場地（battle.field.safe：迷宮館的比賽、之後的場館）：倒下沒有真的後果，不走戰敗事件、不留等著三選一的戰敗，只把開打前的快照丟掉；
   // 這一趟怎麼收（醒在館方的回復室）是開戰的那個功能的事（使用者 2026-11-24；M3 審查應修 7）
-  if (battle.field.safe === true) return { changes: [{ op: 'snapshot.drop', kind: 'battle' }] }
+  // 例外：開戰的人帶 origin.ext.defeat_play（簾後館的落幕）：熔斷只管不加沉溺、不扣線，戰敗事件照演、照留等著三選一的戰敗
+  if (battle.field.safe === true && battle.origin.ext?.defeat_play !== true) return { changes: [{ op: 'snapshot.drop', kind: 'battle' }] }
   const roll = deriveRng(state.rng, `defeat/${battle.id}`).next()
   const w = winnersOf(k, battle)
   const net = modeOf(k.content, battle.mode)?.layer === 'net'
@@ -123,7 +124,8 @@ export function onBattleEnd(k: Kernel, state: GameState, battle: BattleState, ou
   if (!r) return { changes: [{ op: 'snapshot.drop', kind: 'battle' }] }
   const s = settleSkipped(k, state, r.entry, r.version, battle.id, false)
   const view = state.rules.defeatView
-  const skipped = !k.activity.get(EVENT_ACTIVITY) || view === 'never'
+  // 種類 stage（簾後館的落幕）：事件視窗不開，內文與效果走「不演」的結算；它的主線場景是接受之後由簾後館自己開的補演（可以喊停）
+  const skipped = !k.activity.get(EVENT_ACTIVITY) || view === 'never' || r.entry.kind === STAGE_KIND
   const value: PendingDefeat = {
     event: r.entry.id, version: r.version, ...(faction !== undefined ? { faction } : {}), outcome,
     fails_commission: r.entry.fails_commission, lines: s.errors.length > 0 ? [] : [...s.lines, ...s.notes], choices: ['accept', 'retry', 'stage'],
@@ -266,7 +268,7 @@ export function chooseDefeatOption(k: Kernel, state: GameState, id: string): Rep
   if (block) throw new ActionBlocked(block)
   const end = endActivity(k, {
     state, kind: 'defeat', id: pending.battle, origin: pending.origin ?? { by: 'core' }, outcome: 'accept',
-    result: { battle: pending.battle, event: pending.event, kind: kindOf(k, pending), fails_commission: pending.fails_commission, option: option.id, ...netResult(pending) },
+    result: { battle: pending.battle, event: pending.event, kind: kindOf(k, pending), version: pending.version, fails_commission: pending.fails_commission, option: option.id, ...netResult(pending) },
   })
   const lines = [...option.lines, ...end.lines]
   return attachActivityEnd(draft(state, 'defeat.option', option.summary, option.id, [...option.changes, ...end.changes, extChange(null), DROP], { narration: { results: lines } }), end)
@@ -309,7 +311,7 @@ export function acceptDefeat(k: Kernel, state: GameState): ReportDraft {
   const fails = played ? pending.fails_commission : failsAfter(pending.fails_commission, flags)
   const end = endActivity(k, {
     state, kind: 'defeat', id: pending.battle, origin: pending.origin ?? { by: 'core' }, outcome: 'accept',
-    result: { battle: pending.battle, event: pending.event, kind: entry.kind, fails_commission: fails, option: played ? played.option : 'skip', ...netResult(pending) },
+    result: { battle: pending.battle, event: pending.event, kind: entry.kind, version: pending.version, fails_commission: fails, option: played ? played.option : 'skip', ...netResult(pending) },
   })
   const results = [...lines, ...companionLine(k, state, pending), ...end.lines]
   const out: ReportDraft = {

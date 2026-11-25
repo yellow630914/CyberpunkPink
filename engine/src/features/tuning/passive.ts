@@ -61,3 +61,8 @@ export function tuningBody(k: Kernel, state: GameState, actor: ActorId, layer: s
   }
   return Object.keys(sens).length > 0 ? { sensitivity: sens } : undefined
 }
+
+/** 掃橋時「藏沉溺的手段」（M4-security-m4：掛點 scan.person 的 hide；調校算一種）：裝著的調校裡有給負的 sink_shown 的（冰后這類），算 1。 */
+export function hideOf(k: Kernel, state: GameState, actor: ActorId): number {
+  return tuningPassives(k, state, actor).some((e) => (e as { stat?: unknown }).stat === 'sink_shown' && typeof (e as { amount?: unknown }).amount === 'number' && (e as { amount: number }).amount < 0) ? 1 : 0
+}

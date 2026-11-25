@@ -535,7 +535,7 @@ describe('接受：activity.end（kind defeat）', () => {
       origin: { by: 'caller', ref: 'r1', ext: { stage: 2 } },
     })
     expect(log[0]!.result.battle).toMatch(/^b\d+$/)
-    expect(Object.keys(log[0]!.result).sort()).toEqual(['battle', 'event', 'fails_commission', 'kind', 'option'])
+    expect(Object.keys(log[0]!.result).sort()).toEqual(['battle', 'event', 'fails_commission', 'kind', 'option', 'version'])
     // 處理函式回傳的句子進了結果
     expect(accept!.narration!.results).toContain('發起的人收到了戰敗的結果')
     expect(accept!.outcome.summary).toMatch(/委託算失敗/)

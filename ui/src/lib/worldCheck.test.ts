@@ -3,7 +3,7 @@ import { SCHEMA_SAMPLES, blankEntry } from './schemas'
 import { checkWorld, planImport, type WorldEntry } from './worldCheck'
 import { START_ENTRIES, BUILTIN } from '../data/editor'
 
-describe('世界編輯器的檢查：只擋格式錯誤與內容的底線', () => {
+describe('世界編輯器的檢查：只擋格式錯誤與年齡低於 18', () => {
   const issues = checkWorld(START_ENTRIES, BUILTIN)
   it('樣本世界包的四個格式錯誤', () => {
     const fmt = issues.filter(i => i.blocking && ['FIELD', 'DUP', 'REF'].includes(i.code)).map(i => i.code).sort()
@@ -11,9 +11,9 @@ describe('世界編輯器的檢查：只擋格式錯誤與內容的底線', () =
   })
   it('年齡低於 18 擋下', () => { expect(issues.find(i => i.code === 'AGE')?.id).toBe('npc_dock_runner') })
   it('兩個提醒不擋', () => { expect(issues.filter(i => !i.blocking).map(i => i.id).sort()).toEqual(['dock_union', 's:ledger:raid_failed']) })
-  it('不寫懷孕、不寫血腥', () => {
-    const r = checkWorld([{ id: 'ev_x', kind: 'event', name: 'x', text: '她懷孕了', options: [{ text: '走' }] }])
-    expect(r.some(i => i.code === 'FLOOR')).toBe(true)
+  it('不比對字串：血腥、懷孕是世界的固定規則（AI 工坊的任務提示詞），編輯器不擋', () => {
+    const r = checkWorld([{ id: 'ev_x', kind: 'event', name: 'x', text: '她懷孕了，地上血肉模糊', options: [{ text: '走' }] }])
+    expect(r.filter(i => i.blocking)).toEqual([])
   })
   it('數值多大都不擋', () => {
     expect(checkWorld([{ id: 'it_big', kind: 'item', name: '很強的槍', grade: 5, damage: 999999 }])).toEqual([])

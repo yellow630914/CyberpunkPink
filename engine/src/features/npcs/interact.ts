@@ -41,7 +41,12 @@ export const CATEGORY_NAME: Record<ReadCategory, string> = { tendency: '傾向',
 export interface NpcActionInput extends ActionInput {
   item?: string
   category?: string
+  /** 送禮附的一句話（NPC_SYSTEM 6.3 節；使用者 2026-11-25）：最多 GIFT_NOTE_MAX 字，玩家自己寫的，原樣進共同記憶與正文，不篩選、不改寫、不提示；不改親密度 */
+  note?: string
 }
+
+/** 送禮附的一句話的字數上限（NPC_SYSTEM 6.3 節）。 */
+export const GIFT_NOTE_MAX = 200
 
 // ---- 規則（數字的預設照設計書；內容種類 npc_interact_rule，id: default 蓋掉）----
 
@@ -420,6 +425,10 @@ export function tableEffects(k: Cx, state: GameState, kind: InteractKind, n: Npc
         aff(giftGain(k, rules, n, input.item, degree))
         // 收下了才從背包少一件；不合意、冒犯的禮物還在手上
         if (ok) out.push(eff('item', { id: input.item, qty: -1 }))
+        // 附的那一句話：收下了才記進共同記憶（效果 memory，有人註冊才記；不改親密度）
+        if (ok && typeof input.note === 'string' && input.note.trim() && input.note.length <= GIFT_NOTE_MAX && k.effects.has('memory')) {
+          out.push(eff('memory', { text: input.note, weight: 2, who: [n.id] }))
+        }
       }
       break
     case 'npc_seduce':
@@ -458,7 +467,7 @@ export function tableEffects(k: Cx, state: GameState, kind: InteractKind, n: Npc
 }
 
 /** 這張表管的那幾種效果：退路用表的結果，資料自己寫的參考範圍裡這幾種不再算（免得算兩次）。 */
-const TABLE_KINDS = new Set([AFFINITY, 'hostility', 'cash', 'item', 'npc_known', 'meet'])
+const TABLE_KINDS = new Set([AFFINITY, 'hostility', 'cash', 'item', 'npc_known', 'meet', 'memory'])
 /** 資料自己寫的參考範圍：'$target' 換成對象的 id。 */
 function dataHint(list: Effect[], target: string): Effect[] {
   return list.map((e) => JSON.parse(JSON.stringify(e).split('$target').join(target)) as Effect)
@@ -621,6 +630,8 @@ export interface InteractExtra {
   category?: ReadCategory
   /** 玩家自己寫的話（不寫就用預設的一句） */
   text?: string
+  /** 送禮附的一句話（最多 GIFT_NOTE_MAX 字，原樣收；收下了才記進共同記憶） */
+  note?: string
 }
 
 /** 組出要交給 Game.act 的輸入。資料沒有這一種互動、或查不到對象丟錯（呼叫的人的錯）。 */
@@ -639,6 +650,7 @@ export function interactInput(k: Kernel, state: GameState, kind: InteractKind, n
     kind, target: npc, text: extra.text ?? verb[kind],
     ...(extra.item !== undefined ? { item: extra.item } : {}),
     ...(extra.category !== undefined ? { category: extra.category } : {}),
+    ...(extra.note !== undefined ? { note: extra.note } : {}),
   }
 }
 

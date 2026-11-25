@@ -10,7 +10,7 @@
 // - 戰敗時拿走義體與裝備（defeatTakeGear）關著時，拿走身上裝備與義體的效果拿掉（由 defeat.gear 掛點回答哪些是）。
 
 import type { Condition, Degree, Effect, GameState, Kernel, RollPart, TimelineBeat } from '../../core'
-import { ATTR_IDS, DC_TIERS, DEGREE_NAME, clone, dcFor, rollCheck } from '../../core'
+import { ATTR_IDS, DC_TIERS, DEGREE_NAME, blankState, clone, dcFor, rollCheck } from '../../core'
 import type { DefeatEventEntry, DefeatVersion, Raw } from './model'
 import { isRec } from './model'
 
@@ -243,4 +243,45 @@ function needOk(k: Kernel, state: GameState, need: unknown): boolean {
   if (need === undefined) return true
   const list = (Array.isArray(need) ? need : [need]) as Condition[]
   return list.every((c) => k.conditions.test(c, { state, stats: k.stats, timeRules: k.timeRules }))
+}
+
+// ---- 載入之後的檢查：每一筆效果的種類有人註冊、格式對 ----
+
+/** 效果驗格式的情境（載入時沒有真的狀態；戰敗事件的資料是內建的來源，days 之類只有內建能用的欄位照收）。 */
+function fakeCtx(k: Pick<Kernel, 'content'>): Parameters<Kernel['effects']['validate']>[1] {
+  // 有些效果（義體、契約）的格式檢查要看對象在不在：放一個只有空殼的主角
+  const state = blankState(0)
+  state.pc = 'pc'
+  state.actors.pc = { id: 'pc', name: 'pc', role: 'pc', hp: 1, load: 0, afterglow: 0, sink: 0, attrs: {}, skills: {}, perks: [], conditions: [], ext: {} } as unknown as GameState['actors'][string]
+  return { state, actor: 'pc', grade: 1, source: 'builtin', clampAsked: true, content: k.content } as unknown as Parameters<Kernel['effects']['validate']>[1]
+}
+
+/**
+ * 一件戰敗事件裡每一筆效果的問題（種類沒有人註冊、格式不對），訊息帶事件的 id 與位置：對應的功能沒裝（義體、調校、惡意韌體、契約……）時，
+ * 用到它們的事件在載入之後（ready）就被擋下，不等到玩家輸了才發現。指示（fight、chain）不是效果；含 $a、$b 的只查種類。
+ */
+export function effectProblems(k: Pick<Kernel, 'content' | 'effects'>, entry: DefeatEventEntry): string[] {
+  const out: string[] = []
+  for (const [vid, v] of Object.entries(entry.versions)) {
+    const n = normalVersion(v as DefeatVersion)
+    n.stages.forEach((stage, si) => {
+      const opts = Array.isArray(stage.options) ? (stage.options as Raw[]) : []
+      opts.forEach((o, oi) => {
+        if (!isRec(o.outcomes)) return
+        for (const [key, list] of Object.entries(o.outcomes)) {
+          if (!Array.isArray(list)) continue
+          list.forEach((item, ei) => {
+            if (!isRec(item) || typeof item.kind !== 'string' || item.kind === 'fight' || item.kind === 'chain') return
+            const at = `defeat_event/${entry.id}：versions.${vid}.stages[${si}].options[${oi}].outcomes.${key}[${ei}]`
+            if (hasToken(item)) {
+              if (!k.effects.has(item.kind)) out.push(`${at}.kind：${JSON.stringify(item.kind)} 不在封閉清單裡（沒有裝提供這個效果的功能）`)
+              return
+            }
+            out.push(...k.effects.validate([item], fakeCtx(k), at).map((m) => m.replace(`${at}[0]`, at)))
+          })
+        }
+      })
+    })
+  }
+  return out
 }

@@ -70,17 +70,17 @@ const PUPPET = {
   modes: {
     chip: {
       name: '戴晶片', wage: 30, check: false, amnesia: true, tags: ['puppet_amnesia'],
-      every: [{ shifts: 3, effects: [{ kind: 'bridge', param: 'docility', amount: 1 }] }, { shifts: 5, effects: [{ kind: 'sink', amount: 1 }] }],
+      every: [{ hours: 6, effects: [{ kind: 'bridge', param: 'docility', amount: 1 }] }, { hours: 10, effects: [{ kind: 'sink', amount: 1 }] }],
     },
     awake: { name: '清醒', wage: 18, check: { attr: 'charm', skill: 'seduce', dc: 14 }, perks: [{ kind: 'cash', amount: 2 }] },
   },
-  stages: [{ name: '新人', mult: 1 }, { name: '熟客', mult: 1.5, need: { shifts: 20, affinity: 0 } }],
+  stages: [{ name: '新人', mult: 1 }, { name: '熟客', mult: 1.5, need: { hours: 160, affinity: 0 } }],
 }
-const CUT = { id: 'j_cut', name: '旗艦店', facility: 'fac_flag', wage: 150, cut: { house: 0.6, rent: 120 }, pay: 'cred', stages: [{ name: '一般樓層', mult: 1 }, { name: '會員層', mult: 1.5, need: { shifts: 5, affinity: 0 } }] }
+const CUT = { id: 'j_cut', name: '旗艦店', facility: 'fac_flag', wage: 150, cut: { house: 0.6, rent: 120 }, pay: 'cred', stages: [{ name: '一般樓層', mult: 1 }, { name: '會員層', mult: 1.5, need: { hours: 40, affinity: 0 } }] }
 const FORMULA = {
   id: 'j_formula', name: '攝影棚', facility: 'fac_studio', pay: 'cred',
   wage_formula: { base: 10, add: [{ stat: 'bridge_sensitivity', div: 5 }, { meter: 'fame', div: 5 }] },
-  stages: [{ name: '助理', mult: 1 }, { name: '攝影師', mult: 2, need: { shifts: 5, affinity: 0 } }],
+  stages: [{ name: '助理', mult: 1 }, { name: '攝影師', mult: 2, need: { hours: 40, affinity: 0 } }],
 }
 
 const workPack = (patch: (c: Record<string, Rec[]>) => void = () => {}): ContentPack => {
@@ -146,7 +146,7 @@ describe('人偶館：兩種模式（LEWD_SYSTEM 第 6 節；DOWNTIME 4.1 節半
     // 只有賺了多少與一句模糊的殘留：沒有過程、沒有附帶的句子
     expect(r!.timeline).toHaveLength(2)
     expect(r!.triggers![0]).toMatchObject({ point: 'work', where: { job: 'j_puppet', mode: 'chip', stage: '1' } })
-    expect(jobStateOf(g.state, 'j_puppet')).toMatchObject({ shifts: 1, modes: { chip: 1 } })
+    expect(jobStateOf(g.state, 'j_puppet')).toMatchObject({ shifts: 1, minutes: 360, modes: { chip: 360 } })
   })
 
   it('清醒：擲魅力＋誘惑對 14、時薪 18（6 小時：大成功 162、成功 108、失敗 54、大失敗 0），記得一切（沒有 amnesia）；附帶的效果照模式的', () => {
@@ -184,7 +184,7 @@ describe('人偶館：兩種模式（LEWD_SYSTEM 第 6 節；DOWNTIME 4.1 節半
     expect(modeCheck(only.state, only.k.content.get('job', 'j_puppet') as never, 'chip').block).toMatch(/現在沒有可以選的做法/)
   })
 
-  it('每 3 班馴化 +1、每 5 班沉溺 +1（戴晶片的班數；清醒的班不算）；每一班的結果都只有兩句', () => {
+  it('每累計 6 小時馴化 +1、每 10 小時沉溺 +1（戴晶片的時數；清醒的班不算）；每一班的結果都只有兩句', () => {
     const g = makeWork()
     const docility: number[] = []
     const sink: number[] = []
@@ -197,7 +197,7 @@ describe('人偶館：兩種模式（LEWD_SYSTEM 第 6 節；DOWNTIME 4.1 節半
     }
     expect(docility).toEqual([20, 20, 21, 21, 21, 22])
     expect(sink).toEqual([0, 0, 0, 0, 1, 1])
-    expect(jobStateOf(g.state, 'j_puppet')).toMatchObject({ shifts: 7, modes: { chip: 6, awake: 1 } })
+    expect(jobStateOf(g.state, 'j_puppet')).toMatchObject({ shifts: 7, minutes: 840, modes: { chip: 720, awake: 120 } })
   })
 
   it('第 3 班那一份報告的變更裡有馴化 +1、第 5 班那一份有沉溺 +1，其他班沒有', () => {
@@ -212,7 +212,7 @@ describe('人偶館：兩種模式（LEWD_SYSTEM 第 6 節；DOWNTIME 4.1 節半
     const g = makeWork({ bridge: null })
     for (let i = 0; i < 3; i++) work(g, 'j_puppet', 2, 'chip')
     expect(g.state.money.cred).toBe(100 + 3 * 60)
-    expect(jobStateOf(g.state, 'j_puppet').modes).toEqual({ chip: 3 })
+    expect(jobStateOf(g.state, 'j_puppet').modes).toEqual({ chip: 360 })
   })
 
   it('階段的倍率照舊乘（模式的時薪 × 階段 1.5）', () => {
@@ -223,11 +223,11 @@ describe('人偶館：兩種模式（LEWD_SYSTEM 第 6 節；DOWNTIME 4.1 節半
     expect(last(g).triggers![0]!.where).toMatchObject({ stage: '2' })
   })
 
-  it('jobView 列出每一種做法：時薪、檢定與成功率、amnesia、各自的班數與預計', () => {
+  it('jobView 列出每一種做法：時薪、檢定與成功率、amnesia、各自的累計時數與預計', () => {
     const g = makeWork()
     work(g, 'j_puppet', 2, 'chip')
     const v = jobView(g.k, g.state, g.k.content.get('job', 'j_puppet') as never)
-    expect(v.modes.map((m) => [m.id, m.wage, m.amnesia, m.shifts, m.check === null])).toEqual([['chip', 30, true, 1, true], ['awake', 18, false, 0, false]])
+    expect(v.modes.map((m) => [m.id, m.wage, m.amnesia, m.hours, m.check === null])).toEqual([['chip', 30, true, 2, true], ['awake', 18, false, 0, false]])
     expect(v.modes[1]!.check).toMatchObject({ attr: 'charm', skill: 'seduce', dc: 14 })
     expect(v.modes[0]!.options.find((o) => o.hours === 6)!.expected).toBe(180)
     expect(v.modes[1]!.options.find((o) => o.hours === 6)!.by_degree).toEqual({ critical: 162, success: 108, fail: 54, fumble: 0 })
@@ -310,7 +310,7 @@ describe('資料的格式檢查', () => {
   const bad = (patch: (c: Record<string, Rec[]>) => void) => () => makeWork({ patch })
   it('modes、cut、wage_formula 寫錯的地方載入時就說', () => {
     expect(bad((c) => { (c.job![0] as Rec).modes.chip.wage = -1 })).toThrow(ContentError)
-    expect(bad((c) => { (c.job![0] as Rec).modes.chip.every = [{ shifts: 0, effects: [] }] })).toThrow(/every\[0\]\.shifts/)
+    expect(bad((c) => { (c.job![0] as Rec).modes.chip.every = [{ hours: 0, effects: [] }] })).toThrow(/every\[0\]\.hours/)
     expect(bad((c) => { (c.job![0] as Rec).modes.awake.check = { attr: 'nope', dc: 14 } })).toThrow(/check\.attr/)
     expect(bad((c) => { (c.job![0] as Rec).modes = {} })).toThrow(/modes/)
     expect(bad((c) => { (c.job![1] as Rec).cut.house = 2 })).toThrow(/cut\.house/)
@@ -321,7 +321,7 @@ describe('資料的格式檢查', () => {
   })
 
   it('every 或 perks 用到沒有人註冊的效果：ready 時說', () => {
-    expect(bad((c) => { (c.job![0] as Rec).modes.chip.every = [{ shifts: 3, effects: [{ kind: 'no_such_effect' }] }] })).toThrow(ContentError)
+    expect(bad((c) => { (c.job![0] as Rec).modes.chip.every = [{ hours: 6, effects: [{ kind: 'no_such_effect' }] }] })).toThrow(ContentError)
     expect(bad((c) => { (c.job![0] as Rec).modes.awake.perks = [{ kind: 'no_such_effect' }] })).toThrow(ContentError)
   })
 })

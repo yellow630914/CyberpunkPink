@@ -10,7 +10,10 @@
 //   week?      { index, feature, tips, runs, drawn }       這一週（index 是週數）：主打、這一週的打賞、每一天（遊戲的日子）報了幾場、每一天抽過哪幾個夜
 //   run?       這一趟（報名時寫；M4-curtain-run 往裡面加：幕、點單、場熱的旗標、贊助人、結算；全部經 curtain.run 這個變更改，不整筆覆蓋）
 //   encore?    可以加演的紀錄（結算那一刻場熱到過 90 或點單全部完成；下一趟報名時清掉）
-//   tab?、gig? 帳與檔期（M4-curtain-fall）
+//   tab?       { owed, since }                              記帳欠的錢（M4-curtain-fall；每週一行利息；欠到保證金的兩倍就不能再報名）
+//   gig?       { start, until, shows, missed, checked }     簽的檔期：四週、每週至少上一場；shows 是每一個「週」（從簽下去那一刻起算的七天）上了幾場
+//   fall?      { act, heat, tips, ... stage }               落幕之後的一筆：補演（replay）與之後的選擇（choose）；選了路就沒有了
+//   tapes      [{ id, leaked, price, bought? }]             每次落幕擲到外流（或館方保管）的母帶，買回要付錢
 // 沒有這一格的鍵都當作沒有；形狀不對的部分當成沒有（讀的函式回傳複製品）。
 
 import type { ActorId, Change, ContentEntry, GameState, Kernel } from '../../core'
@@ -27,8 +30,6 @@ export const TABLE_KIND = 'curtain_table'
 export const HEAT = 'heat'
 /** 票根：核心的計數器。 */
 export const STUBS = 'curtain:stubs'
-/** 這一趟的敵人挑法（戰鬥的單位來源）。 */
-export const PICK_SOURCE = 'curtain_pick'
 export const FLAG_SPONSOR = 'curtain_sponsor'
 /** 一趟網內的行程的活動名字（features/netrun 的）：只用名字，不 import。 */
 export const ACT_NETRUN = 'netrun'
@@ -48,6 +49,15 @@ export const REST_ACTION = 'curtain.rest'
 export const RESULT_ACTION = 'curtain.result'
 export const STAGE_ACTION = 'curtain.stage'
 export const ENCORE_ACTION = 'curtain.encore'
+export const FALL_ACTION = 'curtain.fall'
+export const REPLAY_ACTION = 'curtain.replay'
+export const SETTLE_ACTION = 'curtain.settle'
+export const TAPE_ACTION = 'curtain.tape'
+/** 帳單項目的 id：記帳的利息。 */
+export const TAB_BILL_ID = 'curtain_tab'
+/** 母帶外流的旗標（curtain_tape:<id>）與館被臨檢的旗標。 */
+export const FLAG_TAPE = 'curtain_tape'
+export const FLAG_RAIDED = 'curtain_raided'
 
 /** 帳單項目的 id（掛點 bill.collect）。 */
 export const FEE_BILL_ID = 'curtain_fee'
@@ -141,6 +151,10 @@ export interface CurtainRules {
   tables: { order?: string; chest?: string; prize?: string }
   /** 這一趟用到的檢定：台詞（表演）、近道（潛行）、條文（意志或調查，取加值最高的） */
   checks: { line: CheckDef[]; shortcut: CheckDef[]; clause: CheckDef[] }
+  /** 面談花幾分鐘 */
+  interview_minutes: number
+  /** 落幕之後（補演、三條路、母帶） */
+  fall: FallRules
   /** 這一區的生成規則（net_region 的欄位；預設加上資料蓋掉的）。開那一趟時整筆放在 setup.region，再加上 safe: true、pressure: 'none' */
   region: Record<string, unknown>
 }
@@ -184,6 +198,27 @@ export interface HeatRules {
   encore: number
 }
 
+/** 落幕之後（CYBERSPACE 8.8 節「打輸會怎樣」；M4-curtain-fall）。 */
+export interface FallRules {
+  /** 落幕時打賞減半 */
+  tips_mult: number
+  /** 補演：契合的評價換回打賞——good_min 以上（難忘與合拍）補回減掉的再加 bonus、poor_below 以下（不合）再減 penalty、中間（普通）不補；比例都是整份（沒減半）打賞的幾成 */
+  replay: { bonus: number; penalty: number; good_min: number; poor_below: number }
+  /** 補演這一場的沉溺夾在這個範圍（LEWD_SYSTEM 3.4 節；CORE_RULES 4.3 節） */
+  sink_range: [number, number]
+  /** 設備費與違約金是保證金的幾倍 */
+  fine_mult: number
+  /** 記帳：每週利息的比例、欠款上限是保證金的幾倍 */
+  tab: { weekly: number; cap_mult: number }
+  /** 簽檔期：幾週、每週至少幾場、你拿幾成（館六你四）、沒上場的敵對值、哪個勢力 */
+  gig: { weeks: number; shows_per_week: number; split: number; miss_hostility: number; faction: string }
+  /** 母帶外流：機率（基底、當週被臨檢、帳上有欠款、第二幕輸、上限）、每一區豔名加幾、買回是保證金的幾倍 */
+  tape: { base: number; raided: number; in_debt: number; backstage: number; cap: number; fame: number; buyback_mult: number }
+  /** 輸在哪一幕走哪一件戰敗事件（鍵是幕的 id，加演的幕用 encore1、encore2）；plain 是它的 _plain 版本（沒有場景：篩選把版本全擋掉、或純舞台場次） */
+  events: Record<string, string>
+  plain: Record<string, string>
+}
+
 export interface EncoreRules {
   names: string[]
   /** 第 5、6 幕敵人比席次高幾級 */
@@ -195,12 +230,12 @@ export interface EncoreRules {
 /**
  * 這一區的預設（CYBERSPACE 8.1 節密度表簾後館那一列）：9 × 7、挖 20～28 步、沒有追蹤度。netrun 的密度是整區一份、每一層一樣，所以每一層放：
  * 2 場遭遇（含守閘門的那一場）、點單 1（p）、賞箱 1～2（a）、近道的位置 1（b；只有 act_defs 寫了 shortcut 的那一幕用它）、條文 0～1（c）；節點 7～9。
- * 遭遇（f）、點單（p）、賞箱（a）、近道（b）、條文（c）都由這個功能自己處理（handled）：netrun 不列它們的用途。每一幕各自的數量差別（終幕沒有點單、有獎品室）由 act_defs 與節點的角色決定。
+ * 點單（p）、賞箱（a）、近道（b）、條文（c）由這個功能自己處理（handled）：netrun 不列它們的用途；遭遇（f）是 netrun 的（開戰與潛行繞過），這個功能只在生成時（掛點 netrun.foe_ref）決定每場遭遇的文化與等級。每一幕各自的數量差別（終幕沒有點單、有獎品室）由 act_defs 與節點的角色決定。
  */
 export const DEFAULT_REGION: Record<string, unknown> = {
   id: REGION_ID, name: '簾後館', map_kind: 'maze', size: [9, 7], carve: [20, 28], sight: 2, pressure: 'none', safe: true, cover: 'medium', dc: [10, 13, 16, 19, 22],
   layer: { foe: [2, 2], patrol: [0, 0], archive: [1, 2], trap: [0, 0], rest: [0, 0], safe: [1, 1], control: [0, 1], person: [1, 1] },
-  handled: ['a', 'b', 'c', 'f', 'p'],
+  handled: ['a', 'b', 'c', 'p'],
 }
 
 export const DEFAULT_RULES: CurtainRules = {
@@ -225,7 +260,7 @@ export const DEFAULT_RULES: CurtainRules = {
     { id: 'foyer', name: '序幕・迎賓廳', encounters: [2, 2], orders: [1, 1], chests: [1, 2], turns: 12 },
     { id: 'stage', name: '第一幕・舞台', encounters: [2, 2], orders: [1, 1], chests: [1, 2], boss: 'headliner', turns: 15 },
     { id: 'backstage', name: '第二幕・後台', encounters: [2, 3], orders: [1, 1], chests: [1, 2], boss: 'director', turns: 15, shortcut: true },
-    { id: 'vip', name: '終幕・貴賓席', encounters: [2, 2], orders: [0, 0], chests: [1, 2], boss: 'host', turns: 12, prize_room: true },
+    { id: 'vip', name: '終幕・貴賓席', encounters: [2, 2], orders: [0, 0], chests: [0, 0], boss: 'host', turns: 12, prize_room: true },
   ],
   heat: {
     highlight: 2, highlight_cap: 10, order_done: 8, order_refuse: -5, down: -10, over_per: 3, over_pen: -2, explore_per: 3, explore_pen: -1,
@@ -241,6 +276,18 @@ export const DEFAULT_RULES: CurtainRules = {
   order_stubs: [3, 8],
   book: { stubs: 10, tips_cut: 0.1 },
   tables: {},
+  interview_minutes: 60,
+  fall: {
+    tips_mult: 0.5,
+    replay: { bonus: 0.1, penalty: 0.1, good_min: 60, poor_below: 30 },
+    sink_range: [-2, 2],
+    fine_mult: 0.5,
+    tab: { weekly: 0.1, cap_mult: 2 },
+    gig: { weeks: 4, shows_per_week: 1, split: 0.4, miss_hostility: 10, faction: 'rouge' },
+    tape: { base: 0.15, raided: 0.15, in_debt: 0.15, backstage: 0.1, cap: 0.45, fame: 5, buyback_mult: 2 },
+    events: { foyer: 'df_stage_foyer', stage: 'df_stage_headliner', backstage: 'df_stage_backstage', vip: 'df_stage_vip', encore1: 'df_stage_encore', encore2: 'df_stage_encore' },
+    plain: { foyer: 'df_stage_foyer_plain', stage: 'df_stage_headliner_plain', backstage: 'df_stage_backstage_plain', vip: 'df_stage_vip_plain', encore1: 'df_stage_encore_plain', encore2: 'df_stage_encore_plain' },
+  },
   checks: {
     line: [{ attr: 'charm', skill: 'perform' }],
     shortcut: [{ attr: 'reflex', skill: 'stealth' }],
@@ -288,6 +335,8 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
     else e.acts.forEach((a, i) => { if (!isText(a)) p.push(...actProblems(a, `acts[${i}]`)) })
   }
   p.push(...runRuleProblems(e))
+  if (e.interview_minutes !== undefined && !(isInt(e.interview_minutes) && e.interview_minutes >= 0 && e.interview_minutes <= 1440)) p.push('interview_minutes 要是 0～1440 的整數（面談花幾分鐘）')
+  p.push(...fallRuleProblems(e))
   if (e.region !== undefined && !isRecord(e.region)) p.push('region 要是 net_region 的欄位（只寫要蓋掉的）')
   return p
 }
@@ -309,6 +358,39 @@ function actProblems(a: unknown, at: string): string[] {
 }
 
 const checkListProblems = (v: unknown, at: string): string[] => (Array.isArray(v) && v.length >= 1 && v.every((c) => isRecord(c) && isText(c.attr) && (c.skill === undefined || isText(c.skill))) ? [] : [`${at} 要是一串 { attr, skill? }`])
+
+const isIdMap = (v: unknown): boolean => isRecord(v) && Object.values(v).every(isText)
+
+/** 落幕之後的規則（fall；M4-curtain-fall 加的欄位）的格式檢查。 */
+function fallRuleProblems(e: Record<string, unknown>): string[] {
+  if (e.fall === undefined) return []
+  const f = e.fall
+  if (!isRecord(f)) return ['fall 要是 { tips_mult, replay, sink_range, fine_mult, tab, gig, tape, events, plain }']
+  const p: string[] = []
+  const num = (v: unknown, hi: number): boolean => isNum(v) && v >= 0 && v <= hi
+  if (f.tips_mult !== undefined && !ratio(f.tips_mult, 10)) p.push('fall.tips_mult 要是 0～10 的數字')
+  if (f.fine_mult !== undefined && !ratio(f.fine_mult, 10)) p.push('fall.fine_mult 要是 0～10 的數字')
+  if (f.sink_range !== undefined && !(Array.isArray(f.sink_range) && f.sink_range.length === 2 && isInt(f.sink_range[0]) && isInt(f.sink_range[1]) && f.sink_range[0] <= f.sink_range[1] && Math.abs(f.sink_range[0]) <= 100 && Math.abs(f.sink_range[1]) <= 100)) p.push('fall.sink_range 要是 [最少, 最多]，−100～100 的整數')
+  if (f.replay !== undefined) {
+    const r = f.replay
+    if (!isRecord(r) || (r.bonus !== undefined && !ratio(r.bonus, 10)) || (r.penalty !== undefined && !ratio(r.penalty, 10)) || (r.good_min !== undefined && !(isInt(r.good_min) && r.good_min >= 0 && r.good_min <= 100)) || (r.poor_below !== undefined && !(isInt(r.poor_below) && r.poor_below >= 0 && r.poor_below <= 100))) p.push('fall.replay 要是 { bonus, penalty（0～10 的數字）, good_min, poor_below（0～100 的整數）}')
+  }
+  if (f.tab !== undefined) {
+    const t = f.tab
+    if (!isRecord(t) || (t.weekly !== undefined && !ratio(t.weekly, 10)) || (t.cap_mult !== undefined && !ratio(t.cap_mult, 100))) p.push('fall.tab 要是 { weekly（每週利息的比例）, cap_mult（欠款上限是保證金的幾倍）}')
+  }
+  if (f.gig !== undefined) {
+    const g = f.gig
+    if (!isRecord(g) || (g.weeks !== undefined && !(isInt(g.weeks) && g.weeks >= 1 && g.weeks <= 52)) || (g.shows_per_week !== undefined && !(isInt(g.shows_per_week) && g.shows_per_week >= 1 && g.shows_per_week <= 20))
+      || (g.split !== undefined && !ratio(g.split)) || (g.miss_hostility !== undefined && !(isInt(g.miss_hostility) && Math.abs(g.miss_hostility) <= 100)) || (g.faction !== undefined && !isText(g.faction))) p.push('fall.gig 要是 { weeks, shows_per_week, split（0～1）, miss_hostility, faction }')
+  }
+  if (f.tape !== undefined) {
+    const t = f.tape
+    if (!isRecord(t) || ['base', 'raided', 'in_debt', 'backstage', 'cap'].some((key) => t[key] !== undefined && !ratio(t[key])) || (t.fame !== undefined && !num(t.fame, 100)) || (t.buyback_mult !== undefined && !ratio(t.buyback_mult, 100))) p.push('fall.tape 要是 { base, raided, in_debt, backstage, cap（0～1）, fame, buyback_mult }')
+  }
+  for (const key of ['events', 'plain'] as const) if (f[key] !== undefined && !isIdMap(f[key])) p.push(`fall.${key} 要是 { 幕的 id: 戰敗事件的 id }`)
+  return p
+}
 
 /** 這一趟的規則（M4-curtain-run 加的欄位）的格式檢查。 */
 function runRuleProblems(e: Record<string, unknown>): string[] {
@@ -447,6 +529,17 @@ export function curtainRules(k: Cx): CurtainRules {
   const bad = new Set<string>(ruleProblems(e).map((m) => m.split(/[ .[]/)[0]!))
   const ok = (key: string): boolean => e[key] !== undefined && !bad.has(key)
   if (ok('tiers')) out.tiers = clone(e.tiers as TierDef[])
+  if (ok('interview_minutes')) out.interview_minutes = e.interview_minutes as number
+  if (ok('fall')) {
+    const f = e.fall as Record<string, unknown>
+    const merge = <T extends object>(base: T, over: unknown): T => (isRecord(over) ? { ...base, ...clone(over) } as T : base)
+    out.fall = {
+      ...out.fall, ...(f.tips_mult !== undefined ? { tips_mult: f.tips_mult as number } : {}), ...(f.fine_mult !== undefined ? { fine_mult: f.fine_mult as number } : {}),
+      ...(f.sink_range !== undefined ? { sink_range: [...(f.sink_range as [number, number])] as [number, number] } : {}),
+      replay: merge(out.fall.replay, f.replay), tab: merge(out.fall.tab, f.tab), gig: merge(out.fall.gig, f.gig), tape: merge(out.fall.tape, f.tape),
+      events: merge(out.fall.events, f.events), plain: merge(out.fall.plain, f.plain),
+    }
+  }
   for (const key of ['invite_days', 'interview_retry_days', 'fee_grace_weeks', 'runs_per_night', 'companion_fee', 'taste_min', 'upgrade_clears', 'max_party', 'fee_order', 'feature_bonus'] as const) if (ok(key)) out[key] = e[key] as number
   if (ok('refuse')) out.refuse = { ...out.refuse, ...clone(e.refuse as Partial<RefuseRule>) }
   if (ok('acts')) {
@@ -564,6 +657,8 @@ export interface RunRecord {
   over?: SettleResult
   /** 全隊倒下：輸在哪一幕、當時的場熱（M4-curtain-fall 接手） */
   lost?: { act: number; heat: number }
+  /** 戰敗被接受的那一刻戰敗事件說的（activity.end 的 result）：哪一件、什麼種類、哪個版本；落幕時看它有沒有補演 */
+  lost_event?: { event: string; kind: string; version?: string }
 }
 
 export interface OrderRec {
@@ -635,9 +730,70 @@ export interface CurtainState {
   run?: RunRecord
   /** 可以加演（結算那一刻場熱到過 encore 門檻，或點單全部完成）：下一趟報名時清掉 */
   encore?: EncoreRec
-  /** 帳與檔期（M4-curtain-fall）：這一張原樣保留 */
-  tab?: unknown
-  gig?: unknown
+  /** 記帳欠的錢（M4-curtain-fall） */
+  tab?: TabRecord
+  /** 簽的檔期 */
+  gig?: GigRecord
+  /** 落幕之後等著處理的一筆 */
+  fall?: FallRecord
+  /** 母帶 */
+  tapes: TapeRecord[]
+}
+
+export interface TabRecord {
+  owed: number
+  /** 欠下第一筆的時間（總分鐘） */
+  since: number
+}
+
+export interface GigRecord {
+  /** 簽下去的時間 */
+  start: number
+  /** 到期的時間（總分鐘） */
+  until: number
+  /** 第幾個「週」（從簽下去那一刻起算的七天，從 0 起算；鍵是字串）→ 上了幾場 */
+  shows: Record<string, number>
+  /** 沒上場的週數 */
+  missed: number
+  /** 已經結算過的週數 */
+  checked: number
+}
+
+export interface FallRecord {
+  /** 輸在整趟的第幾幕（從 0 起算；加演是基本的幕數之後） */
+  act: number
+  /** 輸的那一刻的場熱 */
+  heat: number
+  /** 打賞：replay 的時候是減半之後等著補演結果的那份（還沒付）；choose 的時候是最後付出去的 */
+  tips: number
+  /** 沒減半的整份打賞（補演的評價換回它的幾成） */
+  full: number
+  stage: 'replay' | 'choose'
+  /** 喊停了 */
+  called_off?: boolean
+  /** 補演已經開演（場景在進行） */
+  started?: boolean
+  /** 補演的結果：契合、評價（好／普通／不合）、場景給的沉溺與實際留下的、打賞前後 */
+  replayed?: { fit: number; band: 'good' | 'fair' | 'poor'; sink: number; kept: number; from: number; to: number; reported?: boolean }
+  /** 這一趟的資料（之後的選項要用）：編號、席次、保證金、夜、隊伍 */
+  run: string
+  night: string
+  tier: TierId
+  deposit: number
+  party: ActorId[]
+  /** 戰敗事件：哪一件、哪個版本（有補演才有） */
+  event?: string
+  version?: string
+}
+
+export interface TapeRecord {
+  /** 母帶的編號（旗標 curtain_tape:<id>） */
+  id: string
+  /** 外流了（blacktape 關掉時是 false：館方保管，只能買回） */
+  leaked: boolean
+  /** 買回要付多少 */
+  price: number
+  bought?: boolean
 }
 
 const nat = (v: unknown): number => (isInt(v) && v >= 0 ? v : 0)
@@ -682,6 +838,7 @@ function readRun(raw: unknown): RunRecord | undefined {
     ...(Array.isArray(raw.booked) ? { booked: raw.booked.filter(isInt) } : {}), ...(isInt(raw.peak) ? { peak: raw.peak } : {}), ...(isInt(raw.start_heat) ? { start_heat: raw.start_heat } : {}),
     ...(isRecord(raw.over) ? { over: clone(raw.over) as unknown as SettleResult } : {}),
     ...(isRecord(raw.lost) && isInt(raw.lost.act) && isInt(raw.lost.heat) ? { lost: { act: raw.lost.act, heat: raw.lost.heat } } : {}),
+    ...(isRecord(raw.lost_event) && isText(raw.lost_event.event) && isText(raw.lost_event.kind) ? { lost_event: { event: raw.lost_event.event, kind: raw.lost_event.kind, ...(isText(raw.lost_event.version) ? { version: raw.lost_event.version } : {}) } } : {}),
   }
 }
 
@@ -693,6 +850,30 @@ function readEncore(raw: unknown): EncoreRec | undefined {
   }
 }
 
+function readGig(raw: unknown): GigRecord | undefined {
+  if (!isRecord(raw) || !isInt(raw.start) || !isInt(raw.until)) return undefined
+  const shows: Record<string, number> = {}
+  if (isRecord(raw.shows)) for (const [w, n] of Object.entries(raw.shows)) if (isInt(n) && n > 0) shows[w] = n
+  return { start: raw.start, until: raw.until, shows, missed: nat(raw.missed), checked: nat(raw.checked) }
+}
+
+function readFall(raw: unknown): FallRecord | undefined {
+  if (!isRecord(raw) || !isInt(raw.act) || !isInt(raw.heat) || !isText(raw.run) || !isText(raw.night) || !(TIER_IDS as readonly unknown[]).includes(raw.tier) || (raw.stage !== 'replay' && raw.stage !== 'choose')) return undefined
+  const rp = raw.replayed
+  const replayed = isRecord(rp) && isInt(rp.fit) && ['good', 'fair', 'poor'].includes(rp.band as string) && isInt(rp.sink) && isInt(rp.kept) && isInt(rp.from) && isInt(rp.to)
+    ? { fit: rp.fit, band: rp.band as 'good' | 'fair' | 'poor', sink: rp.sink, kept: rp.kept, from: rp.from, to: rp.to, ...(rp.reported === true ? { reported: true as const } : {}) } : undefined
+  return {
+    act: raw.act, heat: raw.heat, tips: nat(raw.tips), full: nat(raw.full), stage: raw.stage, ...(raw.called_off === true ? { called_off: true } : {}), ...(raw.started === true ? { started: true } : {}), ...(replayed ? { replayed } : {}),
+    run: raw.run, night: raw.night, tier: raw.tier as TierId, deposit: nat(raw.deposit), party: Array.isArray(raw.party) ? raw.party.filter(isText) : [],
+    ...(isText(raw.event) ? { event: raw.event } : {}), ...(isText(raw.version) ? { version: raw.version } : {}),
+  }
+}
+
+function readTapes(raw: unknown): TapeRecord[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter((t): t is Record<string, unknown> => isRecord(t) && isText(t.id)).map((t) => ({ id: t.id as string, leaked: t.leaked === true, price: nat(t.price), ...(t.bought === true ? { bought: true } : {}) }))
+}
+
 /** 讀 state.ext.curtain：沒有、或形狀不對的部分當成沒有（回傳的是複製品，改它不會動到狀態）。 */
 export function readCurtain(state: Pick<GameState, 'ext'>): CurtainState {
   const raw = state.ext[EXT]
@@ -701,6 +882,9 @@ export function readCurtain(state: Pick<GameState, 'ext'>): CurtainState {
   const week = readWeek(r.week)
   const run = readRun(r.run)
   const encore = readEncore(r.encore)
+  const tab = isRecord(r.tab) && isInt(r.tab.owed) && r.tab.owed > 0 ? { owed: r.tab.owed, since: isInt(r.tab.since) ? r.tab.since : 0 } : undefined
+  const gig = readGig(r.gig)
+  const fall = readFall(r.fall)
   return {
     ...(isRecord(r.invite) && isInt(r.invite.until) ? { invite: { until: r.invite.until } } : {}),
     ...(member ? { member } : {}),
@@ -709,8 +893,10 @@ export function readCurtain(state: Pick<GameState, 'ext'>): CurtainState {
     ...(week ? { week } : {}),
     ...(run ? { run } : {}),
     ...(encore ? { encore } : {}),
-    ...(r.tab !== undefined ? { tab: clone(r.tab) } : {}),
-    ...(r.gig !== undefined ? { gig: clone(r.gig) } : {}),
+    ...(tab ? { tab } : {}),
+    ...(gig ? { gig } : {}),
+    ...(fall ? { fall } : {}),
+    tapes: readTapes(r.tapes),
   }
 }
 

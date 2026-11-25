@@ -3,7 +3,7 @@
 // 規格：DOWNTIME 第 5 節；dev/adr/0016 第六節與 G3；dev/work/M2-bills.md。
 
 import type { Change, ContentEntry, GameState, GameTime, Kernel, ReportDraft, TimelineBeat } from '../../core'
-import { ActionBlocked, clone, crossings, fromMinutes, toMinutes, weeklyCrossings, weeklyRule } from '../../core'
+import { ActionBlocked, clone, crossings, effectCtx, fromMinutes, toMinutes, weeklyCrossings, weeklyRule } from '../../core'
 import type { BillLine, PlanLine, SettledLine, WeekPlan } from './model'
 import { STEPS, STEP_TEXT, billPreview, billRules, currentLines, planWeek, readBills, writeBills } from './model'
 
@@ -14,7 +14,7 @@ declare module '../../core' {
     /** 每週結算時問：這一週要收要付什麼（房租、義體訂閱、抑制劑、小隊的薪水……）。回傳項目的陣列；沒有就不回傳。 */
     'bill.collect': [{ state: GameState; week: number }, BillLine[] | void]
     /** 結算完問：哪幾筆沒付成。每一項帶 paid、unpaid（付了多少、欠多少）、skipped（玩家停掉的或寬限中的）。回傳的變更併進結算的那一份報告。 */
-    'bill.settled': [{ state: GameState; week: number; lines: Array<BillLine & { paid: number; unpaid: number; skipped?: true }> }, Change[] | void]
+    'bill.settled': [{ state: GameState; week: number; lines: Array<BillLine & { paid: number; unpaid: number; skipped?: true; why?: 'stopped' | 'grace' }> }, Change[] | void]
   }
 }
 
@@ -24,7 +24,7 @@ const draftOf = (state: GameState, action: string, changes: Change[], result: st
 
 /** 掛點收到的那一份：把只有這個功能自己用的欄位拿掉。 */
 const settledOf = (l: PlanLine): SettledLine => ({
-  id: l.id, owner: l.owner, name: l.name, kind: l.kind, amount: l.amount, order: l.order, pay: l.pay, paid: l.paid, unpaid: l.unpaid, ...(l.skipped ? { skipped: true as const } : {}),
+  id: l.id, owner: l.owner, name: l.name, kind: l.kind, amount: l.amount, order: l.order, pay: l.pay, paid: l.paid, unpaid: l.unpaid, ...(l.skipped ? { skipped: true as const } : {}), ...(l.skipped && l.why ? { why: l.why } : {}),
 })
 
 function lineText(l: PlanLine): string {
@@ -36,6 +36,34 @@ function lineText(l: PlanLine): string {
 
 const sum = (xs: number[]): number => xs.reduce((a, b) => a + b, 0)
 
+// ---- 付不出來的下坡路：鎖義體、簽契約（DOWNTIME 5.2 節）----
+// 效果是別的功能註冊的（cyber_lock 在 cyberware、contract_sign 在 contract）：查得到才發，查不到就照舊只立旗標（bill_step）。
+// 鎖義體：第 1 週（欠繳週數剛成為 1）發 cyber_lock { on: true, why: 'debt' }，不給選擇器，由 cyberware 挑「照槽順序第一件非橋的」；
+// 補繳之後（這一週付清、之前有欠）發 cyber_lock { on: false, why: 'debt' }，解開所有因為債停著的。
+// 簽契約：第 4 週起（每一週）發 contract_sign { holder: 債主, type: 'debt', debt: 欠的總額 }；債主是規則表 bill_rule 的 debt_faction（預設伊甸園）；
+// 已經有管理級的契約時 contract 自己會落空並提醒。欠的總額 = 沒併進債的欠款 + 所有債的本金（結算之後）。
+export const DEBT_LOCK_WHY = 'debt'
+
+function stepEffects(k: Kernel, state: GameState, plan: WeekPlan): { changes: Change[]; lines: string[] } {
+  const wants: Array<Record<string, unknown>> = []
+  const before = readBills(state).overdue
+  if (plan.overdue === 1 && k.effects.has('cyber_lock')) wants.push({ kind: 'cyber_lock', on: true, why: DEBT_LOCK_WHY })
+  if (plan.overdue === 0 && before > 0 && k.effects.has('cyber_lock')) wants.push({ kind: 'cyber_lock', on: false, why: DEBT_LOCK_WHY })
+  if (plan.overdue >= STEPS.length && k.effects.has('contract_sign')) {
+    const debt = plan.next.arrears + sum(plan.next.debts.map((d) => d.principal))
+    if (debt > 0) wants.push({ kind: 'contract_sign', holder: billRules(k).debt_faction, type: 'debt', debt })
+  }
+  const out: { changes: Change[]; lines: string[] } = { changes: [], lines: [] }
+  // 一筆一筆各自解：一筆格式不對（債主不在內容裡）不連累另一筆
+  for (const want of wants) {
+    const res = k.effects.resolve([want], effectCtx(k, state, { source: 'builtin' }))
+    if (res.errors.length > 0) continue
+    out.changes.push(...res.changes)
+    out.lines.push(...res.lines)
+  }
+  return out
+}
+
 /** 一週的結算變成一份 downtime 報告（bill.settle）：每一項付了多少、欠多少；bill.settled 回傳的變更接在後面。 */
 export function settleDraft(k: Kernel, state: GameState, plan: WeekPlan): ReportDraft {
   const changes: Change[] = [...plan.changes]
@@ -44,9 +72,11 @@ export function settleDraft(k: Kernel, state: GameState, plan: WeekPlan): Report
     if (!Array.isArray(list) || list.some((c) => typeof c !== 'object' || c === null || typeof (c as Change).op !== 'string')) throw new Error(`bill.settled：${owner} 回傳的不是變更的陣列（每一筆要有 op）`)
     changes.push(...(clone(list) as Change[]))
   }
+  const step = stepEffects(k, state, plan)
+  changes.push(...step.changes)
   const dues = plan.lines.filter((l) => l.kind === 'due')
   const incomeTotal = sum(plan.lines.filter((l) => l.kind === 'income').map((l) => l.paid))
-  const lines = plan.lines.map(lineText)
+  const lines = [...plan.lines.map(lineText), ...step.lines]
   const parts = [`第 ${plan.week} 週帳單：`]
   if (incomeTotal > 0) parts.push(`收入 ${incomeTotal}，`)
   parts.push(`付了 ${sum(dues.map((l) => l.paid))}`)
@@ -62,10 +92,13 @@ export function settleDraft(k: Kernel, state: GameState, plan: WeekPlan): Report
     parts.push(text)
     lines.push(text)
   }
-  const timeline: TimelineBeat[] = plan.lines.map((l, i) => ({
-    layer: 'meat', text: lines[i]!, tag: 'bill.line',
-    data: { id: l.id, owner: l.owner, name: l.name, kind: l.kind, amount: l.amount, order: l.order, pay: l.pay, paid: l.paid, unpaid: l.unpaid, ...(l.skipped ? { skipped: true } : {}) },
-  }))
+  const timeline: TimelineBeat[] = [
+    ...plan.lines.map((l, i): TimelineBeat => ({
+      layer: 'meat', text: lines[i]!, tag: 'bill.line',
+      data: { id: l.id, owner: l.owner, name: l.name, kind: l.kind, amount: l.amount, order: l.order, pay: l.pay, paid: l.paid, unpaid: l.unpaid, ...(l.skipped ? { skipped: true } : {}) },
+    })),
+    ...step.lines.map((text): TimelineBeat => ({ layer: 'meat', text, tag: 'bill.step' })),
+  ]
   return draftOf(state, 'bill.settle', changes, plan.short ? 'short' : 'paid', parts.join(''), {
     timeline, narration: { results: lines }, triggers: [{ point: 'weekly', where: { overdue: plan.overdue } }],
   })

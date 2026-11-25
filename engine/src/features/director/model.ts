@@ -179,9 +179,28 @@ function conditionProblems(k: Cx, raw: unknown, path: string): string[] {
   return k.conditions.validate(raw, path)
 }
 
+/** 事件的內文裡，每一筆沒寫 days 的 hostility_floor 的位置（一路找進 versions、stages、options、outcomes）。 */
+export function floorWithoutDays(v: unknown, at = ''): string[] {
+  if (Array.isArray(v)) return v.flatMap((x, i) => floorWithoutDays(x, `${at}[${i}]`))
+  if (!isRecord(v)) return []
+  const here = v.kind === 'hostility_floor' && v.days === undefined ? [at || '(根)'] : []
+  return [...here, ...Object.entries(v).flatMap(([key, x]) => floorWithoutDays(x, at ? `${at}.${key}` : key))]
+}
+
+/**
+ * 契約事件（範圍 contract）的下限一定要寫 days（EVENTS 2.4 節：戰敗與契約事件的 +10 版「必須寫持續天數」，沒寫的算格式錯誤）。
+ * 不看 blocking：通知的 effects 也算。
+ */
+export function contractFloorProblems(e: Record<string, unknown>): string[] {
+  if (e.scope !== 'contract') return []
+  const { id: _id, scope: _scope, triggers: _triggers, ...body } = e
+  void _id; void _scope; void _triggers
+  return floorWithoutDays(body).map((where) => `${where}：契約事件的敵對值下限（hostility_floor）一定要寫 days（持續幾天，到期解除）`)
+}
+
 /** 事件表頭的格式（內文的檢查由 addEventBodyCheck 掛上去的函式管；範圍、觸發點與效果要看別的內容，在 directorProblems）。 */
 export function eventProblems(k: Cx, e: Record<string, unknown>): string[] {
-  const p: string[] = []
+  const p: string[] = [...contractFloorProblems(e)]
   if (!isText(e.scope)) p.push('scope 要是範圍的 id')
   if (!(isTextList(e.triggers) && e.triggers.length > 0)) p.push('triggers 要是觸發點的陣列（至少一個）')
   if (e.where !== undefined) {

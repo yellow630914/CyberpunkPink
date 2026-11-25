@@ -97,3 +97,17 @@ export function withdrawalPassives(k: Kernel, state: GameState, actor: ActorId):
   }
   return out
 }
+
+// ---- 掃橋時「藏沉溺的手段」（M4-security-m4：掛點 scan.person 的 hide；藥算一種） ----
+
+/** 這個人現在身上有沒有藥在壓低別人看到的沉溺（抑制劑、蝶粉這類給負的 sink_shown 的；溺感者無效的 if 照條件測）。有是 1、沒有是 0。 */
+export function hideOf(k: Pick<Kernel, 'content' | 'conditions' | 'stats' | 'timeRules'>, state: GameState, actor: ActorId): number {
+  const ctx = { state, actor, stats: k.stats, timeRules: k.timeRules }
+  const hides = drugPassives(k as Kernel, state, actor).some((e) => {
+    const x = e as { stat?: unknown; amount?: unknown; if?: unknown }
+    if (x.stat !== 'sink_shown' || typeof x.amount !== 'number' || x.amount >= 0) return false
+    const guard = (Array.isArray(x.if) ? x.if : x.if ? [x.if] : []) as Condition[]
+    return guard.every((c) => k.conditions.test(c, ctx))
+  })
+  return hides ? 1 : 0
+}

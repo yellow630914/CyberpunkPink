@@ -7,7 +7,7 @@ import {
 } from '../../core'
 import type { Fx, Goal, LayerCounts, NetExt, NetRegion, NetRun, NetrunRules, ObjectiveKind, Patrol, Rank, RunKind } from './model'
 import type { DigPlan } from './dig'
-import { ACT_FACE, ACT_NET, NET_MODE, OBJECTIVE_KINDS, OWNER, RANKS, TRACE, encounterAfter, gradeOf, isInt, isText, nodeAt, readRun, runChange } from './model'
+import { ACT_FACE, ACT_NET, NET_MODE, OBJECTIVE_KINDS, OWNER, RANKS, TRACE, countsProblems, encounterAfter, gradeOf, isInt, isText, nodeAt, readRun, runChange } from './model'
 import { makePatrol, moverChanges, nextPatrolId } from './patrol'
 import { countsOf, netrunRules, regionOf } from './rules'
 import { traceMod } from './tracemod'
@@ -48,6 +48,8 @@ export interface Parsed {
   site?: string
   fromBackdoor?: string
   affixes?: string[]
+  /** 每一層各一份的密度（M4-curtain-fall：簾後館每一幕放的東西不一樣）：第 i 份只蓋掉那一層寫了的項目，沒寫的照區的規則表 */
+  layerCounts?: Array<Partial<LayerCounts>>
 }
 
 /** 這一趟的設定：照格式讀；不合格的欄位寫成一條一句，讀得出來的照樣回傳（沒有問題時 problems 是空的）。 */
@@ -129,6 +131,15 @@ export function parseSetup(raw: unknown): { parsed: Parsed; problems: string[] }
     else p.push('affixes 要是詞條 id 的陣列（最多八個）。')
   }
   if (entry === 'dig' && !isText(s.site)) p.push('自己去挖的子網要寫 site（這座子網的鍵）。')
+  let layerCounts: Array<Partial<LayerCounts>> | undefined
+  if (s.layer_counts !== undefined) {
+    if (!Array.isArray(s.layer_counts) || s.layer_counts.length > 8) p.push('layer_counts 要是每一層一份的陣列（最多八份）。')
+    else {
+      const bad = s.layer_counts.flatMap((c, i) => countsProblems(c, `layer_counts[${i}]`))
+      if (bad.length) p.push(...bad.map((x) => `${x}。`))
+      else layerCounts = clone(s.layer_counts as Array<Partial<LayerCounts>>)
+    }
+  }
   return {
     problems: p,
     parsed: {
@@ -137,7 +148,7 @@ export function parseSetup(raw: unknown): { parsed: Parsed; problems: string[] }
       region: s.region === undefined ? 'subnet' : s.region, grade: grade ?? 1, ...(isText(s.faction) ? { faction: s.faction } : {}), layers,
       ...(party ? { party } : {}), ...(encounter ? { encounter } : {}), ...(color ? { color } : {}), ...(isInt(s.seed) ? { seed: s.seed } : {}), trace: isInt(s.trace) ? s.trace : 0, fx,
       stealth: s.stealth === true, decisive: s.decisive === true, prepDone: s.prep_done === true,
-      ...(isRecord(s.where) ? { where: clone(s.where) } : {}), ...(objective ? { objective } : {}), controls,
+      ...(isRecord(s.where) ? { where: clone(s.where) } : {}), ...(objective ? { objective } : {}), controls, ...(layerCounts ? { layerCounts } : {}),
     },
   }
 }
@@ -227,7 +238,10 @@ const objectiveOf = (parsed: Parsed): ObjectiveKind | undefined => {
 const randOf = (seed: number, mapId: string, what: string): (() => number) => seedRand(seed, `${mapId}/${what}`)
 
 /** 生成每一層、決定每一個遭遇節點放誰（閘門前那一場最重；離入口越遠越重的取捨：只有守閘門的那一場用 encounter 的組合，其餘用一般的）、巡邏、看不到的陷阱。dig 是自己去挖的子網的計畫（詞條、設施類型）。 */
-function build(region: NetRegion, kind: RunKind, parsed: Parsed, rules: NetrunRules, seed: number, mapId: string, dig?: DigPlan): Built {
+/** 生成時問發起的功能：這一隻遭遇的敵人要不要蓋上別的欄位（掛點 netrun.foe_ref）。 */
+type RefHook = (info: { layer: number; sheet: string; node: string; guard: boolean; last: boolean; index: number; ranks: Rank[]; ref: UnitRef }) => Partial<UnitRef> | undefined
+
+function build(region: NetRegion, kind: RunKind, parsed: Parsed, rules: NetrunRules, seed: number, mapId: string, dig?: DigPlan, refHook?: RefHook): Built {
   const baseCounts = countsOf(region, kind)
   const noFoe = parsed.encounter !== undefined && parsed.encounter.length === 0
   const objective = objectiveOf(parsed)
@@ -253,7 +267,9 @@ function build(region: NetRegion, kind: RunKind, parsed: Parsed, rules: NetrunRu
     const last = i === parsed.layers.length - 1
     const sheetId = `l${i + 1}`
     const label = layerLabel(name, i)
-    const counts = dig ? digCounts(baseCounts, dig, rules, i) : baseCounts
+    const own = parsed.layerCounts?.[i]
+    const layerCounts: LayerCounts = own ? { ...baseCounts, ...clone(own) } : baseCounts
+    const counts = dig ? digCounts(layerCounts, dig, rules, i) : layerCounts
     const here = parsed.controls.map((c, n) => ({ c, n })).filter(({ c }) => controlLayer(parsed, c.layer) === i)
     const spec = layerSpec(region, counts, sheetId, label, last, noFoe, { ...(objective && goalAtLayer === i ? { objective } : {}), controls: here.map(({ n }) => controlNames[n]!) })
     let result: GenResult
@@ -294,10 +310,14 @@ function build(region: NetRegion, kind: RunKind, parsed: Parsed, rules: NetrunRu
       const guard = j === 0
       const base = guard ? (parsed.encounter ?? (last ? rules.encounter.boss : rules.encounter.guard)) : rules.encounter.plain
       const ranks = encounterAfter(base, parsed.fx)
-      const list: UnitRef[] = ranks.map((rank, n) => ({
-        from: 'enemy_pick', faction: parsed.faction ?? 'none', grade: parsed.grade, rank, seed: `${seed}/${i}/${m.id}/${n}`,
-        ...(color ? { color } : {}), layer: isText(name) ? name : label,
-      }))
+      const list: UnitRef[] = ranks.map((rank, n) => {
+        const ref: UnitRef = {
+          from: 'enemy_pick', faction: parsed.faction ?? 'none', grade: parsed.grade, rank, seed: `${seed}/${i}/${m.id}/${n}`,
+          ...(color ? { color } : {}), layer: isText(name) ? name : label,
+        }
+        const extra = refHook?.({ layer: i, sheet: sheetId, node: m.id, guard, last, index: n, ranks, ref: clone(ref) })
+        return extra ? { ...ref, ...clone(extra) } : ref
+      })
       // 稽核週：每一層多幾隻白蕾絲（加在離入口最近的那一場：最重的那一場不再加重）
       if (dig && j === foes.length - 1) list.push(...extraWhite(dig, { faction: parsed.faction ?? 'none', grade: parsed.grade, seed: `${seed}/${i}/${m.id}/white`, layer: isText(name) ? name : label }))
       // 打倒：指定的敵人加進守閘門的那一場
@@ -397,7 +417,14 @@ export function startRun(k: Kernel, state: GameState, kind: RunKind, rawSetup: u
   const plan = parsed.entry === 'dig' ? digPlan(k, state, parsed, found.region, seed, mapId, rawSetup) : undefined
   const region = plan ? plan.region : found.region
   const genParsed: Parsed = plan ? { ...parsed, layers: plan.names } : parsed
-  const built = build(region, kind, genParsed, rules, seed, mapId, plan)
+  const refHook: RefHook = (info) => {
+    let merged: Partial<UnitRef> | undefined
+    for (const h of k.hooks.run('netrun.foe_ref', { state, origin: clone(origin), setup: clone(isRecord(rawSetup) ? rawSetup : {}), ...info })) {
+      if (isRecord(h.result)) merged = { ...(merged ?? {}), ...(h.result as Partial<UnitRef>) }
+    }
+    return merged
+  }
+  const built = build(region, kind, genParsed, rules, seed, mapId, plan, refHook)
   if (plan) {
     markTraps(plan, built.net)
     built.net.dig = plan.info
@@ -407,7 +434,7 @@ export function startRun(k: Kernel, state: GameState, kind: RunKind, rawSetup: u
   if (built.refs.length) {
     const seen = new Set<string>()
     for (const ref of built.refs) {
-      const key = `${ref.from}/${String(ref.id ?? '')}/${String(ref.faction ?? '')}/${String(ref.rank ?? '')}/${String(ref.color ?? '')}`
+      const key = `${ref.from}/${String(ref.id ?? '')}/${String(ref.faction ?? '')}/${String(ref.rank ?? '')}/${String(ref.color ?? '')}/${String(ref.culture ?? '')}/${String(ref.grade ?? '')}`
       if (seen.has(key)) continue
       seen.add(key)
       const source = k.battle.getUnitSource(ref.from)

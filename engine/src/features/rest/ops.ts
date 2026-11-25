@@ -3,7 +3,7 @@
 // 規格：DOWNTIME 第 2 節、7.1、7.2 節；EVENTS 3.1 節；dev/adr/0016 第六節；dev/work/M2-rest-housing.md。
 
 import type { Change, GameState, Kernel, ReportDraft, ReportTrigger, TimelineBeat } from '../../core'
-import { ActionBlocked, attrMod, clone, formatAmount, restDone, toMinutes, weeklyRule } from '../../core'
+import { ActionBlocked, attrMod, clone, effectCtx, formatAmount, restDone, toMinutes, weeklyRule } from '../../core'
 import type { HomeState, Pool, RestState } from './model'
 import {
   EXT, POOL_NAME, depositOf, hasCondition, homeOf, maxHpOf, payFor, readRest, rentPayOf, residenceEntry, residencePools, restRules, sleepFacilityAt, spanText, standingAt,
@@ -214,6 +214,13 @@ export function sleepDraft(k: Kernel, state: GameState, opts: SleepOpts = {}): R
   const wk = weeklyRule(k.timeRules)
   changes.push({ op: 'counter', key: `sleeps:${Math.floor((toMinutes(state.time) - wk.offset) / wk.every) + 1}`, delta: 1 })
   changes.push(...restDone(k, state, 'sleep'))
+  // 睡在診所的病床：每個人另外掛上「傷口處理過」，讓 medical 的狀況一致（有人註冊效果 treated 才發；沒裝就只看這裡的 spot.treated）
+  if (spot.treated && k.effects.has('treated')) {
+    for (const who of ids) {
+      const res = k.effects.resolve([{ kind: 'treated' }], effectCtx(k, state, { source: 'builtin', actor: who }))
+      if (res.errors.length === 0) changes.push(...res.changes)
+    }
+  }
 
   lines.push(`你在${spot.name}睡了一覺（${spanText(rules.sleep_minutes)}），感載與餘韻都退了。${pool && spot.cost > 0 ? `付了 ${formatAmount(spot.cost)}（${POOL_NAME[pool]}）。` : ''}`)
   for (const g of gained) lines.push(healLine(nameOf(state, g.id), g.hp, 'sleep', g.capped))

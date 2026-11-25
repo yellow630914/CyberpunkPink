@@ -1,8 +1,8 @@
 // 邊界：打工的數字。
-// 規格：DOWNTIME 4.1（一班 2、4、8 小時）、4.1a（階段倍率 1、1.5、2.5；第二階段要做滿 5 班、雇主親密度 20）、4.2（報酬 = 時數 × 時薪 × 階段 × 成功程度；大成功 1.5、成功 1、失敗 0.5、大失敗 0 且雇主親密度 −3）；
+// 規格：DOWNTIME 4.1（一班 2、4、6、8 小時）、4.1a（階段倍率 1、1.5、2.5；第二階段要累計做滿 30 小時、雇主親密度 20）、4.2（報酬 = 時數 × 時薪 × 階段 × 成功程度；大成功 1.5、成功 1、失敗 0.5、大失敗 0 且雇主親密度 −3）；
 // dev/invariants.md 第 7 條（錢不會是負的）。
 // 性質：任何種子與班長，報酬 = round(時數 × 時薪 × 階段倍率 × 成功程度)，付的錢就是記的那一筆，另一種錢不動，時間剛好是班長；
-// 不是 2、4、8 的班長一律擋；大失敗沒有錢也扣雇主親密度 3 而不會低於 0；升階的邊界（第 4 班不問、第 5 班問；親密度 19 不問、20 問）。
+// 不是 2、4、6、8 的班長一律擋；大失敗沒有錢也扣雇主親密度 3 而不會低於 0；升階的邊界（累計 29 小時不問、30 小時問；親密度 19 不問、20 問）。
 
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
@@ -22,9 +22,9 @@ function atDock(seed: number) {
 }
 
 describe('邊界 DOWNTIME 4.2：一班的報酬', () => {
-  it('性質：任何種子與班長（2、4、8）：報酬 = round(時數 × 時薪 × 階段 × 成功程度)，記了就付、只動工作寫的那種錢；時間剛好是班長；大失敗扣雇主親密度 3（親密度的範圍是 −100～100，不會低於 −100）', () => {
+  it('性質：任何種子與班長（2、4、6、8）：報酬 = round(時數 × 時薪 × 階段 × 成功程度)，記了就付、只動工作寫的那種錢；時間剛好是班長；大失敗扣雇主親密度 3（親密度的範圍是 −100～100，不會低於 −100）', () => {
     fc.assert(
-      fc.property(fc.integer({ min: 1, max: 400 }), fc.constantFrom(2, 4, 8), (seed, hours) => {
+      fc.property(fc.integer({ min: 1, max: 400 }), fc.constantFrom(2, 4, 6, 8), (seed, hours) => {
         const g = atDock(seed)
         const k = g.k
         const t0 = toMinutes(g.state.time)
@@ -52,7 +52,7 @@ describe('邊界 DOWNTIME 4.2：一班的報酬', () => {
     const job = k.content.get('job', JOB) as never as { wage: number; stages: Array<{ mult: number }> }
     const rules = workRules(k)
     for (const stage of job.stages) {
-      for (const hours of [2, 4, 8]) {
+      for (const hours of [2, 4, 6, 8]) {
         const w = (d: 'critical' | 'success' | 'fail' | 'fumble') => wageOf(rules, job as never, stage as never, hours, d)
         for (const d of ['critical', 'success', 'fail', 'fumble'] as const) {
           expect(Number.isInteger(w(d))).toBe(true)
@@ -66,14 +66,14 @@ describe('邊界 DOWNTIME 4.2：一班的報酬', () => {
     }
   })
 
-  it('班長只能是規則裡的 2、4、8：0、1、3、−2、1.5、NaN、Infinity、9、16 一律擋（寫出可以的班長）；規則改了就跟著改', () => {
+  it('班長只能是規則裡的 2、4、6、8：0、1、3、−2、1.5、NaN、Infinity、9、16 一律擋（寫出可以的班長）；規則改了就跟著改', () => {
     const g = atDock(7)
-    for (const h of [0, 1, 3, 5, 6, 7, 9, 16, 24, -2, -8, 1.5, 2.0000001, Number.NaN, Number.POSITIVE_INFINITY]) {
+    for (const h of [0, 1, 3, 5, 7, 9, 16, 24, -2, -8, 1.5, 2.0000001, Number.NaN, Number.POSITIVE_INFINITY]) {
       const why = shiftBlock(g.k, g.state, JOB, h)
-      expect(why, String(h)).toContain('2、4、8')
+      expect(why, String(h)).toContain('2、4、6、8')
       expect(() => shift(g.k, g.state, JOB, h), String(h)).toThrow(ActionBlocked)
     }
-    for (const h of [2, 4, 8]) expect(shiftBlock(g.k, g.state, JOB, h)).toBeNull()
+    for (const h of [2, 4, 6, 8]) expect(shiftBlock(g.k, g.state, JOB, h)).toBeNull()
     expect(shiftBlock(g.k, g.state, 'j_nope', 4)).toContain('沒有 j_nope')
   })
 
@@ -87,22 +87,22 @@ describe('邊界 DOWNTIME 4.2：一班的報酬', () => {
 })
 
 describe('邊界 DOWNTIME 4.1a：升階的條件', () => {
-  it('第 2 階段要做滿 5 班而且雇主親密度 ≥ 20：班數差 1 不問、親密度差 1 不問、兩個都剛好才問', () => {
+  it('第 2 階段要累計做滿 30 小時而且雇主親密度 ≥ 20：時數差 1 分鐘不問、親密度差 1 不問、兩個都剛好才問', () => {
     const g = atDock(7)
     const job = g.k.content.get('job', JOB) as never
-    const sim = (shifts: number, affinity: number) => {
+    const sim = (minutes: number, affinity: number) => {
       const s = structuredClone(g.state)
-      s.ext.work = { jobs: { [JOB]: { shifts, stage: 0, asked: false, last: null } }, announce: [] } as never
+      s.ext.work = { jobs: { [JOB]: { shifts: 1, minutes, stage: 0, asked: false, last: null } }, announce: [] } as never
       s.ext.meters = s.ext.meters
       // 親密度是量表：直接在狀態裡設定
       const meters = (s as unknown as { meters: Record<string, Record<string, number>> }).meters
       meters.affinity = { ...(meters.affinity ?? {}), npc_tw_vendor: affinity }
       return promotionDue(g.k, s, job, jobStateOf(s, JOB))
     }
-    expect(sim(5, 20)).toBe(true)
-    expect(sim(4, 20)).toBe(false)
-    expect(sim(5, 19)).toBe(false)
-    expect(sim(100, 100)).toBe(true)
+    expect(sim(30 * 60, 20)).toBe(true)
+    expect(sim(30 * 60 - 1, 20)).toBe(false)
+    expect(sim(30 * 60, 19)).toBe(false)
+    expect(sim(1000 * 60, 100)).toBe(true)
     expect(sim(0, 0)).toBe(false)
   })
 })

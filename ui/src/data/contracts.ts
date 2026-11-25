@@ -47,7 +47,7 @@ export const SAMPLE_MINE = {
     { kind: '回報', text: '每週一次到樂園讓她看你的橋。', due: '2 天', penalty: '滿意 −10' },
     { kind: '差事', text: '把一個封好的晶片盒送到舊港的海棠樓。', due: '已經過期', penalty: '一陣感載 +12', overdue: true },
   ],
-  rules: [['禁區', '冠冕區的中央廣場'], ['宵禁', '05:00'], ['指定服裝', '頸環不准拿下來'], ['不准見的人', '蘿莎（蜜糖會）']] as Array<[string, string]>,
+  rules: [['禁區', '冠冕區的中央廣場'], ['宵禁', '05:00'], ['指定服裝', '頸環不准拿下來']] as Array<[string, string]>,
   escape: [
     { path: '還清', step: '還差 C$21,400；滿意 80 以上可以談價' },
     { path: '找到合約的漏洞', step: '第四條劃掉了「出借」：可以拿這一頁去談' },

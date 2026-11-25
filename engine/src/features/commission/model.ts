@@ -156,6 +156,8 @@ export interface CommissionRules {
   stealth_fail_alert: number
   /** 動手的檢定沒過，警戒加多少（設計書沒寫；比照撬鎖失敗 +5） */
   check_fail_alert: number
+  /** 身上有竊聽花（惡意韌體；條件 malware_leak 成立）：副本的警戒起始值加這麼多（CYBERWARE 第 5 節只寫「委託的警戒起始值上升」，沒有數字；暫定 10） */
+  leak_alert: number
   /** DC 基準 = dc_base ＋ 等級 × dc_per_grade（SITES 12.5 節：10、2） */
   dc_base: number
   dc_per_grade: number
@@ -218,17 +220,17 @@ const NET_RULE_FIELDS: Array<[NetNumeric, number, number]> = [
 ]
 
 export const DEFAULT_COMMISSION_RULES: CommissionRules = {
-  stage_minutes: 120, stealth_fail_alert: 10, check_fail_alert: 5, dc_base: 10, dc_per_grade: 2, reinforce_count: 2, hard_alert: 100, hard_grade_up: 1, pressure_at: 60,
+  stage_minutes: 120, stealth_fail_alert: 10, leak_alert: 10, check_fail_alert: 5, dc_base: 10, dc_per_grade: 2, reinforce_count: 2, hard_alert: 100, hard_grade_up: 1, pressure_at: 60,
   aux_pressure: 10, aux_rest: 1, aux_injured_days: 3,
   xp_small: 20, xp_medium: 35, xp_large: 60, hostility_base: 5, hostility_per_assault: 3, hostility_max: 15, rating_links: 3, rating_alert: 60, rating_peak: 100,
   aux_skills: { meat: ['firearms', 'brawl', 'stealth', 'athletics'], net: ['interface'], opinion: ['perform', 'negotiate'] },
   aux_bonus: { strong: 4, mid: 2, weak: 0, none: 0 },
 }
 
-type NumericRule = 'stage_minutes' | 'stealth_fail_alert' | 'check_fail_alert' | 'dc_base' | 'dc_per_grade' | 'reinforce_count' | 'hard_alert' | 'hard_grade_up' | 'pressure_at' | 'aux_pressure' | 'aux_rest' | 'aux_injured_days'
+type NumericRule = 'stage_minutes' | 'stealth_fail_alert' | 'leak_alert' | 'check_fail_alert' | 'dc_base' | 'dc_per_grade' | 'reinforce_count' | 'hard_alert' | 'hard_grade_up' | 'pressure_at' | 'aux_pressure' | 'aux_rest' | 'aux_injured_days'
   | 'xp_small' | 'xp_medium' | 'xp_large' | 'hostility_base' | 'hostility_per_assault' | 'hostility_max' | 'rating_links' | 'rating_alert' | 'rating_peak'
 const RULE_FIELDS: Array<[NumericRule, number, number]> = [
-  ['stage_minutes', 0, 100000], ['stealth_fail_alert', 0, 100], ['check_fail_alert', 0, 100], ['dc_base', 0, 40], ['dc_per_grade', 0, 10],
+  ['stage_minutes', 0, 100000], ['stealth_fail_alert', 0, 100], ['leak_alert', 0, 100], ['check_fail_alert', 0, 100], ['dc_base', 0, 40], ['dc_per_grade', 0, 10],
   ['reinforce_count', 0, 8], ['hard_alert', 1, 100], ['hard_grade_up', 0, 4], ['pressure_at', 1, 100], ['aux_pressure', 0, 100], ['aux_rest', 0, 3], ['aux_injured_days', 0, 30],
   ['xp_small', 0, 1000], ['xp_medium', 0, 1000], ['xp_large', 0, 1000], ['hostility_base', 0, 100], ['hostility_per_assault', 0, 100], ['hostility_max', 0, 100],
   ['rating_links', 1, 20], ['rating_alert', 1, 100], ['rating_peak', 1, 100],

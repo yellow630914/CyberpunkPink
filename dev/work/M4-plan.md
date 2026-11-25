@@ -129,6 +129,7 @@ dev/status.md 標了 M4 的待辦各落在哪一張：`cyber_count` 與 AI 偏�
 | 十八 | 30 security-m4 | 33 curtain-entry |
 | 十九 | 53 core-gaps → 31 followups | 34 curtain-run |
 | 二十 | 44 training → 54 night-resonance | 35 curtain-fall |
+| 二十之二 | 55 followups-2 | 56 ui-followups |
 | 二十一 | 41 ui-contract | 45 part-unreg |
 | 二十二 | 42 ui-curtain | 46 part-sources |
 | 二十三 | 47 core-part-ai | 48 auction |

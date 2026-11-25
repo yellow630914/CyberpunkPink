@@ -473,7 +473,7 @@ export function encounterAfter(ranks: readonly Rank[], fx: Pick<Fx, 'half' | 'mi
 
 const COVER_NAMES = ['dense', 'medium', 'sparse', 'one_sided']
 
-function countsProblems(v: unknown, at: string): string[] {
+export function countsProblems(v: unknown, at: string): string[] {
   if (!isRecord(v)) return [`${at} 要是一個物件（${COUNT_KEYS.join('、')} 各是 [最少, 最多]）`]
   const p: string[] = []
   for (const key of Object.keys(v)) if (!(COUNT_KEYS as readonly string[]).includes(key)) p.push(`${at}.${key} 不是這一層會放的東西（${COUNT_KEYS.join('、')}）`)
@@ -652,6 +652,16 @@ declare module '../../core' {
      * 回答的人回傳讀走了什麼（read）、要加的變更與句子；netrun 把句子併進結束的報告、read 放進活動結果的 read。處理函式只讀，不改狀態。
      */
     'net.hacked': [{ state: GameState; run: NetRun; outcome: 'located' | 'defeat'; party: ActorId[] }, HackedAnswer | void]
+    /**
+     * 別的功能要求以 done 收掉這一趟（簾後館：場熱到 0，觀眾散場）：回答 true 的功能，這一趟在下一次報告套用之後以 done 收場（和走完出口一樣：交回 done、問 netrun.close）。
+     * 處理函式只讀，不改狀態；沒有人回答 true 什麼都不發生。
+     */
+    'netrun.finish_request': [{ state: GameState; run: NetRun }, boolean | void]
+    /**
+     * 生成時每放一隻遭遇的敵人（遭遇節點的每個位階各一次；巡邏與稽核的白蕾絲不問）：發起這一趟的功能（看 origin.by）可以回傳要蓋在這一筆 UnitRef 上的欄位
+     * （單位來源 from、grade、culture……）。多個回答照順序合併。state 是開始之前的狀態，setup 是這一趟原本的設定，唯讀。
+     */
+    'netrun.foe_ref': [{ state: GameState; origin: Origin; setup: Record<string, unknown>; layer: number; sheet: string; node: string; guard: boolean; last: boolean; index: number; ranks: Rank[]; ref: UnitRef }, Partial<UnitRef> | void]
   }
 }
 

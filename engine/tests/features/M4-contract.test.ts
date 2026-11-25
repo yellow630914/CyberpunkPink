@@ -541,7 +541,7 @@ describe('照做或抗拒', () => {
     expect(chooseBlock(g.k, g.state, { order: 'zz', how: 'comply' })).toMatch(/找不到/)
   })
 
-  it('抗拒成功：resisted、滿意 −5、紀錄帶擲骰；抗拒失敗：forced（期限不變）；檢定帶標籤 resist_control', () => {
+  it('抗拒成功：resisted、滿意 −5、紀錄帶擲骰；抗拒失敗：forced（期限不變）；檢定帶標籤 resist_contract（不帶 resist_control）', () => {
     const g = setup({ sink: 65 })
     const tags: string[][] = []
     const stat = g.k.stats
@@ -549,7 +549,8 @@ describe('照做或抗拒', () => {
     vi.spyOn(stat, 'checkModifiers').mockImplementation((s, a, ctx) => { tags.push([...ctx.tags]); return orig(s, a, ctx) })
     const deadline = q(g, O(1)).deadline
     const r = withDice(NAT20, () => chooseDraft(g.k, g.state, { order: O(1), how: 'resist' }))
-    expect(tags.flat()).toContain('resist_control')
+    expect(tags.flat()).toContain('resist_contract')
+    expect(tags.flat()).not.toContain('resist_control')
     expect(r.timeline.some((t) => t.roll?.dc === 22)).toBe(true)
     g.commit(r)
     expect(q(g, O(1))).toMatchObject({ state: 'resisted', closed: now(g) })
@@ -1016,9 +1017,9 @@ describe('規矩：禁區與宵禁', () => {
     goTo(g, { district: 'd_banned', block: 'b_inner' })
     expect(reports(g, 'contract.rule')).toHaveLength(2)
     expect(sat(g)).toBe(40)
-    // 值寫街區 id 也行；dress 與 person 只記錄
+    // 值寫街區 id 也行；dress 只記錄
     const b = make()
-    sign(b, { rules: [{ kind: 'zone', value: 'b_banned' }, { kind: 'person', value: 'npc_x' }] })
+    sign(b, { rules: [{ kind: 'zone', value: 'b_banned' }, { kind: 'dress', value: '制服' }] })
     goTo(b, { district: 'd1', block: 'b_banned' })
     expect(reports(b, 'contract.rule')).toHaveLength(1)
     // 沒有契約、解約之後不查

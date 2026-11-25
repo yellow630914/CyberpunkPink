@@ -84,8 +84,8 @@ function jobContent(): Rec[] {
       check: { attr: 'charm', skill: 'negotiate', dc: 10 }, wage: 12, pay: 'cash',
       stages: [
         { name: '店員', mult: 1 },
-        { name: '顧櫃檯', mult: 1.3, need: { shifts: 3, affinity: 0 } },
-        { name: '代店長', mult: 1.6, need: { shifts: 8, affinity: 20 } },
+        { name: '顧櫃檯', mult: 1.3, need: { hours: 30, affinity: 0 } },
+        { name: '代店長', mult: 1.6, need: { hours: 72, affinity: 20 } },
       ],
     },
     {
@@ -93,7 +93,7 @@ function jobContent(): Rec[] {
       check: { attr: 'body', skill: 'athletics', dc: 9 }, wage: 9, pay: 'cash',
       stages: [
         { name: '洗碗', mult: 1 },
-        { name: '掌勺', mult: 1.4, need: { shifts: 5, affinity: 0 } },
+        { name: '掌勺', mult: 1.4, need: { hours: 30, affinity: 0 } },
       ],
     },
   ]

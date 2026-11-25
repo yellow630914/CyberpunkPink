@@ -89,7 +89,8 @@ export type Relation = (typeof RELATIONS)[number]
 export const RELATION_NAME: Record<Relation, string> = { formal: '名實相符', partner: '實為夥伴', play: '情趣', intense: '激烈', lover: '戀人' }
 export const isRelation = (v: unknown): v is Relation => (RELATIONS as readonly unknown[]).includes(v)
 
-export const RULE_TYPES = ['zone', 'curfew', 'dress', 'person'] as const
+/** 規矩的種類：禁區、宵禁、指定的服裝（LEWD_SYSTEM 7.5 節）。「能不能接別人的指令」那一種已經刪掉（使用者 2026-11-25），不再有 person */
+export const RULE_TYPES = ['zone', 'curfew', 'dress'] as const
 export type RuleType = (typeof RULE_TYPES)[number]
 export const isRuleType = (v: unknown): v is RuleType => (RULE_TYPES as readonly unknown[]).includes(v)
 

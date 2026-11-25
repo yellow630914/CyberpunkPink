@@ -165,7 +165,7 @@ const sameRule = (a: ContractRule, b: ContractRule): boolean => a.kind === b.kin
 const ruleProblem = (r: unknown): string | null => {
   const x = r as Partial<ContractRule> | null
   if (!x || typeof x !== 'object' || !isRuleType(x.kind)) return `規矩的種類只能是 ${RULE_TYPES.join('、')}。`
-  if (!(isText(x.value) || (typeof x.value === 'number' && Number.isFinite(x.value)))) return '規矩要寫內容（地方、時間、服裝或人的名字）。'
+  if (!(isText(x.value) || (typeof x.value === 'number' && Number.isFinite(x.value)))) return '規矩要寫內容（地方、時間或服裝）。'
   if (x.kind === 'zone' && typeof x.value !== 'string') return '禁區要寫成區或街區的名字。'
   return null
 }

@@ -28,7 +28,7 @@ import { installInteract, registerInteractions } from './interact'
 import { installLife } from './life'
 import type { Npc, NpcKind, PathRow } from './model'
 import {
-  AFFINITY, AXES, GEN_KIND, NPC_KIND, NPC_KINDS, OWNER, POOL_KIND, RULE_KIND, TEMP_FLAG,
+  AFFINITY, AXES, CALL_MAX, GEN_KIND, NPC_KIND, NPC_KINDS, OWNER, POOL_KIND, RULE_KIND, TEMP_FLAG,
   affinityStage, ensureNpcs, genProblems, isTemp, knowFactText, knows, npcOf, npcRules, npcsProblems, parseFact, poolProblems, readNpcs, relationOf, ruleProblems, stageIndex, STAGES,
 } from './model'
 
@@ -37,6 +37,7 @@ export {
   CATEGORY_NAME, CHAT_DONE_NOTE, DEFAULT_INTERACT_RULES, INTERACT_KINDS, INTERACT_RULE_KIND, READ_CATEGORIES, difficulty, factionOf, giftGain, giftLiked, giftTier, hasDeck, interactBlock, interactInput, interactRules, interactions,
   revealFacts, shieldOf, successChance, tableEffects,
 } from './interact'
+export { GIFT_NOTE_MAX } from './interact'
 export type { DcMod, InteractExtra, InteractKind, InteractRules, InteractionView, NpcActionInput, ReadCategory } from './interact'
 export type { GenOpts } from './generate'
 export { NEWS_MAX, TRIGGER_WHATS, lifeDraft, lifeSubjects, newsOf } from './life'
@@ -47,7 +48,7 @@ export type { LifeRules, MemoryRules } from './lifeRules'
 export { compactMemories, editMemory, forgetMemory, importanceOf, memoriesOf, memoryChanges, participantsOf, pinMemory, recall, remember } from './memory'
 export type { MemoryPatch, RecallOpts, RememberInput } from './memory'
 export {
-  ABSENT_CONDITIONS, AFFINITY, AXES, BODIES, BRIDGE_PARAMS, DEFAULT_NPC_RULES, GENDERS, GENDER_TAG, KIND_NAME, NPC_KINDS, STAGES, TAG_STATES, TEMP_FLAG,
+  ABSENT_CONDITIONS, AFFINITY, AXES, BODIES, BRIDGE_PARAMS, CALL_MAX, DEFAULT_NPC_RULES, GENDERS, GENDER_TAG, KIND_NAME, NPC_KINDS, STAGES, TAG_STATES, TEMP_FLAG,
   affinityStage, doneToday, hauntMatches, knowFactText, knownFacts, knows, normalizeHaunt, npcEntryProblems, npcOf, npcRules, npcsHere, npcsProblems, parseFact, readNpcs, relationOf, rosterIds, stageIndex, whereIs,
 } from './model'
 export type { Memory, MemoryWhere, NewsItem } from './model'
@@ -152,6 +153,36 @@ export function watchNpc(k: Kernel, state: GameState, id: string, on = true): Re
   const name = nameOf(k, state, id)
   const text = on ? `開始關注${name}。` : `不再關注${name}。`
   return draft(state, 'npc.watch', text, [{ op: 'npcs.watch', npc: id, on }], on ? 'watch' : 'unwatch')
+}
+
+export interface CallNames {
+  call_them?: string | null
+  call_me?: string | null
+}
+
+/** 這個人現在的稱呼（沒填的是 undefined）：正文與程式寫的句子都照用。 */
+export function callNamesOf(state: Pick<GameState, 'ext'>, id: string): { call_them?: string; call_me?: string } {
+  const r = readNpcs(state).rel[id]
+  return { ...(r && typeof r.call_them === 'string' && r.call_them ? { call_them: r.call_them } : {}), ...(r && typeof r.call_me === 'string' && r.call_me ? { call_me: r.call_me } : {}) }
+}
+
+/** 不能改稱呼的原因（給玩家看的完整句子；可以改是 null）。改稱呼不花時間、不改任何數值；原樣收，只看字數。 */
+export function callNamesBlock(state: GameState, id: string, names: CallNames): string | null {
+  if (!knows(state, id)) return '你還不認識這個人，沒辦法改稱呼。'
+  if (names.call_them === undefined && names.call_me === undefined) return '要改「你怎麼叫他」或「他怎麼叫你」。'
+  for (const [key, label] of [['call_them', '你怎麼叫他'], ['call_me', '他怎麼叫你']] as const) {
+    const v = names[key]
+    if (v !== undefined && v !== null && (typeof v !== 'string' || v.length > CALL_MAX)) return `「${label}」最多 ${CALL_MAX} 個字。`
+  }
+  return null
+}
+
+/** 改稱呼（報告 npc.call）：寫空字串或 null 是清掉。親密度很淺（20 以下）的人被叫得太親，正文會寫他的反應，數字不變。 */
+export function callNamesDraft(k: Kernel, state: GameState, id: string, names: CallNames): ReportDraft {
+  const block = callNamesBlock(state, id, names)
+  if (block) throw new ActionBlocked(block)
+  const name = nameOf(k, state, id)
+  return draft(state, 'npc.call', `改了和${name}的稱呼。`, [{ op: 'npcs.call', npc: id, ...(names.call_them !== undefined ? { call_them: names.call_them } : {}), ...(names.call_me !== undefined ? { call_me: names.call_me } : {}) }], 'call')
 }
 
 /** 主角現在對這個人的親密度（量表 affinity）。 */
@@ -280,6 +311,23 @@ function registerChanges(k: Kernel): void {
     op: 'npcs.watch', owner: OWNER,
     validate: (state, c) => [...needKnown(state, c.npc), ...(typeof c.on === 'boolean' ? [] : ['on 要是 true 或 false'])],
     apply(state, c) { ensureNpcs(state).rel[c.npc]!.watch = c.on },
+  })
+  // 稱呼（NPC_SYSTEM 7.0 節）：你怎麼叫他、他怎麼叫你；空字串或 null 是清掉
+  k.changes.register<Change & { npc: string; call_them?: string | null; call_me?: string | null }>({
+    op: 'npcs.call', owner: OWNER,
+    validate: (state, c) => [
+      ...needKnown(state, c.npc),
+      ...(['call_them', 'call_me'] as const).flatMap((f) => (c[f] === undefined || c[f] === null || (typeof c[f] === 'string' && (c[f] as string).length <= CALL_MAX) ? [] : [`${f} 要是 ${CALL_MAX} 字以內的字串，或 null（清掉）`])),
+    ],
+    apply(state, c) {
+      const r = ensureNpcs(state).rel[c.npc]!
+      for (const f of ['call_them', 'call_me'] as const) {
+        if (c[f] === undefined) continue
+        if (c[f] === null || c[f] === '') delete r[f]
+        else r[f] = c[f] as string
+      }
+    },
+    describe: (c) => `稱呼改了：${c.npc}`,
   })
   // 與主角的關係（一句話；AI 提議、玩家確認或改寫）
   k.changes.register<Change & { npc: string; text: string }>({

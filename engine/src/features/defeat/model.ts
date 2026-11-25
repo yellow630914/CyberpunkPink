@@ -9,6 +9,8 @@ export const EXT = 'defeat'
 export const VERSION_KEYS: readonly VersionId[] = ['default', 'masc', 'yuri']
 /** 戰敗事件開在事件視窗的那一種活動。 */
 export const EVENT_ACTIVITY = 'event'
+/** 簾後館落幕的戰敗事件的種類（CYBERSPACE 8.8 節；M4-curtain-fall）：不開事件視窗，主線場景由簾後館的補演接手。 */
+export const STAGE_KIND = 'stage'
 
 export type Raw = Record<string, unknown>
 
@@ -108,6 +110,18 @@ export interface PendingDefeat {
 }
 
 export const isRec = (v: unknown): v is Raw => typeof v === 'object' && v !== null && !Array.isArray(v)
+
+/**
+ * 內文裡每一筆沒寫 days 的 hostility_floor（EVENTS 2.4 節：戰敗與契約事件的下限「必須寫持續天數」，沒寫的算格式錯誤）。
+ * 不管包在 versions、stages、options、outcomes 的哪一層，一路找下去；回傳每一筆的位置（給訊息用）。
+ */
+export function floorWithoutDays(v: unknown, at = ''): string[] {
+  if (Array.isArray(v)) return v.flatMap((x, i) => floorWithoutDays(x, `${at}[${i}]`))
+  if (!isRec(v)) return []
+  const here = v.kind === 'hostility_floor' && v.days === undefined ? [at || '(根)'] : []
+  return [...here, ...Object.entries(v).flatMap(([key, x]) => floorWithoutDays(x, at ? `${at}.${key}` : key))]
+}
+
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
 
 export function defeatOf(state: Pick<GameState, 'ext'>): PendingDefeat | null {
@@ -145,6 +159,7 @@ export function entryProblems(e: Raw): string[] {
       } else if (!(Array.isArray(one.effects) && one.effects.every(isRec))) p.push(`${at}.effects 要是效果（物件）的陣列（或改寫成事件的 stages）`)
     }
   }
+  for (const where of floorWithoutDays(e.versions)) p.push(`versions.${where}：敵對值的下限（hostility_floor）在戰敗事件裡一定要寫 days（持續幾天，到期解除）`)
   if (e.default !== undefined && typeof e.default !== 'boolean') p.push('default 要是 true 或 false')
   if (e.tags !== undefined && !(Array.isArray(e.tags) && e.tags.every(isText))) p.push('tags 要是字串的陣列')
   if (e.fallback !== undefined && !isText(e.fallback)) p.push('fallback 要是戰敗事件的 id')

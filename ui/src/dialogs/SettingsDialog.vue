@@ -89,7 +89,7 @@ function load(i: number) { const err = sv.loadFrom('slots', i); ui.toast(err ?? 
 
       <template v-else-if="tab === 'filter'">
         <div class="lock"><span class="lk">LOCK</span><b>所有角色皆為成年人。</b><Hint>這一條不能關。生成的人年齡下限是 18；建角、匯入與世界編輯器都會擋下低於 18 的年齡。</Hint></div>
-        <div class="lock"><span class="lk">LOCK</span><b>不寫血腥，不寫懷孕。</b><Hint>這是內容的底線，不是篩選的選項，所以沒有開關。</Hint></div>
+        <div class="lock"><span class="lk">RULE</span><b>這是世界的固定規則，寫在 AI 工坊的任務提示詞裡，預設帶著，可以在 AI 工坊改。</b><Hint>只有年齡是底線：所有角色都是成年人。</Hint></div>
         <p class="sgrp">題材<Hint>內容篩選存在存檔裡。關掉一項時，相關的事件不觸發，戰敗事件改走不含那個題材的分支。感載與橋參數同時是戰鬥與竄網的規則，不受篩選影響。</Hint></p>
         <div class="grid2">
         <div v-for="r in FILTER_LIST" :key="r.k" class="srow" :class="{ chg: !st.isDefault(r.k) }">

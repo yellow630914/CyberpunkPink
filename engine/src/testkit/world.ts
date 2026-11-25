@@ -271,7 +271,7 @@ export function testWorld(): ContentPack {
       // work
       job: [{
         id: 'j_tw_porter', name: '搬貨', facility: 'fac_dock', employer: 'npc_tw_vendor', check: { attr: 'body', dc: 8 }, wage: 10, pay: 'cash',
-        stages: [{ name: '搬貨', mult: 1 }, { name: '領班', mult: 1.5, need: { shifts: 5, affinity: 20 } }],
+        stages: [{ name: '搬貨', mult: 1 }, { name: '領班', mult: 1.5, need: { hours: 30, affinity: 20 } }],
       }],
       // rest
       residence: [{ id: 'r_tw_unit', name: '四號塔的單位', district: 'tw_hive', block: 'tw_tower', facility: 'F1', level: 1, rent: 100 }],

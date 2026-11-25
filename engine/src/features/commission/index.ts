@@ -54,6 +54,8 @@ export type { AuxChance, AuxPeople, AuxSettlement, AuxSum } from './aux'
 export const COMMISSION_ALLOW: readonly string[] = [
   'commit:commission.', 'grid.', 'commit:grid.', 'battle.', 'commit:battle.', 'chain:battle_end', 'battle.retry',
   'event.start', 'commit:event.', 'scene.start', 'commit:scene.', 'commit:defeat.', 'commit:capture.', 'commit:gear.', 'chain:free_action',
+  // 副本進行中、戰鬥外可以吃藥與急救（M4-followups：drugs 的 drug.、medical 的 medical.）
+  'commit:drug.', 'commit:medical.',
 ]
 
 const FACE_KINDS: readonly string[] = Object.values(FACE_ACTIVITY)

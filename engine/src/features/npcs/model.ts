@@ -145,7 +145,13 @@ export interface Relation {
   watch: boolean
   /** 與主角的關係（一句話） */
   relation: string
+  /** 稱呼（NPC_SYSTEM 7.0 節；使用者 2026-11-25）：你怎麼叫他、他怎麼叫你，玩家自由填，最多 CALL_MAX 字；沒填就照名字與他的習慣。原樣存，不篩選、不改寫；不改親密度與任何數值 */
+  call_them?: string
+  call_me?: string
 }
+
+/** 稱呼的字數上限（NPC_SYSTEM 7.0 節） */
+export const CALL_MAX = 12
 
 export interface RosterEntry {
   /** 名單是不是已經照 npc_gen 建好（臨時的人先升格時只有 ids） */

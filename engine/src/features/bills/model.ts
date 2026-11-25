@@ -33,7 +33,7 @@ export interface BillLine {
 }
 
 /** 掛點 bill.settled 收到的一項：金額是乘過倍率之後的；paid 付了多少、unpaid 欠多少、skipped 是玩家停掉的（或寬限中的）。 */
-export type SettledLine = BillLine & { paid: number; unpaid: number; skipped?: true }
+export type SettledLine = BillLine & { paid: number; unpaid: number; skipped?: true; why?: SkipWhy }
 
 // ---- 狀態 ----
 
@@ -254,6 +254,7 @@ export function collectLines(k: Pick<Kernel, 'hooks' | 'content'>, state: GameSt
 
 export type SkipWhy = 'stopped' | 'grace'
 
+/** skipped 的原因（SettledLine 的 why）：stopped 是玩家停掉的、grace 是寬限中的；義體的訂閱讀它（停掉就鎖住，寬限不動）。 */
 export interface PlanLine extends SettledLine {
   /** 這一項從哪一種錢扣（收入是存進哪一種） */
   pool: Pool

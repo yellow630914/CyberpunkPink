@@ -9,7 +9,7 @@ import type { ContentPack, Feature, Kernel, ReportDraft } from '../../src'
 import { MONEY_CAP_BY_GRADE, countItem, inputOf, meterOf, prepareAction } from '../../src'
 import { actionsFeature } from '../../src/features/actions'
 import { lewdFeature } from '../../src/features/lewd'
-import { CHAT_DONE_NOTE, knowFactText, npcsFeature, npcsHere, interactBlock, interactInput, interactRules, interactions, giftGain, giftTier, DEFAULT_INTERACT_RULES, doneToday, knownFacts, knows, npcOf, readNpcs, tableEffects } from '../../src/features/npcs'
+import { CALL_MAX, CHAT_DONE_NOTE, GIFT_NOTE_MAX, callNamesBlock, callNamesDraft, callNamesOf, knowFactText, memoriesOf, npcsFeature, npcsHere, interactBlock, interactInput, interactRules, interactions, giftGain, giftTier, DEFAULT_INTERACT_RULES, doneToday, knownFacts, knows, npcOf, readNpcs, tableEffects } from '../../src/features/npcs'
 import type { InteractKind } from '../../src/features/npcs'
 import { securityFeature } from '../../src/features/security'
 import { makeGame, observed } from '../../src/testkit'
@@ -867,5 +867,55 @@ describe('knowFactText 從人物功能匯出（畫面把「知道的事」寫成
     expect(knowFactText('tendency:tg_x', (t) => `「${t}」`)).toContain('「tg_x」')
     expect(knowFactText('recent:b_market', undefined, (p) => `<${p}>`)).toContain('<b_market>')
     expect(knowFactText('secret:鑰匙')).toContain('鑰匙')
+  })
+})
+
+// ---- 使用者新增的輸入欄（2026-11-25；M4-followups）：稱呼與送禮附的一句話 ----
+
+describe('稱呼（NPC_SYSTEM 7.0 節）', () => {
+  it('認識的人可以填「你怎麼叫他」「他怎麼叫你」（最多 12 字，原樣存）；不改親密度；清空是 null；不認識的人、超過 12 字、什麼都沒填擋下', () => {
+    const { g } = make()
+    know(g, 'npc_ann', 6)
+    const before = aff(g, 'npc_ann')
+    g.commit(callNamesDraft(g.k, g.state, 'npc_ann', { call_them: '小貓', call_me: '前輩' }))
+    expect(callNamesOf(g.state, 'npc_ann')).toEqual({ call_them: '小貓', call_me: '前輩' })
+    expect(aff(g, 'npc_ann')).toBe(before)
+    expect(g.state.reports[g.state.reports.length - 1]!.action).toBe('npc.call')
+    // 原樣：空白、標點、任何字都不動（只看字數）
+    g.commit(callNamesDraft(g.k, g.state, 'npc_ann', { call_them: ' ，、。！ ' }))
+    expect(callNamesOf(g.state, 'npc_ann').call_them).toBe(' ，、。！ ')
+    g.commit(callNamesDraft(g.k, g.state, 'npc_ann', { call_them: 'x'.repeat(CALL_MAX) }))
+    expect(callNamesBlock(g.state, 'npc_ann', { call_me: 'y'.repeat(CALL_MAX + 1) })).toBe(`「他怎麼叫你」最多 ${CALL_MAX} 個字。`)
+    expect(callNamesBlock(g.state, 'npc_ann', { call_them: 'y'.repeat(CALL_MAX + 1) })).toBe(`「你怎麼叫他」最多 ${CALL_MAX} 個字。`)
+    expect(callNamesBlock(g.state, 'npc_ann', {})).toMatch(/要改/)
+    expect(callNamesBlock(g.state, 'npc_nobody', { call_them: 'a' })).toBe('你還不認識這個人，沒辦法改稱呼。')
+    g.commit(callNamesDraft(g.k, g.state, 'npc_ann', { call_them: null }))
+    expect(callNamesOf(g.state, 'npc_ann')).toEqual({ call_me: '前輩' })
+    g.commit(callNamesDraft(g.k, g.state, 'npc_ann', { call_me: '' }))
+    expect(callNamesOf(g.state, 'npc_ann')).toEqual({})
+  })
+})
+
+describe('送禮附一句話（NPC_SYSTEM 6.3 節）', () => {
+  it('收下了：那句話原樣進共同記憶（和這個人），親密度和沒附的一樣；沒收下（失敗）不記；超過 200 字不記', async () => {
+    const { g } = make()
+    know(g, 'npc_ann', 0)
+    const plain = make()
+    know(plain.g, 'npc_ann', 0)
+    await act(plain.g, 'npc_gift', 'npc_ann', 'success', { item: 'it_flower' })
+    const note = '  上次你說想吃真的草莓。  '
+    await act(g, 'npc_gift', 'npc_ann', 'success', { item: 'it_flower', note })
+    expect(aff(g, 'npc_ann')).toBe(aff(plain.g, 'npc_ann'))
+    const noted = memoriesOf(g.state).filter((m) => m.text.includes('真的草莓'))
+    expect(noted).toHaveLength(1)
+    expect(noted[0]!.who).toContain('npc_ann')
+    const failed = make()
+    know(failed.g, 'npc_ann', 0)
+    await act(failed.g, 'npc_gift', 'npc_ann', 'fail', { item: 'it_flower', note })
+    expect(memoriesOf(failed.g.state).some((m) => m.text.includes('真的草莓'))).toBe(false)
+    const long = make()
+    know(long.g, 'npc_ann', 0)
+    await act(long.g, 'npc_gift', 'npc_ann', 'success', { item: 'it_flower', note: '草'.repeat(GIFT_NOTE_MAX + 1) })
+    expect(memoriesOf(long.g.state).some((m) => m.text.includes('草草草'))).toBe(false)
   })
 })

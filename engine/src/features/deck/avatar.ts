@@ -20,6 +20,8 @@ export const AVATAR_SAVES_MAX = 5
 const NAME_MAX = 30
 const BODY_KEYS_MAX = 40
 const BODY_TEXT_MAX = 200
+/** 外觀描述（CYBERSPACE 4；使用者 2026-11-25）：玩家自己寫的一段話，最多這麼多字；我們這端不篩選、不改寫、不提示，原樣進 AI 的角色資料，不合規的由服務商擋 */
+export const AVATAR_TEXT_MAX = 200
 
 const PART_NAME: Record<AvatarPart, string> = { extra: '加裝', tail: '尾', tentacle: '觸手' }
 
@@ -27,6 +29,8 @@ const PART_NAME: Record<AvatarPart, string> = { extra: '加裝', tail: '尾', te
 export interface AvatarLook {
   gender?: string
   body?: Record<string, string>
+  /** 外觀描述（最多 AVATAR_TEXT_MAX 字，原樣收；沒寫是沒有） */
+  text?: string
   parts: AvatarPart[]
 }
 export interface SavedAvatar extends AvatarLook {
@@ -51,7 +55,8 @@ function readLook(raw: Record<string, unknown>): AvatarLook {
   const parts: AvatarPart[] = []
   if (Array.isArray(raw.parts)) for (const p of raw.parts) if (isPart(p) && !parts.includes(p)) parts.push(p)
   const body = readBody(raw.body)
-  return { ...(isGender(raw.gender) ? { gender: raw.gender } : {}), ...(body ? { body } : {}), parts }
+  const text = typeof raw.text === 'string' && raw.text.length > 0 ? raw.text.slice(0, AVATAR_TEXT_MAX) : undefined
+  return { ...(isGender(raw.gender) ? { gender: raw.gender } : {}), ...(body ? { body } : {}), ...(text !== undefined ? { text } : {}), parts }
 }
 
 /** 把存檔裡的東西整理成 Avatar：壞掉的欄位丟掉，不丟錯。 */
@@ -86,6 +91,8 @@ export interface AvatarOpts {
   gender?: string | null
   /** 外觀的詞條（整份換掉，原樣存）；null 是清空 */
   body?: Record<string, string> | null
+  /** 外觀描述（玩家自己寫，最多 200 字，原樣存）；null 或空字串是清空 */
+  text?: string | null
   /** 開著的部位（整份換掉）：只收 extra、tail、tentacle */
   parts?: string[]
   /** 把改完的樣子存成這個名字的一套（同名蓋掉；最多五套） */
@@ -112,7 +119,7 @@ export function atAccessPoint(k: Kernel, state: GameState): boolean {
 
 /** 算出改完的樣子；選項有問題回傳原因（一條一句）。 */
 function plan(avatar: Avatar, o: AvatarOpts): { next: Avatar; problem?: string } | { problem: string } {
-  const keys = (['gender', 'body', 'parts', 'save', 'load'] as const).filter((x) => o[x] !== undefined)
+  const keys = (['gender', 'body', 'text', 'parts', 'save', 'load'] as const).filter((x) => o[x] !== undefined)
   if (keys.length === 0) return { problem: '沒有要改的東西。' }
   if (o.load !== undefined) {
     if (keys.length > 1) return { problem: '載入一套化身時，不能同時改別的。' }
@@ -141,6 +148,12 @@ function plan(avatar: Avatar, o: AvatarOpts): { next: Avatar; problem?: string }
       if (entries.length > 0) next.body = Object.fromEntries(entries) as Record<string, string>
       else delete next.body
     }
+  }
+  if (o.text !== undefined) {
+    if (o.text === null || o.text === '') delete next.text
+    else if (typeof o.text !== 'string') return { problem: '外觀描述要寫成一段文字。' }
+    else if (o.text.length > AVATAR_TEXT_MAX) return { problem: `外觀描述太長了（最多 ${AVATAR_TEXT_MAX} 字）。` }
+    else next.text = o.text
   }
   if (o.parts !== undefined) {
     if (!Array.isArray(o.parts)) return { problem: `部位要寫成一串（只收 ${AVATAR_PARTS.join('、')}）。` }
@@ -184,7 +197,7 @@ export function avatarDraft(k: Kernel, state: GameState, actor: string, o: Avata
   if (block) throw new ActionBlocked(block)
   const p = plan(avatarOf(state, actor), o) as { next: Avatar }
   const next = p.next
-  const stored: Record<string, unknown> = { ...(next.gender !== undefined ? { gender: next.gender } : {}), ...(next.body ? { body: { ...next.body } } : {}), parts: [...next.parts], ...(next.saved.length > 0 ? { saved: next.saved.map((s) => clone(s)) } : {}) }
+  const stored: Record<string, unknown> = { ...(next.gender !== undefined ? { gender: next.gender } : {}), ...(next.body ? { body: { ...next.body } } : {}), ...(next.text !== undefined ? { text: next.text } : {}), parts: [...next.parts], ...(next.saved.length > 0 ? { saved: next.saved.map((s) => clone(s)) } : {}) }
   const changes: Change[] = [{ op: 'actor.ext', id: actor, key: EXT, value: extValue(state, actor, { avatar: stored }) }]
   const text = o.load !== undefined ? `換上了存著的化身「${o.load}」。` : o.save !== undefined && Object.keys(o).length === 1 ? `把現在的化身存成「${o.save}」。` : `改了${state.actors[actor]!.name}的化身。`
   return {

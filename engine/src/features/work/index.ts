@@ -1,7 +1,7 @@
 // L6 功能：打工（DOWNTIME 第 4 節：4.1 的表只看欄位、4.1a 階段、4.2 結算；EVENTS 3.1 節 work、3.3 節打工那一列；AI_TASKS 3.13 節（程式的步驟）；
 // LEWD_SYSTEM 第 9 節；UI 3.12 節；dev/adr/0016 第一、六節與 G15；dev/work/M2-work.md）。
 //
-// 一份工作在一個設施上，一班 2、4、8 小時，擲一次、照公式拿錢與附帶的東西；做久了、和雇主熟了可以升階段，雇主問一次（事件視窗）。
+// 一份工作在一個設施上，一班 2、4、6、8 小時，擲一次、照公式拿錢與附帶的東西；做久了、和雇主熟了可以升階段，雇主問一次（事件視窗）。
 // 十九份工作的內容是資料，不在這裡；成人階段的事件與場景也是事件的資料，這裡只帶觸發點 work。
 //
 // 接上核心的地方：
@@ -9,10 +9,17 @@
 //   條件  job_stage { job, min?, max? }：那份工作現在在第幾階段（從 1 起算；被內容篩選卡住的算前一階；沒做過是第 1 階）
 //   掛點  activity.end（升階的事件做完，選了升就換階段；只認 origin.by 是自己的）、report.after（剛升階就寫一份 work.promote）
 //   格子  usesOf：人站在對的設施上列「打工」（灰掉的帶原因）
-//   狀態  state.ext.work：{ jobs: { [工作 id]: { shifts, stage, asked, last, modes } }, announce }（形狀見 model.ts；只經由報告裡的 ext 變更寫）
+//   狀態  state.ext.work：{ jobs: { [工作 id]: { shifts, minutes, stage, asked, last, modes } }, announce }（形狀見 model.ts；只經由報告裡的 ext 變更寫；升階看 minutes 累計時數，不看班數）
 // 讀的：meterOf 的 affinity（雇主的親密度；沒有人定義時是 0）、k.effects（附帶效果與大失敗的親密度）、k.conditions（extra）、k.activity（有活動進行時擋；有人登記 event 才問升階）、
 //       k.content（block、facility_type、npc）、state.rules.contentOff（階段的 tags）。
 // 報告：work.shift（kind downtime；帶觸發點 work，where 有 district、block、facility（設施的種類）、job、stage（從 1 起算））、work.promote（kind downtime）。
+//
+// 結算報告的形狀（M4-followups；契約人的收入歸屬、之後的派工靠它認，功能之間不 import，只認這個格式；有測試守著：M4-followups.test.ts「打工報告的形狀」）：
+//   report.action        'work.shift'（SHIFT_ACTION）；kind 'downtime'；report.actor 是主角
+//   錢的那一筆變更       changes 裡 { op: 'cred' | 'cash', delta: 領到的錢 }，op 就是工作寫的那一種錢（job.pay），delta 是正的整數；領 0 元（大失敗等）沒有這一筆
+//   其餘                 changes 裡 { op: 'time', minutes } 一筆（一班的時間）、{ op: 'ext', key: 'work', ... } 一筆（班數與累計分鐘）；
+//                        report.timeline[0].data 是 { job, stage（從 1 起算）, hours, degree（沒有檢定是 null）, amount, pay, mode? }；report.outcome.result 是成功程度（沒有檢定是 'done'）
+//   amnesia 的那一班     outcome.amnesia 是 true，結果只有兩句；錢的那一筆照舊
 // 對外：shift、shiftBlock、jobsHere、jobView、promotionDue、needProgress、checkPlan、chancesOf、wageOf、readWork、jobStateOf、effectiveStage、workRules。
 // M4-venues：工作多讀 modes（人偶館的戴晶片與清醒；shift 的入口多收 mode）、cut（店家的分帳與晶片租金）、wage_formula（公式型的時薪）；
 //   amnesia 的那一班報告的 outcome 多 amnesia: true（共同記憶、性經歷之類聽 report.after 的功能要不要略過是它們的事）。對外多：modeCheck、hourlyWage、payBasis、openModes、hasModes。

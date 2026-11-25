@@ -197,7 +197,9 @@ export function onBattleEnd(k: Kernel, state: GameState, battle: BattleState, ou
   if (outcome === 'jack_out') next.over = run.kind === ACT_FACE ? 'retreat' : 'left'
   // 熔斷的場地（battle.field.safe：迷宮館）打輸或投降：沒有戰敗事件（defeat 不接手），這一趟直接收掉，人醒在館方的回復室（使用者 2026-11-24；M3 審查應修 7）。
   // 自己去的那一趟交回 defeat（迷宮館押金沒收；潛艙店的押金與潛入不受影響），委託的階段當撤退
-  if ((outcome === 'lose' || outcome === 'surrender') && battle.field.safe === true) next.over = run.kind === ACT_FACE ? 'retreat' : 'defeat'
+  // 例外：這一場帶 origin.ext.defeat_play（簾後館的落幕）而且戰敗的功能有裝：熔斷只管不加沉溺、不扣線，戰敗事件照演，這一趟等戰敗被接受之後才收（onDefeatAccepted）
+  const staged = battle.origin.ext?.defeat_play === true && k.content.hasKind('defeat_event')
+  if ((outcome === 'lose' || outcome === 'surrender') && battle.field.safe === true && !staged) next.over = run.kind === ACT_FACE ? 'retreat' : 'defeat'
   changes.push(runChange(next))
   return { changes, lines }
 }

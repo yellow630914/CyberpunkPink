@@ -3,7 +3,7 @@
 // 規格：NPC_SYSTEM 10.0（隊伍與同行）、10.4（忠誠）、10.6（離隊）、10.7（候選人）；COMMISSIONS 6.1 節；dev/work/M2-roster.md。
 
 import type { Change, GameState, GameTime, Kernel, ReportDraft } from '../../core'
-import { ActionBlocked, clone, countCrossings, deriveRng, effectCtx, isRecord, meterOf, toMinutes, weeklyCrossings, weeklyRule } from '../../core'
+import { ActionBlocked, attrMod, clone, countCrossings, deriveRng, effectCtx, isRecord, makeCheck, meterOf, toMinutes, weeklyCrossings, weeklyRule } from '../../core'
 import type { CandidateSource, Member, PayKind } from './model'
 import {
   busyReasons, isRunner, nameOf, readRoster, reliabilityOf, rosterCap, rosterRules, startLoyalty,
@@ -100,12 +100,22 @@ export function originRosterDrafts(k: Kernel, state: GameState): ReportDraft[] {
 
 // ---- 離開 ----
 
-export type LeaveReason = 'removed' | 'loyalty'
+/** removed 玩家拿掉；loyalty 忠誠太低；sunk 他自己的沉溺到頂（NPC_SYSTEM 10.6 節）；pc_sunk 主角的沉溺藏不住了 */
+export type LeaveReason = 'removed' | 'loyalty' | 'sunk' | 'pc_sunk'
 
 const LEAVE_TEXT: Record<LeaveReason, (name: string) => string> = {
   removed: (n) => `你把${n}從名冊上拿掉了。`,
   loyalty: (n) => `${n}對你已經沒有信任了，離開了你的名冊。`,
+  sunk: (n) => `${n}沉得太深，已經不是原來的那個人了，離開了你的名冊。`,
+  pc_sunk: (n) => `${n}看見了你沉到了什麼地步，離開了你的名冊。`,
 }
+
+/** 他的沉溺到頂離開時立的旗標；之後以別的身分出現是內容。 */
+export const sunkAwayFlag = (id: string): string => `sunk_away:${id}`
+/** 主角的沉溺到頂、這個人跟著走時立的旗標。 */
+export const followsDownFlag = (id: string): string => `follows_down:${id}`
+/** 主角的沉溺到頂的名冊反應已經發生過（只發生一次）。 */
+export const PC_SUNK_DONE = 'pc_sunk_done'
 
 /** 離開的變更：成員拿掉，也離開隊伍與同行。 */
 export function leaveChanges(state: GameState, id: string): Change[] {
@@ -118,6 +128,87 @@ export function leaveChanges(state: GameState, id: string): Change[] {
 export function leave(state: GameState, id: string, reason: LeaveReason = 'removed'): ReportDraft {
   if (!own(readRoster(state).members, id)) throw new ActionBlocked(`${nameOf(state, id)}不在你的名冊上。`)
   return draftOf(state, 'social', 'roster.leave', leaveChanges(state, id), reason, LEAVE_TEXT[reason](nameOf(state, id)))
+}
+
+// ---- 沉溺到 100（NPC_SYSTEM 10.6 節） ----
+
+const SHOWN_STAT = 'sink_shown'
+
+/** 藏沉溺的手段有幾種（掃橋用的掛點 scan.person 的 hide；功能之間不互相 import，這裡只認名字與格式，沒有人回答就是 0）。 */
+function hideOf(k: Pick<Kernel, 'hooks'>, state: GameState, actor: string): number {
+  let n = 0
+  for (const { result } of k.hooks.run('scan.person', { state, actor, strength: 0 })) {
+    const h = isRecord(result) ? result.hide : undefined
+    if (typeof h === 'number' && Number.isFinite(h) && h > 0) n += Math.floor(h)
+  }
+  return n
+}
+
+/** 這一週有沒有和主角在一起：上一個週一 06:00 之後被召集過（隊伍或同行）。從最近一次召集走到這個週一，只跨過這個週一自己一次。 */
+const withPcThisWeek = (m: Member, at: GameTime, rule: ReturnType<typeof weeklyRule>): boolean => countCrossings(m.last_called, at, rule) <= 1
+
+interface Sunk {
+  /** 離開的人與原因 */
+  gone: Map<string, LeaveReason>
+  /** 跟著走的人 */
+  follows: string[]
+  /** 主角的反應有沒有發生（有人看到了 100） */
+  pcDone: boolean
+  /** 擲過看穿的紀錄（報告用） */
+  lines: string[]
+}
+
+/**
+ * 一個週一 06:00 的沉溺檢查：
+ *  - 名冊上的人自己的沉溺到 sink_away_at：離開（原因 sunk）；
+ *  - 主角看起來的沉溺（別人看到的，藏著的時候要先被看穿）到 pc_sunk_at：只發生一次；忠誠 pc_sunk_leave 以下的人離開（pc_sunk），
+ *    親密度 follow_affinity 以上而且他自己沉溺 follow_sink 以上的人跟著走（只立旗標），其餘留下。
+ * 主角藏著的時候（別人看到的比真正的低），這一週和主角在一起的每個人各擲一次看穿，骰面從狀態導出。
+ */
+function sunkAt(k: Pick<Kernel, 'content' | 'meters' | 'stats' | 'hooks' | 'timeRules'>, state: GameState, at: GameTime, ids: string[], gone: Set<string>, done: boolean): Sunk {
+  const rules = rosterRules(k)
+  const roster = readRoster(state)
+  const rule = weeklyRule(k.timeRules)
+  const out: Sunk = { gone: new Map(), follows: [], pcDone: false, lines: [] }
+  for (const id of ids) {
+    if (gone.has(id)) continue
+    if ((state.actors[id]!.sink ?? 0) >= rules.sink_away_at) {
+      out.gone.set(id, 'sunk')
+      gone.add(id)
+    }
+  }
+  const pc = state.pc ? state.actors[state.pc] : undefined
+  if (!pc || done) return out
+  const real = pc.sink ?? 0
+  if (real < rules.pc_sunk_at) return out
+  const shown = k.stats.hasStat(SHOWN_STAT) ? k.stats.stat(state, pc.id, SHOWN_STAT) : real
+  // 別人看到的已經到頂，不用看穿；沒有藏就更不用
+  const hidden = shown < real && shown < rules.pc_sunk_at
+  const hide = hidden ? hideOf(k, state, pc.id) : 0
+  const dc = rules.see_base + attrMod(k.stats.effectiveAttr(state, pc.id, 'resolve')) + (pc.skills.composure ?? 0) + hide * rules.see_per_hide
+  for (const id of ids) {
+    if (gone.has(id) || !withPcThisWeek(roster.members[id]!, at, rule)) continue
+    const a = state.actors[id]!
+    let sees = !hidden
+    if (hidden) {
+      const affinity = meterOf(k, state, 'affinity', id)
+      const natural = deriveRng(state.rng, `roster/see/${id}/${toMinutes(at)}`).int(1, 20)
+      const skill = Math.max(0, ...rules.see_skills.map((s) => a.skills[s] ?? 0))
+      const check = makeCheck({
+        natural, dc,
+        parts: [{ label: '看人的本事', value: skill, source: 'skill' }, { label: `親密度 ${affinity}`, value: Math.max(0, Math.floor(affinity / rules.see_per_affinity)), source: 'situation' }],
+      })
+      sees = check.total >= dc
+      out.lines.push(`${nameOf(state, id)}${sees ? '看穿了你藏著的沉溺' : '沒有看出你藏著的沉溺'}（${check.total} 對 ${dc}）。`)
+    }
+    if (!sees) continue
+    out.pcDone = true
+    if (meterOf(k, state, 'loyalty', id) <= rules.pc_sunk_leave) {
+      out.gone.set(id, 'pc_sunk')
+      gone.add(id)
+    } else if (meterOf(k, state, 'affinity', id) >= rules.follow_affinity && (a.sink ?? 0) >= rules.follow_sink) out.follows.push(id)
+  }
+  return out
 }
 
 // ---- 召集 ----
@@ -203,7 +294,7 @@ const clampLoyalty = (v: number): number => Math.max(0, Math.min(100, v))
  *  - 忠誠低於 leave_at 的人 30% 離開（NPC_SYSTEM 10.4：20 剛好是「出場費 +25%」那一段，不離開）（照人與那一週的固定亂數；先扣、再判斷）。
  * 一次跨好幾週就一週一週算。回傳忠誠的報告（roster.weekly）與每個離開的人一份報告（roster.leave）；沒有事就是 []。
  */
-export function weeklyDrafts(k: Pick<Kernel, 'content' | 'timeRules' | 'meters'>, state: GameState, from: GameTime, to: GameTime): ReportDraft[] {
+export function weeklyDrafts(k: Pick<Kernel, 'content' | 'timeRules' | 'meters' | 'stats' | 'hooks'>, state: GameState, from: GameTime, to: GameTime): ReportDraft[] {
   const weeks = weeklyCrossings(from, to, k.timeRules)
   if (weeks.length === 0) return []
   const rules = rosterRules(k)
@@ -213,9 +304,19 @@ export function weeklyDrafts(k: Pick<Kernel, 'content' | 'timeRules' | 'meters'>
   const rule = weeklyRule(k.timeRules)
   const loyalty = new Map(ids.map((id) => [id, meterOf(k, state, 'loyalty', id)] as const))
   const gone = new Set<string>()
+  const reasons = new Map<string, LeaveReason>()
+  const follows: string[] = []
   const decay: Change[] = []
   const lines: string[] = []
+  const sunkLines: string[] = []
+  let pcDone = state.flags[PC_SUNK_DONE] === true
   for (const at of weeks) {
+    // 沉溺到 100（先於忠誠的離開：已經走了的不再擲）
+    const sunk = sunkAt(k, state, at, ids, gone, pcDone)
+    for (const [id, why] of sunk.gone) reasons.set(id, why)
+    follows.push(...sunk.follows)
+    sunkLines.push(...sunk.lines)
+    if (sunk.pcDone) pcDone = true
     for (const id of ids) {
       if (gone.has(id)) continue
       const m = roster.members[id]!
@@ -234,7 +335,16 @@ export function weeklyDrafts(k: Pick<Kernel, 'content' | 'timeRules' | 'meters'>
   }
   const out: ReportDraft[] = []
   if (decay.length > 0) out.push(draftOf(state, 'downtime', 'roster.weekly', decay, 'weekly', lines.join('')))
-  for (const id of ids) if (gone.has(id)) out.push(draftOf(state, 'social', 'roster.leave', leaveChanges(state, id), 'loyalty', LEAVE_TEXT.loyalty(nameOf(state, id))))
+  if (state.flags[PC_SUNK_DONE] !== true && pcDone) {
+    const text = follows.length > 0 ? `你沉到了什麼地步，身邊的人都看見了。${follows.map((id) => nameOf(state, id)).join('、')}沒有走，反而跟了下來。` : '你沉到了什麼地步，身邊的人都看見了。'
+    out.push(draftOf(state, 'social', 'roster.sunk', [{ op: 'flag', key: PC_SUNK_DONE, value: true }, ...follows.map((id): Change => ({ op: 'flag', key: followsDownFlag(id), value: true }))], 'pc_sunk', [text, ...sunkLines].join('')))
+  } else if (sunkLines.length > 0) out.push(draftOf(state, 'social', 'roster.sunk', [], 'unseen', sunkLines.join('')))
+  for (const id of ids) {
+    if (!gone.has(id)) continue
+    const why = reasons.get(id) ?? 'loyalty'
+    const flags: Change[] = why === 'sunk' ? [{ op: 'flag', key: sunkAwayFlag(id), value: true }] : []
+    out.push(draftOf(state, 'social', 'roster.leave', [...leaveChanges(state, id), ...flags], why, LEAVE_TEXT[why](nameOf(state, id))))
+  }
   return out
 }
 

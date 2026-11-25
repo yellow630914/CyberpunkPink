@@ -119,7 +119,8 @@ export function interviewDraft(k: Kernel, state: GameState, o: InterviewOpts): R
   const dc = dcFor(tier.interview_dc, state.rules)
   const roll = rollCheck(k.stats, state, { actor: pc, attr: attr as never, skill: o.skill, dc, purpose: `${INTERVIEW_ACTION}/${tier.id}/${o.skill}`, tags: ['curtain', 'interview'] })
   const passed = roll.degree === 'critical' || roll.degree === 'success'
-  const changes: Change[] = [{ op: 'rng', advance: 1 }]
+  // 面談花時間（interview_minutes，暫定一個小時）：時間之後才走，上面算的都用面談開始的那一刻
+  const changes: Change[] = [{ op: 'rng', advance: 1 }, ...(rules.interview_minutes > 0 ? [{ op: 'time', minutes: rules.interview_minutes } as Change] : [])]
   const up = !!cur.member && !cur.member.suspended
   const lines: string[] = []
   if (passed) {

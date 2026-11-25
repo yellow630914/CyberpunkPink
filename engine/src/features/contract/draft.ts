@@ -47,7 +47,8 @@ export interface ResistPlan {
 
 export const RESIST_ATTR = 'resolve'
 export const RESIST_SKILL = 'composure'
-export const RESIST_TAGS = ['resist_control']
+/** 契約發起的抗拒帶 resist_contract，不帶 resist_control：沉溺 60 以上分段的「抗拒控制 −2」不套在契約指令上（使用者 2026-11-25；沉溺的懲罰只留 EVENTS 4.5 的 DC 加值）。其他「抗拒控制」的檢定（控制類快駭等）照舊帶 resist_control，sink 認得它 */
+export const RESIST_TAGS = ['resist_contract']
 
 /** 抗拒的 DC 與成功率：12 ＋ 4（管理級）＋ ⌊馴化有效值 ÷ 10⌋ ＋ 沉溺的懲罰 − 主僕關係（夥伴、戀人）。DC 另外加存檔難度的偏移。 */
 export function resistPlan(k: Kernel, state: GameState, actor: ActorId, c: Contract): ResistPlan {

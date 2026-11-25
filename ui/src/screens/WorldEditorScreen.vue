@@ -92,7 +92,7 @@ const uses = computed(() => {
 })
 /** 所有種類的「用在哪」（第四版）：它引用的與引用它的 */
 const refs = computed(() => (sel.value ? whereUsed(sel.value, entries.value) : null))
-const ISSUE_COLOR: Record<string, string> = { FIELD: 'var(--danger)', DUP: 'var(--danger)', REF: 'var(--danger)', AGE: 'var(--hp)', FLOOR: 'var(--hp)', WARN: 'var(--warn)' }
+const ISSUE_COLOR: Record<string, string> = { FIELD: 'var(--danger)', DUP: 'var(--danger)', REF: 'var(--danger)', AGE: 'var(--hp)', WARN: 'var(--warn)' }
 
 // ---- 匯入與匯出 ----
 const imp = reactive<{ name: string; plan: ReturnType<typeof planImport> | null; entries: WorldEntry[]; error: string | null }>({ name: '', plan: null, entries: [], error: null })
@@ -133,7 +133,7 @@ void issueLine
     <header class="topbar">
       <b>世界包「{{ PACK.name }}」</b><span class="k">疊在{{ PACK.base }}上・改內建的內容會存成這個包裡的覆寫</span>
       <span class="grow" />
-      <span class="tag" :class="{ warn: errors.length }">格式錯誤 {{ errors.filter(e => e.code !== 'AGE' && e.code !== 'FLOOR').length }}・底線 {{ errors.filter(e => e.code === 'AGE' || e.code === 'FLOOR').length }}</span>
+      <span class="tag" :class="{ warn: errors.length }">格式錯誤 {{ errors.filter(e => e.code !== 'AGE').length }}・底線 {{ errors.filter(e => e.code === 'AGE').length }}</span>
       <button type="button" class="btn sm" @click="ui.toast('試玩用目前的世界包開一局；有錯的內容不會出現。'); router.push('/')">試玩</button>
       <button type="button" class="btn sm pri" @click="exportPack()">匯出世界包</button>
       <Tabs v-model="top" :tabs="[{ id: 'content', label: '內容' }, { id: 'io', label: '匯入與匯出' }]" />
@@ -208,13 +208,13 @@ void issueLine
         <aside class="panel cut pad chk">
           <Tabs v-model="right" :tabs="[{ id: 'check', label: '檢查' }, { id: 'uses', label: '用在哪' }]" />
           <template v-if="right === 'check'">
-            <div class="cnt"><span class="mono warn-t">{{ errors.filter(e => e.code !== 'AGE' && e.code !== 'FLOOR').length }} 格式錯誤</span><span class="mono" style="color: var(--hp)">{{ errors.filter(e => e.code === 'AGE' || e.code === 'FLOOR').length }} 內容底線</span><span class="mono k">{{ issues.filter(i => !i.blocking).length }} 提醒</span></div>
+            <div class="cnt"><span class="mono warn-t">{{ errors.filter(e => e.code !== 'AGE').length }} 格式錯誤</span><span class="mono" style="color: var(--hp)">{{ errors.filter(e => e.code === 'AGE').length }} 內容底線</span><span class="mono k">{{ issues.filter(i => !i.blocking).length }} 提醒</span></div>
             <p class="h">這一件</p>
             <div v-if="!selIssues.length" class="empty-note">沒有問題。</div>
             <div v-for="i in selIssues" :key="i.where + i.code" class="iss" :style="{ '--c': ISSUE_COLOR[i.code] }"><span class="code mono">{{ i.code }}</span>{{ i.text }}<small class="mono">{{ i.where }}</small></div>
             <p class="h">這個世界包的其他地方</p>
             <button v-for="i in otherIssues" :key="i.id + i.where + i.code" type="button" class="iss btnish" :style="{ '--c': ISSUE_COLOR[i.code] }" @click="selIdx = Math.max(0, entries.findIndex(e => e.id === i.id))"><span class="code mono">{{ i.code }}</span>{{ i.text }}</button>
-            <div class="note">這裡不檢查強弱：數值多大、物品多強、價格多低都不擋。另外照樣擋的只有內容的底線：所有角色都是成年人、不寫血腥、不寫懷孕。</div>
+            <div class="note">這裡不檢查強弱：數值多大、物品多強、價格多低都不擋。另外只擋格式錯誤與年齡低於 18 的人物。</div>
           </template>
           <template v-else>
             <template v-if="uses">

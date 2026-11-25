@@ -1,7 +1,7 @@
 // L6 功能 contract 玩家主動做的事：照做或抗拒、走到了、做完、主動要求一條指令、還清、遮光紋。
 // 都是「問的函式（回傳原因或 null）加做的函式（回傳報告草稿）」；不成立時草稿丟 ActionBlocked，原因是給玩家看的完整句子、一次只講一條。
 //
-//   chooseBlock／chooseDraft   收到的指令（sent）選照做（doing）或抗拒：定力檢定（resolve＋composure，帶標籤 resist_control）。成功 resisted、滿意 −5；失敗 forced；
+//   chooseBlock／chooseDraft   收到的指令（sent）選照做（doing）或抗拒：定力檢定（resolve＋composure，帶標籤 resist_contract，不是 resist_control）。成功 resisted、滿意 −5；失敗 forced；
 //                              主角非自願（pc_unwilling）關掉時，被強制的只會是差事與工作，其餘種類失敗當成功。報告 contract.choose。
 //   arriveBlock／arriveDraft   人在 place（沒有 place 在哪都算）而且那一條是 doing 或 forced：報告 contract.arrive，帶觸發點 order 與 where { order, holder, relation }，事件由導演挑。
 //   completeBlock／completeDraft  事件做完（或沒有事件接手時，呼叫的人直接收尾）：done、滿意 +5（asked 的 +8）、照做 +1、每 3 次馴化 +1。報告 contract.done。

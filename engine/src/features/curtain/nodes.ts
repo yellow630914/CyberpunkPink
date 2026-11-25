@@ -1,15 +1,14 @@
-// L6 功能 curtain 的節點：遭遇（開戰，每場擲文化）、賞箱、契約的條文、後台的近道、獎品室、層與層之間的化妝室與包場（CYBERSPACE 8.8 節）。
-// 點單在 orders.ts。這些節點在 netrun 看來是「區的主人自己處理的標記」（region.handled）：netrun 不列它們的用途，這個功能自己列、自己做，
-// 戰鬥的收尾（節點變地板、全員拔線、戰敗）仍由 netrun 認得的 origin.ext.net 交給它。
+// L6 功能 curtain 的節點：賞箱、契約的條文、後台的近道、獎品室、層與層之間的化妝室與包場（CYBERSPACE 8.8 節）。
+// 點單在 orders.ts。這些節點在 netrun 看來是「區的主人自己處理的標記」（region.handled）：netrun 不列它們的用途，這個功能自己列、自己做。
+// 遭遇不是：遭遇節點的開戰與潛行繞過是 netrun 的，戰鬥的收尾（節點變地板、全員拔線、戰敗）也是它的。
 
-import type { ActorId, Change, GridUse, Kernel, MarkerDef, ReportDraft, RollPart, UnitRef } from '../../core'
-import { ActionBlocked, clone } from '../../core'
+import type { ActorId, Change, GridUse, MarkerDef, ReportDraft, RollPart } from '../../core'
+import { ActionBlocked } from '../../core'
 import type { Ctx } from './ctx'
 import { defOf, neighbours, roleOf, standingOn, usedAt, usedCell } from './ctx'
-import { encounterCulture, pickProblems } from './culture'
 import { heatDelta, overshoot } from './heat'
-import { ORIGIN_BY, PICK_SOURCE, REGION_ID, REST_ACTION } from './model'
-import { decideDraft, offerAt, offerDraft, orderBlock, skinMatches, styleTags } from './orders'
+import { REST_ACTION } from './model'
+import { decideDraft, offerAt, offerDraft, orderBlock } from './orders'
 import { runPatch } from './patch'
 import { rewardOf, stubChange, tableOf } from './tables'
 import { BUSY, bestCheck, draftOf, nameOf, partyOf, rngStep, rollPicked, useDraft } from './util'
@@ -48,67 +47,11 @@ export const allActs = (c: Pick<Ctx, 'rules'>): number => c.rules.act_defs.lengt
 
 const dist = (c: Pick<Ctx, 'g'>, m: MarkerDef): number => Math.abs(m.at[0] - c.g.at.x) + Math.abs(m.at[1] - c.g.at.y)
 const onIt = (c: Pick<Ctx, 'g'>, m: MarkerDef): boolean => dist(c, m) === 0
-const netrunId = (k: Kernel, c: Pick<Ctx, 'state'>): string | null => k.activity.active(c.state).find((a) => a.kind === 'netrun')?.id ?? null
 
-/** 這一幕的敵人的等級：席次的等級；加演的幕高一、兩級（最高 V）。 */
-export function foeGrade(c: Pick<Ctx, 'tier' | 'rules' | 'run' | 'act'>): number {
-  const extra = c.run.encore ? (c.rules.encore.grades[c.act - c.rules.act_defs.length] ?? c.rules.encore.grades[c.rules.encore.grades.length - 1] ?? 0) : 0
-  return Math.min(5, c.tier.grade + extra)
-}
+const stoppedBlock = (c: Ctx): string | null => (c.state.battle ? BUSY : null)
 
-const stoppedBlock = (c: Ctx): string | null => (c.state.battle ? BUSY : c.run.cut ? '觀眾已經散場了，這一趟只能收場。' : null)
-
-// ---- 遭遇 ----
-
-const foeAt = (c: Ctx, marker: MarkerDef): NonNullable<Ctx['net']['foes'][string]>[string] | undefined => c.net.foes[c.sheetId]?.[marker.id]
-
-/** 這個遭遇現在打不打得了（要站在旁邊）；能是 null。 */
-export function fightBlock(c: Ctx, marker: MarkerDef): string | null {
-  const busy = stoppedBlock(c)
-  if (busy) return busy
-  if (marker.mark !== 'f') return '這裡沒有遭遇。'
-  const node = foeAt(c, marker)
-  if (!node || node.done || c.g.sheet.kindAt(marker.at[0], marker.at[1]) !== 'net_foe') return '這個節點上已經沒有東西守著了。'
-  if (dist(c, marker) !== 1) return `「${marker.name}」離這裡太遠了，要走到它旁邊。`
-  return null
-}
-
-/** 開戰（報告 curtain.use，result: fight）：每場遭遇擲一次文化（館主不擲）；敵人從那個文化的資料裡挑；打完由 netrun 收尾。不成立丟 ActionBlocked。 */
-export function fightDraft(c: Ctx, marker: MarkerDef): ReportDraft {
-  const block = fightBlock(c, marker)
-  if (block) throw new ActionBlocked(block)
-  const node = foeAt(c, marker)!
-  const runId = netrunId(c.k, c)
-  if (!runId) throw new ActionBlocked('現在沒有在網內的行程裡。')
-  const guard = node.gate === true
-  const grade = foeGrade(c)
-  const rolled = encounterCulture(c.k, c.state, c.night, { run: c.run.id, sheet: c.sheetId, node: marker.id, guard })
-  const ranks = node.foes.map((r) => String(r.rank))
-  const picked = pickProblems(c.k, { culture: rolled, own: c.night.culture, grade, ranks })
-  if (picked.problems.length) throw new ActionBlocked(picked.problems.join(''))
-  const layerName = c.def.name
-  const foes: UnitRef[] = node.foes.map((r, n) => ({ from: PICK_SOURCE, culture: picked.culture, grade, rank: r.rank, seed: `${String(r.seed ?? `${c.run.id}/${marker.id}`)}/${n}`, layer: layerName }))
-  const pending = c.run.pending
-  const skinOk = pending?.kind === 'skin' ? skinMatches(c.k, c.state, partyOf(c.state, c.run), styleTags(c, pending.style ? { style: pending.style } : undefined)) : undefined
-  const last = c.layer === Object.keys(c.net.graph).length - 1
-  const ext: Record<string, unknown> = {
-    net: { run: runId, map: c.map, sheet: c.sheetId, node: marker.id, region: REGION_ID, dc: c.net.dc, reinforce: {}, locate_rounds: 3 },
-    curtain: { run: c.run.id, sheet: c.sheetId, node: marker.id, act: c.act, guard, last, culture: picked.culture, ...(skinOk !== undefined ? { skin_ok: skinOk } : {}) },
-  }
-  const cover = c.rules.region.cover ?? 'medium'
-  const launch = {
-    kind: 'battle',
-    setup: {
-      mode: 'net', grade: grade as never, cover: clone(cover) as never, field: { safe: true },
-      allies: partyOf(c.state, c.run).map((id) => ({ from: 'actor', id })), foes,
-      origin: { escapable: true, place: `簾後館・${layerName}・${marker.name}`, faction: 'none' },
-    },
-    origin: { by: ORIGIN_BY, ref: c.run.id, ext },
-  }
-  const lines = [`你對「${marker.name}」開戰。${guard ? '守在這裡的是這一夜的館主。' : picked.culture === c.night.culture ? '' : '串場：別的夜的人混了進來。'}`]
-  if (pending?.kind === 'skin') lines.push(skinOk ? '全隊的打扮對上了主題。' : '全隊的打扮沒有對上主題，這個點單做不成了。')
-  return useDraft(c.state, 'fight', lines.join(''), [rngStep], { lines, launch: [launch] })
-}
+// 遭遇（開戰與潛行繞過）是 netrun 放的、netrun 列的：這個功能只在生成時回答每場遭遇的文化與等級（culture.ts 的 foeRefExtra），
+// 戰鬥打完的收尾在 battle.ts（k.battle.onEnd），戰鬥開打時的標記在 battle.ts 的 onBattleStart。
 
 // ---- 賞箱 ----
 
@@ -314,7 +257,6 @@ export function bookDraft(c: Ctx): ReportDraft {
 export function usesOfMarker(c: Ctx, marker: MarkerDef): GridUse[] {
   const role = roleOf(c.def, marker)
   switch (role) {
-    case 'fight': return [{ id: 'fight', name: '開戰', block: fightBlock(c, marker) }]
     case 'chest': return [{ id: 'chest', name: '開賞箱', block: chestBlock(c, marker) }]
     case 'prize_room': return [{ id: 'prize', name: '領獎品', block: prizeBlock(c, marker) }]
     case 'clause': return [{ id: 'clause', name: '讀條文', block: clauseBlock(c, marker) }, { id: 'clause:sign', name: '直接簽', block: clauseBlock(c, marker) }]
@@ -344,7 +286,7 @@ export function nearUses(c: Ctx): Array<{ marker: MarkerDef; role: ReturnType<ty
   return out
 }
 
-/** 做一件事：id 是 fight、order、order:accept、order:refuse、chest、clause、clause:sign、shortcut、prize、book；at 是標記的 id（沒寫是站著的那一格；開戰要寫）。 */
+/** 做一件事：id 是 order、order:accept、order:refuse、chest、clause、clause:sign、shortcut、prize、book；at 是標記的 id（沒寫是站著的那一格；開戰要寫）。 */
 export function useAt(c: Ctx, id: string, at?: string, o: { with?: ActorId } = {}): ReportDraft {
   if (id === 'book') return bookDraft(c)
   const standing = standingOn(c)
@@ -361,7 +303,6 @@ export function useAt(c: Ctx, id: string, at?: string, o: { with?: ActorId } = {
   if (!use) throw new ActionBlocked(`這裡沒有「${id}」可以做。`)
   if (use.block) throw new ActionBlocked(use.block)
   switch (id) {
-    case 'fight': return fightDraft(c, marker)
     case 'order': return offerDraft(c, marker)
     case 'chest': return chestDraft(c, marker)
     case 'prize': return prizeDraft(c, marker)

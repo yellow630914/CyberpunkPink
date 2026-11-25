@@ -11,7 +11,9 @@
 // 不 import features/director 與 features/commission：事件視窗只經 k.activity 開，委託失敗只把 fails_commission 交出去。
 
 import type { Condition, Feature, Launch } from '../../core'
+import { ContentError } from '../../core'
 import type { RulesKernel, GameState } from '../../core'
+import { effectProblems } from './body'
 import { afterBattleEnd, onBattleEnd, onEventEnd } from './flow'
 import { pick as pickEntry } from './choose'
 import type { PickOpts } from './choose'
@@ -24,7 +26,7 @@ export { hasAngel, locatedEventOf, locatedOf, winnersOf } from './choose'
 export type { PickOpts } from './choose'
 export { inlineEvent, playSkipped, rewriteEffects } from './body'
 export type { Rewrite, SkipPlay } from './body'
-export { defeatOf, moneyLimit, stageOf } from './model'
+export { STAGE_KIND as DEFEAT_STAGE_KIND, defeatOf, moneyLimit, stageOf } from './model'
 export type { DefeatEventEntry, DefeatOption, DefeatStage, DefeatVersion, PendingDefeat, PickTier, PlayedResult } from './model'
 
 /** 選事件與版本（純函式，測試與介面問「會選到哪一件」用）。沒有任何可用的事件丟錯。 */
@@ -89,6 +91,9 @@ export const defeatFeature: Feature = {
   ready(k) {
     const defaults = k.content.list<DefeatEventEntry>(KIND).filter((e) => e.default === true)
     if (defaults.length > 1) throw new Error(`戰敗事件的 default: true 整份內容裡最多一筆（現在有 ${defaults.map((e) => e.id).join('、')}）。`)
+    // 每一筆效果的種類要有人註冊、格式要對：用到沒裝的功能（義體、調校、惡意韌體、契約……）的事件，載入時就指出是哪一件（M4-followups）
+    const problems = k.content.list<DefeatEventEntry>(KIND).flatMap((e) => effectProblems(k, e))
+    if (problems.length > 0) throw new ContentError(problems)
     // 等著三選一的期間，事件視窗與成人場景自己的報告要放行（所有功能都安裝之後才知道有沒有人登記這兩種活動；
     // 沒有事件視窗的一局維持 M1 的樣子：等著選的戰敗擋住自由行動，不開口子）。
     // 放行照階段（COMBAT_SYSTEM 8.4 節、M1 審查 E1）：

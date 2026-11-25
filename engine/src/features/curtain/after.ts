@@ -12,6 +12,7 @@ import type { RunRecord } from './model'
 import { FLAG_SPONSOR, STAGE_ACTION, readCurtain } from './model'
 import { restDraft } from './nodes'
 import { runPatch } from './patch'
+import { fallDraft, replayReport } from './fall'
 import { resultDraft } from './settle'
 import { draftOf } from './util'
 
@@ -41,7 +42,7 @@ export function stageDraft(c: Ctx): ReportDraft | null {
   }
   if (!run.cut && heat <= 0) {
     set.cut = true
-    lines.push('場熱掉到 0：觀眾散場了。這一趟提早落幕，不算戰敗；走出去或登出就收場，已經拿到的票根照算，沒有打賞。')
+    lines.push('場熱掉到 0：觀眾散場了。這一趟提早落幕，不算戰敗：下一份報告就收場，已經拿到的票根照算，沒有打賞。')
   }
   if ((lines.length || changes.length) && heat > (run.peak ?? 0)) set.peak = heat
   const unset: Array<keyof RunRecord> = run.start_heat !== undefined && run.map !== c.map ? ['start_heat'] : []
@@ -52,9 +53,17 @@ export function stageDraft(c: Ctx): ReportDraft | null {
 /** 掛點 report.after：結算完了發 curtain.result；往下一幕之後進化妝室；場熱跨過門檻的事。 */
 export function afterReport(k: Kernel, state: GameState, report: Report): ReportDraft[] | undefined {
   if (report.rewind || report.action === 'rewind') return undefined
-  const run = readCurtain(state).run
+  const cur = readCurtain(state)
+  const run = cur.run
+  // 補演剛結束：發 curtain.replay（只發一次）
+  if (!run && cur.fall?.replayed && !cur.fall.replayed.reported && !k.activity.active(state).some((a) => a.kind === 'scene')) {
+    const d = replayReport(state)
+    return d ? [d] : undefined
+  }
   if (!run) return undefined
   if (run.over) return [resultDraft(state, run)]
+  // 全隊倒下、戰敗也被接受了（netrun 收掉這一趟之後）：落幕
+  if (run.lost && !state.battle && !k.activity.active(state).length) return [fallDraft(k, state, run)]
   // 戰鬥、場景、戰敗的選擇進行中不插報告（戰鬥結束與場景結束那一份套用之後才問）
   if (state.battle || k.activity.active(state).some((a) => a.kind !== 'netrun')) return undefined
   const c = ctxOf(k, state)

@@ -5,11 +5,12 @@
 //                          這一場「算」的只有：mod、unit_tag、內海的 stat net_load_decay（P65：單位在組成時只抄一次，戰鬥中吃的藥要自己更新單位的 decay）。
 //                          屬性（attr）、其他衍生數值（stat）、檢定修正（check）這一場不算：它們由 k.passives 在戰鬥外讀，戰鬥裡的單位數字開打時就定了。
 //   turn.start            每個自己的回合開始，身上生效的藥（戰鬥外吃的、這一場吃的）的 upkeep_load 加進感載（失去的回合不加）。
+//   斷藥                  帶著狀態 pump_jam 的單位：這一場吃的藥的修正與 upkeep_load 暫停（M4-followups；戰鬥外吃的藥經 k.passives 進來的那一份核心給，這裡管不到，見回報）。
 //   onEnd                 這一場吃的每一種寫進角色（成癮、instant、不是「一場戰鬥」型的補上藥效的時間）；身上還在的「一場戰鬥」型的藥記成被這一場接住（撐到喘口氣）。
 //                          這一場被重來或回退就不會走到這裡，什麼都沒發生。
 
 import type { BattleEffectCtx, BattleUnit, Change, Condition, GameState, Kernel, PassiveEffect } from '../../core'
-import { BattleBlocked, isRecord, passiveAmount, unitTag, unitTracks } from '../../core'
+import { BattleBlocked, PUMP_JAM, isRecord, passiveAmount, unitTag, unitTracks } from '../../core'
 import type { DrugDef } from './model'
 import { DRUG_OP, EXT, drugDef, isUnbridged, liveDrugs } from './model'
 import { doseResult } from './dose'
@@ -24,6 +25,9 @@ export const unitDrugs = (u: BattleUnit): UnitDrugs | undefined => {
   if (!isRecord(raw) || !isRecord(raw.taken)) return undefined
   return raw as unknown as UnitDrugs
 }
+
+/** 斷藥（狀態 pump_jam；核心的約定，M4-core-gaps 第 5 項）：這一場吃的藥的修正與維持的感載都先暫停，狀態一過又回來。 */
+const jammed = (u: BattleUnit): boolean => u.statuses.some((s) => s.id === PUMP_JAM)
 
 /** 這個單位在戰鬥裡沒有橋：標籤 unbridged（核心照 P15 加），或對到的角色明寫沒有橋。 */
 function unitUnbridged(state: GameState | undefined, u: BattleUnit): boolean {
@@ -83,7 +87,7 @@ export function installBattle(k: Kernel, owner: string): void {
   // 修正：這一場吃的藥的 mod
   k.battle.modifier(owner, (q) => {
     const ext = unitDrugs(q.unit)
-    if (!ext) return []
+    if (!ext || jammed(q.unit)) return []
     const state = q.view.state as GameState | undefined
     const unbridged = unitUnbridged(state, q.unit)
     const out = []
@@ -106,7 +110,7 @@ export function installBattle(k: Kernel, owner: string): void {
 
   // 每個自己的回合開始：藥的 upkeep_load（戰鬥外吃還在的，加這一場吃的）
   k.battle.on('turn.start', owner, ({ run, unit, lost }) => {
-    if (lost || unit.out || !unit.load) return
+    if (lost || unit.out || !unit.load || jammed(unit)) return
     const ids = new Set<string>(Object.keys(unitDrugs(unit)?.taken ?? {}))
     if (unit.actor && run.state.actors[unit.actor]) for (const id of liveDrugs(run.state, unit.actor)) ids.add(id)
     const unbridged = unitUnbridged(run.state, unit)

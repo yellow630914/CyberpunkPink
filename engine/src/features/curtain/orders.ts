@@ -49,6 +49,11 @@ export function skinMatches(k: Kernel, state: GameState, who: readonly ActorId[]
   return who.length > 0 && who.every((id) => tags.some((tag) => k.conditions.test({ kind: SKIN_CONDITION, tag, min: SKIN_MIN }, { state, actor: id, stats: k.stats, timeRules: k.timeRules })))
 }
 
+/** 開打時等著的換裝點單：全隊現在穿的是不是這個主題（風格標籤：點單自己寫的、沒有就是這一夜的）。 */
+export function skinOkFor(k: Kernel, state: GameState, run: RunRecord, night: Pick<Ctx['night'], 'tags'> & Record<string, unknown>, style?: string): boolean {
+  return skinMatches(k, state, partyOf(state, run), styleTags({ night } as Pick<Ctx, 'night'>, style ? { style } : undefined))
+}
+
 // ---- 合演的對象 ----
 
 interface Cast {
@@ -104,7 +109,6 @@ const orderIndexAt = (run: RunRecord, marker: Pick<MarkerDef, 'id'>, act: number
 /** 這個點單節點現在做不了的原因（一句）；能是 null。 */
 export function orderBlock(c: Ctx, marker: MarkerDef): string | null {
   if (c.state.battle) return BUSY
-  if (c.run.cut) return '觀眾已經散場了，這一趟只能收場。'
   if (marker.mark !== 'p') return '這裡沒有點單。'
   if (c.g.at.x !== marker.at[0] || c.g.at.y !== marker.at[1]) return `「${marker.name}」要站在上面才看得到點單。`
   if (usedAt(c, marker) || orderIndexAt(c.run, marker, c.act) >= 0) return '這一個點單已經處理過了。'
@@ -187,7 +191,6 @@ export interface DecideOpts {
 /** 接受或拒絕現在的點單（報告 curtain.use）。不成立丟 ActionBlocked。 */
 export function decideDraft(c: Ctx, marker: MarkerDef | undefined, accept: boolean, o: DecideOpts = {}): ReportDraft {
   if (c.state.battle) throw new ActionBlocked(BUSY)
-  if (c.run.cut) throw new ActionBlocked('觀眾已經散場了，這一趟只能收場。')
   const offer = c.run.offer
   if (!offer) throw new ActionBlocked('現在沒有等著決定的點單：走到點單的節點先看一下。')
   const m = marker ?? c.g.sheet.marker(offer.node)

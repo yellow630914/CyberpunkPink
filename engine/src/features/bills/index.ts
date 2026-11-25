@@ -16,7 +16,10 @@
 // 報告：bill.settle（downtime；每一項付了多少、欠多少，帶觸發點 weekly { overdue }）、bill.notice（週日晚上的提醒，不擋）、bill.set（玩家改設定）、bill.due（人在副本裡先記著）。
 // 對外：billPreview、setBill、settleDraft、weeklyDrafts、planWeek、currentLines、readBills、billRules、overdueWeeks。
 //
-// 不在這裡（DOWNTIME 第 5 節）：四個快捷的檔位（只有倍率）、鎖義體與換門鎖的後果（只留旗標與觸發點）、簽契約（第 4 週起只留旗標與觸發點）、
+// 付不出來的後果（M4-followups；settle.ts 的 stepEffects）：欠繳第 1 週發效果 cyber_lock { on: true, why: 'debt' }（不給選擇器）、補繳之後 { on: false, why: 'debt' }、
+//   第 4 週起發 contract_sign { holder: 規則表 debt_faction（預設 eden）, type: 'debt', debt: 欠的總額 }；效果沒人註冊就照舊只留旗標（bill_step）與觸發點。bill.settled 的行多 why（stopped、grace）。
+//
+// 不在這裡（DOWNTIME 第 5 節）：四個快捷的檔位（只有倍率）、換門鎖的後果（只留旗標與觸發點）、
 // 帳戶被凍結、洗錢補差額、債的還款。
 
 import type { Change, Condition, Effect, EffectCtx, EffectStepCtx, Feature, GameState, Kernel } from '../../core'

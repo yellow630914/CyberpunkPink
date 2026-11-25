@@ -26,7 +26,8 @@ const SEE_SKILL = 'composure'
 // ---- 掛點 ----
 
 export interface PersonAnswer {
-  cyber?: { count: number; items: Array<{ uid: string; name: string; legal: string; registered: boolean }> }
+  /** items 的 item 是設計圖的 id（沒寫就用名字）：許可類的義體查執照時用 license:<item>（M4-security-m4 補記） */
+  cyber?: { count: number; items: Array<{ uid: string; name: string; legal: string; registered: boolean; item?: string }> }
   contract?: { class: 'bound'; holder: string; level: string; covered: boolean }
   rights?: Array<{ holder: string; level: string }>
   /** 藏沉溺的手段有幾種（藥、調校、面具各算一種；誰有誰報） */
@@ -45,7 +46,7 @@ type Legal = (typeof LEGALS)[number]
 const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0
 
 interface Merged {
-  cyber: Array<{ uid: string; name: string; legal: Legal; registered: boolean }>
+  cyber: Array<{ uid: string; name: string; legal: Legal; registered: boolean; item?: string }>
   cyberCount: number
   contract?: { class: 'bound'; holder: string; level: string; covered: boolean }
   rights: Array<{ holder: string; level: string }>
@@ -61,7 +62,7 @@ function ask(k: Kernel, state: GameState, actor: string, strength: number): Merg
       let n = 0
       for (const i of c.items) {
         if (!isRecord(i) || !text(i.uid)) continue
-        out.cyber.push({ uid: i.uid, name: text(i.name) ? i.name : i.uid, legal: (LEGALS as readonly unknown[]).includes(i.legal) ? (i.legal as Legal) : 'free', registered: i.registered === true })
+        out.cyber.push({ uid: i.uid, name: text(i.name) ? i.name : i.uid, legal: (LEGALS as readonly unknown[]).includes(i.legal) ? (i.legal as Legal) : 'free', registered: i.registered === true, ...(text(i.item) ? { item: i.item } : {}) })
         n += 1
       }
       out.cyberCount += typeof c.count === 'number' && Number.isFinite(c.count) && c.count >= n ? Math.floor(c.count) : n
@@ -139,7 +140,7 @@ export const seeNatural = (state: GameState, point: string): number => deriveRng
 function judge(k: Kernel, state: GameState, c: Merged['cyber'][number], rules: PersonRules): CyberRead {
   const base = { uid: c.uid, name: c.name, legal: c.legal, registered: c.registered }
   if (c.legal === 'banned') return { ...base, verdict: 'banned', fine: 0, hostility: rules.cyber_hostility.banned, lock: true, note: `違禁，會被鎖住 ${rules.cyber_lock_hours} 小時。` }
-  if (c.legal === 'permit' && !hasLicense(k, state, c.name)) return { ...base, verdict: 'permit', fine: rules.cyber_fine.permit, hostility: rules.cyber_hostility.permit, lock: false, note: `許可類，你沒有執照，罰 ${rules.cyber_fine.permit} 元。` }
+  if (c.legal === 'permit' && !hasLicense(k, state, c.item ?? c.name)) return { ...base, verdict: 'permit', fine: rules.cyber_fine.permit, hostility: rules.cyber_hostility.permit, lock: false, note: `許可類，你沒有執照，罰 ${rules.cyber_fine.permit} 元。` }
   if (c.legal === 'register' && !c.registered) return { ...base, verdict: 'register', fine: rules.cyber_fine.register, hostility: rules.cyber_hostility.register, lock: false, note: `登記類，你沒有登記，罰 ${rules.cyber_fine.register} 元。` }
   return { ...base, verdict: 'ok', fine: 0, hostility: 0, lock: false, note: c.legal === 'free' ? '自由，放行。' : c.legal === 'permit' ? '許可類，你有執照。' : '登記類，已登記，放行。' }
 }

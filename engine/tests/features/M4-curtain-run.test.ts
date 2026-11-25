@@ -13,7 +13,7 @@ import { characterFeature } from '../../src/features/character'
 import { deckFeature } from '../../src/features/deck'
 import { enemiesFeature } from '../../src/features/enemies'
 import { lewdFeature } from '../../src/features/lewd'
-import { logout as netrunLogout, netExt, netrunFeature, readRun, useNode } from '../../src/features/netrun'
+import { logout as netrunLogout, netExt, netrunFeature, readRun, useNode, usesOfMarker } from '../../src/features/netrun'
 import { sceneAct, sceneFeature, sceneRawOf } from '../../src/features/scene'
 import {
   CURTAIN_DEFAULT_RULES, CURTAIN_FLAG_SPONSOR, CURTAIN_HEAT, CURTAIN_STUBS, CURTAIN_USE_ACTION, cultureFor, curtainFeature, curtainOf, curtainRuleProblems, curtainRules, curtainTableProblems, curtainView,
@@ -49,6 +49,8 @@ const program = (id: string, rank: string, culture: string, o: Rec = {}): Rec =>
   position: { prefer: [2, 3], cover_use: 0.5 }, ai: { prefer: 'overloaded', focus: 1, flee_below: 0 }, ...o,
 })
 const ENEMIES: Rec[] = ['ca', 'cb'].flatMap((c) => ['minion', 'elite', 'boss'].map((r) => program(`${c}_${r}`, r, c)))
+/** 第三種文化的敵人（預設的內容沒有：C之夜用來驗「這一夜的文化也沒有敵人」） */
+const ENEMIES_CC: Rec[] = ['minion', 'elite', 'boss'].map((r) => program(`cc_${r}`, r, 'cc'))
 const deckEntry = (id: string, o: Rec = {}): Rec => ({ id, name: id, desc: `${id}。`, grade: 2, slots: 3, firewall: 10, legal: 'free', ...o })
 const item = (id: string, name: string): Rec => ({ id, name, desc: `${name}。`, category: 'misc', grade: 1, size: 0, legal: 'free' })
 const WEAPON_CLASSES = [{ id: 'pistol', name: '手槍', dice: 3, type: 'physical', range: [1, 4], mag: 2, cover_mult: 0.25, pierce: 0, traits: [], attr: 'reflex', skill: 'firearms' }]
@@ -219,7 +221,7 @@ const toLayer = (g: G, n: number): void => teleport(g, marks(g, 'E', `l${n + 1}`
 /** 站在遭遇節點旁邊開戰（不打）。 */
 function startFight(g: G, foeId: string): void {
   standNear(g, sheetOf(g).marker(foeId)!.at)
-  g.commit(useCurtain(g.k, g.state, 'fight', foeId))
+  g.commit(useNode(g.k, g.state, 'fight', foeId))
 }
 /** 打到分出結果、結算；回傳結果。 */
 async function finish(g: G): Promise<string> {
@@ -373,19 +375,20 @@ describe('生成：四幕（CYBERSPACE 8.8 節「一趟的結構」「和 8.1 �
           const label = `${tier}/${seed}/第${i + 1}幕`
           expect(n('f'), `${label} 遭遇`).toBeGreaterThanOrEqual(d.encounters[0])
           expect(n('f'), `${label} 遭遇`).toBeLessThanOrEqual(d.encounters[1])
-          // 點單在有點單的幕；終幕的 p 是獎品室
-          expect(n('p'), `${label} 點單`).toBe(1)
-          expect(d.orders[1] > 0 || d.prize_room === true).toBe(true)
+          // 點單在有點單的幕；終幕的 p 是獎品室；沒有點單也沒有獎品室的幕沒有 p
+          expect(n('p'), `${label} 點單`).toBe(d.orders[1] > 0 || d.prize_room === true ? 1 : 0)
           expect(n('a'), `${label} 賞箱`).toBeGreaterThanOrEqual(d.chests[0])
           expect(n('a'), `${label} 賞箱`).toBeLessThanOrEqual(d.chests[1])
-          expect(n('b'), `${label} 近道的位置`).toBe(1)
+          // 後台的近道只放在寫了 shortcut 的幕（第二幕）；終幕不多放賞箱
+          expect(n('b'), `${label} 近道的位置`).toBe(d.shortcut ? 1 : 0)
           expect(n('c'), `${label} 條文`).toBeLessThanOrEqual(1)
           expect(n('r'), `${label} 休息點`).toBe(0)
           expect(n('E')).toBe(1)
           expect(n('g')).toBe(1)
           const markers = n('E') + n('g') + n('f') + n('p') + n('a') + n('b') + n('c')
-          expect(markers, `${label} 節點`).toBeGreaterThanOrEqual(7)
-          expect(markers, `${label} 節點`).toBeLessThanOrEqual(9)
+          const base = 2 + d.encounters[0] + (d.orders[1] > 0 || d.prize_room ? 1 : 0) + d.chests[0] + (d.shortcut ? 1 : 0)
+          expect(markers, `${label} 節點`).toBeGreaterThanOrEqual(base)
+          expect(markers, `${label} 節點`).toBeLessThanOrEqual(base - d.chests[0] + d.chests[1] + (d.encounters[1] - d.encounters[0]) + 1)
         })
         // 守閘門的那一場：最後一層散座是精英的組合（沒有首領），其餘席次是首領戰
         const ranks = (sheet: string): string[] => Object.values(net(g).foes[sheet]!).find((f) => f.gate)!.foes.map((f) => String(f.rank))
@@ -401,7 +404,13 @@ describe('生成：四幕（CYBERSPACE 8.8 節「一趟的結構」「和 8.1 �
   it('這一區 netrun 收得下：沒有追蹤度、熔斷（safe）、自己處理的標記（handled）', () => {
     const g = entered()
     expect((g.state.maps.instances[nrun(g).map]!.ext!.net as Rec).region).toBe('curtain')
-    expect(nrun(g).setup.region).toMatchObject({ id: 'curtain', pressure: 'none', safe: true, handled: ['a', 'b', 'c', 'f', 'p'], carve: [20, 28] })
+    // 遭遇（f）是 netrun 的（開戰與潛行繞過）；點單、賞箱、近道、條文是這個功能自己處理的
+    expect(nrun(g).setup.region).toMatchObject({ id: 'curtain', pressure: 'none', safe: true, handled: ['a', 'b', 'c', 'p'], carve: [20, 28] })
+    // 每一幕各自的數量（setup.layer_counts）
+    expect(nrun(g).setup.layer_counts).toEqual([
+      { foe: [2, 2], archive: [1, 2], person: [1, 1], safe: [0, 0] }, { foe: [2, 2], archive: [1, 2], person: [1, 1], safe: [0, 0] },
+      { foe: [2, 3], archive: [1, 2], person: [1, 1], safe: [1, 1] }, { foe: [2, 2], archive: [0, 0], person: [1, 1], safe: [0, 0] },
+    ])
     expect(meterOf(g.k, g.state, 'trace', nrun(g).map)).toBe(0)
   })
 })
@@ -506,9 +515,11 @@ describe('場熱（CYBERSPACE 8.8 節「場熱」；沒有直播，P57）', () =
     setHeat(g, 90)
     expect(run(g).encore_open).toBe(true)
     expect(curtainView(g.k, g.state)).toMatchObject({ sponsor: true, encore_open: true, cut: false })
+    // 場熱到 0：觀眾散場，netrun 以 done 收掉這一趟（掛點 netrun.finish_request），結算照提早落幕
     setHeat(g, 0)
-    expect(run(g).cut).toBe(true)
-    expect(curtainView(g.k, g.state)!.cut).toBe(true)
+    expect(nrun(g)).toBeNull()
+    expect(cur(g).run).toBeUndefined()
+    expect(resultOf(g)).toMatchObject({ early: true, outcome: 'done', prize: 0, tips: 0 })
   })
 })
 
@@ -538,28 +549,31 @@ describe('每場遭遇擲文化（CYBERSPACE 8.8 節「敵人的文化」；P58�
     expect(cultureFor(g.k, g.state, { culture: 'ca' }, 0.99)).toBe('ca')
   })
 
-  it('真的開戰：擲到這一夜的文化就是這一夜的敵人；擲到別的夜的就是別的文化的敵人（掃種子）；守閘門的那一場永遠是這一夜的', async () => {
-    const rollOf = (g: G, foe: string): number => deriveRng(g.state.rng, `curtain/culture/${run(g).id}/${g.state.maps.at!.sheet}/${foe}`).next()
+  it('生成時每場遭遇擲一次文化（掛點 netrun.foe_ref）：擲到這一夜的就是這一夜的敵人、擲到別的夜的就是別的文化的敵人（掃種子）；守閘門的那一場永遠是這一夜的；單位來源是 enemy_pick', async () => {
     const foesOf = (g: G): string[] => Object.values(g.battle!.units).filter((u) => u.side === 'foe').map((u) => String((u as Rec).enemy))
     const seen = new Set<string>()
     for (let seed = 1; seed <= 80 && seen.size < 2; seed++) {
       const g = entered({ seed }, { seed: 11 })
       const foe = plainId(g)
-      const roll = rollOf(g, foe)
-      // 0.6～0.8 是 cb、0.8 以上是 cc（沒有敵人資料，會退回這一夜的）
-      const want = roll < 0.6 ? 'ca' : roll < 0.8 ? 'cb' : null
-      if (!want || seen.has(want)) continue
+      const refs = net(g).foes.l1![foe]!.foes
+      expect(refs.every((r) => r.from === 'enemy_pick' && r.faction === 'none' && r.grade === 2)).toBe(true)
+      const cultures = new Set(refs.map((r) => String(r.culture)))
+      expect(cultures.size).toBe(1)
+      const culture = [...cultures][0]!
+      if (seen.has(culture) || !['ca', 'cb'].includes(culture)) continue
       startFight(g, foe)
       const kinds = foesOf(g)
       expect(kinds.length).toBeGreaterThan(0)
-      expect(kinds.every((id) => id.startsWith(`${want}_`)), `${seed} ${roll} ${kinds.join()}`).toBe(true)
-      seen.add(want)
+      expect(kinds.every((e) => e.startsWith(`${culture}_`)), `${seed} ${culture} ${kinds.join()}`).toBe(true)
+      seen.add(culture)
       await finish(g)
     }
     expect([...seen].sort()).toEqual(['ca', 'cb'])
     // 守閘門的那一場：每個種子都是這一夜（ca）的
     for (let seed = 1; seed <= 12; seed++) {
       const g = entered({ seed }, { seed: 11 })
+      const guard = Object.values(net(g).foes.l1!).find((f) => f.gate)!
+      expect(guard.foes.every((r) => r.culture === 'ca')).toBe(true)
       startFight(g, guardId(g))
       const kinds = foesOf(g)
       expect(kinds.length).toBeGreaterThan(0)
@@ -567,21 +581,17 @@ describe('每場遭遇擲文化（CYBERSPACE 8.8 節「敵人的文化」；P58�
     }
   })
 
-  it('擲到的文化沒有敵人資料時用這一夜的（P58）：只有 ca 的敵人時擲到 cb 也是 ca；這一夜的也沒有就開不了戰並寫原因', () => {
-    let tried = 0
-    for (let seed = 1; seed <= 40 && tried < 3; seed++) {
+  it('擲到的文化沒有敵人資料時用這一夜的（P58）：只有 ca 的敵人時擲到 cb 也是 ca；這一夜的也沒有就開不了這一趟並寫原因', () => {
+    for (let seed = 1; seed <= 8; seed++) {
       const g = entered({ seed, content: { enemy: ENEMIES.filter((e) => e.culture === 'ca') } }, { seed: 11 })
-      const foe = plainId(g)
-      const roll = deriveRng(g.state.rng, `curtain/culture/${run(g).id}/l1/${foe}`).next()
-      if (roll < 0.6) continue
-      startFight(g, foe)
-      expect(Object.values(g.battle!.units).filter((u) => u.side === 'foe').every((u) => String((u as Rec).enemy).startsWith('ca_'))).toBe(true)
-      tried++
+      for (const sheet of Object.keys(net(g).foes)) for (const f of Object.values(net(g).foes[sheet]!)) expect(f.foes.every((r) => r.culture === 'ca')).toBe(true)
     }
-    expect(tried).toBeGreaterThan(0)
-    const none = entered({ night: 'n_c' })
-    standNear(none, sheetOf(none).marker(guardId(none))!.at)
-    expect(reasonOf(() => useCurtain(none.k, none.state, 'fight', guardId(none)))).toMatch(/挑不到敵人：文化「cc」/)
+    // 這一夜（cc）的文化也沒有敵人資料：報名開不起來，錢不收，原因寫出文化
+    const none = setup({ night: 'n_c' })
+    const cashBefore = cash(none)
+    expect(reasonOf(() => none.commit(enterDraft(none.k, none.state, { party: ['pc'], night: 'n_c', seed: 11 })))).toMatch(/挑不到敵人.*文化 cc/)
+    expect(cash(none)).toBe(cashBefore)
+    expect(cur(none).run).toBeUndefined()
   })
 
   it('開戰是熔斷的場地（safe）、戰鬥的來源記著這一趟、文化與節點；敵人的等級是席次的等級', () => {
@@ -589,8 +599,25 @@ describe('每場遭遇擲文化（CYBERSPACE 8.8 節「敵人的文化」；P58�
     startFight(g, guardId(g))
     expect(g.battle!.field.safe).toBe(true)
     expect(g.battle!.mode).toBe('net')
-    expect(g.battle!.origin.ext).toMatchObject({ curtain: { run: run(g).id, guard: true, last: false, act: 0, culture: 'ca' }, net: { map: nrun(g).map, sheet: 'l1' } })
+    // 戰鬥開打時（掛點 battle.start）這個功能在 origin.ext 記上這一趟的資料、輸了走哪一件戰敗事件、熔斷的場地也演戰敗事件（defeat_play）
+    expect(g.battle!.origin.ext).toMatchObject({
+      curtain: { run: run(g).id, guard: true, last: false, act: 0 }, net: { map: nrun(g).map, sheet: 'l1' },
+      defeat_event: 'df_stage_foyer', defeat_play: true,
+    })
     expect(g.battle!.grade).toBe(2)
+  })
+
+  it('遭遇是 netrun 的：這個功能不列開戰；站在旁邊 netrun 列開戰與潛行繞過；潛行繞過過了不開戰、節點變地板', () => {
+    const g = entered({ rule: { ...QUIET, ...dcRule(1) } })
+    const f = markerBy(g, 'f')
+    standNear(g, f.at)
+    expect(curtainView(g.k, g.state)!.near.find((n) => n.marker.id === f.id)).toBeUndefined()
+    expect(reasonOf(() => useCurtain(g.k, g.state, 'fight', f.id))).toMatch(/沒有「fight」/)
+    const uses = usesOfMarker(g.k, g.state, nrun(g), net(g), g.state.maps.at!.sheet, f).map((u) => u.id)
+    expect(uses).toEqual(['fight', 'sneak'])
+    g.commit(useNode(g.k, g.state, 'sneak', f.id))
+    expect(g.battle).toBeNull()
+    expect(sheetOf(g).kindAt(...f.at)).toBe('floor')
   })
 })
 
@@ -936,9 +963,10 @@ describe('賞箱、條文、近道、獎品室', () => {
     const r = g.commit(useCurtain(g.k, g.state, 'shortcut'))[0]!
     const roll = r.timeline.find((b) => b.roll)!.roll!
     expect(roll.parts.find((p) => p.label === '員工的偽裝')!.value).toBe(4)
+    // 別的幕沒有近道的位置（每一幕各自的數量：sheet 的 b 只在寫了 shortcut 的幕）
     const first = entered()
-    standOn(first, markerBy(first, 'b').id)
-    expect(reasonOf(() => useCurtain(first.k, first.state, 'shortcut'))).toMatch(/這裡沒有/)
+    expect(marks(first, 'b')).toHaveLength(0)
+    expect(reasonOf(() => useCurtain(first.k, first.state, 'shortcut'))).toMatch(/這一格什麼都沒有|這裡沒有/)
   })
 })
 
@@ -993,7 +1021,7 @@ describe('化妝室（層與層之間）與包場', () => {
 
 describe('結算（CYBERSPACE 8.8 節「打賞」「打輸會怎樣」開頭）', () => {
   it('包廂、場熱 65、主打的夜：獎金 3,000 ＋ 打賞 3,000 × 0.35 × 1.2、保證金退回、clears +1、這一週的打賞累加', () => {
-    const g = setup({ tier: 'box', rule: QUIET })
+    const g = setup({ tier: 'box', rule: QUIET, content: { enemy: [...ENEMIES, ...ENEMIES_CC] } })
     const feature = featureOf(g.k, g.state)!.id
     g.commit(enterDraft(g.k, g.state, { party: ['pc'], night: feature, seed: 11 }))
     expect(run(g)).toMatchObject({ tier: 'box', feature: true, deposit: 1000 })
@@ -1032,23 +1060,22 @@ describe('結算（CYBERSPACE 8.8 節「打賞」「打輸會怎樣」開頭）'
     expect(cash(g) - before).toBe(900 + 270)
   })
 
-  it('提早落幕（場熱到 0）：不算戰敗，保證金退回、票根留著、沒有破關獎金、沒有打賞、不算破關', () => {
+  it('提早落幕（場熱到 0）：觀眾散場，netrun 自動以 done 收場；不算戰敗，保證金退回、票根留著、沒有破關獎金、沒有打賞、不算破關', () => {
     const g = entered({ rule: QUIET })
     standOn(g, markerBy(g, 'a').id)
     g.commit(useCurtain(g.k, g.state, 'chest'))
     const gained = stubs(g)
-    setHeat(g, 0)
-    expect(run(g).cut).toBe(true)
-    // 觀眾散場後點單與賞箱都不能再做
-    standOn(g, markerBy(g, 'p').id)
-    expect(reasonOf(() => useCurtain(g.k, g.state, 'order'))).toMatch(/散場/)
     const before = cash(g)
-    g.commit(netrunLogout(g.k, g.state))
+    setHeat(g, 0)
+    // 不必再走出去或登出：這一份報告套用之後就收場了
+    expect(nrun(g)).toBeNull()
     expect(cash(g) - before).toBe(300)
-    expect(resultOf(g)).toMatchObject({ early: true, prize: 0, tips: 0, refund: 300, stubs: gained })
+    expect(resultOf(g)).toMatchObject({ early: true, outcome: 'done', prize: 0, tips: 0, refund: 300, stubs: gained })
+    expect(reportsOf(g, 'netrun.end')).toHaveLength(1)
     expect(cur(g).member!.clears).toBe(0)
     expect(stubs(g)).toBe(gained)
     expect(cur(g).run).toBeUndefined()
+    expect(cur(g).fall).toBeUndefined()
     expect(g.pendingDefeat).toBeNull()
   })
 
@@ -1066,17 +1093,17 @@ describe('結算（CYBERSPACE 8.8 節「打賞」「打輸會怎樣」開頭）'
     expect(cur(g).week?.tips ?? 0).toBe(0)
   })
 
-  it('全隊倒下（defeat）：只記下輸在哪一幕、當時的場熱，這一趟的紀錄留給下一張（沒有結算、沒有發錢）', () => {
+  it('全隊倒下（netrun.close 的 defeat）：只記下輸在哪一幕、當時的場熱（run.lost），沒有結算、沒有發錢；之後的落幕是 M4-curtain-fall 的測試', () => {
     const g = entered({ rule: QUIET })
     toLayer(g, 1)
     setHeat(g, 44)
     const before = cash(g)
-    commit(g, [{ op: 'ext', key: 'netrun', value: { ...nrun(g), layer: 1, over: 'defeat' } as never }])
+    const out = g.k.hooks.run('netrun.close', { state: g.state, run: { ...clone(nrun(g)), layer: 1 } as never, outcome: 'defeat' }).flatMap((h) => (h.result as { changes?: Change[] } | undefined)?.changes ?? [])
+    commit(g, out)
     expect(cur(g).run).toMatchObject({ lost: { act: 1, heat: 44 } })
     expect(cur(g).run!.over).toBeUndefined()
     expect(cash(g)).toBe(before)
     expect(reportsOf(g, 'curtain.result')).toHaveLength(0)
-    expect(nrun(g)).toBeNull()
   })
 
   it('結果記著：第幾幕、場熱、打賞；結算後計數器歸零', () => {
@@ -1120,8 +1147,8 @@ describe('加演（第 5、6 幕；CYBERSPACE 8.8 節、8.2 節延長賽）', ()
     expect(heat(g)).toBe(95)
     expect(curtainView(g.k, g.state)).toMatchObject({ encore: true, act: { number: 1, total: 2, name: '加演・第五幕' } })
     // 第 5 幕：敵人的等級高一級
+    expect(Object.values(net(g).foes.l1!).every((f) => f.foes.every((r) => r.grade === 3))).toBe(true)
     startFight(g, plainId(g))
-    expect(g.battle!.grade).toBe(3)
     expect(g.battle!.origin.ext).toMatchObject({ curtain: { act: 4 } })
     await finish(g)
     // 走完加演：獎金 ×4（最後一層）、沒有保證金退回
@@ -1140,8 +1167,8 @@ describe('加演（第 5、6 幕；CYBERSPACE 8.8 節、8.2 節延長賽）', ()
     reachEnd(g)
     g.commit(encoreDraft(g.k, g.state, { seed: 21 }))
     toLayer(g, 1)
+    expect(Object.values(net(g).foes.l2!).every((f) => f.foes.every((r) => r.grade === 4))).toBe(true)
     startFight(g, plainId(g))
-    expect(g.battle!.grade).toBe(4)
     await finish(g)
     const before = cash(g)
     commit(g, [{ op: 'ext', key: 'netrun', value: { ...nrun(g), layer: 1 } as never }])
@@ -1214,16 +1241,17 @@ describe('整趟走一遍：四幕、三次化妝室、結算', () => {
     expect(v.heat).toMatchObject({ value: 30, ratio: 0.1, sponsor_at: 70, encore_at: 90 })
     expect(v.heat.bands.map((b) => [b.from, b.ratio, b.here])).toEqual([[0, 0, false], [20, 0.1, true], [40, 0.2, false], [60, 0.35, false], [80, 0.5, false]])
     expect(curtainView(setup().k, setup().state)).toBeNull()
+    // 遭遇節點不在這裡列（那是 netrun 的 netrunView.near）
     const f = markerBy(g, 'f')
     standNear(g, f.at)
-    expect(curtainView(g.k, g.state)!.near.find((n) => n.marker.id === f.id)!.uses.map((u) => u.id)).toEqual(['fight'])
+    expect(curtainView(g.k, g.state)!.near.find((n) => n.marker.id === f.id)).toBeUndefined()
   })
 
-  it('開戰要站在遭遇旁邊、守著的才算；打過的不能再開；沒有的節點寫原因', () => {
+  it('開戰要站在遭遇旁邊（netrun 的開戰）；站在旁邊以外的地方寫原因', () => {
     const g = entered()
     const f = markerBy(g, 'f')
-    expect(reasonOf(() => useCurtain(g.k, g.state, 'fight', f.id))).toMatch(/太遠|旁邊/)
-    expect(reasonOf(() => useCurtain(g.k, g.state, 'fight', 'nope'))).toMatch(/沒有「nope」/)
+    expect(reasonOf(() => useNode(g.k, g.state, 'fight', f.id))).toMatch(/太遠|旁邊/)
+    expect(reasonOf(() => useNode(g.k, g.state, 'fight', 'nope'))).toMatch(/沒有「nope」/)
     standOn(g, markerBy(g, 'a').id)
     expect(reasonOf(() => useCurtain(g.k, g.state, 'fight'))).toMatch(/沒有「fight」/)
   })

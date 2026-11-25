@@ -20,7 +20,11 @@
 // 報告：roster.join、roster.leave、roster.muster、roster.weekly（連續沒召集的忠誠）、roster.pay（改出場費或週薪）；招募走行動 npc_recruit。
 // 對外：muster、join、leave、setPay、recruitInput、recruitDc、recruitBlock、feeOf、payOf、weeklyPay、rosterCap、rosterView、candidatesOf、availability。
 //
-// 不在這裡（NPC_SYSTEM 第 10 節）：關係線的五段、被挖走、主角沉溺到 100 時的離隊、藏著沉溺的檢定、牆報徵人、拿掉人時的親密度 −5。
+// 沉溺到 100（M4-followups；NPC_SYSTEM 10.6 節）：每週結帳（time.passed）時，名冊上的人自己的沉溺到 100 就離開（原因 sunk，旗標 sunk_away:<npc>）；
+// 主角看起來的沉溺到 100（藏著的時候，這一週被召集過的人各擲一次看穿，hide 問 scan.person）：忠誠 70 以下離開（pc_sunk）、親密度 80 以上而且自己沉溺 40 以上的跟著走
+// （旗標 follows_down:<npc>）、其餘留下；只發生一次（旗標 pc_sunk_done）。「同住」還沒有狀態可以認，現在只算這一週被召集過（隊伍或同行）的人。
+//
+// 不在這裡（NPC_SYSTEM 第 10 節）：關係線的五段、被挖走、牆報徵人、拿掉人時的親密度 −5。
 
 import type { ActionInput, ActionKindEntry, Change, Condition, Effect, EffectCtx, Feature, GameState, Kernel } from '../../core'
 import { ContentError, actionKindToDef, blankState, isRecord, isSafeInt, isValidTime, meterOf } from '../../core'
@@ -32,7 +36,7 @@ import {
 
 export { DEFAULT_ROSTER_RULES, SOURCES, feeOf, mainTier, faceTier, isRunner, payOf, readRoster, recruitBlock, recruitDc, reliabilityOf, rosterCap, rosterRules, rosterSize, weeklyPay } from './model'
 export type { Candidate, CandidateSource, DcMod, Member, PathRow, PayKind, RosterRules, RosterState } from './model'
-export { join, joinBlock, joinChanges, leave, leaveChanges, memberOf, muster, musterBlocks, originRosterDrafts, setPay, weeklyDrafts } from './ops'
+export { PC_SUNK_DONE, followsDownFlag, join, joinBlock, joinChanges, leave, leaveChanges, memberOf, muster, musterBlocks, originRosterDrafts, setPay, sunkAwayFlag, weeklyDrafts } from './ops'
 export type { JoinOpts, LeaveReason, MusterInput } from './ops'
 
 /** 週薪那一筆在帳單上的 id 前綴與順序（DOWNTIME 5.1 節那張表的第 8 項） */

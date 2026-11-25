@@ -4,7 +4,8 @@
 //                           這一週的 tips 累加。場熱到過 encore 門檻、或點單全部完成：留下加演的資格。
 //   提早落幕（場熱到 0）     不算戰敗，以 done 收場：保證金退回、票根留著，沒有破關獎金與打賞，也不算破關次數。
 //   全員拔線／登出          保證金退一半、票根留著、沒有獎金與打賞。
-//   defeat（全隊倒下）       這一張只記下輸在哪一幕、當時的場熱（run.lost），其餘交給 M4-curtain-fall（落幕、補演、三條路）。
+//   defeat（全隊倒下）       只記下輸在哪一幕、當時的場熱（run.lost）；戰敗被接受之後 report.after 發 curtain.fall（fall.ts：落幕、補演、三條路、母帶）。
+//   簽著檔期（gig）          破關獎金與打賞只拿 split（四成）；保證金退回不受影響。
 // 倒下的人不加沉溺、不丟東西（熔斷的場地 region.safe；netrun 的 lossOf 只管被定位）。
 // 加演：第 5、6 幕開第二趟 netrun（兩層），敵人高一、兩級，獎金 ×2、×4，保證金不加；場熱接著原本那一趟。
 
@@ -21,7 +22,9 @@ import { patch, runPatch } from './patch'
 import { stubsOf } from './tables'
 import { draftOf } from './util'
 import { ACT_NETRUN } from './model'
+import { layerCountsOf } from './enter'
 import { nightOf } from './nights'
+import { gigMult } from './fall'
 import { hasBridge, hasDeck } from './member'
 
 interface RunLike {
@@ -74,9 +77,15 @@ export function closeRun(k: Kernel, state: GameState, run: RunLike, outcome: str
     prize = Math.round(tier.prize * mult)
     ratio = tipsRatio(rules, heat)
     tips = Math.round(prize * ratio * (r.tips_mult ?? 1) * (r.feature ? rules.feature_bonus : 1))
+    // 簽著檔期：獎金與打賞只拿 split（館六你四）
+    const split = gigMult(k, state)
+    if (split !== 1) {
+      prize = Math.round(prize * split)
+      tips = Math.round(tips * split)
+    }
     refund = kept
     if (!r.encore) clears = 1
-    lines.push(`破關了。${r.encore ? `加演的獎金 ×${mult}：` : ''}獎金 ${money(prize)}，場熱 ${heat}（打賞 ×${ratio}${r.feature ? `、主打 ×${rules.feature_bonus}` : ''}${(r.tips_mult ?? 1) !== 1 ? `、倍率 ×${r.tips_mult}` : ''}）打賞 ${money(tips)}${refund > 0 ? `，保證金 ${money(refund)} 退回` : ''}。`)
+    lines.push(`破關了。${r.encore ? `加演的獎金 ×${mult}：` : ''}獎金 ${money(prize)}，場熱 ${heat}（打賞 ×${ratio}${r.feature ? `、主打 ×${rules.feature_bonus}` : ''}${(r.tips_mult ?? 1) !== 1 ? `、倍率 ×${r.tips_mult}` : ''}）打賞 ${money(tips)}${split !== 1 ? `（簽著檔期，獎金與打賞只拿 ${Math.round(split * 100)}%）` : ''}${refund > 0 ? `，保證金 ${money(refund)} 退回` : ''}。`)
   } else {
     // 全員拔線、登出：加演的一趟走過第一幕就登出拿第一幕的獎金（沒有打賞）；基本的四幕保證金退一半
     if (r.encore && run.layer >= 1) prize = Math.round(tier.prize * (rules.encore.prize[Math.min(run.layer - 1, rules.encore.prize.length - 1)] ?? 1))
@@ -165,9 +174,10 @@ export function encoreDraft(k: Kernel, state: GameState, o: { seed?: number } = 
     encore: 1, act: rules.act_defs.length, start_heat: rec.heat, tips_mult: rec.tips_mult,
   }
   delete cur.encore
-  const origin = { by: ORIGIN_BY, ref: rec.night, ext: { curtain: { night: rec.night, tier: rec.tier, feature: rec.feature, pure_stage: rec.pure_stage, encore: 1 } } }
+  const origin = { by: ORIGIN_BY, ref: rec.night, ext: { curtain: { run: id, night: rec.night, tier: rec.tier, feature: rec.feature, pure_stage: rec.pure_stage, encore: 1 } } }
+  const encoreDefs = rules.encore.names.map((_, i) => defOf(rules, rules.act_defs.length + i))
   const setup: Record<string, unknown> = {
-    region: { ...clone(rules.region), id: REGION_ID, safe: true, pressure: 'none' }, grade: tier.grade, faction: 'none', layers: [...rules.encore.names], party,
+    region: { ...clone(rules.region), id: REGION_ID, safe: true, pressure: 'none' }, grade: tier.grade, faction: 'none', layers: [...rules.encore.names], layer_counts: layerCountsOf(encoreDefs), party,
     ...(tier.id === 'floor' ? { encounter: ['elite', 'elite', 'minion'] } : {}), ...(o.seed !== undefined ? { seed: o.seed } : {}),
   }
   const launch: Launch = { kind: ACT_NETRUN, setup, origin }

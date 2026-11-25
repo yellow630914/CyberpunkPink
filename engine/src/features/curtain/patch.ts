@@ -13,10 +13,14 @@
 //   clears      會員在這個席次的破關次數加幾
 //   tips        這一週的打賞加幾
 //   encore      可以加演的紀錄（null 是拿掉）
+//   fall        落幕之後的一筆（M4-curtain-fall）：整筆給是新增或淺合併進現有的，null 是拿掉（選了路）
+//   tab         記帳：{ delta, since? }，欠款加減（減到 0 就拿掉）
+//   gig         簽的檔期：整筆換掉，null 是拿掉
+//   tape        一支母帶：照 id 新增或換掉
 
 import type { Change, GameState, Kernel } from '../../core'
 import { clone } from '../../core'
-import type { EncoreRec, OrderRec, RunRecord } from './model'
+import type { EncoreRec, FallRecord, GigRecord, OrderRec, RunRecord, TapeRecord } from './model'
 import { EXT, isInt, readCurtain } from './model'
 
 export const PATCH_OP = 'curtain.patch'
@@ -37,6 +41,10 @@ export interface PatchChange extends Change {
   clears?: number
   tips?: number
   encore?: EncoreRec | null
+  fall?: Partial<FallRecord> | null
+  tab?: { delta: number; since?: number }
+  gig?: GigRecord | null
+  tape?: TapeRecord
 }
 
 /** 一筆 curtain.patch。 */
@@ -59,6 +67,8 @@ function validate(state: GameState, c: PatchChange): string[] {
   if (c.clears !== undefined && !cur.member) p.push('還不是會員，破關次數加不上去。')
   if (c.tips !== undefined && !(isInt(c.tips) && c.tips >= 0)) p.push('tips 要是 0 以上的整數')
   if (c.tips !== undefined && !cur.week) p.push('這一週還沒有紀錄，打賞記不上去。')
+  if (c.tab !== undefined && !isInt(c.tab.delta)) p.push('tab.delta 要是整數')
+  if (c.fall && typeof c.fall === 'object' && !cur.fall && !(c.fall.run && c.fall.stage)) p.push('現在沒有落幕之後的紀錄，只改一部分改不了。')
   return p
 }
 
@@ -90,6 +100,20 @@ function apply(state: GameState, c: PatchChange): void {
     if (c.encore === null) delete cur.encore
     else cur.encore = clone(c.encore)
   }
+  if (c.fall !== undefined) {
+    if (c.fall === null) delete cur.fall
+    else cur.fall = clone({ ...(cur.fall ?? {}), ...c.fall }) as FallRecord
+  }
+  if (c.tab !== undefined) {
+    const owed = Math.max(0, (cur.tab?.owed ?? 0) + c.tab.delta)
+    if (owed <= 0) delete cur.tab
+    else cur.tab = { owed, since: cur.tab?.since ?? c.tab.since ?? 0 }
+  }
+  if (c.gig !== undefined) {
+    if (c.gig === null) delete cur.gig
+    else cur.gig = clone(c.gig)
+  }
+  if (c.tape) cur.tapes = [...cur.tapes.filter((t) => t.id !== c.tape!.id), clone(c.tape)]
   state.ext[EXT] = clone(cur) as never
 }
 

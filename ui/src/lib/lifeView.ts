@@ -131,11 +131,11 @@ export const DEGREE_NAME: Record<Degree, string> = { critical: '大成功', succ
 export const pctText = (p: number): string => `${Math.round(p * 100)}%`
 
 export interface NeedRow { label: string; have: number; need: number; ok: boolean }
-/** 升階的條件（做滿幾班、雇主的親密度、另外的條件）每一項的進度；達到了標 ok */
+/** 升階的條件（累計做滿幾小時、雇主的親密度、另外的條件）每一項的進度；達到了標 ok（不看班數：DOWNTIME 4.1a） */
 export function needRows(n: NeedProgress | null): NeedRow[] {
   if (!n) return []
   return [
-    { label: '做滿的班數', have: n.shifts.have, need: n.shifts.need, ok: n.shifts.ok },
+    { label: '累計做滿的小時數', have: n.hours.have, need: n.hours.need, ok: n.hours.ok },
     { label: '雇主的親密度', have: n.affinity.have, need: n.affinity.need, ok: n.affinity.ok },
   ]
 }

@@ -128,7 +128,7 @@ describe('白箱 結算與接受結果（COMBAT_SYSTEM 8.3、8.4 節；dev/adr/0
     expect(reports[1]!.outcome.summary).toBe('只有一種寫法。')
   })
 
-  it('接受結果：fails_commission 是 false 的摘要說委託還在；事件不在內容裡丟錯；效果有問題丟錯並寫出哪一條', async () => {
+  it('接受結果：fails_commission 是 false 的摘要說委託還在；事件不在內容裡丟錯；效果有問題在載入時就丟錯並寫出哪一件', async () => {
     const { game } = await lose([ev({ id: 'df_ok2', factions: ['nora'], versions: { default: { text: '無事。', effects: [] } } })])
     const [r] = game.commit(acceptDefeat(game.k, game.state))
     expect(r!.outcome.summary).toBe('你接受了這個結果。這一趟的委託還在。')
@@ -136,9 +136,8 @@ describe('白箱 結算與接受結果（COMBAT_SYSTEM 8.3、8.4 節；dev/adr/0
     const lost = await lose([ev({ id: 'df_ok3', factions: ['nora'] })])
     lost.game.state.ext.defeat = { ...(defeatOf(lost.game.state) as object), event: 'df_gone' }
     expect(() => acceptDefeat(lost.game.k, lost.game.state)).toThrow(/戰敗事件 df_gone 不在內容裡/)
-    const bad = await lose([ev({ id: 'df_bad', factions: ['nora'], versions: { default: { text: '壞的。', effects: [{ kind: 'no_such_effect' }] } } })])
-    expect(defeatOf(bad.game.state)).toMatchObject({ event: 'df_bad' })
-    expect(() => acceptDefeat(bad.game.k, bad.game.state)).toThrow(/戰敗事件 df_bad 的效果有問題/)
+    // 效果的種類沒有人註冊（沒裝提供它的功能）：載入時就被擋下，訊息指出是哪一件事件（M4-followups；以前要等到接受那一步才丟錯）
+    await expect(lose([ev({ id: 'df_bad', factions: ['nora'], versions: { default: { text: '壞的。', effects: [{ kind: 'no_such_effect' }] } } })])).rejects.toThrow(/defeat_event\/df_bad/)
   })
 
   it('接受結果：報告把開打前的快照丟掉（才算選完）、清掉 ext；沒有等待中的戰敗丟錯', async () => {

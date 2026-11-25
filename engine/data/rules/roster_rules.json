@@ -27,6 +27,18 @@
     "low_loyalty_min": 20,
     "low_loyalty_max": 39,
     "reliability_min": 30,
-    "reliability_max": 80
+    "reliability_max": 80,
+    "sink_away_at": 100,
+    "pc_sunk_at": 100,
+    "pc_sunk_leave": 70,
+    "follow_affinity": 80,
+    "follow_sink": 40,
+    "see_skills": [
+      "investigate",
+      "streetwise"
+    ],
+    "see_base": 10,
+    "see_per_affinity": 20,
+    "see_per_hide": 2
   }
 ]

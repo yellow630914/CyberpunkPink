@@ -34,7 +34,7 @@ async function shift(job: string, hours: number) {
 
 <template>
   <Dialog :entry-id="entryId" :stacked="stacked" title="打工" :sub="jobs[0]?.facility ?? ''" size="lg">
-    <template #header><Hint title="打工">一班 2、4 或 8 小時，花的是遊戲裡的時間。有檢定的工作照成功程度領錢：大成功多一半、失敗只有一半、大失敗領不到還會讓雇主不高興。做滿班數、雇主親密度到了就會問你要不要升階。</Hint></template>
+    <template #header><Hint title="打工">一班 2、4、6 或 8 小時，花的是遊戲裡的時間。有檢定的工作照成功程度領錢：大成功多一半、失敗只有一半、大失敗領不到還會讓雇主不高興。做滿班數、雇主親密度到了就會問你要不要升階。</Hint></template>
     <div v-if="lock" class="blocking" data-lock>{{ lock }}</div>
     <div v-if="!jobs.length" class="empty-note">這裡沒有可以打的工。</div>
     <section v-for="j in jobs" :key="j.id" class="panel cut pad job" :data-job="j.id">
@@ -42,7 +42,7 @@ async function shift(job: string, hours: number) {
         <b class="jn">{{ j.name }}</b>
         <span v-if="j.employer" class="tag">雇主：{{ j.employer.name }}・親密度 {{ j.employer.affinity }}</span>
         <span class="tag">付<MoneyTag :kind="moneyKind(j.pay)" icon-only :size="12" /></span>
-        <span class="tag">做滿 {{ j.shifts }} 班</span>
+        <span class="tag">累計 {{ j.hours }} 小時（{{ j.shifts }} 班）</span>
         <span v-if="j.check" class="tag" data-check>檢定：{{ nm('attribute', j.check.attr) }}<template v-if="j.check.skill">・{{ nm('skill', j.check.skill) }}</template> DC {{ j.check.dc }}（加值 {{ j.check.bonus >= 0 ? '+' : '' }}{{ j.check.bonus }}）</span>
         <span v-else class="tag">不用檢定</span>
       </header>

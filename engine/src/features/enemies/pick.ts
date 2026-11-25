@@ -1,10 +1,11 @@
 // 照勢力、等級、位階挑一個兵種（來源 enemy_pick；dev/work/M2-enemy-encounter.md 第一、二項）。
 // 別的功能（委託的副本、生成委託）只說「這個勢力、這一級、這個位階」就拿得到一個敵人：
-//   { from: 'enemy_pick', faction, grade, rank, seed?, attached? }
+//   { from: 'enemy_pick', faction, grade, rank, seed?, attached?, culture? }
 // - 候選：這個勢力、這個位階、等級範圍含這一級的制式兵種（不含具名、不含掛在格上的一台、不含蕾絲／程式／機甲）。
 //   沒有任何一個範圍含這一級時，照最近的一級（ENEMIES 1.6 節、dev/adr/0013 D5）：範圍離這一級最近的那幾個兵種。
 // - 亂數是 deriveRng(state.rng, 'enemy_pick/<seed>')：同一個狀態、同一個 seed 永遠挑到同一個（候選照 id 排好再抽）。
 //   沒寫 seed 時是空字串；同一場要挑好幾個時每一個給不同的 seed（委託的副本用「委託、階段、第幾個」）。
+// - culture（選填；簾後館每場遭遇擲到的文化，M4-curtain-fall）：只挑資料裡 culture 是這個值的兵種，勢力不看（館方的敵人 faction 寫 none，文化才是出身）；其餘規則一樣。
 // - 挑到之後的單位就是 enemy 來源做出來的（數值、站位、附屬單位 attached 都一樣）；等級夾在這個兵種的範圍裡（照最近的那一級算數值）。
 // - 挑不到丟錯，訊息寫出勢力、等級、位階三個條件；pickProblems 讓生成委託的功能在生成時先問，免得開打才發現挑不到。
 // 內海（M3-lace）：戰場是內海時候選換成網內的兵種：那個勢力、位階對、kind 是 lace、program 或寫了 constructs 的（不含具名、機甲、掛在格上的一台）；
@@ -28,6 +29,8 @@ export interface PickSpec {
   field?: 'meat' | 'net'
   /** 內海：只挑這個顏色的蕾絲 */
   color?: (typeof LACE_COLORS)[number]
+  /** 只挑這個文化的兵種（資料的 culture 欄位）；寫了就不看勢力 */
+  culture?: string
 }
 
 /** 位階的名字（訊息用）。 */
@@ -38,7 +41,7 @@ const NOT_FIELD_KINDS: readonly string[] = ['lace', 'program', 'mech']
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v)
 
 /** 三個條件的寫法（訊息用）。 */
-const describe = (s: PickSpec): string => `勢力 ${s.faction}、等級 ${s.grade}、位階 ${RANK_NAME[s.rank] ?? s.rank}（${s.rank}）${s.field === 'net' ? '、內海' : ''}${s.color ? `、顏色 ${s.color}` : ''}`
+const describe = (s: PickSpec): string => `勢力 ${s.faction}、等級 ${s.grade}、位階 ${RANK_NAME[s.rank] ?? s.rank}（${s.rank}）${s.field === 'net' ? '、內海' : ''}${s.color ? `、顏色 ${s.color}` : ''}${s.culture ? `、文化 ${s.culture}` : ''}`
 
 /** 這一級離兵種的範圍有多遠：在範圍裡是 0。 */
 const distance = (e: EnemyEntry, grade: number): number => (grade < e.grades[0] ? e.grades[0] - grade : grade > e.grades[1] ? grade - e.grades[1] : 0)
@@ -51,6 +54,7 @@ function specProblems(s: Partial<PickSpec>): string[] {
   if (!(UNIT_RANKS as readonly unknown[]).includes(s.rank)) p.push(`rank 只能是 ${UNIT_RANKS.join('、')}`)
   if (s.field !== undefined && s.field !== 'meat' && s.field !== 'net') p.push("field 只能是 'meat' 或 'net'")
   if (s.color !== undefined && !(LACE_COLORS as readonly unknown[]).includes(s.color)) p.push(`color 只能是 ${LACE_COLORS.join('、')}`)
+  if (s.culture !== undefined && !(typeof s.culture === 'string' && s.culture.trim())) p.push('culture 要是文化的標籤（文字）')
   return p
 }
 
@@ -66,10 +70,13 @@ export function pickCandidates(k: Cx, spec: PickSpec): string[] {
   for (const raw of k.content.list<EnemyEntry>('enemy')) {
     const e = resolveEnemy(k.content, raw.id)
     if (e.rank !== spec.rank || e.named || isOverlay(e)) continue
+    if (spec.culture !== undefined && e.culture !== spec.culture) continue
     // 現實不挑蕾絲、程式、機甲；內海挑蕾絲、程式與寫了 constructs 的（不含機甲）
     if (net ? e.kind === 'mech' || !netCapable(e) || (spec.color !== undefined && e.color !== spec.color) : NOT_FIELD_KINDS.includes(e.kind)) continue
     pool.push({ id: raw.id, faction: e.faction, gap: distance(e, spec.grade) })
   }
+  // 指定了文化：文化就是出身，不看勢力
+  if (spec.culture !== undefined) return nearest(pool)
   // 內海：這個勢力一個網內的兵種都沒有，就退到沒有勢力的
   const own = pool.filter((x) => x.faction === spec.faction)
   const list = own.length || !net ? own : pool.filter((x) => x.faction === 'none')
@@ -105,11 +112,11 @@ export function enemyPickUnit(k: Cx, state: GameState, ref: Record<string, unkno
   const seed = ref.seed === undefined ? '' : typeof ref.seed === 'string' || typeof ref.seed === 'number' ? String(ref.seed) : undefined
   if (seed === undefined) throw new Error('enemy_pick 的 seed 要是字串或數字')
   const field = ctx.mode !== undefined && modeOf(k.content, ctx.mode)?.layer === 'net' ? 'net' : 'meat'
-  const spec = { faction: ref.faction, grade: ref.grade, rank: ref.rank, field, ...(ref.color !== undefined ? { color: ref.color } : {}) } as PickSpec
+  const spec = { faction: ref.faction, grade: ref.grade, rank: ref.rank, field, ...(ref.color !== undefined ? { color: ref.color } : {}), ...(ref.culture !== undefined ? { culture: ref.culture } : {}) } as PickSpec
   const id = pickEnemy(k, state, spec, seed)
   const e = resolveEnemy(k.content, id)
   // 等級夾在這個兵種的範圍裡：範圍以外照最近的那一級算數值（D5）
   const grade = Math.min(e.grades[1], Math.max(e.grades[0], spec.grade))
-  const { faction: _f, rank: _r, seed: _s, from: _from, ...rest } = ref
+  const { faction: _f, rank: _r, seed: _s, from: _from, culture: _c, ...rest } = ref
   return enemyUnit(k, state, { ...rest, id, grade }, ctx)
 }

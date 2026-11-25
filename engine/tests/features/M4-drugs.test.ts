@@ -54,7 +54,7 @@ const ITEMS: Rec[] = [
   item('it_sink', '沉溺藥', { duration: { minutes: 60 }, instant: [{ kind: 'sink', amount: 1 }] }),
 ]
 const STATUS = (id: string, name: string, over: Rec = {}): Rec => ({ id, name, desc: `${name}。`, until: 'battle_end', kind: 'wound', ...over })
-const STATUSES = [STATUS('limb_hurt', '肢體受創'), STATUS('dazed', '暈眩'), STATUS('bleeding', '流血')]
+const STATUSES = [STATUS('limb_hurt', '肢體受創'), STATUS('dazed', '暈眩'), STATUS('bleeding', '流血'), STATUS('pump_jam', '斷藥')]
 
 const pack = (patch: (c: Record<string, Rec[]>) => void = () => {}): ContentPack => {
   const c: Record<string, Rec[]> = {
@@ -355,6 +355,23 @@ describe('戰鬥藥：一場戰鬥的藥、在戰鬥中吃', () => {
     expect(ext(g).active).toEqual([{ id: 'it_stim', until: START + 10, battle: true }])
     // 隊友沒吃，什麼都沒有
     expect(ext(g, 'mate').addiction).toEqual({})
+  })
+
+  it('斷藥（狀態 pump_jam，M4-followups）：這一場吃的藥的修正暫停、每回合維持的感載也暫停；狀態一過又回來', () => {
+    const g = make()
+    g.startBattle(setup())
+    toTurn(g, 'a1')
+    eatInBattle(g)
+    expect(hit(g)).toContainEqual(['drug', 1])
+    const jam = { id: 'pump_jam', until: { at: 'battle_end' } } as never
+    unit(g, 'a1').statuses.push(jam)
+    expect(hit(g).filter(([s]) => s === 'drug')).toEqual([])
+    // 斷藥中輪到自己的回合：維持的感載不加
+    act(g, { action: 'end_turn' })
+    toTurn(g, 'a1')
+    expect(unit(g, 'a1').load!.now).toBe(0)
+    unit(g, 'a1').statuses = unit(g, 'a1').statuses.filter((s) => s.id !== 'pump_jam')
+    expect(hit(g)).toContainEqual(['drug', 1])
   })
 
   it('同一場吃兩劑：效果不疊加（命中只 +1）、成癮加兩次；戰鬥外已經生效的同一種藥，戰鬥中再吃不重複算', async () => {

@@ -9,13 +9,27 @@
 
 import type { ActorId, Change, GameState, Kernel, Origin, ReportDraft } from '../../core'
 import { ActionBlocked, clone, formatAmount } from '../../core'
-import type { TierDef, TierId } from './model'
+import type { ActDef, TierDef, TierId } from './model'
 import { ACT_NETRUN, ENTER_ACTION, ORIGIN_BY, REGION_ID, curtainChange, curtainRules, nowOf, readCurtain, tierIndex, tierOf } from './model'
+import { defOf } from './ctx'
+import { doorBlock } from './door'
+import { gigSlot, tabCap } from './fall'
 import type { NightRow } from './nights'
 import { nightOf, nightPool, rollNight, weekOf } from './nights'
 import { hasBridge, hasDeck } from './member'
 
 const NOT_OPEN = '簾後館現在沒有開放。'
+
+/** 每一幕各自放的東西（netrun 的 setup.layer_counts）：遭遇與賞箱照這一幕的數字、點單（終幕是獎品室）有就一個、後台的近道只放在寫了 shortcut 的幕；條文照區的規則表。 */
+export function layerCountsOf(defs: readonly ActDef[]): Array<Record<string, [number, number]>> {
+  return defs.map((d) => ({
+    foe: [...d.encounters] as [number, number], archive: [...d.chests] as [number, number],
+    person: d.orders[1] > 0 ? ([...d.orders] as [number, number]) : d.prize_room ? [1, 1] : [0, 0], safe: d.shortcut ? [1, 1] : [0, 0],
+  }))
+}
+
+/** 基本的幾幕（加演的另外）。 */
+export const baseActs = (rules: ReturnType<typeof curtainRules>): ActDef[] => rules.act_defs.map((_, i) => defOf(rules, i))
 
 export interface EnterOpts {
   /** 這一趟坐哪一個席次（不能高過會員的席次；沒寫是會員自己的席次） */
@@ -86,6 +100,14 @@ export function enterBlocks(k: Kernel, state: GameState, o: EnterOpts): string[]
       if (!hasDeck(k, state, id)) p.push(`${a.name}沒有自己的甲板：館方不租甲板，也不發比賽版構裝。`)
     }
   }
+  // 落幕之後要先處理完：補演（喊停或演完）、再選一條路；欠款到上限也不能再報名；簽著檔期不擋（反而每週要上）
+  if (cur.fall) p.push(cur.fall.stage === 'replay' ? '落幕之後的補演還沒結束：先喊停，或把補演演完，再選一條路處理設備費與違約金。' : '落幕之後要先選一條路（付清、記帳或簽檔期），才能再報名。')
+  if (m && !m.suspended && cur.tab) {
+    const cap = tabCap(rules, tier ?? tierOf(rules, m.tier) ?? rules.tiers[0]!)
+    if (cur.tab.owed >= cap) p.push(`欠簾後館的 C$${formatAmount(cur.tab.owed)} 已經到了上限（保證金的 ${rules.fall.tab.cap_mult} 倍，C$${formatAmount(cap)}）：先還清才能再報名。`)
+  }
+  const door = doorBlock(k, state)
+  if (door) p.push(door)
   if (m && !m.suspended) {
     const week = weekOf(k, state)
     const tonight = week.runs[String(nightOf(k, state))] ?? 0
@@ -124,6 +146,9 @@ export function enterDraft(k: Kernel, state: GameState, o: EnterOpts): ReportDra
   const id = `q${state.seq.uid + 1}`
   const cur = readCurtain(state)
   const week = weekOf(k, state)
+  // 簽著檔期：這一場算這個星期上過一場
+  const slot = gigSlot(k, state)
+  if (cur.gig && slot !== null) cur.gig.shows[String(slot)] = (cur.gig.shows[String(slot)] ?? 0) + 1
   week.runs[String(day)] = (week.runs[String(day)] ?? 0) + 1
   week.drawn[String(day)] = [...(week.drawn[String(day)] ?? []), night.id]
   cur.week = week
@@ -135,10 +160,10 @@ export function enterDraft(k: Kernel, state: GameState, o: EnterOpts): ReportDra
   if (rolled) changes.push({ op: 'rng', advance: 1 })
   changes.push(curtainChange(cur))
 
-  const extra = { night: night.id, tier: tier.id, feature: night.feature, pure_stage: pool.pure_stage }
+  const extra = { run: id, night: night.id, tier: tier.id, feature: night.feature, pure_stage: pool.pure_stage }
   const origin: Origin = { by: ORIGIN_BY, ref: night.id, ext: { curtain: extra } }
   const setup: Record<string, unknown> = {
-    region: { ...clone(rules.region), id: REGION_ID, safe: true, pressure: 'none' }, grade: tier.grade, faction: 'none', layers: [...rules.acts], party,
+    region: { ...clone(rules.region), id: REGION_ID, safe: true, pressure: 'none' }, grade: tier.grade, faction: 'none', layers: [...rules.acts], layer_counts: layerCountsOf(baseActs(rules)), party,
     // 散座的終幕由中頭目守（首領「主持」只在包廂與貴賓席）：每一層守閘門的都用精英的組合
     ...(tier.id === 'floor' ? { encounter: ['elite', 'elite', 'minion'] } : {}),
     ...(o.seed !== undefined ? { seed: o.seed } : {}),

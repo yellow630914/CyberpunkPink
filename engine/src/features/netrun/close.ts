@@ -108,9 +108,11 @@ export function onDefeatAccepted(k: Kernel, state: GameState, origin: Origin, re
   const run = readRun(state)
   const net = isRecord(origin.ext) ? origin.ext.net : undefined
   if (!run || !isRecord(net) || net.run !== run.id) return undefined
+  // 熔斷的場地也演戰敗事件（origin.ext.defeat_play：簾後館的落幕）：倒下的人不丟東西、不被讀走記憶庫（館方把身上的寄存在櫃台）
+  const staged = isRecord(origin.ext) && origin.ext.defeat_play === true
   // 帶出去才算數：沒有回到快照的才丟（自己的那一趟；不算委託失敗的戰敗）。算委託失敗的回到進副本之前，東西本來就不在
-  const loss = run.kind === ACT_NET || result.fails_commission !== true ? lossOf(k, state, run) : null
-  const closed = closeHooks(k, state, run, 'defeat', loss?.lost, true)
+  const loss = staged ? null : run.kind === ACT_NET || result.fails_commission !== true ? lossOf(k, state, run) : null
+  const closed = closeHooks(k, state, run, 'defeat', loss?.lost, !staged)
   // 自己去挖的子網戰敗被接受：一樣留著（被定位的戰敗另外加敵對值、清後門）
   const kept = digLeave(k, state, run, traceOf(k, state, run), result.located === true)
   const lines = [...closed.lines, ...(loss?.lines ?? []), ...(kept?.lines ?? [])]
@@ -239,6 +241,8 @@ export function afterReport(k: Kernel, state: GameState, report: Report): Report
   if (!run || state.battle || k.activity.active(state).some((a) => a.kind === 'defeat')) return undefined
   if (run.over) return [closeDraft(k, state, run, run.over, 'netrun.logout')]
   if (run.goal.done === true) return [closeDraft(k, state, run, 'done', 'netrun.end')]
+  // 別的功能要求收掉這一趟（簾後館：場熱到 0）：和走完出口一樣以 done 收場
+  if (k.hooks.run('netrun.finish_request', { state, run: clone(run) }).some((h) => h.result === true)) return [closeDraft(k, state, run, 'done', 'netrun.end')]
   if (run.located === 0) return [closeDraft(k, state, run, 'located', 'netrun.located')]
   const t = thresholdDraft(k, state, run)
   return t ? [t] : undefined

@@ -8,18 +8,18 @@
 //   job       { id, name, facility, district?, employer?: npc, check?: { attr, skill?, dc }, wage, pay: 'cred' | 'cash',
 //               days?: { weekday?: [0～6], time?: [時段] }, perks?: 效果[], stages: [{ name, mult, perks?, need?, adult?, tags? }],
 //               modes?, cut?, wage_formula? }（M4-venues）
-//             modes  { [模式 id]: { name, wage, check?: 同 job.check | false, tags?, perks?, amnesia?, every?: [{ shifts, effects }] } }：
+//             modes  { [模式 id]: { name, wage, check?: 同 job.check | false, tags?, perks?, amnesia?, every?: [{ hours, effects }] } }：
 //                    有 modes 的工作上班前要選一種（人偶館的戴晶片與清醒）；時薪、檢定、附帶的效果照那個模式的；tags 被篩選關掉的模式不列；
-//                    amnesia 的那一班結算報告的 outcome 多 amnesia: true、結果只有兩句；every 是「這個模式每做滿幾班」給一次的效果（P63）
+//                    amnesia 的那一班結算報告的 outcome 多 amnesia: true、結果只有兩句；every 是「這個模式每累計做滿幾小時」給一次的效果（P63；使用者 2026-11-25：升階與這類都看累計時數，不看班數）
 //             cut    { house: 0～1, rent?: 每班的租金 }：店家抽幾成、晶片的租金；wage 寫的是客人付給店家的每小時；沒寫 cut 的工作 wage 是自己拿到的
 //             wage_formula  { base, add: [{ stat?, meter?, div }] }：公式型的時薪（第七棚）；每一項查得到才加，查不到當 0；無條件捨去
 //             facility 寫設施的種類（facility_type 的 id），或寫某一間：「街區 id/標記 id」（例：b_hive/F2；所以種類的 id 不能有斜線）；
 //             check 沒寫就是不擲（當成功）；dc 是整數或階梯的名字（easy、normal……）；
-//             stages 兩個或三個，第一個沒有 need，其餘都要有 need: { shifts, affinity, extra?: 條件 }（shifts 是這份工作總共做滿幾班）；
+//             stages 兩個或三個，第一個沒有 need，其餘都要有 need: { hours, affinity, extra?: 條件 }（hours 是這份工作累計做滿幾小時：第二階 30、第三階 72，DOWNTIME 4.1a；不看班數，免得用很短的班刷次數）；
 //             adult 與 tags：這個階段用到的題材；tags 裡有被玩家關掉的，這一階不問、停在前一階
 //   work_rule { id: 'default', hours, degree_mult, fumble_affinity }：蓋掉下面 DEFAULT_WORK_RULES 的數字
 //
-// 狀態 state.ext.work：{ jobs: { [工作 id]: { shifts, stage, asked, last, modes } }, announce }（形狀見 WorkState；modes 是每個模式做了幾班）。
+// 狀態 state.ext.work：{ jobs: { [工作 id]: { shifts, minutes, stage, asked, last, modes } }, announce }（形狀見 WorkState；shifts 是班數，minutes 是累計分鐘，升階看它；modes 是每個模式累計的分鐘）。
 
 import type { Condition, ContentEntry, Degree, GameState, Kernel, SegmentId, Weekday } from '../../core'
 import { ATTR_IDS, DC_TIERS, SEGMENT_IDS, isRecord, isSafeInt, segmentOf, segmentWeekdayOf, tagsAllowed } from '../../core'
@@ -51,8 +51,8 @@ const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFin
 // ---- 內容的型別 ----
 
 export interface StageNeed {
-  /** 這份工作總共做滿幾班 */
-  shifts: number
+  /** 這份工作累計做滿幾小時（升階看累計時數，不看班數；DOWNTIME 4.1a：30、72） */
+  hours: number
   /** 雇主的親密度到幾 */
   affinity: number
   /** 另外的條件（那一區的豔名、某個標籤、或一件事件做過） */
@@ -76,9 +76,9 @@ export interface JobCheck {
   dc: number | keyof typeof DC_TIERS
 }
 
-/** 每做滿幾班給一次的效果（人偶館戴晶片：每 3 班馴化 +1、每 5 班沉溺 +1，是資料）。 */
+/** 這個模式每累計做滿幾小時給一次的效果（人偶館戴晶片：每 18 小時馴化 +1、每 30 小時沉溺 +1，是資料）；一班跨過好幾個倍數就給好幾次。 */
 export interface ModeEvery {
-  shifts: number
+  hours: number
   effects: Array<Record<string, unknown>>
 }
 
@@ -127,7 +127,7 @@ export interface JobEntry extends ContentEntry {
 // ---- 規則 ----
 
 export interface WorkRules {
-  /** 一班可以選幾小時（DOWNTIME 4.2、EVENTS 3.3：2、4、8） */
+  /** 一班可以選幾小時（DOWNTIME 4.2：2、4、6、8；使用者 2026-11-25） */
   hours: number[]
   /** 成功程度的倍率（DOWNTIME 4.2） */
   degree_mult: Record<Degree, number>
@@ -136,7 +136,7 @@ export interface WorkRules {
 }
 
 export const DEFAULT_WORK_RULES: WorkRules = {
-  hours: [2, 4, 8],
+  hours: [2, 4, 6, 8],
   degree_mult: { critical: 1.5, success: 1, fail: 0.5, fumble: 0 },
   fumble_affinity: 3,
 }
@@ -241,11 +241,12 @@ export function jobProblems(e: Record<string, unknown>): string[] {
         if (d.perks !== undefined && !isEffectList(d.perks)) p.push(`${at}.perks 要是效果（物件，要有 kind）的陣列`)
         if (d.amnesia !== undefined && typeof d.amnesia !== 'boolean') p.push(`${at}.amnesia 要是 true 或 false`)
         if (d.every !== undefined) {
-          if (!Array.isArray(d.every)) p.push(`${at}.every 要是 [{ shifts, effects }]`)
+          if (!Array.isArray(d.every)) p.push(`${at}.every 要是 [{ hours, effects }]`)
           else {
             d.every.forEach((x, i) => {
-              if (!isRecord(x)) return void p.push(`${at}.every[${i}]：要是 { shifts, effects }`)
-              if (!(isSafeInt(x.shifts) && x.shifts >= 1)) p.push(`${at}.every[${i}].shifts 要是 1 以上的整數`)
+              if (!isRecord(x)) return void p.push(`${at}.every[${i}]：要是 { hours, effects }`)
+              if (x.shifts !== undefined) p.push(`${at}.every[${i}].shifts：改成 hours（累計小時；不看班數）`)
+              else if (!(isSafeInt(x.hours) && x.hours >= 1)) p.push(`${at}.every[${i}].hours 要是 1 以上的整數（累計小時）`)
               if (!isEffectList(x.effects)) p.push(`${at}.every[${i}].effects 要是效果（物件，要有 kind）的陣列`)
             })
           }
@@ -277,9 +278,10 @@ export function jobProblems(e: Record<string, unknown>): string[] {
     if (s.tags !== undefined && !(Array.isArray(s.tags) && s.tags.every(isText))) p.push(`${at}.tags 要是標籤的陣列`)
     if (i === 0) {
       if (s.need !== undefined) p.push(`${at}：第一個階段一開始就是，不能有 need`)
-    } else if (!isRecord(s.need)) p.push(`${at}：要有 need: { shifts, affinity }（怎麼升上來）`)
+    } else if (!isRecord(s.need)) p.push(`${at}：要有 need: { hours, affinity }（怎麼升上來）`)
     else {
-      if (!(isSafeInt(s.need.shifts) && s.need.shifts >= 1)) p.push(`${at}.need.shifts 要是 1 以上的整數`)
+      if (s.need.shifts !== undefined) p.push(`${at}.need.shifts：改成 hours（累計小時，升階不看班數）`)
+      else if (!(isSafeInt(s.need.hours) && s.need.hours >= 1)) p.push(`${at}.need.hours 要是 1 以上的整數（累計做滿幾小時）`)
       if (!(isSafeInt(s.need.affinity) && s.need.affinity >= -100 && s.need.affinity <= 100)) p.push(`${at}.need.affinity 要是 −100～100 的整數`)
       if (s.need.extra !== undefined && !(isRecord(s.need.extra) || (Array.isArray(s.need.extra) && s.need.extra.every(isRecord)))) p.push(`${at}.need.extra 要是條件（或條件的陣列）`)
     }
@@ -307,12 +309,14 @@ export interface LastShift {
 export interface JobState {
   /** 這份工作做滿了幾班 */
   shifts: number
+  /** 這份工作累計做了多少分鐘（升階看它） */
+  minutes: number
   /** 升到第幾階段（從 0 起算） */
   stage: number
   /** 這一階升階的事件問過了沒有（升了之後重新算） */
   asked: boolean
   last: LastShift | null
-  /** 每個模式做了幾班（有 modes 的工作才有這一格；沒做過就沒有） */
+  /** 每個模式累計做了多少分鐘（有 modes 的工作才有這一格；沒做過就沒有） */
   modes?: Record<string, number>
 }
 
@@ -322,7 +326,7 @@ export interface WorkState {
   announce: { job: string; from: number; to: number } | null
 }
 
-export const blankJob = (): JobState => ({ shifts: 0, stage: 0, asked: false, last: null })
+export const blankJob = (): JobState => ({ shifts: 0, minutes: 0, stage: 0, asked: false, last: null })
 export const blankWork = (): WorkState => ({ jobs: {}, announce: null })
 
 function readLast(raw: unknown): LastShift | null {
@@ -343,6 +347,7 @@ export function readWork(state: Pick<GameState, 'ext'>): WorkState {
       if (!isRecord(j)) continue
       jobs[id] = {
         shifts: isSafeInt(j.shifts) && j.shifts > 0 ? j.shifts : 0,
+        minutes: isSafeInt(j.minutes) && j.minutes > 0 ? j.minutes : 0,
         stage: isSafeInt(j.stage) && j.stage > 0 ? j.stage : 0,
         asked: j.asked === true,
         last: readLast(j.last),

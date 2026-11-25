@@ -16,7 +16,8 @@
 //   格子  站上節點的探索回合（k.grid.onEnter）、遭遇節點與單向鏈路的放行（passRule）、這一格能做的事（usesOf）
 //   戰鬥  k.battle.onEnd：只認 origin.ext.net.run 是這一趟的（贏了節點變地板、追蹤度寫回量表、全員拔線收尾）
 //   掛鉤  report.after（門檻、通過、被定位、全員拔線之後的收尾）、activity.end（戰敗被接受：只收掉這一趟，不另外發 activity.end）、time.passed（自己去挖的子網留著過期的清掉）
-//   掛點  netrun.round、netrun.close（這個功能宣告，之後的區回答）
+//   掛點  netrun.round、netrun.close（這個功能宣告，之後的區回答）；M4-curtain-fall 加的：netrun.finish_request（別的功能要求以 done 收掉這一趟，簾後館場熱到 0）、
+//         netrun.foe_ref（生成時發起的功能蓋在每隻遭遇的敵人 UnitRef 上的欄位：單位來源、等級、文化）；設定多 layer_counts（每一層一份密度）
 // 對外：netrunView、useNode、nodeUses、freeUses（不在哪一格都能做的：擦痕跡、留後門）、descend、logout、lossOf、tickRun。
 
 import type { Feature, Kernel } from '../../core'

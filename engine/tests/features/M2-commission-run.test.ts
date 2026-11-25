@@ -313,10 +313,10 @@ describe('進去之後只放行副本裡的事（白名單）', () => {
     expect(() => commitAs(game, 'commission.test')).not.toThrow()
   })
 
-  it('清單就是工單寫的那十五項（十七項拿掉 rewind:stage、rewind:entry），一項不多（忘了登記的新功能在副本裡就是用不了）', () => {
+  it('清單就是工單寫的那十五項（十七項拿掉 rewind:stage、rewind:entry）加上 M4 的吃藥與急救兩項，一項不多（忘了登記的新功能在副本裡就是用不了）', () => {
     expect([...COMMISSION_ALLOW].sort()).toEqual([
       'battle.', 'battle.retry', 'chain:battle_end', 'chain:free_action', 'commit:battle.', 'commit:capture.', 'commit:commission.', 'commit:defeat.', 'commit:event.', 'commit:gear.',
-      'commit:grid.', 'event.start', 'grid.', 'scene.start', 'commit:scene.',
+      'commit:grid.', 'event.start', 'grid.', 'scene.start', 'commit:scene.', 'commit:drug.', 'commit:medical.',
     ].sort())
   })
 })
@@ -1222,5 +1222,33 @@ describe('內容的格式（commission 這種內容）', () => {
     const t0 = minutes(game)
     await playFight(game)
     expect(minutes(game)).toBe(t0 + 60)
+  })
+})
+
+describe('竊聽花（M4-followups）：條件 malware_leak 成立時，警戒起始值上升', () => {
+  const LEAK: Feature = {
+    id: 'leak_stub',
+    install(k) {
+      k.conditions.register({ kind: 'malware_leak', owner: 'leak_stub', validate: () => [], test: (_c, { state }) => state.flags.leak === true })
+    },
+  }
+
+  it('身上有竊聽花：進副本時警戒起始值加 leak_alert（預設 10）；沒有就是 0；沒有人註冊條件的局照舊', () => {
+    const { game } = setup({ features: [LEAK] })
+    enter(game)
+    expect(runOf(game).alert).toBe(0)
+    const leaky = setup({ features: [LEAK], patch: { flags: { leak: true } } as never })
+    enter(leaky.game)
+    expect(runOf(leaky.game).alert).toBe(10)
+    expect(runOf(leaky.game).peak).toBe(10)
+    const bare = setup({ patch: { flags: { leak: true } } as never })
+    enter(bare.game)
+    expect(runOf(bare.game).alert).toBe(0)
+  })
+
+  it('起始警戒是自己寫的（alert_start）時加在上面，最多 100', () => {
+    const t = setup({ features: [LEAK], patch: { flags: { leak: true } } as never })
+    enter(t.game, { alert_start: 95 })
+    expect(runOf(t.game).alert).toBe(100)
   })
 })

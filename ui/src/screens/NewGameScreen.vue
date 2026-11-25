@@ -274,7 +274,7 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
         <template v-else-if="step === 'filter'">
           <h2>內容篩選</h2>
           <div class="lockline"><span class="lk">LOCK</span><b>所有角色皆為成年人。</b><Hint>這一條不能關。建角、匯入與世界編輯器都會擋下低於 18 的年齡。</Hint></div>
-          <div class="lockline"><span class="lk">LOCK</span><b>不寫血腥，不寫懷孕。</b><Hint>這是內容的底線，不是篩選的選項，所以沒有開關。</Hint></div>
+          <div class="lockline"><span class="lk">RULE</span><b>這是世界的固定規則，寫在 AI 工坊的任務提示詞裡，預設帶著，可以在 AI 工坊改。</b><Hint>只有年齡是底線：所有角色都是成年人。</Hint></div>
           <p class="setgrp">題材<Hint>內容篩選排在建角之前，關掉的題材不會出現在建角的選項裡（生命軌跡的性經歷與潛在性癖、特質）。篩選跟著存檔走；開新局時預設是上一次的選擇。</Hint></p>
           <div class="grid2">
           <div v-for="r in FILTER_ROWS" :key="r.k" class="setrow">
