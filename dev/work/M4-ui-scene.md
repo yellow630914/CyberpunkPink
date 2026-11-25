@@ -36,3 +36,7 @@ M4-scene-seats～M4-scene-close、M4-nightclass；M4-core-scene-ai 做完之後�
 ## 完成時回報
 
 改了哪些檔、測試結果、缺的圖示、UI 第 10 節因為引擎還沒有而沒顯示的（預期：直播的面板、觀眾）。
+
+## 總指揮補記（2026-11-25，M4-scene-seats 回報）
+- `features/scene/legacy.ts` 的外觀（`sceneOf` 回 Proxy，`turn`／`roles`／`links[].by`／`lines[].who` 是 `'pc'`／`'partner'`）在 M4-scene-circles 照留（多人時外觀的舊名字只對主角與第一個對象）。
+- 這一張把介面換成第二版（`seats`、`pairs`、`circles`、`by_id`／`to_id`、`startProblems().summary`）之後，同一張把外觀拿掉：`sceneOf` 改回 `sceneRawOf`，M2-scene、M3-scene-sync 與 ui 的場景測試改讀角色 id，`smoke/m2` 改回 `structuredClone`。
