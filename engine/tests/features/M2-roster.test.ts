@@ -912,6 +912,39 @@ describe('效果 roster_add：進候選', () => {
     expect(loyalty(g, 'r_ann')).toBe(50)
   })
 
+  it('direct: true（持約人取得契約；M4-followups-2 第 7 項）：直接成為成員（忠誠起始值照來源、離開候選）、報告一行寫「進了名冊」；已經是成員的落空；名冊滿了退成候選；不是角色的人退成候選', () => {
+    const g = make()
+    // 先是候選，再直接進：候選拿掉、成為成員、忠誠 30（沒有來源）
+    give(g, [{ kind: 'roster_add', who: 'r_ann' }])
+    const r = give(g, [{ kind: 'roster_add', who: 'r_ann', direct: true }])
+    expect(r.lines).toEqual(['進了名冊：安'])
+    expect(members(g)).toEqual(['r_ann'])
+    expect(candidatesOf(g.state)).toEqual([])
+    expect(loyalty(g, 'r_ann')).toBe(30)
+    // 帶來源：救過的人起始忠誠 50
+    give(g, [{ kind: 'roster_add', who: 'r_bob', source: 'rescued', direct: true }])
+    expect(members(g)).toEqual(['r_ann', 'r_bob'])
+    expect(loyalty(g, 'r_bob')).toBe(50)
+    // 已經是成員：沒有變更
+    expect(give(g, [{ kind: 'roster_add', who: 'r_ann', direct: true }]).changes).toEqual([])
+    // 名冊滿了（容量 3 ＋ mod(魅力) ＋ 人面階數 × 2；魅力 14 → 5）：多的退成候選
+    expect(rosterCap(g.k, g.state)).toBe(5)
+    add(g, 'r_cora', 'r_dee', 'r_eve')
+    expect(members(g)).toHaveLength(5)
+    const full = give(g, [{ kind: 'roster_add', who: 'r_fay', direct: true }])
+    expect(members(g)).not.toContain('r_fay')
+    expect(candidatesOf(g.state).map((c) => c.who)).toEqual(['r_fay'])
+    expect(full.lines).toEqual(['名冊候選：菲'])
+    // 不是角色的人：退成候選
+    const h = make()
+    const r2 = give(h, [{ kind: 'roster_add', who: 'ghost', direct: true }])
+    expect(members(h)).toEqual([])
+    expect(candidatesOf(h.state).map((c) => c.who)).toEqual(['ghost'])
+    expect(r2.lines).toEqual(['名冊候選：ghost'])
+    // 格式：direct 要是布林
+    expect(h.k.effects.resolve([{ kind: 'roster_add', who: 'r_ann', direct: 'yes' }], effectCtx(h.k, h.state, { source: 'builtin' })).errors.join()).toContain('direct')
+  })
+
   it('AI 給的：一件事最多一位候選人，多的拿掉並提醒；內建的不限', () => {
     const g = make()
     const r = give(g, [{ kind: 'roster_add', who: 'r_ann' }, { kind: 'roster_add', who: 'r_bob' }], 'ai')

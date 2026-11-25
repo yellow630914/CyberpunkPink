@@ -186,9 +186,12 @@ function renameIn(text: string, from: string, to: string): string {
 const cursors = new WeakMap<BattleRun, number>()
 
 /**
- * 中性外觀的招式名（CYBERSPACE 8.7 節；M4-followups-2 第 7 項）：兩個形象都被內容篩選排除、改用中性外觀時，招牌行動的名字自動換成「挑逗」「灌注」「綁縛」（照效果種類）。
- * 資料的 neutral.moves 寫了的照寫的，這裡只補沒寫的。種類看招牌行動技能的效果：控制（status 的 kind 是 control、pinned_down、net.pin）是綁縛；
- * 神經的感載、餘韻、沉溺是灌注；快感的感載是挑逗；都沒有的不換。
+ * 中性外觀的招式名（CYBERSPACE 8.7 節；M4-followups-2 第 7 項）：兩個形象都被內容篩選排除、改用中性外觀時，招牌行動的名字自動換成「挑逗」「灌注」「綁縛」（照效果的種類，
+ * 就是 CYBERSPACE 8.8 節那幾個記號：〔縛〕綁縛、〔挑〕挑逗、〔灌〕灌注）。資料的 neutral.moves 寫了的照寫的，這裡只補沒寫的。
+ *   綁縛  效果裡有 bind、net.pin，或 status 是控制類（kind: control）或 pinned_down
+ *   挑逗  沒有上面那些，效果裡有給目標的狀態（status；少量感載加分心）
+ *   灌注  都沒有，但有感載、餘韻、沉溺的效果（load、afterglow、sink、overload_extra）
+ * 三種都不是的不換。
  */
 export const NEUTRAL_MOVE_NAMES = { tease: '挑逗', infuse: '灌注', bind: '綁縛' } as const
 
@@ -203,18 +206,14 @@ export function neutralMoveName(k: Pick<Kernel, 'content'>, abilityId: string): 
     if (Array.isArray(v)) { v.forEach(walk); return }
     const r = v as Record<string, unknown>
     if (typeof r.op === 'string') {
-      if (r.op === 'net.pin') found.add('bind')
-      else if (r.op === 'status' && typeof r.status === 'string') {
-        if (r.status === 'pinned_down' || statusRuleOf(k.content, r.status)?.kind === 'control') found.add('bind')
-      } else if (r.op === 'load' || r.op === 'damage') {
-        if (r.type === 'pleasure') found.add('tease')
-        else if (r.type === 'neural') found.add('infuse')
-      } else if (r.op === 'afterglow' || r.op === 'sink') found.add('infuse')
+      if (r.op === 'bind' || r.op === 'net.pin') found.add('bind')
+      else if (r.op === 'status' && typeof r.status === 'string') found.add(r.status === 'pinned_down' || statusRuleOf(k.content, r.status)?.kind === 'control' ? 'bind' : 'tease')
+      else if (['load', 'damage', 'afterglow', 'sink', 'overload_extra'].includes(r.op)) found.add('infuse')
     }
     Object.values(r).forEach(walk)
   }
   walk(ab)
-  const kind = found.has('bind') ? 'bind' : found.has('infuse') ? 'infuse' : found.has('tease') ? 'tease' : undefined
+  const kind = found.has('bind') ? 'bind' : found.has('tease') ? 'tease' : found.has('infuse') ? 'infuse' : undefined
   return kind ? NEUTRAL_MOVE_NAMES[kind] : undefined
 }
 
@@ -232,8 +231,9 @@ export function installForms(k: Kernel): void {
 
   // 敵人這一步從哪一拍開始（AI 的每一步之前）；不回傳 true：這一步不是我們做的
   // 排在最前面：別的功能在 ai.step 裡替他做的事（招牌行動）也算在這一步裡
-  k.battle.on('ai.step', OWNER, ({ run, unit }) => {
-    if (formEnemy(k, unit)) cursors.set(run, run.beats.length)
+  // （由程式替玩家這一邊動的人也算：他打雙形象的敵人那幾拍要換名字）
+  k.battle.on('ai.step', OWNER, ({ run }) => {
+    cursors.set(run, run.beats.length)
   }, -100)
 
   // 每個自己的回合開始：從這裡算起的紀錄，是這個人這幾步的（玩家的行動沒有 ai.step，靠它找起點）

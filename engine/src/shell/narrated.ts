@@ -15,7 +15,7 @@ import { avatarTextFor, callsFor } from './ai/people'
 import type { GateOutput } from './ai/sceneTasks'
 import { sceneAiOf } from './ai/settings'
 import type { EventGateResult } from './ai/eventGate'
-import { applyGate, eventGateInput, hasAiGate } from './ai/eventGate'
+import { applyGate, eventGateInput } from './ai/eventGate'
 
 /** 這條鏈的 id。 */
 export const NARRATED_CHAIN = 'narrated'
@@ -23,9 +23,21 @@ export const NARRATED_CHAIN = 'narrated'
 export const NARRATED_TEMPLATE: ChainTemplate = {
   chain: NARRATED_CHAIN,
   steps: [
-    // 事件的 adult_scene.gate: ai（M4-followups-2 第 7 項）：草稿的 launch 有這樣的場景才走（when: ai_gate）；沒有就和以前一樣只有 text 與 apply
-    { id: 'gate', kind: 'ai', task: 'scene_gate', when: 'ai_gate' },
-    { id: 'setup', kind: 'code', run: 'gate_setup', needs: ['gate'], when: 'ai_gate' },
+    { id: 'text', kind: 'ai', task: 'narrate' },
+    { id: 'apply', kind: 'apply' },
+  ],
+}
+
+/**
+ * 事件的 adult_scene.gate: ai（M4-followups-2 第 7 項）走的版本：寫正文之前多 gate（scene_gate）與 setup（把答案換進 launch）兩步。
+ * 草稿的 launch 有帶 gate: ai 的場景才走這一條（Game.commitNarrated 照 hasAiGate 挑）；其餘照舊走 narrated，步驟一個都沒多。設定裡的代號一樣是 narrated（潤色的開關共用）。
+ */
+export const NARRATED_GATE_CHAIN = 'narrated_gate'
+export const NARRATED_GATE_TEMPLATE: ChainTemplate = {
+  chain: NARRATED_GATE_CHAIN,
+  steps: [
+    { id: 'gate', kind: 'ai', task: 'scene_gate' },
+    { id: 'setup', kind: 'code', run: 'gate_setup', needs: ['gate'] },
     { id: 'text', kind: 'ai', task: 'narrate', needs: ['setup'] },
     { id: 'apply', kind: 'apply' },
   ],
@@ -64,9 +76,9 @@ function narrateInput(ctx: ChainCtx, mode: string): NarrateInput {
   return narrateInputOf(ctx.state, draft, mode, direction)
 }
 
-export function narratedChain(): ChainDef {
+export function narratedChain(withGate = false): ChainDef {
   return {
-    template: NARRATED_TEMPLATE,
+    template: withGate ? NARRATED_GATE_TEMPLATE : NARRATED_TEMPLATE,
     code: NARRATED_CHAIN,
     hasText: true,
     codeSteps: {
@@ -76,9 +88,6 @@ export function narratedChain(): ChainDef {
         if (ctx.records.gate?.status !== 'done') return { launch: null }
         return applyGate(ctx.k, ctx.state, draft, ctx.draft.gate as GateOutput | undefined)
       },
-    },
-    whens: {
-      ai_gate: (ctx) => hasAiGate((ctx.input as NarratedInput).draft) && !!ctx.state.pc,
     },
     softFail: (step) => step.task === 'scene_gate',
     // 記憶被抹掉的報告（outcome.amnesia）不寫正文：結果本來就只有兩句（M4-followups-2 第 7 項）

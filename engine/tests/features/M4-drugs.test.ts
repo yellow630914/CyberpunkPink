@@ -12,7 +12,7 @@ import { combatFeature } from '../../src/features/combat'
 import {
   DEFAULT_DRUG_RULES, detoxBlock, detoxDraft, detoxQuote, drugDef, drugRules, drugView, drugsFeature, readDrugs, scaledWithdrawal, suppressantBlock, suppressantDraft, unitDrugs, useBlock, useDraft,
 } from '../../src/features/drugs'
-import { BATTLE_SETUPS, TEST_NET_COMBAT, enemyUnit, makeActor, makeGame } from '../../src/testkit'
+import { BATTLE_SETUPS, TEST_NET_COMBAT, enemyUnit, makeActor, makeGame, meterFeature, testMeter } from '../../src/testkit'
 
 type Rec = Record<string, any>
 
@@ -374,6 +374,24 @@ describe('戰鬥藥：一場戰鬥的藥、在戰鬥中吃', () => {
     expect(hit(g)).toContainEqual(['drug', 1])
   })
 
+  it('斷藥（M4-followups-2 第 1 項）：戰鬥外吃的藥經 k.passives 進戰鬥的那一份也暫停（核心的 passives 修正濾掉來源 drug）；別的來源不受影響；狀態一過又回來', () => {
+    const g = make({ flags: { cyber_regen: true } })
+    eat(g, 'it_stim')
+    expect(ext(g).active.map((a) => a.id)).toEqual(['it_stim'])
+    g.startBattle(setup())
+    toTurn(g, 'a1')
+    expect(hit(g)).toContainEqual(['drug', 1])
+    // 戰鬥外吃的那一份是 k.passives 給的（這一場沒有吃，所以不是 features/drugs 自己掛的那個修正）
+    expect(unitDrugs(unit(g, 'a1'))).toBeUndefined()
+    const regen = (): number => run(g).mods('ap_regen', unit(g, 'a1')).filter((p) => p.source === 'cyber').reduce((n, p) => n + p.value, 0)
+    unit(g, 'a1').statuses.push({ id: 'pump_jam', until: { at: 'battle_end' } } as never)
+    expect(hit(g).filter(([s]) => s === 'drug')).toEqual([])
+    // 其他來源（義體）照舊
+    expect(regen()).toBe(1)
+    unit(g, 'a1').statuses = unit(g, 'a1').statuses.filter((s) => s.id !== 'pump_jam')
+    expect(hit(g)).toContainEqual(['drug', 1])
+  })
+
   it('同一場吃兩劑：效果不疊加（命中只 +1）、成癮加兩次；戰鬥外已經生效的同一種藥，戰鬥中再吃不重複算', async () => {
     const g = make()
     g.startBattle(setup())
@@ -719,6 +737,34 @@ describe('戒斷療程', () => {
     g.commit(detoxDraft(g.k, g.state, { actor: 'pc', drug: 'it_hard' }))
     expect(ext(g).addiction).toEqual({})
     expect(g.state.money).toEqual({ cred: 5000, cash: 500 })
+  })
+
+  it('蜜糖會的互助診所（M4-followups-2 第 7 項）：detox.favor 的勢力好感到了 min 才免費，差一點照收；沒有好感量表的當 0；格式不對載入時擋下', () => {
+    const honey = pack((c) => {
+      c.faction = [{ id: 'f_honey', name: '蜜糖會', short: '蜜糖', class: 'street' }]
+      c.facility_type!.push({ id: 'fac_mutual', name: '互助診所', detox: { favor: { faction: 'f_honey', min: 30 } } })
+    })
+    const g = make({ pack: honey, extra: [meterFeature(testMeter({ kind: 'favor', keyed: 'faction', name: '好感' }))] })
+    fx(g, [{ kind: 'addiction', id: 'it_hard', amount: 60 }])
+    at(g, 'fac_mutual')
+    const q = () => detoxQuote(g.k, g.state, { actor: 'pc', drug: 'it_hard' })!
+    expect(q()).toMatchObject({ free: false, price: 600, place: '互助診所' })
+    g.commit(draft([{ op: 'meter', kind: 'favor', key: 'f_honey', set: 29 }]))
+    expect(q()).toMatchObject({ free: false, price: 600 })
+    g.commit(draft([{ op: 'meter', kind: 'favor', key: 'f_honey', set: 30 }]))
+    expect(q()).toMatchObject({ free: true, price: 0, pay: null })
+    g.commit(detoxDraft(g.k, g.state, { actor: 'pc', drug: 'it_hard' }))
+    expect(g.state.money).toEqual({ cred: 5000, cash: 500 })
+    // 沒有好感量表（勢力的功能沒裝）：當 0，不免費
+    const bare = make({ pack: honey })
+    fx(bare, [{ kind: 'addiction', id: 'it_hard', amount: 60 }])
+    at(bare, 'fac_mutual')
+    expect(detoxQuote(bare.k, bare.state, { actor: 'pc', drug: 'it_hard' })).toMatchObject({ free: false, price: 600 })
+    // 格式與引用
+    const bad = (detox: Rec) => () => make({ pack: pack((c) => { c.facility_type!.push({ id: 'fac_x', name: 'X', detox }) }) })
+    expect(bad({ favor: { faction: 'f_honey', min: 130 } })).toThrow(ContentError)
+    expect(bad({ favor: { faction: 'f_nobody', min: 30 } })).toThrow(/detox\.favor/)
+    expect(bad({ extra: true })).toThrow(ContentError)
   })
 
   it('做不了的原因：沒有診所、沒有成癮、錢不夠、戰鬥中；指定現金就從現金扣', () => {

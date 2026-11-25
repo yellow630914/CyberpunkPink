@@ -12,7 +12,9 @@ import { ActionBlocked, BattleBlocked, BattleRun, ContentError, Rng, clone, effe
 import type { SpecialMapEntry } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { combatFeature } from '../../src/features/combat'
-import { medicalFeature, aidBlock, aidDraft, aidQuote, clinicBlock, clinicHealDraft, clinicQuote, medicalRules, medicalView, woundSurgeryBlock, woundSurgeryDraft, woundSurgeryQuote, woundsOf } from '../../src/features/medical'
+import { cyberOf, cyberwareFeature } from '../../src/features/cyberware'
+import { productPrice } from '../../src'
+import { medicalFeature, aidBlock, aidDraft, aidQuote, clinicBlock, clinicHealDraft, clinicQuote, medicalRules, medicalView, woundSurgeryBlock, woundSurgeryDraft, woundSurgeryProblems, woundSurgeryQuote, woundsOf } from '../../src/features/medical'
 import { restFeature, sleepDraft } from '../../src/features/rest'
 import { arrive, worldFeature } from '../../src/features/world'
 import { BATTLE_SETUPS, TEST_NET_COMBAT, makeActor, makeBattleGame, makeGame } from '../../src/testkit'
@@ -720,5 +722,108 @@ describe('資料與總覽', () => {
     const b = aid(g)
     expect(b.timeline.find((x) => x.roll)!.roll).toEqual(a.timeline.find((x) => x.roll)!.roll)
     expect(b.changes).toEqual(a.changes)
+  })
+})
+
+// ---------------------------------------------------------------------------------------------------------------------
+// M4-followups-2 第 5 項：combat 的 wound 轉呼叫 medical 的同一套；重創手術多「換義肢」
+// ---------------------------------------------------------------------------------------------------------------------
+
+describe('M4-followups-2 第 5 項：戰鬥裡的 wound 與 wound_treat 是同一套', () => {
+  const woundPack = (): ContentPack => pack()
+  const setHurt = (g: ReturnType<typeof makeBattleGame>['game']) => {
+    const a1 = g.battle!.units.a1!
+    a1.wounds = { limb: 2, head: 1 }
+    a1.statuses.push({ id: 'limb_hurt', until: { at: 'battle_end' } } as never)
+    return a1
+  }
+
+  it('裝了醫療：combat 的 wound（mode: treat）轉呼叫 wound_treat；結果和直接用 wound_treat 一模一樣（重的降成輕的、輕的解除）；part 只處理那一個部位', () => {
+    const viaWound = makeBattleGame({ features: [characterFeature, worldFeature, combatFeature, medicalFeature], content: [woundPack()] }).game
+    const viaTreat = makeBattleGame({ features: [characterFeature, worldFeature, combatFeature, medicalFeature], content: [woundPack()] }).game
+    setHurt(viaWound)
+    setHurt(viaTreat)
+    const spy = vi.spyOn(viaWound.k.battle.getEffect('wound_treat')!, 'fn')
+    const a = new BattleRun(viaWound.k, viaWound.state, clone(viaWound.battle!))
+    const b = new BattleRun(viaTreat.k, viaTreat.state, clone(viaTreat.battle!))
+    a.effects([{ op: 'wound', mode: 'treat', who: 'self' }], { user: a.battle.units.a1!, source: { kind: 'item', id: 'x', name: 'x' } })
+    b.effects([{ op: 'wound_treat', who: 'self' }], { user: b.battle.units.a1!, source: { kind: 'item', id: 'x', name: 'x' } })
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(a.battle.units.a1!.wounds).toEqual(b.battle.units.a1!.wounds)
+    expect(a.battle.units.a1!.wounds).toEqual({ limb: 1 })
+    expect(a.battle.units.a1!.statuses.map((x) => x.id)).toEqual(b.battle.units.a1!.statuses.map((x) => x.id))
+    // part 只處理那一個部位；clear 全部清掉
+    const c = new BattleRun(viaWound.k, viaWound.state, clone(viaWound.battle!))
+    c.effects([{ op: 'wound', mode: 'treat', who: 'self', part: 'head' }], { user: c.battle.units.a1!, source: { kind: 'item', id: 'x', name: 'x' } })
+    expect(c.battle.units.a1!.wounds).toEqual({ limb: 2 })
+    c.effects([{ op: 'wound', mode: 'clear', who: 'self' }], { user: c.battle.units.a1!, source: { kind: 'item', id: 'x', name: 'x' } })
+    expect(c.battle.units.a1!.wounds).toEqual({})
+  })
+
+  it('沒裝醫療：combat 照自己的做法（沒有 wound_treat 這個 op，也一樣能治）', () => {
+    const g = makeBattleGame({ features: [characterFeature, worldFeature, combatFeature], content: [woundPack()] }).game
+    expect(g.k.battle.getEffect('wound_treat')).toBeUndefined()
+    setHurt(g)
+    const r = new BattleRun(g.k, g.state, clone(g.battle!))
+    r.effects([{ op: 'wound', mode: 'treat', who: 'self' }], { user: r.battle.units.a1!, source: { kind: 'item', id: 'x', name: 'x' } })
+    expect(r.battle.units.a1!.wounds).toEqual({ limb: 1 })
+  })
+})
+
+describe('M4-followups-2 第 5 項：重創手術的「換義肢」（TRADE 3.4 節；接 cyberware 的 cyber_install）', () => {
+  const armPack = (): ContentPack => pack((c) => {
+    c.part = [{ id: 'pt_limb', name: '義肢骨架', type: 'limb', material: 'mech', brand: 'hz', grade: 1, price: 700, legal: 'free', cells: 1, stats: {}, weight: 1, size: 1, state: 'new' }]
+    c.blueprint = [
+      { id: 'bp_arm', kind: 'cyberware', name: '義臂', desc: '一條義臂。', brand: 'hz', grade: 1, legal: 'free', price: 500, require: [{ type: 'limb' }], optional: [], stock: { limb: 'pt_limb' }, slot: 'arm', invasiveness: 'light', sink_cost: 3, needs_bridge: false },
+      { id: 'bp_eye', kind: 'cyberware', name: '義眼', desc: '一顆義眼。', brand: 'hz', grade: 1, legal: 'free', price: 300, require: [{ type: 'limb' }], optional: [], stock: { limb: 'pt_limb' }, slot: 'eye', invasiveness: 'light', sink_cost: 1, needs_bridge: false },
+    ]
+  })
+  const hurt = (o: Opts = {}) => make({ pc: { conditions: [{ id: 'wound_limb' }] }, extra: [cyberwareFeature], pack: armPack(), ...o })
+  const opts = (replace: { blueprint: string; side?: 'l' | 'r' } = { blueprint: 'bp_arm', side: 'l' }) => ({ target: 'pc', part: 'limb' as const, via: 'clinic' as const, replace })
+
+  it('肢體的重創在診所換義肢：付的是義肢的成品價（取代手術費）、重創拿掉、義肢裝在左臂、沒有休養；報價帶著義肢是哪一件', () => {
+    const g = hurt()
+    stand(g, 'F1')
+    const price = productPrice(g.k.content, 'bp_arm', { uid: '', parts: {} })
+    expect(price).toBeGreaterThan(0)
+    const q = woundSurgeryQuote(g.k, g.state, opts())!
+    expect(q).toMatchObject({ fee: price, recovery_minutes: 0, replace: { blueprint: 'bp_arm', name: '義臂', price } })
+    expect(woundSurgeryBlock(g.k, g.state, opts())).toBeNull()
+    g.commit(woundSurgeryDraft(g.k, g.state, opts()))
+    expect(g.state.money.cred).toBe(20000 - price)
+    expect(has(g, 'pc', 'wound_limb')).toBe(false)
+    expect(has(g, 'pc', 'wound_recovering')).toBe(false)
+    expect(cyberOf(g.state, 'pc').map((p) => [p.bp, p.slot])).toEqual([['bp_arm', 'arm_l']])
+    expect(g.state.reports.at(-1)!.narration!.results!.join('')).toContain('直接換上義臂')
+    // 對照：沒有 replace 還是 1200 的接回手術，沒有義體
+    const plain = hurt()
+    stand(plain, 'F1')
+    plain.commit(woundSurgeryDraft(plain.k, plain.state, { target: 'pc', part: 'limb', via: 'clinic' }))
+    expect(plain.state.money.cred).toBe(20000 - 1200)
+    expect(cyberOf(plain.state, 'pc')).toEqual([])
+  })
+
+  it('擋下：不是肢體的重創、自己動刀、不是肢體的義體、錢不夠；沒有裝 cyberware 這一項整個做不了', () => {
+    const g = hurt()
+    stand(g, 'F1')
+    expect(woundSurgeryProblems(g.k, g.state, { ...opts(), part: 'head' }).join('')).toContain('只有肢體的重創可以換義肢')
+    expect(woundSurgeryBlock(g.k, g.state, { ...opts(), via: 'self' })).toContain('義肢要在診所裝')
+    expect(woundSurgeryBlock(g.k, g.state, opts({ blueprint: 'bp_eye' }))).toContain('不是肢體的義體')
+    expect(woundSurgeryBlock(g.k, g.state, opts({ blueprint: 'bp_none' }))).toContain('找不到這件義肢')
+    const poor = hurt({ money: { cred: 10, cash: 10 } })
+    stand(poor, 'F1')
+    expect(woundSurgeryBlock(poor.k, poor.state, opts())).toContain('錢不夠')
+    const bare = make({ pc: { conditions: [{ id: 'wound_limb' }] }, pack: armPack() })
+    stand(bare, 'F1')
+    expect(woundSurgeryBlock(bare.k, bare.state, opts())).toContain('這裡裝不了義肢')
+  })
+
+  it('槽已經滿了：試裝落空，原因在 problems 裡，不會收了錢卻沒裝上', () => {
+    const g = hurt()
+    stand(g, 'F1')
+    const arm = (uid: string, slot: string) => ({ uid, bp: 'bp_arm', slot, parts: { limb: 'pt_limb' }, sink: 3, at: 0, registered: true })
+    ;(pc(g).ext as Rec).cyber = { pieces: [arm('a1', 'arm_l'), arm('a2', 'arm_l'), arm('a3', 'arm_r'), arm('a4', 'arm_r')] }
+    expect(woundSurgeryBlock(g.k, g.state, opts())).toMatch(/槽已經滿了/)
+    expect(() => woundSurgeryDraft(g.k, g.state, opts())).toThrow(ActionBlocked)
   })
 })

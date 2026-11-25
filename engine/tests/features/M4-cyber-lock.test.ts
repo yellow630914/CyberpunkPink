@@ -12,7 +12,7 @@ import { ActionBlocked, Rng, UNREG_STACK_ID, effectCtx, meterOf, slotProblems, t
 import type { SpecialMapEntry } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import {
-  crackBlock, crackDraft, crackQuote, cyberOf, cyberView, cyberwareFeature, installDraft, lockView, modifyBlock, modifyDraft, modifyQuote, payLockBlock, payLockDraft, removeBlock, removeDraft,
+  crackBlock, crackDraft, crackQuote, cyberOf, cyberView, cyberwareFeature, forgeBlock, forgeDraft, forgeQuote, installDraft, lockView, modifyBlock, modifyDraft, modifyQuote, payLockBlock, payLockDraft, removeBlock, removeDraft,
   repairBlock, repairDraft, repairQuote,
 } from '../../src/features/cyberware'
 import { arrive, worldFeature } from '../../src/features/world'
@@ -382,6 +382,88 @@ describe('破解授權鎖', () => {
     expect(crackQuote(g.k, g.state, { actor: 'pc', uid: 's1' })!.dc).toBe(13)
     g.commit(withDice(NAT10, () => crackDraft(g.k, g.state, { actor: 'pc', uid: 's1' })))
     expect(hostility(g)).toBe(9)
+  })
+})
+
+// ---- 第三種解鎖法：請人偽造授權（M4-followups-2 第 7 項；CYBERWARE 第 5 節） ----
+
+describe('偽造授權（第三種解鎖法：請夥伴辦或請中間人辦；效果 cyber_unlock）', () => {
+  const locked = (): Rec => subEye({ off: { why: 'lock' }, lock: { ...SUB_LOCK, owed: 30 } })
+  const makeForge = (p?: ContentPack): G => {
+    const g = make(p ? { pack: p } : {})
+    g.state.actors.pc!.skills.interface = 3
+    put(g, [locked(), piece('e2', 'bp_eye', 'eye', { parts: { sensor: 'pt_lens' } })])
+    return g
+  }
+
+  it('報價：請夥伴辦 DC ＝ 設計圖等級 II 的 13 ＋ 2 = 15、不收錢；請中間人辦收成品價 1,000 的 3 成 = 300、不擲；都花 60 分鐘', () => {
+    const g = makeForge()
+    expect(forgeQuote(g.k, g.state, { actor: 'pc', uid: 's1', via: 'partner', by: 'pc' })).toMatchObject({ dc: 15, bonus: 3, fee: 0, pay: null, minutes: 60, faction: 'f1' })
+    expect(forgeQuote(g.k, g.state, { actor: 'pc', uid: 's1', via: 'broker' })).toMatchObject({ dc: null, bonus: null, fee: 300, pay: 'cred', minutes: 60 })
+    expect(forgeBlock(g.k, g.state, { actor: 'pc', uid: 's1', via: 'partner', by: 'pc' })).toBeNull()
+    expect(forgeBlock(g.k, g.state, { actor: 'pc', uid: 's1', via: 'broker' })).toBeNull()
+  })
+
+  it('擋下：沒有鎖的、身上沒有的、沒選夥伴、夥伴不在隊上或找不到、錢不夠', () => {
+    const g = makeForge()
+    expect(forgeBlock(g.k, g.state, { actor: 'pc', uid: 'e2', via: 'broker' })).toBe('義眼沒有授權鎖可以偽造。')
+    expect(forgeBlock(g.k, g.state, { actor: 'pc', uid: 'zz', via: 'broker' })).toBe('身上沒有這一件義體。')
+    expect(forgeBlock(g.k, g.state, { actor: 'pc', uid: 's1', via: 'partner' })).toBe('要選一位夥伴來偽造。')
+    expect(forgeBlock(g.k, g.state, { actor: 'pc', uid: 's1', via: 'partner', by: 'ghost' })).toBe('要選一位夥伴來偽造。')
+    g.state.actors.npc_far = { ...g.state.actors.pc!, id: 'npc_far', name: '遠方的人', role: 'npc' }
+    expect(forgeBlock(g.k, g.state, { actor: 'pc', uid: 's1', via: 'partner', by: 'npc_far' })).toBe('偽造的人要是主角或隊上的人。')
+    const poor = make({ money: { cred: 10, cash: 10 } })
+    put(poor, [locked()])
+    expect(forgeBlock(poor.k, poor.state, { actor: 'pc', uid: 's1', via: 'broker' })).toContain('錢不夠')
+    expect(() => forgeDraft(poor.k, poor.state, { actor: 'pc', uid: 's1', via: 'broker' })).toThrow()
+  })
+
+  it('夥伴辦成功：走 cyber_unlock 把 lock 與 off 都拿掉、效果回來、時間照花、沒有敵對值；報告 cyber.forge 是 forged', () => {
+    const g = makeForge()
+    const t0 = now(g)
+    g.commit(withDice(NAT20, () => forgeDraft(g.k, g.state, { actor: 'pc', uid: 's1', via: 'partner', by: 'pc' })))
+    expect(cyberOf(g.state, 'pc')[0]!.lock).toBeUndefined()
+    expect(cyberOf(g.state, 'pc')[0]!.off).toBeUndefined()
+    expect(attr(g, 'reflex')).toBe(11)
+    expect(now(g) - t0).toBe(60)
+    expect(hostility(g)).toBe(0)
+    expect(g.state.money.cred).toBe(20000)
+    expect(last(g)).toMatchObject({ action: 'cyber.forge', outcome: { result: 'forged' } })
+    expect(last(g).narration?.results?.join('')).toContain('偽造')
+  })
+
+  it('夥伴辦失敗：鎖還在、勢力的敵對值 +5；大失敗那一件壞掉（off.why 是 broken）、鎖還在、敵對值 +5', () => {
+    const g = makeForge()
+    g.commit(withDice(NAT10, () => forgeDraft(g.k, g.state, { actor: 'pc', uid: 's1', via: 'partner', by: 'pc' })))
+    expect(cyberOf(g.state, 'pc')[0]).toMatchObject({ lock: { kind: 'subscription' }, off: { why: 'lock' } })
+    expect(hostility(g)).toBe(5)
+    expect(last(g)).toMatchObject({ action: 'cyber.forge', outcome: { result: 'failed' } })
+    const h = makeForge()
+    h.commit(withDice(NAT1, () => forgeDraft(h.k, h.state, { actor: 'pc', uid: 's1', via: 'partner', by: 'pc' })))
+    expect(cyberOf(h.state, 'pc')[0]).toMatchObject({ lock: { kind: 'subscription' }, off: { why: 'broken' } })
+    expect(hostility(h)).toBe(5)
+    expect(last(h)).toMatchObject({ outcome: { result: 'broken' } })
+  })
+
+  it('中間人辦：付 300（先帳戶）、不擲檢定（骰子怎麼骰都成功）、不留敵對值', () => {
+    const g = makeForge()
+    g.commit(withDice(NAT1, () => forgeDraft(g.k, g.state, { actor: 'pc', uid: 's1', via: 'broker' })))
+    expect(g.state.money.cred).toBe(20000 - 300)
+    expect(cyberOf(g.state, 'pc')[0]!.lock).toBeUndefined()
+    expect(hostility(g)).toBe(0)
+    expect(last(g)).toMatchObject({ action: 'cyber.forge', outcome: { result: 'forged' } })
+    // 指定從現金付
+    const h = makeForge()
+    h.commit(forgeDraft(h.k, h.state, { actor: 'pc', uid: 's1', via: 'broker', pay: 'cash' }))
+    expect(h.state.money.cash).toBe(1000 - 300)
+    expect(h.state.money.cred).toBe(20000)
+  })
+
+  it('規則表 forge_dc_bonus 與 forge_fee 蓋掉預設', () => {
+    const g = makeForge(pack((c) => { c.cyber_rule = [{ id: 'default', forge_dc_bonus: 0, forge_fee: 0.5 }] }))
+    expect(forgeQuote(g.k, g.state, { actor: 'pc', uid: 's1', via: 'partner', by: 'pc' })!.dc).toBe(13)
+    expect(forgeQuote(g.k, g.state, { actor: 'pc', uid: 's1', via: 'broker' })!.fee).toBe(500)
+    expect(() => makeForge(pack((c) => { c.cyber_rule = [{ id: 'default', forge_fee: 3 }] }))).toThrow()
   })
 })
 

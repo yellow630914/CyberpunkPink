@@ -13,7 +13,7 @@ import { deckFeature } from '../../src/features/deck'
 import type { EnemyEntry } from '../../src/features/enemies/kinds'
 import {
   BIND_STATUS, DEFAULT_FORM_B_CHANCE, FOE_SUNK_POINT, SINK_LAYER_STEPS, SUNK, UNBIND, captureOf, dataSink, enemiesFeature, enemyStats, formFor, formKeyFor, genderOf, hasForms,
-  isBound, pickForm, sinkLayers, unitFormView, usableForms,
+  isBound, neutralMoveName, pickForm, sinkLayers, unitFormView, usableForms,
 } from '../../src/features/enemies'
 import { TEST_NET_COMBAT, fixDice, makeActor, makeBattleGame, makeGame, makeState, netAvatar, observed } from '../../src/testkit'
 import { one, raw } from '../helpers/battle'
@@ -462,6 +462,47 @@ describe('紀錄逐拍換字：名字與招牌行動的名字用這一拍的目�
     foeStep(b, 'mate')
     expect(a.pc.load!.now).toBe(b.mate.load!.now)
     expect(a.pc.load!.now).toBeGreaterThan(0)
+  })
+
+  it('中性外觀的招式名自動換成「挑逗」「灌注」「綁縛」（照效果種類；M4-followups-2 第 7 項）：灌（感載）、縛（bind）、挑（感載加分心的狀態）、疊（神經感載加疊層）；neutral.moves 寫了的照寫的', () => {
+    const NEUTRAL_OFF = ['male_partner', 'female_partner']
+    const auto = (sigId: string, neutral: Rec = { name: '一團光', look: '一團沒有輪廓的光。' }) => foeData(`en_n_${sigId}`, { signature: [sigId], forms: forms(sigId, { points_at: ['male'] }), neutral })
+    const p = pack({ net_enemy_rule: [{ id: 'default', form_b_chance: 1 }], enemy: [...ENEMIES, auto('ab_single'), auto('ab_bind'), auto('ab_tease'), auto('ab_extra'), auto('ab_bind_move'), foeData('en_n_own', { signature: ['ab_single'], forms: forms('ab_single', { points_at: ['male'] }), neutral: { name: '一團光', look: '光。', moves: { ab_single: { name: '自己取的名字' } } } })] })
+    const said = (id: string): string => textOf(foeStep(world([id], { pack: p, off: NEUTRAL_OFF }), 'pc'))
+    expect(said('en_n_ab_single')).toContain('一團光：灌注。')
+    expect(said('en_n_ab_bind')).toContain('一團光：綁縛。')
+    expect(said('en_n_ab_bind_move')).toContain('一團光：綁縛。')
+    expect(said('en_n_ab_tease')).toContain('一團光：挑逗。')
+    expect(said('en_n_ab_extra')).toContain('一團光：灌注。')
+    // neutral.moves 寫了的照寫的
+    expect(said('en_n_own')).toContain('一團光：自己取的名字。')
+    // 不是中性外觀的（形象甲、乙）不受影響：照 forms 寫的
+    const normal = world(['en_single'], { pack: ALWAYS_B })
+    expect(textOf(foeStep(normal, 'pc'))).toContain('形象乙：乙的招式。')
+    // 不認得種類的招式：名字照技能的（沒有自動名）
+    expect(neutralMoveName(normal.k, 'ab_nope')).toBeUndefined()
+    expect(neutralMoveName(normal.k, 'ab_aoe')).toBe('灌注')
+  })
+
+  it('別人打這個敵人的那幾拍：敵人的名字照動手的人看到的形象換（M4-followups-2 第 7 項）；打的人是 male 還是 A、是 female 就是擲到的 B', () => {
+    const w = world(['en_single'], { pack: ALWAYS_B, pc: 'male', mate: 'female' })
+    expect(w.foe(1).name).toBe('形象甲')
+    const hitBy = (who: 'pc' | 'mate'): string => {
+      const x = world(['en_single'], { pack: ALWAYS_B, pc: 'male', mate: 'female' })
+      const actor = who === 'pc' ? x.pc : x.mate
+      actor.control = 'ai'
+      actor.uses['turn:ai_moved'] = 1
+      const r = fixDice(new BattleRun(x.k, x.state, x.state.battle!), dice(0, 0))
+      expect(aiStep(r, actor)).toBe(true)
+      return textOf(r)
+    }
+    const byMate = hitBy('mate')
+    expect(byMate).toContain('敵・形象乙')
+    expect(byMate).not.toContain('敵・形象甲')
+    // male 的主角打：還是 A
+    const byPc = hitBy('pc')
+    expect(byPc).toContain('敵・形象甲')
+    expect(byPc).not.toContain('敵・形象乙')
   })
 
   it('單位的名字不因為這一步而被改：名牌沒鎖定誰時照主角', () => {

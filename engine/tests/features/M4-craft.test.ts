@@ -453,6 +453,12 @@ describe('組裝的四種成功程度（固定骰子）', () => {
     // 獸耳 I 級：DC 10、全生體用醫療（+2 屬性 +1 技能 = +3）：骰 6 → 9 失敗
     arm.commit(withDice(NAT6, () => assembleDraft(arm.k, arm.state, { blueprint: 'bp_ears', parts: { skin: 'pt_ear' } })))
     expect(product(arm, 'bp_ears')!.data).toMatchObject({ quality: 'flawed', quirks: ['qx_numb'] })
+    // 排異（CRAFTING 第 6 節；M4-followups-2 第 4 項）：義體組裝失敗，沉溺成本另外多 reject_sink（預設 1）；武器的失敗沒有這一筆
+    const armData = product(arm, 'bp_ears')!.data!
+    expect(armData.bonus).toEqual({ sink: 1 })
+    expect(productOf(arm.k.content, 'bp_ears', armData)!.stats.sink).toBe(productOf(arm.k.content, 'bp_ears', { ...armData, bonus: undefined })!.stats.sink + 1)
+    expect(last(arm).narration?.results?.join('')).toContain('排異')
+    expect(made.data!.bonus).toBeUndefined()
   })
 
   it('失敗時內容裡沒有適用的瑕疵：照樣是 flawed，只是沒有怪癖', () => {

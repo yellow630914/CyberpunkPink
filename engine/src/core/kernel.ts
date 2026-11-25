@@ -73,7 +73,11 @@ function registerPassiveBattle(k: Pick<Kernel, 'passives'>, battle: BattleRegist
   // （有的測試只給半個 view，沒有 state：沒有狀態就沒有被動效果）
   battle.modifier('passives', (q) => {
     if (!(q.unit.actor && q.view.state?.actors[q.unit.actor])) return []
-    const parts = k.passives.modParts(q.view.state, q.unit.actor, q.kind, { layer: q.view.mode.layer, tags: q.tags, tracks: unitTracks(q.unit) })
+    const state = q.view.state
+    const parts = k.passives.modParts(state, q.unit.actor, q.kind, { layer: q.view.mode.layer, tags: q.tags, tracks: unitTracks(q.unit) })
+    // 豁免（run.save）帶的情境標籤，對到被動效果 { check: { tags } } 的也算（M4-followups-2 第 6 項）：沉溺的分段、調校給的「抵抗控制」「抵抗誘惑與勸降」是檢定標籤的加減，
+    // 被打的人自己擲豁免（效果 status 的 save，控制類的狀態自動帶 resist_control）時才算得進來。只認標籤，基本功與屬性對的 check 不在戰鬥的豁免裡算
+    if (q.kind === 'save' && q.tags?.length) parts.push(...k.passives.checkParts(state, q.unit.actor, { skill: undefined, tags: q.tags }))
     // 斷藥（M4-followups-2 第 1 項；ITEMS 4.2 節「戰鬥藥的效果也暫停」）：帶著狀態 pump_jam 的單位，戰鬥外吃的藥（來源 drug）經這裡進來的修正先不算，狀態一過又回來。
     // 這一場吃的藥的修正由 features/drugs 自己掛、自己看 pump_jam；unit_tag 開打時就加好了，不隨狀態收放
     return q.unit.statuses?.some((s) => s.id === PUMP_JAM) ? parts.filter((p) => p.source !== 'drug') : parts

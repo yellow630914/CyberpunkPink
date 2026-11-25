@@ -30,7 +30,8 @@ import { sceneAct, sceneInterrupt, sceneNext, sceneRawOf, sceneSkip } from '../f
 import type { BattleEndInput } from './battle'
 import { battleEndChain } from './battle'
 import type { NarratedInput } from './narrated'
-import { NARRATED_CHAIN, narratedChain } from './narrated'
+import { NARRATED_CHAIN, NARRATED_GATE_CHAIN, narratedChain } from './narrated'
+import { hasAiGate } from './ai/eventGate'
 import { freeActionChain, registerFreeActionTasks } from './ai/freeAction'
 import type { AdultActionInput, SceneRoundInput, SceneRoundMode } from './ai/sceneChains'
 import { ADULT_ACTION_CHAIN, DIRECTION_MAX, SCENE_ROUND_CHAIN, adultActionChain, aiTurnNeeded, sceneRoundChain } from './ai/sceneChains'
@@ -209,6 +210,7 @@ export class Game {
     this.chains.register(sceneRoundChain())
     this.chains.register(battleEndChain())
     this.chains.register(narratedChain())
+    this.chains.register(narratedChain(true))
     this.state = blankState(0)
   }
 
@@ -442,7 +444,8 @@ export class Game {
     if (!opts || typeof opts.mode !== 'string' || !opts.mode) throw new Error('commitNarrated 要給寫正文的模式（mode）。')
     const dir = this.directionFor(opts.direction, this.narrateLive())
     const input: NarratedInput = { draft, mode: opts.mode, ...(dir.text ? { direction: dir.text } : {}) }
-    const r = await this.startChain(NARRATED_CHAIN, input, opts, opts.label ?? draft.outcome.summary, { doing: `commit:${draft.action}`, draft, attach: opts.attach === true })
+    // 事件的場景要問 scene_gate（adult_scene.gate: ai）：走 narrated_gate（多 gate、setup 兩步；M4-followups-2 第 7 項）；AI 關著時那兩步走退路，launch 不動
+    const r = await this.startChain(hasAiGate(draft) && !!this.state.pc ? NARRATED_GATE_CHAIN : NARRATED_CHAIN, input, opts, opts.label ?? draft.outcome.summary, { doing: `commit:${draft.action}`, draft, attach: opts.attach === true })
     return dir.notices.length > 0 ? { ...r, notices: dir.notices } : r
   }
 

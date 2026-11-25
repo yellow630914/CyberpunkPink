@@ -23,9 +23,10 @@ const STUBS: Feature = {
   install(k: Kernel) {
     for (const kind of ['district', 'block', 'facility_type']) k.content.defineKind({ kind, owner: 'test', validate: () => [] })
     // 站在哪一處設施：旗標 fac 是設施種類的 id
-    k.conditions.register<{ kind: string; types?: string[] }>({
+    // open: true 是這個設施現在開著（M4-followups-2 第 10 項；旗標 closed 立著就是關門的時段）
+    k.conditions.register<{ kind: string; types?: string[]; open?: boolean }>({
       kind: 'at_facility', owner: 'test_stubs', validate: () => [],
-      test: (c, { state }) => (typeof state.flags.fac === 'string' ? (c.types ? c.types.includes(state.flags.fac) : true) : false),
+      test: (c, { state }) => (typeof state.flags.fac === 'string' ? (c.types ? c.types.includes(state.flags.fac) : true) && (c.open === undefined || (state.flags.closed !== true) === c.open) : false),
     })
     // 進了委託副本（旗標 in_commission）：除了放行的以外什麼都不能做
     k.activity.define({ kind: 'commission', owner: 'test_stubs', order: 90, active: (s) => (s.flags.in_commission === true ? { id: 'cm', label: '委託副本' } : null), allow: [], reason: () => '委託副本進行中。' })
@@ -324,6 +325,23 @@ describe('上到一半換老師、人不在場', () => {
 })
 
 describe('去機構上課', () => {
+  it('營業時段（M4-followups-2 第 10 項）：站在那裡但設施現在沒開，上不了課，原因寫「現在沒有營業」；開門的時段才行；不在那裡仍是「你不在……」', () => {
+    const g = make()
+    flag(g, 'fac', 'ft_range')
+    flag(g, 'closed', true)
+    expect(lessonBlock(g.k, g.state, { skill: 'firearms', from: range })).toBe('東側靶場現在沒有營業，要等開門的時段才能上課。')
+    expect(() => lessonDraft(g.k, g.state, { skill: 'firearms', from: range })).toThrow(ActionBlocked)
+    // 列選項的時候也一樣列得出來、只是不行
+    expect(teachOptions(g.k, g.state, { facility: 'ft_range' })[0]).toMatchObject({ skill: 'firearms', ok: false })
+    flag(g, 'closed', false)
+    expect(lessonBlock(g.k, g.state, { skill: 'firearms', from: range })).toBeNull()
+    g.commit(lessonDraft(g.k, g.state, { skill: 'firearms', from: range }))
+    expect(g.state.money.cred).toBe(5000 - 1500)
+    // 不在那裡：原因是不在
+    const away = make()
+    expect(lessonBlock(away.k, away.state, { skill: 'firearms', from: range })).toContain('你不在東側靶場')
+  })
+
   it('第一個時段扣學費、上完資料寫的時段數（3 個）之後可以升 5', () => {
     const g = make()
     flag(g, 'fac', 'ft_range')

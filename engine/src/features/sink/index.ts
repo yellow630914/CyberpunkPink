@@ -36,7 +36,7 @@ export type { TherapyFacility, TherapyOpts, TherapyQuote } from './therapy'
 export { sinkView } from './view'
 export type { BandView, SinkView } from './view'
 export {
-  DEFAULT_SINK_RULES, EXT as SINK_EXT, FLOOR_EFFECT as SINK_FLOOR_EFFECT, SHOWN_STAT as SINK_SHOWN_STAT, SUNK_AT, THERAPY_ACTION, WEEK_ACTION as SINK_WEEK_ACTION,
+  DEFAULT_SINK_RULES, EXT as SINK_EXT, PERCEPTION_SKILLS, FLOOR_EFFECT as SINK_FLOOR_EFFECT, SHOWN_STAT as SINK_SHOWN_STAT, SUNK_AT, THERAPY_ACTION, WEEK_ACTION as SINK_WEEK_ACTION,
   bandOf, nextBandOf, readExt as readSinkExt, sinkRules, sleepKey, weekOf as sinkWeekOf,
 } from './model'
 export type { BandWeekly, FloorMod, SinkBand, SinkExt, SinkRules, TherapyKind } from './model'

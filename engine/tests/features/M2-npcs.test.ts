@@ -691,6 +691,20 @@ describe('actorOf：把人變成 state.actors 裡的角色', () => {
     expect(g.state.actors[runner]!.age).toBeGreaterThanOrEqual(18)
   })
 
+  it('身體（body）：npcs 的 buildActor 一手寫進 ext.body（夜課的學習條件從這裡讀）；沒寫身體的人沒有這個鍵；用 npcs.patch 改了身體之後再變角色寫的是新的（M4-followups-2 第 7 項）', () => {
+    const g = make({ content: (c) => { (c.npc as Rec[]).find((n) => n.id === 'npc_ann')!.body = 'fem' } })
+    g.commit(draft([...actorOf(g.k, g.state, 'npc_ann'), ...actorOf(g.k, g.state, 'npc_bob')]))
+    expect(g.state.actors.npc_ann!.ext.body).toBe('fem')
+    expect(Object.hasOwn(g.state.actors.npc_bob!.ext, 'body')).toBe(false)
+    // 格式：不是三種之一載入時擋下
+    expect(() => make({ content: (c) => { (c.npc as Rec[])[0]!.body = 'xyz' } })).toThrow(/body 要是 masc、fem、andro/)
+    // 還不是角色的人先用 npcs.patch 改身體，變成角色時帶著新的
+    const h = make()
+    h.commit(draft([{ op: 'npcs.patch', npc: 'npc_bob', patch: { body: 'andro' } }]))
+    h.commit(draft(actorOf(h.k, h.state, 'npc_bob')))
+    expect(h.state.actors.npc_bob!.ext.body).toBe('andro')
+  })
+
   it('查不到的人丟錯（呼叫的人的錯）；17 歲的角色核心擋下', () => {
     const g = make()
     expect(() => actorOf(g.k, g.state, 'npc_nobody')).toThrow(/查不到/)
@@ -909,5 +923,38 @@ describe('報告與不變式', () => {
       go(g, 'd_rust')
     })
     expect(violations).toEqual([])
+  })
+})
+
+// ---- 外觀詞條的條件 look（M4-followups-2 第 11 項） ----
+
+describe('條件 look { field, value, who? }', () => {
+  it('主角讀建角寫的 ext.profile.look；欄位是陣列就看包含；沒有這個欄位、詞條不同、不認得的人都不成立；who 指定別人', () => {
+    const g = make()
+    g.state.actors.pc!.ext.profile = { look: { hair: ['長髮', '黑色'], eyes: '琥珀' } }
+    expect(test(g, { kind: 'look', field: 'hair', value: '長髮' })).toBe(true)
+    expect(test(g, { kind: 'look', field: 'hair', value: '短髮' })).toBe(false)
+    expect(test(g, { kind: 'look', field: 'eyes', value: '琥珀' })).toBe(true)
+    expect(test(g, { kind: 'look', field: 'eyes', value: '藍' })).toBe(false)
+    expect(test(g, { kind: 'look', field: 'skin', value: '白' })).toBe(false)
+    expect(test(g, { kind: 'look', field: 'hair', value: '長髮', who: 'npc_nobody' })).toBe(false)
+    // 沒有 who 時看這一次條件問的那個人（actor）
+    g.commit(draft(actorOf(g.k, g.state, 'npc_ann')))
+    expect(test(g, { kind: 'look', field: 'hair', value: '長髮' }, 'npc_ann')).toBe(false)
+    g.state.actors.npc_ann!.ext.profile = { look: { hair: ['紅髮'] } }
+    expect(test(g, { kind: 'look', field: 'hair', value: '紅髮' }, 'npc_ann')).toBe(true)
+    expect(test(g, { kind: 'look', field: 'hair', value: '紅髮', who: 'npc_ann' })).toBe(true)
+    expect(test(g, { kind: 'look', field: 'hair', value: '長髮', who: 'npc_ann' })).toBe(false)
+  })
+
+  it('具名人（還不是角色）讀他自己的 look（用 npcs.patch 寫）；格式：field 與 value 都要有', () => {
+    const g = make()
+    g.commit(draft([{ op: 'npcs.patch', npc: 'npc_bob', patch: { look: { hair: '禿頭' } } }]))
+    expect(test(g, { kind: 'look', field: 'hair', value: '禿頭', who: 'npc_bob' })).toBe(true)
+    expect(test(g, { kind: 'look', field: 'hair', value: '長髮', who: 'npc_bob' })).toBe(false)
+    expect(g.k.conditions.validate({ kind: 'look', field: 'hair' } as never, 'c').join()).toContain('value')
+    expect(g.k.conditions.validate({ kind: 'look', value: 'x' } as never, 'c').join()).toContain('field')
+    expect(g.k.conditions.validate({ kind: 'look', field: 'hair', value: 'x', who: 3 } as never, 'c').join()).toContain('who')
+    expect(g.k.conditions.validate({ kind: 'look', field: 'hair', value: 'x' } as never, 'c')).toEqual([])
   })
 })

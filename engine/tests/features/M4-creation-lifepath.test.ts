@@ -9,6 +9,7 @@ import { ContentError } from '../../src'
 import { billsFeature, readBills } from '../../src/features/bills'
 import { characterFeature } from '../../src/features/character'
 import type { CreationDraft } from '../../src/features/creation'
+import { resultProblems } from '../../src/features/creation/lifepath'
 import { buildCreationReport, creationBlocks, creationFeature, lifepathBlock, lifepathResults, lifepathRoll, lifepathTables } from '../../src/features/creation'
 import { LIFEPATH_TABLES } from '../../src/features/creation'
 import { lewdFeature } from '../../src/features/lewd'
@@ -36,6 +37,8 @@ const ENTRIES: Rec[] = [
   entry('friend', 'fr_none', '沒什麼朋友'),
   entry('enemy', 'en_rival', '搶同一個位置的', { result: { npc: { role: 'enemy', faction_from: 'rouge', affinity: -20, hostility: 15 } } }),
   entry('enemy', 'en_loose', '一個沒有勢力的仇人', { result: { npc: { role: 'enemy', hostility: 10 } } }),
+  // 敵對值寫在 result 這一層（CHARACTER 第 6 節 took_the_fall 的寫法；M4-followups-2 第 7 項）
+  entry('enemy', 'en_fall', '替人頂過一次罪，那個人現在過得很好', { result: { npc: { role: 'enemy', faction_from: 'rouge' }, hostility: 15 } }),
   entry('ex', 'ex_gone', '分了', { result: { npc: { role: 'ex', affinity: 10 } } }),
   // 第二個朋友（放在舊情那張表，用來測「朋友最多一位」）
   entry('ex', 'ex_friendish', '分了之後還是朋友', { result: { npc: { role: 'friend', affinity: 5 } } }),
@@ -232,6 +235,21 @@ describe('提交：全部功能都裝', () => {
     // 名字不重複
     const names = ['family', 'friend', 'enemy', 'ex'].map((r) => g.state.actors[`gen_lp_${r}`]!.name)
     expect(new Set(names).size).toBe(4)
+  })
+
+  it('敵對值寫在 result 這一層（took_the_fall 的寫法）和寫在 npc 裡一樣：所屬勢力的敵對值照加；兩處都寫、沒有 npc 只寫 hostility 載入時擋下', () => {
+    const g = setup()
+    const r = create(g, draft({ lifepath: { enemy: 'en_fall' } }))
+    expect(readNpcs(g.state).gen.gen_lp_enemy).toMatchObject({ faction: 'rouge' })
+    expect(meter(g, 'hostility', 'rouge')).toBe(15)
+    expect(r.report.clamps ?? []).toEqual([])
+    // 總覽頁的一行也寫出來
+    expect(lifepathResults(g.k, g.state, draft({ lifepath: { enemy: 'en_fall' } })).flatMap((row) => row.outcomes.map((o) => o.text)).join('；')).toContain('所屬勢力的敵對值 +15')
+    // 格式：兩處都寫、沒有 npc、值不對
+    expect(resultProblems({ npc: { role: 'enemy', hostility: 5 }, hostility: 15 }, 'enemy').join()).toContain('不要兩處都寫')
+    expect(resultProblems({ hostility: 15 }, 'enemy').join()).toContain('要搭配 result.npc')
+    expect(resultProblems({ npc: { role: 'enemy' }, hostility: 0 }, 'enemy').join()).toContain('result.hostility 要是 1～100')
+    expect(resultProblems({ npc: { role: 'enemy' }, hostility: 15 }, 'enemy')).toEqual([])
   })
 
   it('enemy：帶著敵對值（所屬勢力的敵對值加資料寫的量）、親密度是負的、生成的人記旗標；沒有勢力的仇人敵對值沒有地方記（提醒）', () => {

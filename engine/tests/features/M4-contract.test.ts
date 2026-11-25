@@ -309,6 +309,28 @@ describe('簽與解', () => {
     expect(mine(g).id).toMatch(/^c\d+$/)
   })
 
+  it('條件 contract 在契約人這一邊也收 npc（M4-followups-2 第 11 項）：個人持約人是這個人才成立；勢力持約人沒有 npc，指定 npc 就不成立', () => {
+    const g = make()
+    const is = (cond: Rec) => g.k.conditions.test({ kind: 'contract', ...cond } as never, { state: g.state, actor: 'pc', stats: g.k.stats, timeRules: g.k.timeRules })
+    expect(is({ side: 'bound', npc: 'npc_white' })).toBe(false)
+    sign(g, { type: 'work' })
+    expect(is({ side: 'bound', npc: 'npc_white' })).toBe(true)
+    expect(is({ side: 'bound', npc: 'npc_other' })).toBe(false)
+    expect(is({ side: 'bound', npc: 'npc_white', type: 'work', holder_kind: 'person' })).toBe(true)
+    expect(is({ side: 'bound', npc: 'npc_white', type: 'debt' })).toBe(false)
+    // 沒寫 npc 的照舊
+    expect(is({ side: 'bound' })).toBe(true)
+    fx(g, [{ kind: 'contract_end', how: 'cleared' }])
+    expect(is({ side: 'bound', npc: 'npc_white' })).toBe(false)
+    // 勢力持約人：沒有 npc，指定 npc 就不成立
+    sign(g, { holder: EDEN, type: 'work' })
+    expect(is({ side: 'bound' })).toBe(true)
+    expect(is({ side: 'bound', npc: 'npc_white' })).toBe(false)
+    // 格式：npc 要是字串
+    expect(g.k.conditions.validate({ kind: 'contract', side: 'bound', npc: 3 } as never, 'c').join()).toContain('npc')
+    expect(g.k.conditions.validate({ kind: 'contract', side: 'bound', npc: 'npc_white' } as never, 'c')).toEqual([])
+  })
+
   it('期滿自動解約；rights 記讀取與限制級（重複的不記）；條件 contract 與 order_pending', () => {
     const g = make()
     const is = (cond: Rec) => g.k.conditions.test(cond as never, { state: g.state, actor: 'pc', stats: g.k.stats, timeRules: g.k.timeRules })

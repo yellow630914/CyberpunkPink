@@ -16,7 +16,7 @@ export interface CallNames {
 }
 
 /** 這個人現在的稱呼（沒填的不出現）。 */
-export const callsFor = (state: GameState, id: ActorId): CallNames => callNamesOf(state, id)
+export const callsFor = (state: GameState, id: ActorId): CallNames => (state.ext ? callNamesOf(state, id) : {})
 
 /** 化身的外觀描述（沒寫是 undefined）。 */
 export function avatarTextFor(state: GameState, id: ActorId): string | undefined {

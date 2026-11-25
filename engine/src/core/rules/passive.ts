@@ -54,7 +54,7 @@ export const TEMPO_CAP = 1
  */
 export const TEMPO_STAT_BLOCKED = ['cyber', 'drug', 'gear'] as const
 /** 被擋的兩個衍生數值與給玩家（內容作者）看的說法。 */
-const REGEN_STATS: Record<string, string> = { ap_regen: '行動點', ram_regen: 'RAM' }
+const REGEN_STATS: Record<string, string> = { ap_regen: '每回合的行動點回復', ram_regen: '每回合的 RAM 回復' }
 
 /** layer 能寫的值：只在現實（meat）或只在內海（net）的戰場算。 */
 export const PASSIVE_LAYERS = ['meat', 'net'] as const
@@ -299,7 +299,7 @@ function oneProblems(deps: PassiveDeps, e: unknown, at: string, source?: Passive
   if (key === 'stat' && !isText(e.stat)) p.push(`${at}.stat：要是衍生數值的 id`)
   // 節奏資源（M4-followups-2 第 1 項）：義體、藥、裝備不准寫 stat ap_regen／ram_regen（會繞過全身合計最多 +1 的上限）
   if (key === 'stat' && typeof e.stat === 'string' && e.stat in REGEN_STATS && source !== undefined && (TEMPO_STAT_BLOCKED as readonly string[]).includes(source)) {
-    p.push(`${at}.stat：每回合的${REGEN_STATS[e.stat]}回復請用修正 { mod: '${e.stat}' }，不是 { stat }（stat 不經全身合計最多 +1 的夾法）。`)
+    p.push(`${at}.stat：${REGEN_STATS[e.stat]}請用修正 { mod: '${e.stat}' }，不是 { stat }（stat 不經全身合計最多 +1 的夾法）。`)
   }
   if (key === 'check') {
     const c = e.check

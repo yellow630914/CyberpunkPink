@@ -7,7 +7,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import type { Change, ContentPack, Feature, Report } from '../../src'
-import { ActionBlocked, gridHere, meterOf } from '../../src'
+import { ActionBlocked, effectCtx, gridHere, meterOf } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { deckFeature } from '../../src/features/deck'
 import { acceptDefeat, defeatFeature, defeatOf } from '../../src/features/defeat'
@@ -810,5 +810,103 @@ describe('curtainView 與 fallView 的邊角', () => {
     const g = await fallen()
     expect(curtainView(g.k, g.state)).toBeNull()
     expect(fallView(g.k, g.state)).not.toBeNull()
+  })
+})
+
+// ===================================================================================================================
+// 事件用的三個效果（M4-followups-2 第 9 項；CYBERSPACE 8.8 節「預定要寫的」df_stage_vip）
+// ===================================================================================================================
+
+describe('效果 curtain_gig、curtain_patron、curtain_lead（只有內建的來源能用）', () => {
+  const fx = (g: G, effects: Rec[], source: 'builtin' | 'ai' | 'player' = 'builtin') => g.k.effects.resolve(effects as never, effectCtx(g.k, g.state, { source }))
+  const apply = (g: G, effects: Rec[]) => {
+    const res = fx(g, effects)
+    expect(res.errors).toEqual([])
+    g.commit({ kind: 'action', action: 'test.fx', location: {}, party: [], timeline: [], changes: res.changes, outcome: { result: 'ok', summary: '測試' } })
+    return res
+  }
+  const flag = (g: G, key: string) => g.state.flags[key]
+
+  it('curtain_gig：從事件直接簽四週的檔期（和落幕後選「簽檔期」同一條路）；weeks 可以改成 1～12；沒有檔期就沒有 gig 欄位', () => {
+    const g = setup()
+    expect(cur(g).gig).toBeUndefined()
+    const res = apply(g, [{ kind: 'curtain_gig' }])
+    expect(res.lines.join('')).toContain('4 週')
+    expect(cur(g).gig).toMatchObject({ missed: 0, checked: 0, shows: {} })
+    expect(cur(g).gig!.until - cur(g).gig!.start).toBe(4 * 7 * 1440)
+    const h = setup()
+    apply(h, [{ kind: 'curtain_gig', weeks: 2 }])
+    expect(cur(h).gig!.until - cur(h).gig!.start).toBe(2 * 7 * 1440)
+    // 簽著之後上場要照檔期算（沿用既有規則）：報名一場算這個星期上過一場
+    g.commit(enterDraft(g.k, g.state, { party: ['pc'], night: 'n_a', seed: 11 }))
+    expect(cur(g).gig!.shows).toEqual({ '0': 1 })
+  })
+
+  it('curtain_gig：已經簽著落空並寫原因（不丟錯、沒有變更）；contract_dom 被篩選關掉也落空；格式不對在載入時擋下', () => {
+    const g = setup()
+    apply(g, [{ kind: 'curtain_gig' }])
+    const again = fx(g, [{ kind: 'curtain_gig', weeks: 8 }])
+    expect(again.errors).toEqual([])
+    expect(again.changes).toEqual([])
+    expect(again.lines.join('')).toContain('已經簽著檔期')
+    const off = setup({ contentOff: ['contract_dom'] })
+    const blocked = fx(off, [{ kind: 'curtain_gig' }])
+    expect(blocked.changes).toEqual([])
+    expect(blocked.lines.join('')).toContain('篩選')
+    expect(cur(off).gig).toBeUndefined()
+    expect(fx(g, [{ kind: 'curtain_gig', weeks: 0 }]).errors.join()).toContain('weeks')
+    expect(fx(g, [{ kind: 'curtain_gig', weeks: 13 }]).errors.join()).toContain('weeks')
+    expect(fx(g, [{ kind: 'curtain_gig', nothing: 1 }]).errors.join()).toContain('nothing')
+  })
+
+  it('curtain_gig：AI 與玩家要的簽不了；落幕等著選路的那一筆（fall）簽了就算選過了：拿掉，之後不再收設備費與違約金', async () => {
+    const g = setup()
+    expect(fx(g, [{ kind: 'curtain_gig' }], 'ai').errors.join()).toBeTruthy()
+    expect(fx(g, [{ kind: 'curtain_gig' }], 'player').errors.join()).toBeTruthy()
+    const f = await fallen()
+    expect(cur(f).fall).toBeTruthy()
+    apply(f, [{ kind: 'curtain_gig' }])
+    expect(cur(f).fall).toBeFalsy()
+    expect(cur(f).gig).toBeTruthy()
+    expect(fallView(f.k, f.state)).toBeNull()
+  })
+
+  it('curtain_lead 只給一條線頭（旗標 curtain_lead:<贊助人>）；curtain_patron 給名片：線頭加親密度 +10（沒寫 affinity），有人註冊 affinity 才加', () => {
+    const g = setup()
+    apply(g, [{ kind: 'curtain_lead', patron: 'npc_vip' }])
+    expect(flag(g, 'curtain_lead:npc_vip')).toBe(true)
+    // 沒有人註冊 affinity：名片只給線頭
+    const res = apply(g, [{ kind: 'curtain_patron', npc: 'npc_vip2' }])
+    expect(flag(g, 'curtain_lead:npc_vip2')).toBe(true)
+    expect(res.lines.join('')).toContain('好感 +10')
+    // 有 affinity：親密度也加
+    const calls: Rec[] = []
+    const withAffinity = makeGame({
+      seed: 5, features: [characterFeature, lewdFeature, DISTRICT_KIND, curtainFeature, {
+        id: 'aff_stub', install: (k) => k.effects.register<{ kind: string; key: string; amount: number }>({
+          kind: 'affinity', owner: 'aff_stub', ai: false, validate: () => [],
+          toChanges: (e) => { calls.push({ ...e }); return [{ op: 'flag', key: `aff:${e.key}`, value: e.amount }] }, describe: () => '親密度',
+        }),
+      }], content: [{ id: 'bare', content: {} } as unknown as ContentPack],
+    }).game
+    const h = withAffinity as unknown as G
+    apply(h, [{ kind: 'curtain_patron', npc: 'npc_vip', affinity: 15 }])
+    expect(calls).toEqual([{ kind: 'affinity', key: 'npc_vip', amount: 15 }])
+    expect(flag(h, 'aff:npc_vip')).toBe(15)
+    expect(flag(h, 'curtain_lead:npc_vip')).toBe(true)
+    apply(h, [{ kind: 'curtain_patron', npc: 'npc_vip3' }])
+    expect(calls.at(-1)).toEqual({ kind: 'affinity', key: 'npc_vip3', amount: 10 })
+  })
+
+  it('格式：curtain_patron 要有 npc、affinity 是 1～30 的整數；curtain_lead 要有 patron；都不收別的欄位；AI 要不到', () => {
+    const g = setup()
+    expect(fx(g, [{ kind: 'curtain_patron' }]).errors.join()).toContain('npc')
+    expect(fx(g, [{ kind: 'curtain_patron', npc: 'x', affinity: 0 }]).errors.join()).toContain('affinity')
+    expect(fx(g, [{ kind: 'curtain_patron', npc: 'x', affinity: 31 }]).errors.join()).toContain('affinity')
+    expect(fx(g, [{ kind: 'curtain_patron', npc: 'x', more: 1 }]).errors.join()).toContain('more')
+    expect(fx(g, [{ kind: 'curtain_lead' }]).errors.join()).toContain('patron')
+    expect(fx(g, [{ kind: 'curtain_lead', patron: 'x', more: 1 }]).errors.join()).toContain('more')
+    expect(fx(g, [{ kind: 'curtain_patron', npc: 'x' }], 'ai').errors.join()).toBeTruthy()
+    expect(fx(g, [{ kind: 'curtain_lead', patron: 'x' }], 'ai').errors.join()).toBeTruthy()
   })
 })

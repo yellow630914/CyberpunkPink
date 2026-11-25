@@ -43,7 +43,7 @@ export type { EncounterEntry, EncounterFoe, EnemyAttached, EnemyConstruct, Enemy
 export type { TraitEntry } from './traits'
 export { BIND_STATUS, UNBIND, UNBIND_AP, isBound } from './bind'
 export { DEFAULT_FORM_B_CHANCE, SINK_EDGE, SINK_LAYER_STEPS, SINK_LINE, sinkLayers } from './curve'
-export { GENDER_FILTER_TAG, chooseForm, formBChance, formFor, formKeyFor, formUsable, formViewOf, genderOf, hasForms, pickForm, rollFormKey, unitFormView, usableForms } from './forms'
+export { GENDER_FILTER_TAG, NEUTRAL_MOVE_NAMES, chooseForm, formBChance, formFor, formKeyFor, formUsable, formViewOf, genderOf, hasForms, neutralMoveName, pickForm, rollFormKey, unitFormView, usableForms } from './forms'
 export type { FormKey, FormView, UnitFormView } from './forms'
 export { ENEMY_GENDERS } from './kinds'
 export type { EnemyForm, EnemyFormMove, EnemyGender, EnemyNeutral } from './kinds'

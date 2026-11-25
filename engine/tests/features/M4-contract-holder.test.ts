@@ -14,7 +14,8 @@ import {
 import { FEATURES } from '../../src/features'
 import { directorFeature } from '../../src/features/director'
 import { lewdFeature } from '../../src/features/lewd'
-import { makeActor, makeGame } from '../../src/testkit'
+import { readRoster, rosterCap, rosterFeature } from '../../src/features/roster'
+import { makeActor, makeGame, meterFeature, testMeter } from '../../src/testkit'
 
 type Rec = Record<string, any>
 const DAY = 1440
@@ -189,6 +190,29 @@ describe('contract_hold', () => {
     const bare = make({ fake: { roster: false } })
     expect(hold(bare).errors).toEqual([])
     expect(heldIn(bare.state, A)).toBeTruthy()
+  })
+
+  it('接上真正的名冊（roster_add 的 direct: true；M4-followups-2 第 7 項）：成為持約人他直接進名冊成為成員，不是候選；名冊滿了的持約人退成候選；解約不自動離開名冊', () => {
+    const real = (): G => make({
+      features: [characterFeature, lewdFeature, contractFeature, rosterFeature, meterFeature(testMeter({ kind: 'affinity', name: '親密度', min: -100, max: 100, keyed: 'npc' }))],
+    })
+    const g = real()
+    expect(hold(g).errors).toEqual([])
+    expect(Object.keys(readRoster(g.state).members)).toEqual([A])
+    expect(readRoster(g.state).candidates).toEqual([])
+    expect(g.state.meters.loyalty?.[A]).toBe(30)
+    // 解約之後他還在名冊上（名冊的事歸名冊管）
+    expect(fx(g, [{ kind: 'contract_release', npc: A }]).errors).toEqual([])
+    expect(Object.keys(readRoster(g.state).members)).toEqual([A])
+    // 名冊滿了：持約人照樣成立，只是沒進名冊、退成候選
+    const full = real()
+    const cap = rosterCap(full.k, full.state)
+    const ids = Array.from({ length: cap + 1 }, (_, i) => `npc_f${i}`)
+    for (const id of ids) full.state.actors[id] = npcActor(id, id)
+    for (const id of ids) expect(fx(full, [{ kind: 'contract_hold', npc: id, type: 'private' }]).errors).toEqual([])
+    expect(Object.keys(heldOf(full.state))).toEqual(ids)
+    expect(Object.keys(readRoster(full.state).members)).toEqual(ids.slice(0, cap))
+    expect(readRoster(full.state).candidates.map((c) => c.who)).toEqual([ids[cap]])
   })
 
   it('格式與落空：AI 與玩家要的簽不了；債務契約要寫 debt；不是在場的角色或是主角自己落空並提醒；主角身上的契約不受影響', () => {
