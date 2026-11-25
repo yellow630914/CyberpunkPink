@@ -153,13 +153,16 @@ export function uiFromAiSettings(raw: unknown): Partial<UiAiFields> {
 }
 
 /** 設定頁的存檔規則轉成引擎的存檔規則（難度、特質點、自訂難度的 DC 偏移、關掉的內容標籤、快速移動、名冊 NPC 會死；其他用預設）。 */
-export function rulesFromUi(s: { difficulty?: string; traitPoints?: number; customDiff?: { dc: number }; filterIntimateBody?: boolean; fastTravel?: boolean; rosterDeath?: boolean }): Record<string, unknown> {
+export function rulesFromUi(s: { difficulty?: string; traitPoints?: number; customDiff?: { dc: number }; filterRestraint?: boolean; filterDollChip?: boolean; filterPublic?: boolean; filterContract?: boolean; filterIntimateBody?: boolean; fastTravel?: boolean; rosterDeath?: boolean }): Record<string, unknown> {
   const D: Record<string, string> = { 故事: 'story', 簡單: 'easy', 普通: 'normal', 困難: 'hard', 傳奇: 'legend', 自訂: 'custom' }
   const out: Record<string, unknown> = {}
   if (s.difficulty && D[s.difficulty]) out.difficulty = D[s.difficulty]
   if (s.traitPoints !== undefined) out.startPerkPoints = s.traitPoints
   if (s.difficulty === '自訂' && s.customDiff) out.dcOffset = s.customDiff.dc
-  if (s.filterIntimateBody === false) out.contentOff = ['intimate_body']
+  // 內容篩選：關掉的題材是引擎存檔規則的 contentOff（題材的 id：條目與傾向標籤的 tags 對得上它就不出現）
+  const flags: Array<[string, boolean | undefined]> = [['restraint', s.filterRestraint], ['doll_chip', s.filterDollChip], ['public', s.filterPublic], ['contract', s.filterContract], ['intimate_body', s.filterIntimateBody]]
+  const off = flags.filter(([, on]) => on === false).map(([tag]) => tag)
+  if (off.length) out.contentOff = off
   if (s.fastTravel !== undefined) out.fastTravel = s.fastTravel
   if (s.rosterDeath !== undefined) out.rosterDeath = s.rosterDeath
   return out

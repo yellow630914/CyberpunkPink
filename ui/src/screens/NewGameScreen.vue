@@ -3,30 +3,27 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
 import Hint from '../components/Hint.vue'
-import ItemSlot from '../components/ItemSlot.vue'
 import ReasonButton from '../components/ReasonButton.vue'
 import RuleFields from '../components/RuleFields.vue'
-import SkillTreeView from '../components/SkillTreeView.vue'
 import MoneyTag from '../components/MoneyTag.vue'
+import LifepathStep from '../components/creation/LifepathStep.vue'
+import CyberStep from '../components/creation/CyberStep.vue'
+import AbilitiesStep from '../components/creation/AbilitiesStep.vue'
+import GearStep from '../components/creation/GearStep.vue'
 import { useGame } from '../stores/game'
 import { useEngine } from '../stores/engine'
 import { useSettings } from '../stores/settings'
 import { useUi } from '../stores/ui'
-import { ITEMS } from '../data/items'
-import { SKILL_TREES } from '../data/content.generated'
 import type { AttrId } from '@engine/src'
 import {
-  ORIGINS, CYBER_OPTIONS, CYBER_POINTS,
-  LIFE_TABLES, GEAR_CATALOG, GEAR_POINTS, SUGGESTED_KITS, LOOKS, LOOK_GROUPS, BUILD_FIGURE, ORIGIN_STYLE, BEAST_LINES, LIFE_BY_ORIGIN, QUICK_STARTS, type CyberOption,
+  ORIGINS, LOOKS, LOOK_GROUPS, BUILD_FIGURE, ORIGIN_STYLE, QUICK_STARTS,
 } from '../data/creation'
-import {
-  fmtMod, cyberSummary, cyberPickBlock, cyberBlock, gearPoints, gearSummary, gearAddBlock, fitKit, derivedLooks,
-} from '../lib/creation'
+import { CYBER_LOOK, GEAR_STYLE } from '../data/demo'
+import { fmtMod, derivedLooks } from '../lib/creation'
+import type { LookCyber } from '../lib/creation'
 import { GENDER_OPTIONS, PERK_CATEGORY_NAME, rulesFromUi } from '../lib/engineView'
-import { skillXp, TIER_THRESHOLDS } from '../lib/skills'
 import { unavailable } from '../lib/unavailable'
-import type { ItemDef } from '../data/types'
-import type { CreationLook } from '@engine/src/features/creation'
+import type { CreationDraft, CreationLook } from '@engine/src/features/creation'
 
 /**
  * 開新局與建角（UI 第 14 節、樣稿 docs/mockups/title.html 的「新遊戲」與 workshop.html 的「建角」）。
@@ -75,7 +72,7 @@ function randomName() { basic.name = NAMES[Math.floor(Math.random() * NAMES.leng
 // ---- 2 出身 ----
 // 引擎的資料：屬性、基本功、出身、特質（id 是引擎的；顯示用 name）。假資料只剩引擎還沒有的欄位（起始身分的說法、起始的錢、出身的附註）。
 e.creation.previewRules(rulesFromUi(st.s))
-watch(() => [st.s.difficulty, st.s.traitPoints], () => e.creation.previewRules(rulesFromUi(st.s)))
+watch(() => [st.s.difficulty, st.s.traitPoints, st.s.filterRestraint, st.s.filterDollChip, st.s.filterPublic, st.s.filterContract, st.s.filterIntimateBody], () => e.creation.previewRules(rulesFromUi(st.s)))
 const lim = computed(() => e.creation.limits)
 const eAttrs = e.creation.attributes
 const eSkills = e.creation.skills
@@ -97,10 +94,7 @@ const origin = computed(() => {
 const ov = computed(() => e.creation.originView(originId.value) ?? { favor: [], favorValue: 0, roster: [] })
 /** 好感給哪個勢力：勢力的 id */
 const favor = ref<string>(e.creation.originView(originId.value)?.favor[0]?.id ?? '')
-/** 企業出身時是哪一家（舊的橋目錄用短名比對） */
-const corp = computed(() => originId.value === 'corp' ? ov.value.favor.find(f => f.id === favor.value)?.name ?? null : null)
-function pickOrigin(id: string) { originId.value = id; favor.value = e.creation.originView(id)?.favor[0]?.id ?? ''; picks.cyber = picks.cyber.filter(c => !c.corpOnly) }
-watch(favor, () => { if (originId.value === 'corp') picks.cyber = picks.cyber.filter(c => !c.corpOnly || c.corpOnly === corp.value) })
+function pickOrigin(id: string) { originId.value = id; favor.value = e.creation.originView(id)?.favor[0]?.id ?? '' }
 const genderName = computed(() => GENDER_OPTIONS.find(o => o.id === basic.gender)?.name ?? basic.gender)
 
 // ---- 3 屬性 ----
@@ -137,28 +131,14 @@ function basicStep(id: string, d: 1 | -1) {
   basics[id] = (basics[id] ?? 0) + d
 }
 
-// ---- 5 生命軌跡 ----
-const FILTER_OF: Record<string, keyof typeof st.s> = {}
-const life = reactive<Record<string, string>>({ family: 'alive', incident: 'debt', friend: 'grew', enemy: '', love: '', want: 'truth', sex: '', latent: '' })
-/** 生命軌跡的說法跟著出身換（data/creation.ts 的 LIFE_BY_ORIGIN）：只換文字，結果的種類不變。 */
-const lifeOptions = (id: string) => LIFE_TABLES.find(t => t.id === id)!.options
-  .filter(o => !o.filter || st.s[o.filter as 'filterPublic'])
-  .map(o => ({ ...o, ...(LIFE_BY_ORIGIN[originId.value]?.opts?.[`${id}.${o.id}`] ?? {}) }))
-const lifeFlavor = (id: string) => LIFE_BY_ORIGIN[originId.value]?.flavor[id] ?? ''
-const lifeTables = computed(() => LIFE_TABLES.filter(t => lifeOptions(t.id).length))
-function roll(id: string) { const o = lifeOptions(id); life[id] = o[Math.floor(Math.random() * o.length)].id }
-void FILTER_OF
-
-// ---- 6 橋與義體 ----
-const picks = reactive<{ cyber: CyberOption[]; perks: string[]; gear: ItemDef[] }>({ cyber: [CYBER_OPTIONS.find(c => c.id === 'br_std')!, CYBER_OPTIONS.find(c => c.id === 'cw_eye')!], perks: [], gear: [] })
-const cy = computed(() => cyberSummary(picks.cyber))
-function toggleCyber(o: CyberOption) {
-  const has = picks.cyber.some(c => c.id === o.id)
-  if (has) { picks.cyber = picks.cyber.filter(c => c.id !== o.id); return }
-  const b = cyberPickBlock(picks.cyber, o, { id: originId.value, corp: corp.value })
-  if (b) { ui.toast(b, 'warn'); return }
-  picks.cyber = o.kind === 'bridge' ? [...picks.cyber.filter(c => c.kind !== 'bridge'), o] : [...picks.cyber, o]
-}
+// ---- 5 生命軌跡、6 橋與義體、8 技能、9 錢與裝備：選的存在草稿裡，點數、原因、白給的、換多少現金全是引擎的（e.creation.summary 等） ----
+const lifepath = ref<Record<string, string>>({})
+const kinks = ref<Array<{ tag: string; latent?: boolean }>>([])
+const bridge = ref<string | null | undefined>(undefined)
+const cyber = ref<Array<{ blueprint: string; side?: 'l' | 'r' }>>([])
+const abilities = ref<string[]>([])
+const gear = ref<Array<{ id: string; qty?: number }>>([])
+const picks = reactive<{ perks: string[] }>({ perks: [] })
 
 // ---- 7 特質 ----
 const tr = computed(() => e.creation.perkSummary(picks.perks))
@@ -171,58 +151,38 @@ function togglePerk(id: string) {
   picks.perks = [...picks.perks, id]
 }
 
-// ---- 8 技能 ----
-const XP_START = 200
-const learned = ref<string[]>([])
-const xpLeft = computed(() => XP_START - learned.value.reduce((s, id) => { const t = SKILL_TREES.find(x => id.startsWith(x.id + ':'))!; return s + skillXp(t.skills.find(k => k.id === id)!) }, 0))
-function learnS(id: string) { learned.value = [...learned.value, id] }
-function forget(id: string) {
-  // 拿掉一個技能時，接著它的、或因此開不了階的技能也一起拿掉
-  const t = SKILL_TREES.find(x => id.startsWith(x.id + ':'))!
-  let keep = learned.value.filter(x => x !== id)
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const x of [...keep]) {
-      const s = t.skills.find(k => k.id === x)
-      if (!s) continue
-      const lower = t.skills.filter(k => k.tier < s.tier && keep.includes(k.id)).reduce((a, k) => a + skillXp(k), 0)
-      if ((s.pre && !keep.includes(`${t.id}:${s.pre}`)) || lower < TIER_THRESHOLDS[s.tier - 1]) { keep = keep.filter(y => y !== x); changed = true }
-    }
-  }
-  learned.value = keep
-}
-
-// ---- 9 錢與裝備 ----
-const gr = computed(() => gearSummary(picks.gear))
-function addGear(d: ItemDef) {
-  const b = gearAddBlock(picks.gear, d)
-  if (b) { ui.toast(b, 'warn'); return }
-  picks.gear = [...picks.gear, d]
-}
-function removeGear(i: number) { picks.gear = picks.gear.filter((_, k) => k !== i) }
-function suggest() { picks.gear = fitKit(SUGGESTED_KITS[originId.value].map(id => ITEMS[id])) }
-// 起始的錢照引擎給的（全部是現金、出身不加減，CHARACTER 5.4 節）；畫面只顯示，不自己算。
-const money = computed(() => e.creation.startMoney({ cyberSpent: cy.value.spent, gearSpent: gr.value.spent }).total)
-
-// ---- 外觀裡推出來的三樣（第四版）：外露的義體看第 6 步、獸化看第 6 步的耳與尾、風格看第 9 步的穿著 ----
+// ---- 外觀裡推出來的三樣（第四版）：外露的義體看第 6 步、獸化看第 6 步的耳與尾、風格看第 9 步的穿著（加上出身白給的那一套）；名字與牌子是引擎設計圖的 ----
 const beastLine = ref('貓')
-const hasBeast = computed(() => picks.cyber.some(c => c.beast))
-const derived = computed(() => derivedLooks({ cyber: picks.cyber, gear: picks.gear, pronoun: basic.pronoun, baseStyle: ORIGIN_STYLE[originId.value] ?? '工裝', line: beastLine.value }))
 const stepOf = (n: number) => STEPS.findIndex(x => x.id === n)
+const summary = computed(() => e.creation.summary(draft.value))
+const money = computed(() => summary.value.money.total)
+const lookCyber = computed<LookCyber[]>(() => {
+  const ids = [...(typeof bridge.value === 'string' ? [{ blueprint: bridge.value, bridge: true }] : []), ...cyber.value.map(c => ({ blueprint: c.blueprint, bridge: false }))]
+  return ids.flatMap(c => {
+    const bp = e.creation.blueprint(c.blueprint)
+    if (!bp) return []
+    return [{ name: bp.name, brand: bp.brand ?? '', ...(c.bridge ? { bridge: true } : {}), ...(CYBER_LOOK[c.blueprint]?.at ? { visible: { at: CYBER_LOOK[c.blueprint].at, ...(CYBER_LOOK[c.blueprint].line ? { line: CYBER_LOOK[c.blueprint].line } : {}) } } : {}), ...(CYBER_LOOK[c.blueprint]?.beast ? { beast: CYBER_LOOK[c.blueprint].beast } : {}) }]
+  })
+})
+const hasBeast = computed(() => lookCyber.value.some(c => c.beast))
+/** 穿著：這一次選的（白給的那一套已經算在出身的風格裡） */
+const wornGear = computed(() => summary.value.owned.filter(o => o.from === 'pick' && ['clothing', 'armor', 'accessory'].includes(o.category)).map(o => ({ name: o.name, kind: o.category, stats: GEAR_STYLE[o.id] ? [['風格', GEAR_STYLE[o.id]] as [string, string]] : [] })))
+const derived = computed(() => derivedLooks({ cyber: lookCyber.value, gear: wornGear.value, pronoun: basic.pronoun, baseStyle: ORIGIN_STYLE[originId.value] ?? '工裝', line: beastLine.value }))
 
 // ---- 外觀、私處與整份草稿（交給引擎的樣子） ----
 const LOOK_SKIP = new Set(['name', 'gender', 'pronoun', 'age', 'looks', 'background', 'privates', 'privatesNote'])
 /** 私處是 look.private（{ options, text }）；內容篩選關掉時引擎不寫（看存檔規則的 contentOff），這裡照交。 */
-const draft = computed(() => {
+const draft = computed<CreationDraft>(() => {
   const look: CreationLook = {}
   for (const [k, v] of Object.entries(basic)) if (!LOOK_SKIP.has(k)) look[k] = v
   look.private = { options: basic.privates && basic.privates !== '（不寫）' ? [basic.privates] : [], text: String(basic.privatesNote ?? '').trim() }
   return {
     name: basic.name, gender: basic.gender, pronoun: basic.pronoun, age: basic.age, look, lookNote: basic.looks, background: basic.background,
-    origin: originId.value, originChoice: { favor: favor.value }, cyberSpent: cy.value.spent, gearSpent: gr.value.spent,
+    origin: originId.value, originChoice: { favor: favor.value },
     attrPick: { ...attrs }, attrBonus: { ...attrBonus }, skills: { ...basics }, perks: [...picks.perks],
-  }
+    lifepath: { ...lifepath.value }, kinks: kinks.value.map(k => ({ ...k })),
+    ...(bridge.value !== undefined ? { bridge: bridge.value } : {}), cyber: cyber.value.map(c => ({ ...c })), abilities: [...abilities.value], gear: gear.value.map(x => ({ ...x })),
+  } as CreationDraft
 })
 const BLOCK_STEP = { basics: 1, origin: 2, attrs: 3, skills: 4, lifepath: 5, cyber: 6, perks: 7, abilities: 8, gear: 9 } as const
 
@@ -235,17 +195,16 @@ const block = computed<string | null>(() => {
     case 2: return blockOf('origin')
     case 3: return blockOf('attrs')
     case 4: return blockOf('skills')
-    case 6: return cyberBlock(picks.cyber)
+    case 5: return blockOf('lifepath')
+    case 6: return blockOf('cyber')
     case 7: return blockOf('perks')
-    case 8: return xpLeft.value < 0 ? '歷練點超過了。' : null
-    case 9: return gr.value.left < 0 ? '裝備點數超過了。' : null
+    case 8: return blockOf('abilities')
+    case 9: return blockOf('gear')
     default: return null
   }
 })
 const firstBlocked = computed(() => {
   const list: Array<[number, string]> = engineBlocks.value.map(b => [stepOf(BLOCK_STEP[b.step]), b.reason])
-  const cb = cyberBlock(picks.cyber)
-  if (cb) list.push([stepOf(6), cb])
   list.sort((x, y) => x[0] - y[0])
   return list[0] ?? null
 })
@@ -255,13 +214,9 @@ function go(i: number) {
   if (i > stepIdx.value && firstBlocked.value && firstBlocked.value[0] < i) { stepIdx.value = firstBlocked.value[0]; ui.toast(firstBlocked.value[1]!, 'warn'); return }
   stepIdx.value = i
 }
-function quick(q: typeof QUICK_STARTS[number]) {
-  basic.name = q.name
-  pickOrigin(q.origin)
-  picks.gear = fitKit(SUGGESTED_KITS[q.origin].map(id => ITEMS[id]))
-  stepIdx.value = STEPS.length - 1
-  ui.toast(`快速開始：${q.name}。照預設填好了，可以回頭改。`)
-}
+/** 快速開始的預設角色還沒有做（使用者 2026-11-25）：按鈕留著、灰掉，點了說明。 */
+const QUICK_REASON = '快速開始的預設角色還沒有做：這一版請從「基本資料」自己建角。'
+function quick() { ui.toast(QUICK_REASON, 'warn') }
 
 /** 開始：引擎開新局並建角（規則都在引擎）；成功之後把引擎還沒有的假資料照原本的方式寫進 useGame。存檔格不受影響。 */
 function start() {
@@ -275,17 +230,18 @@ function start() {
   g.character.attrs = eAttrs.map(a => ({ name: a.name, base: totals.value[a.id as AttrId], eff: totals.value[a.id as AttrId] }))
   const perkOf = (id: string) => ePerks.find(p => p.id === id)!
   g.character.traits = { good: [origin.value.trait.name, ...picks.perks.map(perkOf).filter(t => !t.flaw).map(t => t.name)], bad: picks.perks.map(perkOf).filter(t => t.flaw).map(t => t.name) }
-  g.character.xp = xpLeft.value
   const b: Record<string, number> = {}
   for (const sk of eSkills) b[sk.name] = (basics[sk.id] ?? 0) + (eo.value.skill_bonus[sk.id] ?? 0)
   for (const k of Object.keys(g.basics)) g.basics[k] = b[k] ?? 0
-  g.learned = [...learned.value]
-  g.syncTrees()
-  for (const d of picks.gear) g.addItem(d.id)
   g.addLog({ prose: [`${basic.name.trim()}，${basic.age} 歲，${origin.value.line}。故事從${origin.value.home}開始。`], place: origin.value.home })
   ui.toast('角色建好了。')
   router.push('/')
 }
+const bridgeName = computed(() => bridge.value === null ? '沒有橋' : typeof bridge.value === 'string' ? e.creation.blueprint(bridge.value)?.name ?? bridge.value : '（還沒選）')
+/** 生命軌跡每一條會變成什麼（引擎的 lifepathResults） */
+const lifeRows = computed(() => e.creation.lifepath.results(draft.value))
+/** 總覽：每一步擋住的原因（引擎的），點那一行回到那一步 */
+const blockedRows = computed(() => engineBlocks.value.map(b => ({ step: b.step, n: BLOCK_STEP[b.step] as number, reason: b.reason })).sort((x, y) => x.n - y.n))
 const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id as AttrId]}（${fmtMod(attrMod(totals.value[a.id as AttrId]))}）`))
 </script>
 
@@ -311,7 +267,7 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
           </div>
           </div>
           <p class="setgrp">快速開始<Hint>每個出身準備兩個預設角色，一個偏戰鬥、一個偏非戰鬥。選了直接填好，最後一頁還能回頭改。</Hint></p>
-          <div class="grid2 quick"><button v-for="q in QUICK_STARTS" :key="q.name" type="button" class="lrow" @click="quick(q)"><span class="grow"><b>{{ q.name }}・{{ ORIGINS.find(o => o.id === q.origin)!.name }}・{{ q.role }}</b><small>{{ q.line }}</small></span></button></div>
+          <div class="grid2 quick"><button v-for="q in QUICK_STARTS" :key="q.name" type="button" class="lrow is-unavailable" aria-disabled="true" :title="QUICK_REASON" data-quick @click="quick"><span class="grow"><b>{{ q.name }}・{{ ORIGINS.find(o => o.id === q.origin)!.name }}・{{ q.role }}</b><small>{{ q.line }}</small></span></button></div>
         </template>
 
         <!-- 內容篩選 -->
@@ -434,41 +390,11 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
           </div>
         </template>
 
-        <!-- 5 生命軌跡 -->
-        <template v-else-if="step === 5">
-          <h2>生命軌跡</h2>
-          <p class="setgrp">每一張可以擲、可以選、可以跳過<Hint>結果會變成遊戲裡的東西：一位 NPC、一個勢力的好感或敵對值、一筆錢或債、一個旗標、一個缺陷、一個個人目標。性經歷與潛在性癖兩張表照內容篩選過濾；所有相關的人物都是成年人。</Hint></p>
-          <p class="origin-note">出身：<b>{{ origin.name }}</b>・{{ origin.line }}。每張表的說法照出身寫；結果的種類一樣。</p>
-          <div class="grid2 cards">
-            <div v-for="t in lifeTables" :key="t.id" class="life cut-sm">
-              <div class="lh"><h4>{{ t.name }}</h4><button type="button" class="btn sm" @click="roll(t.id)">擲</button></div>
-              <p class="flavor">{{ lifeFlavor(t.id) }}</p>
-              <select v-model="life[t.id]" class="inp" :aria-label="t.name"><option value="">跳過</option><option v-for="o in lifeOptions(t.id)" :key="o.id" :value="o.id">{{ o.text }}</option></select>
-              <small v-if="life[t.id]" class="res">→ {{ lifeOptions(t.id).find(o => o.id === life[t.id])?.result }}</small>
-            </div>
-          </div>
-        </template>
+        <!-- 5 生命軌跡：讀引擎（components/creation/LifepathStep.vue） -->
+        <LifepathStep v-else-if="step === 5" v-model:lifepath="lifepath" v-model:kinks="kinks" :draft="draft" />
 
-        <!-- 6 橋與義體 -->
-        <template v-else-if="step === 6">
-          <h2>橋與義體・剩 {{ cy.left }}／{{ CYBER_POINTS }} 點</h2>
-          <p class="setgrp">橋・選一座<Hint>橋決定四類技能的容量（現實／內海／社交／媒體）。企業出身才選得到那家企業的橋。</Hint></p>
-          <div class="grid2">
-          <button v-for="o in CYBER_OPTIONS.filter(x => x.kind === 'bridge')" :key="o.id" type="button" class="lrow pick" :class="{ on: picks.cyber.some(c => c.id === o.id), 'is-unavailable': !!cyberPickBlock(picks.cyber, o, { id: originId, corp }) && !picks.cyber.some(c => c.id === o.id) }" :title="(!picks.cyber.some(c => c.id === o.id) && cyberPickBlock(picks.cyber, o, { id: originId, corp })) || undefined" @click="toggleCyber(o)">
-            <span class="grow"><b>{{ o.name }}</b><small>{{ o.brand }}・{{ ['', 'I', 'II'][o.grade] }}・{{ o.cap!.join('／') }}・沉溺成本 {{ o.sink }}</small><small v-if="cyberPickBlock(picks.cyber, o, { id: originId, corp }) && !picks.cyber.some(c => c.id === o.id)" class="why">{{ cyberPickBlock(picks.cyber, o, { id: originId, corp }) }}</small></span>
-            <Hint :text="o.note" /><b class="pt mono">{{ o.points }}</b>
-          </button>
-          </div>
-          <p class="setgrp">其他義體<Hint>每一件照常算沉溺的下限：開場改得越多，沉溺的起點越高。</Hint></p>
-          <div class="grid2">
-          <button v-for="o in CYBER_OPTIONS.filter(x => x.kind !== 'bridge')" :key="o.id" type="button" class="lrow pick" :class="{ on: picks.cyber.some(c => c.id === o.id) }" v-bind="unavailable(!picks.cyber.some(c => c.id === o.id) && cyberPickBlock(picks.cyber, o, { id: originId, corp }))" @click="toggleCyber(o)">
-            <span class="grow"><b>{{ o.name }}</b><small>{{ o.part }}・{{ o.kind === 'light' ? '輕度' : '侵入' }}・沉溺成本 {{ o.sink }}</small><small v-if="!picks.cyber.some(c => c.id === o.id) && cyberPickBlock(picks.cyber, o, { id: originId, corp })" class="why">{{ cyberPickBlock(picks.cyber, o, { id: originId, corp }) }}</small></span>
-            <Hint :text="o.note" /><b class="pt mono">{{ o.points }}</b>
-          </button>
-          </div>
-          <label v-if="hasBeast" class="fld beastline"><span>獸化的系<Hint>機械派的系看外形與韌體，生體派的系看基因譜（CULTURE 第 2 節）。寫進外觀，也決定耳朵在什麼情緒下怎麼動。</Hint></span><select v-model="beastLine" class="inp"><option v-for="(_, k) in BEAST_LINES" :key="k" :value="k">{{ k }}</option></select></label>
-          <div v-if="block" class="blocking">{{ block }}</div>
-        </template>
+        <!-- 6 橋與義體：讀引擎（components/creation/CyberStep.vue） -->
+        <CyberStep v-else-if="step === 6" v-model:bridge="bridge" v-model:cyber="cyber" v-model:beast-line="beastLine" :draft="draft" :has-beast="hasBeast" />
 
         <!-- 7 特質 -->
         <template v-else-if="step === 7">
@@ -483,61 +409,42 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
           <div v-if="block" class="blocking">{{ block }}</div>
         </template>
 
-        <!-- 8 技能 -->
-        <template v-else-if="step === 8">
-          <h2>技能・剩 {{ xpLeft }}／{{ XP_START }} 歷練點</h2>
-          <p class="setgrp">在技能樹上花<Hint>和遊戲裡的技能樹是同一個畫面：學一個技能花「階 × 20」，算進那棵樹的累計；累計到 {{ TIER_THRESHOLDS[1] }} 開 2 階、{{ TIER_THRESHOLDS[2] }} 開 3 階。起始的 {{ XP_START }} 點大約能把一棵樹開到 3 階。建角時學了可以退（選中再按「退掉」）；沒花完的留著。灰掉的是現在學不了的，點開看原因。</Hint></p>
-          <SkillTreeView :learned="learned" :xp="xpLeft" creation @learn="learnS" @forget="forget" />
-        </template>
+        <!-- 8 技能：同一個技能樹畫面讀建角草稿（components/creation/AbilitiesStep.vue） -->
+        <AbilitiesStep v-else-if="step === 8" v-model:abilities="abilities" :draft="draft" @go-step="n => go(stepOf(n))" />
 
-        <!-- 9 錢與裝備 -->
-        <template v-else-if="step === 9">
-          <h2>錢與裝備・剩 {{ gr.left }}／{{ GEAR_POINTS }} 點</h2>
-          <p class="setgrp">只能買 I～II 級<Hint>一件的點數＝目錄價 ÷ 250，無條件進位，最少 1 點。不能買義體（義體走上一步的點數）、藥、成人道具。另外白給一套出身那一區的日常服裝、一支板子、兩個彈匣的普通彈藥、預設化身的 SKIN。</Hint></p>
-          <div class="go left"><button type="button" class="btn sm pri" @click="suggest">出身的建議組合</button></div>
-          <div class="gearl">
-            <div>
-              <template v-for="c in GEAR_CATALOG" :key="c.cat">
-                <p class="h">{{ c.cat }}</p>
-                <div class="ggrid">
-                  <div v-for="id in c.ids" :key="id" class="gi">
-                    <ItemSlot :item="ITEMS[id]" size="sm" show-name :unavailable="gearAddBlock(picks.gear, ITEMS[id])" @select="addGear(ITEMS[id])" />
-                    <small class="mono">{{ gearPoints(ITEMS[id]) }} 點</small>
-                  </div>
-                </div>
-              </template>
-            </div>
-            <div class="panel cut pad chosen">
-              <p class="h">已選</p>
-              <div v-if="!picks.gear.length" class="empty-note">還沒選。點左邊的物品加進來。</div>
-              <div v-for="(d, i) in picks.gear" :key="i" class="lrow"><ItemSlot :item="d" size="sm" /><span class="grow"><b :style="{ color: `var(--g${d.grade})` }">{{ d.name }}</b><small>{{ gearPoints(d) }} 點</small></span><button type="button" class="btn sm ghost" :aria-label="`拿掉${d.name}`" @click="removeGear(i)">✕</button></div>
-              <div class="kv"><span>起始的錢</span><b><MoneyTag kind="cash" :amount="money" /></b></div>
-            </div>
-          </div>
-          <div v-if="block" class="blocking">{{ block }}</div>
-        </template>
+        <!-- 9 錢與裝備：讀引擎（components/creation/GearStep.vue） -->
+        <GearStep v-else-if="step === 9" v-model:gear="gear" :draft="draft" />
 
         <!-- 10 難度與存檔規則＋總覽 -->
         <template v-else>
           <h2>難度與存檔規則</h2>
           <RuleFields show-trait-points compact />
           <p class="setgrp">總覽</p>
-          <div class="cols2">
+          <div class="cols2" data-overview>
             <div>
               <div class="kv"><span>名字</span><b>{{ basic.name || '（還沒取）' }}・{{ basic.age }} 歲・{{ genderName }}</b></div>
               <div class="kv"><span>出身</span><b>{{ origin.name }}</b></div>
               <div class="kv"><span>屬性</span><b>{{ eAttrs.map(a => totals[a.id as AttrId]).join('・') }}</b></div>
-              <div class="kv"><span>橋</span><b>{{ cy.bridge?.name ?? '沒有' }}</b></div>
-              <div class="kv"><span>沉溺的下限</span><b>{{ cy.sinkFloor }}</b></div>
+              <div class="kv"><span>橋</span><b data-ov-bridge>{{ bridgeName }}</b></div>
+              <div class="kv"><span>義體點數</span><b>剩 {{ summary.cyber.left }}／{{ summary.cyber.total }}</b></div>
+              <div class="kv"><span>沉溺的起點</span><b>{{ summary.sink }}</b></div>
+              <div class="kv"><span>橋的容量</span><b class="mono">{{ summary.capacity.meat }}／{{ summary.capacity.net }}／{{ summary.capacity.social }}／{{ summary.capacity.media }}</b></div>
             </div>
             <div>
               <div class="kv"><span>特質</span><b>{{ [origin.trait.name, ...picks.perks.map(id => ePerks.find(p => p.id === id)?.name)].join('、') }}</b></div>
-              <div class="kv"><span>技能</span><b>{{ learned.length }} 個・剩 {{ xpLeft }} 歷練點</b></div>
-              <div class="kv"><span>裝備</span><b>{{ picks.gear.length }} 件</b></div>
+              <div class="kv"><span>技能</span><b>{{ abilities.length }} 個・剩 {{ summary.xp.left }} 歷練點</b></div>
+              <div class="kv"><span>裝備</span><b>{{ gear.length }} 種・剩 {{ summary.gear.left }} 點</b></div>
+              <div class="kv"><span>身上已經有的</span><b data-ov-owned>{{ summary.owned.map(o => o.name).join('、') || '沒有' }}</b></div>
               <div class="kv"><span>起始的錢</span><b><MoneyTag kind="cash" :amount="money" /></b></div>
             </div>
           </div>
-          <div v-if="firstBlocked" class="blocking">第 {{ STEPS[firstBlocked[0]].id }} 步：{{ firstBlocked[1] }}</div>
+          <div v-if="lifeRows.length" class="lifeov" data-life-ov>
+            <p class="h">生命軌跡會變成</p>
+            <p v-for="r in lifeRows" :key="r.id" class="lo"><b>{{ r.name }}：{{ r.text }}</b><span v-for="(o, i) in r.outcomes" :key="i">→ {{ o.text }}</span></p>
+          </div>
+          <div v-if="blockedRows.length" class="blockedrows" data-blocked-rows>
+            <button v-for="b in blockedRows" :key="b.step + b.reason" type="button" class="blocking linkrow" data-blocked @click="go(stepOf(b.n))">第 {{ b.n }} 步・{{ STEPS[stepOf(b.n)].name }}：{{ b.reason }}</button>
+          </div>
           <div class="blocking warnb">開始會蓋掉這個瀏覽器裡現在這一局（存檔格不受影響）。</div>
         </template>
       </main>
@@ -549,12 +456,12 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
         <div class="kv"><span>出身</span><b>{{ origin.name }}</b></div>
         <div class="kv"><span>屬性</span><b class="mono">{{ eAttrs.map(a => totals[a.id as AttrId] || '—').join('・') }}</b></div>
         <div class="kv"><span>基本功</span><b>剩 {{ bLeft }} 點</b></div>
-        <div class="kv"><span>橋</span><b>{{ cy.bridge?.name ?? '沒有' }}</b></div>
-        <div class="kv"><span>義體點數</span><b>剩 {{ cy.left }}</b></div>
-        <div class="kv"><span>沉溺的下限</span><b>{{ cy.sinkFloor }}</b></div>
+        <div class="kv"><span>橋</span><b>{{ bridgeName }}</b></div>
+        <div class="kv"><span>義體點數</span><b>剩 {{ summary.cyber.left }}</b></div>
+        <div class="kv"><span>沉溺的起點</span><b>{{ summary.sink }}</b></div>
         <div class="kv"><span>特質點</span><b>剩 {{ tr.left }}</b></div>
-        <div class="kv"><span>歷練點</span><b>剩 {{ xpLeft }}</b></div>
-        <div class="kv"><span>裝備點數</span><b>剩 {{ gr.left }}</b></div>
+        <div class="kv"><span>歷練點</span><b>剩 {{ summary.xp.left }}</b></div>
+        <div class="kv"><span>裝備點數</span><b>剩 {{ summary.gear.left }}</b></div>
         <div class="kv"><span>起始的錢（現金）</span><b>{{ money }}</b></div>
         <p class="empty-note mt">{{ attrMods.join('、') }}</p>
       </aside>
@@ -635,6 +542,11 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
 .gi { display: grid; gap: 2px; justify-items: center; }
 .gi small { font-size: var(--fs-tiny); color: var(--ap); }
 .chosen .lrow :deep(.slot) { width: 36px; flex: none; }
+.lifeov { margin-top: var(--space-4); display: grid; gap: var(--space-2); }
+.lifeov .lo { margin: 0; display: grid; gap: 2px; font-size: var(--fs-sm); }
+.lifeov .lo span { color: var(--ram); }
+.blockedrows { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
+.linkrow { text-align: left; border: 0; cursor: pointer; font: inherit; color: var(--ink); width: 100%; }
 .warnb { margin-top: 8px; box-shadow: inset 3px 0 0 var(--warn); }
 @media (max-width: 1000px) { .body { grid-template-columns: minmax(0, 1fr); } .sum { order: 2; } .gearl { grid-template-columns: 1fr; } }
 @media (max-width: 720px) { .body { padding: 8px; } .sum { display: none; } }

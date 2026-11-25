@@ -13,12 +13,12 @@ import SinkPanel from '../components/body/SinkPanel.vue'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
 import { CATEGORY_NAME } from '../lib/skillView'
-import { bridgeRows, crackRows, detoxRows, installRows, modifyRows, needsSide, pctText, removeRows, repairRows, slotItemOf, SIDE_NAME, statusText, PART_UI } from '../lib/bodyView'
+import { bridgeRows, crackRows, detoxRows, installRows, modifyRows, needsSide, pctText, removeRows, repairRows, slotItemOf, spanText, SIDE_NAME, statusText, PART_UI } from '../lib/bodyView'
 import type { PartId } from '@engine/src/features/cyberware'
 
 /**
  * 診所（對話框；站在帶 clinic 的設施上才開得了，自己動刀的入口在住處；CYBERWARE 第 2、5 節、dev/adr/0019 第三節）。
- * 分頁：安裝（含換橋）、拆下、換零件、修理與解鎖、治療、戒斷、清除韌體（等 M4-malware）、調校（等 M4-tuning）。
+ * 分頁：安裝（含換橋）、拆下、換零件、修理與解鎖、治療、戒斷、洗點（技能的歷練點退回來重學；M4-ui-creation）、清除韌體（等 M4-malware）、調校（等 M4-tuning）。
  * 每一項先顯示引擎的報價（費用、成本、休養、併發症的機率、自己動刀的 DC 與成功率），按確認才送；擋住的原因逐字用引擎的。
  * 元件只編排：誰能動刀、費率、成本、休養、機率都是 stores/engine.ts 的 body（features/cyberware、medical、drugs、sink），這裡不算。
  */
@@ -31,7 +31,7 @@ onMounted(() => { if (gate.value) { ui.toast(gate.value, 'warn'); ui.close(props
 
 const TABS = [
   { id: 'install', label: '安裝' }, { id: 'remove', label: '拆下' }, { id: 'modify', label: '換零件' }, { id: 'repair', label: '修理與解鎖' },
-  { id: 'care', label: '治療' }, { id: 'detox', label: '戒斷' }, { id: 'malware', label: '清除韌體' }, { id: 'tuning', label: '調校' },
+  { id: 'care', label: '治療' }, { id: 'detox', label: '戒斷' }, { id: 'respec', label: '洗點' }, { id: 'malware', label: '清除韌體' }, { id: 'tuning', label: '調校' },
 ]
 const tab = ref(TABS.some((t) => t.id === props.tab) ? props.tab! : 'install')
 const title = computed(() => props.clinic ?? eng.body.clinic()?.name ?? '住處的診療室')
@@ -116,6 +116,18 @@ const payReason = computed(() => (lkUid.value ? eng.body.payBlock(lkUid.value) :
 function crack() { done(eng.body.crack(lkUid.value!), '破解的結果在紀錄裡。') }
 function pay() { done(eng.body.pay(lkUid.value!), '補繳了。') }
 const holderName = (id: string): string => id
+
+// ---- 洗點（技能；引擎的 respecQuote 與 respecBlock，要在調校診所） ----
+const respecTrees = computed(() => eng.skills.paths().map((p) => ({ id: p.id, name: p.name, quote: eng.skills.respecQuote(p.id) })).filter((t) => t.quote && t.quote.abilities.length > 0))
+const respecAll = computed(() => eng.skills.respecQuote())
+const respecRows = (q: NonNullable<ReturnType<typeof eng.skills.respecQuote>>) => [
+  { label: '洗掉的技能', value: `${q.abilities.length} 個` },
+  { label: '退回的歷練點', value: `${q.xp} 點`, tone: 'ok' as const },
+  { label: '費用', value: `C$${q.price}` },
+  { label: '花的時間', value: spanText(q.minutes) },
+  ...(q.unequipped.length ? [{ label: '會從橋上卸下', value: `${q.unequipped.length} 個` }] : []),
+]
+function respec(path?: string) { done(eng.skills.respec(path), '洗點做完了：歷練點退回來了。') }
 
 // ---- 戒斷 ----
 const drugs = computed(() => eng.body.drugs())
@@ -241,6 +253,22 @@ function detox(id: string) { done(eng.body.detox(id), '療程做完了。') }
           <article v-for="a in detoxList" :key="a.id" class="item" :data-detox="a.id">
             <b>{{ a.name }}・成癮 {{ a.value }}</b>
             <QuoteCard :rows="a.detox.quote ? detoxRows(a.detox.quote) : []" :reason="a.detox.block" action="做療程" @go="detox(a.id)" />
+          </article>
+        </section>
+      </div>
+
+      <!-- 洗點 -->
+      <div v-else-if="tab === 'respec'" class="cl one" data-tab="respec">
+        <section class="panel cut pad stack">
+          <p class="h">洗點<Hint>洗掉一棵樹（或全部）學會的技能：歷練點退回來、樹的累計跟著扣、裝著的卸下，要付錢、過一天。基本功不能退，夜課不在這裡洗。費用、時間、原因都是引擎的。</Hint></p>
+          <div v-if="!respecTrees.length" class="empty-note" data-empty>還沒有學會任何技能，沒有可以洗的。</div>
+          <article v-for="t in respecTrees" :key="t.id" class="item" :data-respec="t.id">
+            <b>{{ t.name }}</b>
+            <QuoteCard :rows="respecRows(t.quote!)" :reason="eng.skills.respecBlock(t.id)" action="洗掉這一棵" @go="respec(t.id)" />
+          </article>
+          <article v-if="respecTrees.length > 1 && respecAll" class="item" data-respec="all">
+            <b>全部的樹</b>
+            <QuoteCard :rows="respecRows(respecAll)" :reason="eng.skills.respecBlock()" action="全部洗掉" :pri="false" @go="respec()" />
           </article>
         </section>
       </div>

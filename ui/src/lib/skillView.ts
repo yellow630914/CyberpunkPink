@@ -23,6 +23,22 @@ export const LANES = [
   { key: 'net', domain: 'net', label: '內海' },
   { key: 'opinion', domain: 'opinion', label: '輿論' },
 ] as const
+/**
+ * 技能樹畫面讀的來源：遊戲中是主角（stores/engine.ts 的 skills），建角時是第 8 步的草稿（forget 才有「退掉」）。
+ * 能不能學、原因、每棵樹開到幾階都是引擎的答案；畫面只編排。
+ */
+export interface AbilitySource {
+  paths: () => PathEntry[]
+  abilities: () => AbilityEntry[]
+  mine: () => AbilityState
+  tierOf: (path: string) => number
+  treeXp: readonly number[]
+  resonanceOn: (path: string, tier: number) => boolean
+  lock: () => string | null
+  learnBlock: (id: string) => string | null
+  learn: (id: string) => string | null
+  forget?: (id: string) => void
+}
 export const PENDING_LINE = '還沒有做成機制。'
 
 // ---- 文字 ----

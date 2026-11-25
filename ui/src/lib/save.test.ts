@@ -9,7 +9,7 @@ describe('存檔的打包與讀回', () => {
   it('整份狀態存了再讀回來一模一樣', () => {
     const g = useGame()
     g.money.acc = 1234
-    g.learnSkill('gun:看我的！')
+    g.learned.push('gun:看我的！')
     g.addItem('it_57e531', 3)
     g.channel.subs = 999
     const raw = packSave(g.serialize(), g.saveMeta())

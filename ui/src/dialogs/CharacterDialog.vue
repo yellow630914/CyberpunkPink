@@ -43,20 +43,15 @@ const TABS = [
 const guides = useGuides()
 if (tab.value === 'gear') guides.trigger('g_gear')
 
-// ---- 概要：基本功（CORE_RULES 7.2 節）：升到 N 級花 N × 10；5、6 級要有人教 ----
-function basicBlock(name: string) {
-  const lv = g.basics[name] ?? 0
-  if (lv >= 6) return '已經 6 級了。'
-  if (lv >= 4) return `${name}的 ${lv + 1} 級要有人教：先找到一位 5 級以上的老師。`
-  const cost = (lv + 1) * 10
-  if (g.character.xp < cost) return `要 ${cost} 歷練點，你有 ${g.character.xp} 點。`
-  return null
-}
-function raiseBasic(name: string) {
-  const lv = g.basics[name] ?? 0
-  g.character.xp -= (lv + 1) * 10
-  g.basics[name] = lv + 1
-  ui.toast(`${name}升到 ${lv + 1} 級。`)
+// ---- 概要：基本功（CORE_RULES 7.2 節）：級數、花多少歷練點、能不能升、5～6 級要有人教的那一句都是引擎的（stores/engine.ts 的 skills.basic*） ----
+const basicRows = computed(() => eng.creation.skills.map((sk) => {
+  const meta = BASIC_SKILLS.find((b) => b.name === sk.name)
+  return { id: sk.id, name: sk.name, attr: eng.creation.attributes.find((a) => a.id === sk.attr)?.name ?? '', icon: meta?.icon ?? 'ic-bs_streetwise', hint: meta?.hint ?? '' }
+}))
+function raiseBasic(id: string, name: string) {
+  const why = eng.skills.basicUp(id)
+  if (why) ui.toast(why, 'warn')
+  else ui.toast(`${name}升到 ${eng.skills.basicLevel(id)} 級。`)
 }
 
 // ---- 角色卡的生命與沉溺：讀引擎（痛覺編輯器讓生命值只剩模糊的分段） ----
@@ -94,16 +89,16 @@ const sinkNow = computed(() => eng.body.sink())
             <div class="src">{{ a.src ?? '—' }}</div>
           </div>
         </div>
-        <p class="h mt">基本功<Hint>十八項，每項 0～6 級。升到 N 級花 N × 10 歷練點；0 到 4 級可以直接升，5 級與 6 級要有人教（金色細框）。基本功不佔橋的容量。</Hint></p>
+        <p class="h mt">基本功<Hint>十八項，每項 0～6 級。花多少歷練點、能不能直接升、5 級與 6 級要有人教（金色細框）都是引擎說的。基本功不佔橋的容量。</Hint></p>
         <div class="basics">
           <div v-for="a in ATTRS" :key="a" class="bgrp">
             <div class="k">{{ a }}</div>
-            <div v-for="b in BASIC_SKILLS.filter(x => x.attr === a)" :key="b.name" class="brow">
+            <div v-for="b in basicRows.filter(x => x.attr === a)" :key="b.id" class="brow" :data-basic="b.id">
               <Icon :id="b.icon" :size="18" fit />
-              <span class="bn">{{ b.name }}<Hint :text="b.hint" /></span>
-              <span class="bpips"><i v-for="n in 6" :key="n" :class="{ on: n <= (g.basics[b.name] ?? 0), teach: n >= 5 }" /></span>
-              <span class="bc mono">{{ (g.basics[b.name] ?? 0) >= 4 ? '要老師' : `${((g.basics[b.name] ?? 0) + 1) * 10}` }}</span>
-              <ReasonButton sm :reason="basicBlock(b.name)" @go="raiseBasic(b.name)">＋</ReasonButton>
+              <span class="bn">{{ b.name }}<Hint v-if="b.hint" :text="b.hint" /></span>
+              <span class="bpips"><i v-for="n in 6" :key="n" :class="{ on: n <= eng.skills.basicLevel(b.id), teach: n >= 5 }" /></span>
+              <span class="bc mono" data-basic-cost>{{ eng.skills.basicLevel(b.id) >= 6 ? '—' : eng.skills.basicCost(b.id) }}</span>
+              <ReasonButton sm :reason="eng.skills.basicBlock(b.id)" data-act="basic-up" @go="raiseBasic(b.id, b.name)">＋</ReasonButton>
             </div>
           </div>
         </div>

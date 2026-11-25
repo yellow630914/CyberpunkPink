@@ -5,33 +5,36 @@ import ReasonButton from './ReasonButton.vue'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
 import { CAT_COLOR, CATEGORY_NAME, DOMAIN_NAME, KIND_NAME, LAYER_NAME, cardOf, gridOf, lanesOf, listTrees, richText, useLine } from '../lib/skillView'
+import type { AbilitySource } from '../lib/skillView'
 
 /**
  * 技能樹的本體（UI.md 8.4 節）：讀引擎的內容與狀態（stores/engine.ts 的 skills）。
  * 左：樹的清單；中：抬頭（三個戰場的強弱、累計花費的進度條）、樹（招牌在上，每階前層後層，三條線一條一欄）、共鳴；右：詳情與「學」。
  * 只編排：能不能學、原因是哪一句都是引擎的答案。夜課、體悟、預備還沒有（引擎沒做）。
  */
-const props = defineProps<{ tree?: string; skill?: string }>()
+const props = defineProps<{ tree?: string; skill?: string; source?: AbilitySource }>()
 const eng = useEngine()
 const ui = useUi()
+/** 讀哪裡：遊戲中是引擎的主角；建角時是建角草稿（NewGameScreen 的第 8 步給的，同一個版面） */
+const src: AbilitySource = props.source ?? eng.skills
 
-const trees = computed(() => listTrees(eng.skills.paths(), eng.skills.abilities(), eng.skills.mine(), eng.skills.tierOf, eng.skills.treeXp))
+const trees = computed(() => listTrees(src.paths(), src.abilities(), src.mine(), src.tierOf, src.treeXp))
 const treeId = ref<string | null>(props.tree ?? null)
 const tree = computed(() => trees.value.find((t) => t.id === treeId.value) ?? trees.value.find((t) => t.abilities.some((a) => a.id === props.skill)) ?? trees.value[0] ?? null)
 const selId = ref<string | null>(props.skill ?? null)
 const sel = computed(() => tree.value?.abilities.find((a) => a.id === selId.value) ?? (tree.value ? tree.value.abilities.find((a) => a.id === tree.value!.signature) ?? tree.value.abilities[0] ?? null : null))
-const mine = computed(() => eng.skills.mine())
-const path = computed(() => eng.skills.paths().find((p) => p.id === tree.value?.id))
+const mine = computed(() => src.mine())
+const path = computed(() => src.paths().find((p) => p.id === tree.value?.id))
 const grid = computed(() => (tree.value ? gridOf(tree.value) : null))
 const open = computed(() => tree.value?.tier ?? 1)
-const lock = computed(() => eng.skills.lock())
-const cardFor = (ab: Parameters<typeof cardOf>[0]) => cardOf(ab, mine.value, open.value, eng.skills.learnBlock(ab.id))
+const lock = computed(() => src.lock())
+const cardFor = (ab: Parameters<typeof cardOf>[0]) => cardOf(ab, mine.value, open.value, src.learnBlock(ab.id))
 const selCard = computed(() => (sel.value ? cardFor(sel.value) : null))
 const lanes = computed(() => (sel.value ? lanesOf(sel.value, path.value) : []))
-const after = computed(() => (sel.value?.after ? eng.skills.abilities().find((a) => a.id === sel.value!.after) ?? null : null))
-const xpMax = computed(() => eng.skills.treeXp[eng.skills.treeXp.length - 1] ?? 1)
-const progress = computed(() => ({ pct: `${Math.min(100, ((tree.value?.spent ?? 0) / xpMax.value) * 100)}%`, marks: eng.skills.treeXp.slice(1).map((x) => ({ x, left: `${(x / xpMax.value) * 100}%` })) }))
-const resonance = computed(() => (path.value?.resonance ?? []).map((r) => ({ ...r, on: eng.skills.resonanceOn(path.value!.id, r.tier) })))
+const after = computed(() => (sel.value?.after ? src.abilities().find((a) => a.id === sel.value!.after) ?? null : null))
+const xpMax = computed(() => src.treeXp[src.treeXp.length - 1] ?? 1)
+const progress = computed(() => ({ pct: `${Math.min(100, ((tree.value?.spent ?? 0) / xpMax.value) * 100)}%`, marks: src.treeXp.slice(1).map((x) => ({ x, left: `${(x / xpMax.value) * 100}%` })) }))
+const resonance = computed(() => (path.value?.resonance ?? []).map((r) => ({ ...r, on: src.resonanceOn(path.value!.id, r.tier) })))
 const catColor = (c: keyof typeof CAT_COLOR) => CAT_COLOR[c]
 
 function pickTree(id: string) {
@@ -41,9 +44,12 @@ function pickTree(id: string) {
 function learn() {
   if (!sel.value) return
   const name = sel.value.name
-  const why = eng.skills.learn(sel.value.id)
+  const why = src.learn(sel.value.id)
   if (why) ui.toast(why, 'warn')
-  else ui.toast(`學會了「${name}」。裝進橋在角色的「橋」分頁。`)
+  else ui.toast(src.forget ? `選了「${name}」。` : `學會了「${name}」。裝進橋在角色的「橋」分頁。`)
+}
+function forget() {
+  if (sel.value && src.forget) src.forget(sel.value.id)
 }
 const stateName = { learned: '學會了', can: '可以學', blocked: '條件不夠', locked: '那一階還沒開' } as const
 </script>
@@ -77,7 +83,7 @@ const stateName = { learned: '學會了', can: '可以學', blocked: '條件不�
       <div class="panel cut pad treebox">
         <div class="sigrow"><button v-if="grid.signature" type="button" class="card sig" :class="cardFor(grid.signature).state" :data-skill="grid.signature.id" :data-state="cardFor(grid.signature).state" :aria-pressed="sel?.id === grid.signature.id" @click="selId = grid.signature.id"><span class="ks">{{ cardFor(grid.signature).kindShort }}</span><b>{{ grid.signature.name }}</b><small>招牌・{{ cardFor(grid.signature).kind }}・容量 {{ grid.signature.cap }}</small></button></div>
         <div v-for="t in grid.tiers" :key="t.tier" class="tier" :class="{ closed: t.tier > open }" :data-tier="t.tier" :data-open="t.tier > open ? 'false' : 'true'">
-          <div class="tl"><b>{{ t.tier }} 階</b><small class="mono">{{ eng.skills.treeXp[t.tier - 1] }}</small></div>
+          <div class="tl"><b>{{ t.tier }} 階</b><small class="mono">{{ src.treeXp[t.tier - 1] }}</small></div>
           <div class="rows">
             <div v-for="r in t.rows" :key="r.layer" class="row" :class="r.layer" :style="{ gridTemplateColumns: `repeat(${grid.columns}, minmax(0, 1fr))` }">
               <div v-for="(cell, ci) in r.cells" :key="ci" class="cell">
@@ -112,6 +118,7 @@ const stateName = { learned: '學會了', can: '可以學', blocked: '條件不�
         <li v-for="l in lanes" :key="l.key" :class="{ dim: l.dim }" :data-lane="l.key" :data-dim="l.dim ? 'true' : 'false'"><b>{{ l.label }}</b><span class="lv">{{ l.level }}</span><span class="lt">{{ l.line }}</span></li>
       </ul>
       <ReasonButton v-if="selCard.state !== 'learned'" pri :reason="selCard.why" data-act="learn" @go="learn">學</ReasonButton>
+      <button v-if="selCard.state === 'learned' && src.forget" type="button" class="btn sm" data-act="forget" @click="forget">退掉</button>
       <p v-if="selCard.state === 'learned'" class="k" data-why>已經學會了。</p>
       <p v-else-if="selCard.why" class="k why" data-why>{{ selCard.why }}</p>
       <p v-if="lock" class="k why" data-lock>{{ lock }}</p>

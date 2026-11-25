@@ -13,8 +13,8 @@ import { dissectDraft, dissectOptions } from '@engine/src/features/enemies'
 import type { DissectOption } from '@engine/src/features/enemies'
 import type { BlueprintEntry, PartEntry } from '@engine/src/features/gear'
 import type { GearLookup } from '../lib/gearView'
-import { abilitiesOf, usesOf as abilityUses, capacityOf, applyLoadout, loadoutMinutes, loadoutBlock as abilityLoadoutBlock, learn as abilityLearn, learnBlock as abilityLearnBlock, resonanceOn, treeTier, TREE_XP } from '@engine/src/features/abilities'
-import type { AbilityEntry, PathEntry } from '@engine/src/features/abilities'
+import { abilitiesOf, usesOf as abilityUses, capacityOf, applyLoadout, loadoutMinutes, loadoutBlock as abilityLoadoutBlock, learn as abilityLearn, learnBlock as abilityLearnBlock, resonanceOn, treeTier, TREE_XP, skillUpBlock, skillUpCost, skillUpDraft, respecBlock, respecDraft, respecQuote, SKILL_UP_ACTION, RESPEC_ACTION } from '@engine/src/features/abilities'
+import type { AbilityEntry, AbilityState, PathEntry } from '@engine/src/features/abilities'
 import { acceptDefeat, chooseDefeatOption, defeatOf, defeatView, skipDefeat, watchDefeat } from '@engine/src/features/defeat'
 import type { DefeatViewInfo } from '@engine/src/features/defeat'
 import { auxChance, breathe as commissionBreathe, chooseBranch, chooseFace, commissionView, checkGoal as commissionCheckGoal, playScene as commissionPlayScene, replay as commissionReplay, retreat as commissionRetreat } from '@engine/src/features/commission'
@@ -70,9 +70,12 @@ import type { RollPart } from '@engine/src'
 import { PAIN_TAG } from '../lib/bodyView'
 import type { BodyBag, BodyBagKind, BodyPassive } from '../lib/bodyView'
 import type { PartyMember } from '../data/types'
-import { DEMO_SCENES, demoBodyChanges, demoCraftChanges, demoNetChanges, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature } from '../data/demo'
+import { DEMO_SCENES, demoBodyChanges, demoCraftChanges, demoNetChanges, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature, withDemoOrigins } from '../data/demo'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
-import { ageBlock, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
+import { MAX_KINKS, TABLE_NAME, abilitiesStepBlock, ageBlock, askStep, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, creationSummary, cyberStepBlock, gearStepBlock, kinkChoices, lifepathProblems, lifepathResults, lifepathRoll, lifepathTables, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
+import type { BodyStep, LifepathTable } from '@engine/src/features/creation'
+import { NO_BRIDGE_ABILITY } from '@engine/src/features/abilities/creation'
+import { treeTierOf } from '@engine/src/features/abilities/learn'
 import { debriefOf } from '../lib/scene/sceneView'
 import type { Debrief } from '../lib/scene/sceneView'
 import { aiSettingsFromUi, logEntryOf, type EngineLogEntry, type UiAiFields } from '../lib/engineView'
@@ -108,7 +111,7 @@ export const useEngine = defineStore('engine', () => {
   // 開局站在哪（示意包的起點）是 game.new 掛點給的變更（demoStartFeature），不另開一份報告，所以紀錄一開始是空的。
   // 成人場景的模式（設定 scene_mode，預設精簡；下一場生效）：每個新建的引擎都套上現在的設定
   let sceneModeNow: SceneMode = 'simple'
-  const build = (extra: ContentPack[] = [], demo = true, features: Feature[] = []): Game => withSceneMode(new Game({ features: [...allFeatures(), ...(demo ? [demoStartFeature()] : []), ...features], content: [...(demo ? [CORE_PACK, demoPack()] : [CORE_PACK]), ...extra], fakeProvider: new FakeProvider() }))
+  const build = (extra: ContentPack[] = [], demo = true, features: Feature[] = []): Game => withSceneMode(new Game({ features: [...allFeatures(), ...(demo ? [demoStartFeature()] : []), ...features], content: [...(demo ? [withDemoOrigins(CORE_PACK), demoPack()] : [CORE_PACK]), ...extra], fakeProvider: new FakeProvider() }))
   const withSceneMode = (g: Game): Game => { setSceneMode(g.k, sceneModeNow); return g }
   let game = build()
   /** 這一局載的是示意世界包（測試自帶內容時不是）：開新局之後附上示意的名冊 */
@@ -229,7 +232,7 @@ export const useEngine = defineStore('engine', () => {
       if (blocks.length > 0) return blocks
       previewRules.value = null
       clearQueued()
-      game.newGame({ ...rest, setup: (state) => withPeople(buildCreationReport(game.k, state, draft), state, people !== false, draft.origin) })
+      game.newGame({ ...rest, setup: (state) => withPeople(buildCreationReport(game.k, state, draft), state, people !== false, draft) })
       return []
     }
     previewRules.value = null
@@ -238,14 +241,28 @@ export const useEngine = defineStore('engine', () => {
     return []
   }
 
-  /** 建角的開新局：名冊的成員是引擎照出身的名冊放的，示意包只補候選人 */
-  const withPeople = (r: ReportDraft, state: GameState, on: boolean, origin: string): ReportDraft => (on && demoOn ? { ...r, changes: [...r.changes, ...demoNetChanges(), ...demoBodyChanges(), ...demoCraftChanges(), ...demoPeopleChanges(game.k, state, { origin: (originView(game.k, origin)?.roster ?? []).map((n) => n.id) })] } : r)
+  /**
+   * 建角的開新局：名冊的成員是引擎照出身的名冊放的，示意包只補候選人。
+   * 草稿自己選了橋、義體或裝備（第 6、9 步）時，身上有什麼完全是引擎照選的給的：示意包不再送那一副橋、甲板、義眼與整包構裝（只補組裝的零件與候選人）。
+   */
+  const withPeople = (r: ReportDraft, state: GameState, on: boolean, draft: CreationDraft): ReportDraft => {
+    if (!(on && demoOn)) return r
+    const picked = draft.bridge !== undefined || draft.cyber !== undefined || draft.gear !== undefined
+    const roster = { origin: (originView(game.k, draft.origin)?.roster ?? []).map((n) => n.id) }
+    return { ...r, changes: [...r.changes, ...(picked ? [] : [...demoNetChanges(), ...demoBodyChanges()]), ...demoCraftChanges(), ...demoPeopleChanges(game.k, state, roster)] }
+  }
   /** 先問引擎每一步行不行；有問題原樣回傳、狀態不動；沒問題才提交。 */
   function createCharacter(draft: CreationDraft): CreationBlock[] {
     const blocks = creationBlocks(game.k, game.state, draft)
     if (blocks.length > 0) return blocks
     game.commit(buildCreationReport(game.k, game.state, draft))
     return []
+  }
+
+  const stepBlocksOf = (draft: CreationDraft, step: BodyStep): string[] => {
+    const blocks = askStep(game.k, cstate(), draft, step).blocks
+    const top = (step === 'cyber' ? cyberStepBlock : step === 'abilities' ? abilitiesStepBlock : gearStepBlock)(game.k, cstate(), draft)
+    return top && !blocks.includes(top.reason) ? [...blocks, top.reason] : blocks
   }
 
   const creation = {
@@ -268,6 +285,63 @@ export const useEngine = defineStore('engine', () => {
     originView: (id: string) => originView(game.k, id),
     /** 起始的錢（含沒花完的義體與裝備點數換的現金） */
     startMoney: (draft: Parameters<typeof startMoney>[2]) => startMoney(game.k, cstate(), draft),
+    // ---- 第 5 步：生命軌跡（features/creation 的 lifepath；畫面只編排） ----
+    lifepath: {
+      /** 每張表看得到的條目（照出身換好說法、照內容篩選過濾；整張被濾掉的表不列） */
+      tables: (draft: CreationDraft) => lifepathTables(game.k, cstate(), draft),
+      /** 擲一張表（照這份存檔的種子；reroll 是第幾次重擲，0 是第一次）；沒有條目是 null */
+      roll: (draft: CreationDraft, table: LifepathTable, reroll = 0): string | null => lifepathRoll(game.k, cstate(), draft, table, reroll),
+      /** 每一條選的會變成什麼（一句一句） */
+      results: (draft: CreationDraft) => lifepathResults(game.k, cstate(), draft),
+      /** 可以自己挑的潛在性癖標籤 */
+      kinks: () => kinkChoices(game.k, cstate()),
+      /** 全部的問題（第一條也是擋住下一步的原因） */
+      problems: (draft: CreationDraft): string[] => lifepathProblems(game.k, cstate(), draft),
+      kinkMax: MAX_KINKS,
+      tableName: (t: LifepathTable): string => TABLE_NAME[t],
+    },
+    // ---- 第 6、8、9 步：橋與義體、技能、錢與裝備（features/creation 的 creationSummary 與 askStep；點數、原因、白給的全是引擎的） ----
+    /** 三種點數與換多少現金、沉溺的起點、四類容量、身上已經有的、每一步的提醒與擋住的原因 */
+    summary: (draft: CreationDraft) => creationSummary(game.k, cstate(), draft),
+    /** 第 6 步（橋與義體）的選項：設計圖的內容（名字、牌子、等級、說明）與要不要選左右 */
+    blueprint: (id: string): (BlueprintEntry & { needsSide: boolean }) | null => {
+      const bp = game.k.content.get<BlueprintEntry>('blueprint', id)
+      return bp ? { ...bp, needsSide: bp.kind === 'cyberware' && cyberware.partIdOf(bp.slot) === null } : null
+    },
+    /** 部位的名字（義體；arm、leg 要給左右） */
+    partName: (slot: string | undefined, side?: 'l' | 'r'): string => { const id = cyberware.partIdOf(slot, side); return id ? cyberware.PART_NAME[id] : '' },
+    /** 物品的內容（名字、類別、等級、說明、價錢；顯示用） */
+    entryOf: (kind: string, id: string): { id: string; name: string; desc?: string; category?: string; grade?: number; price?: number } | null => game.k.content.get(kind, id) as never ?? null,
+    /**
+     * 只選這一件的話：花幾點、沉溺的成本、各功能擋住的原因（沒有橋之類和別的選擇有關的原因也在裡面，畫面用 addBlock 看「加進去之後」多了什麼）。
+     * 選項照 creation.step 掛點的格式：cyber { blueprint, side?, bridge? }、gear { id, qty? }。
+     */
+    lone: (draft: CreationDraft, step: 'cyber' | 'gear', pick: { blueprint?: string; side?: 'l' | 'r'; bridge?: boolean; id?: string; qty?: number }) => {
+      const { bridge: _b, cyber: _c, gear: _g, abilities: _a, cyberSpent: _x, gearSpent: _y, ...rest } = draft
+      const only: CreationDraft = step === 'cyber'
+        ? { ...rest, ...(pick.bridge ? { bridge: pick.blueprint! } : { cyber: [{ blueprint: pick.blueprint!, ...(pick.side ? { side: pick.side } : {}) }] }) }
+        : { ...rest, gear: [{ id: pick.id!, ...(pick.qty ? { qty: pick.qty } : {}) }] }
+      const r = askStep(game.k, cstate(), only, step)
+      return { points: r.points ?? 0, sink: r.sink, blocks: r.blocks }
+    },
+    /** 這一步現在的每一條問題（一條一個條件）；點數超過也算（引擎的那一句） */
+    stepBlocks: (draft: CreationDraft, step: BodyStep): string[] => stepBlocksOf(draft, step),
+    /** 從 before 改成 after 之後這一步多了什麼原因（這一次動作被擋下的那一句）；沒有是 null */
+    addBlock: (before: CreationDraft, after: CreationDraft, step: BodyStep): string | null => {
+      const was = new Set(stepBlocksOf(before, step))
+      return stepBlocksOf(after, step).find((b) => !was.has(b)) ?? null
+    },
+    /** 選了「沒有橋」的後果：引擎在那一步的提醒（先讓玩家知道，再讓他確認） */
+    noBridgeNotes: (draft: CreationDraft): string[] => creationSummary(game.k, cstate(), { ...draft, bridge: null }).notes.cyber,
+    /** 沒有橋時第 8 步整頁的那一句（引擎的） */
+    noBridgeAbility: NO_BRIDGE_ABILITY,
+    /** 第 8 步學的技能的狀態：歷練點、學會的（引擎擋下的不在裡面）、每棵樹累計花的 */
+    abilityState: (draft: CreationDraft): AbilityState => {
+      const change = askStep(game.k, cstate(), draft, 'abilities').changes.find((c) => (c as { key?: string }).key === 'abilities') as { value?: AbilityState } | undefined
+      return change?.value ?? { xp: cstate().rules.startXp, learned: [], equipped: [], spent: {} }
+    },
+    /** 一棵樹開到第幾階（引擎的 treeTierOf） */
+    treeTier: (spent: number): number => treeTierOf(spent),
     /** 引擎的屬性調整值（（屬性 − 10）÷ 2 捨去）：畫面只顯示，不自己算 */
     attrMod: (v: number) => engineAttrMod(v),
     get attributes(): AttributeEntry[] { return game.k.content.list<AttributeEntry>('attribute') },
@@ -769,6 +843,28 @@ export const useEngine = defineStore('engine', () => {
       return game.blockOf('commit:ability.learn') ?? abilityLearnBlock(game.k, game.state, game.state.pc, id)
     },
     learn: (id: string): string | null => commitGear((pc) => abilityLearn(game.k, game.state, pc, id)),
+    // ---- 基本功升級與洗點（CORE_RULES 7.2 節；features/abilities 的 train）：歷練點、花多少、能不能、原因都是引擎的 ----
+    /** 這項基本功現在幾級（引擎的主角） */
+    basicLevel: (skill: string): number => { void state.value; return game.state.pc ? game.state.actors[game.state.pc]?.skills[skill] ?? 0 : 0 },
+    /** 升到下一級要花幾點歷練點（引擎的 skillUpCost） */
+    basicCost: (skill: string): number => { void state.value; return skillUpCost(game.k, game.state.pc ? game.state.actors[game.state.pc]?.skills[skill] ?? 0 : 0) },
+    /** 現在升不升得了：引擎的原因（5、6 級要有人教也是引擎那一句）；可以升是 null */
+    basicBlock: (skill: string): string | null => {
+      void state.value
+      if (game.state.pc === null) return NO_PC
+      return game.blockOf(`commit:${SKILL_UP_ACTION}`) ?? skillUpBlock(game.k, game.state, game.state.pc, skill)
+    },
+    /** 升一級（花歷練點、基本功 +1）；擋下就回傳原因 */
+    basicUp: (skill: string): string | null => commitGear((pc) => skillUpDraft(game.k, game.state, pc, skill)),
+    /** 洗點的報價（洗哪些、退多少歷練點、付多少錢、休養多久）；沒有主角是 null */
+    respecQuote: (path?: string) => { void state.value; return game.state.pc === null ? null : respecQuote(game.k, game.state, game.state.pc, path !== undefined ? { path } : {}) },
+    /** 現在洗不洗得了（要在調校診所）：引擎的原因；可以洗是 null */
+    respecBlock: (path?: string): string | null => {
+      void state.value
+      if (game.state.pc === null) return NO_PC
+      return game.blockOf(`commit:${RESPEC_ACTION}`) ?? respecBlock(game.k, game.state, game.state.pc, path !== undefined ? { path } : {})
+    },
+    respec: (path?: string): string | null => commitGear((pc) => respecDraft(game.k, game.state, pc, path !== undefined ? { path } : {})),
     /** 橋四類的容量（used 是裝著的，max 是橋） */
     capacity: () => { void state.value; return capacityOf(game.k, game.state, game.state.pc ?? '') },
     /** 整份換掉裝著的清單；引擎擋下就回傳原因（狀態不動） */

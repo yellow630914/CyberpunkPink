@@ -12,8 +12,6 @@ import { START_BASICS, START_LEARNED, START_NIGHT, START_PARAMS, START_TENDENCY,
 import { START_CHANNEL } from '../data/channel'
 import { HELD } from '../data/contracts'
 import { PENDING } from '../data/weekly'
-import { SKILL_TREES } from '../data/content.generated'
-import { skillXp } from '../lib/skills'
 import { START_MEDIA } from '../data/media'
 import { START_MECH, type MechState } from '../data/garage'
 import { useHome } from './home'
@@ -204,31 +202,6 @@ export const useGame = defineStore('game', () => {
   }
   function itemName(def: string) { return itemDef(def).name }
 
-  // ---- 技能（SKILLS 1.3 節） ----
-  function learnSkill(id: string) {
-    const [tree] = id.split(':')
-    const sk = SKILL_TREES.find(t => t.id === tree)?.skills.find(k => k.id === id)
-    if (!sk || learned.value.includes(id)) return
-    character.xp -= skillXp(sk)
-    learned.value.push(id)
-    syncTrees()
-  }
-  /** 角色卡上的「槍手 3」照學會的技能重算。 */
-  function syncTrees() {
-    const out: string[] = []
-    for (const t of SKILL_TREES) {
-      const spent = t.skills.reduce((a, k) => a + (learned.value.includes(k.id) ? skillXp(k) : 0), 0)
-      if (!spent) continue
-      const tier = [0, 40, 120, 240, 400].filter(n => spent >= n).length
-      out.push(`${t.name} ${tier}`)
-    }
-    character.trees = out
-  }
-  function learnNight(id: string, cost: number) {
-    if (nightLearned.value.includes(id)) return
-    character.insight -= cost
-    nightLearned.value.push(id)
-  }
   function setQuick(i: number, def: string | null) {
     const q = [...quick.value]
     while (q.length <= i) q.push(null)
@@ -315,6 +288,6 @@ export const useGame = defineStore('game', () => {
     timeLabel, weekday, billIn, district, facility, placeLabel, topHostility, carriedWeight, quickCap, coveredSlots,
     advance, addLog, addItem, removeItem, stackOf, equipItem, unequip, itemName,
     basics, learned, nightLearned, params, tendency, fame, sexRecord, channel, contracts, pending, guides, dungeonSeed, vehicles, media, mech, lastBattle, snapshots,
-    dyes, setDye, learnSkill, syncTrees, learnNight, setQuick, serialize, hydrate, saveMeta, packed, takeSnapshot, rollback,
+    dyes, setDye, setQuick, serialize, hydrate, saveMeta, packed, takeSnapshot, rollback,
   }
 })
