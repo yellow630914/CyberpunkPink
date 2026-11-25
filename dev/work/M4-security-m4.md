@@ -43,3 +43,5 @@ M4-cyber-lock、M4-sink、M4-contract-holder（它們各自回答；都沒裝也
 - 總指揮補記（2026-11-25）：見 M4-followups「M4-cyberware 回報」段，CYBERWARE 第 3 節有一件雙面效應歸這一張。
 
 - 總指揮補記（2026-11-25）：見 M4-followups「M4-cyberware 回報」段，CYBERWARE 第 3 節有一件雙面效應歸這一張。
+
+- 總指揮補記（2026-11-25，M4-contract 回報）：掛 `scan.person` 時，契約的回答用 contract 匯出的 `scanAnswer(state, actor)`，形狀見 ADR 0019 補記。

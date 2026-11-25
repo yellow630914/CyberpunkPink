@@ -152,3 +152,8 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 竊聽花：commission 讀條件 `malware_leak`，出發時警戒起始值加上去（數字照 CYBERWARE 第 5 節）。
 - 妖精的吻擴散階段「替你做決定」「想傳給和你親近的人」：交 M4-lure（蠱惑那張同一類的插選項）。
 - 惡意韌體的 `remove` 路花時間、診所價錢乘區倍率與蠕蟲潮 +50%：M4-data-rules 一起看。
+
+## 總指揮補記（2026-11-25，M4-contract 回報）
+- 契約鎖（`lock.kind: contract`）不擋破解、不做遠端接管：控制權在管理級橋權，不在單件義體的鎖（總指揮決定）。
+- cyberware 的 `cyber_lock` 接受不寫選擇器（照槽順序第一件非橋的），契約逾期與帳單的鎖才生效。
+- DEFEAT_EVENTS 的「`order contract_signed_eden`」統一成效果 `contract_sign`（匯入戰敗事件時）。

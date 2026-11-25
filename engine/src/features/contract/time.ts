@@ -12,7 +12,7 @@
 // 骰子一律 deriveRng（用途帶時間或 id）；一次跨很多天，每一種最多補最近三次。
 
 import type { ActorId, Change, Effect, GameState, GameTime, Kernel, Report, ReportDraft } from '../../core'
-import { MINUTES_PER_DAY, clone, crossings, dailyCrossings, deriveRng, toMinutes, weekdayOf } from '../../core'
+import { MINUTES_PER_DAY, clone, compareNatural, crossings, dailyCrossings, deriveRng, toMinutes, weekdayOf } from '../../core'
 import { draftOf } from './draft'
 import type { Contract, ContractExt, Order } from './model'
 import {
@@ -124,7 +124,7 @@ export function timeDrafts(k: Kernel, state: GameState, from: GameTime, to: Game
 
   // 逾期（副本裡不計）
   if (!paused) {
-    const due = contractOf(sim)!.queue.filter((o) => isActive(o) && o.deadline <= nowTo).sort((a, b) => a.deadline - b.deadline || a.id.localeCompare(b.id))
+    const due = contractOf(sim)!.queue.filter((o) => isActive(o) && o.deadline <= nowTo).sort((a, b) => a.deadline - b.deadline || compareNatural(a.id, b.id))
     for (const o of due) {
       const d = overdueDraft(k, sim, pc, o.id)
       if (d) emit(d)

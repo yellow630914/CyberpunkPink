@@ -509,3 +509,4 @@
 - 2026-11-25 **M4 第一波（身體）完成**（第十二步 ui-creation、tuning）。
 - 2026-11-25 介面示意 v14 發布（M4 第一波）。第二波開工。
 - 2026-11-25 M4 第十三步完成（scene-net、malware）：engine 7735、smoke 145、ui 752。
+- 2026-11-25 M4 第十四步完成（scene-close、contract）：engine 7824、smoke 147、ui 752。待使用者：契約抗拒的沉溺懲罰疊不疊。
