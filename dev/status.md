@@ -494,3 +494,4 @@
 - 工單分配：2 → M4-core-scene-ai（外殼的戰鬥／戰敗正文同一套）與 M4-ui-scene 旁的戰鬥畫面；3、4 → M4-followups（人物）；5 → M4-followups（化身）；6 → M5-plan。
 - 2026-11-25 使用者：玩家輸入的指令我們這端不篩選、不提示，玩家決定最高；不合規由服務商擋。已改 LEWD 3.1、COMBAT 8.3、NPC_SYSTEM、CYBERSPACE 4、MEDIA 與工單。
 - 2026-11-25 使用者：世界的固定規則（成年、不寫血腥、不寫懷孕）放在 AI 工坊任務提示詞（H5、H16、H17），玩家可改；我們只擋內容資料的年齡欄位。已改 PROMPTS、AI_TASKS、GAME_DESIGN、UI；介面跟改記在 M4-followups。
+- 2026-11-25 M4 第三步完成（cyberware、scene-solo）：engine 255 檔 7054 條全過。單人模式照 LEWD 3.5 第九點的數字（設計書優先於工單）。待使用者：跪姿『不用減骰』在單人沒有意義，改成什麼。
