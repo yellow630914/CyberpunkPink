@@ -28,6 +28,12 @@ export const END_ACTION = 'contract.end'
 export const RULE_ACTION = 'contract.rule'
 export const PAUSE_ACTION = 'contract.pause'
 export const COVER_ACTION = 'contract.cover'
+// 主角是持約人那一面（M4-contract-holder）
+export const HOLD_ACTION = 'contract.hold'
+export const TRIGGER_ACTION = 'contract.trigger'
+export const ADJUST_ACTION = 'contract.adjust'
+export const RELEASE_ACTION = 'contract.release'
+export const REFUSE_ACTION = 'contract.refuse'
 
 /** 效果與條件的名字。 */
 export const SIGN_EFFECT = 'contract_sign'
@@ -35,15 +41,27 @@ export const END_EFFECT = 'contract_end'
 export const ORDER_EFFECT = 'order'
 export const ORDER_DONE_EFFECT = 'order_done'
 export const RIGHT_EFFECT = 'bridge_right'
+export const HOLD_EFFECT = 'contract_hold'
+export const RELEASE_EFFECT = 'contract_release'
 export const CONTRACT_CONDITION = 'contract'
 export const PENDING_CONDITION = 'order_pending'
 
 /** 別的功能的名字（只認名字與格式，不 import）。 */
 export const DOCILITY_STAT = 'bridge_docility'
+/** 橋參數的四項（actor.ext.bridge 的鍵；只認格式）。 */
+export const BRIDGE_PARAMS = ['sensitivity', 'tolerance', 'craving', 'docility'] as const
 export const LOAD_CAP_STAT = 'load_cap'
 export const AT_HOME = 'at_home'
 export const MARK_COVER_TAG = 'mark_cover'
 export const COMMISSION = 'commission'
+/** 量表（npcs、roster 定義；只用名字讀寫，查不到當 0、略過）。 */
+export const AFFINITY = 'affinity'
+export const LOYALTY = 'loyalty'
+/** 有沒有住處（rest 定義的條件）。 */
+export const HAS_HOME = 'has_home'
+/** 報告的觸發點：持約人叫他做事（事件由導演從範圍 contract 挑）、解約之後他走不走。 */
+export const HOLDER_POINT = 'holder_order'
+export const RELEASED_POINT = 'released'
 
 export const ORDER_KINDS = ['errand', 'modify', 'serve', 'work', 'report', 'lend'] as const
 export type OrderKind = (typeof ORDER_KINDS)[number]
@@ -151,6 +169,39 @@ export interface Contract {
   oath?: unknown
 }
 
+/** 主角是持約人時，他住在哪：自己的住處、或主角的據點。 */
+export const HOMES = ['own', 'base'] as const
+export type Home = (typeof HOMES)[number]
+export const HOME_NAME: Record<Home, string> = { own: '他自己的住處', base: '你的據點' }
+export const isHome = (v: unknown): v is Home => (HOMES as readonly unknown[]).includes(v)
+
+/** 持約人可以觸發的事（封閉的五種；前四種對到指令的種類，talk 只是談一談）。 */
+export const HOLDER_EVENTS = ['errand', 'modify', 'serve', 'work', 'talk'] as const
+export type HolderEventKind = (typeof HOLDER_EVENTS)[number]
+export const HOLDER_EVENT_NAME: Record<HolderEventKind, string> = { errand: '派差事', modify: '送去改造', serve: '叫來侍奉', work: '安排工作', talk: '談一談' }
+export const isHolderEvent = (v: unknown): v is HolderEventKind => (HOLDER_EVENTS as readonly unknown[]).includes(v)
+/** 紙上對得到的指令種類（talk 沒有）。 */
+export const PAPER_KIND: Record<HolderEventKind, OrderKind | null> = { errand: 'errand', modify: 'modify', serve: 'serve', work: 'work', talk: null }
+
+/** 持約人那一面的契約：Contract 的欄位（holder 是主角；queue 不用、留空）加上他的住處、工作、分帳、出借與觸發的紀錄。 */
+export interface Held extends Contract {
+  home: Home
+  /** 工作的安排：一句話或一份工作的 id（派工是 M5，這裡只記） */
+  job?: string
+  /** 收入他拿幾成（0～1） */
+  split: number
+  /** 借給別人：{ 借給誰（名字或 id）, 到哪個時間（總分鐘） } */
+  lent?: { to: string; until: number }
+  /** 每一種事上一次觸發是哪一天（總分鐘 ÷ 1440 取整） */
+  triggered: Partial<Record<HolderEventKind, number>>
+  /** 來歷的一句話 */
+  origin: string
+}
+
+export const JOB_LEN = 60
+export const ORIGIN_LEN = 60
+export const LEND_TO_LEN = 40
+
 export interface Right {
   holder: Holder
   level: RightLevel
@@ -158,17 +209,23 @@ export interface Right {
 }
 
 export interface Note {
-  kind: 'sign' | 'order' | 'end'
+  kind: 'sign' | 'order' | 'end' | 'hold' | 'release'
   text: string
   /** 指令的 id（kind 是 order 才有） */
   order?: string
   result?: string
+  /** 那個契約人（hold、release 才有） */
+  npc?: string
+  /** release：解約之後他留在名冊 */
+  stay?: boolean
+  /** release：解約時的主僕關係（觸發點 released 的 where） */
+  relation?: Relation
 }
 
 export interface ContractExt {
   mine: Contract | null
-  /** 主角持有的（M4-contract-holder 才用） */
-  held: Record<string, unknown>
+  /** 主角持有的，照契約人的 id */
+  held: Record<string, Held>
   rights: Right[]
   seq: number
   /** 還沒寫成報告的通知（簽下、解約、事件塞進來的指令）；report.after 發出去再清掉 */
@@ -197,6 +254,9 @@ export interface ContractRules {
   crossed_out_mult: number
   /** 佇列裡留幾條了結的紀錄 */
   keep_records: number
+  /** 主角是持約人：他對主角的親密度低於 resist_below 才擲抗拒；抗命成功時主角的親密度 +refuse_affinity、他的忠誠 +refuse_loyalty（負數）；
+   *  主僕關係要親密度 relation_min 以上才能選名實相符以外的，≤ relation_revert 時每天 08:00 退回；ntr 關掉時親密度 ntr_affinity 以上的人不借；default_split 分帳預設 */
+  holder: { resist_below: number; refuse_affinity: number; refuse_loyalty: number; relation_min: number; relation_revert: number; ntr_affinity: number; default_split: number }
 }
 
 const W = (errand: number, modify: number, serve: number, work: number, report: number, lend: number): Record<OrderKind, number> => ({ errand, modify, serve, work, report, lend })
@@ -226,6 +286,7 @@ export const DEFAULT_CONTRACT_RULES: ContractRules = {
   buyout: { mult: 1.5, talk_at: 80, talk_dc: 16, talk_mult: 1.2 },
   crossed_out_mult: 0.5,
   keep_records: 10,
+  holder: { resist_below: 20, refuse_affinity: -2, refuse_loyalty: -5, relation_min: 60, relation_revert: 40, ntr_affinity: 60, default_split: 0.1 },
 }
 
 /** 範圍 contract 的資料（event_scope）沒寫時的預設（EVENTS 4.5 節）。 */
@@ -266,7 +327,7 @@ const numbersIn = (v: unknown, at: string, fields: Record<string, [number, numbe
   return p
 }
 
-const RULE_FIELDS = ['kind_weights', 'person_weights', 'deadline_hours', 'resist', 'satisfaction', 'docility_every', 'overdue', 'income_keep', 'debt_monthly', 'buyout', 'crossed_out_mult', 'keep_records'] as const
+const RULE_FIELDS = ['kind_weights', 'person_weights', 'deadline_hours', 'resist', 'satisfaction', 'docility_every', 'overdue', 'income_keep', 'debt_monthly', 'buyout', 'crossed_out_mult', 'keep_records', 'holder'] as const
 
 /** 規則表 contract_rule 的格式（缺的欄位用預設；寫了就要合格）。 */
 export function ruleProblems(e: Record<string, unknown>): string[] {
@@ -308,6 +369,11 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
   if (e.buyout !== undefined) p.push(...numbersIn(e.buyout, 'buyout', { mult: [0, 100], talk_at: [0, 100], talk_dc: [1, 40], talk_mult: [0, 100] }))
   if (e.crossed_out_mult !== undefined && !(isNum(e.crossed_out_mult) && e.crossed_out_mult >= 0 && e.crossed_out_mult <= 1)) p.push('crossed_out_mult 要是 0～1 的數字')
   if (e.keep_records !== undefined && !(isSafeInt(e.keep_records) && e.keep_records >= 0 && e.keep_records <= 1000)) p.push('keep_records 要是 0 以上的整數')
+  if (e.holder !== undefined) {
+    p.push(...numbersIn(e.holder, 'holder', {
+      resist_below: [-100, 100], refuse_affinity: [-100, 100], refuse_loyalty: [-100, 100], relation_min: [-100, 100], relation_revert: [-100, 100], ntr_affinity: [-100, 100], default_split: [0, 1],
+    }))
+  }
   for (const f of Object.keys(e)) if (f !== 'id' && !(RULE_FIELDS as readonly string[]).includes(f)) p.push(`沒有 ${f} 這個欄位（${RULE_FIELDS.join('、')}）`)
   return p
 }
@@ -409,7 +475,7 @@ function readOrder(v: unknown): Order | undefined {
 
 const readRule = (v: unknown): ContractRule | undefined => (isRecord(v) && isRuleType(v.kind) && (isText(v.value) || isNum(v.value)) ? { kind: v.kind, value: v.value as string | number } : undefined)
 
-function readContract(v: unknown): Contract | null {
+export function readContract(v: unknown): Contract | null {
   if (!isRecord(v) || !isText(v.id) || !isContractType(v.type) || !isSafeInt(v.signed)) return null
   const holder = readHolder(v.holder)
   if (!holder) return null
@@ -432,14 +498,40 @@ function readContract(v: unknown): Contract | null {
   return out
 }
 
+const HELD_DAY_MAX = 36500 * 1440
+
+/** 讀一份持約人那一面的契約（壞掉的欄位用預設；讀不出契約本身就是 null）。 */
+export function readHeld(v: unknown): Held | null {
+  const c = readContract(v)
+  if (!c || !isRecord(v)) return null
+  const triggered: Held['triggered'] = {}
+  if (isRecord(v.triggered)) for (const [kind, day] of Object.entries(v.triggered)) if (isHolderEvent(kind) && isSafeInt(day) && day >= 0 && day <= HELD_DAY_MAX) triggered[kind] = day
+  const out: Held = {
+    ...c, home: isHome(v.home) ? v.home : 'own', split: isNum(v.split) && v.split >= 0 && v.split <= 1 ? v.split : DEFAULT_CONTRACT_RULES.holder.default_split, triggered,
+    origin: typeof v.origin === 'string' ? v.origin.slice(0, ORIGIN_LEN) : '',
+  }
+  if (isText(v.job)) out.job = v.job.slice(0, JOB_LEN)
+  if (isRecord(v.lent) && isText(v.lent.to) && isSafeInt(v.lent.until)) out.lent = { to: v.lent.to.slice(0, LEND_TO_LEN), until: v.lent.until }
+  return out
+}
+
 function readRight(v: unknown): Right | undefined {
   const holder = isRecord(v) ? readHolder(v.holder) : undefined
   return holder && isRecord(v) && (RIGHT_LEVELS as readonly unknown[]).includes(v.level) && isText(v.source) ? { holder, level: v.level as RightLevel, source: v.source } : undefined
 }
 
 function readNote(v: unknown): Note | undefined {
-  if (!isRecord(v) || !(v.kind === 'sign' || v.kind === 'order' || v.kind === 'end') || typeof v.text !== 'string') return undefined
-  return { kind: v.kind, text: v.text, ...(isText(v.order) ? { order: v.order } : {}), ...(isText(v.result) ? { result: v.result } : {}) }
+  if (!isRecord(v) || !(v.kind === 'sign' || v.kind === 'order' || v.kind === 'end' || v.kind === 'hold' || v.kind === 'release') || typeof v.text !== 'string') return undefined
+  return {
+    kind: v.kind, text: v.text, ...(isText(v.order) ? { order: v.order } : {}), ...(isText(v.result) ? { result: v.result } : {}), ...(isText(v.npc) ? { npc: v.npc } : {}),
+    ...(typeof v.stay === 'boolean' ? { stay: v.stay } : {}), ...(isRelation(v.relation) ? { relation: v.relation } : {}),
+  }
+}
+
+function readHeldMap(raw: unknown): Record<string, Held> {
+  const out: Record<string, Held> = {}
+  if (isRecord(raw)) for (const [id, v] of Object.entries(raw)) { const h = readHeld(v); if (h) out[id] = h }
+  return out
 }
 
 /** 讀 state.ext.contract（壞掉的欄位當沒有）。回傳的是複製：呼叫的人可以直接改，再用 extChange 寫回去。 */
@@ -447,7 +539,7 @@ export function readExt(raw: unknown): ContractExt {
   if (!isRecord(raw)) return emptyExt()
   return {
     mine: readContract(raw.mine),
-    held: isRecord(raw.held) ? clone(raw.held) : {},
+    held: readHeldMap(raw.held),
     rights: Array.isArray(raw.rights) ? raw.rights.map(readRight).filter((r): r is Right => !!r) : [],
     seq: isSafeInt(raw.seq) && raw.seq >= 0 ? raw.seq : 0,
     notes: Array.isArray(raw.notes) ? raw.notes.map(readNote).filter((n): n is Note => !!n) : [],
@@ -468,6 +560,8 @@ export function extAfter(state: GameState, changes: readonly Change[]): Contract
 }
 
 export const nowOf = (state: GameState): number => toMinutes(state.time)
+/** 今天是第幾天（總分鐘 ÷ 1440 取整）。 */
+export const dayOf = (state: GameState): number => Math.floor(toMinutes(state.time) / MINUTES_PER_DAY)
 export const pcOf = (state: GameState): ActorId | null => (state.pc && state.actors[state.pc] ? state.pc : null)
 export const holderId = (h: Holder): string => h.faction ?? h.npc ?? h.name
 

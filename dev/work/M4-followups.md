@@ -157,3 +157,7 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 契約鎖（`lock.kind: contract`）不擋破解、不做遠端接管：控制權在管理級橋權，不在單件義體的鎖（總指揮決定）。
 - cyberware 的 `cyber_lock` 接受不寫選擇器（照槽順序第一件非橋的），契約逾期與帳單的鎖才生效。
 - DEFEAT_EVENTS 的「`order contract_signed_eden`」統一成效果 `contract_sign`（匯入戰敗事件時）。
+
+## 總指揮補記（2026-11-25，M4-contract-holder 回報）
+- 持約人調整規矩的「能不能接別人的指令」（LEWD 7.5）：現在讀成 `person`（不准見某人）。照設計書再確認一次意思；若是「別人能不能對他下指令」，做成持有契約的一個開關（影響出借與 NTR 事件）。
+- `roster_add` 在真的名冊只放進候選：持約人取得契約時，對象直接成為成員（契約就是綁著他）。

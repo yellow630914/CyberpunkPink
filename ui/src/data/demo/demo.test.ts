@@ -13,7 +13,8 @@ import { board, genProblems } from '@engine/src/features/fixer'
 import { shopView } from '@engine/src/features/trade'
 import { sleepOptions } from '@engine/src/features/rest'
 import { jobsHere } from '@engine/src/features/work'
-import { demoPack, demoStartFeature } from '.'
+import { DEMO_HOLDER_NPC, demoHolderChanges, demoPack, demoStartFeature } from '.'
+import { adjustDraft, heldIn, heldPeople, holderContractView, holderEvents, releaseDraft, triggerDraft } from '@engine/src/features/contract'
 
 /** 示意世界包能被引擎載入：內容的格式、引用、出口成對、車站在街區的設施上，都由引擎的檢查把關。 */
 const make = () => new Game({ features: [...allFeatures(), demoStartFeature()], content: [CORE_PACK, demoPack()], fakeProvider: new FakeProvider() })
@@ -154,5 +155,44 @@ describe('示意世界包', () => {
     await playNetStage(e)
     expect(e.commission.view()).toBeNull()
     expect(e.fixer.settledJob('cm_demo_net4')).not.toBeNull()
+  })
+  /** 開新局、放一位主角（建角走 store 的流程，這裡不重做；直接放進狀態，和引擎的測試工廠一樣）、套上「主角是持約人」的開局。 */
+  const holderGame = () => {
+    const g = make()
+    g.newGame({ seed: 3 })
+    Object.assign(g.state, {
+      pc: 'pc', party: ['pc'],
+      actors: { ...g.state.actors, pc: { id: 'pc', name: '主角', role: 'pc', age: 25, gender: 'female', perks: [], hp: 40, load: 0, afterglow: 0, sink: 0, conditions: [], attrs: { body: 10, reflex: 10, tech: 10, intellect: 10, resolve: 10, charm: 10 }, skills: {}, ext: { bridge: { sensitivity: 30, tolerance: 30, craving: 30, docility: 30 } } } },
+    })
+    g.commit({
+      kind: 'action', action: 'game.demo', location: { ...g.state.location }, party: [], timeline: [], changes: demoHolderChanges(g.k, g.state), outcome: { result: 'ok', summary: '你買下了她的債。' },
+    } as never)
+    return g
+  }
+  it('主角是持約人的開局（第 18 題）：阿音在名冊上、債務契約剩 6,000、面板的兩頁讀得到、沒有多一份「成為持約人」的紀錄', () => {
+    const g = holderGame()
+    expect(g.state.actors[DEMO_HOLDER_NPC]?.name).toBe('阿音')
+    expect(heldPeople(g.state)).toEqual([{ id: DEMO_HOLDER_NPC, home: 'own' }])
+    expect(heldIn(g.state, DEMO_HOLDER_NPC)).toMatchObject({ type: 'debt', debt: 6000, relation: 'formal' })
+    expect(g.state.actors[DEMO_HOLDER_NPC]!.ext.identity).toMatchObject({ class: 'bound' })
+    expect(g.state.meters.affinity?.[DEMO_HOLDER_NPC]).toBe(45)
+    expect(g.state.reports.filter(r => r.action === 'contract.hold')).toHaveLength(0)
+    const v = holderContractView(g.k, g.state, DEMO_HOLDER_NPC)!
+    expect(v).toMatchObject({ name: '阿音', level: 'manage', debt: 6000, affinity: 45, relation: 'formal' })
+    expect(v.events.map(e => e.kind)).toEqual(['errand', 'modify', 'serve', 'work', 'talk'])
+    expect(v.events.every(e => e.available)).toBe(true)
+  })
+  it('主角是持約人的開局：觸發一件差事，導演從範圍 contract 挑到示範事件、事件視窗開著；調整與解約都走引擎', () => {
+    const g = holderGame()
+    g.commit(adjustDraft(g.k, g.state, { npc: DEMO_HOLDER_NPC, patch: { split: 0.2, job: '麵攤洗碗' } }))
+    expect(heldIn(g.state, DEMO_HOLDER_NPC)).toMatchObject({ split: 0.2, job: '麵攤洗碗' })
+    g.commit(triggerDraft(g.k, g.state, { npc: DEMO_HOLDER_NPC, kind: 'errand' }))
+    expect(g.state.reports.find(r => r.action === 'contract.trigger')?.triggers).toEqual([{ point: 'holder_order', where: { order: 'errand', npc: DEMO_HOLDER_NPC, relation: 'formal' } }])
+    expect(g.state.reports.at(-1)).toMatchObject({ action: 'event.open', kind: 'event' })
+    expect(holderEvents(g.k, g.state, DEMO_HOLDER_NPC).find(e => e.kind === 'errand')!.available).toBe(false)
+    const g2 = holderGame()
+    g2.commit(releaseDraft(g2.k, g2.state, { npc: DEMO_HOLDER_NPC, stay: true }))
+    expect(heldPeople(g2.state)).toEqual([])
+    expect(g2.state.flags[`released:${DEMO_HOLDER_NPC}`]).toBe(true)
   })
 })

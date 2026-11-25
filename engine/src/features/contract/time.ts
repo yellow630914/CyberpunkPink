@@ -16,10 +16,11 @@ import { MINUTES_PER_DAY, clone, compareNatural, crossings, dailyCrossings, deri
 import { draftOf } from './draft'
 import type { Contract, ContractExt, Order } from './model'
 import {
-  COMMISSION, DEBT_PERIOD_DAYS, END_ACTION, LOAD_CAP_STAT, METER_KEY, ORDER_ACTION, ORDER_NAME, OVERDUE_ACTION, PAUSE_ACTION, PAY_ACTION, RULE_ACTION, SATISFACTION, SIGN_ACTION,
+  COMMISSION, DEBT_PERIOD_DAYS, END_ACTION, HOLD_ACTION, RELEASE_ACTION, LOAD_CAP_STAT, METER_KEY, ORDER_ACTION, ORDER_NAME, OVERDUE_ACTION, PAUSE_ACTION, PAY_ACTION, RULE_ACTION, SATISFACTION, SIGN_ACTION,
   activeCount, contractOf, contractRules, dailyChance, extAfter, extChange, extOf, isActive, kindWeights, meterNow, nowOf, pcOf, scopeData, trimRecords,
 } from './model'
 import { builtinFx, endPlan, makeOrder, orderText } from './plans'
+import { holderDrafts, releasedTrigger } from './held'
 
 /** 一次跨過很多天，每一種最多補最近幾次。 */
 const MAX_CATCH_UP = 3
@@ -95,13 +96,22 @@ function overdueDraft(k: Kernel, sim: GameState, pc: ActorId, orderId: string): 
 /** 沒事回 []。每一份草稿都接在前一份之後（sim 是一路套下去的複製）。 */
 export function timeDrafts(k: Kernel, state: GameState, from: GameTime, to: GameTime): ReportDraft[] {
   const pc = pcOf(state)
-  if (!pc || !contractOf(state)) return []
+  if (!pc || (!contractOf(state) && Object.keys(extOf(state).held).length === 0)) return []
   const sim = clone(state)
   const out: ReportDraft[] = []
   const emit = (d: ReportDraft): void => {
     out.push(d)
     k.changes.applyAll(sim, d.changes)
   }
+  // 兩個方向共用一份 ext：先做主角是契約人的（有契約才做），再做主角是持約人的（M4-contract-holder）
+  if (contractOf(sim)) mineDrafts(k, sim, emit, pc, from, to)
+  holderDrafts(k, sim, emit, from, to)
+  return out
+}
+
+/** 主角是契約人那一面隨時間發生的事。 */
+function mineDrafts(k: Kernel, sim: GameState, emit: (d: ReportDraft) => void, pc: ActorId, from: GameTime, to: GameTime): void {
+  const state = sim
   const nowTo = toMinutes(to)
   const span = nowTo - toMinutes(from)
   const paused = inCommission(k, state)
@@ -119,7 +129,7 @@ export function timeDrafts(k: Kernel, state: GameState, from: GameTime, to: Game
   if (c0?.until !== undefined && nowTo >= c0.until) {
     const end = endPlan(sim, pc, 'expired', { silent: true })!
     emit(draftOf(sim, 'downtime', END_ACTION, end.changes, [end.text], 'expired'))
-    return out
+    return
   }
 
   // 逾期（副本裡不計）
@@ -183,7 +193,6 @@ export function timeDrafts(k: Kernel, state: GameState, from: GameTime, to: Game
       emit(draftOf(sim, 'downtime', RULE_ACTION, [{ op: 'meter', kind: SATISFACTION, key: METER_KEY, delta: rules.satisfaction.rule }], [`${cur.holder.name}設的宵禁到了，你不在住處，橋把這一次記了下來。`], 'curfew'))
     }
   }
-  return out
 }
 
 // ---- report.before：收入歸屬 ----
@@ -222,7 +231,8 @@ export function incomeBefore(k: Kernel, state: GameState, draft: ReportDraft): C
 
 // ---- report.after：通知與禁區 ----
 
-const NOTE_ACTION = { sign: SIGN_ACTION, order: ORDER_ACTION, end: END_ACTION } as const
+const NOTE_ACTION = { sign: SIGN_ACTION, order: ORDER_ACTION, end: END_ACTION, hold: HOLD_ACTION, release: RELEASE_ACTION } as const
+const NOTE_RESULT = { sign: 'signed', order: 'sent', end: 'ended', hold: 'held', release: 'released' } as const
 
 export function afterDrafts(k: Kernel, state: GameState, report: Report): ReportDraft[] {
   if (report.rewind || report.retracted) return []
@@ -232,7 +242,8 @@ export function afterDrafts(k: Kernel, state: GameState, report: Report): Report
   const ext = extOf(state)
   // 記著的通知：第一份把全部清掉（接著提交的每一份報告又會問一次這個掛鉤，不能留著重發）
   ext.notes.forEach((n, i) => {
-    out.push(draftOf(state, 'downtime', NOTE_ACTION[n.kind], i === 0 ? [extChange({ ...ext, notes: [] })] : [], [n.text], n.result ?? (n.kind === 'order' ? 'sent' : n.kind === 'sign' ? 'signed' : 'ended')))
+    const triggers = n.kind === 'release' && !n.stay && n.npc ? releasedTrigger(n.npc, n.relation ?? 'formal') : undefined
+    out.push(draftOf(state, 'downtime', NOTE_ACTION[n.kind], i === 0 ? [extChange({ ...ext, notes: [] })] : [], [n.text], n.result ?? NOTE_RESULT[n.kind], triggers ? { triggers } : {}))
   })
   // 走進禁區
   const c = ext.mine

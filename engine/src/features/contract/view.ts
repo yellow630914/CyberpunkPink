@@ -94,18 +94,54 @@ export interface ScanContract {
   source?: string
 }
 
+export interface ScanAnswer {
+  contract: {
+    rights: ScanContract[]
+    marked: boolean
+    covered: boolean
+    /** 身上有管理級契約時才有：身分是契約人、持約人是誰、哪一級 */
+    class?: 'bound'
+    holder?: string
+    level?: 'manage'
+  }
+}
+
 /**
- * 掃橋讀到的契約（掛點 scan.person 的 contract；M4-security-m4 把它接上）：主角身上的管理級契約，加上記著的讀取與限制級；
- * 後頸的光紋 marked 是「看得到」（遮著的不算，別人細看要另外過檢定）。別人（NPC）的契約這一張不管。沒有任何一筆是 undefined。
+ * 掃橋讀到的契約：被掃的是主角時，主角身上的管理級契約（契約人）加上記著的讀取與限制級；被掃的是主角持有的人（NPC）時，他的（他是契約人，持約人是主角）。
+ * 後頸的光紋 marked 是「看得到」（遮著的不算，別人細看要另外過檢定）。身上有管理級契約的多 class、holder（持約人的名字）、level。沒有任何一筆是 undefined。
  */
-export function scanAnswer(state: GameState, actor: ActorId): { contract: { rights: ScanContract[]; marked: boolean; covered: boolean } } | undefined {
-  if (actor !== state.pc) return undefined
+export function scanAnswer(state: GameState, actor: ActorId): ScanAnswer | undefined {
   const ext = extOf(state)
+  if (actor !== state.pc) {
+    const held = Object.hasOwn(ext.held, actor) ? ext.held[actor] : undefined
+    if (!held) return undefined
+    return { contract: { rights: [{ level: 'manage', holder: held.holder, type: held.type }], marked: !held.mark.covered, covered: held.mark.covered, class: 'bound', holder: held.holder.name, level: 'manage' } }
+  }
   const rights: ScanContract[] = []
   if (ext.mine) rights.push({ level: 'manage', holder: ext.mine.holder, type: ext.mine.type })
   for (const r of ext.rights) rights.push({ level: r.level, holder: r.holder, source: r.source })
   if (rights.length === 0) return undefined
   const covered = ext.mine?.mark.covered === true
-  return { contract: { rights, marked: !!ext.mine && !covered, covered } }
+  return {
+    contract: {
+      rights, marked: !!ext.mine && !covered, covered,
+      ...(ext.mine ? { class: 'bound' as const, holder: ext.mine.holder.name, level: 'manage' as const } : {}),
+    },
+  }
 }
 
+/** 掛點 scan.person 的回答（M4-security-m4 的 PersonAnswer）：contract 是管理級（契約人）那一筆，rights 是讀取與限制級的清單。 */
+export interface PersonContractAnswer {
+  contract?: { class: 'bound'; holder: string; level: 'manage'; covered: boolean }
+  rights?: Array<{ holder: string; level: 'limit' | 'read' }>
+}
+
+export function scanPerson(state: GameState, actor: ActorId): PersonContractAnswer | undefined {
+  const a = scanAnswer(state, actor)?.contract
+  if (!a) return undefined
+  const out: PersonContractAnswer = {}
+  if (a.class === 'bound') out.contract = { class: 'bound', holder: a.holder!, level: 'manage', covered: a.covered }
+  const rights = a.rights.filter((r): r is ScanContract & { level: 'limit' | 'read' } => r.level !== 'manage').map((r) => ({ holder: r.holder.name, level: r.level }))
+  if (rights.length > 0) out.rights = rights
+  return out.contract || out.rights ? out : undefined
+}

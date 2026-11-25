@@ -5,15 +5,19 @@
 //   效果 order          { order_kind, place?, hours? }（工單寫 kind：效果自己的 kind 是效果的名字，所以指令的種類寫在 order_kind）：直接塞一條指令（事件用）；契約支配關掉時只收差事、工作、回報，戀人不收出借。沒有契約是落空。
 //   效果 order_done     { order_kind?, order? }：把一條照做中或強制的指令收尾（和 completeDraft 同一套；事件做完之後用）。
 //   效果 bridge_right   { holder, level: read／limit, source }：記一筆讀取或限制級的橋權（只有紀錄，掃橋時顯示）。
-//   條件 contract       { side: bound／holder, type?, holder_kind? }：bound 是主角身上有管理級的契約；holder 是主角持有的（下一張）。
+//   效果 contract_hold { npc, type, debt?, days?, orders?, origin? }：主角成為他的持約人（M4-contract-holder）：建 held[npc]、他的身分改成 bound、有人註冊 roster_add 就放進名冊。
+//                       他不是在場的角色、是主角自己、或已經持有：整筆落空並提醒。債務契約一定要寫 debt。
+//   效果 contract_release { npc, stay? }：解約：held 拿掉、他的身分改回去、旗標 released:<npc>；沒有 stay 時之後的報告帶觸發點 released。沒有持有就落空。
+//   條件 contract       { side: bound／holder, type?, holder_kind?, npc? }：bound 是主角身上有管理級的契約；holder 是主角持有的（npc 寫了就是持有他）。
 //   條件 order_pending  { order_kind? }（工單寫 kind?：條件自己的 kind 是條件的名字，所以指令的種類寫在 order_kind）：佇列裡有還沒了結的指令。
 
 import type { Condition, ConditionCtx, Effect, EffectCtx, EffectStepCtx, Kernel } from '../../core'
 import { isRecord, isSafeInt } from '../../core'
 import { completePlan, endPlan, pushOrderPlan, resolveHolder, signPlan } from './plans'
+import { holdPlan, releasePlan } from './held'
 import type { ContractRule, ContractType, Holder, OrderKind, Place, Relation, RightLevel } from './model'
 import {
-  CONTRACT_CONDITION, END_EFFECT, HOLDER_KINDS, ORDER_DONE_EFFECT, ORDER_EFFECT, ORDER_KINDS, ORDER_NAME, OWNER, PENDING_CONDITION, RELATIONS, RIGHT_EFFECT, RIGHT_LEVELS,
+  CONTRACT_CONDITION, END_EFFECT, HOLD_EFFECT, HOLDER_KINDS, RELEASE_EFFECT, ORIGIN_LEN, ORDER_DONE_EFFECT, ORDER_EFFECT, ORDER_KINDS, ORDER_NAME, OWNER, PENDING_CONDITION, RELATIONS, RIGHT_EFFECT, RIGHT_LEVELS,
   RULE_TYPES, SIGN_EFFECT, CONTRACT_TYPES, allowedKinds, deriveWeekday, extChange, extOf, isActive, isContractType, isOrderKind, isRelation, isRuleType, isText, nowOf, pcOf,
 } from './model'
 
@@ -42,7 +46,9 @@ interface EndEffect extends Effect { how: string }
 interface OrderEffect extends Effect { order_kind: OrderKind; place?: Place; hours?: number }
 interface DoneEffect extends Effect { order_kind?: OrderKind; order?: string }
 interface RightEffect extends Effect { holder: unknown; level: RightLevel; source: string }
-interface ContractCondition extends Condition { side: 'bound' | 'holder'; type?: ContractType; holder_kind?: Holder['kind'] }
+interface HoldEffect extends Effect { npc: string; type: ContractType; orders?: OrderKind[]; debt?: number; days?: number; origin?: string }
+interface ReleaseEffect extends Effect { npc: string; stay?: boolean }
+interface ContractCondition extends Condition { side: 'bound' | 'holder'; type?: ContractType; holder_kind?: Holder['kind']; npc?: string }
 interface PendingCondition extends Condition { order_kind?: OrderKind }
 
 export function installEffects(k: Kernel): void {
@@ -158,6 +164,45 @@ export function installEffects(k: Kernel): void {
     describe: (e, ctx) => `${resolveHolder(k, ctx.state, e.holder).holder?.name ?? '有人'}拿到了你的${e.level === 'read' ? '讀取' : '限制'}級橋權。`,
   })
 
+  // ---- contract_hold ----
+  k.effects.register<HoldEffect>({
+    kind: HOLD_EFFECT, owner: OWNER, ai: false,
+    validate(raw) {
+      const p: string[] = []
+      if (!isText(raw.npc)) p.push('npc 要是角色的 id')
+      if (!isContractType(raw.type)) p.push(`type 只能是 ${CONTRACT_TYPES.join('、')}`)
+      if (raw.orders !== undefined && !(Array.isArray(raw.orders) && raw.orders.every(isOrderKind))) p.push(`orders 要是指令種類的陣列（${ORDER_KINDS.join('、')}）`)
+      if (raw.debt !== undefined && !(isSafeInt(raw.debt) && raw.debt >= 0)) p.push('debt 要是 0 以上的整數')
+      if (raw.type === 'debt' && !(isSafeInt(raw.debt) && raw.debt > 0)) p.push('債務契約要寫 debt（大於 0 的整數）')
+      if (raw.type !== 'debt' && raw.debt !== undefined) p.push('只有債務契約有 debt')
+      if (raw.days !== undefined && !(isSafeInt(raw.days) && raw.days >= 1 && raw.days <= 36500)) p.push('days 要是 1～36500 的整數')
+      if (raw.origin !== undefined && !(isText(raw.origin) && raw.origin.length <= ORIGIN_LEN)) p.push(`origin 要是一句話（最多 ${ORIGIN_LEN} 個字）`)
+      return [...p, ...unknownFields(raw, ['npc', 'type', 'orders', 'debt', 'days', 'origin'])]
+    },
+    clamp(e, ctx: EffectStepCtx) {
+      if (ctx.actor !== pcOf(ctx.state)) return { effect: null, note: { from: e.type, to: null, notice: '只有你自己能成為持約人，這一筆沒有算。' } }
+      if (e.npc === ctx.actor || !ctx.state.actors[e.npc]) return { effect: null, note: { from: e.type, to: null, notice: '找不到這個人，沒有簽成。' } }
+      if (extOf(ctx.state).held[e.npc]) return { effect: null, note: { from: e.type, to: null, notice: '你已經是他的持約人了，這一份沒有再簽。' } }
+      return { effect: e }
+    },
+    toChanges: (e, ctx) => holdPlan(k, ctx.state, ctx.actor, e)?.changes ?? [],
+    describe: (e, ctx) => holdPlan(k, ctx.state, ctx.actor, e)?.text ?? '什麼也沒有簽。',
+  })
+
+  // ---- contract_release ----
+  k.effects.register<ReleaseEffect>({
+    kind: RELEASE_EFFECT, owner: OWNER, ai: false,
+    validate(raw) {
+      const p: string[] = []
+      if (!isText(raw.npc)) p.push('npc 要是角色的 id')
+      if (raw.stay !== undefined && typeof raw.stay !== 'boolean') p.push('stay 要是布林值')
+      return [...p, ...unknownFields(raw, ['npc', 'stay'])]
+    },
+    clamp: (e, ctx) => (ctx.actor === pcOf(ctx.state) && Object.hasOwn(extOf(ctx.state).held, e.npc) ? { effect: e } : { effect: null }),
+    toChanges: (e, ctx) => releasePlan(ctx.state, e.npc, { stay: e.stay === true, note: true })?.changes ?? [],
+    describe: (e, ctx) => releasePlan(ctx.state, e.npc, { stay: e.stay === true })?.text ?? '他不是你持有契約的人。',
+  })
+
   // ---- 條件 ----
   k.conditions.register<ContractCondition>({
     kind: CONTRACT_CONDITION, owner: OWNER,
@@ -166,6 +211,7 @@ export function installEffects(k: Kernel): void {
       if (raw.side !== 'bound' && raw.side !== 'holder') p.push("side 只能是 'bound'（主角是契約人）或 'holder'（主角是持約人）")
       if (raw.type !== undefined && !isContractType(raw.type)) p.push(`type 只能是 ${CONTRACT_TYPES.join('、')}`)
       if (raw.holder_kind !== undefined && !(HOLDER_KINDS as readonly unknown[]).includes(raw.holder_kind)) p.push(`holder_kind 只能是 ${HOLDER_KINDS.join('、')}`)
+      if (raw.npc !== undefined && !isText(raw.npc)) p.push('npc 要是角色的 id')
       return p
     },
     test(c, { state }: ConditionCtx) {
@@ -174,7 +220,7 @@ export function installEffects(k: Kernel): void {
         const m = ext.mine
         return !!m && (c.type === undefined || m.type === c.type) && (c.holder_kind === undefined || m.holder.kind === c.holder_kind)
       }
-      return Object.values(ext.held).some((h) => isRecord(h) && (c.type === undefined || h.type === c.type) && (c.holder_kind === undefined || h.holder_kind === c.holder_kind))
+      return Object.entries(ext.held).some(([id, h]) => (c.npc === undefined || id === c.npc) && (c.type === undefined || h.type === c.type) && (c.holder_kind === undefined || h.holder.kind === c.holder_kind))
     },
   })
 
