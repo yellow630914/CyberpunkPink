@@ -5,6 +5,10 @@
 import type { ProviderFactory, ProviderSource, Provider } from './provider'
 import { bool, clamp, int, isRecord } from '../../core/util/sanitize'
 
+/** 成人場景的 AI 開到哪一層。 */
+export const SCENE_AI_MODES = ['off', 'closing', 'full'] as const
+export type SceneAiMode = (typeof SCENE_AI_MODES)[number]
+
 export interface AiSettings {
   /** 總開關：關掉時每一步都走程式的退路 */
   ai: boolean
@@ -23,6 +27,12 @@ export interface AiSettings {
   /** 哪幾種鏈開了潤色，鍵是鏈的代號（free、move、trade……） */
   polish: Record<string, boolean>
   sexrec: boolean
+  /**
+   * 成人場景的 AI（dev/work/M4-core-scene-ai.md；AI_TASKS 3.5～3.8 節）：off 不問任何場景任務（只剩結束之後整場的正文）；
+   * closing 只跑進場（scene_gate）與收尾（reward、sex_record、sink、tendency、relate），預設；full 另外每回合跑 scene_turn 與 scene_talk（花費高，玩家自己打開）。
+   * 選填：沒寫就是預設（closing；用 sceneAiOf 讀）。cpp-ai-v1 的形狀（mockups 的 AI0）沒有這一格，所以預設的物件裡不放它。
+   */
+  sceneAi?: SceneAiMode
   bg_flavor_shop: boolean
   bg_flavor_roster: boolean
   bg_npc_news: boolean
@@ -96,11 +106,15 @@ export function sanitizeAiSettings(raw: unknown): AiSettings {
     if (typeof dv === 'boolean') out[k] = bool(r[k], dv)
     else if (typeof dv === 'number') out[k] = Math.max(0, int(r[k], dv))
   }
+  if ((SCENE_AI_MODES as readonly unknown[]).includes(r.sceneAi)) out.sceneAi = r.sceneAi
   out.polish = record(r.polish, (x) => (x === true || x === 1 ? true : x === false || x === 0 ? false : undefined))
   out.retry = record(r.retry, (x) => (typeof x === 'number' && Number.isFinite(x) ? clamp(Math.round(x), 0, RETRY_MAX) : undefined))
   for (const k of ['src', 'fb', 'adult'] as const) out[k] = record(r[k], (x) => (typeof x === 'string' && x ? x : undefined))
   return out as unknown as AiSettings
 }
+
+/** 成人場景的 AI 開到哪一層（沒寫是 closing）。 */
+export const sceneAiOf = (settings: Pick<AiSettings, 'sceneAi'>): SceneAiMode => settings.sceneAi ?? 'closing'
 
 export function retriesFor(settings: AiSettings, task: string): number {
   return settings.retry[task] ?? settings.retry['*'] ?? RETRY_DEFAULT

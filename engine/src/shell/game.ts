@@ -25,14 +25,20 @@ import { isRecord } from '../core/util/sanitize'
 import { daysUntilWeekday, segmentOf, segmentWeekdayOf, weekdayOf } from '../core/util/time'
 import type { ChainEnv, ChainStatus, StepRequest } from './ai/chain'
 import { ChainRegistry, ChainRun } from './ai/chain'
+import type { SceneInput, SceneSetup } from '../features/scene'
+import { sceneAct, sceneInterrupt, sceneNext, sceneRawOf, sceneSkip } from '../features/scene'
+import type { BattleEndInput } from './battle'
 import { battleEndChain } from './battle'
 import type { NarratedInput } from './narrated'
 import { NARRATED_CHAIN, narratedChain } from './narrated'
 import { freeActionChain, registerFreeActionTasks } from './ai/freeAction'
+import type { AdultActionInput, SceneRoundInput, SceneRoundMode } from './ai/sceneChains'
+import { ADULT_ACTION_CHAIN, DIRECTION_MAX, SCENE_ROUND_CHAIN, adultActionChain, aiTurnNeeded, sceneRoundChain } from './ai/sceneChains'
+import { registerSceneTasks } from './ai/sceneTasks'
 import type { Provider, ProviderSource } from './ai/provider'
 import { Limiter } from './ai/provider'
 import type { AiSettings } from './ai/settings'
-import { ProviderHub, sanitizeAiSettings } from './ai/settings'
+import { ProviderHub, sanitizeAiSettings, sceneAiOf } from './ai/settings'
 import type { TaskEnv } from './ai/tasks'
 import { IDLE_TIMEOUT_MS, TaskRegistry } from './ai/tasks'
 import type { SaveMeta } from './save'
@@ -71,6 +77,8 @@ export interface ActResult {
   reports: Report[]
   /** status 是 refused 時：擋住的原因（給玩家看的完整句子） */
   reason?: string
+  /** 提醒（玩家寫的寫法指令被截到 200 字、AI 關著指令用不到）；沒有提醒就沒有這個鍵 */
+  notices?: string[]
 }
 
 export interface ActOptions {
@@ -98,6 +106,42 @@ export interface NarratedOptions extends ActOptions {
   label?: string
   /** 併進最新一樓：不另留一步回退（同 CommitOptions.attach；買東西的帳、坐車的時間這類） */
   attach?: boolean
+  /**
+   * 玩家寫的寫法指令（戰敗事件的正文；COMBAT_SYSTEM 8.3 節）：最多 200 字，超過截斷並提醒；原樣放進寫正文的 <direction>，我們這端不篩選、不改寫、不提示
+   * （使用者 2026-11-25）；AI 關著時不收、回傳提醒。只影響經過與文風，結果與分支不受影響。
+   */
+  direction?: string
+}
+
+/** 成人場景的一個入口（sceneBegin、sceneStep、sceneFinish）的結果。 */
+export interface SceneResult {
+  status: ActStatus
+  /** 提交的報告；沒有提交（被擋下、停在半路）是空的 */
+  reports: Report[]
+  reason?: string
+  /** 有走任務鏈時的那一條（任務鏈列看得到每一步） */
+  run?: ChainRun
+  /** 提醒：玩家寫的指令被截斷、AI 關著指令用不到 */
+  notices: string[]
+  /** 這一步之後場景結束了 */
+  ended: boolean
+  /** sceneBegin：這一步之後場景開起來了（可能進場景的行動，scene_gate 不讓進時是 false） */
+  started?: boolean
+}
+
+/** 成人場景的 AI 走到哪裡：pure 沒有 AI（照功能的純函式）；text 只有結束之後整場的正文；closing 加上進場與收尾；full 加上每回合。 */
+export type SceneRoute = 'pure' | 'text' | 'closing' | 'full'
+
+/** sceneBegin 的選項：origin 與 label 只用在直接給場景設定的那一種；ActOptions 用在走任務鏈的那一種。 */
+export interface SceneBeginOptions extends ActOptions {
+  origin?: Origin
+  label?: string
+}
+
+/** sceneFinish 的選項：怎麼結束（預設玩家按停下）、玩家寫的寫法指令（略過時填；最多 200 字）。 */
+export interface SceneFinishOptions {
+  how?: 'stop' | 'skip' | 'interrupt'
+  direction?: string
 }
 
 /** 戰鬥裡一步的結果：refused 是這一步做不成（reasons 一條一條列出缺的條件），狀態不變。 */
@@ -159,7 +203,10 @@ export class Game {
     this.taskEnv = { hub: this.hub, limiter: this.limiter, probe: this.k.probe, now: opts.now ?? (() => Date.now()), idleTimeoutMs: opts.idleTimeoutMs ?? IDLE_TIMEOUT_MS }
     this.chainEnv = { k: this.k, tasks: this.tasks, taskEnv: this.taskEnv, commit: (draft) => this.commitWithLaunch(draft, true) }
     registerFreeActionTasks(this.k, this.tasks)
+    registerSceneTasks(this.k, this.tasks)
     this.chains.register(freeActionChain())
+    this.chains.register(adultActionChain())
+    this.chains.register(sceneRoundChain())
     this.chains.register(battleEndChain())
     this.chains.register(narratedChain())
     this.state = blankState(0)
@@ -389,8 +436,10 @@ export class Game {
    */
   async commitNarrated(draft: ReportDraft, opts: NarratedOptions): Promise<ActResult> {
     if (!opts || typeof opts.mode !== 'string' || !opts.mode) throw new Error('commitNarrated 要給寫正文的模式（mode）。')
-    const input: NarratedInput = { draft, mode: opts.mode }
-    return this.startChain(NARRATED_CHAIN, input, opts, opts.label ?? draft.outcome.summary, { doing: `commit:${draft.action}`, draft, attach: opts.attach === true })
+    const dir = this.directionFor(opts.direction, this.narrateLive())
+    const input: NarratedInput = { draft, mode: opts.mode, ...(dir.text ? { direction: dir.text } : {}) }
+    const r = await this.startChain(NARRATED_CHAIN, input, opts, opts.label ?? draft.outcome.summary, { doing: `commit:${draft.action}`, draft, attach: opts.attach === true })
+    return dir.notices.length > 0 ? { ...r, notices: dir.notices } : r
   }
 
   /** runChain 與 commitNarrated 共用：o.doing 是問放行的那一個（draft 給 allows 看）；o.attach 是不另留一步回退。 */
@@ -563,8 +612,12 @@ export class Game {
    * 戰鬥分出結果之後的結算：跑 battle_end 這條鏈（結算 → 寫正文 → 套用）。套用之後 state.battle 變回 null，
    * 這場戰鬥每一步的報告收成一份 combat 報告；AI 關閉時只有戰報（摘要）。
    */
-  finishBattle(opts: ActOptions = {}): Promise<ActResult> {
-    return this.runChain('battle_end', null, opts, '戰鬥結束')
+  async finishBattle(opts: ActOptions & { direction?: string } = {}): Promise<ActResult> {
+    // 玩家的寫法指令（COMBAT_SYSTEM 8.3 節）：最多 200 字，原樣放進寫正文；結果與分支不受影響
+    const dir = this.directionFor(opts.direction, this.narrateLive())
+    const input: BattleEndInput | null = dir.text ? { direction: dir.text } : null
+    const r = await this.runChain('battle_end', input, opts, '戰鬥結束')
+    return dir.notices.length > 0 ? { ...r, notices: dir.notices } : r
   }
 
   /**
@@ -657,6 +710,135 @@ export class Game {
     const stage = this.state.snapshots.slice(0, Math.max(0, at)).reverse().find((x) => x.kind === 'stage')
     if (!stage) return this.retryBattle()
     return this.rewindTo(stage.id, { summary: '你回到這個階段開始的時候。' })
+  }
+
+  // ---- 成人場景（dev/work/M4-core-scene-ai.md；AI_TASKS 3.5～3.8 節；dev/adr/0019 第十三節）：sceneBegin、sceneStep、sceneFinish ----
+
+  /** 玩家寫的寫法指令：最多 DIRECTION_MAX 字（超過截斷並提醒）；原樣放進 prompt，不篩選、不改寫、不提示；live 是 false（AI 關著）時不收、提醒一句。 */
+  private directionFor(raw: string | undefined, live: boolean): { text?: string; notices: string[] } {
+    if (typeof raw !== 'string' || raw.trim() === '') return { notices: [] }
+    const notices: string[] = []
+    const chars = Array.from(raw)
+    const text = chars.length > DIRECTION_MAX ? chars.slice(0, DIRECTION_MAX).join('') : raw
+    if (chars.length > DIRECTION_MAX) notices.push(`指令最多 ${DIRECTION_MAX} 字，超過的部分沒有送出。`)
+    if (!live) return { notices: [...notices, 'AI 關著，指令不會用到。'] }
+    return { text, notices }
+  }
+
+  /** 寫正文有沒有人在寫：總開關開著、設定沒有關掉敘事、有服務商（真的或假的）。 */
+  private narrateLive(): boolean {
+    return this.settings.ai && this.settings.narrate && this.hub.resolve(this.settings, 'narrate', { adult: true }) !== null
+  }
+
+  /**
+   * 成人場景的 AI 走到哪裡（照設定與有沒有服務商）。AI 關著（總開關關、沒有服務商）是 pure：三個入口直接呼叫功能的純函式、用 commit 提交，
+   * 和介面現在直接呼叫的一樣；sceneAi 是 off 時只剩結束之後整場的正文（text）。
+   */
+  sceneRoute(): SceneRoute {
+    if (!this.settings.ai || this.hub.resolve(this.settings, 'narrate', { adult: true }) === null) return 'pure'
+    const m = sceneAiOf(this.settings)
+    return m === 'off' ? 'text' : m
+  }
+
+  private sceneResult(status: ActStatus, o: Partial<SceneResult> = {}): SceneResult {
+    return { status, reports: [], notices: [], ended: false, ...o }
+  }
+
+  /**
+   * 開成人場景。給場景的設定（SceneSetup）就直接開（和 launch('scene', ...) 一樣，留一步回退）；給 { action, ... }（可能進場景的行動：誘惑、性交易、蜜罐的那一步）
+   * 就跑 adult_action 這條鏈：擲骰 → 判定 → 結算上限 → scene_gate →（進）場景開起來，玩家可以玩，或在還沒有任何行動時略過（sceneFinish({ how: 'skip' })）/（不進）算回報、算關係、寫正文。
+   * 做不成回傳 refused 與原因；started 是這一步之後場景有沒有開起來。
+   */
+  async sceneBegin(arg: SceneSetup | AdultActionInput, o: SceneBeginOptions = {}): Promise<SceneResult> {
+    if (isRecord(arg) && isRecord(arg.action) && typeof arg.action.kind === 'string') {
+      const input = arg as unknown as AdultActionInput
+      const r = await this.startChain(ADULT_ACTION_CHAIN, input, o, input.action.text || input.action.kind, { doing: `chain:${ADULT_ACTION_CHAIN}` })
+      return this.sceneResult(r.status, { reports: r.reports, run: r.run, ...(r.reason ? { reason: r.reason } : {}), started: sceneRawOf(this.state) !== null })
+    }
+    try {
+      const reports = this.launch('scene', arg, o.origin ?? { by: 'shell' }, o.label ? { label: o.label } : {})
+      return this.sceneResult('applied', { reports, started: true })
+    } catch (e) {
+      if (e instanceof ActionBlocked) return this.sceneResult('refused', { reason: e.reason, started: false })
+      throw e
+    }
+  }
+
+  /**
+   * 場景的一步：輪到玩家時給一個行動（SceneInput；給 stop 就是 sceneFinish），輪到對方時不給（對方的一步）。
+   * - pure：功能的純函式，用 commit 提交（逐欄和直接呼叫一樣）。
+   * - text：同上；結束的那一步用 commitNarrated 寫整場的正文（和 M2 一樣）。
+   * - closing：每一步照規則走；讓場景結束的那一步跑收尾段（reward、sex_record、sink、tendency、relate 同時跑 → SceneEnv.closing → 寫正文）。
+   * - full：另外對方的每一步跑 scene_turn（同圈每個人依序各一次）、玩家說話與對方說話時跑 scene_talk。
+   * 做不成（不是你的回合、行動點不夠……）回傳 refused 與功能給的原因，狀態不變。
+   */
+  async sceneStep(input?: SceneInput, opts: ActOptions = {}): Promise<SceneResult> {
+    const scene = sceneRawOf(this.state)
+    if (!scene) return this.sceneResult('refused', { reason: '現在沒有進行中的成人場景。' })
+    if (input?.kind === 'stop') return this.sceneFinish({ how: 'stop' }, opts)
+    const mode: SceneRoundMode = scene.turn === scene.pc ? 'pc' : 'npc'
+    let d0: ReportDraft
+    try {
+      if (input) d0 = sceneAct(this.k, this.state, input)
+      else if (mode === 'pc') return this.sceneResult('refused', { reason: '輪到你了：要給一個行動。' })
+      else d0 = sceneNext(this.k, this.state)
+    } catch (e) {
+      if (e instanceof ActionBlocked) return this.sceneResult('refused', { reason: e.reason })
+      throw e
+    }
+    const route = this.sceneRoute()
+    const ended = d0.action === 'scene.end'
+    const needsAi = route === 'full' && (mode === 'npc' ? aiTurnNeeded(scene) : input?.kind === 'talk')
+    if (route === 'pure' || route === 'text' || (!ended && !needsAi)) return this.sceneCommit(d0, route, '場景', undefined, opts)
+    const chainInput: SceneRoundInput = { mode, ...(mode === 'pc' ? { input } : {}) }
+    return this.sceneRound(chainInput, d0, '場景', opts)
+  }
+
+  /**
+   * 結束這一場：玩家按停下（how: 'stop'，預設）、略過（'skip'；還沒有任何行動時才行）、被外面打斷（'interrupt'）。
+   * 略過時玩家可以寫一段指令（direction，最多 200 字）：收尾段的寫正文照它寫經過與文風，算性經歷與算傾向把它當參考；數字不受影響。
+   * 玩家的指令不經篩選與改寫、原樣放進 prompt；AI 關著時不收，回傳提醒「AI 關著，指令不會用到。」照常結束。
+   */
+  async sceneFinish(o: SceneFinishOptions = {}, opts: ActOptions = {}): Promise<SceneResult> {
+    const scene = sceneRawOf(this.state)
+    if (!scene) return this.sceneResult('refused', { reason: '現在沒有進行中的成人場景。' })
+    const how = o.how ?? 'stop'
+    let d0: ReportDraft
+    try {
+      d0 = how === 'skip' ? sceneSkip(this.k, this.state) : how === 'interrupt' ? sceneInterrupt(this.k, this.state) : sceneAct(this.k, this.state, { kind: 'stop' })
+    } catch (e) {
+      if (e instanceof ActionBlocked) return this.sceneResult('refused', { reason: e.reason })
+      throw e
+    }
+    const route = this.sceneRoute()
+    const dir = this.directionFor(o.direction, route !== 'pure')
+    const label = how === 'skip' ? '略過場景' : '場景結束'
+    if (route === 'pure' || route === 'text') return this.sceneCommit(d0, route, label, dir, opts)
+    return this.sceneRound({ mode: how, ...(dir.text ? { direction: dir.text } : {}) }, d0, label, opts, dir.notices)
+  }
+
+  /** pure 與 text：功能的草稿直接提交；結束的那一步在 text 時寫整場的正文。 */
+  private async sceneCommit(d0: ReportDraft, route: SceneRoute, label: string, dir: { text?: string; notices: string[] } | undefined, opts: ActOptions): Promise<SceneResult> {
+    const notices = dir?.notices ?? []
+    const draft = d0
+    const ended = d0.action === 'scene.end'
+    try {
+      if (route === 'text' && ended) {
+        const r = await this.commitNarrated(draft, { ...opts, mode: 'new', label, ...(dir?.text ? { direction: dir.text } : {}) })
+        return this.sceneResult(r.status, { reports: r.reports, run: r.run, ...(r.reason ? { reason: r.reason } : {}), notices, ended: r.status === 'applied' })
+      }
+      const reports = this.commit(draft, label)
+      return this.sceneResult('applied', { reports, notices, ended })
+    } catch (e) {
+      if (e instanceof ActionBlocked) return this.sceneResult('refused', { reason: e.reason, notices })
+      throw e
+    }
+  }
+
+  /** closing 與 full：場景的一步走 scene_round 這條鏈。問放行時用功能那份草稿的 action（commit:scene.*，場景進行中放行）。 */
+  private async sceneRound(input: SceneRoundInput, d0: ReportDraft, label: string, opts: ActOptions, notices: string[] = []): Promise<SceneResult> {
+    const r = await this.startChain(SCENE_ROUND_CHAIN, input, opts, label, { doing: `commit:${d0.action}`, draft: d0 })
+    return this.sceneResult(r.status, { reports: r.reports, run: r.run, ...(r.reason ? { reason: r.reason } : {}), notices, ended: r.status === 'applied' && sceneRawOf(this.state) === null })
   }
 
   // ---- 格子地圖（MIGRATION E 的 grid、specialMaps；dev/adr/0012） ----

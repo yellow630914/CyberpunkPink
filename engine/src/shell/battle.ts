@@ -30,6 +30,11 @@ export function clipBeats(beats: string[]): string[] {
   return beats.length <= head + tail ? beats : [...beats.slice(0, head), `（中間略過 ${beats.length - head - tail} 拍）`, ...beats.slice(-tail)]
 }
 
+/** 這條鏈的輸入：沒有就是 null；玩家寫的寫法指令（COMBAT_SYSTEM 8.3 節；最多 200 字）原樣放進寫正文的 <direction>，只影響經過與文風，不改結果與分支。 */
+export interface BattleEndInput {
+  direction?: string
+}
+
 export function battleEndChain(): ChainDef {
   return {
     template: BATTLE_END_TEMPLATE,
@@ -50,6 +55,7 @@ export function battleEndChain(): ChainDef {
         return { cast: castOf(ctx.state).filter((c) => fighters.has(c.id)), report: { action: '戰鬥', summary: draft.outcome.summary } } satisfies RelateInput
       }
       if (step.task !== 'narrate') throw new Error(`戰鬥結束的鏈不認得 ${String(step.task)} 這個任務`)
+      const direction = (ctx.input as BattleEndInput | null)?.direction
       const draft = ctx.draft.settle as ReportDraft
       const timeline = clipBeats(draft.timeline.map((b) => b.text))
       return {
@@ -57,6 +63,7 @@ export function battleEndChain(): ChainDef {
         // result 是結果給人看的名字（勝利、戰敗、脫離、投降）；outcome 是它的 id
         report: { kind: draft.kind, action: '戰鬥', outcome: draft.outcome.result, result: OUTCOME_NAME[draft.outcome.result] ?? draft.outcome.result, summary: draft.outcome.summary, party: draft.party, timeline },
         results: draft.narration?.results ?? [],
+        ...(direction ? { direction } : {}),
       } satisfies NarrateInput
     },
     apply: (ctx) => {

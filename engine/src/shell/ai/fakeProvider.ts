@@ -72,9 +72,61 @@ export function goodReply(req: AiRequest): FakeReply {
       const body = req.task === 'polish' ? String(input.text) : `（假的服務商）${fakeHeadline(input.report)}${results.join('，')}`
       return { text: `${body}\n<covered>${results.map((_, i) => i + 1).join(',')}</covered>` }
     }
+    // 成人場景的任務（M4-core-scene-ai）：合規的自動回應。進場景照輸入給的性質（明寫的設定優先）；每回合選一個挑逗或主導（沒有就空的）；
+    // 沉溺照規則的退路；傾向交程式列出的全部；算關係取範圍的中間值；算回報沒有參考範圍就交空的（上面的 reward 照 hint）
+    case 'scene_gate': {
+      const nature = input.fixed?.nature ?? input.natures?.[0]?.id
+      return { json: { enter: true, nature, ...(input.fixed?.goal ? { goal: input.fixed.goal } : {}), reason: '（假的服務商）照情境進場景。', ...(input.fixed?.circles ? { circles: input.fixed.circles } : {}) } }
+    }
+    case 'scene_turn': {
+      const pick = ((input.legal as Array<Record<string, unknown>>) ?? []).find((m) => m.kind === 'tease' || m.kind === 'dominate' || m.kind === 'yield')
+      return { json: { moves: pick ? [{ kind: pick.kind, ...(typeof pick.target === 'string' ? { target: pick.target } : {}) }] : [], line: `（假的服務商）${input.actor?.name ?? '他'}靠了過來。` } }
+    }
+    case 'scene_talk':
+      return { json: { fit: 3, ...(input.scene?.goal ? { goal: 5 } : {}), agree: true, reason: '（假的服務商）這句話說到了心裡。' } }
+    case 'sex_record':
+      return { json: { records: ((input.people as Array<{ id: string; name: string }>) ?? []).map((p) => ({ with: p.id, kind: input.nature, note: `（假的服務商）和${p.name}的這一場。` })) } }
+    case 'sink':
+      return { json: { kind: input.rule.kind, amount: input.rule.amount, reason: '（假的服務商）照規則。' } }
+    case 'tendency':
+      return { json: { tags: ((input.touched as Array<{ id: string }>) ?? []).map((t) => t.id) } }
+    case 'relate':
+      return { json: input.scene ? { items: (input.cast as Array<{ id: string; range: [number, number] }>).map((c) => ({ id: c.id, amount: Math.round((c.range[0] + c.range[1]) / 2) })) } : {} }
     default:
       return { json: {} }
   }
+}
+
+/** 成人場景的對抗劇本（M4-core-scene-ai）：每一個是一個任務交出不合規的回應。不放進 ADVERSARIAL_MODES（那一組會被每個任務的測試逐個跑）。 */
+export const SCENE_ADVERSARIES = ['turn_stop', 'turn_other_circle', 'sink_over', 'gate_bad_nature', 'tendency_untouched', 'talk_over'] as const
+export type SceneAdversary = (typeof SCENE_ADVERSARIES)[number]
+
+/** 每一個對抗劇本打在哪個任務上。 */
+export const SCENE_ADVERSARY_TASK: Record<SceneAdversary, string> = {
+  turn_stop: 'scene_turn', turn_other_circle: 'scene_turn', sink_over: 'sink', gate_bad_nature: 'scene_gate', tendency_untouched: 'tendency', talk_over: 'scene_talk',
+}
+
+/**
+ * 一個對抗劇本的回應：scene_turn 交 stop；scene_turn 交別圈的人當對象（target 給那個人的 id，沒給就是一個不在場的人）；sink 交 +9；
+ * scene_gate 交清單外的性質；tendency 交沒碰到的標籤；scene_talk 交 +50。
+ */
+export function sceneAdversary(name: SceneAdversary, o: { target?: string } = {}): FakeReply {
+  switch (name) {
+    case 'turn_stop': return { json: { moves: [{ kind: 'tease' }, { kind: 'stop' }], line: '（對抗）他想結束這一場。' } }
+    case 'turn_other_circle': return { json: { moves: [{ kind: 'talk', target: o.target ?? 'npc_nobody' }], line: '（對抗）他看向別的圈。' } }
+    case 'sink_over': return { json: { kind: 'anchor', amount: 9, reason: '（對抗）沉溺大漲。' } }
+    case 'gate_bad_nature': return { json: { enter: true, nature: 'no_such_nature', reason: '（對抗）清單外的性質。' } }
+    case 'tendency_untouched': return { json: { tags: ['tg_not_touched'] } }
+    case 'talk_over': return { json: { fit: 50, goal: 99, agree: true, reason: '（對抗）說得太好了。' } }
+  }
+}
+
+/**
+ * 劇本用的：同一個對抗回應排 times 次（自動重試也拿到同一份壞的；預設 4 次，重試上限是 3），之後照自動模式。
+ * 用法：new FakeProvider({ byTask: { sink: sceneScript('sink_over') } })。
+ */
+export function sceneScript(name: SceneAdversary, o: { target?: string; times?: number } = {}): FakeScriptEntry[] {
+  return Array.from({ length: o.times ?? 4 }, () => sceneAdversary(name, o))
 }
 
 /** 把一份合格的回應弄壞。不適用於這個任務的模式回傳原樣的合格回應。 */

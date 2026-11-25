@@ -16,6 +16,8 @@ import type { Effect, EffectCtx, ResolvedEffects } from '../../core/rules/effect
 import { effectCtx as makeEffectCtx } from '../../core/rules/grades'
 import { isRecord } from '../../core/util/sanitize'
 import type { ChainCtx, ChainDef, ChainTemplate } from './chain'
+import type { SceneRelateInput, SceneRewardInput } from './sceneTasks'
+import { isSceneRelate, isSceneReward, sceneRelateCheck, sceneRelatePrompt, sceneRewardCheck, sceneRewardFallback, sceneRewardPrompt } from './sceneTasks'
 import type { TaskDef, TaskRegistry } from './tasks'
 
 /** data/ai/chains.json 的那一筆（AI_TASKS 2.7 節），原樣照抄。 */
@@ -58,6 +60,8 @@ export interface RelateInput {
 export interface RelateOutput {
   changes: Change[]
   lines: string[]
+  /** 成人場景收尾的算關係才有（M4-core-scene-ai）：每個對象這一場的親密度變化（已經夾在那一級的範圍裡）；放進 SceneEnv.closing.relate */
+  affinity?: Record<string, number>
 }
 export const NO_RELATION: RelateOutput = { changes: [], lines: [] }
 
@@ -72,6 +76,11 @@ export interface NarrateInput {
   report: Record<string, unknown>
   /** 定案的結果，一行一筆；編號是 1 起算的行號 */
   results: string[]
+  /**
+   * 玩家寫的寫法指令（略過的場景、戰鬥結束、戰敗事件；最多 200 字）：原樣放進 <direction>，我們這端不篩選、不改寫、不提示（使用者 2026-11-25）；
+   * 不合規的由服務商擋，被擋時照一般 AI 失敗走退路。只影響經過與文風，不改任何結果與數字。
+   */
+  direction?: string
 }
 export interface NarrateOutput {
   text?: string
@@ -157,10 +166,10 @@ export function registerFreeActionTasks(k: Kernel, tasks: TaskRegistry): void {
     action: { minutes: input.judgment.minutes, maxMinutes: input.pending.maxMinutes }, tail: actionTailChanges(input.judgment),
   })
 
-  const reward: TaskDef<RewardInput, ResolvedEffects> = {
+  const reward: TaskDef<RewardInput | SceneRewardInput, ResolvedEffects> = {
     id: 'reward', owner: 'shell', size: 'S', output: 'json', onExhausted: 'fallback',
     schema: { name: 'submit_reward', schema: { type: 'object', required: ['items'], properties: { items: { type: 'array', items: { type: 'object', required: ['kind', 'from'] } } } } },
-    build: (input) => ({
+    build: (input) => isSceneReward(input) ? sceneRewardPrompt(k, input) : ({
       system: '照判定的結果與參考範圍，交出這次具體拿到的東西。每一筆都要有依據（from）：成功程度、判定裡的一段字、或玩家的原話。用 submit_reward 的格式交出。',
       sections: [
         ['judgment', `${DEGREE_NAME[input.judgment.degree]}。${input.judgment.reason}${input.judgment.twist ? ` 轉折：${input.judgment.twist}` : ''}`],
@@ -169,6 +178,8 @@ export function registerFreeActionTasks(k: Kernel, tasks: TaskRegistry): void {
       ],
     }),
     check: (raw, input, ctx) => {
+      // 成人場景的收尾：依據是這一場的摘要（sceneTasks.ts）
+      if (isSceneReward(input)) return sceneRewardCheck(k, raw, input, ctx.settings.clamp_asked)
       if (!isRecord(raw) || !Array.isArray(raw.items)) return { ok: false, errors: ['reward.items：要是一個陣列'] }
       const errors: string[] = []
       const effects: unknown[] = []
@@ -192,6 +203,7 @@ export function registerFreeActionTasks(k: Kernel, tasks: TaskRegistry): void {
     // 退路：行動種類自己給的（ActionKindDef.fallback：規則表，照內建的來源驗，不受 AI 的上限管）；沒有就照參考範圍的一半，物品給模板的標準品（當成 AI 的來源夾）。
     // 參考範圍與規則表都是資料與程式寫的，照理一定合格；萬一套不上去（例：付不出來），退成什麼都不給
     fallback: (input) => {
+      if (isSceneReward(input)) return sceneRewardFallback(k, input)
       const own = kindFallback(k, input.state, input.pending, input.judgment, input.hint)
       const source = own ? 'builtin' : 'ai'
       const r = k.effects.resolve(own ?? fallbackReward(input.hint), effectCtx(input, true, source), 'reward.items')
@@ -201,22 +213,24 @@ export function registerFreeActionTasks(k: Kernel, tasks: TaskRegistry): void {
 
   // 算關係：自由行動與戰鬥結束的鏈在場上有具名的人時都會跑這一步。AI 那一半（submit_relationship）要等關係的記憶與描述有地方存（M2-npc-life 之後），
   // 所以現在鏈對這個任務固定走退路（relateEnabled 回 false）：什麼都不記，步驟的狀態是 fallback。build 與 check 先寫好格式，AI 那一半接上時只改 relateEnabled 與 check。
-  const relate: TaskDef<RelateInput, RelateOutput> = {
+  const relate: TaskDef<RelateInput | SceneRelateInput, RelateOutput> = {
     id: 'relate', owner: 'shell', size: 'S', output: 'json', onExhausted: 'fallback',
     schema: { name: 'submit_relationship', schema: { type: 'object', required: ['items'], properties: { items: { type: 'array' } } } },
-    build: (input) => ({
+    build: (input) => isSceneRelate(input) ? sceneRelatePrompt(input) : ({
       system: '你讀這一次的結果，判斷在場的具名 NPC 和主角的關係怎麼變。只算這一次真的有互動的人，每一筆要有依據；用 submit_relationship 的格式交出。',
       sections: [['report', json(input.report)], ['cast', input.cast.map((c) => `${c.id}：${c.name}`).join('\n') || '（沒有）'], ['input', json(input)]],
     }),
-    check: () => ({ ok: false, errors: ['算關係的 AI 那一半還沒接上，只收退路的結果'] }),
+    // 成人場景的收尾（SceneRelateInput）：AI 那一半已經接上，交出每個對象的親密度變化（夾在那一級的範圍裡）；一般的鏈要等關係的記憶與描述有地方存才接
+    check: (raw, input) => (isSceneRelate(input) ? sceneRelateCheck(raw, input) : { ok: false, errors: ['算關係的 AI 那一半還沒接上，只收退路的結果'] }),
     fallback: () => ({ changes: [], lines: [] }),
   }
 
   const narrate: TaskDef<NarrateInput, NarrateOutput> = {
     id: 'narrate', owner: 'shell', size: 'L', output: 'text', onExhausted: 'wait',
     build: (input) => ({
-      system: '照報告與定案的結果寫這一段正文。<results> 的每一行都要寫到，不寫 <results> 以外的收穫；擲骰與數值不寫進文字。正文的最後一行寫 <covered>，列出寫到的 <results> 編號，用逗號隔開。',
-      sections: [['mode', input.mode], ['report', json(input.report)], ['results', numbered(input.results)], ['input', json(input)]],
+      system: '照報告與定案的結果寫這一段正文。<results> 的每一行都要寫到，不寫 <results> 以外的收穫；擲骰與數值不寫進文字。正文的最後一行寫 <covered>，列出寫到的 <results> 編號，用逗號隔開。'
+        + (input.direction ? '<direction> 是玩家寫的寫法指令：照它寫經過與文風；它不改 <results> 的任何結果與數字。' : ''),
+      sections: [['mode', input.mode], ['report', json(input.report)], ['results', numbered(input.results)], ...(input.direction ? [['direction', input.direction] as [string, string]] : []), ['input', json(input)]],
     }),
     check: (raw, input) => checkProse(raw, input.results),
     // 不寫正文，只顯示報告的摘要

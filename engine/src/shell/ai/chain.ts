@@ -79,8 +79,8 @@ export interface ChainDef {
   template: ChainTemplate
   /** 設定裡這種鏈的代號（潤色的開關用）：free、move、trade…… */
   code: string
-  /** 這條鏈有沒有正文（有的話算一樓） */
-  hasText: boolean
+  /** 這條鏈有沒有正文（有的話算一樓）。可以是函式：同一條鏈有時有正文、有時沒有（場景的一步：結束的那一步才有）；套用之前問，看這條鏈已經算好的草稿 */
+  hasText: boolean | ((ctx: ChainCtx) => boolean)
   codeSteps: Record<string, (ctx: ChainCtx, step: StepTemplate) => unknown | Promise<unknown>>
   whens?: Record<string, (ctx: ChainCtx) => boolean>
   /** 可以重擲的步驟 */
@@ -89,8 +89,12 @@ export interface ChainDef {
   aiInput(step: StepTemplate, ctx: ChainCtx): unknown
   /** 這一步的 AI 有沒有開（照設定裡各任務的開關）；關著就直接走退路 */
   aiEnabled?(step: StepTemplate, ctx: ChainCtx): boolean
-  /** 這條鏈的 AI 請求走不走成人路由（請求的 adult 記號；報告帶 adult 的鏈：narrated）。沒寫就是不走 */
-  adult?(ctx: ChainCtx): boolean
+  /**
+   * 這條鏈的 AI 請求走不走成人路由（請求的 adult 記號；報告帶 adult 的鏈：narrated）。沒寫就是不走。
+   * 第二個參數是正在跑的那一步：同一條鏈裡有的步驟走（寫正文）、有的不走（reward、relate 讀的是摘要版；PROMPTS 7.2 節）。
+   * 任務自己寫了 adult（TaskDef.adult）的，不論這裡怎麼回答都走成人路由。
+   */
+  adult?(ctx: ChainCtx, step?: StepTemplate): boolean
   /** 套用：把草稿組成報告草稿 */
   apply(ctx: ChainCtx): ReportDraft
 }
@@ -258,7 +262,8 @@ export class ChainRun {
     const apply = this.steps[this.steps.length - 1]!
     if (!this.needsMet(apply)) return (this.status = 'paused')
     this.set(apply, 'running')
-    const floor = this.def.hasText ? this.ctx.state.seq.floor + 1 : Math.max(1, this.ctx.state.seq.floor)
+    const hasText = typeof this.def.hasText === 'function' ? this.def.hasText(this.ctx) : this.def.hasText
+    const floor = hasText ? this.ctx.state.seq.floor + 1 : Math.max(1, this.ctx.state.seq.floor)
     const draft = this.def.apply(this.ctx)
     apply.status = 'done'
     draft.chain = this.id
@@ -294,7 +299,7 @@ export class ChainRun {
       const def = this.env.tasks.get(t.task!)
       if (!def) throw new Error(`任務鏈 ${this.template.chain}：沒有 ${t.task} 這個 AI 任務`)
       const enabled = this.def.aiEnabled?.(t, this.ctx) ?? true
-      const adult = this.def.adult?.(this.ctx) ?? false
+      const adult = this.def.adult?.(this.ctx, t) ?? false
       const outcome = await runTask(this.env.taskEnv, def, this.def.aiInput(t, this.ctx), { settings: this.ctx.settings, chain: this.id, step: s.id, ...(adult ? { adult: true } : {}) }, {
         signal: this.abort.signal, forceFallback: !enabled || !!s.byRules, previousError: this.retryNotes[s.id],
       })

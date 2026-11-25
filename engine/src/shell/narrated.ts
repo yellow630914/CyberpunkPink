@@ -6,7 +6,7 @@
 // 草稿原樣套用，只多一段正文（narration.text）；AI 關著、或設定關掉寫正文時沒有正文，其餘完全一樣。
 // 要 judge 的（NPC 互動、事件的「我要做別的」）不走這條，走自己的鏈（free_action）。
 
-import type { ReportDraft } from '../core/types'
+import type { GameState, ReportDraft } from '../core/types'
 import { clone } from '../core/util/clone'
 import { clipBeats } from './battle'
 import type { ChainCtx, ChainDef, ChainTemplate } from './ai/chain'
@@ -27,11 +27,13 @@ export const NARRATED_TEMPLATE: ChainTemplate = {
 export interface NarratedInput {
   draft: ReportDraft
   mode: string
+  /** 玩家寫的寫法指令（戰敗事件的正文；最多 200 字）：原樣放進寫正文的 <direction>，不篩選、不改寫、不提示（使用者 2026-11-25） */
+  direction?: string
 }
 
-function narrateInput(ctx: ChainCtx, mode: string): NarrateInput {
-  const { draft } = ctx.input as NarratedInput
-  const actor = draft.actor ? ctx.state.actors[draft.actor]?.name : undefined
+/** 寫正文收到的輸入：報告的摘要（成人的報告帶 adult）、定案的結果、玩家的寫法指令（有才有）。戰鬥結束與場景結束的鏈也用它。 */
+export function narrateInputOf(state: GameState, draft: ReportDraft, mode: string, direction?: string): NarrateInput {
+  const actor = draft.actor ? state.actors[draft.actor]?.name : undefined
   return {
     mode,
     report: {
@@ -41,7 +43,13 @@ function narrateInput(ctx: ChainCtx, mode: string): NarrateInput {
     },
     // 定案的結果：功能自己寫在草稿上的（narration.results）；沒有就是沒有，正文只照報告的摘要與經過寫
     results: draft.narration?.results ?? [],
+    ...(direction ? { direction } : {}),
   }
+}
+
+function narrateInput(ctx: ChainCtx, mode: string): NarrateInput {
+  const { draft, direction } = ctx.input as NarratedInput
+  return narrateInputOf(ctx.state, draft, mode, direction)
 }
 
 export function narratedChain(): ChainDef {

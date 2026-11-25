@@ -41,6 +41,8 @@ export interface TaskDef<I = unknown, O = unknown> {
   schema?: { name: string; schema: Record<string, unknown> }
   /** 自動重試都失敗之後：wait 停下來等玩家（判定與寫正文），fallback 自動用規則代替（其他任務） */
   onExhausted: 'wait' | 'fallback'
+  /** 永遠走成人路由（PROMPTS 7.2 節：scene_gate、scene_turn、scene_talk、sex_record、sink、tendency）；不寫就看這一步所在的鏈（TaskCtx.adult） */
+  adult?: boolean
   build(input: I, ctx: TaskCtx): TaskPrompt
   /** 驗證與夾值。raw 是解析過的 JSON（output 是 json）或整段文字。errors 引用欄位的路徑，重試時原樣帶回去 */
   check(raw: unknown, input: I, ctx: TaskCtx): TaskCheck<O>
@@ -166,7 +168,10 @@ async function collect(provider: Provider, req: AiRequest, env: TaskEnv, signal?
 /** 跑一個任務。永遠不丟錯：結果用 status 表示。 */
 export async function runTask<I, O>(env: TaskEnv, def: TaskDef<I, O>, input: I, ctx: TaskCtx, opts: RunTaskOpts = {}): Promise<TaskOutcome<O>> {
   const out: TaskOutcome<O> = { status: 'failed', clamps: [], marks: [], attempts: [] }
-  const provider = opts.forceFallback ? null : env.hub.resolve(ctx.settings, def.id, { adult: ctx.adult === true })
+  // 成人路由：任務自己寫了 adult（永遠是成人），或這一步所在的鏈要求（ctx.adult）
+  const adult = def.adult === true || ctx.adult === true
+  ctx = adult ? { ...ctx, adult: true } : ctx
+  const provider = opts.forceFallback ? null : env.hub.resolve(ctx.settings, def.id, { adult })
   if (!provider) return { ...out, status: 'fallback', value: def.fallback(input, ctx) }
 
   out.model = `${provider.source.provider}/${provider.source.model}`
