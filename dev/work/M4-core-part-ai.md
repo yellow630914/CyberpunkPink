@@ -39,3 +39,5 @@ M4-part-unreg、M4-part-sources。核心的工單彼此不要同時做（M4-smok
 改了哪些檔、測試結果、`features/unreg` 缺的接口、這個任務一次請求大約多少字（給使用者看成本）、M5 的文字槽（M5-core-ai）做完之後這條鏈要不要改成一格文字槽的建議。
 
 - 總指揮補記（2026-11-25）：順便做二手零件狀態進成品（`ProductData.part_states?`），見 M4-followups「M4-craft-salvage 回報」。
+
+- 總指揮補記（2026-11-25，M4-part-sources 回報）：`fixer/gen.ts` 生成委託時決定並寫入 `commission.employer`（照委託類型與那一區的勢力抽），未登錄零件的牌子才會是委託人勢力的 `brand`；取貨不看攤位開不開（總指揮定：委託台幫你保管）。

@@ -30,7 +30,7 @@ import type { RewardAsk } from './sources'
 import { answerReward } from './sources'
 import type { PresetEntry } from './model'
 import {
-  MATERIALS, MAX_GRADE, NAME_OP, ONCE_OP, OWNER, PART_EFFECT, PENDING_OP, PRESET_KIND, REQUEST_MAX, ROMAN, RULE_KIND, SOURCES, presetProblems, typeName, unregOf, unregRuleProblems, unregRules, writeUnreg,
+  MATERIALS, MAX_GRADE, NAME_OP, gradeCap, ONCE_OP, OWNER, PART_EFFECT, PENDING_OP, PRESET_KIND, REQUEST_MAX, ROMAN, RULE_KIND, SOURCES, presetProblems, typeName, unregOf, unregRuleProblems, unregRules, writeUnreg,
 } from './model'
 
 export { DEFAULT_UNREG_RULES, DELIVER_ACTION, PART_EFFECT as UNREG_PART_EFFECT, RULE_KIND as UNREG_RULE_KIND, PRESET_KIND as UNREG_PRESET_KIND, OWNER as UNREG_OWNER, SOURCES as UNREG_SOURCES, UID_PREFIX as UNREG_UID_PREFIX, gradeCap, unregOf, unregRuleProblems, unregRules } from './model'
@@ -161,8 +161,9 @@ export const unregFeature: Feature = {
         }
         // 口頭要到：等級不超過那一區的等級（再加上來源的上限，frameOf 夾）
         if (e.source === 'ask') {
-          const want = Math.min(e.grade ?? MAX_GRADE, ctx.grade)
-          if (e.grade === undefined || want < e.grade) return { effect: { ...e, grade: want }, note: { from: e.grade ?? MAX_GRADE, to: want, notice: `這一區只給得出 ${ROMAN[want]} 級的零件。` } }
+          const limit = Math.min(e.grade ?? MAX_GRADE, gradeCap(unregRules(k), 'ask'))
+          const want = Math.max(1, Math.min(limit, ctx.grade))
+          if (want < limit) return { effect: { ...e, grade: want }, note: { from: limit, to: want, notice: `這一區只給得出 ${ROMAN[want]} 級的零件。` } }
         }
         return { effect: e }
       },
