@@ -678,8 +678,8 @@ describe('結算', () => {
     expect(c.heard[0]).toMatchObject({ solo: true, pace: 65, rating: '合拍', reason: 'stop', goal_done: false, audience: false })
     expect(c.heard[0]).not.toHaveProperty('with')
     expect(c.heard[0]).not.toHaveProperty('fit')
-    expect(end.narration!.results.join('')).toMatch(/節奏 65：合拍/)
-    expect(end.narration!.results.join('')).toMatch(/體悟 \+8/)
+    expect(end.narration!.results!.join('')).toMatch(/節奏 65：合拍/)
+    expect(end.narration!.results!.join('')).toMatch(/體悟 \+8/)
   })
 
   it('評價用同一張表：節奏 10 不合 5→3、40 普通 10→5、90 難忘 20→10；第一次用某個姿勢、第一次碰某個標籤照加（不打折）；solo_times 累加', () => {
@@ -716,8 +716,8 @@ describe('結算', () => {
     raw(g).pace = 40
     const end = act(g, { kind: 'stop' })[0]!
     expect(g.state.meters.insight!._).toBe(5 + 5)
-    expect(end.narration!.results.join('')).toMatch(/第一次碰「支配」/)
-    expect(end.narration!.results.join('')).not.toMatch(/第一次和這個人/)
+    expect(end.narration!.results!.join('')).toMatch(/第一次碰「支配」/)
+    expect(end.narration!.results!.join('')).not.toMatch(/第一次和這個人/)
     expect(record(g)!.tags).toEqual(['tg_dom'])
     // 再來一場：標籤用過了
     begin(g, solo({ tags: ['tg_dom'] }))
