@@ -21,3 +21,5 @@
 ## 驗收
 - 二十五個共鳴每一個都有一筆測試資料、一條行為測試；寫不出來的列清單回報。
 - engine tsc、npm test、test:smoke 全過；ui npm test、vue-tsc 全過。不 commit。
+
+- 總指揮補記（2026-11-25，M4-scene-close 回報）：`features/npcs` 的 `buildActor` 補 `ext.body: n.body`，性經歷的 `looks[對象].body` 才讀得到（這張讀它）。

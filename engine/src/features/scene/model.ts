@@ -232,6 +232,15 @@ export interface SceneRules {
     /** 略過時的節奏 = base ＋ 0～(spread − 1) 的亂數 */
     skip: { base: number; spread: number }
   }
+  /**
+   * 結算（M4-scene-close）：沉溺的退路（AI 關著或沒給）：兩情相悅而且主角對對象的（平均）親密度到 anchor_affinity 以上是 anchor（往回拉），被迫是 forced，其餘 0；
+   * deep_chance：評價最高一級時，碰到的標籤裡主角已經是「有」的變成「深」的機率；tendency_per_axis：一場每條軸最多記幾個標籤；
+   * relate_range：每一級評價允許的親密度變化範圍 [最少, 最多]（AI 給的數字夾在裡面）。
+   */
+  sink: { anchor: number; forced: number; anchor_affinity: number }
+  deep_chance: number
+  tendency_per_axis: number
+  relate_range: Record<string, [number, number]>
   /** 目的的進度到這裡算達成 */
   goal_done_at: number
   /** 拖住：每過一回合；取悅：對方每高潮一次 */
@@ -303,6 +312,10 @@ export const DEFAULT_SCENE_RULES: SceneRules = {
     insight_mult: 0.5,
     skip: { base: 35, spread: 21 },
   },
+  sink: { anchor: -2, forced: 2, anchor_affinity: 60 },
+  deep_chance: 0.25,
+  tendency_per_axis: 1,
+  relate_range: { poor: [-2, 0], fair: [0, 3], fit: [3, 6], unforgettable: [6, 10] },
   goal_done_at: 60,
   goal_stall_per_round: 8,
   goal_please_per_climax: 20,
@@ -335,13 +348,17 @@ function merge(base: Record<string, unknown>, over: Record<string, unknown>, out
   for (const key of Object.keys(over)) {
     if (path === '' && key === 'id') continue
     const at = path ? `${path}.${key}` : key
-    if (!Object.hasOwn(base, key)) {
+    if (!Object.hasOwn(base, key) && path !== 'relate_range') {
       problems.push(`${at}：沒有這個規則`)
       continue
     }
     const b = base[key]
     const v = over[key]
-    if (Array.isArray(b)) {
+    if (path === 'relate_range') {
+      // 每一級評價的範圍 [最少, 最多]：整組換掉；也收新的一級（評價表被換掉時）
+      if (!Array.isArray(v) || v.length !== 2 || !v.every((x) => typeof x === 'number' && Number.isFinite(x)) || (v[0] as number) > (v[1] as number)) problems.push(`${at} 要是兩個數字 [最少, 最多]`)
+      else out[key] = [v[0], v[1]]
+    } else if (Array.isArray(b)) {
       const rows = readBands(v, at, problems)
       if (rows) out[key] = rows
     } else if (isRecord(b)) {
@@ -625,6 +642,9 @@ export interface Seat {
   /** 共鳴（M4-nightclass）：這一場已經用掉幾次不花行動點的切換體位；已經建立過第一條有持續效果的連接（只在有對應的共鳴時才寫） */
   free_used?: number
   first_link?: true
+  /** 這個人用過幾次主導與迎合（結算橋參數落在哪一項要看；只在用過時才寫，舊存檔沒有） */
+  dom_used?: number
+  yield_used?: number
 }
 
 /** 主角對這一圈某個人的：契合 0～100、主動權 0～100（50 以上在主角手上）、第一次的記號（開始時主角的性經歷裡沒有這個人）。 */
@@ -957,8 +977,20 @@ export interface SexRecord {
   people: Record<string, number>
   positions: string[]
   tags: string[]
+  /** 每種性質各幾次（M4-scene-close；單人的不算）、次數最多的那個人、對每個人的一句話（最多 NOTES_MAX 筆）、每個對象的身體與外表的性別（夜課的學習條件讀） */
+  kinds?: Record<string, number>
+  favorite?: string
+  notes?: Record<string, string>
+  looks?: Record<string, PartnerLook>
   [more: string]: unknown
 }
+
+/** 對象的身體（masc、fem、andro；角色身上有 ext.body 才有）與外表的性別（角色的 gender）。 */
+export interface PartnerLook { body?: string; look_gender?: string }
+
+/** 一句話最多留幾筆、每句最長幾字。 */
+export const NOTES_MAX = 20
+export const NOTE_LEN = 80
 
 export function sexRecordOf(actor: Actor | undefined): SexRecord {
   const r = actor?.ext.sex_record
@@ -972,25 +1004,67 @@ export function sexRecordOf(actor: Actor | undefined): SexRecord {
   }
 }
 
-/** 一場之後這個人的性經歷：加一次、這個對象、用過的體位與碰過的標籤；交易與工作算一次服務；第一次只記一回。 */
-export function recordScene(rec: SexRecord, o: { partner: string; partnerName: string; service: boolean; positions: string[]; tags: string[] }): SexRecord {
+/** 一場之後這個人的性經歷：加一次、這個對象、用過的體位與碰過的標籤；交易與工作算一次服務；第一次只記一回。對象的人數取較大值（建角給的起始人數不被蓋掉）。 */
+export function recordScene(rec: SexRecord, o: { partner: string; partnerName: string; service: boolean; positions: string[]; tags: string[]; nature?: string; look?: PartnerLook }): SexRecord {
   const next = clone(rec)
   next.times += 1
   if (o.service) next.service_times += 1
   next.people[o.partner] = (next.people[o.partner] ?? 0) + 1
-  next.partners = Object.keys(next.people).length
+  next.partners = Math.max(rec.partners, Object.keys(next.people).length)
   if (!next.first && rec.times === 0) next.first = { with: o.partnerName, note: '' }
   for (const p of o.positions) if (!next.positions.includes(p)) next.positions.push(p)
   for (const t of o.tags) if (!next.tags.includes(t)) next.tags.push(t)
+  if (o.nature) {
+    const kinds = isRecord(next.kinds) ? (next.kinds as Record<string, number>) : {}
+    kinds[o.nature] = (typeof kinds[o.nature] === 'number' ? kinds[o.nature]! : 0) + 1
+    next.kinds = kinds
+  }
+  if (o.look && Object.keys(o.look).length > 0) next.looks = { ...(isRecord(next.looks) ? (next.looks as Record<string, PartnerLook>) : {}), [o.partner]: o.look }
   return next
 }
 
-/** 多人的一場：次數加一次，每個對象各記一筆（對象的人數照實加）。 */
-export function recordSceneWith(rec: SexRecord, o: { partners: Array<{ id: string; name: string }>; service: boolean; positions: string[]; tags: string[] }): SexRecord {
+/** 次數最多的那個人；一樣多取 tie 給的值高的；再一樣取原本的最愛、再一樣取先出現的。沒有人是 undefined。 */
+export function favoriteOf(rec: Pick<SexRecord, 'people' | 'favorite'>, tie?: (id: string) => number): string | undefined {
+  let best: string | undefined
+  for (const id of Object.keys(rec.people)) {
+    if (best === undefined) { best = id; continue }
+    const d = rec.people[id]! - rec.people[best]!
+    if (d > 0) best = id
+    else if (d === 0) {
+      const t = (tie?.(id) ?? 0) - (tie?.(best) ?? 0)
+      if (t > 0 || (t === 0 && id === rec.favorite)) best = id
+    }
+  }
+  return best
+}
+
+/**
+ * 多人的一場：次數加一次，每個對象各記一筆（對象的人數照實加，取較大值）；補這一場性質的次數、每個對象的身體與外表的性別；重新算最喜歡的人；
+ * notes 是這一場給的一句話（對象 id → 一句；呼叫的人先驗過），最多留 NOTES_MAX 筆（舊的先丟）。
+ */
+export function recordSceneWith(
+  rec: SexRecord,
+  o: { partners: Array<{ id: string; name: string; look?: PartnerLook }>; service: boolean; positions: string[]; tags: string[]; nature?: string; notes?: Record<string, string>; tie?: (id: string) => number },
+): SexRecord {
   const [first, ...rest] = o.partners
-  const next = first ? recordScene(rec, { partner: first.id, partnerName: first.name, service: o.service, positions: o.positions, tags: o.tags }) : clone(rec)
-  for (const x of rest) next.people[x.id] = (next.people[x.id] ?? 0) + 1
-  next.partners = Object.keys(next.people).length
+  const next = first ? recordScene(rec, { partner: first.id, partnerName: first.name, service: o.service, positions: o.positions, tags: o.tags, nature: o.nature, look: first.look }) : clone(rec)
+  for (const x of rest) {
+    next.people[x.id] = (next.people[x.id] ?? 0) + 1
+    if (x.look && Object.keys(x.look).length > 0) next.looks = { ...(isRecord(next.looks) ? (next.looks as Record<string, PartnerLook>) : {}), [x.id]: x.look }
+  }
+  next.partners = Math.max(rec.partners, Object.keys(next.people).length)
+  const fav = favoriteOf({ people: next.people, favorite: typeof rec.favorite === 'string' ? rec.favorite : undefined }, o.tie)
+  if (fav !== undefined) next.favorite = fav
+  if (o.notes && Object.keys(o.notes).length > 0) {
+    const notes: Record<string, string> = isRecord(next.notes) ? { ...(next.notes as Record<string, string>) } : {}
+    for (const [id, text] of Object.entries(o.notes)) {
+      delete notes[id]
+      notes[id] = text
+    }
+    const keys = Object.keys(notes)
+    for (const id of keys.slice(0, Math.max(0, keys.length - NOTES_MAX))) delete notes[id]
+    next.notes = notes
+  }
   return next
 }
 

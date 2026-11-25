@@ -1058,7 +1058,14 @@ export class Play {
   /** 做一個行動（blocks 已經看過）。stop 與 end_turn 只改狀態。 */
   perform(w: ActorId, input: SceneInput): void {
     switch (input.kind) {
-      case 'dominate': case 'yield': case 'tease': return this.basic(w, input.target !== undefined ? [input.target] : this.linkedWith(w), input.kind)
+      case 'dominate': case 'yield': case 'tease': {
+        // 結算要看主導與迎合各用了幾次（橋參數落在哪一項）
+        if (input.kind !== 'tease') {
+          const seat = this.s.seats.find((x) => x.id === w)
+          if (seat) seat[input.kind === 'dominate' ? 'dom_used' : 'yield_used'] = (seat[input.kind === 'dominate' ? 'dom_used' : 'yield_used'] ?? 0) + 1
+        }
+        return this.basic(w, input.target !== undefined ? [input.target] : this.linkedWith(w), input.kind)
+      }
       case 'restrain': return this.restrain(w)
       case 'faster': case 'slower': return this.tempo(w, input.kind)
       case 'skill': case 'item': return this.use(w, this.solo ? w : this.target(w, input), input.kind, input.id, input.pick)

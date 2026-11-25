@@ -111,7 +111,8 @@ describe('M2-data-rules：資料和功能的預設一致（逐格）', () => {
       let dataDef: Rec = def
       if (kind === 'scene_rule') {
         // M4-scene-solo 加的單人欄位（solo、cost.faster、cost.slower）也一樣
-        const { multi_dice_minus: _m, other_circle: _o, solo: _s, ...rest } = def as Rec & { cost: Rec }
+        // M4-scene-close 加的結算欄位（sink、deep_chance、tendency_per_axis、relate_range）也一樣
+        const { multi_dice_minus: _m, other_circle: _o, solo: _s, sink: _sk, deep_chance: _dc, tendency_per_axis: _tp, relate_range: _rr, ...rest } = def as Rec & { cost: Rec }
         const { move_circle: _mc, call: _c, faster: _f, slower: _sl, ...cost } = (def as Rec & { cost: Rec }).cost
         dataDef = { ...rest, cost }
       }

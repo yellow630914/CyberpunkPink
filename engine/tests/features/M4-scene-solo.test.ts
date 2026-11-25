@@ -726,19 +726,18 @@ describe('結算', () => {
     expect(g.state.meters.insight!._).toBe(10 + 5)
   })
 
-  it('橋參數那一點照評價的機率落在主角自己：合拍 25%、難忘 50%（先擲機率再擲哪一項）；普通沒有；略過沒有', () => {
+  it('橋參數那一點照評價的機率落在主角自己：合拍 25%、難忘 50%（只擲機率；哪一項看這一場，沒有特別的是慾求）；普通沒有；略過沒有', () => {
     const run = (pace: number, rolls: number[]) => {
       const g = alone()
       raw(g).pace = pace
       act(g, { kind: 'stop' }, { dice: dice(...rolls) })
       return g.state.actors.pc!.ext.bridge as Record<string, number>
     }
-    expect(run(65, [25, 0]).sensitivity).toBe(51)
-    expect(run(65, [25, 1]).tolerance).toBe(31)
-    expect(run(65, [26, 1])).toEqual(bridge(50, 10))
-    expect(run(90, [50, 1]).tolerance).toBe(31)
-    expect(run(90, [51, 1])).toEqual(bridge(50, 10))
-    expect(run(40, [1, 1])).toEqual(bridge(50, 10))
+    expect(run(65, [25]).craving).toBe(31)
+    expect(run(65, [26])).toEqual(bridge(50, 10))
+    expect(run(90, [50]).craving).toBe(31)
+    expect(run(90, [51])).toEqual(bridge(50, 10))
+    expect(run(40, [1])).toEqual(bridge(50, 10))
     const g = alone()
     g.commit(sceneSkip(g.k, g.state, { dice: dice(20) }))
     expect(g.state.actors.pc!.ext.bridge).toEqual(bridge(50, 10))

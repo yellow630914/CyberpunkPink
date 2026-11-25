@@ -36,11 +36,13 @@
 // 報告：scene.start、scene.act、scene.next（對方的一步與回合的結算）、scene.end（adult: true、kind social；強制結束與略過也是它）。
 //
 // 對外：sceneStart／startProblems（開場的摘要）、sceneAct、sceneNext、sceneSkip、sceneInterrupt、sceneView、sceneOptions、scenePreview、sceneOf（舊名字外觀）、sceneRawOf（第二版的原樣）、setSceneMode。
-// 外面來的東西（SceneEnv）：dice、moves（外殼從 scene_turn 拿到的某個人這一步的一串行動）、talk（scene_talk 的結果）、gears（每個人這一步換到哪一檔；partner_gear 是舊的鍵）。
+// 外面來的東西（SceneEnv）：dice、moves（外殼從 scene_turn 拿到的某個人這一步的一串行動）、talk（scene_talk 的結果）、gears（每個人這一步換到哪一檔；partner_gear 是舊的鍵）、
+//   closing（結束時 AI 的收尾結果：sink、tendency、sex_record、relate；程式驗過才用，AI 關著就全照規則；M4-scene-close，結算的細節在 close.ts 與 end.ts）。
 
 import type { ActorId, Feature, GameState, Kernel, Origin, ReportDraft, SyncGear } from '../../core'
 import { ActionBlocked, ContentError, clone, isRecord } from '../../core'
 import type { ActivityDef } from '../../core'
+import type { Closing } from './close'
 import { endDraft, logBeats, sceneDraft, stepDraft } from './end'
 import type { CircleRec, Dice, Goal, Nature, PositionEntry, Role, SceneKind, SceneMode, SceneRaw, Who } from './model'
 import {
@@ -54,6 +56,8 @@ import { MAX_MOVES, Play, diceOf, inputProblem } from './play'
 
 export * from './model'
 export * from './legacy'
+export type { Closing, SinkKind, SinkPlan, BridgeParam } from './close'
+export { SINK_KINDS, bridgeParamOf } from './close'
 export type { Resonance, RevealView } from './night'
 export { BRANCHES, RESONANCE_KIND, knowFor, npcKnow, resonanceOf } from './night'
 export type { Preview, PreviewLoad, SceneInput, PartPick, TalkEnv } from './play'
@@ -76,6 +80,11 @@ export interface SceneEnv {
   moves?: Record<ActorId, SceneInput[]>
   /** scene_talk 的結果：這一步是說話時有給就用它（契合夾在 −5～+10、目的的進度夾在 0～+20），不擲檢定；沒給照現有的檢定 */
   talk?: TalkEnv
+  /**
+   * 結束時 AI 的收尾結果（AI_TASKS 3.7、3.8 節：sex_record、sink、tendency，加上關係的數字）。外殼把驗過格式的結果放進來，結算用它（程式再驗一次、夾住、丟掉不合的並留提醒）；
+   * 沒給（AI 關著）就全照規則：沉溺照退路、傾向記這一場碰到的全部、關係照評價的固定值。只有結束的那一步（stop、強制結束、略過、打斷）讀它。
+   */
+  closing?: Closing
 }
 
 /** 開場景的設定：事件帶出來的是 DATA 第 4 節的 adult_scene 原樣（沒有 with，對象從 circles[0] 去掉主角取得）；委託、俘虜等用 with。 */
@@ -358,9 +367,9 @@ export function sceneAct(k: Kernel, state: GameState, input: SceneInput, env: Sc
   const blocks = p.blocks(scene.pc, input)
   if (blocks.length > 0) throw new ActionBlocked(blocks.join(''))
   p.perform(scene.pc, input)
-  if (p.ended) return endDraft(k, p, p.ended, logBeats(state))
+  if (p.ended) return endDraft(k, p, p.ended, logBeats(state), env.closing)
   if (input.kind !== 'end_turn' && p.seat(scene.pc).ap <= 0) p.passTurn(scene.pc)
-  if (p.ended) return endDraft(k, p, p.ended, logBeats(state))
+  if (p.ended) return endDraft(k, p, p.ended, logBeats(state), env.closing)
   return stepDraft(p, 'scene.act')
 }
 
@@ -392,7 +401,7 @@ export function sceneNext(k: Kernel, state: GameState, env: SceneEnv = {}): Repo
     }
   }
   if (!p.ended && (acted === 0 || p.seat(w).ap <= 0)) p.settleRound()
-  if (p.ended) return endDraft(k, p, p.ended, logBeats(state))
+  if (p.ended) return endDraft(k, p, p.ended, logBeats(state), env.closing)
   return stepDraft(p, 'scene.next')
 }
 
@@ -419,7 +428,7 @@ function groupRound(state: GameState, p: Play, env: SceneEnv): ReportDraft {
     }
   }
   if (!p.ended) p.settleRound()
-  if (p.ended) return endDraft(p.k, p, p.ended, logBeats(state))
+  if (p.ended) return endDraft(p.k, p, p.ended, logBeats(state), env.closing)
   return stepDraft(p, 'scene.next')
 }
 
@@ -435,7 +444,7 @@ export function sceneSkip(k: Kernel, state: GameState, env: SceneEnv = {}): Repo
     p.s.pace = Math.max(0, Math.min(100, sk.base + p.dice.int(0, sk.spread - 1)))
     if (p.s.goal !== null) p.s.goal_progress = Math.max(p.s.goal_progress ?? 0, p.s.pace)
     p.line(p.pc, '這一場略過了：寫成一段敘事，自動結算。', 'skip')
-    return endDraft(k, p, 'skip', [])
+    return endDraft(k, p, 'skip', [], env.closing)
   }
   const roll = (shared: number, sens: number): number => Math.max(0, Math.min(100, r.base + shared * r.per_tag + Math.round((sens - 50) / r.sens_div) + p.dice.int(0, r.spread - 1)))
   // 每一對照自己的數值各算一次；別的圈用圈裡共同的標籤數與平均的敏感度
@@ -448,7 +457,7 @@ export function sceneSkip(k: Kernel, state: GameState, env: SceneEnv = {}): Repo
   const fits = Object.values(p.s.pairs).map((x) => x.fit)
   if (p.s.goal !== null) p.s.goal_progress = Math.min(p.rules.skip_goal.cap, p.rules.skip_goal.base + Math.floor(Math.round(fits.reduce((a, b) => a + b, 0) / Math.max(1, fits.length)) / 2))
   p.line(p.pc, '這一場略過了：寫成一段敘事，自動結算。', 'skip')
-  return endDraft(k, p, 'skip', [])
+  return endDraft(k, p, 'skip', [], env.closing)
 }
 
 /** 被外面的事打斷（事件、追兵、時間到了的工作）：強制結束，照現在的樣子結算。留給別的功能呼叫的入口。 */
@@ -456,7 +465,7 @@ export function sceneInterrupt(k: Kernel, state: GameState, env: SceneEnv = {}):
   const scene = needScene(state)
   const p = new Play(k, state, scene, env.dice ?? diceOf(state, scene))
   p.line(p.pc, '被外面的事打斷了。', 'interrupt')
-  return endDraft(k, p, 'interrupted', logBeats(state))
+  return endDraft(k, p, 'interrupted', logBeats(state), env.closing)
 }
 
 /** 輪到誰（舊名字：'pc' 是主角、'partner' 是別人；畫面決定要不要呼叫 sceneNext）；沒有場景是 null。要角色的 id 讀 sceneRawOf(state).turn。 */

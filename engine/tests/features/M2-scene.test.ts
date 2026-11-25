@@ -998,7 +998,7 @@ describe('結束與結算', () => {
     expect(rec('pc').people.npc_ann).toBe(2)
     expect(rec('npc_ann').times).toBe(1)
     expect(rec('npc_ann').people.pc).toBe(1)
-    expect(heard).toEqual([{ outcome: 'stop', result: { with: 'npc_ann', fit: 62, rating: '合拍', goal: 'info', goal_done: false, reason: 'stop', max_gear: { pc: 'standard', partner: 'standard' } }, origin: { by: 'caller', ref: 'job1' } }])
+    expect(heard).toEqual([{ outcome: 'stop', result: { with: 'npc_ann', fit: 62, rating: '合拍', goal: 'info', goal_done: false, reason: 'stop', max_gear: { pc: 'standard', partner: 'standard' }, sink: 0, sink_kind: 'other', touched: [], tendency: [] }, origin: { by: 'caller', ref: 'job1' } }])
     expect(report.narration!.results).toEqual(expect.arrayContaining(['契合 62：合拍。', '體悟 +15。', '發起的人收到了場景的結果']))
   })
 
@@ -1042,29 +1042,28 @@ describe('結束與結算', () => {
     expect(bare.state.meters.insight!._).toBe(15 + 5 + 5)
   })
 
-  it('橋參數：合拍 25%、難忘 50% 的機會讓一項 +1（挑這一場受到最多感載的那一方的敏感度或耐受）；普通與不合沒有；略過沒有', () => {
-    // 骰：先擲機率（1～100），再擲 sensitivity／tolerance（0／1）。安的敏感度改成 60，才看得出 +1
-    const run = (fit: number, rolls: number[], received: { pc: number; partner: number }) => {
+  it('橋參數：合拍 25%、難忘 50% 的機會讓一項 +1（M4-scene-close：落在主角、哪一項看這一場，沒有特別的是慾求；機率之後不再擲哪一項）；普通與不合沒有；略過沒有', () => {
+    // 骰：只擲機率（1～100）。安的敏感度改成 60，才看得出有沒有被動到
+    const run = (fit: number, rolls: number[]) => {
       const g = game({ pcExt: seen, annExt: { bridge: { ...ANN_BRIDGE, sensitivity: 60 } } })
       begin(g)
       S(g).fit = fit
-      S(g).received = received
       g.commit(sceneAct(g.k, g.state, { kind: 'stop' }, { dice: dice(...rolls) }))
       return { pc: pc(g).ext.bridge as Record<string, number>, ann: ann(g).ext.bridge as Record<string, number> }
     }
-    expect(run(70, [25, 0], { pc: 1, partner: 9 }).ann.sensitivity).toBe(61) // 對方受到最多：他的敏感度
-    expect(run(70, [25, 1], { pc: 1, partner: 9 }).ann.tolerance).toBe(31)
-    expect(run(70, [26, 1], { pc: 1, partner: 9 }).ann.tolerance).toBe(30) // 合拍只有 25%
-    expect(run(70, [25, 0], { pc: 9, partner: 1 }).pc.sensitivity).toBe(51) // 主角受到最多：主角的
-    expect(run(90, [50, 1], { pc: 9, partner: 1 }).pc.tolerance).toBe(31) // 難忘 50%
-    expect(run(90, [51, 1], { pc: 9, partner: 1 }).pc.tolerance).toBe(30)
+    expect(run(70, [25]).pc.craving).toBe(PC_BRIDGE.craving + 1)
+    expect(run(70, [25]).ann).toEqual({ ...ANN_BRIDGE, sensitivity: 60 }) // 不再落在受到最多感載的對方身上
+    expect(run(70, [26])).toEqual({ pc: PC_BRIDGE, ann: { ...ANN_BRIDGE, sensitivity: 60 } }) // 合拍只有 25%
+    expect(run(90, [50]).pc.craving).toBe(PC_BRIDGE.craving + 1) // 難忘 50%
+    expect(run(90, [51]).pc).toEqual(PC_BRIDGE)
     // 普通沒有這一擲
-    expect(run(40, [1, 1], { pc: 9, partner: 1 })).toEqual({ pc: PC_BRIDGE, ann: { ...ANN_BRIDGE, sensitivity: 60 } })
+    expect(run(40, [1])).toEqual({ pc: PC_BRIDGE, ann: { ...ANN_BRIDGE, sensitivity: 60 } })
     // 略過沒有
     const g = game({ pcExt: seen, annExt: { bridge: { ...ANN_BRIDGE, sensitivity: 60 } } })
     begin(g)
     g.commit(sceneSkip(g.k, g.state, { dice: dice(20) })) // 契合 35 + 5 + 20 = 60：合拍，但略過不給橋參數
     expect((ann(g).ext.bridge as Record<string, number>).sensitivity).toBe(60)
+    expect(pc(g).ext.bridge).toEqual(PC_BRIDGE)
   })
 
   it('傾向：碰到的標籤各給一個 tendency（沒有人定義的標籤略過）；內容篩選關掉的標籤不給', () => {
