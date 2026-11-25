@@ -35,3 +35,5 @@ M4-craft、M4-craft-salvage、M4-gear-m4。排在 M4-ui-body 之後（都改 `st
 ## 完成時回報
 
 改了哪些檔、測試結果、缺的圖示、`ui/src/data/items.ts` 這類舊的假目錄還有哪些畫面在用。
+
+- 總指揮補記（2026-11-25）：精工的鍵由玩家選，見 M4-followups「M4-craft 回報」。
