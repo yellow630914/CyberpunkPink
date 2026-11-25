@@ -56,7 +56,15 @@ function itemTargets(view: BattleView, u: BattleUnit, use: { target: string }): 
   if (use.target === 'ally') return { for: unitsOf(view.battle, u.side).map((t) => ({ unit: t.id })), blocks: [] }
   if (use.target === 'foe') return { for: unitsOf(view.battle, otherSide(u.side)).map((t) => ({ unit: t.id })), blocks: [] }
   if (use.target === 'foe_slot') return { for: cellsOf(otherSide(u.side)), blocks: [] }
+  // slot：我方或敵方的一格都可以（煙霧彈，ITEMS 的煙霧彈 I～III）
+  if (use.target === 'slot') return { for: [...cellsOf(u.side), ...cellsOf(otherSide(u.side))], blocks: [] }
   return { for: cellsOf(u.side), blocks: [] }
+}
+
+/** 這個道具的格子目標會落在哪幾方：foe_slot 只有敵方、slot 雙方都可以、其餘只有我方。 */
+function slotSides(u: BattleUnit, use: Use): BattleSide[] {
+  if (use.target === 'foe_slot') return [otherSide(u.side)]
+  return use.target === 'slot' ? [u.side, otherSide(u.side)] : [u.side]
 }
 
 /** 對一個敵人用的道具（target: foe）打不到這個人的原因（use.range 是 [近, 遠]，量的是雙方站位的距離）；沒寫 range、在範圍裡回傳 null。 */
@@ -73,6 +81,7 @@ function cellBlocks(view: BattleView, u: BattleUnit, use: Use, cell: { side: Bat
     const far = throwBlock(u, cell.slot)
     return far ? [far] : []
   }
+  if (isDecoy(use) && cell.side !== u.side) return ['立牌要放在我方的一格上。']
   if (isDecoy(use) && overlayAt(view.battle, cell.side, cell.slot)) return ['那一格已經掛著東西了。']
   return []
 }
@@ -80,7 +89,7 @@ function cellBlocks(view: BattleView, u: BattleUnit, use: Use, cell: { side: Bat
 /** 相鄰的一格（pick.also）：用得到的道具各自要選哪一方的格；選項只適用於「緊鄰它」的目標那一格（目標在第 1 或第 4 格時只有一個選項）。 */
 function alsoPick(view: BattleView, u: BattleUnit): BattlePick | null {
   const sides = new Set<BattleSide>()
-  for (const x of usableItems(view.k, u, view.battle.mode)) if (needsAlso(x.entry.use)) sides.add(x.entry.use.target === 'foe_slot' ? otherSide(u.side) : u.side)
+  for (const x of usableItems(view.k, u, view.battle.mode)) if (needsAlso(x.entry.use)) for (const side of slotSides(u, x.entry.use)) sides.add(side)
   if (!sides.size) return null
   const options = [...sides].flatMap((side) => Array.from({ length: BATTLE_SLOTS }, (_, i) => i + 1).map((slot) => ({
     value: slot, label: `第 ${slot} 格`, blocks: [] as string[], at: { side, slot } as BattleTarget,

@@ -219,7 +219,8 @@ function scriptAim(view: BattleView, u: BattleUnit, s: Script, t: BattleTarget):
   }
   if ('slot' in t) {
     const mine = t.side === u.side
-    return { applies: use.target === 'foe_slot' ? !mine : (use.target === 'ally_slot' || use.target === 'slot') && mine, why: null }
+    // slot（煙霧彈）：我方或敵方的格子都可以；ally_slot 只有我方、foe_slot 只有敵方
+    return { applies: use.target === 'slot' || (use.target === 'foe_slot' ? !mine : use.target === 'ally_slot' && mine), why: null }
   }
   return { applies: false, why: null }
 }
