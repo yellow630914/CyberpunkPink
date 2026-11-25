@@ -90,3 +90,10 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 排異（CRAFTING 第 6 節，失敗時沉溺成本上升）：確認 M4-cyber-battle 有沒有接；沒有就歸這一張。
 - 解剖的數字（一小時、60 分鐘、沉溺 +1、敵對值 +5）是 `enemies/dissect.ts` 的常數：M4-data-rules 搬進規則表。
 - testkit 的報告前綴清單補 `craft`（含 salvage、swap）與 `enemies.dissect`：M4-smoke。
+
+## 總指揮補記（2026-11-25，M4-cyber-battle 回報）
+- 快取格放行大小 2 以下的義體成品（P47：戰地手術 `implant_install` 要從快取格拿得到）：`gear/quick.ts` 的 `quickBlock`。
+- `implant_kind` 沒寫時：設計圖 `slot` 是 `arm`、`leg` 的預設對成 `limb`（`off_limb`）。
+- 藥泵的專屬圖示鍵 `pump`：交 cpp-ui 畫，畫好後 `cyber_pump` 改用它，`M1-picks` 的圖示鍵清單補上。
+- 熔斷器三條、回報後門：見 M4-core-gaps 第 4 項（回報後門）；熔斷器三條歸這一張。
+- 核心的五項見 dev/work/M4-core-gaps.md（第十九步先做）。

@@ -127,7 +127,7 @@ dev/status.md 標了 M4 的待辦各落在哪一張：`cyber_count` 與 AI 偏�
 | 十六 | 40 ui-scene | 28 lure |
 | 十七 | 29 venues | 32 enemies-m4 |
 | 十八 | 30 security-m4 | 33 curtain-entry |
-| 十九 | 31 followups | 34 curtain-run |
+| 十九 | 53 core-gaps → 31 followups | 34 curtain-run |
 | 二十 | 44 training | 35 curtain-fall |
 | 二十一 | 41 ui-contract | 45 part-unreg |
 | 二十二 | 42 ui-curtain | 46 part-sources |
