@@ -124,6 +124,11 @@ export interface SceneSetup {
    * 內海的場景要有甲板與橋（沒有橋一律開不了；沒有甲板只有 dream: true 開得了）。規則、數字、感載、餘韻、結算兩層相同（P41）；差別只有部位來自化身、性別看化身、內海每回合的感載消退是 net_load_decay
    */
   layer?: 'meat' | 'net'
+  /**
+   * 記憶被抹掉的場景（人偶晶片之類；M4-followups-2 第 7 項，outcome.amnesia 的下游）：結束時報告的 outcome 多 amnesia: true、結果只有兩句，
+   * 不寫性經歷、不長傾向、不加沉溺累計（沉溺的結算與全檔過載累積都不做）；共同記憶（features/npcs）與正文（外殼）看 outcome.amnesia 自己略過。契合、體悟、橋參數、親密度照算
+   */
+  amnesia?: boolean
   /** 內海的夢（流竄 AI 的夢）：要明寫 layer: 'net'；不需要甲板；網內的行程結束時不跟著被打斷 */
   dream?: boolean
   /** 單人（M4-scene-solo）：沒有對象（不能給 with、circles）、沒有主動權；nature 寫 solo 或不寫；goal 只收 footage；start_position 是單人姿勢的 id */
@@ -156,6 +161,7 @@ interface Parsed {
   audience?: boolean
   layer: 'meat' | 'net'
   dream?: boolean
+  amnesia?: boolean
 }
 
 /** 開場的摘要（確認框用：不必自己判斷第 0 步）：誰、性質、身分、目的、會碰到的標籤。 */
@@ -252,6 +258,7 @@ export function startProblems(k: Kernel, state: GameState, setup: unknown): { pr
   // 現實還是內海：明寫的優先；沒寫看進行中的活動（dive、netrun、face.net 就是內海）
   if (s.layer !== undefined && !(LAYERS as readonly unknown[]).includes(s.layer)) p.push(`layer 要是 ${LAYERS.join('、')} 其中一個。`)
   if (s.dream !== undefined && typeof s.dream !== 'boolean') p.push('dream 要是 true 或 false。')
+  if (s.amnesia !== undefined && typeof s.amnesia !== 'boolean') p.push('amnesia 要是 true 或 false。')
   const inNetActivity = k.activity.active(state).some((a) => (NET_ACTIVITIES as readonly string[]).includes(a.kind))
   const layer: 'meat' | 'net' = s.layer === 'net' || s.layer === 'meat' ? s.layer : inNetActivity ? 'net' : 'meat'
   const dream = s.dream === true
@@ -286,7 +293,7 @@ export function startProblems(k: Kernel, state: GameState, setup: unknown): { pr
   const circles = [...(simple && main.length > 1 ? [main.slice(1)] : []), ...extra]
   const parsed: Parsed = {
     pc: pc!, seated, circles, nature: solo ? 'solo' : (s.nature as Nature), role: (s.role as Role | undefined) ?? 'none', goal: s.goal === undefined || s.goal === 'none' ? null : (s.goal as Goal), tags, mode: mode as SceneMode,
-    layer, ...(dream ? { dream: true } : {}),
+    layer, ...(dream ? { dream: true } : {}), ...(s.amnesia === true ? { amnesia: true } : {}),
     ...(solo ? { solo: true, audience: s.audience === true } : {}),
     ...(typeof s.place === 'string' && s.place ? { place: s.place } : {}), ...(typeof s.start_position === 'string' ? { start: s.start_position } : {}),
     ...(typeof s.max_rounds === 'number' ? { max_rounds: s.max_rounds } : {}),
@@ -341,7 +348,7 @@ function startScene(k: Kernel, state: GameState, setup: unknown, origin: Origin)
     goal_progress: o.goal ? 0 : null, position: '', roles: {}, links: [], link_seq: 0, turn_began: false,
     used_positions: [], touched: [...o.tags], lines: [], origin: clone(origin), circles, ...(o.max_rounds !== undefined ? { max_rounds: o.max_rounds } : {}),
     ...(solo ? { pace: openingPace(k, state, { pc: o.pc, layer: o.layer }), audience: o.audience === true } : {}),
-    ...(o.dream ? { dream: true as const } : {}),
+    ...(o.dream ? { dream: true as const } : {}), ...(o.amnesia ? { amnesia: true as const } : {}),
   }
   const p = new Play(k, state, scene, diceOf(state, scene))
   for (const id of p.ids) p.seat(id).ap = p.apMax[id]!
@@ -541,7 +548,7 @@ export function sceneSetupOf(raw: SceneRaw): Record<string, unknown> {
   const others = raw.seats.filter((x) => x.id !== raw.pc).map((x) => x.id)
   const common: Record<string, unknown> = {
     role: raw.role, goal: raw.goal ?? 'none', tags: [...raw.tags], mode: raw.mode, layer: raw.layer,
-    ...(raw.place ? { place: raw.place } : {}), ...(raw.dream ? { dream: true } : {}), ...(raw.max_rounds !== undefined ? { max_rounds: raw.max_rounds } : {}),
+    ...(raw.place ? { place: raw.place } : {}), ...(raw.dream ? { dream: true } : {}), ...(raw.amnesia ? { amnesia: true } : {}), ...(raw.max_rounds !== undefined ? { max_rounds: raw.max_rounds } : {}),
   }
   if (raw.kind === 'solo') return { ...common, solo: true, audience: raw.audience === true }
   const circles = raw.circles.map((c) => [...c.people, ...(c.out ?? [])])

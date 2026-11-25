@@ -704,6 +704,8 @@ export interface SceneRaw {
   audience?: boolean
   /** 內海的夢（流竄 AI 的夢，M4-scene-net）：沒有接入點、沒有甲板也開得起來；網內的行程結束時不跟著被打斷 */
   dream?: true
+  /** 記憶被抹掉的場景（SceneSetup.amnesia）：結束時不寫性經歷、不長傾向、不加沉溺累計，報告的 outcome 多 amnesia: true */
+  amnesia?: true
 }
 
 export const MAX_LINES = 300
@@ -873,7 +875,8 @@ const HANDS: readonly string[] = ['hand_l', 'hand_r']
  * mult：受到的感載倍率；link_pace：這個部位有連接時，每回合節奏加多少（連接的哪一端是它都算）；
  * upkeep：每回合固定的（load 是自己的感載、pace 是節奏、link 是它算不算一條連接，給「沒有連接節奏就掉」那條規則看）；
  * faster_cut：加快時自己的感載減這顆骰的一半；slower_pace：放慢時節奏多加；drop_half：節奏掉的時候少掉一半；
- * no_dice_minus：只是記著設計書的「連接不用減骰」，單人沒有連著好幾個人的減骰，所以沒有效果。
+ * no_dice_minus：只是記著設計書的「連接不用減骰」，單人沒有連著好幾個人的減骰，所以沒有效果（內建的跪姿已經不用它，改用 both_links）。
+ * both_links：列的每一個部位這一回合都有連接（連接的哪一端是它都算）時，自己的感載另外加這顆骰（LEWD 3.5 節第九點：跪姿前後兩條連接都在，+1d4；使用者 2026-11-25）。
  */
 export interface SoloPose {
   id: string
@@ -887,12 +890,13 @@ export interface SoloPose {
   slower_pace?: number
   drop_half?: boolean
   no_dice_minus?: boolean
+  both_links?: { parts: string[]; load: string }
 }
 
 /** 內建的五個姿勢；資料（solo_pose 種類）寫同一個 id 就整筆換掉，寫新的 id 就多一個。 */
 export const DEFAULT_SOLO_POSES: readonly SoloPose[] = [
   { id: 'solo_spread', name: '張腿仰躺', reach: ['front', 'chest', 'mouth', 'legs'], hand_only: [], mult: 1, link_pace: { front: 1 } },
-  { id: 'solo_kneel', name: '跪姿', reach: ['front', 'back', 'chest', 'mouth'], hand_only: [], mult: 1, link_pace: {}, upkeep: { load: 1 }, no_dice_minus: true },
+  { id: 'solo_kneel', name: '跪姿', reach: ['front', 'back', 'chest', 'mouth'], hand_only: [], mult: 1, link_pace: {}, upkeep: { load: 1 }, both_links: { parts: ['front', 'back'], load: '1d4' } },
   { id: 'solo_prone', name: '趴伏翹臀', reach: ['back', 'legs'], hand_only: ['front'], mult: 1.1, link_pace: { back: 1 } },
   { id: 'solo_straddle', name: '跨坐抱枕', reach: ['front', 'legs', 'chest'], hand_only: ['back'], mult: 1, link_pace: {}, upkeep: { load: '1d3', pace: 1, link: true } },
   { id: 'solo_side', name: '側躺', reach: ['front', 'back', 'chest', 'mouth'], hand_only: [], mult: 1, link_pace: {}, faster_cut: '1d6', slower_pace: 1, drop_half: true },
@@ -917,6 +921,14 @@ export function soloPoseProblems(e: Record<string, unknown>): string[] {
       if (u.link !== undefined && typeof u.link !== 'boolean') p.push('upkeep.link 要是布林')
     }
   }
+  if (e.both_links !== undefined) {
+    const b = e.both_links
+    if (!isRecord(b)) p.push('both_links 要是 { parts, load }')
+    else {
+      if (!textList(b.parts) || b.parts.length === 0) p.push('both_links.parts 要是部位 id 的非空陣列')
+      if (parseDie(b.load) === null || isNoDie(parseDie(b.load)!)) p.push('both_links.load 要是骰（例：1d4）')
+    }
+  }
   if (e.faster_cut !== undefined && (parseDie(e.faster_cut) === null || isNoDie(parseDie(e.faster_cut)!))) p.push('faster_cut 要是骰（例：1d6）')
   if (e.slower_pace !== undefined && !isNumberLike(e.slower_pace)) p.push('slower_pace 要是數字')
   return p
@@ -929,6 +941,7 @@ function readPose(e: Record<string, unknown>): SoloPose {
     ...(isRecord(e.upkeep) ? { upkeep: clone(e.upkeep) as NonNullable<SoloPose['upkeep']> } : {}),
     ...(typeof e.faster_cut === 'string' ? { faster_cut: e.faster_cut } : {}), ...(typeof e.slower_pace === 'number' ? { slower_pace: e.slower_pace } : {}),
     ...(e.drop_half === true ? { drop_half: true } : {}), ...(e.no_dice_minus === true ? { no_dice_minus: true } : {}),
+    ...(isRecord(e.both_links) && textList(e.both_links.parts) && typeof e.both_links.load === 'string' ? { both_links: { parts: [...e.both_links.parts], load: e.both_links.load } } : {}),
   }
 }
 

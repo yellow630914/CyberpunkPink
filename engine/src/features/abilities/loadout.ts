@@ -145,6 +145,14 @@ export const loadoutMinutes = (k: Pick<Kernel, 'stats'>, state: GameState, actor
 /** 共用的狀況 id：戴著人格面具（豔名的「被認出來」看它；lewd 只讀，這裡掛）。 */
 export const MASKED = 'masked'
 
+/**
+ * 掃橋時「藏沉溺的手段」（掛點 scan.person 的 hide；M4-followups-2 第 7 項，M4-security-m4 補記）：戴著人格面具（狀況 masked）算一種，hide 1。
+ * 掛點是 features/security 宣告的，這裡只認名字與格式；沒有裝 security 沒有人問，也不會壞。
+ */
+export function hideAnswer(state: GameState, actor: ActorId): { hide: number } | undefined {
+  return state.actors[actor]?.conditions.some((c) => c.id === MASKED) ? { hide: 1 } : undefined
+}
+
 /** 這幾個技能裡有沒有帶面具的（被動的 meat.mask，不是 pending）。 */
 const hasMask = (k: Pick<Kernel, 'content'>, ids: readonly string[]): boolean =>
   ids.some((id) => {

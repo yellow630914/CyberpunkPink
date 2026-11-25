@@ -5,6 +5,8 @@ import { useUi } from '../../stores/ui'
 import TrackBar from '../../components/TrackBar.vue'
 import Hint from '../../components/Hint.vue'
 import { useGame } from '../../stores/game'
+import { useEngine } from '../../stores/engine'
+import { LORE_SLOTS, LORE_SLOT_NAME } from '../../lib/contractView'
 import { useSettings } from '../../stores/settings'
 import { DISTRICTS } from '../../data/districts'
 import NightClassPanel from '../../components/scene/NightClassPanel.vue'
@@ -14,6 +16,10 @@ import NightClassPanel from '../../components/scene/NightClassPanel.vue'
  * 右欄是傾向：四條軸 0～5，標籤是膠囊，「深」的粉底加一個「深」字。潛在的標籤與被篩選關掉的標籤都不顯示。只看。
  */
 const g = useGame()
+const eng = useEngine()
+/** 找過主角的流竄 AI（引擎的 lureView：順著、拒絕、問過幾次，揭開了哪幾格「牠的事」，沒揭開的寫問號） */
+const lures = computed(() => eng.lure.view())
+const loreOf = (row: { lore: Array<{ slot: string; text: string }> }, slot: string): string | null => row.lore.find((l) => l.slot === slot)?.text ?? null
 const st = useSettings()
 const ui = useUi()
 /** 建角之後也能改私處的描述（第四版）：選項和建角第 1 步同一份，另有一格自己寫 */
@@ -69,6 +75,13 @@ const tagsOf = (axis: string) => AXIS_TAGS[axis].filter(t => g.tendency.tags[t] 
         </div>
       </div>
       <NightClassPanel />
+      <div v-if="lures.length" class="panel cut pad" data-lures>
+        <p class="h">找過你的流竄 AI<Hint>牠們靠登入、長休醒來或沉溺太高找上你。順著牠、拒絕或問牠是誰都會留下紀錄；問牠是誰會揭開一格「牠的事」。沒揭開的寫問號。累計與線索是引擎的 lureView。</Hint></p>
+        <div v-for="a in lures" :key="a.id" class="ai" :data-lure="a.id">
+          <div class="aih"><b>{{ a.name }}</b><span class="tag" data-follow>順著 {{ a.follow }} 次</span><span class="tag">拒絕 {{ a.refused }}</span><span class="tag">問過 {{ a.asked }}</span><span v-if="a.clue" class="tag hot" data-clue>有線索</span><span v-if="a.kiss" class="tag warn" data-kiss>身上有牠的吻</span></div>
+          <div v-for="slot in LORE_SLOTS" :key="slot" class="kv" :data-lore="slot" :data-unknown="loreOf(a, slot) === null"><span>{{ LORE_SLOT_NAME[slot] }}</span><b :class="{ q: loreOf(a, slot) === null }">{{ loreOf(a, slot) ?? '？' }}</b></div>
+        </div>
+      </div>
       <div class="panel cut pad">
         <p class="h">豔名<Hint>每一區各自記，0～100：這一區有多少人看過你、認得你的身體。和街頭信譽分開。誘惑與表演有加值；被認出來的機率也跟著高。</Hint></p>
         <div class="fame">
@@ -81,7 +94,7 @@ const tagsOf = (axis: string) => AXIS_TAGS[axis].filter(t => g.tendency.tags[t] 
         <div class="kv"><span>親密過幾位</span><b>{{ g.sexRecord.partners }}</b></div>
         <div class="kv"><span>第一次</span><b>{{ g.sexRecord.first }}</b></div>
         <div class="kv"><span>最喜歡的人</span><b>{{ g.sexRecord.favorite }}</b></div>
-        <div class="kv"><span>契約</span><b>持約 {{ g.contracts.held.length }}・身上 0</b></div>
+        <div class="kv"><span>契約</span><b data-contract-line>持約 {{ eng.contract.held().length }}・身上 {{ eng.contract.bound() ? 1 : 0 }}</b></div>
         <div class="kv"><span>體悟</span><b style="color: var(--a)">{{ g.character.insight }}</b></div>
         <div class="kv"><span>被篩選關掉的標籤</span><b>{{ filteredOff.length }}</b></div>
         <p class="h mt">最近</p>
@@ -111,6 +124,9 @@ const tagsOf = (axis: string) => AXIS_TAGS[axis].filter(t => g.tendency.tags[t] 
 .fc b { font-size: var(--fs-section); }
 .fc.here { box-shadow: inset 0 0 0 2px var(--a); }
 .mt { margin-top: 12px; }
+.ai { padding: var(--space-3) 0; border-bottom: 1px dashed var(--line); }
+.aih { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; margin-bottom: var(--space-2); }
+.q { color: var(--ink-3); font-family: var(--mono); }
 .axis { padding: 8px 0; border-bottom: 1px dashed var(--line); }
 .ah { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
 .pips { display: flex; gap: 3px; flex: 1; }

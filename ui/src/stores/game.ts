@@ -10,7 +10,6 @@ import { EQUIP_SLOTS } from '../data/character'
 import { MORE_NPCS } from '../data/roster'
 import { START_BASICS, START_LEARNED, START_NIGHT, START_PARAMS, START_TENDENCY, START_FAME, START_SEX, START_GUIDES } from '../data/profile'
 import { START_CHANNEL } from '../data/channel'
-import { HELD } from '../data/contracts'
 import { PENDING } from '../data/weekly'
 import { START_MEDIA } from '../data/media'
 import { START_MECH, type MechState } from '../data/garage'
@@ -33,7 +32,9 @@ export interface SaveShape {
   character: typeof PROTAGONIST; party: typeof PARTY; inventory: ItemStack[]; equip: Partial<Record<EquipSlotId, string>>
   quick: Array<string | null>; coatClosed: boolean; npcs: Record<string, import('../data/types').Npc>; loc: { district: DistrictId; block: string; pos?: Point; facility: string | null }; log: LogEntry[]
   basics: Record<string, number>; learned: string[]; nightLearned: string[]; params: typeof START_PARAMS; tendency: typeof START_TENDENCY
-  fame: Record<string, number>; sexRecord: typeof START_SEX; channel: typeof START_CHANNEL; contracts: { held: typeof HELD }
+  fame: Record<string, number>; sexRecord: typeof START_SEX; channel: typeof START_CHANNEL
+  /** 舊存檔的假契約（契約搬進引擎之後不再使用；讀到就略過） */
+  contracts?: unknown
   /** 舊存檔的假帳單（帳單搬進引擎之後不再使用；讀到就略過） */
   bills?: unknown
   pending: typeof PENDING; guides: typeof START_GUIDES; dungeonSeed: number; vehicles?: string[]
@@ -96,7 +97,6 @@ export const useGame = defineStore('game', () => {
   // 第四版：假存檔有一台二手街車，上一場被打爛了（機甲整備的「載具」一列可以拖車與修）
   const vehicles = ref<string[]>(['veh_street:used'])
   const channel = reactive(structuredClone(START_CHANNEL))
-  const contracts = reactive({ held: structuredClone(HELD) })
   const pending = ref(structuredClone(PENDING))
   const guides = reactive(structuredClone(START_GUIDES))
   const dungeonSeed = ref(1)
@@ -216,7 +216,7 @@ export const useGame = defineStore('game', () => {
       money: { fav: money.fav }, hostility: { ...hostility }, character: { ...character }, party: [...party],
       inventory: inventory.value, equip: { ...equip }, quick: quick.value, coatClosed: coatClosed.value, npcs: { ...npcs }, loc: { ...loc },
       basics: { ...basics }, learned: learned.value, nightLearned: nightLearned.value, params: { ...params }, tendency: { ...tendency },
-      fame: { ...fame }, sexRecord: { ...sexRecord }, channel: { ...channel }, contracts: { ...contracts },
+      fame: { ...fame }, sexRecord: { ...sexRecord }, channel: { ...channel },
       pending: pending.value, guides: { ...guides }, dungeonSeed: dungeonSeed.value, vehicles: vehicles.value, media: { ...media }, mech: { ...mech },
       home: useHome().serialize(), dyes: { ...dyes },
     })) as SaveShape
@@ -244,7 +244,6 @@ export const useGame = defineStore('game', () => {
     if (d.fame) Object.assign(fame, d.fame)
     if (d.sexRecord) Object.assign(sexRecord, structuredClone(d.sexRecord))
     if (d.channel) Object.assign(channel, structuredClone(d.channel))
-    if (d.contracts) Object.assign(contracts, structuredClone(d.contracts))
     if (d.pending) pending.value = structuredClone(d.pending)
     if (d.guides) Object.assign(guides, structuredClone(d.guides))
     if (typeof d.dungeonSeed === 'number') dungeonSeed.value = d.dungeonSeed
@@ -287,7 +286,7 @@ export const useGame = defineStore('game', () => {
     day, minutes, money, hostility, character, party, inventory, equip, quick, coatClosed, npcs, loc, log,
     timeLabel, weekday, billIn, district, facility, placeLabel, topHostility, carriedWeight, quickCap, coveredSlots,
     advance, addLog, addItem, removeItem, stackOf, equipItem, unequip, itemName,
-    basics, learned, nightLearned, params, tendency, fame, sexRecord, channel, contracts, pending, guides, dungeonSeed, vehicles, media, mech, lastBattle, snapshots,
+    basics, learned, nightLearned, params, tendency, fame, sexRecord, channel, pending, guides, dungeonSeed, vehicles, media, mech, lastBattle, snapshots,
     dyes, setDye, setQuick, serialize, hydrate, saveMeta, packed, takeSnapshot, rollback,
   }
 })

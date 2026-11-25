@@ -75,12 +75,15 @@ export interface SinkRules {
 
 const skillCheck = (skills: string[], amount: number): PassiveEffect => ({ check: { skills }, amount })
 const tagCheck = (tags: string[], amount: number): PassiveEffect => ({ check: { tags }, amount })
+/** 感知類檢定（CORE_RULES 4.3 節微醺「感知類檢定 +1」；M4-followups-2 第 6 項）：調查（主動找）與街頭直覺（被動察覺）這兩項基本功，或檢定帶 perception 標籤。 */
+export const PERCEPTION_SKILLS = ['investigate', 'streetwise'] as const
+const perceptionCheck = (amount: number): PassiveEffect => ({ check: { skills: [...PERCEPTION_SKILLS], tags: ['perception'] }, amount })
 
 /** CORE_RULES 4.3 節的分段表。 */
 export const DEFAULT_SINK_RULES: SinkRules = {
   bands: [
     { min: 0, id: 'clear', name: '清明', effects: [] },
-    { min: 20, id: 'tipsy', name: '微醺', effects: [tagCheck(['perception'], 1), tagCheck(['resist_lure'], -1)] },
+    { min: 20, id: 'tipsy', name: '微醺', effects: [perceptionCheck(1), tagCheck(['resist_lure'], -1)] },
     {
       min: 40, id: 'indulgent', name: '貪歡',
       effects: [{ stat: 'afterglow_cap', amount: 1 }, { mod: 'load_dealt_pct', amount: 10 }, skillCheck(['composure'], -1)],

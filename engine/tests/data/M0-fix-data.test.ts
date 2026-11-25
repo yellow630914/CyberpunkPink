@@ -95,20 +95,21 @@ describe('M0-fix-data：行動種類的資料（AI_TASKS 3.1 節）', () => {
     expect(k.content.checkRefs()).toEqual([])
   })
 
-  it('裝上所有功能：十八種可以做（free 用資料的那一筆）；誘惑先不註冊（它的鏈還沒搬進來）', () => {
+  it('裝上所有功能：十八種可以做（free 用資料的那一筆）；誘惑（chain: adult_action）也註冊了，轉過去的鏈在外殼（M4-followups-2 第 7 項）', () => {
     const game = new Game({ features: allFeatures(), content: [CORE_PACK], strict: true })
     const ids = game.k.actions.list().map((a) => a.id).sort()
     const owned = entries().filter((e) => (e as { owner?: string }).owner).map((e) => e.id)
-    expect(ids).toEqual([...Object.keys(TABLE).filter((id) => id !== 'flirt'), ...owned].sort())
+    expect(ids).toEqual([...Object.keys(TABLE), ...owned].sort())
     expect(game.k.actions.get('free')).toMatchObject({ owner: 'actions', name: '自由行動', attr: 'intellect', minutes: 30, maxMinutes: 240 })
     // free 的參考範圍不給現金（2026-11-22 定案）：資料沒有寫 hint，所以沒有參考範圍
     expect(game.k.actions.get('free')!.hint).toBeUndefined()
-    expect(game.k.actions.get('flirt')).toBeUndefined()
+    expect(game.k.actions.get('flirt')).toMatchObject({ owner: 'actions', name: '誘惑、搭訕', chain: 'adult_action' })
   })
 
   it('AI 關閉時每一種都跑得完；乞討成功拿到參考範圍的一半', async () => {
     const game = new Game({ features: allFeatures(), content: [CORE_PACK], strict: true, ai: { ai: 0 } })
     game.newGame({ seed: 7, setup: () => ({ kind: 'system', action: 'creation.commit', location: {}, party: [], timeline: [], changes: [{ op: 'actor.add', actor: makeActor({ hp: 40 }) }, { op: 'pc', id: 'pc' }], outcome: { result: 'created', summary: '建角。' } }) })
+    // 誘惑走 adult_action 的鏈（M4-scene-ai 的測試管；這一條只看自由行動的參考範圍）
     for (const id of Object.keys(TABLE).filter((x) => x !== 'flirt')) {
       const before = game.state.money.cash
       const r = await game.act({ kind: id, text: '試一次' })

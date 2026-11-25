@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import Hint from '../../components/Hint.vue'
 import ReasonButton from '../../components/ReasonButton.vue'
 import BridgePanel from '../../components/body/BridgePanel.vue'
+import TuningPanel from '../../components/body/TuningPanel.vue'
+import MalwarePanel from '../../components/body/MalwarePanel.vue'
 import { useEngine } from '../../stores/engine'
 import { useUi } from '../../stores/ui'
 import { useGuides } from '../../lib/useGuides'
@@ -12,7 +14,7 @@ import type { BridgeRow } from '../../lib/skillView'
 /**
  * 角色的「橋」分頁（UI 8.3 節）：只裝已經學會的技能。容量條與「套用」的結果都是引擎的答案（stores/engine.ts 的 skills）。
  * 勾選改的是一份暫存的清單，按「套用」才提交；被引擎擋下時，那一句原因寫在最下面一行。
- * 戰鬥中、等著選戰敗時整頁唯讀（store 給原因）。最上面是橋本身（components/body/BridgePanel.vue：型號、四類容量的組成、機能、橋參數，讀引擎）；調校槽等 M4-tuning。換配置能不能換（地點、委託副本）與要花幾分鐘都是引擎的（loadoutBlock、loadout_minutes），寫在最下面一行；委託副本裡整頁唯讀並寫原因。
+ * 戰鬥中、等著選戰敗時整頁唯讀（store 給原因）。最上面是橋本身（components/body/BridgePanel.vue：型號、四類容量的組成、機能、橋參數，讀引擎）；最下面是調校（TuningPanel：兩個槽、橋參數的來源、靜室）與惡意韌體（MalwarePanel：階段與清除的路），都是引擎的 tuning、malware（M4-ui-contract）。換配置能不能換（地點、委託副本）與要花幾分鐘都是引擎的（loadoutBlock、loadout_minutes），寫在最下面一行；委託副本裡整頁唯讀並寫原因。
  */
 const eng = useEngine()
 const ui = useUi()
@@ -84,11 +86,16 @@ const barOf = (c: (typeof CATEGORIES)[number]) => capCells(cap.value[c].max, use
       <ReasonButton sm :reason="lock ?? (changed ? null : '沒有改動。')" @go="reset">還原</ReasonButton>
       <ReasonButton pri :reason="lock ?? place ?? (changed ? null : '沒有改動。')" data-act="apply" @go="apply">套用</ReasonButton>
     </footer>
+    <h3 class="sec" data-sec="tuning">調校</h3>
+    <TuningPanel />
+    <h3 class="sec" data-sec="malware">惡意韌體</h3>
+    <MalwarePanel />
   </section>
 </template>
 
 <style scoped>
 .br { display: grid; gap: var(--space-4); }
+.sec { margin: var(--space-4) 0 0; font-size: var(--fs-card); }
 .grow { flex: 1; min-width: 0; }
 .caps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-6); }
 .cap { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; }

@@ -13,6 +13,7 @@ import { SOURCE_NAME, UNOPENED, chancePct, factionOf, identityOf, memberRows, re
 /**
  * 名冊（UI 第 13 節，規則 FIXER 第 6 節、NPC_SYSTEM 第 10 節）：成員（路數與階數、出場費或分紅、忠誠、現在的狀況）、容量、候選人、招募、把人拿掉。
  * 容量、出場費、有空沒有、招募的 DC 與成功率與原因都是引擎的（features/roster）；召集在委託的召集頁；派工、外包還沒有開放。
+ * 主角持約的人多一個「契約」鈕，打開契約面板的持約人那一面（M4-ui-contract）。
  */
 defineProps<{ entryId: number; stacked?: boolean }>()
 const e = useEngine()
@@ -27,6 +28,8 @@ const recruits = computed(() => recruitIds(e.people.candidates(), e.people.known
   .map((id) => ({ id, npc: e.people.npc(id), info: e.people.recruitInfo(id), source: e.people.candidates().find((c) => c.who === id)?.source }))
   .filter((r) => r.npc))
 const free = computed(() => view.value.cap - view.value.size)
+/** 主角持約的人（引擎的 heldPeople）：名冊卡上多一個「契約」打開持約人的面板 */
+const heldIds = computed(() => new Set(e.contract.held().map((h) => h.id)))
 
 async function recruit(id: string) {
   const r = await e.people.recruit(id)
@@ -66,6 +69,7 @@ async function remove(id: string) {
           <ReasonButton sm reason="召集在委託的召集頁：接了委託、踩完點之後才開。">召集</ReasonButton>
           <ReasonButton sm :reason="UNOPENED">派工</ReasonButton>
           <button type="button" class="btn sm" @click="ui.open('talk', { npcId: m.id })">說話</button>
+          <button v-if="heldIds.has(m.id)" type="button" class="btn sm pri" :data-contract="m.id" @click="ui.open('contract', { npcId: m.id, side: 'held' })">契約</button>
           <button type="button" class="btn sm ghost" @click="ui.open('relations', { npcId: m.id })">關係</button>
           <button type="button" class="btn sm ghost" :data-remove="m.id" @click="remove(m.id)">拿出名冊</button>
         </footer>

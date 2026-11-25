@@ -39,7 +39,7 @@ export const EXTRA_ITEMS: ItemDef[] = [
   { id: 'tu_ice', name: '調校「冰后」', kind: 'cyberware', type: '調校', grade: 3, brand: '貞網局', l2: 'ic-cw_bridge', price: 2600, weight: 0, legality: '許可', trade: '電子',
     cyber: { part: 'bridge', invasive: '表層', sink: 0, material: '機', effect: '抵抗誘惑、勸降、粉蕾絲 +4；代價：親密關係不降低沉溺，餘韻沒有正面效果' } },
   { id: 'tu_still', name: '調校「靜水」', kind: 'cyberware', type: '調校', grade: 2, brand: '正規診所', l2: 'ic-cw_bridge', price: 800, weight: 0, legality: '自由', trade: '電子',
-    cyber: { part: 'bridge', invasive: '表層', sink: 0, material: '機', effect: '每回合感載自然消退加倍；代價：開不了全同步' } },
+    cyber: { part: 'bridge', invasive: '表層', sink: 0, material: '機', effect: '每回合感載消退 +2 點，現實與內海都有效；代價：開不了全同步' } },
 
   // ---- 構裝（ITEMS 11.2～11.4） ----
   { id: 'cs_kefu1', name: '構裝「客服專線」I', kind: 'construct', type: '武器構裝・手槍', grade: 1, brand: '夜鶯', l2: 'ic-net_weapon', icon: 'it_051f1d', price: 200, weight: 0, legality: '登記', trade: '電子', net: { cls: '武器', ram: 1 }, stats: [['傷害', '3d6 神經'], ['距離', '1～4'], ['RAM', '1']], note: '回報後門：在夜鶯的子網裡每次攻擊追蹤度 +1。' },

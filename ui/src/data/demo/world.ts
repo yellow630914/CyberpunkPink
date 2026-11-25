@@ -35,11 +35,11 @@ const NAME_TO_BLOCK = new Map<string, { id: string; district: string }>()
 for (const d of DISTRICTS) for (const b of d.blocks) NAME_TO_BLOCK.set(b, { id: blockIdOf(d.id, b), district: d.id })
 
 /** sleep：站在這種設施上可以睡一覺（rate 是生命值上限的幾成、cost 是一晚的價錢；格式見 features/rest） */
-const FAC_TYPES: Array<{ id: string; name: string; sleep?: { rate: number; cost: number; treated?: boolean }; clinic?: { grade: 'clinic' | 'unlicensed' | 'black' }; detox?: { free: true }; therapy?: { kind: 'counsel' | 'retreat'; free?: boolean } }> = [
+const FAC_TYPES: Array<{ id: string; name: string; sleep?: { rate: number; cost: number; treated?: boolean }; clinic?: { grade: 'clinic' | 'unlicensed' | 'black' }; detox?: { free: true }; therapy?: { kind: 'counsel' | 'retreat'; free?: boolean }; tuning?: { install?: boolean; quiet_room?: boolean } }> = [
   { id: 'fac_shop', name: '商店' }, { id: 'fac_home', name: '住處' },
   // 診所三種（M4-ui-body；cyberware 的 surgeons 與 medical、drugs、sink 讀 clinic、detox、therapy 這幾個欄位）：縫縫診所是無照的（種類 id 照舊，NPC 的出沒表用它）、清和是正規診所（登記、能做心理治療）、後巷是黑診所
-  { id: 'fac_clinic', name: '無照診所', clinic: { grade: 'unlicensed' }, sleep: { rate: 0.5, cost: 30, treated: true } },
-  { id: 'fac_clinic_reg', name: '正規診所', clinic: { grade: 'clinic' }, therapy: { kind: 'counsel' } },
+  { id: 'fac_clinic', name: '無照診所', clinic: { grade: 'unlicensed' }, sleep: { rate: 0.5, cost: 30, treated: true }, tuning: { install: true } },
+  { id: 'fac_clinic_reg', name: '正規診所', clinic: { grade: 'clinic' }, therapy: { kind: 'counsel' }, tuning: { install: true, quiet_room: true } },
   { id: 'fac_black', name: '黑診所', clinic: { grade: 'black' } },
   { id: 'fac_talk', name: '談話的地方' },
   { id: 'fac_dungeon', name: '地下入口' }, { id: 'fac_transit', name: '車站' }, { id: 'fac_service', name: '服務' },

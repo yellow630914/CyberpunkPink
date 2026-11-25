@@ -89,6 +89,14 @@ const hereOpts = computed<HereOption[]>(() => {
   // 組裝：站的設施帶 craft（店家、同人社團、原廠）時多一項；誰能做、工錢是引擎的 makers
   const craftHere = e.craft.here()
   if (craftHere) mine.push({ id: 'craft', name: `組裝（${craftHere.name}）`, sub: '設計圖、零件、換零件、拆解', run: () => ui.openRoot('craft') })
+  // 機構的課（引擎的 teachOptions：腳下的設施教的基本功）：有課才多一項「上課」
+  if (e.training.options().length) mine.push({ id: 'lesson', name: '上課', sub: '基本功 5 級以內', run: () => ui.openRoot('lesson') })
+  // 契約：指令指定的地方就是這裡（引擎的 arriveBlock 成立）時多一項去做那一條；不在那裡的不列
+  for (const o of e.contract.bound()?.queue ?? []) {
+    if ((o.state === 'doing' || o.state === 'forced') && o.place && !o.arrived && e.contract.arriveBlock(o.id) === null) {
+      mine.push({ id: `contract.arrive:${o.id}`, name: `去做：${o.name}`, sub: `契約・${o.place_name ?? ''}`, run: () => { const why = e.contract.arrive(o.id); if (why) ui.toast(why, 'warn') } })
+    }
+  }
   return mine
 })
 /** 戰後可以解剖的對象（引擎的 dissectOptions：打贏之後一小時內、一場一次）：不必站在設施上，所以另外列 */
@@ -122,6 +130,8 @@ function service(s: NonNullable<Facility['services']>[number]) {
 
 // ---- 工具列 ----
 const guides = useGuides()
+/** 契約鈕：主角身上有管理級的契約（boundView）或持有別人的契約（heldPeople）才出現 */
+const hasContract = computed(() => e.contract.bound() !== null || e.contract.held().length > 0)
 const tools = computed(() => [
   { id: 'city', name: '城市', icon: 'ic-fac_metro' },
   { id: 'character', name: '角色', icon: 'ic-bs_resolve' },
@@ -133,7 +143,7 @@ const tools = computed(() => [
   { id: 'craft', name: '組裝', icon: 'ic-tool' },
   { id: 'channel', name: '頻道', icon: 'ic-footage', badge: g.channel.events.length },
   { id: 'home', name: '家園', icon: 'ic-fac_home' },
-  { id: 'contract', name: '契約', icon: 'ic-bs_perform' },
+  ...(hasContract.value ? [{ id: 'contract', name: '契約', icon: 'ic-bs_perform' }] : []),
 ] as Array<{ id: string; name: string; icon: string; badge?: number; dot?: boolean }>)
 function tool(id: string) {
   if (id === 'home') router.push('/home')

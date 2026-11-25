@@ -428,8 +428,10 @@ export function planAssembly(k: Kernel, state: GameState, o: PreviewOpts): Plan 
     const skill = skillFor(rules, bp, info?.allBio === true)
     const situation: RollPart[] = workshop ? [{ label: '工坊', value: rules.workshop_bonus, source: 'situation' }] : []
     const parts = checkParts(k.stats, state, by, { attr: rules.attr, skill, tags: ['craft', bp.kind] }, situation).filter((p) => p.value !== 0)
-    const odds = oddsOf(parts, total)
-    check = { by, attr: rules.attr, skill, skillName: k.stats.skillName(skill), parts, bonus: parts.reduce((s, p) => s + p.value, 0), dc: total, workshop, odds, success: odds.critical + odds.success }
+    // 這個人做的 DC 另外加減（同人社團暫定 −4：成功率高；M4-followups-2 第 4 項）
+    const dc = total + mr.dc_mod
+    const odds = oddsOf(parts, dc)
+    check = { by, attr: rules.attr, skill, skillName: k.stats.skillName(skill), parts, bonus: parts.reduce((s, p) => s + p.value, 0), dc, workshop, odds, success: odds.critical + odds.success }
   }
 
   // 成品

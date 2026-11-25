@@ -21,12 +21,12 @@
 //   上完立下記號（actor.ext.abilities.lessons），skillUpDraft 看到就不擋；條件 can_teach；報告 ability.lesson；匯出 teachOptions、lessonBlock、lessonDraft。他在不在場問條件 npc_here（features/npcs 註冊）。
 // 不 import 別的功能（射擊、換彈在 features/combat；技能自己用 run.attack）。
 
-import type { Feature } from '../../core'
+import type { Feature, GameState } from '../../core'
 import { registerActions, registerBattle } from './battle'
 import { registerCreation } from './creation'
 import { registerCondition } from './daily'
 import { checkAbilities, registerKinds } from './kinds'
-import { registerLoadout } from './loadout'
+import { hideAnswer, registerLoadout } from './loadout'
 import { registerBuff, registerMods } from './mods'
 import { registerOps } from './ops'
 import { registerOut } from './out'
@@ -84,6 +84,8 @@ export const abilitiesFeature: Feature = {
     registerStats(k)
     registerCondition(k)
     registerCapacityWatch(k)
+    // 掃橋：戴著人格面具算一種「藏沉溺的手段」（掛點 scan.person 是 features/security 宣告的）
+    ;(k.hooks.on.bind(k.hooks) as unknown as (name: string, owner: string, fn: (payload: never) => unknown) => void)('scan.person', OWNER, (({ state, actor }: { state: GameState; actor: string }) => hideAnswer(state, actor)) as never)
     registerCreation(k)
     registerTraining(k)
   },

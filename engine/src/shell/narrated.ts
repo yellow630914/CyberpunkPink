@@ -12,6 +12,10 @@ import { clipBeats } from './battle'
 import type { ChainCtx, ChainDef, ChainTemplate } from './ai/chain'
 import type { NarrateInput, NarrateOutput } from './ai/freeAction'
 import { avatarTextFor, callsFor } from './ai/people'
+import type { GateOutput } from './ai/sceneTasks'
+import { sceneAiOf } from './ai/settings'
+import type { EventGateResult } from './ai/eventGate'
+import { applyGate, eventGateInput, hasAiGate } from './ai/eventGate'
 
 /** 這條鏈的 id。 */
 export const NARRATED_CHAIN = 'narrated'
@@ -19,7 +23,10 @@ export const NARRATED_CHAIN = 'narrated'
 export const NARRATED_TEMPLATE: ChainTemplate = {
   chain: NARRATED_CHAIN,
   steps: [
-    { id: 'text', kind: 'ai', task: 'narrate' },
+    // 事件的 adult_scene.gate: ai（M4-followups-2 第 7 項）：草稿的 launch 有這樣的場景才走（when: ai_gate）；沒有就和以前一樣只有 text 與 apply
+    { id: 'gate', kind: 'ai', task: 'scene_gate', when: 'ai_gate' },
+    { id: 'setup', kind: 'code', run: 'gate_setup', needs: ['gate'], when: 'ai_gate' },
+    { id: 'text', kind: 'ai', task: 'narrate', needs: ['setup'] },
     { id: 'apply', kind: 'apply' },
   ],
 }
@@ -62,12 +69,31 @@ export function narratedChain(): ChainDef {
     template: NARRATED_TEMPLATE,
     code: NARRATED_CHAIN,
     hasText: true,
-    codeSteps: {},
-    aiEnabled: (step, ctx) => (step.task === 'narrate' ? ctx.settings.narrate : step.task === 'polish' ? ctx.settings.narrate && !!(ctx.draft.text as NarrateOutput | undefined)?.text : true),
+    codeSteps: {
+      // scene_gate 交回來的（status 是 done）才換進 launch；走了退路（AI 關著、被拒絕、交不出合格的結果）launch 不動，等於 gate: fixed
+      gate_setup: (ctx): EventGateResult => {
+        const { draft } = ctx.input as NarratedInput
+        if (ctx.records.gate?.status !== 'done') return { launch: null }
+        return applyGate(ctx.k, ctx.state, draft, ctx.draft.gate as GateOutput | undefined)
+      },
+    },
+    whens: {
+      ai_gate: (ctx) => hasAiGate((ctx.input as NarratedInput).draft) && !!ctx.state.pc,
+    },
+    softFail: (step) => step.task === 'scene_gate',
+    // 記憶被抹掉的報告（outcome.amnesia）不寫正文：結果本來就只有兩句（M4-followups-2 第 7 項）
+    aiEnabled: (step, ctx) => {
+      const amnesia = (ctx.input as NarratedInput).draft.outcome.amnesia === true
+      if (step.task === 'scene_gate') return sceneAiOf(ctx.settings) !== 'off'
+      if (step.task === 'narrate') return ctx.settings.narrate && !amnesia
+      if (step.task === 'polish') return ctx.settings.narrate && !amnesia && !!(ctx.draft.text as NarrateOutput | undefined)?.text
+      return true
+    },
     // 草稿帶 adult：寫正文走成人路由（請求帶 adult 記號）；其餘規則不因它而不同
     adult: (ctx) => !!(ctx.input as NarratedInput).draft.adult,
     aiInput: (step, ctx) => {
-      const { mode } = ctx.input as NarratedInput
+      const { mode, draft } = ctx.input as NarratedInput
+      if (step.task === 'scene_gate') return eventGateInput(ctx.k, ctx.state, draft)
       if (step.task === 'narrate') return narrateInput(ctx, step.mode ?? mode)
       if (step.task === 'polish') return { ...narrateInput(ctx, 'polish'), text: (ctx.draft.text as NarrateOutput).text ?? '' }
       throw new Error(`narrated 這條鏈不認得 ${String(step.task)} 這個任務`)
@@ -76,6 +102,11 @@ export function narratedChain(): ChainDef {
       const { draft } = ctx.input as NarratedInput
       const text = (ctx.draft.polish as NarrateOutput | undefined) ?? (ctx.draft.text as NarrateOutput | undefined)
       const out = clone(draft)
+      const gated = ctx.draft.setup as EventGateResult | undefined
+      if (gated?.launch) {
+        if (gated.launch.length > 0) out.launch = clone(gated.launch)
+        else delete out.launch
+      }
       if (text?.text) out.narration = { ...out.narration, text: text.text, ...(text.uncovered.length ? { uncovered: text.uncovered } : {}) }
       return out
     },

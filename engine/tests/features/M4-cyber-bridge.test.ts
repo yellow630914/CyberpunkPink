@@ -376,10 +376,11 @@ describe('換橋：一次手術拆舊的、裝新的', () => {
     g.commit(swap(g, { uid: 'new' }))
     expect(capacityOf(g.k, g.state, 'pc').meat).toEqual({ used: 13, max: 8 })
     expect(abilitiesOf(g.state, 'pc').equipped).toEqual(['sk_instinct', 'sk_aimed', 'sk_burst'])
-    // 換橋那一份的後面，abilities 另外接一份 ability.capacity 的提醒（M4-abilities-m4）：換橋自己的那一份要照 action 找，不是最後一份
+    // 換橋那一份的後面，abilities 另外接一份 ability.capacity 的提醒（M4-abilities-m4）；換橋自己那一份不再寫「容量比舊橋小」（M4-followups-2 第 7 項：提醒由 abilities 接手）
     const texts = g.state.reports.filter((r) => r.action === 'cyber.bridge').at(-1)!.narration!.results!
-    expect(texts.filter((t) => t.includes('容量比舊橋小'))).toHaveLength(1)
+    expect(texts.filter((t) => t.includes('容量比舊橋小'))).toHaveLength(0)
     expect(last(g).action).toBe('ability.capacity')
+    expect(last(g).narration!.results!.join('')).toContain('超過橋現在的容量')
     // 換成每一類都不小的橋：沒有提醒
     const h = make()
     wear(h, 'bp_bridge', parts('pt_chip40', 'pt_sw_even'), 'old')

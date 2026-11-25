@@ -3,7 +3,7 @@
 //
 // 接上核心的地方：
 //   內容  物品 item 的 drug 欄位（載入之後 ready 查格式：duration、effects、side、upkeep_load、instant、after、addiction、suppressant、eases_withdrawal、needs_bridge）；
-//         drug_rule（規則表，overridable；id: default；model.ts 的 DEFAULT_DRUG_RULES）；設施種類（world 的 facility_type）讀 detox: { free?: true }
+//         drug_rule（規則表，overridable；id: default；model.ts 的 DEFAULT_DRUG_RULES）；設施種類（world 的 facility_type）讀 detox: { free?: true, favor?: { faction, min } }
 //   狀態  actor.ext.drugs = { active: [{ id, until, battle? }], addiction: { 藥: { value, last, used_week } }, withdrawal: { 藥: { until, heavy } }, pending: [{ at, drug, kind }], suppressant?: { until?, rebound_until?, weekly? } }
 //   被動  k.passives.register 來源 drug（生效中的藥的 effects 與 side、藥效過後的 after.effects、抑制劑的 sink_floor 與 sink_shown）、
 //         來源 withdrawal（戒斷的懲罰、停藥反彈）；沒有橋的人吃 needs_bridge 的藥沒有效果；節奏資源（ap_regen、ram_regen）的 +1 上限由核心夾
@@ -124,7 +124,12 @@ export const drugsFeature: Feature = {
       for (const t of k.content.list<ContentEntry & { detox?: unknown }>(FACILITY_TYPE_KIND)) {
         if (t.detox === undefined) continue
         const d = t.detox
-        if (!isRecord(d) || Object.keys(d).some((f) => f !== 'free') || (d.free !== undefined && d.free !== true)) problems.push(`${FACILITY_TYPE_KIND}/${t.id}：detox 要是 { free?: true }`)
+        if (!isRecord(d) || Object.keys(d).some((f) => f !== 'free' && f !== 'favor') || (d.free !== undefined && d.free !== true)) problems.push(`${FACILITY_TYPE_KIND}/${t.id}：detox 要是 { free?: true, favor?: { faction, min } }`)
+        else if (d.favor !== undefined) {
+          const f = d.favor
+          if (!isRecord(f) || typeof f.faction !== 'string' || !f.faction || !Number.isSafeInteger(f.min) || (f.min as number) < 0 || (f.min as number) > 100) problems.push(`${FACILITY_TYPE_KIND}/${t.id}：detox.favor 要是 { faction, min（0～100 的整數） }`)
+          else if (k.content.hasKind('faction') && !k.content.has('faction', f.faction)) problems.push(`${FACILITY_TYPE_KIND}/${t.id}：detox.favor 的勢力 ${f.faction} 查不到`)
+        }
       }
     }
     if (problems.length > 0) throw new ContentError(problems)

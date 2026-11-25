@@ -4,9 +4,10 @@
 // 四種人（規則表 craft_rule.makers）：
 //   self     自己或隊友：不收錢、要擲技術檢定（義體用義體學、武器與護甲用機械、全生體用醫療）。四級結果：
 //              大成功 精工（quality: fine；bonus 加在 stats 合計最高的那一個鍵 +1，義體改成 bonus: { sink: -1 }）；成功 照規格；
-//              失敗 能用但帶瑕疵（quality: flawed、多一筆 quirk，pool 含 flaw、applies 對得上的）；大失敗 燒掉一個零件（有超規的燒超規的，否則照種子抽），成品沒有、其餘零件還在
+//              失敗 能用但帶瑕疵（quality: flawed、多一筆 quirk，pool 含 flaw、applies 對得上的；義體另外排異：bonus.sink +reject_sink，CRAFTING 第 6 節）；大失敗 燒掉一個零件（有超規的燒超規的，否則照種子抽），成品沒有、其餘零件還在
 //   shop     店家：工錢設計圖等級 ×100、一定成功、不做超規、會登記
-//   doujin   同人社團：工錢等級 ×60、一定成功、願意超規；照 quirk_chance 多一筆 pool 含 doujin 的 quirk，有的話成品 state 是 doujin（TRADE 3.4：「成品可能多一個怪癖」）
+//   doujin   同人社團：工錢等級 ×60、成功率高（擲 by 的檢定，DC 加 dc_mod，暫定 −4；M4-followups-2 第 4 項，不是一定成功）、願意超規；
+//            照 quirk_chance 多一筆 pool 含 doujin 的 quirk，有的話成品 state 是 doujin（TRADE 3.4：「成品可能多一個怪癖」）
 //   factory  原廠：工錢等級 ×150（暫定）、一定成功而且是精工、只收自己牌子的全套
 // 骰子一律用 deriveRng（用途帶新成品的 uid）：重新讀檔重擲、結果不變；擲過骰的報告多一筆 { op: 'rng', advance: 1 }，同一組零件失手之後再試才會換新的骰面。
 // 寫進狀態：用掉的零件拿掉（沒有實例資料的照 id、有的照 uid）、多一疊成品（id 是設計圖、data 是 ProductData、uid 用核心的流水號 pr<N>）、扣工錢、時間加 minutes。
@@ -85,7 +86,9 @@ export function assembleDraft(k: Kernel, state: GameState, o: AssembleOpts): Rep
 
   const changes: Change[] = []
   const lines: string[] = []
-  const who = mr.check ? nameOf(state, by) : MAKER_NAME[maker]
+  // 動手的是自己（或隊友）才用他的名字；同人社團雖然擲 by 的檢定，動手的是社團
+  const hands = maker === 'self'
+  const who = hands ? nameOf(state, by) : MAKER_NAME[maker]
   const data: Record<string, unknown> = { bp: bp.id, maker, by, uid, degree, minutes: pv.minutes }
   let result: string
 
@@ -115,6 +118,11 @@ export function assembleDraft(k: Kernel, state: GameState, o: AssembleOpts): Rep
         quirkName = pick.name
       }
       lines.push(`${who}把${bp.name}組出來了，不過能用歸能用，有個地方沒有咬準。`)
+      // 排異（CRAFTING 第 6 節）：義體組裝的檢定失敗，身體不太接受，裝上之後的沉溺成本多一點
+      if (bp.kind === 'cyberware' && rules.reject_sink > 0) {
+        product.bonus = { ...(product.bonus ?? {}), sink: (product.bonus?.sink ?? 0) + rules.reject_sink }
+        lines.push(`排異：這一件裝上之後身體不太接受，沉溺成本多 ${rules.reject_sink} 點。`)
+      }
     } else {
       lines.push(`${who}把${bp.name}組好了，和規格一樣。`)
     }
@@ -141,11 +149,11 @@ export function assembleDraft(k: Kernel, state: GameState, o: AssembleOpts): Rep
   Object.assign(data, { fee: pv.fee })
 
   const actor: ActorId = state.pc ?? by
-  const beats: TimelineBeat[] = [{ layer: 'meat', actor: mr.check ? by : actor, text: lines[0]!, tag: ASSEMBLE_ACTION, data }]
+  const beats: TimelineBeat[] = [{ layer: 'meat', actor: hands ? by : actor, text: lines[0]!, tag: ASSEMBLE_ACTION, data }]
   if (roll) beats.push({ layer: 'meat', actor: by, text: `${DEGREE_NAME[roll.degree]}（骰 ${roll.natural}，合計 ${roll.total}，對 DC ${roll.dc}）`, roll, tag: 'craft.roll', data: { degree: roll.degree } })
   for (const text of lines.slice(1)) beats.push({ layer: 'meat', actor, text, tag: 'craft.note' })
   return {
-    kind: 'action', action: ASSEMBLE_ACTION, location: clone(state.location), actor: mr.check ? by : actor, party: [], timeline: beats, changes,
+    kind: 'action', action: ASSEMBLE_ACTION, location: clone(state.location), actor: hands ? by : actor, party: [], timeline: beats, changes,
     outcome: { result, summary: lines.join('') },
     narration: { results: lines },
   }

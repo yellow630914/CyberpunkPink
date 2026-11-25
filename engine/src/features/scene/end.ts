@@ -19,6 +19,10 @@ function lookOf(state: GameState, id: string): PartnerLook {
 }
 
 /** 這一場在 pc 身上落的沉溺（寫成變更）：有「沉溺」的效果就走它（下限會擋），沒有人註冊就直接加減。回傳變更、實際的變化、提醒。 */
+/** 記憶被抹掉的場景（SceneSetup.amnesia）結束時留下的一句模糊的殘留（不帶機制數字、不寫內文）。 */
+export const AMNESIA_RESIDUE = '這一場的事只剩一段模糊的殘留，怎麼也想不起細節。'
+const NO_SINK = { changes: [] as Change[], actual: 0, clamps: [] as ClampNote[] }
+
 function settleSink(k: Kernel, state: GameState, pc: string, amount: number): { changes: Change[]; actual: number; clamps: ClampNote[] } {
   if (amount === 0) return { changes: [], actual: 0, clamps: [] }
   if (!k.effects.has('sink')) return { changes: [{ op: 'actor.track', id: pc, track: 'sink', delta: amount }], actual: amount, clamps: [] }
@@ -141,25 +145,27 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
   }
   // 成長：傾向照這一場碰到的標籤、「難忘」讓有變成深、橋參數那一點（P44）
   const growth = planGrowth(k, p, { band, skip, touched, closing, notes })
+  // 記憶被抹掉的場景（amnesia）：傾向不長（M4-followups-2 第 7 項）
+  const amnesia = s.amnesia === true
   const rel = settleEffects(k, state, s.pc, relFx)
-  const tend = settleEffects(k, state, s.pc, growth.tendency)
+  const tend = amnesia ? { changes: [] as Change[], lines: [] as string[], clamps: [] as ClampNote[] } : settleEffects(k, state, s.pc, growth.tendency)
   const brd = settleEffects(k, state, s.pc, growth.bridge)
   const bridgeGain = brd.changes.length > 0 ? growth.bridge_gain : undefined
   const fx = { changes: [...rel.changes, ...tend.changes, ...brd.changes], lines: [...rel.lines, ...tend.lines, ...brd.lines], clamps: [...rel.clamps, ...tend.clamps, ...brd.clamps] }
 
   // 沉溺（P43）：收尾給的或照退路，加上全檔過載累積的那一份，合計夾在 −4～+4，往下走 sink 效果（下限會擋）；別的座位只有過載累積的那一份
   const sink = planSink(k, p, pairIds, closing, notes)
-  const sinkSet = settleSink(k, state, s.pc, sink.total)
+  const sinkSet = amnesia ? NO_SINK : settleSink(k, state, s.pc, sink.total)
   fx.clamps.push(...sinkSet.clamps)
   const sinkLines: string[] = []
   const sinkChanges: Change[] = [...sinkSet.changes]
-  for (const seat of s.seats) {
+  for (const seat of amnesia ? [] : s.seats) {
     const n = Math.min(SINK_CAP, seat.sink_gain)
     if (n <= 0) continue
     if (seat.id !== s.pc) sinkChanges.push({ op: 'actor.track', id: seat.id, track: 'sink', delta: n })
     sinkLines.push(`${seat.id === s.pc ? '你' : state.actors[seat.id]!.name}在${p.sync.gears.full.name}檔過載：沉溺 +${n}。`)
   }
-  if (sink.total !== 0 || sinkSet.actual !== 0) sinkLines.push(`這一場的沉溺：${SINK_KIND_NAME[sink.kind]}，${signed(sinkSet.actual)}。`)
+  if (!amnesia && (sink.total !== 0 || sinkSet.actual !== 0)) sinkLines.push(`這一場的沉溺：${SINK_KIND_NAME[sink.kind]}，${signed(sinkSet.actual)}。`)
 
   // 性經歷：每個人各記一筆（次數 +1、每個一起的人都記進對象；對象的人數照實加）。主角和每個對象；同一圈的人彼此；別的圈的人彼此
   const service = s.nature === 'trade' || s.nature === 'work'
@@ -179,7 +185,7 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
   const sayings = sexNotes(p, closing, notes)
   const tie = (id: string): number => meterOf(k, state, 'affinity', id)
   const records: Change[] = []
-  for (const [id, partners] of linked) {
+  for (const [id, partners] of amnesia ? [] : linked) {
     const actor = state.actors[id]
     if (!actor) continue
     const names = partners.filter((x) => !!state.actors[x]).map((x) => ({ id: x, name: state.actors[x]!.name, look: lookOf(state, x) }))
@@ -204,7 +210,8 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
   const multi = pairIds.length > 1 || s.circles.length > 0 || s.kind === 'group'
   const result = {
     with: partnerId, fit, rating: band.name, goal: s.goal, goal_done: goalDone, reason, ...(s.layer === 'net' ? { layer: s.layer } : {}), max_gear: maxGear, ...(multi ? { pairs: pairResult, circles: circlesResult } : {}),
-    sink: sinkSet.actual, sink_kind: sink.kind, touched: touched.filter((t) => contentAllowed(state.rules, t)), tendency: growth.tags, ...(bridgeGain ? { bridge_gain: bridgeGain } : {}), ...(growth.deep ? { deep: growth.deep } : {}),
+    sink: sinkSet.actual, sink_kind: sink.kind, touched: touched.filter((t) => contentAllowed(state.rules, t)), tendency: amnesia ? [] : growth.tags, ...(bridgeGain ? { bridge_gain: bridgeGain } : {}), ...(growth.deep && !amnesia ? { deep: growth.deep } : {}),
+    ...(amnesia ? { amnesia: true } : {}),
   }
   const end = endActivity(k, { state, kind: ACTIVITY, id: s.id, origin: s.origin, outcome: reason, result })
   if (end.rewind) end.launch = []
@@ -217,7 +224,7 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
     ...sinkChanges, ...fx.changes, ...records, ...end.changes,
   ]
   const glowText = s.seats.map((x) => `${x.id === s.pc ? '你' : state.actors[x.id]!.name} ${p.glow[x.id]}／${p.glowMax[x.id]} 層`).join('、')
-  const results = [
+  const results = amnesia ? [`${END_NAME[reason]}。`, AMNESIA_RESIDUE, ...end.lines] : [
     `${END_NAME[reason]}。`, `契合 ${fit}：${band.name}。`,
     ...(pairIds.length > 1 ? pairIds.map((id) => `和${state.actors[id]?.name ?? id}：契合 ${pairResult[id]!.fit}，${pairResult[id]!.rating}。`) : []),
     ...circlesResult.filter((c) => c.people.length > 1).map((c) => `${c.people.map((id) => state.actors[id]?.name ?? id).join('、')}那一邊：契合 ${c.fit}，${c.rating}。`),
@@ -227,6 +234,7 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
   ]
   const finalBeat = beat(s.pc, `場景結束：${END_NAME[reason]}。契合 ${fit}，${band.name}。`, 'scene.end', { reason, fit, rating: band.id, insight, max_gear: maxGear, ...(multi ? { pairs: pairResult } : {}) })
   const d = sceneDraft(state, p, 'scene.end', [...lead, ...p.beats, finalBeat], changes, reason, `${END_NAME[reason]}。契合 ${fit}，${band.name}。`)
+  if (amnesia) d.outcome.amnesia = true
   d.narration = { results }
   const clamps = [...notes, ...fx.clamps]
   if (clamps.length > 0) d.clamps = clamps
@@ -276,27 +284,29 @@ function soloEndDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBeat[
   const closing = readClosing(rawClosing, s.nature, [], notes)
   relateStrays([], closing, notes)
   const growth = planGrowth(k, p, { band, skip, touched, closing, notes })
-  const tend = settleEffects(k, state, s.pc, growth.tendency)
+  const amnesia = s.amnesia === true
+  const tend = amnesia ? { changes: [] as Change[], lines: [] as string[], clamps: [] as ClampNote[] } : settleEffects(k, state, s.pc, growth.tendency)
   const brd = settleEffects(k, state, s.pc, growth.bridge)
   const bridgeGain = brd.changes.length > 0 ? growth.bridge_gain : undefined
   const fx = { changes: [...tend.changes, ...brd.changes], lines: [...tend.lines, ...brd.lines], clamps: [...tend.clamps, ...brd.clamps] }
 
   // 性經歷：只加單人的次數、用過的姿勢與碰過的標籤
-  const record: Change = { op: 'actor.ext', id: s.pc, key: 'sex_record', value: recordSolo(rec, { poses: used, tags: touched }) }
+  const record: Change | null = amnesia ? null : { op: 'actor.ext', id: s.pc, key: 'sex_record', value: recordSolo(rec, { poses: used, tags: touched }) }
 
   const goalDone = s.goal === 'footage' && Math.max(s.goal_progress ?? 0, pace) >= rules.goal_done_at
   // 沉溺：收尾給的或退路 0，加上全檔過載累積的那一份，合計夾在 −4～+4
   const sink = planSink(k, p, [], closing, notes)
-  const sinkSet = settleSink(k, state, s.pc, sink.total)
+  const sinkSet = amnesia ? NO_SINK : settleSink(k, state, s.pc, sink.total)
   fx.clamps.push(...sinkSet.clamps)
   const sinkLines: string[] = []
   const sinkChanges: Change[] = [...sinkSet.changes]
-  if (sink.gain > 0) sinkLines.push(`你在${p.sync.gears.full.name}檔過載：沉溺 +${sink.gain}。`)
-  if (sink.total !== 0 || sinkSet.actual !== 0) sinkLines.push(`這一場的沉溺：${SINK_KIND_NAME[sink.kind]}，${signed(sinkSet.actual)}。`)
+  if (!amnesia && sink.gain > 0) sinkLines.push(`你在${p.sync.gears.full.name}檔過載：沉溺 +${sink.gain}。`)
+  if (!amnesia && (sink.total !== 0 || sinkSet.actual !== 0)) sinkLines.push(`這一場的沉溺：${SINK_KIND_NAME[sink.kind]}，${signed(sinkSet.actual)}。`)
   const maxGear = { pc: p.seat(s.pc).max_gear }
   const result = {
     solo: true, pace, rating: band.name, goal: s.goal, goal_done: goalDone, reason, ...(s.layer === 'net' ? { layer: s.layer } : {}), max_gear: maxGear, audience: s.audience === true,
-    sink: sinkSet.actual, sink_kind: sink.kind, touched: touched.filter((t) => contentAllowed(state.rules, t)), tendency: growth.tags, ...(bridgeGain ? { bridge_gain: bridgeGain } : {}), ...(growth.deep ? { deep: growth.deep } : {}),
+    sink: sinkSet.actual, sink_kind: sink.kind, touched: touched.filter((t) => contentAllowed(state.rules, t)), tendency: amnesia ? [] : growth.tags, ...(bridgeGain ? { bridge_gain: bridgeGain } : {}), ...(growth.deep && !amnesia ? { deep: growth.deep } : {}),
+    ...(amnesia ? { amnesia: true } : {}),
   }
   const end = endActivity(k, { state, kind: ACTIVITY, id: s.id, origin: s.origin, outcome: reason, result })
   if (end.rewind) end.launch = []
@@ -306,16 +316,17 @@ function soloEndDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBeat[
     ...trackChanges(p, true),
     ...(p.consumed ? [{ op: 'item', id: p.consumed, qty: -1 } as Change] : []),
     ...(insight !== 0 ? [{ op: 'meter', kind: 'insight', key: '_', delta: insight } as Change] : []),
-    ...sinkChanges, ...fx.changes, record, ...end.changes,
+    ...sinkChanges, ...fx.changes, ...(record ? [record] : []), ...end.changes,
   ]
   const glowText = s.seats.map((x) => `你 ${p.glow[x.id]}／${p.glowMax[x.id]} 層`).join('、')
-  const results = [
+  const results = amnesia ? [`${END_NAME[reason]}。`, AMNESIA_RESIDUE, ...end.lines] : [
     `${END_NAME[reason]}。`, `節奏 ${pace}：${band.name}。`, `體悟 +${insight}（${insightNotes.join('、')}）。`, ...fx.lines, ...sinkLines,
     ...(s.goal ? [`目的「${GOAL_NAME[s.goal]}」：${goalDone ? '達成了' : '沒有達成'}。`] : []),
     `餘韻：${glowText}。`, ...end.lines,
   ]
   const finalBeat = beat(s.pc, `場景結束：${END_NAME[reason]}。節奏 ${pace}，${band.name}。`, 'scene.end', { reason, solo: true, pace, rating: band.id, insight, max_gear: maxGear })
   const d = sceneDraft(state, p, 'scene.end', [...lead, ...p.beats, finalBeat], changes, reason, `${END_NAME[reason]}。節奏 ${pace}，${band.name}。`)
+  if (amnesia) d.outcome.amnesia = true
   d.narration = { results }
   const clamps = [...notes, ...fx.clamps]
   if (clamps.length > 0) d.clamps = clamps

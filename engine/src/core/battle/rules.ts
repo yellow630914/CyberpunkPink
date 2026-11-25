@@ -204,6 +204,16 @@ export const BREAKER_CRUDE_CHANCE = 0.1
  */
 export const PUMP_JAM = 'pump_jam'
 
+/**
+ * 抵抗的標籤（M4-followups-2 第 6 項；CORE_RULES 4.3 節沉溺分段的「抵抗誘惑與勸降」「抵抗控制類快駭」）：沉溺的分段、調校、藥給的是被動效果 { check: { tags: ['resist_lure'] } }
+ * 這類「抵抗」的加減，由「被打的人」擲檢定（豁免）或「打的人」對他的防守值擲檢定時算：
+ *   被打的人自己擲（效果 status 的 save）：這個狀態是控制類（kind: control）就帶 resist_control；save.tags 寫了 persuade（社交勸降）就帶 resist_lure。
+ *   對他的防守值擲（效果 check 的 vs: will、firewall）：檢定的標籤對到下表（hack:control 是快駭的控制類，persuade 是勸降），他身上對應標籤的檢定加減就加進他的防守值
+ *   （抵抗 −2 就是防守 −2，對他的 DC 低 2）。只有單位有對到角色（主角、夥伴、名冊上的人）才有被動效果可讀。
+ * 契約指令的抗拒帶 resist_contract，不在這裡（使用者 2026-11-25：沉溺的 −2 不套在契約指令上）。
+ */
+export const RESIST_TAGS: Readonly<Record<string, string>> = { 'hack:control': 'resist_control', persuade: 'resist_lure' }
+
 /** 沉溺這一次要上升 amount 點：帶著 sink_resist 的人少 1 點、最少 1（amount 本來不到 2 的不變）。 */
 export const sinkRise = (amount: number, resist: boolean): number => (resist && amount > 1 ? amount - 1 : amount)
 

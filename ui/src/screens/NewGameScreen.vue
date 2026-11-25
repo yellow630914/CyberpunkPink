@@ -11,7 +11,7 @@ import CyberStep from '../components/creation/CyberStep.vue'
 import AbilitiesStep from '../components/creation/AbilitiesStep.vue'
 import GearStep from '../components/creation/GearStep.vue'
 import { useGame } from '../stores/game'
-import { useEngine } from '../stores/engine'
+import { useEngine, type StartKind } from '../stores/engine'
 import { useSettings } from '../stores/settings'
 import { useUi } from '../stores/ui'
 import type { AttrId } from '@engine/src'
@@ -214,6 +214,13 @@ function go(i: number) {
   if (i > stepIdx.value && firstBlocked.value && firstBlocked.value[0] < i) { stepIdx.value = firstBlocked.value[0]; ui.toast(firstBlocked.value[1]!, 'warn'); return }
   stepIdx.value = i
 }
+/** 開局的契約（示意世界包的選項）：一般、主角是契約人（欠伊甸園一筆債，佇列三條）、主角是持約人（買下了一位欠債的歌手的債）。契約怎麼建、佇列怎麼排全是引擎的 */
+const START_KINDS: Array<{ id: StartKind; name: string; line: string }> = [
+  { id: 'normal', name: '一般開局', line: '身上沒有契約。' },
+  { id: 'bound', name: '契約人開局', line: '你欠了伊甸園一筆債，簽了債務契約；佇列裡已經有三條指令。' },
+  { id: 'holder', name: '持約人開局', line: '你在拍賣會上買下了歌手阿音的債，成了她的持約人；她在你的名冊上。' },
+]
+const startKind = ref<StartKind>('normal')
 /** 快速開始的預設角色還沒有做（使用者 2026-11-25）：按鈕留著、灰掉，點了說明。 */
 const QUICK_REASON = '快速開始的預設角色還沒有做：這一版請從「基本資料」自己建角。'
 function quick() { ui.toast(QUICK_REASON, 'warn') }
@@ -221,7 +228,7 @@ function quick() { ui.toast(QUICK_REASON, 'warn') }
 /** 開始：引擎開新局並建角（規則都在引擎）；成功之後把引擎還沒有的假資料照原本的方式寫進 useGame。存檔格不受影響。 */
 function start() {
   if (firstBlocked.value) { stepIdx.value = firstBlocked.value[0]; ui.toast(firstBlocked.value[1]!, 'warn'); return }
-  const blocked = e.newGame({ seed: Date.now() % 2147483647, rules: rulesFromUi(st.s), draft: draft.value })
+  const blocked = e.newGame({ seed: Date.now() % 2147483647, rules: rulesFromUi(st.s), draft: draft.value, start: startKind.value })
   if (blocked.length) { stepIdx.value = stepOf(BLOCK_STEP[blocked[0].step]); ui.toast(blocked[0].reason, 'warn'); e.creation.previewRules(rulesFromUi(st.s)); return }
   g.character.name = basic.name.trim()
   const pv = (e.pc?.ext.profile as { look?: { private?: { options: string[]; text: string } } } | undefined)?.look?.private
@@ -266,6 +273,11 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
             <span v-else class="df">一定要開</span>
           </div>
           </div>
+          <p class="setgrp">開局的契約<Hint>示意世界包的選項：一開局就帶著一份契約，方便直接看契約面板的兩面。契約的內容與指令都由引擎建立。</Hint></p>
+          <div class="segs startkind" role="radiogroup" aria-label="開局的契約" data-start-kind>
+            <button v-for="k in START_KINDS" :key="k.id" type="button" role="radio" :aria-checked="startKind === k.id" :class="{ on: startKind === k.id }" :data-start="k.id" :title="k.line" @click="startKind = k.id">{{ k.name }}</button>
+          </div>
+          <p class="k" data-start-line>{{ START_KINDS.find(k => k.id === startKind)!.line }}</p>
           <p class="setgrp">快速開始<Hint>每個出身準備兩個預設角色，一個偏戰鬥、一個偏非戰鬥。選了直接填好，最後一頁還能回頭改。</Hint></p>
           <div class="grid2 quick"><button v-for="q in QUICK_STARTS" :key="q.name" type="button" class="lrow is-unavailable" aria-disabled="true" :title="QUICK_REASON" data-quick @click="quick"><span class="grow"><b>{{ q.name }}・{{ ORIGINS.find(o => o.id === q.origin)!.name }}・{{ q.role }}</b><small>{{ q.line }}</small></span></button></div>
         </template>

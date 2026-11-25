@@ -113,6 +113,10 @@ export interface CyberRules {
   repair_dc: number
   /** 修理：自己修要在住處的話，住處的等級至少多少（條件 at_home 的 level_min；有工作台的據點是二級以上） */
   repair_home_level: number
+  /** 請人偽造授權（第三種解鎖法；M4-followups-2 第 7 項）：DC 比設計圖等級的標準 DC 高多少（偽造的人擲介面） */
+  forge_dc_bonus: number
+  /** 請中間人偽造授權的價錢：成品價的幾成（中間人的手藝穩，不擲檢定；暫定） */
+  forge_fee: number
 }
 
 export const DEFAULT_CYBER_RULES: CyberRules = {
@@ -146,6 +150,8 @@ export const DEFAULT_CYBER_RULES: CyberRules = {
   repair_fee: 0.2,
   repair_dc: 13,
   repair_home_level: 2,
+  forge_dc_bonus: 2,
+  forge_fee: 0.3,
 }
 
 const INV_IDS = ['surface', 'light', 'invasive', 'heavy', 'extreme']
@@ -204,6 +210,8 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
   if (e.unlock_bonus !== undefined && !(isSafeInt(e.unlock_bonus) && e.unlock_bonus >= 0 && e.unlock_bonus <= 10)) p.push('unlock_bonus 要是 0～10 的整數')
   if (e.repair_dc !== undefined && !(isSafeInt(e.repair_dc) && e.repair_dc >= 1 && e.repair_dc <= 40)) p.push('repair_dc 要是 1～40 的整數')
   if (e.repair_home_level !== undefined && !(isSafeInt(e.repair_home_level) && e.repair_home_level >= 0 && e.repair_home_level <= 3)) p.push('repair_home_level 要是 0～3 的整數')
+  if (e.forge_dc_bonus !== undefined && !(isSafeInt(e.forge_dc_bonus) && e.forge_dc_bonus >= 0 && e.forge_dc_bonus <= 20)) p.push('forge_dc_bonus 要是 0～20 的整數')
+  if (e.forge_fee !== undefined && !isRatio(e.forge_fee)) p.push('forge_fee 要是 0～1 的數字')
   return p
 }
 
@@ -241,7 +249,7 @@ export function cyberRules(k: Pick<Kernel, 'content'>): CyberRules {
   if (ok('deck_sink_default')) out.deck_sink_default = e.deck_sink_default as number
   if (ok('pump_doses')) out.pump_doses = e.pump_doses as number
   if (ok('set_bonus')) out.set_bonus = clone(e.set_bonus as Record<string, PassiveEffect[]>)
-  for (const key of ['subscription_rate', 'crack_dc_bonus', 'crack_hostility', 'unlock_bonus', 'used_malware', 'repair_fee', 'repair_dc', 'repair_home_level'] as const) if (ok(key)) out[key] = e[key] as number
+  for (const key of ['subscription_rate', 'crack_dc_bonus', 'crack_hostility', 'unlock_bonus', 'used_malware', 'repair_fee', 'repair_dc', 'repair_home_level', 'forge_dc_bonus', 'forge_fee'] as const) if (ok(key)) out[key] = e[key] as number
   return out
 }
 

@@ -104,12 +104,14 @@ export interface InteractRow {
   needs: 'item' | 'category' | null
   /** 做得了、但有一件事要先知道（引擎的 note：今天聊過了不會再加親密度）；沒有是 null */
   note: string | null
+  /** 不是行動、交給別的畫面的一項（請教：引擎的 handoff）；沒有是 null */
+  handoff: string | null
 }
 const pct = (c: number | null): string => (c === null ? '' : `${Math.round(c * 100)}%`)
 
 export function interactRows(list: InteractionView[]): InteractRow[] {
   return list.map((v) => ({
-    kind: v.kind, name: v.name, ok: v.ok, reason: v.reason, needs: v.needs, note: v.note ?? null,
+    kind: v.kind, name: v.name, ok: v.ok, reason: v.reason, needs: v.needs, note: v.note ?? null, handoff: v.handoff ? v.handoff.to : null,
     dcText: v.dc === null ? '' : `DC ${v.dc}`,
     dcTitle: v.mods.map((m) => `${m.label} ${signed(m.value)}`).join('；'),
     chanceText: pct(v.chance),

@@ -220,6 +220,8 @@ function summaryOf(draft: ReportDraft, max: number): string {
 /** 這份報告要加上去的記憶變更（沒有就是空的）。 */
 export function memoryChanges(k: Kernel, state: GameState, draft: ReportDraft): Change[] {
   if (draft.retracted === true) return []
+  // 記憶被抹掉的（outcome.amnesia：人偶晶片那一班、amnesia 的場景）：共同記憶不記（M4-followups-2 第 7 項）
+  if (draft.outcome.amnesia === true) return []
   if (draft.action !== undefined && SKIP_PREFIX.some((p) => draft.action === p || draft.action!.startsWith(`${p}.`))) return []
   // 事件自己用 memory 效果指定的照指定
   if (draft.changes.some((c) => c.op === 'npcs.memory.add')) return []

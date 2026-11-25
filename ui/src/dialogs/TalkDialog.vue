@@ -5,6 +5,7 @@ import Hint from '../components/Hint.vue'
 import LogView from '../components/LogView.vue'
 import ReasonButton from '../components/ReasonButton.vue'
 import TrackBar from '../components/TrackBar.vue'
+import TeachPanel from '../components/TeachPanel.vue'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
 import { failText } from '../lib/lifeView'
@@ -35,7 +36,9 @@ const news = computed(() => newsRows(e.people.news(props.npcId)))
 const stack = computed(() => e.gear.inventory())
 const stages = stageList()
 
-const pane = ref<'talk' | 'gift' | 'read'>('talk')
+const pane = ref<'talk' | 'gift' | 'read' | 'consult'>('talk')
+/** 主角持約的人：說話面板多一個「契約」鈕（M4-ui-contract） */
+const isHeld = computed(() => e.contract.held().some((h) => h.id === props.npcId))
 const gift = ref<string | null>(null)
 const category = ref<ReadCategory | null>(null)
 const free = ref('')
@@ -48,6 +51,7 @@ async function send(kind: string, extra: { item?: string; category?: ReadCategor
 function pick(r: InteractRow) {
   if (r.needs === 'item') { pane.value = 'gift'; return }
   if (r.needs === 'category') { pane.value = 'read'; return }
+  if (r.handoff) { pane.value = 'consult'; return }
   void send(r.kind)
 }
 async function sendGift() {
@@ -85,6 +89,7 @@ const readRow = computed(() => rows.value.find((r) => r.needs === 'category'))
         <b class="nm" data-name>{{ npc.name }}</b> <span class="tag">{{ kindName(npc) }}</span>
         <div class="k">{{ npc.age }} 歲・{{ identityOf(npc) }}</div>
         <div class="chips mt"><span v-if="npc.faction" class="tag">{{ factionOf(npc, e.people.look) }}</span></div>
+        <div v-if="isHeld" class="mt"><button type="button" class="btn sm pri" data-open-contract @click="ui.open('contract', { npcId, side: 'held' })">契約（你是持約人）</button></div>
         <div class="rel" data-relation>和你的關係：<span>{{ rel?.relation ?? '' }}</span> <Hint>這一句由 AI 提議，沒有時留空；到「關係」可以自己寫。</Hint></div>
         <div v-if="known" class="mtr">
           <div class="top"><span>親密度<Hint title="親密度">−100～100，0 是中線。階段：{{ stages.map((s) => `${s.name}（${s.min}）`).join('、') }}。</Hint></span><b data-affinity>{{ affinity }}<small data-stage>{{ stage.name }}</small></b></div>
@@ -107,7 +112,7 @@ const readRow = computed(() => rows.value.find((r) => r.needs === 'category'))
               <span class="in"><b>{{ r.name }}</b><small v-if="r.reason" class="why" data-reason>{{ r.reason }}</small><small v-else-if="r.note" data-again>{{ r.note }}</small></span>
               <span v-if="r.dcText" class="dc mono" :title="r.dcTitle" data-dc>{{ r.dcText }}</span>
               <span v-if="r.chanceText" class="ch mono" data-chance>{{ r.chanceText }}</span>
-              <ReasonButton sm pri :reason="r.reason" :data-do="r.kind" @go="pick(r)">{{ r.needs === 'item' ? '選禮物' : r.needs === 'category' ? '選類別' : '做' }}</ReasonButton>
+              <ReasonButton sm pri :reason="r.reason" :data-do="r.kind" @go="pick(r)">{{ r.needs === 'item' ? '選禮物' : r.needs === 'category' ? '選類別' : r.handoff ? '看課' : '做' }}</ReasonButton>
             </div>
             <div v-for="n in UNOPENED_ACTIONS" :key="n" class="irow off"><span class="in"><b>{{ n }}</b><small class="why">{{ UNOPENED }}</small></span><ReasonButton sm :reason="UNOPENED">做</ReasonButton></div>
           </div>
@@ -121,6 +126,10 @@ const readRow = computed(() => rows.value.find((r) => r.needs === 'category'))
               <button type="button" class="btn sm" @click="pane = 'talk'">返回</button>
               <ReasonButton sm pri :reason="giftRow?.reason ?? (gift ? null : '先選一件禮物。')" data-do="gift-send" @go="sendGift">送出</ReasonButton>
             </div>
+          </div>
+          <div v-else-if="pane === 'consult'" class="gifts" data-consult>
+            <TeachPanel :npc="npcId" />
+            <div class="go"><button type="button" class="btn sm" @click="pane = 'talk'">返回</button></div>
           </div>
           <div v-else class="gifts" data-read>
             <div v-for="c in READ_CATEGORIES" :key="c" class="gift" role="button" tabindex="0" :aria-pressed="category === c" :class="{ on: category === c }" :data-category="c" @click="category = c" @keydown.enter="category = c"><b>{{ CATEGORY_NAME[c] }}</b></div>

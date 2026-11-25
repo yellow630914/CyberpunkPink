@@ -1434,6 +1434,14 @@ export class Play {
     const pc = this.s.pc
     if (pose?.upkeep?.load !== undefined) this.hurt(pc, rollDie(this.dice, parseDie(pose.upkeep.load) ?? NO_DIE), pc)
     if (this.ended) return
+    // 跪姿：前後兩條連接都在（姿勢的 both_links.parts 每一個部位都有連接）時，自己的感載另外加一顆骰（LEWD 3.5 節第九點）
+    const both = pose?.both_links
+    if (both && both.parts.every((part) => this.s.links.some((l) => l.mine === part || l.theirs === part))) {
+      const n = rollDie(this.dice, parseDie(both.load) ?? NO_DIE)
+      this.hurt(pc, n, pc)
+      this.beats.push(beat(pc, `前後兩處都被連著，這一回合自己的感載多了 ${n} 點。`, 'solo.both_links', { load: n, pose: pose!.id }))
+      if (this.ended) return
+    }
     if (pose?.upkeep?.pace) this.addFit(pose.upkeep.pace, pc)
     for (const [part, n] of Object.entries(pose?.link_pace ?? {})) {
       if (this.s.links.some((l) => l.mine === part || l.theirs === part)) this.addFit(n, pc)

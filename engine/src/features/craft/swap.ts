@@ -273,6 +273,11 @@ export function swapDraft(k: Kernel, state: GameState, o: SwapOpts): ReportDraft
       }
       result = 'flawed'
       lines.push(`${who}把${newPart.name}換上了${bp.name}，能用，不過有個地方沒有咬準。`)
+      // 排異（CRAFTING 第 6 節）：義體換零件的檢定失敗，沉溺成本多一點
+      if (bp.kind === 'cyberware' && rules.reject_sink > 0) {
+        product.bonus = { ...(product.bonus ?? {}), sink: (product.bonus?.sink ?? 0) + rules.reject_sink }
+        lines.push(`排異：這一件裝上之後身體不太接受，沉溺成本多 ${rules.reject_sink} 點。`)
+      }
     } else lines.push(`${who}把${newPart.name}換上了${bp.name}${oldPart ? `，換下了${oldPart.name}` : ''}。`)
     // 成品換成新的資料（uid 不變）；換上去的零件拿掉；換下來的零件回背包
     changes.push({ op: 'item', id: bp.id, qty: -1, data: { uid: o.uid } }, takeChange(taken), { op: 'item', id: bp.id, qty: 1, data: product as unknown as Record<string, unknown> })

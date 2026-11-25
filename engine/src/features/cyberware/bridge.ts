@@ -321,7 +321,7 @@ export function swapBridgeDraft(k: Kernel, state: GameState, o: BridgeOpts): Rep
   }
   if (ready !== undefined) lines.push('新橋還要養一陣子，橋本身已經能用，只是它帶的機能要等一等才生效。')
   if (complication) lines.push(quirkName ? `手術留下了併發症：${quirkName}。` : '手術不算乾淨，留下了一點後遺症。')
-  if (old && BRIDGE_CATS.some((c) => q.after.split[c] < q.before.split[c])) lines.push('有幾類的容量比舊橋小：裝著的技能不會自動卸下，超過的要自己整理。')
+  // 容量變小的提醒（裝著的技能超過新容量）由 features/abilities 接手：報告有 actor.ext.cyber 的變更，它自己接一份 ability.capacity（M4-followups-2 第 7 項）
   if (floor > 0 && patient.sink < floor) lines.push('身上的義體把沉溺墊高了。')
   if (firstBridge) lines.push('神經終於有了接口，橋的參數有了起點。')
 

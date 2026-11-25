@@ -22,17 +22,18 @@ import type { ResolvedEffects } from '../../core/rules/effects'
 import { contentAllowed, meterOf } from '../../core'
 import type { Closing, Goal, Nature, SceneEnv, SceneInput, SceneRaw, SceneSetup, TalkEnv } from '../../features/scene'
 import {
-  GOALS, GOAL_NAME, NATURE_FILTER, NATURE_NAME, NOTE_LEN, knownPositions, knownSkills, sceneAct, sceneDefOf, sceneInterrupt, sceneNext, sceneRawOf, sceneSkip, startProblems, tendencyTagIds,
+  NOTE_LEN, knownPositions, knownSkills, sceneAct, sceneDefOf, sceneInterrupt, sceneNext, sceneRawOf, sceneSkip, startProblems, tendencyTagIds,
 } from '../../features/scene'
 import { narrateInputOf } from '../narrated'
 import { callsFor } from './people'
+import { gateInput } from './eventGate'
 import type { ChainCtx, ChainDef, ChainTemplate, StepTemplate } from './chain'
 import type { JudgeOutput, NarrateOutput } from './freeAction'
 import { castOf, freeActionChain, relateEnabled } from './freeAction'
 import type { NpcPlan, Settled } from './sceneBrief'
 import { afterNpcs, briefOf, digestOf, earlierLines, legalMoves, npcOrder, playOf, recentOf, settledOf, sinkInputOf, tendencyInputOf, turnPlayOf } from './sceneBrief'
 import type { GateFixed, GateInput, GateOutput, SceneRelateInput, SceneRewardInput, SexRecordInput, SexRecordOutput, SinkOutput, TalkInput, TalkOutput, TendencyOutput, TurnInput, TurnOutput } from './sceneTasks'
-import { GATE_NATURES, TALK_FIT, TALK_GOAL, talkEnvOf } from './sceneTasks'
+import { TALK_FIT, TALK_GOAL, talkEnvOf } from './sceneTasks'
 import { sceneAiOf } from './settings'
 
 export const ADULT_ACTION_CHAIN = 'adult_action'
@@ -100,19 +101,12 @@ function gateInputOf(ctx: ChainCtx): GateInput {
   const { judgment } = ctx.draft.judge as JudgeOutput
   const def = ctx.k.actions.get(free.input.kind)
   const state = ctx.state
-  return {
-    pc: { id: state.pc!, name: state.actors[state.pc!]!.name },
-    cast: castIds(ctx).map((id) => ({
-      id, name: state.actors[id]!.name, ...callsFor(state, id), affinity: meterOf(ctx.k, state, 'affinity', id),
-      tags: tendencyTagIds(state.actors[id]).filter((t) => contentAllowed(state.rules, t)).map((t) => (ctx.k.content.get('tendency_tag', t)?.name as string | undefined) ?? t),
-    })),
+  return gateInput(ctx.k, state, {
+    cast: castIds(ctx),
     trigger: { action: def?.name ?? free.input.kind, degree: DEGREE_NAME[judgment.degree], summary: [judgment.reason, judgment.twist].filter(Boolean).join(' ') || free.input.text || '', ...((inp.place ?? inp.scene?.place) ? { place: inp.place ?? inp.scene?.place } : {}) },
-    // 清單已經依內容篩選刪過：被關掉的性質根本不在裡面
-    natures: GATE_NATURES.filter((n) => { const f = NATURE_FILTER[n]; return !f || contentAllowed(state.rules, f.tag) }).map((n) => ({ id: n, name: NATURE_NAME[n] })),
-    goals: GOALS.map((g) => ({ id: g, name: GOAL_NAME[g] })),
     forced: inp.forced === true,
     ...(inp.scene ? { fixed: inp.scene } : {}),
-  }
+  })
 }
 
 /** 場景的設定：scene_gate（或明寫的設定）給的性質與目的，加上行動帶的對象、身分、地點。 */

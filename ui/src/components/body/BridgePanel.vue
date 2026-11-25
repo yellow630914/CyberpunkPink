@@ -10,12 +10,14 @@ import { pieceEffectLines, signed, spanText, statusText } from '../../lib/bodyVi
 
 /**
  * 橋（UI.md 8.3 節的抬頭）：型號（設計圖的名字）、四類容量與它的組成（照軟體分到的、補到下限或被扣的、零件的親和）、機能的清單、四項橋參數（基本值、有效值、每個來源）。
- * 全部讀引擎（衍生數值 bridge_cap_*、bridge_*；stores/engine.ts 的 body）；沒有橋的人只寫一句。調校槽等 M4-tuning 做完再接。
+ * 全部讀引擎（衍生數值 bridge_cap_*、bridge_*；stores/engine.ts 的 body）；沒有橋的人只寫一句。調校槽裝了幾個是引擎的 tuning.bridgeView（裝卸在 TuningPanel）。
  */
 const eng = useEngine()
 const bridge = computed(() => eng.body.bridge())
 const cap = computed(() => eng.body.capacity())
 const params = computed(() => eng.body.bridgeParams())
+/** 調校槽（引擎的 tuning.bridgeView）：只在這裡數裝了幾個，裝卸在診所與橋分頁的調校區 */
+const slots = computed(() => eng.tuning.view()?.slots ?? null)
 const now = computed(() => toMinutes(eng.state.time))
 const cats = BRIDGE_CATS
 const grade = (n: number): 1 | 2 | 3 | 4 | 5 => Math.min(5, Math.max(1, n)) as 1 | 2 | 3 | 4 | 5
@@ -29,7 +31,7 @@ const grade = (n: number): 1 | 2 | 3 | 4 | 5 => Math.min(5, Math.max(1, n)) as 1
         <GradeBadge :grade="grade(bridge.grade)" />
         <span class="tag" data-bridge-status>{{ statusText(bridge) }}</span>
         <span v-if="bridge.status === 'recovering' && bridge.ready_at !== undefined" class="tag warn">機能要再等 {{ spanText(bridge.ready_at - now) }}</span>
-        <span class="tag">調校槽：這一版還沒有</span>
+        <span v-if="slots" class="tag" data-tuning-count>調校槽 {{ slots.filter((x) => x.id !== null).length }}／{{ slots.length }}</span>
       </div>
       <div v-if="cap" class="caps" data-bridge-caps>
         <div v-for="c in cats" :key="c" class="cap" :data-cap="c">

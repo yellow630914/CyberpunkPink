@@ -12,7 +12,7 @@
 // 不 import 別的功能：性別只看 actor.gender 與 actor.ext.deck.avatar.gender 的格式。
 
 import type { BattleRun, BattleTarget, BattleUnit, GameState, Kernel } from '../../core'
-import { deriveRng, isRecord, modeOf, tagsAllowed } from '../../core'
+import { deriveRng, isRecord, modeOf, statusRuleOf, tagsAllowed } from '../../core'
 import { DEFAULT_FORM_B_CHANCE } from './curve'
 import type { EnemyEntry, EnemyForm, EnemyFormMove, EnemyGender, EnemyNeutral } from './kinds'
 import { ENEMY_GENDERS, OWNER, resolveEnemy } from './kinds'
@@ -185,6 +185,39 @@ function renameIn(text: string, from: string, to: string): string {
 /** 每一個 run（一步）裡，這個敵人這一步從第幾拍開始。 */
 const cursors = new WeakMap<BattleRun, number>()
 
+/**
+ * 中性外觀的招式名（CYBERSPACE 8.7 節；M4-followups-2 第 7 項）：兩個形象都被內容篩選排除、改用中性外觀時，招牌行動的名字自動換成「挑逗」「灌注」「綁縛」（照效果種類）。
+ * 資料的 neutral.moves 寫了的照寫的，這裡只補沒寫的。種類看招牌行動技能的效果：控制（status 的 kind 是 control、pinned_down、net.pin）是綁縛；
+ * 神經的感載、餘韻、沉溺是灌注；快感的感載是挑逗；都沒有的不換。
+ */
+export const NEUTRAL_MOVE_NAMES = { tease: '挑逗', infuse: '灌注', bind: '綁縛' } as const
+
+export function neutralMoveName(k: Pick<Kernel, 'content'>, abilityId: string): string | undefined {
+  const ab = k.content.get('ability', abilityId)
+  if (!ab) return undefined
+  const found = new Set<keyof typeof NEUTRAL_MOVE_NAMES>()
+  const seen = new Set<unknown>()
+  const walk = (v: unknown): void => {
+    if (typeof v !== 'object' || v === null || seen.has(v)) return
+    seen.add(v)
+    if (Array.isArray(v)) { v.forEach(walk); return }
+    const r = v as Record<string, unknown>
+    if (typeof r.op === 'string') {
+      if (r.op === 'net.pin') found.add('bind')
+      else if (r.op === 'status' && typeof r.status === 'string') {
+        if (r.status === 'pinned_down' || statusRuleOf(k.content, r.status)?.kind === 'control') found.add('bind')
+      } else if (r.op === 'load' || r.op === 'damage') {
+        if (r.type === 'pleasure') found.add('tease')
+        else if (r.type === 'neural') found.add('infuse')
+      } else if (r.op === 'afterglow' || r.op === 'sink') found.add('infuse')
+    }
+    Object.values(r).forEach(walk)
+  }
+  walk(ab)
+  const kind = found.has('bind') ? 'bind' : found.has('infuse') ? 'infuse' : found.has('tease') ? 'tease' : undefined
+  return kind ? NEUTRAL_MOVE_NAMES[kind] : undefined
+}
+
 export function installForms(k: Kernel): void {
   // 開戰時擲一次：記在 unit.ext.enemies.form；單位的名字改成對主角的那一個
   k.battle.on('unit.ready', OWNER, ({ run, unit }) => {
@@ -203,18 +236,36 @@ export function installForms(k: Kernel): void {
     if (formEnemy(k, unit)) cursors.set(run, run.beats.length)
   }, -100)
 
-  // 敵人出手之後：這一步的紀錄換成目標對到的形象的名字與招牌行動的名字（範圍攻擊看主角）
+  // 每個自己的回合開始：從這裡算起的紀錄，是這個人這幾步的（玩家的行動沒有 ai.step，靠它找起點）
+  k.battle.on('turn.start', OWNER, ({ run }) => {
+    cursors.set(run, run.beats.length)
+  }, -100)
+
+  // 敵人出手之後：這一步的紀錄換成目標對到的形象的名字與招牌行動的名字（範圍攻擊看主角）。
+  // 別人打這個敵人（玩家或夥伴的行動、目標是一個有雙形象的敵人）：那幾拍裡敵人的名字，照這個動手的人看到的形象換（M4-followups-2 第 7 項）
   k.battle.on('action.done', OWNER, ({ run, unit, action, target }) => {
-    const e = formEnemy(k, unit)
     const from = cursors.get(run)
-    if (!e || from === undefined) return
+    const e = formEnemy(k, unit)
+    if (!e) {
+      const foe = unitOfTarget(run, target)
+      const fe = foe && foe.side !== unit.side && !isAreaAbility(k, action) ? formEnemy(k, foe) : undefined
+      if (from !== undefined && foe && fe) {
+        const seen = formFor(k, run.state, foe, unit, { layer: run.mode.layer })
+        const base = formFor(k, run.state, foe, null, { layer: run.mode.layer })
+        if (seen && base && foe.name === base.name) for (const beat of run.beats.slice(from)) beat.text = renameIn(beat.text, foe.name, seen.name)
+      }
+      cursors.set(run, run.beats.length)
+      return
+    }
+    if (from === undefined) return
     cursors.set(run, run.beats.length)
     const aimed = !isAreaAbility(k, action) ? unitOfTarget(run, target) : undefined
     const view = formFor(k, run.state, unit, aimed, { layer: run.mode.layer })
     if (!view) return
     const base = formFor(k, run.state, unit, null, { layer: run.mode.layer })!
     const abName = k.content.get<{ id: string; name?: string }>('ability', action)?.name
-    const moveName = view.moves[action]?.name
+    // 資料寫了的招式名照寫的；中性外觀沒寫的，照效果種類自動換成挑逗、灌注、綁縛
+    const moveName = view.moves[action]?.name ?? (view.form === 'neutral' ? neutralMoveName(k, action) : undefined)
     for (const beat of run.beats.slice(from)) {
       // 招牌行動的那一拍：「名字：招式。」
       if (abName && moveName && beat.tag === 'skill' && beat.data?.ability === action) beat.text = beat.text.split(`：${abName}。`).join(`：${moveName}。`)

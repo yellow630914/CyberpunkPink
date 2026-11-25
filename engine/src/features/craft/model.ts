@@ -51,6 +51,11 @@ export interface MakerRule {
   quirk_chance: number
   /** 要不要自己會這張設計圖（店家與原廠有圖，不必；自己動手與同人照著組要自己有圖） */
   needs_known: boolean
+  /**
+   * 檢定的 DC 加減（負的是容易）：同人社團「成功率高」（CRAFTING 10.1 節）暫定 −4（M4-followups-2 第 4 項），不是一定成功；
+   * 擲檢定的人是 by（主角或夥伴，要自己會這張圖）：社團照著他的圖組，手藝用他的。沒寫是 0
+   */
+  dc_mod: number
 }
 
 export interface CraftRules {
@@ -64,6 +69,8 @@ export interface CraftRules {
   overspec_step: number
   /** 組的是橋再 +這麼多 */
   bridge_step: number
+  /** 排異（CRAFTING 第 6 節）：義體組裝或換零件的檢定失敗（成品帶瑕疵）時，沉溺成本另外加這麼多（暫定 1；M4-followups-2 第 4 項） */
+  reject_sink: number
   /** 做一件花的分鐘（一個時段） */
   minutes: number
   /** 自己組裝要在住處的話，住處的等級至少多少（條件 at_home 的 level_min；有工作台的據點是二級以上） */
@@ -88,18 +95,19 @@ export interface CraftRules {
 
 export const DEFAULT_CRAFT_RULES: CraftRules = {
   dc: [10, 13, 16, 19, 22],
-  brand_step: 1, seam_step: 1, overspec_step: 3, bridge_step: 3,
+  brand_step: 1, seam_step: 1, overspec_step: 3, bridge_step: 3, reject_sink: 1,
   minutes: 240,
   self_home_level: 2,
   workshop_bonus: 2,
   attr: 'tech',
   skills: { cyberware: 'cyberware', mech: 'mechanics', bio: 'medicine' },
   makers: {
-    self: { fee_per_grade: 0, check: true, overspec: true, registers: false, full_set_only: false, fine: false, quirk_chance: 0, needs_known: true },
-    shop: { fee_per_grade: 100, check: false, overspec: false, registers: true, full_set_only: false, fine: false, quirk_chance: 0, needs_known: false },
-    doujin: { fee_per_grade: 60, check: false, overspec: true, registers: false, full_set_only: false, fine: false, quirk_chance: 0.25, needs_known: true },
+    self: { fee_per_grade: 0, check: true, overspec: true, registers: false, full_set_only: false, fine: false, quirk_chance: 0, needs_known: true, dc_mod: 0 },
+    shop: { fee_per_grade: 100, check: false, overspec: false, registers: true, full_set_only: false, fine: false, quirk_chance: 0, needs_known: false, dc_mod: 0 },
+    // 同人社團：成功率高 ＝ 擲檢定、DC −4（CRAFTING 10.1 節；暫定，M4-followups-2 第 4 項）
+    doujin: { fee_per_grade: 60, check: true, overspec: true, registers: false, full_set_only: false, fine: false, quirk_chance: 0.25, needs_known: true, dc_mod: -4 },
     // 原廠的工錢暫定（CRAFTING 沒寫數字；M4-craft 回報）
-    factory: { fee_per_grade: 150, check: false, overspec: false, registers: true, full_set_only: true, fine: true, quirk_chance: 0, needs_known: false },
+    factory: { fee_per_grade: 150, check: false, overspec: false, registers: true, full_set_only: true, fine: true, quirk_chance: 0, needs_known: false, dc_mod: 0 },
   },
   salvage_base: 0.7, salvage_per_skill: 0.05, salvage_max: 0.95, salvage_minutes: 60,
   swap_minutes: 60, swap_shop_ratio: 0.5,
@@ -113,7 +121,7 @@ const BOOL_KEYS = ['check', 'overspec', 'registers', 'full_set_only', 'fine', 'n
 export function ruleProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
   if (e.dc !== undefined && !(Array.isArray(e.dc) && e.dc.length === 5 && e.dc.every((n) => isSafeInt(n) && n >= 1 && n <= 40))) p.push('dc 要是五個整數（設計圖等級 I～V 的標準 DC）')
-  for (const f of ['brand_step', 'seam_step', 'overspec_step', 'bridge_step', 'workshop_bonus'] as const) {
+  for (const f of ['brand_step', 'seam_step', 'overspec_step', 'bridge_step', 'workshop_bonus', 'reject_sink'] as const) {
     if (e[f] !== undefined && !(isSafeInt(e[f]) && (e[f] as number) >= 0 && (e[f] as number) <= 20)) p.push(`${f} 要是 0～20 的整數`)
   }
   for (const f of ['salvage_base', 'salvage_per_skill', 'salvage_max'] as const) if (e[f] !== undefined && !isRatio(e[f])) p.push(`${f} 要是 0～1 的數字`)
@@ -138,6 +146,7 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
         else {
           if (v.fee_per_grade !== undefined && !isNonNeg(v.fee_per_grade)) p.push(`makers.${kind}.fee_per_grade 要是 0 以上的數字（設計圖等級 × 這個數字）`)
           if (v.quirk_chance !== undefined && !isRatio(v.quirk_chance)) p.push(`makers.${kind}.quirk_chance 要是 0～1 的數字`)
+          if (v.dc_mod !== undefined && !(isSafeInt(v.dc_mod) && (v.dc_mod as number) >= -10 && (v.dc_mod as number) <= 10)) p.push(`makers.${kind}.dc_mod 要是 −10～10 的整數（檢定 DC 的加減）`)
           for (const f of BOOL_KEYS) if (v[f] !== undefined && typeof v[f] !== 'boolean') p.push(`makers.${kind}.${f} 要是 true 或 false`)
         }
       }
@@ -154,7 +163,7 @@ export function craftRules(k: Pick<Kernel, 'content'>): CraftRules {
   const bad = new Set(ruleProblems(e).map((m) => m.split(/[ .：]/)[0]))
   const ok = (key: string): boolean => e[key] !== undefined && !bad.has(key)
   if (ok('dc')) out.dc = [...(e.dc as number[])]
-  for (const f of ['brand_step', 'seam_step', 'overspec_step', 'bridge_step', 'minutes', 'self_home_level', 'workshop_bonus'] as const) if (ok(f)) out[f] = e[f] as number
+  for (const f of ['brand_step', 'seam_step', 'overspec_step', 'bridge_step', 'minutes', 'self_home_level', 'workshop_bonus', 'reject_sink'] as const) if (ok(f)) out[f] = e[f] as number
   for (const f of ['salvage_base', 'salvage_per_skill', 'salvage_max', 'salvage_minutes', 'swap_minutes', 'swap_shop_ratio'] as const) if (ok(f)) out[f] = e[f] as number
   if (ok('attr')) out.attr = e.attr as AttrId
   if (ok('skills')) for (const [key, v] of Object.entries(e.skills as Record<string, unknown>)) if (key in out.skills && isText(v)) out.skills[key as keyof CraftRules['skills']] = v
@@ -165,6 +174,7 @@ export function craftRules(k: Pick<Kernel, 'content'>): CraftRules {
       const m = out.makers[kind]
       if (isNonNeg(v.fee_per_grade)) m.fee_per_grade = v.fee_per_grade
       if (isRatio(v.quirk_chance)) m.quirk_chance = v.quirk_chance
+      if (isSafeInt(v.dc_mod) && v.dc_mod >= -10 && v.dc_mod <= 10) m.dc_mod = v.dc_mod
       for (const f of BOOL_KEYS) if (typeof v[f] === 'boolean') m[f] = v[f]
     }
   }

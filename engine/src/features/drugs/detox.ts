@@ -1,10 +1,11 @@
 // L6 功能 drugs 的戒斷療程（DOWNTIME 3.5 節「診所的戒斷療程」；dev/work/M4-drugs.md 第 6 點）。
 // 腳下的設施有 clinic（和 medical、cyberware 讀同一欄 facility_type.clinic）或設施種類的 detox: { free?: true }：
 // 那一種藥的成癮值 −amount（預設 40）、時間過 days 天（預設 3）、收 price（預設 600；free 的設施不收）。
-// 價錢還沒有乘區的倍率（和 medical 一樣；TRADE 第 3 節說服務的價錢也乘，等一起處理）。蜜糖會的互助診所（好感 30 以上免費）由資料用 detox.free 表示，好感的條件這一張不管。
+// 價錢還沒有乘區的倍率（和 medical 一樣；TRADE 第 3 節說服務的價錢也乘，等一起處理）。
+// 免費：detox.free: true（一律免費）、或 detox.favor: { faction, min }（這個勢力對主角的好感 min 以上才免費，沒到照收；蜜糖會的互助診所：好感 30 以上，M4-followups-2 第 7 項）。
 
 import type { ActorId, Change, ContentEntry, GameState, Kernel, ReportDraft, TimelineBeat } from '../../core'
-import { ActionBlocked, clone, formatAmount, formatDuration, isRecord } from '../../core'
+import { ActionBlocked, clone, formatAmount, formatDuration, isRecord, meterOf } from '../../core'
 import { DAY, DETOX_ACTION, FACILITY_TYPE_KIND, drugDef, drugRules, readDrugs, writeDrugs } from './model'
 
 type Pool = 'cred' | 'cash'
@@ -38,14 +39,18 @@ export interface DetoxQuote {
 type FacilityType = ContentEntry & { name?: unknown; clinic?: unknown; detox?: unknown }
 
 /** 現在站的設施提供戒斷療程嗎（用條件 at_facility 問；沒有人註冊就沒有）。 */
-export function detoxHere(k: Kernel, state: GameState): { name: string; free: boolean } | null {
+export function detoxHere(k: Kernel, state: GameState): { name: string; free: boolean; favor?: { faction: string; min: number; have: number } } | null {
   if (!k.conditions.kinds().includes('at_facility') || !k.content.hasKind(FACILITY_TYPE_KIND)) return null
   const ctx = { state, stats: k.stats, timeRules: k.timeRules }
   for (const t of k.content.list<FacilityType>(FACILITY_TYPE_KIND)) {
     if (t.clinic === undefined && t.detox === undefined) continue
     if (!k.conditions.test({ kind: 'at_facility', types: [t.id] }, ctx)) continue
-    const free = isRecord(t.detox) && t.detox.free === true
-    return { name: typeof t.name === 'string' && t.name ? t.name : t.id, free }
+    const d = isRecord(t.detox) ? t.detox : undefined
+    // 好感的條件：k.meters 沒有 favor 這個量表（勢力的功能沒裝）就當好感 0，不免費
+    const f = d && isRecord(d.favor) && typeof d.favor.faction === 'string' && typeof d.favor.min === 'number' ? { faction: d.favor.faction, min: d.favor.min } : undefined
+    const favor = f ? { ...f, have: k.meters.has('favor') ? meterOf(k, state, 'favor', f.faction) : 0 } : undefined
+    const free = d?.free === true || (favor !== undefined && favor.have >= favor.min)
+    return { name: typeof t.name === 'string' && t.name ? t.name : t.id, free, ...(favor ? { favor } : {}) }
   }
   return null
 }

@@ -10,6 +10,8 @@ import ReasonButton from '../components/ReasonButton.vue'
 import QuoteCard from '../components/body/QuoteCard.vue'
 import MedicalPanel from '../components/body/MedicalPanel.vue'
 import SinkPanel from '../components/body/SinkPanel.vue'
+import TuningPanel from '../components/body/TuningPanel.vue'
+import MalwarePanel from '../components/body/MalwarePanel.vue'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
 import { CATEGORY_NAME } from '../lib/skillView'
@@ -18,7 +20,7 @@ import type { PartId } from '@engine/src/features/cyberware'
 
 /**
  * 診所（對話框；站在帶 clinic 的設施上才開得了，自己動刀的入口在住處；CYBERWARE 第 2、5 節、dev/adr/0019 第三節）。
- * 分頁：安裝（含換橋）、拆下、換零件、修理與解鎖、治療、戒斷、洗點（技能的歷練點退回來重學；M4-ui-creation）、清除韌體（等 M4-malware）、調校（等 M4-tuning）。
+ * 分頁：安裝（含換橋）、拆下、換零件、修理與解鎖、治療、戒斷、洗點（技能的歷練點退回來重學；M4-ui-creation）、清除韌體（MalwarePanel，引擎的 malware）、調校與靜室（TuningPanel，引擎的 tuning）。
  * 每一項先顯示引擎的報價（費用、成本、休養、併發症的機率、自己動刀的 DC 與成功率），按確認才送；擋住的原因逐字用引擎的。
  * 元件只編排：誰能動刀、費率、成本、休養、機率都是 stores/engine.ts 的 body（features/cyberware、medical、drugs、sink），這裡不算。
  */
@@ -273,13 +275,9 @@ function detox(id: string) { done(eng.body.detox(id), '療程做完了。') }
         </section>
       </div>
 
-      <!-- 清除韌體、調校：引擎還沒有 -->
-      <div v-else-if="tab === 'malware'" class="cl one" data-tab="malware">
-        <section class="panel cut pad"><p class="empty-note" data-empty>這一版還沒有惡意韌體。診所清除惡意韌體要等引擎的惡意韌體做完才有。</p></section>
-      </div>
-      <div v-else class="cl one" data-tab="tuning">
-        <section class="panel cut pad"><p class="empty-note" data-empty>這一版還沒有調校。橋的調校槽、強制安裝與靜室要等引擎的調校做完才有。</p></section>
-      </div>
+      <!-- 清除韌體、調校與靜室：引擎的 malware、tuning（價錢、成功率、擋住的原因都是引擎的） -->
+      <div v-else-if="tab === 'malware'" class="cl one" data-tab="malware"><MalwarePanel /></div>
+      <div v-else class="cl one" data-tab="tuning"><TuningPanel /></div>
     </template>
   </Dialog>
 </template>

@@ -412,8 +412,12 @@ export class Game {
     return reports
   }
 
-  /** 自由行動：跑 free_action 這條鏈。 */
+  /**
+   * 自由行動：跑 free_action 這條鏈。資料寫了 chain: adult_action 的種類（誘惑 flirt）轉到 adult_action 這條鏈（可能進成人場景；
+   * 和 sceneBegin({ action }) 同一條，對象是 input.target）。
+   */
   act(input: ActionInput, opts: ActOptions = {}): Promise<ActResult> {
+    if (this.k.actions.get(input.kind)?.chain === ADULT_ACTION_CHAIN) return this.runChain(ADULT_ACTION_CHAIN, { action: input }, opts, input.text || input.kind)
     return this.runChain('free_action', input, opts, input.text || input.kind)
   }
 

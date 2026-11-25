@@ -4,7 +4,7 @@
 // 每個 op 註冊時一起給格式檢查（problems）：欄位的型別、不認得的欄位、公式用 amountProblems；訊息開頭是欄位的名字。
 
 import type { AttackOpts, BattleEffectCtx, BattleRun, BattleUnit, BattleWeapon, DamageType, Kernel, RollPart } from '../../core'
-import { BATTLE_SLOTS, BattleBlocked, STATUS_UNTILS, WOUND_PARTS, attrMod, damageTypeOf, isRecord, noteAttack, onField, poolName, statusRuleOf, unitTag, wielded } from '../../core'
+import { BATTLE_SLOTS, BattleBlocked, RESIST_TAGS, STATUS_UNTILS, WOUND_PARTS, attrMod, damageTypeOf, isRecord, noteAttack, onField, poolName, statusRuleOf, unitTag, wielded } from '../../core'
 import { tagsOf } from './items'
 import { ATTR, B, F, S, STATUS_KINDS, TYPE, UNTIL, adjacentPick, list, num, oneOf, orWord, pair, qty, schema, shape } from './schema'
 import { LIGHT, PART_NAME, TORSO_HP_LOSS, isPart } from './wounds'
@@ -200,6 +200,9 @@ function statusOp(ctx: Ctx, e: Eff): void {
     const skill = typeof sv.skill === 'string' ? sv.skill : undefined
     const label = skill ? run.k.stats.skillName(skill) : run.k.stats.attrName(sv.attr as keyof BattleUnit['attrs'])
     const tags = Array.isArray(sv.tags) ? sv.tags.map(String) : []
+    // 控制類的狀態帶 resist_control、勸降（tags 寫 persuade）帶 resist_lure：沉溺的分段、調校給的「抵抗」加減才算得進來（M4-followups-2 第 6 項）
+    if (statusRuleOf(run.k.content, String(e.status))?.kind === 'control' && !tags.includes('resist_control')) tags.push('resist_control')
+    if (tags.includes('persuade') && !tags.includes(RESIST_TAGS.persuade!)) tags.push(RESIST_TAGS.persuade!)
     const { ok } = run.save(unit, sv.attr as keyof BattleUnit['attrs'], skill, qty(ctx, sv.dc, 10), label, [], tags, unit.id !== user.id ? user : undefined)
     if (ok) return
   }
@@ -233,18 +236,29 @@ function unstatusOp(ctx: Ctx, e: Eff): void {
 /** vs 可以對的三種防守值（防火牆、迴避、意志）。 */
 const DEFENSES = ['firewall', 'evade', 'will'] as const
 
+/**
+ * 被打的人的「抵抗」加減（RESIST_TAGS；M4-followups-2 第 6 項）：檢定的標籤對到抵抗的標籤，單位有對到角色就讀他身上被動效果 check.tags 含那個標籤的合計
+ * （沉溺迷醉的「抵抗控制 −2」就是 −2）。加進他的防守值：抵抗變差，DC 就低。
+ */
+function resistOf(ctx: Ctx, unit: BattleUnit, tags: string[]): number {
+  const { run } = ctx
+  if (!unit.actor || !run.state.actors[unit.actor]) return 0
+  const wanted = [...new Set(tags.flatMap((t) => (RESIST_TAGS[t] ? [RESIST_TAGS[t]!] : [])))]
+  return wanted.reduce((n, tag) => n + run.k.passives.checkParts(run.state, unit.actor!, { tags: [tag] }).reduce((s, p) => s + p.value, 0), 0)
+}
+
 /** 一種防守值（check 的 vs）。掛著的東西只有防火牆（等於它的迴避，E5）；沒有對象、這一種算不出來回傳 null（整筆跳過）。 */
 function defenseOf(ctx: Ctx, key: string, unit: BattleUnit | undefined, tags: string[]): number | null {
   const { run, user } = ctx
   if (ctx.overlay) return key === 'firewall' ? run.standIn(ctx.overlay).evade : null
   if (!unit) return null
   if (key === 'evade') return run.evadeOf(unit, user).total
-  if (key === 'will') return 10 + attrMod(unit.attrs.resolve ?? 10) + (unit.skills.composure ?? 0)
+  if (key === 'will') return 10 + attrMod(unit.attrs.resolve ?? 10) + (unit.skills.composure ?? 0) + resistOf(ctx, unit, tags)
   // 防火牆（dev/adr/0015 E5）：有甲板（unit.ext.deck，有 grade）用甲板的（沒寫是 10），沒有的用不含遮蔽與狀態的迴避；再加修正 firewall（問的是目標，帶這次檢定的標籤）
   const deck = unit.ext.deck
   const hasDeck = isRecord(deck) && typeof deck.grade === 'number' && Number.isFinite(deck.grade)
   const base = hasDeck ? (typeof deck.firewall === 'number' && Number.isFinite(deck.firewall) ? deck.firewall : 10) : unit.evade
-  return base + run.mods('firewall', unit, user, undefined, tags).reduce((sum, p) => sum + p.value, 0)
+  return base + run.mods('firewall', unit, user, undefined, tags).reduce((sum, p) => sum + p.value, 0) + resistOf(ctx, unit, tags)
 }
 
 /** 加值：一個數字或公式（標成「加值」），或一串 { label, value }（每一項各自標名字，檢定的明細才分得出來源）。 */
@@ -430,6 +444,12 @@ function woundOp(ctx: Ctx, e: Eff): void {
   const unit = who(ctx)
   if (!unit) return
   const clear = e.mode === 'clear'
+  // 醫療有裝（效果 op wound_treat）就轉呼叫它的同一套，兩邊只維護一份（M4-followups-2 第 5 項）；只有現實的戰場有重創，內海與沒有裝醫療時照下面自己做
+  const treat = run.mode.layer === 'meat' ? run.k.battle.getEffect('wound_treat') : undefined
+  if (treat) {
+    treat.fn(ctx, { op: 'wound_treat', all: clear, ...(typeof e.part === 'string' ? { part: e.part } : {}) })
+    return
+  }
   const parts = typeof e.part === 'string' ? [e.part] : Object.keys(PART_NAME)
   for (const part of parts) {
     if (!isPart(part)) continue

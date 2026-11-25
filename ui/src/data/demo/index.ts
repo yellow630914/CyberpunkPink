@@ -26,7 +26,8 @@ import { contractContent } from './contract'
  * body.ts 義體（橋、七件義體與零件、怪癖）、藥、開局的身體（M4-ui-body）。
  * craft.ts 設計圖、零件、怪癖、授權書與三種做的地方（M4-ui-craft）。
  * creation.ts 生命軌跡的條目與傾向標籤、出身白給的（withDemoOrigins）、買得到的橋與衣服、建角第 6 與第 9 步的清單（M4-ui-creation）。
- * contract.ts 阿音、範圍 contract 的觸發點與幾件示意事件、「主角是持約人」的開局 demoHolderChanges（M4-contract-holder）。
+ * contract.ts 阿音、範圍 contract 的觸發點與幾件示意事件、「主角是持約人」的開局 demoHolderChanges（M4-contract-holder）；
+ *   M4-ui-contract 補：「主角是契約人」的開局 demoBoundChanges、三件指令事件、流竄 AI 與兩件蠱惑事件、牠的吻、調校靜水與聚光、可以請教的老何。
  * 之後的介面工單往這裡加自己的檔。
  */
 export const DEMO_PACK_ID = 'demo_world'
@@ -61,7 +62,7 @@ export function demoStartFeature(): Feature {
 }
 
 export { demoPeopleChanges } from './people'
-export { demoHolderChanges, DEMO_HOLDER_NPC } from './contract'
+export { demoHolderChanges, demoBoundChanges, DEMO_HOLDER_NPC, DEMO_TEACHER_NPC, DEMO_AI, DEMO_STILL } from './contract'
 export { demoNetChanges, DEMO_DECK, DEMO_DECK_UID, DEMO_SCRIPT } from './net'
 export { demoBodyChanges, DEMO_START_SINK } from './body'
 export { demoCraftChanges } from './craft'

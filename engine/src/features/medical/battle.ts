@@ -2,6 +2,7 @@
 // 落在 who 指到的那個人身上：他在這一場的重創，輕的直接解除（狀態拿掉）、重的降成輕的（軀幹的生命值上限與橋的承受層數加回來；肢體的重創命中 −4 回到輕的數字；
 // 護甲失效是「直到修理」，不在這裡還）；all: true 是全部清掉。只在現實的戰場做得了。
 // 狀態的名字照 features/combat 的約定（limb_hurt、dazed、bleeding），這裡不 import 它。
+// part 寫了就只處理那一個部位（features/combat 的效果 op wound 在現實的戰場轉呼叫這一套：M4-followups-2 第 5 項，兩邊只有一份邏輯）。
 
 import type { BattleEffectCtx, BattleUnit, Kernel } from '../../core'
 import { BattleBlocked, unitTag } from '../../core'
@@ -21,6 +22,7 @@ function treatOp(ctx: BattleEffectCtx, e: Record<string, unknown>): void {
   if (!unit || run.isStandIn(unit)) return
   const clear = e.all === true
   for (const part of PARTS) {
+    if (typeof e.part === 'string' && e.part !== part) continue
     const level = unit.wounds[part] ?? 0
     if (!level) continue
     if (level === 2) {
@@ -43,8 +45,9 @@ export function installBattle(k: Kernel): void {
   k.battle.effect(WOUND_TREAT_OP, OWNER, treatOp, {
     problems: (e) => {
       const p: string[] = []
-      for (const key of Object.keys(e)) if (!['op', 'who', 'if', 'all'].includes(key)) p.push(`${key}：沒有這個欄位（可以寫：who、if、all）`)
+      for (const key of Object.keys(e)) if (!['op', 'who', 'if', 'all', 'part'].includes(key)) p.push(`${key}：沒有這個欄位（可以寫：who、if、all、part）`)
       if (e.all !== undefined && typeof e.all !== 'boolean') p.push('all 要是 true 或 false')
+      if (e.part !== undefined && !(typeof e.part === 'string' && (PARTS as readonly string[]).includes(e.part))) p.push(`part 要是 ${PARTS.join('、')} 其中一個`)
       return p
     },
   })

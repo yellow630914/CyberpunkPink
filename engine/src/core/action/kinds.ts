@@ -40,6 +40,11 @@ export interface ActionKindDef {
   reportKind: ReportKind
   /** 情境的標籤，給特質與狀態的修正看 */
   tags?: string[]
+  /**
+   * 走哪一條任務鏈（資料的 chain；沒寫是自由行動 free_action）：adult_action 是可能進成人場景的行動（誘惑 flirt；AI_TASKS 3.5 節），
+   * 外殼的 Game.act 照它轉到那一條鏈（M4-followups-2 第 7 項）。
+   */
+  chain?: string
   /** 現在能不能做：回傳擋住的原因（給玩家看的完整句子），可以做就回傳 null */
   block?(state: GameState, input: ActionInput): string | null
   /** 參考範圍：照成功程度與這一區的等級，平常會拿到什麼（AI_TASKS 3.1 節第 3 步）。這是給 AI 的預設，不是上限 */

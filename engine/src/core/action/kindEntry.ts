@@ -48,6 +48,7 @@ export function actionKindToDef(e: ActionKindEntry, k: ActionKernel, owner = 'ac
     minutes: e.minutes, maxMinutes: e.max_minutes, reportKind: 'action',
     ...(e.skill ? { skill: e.skill } : {}),
     ...(e.tags ? { tags: [...e.tags] } : {}),
+    ...(e.chain ? { chain: e.chain } : {}),
   }
   if (e.requires) {
     const cond = e.requires as unknown as Condition

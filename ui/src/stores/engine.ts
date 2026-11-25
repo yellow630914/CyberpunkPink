@@ -70,6 +70,12 @@ import * as cyberware from '@engine/src/features/cyberware'
 import * as medical from '@engine/src/features/medical'
 import * as drugs from '@engine/src/features/drugs'
 import * as sink from '@engine/src/features/sink'
+import * as contractFx from '@engine/src/features/contract'
+import * as malwareFx from '@engine/src/features/malware'
+import * as tuningFx from '@engine/src/features/tuning'
+import * as lureFx from '@engine/src/features/lure'
+import { lessonBlock as trainBlock, lessonDraft as trainDraft, teachOptions as trainOptions } from '@engine/src/features/abilities'
+import type { LessonOpts as TrainOpts, TeachOption } from '@engine/src/features/abilities'
 import { BRIDGE_PARAMS, PARAM_NAME, bridgeOf as lewdBridgeOf } from '@engine/src/features/lewd'
 import { paramStatId } from '@engine/src/features/lewd/model'
 import { PASSIVE_SOURCE_NAMES } from '@engine/src'
@@ -77,7 +83,7 @@ import type { RollPart } from '@engine/src'
 import { PAIN_TAG } from '../lib/bodyView'
 import type { BodyBag, BodyBagKind, BodyPassive } from '../lib/bodyView'
 import type { PartyMember } from '../data/types'
-import { DEMO_SCENES, demoBodyChanges, demoCraftChanges, demoNetChanges, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature, withDemoOrigins } from '../data/demo'
+import { DEMO_SCENES, demoBoundChanges, demoBodyChanges, demoHolderChanges, demoCraftChanges, demoNetChanges, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature, withDemoOrigins } from '../data/demo'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
 import { MAX_KINKS, TABLE_NAME, abilitiesStepBlock, ageBlock, askStep, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, creationSummary, cyberStepBlock, gearStepBlock, kinkChoices, lifepathProblems, lifepathResults, lifepathRoll, lifepathTables, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
 import type { BodyStep, LifepathTable } from '@engine/src/features/creation'
@@ -91,6 +97,8 @@ import { aiSettingsFromUi, logEntryOf, type EngineLogEntry, type UiAiFields } fr
  * 包住引擎的 store：呼叫引擎的動作、拿回報告、把狀態交給畫面。不寫規則。
  * 引擎的 state 是普通物件、會被整份換掉內容，所以每次變化後把一份複製放進 shallowRef。
  */
+/** 示意局的開局：一般、主角是契約人（欠伊甸園的債，佇列三條）、主角是持約人（買下阿音的債） */
+export type StartKind = 'normal' | 'bound' | 'holder'
 export interface ActOutcome { status: ActStatus | 'busy'; reason?: string; /** 提醒（玩家寫的寫法指令被截到 200 字、AI 關著指令用不到） */ notices?: string[] }
 /** 自己潛進去的一趟離開時的帳（見 store 的 lastEnd）：報告的句子、拿到的東西、迷宮館的結算 */
 export interface EndRecord {
@@ -223,8 +231,8 @@ export const useEngine = defineStore('engine', () => {
   }
 
   /** 開新局；有 draft 時開局與建角一起提交（被擋下就原樣回傳是哪一步，原本那一局完全不動）。 */
-  function newGame(opts: { seed: number; rules?: object; draft?: CreationDraft; testContent?: ContentPack[]; testFeatures?: Feature[]; people?: boolean }): CreationBlock[] {
-    const { draft, testContent, testFeatures, people, ...rest } = opts
+  function newGame(opts: { seed: number; rules?: object; draft?: CreationDraft; testContent?: ContentPack[]; testFeatures?: Feature[]; people?: boolean; start?: StartKind }): CreationBlock[] {
+    const { draft, testContent, testFeatures, people, start, ...rest } = opts
     // 只給測試用：把測試自帶的最小內容接在核心的內容後面，換一個新的引擎（畫面與正式的流程不傳這個參數）
     if (testContent) {
       clearQueued()
@@ -239,7 +247,7 @@ export const useEngine = defineStore('engine', () => {
       if (blocks.length > 0) return blocks
       previewRules.value = null
       clearQueued()
-      game.newGame({ ...rest, setup: (state) => withPeople(buildCreationReport(game.k, state, draft), state, people !== false, draft) })
+      game.newGame({ ...rest, setup: (state) => withPeople(buildCreationReport(game.k, state, draft), state, people !== false, draft, start ?? 'normal') })
       return []
     }
     previewRules.value = null
@@ -252,11 +260,16 @@ export const useEngine = defineStore('engine', () => {
    * 建角的開新局：名冊的成員是引擎照出身的名冊放的，示意包只補候選人。
    * 草稿自己選了橋、義體或裝備（第 6、9 步）時，身上有什麼完全是引擎照選的給的：示意包不再送那一副橋、甲板、義眼與整包構裝（只補組裝的零件與候選人）。
    */
-  const withPeople = (r: ReportDraft, state: GameState, on: boolean, draft: CreationDraft): ReportDraft => {
+  const withPeople = (r: ReportDraft, state: GameState, on: boolean, draft: CreationDraft, start: StartKind = 'normal'): ReportDraft => {
     if (!(on && demoOn)) return r
     const picked = draft.bridge !== undefined || draft.cyber !== undefined || draft.gear !== undefined
     const roster = { origin: (originView(game.k, draft.origin)?.roster ?? []).map((n) => n.id) }
-    return { ...r, changes: [...r.changes, ...(picked ? [] : [...demoNetChanges(), ...demoBodyChanges()]), ...demoCraftChanges(), ...demoPeopleChanges(game.k, state, roster)] }
+    const base: ReportDraft = { ...r, changes: [...r.changes, ...(picked ? [] : [...demoNetChanges(), ...demoBodyChanges()]), ...demoCraftChanges(), ...demoPeopleChanges(game.k, state, roster)] }
+    if (start === 'normal') return base
+    // 契約的開局要看得到主角：先把前面的變更套在一份複本上，再問示意包「這一局的契約」是什麼（契約怎麼建、名冊怎麼進都是引擎自己的函式）
+    const sim = structuredClone(state)
+    game.k.changes.applyAll(sim, base.changes)
+    return { ...base, changes: [...base.changes, ...(start === 'holder' ? demoHolderChanges(game.k, sim) : demoBoundChanges(game.k, sim))] }
   }
   /** 先問引擎每一步行不行；有問題原樣回傳、狀態不動；沒問題才提交。 */
   function createCharacter(draft: CreationDraft): CreationBlock[] {
@@ -1679,5 +1692,80 @@ export const useEngine = defineStore('engine', () => {
     sourceName: (source: string): string => (PASSIVE_SOURCE_NAMES as Record<string, string>)[source] ?? source,
   }
 
-  return { state, feed, body, craft, dye, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, night, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  // ---- 契約、惡意韌體、調校、蠱惑、請教（M4-ui-contract）：全部轉接引擎的匯出，畫面不算 DC、成功率、價錢、能不能做 ----
+  /** 問引擎「現在做不做得了」：丟錯當成沒有答案（回傳 fallback） */
+  const ask = <T>(f: () => T, fallback: T): T => { void state.value; try { return f() } catch { return fallback } }
+  const contract = {
+    /** 主角是契約人時的面板（引擎的 boundView；沒有契約是 null） */
+    bound: (): contractFx.BoundView | null => ask(() => contractFx.boundView(game.k, game.state), null),
+    /** 主角持有的人（引擎的 heldPeople） */
+    held: (): Array<{ id: string; home: contractFx.ContractHome }> => ask(() => contractFx.heldPeople(game.state), []),
+    /** 持約人那一面的契約頁（引擎的 holderContractView） */
+    holder: (npc: string): contractFx.HolderContractView | null => ask(() => contractFx.holderContractView(game.k, game.state, npc), null),
+    /** 持約人那一面的事件頁：五種事各自能不能做、原因（引擎的 holderEvents） */
+    events: (npc: string): contractFx.HolderEvent[] => ask(() => contractFx.holderEvents(game.k, game.state, npc), []),
+    /** 逾期的處置：引擎在紀錄裡寫的（contract.overdue 報告的正文，照時間）；boundView 的佇列只帶還沒了結的處置，已經逾期的那一條要看這裡 */
+    overdueLines: (): string[] => { void state.value; return game.state.reports.filter((r) => r.action === 'contract.overdue').map((r) => r.outcome.summary) },
+    /** 他的名字（角色的名字） */
+    nameOf: (id: string): string => { void state.value; return game.state.actors[id]?.name ?? id },
+    /** 身上被裝了什麼（引擎的 cyberView；可以問任何一個角色） */
+    cyberOf: (id: string): cyberware.CyberView | null => ask(() => cyberware.cyberView(game.k, game.state, id), null),
+    choose: (order: string, how: 'comply' | 'resist'): string | null => commitMade(() => contractFx.chooseDraft(game.k, game.state, { order, how })),
+    chooseBlock: (order: string, how: 'comply' | 'resist'): string | null => ask(() => contractFx.chooseBlock(game.k, game.state, { order, how }), null),
+    arriveBlock: (order: string): string | null => ask(() => contractFx.arriveBlock(game.k, game.state, { order }), '現在去不了。'),
+    arrive: (order: string): string | null => commitMade(() => contractFx.arriveDraft(game.k, game.state, { order })),
+    completeBlock: (order: string): string | null => ask(() => contractFx.completeBlock(game.k, game.state, { order }), '現在做不了。'),
+    complete: (order: string): string | null => commitMade(() => contractFx.completeDraft(game.k, game.state, { order })),
+    askBlock: (kind: contractFx.OrderKind): string | null => ask(() => contractFx.askOrderBlock(game.k, game.state, { kind }), '現在要不了。'),
+    askOrder: (kind: contractFx.OrderKind): string | null => commitMade(() => contractFx.askOrderDraft(game.k, game.state, { kind })),
+    payoffQuote: (): contractFx.PayoffQuote | null => ask(() => contractFx.payoffQuote(game.k, game.state), null),
+    payoffBlock: (o: contractFx.PayoffOpts = {}): string | null => ask(() => contractFx.payoffBlock(game.k, game.state, o), '現在還不了。'),
+    payoff: (o: contractFx.PayoffOpts = {}): string | null => commitMade(() => contractFx.payoffDraft(game.k, game.state, o)),
+    coverBlock: (covered: boolean): string | null => ask(() => contractFx.coverMarkBlock(game.k, game.state, { covered }), '現在改不了。'),
+    cover: (covered: boolean): string | null => commitMade(() => contractFx.coverMarkDraft(game.k, game.state, { covered })),
+    triggerBlock: (npc: string, kind: contractFx.HolderEventKind): string | null => ask(() => contractFx.triggerBlock(game.k, game.state, { npc, kind }), '現在做不了。'),
+    trigger: (npc: string, kind: contractFx.HolderEventKind): string | null => commitMade(() => contractFx.triggerDraft(game.k, game.state, { npc, kind })),
+    adjustBlock: (npc: string, patch: contractFx.AdjustPatch): string | null => ask(() => contractFx.adjustBlock(game.k, game.state, { npc, patch }), '現在改不了。'),
+    adjust: (npc: string, patch: contractFx.AdjustPatch): string | null => commitMade(() => contractFx.adjustDraft(game.k, game.state, { npc, patch })),
+    releaseBlock: (npc: string, stay?: boolean): string | null => ask(() => contractFx.releaseBlock(game.k, game.state, { npc, ...(stay ? { stay } : {}) }), '現在解不了約。'),
+    release: (npc: string, stay?: boolean): string | null => commitMade(() => contractFx.releaseDraft(game.k, game.state, { npc, ...(stay ? { stay } : {}) })),
+  }
+
+  /** 身上的惡意韌體：每一筆的階段、效果、清除的每一條路（引擎的 malwareView） */
+  const malware = {
+    view: (id?: string): malwareFx.MalwareView[] => onPc((pc) => malwareFx.malwareView(game.k, game.state, id ?? pc), []),
+    cleanBlock: (o: Omit<malwareFx.CleanOpts, 'actor'>): string | null => onPc((pc) => malwareFx.cleanBlock(game.k, game.state, { ...o, actor: pc }), NO_BODY),
+    clean: (o: Omit<malwareFx.CleanOpts, 'actor'>): string | null => doOnPc((pc) => malwareFx.cleanDraft(game.k, game.state, { ...o, actor: pc })),
+  }
+
+  /** 調校：兩個槽、四項橋參數的來源、能裝的清單、站的地方做不做調校與靜室（引擎的 tuning） */
+  const tuning = {
+    view: (): tuningFx.BridgeViewOfTuning | null => onPc((pc) => tuningFx.bridgeView(game.k, game.state, pc), null),
+    list: () => onPc((pc) => tuningFx.tuningList(game.k, game.state, pc), []),
+    here: (): tuningFx.TuningFacility | null => ask(() => tuningFx.tuningHere(game.k, game.state), null),
+    installQuote: (id: string): tuningFx.TuningQuote | null => onPc((pc) => tuningFx.installQuote(game.k, game.state, { actor: pc, id }), null),
+    installBlock: (id: string): string | null => onPc((pc) => tuningFx.installBlock(game.k, game.state, { actor: pc, id }), NO_BODY),
+    install: (id: string): string | null => doOnPc((pc) => tuningFx.installDraft(game.k, game.state, { actor: pc, id })),
+    removeQuote: (id: string): tuningFx.TuningQuote | null => onPc((pc) => tuningFx.removeQuote(game.k, game.state, { actor: pc, id }), null),
+    removeBlock: (id: string): string | null => onPc((pc) => tuningFx.removeBlock(game.k, game.state, { actor: pc, id }), NO_BODY),
+    remove: (id: string): string | null => doOnPc((pc) => tuningFx.removeDraft(game.k, game.state, { actor: pc, id })),
+    quietQuote: (param: tuningFx.QuietOpts['param'], dir: 1 | -1): tuningFx.QuietQuote | null => onPc((pc) => tuningFx.quietQuote(game.k, game.state, { actor: pc, param, dir }), null),
+    quietBlock: (param: tuningFx.QuietOpts['param'], dir: 1 | -1): string | null => onPc((pc) => tuningFx.quietBlock(game.k, game.state, { actor: pc, param, dir }), NO_BODY),
+    quiet: (param: tuningFx.QuietOpts['param'], dir: 1 | -1): string | null => doOnPc((pc) => tuningFx.quietDraft(game.k, game.state, { actor: pc, param, dir })),
+  }
+
+  /** 蠱惑：找過主角的流竄 AI（順著幾次、揭開了哪幾格；引擎的 lureView） */
+  const lure = {
+    view: (): lureFx.LureViewRow[] => ask(() => lureFx.lureView(game.k, game.state), []),
+  }
+
+  /** 請教與上課（引擎的 teachOptions、lessonDraft）：npc 是向人請教，facility 是去機構上課（不給是腳下的設施種類） */
+  const training = {
+    options: (o: { npc?: string; facility?: string } = {}): TeachOption[] => ask(() => trainOptions(game.k, game.state, o), []),
+    block: (o: TrainOpts): string | null => ask(() => trainBlock(game.k, game.state, o), '現在上不了課。'),
+    lesson: (o: TrainOpts): string | null => commitMade(() => trainDraft(game.k, game.state, o)),
+    skillName: (id: string): string => game.k.content.get<{ id: string; name?: string }>('skill', id)?.name ?? id,
+  }
+
+  return { state, feed, body, contract, malware, tuning, lure, training, craft, dye, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, night, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

@@ -6,6 +6,8 @@ import { actionKindToDef, blankState } from '../../core'
 
 /** 自由行動的鏈（AI_TASKS 3.1 節）：沒有寫 chain 的行動種類走這一條 */
 const FREE_CHAIN = 'free_action'
+/** 可能進成人場景的行動的鏈（AI_TASKS 3.5 節）：誘惑 flirt。外殼的 Game.act 看 ActionKindDef.chain 轉過去（M4-followups-2 第 7 項） */
+const ADULT_CHAIN = 'adult_action'
 
 function check(k: Kernel, e: ActionKindEntry): void {
   const fail = (why: string): never => {
@@ -34,10 +36,10 @@ export const actionsFeature: Feature = {
   ready(k) {
     const entries = k.content.list<ActionKindEntry>('action_kind')
     for (const e of entries) check(k, e)
-    // 走別的任務鏈的種類（誘惑走 3.5 節的鏈……）先只是資料：那一條鏈搬進來之前不註冊成可以做的行動。
+    // 走 adult_action 的種類（誘惑）現在註冊成可以做的行動（M4-followups-2 第 7 項：那條鏈在 M4 搬進來了）；走其他沒聽過的鏈的種類先只是資料。
     // 寫了 owner 的那一筆留給那個功能自己註冊（它要加照對象算的 DC、每天的次數）：這裡不註冊。
     // 那個功能用核心的 actionKindToDef(e, k, 自己的 id) 把資料轉成定義，再加上自己的東西。
     // 資料裡的 free 取代核心內建的預設（核心的登錄表允許）
-    for (const e of entries) if (e.owner === undefined && (e.chain === undefined || e.chain === FREE_CHAIN)) k.actions.register(actionKindToDef(e, k))
+    for (const e of entries) if (e.owner === undefined && (e.chain === undefined || e.chain === FREE_CHAIN || e.chain === ADULT_CHAIN)) k.actions.register(actionKindToDef(e, k))
   },
 }

@@ -206,9 +206,10 @@ export const GENDER_OPTIONS: ReadonlyArray<{ id: GenderId; name: string }> = GEN
 export const PERK_CATEGORY_NAME: Record<string, string> = { social: '社交', street: '街頭', body: '身體', bridge: '橋', craft: '工藝', net: '內海', media: '媒體', desire: '慾望', origin: '出身' }
 
 /**
- * 這一步提交新產生的報告要引出什麼（App 用）：跨過週一的結算（bill.settle）打開帳單，週日晚上的提醒（bill.notice）顯示成通知。
+ * 這一步提交新產生的報告要引出什麼（App 用）：跨過週一的結算（bill.settle）打開帳單，週日晚上的提醒（bill.notice）顯示成通知；
+ * 契約的指令送達（contract.order，每天的或每週回報的，不含主動要的）也是一則通知。
  * 只看傳進來的報告，不看紀錄的歷史：讀檔、回退帶進來的舊報告不算。
  */
-export function freshEffects(reports: ReadonlyArray<{ action?: string; outcome: { summary: string } }>): { openBills: boolean; toasts: string[] } {
-  return { openBills: reports.some((r) => r.action === 'bill.settle'), toasts: reports.filter((r) => r.action === 'bill.notice').map((r) => r.outcome.summary) }
+export function freshEffects(reports: ReadonlyArray<{ action?: string; outcome: { summary: string; result?: string } }>): { openBills: boolean; toasts: string[] } {
+  return { openBills: reports.some((r) => r.action === 'bill.settle'), toasts: reports.filter((r) => r.action === 'bill.notice' || (r.action === 'contract.order' && (r.outcome.result === 'sent' || r.outcome.result === 'weekly'))).map((r) => r.outcome.summary) }
 }

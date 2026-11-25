@@ -67,7 +67,7 @@ const items: Rec[] = [
 
 // ---- 設施：槍店（店家代工與染色）、同人攤（同人社團）、原廠（織女） ----
 const facility_type: Rec[] = [
-  { id: 'fac_gunshop', name: '槍店', craft: { by: 'shop' }, dye: true },
+  { id: 'fac_gunshop', name: '槍店', craft: { by: 'shop' }, dye: true, teach: [{ skill: 'firearms', price: 1200, slots: 2 }] },
   { id: 'fac_doujin', name: '同人攤', craft: { by: 'doujin' } },
   { id: 'fac_factory', name: '原廠櫃檯', craft: { by: 'factory', brand: '織女' } },
 ]
