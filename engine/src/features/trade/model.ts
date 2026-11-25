@@ -20,7 +20,7 @@
 //   closed   { [商店 id]: day }：施壓大失敗被趕出去，day 那天不做你的生意
 
 import type { ActorId, BlueprintEntry, Change, ContentEntry, Degree, GameState, ItemEntry, ItemStack, Kernel } from '../../core'
-import { QUALITY_PRICE_MULT, USED_PRICE_MULT, deriveRng, findByUid, isRecord, meterOf, productOf, productPrice, readProduct } from '../../core'
+import { QUALITY_PRICE_MULT, USED_PRICE_MULT, deriveRng, findByUid, isRecord, meterOf, productOf, productPrice, readProduct, stackPart } from '../../core'
 
 export const OWNER = 'trade'
 export const EXT = 'trade'
@@ -284,9 +284,24 @@ export function productItem(k: Pick<Kernel, 'content'>, id: string, data?: unkno
 /** 這個 id 是組裝的成品（有這張設計圖、而且不是一筆物品）。 */
 export const isProductId = (k: Pick<Kernel, 'content'>, id: string): boolean => !k.content.has('item', id) && k.content.has('blueprint', id)
 
-/** 物品；組裝的成品（id 是設計圖）當成一個物品看（side 與 data 決定價錢，見 productItem）。 */
+/**
+ * 單獨一件零件（背包裡帶實例資料的那一疊；M4-part-unreg）當成一個物品：核心的 stackPart 讀得到的（內容的零件帶 data.state、或內嵌的未登錄零件），類別當 part；
+ * 目錄價是那個零件的價錢，狀態不是 new 的 ×0.5（二手價；0019 P11、P68）。內嵌的零件不進任何貨架（貨架只從 item 與 fixed_products 來）。
+ * 沒有實例資料的零件（data 沒給）不當成物品：行為和原本一樣。
+ */
+export function partItem(k: Pick<Kernel, 'content'>, id: string, data?: unknown): (TradeItem & { price: number }) | undefined {
+  if (!isRecord(data)) return undefined
+  const part = stackPart(k.content, { id, qty: 1, data })
+  if (!part) return undefined
+  return {
+    id, name: part.name, desc: typeof part.desc === 'string' ? part.desc : '', category: 'part', grade: part.grade, size: part.size, weight: part.weight, legal: part.legal as ItemEntry['legal'],
+    price: Math.round(part.price * (part.state === 'new' ? 1 : USED_PRICE_MULT) + 1e-9), tags: ['part'],
+  }
+}
+
+/** 物品；組裝的成品（id 是設計圖）、單獨一件零件（帶實例資料）當成一個物品看（side 與 data 決定價錢，見 productItem、partItem）。 */
 export const itemOf = (k: Pick<Kernel, 'content'>, id: string, data?: unknown, side: 'buy' | 'sell' = 'buy'): TradeItem | undefined =>
-  k.content.get<TradeItem>('item', id) ?? productItem(k, id, data, side)
+  k.content.get<TradeItem>('item', id) ?? productItem(k, id, data, side) ?? partItem(k, id, data)
 
 /** 同上，賣的時候背包裡那一件（uid）的資料也一起看。 */
 export function goodsOf(k: Pick<Kernel, 'content'>, state: Pick<GameState, 'inventory'>, id: string, side: 'buy' | 'sell', uid?: string): TradeItem | undefined {

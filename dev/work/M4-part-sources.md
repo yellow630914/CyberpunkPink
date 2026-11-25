@@ -51,3 +51,5 @@ M4-part-unreg。這一批沒有別的工單改 `features/fixer`。
 ## 完成時回報
 
 改了哪些檔、測試結果、`fixer.reward` 實際的形狀（給之後要當報酬的功能看）、委託的類型資料裡 `part_types` 該怎麼填的建議（給內容）、訂做付的是哪一種錢與理由。
+
+- 總指揮補記（2026-11-25，M4-part-unreg 回報）：`src/` 裡寫來源鍵要用 `'window'`（加引號，分層檢查會把裸的 window 當瀏覽器 API）；`hold: order` 的訂單由這張加取貨路徑，`deliverBlock` 加「人在不在委託台」。CRAFTING 5.5 用 Option 寫不出來的那幾項（槍管距離、機構壓制、刃的傷害類型、感測器先攻等）列給 M4-data-rules。
