@@ -207,9 +207,10 @@ describe('探針：內海委託整條（接案 → 子網 → 戰鬥 → 下載 
       const finalTrace = t4[1]!.result.trace as number
       const netHostility = Math.min(5, Math.ceil(Math.max(0, finalTrace) / 20))
       expect(hostility()).toBeGreaterThanOrEqual(netHostility)
-      // 追蹤度每升一次（沒跨門檻）就多一份 netrun.trace 報告（只記 peak）：數一數
+      // 追蹤度升了沒跨門檻不再多發 netrun.trace（peak 併進該步的報告，M3 白箱修正批）：剩下的 netrun.trace 都是跨過門檻的；數一數
       const traceReports = rows.filter((r) => r.action === 'netrun.trace').length
-      notes.push(`整條共 ${rows.length} 份報告，其中 ${traceReports} 份是 netrun.trace（追蹤度升了、沒跨門檻，只更新 peak，內容只有「追蹤度 N。」）；狀態裡一共有 ${g.state.reports.length} 份報告（含接案、加入隊友之前的）`)
+      notes.push(`整條共 ${rows.length} 份報告，其中 ${traceReports} 份是 netrun.trace（跨過門檻的；沒跨門檻的上升只更新 peak，併進該步自己的報告）；狀態裡一共有 ${g.state.reports.length} 份報告（含接案、加入隊友之前的）`)
+      expect(rows.filter((r) => r.action === 'netrun.trace' && /^追蹤度 -?\d+。$/.test(r.summary))).toEqual([])
       notes.push(`整趟的最後追蹤度 ${finalTrace}；目標勢力的敵對值 ${hostility()}（內海那一份 ${netHostility}，其餘是現實面的強攻）`)
       // 活動登錄表：整條做完沒有留下進行中的活動、沒有留著的快照
       expect(k.activity.active(g.state)).toEqual([])

@@ -29,7 +29,7 @@
 7. 光紋刺青（P45）：設計圖帶 `tattoo` 的義體照一般的皮膚義體裝；這一張只加條件 `cyber` 的兩個鍵（`tattoo: 'deco' | 'gang'`、`faction`）與 `cyberView` 的標示，效果都是資料的 `effects`。
 8. 有期限的鎖（`hours`）：讀的時候比對時間，過期的當成沒有；下一次寫 `pieces` 時順手清掉。
 9. 修理：壞掉的那一件（`off.why === 'broken'`；破解大失敗、之後的事件）用 `repairBlock`／`repairDraft(k, state, { actor, uid, via, by? })` 修好：診所收成品價的兩成；自己修要在有工作台的住處（條件 `at_home` 帶 `level_min: 2`）或診所，擲技術＋義體學對 13，失敗只花掉時間（DOWNTIME 3.1 節最後一條）。
-10. 小手術（CRAFTING 10.3 節）：`modifyBlock`／`modifyDraft(k, state, { actor, uid, type, part, via, by? })` 換掉身上一件義體的一個零件：槽的檢查用核心的 `slotProblems`；手術費是那個零件目錄價的五成（照動刀的人的 `fee` 比例換算：正規 0.5、無照 0.3、黑 0.4、自己 0）；自己動刀擲一次和安裝同樣的檢定；換下來的零件回背包；沉溺成本重算（下限跟著變，沉溺不到的補上）；不另外休養。橋的零件一律走換橋那一種手術的費用與休養（`bridge_fee_mult`、`bridge_recovery_minutes`）。
+10. 小手術（CRAFTING 10.3 節）：`modifyBlock`／`modifyDraft(k, state, { actor, uid, type, part, via, by? })` 換掉身上一件義體的一個零件：槽的檢查用核心的 `slotProblems`；手術費是那個零件目錄價的五成（照動刀的人的 `fee` 比例換算：正規 0.5、無照 0.3、黑 0.4、自己 0）；自己動刀擲一次和安裝同樣的檢定；換下來的零件回背包（零件一律用核心的 `stackPart`、`partStack` 讀寫：換上去的可能是內嵌的零件，放進義體的是那一整筆；M4-plan 規定 10）；沉溺成本重算（下限跟著變，沉溺不到的補上）；不另外休養。橋的零件一律走換橋那一種手術的費用與休養（`bridge_fee_mult`、`bridge_recovery_minutes`）。
 
 ## 驗收條件（`engine/tests/features/M4-cyber-lock.test.ts`；`bills` 與 `security` 用測試自己掛的假掛點與假量表）
 
