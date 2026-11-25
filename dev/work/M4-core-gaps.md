@@ -21,3 +21,4 @@
 12. （M4-tuning 回報）被動效果依軌道值縮放：例 `{ check, per: { track: 'load', every: 10, amount: 1 } }`（渴求的感載越高檢定越高）。
 13. （M4-tuning 回報）`sink_resist`：沉溺每次上升 −1、最少 1——在 `sink` 效果與 `actor.track` 往上加的路徑讀開關（sink 功能那邊加，這張給核心需要的介面）。第 8 項的 `afterglow_double` 也讀調校的同名開關。
 14. （M4-malware 回報）戰鬥掛點：傀儡絲「義肢偶爾不聽使喚、被遠端操控一回合」——回合開始時問一次，可以讓單位這一回合由敵方 AI 操控。
+15. （M4-core-scene-ai 回報）features/scene 補三個接口，外殼改用它們：(a) 匯出「只走一個人的回合」，外殼拿掉用 `Play` 模擬 `groupRound` 的那段；(b) `SceneEnv.talk` 改成每人一份；(c) `SceneEnv.lines` 收 AI 的一句話（外殼不再直接改草稿的 timeline 與 `ext.scene.lines`）。

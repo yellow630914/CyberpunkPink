@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { AiRequest, ContentPack, Feature, Kernel, Report } from '../../src'
+import type { SceneAdversary as SceneAdversaryName } from '../../src'
 import { ADULT_SOURCE_KEY, FakeProvider, SCENE_ADVERSARIES, SCENE_ADVERSARY_TASK, DEFAULT_AI_SETTINGS, inputOf, sanitizeAiSettings, sceneAdversary, sceneAiOf, sceneScript, sectionOf } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { lewdFeature } from '../../src/features/lewd'
@@ -388,6 +389,16 @@ describe('closing 模式（預設）：進場、收尾五個任務、正文在�
     const f = await filtered.sceneBegin({ action: FLIRT, scene: { nature: 'forced' } })
     expect(f.started).toBe(false)
     expect((f.run!.step('setup').result as { blocked?: string[] }).blocked!.join('')).toMatch(/被你的內容篩選關掉了/)
+  })
+
+  it('沒有明寫的設定：scene_gate 決定進、性質從清單選（自動回應選第一個：兩情相悅）', async () => {
+    const fake = new FakeProvider()
+    const g = game({ fake })
+    const r = await g.sceneBegin({ action: FLIRT })
+    expect(r.started).toBe(true)
+    expect(raw(g)).toMatchObject({ nature: 'mutual', origin: { by: 'adult_action' } })
+    expect(inputOf<Record<string, any>>(by(fake, 'scene_gate')[0]!).fixed).toBeUndefined()
+    expect(r.run!.steps.find((s) => s.id === 'gate')!.status).toBe('done')
   })
 
   it('掃描：scene_gate 的清單只列內容篩選允許的性質；請求的每一個字都沒有被關掉的性質或標籤', async () => {
@@ -806,6 +817,30 @@ describe('對抗：每一個都被驗證擋下或被功能丟掉，自動重試�
     const c = r.reports[0]!.clamps!
     expect(c.map((x) => x.path)).toEqual(expect.arrayContaining(['scene_talk.fit', 'scene_talk.goal']))
   })
+})
+
+// ======================================================================
+describe('六個對抗劇本整場跑完：場景走完、沉溺沒超過 ±4、被篩選關掉的性質不在任何一個請求裡', () => {
+  const cases: Array<[SceneAdversaryName, (g: G) => Promise<void>]> = [
+    ['turn_stop', async (g) => { await g.sceneBegin(group()); await g.sceneStep({ kind: 'end_turn' }); await g.sceneStep(); await g.sceneFinish() }],
+    ['turn_other_circle', async (g) => { await g.sceneBegin({ circles: [['pc', 'npc_ann'], ['npc_cy', 'npc_di']], nature: 'mutual', mode: 'full' } as SceneSetup); await g.sceneStep({ kind: 'end_turn' }); await g.sceneStep(); await g.sceneFinish() }],
+    ['sink_over', async (g) => { await g.sceneBegin(mutual()); await g.sceneFinish() }],
+    ['gate_bad_nature', async (g) => { await g.sceneBegin({ action: FLIRT, scene: { nature: 'mutual' } }); await g.sceneFinish() }],
+    ['tendency_untouched', async (g) => { await g.sceneBegin(mutual()); await g.sceneFinish() }],
+    ['talk_over', async (g) => { await g.sceneBegin(mutual({ goal: 'info' })); await g.sceneStep({ kind: 'talk', text: '嗨。' }); await g.sceneFinish() }],
+  ]
+  for (const [name, play] of cases) {
+    it(name, async () => {
+      const target = name === 'turn_other_circle' ? 'npc_cy' : undefined
+      const fake = new FakeProvider({ byTask: { [SCENE_ADVERSARY_TASK[name]]: sceneScript(name, { ...(target ? { target } : {}) }) } })
+      const g = game({ fake, ai: { sceneAi: 'full' }, contentOff: ['pc_unwilling'], pc: { sink: 20 } })
+      await play(g)
+      expect(sceneRawOf(g.state), name).toBeNull()
+      expect(Math.abs(pcOf(g).sink - 20), name).toBeLessThanOrEqual(4)
+      expect(by(fake, SCENE_ADVERSARY_TASK[name]).length, name).toBeGreaterThan(0)
+      for (const req of fake.requests) expect(textOf(req), `${name}：${req.task}`).not.toMatch(/forced|被迫|pc_unwilling|主角非自願/)
+    })
+  }
 })
 
 // ======================================================================

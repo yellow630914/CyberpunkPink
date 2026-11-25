@@ -41,3 +41,5 @@ M4-scene-seats～M4-scene-close、M4-nightclass；M4-core-scene-ai 做完之後�
 - `features/scene/legacy.ts` 的外觀（`sceneOf` 回 Proxy，`turn`／`roles`／`links[].by`／`lines[].who` 是 `'pc'`／`'partner'`）在 M4-scene-circles 照留（多人時外觀的舊名字只對主角與第一個對象）。
 - 這一張把介面換成第二版（`seats`、`pairs`、`circles`、`by_id`／`to_id`、`startProblems().summary`）之後，同一張把外觀拿掉：`sceneOf` 改回 `sceneRawOf`，M2-scene、M3-scene-sync 與 ui 的場景測試改讀角色 id，`smoke/m2` 改回 `structuredClone`。
 - （使用者 2026-11-25）開場確認框「略過」旁邊一個選填的文字欄「想怎麼發生（選填）」，最多 200 字、即時字數；AI 關著時灰掉並說明。按略過時把文字交給 `scene.skip({ direction })`。
+
+- 總指揮補記（2026-11-25，M4-core-scene-ai 回報）：畫面改用 `Game.sceneBegin`／`sceneStep`／`sceneFinish({ how, direction })`，不要每一步都 `commitNarrated`（省掉每步的正文請求）；設定加 `sceneAi`（closing／full），預設 closing。

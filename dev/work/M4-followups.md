@@ -165,3 +165,9 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 ## 使用者裁決（2026-11-25）
 - 契約指令的抗拒：沉溺的懲罰只留 EVENTS 4.5 的 DC 加值（迷醉 +2、溺感邊緣 +4）；sink 分段的 `resist_control` −2 不套在契約指令上——契約發起的抗拒檢定不帶 `resist_control` 標籤，改帶 `resist_contract`（sink 不認），其他「抗拒控制」的檢定照舊帶 `resist_control`。
 - 持約人規矩「能不能接別人的指令」刪掉（LEWD 7.5 已改）；contract 的規矩種類 `person` 若是為它而設的就拿掉，`dress`、禁區、宵禁留著。
+
+## 總指揮補記（2026-11-25，M4-core-scene-ai 回報）
+- `flirt` 等 `chain: 'adult_action'` 的行動種類註冊進核心（features/actions 或各功能用 `actionKindToDef`），`M0-fix-data` 那條鎖跟著改。
+- 事件資料的 `adult_scene.gate: ai`：director 開場景前走 `scene_gate`。
+- 六個場景任務的預設模型照 AI_TASKS 的「小」：`DEFAULT_TASK_SOURCE` 對它們用小模型的來源。
+- 總指揮同意：場景的 gate、每回合兩個、收尾五個被服務商拒絕時走退路（`softFail`），是 AI_TASKS 2.6 的局部例外；寫正文照舊停下等玩家。文件代理在 AI_TASKS 2.6 補一句。

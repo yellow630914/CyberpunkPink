@@ -511,3 +511,4 @@
 - 2026-11-25 M4 第十三步完成（scene-net、malware）：engine 7735、smoke 145、ui 752。
 - 2026-11-25 M4 第十四步完成（scene-close、contract）：engine 7824、smoke 147、ui 752。待使用者：契約抗拒的沉溺懲罰疊不疊。
 - 2026-11-25 使用者：契約抗拒只留 EVENTS 4.5 的沉溺懲罰；刪掉規矩「能不能接別人的指令」。
+- 2026-11-25 M4 第十五步完成（core-scene-ai、contract-holder）：engine 7901、smoke 147、ui 754。

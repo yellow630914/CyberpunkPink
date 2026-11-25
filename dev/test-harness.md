@@ -47,6 +47,7 @@
 - 實作和真的服務商同一個介面。
 - 劇本模式：照測試給的回應依序回傳。
 - 對抗模式：壞掉的 JSON、超出上限的數值、不存在的 id、少欄位、多欄位、拒絕（refusal）、逾時、串流中斷、`asked` 對不上、少交 `<covered>`。
+- 自動模式的任務（M4-core-scene-ai 加的六個成人場景任務與 `relate`、`reward` 的場景收尾形式）：`goodReply` 照請求的 `<input>` 回合規的結果。成人場景的對抗劇本不放進 `ADVERSARIAL_MODES`（那一組會被每個任務的測試逐個跑），另外放 `SCENE_ADVERSARIES`（`turn_stop`、`turn_other_circle`、`sink_over`、`gate_bad_nature`、`tendency_untouched`、`talk_over`）：`sceneAdversary(名字)` 是一份壞的回應，`sceneScript(名字)` 排成幾份（自動重試也拿到同一份壞的），用法 `new FakeProvider({ byTask: { sink: sceneScript('sink_over') } })`。
 - 記錄每一次收到的請求，讓測試檢查請求裡有沒有 `<results>`、`<previous_error>` 等。
 
 ## 4. 種子重播
