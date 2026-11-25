@@ -175,6 +175,8 @@ export function adultActionChain(): ChainDef {
         default: return true
       }
     },
+    // 進不進場景：失敗（含被服務商拒絕）走退路（照明寫的設定進、沒有就不進），不停下來等玩家
+    softFail: (step) => step.task === 'scene_gate',
     aiInput: (step, ctx) => (step.task === 'scene_gate' ? gateInputOf(ctx) : free.aiInput(step, asFree(ctx))),
     apply: (ctx) => {
       const setup = ctx.draft.setup as SceneSetupResult
@@ -468,6 +470,8 @@ export function sceneRoundChain(): ChainDef {
         default: return true
       }
     },
+    // 場景的 AI 任務（每回合的兩個、收尾的五個）失敗都走退路，不擋住這一步與場景的結束；寫正文照一般的處理（被拒絕停下來等玩家）
+    softFail: (step) => step.task !== 'narrate' && step.task !== 'polish',
     // 只有寫正文走成人路由（reward、relate 讀的是摘要版，一般路由；新的六個任務自己就是成人）
     adult: (_ctx, step) => step?.task === 'narrate' || step?.task === 'polish',
     aiInput: (step, ctx) => {
@@ -494,7 +498,7 @@ export function sceneRoundChain(): ChainDef {
       }
       if (!st) throw new Error(`場景的一步還沒有結束，不該問 ${String(step.task)}`)
       switch (step.task) {
-        case 'reward': return { scene: digestOf(scene, st), state: ctx.state, hint: [], ...(inp.direction ? { direction: inp.direction } : {}) } satisfies SceneRewardInput
+        case 'reward': return { scene: digestOf(scene, st), state: ctx.state, hint: [] } satisfies SceneRewardInput
         case 'relate': return { scene: digestOf(scene, st), cast: st.pairs.map((p) => ({ id: p.id, name: p.name, fit: p.fit, rating: p.band, range: p.range })) } satisfies SceneRelateInput
         case 'sex_record': return { nature: st.nature, people: st.present.filter((x) => x.id !== scene.pc), log: st.log, firsts: st.firsts, types: [st.nature], ...(inp.direction ? { direction: inp.direction } : {}) } satisfies SexRecordInput
         case 'sink': return sinkInputOf(st)

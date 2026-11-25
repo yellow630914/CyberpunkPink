@@ -70,7 +70,10 @@ export interface GateInput {
   /** 可選的性質與目的：已經依內容篩選刪過 */
   natures: Array<{ id: Nature; name: string }>
   goals: Array<{ id: Goal; name: string }>
-  /** 情境本來就是被迫的（戰敗、契約的抗拒失敗、事件寫明的）：「被迫」才可以選（而且 natures 裡要有它） */
+  /**
+   * 情境本來就是被迫的（戰敗、契約的抗拒失敗、事件寫明的）：「被迫」才可以選（而且 natures 裡要有它）。
+   * 只在 natures 有「被迫」這一項時才寫進提示詞（被內容篩選關掉時，請求的任何地方都不出現這個詞）。
+   */
   forced: boolean
   fixed?: GateFixed
   direction?: string
@@ -132,7 +135,12 @@ function gateTask(): TaskDef<GateInput, GateOutput> {
   return {
     id: 'scene_gate', owner: 'shell', size: 'S', output: 'json', onExhausted: 'fallback', adult: true,
     schema: { name: 'submit_scene_gate', schema: { type: 'object', required: ['enter', 'reason'], properties: { enter: { type: 'boolean' }, nature: { type: 'string' }, goal: { type: 'string' }, reason: { type: 'string' }, circles: { type: 'array' } } } },
-    build: (input) => ({
+    build: (input) => {
+      // 被內容篩選關掉的性質不出現在請求的任何地方：清單裡沒有它，forced 與明寫的設定（性質是它）也不送
+      const forcedOn = input.natures.some((n) => n.id === 'forced')
+      const fixedOn = input.fixed !== undefined && input.natures.some((n) => n.id === input.fixed!.nature)
+      const shown = { ...input, ...(forcedOn ? {} : { forced: undefined }), ...(fixedOn ? {} : { fixed: undefined }) }
+      return {
       system: system([
         '你判斷一件事是不是走到了成人場景那一步，只交出一份判斷（用 submit_scene_gate 的格式）。不確定就不進。',
         '性質只能從 <natures> 選，目的從 <goals> 選（可以沒有）；開場的主動權由程式算，你不決定誰主導。',
@@ -141,9 +149,9 @@ function gateTask(): TaskDef<GateInput, GateOutput> {
       ]),
       sections: [
         ['trigger', `${input.trigger.action}：${input.trigger.summary}`], ['natures', input.natures.map((n) => `${n.id}：${n.name}`).join('\n')], ['goals', input.goals.map((g) => `${g.id}：${g.name}`).join('\n') || '（沒有）'],
-        ...(input.direction ? [['direction', input.direction] as [string, string]] : []), ['input', json(input)],
+        ...(input.direction ? [['direction', input.direction] as [string, string]] : []), ['input', json(shown)],
       ],
-    }),
+    } },
     check: (raw, input) => gateCheck(raw, input),
     fallback: gateFallback,
   }
@@ -530,7 +538,6 @@ export interface SceneRewardInput {
   /** 驗證用的狀態（不進提示詞） */
   state: GameState
   hint: Effect[]
-  direction?: string
 }
 
 /** 收尾的算關係：每個對象各一份契合的評價與親密度的範圍（照評價給的）。 */
@@ -548,7 +555,7 @@ export function sceneRewardPrompt(k: Kernel, input: SceneRewardInput): { system:
   return {
     system: '你讀這一場的結果，交出主角具體拿到的東西。正文還沒寫，之後會照你交的寫。只能從 kinds 的種類裡選；每一筆附上依據（from：source 是 settle，或 log 並引用一段字）；沒有東西可以給就交空的。用 submit_reward 的格式交出。',
     sections: [
-      ['settle', input.scene.lines.join('\n')], ...(input.direction ? [['direction', input.direction] as [string, string]] : []),
+      ['settle', input.scene.lines.join('\n')],
       ['input', json({ ...data, kinds: k.effects.aiKinds() })],
     ],
   }

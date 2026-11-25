@@ -89,6 +89,8 @@ export interface ChainDef {
   aiInput(step: StepTemplate, ctx: ChainCtx): unknown
   /** 這一步的 AI 有沒有開（照設定裡各任務的開關）；關著就直接走退路 */
   aiEnabled?(step: StepTemplate, ctx: ChainCtx): boolean
+  /** 這一步失敗（含被服務商拒絕）不擋住鏈、直接走退路（RunTaskOpts.softFail；只對自己有退路的任務有效）。沒寫就是一般的處理：被拒絕停下來等玩家 */
+  softFail?(step: StepTemplate, ctx: ChainCtx): boolean
   /**
    * 這條鏈的 AI 請求走不走成人路由（請求的 adult 記號；報告帶 adult 的鏈：narrated）。沒寫就是不走。
    * 第二個參數是正在跑的那一步：同一條鏈裡有的步驟走（寫正文）、有的不走（reward、relate 讀的是摘要版；PROMPTS 7.2 節）。
@@ -301,7 +303,7 @@ export class ChainRun {
       const enabled = this.def.aiEnabled?.(t, this.ctx) ?? true
       const adult = this.def.adult?.(this.ctx, t) ?? false
       const outcome = await runTask(this.env.taskEnv, def, this.def.aiInput(t, this.ctx), { settings: this.ctx.settings, chain: this.id, step: s.id, ...(adult ? { adult: true } : {}) }, {
-        signal: this.abort.signal, forceFallback: !enabled || !!s.byRules, previousError: this.retryNotes[s.id],
+        signal: this.abort.signal, forceFallback: !enabled || !!s.byRules, previousError: this.retryNotes[s.id], softFail: this.def.softFail?.(t, this.ctx) ?? false,
       })
       delete this.retryNotes[s.id]
       s.attempts = outcome.attempts

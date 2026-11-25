@@ -109,6 +109,11 @@ export interface RunTaskOpts {
   forceFallback?: boolean
   /** 手動重試時帶進去的錯誤（上一次的錯誤、被夾掉的值、漏寫的那幾行） */
   previousError?: string[]
+  /**
+   * 這一步失敗不擋住鏈：被服務商拒絕時也直接走退路（一般的任務被拒絕是停下來等玩家，AI_TASKS 2.6 節）。只對 onExhausted 是 fallback 的任務有效；
+   * 錯誤照樣記在這一步（任務鏈列看得到）。場景收尾的五個任務、每回合的兩個、進場的 scene_gate 用它（dev/work/M4-core-scene-ai.md：任何一個失敗都走退路，不擋住結束）。
+   */
+  softFail?: boolean
 }
 
 export function renderPrompt(prompt: TaskPrompt, previousError: string[] = []): string {
@@ -212,8 +217,11 @@ export async function runTask<I, O>(env: TaskEnv, def: TaskDef<I, O>, input: I, 
       out.attempts.push(log)
       out.error = log.error
       env.probe.emit('shell/ai/tasks', 'task.error', () => ({ task: def.id, attempt: n, error: log.error }))
-      // 被拒絕的不自動重試、不換備用模型；取消也不重試
-      if (!RETRYABLE.has(err.kind)) return out
+      // 被拒絕的不自動重試、不換備用模型；取消也不重試。softFail 的步驟被拒絕直接走退路（取消不算）
+      if (!RETRYABLE.has(err.kind)) {
+        if (err.kind === 'refusal' && opts.softFail && def.onExhausted === 'fallback') return { ...out, status: 'fallback', value: def.fallback(input, ctx) }
+        return out
+      }
       // 帶進下一次請求的只有格式與驗證的錯誤；逾時與網路錯誤沒有東西可以讓 AI 改
       if (err.kind === 'format' || err.kind === 'validation') previousError = err.details.length ? err.details : [err.message]
     }
