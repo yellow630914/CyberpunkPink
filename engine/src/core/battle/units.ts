@@ -5,6 +5,7 @@
 import type { ActorId, AttrId, BattleSide, BattleUnit, BattleWeapon, GameState, Grade } from '../types'
 import { ATTR_IDS } from '../types'
 import { attrMod } from '../rules/check'
+import { syncSensitivityOf } from '../rules/sync'
 import { clone } from '../util/clone'
 import { clamp, isRecord } from '../util/sanitize'
 import type { BattleKernel, BattleUnitInit, UnitSourceCtx } from './registry'
@@ -33,6 +34,7 @@ function unarmed(attrs: Record<AttrId, number>, skills: Record<string, number>):
 /**
  * 把一個角色變成戰鬥裡的單位（COMBAT_SYSTEM 1.2、第 3 節；CORE_RULES 第 4 節）。
  * 上限讀衍生數值（角色的功能註冊的 max_hp、load_cap、ap_max、afterglow_cap、ram_max）；沒有人註冊時照設計書的公式算。
+ * 橋參數（敏感度、耐受）讀有效值（bridge_<參數>，有人註冊時）；ext.bridge 是 null 的人沒有橋：沒有感載那一條、沒有 RAM 池、加標籤 unbridged（dev/adr/0019 P14、P15）。
  * 武器、護甲、快取格來自裝備的功能（battle.loadout）；沒有武器：有生命這一條的戰場（現實）是空手，沒有生命這一條的（內海）就是沒有武器。
  * 護甲（防護）讀 mode.guardStat 那個衍生數值（現實 armor、內海 net_guard；沒有人註冊是 0）加 loadout 的 armor：穿著防彈衣進內海不算防護。
  * 感載每回合的自然消退：戰場寫了 decayStat（內海 net_load_decay）就把那個數值抄成單位的 decay（沒有人註冊是 0）；現實不抄。
@@ -44,9 +46,11 @@ export function unitFromActor(k: BattleKernel, state: GameState, actorId: ActorI
   const mod = (id: AttrId) => attrMod(attrs[id])
   const n = mode.numbers
   const lo = k.battle.loadoutOf(state, actorId, mode.id)
+  // 橋參數讀有效值（衍生數值 bridge_<參數>；義體、藥、調校加的都在裡面）：沒有人註冊時讀 ext.bridge 的基本值。ext.bridge 是 null 是明寫的沒有橋（dev/adr/0019 P14、P15）
   const bridge = isRecord(a.ext.bridge) ? a.ext.bridge : {}
-  const sensitivity = typeof bridge.sensitivity === 'number' ? bridge.sensitivity : 50
-  const tolerance = typeof bridge.tolerance === 'number' ? bridge.tolerance : 0
+  const unbridged = a.ext.bridge === null
+  const sensitivity = syncSensitivityOf(k, state, actorId)
+  const tolerance = statOr(k, state, actorId, 'bridge_tolerance', typeof bridge.tolerance === 'number' ? bridge.tolerance : 0)
   const hpMax = statOr(k, state, actorId, 'max_hp', 20 + attrs.body * 2)
   const loadMax = statOr(k, state, actorId, 'load_cap', 20 + Math.floor(tolerance / 2) + mod('resolve') * 3)
   const apMax = statOr(k, state, actorId, 'ap_max', 4 + Math.floor((mod('reflex') + mod('charm')) / 2))
@@ -62,18 +66,20 @@ export function unitFromActor(k: BattleKernel, state: GameState, actorId: ActorI
     ...(mode.tracks.includes('hp') ? { hp: { now: clamp(a.hp, 0, hpMax), max: hpMax } } : {}),
     armor: guard + lo.armor,
     ...(decay !== undefined ? { decay } : {}),
-    load: { now: clamp(a.load, 0, Math.max(0, loadMax - 1)), max: Math.max(1, loadMax) },
+    // 沒有橋的人沒有感載那一條（神經與快感傷害對他無效，和敵人的 unbridged 一樣）
+    ...(unbridged ? {} : { load: { now: clamp(a.load, 0, Math.max(0, loadMax - 1)), max: Math.max(1, loadMax) } }),
     layers: a.afterglow, layersMax: statOr(k, state, actorId, 'afterglow_cap', 3), sensitivity, sink: 0,
     // 身上的義體數：義體的功能（M4）註冊 cyber_count 之前都是 0
     ...(k.stats.hasStat('cyber_count') ? { cyber: Math.max(0, Math.floor(k.stats.stat(state, actorId, 'cyber_count'))) } : {}),
     // 身上裝著的義體（義體的功能經 loadout 給）：失效與超頻從這裡挑
     ...(lo.implants?.length ? { implants: clone(lo.implants) } : {}),
     ap: { now: apMax, max: apMax, regen: n.apRegen },
-    pools: { ram: { now: ramMax, max: ramMax, regen: statOr(k, state, actorId, 'ram_regen', 2) } },
+    // 沒有橋的人沒有 RAM（P15）
+    pools: unbridged ? {} : { ram: { now: ramMax, max: ramMax, regen: statOr(k, state, actorId, 'ram_regen', 2) } },
     weapons, wield: 0,
     evade: statOr(k, state, actorId, 'evade', n.evadeBase + mod('reflex')) + lo.evade,
     initBonus: mod('reflex'),
-    statuses: [], dmgMult: { hp: 1, load: 1 }, tags: [...new Set(lo.tags)], quick: clone(lo.quick), uses: {}, wounds: {}, ext: {},
+    statuses: [], dmgMult: { hp: 1, load: 1 }, tags: [...new Set([...lo.tags, ...(unbridged ? ['unbridged'] : [])])], quick: clone(lo.quick), uses: {}, wounds: {}, ext: {},
   }
 }
 

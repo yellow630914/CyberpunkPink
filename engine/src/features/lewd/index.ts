@@ -10,22 +10,23 @@
 //                   玩家在內容篩選關掉的標籤整筆拿掉並提醒）
 //   條件  bridge（{ param, min?, max? }，看有效值）、has_bridge、tendency_tag（{ tag, state? }，預設有或深）、tendency_axis（{ axis, min?, max? }）；看誰：ctx.actor ?? 主角
 //   量表  fame（豔名：照區、0～100、AI 的上限 ±5）
-//   衍生  bridge_sensitivity、bridge_tolerance、bridge_craving、bridge_docility：基礎是 ext.bridge 的值，義體、藥物之後用 addStatProvider 加上去（讀有效值請用 bridgeOf）
+//   衍生  bridge_sensitivity、bridge_tolerance、bridge_craving、bridge_docility：基礎是 ext.bridge 的值（0～100），義體、藥物、調校用被動效果（k.passives）或 addStatProvider 加上去；
+//         有效值就是這個數字（0～200，來源合計不另外夾；dev/adr/0019 P14）：核心的戰鬥單位、角色的感載上限、場景、bridgeOf 都讀它
 //         afterglow_cap 加一個 provider：耐受的效力每 40 點 +1 層。感載上限那一半（耐受 ÷ 2）角色的功能已經算了，這裡不碰
 //   檢定  修正：帶 infiltrate 標籤的檢定，主角在這一區的豔名每 25 點 −1，身上有 masked 時沒有（ADR G10）
 //   戰鬥  unit.ready：有橋的人慾求高於 60，開戰帶著（慾求 − 60）÷ 4 點感載，最多到感載上限的一半（ADR G14）
 //   掛鉤  report.before：報告裡新增主角而沒有 bridge 這一欄，補預設值；save.loaded：讀進來的主角沒有 bridge 這一欄也補（有欄位而是 null 的是沒有橋，不動）
 
 import type { Change, Condition, Effect, Feature, Kernel } from '../../core'
-import { contentAllowed, isSafeInt, meterOf } from '../../core'
+import { clone, contentAllowed, isRecord, isSafeInt, meterOf } from '../../core'
 import type { Axis, BridgeParam, TagEntry, TagState } from './model'
 import {
-  AXES, AXIS_NAME, BRIDGE_PARAMS, INFILTRATE_TAG, MASKED, OWNER, PARAM_NAME, RULE_KIND, TAG_KIND, baseBridge, bridgeOf, hasCondition, isAxis, isParam, lewdRules,
+  AXES, AXIS_NAME, BRIDGE_EFFECTIVE_MAX, BRIDGE_PARAMS, INFILTRATE_TAG, MASKED, OWNER, PARAM_NAME, RULE_KIND, TAG_KIND, baseBridge, bridgeOf, hasCondition, isAxis, isParam, lewdRules,
   paramStatId, readBridge, ruleProblems, stepTendency, tagProblems, tagStateOf, tendencyOf,
 } from './model'
 
 export {
-  AXES, AXIS_NAME, BRIDGE_PARAMS, DEFAULT_LEWD_RULES, INFILTRATE_TAG, MASKED, PARAM_NAME, RULE_KIND, TAG_KIND, TAG_STATES,
+  AXES, AXIS_NAME, BRIDGE_EFFECTIVE_MAX, BRIDGE_PARAMS, DEFAULT_LEWD_RULES, INFILTRATE_TAG, MASKED, PARAM_NAME, RULE_KIND, TAG_KIND, TAG_STATES,
   baseBridge, bridgeOf, emptyTendency, hasCondition, hasTag, lewdRules, powerOf, readBridge, stepTendency, tagStateOf, tendencyOf,
 } from './model'
 export type { Axis, BridgeParam, BridgeParamView, BridgeRecord, BridgeView, LewdRules, TagEntry, TagState, TendencyRecord, TendencyStep } from './model'
@@ -50,7 +51,7 @@ export const lewdFeature: Feature = {
     // ---- 衍生數值 ----
     for (const p of BRIDGE_PARAMS) {
       k.stats.defineStat({
-        id: paramStatId(p), owner: OWNER, name: PARAM_NAME[p],
+        id: paramStatId(p), owner: OWNER, name: PARAM_NAME[p], max: BRIDGE_EFFECTIVE_MAX,
         base: (state, actor) => readBridge(state.actors[actor]?.ext.bridge, lewdRules(k))?.[p] ?? 0,
       })
     }
@@ -103,9 +104,11 @@ export const lewdFeature: Feature = {
         const to = Math.max(0, Math.min(100, base[e.param] + e.amount)) - base[e.param]
         return { effect: to === 0 ? null : to === e.amount ? e : { ...e, amount: to } }
       },
+      // 只改這一項參數：ext.bridge 裡別人的鍵（橋的容量 capacity 這類）原樣留著
       toChanges: (e, ctx): Change[] => {
         const base = baseBridge(k, ctx.state, ctx.actor)!
-        return [{ op: 'actor.ext', id: ctx.actor, key: 'bridge', value: { ...base, [e.param]: base[e.param] + e.amount } }]
+        const raw = ctx.state.actors[ctx.actor]?.ext.bridge
+        return [{ op: 'actor.ext', id: ctx.actor, key: 'bridge', value: { ...(isRecord(raw) ? clone(raw) : {}), ...base, [e.param]: base[e.param] + e.amount } }]
       },
       describe: (e) => `橋參數：${PARAM_NAME[e.param]} ${signed(e.amount)}`,
     })

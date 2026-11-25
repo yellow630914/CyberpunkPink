@@ -3,6 +3,7 @@
 
 import type { BattleStatus, BattleUnit } from '../types'
 import { attrMod } from '../rules/check'
+import { regenTotal } from '../rules/passive'
 import { currentUnit, unitTag } from './field'
 import { LOSE_TURN } from './rules'
 import type { BattleRun } from './run'
@@ -66,9 +67,10 @@ export function beginTurn(run: BattleRun, u: BattleUnit): boolean {
   u.uses.turns = (u.uses.turns ?? 0) + 1
   if (!first) {
     // 帶著 noRegen 的狀態（閃斷：RAM 不回復）的人，那幾池這個回合不回；其餘照常。沒用完的留到下回合，不超過上限
+    // 行動點與 RAM 的修正：義體、藥、裝備、構裝給的正值合計全身最多 +1（regenTotal；CRAFTING 5.5 節、dev/adr/0019 P13），其他來源與負值照算
     const frozen = new Set(u.statuses.flatMap((s) => run.statusRule(s.id).noRegen ?? []))
-    if (!frozen.has('ap')) u.ap.now = Math.min(u.ap.max, u.ap.now + Math.max(0, u.ap.regen + sum(run.mods('ap_regen', u))))
-    for (const [key, p] of Object.entries(u.pools)) if (!frozen.has(key)) p.now = Math.min(p.max, p.now + p.regen)
+    if (!frozen.has('ap')) u.ap.now = Math.min(u.ap.max, u.ap.now + Math.max(0, u.ap.regen + regenTotal(run.mods('ap_regen', u))))
+    for (const [key, p] of Object.entries(u.pools)) if (!frozen.has(key)) p.now = Math.min(p.max, p.now + (key === 'ram' ? Math.max(0, p.regen + regenTotal(run.mods('ram_regen', u))) : p.regen))
   }
   // 感載每回合自然消退：現實是 2 ＋ mod(意志)（CORE_RULES 4.2 節）；戰場寫了 decayStat（內海）是 decayBase（0）＋ 單位的 decay（衍生數值 net_load_decay：甲板的散熱、技能、構裝、藥、狀態）、
   // 沒有 mod(意志)（使用者 2026-11-24：內海裡感載不自然消退，敵我都一樣；有技能或特殊效果的例外）。兩邊都再加修正 decay

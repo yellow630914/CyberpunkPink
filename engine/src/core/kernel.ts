@@ -6,11 +6,13 @@ import { ActivityRegistry } from './action/activity'
 import { registerCoreActivities } from './action/coreActivities'
 import { registerCoreBattleActions } from './battle/actions'
 import { BattleRegistry } from './battle/registry'
-import { registerBattleKinds, registerWeaponClassKind } from './battle/rules'
+import { MOD_KINDS, registerBattleKinds, registerWeaponClassKind } from './battle/rules'
 import { registerProductKinds } from './content/product'
+import { ContentError } from './content/registry'
 import { specialMapProblems } from './grid/model'
 import { GridRegistry } from './grid/registry'
 import { createRulesKernel } from './rules/kernel'
+import { passiveContentProblems } from './rules/passive'
 
 export interface Kernel extends ActionKernel {
   /** 戰鬥的登錄表：行動、掛點、修正、單位的來源（現實與內海共用同一套引擎；dev/adr/0010） */
@@ -51,6 +53,7 @@ export function createKernel(features: Feature[] = []): Kernel {
   registerProductKinds(base.content)
   const battle = new BattleRegistry(base.probe)
   registerCoreBattleActions(battle)
+  registerPassiveBattle(base, battle)
   // 地圖的定義（DATA 9.3 節：一個模板一筆，裡面一到幾張圖）
   base.content.defineKind({ kind: 'special_map', owner: 'core', validate: specialMapProblems })
   const activity = new ActivityRegistry(base.probe)
@@ -58,6 +61,20 @@ export function createKernel(features: Feature[] = []): Kernel {
   const k: Kernel = Object.assign(base, { actions, battle, activity, grid: new GridRegistry(base.probe), features: [] as string[], pendingReady: [] as Feature[], warners: [] as Feature[] })
   for (const f of features) installFeature(k, f)
   return k
+}
+
+/**
+ * 被動效果在戰鬥裡的兩個接點（dev/adr/0019 第二節）：每一種戰鬥修正（單位有 actor 時，這個人身上 mod 類的每一筆變成一個 RollPart，source 是那一筆的來源；
+ * 寫了 layer 的只在那一層的戰場算，看這一場的 mode.layer），與 unit.ready（unit_tag 加到單位的標籤）。核心掛一次，功能不必自己掛。
+ */
+function registerPassiveBattle(k: Pick<Kernel, 'passives'>, battle: BattleRegistry): void {
+  k.passives.defineMods(MOD_KINDS)
+  // （有的測試只給半個 view，沒有 state：沒有狀態就沒有被動效果）
+  battle.modifier('passives', (q) => (q.unit.actor && q.view.state?.actors[q.unit.actor] ? k.passives.modParts(q.view.state, q.unit.actor, q.kind, { layer: q.view.mode.layer, tags: q.tags }) : []))
+  battle.on('unit.ready', 'passives', ({ run, unit }) => {
+    if (!unit.actor || !run.state.actors[unit.actor]) return
+    for (const tag of k.passives.unitTags(run.state, unit.actor)) if (!unit.tags.includes(tag)) unit.tags.push(tag)
+  })
 }
 
 export function installFeature(k: Kernel, f: Feature): void {
@@ -69,12 +86,18 @@ export function installFeature(k: Kernel, f: Feature): void {
   k.probe.emit('core/kernel', 'feature.install', { id: f.id })
 }
 
-/** 內容載入之後呼叫：跑每個功能的第二段。可以重複呼叫，每個功能只跑一次。 */
+/**
+ * 內容載入之後呼叫：跑每個功能的第二段，再做核心自己的整體檢查。可以重複呼叫，每個功能只跑一次。
+ * 核心的檢查排在所有功能的第二段之後：設計圖、零件、怪癖的 effects 是被動效果，條件種類要等功能都裝上才知道（dev/adr/0019 第二節）；
+ * 不合格的丟 ContentError，每一條以「<種類>/<id>：」開頭。
+ */
 export function readyFeatures(k: Kernel): void {
   for (const f of k.pendingReady.splice(0)) {
     f.ready!(k)
     k.probe.emit('core/kernel', 'feature.ready', { id: f.id })
   }
+  const problems = passiveContentProblems(k)
+  if (problems.length > 0) throw new ContentError(problems)
 }
 
 /** 內容載入之後問每個功能有沒有警告（資料檢查；Feature.warnings）：照功能安裝的順序、每個功能內部的順序接起來。沒有警告是空陣列。 */

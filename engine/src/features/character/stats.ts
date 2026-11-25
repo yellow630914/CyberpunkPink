@@ -5,8 +5,12 @@ import { attrMod } from '../../core'
 
 export const OWNER = 'character'
 
-/** 耐受是橋參數，橋的系統還沒搬進來：讀 ext.bridge.tolerance，不是數字就當 0。 */
-function tolerance(state: GameState, actor: ActorId): number {
+/**
+ * 耐受是橋參數：讀有效值（衍生數值 bridge_tolerance，橋的功能 lewd 定義；義體、藥、調校加的都在裡面）；沒有人定義時讀 ext.bridge.tolerance，不是數字就當 0
+ * （dev/adr/0019 P14）。
+ */
+function tolerance(stats: StatRegistry, state: GameState, actor: ActorId): number {
+  if (stats.hasStat('bridge_tolerance')) return stats.stat(state, actor, 'bridge_tolerance')
   const bridge = state.actors[actor]?.ext.bridge as { tolerance?: unknown } | undefined
   const t = bridge?.tolerance
   return typeof t === 'number' && Number.isFinite(t) ? t : 0
@@ -23,12 +27,16 @@ export function installStats(k: Kernel): void {
   const mod = (state: GameState, actor: ActorId, attr: Parameters<StatRegistry['effectiveAttr']>[2]) => attrMod(s.effectiveAttr(state, actor, attr))
 
   s.defineStat({ id: 'max_hp', owner: OWNER, name: '生命值上限', base: (st, a) => 20 + s.effectiveAttr(st, a, 'body') * 2 })
-  s.defineStat({ id: 'load_cap', owner: OWNER, name: '感載上限', base: (st, a) => 20 + Math.floor(tolerance(st, a) / 2) + mod(st, a, 'resolve') * 3 })
+  s.defineStat({ id: 'load_cap', owner: OWNER, name: '感載上限', base: (st, a) => 20 + Math.floor(tolerance(s, st, a) / 2) + mod(st, a, 'resolve') * 3 })
   s.defineStat({ id: 'ap_max', owner: OWNER, name: '行動點上限', base: (st, a) => 4 + Math.floor((mod(st, a, 'reflex') + mod(st, a, 'charm')) / 2) })
   // 「最少 4」只管公式那一行（max(4, 4 + mod(智識)))，甲板、技能、構裝的加值加在它上面（CYBERSPACE 6.3 節；B027），所以衍生數值自己不設 min
   s.defineStat({ id: 'ram_max', owner: OWNER, name: 'RAM 上限', base: (st, a) => Math.max(4, 4 + mod(st, a, 'intellect')) })
   // 現在每個人都是 3；敵人的層數照位階，是 M1 的事
   s.defineStat({ id: 'afterglow_cap', owner: OWNER, name: '承受層數', base: () => 3 })
+
+  // 沉溺的下限（CORE_RULES 4.3 節「沉溺的下限」）：基礎 0，身上的義體、藥、調校加上去；sink 效果往回走的那一邊不低於它（effects.ts）。
+  // 暫時或永久的下限加減由 provider 與被動效果給，這裡不自己加
+  s.defineStat({ id: 'sink_floor', owner: OWNER, name: '沉溺的下限', base: () => 0, min: 0 })
 
   s.addCheckModifier(OWNER, (st, a) => (isWounded(s, st, a) ? [{ label: '重傷', value: -2, source: 'condition' }] : []))
 }

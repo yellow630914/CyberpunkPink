@@ -67,7 +67,16 @@ const SPECS: TrackSpec[] = [
       min: -3, max: 3,
       notice: (to) => (to === 0 ? (e.amount > 0 ? '這一次已經往下陷得夠多了，這一筆沒有再算。' : '這一次已經往回拉得夠多了，這一筆沒有再算。') : e.amount > 0 ? '一次只會往下陷一點點，實際沒有那麼多。' : '一次只能往回拉一點點，實際沒有那麼多。'),
     }),
-    bound: (amount, ctx) => (amount < 0 ? notBelowZero(amount, current(ctx, 'sink')) : { to: amount }),
+    // 往下降（amount < 0）不低於 sink_floor（身上的義體讓你浮不上來）：max(amount, 下限 − 現在)；已經在下限上（或比它低）的整筆拿掉並提醒。
+    // 下限是 0（沒有人加）時就是不低於 0，和以前一樣、不提醒；只降到一半被下限擋住的照實際能動的量算、不另外提醒
+    bound: (amount, ctx, k) => {
+      if (amount >= 0) return { to: amount }
+      const now = current(ctx, 'sink')
+      const floor = k.stats.stat(ctx.state, ctx.actor, 'sink_floor')
+      if (floor <= 0) return notBelowZero(amount, now)
+      const to = Math.min(0, Math.max(amount, floor - now))
+      return to === 0 ? { to, limit: floor, notice: '身上的義體讓你浮不上來，這一筆沒有算。' } : { to }
+    },
     describe: (n) => (n > 0 ? '沉溺：往下陷了一點' : '沉溺：往回拉一點'),
   },
   {

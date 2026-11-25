@@ -39,7 +39,8 @@ describe('白箱 beginTurn：回合開始的結算順序（COMBAT_SYSTEM 1.2；�
 
   it('ap_regen 的修正加進回復；負的修正不會讓行動點變少（最少回 0）', () => {
     const a = field()
-    a.k.battle.modifier('t', (q) => (q.kind === 'ap_regen' ? [{ label: '義體', value: q.unit.side === 'ally' ? 2 : -9, source: 'cyber' }] : []))
+    // 來源不是節奏資源（義體、藥、裝備、構裝合計最多 +1，見 M4-core-passive）：用技能的修正，才看得到「加進回復、負的最少回 0」
+    a.k.battle.modifier('t', (q) => (q.kind === 'ap_regen' ? [{ label: '技能', value: q.unit.side === 'ally' ? 2 : -9, source: 'ability' }] : []))
     const me = a.ally(1)
     me.ap.now = 0
     const run = a.run()

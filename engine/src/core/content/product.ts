@@ -1,7 +1,8 @@
 // L2 內容：設計圖（blueprint）、零件（part）、怪癖（quirk）三種內容的格式，成品的資料（ProductData），
 // 與讀寫「零件的引用」的小工具（partOf、stackPart、partStack、partsOf、readProduct）。
 // 規格：CRAFTING 第 1～6、14 節；DATA 7.1、7.2、3.4 節；CYBERWARE 第 1、2 節；dev/adr/0019 第一節與第十七節（內嵌的零件）。
-// 核心只管格式與「讀得到」：不解釋 stats 的鍵（武器與護甲的由 gear 讀、義體的由 cyberware 讀）；effects 的內容只查是陣列。
+// 核心只管格式與「讀得到」：不解釋 stats 的鍵（武器與護甲的由 gear 讀、義體的由 cyberware 讀）；effects 這裡只查是陣列，
+// 內容是被動效果（rules/passive.ts），條件種類要等功能都裝上才知道，所以整份的檢查（passiveContentProblems）放在 readyFeatures 的最後。
 // 一件成品合起來是什麼（productOf）、放不放得進槽（slotProblems）、價錢（productPrice）在 rules/product.ts。
 //
 // 零件的引用（PartRef）只有兩種：內容的 id（字串），或內嵌的一筆（InlinePart，未登錄零件用；整筆住在狀態裡）。

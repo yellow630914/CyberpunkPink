@@ -18,13 +18,15 @@ export const isParam = (v: unknown): v is BridgeParam => (BRIDGE_PARAMS as reado
 /** actor.ext.bridge 的樣子（各 0～100）。沒有橋的人是 null。 */
 export type BridgeRecord = Record<BridgeParam, number>
 
-/** 衍生數值的 id：bridge_sensitivity 等。基礎是 ext.bridge 的值；義體、藥物、服裝之後用 k.stats.addStatProvider 加上去（要讀有效值請用 bridgeOf）。 */
+/** 衍生數值的 id：bridge_sensitivity 等。基礎是 ext.bridge 的值；義體、藥物、調校經 k.passives（或 k.stats.addStatProvider）加上去。有效值就是這個數字。 */
 export const paramStatId = (p: BridgeParam): string => `bridge_${p}`
+/** 橋參數有效值的上限（P14）：基本值 0～100，來源加上去最多到 200，來源合計不另外夾。 */
+export const BRIDGE_EFFECTIVE_MAX = 200
 
 export interface BridgeParamView {
   /** 存在 ext.bridge 裡的基本值（0～100） */
   base: number
-  /** 有效值：基本值加所有來源，來源合計最多 ± gear_cap；0～(100 + gear_cap)。畫面顯示與故事條件用這個 */
+  /** 有效值：衍生數值 bridge_<參數>（基本值加所有來源，夾在 0～200；P14）。畫面顯示與故事條件用這個 */
   value: number
   /** 效力：100 以內照算；超過 100 的部分邊際遞減（100 + over_scale × (1 − 100 ÷ 值)）。機制（承受層數、開戰感載）用這個 */
   power: number
@@ -83,7 +85,7 @@ export interface LewdRules {
   craving_divisor: number
   /** 一段有幾點（ElondiaRPG：每 20 一段） */
   band_size: number
-  /** 來源（裝備、藥物）對一項橋參數的加減合計最多 ± 這麼多（ElondiaRPG 的 total_cap） */
+  /** 最後一段的上限是 100 ＋ 這個數字（預設 100，剛好蓋住有效值的 0～200）。來源合計不再夾在 ± 這個數字（P14：有效值由衍生數值的 0～200 夾） */
   gear_cap: number
   /** 超過 100 的邊際遞減係數（ElondiaRPG 的 over_scale） */
   over_scale: number
@@ -151,7 +153,7 @@ export function powerOf(value: number, overScale: number): number {
 
 /**
  * 四項橋參數的有效值、效力與所在的那一段（M2-lewd 的 bridgeOf）。沒有橋（或沒有這個角色）是 null。
- * 有效值 = 基本值 + 來源（k.stats 的 bridge_<參數> 的 provider）；來源合計夾在 ± gear_cap，整體夾在 0～(100 + gear_cap)。
+ * 有效值直接讀衍生數值 bridge_<參數>（基本值加所有來源的合計，0～200；P14）；沒有人定義那個數值時（沒裝 lewd 的核心測試）用基本值。
  */
 export function bridgeOf(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, actor: ActorId): BridgeView | null {
   const base = baseBridge(k, state, actor)
@@ -160,8 +162,7 @@ export function bridgeOf(k: Pick<Kernel, 'content' | 'stats'>, state: GameState,
   const out = {} as BridgeView
   for (const p of BRIDGE_PARAMS) {
     const id = paramStatId(p)
-    const extra = k.stats.hasStat(id) ? k.stats.statParts(state, actor, id).slice(1).reduce((s, x) => s + x.value, 0) : 0
-    const value = clamp(Math.round(base[p] + clamp(extra, -r.gear_cap, r.gear_cap)), 0, 100 + r.gear_cap)
+    const value = k.stats.hasStat(id) ? k.stats.stat(state, actor, id) : base[p]
     const last = Math.ceil(100 / r.band_size) - 1
     const band = Math.min(Math.floor(value / r.band_size), last)
     out[p] = { base: base[p], value, power: powerOf(value, r.over_scale), band, range: [band * r.band_size, band === last ? 100 + r.gear_cap : band * r.band_size + r.band_size - 1] }

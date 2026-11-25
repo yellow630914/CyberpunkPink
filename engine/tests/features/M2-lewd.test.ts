@@ -256,7 +256,8 @@ describe('慾求：開戰時帶著感載（G14）', () => {
   it('已經帶著比這更多感載的人不動；沒有橋的人不帶', () => {
     expect(fresh(80, { load: 8 })!.now).toBe(8)
     expect(fresh(80, { load: 2 })!.now).toBe(5)
-    expect(fresh(null)!.now).toBe(0)
+    // 沒有橋的人沒有感載那一條（M4-core-passive：ext.bridge 是 null 的角色單位沒有 load），自然也不帶
+    expect(fresh(null)).toBeUndefined()
   })
 })
 
