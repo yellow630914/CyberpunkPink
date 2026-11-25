@@ -13,6 +13,8 @@
 //   prelude        起手：不認識但就在這裡的人先認識他（meet），後面的親密度才有鍵
 // 每天的次數記在 state.ext.npcs.today（變更 npcs.did），旗標也由 report.before 掛鉤加進這份報告。
 // 資料沒有某一筆時，那個互動就不存在（interactions 裡沒有它，也不丟錯）。
+// 請教（M4-training；NPC_SYSTEM 6.1 節）：不是行動。條件 can_teach（abilities 註冊）成立的人，interactions 多一項 kind 是 npc_consult 的選單，帶 handoff 記號，介面接著呼叫 abilities 的 teachOptions／lessonDraft；
+// 這裡不 import abilities，只問條件。另外註冊條件 npc_here { npc }（他現在在主角所在的地方；同行的隊員也算）給 abilities 問他在不在場。
 //
 // 讀別的功能的數字只經由 meterOf（hostility、favor、fame；沒有人定義就當 0、不加那條修正）、條件與內容；不 import 別的功能。
 

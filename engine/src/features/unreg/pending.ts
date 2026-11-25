@@ -5,6 +5,7 @@
 import type { Change, GameState, InlinePart, Kernel, PartEntry, QuirkEntry, ReportDraft, ReportOutcome } from '../../core'
 import { ActionBlocked, Rng, clone, hash32, inlinePartProblems, isRecord, partStack, toMinutes } from '../../core'
 import type { FrameSpec } from './frame'
+import { deskHere } from './desk'
 import { frameOf, frameProblems } from './frame'
 import type { Frame, Pending, PresetEntry, PresetText, UnregRules } from './model'
 import { DELIVER_ACTION, NAME_OP, PENDING_OP, PRESET_KIND, ROMAN, UID_PREFIX, typeName, unregOf, unregRules } from './model'
@@ -57,7 +58,7 @@ export function makePending(k: Pick<Kernel, 'content'>, state: GameState, spec: 
 /** 全部等著交貨的（複本）。 */
 export const pendingParts = (state: GameState): Pending[] => unregOf(state).pending
 
-/** 可以交的：沒有 hold 的每一筆（訂做的 hold: 'order' 要在委託台取，下一張）。 */
+/** 可以交的：沒有 hold 的每一筆（訂做的 hold: 'order' 要滿了天數、人在委託台才能取，見 orderPickups）。 */
 export function readyParts(_k: Pick<Kernel, 'content'>, state: GameState): Pending[] {
   return unregOf(state).pending.filter((p) => p.hold === undefined)
 }
@@ -71,9 +72,14 @@ export function deliverBlock(k: Kernel, state: GameState, id: string): string | 
   if (p.hold === 'order') {
     const now = toMinutes(state.time)
     if (p.ready_at !== undefined && now < p.ready_at) return `還要等 ${Math.ceil((p.ready_at - now) / DAY)} 天。`
+    // 現實的攤位與網內的委託台是同一種設施（unreg_desk），條件也是同一個；今天開不開不管（訂的時候才看）
+    if (!deskHere(k, state)) return '要到同人社團的委託台取貨。'
   }
   return null
 }
+
+/** 現在可以取貨的訂單（滿了天數而且人在委託台）。 */
+export const orderPickups = (k: Kernel, state: GameState): Pending[] => unregOf(state).pending.filter((p) => p.hold === 'order' && deliverBlock(k, state, p.id) === null)
 
 // ---- 給外殼組 AI 請求的資料 ----
 

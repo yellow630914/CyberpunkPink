@@ -28,6 +28,11 @@
 //         物品多讀一個 scene 欄位（DATA 3.3，載入之後 ready 查格式）
 //   活動  scene（setup 見 SceneSetup；放行 commit:scene.）；結束時發 activity.end（result: { with, fit, rating, goal, goal_done, reason }）
 //   內容  night_resonance（夜課的共鳴；M4-nightclass，night.ts）；night_skill 多讀 branch、tier、insight、requires、filters、deep（格式在 night.ts；nightclass 讀）
+//         共鳴多的幾種鍵（M4-night-resonance，格式在 night.ts、行為在 play.ts）：per_round（條件式的每回合效果：if 是 bind_link、contract_partner、init_extreme、watched、style_match）、
+//         link_bonus（依連接的部位加持續的契合：口、多出來的部位）、keep_extra_links、once（set_init、fit_floor、free_tease、no_glow、free_dress）、opening（開場的主動權與契合）、
+//         tease_flat、restrain_dice、load_cap、tease_exposure。共鳴只在成人場景裡有效，所以感載上限與曝露度加成不走被動效果的來源（核心的來源清單是封閉的，沒有 night），直接算在場景裡。
+//         共鳴給的兩種行動（沒有那個共鳴就用不出來）：once（夜課的功夫：每場一次，主動權直接設成 70 或 30、契合拉到 50）與 dress（脫換衣服：第一次不花行動點；只花行動點與記一行，穿脫在場景外）。
+//   條件  partnered { not? }（有固定的伴：最喜歡的人不是 not、或是契約人）；技能的 needs 可以寫 { kind: 'target', of: 條件 }：「對方……」的需要，內層的條件看這個行動的對象
 //   量表  insight（體悟；單一、0 起、沒有上限；同名的效果與條件核心自動有）
 //   狀態  state.ext.scene（見 model.ts 的 SceneRaw）；actor.ext.scene（誰會什麼：positions、skills；選填 parts、part_tags）；actor.ext.sex_record（性經歷）
 //   掛鉤  rewind.keep：回到快照之後性經歷留著；scene.body（這個功能宣告：義體、調校、內海的化身回答多出來的部位、各部位的敏感度修正與標籤）

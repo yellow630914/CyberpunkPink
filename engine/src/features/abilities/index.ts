@@ -17,6 +17,8 @@
 // net.link／song／on_link_overload／link_full／link_gear（偶像的應援與曲目，link.ts）、needs.no_tag、resonance.net（只在內海生效的共鳴）、修正 remote_uses／no_flash／ram_free／no_pin／link_relief／turn_extra、
 // react.keep_link、mods 與反應的 who: linked、效果 link.each／link.dump、狀態 pacified（安撫：攻擊類行動的花費加一大筆）。
 // M4-creation-body（dev/work/M4-creation-body.md）：建角第 8 步（掛點 creation.step 的 abilities：逐一跑學技能的規則、沒有橋不能學）、建角之後按順序裝進橋（report.after，creation.ts）。
+// M4-training（dev/work/M4-training.md；training.ts）：基本功 5、6 級的請教（向人，三種付法：親密度、學費、旗標 taught:<npc>:<skill>）與去機構上課（設施種類的 teach）；每升一級上幾個時段，
+//   上完立下記號（actor.ext.abilities.lessons），skillUpDraft 看到就不擋；條件 can_teach；報告 ability.lesson；匯出 teachOptions、lessonBlock、lessonDraft。他在不在場問條件 npc_here（features/npcs 註冊）。
 // 不 import 別的功能（射擊、換彈在 features/combat；技能自己用 run.attack）。
 
 import type { Feature } from '../../core'

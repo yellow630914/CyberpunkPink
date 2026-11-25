@@ -27,6 +27,8 @@ const STUBS: Feature = {
       kind: 'at_facility', owner: 'test_stubs', validate: () => [],
       test: (c, { state }) => (typeof state.flags.fac === 'string' ? (c.types ? c.types.includes(state.flags.fac) : true) : false),
     })
+    // 進了委託副本（旗標 in_commission）：除了放行的以外什麼都不能做
+    k.activity.define({ kind: 'commission', owner: 'test_stubs', order: 90, active: (s) => (s.flags.in_commission === true ? { id: 'cm', label: '委託副本' } : null), allow: [], reason: () => '委託副本進行中。' })
     k.conditions.register<{ kind: string; key: string }>({ kind: 'flag_on', owner: 'test_stubs', validate: () => [], test: (c, { state }) => state.flags[c.key] === true })
   },
 }
@@ -303,7 +305,14 @@ describe('上到一半換老師、人不在場', () => {
     expect(lessonBlock(g.k, g.state, { skill: 'firearms', from: { npc: 'npc_far' }, pay: 'affinity' })).toBeNull()
   })
 
-  it('他的基本功不夠格（只有 3 級）時沒有東西可以教；戰鬥中與進了委託副本都不能上課', () => {
+  it('進了委託副本不能上課', () => {
+    const g = make()
+    know(g, 'npc_joe', 45)
+    flag(g, 'in_commission', true)
+    expect(lessonBlock(g.k, g.state, { skill: 'firearms', from: joe, pay: 'affinity' })).toBe('委託副本進行中。')
+  })
+
+  it('他的基本功不夠格（只有 3 級）時沒有東西可以教；戰鬥中不能上課', () => {
     const g = make()
     know(g, 'npc_nobody', 50)
     expect(teachOptions(g.k, g.state, { npc: 'npc_nobody' })).toEqual([])

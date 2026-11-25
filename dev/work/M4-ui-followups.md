@@ -14,3 +14,5 @@
 
 ## 驗收
 - ui `npm test`、`vue-tsc`、`npm run build` 全過；新功能有測試。不 commit。
+
+9. （M4-training／night-resonance 回報）拿掉 `peopleView.UNOPENED_ACTIONS` 灰掉的「請教」，改接 `npc_consult`（`teachOptions`、`lessonDraft`）；成人場景列出 `once`、`dress` 兩種新行動。

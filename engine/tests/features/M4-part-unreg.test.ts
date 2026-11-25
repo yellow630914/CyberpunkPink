@@ -87,8 +87,8 @@ const pack = (patch: (c: Record<string, Rec[]>) => void = () => {}): ContentPack
     skill: structuredClone(SKILLS), weapon_class: structuredClone(WEAPONS),
     special_map: [structuredClone(MAP) as unknown as Rec],
     district: [{ id: 'd_hive', name: '蜂巢', grade: 1, blocks: ['b_shops'] }],
-    block: [{ id: 'b_shops', district: 'd_hive', name: '店街', kind: 'block', map: 'm_street', exits: {}, facilities: { F1: { type: 'fac_plain', name: '雜貨店' } } }],
-    facility_type: [{ id: 'fac_plain', name: '雜貨店' }],
+    block: [{ id: 'b_shops', district: 'd_hive', name: '店街', kind: 'block', map: 'm_street', exits: {}, facilities: { F1: { type: 'fac_plain', name: '雜貨店' }, F2: { type: 'fac_desk', name: '同人社團的委託台' } } }],
+    facility_type: [{ id: 'fac_plain', name: '雜貨店' }, { id: 'fac_desk', name: '委託台', unreg_desk: {} }],
     blueprint: structuredClone(BLUEPRINTS), part: structuredClone(PARTS), quirk: structuredClone(QUIRKS),
     unreg_rule: [{ id: 'default', options: structuredClone(OPTIONS) }],
     unreg_preset: structuredClone(PRESETS),
@@ -684,6 +684,11 @@ describe('deliverDraft', () => {
     g.state.time = { ...g.state.time, day: g.state.time.day + 2 }
     expect(deliverBlock(g.k, g.state, 'up1')).toBe('還要等 1 天。')
     g.state.time = { ...g.state.time, day: g.state.time.day + 1 }
+    // 時間到了，但人不在委託台（M4-part-sources 加的一條）
+    expect(deliverBlock(g.k, g.state, 'up1')).toBe('要到同人社團的委託台取貨。')
+    g.state.location = { district: 'd_hive', block: 'b_shops', facility: 'F1' }
+    expect(deliverBlock(g.k, g.state, 'up1')).toBe('要到同人社團的委託台取貨。')
+    g.state.location = { district: 'd_hive', block: 'b_shops', facility: 'F2' }
     expect(deliverBlock(g.k, g.state, 'up1')).toBeNull()
     g.commit(deliverDraft(g.k, g.state, { id: 'up1' }))
     expect(g.state.inventory.some((s) => s.id === UNREG_STACK_ID)).toBe(true)

@@ -6,7 +6,10 @@
 // 接上核心的地方：
 //   內容  night_rule（規則表，overridable；id: default）：common_gates（共通每一階要的次數或對象的人數）、insight_per_tier、axis_of（分支 → 軸）
 //   數值  衍生數值 night_tier_common、night_tier_relation、night_tier_sense、night_tier_body、night_tier_costume（0～5；任何角色都算得出來）
-//   條件  night_skill（{ id }：學會了）、night_tier（{ branch, min }）；看 ctx.actor ?? 主角
+//   條件  night_skill（{ id }：學會了）、night_tier（{ branch, min }）、avatar（{ part?, layer?, who? }：化身多出來的部位、人在不在內海；M4-night-resonance）；看 ctx.actor ?? 主角
+//         學習條件多的句型（M4-night-resonance）：requires.experience 多 bodies（對象有幾種不同的身體）與 look_mismatch（有身體和外表的性別不同的對象），讀 sex_record.looks（scene 的結算寫）；
+//         requires.conditions 裡量表的條件可以寫 key: 'any'（每一區、每個勢力各試一次，有一個成立就算：豔名在任一區 20 以上）；只掛軸的技能 tag 只認軸的 id 與 common。
+//         「對方……」的條件不是學習條件：寫成技能在場景裡的 needs（{ kind: 'target', of: 條件 }，scene 判斷）。
 //   效果  night_skill（{ id }，只有內建的來源能用：直接學會，不花體悟、不看條件；AI 給不出來）
 //   變更  nightclass.learn（{ id, skill, positions }：技能與開放的體位記進 actor.ext.scene）
 //   報告  nightclass.learn（學習；不花遊戲時間）

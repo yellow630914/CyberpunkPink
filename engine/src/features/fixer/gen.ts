@@ -30,7 +30,7 @@
 import type { ContentEntry, GameState, Kernel } from '../../core'
 import { UNIT_RANKS, clone, compareText, deriveRng, isRecord, isSafeInt, repGrade, repTierOf, meterOf } from '../../core'
 import type { CommissionDef, FixerEntry, Offer, Reveal, UnknownItem } from './model'
-import { CATS, factionName, fixerNetRules, offerProblems } from './model'
+import { CATS, cleanExtra, factionName, fixerNetRules, gradeOf, offerProblems, rewardExtraProblems } from './model'
 import type { Cat } from './model'
 
 export const TYPE_KIND = 'commission_type'
@@ -875,8 +875,26 @@ export function offersFor(k: Kernel, state: GameState, fixer: FixerEntry, day: n
   const pinned: GameState = { ...state, rng: { seed: state.rng.seed, cursor: 0 } }
   const out: Offer[] = []
   for (let i = 0; i < OFFERS_PER_DAY; i++) {
-    const o = generate(k, pinned, { fixer, seed: offerSeed(fixer.id, day, i) })
-    if (o) out.push(o)
+    const seed = offerSeed(fixer.id, day, i)
+    const o = generate(k, pinned, { fixer, seed })
+    if (o) out.push(withReward(k, pinned, fixer, o, seed))
   }
   return out
+}
+
+/**
+ * 生成的委託問一次掛點 fixer.reward（phase offer；dev/work/M4-part-sources.md）：第一個格式合格的回答算，存成 offer.extra，現金先乘 cash_pct
+ * （照生成時的做法四捨五入到十位，不低於 0）；沒有人回答就原樣不動。state 是游標固定在 0 的那一份，所以同一天問幾次都一樣。
+ */
+function withReward(k: Kernel, pinned: GameState, fixer: FixerEntry, o: Offer, seed: string): Offer {
+  const c = o.commission
+  const commission: { id: string; kind?: string; grade: number; employer?: string } = {
+    id: c.id, ...(typeof c.kind === 'string' ? { kind: c.kind } : {}), grade: gradeOf(c), ...(typeof c.employer === 'string' && c.employer.trim() && c.employer !== 'none' ? { employer: c.employer } : {}),
+  }
+  for (const h of k.hooks.run('fixer.reward', { state: pinned, phase: 'offer', fixer: fixer.id, commission, seed })) {
+    if (rewardExtraProblems(h.result).length > 0) continue
+    const extra = cleanExtra(h.result)!
+    return { ...o, reward: extra.cash_pct === undefined ? o.reward : Math.max(0, Math.round((o.reward * extra.cash_pct) / 10) * 10), extra }
+  }
+  return o
 }

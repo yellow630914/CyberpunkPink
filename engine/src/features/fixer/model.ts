@@ -138,6 +138,36 @@ export const NET_LAYER_IDS = ['guest', 'staff', 'control', 'core'] as const
 export const RATING_KEYS = ['S', 'A', 'B', 'C'] as const
 export type Rating = (typeof RATING_KEYS)[number]
 
+/**
+ * 報酬欄多的一樣東西（掛點 fixer.reward 的回答；dev/work/M4-part-sources.md）：fixer 只存下它、結算時用內建的來源跑 effects，不知道回答的是誰、東西是什麼。
+ * by 是回答的功能（給紀錄看）、label 是簡報報酬欄多的那一句、cash_pct 只在生成時看（0～1：現金先乘它）、effects 結算時給。
+ */
+export interface RewardExtra {
+  by: string
+  label: string
+  cash_pct?: number
+  effects: Array<Record<string, unknown> & { kind: string }>
+}
+
+/** 一筆 RewardExtra 的格式問題（一條一句）；空的就是合格。 */
+export function rewardExtraProblems(x: unknown): string[] {
+  if (!isRecord(x)) return ['extra 要是 { by, label, cash_pct?, effects }']
+  const p: string[] = []
+  if (!isText(x.by)) p.push('extra.by 要是回答的功能的 id')
+  if (!isText(x.label)) p.push('extra.label 要是報酬欄多的那一句')
+  if (x.cash_pct !== undefined && !(typeof x.cash_pct === 'number' && Number.isFinite(x.cash_pct) && x.cash_pct >= 0 && x.cash_pct <= 1)) p.push('extra.cash_pct 要是 0～1 的數字')
+  if (!Array.isArray(x.effects) || x.effects.length === 0) p.push('extra.effects 要是至少一個效果的陣列')
+  else x.effects.forEach((e: unknown, i: number) => { if (!isRecord(e) || !isText(e.kind)) p.push(`extra.effects[${i}] 要是 { kind, … } 的效果`) })
+  return p
+}
+
+/** 存下來的 RewardExtra（去掉 cash_pct：它只在生成時用過）；格式不對是 undefined。 */
+export function cleanExtra(x: unknown): RewardExtra | undefined {
+  if (rewardExtraProblems(x).length > 0) return undefined
+  const e = x as RewardExtra
+  return { by: e.by, label: e.label, ...(e.cash_pct !== undefined ? { cash_pct: e.cash_pct } : {}), effects: clone(e.effects) }
+}
+
 export const DEFAULT_FIXER_RULES: FixerRules = {
   pay_cred: 0.85, pay_favor: 0.7, hostility_cred: 2, haggle_dc_base: 13, haggle_success: 0.05, haggle_critical: 0.1,
   scout_minutes: 240, scout_dc_base: 10, scout_dc_per_grade: 2, scout_hard_from: 4, scout_hard_plus: 1, scout_alert: 15, intel_per_grade: 300,
@@ -312,6 +342,8 @@ export interface Offer {
   min_rep?: number
   /** 哪位中間人給的（board 蓋上去的） */
   fixer?: string
+  /** 報酬欄多的一樣東西（掛點 fixer.reward 的回答，或別的功能經 fixer.offers 自己帶；報酬 reward 已經是乘過 cash_pct 的數字） */
+  extra?: RewardExtra
 }
 
 export function revealProblem(r: unknown, stages: number): string | null {
@@ -333,6 +365,7 @@ export function offerProblems(o: unknown): string[] {
   if (!isText(o.brief)) p.push('brief 要是文字')
   if (!(isSafeInt(o.reward) && o.reward >= 0)) p.push('reward 要是 0 以上的整數')
   if (o.min_rep !== undefined && !(isSafeInt(o.min_rep) && o.min_rep >= 0 && o.min_rep <= 100)) p.push('min_rep 要是 0～100 的整數')
+  if (o.extra !== undefined) p.push(...rewardExtraProblems(o.extra))
   const c = o.commission
   let stages = 0
   if (!isRecord(c) || !isText(c.id) || !Array.isArray(c.stages) || c.stages.length === 0) p.push('commission 要是一件具體的副本（要有 id 與至少一個階段）')
@@ -370,6 +403,8 @@ export interface Terms {
   pay: PayKind
   /** 中間人的抽成（比例） */
   cut: number
+  /** 報酬欄多的一樣東西（接案時從委託抄過來；結算時給，不受付法與抽成影響） */
+  extra?: RewardExtra
 }
 
 export interface ScoutEntry {
@@ -476,6 +511,8 @@ export interface PayoutRecord {
   debt: number
   /** 這一次入帳信譽實際從多少變成多少（夾值之後；沒有信譽的量表、舊存檔沒有）。畫面的結算寫「實際的」用，不要自己算 */
   rep?: { from: number; to: number }
+  /** 報酬欄多的那一樣東西結算時的句子（談好的、或雇主多給的；沒有就沒這個欄位） */
+  extra?: string[]
 }
 
 /** 副本交回來之後等著結算的事（activity.end 記下，report.after 接著提交 fixer.payout；撤退的由 rewind.keep 退人）。 */
@@ -518,8 +555,12 @@ const isPending = (v: unknown): v is PendingEnd => isRecord(v) && isText(v.job) 
 
 /** 舊的存檔、M2-fixer 時存下的手上委託沒有這幾個欄位：補上預設值。 */
 function normJob(j: Job): Job {
+  const extra = cleanExtra(j.terms.extra)
+  const { extra: _drop, ...terms } = j.terms
+  void _drop
   return {
     ...j,
+    terms: { ...terms, ...(extra ? { extra } : {}) },
     aux: isRecord(j.aux) ? (j.aux as Aux) : {},
     bond_failed: Array.isArray(j.bond_failed) ? j.bond_failed.filter(isText) : [],
     borrow_n: isSafeInt(j.borrow_n) && j.borrow_n >= 0 ? j.borrow_n : 0,

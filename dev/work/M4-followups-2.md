@@ -17,3 +17,6 @@
 - 每一項至少一條行為測試；做不到的照實回報。engine tsc、npm test、test:smoke 全過；ui npm test、vue-tsc 全過。不 commit。
 
 9. （M4-curtain-fall 回報）效果 `curtain_gig`（從事件直接簽檔期）、贊助人名片／委託線頭的效果，給 8.8 節貴賓席競標包場與接簽檔期的戰敗事件用。
+10. （M4-training 回報）機構的營業時段：條件 `facility_open`（或 `at_facility` 收 `open: true`），abilities 的機構上課讀它。
+11. （M4-night-resonance 回報）核心：被動效果來源加 `night`，身體 2 階（感載上限 +4）與扮相 4 階（曝露度加成）改走被動來源（場景外也生效的話照設計書）；量表條件的 `key: 'any'` 改成通用（現在只在夜課學習條件展開）；contract 的條件在契約人那邊也收 `npc`（關係 3 階認得「契約人在場」）；`has_item` 收道具標籤（`tag`）；外觀詞條的條件（`look { field, value }`）與獸化改造的條件。
+12. （M4-night-resonance 回報）AI 的 `scene_turn` 的 `TURN_KINDS` 加 `once`、`dress`；ui 那一半歸 M4-ui-followups。

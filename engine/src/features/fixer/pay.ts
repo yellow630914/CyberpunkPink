@@ -16,7 +16,7 @@ import { clone, effectCtx, formatAmount } from '../../core'
 import { fixerDraft as draft } from './board'
 import { feeOf } from './hire'
 import type { AuxEntry, FavorSize, HireWay, Job, PayKind, PayoutRecord, PendingEnd, Rating } from './model'
-import { FAVOR_SIZE_NAME, PAY_NAME, RATING_KEYS, auxList, favorSizeOf, fixerRules, jobOf } from './model'
+import { FAVOR_SIZE_NAME, PAY_NAME, RATING_KEYS, auxList, cleanExtra, favorSizeOf, fixerRules, gradeOf, jobOf } from './model'
 import { repChanges, repGainOf, repOutcomeOf } from './rep'
 
 export type Wallet = 'cash' | 'cred'
@@ -194,11 +194,53 @@ export function splitPreview(k: Kernel, state: GameState, job: Job, rating: Rati
 
 // ---- 入帳 ----
 
-/** 這個效果有人註冊才給；格式不合（例如查不到那個人）就略過，不讓一個效果擋住整份入帳。 */
-function effectChanges(k: Kernel, state: GameState, eff: Record<string, unknown> & { kind: string }): { changes: Change[]; lines: string[] } {
-  if (!k.effects.has(eff.kind)) return { changes: [], lines: [] }
+/** 這個效果有人註冊才給；格式不合（例如查不到那個人）就略過，不讓一個效果擋住整份入帳。ok 是有沒有真的給成。 */
+function tryEffect(k: Kernel, state: GameState, eff: Record<string, unknown> & { kind: string }): { ok: boolean; changes: Change[]; lines: string[] } {
+  if (!k.effects.has(eff.kind)) return { ok: false, changes: [], lines: [] }
   const res = k.effects.resolve([eff], effectCtx(k, state, { source: 'builtin' }))
-  return res.errors.length > 0 ? { changes: [], lines: [] } : { changes: res.changes, lines: res.lines }
+  return res.errors.length > 0 ? { ok: false, changes: [], lines: [] } : { ok: true, changes: res.changes, lines: res.lines }
+}
+function effectChanges(k: Kernel, state: GameState, eff: Record<string, unknown> & { kind: string }): { changes: Change[]; lines: string[] } {
+  const r = tryEffect(k, state, eff)
+  return { changes: r.changes, lines: r.lines }
+}
+
+/**
+ * 報酬欄多的那一樣東西（dev/work/M4-part-sources.md）：談好的（terms.extra）逐個跑它的 effects，沒給成的（沒有人註冊、格式不合）多一句「<label>這一次沒有給成。」；
+ * 沒有談好的就問一次掛點 fixer.reward（phase payout，帶這一趟的評價），有回答就跑、句子開頭加「雇主多給了一樣東西：」，不扣現金。
+ * fixer 不知道回答的是誰、東西是什麼；評價的加成、抽成、分紅都不算這一樣東西。
+ */
+function extraOutcome(k: Kernel, state: GameState, job: Job, rating: Rating): { changes: Change[]; lines: string[] } {
+  const promised = job.terms.extra
+  if (promised) {
+    const changes: Change[] = []
+    const lines: string[] = []
+    let missed = false
+    for (const eff of promised.effects) {
+      const r = tryEffect(k, state, eff)
+      if (!r.ok) missed = true
+      changes.push(...r.changes)
+      lines.push(...r.lines)
+    }
+    if (missed) lines.push(`${promised.label}這一次沒有給成。`)
+    return { changes, lines }
+  }
+  const employer = employerFaction(job)
+  const commission = { id: job.commission.id, ...(typeof job.commission.kind === 'string' ? { kind: job.commission.kind } : {}), grade: gradeOf(job.commission), ...(employer !== null ? { employer } : {}) }
+  for (const h of k.hooks.run('fixer.reward', { state, phase: 'payout', fixer: job.fixer, commission, seed: job.id, rating })) {
+    const extra = cleanExtra(h.result)
+    if (!extra) continue
+    const changes: Change[] = []
+    const lines: string[] = []
+    for (const eff of extra.effects) {
+      const r = tryEffect(k, state, eff)
+      changes.push(...r.changes)
+      lines.push(...r.lines)
+    }
+    if (lines.length === 0) return { changes, lines }
+    return { changes, lines: lines.map((l, i) => (i === 0 ? `雇主多給了一樣東西：${l}` : l)) }
+  }
+  return { changes: [], lines: [] }
 }
 
 /** 做完（done）之後把請的人放掉：身上的 busy 拿掉，借來的臨時角色移除。 */
@@ -252,6 +294,10 @@ export function payoutDraft(k: Kernel, state: GameState, pend: PendingEnd): Repo
     changes.push(...e.changes)
     lines.push(...e.lines)
   }
+  // 報酬欄多的一樣東西（談好的，或雇主多給的）：不受付法、評價加成、抽成、分紅影響
+  const extra = extraOutcome(k, state, job, s.rating)
+  changes.push(...extra.changes)
+  lines.push(...extra.lines)
   for (const f of s.segments.filter((x) => x.kind === 'fee' && (x.debt ?? 0) > 0)) lines.push(`${f.name}的出場費還欠 ${formatAmount(f.debt!)}（報酬不夠，你身上也補不出來），這一筆記成欠；忠誠照沒付算。`)
   // 街頭信譽：看委託的級和主角現在的級（rep.ts）；比主角低級的不變
   const rep = repChanges(k, state, repGainOf(k, state, job, s.rating).amount)
@@ -279,7 +325,7 @@ export function payoutDraft(k: Kernel, state: GameState, pend: PendingEnd): Repo
   if (s.went.length > 0) lines.push(`一起去的人親密度 +${rules.trip_affinity}。`)
   changes.push(...releaseChanges(state, entries))
   const repOut = repOutcomeOf(k, state, rep.changes)
-  const record: PayoutRecord = { outcome: 'done', rating: s.rating, reward: s.reward, wallet: s.wallet, gross: s.gross, cut: s.cut, pool: s.pool, pc_net: s.pc_net, debt: s.debt, ...(repOut ? { rep: repOut } : {}) }
+  const record: PayoutRecord = { outcome: 'done', rating: s.rating, reward: s.reward, wallet: s.wallet, gross: s.gross, cut: s.cut, pool: s.pool, pc_net: s.pc_net, debt: s.debt, ...(repOut ? { rep: repOut } : {}), ...(extra.lines.length > 0 ? { extra: [...extra.lines] } : {}) }
   changes.push({ op: 'fixer.settle', job: job.id, payout: record })
   return draft(state, 'fixer.payout', 'paid', `「${job.title}」入帳：你實拿 ${formatAmount(s.pc_net)} ${WALLET_NAME[s.wallet]}。`, changes, {
     timeline: [{ layer: 'meat', tag: 'fixer.payout', text: s.lines.join(' '), data: { split: clone(s) as unknown as Record<string, unknown> } }],

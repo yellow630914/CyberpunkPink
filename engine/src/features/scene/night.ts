@@ -8,7 +8,7 @@
 import type { Actor, ActorId, ContentEntry, GameState, Kernel } from '../../core'
 import { clone, deriveRng, isRecord } from '../../core'
 import type { KnowRec, SceneDef, SceneRules } from './model'
-import { NO_DIE, SKILL_KIND, POSITION_KIND, DEFAULT_SCENE_RULES, isNoDie, knowOf, parseDie } from './model'
+import { NO_DIE, SKILL_KIND, POSITION_KIND, DEFAULT_SCENE_RULES, knowOf, parseDie } from './model'
 
 export const BRANCHES = ['common', 'relation', 'sense', 'body', 'costume'] as const
 export type Branch = (typeof BRANCHES)[number]
@@ -256,7 +256,7 @@ export interface PerRoundEntry {
   tag?: string
   effect: { fit: number; init: number; load_self: number; load_other: number }
 }
-export interface LinkBonusEntry { part?: string; extra: boolean; fit: number }
+export interface LinkBonusEntry { part?: string; extra: boolean; fit: number; solo: boolean }
 /** 每場（scene）或每回合（round）一次的特殊動作：set_init（主動權直接設成 values 其中一個；行動）、fit_floor（契合不到 value 的拉到 value；行動）、free_tease（每回合第一次挑逗不花行動點）、no_glow（高潮不疊餘韻）、free_dress（脫換衣服的第一次不花行動點；dress 這個行動）。 */
 export const ONCE_KINDS = ['set_init', 'fit_floor', 'free_tease', 'no_glow', 'free_dress'] as const
 export type OnceKind = (typeof ONCE_KINDS)[number]
@@ -340,7 +340,8 @@ export function resonanceProblems(e: Record<string, unknown>): string[] {
     else s.link_bonus.forEach((b, i) => {
       const at = `scene.link_bonus[${i}]`
       if (!isRecord(b)) return void p.push(`${at} 要是 { part | extra_part, fit }`)
-      for (const key of Object.keys(b)) if (!['part', 'extra_part', 'fit'].includes(key)) p.push(`${at}.${key}：只能寫 part、extra_part、fit`)
+      for (const key of Object.keys(b)) if (!['part', 'extra_part', 'fit', 'solo'].includes(key)) p.push(`${at}.${key}：只能寫 part、extra_part、fit、solo`)
+      if (b.solo !== undefined && b.solo !== true) p.push(`${at}.solo 要是 true（單人也生效；沒寫單人不生效）`)
       if ((b.part === undefined) === (b.extra_part === undefined)) p.push(`${at} 要寫 part 或 extra_part 其中一個`)
       if (b.part !== undefined && !isText(b.part)) p.push(`${at}.part 要是部位的 id`)
       if (b.extra_part !== undefined && b.extra_part !== true) p.push(`${at}.extra_part 要是 true`)
@@ -421,7 +422,7 @@ export function resonanceOf(k: Pick<Kernel, 'content' | 'stats'>, state: GameSta
     if (isInt(s.load_cap)) out.load_cap += s.load_cap
     if (isText(s.restrain_dice)) out.restrain_dice.push(s.restrain_dice)
     if (s.keep_extra_links === true) out.keep_extra_links = true
-    if (Array.isArray(s.link_bonus)) for (const b of s.link_bonus) if (isRecord(b) && isInt(b.fit)) out.link_bonus.push({ ...(isText(b.part) ? { part: b.part } : {}), extra: b.extra_part === true, fit: b.fit })
+    if (Array.isArray(s.link_bonus)) for (const b of s.link_bonus) if (isRecord(b) && isInt(b.fit) && (!solo || b.solo === true)) out.link_bonus.push({ ...(isText(b.part) ? { part: b.part } : {}), extra: b.extra_part === true, fit: b.fit, solo: b.solo === true })
     if (isRecord(s.once) && isOnceKind(s.once.kind) && (!solo || SOLO_ONCE.includes(s.once.kind))) {
       out.once.push({ kind: s.once.kind, values: Array.isArray(s.once.values) ? s.once.values.filter(isInt) : [], value: isInt(s.once.value) ? s.once.value : 0, ap: isInt(s.once.ap) ? s.once.ap : 0 })
     }

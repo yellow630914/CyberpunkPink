@@ -77,7 +77,7 @@ export interface UnregRules {
   options: Record<string, UnregOption[]>
   /** 怪癖退幾格：stats 有負數的是 costly，其餘 plain */
   refund: { plain: number; costly: number }
-  /** 每個來源一筆；這一張只讀 grade_cap，其餘的鍵是 M4-part-sources 的 */
+  /** 每個來源一筆：grade_cap 之外的鍵是各來源自己的（reward、order、window 見 DEFAULT_UNREG_RULES；用 rewardRule、orderRule、windowRule 讀） */
   sources: Record<string, { grade_cap: number; [key: string]: unknown }>
   /** 三段文字的字數範圍 */
   text: { name: [number, number]; desc: [number, number]; quirk: [number, number] }
@@ -111,7 +111,14 @@ export const DEFAULT_UNREG_RULES: UnregRules = {
   refund: { plain: 0.5, costly: 1 },
   sources: {
     // 'window' 寫成字串：分層檢查會把沒有引號的 window 當成瀏覽器的全域物件
-    reward: { grade_cap: 3 }, order: { grade_cap: 3 }, 'window': { grade_cap: 4 }, ask: { grade_cap: 2 }, gift: { grade_cap: 4 },
+    // reward：生成時 chance 把報酬欄寫成「cash_pct 現金加一件」，簡報沒寫的、評價等於 top_rating 的 s_chance 多給一件（P69）；types 沒寫從十二種抽
+    reward: { grade_cap: 3, grade_min: 3, chance: 0.1, cash_pct: 0.6, s_chance: 0.1667, top_rating: 'S' },
+    // order：表價 × price_mult（現金晶片）、等 days 天、同時 max_open 張；同人眾好感到 quirk_pick_favor 時怪癖給兩筆挑一筆（P71、P72）
+    order: { grade_cap: 3, price_mult: 1.5, days: 3, max_open: 1, quirk_pick_favor: 60 },
+    // window：勢力的好感到 favor、用掉一個 size 的人情（P73）
+    'window': { grade_cap: 4, favor: 100, size: 'big' },
+    ask: { grade_cap: 2 },
+    gift: { grade_cap: 4 },
   },
   text: { name: [1, 10], desc: [4, 60], quirk: [4, 80] },
 }
@@ -194,7 +201,24 @@ const FIELD_CHECKS: Record<string, (v: unknown) => string[]> = {
     return Object.entries(v).flatMap(([id, s]) => {
       if (!(SOURCES as readonly string[]).includes(id)) return [`sources.${id}：來源只有 ${SOURCES.join('、')}`]
       if (!isRecord(s)) return [`sources.${id} 要是一個物件`]
-      return s.grade_cap !== undefined && !(isSafeInt(s.grade_cap) && s.grade_cap >= 1 && s.grade_cap <= MAX_GRADE) ? [`sources.${id}.grade_cap 要是 1～${MAX_GRADE}`] : []
+      const p: string[] = []
+      if (s.grade_cap !== undefined && !(isSafeInt(s.grade_cap) && s.grade_cap >= 1 && s.grade_cap <= MAX_GRADE)) p.push(`sources.${id}.grade_cap 要是 1～${MAX_GRADE}`)
+      const at = `sources.${id}`
+      const ratio = (key: string): void => { if (s[key] !== undefined && !(isNum(s[key]) && (s[key] as number) >= 0 && (s[key] as number) <= 1)) p.push(`${at}.${key} 要是 0～1 的數字`) }
+      const int = (key: string, lo: number, hi: number): void => { if (s[key] !== undefined && !(isSafeInt(s[key]) && (s[key] as number) >= lo && (s[key] as number) <= hi)) p.push(`${at}.${key} 要是 ${lo}～${hi} 的整數`) }
+      if (id === 'reward') {
+        int('grade_min', 1, 5)
+        ratio('chance'); ratio('cash_pct'); ratio('s_chance')
+        if (s.top_rating !== undefined && !isText(s.top_rating)) p.push(`${at}.top_rating 要是評價的名字（例如 S）`)
+        if (s.types !== undefined && !(Array.isArray(s.types) && s.types.length > 0 && s.types.every(isText))) p.push(`${at}.types 要是零件類型 id 的陣列`)
+      } else if (id === 'order') {
+        if (s.price_mult !== undefined && !(isNum(s.price_mult) && s.price_mult > 0 && s.price_mult <= 10)) p.push(`${at}.price_mult 要是大於 0、最多 10 的數字`)
+        int('days', 0, 365); int('max_open', 1, 9); int('quirk_pick_favor', 0, 100)
+      } else if (id === 'window') {
+        int('favor', 0, 100)
+        if (s.size !== undefined && !(s.size === 'small' || s.size === 'mid' || s.size === 'big')) p.push(`${at}.size 只能是 small、mid、big`)
+      }
+      return p
     })
   },
   text: (v) => {
@@ -226,6 +250,34 @@ export function unregRules(k: Pick<Kernel, 'content'>): UnregRules {
   if (ok('sources')) for (const [id, s] of Object.entries(e.sources as Record<string, Record<string, unknown>>)) out.sources[id] = { ...out.sources[id]!, ...clone(s) } as UnregRules['sources'][string]
   if (ok('text')) Object.assign(out.text, clone(e.text as Record<string, [number, number]>))
   return out
+}
+
+const numOr = (v: unknown, d: number): number => (isNum(v) ? v : d)
+const intOr = (v: unknown, d: number): number => (isSafeInt(v) ? v : d)
+
+/** 委託報酬那一條規則（資料沒寫的鍵用預設）。 */
+export function rewardRule(rules: UnregRules): { grade_cap: number; grade_min: number; chance: number; cash_pct: number; s_chance: number; top_rating: string; types?: string[] } {
+  const r = rules.sources.reward ?? { grade_cap: 3 }
+  const d = DEFAULT_UNREG_RULES.sources.reward!
+  return {
+    grade_cap: gradeCap(rules, 'reward'), grade_min: intOr(r.grade_min, d.grade_min as number), chance: numOr(r.chance, d.chance as number), cash_pct: numOr(r.cash_pct, d.cash_pct as number),
+    s_chance: numOr(r.s_chance, d.s_chance as number), top_rating: isText(r.top_rating) ? r.top_rating : (d.top_rating as string),
+    ...(Array.isArray(r.types) && r.types.length > 0 && r.types.every(isText) ? { types: [...(r.types as string[])] } : {}),
+  }
+}
+
+/** 訂做那一條規則。 */
+export function orderRule(rules: UnregRules): { grade_cap: number; price_mult: number; days: number; max_open: number; quirk_pick_favor: number } {
+  const r = rules.sources.order ?? { grade_cap: 3 }
+  const d = DEFAULT_UNREG_RULES.sources.order!
+  return { grade_cap: gradeCap(rules, 'order'), price_mult: numOr(r.price_mult, d.price_mult as number), days: intOr(r.days, d.days as number), max_open: Math.max(1, intOr(r.max_open, d.max_open as number)), quirk_pick_favor: intOr(r.quirk_pick_favor, d.quirk_pick_favor as number) }
+}
+
+/** 勢力窗口那一條規則。 */
+export function windowRule(rules: UnregRules): { grade_cap: number; favor: number; size: 'small' | 'mid' | 'big' } {
+  const r = rules.sources['window'] ?? { grade_cap: 4 }
+  const d = DEFAULT_UNREG_RULES.sources['window']!
+  return { grade_cap: gradeCap(rules, 'window'), favor: intOr(r.favor, d.favor as number), size: r.size === 'small' || r.size === 'mid' || r.size === 'big' ? r.size : (d.size as 'big') }
 }
 
 /** 這個來源的等級上限（最高 IV）；不認得的來源當 IV。 */

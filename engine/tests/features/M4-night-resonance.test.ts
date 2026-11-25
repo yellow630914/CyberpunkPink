@@ -28,6 +28,8 @@ const SKILLS = [
   { id: 'nt_hand', name: '指腹游走', branch: 'common', tier: 1, scene: { ap: 1, my_part: ['hand_l'], their_part: ['chest'], on_use: { their_load: '1d6', fit: 2 }, link: link('1d6', 1) } },
   { id: 'nt_mouth', name: '咬耳朵', branch: 'common', tier: 1, scene: { ap: 1, my_part: ['mouth'], their_part: ['mouth'], on_use: { their_load: '1d6', fit: 2 }, link: link('1d6', 1) } },
   { id: 'nt_tail', name: '尾巴纏上', branch: 'body', tier: 1, scene: { ap: 1, my_part: ['tail'], their_part: ['back'], on_use: { their_load: '1d6', fit: 2 }, link: link('1d6', 1) } },
+  { id: 'nt_mouth_solo', name: '含住指尖', branch: 'common', tier: 1, scene: { ap: 1, my_part: ['mouth'], their_part: ['front'], on_use: { their_load: '1d6', fit: 2 }, link: link('1d6', 1), solo: 'ok' } },
+  { id: 'nt_tail_solo', name: '尾巴自纏', branch: 'body', tier: 1, scene: { ap: 1, my_part: ['tail'], their_part: ['chest'], on_use: { their_load: '1d6', fit: 2 }, link: link('1d6', 1), solo: 'ok' } },
   // 束縛：掛 tg_bind
   { id: 'nt_bind', name: '繩結', branch: 'relation', tier: 1, tag: 'tg_bind', tags: ['tg_bind'], scene: { ap: 1, my_part: ['hand_l'], their_part: ['chest'], on_use: { their_load: '1d6', fit: 2 }, link: link('1d6', 1) } },
   // 「對方……」的 needs：對方有義體（條件 cyber 的替身）才用得出來；對方有固定的伴
@@ -57,7 +59,7 @@ const RESONANCES = [
   { id: 'rs4', branch: 'sense', tier: 4, name: '克制再少 1d3', scene: { restrain_dice: '1d3' } },
   { id: 'rs5', branch: 'sense', tier: 5, name: '每回合第一次挑逗免費', scene: { once: { kind: 'free_tease' } } },
   // 身體
-  { id: 'rb1', branch: 'body', tier: 1, name: '多出來的部位契合 +2', scene: { link_bonus: [{ extra_part: true, fit: 2 }] } },
+  { id: 'rb1', branch: 'body', tier: 1, name: '多出來的部位契合 +2', scene: { link_bonus: [{ extra_part: true, fit: 2, solo: true }] } },
   { id: 'rb2', branch: 'body', tier: 2, name: '感載上限 +4', scene: { load_cap: 4 } },
   { id: 'rb3', branch: 'body', tier: 3, name: '多出來的部位不重置', scene: { keep_extra_links: true } },
   { id: 'rb4', branch: 'body', tier: 4, name: '餘韻 15%', scene: { rules: { glow_bonus: 0.05 } } },
@@ -70,7 +72,8 @@ const RESONANCES = [
   { id: 'rk5', branch: 'costume', tier: 5, name: '契合拉到 50', scene: { once: { kind: 'fit_floor', value: 50 } } },
 ]
 
-const PACK: ContentPack = { id: 'night_res_test', content: { night_skill: SKILLS, position: POSITIONS, night_resonance: RESONANCES } } as unknown as ContentPack
+const SOLO_POSES = [{ id: 'solo_spread', name: '張腿仰躺', reach: ['front', 'chest', 'mouth', 'legs', 'tail'], hand_only: [], mult: 1, link_pace: {} }]
+const PACK: ContentPack = { id: 'night_res_test', content: { night_skill: SKILLS, position: POSITIONS, night_resonance: RESONANCES, solo_pose: SOLO_POSES } } as unknown as ContentPack
 
 /** 別的功能的替身：風格（身上寫 wear 就是穿著那個風格）、曝露度、契約、義體。 */
 const STUB: Feature = {
@@ -295,6 +298,13 @@ describe('二十五個共鳴：每一個都有資料、每一個都有行為', (
       expect(fits(1)).toEqual({ nt_mouth: 1, nt_hand: 1 })
     })
 
+    it('2 階（單人）：看的是對象，不生效', () => {
+      const g = game({ pc: { ext: { ...axis('sense', 2).ext, ...knows('nt_mouth_solo') } } })
+      begin(g, { solo: true })
+      act(g, { kind: 'skill', id: 'nt_mouth_solo' })
+      expect(raw(g).links[0]!.link.fit).toBe(1)
+    })
+
     it('3 階：有人在看（直播、鏡頭）時，每回合對方的感載 +1；沒有人看就沒有', () => {
       const load = (watched: boolean, n = 3): number => {
         const g = at('sense', n)
@@ -367,11 +377,15 @@ describe('二十五個共鳴：每一個都有資料、每一個都有行為', (
       expect(fits(0)).toEqual({ nt_tail: 1, nt_hand: 1 })
     })
 
-    it('1 階（單人）：同一個鍵，持續的是節奏', () => {
-      const g = game({ pc: { ext: { ...axis('body', 1).ext, ...tail } } })
-      begin(g, { solo: true })
-      act(g, { kind: 'skill', id: 'nt_hand' })
-      expect(raw(g).links[0]!.link.fit).toBe(1)
+    it('1 階（單人）：同一個鍵，持續的是節奏（連接自己的部位）', () => {
+      const fit = (n: number): number => {
+        const g = game({ pc: { ext: { ...axis('body', n).ext, scene: { skills: ['nt_tail_solo'], parts: ['tail'] } } } })
+        begin(g, { solo: true })
+        act(g, { kind: 'skill', id: 'nt_tail_solo' })
+        return raw(g).links[0]!.link.fit
+      }
+      expect(fit(1)).toBe(3)
+      expect(fit(0)).toBe(1)
     })
 
     it('2 階：成人場景裡自己的感載上限 +4（只在場景裡，不改衍生數值）', () => {
@@ -384,11 +398,12 @@ describe('二十五個共鳴：每一個都有資料、每一個都有行為', (
       expect(p.loadMax[ann]).toBe(play(at('body', 1)).loadMax[ann])
     })
 
-    it('3 階：切換體位時，用多出來的部位建立的連接不重置；基本部位的照舊重置', () => {
+    it('3 階（完整版）：切換體位時，用多出來的部位建立的連接不重置；基本部位的照舊重置', () => {
       const kept = (n: number): string[] => {
-        const g = at('body', n, tail)
-        act(g, { kind: 'skill', id: 'nt_tail' })
-        act(g, { kind: 'skill', id: 'nt_hand' })
+        const g = game({ pc: { ext: { ...axis('body', n).ext, ...tail } } })
+        begin(g, { ...setup, mode: 'full' })
+        act(g, { kind: 'skill', id: 'nt_tail', pick: { my_part: 'tail', their_part: 'back' } })
+        act(g, { kind: 'skill', id: 'nt_hand', pick: { my_part: 'hand_l', their_part: 'chest' } })
         act(g, { kind: 'switch', position: 'pos_behind' })
         return raw(g).links.map((l) => l.source)
       }
@@ -396,13 +411,20 @@ describe('二十五個共鳴：每一個都有資料、每一個都有行為', (
       expect(kept(2)).toEqual([])
     })
 
-    it('3 階（精簡版）：沒重置的那一條不會被重接成兩條', () => {
-      const g = game({ pc: { ext: { ...axis('body', 3).ext, ...tail } } })
-      begin(g, { ...setup, mode: 'simple' })
-      act(g, { kind: 'skill', id: 'nt_tail' })
-      act(g, { kind: 'skill', id: 'nt_hand' })
-      act(g, { kind: 'switch', position: 'pos_behind' })
-      expect(raw(g).links.map((l) => l.source).sort()).toEqual(['nt_hand', 'nt_tail'])
+    it('3 階（精簡版）：沒重置的那一條還是原本那一條（編號不變），基本部位的由程式重新接上，不會多出一條', () => {
+      const ids = (n: number): Record<string, number> => {
+        const g = game({ pc: { ext: { ...axis('body', n).ext, ...tail } } })
+        begin(g, { ...setup, mode: 'simple' })
+        act(g, { kind: 'skill', id: 'nt_tail' })
+        act(g, { kind: 'skill', id: 'nt_hand' })
+        const before = Object.fromEntries(raw(g).links.map((l) => [l.source, l.id]))
+        act(g, { kind: 'switch', position: 'pos_behind' })
+        const after = Object.fromEntries(raw(g).links.map((l) => [l.source, l.id]))
+        expect(raw(g).links).toHaveLength(2)
+        return { tail: after.nt_tail === before.nt_tail ? 1 : 0, hand: after.nt_hand === before.nt_hand ? 1 : 0 }
+      }
+      expect(ids(3)).toEqual({ tail: 1, hand: 0 })
+      expect(ids(2)).toEqual({ tail: 0, hand: 0 })
     })
 
     it('4 階：餘韻每一層讓自己造成的感載與契合多 15%（原本 10%）', () => {
@@ -545,6 +567,7 @@ describe('共鳴的格式（新的幾種鍵）', () => {
     expect(badPack({ link_bonus: [{ part: 'mouth', extra_part: true, fit: 1 }] })).toThrow(/part 或 extra_part 其中一個/)
     expect(badPack({ link_bonus: [{ fit: 1 }] })).toThrow(/part 或 extra_part/)
     expect(badPack({ link_bonus: [{ part: 'mouth' }] })).toThrow(/fit 要是整數/)
+    expect(badPack({ link_bonus: [{ part: 'mouth', fit: 1, solo: false }] })).toThrow(/solo/)
     expect(badPack({ keep_extra_links: false })).toThrow(/keep_extra_links/)
     expect(badPack({ once: { kind: 'nope' } })).toThrow(/once.kind/)
     expect(badPack({ once: { kind: 'set_init' } })).toThrow(/values/)

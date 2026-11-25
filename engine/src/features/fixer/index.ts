@@ -29,6 +29,14 @@
 //   規則  fixer_rule 多（另放 DEFAULT_FIXER_NET_RULES、fixerNetRules 讀；資料檔之後由 M3-data-rules 補）trace_start: { noted, wanted, scout_alert }、net_layers（內海階段數 → 各用哪一層）、net_branch_skills（內海潛行分支看哪幾項基本功）
 //   出發  go 算 setup.trace_start：目標勢力的敵對值（問條件 hostility_tier：記名以上 noted、通緝 wanted；委託有內海階段才算）與踩點驚動的取最高的；traceStartOf 是同一個算法
 //   未知  內海階段多蕾絲、守備、路的未知（UnknownItem.face 標 net；scoutView 的 UnknownRow.face 照面標出來）；簡報 BoardRow.net 給「主面是內海」的一句話與「要有甲板」的提醒（衍生數值 deck_grade）
+// 報酬欄多的一樣東西（M4-part-sources；board.ts、gen.ts、pay.ts）：
+//   掛點  fixer.reward（這個功能宣告，別的功能回答；寫法照 scan.carried）：
+//         [{ state, phase: 'offer' | 'payout', fixer, commission: { id, kind?, grade, employer? }, seed, rating? }, RewardExtra | void]
+//         RewardExtra = { by, label, cash_pct?, effects }：label 是簡報報酬欄多的那一句、cash_pct（0～1）只在 offer 看、effects 結算時用內建的來源跑
+//   offer  offersFor 每生成一件問一次（游標固定在 0 的狀態、那一件的 seed）；第一個格式合格的回答算：offer.extra 存下、reward 乘 cash_pct（四捨五入到十位）。別的功能經 fixer.offers 給的委託不問，可以自己帶 extra
+//   接案  Terms.extra 抄過來；BriefView、BoardRow 帶 extra_label；交涉加價加在乘過之後的數字上；三種付法照舊只算現金的那一部分
+//   結算  做完（done）：terms.extra 逐個跑 effects（沒給成多一句「<label>這一次沒有給成。」）；沒有 terms.extra 就問一次 payout（帶評價），有回答照跑、句子開頭「雇主多給了一樣東西：」、不扣現金。
+//         失敗與撤退不給；評價的加成、抽成、分紅都不算這一樣東西；PayoutRecord.extra 記那幾句
 // 這個功能不 import 別的功能：人情、敵對值、街區只經由效果、條件、變更的登錄表（沒有人註冊就不列、不檢查）。
 // 對外：board、briefOf、payOptions、haggle、accept、drop、scout、scoutView、buyIntel、intelOptions、scoutedOf、go、readFixer、jobOf、jobsOf；
 //   hireOptions、hireBlocks、borrowOption、hire、unhire、splitPreview。
@@ -50,7 +58,9 @@ export {
   DEFAULT_FIXER_NET_RULES, HOSTILITY_TIER_RECORDED, HOSTILITY_TIER_WANTED, NET_LAYER_IDS,
   abandonRepOf, activeJobs, favorSizeOf, fixerNetRules, fixerProblems, fixerRules, gradeOf, hiddenUnknowns, jobByRef, jobOf, jobsOf, latestJob, methodOf, offerProblems, readFixer, repBlock, ruleProblems, scoutDc, scoutedOf, tableOf,
 } from './model'
+export { cleanExtra, rewardExtraProblems } from './model'
 export type {
+  RewardExtra,
   Aux, AuxEntry, AuxFace, FavorSize, HireCost, HireWay, PayoutRecord, PendingEnd, Rating,
   Cat, CommissionDef, Degree, FixerEntry, FixerNetRules, FixerRules, FixerState, Job, JobStatus, Offer, PayKind, Reveal, ScoutEntry, ScoutMethod, Scouted, TableDay, TableEntry, Terms, UnknownItem,
 } from './model'

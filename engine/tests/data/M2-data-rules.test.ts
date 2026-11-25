@@ -113,12 +113,14 @@ describe('M2-data-rules：資料和功能的預設一致（逐格）', () => {
         // M4-scene-solo 加的單人欄位（solo、cost.faster、cost.slower）也一樣
         // M4-scene-close 加的結算欄位（sink、deep_chance、tendency_per_axis、relate_range）也一樣
         const { multi_dice_minus: _m, other_circle: _o, solo: _s, sink: _sk, deep_chance: _dc, tendency_per_axis: _tp, relate_range: _rr, ...rest } = def as Rec & { cost: Rec }
-        const { move_circle: _mc, call: _c, faster: _f, slower: _sl, ...cost } = (def as Rec & { cost: Rec }).cost
+        // M4-night-resonance 加的 cost.dress（脫換衣服）也一樣
+        const { move_circle: _mc, call: _c, faster: _f, slower: _sl, dress: _dr, ...cost } = (def as Rec & { cost: Rec }).cost
         dataDef = { ...rest, cost }
       }
       if (kind === 'ability_rule') {
         // M4-abilities-m4 加的四個欄位（skill_xp_per_level、skill_free_max、respec_price_per_xp、respec_minutes）資料檔還沒有，等 M4-data-rules 補；功能讀出來的（下一行）照樣等於預設
-        const { skill_xp_per_level: _a, skill_free_max: _b, respec_price_per_xp: _c, respec_minutes: _d, ...rest } = def as Rec
+        // M4-training 加的 teach（請教與上課的親密度、學費、時段）也一樣
+        const { skill_xp_per_level: _a, skill_free_max: _b, respec_price_per_xp: _c, respec_minutes: _d, teach: _t, ...rest } = def as Rec
         dataDef = rest
       }
       expect(kind === 'fixer_rule' ? own : raw(g, kind)).toEqual(JSON.parse(JSON.stringify(dataDef)))

@@ -5,7 +5,7 @@
 
 import type { Change, GameState, Kernel, ReportDraft } from '../../core'
 import { ActionBlocked, DEGREE_NAME, clone, formatAmount, meterOf } from '../../core'
-import type { Degree, FixerEntry, FixerRules, Job, Offer, PayKind, TableEntry, UnknownItem } from './model'
+import type { Degree, FixerEntry, FixerRules, Job, Offer, PayKind, Rating, RewardExtra, TableEntry, UnknownItem } from './model'
 import { CAT_NAME, HOSTILITY_TIER_BOUNTY, abandonRepOf, KIND, PAY_KINDS, PAY_NAME, factionName, favorSizeOf, fixerRules, gradeOf, hostilityAtLeast, jobsOf, offerProblems, repBlock, rollBest, stageCount, tableOf } from './model'
 import { repChanges } from './rep'
 
@@ -16,6 +16,17 @@ declare module '../../core' {
      * fixer 是中間人的內容（id、npc、district、kinds、cut……），day 是現在的日子（state.time.day）。同一天問幾次要回答一樣的東西。
      */
     'fixer.offers': [{ state: GameState; fixer: FixerEntry; day: number }, Offer[] | void]
+    /**
+     * 報酬欄要不要多一樣東西、結算時要不要多給一樣（FIXER 第 2 節①「報酬的另一種類型」；dev/work/M4-part-sources.md）。
+     * phase 'offer'：fixer 的生成每生成一件委託問一次（state 是亂數游標固定在 0 的那一份，seed 是那一件的種子，同一天問幾次都一樣）；
+     *   回答 { by, label, cash_pct?, effects }：label 寫進簡報的報酬欄、報酬先乘 cash_pct（0～1）、effects 在結算時用內建的來源跑。經 fixer.offers 由別的功能給的委託不問。
+     * phase 'payout'：做完（不含失敗與撤退）而且這件委託的報酬欄沒有多的東西時問一次，帶這一趟的評價；回答的 effects 照跑、不扣現金、不受付法與抽成影響（cash_pct 不看）。
+     * 第一個回答的算，其餘不看；格式不合的略過。commission 是委託的摘要：id、kind（委託類型）、grade（1～5）、employer（委託人的勢力，沒寫就沒有）。
+     */
+    'fixer.reward': [
+      { state: GameState; phase: 'offer' | 'payout'; fixer: string; commission: { id: string; kind?: string; grade: number; employer?: string }; seed: string; rating?: Rating },
+      RewardExtra | void,
+    ]
   }
 }
 
@@ -66,10 +77,12 @@ export interface BriefView {
   main_text: string | null
   conditions: string[]
   rows: BriefStageRow[]
+  /** 報酬欄多的那一句（有才有；現金只剩 cash_pct 那一部分，報酬數字已經是乘過的） */
+  extra_label?: string
 }
 
 /** 簡報（UI 7.1 節）：只看得到最後一個階段，其餘階段在「階段」類的未知揭開之前是問號。revealedStages 是揭開了的階段（1 起算）。 */
-export function briefOf(k: Pick<Kernel, 'content'>, offer: Pick<Offer, 'title' | 'brief' | 'commission'>, revealedStages: readonly number[] = []): BriefView {
+export function briefOf(k: Pick<Kernel, 'content'>, offer: Pick<Offer, 'title' | 'brief' | 'commission'> & { extra?: RewardExtra }, revealedStages: readonly number[] = []): BriefView {
   const c = offer.commission
   const total = stageCount(c)
   const rows: BriefStageRow[] = c.stages.map((st, i) => {
@@ -85,6 +98,7 @@ export function briefOf(k: Pick<Kernel, 'content'>, offer: Pick<Offer, 'title' |
     target_faction: target, target_name: target ? factionName(k, target) : null, district: typeof c.district === 'string' ? c.district : null,
     main, main_name: main ? (FACE_NAME[main] ?? main) : null, main_text: main ? (MAIN_TEXT[main] ?? null) : null,
     conditions: Array.isArray(c.conditions) ? [...c.conditions] : [], rows,
+    ...(offer.extra ? { extra_label: offer.extra.label } : {}),
   }
 }
 
@@ -170,6 +184,8 @@ export interface BoardRow {
   pay: PayOption[]
   /** 主面是內海才有；其餘是 null */
   net: NetNote | null
+  /** 報酬欄多的那一句（有才有） */
+  extra_label?: string
 }
 
 export interface BoardView {
@@ -224,6 +240,7 @@ function rowOf(k: Kernel, state: GameState, fixer: FixerEntry, offer: Offer, ent
     id: offer.id, fixer: fixer.id, offer: shown, min_rep: min, block, haggled,
     haggle_block: haggled ? '這件委託已經談過一輪了。' : block,
     brief: briefOf(k, shown), pay: payOptions(k, shown, fixer.npc, rules), net: netNoteOf(k, state, offer.commission),
+    ...(offer.extra ? { extra_label: offer.extra.label } : {}),
   }
 }
 
@@ -321,10 +338,10 @@ export function accept(k: Kernel, state: GameState, offer: Pick<Offer, 'id' | 'f
   const o = row.offer
   const job: Omit<Job, 'seq'> = {
     id: o.id, fixer: fixer.id, npc: fixer.npc, title: o.title, brief: o.brief, commission: clone(o.commission), unknowns: clone(o.unknowns),
-    terms: { reward: o.reward, pay: option.id, cut: fixer.cut }, haggled: row.haggled, status: 'active', day: state.time.day,
+    terms: { reward: o.reward, pay: option.id, cut: fixer.cut, ...(o.extra ? { extra: clone(o.extra) } : {}) }, haggled: row.haggled, status: 'active', day: state.time.day,
     revealed: [], scouts: 0, alert_start: 0, trace_start: 0, log: [], aux: {}, bond_failed: [], borrow_n: 0, payout: null,
   }
-  const lines = [`接了「${o.title}」：報酬 ${formatAmount(o.reward)}，${option.name}，到手 ${formatAmount(option.amount)}${option.favor ? `，另外多一個${SIZE_NAME[option.favor.size]}人情` : ''}。`, option.cost]
+  const lines = [`接了「${o.title}」：報酬 ${formatAmount(o.reward)}，${option.name}，到手 ${formatAmount(option.amount)}${option.favor ? `，另外多一個${SIZE_NAME[option.favor.size]}人情` : ''}${o.extra ? `，另外有${o.extra.label}` : ''}。`, option.cost]
   return draft(state, 'fixer.accept', 'accepted', `接了「${o.title}」。`, [{ op: 'fixer.take', job }], { narration: { results: lines } })
 }
 
