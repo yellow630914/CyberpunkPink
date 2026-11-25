@@ -489,3 +489,4 @@
 - 2026-11-25 使用者：M4 第 23～30 題都照建議；文件補寫排在下一個空位。M4 第一步（core-product、scene-seats）進行中。
 - 2026-11-25 M4 第一步完成（core-product、scene-seats）：engine 6874、smoke 129、ui 723。場景舊形狀外觀留到 M4-ui-scene 拿掉（已補記工單）。
 - 2026-11-25 M4 第二步完成（core-passive、scene-circles）：engine 253 檔 6949 條全過。
+- 2026-11-25 使用者：略過場景照現在這樣（不加「一律略過」設定）；略過時允許玩家輸入指令引導經過與正文寫法（LEWD 3.1、AI_TASKS 3.7、M4-core-scene-ai、M4-ui-scene 已補）。
