@@ -13,6 +13,8 @@
 - `CreationDraft` 多：`bridge?: 設計圖的 id | null`（`null` 是選了「沒有橋」；沒寫是還沒選）、`cyber?: Array<{ blueprint, side? }>`、`abilities?: string[]`（照學的順序）、`gear?: Array<{ id, qty? }>`（物品、設計圖、甲板、構裝、SKIN 的 id）。舊的 `cyberSpent`、`gearSpent` 留著：沒給選的東西時照舊用它們（現有的測試不改）。
 - 設計圖與物品多讀 `available?: { origins?: string[], faction?: string }`（哪些出身買得到；`faction` 對企業出身選的那一家）。出身的資料多讀 `kit_free?: Array<{ id, qty? }>`。
 - 規則 `creation_rule` 多：`cyber_point_price`（500）、`cyber_install_mult`（1.5：成品價加安裝費）、`gear_point_price`（250）、`gear_grade_max`（2）、`gear_kinds`（可以用裝備點數買的類別）。
+- 使用者 2026-11-25：`engine/data/rules/creation.json` 的 `gear_point_cash` 由 150 改成 250（CHARACTER 5.4 節已改），連帶 `ui/src/lib/creation.ts` 的註解與相關測試。
+- `creationSummary` 多回傳 `owned`：主角建好時身上已經有的東西（出身的 `kit_free`、日常服裝、這一份草稿已選的義體與裝備），每一件寫 id、名字、類別、部位或穿戴的位置，畫面在第 6 步與第 9 步顯示，避免重複挑。
 - 匯出：`cyberStepBlock`、`abilitiesStepBlock`、`gearStepBlock`（各回 `CreationBlock | null`）、`creationSummary(k, state, draft)`（三種點數各花了多少、剩多少、換多少現金、沉溺的起點、四類容量、每一步的提醒）。
 
 ## 要做的
@@ -32,7 +34,7 @@
 - 只裝 `creation` 的 kernel：`draft.cyber` 有東西時每一件都是「沒有功能認得這一件」；沒給選的東西、只給 `cyberSpent` 的舊草稿行為不變（`M0-creation` 的測試不改全過）。
 - 全部功能都裝：選一座 3 點的橋加一隻義眼，`creationSummary` 的義體點數是 3 加義眼算出來的；超過 10 點被擋並寫出超過幾點；沒選橋被擋；選兩座橋被擋；企業限定的橋在蜂巢出身被擋。沒寫點數、成品價 1,200 的那一座是 4 點。
 - 沒有橋：`bridge: null` 過得了；這時選義眼（要橋）被擋、選 `needs_bridge: false` 的義臂可以、學技能被擋；提交之後主角的 `ext.bridge` 是 `null`、四類容量是 0。
-- 提交之後：主角身上有選的義體、沉溺等於下限、沒有 `recovering`；歷練點是 200 減花掉的；緊接著有一份 `ability.loadout` 把學的裝上（容量不夠的最後一個沒裝）；背包有槍（帶零件）、防彈衣、構裝；甲板在腦部；沒花完的義體點數每點換 500、裝備點數每點換 150。
+- 提交之後：主角身上有選的義體、沉溺等於下限、沒有 `recovering`；歷練點是 200 減花掉的；緊接著有一份 `ability.loadout` 把學的裝上（容量不夠的最後一個沒裝）；背包有槍（帶零件）、防彈衣、構裝；甲板在腦部；沒花完的義體點數每點換 500、裝備點數每點換 250（使用者 2026-11-25）。
 - III 級的槍、藥、帶 `adult` 的物品用裝備點數買被擋，原因各一句。出身的 `kit_free` 進了背包、不算點數。
 - 技能的前置沒學先學後面的被擋；歷練點超過被擋。
 - `npm test`、`npx tsc --noEmit`、分層檢查全過。
