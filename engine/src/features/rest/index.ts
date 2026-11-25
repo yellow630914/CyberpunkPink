@@ -13,6 +13,7 @@
 //   狀態  state.ext.rest：{ lastSleep, breaths, home: { id, deposit, pool, arrears, locked } | null }（形狀見 model.ts；只經由報告裡的 ext 變更寫）
 // 讀的：k.stats（max_hp；沒有人註冊時照 CORE_RULES 4.1 節）、actor.conditions 的共用狀況 treated（傷口處理過；M2 只讀）、k.activity.blockOf、k.content（block、facility_type）。
 // 報告（kind downtime）：rest.breath、rest.sleep、home.rent、home.leave；觸發點 rest、sleep_out（露宿）、home（睡在自己的住處）。
+// 計數器：睡一覺的報告多一筆 { op: 'counter', key: 'sleeps:<週>', delta: 1 }（睡下去那一刻所在的週；features/sink 週一讀上一週的，DOWNTIME 3.3 節的自然下降）。
 // 對外：breathDraft、sleepDraft、sleepOptions、rentDraft、leaveDraft（以及各自的 …Block）、readRest、homeOf、restRules。
 
 import type { Condition, ConditionCtx, ContentEntry, Feature, GridUse, Kernel } from '../../core'

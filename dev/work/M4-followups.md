@@ -106,3 +106,8 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 ## 總指揮補記（2026-11-25，M4-cyber-lock 回報）
 - bills 在 `bill.settled` 的行上多帶 `why: 'stopped' | 'grace'`，cyberware 讀到 `stopped` 的訂閱就鎖住（現在 skipped 一律不動，是一個繞法）。
 - 第三種解鎖法（請潛網者偽造授權）：出口是效果 `cyber_unlock`，流程做成一件可以請中間人或夥伴辦的事（看 M4-training 的「請教」能不能共用）。
+
+## 總指揮補記（2026-11-25，M4-sink 回報）
+- 檢定標籤 `perception`、`resist_lure`、`resist_control` 現在沒有任何檢定帶：社交勸降、控制類快駭、契約指令（M4-contract、M4-lure）發起檢定時要帶。
+- 斷線靜修期間關橋、禁止潛入：沒做，這一張補。
+- 治療費乘區的倍率：M4-data-rules（和手術、治療同一件）。

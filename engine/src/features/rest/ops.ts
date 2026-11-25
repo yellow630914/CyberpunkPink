@@ -3,7 +3,7 @@
 // 規格：DOWNTIME 第 2 節、7.1、7.2 節；EVENTS 3.1 節；dev/adr/0016 第六節；dev/work/M2-rest-housing.md。
 
 import type { Change, GameState, Kernel, ReportDraft, ReportTrigger, TimelineBeat } from '../../core'
-import { ActionBlocked, attrMod, clone, formatAmount, restDone, toMinutes } from '../../core'
+import { ActionBlocked, attrMod, clone, formatAmount, restDone, toMinutes, weeklyRule } from '../../core'
 import type { HomeState, Pool, RestState } from './model'
 import {
   EXT, POOL_NAME, depositOf, hasCondition, homeOf, maxHpOf, payFor, readRest, rentPayOf, residenceEntry, residencePools, restRules, sleepFacilityAt, spanText, standingAt,
@@ -210,6 +210,9 @@ export function sleepDraft(k: Kernel, state: GameState, opts: SleepOpts = {}): R
   rest.lastSleep = end
   rest.breaths = 0
   changes.push(writeRest(rest))
+  // 這一週睡了幾次（features/sink 每週一讀上一週的，滿 4 次才自然下降沉溺；DOWNTIME 3.3 節）：計數器 sleeps:<週>，週從第一個週一 06:00 起算第 1 週，記睡下去的那一刻所在的那一週
+  const wk = weeklyRule(k.timeRules)
+  changes.push({ op: 'counter', key: `sleeps:${Math.floor((toMinutes(state.time) - wk.offset) / wk.every) + 1}`, delta: 1 })
   changes.push(...restDone(k, state, 'sleep'))
 
   lines.push(`你在${spot.name}睡了一覺（${spanText(rules.sleep_minutes)}），感載與餘韻都退了。${pool && spot.cost > 0 ? `付了 ${formatAmount(spot.cost)}（${POOL_NAME[pool]}）。` : ''}`)
