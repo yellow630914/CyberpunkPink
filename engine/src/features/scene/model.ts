@@ -74,9 +74,12 @@ export const NTR_FILTER = { tag: 'ntr', name: 'NTR' }
 
 /** 十種行動（LEWD_SYSTEM 3.5 節第五點；第十種「換檔」是 M3-scene-sync 加的）。end_turn 不是行動，是把回合交出去。 */
 export const ACTIONS = ['dominate', 'yield', 'tease', 'restrain', 'skill', 'talk', 'item', 'switch', 'gear', 'stop'] as const
-export type ActionId = (typeof ACTIONS)[number]
+/** 多人才有的兩種行動（M4-scene-circles）：換圈、把別圈的一個人叫過來。 */
+export const CIRCLE_ACTIONS = ['move_circle', 'call'] as const
+export type ActionId = (typeof ACTIONS)[number] | (typeof CIRCLE_ACTIONS)[number]
 export const ACTION_NAME: Record<ActionId | 'end_turn', string> = {
   dominate: '主導', yield: '迎合', tease: '挑逗', restrain: '克制', skill: '技能', talk: '說話', item: '道具', switch: '切換體位', gear: '換檔', stop: '停下', end_turn: '結束回合',
+  move_circle: '換圈', call: '叫人過來',
 }
 
 // ---- 骰子 ----
@@ -158,7 +161,7 @@ export interface SceneRules {
   load_div: number
   /** 每一層餘韻讓自己造成的感載與契合增加的比例 */
   glow_bonus: number
-  cost: { dominate: number; yield: number; tease: number; restrain: number; talk: number; switch: number }
+  cost: { dominate: number; yield: number; tease: number; restrain: number; talk: number; switch: number; move_circle: number; call: number }
   dominate: { their: number; mine: number; fit: number; init: number }
   yield: { their: number; mine: number; fit: number; init: number }
   tease: { their: number; mine: number; fit: number; init: number }
@@ -186,6 +189,10 @@ export interface SceneRules {
   /** 第一次和這個人、第一次的體位、第一次的標籤各加多少體悟 */
   first_bonus: number
   skip_mult: number
+  /** 多人：連著不只一個人時，主導、迎合、挑逗對每個人少幾顆骰（最少 1 顆） */
+  multi_dice_minus: number
+  /** 別的圈（不展開）每回合怎麼算：契合起點、每回合加的骰、圈裡有共同的標籤再加多少、每個人感載加的骰 */
+  other_circle: { fit_start: number; fit_die: string; tag_bonus: number; load_die: string }
   /** 目的的進度到這裡算達成 */
   goal_done_at: number
   /** 拖住：每過一回合；取悅：對方每高潮一次 */
@@ -212,7 +219,7 @@ export const DEFAULT_SCENE_RULES: SceneRules = {
   load_base: 0.75,
   load_div: 200,
   glow_bonus: 0.1,
-  cost: { dominate: 2, yield: 2, tease: 1, restrain: 1, talk: 1, switch: 1 },
+  cost: { dominate: 2, yield: 2, tease: 1, restrain: 1, talk: 1, switch: 1, move_circle: 2, call: 1 },
   dominate: { their: 2, mine: 1, fit: 2, init: 10 },
   yield: { their: 1, mine: 2, fit: 8, init: -10 },
   tease: { their: 1, mine: 1, fit: 4, init: 5 },
@@ -244,6 +251,8 @@ export const DEFAULT_SCENE_RULES: SceneRules = {
   ],
   first_bonus: 5,
   skip_mult: 0.7,
+  multi_dice_minus: 1,
+  other_circle: { fit_start: 20, fit_die: '1d6', tag_bonus: 2, load_die: '2d6' },
   goal_done_at: 60,
   goal_stall_per_round: 8,
   goal_please_per_climax: 20,
@@ -291,6 +300,9 @@ function merge(base: Record<string, unknown>, over: Record<string, unknown>, out
     } else if (typeof b === 'number') {
       if (typeof v !== 'number' || !Number.isFinite(v)) problems.push(`${at} 要是數字`)
       else out[key] = v
+    } else if (typeof b === 'string') {
+      if (typeof v !== 'string' || parseDie(v) === null || isNoDie(parseDie(v)!)) problems.push(`${at} 要是骰（例：2d6、1d6）`)
+      else out[key] = v
     }
   }
 }
@@ -324,6 +336,8 @@ export interface PositionEntry extends ContentEntry {
   links: PositionLink[]
   mult: Record<string, number>
   initiative_drift?: number
+  /** 每個位置每回合的主動權（三、四人的體位用；沒寫的位置照 upper 與 initiative_drift） */
+  drift?: Record<string, number>
   tag?: string
   tags?: string[]
   unlocked_by?: string | null
@@ -334,14 +348,14 @@ const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().le
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v)
 const textList = (v: unknown): v is string[] => Array.isArray(v) && v.every(isText)
 
-/** 體位的格式（DATA 3.2）。M2 只收 people: 2。 */
+/** 體位的格式（DATA 3.2）：二到四人；roles 的位置數要等於 people；links 的兩端可以是任意兩個不同的位置；mult 每個位置一個；drift 選填。 */
 export function positionProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
   if (!isText(e.name)) p.push('要有 name')
-  if (!isInt(e.people) || e.people < 2 || e.people > 4) p.push('people 要是 2～4 的整數')
-  else if (e.people !== 2) p.push('M2 的場景只收 people: 2（二到四人的體位等多人分圈）')
+  const people = isInt(e.people) && e.people >= 2 && e.people <= 4 ? e.people : 0
+  if (!people) p.push('people 要是 2～4 的整數')
   const roleIds: string[] = []
-  if (!Array.isArray(e.roles) || e.roles.length !== 2) p.push('roles 要有兩個位置：{ id, upper }')
+  if (!Array.isArray(e.roles) || (people > 0 && e.roles.length !== people)) p.push(people > 0 ? `roles 要有${['', '', '兩', '三', '四'][people]}個位置：{ id, upper }（和 people 一樣多）` : 'roles 要是位置的陣列：{ id, upper }')
   else {
     for (const r of e.roles) {
       if (!isRecord(r) || !isText(r.id) || typeof r.upper !== 'boolean') p.push('roles 的每一個位置要有 id 與 upper（布林）')
@@ -356,13 +370,20 @@ export function positionProblems(e: Record<string, unknown>): string[] {
       const good = ends.length === 2 && ends.every((x) => Array.isArray(x) && x.length === 2 && isText(x[0]) && isText(x[1]))
       if (!good) return void p.push(`links[${i}] 要有 from 與 to，各是 [位置, 部位]`)
       const [a, b] = ends as [string[], string[]]
-      if (roleIds.length === 2 && (!roleIds.includes(a[0]!) || !roleIds.includes(b[0]!))) p.push(`links[${i}] 的位置要是 roles 裡的 id`)
+      if (roleIds.length === people && (!roleIds.includes(a[0]!) || !roleIds.includes(b[0]!))) p.push(`links[${i}] 的位置要是 roles 裡的 id`)
       else if (a[0] === b[0]) p.push(`links[${i}] 的兩端要在不同的位置`)
     })
   }
   if (!isRecord(e.mult)) p.push('mult 要是物件：每個位置受到的感載倍率')
   else for (const id of roleIds) if (typeof e.mult[id] !== 'number' || !(e.mult[id] > 0) || !Number.isFinite(e.mult[id])) p.push(`mult.${id} 要是大於 0 的數字`)
   if (e.initiative_drift !== undefined && !isInt(e.initiative_drift)) p.push('initiative_drift 要是整數')
+  if (e.drift !== undefined) {
+    if (!isRecord(e.drift)) p.push('drift 要是物件：位置 → 每回合的主動權（整數）')
+    else for (const [role, n] of Object.entries(e.drift)) {
+      if (!isInt(n)) p.push(`drift.${role} 要是整數`)
+      else if (roleIds.length === people && !roleIds.includes(role)) p.push(`drift.${role} 要是 roles 裡的 id`)
+    }
+  }
   if (e.tag !== undefined && !isText(e.tag)) p.push('tag 要是標籤的 id')
   if (e.tags !== undefined && !textList(e.tags)) p.push('tags 要是標籤的陣列')
   if (e.unlocked_by !== undefined && e.unlocked_by !== null && !isText(e.unlocked_by)) p.push('unlocked_by 要是 null（基本體位）或夜課技能的 id')
@@ -550,8 +571,11 @@ export interface Seat {
 /** 主角對這一圈某個人的：契合 0～100、主動權 0～100（50 以上在主角手上）、第一次的記號（開始時主角的性經歷裡沒有這個人）。 */
 export interface PairRec { fit: number; init: number; first: boolean }
 
-/** 別的圈（不展開；下一張 M4-scene-circles 用）。 */
-export interface CircleRec { people: ActorId[]; fit: number; climax: Record<ActorId, number>; line: string }
+/**
+ * 別的圈（不展開；P35）：圈裡的人、一個契合、每個人的高潮次數、這一回合的一行字。
+ * out 是這一圈裡失神退出的人（結算時還是這一圈的人）。
+ */
+export interface CircleRec { id: string; people: ActorId[]; fit: number; climax: Record<ActorId, number>; line: string; out?: ActorId[] }
 
 /** 存在 state.ext.scene 的樣子。 */
 export interface SceneRaw {
@@ -734,13 +758,30 @@ export function bodyOf(k: Pick<Kernel, 'hooks'>, state: GameState, actor: ActorI
 export const filteredOut = (state: Pick<GameState, 'rules'>, tags: Array<string | null | undefined>): string | null =>
   tags.find((t): t is string => !!t && state.rules.contentOff.includes(t)) ?? null
 
-/** 這個人會的體位：基本的（unlocked_by: null）每個人都會，加 actor.ext.scene.positions。只收兩個人的、內容篩選沒關掉的。 */
-export function knownPositions(k: Pick<Kernel, 'content'>, state: GameState, id: ActorId): PositionEntry[] {
+/** 這個人會的體位：基本的（unlocked_by: null）每個人都會，加 actor.ext.scene.positions。只收這個人數的（預設兩個人）、內容篩選沒關掉的。 */
+export function knownPositions(k: Pick<Kernel, 'content'>, state: GameState, id: ActorId, people = 2): PositionEntry[] {
   const learned = knowOf(state.actors[id]).positions
   return k.content
     .list<PositionEntry>(POSITION_KIND)
-    .filter((p) => p.people === 2 && ((p.unlocked_by ?? null) === null || learned.includes(p.id)))
+    .filter((p) => p.people === people && ((p.unlocked_by ?? null) === null || learned.includes(p.id)))
     .filter((p) => !filteredOut(state, [p.tag, ...(p.tags ?? [])]))
+}
+
+/** 這幾個人都會的體位（人數就是 ids 的個數）：基本的在前，照內容的順序。 */
+export function knownAll(k: Pick<Kernel, 'content'>, state: GameState, ids: readonly ActorId[]): PositionEntry[] {
+  if (ids.length < 2 || ids.length > 4) return []
+  const sets = ids.map((id) => new Set(knownPositions(k, state, id, ids.length).map((x) => x.id)))
+  const list = knownPositions(k, state, ids[0]!, ids.length).filter((x) => sets.every((st) => st.has(x.id)))
+  return [...list.filter((x) => (x.unlocked_by ?? null) === null), ...list.filter((x) => (x.unlocked_by ?? null) !== null)]
+}
+
+/** 開場的主動權：50 ＋（對方的馴化 − 自己的馴化）÷ 4，再照性質與身分調整（LEWD_SYSTEM 3.5 節第二點）。多人時主角對每個人各算一次。 */
+export function openingInit(k: Kernel, state: GameState, o: { pc: string; partner: string; nature: Nature; role: Role }): number {
+  const r = sceneRules(k)
+  // 性質是工作而沒寫身分，主角就是工作的人；work 的 −20 由身分給，不算兩次
+  const role: Role = o.role === 'none' && o.nature === 'work' ? 'worker' : o.role
+  const v = r.init_base + (docilityOf(k, state, o.partner) - docilityOf(k, state, o.pc)) / r.init_docility_div + r.nature_init[o.nature] + r.role_init[role]
+  return Math.max(0, Math.min(100, Math.round(v)))
 }
 
 /** 這個人會的夜課技能（有 scene 欄位、內容篩選沒關掉的）。 */
@@ -788,6 +829,15 @@ export function recordScene(rec: SexRecord, o: { partner: string; partnerName: s
   if (!next.first && rec.times === 0) next.first = { with: o.partnerName, note: '' }
   for (const p of o.positions) if (!next.positions.includes(p)) next.positions.push(p)
   for (const t of o.tags) if (!next.tags.includes(t)) next.tags.push(t)
+  return next
+}
+
+/** 多人的一場：次數加一次，每個對象各記一筆（對象的人數照實加）。 */
+export function recordSceneWith(rec: SexRecord, o: { partners: Array<{ id: string; name: string }>; service: boolean; positions: string[]; tags: string[] }): SexRecord {
+  const [first, ...rest] = o.partners
+  const next = first ? recordScene(rec, { partner: first.id, partnerName: first.name, service: o.service, positions: o.positions, tags: o.tags }) : clone(rec)
+  for (const x of rest) next.people[x.id] = (next.people[x.id] ?? 0) + 1
+  next.partners = Object.keys(next.people).length
   return next
 }
 

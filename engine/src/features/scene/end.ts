@@ -5,7 +5,7 @@
 import type { Change, ClampNote, GameState, Kernel, ReportDraft, TimelineBeat } from '../../core'
 import { attachActivityEnd, clone, contentAllowed, effectCtx, endActivity } from '../../core'
 import type { EndReason } from './model'
-import { ACTIVITY, END_NAME, SINK_CAP, EXT, GOAL_NAME, beat, ratingOf, recordScene, sexRecordOf, sceneRawOf } from './model'
+import { ACTIVITY, END_NAME, SINK_CAP, EXT, GOAL_NAME, beat, ratingOf, recordSceneWith, sexRecordOf, sceneRawOf } from './model'
 import type { Play } from './play'
 
 type Fx = Record<string, unknown>
@@ -20,7 +20,7 @@ export function sceneDraft(state: GameState, p: Play, action: string, timeline: 
 /** 感載與餘韻跟著人走：差多少就加減多少（actor.track）。結束時感載歸零。 */
 function trackChanges(p: Play, over: boolean): Change[] {
   const out: Change[] = []
-  for (const id of p.ids) {
+  for (const id of p.everyone) {
     const load = (over ? 0 : p.load[id]!) - p.state.actors[id]!.load
     const glow = p.glow[id]! - p.state.actors[id]!.afterglow
     if (load !== 0) out.push({ op: 'actor.track', id, track: 'load', delta: load })
@@ -65,17 +65,18 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
   const { s, state, rules } = p
   const skip = reason === 'skip'
   p.s.step += 1
-  const partnerId = p.partnerId
-  const pair = p.pair
-  const band = ratingOf(rules, pair.fit)
+  // 主角對每個對象各有一份（P33）：離開這一圈的也算；整場的契合是所有對象的平均，每個對象各自評價
+  const pairIds = Object.keys(s.pairs)
+  const partnerId = pairIds[0] ?? p.partnerId
+  const fit = pairIds.length > 0 ? Math.round(pairIds.reduce((a, id) => a + s.pairs[id]!.fit, 0) / pairIds.length) : 0
+  const band = ratingOf(rules, fit)
   const pc = state.actors[s.pc]!
-  const partner = state.actors[partnerId]!
   const rec = sexRecordOf(pc)
 
-  // 體悟：評價給的，加上第一次（這個人、體位、標籤）；略過打七折
+  // 體悟：整場只給一次（照平均的契合）；第一次（這個人、體位、標籤）各種各算一次；略過打七折
   const notes: string[] = []
   let insight = band.insight
-  if (pair.first) {
+  if (pairIds.some((id) => s.pairs[id]!.first)) {
     insight += rules.first_bonus
     notes.push('第一次和這個人')
   }
@@ -98,26 +99,53 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
     notes.push('略過：打七折')
   }
 
-  // 親密度與傾向落在主角身上；橋參數落在這一場受到最多感載的那一方（合拍 25%、難忘 50% 的機會 +1，ADR G11）
+  // 親密度（每個對象各自的評價）與傾向落在主角身上；橋參數落在這一場受到最多感載的那一方（合拍 25%、難忘 50% 的機會 +1，ADR G11）
+  const pairResult: Record<string, { fit: number; rating: string; rating_id: string; affinity: number }> = {}
   const pcFx: Fx[] = []
-  if (band.affinity !== 0) pcFx.push({ kind: 'affinity', key: partnerId, amount: band.affinity })
+  for (const id of pairIds) {
+    const b = ratingOf(rules, s.pairs[id]!.fit)
+    pairResult[id] = { fit: s.pairs[id]!.fit, rating: b.name, rating_id: b.id, affinity: b.affinity }
+    if (b.affinity !== 0) pcFx.push({ kind: 'affinity', key: id, amount: b.affinity })
+  }
   for (const t of touched) if (contentAllowed(state.rules, t)) pcFx.push({ kind: 'tendency', tag: t })
   const settled = settleEffects(k, state, s.pc, pcFx)
   const fx = { changes: [...settled.changes], lines: [...settled.lines], clamps: [...settled.clamps] }
   if (!skip && band.bridge > 0 && p.dice.int(1, 100) <= Math.round(band.bridge * 100)) {
-    const who = p.seat(s.pc).received >= p.seat(partnerId).received ? s.pc : partnerId
+    let who = s.pc
+    for (const seat of s.seats) if (seat.received > p.seat(who).received) who = seat.id
     const b = settleEffects(k, state, who, [{ kind: 'bridge', param: p.dice.int(0, 1) === 0 ? 'sensitivity' : 'tolerance', amount: 1 }])
     fx.changes.push(...b.changes)
     fx.lines.push(...b.lines)
     fx.clamps.push(...b.clamps)
   }
 
-  // 性經歷：各記一筆
+  // 性經歷：每個人各記一筆（次數 +1、每個一起的人都記進對象；對象的人數照實加）。主角和每個對象；同一圈的人彼此；別的圈的人彼此
   const service = s.nature === 'trade' || s.nature === 'work'
-  const records: Change[] = [
-    { op: 'actor.ext', id: s.pc, key: 'sex_record', value: recordScene(rec, { partner: partnerId, partnerName: partner.name, service: service && s.role === 'worker', positions: used, tags: touched }) },
-    { op: 'actor.ext', id: partnerId, key: 'sex_record', value: recordScene(sexRecordOf(partner), { partner: s.pc, partnerName: pc.name, service: service && s.role === 'guest', positions: used, tags: touched }) },
-  ]
+  const rel = new Map<string, string[]>()
+  const link = (a: string, b: string): void => {
+    for (const [x, y] of [[a, b], [b, a]] as const) {
+      const list = rel.get(x) ?? []
+      if (!list.includes(y)) list.push(y)
+      rel.set(x, list)
+    }
+  }
+  for (const id of pairIds) link(s.pc, id)
+  const together = (people: string[]): void => people.forEach((a, i) => people.slice(i + 1).forEach((b) => link(a, b)))
+  together([s.pc, ...s.seats.filter((x) => x.id !== s.pc).map((x) => x.id)])
+  for (const c of s.circles) together([...c.people, ...(c.out ?? [])])
+  const inMain = new Set([s.pc, ...pairIds, ...s.seats.map((x) => x.id)])
+  const records: Change[] = []
+  for (const [id, partners] of rel) {
+    const actor = state.actors[id]
+    if (!actor) continue
+    const names = partners.filter((x) => !!state.actors[x]).map((x) => ({ id: x, name: state.actors[x]!.name }))
+    if (names.length === 0) continue
+    const svc = id === s.pc ? service && s.role === 'worker' : pairIds.includes(id) && service && s.role === 'guest'
+    records.push({
+      op: 'actor.ext', id, key: 'sex_record',
+      value: recordSceneWith(sexRecordOf(actor), { partners: names, service: svc, positions: inMain.has(id) ? used : [], tags: inMain.has(id) ? touched : [] }),
+    })
+  }
 
   // 目的
   const goalDone = s.goal !== null && (s.goal_progress ?? 0) >= rules.goal_done_at
@@ -131,8 +159,11 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
     sinkLines.push(`${seat.id === s.pc ? '你' : state.actors[seat.id]!.name}在${p.sync.gears.full.name}檔過載：沉溺 +${n}。`)
   }
   // 報告的舊鍵：一對一的 { pc, partner }
-  const maxGear = { pc: p.seat(s.pc).max_gear, partner: p.seat(partnerId).max_gear }
-  const result = { with: partnerId, fit: pair.fit, rating: band.name, goal: s.goal, goal_done: goalDone, reason, max_gear: maxGear }
+  const maxGear = { pc: p.seat(s.pc).max_gear, partner: (p.s.seats.find((x) => x.id === partnerId) ?? p.seat(s.pc)).max_gear }
+  const circlesResult = s.circles.map((c) => ({ id: c.id, people: [...c.people, ...(c.out ?? [])], fit: c.fit, rating: ratingOf(rules, c.fit).name, climax: { ...c.climax } }))
+  // 一對一（只有一個對象、沒有別的圈）的結果照舊；多人才多 pairs 與 circles
+  const multi = pairIds.length > 1 || s.circles.length > 0 || s.kind === 'group'
+  const result = { with: partnerId, fit, rating: band.name, goal: s.goal, goal_done: goalDone, reason, max_gear: maxGear, ...(multi ? { pairs: pairResult, circles: circlesResult } : {}) }
   const end = endActivity(k, { state, kind: ACTIVITY, id: s.id, origin: s.origin, outcome: reason, result })
   if (end.rewind) end.launch = []
 
@@ -143,13 +174,17 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
     ...(insight !== 0 ? [{ op: 'meter', kind: 'insight', key: '_', delta: insight } as Change] : []),
     ...sinkChanges, ...fx.changes, ...records, ...end.changes,
   ]
+  const glowText = s.seats.map((x) => `${x.id === s.pc ? '你' : state.actors[x.id]!.name} ${p.glow[x.id]}／${p.glowMax[x.id]} 層`).join('、')
   const results = [
-    `${END_NAME[reason]}。`, `契合 ${pair.fit}：${band.name}。`, `體悟 +${insight}${notes.length > 0 ? `（${notes.join('、')}）` : ''}。`, ...fx.lines, ...sinkLines,
+    `${END_NAME[reason]}。`, `契合 ${fit}：${band.name}。`,
+    ...(pairIds.length > 1 ? pairIds.map((id) => `和${state.actors[id]?.name ?? id}：契合 ${pairResult[id]!.fit}，${pairResult[id]!.rating}。`) : []),
+    ...circlesResult.filter((c) => c.people.length > 1).map((c) => `${c.people.map((id) => state.actors[id]?.name ?? id).join('、')}那一邊：契合 ${c.fit}，${c.rating}。`),
+    `體悟 +${insight}${notes.length > 0 ? `（${notes.join('、')}）` : ''}。`, ...fx.lines, ...sinkLines,
     ...(s.goal ? [`目的「${GOAL_NAME[s.goal]}」：${goalDone ? '達成了' : '沒有達成'}。`] : []),
-    `餘韻：你 ${p.glow[s.pc]}／${p.glowMax[s.pc]} 層、${partner.name} ${p.glow[partnerId]}／${p.glowMax[partnerId]} 層。`, ...end.lines,
+    `餘韻：${glowText}。`, ...end.lines,
   ]
-  const finalBeat = beat(s.pc, `場景結束：${END_NAME[reason]}。契合 ${pair.fit}，${band.name}。`, 'scene.end', { reason, fit: pair.fit, rating: band.id, insight, max_gear: maxGear })
-  const d = sceneDraft(state, p, 'scene.end', [...lead, ...p.beats, finalBeat], changes, reason, `${END_NAME[reason]}。契合 ${pair.fit}，${band.name}。`)
+  const finalBeat = beat(s.pc, `場景結束：${END_NAME[reason]}。契合 ${fit}，${band.name}。`, 'scene.end', { reason, fit, rating: band.id, insight, max_gear: maxGear, ...(multi ? { pairs: pairResult } : {}) })
+  const d = sceneDraft(state, p, 'scene.end', [...lead, ...p.beats, finalBeat], changes, reason, `${END_NAME[reason]}。契合 ${fit}，${band.name}。`)
   d.narration = { results }
   if (fx.clamps.length > 0) d.clamps = fx.clamps
   if (p.said) d.input = p.said

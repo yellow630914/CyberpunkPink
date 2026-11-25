@@ -223,9 +223,10 @@ describe('開場', () => {
   it('開不成：一對一以外（with 兩個人、兩圈、一圈三個人）、沒有對象、對象不存在、對象是自己、性質或目的不合、已經有一場', () => {
     const g = game()
     const why = (setup: unknown): string => startProblems(g.k, g.state, setup).problems.join('')
-    expect(why({ with: ['npc_ann', 'x'], nature: 'mutual' })).toMatch(/一對一/)
-    expect(why({ circles: [['pc', 'npc_ann'], ['a', 'b']], nature: 'mutual' })).toMatch(/一對一.*不分圈/)
-    expect(why({ circles: [['pc', 'npc_ann', 'x']], nature: 'mutual' })).toMatch(/剛好主角加一個人/)
+    // M4-scene-circles 之後多人與分圈開得起來（這三條原本是「只收一對一」）：人在不在場才是問題
+    expect(why({ with: ['npc_ann', 'x'], nature: 'mutual' })).toMatch(/找不到對象（x）/)
+    expect(why({ circles: [['pc', 'npc_ann'], ['a', 'b']], nature: 'mutual' })).toMatch(/找不到對象（a）/)
+    expect(why({ circles: [['pc', 'npc_ann', 'x']], nature: 'mutual' })).toMatch(/找不到對象（x）/)
     expect(why({ nature: 'mutual' })).toMatch(/with 或 circles/)
     expect(why({ with: ['nobody'], nature: 'mutual' })).toMatch(/找不到對象/)
     expect(why({ with: ['pc'], nature: 'mutual' })).toMatch(/不能是主角自己/)
@@ -1501,8 +1502,8 @@ describe('內容與規則的格式', () => {
   }
   const pos = (over: Record<string, unknown>) => ({ ...(PACK.content.position![0] as Record<string, unknown>), id: 'p_x', ...over })
 
-  it('體位：M2 只收 people: 2；位置要兩個、links 的位置要對得上、倍率要大於 0、unlocked_by 要查得到技能', () => {
-    expect(bad('position', [pos({ people: 3 })])).toMatch(/M2 的場景只收 people: 2/)
+  it('體位：people 要是 2～4、位置數要和 people 一樣多；links 的位置要對得上、倍率要大於 0、unlocked_by 要查得到技能', () => {
+    expect(bad('position', [pos({ people: 3 })])).toMatch(/roles 要有三個位置/)
     expect(bad('position', [pos({ people: 1 })])).toMatch(/people 要是 2～4/)
     expect(bad('position', [pos({ roles: [{ id: 'a', upper: true }] })])).toMatch(/roles 要有兩個位置/)
     expect(bad('position', [pos({ links: [{ from: ['a', 'mouth'], to: ['c', 'mouth'] }] })])).toMatch(/要是 roles 裡的 id/)

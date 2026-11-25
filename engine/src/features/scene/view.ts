@@ -36,6 +36,8 @@ export interface PersonView {
   tags: string[]
   /** 這一場到了幾次 */
   climax: number
+  /** 失神退出了這一圈（多人才有） */
+  out: boolean
   /** 同步檔位 */
   gear: GearView
 }
@@ -77,7 +79,7 @@ export interface LinkView {
 
 export interface LineView { round: number; who: Who; text: string }
 
-/** 主角對這一圈某個人的：契合、主動權與評價（第二版的 pairs）。 */
+/** 主角對這一圈某個人的：契合、主動權與評價（第二版的 pairs）。離開了這一圈的人（換圈、失神退出）這一對的紀錄還在，現在不在這一圈的列在 SceneView 的 away。 */
 export interface PairView { fit: number; init: number; first: boolean; rating: { id: string; name: string }; holder: Who }
 
 export interface SceneView {
@@ -113,6 +115,10 @@ export interface SceneView {
   links: LinkView[]
   /** 精簡版只顯示這個：現在有幾條持續效果與大概的數值（每回合；已乘上倍率） */
   effects: { count: number; target_load: number; my_load: number; fit: number }
+  /** 體位由誰決定（P34）：角色的 id */
+  decider: string
+  /** pairs 裡現在不在主角這一圈的人（換圈離開的、失神退出的） */
+  away: string[]
   /** 現在換得到的體位（你會的；原因寫在 blocks） */
   positions: Array<{ id: string; name: string; blocks: string[] }>
   /** 每一回合的那一句；who 是舊名字（'pc' 或 'partner'） */
@@ -165,7 +171,7 @@ function personView(p: Play, w: string): PersonView {
   }
   return {
     id: a.id, name: a.name, load: { now: p.load[w]!, max: p.loadMax[w]! }, glow: { now: p.glow[w]!, max: p.glowMax[w]! }, ap: { now: p.seat(w).ap, max: p.apMax[w]! }, sensitivity: p.sens[w]!,
-    role: p.s.roles[w] ?? '', upper: p.isUpper(w), parts, tags: p.isPc(w) ? tendencyTagIds(a) : [], climax: p.seat(w).climax, gear: gearView(p, w),
+    role: p.s.roles[w] ?? '', upper: p.isUpper(w), parts, tags: p.isPc(w) ? tendencyTagIds(a) : [], climax: p.seat(w).climax, out: p.seat(w).out === true, gear: gearView(p, w),
   }
 }
 
@@ -193,8 +199,8 @@ export function sceneView(k: Kernel, state: GameState, selected?: SceneInput): S
     goal: s.goal ? { id: s.goal, name: GOAL_NAME[s.goal], progress: s.goal_progress ?? 0, done_at: p.rules.goal_done_at, done: (s.goal_progress ?? 0) >= p.rules.goal_done_at } : null,
     position: { id: pos.id, name: pos.name, ...(pos.text ? { text: pos.text } : {}), upper: upperWho, mult: { pc: p.mult(pcId), partner: p.mult(partnerId) }, roles: { pc: s.roles[pcId] ?? '', partner: s.roles[partnerId] ?? '' } },
     fit: p.pair.fit, rating: { id: band.id, name: band.name }, fit_marks: p.rules.bands.map((b) => b.min).filter((m) => m > 0).sort((a, b) => a - b), init: p.pair.init, holder: p.who(p.holder()),
-    people: { pc: seats[0]!, partner: seats[1]! }, seats, pairs, circles: clone(s.circles), links, effects,
-    positions: knownPositions(k, state, s.pc).map((x) => ({ id: x.id, name: x.name, blocks: p.blocks(pcId, { kind: 'switch', position: x.id }, true) })),
+    people: { pc: seats[0]!, partner: seats[1] ?? seats[0]! }, seats, pairs, circles: clone(s.circles), links, effects, decider: p.decider(), away: Object.keys(s.pairs).filter((id) => !p.inCircle(id)),
+    positions: knownPositions(k, state, s.pc, p.activeIds().length).map((x) => ({ id: x.id, name: x.name, blocks: p.blocks(pcId, { kind: 'switch', position: x.id }, true) })),
     lines: s.lines.map((l) => ({ ...l, who: p.who(l.who) })),
   }
   if (selected) view.selected = { input: selected, blocks: p.blocks(pcId, selected, true), preview: p.preview(pcId, selected) }
@@ -256,6 +262,8 @@ export interface ActionOption {
 export interface SceneOptions {
   turn: Who
   round: number
+  /** 這一圈現在還在的別人（技能、道具、說話要給 target 時從這裡選；一對一只有一個） */
+  targets: Array<{ id: string; name: string }>
   ap: { now: number; max: number }
   actions: ActionOption[]
   /** 回合交給對方（沒用完的行動點留到下回合） */
@@ -305,7 +313,7 @@ export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
     return { id, name, ap, blocks: p.blocks(w, input, true), picks: mine.length > 0 ? picksOf(p, mine, theirs, pairs) : [], pairs, preview: p.preview(w, input) }
   }
   const talkInput: SceneInput = { kind: 'talk' }
-  const talkTheirs = p.partsOf(p.partnerId)
+  const talkTheirs = p.partsOf(p.autoTarget(w, talkInput))
   const talkPairs = pairsOf(p, w, talkInput, [...TALK_PARTS], talkTheirs)
   const skills = knownSkills(k, state, s.pc).map((id) => {
     const info = sceneDefOf(k, 'skill', id)!
@@ -320,7 +328,7 @@ export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
     const cand = candOf(info.def, info.tag)
     items.push(choice({ kind: 'item', id: stack.id }, stack.id, info.name, info.def.ap, cand?.mine ?? [], cand?.theirs ?? []))
   }
-  const switches = knownPositions(k, state, s.pc).map((pos: PositionEntry): ChoiceOption => {
+  const switches = knownPositions(k, state, s.pc, p.activeIds().length).map((pos: PositionEntry): ChoiceOption => {
     const input: SceneInput = { kind: 'switch', position: pos.id }
     return { id: pos.id, name: pos.name, ap: p.rules.cost.switch, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input) }
   })
@@ -331,6 +339,17 @@ export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
   const turn = p.blocks(w, { kind: 'restrain' }, true).filter((x) => x.startsWith('還沒輪到'))
   const minAp = (list: ChoiceOption[]): number => (list.length > 0 ? Math.min(...list.map((x) => x.ap)) : 0)
   const group = (list: ChoiceOption[], none: string): string[] => (turn.length > 0 ? turn : list.length === 0 ? [none] : list.every((x) => x.blocks.length > 0) ? [list[0]!.blocks[0]!] : [])
+  // 換圈與叫人過來：有別的圈的時候才列（精簡版與沒有別的圈的場景不列）
+  const plain = (input: SceneInput, id: string, name: string, ap: number): ChoiceOption => ({ id, name, ap, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input) })
+  const names = (ids: string[]): string => ids.map((x) => state.actors[x]?.name ?? x).join('、')
+  const moves = s.circles.map((c) => plain({ kind: 'move_circle', circle: c.id }, c.id, names(c.people), p.rules.cost.move_circle))
+  const calls = s.circles.flatMap((c) => c.people.map((id) => plain({ kind: 'call', who: id }, id, state.actors[id]?.name ?? id, p.rules.cost.call)))
+  const circleActions: ActionOption[] = s.mode === 'full' && s.circles.length > 0
+    ? [
+      { id: 'move_circle', name: ACTION_NAME.move_circle, ap: p.rules.cost.move_circle, blocks: group(moves, '沒有別的圈可以去。'), picks: [], pairs: [], choices: moves, preview: null },
+      { id: 'call', name: ACTION_NAME.call, ap: p.rules.cost.call, blocks: group(calls, '別的圈裡沒有人可以叫。'), picks: [], pairs: [], choices: calls, preview: null },
+    ]
+    : []
   const actions: ActionOption[] = [
     simple('dominate'), simple('yield'), simple('tease'), simple('restrain'),
     { id: 'skill', name: ACTION_NAME.skill, ap: minAp(skills), blocks: group(skills, '你還沒有學會任何在場景裡用得出來的技能。'), picks: [], pairs: [], choices: skills, preview: null },
@@ -341,7 +360,8 @@ export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
     { id: 'item', name: ACTION_NAME.item, ap: minAp(items), blocks: group(items, '你身上沒有在場景裡用得出來的東西。'), picks: [], pairs: [], choices: items, preview: null },
     { id: 'switch', name: ACTION_NAME.switch, ap: p.rules.cost.switch, blocks: group(switches.filter((x) => x.id !== s.position), '沒有別的體位可以換。'), picks: [], pairs: [], choices: switches, preview: null },
     { id: 'gear', name: ACTION_NAME.gear, ap: 0, blocks: group(gears.filter((x) => x.id !== p.seat(w).gear), '沒有別的檔位可以換。'), picks: [], pairs: [], choices: gears, preview: null },
+    ...circleActions,
     simple('stop'),
   ]
-  return { turn: p.who(s.turn), round: s.round, ap: { now: p.seat(w).ap, max: p.apMax[w]! }, actions, end_turn: { blocks: turn } }
+  return { turn: p.who(s.turn), round: s.round, targets: p.activeOthers(w).map((id) => ({ id, name: state.actors[id]?.name ?? id })), ap: { now: p.seat(w).ap, max: p.apMax[w]! }, actions, end_turn: { blocks: turn } }
 }
