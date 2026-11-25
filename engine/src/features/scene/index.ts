@@ -15,8 +15,12 @@
 // 體位由「主角對他主動權最低」的人決定（P34）；失神的人退出、人數對不上自動換體位；換圈 2 點、叫人 1 點（只有主角；精簡版沒有）。
 // 輸入多兩種：{ kind: 'move_circle', circle }、{ kind: 'call', who }；結算的 result 在多人時多 pairs（每個對象）與 circles（別的圈）。
 //
+// 單人（M4-scene-solo；LEWD_SYSTEM 3.5 節第九點、dev/adr/0019 第九節與 P38～P40）：setup.solo: true，沒有對象、沒有主動權；kind 是 solo、座位只有主角、pairs 是空的；節奏（pace）取代契合；
+// 位置是五個單人姿勢（model.ts 的 DEFAULT_SOLO_POSES；資料的 solo_pose 換掉或多一個）；行動多加快與放慢、沒有主導、迎合、挑逗與圈；技能與道具看資料的 scene.solo；
+// 說話只有 setup.audience 為 true（直播開著；M5 之前沒有人會給）才行；節奏掉的時候、強制結束（沒了興致 bored）、結算（體悟打折、性經歷只加 solo_times）見 play.ts 與 end.ts。
+//
 // 接上核心的地方：
-//   內容  position（DATA 3.2；M2 只收 people: 2）、night_skill（DATA 3.1；M2 只用 scene、tag、tags、name）、scene_rule（id: default，規則的數字蓋掉內建的）；
+//   內容  position（DATA 3.2；M2 只收 people: 2）、solo_pose（單人姿勢；內建五個，資料換掉或多一個）、night_skill（DATA 3.1；M2 只用 scene、tag、tags、name）、scene_rule（id: default，規則的數字蓋掉內建的）；
 //         物品多讀一個 scene 欄位（DATA 3.3，載入之後 ready 查格式）
 //   活動  scene（setup 見 SceneSetup；放行 commit:scene.）；結束時發 activity.end（result: { with, fit, rating, goal, goal_done, reason }）
 //   量表  insight（體悟；單一、0 起、沒有上限；同名的效果與條件核心自動有）

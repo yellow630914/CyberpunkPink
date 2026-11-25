@@ -59,4 +59,4 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 稱呼（NPC_SYSTEM 7.0）：`npc` 的人物狀態多 `call_them?`、`call_me?`（最多 12 字），正文與程式句子照用；介面在人物詳情加兩格。
 - 送禮附一句話（NPC_SYSTEM 6.3）：送禮的 env 多選填 `note`（最多 200 字），寫進共同記憶；親密度不變。
 - 化身外觀描述（CYBERSPACE 4）：`actor.ext.avatar.text`（最多 200 字），進 AI 的角色資料；介面在化身分頁。
-- 共同：內容篩選與底線由現有驗證擋，被擋時提示「這一部分沒有照寫。」。
+- 共同：玩家寫的文字不經我們這端篩選、改寫或提示，原樣交給 AI；不合規的由服務商擋（使用者 2026-11-25）。
