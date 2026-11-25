@@ -9,7 +9,7 @@
 // 休養：橋本身休養中照樣生效（容量一直算，不然整段時間沒有技能），只有機能的 effects 等好了才算（passive.ts 的 isActive）。被授權鎖鎖住的橋容量照算（授權鎖那一張再定）。
 
 import type { ActorId, ContentEntry, GameState, Kernel, ProductData, ReportDraft, TimelineBeat } from '../../core'
-import { ActionBlocked, AFFINITY_KEYS, blueprintOf, clone, deriveRng, effectCtx, isRecord, productOf, productPrice, readProduct, stackOf } from '../../core'
+import { ActionBlocked, AFFINITY_KEYS, blueprintOf, clone, deriveRng, effectCtx, productOf, productPrice, readProduct, stackOf } from '../../core'
 import type { Change, QuirkEntry } from '../../core'
 import type { CyberPiece, PartId, SurgeonKind } from './model'
 import { EXT, PART_NAME, RECOVERING, SURGEON_NAME, cyberExtValue, cyberOf, cyberRules, isBridge, isSurgeonKind, nowOf } from './model'
@@ -45,8 +45,6 @@ export interface BridgeCapacity {
   from: Record<BridgeCat, CapacityPart>
   /** 晶片的總量（沒有橋或沒有晶片是 0） */
   chip: number
-  /** true：身上沒有橋那一件，容量是舊的 ext.bridge.capacity（每類最少 cap_min）——建角給橋那一張（M4-creation-body）做完、舊存檔都搬完之後拿掉 */
-  legacy?: boolean
 }
 
 const zeroCap = (): BridgeCapacity => {
@@ -129,27 +127,10 @@ export function capacityOfProduct(k: Pick<Kernel, 'content'>, bpId: string, data
 /** 身上那一座橋（沒有是 undefined）。 */
 export const bridgeOf = (state: Pick<GameState, 'actors'>, actor: ActorId): CyberPiece | undefined => cyberOf(state, actor).find(isBridge)
 
-/**
- * 這個人現在的橋的容量：休養中、被鎖的橋照算。沒有橋是全 0。
- * 過渡：身上沒有橋那一件、但 ext.bridge.capacity 是物件的人（建角還沒把橋做成一件義體之前的主角、舊存檔）照舊讀那四個數字（每類最少 cap_min），標 legacy。
- */
+/** 這個人現在的橋的容量：休養中、被鎖的橋照算。身上沒有橋（沒有橋那一件）是全 0。 */
 export function bridgeCapacityOf(k: Pick<Kernel, 'content'>, state: Pick<GameState, 'actors'>, actor: ActorId): BridgeCapacity {
   const piece = bridgeOf(state, actor)
-  if (piece) return capacityOfProduct(k, piece.bp, piece, cyberRules(k).cap_min)
-  const raw = state.actors[actor]?.ext.bridge
-  const old = isRecord(raw) && isRecord(raw.capacity) ? raw.capacity : undefined
-  if (!old) return zeroCap()
-  const min = cyberRules(k).cap_min
-  const out = zeroCap()
-  out.legacy = true
-  for (const cat of BRIDGE_CATS) {
-    const v = old[cat]
-    const n = Math.max(min, isNum(v) ? v : 0)
-    out.split[cat] = n
-    out.from[cat] = { share: n, floor: 0, affinity: 0 }
-  }
-  out.total = BRIDGE_CATS.reduce((n, c) => n + out.split[c], 0)
-  return out
+  return piece ? capacityOfProduct(k, piece.bp, piece, cyberRules(k).cap_min) : zeroCap()
 }
 
 // ---- 換橋 ----

@@ -10,6 +10,7 @@
 //   數值  exposure（0～3）、style_value、carry_load、carry_cap（look.ts、weight.ts；義體的致動器之後用被動效果加 carry_cap）
 //   條件  exposure { min?, max? }、style { tag, min? }（看得到的那幾件裡這個標籤的風格值合計，沒寫 min 是至少 1）；用到別人登記的：at_facility、at_home
 //   被動  k.passives.register 來源 gear：超重時迴避 −2、stealth 檢定 −2、換位 +1 點（現實的戰場）
+//   掛點  creation.step（features/creation 宣告）：建角第 9 步的物品與武器、護甲（點數、等級、類別、出身）與出身白給的 kit_free（creation.ts）
 //   效果  gear_take（拿走身上的裝備；內建的來源才收，ai: false）；掛點 defeat.gear 對它回答 true
 //   變更  gear.dye（染色）；報告 gear.dye（dyeDraft）
 // 對外：styleOf、carryLoadOf、carryCapBase、overweight、dyeBlock、dyeDraft、dyeOf、gearRules。
@@ -18,6 +19,7 @@ import type { Condition, ConditionCtx, ContentEntry, Feature, Kernel } from '../
 import { ContentError, isRecord, isSafeInt } from '../../core'
 import { installBattle } from './battle'
 import { installChanges } from './changes'
+import { answerCreation } from './creation'
 import { isColor } from './dye'
 import { exposureSpec, styleOf, styleSpec, styleTagValue, styleValueOf } from './look'
 import { OWNER, blueprintOf, stackOf } from './model'
@@ -43,6 +45,8 @@ export { TAKE_KIND } from './take'
 type ExposureCondition = Condition & { min?: number; max?: number }
 type StyleCondition = Condition & { tag: string; min?: number }
 type Rec = Record<string, unknown>
+/** 掛點 creation.step 是 features/creation 宣告的：這裡只認名字與格式，不 import。 */
+type AnyHook = (name: string, owner: string, fn: (payload: never) => unknown) => void
 const level = (v: unknown): boolean => isSafeInt(v) && v >= 0 && v <= 3
 
 export const gearFeature: Feature = {
@@ -93,6 +97,8 @@ export const gearFeature: Feature = {
       },
     })
     installBattle(k)
+    // 建角的第 9 步（M4-creation-body）：物品與武器、護甲的設計圖（掛點 creation.step 由 features/creation 宣告，這裡只認名字）
+    ;(k.hooks.on.bind(k.hooks) as unknown as AnyHook)('creation.step', OWNER, ((p: Parameters<typeof answerCreation>[1]) => answerCreation(k, p)) as never)
     // 掃橋（EQUIPMENT 6.3 節）：身上攜帶格裡這一級掃得到的武器（掛點 scan.carried 由 security 宣告；兩邊不互相 import）
     k.hooks.on('scan.carried', OWNER, ({ state, actor, strength }) => {
       const out: Array<{ item: string; name: string; legal: string; uid: string }> = []

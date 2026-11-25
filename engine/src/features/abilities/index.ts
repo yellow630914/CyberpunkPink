@@ -16,10 +16,12 @@
 // 戰鬥結束標 data.masked）、net.command（指揮每回合 1 點）、net.remote_call（遠端叫名冊上帶某路數的人）、pick bench 的 path、net.flow／flow_bonus 與 when.flow_min（導流階）、
 // net.link／song／on_link_overload／link_full／link_gear（偶像的應援與曲目，link.ts）、needs.no_tag、resonance.net（只在內海生效的共鳴）、修正 remote_uses／no_flash／ram_free／no_pin／link_relief／turn_extra、
 // react.keep_link、mods 與反應的 who: linked、效果 link.each／link.dump、狀態 pacified（安撫：攻擊類行動的花費加一大筆）。
+// M4-creation-body（dev/work/M4-creation-body.md）：建角第 8 步（掛點 creation.step 的 abilities：逐一跑學技能的規則、沒有橋不能學）、建角之後按順序裝進橋（report.after，creation.ts）。
 // 不 import 別的功能（射擊、換彈在 features/combat；技能自己用 run.attack）。
 
 import type { Feature } from '../../core'
 import { registerActions, registerBattle } from './battle'
+import { registerCreation } from './creation'
 import { registerCondition } from './daily'
 import { checkAbilities, registerKinds } from './kinds'
 import { registerLoadout } from './loadout'
@@ -77,6 +79,7 @@ export const abilitiesFeature: Feature = {
     registerStats(k)
     registerCondition(k)
     registerCapacityWatch(k)
+    registerCreation(k)
   },
   ready(k) {
     checkAbilities(k)

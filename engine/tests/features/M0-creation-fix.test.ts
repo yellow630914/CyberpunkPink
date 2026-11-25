@@ -76,7 +76,8 @@ describe('建角：給畫面的數字與出身的摘要', () => {
     const game = setup({ startPerkPoints: 6, startMoney: 900 })
     expect(creationLimits(game.k, game.state)).toEqual({
       attrArray: [15, 14, 13, 12, 10, 8], attrFree: 2, attrMax: 18, attrMin: 4, skillPoints: 10, skillMax: 3, perkPoints: 6, perkMax: 8, flawMax: 2,
-      startMoney: 900, cyberPoints: 10, gearPoints: 12, cyberPointCash: 500, gearPointCash: 150,
+      startMoney: 900, cyberPoints: 10, gearPoints: 12, cyberPointCash: 500, gearPointCash: 250,
+      cyberPointPrice: 500, cyberInstallMult: 1.5, gearPointPrice: 250, gearGradeMax: 2, gearKinds: ['weapon', 'armor', 'clothing', 'tool', 'consumable', 'ammo', 'construct', 'skin', 'deck'],
     })
     const bare = makeGame({ scenario: 'beforeCreation', features: [creationFeature] }).game
     expect(creationLimits(bare.k, bare.state)).toMatchObject({ attrArray: [15, 14, 13, 12, 10, 8], attrFree: 2, attrMax: 18, attrMin: 4, perkMax: 8, flawMax: 2, gearPoints: 12 })
@@ -167,14 +168,14 @@ describe('建角：性別的五個值與私處的外觀（DATA 第 1、8 節；L
   })
 })
 
-describe('建角：起始的錢（CHARACTER 5.4 節：全部是現金；沒花完的義體點數每點 C$500、裝備點數每點 C$150）', () => {
+describe('建角：起始的錢（CHARACTER 5.4 節：全部是現金；沒花完的義體點數每點 C$500、裝備點數每點 C$250）', () => {
   it('下限、上限、上限+1：花完不換、沒花的全換、花超過擋在那一步；草稿沒寫花了幾點的那一項不換', () => {
     const game = setup()
     const money = (over: Partial<CreationDraft>) => startMoney(game.k, game.state, draft(over))
     expect(money({})).toEqual({ base: 1500, cyber: 0, gear: 0, total: 1500 })
     expect(money({ cyberSpent: 10, gearSpent: 12 })).toEqual({ base: 1500, cyber: 0, gear: 0, total: 1500 })
-    expect(money({ cyberSpent: 0, gearSpent: 0 })).toEqual({ base: 1500, cyber: 5000, gear: 1800, total: 8300 })
-    expect(money({ cyberSpent: 7, gearSpent: 11 })).toEqual({ base: 1500, cyber: 1500, gear: 150, total: 3150 })
+    expect(money({ cyberSpent: 0, gearSpent: 0 })).toEqual({ base: 1500, cyber: 5000, gear: 3000, total: 9500 })
+    expect(money({ cyberSpent: 7, gearSpent: 11 })).toEqual({ base: 1500, cyber: 1500, gear: 250, total: 3250 })
     expect(money({ cyberSpent: 9 })).toEqual({ base: 1500, cyber: 500, gear: 0, total: 2000 })
     expect(creationBlocks(game.k, game.state, draft({ cyberSpent: 10, gearSpent: 12 }))).toEqual([])
     expect(creationBlocks(game.k, game.state, draft({ cyberSpent: 11 }))).toEqual([{ step: 'cyber', reason: '義體點數只有 10 點。' }])
@@ -189,8 +190,8 @@ describe('建角：起始的錢（CHARACTER 5.4 節：全部是現金；沒花�
     for (const origin of ['hive', 'oldport']) {
       const game = setup({ startCyberPoints: 6, startMoney: 1000 })
       const report = game.commit(buildCreationReport(game.k, game.state, draft({ origin, originChoice: origin === 'hive' ? { favor: 'lonestar' } : undefined, cyberSpent: 4, gearSpent: 10 })))[0]!
-      expect(game.state.money).toEqual({ cred: 0, cash: 1000 + 2 * 500 + 2 * 150 })
-      expect(report.changes.filter((c) => c.op === 'cash' || c.op === 'cred')).toEqual([{ op: 'cash', delta: 2300 }])
+      expect(game.state.money).toEqual({ cred: 0, cash: 1000 + 2 * 500 + 2 * 250 })
+      expect(report.changes.filter((c) => c.op === 'cash' || c.op === 'cred')).toEqual([{ op: 'cash', delta: 2500 }])
     }
     const game = setup({ startCyberPoints: 6 })
     expect(creationBlocks(game.k, game.state, draft({ cyberSpent: 7 }))).toEqual([{ step: 'cyber', reason: '義體點數只有 6 點。' }])
@@ -201,7 +202,7 @@ describe('建角：起始的錢（CHARACTER 5.4 節：全部是現金；沒花�
       const c = Math.min(c0, points)
       const game = setup({ startCyberPoints: points, startMoney: base })
       game.commit(buildCreationReport(game.k, game.state, draft({ cyberSpent: c, gearSpent: g })))
-      return game.state.money.cash === base + (points - c) * 500 + (12 - g) * 150 && game.state.money.cred === 0
+      return game.state.money.cash === base + (points - c) * 500 + (12 - g) * 250 && game.state.money.cred === 0
     }), { numRuns: 30 })
   })
 })

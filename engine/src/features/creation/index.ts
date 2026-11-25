@@ -1,106 +1,22 @@
 // L6 功能：建角。檢查建角草稿的每一步（基本資料、出身、屬性、基本功、特質，加上義體與裝備點數換成的錢），把合格的草稿變成放進主角的報告
 // （CHARACTER 第 1、2、5.1、5.3、5.4、5.6 節；UI 第 14 節的年齡；DATA 第 1、8 節）。全部是純函式：不改傳進來的東西，也不自己提交。
-// 不做生命軌跡、橋與義體、技能樹、裝備（那些系統還沒搬進來）：義體與裝備花了幾點由呼叫的人算好交進來，這裡只管上限與沒花完的換多少現金。
+// 第 6、8、9 步（橋與義體、技能、裝備）不 import 別的功能：經掛點 creation.step 問各功能（body.ts；M4-creation-body），這裡只管點數的上限與沒花完的換多少現金；
+// 草稿沒給選的東西時，義體與裝備花了幾點由呼叫的人算好交進來（cyberSpent、gearSpent）。不做生命軌跡。
 // 檢查回傳 string | null：null 是沒問題，字串是擋住的原因（給玩家看的完整句子）。
 
-import type { Actor, AttrId, CreationRuleEntry, FactionEntry, Feature, GameState, Kernel, NpcEntry, OriginEntry, PerkEntry, ReportDraft, SkillId } from '../../core'
-import { ATTR_IDS, CONTENT_TAG_INTIMATE_BODY, GENDER_IDS, MIN_AGE, SKILL_MAX, attrMod, clone, contentAllowed, isRecord } from '../../core'
+import type { Actor, AttrId, ContentEntry, FactionEntry, Feature, GameState, Kernel, NpcEntry, OriginEntry, PerkEntry, ReportDraft, SkillId } from '../../core'
+import { ATTR_IDS, CONTENT_TAG_INTIMATE_BODY, ContentError, GENDER_IDS, MIN_AGE, SKILL_MAX, attrMod, clone, contentAllowed, isRecord } from '../../core'
+import { abilitiesStepBlock, askStep, cyberStepBlock, dedupeExt, gearStepBlock, leftoverCash, pointsSpent } from './body'
+import type { BodyStep } from './body'
+import { creationLimits, rule } from './model'
+import type { CreationBlock, CreationDraft, CreationLook, CreationStep, LookPrivate } from './model'
 
-/** 建角的步驟（CHARACTER 第 1 節）：basics 第 1 步、origin 第 2 步、attrs 第 3 步、skills 第 4 步、cyber 第 6 步、perks 第 7 步、gear 第 9 步。 */
-export type CreationStep = 'basics' | 'origin' | 'attrs' | 'skills' | 'cyber' | 'perks' | 'gear'
-export interface CreationBlock { step: CreationStep; reason: string }
-
-/** 私處的外觀（DATA 第 8 節的 look.private）：選的詞條加上自由輸入的一段。成人內容，受內容篩選「身體的私密描寫」控制。 */
-export interface LookPrivate {
-  options: string[]
-  text: string
-}
-
-/** 外觀：鍵是部位，值是下拉選的詞條；private 是私處的外觀。 */
-export interface CreationLook {
-  private?: LookPrivate
-  [part: string]: string | LookPrivate | undefined
-}
-
-export interface CreationDraft {
-  name: string
-  /** female、male、femboy、trans_f、futa（DATA 第 1 節的五個值；TS 只有男跨女一種，id 是 trans_f） */
-  gender: string
-  pronoun?: string
-  age: number | string
-  /** 外觀的下拉選的結果，原樣存。look.private（私處）在內容篩選關掉「身體的私密描寫」時不寫進角色 */
-  look?: CreationLook
-  /** 手動補充的外觀 */
-  lookNote?: string
-  background?: string
-  /** 出身的 id */
-  origin: string
-  /** 好感給哪個勢力：勢力的 id（出身的 favor.choose_one 有兩個以上時要選） */
-  originChoice?: { favor?: string }
-  /** 第 6 步花掉的義體點數。沒花完的每點換現金（CHARACTER 5.4 節）；沒給就不換（當成花完） */
-  cyberSpent?: number
-  /** 第 9 步花掉的裝備點數。沒花完的每點換現金；沒給就不換 */
-  gearSpent?: number
-  /** 六個數字各分給哪一項 */
-  attrPick: Partial<Record<AttrId, number>>
-  /** 每一項的增減：正的花自由點數，負的是往下壓 */
-  attrBonus: Partial<Record<AttrId, number>>
-  /** 買的基本功等級（不含出身送的 +1） */
-  skills: Record<SkillId, number>
-  /** 買的特質與缺陷（不含出身特質） */
-  perks: string[]
-}
+export type { CreationBlock, CreationDraft, CreationLimits, CreationLook, CreationStep, LookPrivate } from './model'
+export { DEFAULT_GEAR_KINDS, creationLimits } from './model'
+export { BODY_STEPS, abilitiesStepBlock, askStep, creationSummary, cyberStepBlock, gearStepBlock, leftoverCash, pointsSpent } from './body'
+export type { BodyStep, CapacitySplit, CreationSummary, OwnedItem, PointSummary, StepAnswer, StepPayload, StepResult } from './body'
 
 type AttrMap = Partial<Record<AttrId, number>>
-
-/** creation_rule/default 沒有載入（或沒寫那一欄）時的預設值（CHARACTER 5.1、5.3、5.4 節）。 */
-const DEFAULT_RULE = { attr_array: [15, 14, 13, 12, 10, 8], attr_free: 2, attr_max: 18, attr_min: 4, perk_max: 8, flaw_max: 2, gear_points: 12, cyber_point_cash: 500, gear_point_cash: 150 }
-
-function rule(k: Kernel) {
-  const r = k.content.get<CreationRuleEntry>('creation_rule', 'default')
-  return {
-    attr_array: r?.attr_array ?? DEFAULT_RULE.attr_array,
-    attr_free: r?.attr_free ?? DEFAULT_RULE.attr_free,
-    attr_max: r?.attr_max ?? DEFAULT_RULE.attr_max,
-    attr_min: r?.attr_min ?? DEFAULT_RULE.attr_min,
-    perk_max: r?.perk_max ?? DEFAULT_RULE.perk_max,
-    flaw_max: r?.flaw_max ?? DEFAULT_RULE.flaw_max,
-    gear_points: r?.gear_points ?? DEFAULT_RULE.gear_points,
-    cyber_point_cash: r?.cyber_point_cash ?? DEFAULT_RULE.cyber_point_cash,
-    gear_point_cash: r?.gear_point_cash ?? DEFAULT_RULE.gear_point_cash,
-  }
-}
-
-/** 建角的數字（給畫面顯示與下拉選單用）。來源是資料（creation_rule/default）與這一局的存檔規則；畫面不自己留一份預設值。 */
-export interface CreationLimits {
-  attrArray: number[]
-  attrFree: number
-  attrMax: number
-  attrMin: number
-  skillPoints: number
-  skillMax: number
-  perkPoints: number
-  perkMax: number
-  flawMax: number
-  /** 起始的錢（全部是現金，每個出身一樣） */
-  startMoney: number
-  cyberPoints: number
-  gearPoints: number
-  /** 沒花完的義體點數、裝備點數每點換多少現金 */
-  cyberPointCash: number
-  gearPointCash: number
-}
-
-export function creationLimits(k: Kernel, state: GameState): CreationLimits {
-  const r = rule(k)
-  return {
-    attrArray: [...r.attr_array], attrFree: r.attr_free, attrMax: r.attr_max, attrMin: r.attr_min,
-    skillPoints: state.rules.startSkillPoints, skillMax: state.rules.startSkillMax,
-    perkPoints: state.rules.startPerkPoints, perkMax: r.perk_max, flawMax: r.flaw_max,
-    startMoney: state.rules.startMoney, cyberPoints: state.rules.startCyberPoints, gearPoints: r.gear_points,
-    cyberPointCash: r.cyber_point_cash, gearPointCash: r.gear_point_cash,
-  }
-}
 
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v)
 const sum = (xs: number[]): number => xs.reduce((s, x) => s + x, 0)
@@ -250,23 +166,13 @@ function favorOf(k: Kernel, origin: OriginEntry, draft: CreationDraft): { favor:
 
 // ---- 第 6、9 步：義體與裝備的點數，沒花完的換成現金 ----
 
-function pointsBlock(spent: number | undefined, total: number, what: string): string | null {
-  if (spent === undefined) return null
-  if (!isInt(spent) || spent < 0) return `花掉的${what}點數要是 0 以上的整數。`
-  return spent > total ? `${what}點數只有 ${total} 點。` : null
-}
-
 /**
  * 起始的錢（CHARACTER 5.4 節）：全部是現金，每個出身一樣、不加減。
- * 組成：存檔規則的起始的錢，加上沒花完的義體點數（每點 C$500）與裝備點數（每點 C$150）換的。草稿沒有寫花了幾點的那一項不換。
+ * 組成：存檔規則的起始的錢，加上沒花完的義體點數（每點 C$500）與裝備點數（每點 C$250）換的。花了幾點：草稿選的東西算出來的優先
+ * （各功能經 creation.step 回答），沒有的話看草稿寫的 cyberSpent、gearSpent；兩邊都沒有的那一項不換。
  */
-export function startMoney(k: Kernel, state: GameState, draft: Pick<CreationDraft, 'cyberSpent' | 'gearSpent'>): { base: number; cyber: number; gear: number; total: number } {
-  const r = rule(k)
-  const left = (spent: number | undefined, total: number) => (spent !== undefined && isInt(spent) ? Math.max(0, total - Math.max(0, spent)) : 0)
-  const base = state.rules.startMoney
-  const cyber = left(draft.cyberSpent, state.rules.startCyberPoints) * r.cyber_point_cash
-  const gear = left(draft.gearSpent, r.gear_points) * r.gear_point_cash
-  return { base, cyber, gear, total: base + cyber + gear }
+export function startMoney(k: Kernel, state: GameState, draft: Pick<CreationDraft, 'cyberSpent' | 'gearSpent'> & Partial<CreationDraft>): { base: number; cyber: number; gear: number; total: number } {
+  return leftoverCash(creationLimits(k, state), state, pointsSpent(k, state, draft as CreationDraft))
 }
 
 // ---- 整份 ----
@@ -285,9 +191,13 @@ export function creationBlocks(k: Kernel, state: GameState, draft: CreationDraft
   add('origin', origin === undefined ? '沒有這個出身。' : (favorOf(k, origin, draft) as { block?: string }).block)
   add('attrs', attrBlock(k, draft.attrPick, draft.attrBonus))
   add('skills', skillBlock(k, state, draft.skills))
-  add('cyber', pointsBlock(draft.cyberSpent, state.rules.startCyberPoints, '義體'))
+  const addBlock = (b: CreationBlock | null): void => {
+    if (b) out.push(b)
+  }
+  addBlock(cyberStepBlock(k, state, draft))
   add('perks', perkBlock(k, state, draft.perks))
-  add('gear', pointsBlock(draft.gearSpent, rule(k).gear_points, '裝備'))
+  addBlock(abilitiesStepBlock(k, state, draft))
+  addBlock(gearStepBlock(k, state, draft))
   return out
 }
 
@@ -324,14 +234,24 @@ export function buildCreationReport(k: Kernel, state: GameState, draft: Creation
       profile,
     },
   }
-  // 生命值從上限開始（有功能註冊了 max_hp 的話）：把角色放進一份複製的狀態算
+  // 第 6、8、9 步：各功能經 creation.step 回答（橋與義體、技能、裝備）。放進主角時就寫的 ext（沒有橋是 bridge: null）併進角色，
+  // 其餘的變更接在放進主角的那一筆後面；沒有人回答（草稿沒給選的東西）時什麼都沒有
+  const steps = (['cyber', 'abilities', 'gear'] as const).map((step: BodyStep) => askStep(k, state, draft, step))
+  for (const r of steps) Object.assign(actor.ext, clone(r.ext))
+  const stepChanges = dedupeExt(steps.flatMap((r) => clone(r.changes)))
+
+  // 生命值從上限開始（有功能註冊了 max_hp 的話）：把角色放進一份複製的狀態算（選的義體也算進去）
   if (k.stats.hasStat('max_hp')) {
     const trial = clone(state)
     trial.actors.pc = clone(actor)
+    for (const c of stepChanges) {
+      const t = c as { op: string; id?: unknown; key?: unknown; value?: unknown }
+      if (t.op === 'actor.ext' && t.id === 'pc' && typeof t.key === 'string') trial.actors.pc!.ext[t.key] = clone(t.value)
+    }
     actor.hp = k.stats.stat(trial, 'pc', 'max_hp')
   }
 
-  const changes: ReportDraft['changes'] = [{ op: 'actor.add', actor }, { op: 'pc', id: 'pc' }]
+  const changes: ReportDraft['changes'] = [{ op: 'actor.add', actor }, { op: 'pc', id: 'pc' }, ...stepChanges]
   // 起始的錢全部放現金；沒花完的義體與裝備點數換的也是現金（CHARACTER 5.4 節）
   const money = startMoney(k, state, draft).total
   if (money > 0) changes.push({ op: 'cash', delta: money })
@@ -343,7 +263,21 @@ export function buildCreationReport(k: Kernel, state: GameState, draft: Creation
   }
 }
 
+const CREATION_NUMBERS = ['cyber_point_price', 'cyber_install_mult', 'gear_point_price', 'gear_grade_max'] as const
+
 export const creationFeature: Feature = {
   id: 'creation',
   install() {},
+  ready(k) {
+    // creation_rule 多的幾個欄位（核心的格式檢查不認得它們）
+    const problems: string[] = []
+    for (const e of k.content.list<ContentEntry & Record<string, unknown>>('creation_rule')) {
+      for (const f of CREATION_NUMBERS) {
+        const v = e[f]
+        if (v !== undefined && !(typeof v === 'number' && Number.isFinite(v) && v > 0)) problems.push(`creation_rule/${e.id}：${f} 要是大於 0 的數字`)
+      }
+      if (e.gear_kinds !== undefined && !(Array.isArray(e.gear_kinds) && e.gear_kinds.every((x) => typeof x === 'string' && x.length > 0))) problems.push(`creation_rule/${e.id}：gear_kinds 要是類別的字串陣列`)
+    }
+    if (problems.length) throw new ContentError(problems)
+  },
 }

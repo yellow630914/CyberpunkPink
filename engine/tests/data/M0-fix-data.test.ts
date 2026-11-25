@@ -131,9 +131,9 @@ describe('M0-fix-data：行動種類的資料（AI_TASKS 3.1 節）', () => {
 })
 
 describe('M0-fix-data：建角的數字補三個欄位（CHARACTER 5.4 節）', () => {
-  it('creation_rule/default：起始的裝備點數 12；沒花完的義體點數每點 C$500、裝備點數每點 C$150', () => {
+  it('creation_rule/default：起始的裝備點數 12；沒花完的義體點數每點 C$500、裝備點數每點 C$250', () => {
     const rule = (CORE_PACK.content.creation_rule as CreationRuleEntry[]).find((r) => r.id === 'default')!
-    expect(rule).toMatchObject({ gear_points: 12, cyber_point_cash: 500, gear_point_cash: 150 })
+    expect(rule).toMatchObject({ gear_points: 12, cyber_point_cash: 500, gear_point_cash: 250 })
     // 原本的欄位不動
     expect(rule).toMatchObject({ attr_array: [15, 14, 13, 12, 10, 8], attr_free: 2, attr_max: 18, attr_min: 4, skill_points: 10, skill_max: 3, perk_points: 4, perk_max: 8, flaw_max: 2, min_age: 18, start_money: 1500 })
   })

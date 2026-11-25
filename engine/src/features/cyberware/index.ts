@@ -10,6 +10,7 @@
 //   被動  k.passives.register 來源 cyber（沉溺下限＋生效義體的 effects 與板材護甲）、quirk（身上義體帶著的怪癖的 effects）
 //   條件  cyber { slot?, bp?, tag?, min? }（身上有幾件符合的，預設至少 1）；用到別人登記的：at_facility（站在哪種診所）、at_home（住處）、ability（自己動刀；沒有人登記就沒有自己動刀）
 //   掛點  scene.body（features/scene 宣告）：現實層回答好了的義體的 scene_parts；
+//         creation.step（features/creation 宣告）：建角第 6 步的橋與義體（點數、沒有橋、每個部位的槽數）、第 9 步的甲板（creation.ts）；
 //         deck.source（features/deck 宣告）：回答腦部那一件甲板的數字（deck.ts；設計圖帶 deck 欄位的，或內容種類 deck 的成品；kind_of: 'deck'）
 //   狀態  actor.ext.cyber：{ pieces: CyberPiece[] }（形狀見 model.ts；只經由報告裡的 actor.ext 變更寫）；休養中掛角色狀況 recovering
 //         橋（bridge.ts）：衍生數值 bridge_cap_meat／net／social／media（晶片給總量、軟體分四類、加零件的親和；沒有橋是 0；abilities 讀它們）；
@@ -30,6 +31,7 @@ import { ContentError, TATTOO_KINDS, isRecord, isSafeInt } from '../../core'
 import {
   CLINIC_GRADES, FACILITY_TYPE_KIND, OWNER, PART_IDS, RULE_KIND, baseSlot, cyberOf, isBridge, ruleProblems,
 } from './model'
+import { answerCreation } from './creation'
 import { deckSourceOf, pieceBlueprint } from './deck'
 import { BRIDGE_CATS, bridgeCapacityOf, capStatId } from './bridge'
 import { cyberPassives, quirkPassives, sceneBody } from './passive'
@@ -137,6 +139,8 @@ export const cyberwareFeature: Feature = {
     const on = k.hooks.on.bind(k.hooks) as unknown as AnyHook
     // 甲板是腦部的義體（M4-cyber-deck）：回答腦裡那一件的數字；有人掛這個掛點，features/deck 就不再看背包裡的甲板
     on('deck.source', OWNER, (({ state, actor }: { state: GameState; actor: string }) => deckSourceOf(k, state, actor)) as never)
+    // 建角的第 6 步（橋與義體）與第 9 步的甲板（M4-creation-body）：features/creation 宣告掛點，這裡只認名字
+    on('creation.step', OWNER, ((p: Parameters<typeof answerCreation>[1]) => answerCreation(k, p)) as never)
     on('scene.body', OWNER, (({ state, actor, layer }: { state: GameState; actor: string; layer: string }) => sceneBody(k, state, actor, layer)) as never)
 
     // 戰鬥（M4-cyber-battle）：loadout 的 implants、開關與修正、藥泵、戰地手術的效果 op、戰鬥結束時寫回

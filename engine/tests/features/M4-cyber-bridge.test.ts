@@ -232,14 +232,12 @@ describe('橋的容量：晶片的總量照軟體的配分分、補到下限、�
     expect(caps(g)).toEqual({ meat: 10, net: 10, social: 10, media: 10 })
   })
 
-  it('過渡：身上沒有橋那一件、但 ext.bridge.capacity 有數字的人照舊讀它（每類最少 8，標 legacy）；裝了橋那一件就以零件為準', () => {
+  it('沒有過渡了（M4-creation-body 之後）：身上沒有橋那一件，ext.bridge.capacity 寫什麼都不算；裝了橋那一件就以零件為準', () => {
     const g = make({ pc: { ext: { bridge: { ...PARAMS, capacity: { meat: 12, net: 3, social: 20, media: 'x' } } } } })
-    expect(caps(g)).toEqual({ meat: 12, net: 8, social: 20, media: 8 })
-    expect(bridgeCapacityOf(g.k, g.state, 'pc').legacy).toBe(true)
-    expect(capacityOf(g.k, g.state, 'pc').social.max).toBe(20)
+    expect(caps(g)).toEqual({ meat: 0, net: 0, social: 0, media: 0 })
+    expect(capacityOf(g.k, g.state, 'pc').social.max).toBe(0)
     wear(g, 'bp_bridge', parts('pt_chip52', 'pt_sw_even'))
     expect(caps(g)).toEqual({ meat: 13, net: 13, social: 13, media: 13 })
-    expect(bridgeCapacityOf(g.k, g.state, 'pc').legacy).toBeUndefined()
     const none = make({ pc: { ext: { bridge: null } } })
     expect(caps(none)).toEqual({ meat: 0, net: 0, social: 0, media: 0 })
   })
