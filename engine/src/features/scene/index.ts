@@ -39,7 +39,7 @@
 // 外面來的東西（SceneEnv）：dice、moves（外殼從 scene_turn 拿到的某個人這一步的一串行動）、talk（scene_talk 的結果）、gears（每個人這一步換到哪一檔；partner_gear 是舊的鍵）、
 //   closing（結束時 AI 的收尾結果：sink、tendency、sex_record、relate；程式驗過才用，AI 關著就全照規則；M4-scene-close，結算的細節在 close.ts 與 end.ts）。
 
-import type { ActorId, Feature, GameState, Kernel, Origin, ReportDraft, SyncGear } from '../../core'
+import type { ActorId, Condition, Feature, GameState, Kernel, Origin, ReportDraft, SyncGear } from '../../core'
 import { ActionBlocked, ContentError, clone, isRecord } from '../../core'
 import type { ActivityDef } from '../../core'
 import type { Closing } from './close'
@@ -47,7 +47,7 @@ import { endDraft, logBeats, sceneDraft, stepDraft } from './end'
 import type { CircleRec, Dice, Goal, Nature, PositionEntry, Role, SceneKind, SceneMode, SceneRaw, Who } from './model'
 import {
   ACTIVITY, EXT, GENDER_FILTER, GOALS, GOAL_NAME, LAYERS, NATURES, NET_ACTIVITIES, NATURE_FILTER, NATURE_NAME, NTR_FILTER, OWNER, POSITION_KIND, ROLES, ROLE_NAME, RULE_KIND, SKILL_KIND, SOLO_POSE_KIND, beat,
-  genderIn, hasTendencyTag, isGoal, isMode, isNature, isRole, knownAll, openingInit, positionProblems, readSceneDef, ruleProblems, sceneModeOf, sceneRawOf, sceneRules, sexRecordOf, skillProblems, soloPoseProblems, soloPoses, startGear, tendencyTagIds,
+  genderIn, hasTendencyTag, isGoal, isMode, isNature, isRole, knownAll, openingFit, openingInit, openingPace, positionProblems, readSceneDef, ruleProblems, sceneModeOf, sceneRawOf, sceneRules, sexRecordOf, skillProblems, soloPoseProblems, soloPoses, startGear, tendencyTagIds,
 } from './model'
 import type { RevealView } from './night'
 import { RESONANCE_KIND, resonanceProblems, revealFor } from './night'
@@ -329,13 +329,13 @@ function startScene(k: Kernel, state: GameState, setup: unknown, origin: Origin)
   }))
   const pairs: SceneRaw['pairs'] = {}
   const solo = o.solo === true
-  for (const id of o.seated) pairs[id] = { fit: rules.fit_start, init: openingInit(k, state, { pc: o.pc, partner: id, nature: o.nature, role: o.role }), first: sexRecordOf(state.actors[o.pc]).people[id] === undefined }
+  for (const id of o.seated) pairs[id] = { fit: openingFit(k, state, { pc: o.pc, partner: id, nature: o.nature, role: o.role, layer: o.layer }), init: openingInit(k, state, { pc: o.pc, partner: id, nature: o.nature, role: o.role, layer: o.layer }), first: sexRecordOf(state.actors[o.pc]).people[id] === undefined }
   const scene: SceneRaw = {
     v: 2, id: `sc${state.seq.uid + 1}`, mode: o.mode, kind: kindOf(o), layer: o.layer, pc: o.pc, nature: o.nature, role: o.role, goal: o.goal, ...(o.place ? { place: o.place } : {}), tags: o.tags,
     round: 1, turn: o.pc, step: 0, seats: [seat(o.pc), ...o.seated.map(seat)], pairs,
     goal_progress: o.goal ? 0 : null, position: '', roles: {}, links: [], link_seq: 0, turn_began: false,
     used_positions: [], touched: [...o.tags], lines: [], origin: clone(origin), circles, ...(o.max_rounds !== undefined ? { max_rounds: o.max_rounds } : {}),
-    ...(solo ? { pace: rules.solo.pace_start, audience: o.audience === true } : {}),
+    ...(solo ? { pace: openingPace(k, state, { pc: o.pc, layer: o.layer }), audience: o.audience === true } : {}),
     ...(o.dream ? { dream: true as const } : {}),
   }
   const p = new Play(k, state, scene, diceOf(state, scene))
@@ -631,6 +631,21 @@ export const sceneFeature: Feature = {
     k.meters.define({ kind: 'insight', owner: OWNER, name: '體悟', min: 0, max: Infinity, start: 0, keyed: 'none', cap: { down: 0, up: 5 } })
 
     k.activity.define(sceneActivity)
+
+    // 條件 partnered { not? }（M4-night-resonance）：這個人有固定的伴——性經歷裡有「最喜歡的人」而且不是 not、或是契約人（actor.ext.identity.class 是 bound）。
+    // 技能的 needs 用 { kind: 'target', of: { kind: 'partnered' } } 問對方（not 自動是用的那個人）。交往的關係（親密度的階段）這裡看不到，不算
+    k.conditions.register<Condition & { not?: string }>({
+      kind: 'partnered', owner: OWNER,
+      validate: (raw) => (raw.not === undefined || (typeof raw.not === 'string' && raw.not.trim()) ? [] : ['not 要是角色的 id']),
+      test(c, ctx) {
+        const a = ctx.state.actors[ctx.actor ?? ctx.state.pc ?? '']
+        if (!a) return false
+        const fav = sexRecordOf(a).favorite
+        if (typeof fav === 'string' && fav !== '' && fav !== c.not) return true
+        const identity = isRecord(a.ext.identity) ? a.ext.identity : {}
+        return identity.class === 'bound'
+      },
+    })
 
     // 網內的行程被強制結束（被定位、斷線、登出）：進行中的內海場景跟著被打斷、照現在的樣子結算（M4-scene-net；夢不跟著走）。
     // 結算併進那一份結束的報告：變更、句子、launch 與 rewind 都交給它

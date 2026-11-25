@@ -4,7 +4,7 @@
 import type { ActorId, GameState, Kernel, ReportDraft } from '../../core'
 import { clone } from '../../core'
 import { abilityEntry, isNightId } from './outside'
-import type { AbilityEntry, AbilityState, Category, PathEntry, PreparedEntry } from './types'
+import type { AbilityEntry, AbilityState, Category, Lesson, LessonFrom, PathEntry, PreparedEntry } from './types'
 import { CATEGORIES, CATEGORY_NAME, TREE_XP } from './types'
 
 const isRec = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -28,9 +28,20 @@ export function abilitiesOf(state: GameState, actor: ActorId): AbilityState {
   const prepared: PreparedEntry[] = Array.isArray(r.prepared)
     ? r.prepared.filter((x): x is PreparedEntry => isRec(x) && typeof x.id === 'string' && (x.scope === 'next_battle' || x.scope === 'commission')).map((x) => ({ id: x.id, scope: x.scope, ...(typeof x.key === 'string' ? { key: x.key } : {}), ...(typeof x.target === 'string' ? { target: x.target } : {}) }))
     : []
+  // 上到一半的課（M4-training）：格式不對的略過；沒有就不出現這個鍵
+  const lessons: Record<string, Lesson> = {}
+  if (isRec(r.lessons)) {
+    for (const [skill, x] of Object.entries(r.lessons)) {
+      const from = isRec(x) && isRec(x.from) ? x.from : null
+      const key = from ? (['npc', 'facility', 'tutor'] as const).find((f) => typeof from[f] === 'string' && from[f]) : undefined
+      if (!isRec(x) || ![x.level, x.done, x.need].every((n) => typeof n === 'number' && Number.isFinite(n)) || !from || !key) continue
+      lessons[skill] = { level: x.level as number, done: x.done as number, need: x.need as number, from: { [key]: from[key] } as LessonFrom, ...(x.pay === 'affinity' || x.pay === 'tuition' || x.pay === 'favor' ? { pay: x.pay } : {}) }
+    }
+  }
   return {
     xp: typeof r.xp === 'number' && Number.isFinite(r.xp) ? r.xp : 0, learned: list(r.learned), equipped: list(r.equipped), spent,
     ...(Object.keys(commission).length ? { commission } : {}), ...(prepared.length ? { prepared } : {}), ...(typeof r.stance === 'string' && r.stance ? { stance: r.stance } : {}),
+    ...(Object.keys(lessons).length ? { lessons } : {}),
   }
 }
 

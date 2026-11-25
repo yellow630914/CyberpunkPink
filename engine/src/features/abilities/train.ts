@@ -14,7 +14,7 @@ import type { AbilityState, PathEntry } from './types'
 
 export const SKILL_UP_ACTION = 'ability.skill_up'
 export const RESPEC_ACTION = 'ability.respec'
-/** 5 級與 6 級要有人教的那一句（M4-training 的請教與上課把這一關打開） */
+/** 5 級與 6 級要有人教的那一句（M4-training 的請教與上課把這一關打開：training.ts，上完的課立下記號就不擋） */
 export const NEEDS_TEACHER = '5 級與 6 級要有人教。'
 
 type Pool = 'cred' | 'cash'
@@ -39,9 +39,14 @@ export function skillUpBlock(k: Pick<Kernel, 'content'>, state: GameState, actor
   const now = a.skills[skill] ?? 0
   const name = k.content.get<SkillEntry>('skill', skill)?.name ?? skill
   if (now >= SKILL_MAX) return `${name}已經練到最高的 ${SKILL_MAX} 級了。`
-  if (now >= abilityRules(k).skill_free_max) return NEEDS_TEACHER
+  const mine = abilitiesOf(state, actor)
+  // 5、6 級：要有上完的課（M4-training 的 lessons：升到這一級的課，done ≥ need）
+  if (now >= abilityRules(k).skill_free_max) {
+    const lesson = mine.lessons?.[skill]
+    if (!(lesson && lesson.level === now + 1 && lesson.done >= lesson.need)) return NEEDS_TEACHER
+  }
   const cost = skillUpCost(k, now)
-  const xp = abilitiesOf(state, actor).xp
+  const xp = mine.xp
   if (xp < cost) return `歷練點不夠（${name}升到 ${now + 1} 級要 ${cost} 點，現在 ${xp} 點）。`
   return null
 }
@@ -56,7 +61,11 @@ export function skillUpDraft(k: Pick<Kernel, 'content'>, state: GameState, actor
   const name = k.content.get<SkillEntry>('skill', skill)?.name ?? skill
   const who = state.actors[actor]!.name
   const summary = `${who}的${name}升到了 ${now + 1} 級（花 ${cost} 點歷練點）。`
-  const report = reportOf(state, actor, SKILL_UP_ACTION, { ...mine, xp: mine.xp - cost }, summary, 'skill_up')
+  // 升完把這一項的課拿掉（記號用過了）
+  const { [skill]: _used, ...restLessons } = mine.lessons ?? {}
+  const { lessons: _all, ...restMine } = mine
+  const next: AbilityState = { ...restMine, xp: mine.xp - cost, ...(Object.keys(restLessons).length ? { lessons: restLessons } : {}) }
+  const report = reportOf(state, actor, SKILL_UP_ACTION, next, summary, 'skill_up')
   report.changes.unshift({ op: 'actor.skill', id: actor, skill, delta: 1 } as Change)
   report.timeline = [{ layer: 'meat', actor, text: summary, tag: SKILL_UP_ACTION, data: { skill, from: now, to: now + 1, cost } }]
   return report

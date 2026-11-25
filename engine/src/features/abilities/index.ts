@@ -32,17 +32,18 @@ import { registerReactions } from './reactions'
 import { registerSocial } from './social'
 import { ensureSyncCapStat, registerStatKeys, registerStats } from './stats'
 import { registerSuppress } from './suppress'
+import { checkTeach, registerTraining } from './training'
 import { registerCapacityWatch } from './warn'
 import { OWNER } from './types'
 import { registerWard } from './ward'
 import { registerXp } from './xp'
 
 export { TREE_XP } from './types'
-export type { AbilityEntry, AbilityState, AbilityUse, MeatDef, ModEntry, PathEntry, PrepDef, PreparedEntry, UnitAbilities } from './types'
+export type { AbilityEntry, AbilityState, AbilityUse, Lesson, LessonFrom, MeatDef, ModEntry, PathEntry, PrepDef, PreparedEntry, UnitAbilities } from './types'
 export { CAP_FLEX_STAT, abilitiesOf, capDiscountStat, capacityBlock, capacityOf, capCostOf, learn, learnBlock, ramDiscountStat, resonanceOn, treeTier } from './learn'
 export type { Capacity } from './learn'
 export { DEFAULT_ABILITY_RULES, MASKED, abilityRules, applyLoadout, atTuningClinic, equipAbilities, loadoutBlock, loadoutMinutes } from './loadout'
-export type { AbilityRules } from './loadout'
+export type { AbilityRules, TeachRules } from './loadout'
 export { companionAbilities, pathRows } from './companion'
 export { stance, stanceBlock } from './out'
 export { XP_EFFECT, xpShares } from './xp'
@@ -55,6 +56,8 @@ export { DISSECT_DAILY, DISSECT_TAG, dailyKindOf } from './daily'
 export { NIGHT_KIND, NIGHT_PREFIX, abilityEntry, allAbilities, isNightId, learnedOutside, liveEquipped, nightAbilities } from './outside'
 export { NEEDS_TEACHER, RESPEC_ACTION, SKILL_UP_ACTION, respecBlock, respecDraft, respecQuote, skillUpBlock, skillUpCost, skillUpDraft } from './train'
 export type { RespecQuote } from './train'
+export { FACILITY_MAX, LESSON_ACTION, lessonBlock, lessonDraft, taughtFlag, teachMin, teachOptions, teachableSkills } from './training'
+export type { FacilityTeach, LessonOpts, TeachFrom, TeachOption, TeachPay, TeachPayView } from './training'
 export { CAPACITY_ACTION } from './warn'
 export { holdingOf, statValue } from './stats'
 export { prep, prepBlock } from './prep'
@@ -80,9 +83,11 @@ export const abilitiesFeature: Feature = {
     registerCondition(k)
     registerCapacityWatch(k)
     registerCreation(k)
+    registerTraining(k)
   },
   ready(k) {
     checkAbilities(k)
+    checkTeach(k)
     registerActions(k)
     ensureSyncCapStat(k)
     registerStatKeys(k)

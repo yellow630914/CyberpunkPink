@@ -31,10 +31,23 @@ export interface AbilityRules {
   respec_price_per_xp: number
   /** 洗點花的時間（分鐘；CORE_RULES 7.2 節：休養一天） */
   respec_minutes: number
+  /** 基本功 5、6 級的請教與上課（CORE_RULES 7.2、7.5 節；M4-training） */
+  teach: TeachRules
+}
+export interface TeachRules {
+  /** 向人請教：親密度到這個數就不收錢（40） */
+  affinity: number
+  /** 向人請教的學費：升到那一級付多少（5 級 1,500、6 級 5,000；鍵是級數） */
+  tuition: Record<string, number>
+  /** 每升一級要上幾個時段（2） */
+  slots_per_level: number
+  /** 一個時段幾分鐘（240） */
+  slot_minutes: number
 }
 /** 半小時：UI 8.3 節的示意；CORE_RULES 6.4 節寫一小時，使用者 2026-11-23 定案統一半小時（dev/adr/0016 G1）。 */
 export const DEFAULT_ABILITY_RULES: AbilityRules = {
   loadout_minutes: 30, loadout_facility_types: ['tuning_clinic'], xp_home_share: 0.3, skill_xp_per_level: 10, skill_free_max: 4, respec_price_per_xp: 10, respec_minutes: 1440,
+  teach: { affinity: 40, tuition: { 5: 1500, 6: 5000 }, slots_per_level: 2, slot_minutes: 240 },
 }
 
 export function abilityRuleProblems(e: Record<string, unknown>): string[] {
@@ -46,12 +59,28 @@ export function abilityRuleProblems(e: Record<string, unknown>): string[] {
   if (e.skill_free_max !== undefined && !(isSafeInt(e.skill_free_max) && e.skill_free_max >= 0 && e.skill_free_max <= 5)) p.push('skill_free_max 要是 0～5 的整數（基本功直接花點數最多升到幾級；再上去要有人教）')
   if (e.respec_price_per_xp !== undefined && !(isSafeInt(e.respec_price_per_xp) && e.respec_price_per_xp >= 0)) p.push('respec_price_per_xp 要是 0 以上的整數（洗點每退回一點歷練點付多少錢）')
   if (e.respec_minutes !== undefined && !(isSafeInt(e.respec_minutes) && e.respec_minutes >= 0)) p.push('respec_minutes 要是 0 以上的整數（洗點花幾分鐘）')
+  if (e.teach !== undefined) {
+    const t = e.teach
+    if (typeof t !== 'object' || t === null || Array.isArray(t)) p.push('teach 要是 { affinity, tuition, slots_per_level, slot_minutes }')
+    else {
+      const o = t as Record<string, unknown>
+      for (const key of Object.keys(o)) if (!['affinity', 'tuition', 'slots_per_level', 'slot_minutes'].includes(key)) p.push(`teach.${key}：沒有這個欄位（可以寫：affinity、tuition、slots_per_level、slot_minutes）`)
+      if (o.affinity !== undefined && !(isSafeInt(o.affinity) && o.affinity >= -100 && o.affinity <= 100)) p.push('teach.affinity 要是 −100～100 的整數（向人請教，親密度到這個數就不收錢）')
+      if (o.slots_per_level !== undefined && !(isSafeInt(o.slots_per_level) && o.slots_per_level >= 1)) p.push('teach.slots_per_level 要是 1 以上的整數（每升一級要上幾個時段）')
+      if (o.slot_minutes !== undefined && !(isSafeInt(o.slot_minutes) && o.slot_minutes >= 1)) p.push('teach.slot_minutes 要是 1 以上的整數（一個時段幾分鐘）')
+      if (o.tuition !== undefined) {
+        const tu = o.tuition
+        if (typeof tu !== 'object' || tu === null || Array.isArray(tu)) p.push('teach.tuition 要是 { 級數: 學費 }')
+        else for (const [lv, price] of Object.entries(tu)) if (!/^[1-6]$/.test(lv) || !(isSafeInt(price) && price >= 0)) p.push(`teach.tuition.${lv}：鍵要是 1～6 的級數、值要是 0 以上的整數`)
+      }
+    }
+  }
   return p
 }
 
 /** 規則：內容種類 ability_rule（id: default）蓋掉內建的預設。 */
 export function abilityRules(k: Pick<Kernel, 'content'>): AbilityRules {
-  const e = k.content.get<ContentEntry & Partial<AbilityRules>>(RULE_KIND, 'default')
+  const e = k.content.get<ContentEntry & Partial<Omit<AbilityRules, 'teach'>> & { teach?: Partial<TeachRules> }>(RULE_KIND, 'default')
   return {
     loadout_minutes: e?.loadout_minutes ?? DEFAULT_ABILITY_RULES.loadout_minutes,
     loadout_facility_types: e?.loadout_facility_types ? [...e.loadout_facility_types] : [...DEFAULT_ABILITY_RULES.loadout_facility_types],
@@ -60,6 +89,10 @@ export function abilityRules(k: Pick<Kernel, 'content'>): AbilityRules {
     skill_free_max: e?.skill_free_max ?? DEFAULT_ABILITY_RULES.skill_free_max,
     respec_price_per_xp: e?.respec_price_per_xp ?? DEFAULT_ABILITY_RULES.respec_price_per_xp,
     respec_minutes: e?.respec_minutes ?? DEFAULT_ABILITY_RULES.respec_minutes,
+    teach: {
+      ...DEFAULT_ABILITY_RULES.teach, ...(e?.teach ?? {}),
+      tuition: { ...DEFAULT_ABILITY_RULES.teach.tuition, ...(e?.teach?.tuition ?? {}) },
+    },
   }
 }
 

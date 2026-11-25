@@ -336,7 +336,7 @@ export function sceneOptions(k: Kernel, state: GameState, o: { target?: string }
   const aimed = <T extends SceneInput>(input: T): T => (at !== undefined && input.kind !== 'stop' && input.kind !== 'end_turn' && input.kind !== 'move_circle' && input.kind !== 'call' && input.kind !== 'gear' && input.kind !== 'switch' ? { ...input, target: at } : input)
   const simple = (id: 'dominate' | 'yield' | 'tease' | 'restrain' | 'stop' | 'faster' | 'slower'): ActionOption => {
     const input: SceneInput = aimed({ kind: id })
-    return { id, name: ACTION_NAME[id], ap: id === 'stop' ? 0 : p.rulesFor(w).cost[id], blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: id === 'stop' ? null : p.preview(w, input) }
+    return { id, name: ACTION_NAME[id], ap: id === 'stop' ? 0 : costOf(p, input, w), blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: id === 'stop' ? null : p.preview(w, input) }
   }
   const choice = (raw: SceneInput, id: string, name: string, ap: number, mine: string[], theirs: string[]): ChoiceOption => {
     const input = aimed(raw)
@@ -393,8 +393,24 @@ export function sceneOptions(k: Kernel, state: GameState, o: { target?: string }
   const itemAction: ActionOption = { id: 'item', name: ACTION_NAME.item, ap: minAp(items), blocks: group(items, '你身上沒有在場景裡用得出來的東西。'), picks: [], pairs: [], choices: items, preview: null }
   const switchAction: ActionOption = { id: 'switch', name: ACTION_NAME.switch, ap: costOf(p, { kind: 'switch', position: '' }, w), blocks: group(switches.filter((x) => x.id !== s.position), solo ? '沒有別的姿勢可以換。' : '沒有別的體位可以換。'), picks: [], pairs: [], choices: switches, preview: null }
   const gearAction: ActionOption = { id: 'gear', name: ACTION_NAME.gear, ap: 0, blocks: group(gears.filter((x) => x.id !== p.seat(w).gear), '沒有別的檔位可以換。'), picks: [], pairs: [], choices: gears, preview: null }
+  // 共鳴給的行動（M4-night-resonance）：有那個共鳴才列。夜課的功夫（每場一次：主動權設成共鳴寫的數、契合拉到共鳴寫的數）、脫換衣服
+  const granted: ActionOption[] = []
+  const dressCost = costOf(p, { kind: 'dress' }, w)
+  if (p.onceOf(w, 'free_dress') !== null) granted.push({ id: 'dress', name: ACTION_NAME.dress, ap: dressCost, blocks: p.blocks(w, { kind: 'dress' }, true), picks: [], pairs: [], preview: p.preview(w, { kind: 'dress' }) })
+  const oncePicks: ChoiceOption[] = []
+  const initOnce = p.onceOf(w, 'set_init')
+  for (const v of initOnce?.values ?? []) {
+    const input = aimed({ kind: 'once', id: 'set_init', value: v } as SceneInput)
+    oncePicks.push({ id: `set_init:${v}`, name: `主動權設成 ${v}`, ap: initOnce!.ap, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input) })
+  }
+  const floorOnce = p.onceOf(w, 'fit_floor')
+  if (floorOnce) {
+    const input = aimed({ kind: 'once', id: 'fit_floor' } as SceneInput)
+    oncePicks.push({ id: 'fit_floor', name: `契合拉到 ${floorOnce.value}`, ap: floorOnce.ap, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input) })
+  }
+  if (!solo && oncePicks.length > 0) granted.push({ id: 'once', name: ACTION_NAME.once, ap: Math.min(...oncePicks.map((x) => x.ap)), blocks: group(oncePicks, '現在沒有夜課的功夫可以用。'), picks: [], pairs: [], choices: oncePicks, preview: null })
   // 單人：加快、放慢取代主導、迎合，沒有挑逗、沒有圈；切換的是姿勢
-  const soloActions: ActionOption[] = [simple('faster'), simple('slower'), simple('restrain'), skillAction, talkAction, itemAction, switchAction, gearAction, simple('stop')]
+  const soloActions: ActionOption[] = [simple('faster'), simple('slower'), simple('restrain'), skillAction, talkAction, itemAction, switchAction, gearAction, ...granted, simple('stop')]
   const actions: ActionOption[] = solo ? soloActions : [
     simple('dominate'), simple('yield'), simple('tease'), simple('restrain'),
     { id: 'skill', name: ACTION_NAME.skill, ap: minAp(skills), blocks: group(skills, '你還沒有學會任何在場景裡用得出來的技能。'), picks: [], pairs: [], choices: skills, preview: null },
@@ -406,6 +422,7 @@ export function sceneOptions(k: Kernel, state: GameState, o: { target?: string }
     { id: 'switch', name: ACTION_NAME.switch, ap: costOf(p, { kind: 'switch', position: '' }, w), blocks: group(switches.filter((x) => x.id !== s.position), '沒有別的體位可以換。'), picks: [], pairs: [], choices: switches, preview: null },
     { id: 'gear', name: ACTION_NAME.gear, ap: 0, blocks: group(gears.filter((x) => x.id !== p.seat(w).gear), '沒有別的檔位可以換。'), picks: [], pairs: [], choices: gears, preview: null },
     ...circleActions,
+    ...granted,
     simple('stop'),
   ]
   // 別的功能插進來的選項（掛點 scene.window）：每一個帶現在做不做得到的原因

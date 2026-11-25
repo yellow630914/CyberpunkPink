@@ -29,6 +29,10 @@ interface LearnChange extends Change { id: string; skill: string; positions: str
 interface NightSkillEffect extends Effect { id: string }
 interface NightSkillCondition extends Condition { id: string }
 interface NightTierCondition extends Condition { branch: string; min: number }
+interface AvatarCondition extends Condition { part?: string; layer?: string; who?: string }
+
+/** 內海的活動：進行中就是人在內海（和 scene 的 NET_ACTIVITIES 同一份名單；兩個功能不互相 import）。 */
+const NET_ACTIVITIES: readonly string[] = ['dive', 'netrun', 'face.net']
 
 const whose = (ctx: ConditionCtx): string | undefined => ctx.actor ?? ctx.state.pc ?? undefined
 
@@ -65,6 +69,32 @@ export const nightclassFeature: Feature = {
       test: (c, ctx) => {
         const who = whose(ctx)
         return who !== undefined && !!ctx.state.actors[who] && isBranch(c.branch) && nightTier(k, ctx.state, who, c.branch) >= c.min
+      },
+    })
+
+    // 條件 avatar { part?, layer?, who? }（M4-night-resonance）：讀化身（actor.ext.deck.avatar，deck 寫）的部位與現在人在哪一層。
+    // 學習條件用：「內海化身多出的觸手」＝{ part: 'tentacle' }、「在內海用化身」＝{ layer: 'net' }。part 是化身多出來的部位（extra、tail、tentacle）；
+    // layer 'net' 是現在內海的活動（dive、netrun、face.net）進行中而且有化身，'meat' 是不在內海；兩個都寫要都成立；都不寫是有沒有化身
+    k.conditions.register<AvatarCondition>({
+      kind: 'avatar', owner: OWNER,
+      validate(raw) {
+        const p: string[] = []
+        for (const key of Object.keys(raw)) if (!['kind', 'part', 'layer', 'who', 'text'].includes(key)) p.push(`${key}：沒有這個欄位（可以寫：part、layer、who、text）`)
+        if (raw.part !== undefined && !isText(raw.part)) p.push('part 要是部位的 id（extra、tail、tentacle）')
+        if (raw.layer !== undefined && raw.layer !== 'net' && raw.layer !== 'meat') p.push("layer 要是 'net' 或 'meat'")
+        if (raw.who !== undefined && !isText(raw.who)) p.push('who 要是角色的 id')
+        return p
+      },
+      test(c, ctx) {
+        const who = c.who ?? whose(ctx)
+        const a = who !== undefined ? ctx.state.actors[who] : undefined
+        const deck = a && isRecord(a.ext.deck) ? a.ext.deck : null
+        const avatar = deck && isRecord(deck.avatar) ? deck.avatar : null
+        const inNet = k.activity.active(ctx.state).some((x) => NET_ACTIVITIES.includes(x.kind))
+        if (c.layer === 'meat') return !inNet
+        if (!avatar) return false
+        if (c.part !== undefined && !(Array.isArray(avatar.parts) && avatar.parts.includes(c.part))) return false
+        return c.layer !== 'net' || inNet
       },
     })
 

@@ -9,7 +9,7 @@
 
 import type { Actor, ActorId, Condition, ContentEntry, GameState, Kernel, Origin, SyncGear, TimelineBeat } from '../../core'
 import { SYNC_GEARS, clone, isRecord, isSyncGear, syncCapOf, syncGearIndex } from '../../core'
-import { applyDeep, isDeepTag, knowFor, nightFieldProblems } from './night'
+import { applyDeep, isDeepTag, knowFor, nightFieldProblems, openingOf } from './night'
 
 export const OWNER = 'scene'
 /** state.ext 的鍵、活動的種類。 */
@@ -98,8 +98,11 @@ export const ACTIONS = ['dominate', 'yield', 'tease', 'restrain', 'skill', 'talk
 export const SOLO_ACTIONS = ['faster', 'slower'] as const
 /** 多人才有的兩種行動（M4-scene-circles）：換圈、把別圈的一個人叫過來。 */
 export const CIRCLE_ACTIONS = ['move_circle', 'call'] as const
-export type ActionId = (typeof ACTIONS)[number] | (typeof CIRCLE_ACTIONS)[number] | (typeof SOLO_ACTIONS)[number]
+/** 共鳴給的兩種行動（M4-night-resonance）：once（每場一次的特殊動作：主動權直接設成 70／30、契合拉到 50）、dress（脫下或換上一件衣服；第一次不花行動點的共鳴）。沒有對應的共鳴就用不出來。 */
+export const RESONANCE_ACTIONS = ['once', 'dress'] as const
+export type ActionId = (typeof ACTIONS)[number] | (typeof CIRCLE_ACTIONS)[number] | (typeof SOLO_ACTIONS)[number] | (typeof RESONANCE_ACTIONS)[number]
 export const ACTION_NAME: Record<ActionId | 'end_turn', string> = {
+  once: '夜課的功夫', dress: '脫換衣服',
   dominate: '主導', yield: '迎合', tease: '挑逗', restrain: '克制', skill: '技能', talk: '說話', item: '道具', switch: '切換體位', gear: '換檔', stop: '停下', end_turn: '結束回合',
   move_circle: '換圈', call: '叫人過來', faster: '加快', slower: '放慢',
 }
@@ -183,7 +186,7 @@ export interface SceneRules {
   load_div: number
   /** 每一層餘韻讓自己造成的感載與契合增加的比例 */
   glow_bonus: number
-  cost: { dominate: number; yield: number; tease: number; restrain: number; talk: number; switch: number; move_circle: number; call: number; faster: number; slower: number }
+  cost: { dominate: number; yield: number; tease: number; restrain: number; talk: number; switch: number; move_circle: number; call: number; faster: number; slower: number; dress: number }
   dominate: { their: number; mine: number; fit: number; init: number }
   yield: { their: number; mine: number; fit: number; init: number }
   tease: { their: number; mine: number; fit: number; init: number }
@@ -267,7 +270,7 @@ export const DEFAULT_SCENE_RULES: SceneRules = {
   load_base: 0.75,
   load_div: 200,
   glow_bonus: 0.1,
-  cost: { dominate: 2, yield: 2, tease: 1, restrain: 1, talk: 1, switch: 1, move_circle: 2, call: 1, faster: 2, slower: 1 },
+  cost: { dominate: 2, yield: 2, tease: 1, restrain: 1, talk: 1, switch: 1, move_circle: 2, call: 1, faster: 2, slower: 1, dress: 1 },
   dominate: { their: 2, mine: 1, fit: 2, init: 10 },
   yield: { their: 1, mine: 2, fit: 8, init: -10 },
   tease: { their: 1, mine: 1, fit: 4, init: 5 },
@@ -642,6 +645,8 @@ export interface Seat {
   /** 共鳴（M4-nightclass）：這一場已經用掉幾次不花行動點的切換體位；已經建立過第一條有持續效果的連接（只在有對應的共鳴時才寫） */
   free_used?: number
   first_link?: true
+  /** 共鳴 once 用過了：每場一次的記 1；每回合一次的記用在第幾回合（只在用過時才寫） */
+  once?: Record<string, number>
   /** 這個人用過幾次主導與迎合（結算橋參數落在哪一項要看；只在用過時才寫，舊存檔沒有） */
   dom_used?: number
   yield_used?: number
@@ -949,12 +954,30 @@ export function poseReaches(pose: SoloPose, mine: string, theirs: string, asPart
 export const poseHasPart = (pose: SoloPose, part: string): boolean => HANDS.includes(part) || pose.reach.includes(part) || pose.hand_only.includes(part)
 
 /** 開場的主動權：50 ＋（對方的馴化 − 自己的馴化）÷ 4，再照性質與身分調整（LEWD_SYSTEM 3.5 節第二點）。多人時主角對每個人各算一次。 */
-export function openingInit(k: Kernel, state: GameState, o: { pc: string; partner: string; nature: Nature; role: Role }): number {
+export function openingInit(k: Kernel, state: GameState, o: { pc: string; partner: string; nature: Nature; role: Role; layer?: SceneLayer }): number {
   const r = sceneRules(k)
   // 性質是工作而沒寫身分，主角就是工作的人；work 的 −20 由身分給，不算兩次
   const role: Role = o.role === 'none' && o.nature === 'work' ? 'worker' : o.role
-  const v = r.init_base + (docilityOf(k, state, o.partner) - docilityOf(k, state, o.pc)) / r.init_docility_div + (r.nature_init[o.nature as PairNature] ?? 0) + r.role_init[role]
+  const natureAdj = (r.nature_init[o.nature as PairNature] ?? 0) + r.role_init[role]
+  // 共鳴 opening（夜課）：主角那一邊多、對方有共鳴的少（照這一場的性質與身分有沒有調整、穿著的風格）
+  const layer = o.layer ?? 'meat'
+  const bonus = openingOf(k, state, o.pc, { adjusted: natureAdj !== 0, layer, solo: false }).init - openingOf(k, state, o.partner, { adjusted: natureAdj !== 0, layer, solo: false }).init
+  const v = r.init_base + (docilityOf(k, state, o.partner) - docilityOf(k, state, o.pc)) / r.init_docility_div + natureAdj + bonus
   return Math.max(0, Math.min(100, Math.round(v)))
+}
+
+/** 開場的契合：fit_start 加上這一對任何一邊的共鳴 opening.fit（主角與對象；單人用 openingPace）。 */
+export function openingFit(k: Kernel, state: GameState, o: { pc: string; partner: string; nature: Nature; role: Role; layer?: SceneLayer }): number {
+  const r = sceneRules(k)
+  const role: Role = o.role === 'none' && o.nature === 'work' ? 'worker' : o.role
+  const adjusted = (r.nature_init[o.nature as PairNature] ?? 0) + r.role_init[role] !== 0
+  const layer = o.layer ?? 'meat'
+  return Math.max(0, Math.min(100, r.fit_start + openingOf(k, state, o.pc, { adjusted, layer, solo: false }).fit + openingOf(k, state, o.partner, { adjusted, layer, solo: false }).fit))
+}
+
+/** 單人開場的節奏：pace_start 加共鳴 opening.fit（單人的契合讀成節奏）。 */
+export function openingPace(k: Kernel, state: GameState, o: { pc: string; layer?: SceneLayer }): number {
+  return Math.max(0, Math.min(100, sceneRules(k).solo.pace_start + openingOf(k, state, o.pc, { adjusted: false, layer: o.layer ?? 'meat', solo: true }).fit))
 }
 
 /** 這個人會的夜課技能（有 scene 欄位、內容篩選沒關掉的）；對方沒寫 skills 時是推出來的（night.ts 的 npcKnow，P32）。 */

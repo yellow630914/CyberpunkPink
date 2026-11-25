@@ -37,7 +37,7 @@ export {
   CATEGORY_NAME, CHAT_DONE_NOTE, DEFAULT_INTERACT_RULES, INTERACT_KINDS, INTERACT_RULE_KIND, READ_CATEGORIES, difficulty, factionOf, giftGain, giftLiked, giftTier, hasDeck, interactBlock, interactInput, interactRules, interactions,
   revealFacts, shieldOf, successChance, tableEffects,
 } from './interact'
-export { GIFT_NOTE_MAX } from './interact'
+export { CONSULT_KIND, CONSULT_NAME, GIFT_NOTE_MAX } from './interact'
 export type { DcMod, InteractExtra, InteractKind, InteractRules, InteractionView, NpcActionInput, ReadCategory } from './interact'
 export type { GenOpts } from './generate'
 export { NEWS_MAX, TRIGGER_WHATS, lifeDraft, lifeSubjects, newsOf } from './life'
@@ -67,6 +67,8 @@ export function buildActor(k: Pick<Kernel, 'content'>, n: Npc): Actor {
     attrs: { ...n.attrs }, skills: { ...n.skills }, perks: [],
     hp: rules.stats.hp_base + n.attrs.body * 2, load: 0, afterglow: 0, sink: n.sink, conditions: [],
     ext: {
+      // 身體（masc、fem、andro；夜課的學習條件讀性經歷裡每個對象的身體與外表的性別，結算時從這裡抄）
+      ...(n.body !== undefined ? { body: n.body } : {}),
       bridge: n.bridge ? { ...n.bridge } : null,
       tendency: { axes: { ...n.tendencies.axes }, points: Object.fromEntries(AXES.map((a) => [a, 0])), tags: { ...n.tendencies.tags } },
       ...(n.paths.length > 0 ? { paths: clone(n.paths) as PathRow[] } : {}),

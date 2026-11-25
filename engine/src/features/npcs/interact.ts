@@ -16,7 +16,7 @@
 //
 // 讀別的功能的數字只經由 meterOf（hostility、favor、fame；沒有人定義就當 0、不加那條修正）、條件與內容；不 import 別的功能。
 
-import type { ActionHint, ActionInput, ActionKindDef, ActionKindEntry, Change, ContentEntry, Effect, FallbackCtx, GameState, Grade, HintCtx, Kernel } from '../../core'
+import type { ActionHint, ActionInput, ActionKindDef, ActionKindEntry, Change, Condition, ContentEntry, Effect, FallbackCtx, GameState, Grade, HintCtx, Kernel } from '../../core'
 import type { Actor } from '../../core'
 import { ATTR_IDS, DC_TIERS, actionKindToDef, blankState, checkParts, clone, computeDegree, countItem, dcFor, deriveRng, fallbackReward, isRecord, isSafeInt, meterOf, tagsAllowed } from '../../core'
 import type { Npc, NpcKind } from './model'
@@ -568,8 +568,12 @@ export function registerInteractions(k: Kernel, deps: InteractDeps): void {
 
 // ---- 對外：選單與輸入 ----
 
+/** 選單上的「請教」（NPC_SYSTEM 6.1 節；基本功 5、6 級，CORE_RULES 7.5 節）：不是行動，選了之後介面呼叫 abilities 的 teachOptions／lessonDraft（InteractionView.handoff）。 */
+export const CONSULT_KIND = 'npc_consult'
+export const CONSULT_NAME = '請教'
+
 export interface InteractionView {
-  kind: InteractKind
+  kind: InteractKind | typeof CONSULT_KIND
   name: string
   ok: boolean
   /** 做不了的原因（給玩家看的完整句子）；做得了是 null */
@@ -589,6 +593,11 @@ export interface InteractionView {
    * 和 reason 分開：reason 是「做不了」，note 不擋。畫面照這句顯示，不自己讀 doneToday 寫句子。
    */
   note: string | null
+  /**
+   * 這一項不是行動、要交給別的功能的畫面：請教（kind 是 npc_consult）的 handoff 是 { to: 'abilities.teachOptions', npc }，
+   * 介面呼叫 features/abilities 的 teachOptions(k, state, { npc }) 列能學的、lessonDraft 上課。npcs 只問條件 can_teach。
+   */
+  handoff?: { to: 'abilities.teachOptions'; npc: string }
 }
 
 /** 今天聊過了的說明（interactions 的 note）。 */
@@ -618,6 +627,13 @@ export function interactions(k: Kernel, state: GameState, npc: string): Interact
       kind: id, name: def.name, ok: listing === null, reason: listing, dc, mods, chance, attr: def.attr, skill: def.skill ?? null,
       needs: id === 'npc_gift' ? 'item' : id === 'npc_read_bridge' ? 'category' : null,
       note: id === 'npc_chat' && n !== undefined && listing === null && doneToday(state, npc).includes('chat') ? CHAT_DONE_NOTE : null,
+    })
+  }
+  // 請教：條件 can_teach（abilities 註冊；沒有人註冊就沒有這一項）成立才列；沒有東西可教的人沒有
+  if (n && npc !== state.pc && k.conditions.kinds().includes('can_teach') && k.conditions.test({ kind: 'can_teach', npc }, { state, stats: k.stats, timeRules: k.timeRules, ...(state.pc ? { actor: state.pc } : {}) })) {
+    out.push({
+      kind: CONSULT_KIND, name: CONSULT_NAME, ok: isHere(k, state, npc) || state.party.includes(npc), reason: isHere(k, state, npc) || state.party.includes(npc) ? null : NEED.here,
+      dc: null, mods: [], chance: null, attr: '', skill: null, needs: null, note: null, handoff: { to: 'abilities.teachOptions', npc },
     })
   }
   return out
@@ -658,6 +674,13 @@ export function interactInput(k: Kernel, state: GameState, kind: InteractKind, n
 
 export function installInteract(k: Kernel): void {
   k.content.defineKind({ kind: INTERACT_RULE_KIND, owner: OWNER, overridable: true, validate: interactRuleProblems })
+
+  // 條件 npc_here { npc }：他現在在主角所在的地方（照出沒表；同行的隊員也算）。abilities 的請教與上課問它（兩個功能不互相 import）
+  k.conditions.register<Condition & { npc?: string }>({
+    kind: 'npc_here', owner: OWNER,
+    validate: (raw) => (typeof raw.npc === 'string' && raw.npc.trim() ? [] : ['npc 要是人的 id']),
+    test: (c, ctx) => !!c.npc && (ctx.state.party.includes(c.npc) || npcsHere(k, ctx.state).some((n) => n.id === c.npc)),
+  })
 
   // 每個人今天做過哪些互動
   k.changes.register<Change & { npc: string; what: string; day: number }>({

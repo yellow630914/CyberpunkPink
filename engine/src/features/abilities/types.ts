@@ -525,6 +525,20 @@ export interface AbilityState {
   prepared?: PreparedEntry[]
   /** 戰鬥外開著的姿態（技能 id；要有 meat.out）。開打還開著就帶進戰鬥 */
   stance?: string
+  /** 基本功 5、6 級上到一半的課（M4-training）：基本功 id → 進度 */
+  lessons?: Record<string, Lesson>
+}
+
+/** 一堂課的來源：向人請教 { npc }、去機構 { facility: 設施種類 }（M4-craft-teach 多一種 { tutor }）；剛好寫一個鍵。 */
+export type LessonFrom = { npc: string } | { facility: string } | { tutor: string }
+
+/** 一堂還沒升級的課：要升到 level 級、上了 done 個時段、一共 need 個、跟誰上的、怎麼付的（向人請教才有）。 */
+export interface Lesson {
+  level: number
+  done: number
+  need: number
+  from: LessonFrom
+  pay?: 'affinity' | 'tuition' | 'favor'
 }
 
 /** 戰鬥裡每個單位的資料（unit.ext.abilities）。 */

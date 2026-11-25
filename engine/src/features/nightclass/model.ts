@@ -25,8 +25,8 @@ export const AXES = ['relation', 'sense', 'body', 'costume'] as const
 export type Axis = (typeof AXES)[number]
 export const AXIS_NAME: Record<Axis, string> = { relation: '關係', sense: '感官', body: '身體', costume: '扮相' }
 const isAxis = (v: unknown): v is Axis => (AXES as readonly unknown[]).includes(v)
-/** 「只掛軸」的技能：tag 寫軸的 id 或名字（不要求這個人有任何標籤） */
-const AXIS_TAGS: readonly string[] = [...AXES, ...Object.values(AXIS_NAME), 'common', '共通']
+/** 「只掛軸」的技能：tag 寫軸的 id 或 common（不要求這個人有任何標籤；中文名不收，M4-night-resonance） */
+const AXIS_TAGS: readonly string[] = [...AXES, 'common']
 
 export const BRIDGE_PARAMS = ['sensitivity', 'tolerance', 'craving', 'docility'] as const
 export type BridgeParam = (typeof BRIDGE_PARAMS)[number]
@@ -93,7 +93,18 @@ export function nightRules(k: Pick<Kernel, 'content'>): NightRules {
 
 // ---- 讀角色身上的資料 ----
 
-export interface Experience { times: number; partners: number; service_times: number; favorite: boolean }
+export interface Experience {
+  times: number
+  partners: number
+  service_times: number
+  favorite: boolean
+  /** 每個對象的身體（sex_record.looks，M4-scene-close 寫的）：有幾種不同的身體；身體與外表的性別不同的對象有幾個（沒有紀錄的對象不算） */
+  bodies: number
+  look_mismatch: number
+}
+
+/** 外表的性別對得上的身體：男性是 masc、女性是 fem；男娘、偽娘、TS、扶他的外表就是和身體不同。兩邊都有紀錄才算得出來。 */
+const LOOK_BODY: Record<string, string> = { male: 'masc', female: 'fem' }
 
 /** 性經歷（actor.ext.sex_record；單人的次數另記 solo_times，不在 times 裡，所以不算）。 */
 export function experienceOf(actor: Actor | undefined): Experience {
@@ -101,7 +112,10 @@ export function experienceOf(actor: Actor | undefined): Experience {
   const o = isRecord(r) ? r : {}
   const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 0)
   const people = isRecord(o.people) ? Object.keys(o.people).length : 0
-  return { times: num(o.times), partners: Math.max(num(o.partners), people), service_times: num(o.service_times), favorite: isText(o.favorite) }
+  const looks = isRecord(o.looks) ? Object.values(o.looks).filter(isRecord) : []
+  const bodies = new Set(looks.map((l) => l.body).filter(isText))
+  const mismatch = looks.filter((l) => isText(l.body) && isText(l.look_gender) && LOOK_BODY[l.look_gender] !== l.body).length
+  return { times: num(o.times), partners: Math.max(num(o.partners), people), service_times: num(o.service_times), favorite: isText(o.favorite), bodies: bodies.size, look_mismatch: mismatch }
 }
 
 /** 一條軸的等級（actor.ext.tendency.axes；沒有是 0）。 */
@@ -142,7 +156,7 @@ export function positionsOf(actor: Actor | undefined): string[] {
 
 export interface NightRequires {
   bridge: Array<{ param: BridgeParam; bound: 'min' | 'max'; value: number }>
-  experience: { times?: number; partners?: number; service_times?: number; favorite?: true }
+  experience: { times?: number; partners?: number; service_times?: number; favorite?: true; bodies?: number; look_mismatch?: true }
   conditions: Condition[]
 }
 
@@ -173,8 +187,9 @@ function readRequires(raw: unknown): NightRequires {
   }
   if (isRecord(raw.experience)) {
     const x = raw.experience
-    for (const key of ['times', 'partners', 'service_times'] as const) if (isInt(x[key]) && x[key] >= 0) out.experience[key] = x[key]
+    for (const key of ['times', 'partners', 'service_times', 'bodies'] as const) if (isInt(x[key]) && x[key] >= 0) out.experience[key] = x[key]
     if (x.favorite === true) out.experience.favorite = true
+    if (x.look_mismatch === true) out.experience.look_mismatch = true
   }
   if (Array.isArray(raw.conditions)) out.conditions = raw.conditions.filter((c): c is Condition => isRecord(c) && isText(c.kind)).map((c) => clone(c))
   return out
