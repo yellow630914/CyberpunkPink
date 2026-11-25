@@ -38,10 +38,14 @@ export function abilitiesOf(state: GameState, actor: ActorId): AbilityState {
       lessons[skill] = { level: x.level as number, done: x.done as number, need: x.need as number, from: { [key]: from[key] } as LessonFrom, ...(x.pay === 'affinity' || x.pay === 'tuition' || x.pay === 'favor' ? { pay: x.pay } : {}) }
     }
   }
+  // 向 NPC 學工藝（M4-craft-teach）：老師 → 基本功；格式不對的略過，沒有就不出現這個鍵
+  const tutored: Record<string, string> = {}
+  if (isRec(r.tutored)) for (const [npc, skill] of Object.entries(r.tutored)) if (typeof skill === 'string' && skill) tutored[npc] = skill
   return {
     xp: typeof r.xp === 'number' && Number.isFinite(r.xp) ? r.xp : 0, learned: list(r.learned), equipped: list(r.equipped), spent,
     ...(Object.keys(commission).length ? { commission } : {}), ...(prepared.length ? { prepared } : {}), ...(typeof r.stance === 'string' && r.stance ? { stance: r.stance } : {}),
     ...(Object.keys(lessons).length ? { lessons } : {}),
+    ...(Object.keys(tutored).length ? { tutored } : {}),
   }
 }
 

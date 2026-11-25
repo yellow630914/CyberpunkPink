@@ -19,6 +19,7 @@
 // M4-creation-body（dev/work/M4-creation-body.md）：建角第 8 步（掛點 creation.step 的 abilities：逐一跑學技能的規則、沒有橋不能學）、建角之後按順序裝進橋（report.after，creation.ts）。
 // M4-training（dev/work/M4-training.md；training.ts）：基本功 5、6 級的請教（向人，三種付法：親密度、學費、旗標 taught:<npc>:<skill>）與去機構上課（設施種類的 teach）；每升一級上幾個時段，
 //   上完立下記號（actor.ext.abilities.lessons），skillUpDraft 看到就不擋；條件 can_teach；報告 ability.lesson；匯出 teachOptions、lessonBlock、lessonDraft。他在不在場問條件 npc_here（features/npcs 註冊）。
+// M4-craft-teach（dev/work/M4-craft-teach.md；training.ts 的另一段）：向 NPC 學工藝基本功 0～2 級（npc 內容的 tutor、規則 ability_rule.tutor、actor.ext.abilities.tutored）；條件 can_tutor；報告 ability.tutor；匯出 tutorOptions、tutorBlock、tutorDraft。
 // 不 import 別的功能（射擊、換彈在 features/combat；技能自己用 run.attack）。
 
 import type { Feature, GameState } from '../../core'
@@ -34,7 +35,7 @@ import { registerReactions } from './reactions'
 import { registerSocial } from './social'
 import { ensureSyncCapStat, registerStatKeys, registerStats } from './stats'
 import { registerSuppress } from './suppress'
-import { checkTeach, registerTraining } from './training'
+import { checkTeach, checkTutor, registerTraining } from './training'
 import { registerCapacityWatch } from './warn'
 import { OWNER } from './types'
 import { registerWard } from './ward'
@@ -58,8 +59,8 @@ export { DISSECT_DAILY, DISSECT_TAG, dailyKindOf } from './daily'
 export { NIGHT_KIND, NIGHT_PREFIX, abilityEntry, allAbilities, isNightId, learnedOutside, liveEquipped, nightAbilities } from './outside'
 export { NEEDS_TEACHER, RESPEC_ACTION, SKILL_UP_ACTION, respecBlock, respecDraft, respecQuote, skillUpBlock, skillUpCost, skillUpDraft } from './train'
 export type { RespecQuote } from './train'
-export { FACILITY_MAX, LESSON_ACTION, lessonBlock, lessonDraft, taughtFlag, teachMin, teachOptions, teachableSkills } from './training'
-export type { FacilityTeach, LessonOpts, TeachFrom, TeachOption, TeachPay, TeachPayView } from './training'
+export { FACILITY_MAX, LESSON_ACTION, TUTOR_ACTION, lessonBlock, lessonDraft, taughtFlag, teachMin, teachOptions, teachableSkills, tutorBlock, tutorDraft, tutorMax, tutorOptions, tutorableSkills } from './training'
+export type { FacilityTeach, LessonOpts, TeachFrom, TeachOption, TeachPay, TeachPayView, TutorData, TutorOpts, TutorOption } from './training'
 export { CAPACITY_ACTION } from './warn'
 export { holdingOf, statValue } from './stats'
 export { prep, prepBlock } from './prep'
@@ -92,6 +93,7 @@ export const abilitiesFeature: Feature = {
   ready(k) {
     checkAbilities(k)
     checkTeach(k)
+    checkTutor(k)
     registerActions(k)
     ensureSyncCapStat(k)
     registerStatKeys(k)

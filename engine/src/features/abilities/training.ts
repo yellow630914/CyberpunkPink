@@ -13,13 +13,21 @@
 // 條件 can_teach { npc, skill? }：那個人有沒有哪一項（或指定的那一項）基本功比 ctx.actor（沒有是主角）高、而且是 5 級以上（只看等級，不看別的）。
 // 報告 ability.lesson；不成立時回傳原因（給玩家看的完整句子，一次一條）；草稿函式丟 ActionBlocked。
 // 不 import features/npcs：他在不在場問條件 npc_here；親密度用核心的 meterOf 讀量表 affinity；旗標讀 state.flags。
+//
+// M4-craft-teach（dev/work/M4-craft-teach.md；CRAFTING 11.2 節；dev/adr/0019 第十九節、P85）：同一個檔的另一條路——向 NPC 學工藝基本功（機械、義體學、醫療）0～2 級。
+//   老師是 npc 內容的選填欄位 tutor { skills, needs?, sink?, where? }；規則 ability_rule.tutor 管哪幾項、最高幾級（不超過 skill_free_max）、每一級的學費與時段、學費乘不乘區倍率。
+//   付錢（這一級第一個時段付清，乘主角所在那一區的 price_mult、四捨五入）、花時段；不花歷練點：最後一個時段直接 actor.skill +1，課拿掉。0→1 與 1→2 是兩段，各付各的。
+//   一位老師對一個人只教一項（actor.ext.abilities.tutored：老師 → 基本功，第一個時段就記）。進度沿用 lessons（from: { tutor }、level 是要升到的那一級）；換老師、換級進度不留、學費不退。
+//   上到一半那一項已經因為別的原因到了這一級（花歷練點升了）：這一段作廢，回一句說明（option.note、報告摘要），從下一級重來。
+//   tutor.sink 每個時段走一次 sink 效果（內建的來源；沒有人註冊就略過）。條件 can_tutor { npc, skill? }；報告 ability.tutor；匯出 tutorOptions、tutorBlock、tutorDraft。
+//   選單那一項（features/npcs 的「請教」）can_teach 或 can_tutor 任一個成立就列；選了之後兩邊的選項都給（handoff 帶 also: ['abilities.tutorOptions']）。
 
 import type { ActorId, Change, Condition, ContentEntry, GameState, Kernel, ReportDraft, SkillEntry } from '../../core'
-import { ActionBlocked, SKILL_MAX, formatAmount, isRecord, isSafeInt, meterOf } from '../../core'
+import { ActionBlocked, SKILL_MAX, effectCtx, formatAmount, isRecord, isSafeInt, meterOf } from '../../core'
 import { abilitiesOf, reportOf } from './learn'
 import { abilityRules } from './loadout'
 import { skillUpCost } from './train'
-import type { AbilityState, Lesson } from './types'
+import type { AbilityState, Lesson, LessonFrom } from './types'
 import { OWNER } from './types'
 
 export const LESSON_ACTION = 'ability.lesson'
@@ -364,6 +372,285 @@ export function teachOptions(k: TrainKernel, state: GameState, o: { npc?: string
   })
 }
 
+// ---- 向 NPC 學工藝（M4-craft-teach） ----
+
+export const TUTOR_ACTION = 'ability.tutor'
+const NPC_KIND = 'npc'
+
+/** npc 內容的選填欄位 tutor */
+export interface TutorData {
+  skills: string[]
+  needs?: Condition[]
+  sink?: number
+  where?: string
+}
+
+const readTutor = (k: Pick<Kernel, 'content'>, npc: string): TutorData | null => {
+  if (!k.content.hasKind(NPC_KIND)) return null
+  const raw = (k.content.get<ContentEntry & { tutor?: unknown }>(NPC_KIND, npc) as { tutor?: unknown } | undefined)?.tutor
+  if (!isRecord(raw) || !Array.isArray(raw.skills)) return null
+  return {
+    skills: raw.skills.filter((x): x is string => typeof x === 'string' && x !== ''),
+    ...(Array.isArray(raw.needs) ? { needs: raw.needs as Condition[] } : {}),
+    ...(typeof raw.sink === 'number' && Number.isFinite(raw.sink) ? { sink: raw.sink } : {}),
+    ...(typeof raw.where === 'string' && raw.where ? { where: raw.where } : {}),
+  }
+}
+
+/** 這條路實際最高教到幾級：規則 tutor.max_level，不超過 skill_free_max（5、6 級另有請教與機構）。 */
+export const tutorMax = (k: Pick<Kernel, 'content'>): number => {
+  const r = abilityRules(k)
+  return Math.min(r.tutor.max_level, r.skill_free_max)
+}
+
+const tutorName = (k: Pick<Kernel, 'content'>, state: GameState, npc: string): string => {
+  const a = state.actors[npc]?.name
+  if (a) return a
+  const e = k.content.hasKind(NPC_KIND) ? (k.content.get<ContentEntry & { name?: unknown }>(NPC_KIND, npc) as { name?: unknown } | undefined) : undefined
+  return typeof e?.name === 'string' && e.name ? e.name : npc
+}
+
+/** 主角現在所在的那一區的物價倍率（沒有區、沒寫是 1）。 */
+const districtMult = (k: Pick<Kernel, 'content'>, state: GameState): number => {
+  const id = state.location.district
+  if (typeof id !== 'string' || !k.content.hasKind('district')) return 1
+  const m = (k.content.get<ContentEntry & { price_mult?: unknown }>('district', id) as { price_mult?: unknown } | undefined)?.price_mult
+  return typeof m === 'number' && Number.isFinite(m) && m > 0 ? m : 1
+}
+
+/** 這位老師教得動這個學生哪幾項（只看等級與「一位老師一項」；不看錢、地點、條件）。 */
+export function tutorableSkills(k: Pick<Kernel, 'content'>, state: GameState, student: ActorId, npc: string): string[] {
+  const t = readTutor(k, npc)
+  if (!t || !state.actors[student] || npc === student) return []
+  const rules = abilityRules(k).tutor
+  const max = tutorMax(k)
+  const taught = abilitiesOf(state, student).tutored?.[npc]
+  return t.skills
+    .filter((skill, i, all) => all.indexOf(skill) === i && rules.skills.includes(skill) && k.content.has('skill', skill))
+    .filter((skill) => (state.actors[student]!.skills[skill] ?? 0) < max && (taught === undefined || taught === skill))
+}
+
+export interface TutorOpts {
+  npc: string
+  skill: string
+  /** 學的人（隊上的人）；不寫是主角 */
+  who?: ActorId
+  /** 學費從哪裡付；不寫先帳戶、不夠再現金 */
+  pay?: Pool
+}
+
+export interface TutorOption {
+  skill: string
+  name: string
+  npc: string
+  npcName: string
+  /** 老師資料寫的「在哪裡上課」（給畫面）；沒寫是 null */
+  where: string | null
+  /** 這一堂課要升到幾級、這條路最高教到幾級 */
+  level: number
+  max: number
+  /** 這一級的學費（已經乘過區倍率；這一級已經付過的是 0） */
+  price: number
+  /** 這一級要上幾個時段、已經上了幾個 */
+  need: number
+  done: number
+  minutes: number
+  /** 每上一個時段加多少沉溺（沒有是 0） */
+  sink: number
+  ok: boolean
+  reason: string | null
+  /** 不擋、但要先知道的一句（上到一半的課作廢了）；沒有是 null */
+  note: string | null
+}
+
+interface TutorPlan {
+  problems: string[]
+  who: ActorId
+  npc: string
+  npcName: string
+  skill: string
+  level: number
+  max: number
+  need: number
+  done: number
+  minutes: number
+  price: number
+  pool?: Pool
+  sink: number
+  where: string | null
+  continuing: boolean
+  note: string | null
+}
+
+function planTutor(k: TrainKernel, state: GameState, o: TutorOpts): TutorPlan {
+  const who = o.who ?? state.pc ?? ''
+  const rules = abilityRules(k).tutor
+  const max = tutorMax(k)
+  const base: TutorPlan = {
+    problems: [], who, npc: o.npc, npcName: tutorName(k, state, o.npc), skill: o.skill, level: 0, max, need: 0, done: 0, minutes: rules.slot_minutes,
+    price: 0, sink: 0, where: null, continuing: false, note: null,
+  }
+  const fail = (msg: string): TutorPlan => ({ ...base, problems: [...base.problems, msg] })
+  const me = state.actors[who]
+  if (!who || !me) return fail('沒有這個角色。')
+  if (!k.content.has('skill', o.skill)) return fail('沒有這項基本功。')
+  const t = readTutor(k, o.npc)
+  if (!t || o.npc === who) return fail('這個人不教工藝。')
+  base.sink = t.sink ?? 0
+  base.where = t.where ?? null
+  const name = skillName(k, o.skill)
+  if (!rules.skills.includes(o.skill)) return fail(`${name}不能向人學（這條路只教${rules.skills.map((s) => skillName(k, s)).join('、')}）。`)
+  if (!t.skills.includes(o.skill)) return fail(`${base.npcName}不教${name}。`)
+  const now = me.skills[o.skill] ?? 0
+  base.level = now + 1
+  if (now >= max) return fail(`已經 ${max} 級以上，這條路走不了；再上去要自己花歷練點練。`)
+  const step = rules.steps[String(base.level)]
+  if (!step) return fail(`${name}升到 ${base.level} 級沒有資料可查，這條路教不了。`)
+  base.need = step.slots
+
+  if (state.battle) base.problems.push('戰鬥中不能上課。')
+  const busy = k.activity.blockOf(state, `commit:${TUTOR_ACTION}`)
+  if (busy && !base.problems.includes(busy)) base.problems.push(busy)
+  if (who !== state.pc && !state.party.includes(who)) base.problems.push(`${me.name}不在隊上。`)
+
+  const mine = abilitiesOf(state, who)
+  const taught = mine.tutored?.[o.npc]
+  if (taught !== undefined && taught !== o.skill) base.problems.push(`${base.npcName}只帶一個人一項。`)
+
+  const unmet = (t.needs ?? []).find((c) => !k.conditions.test(c, condCtx(k, state, who)))
+  if (unmet) base.problems.push(`${base.npcName}的課要符合條件「${unmet.kind}」才能上，現在還不符合。`)
+
+  const here = k.conditions.kinds().includes('npc_here') ? k.conditions.test({ kind: 'npc_here', npc: o.npc }, condCtx(k, state, who)) : true
+  if (!here) base.problems.push(`${base.npcName}不在這裡：要在他現在所在的地方才能上課。`)
+
+  // 進度：同老師、同一級才接著上；上到一半那一項已經到了這一級（別的原因升了）就作廢
+  const current = mine.lessons?.[o.skill]
+  const from: LessonFrom = { tutor: o.npc }
+  const continuing = !!current && current.level === base.level && sameFrom(current.from, from)
+  base.continuing = continuing
+  base.done = continuing ? current!.done : 0
+  if (continuing) base.need = current!.need
+  if (current && 'tutor' in current.from && current.level <= now) base.note = `${name}已經是 ${now} 級了，先前上到一半的課作廢，從下一級重新上起。`
+
+  // 學費：這一級第一個時段付清
+  const paid = continuing && base.done > 0
+  if (!paid) {
+    const mult = rules.district_price ? districtMult(k, state) : 1
+    const price = Math.round(step.price * mult)
+    const pool = price <= 0 ? null : payPool(state.money, price, o.pay)
+    base.price = price
+    if (price > 0 && !pool) base.problems.push(`錢不夠：學費要 C$${formatAmount(price)}，${o.pay ? POOL_NAME[o.pay] : '帳戶與現金'}付不起。`)
+    else if (price > 0) base.pool = pool!
+  }
+  return base
+}
+
+/** 現在上不上得了這一堂工藝課；上不了回傳第一個原因，上得了是 null。 */
+export function tutorBlock(k: TrainKernel, state: GameState, o: TutorOpts): string | null {
+  return planTutor(k, state, o).problems[0] ?? null
+}
+
+/**
+ * 上一個時段的工藝課：花時間、（這一級的第一個時段）付學費、進度 +1、老師記一筆「教過這個人這一項」、老師有寫 sink 就走一次 sink 效果。
+ * 上完這一級的最後一個時段：這一項基本功 +1（不動歷練點）、課拿掉。不能上就丟 ActionBlocked。
+ */
+export function tutorDraft(k: Kernel, state: GameState, o: TutorOpts): ReportDraft {
+  const p = planTutor(k, state, o)
+  if (p.problems.length > 0) throw new ActionBlocked(p.problems[0]!)
+  const mine = abilitiesOf(state, p.who)
+  const done = p.done + 1
+  const finished = done >= p.need
+  const { [p.skill]: _old, ...others } = mine.lessons ?? {}
+  const lessons: Record<string, Lesson> = finished ? others : { ...others, [p.skill]: { level: p.level, done, need: p.need, from: { tutor: p.npc } } }
+  const { lessons: _all, ...rest } = mine
+  const next: AbilityState = { ...rest, tutored: { ...(mine.tutored ?? {}), [p.npc]: p.skill }, ...(Object.keys(lessons).length > 0 ? { lessons } : {}) }
+  const name = skillName(k, p.skill)
+  const who = state.actors[p.who]!.name
+  const paidNow = p.price > 0 && p.pool !== undefined ? `（學費 C$${formatAmount(p.price)}）` : ''
+  const summary = (finished
+    ? `${who}跟${p.npcName}上完了${name}的最後一堂課（${done}／${p.need}），${name}升到 ${p.level} 級了${paidNow}。`
+    : `${who}跟${p.npcName}上了一個時段的${name}課（${done}／${p.need}）${paidNow}。`) + (p.note ?? '')
+  const report = reportOf(state, p.who, TUTOR_ACTION, next, summary, finished ? 'complete' : 'lesson')
+  report.changes = [
+    { op: 'time', minutes: p.minutes } as Change,
+    ...(p.price > 0 && p.pool ? [{ op: p.pool, delta: -p.price } as Change] : []),
+    ...report.changes,
+    ...(finished ? [{ op: 'actor.skill', id: p.who, skill: p.skill, delta: 1 } as Change] : []),
+  ]
+  // 每一個時段一次 sink（內建的來源；沒有人註冊、驗不過、解不開就略過）
+  const notes: string[] = []
+  if (p.sink !== 0 && k.effects.has('sink')) {
+    const ctx = effectCtx(k, state, { source: 'builtin', actor: p.who })
+    const res = k.effects.resolve([{ kind: 'sink', amount: p.sink }], ctx)
+    if (res.errors.length === 0) {
+      report.changes.push(...res.changes)
+      notes.push(...res.lines)
+    }
+  }
+  report.timeline = [
+    {
+      layer: 'meat', actor: p.who, text: summary, tag: TUTOR_ACTION,
+      data: { skill: p.skill, level: p.level, done, need: p.need, tutor: p.npc, price: p.price, minutes: p.minutes, finished },
+    },
+    ...notes.map((text) => ({ layer: 'meat' as const, actor: p.who, text, tag: 'ability.note' })),
+  ]
+  return report
+}
+
+/**
+ * 能向這位老師學哪幾項工藝：老師教的、規則允許的、學的人還沒到這條路最高級的每一項，各一筆（下一級的學費、時段、上了幾個、行不行與原因）。
+ * 老師沒有 tutor 資料、或每一項都已經到頂的回空陣列。「只帶一個人一項」「條件」「不在場」「錢不夠」這類擋住的照樣列、原因寫在 reason。
+ */
+export function tutorOptions(k: TrainKernel, state: GameState, o: { npc: string; who?: ActorId }): TutorOption[] {
+  const who = o.who ?? state.pc
+  const me = state.actors[who ?? '']
+  const t = readTutor(k, o.npc)
+  if (!who || !me || !t || o.npc === who) return []
+  const rules = abilityRules(k).tutor
+  const max = tutorMax(k)
+  return t.skills
+    .filter((skill, i, all) => all.indexOf(skill) === i && rules.skills.includes(skill) && k.content.has('skill', skill) && (me.skills[skill] ?? 0) < max)
+    .map((skill) => {
+      const p = planTutor(k, state, { npc: o.npc, skill, who })
+      return {
+        skill, name: skillName(k, skill), npc: o.npc, npcName: p.npcName, where: p.where, level: p.level, max: p.max, price: p.price, need: p.need, done: p.done,
+        minutes: p.minutes, sink: p.sink, ok: p.problems.length === 0, reason: p.problems[0] ?? null, note: p.note,
+      }
+    })
+}
+
+/** npc 內容的 tutor 欄檢查（規則 tutor.skills 裡查不到的基本功只是略過，預設規則要在沒有工藝基本功的世界也載得進來）；載入之後 ready 時查（回傳問題清單）。 */
+export function tutorProblems(k: Pick<Kernel, 'content' | 'conditions'>): string[] {
+  const out: string[] = []
+  const rules = abilityRules(k).tutor
+  if (!k.content.hasKind(NPC_KIND)) return out
+  for (const n of k.content.list<ContentEntry & { tutor?: unknown }>(NPC_KIND)) {
+    const raw = (n as { tutor?: unknown }).tutor
+    if (raw === undefined) continue
+    const at = `${NPC_KIND}/${n.id}：tutor`
+    if (!isRecord(raw)) {
+      out.push(`${at} 要是 { skills, needs?, sink?, where? }`)
+      continue
+    }
+    for (const key of Object.keys(raw)) if (!['skills', 'needs', 'sink', 'where'].includes(key)) out.push(`${at}.${key}：沒有這個欄位（可以寫：skills、needs、sink、where）`)
+    if (!Array.isArray(raw.skills) || raw.skills.length === 0) out.push(`${at}.skills 要是基本功 id 的陣列（教哪幾項，至少一項）`)
+    else {
+      raw.skills.forEach((s: unknown, i: number) => {
+        if (typeof s !== 'string' || !k.content.has('skill', s)) out.push(`${at}.skills[${i}] 要是基本功的 id（${String(s)} 查不到）`)
+        else if (!rules.skills.includes(s)) out.push(`${at}.skills[${i}]：${s} 不在規則 tutor.skills 裡（這條路只教${rules.skills.join('、')}）`)
+      })
+      if (new Set(raw.skills).size !== raw.skills.length) out.push(`${at}.skills 有重複的項目`)
+    }
+    if (raw.needs !== undefined) {
+      if (!Array.isArray(raw.needs)) out.push(`${at}.needs 要是條件的陣列`)
+      else raw.needs.forEach((c, j) => out.push(...k.conditions.validate(c, `${at}.needs[${j}]`)))
+    }
+    if (raw.sink !== undefined && !(isSafeInt(raw.sink) && raw.sink >= 0)) out.push(`${at}.sink 要是 0 以上的整數（每上一個時段加多少沉溺）`)
+    if (raw.where !== undefined && !(typeof raw.where === 'string' && raw.where.trim())) out.push(`${at}.where 要是一句話（在哪裡上課）`)
+  }
+  return out
+}
+
 // ---- 條件與格式 ----
 
 export function registerTraining(k: Kernel): void {
@@ -383,6 +670,29 @@ export function registerTraining(k: Kernel): void {
       return c.skill === undefined ? list.length > 0 : list.includes(c.skill)
     },
   })
+  // can_tutor { npc, skill? }：那個人的資料有 tutor，而且至少有一項（或指定的那一項）這個學生現在學得了（只看等級與「一位老師一項」，不看錢、地點、條件）
+  k.conditions.register<Condition & { npc?: string; skill?: string }>({
+    kind: 'can_tutor', owner: OWNER,
+    validate: (raw) => {
+      const p: string[] = []
+      for (const key of Object.keys(raw)) if (!['kind', 'npc', 'skill'].includes(key)) p.push(`${key}：沒有這個欄位（可以寫：npc、skill）`)
+      if (typeof raw.npc !== 'string' || !raw.npc.trim()) p.push('npc 要是人的 id')
+      if (raw.skill !== undefined && (typeof raw.skill !== 'string' || !raw.skill.trim())) p.push('skill 要是基本功的 id')
+      return p
+    },
+    test(c, ctx) {
+      const student = ctx.actor ?? ctx.state.pc
+      if (!student || !c.npc) return false
+      const list = tutorableSkills(k, ctx.state, student, c.npc)
+      return c.skill === undefined ? list.length > 0 : list.includes(c.skill)
+    },
+  })
+}
+
+/** 啟動檢查：npc 內容的 tutor 欄。 */
+export function checkTutor(k: Pick<Kernel, 'content' | 'conditions'>): void {
+  const problems = tutorProblems(k)
+  if (problems.length) throw new Error(`向 NPC 學工藝的 tutor 檢查沒過（${problems.length} 個）：\n${problems.slice(0, 20).join('\n')}`)
 }
 
 /** 啟動檢查：設施種類的 teach 欄格式。 */

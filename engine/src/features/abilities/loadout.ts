@@ -33,6 +33,17 @@ export interface AbilityRules {
   respec_minutes: number
   /** 基本功 5、6 級的請教與上課（CORE_RULES 7.2、7.5 節；M4-training） */
   teach: TeachRules
+  /** 向 NPC 學工藝基本功的 0～2 級（CRAFTING 11.2 節；M4-craft-teach） */
+  tutor: TutorRules
+}
+/** 向 NPC 學工藝：哪幾項、最高幾級、每一級的學費與時段、一個時段幾分鐘、學費要不要乘區倍率 */
+export interface TutorRules {
+  skills: string[]
+  max_level: number
+  /** 升到那一級：{ 學費, 要上幾個時段 }（鍵是級數） */
+  steps: Record<string, { price: number; slots: number }>
+  slot_minutes: number
+  district_price: boolean
 }
 export interface TeachRules {
   /** 向人請教：親密度到這個數就不收錢（40） */
@@ -48,6 +59,7 @@ export interface TeachRules {
 export const DEFAULT_ABILITY_RULES: AbilityRules = {
   loadout_minutes: 30, loadout_facility_types: ['tuning_clinic'], xp_home_share: 0.3, skill_xp_per_level: 10, skill_free_max: 4, respec_price_per_xp: 10, respec_minutes: 1440,
   teach: { affinity: 40, tuition: { 5: 1500, 6: 5000 }, slots_per_level: 2, slot_minutes: 240 },
+  tutor: { skills: ['mechanics', 'cyberware', 'medicine'], max_level: 2, steps: { 1: { price: 300, slots: 2 }, 2: { price: 800, slots: 4 } }, slot_minutes: 240, district_price: true },
 }
 
 export function abilityRuleProblems(e: Record<string, unknown>): string[] {
@@ -75,12 +87,53 @@ export function abilityRuleProblems(e: Record<string, unknown>): string[] {
       }
     }
   }
+  if (e.tutor !== undefined) p.push(...tutorRuleProblems(e.tutor))
   return p
+}
+
+/** 規則 tutor 的格式（向 NPC 學工藝）。 */
+function tutorRuleProblems(t: unknown): string[] {
+  if (typeof t !== 'object' || t === null || Array.isArray(t)) return ['tutor 要是 { skills, max_level, steps, slot_minutes, district_price }']
+  const p: string[] = []
+  const o = t as Record<string, unknown>
+  for (const key of Object.keys(o)) if (!['skills', 'max_level', 'steps', 'slot_minutes', 'district_price'].includes(key)) p.push(`tutor.${key}：沒有這個欄位（可以寫：skills、max_level、steps、slot_minutes、district_price）`)
+  if (o.skills !== undefined && !(Array.isArray(o.skills) && o.skills.every((x) => typeof x === 'string' && x.trim().length > 0))) p.push('tutor.skills 要是基本功 id 的陣列（向 NPC 學得到的基本功）')
+  if (o.max_level !== undefined && !(isSafeInt(o.max_level) && o.max_level >= 1 && o.max_level <= 5)) p.push('tutor.max_level 要是 1～5 的整數（這條路最高教到幾級；實際不會超過 skill_free_max）')
+  if (o.slot_minutes !== undefined && !(isSafeInt(o.slot_minutes) && o.slot_minutes >= 1)) p.push('tutor.slot_minutes 要是 1 以上的整數（一個時段幾分鐘）')
+  if (o.district_price !== undefined && typeof o.district_price !== 'boolean') p.push('tutor.district_price 要是 true 或 false（學費乘不乘所在那一區的物價倍率）')
+  if (o.steps !== undefined) {
+    const st = o.steps
+    if (typeof st !== 'object' || st === null || Array.isArray(st)) p.push('tutor.steps 要是 { 級數: { price, slots } }')
+    else {
+      for (const [lv, row] of Object.entries(st)) {
+        if (!/^[1-5]$/.test(lv)) p.push(`tutor.steps.${lv}：鍵要是 1～5 的級數`)
+        else if (typeof row !== 'object' || row === null || Array.isArray(row)) p.push(`tutor.steps.${lv} 要是 { price, slots }`)
+        else {
+          const r = row as Record<string, unknown>
+          for (const key of Object.keys(r)) if (!['price', 'slots'].includes(key)) p.push(`tutor.steps.${lv}.${key}：沒有這個欄位（可以寫：price、slots）`)
+          if (r.price !== undefined && !(isSafeInt(r.price) && r.price >= 0)) p.push(`tutor.steps.${lv}.price 要是 0 以上的整數（學費）`)
+          if (r.slots !== undefined && !(isSafeInt(r.slots) && r.slots >= 1)) p.push(`tutor.steps.${lv}.slots 要是 1 以上的整數（要上幾個時段）`)
+        }
+      }
+      // 最高級以下每一級都要有一列（預設只有 1、2 級）
+      const max = isSafeInt(o.max_level) ? o.max_level : DEFAULT_ABILITY_RULES.tutor.max_level
+      for (let lv = 1; lv <= max; lv++) if (DEFAULT_ABILITY_RULES.tutor.steps[String(lv)] === undefined && (st as Record<string, unknown>)[String(lv)] === undefined) p.push(`tutor.steps.${lv}：max_level 到 ${max} 級，要寫這一級的 { price, slots }`)
+    }
+  } else if (isSafeInt(o.max_level) && o.max_level > DEFAULT_ABILITY_RULES.tutor.max_level) p.push(`tutor.steps：max_level 到 ${o.max_level} 級，要寫第 ${DEFAULT_ABILITY_RULES.tutor.max_level + 1} 級以上的 { price, slots }`)
+  return p
+}
+
+/** 學工藝每一級的學費與時段：資料寫的級蓋掉預設（欄位也逐欄蓋）。 */
+function tutorSteps(raw: TutorRules['steps'] | undefined): TutorRules['steps'] {
+  const out: TutorRules['steps'] = {}
+  for (const [lv, row] of Object.entries(DEFAULT_ABILITY_RULES.tutor.steps)) out[lv] = { ...row }
+  for (const [lv, row] of Object.entries(raw ?? {})) out[lv] = { ...(out[lv] ?? { price: 0, slots: 1 }), ...row }
+  return out
 }
 
 /** 規則：內容種類 ability_rule（id: default）蓋掉內建的預設。 */
 export function abilityRules(k: Pick<Kernel, 'content'>): AbilityRules {
-  const e = k.content.get<ContentEntry & Partial<Omit<AbilityRules, 'teach'>> & { teach?: Partial<TeachRules> }>(RULE_KIND, 'default')
+  const e = k.content.get<ContentEntry & Partial<Omit<AbilityRules, 'teach' | 'tutor'>> & { teach?: Partial<TeachRules>; tutor?: Partial<TutorRules> }>(RULE_KIND, 'default')
   return {
     loadout_minutes: e?.loadout_minutes ?? DEFAULT_ABILITY_RULES.loadout_minutes,
     loadout_facility_types: e?.loadout_facility_types ? [...e.loadout_facility_types] : [...DEFAULT_ABILITY_RULES.loadout_facility_types],
@@ -92,6 +145,11 @@ export function abilityRules(k: Pick<Kernel, 'content'>): AbilityRules {
     teach: {
       ...DEFAULT_ABILITY_RULES.teach, ...(e?.teach ?? {}),
       tuition: { ...DEFAULT_ABILITY_RULES.teach.tuition, ...(e?.teach?.tuition ?? {}) },
+    },
+    tutor: {
+      ...DEFAULT_ABILITY_RULES.tutor, ...(e?.tutor ?? {}),
+      skills: [...(e?.tutor?.skills ?? DEFAULT_ABILITY_RULES.tutor.skills)],
+      steps: tutorSteps(e?.tutor?.steps),
     },
   }
 }

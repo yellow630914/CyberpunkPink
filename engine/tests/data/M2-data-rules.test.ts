@@ -120,7 +120,8 @@ describe('M2-data-rules：資料和功能的預設一致（逐格）', () => {
       if (kind === 'ability_rule') {
         // M4-abilities-m4 加的四個欄位（skill_xp_per_level、skill_free_max、respec_price_per_xp、respec_minutes）資料檔還沒有，等 M4-data-rules 補；功能讀出來的（下一行）照樣等於預設
         // M4-training 加的 teach（請教與上課的親密度、學費、時段）也一樣
-        const { skill_xp_per_level: _a, skill_free_max: _b, respec_price_per_xp: _c, respec_minutes: _d, teach: _t, ...rest } = def as Rec
+        // M4-craft-teach 加的 tutor（向 NPC 學工藝）也一樣
+        const { skill_xp_per_level: _a, skill_free_max: _b, respec_price_per_xp: _c, respec_minutes: _d, teach: _t, tutor: _tu, ...rest } = def as Rec
         dataDef = rest
       }
       expect(kind === 'fixer_rule' ? own : raw(g, kind)).toEqual(JSON.parse(JSON.stringify(dataDef)))

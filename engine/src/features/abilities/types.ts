@@ -527,6 +527,8 @@ export interface AbilityState {
   stance?: string
   /** 基本功 5、6 級上到一半的課（M4-training）：基本功 id → 進度 */
   lessons?: Record<string, Lesson>
+  /** 向 NPC 學工藝（M4-craft-teach）：老師的 id → 他教過這個人的那一項基本功（一位老師對一個人只教一項；第一個時段就記下） */
+  tutored?: Record<string, string>
 }
 
 /** 一堂課的來源：向人請教 { npc }、去機構 { facility: 設施種類 }（M4-craft-teach 多一種 { tutor }）；剛好寫一個鍵。 */

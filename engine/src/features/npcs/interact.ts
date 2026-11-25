@@ -13,7 +13,7 @@
 //   prelude        起手：不認識但就在這裡的人先認識他（meet），後面的親密度才有鍵
 // 每天的次數記在 state.ext.npcs.today（變更 npcs.did），旗標也由 report.before 掛鉤加進這份報告。
 // 資料沒有某一筆時，那個互動就不存在（interactions 裡沒有它，也不丟錯）。
-// 請教（M4-training；NPC_SYSTEM 6.1 節）：不是行動。條件 can_teach（abilities 註冊）成立的人，interactions 多一項 kind 是 npc_consult 的選單，帶 handoff 記號，介面接著呼叫 abilities 的 teachOptions／lessonDraft；
+// 請教（M4-training；NPC_SYSTEM 6.1 節）：不是行動。條件 can_teach 或 can_tutor（abilities 註冊）成立的人，interactions 多一項 kind 是 npc_consult 的選單，帶 handoff 記號，介面接著呼叫 abilities 的 teachOptions／lessonDraft；
 // 這裡不 import abilities，只問條件。另外註冊條件 npc_here { npc }（他現在在主角所在的地方；同行的隊員也算）給 abilities 問他在不在場。
 //
 // 讀別的功能的數字只經由 meterOf（hostility、favor、fame；沒有人定義就當 0、不加那條修正）、條件與內容；不 import 別的功能。
@@ -598,8 +598,10 @@ export interface InteractionView {
   /**
    * 這一項不是行動、要交給別的功能的畫面：請教（kind 是 npc_consult）的 handoff 是 { to: 'abilities.teachOptions', npc }，
    * 介面呼叫 features/abilities 的 teachOptions(k, state, { npc }) 列能學的、lessonDraft 上課。npcs 只問條件 can_teach。
+   * 向 NPC 學工藝（M4-craft-teach）：條件 can_tutor 成立時多帶 also: ['abilities.tutorOptions']，介面也呼叫 tutorOptions(k, state, { npc })、tutorDraft 上課；
+   * 兩邊都有東西可教時 handoff 一樣只有一個，介面兩邊的選項都列。
    */
-  handoff?: { to: 'abilities.teachOptions'; npc: string }
+  handoff?: { to: 'abilities.teachOptions'; npc: string; also?: Array<'abilities.tutorOptions'> }
 }
 
 /** 今天聊過了的說明（interactions 的 note）。 */
@@ -631,11 +633,14 @@ export function interactions(k: Kernel, state: GameState, npc: string): Interact
       note: id === 'npc_chat' && n !== undefined && listing === null && doneToday(state, npc).includes('chat') ? CHAT_DONE_NOTE : null,
     })
   }
-  // 請教：條件 can_teach（abilities 註冊；沒有人註冊就沒有這一項）成立才列；沒有東西可教的人沒有
-  if (n && npc !== state.pc && k.conditions.kinds().includes('can_teach') && k.conditions.test({ kind: 'can_teach', npc }, { state, stats: k.stats, timeRules: k.timeRules, ...(state.pc ? { actor: state.pc } : {}) })) {
+  // 請教：條件 can_teach（5、6 級）或 can_tutor（向 NPC 學工藝，M4-craft-teach）任一個成立才列（abilities 註冊；沒有人註冊就沒有這一項）；沒有東西可教的人沒有。選了之後兩邊的選項都給
+  const ask = (kind: string): boolean => k.conditions.kinds().includes(kind) && k.conditions.test({ kind, npc }, { state, stats: k.stats, timeRules: k.timeRules, ...(state.pc ? { actor: state.pc } : {}) })
+  if (n && npc !== state.pc && (ask('can_teach') || ask('can_tutor'))) {
+    const tutor = ask('can_tutor')
     out.push({
       kind: CONSULT_KIND, name: CONSULT_NAME, ok: isHere(k, state, npc) || state.party.includes(npc), reason: isHere(k, state, npc) || state.party.includes(npc) ? null : NEED.here,
-      dc: null, mods: [], chance: null, attr: '', skill: null, needs: null, note: null, handoff: { to: 'abilities.teachOptions', npc },
+      dc: null, mods: [], chance: null, attr: '', skill: null, needs: null, note: null,
+      handoff: { to: 'abilities.teachOptions', npc, ...(tutor ? { also: ['abilities.tutorOptions'] as Array<'abilities.tutorOptions'> } : {}) },
     })
   }
   return out

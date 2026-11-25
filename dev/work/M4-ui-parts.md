@@ -34,3 +34,5 @@ M4-part-unreg、M4-part-sources、M4-core-part-ai、M4-craft-teach、M4-ui-craft
 ## 完成時回報
 
 改了哪些檔、測試結果、缺的圖示（未登錄的標記、委託台）、AI 開著時交貨那一步在畫面上等多久、UI 設計書沒有寫而這一張自己定的版面（委託台的對話框、等著交貨的區塊）。
+
+- 總指揮補記（2026-11-25，M4-craft-teach 回報）：「請教」的 handoff 多帶 `also: ['abilities.tutorOptions']`，畫面兩邊的選項都要列（只帶 tutor 的 NPC 呼叫 teachOptions 是空的）。
