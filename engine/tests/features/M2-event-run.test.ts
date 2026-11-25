@@ -699,6 +699,20 @@ describe('adult_scene', () => {
     expect([DC_FOR.critical, DC_FOR.fail, DC_FOR.fumble].map((dc) => run('always', dc))).toEqual([true, true, true])
   })
 
+  it('單人（M4-core-gaps 第 17 項）：adult_scene 寫 solo: true、不帶 circles 也開得起來，setup 原樣交給場景；solo 不能和 circles 一起寫、沒有 solo 又沒有 circles 載入時擋下', () => {
+    const solo = ev('ev_solo', { text: '一個人的房間。', options: [opt('go', '關上門。', { adult_scene: { when: 'always', gate: 'fixed', solo: true, audience: false, goal: 'footage' } })] })
+    const g = make({ events: [solo], features: [sceneStub] })
+    open(g, 'ev_solo')
+    const r = pick(g, 'go')
+    expect(r.map((x) => x.action)).toEqual(['event.close', 'scene.start'])
+    expect(sceneOf(g.state)!.setup).toMatchObject({ when: 'always', gate: 'fixed', solo: true, audience: false, goal: 'footage' })
+    expect(sceneOf(g.state)!.setup).not.toHaveProperty('circles')
+    const bad = (adult_scene: Fx) => () => make({ events: [ev('ev_bad', { text: '甲。', options: [opt('go', '進去。', { adult_scene })] })], features: [sceneStub] })
+    expect(bad({ when: 'always', solo: true, circles: [['$pc']] })).toThrow(/solo.*不能寫 circles/)
+    expect(bad({ when: 'always' })).toThrow(/circles/)
+    expect(bad({ when: 'always', solo: 'yes' })).toThrow(/solo 要是 true 或 false/)
+  })
+
   it('沒有檢定的選項：always 與 success 開，fail 不開', () => {
     const e = (when: string) => ev('ev_s', { text: '甲。', options: [opt('go', '進去。', { adult_scene: scene(when) })] })
     const run = (when: string) => {

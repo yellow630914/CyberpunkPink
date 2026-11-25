@@ -687,3 +687,21 @@ describe('其餘', () => {
     expect(sinkView(g.k, g.state, 'pc')!.carryFrom).toBeNull()
   })
 })
+
+describe('M4-core-gaps 第 8 項：80～99 給核心的標籤 afterglow_double（餘韻的正面效果加倍）', () => {
+  const tagged = (sink: number): boolean => {
+    const g = make({ pc: { sink } })
+    return g.k.passives.unitTags(g.state, 'pc').includes('afterglow_double')
+  }
+
+  it('沉溺 80、99 有；79、100、130 沒有（80～99 才加倍，溺感者不是）', () => {
+    expect([79, 80, 99, 100, 130].map(tagged)).toEqual([false, true, true, false, false])
+  })
+
+  it('標籤來自 sink 這個來源（畫面看得到「溺感邊緣：餘韻的正面效果加倍」）', () => {
+    const g = make({ pc: { sink: 85 } })
+    const e = g.k.passives.of(g.state, 'pc').find((x) => 'unit_tag' in x && x.unit_tag === 'afterglow_double')!
+    expect(e.source).toBe('sink')
+    expect(e.label).toContain('餘韻的正面效果加倍')
+  })
+})

@@ -48,7 +48,7 @@ export function registerWounds(k: Kernel): void {
           target.hp.now = Math.min(target.hp.now, target.hp.max)
         }
       } else if (part === 'bridge') target.layersMax = Math.max(1, target.layersMax - 1)
-      // 頭：義眼與甲板的損壞要等義體（M4）
+      // 頭：義眼與腦裡的甲板的損壞、肢體：義肢的失效是義體功能的事（features/cyberware 聽同一個 wound 掛點；讀 target.wounds，讀的時候算，M4-core-gaps 第 3 項）
     }
     run.say(`${unitTag(target)} 的${PART_NAME[part]}${level === 2 ? '受了重創' : '受創'}。`, 'wound', { target: target.id, part, level }, attacker)
   })

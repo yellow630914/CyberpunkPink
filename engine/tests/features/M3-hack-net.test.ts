@@ -429,3 +429,54 @@ describe('quickhack 的 trace 欄位', () => {
     expect(problems('3').join('')).toContain('trace')
   })
 })
+
+// ---- 六、M4-core-gaps 第 4 項：掛點 hack.trace_mod ----
+
+describe('M4-core-gaps 第 4 項：掛點 hack.trace_mod（義體讓快駭的追蹤度變多變少）', () => {
+  type Answer = { add?: number; mult?: number } | undefined
+  const seen: Array<Rec> = []
+  /** 替身：回答 hack.trace_mod，順便記下被問到的內容。 */
+  const modStub = (answer: (p: Rec) => Answer): Feature => ({
+    id: 'trace_mod_stub',
+    install(k) {
+      ;(k.hooks.on as unknown as (n: string, o: string, f: (p: Rec) => unknown) => void)('hack.trace_mod', 'trace_mod_stub', (p) => { seen.push(p); return answer(p) })
+    },
+  })
+  const netGame = (answer: (p: Rec) => Answer) => arena(netSetup({}, [netHacker({ actor: 'pc' })]), [combatFeature, hackFeature, STUBS, NET_TRACE, modStub(answer)])
+
+  it('mult 0（駭入接頭）：內海的追蹤度不漲；沒有人回答的照程式的 trace', () => {
+    const a = netGame(() => ({ mult: 0 }))
+    a.battle.field.trace = 20
+    use(a, 'a1', 'hack.p_stand', 'f1', WIN)
+    expect(a.battle.field.trace).toBe(20)
+    const b = netGame(() => undefined)
+    b.battle.field.trace = 20
+    use(b, 'a1', 'hack.p_stand', 'f1', WIN)
+    expect(b.battle.field.trace).toBe(22)
+  })
+
+  it('add 1（回報後門）：每用一次多 1；問的時候帶著做的人、這一層、行動、程式寫的 trace', () => {
+    seen.length = 0
+    const a = netGame(() => ({ add: 1 }))
+    a.battle.field.trace = 0
+    use(a, 'a1', 'hack.p_stand', 'f1', WIN)
+    expect(a.battle.field.trace).toBe(3)
+    expect(seen.at(-1)).toMatchObject({ actor: 'pc', layer: 'net', action: 'hack.p_stand', trace: 2 })
+    // 沒有寫 trace 的程式本來就不加，也不問
+    seen.length = 0
+    use(a, 'a1', 'hack.p_none', 'f1', WIN)
+    expect(a.battle.field.trace).toBe(3)
+    expect(seen).toEqual([])
+  })
+
+  it('現實：被發現的份（unit.ext.hack.found）也照回答算；單位沒有角色（沒有義體）不問', () => {
+    const a = arena(meatSetup({}, [hacker({ actor: 'pc' }), partyUnit(1, 1)]), [combatFeature, hackFeature, STUBS, modStub(() => ({ add: 3 }))])
+    use(a, 'a1', 'hack.p_fail', 'f1', LOSE)
+    expect((a.battle.units.a1!.ext.hack as Rec).found).toBe(1 + 3)
+    seen.length = 0
+    const b = arena(meatSetup(), [combatFeature, hackFeature, STUBS, modStub(() => ({ add: 3 }))])
+    use(b, 'a1', 'hack.p_fail', 'f1', LOSE)
+    expect((b.battle.units.a1!.ext.hack as Rec).found).toBe(1)
+    expect(seen).toEqual([])
+  })
+})

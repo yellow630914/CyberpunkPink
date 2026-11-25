@@ -43,3 +43,5 @@
 - （M4-lure 回報）範圍 `rogue_ai`：`triggers { login: 0.15, enter_floor: 0.1, rest: 0.15, kiss_choose }`、`cooldown_hours: 24`、`daily_cap: 1`；對一下進子網一層的觸發點真正的名字。蠱惑事件的 `tags` 一定要寫 `resist_lure`。
 
 - （M4-enemies-m4 回報）`net_enemy_rules.json` 放 `form_b_chance: 0.6`；`battle_status` 放 `bind_ap`（ap_regen −1）、`bind_move`（no_move）、挑的命中 −1；敵人資料不要同時寫「溺感邊緣」特徵的 `layers_max +1` 和沉溺 ≥60（會重複加層）。
+
+- （M4-core-gaps 回報）資料補：狀態 `pump_jam`、`until: next_attack` 的挑；皮下裝甲 `implant_hardened:<種類>`、痛覺編輯器 `ignore_wound_penalty` 的 effects 標籤；駭入接頭與回報後門的 `trace_mod`；記憶庫的 `readable`；冷卻迴路的 `jammable: true`。

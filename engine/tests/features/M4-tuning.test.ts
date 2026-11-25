@@ -610,3 +610,94 @@ describe('沒有安裝 lewd 與別的功能也跑得起來', () => {
     expect(g.k.passives.of(g.state, 'pc').filter((e) => e.source === 'tuning')).toEqual([])
   })
 })
+
+// ---- M4-core-gaps：開關接上核心（第 8、10、11、12、13 項） ----
+
+describe('M4-core-gaps：開關接上核心', () => {
+  const EXTRA = (c: Record<string, Rec[]>) => {
+    c.tuning!.push(
+      { id: 'tn_pain', name: '痛覺轉譯', desc: '把一部分傷害換成感載。', effects: [], flags: ['hp_to_load'] },
+      { id: 'tn_resist', name: '抗沉', desc: '往下陷得慢一點。', effects: [], flags: ['sink_resist'] },
+      { id: 'tn_double', name: '餘韻加倍', desc: '餘韻的正面效果加倍。', effects: [], flags: ['afterglow_double'] },
+      { id: 'tn_hunger', name: '渴求', desc: '感載越高檢定越高。', effects: [{ check: { attrs: ['body', 'reflex', 'tech', 'intellect', 'resolve', 'charm'] }, per: { track: 'load', every: 10, amount: 1 } }], flags: ['no_load_decay'] },
+      { id: 'tn_pain_tag', name: '裝不穩的痛覺轉譯', desc: '要有某種口味才穩。', requires: { tag: 'tg_x' }, effects: [], flags: ['hp_to_load', 'sink_resist'] },
+    )
+  }
+  const mk = (o: Opts = {}) => make({ ...o, pack: pack(EXTRA) })
+
+  it('第 10 項 no_full_sync：給的是核心的衍生數值 sync_cap_max −1（最高到深檔），不再借 sync_cap_bonus；拆掉就回到全檔', () => {
+    const g = mk({ pc: { skills: { sync: 6, hack: 2 }, ext: { bridge: { ...BRIDGE, sensitivity: 100 } } } })
+    expect(syncCapOf(g.k, g.state, 'pc')).toBe('full')
+    fit(g, 'tn_still')
+    expect(stat(g, 'sync_cap_max')).toBe(2)
+    expect(syncCapOf(g.k, g.state, 'pc')).toBe('deep')
+    const own = g.k.passives.of(g.state, 'pc').filter((e) => e.source === 'tuning' && 'stat' in e)
+    expect(own.some((e) => 'stat' in e && e.stat === 'sync_cap_max' && e.amount === -1)).toBe(true)
+    expect(own.some((e) => 'stat' in e && e.stat === 'sync_cap_bonus')).toBe(false)
+    expect(g.k.stats.hasStat('sync_cap_bonus')).toBe(false)
+    g.commit(removeDraft(g.k, g.state, { id: 'tn_still' }))
+    expect(syncCapOf(g.k, g.state, 'pc')).toBe('full')
+  })
+
+  it('第 11 項 hp_to_load：裝著痛覺轉譯，受到 10 點生命傷害變成生命 −8、感載 +2；沒裝照舊；沒有橋的單位不轉', () => {
+    const hurt = (g: G) => {
+      const { run, pc: u } = battleOf(g)
+      u.armor = 0
+      u.sensitivity = 100
+      const hp = u.hp!.now
+      run.damage(u, 10, 'physical')
+      return { hp: hp - u.hp!.now, load: u.load!.now }
+    }
+    expect(hurt(mk())).toEqual({ hp: 10, load: 0 })
+    const g = mk()
+    fit(g, 'tn_pain')
+    expect(hurt(g)).toEqual({ hp: 8, load: 2 })
+    // 規則表可以改成 50%
+    const h = make({ pack: pack((c) => { EXTRA(c); c.tuning_rule = [{ id: 'default', hp_to_load_pct: 50 }] }) })
+    fit(h, 'tn_pain')
+    expect(hurt(h)).toEqual({ hp: 5, load: 5 })
+    // 裝不穩的（requires 不成立）正面的開關不算
+    const u = mk()
+    fit(u, 'tn_pain_tag')
+    expect(hurt(u)).toEqual({ hp: 10, load: 0 })
+  })
+
+  it('第 13 項 sink_resist：戰鬥裡 gainSink 與角色的 sink 效果往上加的每次少 1（最少 1）；往下降不受影響；沒裝照舊', () => {
+    const g = mk({ pc: { sink: 10, skills: { hack: 2 }, ext: { bridge: { ...BRIDGE } } } })
+    const gain = (x: G) => battleOf(x).run.gainSink(battleOf(x).pc, 3)
+    expect(gain(g)).toBe(3)
+    expect(fx(g, [{ kind: 'sink', amount: 3 }]).changes).toEqual([{ op: 'actor.track', id: 'pc', track: 'sink', delta: 3 }])
+    fit(g, 'tn_resist')
+    const { run, pc: u } = battleOf(g)
+    expect(u.tags).toContain('sink_resist')
+    expect(run.gainSink(u, 3)).toBe(2)
+    expect(run.gainSink(u, 1)).toBe(1)
+    expect(fx(g, [{ kind: 'sink', amount: 3 }]).changes).toEqual([{ op: 'actor.track', id: 'pc', track: 'sink', delta: 2 }])
+    expect(fx(g, [{ kind: 'sink', amount: -2 }]).changes).toEqual([{ op: 'actor.track', id: 'pc', track: 'sink', delta: -2 }])
+  })
+
+  it('第 8 項 afterglow_double：裝著的人帶標籤；內海的餘韻每層 +1 變 +2；現實的 −1 不加倍', () => {
+    const g = mk()
+    const mod = (x: G, mode: 'meat' | 'net') => {
+      const { run, pc: u } = battleOf(x, mode)
+      u.layers = 2
+      return run.mods('hit', u).filter((p) => p.source === 'afterglow').reduce((s, p) => s + p.value, 0)
+    }
+    expect([mod(g, 'net'), mod(g, 'meat')]).toEqual([2, -2])
+    fit(g, 'tn_double')
+    expect(battleOf(g).pc.tags).toContain('afterglow_double')
+    expect([mod(g, 'net'), mod(g, 'meat')]).toEqual([4, -2])
+  })
+
+  it('第 12 項 渴求：每 10 點感載檢定 +1（戰鬥外讀角色的感載；戰鬥裡讀單位當下的感載）', () => {
+    const g = mk({ pc: { load: 25, skills: { hack: 2 }, ext: { bridge: { ...BRIDGE } } } })
+    fit(g, 'tn_hunger')
+    expect(check(g, 'hack')).toBe(2)
+    const { run, pc: u } = battleOf(g)
+    expect(run.k.passives.of(g.state, 'pc').filter((e) => 'check' in e).map((e) => (e as { amount: number }).amount)).toEqual([2])
+    u.load!.now = 41
+    expect(run.k.passives.modParts(g.state, 'pc', 'hit', { layer: 'meat', tracks: { load: u.load!.now } })).toEqual([])
+    g.state.actors.pc!.load = 0
+    expect(check(g, 'hack')).toBe(0)
+  })
+})

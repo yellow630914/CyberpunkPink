@@ -8,11 +8,12 @@
 
 import { describe, expect, it } from 'vitest'
 import type { ContentPack, Feature, Kernel, Origin, Report } from '../../src'
-import { ActionBlocked } from '../../src'
+import { ActionBlocked, actionWindow, prepareAction } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { lewdFeature } from '../../src/features/lewd'
+import { lureFeature } from '../../src/features/lure'
 import type { Dice, SceneEnv, SceneInput, SceneRaw } from '../../src/features/scene'
-import { ruleProblems, sceneAct, sceneFeature, sceneNext, sceneOptions, sceneRawOf, sceneRules, sceneSkip, sceneView, startProblems } from '../../src/features/scene'
+import { ruleProblems, sceneAct, sceneCanSkip, sceneFeature, sceneGateSummary, sceneNext, sceneNpcBegin, sceneNpcTurn, sceneOptions, sceneRawOf, sceneRules, sceneSetupOf, sceneSkip, sceneView, startProblems } from '../../src/features/scene'
 import type { ActorOverrides } from '../../src/testkit'
 import { METER_CONTENT, makeActor, makeGame, meterFeature, testMeter } from '../../src/testkit'
 
@@ -87,6 +88,8 @@ interface Opts {
   seed?: number
   /** 對象裡有人帶傾向標籤（有共同標籤的圈契合多加） */
   tags?: Record<string, string[]>
+  /** 多載的內容（M4-core-gaps 的測試用） */
+  content?: ContentPack[]
 }
 
 function game(o: Opts = {}): Game {
@@ -102,7 +105,7 @@ function game(o: Opts = {}): Game {
   return makeGame({
     seed: o.seed,
     features: [characterFeature, lewdFeature, meterFeature(AFFINITY), sceneFeature, ...(o.features ?? [])],
-    content: [PACK(o.positions ?? ALL), METER_CONTENT, ...(o.rules ? [{ id: 'rules', content: { scene_rule: [{ id: 'default', ...o.rules }] } } as ContentPack] : [])],
+    content: [PACK(o.positions ?? ALL), METER_CONTENT, ...(o.content ?? []), ...(o.rules ? [{ id: 'rules', content: { scene_rule: [{ id: 'default', ...o.rules }] } } as ContentPack] : [])],
     pc: { ext: { bridge: bridge(50, 10), scene: { skills: ['nt_a', 'nt_b', 'nt_hit', 'nt_reach'], positions: [] } }, ...o.tweak?.pc },
     actors: npcs,
   }).game
@@ -954,5 +957,291 @@ describe('整場跑得完：照規則自己走，每一步都不丟錯、感載�
       const b = play(seed)
       expect(b).toEqual(a)
     }
+  })
+})
+
+// ======================================================================
+// M4-core-gaps 第 15、16、17 項：場景的接口（一個人的回合、每人一份的說話結果、AI 的一句話、視窗、開場摘要與略過、畫面資料的座位鍵、指定對象）
+// ======================================================================
+
+/** 一圈兩人（主角、安）：一對一，完整版；已經用說話接了一條連接（挑逗、主導才做得了）。 */
+const pair = (o: Opts = {}, extra: Record<string, unknown> = {}): Game => {
+  const g = game(o)
+  begin(g, setup(['npc_ann'], extra))
+  act(g, { kind: 'talk', pick: parts('mouth', 'mouth') }, { dice: dice(13) })
+  return g
+}
+/** 輪到對方（回合交出去）。 */
+const handOver = (g: Game): void => { act(g, { kind: 'end_turn' }) }
+const timelineOf = (d: { timeline: Array<{ tag?: string; text: string; actor?: string; data?: Record<string, unknown>; roll?: unknown }> }, tag: string) => d.timeline.filter((b) => b.tag === tag)
+const hook = (g: Game, name: string, fn: (p: Record<string, unknown>) => unknown): void => { (g.k.hooks.on as unknown as (n: string, o: string, f: (p: Record<string, unknown>) => unknown) => void)(name, 'test_hook', fn) }
+
+describe('第 15 項：只走一個人的回合（sceneNpcTurn、sceneNpcBegin）', () => {
+  it('多人：只走安這一個人的回合，波還沒動；回傳的 Play 是做完之後的；狀態一個字都沒改', () => {
+    const g = trio()
+    handOver(g)
+    const before = JSON.stringify(g.state.ext.scene)
+    const p = sceneNpcTurn(g.k, g.state, 'npc_ann')
+    expect(p.seat('npc_ann').ap).toBeLessThan(4)
+    expect(p.seat('npc_bo').ap).toBe(4)
+    expect(p.s.turn).toBe('npc_ann')
+    expect(JSON.stringify(g.state.ext.scene)).toBe(before)
+    expect(p.beats.length).toBeGreaterThan(0)
+  })
+
+  it('一個一個接下去（from）：安、波依序做完，和真正的 sceneNext 走完同一輪前面的每一拍一模一樣（亂數的順序相同）；整輪最後才有回合的結算', () => {
+    const g = trio()
+    handOver(g)
+    const p1 = sceneNpcTurn(g.k, g.state, 'npc_ann')
+    const p2 = sceneNpcTurn(g.k, g.state, 'npc_bo', {}, p1)
+    expect(p2).toBe(p1)
+    const real = sceneNext(g.k, g.state)
+    expect(real.timeline.slice(0, p2.beats.length)).toEqual(p2.beats)
+    expect(real.timeline.length).toBeGreaterThan(p2.beats.length)
+  })
+
+  it('env.moves 只管那個人：給安一串行動，預演照做；不合規的丟掉並記一拍 scene.dropped（和 sceneNext 同一套）', () => {
+    const g = trio()
+    handOver(g)
+    const p = sceneNpcTurn(g.k, g.state, 'npc_ann', { moves: { npc_ann: [{ kind: 'skill', id: 'nt_reach', target: 'pc', pick: parts('hand_r', 'front') }, { kind: 'skill', id: 'no_such_skill' }] } })
+    expect(p.beats.some((b) => b.tag === 'scene.dropped' && b.actor === 'npc_ann')).toBe(true)
+  })
+
+  it('sceneNpcBegin：多人把輪到他設好並做回合開頭（turn_began）；之後問他合法的行動（blocks）不會說還沒輪到', () => {
+    const g = trio()
+    handOver(g)
+    const p = sceneNpcBegin(g.k, g.state, 'npc_bo')
+    expect(p.s.turn).toBe('npc_bo')
+    expect(p.s.turn_began).toBe(true)
+    expect(p.blocks('npc_bo', { kind: 'tease' }).join('')).not.toContain('還沒輪到')
+  })
+
+  it('一對一：對方的那一步（一個行動），和 sceneNext 的開頭幾拍相同；狀態沒改', () => {
+    const g = pair()
+    handOver(g)
+    expect(raw(g).turn).toBe('npc_ann')
+    const before = JSON.stringify(g.state.ext.scene)
+    const p = sceneNpcTurn(g.k, g.state, 'npc_ann')
+    expect(JSON.stringify(g.state.ext.scene)).toBe(before)
+    const real = sceneNext(g.k, g.state)
+    expect(real.timeline.slice(0, p.beats.length)).toEqual(p.beats)
+  })
+})
+
+describe('第 15 項：SceneEnv.talk 每人一份、SceneEnv.lines 收 AI 的一句話', () => {
+  it('talk 是 { 說話的人: 結果 }：主角說話用主角那一份（別人那一份不影響他）', () => {
+    const g = trio()
+    const [r] = act(g, { kind: 'talk', target: 'npc_bo', pick: parts('mouth', 'mouth') }, { dice: dice(13), talk: { pc: { fit: 7 }, npc_ann: { fit: -4 } } })
+    expect(beatsOf(r!, 'talk').map((b) => [b.data?.source, b.data?.fit])).toEqual([['env', 7]])
+    const h = trio()
+    const [x] = act(h, { kind: 'talk', target: 'npc_bo', pick: parts('mouth', 'mouth') }, { dice: dice(13), talk: { npc_ann: { fit: -4 } } })
+    expect(beatsOf(x!, 'talk')[0]!.data).not.toHaveProperty('source')
+  })
+
+  it('同一份 env 裡主角與波各有一份：主角說話用主角的、輪到波說話用波的（各說各的）；沒有波那一份的話波擲檢定', () => {
+    const talk = { pc: { fit: 7 }, npc_bo: { fit: -4 } }
+    const g = trio()
+    act(g, { kind: 'talk', target: 'npc_bo', pick: parts('mouth', 'mouth') }, { dice: dice(13), talk })
+    // 主角再結束回合，波照 env.moves 對主角說話（波是 c：和主角的口接得上）
+    handOver(g)
+    const moves = { npc_bo: [{ kind: 'talk', target: 'pc', pick: parts('mouth', 'mouth') }] } as Record<string, SceneInput[]>
+    const d = sceneNext(g.k, g.state, { moves, talk })
+    const bo = timelineOf(d, 'talk').find((b) => b.actor === 'npc_bo')!
+    expect(bo.data).toMatchObject({ source: 'env' })
+    expect(bo.data!.fit as number).toBeLessThan(0)
+    expect(bo.roll).toBeUndefined()
+    const h = trio()
+    act(h, { kind: 'talk', target: 'npc_bo', pick: parts('mouth', 'mouth') }, { dice: dice(13) })
+    handOver(h)
+    const d2 = sceneNext(h.k, h.state, { moves, talk: { pc: { fit: 7 } } })
+    const bo2 = timelineOf(d2, 'talk').find((b) => b.actor === 'npc_bo')!
+    expect(bo2.data).not.toHaveProperty('source')
+    expect(bo2.roll).toBeTruthy()
+  })
+
+  it('叫人過來的 agree 讀主角那一份（沒有主角那一份就擲檢定）', () => {
+    const mk = (): Game => {
+      const g = game()
+      begin(g, { circles: [['pc', 'npc_ann'], ['npc_bo']], nature: 'mutual', mode: 'full' })
+      raw(g).pairs.npc_ann!.init = 40
+      return g
+    }
+    const g = mk()
+    const [r] = act(g, { kind: 'call', who: 'npc_bo' }, { talk: { pc: { fit: 0, agree: false } } })
+    expect(beatsOf(r!, 'call')[0]!.data).toMatchObject({ who: 'npc_bo', ok: false })
+    const h = mk()
+    act(h, { kind: 'call', who: 'npc_bo' }, { talk: { pc: { fit: 0, agree: true } } })
+    expect(raw(h).seats.map((x) => x.id)).toContain('npc_bo')
+    // 別人那一份不算
+    const i = mk()
+    act(i, { kind: 'call', who: 'npc_bo' }, { dice: dice(1), talk: { npc_ann: { fit: 0, agree: true } } })
+    expect(raw(i).seats.map((x) => x.id)).not.toContain('npc_bo')
+  })
+
+  it('lines：AI 給的一句話放進這一步的紀錄（scene.line、source scene_turn）與整場的紀錄；一人只收第一句、空的與不在場的丟掉、最多 200 字', () => {
+    const g = trio()
+    handOver(g)
+    const long = '她'.repeat(250)
+    const d = sceneNext(g.k, g.state, { lines: [{ who: 'npc_ann', text: '  她笑了一下。 ' }, { who: 'npc_ann', text: '第二句不收' }, { who: 'npc_bo', text: long }, { who: 'npc_cy', text: '不在場的人' }, { who: 'nobody', text: '誰？' }, { who: 'pc', text: '' }] })
+    const lines = timelineOf(d, 'scene.line')
+    expect(lines.map((b) => [b.actor, b.text])).toEqual([['npc_ann', '她笑了一下。'], ['npc_bo', '她'.repeat(200)]])
+    expect(lines[0]!.data).toEqual({ source: 'scene_turn' })
+    g.commit(d)
+    expect(raw(g).lines.filter((l) => l.who === 'npc_ann').map((l) => l.text)).toContain('她笑了一下。')
+    expect(raw(g).lines.some((l) => l.text === '第二句不收' || l.who === 'nobody' || l.who === 'npc_cy')).toBe(false)
+    const plain = trio()
+    handOver(plain)
+    expect(timelineOf(sceneNext(plain.k, plain.state), 'scene.line')).toEqual([])
+  })
+
+  it('一對一也收 lines（sceneNext 的 pair 路徑）', () => {
+    const g = pair()
+    handOver(g)
+    const d = sceneNext(g.k, g.state, { lines: [{ who: 'npc_ann', text: '她偏過頭。' }] })
+    expect(timelineOf(d, 'scene.line').map((b) => b.text)).toEqual(['她偏過頭。'])
+  })
+})
+
+describe('第 16 項：成人場景的視窗（掛點 scene.window）', () => {
+  const insertTease = (g: Game, over: Record<string, unknown> = {}): void => {
+    hook(g, 'scene.window', () => ({ option: { id: 'w_tease', label: '被牽著走的一步', input: { kind: 'tease' } }, ...over }))
+  }
+
+  it('插一個選項：sceneOptions 的 inserted 列出來（誰插的、花費、現在做不做得到的原因）；停下與不認得的不列；沒有人回答是空的', () => {
+    const g = pair()
+    insertTease(g)
+    expect(sceneOptions(g.k, g.state)!.inserted).toEqual([{ id: 'w_tease', owner: 'test_hook', name: '被牽著走的一步', ap: expect.any(Number), blocks: [], input: { kind: 'tease' } }])
+    // 現在做不到（連接都斷了、沒有可用的行動點……）時照列原因：行動點用完
+    seatOf(g, 'pc').ap = 0
+    expect(sceneOptions(g.k, g.state)!.inserted[0]!.blocks.length).toBeGreaterThan(0)
+    const h = pair()
+    hook(h, 'scene.window', () => ({ option: { id: 'x', label: '停下', input: { kind: 'stop' } } }))
+    expect(sceneOptions(h.k, h.state)!.inserted).toEqual([])
+    const bare = pair()
+    expect(sceneOptions(bare.k, bare.state)!.inserted).toEqual([])
+  })
+
+  it('替玩家選：玩家送出 dominate，實際做的是 tease（紀錄多一拍 scene.override 與原因）；玩家按停下不換；換進去的行動做不到就不換', () => {
+    const g = pair()
+    insertTease(g, { replace: { input: { kind: 'tease' }, why: '那個聲音搶在你前面開了口。' } })
+    const [r] = act(g, { kind: 'dominate' })
+    expect(beatsOf(r!, 'scene.override')[0]).toMatchObject({ text: '那個聲音搶在你前面開了口。', data: { owner: 'test_hook', from: 'dominate', to: 'tease' } })
+    expect(r!.timeline.some((b) => b.tag === 'tease')).toBe(true)
+    expect(r!.timeline.some((b) => b.tag === 'dominate')).toBe(false)
+    // 停下不換
+    const h = pair()
+    insertTease(h, { replace: { input: { kind: 'tease' }, why: '搶了。' } })
+    act(h, { kind: 'stop' })
+    expect(sceneRawOf(h.state)).toBeNull()
+    // 換進去的行動現在做不到（沒學過的技能）：不換，照原本送出的做
+    const i = pair()
+    insertTease(i, { replace: { input: { kind: 'skill', id: 'no_such_skill' }, why: '亂換。' } })
+    const [x] = act(i, { kind: 'dominate' })
+    expect(beatsOf(x!, 'scene.override')).toEqual([])
+    expect(x!.timeline.some((b) => b.tag === 'dominate')).toBe(true)
+  })
+
+  it('妖精的吻（lure）擴散階段：rogue_ai 的 whisper 在場景裡插一個選項、replace_chance 1 就替你做；發作階段的、沒有 whisper 的不插；機率 0 的只插選項不替你選', () => {
+    const KISS = (stage: number): Feature => ({
+      id: 'kiss_stub',
+      install(k: Kernel) {
+        k.conditions.register({ kind: 'malware', owner: 'kiss_stub', validate: () => [], test: (c) => (c as { id?: string }).id === 'fw_kiss' && (c as { stage?: number }).stage === stage })
+      },
+    })
+    const AI = (whisper?: Record<string, unknown>): ContentPack => ({
+      id: 'ai', content: { rogue_ai: [{ id: 'ai_mommy', name: '媽咪', filter: 'ai:媽咪', kiss: 'fw_kiss', lore: { origin: 'a', want: 'b', ties: 'c', home: 'd' }, ...(whisper ? { whisper } : {}) }] } as never,
+    })
+    const mk = (stage: number, whisper?: Record<string, unknown>): Game => {
+      const g = game({ features: [lureFeature, KISS(stage)], content: [AI(whisper)] })
+      begin(g, setup(['npc_ann']))
+      act(g, { kind: 'talk', pick: parts('mouth', 'mouth') }, { dice: dice(13) })
+      return g
+    }
+    const W = { label: '聽牠的', scene: { kind: 'tease' }, free: '好', replace_chance: 1, why: '牠搶先替你選了。' }
+    const spread = mk(2, W)
+    const o = sceneOptions(spread.k, spread.state)!
+    expect(o.inserted.map((x) => [x.id, x.owner, x.name, x.input])).toEqual([['lure:ai_mommy', 'lure', '聽牠的', { kind: 'tease' }]])
+    const [r] = act(spread, { kind: 'dominate' })
+    expect(beatsOf(r!, 'scene.override')[0]).toMatchObject({ text: '牠搶先替你選了。', data: { owner: 'lure', to: 'tease' } })
+    for (const [stage, w] of [[1, W], [2, undefined]] as const) {
+      const g = mk(stage, w as never)
+      expect(sceneOptions(g.k, g.state)!.inserted).toEqual([])
+      const [x] = act(g, { kind: 'dominate' })
+      expect(beatsOf(x!, 'scene.override')).toEqual([])
+    }
+    const zero = mk(2, { ...W, replace_chance: 0 })
+    expect(sceneOptions(zero.k, zero.state)!.inserted).toHaveLength(1)
+    expect(beatsOf(act(zero, { kind: 'dominate' })[0]!, 'scene.override')).toEqual([])
+  })
+
+  it('自由行動的視窗（核心的 action.window）：擴散階段插牠給的那一句、機率 1 就換成那一句（pending.replaced）；只對自由行動；whisper 格式不對載入時擋下', () => {
+    const KISS: Feature = { id: 'kiss_stub', install: (k: Kernel) => k.conditions.register({ kind: 'malware', owner: 'kiss_stub', validate: () => [], test: (c) => (c as { stage?: number }).stage === 2 }) }
+    const AI = (whisper: Record<string, unknown>): ContentPack => ({ id: 'ai', content: { rogue_ai: [{ id: 'ai_mommy', name: '媽咪', filter: 'ai:媽咪', kiss: 'fw_kiss', lore: { origin: 'a', want: 'b', ties: 'c', home: 'd' }, whisper }] } as never })
+    const g = game({ features: [lureFeature, KISS], content: [AI({ label: '順著牠說', free: '好吧', replace_chance: 1, why: '嘴先開了口。' })] })
+    const FREE = { kind: 'free', text: '我想拒絕' } as const
+    const win = actionWindow(g.k, g.state, FREE)
+    expect(win.options).toEqual([{ id: 'lure:ai_mommy', label: '順著牠說', input: { kind: 'free', text: '好吧' }, owner: 'lure' }])
+    expect(win.replace).toMatchObject({ input: { kind: 'free', text: '好吧' }, why: '嘴先開了口。', owner: 'lure' })
+    expect(prepareAction(g.k, g.state, FREE).replaced).toEqual({ from: FREE, why: '嘴先開了口。', owner: 'lure' })
+    expect(actionWindow(g.k, g.state, { kind: 'talk' }).options).toEqual([])
+    const sceneOnly = game({ features: [lureFeature, KISS], content: [AI({ label: '聽牠的', scene: { kind: 'tease' } })] })
+    expect(actionWindow(sceneOnly.k, sceneOnly.state, FREE)).toEqual({ options: [] })
+    for (const bad of [{ label: '牠', free: '好', scene: { kind: 'stop' } }, { label: '牠' }, { free: '好' }, { label: '牠', free: '好', replace_chance: 2 }, { label: '牠', free: '好', nope: 1 }]) {
+      expect(() => game({ content: [AI(bad)], features: [lureFeature] })).toThrow(/whisper/)
+    }
+  })
+})
+
+describe('第 17 項：開場摘要、略過、座位為鍵的畫面資料、指定對象', () => {
+  it('sceneCanSkip：沒有場景有原因；還沒做任何行動是 null；做了一步之後是「只能按停下」（sceneSkip 用的就是它）', () => {
+    const g = game()
+    expect(sceneCanSkip(g.state)).toContain('沒有進行中的成人場景')
+    begin(g, setup(['npc_ann']))
+    expect(sceneCanSkip(g.state)).toBeNull()
+    act(g, { kind: 'talk', pick: parts('mouth', 'mouth') }, { dice: dice(13) })
+    expect(sceneCanSkip(g.state)).toContain('只能按「停下」')
+    expect(blocked(() => sceneSkip(g.k, g.state))).toBe(sceneCanSkip(g.state))
+  })
+
+  it('sceneSetupOf 與 sceneGateSummary：由場景的狀態還原開場的設定與摘要，和一開始照設定問的一樣；沒有場景是 null', () => {
+    const g = game()
+    expect(sceneGateSummary(g.k, g.state)).toBeNull()
+    const s = { circles: [['pc', 'npc_ann', 'npc_bo'], ['npc_cy']], nature: 'trade', role: 'guest', place: '房間', goal: 'info', mode: 'full' }
+    const asked = startProblems(g.k, g.state, s).summary!
+    begin(g, s)
+    const sum = sceneGateSummary(g.k, g.state)!
+    expect(sum).toEqual(asked)
+    expect(sum.kind).toBe('group')
+    expect(sum.with.map((x) => x.id)).toEqual(['npc_ann', 'npc_bo'])
+    expect(sum.circles!.flat().map((x) => x.id)).toEqual(['npc_cy'])
+    expect(sceneSetupOf(raw(g))).toMatchObject({ nature: 'trade', role: 'guest', goal: 'info', place: '房間', mode: 'full', layer: 'meat' })
+    expect(raw(g).step).toBe(0)
+  })
+
+  it('SceneView：people 拿掉、seats 就是座位；position.mult 與 roles 的鍵是每個座位的角色 id；lines 的 who 是角色 id（多人也是）', () => {
+    const g = trio()
+    act(g, { kind: 'talk', target: 'npc_bo', pick: parts('mouth', 'mouth') }, { dice: dice(13) })
+    const v = sceneView(g.k, g.state)!
+    expect(v).not.toHaveProperty('people')
+    expect(v.seats.map((x) => x.id)).toEqual(['pc', 'npc_ann', 'npc_bo'])
+    expect(v.position.mult).toEqual({ pc: 1, npc_ann: 1.5, npc_bo: 1 })
+    expect(v.position.roles).toEqual({ pc: 'a', npc_ann: 'b', npc_bo: 'c' })
+    handOver(g)
+    g.commit(sceneNext(g.k, g.state))
+    const who = new Set(sceneView(g.k, g.state)!.lines.map((l) => l.who))
+    expect([...who].every((id) => ['pc', 'npc_ann', 'npc_bo'].includes(id))).toBe(true)
+    expect(who.has('npc_ann') || who.has('npc_bo')).toBe(true)
+  })
+
+  it('sceneOptions 收指定對象：多人時預覽照他算（對安的感載比對波多：敏感度 100 對 60）；沒指定與指到不在圈裡的人照舊', () => {
+    const g = trio()
+    const def = sceneOptions(g.k, g.state)!
+    const toAnn = sceneOptions(g.k, g.state, { target: 'npc_ann' })!
+    const toBo = sceneOptions(g.k, g.state, { target: 'npc_bo' })!
+    const reach = (o: typeof def) => o.actions.find((a) => a.id === 'skill')!.choices!.find((c) => c.id === 'nt_reach')!.preview
+    expect(reach(toAnn)).not.toEqual(reach(toBo))
+    expect(reach(toAnn).target_load!.avg).toBeGreaterThan(reach(toBo).target_load!.avg)
+    expect(JSON.stringify(sceneOptions(g.k, g.state, { target: 'npc_cy' }))).toBe(JSON.stringify(def))
+    expect(JSON.stringify(sceneOptions(g.k, g.state, {}))).toBe(JSON.stringify(def))
   })
 })

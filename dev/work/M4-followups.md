@@ -196,3 +196,9 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - netrun 開一個入口讓別的功能要求以 `done` 收掉這一趟（例：掛點 `netrun.finish_request`），curtain 場熱到 0 時自動落幕，拿掉 `run.cut` 的擋法。
 - enemies 的 `enemy_pick` 收 `culture` 欄位、netrun 讓單位來源可換：curtain 拿掉自己的 `curtain_pick` 與複製的 `netCapable`，遭遇恢復「潛行繞過」。
 - 加演 ENEMIES 的點數 ×1.75／×3。
+
+## 總指揮補記（2026-11-25，M4-core-gaps 回報）
+- drugs 讀狀態 `pump_jam`：斷藥時戰鬥藥的效果也暫停。
+- ui 列出 `SceneOptions.inserted`（視窗插進來的選項，妖精的吻等）。
+- 介面破壞性改動已由 core-gaps 改完：`traceChanges` 多 `state`、`SceneEnv.talk` 每人一份、`SceneView.people` 拿掉、`PHYSICAL_SKILLS` 換 `PHYSICAL_ATTRS`、`foe_sunk` 掛在 `battle.end`。
+- **這一張不碰 features/curtain**：簾口位置、netrun 的 `layer_counts`、提早落幕入口、`enemy_pick` 的 culture、加演點數，改由 M4-curtain-fall 一起做（netrun、enemies 那兩處小改也歸它）。

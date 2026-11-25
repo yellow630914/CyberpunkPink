@@ -44,3 +44,6 @@ M4-curtain-run、M4-scene-close。
 ## 完成時回報
 
 改了哪些檔、測試結果、`defeat` 加了什麼、簽檔期「四成」是怎麼套在結算上的、8.8 節「預定要寫的」五件戰敗事件各自要的效果引擎都有沒有（缺的列出來）。
+
+## 總指揮補記（2026-11-25）
+- 一起做 M4-followups 裡「M4-curtain-entry 回報」與「M4-curtain-run 回報」兩段（簾口位置與面談時間；netrun 的 `setup.layer_counts`、讓別的功能要求以 done 收掉一趟的入口；enemies 的 `enemy_pick` 收 culture、netrun 單位來源可換；加演點數 ×1.75／×3）。可以改 features/netrun 與 features/enemies 的這幾處。
