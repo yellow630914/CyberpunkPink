@@ -17,6 +17,8 @@ const ACTION_SCRIPTS = 'deck.scripts'
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V']
 const roman = (g: number): string => ROMAN[g] ?? String(g)
+/** 腦部的義體才是甲板的來源（有人掛 deck.source 時）：背包裡的甲板不能直接裝上。 */
+export const IMPLANT_ONLY = '甲板是腦部的義體，要動手術才裝得上。'
 const nameOf = (state: GameState, actor: string): string => state.actors[actor]?.name ?? actor
 
 const draftOf = (state: GameState, actor: string, action: string, changes: Change[], summary: string, extra: TimelineBeat[] = []): ReportDraft => ({
@@ -52,6 +54,7 @@ const noActor = (state: GameState, actor: string): string | null => (state.actor
 export function equipBlock(k: Kernel, state: GameState, actor: string, uid: string | null): string | null {
   const bad = noActor(state, actor)
   if (bad) return bad
+  if (k.hooks.owners('deck.source').length > 0) return IMPLANT_ONLY
   const doing = activityBlock(k, state, '換甲板', `commit:${ACTION_EQUIP}`)
   if (doing) return doing
   const ext0 = extOf(state, actor)

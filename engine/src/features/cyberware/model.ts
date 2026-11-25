@@ -88,6 +88,8 @@ export interface CyberRules {
   bridge_swap_sink: { amount: number; days: number }
   /** 橋的容量每一類最少多少（CYBERWARE 7.1 節） */
   cap_min: number
+  /** 內容種類 deck 的成品裝進腦部時的沉溺成本，那一筆沒寫 sink_cost 時用（CYBERWARE 第 2 節「侵入：甲板 5～8」；P51） */
+  deck_sink_default: number
 }
 
 export const DEFAULT_CYBER_RULES: CyberRules = {
@@ -110,6 +112,7 @@ export const DEFAULT_CYBER_RULES: CyberRules = {
   bridge_recovery_minutes: 4320,
   bridge_swap_sink: { amount: 5, days: 7 },
   cap_min: 8,
+  deck_sink_default: 6,
 }
 
 const INV_IDS = ['surface', 'light', 'invasive', 'heavy', 'extreme']
@@ -156,6 +159,7 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
   if (e.bridge_recovery_minutes !== undefined && !(isSafeInt(e.bridge_recovery_minutes) && e.bridge_recovery_minutes >= 0 && e.bridge_recovery_minutes <= 525_600)) p.push('bridge_recovery_minutes 要是 0～525600 的整數（分鐘）')
   if (e.bridge_swap_sink !== undefined && !swapSinkOk(e.bridge_swap_sink)) p.push('bridge_swap_sink 要是 { amount: 0～100 的整數, days: 1～365 的整數 }')
   if (e.cap_min !== undefined && !(isSafeInt(e.cap_min) && e.cap_min >= 0 && e.cap_min <= 64)) p.push('cap_min 要是 0～64 的整數')
+  if (e.deck_sink_default !== undefined && !(isSafeInt(e.deck_sink_default) && e.deck_sink_default >= 0 && e.deck_sink_default <= 100)) p.push('deck_sink_default 要是 0～100 的整數')
   return p
 }
 
@@ -190,6 +194,7 @@ export function cyberRules(k: Pick<Kernel, 'content'>): CyberRules {
   if (ok('bridge_recovery_minutes')) out.bridge_recovery_minutes = e.bridge_recovery_minutes as number
   if (ok('bridge_swap_sink')) out.bridge_swap_sink = { ...(e.bridge_swap_sink as { amount: number; days: number }) }
   if (ok('cap_min')) out.cap_min = e.cap_min as number
+  if (ok('deck_sink_default')) out.deck_sink_default = e.deck_sink_default as number
   return out
 }
 
@@ -204,8 +209,13 @@ export interface CyberOff {
 
 /** 身上的一件義體（actor.ext.cyber.pieces 的一筆）。 */
 export interface CyberPiece extends ProductData {
-  /** 設計圖的 id */
+  /** 設計圖的 id；kind_of 是 deck 時是內容種類 deck 的 id */
   bp: string
+  /**
+   * bp 指的是什麼（M4-cyber-deck）：blueprint 是設計圖（一般的義體，包括設計圖帶 deck 欄位的甲板）；deck 是內容種類 deck 的成品甲板（沒有零件，數字照那一筆）。
+   * 讀進來時沒寫的當 blueprint。
+   */
+  kind_of?: 'deck' | 'blueprint'
   /** 裝在哪個部位 */
   slot: PartId
   /** 裝上時算定的沉溺成本（休養中、不生效的也照算） */
@@ -224,7 +234,7 @@ function readPiece(raw: unknown): CyberPiece | null {
   if (!isRecord(raw) || !isText(raw.bp) || !isPartId(raw.slot) || !isText(raw.uid)) return null
   const piece: CyberPiece = {
     ...readProduct(raw),
-    uid: raw.uid, bp: raw.bp, slot: raw.slot,
+    uid: raw.uid, bp: raw.bp, kind_of: raw.kind_of === 'deck' ? 'deck' : 'blueprint', slot: raw.slot,
     sink: isSafeInt(raw.sink) && raw.sink >= 0 ? raw.sink : 0,
     at: isSafeInt(raw.at) ? raw.at : 0,
   }

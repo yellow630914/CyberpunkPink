@@ -3,9 +3,10 @@
 
 import type { Change, ContentEntry, GameState, Kernel, ReportDraft } from '../../core'
 import { ActionBlocked, clone, findByUid, formatAmount, isRecord } from '../../core'
+import type { BlueprintEntry, ProductData } from '../../core'
 import type { Pay, Quote, ShopEntry, ShopTypeEntry, TradeItem } from './model'
 import {
-  PAYS, PAY_NAME, closedToday, decayMult, hostilityOf, identityClass, intakeCount, itemOf, matches, plainCount, priced, quote, shopEntry, shopTypeOf, soldToday, stockOf,
+  PAYS, PAY_NAME, closedToday, decayMult, goodsOf, hostilityOf, identityClass, intakeCount, isProductId, itemOf, matches, plainCount, priced, quote, shopEntry, shopTypeOf, soldToday, stockOf,
   tradeCategoryOf, tradeChange, tradeOf, tradeRules, wornCount, wornUid,
 } from './model'
 
@@ -106,10 +107,10 @@ export function sellBlock(k: Kernel, state: GameState, shop: string | ShopEntry,
   if (!type) return `這間店的種類（${entry.type}）查不到。`
   const shut = shopBlock(k, state, entry)
   if (shut) return shut
-  const it = itemOf(k, item)
+  const it = goodsOf(k, state, item, 'sell', uid)
   if (!it) return `沒有 ${item} 這樣東西。`
   if (!priced(it)) return `${it.name}沒有定價，店不收。`
-  if (it.no_sell === true) return `${it.name}不能賣。`
+  if (it.no_sell === true) return it.trade_category === 'bio' ? `${it.name}是活的生體件，一般的店不收。` : `${it.name}不能賣。`
   if (!matches(it, type.buys)) return `這種店（${type.name}）不收${it.name}這一類的東西。`
   // 指名是哪一件（帶實例資料的）：只看那一疊；核心的 item 變更用 data.uid 拿走它
   if (uid !== undefined) {
@@ -176,16 +177,16 @@ function merge(lines: CartLine[] | undefined, problems: string[], sell = false):
  * 賣 qty 個：每一個的價錢（收購遞減：已經先賣掉 before 件同類別，每個再多一件）。第一個的拆解一起回傳。
  * 降到 decay_max 之後價錢不再變，後面的直接沿用，不一個一個重算（qty 很大時省時間）。
  */
-export function sellPrices(k: Kernel, state: GameState, shop: ShopEntry, item: string, qty: number, before = 0): { first: Quote; prices: number[] } {
+export function sellPrices(k: Kernel, state: GameState, shop: ShopEntry, item: string, qty: number, before = 0, uid?: string): { first: Quote; prices: number[] } {
   const rules = tradeRules(k)
   let floor = 0
   while (floor < 10_000 && decayMult(rules, floor) > decayMult(rules, floor + 1)) floor++
-  const base = intakeCount(k, state, shop.id, tradeCategoryOf(k, itemOf(k, item)!))
-  const first = quote(k, state, shop, item, 'sell', { taken: before })
+  const base = intakeCount(k, state, shop.id, tradeCategoryOf(k, goodsOf(k, state, item, 'sell', uid)!))
+  const first = quote(k, state, shop, item, 'sell', { taken: before, ...(uid !== undefined ? { uid } : {}) })
   const prices = [first.price]
   for (let i = 1; i < qty; i++) {
     if (base + before + i - 1 >= floor) prices.push(prices[i - 1]!)
-    else prices.push(quote(k, state, shop, item, 'sell', { taken: before + i }).price)
+    else prices.push(quote(k, state, shop, item, 'sell', { taken: before + i, ...(uid !== undefined ? { uid } : {}) }).price)
   }
   return { first, prices }
 }
@@ -221,8 +222,8 @@ export function planCheckout(k: Kernel, state: GameState, shop: string | ShopEnt
   for (const l of sell) {
     const why = sellBlock(k, state, entry, l.item, l.qty, l.uid)
     if (why) { plan.problems.push(why); continue }
-    const cat = tradeCategoryOf(k, itemOf(k, l.item)!)
-    const { first, prices } = sellPrices(k, state, entry, l.item, l.qty, taken[cat] ?? 0)
+    const cat = tradeCategoryOf(k, goodsOf(k, state, l.item, 'sell', l.uid)!)
+    const { first, prices } = sellPrices(k, state, entry, l.item, l.qty, taken[cat] ?? 0, l.uid)
     taken[cat] = (taken[cat] ?? 0) + l.qty
     plan.sell.push({ item: l.item, ...(l.uid !== undefined ? { uid: l.uid } : {}), name: itemName(k, l.item), qty: l.qty, unit: first.price, total: prices.reduce((n, x) => n + x, 0), prices, quote: first })
   }
@@ -248,7 +249,20 @@ export function checkout(k: Kernel, state: GameState, shop: string | ShopEntry, 
   const pay = cart.pay
   const changes: Change[] = []
   for (const l of plan.sell) changes.push({ op: 'item', id: l.item, qty: -l.qty, ...(l.uid !== undefined ? { data: { uid: l.uid } } : {}) })
-  for (const l of plan.buy) changes.push({ op: 'item', id: l.item, qty: l.qty })
+  // 買到的：一般的東西疊在一起；組好的成品（貨架上的設計圖加原廠組合）一件一疊，各帶完整的 ProductData 與自己的 uid（核心的流水號 pr<N>）
+  let minted = 0
+  for (const l of plan.buy) {
+    const bp = isProductId(k, l.item) ? k.content.get<BlueprintEntry>('blueprint', l.item) : undefined
+    if (!bp) {
+      changes.push({ op: 'item', id: l.item, qty: l.qty })
+      continue
+    }
+    for (let i = 0; i < l.qty; i++) {
+      const data: ProductData = { uid: `pr${state.seq.uid + 1 + minted++}`, parts: clone(bp.stock ?? {}), quality: 'standard', state: 'new' }
+      changes.push({ op: 'item', id: l.item, qty: 1, data: data as unknown as Record<string, unknown> })
+    }
+  }
+  if (minted > 0) changes.push({ op: 'uid', advance: minted })
   if (plan.net !== 0) changes.push({ op: pay, delta: -plan.net })
 
   // 狀態：今天賣掉的數量、收購遞減的累計件數；過期的紀錄順手清掉（寫回的方式見 tradeChange，殺價與被趕出去的紀錄原樣帶著）
@@ -261,7 +275,7 @@ export function checkout(k: Kernel, state: GameState, shop: string | ShopEntry, 
   }
   const byCategory: Record<string, number> = {}
   for (const l of plan.sell) {
-    const cat = tradeCategoryOf(k, itemOf(k, l.item)!)
+    const cat = tradeCategoryOf(k, goodsOf(k, state, l.item, 'sell', l.uid)!)
     byCategory[cat] = (byCategory[cat] ?? 0) + l.qty
   }
   for (const [cat, n] of Object.entries(byCategory)) (trade.intake[entry.id] ??= {})[cat] = { n: intakeCount(k, state, entry.id, cat) + n, day }

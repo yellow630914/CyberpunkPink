@@ -4,8 +4,8 @@
 // （租來的甲板槽比較少、被招牌能力佔掉槽的時候都是這樣；裝著的清單本身不變，槽回來了就又算進去）。
 
 import type { ContentEntry, GameState, ItemEntry, Kernel } from '../../core'
-import { countItem, findByUid } from '../../core'
-import type { ConstructEntry, DeckEntry, DeckRules, ScriptEntry } from './model'
+import { countItem, findByUid, isRecord } from '../../core'
+import type { ConstructEntry, DeckEntry, DeckRules, DeckSource, ScriptEntry } from './model'
 import { CONSTRUCT_KIND, DECK_KIND, SCRIPT_TAG, QUICKHACK_KIND, SKIN_KIND, deckRules, extOf } from './model'
 
 export type PieceKind = 'construct' | 'quickhack'
@@ -27,17 +27,17 @@ export interface Piece {
 }
 
 export interface RawDeck {
-  /** 租的還是自己的 */
-  source: 'rental' | 'own'
+  /** 租的、背包裡裝上的（M3；沒有人掛 deck.source 時才有）、還是腦部的義體（implant） */
+  source: 'rental' | 'own' | 'implant'
   entry: DeckEntry
-  /** 自己那一副在背包裡的編號（租的沒有） */
+  /** 自己那一副在背包裡的編號，或腦部那一件的編號（租的沒有） */
   uid?: string
 }
 
 export interface DeckInfo {
   /** 有沒有甲板 */
   has: boolean
-  source: 'rental' | 'own' | null
+  source: 'rental' | 'own' | 'implant' | null
   /** 甲板的內容 id（沒有甲板是 null） */
   deck: string | null
   name: string | null
@@ -67,13 +67,34 @@ export interface DeckInfo {
 
 const held = (state: GameState, id: string): boolean => countItem(state.inventory, id) >= 1
 
-/** 這個角色用的那一副甲板的內容（還沒算槽數）。租來的蓋過自己的；租的內容查不到就當沒有租；自己那一副要背包裡真的有。 */
-export function rawDeck(k: Pick<Kernel, 'content'>, state: GameState, actor: string): RawDeck | null {
+const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0)
+
+/** 掛點 deck.source 的第一個回答，整理成一筆 DeckEntry 的樣子（資料壞掉的欄位當 0）；沒有回答、或不像一副甲板是 null。 */
+function implantOf(k: Pick<Kernel, 'hooks'>, state: GameState, actor: string): { entry: DeckEntry; uid: string; ready: boolean } | null {
+  const first = k.hooks.run('deck.source', { state, actor })[0]?.result as DeckSource | undefined
+  if (!isRecord(first) || typeof first.uid !== 'string' || !first.uid || typeof first.name !== 'string') return null
+  const ram = isRecord(first.ram) ? { ...(num(first.ram.max) ? { max: num(first.ram.max) } : {}), ...(num(first.ram.regen) ? { regen: num(first.ram.regen) } : {}) } : {}
+  const entry: DeckEntry = {
+    id: typeof first.id === 'string' && first.id ? first.id : first.uid, name: first.name, desc: '', grade: num(first.grade), slots: num(first.slots), firewall: num(first.firewall),
+    ...(Object.keys(ram).length ? { ram } : {}), ...(num(first.cooling) ? { cooling: num(first.cooling) } : {}), legal: 'free',
+  }
+  return { entry, uid: first.uid, ready: first.ready === true }
+}
+
+/**
+ * 這個角色用的那一副甲板的內容（還沒算槽數）。順序：租來的 → 腦部的義體（掛點 deck.source 的回答）→ 背包裡 ext.deck.uid 那一副（M3；只在沒有人掛 deck.source 時，
+ * 留給不裝義體功能的局）。租的內容查不到就當沒有租；背包裡那一副要真的在背包裡；腦部的義體還在休養（ready 是 false）就當沒有甲板，不退到背包那一副。
+ */
+export function rawDeck(k: Pick<Kernel, 'content' | 'hooks'>, state: GameState, actor: string): RawDeck | null {
   if (!state.actors[actor]) return null
   const ext = extOf(state, actor)
   if (ext.rental) {
     const entry = k.content.get<DeckEntry>(DECK_KIND, ext.rental.deck)
     if (entry) return { source: 'rental', entry }
+  }
+  if (k.hooks.owners('deck.source').length > 0) {
+    const implant = implantOf(k, state, actor)
+    return implant && implant.ready ? { source: 'implant', entry: implant.entry, uid: implant.uid } : null
   }
   if (ext.uid !== undefined) {
     const stack = state.inventory.find((s) => s.data?.uid === ext.uid && k.content.has(DECK_KIND, s.id))

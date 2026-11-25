@@ -9,18 +9,20 @@
 //   數值  surgery_sink_pct（動刀的人讓沉溺成本加減百分之幾；基礎 0、夾在 −25～0；別的功能用 provider 或被動效果加）
 //   被動  k.passives.register 來源 cyber（沉溺下限＋生效義體的 effects 與板材護甲）、quirk（身上義體帶著的怪癖的 effects）
 //   條件  cyber { slot?, bp?, tag?, min? }（身上有幾件符合的，預設至少 1）；用到別人登記的：at_facility（站在哪種診所）、at_home（住處）、ability（自己動刀；沒有人登記就沒有自己動刀）
-//   掛點  scene.body（features/scene 宣告）：現實層回答好了的義體的 scene_parts
+//   掛點  scene.body（features/scene 宣告）：現實層回答好了的義體的 scene_parts；
+//         deck.source（features/deck 宣告）：回答腦部那一件甲板的數字（deck.ts；設計圖帶 deck 欄位的，或內容種類 deck 的成品；kind_of: 'deck'）
 //   狀態  actor.ext.cyber：{ pieces: CyberPiece[] }（形狀見 model.ts；只經由報告裡的 actor.ext 變更寫）；休養中掛角色狀況 recovering
 //         橋（bridge.ts）：衍生數值 bridge_cap_meat／net／social／media（晶片給總量、軟體分四類、加零件的親和；沒有橋是 0；abilities 讀它們）；
-//         規則表多 bridge_fee_mult、bridge_recovery_minutes、bridge_swap_sink、cap_min；換橋用效果 sink_floor（有人註冊才給）。
+//         規則表多 deck_sink_default（成品甲板裝進腦部的沉溺成本，6）、bridge_fee_mult、bridge_recovery_minutes、bridge_swap_sink、cap_min；換橋用效果 sink_floor（有人註冊才給）。
 // 報告（kind action）：cyber.install、cyber.remove、cyber.bridge。
 // 對外：cyberOf、pieceSink、surgeons、swapBridgeBlock／swapBridgeProblems／swapBridgeDraft／bridgeQuote／bridgeCapacityOf／isBridge、installBlock／installProblems／installDraft／installQuote、removeBlock／removeProblems／removeDraft／removeQuote、cyberView。
 
 import type { Condition, ConditionCtx, ContentEntry, Feature, GameState, Kernel } from '../../core'
 import { ContentError, isRecord, isSafeInt } from '../../core'
 import {
-  CLINIC_GRADES, FACILITY_TYPE_KIND, OWNER, PART_IDS, RULE_KIND, baseSlot, blueprintEntry, cyberOf, ruleProblems,
+  CLINIC_GRADES, FACILITY_TYPE_KIND, OWNER, PART_IDS, RULE_KIND, baseSlot, cyberOf, ruleProblems,
 } from './model'
+import { deckSourceOf, pieceBlueprint } from './deck'
 import { BRIDGE_CATS, bridgeCapacityOf, capStatId } from './bridge'
 import { cyberPassives, quirkPassives, sceneBody } from './passive'
 import { SURGERY_STAT } from './surgery'
@@ -38,6 +40,8 @@ export type { BridgeCapacity, BridgeCat, BridgeOpts, BridgeQuote, CapacityPart }
 export { cyberView, viewPiece } from './view'
 export type { CyberView, PieceStatus, ViewPart, ViewPiece } from './view'
 export { sceneBody } from './passive'
+export { DECK_FULL, brainDeck, deckSourceOf, isDeckPiece } from './deck'
+export type { DeckSourceAnswer } from './deck'
 
 const CAT_NAME = { meat: '現實', net: '內海', social: '社交', media: '媒體' } as const
 type CyberCondition = Condition & { slot?: string; bp?: string; tag?: string; min?: number }
@@ -83,7 +87,7 @@ export const cyberwareFeature: Feature = {
           if (c.slot !== undefined && piece.slot !== c.slot && baseSlot(piece.slot) !== c.slot) return false
           if (c.bp !== undefined && piece.bp !== c.bp) return false
           if (c.tag !== undefined) {
-            const tags = (blueprintEntry(k, piece.bp) as { tags?: unknown } | undefined)?.tags
+            const tags = (pieceBlueprint(k, piece) as { tags?: unknown } | undefined)?.tags
             if (!Array.isArray(tags) || !tags.includes(c.tag)) return false
           }
           return true
@@ -94,6 +98,8 @@ export const cyberwareFeature: Feature = {
 
     // 場景問身體：只在現實層回答（內海用的是化身）
     const on = k.hooks.on.bind(k.hooks) as unknown as AnyHook
+    // 甲板是腦部的義體（M4-cyber-deck）：回答腦裡那一件的數字；有人掛這個掛點，features/deck 就不再看背包裡的甲板
+    on('deck.source', OWNER, (({ state, actor }: { state: GameState; actor: string }) => deckSourceOf(k, state, actor)) as never)
     on('scene.body', OWNER, (({ state, actor, layer }: { state: GameState; actor: string; layer: string }) => sceneBody(k, state, actor, layer)) as never)
   },
 

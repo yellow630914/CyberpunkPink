@@ -1,6 +1,7 @@
 // L6 功能：甲板、構裝、SKIN、腳本（工單 M3-deck；dev/adr/0018 第三節）。
-// 甲板在 M3 是一件成品（內容種類 deck：等級、構裝槽、防火牆、RAM 的加值、散熱）：背包裡有那一副才裝得上、裝上不經手術；M4 義體接上之後，
-// 甲板變成腦部的義體，deckOf 的來源（state.ts 的 rawDeck）與裝卸（ops.ts 的 equipDraft）換掉，其餘不動。
+// 甲板在 M3 是一件成品（內容種類 deck：等級、構裝槽、防火牆、RAM 的加值、散熱、選填的 sink_cost 與 invasiveness）：背包裡有那一副才裝得上、裝上不經手術。
+// M4-cyber-deck：甲板是腦部的義體。宣告掛點 deck.source（features/cyberware 回答腦裡那一件的數字）；有人掛它時，deckOf 的來源是 租來的 → 掛點的回答（source: implant）
+// （沒有背包那一條路），equipDraft 一律回「甲板是腦部的義體，要動手術才裝得上。」、deckView 不再列背包裡的甲板；沒有人掛時行為和 M3 一樣。
 //
 // 接上核心的地方：
 //   內容   deck、construct、skin、deck_rule（id: default，規則的數字：構裝等級的加值、腳本的上限、換一件幾分鐘、RAM 回復的基本值；可以被後載入的包取代）
@@ -20,9 +21,9 @@ import { installKinds } from './kinds'
 import { OWNER } from './model'
 import { installStats } from './stats'
 
-export { equipBlock, equipDraft, installBlock, installDraft, removeBlock, removeDraft, scriptsBlock, scriptsDraft, skinBlock, skinDraft } from './ops'
+export { IMPLANT_ONLY, equipBlock, equipDraft, installBlock, installDraft, removeBlock, removeDraft, scriptsBlock, scriptsDraft, skinBlock, skinDraft } from './ops'
 export { DEFAULT_DECK_RULES, deckRules, extOf as deckExtOf } from './model'
-export type { ConstructEntry, DeckEntry, DeckExt, DeckRules, ScriptEntry, SkinEntry } from './model'
+export type { ConstructEntry, DeckEntry, DeckExt, DeckRules, DeckSource, ScriptEntry, SkinEntry } from './model'
 export { deckOf, pieceKind } from './state'
 export type { DeckInfo, Piece, PieceKind } from './state'
 export { deckView } from './view'

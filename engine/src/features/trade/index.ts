@@ -5,6 +5,9 @@
 // 買到的東西真的進引擎的背包。
 // 區與區的行情、貨物、收購遞減、殺價（TRADE 3.2、4.1～4.3、第 5 節；dev/work/M2-market.md）：行情是區的資料 district.market、貿易類別沒寫的照物品推；
 // 貨物收購 90%；同一間店同一個類別每多收一件 −3%（最多 −50%、每天回復 5 件）；殺價是主動行動 bargain（資料寫 owner: 'trade'）。
+// 組裝的成品（M4-craft）：背包裡 id 是設計圖、data 是核心 ProductData 的一疊，在這裡當成一個物品看（model.ts 的 productItem）：店買進時照零件的目錄價合計
+// （TRADE 8.3 節：收購成品時只算零件，不算組裝的那兩成與型係數；二手、品質照核心的係數）乘收購比例等一串倍率，賣的時候要指名 uid；全生體的成品不收；
+// 貨架上可以固定放成品（shop.fixed_products：設計圖加它的原廠組合，標價是核心的 productPrice），買到的那一疊帶完整的 ProductData 與自己的 uid（pr<流水號>）。
 // 這個功能不做：AI 的當日優惠、二手與同人與鑑定、服務（3.4）、以物易物、黑市的進出與收贓、洗錢、區域狀態與長期折扣（倍率留一步是 1）、挑毛病（M2 沒有二手件）、殺價的出價。
 //
 // 接上核心的地方：
@@ -24,7 +27,7 @@ import { ContentError, isRecord } from '../../core'
 import { registerBargainEffect, registerBargainKind } from './bargain'
 import { shopBlock } from './checkout'
 import type { ShopEntry, ShopTypeEntry, TradeItem } from './model'
-import { OWNER, RULE_KIND, SHOP_KIND, SHOP_TYPE_KIND, ruleProblems, shopProblems, shopTypeProblems, tradeRules } from './model'
+import { OWNER, RULE_KIND, SHOP_KIND, SHOP_TYPE_KIND, productItem, ruleProblems, shopProblems, shopTypeProblems, tradeRules } from './model'
 
 export {
   BARGAIN_EFFECT, BARGAIN_KIND, BARGAIN_METHODS, METHOD_IDS, bargainBlock, bargainByFavor, bargainDc, bargainInput, bargainOutcome, bargainView, routesHint, temperOf,
@@ -34,7 +37,7 @@ export { buyBlock, checkout, payBlock, planCheckout, refuseReason, sellBlock, se
 export type { Cart, CartLine, CheckoutPlan, PricedLine } from './checkout'
 export {
   DEFAULT_TRADE_CATEGORIES, DEFAULT_TRADE_RULES, PAY_NAME, bargainToday, candidatesOf, categoryMult, categoryName, clampMarket, closedToday, decayMult, discountOf, favorDiscount,
-  hostilityMarkup, intakeCount, isCargo, marketMult, marketOf, matches, plainCount, quote, round, soldToday, stockOf, tradeCategoryOf, tradeOf, tradeRules, wornCount,
+  goodsOf, hostilityMarkup, intakeCount, isCargo, isProductId, marketMult, marketOf, matches, plainCount, productItem, productSellBase, quote, round, soldToday, stockOf, tradeCategoryOf, tradeOf, tradeRules, wornCount,
 } from './model'
 export type { BargainRec, Discount, Intake, Pay, Quote, QuoteOpts, QuoteStep, ShopEntry, ShopTypeEntry, StockRow, TradeItem, TradeRules, TradeState } from './model'
 export { shopView } from './view'
@@ -59,6 +62,7 @@ export const tradeFeature: Feature = {
         ...(e.owner !== undefined ? [['npc', e.owner] as [string, string]] : []),
         ...(e.backer !== undefined ? [['faction', e.backer] as [string, string]] : []),
         ...(e.fixed ?? []).map((i): [string, string] => ['item', i]),
+        ...(e.fixed_products ?? []).map((i): [string, string] => ['blueprint', i]),
       ],
     })
 
@@ -79,6 +83,12 @@ export const tradeFeature: Feature = {
       if (!b) continue
       if (b.district !== undefined && b.district !== s.district) problems.push(`shop/${s.id}：district 是 ${s.district}，可是街區 ${s.block} 在 ${String(b.district)}`)
       if (s.facility !== undefined && !(b.facilities && s.facility in b.facilities)) problems.push(`shop/${s.id}：街區 ${s.block} 沒有 ${s.facility} 這個設施`)
+    }
+    // 貨架上固定放的成品要有原廠組合（stock），不然定不了價（M4-craft）
+    for (const s of k.content.list<ShopEntry>(SHOP_KIND)) {
+      for (const id of s.fixed_products ?? []) {
+        if (k.content.has('blueprint', id) && !productItem(k, id)) problems.push(`shop/${s.id}：fixed_products 的設計圖 ${id} 沒有原廠組合（stock），定不了價`)
+      }
     }
 
     // 行情與貿易類別（M2-market）：區的 market 是 { 貿易類別: 倍率 }（倍率是正數；太大太小在報價時夾，不算錯）；物品寫的 trade_category 要查得到、cargo 是布林值

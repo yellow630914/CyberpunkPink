@@ -13,6 +13,7 @@ import { characterFeature } from './character'
 import { billsFeature } from './bills'
 import { combatFeature } from './combat'
 import { commissionFeature } from './commission'
+import { craftFeature } from './craft'
 import { creationFeature } from './creation'
 import { cyberwareFeature } from './cyberware'
 import { deckFeature } from './deck'
@@ -41,7 +42,7 @@ import { transitFeature } from './transit'
 import { workFeature } from './work'
 import { worldFeature } from './world'
 
-export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [combatFeature.id]: combatFeature, [gearFeature.id]: gearFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature, [exploreFeature.id]: exploreFeature, [netrunFeature.id]: netrunFeature, [summonsFeature.id]: summonsFeature, [abilitiesFeature.id]: abilitiesFeature, [cyberwareFeature.id]: cyberwareFeature, [deckFeature.id]: deckFeature, [netcombatFeature.id]: netcombatFeature, [hackFeature.id]: hackFeature, [favorsFeature.id]: favorsFeature, [worldFeature.id]: worldFeature, [transitFeature.id]: transitFeature, [directorFeature.id]: directorFeature, [eventRunFeature.id]: eventRunFeature, [workFeature.id]: workFeature, [lewdFeature.id]: lewdFeature, [securityFeature.id]: securityFeature, [npcsFeature.id]: npcsFeature, [rosterFeature.id]: rosterFeature, [billsFeature.id]: billsFeature, [restFeature.id]: restFeature, [tradeFeature.id]: tradeFeature, [commissionFeature.id]: commissionFeature, [fixerFeature.id]: fixerFeature, [sceneFeature.id]: sceneFeature, [diveFeature.id]: diveFeature, [mazeFeature.id]: mazeFeature }
+export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [combatFeature.id]: combatFeature, [gearFeature.id]: gearFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature, [exploreFeature.id]: exploreFeature, [netrunFeature.id]: netrunFeature, [summonsFeature.id]: summonsFeature, [abilitiesFeature.id]: abilitiesFeature, [cyberwareFeature.id]: cyberwareFeature, [deckFeature.id]: deckFeature, [netcombatFeature.id]: netcombatFeature, [hackFeature.id]: hackFeature, [favorsFeature.id]: favorsFeature, [worldFeature.id]: worldFeature, [transitFeature.id]: transitFeature, [directorFeature.id]: directorFeature, [eventRunFeature.id]: eventRunFeature, [workFeature.id]: workFeature, [lewdFeature.id]: lewdFeature, [securityFeature.id]: securityFeature, [npcsFeature.id]: npcsFeature, [rosterFeature.id]: rosterFeature, [billsFeature.id]: billsFeature, [restFeature.id]: restFeature, [tradeFeature.id]: tradeFeature, [commissionFeature.id]: commissionFeature, [fixerFeature.id]: fixerFeature, [sceneFeature.id]: sceneFeature, [diveFeature.id]: diveFeature, [mazeFeature.id]: mazeFeature, [craftFeature.id]: craftFeature }
 
 export function allFeatures(): Feature[] {
   return Object.values(FEATURES)

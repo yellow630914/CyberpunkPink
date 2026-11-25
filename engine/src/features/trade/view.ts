@@ -7,7 +7,7 @@ import type { BargainView } from './bargain'
 import { bargainView, temperOf } from './bargain'
 import { buyBlock, payBlock, sellBlock, sellPrices, shopBlock } from './checkout'
 import {
-  PAYS, categoryName, decayMult, discountOf, hostilityMarkup, hostilityOf, intakeCount, isCargo, itemOf, marketMult, marketOf, matches, plainCount, priced, quote, shopEntry, shopTypeOf, stockOf,
+  PAYS, categoryName, decayMult, discountOf, goodsOf, hostilityMarkup, hostilityOf, intakeCount, isCargo, itemOf, marketMult, marketOf, matches, plainCount, priced, quote, shopEntry, shopTypeOf, stockOf,
   tradeCategoryOf, tradeRules, wornCount,
 } from './model'
 
@@ -115,12 +115,12 @@ export function shopView(k: Kernel, state: GameState, shop: string | ShopEntry):
 
   const sell: SellRow[] = []
   const sellRow = (item: string, qty: number, uid?: string): SellRow | null => {
-    const it = itemOf(k, item)
+    const it = goodsOf(k, state, item, 'sell', uid)
     if (!priced(it) || !matches(it, type.buys)) return null
-    const q = quote(k, state, entry, item, 'sell')
+    const q = quote(k, state, entry, item, 'sell', uid !== undefined ? { uid } : {})
     const category = tradeCategoryOf(k, it)
     const taken = intakeCount(k, state, entry.id, category)
-    const { prices } = sellPrices(k, state, entry, item, Math.max(1, qty))
+    const { prices } = sellPrices(k, state, entry, item, Math.max(1, qty), 0, uid)
     return {
       item, ...(uid !== undefined ? { uid } : {}), name: it.name, tradeCategory: category, tradeCategoryName: categoryName(k, category), cargo: isCargo(it), qty, price: q.price, prices: qty > 0 ? prices : [],
       taken, decay: decayMult(rules, taken), quote: q, block: sellBlock(k, state, entry, item, 1, uid),

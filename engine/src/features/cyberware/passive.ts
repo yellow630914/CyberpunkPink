@@ -8,7 +8,8 @@
 import type { ActorId, GameState, Kernel, PassiveEffect } from '../../core'
 import { isRecord, partOf, productOf } from '../../core'
 import type { CyberPiece } from './model'
-import { blueprintEntry, cyberOf, isActive, nowOf } from './model'
+import { deckContentOf, pieceBlueprint } from './deck'
+import { cyberOf, isActive, nowOf } from './model'
 
 /** 場景的基本部位（features/scene 的 BASE_PARTS；功能之間不互相 import，這裡認同一份名字）：scene_parts 的 sensitivity 寫 all 時展開到這些加上義體多出來的。 */
 export const BASE_SCENE_PARTS = ['mouth', 'hand_l', 'hand_r', 'chest', 'front', 'back', 'legs'] as const
@@ -23,8 +24,8 @@ export function cyberPassives(k: Pick<Kernel, 'content'>, state: GameState, acto
   const now = nowOf(state)
   const out: PassiveEffect[] = []
   for (const piece of pieces) {
-    const bp = blueprintEntry(k, piece.bp)
-    const name = bp?.name ?? piece.bp
+    const bp = pieceBlueprint(k, piece)
+    const name = bp?.name ?? (piece.kind_of === 'deck' ? deckContentOf(k, piece.bp)?.name : undefined) ?? piece.bp
     if (piece.sink > 0) out.push({ stat: 'sink_floor', amount: piece.sink, label: name })
     if (!isActive(piece, now) || !bp) continue
     out.push(...effectsOf(bp.effects, name))
@@ -68,7 +69,7 @@ export function sceneBody(k: Pick<Kernel, 'content'>, state: GameState, actor: A
   if (layer !== 'meat') return undefined
   const found: Array<{ adds: string[]; sensitivity: Record<string, number> }> = []
   for (const piece of activePieces(state, actor)) {
-    const sp = blueprintEntry(k, piece.bp)?.scene_parts
+    const sp = pieceBlueprint(k, piece)?.scene_parts
     if (!isRecord(sp)) continue
     const adds = Array.isArray(sp.adds) ? sp.adds.filter((x): x is string => typeof x === 'string' && x.length > 0) : []
     const sens: Record<string, number> = {}

@@ -69,8 +69,9 @@ export function deckView(k: Kernel, state: GameState, actor: string): DeckView {
   }
   candidates.sort((a, b) => Number(a.block !== null) - Number(b.block !== null))
 
+  // 腦部是甲板的來源（有人掛 deck.source）時，背包裡的甲板不能直接裝上，不列
   const decks: DeckView['decks'] = []
-  for (const s of state.inventory) {
+  for (const s of k.hooks.owners('deck.source').length > 0 ? [] : state.inventory) {
     const uid = s.data?.uid
     const e = typeof uid === 'string' ? k.content.get<DeckEntry>(DECK_KIND, s.id) : undefined
     if (e && typeof uid === 'string') decks.push({ uid, item: s.id, name: e.name, grade: e.grade, slots: e.slots, firewall: e.firewall, current: deck.source === 'own' && deck.uid === uid, block: equipBlock(k, state, actor, uid) })

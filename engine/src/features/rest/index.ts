@@ -6,7 +6,7 @@
 // 接上核心的地方：
 //   內容  residence { id, name, district, block, facility?, level, rent, cash_ok?, start? }、rest_rule（id: default，蓋掉內建的規則數字）；
 //         設施的種類（world 的 facility_type）多讀一個欄位 sleep: { rate, cost }（載入之後 ready 檢查格式）
-//   條件  has_home、at_home、slept_within { hours }
+//   條件  has_home、at_home { level_min? }（住處的等級至少多少；M4-craft）、slept_within { hours }
 //   掛點  bill.collect（回房租這一項：order 1；收現金的住處 pay 是 either，只收現金是 cash）、bill.settled（房租沒付成就累計欠繳週數，欠到兩週門鎖被換掉，付清才開）：
 //         宣告在 features/bills，這裡只掛處理函式；rest.done：這個功能是發的人（用核心的 restDone）；game.new：內容裡有 start 的住處，主角一開始就租著它（不收押金）
 //   格子  usesOf：人站在自己住處的設施上列「睡一覺」「喘口氣」；站在有 sleep 的設施上列「睡一覺」
@@ -41,11 +41,13 @@ export const restFeature: Feature = {
 
     // ---- 條件 ----
     k.conditions.register<Condition>({ kind: 'has_home', owner: OWNER, validate: () => [], test: (_c, { state }: ConditionCtx) => !!homeOf(k, state) })
-    k.conditions.register<Condition>({
-      kind: 'at_home', owner: OWNER, validate: () => [],
-      test(_c, { state }: ConditionCtx) {
+    // at_home：人站在自己的住處；level_min（選填）是住處的等級至少多少（組裝要有工作台的二級以上；沒寫和以前一樣）
+    k.conditions.register<Condition & { level_min?: number }>({
+      kind: 'at_home', owner: OWNER,
+      validate: (raw) => (raw.level_min === undefined || (Number.isInteger(raw.level_min) && (raw.level_min as number) >= 0 && (raw.level_min as number) <= 3) ? [] : ['level_min 要是 0～3 的整數']),
+      test(c, { state }: ConditionCtx) {
         const h = homeOf(k, state)
-        return !!h && standingAt(state, h.residence)
+        return !!h && standingAt(state, h.residence) && (c.level_min === undefined || h.residence.level >= c.level_min)
       },
     })
     k.conditions.register<Condition & { hours: number }>({

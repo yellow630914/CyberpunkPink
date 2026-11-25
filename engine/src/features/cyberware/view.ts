@@ -4,7 +4,8 @@
 import type { ActorId, GameState, Kernel, PassiveEffect } from '../../core'
 import { productOf } from '../../core'
 import type { CyberOff, PartId } from './model'
-import { PART_IDS, PART_NAME, blueprintEntry, cyberOf, cyberRules, isReady, nowOf } from './model'
+import { deckContentOf, isDeckPiece, pieceBlueprint } from './deck'
+import { PART_IDS, PART_NAME, cyberOf, cyberRules, isReady, nowOf } from './model'
 import { quirkIdsOf } from './passive'
 
 /** 一件的狀態：ready 生效中、recovering 休養中、off 不生效（授權鎖、壞了……）。 */
@@ -23,6 +24,8 @@ export interface ViewPiece {
   ready_at?: number
   off?: CyberOff
   registered: boolean
+  /** 這一件是甲板（設計圖帶 deck 欄位，或內容種類 deck 的成品） */
+  deck?: boolean
   /** 全生體 */
   bio: boolean
   quality?: string
@@ -58,8 +61,9 @@ export interface CyberView {
 export function viewPiece(k: Kernel, state: GameState, actor: ActorId, uid: string): ViewPiece | undefined {
   const piece = cyberOf(state, actor).find((p) => p.uid === uid)
   if (!piece) return undefined
-  const bp = blueprintEntry(k, piece.bp)
-  const info = productOf(k.content, piece.bp, piece)
+  const bp = pieceBlueprint(k, piece)
+  const dk = piece.kind_of === 'deck' ? deckContentOf(k, piece.bp) : undefined
+  const info = piece.kind_of === 'deck' ? undefined : productOf(k.content, piece.bp, piece)
   const effects: PassiveEffect[] = []
   if (bp && Array.isArray(bp.effects)) effects.push(...(bp.effects as unknown as PassiveEffect[]).map((e) => ({ ...e })))
   for (const { part } of info?.parts ?? []) if (Array.isArray(part.effects)) effects.push(...(part.effects as unknown as PassiveEffect[]).map((e) => ({ ...e })))
@@ -71,10 +75,10 @@ export function viewPiece(k: Kernel, state: GameState, actor: ActorId, uid: stri
     return q ? [{ id, name: q.name ?? id }] : []
   })
   return {
-    uid: piece.uid, bp: piece.bp, name: bp?.name ?? piece.bp, grade: bp?.grade ?? 1, slot: piece.slot, sink: piece.sink,
+    uid: piece.uid, bp: piece.bp, name: bp?.name ?? dk?.name ?? piece.bp, grade: bp?.grade ?? dk?.grade ?? 1, slot: piece.slot, sink: piece.sink,
     status: piece.off ? 'off' : ready ? 'ready' : 'recovering',
     ...(piece.ready_at !== undefined && !ready ? { ready_at: piece.ready_at } : {}), ...(piece.off ? { off: { ...piece.off } } : {}),
-    registered: piece.registered === true, bio: info?.allBio === true, ...(piece.quality ? { quality: piece.quality } : {}), quirks, effects,
+    registered: piece.registered === true, ...(isDeckPiece(k, piece) ? { deck: true } : {}), bio: info?.allBio === true, ...(piece.quality ? { quality: piece.quality } : {}), quirks, effects,
   }
 }
 

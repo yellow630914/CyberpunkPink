@@ -4,7 +4,7 @@
 // actor.ext.deck 只經由核心的 actor.ext 變更寫；讀的時候壞掉的資料一律讀成沒有／空的，不丟錯。
 
 import type { ContentEntry, GameState, Kernel } from '../../core'
-import { LEGALITIES, MOD_KINDS, isRecord } from '../../core'
+import { INVASIVENESS, LEGALITIES, MOD_KINDS, isRecord } from '../../core'
 
 export const OWNER = 'deck'
 export const EXT = 'deck'
@@ -45,6 +45,33 @@ export interface DeckEntry extends ContentEntry {
   brand?: string
   legal: string
   price?: number
+  /** 裝進腦部時的沉溺成本（M4-cyber-deck；沒寫照規則表 cyber_rule 的 deck_sink_default，6）。features/cyberware 讀它，這裡只負責格式檢查 */
+  sink_cost?: number
+  /** 侵入度（沒寫是 invasive）：決定裝進腦部之後休養多久。features/cyberware 讀它 */
+  invasiveness?: string
+}
+
+/**
+ * 掛點 deck.source 的回答（M4-cyber-deck；dev/adr/0019 第三節）：這個人腦裡那一件甲板的數字。features/cyberware 回答，
+ * 這裡只認名字與格式（功能之間不互相 import）。ready 是 false（休養中）的回答當成沒有甲板。id 沒寫時用 uid。
+ */
+export interface DeckSource {
+  uid: string
+  id?: string
+  name: string
+  grade: number
+  slots: number
+  firewall: number
+  ram?: { max?: number; regen?: number }
+  cooling?: number
+  ready: boolean
+}
+
+declare module '../../core' {
+  interface HookMap {
+    /** 這個人腦裡裝著的甲板的數字（沒有就不回答）。有人掛這個掛點時，deck 的來源不再看背包（state.ts 的 rawDeck）。好幾個人回答時用第一個。 */
+    'deck.source': [{ state: GameState; actor: string }, DeckSource | void]
+  }
 }
 
 export interface ModEntry {
@@ -182,6 +209,8 @@ export function deckProblems(e: Record<string, unknown>): string[] {
   if (e.brand !== undefined && !isText(e.brand)) p.push('brand 要是字串')
   if (!(LEGALITIES as readonly unknown[]).includes(e.legal)) p.push(`legal 只能是 ${LEGALITIES.join('、')}`)
   if (e.price !== undefined && !(isInt(e.price) && e.price >= 0)) p.push('price 要是 0 以上的整數')
+  if (e.sink_cost !== undefined && !(isInt(e.sink_cost) && e.sink_cost >= 0 && e.sink_cost <= 100)) p.push('sink_cost（裝進腦部的沉溺成本）要是 0～100 的整數')
+  if (e.invasiveness !== undefined && !(INVASIVENESS as readonly unknown[]).includes(e.invasiveness)) p.push(`invasiveness（侵入度）只能是 ${INVASIVENESS.join('、')}`)
   return p
 }
 

@@ -12,6 +12,7 @@ import type { ActorId, BlueprintEntry, Change, CheckRoll, GameState, Kernel, Pro
 import {
   ActionBlocked, DEGREE_NAME, blueprintOf, checkParts, clone, dcFor, deriveRng, formatAmount, formatDuration, partOf, partTypeName, productOf, productPrice, readProduct, rollCheck, stackOf,
 } from '../../core'
+import { DECK_FULL, brainDeck, deckContentOf, isDeckPiece, netActivityBlock, pieceBlueprint } from './deck'
 import type { CyberPiece, CyberRules, PartId, Side, SurgeonKind } from './model'
 import {
   EXT, FACILITY_TYPE_KIND, PART_NAME, RECOVERING, SURGEON_NAME, cyberExtValue, cyberOf, cyberRules, hasBridge, isSurgeonKind, nowOf, partIdOf,
@@ -135,10 +136,18 @@ export function surgeons(k: Kernel, state: GameState, actor: ActorId, by: ActorI
  */
 export function pieceSink(k: Kernel, state: GameState, bpId: string, data: unknown, opts: { via: SurgeonKind; by?: ActorId }): number {
   const info = productOf(k.content, bpId, data)
-  if (!info || info.allBio) return 0
   const rules = cyberRules(k)
-  let base = (info.bp.sink_cost ?? 0) + (info.stats.sink ?? 0)
-  if (info.seams > 0) base = Math.floor(base * rules.mixed_sink_mult)
+  let base: number
+  if (info) {
+    if (info.allBio) return 0
+    base = (info.bp.sink_cost ?? 0) + (info.stats.sink ?? 0)
+    if (info.seams > 0) base = Math.floor(base * rules.mixed_sink_mult)
+  } else {
+    // 內容種類 deck 的成品甲板：沒有零件，成本是那一筆的 sink_cost，沒寫照規則表（P51）
+    const deck = deckContentOf(k, bpId)
+    if (!deck) return 0
+    base = deck.sink_cost ?? rules.deck_sink_default
+  }
   let pct = rules.surgeons[opts.via].sink_pct
   if ((opts.via === 'self' || opts.via === 'clinic') && opts.by && state.actors[opts.by] && k.stats.hasStat(SURGERY_STAT)) pct = Math.min(pct, k.stats.stat(state, opts.by, SURGERY_STAT))
   return Math.max(0, Math.round((base * (100 + pct)) / 100 + 1e-9))
@@ -242,26 +251,40 @@ function planInstall(k: Kernel, state: GameState, o: InstallOpts): InstallPlan {
   if (act) problems.push(act)
   const stack = stackOf(state, o.uid)
   if (!stack) return { problems: [...problems, '背包裡沒有這一件。'], quote: null }
-  const bp = blueprintOf(k.content, stack)
-  if (!bp) return { problems: [...problems, '這不是能裝的義體。'], quote: null }
-  if (bp.kind !== 'cyberware') return { problems: [...problems, `${bp.name}不是義體。`], quote: null }
-  const info = productOf(k.content, stack.id, stack.data)!
+  const found = blueprintOf(k.content, stack)
+  // 內容種類 deck 的成品甲板（M4-cyber-deck）：部位固定是腦，沒有零件、不要檢查缺什麼，數字照那一筆
+  const dk = found ? undefined : deckContentOf(k, stack.id)
+  if (!found && !dk) return { problems: [...problems, '這不是能裝的義體。'], quote: null }
+  if (found && found.kind !== 'cyberware') return { problems: [...problems, `${found.name}不是義體。`], quote: null }
+  const bp: Pick<BlueprintEntry, 'name' | 'grade' | 'slot' | 'invasiveness' | 'needs_bridge' | 'deck'> = found ?? { name: dk!.name, grade: dk!.grade, slot: 'brain', invasiveness: (dk!.invasiveness ?? 'invasive') as BlueprintEntry['invasiveness'] }
+  const info = found ? productOf(k.content, stack.id, stack.data)! : undefined
 
   if (cyberOf(state, o.actor).some((p) => p.uid === o.uid)) problems.push(`${bp.name}已經裝在身上了。`)
-  if (info.missing.length > 0) problems.push(`缺零件：${missingText(info.missing)}。`)
+  if (info && info.missing.length > 0) problems.push(`缺零件：${missingText(info.missing)}。`)
+
+  // 甲板：不能在網內動手術；腦裡只能有一副
+  const isDeck = dk !== undefined || bp.deck !== undefined
+  if (isDeck) {
+    const net = netActivityBlock(k, state, '換甲板')
+    if (net) problems.unshift(net)
+  }
 
   // 部位與槽
   const slot = partIdOf(bp.slot, o.side)
   if (bp.slot === 'bridge') problems.push('換橋是另一種手術。')
   else if (!bp.slot) problems.push(`${bp.name}沒有寫部位，裝不上去。`)
   else if (!slot) problems.push(`${bp.slot === 'arm' ? '手臂' : '腿'}要說是左邊還是右邊。`)
-  else if (cyberOf(state, o.actor).filter((p) => p.slot === slot).length >= rules.slots[slot]) problems.push(`${PART_NAME[slot]}的槽已經滿了。`)
+  else {
+    if (isDeck && slot === 'brain' && brainDeck(k, state, o.actor)) problems.push(DECK_FULL)
+    if (cyberOf(state, o.actor).filter((p) => p.slot === slot).length >= rules.slots[slot]) problems.push(`${PART_NAME[slot]}的槽已經滿了。`)
+  }
   if (bp.needs_bridge !== false && bp.slot !== 'bridge' && !hasBridge(state, o.actor)) problems.push('這件義體要接在橋上，你還沒有橋。')
 
   const sb = surgeonBlock(k, state, o.via, o.actor, by, rules)
   if (sb) problems.push(sb)
 
-  const price = productPrice(k.content, stack.id, stack.data)
+  // 成品甲板的價錢是那一筆自己寫的 price（沒寫是 0）
+  const price = dk ? (dk.price ?? 0) : productPrice(k.content, stack.id, stack.data)
   const fee = Math.round(price * rules.surgeons[o.via].fee + 1e-9)
   const mp = moneyProblem(state, fee, o.pay, '手術費')
   if (mp) problems.push(mp)
@@ -269,7 +292,7 @@ function planInstall(k: Kernel, state: GameState, o: InstallOpts): InstallPlan {
   const quote: InstallQuote = {
     uid: o.uid, bp: stack.id, name: bp.name, grade: bp.grade, slot, via: o.via, price, fee, pay: payPool(state.money, fee, o.pay),
     sink: pieceSink(k, state, stack.id, stack.data, { via: o.via, by }), minutes: rules.surgery_minutes,
-    recovery_minutes: recoveryOf(rules, bp, info.allBio), complication: o.via === 'self' ? 0 : rules.surgeons[o.via].complication, registered: o.via === 'clinic',
+    recovery_minutes: recoveryOf(rules, bp, info?.allBio ?? false), complication: o.via === 'self' ? 0 : rules.surgeons[o.via].complication, registered: o.via === 'clinic',
     ...(o.via === 'self' ? { self: selfCheckOf(k, state, by, bp, rules) } : {}),
   }
   return { problems, quote }
@@ -312,7 +335,8 @@ export function installDraft(k: Kernel, state: GameState, o: InstallOpts): Repor
   const rules = cyberRules(k)
   const by = o.by ?? o.actor
   const stack = stackOf(state, o.uid)!
-  const bp = blueprintOf(k.content, stack)!
+  const found = blueprintOf(k.content, stack)
+  const bp = found ?? { name: deckContentOf(k, stack.id)!.name }
   const patient = state.actors[o.actor]!
 
   let roll: CheckRoll | undefined
@@ -345,7 +369,7 @@ export function installDraft(k: Kernel, state: GameState, o: InstallOpts): Repor
     const now = nowOf(state) + q.minutes
     const ready = q.recovery_minutes > 0 ? now + q.recovery_minutes : undefined
     const base: ProductData = readProduct(stack.data, k.content)
-    const parts = Object.keys(base.parts).length > 0 ? base.parts : clone(bp.stock ?? {})
+    const parts = Object.keys(base.parts).length > 0 ? base.parts : clone(found?.stock ?? {})
     const quirks = [...(base.quirks ?? [])]
     let quirkName: string | undefined
     if (complication) {
@@ -359,7 +383,7 @@ export function installDraft(k: Kernel, state: GameState, o: InstallOpts): Repor
     }
     const piece: CyberPiece = {
       ...base, uid: q.uid, parts, ...(quirks.length > 0 ? { quirks } : {}),
-      bp: q.bp, slot: q.slot!, sink, at: now, ...(ready !== undefined ? { ready_at: ready } : {}), registered: q.registered,
+      bp: q.bp, kind_of: found ? 'blueprint' : 'deck', slot: q.slot!, sink, at: now, ...(ready !== undefined ? { ready_at: ready } : {}), registered: q.registered,
     }
     const pieces = [...cyberOf(state, o.actor), piece]
     const floor = floorWith(k, state, o.actor, sink)
@@ -425,25 +449,32 @@ function planRemove(k: Kernel, state: GameState, o: RemoveOpts): RemovePlan {
   const by = o.by ?? o.actor
   if (!state.actors[o.actor]) return { problems: ['找不到這個角色。'], quote: null }
   if (!isSurgeonKind(o.via)) return { problems: ['要說是誰動刀。'], quote: null }
-  const act = k.activity.blockOf(state, `commit:${REMOVE_ACTION}`)
-  if (act) problems.push(act)
   const piece = cyberOf(state, o.actor).find((p) => p.uid === o.uid)
+  // 甲板：人在網內、潛入中不能拆（比一般的活動限制先說）
+  if (piece && isDeckPiece(k, piece)) {
+    const net = netActivityBlock(k, state, '拆甲板')
+    if (net) problems.push(net)
+  }
+  const act = k.activity.blockOf(state, `commit:${REMOVE_ACTION}`)
+  if (act && !problems.includes(act)) problems.push(act)
   if (!piece) return { problems: [...problems, '身上沒有這一件義體。'], quote: null }
-  const bp = k.content.get<BlueprintEntry>('blueprint', piece.bp)
-  const name = bp?.name ?? piece.bp
+  const deck = piece.kind_of === 'deck' ? deckContentOf(k, piece.bp) : undefined
+  const bp = pieceBlueprint(k, piece)
+  const name = bp?.name ?? deck?.name ?? piece.bp
   if (piece.slot === 'bridge') problems.push('橋不能這樣拆，換橋是另一種手術。')
   if (piece.off?.why === 'lock') problems.push('有授權鎖，要先解鎖。')
   const sb = surgeonBlock(k, state, o.via, o.actor, by, rules)
   if (sb) problems.push(sb)
 
-  const installFee = Math.round(productPrice(k.content, piece.bp, piece) * rules.surgeons[o.via].fee + 1e-9)
+  const price = piece.kind_of === 'deck' ? (deck?.price ?? 0) : productPrice(k.content, piece.bp, piece)
+  const installFee = Math.round(price * rules.surgeons[o.via].fee + 1e-9)
   const fee = Math.round(installFee * rules.remove_fee_mult + 1e-9)
   const mp = moneyProblem(state, fee, o.pay, '拆除的手術費')
   if (mp) problems.push(mp)
-  const info = productOf(k.content, piece.bp, piece)
+  const info = piece.kind_of === 'deck' ? undefined : productOf(k.content, piece.bp, piece)
   const quote: RemoveQuote = {
-    uid: o.uid, bp: piece.bp, name, via: o.via, fee, pay: payPool(state.money, fee, o.pay), minutes: rules.surgery_minutes, vanishes: !info || info.allBio,
-    ...(o.via === 'self' ? { self: selfCheckOf(k, state, by, { grade: bp?.grade ?? 1 }, rules) } : {}),
+    uid: o.uid, bp: piece.bp, name, via: o.via, fee, pay: payPool(state.money, fee, o.pay), minutes: rules.surgery_minutes, vanishes: piece.kind_of === 'deck' ? false : !info || info.allBio,
+    ...(o.via === 'self' ? { self: selfCheckOf(k, state, by, { grade: bp?.grade ?? deck?.grade ?? 1 }, rules) } : {}),
   }
   return { problems, quote, piece }
 }
@@ -473,8 +504,8 @@ export function usedProduct(piece: CyberPiece, kept: Array<{ type: string; ref: 
     if (array) parts[type] = [...((parts[type] as unknown[] | undefined) ?? []), clone(ref)]
     else parts[type] = clone(ref)
   }
-  const { bp: _bp, slot: _slot, sink: _sink, at: _at, ready_at: _ready, off: _off, registered: _reg, ...product } = piece
-  void _bp, void _slot, void _sink, void _at, void _ready, void _off, void _reg
+  const { bp: _bp, kind_of: _kind, slot: _slot, sink: _sink, at: _at, ready_at: _ready, off: _off, registered: _reg, ...product } = piece
+  void _bp, void _kind, void _slot, void _sink, void _at, void _ready, void _off, void _reg
   return { ...clone(product), parts: parts as ProductData['parts'], state: 'used' }
 }
 
@@ -490,8 +521,9 @@ export function removeDraft(k: Kernel, state: GameState, o: RemoveOpts): ReportD
   const rules = cyberRules(k)
   const by = o.by ?? o.actor
   const patient = state.actors[o.actor]!
-  const info = productOf(k.content, piece.bp, piece)
-  const allBio = !info || info.allBio
+  const isDeckKind = piece.kind_of === 'deck'
+  const info = isDeckKind ? undefined : productOf(k.content, piece.bp, piece)
+  const allBio = !isDeckKind && (!info || info.allBio)
 
   let roll: CheckRoll | undefined
   let ruined = false
@@ -499,7 +531,7 @@ export function removeDraft(k: Kernel, state: GameState, o: RemoveOpts): ReportD
     roll = rollCheck(k.stats, state, { actor: by, attr: SELF_ATTR, skill: rules.self_skill, dc: q.self!.dc, purpose: `${REMOVE_ACTION}/${q.uid}`, tags: ['surgery'] })
     ruined = roll.degree === 'fail' || roll.degree === 'fumble'
   }
-  let kept = keptParts(k, piece, allBio)
+  let kept = isDeckKind ? [] : keptParts(k, piece, allBio)
   const bioDied = info && !allBio ? info.parts.filter((p) => p.part.material === 'bio').length : 0
   let lostPart: string | undefined
   if (ruined && kept && kept.length > 0) {
@@ -517,7 +549,12 @@ export function removeDraft(k: Kernel, state: GameState, o: RemoveOpts): ReportD
   const who = q.via === 'self' && by !== o.actor ? `${nameOf(state, by)}替${patient.name}動刀` : q.via === 'self' ? `${patient.name}自己動刀` : `${patient.name}在${SURGEON_NAME[q.via]}動了手術`
   lines.push(`${who}，把${q.name}從${PART_NAME[piece.slot]}拆了下來。`)
   let returned = false
-  if (kept === null) {
+  if (isDeckKind) {
+    // 成品甲板整副回到背包（M3 的樣子：只帶編號）；槽裡的構裝還記在 ext.deck.slots，再裝一副就回來
+    changes.push({ op: 'item', id: piece.bp, qty: 1, data: { uid: piece.uid } })
+    returned = true
+    lines.push('拆下來的甲板回到了背包。')
+  } else if (kept === null) {
     lines.push('那是活的組織，離開身體就死了，什麼也沒有剩下。')
   } else if (kept.length === 0) {
     lines.push('拆下來的零件全都壞了，什麼也沒有剩下。')

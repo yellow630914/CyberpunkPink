@@ -4,9 +4,12 @@
 //
 // 內容種類：
 //   shop_type   { id, name, catalog: [物品的類別或標籤], buys: [...], grade_max, cash: boolean | 'only', scan_registered?, shop_mult, temper?: number | null }
-//   shop        { id, type, name, district, block?, facility?, owner?: npc, backer?: faction, fixed?: [物品 id] }
+//   shop        { id, type, name, district, block?, facility?, owner?: npc, backer?: faction, fixed?: [物品 id], fixed_products?: [設計圖 id] }
+//               fixed_products：貨架上固定放的成品（M4-craft）：設計圖加它的原廠組合（stock），價錢是核心的 productPrice；買到的那一疊帶完整的 ProductData
 //   trade_rule  { id: 'default', ... }（規則的數字，蓋掉下面的 DEFAULT_TRADE_RULES）
 // 物品多讀的欄位：price（沒有就不上架也不收）、trade_category?（貿易類別；沒寫的照 category 與 tags 推）、cargo?: true（貨物）、no_sell?（不能賣）。
+// 組裝出來的成品（背包裡 id 是設計圖、data 是 ProductData 的一疊；M4-craft）不是 item 的一筆：productItem 把設計圖當成一個物品看（類別照設計圖的種類：武器、護甲、義體是 part），
+// 買的價錢是 productPrice，賣的價錢只算零件（TRADE 8.3 節：收購成品時只算零件，不算組裝的那兩成與型係數）。
 // 「物品的類別或標籤」的比對：物品的 category、tags 裡的任何一個、trade_category，有一個相同就算。
 // 區多讀的欄位：district.market?: { [貿易類別]: 倍率 }（TRADE 4.2；寫在區的資料裡，夾在 0.5～2.5）。
 //
@@ -16,8 +19,8 @@
 //   bargains { [商店 id]: { day, mult, method, degree } }：今天整車殺過價（每間店每天一次）與殺到的倍率（TRADE 第 5 節）
 //   closed   { [商店 id]: day }：施壓大失敗被趕出去，day 那天不做你的生意
 
-import type { ActorId, Change, ContentEntry, Degree, GameState, ItemEntry, ItemStack, Kernel } from '../../core'
-import { deriveRng, isRecord, meterOf } from '../../core'
+import type { ActorId, BlueprintEntry, Change, ContentEntry, Degree, GameState, ItemEntry, ItemStack, Kernel } from '../../core'
+import { QUALITY_PRICE_MULT, USED_PRICE_MULT, deriveRng, findByUid, isRecord, meterOf, productOf, productPrice, readProduct } from '../../core'
 
 export const OWNER = 'trade'
 export const EXT = 'trade'
@@ -202,6 +205,8 @@ export interface ShopEntry extends ContentEntry {
   owner?: string
   backer?: string
   fixed?: string[]
+  /** 貨架上固定放的成品：設計圖的 id（要有 stock）；M4-craft */
+  fixed_products?: string[]
 }
 
 const idList = (v: unknown): v is string[] => Array.isArray(v) && v.every(isText)
@@ -230,6 +235,7 @@ export function shopProblems(e: Record<string, unknown>): string[] {
   if (e.owner !== undefined && !isText(e.owner)) p.push('owner 要是 NPC 的 id')
   if (e.backer !== undefined && !isText(e.backer)) p.push('backer 要是勢力的 id')
   if (e.fixed !== undefined && !idList(e.fixed)) p.push('fixed 要是物品 id 的陣列')
+  if (e.fixed_products !== undefined && !idList(e.fixed_products)) p.push('fixed_products 要是設計圖 id 的陣列（組好的成品放在貨架上）')
   return p
 }
 
@@ -244,7 +250,48 @@ export interface TradeItem extends ItemEntry {
   no_sell?: boolean
 }
 
-export const itemOf = (k: Pick<Kernel, 'content'>, id: string): TradeItem | undefined => k.content.get<TradeItem>('item', id)
+/** 設計圖的種類對到物品的類別（成品進交易時；貿易類別再照類別推：武器 weapon、護甲 apparel、義體 mech）。 */
+const PRODUCT_CATEGORY: Record<string, ItemEntry['category']> = { weapon: 'weapon', armor: 'armor', cyberware: 'part' }
+
+/**
+ * 賣一件成品的底價（TRADE 8.3 節：收購成品時只算零件）：每個零件目錄價的合計，二手與品質照核心的係數（USED_PRICE_MULT、QUALITY_PRICE_MULT），
+ * 不乘 1.2 與型係數（那是組裝與通路的加價，productPrice 才有）。所以「買零件、組起來、賣掉」不賺錢。
+ */
+export function productSellBase(k: Pick<Kernel, 'content'>, id: string, data?: unknown): number {
+  const info = productOf(k.content, id, data)
+  if (!info) return 0
+  const d = readProduct(data, k.content)
+  const sum = info.parts.reduce((n, p) => n + (typeof p.part.price === 'number' ? p.part.price : 0), 0)
+  return Math.round(sum * (d.state === 'used' ? USED_PRICE_MULT : 1) * (QUALITY_PRICE_MULT[d.quality ?? 'standard'] ?? 1) + 1e-9)
+}
+
+/**
+ * 一件成品（設計圖加零件）當成一個物品：名字、等級、合法性照設計圖與零件裡最嚴的；買的價是 productPrice，賣的價是 productSellBase。
+ * data 是背包那一疊的 data；沒給（貨架上）就用設計圖的原廠組合 stock。沒有零件（也沒有 stock）、查不到設計圖是 undefined。
+ * 全生體的成品不能賣（TRADE 3.3 節：生體件是活的，只有冷庫收）。
+ */
+export function productItem(k: Pick<Kernel, 'content'>, id: string, data?: unknown, side: 'buy' | 'sell' = 'buy'): (TradeItem & { price: number }) | undefined {
+  const bp = k.content.get<BlueprintEntry>('blueprint', id)
+  const info = bp ? productOf(k.content, id, data) : undefined
+  if (!bp || !info || info.parts.length === 0) return undefined
+  return {
+    id, name: bp.name, desc: bp.desc, category: PRODUCT_CATEGORY[bp.kind] ?? 'misc', grade: bp.grade, size: bp.size, weight: info.weight,
+    legal: info.legal as ItemEntry['legal'], price: side === 'sell' ? productSellBase(k, id, data) : productPrice(k.content, id, data), tags: ['product', bp.kind],
+    ...(info.allBio ? { trade_category: 'bio', no_sell: true } : {}),
+  }
+}
+
+/** 這個 id 是組裝的成品（有這張設計圖、而且不是一筆物品）。 */
+export const isProductId = (k: Pick<Kernel, 'content'>, id: string): boolean => !k.content.has('item', id) && k.content.has('blueprint', id)
+
+/** 物品；組裝的成品（id 是設計圖）當成一個物品看（side 與 data 決定價錢，見 productItem）。 */
+export const itemOf = (k: Pick<Kernel, 'content'>, id: string, data?: unknown, side: 'buy' | 'sell' = 'buy'): TradeItem | undefined =>
+  k.content.get<TradeItem>('item', id) ?? productItem(k, id, data, side)
+
+/** 同上，賣的時候背包裡那一件（uid）的資料也一起看。 */
+export function goodsOf(k: Pick<Kernel, 'content'>, state: Pick<GameState, 'inventory'>, id: string, side: 'buy' | 'sell', uid?: string): TradeItem | undefined {
+  return itemOf(k, id, uid !== undefined ? findByUid(state.inventory, id, uid)?.data : undefined, side)
+}
 /** 有定價才上架也才收：目錄價是 0 以上的整數（0 算有定價）。 */
 export const priced = (it: TradeItem | undefined): it is TradeItem & { price: number } => !!it && typeof it.price === 'number' && Number.isFinite(it.price) && it.price >= 0
 
@@ -389,6 +436,10 @@ export function stockOf(k: Pick<Kernel, 'content'>, state: GameState, shop: stri
   const chosen = new Map<string, TradeItem & { price: number }>()
   for (const id of entry.fixed ?? []) {
     const it = itemOf(k, id)
+    if (priced(it)) chosen.set(id, it)
+  }
+  for (const id of entry.fixed_products ?? []) {
+    const it = productItem(k, id)
     if (priced(it)) chosen.set(id, it)
   }
   for (const it of picked) if (!chosen.has(it.id)) chosen.set(it.id, it)
@@ -539,6 +590,8 @@ export const closedToday = (state: GameState, shop: string): boolean => tradeOf(
 export interface QuoteOpts {
   /** 收購：這一車裡同一個貿易類別已經先賣掉幾件（照順序遞減；沒給是 0） */
   taken?: number
+  /** 收購：賣的是背包裡帶記號的那一件（成品；data.uid）時指名，價錢才看得到它的零件 */
+  uid?: string
 }
 
 /**
@@ -553,7 +606,7 @@ export function quote(k: Kernel, state: GameState, shop: string | ShopEntry, ite
   if (!entry) throw new Error(`沒有 ${String(shop)} 這間店`)
   const type = shopTypeOf(k, entry)
   if (!type) throw new Error(`${entry.id}：查不到店的種類 ${entry.type}`)
-  const it = itemOf(k, item)
+  const it = goodsOf(k, state, item, side, opts.uid)
   if (!priced(it)) throw new Error(`${item} 沒有定價`)
   const rules = tradeRules(k)
   const discount = discountOf(k, state, entry)
