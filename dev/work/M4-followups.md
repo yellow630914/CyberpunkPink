@@ -49,3 +49,8 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 ## 完成時回報
 
 改了哪些檔、測試結果、帳單的債主是誰寫在哪個規則、名冊「這一週同行過」怎麼判斷、戰敗三組裡還表達不出來的效果（預期：怪癖、容量減半、`unbridged` 把橋拿掉）。
+
+## 總指揮補記（2026-11-25，M4-core-passive 回報）
+- `passiveProblems` 加選填的 `source`：來源是 `cyber`、`drug`、`gear` 時擋掉 `{ stat: 'ram_regen' }`（會繞過節奏資源 +1 上限），原因寫「每回合的 RAM 回復請用修正 `ram_regen`。」。
+- `sink_floor` 只擋掉一部分時也提醒一句（「身上的義體讓你只浮到 N。」）。
+- `gear_cap` 要不要拿掉、`passiveProblems` 查 `stat` id 是否存在：交 M4-data-rules／M4-smoke 一起看。
