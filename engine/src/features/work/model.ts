@@ -6,14 +6,20 @@
 //
 // 內容種類：
 //   job       { id, name, facility, district?, employer?: npc, check?: { attr, skill?, dc }, wage, pay: 'cred' | 'cash',
-//               days?: { weekday?: [0～6], time?: [時段] }, perks?: 效果[], stages: [{ name, mult, perks?, need?, adult?, tags? }] }
+//               days?: { weekday?: [0～6], time?: [時段] }, perks?: 效果[], stages: [{ name, mult, perks?, need?, adult?, tags? }],
+//               modes?, cut?, wage_formula? }（M4-venues）
+//             modes  { [模式 id]: { name, wage, check?: 同 job.check | false, tags?, perks?, amnesia?, every?: [{ shifts, effects }] } }：
+//                    有 modes 的工作上班前要選一種（人偶館的戴晶片與清醒）；時薪、檢定、附帶的效果照那個模式的；tags 被篩選關掉的模式不列；
+//                    amnesia 的那一班結算報告的 outcome 多 amnesia: true、結果只有兩句；every 是「這個模式每做滿幾班」給一次的效果（P63）
+//             cut    { house: 0～1, rent?: 每班的租金 }：店家抽幾成、晶片的租金；wage 寫的是客人付給店家的每小時；沒寫 cut 的工作 wage 是自己拿到的
+//             wage_formula  { base, add: [{ stat?, meter?, div }] }：公式型的時薪（第七棚）；每一項查得到才加，查不到當 0；無條件捨去
 //             facility 寫設施的種類（facility_type 的 id），或寫某一間：「街區 id/標記 id」（例：b_hive/F2；所以種類的 id 不能有斜線）；
 //             check 沒寫就是不擲（當成功）；dc 是整數或階梯的名字（easy、normal……）；
 //             stages 兩個或三個，第一個沒有 need，其餘都要有 need: { shifts, affinity, extra?: 條件 }（shifts 是這份工作總共做滿幾班）；
 //             adult 與 tags：這個階段用到的題材；tags 裡有被玩家關掉的，這一階不問、停在前一階
 //   work_rule { id: 'default', hours, degree_mult, fumble_affinity }：蓋掉下面 DEFAULT_WORK_RULES 的數字
 //
-// 狀態 state.ext.work：{ jobs: { [工作 id]: { shifts, stage, asked, last } }, announce }（形狀見 WorkState）。
+// 狀態 state.ext.work：{ jobs: { [工作 id]: { shifts, stage, asked, last, modes } }, announce }（形狀見 WorkState；modes 是每個模式做了幾班）。
 
 import type { Condition, ContentEntry, Degree, GameState, Kernel, SegmentId, Weekday } from '../../core'
 import { ATTR_IDS, DC_TIERS, SEGMENT_IDS, isRecord, isSafeInt, segmentOf, segmentWeekdayOf, tagsAllowed } from '../../core'
@@ -70,17 +76,52 @@ export interface JobCheck {
   dc: number | keyof typeof DC_TIERS
 }
 
+/** 每做滿幾班給一次的效果（人偶館戴晶片：每 3 班馴化 +1、每 5 班沉溺 +1，是資料）。 */
+export interface ModeEvery {
+  shifts: number
+  effects: Array<Record<string, unknown>>
+}
+
+/** 一種做法（模式）：時薪、檢定與附帶的效果照它的。 */
+export interface ModeDef {
+  name: string
+  wage: number
+  /** 沒寫用工作的 check；false 是這一種不擲 */
+  check?: JobCheck | false
+  tags?: string[]
+  perks?: Array<Record<string, unknown>>
+  /** 這一班自己不記得過程（報告只給結果與一段模糊的殘留） */
+  amnesia?: boolean
+  every?: ModeEvery[]
+}
+
+/** 店家的分帳：house 是店家抽的成數（0～1）；rent 是每班的租金。 */
+export interface JobCut {
+  house: number
+  rent?: number
+}
+
+/** 公式型的時薪：base 加上每一項的（衍生數值或量表）÷ div，無條件捨去。 */
+export interface WageFormula {
+  base: number
+  add: Array<{ stat?: string; meter?: string; div: number }>
+}
+
 export interface JobEntry extends ContentEntry {
   name: string
   facility: string
   district?: string
   employer?: string
   check?: JobCheck
+  /** 時薪（有 modes 或 wage_formula 時可以不寫，當 0） */
   wage: number
   pay: Pool
   days?: { weekday?: Weekday[]; time?: SegmentId[] }
   perks?: Array<Record<string, unknown>>
   stages: StageDef[]
+  modes?: Record<string, ModeDef>
+  cut?: JobCut
+  wage_formula?: WageFormula
 }
 
 // ---- 規則 ----
@@ -140,23 +181,78 @@ export function workRules(k: Pick<Kernel, 'content'>): WorkRules {
 
 const isEffectList = (v: unknown): v is Array<Record<string, unknown>> => Array.isArray(v) && v.every((x) => isRecord(x) && isText(x.kind))
 
+function checkProblems(c: unknown): string[] {
+  const p: string[] = []
+  if (!isRecord(c)) return ['check 要是 { attr, skill?, dc }（不擲就不要寫）']
+  if (!(ATTR_IDS as readonly unknown[]).includes(c.attr)) p.push(`check.attr 要是 ${ATTR_IDS.join('、')} 其中一個`)
+  if (c.skill !== undefined && !isText(c.skill)) p.push('check.skill 要是基本功的 id')
+  const dcOk = (isSafeInt(c.dc) && c.dc >= 1 && c.dc <= 40) || (typeof c.dc === 'string' && Object.prototype.hasOwnProperty.call(DC_TIERS, c.dc))
+  if (!dcOk) p.push(`check.dc 要是 1～40 的整數或階梯的名字（${Object.keys(DC_TIERS).join('、')}）`)
+  return p
+}
+
 export function jobProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
   if (!isText(e.name)) p.push('要有 name')
   if (!isText(e.facility)) p.push('要有 facility（設施的種類，或「街區 id/標記 id」）')
   if (e.district !== undefined && !isText(e.district)) p.push('district 要是區的 id')
   if (e.employer !== undefined && !isText(e.employer)) p.push('employer 要是 NPC 的 id')
-  if (e.check !== undefined) {
-    const c = e.check
-    if (!isRecord(c)) p.push('check 要是 { attr, skill?, dc }（不擲就不要寫）')
+  if (e.check !== undefined) p.push(...checkProblems(e.check))
+  if (e.wage === undefined && (isRecord(e.modes) || isRecord(e.wage_formula))) {
+    // 有 modes 或 wage_formula 的工作時薪不在這裡
+  } else if (!(isSafeInt(e.wage) && e.wage >= 0)) p.push('wage（時薪）要是 0 以上的整數')
+  if (e.cut !== undefined) {
+    const c = e.cut
+    if (!isRecord(c)) p.push('cut 要是 { house, rent? }')
     else {
-      if (!(ATTR_IDS as readonly unknown[]).includes(c.attr)) p.push(`check.attr 要是 ${ATTR_IDS.join('、')} 其中一個`)
-      if (c.skill !== undefined && !isText(c.skill)) p.push('check.skill 要是基本功的 id')
-      const dcOk = (isSafeInt(c.dc) && c.dc >= 1 && c.dc <= 40) || (typeof c.dc === 'string' && Object.prototype.hasOwnProperty.call(DC_TIERS, c.dc))
-      if (!dcOk) p.push(`check.dc 要是 1～40 的整數或階梯的名字（${Object.keys(DC_TIERS).join('、')}）`)
+      if (!(isNum(c.house) && c.house >= 0 && c.house <= 1)) p.push('cut.house 要是 0～1 的數字（店家抽幾成）')
+      if (c.rent !== undefined && !(isSafeInt(c.rent) && c.rent >= 0)) p.push('cut.rent 要是 0 以上的整數（每班的租金）')
     }
   }
-  if (!(isSafeInt(e.wage) && e.wage >= 0)) p.push('wage（時薪）要是 0 以上的整數')
+  if (e.wage_formula !== undefined) {
+    const f = e.wage_formula
+    if (!isRecord(f)) p.push('wage_formula 要是 { base, add }')
+    else {
+      if (!isNum(f.base)) p.push('wage_formula.base 要是數字')
+      if (!Array.isArray(f.add)) p.push('wage_formula.add 要是陣列')
+      else {
+        f.add.forEach((a, i) => {
+          const at = `wage_formula.add[${i}]`
+          if (!isRecord(a)) return void p.push(`${at}：要是 { stat? 或 meter?, div }`)
+          if ((a.stat === undefined) === (a.meter === undefined)) p.push(`${at}：stat（衍生數值）與 meter（量表）要寫其中一個`)
+          if (a.stat !== undefined && !isText(a.stat)) p.push(`${at}.stat 要是衍生數值的 id`)
+          if (a.meter !== undefined && !isText(a.meter)) p.push(`${at}.meter 要是量表的種類`)
+          if (!(isNum(a.div) && a.div > 0)) p.push(`${at}.div 要是大於 0 的數字`)
+        })
+      }
+    }
+  }
+  if (e.modes !== undefined) {
+    const m = e.modes
+    if (!isRecord(m) || Object.keys(m).length === 0) p.push('modes 要是 { 模式 id: { name, wage, ... } }（至少一種）')
+    else {
+      for (const [id, d] of Object.entries(m)) {
+        const at = `modes.${id}`
+        if (!isRecord(d)) { p.push(`${at}：要是一個物件`); continue }
+        if (!isText(d.name)) p.push(`${at}：要有 name`)
+        if (!(isSafeInt(d.wage) && d.wage >= 0)) p.push(`${at}.wage 要是 0 以上的整數`)
+        if (d.check !== undefined && d.check !== false) p.push(...checkProblems(d.check).map((x) => `${at}.${x}`))
+        if (d.tags !== undefined && !(Array.isArray(d.tags) && d.tags.every(isText))) p.push(`${at}.tags 要是標籤的陣列`)
+        if (d.perks !== undefined && !isEffectList(d.perks)) p.push(`${at}.perks 要是效果（物件，要有 kind）的陣列`)
+        if (d.amnesia !== undefined && typeof d.amnesia !== 'boolean') p.push(`${at}.amnesia 要是 true 或 false`)
+        if (d.every !== undefined) {
+          if (!Array.isArray(d.every)) p.push(`${at}.every 要是 [{ shifts, effects }]`)
+          else {
+            d.every.forEach((x, i) => {
+              if (!isRecord(x)) return void p.push(`${at}.every[${i}]：要是 { shifts, effects }`)
+              if (!(isSafeInt(x.shifts) && x.shifts >= 1)) p.push(`${at}.every[${i}].shifts 要是 1 以上的整數`)
+              if (!isEffectList(x.effects)) p.push(`${at}.every[${i}].effects 要是效果（物件，要有 kind）的陣列`)
+            })
+          }
+        }
+      }
+    }
+  }
   if (e.pay !== 'cred' && e.pay !== 'cash') p.push("pay 要是 'cred' 或 'cash'")
   if (e.days !== undefined) {
     const d = e.days
@@ -204,6 +300,8 @@ export interface LastShift {
   stage: number
   /** 做完的時間（總分鐘） */
   at: number
+  /** 選的做法（有 modes 的工作） */
+  mode?: string
 }
 
 export interface JobState {
@@ -214,6 +312,8 @@ export interface JobState {
   /** 這一階升階的事件問過了沒有（升了之後重新算） */
   asked: boolean
   last: LastShift | null
+  /** 每個模式做了幾班（有 modes 的工作才有這一格；沒做過就沒有） */
+  modes?: Record<string, number>
 }
 
 export interface WorkState {
@@ -230,7 +330,7 @@ function readLast(raw: unknown): LastShift | null {
   const degree = raw.degree === null ? null : (DEGREES as readonly unknown[]).includes(raw.degree) ? (raw.degree as Degree) : undefined
   if (degree === undefined || !isSafeInt(raw.hours) || !isSafeInt(raw.amount) || !isSafeInt(raw.stage) || !isSafeInt(raw.at)) return null
   if (raw.pay !== 'cred' && raw.pay !== 'cash') return null
-  return { hours: raw.hours, degree, amount: raw.amount, pay: raw.pay, stage: raw.stage, at: raw.at }
+  return { hours: raw.hours, degree, amount: raw.amount, pay: raw.pay, stage: raw.stage, at: raw.at, ...(isText(raw.mode) ? { mode: raw.mode } : {}) }
 }
 
 /** 讀 state.ext.work：沒有、或形狀不對的部分當成空的（回傳的是複製品，改它不會動到狀態）。 */
@@ -247,6 +347,8 @@ export function readWork(state: Pick<GameState, 'ext'>): WorkState {
         asked: j.asked === true,
         last: readLast(j.last),
       }
+      const modes = isRecord(j.modes) ? (Object.fromEntries(Object.entries(j.modes).filter(([, n]) => isSafeInt(n) && n > 0)) as Record<string, number>) : {}
+      if (Object.keys(modes).length > 0) jobs[id]!.modes = modes
     }
   }
   const a = r.announce
@@ -321,3 +423,13 @@ export function daysBlock(k: Pick<Kernel, 'timeRules'>, state: Pick<GameState, '
   const when = `${d.weekday ? d.weekday.map((w) => WEEKDAY_TEXT[w]).join('、') : ''}${d.time ? d.time.map((s) => SEGMENT_TEXT[s]).join('、') : ''}`
   return `${job.name}只在${when}才開，現在沒開。`
 }
+
+// ---- 模式（M4-venues） ----
+
+/** 這份工作現在可以選的模式（tags 被玩家關掉的不列），照資料的順序；沒有 modes 的工作是空的。 */
+export function openModes(rules: Pick<GameState['rules'], 'contentOff'>, job: Pick<JobEntry, 'modes'>): Array<[string, ModeDef]> {
+  return Object.entries(isRecord(job.modes) ? job.modes : {}).filter(([, m]) => tagsAllowed(rules, m.tags))
+}
+
+/** 這份工作有沒有分模式（資料上有 modes，不管現在開著幾種）。 */
+export const hasModes = (job: Pick<JobEntry, 'modes'>): boolean => isRecord(job.modes) && Object.keys(job.modes).length > 0

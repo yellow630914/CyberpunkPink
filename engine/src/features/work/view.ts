@@ -4,16 +4,16 @@
 import type { Degree, GameState, GameTime, Kernel } from '../../core'
 import { addMinutes, effectCtx, meterOf } from '../../core'
 import type { NeedProgress } from './shift'
-import { chancesOf, checkPlan, jobBlock, needProgress, wageOf } from './shift'
-import type { JobEntry, LastShift, Pool } from './model'
-import { DEGREES, effectiveStage, facilityLabel, jobStateOf, jobsAt, stageHidden, workRules } from './model'
+import { chancesOf, jobBlock, needProgress, payBasis, wageOf } from './shift'
+import type { JobEntry, LastShift, ModeDef, Pool } from './model'
+import { DEGREES, effectiveStage, facilityLabel, jobStateOf, jobsAt, openModes, stageHidden, workRules } from './model'
 
 export interface StageView {
   /** 第幾階段（從 1 起算） */
   number: number
   name: string
   mult: number
-  /** 這一階的時薪（工作的時薪 × 倍率） */
+  /** 這一階的時薪（工作的時薪 × 倍率；有 modes 的工作照第一種做法） */
   wage: number
   adult: boolean
   /** 每一班的附帶（這一階的 perks 現在結算出來的句子；結算不了是空的） */
@@ -38,6 +38,22 @@ export interface ShiftOptionView {
   to: GameTime
 }
 
+/** 一種做法（有 modes 的工作；現在沒被內容篩選關掉的才列）。 */
+export interface ModeView {
+  id: string
+  name: string
+  /** 這一種的時薪（客人付的；有 cut 時還沒扣店家的） */
+  wage: number
+  /** 這一種擲的檢定與成功率（不擲是 null） */
+  check: { attr: string; skill?: string; dc: number; bonus: number; chances: Record<Degree, number> } | null
+  /** 這一種的那一班自己不記得過程 */
+  amnesia: boolean
+  /** 這一種做了幾班 */
+  shifts: number
+  /** 一班 2、4、8 小時各自的預計（照現在的階段） */
+  options: ShiftOptionView[]
+}
+
 export interface JobView {
   id: string
   name: string
@@ -58,8 +74,10 @@ export interface JobView {
   next: StageView | null
   /** 這一階升階的事件問過了沒有 */
   asked: boolean
-  /** 一班 2、4、8 小時各自的預計（照現在的階段） */
+  /** 一班 2、4、8 小時各自的預計（照現在的階段）；有 modes 的工作是第一種做法的 */
   options: ShiftOptionView[]
+  /** 可以選的做法（沒有 modes 的工作是空的）；上班前要選一種，shift 的 mode 就是它的 id */
+  modes: ModeView[]
   /** 現在不能做的原因（給玩家看的完整句子）；能做是 null */
   block: string | null
   /** 上一班的結果 */
@@ -75,40 +93,56 @@ function perkLines(k: Kernel, state: GameState, job: JobEntry, index: number): s
   return res.errors.length === 0 ? res.lines : []
 }
 
-function stageViews(k: Kernel, state: GameState, job: JobEntry, current: number): StageView[] {
+function stageViews(k: Kernel, state: GameState, job: JobEntry, current: number, hourly: number): StageView[] {
   const js = jobStateOf(state, job.id)
   const out: StageView[] = []
   job.stages.forEach((s, i) => {
     if (stageHidden(state.rules, job, i)) return
     out.push({
-      number: i + 1, name: s.name, mult: s.mult, wage: Math.round(job.wage * s.mult * 100) / 100, adult: s.adult === true,
+      number: i + 1, name: s.name, mult: s.mult, wage: Math.round(hourly * s.mult * 100) / 100, adult: s.adult === true,
       perks: perkLines(k, state, job, i), current: i === current, reached: i <= current, need: needProgress(k, state, job, js, i),
     })
   })
   return out
 }
 
+const optionsOf = (k: Kernel, state: GameState, job: JobEntry, mode: ModeDef | undefined, at: number): ShiftOptionView[] => {
+  const rules = workRules(k)
+  const stage = job.stages[at]!
+  const { pay } = payBasis(k, state, job, mode)
+  return rules.hours.map((hours) => ({
+    hours, minutes: hours * 60,
+    expected: wageOf(rules, job, stage, hours, 'success', pay),
+    by_degree: Object.fromEntries(DEGREES.map((d) => [d, wageOf(rules, job, stage, hours, d, pay)])) as Record<Degree, number>,
+    from: state.time, to: addMinutes(state.time, hours * 60),
+  }))
+}
+
 /** 一份工作現在的樣子（不管站在哪裡；block 照現在的位置與時間）。 */
 export function jobView(k: Kernel, state: GameState, job: JobEntry): JobView {
-  const rules = workRules(k)
   const js = jobStateOf(state, job.id)
   const at = effectiveStage(state.rules, job, js.stage)
-  const stage = job.stages[at]!
-  const plan = checkPlan(k, state, job)
+  const open = openModes(state.rules, job)
+  const first = open[0]?.[1]
+  const { pay, plan } = payBasis(k, state, job, first)
   const chances = plan ? chancesOf(plan) : null
-  const stages = stageViews(k, state, job, at)
+  const stages = stageViews(k, state, job, at, pay.wage ?? 0)
+  const modes: ModeView[] = open.map(([id, m]) => {
+    const p = payBasis(k, state, job, m)
+    const c = p.plan ? chancesOf(p.plan) : null
+    return {
+      id, name: m.name, wage: p.pay.wage ?? 0,
+      check: p.plan && c ? { attr: p.plan.attr, ...(p.plan.skill ? { skill: p.plan.skill } : {}), dc: p.plan.dc, bonus: p.plan.bonus, chances: c } : null,
+      amnesia: m.amnesia === true, shifts: js.modes?.[id] ?? 0, options: optionsOf(k, state, job, m, at),
+    }
+  })
   return {
     id: job.id, name: job.name, facility: facilityLabel(k, job.facility), ...(job.district !== undefined ? { district: job.district } : {}),
     employer: job.employer ? { id: job.employer, name: npcName(k, job.employer), affinity: meterOf(k, state, 'affinity', job.employer) } : null,
     pay: job.pay,
     check: plan && chances ? { attr: plan.attr, ...(plan.skill ? { skill: plan.skill } : {}), dc: plan.dc, bonus: plan.bonus, chances } : null,
     shifts: js.shifts, stage: at + 1, stages, next: stages.find((s) => s.number === at + 2) ?? null, asked: js.asked,
-    options: rules.hours.map((hours) => ({
-      hours, minutes: hours * 60,
-      expected: wageOf(rules, job, stage, hours, 'success'),
-      by_degree: Object.fromEntries(DEGREES.map((d) => [d, wageOf(rules, job, stage, hours, d)])) as Record<Degree, number>,
-      from: state.time, to: addMinutes(state.time, hours * 60),
-    })),
+    options: optionsOf(k, state, job, first, at), modes,
     block: jobBlock(k, state, job), last: js.last,
   }
 }

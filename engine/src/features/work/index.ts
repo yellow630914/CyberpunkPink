@@ -9,11 +9,13 @@
 //   條件  job_stage { job, min?, max? }：那份工作現在在第幾階段（從 1 起算；被內容篩選卡住的算前一階；沒做過是第 1 階）
 //   掛點  activity.end（升階的事件做完，選了升就換階段；只認 origin.by 是自己的）、report.after（剛升階就寫一份 work.promote）
 //   格子  usesOf：人站在對的設施上列「打工」（灰掉的帶原因）
-//   狀態  state.ext.work：{ jobs: { [工作 id]: { shifts, stage, asked, last } }, announce }（形狀見 model.ts；只經由報告裡的 ext 變更寫）
+//   狀態  state.ext.work：{ jobs: { [工作 id]: { shifts, stage, asked, last, modes } }, announce }（形狀見 model.ts；只經由報告裡的 ext 變更寫）
 // 讀的：meterOf 的 affinity（雇主的親密度；沒有人定義時是 0）、k.effects（附帶效果與大失敗的親密度）、k.conditions（extra）、k.activity（有活動進行時擋；有人登記 event 才問升階）、
 //       k.content（block、facility_type、npc）、state.rules.contentOff（階段的 tags）。
 // 報告：work.shift（kind downtime；帶觸發點 work，where 有 district、block、facility（設施的種類）、job、stage（從 1 起算））、work.promote（kind downtime）。
 // 對外：shift、shiftBlock、jobsHere、jobView、promotionDue、needProgress、checkPlan、chancesOf、wageOf、readWork、jobStateOf、effectiveStage、workRules。
+// M4-venues：工作多讀 modes（人偶館的戴晶片與清醒；shift 的入口多收 mode）、cut（店家的分帳與晶片租金）、wage_formula（公式型的時薪）；
+//   amnesia 的那一班報告的 outcome 多 amnesia: true（共同記憶、性經歷之類聽 report.after 的功能要不要略過是它們的事）。對外多：modeCheck、hourlyWage、payBasis、openModes、hasModes。
 //
 // 不在這裡（DOWNTIME 第 4 節）：4.1b 自己的店面、4.3 派別人去打工（M5）、契約人的收入歸屬（M4）、區域狀態的修正（這一步是 1）、小費與玩家寫做法的主動行動（AI_TASKS 3.13 第 2、5、6 步）。
 
@@ -25,12 +27,12 @@ import {
 } from './model'
 import { announceDraft, jobBlock, onPromoteEnd } from './shift'
 
-export { DEFAULT_WORK_RULES, DEGREES, EXT as WORK_EXT, JOB_KIND, OWNER as WORK_OWNER, PROMOTE_ACTION, RULE_KIND as WORK_RULE_KIND, SHIFT_ACTION, WORK_POINT, blankJob, blankWork, effectiveStage, facilityHere, jobAtFacility, jobEntry, jobStateOf, jobsAt, readWork, stageHidden, workRules } from './model'
-export type { JobCheck, JobEntry, JobState, LastShift, Pool, StageDef, StageNeed, WorkRules, WorkState } from './model'
-export { OPTION_PROMOTE, OPTION_STAY, chancesOf, checkPlan, jobBlock, needProgress, promoteEvent, promotionDue, shift, shiftBlock, wageOf } from './shift'
-export type { CheckPlan, NeedProgress } from './shift'
+export { DEFAULT_WORK_RULES, DEGREES, EXT as WORK_EXT, JOB_KIND, OWNER as WORK_OWNER, PROMOTE_ACTION, RULE_KIND as WORK_RULE_KIND, SHIFT_ACTION, WORK_POINT, blankJob, blankWork, effectiveStage, facilityHere, hasModes, jobAtFacility, jobEntry, jobStateOf, jobsAt, openModes, readWork, stageHidden, workRules } from './model'
+export type { JobCheck, JobCut, JobEntry, JobState, LastShift, ModeDef, ModeEvery, Pool, StageDef, StageNeed, WageFormula, WorkRules, WorkState } from './model'
+export { AMNESIA_RESIDUE, OPTION_PROMOTE, OPTION_STAY, chancesOf, checkPlan, hourlyWage, jobBlock, modeCheck, needProgress, payBasis, promoteEvent, promotionDue, shift, shiftBlock, wageOf } from './shift'
+export type { CheckPlan, NeedProgress, PayOpts } from './shift'
 export { jobView, jobsHere } from './view'
-export type { JobView, ShiftOptionView, StageView } from './view'
+export type { JobView, ModeView, ShiftOptionView, StageView } from './view'
 
 type StageCondition = Condition & { job: string; min?: number; max?: number }
 
@@ -106,6 +108,12 @@ export const workFeature: Feature = {
       }
       if (j.district !== undefined && k.content.hasKind('district') && !k.content.has('district', j.district)) problems.push(`${at}：district ${j.district} 沒有這個區`)
       if (j.check?.skill && hasSkills && !k.content.has('skill', j.check.skill)) problems.push(`${at}：check.skill ${j.check.skill} 沒有這項基本功`)
+      for (const [mid, m] of Object.entries(j.modes ?? {})) {
+        const here = `${at}：modes.${mid}`
+        if (m.perks) problems.push(...k.effects.validate(m.perks, ctx, 'perks').map((x) => `${here}.${x}`))
+        m.every?.forEach((ev, n) => problems.push(...k.effects.validate(ev.effects, ctx, 'effects').map((x) => `${here}.every[${n}].${x}`)))
+        if (m.check && hasSkills && m.check.skill && !k.content.has('skill', m.check.skill)) problems.push(`${here}.check.skill ${m.check.skill} 沒有這項基本功`)
+      }
       j.stages.forEach((s, i) => {
         const here = `${at}：stages[${i}]`
         if (s.perks) problems.push(...k.effects.validate(s.perks, ctx, 'perks').map((m) => `${here}.${m}`))

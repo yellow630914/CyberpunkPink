@@ -3,12 +3,12 @@
 //
 // 改狀態的入口都是「匯出一個純函式，回傳報告草稿」，不成立丟 ActionBlocked（原因一句一條）：介面交給 Game.commit（或 commitNarrated 寫正文）。
 
-import type { ActivityEndReturn, Change, CheckRoll, Condition, Degree, GameState, Kernel, Launch, Origin, ReportDraft, ReportTrigger, TimelineBeat } from '../../core'
+import type { ActivityEndReturn, Change, CheckRoll, Condition, Degree, GameState, Kernel, Launch, Origin, ReportDraft, ReportOutcome, ReportTrigger, TimelineBeat } from '../../core'
 import { ActionBlocked, DEGREE_NAME, addMinutes, checkParts, clone, computeDegree, dcFor, effectCtx, formatAmount, formatDuration, meterOf, rollCheck, toMinutes } from '../../core'
-import type { JobCheck, JobEntry, JobState, LastShift, StageDef, WorkRules } from './model'
+import type { JobCheck, JobCut, JobEntry, JobState, LastShift, ModeDef, StageDef, WorkRules } from './model'
 import {
   EXT, OWNER, POOL_NAME, PROMOTE_ACTION, SHIFT_ACTION, WORK_POINT,
-  blankJob, daysBlock, effectiveStage, facilityHere, facilityLabel, jobAtFacility, jobEntry, jobStateOf, readWork, stageHidden, workRules,
+  blankJob, daysBlock, effectiveStage, facilityHere, facilityLabel, hasModes, jobAtFacility, jobEntry, jobStateOf, openModes, readWork, stageHidden, workRules,
 } from './model'
 
 /** 事件視窗做完時，origin.ext 帶的東西。 */
@@ -45,9 +45,9 @@ export interface CheckPlan {
   tags: string[]
 }
 
-/** 這份工作現在擲的檢定（沒寫 check 是 null，不擲）。 */
-export function checkPlan(k: Kernel, state: GameState, job: JobEntry): CheckPlan | null {
-  const c = job.check
+/** 這份工作現在擲的檢定（沒寫 check 是 null，不擲）。選了模式的看模式：它寫了 check 用它的，寫 false 不擲，沒寫用工作的。 */
+export function checkPlan(k: Kernel, state: GameState, job: JobEntry, mode?: ModeDef): CheckPlan | null {
+  const c = mode && mode.check !== undefined ? (mode.check === false ? undefined : mode.check) : job.check
   if (!c || !state.actors[pcOf(state)]) return null
   const tags = [WORK_TAG]
   const bonus = checkParts(k.stats, state, pcOf(state), { attr: c.attr, ...(c.skill ? { skill: c.skill } : {}), tags }).reduce((s, p) => s + p.value, 0)
@@ -61,9 +61,73 @@ export function chancesOf(plan: Pick<CheckPlan, 'bonus' | 'dc'>): Record<Degree,
   return out
 }
 
-/** 報酬 = 時數 × 時薪 × 階段的倍率 × 成功程度（四捨五入成整數；區域狀態的修正這一步是 1）。 */
-export function wageOf(rules: WorkRules, job: JobEntry, stage: StageDef, hours: number, degree: Degree): number {
-  return Math.round(hours * job.wage * stage.mult * rules.degree_mult[degree])
+/** 一班的時薪與分帳（模式、公式、分帳都算進去）。 */
+export interface PayOpts {
+  /** 這一班用的時薪（沒給用工作的 wage） */
+  wage?: number
+  /** 店家的分帳（沒給用工作的 cut） */
+  cut?: JobCut
+}
+
+/**
+ * 報酬 = 時數 × 時薪 ×（有 cut 時 1 − house）− rent（最少 0）× 階段的倍率 × 成功程度（四捨五入成整數；區域狀態的修正這一步是 1）。
+ * LEWD_SYSTEM 6.1 節：一班 6 小時 × 150 × 四成 − 120 ＝ 240，再乘階段與成功程度。
+ */
+export function wageOf(rules: WorkRules, job: JobEntry, stage: StageDef, hours: number, degree: Degree, o: PayOpts = {}): number {
+  const wage = o.wage ?? (typeof job.wage === 'number' ? job.wage : 0)
+  const cut = o.cut ?? job.cut
+  const gross = hours * wage
+  const net = cut ? Math.max(0, gross * (1 - cut.house) - (cut.rent ?? 0)) : gross
+  return Math.round(net * stage.mult * rules.degree_mult[degree])
+}
+
+/** 公式型時薪的值（每一項查得到才加；查不到當 0）。 */
+function formulaWage(k: Kernel, state: GameState, job: JobEntry): number | undefined {
+  const f = job.wage_formula
+  if (!f) return undefined
+  const pc = pcOf(state)
+  let total = f.base
+  for (const a of f.add) {
+    let v = 0
+    try {
+      if (a.stat !== undefined) v = k.stats.hasStat(a.stat) && state.actors[pc] ? k.stats.stat(state, pc, a.stat) : 0
+      else if (a.meter !== undefined) v = k.meters.get(a.meter) ? meterOf(k, state, a.meter) : 0
+    } catch {
+      v = 0
+    }
+    total += Number.isFinite(v) ? v / a.div : 0
+  }
+  return Math.max(0, Math.floor(total))
+}
+
+/** 這一班實際用的時薪：模式的 wage，其次公式，其次工作的 wage。 */
+export function hourlyWage(k: Kernel, state: GameState, job: JobEntry, mode?: ModeDef): number {
+  if (mode) return mode.wage
+  return formulaWage(k, state, job) ?? (typeof job.wage === 'number' ? job.wage : 0)
+}
+
+/** 一班的付法與檢定（view 與 shift 共用）：時薪、分帳、擲什麼。 */
+export function payBasis(k: Kernel, state: GameState, job: JobEntry, mode?: ModeDef): { pay: PayOpts; plan: CheckPlan | null } {
+  return { pay: { wage: hourlyWage(k, state, job, mode), ...(job.cut ? { cut: job.cut } : {}) }, plan: checkPlan(k, state, job, mode) }
+}
+
+// ---- 模式 ----
+
+/** 這份工作現在可以選的做法的名字（給原因的句子用）。 */
+const modeNames = (state: GameState, job: JobEntry): string => openModes(state.rules, job).map(([id, m]) => `${m.name}（${id}）`).join('、')
+
+/**
+ * 選的做法現在行不行：有 modes 的工作要選一種，沒給或選了沒有（或被內容篩選關掉）的擋下並列出可以選的；沒有 modes 的工作不收 mode。
+ * 行是 null；行的話第二個回傳值是那一種做法。
+ */
+export function modeCheck(state: GameState, job: JobEntry, mode?: string): { block: string | null; mode?: [string, ModeDef] } {
+  if (!hasModes(job)) return mode === undefined ? { block: null } : { block: `${job.name}沒有分做法，不用選。` }
+  const open = openModes(state.rules, job)
+  if (open.length === 0) return { block: `${job.name}現在沒有可以選的做法（相關的題材被你的內容篩選關掉了）。` }
+  if (mode === undefined) return { block: `${job.name}要先選一種做法：${modeNames(state, job)}。` }
+  const found = open.find(([id]) => id === mode)
+  if (!found) return { block: `${job.name}沒有「${mode}」這種做法，可以選：${modeNames(state, job)}。` }
+  return { block: null, mode: found }
 }
 
 // ---- 能不能做 ----
@@ -79,13 +143,13 @@ export function jobBlock(k: Kernel, state: GameState, job: JobEntry): string | n
   return daysBlock(k, state, job)
 }
 
-/** 這一班現在能不能做；能是 null。 */
-export function shiftBlock(k: Kernel, state: GameState, jobId: string, hours: number): string | null {
+/** 這一班現在能不能做；能是 null。有 modes 的工作要給 mode。 */
+export function shiftBlock(k: Kernel, state: GameState, jobId: string, hours: number, mode?: string): string | null {
   const job = jobEntry(k, jobId)
   if (!job) return `沒有 ${jobId} 這份工作。`
   const rules = workRules(k)
   if (!rules.hours.includes(hours)) return `一班只能做 ${rules.hours.join('、')} 小時。`
-  return jobBlock(k, state, job)
+  return jobBlock(k, state, job) ?? modeCheck(state, job, mode).block
 }
 
 // ---- 階段與升階 ----
@@ -136,26 +200,32 @@ export function promoteEvent(k: Kernel, job: JobEntry, from: number, to: number)
 
 // ---- 一班 ----
 
+/** amnesia 的那一班留下的一句模糊的殘留（不帶機制數字、不寫內文）。 */
+export const AMNESIA_RESIDUE = '這一班的事只剩一段模糊的殘留，怎麼也想不起細節。'
+
 /**
- * 打一班工（hours 要在規則的 hours 裡，預設 2、4、8）：
- *  - 時間加 hours 小時；有 check 擲一次（沒有的當成功），報酬 = 時數 × 時薪 × 階段的倍率 × 成功程度，付工作寫的那一種錢；
- *  - 大失敗雇主親密度 −3（沒有人定義 affinity 時略過）；每一班的附帶效果（工作的加上這個階段的）經 k.effects 結算；班數 +1；
- *  - 報告帶觸發點 work（where：district、block、facility 是設施的種類、job、stage 是第幾階段從 1 起算）；
+ * 打一班工（hours 要在規則的 hours 裡，預設 2、4、8；有 modes 的工作要給 mode）：
+ *  - 時間加 hours 小時；有 check 擲一次（沒有的當成功），報酬 = 時數 × 時薪（模式、公式、分帳都算）× 階段的倍率 × 成功程度，付工作寫的那一種錢；
+ *  - 大失敗雇主親密度 −3（沒有人定義 affinity 時略過）；每一班的附帶效果（工作的加上模式的、這個階段的、模式 every 到班數的）經 k.effects 結算；班數 +1；
+ *  - amnesia 的模式：報告的 outcome 多 amnesia: true、結果只有兩句（賺了多少、一句模糊的殘留），時間照過、變更照做；
+ *  - 報告帶觸發點 work（where：district、block、facility 是設施的種類、job、stage 是第幾階段從 1 起算、mode 是做法的 id）；
  *  - 這一班做完滿足升階的條件、這一階還沒問過：報告帶 launch 一件內嵌的事件（有人登記事件視窗才問；沒有就不問、也不記成問過）。
  */
-export function shift(k: Kernel, state: GameState, jobId: string, hours: number): ReportDraft {
-  const block = shiftBlock(k, state, jobId, hours)
+export function shift(k: Kernel, state: GameState, jobId: string, hours: number, modeId?: string): ReportDraft {
+  const block = shiftBlock(k, state, jobId, hours, modeId)
   if (block) throw new ActionBlocked(block)
   const job = jobEntry(k, jobId)!
+  const mode = modeCheck(state, job, modeId).mode
   const rules = workRules(k)
   const js = jobStateOf(state, job.id)
   const at = effectiveStage(state.rules, job, js.stage)
   const stage = job.stages[at]!
   const pc = pcOf(state)
   const minutes = hours * 60
+  const { pay: payOpts, plan } = payBasis(k, state, job, mode?.[1])
+  const amnesia = mode?.[1].amnesia === true
 
   // 擲一次（沒有 check 的當成功）
-  const plan = checkPlan(k, state, job)
   let roll: CheckRoll | null = null
   if (plan) {
     roll = rollCheck(k.stats, state, {
@@ -164,7 +234,7 @@ export function shift(k: Kernel, state: GameState, jobId: string, hours: number)
     })
   }
   const degree: Degree = roll ? roll.degree : 'success'
-  const amount = wageOf(rules, job, stage, hours, degree)
+  const amount = wageOf(rules, job, stage, hours, degree, payOpts)
 
   const changes: Change[] = [{ op: 'time', minutes }]
   if (amount > 0) changes.push({ op: job.pay, delta: amount })
@@ -179,8 +249,12 @@ export function shift(k: Kernel, state: GameState, jobId: string, hours: number)
     }
   }
 
-  // 每一班的附帶效果：工作的加上這個階段的
-  const perks = [...(job.perks ?? []), ...(stage.perks ?? [])]
+  // 這個模式做了幾班（這一班算進去）；every 是「每做滿幾班」給一次的效果
+  const modeCount = mode ? (js.modes?.[mode[0]] ?? 0) + 1 : 0
+  const every = mode ? (mode[1].every ?? []).filter((x) => modeCount % x.shifts === 0).flatMap((x) => x.effects) : []
+
+  // 每一班的附帶效果：工作的加上模式的、這個階段的、模式的 every
+  const perks = [...(job.perks ?? []), ...(mode?.[1].perks ?? []), ...(stage.perks ?? []), ...every]
   if (perks.length > 0) {
     const res = k.effects.resolve(perks, effectCtx(k, state, { source: 'builtin', tail: clone(changes) }))
     if (res.errors.length > 0) throw new ActionBlocked(`${job.name}這一班的附帶效果現在結算不了：${res.errors.join('；')}。`)
@@ -189,7 +263,7 @@ export function shift(k: Kernel, state: GameState, jobId: string, hours: number)
   }
 
   // 升階的檢查：照這一班做完之後的狀態（錢、豔名、雇主親密度都算進去）
-  const done: JobState = { shifts: js.shifts + 1, stage: js.stage, asked: js.asked, last: null }
+  const done: JobState = { shifts: js.shifts + 1, stage: js.stage, asked: js.asked, last: null, ...(mode || js.modes ? { modes: { ...js.modes, ...(mode ? { [mode[0]]: modeCount } : {}) } } : {}) }
   let launch: Launch[] | undefined
   if (k.activity.get(EVENT_ACTIVITY)) {
     const sim = clone(state)
@@ -200,21 +274,33 @@ export function shift(k: Kernel, state: GameState, jobId: string, hours: number)
       launch = [{ kind: EVENT_ACTIVITY, setup: { inline: promoteEvent(k, job, at, at + 1) }, origin }]
     }
   }
-  done.last = { hours, degree: roll ? degree : null, amount, pay: job.pay, stage: at + 1, at: toMinutes(addMinutes(state.time, minutes)) } satisfies LastShift
+  done.last = { hours, degree: roll ? degree : null, amount, pay: job.pay, stage: at + 1, at: toMinutes(addMinutes(state.time, minutes)), ...(mode ? { mode: mode[0] } : {}) } satisfies LastShift
   changes.push(writeWork(state, (w) => { w.jobs[job.id] = done }))
   if (roll) changes.push({ op: 'rng', advance: 1 })
 
   // 報告
   const where: Record<string, string> = {
     ...(state.location.district ? { district: state.location.district } : {}), ...(state.location.block ? { block: state.location.block } : {}),
-    facility: facilityHere(k, state)?.type ?? job.facility, job: job.id, stage: String(at + 1),
+    facility: facilityHere(k, state)?.type ?? job.facility, job: job.id, stage: String(at + 1), ...(mode ? { mode: mode[0] } : {}),
   }
   const triggers: ReportTrigger[] = [{ point: WORK_POINT, where }]
   const place = facilityHere(k, state)?.name ?? facilityLabel(k, job.facility)
-  const head = `你在${place}做了 ${formatDuration(minutes)}的${job.name}${roll ? `（${DEGREE_NAME[degree]}）` : ''}`
+  const data = { job: job.id, stage: at + 1, hours, degree: roll ? degree : null, amount, pay: job.pay, ...(mode ? { mode: mode[0] } : {}) }
+  if (amnesia) {
+    // 戴著晶片的那一班：只留賺了多少與一句模糊的殘留，過程與附帶的句子都不寫（變更照做）
+    const earned = amount > 0 ? `你從${place}下了班，${POOL_NAME[job.pay]}多了 ${formatAmount(amount)}。` : `你從${place}下了班，一毛錢也沒領到。`
+    const results = [earned, AMNESIA_RESIDUE]
+    const outcome = { result: roll ? degree : 'done', summary: results.join(''), amnesia: true } as ReportOutcome
+    return {
+      kind: 'downtime', action: SHIFT_ACTION, location: clone(state.location), actor: pc, party: [],
+      timeline: [{ layer: 'meat', actor: pc, text: earned, tag: SHIFT_ACTION, data: { ...data, amnesia: true } }, { layer: 'meat', actor: pc, text: AMNESIA_RESIDUE, tag: 'work.amnesia' }],
+      changes, outcome, narration: { results }, triggers, ...(launch ? { launch } : {}),
+    }
+  }
+  const head = `你在${place}做了 ${formatDuration(minutes)}的${job.name}${mode ? `（${mode[1].name}）` : ''}${roll ? `（${DEGREE_NAME[degree]}）` : ''}`
   const pay = amount > 0 ? `，領了 ${formatAmount(amount)}（${POOL_NAME[job.pay]}）。` : '，一毛錢也沒領到。'
   const text = `${head}${pay}`
-  const beats: TimelineBeat[] = [{ layer: 'meat', actor: pc, text, tag: SHIFT_ACTION, data: { job: job.id, stage: at + 1, hours, degree: roll ? degree : null, amount, pay: job.pay } }]
+  const beats: TimelineBeat[] = [{ layer: 'meat', actor: pc, text, tag: SHIFT_ACTION, data }]
   if (roll) beats.push({ layer: 'meat', actor: pc, text: `${DEGREE_NAME[roll.degree]}（骰 ${roll.natural}，合計 ${roll.total}，對 DC ${roll.dc}）`, roll, tag: 'work.roll', data: { job: job.id, degree: roll.degree } })
   const results = [text, ...lines.map((l) => `${l}。`)]
   return {
