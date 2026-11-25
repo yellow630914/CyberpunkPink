@@ -97,3 +97,8 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 藥泵的專屬圖示鍵 `pump`：交 cpp-ui 畫，畫好後 `cyber_pump` 改用它，`M1-picks` 的圖示鍵清單補上。
 - 熔斷器三條、回報後門：見 M4-core-gaps 第 4 項（回報後門）；熔斷器三條歸這一張。
 - 核心的五項見 dev/work/M4-core-gaps.md（第十九步先做）。
+
+## 總指揮補記（2026-11-25，M4-medical 回報）
+- 戰鬥裡治重創有兩個 op：`combat` 的 `wound { mode }` 與 `medical` 的 `wound_treat`。統一用 `medical` 的 `wound_treat`；`combat` 的 `wound` 改成轉呼叫同一套邏輯或標成舊的（不能 import 就由資料改用新的），M4-abilities-m4 的技能資料一律寫 `wound_treat`。
+- 肢體「接回還是直接換義肢」（TRADE 3.4）：重創手術的選項多一個「換義肢」，接到 cyberware 的安裝（用效果或掛點，不互相 import）。
+- 治療與重創手術的價錢乘區的物價倍率：M4-data-rules 一起看（和手術費同一件事）。

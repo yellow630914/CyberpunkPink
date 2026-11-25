@@ -48,3 +48,5 @@ M4-cyber-bridge（`learn.ts` 讀容量的那一段先改好）、M4-cyber-battle
 ## 總指揮補記（2026-11-25，M4-cyber-bridge 回報）
 - 換橋後容量變小時，現在由 cyberware 粗略提醒一次（不讀 ext.abilities）。這一張在 abilities 加掛點（例如 `ability.capacity_changed`），裝著的技能超過新容量時由 abilities 自己提醒一句，cyberware 那句拿掉。
 - 橋的機能要 abilities 加鍵：現實型被動技能容量 −1（最低 1）；內海型主動技能 RAM 消耗 −1（最低 1）；四類之間挪用 3 點容量；重傷時技能不失效；人格面具切換不花行動；馴化的負面效果減半；回灌 −10%；同步檔位的特定來源加成（例：駕機甲 +1）。做得到的做，做不到的回報。
+
+- 總指揮補記（2026-11-25）：戰鬥中治重創的技能一律寫 `medical` 的 `wound_treat`（見 M4-followups「M4-medical 回報」）。
