@@ -4,7 +4,7 @@
 
 import type { ActorId, Condition, GameState, Kernel, RollPart, SyncGear, SyncRule, TimelineBeat } from '../../core'
 import { SYNC_GEARS, attrMod, checkParts, clone, deriveRng, isSyncGear, makeCheck, syncBlocks, syncRuleOf } from '../../core'
-import type { ActionId, BodyRec, CircleRec, Die, Dice, EndReason, LinkRec, PairRec, PositionEntry, SceneDef, SceneRaw, SceneRules, Seat, SoloPose } from './model'
+import type { ActionId, BodyRec, CircleRec, Die, Dice, EndReason, LinkRec, PairNature, PairRec, PositionEntry, SceneDef, SceneRaw, SceneRules, Seat, SoloPose } from './model'
 import {
   ACTION_NAME, BASE_PARTS, NO_DIE, PARTNER_GEAR_DOWN_AT, POSITION_KIND, TALK_PARTS, beat, bodyOf, dieRange, gearCapOf, gearIndexOf, hasTendencyTag, isNoDie, knowOf, knownAll, knownPositions, knownSkills, normalizeSeats,
   openingInit, parseDie, partName, poseHasPart, poseReaches, rollDie, sceneDefOf, sceneRules, sensitivityOf, sexRecordOf, soloPoses, startGear, statOr, tendencyTagIds, MAX_LINES,
@@ -1096,7 +1096,7 @@ export class Play {
     }
     const cands = (['dominate', 'yield', 'tease'] as const).filter((kind) => ok({ kind }))
     if (cands.length === 0) return null
-    const weights = this.rules.partner_weights[s.nature]
+    const weights = this.rules.partner_weights[s.nature as PairNature] ?? this.rules.partner_weights.mutual
     return { kind: this.weighted(cands, (kind) => weights[kind]) }
   }
 
@@ -1289,7 +1289,8 @@ export class Play {
         if (!info) return none
         const d = info.def
         const cand = candOf(d, info.tag)
-        const theirPart = input.pick?.their_part
+        const pick = input.pick
+        const theirPart = pick ? pick.their_part : undefined
         const first = [d.on_use.their_load, ...(cand ? [] : [d.on_use.my_load])].find((x) => !isNoDie(x)) ?? NO_DIE
         return {
           ap: d.ap, target_load: null, my_load: load(first, cand ? theirPart : undefined), fit: pace(d.on_use.fit), init: 0, link: cand !== null,

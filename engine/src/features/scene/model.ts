@@ -24,6 +24,8 @@ export const RULE_KIND = 'scene_rule'
 export const NATURES = ['mutual', 'trade', 'work', 'contract', 'forced', 'captive', 'solo'] as const
 export type Nature = (typeof NATURES)[number]
 export const NATURE_NAME: Record<Nature, string> = { mutual: '兩情相悅', trade: '交易', work: '工作', contract: '契約', forced: '被迫', captive: '俘虜', solo: '獨自' }
+/** 有對象的性質（單人的 solo 沒有對象，不用開場的主動權與對方的行動權重）。 */
+export type PairNature = Exclude<Nature, 'solo'>
 export const isNature = (v: unknown): v is Nature => (NATURES as readonly unknown[]).includes(v)
 
 export const ROLES = ['guest', 'worker', 'holder', 'bound', 'none'] as const
@@ -156,7 +158,7 @@ export interface SceneRules {
   init_base: number
   init_docility_div: number
   /** 性質與身分對開場主動權的加減（LEWD_SYSTEM 3.5 節第二點）；work 的 −20 由身分 worker 給，不重複算 */
-  nature_init: Record<Nature, number>
+  nature_init: Record<PairNature, number>
   role_init: Record<Role, number>
   /** 受到的感載 = 原始值 ×（load_base + 敏感度 ÷ load_div） */
   load_base: number
@@ -183,7 +185,7 @@ export interface SceneRules {
   /** 對方的感載達到上限的這個比例以上，他就想克制 */
   partner_restrain_at: number
   /** 對方的一步裡主導、迎合、挑逗的權重，照性質 */
-  partner_weights: Record<Nature, { dominate: number; yield: number; tease: number }>
+  partner_weights: Record<PairNature, { dominate: number; yield: number; tease: number }>
   /** 契合 ≤ quit_fit 而且過了 quit_rounds 回合：對方不玩了 */
   quit_fit: number
   quit_rounds: number
@@ -233,7 +235,7 @@ export const DEFAULT_SCENE_RULES: SceneRules = {
   fit_start: 20,
   init_base: 50,
   init_docility_div: 4,
-  nature_init: { mutual: 0, trade: 0, work: 0, contract: 0, forced: -35, captive: 30, solo: 0 },
+  nature_init: { mutual: 0, trade: 0, work: 0, contract: 0, forced: -35, captive: 30 },
   role_init: { guest: 20, holder: 20, worker: -20, bound: -20, none: 0 },
   load_base: 0.75,
   load_div: 200,
@@ -259,7 +261,6 @@ export const DEFAULT_SCENE_RULES: SceneRules = {
     contract: { dominate: 4, yield: 2, tease: 2 },
     forced: { dominate: 5, yield: 1, tease: 2 },
     captive: { dominate: 1, yield: 5, tease: 2 },
-    solo: { dominate: 1, yield: 1, tease: 1 },
   },
   quit_fit: 10,
   quit_rounds: 3,
@@ -903,7 +904,7 @@ export function openingInit(k: Kernel, state: GameState, o: { pc: string; partne
   const r = sceneRules(k)
   // 性質是工作而沒寫身分，主角就是工作的人；work 的 −20 由身分給，不算兩次
   const role: Role = o.role === 'none' && o.nature === 'work' ? 'worker' : o.role
-  const v = r.init_base + (docilityOf(k, state, o.partner) - docilityOf(k, state, o.pc)) / r.init_docility_div + r.nature_init[o.nature] + r.role_init[role]
+  const v = r.init_base + (docilityOf(k, state, o.partner) - docilityOf(k, state, o.pc)) / r.init_docility_div + (r.nature_init[o.nature as PairNature] ?? 0) + r.role_init[role]
   return Math.max(0, Math.min(100, Math.round(v)))
 }
 

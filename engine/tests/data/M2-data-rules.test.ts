@@ -110,8 +110,9 @@ describe('M2-data-rules：資料和功能的預設一致（逐格）', () => {
       // M4-scene-circles 加的多人欄位（cost.move_circle、cost.call、multi_dice_minus、other_circle）資料檔還沒有，等 M4-data-rules 補；功能讀出來的（下一行）照樣等於預設
       let dataDef: Rec = def
       if (kind === 'scene_rule') {
-        const { multi_dice_minus: _m, other_circle: _o, ...rest } = def as Rec & { cost: Rec }
-        const { move_circle: _mc, call: _c, ...cost } = (def as Rec & { cost: Rec }).cost
+        // M4-scene-solo 加的單人欄位（solo、cost.faster、cost.slower）也一樣
+        const { multi_dice_minus: _m, other_circle: _o, solo: _s, ...rest } = def as Rec & { cost: Rec }
+        const { move_circle: _mc, call: _c, faster: _f, slower: _sl, ...cost } = (def as Rec & { cost: Rec }).cost
         dataDef = { ...rest, cost }
       }
       expect(kind === 'fixer_rule' ? own : raw(g, kind)).toEqual(JSON.parse(JSON.stringify(dataDef)))
