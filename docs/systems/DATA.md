@@ -299,7 +299,7 @@
 | `branch` | `common` 共通、`relation` 關係、`sense` 感官、`body` 身體、`costume` 扮相 |
 | `tier` | 1～5。開階的條件看分支：共通看性經歷，其餘看那一軸的等級 |
 | `tag` | 掛在哪個標籤或風格上。標籤被關掉就不出現；標籤是「深」的時候效果多一格 |
-| `requires` | 其他的學習條件：橋參數、性經歷 |
+| `requires` | 其他的學習條件：橋參數、性經歷；另有 `conditions`（一串條件，格式同事件的條件，2.2 節）放屬性調整值、豔名、穿著、帶著的道具、身上的改造這類。沒有人註冊的條件種類當作不成立，原因寫「這個條件現在還判斷不了」 |
 | `insight` | 學習要花的體悟（階 × 10） |
 | `scene` | 在成人場景裡的效果（見下） |
 | `outside` | 只有少數技能有：延伸到別處的效果，寫法和第 2 節相同，另寫 `cap`（裝進橋要佔的社交容量） |
@@ -391,7 +391,7 @@
 
 ### 3.4 義體的部位和場景的部位
 
-義體裝在九個部位上（[CYBERWARE](../gear/CYBERWARE.md) 第 1 節）。它們在成人場景裡對應到這些部位：
+義體裝在九個部位上（[CYBERWARE](../gear/CYBERWARE.md) 第 1 節；資料裡的 id 見該文 2.2 節）。它們在成人場景裡對應到這些部位：
 
 | 義體的部位 | 場景的部位 | 說明 |
 |---|---|---|
@@ -401,7 +401,7 @@
 | 手臂 | 左手、右手 | 兩隻分開算 |
 | 軀幹 | 胸、後 | |
 | 皮膚 | 全部 | 皮膚類的零件替每個部位加同一個修正 |
-| 性器 | 前、後 | 加裝的器官另外多一個部位 |
+| 私密（`intimate`，舊稱性器） | 前、後 | 加裝的器官另外多一個部位 |
 | 腿 | 腿足 | |
 | 尾與獸化的附加物 | 自己的 id | 多出一個部位 |
 | 觸手的改造 | 觸手 | 多出一個部位；夜課的觸手技能讓它同時接兩條連接 |
@@ -605,7 +605,7 @@
 |---|---|
 | 武器 | `dice` 基礎的傷害骰、`range` 適用距離、`mag` 彈匣格數、`cover_mult` 遮蔽倍率、`type` 傷害類型、`pierce` 基礎穿甲、`traits`（無聲、轟退、近身不扣等）、`skill` 用哪一項基本功 |
 | 護甲與服裝 | `armor` 基礎護甲值、`covers` 蓋住哪些穿著的欄位、`weight_class` 重量級、`style` 與 `exposure`（由外皮零件決定時寫 `from_skin`） |
-| 義體 | `slot` 部位、`invasiveness` 侵入度、`sink_cost` 沉溺成本、`scene_parts`（3.4 節） |
+| 義體 | `slot` 部位（id 見 CYBERWARE 2.2 節）、`invasiveness` 侵入度、`sink_cost` 沉溺成本（直接寫死的數字，牌子的倍率已算在裡面）、`needs_bridge`（預設 true；板材、義肢、皮下裝甲這類寫 false 才裝得上沒有橋的人）、`creation_points`（建角的點數，沒寫照原廠組合的成品價 × 1.5 ÷ 500 進位，最少 1）、`scene_parts`（3.4 節） |
 | 三種共通 | `grade`、`brand`、`require` 必要的零件、`optional` 選配、`legal` 合法性、`price`、`size` 大小、`weight`；武器與護甲、服裝另有 `primary_color`、`secondary_color`（目錄上的預設顏色，7.7 節） |
 
 ```json
@@ -642,6 +642,9 @@
 | `traits`、`drawback` | 特性與代價 |
 | `weight`、`size` | 重量與大小 |
 | `state` | `new`、`used`、`doujin`、`living` |
+| `stats.sink` | 機械神經元等零件對義體沉溺成本的修正（好的為負）；加總方式見 CYBERWARE 2.1 節 |
+| `split` | 只有軟體：四類（現實、內海、社交、媒體）的份數，橋的配分照它算（CRAFTING 第 7 節） |
+| `quirk`、`desc`、`unreg`、`uid`、`from` | 只有內嵌的未登錄零件（7.8 節） |
 
 ```json
 {
@@ -802,6 +805,22 @@
 { "dyes": { "uid:u104": { "primary_color": "dye_mint", "secondary_color": "#1A1520" }, "slot:coat": { "primary_color": "dye_pink", "secondary_color": "dye_black" }, "skin:skin_neon_raincoat": { "primary_color": "dye_violet", "secondary_color": "dye_chrome" } } }
 ```
 
+### 7.8 未登錄零件與拍賣
+
+未登錄零件與拍賣行的規則在 [CRAFTING](../gear/CRAFTING.md) 11.1 節與 [LEWD_SYSTEM](LEWD_SYSTEM.md) 6.2 節；這裡只寫資料的樣子。
+
+| 種類 | 內容 |
+|---|---|
+| `unreg_rule`（規則表） | `options`：每種零件每一項「一份給多少、算幾格、最多幾份」；`types`：每種零件用在哪幾種成品（`kinds`）；預算（I 0.5、II 1、III 1.5、IV 2 格，加怪癖退的格）與條數（1、2、2、3）。不是數字的項目（傷害類型、適用距離、智慧功能、可以被駭）不放 |
+| `unreg_preset`（內容） | AI 關著時用的預設清單：零件類型、選填的等級與材質、名字、說明、怪癖的一句。同類同級優先、其次同類；一筆都沒有時叫「無名的<類型>」 |
+| 內嵌零件 | 零件的每個欄位，加 `unreg`、`uid`、`desc`、`quirk`（`quirk` 內容的 id）、`quirk_text`、`from`。成品的 `parts` 可以放內容的 id，也可以放內嵌的一筆；它活在狀態裡，不進內容。不帶 `bridge` 配分 |
+| `auction_rule`（規則表） | 底價 50%、一階 10%（最少 C$50）、佣金 10%、一件最多 8 回合、仿品 15%、停權 28 天、競標者預算 80%～160%；數字都暫定 |
+| `auction_house`（內容） | 哪一天、哪個時段開槌、幾件、賣哪幾種、會員看哪個勢力的好感與門檻。白槌是一筆；樂園 2F 只賣契約，是另一筆 |
+| `auction_lot`（內容） | 拍品池：種類、權重、`market`（藝術品、機密、契約的市價）、`cert`（一句鑑定書）、得標的效果清單 |
+| `auction_bidder`（內容） | 競標者：興趣、預算的倍率；不夠時補「N 號牌」 |
+
+設施資料另有 `unreg_desk`（有同人委託台）與 `weekdays`（攤位哪幾天開）；`commission_type` 與勢力資料可以選填 `part_types`、`brand`、`leader`，給委託報酬與勢力窗口用。
+
 ## 8. NPC
 
 照 [NPC_SYSTEM](NPC_SYSTEM.md) 第 12 節的樣本，改兩處、加五樣。主角的外觀用同一組欄位（`look`），所以 `look.private` 主角也有：
@@ -814,6 +833,8 @@
 | 加 `sex_record` | 性經歷：`partners` 對象的人數、`times` 次數、`first` 第一次（對象與一句話）、`service_times`、`favorite`、`notes` |
 | 加 `night_skills` | 會的夜課技能 |
 | 加 `positions` | 會的體位（基本的不用寫） |
+| 加 `tutor` | 選填。這個人教哪幾項工藝基本功、條件（一串條件，例如好感 20 以上）、每堂加多少沉溺（CRAFTING 11.2 節）；一位老師對一個人只教一項 |
+| 加 `auction_ref` | 選填。這個人寫得出白槌的推薦函（LEWD_SYSTEM 6.2 節） |
 | 加 `look.private` | 私處的外觀：`{ "options": [詞條的 id], "text": "自由輸入的一段" }`。主角在建角第 1 步選（[CHARACTER](CHARACTER.md) 第 1 節），NPC 生成時一起寫；內容篩選關掉「身體的私密描寫」時不問、不寫，只顯示在角色的成人分頁 |
 
 ```json
