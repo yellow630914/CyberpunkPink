@@ -35,8 +35,8 @@ import type { ActivityDef } from '../../core'
 import { endDraft, logBeats, sceneDraft, stepDraft } from './end'
 import type { CircleRec, Dice, Goal, Nature, PositionEntry, Role, SceneKind, SceneMode, SceneRaw, Who } from './model'
 import {
-  ACTIVITY, EXT, GENDER_FILTER, GOALS, GOAL_NAME, LAYERS, NATURES, NATURE_FILTER, NATURE_NAME, NTR_FILTER, OWNER, POSITION_KIND, ROLES, ROLE_NAME, RULE_KIND, SKILL_KIND, beat,
-  hasTendencyTag, isGoal, isMode, isNature, isRole, knownAll, openingInit, positionProblems, readSceneDef, ruleProblems, sceneModeOf, sceneRawOf, sceneRules, sexRecordOf, skillProblems, startGear, tendencyTagIds,
+  ACTIVITY, EXT, GENDER_FILTER, GOALS, GOAL_NAME, LAYERS, NATURES, NATURE_FILTER, NATURE_NAME, NTR_FILTER, OWNER, POSITION_KIND, ROLES, ROLE_NAME, RULE_KIND, SKILL_KIND, SOLO_POSE_KIND, beat,
+  hasTendencyTag, isGoal, isMode, isNature, isRole, knownAll, openingInit, positionProblems, readSceneDef, ruleProblems, sceneModeOf, sceneRawOf, sceneRules, sexRecordOf, skillProblems, soloPoseProblems, soloPoses, startGear, tendencyTagIds,
 } from './model'
 import type { SceneInput, TalkEnv } from './play'
 import { MAX_MOVES, Play, diceOf, inputProblem } from './play'
@@ -84,6 +84,10 @@ export interface SceneSetup {
   max_rounds?: number
   /** 現實（meat）或內海（net）；多人的這一張只開得了 meat */
   layer?: 'meat' | 'net'
+  /** 單人（M4-scene-solo）：沒有對象（不能給 with、circles）、沒有主動權；nature 寫 solo 或不寫；goal 只收 footage；start_position 是單人姿勢的 id */
+  solo?: boolean
+  /** 單人時有沒有人在看（直播開著）：要有觀眾的技能與說話才用得出來。M5 之前沒有人會給 true */
+  audience?: boolean
   [more: string]: unknown
 }
 
@@ -105,6 +109,9 @@ interface Parsed {
   mode: SceneMode
   start?: string
   max_rounds?: number
+  /** 單人：沒有座位以外的人；audience 是這一場有沒有人在看 */
+  solo?: boolean
+  audience?: boolean
 }
 
 /** 開場的摘要（確認框用：不必自己判斷第 0 步）：誰、性質、身分、目的、會碰到的標籤。 */
@@ -128,6 +135,8 @@ export interface StartSummary {
   /** 這一場碰到的內容篩選項目（都是開著的；關掉的就開不起來）：性質、對象的性別、NTR */
   filters: Array<{ tag: string; name: string }>
   max_rounds?: number
+  /** 單人才有：這一場有沒有人在看 */
+  audience?: boolean
 }
 
 const idList = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : [])
@@ -143,7 +152,13 @@ export function startProblems(k: Kernel, state: GameState, setup: unknown): { pr
   // 主角這一圈的其他人，與別的圈（DATA 第 4 節的 circles：含主角的那一圈是主角這一圈；都沒有主角就是第一圈）
   let main: string[] = []
   let extra: string[][] = []
-  if (Array.isArray(s.with)) {
+  const solo = s.solo === true
+  if (s.solo !== undefined && typeof s.solo !== 'boolean') p.push('solo 要是 true 或 false。')
+  if (s.audience !== undefined && typeof s.audience !== 'boolean') p.push('audience 要是 true 或 false。')
+  if (solo) {
+    // 單人沒有對象
+    if (s.with !== undefined || s.circles !== undefined) p.push('單人的場景沒有對象：不能同時給 with 或 circles。')
+  } else if (Array.isArray(s.with)) {
     main = idList(s.with)
     if (main.includes(pc ?? '')) p.push('對象不能是主角自己。')
     main = main.filter((x) => x !== pc)
@@ -161,12 +176,18 @@ export function startProblems(k: Kernel, state: GameState, setup: unknown): { pr
   if (new Set(everyone).size !== everyone.length) p.push('同一個人只能在一圈裡。')
   if (new Set(everyone).size + 1 > PEOPLE_MAX) p.push(`一場最多 ${PEOPLE_MAX} 個人（含主角）。`)
   for (const id of new Set(everyone)) if (!state.actors[id]) p.push(`找不到對象（${id}）：場景的對象要是已經在場的人。`)
-  if (!isNature(s.nature)) p.push(`性質（nature）要是 ${NATURES.join('、')} 其中一個。`)
+  if (solo) {
+    if (s.nature !== undefined && s.nature !== 'solo') p.push('單人的場景性質只能是 solo（或不寫）。')
+    if (s.goal !== undefined && s.goal !== 'none' && s.goal !== 'footage') p.push('單人的場景目的只收 footage（拿素材）或 none。')
+  } else {
+    if (!isNature(s.nature)) p.push(`性質（nature）要是 ${NATURES.join('、')} 其中一個。`)
+    else if (s.nature === 'solo') p.push('性質 solo 要搭配 solo: true（單人的場景）。')
+    if (s.goal !== undefined && s.goal !== 'none' && !isGoal(s.goal)) p.push(`目的（goal）要是 ${GOALS.join('、')} 或 none。`)
+  }
   if (s.role !== undefined && !isRole(s.role)) p.push(`身分（role）要是 ${ROLES.join('、')} 其中一個。`)
-  if (s.goal !== undefined && s.goal !== 'none' && !isGoal(s.goal)) p.push(`目的（goal）要是 ${GOALS.join('、')} 或 none。`)
   const mode = s.mode !== undefined ? s.mode : sceneModeOf(k)
   if (!isMode(mode)) p.push('mode 要是 full 或 simple。')
-  const filter = isNature(s.nature) ? NATURE_FILTER[s.nature] : undefined
+  const filter = !solo && isNature(s.nature) ? NATURE_FILTER[s.nature] : undefined
   if (filter && state.rules.contentOff.includes(filter.tag)) p.push(`「${filter.name}」被你的內容篩選關掉了，這一種場景開不起來。`)
   // 對象的性別對到的內容篩選（LEWD_SYSTEM 第 9 節）；NTR 看 setup.tags
   const genderFilters = new Map<string, { tag: string; name: string }>()
@@ -186,14 +207,15 @@ export function startProblems(k: Kernel, state: GameState, setup: unknown): { pr
   // 精簡版固定一對一（P37）：只展開主角這一圈的第一個人，這一圈其餘的人收成一個不展開的圈
   const simple = mode === 'simple'
   const seated = simple ? main.slice(0, 1) : main
-  if (p.length === 0 && knownAll(k, state, [pc!, ...seated]).length === 0) {
+  if (p.length === 0 && !solo && knownAll(k, state, [pc!, ...seated]).length === 0) {
     p.push(seated.length === 1 ? '資料裡沒有雙方都會的兩人體位，場景開不起來。' : `資料裡沒有這 ${seated.length + 1} 個人都會的 ${seated.length + 1} 人體位，場景開不起來。`)
   }
   if (p.length > 0) return { problems: p }
   const tags = Array.isArray(s.tags) ? [...new Set((s.tags as unknown[]).filter((t): t is string => typeof t === 'string' && !!t && !state.rules.contentOff.includes(t)))] : []
   const circles = [...(simple && main.length > 1 ? [main.slice(1)] : []), ...extra]
   const parsed: Parsed = {
-    pc: pc!, seated, circles, nature: s.nature as Nature, role: (s.role as Role | undefined) ?? 'none', goal: s.goal === undefined || s.goal === 'none' ? null : (s.goal as Goal), tags, mode: mode as SceneMode,
+    pc: pc!, seated, circles, nature: solo ? 'solo' : (s.nature as Nature), role: (s.role as Role | undefined) ?? 'none', goal: s.goal === undefined || s.goal === 'none' ? null : (s.goal as Goal), tags, mode: mode as SceneMode,
+    ...(solo ? { solo: true, audience: s.audience === true } : {}),
     ...(typeof s.place === 'string' && s.place ? { place: s.place } : {}), ...(typeof s.start_position === 'string' ? { start: s.start_position } : {}),
     ...(typeof s.max_rounds === 'number' ? { max_rounds: s.max_rounds } : {}),
   }
@@ -206,12 +228,14 @@ export function startProblems(k: Kernel, state: GameState, setup: unknown): { pr
     nature: parsed.nature, nature_name: NATURE_NAME[parsed.nature], role, role_name: ROLE_NAME[role], goal: parsed.goal ? { id: parsed.goal, name: GOAL_NAME[parsed.goal] } : null,
     ...(parsed.place ? { place: parsed.place } : {}), tags: tags.map((id) => ({ id, name: (k.content.get('tendency_tag', id)?.name as string | undefined) ?? id })),
     filters: [...new Map(filters.map((f) => [f.tag, { tag: f.tag, name: f.name }])).values()], ...(parsed.max_rounds !== undefined ? { max_rounds: parsed.max_rounds } : {}),
+    ...(parsed.solo ? { audience: parsed.audience === true } : {}),
   }
   return { problems: [], parsed, summary }
 }
 
 /** 一對一（pair）還是多人（group）：完整版這一場除了主角還有兩個以上的人是多人（一次 sceneNext 走完一輪）；精簡版固定一對一。 */
-function kindOf(o: Pick<Parsed, 'seated' | 'circles' | 'mode'>): SceneKind {
+function kindOf(o: Pick<Parsed, 'seated' | 'circles' | 'mode' | 'solo'>): SceneKind {
+  if (o.solo) return 'solo'
   return o.mode === 'full' && o.seated.length + o.circles.reduce((n, c) => n + c.length, 0) > 1 ? 'group' : 'pair'
 }
 
@@ -233,12 +257,14 @@ function startScene(k: Kernel, state: GameState, setup: unknown, origin: Origin)
     id: `c${i + 1}`, people: [...people], fit: rules.other_circle.fit_start, climax: Object.fromEntries(people.map((id) => [id, 0])), line: '',
   }))
   const pairs: SceneRaw['pairs'] = {}
+  const solo = o.solo === true
   for (const id of o.seated) pairs[id] = { fit: rules.fit_start, init: openingInit(k, state, { pc: o.pc, partner: id, nature: o.nature, role: o.role }), first: sexRecordOf(state.actors[o.pc]).people[id] === undefined }
   const scene: SceneRaw = {
     v: 2, id: `sc${state.seq.uid + 1}`, mode: o.mode, kind: kindOf(o), layer: 'meat', pc: o.pc, nature: o.nature, role: o.role, goal: o.goal, ...(o.place ? { place: o.place } : {}), tags: o.tags,
     round: 1, turn: o.pc, step: 0, seats: [seat(o.pc), ...o.seated.map(seat)], pairs,
     goal_progress: o.goal ? 0 : null, position: '', roles: {}, links: [], link_seq: 0, turn_began: false,
     used_positions: [], touched: [...o.tags], lines: [], origin: clone(origin), circles, ...(o.max_rounds !== undefined ? { max_rounds: o.max_rounds } : {}),
+    ...(solo ? { pace: rules.solo.pace_start, audience: o.audience === true } : {}),
   }
   const p = new Play(k, state, scene, diceOf(state, scene))
   for (const id of p.ids) p.seat(id).ap = p.apMax[id]!
@@ -246,6 +272,13 @@ function startScene(k: Kernel, state: GameState, setup: unknown, origin: Origin)
   for (const id of p.ids) {
     p.seat(id).gear = startGear(p.gearCap[id]!)
     p.seat(id).max_gear = p.seat(id).gear
+  }
+  // 單人：起始的姿勢是 start_position 寫的（查得到才算），沒寫就是第一個；沒有對象、沒有主動權
+  if (solo) {
+    const pose = p.poses.find((x) => x.id === o.start) ?? p.poses[0]!
+    p.enterPose(pose)
+    const text = `你獨自進入了這一場（${o.place ? `${o.place}，` : ''}${pose.name}）。`
+    return [sceneDraft(state, p, 'scene.start', [beat(o.pc, text, 'scene.start', { nature: o.nature, position: pose.id, solo: true, audience: o.audience === true })], [{ op: 'uid', advance: 1 }, { op: 'ext', key: EXT, value: clone(p.s) }], 'start', text)]
   }
   // 起始的體位：寫了而且全圈都會就用它；沒寫（或不能用）就挑第一個全圈都會的基本體位
   const both = knownAll(k, state, p.ids)
@@ -343,6 +376,14 @@ export function sceneSkip(k: Kernel, state: GameState, env: SceneEnv = {}): Repo
   if (scene.step !== 0 || scene.round !== 1) throw new ActionBlocked('場景已經開始了，只能按「停下」結束。')
   const p = new Play(k, state, scene, env.dice ?? diceOf(state, scene))
   const r = p.rules.skip
+  // 單人：節奏 = 略過公式的基底加亂數（沒有對象的幾項不算）
+  if (p.solo) {
+    const sk = p.rules.solo.skip
+    p.s.pace = Math.max(0, Math.min(100, sk.base + p.dice.int(0, sk.spread - 1)))
+    if (p.s.goal !== null) p.s.goal_progress = Math.max(p.s.goal_progress ?? 0, p.s.pace)
+    p.line(p.pc, '這一場略過了：寫成一段敘事，自動結算。', 'skip')
+    return endDraft(k, p, 'skip', [])
+  }
   const roll = (shared: number, sens: number): number => Math.max(0, Math.min(100, r.base + shared * r.per_tag + Math.round((sens - 50) / r.sens_div) + p.dice.int(0, r.spread - 1)))
   // 每一對照自己的數值各算一次；別的圈用圈裡共同的標籤數與平均的敏感度
   for (const x of p.activeOthers(p.pc)) p.s.pairs[x]!.fit = roll(tendencyTagIds(p.actor(p.pc)).filter((t) => hasTendencyTag(p.actor(x), t)).length, p.sens[x]!)
@@ -393,6 +434,8 @@ export const sceneFeature: Feature = {
       refs: (e) => (typeof e.unlocked_by === 'string' ? [[SKILL_KIND, e.unlocked_by]] : []),
     })
     k.content.defineKind({ kind: SKILL_KIND, owner: OWNER, validate: skillProblems })
+    // 單人姿勢（內建五個；資料寫同一個 id 換掉、寫新的 id 多一個）
+    k.content.defineKind({ kind: SOLO_POSE_KIND, owner: OWNER, validate: soloPoseProblems })
     k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
 
     // 體悟（LEWD_SYSTEM 第 10 節）：單一、0 起、沒有上限。AI 一件事只能加（0～+5）、不能扣（EVENTS 2.4 節；使用者 2026-11-24 裁決，dev/adr/0017 最後一批的補記）。
@@ -416,7 +459,7 @@ export const sceneFeature: Feature = {
 
   ready(k: Kernel) {
     const problems: string[] = []
-    const positions = new Set(k.content.list(POSITION_KIND).map((e) => e.id))
+    const positions = new Set([...k.content.list(POSITION_KIND).map((e) => e.id), ...soloPoses(k).map((x) => x.id)])
     const check = (kind: string, id: string, raw: unknown, item: boolean): void => {
       const r = readSceneDef(raw, item)
       if ('problems' in r) problems.push(...r.problems.map((x) => `${kind}/${id}：${x}`))

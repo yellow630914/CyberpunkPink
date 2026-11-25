@@ -61,6 +61,11 @@ export function costOf(p: Play, input: SceneInput): number {
   }
 }
 
+/** 單人時一件技能或道具能不能用（資料的 solo 欄位；沒寫：道具 ok、技能 no）。 */
+export function soloGate(def: Pick<SceneDef, 'solo'>, kind: 'skill' | 'item'): 'ok' | 'audience' | 'no' {
+  return def.solo ?? (kind === 'item' ? 'ok' : 'no')
+}
+
 // ---- 配對：用哪個部位接對方的哪個部位 ----
 
 interface PairCand { mine: string[]; theirs: string[]; tag: string | null; asPart?: string; double?: boolean }
@@ -699,6 +704,7 @@ export class Play {
 
   /** 技能與道具：花行動點，用出去的那一下，再建立連接（有部位的話）。 */
   private use(w: ActorId, t: ActorId, kind: 'skill' | 'item', id: string, pick: PartPick | undefined): void {
+    if (this.solo) return this.useSolo(w, kind, id, pick)
     const info = sceneDefOf(this.k, kind, id)!
     const def = info.def
     this.ctx = this.ctxOf(w, t)
@@ -729,6 +735,45 @@ export class Play {
     this.line(w, text, kind, { id, target_load: a, my_load: b, fit: f, init: def.on_use.init, ...(linked && keep ? { my_part: linked.mine, their_part: linked.theirs } : {}), ...(match ? { match: info.tag } : {}) })
   }
 
+  /**
+   * 單人的技能與道具（LEWD_SYSTEM 3.5 節第九點）：連接是「自己的部位接自己的部位」。原本給對方的感載（their_load）算在自己身上，原本給自己的那一份（my_load）不算，
+   * 契合算成節奏，主動權不算，對方也有標籤的契合加成沒有（沒有對方）。沒有部位的道具（藥）沒有「對方」，兩份感載都算在自己身上（先 their 再 my）。
+   */
+  private useSolo(w: ActorId, kind: 'skill' | 'item', id: string, pick: PartPick | undefined): void {
+    const info = sceneDefOf(this.k, kind, id)!
+    const def = info.def
+    const cand = candOf(def, info.tag)
+    this.spend(w, def.ap)
+    const roll = this.roller(w)
+    const their = roll(def.on_use.their_load)
+    const mine = cand ? 0 : roll(def.on_use.my_load)
+    // 先挑部位（不擲骰、不改狀態）：受到的感載看接的是哪個部位（P64）
+    const r = cand ? this.pairFor(w, cand, pick, false, w) : null
+    const linked = r && !('reasons' in r) ? r : null
+    const a = this.applyLoad(w, their, w, linked?.theirs)
+    const b = cand ? 0 : this.applyLoad(w, mine, w)
+    const pace = this.addFit(def.on_use.fit, w)
+    if (info.tag && !this.s.touched.includes(info.tag)) this.s.touched.push(info.tag)
+    if (kind === 'item' && info.consumable) this.consumed = id
+    const keep = linked !== null && !this.ended
+    if (linked && keep) this.addLink(w, w, kind, id, info.name, linked, def.link ? { my_load: 0, their_load: dieSpec(def.link.their_load), fit: def.link.fit } : { my_load: 0, their_load: 0, fit: 0 }, def.double)
+    const verb = kind === 'skill' ? '施展' : '用上'
+    const text = linked && keep ? `你用${partName(linked.mine)}${verb}「${info.name}」，接上自己的${partName(linked.theirs)}。` : `你${verb}「${info.name}」。`
+    this.line(w, text, kind, { id, my_load: a + b, pace, ...(linked && keep ? { my_part: linked.mine, their_part: linked.theirs } : {}) })
+  }
+
+  /** 加快、放慢（單人；LEWD_SYSTEM 3.5 節第九點）：自己的感載與節奏。側躺：加快的感載減 1d6 的一半、放慢的節奏多 +1。 */
+  private tempo(w: ActorId, kind: 'faster' | 'slower'): void {
+    const r = this.rules.solo[kind]
+    const pose = this.pose
+    this.spend(w, this.rules.cost[kind])
+    const amount = rollDie(this.dice, parseDie(r.load) ?? NO_DIE)
+    const cut = kind === 'faster' && pose?.faster_cut ? Math.floor(rollDie(this.dice, parseDie(pose.faster_cut) ?? NO_DIE) / 2) : 0
+    const load = this.applyLoad(w, kind === 'faster' ? Math.max(0, amount - cut) : amount, w)
+    const pace = this.addFit(r.pace + (kind === 'slower' ? pose?.slower_pace ?? 0 : 0), w)
+    this.line(w, kind === 'faster' ? '你加快了節奏。' : '你放慢下來，細細地磨。', kind, { my_load: load, pace })
+  }
+
   /** 說話的檢定（魅力加交涉或誘惑對說話的難度）：說話與叫人過來共用。 */
   private talkCheck(w: ActorId): ReturnType<typeof makeCheck> {
     const a = this.actor(w)
@@ -752,7 +797,7 @@ export class Play {
       // 外面（scene_talk）給的結果：契合夾在 −5～+10、目的的進度夾在 0～+20，不擲檢定
       const n = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? Math.trunc(v) : 0)
       fit = this.addFit(clamp(n(env.fit), TALK_ENV_FIT[0], TALK_ENV_FIT[1]), w, x)
-      if (this.isPc(w) && this.s.goal !== null && this.s.goal_progress !== null) {
+      if (!this.solo && this.isPc(w) && this.s.goal !== null && this.s.goal_progress !== null) {
         goal = clamp(n(env.goal), 0, 20)
         this.s.goal_progress = Math.min(100, this.s.goal_progress + goal)
       }
@@ -760,16 +805,19 @@ export class Play {
     } else {
       check = this.talkCheck(w)
       fit = this.addFit(this.rules.talk_fit[check.degree], w, x)
-      if (this.isPc(w) && this.s.goal !== null && this.s.goal_progress !== null) {
+      if (!this.solo && this.isPc(w) && this.s.goal !== null && this.s.goal_progress !== null) {
         goal = Math.min(20, this.rules.talk_goal[check.degree])
         this.s.goal_progress = Math.min(100, this.s.goal_progress + goal)
       }
       extra = { degree: check.degree }
     }
-    const r = this.pairFor(w, { mine: [...TALK_PARTS], theirs: this.partsOf(t), tag: null }, input.pick, false, t)
-    if (!('reasons' in r) && !this.ended && this.inCircle(t) && this.inCircle(w)) this.addLink(w, t, 'talk', 'talk', '說話', r, { my_load: 0, their_load: 0, fit: 0 })
+    if (!this.solo) {
+      const r = this.pairFor(w, { mine: [...TALK_PARTS], theirs: this.partsOf(t), tag: null }, input.pick, false, t)
+      if (!('reasons' in r) && !this.ended && this.inCircle(t) && this.inCircle(w)) this.addLink(w, t, 'talk', 'talk', '說話', r, { my_load: 0, their_load: 0, fit: 0 })
+    }
     if (this.isPc(w) && input.text) this.said = input.text.slice(0, 200)
-    this.line(w, this.isPc(w) ? `你對${this.name(t)}說了幾句話。` : `${this.name(w)}開口說了幾句話。`, 'talk', { fit, goal, ...extra })
+    // 單人：對看著的人說，契合的變化就是節奏的變化（報告的 data 用 pace）
+    this.line(w, this.solo ? '你對看著的人說了幾句話。' : this.isPc(w) ? `你對${this.name(t)}說了幾句話。` : `${this.name(w)}開口說了幾句話。`, 'talk', this.solo ? { pace: fit, ...extra } : { fit, goal, ...extra })
     if (check) this.beats[this.beats.length - 1]!.roll = check
   }
 
@@ -806,8 +854,24 @@ export class Play {
     }
   }
 
+  /** 單人換進一個姿勢（開場也走這裡，不花行動點）：姿勢、用過的姿勢。連接由呼叫的人處理。 */
+  enterPose(pose: SoloPose): void {
+    this.s.position = pose.id
+    this.s.roles = {}
+    if (!this.s.used_positions.includes(pose.id)) this.s.used_positions.push(pose.id)
+  }
+
   private switchTo(w: ActorId, id: string): void {
     this.spend(w, this.rules.cost.switch)
+    if (this.solo) {
+      const pose = this.poses.find((x) => x.id === id)!
+      const old = this.s.links
+      this.s.links = []
+      this.enterPose(pose)
+      this.line(w, `換成${pose.name}。連接全部重來。`, 'switch', { position: id })
+      if (this.s.mode === 'simple') this.relink(old)
+      return
+    }
     const next = this.k.content.require<PositionEntry>(POSITION_KIND, id)
     const old = this.s.links
     this.s.links = []
@@ -954,8 +1018,9 @@ export class Play {
     switch (input.kind) {
       case 'dominate': case 'yield': case 'tease': return this.basic(w, input.target !== undefined ? [input.target] : this.linkedWith(w), input.kind)
       case 'restrain': return this.restrain(w)
-      case 'skill': case 'item': return this.use(w, this.target(w, input), input.kind, input.id, input.pick)
-      case 'talk': return this.talk(w, this.target(w, input), input)
+      case 'faster': case 'slower': return this.tempo(w, input.kind)
+      case 'skill': case 'item': return this.use(w, this.solo ? w : this.target(w, input), input.kind, input.id, input.pick)
+      case 'talk': return this.talk(w, this.solo ? w : this.target(w, input), input)
       case 'switch': return this.switchTo(w, input.position)
       case 'gear': return this.shiftTo(w, input.gear)
       case 'move_circle': return this.moveCircle(input.circle)
@@ -1076,6 +1141,8 @@ export class Play {
   settleRound(): void {
     const s = this.s
     const half = (w: ActorId, n: number): number => (n > 0 && this.seat(w).restrained ? Math.round(n * 0.5) : n)
+    // 單人：這一回合有沒有任何連接（姿勢自己帶的那一條也算）；沒有，節奏就掉
+    const hadLink = s.links.length > 0 || this.pose?.upkeep?.link === true
     for (const l of [...s.links]) {
       if (this.ended) return
       // 這一條在這一輪裡已經因為有人失神退出而斷掉了
@@ -1089,6 +1156,10 @@ export class Play {
     }
     this.ctx = null
     if (this.ended) return
+    if (this.solo) {
+      this.soloRound(hadLink)
+      if (this.ended) return
+    }
     // 體位本身推主動權：有上位（或體位寫了 drift）的位置每回合推一次，主角的推他對每個人那一份、別人的推他對主角那一份
     for (const id of this.activeIds()) {
       const role = s.roles[id]
@@ -1101,6 +1172,12 @@ export class Play {
     if (s.goal === 'stall' && s.goal_progress !== null) s.goal_progress = Math.min(100, s.goal_progress + this.rules.goal_stall_per_round)
     this.otherCircles()
     this.beats.push(beat(undefined, `第 ${s.round} 回合結束。`, 'round', { round: s.round }))
+    // 單人：節奏掉到 quit_pace 以下而且過了 quit_rounds 回合，自己沒了興致
+    if (this.solo && s.round >= this.rules.solo.quit_rounds && (s.pace ?? 0) <= this.rules.solo.quit_pace) {
+      this.line(s.pc, '你沒了興致，停了下來。', 'quit')
+      this.ended = 'bored'
+      return
+    }
     const others = this.activeOthers(s.pc)
     if (s.round >= this.rules.quit_rounds && others.length > 0 && others.every((x) => (s.pairs[x]?.fit ?? 100) <= this.rules.quit_fit)) {
       this.line(others[0]!, `${this.name(others[0]!)}說今天就到這裡。`, 'quit')
@@ -1121,6 +1198,25 @@ export class Play {
     }
     s.turn_began = false
     s.turn = s.pc
+  }
+
+  /**
+   * 單人每回合的節奏（姿勢的每回合固定值、連著的部位的節奏加成、沒有連接就掉）。連接自己的自動效果已經先算過。
+   * 姿勢的 upkeep.load 是自己的感載（可能就高潮了）。
+   */
+  private soloRound(hadLink: boolean): void {
+    const pose = this.pose
+    const pc = this.s.pc
+    if (pose?.upkeep?.load !== undefined) this.hurt(pc, rollDie(this.dice, parseDie(pose.upkeep.load) ?? NO_DIE), pc)
+    if (this.ended) return
+    if (pose?.upkeep?.pace) this.addFit(pose.upkeep.pace, pc)
+    for (const [part, n] of Object.entries(pose?.link_pace ?? {})) {
+      if (this.s.links.some((l) => l.mine === part || l.theirs === part)) this.addFit(n, pc)
+    }
+    if (!hadLink) {
+      const lost = this.dropPace(this.rules.solo.idle_drop)
+      this.beats.push(beat(pc, '這一回合沒有任何連接，節奏掉了。', 'pace', { pace: this.s.pace, lost }))
+    }
   }
 
   /** 別的圈（P35）：每圈每回合契合 + fit_die（圈裡的人有共同的標籤再 + tag_bonus）、每個人感載 + load_die（照他的敏感度與餘韻）、高潮照算（失神的退出）；每圈一行字。 */
@@ -1158,8 +1254,55 @@ export class Play {
 
   // ---- 預覽 ----
 
+  /**
+   * 單人的預覽：沒有對方，target_load 一律是 null；my_load 是自己受到的（技能與道具：原本給對方的那一份），fit 是節奏的變化，init 是 0。
+   */
+  private previewSolo(w: ActorId, input: SceneInput): Preview {
+    const seat = this.seat(w)
+    const load = (d: Die, part?: string): PreviewLoad | null => {
+      if (isNoDie(d)) return null
+      const extra = seat.teased && d.n > 0 ? 1 : 0
+      const r = dieRange(d, extra)
+      const m = d.sign > 0 ? (this.rules.load_base + this.sensAt(w, part) / this.rules.load_div) * this.mult(w) * this.boost(w) * this.gearMult(w) : 1
+      return { dice: dieTextOf(d, extra), mult: round2(m), min: Math.round(r.min * m), max: Math.round(r.max * m), avg: round1(r.avg * m) }
+    }
+    const none: Preview = { ap: 0, target_load: null, my_load: null, fit: 0, init: 0, link: false }
+    const pace = (n: number): number => (n > 0 ? Math.round(n * this.boost(w)) : n)
+    switch (input.kind) {
+      case 'faster': case 'slower': {
+        const r = this.rules.solo[input.kind]
+        const bonus = input.kind === 'slower' ? this.pose?.slower_pace ?? 0 : 0
+        return { ...none, ap: this.rules.cost[input.kind], my_load: load(parseDie(r.load) ?? NO_DIE), fit: pace(r.pace + bonus) }
+      }
+      case 'restrain': {
+        const n = Math.max(0, this.rules.restrain_base + this.resolveMod(w))
+        return { ...none, ap: this.rules.cost.restrain, my_load: { dice: `−${n}`, mult: 1, min: -n, max: -n, avg: -n } }
+      }
+      case 'talk': return { ...none, ap: this.rules.cost.talk, fit: this.rules.talk_fit.fumble, fit_max: this.rules.talk_fit.critical }
+      case 'switch': return { ...none, ap: this.rules.cost.switch }
+      case 'gear': {
+        const g = this.sync.gears[input.gear]
+        return { ...none, gear: { id: input.gear, name: `${g.name}檔`, check: g.check, load_pct: g.loadPct, ap_regen: g.apRegen ?? 0, sink_on_overload: g.sinkOnOverload ?? 0 } }
+      }
+      case 'skill': case 'item': {
+        const info = sceneDefOf(this.k, input.kind, input.id)
+        if (!info) return none
+        const d = info.def
+        const cand = candOf(d, info.tag)
+        const theirPart = input.pick?.their_part
+        const first = [d.on_use.their_load, ...(cand ? [] : [d.on_use.my_load])].find((x) => !isNoDie(x)) ?? NO_DIE
+        return {
+          ap: d.ap, target_load: null, my_load: load(first, cand ? theirPart : undefined), fit: pace(d.on_use.fit), init: 0, link: cand !== null,
+          ...(d.link ? { per_round: { target_load: null, my_load: load(d.link.their_load, theirPart), fit: d.link.fit } } : {}),
+        }
+      }
+      default: return none
+    }
+  }
+
   /** 一個行動的預覽（畫面要的）：雙方的感載（骰、倍率、範圍）、契合、主動權、花的行動點。數字都是引擎算的。 */
   preview(w: ActorId, input: SceneInput): Preview {
+    if (this.solo) return this.previewSolo(w, input)
     const single = input.kind === 'skill' || input.kind === 'item' || input.kind === 'talk'
     const given = 'target' in input ? input.target : undefined
     const o = given ?? (single ? this.autoTarget(w, input) : this.linkedWith(w)[0] ?? this.autoTarget(w, input))

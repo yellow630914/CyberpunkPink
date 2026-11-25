@@ -5,7 +5,7 @@
 import type { Change, ClampNote, GameState, Kernel, ReportDraft, TimelineBeat } from '../../core'
 import { attachActivityEnd, clone, contentAllowed, effectCtx, endActivity } from '../../core'
 import type { EndReason } from './model'
-import { ACTIVITY, END_NAME, SINK_CAP, EXT, GOAL_NAME, beat, ratingOf, recordSceneWith, sexRecordOf, sceneRawOf } from './model'
+import { ACTIVITY, END_NAME, SINK_CAP, EXT, GOAL_NAME, beat, ratingOf, recordSceneWith, recordSolo, sexRecordOf, sceneRawOf, soloPosesSeen } from './model'
 import type { Play } from './play'
 
 type Fx = Record<string, unknown>
@@ -62,6 +62,7 @@ export function logBeats(state: GameState): TimelineBeat[] {
  * activity.end 的結果併進來（發起的人可以回傳變更、行、launch、rewind）。
  */
 export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBeat[]): ReportDraft {
+  if (p.solo) return soloEndDraft(k, p, reason, lead)
   const { s, state, rules } = p
   const skip = reason === 'skip'
   p.s.step += 1
@@ -185,6 +186,93 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
   ]
   const finalBeat = beat(s.pc, `場景結束：${END_NAME[reason]}。契合 ${fit}，${band.name}。`, 'scene.end', { reason, fit, rating: band.id, insight, max_gear: maxGear, ...(multi ? { pairs: pairResult } : {}) })
   const d = sceneDraft(state, p, 'scene.end', [...lead, ...p.beats, finalBeat], changes, reason, `${END_NAME[reason]}。契合 ${fit}，${band.name}。`)
+  d.narration = { results }
+  if (fx.clamps.length > 0) d.clamps = fx.clamps
+  if (p.said) d.input = p.said
+  return attachActivityEnd(d, end)
+}
+
+/**
+ * 單人的結算（LEWD_SYSTEM 3.5 節第九點）：評價用同一張表、看節奏；體悟＝那一級的體悟 × solo.insight_mult（進位）加上第一次用某個姿勢、第一次碰某個標籤的加成；
+ * 不改任何人的關係、橋參數那一點照評價的機率落在主角、傾向照碰到的標籤；性經歷只加 solo_times（與用過的姿勢、碰過的標籤），次數、對象人數都不動；
+ * 沉溺只有全檔過載累積的那一份（規則退路是 0）；`goal: 'footage'` 時節奏到過 goal_done_at 算達成（素材本身是 M5 的事）。
+ */
+function soloEndDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBeat[]): ReportDraft {
+  const { s, state, rules } = p
+  const skip = reason === 'skip'
+  p.s.step += 1
+  const pace = s.pace ?? 0
+  const band = ratingOf(rules, pace)
+  const pc = state.actors[s.pc]!
+  const rec = sexRecordOf(pc)
+
+  // 體悟：表的數字打折（進位到整數）；第一次用某個姿勢、第一次碰某個標籤照舊；略過再打七折
+  const notes: string[] = [`單人：打${Math.round(rules.solo.insight_mult * 100) / 10}折`]
+  let insight = Math.ceil(band.insight * rules.solo.insight_mult)
+  const used = skip ? [] : s.used_positions
+  const seen = soloPosesSeen(rec)
+  for (const id of used) {
+    if (!seen.includes(id)) {
+      insight += rules.first_bonus
+      notes.push(`第一次用「${p.posNameOf(id)}」`)
+    }
+  }
+  const touched = [...new Set([...s.tags, ...(skip ? [] : s.touched)])]
+  for (const t of touched) {
+    if (!rec.tags.includes(t)) {
+      insight += rules.first_bonus
+      notes.push(`第一次碰「${p.tagName(t)}」`)
+    }
+  }
+  if (skip) {
+    insight = Math.round(insight * rules.skip_mult)
+    notes.push('略過：打七折')
+  }
+
+  // 傾向照碰到的標籤；橋參數那一點照評價的機率（落在主角自己）；不改任何人的親密度
+  const pcFx: Fx[] = []
+  for (const t of touched) if (contentAllowed(state.rules, t)) pcFx.push({ kind: 'tendency', tag: t })
+  const settled = settleEffects(k, state, s.pc, pcFx)
+  const fx = { changes: [...settled.changes], lines: [...settled.lines], clamps: [...settled.clamps] }
+  if (!skip && band.bridge > 0 && p.dice.int(1, 100) <= Math.round(band.bridge * 100)) {
+    const b = settleEffects(k, state, s.pc, [{ kind: 'bridge', param: p.dice.int(0, 1) === 0 ? 'sensitivity' : 'tolerance', amount: 1 }])
+    fx.changes.push(...b.changes)
+    fx.lines.push(...b.lines)
+    fx.clamps.push(...b.clamps)
+  }
+
+  // 性經歷：只加單人的次數、用過的姿勢與碰過的標籤
+  const record: Change = { op: 'actor.ext', id: s.pc, key: 'sex_record', value: recordSolo(rec, { poses: used, tags: touched }) }
+
+  const goalDone = s.goal === 'footage' && Math.max(s.goal_progress ?? 0, pace) >= rules.goal_done_at
+  const sinkLines: string[] = []
+  const sinkChanges: Change[] = []
+  for (const seat of s.seats) {
+    const n = Math.min(SINK_CAP, seat.sink_gain)
+    if (n <= 0) continue
+    sinkChanges.push({ op: 'actor.track', id: seat.id, track: 'sink', delta: n })
+    sinkLines.push(`你在${p.sync.gears.full.name}檔過載：沉溺 +${n}。`)
+  }
+  const maxGear = { pc: p.seat(s.pc).max_gear }
+  const result = { solo: true, pace, rating: band.name, goal: s.goal, goal_done: goalDone, reason, max_gear: maxGear, audience: s.audience === true }
+  const end = endActivity(k, { state, kind: ACTIVITY, id: s.id, origin: s.origin, outcome: reason, result })
+  if (end.rewind) end.launch = []
+
+  const changes: Change[] = [
+    { op: 'ext', key: EXT, value: null },
+    ...trackChanges(p, true),
+    ...(p.consumed ? [{ op: 'item', id: p.consumed, qty: -1 } as Change] : []),
+    ...(insight !== 0 ? [{ op: 'meter', kind: 'insight', key: '_', delta: insight } as Change] : []),
+    ...sinkChanges, ...fx.changes, record, ...end.changes,
+  ]
+  const glowText = s.seats.map((x) => `你 ${p.glow[x.id]}／${p.glowMax[x.id]} 層`).join('、')
+  const results = [
+    `${END_NAME[reason]}。`, `節奏 ${pace}：${band.name}。`, `體悟 +${insight}（${notes.join('、')}）。`, ...fx.lines, ...sinkLines,
+    ...(s.goal ? [`目的「${GOAL_NAME[s.goal]}」：${goalDone ? '達成了' : '沒有達成'}。`] : []),
+    `餘韻：${glowText}。`, ...end.lines,
+  ]
+  const finalBeat = beat(s.pc, `場景結束：${END_NAME[reason]}。節奏 ${pace}，${band.name}。`, 'scene.end', { reason, solo: true, pace, rating: band.id, insight, max_gear: maxGear })
+  const d = sceneDraft(state, p, 'scene.end', [...lead, ...p.beats, finalBeat], changes, reason, `${END_NAME[reason]}。節奏 ${pace}，${band.name}。`)
   d.narration = { results }
   if (fx.clamps.length > 0) d.clamps = fx.clamps
   if (p.said) d.input = p.said

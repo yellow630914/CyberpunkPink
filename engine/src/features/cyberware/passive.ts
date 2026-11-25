@@ -8,7 +8,7 @@
 import type { ActorId, GameState, Kernel, PassiveEffect } from '../../core'
 import { isRecord, partOf, productOf } from '../../core'
 import type { CyberPiece } from './model'
-import { OWNER, blueprintEntry, cyberOf, isActive, nowOf } from './model'
+import { blueprintEntry, cyberOf, isActive, nowOf } from './model'
 
 /** 場景的基本部位（features/scene 的 BASE_PARTS；功能之間不互相 import，這裡認同一份名字）：scene_parts 的 sensitivity 寫 all 時展開到這些加上義體多出來的。 */
 export const BASE_SCENE_PARTS = ['mouth', 'hand_l', 'hand_r', 'chest', 'front', 'back', 'legs'] as const
