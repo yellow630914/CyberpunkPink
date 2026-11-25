@@ -184,6 +184,20 @@ export const AFTERGLOW_DOUBLE = 'afterglow_double'
 export const SINK_RESIST = 'sink_resist'
 
 /**
+ * 熔斷器的三種標籤（M4-followups-2 第 3 項；CYBERSPACE 6「精神污染」、CYBERWARE 7.1、7.5 節）。每一座橋出廠都有熔斷器（大潮崩之後的規定）；
+ * 下面三個是「熔斷器和一般的不一樣」的橋，被動效果 { unit_tag } 給（橋的設計圖 effects 寫）：
+ *   breaker_first   機械式熔斷器（織女 初鳴）：每場戰鬥第一次過載不疊餘韻（感載照樣歸零、照樣失去回合或閃斷；這一次也不會因為餘韻疊滿而昏過去）
+ *   breaker_crude   黑市重接的熔斷器（野戰・無鎖）：每次過載（疊餘韻的那一種）有 BREAKER_CRUDE_CHANCE 的機會多疊 1 層（疊到承受層數為止，不會因此昏過去）
+ *   no_breaker      沒有熔斷器（聖堂自製、赤線系列）：戰鬥裡沒有特別的規則；掃橋時掃不過閘門（features/security 的 scan.person 的 breaker: false，只剩掉頭）。
+ *                   「拔掉的人只是讓自己能被殺」：引擎裡沒有死亡，這一半沒有做
+ */
+export const BREAKER_FIRST = 'breaker_first'
+export const BREAKER_CRUDE = 'breaker_crude'
+export const NO_BREAKER = 'no_breaker'
+/** 黑市熔斷器每次過載多疊一層的機會（CYBERWARE 7.5 節：一成）。 */
+export const BREAKER_CRUDE_CHANCE = 0.1
+
+/**
  * 「斷藥」狀態的 id 約定（程式「斷藥」、腳本「斷藥」；ITEMS 11.5 節；M4-core-gaps 第 5 項）：資料（battle_status）定義它的名字、說明與持續幾回合（兩回合；III 三回合）。
  * 帶著它的單位：run.vent 排不掉感載（除錯、回復都沒有效果）；義體功能讀它——藥泵（cyber_pump）與標了 jammable 的行動（冷卻迴路）這段時間不能用。
  * 規則表沒有這個狀態時，給這個狀態的效果會丟「查不到狀態」，不會悄悄沒事。

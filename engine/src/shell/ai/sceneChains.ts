@@ -25,6 +25,7 @@ import {
   GOALS, GOAL_NAME, NATURE_FILTER, NATURE_NAME, NOTE_LEN, knownPositions, knownSkills, sceneAct, sceneDefOf, sceneInterrupt, sceneNext, sceneRawOf, sceneSkip, startProblems, tendencyTagIds,
 } from '../../features/scene'
 import { narrateInputOf } from '../narrated'
+import { callsFor } from './people'
 import type { ChainCtx, ChainDef, ChainTemplate, StepTemplate } from './chain'
 import type { JudgeOutput, NarrateOutput } from './freeAction'
 import { castOf, freeActionChain, relateEnabled } from './freeAction'
@@ -102,7 +103,7 @@ function gateInputOf(ctx: ChainCtx): GateInput {
   return {
     pc: { id: state.pc!, name: state.actors[state.pc!]!.name },
     cast: castIds(ctx).map((id) => ({
-      id, name: state.actors[id]!.name, affinity: meterOf(ctx.k, state, 'affinity', id),
+      id, name: state.actors[id]!.name, ...callsFor(state, id), affinity: meterOf(ctx.k, state, 'affinity', id),
       tags: tendencyTagIds(state.actors[id]).filter((t) => contentAllowed(state.rules, t)).map((t) => (ctx.k.content.get('tendency_tag', t)?.name as string | undefined) ?? t),
     })),
     trigger: { action: def?.name ?? free.input.kind, degree: DEGREE_NAME[judgment.degree], summary: [judgment.reason, judgment.twist].filter(Boolean).join(' ') || free.input.text || '', ...((inp.place ?? inp.scene?.place) ? { place: inp.place ?? inp.scene?.place } : {}) },
@@ -322,7 +323,7 @@ function talkInputOf(ctx: ChainCtx, speaker: string, text: string, target?: stri
   const tid = target ?? p.activeOthers(speaker)[0]
   const name = (id: string): string => ctx.state.actors[id]?.name ?? id
   return {
-    talk: { text, speaker: { id: speaker, name: name(speaker) }, target: tid ? { id: tid, name: name(tid) } : null },
+    talk: { text, speaker: { id: speaker, name: name(speaker), ...callsFor(ctx.state, speaker) }, target: tid ? { id: tid, name: name(tid), ...callsFor(ctx.state, tid) } : null },
     scene: { round: brief.round, nature: brief.nature, nature_name: brief.nature_name, role_name: brief.role_name, goal: brief.goal, pairs: brief.pairs },
     affinity: tid ? meterOf(ctx.k, ctx.state, 'affinity', speaker === scene.pc ? tid : speaker) : null,
     limits: { fit: [TALK_FIT[0], TALK_FIT[1]], goal: [TALK_GOAL[0], TALK_GOAL[1]] },
@@ -338,7 +339,7 @@ function turnInputOf(ctx: ChainCtx, index: number): TurnInput {
   const actor = ctx.state.actors[who]!
   return {
     actor: {
-      id: who, name: actor.name, ap: p.s.seats.find((x) => x.id === who)?.ap ?? 0,
+      id: who, name: actor.name, ...callsFor(ctx.state, who), ap: p.s.seats.find((x) => x.id === who)?.ap ?? 0,
       tags: tendencyTagIds(actor).filter((t) => contentAllowed(ctx.state.rules, t)).map((t) => (ctx.k.content.get('tendency_tag', t)?.name as string | undefined) ?? t),
       // 這個人會的技能與體位：內容篩選關掉的本來就不在 knownSkills、knownPositions 裡
       skills: knownSkills(ctx.k, ctx.state, who).map((id) => ({ id, name: sceneDefOf(ctx.k, 'skill', id)?.name ?? id })),

@@ -83,6 +83,12 @@ export interface PartNeed {
   count?: number
 }
 
+/**
+ * 成人場景的七個基本部位（LEWD_SYSTEM 3.5 節第四點；DATA 3.2、3.4）。場景（features/scene）的 BASE_PARTS 與義體（features/cyberware）的 scene_parts 展開都認這一份
+ * （M4-followups-2 第 1 項：原本兩邊各抄一份）。「前」不分哪一種身體。
+ */
+export const BASE_SCENE_PARTS = ['mouth', 'hand_l', 'hand_r', 'chest', 'front', 'back', 'legs'] as const
+
 /** 設計圖（DATA 7.1 節）。武器、護甲、義體各有自己的欄位；三種共通的在最前面。 */
 export interface BlueprintEntry extends ContentEntry {
   kind: BlueprintKind

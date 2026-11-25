@@ -7,7 +7,7 @@ import { registerCoreActivities } from './action/coreActivities'
 import { registerCoreBattleActions } from './battle/actions'
 import { unitTracks } from './battle/field'
 import { BattleRegistry } from './battle/registry'
-import { MOD_KINDS, registerBattleKinds, registerWeaponClassKind } from './battle/rules'
+import { MOD_KINDS, PUMP_JAM, registerBattleKinds, registerWeaponClassKind } from './battle/rules'
 import { registerProductKinds } from './content/product'
 import { ContentError } from './content/registry'
 import { specialMapProblems } from './grid/model'
@@ -71,7 +71,13 @@ export function createKernel(features: Feature[] = []): Kernel {
 function registerPassiveBattle(k: Pick<Kernel, 'passives'>, battle: BattleRegistry): void {
   k.passives.defineMods(MOD_KINDS)
   // （有的測試只給半個 view，沒有 state：沒有狀態就沒有被動效果）
-  battle.modifier('passives', (q) => (q.unit.actor && q.view.state?.actors[q.unit.actor] ? k.passives.modParts(q.view.state, q.unit.actor, q.kind, { layer: q.view.mode.layer, tags: q.tags, tracks: unitTracks(q.unit) }) : []))
+  battle.modifier('passives', (q) => {
+    if (!(q.unit.actor && q.view.state?.actors[q.unit.actor])) return []
+    const parts = k.passives.modParts(q.view.state, q.unit.actor, q.kind, { layer: q.view.mode.layer, tags: q.tags, tracks: unitTracks(q.unit) })
+    // 斷藥（M4-followups-2 第 1 項；ITEMS 4.2 節「戰鬥藥的效果也暫停」）：帶著狀態 pump_jam 的單位，戰鬥外吃的藥（來源 drug）經這裡進來的修正先不算，狀態一過又回來。
+    // 這一場吃的藥的修正由 features/drugs 自己掛、自己看 pump_jam；unit_tag 開打時就加好了，不隨狀態收放
+    return q.unit.statuses.some((s) => s.id === PUMP_JAM) ? parts.filter((p) => p.source !== 'drug') : parts
+  })
   battle.on('unit.ready', 'passives', ({ run, unit }) => {
     if (!unit.actor || !run.state.actors[unit.actor]) return
     for (const tag of k.passives.unitTags(run.state, unit.actor)) if (!unit.tags.includes(tag)) unit.tags.push(tag)

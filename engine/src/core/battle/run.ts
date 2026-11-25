@@ -17,7 +17,7 @@ import { runEffects } from './effects'
 import { SIDE_NAME, afterglowFull, coverAt, coverLevel, coverOf, currentUnit, cutKey, distance, isCut, isWounded, onField, otherSide, overlayAt, poolName, rangeMod, standing, unitAt, unitTag, unitsOf, wielded } from './field'
 import type { BattleEffectInput, BattleEffectLast, BattleKernel, BattleView, BenchEntry, UnitSourceCtx } from './registry'
 import type { BattleMode, BattleNumbers, BattleStatusRule, ModKind, StatusUntil } from './rules'
-import { AFTERGLOW_DOUBLE, FLASH, IGNORE_WOUND_PENALTY, IMPLANT_HARDENED, LOSE_TURN, PUMP_JAM, SINK_RESIST, coverHpFor, damageTypeOf, modeOf, sinkRise, statusMod, statusRuleOf } from './rules'
+import { AFTERGLOW_DOUBLE, BREAKER_CRUDE, BREAKER_CRUDE_CHANCE, BREAKER_FIRST, FLASH, IGNORE_WOUND_PENALTY, IMPLANT_HARDENED, LOSE_TURN, PUMP_JAM, SINK_RESIST, coverHpFor, damageTypeOf, modeOf, sinkRise, statusMod, statusRuleOf } from './rules'
 import type { UnitRef } from './units'
 import { buildUnit, resolveUnit } from './units'
 
@@ -699,24 +699,36 @@ export class BattleRun implements BattleView {
     target.load.now = 0
     // 「到下次過載」的狀態（紙鶴的標記）：過載一發生就結束，不管接下來是失去回合還是昏過去
     for (const st of [...target.statuses]) if (st.until.at === 'overload') this.removeStatus(target, st.id)
-    if (afterglowFull(target)) {
+    // 熔斷器（M4-followups-2 第 3 項）：機械式的（breaker_first）吸收這一場的第一次過載，不疊餘韻、也不會昏過去
+    const absorbed = target.tags.includes(BREAKER_FIRST) && !(target.uses[BREAKER_FIRST]! > 0)
+    if (target.tags.includes(BREAKER_FIRST)) target.uses[BREAKER_FIRST] = (target.uses[BREAKER_FIRST] ?? 0) + 1
+    if (!absorbed && afterglowFull(target)) {
       // 即將昏過去：有人擋下（out.before）就到此為止，感載已經歸零，其餘由處理函式自己改
       if (this.outPrevented(target, 'burnout', by)) return
       this.say(`${unitTag(target)} 餘韻疊滿之後再過載：昏了過去。`, 'overload', { target: target.id, layers: target.layers, down: true }, by)
       this.leave(target, 'burnout', by)
       return
     }
-    target.layers += 1
+    // 黑市重接的熔斷器（breaker_crude）：疊餘韻的那一次有一成的機會多疊一層（不超過承受層數；沒有這個標籤的單位不擲，骰序不變）
+    let crude = false
+    if (!absorbed) {
+      target.layers += 1
+      if (target.tags.includes(BREAKER_CRUDE) && this.rand() < BREAKER_CRUDE_CHANCE && !afterglowFull(target)) {
+        target.layers += 1
+        crude = true
+      }
+    }
+    const breakerNote = absorbed ? '機械熔斷器喀的一聲，這一次沒有疊餘韻。' : crude ? '重接的熔斷器沒擋住，多疊了一層。' : ''
     let flash: { pool: string; before: number } | undefined
     if (this.mode.overload === 'lose_turn') {
-      this.say(`${unitTag(target)} 過載！失去下一個回合，餘韻 ${target.layers} 層。`, 'overload', { target: target.id, layers: target.layers }, by)
+      this.say(`${unitTag(target)} 過載！失去下一個回合，餘韻 ${target.layers} 層。${breakerNote}`, 'overload', { target: target.id, layers: target.layers, ...(absorbed ? { breaker: 'first' } : crude ? { breaker: 'crude' } : {}) }, by)
       this.applyStatus(target, LOSE_TURN, { force: true, ...(by ? { by } : {}) })
     } else {
       const poolId = this.mode.flashPool
       const pool = poolId ? target.pools[poolId] : undefined
       if (poolId) flash = { pool: poolId, before: pool?.now ?? 0 }
       if (pool) pool.now = 0
-      this.say(`${unitTag(target)} 過載！閃斷，餘韻 ${target.layers} 層。`, 'overload', { target: target.id, layers: target.layers, flash: true }, by)
+      this.say(`${unitTag(target)} 過載！閃斷，餘韻 ${target.layers} 層。${breakerNote}`, 'overload', { target: target.id, layers: target.layers, flash: true, ...(absorbed ? { breaker: 'first' } : crude ? { breaker: 'crude' } : {}) }, by)
       // 閃斷的狀態：自己給自己的 own_turn_end 照一般的規矩會從下一個回合才開始數；閃斷不是，在自己的回合裡過載的就到這個回合結束
       if (this.applyStatus(target, FLASH, { quiet: true, ...(by ? { by } : {}) })) {
         const st = target.statuses.find((x) => x.id === FLASH)

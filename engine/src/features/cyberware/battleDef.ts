@@ -187,7 +187,7 @@ export function battleProblems(k: Pick<Kernel, 'battle' | 'conditions' | 'passiv
         if (!Array.isArray(t.mods)) p.push(`${at}.mods 要是陣列`)
         else {
           t.mods.forEach((m, i) => { if (!isRecord(m) || m.mod === undefined) p.push(`${at}.mods[${i}] 要是戰鬥的修正 { mod, amount, tags? }`) })
-          p.push(...passiveProblems(k, t.mods, `${at}.mods`))
+          p.push(...passiveProblems(k, t.mods, `${at}.mods`, 'cyber'))
         }
       }
     }

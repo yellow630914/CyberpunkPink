@@ -10,7 +10,7 @@
 // 補繳、破解在 crack.ts；修理在 repair.ts；小手術在 modify.ts。契約（kind: 'contract'）目前只有「帶著它」：掃橋看得到、破解可以拿掉；遠端接管不做。
 
 import type { ActorId, BlueprintEntry, Change, Effect, EffectCtx, GameState, Kernel, ProductData } from '../../core'
-import { LEGALITIES, clone, isRecord, isSafeInt, partOf, productOf, productPrice, readProduct, slotProblems } from '../../core'
+import { LEGALITIES, NO_BREAKER, clone, isRecord, isSafeInt, partOf, productOf, productPrice, readProduct, slotProblems } from '../../core'
 import { DECK_FULL, brainDeck, deckContentOf, pieceBlueprint } from './deck'
 import type { CyberPiece, PartId } from './model'
 import { EXT, PART_IDS, PART_NAME, baseSlot, cyberExtValue, cyberOf, cyberRules, isPartId, isBridge, nowOf, partIdOf } from './model'
@@ -444,7 +444,7 @@ export function installEffects(k: Kernel): void {
 // ---- 掛點 ----
 
 /** 掃橋讀到的義體（掛點 scan.person 的 cyber）：全生體的或每個零件都帶 scan_proof 的那幾件不列；不含橋。 */
-export function scanAnswer(k: Kernel, state: GameState, actor: ActorId): { cyber: { count: number; items: Array<{ uid: string; name: string; legal: string; registered: boolean; item: string }> } } | undefined {
+export function scanAnswer(k: Kernel, state: GameState, actor: ActorId): { cyber?: { count: number; items: Array<{ uid: string; name: string; legal: string; registered: boolean; item: string }> }; breaker?: false } | undefined {
   const items: Array<{ uid: string; name: string; legal: string; registered: boolean; item: string }> = []
   for (const piece of cyberOf(state, actor)) {
     if (isBridge(piece)) continue
@@ -458,7 +458,10 @@ export function scanAnswer(k: Kernel, state: GameState, actor: ActorId): { cyber
     if (info.parts.length > 0 && info.parts.every((p) => p.part.material === 'bio' || p.part.traits?.includes('scan_proof'))) continue
     items.push({ uid: piece.uid, name: info.bp.name, legal: info.legal, registered: piece.registered === true, item: piece.bp })
   }
-  return items.length > 0 ? { cyber: { count: items.length, items } } : undefined
+  // 沒有熔斷器的橋（被動效果給單位標籤 no_breaker：聖堂自製、赤線系列）：掃不過任何一道閘門（M4-followups-2 第 3 項；features/security 讀 breaker: false）
+  const noBreaker = k.passives.unitTags(state, actor).includes(NO_BREAKER)
+  if (items.length === 0 && !noBreaker) return undefined
+  return { ...(items.length > 0 ? { cyber: { count: items.length, items } } : {}), ...(noBreaker ? { breaker: false as const } : {}) }
 }
 
 type AnyHook = (name: string, owner: string, fn: (payload: never) => unknown) => void

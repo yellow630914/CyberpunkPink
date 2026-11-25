@@ -32,6 +32,8 @@ export interface PersonAnswer {
   rights?: Array<{ holder: string; level: string }>
   /** 藏沉溺的手段有幾種（藥、調校、面具各算一種；誰有誰報） */
   hide?: number
+  /** false：他的橋沒有熔斷器（CYBERSPACE 6「沒有熔斷器的橋掃不過任何一道閘門」；M4-followups-2 第 3 項）：只要這一次讀義體，就是只剩掉頭 */
+  breaker?: false
 }
 
 declare module '../../core' {
@@ -51,10 +53,11 @@ interface Merged {
   contract?: { class: 'bound'; holder: string; level: string; covered: boolean }
   rights: Array<{ holder: string; level: string }>
   hide: number
+  noBreaker: boolean
 }
 
 function ask(k: Kernel, state: GameState, actor: string, strength: number): Merged {
-  const out: Merged = { cyber: [], cyberCount: 0, rights: [], hide: 0 }
+  const out: Merged = { cyber: [], cyberCount: 0, rights: [], hide: 0, noBreaker: false }
   for (const { result: a } of k.hooks.run('scan.person', { state, actor, strength })) {
     if (!isRecord(a)) continue
     const c = a.cyber
@@ -71,6 +74,7 @@ function ask(k: Kernel, state: GameState, actor: string, strength: number): Merg
     if (!out.contract && isRecord(k2) && k2.class === 'bound' && text(k2.holder)) out.contract = { class: 'bound', holder: k2.holder, level: text(k2.level) ? k2.level : 'manage', covered: k2.covered === true }
     if (Array.isArray(a.rights)) for (const r of a.rights) if (isRecord(r) && text(r.holder)) out.rights.push({ holder: r.holder, level: text(r.level) ? r.level : 'read' })
     if (typeof a.hide === 'number' && Number.isFinite(a.hide) && a.hide > 0) out.hide += Math.floor(a.hide)
+    if (a.breaker === false) out.noBreaker = true
   }
   return out
 }
@@ -120,8 +124,10 @@ export interface PersonPlan {
   stop: string | null
   /** 有處罰或擋路的：要跳事件讓玩家選；只有讀到什麼（顯示用）的不用 */
   needsEvent: boolean
-  /** 讀到什麼，一樣一句（有讀才有）；sentences 是照義體、沉溺、契約、權利的順序排好的 */
-  say: { cyber?: string; sink?: string; contract?: string; rights?: string }
+  /** 讀到什麼，一樣一句（有讀才有）；sentences 是照義體、熔斷器、沉溺、契約、權利的順序排好的 */
+  say: { cyber?: string; breaker?: string; sink?: string; contract?: string; rights?: string }
+  /** 他的橋沒有熔斷器（掃橋讀義體的時候才讀；有就是 stop） */
+  noBreaker?: boolean
   sentences: string[]
   rules: PersonRules
 }
@@ -171,6 +177,13 @@ export function planPerson(k: Kernel, state: GameState, actor: string | null, se
       : `掃描器逐件讀了你身上的 ${items.length} 件義體：${items.map((i) => (i.verdict === 'ok' ? i.name : `${i.name}（${i.verdict === 'banned' ? '違禁' : i.verdict === 'permit' ? '沒有執照' : '沒登記'}）`)).join('、')}${bad.length === 0 ? '，沒有問題' : ''}。`)
   }
 
+  // 沒有熔斷器的橋（聖堂自製、赤線系列）：掃不過任何一道閘門，只剩掉頭（CYBERSPACE 6；不看強度，讀義體就讀得到）
+  if (reads.includes('cyber') && m.noBreaker) {
+    plan.noBreaker = true
+    plan.stop = '你的橋沒有熔斷器，這裡的掃描器一律攔你，只有掉頭走得通。'
+    say.breaker = '掃描器讀到你的橋上沒有熔斷器。'
+  }
+
   if (reads.includes('sink') && k.stats.hasStat(SINK_STAT)) {
     const real = state.actors[actor]!.sink ?? 0
     const shown = k.stats.stat(state, actor, SINK_STAT)
@@ -198,8 +211,8 @@ export function planPerson(k: Kernel, state: GameState, actor: string | null, se
     if (plan.rights) say.rights = `你的橋 ID 上另外有 ${plan.rights.length} 筆被人讀取或限制的權利。`
   }
 
-  if (!plan.cyber && !plan.sink && !plan.contract && !plan.rights) return null
-  plan.sentences = [say.cyber, say.sink, say.contract, say.rights].filter((x): x is string => x !== undefined)
+  if (!plan.cyber && !plan.sink && !plan.contract && !plan.rights && !plan.noBreaker) return null
+  plan.sentences = [say.cyber, say.breaker, say.sink, say.contract, say.rights].filter((x): x is string => x !== undefined)
   plan.needsEvent = plan.fine > 0 || plan.hostility > 0 || plan.banned.length > 0 || plan.stop !== null
   return plan
 }
@@ -258,6 +271,8 @@ export interface PersonView {
   sink?: { read: number; notice: boolean; stop: boolean; saw_through?: boolean; dc?: number }
   contract?: { class: 'bound'; holder: string; level: string; covered: boolean }
   rights?: Array<{ holder: string; level: string }>
+  /** true：橋上沒有熔斷器，只剩掉頭 */
+  no_breaker?: boolean
   /** 一樣一句 */
   sentences: string[]
 }
@@ -269,6 +284,7 @@ export function personView(plan: PersonPlan): PersonView {
     ...(plan.sink ? { sink: { read: plan.sink.read, notice: plan.sink.notice, stop: plan.sink.stop, ...(plan.sink.roll ? { saw_through: plan.sink.roll.seen, dc: plan.sink.roll.dc } : {}) } } : {}),
     ...(plan.contract ? { contract: { ...plan.contract } } : {}),
     ...(plan.rights ? { rights: plan.rights.map((r) => ({ ...r })) } : {}),
+    ...(plan.noBreaker ? { no_breaker: true } : {}),
     sentences: [...plan.sentences],
   }
 }

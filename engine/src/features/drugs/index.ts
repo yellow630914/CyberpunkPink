@@ -44,17 +44,6 @@ export {
 } from './model'
 export type { ActiveDrug, AddictionRow, DrugDef, DrugRules, DrugsExt, PendingRow, SuppressantRow, WithdrawalRow } from './model'
 
-/** 回復類的修正要寫成 { mod }（來源 drug，受全身 +1 的夾法管），不能寫成 { stat }（會繞過上限；0019 補記的建議）。 */
-const REGEN_STATS = ['ap_regen', 'ram_regen']
-function regenProblems(raw: unknown, path: string): string[] {
-  if (!Array.isArray(raw)) return []
-  const out: string[] = []
-  raw.forEach((e, i) => {
-    if (isRecord(e) && typeof e.stat === 'string' && REGEN_STATS.includes(e.stat)) out.push(`${path}[${i}].stat：藥給回復要寫修正 { mod: '${e.stat}' }，不是 { stat }（stat 會繞過全身合計最多 +1 的上限）`)
-  })
-  return out
-}
-
 export const drugsFeature: Feature = {
   id: OWNER,
   install(kernel) {
@@ -122,7 +111,7 @@ export const drugsFeature: Feature = {
     const problems: string[] = []
     const fxCtx = { state: blankState(0), actor: 'pc', grade: 1, source: 'builtin', clampAsked: true, content: k.content } as unknown as Parameters<Kernel['effects']['validate']>[1]
     const check = {
-      passive: (v: unknown, path: string): string[] => [...passiveProblems(k, v, path), ...regenProblems(v, path)],
+      passive: (v: unknown, path: string): string[] => passiveProblems(k, v, path, 'drug'),
       effects: (v: unknown, path: string): string[] => k.effects.validate(v, fxCtx, path),
     }
     if (k.content.hasKind(ITEM_KIND)) {

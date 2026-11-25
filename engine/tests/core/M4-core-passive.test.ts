@@ -535,7 +535,8 @@ describe('M4-core-passive：sink_floor（CORE_RULES 4.3 節「沉溺的下限」
     const { k } = world({}, { features: [...FEATURES, FLOOR] })
     const at10 = sinkBy(k, makeState({ pc: { sink: 10 } }), -5)
     expect(at10.sink).toBe(8)
-    expect(at10.r.clamps).toEqual([])
+    // 只降到一半被下限擋住：提醒一句「只浮到 N」（M4-followups-2 第 1 項）
+    expect(at10.r.clamps.map((c) => c.notice)).toEqual(['身上的義體讓你只浮到 8。'])
     const at8 = sinkBy(k, makeState({ pc: { sink: 8 } }), -5)
     expect(at8.sink).toBe(8)
     expect(at8.r.changes).toEqual([])

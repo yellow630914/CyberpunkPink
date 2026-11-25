@@ -34,6 +34,7 @@ import {
 import { answerCreation } from './creation'
 import { deckSourceOf, pieceBlueprint } from './deck'
 import { BRIDGE_CATS, bridgeCapacityOf, capStatId } from './bridge'
+import { recallDrafts, recallProblems } from './recall'
 import { cyberPassives, quirkPassives, sceneBody } from './passive'
 import { SURGERY_STAT } from './surgery'
 import { installBattle, readyBattle } from './battle'
@@ -152,6 +153,12 @@ export const cyberwareFeature: Feature = {
     on('netrun.trace_mod', OWNER, (({ state, party, faction, when }: { state: GameState; party: string[]; faction?: string; when: 'start' | 'rise' }) => netTraceAnswer(k, state, party, faction, when)) as never)
     on('net.hacked', OWNER, (({ state, party }: { state: GameState; party: string[] }) => hackedAnswer(k, state, party)) as never)
 
+    // 橋每 N 天要回去重刻（M4-followups-2 第 3 項）：站在重刻的地點、離上次隔了一天以上，這一回合結束時重刻一次
+    k.hooks.on('turn.end', OWNER, ({ state }) => {
+      const drafts = recallDrafts(k, state)
+      return drafts.length > 0 ? drafts : undefined
+    })
+
     // 授權鎖（M4-cyber-lock）：四個效果（cyber_install、cyber_take、cyber_lock、cyber_unlock）、每週帳單的訂閱、defeat.gear、scan.person
     installEffects(k)
     installLockHooks(k)
@@ -166,11 +173,11 @@ export const cyberwareFeature: Feature = {
         if (!isRecord(c) || !(CLINIC_GRADES as readonly unknown[]).includes(c.grade)) problems.push(`${FACILITY_TYPE_KIND}/${t.id}：clinic 要是 { grade: ${CLINIC_GRADES.join(' | ')} }`)
       }
     }
-    // 設計圖的 trace_mod、readable 欄位（M4-core-gaps 第 4、20 項）
+    // 設計圖的 trace_mod、readable 欄位（M4-core-gaps 第 4、20 項）與橋的 recall（M4-followups-2 第 3 項）
     if (k.content.hasKind('blueprint')) {
-      for (const e of k.content.list<ContentEntry & { trace_mod?: unknown; readable?: unknown }>('blueprint')) {
-        if (e.trace_mod === undefined && e.readable === undefined) continue
-        problems.push(...traceProblems(e).map((m) => `blueprint/${e.id}：${m}`))
+      for (const e of k.content.list<ContentEntry & { trace_mod?: unknown; readable?: unknown; bridge?: unknown }>('blueprint')) {
+        if (e.trace_mod !== undefined || e.readable !== undefined) problems.push(...traceProblems(e).map((m) => `blueprint/${e.id}：${m}`))
+        problems.push(...recallProblems(e).map((m) => `blueprint/${e.id}：${m}`))
       }
     }
     if (problems.length) throw new ContentError(problems)

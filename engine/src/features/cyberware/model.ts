@@ -276,6 +276,8 @@ export interface CyberPiece extends ProductData {
   registered?: boolean
   /** 藥泵裡預裝的藥（設計圖 battle.pump 的那一種；M4-cyber-battle）：一種藥、幾劑 */
   loaded?: { item: string; qty: number }
+  /** 橋：最後一次回去重刻的時間（總分鐘；設計圖 bridge.recall；沒寫是 at；M4-followups-2 第 3 項） */
+  inscribed?: number
 }
 
 /** 把存檔裡的一件讀成合格的（壞掉回 null）。 */
@@ -291,6 +293,7 @@ function readPiece(raw: unknown): CyberPiece | null {
   if (isRecord(raw.off) && isText(raw.off.why)) piece.off = { why: raw.off.why, ...(isSafeInt(raw.off.until) ? { until: raw.off.until } : {}) }
   if (typeof raw.registered === 'boolean') piece.registered = raw.registered
   if (isRecord(raw.loaded) && isText(raw.loaded.item) && isSafeInt(raw.loaded.qty) && raw.loaded.qty > 0) piece.loaded = { item: raw.loaded.item, qty: raw.loaded.qty }
+  if (isSafeInt(raw.inscribed)) piece.inscribed = raw.inscribed
   return piece
 }
 

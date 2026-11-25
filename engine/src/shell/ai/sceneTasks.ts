@@ -18,6 +18,7 @@ import type { Effect, ResolvedEffects } from '../../core/rules/effects'
 import { isRecord } from '../../core/util/sanitize'
 import type { Goal, Nature, Role, SceneInput, SinkKind, TalkEnv } from '../../features/scene'
 import { MAX_MOVES, NOTE_LEN, SINK_CAP, SYNC_GEARS } from '../../features/scene'
+import type { CallNames } from './people'
 import type { TaskCheck, TaskDef, TaskRegistry } from './tasks'
 
 const json = (v: unknown): string => JSON.stringify(v, null, 1)
@@ -63,8 +64,8 @@ export interface GateFixed {
 
 export interface GateInput {
   pc: { id: string; name: string }
-  /** 在場的人（對方；多人時每一個）：關係的親密度與（內容篩選之後的）傾向標籤的名字 */
-  cast: Array<{ id: string; name: string; affinity: number; tags: string[] }>
+  /** 在場的人（對方；多人時每一個）：關係的親密度與（內容篩選之後的）傾向標籤的名字；稱呼（玩家寫了才有） */
+  cast: Array<{ id: string; name: string; affinity: number; tags: string[] } & CallNames>
   /** 觸發它的報告摘要：行動、成功程度、結果、場所 */
   trigger: { action: string; degree: string; summary: string; place?: string }
   /** 可選的性質與目的：已經依內容篩選刪過 */
@@ -172,7 +173,8 @@ export interface SceneBrief {
   goal: { id: string; name: string; progress: number; done_at: number } | null
   place?: string
   position: { id: string; name: string }
-  people: Array<{ id: string; name: string; load: [number, number]; glow: [number, number]; ap: [number, number]; climax: number; gear: string; out?: boolean }>
+  /** 每個人：稱呼（NPC，玩家寫了才有）與化身的外觀描述（內海那一層才有，玩家寫了才有） */
+  people: Array<{ id: string; name: string; load: [number, number]; glow: [number, number]; ap: [number, number]; climax: number; gear: string; out?: boolean; avatar?: string } & CallNames>
   /** 主角對這一圈每個人的契合與主動權（50 以上在主角手上）與評價 */
   pairs: Record<string, { fit: number; init: number; rating: string }>
   links: Array<{ by: string; to: string; name: string; mine: string; theirs: string }>
@@ -184,7 +186,7 @@ export interface SceneBrief {
 export type LegalMove = SceneInput & { ap: number; name?: string }
 
 export interface TurnInput {
-  actor: { id: string; name: string; ap: number; tags: string[]; skills: Array<{ id: string; name: string }>; positions: Array<{ id: string; name: string }> }
+  actor: { id: string; name: string; ap: number; tags: string[]; skills: Array<{ id: string; name: string }>; positions: Array<{ id: string; name: string }> } & CallNames
   scene: SceneBrief
   legal: LegalMove[]
   /** 這一場最近的幾拍（每人一句） */
@@ -292,7 +294,7 @@ function turnTask(): TaskDef<TurnInput, TurnOutput> {
 // ======================================================================
 
 export interface TalkInput {
-  talk: { text: string; speaker: { id: string; name: string }; target: { id: string; name: string } | null; request?: string }
+  talk: { text: string; speaker: { id: string; name: string } & CallNames; target: ({ id: string; name: string } & CallNames) | null; request?: string }
   scene: Pick<SceneBrief, 'round' | 'nature' | 'nature_name' | 'role_name' | 'goal' | 'pairs'>
   /** 說的人和對象的親密度 */
   affinity: number | null

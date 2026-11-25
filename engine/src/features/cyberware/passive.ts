@@ -6,13 +6,11 @@
 // 掛點 scene.body（features/scene 宣告）：只在現實（meat）回答，內海用的是化身。回答每一件生效的義體的 scene_parts。
 
 import type { ActorId, GameState, Kernel, PassiveEffect } from '../../core'
-import { isRecord, partOf, productOf } from '../../core'
+import { BASE_SCENE_PARTS, isRecord, partOf, productOf } from '../../core'
 import type { CyberPiece } from './model'
 import { deckContentOf, pieceBlueprint } from './deck'
+import { recallPassives } from './recall'
 import { cyberLive, cyberRules, isActive, nowOf } from './model'
-
-/** 場景的基本部位（features/scene 的 BASE_PARTS；功能之間不互相 import，這裡認同一份名字）：scene_parts 的 sensitivity 寫 all 時展開到這些加上義體多出來的。 */
-export const BASE_SCENE_PARTS = ['mouth', 'hand_l', 'hand_r', 'chest', 'front', 'back', 'legs'] as const
 
 const effectsOf = (raw: unknown, label: string): PassiveEffect[] =>
   Array.isArray(raw) ? raw.filter((e): e is PassiveEffect => isRecord(e)).map((e) => ({ label, ...e }) as PassiveEffect) : []
@@ -23,7 +21,8 @@ export function cyberPassives(k: Pick<Kernel, 'content'>, state: GameState, acto
   if (pieces.length === 0) return []
   const now = nowOf(state)
   const setBonus = cyberRules(k).set_bonus
-  const out: PassiveEffect[] = []
+  // 橋沒有按時回去重刻（設計圖 bridge.recall）：那一類容量往下扣（M4-followups-2 第 3 項）
+  const out: PassiveEffect[] = [...recallPassives(k, state, actor)]
   for (const piece of pieces) {
     const bp = pieceBlueprint(k, piece)
     const name = bp?.name ?? (piece.kind_of === 'deck' ? deckContentOf(k, piece.bp)?.name : undefined) ?? piece.bp

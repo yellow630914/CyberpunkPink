@@ -8,7 +8,7 @@
 // Who（'pc' | 'partner'）還留在這裡，只做一對一的舊名字：畫面資料（view.ts）與報告的舊鍵用；引擎內部一律用角色的 id。
 
 import type { Actor, ActorId, Condition, ContentEntry, GameState, Kernel, Origin, SyncGear, TimelineBeat } from '../../core'
-import { SYNC_GEARS, clone, isRecord, isSyncGear, syncCapOf, syncGearIndex } from '../../core'
+import { BASE_SCENE_PARTS, SYNC_GEARS, clone, isRecord, isSyncGear, syncCapOf, syncGearIndex } from '../../core'
 import { applyDeep, isDeepTag, knowFor, nightFieldProblems, openingOf } from './night'
 
 export const OWNER = 'scene'
@@ -47,7 +47,7 @@ export const NATURE_FILTER: Partial<Record<Nature, { tag: string; name: string }
 }
 
 /** 場景的部位（LEWD_SYSTEM 3.5 節第四點；DATA 3.2、3.4）。「前」不分哪一種身體。 */
-export const BASE_PARTS = ['mouth', 'hand_l', 'hand_r', 'chest', 'front', 'back', 'legs'] as const
+export const BASE_PARTS = BASE_SCENE_PARTS
 export const PART_NAME: Record<string, string> = {
   mouth: '口', hand_l: '左手', hand_r: '右手', chest: '胸', front: '前', back: '後', legs: '腿足', toy: '道具', extra: '加裝', tail: '尾', tentacle: '觸手',
 }

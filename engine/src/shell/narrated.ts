@@ -11,6 +11,7 @@ import { clone } from '../core/util/clone'
 import { clipBeats } from './battle'
 import type { ChainCtx, ChainDef, ChainTemplate } from './ai/chain'
 import type { NarrateInput, NarrateOutput } from './ai/freeAction'
+import { avatarTextFor, callsFor } from './ai/people'
 
 /** 這條鏈的 id。 */
 export const NARRATED_CHAIN = 'narrated'
@@ -34,12 +35,16 @@ export interface NarratedInput {
 /** 寫正文收到的輸入：報告的摘要（成人的報告帶 adult）、定案的結果、玩家的寫法指令（有才有）。戰鬥結束與場景結束的鏈也用它。 */
 export function narrateInputOf(state: GameState, draft: ReportDraft, mode: string, direction?: string): NarrateInput {
   const actor = draft.actor ? state.actors[draft.actor]?.name : undefined
+  // 玩家寫的稱呼（出場的 NPC：你怎麼叫他、他怎麼叫你）與化身的外觀描述（這一份報告發生在內海才給）原樣進角色資料（M4-followups-2 第 2 項）
+  const calls = draft.party.filter((p) => p.id !== state.pc).flatMap((p) => { const c = callsFor(state, p.id); return Object.keys(c).length > 0 ? [{ id: p.id, name: p.name, ...c }] : [] })
+  const avatar = state.pc && draft.timeline.some((b) => b.layer === 'net') ? avatarTextFor(state, state.pc) : undefined
   return {
     mode,
     report: {
       kind: draft.kind, ...(draft.action ? { action: draft.action } : {}), ...(actor ? { actor } : {}),
       outcome: draft.outcome.result, summary: draft.outcome.summary, party: draft.party, timeline: clipBeats(draft.timeline.map((b) => b.text)),
       ...(draft.adult ? { adult: true } : {}),
+      ...(calls.length > 0 ? { calls } : {}), ...(avatar !== undefined ? { avatar } : {}),
     },
     // 定案的結果：功能自己寫在草稿上的（narration.results）；沒有就是沒有，正文只照報告的摘要與經過寫
     results: draft.narration?.results ?? [],

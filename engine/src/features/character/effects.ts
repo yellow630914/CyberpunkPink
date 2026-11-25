@@ -68,7 +68,7 @@ const SPECS: TrackSpec[] = [
       notice: (to) => (to === 0 ? (e.amount > 0 ? '這一次已經往下陷得夠多了，這一筆沒有再算。' : '這一次已經往回拉得夠多了，這一筆沒有再算。') : e.amount > 0 ? '一次只會往下陷一點點，實際沒有那麼多。' : '一次只能往回拉一點點，實際沒有那麼多。'),
     }),
     // 往下降（amount < 0）不低於 sink_floor（身上的義體讓你浮不上來）：max(amount, 下限 − 現在)；已經在下限上（或比它低）的整筆拿掉並提醒。
-    // 下限是 0（沒有人加）時就是不低於 0，和以前一樣、不提醒；只降到一半被下限擋住的照實際能動的量算、不另外提醒
+    // 下限是 0（沒有人加）時就是不低於 0，和以前一樣、不提醒；只降到一半被下限擋住的照實際能動的量算，另外提醒一句「只浮到 N」（M4-followups-2 第 1 項）
     bound: (amount, ctx, k) => {
       // 往上加的那一邊：帶著 sink_resist 的人（調校）每次少 1 點、最少 1（M4-core-gaps 第 13 項；戰鬥裡的同一條在 run.gainSink）
       if (amount >= 0) return { to: sinkRise(amount, amount > 0 && k.passives.unitTags(ctx.state, ctx.actor).includes(SINK_RESIST)) }
@@ -76,7 +76,8 @@ const SPECS: TrackSpec[] = [
       const floor = k.stats.stat(ctx.state, ctx.actor, 'sink_floor')
       if (floor <= 0) return notBelowZero(amount, now)
       const to = Math.min(0, Math.max(amount, floor - now))
-      return to === 0 ? { to, limit: floor, notice: '身上的義體讓你浮不上來，這一筆沒有算。' } : { to }
+      if (to === 0) return { to, limit: floor, notice: '身上的義體讓你浮不上來，這一筆沒有算。' }
+      return to === amount ? { to } : { to, limit: floor, notice: `身上的義體讓你只浮到 ${floor}。` }
     },
     describe: (n) => (n > 0 ? '沉溺：往下陷了一點' : '沉溺：往回拉一點'),
   },

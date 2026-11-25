@@ -626,7 +626,7 @@ export function readyBattle(k: Kernel): void {
     if (def.toggle) claim(bp.id, def.toggle.id)
   }
   // 規則表的套裝加成是被動效果：格式照被動效果查
-  for (const [brand, list] of Object.entries(cyberRules(k).set_bonus)) problems.push(...passiveProblems(k, list, `set_bonus.${brand}`).map((m) => `cyber_rule/default：${m}`))
+  for (const [brand, list] of Object.entries(cyberRules(k).set_bonus)) problems.push(...passiveProblems(k, list, `set_bonus.${brand}`, 'cyber').map((m) => `cyber_rule/default：${m}`))
   if (problems.length > 0) throw new ContentError(problems)
   const c = ctxOf(k)
   for (const bp of bps) {

@@ -5,7 +5,7 @@
 //                          這一場「算」的只有：mod、unit_tag、內海的 stat net_load_decay（P65：單位在組成時只抄一次，戰鬥中吃的藥要自己更新單位的 decay）。
 //                          屬性（attr）、其他衍生數值（stat）、檢定修正（check）這一場不算：它們由 k.passives 在戰鬥外讀，戰鬥裡的單位數字開打時就定了。
 //   turn.start            每個自己的回合開始，身上生效的藥（戰鬥外吃的、這一場吃的）的 upkeep_load 加進感載（失去的回合不加）。
-//   斷藥                  帶著狀態 pump_jam 的單位：這一場吃的藥的修正與 upkeep_load 暫停（M4-followups；戰鬥外吃的藥經 k.passives 進來的那一份核心給，這裡管不到，見回報）。
+//   斷藥                  帶著狀態 pump_jam 的單位：這一場吃的藥的修正與 upkeep_load 暫停（M4-followups）；戰鬥外吃的藥經 k.passives 進來的那一份，核心的 passives 修正在 pump_jam 時濾掉來源 drug（M4-followups-2 第 1 項）。
 //   onEnd                 這一場吃的每一種寫進角色（成癮、instant、不是「一場戰鬥」型的補上藥效的時間）；身上還在的「一場戰鬥」型的藥記成被這一場接住（撐到喘口氣）。
 //                          這一場被重來或回退就不會走到這裡，什麼都沒發生。
 

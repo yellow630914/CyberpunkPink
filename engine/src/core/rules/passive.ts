@@ -48,6 +48,13 @@ export const PASSIVE_SOURCE_NAMES: Record<PassiveSource, string> = {
 export const TEMPO_SOURCES = ['cyber', 'drug', 'gear', 'construct'] as const
 /** 節奏資源的正值合計最多算幾點。 */
 export const TEMPO_CAP = 1
+/**
+ * 不准寫 { stat: 'ap_regen' | 'ram_regen' } 的來源（M4-followups-2 第 1 項）：衍生數值 ram_regen 是基礎回復，不經 regenTotal 的 +1 夾法，
+ * 義體、藥、裝備的內容要給每回合回復一律寫戰鬥的修正 { mod }，不然會繞過全身合計最多 +1。passiveProblems 的 source 參數看這一份。
+ */
+export const TEMPO_STAT_BLOCKED = ['cyber', 'drug', 'gear'] as const
+/** 被擋的兩個衍生數值與給玩家（內容作者）看的說法。 */
+const REGEN_STATS: Record<string, string> = { ap_regen: '行動點', ram_regen: 'RAM' }
 
 /** layer 能寫的值：只在現實（meat）或只在內海（net）的戰場算。 */
 export const PASSIVE_LAYERS = ['meat', 'net'] as const
@@ -257,12 +264,12 @@ const isTextList = (v: unknown): v is string[] => Array.isArray(v) && v.every(is
  * 擋的是：鍵不是五種之一、兩種以上的鍵並存、amount 不對、mod 不在清單裡、layer 不是 meat 或 net、mod decay 沒寫 layer meat、if 的條件格式不對（含沒有人註冊的條件種類）、
  * 不認得的欄位。條件種類要等功能都裝上才知道，所以這個檢查放在 ready 之後（core/kernel.ts 的 readyFeatures）。
  */
-export function passiveProblems(deps: PassiveDeps, raw: unknown, path = 'effects'): string[] {
-  if (Array.isArray(raw)) return raw.flatMap((e, i) => oneProblems(deps, e, `${path}[${i}]`))
-  return oneProblems(deps, raw, path)
+export function passiveProblems(deps: PassiveDeps, raw: unknown, path = 'effects', source?: PassiveSource): string[] {
+  if (Array.isArray(raw)) return raw.flatMap((e, i) => oneProblems(deps, e, `${path}[${i}]`, source))
+  return oneProblems(deps, raw, path, source)
 }
 
-function oneProblems(deps: PassiveDeps, e: unknown, at: string): string[] {
+function oneProblems(deps: PassiveDeps, e: unknown, at: string, source?: PassiveSource): string[] {
   if (!isRecord(e)) return [`${at}：要是 { ${PASSIVE_KEYS.join('｜')}, … } 的物件`]
   const p: string[] = []
   const keys = PASSIVE_KEYS.filter((k) => e[k] !== undefined)
@@ -290,6 +297,10 @@ function oneProblems(deps: PassiveDeps, e: unknown, at: string): string[] {
   }
   if (key === 'attr' && !(ATTR_IDS as readonly unknown[]).includes(e.attr)) p.push(`${at}.attr：要是 ${ATTR_IDS.join('、')} 其中一個`)
   if (key === 'stat' && !isText(e.stat)) p.push(`${at}.stat：要是衍生數值的 id`)
+  // 節奏資源（M4-followups-2 第 1 項）：義體、藥、裝備不准寫 stat ap_regen／ram_regen（會繞過全身合計最多 +1 的上限）
+  if (key === 'stat' && typeof e.stat === 'string' && e.stat in REGEN_STATS && source !== undefined && (TEMPO_STAT_BLOCKED as readonly string[]).includes(source)) {
+    p.push(`${at}.stat：每回合的${REGEN_STATS[e.stat]}回復請用修正 { mod: '${e.stat}' }，不是 { stat }（stat 不經全身合計最多 +1 的夾法）。`)
+  }
   if (key === 'check') {
     const c = e.check
     if (!isRecord(c)) p.push(`${at}.check：要是 { skills?, tags? }`)
@@ -330,7 +341,8 @@ export function passiveContentProblems(k: PassiveDeps & { content: ContentRegist
   for (const kind of EFFECT_KINDS) {
     for (const e of k.content.list<{ id: string; effects?: unknown }>(kind)) {
       if (e.effects === undefined) continue
-      out.push(...passiveProblems(k, e.effects, 'effects').map((m) => `${kind}/${e.id}：${m}`))
+      // 設計圖、零件、怪癖都是身上的東西（義體；裝備與藥的副作用也走這三種）：一律當義體來源查節奏資源
+      out.push(...passiveProblems(k, e.effects, 'effects', 'cyber').map((m) => `${kind}/${e.id}：${m}`))
     }
   }
   return out

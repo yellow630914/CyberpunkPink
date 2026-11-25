@@ -15,6 +15,7 @@ import {
   END_NAME, GOAL_NAME, NATURE_NAME, Play, ROLE_NAME, knownPositions, knownSkills, partName, ratingOf, sceneDefOf, sceneNpcBegin, sceneNpcTurn, sceneRules, sexRecordOf,
 } from '../../features/scene'
 import { clipBeats } from '../battle'
+import { avatarTextFor, callsFor } from './people'
 import type { LegalMove, SceneBrief, SceneDigest, SinkInput, TendencyInput } from './sceneTasks'
 
 /** 每一次都用同一個種子與用途：scene/<id>/<第幾步>（和功能的 diceOf 同一個）。 */
@@ -38,6 +39,8 @@ export function briefOf(p: Play): SceneBrief {
     people: s.seats.map((x) => ({
       id: x.id, name: nm(x.id), load: [p.load[x.id]!, p.loadMax[x.id]!] as [number, number], glow: [p.glow[x.id]!, p.glowMax[x.id]!] as [number, number], ap: [x.ap, p.apMax[x.id]!] as [number, number],
       climax: x.climax, gear: `${p.sync.gears[x.gear].name}檔`, ...(x.out ? { out: true } : {}),
+      // 玩家寫的稱呼與化身描述原樣給 AI（M4-followups-2 第 2 項）；化身只在內海那一層給
+      ...callsFor(p.state, x.id), ...(s.layer === 'net' && avatarTextFor(p.state, x.id) !== undefined ? { avatar: avatarTextFor(p.state, x.id) } : {}),
     })),
     pairs: Object.fromEntries(Object.entries(s.pairs).filter(([id]) => p.inCircle(id)).map(([id, pr]) => [id, { fit: pr.fit, init: pr.init, rating: ratingOf(p.rules, pr.fit).name }])),
     links: s.links.map((l) => ({ by: nm(l.by), to: nm(l.to), name: l.name, mine: partName(l.mine), theirs: partName(l.theirs) })),

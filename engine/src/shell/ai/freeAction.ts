@@ -16,6 +16,8 @@ import type { Effect, EffectCtx, ResolvedEffects } from '../../core/rules/effect
 import { effectCtx as makeEffectCtx } from '../../core/rules/grades'
 import { isRecord } from '../../core/util/sanitize'
 import type { ChainCtx, ChainDef, ChainTemplate } from './chain'
+import type { CallNames } from './people'
+import { avatarTextFor, inNetNow, personFor } from './people'
 import type { SceneRelateInput, SceneRewardInput } from './sceneTasks'
 import { isSceneRelate, isSceneReward, sceneRelateCheck, sceneRelatePrompt, sceneRewardCheck, sceneRewardFallback, sceneRewardPrompt } from './sceneTasks'
 import type { TaskDef, TaskRegistry } from './tasks'
@@ -53,7 +55,7 @@ export interface RewardInput {
 }
 /** 算關係（relate）收到的：在場有具名的人，與這一次結算的摘要。 */
 export interface RelateInput {
-  cast: Array<{ id: string; name: string }>
+  cast: Array<{ id: string; name: string } & CallNames>
   report: Record<string, unknown>
 }
 /** 算關係交出的定案結果。M2 還沒有 AI 那一半，退路什麼都不記（AI_TASKS 4.1 節 relate 的退路：「一般的鏈不變」）。 */
@@ -67,7 +69,7 @@ export const NO_RELATION: RelateOutput = { changes: [], lines: [] }
 
 /** 在場有具名的 NPC（自由行動看隊上與場上的角色；role 是 npc）。 */
 export function castOf(state: GameState): RelateInput['cast'] {
-  return Object.values(state.actors).filter((a) => a.role === 'npc').map((a) => ({ id: a.id, name: a.name }))
+  return Object.values(state.actors).filter((a) => a.role === 'npc').map((a) => personFor(state, a.id))
 }
 
 export interface NarrateInput {
@@ -145,7 +147,9 @@ export function registerFreeActionTasks(k: Kernel, tasks: TaskRegistry): void {
         action: { kind: pending.input.kind, text: pending.input.text ?? '' },
         roll: { natural: pending.roll.natural, total: pending.roll.total, parts: pending.roll.parts, degree: pending.roll.degree, attr: pending.attr, skill: pending.skill ?? null },
         ref_dc: pending.refDc, dc_window: 3, minutes: pending.minutes, max_minutes: pending.maxMinutes,
-        actor: { name: pc.name, attrs: pc.attrs, skills: pc.skills, perks: pc.perks, afterglow: pc.afterglow },
+        actor: { name: pc.name, attrs: pc.attrs, skills: pc.skills, perks: pc.perks, afterglow: pc.afterglow, ...avatarPart(k, state, pending.actor) },
+        // 對象的稱呼（M4-followups-2 第 2 項）：玩家怎麼叫他、他怎麼叫玩家；有對象才給
+        ...(pending.input.target && state.actors[pending.input.target] ? { target: personFor(state, pending.input.target) } : {}),
       }
       return {
         system: '你是跑團的主持人。看骰值與情境，給出成功程度（是，而且／是／是，但是／不，但是／不，而且）與一句轉折，用 submit_judgment 的格式交出。',
@@ -257,6 +261,12 @@ export function registerFreeActionTasks(k: Kernel, tasks: TaskRegistry): void {
 /** 算關係這一步要不要問 AI：AI 那一半還沒做，固定不問（見 registerFreeActionTasks 的 relate）。 */
 export const relateEnabled = false
 
+/** 角色資料裡的化身描述：只有在內海（進行中的活動是潛入、竄網或面對面的內海戰）才給，現實的正文不帶（M4-followups-2 第 2 項）。 */
+function avatarPart(k: Kernel, state: GameState, id: string): { avatar?: string } {
+  const text = inNetNow(k, state) ? avatarTextFor(state, id) : undefined
+  return text !== undefined ? { avatar: text } : {}
+}
+
 function narrateInput(ctx: ChainCtx, mode: string): NarrateInput {
   const pending = ctx.draft.roll as ActionPending
   const { judgment } = ctx.draft.judge as JudgeOutput
@@ -266,6 +276,8 @@ function narrateInput(ctx: ChainCtx, mode: string): NarrateInput {
     mode,
     report: {
       kind: def.reportKind, action: def.name, actor: ctx.state.actors[pending.actor]!.name, ...(pending.input.text ? { input: pending.input.text } : {}),
+      ...avatarPart(ctx.k, ctx.state, pending.actor),
+      ...(pending.input.target && ctx.state.actors[pending.input.target] ? { target: personFor(ctx.state, pending.input.target) } : {}),
       degree: DEGREE_NAME[judgment.degree], verdict: VERDICT_NAME[judgment.roll.verdict], reason: judgment.reason, twist: judgment.twist, minutes: judgment.minutes,
     },
     results: reward.lines,
