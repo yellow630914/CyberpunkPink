@@ -24,6 +24,14 @@ export const MEMBER_CONDITION = 'auction_member'
 /** 報告 */
 export const REF_ACTION = 'auction.ref'
 export const INSPECT_ACTION = 'auction.inspect'
+export const ENTER_ACTION = 'auction.enter'
+export const BID_ACTION = 'auction.bid'
+export const LEAVE_ACTION = 'auction.leave'
+export const CLOSE_ACTION = 'auction.close'
+/** 活動：一場拍賣（order 40）。 */
+export const ACTIVITY = 'auction'
+/** 觸發點：一場拍賣結束。 */
+export const DONE_POINT = 'auction_done'
 /** 寫推薦函花的時間（分鐘）。 */
 export const REF_MINUTES = 10
 /** 拍賣行資料的 member.faction 沒寫 favor_min 時的門檻（FACTIONS 5.1 節：好感 40 是友好）。 */
@@ -74,6 +82,17 @@ export interface AuctionRules {
   ref: { favor: FavorSize; affinity: number }
   /** 停權幾天 */
   ban_days: number
+  /** 競價（M4-auction-bid；P78）：一件最多幾回合、玩家一次最多加幾階 */
+  rounds_max: number
+  raise_max: number
+  /** NPC 加價的機率：對這一種有興趣 yes、沒有 no；這一回合在他之前已經有人加過價（含玩家）再加 after_raise */
+  interest: { yes: number; no: number; after_raise: number }
+  /** 佣金：成交價的幾成（四捨五入） */
+  fee_pct: number
+  /** 從進場算起，這一場至少過幾分鐘 */
+  min_minutes: number
+  /** 用帳戶買違禁品或契約：factions 裡每個勢力的敵對值加 amount（清單預設空的，等內容；P82） */
+  cred_dirty: { amount: number; factions: string[] }
 }
 
 export const DEFAULT_AUCTION_RULES: AuctionRules = {
@@ -86,6 +105,12 @@ export const DEFAULT_AUCTION_RULES: AuctionRules = {
   preview: { days_before: 1, from_hour: 8, to_hour: 18 },
   ref: { favor: 'small', affinity: 40 },
   ban_days: 28,
+  rounds_max: 8,
+  raise_max: 3,
+  interest: { yes: 0.7, no: 0.15, after_raise: 0.1 },
+  fee_pct: 0.1,
+  min_minutes: 60,
+  cred_dirty: { amount: 2, factions: [] },
 }
 
 const FIELD_CHECKS: Record<string, (v: unknown) => string[]> = {
@@ -120,6 +145,24 @@ const FIELD_CHECKS: Record<string, (v: unknown) => string[]> = {
     return p
   },
   ban_days: (v) => (isSafeInt(v) && v >= 0 && v <= 3650 ? [] : ['ban_days 要是 0～3650 的整數']),
+  rounds_max: (v) => (isSafeInt(v) && v >= 1 && v <= 100 ? [] : ['rounds_max 要是 1～100 的整數']),
+  raise_max: (v) => (isSafeInt(v) && v >= 1 && v <= 10 ? [] : ['raise_max 要是 1～10 的整數']),
+  interest: (v) => {
+    if (!isRecord(v)) return ['interest 要是 { yes, no, after_raise }']
+    const p: string[] = []
+    for (const f of ['yes', 'no'] as const) if (v[f] !== undefined && !(isNum(v[f]) && v[f] >= 0 && v[f] <= 1)) p.push(`interest.${f} 要是 0～1 的數字`)
+    if (v.after_raise !== undefined && !(isNum(v.after_raise) && v.after_raise >= 0 && v.after_raise <= 1)) p.push('interest.after_raise 要是 0～1 的數字')
+    return p
+  },
+  fee_pct: (v) => (isNum(v) && v >= 0 && v <= 1 ? [] : ['fee_pct 要是 0～1 的數字']),
+  min_minutes: (v) => (isSafeInt(v) && v >= 0 && v <= DAY_MINUTES ? [] : ['min_minutes 要是 0～1440 的整數']),
+  cred_dirty: (v) => {
+    if (!isRecord(v)) return ['cred_dirty 要是 { amount, factions }']
+    const p: string[] = []
+    if (v.amount !== undefined && !(isSafeInt(v.amount) && v.amount >= 0 && v.amount <= 100)) p.push('cred_dirty.amount 要是 0～100 的整數')
+    if (v.factions !== undefined && !(Array.isArray(v.factions) && v.factions.every(isText))) p.push('cred_dirty.factions 要是勢力 id 的陣列（可以是空的）')
+    return p
+  },
 }
 
 /** 規則表 auction_rule 的格式檢查（每條一句；不認得的鍵不管：下一張的鍵先留著不讀）。 */
@@ -135,11 +178,13 @@ export function auctionRules(k: Pick<Kernel, 'content'>): AuctionRules {
   if (!e) return out
   const ok = (f: string): boolean => e[f] !== undefined && (FIELD_CHECKS[f]?.(e[f]) ?? ['?']).length === 0
   if (ok('grades')) out.grades = [...(e.grades as number[])]
-  for (const f of ['reserve_pct', 'step_pct', 'step_min', 'ban_days'] as const) if (ok(f)) out[f] = e[f] as number
+  for (const f of ['reserve_pct', 'step_pct', 'step_min', 'ban_days', 'rounds_max', 'raise_max', 'fee_pct', 'min_minutes'] as const) if (ok(f)) out[f] = e[f] as number
   if (ok('budget')) out.budget = [...(e.budget as [number, number])]
   if (ok('fake')) Object.assign(out.fake, clone(e.fake as Record<string, unknown>))
   if (ok('preview')) Object.assign(out.preview, clone(e.preview as Record<string, unknown>))
   if (ok('ref')) Object.assign(out.ref, clone(e.ref as Record<string, unknown>))
+  if (ok('interest')) Object.assign(out.interest, clone(e.interest as Record<string, unknown>))
+  if (ok('cred_dirty')) Object.assign(out.cred_dirty, clone(e.cred_dirty as Record<string, unknown>))
   return out
 }
 
@@ -274,7 +319,7 @@ export interface AuctionState {
   sold: string[]
   /** 去過的場次：拍賣行 → 那一場開槌日的天數 */
   done: Record<string, number>
-  /** 下一張（一場拍賣進行中）的狀態，這一張不讀 */
+  /** 一場拍賣進行中的狀態（M4-auction-bid；形狀見 bid.ts 的 Run） */
   run?: Record<string, unknown>
 }
 

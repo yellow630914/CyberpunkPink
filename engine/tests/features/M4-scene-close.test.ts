@@ -9,7 +9,7 @@ import type { ContentPack, Feature, Kernel, Report } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { lewdFeature } from '../../src/features/lewd'
 import type { Closing, Dice, SceneInput, SceneRaw } from '../../src/features/scene'
-import { sceneAct, sceneFeature, sceneInterrupt, sceneRawOf, sceneSkip } from '../../src/features/scene'
+import { AMNESIA_RESIDUE, sceneAct, sceneFeature, sceneInterrupt, sceneRawOf, sceneSkip, startProblems } from '../../src/features/scene'
 import type { ActorOverrides } from '../../src/testkit'
 import { METER_CONTENT, makeActor, makeGame, meterFeature, testMeter } from '../../src/testkit'
 
@@ -571,5 +571,92 @@ describe('env.closing 的驗證與沒給的時候', () => {
     expect(result(r)).toMatchObject({ solo: true, sink: 3, tendency: ['tg_a'] })
     expect(g.state.meters.affinity?.npc_ann).toBeUndefined()
     expect(r.clamps!.some((c) => c.path === 'closing.relate.npc_ann')).toBe(true)
+  })
+})
+
+// ======================================================================
+describe('記憶被抹掉的場景（setup.amnesia；M4-followups-2 第 7 項；outcome.amnesia 的下游）', () => {
+  /** 同樣的場景（被迫、碰過標籤、過載）：一場記得、一場不記得。 */
+  const play = (amnesia: boolean, o: Record<string, unknown> = {}) => {
+    const g = game({ pc: { sink: 10 } })
+    begin(g, { nature: 'forced', tags: ['tg_a', 'tg_s'], ...(amnesia ? { amnesia: true } : {}), ...o })
+    raw(g).seats[0]!.sink_gain = 2
+    raw(g).seats[0]!.max_gear = 'deep'
+    const r = stop(g, undefined, dice(1))
+    return { g, r }
+  }
+
+  it('結束的報告 outcome.amnesia 為 true、結果只有兩句（結束的原因與一段模糊的殘留），沒有契合、體悟、沉溺這些數字', () => {
+    const { g, r } = play(true)
+    expect(r.outcome.amnesia).toBe(true)
+    expect(r.narration!.results).toEqual(['你停了下來。', AMNESIA_RESIDUE])
+    expect(r.narration!.results!.join('')).not.toMatch(/\d/)
+    expect(result(r)).toMatchObject({ amnesia: true, sink: 0, tendency: [] })
+    expect(raw(g)).toBeNull()
+    // 對照：記得的場景沒有這個旗標、結果帶契合與沉溺
+    const plain = play(false)
+    expect(plain.r.outcome.amnesia).toBeUndefined()
+    expect(plain.r.narration!.results!.join('')).toMatch(/契合/)
+    expect(result(plain.r).amnesia).toBeUndefined()
+  })
+
+  it('不寫性經歷、不長傾向、不加沉溺（連過載累積的也不加）；對象身上的過載累積也不加', () => {
+    const { g } = play(true)
+    expect(sinkOf(g)).toBe(10)
+    expect(tagsOf(g)).toEqual({})
+    expect(sexOf(g)?.times ?? 0).toBe(0)
+    expect(sexOf(g, 'npc_ann')?.times ?? 0).toBe(0)
+    const plain = play(false)
+    expect(sinkOf(plain.g)).toBeGreaterThan(10)
+    expect(Object.keys(tagsOf(plain.g)).length).toBeGreaterThan(0)
+    expect(sexOf(plain.g).times).toBe(1)
+    // 對象的過載累積
+    const h = game()
+    begin(h, { nature: 'forced', amnesia: true })
+    raw(h).seats[1]!.sink_gain = 3
+    stop(h)
+    expect(h.state.actors.npc_ann!.sink).toBe(0)
+  })
+
+  it('契合、親密度、橋參數、體悟照算（只是不寫進記憶）', () => {
+    const run = (amnesia: boolean) => {
+      const g = game()
+      begin(g, { ...(amnesia ? { amnesia: true } : {}) }, 70)
+      aff(g, 'npc_ann', 10)
+      const before = bridgeSum(g)
+      const r = stop(g, undefined, dice(1))
+      return { affinity: g.state.meters.affinity!.npc_ann, bridge: bridgeSum(g) - before, insight: g.state.meters.insight?._ ?? 0, r }
+    }
+    const a = run(true)
+    const b = run(false)
+    expect(a.affinity).toBe(b.affinity)
+    expect(a.bridge).toBe(b.bridge)
+    expect(a.insight).toBe(b.insight)
+    expect(a.affinity).toBeGreaterThan(10)
+  })
+
+  it('單人的場景也一樣（沒有性經歷、傾向、沉溺）', () => {
+    const g = game({ pc: { sink: 10 } })
+    g.launch('scene', { solo: true, nature: 'solo', mode: 'full', tags: ['tg_a'], amnesia: true }, { by: 'test' })
+    const r = stop(g)
+    expect(r.outcome.amnesia).toBe(true)
+    expect(r.narration!.results).toEqual(['你停了下來。', AMNESIA_RESIDUE])
+    expect(tagsOf(g)).toEqual({})
+    expect(sexOf(g)?.times ?? 0).toBe(0)
+    expect(sinkOf(g)).toBe(10)
+  })
+
+  it('格式：amnesia 要是 true 或 false；沒寫是 false；存下來的場景讀回來還是 amnesia（原樣）', () => {
+    const g = game()
+    expect(startProblems(g.k, g.state, { with: ['npc_ann'], nature: 'mutual', mode: 'full', amnesia: 'yes' } as never).problems.join()).toMatch(/amnesia 要是 true 或 false/)
+    expect(startProblems(g.k, g.state, { with: ['npc_ann'], nature: 'mutual', mode: 'full', amnesia: true }).problems).toEqual([])
+    begin(g, { amnesia: true })
+    expect(raw(g).amnesia).toBe(true)
+    const other = game()
+    expect(other.load(g.save())).toBeNull()
+    expect(raw(other).amnesia).toBe(true)
+    const plain = game()
+    begin(plain)
+    expect(raw(plain).amnesia).toBeUndefined()
   })
 })

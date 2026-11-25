@@ -49,6 +49,7 @@ import { ActionBlocked, ContentError, clone, isRecord } from '../../core'
 import type { ActivityDef } from '../../core'
 import type { Closing } from './close'
 import { endDraft, logBeats, sceneDraft, stepDraft } from './end'
+export { AMNESIA_RESIDUE } from './end'
 import type { CircleRec, Dice, Goal, Nature, PositionEntry, Role, SceneKind, SceneMode, SceneRaw, Who } from './model'
 import {
   ACTIVITY, EXT, GENDER_FILTER, GOALS, GOAL_NAME, LAYERS, NATURES, NET_ACTIVITIES, NATURE_FILTER, NATURE_NAME, NTR_FILTER, OWNER, POSITION_KIND, ROLES, ROLE_NAME, RULE_KIND, SKILL_KIND, SOLO_POSE_KIND, beat,
@@ -68,7 +69,7 @@ export { SINK_KINDS, bridgeParamOf } from './close'
 export type { Resonance, RevealView } from './night'
 export { BRANCHES, RESONANCE_KIND, knowFor, npcKnow, resonanceOf } from './night'
 export type { Preview, PreviewLoad, SceneInput, PartPick, TalkEnv, TalkEnvs } from './play'
-export { Play, MAX_MOVES } from './play'
+export { Play, MAX_MOVES, costOf as inputCostOf } from './play'
 export { sceneOptions, scenePreview, sceneView } from './view'
 export type { ActionOption, ChoiceOption, GearView, LineView, LinkView, PairView, PartView, PersonView, ScenePick, ScenePickOption, ScenePair, SceneOptions, SceneView } from './view'
 

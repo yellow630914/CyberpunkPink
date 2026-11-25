@@ -6,13 +6,15 @@
 
 import { describe, expect, it } from 'vitest'
 import type { BattleSetup, Condition, ContentPack, Feature, ReportDraft } from '../../src'
-import { ActionBlocked, BattleRun, ContentError, MINUTES_PER_DAY, checkParts, clone, currentUnit, effectCtx, fromMinutes, regenTotal, restDone, toMinutes, weeklyRule } from '../../src'
+import { ActionBlocked, BattleRun, ContentError, Game, MINUTES_PER_DAY, checkParts, clone, currentUnit, effectCtx, fromMinutes, regenTotal, restDone, toMinutes, weeklyRule } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { combatFeature } from '../../src/features/combat'
 import {
   DEFAULT_DRUG_RULES, detoxBlock, detoxDraft, detoxQuote, drugDef, drugRules, drugView, drugsFeature, readDrugs, scaledWithdrawal, suppressantBlock, suppressantDraft, unitDrugs, useBlock, useDraft,
 } from '../../src/features/drugs'
-import { BATTLE_SETUPS, TEST_NET_COMBAT, enemyUnit, makeActor, makeGame, meterFeature, testMeter } from '../../src/testkit'
+import { allFeatures } from '../../src/features'
+import { CORE_PACK } from '../../data'
+import { BATTLE_SETUPS, DRUG_GAPS, ITEMS_42_DRUGS, TEST_NET_COMBAT, enemyUnit, makeActor, makeGame, meterFeature, testMeter } from '../../src/testkit'
 
 type Rec = Record<string, any>
 
@@ -905,5 +907,87 @@ describe('存檔、回到快照、內容的格式', () => {
     expect(bad(() => {})).toBe('')
     // 沒有 drug 欄位的物品不管
     expect(bad((c) => { c.item!.push({ id: 'it_plain', name: '糖', desc: '糖。', category: 'consumable', grade: 1, size: 0, legal: 'free' }) })).toBe('')
+  })
+})
+
+// ---- ITEMS 4.2 節的藥（示意資料：寫得出來的寫成資料，寫不出來的列在 DRUG_GAPS；M4-followups-2 第 7 項） ----
+
+describe('ITEMS 4.2 節的藥目錄（testkit 的示意資料）', () => {
+  const CAT: ContentPack = { id: 'items42', content: { item: clone(ITEMS_42_DRUGS) } } as unknown as ContentPack
+  const full = () => new Game({ features: allFeatures(), content: [CORE_PACK, CAT], strict: true, ai: { ai: 0 } })
+  const real = () => makeGame({
+    features: allFeatures(), content: [CORE_PACK, CAT], seed: 7,
+    patch: { time: fromMinutes(START), inventory: ITEMS_42_DRUGS.map((d) => ({ id: d.id, qty: 3 })) as never },
+  }).game
+  const stat = (g: ReturnType<typeof real>, id: string, actor = 'pc') => g.k.stats.stat(g.state, actor, id)
+  const mod = (g: ReturnType<typeof real>, kind: string): number => g.k.passives.modParts(g.state, 'pc', kind).reduce((n, p) => n + p.value, 0)
+  const bonus = (g: ReturnType<typeof real>, o: { attr?: string; skill?: string; tags?: string[] }) => checkParts(g.k.stats, g.state, 'pc', { ...o, tags: o.tags ?? [] } as never).reduce((n, p) => n + p.value, 0)
+
+  it('目錄的每一種都載得進正式的功能與資料（嚴格模式、參照都對得上）；id 不重複、價錢照表、都是藥', () => {
+    const g = full()
+    expect(g.k.content.checkRefs()).toEqual([])
+    const ids = ITEMS_42_DRUGS.map((d) => d.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(ids.length).toBeGreaterThanOrEqual(25)
+    for (const id of ids) expect(g.k.content.get('item', id), id).toMatchObject({ category: 'drug' })
+    const price = (id: string): number => (ITEMS_42_DRUGS.find((d) => d.id === id) as Rec).price
+    expect([price('drug_cotton'), price('drug_calm'), price('drug_focus'), price('drug_armadillo'), price('drug_m7'), price('drug_allegro'), price('drug_yae')]).toEqual([30, 30, 90, 100, 290, 1200, 1800])
+    // 每一種都有成癮（戒斷的天數與份量）；只有鎮靜劑多一個 eases_withdrawal
+    for (const d of ITEMS_42_DRUGS) expect((d.drug as Rec).addiction.withdrawal.days, d.id).toBeGreaterThan(0)
+    expect(ITEMS_42_DRUGS.filter((d) => (d.drug as Rec).eases_withdrawal).map((d) => d.id)).toEqual(['drug_calm'])
+  })
+
+  it('寫不出來的藥效都列在 DRUG_GAPS（連同原因）：每一筆有 drug、effect、why；drug 是目錄裡的藥或整種寫不出來的藥', () => {
+    expect(DRUG_GAPS.length).toBeGreaterThan(5)
+    const ids = new Set(ITEMS_42_DRUGS.map((d) => d.id))
+    for (const gap of DRUG_GAPS) {
+      expect(gap.effect.length, gap.drug).toBeGreaterThan(3)
+      expect(gap.why.length, gap.drug).toBeGreaterThan(1)
+      expect(ids.has(gap.drug) || gap.drug.startsWith('it_'), gap.drug).toBe(true)
+    }
+    // 整種寫不出來的：不在目錄裡
+    for (const id of ['it_listen', 'it_lotus', 'it_allnight']) expect(ids.has(id)).toBe(false)
+  })
+
+  it('吃下去有效果：提神錠（黑咖）先攻 +3；鎮靜劑（靜）定力 +2、先攻 −3、表演與誘惑 −2；犰狳 耐受 +20、慾求 +10；成癮是下一週的戒斷', () => {
+    const g = real()
+    expect(mod(g, 'initiative')).toBe(0)
+    g.commit(useDraft(g.k, g.state, { actor: 'pc', item: 'drug_coffee' }))
+    expect(mod(g, 'initiative')).toBe(3)
+    const h = real()
+    h.commit(useDraft(h.k, h.state, { actor: 'pc', item: 'drug_calm' }))
+    expect(bonus(h, { attr: 'resolve', skill: 'composure' })).toBe(bonus(real(), { attr: 'resolve', skill: 'composure' }) + 2)
+    expect(mod(h, 'initiative')).toBe(-3)
+    expect(bonus(h, { attr: 'charm', skill: 'perform' })).toBe(bonus(real(), { attr: 'charm', skill: 'perform' }) - 2)
+    const a = real()
+    const before = { tolerance: stat(a, 'bridge_tolerance'), craving: stat(a, 'bridge_craving') }
+    a.commit(useDraft(a.k, a.state, { actor: 'pc', item: 'drug_armadillo' }))
+    expect(stat(a, 'bridge_tolerance') - before.tolerance).toBe(20)
+    expect(stat(a, 'bridge_craving') - before.craving).toBe(10)
+  })
+
+  it('感知類（甜水）是 perception 標籤的檢定加成：調查與街頭直覺都帶；專注劑（白板）介面 +2、機械與義體學 +2；沉溺 +3 走暫時的下限', () => {
+    const g = real()
+    const plain = real()
+    g.commit(useDraft(g.k, g.state, { actor: 'pc', item: 'drug_sweet' }))
+    expect(bonus(g, { attr: 'intellect', skill: 'investigate', tags: ['perception'] })).toBe(bonus(plain, { attr: 'intellect', skill: 'investigate', tags: ['perception'] }) + 2)
+    expect(bonus(g, { attr: 'intellect', skill: 'streetwise', tags: ['perception'] })).toBe(bonus(plain, { attr: 'intellect', skill: 'streetwise', tags: ['perception'] }) + 2)
+    // 沒帶標籤的別種檢定不吃
+    expect(bonus(g, { attr: 'intellect', skill: 'hack' })).toBe(bonus(plain, { attr: 'intellect', skill: 'hack' }))
+    const f = real()
+    const floor0 = f.k.stats.stat(f.state, 'pc', 'sink_floor')
+    f.commit(useDraft(f.k, f.state, { actor: 'pc', item: 'drug_focus' }))
+    expect(bonus(f, { attr: 'intellect', skill: 'interface' })).toBe(bonus(plain, { attr: 'intellect', skill: 'interface' }) + 2)
+    expect(f.k.stats.stat(f.state, 'pc', 'sink_floor')).toBe(floor0 + 3)
+  })
+
+  it('一場戰鬥的藥（M7）：命中 +1、迴避 +1、感載上限 −4；跟著成癮', () => {
+    const g = real()
+    g.commit(useDraft(g.k, g.state, { actor: 'pc', item: 'drug_m7' }))
+    const cap0 = stat(real(), 'load_cap')
+    expect(stat(g, 'load_cap')).toBe(cap0 - 4)
+    expect(mod(g, 'hit')).toBe(1)
+    expect(mod(g, 'evade')).toBe(1)
+    expect(readDrugs(g.state, 'pc').addiction.drug_m7!.value).toBe(20)
   })
 })

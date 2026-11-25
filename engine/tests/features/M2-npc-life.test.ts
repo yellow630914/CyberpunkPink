@@ -184,6 +184,18 @@ describe('共同記憶：照 8.1 節那張表記（不經過 AI、不多出一�
     expect(memories(g)).toEqual([])
   })
 
+  it('記憶被抹掉的報告（outcome.amnesia：人偶晶片那一班、amnesia 的場景）不記共同記憶；同一份報告沒有 amnesia 就記（M4-followups-2 第 7 項）', () => {
+    const g = make()
+    g.commit(draft([], 'free', { timeline: checked('critical'), outcome: { result: 'critical', summary: '你什麼也不記得了。', amnesia: true } as never }))
+    expect(memories(g)).toEqual([])
+    g.commit(draft([], 'free', { timeline: checked('critical'), outcome: { result: 'critical', summary: '你記得這一次。' } }))
+    expect(memories(g)).toMatchObject([{ weight: 2, text: '你記得這一次。' }])
+    // 參與人也不記：認識一個人的那份報告帶 amnesia 時，沒有這一筆（別的記憶不受影響）
+    const n = memories(g).length
+    g.commit(draft([], 'free', { timeline: [{ layer: 'meat', actor: 'npc_bob', text: '鮑勃看著你。', roll: ROLL }], outcome: { result: 'success', summary: '忘了。', amnesia: true } as never }))
+    expect(memories(g)).toHaveLength(n)
+  })
+
   it('各種報告種類：combat 只記結束（戰敗、我方有人倒下 2）、gig 接案與收尾 2（倒下或背刺 3）、social 一般 1 招募離隊 2、event 結果 2 通知 1、netrun、downtime', () => {
     const g = make()
     const w = (): number[] => memories(g).map((m) => m.weight)

@@ -12,7 +12,9 @@ import { ADULT_SOURCE_KEY, FakeProvider, SCENE_ADVERSARIES, SCENE_ADVERSARY_TASK
 import { characterFeature } from '../../src/features/character'
 import { lewdFeature } from '../../src/features/lewd'
 import type { SceneRaw, SceneSetup } from '../../src/features/scene'
-import { npcOrder } from '../../src/shell/ai/sceneBrief'
+import { briefOf, legalMoves, npcOrder, playOf } from '../../src/shell/ai/sceneBrief'
+import { ONCE_IDS, TURN_KINDS, moveShape } from '../../src/shell/ai/sceneTasks'
+import { nightclassFeature } from '../../src/features/nightclass'
 import { sceneAct, sceneFeature, sceneNext, sceneRawOf } from '../../src/features/scene'
 import type { ActorOverrides } from '../../src/testkit'
 import { METER_CONTENT, makeActor, makeGame, meterFeature, testMeter } from '../../src/testkit'
@@ -76,14 +78,19 @@ interface Opts {
   contentOff?: string[]
   pc?: ActorOverrides
   seed?: number
+  extra?: Feature[]
+  /** 多放的內容包（夜課共鳴等） */
+  more?: ContentPack[]
+  /** 安的 ext 多寫的東西（傾向軸等級決定夜課的階數） */
+  ann?: ActorOverrides
 }
 
 function game(o: Opts = {}): G {
-  const npcs = Object.entries(PEOPLE).map(([id, d]) => makeActor({ id, name: d.name, role: 'npc', gender: 'female', ext: { bridge, scene: { skills: d.skills, positions: [] } } }))
+  const npcs = Object.entries(PEOPLE).map(([id, d]) => makeActor({ id, name: d.name, role: 'npc', gender: 'female', ...(id === 'npc_ann' ? (o.ann ?? {}) : {}), ext: { bridge, scene: { skills: d.skills, positions: [] }, ...(id === 'npc_ann' ? (o.ann?.ext ?? {}) : {}) } }))
   return makeGame({
     seed: o.seed,
-    features: [characterFeature, lewdFeature, meterFeature(AFFINITY), sceneFeature, flirtFeature],
-    content: [PACK, METER_CONTENT],
+    features: [characterFeature, lewdFeature, meterFeature(AFFINITY), sceneFeature, flirtFeature, ...(o.extra ?? [])],
+    content: [PACK, METER_CONTENT, ...(o.more ?? [])],
     pc: { ...o.pc, ext: { bridge, scene: { skills: ['nt_a', 'nt_b', 'nt_hit', 'nt_reach'], positions: [] }, tendency: TENDENCY, ...(o.pc?.ext ?? {}) } },
     actors: npcs,
     ...(o.fake ? { fake: o.fake, ai: { ai: 1, ...(o.ai ?? {}) } } : { ai: o.ai ?? { ai: 0 } }),
@@ -399,6 +406,34 @@ describe('closing 模式（預設）：進場、收尾五個任務、正文在�
     expect(raw(g)).toMatchObject({ nature: 'mutual', origin: { by: 'adult_action' } })
     expect(inputOf<Record<string, any>>(by(fake, 'scene_gate')[0]!).fixed).toBeUndefined()
     expect(r.run!.steps.find((s) => s.id === 'gate')!.status).toBe('done')
+  })
+
+  it('Game.act：資料寫了 chain: adult_action 的種類轉到 adult_action 這條鏈（和 sceneBegin 同一條，M4-followups-2 第 7 項）；沒寫 chain 的行動照舊走 free_action', async () => {
+    const tease: Feature = {
+      id: 'test_tease',
+      install: (k: Kernel) => k.actions.register({ id: 'tease', owner: 'test_tease', name: '撩撥', attr: 'charm', dc: 'easy', minutes: 30, maxMinutes: 60, reportKind: 'social', chain: 'adult_action' }),
+    }
+    const fake = new FakeProvider()
+    const g = game({ fake, extra: [tease] })
+    const r = await g.act({ kind: 'tease', target: 'npc_ann', situation: FLIRT.situation })
+    expect(r.status, r.reason).toBe('applied')
+    expect(r.run!.template.chain).toBe('adult_action')
+    expect(r.run!.steps.map((x) => x.id)).toEqual(['roll', 'judge', 'hint', 'gate', 'setup', 'reward', 'relate', 'text', 'apply'])
+    expect(by(fake, 'scene_gate')).toHaveLength(1)
+    expect(raw(g)).toMatchObject({ nature: 'mutual', origin: { by: 'adult_action' } })
+    expect(r.reports.map((x) => x.action)).toEqual(['tease', 'scene.start'])
+    // 沒寫 chain 的（flirtFeature 的 flirt 只是個普通的社交行動）：走 free_action，沒有 scene_gate
+    const fake2 = new FakeProvider()
+    const h = game({ fake: fake2 })
+    const plain = await h.act({ kind: 'flirt', target: 'npc_ann', situation: FLIRT.situation })
+    expect(plain.run!.template.chain).toBe('free_action')
+    expect(by(fake2, 'scene_gate')).toHaveLength(0)
+    // AI 關著：adult_action 的退路——沒有明寫的設定就不進場景，報告還是出
+    const off = game({ extra: [tease] })
+    const o = await off.act({ kind: 'tease', target: 'npc_ann', situation: FLIRT.situation })
+    expect(o.status, o.reason).toBe('applied')
+    expect(sceneRawOf(off.state)).toBeNull()
+    expect(o.reports.map((x) => x.action)).toEqual(['tease'])
   })
 
   it('掃描：scene_gate 的清單只列內容篩選允許的性質；請求的每一個字都沒有被關掉的性質或標籤', async () => {
@@ -955,5 +990,249 @@ describe('不變式：場景的 AI 任務全部失敗時，場景照規則走完
     await run(b)
     expect(a.state.actors).toEqual(b.state.actors)
     expect(a.state.meters).toEqual(b.state.meters)
+  })
+})
+
+// ======================================================================
+describe('玩家寫的稱呼與化身描述原樣進 AI 的角色資料（M4-followups-2 第 2 項；NPC_SYSTEM 7.0、CYBERSPACE 4）', () => {
+  const REL = { rel: { npc_ann: { call_them: '小安', call_me: '主人' } } }
+  const AVATAR = { deck: { avatar: { text: '銀灰的長髮，右眼是一圈藍光。' } } }
+  const draftOf = (layer: 'meat' | 'net') => ({
+    kind: 'action' as const, action: 'test.talk', location: {}, party: [{ id: 'npc_ann', name: '安' }, { id: 'npc_bo', name: '波' }],
+    timeline: [{ layer, text: '你們說了幾句話。' }], changes: [], outcome: { result: 'ok', summary: '說了話。' },
+  })
+
+  it('場景：scene_turn 的 actor 與 scene.people 帶 call_them／call_me（寫了才有）；化身描述只在內海那一層進、而且是主角自己的', async () => {
+    const fake = new FakeProvider()
+    const g = game({ fake, ai: { sceneAi: 'full' }, pc: { ext: AVATAR } as never })
+    g.state.ext.npcs = REL as never
+    expect((await g.sceneBegin(mutual())).started).toBe(true)
+    expect((await g.sceneStep({ kind: 'end_turn' })).status).toBe('applied')
+    await partnerTurn(g)
+    const inp = inputOf<Record<string, any>>(by(fake, 'scene_turn')[0]!)
+    expect(inp.actor).toMatchObject({ id: 'npc_ann', name: '安', call_them: '小安', call_me: '主人' })
+    const people = inp.scene.people as Array<Record<string, any>>
+    expect(people.find((x) => x.id === 'npc_ann')).toMatchObject({ call_them: '小安', call_me: '主人' })
+    // 主角自己沒有稱呼這一欄；現實的場景不給化身描述
+    expect(people.find((x) => x.id === 'pc')).not.toHaveProperty('call_them')
+    for (const x of people) expect(x).not.toHaveProperty('avatar')
+    // 沒填稱呼的人沒有這兩欄
+    expect(people.length).toBe(2)
+    // 內海那一層（直接用摘要看：開內海的場景要甲板，這裡不裝）：化身描述進主角那一格，稱呼照舊
+    raw(g).layer = 'net'
+    const brief = briefOf(playOf(g.k, g.state, raw(g)))
+    expect(brief.people.find((x) => x.id === 'pc')).toMatchObject({ avatar: '銀灰的長髮，右眼是一圈藍光。' })
+    expect(brief.people.find((x) => x.id === 'npc_ann')).not.toHaveProperty('avatar')
+    expect(brief.people.find((x) => x.id === 'npc_ann')).toMatchObject({ call_them: '小安' })
+  })
+
+  it('什麼都沒填：沒有 call_them、call_me、avatar 這幾欄；稱呼與描述一個字都不改（原樣進去，不篩選、不改寫）', async () => {
+    const fake = new FakeProvider()
+    const g = game({ fake, ai: { sceneAi: 'full' } })
+    await g.sceneBegin(mutual())
+    await g.sceneStep({ kind: 'end_turn' })
+    await partnerTurn(g)
+    const text = textOf(by(fake, 'scene_turn')[0]!)
+    expect(text).not.toContain('call_them')
+    expect(text).not.toContain('avatar')
+    // 原樣：寫了奇怪的字也照放（不合規的由服務商擋）
+    const fake2 = new FakeProvider()
+    const h = game({ fake: fake2, ai: { sceneAi: 'full' } })
+    h.state.ext.npcs = { rel: { npc_ann: { call_them: '<b>小安</b>  \n', call_me: 'x'.repeat(12) } } } as never
+    await h.sceneBegin(mutual())
+    await h.sceneStep({ kind: 'end_turn' })
+    await partnerTurn(h)
+    const inp = inputOf<Record<string, any>>(by(fake2, 'scene_turn')[0]!)
+    expect(inp.actor.call_them).toBe('<b>小安</b>  \n')
+    expect(inp.actor.call_me).toBe('x'.repeat(12))
+  })
+
+  it('寫正文（narrate）：出場的 NPC 帶稱呼；報告有內海的拍才帶化身描述（現實的不帶）', async () => {
+    const fake = new FakeProvider()
+    const g = game({ fake, pc: { ext: AVATAR } as never })
+    g.state.ext.npcs = REL as never
+    expect((await g.commitNarrated(draftOf('meat'), { mode: 'new' })).status).toBe('applied')
+    const meat = inputOf<Record<string, any>>(by(fake, 'narrate')[0]!)
+    expect(meat.report.calls).toEqual([{ id: 'npc_ann', name: '安', call_them: '小安', call_me: '主人' }])
+    expect(meat.report).not.toHaveProperty('avatar')
+    expect((await g.commitNarrated(draftOf('net'), { mode: 'new' })).status).toBe('applied')
+    const net = inputOf<Record<string, any>>(by(fake, 'narrate')[1]!)
+    expect(net.report.avatar).toBe('銀灰的長髮，右眼是一圈藍光。')
+    expect(net.report.calls).toHaveLength(1)
+  })
+})
+
+// ======================================================================
+describe('事件的 adult_scene.gate: ai 走 scene_gate（M4-followups-2 第 7 項；DATA 第 4 節）', () => {
+  /** 事件結算那一份報告：帶一筆要問 scene_gate 的場景（寫的是交易；主角、安在場）。 */
+  const eventDraft = (gate: 'ai' | 'fixed' = 'ai', more: Record<string, unknown> = {}) => ({
+    kind: 'event' as const, action: 'event.close', location: {}, party: [], timeline: [{ layer: 'meat' as const, text: '你選了跟他走。' }], changes: [], adult: true,
+    outcome: { result: 'success', summary: '你跟他走了。' },
+    launch: [{ kind: 'scene', setup: { with: ['npc_ann'], nature: 'trade', role: 'worker', gate, mode: 'simple', tags: ['tg_a'], ...more }, origin: { by: 'event' } }],
+  })
+
+  it('AI 說進：照 scene_gate 給的性質開場景（gate 換成 fixed，其餘的鍵照原樣）；走的是 narrated_gate 這條鏈，輸入帶出場的人、事件的摘要、寫的性質', async () => {
+    const fake = new FakeProvider({ byTask: { scene_gate: [{ json: { enter: true, nature: 'mutual', goal: 'please', reason: '兩個人都想。' } }] } })
+    const g = game({ fake })
+    g.state.ext.npcs = { rel: { npc_ann: { call_them: '小安' } } } as never
+    const r = await g.commitNarrated(eventDraft(), { mode: 'new' })
+    expect(r.status, r.reason).toBe('applied')
+    expect(r.run!.template.chain).toBe('narrated_gate')
+    expect(r.run!.steps.map((s) => s.id)).toEqual(['gate', 'setup', 'text', 'apply'])
+    expect(raw(g)).toMatchObject({ nature: 'mutual', goal: 'please', origin: { by: 'event' } })
+    expect(r.reports.map((x) => x.action)).toEqual(['event.close', 'scene.start'])
+    const inp = inputOf<Record<string, any>>(by(fake, 'scene_gate')[0]!)
+    expect(inp.cast).toMatchObject([{ id: 'npc_ann', name: '安', call_them: '小安' }])
+    expect(inp.trigger).toMatchObject({ action: '事件', degree: 'success', summary: '你跟他走了。' })
+    expect(inp.fixed).toMatchObject({ nature: 'trade', role: 'worker', with: ['npc_ann'] })
+    expect(inp.natures.map((n: { id: string }) => n.id)).toEqual(['mutual', 'trade', 'work', 'contract', 'forced'])
+  })
+
+  it('AI 說不進：拿掉那一筆 launch（事件照常結算、報告照出，只是沒有場景），不丟錯', async () => {
+    const fake = new FakeProvider({ byTask: { scene_gate: [{ json: { enter: false, reason: '這裡不是那種場合。' } }] } })
+    const g = game({ fake })
+    const r = await g.commitNarrated(eventDraft(), { mode: 'new' })
+    expect(r.status, r.reason).toBe('applied')
+    expect(sceneRawOf(g.state)).toBeNull()
+    expect(r.reports.map((x) => x.action)).toEqual(['event.close'])
+    expect(by(fake, 'scene_gate')).toHaveLength(1)
+  })
+
+  it('AI 關著、sceneAi 是 off、scene_gate 交不出合格的結果：launch 一個字不動，照寫的性質開（和 gate: fixed 一樣）；沒寫 gate: ai 的事件不問 scene_gate', async () => {
+    const off = game()
+    const a = await off.commitNarrated(eventDraft(), { mode: 'new' })
+    expect(a.status, a.reason).toBe('applied')
+    expect(raw(off)).toMatchObject({ nature: 'trade', role: 'worker' })
+    const noScene = new FakeProvider()
+    const b = game({ fake: noScene, ai: { sceneAi: 'off' } })
+    await b.commitNarrated(eventDraft(), { mode: 'new' })
+    expect(raw(b)).toMatchObject({ nature: 'trade' })
+    expect(by(noScene, 'scene_gate')).toHaveLength(0)
+    // scene_gate 交了清單外的性質：被驗證擋下、自動重試之後走退路：照寫的
+    const bad = new FakeProvider({ byTask: { scene_gate: sceneScript('gate_bad_nature') } })
+    const c = game({ fake: bad })
+    await c.commitNarrated(eventDraft(), { mode: 'new' })
+    expect(raw(c)).toMatchObject({ nature: 'trade', role: 'worker' })
+    // gate: fixed：不問
+    const fixed = new FakeProvider()
+    const d = game({ fake: fixed })
+    const r = await d.commitNarrated(eventDraft('fixed'), { mode: 'new' })
+    expect(r.run!.template.chain).toBe('narrated')
+    expect(by(fixed, 'scene_gate')).toHaveLength(0)
+    expect(raw(d)).toMatchObject({ nature: 'trade' })
+  })
+
+  it('AI 給的性質被內容篩選關掉（被迫）：根本不在清單裡；給了也被擋下，退路是照寫的', async () => {
+    const fake = new FakeProvider({ byTask: { scene_gate: [{ json: { enter: true, nature: 'forced', reason: '被迫。' } }] } })
+    const g = game({ fake, contentOff: ['pc_unwilling'] })
+    await g.commitNarrated(eventDraft(), { mode: 'new' })
+    expect(inputOf<Record<string, any>>(by(fake, 'scene_gate')[0]!).natures.map((n: { id: string }) => n.id)).not.toContain('forced')
+    expect(raw(g)).toMatchObject({ nature: 'trade' })
+  })
+})
+
+// ======================================================================
+describe('scene_turn 收 once 與 dress（夜課共鳴給的行動；M4-followups-2 第 12 項）', () => {
+  const RES: ContentPack = {
+    id: 'scene_ai_res',
+    content: {
+      night_resonance: [
+        { id: 'rk3', branch: 'costume', tier: 3, name: '脫換衣服免費', scene: { once: { kind: 'free_dress' } } },
+        { id: 'rk5', branch: 'costume', tier: 5, name: '契合拉到 50', scene: { once: { kind: 'fit_floor', value: 50 } } },
+        { id: 'rr5', branch: 'relation', tier: 5, name: '主動權設成', scene: { once: { kind: 'set_init', values: [70, 30], ap: 1 } } },
+      ],
+    } as never,
+  }
+  const axes = (costume: number, relation = 0): ActorOverrides => ({ ext: { tendency: { ...TENDENCY, axes: { ...TENDENCY.axes, costume, relation } } } })
+  const withRes = (o: Opts = {}): G => game({ ...o, more: [RES], extra: [nightclassFeature] })
+  const key = (m: { kind: string; id?: string; value?: number }): string => `${m.kind}${m.id ? `:${m.id}` : ''}${m.value !== undefined ? `=${m.value}` : ''}`
+
+  it('TURN_KINDS 多了 once 與 dress（stop 還是不收）；once 的 id 只有 set_init、fit_floor', () => {
+    expect(TURN_KINDS).toContain('once')
+    expect(TURN_KINDS).toContain('dress')
+    expect(TURN_KINDS).not.toContain('stop')
+    expect([...ONCE_IDS]).toEqual(['set_init', 'fit_floor'])
+  })
+
+  it('moveShape：dress 不用別的欄位；once 要指明 id（set_init、fit_floor）、value 要是數字；其餘照舊', () => {
+    expect(moveShape({ kind: 'dress' })).toEqual({ move: { kind: 'dress' } })
+    expect(moveShape({ kind: 'once', id: 'fit_floor' })).toEqual({ move: { kind: 'once', id: 'fit_floor' } })
+    expect(moveShape({ kind: 'once', id: 'set_init', value: 70, target: 'npc_ann' })).toEqual({ move: { kind: 'once', id: 'set_init', value: 70, target: 'npc_ann' } })
+    expect(moveShape({ kind: 'once' })).toMatchObject({ problem: expect.stringContaining('set_init') })
+    expect(moveShape({ kind: 'once', id: 'free_dress' })).toMatchObject({ problem: expect.stringContaining('once 要指明') })
+    expect(moveShape({ kind: 'once', id: 'set_init', value: '70' })).toMatchObject({ problem: 'once 的 value 要是數字' })
+    expect(moveShape({ kind: 'stop' })).toMatchObject({ problem: expect.stringContaining('停下') })
+    expect(moveShape({ kind: 'sleep' })).toMatchObject({ problem: '行動的種類不在 <legal> 的清單裡' })
+  })
+
+  it('legalMoves：有 free_dress 的人清單裡有 dress、沒有的沒有；once 只有主角自己用得了（set_init 的兩個值各一項、fit_floor 一項），用過就從清單消失', async () => {
+    const g = withRes({ pc: axes(5, 5), ann: axes(3) })
+    expect((await g.sceneBegin(mutual())).started).toBe(true)
+    const p = () => playOf(g.k, g.state, raw(g))
+    // 安：costume 3 階 → 脫換衣服免費；沒有 once（只有主角用得了）
+    raw(g).turn = 'npc_ann'
+    const ann = legalMoves(p(), 'npc_ann').map(key)
+    expect(ann).toContain('dress')
+    expect(ann.filter((x) => x.startsWith('once'))).toEqual([])
+    // 主角：5 階全有。dress 免費（ap 0）；once 三項都在，連同值
+    raw(g).turn = 'pc'
+    const pc = legalMoves(p(), 'pc')
+    expect(pc.map(key)).toEqual(expect.arrayContaining(['dress', 'once:fit_floor', 'once:set_init=70', 'once:set_init=30']))
+    expect(pc.find((m) => m.kind === 'dress')!.ap).toBe(0)
+    // 沒有共鳴的人（階數不夠）：清單裡沒有 dress 與 once
+    const plain = withRes()
+    await plain.sceneBegin(mutual())
+    const none = legalMoves(playOf(plain.k, plain.state, raw(plain)), 'pc').map(key)
+    expect(none).not.toContain('dress')
+    expect(none.filter((x) => x.startsWith('once'))).toEqual([])
+    // 用過之後（每場一次）就不在清單裡
+    await g.sceneStep({ kind: 'once', id: 'fit_floor', target: 'npc_ann' })
+    expect(legalMoves(p(), 'pc').map(key)).not.toContain('once:fit_floor')
+  })
+
+  it('AI 在 scene_turn 選 dress：驗得過、結算進場景（記一行、第一次免費不花行動點）；選了清單外的 once 被擋下，場景沒有卡住', async () => {
+    const fake = new FakeProvider({ byTask: { scene_turn: [{ json: { moves: [{ kind: 'dress' }], line: '安把外套掛在椅背上。' } }] } })
+    const g = withRes({ fake, ai: { sceneAi: 'full' }, ann: axes(3) })
+    expect((await g.sceneBegin(mutual())).started).toBe(true)
+    await g.sceneStep({ kind: 'end_turn' })
+    const apBefore = raw(g).seats.find((x) => x.id === 'npc_ann')!.ap
+    await partnerTurn(g)
+    const turn = inputOf<Record<string, any>>(by(fake, 'scene_turn')[0]!)
+    expect(turn.legal.map(key)).toContain('dress')
+    const seat = raw(g).seats.find((x) => x.id === 'npc_ann')!
+    expect(seat.once).toMatchObject({ free_dress: 1 })
+    expect(apBefore).toBeGreaterThan(0)
+    expect(raw(g).lines.some((l) => l.text.includes('把外套掛在椅背上'))).toBe(true)
+    // 不是清單裡的 once（安沒有這個功夫、once 只有主角用得了）：被功能擋下，這一輪照規則走完
+    const fake2 = new FakeProvider({ byTask: { scene_turn: [{ json: { moves: [{ kind: 'once', id: 'fit_floor' }], line: '安想用夜課的功夫。' } }] } })
+    const h = withRes({ fake: fake2, ai: { sceneAi: 'full' }, ann: axes(5) })
+    await h.sceneBegin(mutual())
+    await h.sceneStep({ kind: 'end_turn' })
+    expect(await partnerTurn(h)).toBeGreaterThan(0)
+    expect(raw(h).turn).toBe(raw(h).pc)
+    expect(raw(h).pairs.npc_ann!.fit).toBeLessThan(50)
+  })
+})
+
+// ======================================================================
+describe('記憶被抹掉的報告不寫正文（outcome.amnesia；M4-followups-2 第 7 項）', () => {
+  const noted = (amnesia: boolean) => ({
+    kind: 'system' as const, action: 'scene.end', location: {}, party: [], timeline: [{ layer: 'meat' as const, text: '一段經過。' }], changes: [],
+    outcome: { result: 'stop', summary: '你停了下來。', ...(amnesia ? { amnesia: true } : {}) } as never,
+  })
+
+  it('有 amnesia：不問 narrate（也不潤色），報告照出、沒有正文；沒有 amnesia 的同一份報告照常寫正文', async () => {
+    const fake = new FakeProvider()
+    const g = game({ fake, ai: { ai: 1, narrate: 1, polish: { scene: 1 } } as never })
+    const r = await g.commitNarrated(noted(true), { mode: 'new' })
+    expect(r.status, r.reason).toBe('applied')
+    expect(by(fake, 'narrate')).toHaveLength(0)
+    expect(by(fake, 'polish')).toHaveLength(0)
+    expect(lastReport(g).narration?.text).toBeUndefined()
+    expect(lastReport(g).outcome.amnesia).toBe(true)
+    const h = await g.commitNarrated(noted(false), { mode: 'new' })
+    expect(h.status, h.reason).toBe('applied')
+    expect(by(fake, 'narrate')).toHaveLength(1)
+    expect(lastReport(g).narration?.text).toBeTruthy()
   })
 })

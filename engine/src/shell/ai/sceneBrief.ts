@@ -12,7 +12,7 @@ import type { ActorId, GameState, Kernel, ReportDraft, TimelineBeat } from '../.
 import { contentAllowed, deriveRng, meterOf } from '../../core'
 import type { Goal, Nature, SceneInput, SceneRaw, SinkKind, TalkEnv } from '../../features/scene'
 import {
-  END_NAME, GOAL_NAME, NATURE_NAME, Play, ROLE_NAME, knownPositions, knownSkills, partName, ratingOf, sceneDefOf, sceneNpcBegin, sceneNpcTurn, sceneRules, sexRecordOf,
+  END_NAME, GOAL_NAME, NATURE_NAME, Play, ROLE_NAME, inputCostOf, knownPositions, knownSkills, partName, ratingOf, sceneDefOf, sceneNpcBegin, sceneNpcTurn, sceneRules, sexRecordOf,
 } from '../../features/scene'
 import { clipBeats } from '../battle'
 import { avatarTextFor, callsFor } from './people'
@@ -55,13 +55,6 @@ export function recentOf(state: GameState, scene: SceneRaw): string[] {
 
 // ---- 合法行動 ----
 
-/** 這個行動花幾點（技能照自己的 scene.ap，其餘照規則表）。 */
-function costOf(p: Play, w: ActorId, i: SceneInput): number {
-  if (i.kind === 'skill' || i.kind === 'item') return sceneDefOf(p.k, i.kind, i.id)?.def.ap ?? 0
-  const cost = p.rulesFor(w).cost as Record<string, number | undefined>
-  return cost[i.kind] ?? 0
-}
-
 /**
  * 這個人現在合法的行動（程式算好的，給 scene_turn 選）：每一個都問過功能的 blocks（行動點、有沒有連接、部位、體位、標籤、主動權）。
  * 一個一個看，不是一串合起來的總花費：總花費與順序由功能在 env.moves 驗。最多 max 項。內容篩選關掉的技能與體位本來就不在 knownSkills、knownPositions 裡。
@@ -72,7 +65,7 @@ export function legalMoves(p: Play, w: ActorId, max = 40): LegalMove[] {
   const push = (i: SceneInput, name?: string): void => {
     if (out.length >= max) return
     if (p.blocks(w, i).length > 0) return
-    out.push({ ...i, ap: costOf(p, w, i), ...(name ? { name } : {}) } as LegalMove)
+    out.push({ ...i, ap: inputCostOf(p, i, w), ...(name ? { name } : {}) } as LegalMove)
   }
   const others = p.activeOthers(w)
   for (const kind of ['dominate', 'yield', 'tease', 'restrain'] as const) push({ kind })

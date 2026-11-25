@@ -358,6 +358,40 @@ describe('單人姿勢（五個）', () => {
     expect(load(c)).toBe(0)
   })
 
+  it('跪姿的 both_links（LEWD 3.5 節第九點；M4-followups-2 第 7 項）：前後兩條連接都在時，每回合自己的感載另外多 1d4（記一拍 solo.both_links）；只有一條、不是跪姿都沒有', () => {
+    const min = { int: (a: number) => a }
+    const max = { int: (_a: number, b: number) => b }
+    const beatsOf = (g: Game, d: SceneEnv['dice']) => act(g, { kind: 'end_turn' }, { dice: d })[0]!.timeline.filter((b) => b.tag === 'solo.both_links')
+    const both = (): Game => {
+      const g = alone({}, { start_position: 'solo_kneel' })
+      act(g, { kind: 'skill', id: 'nt_ok', pick: parts('hand_l', 'front') }, { dice: min })
+      act(g, { kind: 'skill', id: 'nt_back', pick: parts('hand_r', 'back') }, { dice: min })
+      g.state.actors.pc!.load = 0
+      return g
+    }
+    // 兩條都在：1d4 最小 1、最大 4，各記一拍
+    const lo = both()
+    expect(raw(lo).links.map((l) => l.theirs).sort()).toEqual(['back', 'front'])
+    const low = beatsOf(lo, min)
+    expect(low).toHaveLength(1)
+    expect(low[0]!.data).toMatchObject({ load: 1, pose: 'solo_kneel' })
+    const hi = both()
+    const high = beatsOf(hi, max)
+    expect(high[0]!.data).toMatchObject({ load: 4, pose: 'solo_kneel' })
+    // 自己的感載真的多了那 n 點（同一個起點、同樣的骰面，兩條都在比只有一條多 3 點的差）
+    const one = alone({}, { start_position: 'solo_kneel' })
+    act(one, { kind: 'skill', id: 'nt_ok', pick: parts('hand_l', 'front') }, { dice: min })
+    one.state.actors.pc!.load = 0
+    expect(beatsOf(one, max)).toHaveLength(0)
+    expect(load(hi)).toBeGreaterThan(load(one))
+    // 不是跪姿：前後都接了也沒有（趴伏翹臀沒有這條規則）
+    const prone = alone({}, { start_position: 'solo_prone' })
+    act(prone, { kind: 'skill', id: 'nt_ok', pick: parts('hand_l', 'front') }, { dice: min })
+    act(prone, { kind: 'skill', id: 'nt_back', pick: parts('hand_r', 'back') }, { dice: min })
+    expect(raw(prone).links.map((l) => l.theirs).sort()).toEqual(['back', 'front'])
+    expect(beatsOf(prone, max)).toHaveLength(0)
+  })
+
   it('跨坐抱枕：自己的感載 +1d3 真的算進去（decay 之前）；跪姿 +1 也一樣', () => {
     const c = alone({}, { start_position: 'solo_straddle' })
     c.state.actors.pc!.load = 10
