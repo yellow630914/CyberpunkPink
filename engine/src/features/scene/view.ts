@@ -7,7 +7,7 @@ import { clone } from '../../core'
 import type { ActionId, CircleRec, LinkRec, PositionEntry, SceneKind, SceneLayer, SceneRaw, Who } from './model'
 import { SYNC_GEARS, ACTION_NAME, GOAL_NAME, NATURE_NAME, ROLE_NAME, TALK_PARTS, dieRange, knownPositions, knownSkills, parseDie, partName, ratingOf, sceneDefOf, sceneRawOf, tendencyTagIds } from './model'
 import type { Preview, SceneInput } from './play'
-import { Play, candOf, diceOf } from './play'
+import { Play, candOf, costOf, diceOf } from './play'
 
 export interface PartView {
   id: string
@@ -40,6 +40,11 @@ export interface PersonView {
   out: boolean
   /** 同步檔位 */
   gear: GearView
+  /**
+   * 他會的夜課技能與體位（id）：主角是學會的；對方沒寫 skills 時是場景開始當下由他的軸、標籤與性經歷推出來的（P32，同一個人每次一樣）；
+   * 體位是基本的加上這些技能開放的（單人沒有體位）。內容篩選關掉的不列。
+   */
+  known?: { skills: string[]; positions: string[] }
 }
 
 export interface GearView {
@@ -178,6 +183,7 @@ function personView(p: Play, w: string): PersonView {
   return {
     id: a.id, name: a.name, load: { now: p.load[w]!, max: p.loadMax[w]! }, glow: { now: p.glow[w]!, max: p.glowMax[w]! }, ap: { now: p.seat(w).ap, max: p.apMax[w]! }, sensitivity: p.sens[w]!,
     role: p.s.roles[w] ?? '', upper: p.isUpper(w), parts, tags: p.isPc(w) ? tendencyTagIds(a) : [], climax: p.seat(w).climax, out: p.seat(w).out === true, gear: gearView(p, w),
+    known: { skills: knownSkills(p.k, p.state, w), positions: p.solo ? [] : knownPositions(p.k, p.state, w, p.activeIds().length).map((x) => x.id) },
   }
 }
 
@@ -320,7 +326,7 @@ export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
   const w = s.pc
   const simple = (id: 'dominate' | 'yield' | 'tease' | 'restrain' | 'stop' | 'faster' | 'slower'): ActionOption => {
     const input: SceneInput = { kind: id }
-    return { id, name: ACTION_NAME[id], ap: id === 'stop' ? 0 : p.rules.cost[id], blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: id === 'stop' ? null : p.preview(w, input) }
+    return { id, name: ACTION_NAME[id], ap: id === 'stop' ? 0 : p.rulesFor(w).cost[id], blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: id === 'stop' ? null : p.preview(w, input) }
   }
   const choice = (input: SceneInput, id: string, name: string, ap: number, mine: string[], theirs: string[]): ChoiceOption => {
     const pairs = mine.length > 0 ? pairsOf(p, w, input, mine, theirs) : []
@@ -346,7 +352,7 @@ export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
   }
   const switchOf = (pos: { id: string; name: string }): ChoiceOption => {
     const input: SceneInput = { kind: 'switch', position: pos.id }
-    return { id: pos.id, name: pos.name, ap: p.rules.cost.switch, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input) }
+    return { id: pos.id, name: pos.name, ap: costOf(p, { kind: 'switch', position: '' }, w), blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input) }
   }
   // 單人：換的是五個單人姿勢
   const switches = solo ? p.poses.map(switchOf) : knownPositions(k, state, s.pc, p.activeIds().length).map((pos: PositionEntry) => switchOf(pos))
@@ -360,21 +366,21 @@ export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
   // 換圈與叫人過來：有別的圈的時候才列（精簡版與沒有別的圈的場景不列）
   const plain = (input: SceneInput, id: string, name: string, ap: number): ChoiceOption => ({ id, name, ap, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input) })
   const names = (ids: string[]): string => ids.map((x) => state.actors[x]?.name ?? x).join('、')
-  const moves = s.circles.map((c) => plain({ kind: 'move_circle', circle: c.id }, c.id, names(c.people), p.rules.cost.move_circle))
-  const calls = s.circles.flatMap((c) => c.people.map((id) => plain({ kind: 'call', who: id }, id, state.actors[id]?.name ?? id, p.rules.cost.call)))
+  const moves = s.circles.map((c) => plain({ kind: 'move_circle', circle: c.id }, c.id, names(c.people), p.rulesFor(w).cost.move_circle))
+  const calls = s.circles.flatMap((c) => c.people.map((id) => plain({ kind: 'call', who: id }, id, state.actors[id]?.name ?? id, p.rulesFor(w).cost.call)))
   const circleActions: ActionOption[] = s.mode === 'full' && s.circles.length > 0
     ? [
-      { id: 'move_circle', name: ACTION_NAME.move_circle, ap: p.rules.cost.move_circle, blocks: group(moves, '沒有別的圈可以去。'), picks: [], pairs: [], choices: moves, preview: null },
-      { id: 'call', name: ACTION_NAME.call, ap: p.rules.cost.call, blocks: group(calls, '別的圈裡沒有人可以叫。'), picks: [], pairs: [], choices: calls, preview: null },
+      { id: 'move_circle', name: ACTION_NAME.move_circle, ap: p.rulesFor(w).cost.move_circle, blocks: group(moves, '沒有別的圈可以去。'), picks: [], pairs: [], choices: moves, preview: null },
+      { id: 'call', name: ACTION_NAME.call, ap: p.rulesFor(w).cost.call, blocks: group(calls, '別的圈裡沒有人可以叫。'), picks: [], pairs: [], choices: calls, preview: null },
     ]
     : []
   const talkAction: ActionOption = {
-    id: 'talk', name: ACTION_NAME.talk, ap: p.rules.cost.talk, blocks: p.blocks(w, talkInput, true), picks: solo ? [] : picksOf(p, [...TALK_PARTS], talkTheirs, talkPairs), pairs: talkPairs,
+    id: 'talk', name: ACTION_NAME.talk, ap: p.rulesFor(w).cost.talk, blocks: p.blocks(w, talkInput, true), picks: solo ? [] : picksOf(p, [...TALK_PARTS], talkTheirs, talkPairs), pairs: talkPairs,
     preview: p.preview(w, talkInput),
   }
   const skillAction: ActionOption = { id: 'skill', name: ACTION_NAME.skill, ap: minAp(skills), blocks: group(skills, '你還沒有學會任何在場景裡用得出來的技能。'), picks: [], pairs: [], choices: skills, preview: null }
   const itemAction: ActionOption = { id: 'item', name: ACTION_NAME.item, ap: minAp(items), blocks: group(items, '你身上沒有在場景裡用得出來的東西。'), picks: [], pairs: [], choices: items, preview: null }
-  const switchAction: ActionOption = { id: 'switch', name: ACTION_NAME.switch, ap: p.rules.cost.switch, blocks: group(switches.filter((x) => x.id !== s.position), solo ? '沒有別的姿勢可以換。' : '沒有別的體位可以換。'), picks: [], pairs: [], choices: switches, preview: null }
+  const switchAction: ActionOption = { id: 'switch', name: ACTION_NAME.switch, ap: costOf(p, { kind: 'switch', position: '' }, w), blocks: group(switches.filter((x) => x.id !== s.position), solo ? '沒有別的姿勢可以換。' : '沒有別的體位可以換。'), picks: [], pairs: [], choices: switches, preview: null }
   const gearAction: ActionOption = { id: 'gear', name: ACTION_NAME.gear, ap: 0, blocks: group(gears.filter((x) => x.id !== p.seat(w).gear), '沒有別的檔位可以換。'), picks: [], pairs: [], choices: gears, preview: null }
   // 單人：加快、放慢取代主導、迎合，沒有挑逗、沒有圈；切換的是姿勢
   const soloActions: ActionOption[] = [simple('faster'), simple('slower'), simple('restrain'), skillAction, talkAction, itemAction, switchAction, gearAction, simple('stop')]
@@ -382,11 +388,11 @@ export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
     simple('dominate'), simple('yield'), simple('tease'), simple('restrain'),
     { id: 'skill', name: ACTION_NAME.skill, ap: minAp(skills), blocks: group(skills, '你還沒有學會任何在場景裡用得出來的技能。'), picks: [], pairs: [], choices: skills, preview: null },
     {
-      id: 'talk', name: ACTION_NAME.talk, ap: p.rules.cost.talk, blocks: p.blocks(w, talkInput, true), picks: picksOf(p, [...TALK_PARTS], talkTheirs, talkPairs), pairs: talkPairs,
+      id: 'talk', name: ACTION_NAME.talk, ap: p.rulesFor(w).cost.talk, blocks: p.blocks(w, talkInput, true), picks: picksOf(p, [...TALK_PARTS], talkTheirs, talkPairs), pairs: talkPairs,
       preview: p.preview(w, talkInput),
     },
     { id: 'item', name: ACTION_NAME.item, ap: minAp(items), blocks: group(items, '你身上沒有在場景裡用得出來的東西。'), picks: [], pairs: [], choices: items, preview: null },
-    { id: 'switch', name: ACTION_NAME.switch, ap: p.rules.cost.switch, blocks: group(switches.filter((x) => x.id !== s.position), '沒有別的體位可以換。'), picks: [], pairs: [], choices: switches, preview: null },
+    { id: 'switch', name: ACTION_NAME.switch, ap: costOf(p, { kind: 'switch', position: '' }, w), blocks: group(switches.filter((x) => x.id !== s.position), '沒有別的體位可以換。'), picks: [], pairs: [], choices: switches, preview: null },
     { id: 'gear', name: ACTION_NAME.gear, ap: 0, blocks: group(gears.filter((x) => x.id !== p.seat(w).gear), '沒有別的檔位可以換。'), picks: [], pairs: [], choices: gears, preview: null },
     ...circleActions,
     simple('stop'),

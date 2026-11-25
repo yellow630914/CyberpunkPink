@@ -9,6 +9,7 @@
 
 import type { Actor, ActorId, Condition, ContentEntry, GameState, Kernel, Origin, SyncGear, TimelineBeat } from '../../core'
 import { SYNC_GEARS, clone, isRecord, isSyncGear, syncCapOf, syncGearIndex } from '../../core'
+import { applyDeep, isDeepTag, knowFor, nightFieldProblems } from './night'
 
 export const OWNER = 'scene'
 /** state.ext 的鍵、活動的種類。 */
@@ -530,12 +531,13 @@ export interface SkillEntry extends ContentEntry {
   scene?: unknown
 }
 
-/** 夜課技能的格式：M2 只用 scene、tag、tags、name，其餘欄位收下不看。 */
+/** 夜課技能的格式：scene、tag、tags、name，加上 nightclass 讀的 insight、requires、filters、deep（night.ts；M4-nightclass），其餘欄位收下不看。 */
 export function skillProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
   if (!isText(e.name)) p.push('要有 name')
   if (e.tag !== undefined && !isText(e.tag)) p.push('tag 要是標籤的 id')
   if (e.tags !== undefined && !textList(e.tags)) p.push('tags 要是標籤的陣列')
+  p.push(...nightFieldProblems(e))
   if (e.scene !== undefined) {
     const r = readSceneDef(e.scene, false)
     if ('problems' in r) p.push(...r.problems)
@@ -543,14 +545,19 @@ export function skillProblems(e: Record<string, unknown>): string[] {
   return p
 }
 
-/** 一件東西（夜課技能或道具）在場景裡的定義；沒有、格式不對是 null。 */
-export function sceneDefOf(k: Pick<Kernel, 'content'>, kind: 'skill' | 'item', id: string): { name: string; def: SceneDef; tag: string | null; tags: string[]; consumable: boolean } | null {
-  const e = k.content.get<ContentEntry & { name?: unknown; tag?: unknown; tags?: unknown; scene?: unknown; consumable?: unknown }>(kind === 'skill' ? SKILL_KIND : 'item', id)
+/**
+ * 一件東西（夜課技能或道具）在場景裡的定義；沒有、格式不對是 null。
+ * 給了 actor（用的人），而且是掛在標籤上的技能、那個人的標籤是「深」、資料又有 deep：deep 寫的數字蓋掉 scene 裡對應的數字（M4-nightclass）。
+ */
+export function sceneDefOf(k: Pick<Kernel, 'content'>, kind: 'skill' | 'item', id: string, actor?: Actor): { name: string; def: SceneDef; tag: string | null; tags: string[]; consumable: boolean } | null {
+  const e = k.content.get<ContentEntry & { name?: unknown; tag?: unknown; tags?: unknown; scene?: unknown; consumable?: unknown; deep?: unknown }>(kind === 'skill' ? SKILL_KIND : 'item', id)
   if (!e || e.scene === undefined) return null
   const r = readSceneDef(e.scene, kind === 'item')
   if ('problems' in r) return null
+  const tag = isText(e.tag) ? e.tag : null
+  const def = kind === 'skill' && actor && e.deep !== undefined && isDeepTag(actor, tag) ? applyDeep(r.def, e.deep) : r.def
   return {
-    name: typeof e.name === 'string' ? e.name : id, def: r.def, tag: isText(e.tag) ? e.tag : null, tags: textList(e.tags) ? e.tags : [], consumable: e.consumable === true,
+    name: typeof e.name === 'string' ? e.name : id, def, tag, tags: textList(e.tags) ? e.tags : [], consumable: e.consumable === true,
   }
 }
 
@@ -598,6 +605,9 @@ export interface Seat {
   restrained: boolean
   /** 退出了這一圈（多人的回合讀它；一對一不會有） */
   out?: boolean
+  /** 共鳴（M4-nightclass）：這一場已經用掉幾次不花行動點的切換體位；已經建立過第一條有持續效果的連接（只在有對應的共鳴時才寫） */
+  free_used?: number
+  first_link?: true
 }
 
 /** 主角對這一圈某個人的：契合 0～100、主動權 0～100（50 以上在主角手上）、第一次的記號（開始時主角的性經歷裡沒有這個人）。 */
@@ -792,8 +802,8 @@ export const filteredOut = (state: Pick<GameState, 'rules'>, tags: Array<string 
   tags.find((t): t is string => !!t && state.rules.contentOff.includes(t)) ?? null
 
 /** 這個人會的體位：基本的（unlocked_by: null）每個人都會，加 actor.ext.scene.positions。只收這個人數的（預設兩個人）、內容篩選沒關掉的。 */
-export function knownPositions(k: Pick<Kernel, 'content'>, state: GameState, id: ActorId, people = 2): PositionEntry[] {
-  const learned = knowOf(state.actors[id]).positions
+export function knownPositions(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, id: ActorId, people = 2): PositionEntry[] {
+  const learned = knowFor(k, state, id).positions
   return k.content
     .list<PositionEntry>(POSITION_KIND)
     .filter((p) => p.people === people && ((p.unlocked_by ?? null) === null || learned.includes(p.id)))
@@ -801,7 +811,7 @@ export function knownPositions(k: Pick<Kernel, 'content'>, state: GameState, id:
 }
 
 /** 這幾個人都會的體位（人數就是 ids 的個數）：基本的在前，照內容的順序。 */
-export function knownAll(k: Pick<Kernel, 'content'>, state: GameState, ids: readonly ActorId[]): PositionEntry[] {
+export function knownAll(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, ids: readonly ActorId[]): PositionEntry[] {
   if (ids.length < 2 || ids.length > 4) return []
   const sets = ids.map((id) => new Set(knownPositions(k, state, id, ids.length).map((x) => x.id)))
   const list = knownPositions(k, state, ids[0]!, ids.length).filter((x) => sets.every((st) => st.has(x.id)))
@@ -908,9 +918,9 @@ export function openingInit(k: Kernel, state: GameState, o: { pc: string; partne
   return Math.max(0, Math.min(100, Math.round(v)))
 }
 
-/** 這個人會的夜課技能（有 scene 欄位、內容篩選沒關掉的）。 */
-export function knownSkills(k: Pick<Kernel, 'content'>, state: GameState, id: ActorId): string[] {
-  return knowOf(state.actors[id]).skills.filter((s) => {
+/** 這個人會的夜課技能（有 scene 欄位、內容篩選沒關掉的）；對方沒寫 skills 時是推出來的（night.ts 的 npcKnow，P32）。 */
+export function knownSkills(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, id: ActorId): string[] {
+  return knowFor(k, state, id).skills.filter((s) => {
     const d = sceneDefOf(k, 'skill', s)
     return !!d && !filteredOut(state, [d.tag, ...d.tags])
   })

@@ -66,6 +66,13 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
   const { s, state, rules } = p
   const skip = reason === 'skip'
   p.s.step += 1
+  // 共鳴 end_fit：場景結束時，主角和每個對象的契合各加 n（離開這一圈的、別的圈的也算；先加才評價）
+  const endFit = p.res[s.pc]?.end_fit ?? 0
+  if (endFit > 0) {
+    for (const id of Object.keys(s.pairs)) s.pairs[id]!.fit = Math.min(100, s.pairs[id]!.fit + endFit)
+    for (const c of s.circles) c.fit = Math.min(100, c.fit + endFit)
+    p.beats.push(beat(s.pc, '（夜課的功夫沒有白費，這一場收得很漂亮。）', 'resonance', { end_fit: endFit }))
+  }
   // 主角對每個對象各有一份（P33）：離開這一圈的也算；整場的契合是所有對象的平均，每個對象各自評價
   const pairIds = Object.keys(s.pairs)
   const partnerId = pairIds[0] ?? p.partnerId

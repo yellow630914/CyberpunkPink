@@ -23,6 +23,7 @@
 //   內容  position（DATA 3.2；M2 只收 people: 2）、solo_pose（單人姿勢；內建五個，資料換掉或多一個）、night_skill（DATA 3.1；M2 只用 scene、tag、tags、name）、scene_rule（id: default，規則的數字蓋掉內建的）；
 //         物品多讀一個 scene 欄位（DATA 3.3，載入之後 ready 查格式）
 //   活動  scene（setup 見 SceneSetup；放行 commit:scene.）；結束時發 activity.end（result: { with, fit, rating, goal, goal_done, reason }）
+//   內容  night_resonance（夜課的共鳴；M4-nightclass，night.ts）；night_skill 多讀 branch、tier、insight、requires、filters、deep（格式在 night.ts；nightclass 讀）
 //   量表  insight（體悟；單一、0 起、沒有上限；同名的效果與條件核心自動有）
 //   狀態  state.ext.scene（見 model.ts 的 SceneState）；actor.ext.scene（誰會什麼：positions、skills；選填 parts、part_tags）；actor.ext.sex_record（性經歷）
 //   掛鉤  rewind.keep：回到快照之後性經歷留著；scene.body（這個功能宣告：義體、調校、內海的化身回答多出來的部位、各部位的敏感度修正與標籤）
@@ -42,11 +43,15 @@ import {
   ACTIVITY, EXT, GENDER_FILTER, GOALS, GOAL_NAME, LAYERS, NATURES, NATURE_FILTER, NATURE_NAME, NTR_FILTER, OWNER, POSITION_KIND, ROLES, ROLE_NAME, RULE_KIND, SKILL_KIND, SOLO_POSE_KIND, beat,
   hasTendencyTag, isGoal, isMode, isNature, isRole, knownAll, openingInit, positionProblems, readSceneDef, ruleProblems, sceneModeOf, sceneRawOf, sceneRules, sexRecordOf, skillProblems, soloPoseProblems, soloPoses, startGear, tendencyTagIds,
 } from './model'
+import type { RevealView } from './night'
+import { RESONANCE_KIND, resonanceProblems, revealFor } from './night'
 import type { SceneInput, TalkEnv } from './play'
 import { MAX_MOVES, Play, diceOf, inputProblem } from './play'
 
 export * from './model'
 export * from './legacy'
+export type { Resonance, RevealView } from './night'
+export { BRANCHES, RESONANCE_KIND, knowFor, npcKnow, resonanceOf } from './night'
 export type { Preview, PreviewLoad, SceneInput, PartPick, TalkEnv } from './play'
 export { Play, MAX_MOVES } from './play'
 export { sceneOptions, scenePreview, sceneView } from './view'
@@ -141,6 +146,8 @@ export interface StartSummary {
   max_rounds?: number
   /** 單人才有：這一場有沒有人在看 */
   audience?: boolean
+  /** 共鳴 reveal（夜課）：主角一開場就看得到的、每個對象最高的那一條軸或他有的一個標籤；沒有這個共鳴就沒有這個鍵 */
+  reveal?: RevealView[]
 }
 
 const idList = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : [])
@@ -234,6 +241,10 @@ export function startProblems(k: Kernel, state: GameState, setup: unknown): { pr
     filters: [...new Map(filters.map((f) => [f.tag, { tag: f.tag, name: f.name }])).values()], ...(parsed.max_rounds !== undefined ? { max_rounds: parsed.max_rounds } : {}),
     ...(parsed.solo ? { audience: parsed.audience === true } : {}),
   }
+  if (!solo) {
+    const reveal = revealFor(k, state, pc!, [...seated, ...circles.flat()])
+    if (reveal) summary.reveal = reveal
+  }
   return { problems: [], parsed, summary }
 }
 
@@ -290,7 +301,7 @@ function startScene(k: Kernel, state: GameState, setup: unknown, origin: Origin)
   p.enter(start, p.decider())
   const names = o.seated.map((id) => state.actors[id]!.name).join('、')
   const text = `你和${names}進入了這一場（${NATURE_NAME[o.nature]}${o.place ? `，${o.place}` : ''}）。`
-  const d = sceneDraft(state, p, 'scene.start', [beat(o.pc, text, 'scene.start', { with: o.seated[0], nature: o.nature, position: start.id, ...(o.seated.length > 1 ? { people: o.seated } : {}) })], [{ op: 'uid', advance: 1 }, { op: 'ext', key: EXT, value: clone(p.s) }], 'start', text)
+  const d = sceneDraft(state, p, 'scene.start', [beat(o.pc, text, 'scene.start', { with: o.seated[0], nature: o.nature, position: start.id, ...(o.seated.length > 1 ? { people: o.seated } : {}), ...(r.summary?.reveal ? { reveal: r.summary.reveal } : {}) })], [{ op: 'uid', advance: 1 }, { op: 'ext', key: EXT, value: clone(p.s) }], 'start', text)
   return [d]
 }
 
@@ -438,6 +449,8 @@ export const sceneFeature: Feature = {
       refs: (e) => (typeof e.unlocked_by === 'string' ? [[SKILL_KIND, e.unlocked_by]] : []),
     })
     k.content.defineKind({ kind: SKILL_KIND, owner: OWNER, validate: skillProblems })
+    // 夜課的共鳴（M4-nightclass；每個分支開到第幾階就有幾個）：場景開始時照每個人開到的階生效（night.ts）
+    k.content.defineKind({ kind: RESONANCE_KIND, owner: OWNER, validate: resonanceProblems })
     // 單人姿勢（內建五個；資料寫同一個 id 換掉、寫新的 id 多一個）
     k.content.defineKind({ kind: SOLO_POSE_KIND, owner: OWNER, validate: soloPoseProblems })
     k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })

@@ -9,6 +9,8 @@ import {
   ACTION_NAME, BASE_PARTS, NO_DIE, PARTNER_GEAR_DOWN_AT, POSITION_KIND, TALK_PARTS, beat, bodyOf, dieRange, gearCapOf, gearIndexOf, hasTendencyTag, isNoDie, knowOf, knownAll, knownPositions, knownSkills, normalizeSeats,
   openingInit, parseDie, partName, poseHasPart, poseReaches, rollDie, sceneDefOf, sceneRules, sensitivityOf, sexRecordOf, soloPoses, startGear, statOr, tendencyTagIds, MAX_LINES,
 } from './model'
+import type { Resonance } from './night'
+import { resonanceOf, withRules } from './night'
 
 // ---- 輸入 ----
 
@@ -50,11 +52,12 @@ export function inputProblem(input: unknown): string | null {
   return null
 }
 
-/** 行動花幾點（技能與道具照自己的 scene.ap）。 */
-export function costOf(p: Play, input: SceneInput): number {
+/** 行動花幾點（技能與道具照自己的 scene.ap；w 是做的人，共鳴的行動點花費與「第一次切換體位不花」看他；沒給就是原本的規則數字）。 */
+export function costOf(p: Play, input: SceneInput, w?: ActorId): number {
   switch (input.kind) {
-    case 'dominate': case 'yield': case 'tease': case 'restrain': case 'talk': case 'switch': case 'move_circle': case 'call': case 'faster': case 'slower':
-      return p.rules.cost[input.kind]
+    case 'switch': return w !== undefined && p.freeSwitch(w) ? 0 : (w !== undefined ? p.rulesFor(w) : p.rules).cost.switch
+    case 'dominate': case 'yield': case 'tease': case 'restrain': case 'talk': case 'move_circle': case 'call': case 'faster': case 'slower':
+      return (w !== undefined ? p.rulesFor(w) : p.rules).cost[input.kind]
     case 'skill': return sceneDefOf(p.k, 'skill', input.id)?.def.ap ?? 0
     case 'item': return sceneDefOf(p.k, 'item', input.id)?.def.ap ?? 0
     default: return 0
@@ -114,6 +117,9 @@ export class Play {
   talkEnv: TalkEnv | undefined
   /** 單人的姿勢（內建的五個加資料的）；不是單人時是空的 */
   readonly poses: SoloPose[]
+  /** 每個人這一場生效的共鳴（M4-nightclass；沒有夜課、沒有共鳴的資料時每個人都是空的） */
+  readonly res: Record<ActorId, Resonance>
+  private readonly ruleCache = new Map<ActorId, SceneRules>()
 
   constructor(readonly k: Kernel, readonly state: GameState, scene: SceneRaw, readonly dice: Dice) {
     this.s = clone(scene)
@@ -129,6 +135,7 @@ export class Play {
     this.body = per((id) => bodyOf(k, state, id, this.s.layer))
     this.sync = syncRuleOf(k.content)
     this.gearCap = per((id) => gearCapOf(k, state, id))
+    this.res = per((id) => resonanceOf(k, state, id, this.s.kind === 'solo'))
     normalizeSeats(this.s, this.gearCap)
     this.load = per((id) => clamp(state.actors[id]!.load, 0, this.loadMax[id]! - 1))
     this.glow = per((id) => state.actors[id]!.afterglow)
@@ -214,7 +221,23 @@ export class Play {
   /** 這個人開不了這一檔的原因，每個沒夠的條件一句（核心 syncBlocks；開得了是空的）。 */
   gearReasons(id: ActorId, gear: SyncGear): string[] { return syncBlocks(this.k, this.state, id, gear) }
   /** 自己造成的感載與契合：每一層餘韻 +10%。 */
-  boost(src: ActorId): number { return 1 + this.rules.glow_bonus * this.glow[src]! }
+  boost(src: ActorId): number { return 1 + this.rulesFor(src).glow_bonus * this.glow[src]! }
+
+  /** 這個人用的規則數字：規則加上他生效的共鳴（rules；沒有共鳴就是原本那一份）。 */
+  rulesFor(id: ActorId): SceneRules {
+    let r = this.ruleCache.get(id)
+    if (!r) {
+      r = withRules(this.rules, this.res[id]?.rules ?? {})
+      this.ruleCache.set(id, r)
+    }
+    return r
+  }
+
+  /** 這個人現在切換體位不花行動點嗎（共鳴 free_switch：這一場前幾次；單人沒有）。 */
+  freeSwitch(id: ActorId): boolean {
+    const n = this.res[id]?.free_switch ?? 0
+    return n > 0 && !this.solo && (this.s.seats.find((x) => x.id === id)?.free_used ?? 0) < n
+  }
 
   /** 這個人有哪些部位：基本的七個＋actor.ext.scene.parts＋掛點 scene.body 回答的。 */
   partsOf(id: ActorId): string[] { return [...new Set([...BASE_PARTS, ...knowOf(this.actor(id)).parts, ...(this.body[id]?.parts ?? [])])] }
@@ -310,8 +333,8 @@ export class Play {
     seat.climax += 1
     // 單人：自己高潮，節奏斷拍
     if (this.solo && this.isPc(target)) this.dropPace(this.rules.solo.climax_drop)
-    this.addInit(this.rules.climax_init_self, target)
-    if (src !== target) this.addInit(this.rules.climax_init_cause, src)
+    this.addInit(this.rulesFor(target).climax_init_self, target)
+    if (src !== target) this.addInit(this.rulesFor(src).climax_init_cause, src)
     if (!this.isPc(target) && this.s.goal === 'please' && this.s.goal_progress !== null) this.s.goal_progress = Math.min(100, this.s.goal_progress + this.rules.goal_please_per_climax)
     this.line(target, `${this.name(target)}達到了頂點（餘韻 ${this.glow[target]}／${this.glowMax[target]}）。`, 'climax', { glow: this.glow[target] })
   }
@@ -408,6 +431,13 @@ export class Play {
     this.s.links = this.s.links.filter((l) => !broken.has(l.id))
     this.s.link_seq += 1
     const rec: LinkRec = { id: this.s.link_seq, by: w, to: t, kind, source, name, mine: pair.mine, theirs: pair.theirs, link: clone(link), round: this.s.round, ...(double ? { double: true as const } : {}) }
+    // 共鳴 first_link_fit：這個人這一場建立的第一條有持續效果的連接（技能或道具；說話的連接沒有持續值），持續的契合多 n（精簡版切換體位重接時不再加）
+    const bonus = kind === 'talk' || this.solo ? 0 : this.res[w]?.first_link_fit ?? 0
+    const seat = this.s.seats.find((x) => x.id === w)
+    if (bonus > 0 && seat && !seat.first_link) {
+      seat.first_link = true
+      rec.link.fit += bonus
+    }
     this.s.links.push(rec)
     return rec
   }
@@ -546,14 +576,14 @@ export class Play {
     } else if (input.kind === 'faster' || input.kind === 'slower') return ['只有單人的場景才有加快與放慢。']
     if (input.kind === 'move_circle' || input.kind === 'call') {
       if (!this.isPc(w)) return ['只有你能換圈與叫人。']
-      const cost = costOf(this, input)
+      const cost = costOf(this, input, w)
       if (this.seat(w).ap < cost) out.push(`行動點不夠：這個行動要 ${cost} 點，${me}只剩 ${this.seat(w).ap} 點。`)
       out.push(...(input.kind === 'move_circle' ? this.circleBlocks(input.circle) : this.callBlocks(input.who)))
       return out
     }
     const given = this.solo ? undefined : input.target
     if (given !== undefined && (given === w || !this.inCircle(given))) return ['這一圈裡沒有這個人。']
-    const cost = costOf(this, input)
+    const cost = costOf(this, input, w)
     if (this.seat(w).ap < cost) out.push(`行動點不夠：這個行動要 ${cost} 點，${me}只剩 ${this.seat(w).ap} 點。`)
     // 作用在單一對象的行動（技能、道具、說話）：沒給對象時一對一是對方，好幾個人時照 targetOf
     const single = input.kind === 'skill' || input.kind === 'item' || input.kind === 'talk'
@@ -659,10 +689,11 @@ export class Play {
 
   /** 主導、迎合、挑逗：作用在連著的每個人（或指定的那一個）；連著不只一個人時每個人的骰數少 multi_dice_minus 顆（最少 1 顆）。 */
   private basic(w: ActorId, targets: ActorId[], kind: 'dominate' | 'yield' | 'tease'): void {
-    const r = this.rules[kind]
-    this.spend(w, this.rules.cost[kind])
+    const mine = this.rulesFor(w)
+    const r = mine[kind]
+    this.spend(w, mine.cost[kind])
     const roll = this.roller(w)
-    const minus = targets.length > 1 ? this.rules.multi_dice_minus : 0
+    const minus = targets.length > 1 ? mine.multi_dice_minus : 0
     const dice = (n: number): Die => ({ sign: 1, n: Math.max(1, n - minus), sides: 6, flat: 0 })
     let a = 0
     let b = 0
@@ -694,8 +725,8 @@ export class Play {
   }
 
   private restrain(w: ActorId): void {
-    this.spend(w, this.rules.cost.restrain)
-    const n = Math.max(0, this.rules.restrain_base + this.resolveMod(w))
+    this.spend(w, this.rulesFor(w).cost.restrain)
+    const n = Math.max(0, this.rulesFor(w).restrain_base + this.resolveMod(w))
     const before = this.load[w]!
     this.load[w] = Math.max(0, before - n)
     this.seat(w).restrained = true
@@ -705,7 +736,7 @@ export class Play {
   /** 技能與道具：花行動點，用出去的那一下，再建立連接（有部位的話）。 */
   private use(w: ActorId, t: ActorId, kind: 'skill' | 'item', id: string, pick: PartPick | undefined): void {
     if (this.solo) return this.useSolo(w, kind, id, pick)
-    const info = sceneDefOf(this.k, kind, id)!
+    const info = sceneDefOf(this.k, kind, id, this.actor(w))!
     const def = info.def
     this.ctx = this.ctxOf(w, t)
     this.spend(w, def.ap)
@@ -720,7 +751,7 @@ export class Play {
     const b = this.applyLoad(w, mine, w, linked?.mine)
     let fit = def.on_use.fit
     const match = !!info.tag && hasTendencyTag(this.actor(t), info.tag)
-    if (match) fit += def.match_bonus ?? this.rules.match_bonus
+    if (match) fit += def.match_bonus ?? this.rulesFor(w).match_bonus
     const f = this.addFit(fit, w, this.ctx ?? undefined)
     this.addInit(def.on_use.init, w, this.ctx ?? undefined)
     if (info.tag && !this.s.touched.includes(info.tag)) this.s.touched.push(info.tag)
@@ -740,7 +771,7 @@ export class Play {
    * 契合算成節奏，主動權不算，對方也有標籤的契合加成沒有（沒有對方）。沒有部位的道具（藥）沒有「對方」，兩份感載都算在自己身上（先 their 再 my）。
    */
   private useSolo(w: ActorId, kind: 'skill' | 'item', id: string, pick: PartPick | undefined): void {
-    const info = sceneDefOf(this.k, kind, id)!
+    const info = sceneDefOf(this.k, kind, id, this.actor(w))!
     const def = info.def
     const cand = candOf(def, info.tag)
     this.spend(w, def.ap)
@@ -766,7 +797,7 @@ export class Play {
   private tempo(w: ActorId, kind: 'faster' | 'slower'): void {
     const r = this.rules.solo[kind]
     const pose = this.pose
-    this.spend(w, this.rules.cost[kind])
+    this.spend(w, this.rulesFor(w).cost[kind])
     const amount = rollDie(this.dice, parseDie(r.load) ?? NO_DIE)
     const cut = kind === 'faster' && pose?.faster_cut ? Math.floor(rollDie(this.dice, parseDie(pose.faster_cut) ?? NO_DIE) / 2) : 0
     const load = this.applyLoad(w, kind === 'faster' ? Math.max(0, amount - cut) : amount, w)
@@ -785,7 +816,8 @@ export class Play {
   }
 
   private talk(w: ActorId, t: ActorId, input: Extract<SceneInput, { kind: 'talk' }>): void {
-    this.spend(w, this.rules.cost.talk)
+    const mine = this.rulesFor(w)
+    this.spend(w, mine.cost.talk)
     this.ctx = this.ctxOf(w, t)
     const x = this.ctx ?? undefined
     const env = this.talkEnv
@@ -804,9 +836,9 @@ export class Play {
       extra = { source: 'env', ...(typeof env.agree === 'boolean' ? { agree: env.agree } : {}) }
     } else {
       check = this.talkCheck(w)
-      fit = this.addFit(this.rules.talk_fit[check.degree], w, x)
+      fit = this.addFit(mine.talk_fit[check.degree], w, x)
       if (!this.solo && this.isPc(w) && this.s.goal !== null && this.s.goal_progress !== null) {
-        goal = Math.min(20, this.rules.talk_goal[check.degree])
+        goal = Math.min(20, mine.talk_goal[check.degree])
         this.s.goal_progress = Math.min(100, this.s.goal_progress + goal)
       }
       extra = { degree: check.degree }
@@ -846,8 +878,8 @@ export class Play {
         if (hasTendencyTag(this.actor(who), position.tag)) {
           any = true
           // 有標籤的主角讓他和每個人的契合都加；有標籤的別人讓他和主角的那一份加
-          if (this.isPc(who)) for (const x of this.activeOthers(who)) this.addFit(this.rules.position_tag_fit, who, x)
-          else this.addFit(this.rules.position_tag_fit, who, who)
+          if (this.isPc(who)) for (const x of this.activeOthers(who)) this.addFit(this.rulesFor(who).position_tag_fit, who, x)
+          else this.addFit(this.rulesFor(who).position_tag_fit, who, who)
         }
       }
       if (any && !this.s.touched.includes(position.tag)) this.s.touched.push(position.tag)
@@ -862,7 +894,11 @@ export class Play {
   }
 
   private switchTo(w: ActorId, id: string): void {
-    this.spend(w, this.rules.cost.switch)
+    // 共鳴：這一場前幾次切換體位不花行動點（M4-nightclass）
+    if (this.freeSwitch(w)) {
+      const seat = this.seat(w)
+      seat.free_used = (seat.free_used ?? 0) + 1
+    } else this.spend(w, this.rulesFor(w).cost.switch)
     if (this.solo) {
       const pose = this.poses.find((x) => x.id === id)!
       const old = this.s.links
@@ -936,7 +972,7 @@ export class Play {
   /** 換圈（P36）：原本這一圈收成不展開的圈（契合取他們對主角契合的平均），目標的圈展開，連接全部重置。 */
   private moveCircle(circle: string): void {
     const s = this.s
-    this.spend(s.pc, this.rules.cost.move_circle)
+    this.spend(s.pc, this.rulesFor(s.pc).cost.move_circle)
     const target = s.circles.find((c) => c.id === circle)!
     const members = [...target.people]
     const left = this.activeOthers(s.pc)
@@ -962,7 +998,7 @@ export class Play {
   /** 叫人過來：主角對這一圈每個人的主動權都在 50 以上直接成功，否則擲一次說話的檢定（有 scene_talk 的結果就看它的 agree）。成功的話他離開他的圈、加入這一圈。 */
   private call(who: ActorId): void {
     const s = this.s
-    this.spend(s.pc, this.rules.cost.call)
+    this.spend(s.pc, this.rulesFor(s.pc).cost.call)
     const circle = s.circles.find((c) => c.people.includes(who))!
     const sure = this.activeOthers(s.pc).every((x) => (s.pairs[x]?.init ?? 50) >= 50)
     let ok: boolean
@@ -1078,7 +1114,7 @@ export class Play {
   choiceFor(w: ActorId): SceneInput | null {
     const s = this.s
     const ok = (i: SceneInput): boolean => this.blocks(w, i).length === 0
-    if (this.decider() === w && this.seat(w).ap >= this.rules.cost.switch) {
+    if (this.decider() === w && this.seat(w).ap >= costOf(this, { kind: 'switch', position: s.position }, w)) {
       const now = this.posScore(w, this.pos, s.roles[w] ?? '')
       let best: { id: string; score: number } | null = null
       for (const p of knownPositions(this.k, this.state, w, this.activeIds().length)) {
@@ -1163,7 +1199,7 @@ export class Play {
     // 體位本身推主動權：有上位（或體位寫了 drift）的位置每回合推一次，主角的推他對每個人那一份、別人的推他對主角那一份
     for (const id of this.activeIds()) {
       const role = s.roles[id]
-      const d = role === undefined ? 0 : this.pos.drift?.[role] ?? (this.isUpper(id) ? this.pos.initiative_drift ?? this.rules.upper_drift : 0)
+      const d = role === undefined ? 0 : this.pos.drift?.[role] ?? (this.isUpper(id) ? this.pos.initiative_drift ?? this.rulesFor(id).upper_drift : 0)
       if (d === 0) continue
       if (this.isPc(id)) for (const x of this.activeOthers(id)) this.addInit(d, id, x)
       else this.addInit(d, id, id)
@@ -1191,7 +1227,7 @@ export class Play {
       return
     }
     s.round += 1
-    for (const seat of s.seats) seat.ap = Math.min(this.apMax[seat.id]!, seat.ap + this.rules.ap_regen + (this.gearRule(seat.id).apRegen ?? 0))
+    for (const seat of s.seats) seat.ap = Math.min(this.apMax[seat.id]!, seat.ap + this.rulesFor(seat.id).ap_regen + (this.gearRule(seat.id).apRegen ?? 0))
     for (const seat of s.seats) {
       seat.restrained = false
       seat.shifted = false
@@ -1233,7 +1269,7 @@ export class Play {
       c.fit = clamp(c.fit + rollDie(this.dice, fitDie) + (tags.length > 0 ? oc.tag_bonus : 0), 0, 100)
       for (const id of [...c.people]) {
         const raw = rollDie(this.dice, loadDie)
-        this.load[id] = this.load[id]! + Math.round(raw * (this.rules.load_base + this.sens[id]! / this.rules.load_div) * (1 + this.rules.glow_bonus * this.glow[id]!))
+        this.load[id] = this.load[id]! + Math.round(raw * (this.rules.load_base + this.sens[id]! / this.rules.load_div) * (1 + this.rulesFor(id).glow_bonus * this.glow[id]!))
         while (this.load[id]! >= this.loadMax[id]! && c.people.includes(id)) {
           this.load[id] = 0
           if (this.glow[id]! >= this.glowMax[id]!) {
@@ -1272,20 +1308,20 @@ export class Play {
       case 'faster': case 'slower': {
         const r = this.rules.solo[input.kind]
         const bonus = input.kind === 'slower' ? this.pose?.slower_pace ?? 0 : 0
-        return { ...none, ap: this.rules.cost[input.kind], my_load: load(parseDie(r.load) ?? NO_DIE), fit: pace(r.pace + bonus) }
+        return { ...none, ap: this.rulesFor(w).cost[input.kind], my_load: load(parseDie(r.load) ?? NO_DIE), fit: pace(r.pace + bonus) }
       }
       case 'restrain': {
-        const n = Math.max(0, this.rules.restrain_base + this.resolveMod(w))
-        return { ...none, ap: this.rules.cost.restrain, my_load: { dice: `−${n}`, mult: 1, min: -n, max: -n, avg: -n } }
+        const n = Math.max(0, this.rulesFor(w).restrain_base + this.resolveMod(w))
+        return { ...none, ap: this.rulesFor(w).cost.restrain, my_load: { dice: `−${n}`, mult: 1, min: -n, max: -n, avg: -n } }
       }
-      case 'talk': return { ...none, ap: this.rules.cost.talk, fit: this.rules.talk_fit.fumble, fit_max: this.rules.talk_fit.critical }
-      case 'switch': return { ...none, ap: this.rules.cost.switch }
+      case 'talk': return { ...none, ap: this.rulesFor(w).cost.talk, fit: this.rulesFor(w).talk_fit.fumble, fit_max: this.rulesFor(w).talk_fit.critical }
+      case 'switch': return { ...none, ap: costOf(this, input, w) }
       case 'gear': {
         const g = this.sync.gears[input.gear]
         return { ...none, gear: { id: input.gear, name: `${g.name}檔`, check: g.check, load_pct: g.loadPct, ap_regen: g.apRegen ?? 0, sink_on_overload: g.sinkOnOverload ?? 0 } }
       }
       case 'skill': case 'item': {
-        const info = sceneDefOf(this.k, input.kind, input.id)
+        const info = sceneDefOf(this.k, input.kind, input.id, this.actor(w))
         if (!info) return none
         const d = info.def
         const cand = candOf(d, info.tag)
@@ -1316,33 +1352,33 @@ export class Play {
       return { dice: dieTextOf(d, extra), mult: round2(m), min: Math.round(r.min * m), max: Math.round(r.max * m), avg: round1(r.avg * m) }
     }
     const basic = (kind: 'dominate' | 'yield' | 'tease'): Preview => {
-      const r = this.rules[kind]
+      const r = this.rulesFor(w)[kind]
       // 連著不只一個人時每個人的骰數少 multi_dice_minus 顆（最少 1 顆）
-      const minus = given === undefined && this.linkedWith(w).length > 1 ? this.rules.multi_dice_minus : 0
+      const minus = given === undefined && this.linkedWith(w).length > 1 ? this.rulesFor(w).multi_dice_minus : 0
       return {
-        ap: this.rules.cost[kind], target_load: dice({ sign: 1, n: Math.max(1, r.their - minus), sides: 6, flat: 0 }, o), my_load: dice({ sign: 1, n: Math.max(1, r.mine - minus), sides: 6, flat: 0 }, w),
+        ap: this.rulesFor(w).cost[kind], target_load: dice({ sign: 1, n: Math.max(1, r.their - minus), sides: 6, flat: 0 }, o), my_load: dice({ sign: 1, n: Math.max(1, r.mine - minus), sides: 6, flat: 0 }, w),
         fit: r.fit > 0 ? Math.round(r.fit * this.boost(w)) : r.fit, init: r.init, link: false,
       }
     }
     switch (input.kind) {
       case 'dominate': case 'yield': case 'tease': return basic(input.kind)
       case 'restrain': {
-        const n = Math.max(0, this.rules.restrain_base + this.resolveMod(w))
-        return { ap: this.rules.cost.restrain, target_load: null, my_load: { dice: `−${n}`, mult: 1, min: -n, max: -n, avg: -n }, fit: 0, init: 0, link: false }
+        const n = Math.max(0, this.rulesFor(w).restrain_base + this.resolveMod(w))
+        return { ap: this.rulesFor(w).cost.restrain, target_load: null, my_load: { dice: `−${n}`, mult: 1, min: -n, max: -n, avg: -n }, fit: 0, init: 0, link: false }
       }
-      case 'talk': return { ap: this.rules.cost.talk, target_load: null, my_load: null, fit: this.rules.talk_fit.fumble, fit_max: this.rules.talk_fit.critical, init: 0, link: true }
-      case 'switch': return { ap: this.rules.cost.switch, target_load: null, my_load: null, fit: 0, init: 0, link: false }
-      case 'move_circle': case 'call': return { ap: this.rules.cost[input.kind], target_load: null, my_load: null, fit: 0, init: 0, link: false }
+      case 'talk': return { ap: this.rulesFor(w).cost.talk, target_load: null, my_load: null, fit: this.rulesFor(w).talk_fit.fumble, fit_max: this.rulesFor(w).talk_fit.critical, init: 0, link: true }
+      case 'switch': return { ap: costOf(this, input, w), target_load: null, my_load: null, fit: 0, init: 0, link: false }
+      case 'move_circle': case 'call': return { ap: this.rulesFor(w).cost[input.kind], target_load: null, my_load: null, fit: 0, init: 0, link: false }
       case 'gear': {
         const g = this.sync.gears[input.gear]
         return { ap: 0, target_load: null, my_load: null, fit: 0, init: 0, link: false, gear: { id: input.gear, name: `${g.name}檔`, check: g.check, load_pct: g.loadPct, ap_regen: g.apRegen ?? 0, sink_on_overload: g.sinkOnOverload ?? 0 } }
       }
       case 'skill': case 'item': {
-        const info = sceneDefOf(this.k, input.kind, input.id)
+        const info = sceneDefOf(this.k, input.kind, input.id, this.actor(w))
         if (!info) return { ap: 0, target_load: null, my_load: null, fit: 0, init: 0, link: false }
         const d = info.def
         const match = !!info.tag && hasTendencyTag(this.actor(o), info.tag)
-        const fit = d.on_use.fit + (match ? d.match_bonus ?? this.rules.match_bonus : 0)
+        const fit = d.on_use.fit + (match ? d.match_bonus ?? this.rulesFor(w).match_bonus : 0)
         // 玩家選好了部位，倍率就算那個部位的修正（沒選或沒有人回答 scene.body 時是 0）
         const given = input.pick
         const myPart = given ? given.my_part : undefined
