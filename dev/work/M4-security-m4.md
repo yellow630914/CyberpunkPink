@@ -41,3 +41,5 @@ M4-cyber-lock、M4-sink、M4-contract-holder（它們各自回答；都沒裝也
 改了哪些檔、測試結果、LIFE 3.2 節的拘留這一張用什麼代替、藏沉溺的三種手段現在各由誰報 `hide`（預期：`drugs` 的抑制劑與蝶粉、`tuning`、`abilities` 的面具：都還沒報，列成後續）。
 
 - 總指揮補記（2026-11-25）：見 M4-followups「M4-cyberware 回報」段，CYBERWARE 第 3 節有一件雙面效應歸這一張。
+
+- 總指揮補記（2026-11-25）：見 M4-followups「M4-cyberware 回報」段，CYBERWARE 第 3 節有一件雙面效應歸這一張。

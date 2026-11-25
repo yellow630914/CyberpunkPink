@@ -55,3 +55,5 @@ M4-cyber-deck 之後（同一個資料夾）。
 - 總指揮補記（2026-11-25）：給戰鬥回復（`ap_regen`／`ram_regen`）的修正，來源一定要標對（義體 `cyber`、藥 `drug`、裝備 `gear`），才會被節奏資源合計最多 +1 夾住；藥不要用狀態的 `mods` 給回復（來源會變 `status`，不受上限）。見 ADR 0019「實作補記：M4-core-passive」。
 
 - 總指揮補記（2026-11-25）：見 M4-followups「M4-cyberware 回報」段，CYBERWARE 第 3 節有一件雙面效應歸這一張。
+
+- 總指揮補記（2026-11-25）：見 M4-followups「M4-cyberware 回報」段，CYBERWARE 第 3 節有一件雙面效應歸這一張。
