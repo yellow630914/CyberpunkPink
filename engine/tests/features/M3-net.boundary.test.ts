@@ -75,12 +75,11 @@ describe('邊界 CYBERSPACE 6.3：RAM 上限 = 4 + mod(智識)（最少 4）', (
     }), { numRuns: 40 })
   })
 
-  it('有加值（甲板 +2）、mod ≥ 0：照加；mod < 0 的照現在的實作（B027：最少 4 套在加總上，加值被吃掉一部分）', () => {
+  it('有加值（甲板 +2）：最少 4 只管公式那一行，加值加在它上面（B027 已修：智識 8 加甲板 2 是 6，智識 1 加甲板 2 也是 6）', () => {
     expect(ramMax(10, 2)).toBe(6)
     expect(ramMax(14, 2)).toBe(8)
-    // B027：規格的期望是 max(4, 4 + mod) + 2 = 6；實作是 max(4, 4 − 1 + 2) = 5
-    expect(ramMax(8, 2)).toBe(5)
-    expect(ramMax(1, 2)).toBe(4)
+    expect(ramMax(8, 2)).toBe(6)
+    expect(ramMax(1, 2)).toBe(6)
   })
 })
 
@@ -517,14 +516,14 @@ describe('邊界 EVENTS 2.4／AI_TASKS 2.5：AI 給的追蹤度（一件事 ±20
     }), { numRuns: 12 })
   }, 30_000)
 
-  it('迷宮館（樂園島的公開場館，沒有追蹤度）：現在照收（B025；規格期望整筆拿掉並提醒）', () => {
+  it('迷宮館（樂園島的公開場館，沒有追蹤度）：整筆拿掉並留一行提醒（B025 已修）', () => {
     const { game: m } = makeDiveGame()
     refitForRookie(m)
     diveIn(m)
     mazeSignUp(m)
     const r = apply(m, [{ kind: 'trace', amount: 5 }], ctx(m, 'ai'))
-    // B025：規格的期望是 r.changes 是空的、留一行提醒
-    expect(r.changes.length).toBe(1)
+    expect(r.changes).toEqual([])
+    expect(r.clamps.map((c) => c.notice)).toEqual(['「追蹤度」這一筆沒有算：這裡沒有追蹤度。'])
   })
 })
 

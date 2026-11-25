@@ -24,6 +24,10 @@
       "locate_rounds": 3
     },
     "burn_minutes": 60,
+    "repair": {
+      "pct": 10,
+      "min": 1
+    },
     "admin": {
       "wall": {
         "ram": 2,

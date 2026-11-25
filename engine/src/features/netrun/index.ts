@@ -21,7 +21,7 @@
 
 import type { Feature, Kernel } from '../../core'
 import { toMinutes } from '../../core'
-import { onDefeatAccepted, afterReport } from './close'
+import { onDefeatAccepted, afterReport, peakChange } from './close'
 import { runRegion } from './common'
 import { onBattleEnd } from './fight'
 import { expireDraft } from './dig'
@@ -106,6 +106,9 @@ export const netrunFeature: Feature = {
 
     // 戰敗被接受：只把這一趟收掉（關地圖、清狀態），不另外發 activity.end（0018 第十節）
     k.hooks.on('activity.end', OWNER, ({ state, kind, origin, outcome, result }) => (kind === 'defeat' && outcome === 'accept' ? onDefeatAccepted(k, state, origin, result) : undefined))
+
+    // 追蹤度升高的那一步順便記 peak（併進這份報告的變更，不另發 netrun.trace 報告）
+    k.hooks.on('report.before', OWNER, ({ state, draft }) => peakChange(k, state, draft))
 
     // 一份報告套用之後：門檻、通過、被定位、全員拔線之後的收尾
     k.hooks.on('report.after', OWNER, ({ state, report }) => afterReport(k, state, report))

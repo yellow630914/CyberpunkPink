@@ -634,8 +634,11 @@ describe('投擲物：一顆骰打兩格', () => {
     expect(() => act(a, a.ally(1), 'item', mine(3), { item: 'it_smoke3' })).toThrow(/要選相鄰的一格/)
     act(a, a.ally(1), 'item', mine(1), { item: 'it_smoke3' })
     expect(a.battle.cover.ally.map((c) => !!c.soft)).toEqual([true, true, true, false])
-    // 宣告：also 是我方的格
-    expect(a.k.battle.getAction('item')!.picks!(a.run(), a.ally(1)).find((p) => p.key === 'also')).toMatchObject({ kind: 'ally_slot' })
+    // 宣告：煙霧彈（target: slot）的 also 雙方的格都有（使用者 2026-11-25）；選項的 at 指到哪一方的哪一格，for 是同一方緊鄰的格
+    const also = a.k.battle.getAction('item')!.picks!(a.run(), a.ally(1)).find((p) => p.key === 'also')!
+    expect(also.options.map((o) => (o.at && 'side' in o.at ? o.at.side : null))).toEqual(['ally', 'ally', 'ally', 'ally', 'foe', 'foe', 'foe', 'foe'])
+    expect(also.options[0]!.for).toEqual([{ side: 'ally', slot: 2 }])
+    expect(also.options[5]!.for).toEqual([{ side: 'foe', slot: 1 }, { side: 'foe', slot: 3 }])
   })
 })
 

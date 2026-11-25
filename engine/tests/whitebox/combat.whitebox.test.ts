@@ -374,8 +374,11 @@ describe('白箱 道具（COMBAT_SYSTEM 1.3 節；ITEMS 5.2 節；EQUIPMENT 4.1 
     expect(t.map((x) => x.blocks)).toEqual([[], ['快取格裡沒有可以用在別人身上的道具。']])
     a.ally(2).slot = 3
     expect(act(a, 'item').targets!(a.run(), a.ally(1))[1]!.blocks).toEqual(['要相鄰才用得到。', '快取格裡沒有可以用在別人身上的道具。'])
+    // 煙霧彈（target: slot）：我方四格加敵方四格（使用者 2026-11-25）；ally_slot 的只有我方四格
     const s = equipped(['it_smoke', 1])
-    expect(act(s, 'item').targets!(s.run(), s.ally(1)).filter((x) => 'slot' in x.target)).toHaveLength(4)
+    const cells = act(s, 'item').targets!(s.run(), s.ally(1)).filter((x) => 'slot' in x.target)
+    expect(cells).toHaveLength(8)
+    expect(cells.filter((x) => 'side' in x.target && x.target.side === 'foe')).toHaveLength(4)
     const sa = equipped(['it_slot_ally', 1])
     expect(act(sa, 'item').targets!(sa.run(), sa.ally(1)).filter((x) => 'slot' in x.target)).toHaveLength(4)
   })

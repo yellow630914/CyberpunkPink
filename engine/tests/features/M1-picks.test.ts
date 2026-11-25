@@ -165,7 +165,7 @@ describe('E3：要多選一樣東西的行動，選項由引擎列出來（picks
     expect(item.options.map((o) => [o.value, o.label, o.blocks, o.for])).toEqual([
       ['it_medgel_1', '急救凝膠 ×2', [], [{ unit: 'a1' }, { unit: 'a2' }, { unit: 'a3' }]],
       ['it_coolant_1', '冷卻劑 ×1', [], [{ unit: 'a1' }]],
-      ['it_smoke_1', '煙霧彈 ×1', [], [1, 2, 3, 4].map((slot) => ({ side: 'ally', slot }))],
+      ['it_smoke_1', '煙霧彈 ×1', [], [...[1, 2, 3, 4].map((slot) => ({ side: 'ally', slot })), ...[1, 2, 3, 4].map((slot) => ({ side: 'foe', slot }))]],
       ['it_flash_1', '閃光彈 ×1', [], [{ unit: 'f1' }, { unit: 'f2' }]],
     ])
     expect(item.options[0]!.hint).toEqual({ ap: 1, ap_other: 2, qty: 2 })

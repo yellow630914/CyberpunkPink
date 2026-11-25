@@ -1,7 +1,7 @@
 // B027（邊界，2026-11-25）：RAM 上限的「最少 4」套在加總（含甲板、技能的加值）上，智識低於 10 的人，甲板的加值被吃掉一部分或全部。
 // 規格：CYBERSPACE 6.3 節「RAM 上限 = 4 + mod(智識)（最少 4）……甲板、構裝與技能可以再加」；NETRUNNING 第 1 節（甲板加 RAM）。
 //       讀法：最少 4 是公式那一行的，加值加在它上面。智識 8（標準陣列裡的一個值，mod −1）裝入門甲板（+2）應該是 6，現在是 5。
-//       若 cpp-architect 認定「最少 4 套在最後」才是本意，這份改成規格的補充（CYBERSPACE 6.3 節寫明），測試改成現在的行為。
+//       已修（M3 白箱修正批；使用者 2026-11-25 裁決照這個讀法）：features/character 的 ram_max 的 base 是 max(4, 4 + mod(智識))，不再設 min。
 // 重現：dev/bugs/B027-ram-floor-eats-deck-bonus.md；engine/tests/boundary/fixtures/B027-ram-floor-eats-deck-bonus.json。
 
 import { describe, expect, it } from 'vitest'

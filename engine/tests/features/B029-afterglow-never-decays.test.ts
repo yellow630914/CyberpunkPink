@@ -1,7 +1,7 @@
 // B029（白箱，2026-11-25）：餘韻在戰鬥外不隨時間消退。內海打完硬仗之後餘韻跟回現實（CYBERSPACE 4.1 節），CORE_RULES 4.3 節寫「餘韻怎麼消：脫離戰鬥後每十分鐘消一層；短休全消；冷卻劑立刻消一層」，
 // 引擎只做了短休全消（features/rest/ops.ts）；時間過去（10 分鐘、一天）餘韻一層都不少。
 // 重現：dev/bugs/B029-afterglow-never-decays.md；engine/tests/whitebox/fixtures/B029-afterglow-never-decays.json。
-// 兩條測試都會失敗（第一條的 9 分鐘那一句本來就對，失敗在 10 分鐘那一句）。
+// 已修（M3 白箱修正批；使用者 2026-11-25）：features/character 的 afterglow.ts：餘韻增加的那份報告記計時起點（actor.ext.glow_at），time.passed 每滿十分鐘消一層。完整的情境在 tests/features/M3-fix-whitebox.test.ts。
 
 import { describe, expect, it } from 'vitest'
 import { makeNetBattleGame } from '../../src/testkit'

@@ -2,6 +2,7 @@
 // 規格：CYBERSPACE 6.8 節（到 90：定位。三回合後全隊被強制斷線，這場算戰敗）；NETRUNNING 第 5 節（90 以上：定位）。
 //       使用者 2026-11-24 的裁決只讓「增援」看這一場有沒有跨過門檻，定位沒有這個例外。
 // 重現：dev/bugs/B026-located-at-trace-cap.md；engine/tests/boundary/fixtures/B026-located-at-trace-cap.json。
+// 已修（M3 白箱修正批；使用者 2026-11-25）：開戰時追蹤度已經在上限 100，第一輪（markStarting）就開始定位的倒數；90～99 開戰照舊（第一次變動跨過 90 才開始數）。
 
 import { describe, expect, it } from 'vitest'
 import type { ContentPack } from '../../src'

@@ -10,7 +10,7 @@
 //   規則   內容種類 netcombat_rule（id: default；refill、各行動的行動點、干擾對防火牆的倍率、換檔的次數與會換檔的敵人的分界；可以被後載入的包取代）
 //   狀態   jam_weapon、jam_defense、jam_tool（規則表 battle_status 要有，各一回合；正式的由 M3-data-rules 寫）
 // 讀的：unit.ext.deck.constructs（features/deck 放的）、內容種類 construct 與 item；不 import 別的功能。
-// 報告：戰鬥的每一步照常是 combat 報告；結束時重創的（破損又中一次）寫角色的狀況 net_broken。
+// 報告：戰鬥的每一步照常是 combat 報告；結束時重創的（破損又中一次）寫角色的狀況 net_broken 與 actor.ext.net_broken（記是哪幾件，下一場帶進來、不能用）；修好：睡一覺、付錢修（repair.ts 的 netcombat.repair，kind action）、戰鬥裡的 net.fix。
 // 對外：netBattleView（給畫面）、DEFAULT_NETCOMBAT_RULES、netcombatRules。
 
 import type { Feature } from '../../core'
@@ -20,16 +20,20 @@ import { installAdmin } from './admin'
 import { installEffects } from './effects'
 import { installJam } from './jam'
 import { installOut } from './out'
+import { installRepair } from './repair'
 import { CONSTRUCT_KIND, JAM_SLOTS, OWNER, RULE_KIND, jamStatus, ruleProblems } from './model'
 import type { ConstructInfo } from './model'
 import { SYNC_ACTIONS, installSync } from './sync'
 import { installTiers, registerToolActions } from './tools'
 
 export { DEFAULT_NETCOMBAT_RULES, netcombatRules } from './model'
-export type { NetActionAp, NetExt, NetcombatRules, TraceRules } from './model'
+export { BROKEN_CONDITION, BROKEN_EXT } from './model'
+export type { NetActionAp, NetExt, NetcombatRules, RepairRules, TraceRules } from './model'
 export { netBattleView } from './view'
 export type { NetBattleView, NetGearView, NetUnitView } from './view'
 export { breakOne, fixOne, jamUnit } from './jam'
+export { REPAIR_FUNCTION, repairBlock, repairDraft, repairHere, repairPrice, repairRows } from './repair'
+export type { RepairRow } from './repair'
 export { gearBlocks, capIndex, setGear } from './sync'
 export { addTrace, pinBlocks, pinDc, pinUnit, traceOf } from './out'
 export { ADMIN_NAMES } from './model'
@@ -48,6 +52,7 @@ export const netcombatFeature: Feature = {
     installEffects(k)
     installOut(k)
     installAdmin(k)
+    installRepair(k)
   },
   ready(k) {
     registerToolActions(k)

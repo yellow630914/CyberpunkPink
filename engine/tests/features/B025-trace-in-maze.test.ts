@@ -2,7 +2,8 @@
 // 規格：EVENTS 2.4 節（`trace`：追蹤度在委託副本與企業的固定子網裡；±20）；CYBERSPACE 6.8 節（公開的地方——港灣、大街、樂園島——沒有追蹤度）；
 //       AI_TASKS 2.5 節（不收的那一筆整筆拿掉並提醒）。
 // 重現：dev/bugs/B025-trace-in-maze.md；engine/tests/boundary/fixtures/B025-trace-in-maze.json。
-// 對照（自己去挖的子網照收、夾 ±20）在 tests/features/M3-net.boundary.test.ts「AI 給的追蹤度」，會過。
+// 已修（M3 白箱修正批）：features/netrun 的追蹤度量表的 accepts 多看一條「這一趟的區 pressure 是 trace」，不是的回「這裡沒有追蹤度。」，AI 與玩家要的那一筆整筆拿掉並留提醒。
+// 對照（自己去挖的子網照收、夾 ±20）在 tests/features/M3-net.boundary.test.ts「AI 給的追蹤度」。
 
 import { describe, expect, it } from 'vitest'
 import { clone, effectCtx, meterOf } from '../../src'

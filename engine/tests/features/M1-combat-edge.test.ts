@@ -162,7 +162,8 @@ describe('做不成的一步', () => {
     const g = game(duel([one({ weapon: 'pistol', quick }), one({ weapon: 'pistol' }, 2)], [foe()]))
     turnTo(g, 'a1')
     const t = opt(g, 'item').targets.map((x) => x.target)
-    expect(t).toEqual([{ unit: 'a1' }, { unit: 'a2' }, ...[1, 2, 3, 4].map((slot) => ({ side: 'ally', slot }))])
+    // 煙霧彈（target: slot）可以放在我方或敵方的格子上：先列我方四格，再列敵方四格
+    expect(t).toEqual([{ unit: 'a1' }, { unit: 'a2' }, ...[1, 2, 3, 4].map((slot) => ({ side: 'ally', slot })), ...[1, 2, 3, 4].map((slot) => ({ side: 'foe', slot }))])
     const act = (pick: Record<string, unknown> | undefined, target: object) => g.battleAct({ action: 'item', target: target as never, ...(pick ? { pick } : {}) })
     expect(act(undefined, { unit: 'a1' })).toMatchObject({ status: 'refused', reasons: ['要選用哪一個道具。'] })
     expect(act({ item: 'it_self' }, { unit: 'a2' })).toMatchObject({ status: 'refused', reasons: ['這個道具只能自己用。'] })

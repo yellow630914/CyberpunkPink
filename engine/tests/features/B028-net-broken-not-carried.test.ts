@@ -1,7 +1,9 @@
 // B028（白箱，2026-11-25）：重的破損（net_broken）寫回角色之後，下一場內海戰鬥沒有人讀它：構裝槽在戰後立刻「修好」。
 // 規格：CYBERSPACE 6.5 節「破損」——重（對方本來就有破損時再中一次）：到登出之後修好為止。
 // 重現：dev/bugs/B028-net-broken-not-carried.md；engine/tests/whitebox/fixtures/B028-net-broken-not-carried.json。
-// 對照的那一條（戰鬥結束時確實寫了 net_broken）在 tests/features/M3-netcombat.test.ts「再中一次（重）」，會過。
+// 已修（M3 白箱修正批；使用者 2026-11-25）：重創寫回時記是哪幾件（actor.ext.net_broken），下一場內海戰鬥帶進來（netcombat 的 unit.ready）；沒記是哪一件的照順序挑；
+// 睡一覺（rest.done 的 sleep）、付錢修（netcombat.repair）、戰鬥裡的 net.fix 修好。完整的情境在 tests/features/M3-fix-whitebox.test.ts。
+// 對照的那一條（戰鬥結束時確實寫了 net_broken）在 tests/features/M3-netcombat.test.ts「再中一次（重）」。
 
 import { describe, expect, it } from 'vitest'
 import { brokenOf } from '../../src/features/netcombat/model'

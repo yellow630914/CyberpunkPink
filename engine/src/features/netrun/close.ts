@@ -9,7 +9,7 @@ import { ActionBlocked, attachActivityEnd, clone, closeMap, endActivity, isRecor
 import { draft, layerName, runRegion } from './common'
 import { digLeave } from './dig'
 import type { CloseOutcome, LootEntry, NetExt, NetRun, Patrol } from './model'
-import { ACT_FACE, ACT_NET, NET_MODE, TRACE, netExt, netExtChange, nodeAt, readRun, runChange } from './model'
+import { ACT_FACE, ACT_NET, EXT, NET_MODE, TRACE, netExt, netExtChange, nodeAt, readRun, runChange } from './model'
 import { lossOf } from './loss'
 import { makePatrol, moverChanges, nextPatrolId } from './patrol'
 import { countsOf, netrunRules } from './rules'
@@ -147,8 +147,33 @@ function morePatrols(k: Kernel, state: GameState, run: NetRun, net: NetExt): Pat
 }
 
 /**
+ * 追蹤度升高的那一步順便記 peak（到過的最高）：掛 report.before，把這份報告自己的 meter 變更算出來的追蹤度和 run.peak 比，
+ * 更高就在這份報告的變更後面補一筆換掉這一趟（run 的值照這份報告自己寫的最後一筆算起，不蓋掉它的變更）。
+ * 這樣沒跨門檻的上升不用再為了 peak 多發一份只有「追蹤度 N。」的 netrun.trace 報告（M3 白箱修正批；使用者 2026-11-25）。
+ */
+export function peakChange(k: Kernel, state: GameState, draft: ReportDraft): Change[] | undefined {
+  const def = k.meters.get(TRACE)
+  if (!def) return undefined
+  // 這份報告套用之後的那一趟：報告自己寫了（最後一筆 ext）就用它（開始、收掉都算），沒寫就是現在的
+  let base: NetRun | null = readRun(state)
+  for (const c of draft.changes) {
+    if (c.op === 'ext' && c.key === EXT) base = isRecord(c.value) && typeof c.value.id === 'string' && typeof c.value.map === 'string' ? (c.value as unknown as NetRun) : null
+  }
+  if (!base || runRegion(k, base).pressure !== 'trace') return undefined
+  let v = meterOf(k, state, TRACE, base.map)
+  let moved = false
+  for (const c of draft.changes) {
+    if (c.op !== 'meter' || c.kind !== TRACE || c.key !== base.map) continue
+    const target = typeof c.set === 'number' ? c.set : v + (typeof c.delta === 'number' ? c.delta : 0)
+    v = Math.max(def.min, Math.min(def.max, target))
+    moved = true
+  }
+  return moved && v > base.peak ? [runChange({ ...clone(base), peak: v })] : undefined
+}
+
+/**
  * 追蹤度跨過門檻的事（NETRUNNING 第 5 節；CYBERSPACE 8.3 節）：到 30 記 t30（閘門的 DC +2）；到 60 接一份 netrun.pressure，帶 pressure 觸發點；
- * 到 90 開始倒數（規則的探索回合數），降回 90 以下取消。peak 也在這裡跟著記。沒有要記的回傳 undefined。
+ * 到 90 開始倒數（規則的探索回合數），降回 90 以下取消。peak 平常由 peakChange 併進升高的那一步（這裡只留一道保險：有人漏了才補）。沒有要記的回傳 undefined。
  */
 function thresholdDraft(k: Kernel, state: GameState, run: NetRun): ReportDraft | undefined {
   const net = netExt(state, run.map)

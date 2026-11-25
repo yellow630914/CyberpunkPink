@@ -3,7 +3,7 @@
 // 不 import 別的功能：甲板的 unit.ext.deck（{ grade, firewall, slots, constructs: [{ id, class, grade }] }）與內容種類 construct 只認格式。
 // unit.ext.net 是單位身上的資料（netcombat 寫、別人只認格式）：{ sync, sync_max, broken, admin?, tethered? }，這個功能另外用 shift、heavy、dice_loss 三個欄位。
 
-import type { BattleKernel, BattleUnit, ContentEntry, Kernel, RollPart, SyncGear } from '../../core'
+import type { BattleKernel, BattleUnit, ContentEntry, GameState, Kernel, RollPart, SyncGear } from '../../core'
 import { SYNC_GEARS, isRecord, isSyncGear, syncGearIndex } from '../../core'
 
 export const OWNER = 'netcombat'
@@ -43,6 +43,13 @@ export interface NetcombatRules {
   burn_minutes: number
   /** 管理行動七種的 RAM 與數字（CYBERSPACE 6.6 節）、每做一次加的追蹤度、檢定失敗再加的追蹤度（admin.ts） */
   admin: AdminRules
+  /** 重創的構裝付錢修（CYBERSPACE 6.5 節；repair.ts）：價錢是那件構裝價的 pct %（四捨五入）、最少 min（沒寫價的構裝與傷害骰少一顆都收 min） */
+  repair: RepairRules
+}
+
+export interface RepairRules {
+  pct: number
+  min: number
 }
 
 /** 管理行動的名字（行動 id 是 adm_<名字>，標籤是 admin:<名字>）。 */
@@ -89,6 +96,7 @@ export const DEFAULT_NETCOMBAT_RULES: NetcombatRules = {
   admin_full: 1,
   trace: { round: 3, white: 5, t1: 30, t2: 60, t3: 90, locate_rounds: 3 },
   burn_minutes: 60,
+  repair: { pct: 10, min: 1 },
   admin: {
     wall: { ram: 2, levels: 1, amount: 0 },
     breach: { ram: 2, levels: 1, slots: 1 },
@@ -108,7 +116,7 @@ export const isText = (v: unknown): v is string => typeof v === 'string' && v.tr
 
 const AP_KEYS = Object.keys(DEFAULT_NETCOMBAT_RULES.ap) as Array<keyof NetActionAp>
 const TRACE_KEYS = Object.keys(DEFAULT_NETCOMBAT_RULES.trace) as Array<keyof TraceRules>
-const RULE_FIELDS = ['id', 'refill', 'ap', 'jam_wall_mult', 'sync_shifts', 'shift_split', 'admin_full', 'trace', 'burn_minutes', 'admin']
+const RULE_FIELDS = ['id', 'refill', 'ap', 'jam_wall_mult', 'sync_shifts', 'shift_split', 'admin_full', 'trace', 'burn_minutes', 'admin', 'repair']
 /** 管理行動每一個數字可以寫的範圍（規則表與駭入程式共用的鍵）。 */
 const ADMIN_FIELD_RANGE: Record<keyof AdminNumbers, [number, number]> = { ram: [0, 6], levels: [1, 2], slots: [1, 4], turns: [1, 9], amount: [0, 100], targets: [1, 4] }
 const ADMIN_NUM_KEYS = Object.keys(ADMIN_FIELD_RANGE) as Array<keyof AdminNumbers>
@@ -147,6 +155,18 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
     }
   }
   if (e.admin !== undefined) p.push(...adminProblems(e.admin))
+  if (e.repair !== undefined) {
+    if (!isRecord(e.repair)) p.push('repair 要是 { pct、min } 各自的數字')
+    else {
+      for (const [key, v] of Object.entries(e.repair)) {
+        if (key === 'pct') {
+          if (!(isInt(v) && v >= 0 && v <= 100)) p.push('repair.pct 要是 0～100 的整數（構裝價的幾 %）')
+        } else if (key === 'min') {
+          if (!(isInt(v) && v >= 0)) p.push('repair.min 要是 0 以上的整數')
+        } else p.push(`repair.${key}：沒有這個欄位（可以寫的：pct、min）`)
+      }
+    }
+  }
   return p
 }
 
@@ -173,7 +193,7 @@ const cloneAdmin = (a: AdminRules): AdminRules => ({ ...a, ...Object.fromEntries
 
 /** 現在生效的規則：資料（netcombat_rule/default）有寫、而且格式沒壞的欄位蓋掉內建的預設。 */
 export function netcombatRules(k: Pick<Kernel, 'content'>): NetcombatRules {
-  const out: NetcombatRules = { ...DEFAULT_NETCOMBAT_RULES, ap: { ...DEFAULT_NETCOMBAT_RULES.ap }, trace: { ...DEFAULT_NETCOMBAT_RULES.trace }, admin: cloneAdmin(DEFAULT_NETCOMBAT_RULES.admin) }
+  const out: NetcombatRules = { ...DEFAULT_NETCOMBAT_RULES, ap: { ...DEFAULT_NETCOMBAT_RULES.ap }, trace: { ...DEFAULT_NETCOMBAT_RULES.trace }, admin: cloneAdmin(DEFAULT_NETCOMBAT_RULES.admin), repair: { ...DEFAULT_NETCOMBAT_RULES.repair } }
   if (!k.content.hasKind(RULE_KIND)) return out
   const e = k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default')
   if (!e) return out
@@ -186,6 +206,7 @@ export function netcombatRules(k: Pick<Kernel, 'content'>): NetcombatRules {
       if (isRecord(x)) out.admin[name] = { ...out.admin[name], ...x } as AdminNumbers
     }
   }
+  if (isRecord(e.repair) && !bad.has('repair')) for (const key of ['pct', 'min'] as const) if (isInt(e.repair[key])) out.repair[key] = e.repair[key] as number
   if (isRecord(e.trace) && !bad.has('trace')) for (const key of TRACE_KEYS) if (isInt(e.trace[key])) out.trace[key] = e.trace[key] as number
   if (isRecord(e.ap)) {
     for (const key of AP_KEYS) {
@@ -251,6 +272,8 @@ export interface NetExt {
   heavy?: boolean
   /** 沒有構裝可以破損的人：這一場傷害骰少幾顆 */
   dice_loss?: number
+  /** 戰後要帶回角色、直到修好的重創：構裝的 id（沒有構裝可以破損的，傷害骰少 1 顆記成 'dice'）；breakOne 重創時加、fixOne 修好時減，開打時從角色帶進來（B028） */
+  carry?: string[]
 }
 
 /** 單位的 ext.net（要有合法的檔位才算）；沒有是 undefined。直接是單位身上的那個物件，改它就是改單位。 */
@@ -265,6 +288,24 @@ export const gearOf = (u: BattleUnit): SyncGear | undefined => netOf(u)?.sync
 export function brokenOf(u: BattleUnit): string[] {
   const n = u.ext.net
   return isRecord(n) && Array.isArray(n.broken) ? n.broken.filter(isText) : []
+}
+
+/** 要帶回角色的重創（單位身上的 ext.net.carry；壞掉的資料當成沒有）。 */
+export function carryOf(u: BattleUnit): string[] {
+  const n = u.ext.net
+  return isRecord(n) && Array.isArray(n.carry) ? n.carry.filter(isText) : []
+}
+
+/** 角色的狀況：重創的構裝還沒修好（直到睡一覺或付錢修；B028）。actor.ext 同名的鍵記是哪幾件。 */
+export const BROKEN_CONDITION = 'net_broken'
+export const BROKEN_EXT = 'net_broken'
+
+/** 角色帶著的重創：沒有帶 net_broken 狀況的是 null；帶著的回傳 actor.ext.net_broken 記的構裝 id（壞掉的資料當成沒有；沒記是哪一件的是空陣列，開打時照順序挑）。 */
+export function carriedOf(state: Pick<GameState, 'actors'>, actor: string): string[] | null {
+  const a = state.actors[actor]
+  if (!a || !a.conditions.some((c) => c.id === BROKEN_CONDITION)) return null
+  const v = a.ext[BROKEN_EXT]
+  return Array.isArray(v) ? v.filter(isText) : []
 }
 
 /** 確保單位身上有 ext.net 這個物件（沒有檔位也行，破損要記在這裡）。 */
