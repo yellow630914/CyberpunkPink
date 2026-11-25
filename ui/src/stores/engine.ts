@@ -29,7 +29,7 @@ import { call as favorCall, favorsOf, spend as favorSpend, spendBlock as favorSp
 import type { FavorsState } from '@engine/src/features/favors'
 import { exploreFeature, unlock as exploreUnlock } from '@engine/src/features/explore'
 import type { GridKernel } from '@engine/src'
-import { Play, SKILL_KIND as NIGHT_SKILL_KIND, RESONANCE_KIND, ratingOf, sceneOptions, sceneRawOf, sceneRules, sceneSkip, sceneView, setSceneMode, sceneModeOf, startProblems } from '@engine/src/features/scene'
+import { Play, SKILL_KIND as NIGHT_SKILL_KIND, RESONANCE_KIND, ratingOf, sceneCanSkip, sceneGateSummary, sceneOptions, sceneRawOf, sceneRules, sceneView, setSceneMode, sceneModeOf } from '@engine/src/features/scene'
 import type { SceneInput, SceneMode, SceneOptions, SceneView, StartSummary } from '@engine/src/features/scene'
 import { diceOf as sceneDiceOf } from '@engine/src/features/scene/play'
 import { learnBlock as nightLearnBlock, learnDraft as nightLearnDraft, nightList, nightRules } from '@engine/src/features/nightclass'
@@ -83,7 +83,7 @@ import { MAX_KINKS, TABLE_NAME, abilitiesStepBlock, ageBlock, askStep, attrBlock
 import type { BodyStep, LifepathTable } from '@engine/src/features/creation'
 import { NO_BRIDGE_ABILITY } from '@engine/src/features/abilities/creation'
 import { treeTierOf } from '@engine/src/features/abilities/learn'
-import { debriefOf, setupOf } from '../lib/scene/sceneView'
+import { debriefOf } from '../lib/scene/sceneView'
 import type { Debrief } from '../lib/scene/sceneView'
 import { aiSettingsFromUi, logEntryOf, type EngineLogEntry, type UiAiFields } from '../lib/engineView'
 
@@ -558,7 +558,7 @@ export const useEngine = defineStore('engine', () => {
     /** 畫面要的全部；selected 給一個行動就多一份它的原因與預覽 */
     view: (selected?: SceneInput): SceneView | null => { void state.value; return sceneView(game.k, game.state, selected) },
     /** 行動一次列出來：花費、原因、要選的部位、技能與道具與體位各自的選項、預覽 */
-    options: (): SceneOptions | null => { void state.value; return sceneOptions(game.k, game.state) },
+    options: (target?: string | null): SceneOptions | null => { void state.value; return sceneOptions(game.k, game.state, target ? { target } : {}) },
     /** 這一場每一回合的那一句（照角色的 id：多人時哪一句是誰說的）；名字是狀態裡的 */
     lines: (): Array<{ round: number; who: string; name: string; text: string }> => {
       void state.value
@@ -567,31 +567,10 @@ export const useEngine = defineStore('engine', () => {
     },
     /** 現在輪到誰（角色的 id）、主角是誰；沒有場景是 null。畫面判斷「輪到對方了嗎」只看它 */
     turn: (): { turn: string; pc: string } | null => { void state.value; const raw = sceneRawOf(game.state); return raw ? { turn: raw.turn, pc: raw.pc } : null },
-    /** 開場的確認框用的摘要（引擎的 startProblems）：誰、性質、身分、目的、會碰到的標籤、是不是單人、在哪一層。引擎不存開場的設定，這裡由場景的狀態還原設定、在沒有這一場的狀態上問一次；問不出來是 null */
-    gate: (): StartSummary | null => {
-      void state.value
-      const raw = sceneRawOf(game.state)
-      if (!raw) return null
-      const probe = structuredClone(game.state)
-      delete probe.ext.scene
-      return startProblems(game.k, probe, setupOf(raw)).summary ?? null
-    },
-    /**
-     * 現在能不能略過（引擎說了算：還沒有任何行動才行）：能略過是 null，不能是引擎的原因。確認框看它決定要不要出來——
-     * 只問引擎的略過那一步會不會被擋下（在一份複本上試，不改狀態），畫面不自己數第幾步、第幾回合。
-     */
-    skipBlock: (): string | null => {
-      void state.value
-      if (!sceneRawOf(game.state)) return '現在沒有進行中的成人場景。'
-      try {
-        sceneSkip(game.k, structuredClone(state.value))
-        return null
-      } catch (err) {
-        const why = reasonOf(err)
-        if (why === null) throw err
-        return why
-      }
-    },
+    /** 開場的確認框用的摘要（引擎的 sceneGateSummary）：誰、性質、身分、目的、會碰到的標籤、是不是單人、在哪一層；沒有場景是 null */
+    gate: (): StartSummary | null => { void state.value; return sceneGateSummary(game.k, game.state) },
+    /** 現在能不能略過（引擎的 sceneCanSkip：還沒有任何行動才行）：能略過是 null，不能是引擎的原因。確認框看它決定要不要出來 */
+    skipBlock: (): string | null => { void state.value; return sceneCanSkip(game.state) },
     /** 評價的名字（引擎的評價表；契合條旁邊與別的圈用） */
     rating: (fit: number): string => ratingOf(sceneRules(game.k), fit).name,
     /** 精簡版遇到多人的設定時，引擎給的那一句說明（只展開一個對象、其餘收成別的圈）；不是這種情形是 null */

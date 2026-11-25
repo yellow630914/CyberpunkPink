@@ -13,7 +13,7 @@
 // ctx.state 是「這一批前面幾筆都套上去之後」的狀態，所以拆成幾筆給，結果和合成一筆一樣。
 
 import type { Change, ClampNote, Effect, EffectBudget, EffectDef, EffectStepCtx, Kernel } from '../../core'
-import { isSafeInt } from '../../core'
+import { SINK_RESIST, isSafeInt, sinkRise } from '../../core'
 import { OWNER } from './stats'
 
 type TrackEffect = Effect & { amount: number }
@@ -70,7 +70,8 @@ const SPECS: TrackSpec[] = [
     // 往下降（amount < 0）不低於 sink_floor（身上的義體讓你浮不上來）：max(amount, 下限 − 現在)；已經在下限上（或比它低）的整筆拿掉並提醒。
     // 下限是 0（沒有人加）時就是不低於 0，和以前一樣、不提醒；只降到一半被下限擋住的照實際能動的量算、不另外提醒
     bound: (amount, ctx, k) => {
-      if (amount >= 0) return { to: amount }
+      // 往上加的那一邊：帶著 sink_resist 的人（調校）每次少 1 點、最少 1（M4-core-gaps 第 13 項；戰鬥裡的同一條在 run.gainSink）
+      if (amount >= 0) return { to: sinkRise(amount, amount > 0 && k.passives.unitTags(ctx.state, ctx.actor).includes(SINK_RESIST)) }
       const now = current(ctx, 'sink')
       const floor = k.stats.stat(ctx.state, ctx.actor, 'sink_floor')
       if (floor <= 0) return notBelowZero(amount, now)

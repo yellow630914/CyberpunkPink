@@ -290,7 +290,7 @@ export function shift(k: Kernel, state: GameState, jobId: string, hours: number,
     // 戴著晶片的那一班：只留賺了多少與一句模糊的殘留，過程與附帶的句子都不寫（變更照做）
     const earned = amount > 0 ? `你從${place}下了班，${POOL_NAME[job.pay]}多了 ${formatAmount(amount)}。` : `你從${place}下了班，一毛錢也沒領到。`
     const results = [earned, AMNESIA_RESIDUE]
-    const outcome = { result: roll ? degree : 'done', summary: results.join(''), amnesia: true } as ReportOutcome
+    const outcome: ReportOutcome = { result: roll ? degree : 'done', summary: results.join(''), amnesia: true }
     return {
       kind: 'downtime', action: SHIFT_ACTION, location: clone(state.location), actor: pc, party: [],
       timeline: [{ layer: 'meat', actor: pc, text: earned, tag: SHIFT_ACTION, data: { ...data, amnesia: true } }, { layer: 'meat', actor: pc, text: AMNESIA_RESIDUE, tag: 'work.amnesia' }],

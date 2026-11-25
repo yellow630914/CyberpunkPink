@@ -189,8 +189,8 @@ describe('換檔：第十種行動', () => {
     expect(c.deep).toEqual([])
     expect(c.full).toEqual(['同步要 5 級才能開全檔（現在 3 級）。', '敏感度要 70 才能開全檔（現在 40）。'])
     const v = sceneView(g.k, g.state)!
-    expect(v.people.pc.gear).toMatchObject({ now: 'standard', name: '標準檔', cap: 'deep', cap_name: '深檔', check: 0, load_pct: 100, shifted: false, max: 'standard' })
-    expect(v.people.pc.gear.gears.map((x) => [x.id, x.blocks.length])).toEqual([['shallow', 0], ['standard', 0], ['deep', 0], ['full', 2]])
+    expect(v.seats[0]!.gear).toMatchObject({ now: 'standard', name: '標準檔', cap: 'deep', cap_name: '深檔', check: 0, load_pct: 100, shifted: false, max: 'standard' })
+    expect(v.seats[0]!.gear.gears.map((x) => [x.id, x.blocks.length])).toEqual([['shallow', 0], ['standard', 0], ['deep', 0], ['full', 2]])
     // 開不了的直接被擋，原因一樣
     expect(blocked(() => act(g, { kind: 'gear', gear: 'full' }))).toBe('同步要 5 級才能開全檔（現在 3 級）。敏感度要 70 才能開全檔（現在 40）。')
     act(g, { kind: 'gear', gear: 'deep' })
@@ -210,7 +210,7 @@ describe('換檔：第十種行動', () => {
     expect(blocked(() => act(g, { kind: 'gear', gear: 'full' }))).toBe('這個回合已經換過檔了。')
     expect(gearOpt(g).blocks).toEqual(['這個回合已經換過檔了。'])
     expect(seat(g, PC).gear).toBe('deep')
-    expect(sceneView(g.k, g.state)!.people.pc.gear.shifted).toBe(true)
+    expect(sceneView(g.k, g.state)!.seats[0]!.gear.shifted).toBe(true)
     // 下一回合
     act(g, { kind: 'end_turn' })
     partnerTurn(g)
@@ -245,7 +245,7 @@ describe('換檔：第十種行動', () => {
   it('沉溺 60 以上上限多一級、衍生數值 sync_cap_bonus：照核心的 syncCapOf', () => {
     const g = game({ pc: { skills: { sync: 3 }, sink: 60 }, pcExt: { bridge: { ...PC_BRIDGE, sensitivity: 70 } } })
     begin(g)
-    expect(sceneView(g.k, g.state)!.people.pc.gear.cap).toBe('full')
+    expect(sceneView(g.k, g.state)!.seats[0]!.gear.cap).toBe('full')
     expect(gearOpt(g).choices!.find((c) => c.id === 'full')!.blocks).toEqual([])
   })
 })
@@ -369,8 +369,8 @@ describe('對方的檔位（走規則、不呼叫 AI）', () => {
     const g = game()
     begin(g)
     const v = sceneView(g.k, g.state)!
-    expect(v.people.partner.gear).toMatchObject({ now: 'standard', cap: 'standard' })
-    expect(v.people.partner.gear.gears.find((x) => x.id === 'deep')!.blocks).toEqual(['同步要 3 級才能開深檔（現在 0 級）。'])
+    expect(v.seats[1]!.gear).toMatchObject({ now: 'standard', cap: 'standard' })
+    expect(v.seats[1]!.gear.gears.find((x) => x.id === 'deep')!.blocks).toEqual(['同步要 3 級才能開深檔（現在 0 級）。'])
   })
 
   it('對方感載七成以上時他的回合開始退一檔；之後維持，同一個回合不再退', () => {
@@ -509,14 +509,14 @@ describe('畫面資料', () => {
     begin(g)
     act(g, { kind: 'gear', gear: 'full' })
     const v = sceneView(g.k, g.state)!
-    expect(v.people.pc.gear).toMatchObject({ now: 'full', name: '全檔', cap: 'full', check: 4, load_pct: 250, shifted: true, max: 'full' })
-    expect(v.people.pc.gear.gears.find((x) => x.id === 'full')).toMatchObject({ name: '全檔', current: true, check: 4, load_pct: 250, ap_regen: 1, sink_on_overload: 2, blocks: [] })
-    expect(v.people.partner.gear).toMatchObject({ now: 'standard', cap: 'standard', shifted: false })
+    expect(v.seats[0]!.gear).toMatchObject({ now: 'full', name: '全檔', cap: 'full', check: 4, load_pct: 250, shifted: true, max: 'full' })
+    expect(v.seats[0]!.gear.gears.find((x) => x.id === 'full')).toMatchObject({ name: '全檔', current: true, check: 4, load_pct: 250, ap_regen: 1, sink_on_overload: 2, blocks: [] })
+    expect(v.seats[1]!.gear).toMatchObject({ now: 'standard', cap: 'standard', shifted: false })
     // 舊存檔
     for (const x of S(g).seats) for (const k of ['gear', 'max_gear', 'shifted', 'sink_gain']) delete (x as unknown as Record<string, unknown>)[k]
     delete (S(g) as unknown as Record<string, unknown>).turn_began
     const w = sceneView(g.k, g.state)!
-    expect(w.people.pc.gear).toMatchObject({ now: 'standard', max: 'standard', shifted: false })
+    expect(w.seats[0]!.gear).toMatchObject({ now: 'standard', max: 'standard', shifted: false })
     expect(() => act(g, { kind: 'dominate' })).toThrow(ActionBlocked) // 還沒有連接，照常被擋，不是壞掉
     act(g, { kind: 'gear', gear: 'deep' })
     expect(seat(g, PC).gear).toBe('deep')

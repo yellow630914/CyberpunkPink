@@ -20,9 +20,9 @@ import { DEGREE_NAME } from '../../core/rules/check'
 import { effectCtx as makeEffectCtx } from '../../core/rules/grades'
 import type { ResolvedEffects } from '../../core/rules/effects'
 import { contentAllowed, meterOf } from '../../core'
-import type { Closing, Goal, Nature, SceneEnv, SceneInput, SceneRaw, SceneSetup } from '../../features/scene'
+import type { Closing, Goal, Nature, SceneEnv, SceneInput, SceneRaw, SceneSetup, TalkEnv } from '../../features/scene'
 import {
-  GOALS, GOAL_NAME, MAX_LINES, NATURE_FILTER, NATURE_NAME, NOTE_LEN, knownPositions, knownSkills, sceneAct, sceneDefOf, sceneInterrupt, sceneNext, sceneRawOf, sceneSkip, startProblems, tendencyTagIds,
+  GOALS, GOAL_NAME, NATURE_FILTER, NATURE_NAME, NOTE_LEN, knownPositions, knownSkills, sceneAct, sceneDefOf, sceneInterrupt, sceneNext, sceneRawOf, sceneSkip, startProblems, tendencyTagIds,
 } from '../../features/scene'
 import { narrateInputOf } from '../narrated'
 import type { ChainCtx, ChainDef, ChainTemplate, StepTemplate } from './chain'
@@ -40,7 +40,6 @@ export const SCENE_ROUND_CHAIN = 'scene_round'
 /** 玩家寫的寫法指令最多幾字（LEWD_SYSTEM 3.1 節、COMBAT_SYSTEM 8.3 節）。 */
 export const DIRECTION_MAX = 200
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
 // ======================================================================
 // adult_action：可能進成人場景的行動
@@ -249,18 +248,18 @@ export function aiTurnNeeded(scene: SceneRaw): boolean {
   return npcOrder(scene).length > 0 && (scene.kind === 'group' || !scene.turn_began)
 }
 
-/** 前 upTo 個人的行動（scene_turn 給的）與說話的判定（scene_talk 給的；只有一個人說話才收：SceneEnv.talk 一次只有一份）。 */
+/** 前 upTo 個人的行動（scene_turn 給的）與說話的判定（scene_talk 給的；每個說話的人一份：SceneEnv.talk）。 */
 function planOf(ctx: ChainCtx, upTo: number): NpcPlan {
   const order = npcOrder(sceneOf(ctx))
   const moves: Record<string, SceneInput[]> = {}
-  const talks: Array<NonNullable<ReturnType<typeof talkEnvOf>>> = []
+  const talk: Record<string, TalkEnv> = {}
   for (let i = 0; i < Math.min(upTo, order.length); i++) {
     const t = ctx.draft[`t${i + 1}`] as TurnOutput | undefined
     if (t && t.moves.length > 0) moves[order[i]!] = t.moves
     const env = talkEnvOf(ctx.draft[`k${i + 1}`] as TalkOutput | null | undefined)
-    if (env) talks.push(env)
+    if (env) talk[order[i]!] = env
   }
-  return { moves, ...(talks.length === 1 ? { talk: talks[0]! } : {}) }
+  return { moves, ...(Object.keys(talk).length > 0 ? { talk } : {}) }
 }
 
 /** 這一步功能的草稿（可以帶 env.closing）。 */
@@ -271,11 +270,19 @@ function roundDraft(ctx: ChainCtx, closing?: Closing): ReportDraft {
   switch (inp.mode) {
     case 'pc': {
       const talk = talkEnvOf(ctx.draft.talk as TalkOutput | null | undefined)
-      return sceneAct(ctx.k, ctx.state, inp.input as SceneInput, { ...base, ...(talk ? { talk } : {}) })
+      return sceneAct(ctx.k, ctx.state, inp.input as SceneInput, { ...base, ...(talk ? { talk: { [scene.pc]: talk } } : {}) })
     }
     case 'npc': {
-      const plan = planOf(ctx, npcOrder(scene).length)
-      return sceneNext(ctx.k, ctx.state, { ...base, ...(Object.keys(plan.moves).length > 0 ? { moves: plan.moves } : {}), ...(plan.talk ? { talk: plan.talk } : {}) })
+      const order = npcOrder(scene)
+      const plan = planOf(ctx, order.length)
+      // AI 給的一句動作或台詞（scene_turn 的 line）：功能收（SceneEnv.lines），放進這一步的紀錄與整場的紀錄
+      const lines = order.flatMap((who, i) => {
+        const line = (ctx.draft[`t${i + 1}`] as TurnOutput | undefined)?.line ?? ''
+        return line ? [{ who, text: line }] : []
+      })
+      return sceneNext(ctx.k, ctx.state, {
+        ...base, ...(Object.keys(plan.moves).length > 0 ? { moves: plan.moves } : {}), ...(plan.talk ? { talk: plan.talk } : {}), ...(lines.length > 0 ? { lines } : {}),
+      })
     }
     case 'stop': return sceneAct(ctx.k, ctx.state, { kind: 'stop' }, base)
     case 'skip': return sceneSkip(ctx.k, ctx.state, base)
@@ -289,7 +296,8 @@ function touchedOf(ctx: ChainCtx): string[] {
   const scene = sceneOf(ctx)
   if (inp.mode === 'pc') {
     const p = playOf(ctx.k, ctx.state, scene)
-    p.talkEnv = talkEnvOf(ctx.draft.talk as TalkOutput | null | undefined)
+    const talk = talkEnvOf(ctx.draft.talk as TalkOutput | null | undefined)
+    p.talkEnv = talk ? { [scene.pc]: talk } : undefined
     if (p.blocks(scene.pc, inp.input as SceneInput).length === 0) p.perform(scene.pc, inp.input as SceneInput)
     return [...p.s.touched]
   }
@@ -340,20 +348,6 @@ function turnInputOf(ctx: ChainCtx, index: number): TurnInput {
   }
 }
 
-/** AI 給的那一句動作或台詞：放進報告的 timeline 與場景紀錄（這一場的紀錄，寫整場正文時讀它）。功能沒有收這一句的入口（缺的接口，見 ADR 補記），所以外殼自己加在草稿上。 */
-function addAiLines(d: ReportDraft, scene: SceneRaw, lines: Array<{ who: string; text: string }>): void {
-  if (lines.length === 0) return
-  const layer = d.timeline[0]?.layer ?? 'meat'
-  const at = d.timeline.map((b) => b.tag).lastIndexOf('scene.end')
-  const beats = lines.map((l) => ({ layer, actor: l.who, text: l.text, tag: 'scene.line', data: { source: 'scene_turn' } }))
-  if (at >= 0) d.timeline.splice(at, 0, ...beats)
-  else d.timeline.push(...beats)
-  const ext = d.changes.find((c) => c.op === 'ext' && (c as { key?: string }).key === 'scene') as { value?: unknown } | undefined
-  if (ext && isRecord(ext.value) && Array.isArray(ext.value.lines)) {
-    for (const l of lines) if (ext.value.lines.length < MAX_LINES) ext.value.lines.push({ round: scene.round, who: l.who, text: l.text })
-  }
-}
-
 /** 收尾的結果放進 SceneEnv.closing：只收「AI 真的交出、驗過」的（status 是 done）；走了退路的不放，功能就照自己的規則算（AI 失敗時結果和 AI 關著一樣）。 */
 function closingOf(ctx: ChainCtx): Closing {
   const done = (id: string): boolean => ctx.records[id]?.status === 'done'
@@ -399,10 +393,6 @@ function finalDraft(ctx: ChainCtx): ReportDraft {
   }
   if (inp.mode === 'npc') {
     const order = npcOrder(scene)
-    addAiLines(d, scene, order.flatMap((who, i) => {
-      const line = (ctx.draft[`t${i + 1}`] as TurnOutput | undefined)?.line ?? ''
-      return line ? [{ who, text: line }] : []
-    }))
     for (let i = 1; i <= order.length; i++) clamps.push(...(ctx.records[`t${i}`]?.clamps ?? []), ...(ctx.records[`k${i}`]?.clamps ?? []))
   }
   if (inp.mode === 'pc') clamps.push(...(ctx.records.talk?.clamps ?? []))

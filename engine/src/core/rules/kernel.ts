@@ -8,7 +8,7 @@ import { EffectRegistry } from './effects'
 import { registerMeterRules } from './meters'
 import { PassiveRegistry } from './passive'
 import { StatRegistry } from './stats'
-import { registerSyncRuleKind } from './sync'
+import { registerSyncRuleKind, registerSyncStats } from './sync'
 
 export interface RulesKernel extends StateKernel {
   stats: StatRegistry
@@ -29,6 +29,7 @@ export function createRulesKernel(): RulesKernel {
   // 每定義一種量表（k.meters.define）就自動有同名的效果與條件（dev/adr/0016 第三節）
   base.meters.onDefine((def) => registerMeterRules(def, base.meters, effects, conditions))
   const stats = new StatRegistry(base.probe, base.content)
+  registerSyncStats(stats)
   // 被動效果：屬性、衍生數值（每一個 id 都問）、檢定修正各掛一次，功能不必自己掛
   const passives = new PassiveRegistry(base.probe, stats, conditions, base)
   stats.addAttrProvider('passives', (state, actor, attr) => passives.parts(state, actor, 'attr', attr))

@@ -99,6 +99,8 @@ export type BattleUntil =
   | { at: 'battle_end' }
   /** 帶著它的人下一次過載的時候（紙鶴的標記：到他下次過載或戰鬥結束）；過載一發生就拿掉，沒有過載就留到整場結束 */
   | { at: 'overload' }
+  /** 帶著它的人下一次攻擊（擲過命中、結算完）之後（M4-core-gaps：挑的「下一次命中 −1」）；沒有攻擊就留到整場結束 */
+  | { at: 'attack' }
 
 export interface BattleStatus {
   /** 狀態的 id（內容種類 battle_status） */
@@ -171,6 +173,11 @@ export interface BattleUnit {
   enemy?: string
   /** 誰操縱：player 等玩家下指令，ai 由程式選 */
   control: 'player' | 'ai'
+  /**
+   * 這個回合被遠端操控（掛點 turn.control）：記著本來是誰操縱（回合結束時還原）。操控中的單位由敵方 AI 替他做這一回合：
+   * 目標挑的是自己這一方的別人（不是對面），做完回合結束時 control 還原、這個欄位拿掉
+   */
+  puppet?: { control: 'player' | 'ai'; why?: string }
   grade: Grade
   rank: UnitRank
   /** 開打時的有效屬性與基本功等級（豁免與戰鬥中的檢定用） */

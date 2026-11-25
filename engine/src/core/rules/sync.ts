@@ -144,6 +144,18 @@ export function syncRuleOf(content: Pick<ContentRegistry, 'get'>): SyncRule {
 
 // ---- 這個人開得到哪一檔 ----
 
+/**
+ * 同步上限的「最高檔」衍生數值的 id：基本是全檔的順位（SYNC_GEARS.length − 1 = 3），沒有加成的欄位，只有減（−1 就是最高到深檔）。
+ * 核心在建 kernel 時定義它（registerSyncStats）；syncCapOf 把算好的上限夾在它以下。要「最高到深檔」的功能（調校的 no_full_sync）
+ * 給一筆被動效果 { stat: 'sync_cap_max', amount: -1 }，不要再借 sync_cap_bonus 的 −1（M4-core-gaps 第 10 項）。
+ */
+export const SYNC_CAP_MAX_STAT = 'sync_cap_max'
+
+/** 定義衍生數值 sync_cap_max（createRulesKernel 呼叫）。 */
+export function registerSyncStats(stats: Pick<RulesKernel['stats'], 'defineStat'>): void {
+  stats.defineStat({ id: SYNC_CAP_MAX_STAT, owner: 'core', name: '同步檔位的最高檔', base: () => SYNC_GEARS.length - 1, min: 0, max: SYNC_GEARS.length - 1 })
+}
+
 type SyncKernel = Pick<RulesKernel, 'stats' | 'content'>
 
 /** 這個人的同步等級：基本功（預設 sync）的等級。 */
@@ -186,6 +198,8 @@ export function syncCapOf(k: SyncKernel, state: GameState, actor: ActorId): Sync
   SYNC_GEARS.forEach((gear, i) => { if (meets(rule, gear, skill, sensitivity)) at = i })
   if (a.sink >= rule.sinkBonusAt) at += 1
   if (k.stats.hasStat('sync_cap_bonus')) at += k.stats.stat(state, actor, 'sync_cap_bonus')
+  // 最高檔（衍生數值 sync_cap_max，核心定義、基本是全檔的順位 3）：開不了全檔的調校給 −1，不管其他加成加了多少都不超過它
+  if (k.stats.hasStat(SYNC_CAP_MAX_STAT)) at = Math.min(at, k.stats.stat(state, actor, SYNC_CAP_MAX_STAT))
   return SYNC_GEARS[Math.max(0, Math.min(SYNC_GEARS.length - 1, at))]!
 }
 

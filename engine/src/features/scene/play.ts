@@ -86,6 +86,8 @@ const TALK_ENV_FIT = [-5, 10] as const
 
 /** 這一步的外面來的東西（SceneEnv 的一部分）：說話的結果。 */
 export interface TalkEnv { fit: number; goal?: number; agree?: boolean }
+/** 每個人各一份說話的結果：鍵是說話的人（角色的 id）。 */
+export type TalkEnvs = Record<ActorId, TalkEnv>
 
 export class Play {
   readonly s: SceneRaw
@@ -114,7 +116,8 @@ export class Play {
   /** 用掉的消耗品 */
   consumed: string | null = null
   /** 外面（AI 的 scene_talk）給的說話結果：有的話這一步的說話用它，不擲檢定 */
-  talkEnv: TalkEnv | undefined
+  /** 外面來的說話結果，每個人一份（鍵是說話的人；SceneEnv.talk） */
+  talkEnv: TalkEnvs | undefined
   /** 單人的姿勢（內建的五個加資料的）；不是單人時是空的 */
   readonly poses: SoloPose[]
   /** 每個人這一場生效的共鳴（M4-nightclass；沒有夜課、沒有共鳴的資料時每個人都是空的） */
@@ -826,7 +829,7 @@ export class Play {
     this.spend(w, mine.cost.talk)
     this.ctx = this.ctxOf(w, t)
     const x = this.ctx ?? undefined
-    const env = this.talkEnv
+    const env = this.talkEnv?.[w]
     let fit: number
     let goal = 0
     let extra: Record<string, unknown>
@@ -1011,7 +1014,7 @@ export class Play {
     let degree: string | undefined
     let check: ReturnType<typeof makeCheck> | null = null
     if (sure) ok = true
-    else if (this.talkEnv && typeof this.talkEnv.agree === 'boolean') ok = this.talkEnv.agree
+    else if (typeof this.talkEnv?.[s.pc]?.agree === 'boolean') ok = this.talkEnv[s.pc]!.agree!
     else {
       check = this.talkCheck(s.pc)
       degree = check.degree

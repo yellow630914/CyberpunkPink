@@ -35,7 +35,7 @@ export { clinicHere, selfListed } from './common'
 export { medicalView } from './view'
 export type { MedicalView, ViewMember, ViewSurgeryOption, ViewWound } from './view'
 export {
-  AIDED, CLINIC_GRADES, CLINIC_NAME, DEFAULT_MEDICAL_RULES, PHYSICAL_SKILLS, TREATED, WOUND_NAME, WOUND_PARTS, WOUND_RECOVERING, hasCond, isWoundPart, maxHpOf, medicalRules, woundCondition, woundsOf,
+  AIDED, CLINIC_GRADES, CLINIC_NAME, DEFAULT_MEDICAL_RULES, PHYSICAL_ATTRS, TREATED, WOUND_NAME, WOUND_PARTS, WOUND_RECOVERING, hasCond, isWoundPart, maxHpOf, medicalRules, woundCondition, woundsOf,
 } from './model'
 export type { AidRule, ClinicGrade, MedicalRules, WoundPart } from './model'
 

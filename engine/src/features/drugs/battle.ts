@@ -9,7 +9,7 @@
 //                          這一場被重來或回退就不會走到這裡，什麼都沒發生。
 
 import type { BattleEffectCtx, BattleUnit, Change, Condition, GameState, Kernel, PassiveEffect } from '../../core'
-import { BattleBlocked, isRecord, unitTag } from '../../core'
+import { BattleBlocked, isRecord, passiveAmount, unitTag, unitTracks } from '../../core'
 import type { DrugDef } from './model'
 import { DRUG_OP, EXT, drugDef, isUnbridged, liveDrugs } from './model'
 import { doseResult } from './dose'
@@ -66,7 +66,7 @@ function takeOp(k: Kernel, ctx: BattleEffectCtx, e: Record<string, unknown>): vo
     if (!holds(k, run.state, u, eff.if)) continue
     if ('unit_tag' in eff && !u.tags.includes(eff.unit_tag)) u.tags.push(eff.unit_tag)
     // P65：內海的消退單位開打時只抄一次，戰鬥中吃的藥要自己改單位的 decay
-    if ('stat' in eff && eff.stat === 'net_load_decay' && run.mode.decayStat) u.decay = Math.max(0, (u.decay ?? 0) + eff.amount)
+    if ('stat' in eff && eff.stat === 'net_load_decay' && run.mode.decayStat) u.decay = Math.max(0, (u.decay ?? 0) + (u.actor && run.state.actors[u.actor] ? passiveAmount(eff, run.state, u.actor, unitTracks(u)) : (eff.amount ?? 0)))
   }
 }
 
@@ -96,7 +96,9 @@ export function installBattle(k: Kernel, owner: string): void {
         if (eff.layer !== undefined && eff.layer !== q.view.mode.layer) continue
         if (eff.tags && !eff.tags.every((t) => q.tags.includes(t))) continue
         if (!holds(k, state, q.unit, eff.if)) continue
-        out.push({ label: eff.label ?? def.name, value: eff.amount, source: 'drug' })
+        // per（依軌道值縮放）用單位這一場當下的值
+        const value = state && q.unit.actor && state.actors[q.unit.actor] ? passiveAmount(eff, state, q.unit.actor, unitTracks(q.unit)) : (eff.amount ?? 0)
+        if (value !== 0) out.push({ label: eff.label ?? def.name, value, source: 'drug' })
       }
     }
     return out

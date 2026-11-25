@@ -2,9 +2,8 @@
 //
 // 全部是「讀」：從狀態與功能（features/scene）匯出的純函式與 Play 算出摘要、合法行動、結算的預覽，不改任何東西。
 // - 場景這一圈的摘要（briefOf）、這個人合法的行動（legalMoves）：scene_turn 的輸入。
-// - 同圈每個由程式控制的人依序各一步：後一個人的輸入帶前一個人「做完之後」的狀態。功能的 sceneNext 一次走完一整輪，沒有只走一個人的入口，
-//   所以這裡用 Play 照 groupRound 的做法模擬到第 n 個人（afterNpcs）；真正的結算還是功能的 sceneNext（env.moves），模擬只給 AI 看。
-//   （缺的接口，見 dev/adr/0019 的補記：功能若匯出「只走一個人的回合」，這一段模擬可以拿掉。）
+// - 同圈每個由程式控制的人依序各一步：後一個人的輸入帶前一個人「做完之後」的狀態。
+//   功能匯出了只走一個人的回合（sceneNpcTurn、sceneNpcBegin；M4-core-gaps 第 15 項），這裡一個一個呼叫它到第 n 個人（afterNpcs）；真正的結算還是功能的 sceneNext（env.moves），預演只給 AI 看。
 // - 結束的預覽（settledOf）：照功能的純函式先算一次（不帶 env.closing），收尾的五個任務讀它的結果；它們交回來之後再算一次，這一次帶 env.closing。
 //   亂數是 scene/<id>/<第幾步>，兩次一樣，所以兩次之間只差 env.closing 造成的不同。
 // 輸入都已經照內容篩選刪過：被關掉的標籤、體位、技能不出現。
@@ -13,7 +12,7 @@ import type { ActorId, GameState, Kernel, ReportDraft, TimelineBeat } from '../.
 import { contentAllowed, deriveRng, meterOf } from '../../core'
 import type { Goal, Nature, SceneInput, SceneRaw, SinkKind, TalkEnv } from '../../features/scene'
 import {
-  END_NAME, GOAL_NAME, MAX_MOVES, NATURE_NAME, Play, ROLE_NAME, knownPositions, knownSkills, partName, ratingOf, sceneDefOf, sceneRules, sexRecordOf,
+  END_NAME, GOAL_NAME, NATURE_NAME, Play, ROLE_NAME, knownPositions, knownSkills, partName, ratingOf, sceneDefOf, sceneNpcBegin, sceneNpcTurn, sceneRules, sexRecordOf,
 } from '../../features/scene'
 import { clipBeats } from '../battle'
 import type { LegalMove, SceneBrief, SceneDigest, SinkInput, TendencyInput } from './sceneTasks'
@@ -87,10 +86,10 @@ export function legalMoves(p: Play, w: ActorId, max = 40): LegalMove[] {
 
 // ---- 同圈每個人依序各一步（模擬） ----
 
-/** 這一輪同圈由程式控制的人的行動（scene_turn 給的）與說話的判定（scene_talk 給的；只有一個人說話才收，見 sceneChains.ts）。 */
+/** 這一輪同圈由程式控制的人的行動（scene_turn 給的）與說話的判定（scene_talk 給的；每個說話的人一份：SceneEnv.talk）。 */
 export interface NpcPlan {
   moves: Record<ActorId, SceneInput[]>
-  talk?: TalkEnv
+  talk?: Record<ActorId, TalkEnv>
 }
 
 /** 這一輪要問 AI 的人（照座位的順序）：多人是同一圈每個還在的人；一對一是現在輪到的那個人；單人沒有。 */
@@ -101,39 +100,14 @@ export function npcOrder(scene: SceneRaw): ActorId[] {
 }
 
 /**
- * 照功能 groupRound（多人）與 sceneNext（一對一）的做法，把前 upTo 個人的回合做完（換檔、他的行動、剩下的行動點照規則走），回傳那時候的 Play。
- * 不做回合的結算（連接的自動效果、別的圈、強制結束的檢查）：那是整輪最後的事。亂數與真正的 sceneNext 同一個序，所以做出來的和真正結算時前面的人一樣。
+ * 把前 upTo 個人的回合做完（換檔、他的行動、剩下的行動點照規則走），回傳那時候的 Play。一個一個呼叫功能的 sceneNpcTurn（M4-core-gaps 第 15 項：
+ * 功能自己知道多人與一對一各怎麼走，這裡不再照 groupRound 模擬）。不做回合的結算（連接的自動效果、別的圈、強制結束的檢查）：那是整輪最後的事。
+ * 亂數與真正的 sceneNext 同一個序，所以做出來的和真正結算時前面的人一樣。
  */
 export function afterNpcs(k: Kernel, state: GameState, scene: SceneRaw, plan: NpcPlan, upTo: number): Play {
-  const p = playOf(k, state, scene)
-  p.talkEnv = plan.talk
-  const order = npcOrder(scene)
-  if (scene.kind === 'group') {
-    for (const w of order.slice(0, upTo)) {
-      if (p.ended) break
-      if (!p.inCircle(w)) continue
-      p.s.turn = w
-      p.s.turn_began = false
-      p.npcTurnStart(w)
-      const moves = plan.moves[w]
-      if (moves && moves.length > 0) p.performMoves(w, moves)
-      for (let i = 0; i < MAX_MOVES && !p.ended && p.inCircle(w); i++) {
-        const c = p.choiceFor(w)
-        if (!c) break
-        p.perform(w, c)
-      }
-    }
-  } else if (upTo >= 1 && order[0]) {
-    const w = order[0]
-    p.npcTurnStart(w)
-    let acted = 0
-    const moves = plan.moves[w]
-    if (moves && moves.length > 0) acted = p.performMoves(w, moves).done
-    if (acted === 0 && !p.ended) {
-      const c = p.choiceFor(w)
-      if (c) p.perform(w, c)
-    }
-  }
+  let p = playOf(k, state, scene)
+  if (plan.talk) p.talkEnv = plan.talk
+  for (const w of npcOrder(scene).slice(0, upTo)) p = sceneNpcTurn(k, state, w, { moves: { [w]: plan.moves[w] ?? [] } }, p)
   return p
 }
 
@@ -141,12 +115,7 @@ export function afterNpcs(k: Kernel, state: GameState, scene: SceneRaw, plan: Np
 export function turnPlayOf(k: Kernel, state: GameState, scene: SceneRaw, plan: NpcPlan, index: number): { p: Play; who: ActorId } | null {
   const who = npcOrder(scene)[index]
   if (who === undefined) return null
-  const p = afterNpcs(k, state, scene, plan, index)
-  if (scene.kind === 'group') {
-    p.s.turn = who
-    p.s.turn_began = false
-  }
-  p.npcTurnStart(who)
+  const p = sceneNpcBegin(k, state, who, {}, afterNpcs(k, state, scene, plan, index))
   return { p, who }
 }
 

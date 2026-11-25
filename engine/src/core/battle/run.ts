@@ -17,7 +17,7 @@ import { runEffects } from './effects'
 import { SIDE_NAME, afterglowFull, coverAt, coverLevel, coverOf, currentUnit, cutKey, distance, isCut, isWounded, onField, otherSide, overlayAt, poolName, rangeMod, standing, unitAt, unitTag, unitsOf, wielded } from './field'
 import type { BattleEffectInput, BattleEffectLast, BattleKernel, BattleView, BenchEntry, UnitSourceCtx } from './registry'
 import type { BattleMode, BattleNumbers, BattleStatusRule, ModKind, StatusUntil } from './rules'
-import { FLASH, LOSE_TURN, coverHpFor, damageTypeOf, modeOf, statusMod, statusRuleOf } from './rules'
+import { AFTERGLOW_DOUBLE, FLASH, IGNORE_WOUND_PENALTY, IMPLANT_HARDENED, LOSE_TURN, PUMP_JAM, SINK_RESIST, coverHpFor, damageTypeOf, modeOf, sinkRise, statusMod, statusRuleOf } from './rules'
 import type { UnitRef } from './units'
 import { buildUnit, resolveUnit } from './units'
 
@@ -253,12 +253,21 @@ export class BattleRun implements BattleView {
     }
     if (kind === 'hit' || kind === 'evade' || kind === 'save') {
       // 餘韻每一層：現實是全屬性 −2（檢定 −1），內海是檢定 +1（CORE_RULES 4.2 節）
-      if (unit.layers > 0 && this.mode.afterglow.roll) out.push({ label: '餘韻', value: unit.layers * this.mode.afterglow.roll, source: 'afterglow' })
+      if (unit.layers > 0 && this.mode.afterglow.roll) out.push({ label: '餘韻', value: unit.layers * this.afterglowPer(unit, this.mode.afterglow.roll), source: 'afterglow' })
     }
-    // 重傷：生命值低於一半，所有檢定 −2（CORE_RULES 4.1 節）。迴避是對方檢定的目標值，不是自己的檢定，不扣
-    if ((kind === 'hit' || kind === 'save') && isWounded(unit)) out.push({ label: '重傷', value: -2, source: 'condition' })
+    // 重傷：生命值低於一半，所有檢定 −2（CORE_RULES 4.1 節）。迴避是對方檢定的目標值，不是自己的檢定，不扣。
+    // 帶著標籤 ignore_wound_penalty 的人（痛覺編輯器）不算（M4-core-gaps 第 1 項；被動效果的 { unit_tag } 給）
+    if ((kind === 'hit' || kind === 'save') && isWounded(unit) && !unit.tags.includes(IGNORE_WOUND_PENALTY)) out.push({ label: '重傷', value: -2, source: 'condition' })
     out.push(...this.k.battle.modifiers({ kind, view: this, unit, ...(other ? { other } : {}), ...(weapon ? { weapon } : {}), tags, ...(base !== undefined ? { base } : {}) }))
     return out.filter((p) => p.value !== 0)
+  }
+
+  /**
+   * 每層餘韻的一個數字（檢定加減、造成感載的百分比）：帶著標籤 afterglow_double 的人，正的（正面效果）加倍，負的照舊
+   * （CORE_RULES 4.3 節 80～99「餘韻的正面效果加倍」；LEWD_SYSTEM 渴求；M4-core-gaps 第 8 項）。
+   */
+  afterglowPer(u: BattleUnit, n: number): number {
+    return n > 0 && u.tags.includes(AFTERGLOW_DOUBLE) ? n * 2 : n
   }
 
   /** 帶著「不能換位」的狀態嗎。 */
@@ -378,6 +387,7 @@ export class BattleRun implements BattleView {
     const diverted = opts.redirect ? this.battle.overlays.find((x) => x.id === opts.redirect!.overlay && !x.down) : undefined
     if (diverted) {
       const result: AttackResult = { ...this.strikeOverlay(attacker, diverted, { ...opts, redirect: undefined, spend: 0 }), redirected: true }
+      this.endAttackStatuses(attacker)
       this.k.battle.emit('attack.redirected', { run: this, attacker, target, overlay: diverted, weapon: w, opts, result })
       return result
     }
@@ -443,8 +453,14 @@ export class BattleRun implements BattleView {
       if (w.traits.includes('push')) this.shift(target, +1, attacker)
       else if (w.traits.includes('pull')) this.shift(target, -1, attacker)
     }
+    this.endAttackStatuses(attacker)
     this.k.battle.emit('attack.after', { run: this, attacker, target, weapon: w, opts, result })
     return result
+  }
+
+  /** 「到下一次攻擊」（until: next_attack）的狀態：這一次攻擊擲完、結算完就結束（命中與否都算；卡彈、被取消、沒有發生的不算）。 */
+  private endAttackStatuses(attacker: BattleUnit): void {
+    for (const st of [...attacker.statuses]) if (st.until.at === 'attack') this.removeStatus(attacker, st.id)
   }
 
   /**
@@ -467,7 +483,10 @@ export class BattleRun implements BattleView {
     if (o2.cancel !== undefined) return this.cancelStrike(attacker, standIn, w, o2, { ...none, aborted: true })
     if (this.gone(attacker) || o.down || this.over) return { ...none, aborted: true }
     const result = this.strikeOverlay(attacker, o, { ...o2, weapon: w })
-    if (!result.aborted) this.k.battle.emit('attack.after', { run: this, attacker, target: standIn, weapon: w, opts: o2, result })
+    if (!result.aborted) {
+      this.endAttackStatuses(attacker)
+      this.k.battle.emit('attack.after', { run: this, attacker, target: standIn, weapon: w, opts: o2, result })
+    }
     return result
   }
 
@@ -592,7 +611,7 @@ export class BattleRun implements BattleView {
         return { dealt: 0, track: 'none' }
       }
       let v = this.mode.armorOnLoad ? this.armorAfter(raw, armor, 1, o.pierce) : raw
-      if (by) v *= by.dmgMult.load * (1 + (by.layers * this.mode.afterglow.loadDealtPct + sum(this.mods('load_dealt_pct', by, target))) / 100)
+      if (by) v *= by.dmgMult.load * (1 + (by.layers * this.afterglowPer(by, this.mode.afterglow.loadDealtPct) + sum(this.mods('load_dealt_pct', by, target))) / 100)
       const got = this.addLoad(target, v, by)
       // 傷害類型自己帶的沉溺（快感 +1）：走 gainSink（sink.before 擋得下）；noSink 是呼叫的人的效果自己決定
       if (got > 0 && type.sink && !o.noSink) this.gainSink(target, type.sink, { type: typeId, ...(by ? { by } : {}) })
@@ -618,16 +637,23 @@ export class BattleRun implements BattleView {
       if (hull.hp.now <= 0) this.k.battle.emit('hull.break', { run: this, unit: target })
       if (dm <= 0 || target.out) return { dealt: soaked, track: 'hull' }
     }
+    // 生命傷害結算的掛點（M4-core-gaps 第 11 項）：處理函式可以把其中 toLoad 點換成感載（痛覺轉譯：兩成）；換掉的不扣生命，改成同一個人的感載（不乘敏感度）
+    const conv: { toLoad?: number } = {}
+    this.k.battle.emit('damage.hp', { run: this, target, ...(by ? { by } : {}), type: typeId, amount: dm, out: conv })
+    const toLoad = target.load ? Math.max(0, Math.min(dm - 1, Math.round(conv.toLoad ?? 0))) : 0
+    dm -= toLoad
     const hpBefore = target.hp.now
     target.hp.now = Math.max(0, target.hp.now - dm)
     const at = this.beats.length
-    this.say(`${unitTag(target)} 受到 ${dm} 點${type.name}傷害。`, 'damage', { target: target.id, type: typeId, amount: dm, left: target.hp.now, ...(by ? { by: by.id } : {}) }, by)
+    this.say(`${unitTag(target)} 受到 ${dm} 點${type.name}傷害。`, 'damage', { target: target.id, type: typeId, amount: dm, left: target.hp.now, ...(toLoad ? { toLoad } : {}), ...(by ? { by: by.id } : {}) }, by)
     // 生命歸零：先問有沒有人擋下（out.before）；擋下的生命拉回 1，這一拍記的剩餘生命跟著改
     const zero = target.hp.now <= 0
     const prevented = zero && this.outPrevented(target, 'down', by)
     if (prevented && this.beats[at]?.data) this.beats[at]!.data!.left = target.hp.now
     if (zero && !prevented) this.leave(target, 'down', by)
     else for (const s of type.onHit ?? []) if (statusRuleOf(this.k.content, s.status)) this.applyStatus(target, s.status, { ...(by ? { by } : {}), turns: s.turns })
+    // 換成感載的那幾點（痛覺轉譯）：還站著才加
+    if (toLoad > 0 && !target.out) this.addLoad(target, toLoad, by, { exact: true, label: '痛覺轉譯' })
     // 被擋下（out.before）而生命拉回 1 的：實際扣掉的只有扣到 1 為止的那一段
     return { dealt: (prevented ? hpBefore - target.hp.now : dm) + soaked, track: 'hp' }
   }
@@ -653,7 +679,7 @@ export class BattleRun implements BattleView {
    * 不記拍（沉溺是慢慢累積的，由呼叫的人決定要不要說）。回傳實際加了多少。對沒有 hp 與 load 的替身、已經退出的人沒有作用。
    */
   gainSink(unit: BattleUnit, amount: number, o: { type?: DamageType; by?: BattleUnit } = {}): number {
-    const v = Math.max(0, Math.round(amount))
+    const v = sinkRise(Math.max(0, Math.round(amount)), unit.tags.includes(SINK_RESIST))
     if (!v || unit.out || this.isStandIn(unit)) return 0
     const out: { block?: boolean } = {}
     this.k.battle.emit('sink.before', { run: this, unit, amount: v, ...(o.type ? { type: o.type } : {}), ...(o.by ? { by: o.by } : {}), out })
@@ -717,6 +743,8 @@ export class BattleRun implements BattleView {
   /** 排感載（不低於 0）。by 與 tags 同 heal，吃 vent_dealt 修正。 */
   vent(target: BattleUnit, amount: number, by?: BattleUnit, tags: string[] = []): number {
     if (!target.load || target.out) return 0
+    // 斷藥（PUMP_JAM）：這段時間排不掉感載，除錯與回復對他都沒有效果
+    if (target.statuses.some((s) => s.id === PUMP_JAM)) return 0
     let want = Math.round(amount)
     if (by && want > 0) want += sum(this.mods('vent_dealt', by, target, undefined, tags))
     const v = Math.max(0, Math.min(want, target.load.now))
@@ -779,7 +807,7 @@ export class BattleRun implements BattleView {
     const kind = o.until ?? rule.until
     const of = kind.startsWith('source') ? (o.by?.id ?? target.id) : target.id
     // 他在自己的回合裡給自己的 own_turn_end：這個回合的結束不算（到他「下一個」回合結束），所以標 skip
-    const until: BattleUntil = kind === 'battle_end' ? { at: 'battle_end' } : kind === 'next_overload' ? { at: 'overload' }
+    const until: BattleUntil = kind === 'battle_end' ? { at: 'battle_end' } : kind === 'next_overload' ? { at: 'overload' } : kind === 'next_attack' ? { at: 'attack' }
       : { at: kind.endsWith('start') ? 'turn_start' : 'turn_end', of, turns, ...(kind === 'own_turn_end' && this.skipsOwnTurnEnd(target, o.by) ? { skip: true as const } : {}) }
     const status: BattleStatus = { id, until, ...(o.by ? { by: o.by.id } : {}), ...(o.data ? { data: { ...o.data } } : {}) }
     target.statuses = [...target.statuses.filter((s) => s.id !== id), status]
@@ -809,6 +837,7 @@ export class BattleRun implements BattleView {
    * 回傳挑到的那一件（就是 target.implants 裡的那個物件）；沒有可挑的（沒有義體、指定的那一件或那一種沒有、每一件都已經帶著這個狀態、
    * 目標已經退出）回傳 null，不記拍。「還沒帶這個狀態」看的是狀態 id：同一種的兩件、或都退回 _generic 的兩件，共用同一個狀態，
    * 第二次就沒有可挑的（要換掉第一件的時間，用 pick 指定）。狀態查不到（連 _generic 都沒有）丟錯，訊息寫出要哪一個狀態 id。記一拍 status。
+   * 打不壞的（標籤 implant_hardened 或 implant_hardened:<種類>，只對 off）：沒指定時略過它去挑下一件，指定到它回傳 null、不記拍。
    */
   implantStatus(target: BattleUnit, mode: 'off' | 'boost', opts: ImplantStatusOpts = {}): BattleImplant | null {
     const list = target.implants ?? []
@@ -820,11 +849,13 @@ export class BattleRun implements BattleView {
       if (statusRuleOf(this.k.content, generic)) return generic
       throw new Error(`義體「${i.name}」要 ${own} 這個狀態（規則表沒有的退回 ${generic}），兩個都查不到：先在規則表（battle_status）補上`)
     }
+    // 打不壞的義體（M4-core-gaps 第 2 項）：單位帶著標籤 implant_hardened（全部）或 implant_hardened:<種類>（那一種；皮下裝甲）的，失效（off）一律不挑它；超頻不受影響
+    const hardened = (i: BattleImplant): boolean => mode === 'off' && (target.tags.includes(IMPLANT_HARDENED) || target.tags.includes(`${IMPLANT_HARDENED}:${i.kind}`))
     let chosen: BattleImplant | undefined
     if (opts.pick !== undefined) chosen = Number.isInteger(opts.pick) ? list[opts.pick] : undefined
     else if (opts.kind !== undefined) chosen = list.find((i) => i.kind === opts.kind)
-    else chosen = list.find((i) => !target.statuses.some((st) => st.id === statusOf(i)))
-    if (!chosen) return null
+    else chosen = list.find((i) => !hardened(i) && !target.statuses.some((st) => st.id === statusOf(i)))
+    if (!chosen || hardened(chosen)) return null
     const id = statusOf(chosen)
     const given = this.applyStatus(target, id, { ...(opts.by ? { by: opts.by } : {}), ...(opts.turns !== undefined ? { turns: opts.turns } : {}), ...(opts.until ? { until: opts.until } : {}), quiet: true })
     if (!given) return null

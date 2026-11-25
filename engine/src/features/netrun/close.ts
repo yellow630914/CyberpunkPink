@@ -8,7 +8,7 @@ import type { ActivityEndReturn, Change, GameState, Kernel, Origin, Report, Repo
 import { ActionBlocked, attachActivityEnd, clone, closeMap, endActivity, isRecord, meterOf, seedRand } from '../../core'
 import { draft, layerName, runRegion } from './common'
 import { digLeave } from './dig'
-import type { CloseOutcome, LootEntry, NetExt, NetRun, Patrol } from './model'
+import type { CloseOutcome, HackedAnswer, LootEntry, NetExt, NetRun, Patrol } from './model'
 import { ACT_FACE, ACT_NET, EXT, NET_MODE, TRACE, netExt, netExtChange, nodeAt, readRun, runChange } from './model'
 import { lossOf } from './loss'
 import { makePatrol, moverChanges, nextPatrolId } from './patrol'
@@ -31,12 +31,22 @@ export function traceOf(k: Kernel, state: GameState, run: NetRun): number {
 }
 
 /** 問 netrun.close：之後的區結算自己的東西（迷宮館的評價、押金）。lost 是這一趟丟掉的東西（帶出去才算數；沒有丟的是沒有這個欄位）。 */
-function closeHooks(k: Kernel, state: GameState, run: NetRun, outcome: CloseOutcome, lost?: LootEntry[]): { changes: Change[]; lines: string[] } {
-  const out = { changes: [] as Change[], lines: [] as string[] }
+function closeHooks(k: Kernel, state: GameState, run: NetRun, outcome: CloseOutcome, lost?: LootEntry[], hacked = false): { changes: Change[]; lines: string[]; read: Array<{ source: string; name: string; what?: string }> } {
+  const out = { changes: [] as Change[], lines: [] as string[], read: [] as Array<{ source: string; name: string; what?: string }> }
   for (const h of k.hooks.run('netrun.close', { state, run: clone(run), outcome, ...(lost ? { lost: clone(lost) } : {}) })) {
     if (!isRecord(h.result)) continue
     if (Array.isArray(h.result.changes)) out.changes.push(...clone(h.result.changes))
     if (Array.isArray(h.result.lines)) out.lines.push(...(h.result.lines as string[]))
+  }
+  // 被駭了（被定位，或這一趟的戰鬥打輸被接受；熔斷的場地不算）：問 net.hacked，身上的東西（記憶庫）可能被對方讀走（M4-core-gaps 第 20 項）
+  if (hacked) {
+    for (const h of k.hooks.run('net.hacked', { state, run: clone(run), outcome: outcome === 'located' ? 'located' : 'defeat', party: partyOf(state) })) {
+      const r = h.result as HackedAnswer
+      if (!isRecord(r)) continue
+      if (Array.isArray(r.changes)) out.changes.push(...clone(r.changes))
+      if (Array.isArray(r.lines)) out.lines.push(...r.lines.filter((l): l is string => typeof l === 'string' && l.length > 0))
+      if (Array.isArray(r.read)) out.read.push(...clone(r.read).filter((x) => isRecord(x) && typeof x.source === 'string' && typeof x.name === 'string'))
+    }
   }
   return out
 }
@@ -66,7 +76,8 @@ export function closeDraft(k: Kernel, state: GameState, run: NetRun, outcome: En
   // 自己去挖的子網：地圖留著（七天）、記下離開時的樣子、那家企業的敵對值照追蹤度加
   const kept = digLeave(k, state, run, trace, outcome === 'located')
   if (kept) Object.assign(result, kept.result)
-  const closed = closeHooks(k, state, run, outcome, loss?.lost)
+  const closed = closeHooks(k, state, run, outcome, loss?.lost, outcome === 'located')
+  if (closed.read.length > 0) result.read = clone(closed.read)
   const end = endActivity(k, { state, kind: run.kind, id: run.id, origin: run.origin, outcome, result })
   const lines = [...closed.lines, ...(loss?.lines ?? []), ...(kept?.lines ?? []), ...end.lines]
   const changes: Change[] = [...closed.changes, ...(loss?.changes ?? []), ...(kept?.changes ?? []), ...end.changes, runChange(null), ...(kept ? [] : closeMap(state, run.map))]
@@ -99,7 +110,7 @@ export function onDefeatAccepted(k: Kernel, state: GameState, origin: Origin, re
   if (!run || !isRecord(net) || net.run !== run.id) return undefined
   // 帶出去才算數：沒有回到快照的才丟（自己的那一趟；不算委託失敗的戰敗）。算委託失敗的回到進副本之前，東西本來就不在
   const loss = run.kind === ACT_NET || result.fails_commission !== true ? lossOf(k, state, run) : null
-  const closed = closeHooks(k, state, run, 'defeat', loss?.lost)
+  const closed = closeHooks(k, state, run, 'defeat', loss?.lost, true)
   // 自己去挖的子網戰敗被接受：一樣留著（被定位的戰敗另外加敵對值、清後門）
   const kept = digLeave(k, state, run, traceOf(k, state, run), result.located === true)
   const lines = [...closed.lines, ...(loss?.lines ?? []), ...(kept?.lines ?? [])]

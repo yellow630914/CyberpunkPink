@@ -170,6 +170,29 @@ export const WOUND_PARTS = [
   { id: 'bridge', name: '橋' },
 ] as const
 
+/**
+ * 核心認得的幾個單位標籤（被動效果 { unit_tag } 給；dev/adr/0019 實作補記 M4-core-gaps）。功能不在核心裡 import 彼此，約定寫在這裡：
+ *   ignore_wound_penalty   重傷（生命低於一半）的檢定 −2 對他不算（痛覺編輯器）
+ *   implant_hardened       他的義體不會被特殊效果打壞（run.implantStatus 的 off 一律不挑）；寫成 implant_hardened:<種類> 只保護那一種義體（皮下裝甲）
+ *   afterglow_double       每層餘韻的正面效果加倍（沉溺 80～99、渴求）：內海的檢定 +1、兩個戰場的「造成的感載 +10%」；現實的檢定 −1 是負面的，不加倍
+ *   sink_resist            沉溺每次上升 −1、最少 1（調校的 sink_resist）：戰鬥裡 run.gainSink 與戰後的昏倒 +2、角色的 sink 效果（往上加的那一邊）讀它；
+ *                          下限（sink_floor）把沉溺抬上去不算「上升」，不受它影響
+ */
+export const IGNORE_WOUND_PENALTY = 'ignore_wound_penalty'
+export const IMPLANT_HARDENED = 'implant_hardened'
+export const AFTERGLOW_DOUBLE = 'afterglow_double'
+export const SINK_RESIST = 'sink_resist'
+
+/**
+ * 「斷藥」狀態的 id 約定（程式「斷藥」、腳本「斷藥」；ITEMS 11.5 節；M4-core-gaps 第 5 項）：資料（battle_status）定義它的名字、說明與持續幾回合（兩回合；III 三回合）。
+ * 帶著它的單位：run.vent 排不掉感載（除錯、回復都沒有效果）；義體功能讀它——藥泵（cyber_pump）與標了 jammable 的行動（冷卻迴路）這段時間不能用。
+ * 規則表沒有這個狀態時，給這個狀態的效果會丟「查不到狀態」，不會悄悄沒事。
+ */
+export const PUMP_JAM = 'pump_jam'
+
+/** 沉溺這一次要上升 amount 點：帶著 sink_resist 的人少 1 點、最少 1（amount 本來不到 2 的不變）。 */
+export const sinkRise = (amount: number, resist: boolean): number => (resist && amount > 1 ? amount - 1 : amount)
+
 /** 修正的種類：狀態、技能、義體用這些鍵加減戰鬥裡的數字。 */
 export const MOD_KINDS = [
   /** 自己攻擊的命中 */ 'hit',
@@ -228,7 +251,7 @@ export const MOD_KINDS = [
 export type ModKind = (typeof MOD_KINDS)[number]
 
 /** 狀態什麼時候結束的幾種寫法（資料用）。next_overload：帶著它的人下一次過載的時候，沒有過載就到整場結束。 */
-export const STATUS_UNTILS = ['own_turn_end', 'own_turn_start', 'source_turn_start', 'source_turn_end', 'battle_end', 'next_overload'] as const
+export const STATUS_UNTILS = ['own_turn_end', 'own_turn_start', 'source_turn_start', 'source_turn_end', 'battle_end', 'next_overload', 'next_attack'] as const
 export type StatusUntil = (typeof STATUS_UNTILS)[number]
 
 /** 一個戰鬥中的狀態（壓制、暈眩、流血、標記、失去回合……）：資料驅動，核心照這幾個欄位算。 */

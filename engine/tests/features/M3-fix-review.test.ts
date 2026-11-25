@@ -226,13 +226,13 @@ describe('應修 2：連動 trace_half 減半的是所有追蹤度的上升（�
     expect(traceDelta(half, 5)).toBe(3)
     expect(traceDelta(half, 10)).toBe(5)
     expect(traceDelta(half, -4)).toBe(-4)
-    expect(traceChanges(g.k, half, 2)).toEqual([{ op: 'meter', kind: 'trace', key: half.map, delta: 1 }])
-    expect(traceChanges(g.k, half, -3)).toEqual([{ op: 'meter', kind: 'trace', key: half.map, delta: -3 }])
+    expect(traceChanges(g.k, g.state, half, 2)).toEqual([{ op: 'meter', kind: 'trace', key: half.map, delta: 1 }])
+    expect(traceChanges(g.k, g.state, half, -3)).toEqual([{ op: 'meter', kind: 'trace', key: half.map, delta: -3 }])
     // 對照：沒有連動就照原量
     const { game: h } = makeDiveGame()
     diveIn(h)
     h.launch('netrun', { region: NET_REGION, grade: 1, faction: NET_FACTION, encounter: [] }, { by: 'core' })
-    expect(traceChanges(h.k, readNetRun(h.state)!, 2)).toEqual([{ op: 'meter', kind: 'trace', key: readNetRun(h.state)!.map, delta: 2 }])
+    expect(traceChanges(h.k, h.state, readNetRun(h.state)!, 2)).toEqual([{ op: 'meter', kind: 'trace', key: readNetRun(h.state)!.map, delta: 2 }])
   })
 
   it('戰鬥：這一趟帶 trace_half，每輪 +3 變 +2（進位）；效果 net.trace +5 變 +3；沒有連動的一趟照原量', async () => {

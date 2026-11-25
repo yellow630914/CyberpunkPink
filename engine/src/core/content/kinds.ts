@@ -27,6 +27,28 @@ const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().le
 const isAttr = (v: unknown) => (ATTR_IDS as readonly unknown[]).includes(v)
 const idList = (v: unknown) => Array.isArray(v) && v.every(isId)
 
+/**
+ * 一件東西買不買得到的限制（物品與設計圖的 available；建角的物品、義體、甲板用，CHARACTER 5.4 節）：{ origins?: 出身 id 的陣列, faction?: 勢力 id }。
+ * origins 與 faction 都對上才選得到（沒寫的那一邊不限）；格式與有沒有這個出身、勢力在這裡查，怎麼擋由建角的功能做。
+ */
+export function availableProblems(raw: unknown, at = 'available'): string[] {
+  if (!isRecord(raw)) return [`${at} 要是 { origins?, faction? }`]
+  const p: string[] = []
+  for (const key of Object.keys(raw)) if (key !== 'origins' && key !== 'faction') p.push(`${at}.${key}：沒有這個欄位（只有 origins、faction）`)
+  if (raw.origins !== undefined && !(Array.isArray(raw.origins) && raw.origins.length > 0 && raw.origins.every(isText))) p.push(`${at}.origins 要是出身 id 的陣列（至少一個）`)
+  if (raw.faction !== undefined && !isText(raw.faction)) p.push(`${at}.faction 要是勢力的 id`)
+  return p
+}
+
+/** available 引用到的出身與勢力（引用檢查用）。 */
+export function availableRefs(raw: unknown): Array<[kind: string, id: string]> {
+  if (!isRecord(raw)) return []
+  return [
+    ...(Array.isArray(raw.origins) ? raw.origins.filter(isText).map((o): [string, string] => ['origin', o]) : []),
+    ...(isText(raw.faction) ? [['faction', raw.faction] as [string, string]] : []),
+  ]
+}
+
 /** 特質的分類（CHARACTER 4.2 節）；缺陷另外用 flaw 標。 */
 export const PERK_CATEGORIES = ['street', 'social', 'body', 'bridge', 'craft', 'net', 'media', 'desire', 'origin'] as const
 /** 勢力的三類（DATA 1.1 節）。 */
@@ -78,6 +100,8 @@ export interface OriginEntry extends ContentEntry {
   /** 開場就在名冊上的人：具名 NPC 的 id（npc_ 開頭，DATA 1.1 節） */
   roster: string[]
   lifepath_extra?: string[]
+  /** 出身白給的東西（建角第 9 步照單給、不花點數、不檢查等級與類別；CHARACTER 5.4 節）：物品、設計圖、甲板的 id 與數量（沒寫是 1）；認不得的 id 由各功能略過 */
+  kit_free?: Array<{ id: string; qty?: number }>
 }
 export interface CreationRuleEntry extends ContentEntry {
   attr_array: number[]
@@ -97,6 +121,15 @@ export interface CreationRuleEntry extends ContentEntry {
   cyber_point_cash?: number
   /** 沒花完的裝備點數每點換多少現金（CHARACTER 5.4 節：C$150） */
   gear_point_cash?: number
+  /** 一件義體沒寫 creation_points 時：（成品價 × cyber_install_mult）÷ cyber_point_price 進位，最少 1 點（features/creation 的預設 500；M4-core-gaps 第 9 項進核心的格式檢查） */
+  cyber_point_price?: number
+  cyber_install_mult?: number
+  /** 一件裝備：目錄價 ÷ gear_point_price 進位，最少 1 點（預設 250） */
+  gear_point_price?: number
+  /** 建角第 9 步只收到幾級（預設 2） */
+  gear_grade_max?: number
+  /** 建角第 9 步收哪些類別（預設見 features/creation） */
+  gear_kinds?: string[]
 }
 export type ActionHint = Partial<Record<(typeof HINT_KEYS)[number], Array<Record<string, unknown>>>>
 export interface ActionKindEntry extends ContentEntry {
@@ -150,6 +183,8 @@ export interface ItemEntry extends ContentEntry {
   tags?: string[]
   /** 用掉就沒了（預設是；鎖橋器這類工具寫 false） */
   consumable?: boolean
+  /** 建角買不買得到的限制（出身、勢力）；沒寫不限 */
+  available?: { origins?: string[]; faction?: string }
   /**
    * 戰鬥中從快取格拿出來用（EQUIPMENT 4.1 節；COMBAT_SYSTEM 1.3 節「使用道具／急救 1～2」）：
    * 花幾點行動點（ap；替相鄰的人用是 ap_other）、對誰用、做什麼。effects 是一串 { op, ... }，由戰鬥的功能解讀
@@ -208,6 +243,13 @@ export function registerCoreKinds(content: ContentRegistry): void {
       if (!isId(e.perk)) p.push('要有 perk（出身特質的 id）')
       if (!(Array.isArray(e.roster) && e.roster.every((x) => isId(x) && x.startsWith('npc_')))) p.push('roster 要是具名 NPC 的 id 的陣列（npc_ 開頭）')
       if (e.lifepath_extra !== undefined && !idList(e.lifepath_extra)) p.push('lifepath_extra 要是 id 的陣列')
+      if (e.kit_free !== undefined) {
+        if (!Array.isArray(e.kit_free)) p.push('kit_free 要是 { id, qty? } 的陣列')
+        else e.kit_free.forEach((x, i) => {
+          if (!isRecord(x) || !isText(x.id)) p.push(`kit_free[${i}] 要是 { id, qty? }，id 是東西的 id`)
+          else if (x.qty !== undefined && !(isInt(x.qty) && x.qty >= 1 && x.qty <= 99)) p.push(`kit_free[${i}].qty 要是 1～99 的整數`)
+        })
+      }
       return p
     },
     refs: (e) => [
@@ -244,6 +286,7 @@ export function registerCoreKinds(content: ContentRegistry): void {
       if (e.weight !== undefined && !(typeof e.weight === 'number' && e.weight >= 0)) p.push('weight 要是 0 以上的數字')
       if (e.tags !== undefined && !(Array.isArray(e.tags) && e.tags.every(isText))) p.push('tags 要是標籤的陣列')
       if (e.consumable !== undefined && typeof e.consumable !== 'boolean') p.push('consumable 要是布林值')
+      if (e.available !== undefined) p.push(...availableProblems(e.available))
       if (e.use !== undefined) {
         const u = e.use
         if (!isRecord(u) || !isInt(u.ap) || u.ap < 0 || u.ap > 3) p.push('use.ap 要是 0～3 的整數')
@@ -257,6 +300,7 @@ export function registerCoreKinds(content: ContentRegistry): void {
       }
       return p
     },
+    refs: (e) => availableRefs(e.available),
   })
 
   const CREATION_INTS = ['attr_free', 'attr_max', 'attr_min', 'skill_points', 'skill_max', 'perk_points', 'perk_max', 'flaw_max', 'min_age', 'start_money'] as const
@@ -267,6 +311,10 @@ export function registerCoreKinds(content: ContentRegistry): void {
       ...CREATION_INTS.filter((f) => !isInt(e[f]) || (e[f] as number) < 0).map((f) => `${f} 要是 0 以上的整數`),
       ...(['gear_points', 'cyber_point_cash', 'gear_point_cash'] as const).filter((f) => e[f] !== undefined && (!isInt(e[f]) || (e[f] as number) < 0)).map((f) => `${f} 要是 0 以上的整數`),
       ...(isInt(e.min_age) && e.min_age < 18 ? ['min_age 不能低於 18：所有角色都是成年人'] : []),
+      // 建角的義體與裝備點數（features/creation 讀；沒寫用它的預設）：價錢與倍率要是大於 0 的數字，等級上限 1～5 的整數，類別是字串的陣列
+      ...(['cyber_point_price', 'cyber_install_mult', 'gear_point_price'] as const).filter((f) => e[f] !== undefined && !(typeof e[f] === 'number' && Number.isFinite(e[f]) && (e[f] as number) > 0)).map((f) => `${f} 要是大於 0 的數字`),
+      ...(e.gear_grade_max !== undefined && !(isInt(e.gear_grade_max) && e.gear_grade_max >= 1 && e.gear_grade_max <= 5) ? ['gear_grade_max 要是 1～5 的整數'] : []),
+      ...(e.gear_kinds !== undefined && !(Array.isArray(e.gear_kinds) && e.gear_kinds.every(isText)) ? ['gear_kinds 要是類別的字串陣列'] : []),
     ],
   })
 

@@ -108,8 +108,8 @@ describe('3 做一步之後：畫面的數字是引擎的', () => {
       const v = s.e.scene.view()!
       expect(v.fit).toBe(st.pairs.npc_ann!.fit)
       expect(v.init).toBe(st.pairs.npc_ann!.init)
-      expect(v.people.pc.load.now).toBe(s.e.state.actors.pc!.load)
-      expect(v.people.partner.load.now).toBe(s.e.state.actors.npc_ann!.load)
+      expect(v.seats[0]!.load.now).toBe(s.e.state.actors.pc!.load)
+      expect(v.seats[1]!.load.now).toBe(s.e.state.actors.npc_ann!.load)
       const h = await page(s)
       expect(/data-fit[^>]*>(\d+)</.exec(h)![1]).toBe(String(st.pairs.npc_ann!.fit))
       expect(/data-init[^>]*>(\d+)</.exec(h)![1]).toBe(String(st.pairs.npc_ann!.init))
@@ -196,7 +196,7 @@ describe('4 選部位（完整版）：只有引擎列的組合點得下去', ()
     const v = s.e.scene.view()!
     const h = await page(s)
     for (const w of ['pc', 'partner'] as const) {
-      for (const p of v.people[w].parts) {
+      for (const p of v.seats[w === 'pc' ? 0 : 1]!.parts) {
         const cls = attrOf(tagOf(h, `data-part="${w}:${p.id}"`), 'class') ?? ''
         expect(cls.split(/\s+/)).toContain(p.linked ? 'link' : p.reach ? 'reach' : 'off')
       }
@@ -296,7 +296,7 @@ describe('7 內容篩選與同步檔位', () => {
   it('同步檔位照引擎：四檔、現在的亮起、開不了的寫引擎的原因；換檔後畫面與引擎一致；直播關', async () => {
     const s = await setup()
     const v0 = s.e.scene.view()!
-    const gv = v0.people.pc.gear
+    const gv = v0.seats[0]!.gear
     let h = await page(s)
     const sync = (x: string): string => x.slice(x.indexOf('data-sync'), x.indexOf('</div>', x.indexOf('data-sync')))
     expect(sync(h)).not.toContain('還沒有開放。')
@@ -317,16 +317,16 @@ describe('7 內容篩選與同步檔位', () => {
     const r = await s.e.scene.act({ kind: 'gear', gear: to!.id })
     expect(r.status).toBe('applied')
     const v1 = s.e.scene.view()!
-    expect(v1.people.pc.gear.now).toBe(to!.id)
-    expect(v1.people.pc.gear.shifted).toBe(true)
+    expect(v1.seats[0]!.gear.now).toBe(to!.id)
+    expect(v1.seats[0]!.gear.shifted).toBe(true)
     h = await page(s)
     expect(attrOf(tagOf(h, `data-gear="${to!.id}"`), 'class')).toContain('on')
-    const other = v1.people.pc.gear.gears.find((g) => !g.current)!
+    const other = v1.seats[0]!.gear.gears.find((g) => !g.current)!
     const why = s.e.scene.options()!.actions.find((a) => a.id === 'gear')!.choices!.find((c) => c.id === other.id)!.blocks
     expect(why.length).toBeGreaterThan(0)
     expect(tagOf(h, `data-gear="${other.id}"`)).toContain('is-unavailable')
     expect(attrOf(tagOf(h, `data-gear="${other.id}"`), 'title')).toContain(why[0]!)
-    expect(text(h)).toContain(v0.people.partner.gear.name)
+    expect(text(h)).toContain(v0.seats[1]!.gear.name)
   })
 })
 

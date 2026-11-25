@@ -650,11 +650,11 @@ describe('分圈：別的圈每回合一行字（P35）、換圈（P36）、叫�
     }
     const g = mk()
     const ap = seatOf(g, 'pc').ap
-    const [r] = act(g, { kind: 'call', who: 'npc_bo' }, { talk: { fit: 0, agree: false } })
+    const [r] = act(g, { kind: 'call', who: 'npc_bo' }, { talk: { pc: { fit: 0, agree: false } } })
     expect(seatOf(g, 'pc').ap).toBe(ap - 1)
     expect(raw(g).seats).toHaveLength(2)
     expect(beatsOf(r!, 'call')[0]!.data).toMatchObject({ who: 'npc_bo', ok: false })
-    act(g, { kind: 'call', who: 'npc_bo' }, { talk: { fit: 0, agree: true } })
+    act(g, { kind: 'call', who: 'npc_bo' }, { talk: { pc: { fit: 0, agree: true } } })
     expect(raw(g).seats.map((x) => x.id)).toEqual(['pc', 'npc_ann', 'npc_bo'])
     // 沒有 scene_talk 的結果：擲說話的檢定（自然 1 失敗、自然 20 成功）
     const h = mk()
@@ -886,7 +886,7 @@ describe('畫面資料：sceneView 與 sceneOptions 的多人欄位', () => {
     expect(v.circles).toHaveLength(1)
     expect(v.decider).toBe('pc')
     expect(v.away).toEqual([])
-    expect(v.people.partner.id).toBe('npc_ann')
+    expect(v.seats[1]!.id).toBe('npc_ann')
     const o = sceneOptions(g.k, g.state)!
     expect(o.targets.map((t) => t.id)).toEqual(['npc_ann', 'npc_bo'])
     const move = o.actions.find((a) => a.id === 'move_circle')!

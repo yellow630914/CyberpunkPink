@@ -47,7 +47,7 @@ export { GENDER_FILTER_TAG, chooseForm, formBChance, formFor, formKeyFor, formUs
 export type { FormKey, FormView, UnitFormView } from './forms'
 export { ENEMY_GENDERS } from './kinds'
 export type { EnemyForm, EnemyFormMove, EnemyGender, EnemyNeutral } from './kinds'
-export { FOE_SUNK_POINT, SUNK, SUNK_EXT, dataSink, pendingSunk, sunkUnits } from './sunk'
+export { FOE_SUNK_POINT, SUNK, dataSink, sunkUnits } from './sunk'
 export { pickCandidates, pickEnemy, pickProblems } from './pick'
 export type { PickSpec } from './pick'
 export { ASK_DC, CAPTURE_BASE, CAPTURE_EXT, CAPTURE_MAX_OFFER, CAPTURE_PER_SEDUCE, CAPTIVE_TAG, askDc, canTake, captureCause, captureChance, captureKindOk, captureOf, pickEvent, rollCaptures, treatEvent } from './capture'

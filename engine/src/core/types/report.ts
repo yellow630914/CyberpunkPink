@@ -115,6 +115,8 @@ export interface ReportOutcome {
   result: string
   /** 給玩家看的摘要（AI 關閉時的戰報） */
   summary: string
+  /** 這一份報告的經歷只留模糊的殘留（人偶館戴晶片的失憶班：work 寫）；共同記憶、性經歷之類聽 report.after 的功能要不要略過是它們的事 */
+  amnesia?: boolean
 }
 
 /** 被夾值的一筆：原本的值、上限、夾過的值，以及給玩家看的白話提醒（AI_TASKS 2.5 節）。 */

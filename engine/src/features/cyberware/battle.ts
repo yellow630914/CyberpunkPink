@@ -9,16 +9,18 @@
 //   修正           一個 k.battle.modifier：開著的開關、battle.scaling（照現在的感載）、battle.vs（對手帶某個標籤）、戰地手術裝上的那一件 effects 裡 mod 類的
 //   效果 op        implant_install：相鄰的隊友從使用者的快取格拿一件義體成品裝上，這一場立刻能用；戰鬥結束（onEnd）才寫進角色
 //   戰鬥結束       把裝上的那幾件寫進角色（背包少一疊、沉溺成本照自己動刀算、不休養、擲一次義體學決定併發症）、藥泵用掉的劑數寫回那一件
+//   斷藥           帶著狀態 pump_jam（核心的約定；程式「斷藥」）的單位，藥泵與標了 jammable 的行動（冷卻迴路）灰掉，原因寫「斷藥中……」
+//   重創           戰鬥中途打出重的重創（頭、肢體）：wound 掛點把對應那一件義體這一場當下拿掉（have、藥泵、implants、開關），失效的算法是 model.ts 的 woundedUids（讀的時候算）
 // 戰鬥中不寫角色的狀態；這一場被回退（重來、撤退）就什麼都沒發生。
 
 import type { ActorId, BattleActionDef, BattleEffectCtx, BattlePick, BattleRun, BattleUnit, BattleView, BlueprintEntry, Change, GameState, ItemEntry, Kernel, RollPart, SyncGear } from '../../core'
 import {
-  BattleBlocked, ContentError, SYNC_GEARS, clone, dcFor, deriveRng, isRecord, isSyncGear, modeOf, passiveProblems, productOf, readProduct, rollCheck, statusRuleOf, syncBlocks, syncRuleOf, unitTag,
+  BattleBlocked, ContentError, PUMP_JAM, SYNC_GEARS, clone, dcFor, deriveRng, isRecord, isSyncGear, modeOf, passiveProblems, productOf, readProduct, rollCheck, statusRuleOf, syncBlocks, syncRuleOf, unitTag,
 } from '../../core'
 import type { BattleAction, BattleDef, BattleToggle, FieldData } from './battleDef'
 import { SYNC_BACKLASH, battleProblems, kindOfBlueprint, readBattle } from './battleDef'
 import type { CyberPiece } from './model'
-import { EXT, PART_NAME, blueprintEntry, cyberExtValue, cyberLive, cyberOf, cyberRules, hasBridge, isActive, isBridge, nowOf, partIdOf } from './model'
+import { EXT, PART_NAME, blueprintEntry, cyberExtValue, cyberLive, cyberOf, cyberRules, hasBridge, isActive, isBridge, nowOf, partIdOf, woundedUids } from './model'
 import type { PartId } from './model'
 import { complicationPool, floorWith, pieceSink } from './surgery'
 
@@ -30,6 +32,12 @@ export const INSTALL_OP = 'implant_install'
 /** 戰地手術的報告前綴與擲骰用途 */
 export const FIELD_ACTION = 'cyber.field'
 const SELF_ATTR = 'tech'
+
+// ---- 斷藥（狀態 PUMP_JAM；M4-core-gaps 第 5 項） ----
+
+/** 帶著斷藥的狀態：藥泵與標了 jammable 的行動（冷卻迴路）這段時間不能用。 */
+const jammed = (u: BattleUnit): boolean => u.statuses.some((s) => s.id === PUMP_JAM)
+const JAM_TEXT = (name: string): string => `斷藥中，${name}這幾個回合用不了。`
 
 // ---- 單位身上的資料 ----
 
@@ -51,6 +59,8 @@ interface UnitExt {
   pump?: Record<string, { item: string; qty: number }>
   /** 這一場戰地手術裝上的 */
   field?: FieldPiece[]
+  /** 重的重創（頭、肢體）讓失效的那幾件（uid）：開打時就壞了的，加上這一場打壞的；戰鬥中只增不減（M4-core-gaps 第 3 項） */
+  down?: string[]
 }
 
 const extOf = (u: BattleUnit): UnitExt | undefined => (isRecord(u.ext[UNIT_EXT]) ? (u.ext[UNIT_EXT] as UnitExt) : undefined)
@@ -239,6 +249,7 @@ function oneShot(bp: BlueprintEntry, a: BattleAction): BattleActionDef {
     cost: () => ({ ap: a.ap }),
     blocks: (_v, u) => {
       const out: string[] = []
+      if (a.jammable && jammed(u)) out.push(JAM_TEXT(a.name))
       if (limit?.turn !== undefined && (u.uses[usedKey('turn', a.id)] ?? 0) >= limit.turn) out.push(`這個回合已經用過${a.name}了。`)
       if (limit?.battle !== undefined && (u.uses[usedKey('battle', a.id)] ?? 0) >= limit.battle) out.push(`這場戰鬥已經用過${a.name}了。`)
       return out
@@ -320,7 +331,7 @@ const pumpAction: BattleActionDef = {
   group: 'supply', icon: 'item', modes: ['meat'], target: 'none', order: 42,
   has: (_v, u) => !!extOf(u)?.pump && Object.keys(extOf(u)!.pump!).length > 0,
   cost: () => ({ ap: 0 }),
-  blocks: (_v, u) => (pumpEntries(u).length === 0 ? ['藥泵裡沒有藥了。'] : []),
+  blocks: (_v, u) => [...(jammed(u) ? [JAM_TEXT('藥泵')] : []), ...(pumpEntries(u).length === 0 ? ['藥泵裡沒有藥了。'] : [])],
   picks: (view, u): BattlePick[] => {
     const list = pumpEntries(u)
     if (list.length === 0) return []
@@ -511,10 +522,47 @@ export function installBattle(kernel: Kernel): void {
       have.push({ uid: piece.uid, bp: piece.bp })
       if (def.pump) pump[piece.uid] = piece.loaded ? { ...piece.loaded } : { item: '', qty: 0 }
     }
-    if (have.length === 0) return
+    // 重的重創（頭、肢體）讓失效的（cyberLive 已經當成 off、不在 have 裡）：記下來，這一場打出新的重創時才知道哪幾件是這一場才壞的
+    const down = [...woundedUids(run.state, unit.actor)]
+    if (have.length === 0 && down.length === 0) return
     const ext = ensureExt(unit)
-    ext.have = have
+    if (have.length > 0) ext.have = have
+    if (down.length > 0) ext.down = down
     if (Object.keys(pump).length > 0) ext.pump = pump
+  })
+
+  // 戰鬥中途打出的重的重創（頭：眼，然後腦；肢體：臂與腿）：身上對應的那一件義體這一場當下失效（M4-core-gaps 第 3 項；COMBAT_SYSTEM 第 6 節、P46）。
+  // 失效的那一件由 woundedUids 算（讀的時候算，不寫狀態；下一步起 state.battle 帶著重創，被動效果與甲板也讀得到）；
+  // 這裡只把單位身上這一場的東西同步掉：不再生效的義體從 have、藥泵、implants 拿掉，開著的開關關掉
+  k.battle.on('wound', OWNER, ({ run, target }) => {
+    if (!target.actor || run.mode.layer !== 'meat' || target.out || !run.state.actors[target.actor]) return
+    if (target.wounds.head !== 2 && target.wounds.limb !== 2) return
+    const pieces = cyberOf(run.state, target.actor)
+    const now = woundedUids(run.state, target.actor, pieces, { head: target.wounds.head === 2, limb: target.wounds.limb === 2 })
+    const known = new Set(extOf(target)?.down ?? [])
+    const fresh = [...now].filter((uid) => !known.has(uid))
+    if (fresh.length === 0) return
+    const ext = ensureExt(target)
+    ext.down = [...now]
+    for (const uid of fresh) {
+      const piece = pieces.find((p) => p.uid === uid)
+      if (!piece) continue
+      ext.have = (ext.have ?? []).filter((h) => h.uid !== uid)
+      if (ext.have.length === 0) delete ext.have
+      if (ext.pump) {
+        delete ext.pump[uid]
+        if (Object.keys(ext.pump).length === 0) delete ext.pump
+      }
+      const name = (piece.kind_of === 'deck' ? undefined : blueprintEntry(k, piece.bp)?.name) ?? piece.bp
+      const kind = pieceKind(k, piece)
+      const at = (target.implants ?? []).findIndex((i) => i.kind === kind && i.name === name)
+      if (at >= 0) {
+        target.implants = target.implants!.filter((_, i) => i !== at)
+        target.cyber = Math.max(0, (target.cyber ?? 1) - 1)
+      }
+      run.say(`${unitTag(target)} 的${name}被打壞了。`, 'status', { unit: target.id, implant: kind, wound: true }, target)
+    }
+    settleToggles(run, target)
   })
 
   k.battle.modifier(OWNER, (q) => battleMods(k, q))

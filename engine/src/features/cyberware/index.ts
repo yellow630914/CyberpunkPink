@@ -38,6 +38,7 @@ import { cyberPassives, quirkPassives, sceneBody } from './passive'
 import { SURGERY_STAT } from './surgery'
 import { installBattle, readyBattle } from './battle'
 import { installEffects, installLockHooks } from './lock'
+import { hackTraceAnswer, hackedAnswer, netTraceAnswer, traceProblems } from './trace'
 
 export { cyberOf, cyberRules, DEFAULT_CYBER_RULES, hasBridge, isBridge, partIdOf, PART_IDS, PART_NAME, SURGEON_KINDS, SURGEON_NAME, isReady, isActive } from './model'
 export type { CyberPiece, CyberRules, PartId, Side, SurgeonKind, SurgeonRule, CyberOff } from './model'
@@ -146,6 +147,11 @@ export const cyberwareFeature: Feature = {
     // 戰鬥（M4-cyber-battle）：loadout 的 implants、開關與修正、藥泵、戰地手術的效果 op、戰鬥結束時寫回
     installBattle(k)
 
+    // 回答別的功能問的：快駭與網內探索的追蹤度（駭入接頭、回報後門）、被駭時讀走什麼（記憶庫）；掛點是 hack、netrun 宣告的，這裡只認名字（M4-core-gaps 第 4、20 項）
+    on('hack.trace_mod', OWNER, (({ state, actor, faction }: { state: GameState; actor: string; faction?: string }) => hackTraceAnswer(k, state, actor, faction)) as never)
+    on('netrun.trace_mod', OWNER, (({ state, party, faction, when }: { state: GameState; party: string[]; faction?: string; when: 'start' | 'rise' }) => netTraceAnswer(k, state, party, faction, when)) as never)
+    on('net.hacked', OWNER, (({ state, party }: { state: GameState; party: string[] }) => hackedAnswer(k, state, party)) as never)
+
     // 授權鎖（M4-cyber-lock）：四個效果（cyber_install、cyber_take、cyber_lock、cyber_unlock）、每週帳單的訂閱、defeat.gear、scan.person
     installEffects(k)
     installLockHooks(k)
@@ -158,6 +164,13 @@ export const cyberwareFeature: Feature = {
         if (t.clinic === undefined) continue
         const c = t.clinic
         if (!isRecord(c) || !(CLINIC_GRADES as readonly unknown[]).includes(c.grade)) problems.push(`${FACILITY_TYPE_KIND}/${t.id}：clinic 要是 { grade: ${CLINIC_GRADES.join(' | ')} }`)
+      }
+    }
+    // 設計圖的 trace_mod、readable 欄位（M4-core-gaps 第 4、20 項）
+    if (k.content.hasKind('blueprint')) {
+      for (const e of k.content.list<ContentEntry & { trace_mod?: unknown; readable?: unknown }>('blueprint')) {
+        if (e.trace_mod === undefined && e.readable === undefined) continue
+        problems.push(...traceProblems(e).map((m) => `blueprint/${e.id}：${m}`))
       }
     }
     if (problems.length) throw new ContentError(problems)

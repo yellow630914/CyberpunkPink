@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { ContentPack, Feature, Game } from '../../src'
-import { ContentError, createKernel, readyFeatures } from '../../src'
+import { ContentError, createKernel } from '../../src'
 import { abilitiesFeature, abilitiesOf, capacityOf } from '../../src/features/abilities'
 import { characterFeature } from '../../src/features/character'
 import type { CreationDraft } from '../../src/features/creation'
@@ -494,13 +494,12 @@ describe('規則的數字（creation_rule）', () => {
     expect(creationSummary(g.k, g.state, draft({ bridge: 'bp_bridge_b', cyber: [] })).cyber.spent).toBe(3)
   })
 
-  it('新欄位的格式不對在載入時擋下（核心的格式檢查不認得它們，由 creation 在 ready 查）', () => {
+  it('新欄位的格式不對在載入時擋下（核心的內容檢查 creation_rule；M4-core-gaps 第 9 項）', () => {
     for (const bad of [{ gear_point_price: 0 }, { gear_grade_max: 'II' }, { cyber_install_mult: -1 }, { gear_kinds: 'weapon' }, { gear_kinds: [1] }]) {
       const rules: ContentPack = { id: 'r', content: { creation_rule: [{ ...(MINI_PACK.content.creation_rule![0] as object), id: 'default', ...bad }] } } as unknown as ContentPack
       const k = createKernel([creationFeature])
       k.content.loadPack(MINI_PACK)
-      k.content.loadPack(rules)
-      expect(() => readyFeatures(k)).toThrow(ContentError)
+      expect(() => k.content.loadPack(rules)).toThrow(ContentError)
     }
   })
 })

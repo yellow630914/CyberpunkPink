@@ -544,9 +544,9 @@ describe('說話（對觀眾說）', () => {
 
   it('scene_talk 給的結果（env.talk）：節奏夾在 −5～+10', () => {
     const g = alone({}, { audience: true })
-    act(g, { kind: 'talk' }, { talk: { fit: 30 } })
+    act(g, { kind: 'talk' }, { talk: { pc: { fit: 30 } } })
     expect(raw(g).pace).toBe(40)
-    act(g, { kind: 'talk' }, { talk: { fit: -30 } })
+    act(g, { kind: 'talk' }, { talk: { pc: { fit: -30 } } })
     expect(raw(g).pace).toBe(35)
   })
 })
@@ -839,11 +839,10 @@ const sceneActInterrupt = (g: Game) => sceneInterrupt(g.k, g.state)
 
 // ======================================================================
 describe('畫面資料（sceneView、sceneOptions、預覽）', () => {
-  it('sceneView：kind 是 solo、沒有 partner、pairs 是空的、有 pace 與 audience；位置是姿勢；fit 與評價讀節奏', () => {
+  it('sceneView：kind 是 solo、只有主角一個座位、pairs 是空的、有 pace 與 audience；位置是姿勢；fit 與評價讀節奏', () => {
     const g = alone({}, { audience: true })
     const v = sceneView(g.k, g.state)!
     expect(v).toMatchObject({ kind: 'solo', layer: 'meat', pace: 30, audience: true, pairs: {}, away: [], circles: [], init: 50, holder: 'pc', fit: 30, rating: { id: 'fair', name: '普通' }, nature: 'solo', nature_name: '獨自' })
-    expect(Object.keys(v.people)).toEqual(['pc'])
     expect(v.seats.map((x) => x.id)).toEqual(['pc'])
     expect(v.position).toMatchObject({ id: 'solo_spread', name: '張腿仰躺', upper: null })
     expect(Object.keys(v.position.mult)).toEqual(['pc'])

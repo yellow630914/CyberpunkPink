@@ -4,7 +4,7 @@
 // 所有參與者都是成年人；畫面沒有露骨的字。
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { sceneRawOf } from '@engine/src/features/scene'
+import { sceneRawOf, sceneSetupOf } from '@engine/src/features/scene'
 import AdultSceneScreen from '../../src/screens/AdultSceneScreen.vue'
 import SceneConfirm from '../../src/components/scene/SceneConfirm.vue'
 import SceneActions from '../../src/components/scene/SceneActions.vue'
@@ -14,7 +14,7 @@ import NightClassPanel from '../../src/components/scene/NightClassPanel.vue'
 import AvatarEditor from '../../src/components/scene/AvatarEditor.vue'
 import SettingsDialog from '../../src/dialogs/SettingsDialog.vue'
 import { FILTER_ROWS, FILTER_TAGS, aiSettingsFromUi, rulesFromUi, uiFromAiSettings } from '../../src/lib/engineView'
-import { DIRECTION_LIMIT, directionCount, isGroup, isSolo, othersOf, reasonText, setupOf } from '../../src/lib/scene/sceneView'
+import { DIRECTION_LIMIT, directionCount, isGroup, isSolo, othersOf, reasonText } from '../../src/lib/scene/sceneView'
 import { attrOf, html, setup, tagOf, text, BEA, CAT, SETUP, TRIO, type Setup } from './fixtures'
 import type { Actor } from '@engine/src'
 
@@ -51,10 +51,10 @@ describe('1 一對一照舊（M2 的測試不改邏輯）；摘要與寫法指�
     expect(s.e.scene.skipBlock()).toContain('只能按「停下」')
     expect(await page(s, '')).not.toContain('data-gate')
   })
-  it('settings 的 setupOf 還原成引擎要的設定：摘要和一開始照設定問的一樣', async () => {
+  it('sceneSetupOf（引擎）還原成引擎要的設定：摘要（sceneGateSummary）和一開始照設定問的一樣', async () => {
     const s = await trio({ setup: { circles: [['pc', ann, 'npc_bea'], ['npc_cat']], nature: 'trade', role: 'guest', place: '房間', goal: 'info' } })
     const raw = sceneRawOf(s.e.state)!
-    const setupBack = setupOf(raw)
+    const setupBack = sceneSetupOf(raw)
     expect(setupBack).toMatchObject({ nature: 'trade', role: 'guest', goal: 'info', place: '房間', mode: 'full', layer: 'meat' })
     const sum = s.e.scene.gate()!
     expect(sum.kind).toBe('group')

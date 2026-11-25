@@ -34,7 +34,6 @@ const router = useRouter()
 
 const from = computed(() => (typeof route.query.from === 'string' && route.query.from !== '/scene' ? route.query.from : '/'))
 const v = computed(() => e.scene.view())
-const opts = computed(() => e.scene.options())
 const debrief = computed(() => e.scene.debrief())
 const simple = computed(() => v.value?.mode === 'simple')
 const solo = computed(() => !!v.value && isSolo(v.value))
@@ -64,6 +63,8 @@ const playing = ref(false)
 const selected = ref('dominate')
 /** 指定的行動對象（角色的 id）；null 是讓引擎挑 */
 const target = ref<string | null>(null)
+/** 行動一次列出來：多人時照指定的對象算每個行動的原因與部位（引擎的 sceneOptions 收 target） */
+const opts = computed(() => e.scene.options(target.value))
 watch(() => v.value?.id, () => { target.value = null })
 watch(() => others.value.map((x) => x.id + x.out).join(), () => { if (target.value && !others.value.some((x) => x.id === target.value && !x.out)) target.value = null })
 const TARGETED = new Set(['dominate', 'yield', 'tease', 'skill', 'item', 'talk'])
@@ -201,8 +202,9 @@ const upperText = computed(() => {
 const roleText = (p: PersonView): string => (p.role ? (p.upper ? '上位' : '下位') : '')
 const multText = computed(() => {
   const m = v.value?.position.mult
-  if (!m || solo.value || group.value) return ''
-  return `・你 ×${m.pc}・${theirName.value} ×${m.partner}`
+  const seats = v.value?.seats ?? []
+  if (!m || solo.value || group.value || seats.length < 2) return ''
+  return `・你 ×${m[seats[0]!.id]}・${theirName.value} ×${m[seats[1]!.id]}`
 })
 
 // ---- 開場與離開 ----

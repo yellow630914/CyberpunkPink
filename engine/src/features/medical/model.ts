@@ -31,8 +31,8 @@ export const CLINIC_NAME: Record<ClinicGrade, string> = { clinic: '正規診所'
 export const AID_ATTR = 'tech'
 export const AID_SKILL = 'medicine'
 
-/** 體格與反應的基本功（skills 內容的 attr 是 body 或 reflex 的那幾個）：重創與休養的檢定減值掛在它們上面。 */
-export const PHYSICAL_SKILLS = ['brawl', 'athletics', 'heavy', 'firearms', 'piloting', 'stealth'] as const
+/** 體格與反應的檢定：重創與休養的檢定減值掛在檢定用的屬性上（被動效果 check.attrs；M4-core-gaps 第 7 項，以前借基本功的清單）。 */
+export const PHYSICAL_ATTRS: Array<'body' | 'reflex'> = ['body', 'reflex']
 
 export interface AidRule {
   /** 急救花幾分鐘 */
@@ -67,7 +67,7 @@ export interface MedicalRules {
   self_requires: Condition[]
 }
 
-const physical = (amount: number, label: string): PassiveEffect => ({ check: { skills: [...PHYSICAL_SKILLS] }, amount, label })
+const physical = (amount: number, label: string): PassiveEffect => ({ check: { attrs: [...PHYSICAL_ATTRS] }, amount, label })
 
 export const DEFAULT_MEDICAL_RULES: MedicalRules = {
   aid: { minutes: 10, dc: 13, kit_bonus: 2, kit_tag: 'medkit' },

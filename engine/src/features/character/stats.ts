@@ -1,7 +1,7 @@
 // L6 角色：衍生數值與重傷（CORE_RULES 第 1、4.1、4.2 節；COMBAT_SYSTEM 第 45 行；CYBERSPACE 第 278 行）。
 
 import type { ActorId, GameState, Kernel, StatRegistry } from '../../core'
-import { attrMod } from '../../core'
+import { IGNORE_WOUND_PENALTY, attrMod } from '../../core'
 
 export const OWNER = 'character'
 
@@ -38,5 +38,6 @@ export function installStats(k: Kernel): void {
   // 暫時或永久的下限加減由 provider 與被動效果給，這裡不自己加
   s.defineStat({ id: 'sink_floor', owner: OWNER, name: '沉溺的下限', base: () => 0, min: 0 })
 
-  s.addCheckModifier(OWNER, (st, a) => (isWounded(s, st, a) ? [{ label: '重傷', value: -2, source: 'condition' }] : []))
+  // 重傷的檢定 −2；身上有 ignore_wound_penalty 的標籤（痛覺編輯器：被動效果 { unit_tag }）的人不算（戰鬥裡同一條在 run.mods；M4-core-gaps 第 1 項）
+  s.addCheckModifier(OWNER, (st, a) => (isWounded(s, st, a) && !k.passives.unitTags(st, a).includes(IGNORE_WOUND_PENALTY) ? [{ label: '重傷', value: -2, source: 'condition' }] : []))
 }

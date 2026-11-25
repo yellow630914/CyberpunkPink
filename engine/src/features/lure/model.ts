@@ -121,9 +121,26 @@ export interface RogueAiEntry extends ContentEntry {
   lore: Record<LoreSlot, string>
   /** 牠的吻是哪一筆惡意韌體 */
   kiss?: string
+  /** 擴散階段的吻在自由行動與成人場景的視窗裡怎麼插一個選項、替你選（whisper.ts；M4-core-gaps 第 16 項） */
+  whisper?: WhisperDef
 }
 
-const ENTRY_FIELDS = ['id', 'name', 'tag', 'axis', 'filter', 'lore', 'kiss']
+/**
+ * 擴散階段的視窗（掛點 action.window 與 scene.window）：label 是插進來的那個選項給玩家看的一句；free 是自由行動裡那個選項送出的一句話（沒寫自由行動不插）；
+ * scene 是成人場景裡那個選項做的行動（沒寫場景不插）；replace_chance 是牠這一次直接替你選的機率（0～1，沒寫是 0：只插選項不替你選）；why 是替你選時記的一句話。
+ */
+export interface WhisperDef {
+  label: string
+  free?: string
+  scene?: { kind: (typeof WINDOW_SCENE_KINDS)[number] }
+  replace_chance?: number
+  why?: string
+}
+/** 牠在場景裡能插的行動（不選部位、不用指定對象的幾種）。 */
+export const WINDOW_SCENE_KINDS = ['dominate', 'yield', 'tease', 'restrain', 'talk', 'end_turn'] as const
+export const WINDOW_WHY = '那個聲音搶在你前面開了口。'
+
+const ENTRY_FIELDS = ['id', 'name', 'tag', 'axis', 'filter', 'lore', 'kiss', 'whisper']
 
 export function entryProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
@@ -132,6 +149,19 @@ export function entryProblems(e: Record<string, unknown>): string[] {
   if (e.axis !== undefined && !isAxis(e.axis)) p.push(`axis 要是 ${AXES.join('、')} 其中一個`)
   if (!isText(e.filter)) p.push('filter 要是內容篩選的標籤（例 ai:媽咪）')
   if (e.kiss !== undefined && !isText(e.kiss)) p.push('kiss 要是惡意韌體的 id')
+  if (e.whisper !== undefined) {
+    const w = e.whisper
+    if (!isRecord(w)) p.push('whisper 要是 { label, free?, scene?, replace_chance?, why? }')
+    else {
+      for (const f of Object.keys(w)) if (!['label', 'free', 'scene', 'replace_chance', 'why'].includes(f)) p.push(`whisper.${f}：沒有這個欄位（label、free、scene、replace_chance、why）`)
+      if (!isText(w.label)) p.push('whisper.label 要是插進來的那個選項的一句話')
+      if (w.free !== undefined && !isText(w.free)) p.push('whisper.free 要是自由行動送出的一句話')
+      if (w.scene !== undefined && !(isRecord(w.scene) && (WINDOW_SCENE_KINDS as readonly unknown[]).includes(w.scene.kind))) p.push(`whisper.scene 要是 { kind: ${WINDOW_SCENE_KINDS.join('、')} 其中一個 }`)
+      if (w.replace_chance !== undefined && !(typeof w.replace_chance === 'number' && Number.isFinite(w.replace_chance) && w.replace_chance >= 0 && w.replace_chance <= 1)) p.push('whisper.replace_chance 要是 0～1 的數字')
+      if (w.why !== undefined && !isText(w.why)) p.push('whisper.why 要是一句話')
+      if (w.free === undefined && w.scene === undefined) p.push('whisper 要寫 free 或 scene 至少一個（不然哪裡都不插）')
+    }
+  }
   if (!isRecord(e.lore)) p.push(`lore 要是 { ${LORE_SLOTS.join('、')} } 四格，各一句`)
   else {
     for (const slot of LORE_SLOTS) if (!isText(e.lore[slot])) p.push(`lore.${slot} 要是一句話`)

@@ -10,6 +10,7 @@ import type { DigPlan } from './dig'
 import { ACT_FACE, ACT_NET, NET_MODE, OBJECTIVE_KINDS, OWNER, RANKS, TRACE, encounterAfter, gradeOf, isInt, isText, nodeAt, readRun, runChange } from './model'
 import { makePatrol, moverChanges, nextPatrolId } from './patrol'
 import { countsOf, netrunRules, regionOf } from './rules'
+import { traceMod } from './tracemod'
 import { applyHot, digCounts, digPlan, digTraceStart, extraWhite, markTraps, markedTrapChanges, reviveDig, tintColor } from './dig'
 
 /** 層的名字（資料的 layer 欄位）→ 給玩家看的。 */
@@ -435,7 +436,9 @@ export function startRun(k: Kernel, state: GameState, kind: RunKind, rawSetup: u
   // 預備的 net_trace_start 整趟委託只加一次：後面的內海階段 setup.trace 已經是整趟累計（含第一段加過的），副本給 prep_done 就不再加（M3 審查應修 1）
   const fromParty = !parsed.prepDone && k.stats.hasStat('net_trace_start') ? partyOf(state, parsed.party).reduce((s, a) => s + k.stats.stat(state, a, 'net_trace_start'), 0) : 0
   // 自己去挖：那家的敵對值分段（N16）加詞條的起始值（再進去的另外從上次離開的一半起算，那是 reviveDig 的事）
-  const traceStart = plan ? digTraceStart(k, state, parsed, plan, fromParty) : parsed.trace + (parsed.fx.trace_start ?? 0) + fromParty
+  // 加上義體的起跳（回報後門：在那一家的子網裡起跳 +5；掛點 netrun.trace_mod）
+  const backdoor = traceMod(k, state, partyOf(state, parsed.party), parsed.faction, 'start', 0)
+  const traceStart = (plan ? digTraceStart(k, state, parsed, plan, fromParty) : parsed.trace + (parsed.fx.trace_start ?? 0) + fromParty) + backdoor
   const goal: Goal = parsed.objective && isText(parsed.objective.kind)
     ? { ...clone(parsed.objective), kind: parsed.objective.kind as string }
     : { kind: kind === ACT_FACE ? 'pass' : 'clear' }

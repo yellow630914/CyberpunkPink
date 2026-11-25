@@ -6,6 +6,7 @@
 // 「別人看到的沉溺」不影響這裡：分段永遠照真正的沉溺算（NPCS 8.3 節「真正的數值不變，分段的加成與懲罰照真正的數值算」）。
 
 import type { ActorId, GameState, PassiveEffect } from '../../core'
+import { AFTERGLOW_DOUBLE } from '../../core'
 import type { SinkRules } from './model'
 import { SUNK_AT, liveMods, nowOf, readExt } from './model'
 import { bandOf } from './model'
@@ -29,6 +30,8 @@ export function sinkPassives(rules: SinkRules, state: GameState, actor: ActorId)
       if (band.min >= here.min) break
       for (const e of band.effects) if ('check' in e) out.push(named(e, `${band.name}（${here.name}：加倍）`))
     }
+    // 餘韻的正面效果加倍（CORE_RULES 4.3 節 80～99；M4-core-gaps 第 8 項）：核心的標籤，戰鬥裡每層餘韻的正面數字讀它
+    out.push({ unit_tag: AFTERGLOW_DOUBLE, label: `${here.name}：餘韻的正面效果加倍` })
   }
   if (value > SUNK_AT && rules.over_step > 0) {
     const extra = Math.floor((value - SUNK_AT) / rules.over_step)

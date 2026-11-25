@@ -5,6 +5,7 @@ import type { ActionKernel } from './action/action'
 import { ActivityRegistry } from './action/activity'
 import { registerCoreActivities } from './action/coreActivities'
 import { registerCoreBattleActions } from './battle/actions'
+import { unitTracks } from './battle/field'
 import { BattleRegistry } from './battle/registry'
 import { MOD_KINDS, registerBattleKinds, registerWeaponClassKind } from './battle/rules'
 import { registerProductKinds } from './content/product'
@@ -70,7 +71,7 @@ export function createKernel(features: Feature[] = []): Kernel {
 function registerPassiveBattle(k: Pick<Kernel, 'passives'>, battle: BattleRegistry): void {
   k.passives.defineMods(MOD_KINDS)
   // （有的測試只給半個 view，沒有 state：沒有狀態就沒有被動效果）
-  battle.modifier('passives', (q) => (q.unit.actor && q.view.state?.actors[q.unit.actor] ? k.passives.modParts(q.view.state, q.unit.actor, q.kind, { layer: q.view.mode.layer, tags: q.tags }) : []))
+  battle.modifier('passives', (q) => (q.unit.actor && q.view.state?.actors[q.unit.actor] ? k.passives.modParts(q.view.state, q.unit.actor, q.kind, { layer: q.view.mode.layer, tags: q.tags, tracks: unitTracks(q.unit) }) : []))
   battle.on('unit.ready', 'passives', ({ run, unit }) => {
     if (!unit.actor || !run.state.actors[unit.actor]) return
     for (const tag of k.passives.unitTags(run.state, unit.actor)) if (!unit.tags.includes(tag)) unit.tags.push(tag)

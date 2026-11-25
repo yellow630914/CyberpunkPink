@@ -18,7 +18,7 @@ import { BattleBlocked, performAction } from './act'
 import { aiStep } from './ai'
 import type { BattleActionDef, BattleActionGroup, BattleKernel, BattlePick, BattleTargetKind, BattleTargetOption } from './registry'
 import { actionCost, actionIcon, flashBlock } from './registry'
-import { modeOf } from './rules'
+import { SINK_RESIST, modeOf, sinkRise } from './rules'
 import { BattleRun } from './run'
 import type { BattleSetup } from './setup'
 import { setupBattle } from './setup'
@@ -192,7 +192,7 @@ function writeBack(k: BattleKernel, state: GameState, b: BattleState): { changes
     // 餘韻跟著人走；餘韻疊滿再過載而倒下的：醒來時餘韻清空，沉溺 +2（CORE_RULES 4.2 節）。
     // battle.field.safe 的場地（迷宮館的熔斷保護，CYBERSPACE 8.2 節；dev/adr/0018）不加這 +2（戰鬥中自己累積的沉溺照算）
     track('afterglow', u.out === 'burnout' ? 0 : u.layers)
-    const sink = u.sink + (u.out === 'burnout' && b.field.safe !== true ? 2 : 0)
+    const sink = u.sink + (u.out === 'burnout' && b.field.safe !== true ? sinkRise(2, u.tags.includes(SINK_RESIST)) : 0)
     if (sink) track('sink', a.sink + sink)
   }
   for (const u of Object.values(b.units)) if (u.side === 'foe' && u.out === 'subdued') lines.push(`制伏：${u.name}`)
@@ -267,6 +267,7 @@ export function endBattle(k: BattleKernel, state: GameState): ReportDraft {
   })
   const changes: Change[] = [...core.changes, ...snapshot, ...extras.flatMap((x) => x.changes ?? []), ...end.changes, { op: 'battle', state: null, fold: true }, { op: 'rng', advance: 1 }]
   const lines = [...core.lines, ...extras.flatMap((x) => x.lines ?? []), ...end.lines]
+  const triggers = extras.flatMap((x) => x.triggers ?? [])
   const after = clone(state)
   k.changes.applyAll(after, changes)
   const mode = modeOf(k.content, b.mode)
@@ -279,6 +280,8 @@ export function endBattle(k: BattleKernel, state: GameState): ReportDraft {
     changes,
     outcome: { result: outcome, summary },
     narration: { results: lines },
+    // 功能要掛在結束報告上的觸發點（BattleEndExtra.triggers；例：沉溺過了線的敵人 foe_sunk）
+    ...(triggers.length ? { triggers } : {}),
   }, end)
 }
 

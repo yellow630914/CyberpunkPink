@@ -338,18 +338,42 @@ export const WOUND_LIMB = 'wound_limb'
 const HEAD_ORDER: readonly PartId[] = ['eye', 'brain']
 const LIMB_ORDER: readonly PartId[] = ['arm_l', 'arm_r', 'leg_l', 'leg_r']
 
+/** 讀得到進行中的戰鬥的狀態（戰鬥中的重創還沒寫進角色，戰鬥結束才寫；M4-core-gaps 第 3 項）。 */
+type WoundState = Pick<GameState, 'actors' | 'time'> & { battle?: GameState['battle'] }
+/** 這個人這一場已經受的重的重創（單位的 wounds 是 2）要不要算：額外給的（戰鬥中這一步剛打出來的，還沒寫進狀態）加上 state.battle 裡的。 */
+export interface HeavyWounds {
+  head?: boolean
+  limb?: boolean
+}
+
 const hasCondition = (state: Pick<GameState, 'actors' | 'time'>, actor: ActorId, id: string): boolean => {
   const now = toMinutes(state.time)
   return !!state.actors[actor]?.conditions.some((c) => c.id === id && (c.until === undefined || c.until > now))
 }
 
 /**
+ * 進行中的戰鬥裡，這個人（我方、對到這個角色的單位）頭或肢體是不是已經重創到第二級。
+ * 戰鬥中的狀況（wound_head、wound_limb）是戰鬥結束才寫進角色的，所以「這一場當下」要讀戰鬥的狀態：讀的時候算，不寫任何狀態。
+ */
+export function battleHeavy(state: WoundState, actor: ActorId): Required<HeavyWounds> {
+  const out = { head: false, limb: false }
+  for (const u of Object.values(state.battle?.units ?? {})) {
+    if (u.side !== 'ally' || u.actor !== actor) continue
+    if (u.wounds.head === 2) out.head = true
+    if (u.wounds.limb === 2) out.limb = true
+  }
+  return out
+}
+
+/**
  * 重的重創讓哪幾件失效（uid）：有 wound_head 就是照順序第一件眼或腦的義體，有 wound_limb 就是第一件手臂或腿的義體
  * （沒有那種義體就沒事；已經 off 的照樣算那一件，不往下找，這樣鎖解開之後壞的還是同一件）。
+ * 戰鬥進行中：這個人這一場已經重創到第二級的頭或肢體也算（讀 state.battle；extra 是戰鬥這一步剛打出來、還沒提交的），所以義眼與腦裡的甲板在這一場當下就失效，不必等戰後。
  */
-export function woundedUids(state: Pick<GameState, 'actors' | 'time'>, actor: ActorId, pieces: readonly CyberPiece[] = cyberOf(state, actor)): Set<string> {
+export function woundedUids(state: WoundState, actor: ActorId, pieces: readonly CyberPiece[] = cyberOf(state, actor), extra: HeavyWounds = {}): Set<string> {
   const out = new Set<string>()
   if (pieces.length === 0) return out
+  const live = battleHeavy(state, actor)
   const first = (order: readonly PartId[]): CyberPiece | undefined => {
     for (const part of order) {
       const hit = pieces.find((p) => p.slot === part)
@@ -357,11 +381,11 @@ export function woundedUids(state: Pick<GameState, 'actors' | 'time'>, actor: Ac
     }
     return undefined
   }
-  if (hasCondition(state, actor, WOUND_HEAD)) {
+  if (hasCondition(state, actor, WOUND_HEAD) || live.head || extra.head) {
     const p = first(HEAD_ORDER)
     if (p) out.add(p.uid)
   }
-  if (hasCondition(state, actor, WOUND_LIMB)) {
+  if (hasCondition(state, actor, WOUND_LIMB) || live.limb || extra.limb) {
     const p = first(LIMB_ORDER)
     if (p) out.add(p.uid)
   }
@@ -372,7 +396,7 @@ export function woundedUids(state: Pick<GameState, 'actors' | 'time'>, actor: Ac
  * 身上的義體，加上重創讓失效的那幾件（當成 off: { why: 'wound' }；已經有 off 的留原本的）。被動效果、載入戰鬥、甲板、畫面都讀這一份；
  * 要的是「身上有什麼」（件數、手術、沉溺成本）仍然讀 cyberOf。
  */
-export function cyberLive(state: Pick<GameState, 'actors' | 'time'>, actor: ActorId): CyberPiece[] {
+export function cyberLive(state: WoundState, actor: ActorId): CyberPiece[] {
   const pieces = cyberOf(state, actor)
   const hurt = woundedUids(state, actor, pieces)
   if (hurt.size === 0) return pieces

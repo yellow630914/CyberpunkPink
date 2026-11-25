@@ -4,19 +4,18 @@
 // 接上核心的地方：
 //   內容  tuning（{ name, desc, effects, requires?, tags?, price?, flags?, scene? }；效果用被動效果的格式，來源 tuning）、tuning_rule（規則表，overridable；id: default；model.ts 的 DEFAULT_TUNING_RULES）；
 //         設施種類（world 的 facility_type）多讀 tuning: { install?, quiet_room? }（載入之後 ready 檢查格式）
-//   被動  k.passives.register 來源 tuning：裝著的每一個的 effects；requires 不成立（裝不穩）的：正的那幾筆不算、負的照算；flags 的 no_full_sync 給一筆 sync_cap_bonus −1
-//   修正  k.battle.modifier：flags 的 no_load_decay 在現實的戰場抵掉自然消退（battle.ts）
+//   被動  k.passives.register 來源 tuning：裝著的每一個的 effects；requires 不成立（裝不穩）的：正的那幾筆不算、負的照算；flags 的 no_full_sync 給一筆 sync_cap_max −1（核心的「最高檔」）、sink_resist 與 afterglow_double 各給一個單位標籤
+//   修正  k.battle.modifier：flags 的 no_load_decay 在現實的戰場抵掉自然消退（battle.ts）；掛點 damage.hp：flags 的 hp_to_load 把兩成生命傷害換成感載（規則表 hp_to_load_pct）
 //   掛點  scene.body（features/scene 宣告，用名字掛）：裝著的調校的 scene.sensitivity；time.passed：flags 的 sink_weekly 每週一沉溺 +1；
 //         report.after：看到 cyber.bridge（換橋）的報告，把沒上鎖的調校清掉
 //   條件  tuning（{ id }：裝著）；用到別人登記的：has_bridge、tendency_axis、tendency_tag、at_facility
 //   效果  tuning（{ id, locked_by?, days? }：強制裝上並可上鎖）、tuning_remove（{ id }：無視鎖拿掉）；都 ai: false；用到別人登記的：bridge、sink（查不到略過）
-//   衍生  sync_cap_bonus 沒有人定義時在 ready 補（基本 0，−3～3）
 // 讀的：k.stats（bridge_<參數> 的組成）、k.conditions、k.content、k.activity.blockOf。
 // 狀態  actor.ext.tuning：{ slots: [id | null, …], locked: { id: { by, until? } }, quiet_week?, quiet_n? }（形狀見 model.ts）
 // 報告（kind action）：tuning.install、tuning.remove（也是換橋之後的說明）、tuning.quiet、tuning.week（sink_weekly 的每週一份）。
 // 對外：tuningOf、tuningList、installProblems／installBlock／installQuote／installDraft、removeProblems／removeBlock／removeQuote／removeDraft、quietProblems／quietBlock／quietQuote／quietDraft、bridgeView。
 //
-// 沒有做：七種調校的內容；進階效果（特質）；原型版只收資料；三個只存不做的開關 sink_resist（沉溺每次上升 −1）、afterglow_double（餘韻的正面效果加倍）、hp_to_load（生命傷害兩成改感載）要核心或別的功能配合；
+// 沒有做：七種調校的內容；進階效果（特質）；原型版只收資料；
 // no_load_decay 只管戰鬥內的現實戰場（戰鬥外的消退是休息的事）；價錢沒有乘區的倍率。
 
 import type { ContentEntry, Feature, Kernel, ReportDraft } from '../../core'
@@ -25,7 +24,7 @@ import { installBattle } from './battle'
 import { installEffects } from './effects'
 import { tuningBody, tuningPassives } from './passive'
 import { bridgeChanged, weeklyDrafts } from './weekly'
-import { FACILITY_TYPE_KIND, KIND, OWNER, RULE_KIND, SYNC_CAP_STAT, entryProblems, readExt, ruleProblems, tuningRules } from './model'
+import { FACILITY_TYPE_KIND, KIND, OWNER, RULE_KIND, entryProblems, readExt, ruleProblems, tuningRules } from './model'
 import type { TuningExt } from './model'
 import type { GameState } from '../../core'
 
@@ -88,8 +87,6 @@ export const tuningFeature: Feature = {
   ready(kernel) {
     const k = kernel as Kernel
     const problems: string[] = []
-    // 沒有人定義 sync_cap_bonus 時補上（核心的 syncCapOf 讀它；no_full_sync 要用）
-    if (!k.stats.hasStat(SYNC_CAP_STAT)) k.stats.defineStat({ id: SYNC_CAP_STAT, owner: OWNER, name: '同步檔位的上限加成', base: () => 0, min: -3, max: 3 })
     // 設施種類多讀的 tuning
     if (k.content.hasKind(FACILITY_TYPE_KIND)) {
       for (const t of k.content.list<ContentEntry & { tuning?: unknown }>(FACILITY_TYPE_KIND)) {

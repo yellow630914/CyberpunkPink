@@ -37,7 +37,10 @@ const isOptionId = (v: unknown): v is string => typeof v === 'string' && /^[A-Za
 
 export interface SceneSpec {
   when: (typeof SCENE_WHEN)[number]
-  circles: string[][]
+  /** 分圈的參與者；單人（solo: true）不寫 */
+  circles?: string[][]
+  /** 單人：一個人的場景（features/scene 的 setup.solo）；不帶 circles（M4-core-gaps 第 17 項） */
+  solo?: boolean
   [field: string]: unknown
 }
 
@@ -227,7 +230,11 @@ function sceneProblems(raw: unknown, path: string): string[] {
   if (!isRecord(raw)) return [`${path}：要是 { when, gate, nature, role, goal, circles }`]
   const p: string[] = []
   if (!(SCENE_WHEN as readonly unknown[]).includes(raw.when)) p.push(`${path}.when 只能是 ${SCENE_WHEN.join('、')}`)
-  if (!(Array.isArray(raw.circles) && raw.circles.length > 0 && raw.circles.every((c) => isTextList(c) && c.length > 0))) p.push(`${path}.circles 要是 [[參與的人]]（$pc 是主角，$a、$b 是登場角色）`)
+  // 單人（solo: true）一個人的場景：不寫 circles；其餘一定要有 circles
+  if (raw.solo !== undefined && typeof raw.solo !== 'boolean') p.push(`${path}.solo 要是 true 或 false`)
+  if (raw.solo === true) {
+    if (raw.circles !== undefined) p.push(`${path}：單人的場景（solo）沒有對象，不能寫 circles`)
+  } else if (!(Array.isArray(raw.circles) && raw.circles.length > 0 && raw.circles.every((c) => isTextList(c) && c.length > 0))) p.push(`${path}.circles 要是 [[參與的人]]（$pc 是主角，$a、$b 是登場角色）；一個人的場景寫 solo: true`)
   for (const key of ['gate', 'nature', 'role', 'goal', 'start_position']) if (raw[key] !== undefined && !isText(raw[key])) p.push(`${path}.${key} 要是字串`)
   return p
 }

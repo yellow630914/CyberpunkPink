@@ -12,8 +12,8 @@ import { combatFeature } from '../../src/features/combat'
 import { deckFeature } from '../../src/features/deck'
 import type { EnemyEntry } from '../../src/features/enemies/kinds'
 import {
-  BIND_STATUS, DEFAULT_FORM_B_CHANCE, FOE_SUNK_POINT, SINK_LAYER_STEPS, SUNK, SUNK_EXT, UNBIND, captureOf, dataSink, enemiesFeature, enemyStats, formFor, formKeyFor, genderOf, hasForms,
-  isBound, pendingSunk, pickForm, sinkLayers, unitFormView, usableForms,
+  BIND_STATUS, DEFAULT_FORM_B_CHANCE, FOE_SUNK_POINT, SINK_LAYER_STEPS, SUNK, UNBIND, captureOf, dataSink, enemiesFeature, enemyStats, formFor, formKeyFor, genderOf, hasForms,
+  isBound, pickForm, sinkLayers, unitFormView, usableForms,
 } from '../../src/features/enemies'
 import { TEST_NET_COMBAT, fixDice, makeActor, makeBattleGame, makeGame, makeState, netAvatar, observed } from '../../src/testkit'
 import { one, raw } from '../helpers/battle'
@@ -901,15 +901,13 @@ describe('被推過線之後的結算：不能俘虜、掉落照常、結束的�
     return { game, reports: result.reports, end: result.reports.find((r) => r.action === 'battle.end')! }
   }
 
-  it('結束的報告多一句；接著一份帶觸發點 foe_sunk 的報告；記著的東西送出之後清掉', async () => {
+  it('結束的報告多一句，而且直接帶著觸發點 foe_sunk（不再有跟進的那一份報告；M4-core-gaps 第 18 項）', async () => {
     const { game, reports, end } = await ended()
     expect(end.outcome.summary).toContain('沉溺過了線，成了溺感者')
     expect(end.narration?.results?.some((l) => l.includes('成了溺感者'))).toBe(true)
-    const sunk = reports.find((r) => r.action === 'enemies.foe_sunk')!
-    expect(sunk).toBeDefined()
-    expect(sunk.triggers).toEqual([{ point: FOE_SUNK_POINT, where: expect.objectContaining({ enemy: 'en_sink85' }) }])
-    expect(pendingSunk(game.state)).toBeNull()
-    expect(game.state.ext[SUNK_EXT]).toBeUndefined()
+    expect(end.triggers).toEqual([{ point: FOE_SUNK_POINT, where: expect.objectContaining({ enemy: 'en_sink85' }) }])
+    expect(reports.some((r) => r.action === 'enemies.foe_sunk')).toBe(false)
+    expect(game.state.ext.enemy_sunk).toBeUndefined()
   })
 
   it('不能俘虜：沒有俘虜的選項；掉落照常（打倒是怎麼掉的，被推過線就怎麼掉）', async () => {
@@ -920,7 +918,7 @@ describe('被推過線之後的結算：不能俘虜、掉落照常、結束的�
     expect(loot(sunk.end)).toContain('it_part')
     expect(loot(sunk.end)).toBe(loot(down.end))
     // 一般的打倒沒有 foe_sunk
-    expect(down.reports.some((r) => r.action === 'enemies.foe_sunk')).toBe(false)
+    expect(down.end.triggers ?? []).toEqual([])
     expect(down.end.outcome.summary).not.toContain('溺感者')
   })
 })

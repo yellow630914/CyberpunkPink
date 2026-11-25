@@ -15,7 +15,7 @@ import type { Change, GameState, GridUse, Grade, Kernel, MarkerDef, ReportDraft 
 import { ActionBlocked, deriveRng, effectCtx, isRecord, pointKey } from '../../core'
 import { bestTier, checkBeat, keysIn, mastersOf, passed, pickAdmin, pickOf, rollPicked, spendKey } from './checks'
 import { closeDraft, logoutBlock } from './close'
-import { draft, runRegion, traceDelta } from './common'
+import { draft, runRegion, traceRise } from './common'
 import type { LootEntry, NetExt, NetRun } from './model'
 import { ACT_FACE, TRACE, nodeAt } from './model'
 import { advanceRound, newOut, patrolFight, workChanges, workOf } from './rounds'
@@ -31,8 +31,8 @@ const BUSY = '正在戰鬥，先把這一場打完。'
 export const isGoalNode = (run: NetRun, sheetId: string, marker: Pick<MarkerDef, 'id'>): boolean => run.goal.at?.sheet === sheetId && run.goal.at.id === marker.id
 
 /** 追蹤度加減（這一區沒有追蹤度就沒有）。 */
-export function traceChanges(k: Kernel, run: NetRun, delta: number): Change[] {
-  const d = traceDelta(run, delta)
+export function traceChanges(k: Kernel, state: GameState, run: NetRun, delta: number): Change[] {
+  const d = traceRise(k, state, run, delta)
   return d !== 0 && runRegion(k, run).pressure === 'trace' && k.meters.has(TRACE) ? [{ op: 'meter', kind: TRACE, key: run.map, delta: d }] : []
 }
 
@@ -108,7 +108,7 @@ function progressDraft(k: Kernel, state: GameState, run: NetRun, net: NetExt, sh
   const done = progress >= turns
   w.run.goal = { ...w.run.goal, turns, progress, ...(done ? { done: true } : {}) }
   w.runDirty = true
-  const extra = kind === 'download' ? traceChanges(k, w.run, rules.download_trace) : []
+  const extra = kind === 'download' ? traceChanges(k, state, w.run, rules.download_trace) : []
   advanceRound(k, state, w, out)
   if (!done) {
     const node = nodeAt(w.net, sheetId, marker.at)
@@ -188,7 +188,7 @@ function seizeDraft(k: Kernel, state: GameState, run: NetRun, net: NetExt, sheet
     const roll = rollPicked(k, state, pick, w.net.dc, `netrun/${w.run.id}/seize/${sheetId}/${marker.id}`, ['netrun', 'admin', 'seize'])
     ok = passed(roll)
     out.beats.push(checkBeat(k, state, pick, roll, '接管'))
-    base.push(rngStep, ...traceChanges(k, w.run, rules.admin_trace + (ok ? 0 : rules.fail_trace)))
+    base.push(rngStep, ...traceChanges(k, state, w.run, rules.admin_trace + (ok ? 0 : rules.fail_trace)))
     out.lines.push(ok ? `追蹤度 +${rules.admin_trace}。` : `接管失敗：追蹤度 +${rules.admin_trace + rules.fail_trace}。`)
   }
   if (!ok) return report(state, w, out, 'seize_fail', `你們沒能接管「${marker.name}」。`, base)
@@ -223,7 +223,7 @@ function personDraft(k: Kernel, state: GameState, run: NetRun, net: NetExt, shee
   out.beats.push(checkBeat(k, state, pick, roll, hack ? '對他快駭' : '和他交涉'))
   // 快駭不論成敗 +1；交涉失敗 +失敗的數字
   const trace = hack ? rules.admin_trace : ok ? 0 : rules.fail_trace
-  const base: Change[] = [rngStep, ...traceChanges(k, w.run, trace)]
+  const base: Change[] = [rngStep, ...traceChanges(k, state, w.run, trace)]
   if (trace > 0) out.lines.push(`追蹤度 +${trace}。`)
   if (!ok) return report(state, w, out, hack ? 'hack_fail' : 'talk_fail', hack ? `快駭「${marker.name}」沒成功。` : `「${marker.name}」不理你們。`, base)
   w.net.keys = [...w.net.keys, `${sheetId}/${marker.id}`]
@@ -263,7 +263,7 @@ export function gateDraft(k: Kernel, state: GameState, run: NetRun, net: NetExt,
     const roll = rollPicked(k, state, pick, dc, `netrun/${w.run.id}/crack/${sheetId}`, ['netrun', 'admin', 'crack'])
     ok = passed(roll)
     out.beats.push(checkBeat(k, state, pick, roll, '破解閘門'))
-    base.push(rngStep, ...traceChanges(k, w.run, rules.admin_trace + (ok ? 0 : rules.fail_trace)))
+    base.push(rngStep, ...traceChanges(k, state, w.run, rules.admin_trace + (ok ? 0 : rules.fail_trace)))
     out.lines.push(ok ? `追蹤度 +${rules.admin_trace}。` : `追蹤度 +${rules.admin_trace + rules.fail_trace}。`)
     summary = ok ? '閘門破開了。守著它的遭遇還在，可以不打直接通過。' : '閘門沒破開。'
   } else if (how === 'cred') {
@@ -316,7 +316,7 @@ export function wipeDraft(k: Kernel, state: GameState, run: NetRun, net: NetExt)
   w.netDirty = true
   const delta = (ok ? -rules.wipe : 0) + rules.admin_trace + (ok ? 0 : rules.fail_trace)
   out.lines.push(ok ? `追蹤度 ${delta >= 0 ? '+' : ''}${delta}（擦掉 ${rules.wipe}，管理行動 +${rules.admin_trace}）。` : `追蹤度 +${delta}。`)
-  return report(state, w, out, ok ? 'wipe' : 'wipe_fail', ok ? '擦掉了一部分痕跡。' : '痕跡沒擦掉，反而留了更多。', [rngStep, ...traceChanges(k, w.run, delta)])
+  return report(state, w, out, ok ? 'wipe' : 'wipe_fail', ok ? '擦掉了一部分痕跡。' : '痕跡沒擦掉，反而留了更多。', [rngStep, ...traceChanges(k, state, w.run, delta)])
 }
 
 // ---- 安全點 ----

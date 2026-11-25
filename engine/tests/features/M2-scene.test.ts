@@ -1460,10 +1460,10 @@ describe('sceneView：畫面要的全部', () => {
     expect(v).toMatchObject({ round: 1, turn: 'pc', nature: 'mutual', place: '二樓', fit: 29, init: 70, holder: 'pc', fit_marks: [30, 60, 85] })
     expect(v.rating).toEqual({ id: 'poor', name: '不合' })
     expect(v.goal).toEqual({ id: 'info', name: '套話', progress: 12, done_at: 60, done: false })
-    expect(v.position).toMatchObject({ id: 'pos_face', name: '面對面', upper: 'pc', mult: { pc: 1, partner: 1.5 }, roles: { pc: 'a', partner: 'b' } })
-    expect(v.people.pc).toMatchObject({ name: '測試主角', load: { now: 2, max: 35 }, glow: { now: 0, max: 3 }, ap: { now: 1, max: 4 }, sensitivity: 50, upper: true, climax: 0 })
-    expect(v.people.partner).toMatchObject({ id: 'npc_ann', name: '安', load: { now: 13, max: 35 }, sensitivity: 100, upper: false, tags: [] })
-    const part = (w: 'pc' | 'partner', id: string) => v.people[w].parts.find((p) => p.id === id)!
+    expect(v.position).toMatchObject({ id: 'pos_face', name: '面對面', upper: 'pc', mult: { pc: 1, npc_ann: 1.5 }, roles: { pc: 'a', npc_ann: 'b' } })
+    expect(v.seats[0]!).toMatchObject({ name: '測試主角', load: { now: 2, max: 35 }, glow: { now: 0, max: 3 }, ap: { now: 1, max: 4 }, sensitivity: 50, upper: true, climax: 0 })
+    expect(v.seats[1]!).toMatchObject({ id: 'npc_ann', name: '安', load: { now: 13, max: 35 }, sensitivity: 100, upper: false, tags: [] })
+    const part = (w: 'pc' | 'partner', id: string) => v.seats[w === 'pc' ? 0 : 1]!.parts.find((p) => p.id === id)!
     expect(part('pc', 'mouth')).toMatchObject({ linked: true, link: 1, reach: true })
     expect(part('pc', 'hand_r')).toMatchObject({ linked: false, reach: true })
     expect(part('pc', 'hand_l')).toMatchObject({ linked: true, link: 2, reach: true })

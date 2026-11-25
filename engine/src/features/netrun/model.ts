@@ -8,7 +8,7 @@
 // 第二張（M3-netrun-nodes）加了：檔案庫的表（net_region.archive_table）、陷阱的數字（net_region.trap）、六種目標、控制節點、人、陷阱、巡邏、後門鑰匙與憑證、
 // 擦痕跡與破解、帶出去才算數；它們的狀態在地圖實例的 ext.net（traps、patrols、controls、keys、wiped、used、opened）與這一趟的 goal、loot。
 
-import type { ActivityEndMerged, Change, ContentEntry, GameState, GenResult, GridPoint, Origin, UnitRef } from '../../core'
+import type { ActivityEndMerged, ActorId, Change, ContentEntry, GameState, GenResult, GridPoint, Origin, UnitRef } from '../../core'
 import { clone, isRecord } from '../../core'
 
 export const OWNER = 'netrun'
@@ -614,6 +614,22 @@ export interface CloseReturn {
 
 export type CloseOutcome = 'done' | 'left' | 'retreat' | 'located' | 'defeat'
 
+/**
+ * 掛點 netrun.trace_mod 的回答（M4-core-gaps 第 4 項）：義體讓這一趟的追蹤度變快或變慢。
+ * when 是 start 時只看 add（起跳加幾，回報後門 +5）；是 rise 時 add 加在每一次上升的量上、mult 再乘（0 就是不漲）；好幾個回答合起來：add 相加、mult 相乘。
+ */
+export interface TraceModAnswer {
+  add?: number
+  mult?: number
+}
+
+/** 掛點 net.hacked 的回答（M4-core-gaps 第 20 項）：被駭時對方讀走了什麼（給畫面與事件）、要加的變更、給玩家看的句子。 */
+export interface HackedAnswer {
+  read?: Array<{ source: string; name: string; what?: string }>
+  changes?: Change[]
+  lines?: string[]
+}
+
 declare module '../../core' {
   interface HookMap {
     /**
@@ -626,6 +642,16 @@ declare module '../../core' {
      * （迷宮館結算評價、押金）。run 是結束之前的那一趟，唯讀。lost 是這一趟倒下或被定位時丟掉的東西（帶出去才算數；沒有丟東西的時候沒有這個欄位）。
      */
     'netrun.close': [{ state: GameState; run: NetRun; outcome: CloseOutcome; lost?: LootEntry[] }, CloseReturn | void]
+    /**
+     * 這一趟的追蹤度要加之前（起跳與之後每一次上升；下載、警報節點、管理行動）：隊上每個人的義體（回報後門）回答。party 是這一趟的隊員，faction 是這一趟的勢力
+     * （沒有是 undefined）；回答照 TraceModAnswer。處理函式只讀，不改狀態。
+     */
+    'netrun.trace_mod': [{ state: GameState; party: ActorId[]; faction?: string; when: 'start' | 'rise'; amount: number }, TraceModAnswer | void]
+    /**
+     * 隊伍在網內被駭了（被定位、被強制斷線，或這一趟的戰鬥打輸被接受；熔斷的場地不算）：身上的東西可能被對方讀走（記憶庫）。
+     * 回答的人回傳讀走了什麼（read）、要加的變更與句子；netrun 把句子併進結束的報告、read 放進活動結果的 read。處理函式只讀，不改狀態。
+     */
+    'net.hacked': [{ state: GameState; run: NetRun; outcome: 'located' | 'defeat'; party: ActorId[] }, HackedAnswer | void]
   }
 }
 

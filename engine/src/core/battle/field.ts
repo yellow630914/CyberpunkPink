@@ -7,6 +7,11 @@ import type { BattleNumbers } from './rules'
 import { LOSE_TURN } from './rules'
 
 export const otherSide = (side: BattleSide): BattleSide => (side === 'ally' ? 'foe' : 'ally')
+/**
+ * 這個單位現在要打的是哪一方：平常是對面；這個回合被遠端操控（掛點 turn.control；u.puppet）時是他自己這一方的別人（hostiles）。
+ * 傷害與重創、目標挑選這類「對敵人做的事」問它，不要直接用 otherSide(u.side)（M4-core-gaps 第 14 項）。
+ */
+export const hostileSide = (u: Pick<BattleUnit, 'side' | 'puppet'>): BattleSide => (u.puppet ? u.side : otherSide(u.side))
 export const SIDE_NAME: Record<BattleSide, string> = { ally: '我方', foe: '敵方' }
 
 /** 資源池的顯示名（給玩家看的句子用）：行動點、RAM、現金、三種人情。沒列的池（功能自己加的）用它自己的鍵。 */
@@ -24,6 +29,16 @@ export const onField = (u: BattleUnit): boolean => !u.out && u.slot >= 1
 
 export function unitsOf(b: BattleState, side: BattleSide): BattleUnit[] {
   return Object.values(b.units).filter((u) => u.side === side && onField(u)).sort((x, y) => x.slot - y.slot)
+}
+
+/** 單位這一場當下的軌道值（被動效果的 per 用）：生命、感載、餘韻；沉溺讀角色的（戰鬥裡的沉溺是結束時才寫回）。 */
+export function unitTracks(u: BattleUnit): { hp?: number; load?: number; afterglow: number } {
+  return { ...(u.hp ? { hp: u.hp.now } : {}), ...(u.load ? { load: u.load.now } : {}), afterglow: u.layers }
+}
+
+/** 現在算作他的敵人的單位：對面的人；被遠端操控的回合是自己這一方除了他自己以外的人（hostileSide）。 */
+export function hostiles(b: BattleState, u: BattleUnit): BattleUnit[] {
+  return unitsOf(b, hostileSide(u)).filter((x) => x.id !== u.id)
 }
 
 export function unitAt(b: BattleState, side: BattleSide, slot: number): BattleUnit | undefined {

@@ -262,8 +262,8 @@ describe('讀舊的：沒有 v 的 pc／partner 一對一場景轉成第二版',
     const [ref, old] = twin()
     old.state.ext.scene = toLegacy(raw(ref), true) as never
     const v = sceneView(old.k, old.state)!
-    expect(v.people.pc.gear).toMatchObject({ now: 'standard', max: 'standard', shifted: false })
-    expect(v.people.partner.gear).toMatchObject({ now: 'standard', max: 'standard' })
+    expect(v.seats[0]!.gear).toMatchObject({ now: 'standard', max: 'standard', shifted: false })
+    expect(v.seats[1]!.gear).toMatchObject({ now: 'standard', max: 'standard' })
     for (let i = 0; i < 30 && raw(old).turn !== raw(old).pc; i++) next(old)
     act(old, { kind: 'talk', pick: talkParts })
     expect(sceneRawOf(old.state)!.seats[0]!.gear).toBe('standard')
@@ -384,13 +384,13 @@ describe('env.talk：說話的結果從外面來', () => {
   it('契合 +30：夾在 +10；−20：夾在 −5；不擲檢定（骰子一顆都沒有也行）', () => {
     const g = game()
     begin(g)
-    const [r] = act(g, { kind: 'talk', text: '你好', pick: talkParts }, { dice: dice(), talk: { fit: 30 } })
+    const [r] = act(g, { kind: 'talk', text: '你好', pick: talkParts }, { dice: dice(), talk: { pc: { fit: 30 } } })
     expect(sceneRawOf(g.state)!.pairs.npc_ann!.fit).toBe(30)
     expect(beatsOf(r!, 'talk')[0]!.data).toMatchObject({ fit: 10, goal: 0, source: 'env' })
     expect(beatsOf(r!, 'talk')[0]!.roll).toBeUndefined()
     const h = game()
     begin(h)
-    act(h, { kind: 'talk', pick: talkParts }, { dice: dice(), talk: { fit: -20 } })
+    act(h, { kind: 'talk', pick: talkParts }, { dice: dice(), talk: { pc: { fit: -20 } } })
     expect(sceneRawOf(h.state)!.pairs.npc_ann!.fit).toBe(15)
   })
 
@@ -405,16 +405,16 @@ describe('env.talk：說話的結果從外面來', () => {
   it('目的的進度夾在 0～+20；沒給目的就不動；agree 記在報告上', () => {
     const g = game()
     begin(g, { ...SETUP, goal: 'info' })
-    const [r] = act(g, { kind: 'talk', pick: talkParts }, { dice: dice(), talk: { fit: 2, goal: 99, agree: true } })
+    const [r] = act(g, { kind: 'talk', pick: talkParts }, { dice: dice(), talk: { pc: { fit: 2, goal: 99, agree: true } } })
     expect(sceneRawOf(g.state)!.goal_progress).toBe(20)
     expect(beatsOf(r!, 'talk')[0]!.data).toMatchObject({ goal: 20, agree: true })
     const h = game()
     begin(h, { ...SETUP, goal: 'info' })
-    act(h, { kind: 'talk', pick: talkParts }, { dice: dice(), talk: { fit: 2, goal: -7 } })
+    act(h, { kind: 'talk', pick: talkParts }, { dice: dice(), talk: { pc: { fit: 2, goal: -7 } } })
     expect(sceneRawOf(h.state)!.goal_progress).toBe(0)
     const n = game()
     begin(n)
-    act(n, { kind: 'talk', pick: talkParts }, { dice: dice(), talk: { fit: 2, goal: 15 } })
+    act(n, { kind: 'talk', pick: talkParts }, { dice: dice(), talk: { pc: { fit: 2, goal: 15 } } })
     expect(sceneRawOf(n.state)!.goal_progress).toBeNull()
   })
 })
@@ -535,7 +535,7 @@ describe('scene.body：部位與部位的敏感度', () => {
     open(g)
     const c = skillOf(g, 'nt_tail')
     expect(c.blocks.join('')).toMatch(/沒有這一項要用的部位/)
-    expect(sceneView(g.k, g.state)!.people.partner.parts.map((p) => p.id)).not.toContain('tail')
+    expect(sceneView(g.k, g.state)!.seats[1]!.parts.map((p) => p.id)).not.toContain('tail')
   })
 
   it('對方多一個部位 tail：體位允許時可以被選、接得上；畫面的部位清單有它', () => {
@@ -544,7 +544,7 @@ describe('scene.body：部位與部位的敏感度', () => {
     const c = skillOf(g, 'nt_tail')
     expect(c.blocks).toEqual([])
     expect(c.pairs.find((p) => p.their_part === 'tail')).toMatchObject({ my_part: 'hand_r', blocks: [] })
-    expect(sceneView(g.k, g.state)!.people.partner.parts.map((p) => p.id)).toContain('tail')
+    expect(sceneView(g.k, g.state)!.seats[1]!.parts.map((p) => p.id)).toContain('tail')
     act(g, { kind: 'skill', id: 'nt_tail', pick: { my_part: 'hand_r', their_part: 'tail' } })
     expect(raw(g).links.map((l) => [l.mine, l.theirs])).toEqual([['hand_r', 'tail']])
   })
@@ -588,7 +588,7 @@ describe('scene.body：部位與部位的敏感度', () => {
     const f2 = body((a) => (a === 'npc_ann' ? { parts: ['tentacle'], sensitivity: { back: 10 } } : undefined), 'body_test2')
     const g = game({ features: [annBody, f2] })
     open(g)
-    expect(sceneView(g.k, g.state)!.people.partner.parts.map((p) => p.id)).toEqual(expect.arrayContaining(['tail', 'tentacle']))
+    expect(sceneView(g.k, g.state)!.seats[1]!.parts.map((p) => p.id)).toEqual(expect.arrayContaining(['tail', 'tentacle']))
     const [r] = act(g, { kind: 'skill', id: 'nt_back', pick: { my_part: 'hand_l', their_part: 'back' } }, { dice: dice(4, 4) })
     expect((beatsOf(r!, 'skill')[0]!.data as { target_load: number }).target_load).toBe(hit(8, 130, 1))
   })
@@ -716,24 +716,23 @@ describe('target：對誰', () => {
 
 // ======================================================================
 describe('sceneView 一對一', () => {
-  it('原本的欄位（people.pc、people.partner、fit、init、links、lines……）照舊；多 seats、pairs、circles、kind、layer', () => {
+  it('原本的欄位（fit、init、links、lines……）照舊（people 拿掉了，用 seats）；多 seats、pairs、circles、kind、layer；position.mult 與 roles、lines 的 who 用角色 id', () => {
     const g = game()
     begin(g)
     act(g, { kind: 'talk', pick: talkParts }, { dice: dice(13) })
     const v = sceneView(g.k, g.state)!
-    expect(v.people.partner).toMatchObject({ id: 'npc_ann', name: '安', sensitivity: 100, upper: false })
-    expect(v.people.pc.id).toBe('pc')
+    expect(v.seats[1]!).toMatchObject({ id: 'npc_ann', name: '安', sensitivity: 100, upper: false })
+    expect(v.seats[0]!.id).toBe('pc')
     expect(v.turn).toBe('pc')
     expect(v.fit).toBe(25)
     expect(v.init).toBe(55)
     expect(v.holder).toBe('pc')
     expect(v.links.map((l) => [l.by, l.mine_name, l.theirs_name])).toEqual([['pc', '口', '口']])
     expect(v.lines.map((l) => l.who)).toEqual(['pc'])
-    expect(v.position.roles).toEqual({ pc: 'a', partner: 'b' })
+    expect(v.position.roles).toEqual({ pc: 'a', npc_ann: 'b' })
     expect(v.kind).toBe('pair')
     expect(v.layer).toBe('meat')
     expect(v.seats.map((x) => x.id)).toEqual(['pc', 'npc_ann'])
-    expect(v.seats[1]).toEqual(v.people.partner)
     expect(v.pairs).toEqual({ npc_ann: { fit: 25, init: 55, first: true, rating: { id: 'poor', name: '不合' }, holder: 'pc' } })
     expect(v.circles).toEqual([])
     // 輪到安之後 turn 是舊名字 partner

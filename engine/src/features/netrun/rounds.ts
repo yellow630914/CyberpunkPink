@@ -6,7 +6,7 @@
 import type { Change, GameState, GridPos, Kernel, Launch, ReportDraft, Sheet, TimelineBeat } from '../../core'
 import { attrMod, clone, pointKey, rollCheck, sightOf } from '../../core'
 import { checkBeat, passed, pickOf, rollPicked, skillAttr } from './checks'
-import { decayChanges, draft, roundHook, runRegion, traceDelta } from './common'
+import { decayChanges, draft, roundHook, runRegion, traceRise } from './common'
 import { battleLaunch } from './fight'
 import type { NetExt, NetRun, Patrol, TrapState } from './model'
 import { ACT_NET, DEFAULT_TRAP, TRACE, netExtChange, runChange } from './model'
@@ -192,7 +192,7 @@ export function springTrap(k: Kernel, state: GameState, w: Work, out: Out, at: G
   out.changes.push({ op: 'map.sheet', map: w.run.map, sheet: sheetId, cells: { [pointKey(at.x, at.y)]: { kind: 'floor' } } })
   out.stop = true
   if (t.kind === 'net_alarm') {
-    const up = traceDelta(w.run, trap.alarm)
+    const up = traceRise(k, state, w.run, trap.alarm)
     out.changes.push({ op: 'meter', kind: TRACE, key: w.run.map, delta: up })
     out.lines.push(`踩到了警報節點：追蹤度 +${up}。`)
     return

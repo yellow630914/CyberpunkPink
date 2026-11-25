@@ -6,10 +6,13 @@
 // 一筆被動效果（PassiveEffect）剛好是五種的其中一種：
 //   { attr, amount }                                           有效屬性加減
 //   { stat, amount }                                           任何衍生數值的 id 加減
-//   { check: { skills?, tags? }, amount }                      檢定修正：基本功對上，或情境標籤有一個對上（有一邊對上就算）
+//   { check: { skills?, tags?, attrs? }, amount }              檢定修正：基本功對上、情境標籤有一個對上、或檢定用的屬性對上（有一邊對上就算；attrs 讓「體格與反應的檢定」直接用屬性的也算）
 //   { mod, amount, tags?, layer? }                             戰鬥的修正（MOD_KINDS 之一）；tags 要全部在問的情境標籤裡；layer 有寫就只在那一層的戰場算
 //   { unit_tag }                                               戰鬥單位多一個標籤（unit.ready）
 // 每一筆可以再帶 if（條件的陣列，全部成立才算）與 label（給玩家看的來源名字；沒寫用登記時給的，再沒給用來源的名字）。
+// attr、stat、check、mod 四種的 amount 可以改寫成 per（依軌道值縮放；M4-core-gaps 第 12 項）：{ per: { track: 'load', every: 10, amount: 1 } } ＝ 每 10 點感載 +1
+// （軌道是 hp、load、sink、afterglow；值是 floor(軌道值 ÷ every) × amount；amount 與 per 剛好寫一個）。k.passives.of 回傳時已經算成 amount（算出來是 0 的那一筆不列）；
+// 戰鬥的修正（modParts）用單位在這一場當下的軌道值（生命、感載、餘韻），其餘讀角色的。
 //
 // 感載消退的加點有固定的寫法（dev/adr/0019 P65）：內海 { stat: 'net_load_decay', amount }、現實 { mod: 'decay', amount, layer: 'meat' }；
 // mod 'decay' 沒寫 layer: 'meat' 的算問題（不然內海的戰鬥會算兩次、探索回合又算不到）。
@@ -23,6 +26,8 @@ import type { ContentRegistry } from '../content/registry'
 import type { Probe } from '../state/probe'
 import type { StateKernel } from '../state/kernel'
 import { isRecord } from '../util/sanitize'
+import type { TrackId } from '../state/coreChanges'
+import { TRACKS } from '../state/coreChanges'
 import type { Condition, ConditionRegistry } from './conditions'
 import type { CheckCtx, StatRegistry } from './stats'
 
@@ -57,16 +62,34 @@ export interface PassiveCommon {
   /** 給玩家看的來源名字 */
   label?: string
 }
+/** 依軌道值縮放的寫法（取代 amount）：每 every 點 track 加 amount。 */
+export interface PassivePer {
+  track: PassiveTrack
+  every: number
+  amount: number
+}
+/** per 能讀的軌道（和 actor.track 的軌道同一份）。 */
+export const PASSIVE_TRACKS = TRACKS
+export type PassiveTrack = TrackId
+const isTrack = (v: unknown): v is PassiveTrack => (TRACKS as readonly unknown[]).includes(v)
+/** 數字：amount（固定）或 per（依軌道值）二選一。 */
+export type PassiveAmount = { amount: number; per?: undefined } | { per: PassivePer; amount?: undefined }
 export type PassiveEffect = PassiveCommon & (
-  | { attr: AttrId; amount: number }
-  | { stat: string; amount: number }
-  | { check: { skills?: string[]; tags?: string[] }; amount: number }
-  | { mod: string; amount: number; tags?: string[]; layer?: PassiveLayer }
+  | ({ attr: AttrId } & PassiveAmount)
+  | ({ stat: string } & PassiveAmount)
+  | ({ check: { skills?: string[]; tags?: string[]; attrs?: AttrId[] } } & PassiveAmount)
+  | ({ mod: string; tags?: string[]; layer?: PassiveLayer } & PassiveAmount)
   | { unit_tag: string }
 )
 
-/** k.passives.of 回傳的一筆：登記時的來源與主人、整理好的名字。 */
-export type PassiveEntry = PassiveEffect & { source: PassiveSource; owner: string; label: string }
+/** k.passives.of 回傳的一筆：登記時的來源與主人、整理好的名字；amount 一律是算好的數字（per 已經照軌道值算掉了，不帶 per）。 */
+export type PassiveEntry = (
+  | PassiveCommon & ({ attr: AttrId } | { stat: string } | { check: { skills?: string[]; tags?: string[]; attrs?: AttrId[] } } | { mod: string; tags?: string[]; layer?: PassiveLayer }) & { amount: number }
+  | PassiveCommon & { unit_tag: string }
+) & { source: PassiveSource; owner: string; label: string }
+
+/** 軌道值的覆蓋：戰鬥的修正用單位當下的值（生命、感載、餘韻），沒給的軌道讀角色的。 */
+export type PassiveTracks = Partial<Record<PassiveTrack, number>>
 
 export type PassiveFn = (state: GameState, actor: ActorId) => PassiveEffect[]
 
@@ -81,6 +104,24 @@ interface Registered {
 export interface PassiveModQuery {
   layer?: string
   tags?: readonly string[]
+  /** 單位在這一場當下的軌道值（per 用；沒給的軌道讀角色的） */
+  tracks?: PassiveTracks
+}
+
+/**
+ * 一筆被動效果現在的數字：寫 amount 的就是 amount，寫 per 的是 floor(軌道值 ÷ every) × amount（軌道值負的當 0），unit_tag 沒有數字回傳 0。
+ * 直接讀內容裡的 effects 的功能（戰鬥裡這一場才生效的藥）用它，不要自己讀 .amount。tracks 是單位當下的軌道值（沒給的軌道讀角色的）。
+ */
+export function passiveAmount(e: PassiveEffect, state: GameState, actor: ActorId, tracks?: PassiveTracks): number {
+  if ('unit_tag' in e) return 0
+  return e.per !== undefined ? perAmount(e.per, state, actor, tracks) : (e.amount ?? 0)
+}
+
+/** per 算出來的數字：floor(軌道值 ÷ every) × amount（軌道值負的當 0）。 */
+function perAmount(per: PassivePer, state: GameState, actor: ActorId, tracks?: PassiveTracks): number {
+  const raw = tracks?.[per.track] ?? state.actors[actor]?.[per.track] ?? 0
+  const n = Math.floor(Math.max(0, raw) / per.every) * per.amount
+  return Number.isFinite(n) ? n : 0
 }
 
 export class PassiveRegistry {
@@ -115,8 +156,11 @@ export class PassiveRegistry {
     return this.mods
   }
 
-  /** 這個人現在身上的每一筆（帶 source、owner、label；if 不成立的已經拿掉）。人不存在、沒有任何來源是空的。 */
-  of(state: GameState, actor: ActorId): PassiveEntry[] {
+  /**
+   * 這個人現在身上的每一筆（帶 source、owner、label；if 不成立的已經拿掉；per 已經算成 amount、算出來是 0 的不列）。人不存在、沒有任何來源是空的。
+   * tracks：軌道值的覆蓋（戰鬥的修正用單位當下的值）。
+   */
+  of(state: GameState, actor: ActorId, tracks?: PassiveTracks): PassiveEntry[] {
     if (!this.sources.length || !state.actors[actor]) return []
     const depth = this.depth.get(actor) ?? 0
     // 第二圈：來源的函式自己又讀衍生數值而繞回來，不再往下算
@@ -130,7 +174,15 @@ export class PassiveRegistry {
             // 繞回來的（同一個人正在算）：不帶 if 的那幾筆照算，帶 if 的先不算，不然條件讀的數字又要問自己
             if (depth > 0 || !this.holds(raw.if, state, actor)) continue
           }
-          out.push({ ...raw, source: reg.source, owner: reg.owner, label: raw.label ?? reg.label } as PassiveEntry)
+          let eff: PassiveEffect = raw
+          if ('per' in raw && raw.per !== undefined) {
+            const n = perAmount(raw.per, state, actor, tracks)
+            if (n === 0) continue
+            const { per: _per, ...rest } = raw
+            void _per
+            eff = { ...rest, amount: n } as PassiveEffect
+          }
+          out.push({ ...eff, source: reg.source, owner: reg.owner, label: raw.label ?? reg.label } as PassiveEntry)
         }
       }
       return out
@@ -154,14 +206,15 @@ export class PassiveRegistry {
     return out
   }
 
-  /** 檢定修正：check.skills 對檢定的基本功、check.tags 對檢定的標籤，有一邊對上就算。 */
-  checkParts(state: GameState, actor: ActorId, ctx: Pick<CheckCtx, 'skill' | 'tags'>): RollPart[] {
+  /** 檢定修正：check.skills 對檢定的基本功、check.tags 對檢定的標籤、check.attrs 對檢定用的屬性，有一邊對上就算。 */
+  checkParts(state: GameState, actor: ActorId, ctx: Pick<CheckCtx, 'skill' | 'tags'> & Partial<Pick<CheckCtx, 'attr'>>): RollPart[] {
     const out: RollPart[] = []
     for (const e of this.of(state, actor)) {
       if (!('check' in e)) continue
       const bySkill = !!ctx.skill && !!e.check.skills?.includes(ctx.skill)
       const byTag = !!e.check.tags?.some((t) => ctx.tags.includes(t))
-      if (bySkill || byTag) out.push({ label: e.label, value: e.amount, source: e.source })
+      const byAttr = ctx.attr !== undefined && !!e.check.attrs?.includes(ctx.attr)
+      if (bySkill || byTag || byAttr) out.push({ label: e.label, value: e.amount, source: e.source })
     }
     return out
   }
@@ -171,7 +224,7 @@ export class PassiveRegistry {
    */
   modParts(state: GameState, actor: ActorId, kind: string, q: PassiveModQuery = {}): RollPart[] {
     const out: RollPart[] = []
-    for (const e of this.of(state, actor)) {
+    for (const e of this.of(state, actor, q.tracks)) {
       if (!('mod' in e) || e.mod !== kind) continue
       if (e.layer !== undefined && e.layer !== q.layer) continue
       if (e.tags && !e.tags.every((t) => q.tags?.includes(t))) continue
@@ -194,7 +247,7 @@ export interface PassiveDeps {
   passives: Pick<PassiveRegistry, 'modKinds'>
 }
 
-const COMMON_KEYS = ['amount', 'if', 'label']
+const COMMON_KEYS = ['amount', 'per', 'if', 'label']
 const MOD_ONLY_KEYS = ['tags', 'layer']
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
 const isTextList = (v: unknown): v is string[] => Array.isArray(v) && v.every(isText)
@@ -217,12 +270,23 @@ function oneProblems(deps: PassiveDeps, e: unknown, at: string): string[] {
   if (keys.length > 1) return [`${at}：${keys.join('、')} 只能寫一個（一筆剛好是一種）`]
   const key = keys[0]!
   const allowed = new Set<string>([key, ...COMMON_KEYS, ...(key === 'mod' ? MOD_ONLY_KEYS : [])])
-  if (key === 'unit_tag') allowed.delete('amount')
+  if (key === 'unit_tag') { allowed.delete('amount'); allowed.delete('per') }
   for (const f of Object.keys(e)) if (!allowed.has(f)) p.push(`${at}：${key} 這一種沒有 ${f} 這個欄位`)
   if (key === 'unit_tag') {
     if (!isText(e.unit_tag)) p.push(`${at}.unit_tag：要是標籤的名字`)
+  } else if (e.per !== undefined) {
+    // 依軌道值縮放（P-core-gaps 12）：per 取代 amount，兩個剛好寫一個
+    if (e.amount !== undefined) p.push(`${at}：amount 與 per 只能寫一個（per 就是「每 every 點 track 加 amount」）`)
+    const per = e.per
+    if (!isRecord(per)) p.push(`${at}.per：要是 { track, every, amount }`)
+    else {
+      for (const f of Object.keys(per)) if (!['track', 'every', 'amount'].includes(f)) p.push(`${at}.per：沒有 ${f} 這個欄位（只有 track、every、amount）`)
+      if (!isTrack(per.track)) p.push(`${at}.per.track：要是 ${TRACKS.join('、')} 其中一個`)
+      if (typeof per.every !== 'number' || !Number.isSafeInteger(per.every) || per.every < 1) p.push(`${at}.per.every：要是 1 以上的整數（每幾點）`)
+      if (typeof per.amount !== 'number' || !Number.isFinite(per.amount) || per.amount === 0) p.push(`${at}.per.amount：要是不為 0 的有限數字`)
+    }
   } else if (typeof e.amount !== 'number' || !Number.isFinite(e.amount) || e.amount === 0) {
-    p.push(`${at}.amount：要是不為 0 的有限數字`)
+    p.push(`${at}.amount：要是不為 0 的有限數字（或寫 per）`)
   }
   if (key === 'attr' && !(ATTR_IDS as readonly unknown[]).includes(e.attr)) p.push(`${at}.attr：要是 ${ATTR_IDS.join('、')} 其中一個`)
   if (key === 'stat' && !isText(e.stat)) p.push(`${at}.stat：要是衍生數值的 id`)
@@ -230,10 +294,11 @@ function oneProblems(deps: PassiveDeps, e: unknown, at: string): string[] {
     const c = e.check
     if (!isRecord(c)) p.push(`${at}.check：要是 { skills?, tags? }`)
     else {
-      for (const f of Object.keys(c)) if (f !== 'skills' && f !== 'tags') p.push(`${at}.check：沒有 ${f} 這個欄位（只有 skills、tags）`)
+      for (const f of Object.keys(c)) if (f !== 'skills' && f !== 'tags' && f !== 'attrs') p.push(`${at}.check：沒有 ${f} 這個欄位（只有 skills、tags、attrs）`)
       for (const f of ['skills', 'tags'] as const) if (c[f] !== undefined && !isTextList(c[f])) p.push(`${at}.check.${f}：要是字串的陣列`)
-      const has = (f: 'skills' | 'tags') => Array.isArray(c[f]) && (c[f] as unknown[]).length > 0
-      if (!has('skills') && !has('tags')) p.push(`${at}.check：skills 與 tags 至少要寫一個、不能是空的`)
+      if (c.attrs !== undefined && !(Array.isArray(c.attrs) && c.attrs.every((a) => (ATTR_IDS as readonly unknown[]).includes(a)))) p.push(`${at}.check.attrs：要是 ${ATTR_IDS.join('、')} 裡的屬性陣列`)
+      const has = (f: 'skills' | 'tags' | 'attrs') => Array.isArray(c[f]) && (c[f] as unknown[]).length > 0
+      if (!has('skills') && !has('tags') && !has('attrs')) p.push(`${at}.check：skills、tags、attrs 至少要寫一個、不能是空的`)
     }
   }
   if (key === 'mod') {

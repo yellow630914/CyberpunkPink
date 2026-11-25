@@ -77,10 +77,8 @@ export const DEFAULT_RULE = {
   gear_point_price: 250, gear_grade_max: 2, gear_kinds: [...DEFAULT_GEAR_KINDS] as string[],
 }
 
-type RuleExtra = Partial<Pick<typeof DEFAULT_RULE, 'cyber_point_price' | 'cyber_install_mult' | 'gear_point_price' | 'gear_grade_max' | 'gear_kinds'>>
-
 export function rule(k: Pick<Kernel, 'content'>) {
-  const r = k.content.get<CreationRuleEntry & RuleExtra>('creation_rule', 'default')
+  const r = k.content.get<CreationRuleEntry>('creation_rule', 'default')
   return {
     attr_array: r?.attr_array ?? DEFAULT_RULE.attr_array,
     attr_free: r?.attr_free ?? DEFAULT_RULE.attr_free,

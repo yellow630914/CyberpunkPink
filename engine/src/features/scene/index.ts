@@ -53,13 +53,16 @@ import type { RevealView } from './night'
 import { RESONANCE_KIND, resonanceProblems, revealFor } from './night'
 import type { SceneInput, TalkEnv } from './play'
 import { MAX_MOVES, Play, diceOf, inputProblem } from './play'
+import { sceneWindow } from './window'
 
 export * from './model'
+export type { SceneWindow, SceneWindowAnswer } from './window'
+export { sceneWindow } from './window'
 export type { Closing, SinkKind, SinkPlan, BridgeParam } from './close'
 export { SINK_KINDS, bridgeParamOf } from './close'
 export type { Resonance, RevealView } from './night'
 export { BRANCHES, RESONANCE_KIND, knowFor, npcKnow, resonanceOf } from './night'
-export type { Preview, PreviewLoad, SceneInput, PartPick, TalkEnv } from './play'
+export type { Preview, PreviewLoad, SceneInput, PartPick, TalkEnv, TalkEnvs } from './play'
 export { Play, MAX_MOVES } from './play'
 export { sceneOptions, scenePreview, sceneView } from './view'
 export type { ActionOption, ChoiceOption, GearView, LineView, LinkView, PairView, PartView, PersonView, ScenePick, ScenePickOption, ScenePair, SceneOptions, SceneView } from './view'
@@ -77,8 +80,16 @@ export interface SceneEnv {
    * 報告的 timeline 多一拍 scene.dropped，data 記下丟掉幾個與第一個的原因。沒給就全照規則。
    */
   moves?: Record<ActorId, SceneInput[]>
-  /** scene_talk 的結果：這一步是說話時有給就用它（契合夾在 −5～+10、目的的進度夾在 0～+20），不擲檢定；沒給照現有的檢定 */
-  talk?: TalkEnv
+  /**
+   * scene_talk 的結果，每個人一份（鍵是說話的人；M4-core-gaps 第 15 項：多人同時說話也各有各的）：這個人這一步說話（或主角叫人過來）時有給就用它
+   * （契合夾在 −5～+10、目的的進度夾在 0～+20），不擲檢定；沒給的人照現有的檢定
+   */
+  talk?: Record<ActorId, TalkEnv>
+  /**
+   * AI 給的一句動作或台詞（scene_turn 的 line），每人一句（M4-core-gaps 第 15 項）：放進這一步的紀錄（timeline 的 scene.line，data.source 是 scene_turn）與整場的紀錄（ext.scene.lines）。
+   * 只收場景裡的人（座位與別的圈）；一個人只收第一句、空的與不認得的人丟掉、最多 200 字。只有對方的一步（sceneNext）讀它。
+   */
+  lines?: Array<{ who: ActorId; text: string }>
   /**
    * 結束時 AI 的收尾結果（AI_TASKS 3.7、3.8 節：sex_record、sink、tendency，加上關係的數字）。外殼把驗過格式的結果放進來，結算用它（程式再驗一次、夾住、丟掉不合的並留提醒）；
    * 沒給（AI 關著）就全照規則：沉溺照退路、傾向記這一場碰到的全部、關係照評價的固定值。只有結束的那一步（stop、強制結束、略過、打斷）讀它。
@@ -363,6 +374,14 @@ export function sceneAct(k: Kernel, state: GameState, input: SceneInput, env: Sc
   const scene = needScene(state)
   const p = new Play(k, state, scene, env.dice ?? diceOf(state, scene))
   p.talkEnv = env.talk
+  // 視窗（掛點 scene.window；M4-core-gaps 第 16 項）：有功能替玩家選了，這一步做的是換掉之後的行動（玩家按停下不換）；原因記一句進紀錄
+  if (input.kind !== 'stop') {
+    const win = sceneWindow(k, state, p)
+    if (win.replace) {
+      p.line(scene.pc, win.replace.why, 'scene.override', { owner: win.replace.owner, from: input.kind, to: win.replace.input.kind })
+      input = win.replace.input
+    }
+  }
   const blocks = p.blocks(scene.pc, input)
   if (blocks.length > 0) throw new ActionBlocked(blocks.join(''))
   p.perform(scene.pc, input)
@@ -384,6 +403,18 @@ export function sceneNext(k: Kernel, state: GameState, env: SceneEnv = {}): Repo
   const p = new Play(k, state, scene, env.dice ?? diceOf(state, scene))
   p.talkEnv = env.talk
   if (scene.kind === 'group') return groupRound(state, p, env)
+  const acted = pairStep(p, w, env)
+  addEnvLines(p, env.lines)
+  if (!p.ended && (acted === 0 || p.seat(w).ap <= 0)) p.settleRound()
+  if (p.ended) return endDraft(k, p, p.ended, logBeats(state), env.closing)
+  return stepDraft(p, 'scene.next')
+}
+
+/**
+ * 一對一：對方這一步（換檔、env.moves 給的一串行動、一個都沒做成就照規則挑一個）。剩下的行動點留給下一次呼叫。回傳這一步做了幾個行動。
+ * sceneNext 與 sceneNpcTurn 共用。
+ */
+function pairStep(p: Play, w: ActorId, env: SceneEnv): number {
   p.npcTurnStart(w, env.gears?.[w] ?? (w === p.partnerId ? env.partner_gear : undefined))
   let acted = 0
   const moves = env.moves?.[w]
@@ -399,42 +430,136 @@ export function sceneNext(k: Kernel, state: GameState, env: SceneEnv = {}): Repo
       acted = 1
     }
   }
-  if (!p.ended && (acted === 0 || p.seat(w).ap <= 0)) p.settleRound()
-  if (p.ended) return endDraft(k, p, p.ended, logBeats(state), env.closing)
-  return stepDraft(p, 'scene.next')
+  return acted
 }
 
 /**
- * 多人（kind: group）的一輪：同一圈裡由程式控制的每個人照座位的順序各走完自己的回合（換檔、env.moves 給的一串行動、剩下的行動點照規則走），
+ * 多人（kind: group）：同一圈裡一個由程式控制的人走完自己的回合（換檔、env.moves 給的一串行動、剩下的行動點照規則走，最多 MAX_MOVES 個）。
+ * groupRound 與 sceneNpcTurn 共用。
+ */
+function groupTurn(p: Play, w: ActorId, env: SceneEnv): void {
+  p.s.turn = w
+  p.s.turn_began = false
+  p.npcTurnStart(w, env.gears?.[w])
+  const moves = env.moves?.[w]
+  if (Array.isArray(moves) && moves.length > 0) {
+    const r = p.performMoves(w, moves)
+    if (r.dropped > 0) p.beats.push(beat(w, '（他的幾個行動不合規，沒有照做。）', 'scene.dropped', { actor: w, dropped: r.dropped, done: r.done, reason: r.reason }))
+  }
+  for (let i = 0; i < MAX_MOVES && !p.ended && p.inCircle(w); i++) {
+    const choice = p.choiceFor(w)
+    if (!choice) break
+    p.perform(w, choice)
+  }
+}
+
+/**
+ * 多人（kind: group）的一輪：同一圈裡由程式控制的每個人照座位的順序各走完自己的回合（groupTurn），
  * 然後做這一回合的結算（連接的自動效果、別的圈各算一次、強制結束的檢查），輪到主角。一次 sceneNext 走完，後一個人依賴前一個人的結算。
  */
 function groupRound(state: GameState, p: Play, env: SceneEnv): ReportDraft {
   for (const w of p.activeOthers(p.pc)) {
     if (p.ended) break
     if (!p.inCircle(w)) continue
-    p.s.turn = w
-    p.s.turn_began = false
-    p.npcTurnStart(w, env.gears?.[w])
-    const moves = env.moves?.[w]
-    if (Array.isArray(moves) && moves.length > 0) {
-      const r = p.performMoves(w, moves)
-      if (r.dropped > 0) p.beats.push(beat(w, '（他的幾個行動不合規，沒有照做。）', 'scene.dropped', { actor: w, dropped: r.dropped, done: r.done, reason: r.reason }))
-    }
-    for (let i = 0; i < MAX_MOVES && !p.ended && p.inCircle(w); i++) {
-      const choice = p.choiceFor(w)
-      if (!choice) break
-      p.perform(w, choice)
-    }
+    groupTurn(p, w, env)
   }
+  addEnvLines(p, env.lines)
   if (!p.ended) p.settleRound()
   if (p.ended) return endDraft(p.k, p, p.ended, logBeats(state), env.closing)
   return stepDraft(p, 'scene.next')
 }
 
+/** env.lines：AI 給的一句動作或台詞，每人一句（只收場景裡的人、空的丟掉、最多 200 字、一個人只收第一句）。 */
+function addEnvLines(p: Play, lines: SceneEnv['lines']): void {
+  if (!Array.isArray(lines)) return
+  const seen = new Set<string>()
+  for (const l of lines) {
+    if (!isRecord(l) || typeof l.who !== 'string' || typeof l.text !== 'string' || seen.has(l.who) || !p.everyone.includes(l.who)) continue
+    const text = l.text.trim().slice(0, 200)
+    if (!text) continue
+    seen.add(l.who)
+    p.line(l.who, text, 'scene.line', { source: 'scene_turn' })
+  }
+}
+
+const newPlay = (k: Kernel, state: GameState, env: SceneEnv): Play => {
+  const scene = needScene(state)
+  return new Play(k, state, scene, env.dice ?? diceOf(state, scene))
+}
+
+/**
+ * 只走一個人的回合（M4-core-gaps 第 15 項；外殼替 AI 組「前一個人做完之後」的輸入用）：who 照 sceneNext 的做法做完自己的一步——
+ * 多人是他這一輪的整個回合（換檔、env.moves 給的一串行動、剩下的行動點照規則走），一對一是對方這一步（一個行動）。不做回合的結算（連接的自動效果、別的圈、強制結束的檢查），也不寫任何狀態：
+ * 回傳的是做完之後的 Play。from 是前一個人做完之後的 Play（沒給就從狀態新開一個）：一個一個接下去，亂數的順序和真正的 sceneNext 一樣，所以預演出來的和真正結算時前面的人一樣。
+ * env 讀 moves、gears、talk（每人一份）、dice。已經結束、不在這一圈的人不做事。
+ */
+export function sceneNpcTurn(k: Kernel, state: GameState, who: ActorId, env: SceneEnv = {}, from?: Play): Play {
+  const p = from ?? newPlay(k, state, env)
+  if (env.talk) p.talkEnv = { ...(p.talkEnv ?? {}), ...env.talk }
+  if (p.ended) return p
+  if (p.s.kind === 'group') {
+    if (p.inCircle(who)) groupTurn(p, who, env)
+  } else pairStep(p, who, env)
+  return p
+}
+
+/**
+ * 輪到 who 的那一刻：多人把輪到他設好、做回合開頭的處理（換檔），一對一做回合開頭的處理。問他現在合法的行動（Play.blocks）之前先呼叫它。
+ * from 是前一個人做完之後的 Play（沒給就從狀態新開一個）。不寫狀態。
+ */
+export function sceneNpcBegin(k: Kernel, state: GameState, who: ActorId, env: SceneEnv = {}, from?: Play): Play {
+  const p = from ?? newPlay(k, state, env)
+  if (env.talk) p.talkEnv = { ...(p.talkEnv ?? {}), ...env.talk }
+  if (p.s.kind === 'group') {
+    p.s.turn = who
+    p.s.turn_began = false
+  }
+  p.npcTurnStart(who, env.gears?.[who])
+  return p
+}
+
+/**
+ * 現在能不能略過（M4-core-gaps 第 17 項；畫面的確認框直接問它，不必在複本上試一次 sceneSkip）：能略過是 null，不能是原因（一句）。
+ * 條件：有進行中的場景、還沒有做任何行動（第 1 回合、第 0 步）。sceneSkip 的檢查就是這一個。
+ */
+export function sceneCanSkip(state: GameState): string | null {
+  const scene = sceneRawOf(state)
+  if (!scene) return '現在沒有進行中的成人場景。'
+  return scene.step !== 0 || scene.round !== 1 ? '場景已經開始了，只能按「停下」結束。' : null
+}
+
+/**
+ * 進行中的場景還原成開場的設定（startProblems 要的形狀）：誰是對象、哪幾圈、性質、身分、目的、地點、標籤、模式、現實或內海、最多幾回合、單人與有沒有人在看。
+ * 只翻譯欄位的名字，不判斷任何事（M4-core-gaps 第 17 項：以前畫面自己還原）。
+ */
+export function sceneSetupOf(raw: SceneRaw): Record<string, unknown> {
+  const others = raw.seats.filter((x) => x.id !== raw.pc).map((x) => x.id)
+  const common: Record<string, unknown> = {
+    role: raw.role, goal: raw.goal ?? 'none', tags: [...raw.tags], mode: raw.mode, layer: raw.layer,
+    ...(raw.place ? { place: raw.place } : {}), ...(raw.dream ? { dream: true } : {}), ...(raw.max_rounds !== undefined ? { max_rounds: raw.max_rounds } : {}),
+  }
+  if (raw.kind === 'solo') return { ...common, solo: true, audience: raw.audience === true }
+  const circles = raw.circles.map((c) => [...c.people, ...(c.out ?? [])])
+  return { ...common, nature: raw.nature, ...(circles.length > 0 ? { circles: [[raw.pc, ...others], ...circles] } : { with: others }) }
+}
+
+/**
+ * 開場確認框的摘要（這一場的 startProblems 摘要：誰、性質、身分、目的、會碰到的標籤、是不是單人、在哪一層）：由場景的狀態還原設定、在沒有這一場的狀態上問一次。
+ * 沒有進行中的場景、或問不出來是 null（M4-core-gaps 第 17 項）。
+ */
+export function sceneGateSummary(k: Kernel, state: GameState): StartSummary | null {
+  const raw = sceneRawOf(state)
+  if (!raw) return null
+  const probe = clone(state)
+  delete probe.ext[EXT]
+  return startProblems(k, probe, sceneSetupOf(raw)).summary ?? null
+}
+
 /** 略過（LEWD_SYSTEM 3.1 節）：還沒做任何行動時，照雙方的數值直接算出契合，體悟打七折。回傳 scene.end。 */
 export function sceneSkip(k: Kernel, state: GameState, env: SceneEnv = {}): ReportDraft {
   const scene = needScene(state)
-  if (scene.step !== 0 || scene.round !== 1) throw new ActionBlocked('場景已經開始了，只能按「停下」結束。')
+  const why = sceneCanSkip(state)
+  if (why) throw new ActionBlocked(why)
   const p = new Play(k, state, scene, env.dice ?? diceOf(state, scene))
   const r = p.rules.skip
   // 單人：節奏 = 略過公式的基底加亂數（沒有對象的幾項不算）

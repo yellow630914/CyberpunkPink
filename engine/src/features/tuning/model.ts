@@ -54,8 +54,6 @@ export const NEGATIVE_FLAGS: readonly TuningFlag[] = ['no_load_decay', 'sink_wee
 export const FLAG_NAME: Record<TuningFlag, string> = {
   no_load_decay: '感載不自然消退', sink_weekly: '沉溺每週 +1', sink_resist: '沉溺每次上升 −1', no_full_sync: '開不了全檔', afterglow_double: '餘韻的正面效果加倍', hp_to_load: '受到的生命傷害有兩成改成感載',
 }
-/** no_full_sync 用的同步上限衍生數值（核心的 syncCapOf 讀；沒有人定義時 ready 補上）。 */
-export const SYNC_CAP_STAT = 'sync_cap_bonus'
 
 export interface TuningEntry extends ContentEntry {
   name: string
@@ -75,6 +73,8 @@ export interface TuningRules {
   remove: { price: number; minutes: number }
   /** 靜室：一次調幾點、價錢、每週幾次、往上調沉溺加幾、花的時間 */
   quiet: { step: number; price: number; per_week: number; sink_up: number; minutes: number }
+  /** 開關 hp_to_load（痛覺轉譯）：生命傷害的百分之幾換成感載（兩成） */
+  hp_to_load_pct: number
 }
 
 /** LEWD_SYSTEM 第 4 節與 dev/adr/0019 P48。 */
@@ -83,6 +83,7 @@ export const DEFAULT_TUNING_RULES: TuningRules = {
   install: { price: 300, minutes: 60 },
   remove: { price: 150, minutes: 60 },
   quiet: { step: 5, price: 500, per_week: 1, sink_up: 1, minutes: 120 },
+  hp_to_load_pct: 20,
 }
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
@@ -100,6 +101,7 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
     if (v.price !== undefined && !isCount(v.price)) p.push(`${key}.price 要是 0～1000000 的整數`)
     if (v.minutes !== undefined && !isCount(v.minutes, 525_600)) p.push(`${key}.minutes 要是 0～525600 的整數（分鐘）`)
   }
+  if (e.hp_to_load_pct !== undefined && !isPositive(e.hp_to_load_pct, 100)) p.push('hp_to_load_pct 要是 1～100 的整數（生命傷害的百分之幾換成感載）')
   if (e.quiet !== undefined) {
     const q = e.quiet
     if (!isRecord(q)) p.push('quiet 要是 { step, price, per_week, sink_up, minutes }')
@@ -126,6 +128,7 @@ export function tuningRules(k: Pick<Kernel, 'content'>): TuningRules {
   if (ok('install')) Object.assign(out.install, clone(e.install as Record<string, number>))
   if (ok('remove')) Object.assign(out.remove, clone(e.remove as Record<string, number>))
   if (ok('quiet')) Object.assign(out.quiet, clone(e.quiet as Record<string, number>))
+  if (ok('hp_to_load_pct')) out.hp_to_load_pct = e.hp_to_load_pct as number
   return out
 }
 

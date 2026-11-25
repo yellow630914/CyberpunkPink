@@ -5,6 +5,7 @@ import { clone, modeOf } from '../../core'
 import type { NetRegion, NetRun } from './model'
 import { DEFAULT_REGIONS, NET_MODE } from './model'
 import { netrunRules, regionOf } from './rules'
+import { traceMod } from './tracemod'
 import { layerLabel, partyOf, setupOf } from './start'
 
 /**
@@ -13,6 +14,14 @@ import { layerLabel, partyOf, setupOf } from './start'
  */
 export function traceDelta(run: NetRun, delta: number): number {
   return delta > 0 && setupOf(run).fx.trace_half ? Math.ceil(delta / 2) : delta
+}
+
+/**
+ * 一次追蹤度的變動（所有自己寫的追蹤度上升走這裡）：先讓義體改這一次上升的量（回報後門：漲得快、駭入接頭：不漲；掛點 netrun.trace_mod），再照連動減半（traceDelta）。
+ * 減少的不問義體。
+ */
+export function traceRise(k: Pick<Kernel, 'hooks'>, state: GameState, run: NetRun, delta: number): number {
+  return traceDelta(run, delta > 0 ? traceMod(k, state, partyOf(state), run.faction, 'rise', delta) : delta)
 }
 
 /** 一份網內的報告草稿（kind netrun；location 帶子網的 id 與第幾層）。 */

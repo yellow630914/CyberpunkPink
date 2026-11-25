@@ -2,7 +2,7 @@
 // 「有哪些行動、每個行動做什麼」由功能註冊：現實戰鬥註冊射擊、近戰、換彈、監視、制伏……，內海戰鬥（M3）註冊它自己的那一組，
 // 技能的功能把每個主動技能註冊成一個行動。功能之間不直接 import，都接在這張表上。dev/adr/0010。
 
-import type { ActorId, BattleImplant, BattleInput, BattleOverlay, BattleSide, BattleState, BattleTarget, BattleUnit, BattleWeapon, Change, GameState, RollPart } from '../types'
+import type { ActorId, BattleImplant, BattleInput, BattleOverlay, BattleSide, BattleState, BattleTarget, BattleUnit, BattleWeapon, Change, GameState, ReportTrigger, RollPart } from '../types'
 import type { Probe } from '../state/probe'
 import type { RulesKernel } from '../rules/kernel'
 import { isRecord } from '../util/sanitize'
@@ -322,6 +322,19 @@ export interface BattleHookMap {
    * 處理函式改 out：negate 設成 true，這一擊不造成傷害、不重創、不推拉（遮蔽照樣受傷，attack.after 照樣發）；wound 設成 false，重創改成一般的命中
    */
   'attack.hit': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; weapon: BattleWeapon; opts: import('./run').AttackOpts; roll: { natural: number; total: number; evade: number; crit: boolean; wound: boolean }; out: { negate?: boolean; wound?: boolean } }
+  /**
+   * 一筆生命傷害即將扣下去（run.damage：護甲、倍率、機體都算過了，amount 是要扣在本人身上的量；打掛著的東西、感載類的傷害不發）。
+   * 處理函式把 out.toLoad 設成 N：這 N 點不扣生命，改加成目標的感載（不乘敏感度、標「痛覺轉譯」）；生命至少還要扣 1 點，
+   * 目標沒有橋（沒有感載）就不轉。多個處理函式各自設就是後設的蓋掉前面的（要合計的自己讀 out.toLoad 再加）（M4-core-gaps 第 11 項）
+   */
+  'damage.hp': { run: BattleRun; target: BattleUnit; by?: BattleUnit; type: import('../types').DamageType; amount: number; out: { toLoad?: number } }
+  /**
+   * 一個單位的回合開始之前（行動點與狀態都算過了、輪到他而且沒有失去回合；發 turn.start 之前）：問有沒有人要遠端操控他這一回合
+   * （傀儡絲「義肢偶爾不聽使喚、最後階段可以被遠端操控一回合」）。處理函式設 out.puppet = true（可帶 out.why：一句給玩家看的話）：
+   * 他這一回合由敵方 AI 替他做（control 變成 ai，目標挑他自己這一方的別人，不挑自己；做完回合結束時還原）。已經是 AI 在操縱的單位也問，
+   * 但不改 control（只是目標改成自己人）。沒有人設就什麼都不做（M4-core-gaps 第 14 項）
+   */
+  'turn.control': { run: BattleRun; unit: BattleUnit; out: { puppet?: boolean; why?: string } }
   /** 重創（自然 20，或瞄準過的射擊打出要害），目標不是雜兵：現實擲部位，內海是破損 */
   'wound': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; aimed: boolean; part?: string }
   /**
@@ -391,6 +404,8 @@ export interface BattleEndExtra {
   changes?: Change[]
   /** 定案的結果，一行一筆（接在核心的後面） */
   lines?: string[]
+  /** 這份結束的報告要帶的觸發點（事件導演讀；照順序接在報告的 triggers 上；M4-core-gaps 第 18 項） */
+  triggers?: ReportTrigger[]
 }
 export type BattleEndHandler = (ctx: { k: BattleKernel; state: GameState; battle: BattleState; outcome: string }) => BattleEndExtra | void
 

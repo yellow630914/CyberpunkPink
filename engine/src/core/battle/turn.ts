@@ -126,6 +126,14 @@ export function beginTurn(run: BattleRun, u: BattleUnit): boolean {
     return false
   }
   run.say(`輪到 ${unitTag(u)}。`, 'turn', { unit: u.id, round: b.round })
+  // 遠端操控（掛點 turn.control；M4-core-gaps 第 14 項）：這一回合由敵方 AI 替他做，回合結束時還原（advance）
+  const ctl: { puppet?: boolean; why?: string } = {}
+  run.k.battle.emit('turn.control', { run, unit: u, out: ctl })
+  if (ctl.puppet && !u.out) {
+    u.puppet = { control: u.control, ...(ctl.why ? { why: ctl.why } : {}) }
+    u.control = 'ai'
+    run.say(`${unitTag(u)} ${ctl.why ?? '的身體不聽使喚，被遠端操控了這一回合'}。`, 'status', { unit: u.id, puppet: true }, u)
+  }
   // 回合進行中：從這裡到 advance 把計時數完為止，他給自己的 own_turn_end 不算這個回合的結束（run.skipsOwnTurnEnd）
   b.acting = u.id
   run.k.battle.emit('turn.start', { run, unit: u })
@@ -141,6 +149,11 @@ export function advance(run: BattleRun): void {
       // 失去回合的那一個（beginTurn 記在 run.skippedTurn）：turn.end 帶 lost: true
       if (!cur.out) run.k.battle.emit('turn.end', { run, unit: cur, ...(run.skippedTurn === cur.id ? { lost: true } : {}) })
       tickStatuses(run, 'turn_end', cur.id)
+      // 被遠端操控的回合到這裡結束：操縱的人還原
+      if (cur.puppet) {
+        cur.control = cur.puppet.control
+        delete cur.puppet
+      }
     }
     delete run.skippedTurn
     delete b.acting

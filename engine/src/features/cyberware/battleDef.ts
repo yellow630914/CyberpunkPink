@@ -21,6 +21,8 @@ export interface BattleAction {
   name: string
   icon: string
   ap: number
+  /** 斷藥（狀態 pump_jam）時不能用（冷卻迴路）；藥泵自己的行動一定受它管 */
+  jammable?: boolean
   uses?: { turn?: number; battle?: number }
   do: Array<Record<string, unknown>>
 }
@@ -82,7 +84,7 @@ export function readBattle(raw: unknown): BattleDef | undefined {
   if (!isRecord(raw)) return undefined
   const actions: BattleAction[] = Array.isArray(raw.actions)
     ? raw.actions.flatMap((a) => (isRecord(a) && isText(a.id) && isText(a.name) && isSafeInt(a.ap) && Array.isArray(a.do) ? [{
-      id: a.id, name: a.name, icon: isText(a.icon) ? a.icon : a.id, ap: a.ap as number,
+      id: a.id, name: a.name, icon: isText(a.icon) ? a.icon : a.id, ap: a.ap as number, ...(a.jammable === true ? { jammable: true } : {}),
       ...(isRecord(a.uses) ? { uses: { ...(isSafeInt(a.uses.turn) ? { turn: a.uses.turn as number } : {}), ...(isSafeInt(a.uses.battle) ? { battle: a.uses.battle as number } : {}) } } : {}),
       do: a.do.filter(isRecord) as Array<Record<string, unknown>>,
     }] : []))
@@ -120,7 +122,7 @@ export function kindOfBlueprint(bp: Pick<BlueprintEntry, 'slot' | 'deck'> & { im
 // ---- 載入時的檢查 ----
 
 const ALLOWED = ['actions', 'toggle', 'scaling', 'vs', 'pump']
-const ACTION_KEYS = ['id', 'name', 'icon', 'ap', 'uses', 'do', 'desc']
+const ACTION_KEYS = ['id', 'name', 'icon', 'ap', 'uses', 'do', 'desc', 'jammable']
 const TOGGLE_KEYS = ['id', 'name', 'icon', 'levels', 'upkeep_load', 'mods']
 const SCALING_KEYS = ['mod', 'per_load', 'amount', 'tags']
 const VS_KEYS = ['mod', 'amount', 'other_tags', 'tags']
@@ -148,6 +150,7 @@ export function battleProblems(k: Pick<Kernel, 'battle' | 'conditions' | 'passiv
       if (!isText(a.id)) p.push(`${at}.id 要是行動的 id`)
       if (!isText(a.name)) p.push(`${at}.name 要有名字`)
       if (!isText(a.icon)) p.push(`${at}.icon 要有圖示的鍵`)
+      if (a.jammable !== undefined && typeof a.jammable !== 'boolean') p.push(`${at}.jammable 要是 true 或 false`)
       if (!(isSafeInt(a.ap) && (a.ap as number) >= 0 && (a.ap as number) <= 10)) p.push(`${at}.ap 要是 0～10 的整數`)
       if (a.uses !== undefined) {
         if (!isRecord(a.uses)) p.push(`${at}.uses 要是 { turn?, battle? }`)

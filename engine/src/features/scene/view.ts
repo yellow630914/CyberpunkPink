@@ -8,6 +8,7 @@ import type { ActionId, CircleRec, LinkRec, PositionEntry, SceneKind, SceneLayer
 import { SYNC_GEARS, ACTION_NAME, GOAL_NAME, NATURE_NAME, ROLE_NAME, TALK_PARTS, dieRange, knownPositions, knownSkills, parseDie, partName, ratingOf, sceneDefOf, sceneRawOf, tendencyTagIds } from './model'
 import type { Preview, SceneInput } from './play'
 import { Play, candOf, costOf, diceOf } from './play'
+import { sceneWindow } from './window'
 
 export interface PartView {
   id: string
@@ -82,7 +83,8 @@ export interface LinkView {
   fresh: boolean
 }
 
-export interface LineView { round: number; who: Who; text: string }
+/** 每一回合的那一句；who 是說話的人的角色 id（M4-core-gaps 第 17 項：以前是 'pc'、'partner'） */
+export interface LineView { round: number; who: string; text: string }
 
 /** 主角對這一圈某個人的：契合、主動權與評價（第二版的 pairs）。離開了這一圈的人（換圈、失神退出）這一對的紀錄還在，現在不在這一圈的列在 SceneView 的 away。 */
 export interface PairView { fit: number; init: number; first: boolean; rating: { id: string; name: string }; holder: Who }
@@ -102,7 +104,8 @@ export interface SceneView {
   role_name: string
   place?: string
   goal: { id: string; name: string; progress: number; done_at: number; done: boolean } | null
-  position: { id: string; name: string; text?: string; upper: Who | null; mult: Record<Who, number>; roles: Record<Who, string> }
+  /** mult 與 roles 的鍵是每個座位的角色 id（M4-core-gaps 第 17 項：以前是 'pc'、'partner'）；upper 還是 'pc'、'partner'（一對一的舊寫法；每個人的上下位看 seats[].upper） */
+  position: { id: string; name: string; text?: string; upper: Who | null; mult: Record<string, number>; roles: Record<string, string> }
   fit: number
   rating: { id: string; name: string }
   /** 契合條的刻度（30、60、85） */
@@ -110,8 +113,7 @@ export interface SceneView {
   /** 主動權 0～100：50 以上在你手上 */
   init: number
   holder: Who
-  people: Record<Who, PersonView>
-  /** 第二版新增：這一圈的每個人（第一個是主角；一對一時 people 就是 seats[0]、seats[1]） */
+  /** 這一圈的每個人（第一個是主角；一對一時第二個就是對方）。以前的 people（pc、partner）拿掉了（M4-core-gaps 第 17 項） */
   seats: PersonView[]
   /** 主角對這一圈每個人（不含主角）的契合與主動權，照對象的 id */
   pairs: Record<string, PairView>
@@ -127,12 +129,12 @@ export interface SceneView {
   /** 現在換得到的體位（你會的；原因寫在 blocks）；單人是五個單人姿勢 */
   positions: Array<{ id: string; name: string; blocks: string[] }>
   /**
-   * 單人才有（kind 是 solo）：節奏 0～100、這一場有沒有人在看。單人沒有對象：people 只有 pc（沒有 partner；型別上還留著 partner 是為了舊的畫面不壞，單人時不要讀它）、
-   * position 的 mult 與 roles 也只有 pc 一格、pairs 與 away 是空的、init 固定 50、fit 與 rating 讀的是節奏。
+   * 單人才有（kind 是 solo）：節奏 0～100、這一場有沒有人在看。單人沒有對象：seats 只有主角、
+   * position 的 mult 與 roles 也只有主角一格、pairs 與 away 是空的、init 固定 50、fit 與 rating 讀的是節奏。
    */
   pace?: number
   audience?: boolean
-  /** 每一回合的那一句；who 是舊名字（'pc' 或 'partner'） */
+  /** 每一回合的那一句 */
   lines: LineView[]
   /** 選中行動的預覽與原因（sceneView 的第三個參數給了才有） */
   selected?: { input: SceneInput; blocks: string[]; preview: Preview }
@@ -200,10 +202,13 @@ export function sceneView(k: Kernel, state: GameState, selected?: SceneInput): S
   const pcId = s.pc
   const partnerId = p.partnerId
   const upperWho = solo ? null : (['pc', 'partner'] as const).find((w) => p.isUpper(w === 'pc' ? pcId : partnerId)) ?? null
-  // 單人沒有對象：位置與倍率只有主角一格
+  // 單人沒有對象：位置與倍率只有主角一格；其餘每個座位各一格（鍵是角色 id）
   const position: SceneView['position'] = solo
-    ? { id: s.position, name: p.positionName(), upper: null, mult: { pc: p.mult(pcId) } as Record<Who, number>, roles: { pc: '' } as Record<Who, string> }
-    : { id: p.pos.id, name: p.pos.name, ...(p.pos.text ? { text: p.pos.text } : {}), upper: upperWho, mult: { pc: p.mult(pcId), partner: p.mult(partnerId) }, roles: { pc: s.roles[pcId] ?? '', partner: s.roles[partnerId] ?? '' } }
+    ? { id: s.position, name: p.positionName(), upper: null, mult: { [pcId]: p.mult(pcId) }, roles: { [pcId]: '' } }
+    : {
+      id: p.pos.id, name: p.pos.name, ...(p.pos.text ? { text: p.pos.text } : {}), upper: upperWho,
+      mult: Object.fromEntries(s.seats.map((x) => [x.id, p.mult(x.id)])), roles: Object.fromEntries(s.seats.map((x) => [x.id, s.roles[x.id] ?? ''])),
+    }
   const pairs: Record<string, PairView> = {}
   for (const [id, pr] of Object.entries(s.pairs)) {
     const b = ratingOf(p.rules, pr.fit)
@@ -216,11 +221,11 @@ export function sceneView(k: Kernel, state: GameState, selected?: SceneInput): S
     goal: s.goal ? { id: s.goal, name: GOAL_NAME[s.goal], progress: solo ? Math.max(s.goal_progress ?? 0, fit) : s.goal_progress ?? 0, done_at: p.rules.goal_done_at, done: (solo ? Math.max(s.goal_progress ?? 0, fit) : s.goal_progress ?? 0) >= p.rules.goal_done_at } : null,
     position,
     fit, rating: { id: band.id, name: band.name }, fit_marks: p.rules.bands.map((b) => b.min).filter((m) => m > 0).sort((a, b) => a - b), init: solo ? 50 : p.pair.init, holder: solo ? 'pc' : p.who(p.holder()),
-    people: (solo ? { pc: seats[0]! } : { pc: seats[0]!, partner: seats[1] ?? seats[0]! }) as SceneView['people'], seats, pairs, circles: clone(s.circles), links, effects, decider: p.decider(), away: Object.keys(s.pairs).filter((id) => !p.inCircle(id)),
+    seats, pairs, circles: clone(s.circles), links, effects, decider: p.decider(), away: Object.keys(s.pairs).filter((id) => !p.inCircle(id)),
     positions: solo
       ? p.poses.map((x) => ({ id: x.id, name: x.name, blocks: p.blocks(pcId, { kind: 'switch', position: x.id }, true) }))
       : knownPositions(k, state, s.pc, p.activeIds().length).map((x) => ({ id: x.id, name: x.name, blocks: p.blocks(pcId, { kind: 'switch', position: x.id }, true) })),
-    lines: s.lines.map((l) => ({ ...l, who: p.who(l.who) })),
+    lines: s.lines.map((l) => ({ round: l.round, who: l.who, text: l.text })),
     ...(solo ? { pace: s.pace ?? 0, audience: s.audience === true } : {}),
   }
   if (selected) view.selected = { input: selected, blocks: p.blocks(pcId, selected, true), preview: p.preview(pcId, selected) }
@@ -288,6 +293,8 @@ export interface SceneOptions {
   actions: ActionOption[]
   /** 回合交給對方（沒用完的行動點留到下回合） */
   end_turn: { blocks: string[] }
+  /** 別的功能在這個視窗插進來的選項（掛點 scene.window；妖精的吻擴散階段）：選了就送出 input；blocks 是現在做不到的原因（空的是能做） */
+  inserted: Array<{ id: string; owner: string; name: string; ap: number; blocks: string[]; input: SceneInput }>
 }
 
 function pairsOf(p: Play, w: string, input: SceneInput, mine: string[], theirs: string[]): ScenePair[] {
@@ -319,20 +326,24 @@ function picksOf(p: Play, mine: string[], theirs: string[], pairs: ScenePair[]):
  * 十種行動一次列出來（工單第 2 點；換檔的四檔在 choices，開不了的帶核心 syncBlocks 的原因）：花費、現在能不能做與原因、要選的部位（照戰鬥 picks 的樣子宣告）、技能與道具與體位各自的選項、預覽。
  * 沒有場景是 null。一直問的是主角（玩家）。
  */
-export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
+export function sceneOptions(k: Kernel, state: GameState, o: { target?: string } = {}): SceneOptions | null {
   const s = sceneRawOf(state)
   if (!s) return null
   const p = playOf(k, state, s)
   const w = s.pc
+  // 指定對象（M4-core-gaps 第 17 項）：多人時玩家先選了對象，每個行動的原因、部位的組合與預覽都照他算；沒給（或不在這一圈）一對一是對方、多人是引擎挑的那一個
+  const at = o.target !== undefined && p.activeOthers(w).includes(o.target) ? o.target : undefined
+  const aimed = <T extends SceneInput>(input: T): T => (at !== undefined && input.kind !== 'stop' && input.kind !== 'end_turn' && input.kind !== 'move_circle' && input.kind !== 'call' && input.kind !== 'gear' && input.kind !== 'switch' ? { ...input, target: at } : input)
   const simple = (id: 'dominate' | 'yield' | 'tease' | 'restrain' | 'stop' | 'faster' | 'slower'): ActionOption => {
-    const input: SceneInput = { kind: id }
+    const input: SceneInput = aimed({ kind: id })
     return { id, name: ACTION_NAME[id], ap: id === 'stop' ? 0 : p.rulesFor(w).cost[id], blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: id === 'stop' ? null : p.preview(w, input) }
   }
-  const choice = (input: SceneInput, id: string, name: string, ap: number, mine: string[], theirs: string[]): ChoiceOption => {
+  const choice = (raw: SceneInput, id: string, name: string, ap: number, mine: string[], theirs: string[]): ChoiceOption => {
+    const input = aimed(raw)
     const pairs = mine.length > 0 ? pairsOf(p, w, input, mine, theirs) : []
     return { id, name, ap, blocks: p.blocks(w, input, true), picks: mine.length > 0 ? picksOf(p, mine, theirs, pairs) : [], pairs, preview: p.preview(w, input) }
   }
-  const talkInput: SceneInput = { kind: 'talk' }
+  const talkInput: SceneInput = aimed({ kind: 'talk' })
   const solo = p.solo
   // 單人說話不選部位（對看著的人說，不建立連接）
   const talkTheirs = solo ? [] : p.partsOf(p.autoTarget(w, talkInput))
@@ -397,5 +408,7 @@ export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
     ...circleActions,
     simple('stop'),
   ]
-  return { turn: p.who(s.turn), round: s.round, targets: p.activeOthers(w).map((id) => ({ id, name: state.actors[id]?.name ?? id })), ap: { now: p.seat(w).ap, max: p.apMax[w]! }, actions, end_turn: { blocks: turn } }
+  // 別的功能插進來的選項（掛點 scene.window）：每一個帶現在做不做得到的原因
+  const inserted = sceneWindow(k, state, p).options.map((o) => ({ id: o.id, owner: o.owner, name: o.label, ap: costOf(p, o.input, w), blocks: p.blocks(w, o.input, true), input: o.input }))
+  return { turn: p.who(s.turn), round: s.round, targets: p.activeOthers(w).map((id) => ({ id, name: state.actors[id]?.name ?? id })), ap: { now: p.seat(w).ap, max: p.apMax[w]! }, actions, end_turn: { blocks: turn }, inserted }
 }

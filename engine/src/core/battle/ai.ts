@@ -11,7 +11,7 @@
 
 import type { BattleInput, BattleTarget, BattleUnit } from '../types'
 import { BATTLE_SLOTS } from '../types'
-import { coverAt, coverLevel, distance, isWounded, losingTurn, moveBlock, otherSide, sameTarget, unitAt, unitsOf, wielded } from './field'
+import { coverAt, coverLevel, distance, hostiles, isWounded, losingTurn, moveBlock, otherSide, sameTarget, unitAt, unitsOf, wielded } from './field'
 import type { BattleActionDef, BattleView } from './registry'
 import { actionCost, flashBlock } from './registry'
 import type { BattleRun } from './run'
@@ -146,7 +146,8 @@ export function aiStep(run: BattleRun, u: BattleUnit): boolean {
   // 2. 站得好嗎
   if (tryReposition(run, u)) return true
   // 3. 打誰
-  const foes = unitsOf(b, otherSide(u.side))
+  // 被遠端操控的回合（u.puppet）：目標挑自己這一方的別人（hostiles）
+  const foes = hostiles(b, u)
   // 每個候選的權重都是 0（ai_target_pct 把場上的人全部排除了）時當成沒有這個修正：除非他是唯一打得到的目標，否則不挑他
   const pickFoe = (ignorePct: boolean) => run.pick(foes, (t) => targetWeight(run, u, t, { ignorePct }))
   const enemy = foes.length ? (pickFoe(false) ?? pickFoe(true) ?? foes[0]!) : null

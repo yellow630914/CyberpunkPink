@@ -1,5 +1,5 @@
 import type { Report } from '@engine/src'
-import type { ActionOption, ChoiceOption, PartView, PersonView, Preview, PreviewLoad, SceneRaw, ScenePair, ScenePick, SceneView } from '@engine/src/features/scene'
+import type { ActionOption, ChoiceOption, PartView, PersonView, Preview, PreviewLoad, ScenePair, ScenePick, SceneView } from '@engine/src/features/scene'
 import { END_NAME } from '@engine/src/features/scene'
 
 /**
@@ -45,21 +45,6 @@ export const othersOf = (v: SceneView): PersonView[] => v.seats.slice(1)
 /** 多人（一圈三、四個人）：對象卡不只一張，契合與主動權每個人各一組 */
 export const isGroup = (v: SceneView): boolean => v.kind === 'group' || othersOf(v).length > 1
 export const isSolo = (v: SceneView): boolean => v.kind === 'solo'
-
-/**
- * 開場確認框用的設定：把進行中的場景狀態還原成開場的設定（引擎不存開場的設定；確認框的摘要要問 startProblems，它要這個形狀）。
- * 只翻譯欄位的名字，不判斷任何事：誰是對象、哪幾圈、性質、身分、目的、地點、標籤、模式、現實或內海、最多幾回合、單人與有沒有人在看。
- */
-export function setupOf(raw: SceneRaw): Record<string, unknown> {
-  const others = raw.seats.filter((s) => s.id !== raw.pc).map((s) => s.id)
-  const common: Record<string, unknown> = {
-    role: raw.role, goal: raw.goal ?? 'none', tags: [...raw.tags], mode: raw.mode, layer: raw.layer,
-    ...(raw.place ? { place: raw.place } : {}), ...(raw.dream ? { dream: true } : {}), ...(raw.max_rounds !== undefined ? { max_rounds: raw.max_rounds } : {}),
-  }
-  if (raw.kind === 'solo') return { ...common, solo: true, audience: raw.audience === true }
-  const circles = raw.circles.map((c) => [...c.people, ...(c.out ?? [])])
-  return { ...common, nature: raw.nature, ...(circles.length > 0 ? { circles: [[raw.pc, ...others], ...circles] } : { with: others }) }
-}
 
 export type PartState = 'link' | 'reach' | 'off'
 export const partState = (p: PartView): PartState => (p.linked ? 'link' : p.reach ? 'reach' : 'off')

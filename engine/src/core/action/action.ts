@@ -45,6 +45,37 @@ export interface ActionPending {
   maxMinutes: number
   /** 上限用的等級 */
   grade: Grade
+  /** 視窗（掛點 action.window）替玩家選了：原本送出的行動、原因（給玩家看的一句）與誰替他選的；沒有就是沒有這個欄位 */
+  replaced?: { from: ActionInput; why: string; owner: string }
+}
+
+/** 一個視窗的結果（actionWindow）：插進來的選項（每個帶是誰插的）與替玩家選的（有的話）。 */
+export interface ActionWindow {
+  options: Array<{ id: string; label: string; input: ActionInput; owner: string }>
+  replace?: { input: ActionInput; why: string; owner: string }
+}
+
+/**
+ * 問掛點 action.window：玩家要做 input 這個行動時，有沒有功能要插一個選項、或替他選（妖精的吻擴散階段）。
+ * options 給畫面列出來；replace 只收行動種類存在、沒有被 block 擋住、而且和原本的不一樣的（第一個合格的算數）。純函式，不改狀態。
+ */
+export function actionWindow(k: Pick<ActionKernel, 'hooks' | 'actions'>, state: GameState, input: ActionInput): ActionWindow {
+  const out: ActionWindow = { options: [] }
+  for (const h of k.hooks.run('action.window', { state, input: clone(input) })) {
+    const a = h.result
+    if (!isRecord(a)) continue
+    const o = a.option
+    if (isRecord(o) && typeof o.id === 'string' && o.id && typeof o.label === 'string' && o.label && isRecord(o.input) && typeof o.input.kind === 'string' && k.actions.get(o.input.kind)) {
+      out.options.push({ id: o.id, label: o.label, input: clone(o.input as unknown as ActionInput), owner: h.owner })
+    }
+    const r = a.replace
+    if (!out.replace && isRecord(r) && typeof r.why === 'string' && r.why && isRecord(r.input) && typeof r.input.kind === 'string') {
+      const to = r.input as unknown as ActionInput
+      const def = k.actions.get(to.kind)
+      if (def && !def.block?.(state, to) && JSON.stringify(to) !== JSON.stringify(input)) out.replace = { input: clone(to), why: r.why, owner: h.owner }
+    }
+  }
+  return out
 }
 
 /** 判定的結果（AI_TASKS 4.1 節的 submit_judgment）。 */
@@ -77,6 +108,10 @@ const purposeOf = (state: GameState, input: ActionInput) => `action/${input.kind
 
 /** 第一段：擲骰。reroll 是重擲的次數（0 是第一次）；history 是之前每一次的骰面。 */
 export function prepareAction(k: ActionKernel, state: GameState, input: ActionInput, reroll = 0, history: number[] = []): ActionPending {
+  // 視窗（掛點 action.window）：有功能替玩家選了，這一次擲的是換掉之後的行動；重擲照同一個換法（問的是原本送出的那一個，所以結果一樣）
+  const win = actionWindow(k, state, input)
+  const replaced = win.replace ? { from: clone(input), why: win.replace.why, owner: win.replace.owner } : undefined
+  if (win.replace) input = win.replace.input
   const def = k.actions.get(input.kind)
   if (!def) throw new Error(`沒有 ${input.kind} 這種行動`)
   if (!state.pc || !state.actors[state.pc]) throw new ActionBlocked('還沒有主角。')
@@ -87,7 +122,7 @@ export function prepareAction(k: ActionKernel, state: GameState, input: ActionIn
   const skill = input.skill ?? def.skill
   const refDc = dcFor(typeof def.dc === 'function' ? def.dc(state, input) : def.dc, state.rules)
   const roll = rollFor(k, state, def, input, actor, attr, skill, refDc, reroll, history)
-  return { input: clone(input), actor, attr, ...(skill ? { skill } : {}), refDc, roll, reroll, history: [...history], minutes: def.minutes, maxMinutes: def.maxMinutes, grade: areaGrade(k, state) }
+  return { input: clone(input), actor, attr, ...(skill ? { skill } : {}), refDc, roll, reroll, history: [...history], minutes: def.minutes, maxMinutes: def.maxMinutes, grade: areaGrade(k, state), ...(replaced ? { replaced } : {}) }
 }
 
 function rollFor(k: ActionKernel, state: GameState, def: ActionKindDef, input: ActionInput, actor: ActorId, attr: AttrId, skill: SkillId | undefined, dc: number, reroll: number, history: number[]): CheckRoll {

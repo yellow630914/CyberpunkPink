@@ -11,7 +11,7 @@
 import type { GameState, ItemStack } from '../types'
 import { clone } from '../util/clone'
 import { isRecord } from '../util/sanitize'
-import { LEGALITIES } from './kinds'
+import { LEGALITIES, availableProblems, availableRefs } from './kinds'
 import type { ContentEntry, ContentRegistry } from './registry'
 
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v)
@@ -134,6 +134,8 @@ export interface BlueprintEntry extends ContentEntry {
   lock?: (typeof LOCK_KINDS)[number]
   upkeep_weekly?: number
   creation_points?: number
+  /** 建角買不買得到的限制（出身、勢力）；沒寫不限 */
+  available?: { origins?: string[]; faction?: string }
   tattoo?: { kind: (typeof TATTOO_KINDS)[number]; faction?: string }
 }
 
@@ -321,6 +323,7 @@ export function blueprintProblems(e: Record<string, unknown>): string[] {
     if (e.conceal_add !== undefined && !(isInt(e.conceal_add) && e.conceal_add >= 0)) p.push('conceal_add（內藏槽加的藏匿量）要是 0 以上的整數')
     if (e.quick !== undefined && !(isInt(e.quick) && e.quick >= 0)) p.push('quick（多給的快取格）要是 0 以上的整數')
   }
+  if (e.available !== undefined) p.push(...availableProblems(e.available))
   if (cyber) cyberwareProblems(e, p)
   return p
 }
@@ -380,6 +383,7 @@ export function registerProductKinds(content: ContentRegistry): void {
       ...(e.kind === 'weapon' && e.class ? [['weapon_class', e.class] as [string, string]] : []),
       ...Object.values(e.stock ?? {}).flatMap((v) => (Array.isArray(v) ? v : [v]).map((id): [string, string] => ['part', id])),
       ...(e.tattoo?.faction ? [['faction', e.tattoo.faction] as [string, string]] : []),
+      ...availableRefs(e.available),
     ],
   })
   content.defineKind<PartEntry>({ kind: 'part', owner: 'core', validate: partProblems })

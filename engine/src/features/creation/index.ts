@@ -5,7 +5,7 @@
 // 第 5 步生命軌跡（lifepath.ts；M4-creation-lifepath）：內容種類 lifepath_entry，結果是效果清單、個人目標、性經歷記錄（creation 自己處理）與 NPC、傾向、橋參數（經掛點 creation.step 的 lifepath 交給 npcs、lewd）。
 // 檢查回傳 string | null：null 是沒問題，字串是擋住的原因（給玩家看的完整句子）。
 
-import type { Actor, AttrId, ContentEntry, FactionEntry, Feature, GameState, Kernel, NpcEntry, OriginEntry, PerkEntry, ReportDraft, SkillId } from '../../core'
+import type { Actor, AttrId, FactionEntry, Feature, GameState, Kernel, NpcEntry, OriginEntry, PerkEntry, ReportDraft, SkillId } from '../../core'
 import { ATTR_IDS, CONTENT_TAG_INTIMATE_BODY, ContentError, blankState, GENDER_IDS, MIN_AGE, SKILL_MAX, attrMod, clone, contentAllowed, isRecord } from '../../core'
 import { abilitiesStepBlock, askStep, cyberStepBlock, dedupeExt, gearStepBlock, leftoverCash, pointsSpent } from './body'
 import type { BodyStep } from './body'
@@ -297,23 +297,14 @@ export function lifepathResults(k: Kernel, state: GameState, draft: CreationDraf
   return lifepathSummary(k, draft, preview)
 }
 
-const CREATION_NUMBERS = ['cyber_point_price', 'cyber_install_mult', 'gear_point_price', 'gear_grade_max'] as const
-
 export const creationFeature: Feature = {
   id: 'creation',
   install(k) {
     k.content.defineKind<LifepathEntry>({ kind: LIFEPATH_KIND, owner: 'creation', validate: entryProblems, refs: lifepathRefs })
   },
   ready(k) {
-    // creation_rule 多的幾個欄位（核心的格式檢查不認得它們）
+    // creation_rule 的 cyber_point_price、cyber_install_mult、gear_point_price、gear_grade_max、gear_kinds 的格式在核心的內容檢查（M4-core-gaps 第 9 項）
     const problems: string[] = []
-    for (const e of k.content.list<ContentEntry & Record<string, unknown>>('creation_rule')) {
-      for (const f of CREATION_NUMBERS) {
-        const v = e[f]
-        if (v !== undefined && !(typeof v === 'number' && Number.isFinite(v) && v > 0)) problems.push(`creation_rule/${e.id}：${f} 要是大於 0 的數字`)
-      }
-      if (e.gear_kinds !== undefined && !(Array.isArray(e.gear_kinds) && e.gear_kinds.every((x) => typeof x === 'string' && x.length > 0))) problems.push(`creation_rule/${e.id}：gear_kinds 要是類別的字串陣列`)
-    }
     // 生命軌跡：結果引用的傾向標籤、勢力要查得到；已經有功能註冊的效果種類，格式要對（沒註冊的留到提交時寫進提醒）
     const fxCtx = { state: blankState(0), actor: 'pc', grade: 1, source: 'builtin', clampAsked: true, content: k.content } as unknown as Parameters<Kernel['effects']['validate']>[1]
     for (const e of k.content.list<LifepathEntry>(LIFEPATH_KIND)) {

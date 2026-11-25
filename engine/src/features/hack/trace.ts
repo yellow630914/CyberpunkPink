@@ -10,7 +10,7 @@
 // 檢定的結果由 hack.check 記在做的人身上（ext.hack.checks，每個行動做完就清掉），這裡只讀。狀態都在戰鬥狀態裡，存檔與回退才對得上。
 // 不 import 別的功能：net.trace 與 hostility 只經登錄表查有沒有。
 
-import type { BattleTarget, BattleUnit, Kernel } from '../../core'
+import type { ActorId, BattleTarget, BattleUnit, GameState, Kernel } from '../../core'
 import { effectCtx, isRecord, modeOf } from '../../core'
 import { OWNER } from './deck'
 import type { QuickhackEntry } from './kinds'
@@ -24,6 +24,38 @@ const ABILITY_KIND = 'ability'
 
 interface CheckNote {
   ok: boolean
+}
+
+/**
+ * 掛點 hack.trace_mod 的回答（M4-core-gaps 第 4 項）：義體讓這個人的快駭追蹤度變多或變少。add 先加、mult 再乘（0 就是追蹤度不漲：駭入接頭直接插進裝置、不經無線；
+ * 回報後門每用一次 +1）。好幾個回答合起來：add 相加、mult 相乘；算出來向下取整、最少 0。沒有人回答就照程式的 trace。
+ */
+export interface TraceModAnswer {
+  add?: number
+  mult?: number
+}
+
+declare module '../../core' {
+  interface HookMap {
+    /**
+     * 快駭的追蹤度算好之後、加上去之前（現實的敵對值與內海的追蹤度都問）：做的人（有角色的我方單位）、這一層（meat、net）、這一場的勢力（沒有是 undefined）、程式寫的 trace。
+     * 義體（駭入接頭、回報後門）回答；處理函式只讀，不改狀態。
+     */
+    'hack.trace_mod': [{ state: GameState; actor: ActorId; layer: string; action: string; faction?: string; trace: number }, TraceModAnswer | void]
+  }
+}
+
+/** 問 hack.trace_mod，回傳最後的追蹤度（沒有人回答就是 trace 本身）。 */
+export function modTrace(k: Pick<Kernel, 'hooks'>, state: GameState, actor: ActorId, layer: string, action: string, faction: string | undefined, trace: number): number {
+  let add = 0
+  let mult = 1
+  for (const h of k.hooks.run('hack.trace_mod', { state, actor, layer, action, ...(faction ? { faction } : {}), trace })) {
+    const r = h.result as TraceModAnswer
+    if (!isRecord(r)) continue
+    if (typeof r.add === 'number' && Number.isFinite(r.add)) add += r.add
+    if (typeof r.mult === 'number' && Number.isFinite(r.mult)) mult *= r.mult
+  }
+  return Math.max(0, Math.floor((trace + add) * mult))
 }
 
 const hackExt = (u: BattleUnit): Record<string, unknown> => {
@@ -75,7 +107,10 @@ export function registerTrace(k: Kernel): void {
     if (ext) delete ext.checks
     if (!tags.includes('hack') || unit.side !== 'ally') return
     const layer = run.mode.layer
-    const trace = traceOfAction(run.k, action, layer)
+    const base = traceOfAction(run.k, action, layer)
+    if (base <= 0) return
+    // 義體問一次（駭入接頭：不經無線、追蹤度不漲；回報後門：每用一次 +1）；沒有角色的單位照程式的數字
+    const trace = unit.actor && run.state.actors[unit.actor] ? modTrace(run.k, run.state, unit.actor, layer, action, factionOf(run.k, run.state, run.battle.origin), base) : base
     if (trace <= 0) return
     if (layer === 'net') {
       // 內海：每用一次（不論成敗）追蹤度加 trace。沒有人註冊 net.trace，或這一場沒有追蹤度，就不加

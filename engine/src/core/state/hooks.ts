@@ -3,7 +3,7 @@
 // 提交當中的掛鉤（report.before、report.after、time.passed、turn.end）拿到的 state 是這次提交的工作副本：
 // 已經包含到目前為止的每一份報告；整串成功才換進正式的狀態，所以不要把它留著以後用。
 
-import type { Change, GameState, GameTime, Launch, Origin, Report, ReportDraft, ReportRewind } from '../types'
+import type { ActionInput, Change, GameState, GameTime, Launch, Origin, Report, ReportDraft, ReportRewind } from '../types'
 import type { Probe } from './probe'
 
 /** 休息的種類（掛點 rest.done）：breath 喘口氣、sleep 睡一覺、stage 副本裡階段之間的喘口氣。 */
@@ -19,6 +19,15 @@ export interface ActivityEndReturn {
   launch?: Launch[]
   /** 結束提交之後回到最近一份這個種類的快照；好幾個處理函式都回傳時只取第一個 */
   rewind?: ReportRewind
+}
+
+/**
+ * 自由行動的視窗（掛點 action.window）一個回答：插一個選項，或替玩家選（妖精的吻擴散階段；CYBERWARE 第 5 節；M4-core-gaps 第 16 項）。
+ * 兩個鍵都選填、可以一起給：option 是多一個選項（玩家選了就送出 input）；replace 是玩家這一次送出的行動直接換成別的（why 是給玩家看的一句話，進報告）。
+ */
+export interface ActionWindowAnswer {
+  option?: { id: string; label: string; input: ActionInput }
+  replace?: { input: ActionInput; why: string }
 }
 
 /**
@@ -59,6 +68,12 @@ export interface HookMap {
    * 發的人是功能（休息、副本的階段之間），用共用的函式 restDone；state 是休息做完之前的狀態，唯讀。
    */
   'rest.done': [{ state: GameState; kind: RestKind }, Change[] | void]
+  /**
+   * 玩家要做一個主動行動（prepareAction 擲骰之前）的視窗：功能可以插一個選項（option；畫面用 actionWindow 取來列出）、
+   * 或替玩家選（replace：這一次的行動換成它，換了之後的行動種類要存在、而且沒被擋；pending.replaced 記著原本的與原因）。
+   * 處理函式只讀，不改狀態；沒有人回答就什麼都不變。成人場景裡的同一種視窗是 features/scene 宣告的 scene.window。
+   */
+  'action.window': [{ state: GameState; input: ActionInput }, ActionWindowAnswer | void]
 }
 
 export type HookName = keyof HookMap

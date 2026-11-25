@@ -102,14 +102,21 @@ export const signed = (n: number): string => (n > 0 ? `+${n}` : String(n))
 export interface EffectNames { attr(id: string): string; skill(id: string): string }
 
 /** 一筆被動效果寫成一行字（數字照引擎給的）。帶條件的後面加「（有條件）」。 */
+const TRACK_NAME: Record<string, string> = { hp: '生命', load: '感載', sink: '沉溺', afterglow: '餘韻' }
+
+/** 一筆效果的數字：固定的 amount，或「每 N 點某條軌道 ±M」（per：依軌道值縮放）。 */
+function amountText(e: { amount?: number; per?: { track: string; every: number; amount: number } }): string {
+  return e.per ? `每 ${e.per.every} 點${TRACK_NAME[e.per.track] ?? e.per.track} ${signed(e.per.amount)}` : signed(e.amount ?? 0)
+}
+
 export function effectText(e: PassiveEffect, names: EffectNames): string {
   let text: string
-  if ('attr' in e) text = `${names.attr(e.attr)} ${signed(e.amount)}`
-  else if ('stat' in e) text = `${statName(e.stat)} ${signed(e.amount)}`
+  if ('attr' in e) text = `${names.attr(e.attr)} ${amountText(e)}`
+  else if ('stat' in e) text = `${statName(e.stat)} ${amountText(e)}`
   else if ('check' in e) {
-    const what = [...(e.check.skills ?? []).map((s) => names.skill(s)), ...(e.check.tags ?? [])]
-    text = `${what.join('、') || '檢定'}檢定 ${signed(e.amount)}`
-  } else if ('mod' in e) text = `${modName(e.mod)} ${signed(e.amount)}${e.layer ? `（${e.layer === 'meat' ? '現實' : '內海'}）` : ''}`
+    const what = [...(e.check.skills ?? []).map((s) => names.skill(s)), ...(e.check.attrs ?? []).map((a) => names.attr(a)), ...(e.check.tags ?? [])]
+    text = `${what.join('、') || '檢定'}檢定 ${amountText(e)}`
+  } else if ('mod' in e) text = `${modName(e.mod)} ${amountText(e)}${e.layer ? `（${e.layer === 'meat' ? '現實' : '內海'}）` : ''}`
   else text = `標籤：${e.unit_tag}`
   return e.if && e.if.length > 0 ? `${text}（有條件）` : text
 }

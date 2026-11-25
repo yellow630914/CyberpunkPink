@@ -2,7 +2,7 @@
 // 只用核心的基本動作與唯讀的 BattleView；不碰 GameState。
 
 import type { BattleActionDef, BattlePick, BattleTarget, BattleUnit, BattleView, BattleWeapon } from '../../core'
-import { BattleBlocked, distance, otherSide, unitsOf, wielded } from '../../core'
+import { BattleBlocked, distance, hostiles, otherSide, unitsOf, wielded } from '../../core'
 import type { AmmoItem } from './fx'
 import { clearJam, isJammed } from './fx'
 
@@ -38,14 +38,15 @@ const shoot: BattleActionDef = {
     return []
   },
   targets: (view, u) => [
-    ...unitsOf(view.battle, otherSide(u.side)).map((t) => ({ target: { unit: t.id }, blocks: [] as string[], hint: { chance: view.hitChance(u, t), distance: distance(u, t) } })),
-    ...view.battle.overlays.filter((o) => o.side === otherSide(u.side) && !o.down).map((o) => ({ target: { overlay: o.id }, blocks: [] as string[] })),
+    // 這個回合被遠端操控的人（掛點 turn.control）打的是自己這一方的別人（hostiles）；平常就是對面
+    ...hostiles(view.battle, u).map((t) => ({ target: { unit: t.id }, blocks: [] as string[], hint: { chance: view.hitChance(u, t), distance: distance(u, t) } })),
+    ...view.battle.overlays.filter((o) => !u.puppet && o.side === otherSide(u.side) && !o.down).map((o) => ({ target: { overlay: o.id }, blocks: [] as string[] })),
   ],
   // 掃射（pick.sweep）：手上的武器能掃射才列出來；只能打人
   picks: (view, u): BattlePick[] => {
     const w = wielded(u)
     if (!w?.traits.includes('sweep')) return []
-    const people: BattleTarget[] = unitsOf(view.battle, otherSide(u.side)).map((t) => ({ unit: t.id }))
+    const people: BattleTarget[] = hostiles(view.battle, u).map((t) => ({ unit: t.id }))
     return [{ key: 'sweep', label: '掃射', kind: 'toggle', required: false, options: [{ value: true, label: '掃射：花彈匣 2 格；不管有沒有打中，目標要過定力豁免，沒過就被壓制', blocks: sweepBlocks(w), for: people }] }]
   },
   run: (run, u, target, input) => {
@@ -91,7 +92,7 @@ const melee: BattleActionDef = {
   group: 'attack', icon: 'melee', tags: ['weapon_attack'], order: 2, target: 'foe', modes: MODES,
   cost: () => ({ ap: 2 }),
   blocks: (_v, u) => (isMelee(wielded(u)) ? [] : ['手上不是近戰武器。']),
-  targets: (view, u) => unitsOf(view.battle, otherSide(u.side)).map((t) => ({
+  targets: (view, u) => hostiles(view.battle, u).map((t) => ({
     target: { unit: t.id },
     blocks: distance(u, t) !== 1 ? ['近戰只能打近身（雙方的第 1 格）。'] : [],
     hint: { chance: view.hitChance(u, t), distance: distance(u, t) },
