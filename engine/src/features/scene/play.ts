@@ -233,6 +233,12 @@ export class Play {
     return r
   }
 
+  /** 這個人每回合的感載自然消退：現實 2 + mod(意志)（最少 0）；內海是 net_load_decay（沒有人定義這個數值是 0）。 */
+  decayOf(id: ActorId): number {
+    if (this.s.layer === 'net') return this.k.stats.hasStat('net_load_decay') ? Math.max(0, Math.floor(this.k.stats.stat(this.state, id, 'net_load_decay'))) : 0
+    return Math.max(0, 2 + this.resolveMod(id))
+  }
+
   /** 這個人現在切換體位不花行動點嗎（共鳴 free_switch：這一場前幾次；單人沒有）。 */
   freeSwitch(id: ActorId): boolean {
     const n = this.res[id]?.free_switch ?? 0
@@ -1204,7 +1210,8 @@ export class Play {
       if (this.isPc(id)) for (const x of this.activeOthers(id)) this.addInit(d, id, x)
       else this.addInit(d, id, id)
     }
-    for (const id of this.activeIds()) this.load[id] = Math.max(0, this.load[id]! - Math.max(0, 2 + this.resolveMod(id)))
+    // 感載自然消退：現實是 2 + mod(意志)；內海的基礎是 0、沒有意志的加成，只有衍生數值 net_load_decay（甲板的散熱、技能、藥、調校）才消（CORE_RULES 4.2 節、CYBERSPACE 6.2 節）
+    for (const id of this.activeIds()) this.load[id] = Math.max(0, this.load[id]! - this.decayOf(id))
     if (s.goal === 'stall' && s.goal_progress !== null) s.goal_progress = Math.min(100, s.goal_progress + this.rules.goal_stall_per_round)
     this.otherCircles()
     this.beats.push(beat(undefined, `第 ${s.round} 回合結束。`, 'round', { round: s.round }))

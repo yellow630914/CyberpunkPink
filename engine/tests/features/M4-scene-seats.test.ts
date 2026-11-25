@@ -693,9 +693,9 @@ describe('startProblems 的開場摘要（確認框用）', () => {
     expect(startProblems(g.k, g.state, { with: ['nobody'], nature: 'mutual' }).summary).toBeUndefined()
   })
 
-  it('內海的場景這一版還不能開；layer 寫錯有原因', () => {
+  it('內海的場景要有甲板（這一局沒有裝 deck，所以開不起來；開得起來的情形見 M4-scene-net）；layer 寫錯有原因', () => {
     const g = game()
-    expect(startProblems(g.k, g.state, { ...SETUP, layer: 'net' }).problems).toEqual(['內海裡的成人場景這一版還不能開。'])
+    expect(startProblems(g.k, g.state, { ...SETUP, layer: 'net' }).problems).toEqual(['你沒有甲板，進不了內海，開不起這一場。'])
     expect(startProblems(g.k, g.state, { ...SETUP, layer: 'sky' }).problems).toEqual(['layer 要是 meat、net 其中一個。'])
     expect(startProblems(g.k, g.state, { ...SETUP, layer: 'meat' }).problems).toEqual([])
   })

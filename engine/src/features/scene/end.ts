@@ -12,8 +12,10 @@ type Fx = Record<string, unknown>
 
 /** 一份報告共用的欄位。 */
 export function sceneDraft(state: GameState, p: Play, action: string, timeline: TimelineBeat[], changes: Change[], result: string, summary: string): ReportDraft {
+  // 內海的場景每一拍標 net（M4-scene-net）
+  const beats = p.s.layer === 'net' ? timeline.map((b): TimelineBeat => ({ ...b, layer: 'net' })) : timeline
   return {
-    kind: 'social', action, location: clone(state.location), actor: p.s.pc, party: [], timeline, changes, outcome: { result, summary }, adult: true,
+    kind: 'social', action, location: clone(state.location), actor: p.s.pc, party: [], timeline: beats, changes, outcome: { result, summary }, adult: true,
   }
 }
 
@@ -171,7 +173,7 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
   const circlesResult = s.circles.map((c) => ({ id: c.id, people: [...c.people, ...(c.out ?? [])], fit: c.fit, rating: ratingOf(rules, c.fit).name, climax: { ...c.climax } }))
   // 一對一（只有一個對象、沒有別的圈）的結果照舊；多人才多 pairs 與 circles
   const multi = pairIds.length > 1 || s.circles.length > 0 || s.kind === 'group'
-  const result = { with: partnerId, fit, rating: band.name, goal: s.goal, goal_done: goalDone, reason, max_gear: maxGear, ...(multi ? { pairs: pairResult, circles: circlesResult } : {}) }
+  const result = { with: partnerId, fit, rating: band.name, goal: s.goal, goal_done: goalDone, reason, ...(s.layer === 'net' ? { layer: s.layer } : {}), max_gear: maxGear, ...(multi ? { pairs: pairResult, circles: circlesResult } : {}) }
   const end = endActivity(k, { state, kind: ACTIVITY, id: s.id, origin: s.origin, outcome: reason, result })
   if (end.rewind) end.launch = []
 
@@ -261,7 +263,7 @@ function soloEndDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBeat[
     sinkLines.push(`你在${p.sync.gears.full.name}檔過載：沉溺 +${n}。`)
   }
   const maxGear = { pc: p.seat(s.pc).max_gear }
-  const result = { solo: true, pace, rating: band.name, goal: s.goal, goal_done: goalDone, reason, max_gear: maxGear, audience: s.audience === true }
+  const result = { solo: true, pace, rating: band.name, goal: s.goal, goal_done: goalDone, reason, ...(s.layer === 'net' ? { layer: s.layer } : {}), max_gear: maxGear, audience: s.audience === true }
   const end = endActivity(k, { state, kind: ACTIVITY, id: s.id, origin: s.origin, outcome: reason, result })
   if (end.rewind) end.launch = []
 

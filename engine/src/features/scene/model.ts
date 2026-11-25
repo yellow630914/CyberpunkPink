@@ -49,7 +49,7 @@ export const NATURE_FILTER: Partial<Record<Nature, { tag: string; name: string }
 /** 場景的部位（LEWD_SYSTEM 3.5 節第四點；DATA 3.2、3.4）。「前」不分哪一種身體。 */
 export const BASE_PARTS = ['mouth', 'hand_l', 'hand_r', 'chest', 'front', 'back', 'legs'] as const
 export const PART_NAME: Record<string, string> = {
-  mouth: '口', hand_l: '左手', hand_r: '右手', chest: '胸', front: '前', back: '後', legs: '腿足', toy: '道具', tail: '尾', tentacle: '觸手',
+  mouth: '口', hand_l: '左手', hand_r: '右手', chest: '胸', front: '前', back: '後', legs: '腿足', toy: '道具', extra: '加裝', tail: '尾', tentacle: '觸手',
 }
 export const partName = (id: string): string => PART_NAME[id] ?? id
 /** 說話可以用的自己的部位：口或手勢（LEWD_SYSTEM 3.5 節第五點）。 */
@@ -63,6 +63,23 @@ export const KINDS = ['pair', 'group', 'solo'] as const
 export type SceneKind = (typeof KINDS)[number]
 export const LAYERS = ['meat', 'net'] as const
 export type SceneLayer = (typeof LAYERS)[number]
+/** 進行中就把沒寫 layer 的場景當成內海場景的活動（dive 潛入中、netrun 與 face.net 網內的行程；M4-scene-net）。 */
+export const NET_ACTIVITIES = ['dive', 'netrun', 'face.net'] as const
+
+/**
+ * 這個人在這一層的性別（內海看化身那一份，現實看角色的）。內海只認格式：actor.ext.deck.avatar.gender 是五個性別值之一就用它，
+ * 沒有這一欄（或不是五個值）照角色自己的；不 import deck。性別不在五個值裡（NPC 沒寫）回傳 undefined。
+ */
+export function genderIn(state: Pick<GameState, 'actors'>, actor: ActorId, layer: SceneLayer): string | undefined {
+  const a = state.actors[actor]
+  if (!a) return undefined
+  if (layer === 'net') {
+    const deck = a.ext.deck
+    const av = isRecord(deck) && isRecord(deck.avatar) ? deck.avatar.gender : undefined
+    if (typeof av === 'string' && Object.prototype.hasOwnProperty.call(GENDER_FILTER, av)) return av
+  }
+  return a.gender
+}
 
 /** 對象的性別對到的內容篩選標籤（LEWD_SYSTEM 第 9 節）：關掉時，這個性別的對象開不起場景。 */
 export const GENDER_FILTER: Record<string, { tag: string; name: string }> = {
@@ -660,6 +677,8 @@ export interface SceneRaw {
   pace?: number
   max_rounds?: number
   audience?: boolean
+  /** 內海的夢（流竄 AI 的夢，M4-scene-net）：沒有接入點、沒有甲板也開得起來；網內的行程結束時不跟著被打斷 */
+  dream?: true
 }
 
 export const MAX_LINES = 300

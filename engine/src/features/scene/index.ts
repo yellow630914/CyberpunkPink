@@ -19,6 +19,10 @@
 // 位置是五個單人姿勢（model.ts 的 DEFAULT_SOLO_POSES；資料的 solo_pose 換掉或多一個）；行動多加快與放慢、沒有主導、迎合、挑逗與圈；技能與道具看資料的 scene.solo；
 // 說話只有 setup.audience 為 true（直播開著；M5 之前沒有人會給）才行；節奏掉的時候、強制結束（沒了興致 bored）、結算（體悟打折、性經歷只加 solo_times）見 play.ts 與 end.ts。
 //
+// 內海（M4-scene-net；LEWD_SYSTEM 3.4 節、CYBERSPACE 第 10 節、dev/adr/0019 第九節與 P41、P42）：setup.layer 寫 net，或沒寫而進行中的活動有 dive、netrun、face.net，這一場就是內海的場景（每一拍標 net、
+// 結算的 result 帶 layer）。規則、數字、感載、餘韻、換檔、結算兩層相同；差別只有：部位問 scene.body 時帶 layer（現實的義體不算、化身的 deck 回答）、對象性別的篩選看化身的性別（genderIn）、
+// 回合結算的感載消退是 net_load_decay（基礎 0，沒有 mod(意志)；CORE_RULES 4.2 節）。要有橋與甲板（夢 dream: true 不要甲板）；網內的行程被強制結束時聽 activity.end 把這一場打斷（夢不算）。
+//
 // 接上核心的地方：
 //   內容  position（DATA 3.2；M2 只收 people: 2）、solo_pose（單人姿勢；內建五個，資料換掉或多一個）、night_skill（DATA 3.1；M2 只用 scene、tag、tags、name）、scene_rule（id: default，規則的數字蓋掉內建的）；
 //         物品多讀一個 scene 欄位（DATA 3.3，載入之後 ready 查格式）
@@ -40,8 +44,8 @@ import type { ActivityDef } from '../../core'
 import { endDraft, logBeats, sceneDraft, stepDraft } from './end'
 import type { CircleRec, Dice, Goal, Nature, PositionEntry, Role, SceneKind, SceneMode, SceneRaw, Who } from './model'
 import {
-  ACTIVITY, EXT, GENDER_FILTER, GOALS, GOAL_NAME, LAYERS, NATURES, NATURE_FILTER, NATURE_NAME, NTR_FILTER, OWNER, POSITION_KIND, ROLES, ROLE_NAME, RULE_KIND, SKILL_KIND, SOLO_POSE_KIND, beat,
-  hasTendencyTag, isGoal, isMode, isNature, isRole, knownAll, openingInit, positionProblems, readSceneDef, ruleProblems, sceneModeOf, sceneRawOf, sceneRules, sexRecordOf, skillProblems, soloPoseProblems, soloPoses, startGear, tendencyTagIds,
+  ACTIVITY, EXT, GENDER_FILTER, GOALS, GOAL_NAME, LAYERS, NATURES, NET_ACTIVITIES, NATURE_FILTER, NATURE_NAME, NTR_FILTER, OWNER, POSITION_KIND, ROLES, ROLE_NAME, RULE_KIND, SKILL_KIND, SOLO_POSE_KIND, beat,
+  genderIn, hasTendencyTag, isGoal, isMode, isNature, isRole, knownAll, openingInit, positionProblems, readSceneDef, ruleProblems, sceneModeOf, sceneRawOf, sceneRules, sexRecordOf, skillProblems, soloPoseProblems, soloPoses, startGear, tendencyTagIds,
 } from './model'
 import type { RevealView } from './night'
 import { RESONANCE_KIND, resonanceProblems, revealFor } from './night'
@@ -91,8 +95,13 @@ export interface SceneSetup {
   mode?: SceneMode
   /** 限回合的場景：回合數到了就強制結束，原因是「被外面的事打斷」 */
   max_rounds?: number
-  /** 現實（meat）或內海（net）；多人的這一張只開得了 meat */
+  /**
+   * 現實（meat）或內海（net）。沒寫：開的時候進行中的活動有 dive、netrun、face.net 就是 net，否則 meat。寫 net 而沒有那三種活動（事件的夢）也開得起來；
+   * 內海的場景要有甲板與橋（沒有橋一律開不了；沒有甲板只有 dream: true 開得了）。規則、數字、感載、餘韻、結算兩層相同（P41）；差別只有部位來自化身、性別看化身、內海每回合的感載消退是 net_load_decay
+   */
   layer?: 'meat' | 'net'
+  /** 內海的夢（流竄 AI 的夢）：要明寫 layer: 'net'；不需要甲板；網內的行程結束時不跟著被打斷 */
+  dream?: boolean
   /** 單人（M4-scene-solo）：沒有對象（不能給 with、circles）、沒有主動權；nature 寫 solo 或不寫；goal 只收 footage；start_position 是單人姿勢的 id */
   solo?: boolean
   /** 單人時有沒有人在看（直播開著）：要有觀眾的技能與說話才用得出來。M5 之前沒有人會給 true */
@@ -121,12 +130,18 @@ interface Parsed {
   /** 單人：沒有座位以外的人；audience 是這一場有沒有人在看 */
   solo?: boolean
   audience?: boolean
+  layer: 'meat' | 'net'
+  dream?: boolean
 }
 
 /** 開場的摘要（確認框用：不必自己判斷第 0 步）：誰、性質、身分、目的、會碰到的標籤。 */
 export interface StartSummary {
   kind: SceneKind
-  layer: 'meat'
+  layer: 'meat' | 'net'
+  /** 內海的夢（沒有甲板也開得起來）；不是夢沒有這個鍵 */
+  dream?: true
+  /** 內海的場景才有：每個人（主角與每個對象）看化身的性別（沒有化身照角色的；沒有性別的人沒有這一項）。對象性別的篩選與版本看這一份；現實的摘要沒有這個鍵（和以前逐欄相同） */
+  genders?: Record<string, string>
   mode: SceneMode
   pc: { id: string; name: string }
   /** 主角這一圈展開的人（精簡版只有第一個） */
@@ -151,6 +166,16 @@ export interface StartSummary {
 }
 
 const idList = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : [])
+
+/** 每個人在這一層的性別（沒有性別的人沒有這一項）。 */
+function gendersOf(state: GameState, ids: string[], layer: 'meat' | 'net'): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const id of ids) {
+    const g = genderIn(state, id, layer)
+    if (g !== undefined) out[id] = g
+  }
+  return out
+}
 
 /** 開場景的條件：一條一句；空的就是開得成。 */
 export function startProblems(k: Kernel, state: GameState, setup: unknown): { problems: string[]; parsed?: Parsed; summary?: StartSummary } {
@@ -200,10 +225,23 @@ export function startProblems(k: Kernel, state: GameState, setup: unknown): { pr
   if (!isMode(mode)) p.push('mode 要是 full 或 simple。')
   const filter = !solo && isNature(s.nature) ? NATURE_FILTER[s.nature] : undefined
   if (filter && state.rules.contentOff.includes(filter.tag)) p.push(`「${filter.name}」被你的內容篩選關掉了，這一種場景開不起來。`)
+  // 現實還是內海：明寫的優先；沒寫看進行中的活動（dive、netrun、face.net 就是內海）
+  if (s.layer !== undefined && !(LAYERS as readonly unknown[]).includes(s.layer)) p.push(`layer 要是 ${LAYERS.join('、')} 其中一個。`)
+  if (s.dream !== undefined && typeof s.dream !== 'boolean') p.push('dream 要是 true 或 false。')
+  const inNetActivity = k.activity.active(state).some((a) => (NET_ACTIVITIES as readonly string[]).includes(a.kind))
+  const layer: 'meat' | 'net' = s.layer === 'net' || s.layer === 'meat' ? s.layer : inNetActivity ? 'net' : 'meat'
+  const dream = s.dream === true
+  if (dream && s.layer !== 'net') p.push("夢的場景要明寫 layer: 'net'。")
+  if (layer === 'net' && pc && state.actors[pc]) {
+    // 內海的場景：沒有橋沒有感載，沒有甲板進不了內海（夢是例外：夢裡不需要甲板）
+    if (state.actors[pc]!.ext.bridge === null) p.push('你沒有橋，感覺不到內海裡的一切，開不起這一場。')
+    if (!dream && !(k.stats.hasStat('deck_grade') && k.stats.stat(state, pc, 'deck_grade') > 0)) p.push('你沒有甲板，進不了內海，開不起這一場。')
+  }
   // 對象的性別對到的內容篩選（LEWD_SYSTEM 第 9 節）；NTR 看 setup.tags
   const genderFilters = new Map<string, { tag: string; name: string }>()
   for (const id of everyone) {
-    const gender = state.actors[id]?.gender
+    // 內海看化身的性別（現實看角色的）
+    const gender = genderIn(state, id, layer)
     const gf = gender !== undefined ? GENDER_FILTER[gender] : undefined
     if (gf && !genderFilters.has(gf.tag)) {
       genderFilters.set(gf.tag, gf)
@@ -213,8 +251,6 @@ export function startProblems(k: Kernel, state: GameState, setup: unknown): { pr
   const wantsNtr = Array.isArray(s.tags) && (s.tags as unknown[]).includes(NTR_FILTER.tag)
   if (wantsNtr && state.rules.contentOff.includes(NTR_FILTER.tag)) p.push(`「${NTR_FILTER.name}」被你的內容篩選關掉了，這一場開不起來。`)
   if (s.max_rounds !== undefined && !(typeof s.max_rounds === 'number' && Number.isSafeInteger(s.max_rounds) && s.max_rounds >= 1)) p.push('max_rounds 要是 1 以上的整數。')
-  if (s.layer !== undefined && !(LAYERS as readonly unknown[]).includes(s.layer)) p.push(`layer 要是 ${LAYERS.join('、')} 其中一個。`)
-  else if (s.layer === 'net') p.push('內海裡的成人場景這一版還不能開。')
   // 精簡版固定一對一（P37）：只展開主角這一圈的第一個人，這一圈其餘的人收成一個不展開的圈
   const simple = mode === 'simple'
   const seated = simple ? main.slice(0, 1) : main
@@ -226,6 +262,7 @@ export function startProblems(k: Kernel, state: GameState, setup: unknown): { pr
   const circles = [...(simple && main.length > 1 ? [main.slice(1)] : []), ...extra]
   const parsed: Parsed = {
     pc: pc!, seated, circles, nature: solo ? 'solo' : (s.nature as Nature), role: (s.role as Role | undefined) ?? 'none', goal: s.goal === undefined || s.goal === 'none' ? null : (s.goal as Goal), tags, mode: mode as SceneMode,
+    layer, ...(dream ? { dream: true } : {}),
     ...(solo ? { solo: true, audience: s.audience === true } : {}),
     ...(typeof s.place === 'string' && s.place ? { place: s.place } : {}), ...(typeof s.start_position === 'string' ? { start: s.start_position } : {}),
     ...(typeof s.max_rounds === 'number' ? { max_rounds: s.max_rounds } : {}),
@@ -235,7 +272,7 @@ export function startProblems(k: Kernel, state: GameState, setup: unknown): { pr
   const filters = [filter, ...genderFilters.values(), wantsNtr ? NTR_FILTER : undefined].filter((f): f is { tag: string; name: string } => !!f)
   const ref = (id: string): { id: string; name: string } => ({ id, name: state.actors[id]!.name })
   const summary: StartSummary = {
-    kind: kindOf(parsed), layer: 'meat', mode: parsed.mode, pc: ref(pc!), with: seated.map(ref), ...(circles.length > 0 ? { circles: circles.map((c) => c.map(ref)) } : {}),
+    kind: kindOf(parsed), layer, ...(dream ? { dream: true as const } : {}), ...(layer === 'net' ? { genders: gendersOf(state, [pc!, ...everyone], layer) } : {}), mode: parsed.mode, pc: ref(pc!), with: seated.map(ref), ...(circles.length > 0 ? { circles: circles.map((c) => c.map(ref)) } : {}),
     nature: parsed.nature, nature_name: NATURE_NAME[parsed.nature], role, role_name: ROLE_NAME[role], goal: parsed.goal ? { id: parsed.goal, name: GOAL_NAME[parsed.goal] } : null,
     ...(parsed.place ? { place: parsed.place } : {}), tags: tags.map((id) => ({ id, name: (k.content.get('tendency_tag', id)?.name as string | undefined) ?? id })),
     filters: [...new Map(filters.map((f) => [f.tag, { tag: f.tag, name: f.name }])).values()], ...(parsed.max_rounds !== undefined ? { max_rounds: parsed.max_rounds } : {}),
@@ -275,11 +312,12 @@ function startScene(k: Kernel, state: GameState, setup: unknown, origin: Origin)
   const solo = o.solo === true
   for (const id of o.seated) pairs[id] = { fit: rules.fit_start, init: openingInit(k, state, { pc: o.pc, partner: id, nature: o.nature, role: o.role }), first: sexRecordOf(state.actors[o.pc]).people[id] === undefined }
   const scene: SceneRaw = {
-    v: 2, id: `sc${state.seq.uid + 1}`, mode: o.mode, kind: kindOf(o), layer: 'meat', pc: o.pc, nature: o.nature, role: o.role, goal: o.goal, ...(o.place ? { place: o.place } : {}), tags: o.tags,
+    v: 2, id: `sc${state.seq.uid + 1}`, mode: o.mode, kind: kindOf(o), layer: o.layer, pc: o.pc, nature: o.nature, role: o.role, goal: o.goal, ...(o.place ? { place: o.place } : {}), tags: o.tags,
     round: 1, turn: o.pc, step: 0, seats: [seat(o.pc), ...o.seated.map(seat)], pairs,
     goal_progress: o.goal ? 0 : null, position: '', roles: {}, links: [], link_seq: 0, turn_began: false,
     used_positions: [], touched: [...o.tags], lines: [], origin: clone(origin), circles, ...(o.max_rounds !== undefined ? { max_rounds: o.max_rounds } : {}),
     ...(solo ? { pace: rules.solo.pace_start, audience: o.audience === true } : {}),
+    ...(o.dream ? { dream: true as const } : {}),
   }
   const p = new Play(k, state, scene, diceOf(state, scene))
   for (const id of p.ids) p.seat(id).ap = p.apMax[id]!
@@ -460,6 +498,16 @@ export const sceneFeature: Feature = {
     k.meters.define({ kind: 'insight', owner: OWNER, name: '體悟', min: 0, max: Infinity, start: 0, keyed: 'none', cap: { down: 0, up: 5 } })
 
     k.activity.define(sceneActivity)
+
+    // 網內的行程被強制結束（被定位、斷線、登出）：進行中的內海場景跟著被打斷、照現在的樣子結算（M4-scene-net；夢不跟著走）。
+    // 結算併進那一份結束的報告：變更、句子、launch 與 rewind 都交給它
+    k.hooks.on('activity.end', OWNER, ({ state, kind }) => {
+      if (!(NET_ACTIVITIES as readonly string[]).includes(kind)) return
+      const s = sceneRawOf(state)
+      if (!s || s.layer !== 'net' || s.dream === true) return
+      const d = sceneInterrupt(k, state)
+      return { changes: d.changes, lines: d.narration?.results ?? [], launch: d.launch ?? [], ...(d.rewind ? { rewind: d.rewind } : {}) }
+    })
 
     // 回到快照之後性經歷留著（工單；AI_TASKS 第 1 節：場景之後的紀錄不隨回退消失）
     k.hooks.on('rewind.keep', OWNER, ({ current, restored }) => {

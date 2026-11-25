@@ -117,6 +117,11 @@ export interface ConstructEntry extends ContentEntry {
 
 export interface SkinEntry extends ContentEntry {
   name: string
+  /** 風格：DATA 7.4 節寫成標籤字串加 style_value（1～5）；也收 { tag, value }（M4-scene-net 工單的寫法）。空白 SKIN 標籤是 custom */
+  style?: string | { tag: string; value: number }
+  style_value?: number
+  /** 曝露度 0～3；空白 SKIN 寫 custom（讀成 0） */
+  exposure?: number | 'custom'
 }
 
 // ---- 規則表 deck_rule ----
@@ -277,7 +282,13 @@ export function constructProblems(k: Pick<Kernel, 'battle'>, e: Record<string, u
 export function skinProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
   if (!isText(e.name)) p.push('要有 name')
-  if (e.style !== undefined && !isText(e.style)) p.push('style 要是字串')
+  if (e.style !== undefined) {
+    if (isRecord(e.style)) {
+      if (!isText(e.style.tag)) p.push('style.tag 要是風格標籤（字串）')
+      if (!(isInt(e.style.value) && e.style.value >= 1 && e.style.value <= 5)) p.push('style.value 要是 1～5')
+      if (e.style_value !== undefined) p.push('style 寫成 { tag, value } 時不用再寫 style_value')
+    } else if (!isText(e.style)) p.push('style 要是字串')
+  }
   if (e.style_value !== undefined && !(isInt(e.style_value) && e.style_value >= 1 && e.style_value <= 5)) p.push('style_value 要是 1～5')
   if (e.exposure !== undefined && e.exposure !== 'custom' && !(isInt(e.exposure) && e.exposure >= 0 && e.exposure <= 3)) p.push('exposure 要是 0～3（空白 SKIN 寫 custom）')
   if (e.cut !== undefined && !(SKIN_CUTS as readonly unknown[]).includes(e.cut)) p.push(`cut 只能是 ${SKIN_CUTS.join('、')}`)
@@ -326,9 +337,9 @@ export const extOf = (state: GameState, actor: string): DeckExt => readExt(state
 
 /**
  * 要寫回 actor.ext.deck 的值：照角色現在的原始資料，蓋上 patch 寫了的欄位（值是 null 就是拿掉）。
- * 原始資料裡不認得的鍵原樣留著（之後的功能加的欄位，例如 skins）。
+ * 原始資料裡不認得的鍵原樣留著（之後的功能加的欄位，例如 skins；化身 avatar 只有 patch.avatar 寫了才動）。
  */
-export function extValue(state: GameState, actor: string, patch: { uid?: string | null; rental?: { deck: string } | null; slots?: string[]; skin?: string | null; scripts?: ScriptEntry[] }): Record<string, unknown> {
+export function extValue(state: GameState, actor: string, patch: { uid?: string | null; rental?: { deck: string } | null; slots?: string[]; skin?: string | null; scripts?: ScriptEntry[]; avatar?: Record<string, unknown> | null }): Record<string, unknown> {
   const raw = state.actors[actor]?.ext[EXT]
   const cur = readExt(raw)
   const base: Record<string, unknown> = isRecord(raw) ? { ...raw } : {}
@@ -342,5 +353,7 @@ export function extValue(state: GameState, actor: string, patch: { uid?: string 
   if (patch.skin !== undefined) patch.skin === null ? delete next.skin : (next.skin = patch.skin)
   if (patch.scripts !== undefined) next.scripts = patch.scripts
   for (const key of ['uid', 'rental', 'skin']) delete base[key]
+  // 化身（M4-scene-net）：只有 patch 寫了才動，其餘原樣留著
+  if (patch.avatar !== undefined) patch.avatar === null ? delete base.avatar : (base.avatar = patch.avatar)
   return { ...base, ...next, slots: [...next.slots], scripts: next.scripts.map((s) => ({ ...s })) }
 }
