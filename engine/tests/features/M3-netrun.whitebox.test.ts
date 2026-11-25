@@ -116,7 +116,7 @@ describe('白箱 netrun：帶出去才算數（CYBERSPACE 8.1 節「帶出去才
     expect(out.lost.some((l) => l.goal)).toBe(true)
     expect(out.changes).toContainEqual({ op: 'item', id: 'it_tw_script', qty: -2 })
     // 現金：丟掉的加起來最多拿走 7；帳戶是 0，一筆 cred 都不會寫
-    const cash = out.changes.filter((c) => c.op === 'cash').reduce((s, c) => s + (c as { delta: number }).delta, 0)
+    const cash = out.changes.filter((c) => c.op === 'cash').reduce((s, c) => s + (c as unknown as { delta: number }).delta, 0)
     expect(cash).toBeGreaterThanOrEqual(-7)
     expect(out.changes.some((c) => c.op === 'cred')).toBe(false)
     expect(out.lines[0]).toMatch(/^慌亂中丟掉了：/)
@@ -232,7 +232,7 @@ describe('白箱 netrun：做事的入口的退路（dev/work/M3-netrun-nodes.md
     // 有憑證：用掉一張，閘門記成開了
     const d = gateDraft(g.k, g.state, run, { ...net, keys: ['k1', 'k2'] }, sheet, 'cred', 10)
     expect(d.outcome.result).toBe('cred')
-    const ext = d.changes.find((c) => c.op === 'map.ext') as { value: { net: { keys: string[]; opened: string[] } } }
+    const ext = d.changes.find((c) => c.op === 'map.ext') as unknown as { value: { net: { keys: string[]; opened: string[] } } }
     expect(ext.value.net.keys).toEqual(['k2'])
     expect(ext.value.net.opened).toContain(sheet)
   })

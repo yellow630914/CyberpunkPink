@@ -257,7 +257,7 @@ describe('白箱 maze：結算的路（CYBERSPACE 8.2 節「打輸」、「時�
     // 計數器歸零
     expect(out.changes).toContainEqual({ op: 'counter', key: `maze:${m.id}:chip`, delta: -4 })
     expect(out.changes).toContainEqual({ op: 'counter', key: `maze:${m.id}:r0`, delta: -5 })
-    const over = (out.changes.find((c) => c.op === 'ext' && (c as { key: string }).key === 'maze') as { value: { over: Record<string, unknown> } }).value.over
+    const over = (out.changes.find((c) => c.op === 'ext' && (c as unknown as { key: string }).key === 'maze') as unknown as { value: { over: Record<string, unknown> } }).value.over
     expect(over).toMatchObject({ outcome: 'left', refund: 0, forfeited: m.deposit, chips: 4, chipCash: 40, prize: 0 })
     const d = resultDraft(st, { ...m, over: over as never })
     expect(d.outcome.result).toBe('forfeit')

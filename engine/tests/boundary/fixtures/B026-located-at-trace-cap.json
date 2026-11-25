@@ -1,0 +1,15 @@
+{
+  "id": "B026-located-at-trace-cap",
+  "note": "B026：追蹤度已經在 100（上限）時開戰，這一場永遠不會被定位。netcombat 的 markStarting 只把 30／60 記成到過，不處理 90；之後每一輪的 +3 經 addTrace，從 100 加上去還是 100（to === from）就直接回傳 0、不呼叫 crossings，定位的倒數永遠不開始。從 90～99 開戰的，要等第 2 輪的 +3 才開始倒數（比規格晚一輪，見報告）。",
+  "seed": 7,
+  "setup": {
+    "scenario": "createKernel([netcombatFeature]) ＋ 三個干擾的狀態；makeState()；setupBattle 一對一的內海戰鬥（netAvatar 對 laceUnit，雙方感載上限 999、雙方都由 AI 打），field: { trace: 100 }",
+    "note": "不經過提交（BattleRun ＋ advance），和 tests/core/battle-m3.test.ts 的 toRound 同一個做法。"
+  },
+  "inputs": [
+    { "type": "advance", "until_round": 2 },
+    { "type": "advance", "until_round": 6 }
+  ],
+  "expect": "第 2 輪開頭 battle.field.located 是倒數（3）；倒數到 0 的那一輪開頭 field.located = true、結果 lose（被定位：全隊被強制斷線）。實際：field.located 一直是 undefined、沒有任何 located 的拍，第 6 輪還在打。對照：從 95 開戰，第 2 輪 +3 到 98 會開始倒數。",
+  "test": "engine/tests/pending/B026-located-at-trace-cap.test.ts"
+}

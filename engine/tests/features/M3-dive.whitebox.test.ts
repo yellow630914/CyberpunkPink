@@ -80,7 +80,7 @@ describe('白箱 dive：被強制斷線（CYBERSPACE 2.4 節、第 1 節的表�
     expect(auto[0]!.action).toBe('dive.exit')
     expect(auto[0]!.outcome.result).toBe('forced')
     // 押金沒收：沒有正的 cash 變更
-    expect(auto[0]!.changes.some((c) => c.op === 'cash' && (c as { delta: number }).delta > 0)).toBe(false)
+    expect(auto[0]!.changes.some((c) => c.op === 'cash' && (c as unknown as { delta: number }).delta > 0)).toBe(false)
     expect(auto[0]!.outcome.summary).toContain('被沒收了')
     // 沒有被斷線：不自動登出
     expect(afterReport(game.k, game.state, 'x.y', false)).toBeUndefined()

@@ -1,0 +1,12 @@
+{
+  "id": "B029-afterglow-never-decays",
+  "note": "B029：餘韻（過載疊的層）在戰鬥外不隨時間消退。CORE_RULES 4.3 節：脫離戰鬥後每十分鐘消一層；短休全消；冷卻劑立刻消一層。引擎只有短休（features/rest/ops.ts）會清；時間過去一層都不少。內海的硬仗之後餘韻跟回現實（CYBERSPACE 4.1 節）。",
+  "seed": 5,
+  "setup": { "scenario": "makeNetBattleGame({ noBattle: true })", "note": "主角沒有餘韻；假世界 TEST_WORLD、全部功能。" },
+  "inputs": [
+    { "type": "commit", "changes": [{ "op": "actor.track", "id": "pc", "track": "afterglow", "delta": 2 }] },
+    { "type": "commit", "changes": [{ "op": "time", "minutes": 20 }] }
+  ],
+  "expect": "主角的 afterglow 是 0（每十分鐘一層）。實際：2；過一天（1440 分鐘）也是 2。",
+  "test": "engine/tests/pending/B029-afterglow-never-decays.test.ts"
+}

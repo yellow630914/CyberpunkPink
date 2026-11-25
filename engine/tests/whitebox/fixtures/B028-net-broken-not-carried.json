@@ -1,0 +1,15 @@
+{
+  "id": "B028-net-broken-not-carried",
+  "note": "B028：重的破損（本來就有破損時再中一次）在戰鬥結束時寫回角色的狀況 net_broken（features/netcombat/jam.ts 的 battle.onEnd），但下一場內海戰鬥的 unit.ready 沒有人讀它：單位的 ext.net.broken 是空的、沒有 dice_loss。重創在戰後立刻失效，和 CYBERSPACE 6.5 節「重：到登出之後修好為止」不一致。狀況也沒記是哪一件構裝。",
+  "seed": 5,
+  "setup": {
+    "scenario": "makeNetBattleGame({ noBattle: true })",
+    "note": "四個有甲板的化身（主角 NET_PC 全套構裝），還沒開打；假世界 TEST_WORLD、全部功能。"
+  },
+  "inputs": [
+    { "type": "commit", "changes": [{ "op": "actor.condition", "id": "pc", "condition": "net_broken" }], "why": "上一場重創之後結束報告寫的那一筆（tests/features/M3-netcombat.test.ts「再中一次（重）」驗過會寫）" },
+    { "type": "startBattle", "setup": { "mode": "net", "grade": 1, "cover": "medium", "allies": [{ "from": "actor", "id": "pc" }], "foes": [{ "from": "enemy_pick", "faction": "f_gang", "grade": 1, "rank": "minion", "color": "pink", "seed": "w016" }] } }
+  ],
+  "expect": "主角的戰鬥單位開打時有一個構裝槽破損（ext.net.broken 至少一件；或照雜兵的做法 dice_loss ≥ 1）。實際：ext.net = { sync: 'standard', sync_max: 'deep', broken: [], admin: 2 }。",
+  "test": "engine/tests/pending/B028-net-broken-not-carried.test.ts"
+}

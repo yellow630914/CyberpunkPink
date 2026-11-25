@@ -1,0 +1,10 @@
+# B027：RAM 上限的「最少 4」套在加總上，甲板與技能的加值被吃掉
+- 發現者：cpp-tester-boundary
+- 嚴重度：小問題（要 cpp-architect 先確認讀法）
+- 規格出處：CYBERSPACE 6.3 節：「RAM 上限 = 4 + mod(智識)（最少 4）／每回合回復 = 2／潛網者（主控）：上限 +3、回復 +1／甲板、構裝與技能可以再加」；NETRUNNING 第 1 節（甲板加 RAM）；ITEMS 甲板的 RAM 欄。
+- 實際行為：
+  - `features/character/stats.ts` 把 `ram_max` 定成 `{ base: 4 + mod(智識), min: 4 }`；核心的 `stat()`（`core/rules/stats.ts` 第 97 行）把 `min` 套在 base 加上所有 provider（甲板的 `ram.max`、技能的主控）之後的總和。
+  - 所以智識低於 10 的人，甲板與技能的加值先拿去補到 4：智識 8（標準陣列裡的一個值，mod −1）裝入門甲板（+2）是 5，不是 6；智識 1 加甲板 2 還是 4（加值整個不見）；智識 6（mod −2）的潛網者拿主控 +3 只有 5。
+  - 我的讀法是「最少 4」屬於公式那一行，加值加在它上面（max(4, 4 + mod) + 加值）。若本意是「最少 4」套在最後，請在 CYBERSPACE 6.3 節寫明，測試改成現在的行為。
+- 重現：`engine/tests/boundary/fixtures/B027-ram-floor-eats-deck-bonus.json`。會失敗的測試：`engine/tests/pending/B027-ram-floor-eats-deck-bonus.test.ts`。主套件裡記著現在的行為：`tests/features/M3-net.boundary.test.ts`「有加值（甲板 +2）……（B027）」。
+- 可能的位置（只寫推測，不改）：`engine/src/features/character/stats.ts` 的 `ram_max`：base 改成 `Math.max(4, 4 + mod)`、拿掉 `min: 4`；`core/battle/units.ts` 第 53 行沒有人註冊時的預設已經是 `Math.max(4, 4 + mod)`，不用改。

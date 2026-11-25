@@ -122,7 +122,7 @@ describe('白箱 deck：兩個效果（dev/adr/0018 第十三節；不變式第 
     expect(g.k.effects.resolve([{ kind: 'deck_script_use', item: 'it_none' }] as never, ctx).changes).toEqual([])
     const all = g.k.effects.resolve([{ kind: 'deck_script_use', item: 'it_tw_script', qty: 5, who: 'pc' }] as never, ctx)
     expect(all.errors).toEqual([])
-    expect((all.changes[0] as { value: { scripts: unknown[] } }).value.scripts).toEqual([])
+    expect((all.changes[0] as unknown as { value: { scripts: unknown[] } }).value.scripts).toEqual([])
   })
 
   it('deck_rental：deck 不存在、who、多的欄位；沒有租的收回不做事', () => {
@@ -150,7 +150,7 @@ describe('白箱 deck：裝備與腳本的退路（ITEMS 11.1 節「腳本最多
     const before = deckOf(g.k, g.state, 'pc')
     expect(before.scripts).toEqual([{ item: 'it_tw_script', qty: 2 }])
     const d = equipDraft(g.k, g.state, 'pc', 'D9')
-    const ext = (d.changes.find((c) => c.op === 'actor.ext') as { value: { slots: string[]; scripts: unknown[] } }).value
+    const ext = (d.changes.find((c) => c.op === 'actor.ext') as unknown as { value: { slots: string[]; scripts: unknown[] } }).value
     expect(ext.slots.length).toBeLessThan(before.equipped.length)
     expect(ext.scripts).toEqual(fitScripts(g.k, g.state, [{ item: 'it_tw_script', qty: 2 }], 1 + DEFAULT_DECK_RULES.script_extra))
     expect(d.timeline.some((b) => b.text.includes('退回背包'))).toBe(true)

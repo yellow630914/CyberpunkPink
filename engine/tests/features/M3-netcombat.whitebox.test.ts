@@ -71,7 +71,7 @@ describe('白箱 netcombat：工具構裝的目標（CYBERSPACE 6.3 節「工具
     expect(def.blocks!(run, me)).toEqual([])
     ;(me.ext.net as { broken: string[] }).broken = ['cs_wb_self']
     expect(def.blocks!(run, me)).toEqual(['構裝「cs_wb_self」破損了，戰鬥結束前用不了。'])
-    expect(() => def.run(run, me, null, {})).toThrow(BattleBlocked)
+    expect(() => def.run(run, me, null, { action: def.id })).toThrow(BattleBlocked)
   })
 
   it('has：沒有裝著這件的人沒有這個行動', () => {
@@ -130,14 +130,14 @@ describe('白箱 netcombat：換檔（CYBERSPACE 6.4 節；不變式第 144 條�
     const run = runOf(g)
     const pc = unitOf(run, 'pc')
     const def = g.k.battle.getAction('net_shift')!
-    expect(() => def.run(run, pc, null, { pick: {} })).toThrow('要選換到哪一檔。')
+    expect(() => def.run(run, pc, null, { action: def.id, pick: {} })).toThrow('要選換到哪一檔。')
     const cur = (pc.ext.net as { sync: string }).sync
     expect(gearBlocks(run, pc, cur as never)[0]).toMatch(/^已經是.*檔了。$/)
     // 上限：主角同步 3 級、敏感度看橋；全檔要 5 級
     expect(gearBlocks(run, pc, 'full').length).toBeGreaterThan(0)
     pc.uses['turn:shift'] = 9
     expect(def.blocks!(run, pc)).toEqual(['這個回合已經換過檔了。'])
-    expect(() => def.run(run, pc, null, { pick: { gear: 'shallow' } })).toThrow('這個回合已經換過檔了。')
+    expect(() => def.run(run, pc, null, { action: def.id, pick: { gear: 'shallow' } })).toThrow('這個回合已經換過檔了。')
   })
 
   it('沒有 ext.net 的單位：換檔擋「沒有同步檔位可以換」；capIndex 照標準', () => {

@@ -1,0 +1,17 @@
+{
+  "id": "B025-trace-in-maze",
+  "note": "B025：迷宮館（net_region 的 pressure 是 none：樂園島的公開場館，沒有追蹤度）裡，AI 給的追蹤度照收，記在迷宮館那張地圖上。netrun 的追蹤度量表 accepts 只看「在網內的一趟裡、鍵是這一趟的地圖」，沒有看區有沒有追蹤度。EVENTS 2.4 節：追蹤度只在委託副本與企業的固定子網裡；CYBERSPACE 6.8 節：公開的地方沒有追蹤度。",
+  "seed": 4,
+  "setup": {
+    "scenario": "makeDiveGame({ seed: 4 })",
+    "note": "站在潛艙店（塔下的 F3）、主角有自己的甲板；假世界 TEST_WORLD、全部功能。"
+  },
+  "inputs": [
+    { "type": "step", "do": "maze", "op": "refit", "why": "新手組只能用館方的比賽版構裝" },
+    { "type": "step", "do": "dive", "op": "enter" },
+    { "type": "step", "do": "maze", "op": "enter", "bracket": "rookie" },
+    { "type": "resolve", "source": "ai", "effects": [{ "kind": "trace", "amount": 5 }], "why": "AI 自己給的後果（自由行動的回報、Agent 的事件）；整條自由行動的鏈走一遍也一樣：g.act({ kind: 'free', text }) 讓假的服務商回 { items: [{ kind: 'trace', amount: 5, from: { source: 'degree' } }] }，套用之後 state.meters.trace 多了迷宮館那張圖" }
+  ],
+  "expect": "解析的結果沒有變更、留一行白話的提醒（「追蹤度」這一筆沒有算：這裡沒有追蹤度），state.meters.trace 沒有迷宮館那張圖。實際：changes 有一筆 { op: 'meter', kind: 'trace', key: 'm2', delta: 5 }，沒有提醒；提交之後 state.meters.trace = { m2: 5 }。",
+  "test": "engine/tests/pending/B025-trace-in-maze.test.ts"
+}

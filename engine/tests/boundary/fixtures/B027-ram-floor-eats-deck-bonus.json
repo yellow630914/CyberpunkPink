@@ -1,0 +1,13 @@
+{
+  "id": "B027-ram-floor-eats-deck-bonus",
+  "note": "B027：character 的衍生數值 ram_max 寫成 { base: 4 + mod(智識), min: 4 }，核心的 stat() 把 min 套在 base 加上所有 provider（甲板的 ram.max、技能的主控 +3）之後的總和。智識低於 10 的人，加值先拿去補到 4，甲板與技能的加值被吃掉一部分或全部。",
+  "seed": 7,
+  "setup": {
+    "scenario": "createKernel([characterFeature])，加一個 ram_max 的 provider（測試的甲板，+2）；makeState({ pc: { attrs: { intellect: 8 } } })"
+  },
+  "inputs": [
+    { "type": "stat", "actor": "pc", "stat": "ram_max" }
+  ],
+  "expect": "max(4, 4 + mod(8)) + 2 = 6。實際 5（max(4, 4 − 1 + 2)）。智識 1 加 2 是 4（加值整個不見）。",
+  "test": "engine/tests/pending/B027-ram-floor-eats-deck-bonus.test.ts"
+}
