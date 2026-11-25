@@ -25,7 +25,7 @@ import { defeatOf, acceptDefeat } from '../../src/features/defeat'
 import { board, jobOf, latestJob, accept, go, scout } from '../../src/features/fixer'
 import { join, muster, readRoster } from '../../src/features/roster'
 import { homeOf, sleepDraft } from '../../src/features/rest'
-import { sceneAct, sceneNext, sceneOf } from '../../src/features/scene'
+import { sceneAct, sceneNext, sceneRawOf } from '../../src/features/scene'
 import { checkout, planCheckout } from '../../src/features/trade'
 import { shift } from '../../src/features/work'
 import { readBills } from '../../src/features/bills'
@@ -186,29 +186,29 @@ async function sceneFlow(f: Flow, g: Game): Promise<void> {
   await f.step('選「跟他走」：事件收尾，場景開始（臨時的路人當對象）', () => {
     const reports = g.commit(chooseOption(k, g.state, 'go'))
     expect(actions(reports)).toEqual(['event.close', 'scene.start'])
-    const s = sceneOf(g.state)!
+    const s = sceneRawOf(g.state)!
     expect(s).toMatchObject({ pc: 'pc', nature: 'mutual', turn: 'pc', round: 1 })
-    expect(g.state.actors[s.partner]!.name).toBe('熟客')
+    expect(g.state.actors[s.seats[1]!.id]!.name).toBe('熟客')
     expect(g.k.activity.active(g.state).map((a) => a.kind)).toEqual(['scene'])
     expect(g.blockOf('commit:trade.checkout')).toMatch(/場景/)
   })
   await f.step('說話：接上一條連接；主導；把回合交出去，對方的幾步走完', () => {
-    expect(sceneOf(g.state)!.links).toHaveLength(0)
+    expect(sceneRawOf(g.state)!.links).toHaveLength(0)
     g.commit(sceneAct(k, g.state, { kind: 'talk', text: '你好。' }))
-    expect(sceneOf(g.state)!.links).toHaveLength(1)
-    const ap = sceneOf(g.state)!.ap.pc
+    expect(sceneRawOf(g.state)!.links).toHaveLength(1)
+    const ap = sceneRawOf(g.state)!.seats[0]!.ap
     g.commit(sceneAct(k, g.state, { kind: 'dominate' }))
-    expect(sceneOf(g.state)!.ap.pc).toBeLessThan(ap)
+    expect(sceneRawOf(g.state)!.seats[0]!.ap).toBeLessThan(ap)
     g.commit(sceneAct(k, g.state, { kind: 'end_turn' }))
-    for (let i = 0; i < 12 && sceneOf(g.state)?.turn === 'partner'; i++) g.commit(sceneNext(k, g.state))
-    expect(sceneOf(g.state)).toMatchObject({ turn: 'pc', round: 2 })
+    for (let i = 0; i < 12 && (sceneRawOf(g.state)?.turn ?? g.state.pc) !== g.state.pc; i++) g.commit(sceneNext(k, g.state))
+    expect(sceneRawOf(g.state)).toMatchObject({ turn: 'pc', round: 2 })
   })
   await f.step('停下：場景結算（成人的報告、體悟、性經歷），活動結束', () => {
     const reports = g.commit(sceneAct(k, g.state, { kind: 'stop' }))
     expect(actions(reports)).toEqual(['scene.end'])
     expect(reports[0]!.adult).toBe(true)
     expect(reports[0]!.outcome.summary).toMatch(/契合 \d+/)
-    expect(sceneOf(g.state)).toBeNull()
+    expect(sceneRawOf(g.state)).toBeNull()
     expect(g.k.activity.active(g.state)).toEqual([])
     expect(meterOf(k, g.state, 'insight')).toBeGreaterThan(0)
     expect(g.blockOf('commit:trade.checkout')).toBeNull()
@@ -530,11 +530,11 @@ describe('冒煙 M2：每一種活動的中途存檔讀檔，狀態一模一樣�
         walkAcross(g)
         g.commit(chooseOption(k, g.state, 'go'))
         g.commit(sceneAct(k, g.state, { kind: 'talk', text: '你好。' }))
-        const s = JSON.parse(JSON.stringify(sceneOf(g.state))) // sceneOf 回傳的是外觀（Proxy），structuredClone 複製不了
+        const s = JSON.parse(JSON.stringify(sceneRawOf(g.state))) // sceneRawOf 回傳的是外觀（Proxy），structuredClone 複製不了
         roundTrip(g, 'scene')
-        expect(sceneOf(g.state)).toEqual(s)
+        expect(sceneRawOf(g.state)).toEqual(s)
         await untilIdle(g)
-        expect(sceneOf(g.state)).toBeNull()
+        expect(sceneRawOf(g.state)).toBeNull()
       })
     })
   })

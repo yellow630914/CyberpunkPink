@@ -12,7 +12,7 @@ import { favorsOf } from '../../src/features/favors'
 import { billPreview, readBills } from '../../src/features/bills'
 import { homeOf, readRest } from '../../src/features/rest'
 import { rosterView, readRoster, candidatesOf } from '../../src/features/roster'
-import { sceneView, sceneOf } from '../../src/features/scene'
+import { sceneView, sceneRawOf } from '../../src/features/scene'
 import { favorView, hostilityView, scanView } from '../../src/features/security'
 import { shopView, stockOf, bargainView, tradeOf } from '../../src/features/trade'
 import { transitView, transitOf } from '../../src/features/transit'
@@ -48,7 +48,7 @@ describe('白箱 M2 狀態的讀取：ext 被弄壞時不丟例外', () => {
       ['shopView', (s) => shopView(k, s, 's_tw_stall')], ['stockOf', (s) => stockOf(k, s, 's_tw_stall')], ['bargainView', (s) => bargainView(k, s, 's_tw_stall')], ['tradeOf', (s) => tradeOf(s)],
       ['commissionView', (s) => commissionView(k, s)], ['readRun', (s) => readRun(s)],
       ['board', (s) => board(k, s, 'fx_tw_broker')], ['readFixer', (s) => readFixer(s)], ['scoutView', (s) => scoutView(k, s, job)],
-      ['sceneView', (s) => sceneView(k, s)], ['sceneOf', (s) => sceneOf(s)],
+      ['sceneView', (s) => sceneView(k, s)], ['sceneRawOf', (s) => sceneRawOf(s)],
       ['readWork', (s) => readWork(s)], ['favorsOf', (s) => favorsOf(s)],
     ]
     for (const [, fn] of readers) fn(base) // 原樣不會壞
@@ -79,7 +79,7 @@ describe('白箱 M2 狀態的讀取：ext 被弄壞時不丟例外', () => {
     }
     expect(calls).toBeGreaterThan(5000)
     // 例外的兩類：scoutView 問一件手上沒有的委託（fixer 被弄壞時委託清單是空的）本來就是「沒有這一件」的受控錯誤；
-    // 進行中的成人場景只有 id 的紀錄（scene 的活動狀態由引擎自己寫，sceneOf 只認得「有 id 的物件」，不另外驗形狀）
+    // 進行中的成人場景只有 id 的紀錄（scene 的活動狀態由引擎自己寫，sceneRawOf 只認得「有 id 的物件」，不另外驗形狀）
     const unexpected = [...crashes].filter(([a, b]) => !(a.startsWith('scoutView | fixer') && b.startsWith('手上沒有')) && !(a.startsWith('sceneView | scene←{"id":"x"}')))
     expect(unexpected).toEqual([])
   }, 60_000)

@@ -11,7 +11,7 @@ import { ActionBlocked } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { lewdFeature } from '../../src/features/lewd'
 import type { Dice, SceneEnv, SceneInput, SceneRaw } from '../../src/features/scene'
-import { mergeBody, sceneAct, sceneFeature, sceneNext, sceneOf, sceneOptions, sceneRawOf, sceneView, setSceneMode, startProblems } from '../../src/features/scene'
+import { mergeBody, sceneAct, sceneFeature, sceneNext, sceneOptions, sceneRawOf, sceneView, setSceneMode, startProblems } from '../../src/features/scene'
 import type { ActorOverrides } from '../../src/testkit'
 import { METER_CONTENT, makeActor, makeGame, meterFeature, testMeter } from '../../src/testkit'
 
@@ -169,21 +169,21 @@ describe('第二版的狀態：座位與配對', () => {
     expect(new Set(s.lines.map((l) => l.who))).toEqual(new Set(['pc', 'npc_ann']))
   })
 
-  it('sceneOf 回傳第二版加舊名字的外觀：seats、pairs、kind、layer 都在；一對一的 partner、ap.pc、turn（pc／partner）照舊讀得到、寫得進去', () => {
+  it('sceneRawOf 回傳第二版原樣：seats、pairs、kind、layer 都在，人用角色的 id（turn、links、lines 不再有 pc／partner 的舊名字）', () => {
     const g = game()
     begin(g)
-    const s = sceneOf(g.state)!
-    expect(s).toMatchObject({ v: 2, kind: 'pair', layer: 'meat', partner: 'npc_ann', fit: 20, init: 55, turn: 'pc' })
-    expect(s.seats).toHaveLength(2)
+    const s = sceneRawOf(g.state)!
+    expect(s).toMatchObject({ v: 2, kind: 'pair', layer: 'meat', turn: 'pc' })
+    expect(s).not.toHaveProperty('partner')
+    expect(s).not.toHaveProperty('fit')
+    expect(s.seats.map((x) => [x.id, x.ap])).toEqual([['pc', 4], ['npc_ann', 4]])
     expect(s.pairs.npc_ann).toEqual({ fit: 20, init: 55, first: true })
-    expect(s.ap).toEqual({ pc: 4, partner: 4 })
-    s.ap.partner = 1
-    s.fit = 33
+    s.seats[1]!.ap = 1
+    s.pairs.npc_ann!.fit = 33
+    s.turn = 'npc_ann'
     expect(raw(g).seats[1]!.ap).toBe(1)
     expect(raw(g).pairs.npc_ann!.fit).toBe(33)
-    s.turn = 'partner'
-    expect(raw(g).turn).toBe('npc_ann')
-    expect(sceneOf(g.state)!.turn).toBe('partner')
+    expect(sceneRawOf(g.state)!.turn).toBe('npc_ann')
   })
 })
 
@@ -222,13 +222,13 @@ describe('讀舊的：沒有 v 的 pc／partner 一對一場景轉成第二版',
     return [make(), make()]
   }
 
-  it('舊形狀放進存檔：sceneOf 回傳第二版（就地換掉 state.ext.scene），內容和原本的第二版逐欄相同', () => {
+  it('舊形狀放進存檔：sceneRawOf 回傳第二版（就地換掉 state.ext.scene），內容和原本的第二版逐欄相同', () => {
     const [ref, old] = twin()
     const before = JSON.parse(JSON.stringify(raw(ref))) as SceneRaw
     expect(before.v).toBe(2)
     old.state.ext.scene = toLegacy(raw(ref)) as never
     expect((old.state.ext.scene as Record<string, unknown>).v).toBeUndefined()
-    const s = sceneOf(old.state)!
+    const s = sceneRawOf(old.state)!
     expect(s.v).toBe(2)
     expect(s.seats.map((x) => x.id)).toEqual(['pc', 'npc_ann'])
     expect(s.kind).toBe('pair')
@@ -266,14 +266,14 @@ describe('讀舊的：沒有 v 的 pc／partner 一對一場景轉成第二版',
     expect(v.people.partner.gear).toMatchObject({ now: 'standard', max: 'standard' })
     for (let i = 0; i < 30 && raw(old).turn !== raw(old).pc; i++) next(old)
     act(old, { kind: 'talk', pick: talkParts })
-    expect(sceneOf(old.state)!.gear.pc).toBe('standard')
+    expect(sceneRawOf(old.state)!.seats[0]!.gear).toBe('standard')
   })
 
-  it('壞掉的舊紀錄（只有 id）：sceneOf 不丟例外', () => {
+  it('壞掉的舊紀錄（只有 id）：sceneRawOf 不丟例外', () => {
     const g = game()
     g.state.ext.scene = { id: 'x' } as never
-    expect(() => sceneOf(g.state)).not.toThrow()
-    expect(sceneOf(g.state)!.v).toBe(2)
+    expect(() => sceneRawOf(g.state)).not.toThrow()
+    expect(sceneRawOf(g.state)!.v).toBe(2)
   })
 })
 
@@ -371,11 +371,11 @@ describe('env.moves：外面給的一串行動', () => {
     const a = game()
     toAnn(a)
     next(a, { gears: { npc_ann: 'shallow' } })
-    expect(sceneOf(a.state)!.gear.partner).toBe('shallow')
+    expect(sceneRawOf(a.state)!.seats[1]!.gear).toBe('shallow')
     const b = game()
     toAnn(b)
     next(b, { partner_gear: 'shallow' })
-    expect(sceneOf(b.state)!.gear.partner).toBe('shallow')
+    expect(sceneRawOf(b.state)!.seats[1]!.gear).toBe('shallow')
   })
 })
 
@@ -385,20 +385,20 @@ describe('env.talk：說話的結果從外面來', () => {
     const g = game()
     begin(g)
     const [r] = act(g, { kind: 'talk', text: '你好', pick: talkParts }, { dice: dice(), talk: { fit: 30 } })
-    expect(sceneOf(g.state)!.fit).toBe(30)
+    expect(sceneRawOf(g.state)!.pairs.npc_ann!.fit).toBe(30)
     expect(beatsOf(r!, 'talk')[0]!.data).toMatchObject({ fit: 10, goal: 0, source: 'env' })
     expect(beatsOf(r!, 'talk')[0]!.roll).toBeUndefined()
     const h = game()
     begin(h)
     act(h, { kind: 'talk', pick: talkParts }, { dice: dice(), talk: { fit: -20 } })
-    expect(sceneOf(h.state)!.fit).toBe(15)
+    expect(sceneRawOf(h.state)!.pairs.npc_ann!.fit).toBe(15)
   })
 
   it('沒給時照現有的檢定：自然 13 成功，契合 +5', () => {
     const g = game()
     begin(g)
     const [r] = act(g, { kind: 'talk', pick: talkParts }, { dice: dice(13) })
-    expect(sceneOf(g.state)!.fit).toBe(25)
+    expect(sceneRawOf(g.state)!.pairs.npc_ann!.fit).toBe(25)
     expect(beatsOf(r!, 'talk')[0]!.roll).toBeDefined()
   })
 
@@ -406,16 +406,16 @@ describe('env.talk：說話的結果從外面來', () => {
     const g = game()
     begin(g, { ...SETUP, goal: 'info' })
     const [r] = act(g, { kind: 'talk', pick: talkParts }, { dice: dice(), talk: { fit: 2, goal: 99, agree: true } })
-    expect(sceneOf(g.state)!.goal_progress).toBe(20)
+    expect(sceneRawOf(g.state)!.goal_progress).toBe(20)
     expect(beatsOf(r!, 'talk')[0]!.data).toMatchObject({ goal: 20, agree: true })
     const h = game()
     begin(h, { ...SETUP, goal: 'info' })
     act(h, { kind: 'talk', pick: talkParts }, { dice: dice(), talk: { fit: 2, goal: -7 } })
-    expect(sceneOf(h.state)!.goal_progress).toBe(0)
+    expect(sceneRawOf(h.state)!.goal_progress).toBe(0)
     const n = game()
     begin(n)
     act(n, { kind: 'talk', pick: talkParts }, { dice: dice(), talk: { fit: 2, goal: 15 } })
-    expect(sceneOf(n.state)!.goal_progress).toBeNull()
+    expect(sceneRawOf(n.state)!.goal_progress).toBeNull()
   })
 })
 
@@ -749,6 +749,6 @@ describe('sceneView 一對一', () => {
     expect(o.ap).toEqual({ now: 4, max: 4 })
     expect(o.actions.map((a) => a.id)).toEqual(['dominate', 'yield', 'tease', 'restrain', 'skill', 'talk', 'item', 'switch', 'gear', 'stop'])
     setSceneMode(g.k, 'simple')
-    expect(sceneOf(g.state)!.mode).toBe('full')
+    expect(sceneRawOf(g.state)!.mode).toBe('full')
   })
 })

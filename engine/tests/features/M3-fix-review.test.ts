@@ -27,7 +27,7 @@ import { logout, netExt, readRun as readNetRun } from '../../src/features/netrun
 import { skillAttr, spendKey } from '../../src/features/netrun/checks'
 import { decayChanges, traceDelta } from '../../src/features/netrun/common'
 import { traceChanges } from '../../src/features/netrun/nodes'
-import { sceneOf } from '../../src/features/scene'
+import { sceneRawOf } from '../../src/features/scene'
 import {
   NET_FACTION, NET_REGION, diveIn, fightOut, makeActor, makeDiveGame, makeNetBattleGame, makeNetCommissionGame, mazeSignUp, netMarkers, netUse, observed, playNetStage, playStage, refitForRookie,
   standBeside, untilIdle, unwearDeck,
@@ -98,7 +98,7 @@ describe('必修 1：網內放行成人場景（scene.start、commit:scene.）',
       // 事件視窗開起來、選第一個選項（進場景）、場景用「停下」收掉：整條路沒有被活動擋下
       const log = await untilIdle(g)
       expect(log.log.some((l) => l.startsWith('scene'))).toBe(true)
-      expect(sceneOf(g.state)).toBeFalsy()
+      expect(sceneRawOf(g.state)).toBeFalsy()
       expect(defeatOf(g.state)).toMatchObject({ stage: 'played' })
       g.commit(acceptDefeat(g.k, g.state))
     })

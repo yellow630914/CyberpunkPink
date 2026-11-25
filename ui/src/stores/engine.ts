@@ -29,8 +29,15 @@ import { call as favorCall, favorsOf, spend as favorSpend, spendBlock as favorSp
 import type { FavorsState } from '@engine/src/features/favors'
 import { exploreFeature, unlock as exploreUnlock } from '@engine/src/features/explore'
 import type { GridKernel } from '@engine/src'
-import { ratingOf, sceneAct, sceneNext, sceneOf, sceneOptions, sceneRules, sceneSkip, sceneView, setSceneMode, sceneModeOf } from '@engine/src/features/scene'
-import type { SceneInput, SceneMode, SceneOptions, SceneView } from '@engine/src/features/scene'
+import { Play, SKILL_KIND as NIGHT_SKILL_KIND, RESONANCE_KIND, ratingOf, sceneOptions, sceneRawOf, sceneRules, sceneSkip, sceneView, setSceneMode, sceneModeOf, startProblems } from '@engine/src/features/scene'
+import type { SceneInput, SceneMode, SceneOptions, SceneView, StartSummary } from '@engine/src/features/scene'
+import { diceOf as sceneDiceOf } from '@engine/src/features/scene/play'
+import { learnBlock as nightLearnBlock, learnDraft as nightLearnDraft, nightList, nightRules } from '@engine/src/features/nightclass'
+import type { NightListView } from '@engine/src/features/nightclass'
+import { AXIS_NAME, axisLevel, experienceOf as nightExperience } from '@engine/src/features/nightclass/model'
+import { AVATAR_GENDERS, AVATAR_PARTS, AVATAR_SAVES_MAX, avatarBlock, avatarDraft, avatarOf } from '@engine/src/features/deck'
+import type { Avatar, AvatarOpts } from '@engine/src/features/deck'
+import type { SceneResult } from '@engine/src'
 import { setupFromEncounter } from '@engine/src/features/enemies'
 import { netBattleView } from '@engine/src/features/netcombat'
 import { deckOf, deckView, equipDraft as deckEquipDraft, installDraft as deckInstallDraft, removeDraft as deckRemoveDraft, scriptsBlock as deckScriptsBlock, scriptsDraft as deckScriptsDraft, skinDraft as deckSkinDraft, deckExtOf } from '@engine/src/features/deck'
@@ -76,7 +83,7 @@ import { MAX_KINKS, TABLE_NAME, abilitiesStepBlock, ageBlock, askStep, attrBlock
 import type { BodyStep, LifepathTable } from '@engine/src/features/creation'
 import { NO_BRIDGE_ABILITY } from '@engine/src/features/abilities/creation'
 import { treeTierOf } from '@engine/src/features/abilities/learn'
-import { debriefOf } from '../lib/scene/sceneView'
+import { debriefOf, setupOf } from '../lib/scene/sceneView'
 import type { Debrief } from '../lib/scene/sceneView'
 import { aiSettingsFromUi, logEntryOf, type EngineLogEntry, type UiAiFields } from '../lib/engineView'
 
@@ -84,7 +91,7 @@ import { aiSettingsFromUi, logEntryOf, type EngineLogEntry, type UiAiFields } fr
  * 包住引擎的 store：呼叫引擎的動作、拿回報告、把狀態交給畫面。不寫規則。
  * 引擎的 state 是普通物件、會被整份換掉內容，所以每次變化後把一份複製放進 shallowRef。
  */
-export interface ActOutcome { status: ActStatus | 'busy'; reason?: string }
+export interface ActOutcome { status: ActStatus | 'busy'; reason?: string; /** 提醒（玩家寫的寫法指令被截到 200 字、AI 關著指令用不到） */ notices?: string[] }
 /** 自己潛進去的一趟離開時的帳（見 store 的 lastEnd）：報告的句子、拿到的東西、迷宮館的結算 */
 export interface EndRecord {
   seq: number
@@ -350,14 +357,14 @@ export const useEngine = defineStore('engine', () => {
     get perks(): PerkEntry[] { return game.k.content.list<PerkEntry>('perk') },
   }
 
-  async function run(f: () => Promise<{ status: ActStatus; reason?: string }>): Promise<ActOutcome> {
+  async function run(f: () => Promise<{ status: ActStatus; reason?: string; notices?: string[] }>): Promise<ActOutcome> {
     // 上一條鏈還在跑：這一次不送進引擎，也不碰 busy（第一條鏈結束時才由它放開）
     if (busy.value) return { status: 'busy', reason: '上一條任務鏈還在跑。' }
     busy.value = true
     const timer = setInterval(refreshSteps, 120)
     try {
       const r = await f()
-      return r.reason !== undefined ? { status: r.status, reason: r.reason } : { status: r.status }
+      return { status: r.status, ...(r.reason !== undefined ? { reason: r.reason } : {}), ...(r.notices && r.notices.length > 0 ? { notices: r.notices } : {}) }
     } finally {
       clearInterval(timer)
       busy.value = false
@@ -470,7 +477,10 @@ export const useEngine = defineStore('engine', () => {
     if (r.status === 'applied') refresh()
     return r
   }
-  const finishBattle = () => run(() => game.finishBattle())
+  /** 戰鬥結束的結算；direction 是玩家寫的「想怎麼寫這一場」（原樣送出、不篩選；引擎截到 200 字、AI 關著時回提醒） */
+  const finishBattle = (direction?: string) => run(() => game.finishBattle(direction ? { direction } : {}))
+  /** 戰敗畫面的「想怎麼發生」：戰敗事件演的每一步（事件選項的正文）帶著它；接受結果之後清掉 */
+  const defeatDirection = ref('')
   function retryBattle(): string | null {
     const err = game.retryBattle()
     if (err === null) { clearQueued(); refresh() }
@@ -507,7 +517,13 @@ export const useEngine = defineStore('engine', () => {
     /** 先問的時候選「不看」：只列出結果 */
     skip: (): string | null => commitMade(() => skipDefeat(game.k, game.state)),
     /** 接受結果：被擋下（事件還沒做完……）回傳引擎的原因；在副本裡而且算失敗時，引擎在同一次提交裡回退 */
-    accept: (): string | null => commitMade(() => acceptDefeat(game.k, game.state)),
+    accept: (): string | null => {
+      const why = commitMade(() => acceptDefeat(game.k, game.state))
+      if (why === null) defeatDirection.value = ''
+      return why
+    },
+    /** 玩家寫的寫法指令（戰敗事件的正文）；畫面直接綁它 */
+    direction: defeatDirection,
     /** 別的功能多給的選項（被贖回……）：選了就結算 */
     choose: (id: string): string | null => commitMade(() => chooseDefeatOption(game.k, game.state, id)),
     /** 人在不在委託的副本裡（引擎的 commissionView）；不在是 null */
@@ -517,24 +533,76 @@ export const useEngine = defineStore('engine', () => {
       return v ? { id: v.id, name: v.name, stage: v.stage, stages: v.stages } : null
     },
   }
-  /**
-   * 事件帶出來的成人場景（俘虜「帶走」、戰敗事件的選項）：場景的畫面是 M2-ui-scene，還沒做之前入口只有「略過」（引擎的 sceneSkip：直接算出結果）。
-   * M2-ui-scene 接上之後這一組換掉。
-   */
-  const sceneGate = {
-    active: (): boolean => { void state.value; return game.k.activity.active(game.state).some((a) => a.kind === 'scene') },
-    /** 略過：回傳引擎的原因（做不到）或 null；結果那一份報告（scene.end）在 state.reports 最後 */
-    skip: (): string | null => commitMade(() => sceneSkip(game.k, game.state)),
-  }
-  // ---- 成人場景（M2-ui-scene）：全部轉接 features/scene，畫面不算感載、契合、主動權、預覽，也不判斷能不能做 ----
+  // ---- 成人場景（M2-ui-scene、M4-ui-scene）：全部轉接 Game.sceneBegin／sceneStep／sceneFinish 與 features/scene、nightclass，畫面不算感載、契合、主動權、預覽，也不判斷能不能做 ----
   /** 這一場結束之後的那一份報告（scene.end）：戰報卡用；按「回去」之後清掉 */
   const sceneEnded = shallowRef<Report | null>(null)
+  /** 最近一步的提醒（寫法指令被截斷、AI 關著指令用不到） */
+  const sceneNotices = ref<string[]>([])
+  /** 場景的一步（sceneBegin、sceneStep、sceneFinish 共用）：走 run（上一條鏈還在跑就不送）、記下結束的那一份報告與提醒 */
+  async function sceneRun(f: () => Promise<SceneResult>): Promise<ActOutcome & { ended: boolean }> {
+    const before = game.state.reports.length
+    let ended = false
+    const r = await run(async () => {
+      const x = await f()
+      ended = x.ended
+      return x
+    })
+    const fresh = game.state.reports.slice(before)
+    const end = fresh.find((x) => x.action === 'scene.end')
+    if (end) sceneEnded.value = structuredClone(end)
+    sceneNotices.value = r.notices ?? []
+    return { ...r, ended: ended || !!end }
+  }
   const scene = {
-    active: (): boolean => { void state.value; return sceneOf(game.state) !== null },
+    active: (): boolean => { void state.value; return sceneRawOf(game.state) !== null },
     /** 畫面要的全部；selected 給一個行動就多一份它的原因與預覽 */
     view: (selected?: SceneInput): SceneView | null => { void state.value; return sceneView(game.k, game.state, selected) },
-    /** 九種行動一次列出來：花費、原因、要選的部位、技能與道具與體位各自的選項、預覽 */
+    /** 行動一次列出來：花費、原因、要選的部位、技能與道具與體位各自的選項、預覽 */
     options: (): SceneOptions | null => { void state.value; return sceneOptions(game.k, game.state) },
+    /** 這一場每一回合的那一句（照角色的 id：多人時哪一句是誰說的）；名字是狀態裡的 */
+    lines: (): Array<{ round: number; who: string; name: string; text: string }> => {
+      void state.value
+      const raw = sceneRawOf(game.state)
+      return raw ? raw.lines.map((l) => ({ round: l.round, who: l.who, name: l.who === raw.pc ? '你' : game.state.actors[l.who]?.name ?? l.who, text: l.text })) : []
+    },
+    /** 現在輪到誰（角色的 id）、主角是誰；沒有場景是 null。畫面判斷「輪到對方了嗎」只看它 */
+    turn: (): { turn: string; pc: string } | null => { void state.value; const raw = sceneRawOf(game.state); return raw ? { turn: raw.turn, pc: raw.pc } : null },
+    /** 開場的確認框用的摘要（引擎的 startProblems）：誰、性質、身分、目的、會碰到的標籤、是不是單人、在哪一層。引擎不存開場的設定，這裡由場景的狀態還原設定、在沒有這一場的狀態上問一次；問不出來是 null */
+    gate: (): StartSummary | null => {
+      void state.value
+      const raw = sceneRawOf(game.state)
+      if (!raw) return null
+      const probe = structuredClone(game.state)
+      delete probe.ext.scene
+      return startProblems(game.k, probe, setupOf(raw)).summary ?? null
+    },
+    /**
+     * 現在能不能略過（引擎說了算：還沒有任何行動才行）：能略過是 null，不能是引擎的原因。確認框看它決定要不要出來——
+     * 只問引擎的略過那一步會不會被擋下（在一份複本上試，不改狀態），畫面不自己數第幾步、第幾回合。
+     */
+    skipBlock: (): string | null => {
+      void state.value
+      if (!sceneRawOf(game.state)) return '現在沒有進行中的成人場景。'
+      try {
+        sceneSkip(game.k, structuredClone(state.value))
+        return null
+      } catch (err) {
+        const why = reasonOf(err)
+        if (why === null) throw err
+        return why
+      }
+    },
+    /** 評價的名字（引擎的評價表；契合條旁邊與別的圈用） */
+    rating: (fit: number): string => ratingOf(sceneRules(game.k), fit).name,
+    /** 精簡版遇到多人的設定時，引擎給的那一句說明（只展開一個對象、其餘收成別的圈）；不是這種情形是 null */
+    simpleNote: (): string | null => {
+      void state.value
+      const raw = sceneRawOf(game.state)
+      if (!raw || raw.mode !== 'simple' || raw.circles.length === 0) return null
+      return new Play(game.k, game.state, structuredClone(raw), sceneDiceOf(game.state, raw)).circleBlocks(raw.circles[0]!.id)[0] ?? null
+    },
+    /** 成人場景的 AI 走到哪裡（引擎的 sceneRoute）：pure 沒有 AI、text 只有整場的正文、closing 進場與收尾、full 每回合都問 */
+    route: (): 'pure' | 'text' | 'closing' | 'full' => { void state.value; return game.sceneRoute() },
     /** 內容篩選關掉的題材（存檔規則的 contentOff） */
     contentOff: (): string[] => [...state.value.rules.contentOff],
     /** 設定的模式（精簡 simple、完整 full）；下一場生效 */
@@ -542,53 +610,42 @@ export const useEngine = defineStore('engine', () => {
     setMode(mode: SceneMode): void { sceneModeNow = mode; setSceneMode(game.k, mode) },
     modeOfEngine: (): SceneMode => sceneModeOf(game.k),
     ended: sceneEnded,
+    notices: sceneNotices,
     /** 示範的場景開場的那一句（確認框的標題）；不是示範的場景是 null */
     demoOpening: (id: string): string | null => DEMO_SCENES.find((x) => x.id === id)?.opening ?? null,
-    /** 戰報卡的欄位（評價、體悟、關係、餘韻、AI 的正文）；還沒有結束是 null */
+    /** 戰報卡的欄位（評價、體悟、關係、餘韻、AI 的正文、每個對象各一列）；還沒有結束是 null */
     debrief: (): Debrief | null => {
       const r = sceneEnded.value
-      return r ? debriefOf(r, (c) => game.k.changes.describe(state.value, c), (fit) => ratingOf(sceneRules(game.k), fit).name) : null
+      return r ? debriefOf(r, (c) => game.k.changes.describe(state.value, c), (fit) => ratingOf(sceneRules(game.k), fit).name, (id) => state.value.actors[id]?.name ?? id) : null
     },
-    clearEnded(): void { sceneEnded.value = null },
-    /** 提交一份場景的報告；結束的那一份（scene.end）記下來給戰報卡 */
-    async commitStep(make: () => ReportDraft, label: string): Promise<ActOutcome> {
-      const before = game.state.reports.length
-      const r = await commitDrafts(make, label)
-      const fresh = game.state.reports.slice(before)
-      const end = fresh.find((x) => x.action === 'scene.end')
-      if (end) sceneEnded.value = structuredClone(end)
-      return r
-    },
-    /** 玩家的一步 */
-    act(input: SceneInput): Promise<ActOutcome> { return scene.commitStep(() => sceneAct(game.k, game.state, input), '場景') },
-    /** 對方的一步（輪到他的時候） */
-    next(): Promise<ActOutcome> { return scene.commitStep(() => sceneNext(game.k, game.state), '場景') },
-    /** 略過：不操作，引擎直接算出結果 */
-    skip(): Promise<ActOutcome> { return scene.commitStep(() => sceneSkip(game.k, game.state), '略過場景') },
+    clearEnded(): void { sceneEnded.value = null; sceneNotices.value = [] },
+    /** 玩家的一步（Game.sceneStep；給 stop 就是結束） */
+    act: (input: SceneInput) => sceneRun(() => game.sceneStep(input)),
+    /** 對方的一步（輪到他的時候；Game.sceneStep 不給行動）。多人時一次走完一整輪 */
+    next: () => sceneRun(() => game.sceneStep()),
+    /** 結束：停下（預設）、略過（還沒有任何行動時才行；direction 是「想怎麼發生」，原樣送出、不篩選）、被外面打斷 */
+    finish: (o: { how?: 'stop' | 'skip' | 'interrupt'; direction?: string } = {}) => sceneRun(() => game.sceneFinish(o)),
+    /** 略過：不操作，引擎直接算出結果；寫法指令原樣交給引擎 */
+    skip: (direction?: string) => sceneRun(() => game.sceneFinish({ how: 'skip', ...(direction !== undefined && direction !== '' ? { direction } : {}) })),
     /** 輪到對方的時候一步一步呼叫對方的一步，直到交回給玩家或場景結束；wait 是每一步之間等幾毫秒（給畫面看得清楚） */
     async partnerTurn(wait = 0): Promise<void> {
       for (let i = 0; i < 40; i++) {
-        const s = sceneOf(game.state)
-        if (!s || s.turn !== 'partner') return
+        const raw = sceneRawOf(game.state)
+        if (!raw || raw.turn === raw.pc) return
         if (wait > 0) await new Promise((res) => setTimeout(res, wait))
         const r = await scene.next()
         if (r.status !== 'applied') return
       }
     },
-    /** 開一場（測試與示範用；平常是委託、戰敗事件、事件的效果開的）：引擎擋下回傳原因，開成回傳 null */
-    begin(setup: unknown, origin: { by: string; ref?: string } = { by: 'ui' }): string | null {
-      try {
-        sceneEnded.value = null
-        game.launch('scene', setup, origin)
-        return null
-      } catch (e) {
-        const w = reasonOf(e)
-        if (w === null) throw e
-        return w
-      }
+    /** 開一場（Game.sceneBegin；測試與示範用，平常是委託、戰敗事件、事件的效果開的）：引擎擋下回傳原因，開成回傳 null */
+    async begin(setup: unknown, origin: { by: string; ref?: string } = { by: 'ui' }): Promise<string | null> {
+      sceneEnded.value = null
+      sceneNotices.value = []
+      const r = await run(() => game.sceneBegin(setup as never, { origin: origin as never }))
+      return r.status === 'applied' ? null : r.reason ?? '開不起來。'
     },
     /** 示範的場景（#/scene?scene=amber|rin）：先把對象與主角的招式放好，再開場。回傳引擎的原因或 null。 */
-    startDemo(id: string): string | null {
+    async startDemo(id: string): Promise<string | null> {
       const d = DEMO_SCENES.find((x) => x.id === id) ?? DEMO_SCENES[0]!
       const pcId = game.state.pc
       if (pcId === null) return '還沒有主角：先去建角。'
@@ -597,6 +654,16 @@ export const useEngine = defineStore('engine', () => {
       const why = commit({ summary: '準備示範的場景', action: 'ui.demo_scene', changes }, { attach: true })
       return why ?? scene.begin(d.setup, { by: 'ui', ref: d.id })
     },
+    /** 在住處獨處（單人）：開一場單人的場景。引擎擋下（沒有橋、被內容篩選擋下……）回傳原因 */
+    soloAtHome: (): Promise<string | null> => scene.begin({ solo: true, place: '住處' }, { by: 'ui', ref: 'solo_home' }),
+  }
+  /**
+   * 事件帶出來的成人場景（俘虜「帶走」、戰敗事件的選項）：場景開起來時畫面會自己換到 #/scene；回到戰敗畫面時的兩個按鈕是進入場景與略過。
+   * 略過走 Game.sceneFinish({ how: 'skip', direction })，結果那一份報告（scene.end）在 state.reports 最後。
+   */
+  const sceneGate = {
+    active: (): boolean => { void state.value; return game.k.activity.active(game.state).some((a) => a.kind === 'scene') },
+    skip: (direction?: string): Promise<ActOutcome & { ended: boolean }> => scene.skip(direction),
   }
   /** 有幾個面板把事件視窗嵌在自己裡面（戰敗、戰利品與俘虜）：大於 0 時全域的事件對話框讓出來 */
   const eventInline = ref(0)
@@ -890,7 +957,7 @@ export const useEngine = defineStore('engine', () => {
    * 把一份（或幾份）報告草稿交給引擎提交（走 commitNarrated：AI 關著就是一般的提交）。草稿做不出來（被擋下）回傳原因。
    * remake(i)：第 i 份草稿（i ≥ 1）若要留著等放行，放行時用它照當下狀態重做；沒給就用原來那一份。
    */
-  async function commitDrafts(make: () => ReportDraft | ReportDraft[], label?: string, remake?: (i: number) => ReportDraft): Promise<ActOutcome> {
+  async function commitDrafts(make: () => ReportDraft | ReportDraft[], label?: string, remake?: (i: number) => ReportDraft, extra?: { direction?: string }): Promise<ActOutcome> {
     let drafts: ReportDraft[]
     try {
       const made = make()
@@ -902,7 +969,7 @@ export const useEngine = defineStore('engine', () => {
     }
     let last: ActOutcome = { status: 'applied' }
     for (const [i, d] of drafts.entries()) {
-      const r = await run(() => game.commitNarrated(d, { mode: 'new', ...(label ? { label } : {}) }))
+      const r = await run(() => game.commitNarrated(d, { mode: 'new', ...(label ? { label } : {}), ...(extra?.direction ? { direction: extra.direction } : {}) }))
       last = r
       if (r.status !== 'applied') {
         // 前面的已經提交了、這一份被擋下（例：出發之後事件開了）：留著，等引擎放行再提交（計程車的抵達）。第一份就被擋下的不留。
@@ -1084,7 +1151,9 @@ export const useEngine = defineStore('engine', () => {
     /** 選一個選項；做完回傳這一步提交的報告（擲骰與結果在裡面）。被擋下回傳原因。 */
     async choose(id: string): Promise<ActOutcome & { reports?: Report[] }> {
       const before = game.state.reports.length
-      const r = await commitDrafts(() => chooseOption(game.k, game.state, id))
+      // 戰敗事件在演的時候，玩家在戰敗畫面寫的「想怎麼發生」跟著這一步的正文一起送（原樣；引擎截到 200 字、AI 關著時回提醒）
+      const direction = defeatOf(game.state) && defeatDirection.value ? defeatDirection.value : undefined
+      const r = await commitDrafts(() => chooseOption(game.k, game.state, id), undefined, undefined, direction ? { direction } : undefined)
       await drainQueued()
       return { ...r, reports: structuredClone(game.state.reports.slice(before)) }
     },
@@ -1419,6 +1488,56 @@ export const useEngine = defineStore('engine', () => {
     /** 這一份腳本清單帶不帶得了（引擎的原因；可以是 null） */
     scriptsBlock: (list: ScriptEntry[]): string | null => { void state.value; return game.state.pc === null ? '還沒有主角。' : deckScriptsBlock(game.k, game.state, game.state.pc, list) },
     scripts: (list: ScriptEntry[]): string | null => commitGear((pc) => deckScriptsDraft(game.k, game.state, pc, list)),
+    /** 化身（M4-scene-net）：內海的場景裡的樣子。部位只有加裝、尾、觸手，最多存 AVATAR_SAVES_MAX 套；數字與擋住的原因是引擎的 */
+    avatar: {
+      get: (): Avatar | null => { void state.value; return game.state.pc === null ? null : avatarOf(game.state, game.state.pc) },
+      /** 可以開的部位的 id、五個性別值、最多存幾套（引擎的常數；名字是畫面的） */
+      parts: AVATAR_PARTS as readonly string[],
+      genders: AVATAR_GENDERS as readonly string[],
+      savesMax: AVATAR_SAVES_MAX,
+      /** 這樣改現在行不行：不行是引擎的原因，行是 null */
+      block: (o: AvatarOpts): string | null => { void state.value; return game.state.pc === null ? '還沒有主角。' : avatarBlock(game.k, game.state, game.state.pc, o) },
+      set: (o: AvatarOpts): string | null => commitGear((pc) => avatarDraft(game.k, game.state, pc, o)),
+    },
+  }
+
+  // ---- 夜課的學習（M4-ui-scene）：全部轉接 features/nightclass 與 scene；開階、看得到哪些、學得了學不了與原因都是引擎的 ----
+  const night = {
+    /** 五個分支各自開到幾階、看得到的技能（狀態：學會了、能學、階沒開、條件不夠）、現在的體悟；沒有主角是 null */
+    list: (): NightListView | null => { void state.value; return game.state.pc === null ? null : nightList(game.k, game.state, game.state.pc) },
+    /** 一個分支的階是怎麼來的（引擎的規則表與角色身上的數字；只列數字，開幾階以 list 的 tier 為準） */
+    basis: (branch: string): string => {
+      void state.value
+      const pc = game.state.pc
+      const a = pc === null ? undefined : game.state.actors[pc]
+      if (!a) return ''
+      const rules = nightRules(game.k)
+      if (branch === 'common') {
+        const x = nightExperience(a)
+        const tier = nightList(game.k, game.state, a.id).branches.find((b) => b.branch === 'common')?.tier ?? 0
+        const next = rules.common_gates[tier]
+        return `性經歷 ${x.times} 次、${x.partners} 人${next ? `；下一階要 ${next[0]} 次或 ${next[1]} 人` : '；已經開到頂'}`
+      }
+      const axis = rules.axis_of[branch as keyof typeof rules.axis_of]
+      return axis ? `傾向的「${AXIS_NAME[axis]}」軸 ${axisLevel(a, axis)} 級（一級開一階）` : ''
+    },
+    /** 共鳴的清單（night_resonance）：每一筆它的分支與階、有沒有生效（分支開到的階數夠了）、一句說明；照內容的順序 */
+    resonances: (): Array<{ id: string; name: string; branch: string; tier: number; desc: string; on: boolean }> => {
+      void state.value
+      const l = game.state.pc === null ? null : nightList(game.k, game.state, game.state.pc)
+      if (!game.k.content.hasKind(RESONANCE_KIND)) return []
+      return game.k.content.list<{ id: string; name?: string; branch?: string; tier?: number; desc?: string }>(RESONANCE_KIND).map((r) => ({
+        id: r.id, name: r.name ?? r.id, branch: r.branch ?? '', tier: r.tier ?? 0, desc: r.desc ?? '', on: (l?.branches.find((b) => b.branch === r.branch)?.tier ?? 0) >= (r.tier ?? 99),
+      }))
+    },
+    /** 技能的內容（說明、掛的標籤的名字）；顯示用 */
+    skill: (id: string): { desc: string; how: string; tagName: string | null } => {
+      const e = game.k.content.get<{ id: string; desc?: string; how?: string; tag?: string }>(NIGHT_SKILL_KIND, id)
+      return { desc: e?.desc ?? '', how: e?.how ?? '', tagName: e?.tag ? (game.k.content.get<{ id: string; name?: string }>('tendency_tag', e.tag)?.name ?? e.tag) : null }
+    },
+    /** 現在學不學得了：學得了是 null，否則是引擎的第一個原因（戰鬥中、場景進行中也擋） */
+    learnBlock: (id: string): string | null => { void state.value; return game.state.pc === null ? '還沒有主角。' : nightLearnBlock(game.k, game.state, game.state.pc, id) },
+    learn: (id: string): string | null => commitGear((pc) => nightLearnDraft(game.k, game.state, pc, id)),
   }
 
   // ---- 義體、醫療、藥、沉溺（M4-ui-body）：全部轉接 features/cyberware、medical、drugs、sink、lewd，畫面不算費用、成本、機率與原因 ----
@@ -1581,5 +1700,5 @@ export const useEngine = defineStore('engine', () => {
     sourceName: (source: string): string => (PASSIVE_SOURCE_NAMES as Record<string, string>)[source] ?? source,
   }
 
-  return { state, feed, body, craft, dye, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  return { state, feed, body, craft, dye, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, night, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

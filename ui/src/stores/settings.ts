@@ -15,10 +15,15 @@ const AI_KEY = 'cpp-ai-v1'
 const defaults = {
   // AI 開關
   useAi: true, judgeFree: true, judgeShift: true, judgeEvent: true, narrate: true, polish: false, clampRequested: true, agentMode: false,
+  /** 成人場景的 AI：off 只有整場的正文、closing 只有進場與收尾（預設）、full 每回合都問（花費高） */
+  sceneAi: 'closing' as 'off' | 'closing' | 'full',
   // 內容篩選（LEWD_SYSTEM 第 9 節的一部分）
   filterRestraint: true, filterDollChip: true, filterPublic: true, filterContract: true,
   /** 身體的私密描寫：建角的「私處」與角色的成人分頁（第三版） */
   filterIntimateBody: true,
+  /** 引擎認得的其餘題材（LEWD_SYSTEM 第 9 節）：一項一個開關，直接對到存檔規則的 contentOff */
+  filterPcUnwilling: true, filterTargetUnwilling: true, filterContractDom: true, filterNtr: true, filterBlacktape: true,
+  filterMale: true, filterFemale: true, filterFemboy: true, filterTrans: true, filterFuta: true,
   // 遊戲
   difficulty: '普通' as '故事' | '簡單' | '普通' | '困難' | '傳奇' | '自訂',
   /** 自訂難度的係數表（BALANCE 7.3 節）；選自訂時從一個預設複製 */

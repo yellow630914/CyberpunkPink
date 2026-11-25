@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import ReasonButton from '../ReasonButton.vue'
 import EventBody from '../EventBody.vue'
 import SceneGate from './SceneGate.vue'
+import DirectionField from '../scene/DirectionField.vue'
 import { DEFEAT_NAME, TIER_NAME, asking, choiceGroups, consequences, defeatStory } from '../../lib/afterBattleView'
 import type { EngineLogEntry } from '../../lib/engineView'
 import { defeatNetRows } from '../../lib/netView'
@@ -72,6 +73,8 @@ function acceptIt(): void { if (say(engine.defeatFlow.accept())) emit('leave') }
           </div>
           <p v-for="c in groups.ask.filter((x) => x.why)" :key="c.id" class="t-fine why" :data-why="c.id">{{ c.name }}：{{ c.why }}</p>
         </section>
+
+        <DirectionField v-model="engine.defeatFlow.direction" :live="engine.scene.route() !== 'pure'" label="想怎麼發生（選填）" placeholder="想怎麼寫就怎麼寫，最多 200 字" hint="寫給 AI 的寫法指令：照它寫戰敗事件的經過與文風。它不會改變結果與任何數字；事件每走一步，這一格寫的字就跟著送一次。" data-defeat-direction />
 
         <section v-if="showEvent" class="da-event" data-defeat-event-body>
           <EventBody v-model:result="evResult" />

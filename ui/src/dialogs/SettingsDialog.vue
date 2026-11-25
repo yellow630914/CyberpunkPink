@@ -12,6 +12,7 @@ import { useSaves } from '../stores/saves'
 import { useRouter } from 'vue-router'
 import RuleFields from '../components/RuleFields.vue'
 import { SHORTCUTS } from '../lib/keys'
+import { FILTER_ROWS } from '../lib/engineView'
 
 /**
  * 設定（UI.md 第 15 節，樣稿 docs/mockups/settings.html 的七個分頁）。這是簡單版：每頁放幾列，說明都收進「?」。
@@ -41,13 +42,8 @@ const AI_ROWS: Array<{ k: BoolKey; name: string; hint: string }> = [
   { k: 'clampRequested', name: '玩家要求的結果也夾值', hint: '你在自由行動裡要求的結果，也照規則夾在允許的範圍裡。' },
   { k: 'agentMode', name: 'Agent 模式', hint: 'AI 可以自己用查詢工具。預設關；細項在 AI 工坊。' },
 ]
-const FILTER_ROWS: Array<{ k: BoolKey; name: string; hint: string }> = [
-  { k: 'filterRestraint', name: '拘束', hint: '關掉時拘束類的事件與家具用途（遊戲間）不出現。' },
-  { k: 'filterDollChip', name: '人偶晶片的失憶工作', hint: '關掉時人偶館只能開清醒的店，相關打工的階段不顯示。' },
-  { k: 'filterPublic', name: '公開場合', hint: '關掉時發生在公開場合的成人事件不觸發。' },
-  { k: 'filterContract', name: '契約', hint: '關掉時契約面板與契約人的事件不出現。' },
-  { k: 'filterIntimateBody', name: '身體的私密描寫', hint: '關掉時建角不問私處的樣子，角色的成人分頁也不顯示。' },
-]
+const FILTER_LIST: ReadonlyArray<{ k: BoolKey; name: string; hint: string }> = FILTER_ROWS
+const SCENE_AI_NAME = { off: '關', closing: '只有進場與收尾', full: '每回合都問' } as const
 const sv = useSaves()
 function save(i: number) { const err = sv.saveTo(i); ui.toast(err ?? `存到了第 ${i + 1} 格。`, err ? 'warn' : 'info') }
 function load(i: number) { const err = sv.loadFrom('slots', i); ui.toast(err ?? `讀了第 ${i + 1} 格。`, err ? 'warn' : 'info') }
@@ -74,6 +70,11 @@ function load(i: number) { const err = sv.loadFrom('slots', i); ui.toast(err ?? 
           <span class="df">預設 <b>{{ st.defaults[r.k] ? '開' : '關' }}</b></span>
         </div>
         </div>
+        <div class="srow" :class="{ chg: !st.isDefault('sceneAi'), off: !s.useAi }" data-scene-ai>
+          <span class="nm2">成人場景的 AI<Hint>關：只有結束之後整場的正文。只有進場與收尾（預設）：進場前問一次要不要進、結束時算沉溺、傾向、性經歷與關係、寫整場的正文。每回合都問：對方的每一步與說話也交給 AI，花費高，自己打開。AI 關著時全部照規則算。</Hint></span>
+          <span class="val">{{ SCENE_AI_NAME[s.sceneAi] }}</span>
+          <span class="seg"><button v-for="m in (['off', 'closing', 'full'] as const)" :key="m" type="button" :class="{ on: s.sceneAi === m }" :data-scene-ai-opt="m" @click="s.sceneAi = m">{{ SCENE_AI_NAME[m] }}</button></span>
+        </div>
         <div class="srow"><span class="nm2">自動重試<Hint>每個任務出錯時自動重試幾次；這一格一次設全部，AI 工坊裡可以每個任務各自設。</Hint></span><span class="val">{{ s.retries }} 次</span><span class="seg"><button v-for="n in [0, 1, 2, 3]" :key="n" type="button" :class="{ on: s.retries === n }" @click="s.retries = n">{{ n }}</button></span></div>
         <div class="go"><button type="button" class="btn sm" @click="toWorkshop('chains')">更細的在 AI 工坊</button></div>
         <div class="srow"><span class="nm2">逾時<Hint>收到文字、思考或工具呼叫就重新計時。這一項不能調。</Hint></span><span class="val">閒置 3 分鐘</span><span class="df">固定</span></div>
@@ -91,7 +92,7 @@ function load(i: number) { const err = sv.loadFrom('slots', i); ui.toast(err ?? 
         <div class="lock"><span class="lk">LOCK</span><b>不寫血腥，不寫懷孕。</b><Hint>這是內容的底線，不是篩選的選項，所以沒有開關。</Hint></div>
         <p class="sgrp">題材<Hint>內容篩選存在存檔裡。關掉一項時，相關的事件不觸發，戰敗事件改走不含那個題材的分支。感載與橋參數同時是戰鬥與竄網的規則，不受篩選影響。</Hint></p>
         <div class="grid2">
-        <div v-for="r in FILTER_ROWS" :key="r.k" class="srow" :class="{ chg: !st.isDefault(r.k) }">
+        <div v-for="r in FILTER_LIST" :key="r.k" class="srow" :class="{ chg: !st.isDefault(r.k) }">
           <span class="nm2">{{ r.name }}<Hint :text="r.hint" /></span>
           <button type="button" class="sw" role="switch" :aria-checked="s[r.k]" :aria-label="r.name" :class="{ on: s[r.k] }" @click="s[r.k] = !s[r.k]" />
           <span class="df">預設 <b>開</b></span>

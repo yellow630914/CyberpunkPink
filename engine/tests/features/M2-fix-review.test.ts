@@ -17,7 +17,7 @@ import { readRoster } from '../../src/features/roster'
 import { securityFeature } from '../../src/features/security'
 import { hostilityMarkup, tradeFeature } from '../../src/features/trade'
 import { chooseOption, eventView } from '../../src/features/director'
-import { sceneOf } from '../../src/features/scene'
+import { sceneRawOf } from '../../src/features/scene'
 import { board, advance, transitOf, wait } from '../../src/features/transit'
 import { arrive } from '../../src/features/world'
 
@@ -89,12 +89,12 @@ describe('必修 1：車上的事件選開打或開場景：這一趟車先結�
     g.commit(wait(g.k, g.state))
     const reports = g.commit(chooseOption(g.k, g.state, 'go'))
     expect(reports.map((r) => r.action)).toEqual(['event.close', 'scene.start'])
-    expect(sceneOf(g.state)).not.toBeNull()
+    expect(sceneRawOf(g.state)).not.toBeNull()
     expect(transitOf(g.state).trip).toBeNull()
     expect(g.k.activity.active(g.state).map((a) => a.kind)).toEqual(['scene'])
     expect(stationOf(g)).toEqual({ block: 'tw_yard', facility: 'F1' })
     await untilIdle(g)
-    expect(sceneOf(g.state)).toBeNull()
+    expect(sceneRawOf(g.state)).toBeNull()
     expect(g.k.activity.active(g.state)).toEqual([])
     expect(stationOf(g)).toEqual({ block: 'tw_yard', facility: 'F1' })
     expect(transitOf(g.state).trip).toBeNull()
@@ -154,7 +154,7 @@ describe('必修 1：車上的事件選開打或開場景：這一趟車先結�
     expect(eventView(g.k, g.state)).toMatchObject({ event: 'ev_fix_ride' })
     // 回去之後改選場景也一樣走得通
     g.commit(chooseOption(g.k, g.state, 'go'))
-    expect(sceneOf(g.state)).not.toBeNull()
+    expect(sceneRawOf(g.state)).not.toBeNull()
     expect(transitOf(g.state).trip).toBeNull()
   })
 })

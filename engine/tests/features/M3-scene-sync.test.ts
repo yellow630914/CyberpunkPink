@@ -7,8 +7,8 @@ import type { ContentPack, Feature, GameState, Origin } from '../../src'
 import { ActionBlocked } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { lewdFeature } from '../../src/features/lewd'
-import type { Dice, SceneInput, SceneState, SyncGear } from '../../src/features/scene'
-import { sceneAct, sceneFeature, sceneNext, sceneOf, sceneOptions, sceneSkip, sceneView } from '../../src/features/scene'
+import type { Dice, SceneInput, SceneRaw, SyncGear } from '../../src/features/scene'
+import { sceneAct, sceneFeature, sceneNext, sceneRawOf, sceneOptions, sceneSkip, sceneView } from '../../src/features/scene'
 import type { ActorOverrides } from '../../src/testkit'
 import { METER_CONTENT, makeActor, makeGame, meterFeature, testMeter } from '../../src/testkit'
 
@@ -116,14 +116,18 @@ function dice(...values: number[]): Dice {
 
 const SETUP = { with: ['npc_ann'], nature: 'mutual' as const }
 const begin = (g: Game, setup: unknown = SETUP, origin: Origin = { by: 'test' }) => g.launch('scene', setup, origin)
-const S = (g: Game): SceneState => sceneOf(g.state)!
+const S = (g: Game): SceneRaw => sceneRawOf(g.state)!
+const PC = 'pc'
+const ANN = 'npc_ann'
+/** 主角或對象的座位（第二版：照角色的 id） */
+const seat = (g: Game, id: string) => S(g).seats.find((x) => x.id === id)!
 const ann = (g: Game) => g.state.actors.npc_ann!
 const pc = (g: Game) => g.state.actors.pc!
 const act = (g: Game, input: SceneInput, d?: Dice) => g.commit(sceneAct(g.k, g.state, input, d ? { dice: d } : {}))
 const next = (g: Game, d?: Dice) => g.commit(sceneNext(g.k, g.state, d ? { dice: d } : {}))
 /** 對方的回合一步一步走完（交回主角，或場景結束）。 */
 const partnerTurn = (g: Game): void => {
-  for (let i = 0; i < 12 && sceneOf(g.state)?.turn === 'partner'; i++) next(g)
+  for (let i = 0; i < 12 && sceneRawOf(g.state)?.turn === ANN; i++) next(g)
 }
 const blocked = (fn: () => unknown): string => {
   try {
@@ -150,7 +154,7 @@ const talk = (g: Game, d = TALK_OK) => act(g, { kind: 'talk', text: '你好', pi
 const FULL_PC = { pc: { skills: { sync: 5 } }, pcExt: { bridge: { ...PC_BRIDGE, sensitivity: 70 } } }
 const gearOpt = (g: Game) => sceneOptions(g.k, g.state)!.actions.find((a) => a.id === 'gear')!
 const setGear = (g: Game, who: 'pc' | 'partner', gear: SyncGear): void => {
-  S(g).gear[who] = gear
+  seat(g, who === 'pc' ? PC : ANN).gear = gear
 }
 const tags = (r: { timeline: Array<{ tag?: string }> }): Array<string | undefined> => r.timeline.map((b) => b.tag)
 
@@ -170,7 +174,7 @@ describe('換檔：第十種行動', () => {
   it('起始是標準；沒有同步的等級與夠高的敏感度時只能換淺、標準：深與全灰掉並寫出缺哪個條件', () => {
     const g = game()
     begin(g)
-    expect(S(g).gear).toEqual({ pc: 'standard', partner: 'standard' })
+    expect(S(g).seats.map((x) => x.gear)).toEqual(['standard', 'standard'])
     const c = Object.fromEntries(gearOpt(g).choices!.map((x) => [x.id, x.blocks]))
     expect(c.shallow).toEqual([])
     expect(c.standard).toEqual(['已經是標準檔了。'])
@@ -190,7 +194,7 @@ describe('換檔：第十種行動', () => {
     // 開不了的直接被擋，原因一樣
     expect(blocked(() => act(g, { kind: 'gear', gear: 'full' }))).toBe('同步要 5 級才能開全檔（現在 3 級）。敏感度要 70 才能開全檔（現在 40）。')
     act(g, { kind: 'gear', gear: 'deep' })
-    expect(S(g).gear.pc).toBe('deep')
+    expect(seat(g, PC).gear).toBe('deep')
   })
 
   it('換檔花 0 點、不交出回合；一回合第二次被擋並有原因；下一回合又可以換', () => {
@@ -200,19 +204,20 @@ describe('換檔：第十種行動', () => {
     expect(r).toMatchObject({ action: 'scene.act', adult: true })
     expect(tags(r!)).toEqual(['gear'])
     expect(r!.timeline[0]!.data).toMatchObject({ from: 'standard', to: 'deep' })
-    expect(S(g)).toMatchObject({ turn: 'pc', ap: { pc: 4, partner: 4 } })
-    expect(S(g).shifted.pc).toBe(true)
+    expect(S(g)).toMatchObject({ turn: PC })
+    expect(S(g).seats.map((x) => x.ap)).toEqual([4, 4])
+    expect(seat(g, PC).shifted).toBe(true)
     expect(blocked(() => act(g, { kind: 'gear', gear: 'full' }))).toBe('這個回合已經換過檔了。')
     expect(gearOpt(g).blocks).toEqual(['這個回合已經換過檔了。'])
-    expect(S(g).gear.pc).toBe('deep')
+    expect(seat(g, PC).gear).toBe('deep')
     expect(sceneView(g.k, g.state)!.people.pc.gear.shifted).toBe(true)
     // 下一回合
     act(g, { kind: 'end_turn' })
     partnerTurn(g)
     expect(S(g)).toMatchObject({ round: 2, turn: 'pc' })
-    expect(S(g).shifted.pc).toBe(false)
+    expect(seat(g, PC).shifted).toBe(false)
     act(g, { kind: 'gear', gear: 'full' })
-    expect(S(g).gear.pc).toBe('full')
+    expect(seat(g, PC).gear).toBe('full')
   })
 
   it('已經是這一檔、不在自己的回合、沒有這一檔：被擋並有原因', () => {
@@ -230,8 +235,8 @@ describe('換檔：第十種行動', () => {
     const packs: ContentPack[] = [{ id: 'sync_hi', content: { sync_rule: [{ id: 'default', gears: { standard: { name: '標準', check: 0, load_pct: 100, need_skill: 0, need_sensitivity: 60 } } }] } }]
     const g = game({ packs })
     begin(g)
-    expect(S(g).gear).toEqual({ pc: 'shallow', partner: 'standard' }) // 安的敏感度 100，夠
-    expect(S(g).max_gear.pc).toBe('shallow')
+    expect(S(g).seats.map((x) => x.gear)).toEqual(['shallow', 'standard']) // 安的敏感度 100，夠
+    expect(seat(g, PC).max_gear).toBe('shallow')
     const c = Object.fromEntries(gearOpt(g).choices!.map((x) => [x.id, x.blocks]))
     expect(c.shallow).toEqual(['已經是淺檔了。'])
     expect(c.standard).toEqual(['敏感度要 60 才能開標準檔（現在 50）。'])
@@ -293,10 +298,11 @@ describe('檔位的效果', () => {
       act(g, { kind: 'tease' }, dice(1, 1))
       act(g, { kind: 'restrain' })
       act(g, { kind: 'talk', pick: { my_part: 'hand_l', their_part: 'chest' } }, dice(TALK_OK))
-      expect(S(g)).toMatchObject({ turn: 'partner', ap: { pc: 0 } })
+      expect(S(g)).toMatchObject({ turn: ANN })
+      expect(seat(g, PC).ap).toBe(0)
       partnerTurn(g)
       expect(S(g)).toMatchObject({ round: 2, turn: 'pc' })
-      return S(g).ap.pc
+      return seat(g, PC).ap
     }
     expect(run('standard')).toBe(3)
     expect(run('deep')).toBe(3)
@@ -310,10 +316,10 @@ describe('檔位的效果', () => {
       talk(g)
       setGear(g, 'pc', gear)
       act(g, { kind: 'dominate' }, dice(1, 1, 6)) // 自己 1d6 = 6：深 6 × 1.1 × 1.5 = 10、全 6 × 1.1 × 2.5 = 17，都超過 35 − 30
-      const climaxed = S(g).climax.pc
-      expect(S(g).sink_gain.pc).toBe(gear === 'full' ? 2 : 0)
+      const climaxed = seat(g, PC).climax
+      expect(seat(g, PC).sink_gain).toBe(gear === 'full' ? 2 : 0)
       const [r] = act(g, { kind: 'stop' })
-      expect(sceneOf(g.state)).toBeNull()
+      expect(sceneRawOf(g.state)).toBeNull()
       expect(r!.narration!.results!.some((x) => x.includes('沉溺 +2'))).toBe(gear === 'full')
       return { sink: pc(g).sink, climaxed }
     }
@@ -324,7 +330,7 @@ describe('檔位的效果', () => {
   it('過載累積的沉溺一場最多加 4（SINK_CAP）', () => {
     const g = game(FULL_PC)
     begin(g)
-    S(g).sink_gain.pc = 10
+    seat(g, PC).sink_gain = 10
     act(g, { kind: 'stop' })
     expect(pc(g).sink).toBe(4)
   })
@@ -375,12 +381,12 @@ describe('對方的檔位（走規則、不呼叫 AI）', () => {
     const [r] = next(g)
     expect(tags(r!)[0]).toBe('gear')
     expect(r!.timeline[0]!.data).toMatchObject({ from: 'standard', to: 'shallow' })
-    expect(S(g).gear.partner).toBe('shallow')
-    expect(S(g).shifted.partner).toBe(true)
-    expect(S(g).max_gear.partner).toBe('standard')
+    expect(seat(g, ANN).gear).toBe('shallow')
+    expect(seat(g, ANN).shifted).toBe(true)
+    expect(seat(g, ANN).max_gear).toBe('standard')
     const [again] = next(g, dice(1, 1, 1, 1, 1))
     expect(tags(again!)).not.toContain('gear')
-    expect(S(g).gear.partner).toBe('shallow')
+    expect(seat(g, ANN).gear).toBe('shallow')
   })
 
   it('七成以下維持；已經是淺檔不再退', () => {
@@ -389,7 +395,7 @@ describe('對方的檔位（走規則、不呼叫 AI）', () => {
     talk(g)
     act(g, { kind: 'end_turn' })
     next(g)
-    expect(S(g).gear.partner).toBe('standard')
+    expect(seat(g, ANN).gear).toBe('standard')
     const h = game({ ann: { load: 30 } })
     begin(h)
     talk(h)
@@ -397,26 +403,26 @@ describe('對方的檔位（走規則、不呼叫 AI）', () => {
     act(h, { kind: 'end_turn' })
     const [r] = next(h)
     expect(tags(r!)).not.toContain('gear')
-    expect(S(h).gear.partner).toBe('shallow')
+    expect(seat(h, ANN).gear).toBe('shallow')
   })
 
   it('scene_turn 的接口：env.partner_gear 給了而且合規就照給的；超過他的上限的當沒給', () => {
     const g = game({ annExt: { bridge: { ...ANN_BRIDGE } }, ann: { skills: { sync: 3 } } })
     begin(g)
-    expect(S(g).gear.partner).toBe('standard')
+    expect(seat(g, ANN).gear).toBe('standard')
     talk(g)
     act(g, { kind: 'end_turn' })
     const [r] = g.commit(sceneNext(g.k, g.state, { partner_gear: 'deep' }))
     expect(tags(r!)[0]).toBe('gear')
-    expect(S(g).gear.partner).toBe('deep')
-    expect(S(g).max_gear.partner).toBe('deep')
+    expect(seat(g, ANN).gear).toBe('deep')
+    expect(seat(g, ANN).max_gear).toBe('deep')
     const h = game()
     begin(h)
     talk(h)
     act(h, { kind: 'end_turn' })
     const [r2] = h.commit(sceneNext(h.k, h.state, { partner_gear: 'full' }))
     expect(tags(r2!)).not.toContain('gear')
-    expect(S(h).gear.partner).toBe('standard')
+    expect(seat(h, ANN).gear).toBe('standard')
   })
 })
 
@@ -429,7 +435,7 @@ describe('結算：這一場開過的最高檔位', () => {
     act(g, { kind: 'end_turn' })
     partnerTurn(g)
     act(g, { kind: 'gear', gear: 'standard' })
-    expect(S(g)).toMatchObject({ gear: { pc: 'standard' }, max_gear: { pc: 'deep', partner: 'standard' } })
+    expect([seat(g, PC).gear, seat(g, PC).max_gear, seat(g, ANN).max_gear]).toEqual(['standard', 'deep', 'standard'])
     const [r] = act(g, { kind: 'stop' })
     expect(r!.action).toBe('scene.end')
     const last = r!.timeline[r!.timeline.length - 1]!
@@ -451,17 +457,17 @@ describe('沒有人換檔時和原來一樣', () => {
     const g = game({ ...o, seed: 7 })
     begin(g, { ...SETUP, mode: 'simple' })
     const out: string[] = []
-    const snap = () => out.push(JSON.stringify([sceneOf(g.state), pc(g).load, ann(g).load, pc(g).afterglow, ann(g).afterglow]))
+    const snap = () => out.push(JSON.stringify([sceneRawOf(g.state), pc(g).load, ann(g).load, pc(g).afterglow, ann(g).afterglow]))
     const script: SceneInput[] = [
       { kind: 'talk', pick: talkParts }, { kind: 'dominate' }, { kind: 'skill', id: 'nt_hold' }, { kind: 'end_turn' }, { kind: 'yield' }, { kind: 'tease' }, { kind: 'restrain' }, { kind: 'dominate' },
       { kind: 'end_turn' }, { kind: 'tease' }, { kind: 'yield' }, { kind: 'end_turn' }, { kind: 'dominate' }, { kind: 'tease' }, { kind: 'end_turn' },
     ]
     for (const input of script) {
-      for (let i = 0; i < 12 && sceneOf(g.state)?.turn === 'partner'; i++) {
+      for (let i = 0; i < 12 && sceneRawOf(g.state)?.turn === ANN; i++) {
         next(g)
         snap()
       }
-      if (!sceneOf(g.state)) break
+      if (!sceneRawOf(g.state)) break
       try {
         act(g, input)
       } catch (e) {
@@ -471,8 +477,8 @@ describe('沒有人換檔時和原來一樣', () => {
       }
       snap()
     }
-    for (let i = 0; i < 12 && sceneOf(g.state)?.turn === 'partner'; i++) next(g)
-    if (sceneOf(g.state)) {
+    for (let i = 0; i < 12 && sceneRawOf(g.state)?.turn === ANN; i++) next(g)
+    if (sceneRawOf(g.state)) {
       const [r] = act(g, { kind: 'stop' })
       out.push(JSON.stringify([r!.timeline, r!.changes, r!.narration]))
     }
@@ -487,8 +493,8 @@ describe('沒有人換檔時和原來一樣', () => {
     const noSkills = (x: string): string => x.replace(/,?"skills":\{("sync":3)?\}/g, '')
     expect(able.map(noSkills)).toEqual(plain.map(noSkills))
     // 每一步的場景裡檔位都是標準、沒有換過、沒有累積沉溺
-    const first = JSON.parse(plain[1]!)[0] as SceneState
-    expect(first).toMatchObject({ gear: { pc: 'standard', partner: 'standard' }, max_gear: { pc: 'standard', partner: 'standard' }, shifted: { pc: false, partner: false }, sink_gain: { pc: 0, partner: 0 } })
+    const first = JSON.parse(plain[1]!)[0] as SceneRaw
+    for (const x of first.seats) expect(x).toMatchObject({ gear: 'standard', max_gear: 'standard', shifted: false, sink_gain: 0 })
   })
 
   it('同一個種子、同樣的行動序列、兩次跑出來逐欄相同（亂數沒有被換檔多吃）', () => {
@@ -507,13 +513,13 @@ describe('畫面資料', () => {
     expect(v.people.pc.gear.gears.find((x) => x.id === 'full')).toMatchObject({ name: '全檔', current: true, check: 4, load_pct: 250, ap_regen: 1, sink_on_overload: 2, blocks: [] })
     expect(v.people.partner.gear).toMatchObject({ now: 'standard', cap: 'standard', shifted: false })
     // 舊存檔
-    const old = S(g) as unknown as Record<string, unknown>
-    for (const k of ['gear', 'max_gear', 'shifted', 'sink_gain', 'turn_began']) delete old[k]
+    for (const x of S(g).seats) for (const k of ['gear', 'max_gear', 'shifted', 'sink_gain']) delete (x as unknown as Record<string, unknown>)[k]
+    delete (S(g) as unknown as Record<string, unknown>).turn_began
     const w = sceneView(g.k, g.state)!
     expect(w.people.pc.gear).toMatchObject({ now: 'standard', max: 'standard', shifted: false })
     expect(() => act(g, { kind: 'dominate' })).toThrow(ActionBlocked) // 還沒有連接，照常被擋，不是壞掉
     act(g, { kind: 'gear', gear: 'deep' })
-    expect(S(g).gear.pc).toBe('deep')
+    expect(seat(g, PC).gear).toBe('deep')
   })
 
   it('換檔的預覽：那一檔的檢定加減、感載倍率、行動點與沉溺', () => {

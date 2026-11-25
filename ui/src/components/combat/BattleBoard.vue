@@ -9,6 +9,7 @@ import LiveWindow from './LiveWindow.vue'
 import Danmaku from './Danmaku.vue'
 import DefeatPanel from './DefeatPanel.vue'
 import SpoilsPanel from './SpoilsPanel.vue'
+import DirectionField from '../scene/DirectionField.vue'
 import NetSync from './NetSync.vue'
 import NetTrace from './NetTrace.vue'
 import NetAdmin from './NetAdmin.vue'
@@ -26,6 +27,8 @@ import { useBattle } from '../../lib/useBattle'
 const props = defineProps<{ from: string; fast?: boolean; enc?: string; fallback?: boolean }>()
 const router = useRouter()
 
+/** 戰鬥結束時玩家寫的「想怎麼寫這一場」（原樣交給結算；引擎截到 200 字、AI 關著時回提醒） */
+const direction = ref('')
 const dm = ref<InstanceType<typeof Danmaku> | null>(null)
 const liveWin = ref<InstanceType<typeof LiveWindow> | null>(null)
 const bt = useBattle({ from: () => props.from, fast: () => !!props.fast, enc: () => props.enc, fallback: !!props.fallback, beforeLeave: () => liveWin.value?.stop() })
@@ -142,8 +145,9 @@ const noBattle = computed(() => !engine.inBattle && !engine.pendingDefeat && !af
       <section v-if="over" class="panel cut bt-end" :class="{ lose: lost }" :data-end="retreat ? 'retreat' : isNet ? 'net' : 'real'">
         <h3>{{ resultName }}</h3>
         <p data-end-text>{{ battle.result?.text }}</p>
+        <DirectionField v-if="!retreat" v-model="direction" :live="engine.scene.route() !== 'pure'" label="想怎麼寫這一場（選填）" placeholder="想怎麼寫就怎麼寫，最多 200 字" hint="寫給 AI 的寫法指令：照它寫這一場的經過與文風。它不會改變戰鬥的結果與任何數字。" />
         <div class="bt-btns">
-          <button type="button" class="btn pri" :disabled="settling" data-settle @click="settle">{{ retreat ? '回去' : '結算' }}</button>
+          <button type="button" class="btn pri" :disabled="settling" data-settle @click="settle(direction)">{{ retreat ? '回去' : '結算' }}</button>
         </div>
         <div class="bt-hint" aria-live="polite">{{ hint }}</div>
       </section>

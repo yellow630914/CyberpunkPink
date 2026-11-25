@@ -18,7 +18,7 @@ import { accept, board } from '../features/fixer'
 import { chooseOption, eventView } from '../features/director'
 import { join, muster } from '../features/roster'
 import { rentDraft } from '../features/rest'
-import { sceneAct, sceneOf } from '../features/scene'
+import { sceneAct, sceneRawOf } from '../features/scene'
 import { arrive } from '../features/world'
 import type { Game } from '../shell/game'
 import { playOut } from './battle'
@@ -241,7 +241,7 @@ export async function untilIdle(game: Game, maxSteps = 30): Promise<IdleLog> {
       log.push(`event ${ev.event}/${o.id}`)
       continue
     }
-    if (sceneOf(game.state)) {
+    if (sceneRawOf(game.state)) {
       game.commit(sceneAct(game.k, game.state, { kind: 'stop' }))
       log.push('scene stop')
       continue

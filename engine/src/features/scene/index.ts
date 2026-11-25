@@ -29,13 +29,13 @@
 //   活動  scene（setup 見 SceneSetup；放行 commit:scene.）；結束時發 activity.end（result: { with, fit, rating, goal, goal_done, reason }）
 //   內容  night_resonance（夜課的共鳴；M4-nightclass，night.ts）；night_skill 多讀 branch、tier、insight、requires、filters、deep（格式在 night.ts；nightclass 讀）
 //   量表  insight（體悟；單一、0 起、沒有上限；同名的效果與條件核心自動有）
-//   狀態  state.ext.scene（見 model.ts 的 SceneState）；actor.ext.scene（誰會什麼：positions、skills；選填 parts、part_tags）；actor.ext.sex_record（性經歷）
+//   狀態  state.ext.scene（見 model.ts 的 SceneRaw）；actor.ext.scene（誰會什麼：positions、skills；選填 parts、part_tags）；actor.ext.sex_record（性經歷）
 //   掛鉤  rewind.keep：回到快照之後性經歷留著；scene.body（這個功能宣告：義體、調校、內海的化身回答多出來的部位、各部位的敏感度修正與標籤）
 //   讀別人的  actor.ext.bridge、actor.ext.tendency（只認格式）、k.stats（ap_max、load_cap、afterglow_cap、bridge_sensitivity、bridge_docility；沒有人註冊就照設計書的公式）、
 //            k.content（item）、state.inventory、效果 affinity／bridge／tendency（沒有人註冊的略過）
 // 報告：scene.start、scene.act、scene.next（對方的一步與回合的結算）、scene.end（adult: true、kind social；強制結束與略過也是它）。
 //
-// 對外：sceneStart／startProblems（開場的摘要）、sceneAct、sceneNext、sceneSkip、sceneInterrupt、sceneView、sceneOptions、scenePreview、sceneOf（舊名字外觀）、sceneRawOf（第二版的原樣）、setSceneMode。
+// 對外：sceneStart／startProblems（開場的摘要）、sceneAct、sceneNext、sceneSkip、sceneInterrupt、sceneView、sceneOptions、scenePreview、sceneRawOf（第二版的原樣）、setSceneMode。
 // 外面來的東西（SceneEnv）：dice、moves（外殼從 scene_turn 拿到的某個人這一步的一串行動）、talk（scene_talk 的結果）、gears（每個人這一步換到哪一檔；partner_gear 是舊的鍵）、
 //   closing（結束時 AI 的收尾結果：sink、tendency、sex_record、relate；程式驗過才用，AI 關著就全照規則；M4-scene-close，結算的細節在 close.ts 與 end.ts）。
 
@@ -55,7 +55,6 @@ import type { SceneInput, TalkEnv } from './play'
 import { MAX_MOVES, Play, diceOf, inputProblem } from './play'
 
 export * from './model'
-export * from './legacy'
 export type { Closing, SinkKind, SinkPlan, BridgeParam } from './close'
 export { SINK_KINDS, bridgeParamOf } from './close'
 export type { Resonance, RevealView } from './night'

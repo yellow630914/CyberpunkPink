@@ -11,9 +11,9 @@ import type { ContentPack, Feature, GameState, Kernel, Origin } from '../../src'
 import { ActionBlocked, ContentError, Rng, deriveRng } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { lewdFeature } from '../../src/features/lewd'
-import type { Dice, SceneInput, SceneState, SyncGear } from '../../src/features/scene'
+import type { Dice, SceneInput, SceneRaw, SyncGear } from '../../src/features/scene'
 import {
-  DEFAULT_SCENE_RULES, sceneAct, sceneFeature, sceneInterrupt, sceneNext, sceneOf, sceneOptions, scenePreview, sceneSkip, sceneView, setSceneMode, startProblems,
+  DEFAULT_SCENE_RULES, sceneAct, sceneFeature, sceneInterrupt, sceneNext, sceneRawOf, sceneOptions, scenePreview, sceneSkip, sceneView, setSceneMode, startProblems,
 } from '../../src/features/scene'
 import type { ActorOverrides } from '../../src/testkit'
 import { METER_CONTENT, makeActor, makeGame, meterFeature, testMeter } from '../../src/testkit'
@@ -119,14 +119,19 @@ function dice(...values: number[]): Dice {
 
 const SETUP = { with: ['npc_ann'], nature: 'mutual' as const }
 const begin = (g: Game, setup: unknown = SETUP, origin: Origin = { by: 'test' }) => g.launch('scene', setup, origin)
-const S = (g: Game): SceneState => sceneOf(g.state)!
+const S = (g: Game): SceneRaw => sceneRawOf(g.state)!
+const PC = 'pc'
+const ANN = 'npc_ann'
+/** 主角或對象的座位、主角對對象的配對（第二版：照角色的 id） */
+const seat = (g: Game, id: string) => S(g).seats.find((x) => x.id === id)!
+const pair = (g: Game) => S(g).pairs[ANN]!
 const ann = (g: Game) => g.state.actors.npc_ann!
 const pc = (g: Game) => g.state.actors.pc!
 const act = (g: Game, input: SceneInput, d?: Dice) => g.commit(sceneAct(g.k, g.state, input, d ? { dice: d } : {}))
 const next = (g: Game, d?: Dice) => g.commit(sceneNext(g.k, g.state, d ? { dice: d } : {}))
 /** 對方的回合一步一步走完（交回主角，或場景結束）。 */
 const partnerTurn = (g: Game): void => {
-  for (let i = 0; i < 12 && sceneOf(g.state)?.turn === 'partner'; i++) next(g)
+  for (let i = 0; i < 12 && sceneRawOf(g.state)?.turn === ANN; i++) next(g)
 }
 const blocked = (fn: () => unknown): string => {
   try {
@@ -151,18 +156,18 @@ describe('開場', () => {
   it('開場的主動權：自己的馴化 10、對方 30、兩情相悅 → 55；俘虜再 +30', () => {
     const g = game()
     begin(g)
-    expect(S(g).init).toBe(55)
-    expect(S(g).fit).toBe(DEFAULT_SCENE_RULES.fit_start)
+    expect(pair(g).init).toBe(55)
+    expect(pair(g).fit).toBe(DEFAULT_SCENE_RULES.fit_start)
     const g2 = game()
     begin(g2, { with: ['npc_ann'], nature: 'captive' })
-    expect(S(g2).init).toBe(85)
+    expect(pair(g2).init).toBe(85)
   })
 
   it('性質與身分的加減：被迫 −35、客人 +20、持約人 +20、工作的人與契約人 −20；工作沒寫身分就當工作的人（不算兩次）；夾在 0～100', () => {
     const init = (setup: Record<string, unknown>, ann = {}) => {
       const g = game(ann)
       begin(g, { with: ['npc_ann'], ...setup })
-      return S(g).init
+      return pair(g).init
     }
     expect(init({ nature: 'forced' })).toBe(20)
     expect(init({ nature: 'trade', role: 'guest' })).toBe(75)
@@ -179,7 +184,9 @@ describe('開場', () => {
     const t = g.state.time
     const [r] = begin(g, { ...SETUP, goal: 'info', place: '二樓的房間' })
     expect(r).toMatchObject({ action: 'scene.start', kind: 'social', adult: true })
-    expect(S(g)).toMatchObject({ round: 1, turn: 'pc', step: 0, ap: { pc: 4, partner: 4 }, fit: 20, goal: 'info', goal_progress: 0, place: '二樓的房間', mode: 'simple' })
+    expect(S(g)).toMatchObject({ round: 1, turn: PC, step: 0, goal: 'info', goal_progress: 0, place: '二樓的房間', mode: 'simple' })
+    expect(S(g).seats.map((x) => [x.id, x.ap])).toEqual([[PC, 4], [ANN, 4]])
+    expect(pair(g).fit).toBe(20)
     expect(g.state.time).toEqual(t)
     const none = game()
     begin(none)
@@ -205,19 +212,20 @@ describe('開場', () => {
   it('主動權在誰手上，誰拿上位：主角 55 拿 a；俘虜的場景（85）也是；被迫（20，在對方手上）主角在 b', () => {
     const g = game()
     begin(g)
-    expect(S(g).roles).toEqual({ pc: 'a', partner: 'b' })
+    expect(S(g).roles).toEqual({ [PC]: 'a', [ANN]: 'b' })
     const g2 = game()
     begin(g2, { ...SETUP, nature: 'forced' })
-    expect(S(g2).roles).toEqual({ pc: 'b', partner: 'a' })
+    expect(S(g2).roles).toEqual({ [PC]: 'b', [ANN]: 'a' })
   })
 
   it('事件帶出來的設定是 DATA 第 4 節原樣：沒有 with，對象從 circles[0] 去掉主角取得；nature 收 captive；多餘的鍵（when、gate、start_position、tags）不礙事', () => {
     const g = game()
     begin(g, { when: 'always', gate: 'fixed', nature: 'captive', role: 'none', goal: 'none', circles: [['pc', 'npc_ann']], tags: ['tg_dom'] })
-    expect(S(g)).toMatchObject({ partner: 'npc_ann', nature: 'captive', goal: null, tags: ['tg_dom'], touched: ['tg_dom'] })
+    expect(S(g)).toMatchObject({ nature: 'captive', goal: null, tags: ['tg_dom'], touched: ['tg_dom'] })
+    expect(S(g).seats[1]!.id).toBe('npc_ann')
     const g2 = game()
     begin(g2, { nature: 'mutual', circles: [['npc_ann', 'pc']] })
-    expect(S(g2).partner).toBe('npc_ann')
+    expect(S(g2).seats[1]!.id).toBe('npc_ann')
   })
 
   it('開不成：一對一以外（with 兩個人、兩圈、一圈三個人）、沒有對象、對象不存在、對象是自己、性質或目的不合、已經有一場', () => {
@@ -247,7 +255,7 @@ describe('開場', () => {
     expect(blocked(() => begin(g, { ...SETUP, nature: 'captive' }))).toMatch(/對象非自願/)
     expect(blocked(() => begin(g, { ...SETUP, nature: 'contract' }))).toMatch(/契約支配/)
     expect(JSON.stringify(g.state.ext)).toBe(before)
-    expect(sceneOf(g.state)).toBeNull()
+    expect(sceneRawOf(g.state)).toBeNull()
     begin(g, { ...SETUP, nature: 'trade' })
     expect(S(g).nature).toBe('trade')
   })
@@ -283,10 +291,10 @@ describe('九種行動：現在能不能做與原因', () => {
     const g = game()
     begin(g)
     talk(g) // 4 → 3
-    S(g).ap.pc = 1
+    seat(g, PC).ap = 1
     expect(blocked(() => sceneAct(g.k, g.state, { kind: 'dominate' }))).toBe('行動點不夠：這個行動要 2 點，你只剩 1 點。')
     expect(sceneOptions(g.k, g.state)!.actions.find((a) => a.id === 'dominate')!.blocks).toEqual(['行動點不夠：這個行動要 2 點，你只剩 1 點。'])
-    S(g).ap.pc = 0
+    seat(g, PC).ap = 0
     expect(sceneOptions(g.k, g.state)!.actions.find((a) => a.id === 'stop')!.blocks).toEqual([])
   })
 
@@ -295,7 +303,7 @@ describe('九種行動：現在能不能做與原因', () => {
     begin(g)
     expect(blocked(() => sceneNext(g.k, g.state))).toBe('還沒輪到對方。')
     act(g, { kind: 'end_turn' })
-    expect(S(g).turn).toBe('partner')
+    expect(S(g).turn).toBe(ANN)
     expect(blocked(() => sceneAct(g.k, g.state, { kind: 'restrain' }))).toBe('還沒輪到你。')
     expect(blocked(() => sceneAct(g.k, g.state, { kind: 'stop' }))).toBe('還沒輪到你。')
     expect(sceneOptions(g.k, g.state)!.actions.every((a) => a.blocks.length > 0)).toBe(true)
@@ -352,7 +360,7 @@ describe('主導、迎合、挑逗、克制（固定骰面驗數字）', () => {
       const g = game()
       begin(g)
       talk(g, n)
-      return [S(g).fit, S(g).ap.pc] as const
+      return [pair(g).fit, seat(g, PC).ap] as const
     }
     expect(fit(20)).toEqual([30, 3]) // 自然 20：大成功
     expect(fit(13)).toEqual([25, 3])
@@ -378,8 +386,8 @@ describe('主導、迎合、挑逗、克制（固定骰面驗數字）', () => {
     expect(ann(g).load).toBe(hit(7, 100, 1.5)) // 13
     expect(pc(g).load).toBe(hit(2, 50, 1))
     expect(ann(g).load).toBe(13)
-    expect(S(g)).toMatchObject({ fit: 27, init: 65 })
-    expect(S(g).ap.pc).toBe(1)
+    expect(pair(g)).toMatchObject({ fit: 27, init: 65 })
+    expect(seat(g, PC).ap).toBe(1)
     const r = g.state.reports.at(-1)!
     expect(r.action).toBe('scene.act')
     expect(r.timeline[0]!.data).toMatchObject({ target_load: 13, my_load: 2, fit: 2, init: 10 })
@@ -390,8 +398,8 @@ describe('主導、迎合、挑逗、克制（固定骰面驗數字）', () => {
     act(g, { kind: 'yield' }, dice(5, 3, 6))
     expect(ann(g).load).toBe(hit(5, 100, 1.5))
     expect(pc(g).load).toBe(hit(9, 50, 1))
-    expect(S(g)).toMatchObject({ fit: 33, init: 45 })
-    expect(S(g).ap.pc).toBe(1)
+    expect(pair(g)).toMatchObject({ fit: 33, init: 45 })
+    expect(seat(g, PC).ap).toBe(1)
   })
 
   it('挑逗：雙方各 +1d6、契合 +4、主動權 +5、花 1 點；下一個行動多 1 顆骰（只加在第一組有骰子的上）', () => {
@@ -399,13 +407,14 @@ describe('主導、迎合、挑逗、克制（固定骰面驗數字）', () => {
     act(g, { kind: 'tease' }, dice(2, 3))
     expect(ann(g).load).toBe(hit(2, 100, 1.5))
     expect(pc(g).load).toBe(hit(3, 50, 1))
-    expect(S(g)).toMatchObject({ fit: 29, init: 60, teased: { pc: true, partner: false } })
-    expect(S(g).ap.pc).toBe(2)
+    expect(pair(g)).toMatchObject({ fit: 29, init: 60 })
+    expect([seat(g, PC).teased, seat(g, ANN).teased]).toEqual([true, false])
+    expect(seat(g, PC).ap).toBe(2)
     // 下一個行動：主導的對方骰是 3d6（多一顆），自己仍是 1d6
     act(g, { kind: 'dominate' }, dice(1, 1, 1, 4))
     expect(ann(g).load).toBe(hit(2, 100, 1.5) + hit(3, 100, 1.5))
     expect(pc(g).load).toBe(hit(3, 50, 1) + hit(4, 50, 1))
-    expect(S(g).teased.pc).toBe(false)
+    expect(seat(g, PC).teased).toBe(false)
   })
 
   it('克制：自己的感載 −（2＋意志調整值），花 1 點；連接不斷', () => {
@@ -414,8 +423,8 @@ describe('主導、迎合、挑逗、克制（固定骰面驗數字）', () => {
     act(g, { kind: 'restrain' })
     expect(pc(g).load).toBe(8)
     expect(S(g).links).toHaveLength(1)
-    expect(S(g).restrained.pc).toBe(true)
-    expect(S(g).ap.pc).toBe(2)
+    expect(seat(g, PC).restrained).toBe(true)
+    expect(seat(g, PC).ap).toBe(2)
     // 意志 14（調整值 +2）：−4
     const g2 = game({ pc: { attrs: { resolve: 14 } } })
     begin(g2)
@@ -428,23 +437,23 @@ describe('主導、迎合、挑逗、克制（固定骰面驗數字）', () => {
     const g = game({ pc: { afterglow: 2 } })
     begin(g)
     talk(g) // 契合 +5 ×1.2 = 6
-    expect(S(g).fit).toBe(26)
+    expect(pair(g).fit).toBe(26)
     act(g, { kind: 'dominate' }, dice(3, 4, 2))
     expect(ann(g).load).toBe(hit(7, 100, 1.5, 2))
     expect(pc(g).load).toBe(hit(2, 50, 1, 2))
-    expect(S(g).fit).toBe(26 + Math.round(2 * 1.2))
+    expect(pair(g).fit).toBe(26 + Math.round(2 * 1.2))
   })
 
   it('行動點用完回合就交給對方；沒用完的可以用 end_turn 交出去，留到下回合', () => {
     const g = linked()
     act(g, { kind: 'dominate' }, dice(1, 1, 1)) // 剩 1
-    expect(S(g).turn).toBe('pc')
+    expect(S(g).turn).toBe(PC)
     act(g, { kind: 'tease' }, dice(1, 1)) // 剩 0
-    expect(S(g).turn).toBe('partner')
+    expect(S(g).turn).toBe(ANN)
     const h = linked()
     act(h, { kind: 'end_turn' })
-    expect(S(h)).toMatchObject({ turn: 'partner' })
-    expect(S(h).ap.pc).toBe(3)
+    expect(S(h)).toMatchObject({ turn: ANN })
+    expect(seat(h, PC).ap).toBe(3)
   })
 })
 
@@ -461,11 +470,11 @@ describe('技能、道具與連接', () => {
     // 牽著走：左手接對方的胸；2d6 [3,4] 對方、1d6 [2] 自己、契合 +4、主動權 +15
     act(g, { kind: 'skill', id: 'nt_hold', pick: { my_part: 'hand_l', their_part: 'chest' } }, dice(3, 4, 2))
     expect(S(g).links).toHaveLength(1)
-    expect(S(g).links[0]).toMatchObject({ by: 'pc', kind: 'skill', source: 'nt_hold', mine: 'hand_l', theirs: 'chest', link: { their_load: '1d6', my_load: 0, fit: 1 } })
+    expect(S(g).links[0]).toMatchObject({ by: PC, kind: 'skill', source: 'nt_hold', mine: 'hand_l', theirs: 'chest', link: { their_load: '1d6', my_load: 0, fit: 1 } })
     expect(ann(g).load).toBe(hit(7, 100, 1.5))
     expect(pc(g).load).toBe(hit(2, 50, 1))
-    expect(S(g)).toMatchObject({ fit: 24, init: 70 })
-    expect(S(g).ap.pc).toBe(2)
+    expect(pair(g)).toMatchObject({ fit: 24, init: 70 })
+    expect(seat(g, PC).ap).toBe(2)
     expect(S(g).touched).toContain('tg_dom')
     // 回合結算：連接生效一次（對方 +1d6 [4]、契合 +1），上位推主動權 +3，感載自然消退 2
     act(g, { kind: 'end_turn' })
@@ -477,17 +486,17 @@ describe('技能、道具與連接', () => {
     const g = learned()
     act(g, { kind: 'skill', id: 'nt_hold', pick: { my_part: 'hand_l', their_part: 'chest' } }, dice(3, 4, 2))
     const loadAnn = ann(g).load
-    const fit = S(g).fit
-    const init = S(g).init
+    const fit = pair(g).fit
+    const init = pair(g).init
     act(g, { kind: 'end_turn' })
-    S(g).ap.partner = 0
+    seat(g, ANN).ap = 0
     next(g, dice(5)) // 連接：對方 1d6 = 5
     expect(ann(g).load).toBe(loadAnn + hit(5, 100, 1.5) - 2) // 自然消退 2 + 意志調整值 0
-    expect(S(g).fit).toBe(fit + 1)
-    expect(S(g).init).toBe(init + 3) // 主角在上位：+3
+    expect(pair(g).fit).toBe(fit + 1)
+    expect(pair(g).init).toBe(init + 3) // 主角在上位：+3
     expect(S(g)).toMatchObject({ round: 2, turn: 'pc' })
-    expect(S(g).ap.pc).toBe(4) // 2 點留著 + 3 回復，上限 4
-    expect(S(g).ap.partner).toBe(3)
+    expect(seat(g, PC).ap).toBe(4) // 2 點留著 + 3 回復，上限 4
+    expect(seat(g, ANN).ap).toBe(3)
   })
 
   it('同一個部位再用另一個技能，前一條斷掉；用另一個部位去接對象的同一個部位，也把那一條換掉；不相干的連接留著', () => {
@@ -499,14 +508,14 @@ describe('技能、道具與連接', () => {
     expect(S(g).links.map((l) => [l.source, l.mine, l.theirs])).toEqual([['talk', 'hand_l', 'back']])
     // 口接口（新的一條）；再用右手接對方的口？右手碰不到口 → 用右手接胸：不相干，兩條都在
     act(g, { kind: 'end_turn' })
-    S(g).turn = 'pc'
-    S(g).ap.pc = 4
+    S(g).turn = PC
+    seat(g, PC).ap = 4
     act(g, { kind: 'talk', pick: talkParts }, dice(13))
     expect(S(g).links.map((l) => [l.mine, l.theirs])).toEqual([['hand_l', 'back'], ['mouth', 'mouth']])
     // 右手接胸（新的）；然後左手改接胸（對象的胸被右手佔著 → 右手那一條被換掉；左手原本接後背的那一條也斷）
     act(g, { kind: 'talk', pick: { my_part: 'hand_r', their_part: 'chest' } }, dice(13))
     expect(S(g).links.map((l) => [l.mine, l.theirs])).toEqual([['hand_l', 'back'], ['mouth', 'mouth'], ['hand_r', 'chest']])
-    S(g).ap.pc = 4
+    seat(g, PC).ap = 4
     act(g, { kind: 'talk', pick: { my_part: 'hand_l', their_part: 'chest' } }, dice(13))
     expect(S(g).links.map((l) => [l.mine, l.theirs])).toEqual([['mouth', 'mouth'], ['hand_l', 'chest']])
   })
@@ -528,9 +537,9 @@ describe('技能、道具與連接', () => {
     act(g, { kind: 'skill', id: 'nt_hold', pick: { my_part: 'hand_l', their_part: 'chest' } }, dice(1, 1, 1))
     act(g, { kind: 'talk' }, dice(13)) // 精簡版不給部位：引擎挑
     expect(S(g).links.map((l) => l.source)).toEqual(['nt_hold', 'talk'])
-    const apBefore = S(g).ap.pc
+    const apBefore = seat(g, PC).ap
     act(g, { kind: 'switch', position: 'pos_behind' })
-    expect(S(g).ap.pc).toBe(apBefore - 1) // 接回不花行動點
+    expect(seat(g, PC).ap).toBe(apBefore - 1) // 接回不花行動點
     expect(S(g).links.map((l) => l.source)).toEqual(['nt_hold', 'talk'])
     expect(S(g).links.every((l) => g.k.content.require('position', 'pos_behind') && ['hand_l', 'hand_r', 'front', 'mouth'].includes(l.mine))).toBe(true)
     // 接回的連接帶著原本持續的數值，沒有再用出去一下（感載沒有多）
@@ -542,13 +551,13 @@ describe('技能、道具與連接', () => {
     begin(g)
     expect(blocked(() => sceneAct(g.k, g.state, { kind: 'switch', position: 'pos_face' }))).toBe('已經是這個體位了。')
     expect(blocked(() => sceneAct(g.k, g.state, { kind: 'switch', position: 'nope' }))).toBe('沒有這個體位。')
-    S(g).init = 40
+    pair(g).init = 40
     expect(blocked(() => sceneAct(g.k, g.state, { kind: 'switch', position: 'pos_behind' }))).toBe('主動權不在你手上：換不換體位由對方決定。')
     const v = sceneView(g.k, g.state)!
     expect(v.holder).toBe('partner')
     expect(v.positions.find((p) => p.id === 'pos_behind')!.blocks).toEqual(['主動權不在你手上：換不換體位由對方決定。'])
     // 主角學過坐上來所以會腿上；換掉主角的技能清單，就不會了
-    S(g).init = 60
+    pair(g).init = 60
     act(g, { kind: 'switch', position: 'pos_lap' })
     expect(S(g).position).toBe('pos_lap')
     const h = game({ pcExt: { scene: { skills: [], positions: [] } } })
@@ -576,7 +585,7 @@ describe('技能、道具與連接', () => {
     const h = game({ annExt: { tendency: { axes: {}, points: {}, tags: { tg_dom: 'deep' } } } })
     begin(h)
     act(h, { kind: 'skill', id: 'nt_hold', pick: { my_part: 'hand_l', their_part: 'chest' } }, dice(1, 1, 1))
-    expect(S(h).fit).toBe(20 + 4 + 12)
+    expect(pair(h).fit).toBe(20 + 4 + 12)
   })
 
   it('你還沒學會的技能、沒有這個技能被擋', () => {
@@ -593,7 +602,7 @@ describe('技能、道具與連接', () => {
     act(g, { kind: 'item', id: 'it_toy', pick: { my_part: 'toy', their_part: 'chest' } }, dice(4))
     expect(S(g).links[0]).toMatchObject({ kind: 'item', source: 'it_toy', mine: 'toy', theirs: 'chest' })
     expect(ann(g).load).toBe(hit(4, 100, 1.5))
-    expect(S(g).fit).toBe(22)
+    expect(pair(g).fit).toBe(22)
     expect(g.state.inventory.find((x) => x.id === 'it_toy')!.qty).toBe(1) // 玩具不消耗
     pc(g).load = 9
     act(g, { kind: 'item', id: 'it_calm' }, dice(3))
@@ -630,14 +639,14 @@ describe('技能、道具與連接', () => {
     act(g, { kind: 'skill', id: 'nt_hold' }, dice(1, 1, 1))
     expect(S(g).links.map((l) => [l.mine, l.theirs])).toEqual([['hand_l', 'chest']])
     act(g, { kind: 'end_turn' })
-    S(g).turn = 'pc'
-    S(g).ap.pc = 4
+    S(g).turn = PC
+    seat(g, PC).ap = 4
     // 第二次：左手與對方的胸都佔著；右手接胸 → 對方的胸被佔；左手接後 → 左手被佔。找得到兩端都空的嗎？右手接後碰不到。都佔著 → 換掉最早的那一條
     act(g, { kind: 'skill', id: 'nt_hold' }, dice(1, 1, 1))
     expect(S(g).links).toHaveLength(1)
     expect(S(g).links[0]!.id).toBe(2)
     // 用口：口接口，空著，不動左手那一條
-    S(g).ap.pc = 4
+    seat(g, PC).ap = 4
     act(g, { kind: 'talk' }, dice(13))
     expect(S(g).links.map((l) => l.mine)).toContain('mouth')
     expect(S(g).links).toHaveLength(2)
@@ -653,11 +662,11 @@ describe('技能、道具與連接', () => {
   it('換進有標籤的體位：有那個標籤的人每個人契合 +2，並算碰到那個標籤', () => {
     const g = game({ pcExt: { tendency: { axes: {}, points: {}, tags: { tg_dom: 'has', tg_kiss: 'has' } } } })
     begin(g) // pos_face 的標籤是 tg_kiss：主角有 → +2
-    expect(S(g).fit).toBe(22)
+    expect(pair(g).fit).toBe(22)
     expect(S(g).touched).toContain('tg_kiss')
     const h = game({ pcExt: { tendency: { axes: {}, points: {}, tags: { tg_dom: 'has', tg_kiss: 'has' } } }, annExt: { tendency: { axes: {}, points: {}, tags: { tg_kiss: 'has' } } } })
     begin(h)
-    expect(S(h).fit).toBe(24)
+    expect(pair(h).fit).toBe(24)
   })
 })
 
@@ -681,12 +690,12 @@ describe('技能與道具的補充', () => {
     begin(g, { ...SETUP, nature: 'forced' }) // 對方拿上位（面對面的手只有上位那一邊碰得到）
     act(g, { kind: 'end_turn' })
     next(g, dice(0, 1, 1, 1, 1, 1, 1)) // 挑技能（只有一個：0）、2d6、1d6
-    expect(S(g).links.map((l) => [l.by, l.source])).toEqual([['partner', 'nt_hold']])
+    expect(S(g).links.map((l) => [l.by, l.source])).toEqual([[ANN, 'nt_hold']])
     const h = game({ annExt: { scene: { skills: ['nt_hold'], positions: [] } } }) // 沒有標籤
     begin(h, { ...SETUP, nature: 'forced' })
     act(h, { kind: 'end_turn' })
     next(h)
-    expect(h.state.ext.scene && S(h).links.map((l) => [l.by, l.source])).toEqual([['partner', 'talk']])
+    expect(h.state.ext.scene && S(h).links.map((l) => [l.by, l.source])).toEqual([[ANN, 'talk']])
   })
 
   it('並躺（沒有上位）：說話可以用手勢接手；體位的標籤與倍率照資料', () => {
@@ -694,7 +703,7 @@ describe('技能與道具的補充', () => {
     begin(g, { ...SETUP, start_position: 'pos_lie' })
     act(g, { kind: 'talk', pick: { my_part: 'hand_l', their_part: 'hand_l' } }, dice(13))
     expect(S(g).links[0]).toMatchObject({ mine: 'hand_l', theirs: 'hand_l' })
-    expect(S(g).roles).toEqual({ pc: 'a', partner: 'b' })
+    expect(S(g).roles).toEqual({ [PC]: 'a', [ANN]: 'b' })
     expect(sceneView(g.k, g.state)!.position.upper).toBeNull()
     act(g, { kind: 'dominate' }, dice(2, 2, 1))
     expect(ann(g).load).toBe(hit(4, 100, 1)) // 並躺的倍率 ×1
@@ -708,7 +717,7 @@ describe('技能與道具的補充', () => {
     expect(S(g).id).toBe(`sc${uid + 1}`)
     expect(start!.timeline[0]).toMatchObject({ tag: 'scene.start', data: { with: 'npc_ann', nature: 'mutual', position: 'pos_face' } })
     act(g, { kind: 'end_turn' })
-    S(g).ap.partner = 0
+    seat(g, ANN).ap = 0
     const [r] = next(g)
     expect(r).toMatchObject({ kind: 'social', adult: true, action: 'scene.next' })
     expect(r!.timeline.some((b) => b.tag === 'round' && b.data?.round === 1)).toBe(true)
@@ -722,30 +731,30 @@ describe('感載、高潮與餘韻', () => {
     const g = game({ pc: { load: 33 } })
     begin(g)
     talk(g)
-    const init = S(g).init
+    const init = pair(g).init
     // 主導：對方 +2d6 [1,1]；自己 1d6 [5] → 33 + 5 = 38 ≥ 35 → 高潮
     act(g, { kind: 'dominate' }, dice(1, 1, 5))
     expect(pc(g).load).toBe(0)
     expect(pc(g).afterglow).toBe(1)
-    expect(S(g).climax.pc).toBe(1)
-    expect(S(g).init).toBe(init + 10 - 15)
-    expect(S(g).turn).toBe('pc') // 不失去回合
-    expect(S(g).ap.pc).toBe(1)
+    expect(seat(g, PC).climax).toBe(1)
+    expect(pair(g).init).toBe(init + 10 - 15)
+    expect(S(g).turn).toBe(PC) // 不失去回合
+    expect(seat(g, PC).ap).toBe(1)
     act(g, { kind: 'tease' }, dice(1, 1)) // 還能行動
     expect(g.state.reports.at(-1)!.action).toBe('scene.act')
-    expect(sceneOf(g.state)).not.toBeNull()
+    expect(sceneRawOf(g.state)).not.toBeNull()
   })
 
   it('對方被你灌滿：他歸零、疊一層餘韻；你讓他高潮，主動權 +10，他自己高潮 −15（對你就是 +15）', () => {
     const g = game({ ann: { load: 30 } })
     begin(g)
     talk(g)
-    const init = S(g).init
+    const init = pair(g).init
     act(g, { kind: 'dominate' }, dice(6, 6, 1)) // 12 × 1.875 = 22.5 → 23；30 + 23 ≥ 35
     expect(ann(g).load).toBe(0)
     expect(ann(g).afterglow).toBe(1)
-    expect(S(g).init).toBe(Math.min(100, init + 15 + 10 + 10))
-    expect(S(g).fit).toBe(25 + 2)
+    expect(pair(g).init).toBe(Math.min(100, init + 15 + 10 + 10))
+    expect(pair(g).fit).toBe(25 + 2)
   })
 
   it('讓對方高潮的人也記到餘韻的增幅：一次高潮不會讓場景結束', () => {
@@ -754,7 +763,7 @@ describe('感載、高潮與餘韻', () => {
     talk(g)
     act(g, { kind: 'dominate' }, dice(1, 1, 1))
     expect(ann(g).afterglow).toBe(1)
-    expect(sceneOf(g.state)).not.toBeNull()
+    expect(sceneRawOf(g.state)).not.toBeNull()
   })
 
   it('主角餘韻疊滿之後又高潮：強制結束（scene.end，原因 pc_out，記下來）；餘韻留在身上', () => {
@@ -764,7 +773,7 @@ describe('感載、高潮與餘韻', () => {
     const rs = act(g, { kind: 'dominate' }, dice(1, 1, 5))
     expect(rs[0]!.action).toBe('scene.end')
     expect(rs[0]!.outcome.result).toBe('pc_out')
-    expect(sceneOf(g.state)).toBeNull()
+    expect(sceneRawOf(g.state)).toBeNull()
     expect(pc(g).afterglow).toBe(3)
     expect(pc(g).load).toBe(0)
     expect(g.state.reports.at(-1)!.timeline.some((b) => b.text === '你失神了。')).toBe(true)
@@ -785,8 +794,8 @@ describe('感載、高潮與餘韻', () => {
       begin(g)
       act(g, { kind: 'end_turn' })
       S(g).round = round
-      S(g).fit = fit
-      S(g).ap.partner = 0
+      pair(g).fit = fit
+      seat(g, ANN).ap = 0
       const rs = next(g)
       return rs[0]!
     }
@@ -801,9 +810,9 @@ describe('感載、高潮與餘韻', () => {
     begin(g)
     act(g, { kind: 'skill', id: 'nt_kiss', pick: talkParts }, dice(1, 1)) // 口↔口，持續：對方 +1d6
     act(g, { kind: 'restrain' }) // 主角克制不影響對方的；對方克制才減半
-    S(g).restrained.partner = true
-    S(g).turn = 'partner'
-    S(g).ap.partner = 0
+    seat(g, ANN).restrained = true
+    S(g).turn = ANN
+    seat(g, ANN).ap = 0
     const before = ann(g).load
     next(g, dice(6)) // 持續 1d6 = 6 → 減半 3 → ×1.875
     expect(ann(g).load).toBe(before + hit(3, 100, 1.5) - 2)
@@ -812,29 +821,29 @@ describe('感載、高潮與餘韻', () => {
   it('上位的人每回合主動權 +3（對方在上位：往下 3）；並躺沒有上位（initiative_drift 0）', () => {
     const g = game()
     begin(g, { ...SETUP, nature: 'forced' }) // 對方上位
-    const init = S(g).init
+    const init = pair(g).init
     act(g, { kind: 'end_turn' })
-    S(g).ap.partner = 0
+    seat(g, ANN).ap = 0
     next(g)
-    expect(S(g).init).toBe(init - 3)
+    expect(pair(g).init).toBe(init - 3)
     const h = game()
     begin(h, { ...SETUP, start_position: 'pos_lie' })
-    const i = S(h).init
+    const i = pair(h).init
     act(h, { kind: 'end_turn' })
-    S(h).ap.partner = 0
+    seat(h, ANN).ap = 0
     next(h)
-    expect(S(h).init).toBe(i)
+    expect(pair(h).init).toBe(i)
   })
 
   it('感載每回合自然消退 2 ＋ 意志調整值（最低 0）；每一回合雙方回 3 點行動點，不超過上限', () => {
     const g = game({ ann: { load: 10 }, pc: { load: 1 } })
     begin(g)
     act(g, { kind: 'end_turn' })
-    S(g).ap.partner = 0
+    seat(g, ANN).ap = 0
     next(g)
     expect(ann(g).load).toBe(8)
     expect(pc(g).load).toBe(0)
-    expect(S(g).ap).toEqual({ pc: 4, partner: 3 })
+    expect([seat(g, PC).ap, seat(g, ANN).ap]).toEqual([4, 3])
   })
 })
 
@@ -858,12 +867,12 @@ describe('對方的一步（sceneNext）', () => {
     begin(g)
     act(g, { kind: 'end_turn' })
     next(g)
-    expect(S(g).links.map((l) => [l.by, l.source])).toEqual([['partner', 'talk']])
+    expect(S(g).links.map((l) => [l.by, l.source])).toEqual([[ANN, 'talk']])
     const h = game({ annExt: { scene: { skills: ['nt_kiss'], positions: [] } } })
     begin(h)
     act(h, { kind: 'end_turn' })
     next(h)
-    expect(S(h).links.map((l) => [l.by, l.source, l.mine, l.theirs])).toEqual([['partner', 'nt_kiss', 'mouth', 'mouth']])
+    expect(S(h).links.map((l) => [l.by, l.source, l.mine, l.theirs])).toEqual([[ANN, 'nt_kiss', 'mouth', 'mouth']])
   })
 
   it('有連接：照性質在主導、迎合、挑逗裡加權抽（俘虜幾乎只迎合、被迫幾乎只主導）；亂數固定時結果固定', () => {
@@ -894,7 +903,7 @@ describe('對方的一步（sceneNext）', () => {
     // 感載七成以上：回合開頭先退一檔（M3-scene-sync），再克制
     expect(rs[0]!.timeline.map((b) => b.tag)).toEqual(['gear', 'restrain'])
     expect(ann(g).load).toBe(24)
-    expect(S(g).restrained.partner).toBe(true)
+    expect(seat(g, ANN).restrained).toBe(true)
     const again = next(g, dice(1, 1, 1, 1, 1))
     expect(again[0]!.timeline[0]!.tag).not.toBe('restrain')
   })
@@ -905,27 +914,27 @@ describe('對方的一步（sceneNext）', () => {
     // 面對面他已經是最好的（×1.0、上位）→ 不換
     talk(g)
     act(g, { kind: 'end_turn' })
-    S(g).ap.partner = 2
+    seat(g, ANN).ap = 2
     const rs = next(g, dice(1, 1, 1, 1, 1))
     expect(rs[0]!.timeline[0]!.tag).not.toBe('switch')
     // 讓他在 b 位（×1.5、不在上位）：把角色換過來
     const h = game()
     begin(h, { ...SETUP, nature: 'forced' })
-    S(h).roles = { pc: 'a', partner: 'b' }
+    S(h).roles = { [PC]: 'a', [ANN]: 'b' }
     talk(h)
     act(h, { kind: 'end_turn' })
-    S(h).init = 30
-    S(h).ap.partner = 2
+    pair(h).init = 30
+    seat(h, ANN).ap = 2
     next(h, dice(1, 1, 1, 1, 1))
     expect(S(h).position).not.toBe('pos_face') // 換了體位
-    expect(S(h).roles.partner).toBe('a') // 他拿上位
+    expect(S(h).roles[ANN]).toBe('a') // 他拿上位
     // 主動權在你手上：不換
     const i = game()
     begin(i)
-    S(i).roles = { pc: 'a', partner: 'b' }
+    S(i).roles = { [PC]: 'a', [ANN]: 'b' }
     talk(i)
     act(i, { kind: 'end_turn' })
-    S(i).ap.partner = 2
+    seat(i, ANN).ap = 2
     const r = next(i, dice(1, 1, 1, 1, 1))
     expect(r[0]!.timeline[0]!.tag).not.toBe('switch')
   })
@@ -936,8 +945,8 @@ describe('對方的一步（sceneNext）', () => {
     talk(g)
     act(g, { kind: 'end_turn' })
     expect(next(g, dice(1, 1, 1, 1, 1))[0]!.action).toBe('scene.next')
-    expect(S(g)).toMatchObject({ turn: 'partner', round: 1 })
-    S(g).ap.partner = 1
+    expect(S(g)).toMatchObject({ turn: ANN, round: 1 })
+    seat(g, ANN).ap = 1
     next(g, dice(1, 1, 1, 1, 1, 1))
     expect(S(g)).toMatchObject({ turn: 'pc', round: 2 })
   })
@@ -975,7 +984,7 @@ describe('結束與結算', () => {
       ],
     })
     begin(g, { ...SETUP, ...setup }, { by: 'caller', ref: 'job1' })
-    S(g).fit = fit
+    pair(g).fit = fit
     const rs = act(g, { kind: 'stop' })
     return { g, rs, report: rs[0]! }
   }
@@ -987,7 +996,7 @@ describe('結束與結算', () => {
     const { g, report } = finish(62, { pcExt: seen, pc: { afterglow: 1, load: 5 }, ann: { afterglow: 2 } }, { goal: 'info' }, heard)
     expect(report).toMatchObject({ action: 'scene.end', kind: 'social', adult: true, actor: 'pc' })
     expect(report.outcome.result).toBe('stop')
-    expect(sceneOf(g.state)).toBeNull()
+    expect(sceneRawOf(g.state)).toBeNull()
     expect(g.state.meters.insight!._).toBe(15)
     expect(g.state.meters.affinity!.npc_ann).toBe(5)
     expect(pc(g).afterglow).toBe(1)
@@ -1008,7 +1017,7 @@ describe('結束與結算', () => {
     expect(g.state.meters.insight!._).toBe(15 + 5 + 5)
     const h = game({ pcExt: { tendency: { axes: {}, points: {}, tags: { tg_dom: 'has', tg_kiss: 'has' } } } })
     begin(h)
-    S(h).fit = 62
+    pair(h).fit = 62
     act(h, { kind: 'stop' })
     // 面對面的標籤 tg_kiss 主角有：碰到了 → 第一次碰「親吻」+5
     expect(h.state.meters.insight!._).toBe(15 + 5 + 5 + 5)
@@ -1036,7 +1045,7 @@ describe('結束與結算', () => {
       pc: { ext: { bridge: PC_BRIDGE, scene: { skills: [], positions: [] } } }, actors: [makeActor({ id: 'npc_ann', name: '安', role: 'npc', ext: { bridge: ANN_BRIDGE } })],
     }).game
     begin(bare)
-    S(bare).fit = 70
+    pair(bare).fit = 70
     expect(() => act(bare, { kind: 'stop' })).not.toThrow()
     expect(bare.state.meters.affinity).toBeUndefined()
     expect(bare.state.meters.insight!._).toBe(15 + 5 + 5)
@@ -1047,7 +1056,7 @@ describe('結束與結算', () => {
     const run = (fit: number, rolls: number[]) => {
       const g = game({ pcExt: seen, annExt: { bridge: { ...ANN_BRIDGE, sensitivity: 60 } } })
       begin(g)
-      S(g).fit = fit
+      pair(g).fit = fit
       g.commit(sceneAct(g.k, g.state, { kind: 'stop' }, { dice: dice(...rolls) }))
       return { pc: pc(g).ext.bridge as Record<string, number>, ann: ann(g).ext.bridge as Record<string, number> }
     }
@@ -1070,14 +1079,14 @@ describe('結束與結算', () => {
     const g = game({ pcExt: { ...seen, tendency: { axes: { relation: 0, sense: 0, body: 0, costume: 0 }, points: { relation: 0, sense: 0, body: 0, costume: 0 }, tags: { tg_dom: 'has' } } } })
     begin(g)
     act(g, { kind: 'skill', id: 'nt_hold', pick: { my_part: 'hand_l', their_part: 'chest' } }, dice(1, 1, 1))
-    S(g).fit = 40
+    pair(g).fit = 40
     act(g, { kind: 'stop' })
     const t = pc(g).ext.tendency as { points: Record<string, number> }
     expect(t.points.relation).toBe(1) // 支配（relation 軸）累積一點
     // 篩選關掉
     const h = game({ contentOff: ['tg_dom'], pcExt: { ...seen, tendency: { axes: { relation: 0, sense: 0, body: 0, costume: 0 }, points: { relation: 0, sense: 0, body: 0, costume: 0 }, tags: { tg_dom: 'has' } } } })
     begin(h, { ...SETUP, tags: ['tg_dom'] })
-    S(h).fit = 40
+    pair(h).fit = 40
     act(h, { kind: 'stop' })
     expect((h.state.actors.pc!.ext.tendency as { points: Record<string, number> }).points.relation).toBe(0)
   })
@@ -1105,7 +1114,7 @@ describe('結束與結算', () => {
     const s = game()
     begin(s, { ...SETUP, goal: 'stall' })
     act(s, { kind: 'end_turn' })
-    S(s).ap.partner = 0
+    seat(s, ANN).ap = 0
     next(s)
     expect(S(s).goal_progress).toBe(8)
   })
@@ -1129,7 +1138,7 @@ describe('結束與結算', () => {
     expect(g.blockOf(`commit:${draft.action}`, draft)).toBeNull() // 場景進行中放行自己的結束報告
     const r = await g.commitNarrated(draft, { mode: 'new' })
     expect(r.status).toBe('applied')
-    expect(sceneOf(g.state)).toBeNull()
+    expect(sceneRawOf(g.state)).toBeNull()
     const asked = fake!.requestsFor('narrate')
     expect(asked).toHaveLength(1)
     expect(asked[0]!.adult).toBe(true)
@@ -1148,7 +1157,7 @@ describe('結束與結算', () => {
     // 契合 = 35 + 共同標籤 0 + 對方敏感度 100 → (100 − 50) ÷ 2 = 25 + 亂數 0 = 60 → 合拍 15 分，七折 = 10.5 → 11
     expect(rs[0]!.narration!.results![1]).toBe('契合 60：合拍。')
     expect(g.state.meters.insight!._).toBe(Math.round(15 * 0.7))
-    expect(sceneOf(g.state)).toBeNull()
+    expect(sceneRawOf(g.state)).toBeNull()
     // 第一次和這個人 +5、體位沒有用（略過）：(15 + 5) × 0.7 = 14
     const h = game()
     begin(h)
@@ -1178,7 +1187,7 @@ describe('結束與結算', () => {
     talk(g)
     const rs = g.commit(sceneInterrupt(g.k, g.state))
     expect(rs[0]).toMatchObject({ action: 'scene.end', outcome: { result: 'interrupted' } })
-    expect(sceneOf(g.state)).toBeNull()
+    expect(sceneRawOf(g.state)).toBeNull()
   })
 
   it('活動結束時發起的人可以要求回到快照（rewind）：和場景的結束同一步', () => {
@@ -1187,10 +1196,10 @@ describe('結束與結算', () => {
     })
     g.commit({ kind: 'system', action: 'test.snap', location: {}, party: [], timeline: [], changes: [{ op: 'snapshot.take', kind: 'entry', label: '進入之前' }], outcome: { result: 'ok', summary: '存了快照。' } })
     begin(g, SETUP, { by: 'caller' })
-    S(g).fit = 70
+    pair(g).fit = 70
     const rs = act(g, { kind: 'stop' })
     expect(rs.at(-1)!.action).toBe('rewind')
-    expect(sceneOf(g.state)).toBeNull()
+    expect(sceneRawOf(g.state)).toBeNull()
   })
 })
 
@@ -1207,7 +1216,7 @@ describe('場景進行中擋住別的事；性經歷；重播', () => {
     expect(g.blockOf('commit:scene.act')).toBeNull()
     expect(g.blockOf('commit:scene.end')).toBeNull()
     expect(g.k.activity.active(g.state).map((a) => a.kind)).toEqual(['scene'])
-    S(g).fit = 70
+    pair(g).fit = 70
     act(g, { kind: 'stop' })
     expect(g.blockOf('grid.move')).toBeNull()
     expect(g.blockOf('commit:trade.checkout')).toBeNull()
@@ -1218,7 +1227,7 @@ describe('場景進行中擋住別的事；性經歷；重播', () => {
     const g = game()
     g.commit({ kind: 'system', action: 'test.snap', location: {}, party: [], timeline: [], changes: [{ op: 'snapshot.take', kind: 'entry', label: '進入之前' }], outcome: { result: 'ok', summary: '存了快照。' } })
     begin(g)
-    S(g).fit = 70
+    pair(g).fit = 70
     act(g, { kind: 'stop' })
     expect(g.state.meters.insight!._).toBeGreaterThan(0)
     expect((pc(g).ext.sex_record as { times: number }).times).toBe(1)
@@ -1258,7 +1267,7 @@ describe('場景進行中擋住別的事；性經歷；重播', () => {
     const raw = a.save()
     const b = game()
     expect(b.load(raw)).toBeNull()
-    expect(sceneOf(b.state)).toEqual(sceneOf(a.state))
+    expect(sceneRawOf(b.state)).toEqual(sceneRawOf(a.state))
     for (const g of [a, b]) {
       act(g, { kind: 'end_turn' })
       partnerTurn(g)
@@ -1319,11 +1328,11 @@ describe('場景進行中擋住別的事；性經歷；重播', () => {
     expect(S(g).mode).toBe('simple')
     setSceneMode(g.k, 'full')
     expect(S(g).mode).toBe('simple') // 進行中的不變
-    S(g).fit = 70
+    pair(g).fit = 70
     act(g, { kind: 'stop' })
     begin(g)
     expect(S(g).mode).toBe('full')
-    S(g).fit = 70
+    pair(g).fit = 70
     act(g, { kind: 'stop' })
     begin(g, { ...SETUP, mode: 'simple' })
     expect(S(g).mode).toBe('simple')
@@ -1350,7 +1359,7 @@ describe('內容篩選與性質', () => {
       pc: { ext: { scene: { skills: [], positions: [] } } }, actors: [makeActor({ id: 'npc_ann', name: '安', role: 'npc' })],
     }).game
     begin(g)
-    S(g).fit = 90
+    pair(g).fit = 90
     expect(() => act(g, { kind: 'stop' })).not.toThrow()
     expect(g.state.meters.insight!._).toBeGreaterThan(0)
   })
@@ -1368,33 +1377,34 @@ describe('隨機走一整場：每一步之後的不變式', () => {
       begin(g, { ...SETUP, mode: seed % 2 ? 'full' : 'simple', nature: (['mutual', 'trade', 'forced', 'captive', 'work', 'contract'] as const)[seed % 6], goal: seed % 3 === 0 ? 'info' : 'none' })
       const rng = new Rng(seed * 7919)
       const sane = () => {
-        const s = sceneOf(g.state)
+        const s = sceneRawOf(g.state)
         if (!s) return
-        for (const w of ['pc', 'partner'] as const) {
-          const a = g.state.actors[w === 'pc' ? s.pc : s.partner]!
+        for (const x of s.seats) {
+          const a = g.state.actors[x.id]!
           expect(a.load).toBeGreaterThanOrEqual(0)
           expect(a.load).toBeLessThan(40)
           expect(a.afterglow).toBeLessThanOrEqual(3)
-          expect(s.ap[w]).toBeGreaterThanOrEqual(0)
-          expect(s.ap[w]).toBeLessThanOrEqual(5)
+          expect(x.ap).toBeGreaterThanOrEqual(0)
+          expect(x.ap).toBeLessThanOrEqual(5)
         }
-        expect(s.fit).toBeGreaterThanOrEqual(0)
-        expect(s.fit).toBeLessThanOrEqual(100)
-        expect(s.init).toBeGreaterThanOrEqual(0)
-        expect(s.init).toBeLessThanOrEqual(100)
+        const pr = s.pairs[ANN]!
+        expect(pr.fit).toBeGreaterThanOrEqual(0)
+        expect(pr.fit).toBeLessThanOrEqual(100)
+        expect(pr.init).toBeGreaterThanOrEqual(0)
+        expect(pr.init).toBeLessThanOrEqual(100)
         const used = new Set<string>()
         for (const l of s.links) {
           const by = `${l.by}:${l.mine}`
-          const to = `${l.by === 'pc' ? 'partner' : 'pc'}:${l.theirs}`
+          const to = `${l.to}:${l.theirs}`
           expect(used.has(by) || used.has(to)).toBe(false)
           used.add(by)
           used.add(to)
         }
       }
-      for (let i = 0; i < 90 && sceneOf(g.state); i++) {
+      for (let i = 0; i < 90 && sceneRawOf(g.state); i++) {
         steps += 1
-        const s = sceneOf(g.state)!
-        if (s.turn === 'partner') {
+        const s = sceneRawOf(g.state)!
+        if (s.turn !== s.pc) {
           next(g)
         } else {
           const o = sceneOptions(g.k, g.state)!
@@ -1427,8 +1437,8 @@ describe('隨機走一整場：每一步之後的不變式', () => {
         sane()
       }
       partnerTurn(g) // 回合在對方手上時 stop 會被擋：先走完對方的回合
-      if (sceneOf(g.state)) act(g, { kind: 'stop' })
-      expect(sceneOf(g.state)).toBeNull()
+      if (sceneRawOf(g.state)) act(g, { kind: 'stop' })
+      expect(sceneRawOf(g.state)).toBeNull()
       expect(ann(g).load).toBe(0)
       expect(pc(g).load).toBe(0)
       expect((pc(g).ext.sex_record as { times: number }).times).toBe(1)
@@ -1536,11 +1546,11 @@ describe('內容與規則的格式', () => {
   it('規則的數字：scene_rule/default 蓋掉內建的；寫錯的鍵與型別被擋；評價表整份換', () => {
     const g = game({ rules: { fit_start: 40, talk_dc: 8, dominate: { fit: 6 }, bands: [{ min: 0, id: 'all', name: '全部', affinity: 1, insight: 7, bridge: 0 }] } })
     begin(g)
-    expect(S(g).fit).toBe(40)
+    expect(pair(g).fit).toBe(40)
     talk(g, 8) // DC 8：自然 8 剛好成功
-    expect(S(g).fit).toBe(45)
+    expect(pair(g).fit).toBe(45)
     act(g, { kind: 'dominate' }, dice(1, 1, 1))
-    expect(S(g).fit).toBe(51)
+    expect(pair(g).fit).toBe(51)
     act(g, { kind: 'stop' })
     expect(g.state.meters.insight!._).toBe(7 + 5 + 5)
     expect(bad('scene_rule', [{ id: 'default', fit_starts: 1 }])).toMatch(/fit_starts：沒有這個規則/)

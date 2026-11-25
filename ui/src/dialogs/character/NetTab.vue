@@ -4,6 +4,7 @@ import ItemSlot from '../../components/ItemSlot.vue'
 import GradeBadge from '../../components/GradeBadge.vue'
 import Hint from '../../components/Hint.vue'
 import ReasonButton from '../../components/ReasonButton.vue'
+import AvatarEditor from '../../components/scene/AvatarEditor.vue'
 import { useEngine } from '../../stores/engine'
 import { useGame } from '../../stores/game'
 import { useUi } from '../../stores/ui'
@@ -60,6 +61,7 @@ const legal = computed(() => (view.value?.equipped ?? []).map((e) => ({ name: e.
 
 <template>
   <section class="net">
+    <div class="netcol">
     <div class="panel cut pad">
       <p v-if="lock" class="blocking" data-testid="deck-lock">{{ lock }}甲板、構裝與腳本唯讀。</p>
       <p class="h">甲板<Hint>有甲板才有 RAM。甲板決定構裝槽幾格與防火牆；構裝體佔兩格。換甲板時裝不下的構裝退回背包。</Hint></p>
@@ -130,6 +132,8 @@ const legal = computed(() => (view.value?.equipped ?? []).map((e) => ({ name: e.
       </div>
       <div class="go left"><ReasonButton sm :reason="worn ? null : '沒有穿著的 SKIN。'" data-open-dye @go="ui.open('dye', { dyeKey: `skin:${worn!.item}`, where: 'net', place: '化身編輯' })">染 SKIN 的顏色</ReasonButton></div>
     </div>
+    <AvatarEditor />
+    </div>
 
     <aside class="panel cut pad">
       <p class="h">網內的數字<Hint>全部讀引擎的衍生數值（甲板、技能、義體加進去之後的結果）。外觀不改數值。</Hint></p>
@@ -153,6 +157,7 @@ const legal = computed(() => (view.value?.equipped ?? []).map((e) => ({ name: e.
 
 <style scoped>
 .net { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 12px; align-items: start; }
+.netcol { display: grid; gap: 12px; min-width: 0; }
 .dh { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; }
 .dh h3 { margin: 2px 0 4px; font-size: var(--fs-section); }
 .nodeck { padding: 16px 12px; border: 1px dashed var(--line-2); color: var(--ink-3); font-size: var(--fs-sm); font-weight: 700; }

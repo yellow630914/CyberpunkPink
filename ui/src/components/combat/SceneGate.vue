@@ -3,23 +3,27 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEngine } from '../../stores/engine'
 import { useUi } from '../../stores/ui'
+import DirectionField from '../scene/DirectionField.vue'
 
 /**
  * 成人場景的入口（戰敗事件的選項、俘虜的「帶走」會開場景）：場景有自己的全頁（#/scene，M2-ui-scene），開起來時畫面會自動換過去；
- * 這裡是回到這一頁時的兩個按鈕：進入場景、略過（引擎直接算出結果，sceneSkip）。略過的結果那一份報告的字列在下面。
+ * 這裡是回到這一頁時的兩個按鈕：進入場景、略過（引擎直接算出結果，Game.sceneFinish({ how: 'skip' })；略過旁邊一格選填的「想怎麼發生」原樣交給它）。略過的結果那一份報告的字列在下面。
  */
 const engine = useEngine()
 const ui = useUi()
 const router = useRouter()
 const active = computed(() => engine.sceneGate.active())
 const result = ref<{ summary: string; lines: string[] } | null>(null)
-function skip(): void {
-  const why = engine.sceneGate.skip()
-  if (why) { ui.toast(why, 'warn'); return }
+const direction = ref('')
+const aiLive = computed(() => engine.scene.route() !== 'pure')
+async function skip(): Promise<void> {
+  const r = await engine.sceneGate.skip(direction.value)
+  for (const n of r.notices ?? []) ui.toast(n)
+  if (r.status !== 'applied') { ui.toast(r.reason ?? '現在略過不了。', 'warn'); return }
   const rs = engine.state.reports
   for (let i = rs.length - 1; i >= 0; i--) {
     const r = rs[i]!
-    if (r.action === 'scene.end') { result.value = { summary: r.outcome.summary, lines: [...(r.narration?.results ?? [])] }; return }
+    if (r.action === 'scene.end') { result.value = { summary: r.outcome.summary, lines: [...(r.narration?.results ?? [])] }; engine.scene.clearEnded(); return }
   }
 }
 </script>
@@ -28,6 +32,7 @@ function skip(): void {
   <section v-if="active" class="gate" data-scene-gate>
     <b>成人場景</b>
     <p>成人場景還沒結束：進入場景自己操作，或略過，直接算出結果。所有參與者都是成年人。</p>
+    <DirectionField v-model="direction" :live="aiLive" />
     <div class="go">
       <button type="button" class="btn" data-scene-skip @click="skip">略過</button>
       <button type="button" class="btn pri" data-scene-enter @click="router.push({ path: '/scene', query: { from: router.currentRoute.value.fullPath } })">進入場景</button>

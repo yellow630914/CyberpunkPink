@@ -175,6 +175,10 @@ async function sleepInBed() {
   if (why) ui.toast(why, 'warn')
   else ui.toast(e.state.reports.at(-1)?.outcome.summary ?? '睡了一覺。')
 }
+async function soloAtHome() {
+  const why = await e.scene.soloAtHome()
+  if (why) ui.toast(why, 'warn')
+}
 const ROOM_ACTS: Record<string, { name: string; run: () => void }> = {
   bedroom: { name: '睡一覺', run: () => { void sleepInBed() } },
   guest: { name: '在客房坐一會', run: () => { g.advance(30); ui.toast('你在客房和住戶聊了半小時。') } },
@@ -198,6 +202,8 @@ const hereOpts = computed<HereOption[]>(() => {
   const room = rid ? h.rooms.find(r => r.id === rid) : null
   const act = room?.use ? ROOM_ACTS[room.use] : null
   const out: HereOption[] = act ? [{ id: `use-${room!.use}`, name: act.name, run: act.run }] : []
+  // 臥室也是一個人待著的地方：開一場單人的成人場景（引擎的 features/scene；沒有橋、被篩選擋下時說引擎的原因）
+  if (room?.use === 'bedroom') out.push({ id: 'solo', name: '獨處', sub: '一個人待一會（單人的成人場景）', run: () => { void soloAtHome() } })
   if (room?.use === 'workshop') out.push({ id: 'dye', name: '自己染色', sub: '每個顏色一份染料', run: () => ui.openRoot('dye', { where: 'home', place: '家・工作間' }) })
   return out
 })

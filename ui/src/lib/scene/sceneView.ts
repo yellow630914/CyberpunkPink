@@ -1,5 +1,5 @@
 import type { Report } from '@engine/src'
-import type { ActionOption, ChoiceOption, PartView, Preview, PreviewLoad, ScenePair, ScenePick, SceneView } from '@engine/src/features/scene'
+import type { ActionOption, ChoiceOption, PartView, PersonView, Preview, PreviewLoad, SceneRaw, ScenePair, ScenePick, SceneView } from '@engine/src/features/scene'
 import { END_NAME } from '@engine/src/features/scene'
 
 /**
@@ -29,15 +29,36 @@ export function partLabels(ids: readonly string[], names: Record<string, string>
   return out
 }
 
-/** 這個場景裡出現過的部位（雙方的部位、連接的兩端）的 id 與名字。 */
+/** 這個場景裡出現過的部位（每個座位的部位、連接的兩端）的 id 與名字。 */
 export function partNames(v: SceneView): Record<string, string> {
   const out: Record<string, string> = {}
-  for (const p of [...v.people.pc.parts, ...v.people.partner.parts]) out[p.id] = p.name
+  for (const seat of v.seats) for (const p of seat.parts) out[p.id] = p.name
   for (const l of v.links) {
     out[l.mine] = l.mine_name
     out[l.theirs] = l.theirs_name
   }
   return out
+}
+
+/** 主角以外、還在這一圈的人（卡片排在主角的對面；失神退出的在最後面淡掉）。第一個座位是主角。 */
+export const othersOf = (v: SceneView): PersonView[] => v.seats.slice(1)
+/** 多人（一圈三、四個人）：對象卡不只一張，契合與主動權每個人各一組 */
+export const isGroup = (v: SceneView): boolean => v.kind === 'group' || othersOf(v).length > 1
+export const isSolo = (v: SceneView): boolean => v.kind === 'solo'
+
+/**
+ * 開場確認框用的設定：把進行中的場景狀態還原成開場的設定（引擎不存開場的設定；確認框的摘要要問 startProblems，它要這個形狀）。
+ * 只翻譯欄位的名字，不判斷任何事：誰是對象、哪幾圈、性質、身分、目的、地點、標籤、模式、現實或內海、最多幾回合、單人與有沒有人在看。
+ */
+export function setupOf(raw: SceneRaw): Record<string, unknown> {
+  const others = raw.seats.filter((s) => s.id !== raw.pc).map((s) => s.id)
+  const common: Record<string, unknown> = {
+    role: raw.role, goal: raw.goal ?? 'none', tags: [...raw.tags], mode: raw.mode, layer: raw.layer,
+    ...(raw.place ? { place: raw.place } : {}), ...(raw.dream ? { dream: true } : {}), ...(raw.max_rounds !== undefined ? { max_rounds: raw.max_rounds } : {}),
+  }
+  if (raw.kind === 'solo') return { ...common, solo: true, audience: raw.audience === true }
+  const circles = raw.circles.map((c) => [...c.people, ...(c.out ?? [])])
+  return { ...common, nature: raw.nature, ...(circles.length > 0 ? { circles: [[raw.pc, ...others], ...circles] } : { with: others }) }
 }
 
 export type PartState = 'link' | 'reach' | 'off'
@@ -98,6 +119,9 @@ export function pickMark(picks: readonly ScenePick[], pairs: readonly ScenePair[
 
 // ---- 戰報 ----
 
+/** 結算頁的一列：主角和一個對象（或別的圈）這一場的契合、評價、親密度的變化。 */
+export interface DebriefRow { id: string; name: string; fit: number; rating: string; affinity: number | null }
+
 export interface Debrief {
   summary: string
   reason: string
@@ -105,23 +129,55 @@ export interface Debrief {
   fit: number | null
   rating: string
   insight: number | null
+  /** 單人才有：節奏（取代契合）；其餘是 null */
+  pace: number | null
+  solo: boolean
+  /** 每個對象各一列（一對一一列、多人每人一列）；單人是空的 */
+  rows: DebriefRow[]
   /** 引擎定案的結果，一行一筆（評價、體悟、關係、餘韻、目的） */
   results: string[]
-  /** 這份報告的變更（體悟、親密度……）換成的文字 */
+  /** 這份報告的變更（體悟、親密度、沉溺、橋參數、傾向、性經歷……）換成的文字 */
   changes: Array<{ text: string; kind?: 'plus' | 'minus' }>
   /** AI 開著時整場的正文（成人路由）；沒有就是空的 */
   text: string[]
   notices: string[]
 }
 
+interface EndData {
+  reason?: string
+  fit?: number
+  insight?: number
+  pace?: number
+  solo?: boolean
+  pairs?: Record<string, { fit?: number; rating?: string; affinity?: number }>
+}
+
 /**
- * scene.end 那一份報告整理成戰報卡的欄位。describe 把變更換成文字、ratingName 查評價的名字，都由 store 給（引擎的表）。
+ * scene.end 那一份報告整理成戰報卡的欄位。describe 把變更換成文字、ratingName 查評價的名字、nameOf 查角色的名字，都由 store 給（引擎的表與狀態）。
+ * 每個對象一列：多人時照那一拍的 pairs；一對一時 pairs 沒有，那一列的對象是這份報告裡寫了性經歷的另一個人、親密度是那份報告的親密度變更。
  */
-export function debriefOf(report: Report, describe: (c: Report['changes']) => string[], ratingName: (fit: number) => string): Debrief {
+export function debriefOf(report: Report, describe: (c: Report['changes']) => string[], ratingName: (fit: number) => string, nameOf: (id: string) => string = (id) => id): Debrief {
   const last = [...report.timeline].reverse().find((b) => b.tag === 'scene.end')
-  const data = (last?.data ?? {}) as { reason?: string; fit?: number; insight?: number }
+  const data = (last?.data ?? {}) as EndData
   const reason = typeof data.reason === 'string' ? data.reason : report.outcome.result
   const fit = typeof data.fit === 'number' ? data.fit : null
+  const solo = data.solo === true
+  const changes = report.changes as Array<Record<string, unknown>>
+  const affinityOf = (id: string): number | null => {
+    const hit = changes.find((c) => typeof c.op === 'string' && c.op.includes('affinity') && (c.key === id || c.id === id || c.npc === id))
+    const n = hit ? (hit.delta ?? hit.amount) : undefined
+    return typeof n === 'number' ? n : null
+  }
+  const rows: DebriefRow[] = []
+  if (!solo) {
+    if (data.pairs) {
+      for (const [id, p] of Object.entries(data.pairs)) rows.push({ id, name: nameOf(id), fit: p.fit ?? 0, rating: p.rating ?? ratingName(p.fit ?? 0), affinity: typeof p.affinity === 'number' ? p.affinity : affinityOf(id) })
+    } else if (fit !== null) {
+      const other = changes.find((c) => c.op === 'actor.ext' && c.key === 'sex_record' && c.id !== report.actor)?.id
+      const id = typeof other === 'string' ? other : ''
+      rows.push({ id, name: id ? nameOf(id) : '對方', fit, rating: ratingName(fit), affinity: id ? affinityOf(id) : null })
+    }
+  }
   return {
     summary: report.outcome.summary,
     reason,
@@ -129,6 +185,9 @@ export function debriefOf(report: Report, describe: (c: Report['changes']) => st
     fit,
     rating: fit === null ? '' : ratingName(fit),
     insight: typeof data.insight === 'number' ? data.insight : null,
+    pace: solo && typeof data.pace === 'number' ? data.pace : null,
+    solo,
+    rows,
     results: [...(report.narration?.results ?? [])],
     changes: describe(report.changes).map((text) => {
       const kind = text.includes('+') ? ('plus' as const) : text.includes('−') ? ('minus' as const) : undefined
@@ -137,4 +196,12 @@ export function debriefOf(report: Report, describe: (c: Report['changes']) => st
     text: report.narration?.text ? report.narration.text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean) : [],
     notices: (report.clamps ?? []).map((c) => c.notice),
   }
+}
+
+/** 寫法指令欄的字數上限（引擎的 DIRECTION_MAX；引擎自己也會截斷，這裡只是即時顯示） */
+export const DIRECTION_LIMIT = 200
+/** 即時字數（用「字」數，和引擎一樣：一個全形字與一個半形字都算一個）；超過上限回傳負的剩餘 */
+export const directionCount = (text: string): { used: number; left: number } => {
+  const used = Array.from(text).length
+  return { used, left: DIRECTION_LIMIT - used }
 }

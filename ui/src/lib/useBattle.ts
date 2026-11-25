@@ -297,11 +297,12 @@ export function useBattle(opts: BattleOpts) {
     void router.push(to)
   }
   /** 結算：打輸（或投降）留在戰敗面板（引擎在等三選一）；打贏有戰利品或俘虜時開戰利品面板，其餘直接離開 */
-  async function settle(): Promise<void> {
+  async function settle(direction?: string): Promise<void> {
     if (settling.value) return
     settling.value = true
-    const r = await engine.finishBattle()
+    const r = await engine.finishBattle(typeof direction === 'string' ? direction : undefined)
     settling.value = false
+    for (const n of r.notices ?? []) ui.toast(n)
     if (r.status !== 'applied') { hint.value = r.reason ?? '結算沒有成功。'; return }
     if (engine.pendingDefeat) return
     if (!afterBattle.show()) leave()

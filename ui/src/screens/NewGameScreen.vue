@@ -21,7 +21,7 @@ import {
 import { CYBER_LOOK, GEAR_STYLE } from '../data/demo'
 import { fmtMod, derivedLooks } from '../lib/creation'
 import type { LookCyber } from '../lib/creation'
-import { GENDER_OPTIONS, PERK_CATEGORY_NAME, rulesFromUi } from '../lib/engineView'
+import { FILTER_ROWS, GENDER_OPTIONS, PERK_CATEGORY_NAME, rulesFromUi } from '../lib/engineView'
 import { unavailable } from '../lib/unavailable'
 import type { CreationDraft, CreationLook } from '@engine/src/features/creation'
 
@@ -72,7 +72,7 @@ function randomName() { basic.name = NAMES[Math.floor(Math.random() * NAMES.leng
 // ---- 2 出身 ----
 // 引擎的資料：屬性、基本功、出身、特質（id 是引擎的；顯示用 name）。假資料只剩引擎還沒有的欄位（起始身分的說法、起始的錢、出身的附註）。
 e.creation.previewRules(rulesFromUi(st.s))
-watch(() => [st.s.difficulty, st.s.traitPoints, st.s.filterRestraint, st.s.filterDollChip, st.s.filterPublic, st.s.filterContract, st.s.filterIntimateBody], () => e.creation.previewRules(rulesFromUi(st.s)))
+watch(() => [st.s.difficulty, st.s.traitPoints, ...FILTER_ROWS.map((r) => st.s[r.k])], () => e.creation.previewRules(rulesFromUi(st.s)))
 const lim = computed(() => e.creation.limits)
 const eAttrs = e.creation.attributes
 const eSkills = e.creation.skills
@@ -277,9 +277,9 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
           <div class="lockline"><span class="lk">LOCK</span><b>不寫血腥，不寫懷孕。</b><Hint>這是內容的底線，不是篩選的選項，所以沒有開關。</Hint></div>
           <p class="setgrp">題材<Hint>內容篩選排在建角之前，關掉的題材不會出現在建角的選項裡（生命軌跡的性經歷與潛在性癖、特質）。篩選跟著存檔走；開新局時預設是上一次的選擇。</Hint></p>
           <div class="grid2">
-          <div v-for="[k, n] in ([['filterRestraint', '拘束'], ['filterDollChip', '人偶晶片的失憶工作'], ['filterPublic', '公開場合'], ['filterContract', '契約'], ['filterIntimateBody', '身體的私密描寫']] as const)" :key="k" class="setrow">
-            <span class="nm">{{ n }}</span><span />
-            <button type="button" class="switch" role="switch" :aria-label="n" :aria-checked="st.s[k]" :class="{ on: st.s[k] }" @click="st.s[k] = !st.s[k]" />
+          <div v-for="r in FILTER_ROWS" :key="r.k" class="setrow">
+            <span class="nm">{{ r.name }}<Hint :text="r.hint" /></span><span />
+            <button type="button" class="switch" role="switch" :aria-label="r.name" :aria-checked="st.s[r.k]" :class="{ on: st.s[r.k] }" @click="st.s[r.k] = !st.s[r.k]" />
           </div>
           </div>
         </template>

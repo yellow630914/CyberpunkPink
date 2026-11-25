@@ -20,6 +20,8 @@ export interface UiAiFields {
   polish: boolean
   agentMode: boolean
   onlyQuery: boolean
+  /** 成人場景的 AI：off 只有整場的正文、closing 進場與收尾、full 每回合都問（引擎 sceneAi；沒給用預設 closing） */
+  sceneAi: string
   hooks: Record<string, boolean>
   hookLimits: { hook?: number; event?: number; other?: number }
   retries: number
@@ -49,6 +51,7 @@ export function aiSettingsFromUi(s: Partial<UiAiFields>): Record<string, unknown
   if (s.polish !== undefined) out.polish = { free: bit(s.polish) }
   flag('agentMode', 'agent')
   flag('onlyQuery', 'query_only')
+  if (s.sceneAi === 'off' || s.sceneAi === 'closing' || s.sceneAi === 'full') out.sceneAi = s.sceneAi
   for (const [from, to] of HOOK_KEYS) if (s.hooks?.[from] !== undefined) out[to] = bit(s.hooks[from]!)
   if (s.hookLimits) {
     const l = s.hookLimits
@@ -149,19 +152,46 @@ export function uiFromAiSettings(raw: unknown): Partial<UiAiFields> {
   if (retry && typeof retry['*'] === 'number') out.retries = retry['*']
   if (typeof r.chainbar === 'number') out.chainRow = (['出錯時展開', '一直展開', '隱藏'] as const)[r.chainbar] ?? '出錯時展開'
   if (r.src && typeof r.src === 'object') out.taskSource = r.src as Record<string, string>
+  if (r.sceneAi === 'off' || r.sceneAi === 'closing' || r.sceneAi === 'full') out.sceneAi = r.sceneAi
   return out
 }
 
 /** 設定頁的存檔規則轉成引擎的存檔規則（難度、特質點、自訂難度的 DC 偏移、關掉的內容標籤、快速移動、名冊 NPC 會死；其他用預設）。 */
-export function rulesFromUi(s: { difficulty?: string; traitPoints?: number; customDiff?: { dc: number }; filterRestraint?: boolean; filterDollChip?: boolean; filterPublic?: boolean; filterContract?: boolean; filterIntimateBody?: boolean; fastTravel?: boolean; rosterDeath?: boolean }): Record<string, unknown> {
+/** 內容篩選裡引擎認得的題材（設定的欄位 → 存檔規則 contentOff 的標籤）：每一項直接對到引擎的標籤（LEWD_SYSTEM 第 9 節、DATA 第 1 節 tags）。 */
+export const FILTER_TAGS = {
+  filterRestraint: ['restraint'], filterDollChip: ['doll_chip', 'puppet_amnesia'], filterPublic: ['public'], filterContract: ['contract'], filterIntimateBody: ['intimate_body'],
+  filterPcUnwilling: ['pc_unwilling'], filterTargetUnwilling: ['target_unwilling'], filterContractDom: ['contract_dom'], filterNtr: ['ntr'], filterBlacktape: ['blacktape'],
+  filterMale: ['male_partner'], filterFemale: ['female_partner'], filterFemboy: ['femboy_partner'], filterTrans: ['trans_partner'], filterFuta: ['futa_partner'],
+} as const satisfies Record<string, readonly string[]>
+export type FilterKey = keyof typeof FILTER_TAGS
+/** 設定與建角的「內容篩選」列：每一項的名字與說明（開關關掉＝那個標籤進 contentOff）。 */
+export const FILTER_ROWS: ReadonlyArray<{ k: FilterKey; name: string; hint: string }> = [
+  { k: 'filterRestraint', name: '拘束', hint: '關掉時拘束類的事件與家具用途（遊戲間）不出現。' },
+  { k: 'filterDollChip', name: '人偶晶片的失憶工作', hint: '關掉時人偶館只能開清醒的店，相關打工的階段不顯示。' },
+  { k: 'filterPublic', name: '公開場合', hint: '關掉時發生在公開場合的成人事件不觸發。' },
+  { k: 'filterContract', name: '契約', hint: '關掉時契約面板與契約人的事件不出現。' },
+  { k: 'filterIntimateBody', name: '身體的私密描寫', hint: '關掉時建角不問私處的樣子，角色的成人分頁也不顯示；場景裡那幾個部位的名字收起來。' },
+  { k: 'filterPcUnwilling', name: '主角非自願', hint: '關掉時「被迫」性質的場景開不起來，標了主角非自願的分支改走替代的版本。' },
+  { k: 'filterTargetUnwilling', name: '對象非自願', hint: '關掉時「俘虜」性質的場景開不起來，對俘虜或被迫的對象用的夜課技能不出現。' },
+  { k: 'filterContractDom', name: '契約支配', hint: '關掉時「契約」性質的場景開不起來，契約只剩經濟與法律層面的效果。' },
+  { k: 'filterNtr', name: 'NTR', hint: '關掉時帶 NTR 標籤的場景開不起來，相關的夜課技能不出現。' },
+  { k: 'filterBlacktape', name: '黑帶相關的任務', hint: '關掉時黑帶相關的任務與事件不出現。' },
+  { k: 'filterMale', name: '男性對象', hint: '關掉時，對象是男性的成人場景開不起來（內海看化身的性別）。' },
+  { k: 'filterFemale', name: '女性對象', hint: '關掉時，對象是女性的成人場景開不起來（內海看化身的性別）。' },
+  { k: 'filterFemboy', name: '男娘與偽娘對象', hint: '關掉時，對象是這個性別的成人場景開不起來（內海看化身的性別）。' },
+  { k: 'filterTrans', name: 'TS 對象', hint: '關掉時，對象是這個性別的成人場景開不起來（內海看化身的性別）。' },
+  { k: 'filterFuta', name: '扶他對象', hint: '關掉時，對象是這個性別的成人場景開不起來（內海看化身的性別）。' },
+]
+export type UiFilterFlags = { [K in FilterKey]?: boolean }
+
+export function rulesFromUi(s: { difficulty?: string; traitPoints?: number; customDiff?: { dc: number }; fastTravel?: boolean; rosterDeath?: boolean } & UiFilterFlags): Record<string, unknown> {
   const D: Record<string, string> = { 故事: 'story', 簡單: 'easy', 普通: 'normal', 困難: 'hard', 傳奇: 'legend', 自訂: 'custom' }
   const out: Record<string, unknown> = {}
   if (s.difficulty && D[s.difficulty]) out.difficulty = D[s.difficulty]
   if (s.traitPoints !== undefined) out.startPerkPoints = s.traitPoints
   if (s.difficulty === '自訂' && s.customDiff) out.dcOffset = s.customDiff.dc
   // 內容篩選：關掉的題材是引擎存檔規則的 contentOff（題材的 id：條目與傾向標籤的 tags 對得上它就不出現）
-  const flags: Array<[string, boolean | undefined]> = [['restraint', s.filterRestraint], ['doll_chip', s.filterDollChip], ['public', s.filterPublic], ['contract', s.filterContract], ['intimate_body', s.filterIntimateBody]]
-  const off = flags.filter(([, on]) => on === false).map(([tag]) => tag)
+  const off = (Object.keys(FILTER_TAGS) as FilterKey[]).filter((k) => s[k] === false).flatMap((k) => [...FILTER_TAGS[k]])
   if (off.length) out.contentOff = off
   if (s.fastTravel !== undefined) out.fastTravel = s.fastTravel
   if (s.rosterDeath !== undefined) out.rosterDeath = s.rosterDeath

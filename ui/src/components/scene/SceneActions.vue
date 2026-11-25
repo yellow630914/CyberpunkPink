@@ -1,21 +1,30 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { ActionOption, ChoiceOption, SceneInput, SceneOptions } from '@engine/src/features/scene'
+import type { ActionOption, ChoiceOption, Preview, SceneInput, SceneOptions } from '@engine/src/features/scene'
 import { previewLines, reasonText } from '../../lib/scene/sceneView'
+import Hint from '../Hint.vue'
 import { useUi } from '../../stores/ui'
 
 /**
  * 成人場景的行動列（UI.md 第 10 節）：行動點、九種行動、結束回合。做不到的灰掉，原因是引擎的（title 與點下去的提示）。
  * 技能、道具、切換體位點開是清單，每一項各自的花費、原因與預覽也是引擎的；說話開文字框。
+ * 多人：這一圈有兩個以上的人時多一排「對象」（自動＝引擎挑；點一個名字就指定他）；換圈、叫人過來也是這裡的行動，選項照引擎列的圈與人。
+ * 單人：行動是引擎給的那一組（加快、放慢、克制、技能、說話、道具、換姿勢、停下），沒有主導與迎合。
  * 這裡不判斷能不能做、不算數字：選好了就把輸入交給畫面（畫面決定要不要先選部位）。
  */
-const props = defineProps<{ opts: SceneOptions; playing: boolean; theirName: string; selected: string }>()
-const emit = defineEmits<{ (e: 'choose', input: SceneInput): void; (e: 'select', id: string): void; (e: 'end-turn'): void }>()
+const props = defineProps<{
+  opts: SceneOptions; playing: boolean; theirName: string; selected: string
+  /** 指定的行動對象（角色的 id）；null 是讓引擎挑 */
+  target?: string | null
+  /** 指定對象之後，選中的行動的預覽（引擎的 sceneView(selected)）；沒給就用 opts 裡的 */
+  focus?: { preview: Preview; blocks: string[] } | null
+}>()
+const emit = defineEmits<{ (e: 'choose', input: SceneInput): void; (e: 'select', id: string): void; (e: 'end-turn'): void; (e: 'target', id: string | null): void }>()
 const ui = useUi()
-const open = ref<'' | 'skill' | 'item' | 'switch' | 'talk'>('')
+const open = ref<'' | 'skill' | 'item' | 'switch' | 'talk' | 'move_circle' | 'call'>('')
 const talkText = ref('')
 
-const GROUPS = ['skill', 'item', 'switch'] as const
+const GROUPS = ['skill', 'item', 'switch', 'move_circle', 'call'] as const
 const isGroup = (id: string): id is (typeof GROUPS)[number] => (GROUPS as readonly string[]).includes(id)
 /** 換檔在畫面上方的「同步」按鈕，行動列不重複放 */
 const shown = computed(() => props.opts.actions.filter((a) => a.id !== 'gear'))
@@ -35,7 +44,7 @@ function pickChoice(a: ActionOption, c: ChoiceOption): void {
   if (props.playing) return
   if (c.blocks.length > 0) { why(c.blocks); return }
   open.value = ''
-  emit('choose', a.id === 'switch' ? { kind: 'switch', position: c.id } : ({ kind: a.id, id: c.id } as SceneInput))
+  emit('choose', a.id === 'switch' ? { kind: 'switch', position: c.id } : a.id === 'move_circle' ? { kind: 'move_circle', circle: c.id } : a.id === 'call' ? { kind: 'call', who: c.id } : ({ kind: a.id, id: c.id } as SceneInput))
 }
 function say(): void {
   if (props.playing) return
@@ -48,7 +57,7 @@ function say(): void {
 }
 const group = computed(() => props.opts.actions.find((a) => a.id === open.value && isGroup(a.id)) ?? null)
 const current = computed(() => props.opts.actions.find((a) => a.id === props.selected) ?? null)
-const lines = computed(() => previewLines(current.value?.preview, props.theirName))
+const lines = computed(() => previewLines(props.focus?.preview ?? current.value?.preview, props.theirName))
 const endWhy = computed(() => props.opts.end_turn.blocks)
 function endTurn(): void { if (props.playing) return; if (endWhy.value.length > 0) why(endWhy.value); else emit('end-turn') }
 /** 鍵盤的 1～9 與空白鍵 */
@@ -65,6 +74,11 @@ const choiceLines = (c: ChoiceOption): string => previewLines(c.preview, props.t
       <span class="k">{{ yours && !playing ? '輪到你' : `輪到${theirName}` }}</span>
       <span class="grow" />
       <button type="button" class="btn sm" :class="{ 'is-unavailable': endWhy.length > 0 || playing }" :title="endWhy.length ? reasonText(endWhy) : undefined" data-end-turn @click="endTurn">結束回合</button>
+    </div>
+    <div v-if="opts.targets.length > 1" class="tg" role="group" aria-label="行動的對象" data-targets>
+      <span class="k">對象<Hint>主導、迎合、挑逗、技能、道具、說話要作用在誰。選「自動」就由引擎挑（契合最低的、接得上的那一個）。</Hint></span>
+      <button type="button" class="btn sm" :class="{ pri: !target }" data-target="auto" @click="emit('target', null)">自動</button>
+      <button v-for="x in opts.targets" :key="x.id" type="button" class="btn sm" :class="{ pri: target === x.id }" :data-target="x.id" @click="emit('target', x.id)">{{ x.name }}</button>
     </div>
     <div class="abtns">
       <button
@@ -85,7 +99,7 @@ const choiceLines = (c: ChoiceOption): string => previewLines(c.preview, props.t
       <button class="btn sm pri" type="submit" data-talk-go>說</button>
     </form>
     <div class="pv" data-preview>
-      <b>{{ current?.name ?? '' }}</b><template v-if="lines.length">：{{ lines.join('・') }}</template><template v-else-if="current && current.blocks.length">：{{ reasonText(current.blocks) }}</template>
+      <b>{{ current?.name ?? '' }}</b><template v-if="lines.length">：{{ lines.join('・') }}</template><template v-else-if="current && (focus?.blocks ?? current.blocks).length">：{{ reasonText(focus?.blocks ?? current.blocks) }}</template>
     </div>
   </section>
 </template>
@@ -102,6 +116,7 @@ const choiceLines = (c: ChoiceOption): string => previewLines(c.preview, props.t
 .ab small { font: 700 var(--fs-fine) var(--mono); color: var(--ink-3); min-height: 1em; }
 .ab.on { box-shadow: inset 0 0 0 2px var(--ink-2); }
 .ab .kn { position: absolute; left: 6px; top: 4px; font-size: var(--fs-tiny); color: var(--ink-3); }
+.tg { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .pop { display: flex; flex-wrap: wrap; gap: var(--space-3); }
 .opt { display: grid; text-align: left; padding: 6px 10px; background: var(--bg-2); border: 0; cursor: pointer; color: var(--ink); max-width: 100%; }
 .opt small { color: var(--ink-3); font-size: var(--fs-fine); overflow-wrap: anywhere; }

@@ -7,9 +7,10 @@ import Hint from '../../components/Hint.vue'
 import { useGame } from '../../stores/game'
 import { useSettings } from '../../stores/settings'
 import { DISTRICTS } from '../../data/districts'
+import NightClassPanel from '../../components/scene/NightClassPanel.vue'
 
 /**
- * 角色的「成人」分頁（UI 8.2 節，LEWD_SYSTEM 第 1、5 節、3.4 節）：橋參數四項、豔名各區一格、性經歷的紀錄；
+ * 角色的「成人」分頁（UI 8.2 節，LEWD_SYSTEM 第 1、5 節、3.4 節）：橋參數四項、夜課的學習（接引擎的 features/nightclass，見 NightClassPanel）、豔名各區一格、性經歷的紀錄；
  * 右欄是傾向：四條軸 0～5，標籤是膠囊，「深」的粉底加一個「深」字。潛在的標籤與被篩選關掉的標籤都不顯示。只看。
  */
 const g = useGame()
@@ -67,6 +68,7 @@ const tagsOf = (axis: string) => AXIS_TAGS[axis].filter(t => g.tendency.tags[t] 
           <div class="go left"><button type="button" class="btn sm" @click="editing = false">取消</button><button type="button" class="btn sm pri" data-save-privates @click="saveEdit">存下來</button></div>
         </div>
       </div>
+      <NightClassPanel />
       <div class="panel cut pad">
         <p class="h">豔名<Hint>每一區各自記，0～100：這一區有多少人看過你、認得你的身體。和街頭信譽分開。誘惑與表演有加值；被認出來的機率也跟著高。</Hint></p>
         <div class="fame">

@@ -5,7 +5,7 @@
 //
 // M4-scene-seats：場景的狀態是第二版（SceneRaw，v: 2）：照角色的 id 記座位與配對，不再寫死「主角」與「對方」兩格。
 // 存在 state.ext.scene 的就是第二版；讀到舊的（沒有 v：pc／partner 兩格的那一種）時就地轉成第二版。
-// Who（'pc' | 'partner'）還留在這裡，只做一對一的舊名字：sceneOf 回傳的外觀（legacy.ts）與畫面資料（view.ts）用它；引擎內部一律用角色的 id。
+// Who（'pc' | 'partner'）還留在這裡，只做一對一的舊名字：畫面資料（view.ts）與報告的舊鍵用；引擎內部一律用角色的 id。
 
 import type { Actor, ActorId, Condition, ContentEntry, GameState, Kernel, Origin, SyncGear, TimelineBeat } from '../../core'
 import { SYNC_GEARS, clone, isRecord, isSyncGear, syncCapOf, syncGearIndex } from '../../core'
@@ -55,7 +55,7 @@ export const partName = (id: string): string => PART_NAME[id] ?? id
 /** 說話可以用的自己的部位：口或手勢（LEWD_SYSTEM 3.5 節第五點）。 */
 export const TALK_PARTS: readonly string[] = ['mouth', 'hand_l', 'hand_r']
 
-/** 一對一的舊名字：'pc' 是第一個座位（主角），'partner' 是第二個。只給 sceneOf 的外觀、畫面資料與報告的舊鍵用；引擎內部用角色的 id。 */
+/** 一對一的舊名字：'pc' 是第一個座位（主角），'partner' 是第二個。只給畫面資料與報告的舊鍵用；引擎內部用角色的 id。 */
 export type Who = 'pc' | 'partner'
 export const other = (w: Who): Who => (w === 'pc' ? 'partner' : 'pc')
 
