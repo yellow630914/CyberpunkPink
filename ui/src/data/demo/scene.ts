@@ -43,7 +43,7 @@ export const SKILL_ENTRIES: Rec[] = [
   { id: 'nt_ride', name: '夜課・騎乘' },
   { id: 'nt_kneel', name: '夜課・跪姿' },
   {
-    id: 'nt_stroke', name: '慢慢摸',
+    id: 'nt_stroke', name: '指腹游走',
     scene: { ap: 1, my_part: HANDS, their_part: ['chest', 'front', 'back', 'legs', 'mouth'], on_use: { their_load: '1d3', fit: 2 }, link: { their_load: '1d3', fit: 2 } },
   },
   {

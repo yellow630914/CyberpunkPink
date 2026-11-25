@@ -12,7 +12,7 @@ export const START_LEARNED = [
   'gun:戰鬥直覺', 'gun:要害射擊', 'gun:掩護射擊', 'gun:連射控制', 'gun:點放', 'gun:定點射', 'gun:壓制姿態',
   'broker:人面', 'broker:集火', 'broker:小心後面！',
 ]
-export const START_NIGHT = ['night:common:慢慢摸', 'night:common:偷偷看你']
+export const START_NIGHT = ['night:common:指腹游走', 'night:common:目光不放']
 
 /** 橋的型號：容量照 CYBERWARE 7.1 節（織女 標準，晶片 III）。調校槽在 cyber.bridge 的第 2、3 格。 */
 export const BRIDGE_MODEL = { item: 'it_3882ae', name: '織女 標準', chip: 'III', cap: { 現實: 13, 內海: 13, 社交: 13, 媒體: 13 }, feature: '換配置只要半小時' }

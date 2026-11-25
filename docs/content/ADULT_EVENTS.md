@@ -140,7 +140,7 @@
   3. 跟她們去看黑拳（交涉 10）。成功：`move` 到熔爐的黑拳場、chrome 好感 +3、可以下注；之後一位請客的人約你去車廠後面。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
      陽剛（masc）：$a 是那位打手，她主導，`start_position`=抱起來（她把你抱起來）。
-- **篩選**：選項 2 的大失敗原本是「她們把你架上車」，標 `pc_unwilling`；關掉時改成上面寫的現金被拿走。`tendency:半機娘` 相合時權重加成；夜課「冰冰的手」「插槽」道具在這一場用得到。
+- **篩選**：選項 2 的大失敗原本是「她們把你架上車」，標 `pc_unwilling`；關掉時改成上面寫的現金被拿走。`tendency:半機娘` 相合時權重加成；夜課「冰涼的手」「插槽」道具在這一場用得到。
 
 ### 車廂裡貼過來的人（`ev_ad_recog_train`）
 
@@ -245,7 +245,7 @@
   3. 交給夢露處理（交涉 10）。成功：夢露的親密度 +3、一個小人情；失敗：夢露說這不是半夢的事，你自己看著辦。
   4. 陪她坐到天亮，讓她慢慢醒（定力 13）。成功：親密度 +6、她的一層餘韻消掉。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]、`start_position`=並躺。
-- **篩選**：`female_partner` 關掉時 $a 改成男性人偶。夜課「摸摸頭」在選項 4 自動成功。
+- **篩選**：`female_partner` 關掉時 $a 改成男性人偶。夜課「抱進懷裡」在選項 4 自動成功。
 
 ### 晶片在半途醒過來（`ev_ad_venue_hanmu_chip_glitch`）
 
@@ -485,8 +485,8 @@
   2. 升級（現金 −C$200）。生命值全滿、餘韻全消、親密度 +3。
   3. 問她全套照護包括什麼（誘惑 13）。成功：生命值全滿、`bill` +C$150、親密度 +5。
      `adult_scene`：when=success、gate=ai、nature=trade、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：她主導（量量看）。百合（yuri）：照常。
-- **篩選**：`tendency:護士`（扮相）相合時權重加成；夜課「量量看」與道具「心音」在這一場用得到。$a 是男娘時跟著 `femboy_partner`。
+     陽剛（masc）：她主導（聽診）。百合（yuri）：照常。
+- **篩選**：`tendency:護士`（扮相）相合時權重加成；夜課「聽診」與道具「心音」在這一場用得到。$a 是男娘時跟著 `femboy_partner`。
 
 ### 燈籠巷的醉客（`ev_ad_downed_lantern`）
 
@@ -652,7 +652,7 @@
   3. 叫他過來（誘惑 10）。成功：親密度 +3、`tendency` 藥 +1。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
      陽剛（masc）：$a 是女性或扶他時她主導。百合（yuri）：$a 是女性時她主導。
-- **篩選**：`tendency:藥` 相合時權重加成；關掉時選項 3 不寫進傾向。夜課「噴一點點」在這一場用得到。
+- **篩選**：`tendency:藥` 相合時權重加成；關掉時選項 3 不寫進傾向。夜課「媚香」在這一場用得到。
 
 ### 蜜的戒斷（`ev_ad_drug_honey_withdrawal`）
 
@@ -723,7 +723,7 @@
   2. 讓他陪你躺到藥效過去（定力 10）。成功：親密度 +3、感載 +5；失敗：感載 +15。
   3. 叫他過來（誘惑 13，因為手腳慢，DC 照寫）。成功：親密度 +4。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]、`start_position`=並躺（主動權開場 −20，主角動得慢）。
-- **篩選**：$a 照夥伴的性別篩選。夜課「摸摸頭」可以替主角消一層餘韻。
+- **篩選**：$a 照夥伴的性別篩選。夜課「抱進懷裡」可以替主角消一層餘韻。
 
 ---
 
@@ -920,7 +920,7 @@
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$澄]]、`start_position`=並躺。
      陽剛（masc）：照常；百合（yuri）不適用（他是男性）。
   3. 問他接過的義體裡最喜歡哪一件（調查 13）。成功：一則情報（縫縫診所的某一件二手貨來歷不明）；失敗：他講了四十分鐘，時間 +1。
-- **篩選**：`femboy_partner` 關掉時整件不出現。`tendency:半機娘` 相合時權重加成；夜課「冰冰的手」「插槽」道具用得到。
+- **篩選**：`femboy_partner` 關掉時整件不出現。`tendency:半機娘` 相合時權重加成；夜課「冰涼的手」「插槽」道具用得到。
 
 ### 琥珀：今晚不戴面具（`ev_ad_bond_kohaku`）
 
@@ -1075,7 +1075,7 @@
   2. 幫她修熱水器（機械 13）。成功：親密度 +3、鄰里 +1；失敗：越修越壞，`bill` 她的修理費你出一半（C$30）。
   3. 跟她說浴缸夠兩個人（誘惑 10）。成功：親密度 +6。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$遙]]、`start_position`=膝上（主角是 A）。
-     陽剛（masc）：照常；她很少主導，但「交給你嘛」那一類的迎合用得多。百合（yuri）：主角主導。
+     陽剛（masc）：照常；她很少主導，但「交給你」那一類的迎合用得多。百合（yuri）：主角主導。
 - **篩選**：`female_partner` 關掉時整件不出現。`tendency:溺愛` 相合時權重加成。
 
 ### 戀人吃醋（`ev_ad_bond_lover_jealous`）

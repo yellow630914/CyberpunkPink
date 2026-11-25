@@ -214,9 +214,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 0
    },
    {
-    "id": "gun:走開啦",
+    "id": "gun:逼退",
     "tree": "gun",
-    "name": "走開啦",
+    "name": "逼退",
     "tier": 2,
     "layer": "back",
     "kind": "active",
@@ -228,13 +228,13 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "射擊一次。命中的話把目標往後推一格；不論有沒有命中，這一擊對目標那一格遮蔽的倍率至少算 ×1。",
     "net": "每場 1 次，攻擊命中時把目標往後推一格。",
     "opinion": "—",
-    "icon": "sk_gun_680e9b",
+    "icon": "sk_gun_a1cff1",
     "line": 1
    },
    {
-    "id": "gun:幫槍槍保養",
+    "id": "gun:擦槍",
     "tree": "gun",
-    "name": "幫槍槍保養",
+    "name": "擦槍",
     "tier": 2,
     "layer": "back",
     "kind": "prep",
@@ -246,7 +246,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "—",
     "net": "—",
     "opinion": "—",
-    "icon": "sk_gun_38b422",
+    "icon": "sk_gun_0d45df",
     "line": 2
    },
    {
@@ -412,9 +412,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 0
    },
    {
-    "id": "gun:不准動喔",
+    "id": "gun:不准動",
     "tree": "gun",
-    "name": "不准動喔",
+    "name": "不准動",
     "tier": 4,
     "layer": "back",
     "kind": "active",
@@ -426,7 +426,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "指定敵方的一格。到你的下一回合開始前，站在那一格的人第一次換位、補位或攻擊時，你立刻朝他射擊一次，不花行動點（照常花彈匣）。",
     "net": "—",
     "opinion": "—",
-    "icon": "sk_gun_a9b0d1",
+    "icon": "sk_gun_02094e",
     "line": 1
    },
    {
@@ -502,9 +502,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 0
    },
    {
-    "id": "gun:還給你～",
+    "id": "gun:原樣奉還",
     "tree": "gun",
-    "name": "還給你～",
+    "name": "原樣奉還",
     "tier": 5,
     "layer": "back",
     "kind": "reaction",
@@ -516,7 +516,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "敵人的攻擊沒有打中你，或沒有打中和你相鄰的隊友時，你立刻朝那個敵人射擊一次（照常花彈匣），命中 +2。",
     "net": "每場 1 次：同樣的時機下，花 1 行動點與照常的 RAM 朝那個敵人攻擊一次。",
     "opinion": "—",
-    "icon": "sk_gun_66b5da",
+    "icon": "sk_gun_3abe93",
     "line": 1
    }
   ],
@@ -574,9 +574,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": -1
    },
    {
-    "id": "pilot:乖孩子去吧",
+    "id": "pilot:出擊",
     "tree": "pilot",
-    "name": "乖孩子去吧",
+    "name": "出擊",
     "tier": 1,
     "layer": "front",
     "kind": "active",
@@ -588,7 +588,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "放出一台無人機，並立刻指揮它一次，兩件事一共 1 行動點（原本 2）；這一次動作命中 +1。",
     "net": "叫出守衛程式的那一回合，它的第一次動作命中 +1。",
     "opinion": "—",
-    "icon": "sk_pilot_a23c48",
+    "icon": "sk_pilot_550e57",
     "line": 0
    },
    {
@@ -628,27 +628,27 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 2
    },
    {
-    "id": "pilot:再一次嘛",
+    "id": "pilot:再來一輪",
     "tree": "pilot",
-    "name": "再一次嘛",
+    "name": "再來一輪",
     "tier": 1,
     "layer": "back",
     "kind": "active",
     "kindName": "主動",
     "cap": 1,
-    "pre": "乖孩子去吧",
+    "pre": "出擊",
     "cost": "2 行",
     "weight": "1 格",
     "real": "指揮一台無人機在這一回合動作兩次（原本每台每回合一次），兩次的指揮都算在這 2 行動點裡；第二次動作命中 +1。",
     "net": "—",
     "opinion": "—",
-    "icon": "sk_pilot_815b82",
+    "icon": "sk_pilot_6dbfc7",
     "line": 0
    },
    {
-    "id": "pilot:去陪陪他",
+    "id": "pilot:派駐",
     "tree": "pilot",
-    "name": "去陪陪他",
+    "name": "派駐",
     "tier": 1,
     "layer": "back",
     "kind": "active",
@@ -660,7 +660,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "把一台無人機移到我方任何一格，不必相鄰。到你的下一回合開始前，那一格的人迴避 +1。",
     "net": "每場 1 次，把守衛程式移到我方任何一格。",
     "opinion": "—",
-    "icon": "sk_pilot_ff5b17",
+    "icon": "sk_pilot_863a80",
     "line": 1
    },
    {
@@ -672,7 +672,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "kind": "active",
     "kindName": "主動",
     "cap": 1,
-    "pre": "再一次嘛",
+    "pre": "再來一輪",
     "cost": "2 行",
     "weight": "2 格",
     "real": "你射擊一次，和你同一格的無人機同時射擊同一個目標，不另外花指揮的行動點（那台這一回合算已經指揮過）。機甲狀態下改成機甲的兩件武器一起開火，各自擲命中，兩下的命中都 −1。",
@@ -690,7 +690,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "kind": "stance",
     "kindName": "姿態",
     "cap": 1,
-    "pre": "去陪陪他",
+    "pre": "派駐",
     "cost": "開關 1 行",
     "weight": "2 格",
     "real": "開著時，每一台和隊友同一格的無人機，讓那個隊友迴避 +1；最多兩格受惠。",
@@ -718,9 +718,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 2
    },
    {
-    "id": "pilot:修修就好",
+    "id": "pilot:就地維修",
     "tree": "pilot",
-    "name": "修修就好",
+    "name": "就地維修",
     "tier": 2,
     "layer": "back",
     "kind": "active",
@@ -732,7 +732,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "讓一台還沒被擊落的無人機回復 10 點耐久，並可以順便移到相鄰的一格。",
     "net": "—",
     "opinion": "—",
-    "icon": "sk_pilot_f5f98c",
+    "icon": "sk_pilot_a7885c",
     "line": 1
    },
    {
@@ -826,9 +826,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 0
    },
    {
-    "id": "pilot:煙煙罩著你",
+    "id": "pilot:煙幕護航",
     "tree": "pilot",
-    "name": "煙煙罩著你",
+    "name": "煙幕護航",
     "tier": 3,
     "layer": "back",
     "kind": "active",
@@ -840,7 +840,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "一台無人機在它掛的那一格放出煙霧：那一格變成打不破的半掩體，持續 2 回合。本來就是掩體的格子，在煙散掉之前被打壞也不會低於半掩體。",
     "net": "每場 1 次：守衛程式掛的那一格，防火牆節點升一級，持續 2 回合。",
     "opinion": "—",
-    "icon": "sk_pilot_fb24b3",
+    "icon": "sk_pilot_407f16",
     "line": 1
    },
    {
@@ -1132,9 +1132,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 1
    },
    {
-    "id": "surgeon:呼呼不燙了",
+    "id": "surgeon:冷卻處理",
     "tree": "surgeon",
-    "name": "呼呼不燙了",
+    "name": "冷卻處理",
     "tier": 1,
     "layer": "front",
     "kind": "active",
@@ -1146,7 +1146,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "自己或相鄰一格的一名隊友排 8 點感載，或消一層餘韻。",
     "net": "每場一次，花 1 行動點，替一名隊友消一層餘韻，讓他離倒下遠一步。",
     "opinion": "—",
-    "icon": "sk_surgeon_459e5a",
+    "icon": "sk_surgeon_d1ee8b",
     "line": 2
    },
    {
@@ -1168,9 +1168,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 0
    },
    {
-    "id": "surgeon:不痛不痛",
+    "id": "surgeon:止痛針",
     "tree": "surgeon",
-    "name": "不痛不痛",
+    "name": "止痛針",
     "tier": 1,
     "layer": "back",
     "kind": "reaction",
@@ -1182,7 +1182,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "自己或相鄰一格的隊友第一次進入重傷時，自動打一針：他回 2d6 生命值、解除流血，到他下一回合結束前不吃重傷的 −2。不花行動點。",
     "net": "—",
     "opinion": "—",
-    "icon": "sk_surgeon_9c78f8",
+    "icon": "sk_surgeon_741139",
     "line": 0
    },
    {
@@ -1212,7 +1212,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "kind": "active",
     "kindName": "主動",
     "cap": 1,
-    "pre": "呼呼不燙了",
+    "pre": "冷卻處理",
     "cost": "1 行；每回合 1",
     "weight": "2 格",
     "real": "自己或相鄰一格的隊友，一件義體超頻到他下一回合結束。義肢或智慧槍：他下一次攻擊命中 +2。義眼：他下一次攻擊把目標那一格的遮蔽當成低一級。皮下裝甲：護甲 +2。超頻結束時那名隊友感載 +4。",
@@ -1258,9 +1258,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 1
    },
    {
-    "id": "surgeon:拆拆好好玩",
+    "id": "surgeon:拆解癖",
     "tree": "surgeon",
-    "name": "拆拆好好玩",
+    "name": "拆解癖",
     "tier": 2,
     "layer": "back",
     "kind": "passive",
@@ -1272,7 +1272,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "拆解、找縫、卸下、短路、拆光的命中 +1；你動手制伏時，格鬥檢定 +1。",
     "net": "第一回合近身的構裝攻擊命中 +1。",
     "opinion": "—",
-    "icon": "sk_surgeon_d84ff0",
+    "icon": "sk_surgeon_35aa65",
     "line": 1
    },
    {
@@ -1312,9 +1312,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 1
    },
    {
-    "id": "surgeon:排好隊喔",
+    "id": "surgeon:排隊領藥",
     "tree": "surgeon",
-    "name": "排好隊喔",
+    "name": "排隊領藥",
     "tier": 3,
     "layer": "front",
     "kind": "active",
@@ -1326,7 +1326,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "你這一格與相鄰兩格的隊友各回 2d6＋醫療等級的生命值。",
     "net": "每場一次，花 2 行動點，你與相鄰兩格的隊友各排 4 點感載。",
     "opinion": "—",
-    "icon": "sk_surgeon_132122",
+    "icon": "sk_surgeon_54a9bf",
     "line": 0
    },
    {
@@ -1410,7 +1410,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "kind": "active",
     "kindName": "主動",
     "cap": 2,
-    "pre": "排好隊喔",
+    "pre": "排隊領藥",
     "cost": "3 行",
     "weight": "4 格",
     "real": "相鄰一格的一名隊友：處理一個重創（輕的直接解除；重的降成輕的），並回 2d6 生命值。也可以改成替他裝上快取格裡的一件義體，這場戰鬥立刻能用。",
@@ -1539,16 +1539,16 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "pre": "全面翻修",
     "cost": "",
     "weight": "3 格",
-    "real": "你造成的每一次生命回復多 4 點（和縫合手、主刀疊加）。每回合你第一次治療隊友（急救、戰場急救、排好隊喔、戰地手術）退還 1 點行動點。",
+    "real": "你造成的每一次生命回復多 4 點（和縫合手、主刀疊加）。每回合你第一次治療隊友（急救、戰場急救、排隊領藥、戰地手術）退還 1 點行動點。",
     "net": "除錯每場可以用兩次。",
     "opinion": "—",
     "icon": "sk_surgeon_490c0f",
     "line": 0
    },
    {
-    "id": "surgeon:手手拿開",
+    "id": "surgeon:別碰我",
     "tree": "surgeon",
-    "name": "手手拿開",
+    "name": "別碰我",
     "tier": 5,
     "layer": "back",
     "kind": "reaction",
@@ -1560,7 +1560,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "近身的敵人攻擊你或相鄰的隊友之後，你從上回合留下的行動點扣 1，立刻反擊：照拆解打一次，命中時那件義體失效兩回合，並且他被推後一格。",
     "net": "—",
     "opinion": "—",
-    "icon": "sk_surgeon_cfde36",
+    "icon": "sk_surgeon_63a3cc",
     "line": 1
    }
   ],
@@ -1636,9 +1636,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 0
    },
    {
-    "id": "runner:偷看是不行的喔",
+    "id": "runner:非請勿看",
     "tree": "runner",
-    "name": "偷看是不行的喔",
+    "name": "非請勿看",
     "tier": 1,
     "layer": "front",
     "kind": "reaction",
@@ -1650,7 +1650,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "你或一名隊友被快駭時，這一次那個人的防火牆 +2。",
     "net": "你被程式、蕾絲或潛網者攻擊時：這一下的感載 −4；對方沒打中的話，你立刻回打一次 1d6＋魅力調整值的感載。",
     "opinion": "—",
-    "icon": "sk_runner_032d3b",
+    "icon": "sk_runner_77adb0",
     "line": 1
    },
    {
@@ -1698,7 +1698,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "kind": "active",
     "kindName": "主動",
     "cap": 1,
-    "pre": "偷看是不行的喔",
+    "pre": "非請勿看",
     "cost": "1 次管理行動＋1 RAM",
     "weight": "1 格",
     "real": "—",
@@ -1780,9 +1780,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 2
    },
    {
-    "id": "runner:盯～",
+    "id": "runner:盯上",
     "tree": "runner",
-    "name": "盯～",
+    "name": "盯上",
     "tier": 2,
     "layer": "back",
     "kind": "passive",
@@ -1794,7 +1794,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "神經快駭的檢定 +1。",
     "net": "武器構裝與神經快駭的命中 +1；目標正在閃斷時，再 +1。",
     "opinion": "—",
-    "icon": "sk_runner_ab5b58",
+    "icon": "sk_runner_d9cfd7",
     "line": 0
    },
    {
@@ -2212,9 +2212,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 0
    },
    {
-    "id": "actor:我很清醒喔",
+    "id": "actor:我很清醒",
     "tree": "actor",
-    "name": "我很清醒喔",
+    "name": "我很清醒",
     "tier": 1,
     "layer": "back",
     "kind": "passive",
@@ -2226,13 +2226,13 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "抵抗控制類快駭的檢定 +2。",
     "net": "抵抗粉蕾絲的勸降與釘住的檢定 +1。",
     "opinion": "—",
-    "icon": "sk_actor_0c364d",
+    "icon": "sk_actor_bbf51c",
     "line": 1
    },
    {
-    "id": "actor:跟我說嘛",
+    "id": "actor:說來聽聽",
     "tree": "actor",
-    "name": "跟我說嘛",
+    "name": "說來聽聽",
     "tier": 1,
     "layer": "back",
     "kind": "active",
@@ -2244,13 +2244,13 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "只在第一回合：對距離 2 以內一名有橋的敵人擲交涉，對 10＋他的 mod(意志)＋定力；成功的話他被標記到你的下一回合（全隊打他命中 +2）。",
     "net": "對距離 3 以內一個化身或有人格的蕾絲擲交涉，難度同左；成功的話它被標記到你的下一回合，加值是 +1。",
     "opinion": "花 1 編：抽 1 張牌，再把 1 張手牌換掉。",
-    "icon": "sk_actor_28dc58",
+    "icon": "sk_actor_4d0688",
     "line": 2
    },
    {
-    "id": "actor:不要走嘛",
+    "id": "actor:留下來",
     "tree": "actor",
-    "name": "不要走嘛",
+    "name": "留下來",
     "tier": 2,
     "layer": "front",
     "kind": "active",
@@ -2262,7 +2262,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "做一次誘惑攻擊；命中的話，到目標下一回合結束前，他攻擊你的命中 −2。",
     "net": "做一次誘惑攻擊；命中的話，目標被壓制到他下一回合結束（不能換位，攻擊 −2）。",
     "opinion": "—",
-    "icon": "sk_actor_0b2294",
+    "icon": "sk_actor_96144c",
     "line": 0
    },
    {
@@ -2320,9 +2320,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 2
    },
    {
-    "id": "actor:我演得很像吧",
+    "id": "actor:演技派",
     "tree": "actor",
-    "name": "我演得很像吧",
+    "name": "演技派",
     "tier": 2,
     "layer": "back",
     "kind": "passive",
@@ -2334,7 +2334,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "開打前被識破（面具、偽裝）的難度 +2。",
     "net": "偽裝被看穿的難度 +2；戴著面具時表演 +1。",
     "opinion": "—",
-    "icon": "sk_actor_9e8c3d",
+    "icon": "sk_actor_0f7ca8",
     "line": 1
    },
    {
@@ -2346,7 +2346,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "kind": "stance",
     "kindName": "姿態",
     "cap": 2,
-    "pre": "不要走嘛",
+    "pre": "留下來",
     "cost": "開、關、換 1 行",
     "weight": "2.5 格",
     "real": "開著時，誘惑攻擊的傷害多 1d3。",
@@ -2482,9 +2482,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 2
    },
    {
-    "id": "actor:欺負人家要賠喔",
+    "id": "actor:討債",
     "tree": "actor",
-    "name": "欺負人家要賠喔",
+    "name": "討債",
     "tier": 4,
     "layer": "back",
     "kind": "reaction",
@@ -2496,7 +2496,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "被距離 2 以內一名有橋的敵人攻擊之後觸發：對他做一次誘惑攻擊當反擊，不算在每回合 1 次裡。",
     "net": "同左，距離 3 以內。",
     "opinion": "—",
-    "icon": "sk_actor_c0b08c",
+    "icon": "sk_actor_8cbc0a",
     "line": 0
    },
    {
@@ -2716,9 +2716,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 2
    },
    {
-    "id": "broker:換個位子嘛",
+    "id": "broker:換位子",
     "tree": "broker",
-    "name": "換個位子嘛",
+    "name": "換位子",
     "tier": 1,
     "layer": "back",
     "kind": "active",
@@ -2730,7 +2730,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "讓兩名相鄰的隊友交換位置，不花他們的行動點；換到的那一格有遮蔽的人，迴避 +1 到他的下一回合。",
     "net": "讓兩名相鄰的隊友交換位置，不花他們的行動點。",
     "opinion": "—",
-    "icon": "sk_broker_b33c3f",
+    "icon": "sk_broker_33cd2e",
     "line": 0
    },
    {
@@ -2824,9 +2824,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 2
    },
    {
-    "id": "broker:再加一點嘛",
+    "id": "broker:加碼",
     "tree": "broker",
-    "name": "再加一點嘛",
+    "name": "加碼",
     "tier": 2,
     "layer": "back",
     "kind": "active",
@@ -2838,7 +2838,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "—",
     "net": "—",
     "opinion": "花錢買推播：聲量 +2。",
-    "icon": "sk_broker_546fd5",
+    "icon": "sk_broker_d02486",
     "line": 2
    },
    {
@@ -3178,7 +3178,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "cost": "",
     "weight": "招牌",
     "real": "—",
-    "net": "能用本樹的導流技能（曝光、灌流、洗版、圍觀、插播一下喔、直擊）。導流階照 MEDIA 4.1 節算：訂閱的位數減 3，公信力 60 以上再 +1，沒有頻道是 0。",
+    "net": "能用本樹的導流技能（曝光、灌流、洗版、圍觀、插播、直擊）。導流階照 MEDIA 4.1 節算：訂閱的位數減 3，公信力 60 以上再 +1，沒有頻道是 0。",
     "opinion": "坐上編輯台時，每回合的編輯點是 2＋聚光燈的樹階的一半（無條件進位），照 OPINION 4.3b。能用本樹的輿論技能，也能把偽造素材剪成的片（假料）放進牌庫。",
     "icon": "sk_streamer_48e431",
     "line": -1
@@ -3238,9 +3238,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 2
    },
    {
-    "id": "streamer:剪剪貼貼",
+    "id": "streamer:剪接手",
     "tree": "streamer",
-    "name": "剪剪貼貼",
+    "name": "剪接手",
     "tier": 1,
     "layer": "back",
     "kind": "passive",
@@ -3252,7 +3252,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "—",
     "net": "—",
     "opinion": "每回合你打出的第一張「料」，數字 +1。",
-    "icon": "sk_streamer_eb3333",
+    "icon": "sk_streamer_edaf60",
     "line": 0
    },
    {
@@ -3490,9 +3490,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 2
    },
    {
-    "id": "streamer:反彈反彈",
+    "id": "streamer:倒打一耙",
     "tree": "streamer",
-    "name": "反彈反彈",
+    "name": "倒打一耙",
     "tier": 4,
     "layer": "front",
     "kind": "reaction",
@@ -3504,13 +3504,13 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "—",
     "net": "—",
     "opinion": "對手打出否認或反爆料時，那一次的風向反過來，往你這邊推同樣的格數。",
-    "icon": "sk_streamer_885c96",
+    "icon": "sk_streamer_32cf10",
     "line": 1
    },
    {
-    "id": "streamer:插播一下喔",
+    "id": "streamer:插播",
     "tree": "streamer",
-    "name": "插播一下喔",
+    "name": "插播",
     "tier": 4,
     "layer": "front",
     "kind": "active",
@@ -3522,7 +3522,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "—",
     "net": "敵方整排都被標記到你的下個回合，全隊打他們命中 +1；追蹤度 −5。",
     "opinion": "對手下一回合的公關點 −3，你的聲量 +2，並抽 2 張牌。",
-    "icon": "sk_streamer_d236c9",
+    "icon": "sk_streamer_1dbb35",
     "line": 2
    },
    {
@@ -3552,7 +3552,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "kind": "active",
     "kindName": "主動",
     "cap": 2,
-    "pre": "插播一下喔",
+    "pre": "插播",
     "cost": "內海 2 行＋1 RAM；輿論 1 編",
     "weight": "4 格",
     "real": "—",
@@ -3588,7 +3588,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "kind": "active",
     "kindName": "主動",
     "cap": 3,
-    "pre": "反彈反彈",
+    "pre": "倒打一耙",
     "cost": "內海 2 行，每場 1；輿論 3 編，每場 1",
     "weight": "10 格",
     "real": "—",
@@ -3606,7 +3606,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "kind": "active",
     "kindName": "主動",
     "cap": 3,
-    "pre": "插播一下喔",
+    "pre": "插播",
     "cost": "2 編；每場 1",
     "weight": "10 格",
     "real": "—",
@@ -3850,9 +3850,9 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "line": 1
    },
    {
-    "id": "idol:聽我唱～",
+    "id": "idol:聽我唱",
     "tree": "idol",
-    "name": "聽我唱～",
+    "name": "聽我唱",
     "tier": 2,
     "layer": "front",
     "kind": "active",
@@ -3864,7 +3864,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "real": "—",
     "net": "一名同步中的隊友這回合下一次攻擊命中 +2。",
     "opinion": "聲量 +2，風向 +1。",
-    "icon": "sk_idol_ea5d33",
+    "icon": "sk_idol_3f7be2",
     "line": 2
    },
    {
@@ -3948,7 +3948,7 @@ export const SKILL_TREES: SkillTreeDef[] = [
     "kind": "active",
     "kindName": "主動",
     "cap": 2,
-    "pre": "聽我唱～",
+    "pre": "聽我唱",
     "cost": "內海 2 行，人氣 40 以上，每場 1；輿論 1 編，人氣 40 以上，每場 1",
     "weight": "6 格",
     "real": "—",
@@ -4233,9 +4233,9 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
   ],
   "skills": [
    {
-    "id": "night:common:慢慢摸",
+    "id": "night:common:指腹游走",
     "branch": "common",
-    "name": "慢慢摸",
+    "name": "指腹游走",
     "tier": 1,
     "how": "手掌貼著對方的皮膚慢慢往下滑，摸到他抖一下的地方就停下來，在那裡多揉一會兒。",
     "tag": "共通",
@@ -4246,12 +4246,12 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "effect": "用出時對方感載 +1d6＋1d3、自己 +1d6，契合 +4，主動權 +5。連接每回合對方 +1d3、契合 +1。",
     "deep": "",
     "extends": false,
-    "icon": "sk_night_34a665"
+    "icon": "sk_night_6d2e5d"
    },
    {
-    "id": "night:common:偷偷看你",
+    "id": "night:common:目光不放",
     "branch": "common",
-    "name": "偷偷看你",
+    "name": "目光不放",
     "tier": 1,
     "how": "一邊動一邊偷看對方的眼睛和嘴角，碰到哪裡他會咬嘴唇，就把那裡記下來。",
     "tag": "共通",
@@ -4262,7 +4262,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "effect": "場景開始時揭開對方一個「有」的標籤；對方沒有標籤時，改成揭開他最敏感的部位。每回合看得到對方的感載在遠、近、快到三段的哪一段。你說話的契合最低是 0，不會往下掉。",
     "deep": "",
     "extends": false,
-    "icon": "sk_night_da2599"
+    "icon": "sk_night_b0b287"
    },
    {
     "id": "night:common:跪姿",
@@ -4361,11 +4361,11 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "icon": "sk_night_03d461"
    },
    {
-    "id": "night:common:交給你嘛",
+    "id": "night:common:交給你",
     "branch": "common",
-    "name": "交給你嘛",
+    "name": "交給你",
     "tier": 3,
-    "how": "躺下來把雙手放到頭頂，看著對方說「今天交給你嘛」，之後對方要怎麼來都跟著他。",
+    "how": "躺下來把雙手放到頭頂，看著對方說「今天交給你」，之後對方要怎麼來都跟著他。",
     "tag": "共通",
     "need": "馴化 20",
     "use": "連接，2 行",
@@ -4374,14 +4374,14 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "effect": "用出時對方感載 +1d6＋1d3、自己 +2d6，契合 +14，主動權 −10。連接每回合雙方各 +1d6、契合 +1。這是被帶的那一邊的技能，陽剛的主角想讓對方主導時用它。",
     "deep": "",
     "extends": false,
-    "icon": "sk_night_979ab8"
+    "icon": "sk_night_44ec77"
    },
    {
-    "id": "night:common:再一下下",
+    "id": "night:common:再忍一下",
     "branch": "common",
-    "name": "再一下下",
+    "name": "再忍一下",
     "tier": 4,
-    "how": "對方以為你要到了，你咬住嘴唇把呼吸壓下來，抱著他說「再一下下，還不要」。",
+    "how": "對方以為你要到了，你咬住嘴唇把呼吸壓下來，抱著他說「再忍一下，還不要」。",
     "tag": "共通",
     "need": "耐受 40",
     "use": "被動",
@@ -4390,7 +4390,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "effect": "成人場景裡你的感載上限 +8；你用克制時，自己的感載多減 2。",
     "deep": "",
     "extends": false,
-    "icon": "sk_night_310ebd"
+    "icon": "sk_night_962341"
    },
    {
     "id": "night:common:夾在中間",
@@ -4409,9 +4409,9 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "icon": "sk_night_e55a86"
    },
    {
-    "id": "night:common:摸摸頭（延伸）",
+    "id": "night:common:抱進懷裡（延伸）",
     "branch": "common",
-    "name": "摸摸頭（延伸）",
+    "name": "抱進懷裡（延伸）",
     "tier": 5,
     "how": "把對方抱進懷裡，一手摸他的頭，一手輕輕拍他的背，親一下額頭說「好了，沒事了」。",
     "tag": "共通",
@@ -4422,7 +4422,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "effect": "用出時對方感載 −2d6，契合 +10，主動權不變。連接每回合對方感載 −1d3、契合 +2。這一場對每個對象可以用一次：消掉他一層餘韻。",
     "deep": "",
     "extends": true,
-    "icon": "sk_night_b824c4"
+    "icon": "sk_night_5993b7"
    },
    {
     "id": "night:common:三王一后",
@@ -4438,7 +4438,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "effect": "開放「三王一后」（四人）：一個人在中間，三個人圍著她，有仰躺與騎乘兩種姿勢（2026-11-20 取代原本的四人圈）。",
     "deep": "",
     "extends": false,
-    "icon": null
+    "icon": "sk_night_c6c70c"
    },
    {
     "id": "night:common:一起去",
@@ -4473,9 +4473,9 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "icon": null
    },
    {
-    "id": "night:common:摸摸頭",
+    "id": "night:common:抱進懷裡",
     "branch": "common",
-    "name": "摸摸頭",
+    "name": "抱進懷裡",
     "tier": 5,
     "how": "",
     "tag": "",
@@ -4821,9 +4821,9 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "icon": "sk_night_921a69"
    },
    {
-    "id": "night:sense:互含",
+    "id": "night:sense:69",
     "branch": "sense",
-    "name": "互含",
+    "name": "69",
     "tier": 2,
     "how": "兩個人頭尾相反地躺著，各自用嘴含住對方。",
     "tag": "口與吞嚥",
@@ -4831,10 +4831,10 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "use": "體位",
     "kind": "pose",
     "parts": "",
-    "effect": "開放「互含」：兩個人頭尾相反，各用口接對方的前；上位是在上面的那一個。",
+    "effect": "開放「69」：兩個人頭尾相反，各用口接對方的前；上位是在上面的那一個。",
     "deep": "在這個體位裡，口建立的連接每回合契合 +1",
     "extends": false,
-    "icon": "sk_night_547d1e"
+    "icon": "sk_night_a72b20"
    },
    {
     "id": "night:sense:有人在看",
@@ -4869,9 +4869,9 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "icon": "sk_night_445e5f"
    },
    {
-    "id": "night:sense:好多手",
+    "id": "night:sense:纏身",
     "branch": "sense",
-    "name": "好多手",
+    "name": "纏身",
     "tier": 3,
     "how": "讓觸手同時纏上對方兩個地方，一條繞住腰，一條往下探。",
     "tag": "觸手",
@@ -4882,12 +4882,12 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "effect": "一次建立兩條連接，這是「一個部位一條連接」的例外（LEWD 3.5 節第四小節）。用出時對方感載 +2d6＋1d3、自己 +1d3，契合 +4，主動權 +10。兩條連接每回合各給對方 +1d3。",
     "deep": "一次建立三條",
     "extends": false,
-    "icon": "sk_night_94465f"
+    "icon": "sk_night_5ae121"
    },
    {
-    "id": "night:sense:噴一點點",
+    "id": "night:sense:媚香",
     "branch": "sense",
-    "name": "噴一點點",
+    "name": "媚香",
     "tier": 3,
     "how": "拿出催情的香氛噴霧，先問對方「要不要試試」，他點頭才往他頸邊噴一下；也可以噴在自己身上。",
     "tag": "藥",
@@ -4898,7 +4898,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "effect": "雙方都知道、都接受才用得出來。用出時對方接下來三回合受到的感載 +25%，契合 +4；也可以用在自己身上。不建立持續的連接。",
     "deep": "持續改成五回合",
     "extends": false,
-    "icon": "sk_night_49de65"
+    "icon": "sk_night_007370"
    },
    {
     "id": "night:sense:靠牆",
@@ -5043,11 +5043,11 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "icon": "sk_night_241f18"
    },
    {
-    "id": "night:body:抱緊緊",
+    "id": "night:body:抱緊",
     "branch": "body",
-    "name": "抱緊緊",
+    "name": "抱緊",
     "tier": 1,
-    "how": "把對方的臉抱進胸口，雙手環住他抱緊緊，讓他整個人埋在裡面。",
+    "how": "把對方的臉抱進胸口，雙手環住他抱緊，讓他整個人埋在裡面。",
     "tag": "豐滿",
     "need": "自己或對方的外觀有豐滿的詞條",
     "use": "連接，1 行",
@@ -5056,7 +5056,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "effect": "用出時對方感載 +1d6＋1d3、自己 +1d6，契合 +5。連接每回合對方 +1d3、契合 +1。",
     "deep": "用出時契合再 +3",
     "extends": false,
-    "icon": "sk_night_22732c"
+    "icon": "sk_night_5d5b46"
    },
    {
     "id": "night:body:蹭蹭",
@@ -5075,9 +5075,9 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "icon": "sk_night_30b5df"
    },
    {
-    "id": "night:body:冰冰的手",
+    "id": "night:body:冰涼的手",
     "branch": "body",
-    "name": "冰冰的手",
+    "name": "冰涼的手",
     "tier": 2,
     "how": "用金屬義手貼上對方發熱的皮膚，讓他冰得縮一下，再把手掌的溫度慢慢調高。",
     "tag": "半機娘",
@@ -5088,7 +5088,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "effect": "用出時對方感載 +2d6、自己 +1d6，契合 +4。連接每回合對方 +1d3，那是義手的震動與溫度。",
     "deep": "連接每回合對方改成 +1d6",
     "extends": false,
-    "icon": "sk_night_e6e67f"
+    "icon": "sk_night_e21daa"
    },
    {
     "id": "night:body:開震動（延伸）",
@@ -5123,9 +5123,9 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "icon": "sk_night_05703e"
    },
    {
-    "id": "night:body:乖乖不動",
+    "id": "night:body:聽你擺佈",
     "branch": "body",
-    "name": "乖乖不動",
+    "name": "聽你擺佈",
     "tier": 3,
     "how": "讓對方把你擺成他想要的姿勢，你就一直維持著，眼睛也不眨；對方是人偶時，換你把他擺好。",
     "tag": "人偶",
@@ -5136,7 +5136,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "effect": "開著時你不主導、不挑逗，主動權每回合 −5；你受到的感載 ×0.75，連著你的每個人契合每回合 +3。對象是人偶、機娘，或戴著人偶晶片時，你也可以對他用（他要馴化 60 以上）。",
     "deep": "契合每回合改成 +4",
     "extends": false,
-    "icon": "sk_night_872cfc"
+    "icon": "sk_night_d9da0f"
    },
    {
     "id": "night:body:兩邊都要",
@@ -5297,9 +5297,9 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "icon": "sk_night_fc8d73"
    },
    {
-    "id": "night:look:量量看",
+    "id": "night:look:聽診",
     "branch": "look",
-    "name": "量量看",
+    "name": "聽診",
     "tier": 2,
     "how": "穿著護士服拿出聽診器，按在對方身上一處一處量，找到他最燙的那個地方。",
     "tag": "護士",
@@ -5310,7 +5310,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "effect": "用出時揭開對方最敏感的部位；對方感載 +1d6、自己 +1d3，契合 +4。這一場你接在那個部位上的連接每回合多 +1d3。",
     "deep": "用出時對方再 +1d3",
     "extends": false,
-    "icon": "sk_night_7c424b"
+    "icon": "sk_night_646dae"
    },
    {
     "id": "night:look:不可以喔",
@@ -5329,9 +5329,9 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "icon": "sk_night_d99ef9"
    },
    {
-    "id": "night:look:拍拍乾淨",
+    "id": "night:look:替你祓除",
     "branch": "look",
-    "name": "拍拍乾淨",
+    "name": "替你祓除",
     "tier": 2,
     "how": "穿著巫女服，用手掌從對方的頭頂沿著肩膀和背輕輕往下拍，小聲說「髒東西拍掉了，乾淨了」。",
     "tag": "巫女",
@@ -5342,7 +5342,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "effect": "用出時對方感載 +1d6、你自己的感載不增加，契合 +4，主動權 +5。連接每回合對方 +1d3、契合 +1。",
     "deep": "用出時契合再 +3",
     "extends": false,
-    "icon": "sk_night_5b68e4"
+    "icon": "sk_night_d95ce6"
    },
    {
     "id": "night:look:今晚的客人（延伸）",
@@ -5441,9 +5441,9 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "icon": "sk_night_bb6692"
    },
    {
-    "id": "night:look:親一口收下",
+    "id": "night:look:吻走",
     "branch": "look",
-    "name": "親一口收下",
+    "name": "吻走",
     "tier": 4,
     "how": "穿著黑蕾絲或蓬裙，捧住對方的臉親下去，吸一口氣，舔舔嘴唇說「你的感覺，我收下了」。",
     "tag": "哥德",
@@ -5454,7 +5454,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "effect": "用出時對方感載 +1d6＋1d3、你自己的感載不增加，契合 +7，主動權 +5。連接每回合對方 +1d3、契合 +2。",
     "deep": "用出時自己的感載 −1d3",
     "extends": false,
-    "icon": "sk_night_e843b7"
+    "icon": "sk_night_47667d"
    },
    {
     "id": "night:look:要看好喔（延伸）",

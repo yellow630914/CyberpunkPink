@@ -360,7 +360,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
       <div class="ngrid" style="margin-top:14px">
         <div></div><div class="colh">共通</div><div class="colh">關係 2</div><div class="colh">感官 1</div><div class="colh">身體 1</div><div class="colh">扮相 3</div>
         <div class="tier open">1 階<small>體悟 10</small></div>
-        <div class="ncell"><div class="ngate open"><b>不限</b></div><div class="nn got">慢慢摸<small>連接</small></div><div class="nn got">偷偷看你<small>被動</small></div><div class="nn can">跪姿<small>體位</small></div></div>
+        <div class="ncell"><div class="ngate open"><b>不限</b></div><div class="nn got">指腹游走<small>連接</small></div><div class="nn got">目光不放<small>被動</small></div><div class="nn can">跪姿<small>體位</small></div></div>
         <div class="ncell"><div class="ngate open"><b>關係 1</b></div><div class="hidden">2 個掛在你沒有的標籤上</div></div>
         <div class="ncell"><div class="ngate open"><b>感官 1</b></div><div class="nn can">咬耳朵<small>說話</small></div></div>
         <div class="ncell"><div class="ngate open"><b>身體 1</b></div><div class="nn can">讓我看看你<small>連接</small></div></div>
@@ -372,7 +372,7 @@ body>*:not(.ecg):not(.fxl){position:relative;z-index:1}
         <div class="ncell"><div class="ngate"><b>身體 2</b>你：1</div><div class="hidden">掛在你沒有的標籤上</div></div>
         <div class="ncell"><div class="ngate open"><b>扮相 2</b></div><div class="hidden">2 個掛在你沒有的風格上</div></div>
         <div class="tier">3 階<small>體悟 30</small></div>
-        <div class="ncell"><div class="ngate"><b>20 次或 8 人</b></div><div class="nn lock">說悄悄話（延伸）</div><div class="nn lock">交纏</div><div class="nn lock">交給你嘛</div></div>
+        <div class="ncell"><div class="ngate"><b>20 次或 8 人</b></div><div class="nn lock">說悄悄話（延伸）</div><div class="nn lock">交纏</div><div class="nn lock">交給你</div></div>
         <div class="ncell"><div class="ngate"><b>關係 3</b></div><div class="nn lock">這次算我的<small>恩與債</small></div></div>
         <div class="ncell"><div class="ngate"><b>感官 3</b></div><div class="nn lock">…</div></div>
         <div class="ncell"><div class="ngate"><b>身體 3</b></div><div class="nn lock">…</div></div>
@@ -437,13 +437,13 @@ const S=[ // [名字,階,層,線,種類,容量,前置,狀態]
 ['要害射擊',1,'f',1,'主動',1,'戰鬥直覺','got'],['掩護射擊',1,'f',2,'反應',1,'戰鬥直覺','got'],['連射控制',1,'f',3,'主動',1,'戰鬥直覺','got'],
 ['看我的！',1,'b',1,'主動',1,'要害射擊','can'],['點放',1,'b',3,'被動',2,'連射控制','can'],
 ['定點射',2,'f',1,'主動',1,'要害射擊','can sel'],['壓制姿態',2,'f',2,'姿態',1,'掩護射擊','got'],['構裝精通',2,'f',3,'被動',3,'連射控制','can'],
-['就是你了',2,'b',1,'主動',1,'定點射','need'],['走開啦',2,'b',2,'主動',1,'壓制姿態','can'],['幫槍槍保養',2,'b',3,'預備',1,'構裝精通','need'],
+['就是你了',2,'b',1,'主動',1,'定點射','need'],['逼退',2,'b',2,'主動',1,'壓制姿態','can'],['擦槍',2,'b',3,'預備',1,'構裝精通','need'],
 ['穿透',3,'f',1,'主動',2,'定點射','need'],['跑位射擊',3,'f',2,'主動',2,'壓制姿態','can'],['死線',3,'f',3,'反應',2,'構裝精通','need'],
 ['獵眼',3,'b',1,'被動',4,'穿透','need'],['掩護撤退',3,'b',2,'主動',2,'跑位射擊','need'],
 ['獵殺節奏',4,'f',1,'被動',5,'獵眼','lock'],['彈幕',4,'f',2,'姿態',2,'跑位射擊','lock'],['心流',4,'f',3,'主動',2,'死線','lock'],
-['下一個！',4,'b',1,'主動',2,'獵殺節奏','lock'],['不准動喔',4,'b',2,'主動',2,'彈幕','lock'],
+['下一個！',4,'b',1,'主動',2,'獵殺節奏','lock'],['不准動',4,'b',2,'主動',2,'彈幕','lock'],
 ['一槍定局',5,'f',1,'主動',3,'獵殺節奏','lock'],['火力牆',5,'f',2,'主動',3,'彈幕','lock'],['子彈時間',5,'f',3,'主動',3,'心流','lock'],
-['人槍合一',5,'b',1,'被動',6,'一槍定局','lock'],['還給你～',5,'b',2,'反應',3,'火力牆','lock']];
+['人槍合一',5,'b',1,'被動',6,'一槍定局','lock'],['原樣奉還',5,'b',2,'反應',3,'火力牆','lock']];
 const KIND={主動:'動',被動:'被',反應:'反',姿態:'姿',預備:'備',日常:'常'};
 const G=document.getElementById('g5');
 const gate={1:'開著',2:'累計 40',3:'累計 120',4:'累計 240',5:'累計 400'};
