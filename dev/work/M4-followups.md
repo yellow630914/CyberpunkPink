@@ -141,3 +141,9 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 渴求「餘韻消不掉」：`character` 的每十分鐘消退與 `rest` 的消退讀 `no_load_decay`／餘韻開關，戰鬥外也成立。
 - 忠犬：條件「指定的人」（`bound_to`）與事件效果（替他擋傷害、對象死了或背叛）；共鳴「搭檔過載時自己也受一半」；冰后「餘韻沒有正面效果」「親密關係不降低沉溺」：能做的做，做不到的列給內容階段。
 - 聚光的「被注視」條件與觀眾人數：M5（直播）。
+
+## 總指揮補記（2026-11-25，M4-ui-creation 回報）
+- abilities 的 `creation.step` 答案直接回「會裝上／裝不下」的清單（照 `creationLoadoutDraft` 的真實算法，含容量折扣），ui 改讀它。
+- 從 features 的 index 正式匯出 `NO_BRIDGE_NOTE`、`NO_BRIDGE_ABILITY`、`treeTierOf`（或放進 `creationSummary().notes`），ui 改從 index import。
+- 外觀推導（外露的義體、獸化、風格：ui 的 `derivedLooks`、`CYBER_LOOK`、`GEAR_STYLE`）搬進引擎：cyberware 與 gear 各回答一段。
+- 正式內容的 origin 要帶 `kit_free`（現在示意包在載入前補）。

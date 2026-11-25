@@ -253,7 +253,7 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
         <span class="mono">{{ typeof s.id === 'number' ? s.id : i === 0 ? '世' : '篩' }}</span>{{ s.name }}
       </button>
     </nav>
-    <div class="body" :class="{ wide: step === 8 }">
+    <div class="body" :class="{ wide: step === 6 || step === 8 || step === 9 }">
       <main class="panel cut pad page">
         <!-- 世界 -->
         <template v-if="step === 'world'">
@@ -496,7 +496,7 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
 .inp { width: 100%; min-width: 0; background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 8px 10px; font: 600 var(--fs-md) var(--font); }
 .inp:focus { box-shadow: inset 0 0 0 2px var(--a); outline: none; }
 .mt { margin-top: 12px; }
-.quick small, .pick small, .sks small, .chosen small { display: block; color: var(--ink-3); font-size: var(--fs-fine); }
+.quick small, .pick small { display: block; color: var(--ink-3); font-size: var(--fs-fine); }
 .attrs { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: var(--space-4); margin-bottom: var(--space-4); }
 .at { display: grid; grid-template-columns: 1fr auto; gap: var(--space-3); padding: var(--space-4); background: var(--bg-2); align-items: center; }
 .at .an { grid-column: 1 / -1; font-size: var(--fs-card); font-weight: var(--fw-title); }
@@ -513,41 +513,27 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
 .pips i { width: 12px; height: 10px; border-radius: 2px; background: var(--bg-term); }
 .pips i.on { background: var(--a); }
 .pips i.bonus { background: var(--ram); }
-.res { grid-column: 1 / -1; color: var(--ram); font-size: var(--fs-fine); }
 .setrow .inp.wide { grid-column: auto; }
 .pick { margin-bottom: 4px; }
-.pick .why { color: var(--warn); }
 .looks { --col-min: 360px; }
 .derived .dl { display: grid; gap: var(--space-2); }
 .derived .dl p { margin: 0; line-height: 1.6; }
 .derived .tag { margin-right: 4px; }
-.beastline { max-width: 320px; margin: var(--space-4) 0; }
 .lgrp { background: var(--bg-2); padding: var(--space-4) var(--space-5) var(--space-5); display: grid; gap: var(--space-4); align-content: start; }
 .lgrp h4 { margin: 0; display: flex; gap: var(--space-2); align-items: center; }
 .lgrp .form { grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: var(--space-4); }
-.origin-note { margin: 0 0 var(--space-4); color: var(--ink-2); }
-.life { background: var(--bg-2); padding: var(--space-4); display: grid; gap: var(--space-3); align-content: start; }
-.lh { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
-.lh h4 { margin: 0; }
-.flavor { margin: 0; color: var(--ink-3); font-size: var(--fs-sm); line-height: 1.6; }
-.life .res { font-size: var(--fs-sm); font-weight: 700; }
 .pick.flaw b:first-child { color: var(--warn); }
 .pt { font-size: var(--fs-md); color: var(--ap); min-width: 26px; text-align: right; }
 .custom { margin-top: 8px; display: grid; gap: 8px; }
 .go.left { justify-content: flex-start; margin: 0 0 8px; }
 .body.wide { grid-template-columns: minmax(0, 1fr); max-width: 1600px; }
 .body.wide .sum { display: none; }
-.gearl { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 12px; align-items: start; }
-.ggrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; margin-bottom: 10px; }
-.gi { display: grid; gap: 2px; justify-items: center; }
-.gi small { font-size: var(--fs-tiny); color: var(--ap); }
-.chosen .lrow :deep(.slot) { width: 36px; flex: none; }
 .lifeov { margin-top: var(--space-4); display: grid; gap: var(--space-2); }
 .lifeov .lo { margin: 0; display: grid; gap: 2px; font-size: var(--fs-sm); }
 .lifeov .lo span { color: var(--ram); }
 .blockedrows { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
 .linkrow { text-align: left; border: 0; cursor: pointer; font: inherit; color: var(--ink); width: 100%; }
 .warnb { margin-top: 8px; box-shadow: inset 3px 0 0 var(--warn); }
-@media (max-width: 1000px) { .body { grid-template-columns: minmax(0, 1fr); } .sum { order: 2; } .gearl { grid-template-columns: 1fr; } }
+@media (max-width: 1000px) { .body { grid-template-columns: minmax(0, 1fr); } .sum { order: 2; } }
 @media (max-width: 720px) { .body { padding: 8px; } .sum { display: none; } }
 </style>

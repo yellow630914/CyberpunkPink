@@ -23,6 +23,7 @@ import LifepathStep from '../../src/components/creation/LifepathStep.vue'
 import CyberStep from '../../src/components/creation/CyberStep.vue'
 import AbilitiesStep from '../../src/components/creation/AbilitiesStep.vue'
 import GearStep from '../../src/components/creation/GearStep.vue'
+import NewGameScreen from '../../src/screens/NewGameScreen.vue'
 import OwnedList from '../../src/components/creation/OwnedList.vue'
 import screenSrc from '../../src/screens/NewGameScreen.vue?raw'
 import lifepathSrc from '../../src/components/creation/LifepathStep.vue?raw'
@@ -400,6 +401,16 @@ describe('技能頁（遊戲中）：歷練點與基本功升級', () => {
     expect(e.skills.respecBlock()).toContain('調校診所')
     expect(e.skills.respec()).toContain('調校診所')
     expect(e.skills.mine().learned).toEqual(ids)
+  })
+})
+
+describe('開新局的畫面', () => {
+  it('快速開始的預設角色不做：按鈕留著、灰掉並說明', async () => {
+    const { pinia } = setup()
+    const html = clean(await render(pinia, NewGameScreen))
+    expect((html.match(/data-quick/g) ?? []).length).toBeGreaterThanOrEqual(4)
+    expect(html).toContain('快速開始的預設角色還沒有做')
+    expect(html).toContain('is-unavailable')
   })
 })
 
