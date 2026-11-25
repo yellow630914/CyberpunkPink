@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import Hint from '../../components/Hint.vue'
 import ReasonButton from '../../components/ReasonButton.vue'
+import BridgePanel from '../../components/body/BridgePanel.vue'
 import { useEngine } from '../../stores/engine'
 import { useUi } from '../../stores/ui'
 import { useGuides } from '../../lib/useGuides'
@@ -11,7 +12,7 @@ import type { BridgeRow } from '../../lib/skillView'
 /**
  * 角色的「橋」分頁（UI 8.3 節）：只裝已經學會的技能。容量條與「套用」的結果都是引擎的答案（stores/engine.ts 的 skills）。
  * 勾選改的是一份暫存的清單，按「套用」才提交；被引擎擋下時，那一句原因寫在最下面一行。
- * 戰鬥中、等著選戰敗時整頁唯讀（store 給原因）。調校槽、夜課引擎還沒有，沒有畫。換配置能不能換（地點、委託副本）與要花幾分鐘都是引擎的（loadoutBlock、loadout_minutes），寫在最下面一行；委託副本裡整頁唯讀並寫原因。
+ * 戰鬥中、等著選戰敗時整頁唯讀（store 給原因）。最上面是橋本身（components/body/BridgePanel.vue：型號、四類容量的組成、機能、橋參數，讀引擎）；調校槽等 M4-tuning。換配置能不能換（地點、委託副本）與要花幾分鐘都是引擎的（loadoutBlock、loadout_minutes），寫在最下面一行；委託副本裡整頁唯讀並寫原因。
  */
 const eng = useEngine()
 const ui = useUi()
@@ -57,6 +58,7 @@ const barOf = (c: (typeof CATEGORIES)[number]) => capCells(cap.value[c].max, use
 
 <template>
   <section class="br">
+    <BridgePanel />
     <div class="panel cut pad caps" data-caps>
       <div v-for="c in CATEGORIES" :key="c" class="cap" :data-cap="c">
         <span class="cn" :style="{ color: CAT_COLOR[c] }">{{ CATEGORY_NAME[c] }}</span>

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import type { ActionInput, ContentEntry, Feature, ContentPack, ItemEntry, Actor, AttributeEntry, BattleInput, BattleMode, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, GridDir, GridView, Report, ReportDraft, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
-import { ActionBlocked, ChangeError, FakeProvider, Game, NET_LEGEND, SYNC_GEARS, gridHere, meterOf, sightOf, syncBlocks, syncCapOf, syncRuleOf, modeOf, statusRuleOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
+import { ActionBlocked, ChangeError, FakeProvider, Game, stackPart, partTypeName, productOf, NET_LEGEND, SYNC_GEARS, gridHere, meterOf, sightOf, syncBlocks, syncCapOf, syncRuleOf, modeOf, statusRuleOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
 import type { ActStatus, StepActions } from '@engine/src'
 import type { StepRecord } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
@@ -55,8 +55,18 @@ import { jobsHere, shift as workShift } from '@engine/src/features/work'
 import type { JobView } from '@engine/src/features/work'
 import { breathBlock, breathDraft, depositOf, homeOf, leaveBlock, leaveDraft, readRest, rentBlock, rentDraft, residencePools, restRules, sleepBlock, sleepDraft, sleepOptions } from '@engine/src/features/rest'
 import type { Level, ResidenceEntry, SleepOption, SleepSpotId } from '@engine/src/features/rest'
+import * as cyberware from '@engine/src/features/cyberware'
+import * as medical from '@engine/src/features/medical'
+import * as drugs from '@engine/src/features/drugs'
+import * as sink from '@engine/src/features/sink'
+import { BRIDGE_PARAMS, PARAM_NAME, bridgeOf as lewdBridgeOf } from '@engine/src/features/lewd'
+import { paramStatId } from '@engine/src/features/lewd/model'
+import { PASSIVE_SOURCE_NAMES } from '@engine/src'
+import type { RollPart } from '@engine/src'
+import { PAIN_TAG } from '../lib/bodyView'
+import type { BodyBag, BodyBagKind, BodyPassive } from '../lib/bodyView'
 import type { PartyMember } from '../data/types'
-import { DEMO_SCENES, demoNetChanges, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature } from '../data/demo'
+import { DEMO_SCENES, demoBodyChanges, demoNetChanges, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature } from '../data/demo'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
 import { ageBlock, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
 import { debriefOf } from '../lib/scene/sceneView'
@@ -225,7 +235,7 @@ export const useEngine = defineStore('engine', () => {
   }
 
   /** 建角的開新局：名冊的成員是引擎照出身的名冊放的，示意包只補候選人 */
-  const withPeople = (r: ReportDraft, state: GameState, on: boolean, origin: string): ReportDraft => (on && demoOn ? { ...r, changes: [...r.changes, ...demoNetChanges(), ...demoPeopleChanges(game.k, state, { origin: (originView(game.k, origin)?.roster ?? []).map((n) => n.id) })] } : r)
+  const withPeople = (r: ReportDraft, state: GameState, on: boolean, origin: string): ReportDraft => (on && demoOn ? { ...r, changes: [...r.changes, ...demoNetChanges(), ...demoBodyChanges(), ...demoPeopleChanges(game.k, state, { origin: (originView(game.k, origin)?.roster ?? []).map((n) => n.id) })] } : r)
   /** 先問引擎每一步行不行；有問題原樣回傳、狀態不動；沒問題才提交。 */
   function createCharacter(draft: CreationDraft): CreationBlock[] {
     const blocks = creationBlocks(game.k, game.state, draft)
@@ -1133,7 +1143,7 @@ export const useEngine = defineStore('engine', () => {
       const a = s.actors[id]
       if (!a) return []
       const main = (Array.isArray(a.ext.paths) ? a.ext.paths as Array<{ path: string; slot: string }> : []).find((p) => p.slot === 'main')
-      return [{ id, name: a.name, role: main ? peopleLook.path(main.path) : '', sink: a.sink, hp: [a.hp, statOf(id, 'max_hp', Math.max(1, a.hp))], load: [a.load, statOf(id, 'load_cap', Math.max(1, a.load))], afterglow: a.afterglow, me: id === s.pc }]
+      return [{ id, name: a.name, role: main ? peopleLook.path(main.path) : '', sink: a.sink, hp: [a.hp, statOf(id, 'max_hp', Math.max(1, a.hp))], load: [a.load, statOf(id, 'load_cap', Math.max(1, a.load))], afterglow: a.afterglow, me: id === s.pc, ...(body.painBlind(id) ? { hpBlur: true } : {}) }]
     })
   }
   /** 敵對值清單（引擎的 hostilityView：floor 已是永久與有期限取較高）；timed 是還沒到期的有期限下限，days 是剩幾天（進位） */
@@ -1195,5 +1205,165 @@ export const useEngine = defineStore('engine', () => {
     scripts: (list: ScriptEntry[]): string | null => commitGear((pc) => deckScriptsDraft(game.k, game.state, pc, list)),
   }
 
-  return { state, feed, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  // ---- 義體、醫療、藥、沉溺（M4-ui-body）：全部轉接 features/cyberware、medical、drugs、sink、lewd，畫面不算費用、成本、機率與原因 ----
+  // 每個入口都是「報價（quote）、擋住的原因（block）、送出（動作）」三件：報價與原因問引擎，送出就是提交引擎做好的報告草稿。
+  const NO_BODY = '還沒有主角。'
+  /** 有主角時用主角 id 問；沒有主角給預設值。每次都讀引擎現在的狀態 */
+  function onPc<T>(f: (pc: string) => T, none: T): T {
+    void state.value
+    const pc = game.state.pc
+    if (pc === null || !game.state.actors[pc]) return none
+    try {
+      return f(pc)
+    } catch {
+      return none
+    }
+  }
+  /** 提交一份引擎做好的草稿（有主角才做）；被擋下回傳引擎的原因 */
+  function doOnPc(make: (pc: string) => ReportDraft): string | null {
+    const pc = game.state.pc
+    if (pc === null || !game.state.actors[pc]) return NO_BODY
+    return commitMade(() => make(pc))
+  }
+  const bagKindOf = (stackId: string): { kind: BodyBagKind; slot: string | null; name: string; grade: number } | null => {
+    const bp = game.k.content.get<{ id: string; kind?: string; slot?: string; name: string; grade: number; deck?: unknown }>('blueprint', stackId)
+    if (bp && bp.kind === 'cyberware') return { kind: bp.slot === 'bridge' ? 'bridge' : bp.deck ? 'deck' : 'cyber', slot: bp.slot ?? null, name: bp.name, grade: bp.grade }
+    const dk = game.k.content.hasKind('deck') ? game.k.content.get<{ id: string; name: string; grade: number }>('deck', stackId) : undefined
+    return dk ? { kind: 'deck', slot: 'brain', name: dk.name, grade: dk.grade } : null
+  }
+  const body = {
+    /** 主角的 id（沒有是 null） */
+    get actor(): string | null { void state.value; return game.state.pc },
+    /** 身上的義體：每個部位的每一槽（引擎的 cyberView） */
+    cyber: (): cyberware.CyberView | null => onPc((pc) => cyberware.cyberView(game.k, game.state, pc), null),
+    /** 背包裡能裝的義體（成品與甲板，帶 uid 的） */
+    bag: (): BodyBag[] => {
+      void state.value
+      return game.state.inventory.flatMap((s) => {
+        const uid = typeof s.data?.uid === 'string' ? s.data.uid : null
+        const info = uid ? bagKindOf(s.id) : null
+        return uid && info ? [{ uid, id: s.id, name: info.name, grade: info.grade, kind: info.kind, slot: info.slot }] : []
+      })
+    },
+    /** 背包裡能拿來換的零件（某一類）：key 是交給引擎的名字（有 uid 的給 uid，其餘給零件的 id） */
+    partsBag: (type: string): Array<{ key: string; name: string; grade: number; material: string; state: string; qty: number }> => {
+      void state.value
+      return game.state.inventory.flatMap((s) => {
+        const p = stackPart(game.k.content, s)
+        if (!p || p.type !== type) return []
+        return [{ key: typeof s.data?.uid === 'string' ? s.data.uid : s.id, name: p.name, grade: p.grade, material: p.material, state: p.state, qty: s.qty }]
+      })
+    },
+    /** 設計圖要哪幾類零件（換零件選槽用）：類型與數量 */
+    slotsOf: (bp: string): Array<{ type: string; count: number }> => {
+      void state.value
+      const b = game.k.content.get<{ id: string; require?: Array<{ type: string; count?: number }>; optional?: Array<{ type: string; count?: number }> }>('blueprint', bp)
+      return b ? [...(b.require ?? []), ...(b.optional ?? [])].map((n) => ({ type: n.type, count: n.count ?? 1 })) : []
+    },
+    /** 零件類型的名字（引擎的 partTypeName） */
+    typeName: (type: string): string => partTypeName(type),
+    /** 屬性與基本功的名字（引擎的內容） */
+    names: {
+      attr: (id: string): string => game.k.stats.attrName(id as never),
+      skill: (id: string): string => game.k.stats.skillName(id),
+    },
+    /** 身上一件義體的組成：設計圖的資料、每個零件（甲板沒有零件）；找不到是 null */
+    compose: (uid: string): { brand: string[]; legal: string; invasiveness: string; allBio: boolean; seams: number; parts: Array<{ type: string; typeName: string; name: string; grade: number; material: string; state: string }> } | null => onPc((pc) => {
+      const piece = cyberware.cyberOf(game.state, pc).find((p) => p.uid === uid)
+      if (!piece || piece.kind_of === 'deck') return null
+      const info = productOf(game.k.content, piece.bp, piece)
+      if (!info) return null
+      return {
+        brand: info.brands, legal: info.legal, invasiveness: info.bp.invasiveness ?? 'light', allBio: info.allBio, seams: info.seams,
+        parts: info.parts.map(({ type, part }) => ({ type, typeName: partTypeName(type), name: part.name, grade: part.grade, material: part.material, state: part.state })),
+      }
+    }, null),
+    /** 現在站的診所（沒有是 null） */
+    clinic: (): { type: string; name: string; grade: 'clinic' | 'unlicensed' | 'black' } | null => { void state.value; return cyberware.clinicHere(game.k, game.state) },
+    /** 這個人現在可以請誰動刀（引擎的 surgeons；站在診所是那一種診所，加上條件夠的話自己動刀） */
+    surgeons: (): cyberware.SurgeonOption[] => onPc((pc) => cyberware.surgeons(game.k, game.state, pc), []),
+    /**
+     * 診所對話框開不開得了：站在診所上，或在住處而且自己動得了刀（引擎的 surgeons 有一項能選）；開得了是 null，開不了是一句話。
+     * 能不能自己動刀的原因是引擎的（surgeons 的 block）。
+     */
+    clinicGate: (): string | null => {
+      void state.value
+      if (game.state.pc === null) return NO_BODY
+      const list = cyberware.surgeons(game.k, game.state, game.state.pc)
+      if (list.some((o) => o.block === null)) return null
+      return list.find((o) => o.id === 'self')?.block ?? '這裡沒有診所。'
+    },
+    installQuote: (o: Omit<cyberware.InstallOpts, 'actor'>): cyberware.InstallQuote | null => onPc((pc) => cyberware.installQuote(game.k, game.state, { ...o, actor: pc }), null),
+    installBlock: (o: Omit<cyberware.InstallOpts, 'actor'>): string | null => onPc((pc) => cyberware.installBlock(game.k, game.state, { ...o, actor: pc }), NO_BODY),
+    install: (o: Omit<cyberware.InstallOpts, 'actor'>): string | null => doOnPc((pc) => cyberware.installDraft(game.k, game.state, { ...o, actor: pc })),
+    removeQuote: (o: Omit<cyberware.RemoveOpts, 'actor'>): cyberware.RemoveQuote | null => onPc((pc) => cyberware.removeQuote(game.k, game.state, { ...o, actor: pc }), null),
+    removeBlock: (o: Omit<cyberware.RemoveOpts, 'actor'>): string | null => onPc((pc) => cyberware.removeBlock(game.k, game.state, { ...o, actor: pc }), NO_BODY),
+    remove: (o: Omit<cyberware.RemoveOpts, 'actor'>): string | null => doOnPc((pc) => cyberware.removeDraft(game.k, game.state, { ...o, actor: pc })),
+    bridgeQuote: (o: Omit<cyberware.BridgeOpts, 'actor'>): cyberware.BridgeQuote | null => onPc((pc) => cyberware.bridgeQuote(game.k, game.state, { ...o, actor: pc }), null),
+    bridgeBlock: (o: Omit<cyberware.BridgeOpts, 'actor'>): string | null => onPc((pc) => cyberware.swapBridgeBlock(game.k, game.state, { ...o, actor: pc }), NO_BODY),
+    swapBridge: (o: Omit<cyberware.BridgeOpts, 'actor'>): string | null => doOnPc((pc) => cyberware.swapBridgeDraft(game.k, game.state, { ...o, actor: pc })),
+    /** 橋的四類容量與組成（引擎的衍生數值 bridge_cap_*；沒有橋是全 0） */
+    capacity: (): cyberware.BridgeCapacity | null => onPc((pc) => cyberware.bridgeCapacityOf(game.k, game.state, pc), null),
+    /** 身上那一座橋的詳細（型號、等級、機能的效果、狀態）；沒有橋是 null */
+    bridge: (): cyberware.ViewPiece | null => onPc((pc) => {
+      const piece = cyberware.bridgeOf(game.state, pc)
+      return piece ? cyberware.viewPiece(game.k, game.state, pc, piece.uid) ?? null : null
+    }, null),
+    /** 四項橋參數：基本值、有效值（引擎的衍生數值 bridge_*）與每個來源；沒有橋是 null */
+    bridgeParams: (): Array<{ id: string; name: string; base: number; value: number; band: number; parts: RollPart[] }> | null => onPc((pc) => {
+      const v = lewdBridgeOf(game.k, game.state, pc)
+      if (!v) return null
+      return BRIDGE_PARAMS.map((p) => {
+        const sid = paramStatId(p)
+        return { id: p, name: PARAM_NAME[p], base: v[p].base, value: v[p].value, band: v[p].band, parts: game.k.stats.hasStat(sid) ? game.k.stats.statParts(game.state, pc, sid).filter((x) => x.source !== 'base') : [] }
+      })
+    }, null),
+    /** 授權鎖：身上有鎖的每一件 */
+    locks: (): cyberware.LockViewItem[] => onPc((pc) => cyberware.lockView(game.k, game.state, pc), []),
+    payBlock: (uid: string, pay?: 'cred' | 'cash'): string | null => onPc((pc) => cyberware.payLockBlock(game.k, game.state, { actor: pc, uid, ...(pay ? { pay } : {}) }), NO_BODY),
+    pay: (uid: string, pay?: 'cred' | 'cash'): string | null => doOnPc((pc) => cyberware.payLockDraft(game.k, game.state, { actor: pc, uid, ...(pay ? { pay } : {}) })),
+    crackQuote: (uid: string): cyberware.CrackQuote | null => onPc((pc) => cyberware.crackQuote(game.k, game.state, { actor: pc, uid }), null),
+    crackBlock: (uid: string): string | null => onPc((pc) => cyberware.crackBlock(game.k, game.state, { actor: pc, uid }), NO_BODY),
+    crack: (uid: string): string | null => doOnPc((pc) => cyberware.crackDraft(game.k, game.state, { actor: pc, uid })),
+    repairQuote: (o: Omit<cyberware.RepairOpts, 'actor'>): cyberware.RepairQuote | null => onPc((pc) => cyberware.repairQuote(game.k, game.state, { ...o, actor: pc }), null),
+    repairBlock: (o: Omit<cyberware.RepairOpts, 'actor'>): string | null => onPc((pc) => cyberware.repairBlock(game.k, game.state, { ...o, actor: pc }), NO_BODY),
+    repair: (o: Omit<cyberware.RepairOpts, 'actor'>): string | null => doOnPc((pc) => cyberware.repairDraft(game.k, game.state, { ...o, actor: pc })),
+    modifyQuote: (o: Omit<cyberware.ModifyOpts, 'actor'>): cyberware.ModifyQuote | null => onPc((pc) => cyberware.modifyQuote(game.k, game.state, { ...o, actor: pc }), null),
+    modifyBlock: (o: Omit<cyberware.ModifyOpts, 'actor'>): string | null => onPc((pc) => cyberware.modifyBlock(game.k, game.state, { ...o, actor: pc }), NO_BODY),
+    modify: (o: Omit<cyberware.ModifyOpts, 'actor'>): string | null => doOnPc((pc) => cyberware.modifyDraft(game.k, game.state, { ...o, actor: pc })),
+    /** 身上現在生效的被動效果（來源是義體、怪癖、藥、沉溺、戒斷、傷勢……）：引擎的 k.passives */
+    passives: (): BodyPassive[] => onPc((pc) => game.k.passives.of(game.state, pc).map((e) => ({ ...e })), []),
+    /** 這個人是不是痛覺編輯器：身上有帶 pain_editor 標籤的義體（引擎的條件 cyber）；生命值顯示變模糊（CYBERWARE 第 3 節） */
+    painBlind: (id?: string): boolean => {
+      void state.value
+      const who = id ?? game.state.pc
+      if (who === null || who === undefined || !game.state.actors[who]) return false
+      try {
+        return game.k.conditions.test({ kind: 'cyber', tag: PAIN_TAG }, { state: game.state, actor: who, stats: game.k.stats, timeRules: game.k.timeRules })
+      } catch {
+        return false
+      }
+    },
+    // ---- 醫療 ----
+    medical: (by?: string): medical.MedicalView | null => { void state.value; return game.state.pc === null ? null : medical.medicalView(game.k, game.state, by ? { by } : {}) },
+    aid: (by: string, target: string): string | null => commitMade(() => medical.aidDraft(game.k, game.state, { by, target })),
+    heal: (target: string, pay?: 'cred' | 'cash'): string | null => commitMade(() => medical.clinicHealDraft(game.k, game.state, { target, ...(pay ? { pay } : {}) })),
+    woundSurgery: (o: medical.WoundSurgeryOpts): string | null => commitMade(() => medical.woundSurgeryDraft(game.k, game.state, o)),
+    // ---- 藥 ----
+    drugs: (): drugs.DrugView | null => onPc((pc) => drugs.drugView(game.k, game.state, pc), null),
+    useDrug: (item: string): string | null => doOnPc((pc) => drugs.useDraft(game.k, game.state, { actor: pc, item })),
+    detox: (drug: string, pay?: 'cred' | 'cash'): string | null => doOnPc((pc) => drugs.detoxDraft(game.k, game.state, { actor: pc, drug, ...(pay ? { pay } : {}) })),
+    suppressantBlock: (weekly: boolean): string | null => onPc(() => drugs.suppressantBlock(game.k, game.state, { weekly }), NO_BODY),
+    suppressant: (weekly: boolean): string | null => doOnPc(() => drugs.suppressantDraft(game.k, game.state, { weekly })),
+    // ---- 沉溺 ----
+    sink: (): sink.SinkView | null => onPc((pc) => sink.sinkView(game.k, game.state, pc), null),
+    therapyHere: (): sink.TherapyFacility | null => { void state.value; return sink.therapyHere(game.k, game.state) },
+    therapyQuote: (o: sink.TherapyOpts = {}): sink.TherapyQuote | null => { void state.value; try { return sink.therapyQuote(game.k, game.state, o) } catch { return null } },
+    therapyBlock: (o: sink.TherapyOpts = {}): string | null => { void state.value; try { return sink.therapyBlock(game.k, game.state, o) } catch { return '現在不能做治療。' } },
+    therapy: (o: sink.TherapyOpts = {}): string | null => commitMade(() => sink.therapyDraft(game.k, game.state, o)),
+    /** 被動效果來源的名字（引擎的 PASSIVE_SOURCE_NAMES） */
+    sourceName: (source: string): string => (PASSIVE_SOURCE_NAMES as Record<string, string>)[source] ?? source,
+  }
+
+  return { state, feed, body, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

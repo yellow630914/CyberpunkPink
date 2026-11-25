@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, reactive } from 'vue'
-import type { BodyPartId, DistrictId, EquipSlotId, ItemStack, Point, Condition } from '../data/types'
-import { PROTAGONIST, PARTY, START_INVENTORY, START_CYBER, START_EQUIP, START_QUICK } from '../data/character'
+import type { DistrictId, EquipSlotId, ItemStack, Point, Condition } from '../data/types'
+import { PROTAGONIST, PARTY, START_INVENTORY, START_EQUIP, START_QUICK } from '../data/character'
 import { NPCS } from '../data/npcs'
 import { DISTRICTS } from '../data/districts'
 import { legacyFacilityAt } from '../data/demo'
@@ -24,7 +24,7 @@ import { packSave, rollbackKeeping, type Snapshot } from '../lib/save'
 import { sanitizeDyes, type Dye } from '../lib/dye'
 
 /**
- * 假存檔：主角、背包、義體、裝備、所在地、時間、錢、紀錄。
+ * 假存檔：主角、背包、裝備、所在地、時間、錢、紀錄（義體、沉溺、藥是引擎的：stores/engine.ts 的 body）。
  * 引擎做好之後，這個 store 換成引擎狀態的唯讀投影，動作改成呼叫引擎。
  */
 export interface Roll { skill: string; die: number; mod: number; dc: number; result: '成功' | '失敗' | '大成功' | '大失敗'; twist?: string; rerolls?: number }
@@ -33,7 +33,7 @@ export interface LogEntry { id: number | string; time: string; place: string; pr
 /** 存檔裡的狀態的樣子（serialize() 回傳的）。 */
 export interface SaveShape {
   day: number; minutes: number; money: { fav: number }; hostility: Record<string, number>
-  character: typeof PROTAGONIST; party: typeof PARTY; inventory: ItemStack[]; cyber: typeof START_CYBER; equip: Partial<Record<EquipSlotId, string>>
+  character: typeof PROTAGONIST; party: typeof PARTY; inventory: ItemStack[]; equip: Partial<Record<EquipSlotId, string>>
   quick: Array<string | null>; coatClosed: boolean; npcs: Record<string, import('../data/types').Npc>; loc: { district: DistrictId; block: string; pos?: Point; facility: string | null }; log: LogEntry[]
   basics: Record<string, number>; learned: string[]; nightLearned: string[]; params: typeof START_PARAMS; tendency: typeof START_TENDENCY
   fame: Record<string, number>; sexRecord: typeof START_SEX; channel: typeof START_CHANNEL; contracts: { held: typeof HELD }
@@ -83,7 +83,6 @@ export const useGame = defineStore('game', () => {
   const character = reactive(structuredClone(PROTAGONIST))
   const party = reactive(structuredClone(PARTY))
   const inventory = ref<ItemStack[]>(structuredClone(START_INVENTORY))
-  const cyber = reactive(structuredClone(START_CYBER))
   const equip = reactive<Partial<Record<EquipSlotId, string>>>({ ...START_EQUIP })
   const quick = ref<Array<string | null>>([...START_QUICK])
   const coatClosed = ref(true)
@@ -147,7 +146,6 @@ export const useGame = defineStore('game', () => {
     for (const id of Object.values(equip)) if (id) w += ITEMS[id]?.weight ?? 0
     return Math.round(w * 10) / 10
   })
-  const sinkFloor = computed(() => Object.values(cyber).flat().reduce((s, id) => s + (id ? ITEMS[id]?.cyber?.sink ?? 0 : 0), 0))
   /** 快取格：每個人 2 格＋腰帶 1＋戰術背心 2（EQUIPMENT 4.1 節） */
   const quickCap = computed(() => 2 + 1 + (equip.armor === 'it_7d6ad2' ? 2 : 0))
   const coveredSlots = computed(() => new Set(coatClosed.value && equip.coat ? EQUIP_SLOTS.filter(s => s.coveredByCoat).map(s => s.id) : []))
@@ -206,9 +204,6 @@ export const useGame = defineStore('game', () => {
     if (d) dyes[key] = { primary: d.primary, secondary: d.secondary }
     else delete dyes[key]
   }
-  /** 義體要在診所拆裝；這裡只給「拆下」的預覽，不真的動 */
-  function cyberAt(part: BodyPartId) { return cyber[part] }
-
   function itemName(def: string) { return itemDef(def).name }
 
   // ---- 技能（SKILLS 1.3 節） ----
@@ -248,7 +243,7 @@ export const useGame = defineStore('game', () => {
   function serialize() {
     return JSON.parse(JSON.stringify({
       money: { fav: money.fav }, hostility: { ...hostility }, character: { ...character }, party: [...party],
-      inventory: inventory.value, cyber: { ...cyber }, equip: { ...equip }, quick: quick.value, coatClosed: coatClosed.value, npcs: { ...npcs }, loc: { ...loc },
+      inventory: inventory.value, equip: { ...equip }, quick: quick.value, coatClosed: coatClosed.value, npcs: { ...npcs }, loc: { ...loc },
       basics: { ...basics }, learned: learned.value, nightLearned: nightLearned.value, params: { ...params }, tendency: { ...tendency },
       fame: { ...fame }, sexRecord: { ...sexRecord }, channel: { ...channel }, contracts: { ...contracts },
       pending: pending.value, craftFill: { ...craftFill }, guides: { ...guides }, dungeonSeed: dungeonSeed.value, vehicles: vehicles.value, media: { ...media }, mech: { ...mech },
@@ -265,7 +260,6 @@ export const useGame = defineStore('game', () => {
     if (d.character) Object.assign(character, structuredClone(d.character))
     if (d.party) party.splice(0, party.length, ...structuredClone(d.party))
     if (d.inventory) inventory.value = structuredClone(d.inventory)
-    if (d.cyber) Object.assign(cyber, structuredClone(d.cyber))
     if (d.equip) put(equip, d.equip)
     if (d.quick) quick.value = [...d.quick]
     if (typeof d.coatClosed === 'boolean') coatClosed.value = d.coatClosed
@@ -320,9 +314,9 @@ export const useGame = defineStore('game', () => {
   }
 
   return {
-    day, minutes, money, hostility, character, party, inventory, cyber, equip, quick, coatClosed, npcs, loc, log,
-    timeLabel, weekday, billIn, district, facility, placeLabel, topHostility, carriedWeight, sinkFloor, quickCap, coveredSlots,
-    advance, addLog, addItem, removeItem, stackOf, equipItem, unequip, cyberAt, itemName,
+    day, minutes, money, hostility, character, party, inventory, equip, quick, coatClosed, npcs, loc, log,
+    timeLabel, weekday, billIn, district, facility, placeLabel, topHostility, carriedWeight, quickCap, coveredSlots,
+    advance, addLog, addItem, removeItem, stackOf, equipItem, unequip, itemName,
     basics, learned, nightLearned, params, tendency, fame, sexRecord, channel, contracts, pending, craftFill, guides, dungeonSeed, vehicles, media, mech, lastBattle, snapshots,
     dyes, setDye, learnSkill, syncTrees, learnNight, setQuick, serialize, hydrate, saveMeta, packed, takeSnapshot, rollback,
   }

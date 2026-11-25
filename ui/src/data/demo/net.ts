@@ -149,8 +149,8 @@ export function netContent(): Record<string, ContentEntry[]> {
 }
 
 /**
- * 開新局時送給主角的：各種構裝、兩套 SKIN、兩支腳本；入門甲板直接裝在腦部（甲板是腦部的義體，M4-cyber-deck；使用者 2026-11-25：示意世界包開局直接裝著，不經手術與休養），
- * 裝好三個構裝（夜巡、客服窗、探針，留一個空槽）、穿著應援 T、帶著回填包。沉溺的下限照內容種類 deck 的預設成本（cyber_rule.deck_sink_default，6）算，
+ * 開新局時送給主角的：各種構裝、兩套 SKIN、兩支腳本；甲板直接裝在腦部是 body.ts 的 demoBodyChanges（和橋、義眼一起寫 ext.cyber，沉溺補到下限），
+ * 這裡裝好三個構裝（夜巡、客服窗、探針，留一個空槽）、穿著應援 T、帶著回填包。沉溺的下限照內容種類 deck 的預設成本（cyber_rule.deck_sink_default，6）算，
  * 開局的沉溺補到下限。只給有主角的局（建角的開新局），跟在建角的報告後面。
  */
 export function demoNetChanges(pc = 'pc'): Change[] {
@@ -159,8 +159,6 @@ export function demoNetChanges(pc = 'pc'): Change[] {
     ...construct.map((c) => give(c.id as string)),
     ...skin.map((s) => give(s.id as string)),
     give(DEMO_SCRIPT, 2),
-    { op: 'actor.ext', id: pc, key: 'cyber', value: { pieces: [{ uid: DEMO_DECK_UID, bp: DEMO_DECK, kind_of: 'deck', slot: 'brain', parts: {}, sink: DEMO_DECK_SINK, at: 0, registered: true }] } } as unknown as Change,
-    { op: 'actor.track', id: pc, track: 'sink', delta: DEMO_DECK_SINK } as unknown as Change,
     { op: 'actor.ext', id: pc, key: 'deck', value: { slots: ['cs_night_rifle', 'cs_window1', 'cs_probe2'], skin: 'it_d212f6', scripts: [{ item: DEMO_SCRIPT, qty: 2 }] } } as unknown as Change,
   ]
 }

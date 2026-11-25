@@ -1,19 +1,4 @@
-import type { BodyPartDef, Character, EquipSlotDef, ItemStack, PartyMember, BodyPartId, EquipSlotId } from './types'
-
-/** 義體的部位與槽數（docs/gear/CYBERWARE.md 第 1 節）。左右照 docs/art/body-slots.svg 的排法。 */
-export const BODY_PARTS: BodyPartDef[] = [
-  { id: 'brain', name: '腦', slots: 3, icon: 'ic-cw_brain', side: 'left', hint: '甲板、反射加速器、記憶庫、人格面具槽、人偶晶片。' },
-  { id: 'eye', name: '眼', slots: 2, icon: 'ic-cw_eye', side: 'left', hint: '義眼（瞄準、夜視、錄影）、掃描器。' },
-  { id: 'skin', name: '皮膚', slots: 2, icon: 'ic-cw_skin', side: 'left', hint: '觸覺強化皮膚、光學迷彩、光紋刺青。' },
-  { id: 'armL', name: '左臂', slots: 2, icon: 'ic-cw_arm', side: 'left', hint: '義臂、內藏武器、駭入接頭、手術指。' },
-  { id: 'legL', name: '左腿', slots: 2, icon: 'ic-cw_leg', side: 'left', hint: '義腿、跳躍增壓、靜音足墊。' },
-  { id: 'earthroat', name: '耳與喉', slots: 2, icon: 'ic-cw_earthroat', side: 'right', hint: '聲紋偽裝、指向收音、費洛蒙腺。' },
-  { id: 'bridge', name: '橋', slots: 1, extraSlots: 2, extraName: '調校槽', icon: 'ic-cw_bridge', side: 'right', hint: '邊緣橋本體，在後頸。型號決定四類技能的容量；另有 2 個調校槽。' },
-  { id: 'torso', name: '軀幹', slots: 3, icon: 'ic-cw_torso', side: 'right', hint: '皮下裝甲、合成臟器、藥泵、備用心臟。' },
-  { id: 'armR', name: '右臂', slots: 2, icon: 'ic-cw_arm', side: 'right', hint: '義臂、內藏武器、駭入接頭、手術指。' },
-  { id: 'legR', name: '右腿', slots: 2, icon: 'ic-cw_leg', side: 'right', hint: '義腿、跳躍增壓、靜音足墊。' },
-  { id: 'intimate', name: '私密', slots: 2, icon: 'ic-cw_intimate', side: 'right', hint: '感官強化、鎖具、藏匿艙。' },
-]
+import type { Character, EquipSlotDef, ItemStack, PartyMember, EquipSlotId } from './types'
 
 /** 穿著 10 格、飾品 5 格、攜帶 3 格（docs/gear/EQUIPMENT.md 第 2～4 節）。 */
 export const EQUIP_SLOTS: EquipSlotDef[] = [
@@ -116,21 +101,6 @@ export const START_INVENTORY: ItemStack[] = [
   { uid: 's42', def: 'cs_cool1', qty: 1, condition: '全新' },
   { uid: 's43', def: 'cs_pistol1', qty: 1, condition: '二手' },
 ]
-
-/** 裝在身上的義體：部位 → 每一槽的物品 id（null 是空槽）。橋的調校槽另算。 */
-export const START_CYBER: Record<BodyPartId, Array<string | null>> = {
-  bridge: ['it_3882ae', null, null],
-  brain: ['it_d553bd', 'it_91ec53', null],
-  eye: ['it_34c398', null],
-  earthroat: ['it_a4b7d6', null],
-  torso: ['it_463387', null, null],
-  skin: ['it_2ddbd0', null],
-  armL: [null, null],
-  armR: ['it_7bda7b', 'it_f559cd'],
-  legL: [null, null],
-  legR: [null, null],
-  intimate: [null, null],
-}
 
 /** 穿在身上的：欄位 → 物品 id。 */
 export const START_EQUIP: Partial<Record<EquipSlotId, string>> = {

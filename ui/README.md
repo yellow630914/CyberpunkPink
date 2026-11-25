@@ -82,6 +82,8 @@ npm run preview   # 在本機看建置結果
 
 **子網接引擎**（M3-ui-subnet）：`SubnetScreen` 只編排，`stores/engine.ts` 的 `net` 只轉接 `features/netrun`（`netrunView`、`useNode`、`descend`、`logout`）與核心的格子（`gridView`、`gridMove`）；`lib/netrunView.ts` 只整理（格子種類的圖示與顏色、迷霧、巡邏代幣、追蹤度刻度的說明、「這裡」與按 E 的選項、結束後離開這一頁）。地圖畫引擎看過的格子（沒看過的蓋霧、看過但不在視野裡的變暗、處理過的節點打勾、目標加星），巡邏的代幣在 `netrunView.patrols` 說的位置（只畫 `visible` 的）；遭遇節點站不上去，站在旁邊時右欄列開戰與潛行繞過；層的分頁只有目前這一層能選，換層只經由閘門的「往下一層」；登出先跳確認框（委託的那一段寫「會回到進副本之前」）。開戰之後 `App.vue` 換到內海戰鬥，打完回到這一頁；這一趟結束（引擎沒有行程了）離開：委託的那一段回副本頁，其餘回主畫面。自己潛進去的入口是接入點（潛艙店等，`dive`）與迷宮館（M3-ui-dive）；已經在網內時主畫面與工具列變成「回到子網」。舊的 `stores/subnet.ts`、`data/subnet.ts`（藍鯨物流、自己算的巡邏與追蹤度）已刪除，存檔不再帶子網（舊存檔的 `subnet` 欄位讀到就略過）。
 
+**身體接引擎**（M4-ui-body）：角色的「身體」「橋」分頁與診所對話框（`dialogs/character/BodyTab.vue`、`BridgeTab.vue`、`ClinicDialog.vue`、`components/body/`：`QuoteCard`、`SinkPanel`、`DrugPanel`、`MedicalPanel`、`BridgePanel`、`HpBar`、`BodyFigure`）只編排，`stores/engine.ts` 的 `body` 只轉接 `features/cyberware`（`cyberView`、`surgeons`、`installQuote`、`bridgeQuote`、`removeQuote`、`modifyQuote`、`repairQuote`、`lockView`、`crackQuote`）、`medical`（`medicalView`）、`drugs`（`drugView`）、`sink`（`sinkView`、`therapyQuote`）、`lewd`（`bridgeOf`）與核心的 `k.passives`；`lib/bodyView.ts` 只整理（部位的順序與圖標、報價的列、被動效果照來源分組、下限的組成），沒有費用、成本、休養、機率與 DC 的算式（成功率用引擎的 `computeDegree` 逐面判一次）。診所對話框站在帶 `clinic` 的設施上才開得了（`body.clinicGate()`；自己動刀的入口在住處，條件是引擎的）；每一項先寫報價、按確認才送，擋住的原因逐字用引擎的。痛覺編輯器（設計圖的 `tags` 有 `pain_editor`）讓生命值只剩模糊的分段（`HpBar`、`PartyRow`）。示意包的義體、零件、藥在 `data/demo/body.ts`，開新局橋、甲板、義眼已經裝在身上。調校與惡意韌體還沒有引擎的功能，診所對應的分頁只寫一句說明。
+
 ## 還沒做（第五版）
 
 - 成人場景的多人（分圈、換圈）、場景裡的直播、每回合的 AI（`scene_turn`、`scene_talk`）、夜課的學習（技能與體位的來源）。

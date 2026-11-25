@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PartyMember } from '../data/types'
-/** 小隊的一列（ART_STYLE 4.2 節）：名字旁邊是沉溺的 DNA 鏈，下面生命、感載與餘韻。 */
+import { hpBlur } from '../lib/bodyView'
+/** 小隊的一列（ART_STYLE 4.2 節）：名字旁邊是沉溺的 DNA 鏈，下面生命、感載與餘韻。有痛覺編輯器的人生命值只剩模糊的分段（m.hpBlur）。 */
 defineProps<{ m: PartyMember }>()
 </script>
 
@@ -9,7 +10,8 @@ defineProps<{ m: PartyMember }>()
     <div class="ava" :class="{ me: m.me }" aria-hidden="true" />
     <div class="info">
       <div class="nm"><b>{{ m.name }}</b><span class="sink" :title="`沉溺 ${m.sink}`"><b :style="{ width: Math.min(100, m.sink) + '%' }" /></span><span class="sv">{{ m.sink }}</span><span class="role">{{ m.role }}</span></div>
-      <div class="hb hp" :title="`生命 ${m.hp[0]}／${m.hp[1]}`"><b :style="{ width: (m.hp[0] / m.hp[1]) * 100 + '%' }" /></div>
+      <div v-if="m.hpBlur" class="hb hp blur" data-hp-blur role="img" aria-label="生命值（模糊）" title="生命值：痛覺編輯器讓你只感覺得到大概"><i v-for="n in hpBlur(m.hp[0], m.hp[1]).segments" :key="n" :class="{ on: n <= hpBlur(m.hp[0], m.hp[1]).filled }" /></div>
+      <div v-else class="hb hp" :title="`生命 ${m.hp[0]}／${m.hp[1]}`"><b :style="{ width: (m.hp[0] / m.hp[1]) * 100 + '%' }" /></div>
       <div class="ldrow">
         <div class="hb ld" :title="`感載 ${m.load[0]}／${m.load[1]}`"><b :style="{ width: (m.load[0] / m.load[1]) * 100 + '%' }" /></div>
         <div class="ag" :title="`餘韻 ${m.afterglow}`"><i v-for="n in 3" :key="n" :class="{ on: n <= m.afterglow }" /></div>
@@ -33,6 +35,9 @@ defineProps<{ m: PartyMember }>()
 .hb { height: 8px; border-radius: 4px; background: #2E2339; margin-top: 5px; position: relative; overflow: hidden; }
 .hb b { position: absolute; inset: 0 auto 0 0; border-radius: 4px 0 0 4px; }
 .hb.hp b { background: linear-gradient(90deg, #FF4A4A, #FF8A5C); }
+.hb.blur { display: flex; gap: 2px; background: none; }
+.hb.blur i { flex: 1; background: var(--bg-3); border-radius: 3px; filter: blur(1.2px); }
+.hb.blur i.on { background: var(--hp); }
 .hb.ld b { background: repeating-linear-gradient(120deg, #F06AA0 0 6px, #F58DBA 6px 9px); box-shadow: 0 0 6px #F06AA088; }
 .ldrow { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; }
 .ag { display: flex; gap: 3px; margin-top: 5px; }

@@ -118,3 +118,8 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 被戰鬥接住的「一場戰鬥」型藥：喘口氣、階段結束、睡覺都會結束（總指揮同意多加睡覺），不另設時間上限。
 - ITEMS 4.2 寫不出來的藥效（止痛劑的四段顯示、強效止痛劑收回上限、諦聽與睡蓮對別人用、蝶粉的看到的沉溺、牆灰 10% 種吻、量表加減、搶拍只多第一回合）：能用現有效果寫的寫進資料並測，寫不出來的列給 M4-data-rules。
 - `passiveProblems` 收下「`stat: ap_regen／ram_regen` 擋下」：見前面 core-passive 段，同一件事。
+
+## 總指揮補記（2026-11-25，M4-ui-body 回報）
+- 引擎匯出：沒有橋的那一組說明（P15：沒感載、沒 RAM、裝不了技能、潛不進去）；衍生數值的中文名（`statName`）與戰鬥修正的中文名（`MOD_NAMES`），介面改讀引擎、拿掉 `ui/src/lib/bodyView.ts` 的對照表。
+- 痛覺編輯器的設計圖 `tags` 要寫 `pain_editor`（M4-data-rules）。
+- 介面（交 cpp-ui，排進下一張介面工單）：MainScreen／HomeScreen 開診所前先問 `clinicGate()`；背包對話框的藥可以「使用」；藥泵圖示 `pump`、各件義體自己的圖示。
