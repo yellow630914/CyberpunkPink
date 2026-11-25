@@ -504,3 +504,4 @@
 - 2026-11-25 M4 第七步完成（cyber-lock、medical）。
 - 2026-11-25 M4 第八步完成（drugs、sink）。
 - 2026-11-25 M4 第九步完成（abilities-m4、ui-body）：engine 7505、smoke 139、ui 750。
+- 2026-11-25 M4 第十步完成（creation-body、ui-craft）：engine 7538、smoke 139、ui 755 全過；bridge legacy 過渡已拿掉。

@@ -118,7 +118,8 @@ describe('M0-fix-ui：開新局與建角是一件事（審查 S11）；建角的
     expect(e.creation.attrStepBlock(PICK, {}, 'reflex', 1)).toBeNull()
     expect(e.creation.limits).toEqual({
       attrArray: [15, 14, 13, 12, 10, 8], attrFree: 2, attrMax: 18, attrMin: 4, skillPoints: 10, skillMax: 3, perkPoints: 4, perkMax: 8, flawMax: 2,
-      startMoney: 1500, cyberPoints: 10, gearPoints: 12, cyberPointCash: 500, gearPointCash: 150,
+      startMoney: 1500, cyberPoints: 10, gearPoints: 12, cyberPointCash: 500, gearPointCash: 250,
+      cyberPointPrice: 500, cyberInstallMult: 1.5, gearPointPrice: 250, gearGradeMax: 2, gearKinds: ['weapon', 'armor', 'clothing', 'tool', 'consumable', 'ammo', 'construct', 'skin', 'deck'],
     })
   })
 
@@ -148,13 +149,13 @@ describe('M0-fix-ui：開新局與建角是一件事（審查 S11）；建角的
     expect((off.pc!.ext.profile as { look: unknown }).look).toEqual({ hair: '黑色短髮' })
   })
 
-  it('起始的錢由引擎算（CHARACTER 5.4 節）：沒花完的義體點數每點 500、裝備點數每點 150，全部是現金', () => {
+  it('起始的錢由引擎算（CHARACTER 5.4 節）：沒花完的義體點數每點 500、裝備點數每點 250，全部是現金', () => {
     const e = useEngine()
     e.newGame({ seed: 7 })
-    expect(e.creation.startMoney({ cyberSpent: 8, gearSpent: 10 })).toEqual({ base: 1500, cyber: 1000, gear: 300, total: 2800 })
+    expect(e.creation.startMoney({ cyberSpent: 8, gearSpent: 10 })).toEqual({ base: 1500, cyber: 1000, gear: 500, total: 3000 })
     expect(e.creation.startMoney({})).toEqual({ base: 1500, cyber: 0, gear: 0, total: 1500 })
     setActivePinia(createPinia())
-    expect(started({ cyberSpent: 8, gearSpent: 10 }).money).toEqual({ cred: 0, cash: 2800 })
+    expect(started({ cyberSpent: 8, gearSpent: 10 }).money).toEqual({ cred: 0, cash: 3000 })
     setActivePinia(createPinia())
     expect(useEngine().newGame({ seed: 7, draft: { ...DRAFT, cyberSpent: 11 } as never })).toEqual([{ step: 'cyber', reason: '義體點數只有 10 點。' }])
   })

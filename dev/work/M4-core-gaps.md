@@ -15,3 +15,4 @@
 - 每一項至少一條行為測試；`npx tsc --noEmit`、`npm test`、`test:smoke` 全過；ui `npm test`、`vue-tsc` 全過。不 commit。
 7. （M4-medical 回報）被動效果的 `check` 多一個依屬性比對的欄位（例 `attrs: ['body','reflex']`），讓重創「體格與反應的檢定 −4／−2」對直接用屬性的檢定也生效；medical 的預設效果改用它。
 8. （M4-sink 回報）沉溺 80～99「餘韻的正面效果加倍」：核心戰鬥規則讀每層餘韻的數字時，問一個被動效果或標籤（例 `afterglow_double`），sink 在 80～99 給。
+9. （M4-creation-body 回報）核心 `CreationRuleEntry` 補 `cyber_point_price`、`cyber_install_mult`、`gear_point_price`、`gear_grade_max`、`gear_kinds` 的格式檢查；設計圖與物品的 `available`、出身的 `kit_free` 進核心內容驗證。

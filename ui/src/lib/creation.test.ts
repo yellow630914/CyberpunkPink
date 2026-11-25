@@ -92,11 +92,11 @@ describe('起始裝備：12 點，只能買 I～II 級', () => {
     expect(gearPoints(ITEMS.it_6fa4e8)).toBe(7)
     expect(gearPoints(ITEMS.it_91ec53)).toBe(10)
   })
-  it('III 級以上與獨特物品不能買；點數不夠擋下；沒花完每點換 150', () => {
+  it('III 級以上與獨特物品不能買；點數不夠擋下；沒花完每點換 250', () => {
     expect(gearAddBlock([], ITEMS.it_c7dbe5)).toContain('I～II')
     expect(gearAddBlock([], ITEMS.it_9db829)).toContain('獨特')
     expect(gearAddBlock([ITEMS.it_6fa4e8, ITEMS.it_7eb6ee], ITEMS.it_7eb6ee)).toBe('要 3 點，剩 2 點。')
-    expect(gearSummary([ITEMS.it_6fa4e8]).money).toBe(750)
+    expect(gearSummary([ITEMS.it_6fa4e8]).money).toBe(1250)
   })
   it('建議組合超過 12 點時從最後一件拿掉', () => {
     for (const ids of Object.values(SUGGESTED_KITS)) expect(gearSummary(fitKit(ids.map(i => ITEMS[i]))).left).toBeGreaterThanOrEqual(0)

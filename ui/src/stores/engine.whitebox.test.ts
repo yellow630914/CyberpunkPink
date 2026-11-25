@@ -168,7 +168,7 @@ describe('建角（M0-ui-engine 第三、四節；CHARACTER 第 5 節）', () =>
   it('不變式第 32 條；CHARACTER 第 5 節：建角的數字從引擎拿', () => {
     const e = useEngine()
     e.newGame({ seed: 7 })
-    expect(e.creation.limits).toEqual({ attrArray: [15, 14, 13, 12, 10, 8], attrFree: 2, attrMax: 18, attrMin: 4, skillPoints: 10, skillMax: 3, perkPoints: 4, perkMax: 8, flawMax: 2, startMoney: 1500, cyberPoints: 10, gearPoints: 12, cyberPointCash: 500, gearPointCash: 150 })
+    expect(e.creation.limits).toEqual({ attrArray: [15, 14, 13, 12, 10, 8], attrFree: 2, attrMax: 18, attrMin: 4, skillPoints: 10, skillMax: 3, perkPoints: 4, perkMax: 8, flawMax: 2, startMoney: 1500, cyberPoints: 10, gearPoints: 12, cyberPointCash: 500, gearPointCash: 250, cyberPointPrice: 500, cyberInstallMult: 1.5, gearPointPrice: 250, gearGradeMax: 2, gearKinds: ['weapon', 'armor', 'clothing', 'tool', 'consumable', 'ammo', 'construct', 'skin', 'deck'] })
   })
 
   it('M0-ui-engine 第四節：設定頁的特質點交給引擎預覽；清掉或開新局之後回到這一局的規則', () => {

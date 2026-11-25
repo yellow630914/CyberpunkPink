@@ -461,7 +461,6 @@ describe('示意世界包開新局', () => {
     // 容量與橋參數來自引擎；下限就是身上義體成本的合計
     const cap = e.body.capacity()!
     expect(cap.split.net).toBeGreaterThan(0)
-    expect(cap.legacy).toBeUndefined()
     expect(e.body.bridge()!.name).toContain('橋')
     expect(e.body.sink()!.floor).toBe(v.parts.flatMap((p) => p.pieces).reduce((n, p) => n + (p?.sink ?? 0), 0))
     expect(e.state.actors[e.pc!.id]!.sink).toBeGreaterThanOrEqual(e.body.sink()!.floor)

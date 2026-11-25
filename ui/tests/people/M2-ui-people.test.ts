@@ -9,6 +9,7 @@ import { renderToString } from 'vue/server-renderer'
 import type { ContentPack, Feature } from '@engine/src'
 import { FakeProvider, Game, meterOf } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
+import { BRIDGE_PACK, giveBridge } from '../helpers/giveBridge'
 import { allFeatures } from '@engine/src/features'
 import { CHAT_DONE_NOTE, affinityStage, interactions, npcsHere, recall } from '@engine/src/features/npcs'
 import { recruitBlock, recruitDc, rosterView } from '@engine/src/features/roster'
@@ -99,7 +100,7 @@ async function setup(o: { seed?: number; hour?: number; at?: string; bare?: bool
   const pinia = createPinia()
   setActivePinia(pinia)
   const e = useEngine()
-  e.newGame({ seed: o.seed ?? 7, testContent: [PACK], testFeatures: [busy] })
+  e.newGame({ seed: o.seed ?? 7, testContent: [PACK, BRIDGE_PACK], testFeatures: [busy] })
   e.setAi({ useAi: false })
   expect(e.createCharacter(DRAFT)).toEqual([])
   expect(e.commit({ summary: '放進背包。', changes: [{ op: 'item', id: 't_bun', qty: 2 }, { op: 'item', id: 't_deck', qty: 1 }] })).toBeNull()
@@ -119,7 +120,7 @@ function toHour(e: Eng, hour: number): void {
 }
 /** 另一個獨立的引擎讀同一份存檔 */
 function oracle(e: Eng): Game {
-  const g = new Game({ features: [...allFeatures(), busy], content: [CORE_PACK, PACK], fakeProvider: new FakeProvider() })
+  const g = new Game({ features: [...allFeatures(), busy], content: [CORE_PACK, PACK, BRIDGE_PACK], fakeProvider: new FakeProvider() })
   expect(g.load(e.save())).toBeNull()
   return g
 }
@@ -407,7 +408,8 @@ describe('橋分頁的換配置（引擎的 loadoutBlock 與 loadout_minutes）'
     expect((await e.world.arrive('b_t', 'F3')).status).toBe('applied')
     expect(e.skills.loadoutBlock()).toBeNull()
     // 學會一個真的技能再裝上（給歷練點、學、裝：都問引擎）
-    expect(e.commit({ summary: '歷練點', changes: [{ op: 'actor.ext', id: 'pc', key: 'abilities', value: { xp: 1000, learned: [], equipped: [], spent: {} } } as never, { op: 'actor.ext', id: 'pc', key: 'bridge', value: { capacity: { meat: 8, net: 8, social: 8, media: 8 } } } as never] })).toBeNull()
+    expect(e.commit({ summary: '歷練點', changes: [{ op: 'actor.ext', id: 'pc', key: 'abilities', value: { xp: 1000, learned: [], equipped: [], spent: {} } } as never] })).toBeNull()
+    expect(giveBridge(e)).toBeNull()
     const pick = e.skills.abilities().find((a) => e.skills.learnBlock(a.id) === null)
     expect(pick).toBeTruthy()
     expect(e.skills.learn(pick!.id)).toBeNull()

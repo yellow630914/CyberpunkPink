@@ -12,6 +12,7 @@ import { CORE_PACK } from '@engine/data'
 import { allFeatures } from '@engine/src/features'
 import { abilitiesOf, capacityOf, learnBlock, resonanceOn, treeTier, TREE_XP } from '@engine/src/features/abilities'
 import { BATTLE_SETUPS } from '@engine/src/testkit'
+import { BRIDGE_PACK, giveBridge } from '../helpers/giveBridge'
 import { useEngine } from '../../src/stores/engine'
 import AbilityTreeView from '../../src/components/AbilityTreeView.vue'
 import BridgeTab from '../../src/dialogs/character/BridgeTab.vue'
@@ -62,22 +63,21 @@ function setup(xp = 100) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const e = useEngine()
-  e.newGame({ seed: 7, testContent: [PACK] })
+  e.newGame({ seed: 7, testContent: [PACK, BRIDGE_PACK] })
   expect(e.createCharacter(DRAFT)).toEqual([])
   const id = e.state.pc!
   expect(e.commit({ summary: '站在調校診所。', changes: [{ op: 'location', to: { district: 'd_t', block: 'b_t', facility: 'F1' } }] })).toBeNull()
   expect(e.commit({
     summary: '給技能資料。',
-    changes: [
-      { op: 'actor.ext', id, key: 'abilities', value: { xp, learned: [], equipped: [], spent: {} } },
-      { op: 'actor.ext', id, key: 'bridge', value: { capacity: { meat: 8, net: 8, social: 8, media: 8 } } },
-    ],
+    changes: [{ op: 'actor.ext', id, key: 'abilities', value: { xp, learned: [], equipped: [], spent: {} } }],
   })).toBeNull()
+  // 橋是身上的一件義體（容量從零件算：四類各 8）
+  expect(giveBridge(e)).toBeNull()
   return { pinia, e }
 }
 /** 另一個獨立的引擎讀同一份存檔：直接呼叫引擎函式，當標準答案。 */
 function oracle(e: Eng) {
-  const g = new Game({ features: allFeatures(), content: [CORE_PACK, PACK], fakeProvider: new FakeProvider() })
+  const g = new Game({ features: allFeatures(), content: [CORE_PACK, PACK, BRIDGE_PACK], fakeProvider: new FakeProvider() })
   expect(g.load(e.save())).toBeNull()
   return g
 }
@@ -110,7 +110,7 @@ describe('技能樹讀引擎（M1b-ui-skills）', () => {
     // 引擎的狀態一致
     expect(abilitiesOf(oracle(e).state, pc(e))).toEqual(mineOf(e))
     const raw = e.save()
-    e.newGame({ seed: 99, testContent: [PACK] })
+    e.newGame({ seed: 99, testContent: [PACK, BRIDGE_PACK] })
     expect(e.load(raw)).toBeNull()
     expect(mineOf(e).learned).toEqual(['ta_sig'])
     expect(mineOf(e).xp).toBe(80)
@@ -301,7 +301,7 @@ describe('橋的分頁讀引擎（M1b-ui-skills）', () => {
     expect(toggleDraft(draft, 'ta_one')).toEqual(['ta_two', 'tb_one'])
     // 存檔再讀回來還在
     const raw = e.save()
-    e.newGame({ seed: 99, testContent: [PACK] })
+    e.newGame({ seed: 99, testContent: [PACK, BRIDGE_PACK] })
     expect(e.load(raw)).toBeNull()
     expect(mineOf(e).equipped).toEqual(draft)
   })

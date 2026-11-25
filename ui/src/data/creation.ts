@@ -184,7 +184,7 @@ export const LIFE_TABLES: LifeTable[] = [
 
 /** 起始的裝備（CHARACTER 5.4 節）：12 點，只能買 I～II 級；一件的點數＝目錄價 ÷ 250，無條件進位，最少 1。 */
 export const GEAR_POINTS = 12
-export const GEAR_POINT_MONEY = 150
+export const GEAR_POINT_MONEY = 250
 export const GEAR_CATALOG: Array<{ cat: string; ids: string[] }> = [
   { cat: '武器', ids: ['it_f0db7d', 'it_7eb6ee', 'it_e60505', 'it_6fa4e8'] },
   { cat: '護甲與服裝', ids: ['it_476d39', 'it_7d6ad2', 'it_f359b2', 'it_f13bde', 'it_ccbaca'] },

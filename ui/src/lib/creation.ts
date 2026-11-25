@@ -122,7 +122,7 @@ export function traitBlock(picked: TraitOption[], points: number): string | null
   return null
 }
 
-// ---- 起始裝備：12 點，只能買 I～II 級；一件＝目錄價 ÷ 250 無條件進位，最少 1；沒花完每點換 150 ----
+// ---- 起始裝備：12 點，只能買 I～II 級；一件＝目錄價 ÷ 250 無條件進位，最少 1；沒花完每點換 250（使用者 2026-11-25；CHARACTER 5.4 節） ----
 export const gearPoints = (d: Pick<ItemDef, 'price'>) => Math.max(1, Math.ceil(d.price / 250))
 const GEAR_KINDS = new Set(['weapon', 'armor', 'clothing', 'tool', 'consumable', 'ammo', 'construct', 'skin'])
 export function gearItemBlock(d: ItemDef): string | null {
