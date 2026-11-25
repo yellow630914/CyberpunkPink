@@ -20,3 +20,4 @@
 11. （M4-tuning 回報）生命傷害結算的掛點：`hp_to_load` 開關把兩成生命傷害換成感載（痛覺轉譯）。
 12. （M4-tuning 回報）被動效果依軌道值縮放：例 `{ check, per: { track: 'load', every: 10, amount: 1 } }`（渴求的感載越高檢定越高）。
 13. （M4-tuning 回報）`sink_resist`：沉溺每次上升 −1、最少 1——在 `sink` 效果與 `actor.track` 往上加的路徑讀開關（sink 功能那邊加，這張給核心需要的介面）。第 8 項的 `afterglow_double` 也讀調校的同名開關。
+14. （M4-malware 回報）戰鬥掛點：傀儡絲「義肢偶爾不聽使喚、被遠端操控一回合」——回合開始時問一次，可以讓單位這一回合由敵方 AI 操控。

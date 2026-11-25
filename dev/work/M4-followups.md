@@ -147,3 +147,8 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 從 features 的 index 正式匯出 `NO_BRIDGE_NOTE`、`NO_BRIDGE_ABILITY`、`treeTierOf`（或放進 `creationSummary().notes`），ui 改從 index import。
 - 外觀推導（外露的義體、獸化、風格：ui 的 `derivedLooks`、`CYBER_LOOK`、`GEAR_STYLE`）搬進引擎：cyberware 與 gear 各回答一段。
 - 正式內容的 origin 要帶 `kit_free`（現在示意包在載入前補）。
+
+## 總指揮補記（2026-11-25，M4-malware 回報）
+- 竊聽花：commission 讀條件 `malware_leak`，出發時警戒起始值加上去（數字照 CYBERWARE 第 5 節）。
+- 妖精的吻擴散階段「替你做決定」「想傳給和你親近的人」：交 M4-lure（蠱惑那張同一類的插選項）。
+- 惡意韌體的 `remove` 路花時間、診所價錢乘區倍率與蠕蟲潮 +50%：M4-data-rules 一起看。
