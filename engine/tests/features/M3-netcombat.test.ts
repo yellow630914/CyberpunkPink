@@ -8,9 +8,9 @@ import type { BattleInput, BattleOptions, BattleSetup, BattleUnit, ContentPack, 
 import { BattleBlocked, BattleRun, END_TURN, MOVE, battleAct, battleOptions, beginTurn, clone, createKernel, endBattle, performAction, readyFeatures, setupBattle } from '../../src'
 import { combatFeature } from '../../src/features/combat'
 import { characterFeature } from '../../src/features/character'
-import { deckFeature, equipDraft, installDraft, scriptsDraft } from '../../src/features/deck'
+import { deckFeature, installDraft, scriptsDraft } from '../../src/features/deck'
 import { DEFAULT_NETCOMBAT_RULES, netBattleView, netcombatFeature, netcombatRules } from '../../src/features/netcombat'
-import { BATTLE_SETUPS, commitViolations, fixDice, laceUnit, makeGame, makeState, netAvatar, netWeapon, playOut, stateHash } from '../../src/testkit'
+import { BATTLE_SETUPS, commitViolations, fixDice, laceUnit, makeGame, makeState, netAvatar, netWeapon, playOut, stateHash, wearDeck } from '../../src/testkit'
 
 type Rec = Record<string, unknown>
 
@@ -832,7 +832,7 @@ describe('和 features/deck 一起裝：角色進場', () => {
       patch: { inventory: structuredClone(BAG) as never },
     })
     const g = t.game
-    g.commit(equipDraft(g.k, g.state, 'pc', 'D1'))
+    g.commit(wearDeck(g.k, g.state, 'pc', 'D1'))
     for (const item of ['cs_rifle_3', 'cs_blade', 'cs_jam', 'cs_guard_4', 'cs_cooler', 'cs_pass']) g.commit(installDraft(g.k, g.state, 'pc', item))
     g.commit(scriptsDraft(g.k, g.state, 'pc', [{ item: 'it_ramscript', qty: 1 }]))
     return g

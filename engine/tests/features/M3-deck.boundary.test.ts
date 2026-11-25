@@ -52,9 +52,13 @@ const RESERVE: Feature = {
 
 const commit = (g: G, changes: unknown[]) => g.commit({ kind: 'system', action: 'test.set', location: {}, party: [], timeline: [], changes: changes as never, outcome: { result: 'ok', summary: 't' } })
 
-/** 一局不開打的遊戲；主角卸掉原本的甲板與構裝，背包放進四副邊界甲板（uid U1～U4）、所有構裝與腳本（每種 5 個），裝上 deck 級甲板。 */
+/**
+ * 一局不開打的遊戲；主角卸掉原本的甲板與構裝，背包放進四副邊界甲板（uid U1～U4）、所有構裝與腳本（每種 5 個），裝上 deck 級甲板。
+ * 不裝義體功能（without: ['cyberware']）：這個檔測的是 M3 的背包甲板——裝上、換成別副（比較小的放不下的構裝與腳本退回背包）、卸下都是 equipDraft 的行為；
+ * 裝了義體功能之後甲板是腦部的義體、equipDraft 一律回 IMPLANT_ONLY（dev/adr/0019「實作補記：M4-cyber-deck」）。腦部甲板的槽數、等級、腳本上限看 tests/features/M4-cyber-deck.test.ts。
+ */
 function game(deck: number, rule?: Record<string, unknown>): G {
-  const { game: g } = makeNetBattleGame({ noBattle: true, content: [pack(rule)] as never, features: [RESERVE] })
+  const { game: g } = makeNetBattleGame({ noBattle: true, content: [pack(rule)] as never, features: [RESERVE], without: ['cyberware'] })
   commit(g, [
     { op: 'actor.ext', id: 'pc', key: 'deck', value: { slots: [], scripts: [] } },
     ...DECKS.map((d, i) => ({ op: 'item', id: d.id, qty: 1, data: { uid: `U${i + 1}` } })),

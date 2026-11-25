@@ -30,9 +30,13 @@ const SKIN_PACK: ContentPack = {
   } as never,
 }
 
-/** 不開打的一局（主角有 II 級甲板、帶兩支腳本），背包多一套 SKIN 與一副 I 級甲板（D9）。 */
+/**
+ * 不開打的一局（主角有 II 級甲板、帶兩支腳本），背包多一套 SKIN 與一副 I 級甲板（D9）。
+ * 不裝義體功能（without: ['cyberware']）：這些測的是背包甲板的裝上、卸下、換副時的整理（equipDraft、equipBlock、deckView 列背包裡的甲板）；
+ * 裝了義體功能之後甲板是腦部的義體、equipDraft 一律回 IMPLANT_ONLY（dev/adr/0019「實作補記：M4-cyber-deck」）。
+ */
 function game(): G {
-  const { game: g } = makeNetBattleGame({ noBattle: true, content: [SKIN_PACK] as never })
+  const { game: g } = makeNetBattleGame({ noBattle: true, content: [SKIN_PACK] as never, without: ['cyberware'] })
   g.commit({
     kind: 'system', action: 'test.set', location: {}, party: [], timeline: [],
     changes: [{ op: 'item', id: 'sk_wb', qty: 1 }, { op: 'item', id: 'dk_wb_i', qty: 1, data: { uid: 'D9' } }] as never, outcome: { result: 'ok', summary: 't' },

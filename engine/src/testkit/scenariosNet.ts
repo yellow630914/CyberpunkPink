@@ -12,7 +12,7 @@
 import { gridHere, pointKey } from '../core'
 import type { Feature } from '../core/kernel'
 import type { GameState, Report, ReportDraft } from '../core/types'
-import { equipDraft, installDraft, removeDraft, scriptsDraft } from '../features/deck'
+import { installDraft, removeDraft, scriptsDraft } from '../features/deck'
 import { chooseBranch, chooseFace, readRun } from '../features/commission'
 import { enter as diveEnter } from '../features/dive'
 import { enter as mazeEnter, open as mazeOpen, solve as mazeSolve } from '../features/maze'
@@ -25,6 +25,7 @@ import type { ActorOverrides } from './factory'
 import { makeActor } from './factory'
 import type { CommissionGame, CommissionOptions, WorldGame, WorldGameSetup } from './scenarios'
 import { RUNNER, STRONG_PC, fightOut, makeRunner, makeWorldGame, walkTo } from './scenarios'
+import { wearDeck } from './wearDeck'
 import { NET_FIXER, NET_OFFER_ID } from './worldNet'
 
 type Cell = [number, number]
@@ -99,11 +100,14 @@ export function netInventory(n: number): Array<{ id: string; qty: number; data?:
 
 const commit = (game: Game, d: ReportDraft): Report[] => game.commit(d)
 
-/** 給隊上的人（依序）穿上甲板、裝構裝（第一個人全套，其他人槍加防護）、帶腳本：走真正的 deck 報告。 */
+/**
+ * 給隊上的人（依序）穿上甲板、裝構裝（第一個人全套，其他人槍加防護）、帶腳本。
+ * 穿甲板用 wearDeck（wearDeck.ts）：沒裝義體功能的局走 deck.equip（M3 的樣子），有義體功能的局直接放進腦部（M4-cyber-deck）；構裝與腳本走真正的 deck 報告。
+ */
 export function equipParty(game: Game, ids: readonly string[]): void {
   const { k } = game
   ids.forEach((id, i) => {
-    commit(game, equipDraft(k, game.state, id, `D${i + 1}`))
+    commit(game, wearDeck(k, game.state, id, `D${i + 1}`))
     for (const item of i === 0 ? PC_SLOTS : MATE_SLOTS) commit(game, installDraft(k, game.state, id, item))
     // 腳本的效果（net.ram）是 netcombat 註冊的：拿掉它，假世界就沒有那支腳本（worldFor）
     if (i === 0 && k.content.has('item', 'it_tw_script')) commit(game, scriptsDraft(k, game.state, id, [{ item: 'it_tw_script', qty: 2 }]))

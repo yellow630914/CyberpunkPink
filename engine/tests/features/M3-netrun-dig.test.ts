@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Change, ContentPack, Feature, Origin } from '../../src'
 import { ActionBlocked, Sheet, clone, gridHere, meterOf, toMinutes } from '../../src'
-import { deckFeature, deckOf, equipDraft } from '../../src/features/deck'
+import { deckFeature, deckOf } from '../../src/features/deck'
 import { enemiesFeature } from '../../src/features/enemies'
 import { exploreFeature } from '../../src/features/explore'
 import {
@@ -16,7 +16,7 @@ import {
 } from '../../src/features/netrun'
 import { pickAdmin, rollPicked } from '../../src/features/netrun/checks'
 import { securityFeature } from '../../src/features/security'
-import { TEST_ACTIVITY, TEST_NET_COMBAT, makeActor, makeGame, netWeapon } from '../../src/testkit'
+import { TEST_ACTIVITY, TEST_NET_COMBAT, makeActor, makeGame, netWeapon, wearDeck } from '../../src/testkit'
 
 type Rec = Record<string, unknown>
 
@@ -614,10 +614,10 @@ describe('走完兩層從出口離開：done、東西都在、時間照探索回
     const g = t.game
     expect(g.k.stats.hasStat('deck_cooling')).toBe(true)
     expect(g.k.stats.stat(g.state, 'pc', 'deck_cooling')).toBe(0)
-    g.commit(equipDraft(g.k, g.state, 'pc', 'D1'))
+    g.commit(wearDeck(g.k, g.state, 'pc', 'D1'))
     expect(deckOf(g.k, g.state, 'pc').has).toBe(true)
     expect(g.k.stats.stat(g.state, 'pc', 'deck_cooling')).toBe(3)
-    g.commit(equipDraft(g.k, g.state, 'pc', 'D2'))
+    g.commit(wearDeck(g.k, g.state, 'pc', 'D2'))
     expect(g.k.stats.stat(g.state, 'pc', 'deck_cooling')).toBe(0)
   })
 })

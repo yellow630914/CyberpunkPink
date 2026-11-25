@@ -719,7 +719,8 @@ describe('冒煙 M3：潛入（第二波）', () => {
         expect(g.state.money.cash).toBe(money - 50 + data.prize + data.refund + data.chipCash)
         expect(readMaze(g.state)).toBeNull()
         expect(g.state.counters).not.toHaveProperty(`${MAZE_EXT}:z1:chips`)
-        expect(deckOf(k, g.state, 'pc').source).toBe('own')
+        // 租的收回之後回到自己的甲板；全部功能的局裡甲板是腦部的義體（M4-cyber-deck：wearDeck 放進腦部），來源是 implant（M3 時是背包裡裝上的 own）
+        expect(deckOf(k, g.state, 'pc').source).toBe('implant')
         expect(g.k.activity.active(g.state).map((a) => a.kind)).toEqual(['dive'])
       })
       await f.step('登出：意識回到身體、活動結束，現實的事又做得了', () => {

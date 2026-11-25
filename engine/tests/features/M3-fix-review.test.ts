@@ -30,7 +30,7 @@ import { traceChanges } from '../../src/features/netrun/nodes'
 import { sceneOf } from '../../src/features/scene'
 import {
   NET_FACTION, NET_REGION, diveIn, fightOut, makeActor, makeDiveGame, makeNetBattleGame, makeNetCommissionGame, mazeSignUp, netMarkers, netUse, observed, playNetStage, playStage, refitForRookie,
-  standBeside, untilIdle,
+  standBeside, untilIdle, unwearDeck,
 } from '../../src/testkit'
 import type { Game } from '../../src/shell/game'
 
@@ -332,7 +332,8 @@ describe('應修 4：迷宮館結算把潛艙店租的甲板還原，不是收�
     expect(readMaze(g.state)!.prior).toBeUndefined()
     g.commit(logout(g.k, g.state))
     expect(rentalOf(g)).toBeUndefined()
-    expect(deckOf(g.k, g.state, 'pc').source).toBe('own')
+    // 全部功能的局裡自己的甲板是腦部的義體（M4-cyber-deck，testkit 的 wearDeck 放進腦部）：來源是 implant（M3 時是背包裡裝上的 own）
+    expect(deckOf(g.k, g.state, 'pc').source).toBe('implant')
   })
 })
 
@@ -369,7 +370,7 @@ describe('應修 5：委託的內海階段只收有橋、有甲板的人；其�
     both.game.commit(chooseBranch(both.game.k, both.game.state, 'assault'))
     expect(readNetRun(both.game.state)!.setup.party).toEqual(['pc', both.runner])
     const { game: g, job, runner } = makeNetCommissionGame()
-    g.commit(sysDraft([{ op: 'actor.ext', id: runner, key: 'deck', value: {} }]))
+    g.commit(unwearDeck(g.k, g.state, runner))
     g.commit(go(g.k, g.state, job))
     g.commit(chooseFace(g.k, g.state, 'net'))
     g.commit(chooseBranch(g.k, g.state, 'assault'))
@@ -593,7 +594,7 @@ describe('內海的感載不自然消退（基礎 0）：消退量只來自 net_
     expect(dec).toContainEqual({ op: 'actor.track', id: 'pc', track: 'load', delta: -1 })
     expect(dec).toContainEqual({ op: 'actor.track', id: 'a_tw_n1', track: 'load', delta: -1 })
     // 拿掉主角的甲板：他的消退是 0
-    g.commit(sysDraft([{ op: 'actor.ext', id: 'pc', key: 'deck', value: {} }]))
+    g.commit(unwearDeck(g.k, g.state, 'pc'))
     expect(g.k.stats.stat(g.state, 'pc', 'net_load_decay')).toBe(0)
     expect(decayChanges(g.k, g.state, true).some((c) => c.op === 'actor.track' && c.id === 'pc')).toBe(false)
   })
