@@ -3,8 +3,9 @@
 
 import type { GameState, Kernel } from '../../core'
 import type { SyncGear } from '../../core'
-import type { ActionId, LinkRec, PositionEntry, SceneLine, SceneState, Who } from './model'
-import { SYNC_GEARS, ACTION_NAME, GOAL_NAME, NATURE_NAME, ROLE_NAME, TALK_PARTS, dieRange, knownPositions, knownSkills, other, parseDie, partName, partsOf, ratingOf, sceneDefOf, tendencyTagIds } from './model'
+import { clone } from '../../core'
+import type { ActionId, CircleRec, LinkRec, PositionEntry, SceneKind, SceneLayer, SceneRaw, Who } from './model'
+import { SYNC_GEARS, ACTION_NAME, GOAL_NAME, NATURE_NAME, ROLE_NAME, TALK_PARTS, dieRange, knownPositions, knownSkills, parseDie, partName, ratingOf, sceneDefOf, sceneRawOf, tendencyTagIds } from './model'
 import type { Preview, SceneInput } from './play'
 import { Play, candOf, diceOf } from './play'
 
@@ -57,7 +58,10 @@ export interface GearView {
 
 export interface LinkView {
   id: number
+  /** 舊名字（'pc' 或 'partner'）；角色的 id 在 by_id、to_id */
   by: Who
+  by_id: string
+  to_id: string
   kind: LinkRec['kind']
   source: string
   name: string
@@ -71,15 +75,23 @@ export interface LinkView {
   fresh: boolean
 }
 
+export interface LineView { round: number; who: Who; text: string }
+
+/** 主角對這一圈某個人的：契合、主動權與評價（第二版的 pairs）。 */
+export interface PairView { fit: number; init: number; first: boolean; rating: { id: string; name: string }; holder: Who }
+
 export interface SceneView {
   id: string
-  mode: SceneState['mode']
+  mode: SceneRaw['mode']
+  /** 第二版新增：這一場是一對一、多人還是單人；在現實還是內海 */
+  kind: SceneKind
+  layer: SceneLayer
   round: number
   turn: Who
   step: number
-  nature: SceneState['nature']
+  nature: SceneRaw['nature']
   nature_name: string
-  role: SceneState['role']
+  role: SceneRaw['role']
   role_name: string
   place?: string
   goal: { id: string; name: string; progress: number; done_at: number; done: boolean } | null
@@ -92,41 +104,48 @@ export interface SceneView {
   init: number
   holder: Who
   people: Record<Who, PersonView>
+  /** 第二版新增：這一圈的每個人（第一個是主角；一對一時 people 就是 seats[0]、seats[1]） */
+  seats: PersonView[]
+  /** 主角對這一圈每個人（不含主角）的契合與主動權，照對象的 id */
+  pairs: Record<string, PairView>
+  /** 別的圈（不展開） */
+  circles: CircleRec[]
   links: LinkView[]
   /** 精簡版只顯示這個：現在有幾條持續效果與大概的數值（每回合；已乘上倍率） */
   effects: { count: number; target_load: number; my_load: number; fit: number }
   /** 現在換得到的體位（你會的；原因寫在 blocks） */
   positions: Array<{ id: string; name: string; blocks: string[] }>
-  lines: SceneLine[]
+  /** 每一回合的那一句；who 是舊名字（'pc' 或 'partner'） */
+  lines: LineView[]
   /** 選中行動的預覽與原因（sceneView 的第三個參數給了才有） */
   selected?: { input: SceneInput; blocks: string[]; preview: Preview }
 }
 
 const round1 = (n: number): number => Math.round(n * 10) / 10
 
-function playOf(k: Kernel, state: GameState, scene: SceneState): Play {
+function playOf(k: Kernel, state: GameState, scene: SceneRaw): Play {
   return new Play(k, state, scene, diceOf(state, scene))
 }
 
 function linkView(p: Play, l: LinkRec): LinkView {
-  const t = other(l.by)
+  const t = l.to
   const their = parseDie(l.link.their_load)!
   const mine = parseDie(l.link.my_load)!
-  const mult = (w: Who): number => (p.rules.load_base + p.sens[w] / p.rules.load_div) * p.mult(w) * p.boost(l.by) * p.gearMult(w)
-  const avg = (d: typeof their, w: Who): number => round1(dieRange(d).avg * (d.sign > 0 ? mult(w) : 1))
+  const mult = (id: string, part: string): number => (p.rules.load_base + p.sensAt(id, part) / p.rules.load_div) * p.mult(id) * p.boost(l.by) * p.gearMult(id)
+  const avg = (d: typeof their, id: string, part: string): number => round1(dieRange(d).avg * (d.sign > 0 ? mult(id, part) : 1))
   const text = (d: typeof their): string => (d.n === 0 && d.flat === 0 ? '0' : (d.sign < 0 ? '−' : '') + (d.n > 0 ? `${d.n}d${d.sides}` : String(d.flat)))
   return {
-    id: l.id, by: l.by, kind: l.kind, source: l.source, name: l.name, mine: l.mine, mine_name: partName(l.mine), theirs: l.theirs, theirs_name: partName(l.theirs),
-    per_round: { target_load: text(their), my_load: text(mine), fit: l.link.fit, target_avg: avg(their, t), my_avg: avg(mine, l.by) }, fresh: l.round === p.s.round,
+    id: l.id, by: p.who(l.by), by_id: l.by, to_id: l.to, kind: l.kind, source: l.source, name: l.name, mine: l.mine, mine_name: partName(l.mine), theirs: l.theirs, theirs_name: partName(l.theirs),
+    per_round: { target_load: text(their), my_load: text(mine), fit: l.link.fit, target_avg: avg(their, t, l.theirs), my_avg: avg(mine, l.by, l.mine) }, fresh: l.round === p.s.round,
   }
 }
 
-function gearView(p: Play, w: Who): GearView {
-  const now = p.s.gear[w]
+function gearView(p: Play, w: string): GearView {
+  const now = p.seat(w).gear
   const rule = p.gearRule(w)
-  const cap = p.gearCap[w]
+  const cap = p.gearCap[w]!
   return {
-    now, name: `${rule.name}檔`, cap, cap_name: `${p.sync.gears[cap].name}檔`, check: rule.check, load_pct: rule.loadPct, shifted: p.s.shifted[w], max: p.s.max_gear[w],
+    now, name: `${rule.name}檔`, cap, cap_name: `${p.sync.gears[cap].name}檔`, check: rule.check, load_pct: rule.loadPct, shifted: p.seat(w).shifted, max: p.seat(w).max_gear,
     gears: SYNC_GEARS.map((id) => {
       const g = p.sync.gears[id]
       return { id, name: `${g.name}檔`, current: id === now, check: g.check, load_pct: g.loadPct, ap_regen: g.apRegen ?? 0, sink_on_overload: g.sinkOnOverload ?? 0, blocks: p.gearReasons(w, id) }
@@ -134,49 +153,58 @@ function gearView(p: Play, w: Who): GearView {
   }
 }
 
-function personView(p: Play, w: Who): PersonView {
+function personView(p: Play, w: string): PersonView {
   const a = p.actor(w)
   const linkOf = (part: string): LinkRec | undefined => p.occupiers(w, part)[0]
-  const parts = partsOf(a).map((id): PartView => ({ id, name: partName(id), linked: !!linkOf(id), link: linkOf(id)?.id ?? null, reach: p.partReachable(w, id) }))
+  const parts = p.partsOf(w).map((id): PartView => ({ id, name: partName(id), linked: !!linkOf(id), link: linkOf(id)?.id ?? null, reach: p.partReachable(w, id) }))
   // 道具自己算一個部位（脈衝環的 toy）：連著的時候列在後面
   for (const l of p.s.links) {
     const part = l.by === w ? l.mine : l.theirs
+    if (l.by !== w && l.to !== w) continue
     if (!parts.some((x) => x.id === part)) parts.push({ id: part, name: partName(part), linked: true, link: l.id, reach: true })
   }
   return {
-    id: a.id, name: a.name, load: { now: p.load[w], max: p.loadMax[w] }, glow: { now: p.glow[w], max: p.glowMax[w] }, ap: { now: p.s.ap[w], max: p.apMax[w] }, sensitivity: p.sens[w],
-    role: p.s.roles[w], upper: p.isUpper(w), parts, tags: w === 'pc' ? tendencyTagIds(a) : [], climax: p.s.climax[w], gear: gearView(p, w),
+    id: a.id, name: a.name, load: { now: p.load[w]!, max: p.loadMax[w]! }, glow: { now: p.glow[w]!, max: p.glowMax[w]! }, ap: { now: p.seat(w).ap, max: p.apMax[w]! }, sensitivity: p.sens[w]!,
+    role: p.s.roles[w] ?? '', upper: p.isUpper(w), parts, tags: p.isPc(w) ? tendencyTagIds(a) : [], climax: p.seat(w).climax, gear: gearView(p, w),
   }
 }
 
 /** 畫面要的全部（沒有場景是 null）。selected 給一個行動就多一份它的原因與預覽。 */
 export function sceneView(k: Kernel, state: GameState, selected?: SceneInput): SceneView | null {
-  const s = state.ext.scene as SceneState | undefined
-  if (!s || typeof s !== 'object' || typeof s.id !== 'string') return null
+  const s = sceneRawOf(state)
+  if (!s) return null
   const p = playOf(k, state, s)
-  const band = ratingOf(p.rules, s.fit)
+  const band = ratingOf(p.rules, p.pair.fit)
   const links = s.links.map((l) => linkView(p, l))
   const effects = links.reduce((a, l) => ({ count: a.count + 1, target_load: round1(a.target_load + l.per_round.target_avg), my_load: round1(a.my_load + l.per_round.my_avg), fit: a.fit + l.per_round.fit }), { count: 0, target_load: 0, my_load: 0, fit: 0 })
   const pos = p.pos
-  const upperWho = (['pc', 'partner'] as const).find((w) => p.isUpper(w)) ?? null
+  const pcId = s.pc
+  const partnerId = p.partnerId
+  const upperWho = (['pc', 'partner'] as const).find((w) => p.isUpper(w === 'pc' ? pcId : partnerId)) ?? null
+  const pairs: Record<string, PairView> = {}
+  for (const [id, pr] of Object.entries(s.pairs)) {
+    const b = ratingOf(p.rules, pr.fit)
+    pairs[id] = { fit: pr.fit, init: pr.init, first: pr.first, rating: { id: b.id, name: b.name }, holder: pr.init >= 50 ? 'pc' : 'partner' }
+  }
+  const seats = s.seats.map((x) => personView(p, x.id))
   const view: SceneView = {
-    id: s.id, mode: s.mode, round: s.round, turn: s.turn, step: s.step, nature: s.nature, nature_name: NATURE_NAME[s.nature], role: s.role, role_name: ROLE_NAME[s.role],
+    id: s.id, mode: s.mode, kind: s.kind, layer: s.layer, round: s.round, turn: p.who(s.turn), step: s.step, nature: s.nature, nature_name: NATURE_NAME[s.nature], role: s.role, role_name: ROLE_NAME[s.role],
     ...(s.place ? { place: s.place } : {}),
     goal: s.goal ? { id: s.goal, name: GOAL_NAME[s.goal], progress: s.goal_progress ?? 0, done_at: p.rules.goal_done_at, done: (s.goal_progress ?? 0) >= p.rules.goal_done_at } : null,
-    position: { id: pos.id, name: pos.name, ...(pos.text ? { text: pos.text } : {}), upper: upperWho, mult: { pc: p.mult('pc'), partner: p.mult('partner') }, roles: { ...s.roles } },
-    fit: s.fit, rating: { id: band.id, name: band.name }, fit_marks: p.rules.bands.map((b) => b.min).filter((m) => m > 0).sort((a, b) => a - b), init: s.init, holder: p.holder(),
-    people: { pc: personView(p, 'pc'), partner: personView(p, 'partner') }, links, effects,
-    positions: knownPositions(k, state, s.pc).map((x) => ({ id: x.id, name: x.name, blocks: p.blocks('pc', { kind: 'switch', position: x.id }, true) })),
-    lines: s.lines.map((l) => ({ ...l })),
+    position: { id: pos.id, name: pos.name, ...(pos.text ? { text: pos.text } : {}), upper: upperWho, mult: { pc: p.mult(pcId), partner: p.mult(partnerId) }, roles: { pc: s.roles[pcId] ?? '', partner: s.roles[partnerId] ?? '' } },
+    fit: p.pair.fit, rating: { id: band.id, name: band.name }, fit_marks: p.rules.bands.map((b) => b.min).filter((m) => m > 0).sort((a, b) => a - b), init: p.pair.init, holder: p.who(p.holder()),
+    people: { pc: seats[0]!, partner: seats[1]! }, seats, pairs, circles: clone(s.circles), links, effects,
+    positions: knownPositions(k, state, s.pc).map((x) => ({ id: x.id, name: x.name, blocks: p.blocks(pcId, { kind: 'switch', position: x.id }, true) })),
+    lines: s.lines.map((l) => ({ ...l, who: p.who(l.who) })),
   }
-  if (selected) view.selected = { input: selected, blocks: p.blocks('pc', selected, true), preview: p.preview('pc', selected) }
+  if (selected) view.selected = { input: selected, blocks: p.blocks(pcId, selected, true), preview: p.preview(pcId, selected) }
   return view
 }
 
 /** 選中行動的預覽（雙方的感載、契合、主動權、倍率）。沒有場景是 null。 */
 export function scenePreview(k: Kernel, state: GameState, input: SceneInput): Preview | null {
-  const s = state.ext.scene as SceneState | undefined
-  return s && typeof s.id === 'string' ? playOf(k, state, s).preview('pc', input) : null
+  const s = sceneRawOf(state)
+  return s ? playOf(k, state, s).preview(s.pc, input) : null
 }
 
 // ---- 十種行動 ----
@@ -234,7 +262,7 @@ export interface SceneOptions {
   end_turn: { blocks: string[] }
 }
 
-function pairsOf(p: Play, w: Who, input: SceneInput, mine: string[], theirs: string[]): ScenePair[] {
+function pairsOf(p: Play, w: string, input: SceneInput, mine: string[], theirs: string[]): ScenePair[] {
   const out: ScenePair[] = []
   for (const m of mine) {
     for (const t of theirs) {
@@ -264,10 +292,10 @@ function picksOf(p: Play, mine: string[], theirs: string[], pairs: ScenePair[]):
  * 沒有場景是 null。一直問的是主角（玩家）。
  */
 export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
-  const s = state.ext.scene as SceneState | undefined
-  if (!s || typeof s !== 'object' || typeof s.id !== 'string') return null
+  const s = sceneRawOf(state)
+  if (!s) return null
   const p = playOf(k, state, s)
-  const w: Who = 'pc'
+  const w = s.pc
   const simple = (id: 'dominate' | 'yield' | 'tease' | 'restrain' | 'stop'): ActionOption => {
     const input: SceneInput = { kind: id }
     return { id, name: ACTION_NAME[id], ap: id === 'stop' ? 0 : p.rules.cost[id], blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: id === 'stop' ? null : p.preview(w, input) }
@@ -277,7 +305,7 @@ export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
     return { id, name, ap, blocks: p.blocks(w, input, true), picks: mine.length > 0 ? picksOf(p, mine, theirs, pairs) : [], pairs, preview: p.preview(w, input) }
   }
   const talkInput: SceneInput = { kind: 'talk' }
-  const talkTheirs = partsOf(p.actor('partner'))
+  const talkTheirs = p.partsOf(p.partnerId)
   const talkPairs = pairsOf(p, w, talkInput, [...TALK_PARTS], talkTheirs)
   const skills = knownSkills(k, state, s.pc).map((id) => {
     const info = sceneDefOf(k, 'skill', id)!
@@ -312,8 +340,8 @@ export function sceneOptions(k: Kernel, state: GameState): SceneOptions | null {
     },
     { id: 'item', name: ACTION_NAME.item, ap: minAp(items), blocks: group(items, '你身上沒有在場景裡用得出來的東西。'), picks: [], pairs: [], choices: items, preview: null },
     { id: 'switch', name: ACTION_NAME.switch, ap: p.rules.cost.switch, blocks: group(switches.filter((x) => x.id !== s.position), '沒有別的體位可以換。'), picks: [], pairs: [], choices: switches, preview: null },
-    { id: 'gear', name: ACTION_NAME.gear, ap: 0, blocks: group(gears.filter((x) => x.id !== s.gear.pc), '沒有別的檔位可以換。'), picks: [], pairs: [], choices: gears, preview: null },
+    { id: 'gear', name: ACTION_NAME.gear, ap: 0, blocks: group(gears.filter((x) => x.id !== p.seat(w).gear), '沒有別的檔位可以換。'), picks: [], pairs: [], choices: gears, preview: null },
     simple('stop'),
   ]
-  return { turn: s.turn, round: s.round, ap: { now: s.ap.pc, max: p.apMax.pc }, actions, end_turn: { blocks: turn } }
+  return { turn: p.who(s.turn), round: s.round, ap: { now: p.seat(w).ap, max: p.apMax[w]! }, actions, end_turn: { blocks: turn } }
 }

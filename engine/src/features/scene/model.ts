@@ -2,8 +2,12 @@
 // 規格：LEWD_SYSTEM 第 3 節（3.5 節是完整的規則）；DATA 第 3 節（3.1 夜課的 scene 欄位、3.2 體位、3.3 成人道具、3.4 部位）、第 4 節 adult_scene；
 //       CORE_RULES 4.2 節；dev/adr/0016 G6、G11；dev/work/M2-scene.md。
 // 不 import 別的功能：橋參數與傾向只認 DATA 第 8 節的格式（actor.ext.bridge、actor.ext.tendency），敏感度優先問 k.stats 的 bridge_sensitivity。
+//
+// M4-scene-seats：場景的狀態是第二版（SceneRaw，v: 2）：照角色的 id 記座位與配對，不再寫死「主角」與「對方」兩格。
+// 存在 state.ext.scene 的就是第二版；讀到舊的（沒有 v：pc／partner 兩格的那一種）時就地轉成第二版。
+// Who（'pc' | 'partner'）還留在這裡，只做一對一的舊名字：sceneOf 回傳的外觀（legacy.ts）與畫面資料（view.ts）用它；引擎內部一律用角色的 id。
 
-import type { Actor, ActorId, ContentEntry, GameState, Kernel, Origin, SyncGear, TimelineBeat } from '../../core'
+import type { Actor, ActorId, Condition, ContentEntry, GameState, Kernel, Origin, SyncGear, TimelineBeat } from '../../core'
 import { SYNC_GEARS, clone, isRecord, isSyncGear, syncCapOf, syncGearIndex } from '../../core'
 
 export const OWNER = 'scene'
@@ -48,8 +52,25 @@ export const partName = (id: string): string => PART_NAME[id] ?? id
 /** 說話可以用的自己的部位：口或手勢（LEWD_SYSTEM 3.5 節第五點）。 */
 export const TALK_PARTS: readonly string[] = ['mouth', 'hand_l', 'hand_r']
 
+/** 一對一的舊名字：'pc' 是第一個座位（主角），'partner' 是第二個。只給 sceneOf 的外觀、畫面資料與報告的舊鍵用；引擎內部用角色的 id。 */
 export type Who = 'pc' | 'partner'
 export const other = (w: Who): Who => (w === 'pc' ? 'partner' : 'pc')
+
+export const KINDS = ['pair', 'group', 'solo'] as const
+export type SceneKind = (typeof KINDS)[number]
+export const LAYERS = ['meat', 'net'] as const
+export type SceneLayer = (typeof LAYERS)[number]
+
+/** 對象的性別對到的內容篩選標籤（LEWD_SYSTEM 第 9 節）：關掉時，這個性別的對象開不起場景。 */
+export const GENDER_FILTER: Record<string, { tag: string; name: string }> = {
+  male: { tag: 'male_partner', name: '男性對象' },
+  female: { tag: 'female_partner', name: '女性對象' },
+  femboy: { tag: 'femboy_partner', name: '男娘與偽娘對象' },
+  trans_f: { tag: 'trans_partner', name: 'TS 對象' },
+  futa: { tag: 'futa_partner', name: '扶他對象' },
+}
+/** NTR 的內容篩選：setup.tags 含它而它被關掉，場景開不起來。 */
+export const NTR_FILTER = { tag: 'ntr', name: 'NTR' }
 
 /** 十種行動（LEWD_SYSTEM 3.5 節第五點；第十種「換檔」是 M3-scene-sync 加的）。end_turn 不是行動，是把回合交出去。 */
 export const ACTIONS = ['dominate', 'yield', 'tease', 'restrain', 'skill', 'talk', 'item', 'switch', 'gear', 'stop'] as const
@@ -360,7 +381,15 @@ export interface SceneDef {
   link: { my_load: Die; their_load: Die; fit: number } | null
   positions: string[] | null
   match_bonus: number | null
+  /** 要有的東西（DATA 3.1 的 needs）：用出去之前每一條都用 k.conditions 判斷，看的人是用的那個人 */
+  needs: Condition[]
+  /** 這個技能讓同一個部位再接一條（觸手；LEWD_SYSTEM 3.5 節第四點） */
+  double: boolean
+  /** 單人模式能不能用（M4-scene-solo 讀）：ok、audience、no；沒寫是 null（照用法推） */
+  solo: 'ok' | 'audience' | 'no' | null
 }
+
+export const SOLO_VALUES = ['ok', 'audience', 'no'] as const
 
 /** scene 欄位的格式問題；回傳整理好的結果。道具可以沒有部位（藥）：只有 on_use，不建立連接。 */
 export function readSceneDef(raw: unknown, item: boolean): { def: SceneDef } | { problems: string[] } {
@@ -420,6 +449,15 @@ export function readSceneDef(raw: unknown, item: boolean): { def: SceneDef } | {
     else positions = raw.positions
   }
   if (raw.match_bonus !== undefined && !isInt(raw.match_bonus)) p.push('scene.match_bonus 要是整數')
+  // needs：一串條件。條件的種類是不是有人註冊不在這裡查（沒有人註冊的當作不成立，用的時候才說原因；dev/adr/0019 P31）
+  let needs: Condition[] = []
+  if (raw.needs !== undefined) {
+    if (!Array.isArray(raw.needs) || !raw.needs.every((c) => isRecord(c) && isText(c.kind))) p.push('scene.needs 要是條件的陣列：{ kind, ... }')
+    else needs = raw.needs as Condition[]
+  }
+  if (raw.double !== undefined && typeof raw.double !== 'boolean') p.push('scene.double 要是布林')
+  if (raw.double === true && !hasLink) p.push('scene.double 要有部位才有連接')
+  if (raw.solo !== undefined && !(SOLO_VALUES as readonly unknown[]).includes(raw.solo)) p.push(`scene.solo 要是 ${SOLO_VALUES.join('、')} 其中一個`)
   if (p.length > 0) return { problems: p }
   return {
     def: {
@@ -427,6 +465,7 @@ export function readSceneDef(raw: unknown, item: boolean): { def: SceneDef } | {
       on_use: { my_load: use.my_load ?? NO_DIE, their_load: use.their_load ?? NO_DIE, fit: num(raw.on_use, 'scene.on_use', 'fit'), init: num(raw.on_use, 'scene.on_use', 'initiative') },
       link: link ? { my_load: link.my_load ?? NO_DIE, their_load: link.their_load ?? NO_DIE, fit: num(raw.link, 'scene.link', 'fit') } : null,
       positions, match_bonus: isInt(raw.match_bonus) ? raw.match_bonus : null,
+      needs: needs.map((c) => clone(c)), double: raw.double === true, solo: (raw.solo as SceneDef['solo'] | undefined) ?? null,
     },
   }
 }
@@ -462,7 +501,7 @@ export function sceneDefOf(k: Pick<Kernel, 'content'>, kind: 'skill' | 'item', i
   }
 }
 
-// ---- 場景狀態（state.ext.scene） ----
+// ---- 場景狀態（state.ext.scene，第二版） ----
 
 export type EndReason = 'stop' | 'partner_quit' | 'pc_out' | 'partner_out' | 'interrupted' | 'skip'
 export const END_NAME: Record<EndReason, string> = {
@@ -471,26 +510,57 @@ export const END_NAME: Record<EndReason, string> = {
 
 export interface LinkRec {
   id: number
-  /** 誰建立的 */
-  by: Who
+  /** 誰建立的（角色的 id）、接的是誰（角色的 id） */
+  by: ActorId
+  to: ActorId
   kind: 'talk' | 'skill' | 'item'
   source: string
   name: string
-  /** by 的部位、對方的部位 */
+  /** by 的部位、to 的部位 */
   mine: string
   theirs: string
   /** 每回合自動生效的數值（說話沒有：0、0、0） */
   link: { my_load: string | number; their_load: string | number; fit: number }
   round: number
+  /** 觸手那一種：同一個部位可以再接一條（LEWD_SYSTEM 3.5 節第四點） */
+  double?: true
 }
 
-export interface SceneLine { round: number; who: Who; text: string }
+export interface SceneLine { round: number; who: ActorId; text: string }
 
-export interface SceneState {
+/** 這一圈的一個人（第一個是主角）：行動點、同步檔位、這一場的記號。 */
+export interface Seat {
+  id: ActorId
+  ap: number
+  /** 同步檔位（CORE_RULES 第 5 節）：現在的檔、這一場開過的最高檔、這個回合換過檔了沒有、過載累積的沉溺（結算時加） */
+  gear: SyncGear
+  max_gear: SyncGear
+  shifted: boolean
+  sink_gain: number
+  /** 到了幾次、受到的感載總量 */
+  climax: number
+  received: number
+  /** 挑逗：下一個行動多一顆骰；克制：這回合連接的自動效果對自己減半 */
+  teased: boolean
+  restrained: boolean
+  /** 退出了這一圈（多人的回合讀它；一對一不會有） */
+  out?: boolean
+}
+
+/** 主角對這一圈某個人的：契合 0～100、主動權 0～100（50 以上在主角手上）、第一次的記號（開始時主角的性經歷裡沒有這個人）。 */
+export interface PairRec { fit: number; init: number; first: boolean }
+
+/** 別的圈（不展開；下一張 M4-scene-circles 用）。 */
+export interface CircleRec { people: ActorId[]; fit: number; climax: Record<ActorId, number>; line: string }
+
+/** 存在 state.ext.scene 的樣子。 */
+export interface SceneRaw {
+  v: 2
   id: string
   mode: 'full' | 'simple'
+  kind: SceneKind
+  layer: SceneLayer
   pc: ActorId
-  partner: ActorId
   nature: Nature
   role: Role
   goal: Goal | null
@@ -498,46 +568,83 @@ export interface SceneState {
   /** 內容篩選之後還在的標籤：這一場一開始就算碰到 */
   tags: string[]
   round: number
-  turn: Who
+  /** 現在輪到誰（角色的 id） */
+  turn: ActorId
   /** 走到第幾步（每一份場景報告加一）：骰子的用途是 scene/<id>/<step> */
   step: number
-  ap: Record<Who, number>
-  fit: number
-  /** 主動權 0～100：50 以上在主角手上 */
-  init: number
+  /** 主角這一圈的每個人，第一個是主角；一對一時對方就是 seats[1] */
+  seats: Seat[]
+  /** 主角對這一圈每個人（不含主角自己）各一份 */
+  pairs: Record<ActorId, PairRec>
   /** 目的的進度；沒有目的是 null */
   goal_progress: number | null
   position: string
-  /** 體位裡的位置：誰在哪個位置 */
-  roles: Record<Who, string>
+  /** 體位裡的位置：誰在哪個位置（角色的 id） */
+  roles: Record<ActorId, string>
   links: LinkRec[]
   link_seq: number
-  /** 挑逗：下一個行動多一顆骰 */
-  teased: Record<Who, boolean>
-  /** 克制：這回合連接的自動效果對自己減半 */
-  restrained: Record<Who, boolean>
-  /** 同步檔位（CORE_RULES 第 5 節）：現在的檔、這一場開過的最高檔、這個回合換過檔了沒有、過載累積的沉溺（結算時加）、對方這個回合的開頭處理過了沒有 */
-  gear: Record<Who, SyncGear>
-  max_gear: Record<Who, SyncGear>
-  shifted: Record<Who, boolean>
-  sink_gain: Record<Who, number>
+  /** 這個回合 NPC 的開頭處理過了沒有（換檔） */
   turn_began: boolean
-  /** 到了幾次、受到的感載總量 */
-  climax: Record<Who, number>
-  received: Record<Who, number>
   used_positions: string[]
   touched: string[]
   lines: SceneLine[]
-  /** 第一次的記號：開始時主角的性經歷裡沒有這個人 */
-  first_person: boolean
   origin: Origin
+  /** 先放著：別的圈、單人的節奏、最多幾回合 */
+  circles: CircleRec[]
+  pace?: number
+  max_rounds?: number
 }
 
 export const MAX_LINES = 300
 
-export function sceneOf(state: Pick<GameState, 'ext'>): SceneState | null {
+const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d)
+const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+
+/** 舊的（M2、M3：沒有 v，pc 與 partner 兩格）轉成第二版。形狀不對的地方補預設，不丟例外。 */
+export function upgradeScene(old: Record<string, unknown>): SceneRaw {
+  const pc = str(old.pc)
+  const partner = str(old.partner)
+  const rec = (k: string): Record<string, unknown> => (isRecord(old[k]) ? (old[k] as Record<string, unknown>) : {})
+  const who = (v: unknown): string => (v === 'pc' ? pc : v === 'partner' ? partner : str(v))
+  const ap = rec('ap'), gear = rec('gear'), maxGear = rec('max_gear'), shifted = rec('shifted'), sinkGain = rec('sink_gain'), climax = rec('climax'), received = rec('received'), teased = rec('teased'), restrained = rec('restrained')
+  const seat = (w: 'pc' | 'partner', id: string): Seat => ({
+    id, ap: num(ap[w]), gear: gear[w] as SyncGear, max_gear: maxGear[w] as SyncGear, shifted: shifted[w] === true, sink_gain: num(sinkGain[w]), climax: num(climax[w]),
+    received: num(received[w]), teased: teased[w] === true, restrained: restrained[w] === true,
+  })
+  const roles = rec('roles')
+  const links = Array.isArray(old.links) ? (old.links as unknown[]).filter(isRecord).map((l): LinkRec => {
+    const by = who(l.by)
+    const { double, ...rest } = l as Record<string, unknown>
+    return { ...(rest as unknown as LinkRec), by, to: by === pc ? partner : pc, ...(double === true ? { double: true as const } : {}) }
+  }) : []
+  const lines = Array.isArray(old.lines) ? (old.lines as unknown[]).filter(isRecord).map((l): SceneLine => ({ round: num(l.round), who: who(l.who), text: str(l.text) })) : []
+  const { partner: _p, ap: _a, gear: _g, max_gear: _mg, shifted: _sh, sink_gain: _sg, climax: _c, received: _r, teased: _t, restrained: _re, fit: _f, init: _i, first_person: _fp, ...keep } = old
+  void [_p, _a, _g, _mg, _sh, _sg, _c, _r, _t, _re, _f, _i, _fp]
+  return {
+    ...(keep as unknown as SceneRaw), v: 2, kind: 'pair', layer: 'meat', pc,
+    turn: who(old.turn), seats: [seat('pc', pc), seat('partner', partner)],
+    pairs: { [partner]: { fit: num(old.fit), init: num(old.init, 50), first: old.first_person === true } },
+    roles: { [pc]: str(roles.pc), [partner]: str(roles.partner) }, links, lines,
+    tags: Array.isArray(old.tags) ? (old.tags as string[]) : [], used_positions: Array.isArray(old.used_positions) ? (old.used_positions as string[]) : [],
+    touched: Array.isArray(old.touched) ? (old.touched as string[]) : [], link_seq: num(old.link_seq), turn_began: old.turn_began === true, circles: [],
+  }
+}
+
+/**
+ * 存在狀態裡的場景（第二版）；沒有場景是 null。讀到舊的就地轉成第二版（換掉 state.ext.scene）再回傳；狀態凍著、換不掉時回傳轉好的副本。
+ * 只認得「有 id 的物件」，不另外驗形狀（引擎自己寫的）。
+ */
+export function sceneRawOf(state: Pick<GameState, 'ext'>): SceneRaw | null {
   const v = state.ext[EXT]
-  return isRecord(v) && typeof v.id === 'string' ? (v as unknown as SceneState) : null
+  if (!isRecord(v) || typeof v.id !== 'string') return null
+  if (v.v === 2) return v as unknown as SceneRaw
+  const up = upgradeScene(v)
+  try {
+    state.ext[EXT] = up
+  } catch {
+    /* 凍著的狀態：用副本 */
+  }
+  return up
 }
 
 export const beat = (actor: ActorId | undefined, text: string, tag?: string, data?: Record<string, unknown>): TimelineBeat => ({
@@ -584,6 +691,44 @@ export function knowOf(actor: Actor | undefined): KnowRec {
 
 /** 場景裡這個人有哪些部位：基本的七個加改造多出來的（actor.ext.scene.parts）。 */
 export const partsOf = (actor: Actor | undefined): string[] => [...new Set([...BASE_PARTS, ...knowOf(actor).parts])]
+
+/**
+ * 掛點 scene.body 的一個回答（義體、調校、化身……）：多出來的部位、各部位對敏感度的修正（加在人的敏感度上，P64）、各部位身上的標籤。
+ * 好幾個回答合起來：部位取聯集、修正相加、標籤取聯集。
+ */
+export interface BodyAnswer {
+  parts?: string[]
+  sensitivity?: Record<string, number>
+  tags?: Record<string, string[]>
+}
+export interface BodyRec { parts: string[]; sensitivity: Record<string, number>; tags: Record<string, string[]> }
+
+declare module '../../core' {
+  interface HookMap {
+    /**
+     * 成人場景問一個人的身體（掛點由 features/scene 宣告；義體、調校、內海的化身回答）：回傳多出來的部位、各部位的敏感度修正、各部位的標籤。
+     * state 是現在的遊戲狀態，actor 是被問的人，layer 是這一場在現實（meat）還是內海（net）。沒有人回答時，部位只有基本的七個加 actor.ext.scene.parts。
+     */
+    'scene.body': [{ state: GameState; actor: ActorId; layer: 'meat' | 'net' }, BodyAnswer | void]
+  }
+}
+
+/** 把好幾個回答合成一份（格式不對的欄位略過）。 */
+export function mergeBody(answers: ReadonlyArray<BodyAnswer | null | undefined>): BodyRec {
+  const out: BodyRec = { parts: [], sensitivity: {}, tags: {} }
+  for (const a of answers) {
+    if (!isRecord(a)) continue
+    if (textList(a.parts)) for (const x of a.parts) if (!out.parts.includes(x)) out.parts.push(x)
+    if (isRecord(a.sensitivity)) for (const [part, n] of Object.entries(a.sensitivity)) if (typeof n === 'number' && Number.isFinite(n)) out.sensitivity[part] = (out.sensitivity[part] ?? 0) + n
+    if (isRecord(a.tags)) for (const [part, list] of Object.entries(a.tags)) if (textList(list)) out.tags[part] = [...new Set([...(out.tags[part] ?? []), ...list])]
+  }
+  return out
+}
+
+/** 問一個人的身體（所有回答合起來）。 */
+export function bodyOf(k: Pick<Kernel, 'hooks'>, state: GameState, actor: ActorId, layer: SceneLayer): BodyRec {
+  return mergeBody(k.hooks.run('scene.body', { state, actor, layer }).map((h) => h.result as BodyAnswer))
+}
 
 /** 內容篩選：這些標籤有沒有被關掉。 */
 export const filteredOut = (state: Pick<GameState, 'rules'>, tags: Array<string | null | undefined>): string | null =>
@@ -672,14 +817,20 @@ export function startGear(cap: SyncGear): SyncGear {
   return syncGearIndex(cap) >= syncGearIndex('standard') ? 'standard' : 'shallow'
 }
 
-/** 舊存檔（沒有檔位欄位的場景）補成標準檔，並確保欄位齊全。 */
-export function normalizeGear(s: SceneState, cap: Record<Who, SyncGear>): void {
-  const both = <T>(f: (w: Who) => T): Record<Who, T> => ({ pc: f('pc'), partner: f('partner') })
-  const gear = both((w) => (isSyncGear(s.gear?.[w]) ? s.gear[w] : startGear(cap[w])))
-  s.gear = gear
-  s.max_gear = both((w) => (isSyncGear(s.max_gear?.[w]) && syncGearIndex(s.max_gear[w]) >= syncGearIndex(gear[w]) ? s.max_gear[w] : gear[w]))
-  s.shifted = both((w) => s.shifted?.[w] === true)
-  s.sink_gain = both((w) => (typeof s.sink_gain?.[w] === 'number' ? s.sink_gain[w] : 0))
+/** 舊存檔（座位上沒有檔位欄位的場景）補成標準檔，並確保每個座位的欄位齊全。 */
+export function normalizeSeats(s: SceneRaw, cap: Record<ActorId, SyncGear>): void {
+  for (const seat of s.seats) {
+    const c = cap[seat.id] ?? 'standard'
+    seat.gear = isSyncGear(seat.gear) ? seat.gear : startGear(c)
+    seat.max_gear = isSyncGear(seat.max_gear) && syncGearIndex(seat.max_gear) >= syncGearIndex(seat.gear) ? seat.max_gear : seat.gear
+    seat.shifted = seat.shifted === true
+    seat.sink_gain = typeof seat.sink_gain === 'number' ? seat.sink_gain : 0
+    seat.ap = typeof seat.ap === 'number' ? seat.ap : 0
+    seat.climax = typeof seat.climax === 'number' ? seat.climax : 0
+    seat.received = typeof seat.received === 'number' ? seat.received : 0
+    seat.teased = seat.teased === true
+    seat.restrained = seat.restrained === true
+  }
   s.turn_began = s.turn_began === true
 }
 

@@ -1,7 +1,7 @@
 // L6 功能：成人場景的最小可操作版，第十種行動「換檔」是 M3-scene-sync（LEWD_SYSTEM 第 3 節，3.5 節是完整的規則；DATA 第 3 節、第 4 節 adult_scene；CORE_RULES 4.2 節；UI 第 10 節；
 // dev/adr/0016 第一、二節、G6、G11；dev/work/M2-scene.md）。
 //
-// 一種活動 scene（order 20）：一對一、回合制。行動點、感載與餘韻、契合、主動權、體位、部位與連接、目的的進度；玩家按「停下」才結束（或三種強制結束），
+// 一種活動 scene（order 20）：一對一、回合制（M4-scene-seats：狀態是第二版的座位與配對，三個人以上的回合是下一張）。行動點、感載與餘韻、契合、主動權、體位、部位與連接、目的的進度；玩家按「停下」才結束（或三種強制結束），
 // 結束之後一次結算。所有參與者都是成年人（核心的底線在提交與讀檔時擋）。
 // 沒有每回合的 AI：對方的行動與說話的判定走規則（sceneNext、說話用骰子）；AI 只在結束之後寫整場的正文（報告帶 adult: true，外殼用 commitNarrated 走成人路由）。
 // 每回合只有一句中性的動作描述（state.ext.scene.lines）；不寫任何露骨的文字。
@@ -15,36 +15,48 @@
 //   活動  scene（setup 見 SceneSetup；放行 commit:scene.）；結束時發 activity.end（result: { with, fit, rating, goal, goal_done, reason }）
 //   量表  insight（體悟；單一、0 起、沒有上限；同名的效果與條件核心自動有）
 //   狀態  state.ext.scene（見 model.ts 的 SceneState）；actor.ext.scene（誰會什麼：positions、skills；選填 parts、part_tags）；actor.ext.sex_record（性經歷）
-//   掛鉤  rewind.keep：回到快照之後性經歷留著
+//   掛鉤  rewind.keep：回到快照之後性經歷留著；scene.body（這個功能宣告：義體、調校、內海的化身回答多出來的部位、各部位的敏感度修正與標籤）
 //   讀別人的  actor.ext.bridge、actor.ext.tendency（只認格式）、k.stats（ap_max、load_cap、afterglow_cap、bridge_sensitivity、bridge_docility；沒有人註冊就照設計書的公式）、
 //            k.content（item）、state.inventory、效果 affinity／bridge／tendency（沒有人註冊的略過）
 // 報告：scene.start、scene.act、scene.next（對方的一步與回合的結算）、scene.end（adult: true、kind social；強制結束與略過也是它）。
 //
-// 對外：sceneStart／startProblems、sceneAct、sceneNext、sceneSkip、sceneInterrupt、sceneView、sceneOptions、scenePreview、sceneOf、setSceneMode。
+// 對外：sceneStart／startProblems（開場的摘要）、sceneAct、sceneNext、sceneSkip、sceneInterrupt、sceneView、sceneOptions、scenePreview、sceneOf（舊名字外觀）、sceneRawOf（第二版的原樣）、setSceneMode。
+// 外面來的東西（SceneEnv）：dice、moves（外殼從 scene_turn 拿到的某個人這一步的一串行動）、talk（scene_talk 的結果）、gears（每個人這一步換到哪一檔；partner_gear 是舊的鍵）。
 
-import type { Feature, GameState, Kernel, Origin, ReportDraft, SyncGear } from '../../core'
+import type { ActorId, Feature, GameState, Kernel, Origin, ReportDraft, SyncGear } from '../../core'
 import { ActionBlocked, ContentError, clone, isRecord } from '../../core'
 import type { ActivityDef } from '../../core'
 import { endDraft, logBeats, sceneDraft, stepDraft } from './end'
-import type { Dice, Goal, Nature, PositionEntry, Role, SceneMode, SceneState, Who } from './model'
+import type { Dice, Goal, Nature, PositionEntry, Role, SceneMode, SceneRaw, Who } from './model'
 import {
-  ACTIVITY, EXT, GOALS, NATURES, NATURE_FILTER, NATURE_NAME, OWNER, POSITION_KIND, ROLES, RULE_KIND, SKILL_KIND, beat, docilityOf, hasTendencyTag, isGoal, isMode, isNature, isRole,
-  knownPositions, positionProblems, readSceneDef, ruleProblems, sceneModeOf, sceneOf, sceneRules, sexRecordOf, skillProblems, startGear, tendencyTagIds,
+  ACTIVITY, EXT, GENDER_FILTER, GOALS, GOAL_NAME, LAYERS, NATURES, NATURE_FILTER, NATURE_NAME, NTR_FILTER, OWNER, POSITION_KIND, ROLES, ROLE_NAME, RULE_KIND, SKILL_KIND, beat, docilityOf,
+  hasTendencyTag, isGoal, isMode, isNature, isRole, knownPositions, positionProblems, readSceneDef, ruleProblems, sceneModeOf, sceneRawOf, sceneRules, sexRecordOf, skillProblems, startGear, tendencyTagIds,
 } from './model'
-import type { SceneInput } from './play'
+import type { SceneInput, TalkEnv } from './play'
 import { Play, diceOf, inputProblem } from './play'
 
 export * from './model'
-export type { Preview, PreviewLoad, SceneInput, PartPick } from './play'
-export { Play } from './play'
+export * from './legacy'
+export type { Preview, PreviewLoad, SceneInput, PartPick, TalkEnv } from './play'
+export { Play, MAX_MOVES } from './play'
 export { sceneOptions, scenePreview, sceneView } from './view'
-export type { ActionOption, ChoiceOption, GearView, LinkView, PartView, PersonView, ScenePick, ScenePickOption, ScenePair, SceneOptions, SceneView } from './view'
+export type { ActionOption, ChoiceOption, GearView, LineView, LinkView, PairView, PartView, PersonView, ScenePick, ScenePickOption, ScenePair, SceneOptions, SceneView } from './view'
 
 /** 測試用：換掉骰子（拿到一個 int(min, max) 的東西）。沒給就照存檔的亂數導出：同一個種子、同樣的行動序列，結果一樣。 */
 export interface SceneEnv {
   dice?: Dice
-  /** 對方這個回合換到哪一檔（之後 scene_turn 的 AI 給；沒給走規則：感載七成以上退一檔）。不合規（超過他的上限、這回合換過了）就當沒給 */
+  /** 對方這個回合換到哪一檔（舊的鍵，一對一的對方；等於 gears[對方的 id]） */
   partner_gear?: SyncGear
+  /** 每個人這個回合換到哪一檔（scene_turn 的 AI 給；沒給走規則：感載七成以上退一檔）。不合規（超過他的上限、這回合換過了）就當沒給 */
+  gears?: Record<ActorId, SyncGear>
+  /**
+   * 外殼從 scene_turn 拿到的、這個人這一步的一串行動（角色的 id → 行動）。輪到這個人時，照順序一個一個驗：行動點夠、有主動權才能切換體位、部位空著或照連接的規則中斷、
+   * 要標籤的技能有標籤、體位他會、needs 過得了；不能是 stop。第一個不合規的連同後面的全部丟掉，他剩下的行動點照現有的規則走（接下來的 sceneNext）；
+   * 報告的 timeline 多一拍 scene.dropped，data 記下丟掉幾個與第一個的原因。沒給就全照規則。
+   */
+  moves?: Record<ActorId, SceneInput[]>
+  /** scene_talk 的結果：這一步是說話時有給就用它（契合夾在 −5～+10、目的的進度夾在 0～+20），不擲檢定；沒給照現有的檢定 */
+  talk?: TalkEnv
 }
 
 /** 開場景的設定：事件帶出來的是 DATA 第 4 節的 adult_scene 原樣（沒有 with，對象從 circles[0] 去掉主角取得）；委託、俘虜等用 with。 */
@@ -62,6 +74,10 @@ export interface SceneSetup {
   tags?: string[]
   /** 蓋掉設定的模式（測試與特殊的場合）；沒給就看 setSceneMode */
   mode?: SceneMode
+  /** 限回合的場景：回合數到了就強制結束，原因是「被外面的事打斷」 */
+  max_rounds?: number
+  /** 現實（meat）或內海（net）；這一張只開得了 meat */
+  layer?: 'meat' | 'net'
   [more: string]: unknown
 }
 
@@ -77,12 +93,33 @@ interface Parsed {
   tags: string[]
   mode: SceneMode
   start?: string
+  max_rounds?: number
+}
+
+/** 開場的摘要（確認框用：不必自己判斷第 0 步）：誰、性質、身分、目的、會碰到的標籤。 */
+export interface StartSummary {
+  kind: 'pair'
+  layer: 'meat'
+  mode: SceneMode
+  pc: { id: string; name: string }
+  with: Array<{ id: string; name: string }>
+  nature: Nature
+  nature_name: string
+  role: Role
+  role_name: string
+  goal: { id: Goal; name: string } | null
+  place?: string
+  /** 這一場一開始就碰到的傾向標籤（內容篩選之後還在的） */
+  tags: Array<{ id: string; name: string }>
+  /** 這一場碰到的內容篩選項目（都是開著的；關掉的就開不起來）：性質、對象的性別、NTR */
+  filters: Array<{ tag: string; name: string }>
+  max_rounds?: number
 }
 
 /** 開場景的條件：一條一句；空的就是開得成。 */
-export function startProblems(k: Kernel, state: GameState, setup: unknown): { problems: string[]; parsed?: Parsed } {
+export function startProblems(k: Kernel, state: GameState, setup: unknown): { problems: string[]; parsed?: Parsed; summary?: StartSummary } {
   const p: string[] = []
-  if (sceneOf(state)) return { problems: ['已經有一場成人場景在進行，先把它結束。'] }
+  if (sceneRawOf(state)) return { problems: ['已經有一場成人場景在進行，先把它結束。'] }
   const s = isRecord(setup) ? setup : null
   if (!s) return { problems: ['場景要有設定：{ with 或 circles, nature, ... }。'] }
   const pc = state.pc
@@ -111,16 +148,33 @@ export function startProblems(k: Kernel, state: GameState, setup: unknown): { pr
   if (!isMode(mode)) p.push('mode 要是 full 或 simple。')
   const filter = isNature(s.nature) ? NATURE_FILTER[s.nature] : undefined
   if (filter && state.rules.contentOff.includes(filter.tag)) p.push(`「${filter.name}」被你的內容篩選關掉了，這一種場景開不起來。`)
+  // 對象的性別對到的內容篩選（LEWD_SYSTEM 第 9 節）；NTR 看 setup.tags
+  const gender = partner ? state.actors[partner]?.gender : undefined
+  const genderFilter = gender !== undefined ? GENDER_FILTER[gender] : undefined
+  if (genderFilter && state.rules.contentOff.includes(genderFilter.tag)) p.push(`「${genderFilter.name}」被你的內容篩選關掉了，對象是這個性別的場景開不起來。`)
+  const wantsNtr = Array.isArray(s.tags) && (s.tags as unknown[]).includes(NTR_FILTER.tag)
+  if (wantsNtr && state.rules.contentOff.includes(NTR_FILTER.tag)) p.push(`「${NTR_FILTER.name}」被你的內容篩選關掉了，這一場開不起來。`)
+  if (s.max_rounds !== undefined && !(typeof s.max_rounds === 'number' && Number.isSafeInteger(s.max_rounds) && s.max_rounds >= 1)) p.push('max_rounds 要是 1 以上的整數。')
+  if (s.layer !== undefined && !(LAYERS as readonly unknown[]).includes(s.layer)) p.push(`layer 要是 ${LAYERS.join('、')} 其中一個。`)
+  else if (s.layer === 'net') p.push('內海裡的成人場景這一版還不能開。')
   if (p.length === 0 && knownBoth(k, state, pc!, partner).length === 0) p.push('資料裡沒有雙方都會的兩人體位，場景開不起來。')
   if (p.length > 0) return { problems: p }
   const tags = Array.isArray(s.tags) ? [...new Set((s.tags as unknown[]).filter((t): t is string => typeof t === 'string' && !!t && !state.rules.contentOff.includes(t)))] : []
-  return {
-    problems: [],
-    parsed: {
-      pc: pc!, partner, nature: s.nature as Nature, role: (s.role as Role | undefined) ?? 'none', goal: s.goal === undefined || s.goal === 'none' ? null : (s.goal as Goal), tags, mode: mode as SceneMode,
-      ...(typeof s.place === 'string' && s.place ? { place: s.place } : {}), ...(typeof s.start_position === 'string' ? { start: s.start_position } : {}),
-    },
+  const parsed: Parsed = {
+    pc: pc!, partner, nature: s.nature as Nature, role: (s.role as Role | undefined) ?? 'none', goal: s.goal === undefined || s.goal === 'none' ? null : (s.goal as Goal), tags, mode: mode as SceneMode,
+    ...(typeof s.place === 'string' && s.place ? { place: s.place } : {}), ...(typeof s.start_position === 'string' ? { start: s.start_position } : {}),
+    ...(typeof s.max_rounds === 'number' ? { max_rounds: s.max_rounds } : {}),
   }
+  // 開場的摘要：性質是工作而沒寫身分，主角就是工作的人（和開場的主動權同一個算法）
+  const role: Role = parsed.role === 'none' && parsed.nature === 'work' ? 'worker' : parsed.role
+  const filters = [filter, genderFilter, wantsNtr ? NTR_FILTER : undefined].filter((f): f is { tag: string; name: string } => !!f)
+  const summary: StartSummary = {
+    kind: 'pair', layer: 'meat', mode: parsed.mode, pc: { id: pc!, name: state.actors[pc!]!.name }, with: [{ id: partner, name: state.actors[partner]!.name }],
+    nature: parsed.nature, nature_name: NATURE_NAME[parsed.nature], role, role_name: ROLE_NAME[role], goal: parsed.goal ? { id: parsed.goal, name: GOAL_NAME[parsed.goal] } : null,
+    ...(parsed.place ? { place: parsed.place } : {}), tags: tags.map((id) => ({ id, name: (k.content.get('tendency_tag', id)?.name as string | undefined) ?? id })),
+    filters: [...new Map(filters.map((f) => [f.tag, { tag: f.tag, name: f.name }])).values()], ...(parsed.max_rounds !== undefined ? { max_rounds: parsed.max_rounds } : {}),
+  }
+  return { problems: [], parsed, summary }
 }
 
 /** 雙方都會的兩人體位：基本的（每個人都會）在前，照內容的順序。 */
@@ -139,8 +193,8 @@ export function openingInit(k: Kernel, state: GameState, o: { pc: string; partne
   return Math.max(0, Math.min(100, Math.round(v)))
 }
 
-const needScene = (state: GameState): SceneState => {
-  const s = sceneOf(state)
+const needScene = (state: GameState): SceneRaw => {
+  const s = sceneRawOf(state)
   if (!s) throw new ActionBlocked('現在沒有進行中的成人場景。')
   return s
 }
@@ -150,20 +204,22 @@ function startScene(k: Kernel, state: GameState, setup: unknown, origin: Origin)
   if (!r.parsed) throw new ActionBlocked(r.problems.join(''))
   const o = r.parsed
   const rules = sceneRules(k)
-  const scene: SceneState = {
-    id: `sc${state.seq.uid + 1}`, mode: o.mode, pc: o.pc, partner: o.partner, nature: o.nature, role: o.role, goal: o.goal, ...(o.place ? { place: o.place } : {}), tags: o.tags,
-    round: 1, turn: 'pc', step: 0, ap: { pc: 0, partner: 0 }, fit: rules.fit_start, init: openingInit(k, state, o), goal_progress: o.goal ? 0 : null,
-    position: '', roles: { pc: '', partner: '' }, links: [], link_seq: 0, teased: { pc: false, partner: false }, restrained: { pc: false, partner: false },
-    gear: { pc: 'standard', partner: 'standard' }, max_gear: { pc: 'standard', partner: 'standard' }, shifted: { pc: false, partner: false }, sink_gain: { pc: 0, partner: 0 }, turn_began: false,
-    climax: { pc: 0, partner: 0 }, received: { pc: 0, partner: 0 }, used_positions: [], touched: [...o.tags], lines: [],
-    first_person: sexRecordOf(state.actors[o.pc]).people[o.partner] === undefined, origin: clone(origin),
+  const seat = (id: ActorId): SceneRaw['seats'][number] => ({
+    id, ap: 0, gear: 'standard', max_gear: 'standard', shifted: false, sink_gain: 0, climax: 0, received: 0, teased: false, restrained: false,
+  })
+  const scene: SceneRaw = {
+    v: 2, id: `sc${state.seq.uid + 1}`, mode: o.mode, kind: 'pair', layer: 'meat', pc: o.pc, nature: o.nature, role: o.role, goal: o.goal, ...(o.place ? { place: o.place } : {}), tags: o.tags,
+    round: 1, turn: o.pc, step: 0, seats: [seat(o.pc), seat(o.partner)],
+    pairs: { [o.partner]: { fit: rules.fit_start, init: openingInit(k, state, o), first: sexRecordOf(state.actors[o.pc]).people[o.partner] === undefined } },
+    goal_progress: o.goal ? 0 : null, position: '', roles: { [o.pc]: '', [o.partner]: '' }, links: [], link_seq: 0, turn_began: false,
+    used_positions: [], touched: [...o.tags], lines: [], origin: clone(origin), circles: [], ...(o.max_rounds !== undefined ? { max_rounds: o.max_rounds } : {}),
   }
   const p = new Play(k, state, scene, diceOf(state, scene))
-  p.s.ap = { pc: p.apMax.pc, partner: p.apMax.partner }
+  for (const id of p.ids) p.seat(id).ap = p.apMax[id]!
   // 起始的檔位是標準；上限不到標準的人是淺（Play 把欄位補齊時已算；這裡是起始的明確寫入）
-  for (const w of ['pc', 'partner'] as const) {
-    p.s.gear[w] = startGear(p.gearCap[w])
-    p.s.max_gear[w] = p.s.gear[w]
+  for (const id of p.ids) {
+    p.seat(id).gear = startGear(p.gearCap[id]!)
+    p.seat(id).max_gear = p.seat(id).gear
   }
   // 起始的體位：寫了而且雙方都會就用它；沒寫（或不能用）就挑第一個基本的
   const both = knownBoth(k, state, o.pc, o.partner)
@@ -186,26 +242,42 @@ export function sceneAct(k: Kernel, state: GameState, input: SceneInput, env: Sc
   if (bad) throw new ActionBlocked(bad)
   const scene = needScene(state)
   const p = new Play(k, state, scene, env.dice ?? diceOf(state, scene))
-  const blocks = p.blocks('pc', input)
+  p.talkEnv = env.talk
+  const blocks = p.blocks(scene.pc, input)
   if (blocks.length > 0) throw new ActionBlocked(blocks.join(''))
-  p.perform('pc', input)
+  p.perform(scene.pc, input)
   if (p.ended) return endDraft(k, p, p.ended, logBeats(state))
-  if (input.kind !== 'end_turn' && p.s.ap.pc <= 0) p.s.turn = 'partner'
+  if (input.kind !== 'end_turn' && p.seat(scene.pc).ap <= 0) p.s.turn = p.opp(scene.pc)
   return stepDraft(p, 'scene.act')
 }
 
 /**
  * 對方的一步（scene.next）：輪到他的時候呼叫，一次一個行動；他沒有行動可做（行動點用完）就做這一回合的結算：連接自動生效、主動權、感載消退、強制結束的檢查、
- * 新的一回合（雙方回行動點、輪到主角）。亂數是 scene/<id>/<第幾步>。結束時（對方不玩了、有人失神）回傳 scene.end。
+ * 新的一回合（每個人回行動點、輪到主角）。亂數是 scene/<id>/<第幾步>。結束時（對方不玩了、有人失神、回合數到了）回傳 scene.end。
+ * env.moves 給了這個人的一串行動時，這一步就照那一串做（不合規的第一個起丟掉，timeline 多一拍 scene.dropped）；一個都沒做成就照規則挑一個；剩下的行動點照規則走（下一次 sceneNext）。
  */
 export function sceneNext(k: Kernel, state: GameState, env: SceneEnv = {}): ReportDraft {
   const scene = needScene(state)
-  if (scene.turn !== 'partner') throw new ActionBlocked('還沒輪到對方。')
+  if (scene.turn === scene.pc) throw new ActionBlocked('還沒輪到對方。')
+  const w = scene.turn
   const p = new Play(k, state, scene, env.dice ?? diceOf(state, scene))
-  p.partnerTurnStart(env.partner_gear)
-  const choice = p.partnerChoice()
-  if (choice) p.perform('partner', choice)
-  if (!p.ended && (!choice || p.s.ap.partner <= 0)) p.settleRound()
+  p.talkEnv = env.talk
+  p.npcTurnStart(w, env.gears?.[w] ?? (w === p.partnerId ? env.partner_gear : undefined))
+  let acted = 0
+  const moves = env.moves?.[w]
+  if (Array.isArray(moves) && moves.length > 0) {
+    const r = p.performMoves(w, moves)
+    acted = r.done
+    if (r.dropped > 0) p.beats.push(beat(w, '（他的幾個行動不合規，沒有照做。）', 'scene.dropped', { actor: w, dropped: r.dropped, done: r.done, reason: r.reason }))
+  }
+  if (acted === 0 && !p.ended) {
+    const choice = p.choiceFor(w)
+    if (choice) {
+      p.perform(w, choice)
+      acted = 1
+    }
+  }
+  if (!p.ended && (acted === 0 || p.seat(w).ap <= 0)) p.settleRound()
   if (p.ended) return endDraft(k, p, p.ended, logBeats(state))
   return stepDraft(p, 'scene.next')
 }
@@ -216,10 +288,10 @@ export function sceneSkip(k: Kernel, state: GameState, env: SceneEnv = {}): Repo
   if (scene.step !== 0 || scene.round !== 1) throw new ActionBlocked('場景已經開始了，只能按「停下」結束。')
   const p = new Play(k, state, scene, env.dice ?? diceOf(state, scene))
   const r = p.rules.skip
-  const shared = tendencyTagIds(p.actor('pc')).filter((t) => hasTendencyTag(p.actor('partner'), t)).length
-  p.s.fit = Math.max(0, Math.min(100, r.base + shared * r.per_tag + Math.round((p.sens.partner - 50) / r.sens_div) + p.dice.int(0, r.spread - 1)))
-  if (p.s.goal !== null) p.s.goal_progress = Math.min(p.rules.skip_goal.cap, p.rules.skip_goal.base + Math.floor(p.s.fit / 2))
-  p.line('pc', '這一場略過了：寫成一段敘事，自動結算。', 'skip')
+  const shared = tendencyTagIds(p.actor(p.pc)).filter((t) => hasTendencyTag(p.actor(p.partnerId), t)).length
+  p.pair.fit = Math.max(0, Math.min(100, r.base + shared * r.per_tag + Math.round((p.sens[p.partnerId]! - 50) / r.sens_div) + p.dice.int(0, r.spread - 1)))
+  if (p.s.goal !== null) p.s.goal_progress = Math.min(p.rules.skip_goal.cap, p.rules.skip_goal.base + Math.floor(p.pair.fit / 2))
+  p.line(p.pc, '這一場略過了：寫成一段敘事，自動結算。', 'skip')
   return endDraft(k, p, 'skip', [])
 }
 
@@ -227,13 +299,14 @@ export function sceneSkip(k: Kernel, state: GameState, env: SceneEnv = {}): Repo
 export function sceneInterrupt(k: Kernel, state: GameState, env: SceneEnv = {}): ReportDraft {
   const scene = needScene(state)
   const p = new Play(k, state, scene, env.dice ?? diceOf(state, scene))
-  p.line('pc', '被外面的事打斷了。', 'interrupt')
+  p.line(p.pc, '被外面的事打斷了。', 'interrupt')
   return endDraft(k, p, 'interrupted', logBeats(state))
 }
 
-/** 輪到誰（畫面決定要不要呼叫 sceneNext）；沒有場景是 null。 */
+/** 輪到誰（舊名字：'pc' 是主角、'partner' 是別人；畫面決定要不要呼叫 sceneNext）；沒有場景是 null。要角色的 id 讀 sceneRawOf(state).turn。 */
 export function sceneTurn(state: GameState): Who | null {
-  return sceneOf(state)?.turn ?? null
+  const s = sceneRawOf(state)
+  return s ? (s.turn === s.pc ? 'pc' : 'partner') : null
 }
 
 // ---- 活動與功能 ----
@@ -241,7 +314,7 @@ export function sceneTurn(state: GameState): Who | null {
 const sceneActivity: ActivityDef = {
   kind: ACTIVITY, owner: OWNER, order: 20,
   active: (s) => {
-    const x = sceneOf(s)
+    const x = sceneRawOf(s)
     return x ? { id: x.id, label: '成人場景' } : null
   },
   // 場景自己的報告（結束那一份走 commitNarrated 也是 commit:scene.end）；別的功能要在場景裡做的事自己 k.activity.allow

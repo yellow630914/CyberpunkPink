@@ -5,7 +5,7 @@
 import type { Change, ClampNote, GameState, Kernel, ReportDraft, TimelineBeat } from '../../core'
 import { attachActivityEnd, clone, contentAllowed, effectCtx, endActivity } from '../../core'
 import type { EndReason } from './model'
-import { ACTIVITY, END_NAME, SINK_CAP, EXT, GOAL_NAME, beat, ratingOf, recordScene, sexRecordOf, sceneOf } from './model'
+import { ACTIVITY, END_NAME, SINK_CAP, EXT, GOAL_NAME, beat, ratingOf, recordScene, sexRecordOf, sceneRawOf } from './model'
 import type { Play } from './play'
 
 type Fx = Record<string, unknown>
@@ -20,17 +20,16 @@ export function sceneDraft(state: GameState, p: Play, action: string, timeline: 
 /** 感載與餘韻跟著人走：差多少就加減多少（actor.track）。結束時感載歸零。 */
 function trackChanges(p: Play, over: boolean): Change[] {
   const out: Change[] = []
-  for (const w of ['pc', 'partner'] as const) {
-    const id = p.id(w)
-    const load = (over ? 0 : p.load[w]) - p.state.actors[id]!.load
-    const glow = p.glow[w] - p.state.actors[id]!.afterglow
+  for (const id of p.ids) {
+    const load = (over ? 0 : p.load[id]!) - p.state.actors[id]!.load
+    const glow = p.glow[id]! - p.state.actors[id]!.afterglow
     if (load !== 0) out.push({ op: 'actor.track', id, track: 'load', delta: load })
     if (glow !== 0) out.push({ op: 'actor.track', id, track: 'afterglow', delta: glow })
   }
   return out
 }
 
-const stepText = (p: Play): string => p.beats.filter((b) => b.tag !== 'round').map((b) => b.text).join('') || '場景繼續。'
+const stepText = (p: Play): string => p.beats.filter((b) => b.tag !== 'round' && b.tag !== 'scene.dropped').map((b) => b.text).join('') || '場景繼續。'
 
 /** 沒有結束的一步（scene.act、scene.next）：場景狀態整份換掉，加感載與餘韻的差。 */
 export function stepDraft(p: Play, action: 'scene.act' | 'scene.next'): ReportDraft {
@@ -53,8 +52,8 @@ function settleEffects(k: Kernel, state: GameState, actor: string, list: Fx[]): 
 
 /** 場景的一整場紀錄（結束的報告帶它，AI 寫整場的正文讀它）。 */
 export function logBeats(state: GameState): TimelineBeat[] {
-  const s = sceneOf(state)
-  return s ? s.lines.map((l) => beat(l.who === 'pc' ? s.pc : s.partner, l.text, 'scene.line')) : []
+  const s = sceneRawOf(state)
+  return s ? s.lines.map((l) => beat(l.who, l.text, 'scene.line')) : []
 }
 
 /**
@@ -66,15 +65,17 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
   const { s, state, rules } = p
   const skip = reason === 'skip'
   p.s.step += 1
-  const band = ratingOf(rules, s.fit)
+  const partnerId = p.partnerId
+  const pair = p.pair
+  const band = ratingOf(rules, pair.fit)
   const pc = state.actors[s.pc]!
-  const partner = state.actors[s.partner]!
+  const partner = state.actors[partnerId]!
   const rec = sexRecordOf(pc)
 
   // 體悟：評價給的，加上第一次（這個人、體位、標籤）；略過打七折
   const notes: string[] = []
   let insight = band.insight
-  if (s.first_person) {
+  if (pair.first) {
     insight += rules.first_bonus
     notes.push('第一次和這個人')
   }
@@ -99,13 +100,13 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
 
   // 親密度與傾向落在主角身上；橋參數落在這一場受到最多感載的那一方（合拍 25%、難忘 50% 的機會 +1，ADR G11）
   const pcFx: Fx[] = []
-  if (band.affinity !== 0) pcFx.push({ kind: 'affinity', key: s.partner, amount: band.affinity })
+  if (band.affinity !== 0) pcFx.push({ kind: 'affinity', key: partnerId, amount: band.affinity })
   for (const t of touched) if (contentAllowed(state.rules, t)) pcFx.push({ kind: 'tendency', tag: t })
   const settled = settleEffects(k, state, s.pc, pcFx)
   const fx = { changes: [...settled.changes], lines: [...settled.lines], clamps: [...settled.clamps] }
   if (!skip && band.bridge > 0 && p.dice.int(1, 100) <= Math.round(band.bridge * 100)) {
-    const who = s.received.pc >= s.received.partner ? 'pc' : 'partner'
-    const b = settleEffects(k, state, p.id(who), [{ kind: 'bridge', param: p.dice.int(0, 1) === 0 ? 'sensitivity' : 'tolerance', amount: 1 }])
+    const who = p.seat(s.pc).received >= p.seat(partnerId).received ? s.pc : partnerId
+    const b = settleEffects(k, state, who, [{ kind: 'bridge', param: p.dice.int(0, 1) === 0 ? 'sensitivity' : 'tolerance', amount: 1 }])
     fx.changes.push(...b.changes)
     fx.lines.push(...b.lines)
     fx.clamps.push(...b.clamps)
@@ -114,8 +115,8 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
   // 性經歷：各記一筆
   const service = s.nature === 'trade' || s.nature === 'work'
   const records: Change[] = [
-    { op: 'actor.ext', id: s.pc, key: 'sex_record', value: recordScene(rec, { partner: s.partner, partnerName: partner.name, service: service && s.role === 'worker', positions: used, tags: touched }) },
-    { op: 'actor.ext', id: s.partner, key: 'sex_record', value: recordScene(sexRecordOf(partner), { partner: s.pc, partnerName: pc.name, service: service && s.role === 'guest', positions: used, tags: touched }) },
+    { op: 'actor.ext', id: s.pc, key: 'sex_record', value: recordScene(rec, { partner: partnerId, partnerName: partner.name, service: service && s.role === 'worker', positions: used, tags: touched }) },
+    { op: 'actor.ext', id: partnerId, key: 'sex_record', value: recordScene(sexRecordOf(partner), { partner: s.pc, partnerName: pc.name, service: service && s.role === 'guest', positions: used, tags: touched }) },
   ]
 
   // 目的
@@ -123,14 +124,15 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
   // 同步：全檔過載累積的沉溺（每場最多 sink_cap）；這一場開過的最高檔位（橋參數的成長之後要用）
   const sinkLines: string[] = []
   const sinkChanges: Change[] = []
-  for (const w of ['pc', 'partner'] as const) {
-    const n = Math.min(SINK_CAP, s.sink_gain[w])
+  for (const seat of s.seats) {
+    const n = Math.min(SINK_CAP, seat.sink_gain)
     if (n <= 0) continue
-    sinkChanges.push({ op: 'actor.track', id: p.id(w), track: 'sink', delta: n })
-    sinkLines.push(`${w === 'pc' ? '你' : partner.name}在${p.sync.gears.full.name}檔過載：沉溺 +${n}。`)
+    sinkChanges.push({ op: 'actor.track', id: seat.id, track: 'sink', delta: n })
+    sinkLines.push(`${seat.id === s.pc ? '你' : state.actors[seat.id]!.name}在${p.sync.gears.full.name}檔過載：沉溺 +${n}。`)
   }
-  const maxGear = { pc: s.max_gear.pc, partner: s.max_gear.partner }
-  const result = { with: s.partner, fit: s.fit, rating: band.name, goal: s.goal, goal_done: goalDone, reason, max_gear: maxGear }
+  // 報告的舊鍵：一對一的 { pc, partner }
+  const maxGear = { pc: p.seat(s.pc).max_gear, partner: p.seat(partnerId).max_gear }
+  const result = { with: partnerId, fit: pair.fit, rating: band.name, goal: s.goal, goal_done: goalDone, reason, max_gear: maxGear }
   const end = endActivity(k, { state, kind: ACTIVITY, id: s.id, origin: s.origin, outcome: reason, result })
   if (end.rewind) end.launch = []
 
@@ -142,12 +144,12 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
     ...sinkChanges, ...fx.changes, ...records, ...end.changes,
   ]
   const results = [
-    `${END_NAME[reason]}。`, `契合 ${s.fit}：${band.name}。`, `體悟 +${insight}${notes.length > 0 ? `（${notes.join('、')}）` : ''}。`, ...fx.lines, ...sinkLines,
+    `${END_NAME[reason]}。`, `契合 ${pair.fit}：${band.name}。`, `體悟 +${insight}${notes.length > 0 ? `（${notes.join('、')}）` : ''}。`, ...fx.lines, ...sinkLines,
     ...(s.goal ? [`目的「${GOAL_NAME[s.goal]}」：${goalDone ? '達成了' : '沒有達成'}。`] : []),
-    `餘韻：你 ${p.glow.pc}／${p.glowMax.pc} 層、${partner.name} ${p.glow.partner}／${p.glowMax.partner} 層。`, ...end.lines,
+    `餘韻：你 ${p.glow[s.pc]}／${p.glowMax[s.pc]} 層、${partner.name} ${p.glow[partnerId]}／${p.glowMax[partnerId]} 層。`, ...end.lines,
   ]
-  const finalBeat = beat(s.pc, `場景結束：${END_NAME[reason]}。契合 ${s.fit}，${band.name}。`, 'scene.end', { reason, fit: s.fit, rating: band.id, insight, max_gear: maxGear })
-  const d = sceneDraft(state, p, 'scene.end', [...lead, ...p.beats, finalBeat], changes, reason, `${END_NAME[reason]}。契合 ${s.fit}，${band.name}。`)
+  const finalBeat = beat(s.pc, `場景結束：${END_NAME[reason]}。契合 ${pair.fit}，${band.name}。`, 'scene.end', { reason, fit: pair.fit, rating: band.id, insight, max_gear: maxGear })
+  const d = sceneDraft(state, p, 'scene.end', [...lead, ...p.beats, finalBeat], changes, reason, `${END_NAME[reason]}。契合 ${pair.fit}，${band.name}。`)
   d.narration = { results }
   if (fx.clamps.length > 0) d.clamps = fx.clamps
   if (p.said) d.input = p.said

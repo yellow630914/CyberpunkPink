@@ -530,7 +530,7 @@ describe('冒煙 M2：每一種活動的中途存檔讀檔，狀態一模一樣�
         walkAcross(g)
         g.commit(chooseOption(k, g.state, 'go'))
         g.commit(sceneAct(k, g.state, { kind: 'talk', text: '你好。' }))
-        const s = structuredClone(sceneOf(g.state))
+        const s = JSON.parse(JSON.stringify(sceneOf(g.state))) // sceneOf 回傳的是外觀（Proxy），structuredClone 複製不了
         roundTrip(g, 'scene')
         expect(sceneOf(g.state)).toEqual(s)
         await untilIdle(g)
