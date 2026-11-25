@@ -22,6 +22,8 @@ export interface PreviewOpts {
   maker?: MakerKind
   /** 工錢從哪裡付；不寫先帳戶、不夠再現金 */
   pay?: Pool
+  /** 精工要加在哪一個數值（成品 stats 的鍵；CRAFTING 10.1 節「精工由做的人選」）。沒給照舊自動選 stats 合計最高的那一個；義體的精工是沉溺成本 −1，沒有可以選的 */
+  polish?: string
 }
 
 /** 一個放進槽裡的零件。 */
@@ -116,6 +118,8 @@ export interface ProductResult {
   overspec: number
   /** 預期的品質：自己動手要看擲出來的（null） */
   quality: 'standard' | 'fine' | null
+  /** 精工可以加在哪些數值（成品 stats 的鍵；義體沒有可以選的，是空的） */
+  polishable: string[]
   /** 義體：設計圖的沉溺成本、零件與怪癖給的、合計 */
   sink?: { base: number; parts: number; total: number }
 }
@@ -200,7 +204,7 @@ export interface Picked {
   overspec: boolean
 }
 
-const slotOf = (bp: BlueprintEntry, type: string): { need: PartNeed; required: boolean } | undefined => {
+export const slotOf = (bp: BlueprintEntry, type: string): { need: PartNeed; required: boolean } | undefined => {
   const need = (bp.require ?? []).find((n) => n.type === type)
   if (need) return { need, required: true }
   const opt = (bp.optional ?? []).find((n) => n.type === type)
@@ -302,6 +306,29 @@ export function skillFor(rules: CraftRules, bp: Pick<BlueprintEntry, 'kind'>, al
   return bp.kind === 'cyberware' ? rules.skills.cyberware : rules.skills.mech
 }
 
+/**
+ * 難度的每一項（P16）：設計圖等級的標準 DC、牌子數 −1、接面數、超規每件（有工坊減半）、橋 +3，再加難度偏移。
+ * 組裝與換零件共用這一個算法；info 是成品現在（或換完之後）的樣子，overspecN 是超規的零件有幾個。
+ */
+export function difficultyOf(rules: CraftRules, state: Pick<GameState, 'rules'>, bp: BlueprintEntry, info: ProductInfo | undefined, overspecN: number, workshop: boolean): Difficulty {
+  const brands = info?.brands ?? [bp.brand]
+  const base = rules.dc[Math.min(5, Math.max(1, bp.grade)) - 1] ?? rules.dc[0] ?? 10
+  const brandPlus = Math.max(0, brands.length - 1) * rules.brand_step
+  const seamPlus = (info?.seams ?? 0) * rules.seam_step
+  const rawOver = overspecN * rules.overspec_step
+  const overPlus = workshop ? Math.ceil(rawOver / 2) : rawOver
+  const bridgePlus = isBridgeBp(bp) ? rules.bridge_step : 0
+  const offset = state.rules.dcOffset
+  const total = dcFor(base + brandPlus + seamPlus + overPlus + bridgePlus, state.rules)
+  const lines: DifficultyLine[] = [{ id: 'grade', label: `設計圖等級的標準 DC`, value: base }]
+  if (brandPlus !== 0) lines.push({ id: 'brands', label: `牌子（共 ${brands.length} 個，每多一個）`, value: brandPlus })
+  if (seamPlus !== 0) lines.push({ id: 'seams', label: `機械接生體的接面（${info!.seams} 個）`, value: seamPlus })
+  if (overPlus !== 0) lines.push({ id: 'overspec', label: `超規（${overspecN} 件${workshop ? '，工坊減半' : ''}）`, value: overPlus })
+  if (bridgePlus !== 0) lines.push({ id: 'bridge', label: '組的是橋', value: bridgePlus })
+  if (offset !== 0) lines.push({ id: 'offset', label: '難度偏移', value: offset })
+  return { base, brands: brandPlus, seams: seamPlus, overspec: overPlus, bridge: bridgePlus, offset, total, lines }
+}
+
 // ---- 整份預覽 ----
 
 /** assembleDraft 與預覽共用的計畫：預覽之外多帶背包裡真的要用的零件、成品資料與資訊。 */
@@ -316,6 +343,8 @@ export interface Plan {
   /** 成品的資料（還沒有 uid、品質；零件整理過） */
   data?: ProductData
   info?: ProductInfo
+  /** 玩家指定的精工項目（通過檢查的才有） */
+  polish?: string
 }
 
 const emptyPreview = (maker: MakerKind, by: ActorId, minutes: number, problems: string[]): AssemblyPreview => ({
@@ -379,23 +408,19 @@ export function planAssembly(k: Kernel, state: GameState, o: PreviewOpts): Plan 
     else if (facility?.by === 'factory' && facility.brand !== undefined && brands[0] !== facility.brand) problems.push(`這間原廠只做 ${facility.brand} 的東西。`)
   }
 
+  // 精工的項目（玩家選；沒選照舊自動選）
+  const polishable = bp.kind === 'cyberware' || !info ? [] : Object.keys(info.stats)
+  const canFine = mr.fine || mr.check
+  if (o.polish !== undefined) {
+    if (!canFine) problems.push(`${MAKER_NAME[maker]}做不出精工，不用指定精工的項目。`)
+    else if (bp.kind === 'cyberware') problems.push('義體的精工是沉溺成本少一點，沒有別的項目可以選。')
+    else if (info && !polishable.includes(o.polish)) problems.push(`精工要加在成品有的數值上，這一件沒有「${o.polish}」。`)
+  }
+
   // 難度
   const workshop = maker === 'self' && state.actors[by] !== undefined && workshopOf(k, state, by)
-  const base = rules.dc[Math.min(5, Math.max(1, bp.grade)) - 1] ?? rules.dc[0] ?? 10
-  const brandPlus = Math.max(0, brands.length - 1) * rules.brand_step
-  const seamPlus = (info?.seams ?? 0) * rules.seam_step
-  const rawOver = overspec.length * rules.overspec_step
-  const overPlus = workshop ? Math.ceil(rawOver / 2) : rawOver
-  const bridgePlus = isBridgeBp(bp) ? rules.bridge_step : 0
-  const offset = state.rules.dcOffset
-  const total = dcFor(base + brandPlus + seamPlus + overPlus + bridgePlus, state.rules)
-  const lines: DifficultyLine[] = [{ id: 'grade', label: `設計圖等級的標準 DC`, value: base }]
-  if (brandPlus !== 0) lines.push({ id: 'brands', label: `牌子（共 ${brands.length} 個，每多一個）`, value: brandPlus })
-  if (seamPlus !== 0) lines.push({ id: 'seams', label: `機械接生體的接面（${info!.seams} 個）`, value: seamPlus })
-  if (overPlus !== 0) lines.push({ id: 'overspec', label: `超規（${overspec.length} 件${workshop ? '，工坊減半' : ''}）`, value: overPlus })
-  if (bridgePlus !== 0) lines.push({ id: 'bridge', label: '組的是橋', value: bridgePlus })
-  if (offset !== 0) lines.push({ id: 'offset', label: '難度偏移', value: offset })
-  const difficulty: Difficulty = { base, brands: brandPlus, seams: seamPlus, overspec: overPlus, bridge: bridgePlus, offset, total, lines }
+  const difficulty = difficultyOf(rules, state, bp, info, overspec.length, workshop)
+  const total = difficulty.total
 
   // 自己動手的檢定
   let check: CheckPreview | null = null
@@ -414,7 +439,7 @@ export function planAssembly(k: Kernel, state: GameState, o: PreviewOpts): Plan 
     const priceData = { ...data, quality: quality ?? ('standard' as const) }
     result = {
       grade: info.grade, legal: info.legal, price: productPrice(k.content, bp.id, priceData), weight: info.weight, stats: { ...info.stats }, affinity: { ...info.affinity },
-      brands: [...brands], fullSet: brands.length === 1, seams: info.seams, allBio: info.allBio, overspec: overspec.length, quality,
+      brands: [...brands], fullSet: brands.length === 1, seams: info.seams, allBio: info.allBio, overspec: overspec.length, quality, polishable,
       ...(bp.kind === 'cyberware' ? { sink: { base: bp.sink_cost ?? 0, parts: info.stats.sink ?? 0, total: (bp.sink_cost ?? 0) + (info.stats.sink ?? 0) } } : {}),
     }
   }
@@ -428,7 +453,7 @@ export function planAssembly(k: Kernel, state: GameState, o: PreviewOpts): Plan 
     blueprint: { id: bp.id, name: bp.name, kind: bp.kind, grade: bp.grade, brand: bp.brand },
     maker, by, slots, missing, difficulty, check, result, fee, pay, minutes: rules.minutes, registered: mr.registers, problems, block: problems[0] ?? null,
   }
-  return { preview, bp, rules, maker, by, picks, data, ...(info ? { info } : {}) }
+  return { preview, bp, rules, maker, by, picks, data, ...(info ? { info } : {}), ...(o.polish !== undefined ? { polish: o.polish } : {}) }
 }
 
 /** 組裝的預覽：不改狀態、不擲骰。 */

@@ -37,3 +37,5 @@ M4-part-unreg、M4-part-sources。核心的工單彼此不要同時做（M4-smok
 ## 完成時回報
 
 改了哪些檔、測試結果、`features/unreg` 缺的接口、這個任務一次請求大約多少字（給使用者看成本）、M5 的文字槽（M5-core-ai）做完之後這條鏈要不要改成一格文字槽的建議。
+
+- 總指揮補記（2026-11-25）：順便做二手零件狀態進成品（`ProductData.part_states?`），見 M4-followups「M4-craft-salvage 回報」。

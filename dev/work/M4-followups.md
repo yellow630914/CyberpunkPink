@@ -84,3 +84,9 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 拆下來的二手零件放進成品時二手狀態會丟：要保留得在核心 `ProductData` 加每個零件的狀態，M4-craft-salvage 看要不要做。
 - 套裝加成與排異的效果沒有人算：交給 M4-craft-salvage 或 M4-cyber-battle（看哪張碰得到），做不到就回報。
 - testkit 的報告前綴清單補 `craft`：M4-smoke。
+
+## 總指揮補記（2026-11-25，M4-craft-salvage 回報）
+- 二手零件狀態進成品：要核心 `ProductData` 加 `part_states?`，`readProduct`／`productOf`／`productPrice` 跟著讀。歸 M4-core-part-ai（cpp-architect 角色，第 47 張，本來就動核心的零件格式）一起做。
+- 排異（CRAFTING 第 6 節，失敗時沉溺成本上升）：確認 M4-cyber-battle 有沒有接；沒有就歸這一張。
+- 解剖的數字（一小時、60 分鐘、沉溺 +1、敵對值 +5）是 `enemies/dissect.ts` 的常數：M4-data-rules 搬進規則表。
+- testkit 的報告前綴清單補 `craft`（含 salvage、swap）與 `enemies.dissect`：M4-smoke。

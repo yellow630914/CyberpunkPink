@@ -16,6 +16,8 @@ export const RULE_KIND = 'craft_rule'
 export const FACILITY_TYPE_KIND = 'facility_type'
 export const ASSEMBLE_ACTION = 'craft.assemble'
 export const LEARN_ACTION = 'craft.learn'
+export const SALVAGE_ACTION = 'craft.salvage'
+export const SWAP_ACTION = 'craft.swap'
 /** 效果：學會一張設計圖（內建的來源才收，ai: false）。 */
 export const BLUEPRINT_EFFECT = 'blueprint'
 
@@ -72,6 +74,16 @@ export interface CraftRules {
   attr: AttrId
   skills: { cyberware: string; mech: string; bio: string }
   makers: Record<MakerKind, MakerRule>
+  /** 拆解：一個零件完好拆下來的機率 ＝ salvage_base ＋ 做的人那一項基本功 × salvage_per_skill，最多 salvage_max（CRAFTING 10.4 節；M4-craft-salvage） */
+  salvage_base: number
+  salvage_per_skill: number
+  salvage_max: number
+  /** 拆一件花的分鐘 */
+  salvage_minutes: number
+  /** 換一個零件花的分鐘（暫定：工單沒寫，照拆解的一個時段） */
+  swap_minutes: number
+  /** 店家換零件的工錢 ＝ 設計圖等級 × 店家的 fee_per_grade × 這個比例（暫定一半） */
+  swap_shop_ratio: number
 }
 
 export const DEFAULT_CRAFT_RULES: CraftRules = {
@@ -89,6 +101,8 @@ export const DEFAULT_CRAFT_RULES: CraftRules = {
     // 原廠的工錢暫定（CRAFTING 沒寫數字；M4-craft 回報）
     factory: { fee_per_grade: 150, check: false, overspec: false, registers: true, full_set_only: true, fine: true, quirk_chance: 0, needs_known: false },
   },
+  salvage_base: 0.7, salvage_per_skill: 0.05, salvage_max: 0.95, salvage_minutes: 60,
+  swap_minutes: 60, swap_shop_ratio: 0.5,
 }
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
@@ -102,6 +116,9 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
   for (const f of ['brand_step', 'seam_step', 'overspec_step', 'bridge_step', 'workshop_bonus'] as const) {
     if (e[f] !== undefined && !(isSafeInt(e[f]) && (e[f] as number) >= 0 && (e[f] as number) <= 20)) p.push(`${f} 要是 0～20 的整數`)
   }
+  for (const f of ['salvage_base', 'salvage_per_skill', 'salvage_max'] as const) if (e[f] !== undefined && !isRatio(e[f])) p.push(`${f} 要是 0～1 的數字`)
+  if (e.swap_shop_ratio !== undefined && !(typeof e.swap_shop_ratio === 'number' && Number.isFinite(e.swap_shop_ratio) && e.swap_shop_ratio >= 0 && e.swap_shop_ratio <= 10)) p.push('swap_shop_ratio 要是 0～10 的數字')
+  for (const f of ['salvage_minutes', 'swap_minutes'] as const) if (e[f] !== undefined && !(isSafeInt(e[f]) && (e[f] as number) >= 0 && (e[f] as number) <= 10_080)) p.push(`${f} 要是 0～10080 的整數（分鐘）`)
   if (e.minutes !== undefined && !(isSafeInt(e.minutes) && e.minutes >= 0 && e.minutes <= 10_080)) p.push('minutes 要是 0～10080 的整數（分鐘）')
   if (e.self_home_level !== undefined && !(isSafeInt(e.self_home_level) && e.self_home_level >= 0 && e.self_home_level <= 3)) p.push('self_home_level 要是 0～3 的整數')
   if (e.attr !== undefined && !(ATTR_IDS as readonly unknown[]).includes(e.attr)) p.push(`attr 要是屬性的 id（${ATTR_IDS.join('、')}）`)
@@ -138,6 +155,7 @@ export function craftRules(k: Pick<Kernel, 'content'>): CraftRules {
   const ok = (key: string): boolean => e[key] !== undefined && !bad.has(key)
   if (ok('dc')) out.dc = [...(e.dc as number[])]
   for (const f of ['brand_step', 'seam_step', 'overspec_step', 'bridge_step', 'minutes', 'self_home_level', 'workshop_bonus'] as const) if (ok(f)) out[f] = e[f] as number
+  for (const f of ['salvage_base', 'salvage_per_skill', 'salvage_max', 'salvage_minutes', 'swap_minutes', 'swap_shop_ratio'] as const) if (ok(f)) out[f] = e[f] as number
   if (ok('attr')) out.attr = e.attr as AttrId
   if (ok('skills')) for (const [key, v] of Object.entries(e.skills as Record<string, unknown>)) if (key in out.skills && isText(v)) out.skills[key as keyof CraftRules['skills']] = v
   // makers 有一項格式不對就整個 makers 不收（bad 只看第一個字）：逐欄檢查，好的欄位照收
@@ -221,11 +239,15 @@ export function craftHere(k: Kernel, state: GameState): (CraftFacility & { type:
   return null
 }
 
+/** 有工作台的地方：帶 craft 的設施，或住處（條件 at_home，等級至少 self_home_level）。 */
+export function workbenchHere(k: Kernel, state: GameState, rules: CraftRules = craftRules(k)): boolean {
+  if (craftHere(k, state)) return true
+  return k.conditions.kinds().includes('at_home') && k.conditions.test({ kind: 'at_home', level_min: rules.self_home_level }, { state, stats: k.stats, timeRules: k.timeRules })
+}
+
 /** 自己組裝的地方：住處（條件 at_home，等級至少 self_home_level）或帶 craft 的設施。 */
 export function selfPlaceBlock(k: Kernel, state: GameState, rules: CraftRules = craftRules(k)): string | null {
-  if (craftHere(k, state)) return null
-  if (k.conditions.kinds().includes('at_home') && k.conditions.test({ kind: 'at_home', level_min: rules.self_home_level }, { state, stats: k.stats, timeRules: k.timeRules })) return null
-  return '自己組裝要在有工作台的住處（二級以上）或有工作台的店面。'
+  return workbenchHere(k, state, rules) ? null : '自己組裝要在有工作台的住處（二級以上）或有工作台的店面。'
 }
 
 /** 組裝的人是主角或隊上的人嗎。 */

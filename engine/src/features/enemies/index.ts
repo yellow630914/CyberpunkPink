@@ -1,7 +1,7 @@
 // L6 功能：敵人與遭遇。兩種內容（enemy、encounter）的格式；把一筆敵人資料照「等級與位階的目標表 × 兵種的修正 × 難度 × 強度係數」
 // 變成戰鬥裡的單位（來源 enemy）；遭遇的點數與開打的設定；敵人的士氣（撤退與投降）。
 // 照勢力、等級、位階挑兵種（來源 enemy_pick）在 pick.ts；打贏之後的俘虜在 capture.ts（M2-enemy-encounter）。
-// 掉落的格式與打贏之後的結算在 loot.ts。敵方的無人機與砲塔（position.size: 'overlay'）、附屬單位（attached）、機甲的機體（hull，只收格式）
+// 掉落的格式與打贏之後的結算在 loot.ts；現實的義體掉落（needs: 'dissect' 的 { blueprint }）要玩家戰後選一個解剖，在 dissect.ts（M4-craft-salvage）。敵方的無人機與砲塔（position.size: 'overlay'）、附屬單位（attached）、機甲的機體（hull，只收格式）
 // 與會指揮的敵人的行動 enemy.command（M1b-enemy-units）在 overlays.ts；一台怎麼動在 features/summons。
 // 敵人資料多收的欄位（M1b-enemy-moves）：signature（招牌行動：技能的 id 放進 unit.ext.abilities.equipped，技能那一邊本來就認；
 // 還沒轉的敘述 { name, text } 收下、不做效果）、traits 與內容種類 enemy_trait（traits.ts）、cyber（變成 implants）、deck（放到 ext.deck）、
@@ -20,6 +20,7 @@ import { registerLace } from './lace'
 import { registerOverlays } from './overlays'
 import { enemyUnit } from './stats'
 import { OWNER, netEnemyWarnings, registerKinds } from './kinds'
+import { installDissect } from './dissect'
 import { installLoot } from './loot'
 import { applyTraits, moraleDcBonus, registerTraitKind, runTraitStart } from './traits'
 
@@ -29,7 +30,9 @@ export type { EnemyStats, NetStats } from './stats'
 export { NET_RULE_KIND, credentialItem } from './lace'
 export type { NetEnemyRule } from './lace'
 export { CASH_RANGE, LOOT_CAP } from './loot'
-export type { LootConstruct, LootCredential, LootDrop, LootEntry, LootText } from './loot'
+export type { LootBlueprint, LootConstruct, LootCredential, LootDrop, LootEntry, LootText } from './loot'
+export { DISSECT_ACTION, DISSECT_EXT, DISSECT_HOSTILITY, DISSECT_MINUTES, DISSECT_SINK, DISSECT_WINDOW_MINUTES, dissectBlock, dissectDraft, dissectOf, dissectOptions } from './dissect'
+export type { DissectOpts, DissectOption, DissectState, DissectTarget } from './dissect'
 export { OVERLAY_KINDS } from './kinds'
 export { LACE_COLORS, NET_ONLY_KINDS, NET_SYNC_VALUES, enemyMode, netCapable, netEnemyWarnings } from './kinds'
 export type { EncounterEntry, EncounterFoe, EnemyAttached, EnemyConstruct, EnemyCyber, EnemyDeck, EnemyEntry, EnemyHull, EnemyOverlay, EnemySignature } from './kinds'
@@ -51,6 +54,8 @@ export const enemiesFeature: Feature = {
     k.battle.unitSource('enemy_pick', OWNER, (ref, ctx) => enemyPickUnit(k, ctx.state, ref, ctx))
     // 掉落：打贏之後在戰鬥結束時結算（M1b-loot）
     installLoot(k, OWNER)
+    // 戰後的解剖：打贏一場現實的戰鬥，把拆得到義體的敵人記下來，之後由玩家選（M4-craft-salvage）
+    installDissect(k, OWNER)
     // 俘虜：打贏時被制伏的敵人擲一次，成功的交給事件視窗處置（M2-enemy-encounter）
     installCapture(k, OWNER)
     // 特徵：組好單位時算進去（一定帶著的加上開戰時擲的），開打時做 start；天使急救的倒數

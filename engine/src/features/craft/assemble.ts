@@ -34,9 +34,13 @@ export function quirkPool(k: Kernel, pool: 'flaw' | 'doujin', kind: string): Qui
   return k.content.list<QuirkEntry>('quirk').filter((q) => Array.isArray(q.pool) && q.pool.includes(pool) && (!q.applies || (q.applies as string[]).includes(kind)))
 }
 
-/** 精工的 bonus：義體是沉溺成本 −1；武器與護甲是 stats 合計最高的那一個鍵 +1（一樣高的取前面那個；沒有任何鍵就沒有）。 */
-export function fineBonus(kind: string, stats: Record<string, number>): Record<string, number> | undefined {
+/**
+ * 精工的 bonus：義體是沉溺成本 −1；武器與護甲是玩家指名的那一個鍵 +1（polish，要是 stats 裡有的鍵），沒指名就是 stats 合計最高的那一個鍵
+ * （一樣高的取前面那個；沒有任何鍵就沒有）。
+ */
+export function fineBonus(kind: string, stats: Record<string, number>, polish?: string): Record<string, number> | undefined {
   if (kind === 'cyberware') return { sink: -1 }
+  if (polish !== undefined && Object.hasOwn(stats, polish)) return { [polish]: 1 }
   let best: string | undefined
   for (const [key, v] of Object.entries(stats)) if (best === undefined || v > stats[best]!) best = key
   return best === undefined ? undefined : { [best]: 1 }
@@ -61,7 +65,7 @@ export function assembleDraft(k: Kernel, state: GameState, o: AssembleOpts): Rep
   const plan = planAssembly(k, state, o)
   const pv = plan.preview
   if (pv.problems.length > 0 || !plan.bp || !plan.data || !plan.info) throw new ActionBlocked(pv.problems[0] ?? '現在組不了。')
-  const { bp, rules, maker, by, picks, info } = plan
+  const { bp, rules, maker, by, picks, info, polish } = plan
   const mr = rules.makers[maker]
   const uid = `${PRODUCT_UID_PREFIX}${state.seq.uid + 1}`
   const purpose = `${ASSEMBLE_ACTION}/${uid}`
@@ -100,7 +104,7 @@ export function assembleDraft(k: Kernel, state: GameState, o: AssembleOpts): Rep
     let quirkName: string | undefined
     result = product.quality!
     if (degree === 'critical') {
-      const bonus = fineBonus(bp.kind, info.stats)
+      const bonus = fineBonus(bp.kind, info.stats, polish)
       if (bonus) product.bonus = bonus
       lines.push(`${who}把${bp.name}組成了精工，每個接點都咬得很準。`)
     } else if (degree === 'fail') {

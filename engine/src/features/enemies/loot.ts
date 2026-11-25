@@ -4,6 +4,8 @@
 // 內海（M3-lace；dev/adr/0018 N20）：網內的敵人不掉現金、不掉 item 的項目（零件、設計圖）；只有 { construct } 與 { credential } 兩種項目，
 // 帶 needs: 'dissect' 的要我方這一場有人帶 dissect 標籤而且沒有倒下才擲。construct: 'random' 從內容的 construct 挑等級不超過這個敵人的武器、防護、工具各一類；
 // 憑證是一件物品（規則表 net_enemy_rule 的 credential_item）。兩種項目在現實也照擲（企業的人身上的憑證）。
+// 義體（M4-craft-salvage）：{ blueprint, parts?, chance, needs: 'dissect' } 是要改造師拆的義體成品（零件沒寫用設計圖的 stock）；
+// 這一種**不在戰鬥結束時自動擲**（現實的解剖由玩家選、一場一次，在 dissect.ts；內海的自動擲照舊，兩邊不互相誤觸）。
 
 import type { BattleUnit, Change, ContentEntry, ContentRegistry, Kernel } from '../../core'
 import { ITEM_MAX_PER_KIND, deriveRng, formatAmount, modeOf } from '../../core'
@@ -32,11 +34,18 @@ export interface LootCredential {
   chance: number
   needs?: 'dissect'
 }
+/** 一件義體成品（現實的解剖；dissect.ts）：blueprint 是設計圖的 id，parts 是「零件類型 → 零件的 id」（沒寫用設計圖的 stock）；一定要寫 needs: 'dissect'。 */
+export interface LootBlueprint {
+  blueprint: string
+  parts?: Record<string, string>
+  chance: number
+  needs: 'dissect'
+}
 /** 還沒轉成資料的敘述：收下、不發。 */
 export interface LootText {
   text: string
 }
-export type LootEntry = LootDrop | LootConstruct | LootCredential | LootText
+export type LootEntry = LootDrop | LootConstruct | LootCredential | LootBlueprint | LootText
 type AnyDrop = LootDrop | LootConstruct | LootCredential
 
 /** 構裝掉落的類別（武器、防護、工具；不含駭入程式、構裝體、專屬構裝）。 */
@@ -69,8 +78,8 @@ export function lootProblems(e: { loot?: unknown; cash?: unknown }): string[] {
   if (!Array.isArray(e.loot)) return [...p, 'loot 要是陣列']
   e.loot.forEach((l: unknown, i) => {
     const at = `loot[${i}]`
-    if (!isRec(l)) return void p.push(`${at} 要是物件（{ item, chance, qty? }、{ construct, chance, needs? }、{ credential: true, chance, needs? } 或 { text }）`)
-    const kinds = ['item', 'construct', 'credential'].filter((key) => l[key] !== undefined)
+    if (!isRec(l)) return void p.push(`${at} 要是物件（{ item, chance, qty? }、{ construct, chance, needs? }、{ credential: true, chance, needs? }、{ blueprint, parts?, chance, needs: 'dissect' } 或 { text }）`)
+    const kinds = ['item', 'construct', 'credential', 'blueprint'].filter((key) => l[key] !== undefined)
     if (kinds.length > 1) return void p.push(`${at} 只能寫 ${kinds.join('、')} 其中一個`)
     if (!kinds.length) {
       if (!isText(l.text)) p.push(`${at} 要是 { item, chance, qty? } 或 { text }（構裝與憑證另有 { construct, chance, needs? }、{ credential: true, chance, needs? }）`)
@@ -80,12 +89,21 @@ export function lootProblems(e: { loot?: unknown; cash?: unknown }): string[] {
     if (kind === 'item' && !isText(l.item)) return void p.push(`${at}.item 要是物品的 id`)
     if (kind === 'construct' && !isText(l.construct)) return void p.push(`${at}.construct 要是構裝的 id，或 'random'`)
     if (kind === 'credential' && l.credential !== true) return void p.push(`${at}.credential 只能寫 true`)
+    if (kind === 'blueprint' && !isText(l.blueprint)) return void p.push(`${at}.blueprint 要是設計圖的 id`)
     if (!(typeof l.chance === 'number' && Number.isFinite(l.chance) && l.chance >= 0 && l.chance <= 1)) p.push(`${at}.chance 要是 0～1 的數字`)
     if (l.needs !== undefined && l.needs !== 'dissect') p.push(`${at}.needs 只能是 'dissect'（隊上有人會解剖）`)
-    if (kind !== 'item') {
-      for (const key of ['qty', 'top']) if (l[key] !== undefined) p.push(`${at}.${key}：構裝與憑證一次一件，不寫 ${key}`)
+    if (kind === 'blueprint') {
+      if (l.needs !== 'dissect') p.push(`${at}.needs：義體要改造師拆，一定要寫 needs: 'dissect'`)
+      for (const key of ['qty', 'top']) if (l[key] !== undefined) p.push(`${at}.${key}：義體一次一件，不寫 ${key}`)
+      if (l.parts !== undefined && !(isRec(l.parts) && Object.entries(l.parts).every(([type, id]) => isText(type) && isText(id)))) p.push(`${at}.parts 要是 { 零件類型: 零件的 id }`)
       return
     }
+    if (kind !== 'item') {
+      for (const key of ['qty', 'top']) if (l[key] !== undefined) p.push(`${at}.${key}：構裝與憑證一次一件，不寫 ${key}`)
+      if (l.parts !== undefined) p.push(`${at}.parts：只有義體（blueprint）的項目能寫 parts`)
+      return
+    }
+    if (l.parts !== undefined) p.push(`${at}.parts：只有義體（blueprint）的項目能寫 parts`)
     if (l.qty !== undefined) {
       const ok = (isInt(l.qty) && l.qty >= 1) || (Array.isArray(l.qty) && l.qty.length === 2 && l.qty.every(isInt) && l.qty[0]! >= 1 && l.qty[0]! <= l.qty[1]!)
       if (!ok) p.push(`${at}.qty 要是 1 以上的整數，或 [最少, 最多]`)
@@ -101,6 +119,12 @@ export function lootRefs(content: Pick<ContentRegistry, 'has'> & { hasKind?: Con
   const out = e.loot.filter(isItemDrop).map((l): [string, string] => [LOOT_ITEM_KINDS.find((kind) => content.has(kind, l.item)) ?? 'item', l.item])
   // 指名的構裝要查得到（沒有人定義 construct 這個種類時不查：那時它們只是不會掉）
   if (content.hasKind?.('construct') !== false) for (const l of e.loot) if (isRec(l) && isText(l.construct) && l.construct !== 'random') out.push(['construct', l.construct])
+  // 義體：設計圖與指名的零件要查得到
+  for (const l of e.loot) {
+    if (!isRec(l) || !isText(l.blueprint)) continue
+    out.push(['blueprint', l.blueprint])
+    if (isRec(l.parts)) for (const id of Object.values(l.parts)) if (isText(id)) out.push(['part', id])
+  }
   return out
 }
 
@@ -113,6 +137,9 @@ const nameOf = (content: ContentRegistry, id: string): string => {
 }
 
 const dropsOf = (e: EnemyEntry): AnyDrop[] => (Array.isArray(e.loot) ? e.loot.filter(isDrop) : [])
+/** 這個敵人身上要改造師拆的義體（現實的解剖；dissect.ts）：格式合格的 { blueprint, parts?, chance, needs: 'dissect' }。 */
+export const dissectLootOf = (e: Pick<EnemyEntry, 'loot'>): LootBlueprint[] =>
+  (Array.isArray(e.loot) ? e.loot.filter((l): l is LootBlueprint => isRec(l) && isText(l.blueprint) && l.needs === 'dissect' && typeof l.chance === 'number' && Number.isFinite(l.chance) && l.chance >= 0 && l.chance <= 1 && (l.parts === undefined || isRec(l.parts))) : [])
 /** 這一筆掉落現在擲不擲：內海只有構裝與憑證（N20）；needs 要有人會解剖。 */
 interface RollOn {
   net: boolean
