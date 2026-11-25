@@ -8,3 +8,4 @@
   - 從 90～99 開戰的，要等第 2 輪的 +3 才開始倒數（第 5 輪開頭才斷線，比「到 90 就開始數」晚一輪）。這一點規格沒寫清楚「開戰時已經在 90 以上」怎麼算，交 cpp-architect 一起定。
 - 重現：`engine/tests/boundary/fixtures/B026-located-at-trace-cap.json`。會失敗的測試：`engine/tests/pending/B026-located-at-trace-cap.test.ts` 的第二條（從 95 開戰的對照那一條會過）。
 - 可能的位置（只寫推測，不改）：`engine/src/features/netcombat/out.ts` 的 `markStarting`：開戰時追蹤度已經 ≥ t3 而 `field.located` 還沒有，就開始倒數（記一拍 `located`）；或 `roundStart` 每輪加完之後不論 `addTrace` 有沒有改到數字都叫一次 `crossings`。
+- 狀態：已修（2026-11-25，M3 白箱修正批；使用者裁決：開戰時 100 第一輪就開始，90～99 照常）。`features/netcombat/out.ts` 的 `markStarting` 開戰時追蹤度在 100 就開始定位的倒數（`startLocate`）。回歸測試 `engine/tests/features/B026-located-at-trace-cap.test.ts`、`M3-fix-whitebox.test.ts`；不變式第 186 條。

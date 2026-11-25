@@ -8,3 +8,4 @@
   - 自己去挖的子網、委託的內海面（`pressure: trace`）照常收、照 ±20 夾（`tests/features/M3-net.boundary.test.ts`「AI 給的追蹤度」會過）。
 - 重現：`engine/tests/boundary/fixtures/B025-trace-in-maze.json`（`makeDiveGame({ seed: 4 })`、換比賽版構裝、潛入、報名）。會失敗的測試：`engine/tests/pending/B025-trace-in-maze.test.ts`。主套件裡記著現在的行為：`tests/features/M3-net.boundary.test.ts`「迷宮館……現在照收（B025）」，修好之後改成規格的期望。
 - 可能的位置（只寫推測，不改）：`engine/src/features/netrun/index.ts` 追蹤度量表的 `accepts`：現在只看「有沒有在網內的一趟裡、鍵是不是這一趟的地圖」，多看一條「這一趟的區 `pressure === 'trace'`」（`runRegion(k, run)`，`close.ts` 與 `fight.ts` 已經這樣判斷），不是的回「這裡沒有追蹤度。」。
+- 狀態：已修（2026-11-25，M3 白箱修正批）。`features/netrun/index.ts` 的追蹤度量表 `accepts` 多看「這一趟的區 `pressure` 是 `trace`」，不是的整筆拿掉並提醒「這裡沒有追蹤度。」。回歸測試 `engine/tests/features/B025-trace-in-maze.test.ts`、`M3-net.boundary.test.ts`；不變式第 185 條。

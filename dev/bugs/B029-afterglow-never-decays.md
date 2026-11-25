@@ -8,3 +8,4 @@
   - 影響：內海委託與迷宮館都是一場接一場，玩家不睡覺的話餘韻一直帶在身上，下一場現實戰鬥開打就帶著前面疊的層（照規格這只該在「馬上接現實戰鬥」時才發生）。
 - 重現：`engine/tests/whitebox/fixtures/B029-afterglow-never-decays.json`；會失敗的測試：`engine/tests/pending/B029-afterglow-never-decays.test.ts`（兩條都失敗；過 9 分鐘還是 2 層的那一句本來就對）。
 - 可能的位置（只寫推測，不改）：`features/character`（掛 `time.passed`，照經過的分鐘數扣 `floor(分鐘 ÷ 10)` 層，戰鬥中不扣）；或 `features/rest` 旁邊另寫。要先決定「脫離戰鬥後」從哪一刻起算（最後一場戰鬥結束的時間要記在角色或狀態上，否則只能從每次時間經過起算）。
+- 狀態：已修（2026-11-25，M3 白箱修正批；使用者裁決：現在修）。`features/character/afterglow.ts`：餘韻增加的那份報告記計時起點（`actor.ext.glow_at`），`time.passed` 每滿 10 分鐘消一層。回歸測試 `engine/tests/features/B029-afterglow-never-decays.test.ts`、`M3-fix-whitebox.test.ts`；不變式第 190 條。

@@ -13,3 +13,4 @@
   - `features/netcombat/jam.ts`：戰後寫回時把破損的那一件一起記下（例：`net_broken` 帶資料，或改成 netcombat 自己的 `actor.ext.net_broken: string[]`；`actor.ext.deck` 不是 netcombat 的，不能直接寫——不變式第 180 條同樣的理由）。
   - `features/netcombat/sync.ts` 的 `unit.ready`（現在組 `ext.net.broken` 的地方，`broken` 只從 `cur.broken` 來）：角色帶著重的破損時，把記下的那一件放進 `broken` 並設 `heavy`（再中一次照舊是重的）；記不出是哪一件的，照「武器、工具、防護的順序挑還沒破損的第一件」（和 `breakOne` 同一個挑法）。
   - 什麼時候算「登出之後修好」要 cpp-architect 定：dive 登出時、netrun 收尾時，還是照 M4-followups 第 7 項等休息；三者會影響同一次潛入裡連打幾場時的行為。
+- 狀態：已修（2026-11-25，M3 白箱修正批；使用者裁決：睡一覺清掉、或付錢修）。重創寫回時記是哪一件（`actor.ext.net_broken`），下一場內海戰鬥開打帶進來；修好：睡一覺（`rest.done`）、付錢修（`netcombat/repair.ts`，資料還沒有哪一種設施寫 `repair_construct`）、戰鬥裡 `net.fix`。回歸測試 `engine/tests/features/B028-net-broken-not-carried.test.ts`、`M3-fix-whitebox.test.ts`；不變式第 188、189 條；dev/adr/0018 M3 白箱修正批。

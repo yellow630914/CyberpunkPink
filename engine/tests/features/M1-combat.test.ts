@@ -285,6 +285,16 @@ describe('道具：戰鬥中只能用快取格裡的（EQUIPMENT 4.1 節；ITEMS
     expect(g.battleAct({ action: 'item', target: { unit: 'a1' }, pick: { item: 'it_zip_tie' } }).status).toBe('refused')
   })
 
+  it('煙霧彈（target: slot）可以放在敵方的格子上：目標列出我方四格與敵方四格，敵方那一格變成打不破的半掩體（使用者 2026-11-25）', () => {
+    const g = game(duel([one({ weapon: 'pistol', quick: [{ item: 'it_smoke_1', qty: 2 }] })], [foe()]))
+    turnTo(g, 'a1')
+    const cells = opt(g, 'item').targets.map((x) => x.target).filter((t) => 'slot' in t)
+    expect(cells).toEqual([...[1, 2, 3, 4].map((slot) => ({ side: 'ally', slot })), ...[1, 2, 3, 4].map((slot) => ({ side: 'foe', slot }))])
+    expect(g.battleAct({ action: 'item', target: { side: 'foe', slot: 2 }, pick: { item: 'it_smoke_1' } }).status).toBe('applied')
+    expect(g.battle!.cover.foe[1]!.soft).toEqual({ kind: 'smoke', until: g.battle!.round + 1 })
+    expect(g.battle!.cover.ally.every((c) => !c.soft)).toBe(true)
+  })
+
   it('內容裡的道具用了不認得的效果：載入時擋下', () => {
     const bad: ContentPack = { id: 'bad', content: { item: [ITEM('it_weird', '怪東西', { use: { ap: 1, target: 'self', effects: [{ op: 'summon_dragon' }] } })] } }
     expect(() => makeBattleGame({ features: FEATURES, content: [bad] })).toThrow(/it_weird.*summon_dragon/)

@@ -230,8 +230,8 @@ export function installJam(k: Kernel): void {
       const carry = carryOf(u)
       const had = carriedOf(state, u.actor)
       if (u.ext.net.heavy === true || carry.length > 0) {
-        // 沒變的（上一場帶來的原樣帶回去）不再寫
-        if (had !== null && had.length === carry.length && had.every((id, i) => id === carry[i])) continue
+        // 沒變的（上一場帶來的原樣帶回去）不再寫；角色身上記的和單位的不一樣（包括壞掉的資料、沒記是哪一件的）就照單位的重寫
+        if (had !== null && JSON.stringify(state.actors[u.actor]!.ext[BROKEN_EXT]) === JSON.stringify(carry)) continue
         changes.push({ op: 'actor.condition', id: u.actor, condition: BROKEN_CONDITION }, { op: 'actor.ext', id: u.actor, key: BROKEN_EXT, value: carry })
         lines.push(`重創：${u.name}的構裝破損（要修理）`)
       } else if (had !== null) {

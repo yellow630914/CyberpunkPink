@@ -4,7 +4,7 @@
 //   潛入中換腳本（DIVE_ALLOW）；煙霧彈的目標是雙方的格子（現實與內海的腳本）；追蹤度升了沒跨門檻不再多發 netrun.trace 報告（peak 併進該步的報告）。
 
 import { describe, expect, it } from 'vitest'
-import type { BattleUnit, ContentPack, Game, GridCtx, MarkerDef } from '../../src'
+import type { BattleUnit, ContentEntry, ContentPack, Game, GridCtx, MarkerDef } from '../../src'
 import { BattleBlocked, BattleRun, advance, clone, createKernel, effectCtx, meterOf, readyFeatures, setupBattle } from '../../src'
 import { DIVE_ALLOW, go as diveGo } from '../../src/features/dive'
 import { BROKEN_CONDITION, BROKEN_EXT, breakOne, fixOne, netcombatFeature, repairBlock, repairDraft, repairRows } from '../../src/features/netcombat'
@@ -19,6 +19,13 @@ type Rec = Record<string, unknown>
 const sys = (g: Game, action: string, changes: unknown[]) => g.commit({ kind: 'system', action, location: {}, party: [], timeline: [], changes: changes as never, outcome: { result: 'ok', summary: 't' } })
 const conds = (g: Game, actor = 'pc') => g.state.actors[actor]!.conditions.map((c) => c.id)
 const extOf = (g: Game, actor = 'pc') => g.state.actors[actor]!.ext[BROKEN_EXT]
+/** 內容的一筆（載入之後直接改它的欄位：測試要換價、換設施的功能）。 */
+const setPrice = (g: Game, id: string, price: number): void => { g.k.content.get<ContentEntry & { price?: number }>('construct', id)!.price = price }
+/** 把潛艙店（塔下 F3）當成也有修理服務：設施種類的 functions 多一個 repair_construct。 */
+const addRepairService = (g: Game): void => {
+  const t = g.k.content.get<ContentEntry & { functions: string[] }>('facility_type', 'fac_tw_pod')!
+  t.functions = [...t.functions, 'repair_construct']
+}
 
 // ---------------------------------------------------------------------------------------------
 // B026：開戰時追蹤度已經在上限
@@ -26,8 +33,8 @@ const extOf = (g: Game, actor = 'pc') => g.state.actors[actor]!.ext[BROKEN_EXT]
 const JAM = (['weapon', 'defense', 'tool'] as const).map((s) => ({ id: `jam_${s}`, name: s, desc: `${s}。`, until: 'own_turn_end', turns: 1, kind: 'debuff' }))
 const NET = { sync: 'standard', sync_max: 'standard', broken: [] as string[] }
 
-/** 一對一的內海戰鬥（裝 netcombat），開戰時 field.trace = trace；雙方感載上限 999，一直輪到第 rounds 輪。 */
-function battleAt(trace: number, rounds: number): BattleRun {
+/** 一對一的內海戰鬥（裝 netcombat），開戰時 field.trace = trace；雙方感載上限 999。 */
+function startAt(trace: number): { made: BattleRun; run: BattleRun } {
   const k = createKernel([netcombatFeature])
   k.content.loadPack({ id: 'fw_b026', content: { battle_status: JAM } } as unknown as ContentPack)
   readyFeatures(k)
@@ -38,9 +45,14 @@ function battleAt(trace: number, rounds: number): BattleRun {
     allies: [unit(netAvatar(0, 1, { control: 'ai', load: { now: 0, max: 999 }, ext: { net: NET } } as never))],
     foes: [unit(laceUnit('minion', 1, { load: { now: 0, max: 999 }, ext: { net: NET } } as never))],
   }
-  const battle = clone(setupBattle(k, state, setup as never).battle)
-  state.battle = battle
-  const run = new BattleRun(k, state, battle)
+  const made = setupBattle(k, state, setup as never)
+  state.battle = clone(made.battle)
+  return { made, run: new BattleRun(k, state, state.battle) }
+}
+
+/** 一直輪到第 rounds 輪（或戰鬥結束）。 */
+function battleAt(trace: number, rounds: number): BattleRun {
+  const { run } = startAt(trace)
   for (let guard = 0; guard < 400 && run.battle.round < rounds && !run.over; guard++) advance(run)
   return run
 }
@@ -49,7 +61,8 @@ describe('B026：開戰時追蹤度在 90、99、100 的定位倒數（CYBERSPAC
   it('從 100 開戰：第 1 輪就開始倒數（剩 3 輪、說一句話），第 2 輪 2、第 3 輪 1、第 4 輪開頭被強制斷線（戰敗）', () => {
     const r1 = battleAt(100, 1)
     expect(r1.battle.field.located).toBe(3)
-    expect(r1.beats.some((b) => b.text.includes('已經被定位') && b.tag === 'located')).toBe(true)
+    expect(startAt(100).made.beats.some((b) => b.text.includes('已經被定位') && b.tag === 'located')).toBe(true)
+    expect(startAt(99).made.beats.some((b) => b.tag === 'located')).toBe(false)
     expect(battleAt(100, 2).battle.field.located).toBe(2)
     expect(battleAt(100, 3).battle.field.located).toBe(1)
     const r4 = battleAt(100, 4)
@@ -85,8 +98,8 @@ describe('B026：開戰時追蹤度在 90、99、100 的定位倒數（CYBERSPAC
 // ---------------------------------------------------------------------------------------------
 // B028：重創記是哪一件、帶進下一場、修好
 
-/** 走到主角的回合再投降，把戰鬥收掉（和 M3-netcombat-jam.whitebox 的收法一樣）。 */
-async function surrender(g: G): Promise<void> {
+/** 走到主角的回合再拔線，把戰鬥收掉（單人的戰鬥：全隊拔線算撤退，不走戰敗的三選一）。 */
+async function jackOut(g: G): Promise<void> {
   const pcId = Object.values(g.state.battle!.units).find((u) => u.actor === 'pc')!.id
   for (let i = 0; i < 80 && g.battle; i++) {
     const o = g.battleOptions()
@@ -95,7 +108,7 @@ async function surrender(g: G): Promise<void> {
     if (o.current === pcId) break
     g.battleAct({ action: 'end_turn' } as never)
   }
-  g.battleAct({ action: 'net_surrender' } as never)
+  g.battleAct({ action: 'net_jack_out' } as never)
   await g.finishBattle()
 }
 
@@ -113,7 +126,8 @@ const pcOf = (g: G): BattleUnit => Object.values(g.state.battle!.units).find((u)
 
 describe('B028：重創記是哪一件構裝，下一場帶進來、不能用（CYBERSPACE 6.5 節）', () => {
   it('這一場輕的一次、重的一次：戰後只有重的那一件記在 actor.ext.net_broken，狀況 net_broken 跟著寫', async () => {
-    const { game: g } = makeNetBattleGame()
+    const { game: g } = makeNetBattleGame({ noBattle: true })
+    nextBattle(g)
     const run = liveRun(g)
     const pc = pcOf(g)
     // 第一次輕（武器構裝先破：cs_tw_gun），第二次本來就有破損 = 重（下一個武器構裝：cs_tw_blade）
@@ -123,26 +137,27 @@ describe('B028：重創記是哪一件構裝，下一場帶進來、不能用（
     expect(breakOne(run, pc)).toBe('cs_tw_blade')
     expect(carryOf(pc)).toEqual(['cs_tw_blade'])
     expect(pc.ext.net).toMatchObject({ heavy: true, broken: ['cs_tw_gun', 'cs_tw_blade'] })
-    await surrender(g)
+    await jackOut(g)
     expect(conds(g)).toContain(BROKEN_CONDITION)
     expect(extOf(g)).toEqual(['cs_tw_blade'])
   })
 
   it('帶進下一場：記下的那一件在 ext.net.broken 裡、手上的武器是它就攻擊灰掉；本來就有破損，再中一次也是重的', async () => {
-    const { game: g } = makeNetBattleGame()
+    const { game: g } = makeNetBattleGame({ noBattle: true })
+    nextBattle(g)
     const run = liveRun(g)
     breakOne(run, pcOf(g))
     breakOne(run, pcOf(g))
-    await surrender(g)
+    await jackOut(g)
     const u = nextBattle(g)
+    // 開打的報告交代了誰帶著沒修好的重創
+    expect(JSON.stringify(g.state.reports.at(-1))).toContain('帶著上一場沒修好的重創：構裝「光刃」破損了，這一場用不了。')
     expect(brokenOf(u)).toEqual(['cs_tw_blade'])
     expect(carryOf(u)).toEqual(['cs_tw_blade'])
     expect(u.ext.net).toMatchObject({ heavy: true })
     // 破損的是近戰構裝：換上它，近戰攻擊灰掉並寫原因
     u.wield = u.weapons.findIndex((w) => w.id === 'cs_tw_blade')
     expect(g.k.battle.getAction('net_melee')!.blocks!(liveRun(g), u).join('')).toContain('破損')
-    // 開打的第一拍交代了誰帶著沒修好的重創
-    expect(g.state.battle!.beats?.map((b) => b.text).join('') ?? '').toBeDefined()
     // 又被重創一次：記在 carry 裡的有兩件
     const again = liveRun(g)
     expect(breakOne(again, pcOf(g))).toBe('cs_tw_gun')
@@ -154,7 +169,7 @@ describe('B028：重創記是哪一件構裝，下一場帶進來、不能用（
     sys(g, 'test.set', [{ op: 'actor.condition', id: 'pc', condition: BROKEN_CONDITION }, { op: 'actor.ext', id: 'pc', key: BROKEN_EXT, value: ['cs_tw_blade'] }])
     nextBattle(g)
     const before = g.state.reports.length
-    await surrender(g)
+    await jackOut(g)
     expect(conds(g)).toContain(BROKEN_CONDITION)
     expect(extOf(g)).toEqual(['cs_tw_blade'])
     // 戰鬥結束的報告裡沒有再寫 net_broken
@@ -168,7 +183,7 @@ describe('B028：重創記是哪一件構裝，下一場帶進來、不能用（
     const u = nextBattle(g)
     expect(brokenOf(u)).toEqual(['cs_tw_gun'])
     expect(carryOf(u)).toEqual(['cs_tw_gun'])
-    await surrender(g)
+    await jackOut(g)
     expect(extOf(g)).toEqual(['cs_tw_gun'])
   })
 
@@ -178,7 +193,7 @@ describe('B028：重創記是哪一件構裝，下一場帶進來、不能用（
     const u = nextBattle(g)
     expect(brokenOf(u)).toEqual([])
     expect(carryOf(u)).toEqual(['cs_nowhere'])
-    await surrender(g)
+    await jackOut(g)
     expect(extOf(g)).toEqual(['cs_nowhere'])
     sys(g, 'test.set', [{ op: 'actor.ext', id: 'pc', key: BROKEN_EXT, value: 'oops' }])
     expect(() => nextBattle(g)).not.toThrow()
@@ -201,7 +216,7 @@ describe('B028：重創記是哪一件構裝，下一場帶進來、不能用（
     expect(fixOne(liveRun(g), u)).toBe('cs_tw_blade')
     expect(carryOf(u)).toEqual([])
     expect(u.ext.net).not.toHaveProperty('heavy')
-    await surrender(g)
+    await jackOut(g)
     expect(conds(g)).not.toContain(BROKEN_CONDITION)
     expect(extOf(g)).toBeUndefined()
   })
@@ -228,16 +243,15 @@ describe('B028：付錢修（CYBERSPACE 6.5 節：構裝價的 10%；規則表 n
   /** 站在潛艙店（塔下 F3），把這種設施當成也有修理服務（設施種類的 functions 多一個 repair_construct）；主角帶著兩件重創的構裝。 */
   function repairGame(): Game {
     const { game: g } = makeDiveGame()
-    const t = g.k.content.get<{ functions: string[] }>('facility_type', 'fac_tw_pod')!
-    t.functions = [...t.functions, 'repair_construct']
+    addRepairService(g)
     sys(g, 'test.set', [{ op: 'actor.condition', id: 'pc', condition: BROKEN_CONDITION }, { op: 'actor.ext', id: 'pc', key: BROKEN_EXT, value: ['cs_tw_gun', 'cs_tw_blade'] }])
     return g
   }
 
   it('價錢：構裝價的 10%（四捨五入）、最少 1；沒寫價的構裝收最少的；傷害骰少一顆也是最少的', () => {
     const { game: g } = makeNetBattleGame({ noBattle: true })
-    g.k.content.get<{ price?: number }>('construct', 'cs_tw_gun')!.price = 1300
-    g.k.content.get<{ price?: number }>('construct', 'cs_tw_blade')!.price = 14
+    setPrice(g, 'cs_tw_gun', 1300)
+    setPrice(g, 'cs_tw_blade', 14)
     sys(g, 'test.set', [{ op: 'actor.condition', id: 'pc', condition: BROKEN_CONDITION }, { op: 'actor.ext', id: 'pc', key: BROKEN_EXT, value: ['cs_tw_gun', 'cs_tw_blade', 'cs_tw_jam', 'dice'] }])
     expect(repairRows(g.k, g.state, 'pc').map((r) => [r.id, r.price])).toEqual([['cs_tw_gun', 130], ['cs_tw_blade', 1], ['cs_tw_jam', 1], ['dice', 1]])
     // 沒帶重創的人沒有東西可修；有狀況沒記是哪一件的，一筆最少價
@@ -250,8 +264,7 @@ describe('B028：付錢修（CYBERSPACE 6.5 節：構裝價的 10%；規則表 n
     const { game: g } = makeDiveGame()
     sys(g, 'test.set', [{ op: 'actor.condition', id: 'pc', condition: BROKEN_CONDITION }, { op: 'actor.ext', id: 'pc', key: BROKEN_EXT, value: ['cs_tw_gun'] }])
     expect(repairBlock(g.k, g.state, 'pc')).toBe('這裡沒有修理構裝的服務：要到大街的構裝店這類設施。')
-    const t = g.k.content.get<{ functions: string[] }>('facility_type', 'fac_tw_pod')!
-    t.functions = [...t.functions, 'repair_construct']
+    addRepairService(g)
     expect(repairBlock(g.k, g.state, 'pc')).toBeNull()
     expect(repairBlock(g.k, g.state, 'a_nobody')).toBe('沒有 a_nobody 這個角色。')
     expect(repairBlock(g.k, g.state, 'pc', 'cs_tw_jam')).toBe('那一件沒有破損。')
@@ -267,8 +280,8 @@ describe('B028：付錢修（CYBERSPACE 6.5 節：構裝價的 10%；規則表 n
 
   it('修一件：付那一件的錢，記著的少一筆、狀況留著；全修：付全部的錢，狀況與 ext 都拿掉', () => {
     const g = repairGame()
-    g.k.content.get<{ price?: number }>('construct', 'cs_tw_gun')!.price = 1200
-    g.k.content.get<{ price?: number }>('construct', 'cs_tw_blade')!.price = 800
+    setPrice(g, 'cs_tw_gun', 1200)
+    setPrice(g, 'cs_tw_blade', 800)
     const cash = g.state.money.cash
     const one = repairDraft(g.k, g.state, 'pc', 'cs_tw_gun')
     expect(one).toMatchObject({ kind: 'action', action: 'netcombat.repair' })
@@ -285,13 +298,13 @@ describe('B028：付錢修（CYBERSPACE 6.5 節：構裝價的 10%；規則表 n
 
   it('格子上列「修理構裝」：站在有修理服務的設施上帶價錢與原因；站在別的標記上、網內的地圖不列', () => {
     const g = repairGame()
-    g.k.content.get<{ price?: number }>('construct', 'cs_tw_gun')!.price = 1200
-    g.k.content.get<{ price?: number }>('construct', 'cs_tw_blade')!.price = 800
+    setPrice(g, 'cs_tw_gun', 1200)
+    setPrice(g, 'cs_tw_blade', 800)
     const here = g.state.location.facility!
     const marker = { id: here, at: [1, 1], mark: 'F', name: '潛艙店' } as unknown as MarkerDef
-    const ctx = (kind = 'block'): GridCtx => ({ k: g.k, state: g.state, map: { kind } } as unknown as GridCtx)
+    const ctx = (kind = 'block'): GridCtx => ({ k: g.k, state: g.state, at: g.state.maps.at, map: { kind } } as unknown as GridCtx)
     const mine = (list: Array<{ id: string }>) => list.filter((u) => u.id === 'netcombat.repair')
-    expect(mine(g.k.grid.listUses(ctx(), marker))).toEqual([{ id: 'netcombat.repair', name: '修理構裝（C$200）', block: null }])
+    expect(mine(g.k.grid.listUses(ctx(), marker))).toEqual([{ id: 'netcombat.repair', name: '修理構裝（200）', block: null }])
     expect(mine(g.k.grid.listUses(ctx(), { ...marker, id: 'Z9' }))).toEqual([])
     expect(mine(g.k.grid.listUses(ctx('subnet'), marker))).toEqual([])
   })
@@ -302,8 +315,8 @@ describe('B028：付錢修（CYBERSPACE 6.5 節：構裝價的 10%；規則表 n
     expect(netcombatRules(g.k).repair).toEqual({ pct: 10, min: 1 })
     for (const repair of [{ pct: 101 }, { pct: 1.5 }, { min: -1 }, { rate: 1 }, 'x']) expect(ruleProblems({ id: 'default', repair }).length, JSON.stringify(repair)).toBeGreaterThan(0)
     expect(ruleProblems({ id: 'default', repair: { pct: 25, min: 5 } })).toEqual([])
-    g.k.content.get<{ repair: unknown }>('netcombat_rule', 'default')!.repair = { pct: 25, min: 5 }
-    g.k.content.get<{ price?: number }>('construct', 'cs_tw_gun')!.price = 1000
+    g.k.content.get<ContentEntry & { repair: unknown }>('netcombat_rule', 'default')!.repair = { pct: 25, min: 5 }
+    setPrice(g, 'cs_tw_gun', 1000)
     sys(g, 'test.set', [{ op: 'actor.condition', id: 'pc', condition: BROKEN_CONDITION }, { op: 'actor.ext', id: 'pc', key: BROKEN_EXT, value: ['cs_tw_gun', 'cs_tw_jam'] }])
     expect(repairRows(g.k, g.state, 'pc').map((r) => r.price)).toEqual([250, 5])
   })
@@ -404,6 +417,13 @@ describe('潛入中換腳本（使用者 2026-11-25：和換 SKIN 一致；戰�
     expect(g.state.actors.pc!.ext.deck).toMatchObject({ scripts: [{ item: 'it_tw_script', qty: 1 }] })
     g.commit(scriptsDraft(g.k, g.state, 'pc', []))
     expect(g.state.actors.pc!.ext.deck).toMatchObject({ scripts: [] })
+  })
+
+  it('和換 SKIN 一致：在自己去挖的子網裡（網內的行程進行中），兩個一樣被同一個活動擋或放行', () => {
+    const t = makeDiveGame()
+    diveIn(t.game)
+    t.game.commit(diveGo(t.game.k, t.game.state, 'ns_tw_dig'))
+    expect(t.game.blockOf('commit:deck.scripts')).toBe(t.game.blockOf('commit:deck.skin'))
   })
 
   it('戰鬥中不行（原因「戰鬥中不能換腳本」）', () => {

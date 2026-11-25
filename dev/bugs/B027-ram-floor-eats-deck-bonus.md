@@ -8,3 +8,4 @@
   - 我的讀法是「最少 4」屬於公式那一行，加值加在它上面（max(4, 4 + mod) + 加值）。若本意是「最少 4」套在最後，請在 CYBERSPACE 6.3 節寫明，測試改成現在的行為。
 - 重現：`engine/tests/boundary/fixtures/B027-ram-floor-eats-deck-bonus.json`。會失敗的測試：`engine/tests/pending/B027-ram-floor-eats-deck-bonus.test.ts`。主套件裡記著現在的行為：`tests/features/M3-net.boundary.test.ts`「有加值（甲板 +2）……（B027）」。
 - 可能的位置（只寫推測，不改）：`engine/src/features/character/stats.ts` 的 `ram_max`：base 改成 `Math.max(4, 4 + mod)`、拿掉 `min: 4`；`core/battle/units.ts` 第 53 行沒有人註冊時的預設已經是 `Math.max(4, 4 + mod)`，不用改。
+- 狀態：已修（2026-11-25，M3 白箱修正批；使用者裁決：照建議的讀法）。`features/character/stats.ts` 的 `ram_max` base 改成 `max(4, 4 + mod)`、不設 `min`。回歸測試 `engine/tests/features/B027-ram-floor-eats-deck-bonus.test.ts`、`M3-net.boundary.test.ts`；不變式第 187 條。
