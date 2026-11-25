@@ -187,3 +187,6 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 藏沉溺的手段回答 `scan.person` 的 `{ hide: 1 }`：drugs（抑制劑、蝶粉）、tuning（冰后等）、abilities（面具）。
 - cyberware 回答 `scan.person` 的 `items` 多帶 `item`（設計圖 id），security 用 `license:<id>` 查特定義體的執照。
 - 介面：`ScanDialog.vue` 顯示 `scanView.person`（排進 M4-ui-contract）。
+
+## 總指揮補記（2026-11-25，M4-curtain-entry 回報）
+- 簾口的位置（暗礁節點、領位員、設施欄位 `curtain_door`）：報名要站在簾口；面談花時間（暫定 1 小時）。
