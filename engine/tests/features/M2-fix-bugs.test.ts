@@ -119,7 +119,7 @@ describe('B019：忠誠只有名冊上的人有', () => {
 
 // ===================================================================================================================
 describe('B022：封閉清單（AI 可以用的效果）', () => {
-  it('aiKinds 沒有 debt、bargain、perk、scout_reveal、deck_rental、deck_script_use、gear_take、lure、blueprint、cyber_install、cyber_take、cyber_lock、cyber_unlock、sink_floor、treated、wound_heal、drug、addiction、night_skill、tuning、tuning_remove、malware、malware_clean、malware_push、malware_reveal、contract_sign、contract_end、contract_hold、contract_release、curtain_gig、curtain_invite、curtain_lead、curtain_patron、order、order_done、bridge_right、part_unreg；meet、npc_known 保留給 AI；其餘的都在；錯誤訊息列的是 AI 能用的', () => {
+  it('aiKinds 沒有 debt、bargain、perk、scout_reveal、deck_rental、deck_script_use、gear_take、lure、blueprint、cyber_install、cyber_take、cyber_lock、cyber_unlock、sink_floor、treated、wound_heal、drug、addiction、night_skill、tuning、tuning_remove、malware、malware_clean、malware_push、malware_reveal、contract_sign、contract_end、contract_hold、contract_release、auction_ref、auction_ban、curtain_gig、curtain_invite、curtain_lead、curtain_patron、order、order_done、bridge_right、part_unreg；meet、npc_known 保留給 AI；其餘的都在；錯誤訊息列的是 AI 能用的', () => {
     const { game: g } = makeCityGame({ seed: 7 })
     const all = g.k.effects.kinds()
     const ai = g.k.effects.aiKinds()
@@ -128,7 +128,7 @@ describe('B022：封閉清單（AI 可以用的效果）', () => {
     expect(ai).not.toContain('bargain')
     expect(ai).toEqual(expect.arrayContaining(['bill', 'cred', 'cash', 'hostility', 'insight']))
     expect(ai).toEqual(expect.arrayContaining(['meet', 'npc_known']))
-    expect(all.filter((k) => !ai.includes(k)).sort()).toEqual(['addiction', 'bargain', 'blueprint', 'bridge_right', 'contract_end', 'contract_hold', 'contract_release', 'contract_sign', 'curtain_gig', 'curtain_invite', 'curtain_lead', 'curtain_patron', 'cyber_install', 'cyber_lock', 'cyber_take', 'cyber_unlock', 'debt', 'deck_rental', 'deck_script_use', 'drug', 'gear_take', 'lure', 'malware', 'malware_clean', 'malware_push', 'malware_reveal', 'night_skill', 'order', 'order_done', 'part_unreg', 'perk', 'scout_reveal', 'sink_floor', 'treated', 'tuning', 'tuning_remove', 'wound_heal'])
+    expect(all.filter((k) => !ai.includes(k)).sort()).toEqual(['addiction', 'auction_ban', 'auction_ref', 'bargain', 'blueprint', 'bridge_right', 'contract_end', 'contract_hold', 'contract_release', 'contract_sign', 'curtain_gig', 'curtain_invite', 'curtain_lead', 'curtain_patron', 'cyber_install', 'cyber_lock', 'cyber_take', 'cyber_unlock', 'debt', 'deck_rental', 'deck_script_use', 'drug', 'gear_take', 'lure', 'malware', 'malware_clean', 'malware_push', 'malware_reveal', 'night_skill', 'order', 'order_done', 'part_unreg', 'perk', 'scout_reveal', 'sink_floor', 'treated', 'tuning', 'tuning_remove', 'wound_heal'])
     const err = resolve(g, [{ kind: 'debt', to: 'f_corp', amount: 100, rate: 0.1 }], 'ai').errors.join()
     expect(err).toContain('不是 AI 與玩家要的結果可以用的效果')
     expect(err).not.toContain('debt、') // 可以用的清單裡不列 debt
