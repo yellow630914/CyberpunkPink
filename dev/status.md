@@ -493,3 +493,4 @@
 - 2026-11-25 使用者：新增輸入欄做 2（戰鬥與戰敗的寫法指令）、3（稱呼）、4（送禮附一句話）、5（化身外觀描述）、6（片的標題與簡介）；1、7、8 不做。設計書已寫（COMBAT 8.3、NPC_SYSTEM 6.3／7.0、CYBERSPACE 4、MEDIA 剪輯）。標題畫面：主標題 CyberpunkPink、副標題緋夜城（ui 與 mockup 已改）。
 - 工單分配：2 → M4-core-scene-ai（外殼的戰鬥／戰敗正文同一套）與 M4-ui-scene 旁的戰鬥畫面；3、4 → M4-followups（人物）；5 → M4-followups（化身）；6 → M5-plan。
 - 2026-11-25 使用者：玩家輸入的指令我們這端不篩選、不提示，玩家決定最高；不合規由服務商擋。已改 LEWD 3.1、COMBAT 8.3、NPC_SYSTEM、CYBERSPACE 4、MEDIA 與工單。
+- 2026-11-25 使用者：世界的固定規則（成年、不寫血腥、不寫懷孕）放在 AI 工坊任務提示詞（H5、H16、H17），玩家可改；我們只擋內容資料的年齡欄位。已改 PROMPTS、AI_TASKS、GAME_DESIGN、UI；介面跟改記在 M4-followups。

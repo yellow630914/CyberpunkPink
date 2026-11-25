@@ -60,3 +60,9 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 送禮附一句話（NPC_SYSTEM 6.3）：送禮的 env 多選填 `note`（最多 200 字），寫進共同記憶；親密度不變。
 - 化身外觀描述（CYBERSPACE 4）：`actor.ext.avatar.text`（最多 200 字），進 AI 的角色資料；介面在化身分頁。
 - 共同：玩家寫的文字不經我們這端篩選、改寫或提示，原樣交給 AI；不合規的由服務商擋（使用者 2026-11-25）。
+
+## 介面跟改（使用者 2026-11-25：世界的固定規則可改，只擋年齡）
+- `ui/src/lib/worldCheck.ts`：拿掉 `FLOOR_WORDS` 的字串比對（血腥、懷孕），只留年齡欄位低於 18 的檢查；測試跟著改。
+- `ui/src/dialogs/SettingsDialog.vue`、`ui/src/screens/NewGameScreen.vue` 的「LOCK 不寫血腥，不寫懷孕」那一行改成說明：「這是世界的固定規則，寫在 AI 工坊的任務提示詞裡，預設帶著，可以在 AI 工坊改。」
+- `ui/src/screens/WorldEditorScreen.vue` 第 217 行的說明改成「只擋格式錯誤與年齡低於 18 的人物」。
+- AI 工坊示意：H5、H16、H17 從鎖住改成可改、可恢復預設（PROMPTS 2.5 節）。
