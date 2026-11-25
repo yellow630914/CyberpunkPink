@@ -46,3 +46,5 @@ M4-gear-m4、M4-cyber-deck、M4-abilities-m4。做完才能開 M4-creation-lifep
 ## 完成時回報
 
 改了哪些檔、測試結果、`ui/src/lib/creation.ts` 裡還沒有對應引擎函式的（預期只剩外觀的 `derivedLooks`）、橋參數的初值這一張沒有另外的規則（照 `lewd` 的預設，生命軌跡會微調）。
+
+- 總指揮補記（2026-11-25，M4-cyber-bridge 回報）：`cyberware/bridge.ts` 有一段過渡——身上沒有橋那一件、但 `ext.bridge.capacity` 是物件的人照舊讀那四個數字（`bridgeCapacityOf().legacy`）。這一張讓建角給橋那一件之後，把過渡拿掉，ui 的完整遊戲主角改成身上裝著一座橋。
