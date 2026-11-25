@@ -152,7 +152,7 @@ export interface ModEntry {
   when?: WhenDef
   per_fight?: number
   per_turn?: number
-  /** true：問的對手（other）要是給這一段修正的人才算（只有 buff 的 mods 用：不要走嘛的「他攻擊你的命中 −2」，掛在被誘惑的人身上、只對下手的人有效） */
+  /** true：問的對手（other）要是給這一段修正的人才算（只有 buff 的 mods 用：留下來的「他攻擊你的命中 −2」，掛在被誘惑的人身上、只對下手的人有效） */
   vs_source?: true
   /**
    * crit_margin：改成超過迴避幾以上就算要害。
@@ -170,7 +170,7 @@ export interface TriggerDef {
   if?: string
   /** attacked、hit、after 專用：這一擊帶著這個標籤才算（攻擊效果的 tags，例如超頻的 overclock；M3-skill-net-a：點放「每場第一次超頻之後」） */
   tag?: string
-  /** 做這件事的人（攻擊的人、讓他過載的人、擲檢定的人、讓他退出的人）要符合的條件：needs 同技能的 needs，range 是和反應的人的距離（欺負人家要賠喔：有橋、距離 2 以內）。沒帶 by 的事不觸發 */
+  /** 做這件事的人（攻擊的人、讓他過載的人、擲檢定的人、讓他退出的人）要符合的條件：needs 同技能的 needs，range 是和反應的人的距離（討債：有橋、距離 2 以內）。沒帶 by 的事不觸發 */
   by?: { needs?: NeedsDef; range?: [number, number] }
 }
 
@@ -188,7 +188,7 @@ export interface ReactDef {
   prevent?: { how: string[] }
   /** hit 專用：這一擊的穿甲加減（獵殺節奏） */
   pierce?: number | string
-  /** attacked 專用：這一擊的傷害加減（負的是少；偷看是不行的喔：感載 −4）。傷害不會低於 0 */
+  /** attacked 專用：這一擊的傷害加減（負的是少；非請勿看：感載 −4）。傷害不會低於 0 */
   damage?: number | string
   /**
    * overload 專用（內海的閃斷；M3-skill-net-a）：改寫這一次過載的閃斷。ram：歸零的那一池補回去多少（half 是歸零之前的一半，進位；before 是全部補回；full 是補滿）；
@@ -337,7 +337,7 @@ export interface MeatDef {
    * on_start：這個姿態從戰鬥外開著帶進一場戰鬥時，開打做一次的效果。開打還開著，單位的姿態就是它（照一般的姿態：第一回合第一次攻擊命中 +2 等寫在 mods）
    */
   out?: { check: OutMod; on_start?: Array<Record<string, unknown>> }
-  /** 被動：裝著的時候，戰鬥外帶這些標籤的檢定加多少（我演得很像吧、入骨：infiltrate +2、+4） */
+  /** 被動：裝著的時候，戰鬥外帶這些標籤的檢定加多少（演技派、入骨：infiltrate +2、+4） */
   out_mods?: OutMod[]
   /** 誘惑攻擊。主動技能：這個技能的行動就是一次誘惑攻擊（目標是有橋、距離 2 以內的敵人）；被動（入戲）：多一個基本的誘惑攻擊行動（2 點、每回合 1 次，組 tease）。反應用 { op: 'tease' } */
   tease?: TeaseDef

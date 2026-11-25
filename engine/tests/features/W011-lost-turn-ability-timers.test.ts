@@ -34,7 +34,7 @@ function apply(a: Arena, run: ReturnType<Arena['run']>, c: Rec): void {
 }
 const ids = (u: BattleUnit, key: 'wards' | 'buffs'): string[] => (((u.ext.abilities as Rec | undefined)?.[key] ?? []) as Rec[]).map((x) => x.id)
 
-describe('W011：失去的那一個回合也是「下一回合開始」（SKILL_TREES 不准動喔、跑位射擊；COMBAT_SYSTEM 1.3 節監視；dev/adr/0015 補記 fix3）', () => {
+describe('W011：失去的那一個回合也是「下一回合開始」（SKILL_TREES 不准動、跑位射擊；COMBAT_SYSTEM 1.3 節監視；dev/adr/0015 補記 fix3）', () => {
   const fx = fixture('W011-lost-turn-skips-feature-timers')
 
   it('對照（會過）：失去回合的人，核心照樣拿掉 own_turn_start 的狀態、清掉監視', () => {
@@ -48,7 +48,7 @@ describe('W011：失去的那一個回合也是「下一回合開始」（SKILL_
     expect(unit(a, 'a1').watch).toBeUndefined()
   })
 
-  it('不准動喔「到你的下一回合開始前」：守著的人失去回合，守著在那一刻失效（和監視一樣）', () => {
+  it('不准動「到你的下一回合開始前」：守著的人失去回合，守著在那一刻失效（和監視一樣）', () => {
     const a = field(fx.setup)
     const run = a.run()
     apply(a, run, fx.cases[0])

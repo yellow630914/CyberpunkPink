@@ -1,6 +1,6 @@
 // 主播：聚光燈（SKILL_TREES 主播一節的內海欄；M3-skill-net-b）。現實欄與輿論欄是 null（媒體型，現實沒有效果）。
 // 導流階是衍生數值 flow_tier（abilities 定義，M5 的媒體功能加 provider 之前是 0）。灌流的傷害讀它（net.flow { cap: 3 }：公式的 tier 是導流階）；
-// 洗版、圍觀、插播一下喔的 when.flow_min 1：沒有頻道（導流階 0）時灰掉，原因「還沒有頻道。」；曝光、灌流、直擊 0 階照用（數字照 0 階算）。
+// 洗版、圍觀、插播的 when.flow_min 1：沒有頻道（導流階 0）時灰掉，原因「還沒有頻道。」；曝光、灌流、直擊 0 階照用（數字照 0 階算）。
 // 共鳴只在內海生效的寫在 resonance.net（媒體型現實沒有效果，resonance.effect 寫了會被擋）。測試規則表要有的狀態：focused、marked、jam_*。
 
 import type { Tree } from './util'
@@ -23,7 +23,7 @@ const MARK = { op: 'status', status: 'focused', until: 'source_turn_start' }
 
 // ================================ 1 階 ================================
 T.skill(SP, '聚光燈', 1, 'sig', 'passive', 3, 0, undefined,
-  '能用本樹的導流技能（曝光、灌流、洗版、圍觀、插播一下喔、直擊）。導流階照 MEDIA 4.1 節算：訂閱的位數減 3，公信力 60 以上再 +1，沒有頻道是 0。', 'wait',
+  '能用本樹的導流技能（曝光、灌流、洗版、圍觀、插播、直擊）。導流階照 MEDIA 4.1 節算：訂閱的位數減 3，公信力 60 以上再 +1，沒有頻道是 0。', 'wait',
   '導流階的數字來源是頻道的訂閱與公信力（M5）：衍生數值 flow_tier 現在是 0，媒體的功能之後加 provider；這一欄只給標籤 flow',
   { net: { tags: ['flow'] } })
 
@@ -39,7 +39,7 @@ T.skill(s('check_it'), '我查查看', 1, 'front', 'active', 1, 1, SP,
   })
 
 T.gap(s('live_link'), '現場連線', 1, 'front', 'active', 1, 3, SP, { use: { ap: 0, per_fight: 1 } })
-T.gap(s('edit_paste'), '剪剪貼貼', 1, 'back', 'passive', 2, 1, s('expose'))
+T.gap(s('edit_paste'), '剪接手', 1, 'back', 'passive', 2, 1, s('expose'))
 T.gap(s('hold_back'), '留一手', 1, 'back', 'reaction', 1, 4, s('check_it'), { use: { ap: 0, per_fight: 1 } })
 T.gap(s('go_live'), '開台囉～', 1, 'back', 'daily', 1, 1, s('live_link'))
 
@@ -85,9 +85,9 @@ T.gap(s('fake_workshop'), '假料工坊', 3, 'back', 'daily', 2, 2, s('scoop_kin
 
 // ================================ 4 階 ================================
 T.gap(s('headline'), '頭條', 4, 'front', 'active', 2, 4, s('chase'), { use: { per_turn: 1 } })
-T.gap(s('rebound'), '反彈反彈', 4, 'front', 'reaction', 2, 5, s('lead_rhythm'), { use: { per_turn: 1 } })
+T.gap(s('rebound'), '倒打一耙', 4, 'front', 'reaction', 2, 5, s('lead_rhythm'), { use: { per_turn: 1 } })
 
-T.skill(s('cut_in'), '插播一下喔', 4, 'front', 'active', 2, 8, s('bystanders'),
+T.skill(s('cut_in'), '插播', 4, 'front', 'active', 2, 8, s('bystanders'),
   '敵方整排都被標記到你的下個回合，全隊打他們命中 +1；追蹤度 −5。（內海 2 行＋2 RAM，每場 1）', 'done', '敵方每個人掛 focused；net.trace −5；when.flow_min 1',
   { use: { net: { ap: 2, ram: 2, per_fight: 1 } }, net: { target: 'none', when: { flow_min: 1 }, do: [{ ...MARK, who: 'foes' }, { op: 'net.trace', amount: -5 }] } })
 

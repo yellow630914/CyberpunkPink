@@ -306,15 +306,15 @@ describe('名媛：誘惑在內海、面具', () => {
     expect(def.modes).toEqual(['net'])
   })
 
-  it('銷魂（誘惑加 1d6，讓目標過載多一層餘韻）、媚態（誘惑傷害多 1d6）、暈乎乎（命中的目標下一回合行動點 −1）、不要走嘛（壓制）', () => {
+  it('銷魂（誘惑加 1d6，讓目標過載多一層餘韻）、媚態（誘惑傷害多 1d6）、暈乎乎（命中的目標下一回合行動點 −1）、留下來（壓制）', () => {
     const ids = [S('in_character'), S('look_here'), S('stay'), S('charm_pose'), S('swoon'), S('dizzy')]
     const a = arena(setup([socialite(ids)], [pinkElite({ load: { now: 0, max: 8 } })]))
     turnTo(a, 'a1')
     expect(opt(a, S('stay'))!.cost).toEqual({ ap: 2 })
-    // 不要走嘛：命中壓制到他下一回合結束
+    // 留下來：命中壓制到他下一回合結束
     doAct(a, 'a1', { action: S('stay'), target: { unit: 'f1' } }, [20])
     expect(statusIds(a.f(1))).toContain('suppressed')
-    // 同一組每回合 1 次：不要走嘛之後暈乎乎也灰掉
+    // 同一組每回合 1 次：留下來之後暈乎乎也灰掉
     expect(opt(a, S('dizzy'))!.blocks.join('')).toMatch(/tease/)
     // 下一回合：暈乎乎 2d6 ＋ 2 ＋ 1d6（全 3：9 ＋ 2，感載上限 8 → 過載）；命中的目標掛昏沉
     a.a(1).uses['turn:group:tease'] = 0
@@ -396,7 +396,7 @@ describe('名媛：其餘的幾條', () => {
     expect(opt(a, S('poke'))!.ok).toBe(false)
   })
 
-  it('跟我說嘛：交涉對意志，成功時目標掛「全隊打他命中 +1」到我方的下一回合開始；只對有人格的', () => {
+  it('說來聽聽：交涉對意志，成功時目標掛「全隊打他命中 +1」到我方的下一回合開始；只對有人格的', () => {
     const a = arena(setup([socialite([S('in_character'), S('look_here'), S('poke'), S('read_people'), S('tell_me')])], [pinkElite(), lace()]))
     turnTo(a, 'a1')
     const o = opt(a, S('tell_me'))!
@@ -445,7 +445,7 @@ describe('名媛：其餘的幾條', () => {
     expect(opt(a, S('city_fall'))!.blocks.join('')).toMatch(/用過了/)
   })
 
-  it('換臉：標記解除，掛面具到下一回合開始，第一回合不能用；欺負人家要賠喔：被有橋、距離 3 以內的敵人攻擊之後反擊一次誘惑攻擊', () => {
+  it('換臉：標記解除，掛面具到下一回合開始，第一回合不能用；討債：被有橋、距離 3 以內的敵人攻擊之後反擊一次誘惑攻擊', () => {
     const ids = [S('in_character'), S('look_here'), S('stay'), S('charm_pose'), S('swoon'), S('dizzy'), S('payback'), S('new_face'), S('disguise'), S('stand_in')]
     const a = arena(setup([socialite(ids)], [pinkElite({ load: { now: 0, max: 60 } })]))
     turnTo(a, 'a1')
@@ -457,7 +457,7 @@ describe('名媛：其餘的幾條', () => {
     doAct(a, 'a1', { action: S('new_face') })
     expect(statusIds(a.a(1))).not.toContain('marked')
     expect(buffIds(a.a(1))).toContain('new_face')
-    // 反擊：f1 打 a1（骰面 19 命中），a1 的欺負人家要賠喔做一次誘惑攻擊（檢定骰 20 過）
+    // 反擊：f1 打 a1（骰面 19 命中），a1 的討債做一次誘惑攻擊（檢定骰 20 過）
     a.f(1).load!.now = 0
     a.run(Array(300).fill(20)).attack(a.f(1), a.a(1))
     expect(a.f(1).load!.now).toBeGreaterThan(0)
@@ -651,7 +651,7 @@ describe('主播：導流階（衍生數值 flow_tier）與導流技能', () => 
   const ids = [SP, ST('expose'), ST('check_it'), ST('flood'), ST('spam'), ST('old_fans'), ST('bystanders'), ST('cut_in'), ST('strike'), ST('fix_tone'), ST('cant_stop')]
   const streamer = (list: string[] = ids, o: Rec = {}) => avatar(1, { streamer: 5 }, list, { actor: 'pc', ...o })
 
-  it('導流階是 0（沒有頻道）：洗版、圍觀、插播一下喔灰掉，原因是「還沒有頻道。」；曝光、灌流、直擊 0 階照樣能用', () => {
+  it('導流階是 0（沒有頻道）：洗版、圍觀、插播灰掉，原因是「還沒有頻道。」；曝光、灌流、直擊 0 階照樣能用', () => {
     const a = arena(setup([streamer([SP, ST('expose'), ST('flood'), ST('spam'), ST('bystanders'), ST('cut_in'), ST('strike')])], [lace()]))
     turnTo(a, 'a1')
     for (const id of [ST('spam'), ST('bystanders'), ST('cut_in')]) {
@@ -735,7 +735,7 @@ describe('主播：導流階（衍生數值 flow_tier）與導流技能', () => 
     expect(statusIds(a.a(2))).not.toContain('jam_weapon')
   })
 
-  it('圍觀：追蹤度立刻 +10，敵人的釘住檢定 −4（蕾絲幾乎釘不住）到戰鬥結束；每場 1 次；插播一下喔：敵方整排被標記、追蹤度 −5', () => {
+  it('圍觀：追蹤度立刻 +10，敵人的釘住檢定 −4（蕾絲幾乎釘不住）到戰鬥結束；每場 1 次；插播：敵方整排被標記、追蹤度 −5', () => {
     const a = arena(setup([streamer()], [lace(), elite({ tags: ['lace', 'lace:pink'] })]), { extra: [FLOW(1)] })
     turnTo(a, 'a1')
     const t0 = trace(a)
@@ -1023,7 +1023,7 @@ describe('偶像：應援（共鳴）', () => {
     expect(attacked(true)).toBe(false)
   })
 
-  it('聽我唱～、休息一下下只對同步中的隊友；休息一下下排 8 點感載並消一層餘韻', () => {
+  it('聽我唱、休息一下下只對同步中的隊友；休息一下下排 8 點感載並消一層餘韻', () => {
     const ids = [I('cheer_on'), I('march'), I('stance'), I('support'), I('encore'), I('sing_to_me'), I('soothe'), I('chorus'), I('swan_song'), I('rest_a_bit')]
     const a = arena(setup([idol(4, ids), mate(2, { load: { now: 20, max: 40 }, layers: 1, layersMax: 3 }), mate(3, { load: { now: 20, max: 40 }, layers: 1, layersMax: 3 })], [lace()]))
     turnTo(a, 'a1')

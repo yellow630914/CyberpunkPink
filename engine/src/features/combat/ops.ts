@@ -350,7 +350,7 @@ function magOp(ctx: Ctx, e: Eff): void {
 /** 彈匣容量的上限（BattleWeapon 的 mag 與 rules 的 1～4 格一致）。 */
 const MAG_CAP_LIMIT = 4
 
-/** 手上這把武器的彈匣容量加 amount 格（最多到 max，max 預設與上限都是 4）；多出來的那一格是裝滿的（開戰時預備用：幫槍槍保養）。已經到上限就沒有效果。 */
+/** 手上這把武器的彈匣容量加 amount 格（最多到 max，max 預設與上限都是 4）；多出來的那一格是裝滿的（開戰時預備用：擦槍）。已經到上限就沒有效果。 */
 function magCapOp(ctx: Ctx, e: Eff): void {
   const unit = who(ctx)
   const mag = unit ? wielded(unit)?.mag : undefined

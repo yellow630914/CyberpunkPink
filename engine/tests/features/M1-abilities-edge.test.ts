@@ -1,5 +1,5 @@
 // abilities 功能的補充測試（驗收測試 M1-abilities.test.ts 沒走到的分支）：掩護射擊（驗收測試沒有涵蓋，這裡補）、
-// 連射的壓制（骰面釘死）、指揮與叫人的各種擋、換個位子嘛的錯誤、內容檢查的每一條、學與裝的邊界、單位的資料。
+// 連射的壓制（骰面釘死）、指揮與叫人的各種擋、換位子的錯誤、內容檢查的每一條、學與裝的邊界、單位的資料。
 
 import { describe, expect, it } from 'vitest'
 import type { BattleSetup, BattleUnit, ContentPack, Kernel, Report } from '../../src'
@@ -23,7 +23,7 @@ const ABILITIES = [
   sk('sk_gunner_point_shot', '定點射', 'gunner', 2, 'passive', 3, { after: 'sk_gunner_instinct', meat: { cost: { ability: 'sk_gunner_burst', ap: 2, per_turn: 1 }, weapon_cost: { trait: 'aimed', ap: 2, per_turn: 1 } } }),
   sk('sk_gunner_sights', '瞄具', 'gunner', 2, 'passive', 1, { after: 'sk_gunner_instinct', meat: { weapon_cost: { trait: 'long', ap: 1 } } }),
   sk('sk_fixer_face', '人面', 'fixer', 1, 'passive', 3, { layer: 'signature', meat: { give_ap: { max: 'one_plus_half_tier' }, call: { options: ['shot', 'cover_up', 'cover_down'], per_fight: 'half_tier_up', ap: 1 } } }),
-  sk('sk_fixer_swap', '換個位子嘛', 'fixer', 1, 'active', 1, { after: 'sk_fixer_face', use: { ap: 1 }, meat: { target: 'ally', free_move: { swap_adjacent_pair: true } } }),
+  sk('sk_fixer_swap', '換位子', 'fixer', 1, 'active', 1, { after: 'sk_fixer_face', use: { ap: 1 }, meat: { target: 'ally', free_move: { swap_adjacent_pair: true } } }),
   sk('sk_fixer_watch_out', '小心後面！', 'fixer', 1, 'reaction', 1, { after: 'sk_fixer_face', use: { ap: 1, per_turn: 1 }, meat: { trigger: 'ally_attacked', evade: 3 } }),
 ]
 const PACK: ContentPack = { id: 'abilities_edge', content: { battle_status: TEST_STATUSES, path: PATHS, ability: ABILITIES } }
@@ -282,7 +282,7 @@ describe('行動的條件與錯誤', () => {
     expect(b.foe(1).hp!.now).toBe(hp)
   })
 
-  it('換個位子嘛：另一個人要是相鄰的隊友，否則擋下並說明；技能不花他們的行動點', () => {
+  it('換位子：另一個人要是相鄰的隊友，否則擋下並說明；技能不花他們的行動點', () => {
     const g = game([one({ weapon: 'pistol', ...equipped('sk_fixer_swap') }), one({ weapon: 'rifle' }, 2), one({ weapon: 'smg' }, 3), one({ weapon: 'pistol' }, 4)])
     turnTo(g, 'a1')
     const why = ['要選兩名相鄰的隊友。']
@@ -300,7 +300,7 @@ describe('行動的條件與錯誤', () => {
     const PATH2 = { ...PATHS[0]!, resonance: [{ tier: 2, cells: 1, text: '每場戰鬥你第一次換位不花行動點。', effect: { free_move: { per_fight: 1 } } }] }
     const g = makeBattleGame({ features: FEATURES, content: [{ id: 'free', content: { ...PACK.content, path: [PATH2, PATHS[1]!] } }], battle: duel([one({ weapon: 'pistol', ...equipped('sk_gunner_instinct', 'sk_fixer_face') }), one({ weapon: 'rifle', ...equipped('sk_gunner_instinct') }, 2), one({ weapon: 'smg' }, 3)], [foe('elite')]), seed: 7 }).game
     turnTo(g, 'a1')
-    // a1 裝著換個位子嘛的話才能替人換位；這裡直接用核心的換位，另一個單位的共鳴不受影響
+    // a1 裝著換位子的話才能替人換位；這裡直接用核心的換位，另一個單位的共鳴不受影響
     expect(opt(g, 'move')!.cost.ap).toBe(0)
     g.state.battle!.units.a2!.uses.free_move = 1
     turnTo(g, 'a2')
@@ -414,7 +414,7 @@ describe('學與裝的邊界', () => {
     expect(capacityOf(g.k, g.state, 'pc').meat).toEqual({ used: 3, max: 8 })
     expect(() => equipAbilities(g.k, g.state, 'pc', ['sk_gunner_instinct', 'sk_gunner_burst', 'sk_gunner_cover_fire', 'sk_gunner_point_shot', 'sk_gunner_sights'])).toThrow('現實型的容量不夠（要 9，橋只有 8）。')
     expect(() => equipAbilities(g.k, g.state, 'pc', ['sk_nope'])).toThrow('還沒學會sk_nope。')
-    expect(() => equipAbilities(g.k, g.state, 'pc', ['sk_fixer_swap'])).toThrow('還沒學會換個位子嘛。')
+    expect(() => equipAbilities(g.k, g.state, 'pc', ['sk_fixer_swap'])).toThrow('還沒學會換位子。')
     expect(abilitiesOf(g.state, 'pc').equipped).toEqual(['sk_gunner_instinct'])
     g.commit(equipAbilities(g.k, g.state, 'pc', []))
     expect(abilitiesOf(g.state, 'pc').equipped).toEqual([])

@@ -37,7 +37,7 @@ T.skill(f('watch_out'), '小心後面！', 1, 'front', 'reaction', 1, 2, FA,
 
 T.gap(f('prep'), '戰前佈置', 1, 'front', 'prep', 1, 3, FA, { use: { per_fight: 1 } })
 
-T.skill(f('swap'), '換個位子嘛', 1, 'back', 'active', 1, 1, f('focus_fire'),
+T.skill(f('swap'), '換位子', 1, 'back', 'active', 1, 1, f('focus_fire'),
   '讓兩名相鄰的隊友交換位置，不花他們的行動點。', 'done', 'free_move.swap_adjacent_pair',
   { use: { net: { ap: 1 } }, net: { target: 'ally', free_move: { swap_adjacent_pair: true } } })
 
@@ -72,7 +72,7 @@ T.skill(f('block'), '擋', 2, 'front', 'reaction', 1, 3, f('watch_out'),
   { use: { net: { favor: 'small', per_fight: 2 } }, net: { pending: true, text: '子網的追蹤度跨過 90（定位）時觸發：追蹤度 −10。（缺追蹤度跨過門檻的掛點）' } })
 
 T.gap(f('buy_space'), '買版面', 2, 'front', 'active', 1, 2, f('proxy'), { use: { per_turn: 1 } })
-T.gap(f('a_bit_more'), '再加一點嘛', 2, 'back', 'active', 1, 2, f('buy_space'), { use: { per_turn: 1 } })
+T.gap(f('a_bit_more'), '加碼', 2, 'back', 'active', 1, 2, f('buy_space'), { use: { per_turn: 1 } })
 
 T.skill(f('black_market'), '黑市門路', 2, 'back', 'passive', 3, 1.5, f('buy_space'),
   '代理租來的守衛程式多留 1 回合；代理的價錢 −20%。', 'none', '代理的價錢要花費的修正（現金的百分比修正），沒有這種修正；「多留 1 回合」要 alter 到 buff 的 turns（效果清單裡的數字不能被 alter 指到）',

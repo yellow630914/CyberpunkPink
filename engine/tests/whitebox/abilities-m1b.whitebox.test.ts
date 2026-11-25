@@ -70,11 +70,11 @@ const blocked = (fn: () => void): string[] => {
 // 守著（ward）
 // =====================================================================================================================
 
-describe('白箱 守著一格（SKILL_TREES 不准動喔；dev/adr/0015 補記 M1b-core-fix3 第二節；features/abilities/ward.ts）', () => {
+describe('白箱 守著一格（SKILL_TREES 不准動；dev/adr/0015 補記 M1b-core-fix3 第二節；features/abilities/ward.ts）', () => {
   const place = (a: Arena, run: ReturnType<Arena['run']>, e: Rec, target: unknown = { side: 'foe', slot: 1 }) =>
     run.effects([{ op: 'ward', slot: 'target', do: [{ op: 'attack' }], ...e }], { user: a.ally(1), target: target as never, source: SRC })
 
-  it('不准動喔「指定敵方的一格」：目標不是一格（是一個人、或沒有目標）擋下，原因是一句完整的話', () => {
+  it('不准動「指定敵方的一格」：目標不是一格（是一個人、或沒有目標）擋下，原因是一句完整的話', () => {
     const a = field()
     const run = a.run(dice())
     expect(blocked(() => place(a, run, {}, { unit: 'f1' }))).toEqual(['要選敵方的一格。'])
@@ -82,14 +82,14 @@ describe('白箱 守著一格（SKILL_TREES 不准動喔；dev/adr/0015 補記 M
     expect(wards(a.ally(1))).toEqual([])
   })
 
-  it('不准動喔「第一次換位、補位或攻擊」：on 沒寫就是三種都管', () => {
+  it('不准動「第一次換位、補位或攻擊」：on 沒寫就是三種都管', () => {
     const a = field()
     const run = a.run(dice())
     place(a, run, {})
     expect(wards(a.ally(1))[0]!.on).toEqual(['move', 'compact', 'attack'])
   })
 
-  it('不准動喔「到你的下一回合開始前」：until 沒寫是 own_turn_start；別人的回合開始不拿掉', () => {
+  it('不准動「到你的下一回合開始前」：until 沒寫是 own_turn_start；別人的回合開始不拿掉', () => {
     const a = field()
     const run = a.run(dice())
     place(a, run, {})
@@ -126,7 +126,7 @@ describe('白箱 守著一格（SKILL_TREES 不准動喔；dev/adr/0015 補記 M
     expect(wards(a.ally(1))).toHaveLength(0)
   })
 
-  it('不准動喔：do 裡沒有攻擊的守著，守著的人手上沒有槍也照樣觸發（「做不到就不算」只對開槍）', () => {
+  it('不准動：do 裡沒有攻擊的守著，守著的人手上沒有槍也照樣觸發（「做不到就不算」只對開槍）', () => {
     const a = field([shooter({ weapons: [], wield: -1 }), shooter({}, 2)])
     const run = a.run(dice())
     place(a, run, { do: [{ op: 'status', status: 'marked' }] })
@@ -135,7 +135,7 @@ describe('白箱 守著一格（SKILL_TREES 不准動喔；dev/adr/0015 補記 M
     expect(wards(a.ally(1))).toHaveLength(0)
   })
 
-  it('不准動喔：那一格上的人已經退出（被這一刻的別的東西打倒）不觸發，守著留著', () => {
+  it('不准動：那一格上的人已經退出（被這一刻的別的東西打倒）不觸發，守著留著', () => {
     const a = field()
     const run = a.run(dice())
     place(a, run, { on: ['move'] })
@@ -146,7 +146,7 @@ describe('白箱 守著一格（SKILL_TREES 不准動喔；dev/adr/0015 補記 M
     expect(wards(a.ally(1))).toHaveLength(1)
   })
 
-  it('不准動喔：守著的觸發不會再觸發別人的守著（守著的人開的那一槍站在對方守著的格上，也不連鎖）', () => {
+  it('不准動：守著的觸發不會再觸發別人的守著（守著的人開的那一槍站在對方守著的格上，也不連鎖）', () => {
     // 我守敵方第 1 格；敵人 f1 守我方第 1 格（我站的格）。f1 攻擊 → 我開槍（我在 f1 守著的格上出手）→ f1 不再開槍
     const a = field([shooter(), shooter({}, 2)], [tough({ weapons: [gun()], wield: 0, weapon: 'pistol' }), tough(), tough()])
     const run = a.run(dice(15, 3, 3, 3, 15, 3, 3, 3, 15, 3, 3, 3))

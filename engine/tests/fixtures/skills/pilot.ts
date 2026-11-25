@@ -29,7 +29,7 @@ T.skill(FO, '編隊', 1, 'sig', 'passive', 3, 0, undefined,
   '做了標籤 drone_link（守衛程式本身由 features/summons 的 net_guard_* 與單位的 ext.summons.drones 給，同時 1 個、不看同步）；內海欄沒有階數的命中加值（不寫那一筆修正）；「每場能啟動一次構裝體」等 M6',
   { net: { tags: ['drone_link'] } })
 
-T.skill(p('good_kid'), '乖孩子去吧', 1, 'front', 'active', 1, 3, FO,
+T.skill(p('good_kid'), '出擊', 1, 'front', 'active', 1, 3, FO,
   '叫出守衛程式的那一回合，它的第一次動作命中 +1。', 'done', '放出（drone.deploy）＋立刻指揮一次（drone.act，hit +1），一共 1 行動點；每場一次',
   {
     use: { net: { ap: 1, per_fight: 1 } },
@@ -41,9 +41,9 @@ T.skill(p('cover_flight'), '掩護飛行', 1, 'front', 'reaction', 1, 2, FO,
   { use: { net: { ap: 1, per_fight: 1 } }, net: { trigger: { on: 'attacked', who: 'with_own_overlay' }, react: { hit: -1 } } })
 
 T.gap(p('multitask'), '多工連結', 1, 'front', 'passive', 2, 1, FO)
-T.gap(p('one_more'), '再一次嘛', 1, 'back', 'active', 1, 1, p('good_kid'), { use: { ap: 2 } })
+T.gap(p('one_more'), '再來一輪', 1, 'back', 'active', 1, 1, p('good_kid'), { use: { ap: 2 } })
 
-T.skill(p('accompany'), '去陪陪他', 1, 'back', 'active', 1, 1, p('cover_flight'),
+T.skill(p('accompany'), '派駐', 1, 'back', 'active', 1, 1, p('cover_flight'),
   '每場 1 次，把守衛程式移到我方任何一格。', 'done', 'drone.move（any）；每場一次',
   { use: { net: { ap: 1, per_fight: 1 } }, net: { target: 'own_overlay', picks: [{ key: 'to', label: '移到哪一格', kind: 'ally_slot', required: true }], do: [{ op: 'drone.move', to: 'to', any: true }] } })
 
@@ -57,7 +57,7 @@ T.skill(p('escort'), '護航編隊', 2, 'front', 'stance', 1, 2, p('accompany'),
 T.skill(p('feedback_buffer'), '回灌緩衝', 2, 'front', 'passive', 3, 1.5, p('multitask'),
   '構裝體受到攻擊時，溢到你身上的感載每次 −2。', 'wait', '要構裝體（M6）', { net: HULL('構裝體受到攻擊時，溢到你身上的感載每次 −2。') })
 
-T.gap(p('quick_repair'), '修修就好', 2, 'back', 'active', 1, 2, p('escort'), { use: { ap: 1 } })
+T.gap(p('quick_repair'), '就地維修', 2, 'back', 'active', 1, 2, p('escort'), { use: { ap: 1 } })
 
 T.skill(p('ram_in'), '撞過去！', 2, 'back', 'active', 1, 2, p('feedback_buffer'),
   '每場 1 次：構裝體狀態下近戰攻擊命中時，把目標往後推一格。', 'wait', '要構裝體（M6）', { use: { net: { ap: 2, per_fight: 1 } }, net: HULL('每場 1 次：構裝體狀態下近戰攻擊命中時，把目標往後推一格。') })
@@ -74,7 +74,7 @@ T.skill(p('sync_dash'), '同步衝刺', 3, 'front', 'active', 2, 6, p('ram_in'),
 
 T.gap(p('saturation'), '飽和攻擊', 3, 'back', 'active', 2, 3, p('assault'), { use: { ap: 2, per_turn: 1 } })
 
-T.skill(p('smoke_cover'), '煙煙罩著你', 3, 'back', 'active', 2, 3, p('bastion'),
+T.skill(p('smoke_cover'), '煙幕護航', 3, 'back', 'active', 2, 3, p('bastion'),
   '每場 1 次：守衛程式掛的那一格，防火牆節點升一級，持續 2 回合。', 'approx', 'drone.smoke 2 回合：現實的煙霧是「打不破的半掩體」，防火牆節點「升一級」寫成同一個東西（掛在那一格的半掩體）',
   { use: { net: { ap: 1, per_fight: 1 } }, net: { target: 'own_overlay', do: [{ op: 'drone.smoke', rounds: 2 }] } })
 

@@ -41,7 +41,7 @@ const KINDS = ['attack', 'shield', 'scout', 'medic', 'jammer'] as const
 /** pilot() 預設帶的五台，pick.drone 是它在這個順序裡的索引。 */
 const NTH = { attack: 0, shield: 1, scout: 2, medic: 3, jammer: 4 } as const
 const KIND_LABEL: Record<string, string> = { attack: '攻擊型', shield: '護盾型', scout: '偵察型', medic: '醫療型', jammer: '干擾型' }
-/** 乖孩子去吧：放出一台並立刻指揮一次。放哪一台是 kind 為 drone 的 pick（選單位上 ext.summons.drones 的第幾台：pick.drone），打誰是 pick.at。 */
+/** 出擊：放出一台並立刻指揮一次。放哪一台是 kind 為 drone 的 pick（選單位上 ext.summons.drones 的第幾台：pick.drone），打誰是 pick.at。 */
 const GOOD_KID_DO = [{ op: 'drone.deploy', drone: 'drone' }, { op: 'drone.act', which: 'target', at: 'pick:at', hit: 1 }]
 const DRONE_PICK = { key: 'drone', label: '放出哪一台', kind: 'drone', required: true } as const
 const AT = { key: 'at', label: '打誰', kind: 'foe', required: false } as const
@@ -50,21 +50,21 @@ const AT_REQUIRED = { key: 'at', label: '打誰', kind: 'foe', required: true } 
 const PILOT: Rec[] = [
   // ---- 1 階 ----
   sk('sk_pilot_formation', '編隊', 1, 'signature', 'passive', 3, { meat: { tags: ['drone_link'], mods: [{ kind: 'hit', value: 'half_tier_up', tags: ['drone'] }] } }),
-  sk('sk_pilot_good_kid', '乖孩子去吧', 1, 'front', 'active', 1, {
+  sk('sk_pilot_good_kid', '出擊', 1, 'front', 'active', 1, {
     use: { ap: 1, per_fight: 1 },
     meat: { target: 'ally_slot', picks: [AT, DRONE_PICK], do: GOOD_KID_DO },
   }),
   sk('sk_pilot_cover_flight', '掩護飛行', 1, 'front', 'reaction', 1, { use: { ap: 1, per_turn: 1 }, meat: { trigger: { on: 'attacked', who: 'with_own_overlay' }, react: { hit: -2 } } }),
   sk('sk_pilot_multitask', '多工連結', 1, 'front', 'passive', 2, { meat: { mods: [{ kind: 'overlay_cap', value: 1, tags: ['support'] }] } }),
-  sk('sk_pilot_one_more', '再一次嘛', 1, 'back', 'active', 1, {
+  sk('sk_pilot_one_more', '再來一輪', 1, 'back', 'active', 1, {
     use: { ap: 2 },
     meat: { target: 'own_overlay', picks: [AT], do: [{ op: 'drone.act', which: 'target', at: 'pick:at' }, { op: 'drone.act', which: 'target', at: 'pick:at', hit: 1, ignore_used: true }] },
   }),
-  sk('sk_pilot_accompany', '去陪陪他', 1, 'back', 'active', 1, {
+  sk('sk_pilot_accompany', '派駐', 1, 'back', 'active', 1, {
     use: { ap: 1 },
     meat: {
       target: 'own_overlay', picks: [{ key: 'to', label: '移到哪一格', kind: 'ally_slot', required: true }],
-      do: [{ op: 'drone.move', to: 'to', any: true }, { op: 'buff', who: 'slot', id: 'accompany', name: '去陪陪他', turns: 1, until: 'source_turn_start', mods: [{ kind: 'evade', value: 1 }] }],
+      do: [{ op: 'drone.move', to: 'to', any: true }, { op: 'buff', who: 'slot', id: 'accompany', name: '派駐', turns: 1, until: 'source_turn_start', mods: [{ kind: 'evade', value: 1 }] }],
     },
   }),
   // ---- 2 階 ----
@@ -73,7 +73,7 @@ const PILOT: Rec[] = [
   sk('sk_pilot_escort', '護航編隊', 2, 'front', 'stance', 1, { use: { ap: 1 }, meat: { do_on: [{ op: 'drone.escort', evade: 1, max: 2 }], do_off: [{ op: 'drone.escort', off: true }] } }),
   // 機甲的回灌 20% → 15% 那一半要 M6
   sk('sk_pilot_feedback_buffer', '回灌緩衝', 2, 'front', 'passive', 3, { meat: { mods: [{ kind: 'overlay_backlash', value: -3 }] } }),
-  sk('sk_pilot_quick_repair', '修修就好', 2, 'back', 'active', 1, {
+  sk('sk_pilot_quick_repair', '就地維修', 2, 'back', 'active', 1, {
     use: { ap: 1 },
     meat: { target: 'own_overlay', picks: [{ key: 'to', label: '順便移到哪一格', kind: 'ally_slot', required: false }], do: [{ op: 'drone.repair', amount: 10 }, { op: 'drone.move', to: 'to' }] },
   }),
@@ -86,7 +86,7 @@ const PILOT: Rec[] = [
   sk('sk_pilot_bastion', '堡壘姿態', 3, 'front', 'stance', 2, { use: { ap: 1 }, meat: { mods: [{ kind: 'armor', value: 1 }, { kind: 'cover_level', value: 1, who: 'behind' }], do_on: [{ op: 'status', status: 'rooted' }], do_off: [{ op: 'unstatus', status: 'rooted' }] } }),
   sk('sk_pilot_sync_dash', '同步衝刺', 3, 'front', 'active', 2, { use: { ap: 0, per_fight: 1 }, meat: { pending: true } }),
   sk('sk_pilot_saturation', '飽和攻擊', 3, 'back', 'active', 2, { use: { ap: 2, per_turn: 1 }, meat: { target: 'enemy', do: [{ op: 'drone.act', which: 'all', max: 3, at: 'target', hit: 1 }] } }),
-  sk('sk_pilot_smoke_cover', '煙煙罩著你', 3, 'back', 'active', 2, { use: { ap: 1 }, meat: { target: 'own_overlay', do: [{ op: 'drone.smoke', rounds: 2 }] } }),
+  sk('sk_pilot_smoke_cover', '煙幕護航', 3, 'back', 'active', 2, { use: { ap: 1 }, meat: { target: 'own_overlay', do: [{ op: 'drone.smoke', rounds: 2 }] } }),
   sk('sk_pilot_neural_hardening', '神經硬化', 3, 'back', 'passive', 4, { meat: { pending: true } }),
   // ---- 4 階 ----
   sk('sk_pilot_remote_fire', '遠端火力', 4, 'front', 'active', 2, { use: { ap: 2, per_fight: 1 }, meat: { pending: true } }),
@@ -398,7 +398,7 @@ describe('共鳴 1、2、4、5 與「編隊」的階數加值（mods：overlay_h
   })
 })
 
-describe('乖孩子去吧：放出一台並立刻指揮一次，一共 1 點、那一次命中 +1、每場一次', () => {
+describe('出擊：放出一台並立刻指揮一次，一共 1 點、那一次命中 +1、每場一次', () => {
   const ids = [ID('formation'), ID('good_kid')]
   const foes = () => [foe('boss', quiet as never), foe('minion', quiet as never)]
 
@@ -596,10 +596,10 @@ describe('多工連結：同步 0 的人第二台只放得出支援型；攻擊�
   })
 })
 
-describe('再一次嘛、飽和攻擊：多動一次、一整組各打一次，之後不能再指揮', () => {
+describe('再來一輪、飽和攻擊：多動一次、一整組各打一次，之後不能再指揮', () => {
   const bossFoes = () => [foe('boss', { ...quiet, hp: { now: 500, max: 500 } } as never), foe('minion', quiet as never)]
 
-  it('再一次嘛：同一台一回合動兩次、一共 2 行動點，第二次命中 +1；之後這一台算動過了', () => {
+  it('再來一輪：同一台一回合動兩次、一共 2 行動點，第二次命中 +1；之後這一台算動過了', () => {
     const g = play([ID('formation'), ID('one_more')], { foes: bossFoes() })
     turnTo(g, 'a1')
     deploy(g, 0, 1)
@@ -615,12 +615,12 @@ describe('再一次嘛、飽和攻擊：多動一次、一整組各打一次，�
     expect(ovs(g)[0]!.used).toBe(true)
     turnTo(g, 'a1')
     refused(g.battleAct({ action: 'drone.command', target: { overlay: id }, pick: { at: 'f1' } }), '這一台這一回合動過了。')
-    // 動過了的那一台，再一次嘛也不行（原本每台每回合一次，這一招是多一次，不是第三次）
+    // 動過了的那一台，再來一輪也不行（原本每台每回合一次，這一招是多一次，不是第三次）
     turnTo(g, 'a1')
     refused(g.battleAct({ action: ID('one_more'), target: { overlay: id }, pick: { at: 'f1' } }), '這一台這一回合動過了。')
   })
 
-  it('再一次嘛：沒選敵人（攻擊型）整步不成立；醫療型兩次都急救', () => {
+  it('再來一輪：沒選敵人（攻擊型）整步不成立；醫療型兩次都急救', () => {
     const g = play([ID('formation'), ID('one_more')], { foes: bossFoes() })
     turnTo(g, 'a1')
     deploy(g, 0, 1)
@@ -740,7 +740,7 @@ describe('雙聯火控：自己射擊一次、同格的那一台跟著打同一�
   })
 })
 
-describe('護航編隊（姿態）、修修就好、煙煙罩著你、去陪陪他', () => {
+describe('護航編隊（姿態）、就地維修、煙幕護航、派駐', () => {
   it('護航編隊：開著時和無人機同一格的人迴避 +1，最多兩格受惠；關掉就沒有；開關各 1 行動點', () => {
     const g = play([ID('formation'), ID('escort')], { sync: 6, drones: ['attack', 'scout', 'medic', 'jammer'], allies: undefined })
     turnTo(g, 'a1')
@@ -776,7 +776,7 @@ describe('護航編隊（姿態）、修修就好、煙煙罩著你、去陪陪�
     expect(['a1', 'a2', 'a3', 'a4'].map(evade)).toEqual([1, 1, 0, 0])
   })
 
-  it('修修就好：回復 10 點耐久（不超過上限），可以順便移到相鄰的一格；被擊落的選不了', () => {
+  it('就地維修：回復 10 點耐久（不超過上限），可以順便移到相鄰的一格；被擊落的選不了', () => {
     const a = world([ID('formation'), ID('quick_repair')])
     const o = put(a, 2, 'attack', { drone: -1 })
     o.hp.now = 3
@@ -801,7 +801,7 @@ describe('護航編隊（姿態）、修修就好、煙煙罩著你、去陪陪�
     expect(reasonOf(() => cast(a, ID('quick_repair'), { overlay: o.id }))).toEqual(['這個目標不能選。'])
   })
 
-  it('修修就好：換不過去時整步不成立（走完整的提交：耐久沒回、行動點沒扣）', () => {
+  it('就地維修：換不過去時整步不成立（走完整的提交：耐久沒回、行動點沒扣）', () => {
     const g = play([ID('formation'), ID('quick_repair')])
     turnTo(g, 'a1')
     deploy(g, 0, 1)
@@ -814,7 +814,7 @@ describe('護航編隊（姿態）、修修就好、煙煙罩著你、去陪陪�
     expect([ovs(g)[0]!.hp.now, ovs(g)[0]!.slot]).toEqual([13, 2])
   })
 
-  it('煙煙罩著你：那一台掛的那一格變成打不破的半掩體，持續 2 回合；本來就是掩體的格子在煙散掉之前也不會低於半掩體', () => {
+  it('煙幕護航：那一台掛的那一格變成打不破的半掩體，持續 2 回合；本來就是掩體的格子在煙散掉之前也不會低於半掩體', () => {
     const a = world([ID('formation'), ID('smoke_cover')], { cover: { ally: [0, 2, 0, 0], foe: [0, 0, 0, 0] } })
     const o1 = put(a, 1, 'attack')
     const o2 = put(a, 2, 'attack')
@@ -840,10 +840,10 @@ describe('護航編隊（姿態）、修修就好、煙煙罩著你、去陪陪�
     expect(a.battle.cover.ally[1]!.level).toBe(2)
   })
 
-  it('去陪陪他：把一台移到我方任何一格（不必相鄰），到你的下一個回合開始前，那一格的人迴避 +1', () => {
+  it('派駐：把一台移到我方任何一格（不必相鄰），到你的下一個回合開始前，那一格的人迴避 +1', () => {
     const a = world([ID('formation'), ID('accompany')])
     const o = put(a, 1, 'attack')
-    const evade = (id: string) => sum(modParts(a, 'evade', id).filter((p) => p.label === '去陪陪他'))
+    const evade = (id: string) => sum(modParts(a, 'evade', id).filter((p) => p.label === '派駐'))
     cast(a, ID('accompany'), { overlay: o.id }, { pick: { to: 3 } })
     expect(o.slot).toBe(3)
     expect([evade('a1'), evade('a2'), evade('a3')]).toEqual([0, 0, 1])
@@ -860,7 +860,7 @@ describe('護航編隊（姿態）、修修就好、煙煙罩著你、去陪陪�
     expect([evade('a1'), evade('a2'), evade('a3')]).toEqual([0, 0, 0])
   })
 
-  it('這幾個技能的宣告與行動對得上（要選的格、要選的敵人）；去陪陪他要選的格是否掛著別台，只有做的時候才知道（上一條）', () => {
+  it('這幾個技能的宣告與行動對得上（要選的格、要選的敵人）；派駐要選的格是否掛著別台，只有做的時候才知道（上一條）', () => {
     const g = play([ID('formation'), ID('quick_repair'), ID('smoke_cover'), ID('accompany'), ID('ram_in'), ID('precision')], { foes: [foe('boss', { ...quiet, hp: { now: 500, max: 500 } } as never), foe('minion', quiet as never)] })
     turnTo(g, 'a1')
     deploy(g, 0, 1)
@@ -1530,7 +1530,7 @@ describe('效果本身的邊角（run.effects 直接叫）', () => {
     expect(a.foe(1).hp!.now).toBeLessThan(hp)
   })
 
-  it('declaration：乖孩子去吧的「放哪一台」是 drone 這種 pick：選項就是單位上 ext.summons.drones 的每一台（值是第幾台，名字用 name，沒有就是種類）；放出去、被擊落的灰掉', () => {
+  it('declaration：出擊的「放哪一台」是 drone 這種 pick：選項就是單位上 ext.summons.drones 的每一台（值是第幾台，名字用 name，沒有就是種類）；放出去、被擊落的灰掉', () => {
     const g = play([ID('formation'), ID('good_kid')], { drones: [{ kind: 'shield', grade: 1, name: '小盾' }, { kind: 'attack', grade: 1 }] })
     turnTo(g, 'a1')
     const picks = opt(g, ID('good_kid')).picks

@@ -60,9 +60,9 @@ T.skill(s('encore'), '安可', 2, 'front', 'stance', 1, 2, s('march'),
 
 T.gap(s('rally'), '動員', 2, 'front', 'active', 1, 2, s('stance'), { use: { ap: 0 } })
 
-T.skill(s('sing_to_me'), '聽我唱～', 2, 'front', 'active', 1, 2, s('support'),
+T.skill(s('sing_to_me'), '聽我唱', 2, 'front', 'active', 1, 2, s('support'),
   '一名同步中的隊友這回合下一次攻擊命中 +2。', 'approx', '目標要帶 linked 標籤（同步中）；buff 命中 +2 到我的下個回合開始（「下一次」攻擊沒有：算到期限內每一次）',
-  { use: { net: { ap: 1 } }, net: { target: 'ally', needs: LINKED, do: [buff('sing_to_me', '聽我唱～', { who: 'target', until: 'source_turn_start', mods: [{ kind: 'hit', value: 2 }] })] } })
+  { use: { net: { ap: 1 } }, net: { target: 'ally', needs: LINKED, do: [buff('sing_to_me', '聽我唱', { who: 'target', until: 'source_turn_start', mods: [{ kind: 'hit', value: 2 }] })] } })
 
 T.skill(s('soothe'), '安撫', 2, 'back', 'active', 1, 2, s('encore'),
   '對一個蕾絲或遺魂唱歌，擲表演對 10＋它的等級×2（精英再 +2）：成功的話，它下一回合不攻擊（還是會移動與用工具）。對黑蕾絲與首領無效。', 'done',
@@ -98,7 +98,7 @@ T.skill(s('swan_song'), '絕唱', 4, 'front', 'stance', 2, 3, s('chorus'),
   { use: { net: { ap: 1 } }, net: { song: true, link_full: true, do_off: [{ op: 'pick_random', key: 'foe', from: 'foe' }, { op: 'link.dump', who: 'pick:foe', max: 20, deep_max: 30 }] } })
 
 T.skill(s('ill_take_it'), '我來擋！', 4, 'front', 'reaction', 2, 5, s('one_line'),
-  '同步中的隊友要被釘住時，你替他擋，那一次釘住的檢定 −5。（內海每場 1）', 'approx', '釘住的檢定沒有被擲的一方（見我很清醒喔）：改成同步中的隊友要被釘住時直接擋下（out_before 的 prevent），比 −5 強',
+  '同步中的隊友要被釘住時，你替他擋，那一次釘住的檢定 −5。（內海每場 1）', 'approx', '釘住的檢定沒有被擲的一方（見我很清醒）：改成同步中的隊友要被釘住時直接擋下（out_before 的 prevent），比 −5 強',
   { use: { net: { ap: 0, per_fight: 1 } }, net: { trigger: { on: 'out_before', who: 'linked' }, react: { prevent: { how: ['pinned'] } } } })
 
 T.gap(s('dome'), '巨蛋', 4, 'front', 'active', 2, 8, s('concert'), { use: { per_fight: 1 } })

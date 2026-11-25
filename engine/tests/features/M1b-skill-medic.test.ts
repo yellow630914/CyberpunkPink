@@ -39,7 +39,7 @@ const sk = (id: string, name: string, tier: number, layer: 'signature' | 'front'
 })
 const ID = (name: string): string => `sk_medic_${name}`
 
-/** 義體學對目標的迴避（拆解、卸下、拆光、手手拿開共用的那一次檢定）。 */
+/** 義體學對目標的迴避（拆解、卸下、拆光、別碰我共用的那一次檢定）。 */
 const DISMANTLE_CHECK = { op: 'check', attr: 'tech', skill: 'cyberware', vs: 'evade', tags: ['dismantle'], label: '拆解', stop: true }
 /** 用義體學打一次近戰（找縫、短路）。 */
 const CYBER_AS = { attr: 'tech', skill: 'cyberware' }
@@ -65,7 +65,7 @@ const MEDIC: Rec[] = [
     use: { ap: 2 },
     meat: { target: 'enemy', range: [1, 1], needs: { cyber: true }, do: [DISMANTLE_CHECK, { op: 'implant', mode: 'off', if: 'ok' }] },
   }),
-  sk(ID('cool_down'), '呼呼不燙了', 1, 'front', 'active', 1, ID('scalpel'), {
+  sk(ID('cool_down'), '冷卻處理', 1, 'front', 'active', 1, ID('scalpel'), {
     use: { ap: 1, per_turn: 1 },
     meat: {
       target: 'near',
@@ -77,13 +77,13 @@ const MEDIC: Rec[] = [
   }),
   sk(ID('suture'), '縫合手', 1, 'back', 'passive', 2, ID('first_aid'), { meat: { mods: [{ kind: 'heal_dealt', value: 4 }] } }),
   // 自己或相鄰的隊友第一次進入重傷：回 2d6、止血，到他下一回合結束前不吃重傷的 −2（重傷還在的時候命中與檢定各 +2）
-  sk(ID('painless'), '不痛不痛', 1, 'back', 'reaction', 1, ID('first_aid'), {
+  sk(ID('painless'), '止痛針', 1, 'back', 'reaction', 1, ID('first_aid'), {
     use: { ap: 0, per_fight: 1 },
     meat: {
       trigger: { on: 'hp_half', who: 'near' },
       do: [
         { op: 'heal', amount: '2d6' }, { op: 'cleanse', by: 'first_aid' },
-        { op: 'buff', id: 'painless', name: '不痛不痛', turns: 1, until: 'own_turn_end', mods: [{ kind: 'hit', value: 2, when: { wounded: true } }, { kind: 'save', value: 2, when: { wounded: true } }] },
+        { op: 'buff', id: 'painless', name: '止痛針', turns: 1, until: 'own_turn_end', mods: [{ kind: 'hit', value: 2, when: { wounded: true } }, { kind: 'save', value: 2, when: { wounded: true } }] },
       ],
     },
   }),
@@ -114,7 +114,7 @@ const MEDIC: Rec[] = [
     },
   }),
   // 拆解、找縫、卸下、短路、拆光的命中 +1（帶 dismantle 標籤的攻擊與檢定）；你動手制伏時格鬥檢定 +1
-  sk(ID('dismantle_fun'), '拆拆好好玩', 2, 'back', 'passive', 3, ID('find_gap'), {
+  sk(ID('dismantle_fun'), '拆解癖', 2, 'back', 'passive', 3, ID('find_gap'), {
     meat: { mods: [{ kind: 'hit', value: 1, tags: ['dismantle'] }, { kind: 'save', value: 1, tags: ['dismantle'] }, { kind: 'save', value: 1, tags: ['subdue'] }] },
   }),
   // 開著時，每回合第一次對相鄰隊友用急救（道具）或戰場急救不花行動點
@@ -127,8 +127,8 @@ const MEDIC: Rec[] = [
     use: { ap: 3, per_fight: 1 },
     meat: { target: 'enemy', range: [1, 1], needs: { cyber: true }, do: [DISMANTLE_CHECK, { op: 'implant', mode: 'off', take: true, if: 'ok' }] },
   }),
-  // 排好隊喔治療的都是隊友：action_tags 多帶 other，名醫的「治療隊友」才認得
-  sk(ID('line_up'), '排好隊喔', 3, 'front', 'active', 2, ID('rounds'), {
+  // 排隊領藥治療的都是隊友：action_tags 多帶 other，名醫的「治療隊友」才認得
+  sk(ID('line_up'), '排隊領藥', 3, 'front', 'active', 2, ID('rounds'), {
     use: { ap: 2 },
     meat: { target: 'none', action_tags: ['heal', 'other'], do: [{ op: 'heal', who: 'near', amount: '2d6+skill:medicine' }] },
   }),
@@ -203,11 +203,11 @@ const MEDIC: Rec[] = [
       do: [{ op: 'buff', id: 'extreme', name: '極限超頻', turns: 3, until: 'own_turn_end', mods: [{ kind: 'ap_regen', value: 1 }, { kind: 'hit', value: 1 }], on_end: [{ op: 'afterglow', amount: 1 }] }],
     },
   }),
-  // 回復多 4 點；每回合第一次治療隊友（急救、戰場急救、排好隊喔、戰地手術）退還 1 點行動點
+  // 回復多 4 點；每回合第一次治療隊友（急救、戰場急救、排隊領藥、戰地手術）退還 1 點行動點
   sk(ID('famed_doctor'), '名醫', 5, 'back', 'passive', 6, ID('overhaul'), {
     meat: { mods: [{ kind: 'heal_dealt', value: 4 }, { kind: 'action_ap', value: -1, tags: ['other'], tags_any: ['heal', 'item:medical'], per_turn: 1 }] },
   }),
-  sk(ID('hands_off'), '手手拿開', 5, 'back', 'reaction', 3, ID('strip_all'), {
+  sk(ID('hands_off'), '別碰我', 5, 'back', 'reaction', 3, ID('strip_all'), {
     use: { ap: 1, per_turn: 1 },
     meat: {
       trigger: { on: 'after', who: 'near', if: 'melee' },
@@ -580,7 +580,7 @@ describe('拆解：義體學對目標的迴避，命中時目標一件義體失�
     expect(tryAct(g, { action: D, target: { unit: 'f1' } })).toEqual(['保全要有義體才能用。'])
   })
 
-  it('拆拆好好玩：拆解、找縫、卸下、短路、拆光的命中 +1（帶 dismantle 標籤的攻擊與檢定），制伏的檢定 +1；解鎖匠打契約義體再 +2', () => {
+  it('拆解癖：拆解、找縫、卸下、短路、拆光的命中 +1（帶 dismantle 標籤的攻擊與檢定），制伏的檢定 +1；解鎖匠打契約義體再 +2', () => {
     const a = world([ID('dismantle_fun'), ID('locksmith')], { foes: [cyborg({ implants: [{ kind: 'limb', name: '契約義肢', contract: true }] }), cyborg()] })
     expect(modTotal(a, 'save', 'a1', ['dismantle'], 'f1')).toBe(1 + 2)
     expect(modTotal(a, 'save', 'a1', ['dismantle'], 'f2')).toBe(1)
@@ -591,7 +591,7 @@ describe('拆解：義體學對目標的迴避，命中時目標一件義體失�
     expect(modTotal(a, 'save', 'a1', ['hack'], 'f1')).toBe(0)
   })
 
-  it('檢定的明細裡看得到拆拆好好玩與解鎖匠的加值', () => {
+  it('檢定的明細裡看得到拆解癖與解鎖匠的加值', () => {
     const a = world([D, ID('dismantle_fun'), ID('locksmith')], { foes: [cyborg({ implants: [{ kind: 'limb', name: '契約義肢', contract: true }] }), plain()] })
     const run = cast(a, D, u('f1'), { d: NAT20 })
     const roll = run.beats.find((b) => b.roll)!.roll!
@@ -929,10 +929,10 @@ describe('巡房（姿態）：開著時每回合第一次對相鄰隊友治療�
   })
 })
 
-describe('名醫：每回合第一次治療隊友（急救、戰場急救、排好隊喔、戰地手術）退還 1 點行動點', () => {
+describe('名醫：每回合第一次治療隊友（急救、戰場急救、排隊領藥、戰地手術）退還 1 點行動點', () => {
   const F = ID('famed_doctor')
 
-  it('每回合第一次退還 1 點（道具、戰場急救、排好隊喔都算同一個次數）；第二次照原價；下個回合又有', () => {
+  it('每回合第一次退還 1 點（道具、戰場急救、排隊領藥都算同一個次數）；第二次照原價；下個回合又有', () => {
     const a = world([F, ID('first_aid'), ID('line_up'), ID('field_surgery')])
     hurt(a, 'a2', 5)
     expect(spentBy(a, () => cast(a, ID('first_aid'), u('a2')))).toBe(0)
@@ -953,8 +953,8 @@ describe('名醫：每回合第一次治療隊友（急救、戰場急救、排�
   })
 })
 
-describe('呼呼不燙了、排好隊喔、戰地手術以外的支援：排感載或消餘韻、你這一格與相鄰兩格各回', () => {
-  it('呼呼不燙了：二選一（排 8 點感載，或消一層餘韻）；沒有橋、沒有餘韻的人對應的選項灰掉', () => {
+describe('冷卻處理、排隊領藥、戰地手術以外的支援：排感載或消餘韻、你這一格與相鄰兩格各回', () => {
+  it('冷卻處理：二選一（排 8 點感載，或消一層餘韻）；沒有橋、沒有餘韻的人對應的選項灰掉', () => {
     const C = ID('cool_down')
     const a = world([C])
     a.ally(2).load!.now = 20
@@ -974,7 +974,7 @@ describe('呼呼不燙了、排好隊喔、戰地手術以外的支援：排感�
     expect(tryAct(g, { action: C, target: { unit: 'a2' }, pick: { choice: 'afterglow' } })).not.toBeNull()
   })
 
-  it('排好隊喔：你這一格與相鄰兩格的隊友各回 2d6＋醫療（每個人各擲一次），不相鄰的第三個人不回；花 2 點', () => {
+  it('排隊領藥：你這一格與相鄰兩格的隊友各回 2d6＋醫療（每個人各擲一次），不相鄰的第三個人不回；花 2 點', () => {
     const L = ID('line_up')
     const a = world([L])
     hurt(a, 'a1', 10)
@@ -992,7 +992,7 @@ describe('呼呼不燙了、排好隊喔、戰地手術以外的支援：排感�
   })
 })
 
-describe('不痛不痛：自己或相鄰的隊友第一次進入重傷時自動打一針', () => {
+describe('止痛針：自己或相鄰的隊友第一次進入重傷時自動打一針', () => {
   const P = ID('painless')
   /** 一個很兇的敵人：一擊把人打到重傷。 */
   const brute = () => foe('minion', { weapons: [testWeapon('pistol', 30, 0, 100)], ...quiet } as never)
@@ -1100,7 +1100,7 @@ describe('找縫、短路：用義體學打一次近戰（傷害照武器）', (
   })
 })
 
-describe('拆光、手手拿開', () => {
+describe('拆光、別碰我', () => {
   it('拆光：命中時目標失去下一個回合，而且身上兩件義體到戰鬥結束都失效；沒過什麼都不發生', () => {
     const X = ID('strip_all')
     const a = world([X])
@@ -1114,7 +1114,7 @@ describe('拆光、手手拿開', () => {
     expect(reasonOf(() => cast(a, X, u('f1')))).toEqual(['這一場已經用過了。'])
   })
 
-  it('手手拿開：近身的敵人攻擊你或相鄰的隊友之後，扣 1 點行動點反擊：命中時那件義體失效兩回合，並且被推後一格；每回合一次', () => {
+  it('別碰我：近身的敵人攻擊你或相鄰的隊友之後，扣 1 點行動點反擊：命中時那件義體失效兩回合，並且被推後一格；每回合一次', () => {
     const H = ID('hands_off')
     const a = world([H])
     // 攻擊擲 1 顆 d20、3 顆 d6（失手也擲傷害骰），然後是反擊的檢定
@@ -1134,7 +1134,7 @@ describe('拆光、手手拿開', () => {
     expect(miss.foe(1).slot).toBe(1)
   })
 
-  it('手手拿開：遠距離的攻擊（不是近戰）不觸發；不相鄰的隊友被打不觸發；行動點不夠不觸發', () => {
+  it('別碰我：遠距離的攻擊（不是近戰）不觸發；不相鄰的隊友被打不觸發；行動點不夠不觸發', () => {
     const H = ID('hands_off')
     const gunner = world([H], { foes: [foe('minion', { weapon: 'pistol', implants: IMPLANTS, ...quiet } as never), plain()] })
     const r1 = gunner.run(dice(1, 1, 1, 1, 20))

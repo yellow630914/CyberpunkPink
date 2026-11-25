@@ -38,7 +38,7 @@ const PACK: ContentPack = {
       sk('sk_gunner_aimed_shot', '要害射擊', 'gunner', 1, 'active', { after: 'sk_gunner_instinct', use: { ap: 3 }, meat: { target: 'enemy', attack: { aimed: true, hit: 3 } } }),
       sk('sk_gunner_burst', '連射控制', 'gunner', 1, 'active', { after: 'sk_gunner_instinct', use: { ap: 3 }, meat: { target: 'enemy', attack: { spend: 'all', min_mag: 2, dice: 'spent_minus_1', suppress: { dc: 'spent', skill: 'composure' } } } }),
       sk('sk_fixer_face', '人面', 'fixer', 1, 'passive', { layer: 'signature', cap: 3, meat: { give_ap: { max: 'one_plus_half_tier' }, call: { options: ['shot', 'cover_up', 'cover_down'], per_fight: 'half_tier_up', ap: 1 } } }),
-      sk('sk_fixer_swap', '換個位子嘛', 'fixer', 1, 'active', { after: 'sk_fixer_face', use: { ap: 1 }, meat: { target: 'ally', free_move: { swap_adjacent_pair: true } } }),
+      sk('sk_fixer_swap', '換位子', 'fixer', 1, 'active', { after: 'sk_fixer_face', use: { ap: 1 }, meat: { target: 'ally', free_move: { swap_adjacent_pair: true } } }),
     ],
   },
 }
@@ -226,14 +226,14 @@ describe('E3：要多選一樣東西的行動，選項由引擎列出來（picks
     expect(mismatches(g, node).bad).toEqual([])
   })
 
-  it('技能：瞄準過的一槍可以指定部位、換個位子嘛要選另一名相鄰的隊友、叫人要選做哪一件事', () => {
+  it('技能：瞄準過的一槍可以指定部位、換位子要選另一名相鄰的隊友、叫人要選做哪一件事', () => {
     const g = start()
     turnTo(g, 'a1')
     // 要害射擊：部位可以不選（照擲的）；四個部位是核心的語彙
     expect(opt(g, 'sk_gunner_aimed_shot').picks).toEqual([{ key: 'part', label: '瞄準哪個部位', kind: 'choice', required: false, options: [['limb', '肢體'], ['head', '頭'], ['torso', '軀幹'], ['bridge', '橋']].map(([value, label]) => ({ value, label, blocks: [] })) }])
     // 連射不是瞄準過的射擊：不用多選
     expect(opt(g, 'sk_gunner_burst').picks).toEqual([])
-    // 換個位子嘛：a2、a3 相鄰，選了 a2 就只能和 a3 換，反過來也是
+    // 換位子：a2、a3 相鄰，選了 a2 就只能和 a3 換，反過來也是
     expect(opt(g, 'sk_fixer_swap').picks).toEqual([{ key: 'with', label: '和誰交換', kind: 'ally', required: true, options: [
       { value: 'a2', label: '零', blocks: [], at: { unit: 'a2' }, for: [{ unit: 'a3' }] },
       { value: 'a3', label: '喬', blocks: [], at: { unit: 'a3' }, for: [{ unit: 'a2' }] },

@@ -1,7 +1,7 @@
 // 驗收測試：dev/work/M2-abilities-m2.md（cpp-feature）。M1 第二波留到 M2 的技能機制：增援（call_in 與 bench 選項）、夥伴的技能（G4）、
 // 偽裝與被識破、面具 masked、讀人、情報網與每件委託的次數、換配置的地點與時間（G1）、人情池讀衍生數值與 favor.spend、歷練點的效果 xp。
 // 別的功能（名冊的候補、npc_known、scout_reveal、at_home、at_facility、委託副本、人情）用測試臨時註冊的替身；內容一律是測試自帶的假資料，不讀 engine/data。
-// 規格：SKILL_TREES 掮客「增援」「情報網」、名媛「入戲」「偽裝」「讀人」「我演得很像吧」「入骨」；SKILLS 1.11、1.7；CORE_RULES 6.4、7.1；UI 8.3；
+// 規格：SKILL_TREES 掮客「增援」「情報網」、名媛「入戲」「偽裝」「讀人」「演技派」「入骨」；SKILLS 1.11、1.7；CORE_RULES 6.4、7.1；UI 8.3；
 // dev/adr/0015 E2、E3、E4、E13；dev/adr/0016 第五節、G1、G4、G10。
 
 import { describe, expect, it } from 'vitest'
@@ -43,7 +43,7 @@ const ABILITIES: Rec[] = [
   ab('sk_c3', 'passive', { tier: 3, meat: { mods: [{ kind: 'evade', value: 1 }] } }),
   ab('sk_o1', 'passive', { meat: { mods: [{ kind: 'evade', value: 1 }] } }, 'other'),
   ab('sk_o2', 'passive', { tier: 2, meat: { mods: [{ kind: 'evade', value: 1 }] } }, 'other'),
-  // 名媛：入戲（面具）、偽裝（姿態，戰鬥外也開得了）、我演得很像吧與入骨（戰鬥外的修正）、誘惑攻擊
+  // 名媛：入戲（面具）、偽裝（姿態，戰鬥外也開得了）、演技派與入骨（戰鬥外的修正）、誘惑攻擊
   ab('sk_in_char', 'passive', { cap: 3, meat: { mask: { rounds: 1 } } }),
   ab('sk_disguise', 'stance', {
     tier: 2, use: { ap: 1 },
@@ -440,7 +440,7 @@ describe('偽裝與被識破（戰鬥外開、帶進戰鬥）', () => {
     expect(abilitiesOf(g.state, 'pc').stance).toBe('sk_disguise')
   })
 
-  it('我演得很像吧、入骨是被動的戰鬥外修正：infiltrate +2、+4（裝著才有；兩個都裝就都在明細裡）', () => {
+  it('演技派、入骨是被動的戰鬥外修正：infiltrate +2、+4（裝著才有；兩個都裝就都在明細裡）', () => {
     const g = game({ equipped: ['sk_root', 'sk_good_actor'] })
     expect(part(perform(g), 'sk_good_actor')).toEqual([2])
     expect(part(perform(g), 'sk_deep_in_role')).toEqual([])

@@ -2,7 +2,7 @@
 // - 姿態可以在戰鬥外開（meat.out；偽裝）：報告 ability.stance，記在 actor.ext.abilities.stance。開著的時候，戰鬥外帶那些標籤、用那項基本功的檢定加 meat.out.check.value
 //   （偽裝：infiltrate 的表演檢定 +2）。開打時還開著就帶進戰鬥：單位的姿態就是它，meat.out.on_start 開打做一次（第一回合第一次攻擊命中 +2 照姿態的 mods；
 //   這一場開打前被識破了就不生效，見 whenBlocks 的 not_spotted）。
-// - 被動的 meat.out_mods：裝著的時候，戰鬥外帶那些標籤的檢定加多少（我演得很像吧、入骨：infiltrate +2、+4；豔名的「被認出來」是 lewd 的檢定修正，這裡是它的對照）。
+// - 被動的 meat.out_mods：裝著的時候，戰鬥外帶那些標籤的檢定加多少（演技派、入骨：infiltrate +2、+4；豔名的「被認出來」是 lewd 的檢定修正，這裡是它的對照）。
 // - 預備的 prep.out_mods：選了人的預備（讀人）預備好之後，戰鬥外對那個人（檢定的對象）的誘惑與交涉檢定加多少，預備用掉之前一直有效。
 // 都是檢定修正（k.stats.addCheckModifier）：只在戰鬥外問；戰鬥裡的檢定由戰鬥的修正管。
 

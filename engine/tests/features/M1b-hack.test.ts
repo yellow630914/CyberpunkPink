@@ -940,7 +940,7 @@ const NET_ABILITIES: Rec[] = [
   nab('sk_ctrl', '主控', 'passive', 1, { tags: ['quickhack'], pool: { ram: { max: 3, regen: 1 } }, mods: [{ kind: 'save', value: { by_tier: [1, 2, 2, 3, 4] }, tags: ['hack'] }] }, { layer: 'signature', after: undefined }),
   nab('sk_ice', '破冰', 'active', 1, { action_tags: ['hack', 'hack:device'], target: 'enemy', do: [CHECK('device'), { op: 'buff', id: 'icebreak', name: '破冰', turns: 1, until: 'source_turn_end', mods: [{ kind: 'firewall', value: -2 }] }] }, { use: { ap: 1, ram: 2 } }),
   // 「你或一名隊友被快駭」：trigger.who 的 self_or_ally（M1b-core-fix2）
-  nab('sk_peek', '偷看是不行的喔', 'reaction', 1, { trigger: { on: 'checked', who: 'self_or_ally', if: 'hack' }, react: { dc: 2 } }, { use: { ram: 1, per_turn: 1 } }),
+  nab('sk_peek', '非請勿看', 'reaction', 1, { trigger: { on: 'checked', who: 'self_or_ally', if: 'hack' }, react: { dc: 2 } }, { use: { ram: 1, per_turn: 1 } }),
   nab('sk_take', '接管', 'active', 1, { action_tags: ['hack', 'hack:device'], target: 'foe_overlay', picks: [WAY], choose: [{ key: 'take', label: '接管', do: [CHECK('device'), { op: 'hack.takeover', turns: 2 }] }, { key: 'rewrite', label: '改寫敵我名單', do: [CHECK('device'), { op: 'hack.takeover', mode: 'rewrite' }] }] }, { use: { ap: 1, ram: 3 } }),
   nab('sk_loop', '迴圈', 'active', 1, { action_tags: ['hack', 'hack:neural'], target: 'enemy', needs: { bridged: true }, do: [CHECK('neural'), { op: 'hack.dot', amount: '1d6+1', turns: 3 }] }, { use: { ap: 1, ram: 3 }, layer: 'back', after: 'sk_ice' }),
   // 樹上還有「構裝槽 +1」：槽在甲板上（deck.slots），技能格式沒有改甲板的鍵，寫不出來
@@ -958,7 +958,7 @@ const NET_ABILITIES: Rec[] = [
       { key: 'door', label: '放下防爆門', when: { node_taken: 'door' }, do: [{ op: 'cover', levels: 1, who: 'self' }] },
     ],
   }, { use: { ap: 1, ram: 2 }, after: 'sk_take' }),
-  nab('sk_focus', '盯～', 'passive', 2, { mods: [{ kind: 'save', value: 1, tags: ['hack:neural'] }] }, { layer: 'back', after: 'sk_heat', cap: 3 }),
+  nab('sk_focus', '盯上', 'passive', 2, { mods: [{ kind: 'save', value: 1, tags: ['hack:neural'] }] }, { layer: 'back', after: 'sk_heat', cap: 3 }),
   nab('sk_backflow', '逆流', 'reaction', 2, { trigger: { on: 'overload', who: 'self' }, do: [{ op: 'pool', pool: 'ram', amount: 'full', who: 'self' }] }, { use: { ap: 0, per_fight: 1 }, layer: 'back', after: 'sk_silent' }),
   // 快感版的「定力檢定成功可以擋掉其中 1 點」寫不出來（sink 的 save 是成功就整筆擋掉）
   nab('sk_inflow', '灌頂', 'active', 3, { action_tags: ['hack', 'hack:neural'],
@@ -1046,7 +1046,7 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     expect(rollsOf(cast(b, 'hack.qh_noise', U('f1'), { user: 'a2' }))[0]!.dc).toBe(before - 2)
   })
 
-  it('偷看是不行的喔：隊友被快駭時，這一次那個人的防火牆 +2（checked 的反應）；一回合一次、花 1 RAM', () => {
+  it('非請勿看：隊友被快駭時，這一次那個人的防火牆 +2（checked 的反應）；一回合一次、花 1 RAM', () => {
     const enemy = idle({ tags: ['quickhack'], skills: { interface: 3 }, pools: { ram: { now: 20, max: 20, regen: 2 } }, ap: { now: 9, max: 9, regen: 3 }, ext: { deck: deckOf(['qh_noise'], { grade: 2 }) } })
     const a = net(['sk_peek'], { foes: [enemy, idle()] })
     const dc = (u = 'a2') => rollsOf(cast(a, 'hack.qh_noise', U(u), { user: 'f1' }))[0]!.dc
@@ -1065,7 +1065,7 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     expect(c.ally(1).pools.ram!.now).toBe(RAM3 - 3)
   })
 
-  it('偷看是不行的喔：你自己被快駭也算（trigger.who 的 self_or_ally）；一回合一次，隊友與自己合起來算', () => {
+  it('非請勿看：你自己被快駭也算（trigger.who 的 self_or_ally）；一回合一次，隊友與自己合起來算', () => {
     const enemy = idle({ tags: ['quickhack'], skills: { interface: 3 }, pools: { ram: { now: 20, max: 20, regen: 2 } }, ap: { now: 9, max: 9, regen: 3 }, ext: { deck: deckOf(['qh_noise'], { grade: 2 }) } })
     const a = net(['sk_peek'], { foes: [enemy, idle()] })
     const dc = (u: string) => rollsOf(cast(a, 'hack.qh_noise', U(u), { user: 'f1' }))[0]!.dc
@@ -1183,10 +1183,10 @@ describe('潛網者樹「現實」欄：整棵樹寫得進現有的格式', () =
     expect(pickApplies(boom(), U('f1'))).toBe(false)
   })
 
-  it('盯～：神經快駭的檢定 +1（只有神經類）', () => {
+  it('盯上：神經快駭的檢定 +1（只有神經類）', () => {
     const a = net(['sk_focus'])
-    expect(labelOf(rollsOf(cast(a, 'hack.qh_noise', U('f1')))[0]!, '盯～')).toBe(1)
-    expect(labelOf(rollsOf(cast(a, 'hack.qh_relay', U('f1')))[0]!, '盯～')).toBeUndefined()
+    expect(labelOf(rollsOf(cast(a, 'hack.qh_noise', U('f1')))[0]!, '盯上')).toBe(1)
+    expect(labelOf(rollsOf(cast(a, 'hack.qh_relay', U('f1')))[0]!, '盯上')).toBeUndefined()
   })
 
   it('逆流：你過載時 RAM 回滿（pool 效果），下一回合照樣失去；每場一次', () => {

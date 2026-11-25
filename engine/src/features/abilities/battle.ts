@@ -195,7 +195,7 @@ function doAttack(run: BattleRun, u: BattleUnit, ab: AbilityEntry, m: MeatDef, t
   if (atk.suppress && !atk.suppress.auto && !result.aborted) suppressAfter(run, u, target, atk.suppress, spent)
 }
 
-/** 換個位子嘛：選的隊友和另一名相鄰的隊友交換位置，不花他們的行動點。 */
+/** 換位子：選的隊友和另一名相鄰的隊友交換位置，不花他們的行動點。 */
 function doSwap(run: BattleRun, u: BattleUnit, target: BattleUnit, withId: unknown): void {
   const mate = typeof withId === 'string' ? run.battle.units[withId] : undefined
   if (!mate || mate.id === u.id || mate.id === target.id || mate.side !== u.side || !onField(mate) || Math.abs(mate.slot - target.slot) !== 1) throw new BattleBlocked(['要選兩名相鄰的隊友。'])
@@ -297,7 +297,7 @@ function pickTargets(view: BattleView, u: BattleUnit, m: MeatDef, kind: string):
 const choiceKey = (m: MeatDef): string => m.picks?.find((p) => p.kind === 'choice')?.key ?? 'choice'
 
 /**
- * 主動技能除了目標還要選的東西：瞄準過的一槍可以指定部位（pick.part）；換個位子嘛要選另一名相鄰的隊友（pick.with）；
+ * 主動技能除了目標還要選的東西：瞄準過的一槍可以指定部位（pick.part）；換位子要選另一名相鄰的隊友（pick.with）；
  * meat.picks 宣告的；meat.choose 的用法（一個 choice）；別的技能的 alter 用 as_pick 多出來的開關。
  */
 function picksOf(view: BattleView, u: BattleUnit, ab: AbilityEntry, m: MeatDef): BattlePick[] {

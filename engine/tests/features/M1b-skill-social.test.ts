@@ -1,5 +1,5 @@
 // 驗收測試：dev/work/M1b-skill-social.md（cpp-feature）。名媛「入戲」這棵樹在現實戰鬥的機制：面具（第一回合不被當成目標）、誘惑攻擊
-// （檢定加快感傷害）、替身、眾生相、欺負人家要賠喔、幾個姿態與被動；以及這棵樹二十七個技能與共鳴用假資料寫得出來、動得起來。
+// （檢定加快感傷害）、替身、眾生相、討債、幾個姿態與被動；以及這棵樹二十七個技能與共鳴用假資料寫得出來、動得起來。
 // 主播與偶像兩棵樹只檢查「學得到、裝得上、在現實沒有任何效果」。
 // 開打前的事（偽裝與被識破的難度、面具抵消豔名、讀人、假身分、蜜罐、頂替；滲透與豔名在 M2）不做（dev/adr/0015 E13），那幾個技能的現實欄留 pending 或 null。
 // 規格：SKILL_TREES「名媛：入戲」整節（現實欄與共鳴表）；COMBAT_SYSTEM 第 11 節（名媛、主播、偶像三列）；SKILLS 1.6 節、第 13 節；
@@ -40,7 +40,7 @@ const sk = (id: string, name: string, tier: number, layer: 'signature' | 'front'
   id, name, path: 'socialite', category: 'social', tier, layer, kind, cap, xp: tier * 20, cells: 1, ...(layer === 'signature' ? {} : { after }), text: `${name}。`, net: null, opinion: null, meat: null, ...more,
 })
 const ID = (name: string): string => `sk_socialite_${name}`
-/** 誘惑攻擊的消耗：2 行、每回合 1 次、同一組（SKILL_TREES 入戲：看這邊♡、不要走嘛、銷魂、暈乎乎「算在誘惑攻擊每回合 1 次裡」）。 */
+/** 誘惑攻擊的消耗：2 行、每回合 1 次、同一組（SKILL_TREES 入戲：看這邊♡、留下來、銷魂、暈乎乎「算在誘惑攻擊每回合 1 次裡」）。 */
 const TEASE_USE = { ap: 2, per_turn: 1, group: 'tease' }
 const BASE_TEASE = ID('in_character') + '.tease'
 
@@ -64,10 +64,10 @@ const SOCIALITE: Rec[] = [
       do: [{ op: 'load', amount: 4, type: 'pleasure', exact: true, if: 'not_first_round' }, { op: 'load', amount: 8, type: 'pleasure', exact: true, if: 'first_round' }],
     },
   }),
-  // 我很清醒喔：抵抗控制類快駭的檢定 +2
-  sk(ID('sober'), '我很清醒喔', 1, 'back', 'passive', 2, ID('stand_in'), { meat: { mods: [{ kind: 'firewall', value: 2, tags: ['hack:control'] }] } }),
-  // 跟我說嘛：只在第一回合，距離 2 以內有橋的敵人，交涉對 10＋他的 mod(意志)＋定力；過了標記到她的下一回合（全隊打他命中 +2）
-  sk(ID('tell_me'), '跟我說嘛', 1, 'back', 'active', 1, ID('read_people'), {
+  // 我很清醒：抵抗控制類快駭的檢定 +2
+  sk(ID('sober'), '我很清醒', 1, 'back', 'passive', 2, ID('stand_in'), { meat: { mods: [{ kind: 'firewall', value: 2, tags: ['hack:control'] }] } }),
+  // 說來聽聽：只在第一回合，距離 2 以內有橋的敵人，交涉對 10＋他的 mod(意志)＋定力；過了標記到她的下一回合（全隊打他命中 +2）
+  sk(ID('tell_me'), '說來聽聽', 1, 'back', 'active', 1, ID('read_people'), {
     use: { meat: { ap: 1, first_round: true } },
     meat: {
       target: 'enemy', needs: { bridged: true }, range: [1, 2],
@@ -75,18 +75,18 @@ const SOCIALITE: Rec[] = [
     },
   }),
   // ---- 2 階 ----
-  // 不要走嘛：誘惑攻擊；命中的話，到目標下一回合結束前，他攻擊她的命中 −2（掛在目標身上、只對她有效）
-  sk(ID('stay'), '不要走嘛', 2, 'front', 'active', 1, ID('look_here'), {
+  // 留下來：誘惑攻擊；命中的話，到目標下一回合結束前，他攻擊她的命中 −2（掛在目標身上、只對她有效）
+  sk(ID('stay'), '留下來', 2, 'front', 'active', 1, ID('look_here'), {
     use: TEASE_USE,
-    meat: { tease: { on_ok: [{ op: 'buff', id: 'stay', name: '不要走嘛', turns: 1, until: 'own_turn_end', mods: [{ kind: 'hit', value: -2, vs_source: true }] }] } },
+    meat: { tease: { on_ok: [{ op: 'buff', id: 'stay', name: '留下來', turns: 1, until: 'own_turn_end', mods: [{ kind: 'hit', value: -2, vs_source: true }] }] } },
   }),
   // 偽裝（姿態）：開著，第一回合的第一次攻擊命中 +2。「戰鬥之前的滲透」（過門禁與盤問）是 M2：沒有寫
   sk(ID('disguise'), '偽裝', 2, 'front', 'stance', 1, ID('stand_in'), { use: { ap: 1 }, meat: { mods: [{ kind: 'hit', value: 2, when: { first_round: true, first_attack: true } }] } }),
   // 假身分、蜜罐：只有輿論欄，現實是 —
   sk(ID('false_identity'), '假身分', 2, 'front', 'active', 1, ID('read_people'), { use: { ap: 0 } }),
   sk(ID('honey_pot'), '蜜罐', 2, 'back', 'active', 1, ID('false_identity'), { use: { ap: 0 } }),
-  // 我演得很像吧：現實是「開打前被識破的難度 +2」，開打前的事是 M2：pending
-  sk(ID('good_actor'), '我演得很像吧', 2, 'back', 'passive', 3, ID('disguise'), { meat: { pending: true } }),
+  // 演技派：現實是「開打前被識破的難度 +2」，開打前的事是 M2：pending
+  sk(ID('good_actor'), '演技派', 2, 'back', 'passive', 3, ID('disguise'), { meat: { pending: true } }),
   // ---- 3 階 ----
   // 媚態（姿態）：誘惑攻擊的傷害多 1d3
   sk(ID('charm_pose'), '媚態', 3, 'front', 'stance', 2, ID('stay'), { use: { ap: 1 }, meat: { mods: [{ kind: 'tease_bonus', value: '1d3' }] } }),
@@ -109,8 +109,8 @@ const SOCIALITE: Rec[] = [
   // 入骨：第一回合迴避 +2（開打前被識破的難度 +4 是 M2：沒有寫）
   sk(ID('deep_in_role'), '入骨', 4, 'front', 'passive', 5, ID('new_face'), { meat: { mods: [{ kind: 'evade', value: 2, when: { first_round: true } }] } }),
   sk(ID('stand_in_for'), '頂替', 4, 'front', 'active', 2, ID('persuade_lace'), { use: { ap: 2 } }),
-  // 欺負人家要賠喔：被距離 2 以內有橋的敵人攻擊之後，對他做一次誘惑攻擊當反擊（不算每回合那一次、每場 2 次）
-  sk(ID('payback'), '欺負人家要賠喔', 4, 'back', 'reaction', 2, ID('dizzy'), {
+  // 討債：被距離 2 以內有橋的敵人攻擊之後，對他做一次誘惑攻擊當反擊（不算每回合那一次、每場 2 次）
+  sk(ID('payback'), '討債', 4, 'back', 'reaction', 2, ID('dizzy'), {
     use: { ap: 1, per_fight: 2 },
     meat: { trigger: { on: 'after', who: 'self', by: { needs: { bridged: true }, range: [1, 2] } }, do: [{ op: 'tease', who: 'attacker' }] },
   }),
@@ -294,7 +294,7 @@ const weight = (a: Arena, foeId = 'f1', target = 'a1'): number => targetWeight(a
 // ===================================================================================================================
 
 describe('這棵樹的二十七個技能：載得進來、格式檢查全過；現實欄寫不出來的留 pending 或 null', () => {
-  it('二十七個技能與共鳴五階全部載入；種類 14 主動、6 被動、2 反應、3 姿態、2 預備；現實欄 pending 的是讀人與我演得很像吧（開打前的事，M2）', () => {
+  it('二十七個技能與共鳴五階全部載入；種類 14 主動、6 被動、2 反應、3 姿態、2 預備；現實欄 pending 的是讀人與演技派（開打前的事，M2）', () => {
     const g = makeGame({ features: FEATURES, content: [PACK] }).game
     expect(SOCIALITE).toHaveLength(27)
     expect(g.k.content.list('ability')).toHaveLength(27)
@@ -677,7 +677,7 @@ describe('誘惑攻擊：檢定的明細是魅力與誘惑、DC 是 10＋意志�
     expect(opt(h, BASE_TEASE).targets.map((x) => x.blocks)).toEqual([[], ['乙要有橋才能用。'], ['目標要在距離 1～2 以內，現在距離 3。']])
   })
 
-  it('一回合只有一次：第二次灰掉；看這邊♡、不要走嘛、銷魂、暈乎乎與基本的誘惑攻擊共用這一次；戳戳你不算在裡面；下個回合又可以', () => {
+  it('一回合只有一次：第二次灰掉；看這邊♡、留下來、銷魂、暈乎乎與基本的誘惑攻擊共用這一次；戳戳你不算在裡面；下個回合又可以', () => {
     const ids = [ID('in_character'), T, ID('stay'), ID('swoon'), ID('dizzy'), ID('poke')]
     const reason = ['這一回合「tease」這一組的技能已經用了 1 次，不能再用。']
     for (const first of [T, BASE_TEASE, ID('stay'), ID('swoon'), ID('dizzy')]) {
@@ -766,8 +766,8 @@ describe('誘惑攻擊：檢定的明細是魅力與誘惑、DC 是 10＋意志�
 
 // ===================================================================================================================
 
-describe('各個誘惑技能：不要走嘛、銷魂、暈乎乎、傾城、戳戳你、跟我說嘛', () => {
-  it('不要走嘛：命中的話，到目標下一回合結束前，他攻擊她的命中 −2（只對她，不對隊友）；沒過就沒有；他的回合結束時消失', () => {
+describe('各個誘惑技能：留下來、銷魂、暈乎乎、傾城、戳戳你、說來聽聽', () => {
+  it('留下來：命中的話，到目標下一回合結束前，他攻擊她的命中 −2（只對她，不對隊友）；沒過就沒有；他的回合結束時消失', () => {
     const S = ID('stay')
     const a = world([S])
     cast(a, S, u('f1'), { d: dice(12, 3, 4) })
@@ -778,7 +778,7 @@ describe('各個誘惑技能：不要走嘛、銷魂、暈乎乎、傾城、戳�
     expect(modTotal(a, 'hit', 'f2', [], 'a1')).toBe(0)
     // 真的打她：攻擊的命中明細裡有 −2
     const parts = a.run().hitParts(a.foe(1), a.ally(1), a.foe(1).weapons[0]!, {})
-    expect(parts.find((p) => p.label === '不要走嘛')?.value).toBe(-2)
+    expect(parts.find((p) => p.label === '留下來')?.value).toBe(-2)
     // 他的回合結束：消失
     a.k.battle.emit('turn.end', { run: a.run(), unit: a.foe(1) })
     expect(modTotal(a, 'hit', 'f1', [], 'a1')).toBe(0)
@@ -894,7 +894,7 @@ describe('各個誘惑技能：不要走嘛、銷魂、暈乎乎、傾城、戳�
     expect(opt(g, P).targets.map((x) => x.blocks)).toEqual([[], ['乙要有橋才能用。'], ['目標要在距離 1～2 以內，現在距離 3。']])
   })
 
-  it('跟我說嘛：只在第一回合；交涉對 10＋他的 mod(意志)＋定力；過了標記到她的下一回合（全隊打他命中 +2）；沒過沒有', () => {
+  it('說來聽聽：只在第一回合；交涉對 10＋他的 mod(意志)＋定力；過了標記到她的下一回合（全隊打他命中 +2）；沒過沒有', () => {
     const M = ID('tell_me')
     const a = world([M], { foes: [mark('甲', { attrs: { body: 10, reflex: 10, tech: 10, intellect: 10, resolve: 14, charm: 10 }, skills: { composure: 3 } }), mark('乙')] })
     // 11 + 魅力 2 + 交涉 2 = 15，剛好對 DC 15
@@ -1066,7 +1066,7 @@ describe('眾生相：一個有橋的敵人失去這一回合；對首領照控�
 
 // ===================================================================================================================
 
-describe('欺負人家要賠喔：被距離 2 以內有橋的敵人攻擊之後反擊一次誘惑攻擊；不算每回合那一次；每場 2 次', () => {
+describe('討債：被距離 2 以內有橋的敵人攻擊之後反擊一次誘惑攻擊；不算每回合那一次；每場 2 次', () => {
   const P = ID('payback')
   const IDS = [P, T0(), ID('in_character')]
   /** f1 攻擊 a1（自然 1：失手，不必管傷害）之後，反擊的骰面：d20 15、2d6 4+5。 */
@@ -1242,7 +1242,7 @@ describe('其餘的被動與姿態', () => {
     expect(none.ally(1).load).toBeUndefined()
   })
 
-  it('我很清醒喔：抵抗控制類快駭的檢定 +2（防火牆 +2，只認 hack:control 這個標籤）；真的被快駭擲的 DC 多 2', () => {
+  it('我很清醒：抵抗控制類快駭的檢定 +2（防火牆 +2，只認 hack:control 這個標籤）；真的被快駭擲的 DC 多 2', () => {
     const a = world([ID('sober')])
     expect(modTotal(a, 'firewall', 'a1', ['hack', 'hack:control'])).toBe(2)
     expect(modTotal(a, 'firewall', 'a1', ['hack'])).toBe(0)
@@ -1282,7 +1282,7 @@ describe('讀人與千面（預備）、輿論與內海欄：現實欄寫不出�
     expect(() => prep(g.k, g.state, 'pc', ID('read_people'))).toThrow('還沒有可以帶進戰鬥的效果')
   })
 
-  it('學得到、裝得上（吃社交型的容量）：入戲 3 ＋ 我演得很像吧 3 ＋ 這才是真的我 6 的容量', () => {
+  it('學得到、裝得上（吃社交型的容量）：入戲 3 ＋ 演技派 3 ＋ 這才是真的我 6 的容量', () => {
     const g = makeGame({
       features: FEATURES, content: [PACK],
       pc: { ext: { bridge: { capacity: { meat: 8, net: 8, social: 12, media: 8 } }, abilities: { xp: 9999, learned: [], equipped: [], spent: {} } } },

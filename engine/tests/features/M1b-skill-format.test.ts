@@ -1233,7 +1233,7 @@ describe('trigger.who：self_or_ally（你或一名隊友）', () => {
     expect(load(react('sk_x', { on: 'hp_half', who: 'self_or_ally' }, { do: [{ op: 'heal', who: 'self', amount: 1 }] }))).toThrow(/self_or_ally/)
   })
 
-  it('checked：自己或隊友被擲檢定都觸發（偷看是不行的喔）；敵人被擲檢定不觸發；ally 不含自己、self 不含隊友（對照）', () => {
+  it('checked：自己或隊友被擲檢定都觸發（非請勿看）；敵人被擲檢定不觸發；ally 不含自己、self 不含隊友（對照）', () => {
     const a = field([react('sk_ck', { on: 'checked', who: 'self_or_ally', if: 'hack' }, { react: { dc: 2 } }, { ram: 0 })])
     const dc = (target: 'a1' | 'a2' | 'a3' | 'f1', roller: 'a1' | 'f1' | 'f2') => {
       const t = a.battle.units[target]!

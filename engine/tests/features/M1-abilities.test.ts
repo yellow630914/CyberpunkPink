@@ -34,7 +34,7 @@ const PACK: ContentPack = {
       sk('sk_fixer_face', '人面', 'fixer', 1, 'passive', 3, { layer: 'signature', meat: { give_ap: { max: 'one_plus_half_tier' }, call: { options: ['shot', 'cover_up', 'cover_down'], per_fight: 'half_tier_up', ap: 1 } } }),
       sk('sk_fixer_focus_fire', '集火', 'fixer', 1, 'active', 1, { after: 'sk_fixer_face', use: { ap: 1 }, meat: { target: 'enemy', apply: [{ status: 'marked', until: 'source_turn_start' }] } }),
       sk('sk_fixer_watch_out', '小心後面！', 'fixer', 1, 'reaction', 1, { after: 'sk_fixer_face', use: { ap: 1, per_turn: 1 }, meat: { trigger: 'ally_attacked', evade: 3 } }),
-      sk('sk_fixer_swap', '換個位子嘛', 'fixer', 1, 'active', 1, { layer: 'back', after: 'sk_fixer_focus_fire', use: { ap: 1 }, meat: { target: 'ally', free_move: { swap_adjacent_pair: true } } }),
+      sk('sk_fixer_swap', '換位子', 'fixer', 1, 'active', 1, { layer: 'back', after: 'sk_fixer_focus_fire', use: { ap: 1 }, meat: { target: 'ally', free_move: { swap_adjacent_pair: true } } }),
     ],
   },
 }
@@ -271,7 +271,7 @@ describe('戰鬥裡的技能（SKILL_TREES 槍手、掮客 1～2 階）', () => 
     expect(g.battle!.units.a1!.uses['sk_fixer_face.call']).toBe(1)
   })
 
-  it('換個位子嘛：讓兩名相鄰的隊友交換位置，不花他們的行動點', () => {
+  it('換位子：讓兩名相鄰的隊友交換位置，不花他們的行動點', () => {
     const g = game([unit(['sk_fixer_swap'], { weapon: 'pistol' }), one({ weapon: 'rifle' }, 2), one({ weapon: 'smg' }, 3)])
     turnTo(g, 'a1')
     const ap = [g.state.battle!.units.a2!.ap.now, g.state.battle!.units.a3!.ap.now]

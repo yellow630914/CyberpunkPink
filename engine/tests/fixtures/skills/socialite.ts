@@ -42,11 +42,11 @@ T.skill(s('poke'), '戳戳你', 1, 'back', 'active', 1, 1, s('look_here'),
   '對距離 3 以內一個有橋的化身或蕾絲灌 6 點快感感載，不擲骰。', 'done', 'load 6、type pleasure、exact；每回合 1 次',
   { use: { net: { ap: 1, per_turn: 1 } }, net: { target: 'enemy', range: [1, 3], needs: { bridged: true }, do: [{ op: 'load', amount: 6, type: 'pleasure', exact: true }] } })
 
-T.skill(s('sober'), '我很清醒喔', 1, 'back', 'passive', 2, 1, s('stand_in'),
+T.skill(s('sober'), '我很清醒', 1, 'back', 'passive', 2, 1, s('stand_in'),
   '抵抗粉蕾絲的勸降與釘住的檢定 +1。', 'none', '釘住的檢定是釘人的一方擲（pinUnit 的 run.save 沒有 other），被釘的人沒有檢定可以加；粉蕾絲的勸降是效果 net.sync、沒有檢定。要 netcombat 在釘住之前發 check.before',
   { net: { pending: true, text: '抵抗粉蕾絲的勸降與釘住的檢定 +1。（釘住與勸降沒有被擲檢定的一方：缺掛點）' } })
 
-T.skill(s('tell_me'), '跟我說嘛', 1, 'back', 'active', 1, 1, s('read_people'),
+T.skill(s('tell_me'), '說來聽聽', 1, 'back', 'active', 1, 1, s('read_people'),
   '對距離 3 以內一個化身或有人格的蕾絲擲交涉，難度同左；成功的話它被標記到你的下一回合，加值是 +1。', 'done', '交涉對意志（vs will）；成功掛 buff：hit_against +1，到我方下一回合開始（source_turn_start）',
   {
     use: { net: { ap: 1 } },
@@ -54,13 +54,13 @@ T.skill(s('tell_me'), '跟我說嘛', 1, 'back', 'active', 1, 1, s('read_people'
       target: 'enemy', range: [1, 3], needs: PERSONA_NEED,
       do: [
         { op: 'check', attr: 'charm', skill: 'negotiate', vs: 'will', tags: ['negotiate'], label: '交涉' },
-        buff('tell_me', '跟我說嘛', { if: 'ok', who: 'target', until: 'source_turn_start', mods: [{ kind: 'hit_against', value: 1 }] }),
+        buff('tell_me', '說來聽聽', { if: 'ok', who: 'target', until: 'source_turn_start', mods: [{ kind: 'hit_against', value: 1 }] }),
       ],
     },
   })
 
 // ================================ 2 階 ================================
-T.skill(s('stay'), '不要走嘛', 2, 'front', 'active', 1, 2, s('look_here'),
+T.skill(s('stay'), '留下來', 2, 'front', 'active', 1, 2, s('look_here'),
   '做一次誘惑攻擊；命中的話，目標被壓制到他下一回合結束（不能換位，攻擊 −2）。', 'done', 'lure.on_ok 加壓制狀態（suppressed）',
   { use: TEASE_USE, net: { lure: { on_ok: [{ op: 'status', status: 'suppressed', until: 'own_turn_end' }] } } })
 
@@ -72,7 +72,7 @@ T.skill(s('disguise'), '偽裝', 2, 'front', 'stance', 1, 2, s('stand_in'),
 T.gap(s('false_identity'), '假身分', 2, 'front', 'active', 1, 2, s('read_people'), { use: { ap: 0 } })
 T.gap(s('honey_pot'), '蜜罐', 2, 'back', 'active', 1, 2, s('false_identity'), { use: { ap: 0 } })
 
-T.skill(s('good_actor'), '我演得很像吧', 2, 'back', 'passive', 3, 1.5, s('disguise'),
+T.skill(s('good_actor'), '演技派', 2, 'back', 'passive', 3, 1.5, s('disguise'),
   '偽裝被看穿的難度 +2；戴著面具時表演 +1。', 'approx', '做了表演 +1（save，tags perform；內海面具整場戴著）；「偽裝被看穿的難度」同偽裝，寫不出來',
   { net: { mods: [{ kind: 'save', value: 1, tags: ['perform'] }] } })
 
@@ -125,7 +125,7 @@ T.skill(s('stand_in_for'), '頂替', 4, 'front', 'active', 2, 4, s('persuade_lac
   '冒充這個子網的管理員：追蹤度 −10；到這場戰鬥結束前，這一層的閘門把你當成管理員，不必破解。被看穿的難度照偽裝。', 'approx', '追蹤度 −10（net.trace）；閘門把你當管理員在 netrun，沒有接口',
   { use: { net: { ap: 2 } }, net: { target: 'none', do: [{ op: 'net.trace', amount: -10 }] } })
 
-T.skill(s('payback'), '欺負人家要賠喔', 4, 'back', 'reaction', 2, 5, s('dizzy'),
+T.skill(s('payback'), '討債', 4, 'back', 'reaction', 2, 5, s('dizzy'),
   '同左，距離 3 以內。（1 行；現實每場 2 次，內海每回合 1 次）', 'done', '反應 after／self，by 有橋、距離 1～3，效果 tease 落在攻擊的人；每回合 1 次',
   { use: { net: { ap: 1, per_turn: 1 } }, net: { trigger: { on: 'after', who: 'self', by: { needs: { bridged: true }, range: [1, 3] } }, do: [{ op: 'tease', who: 'attacker' }] } })
 

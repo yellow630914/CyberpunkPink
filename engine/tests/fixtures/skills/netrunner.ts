@@ -40,7 +40,7 @@ T.skill(n('break_ice'), '破冰', 1, 'front', 'active', 1, 1, MA,
   '用手上的武器構裝打一次攻擊，這一擊無視 2 點防護；打防火牆節點時遮蔽倍率 ×2。', 'approx', 'attack.pierce 2；遮蔽倍率 ×2 寫成 cover_mult_min 1（武器預設遮蔽倍率 0.5 的兩倍；武器自己是別的倍率時不對）',
   { use: { net: { ap: 2, ram: 2 } }, net: { target: 'enemy', do: [{ op: 'attack', pierce: 2, cover_mult_min: 1 }] } })
 
-T.skill(n('no_peeking'), '偷看是不行的喔', 1, 'front', 'reaction', 1, 2, MA,
+T.skill(n('no_peeking'), '非請勿看', 1, 'front', 'reaction', 1, 2, MA,
   '你被程式、蕾絲或潛網者攻擊時：這一下的感載 −4；對方沒打中的話，你立刻回打一次 1d6＋魅力調整值的感載。', 'approx',
   '新鍵：react.damage（attacked 的傷害加減）寫了「感載 −4」；「沒打中就回打」要同一個反應做兩個時機（attacked 與 after），一個技能只有一個 trigger：沒做',
   { use: { net: { ram: 1, per_turn: 1 } }, net: { trigger: { on: 'attacked', who: 'self' }, react: { damage: -4 } } })
@@ -98,7 +98,7 @@ T.skill(n('rewrite_terrain'), '改寫地形', 2, 'front', 'active', 1, 2, n('sei
     },
   })
 
-T.skill(n('stare'), '盯～', 2, 'back', 'passive', 3, 1.5, n('overheat'),
+T.skill(n('stare'), '盯上', 2, 'back', 'passive', 3, 1.5, n('overheat'),
   '武器構裝與神經快駭的命中 +1；目標正在閃斷時，再 +1。', 'done', '修正 hit +1；when.other_status flash 再 +1',
   { net: { mods: [{ kind: 'hit', value: 1 }, { kind: 'hit', value: 1, when: { other_status: 'flash' } }] } })
 

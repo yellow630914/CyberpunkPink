@@ -211,7 +211,7 @@ function deployOp(ctx: Ctx, e: Eff): void {
 function moveOp(ctx: Ctx, e: Eff): void {
   const o = mine(ctx)
   const to = ctx.pick[String(e.to)]
-  // 沒選的就不動（修修就好：順便移到相鄰的一格，可以不選）
+  // 沒選的就不動（就地維修：順便移到相鄰的一格，可以不選）
   if (to === undefined) return
   moveTo(ctx.run, ctx.user, o, to, e.any === true)
 }

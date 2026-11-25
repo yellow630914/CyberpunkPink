@@ -1,4 +1,4 @@
-// 守著一格（不准動喔；M1b-skill-gunner-broker）：效果 ward = { op: 'ward', slot: 'target', until, on: ['move', 'compact', 'attack'], do }。
+// 守著一格（不准動；M1b-skill-gunner-broker）：效果 ward = { op: 'ward', slot: 'target', until, on: ['move', 'compact', 'attack'], do }。
 // 守著敵方的一格：到期之前，站在那一格上的人第一次做 on 裡的事（自己換位、補位往前、攻擊）時，守著的人立刻做 do（通常是朝他射一槍：
 // 不花行動點、照常花彈匣）；用過就沒了，一格只管第一次。守著的人退出、或是到期（預設到自己的下一回合開始）也失效。
 // 記在守著的人身上（unit.ext.abilities.wards）。補位聽核心的 compacted 掛點：站在那一格上的人往前遞補了（from 就是守著的那一格）。

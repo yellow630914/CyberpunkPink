@@ -306,7 +306,7 @@
   },
   {
     "id": "sk_gunner_back_off",
-    "name": "走開啦",
+    "name": "逼退",
     "path": "gunner",
     "category": "meat",
     "tier": 2,
@@ -343,7 +343,7 @@
   },
   {
     "id": "sk_gunner_gun_care",
-    "name": "幫槍槍保養",
+    "name": "擦槍",
     "path": "gunner",
     "category": "meat",
     "tier": 2,
@@ -354,7 +354,7 @@
     "xp": 40,
     "cells": 1.5,
     "prep": {
-      "text": "幫槍槍保養是本樹唯一的預備技能。進委託副本之前（或在副本裡兩個階段之間喘口氣的時候）花 1 個時段，把主武器調到順手：這個副本裡的下一場現實戰鬥，那把槍的彈匣容量 +1，最多到 4 格。",
+      "text": "擦槍是本樹唯一的預備技能。進委託副本之前（或在副本裡兩個階段之間喘口氣的時候）花 1 個時段，把主武器調到順手：這個副本裡的下一場現實戰鬥，那把槍的彈匣容量 +1，最多到 4 格。",
       "slot": 1,
       "scope": "next_battle",
       "meat": {
@@ -371,7 +371,7 @@
     "use": {
       "note": "1 時段"
     },
-    "text": "幫槍槍保養是本樹唯一的預備技能。進委託副本之前（或在副本裡兩個階段之間喘口氣的時候）花 1 個時段，把主武器調到順手：這個副本裡的下一場現實戰鬥，那把槍的彈匣容量 +1，最多到 4 格。",
+    "text": "擦槍是本樹唯一的預備技能。進委託副本之前（或在副本裡兩個階段之間喘口氣的時候）花 1 個時段，把主武器調到順手：這個副本裡的下一場現實戰鬥，那把槍的彈匣容量 +1，最多到 4 格。",
     "meat": null,
     "net": null,
     "opinion": null
@@ -776,7 +776,7 @@
   },
   {
     "id": "sk_gunner_dont_move",
-    "name": "不准動喔",
+    "name": "不准動",
     "path": "gunner",
     "category": "meat",
     "tier": 4,
@@ -998,7 +998,7 @@
   },
   {
     "id": "sk_gunner_right_back",
-    "name": "還給你～",
+    "name": "原樣奉還",
     "path": "gunner",
     "category": "meat",
     "tier": 5,
@@ -1219,7 +1219,7 @@
   },
   {
     "id": "sk_fixer_swap",
-    "name": "換個位子嘛",
+    "name": "換位子",
     "path": "fixer",
     "category": "social",
     "tier": 1,
@@ -1446,7 +1446,7 @@
   },
   {
     "id": "sk_fixer_a_bit_more",
-    "name": "再加一點嘛",
+    "name": "加碼",
     "path": "fixer",
     "category": "social",
     "tier": 2,

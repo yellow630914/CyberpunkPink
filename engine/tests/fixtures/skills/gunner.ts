@@ -64,11 +64,11 @@ T.skill(g('thats_you'), '就是你了', 2, 'back', 'active', 1, 2, g('point_shot
   '第一回合可以用：被指定的敵人到你的下一回合開始前，全隊打他命中 +1。', 'done', 'buff 掛在敵人身上：修正 hit_against +1，到我方的下一回合開始（source_turn_start）',
   { use: { net: { ap: 1, first_round: true } }, net: { target: 'enemy', do: [buff('thats_you', '就是你了', { who: 'target', until: 'source_turn_start', mods: [{ kind: 'hit_against', value: 1 }] })] } })
 
-T.skill(g('back_off'), '走開啦', 2, 'back', 'active', 1, 2, g('suppress_stance'),
+T.skill(g('back_off'), '逼退', 2, 'back', 'active', 1, 2, g('suppress_stance'),
   '每場 1 次，攻擊命中時把目標往後推一格。', 'done', 'attack 加 shift（if hit）；每場一次、照常花 RAM',
   { use: { net: { ap: 2, per_fight: 1, weapon_ram: true } }, net: { target: 'enemy', do: [{ op: 'attack' }, { op: 'shift', dir: 'push', n: 1, if: 'hit' }] } })
 
-T.gap(g('gun_care'), '幫槍槍保養', 2, 'back', 'prep', 1, 1.5, g('loadout_mastery'), { use: { slot: 1 } })
+T.gap(g('gun_care'), '擦槍', 2, 'back', 'prep', 1, 1.5, g('loadout_mastery'), { use: { slot: 1 } })
 
 // ================================ 3 階 ================================
 T.skill(g('pierce'), '穿透', 3, 'front', 'active', 2, 3, g('point_shot'),
@@ -123,7 +123,7 @@ T.skill(g('next_one'), '下一個！', 4, 'back', 'active', 2, 4, g('kill_rhythm
     },
   })
 
-T.gap(g('dont_move'), '不准動喔', 4, 'back', 'active', 2, 4, g('barrage'), { use: { ap: 1 } })
+T.gap(g('dont_move'), '不准動', 4, 'back', 'active', 2, 4, g('barrage'), { use: { ap: 1 } })
 
 // ================================ 5 階 ================================
 T.gap(g('one_shot'), '一槍定局', 5, 'front', 'active', 3, 10, g('kill_rhythm'), { use: { ap: 3, per_fight: 1 } })
@@ -140,7 +140,7 @@ T.skill(g('gun_unity'), '人槍合一', 5, 'back', 'passive', 6, 3, g('one_shot'
   '你的攻擊命中 +1。', 'done', '修正 hit +1',
   { net: { mods: [{ kind: 'hit', value: 1 }] } })
 
-T.skill(g('right_back'), '還給你～', 5, 'back', 'reaction', 3, 6, g('fire_wall'),
+T.skill(g('right_back'), '原樣奉還', 5, 'back', 'reaction', 3, 6, g('fire_wall'),
   '每場 1 次：同樣的時機下，花 1 行動點與照常的 RAM 朝那個敵人攻擊一次。', 'done', '反應 after／near／miss（沒打中自己或相鄰的隊友），效果 attack 落在攻擊的人；每場一次、照常花 RAM',
   {
     use: { net: { ap: 1, per_fight: 1, weapon_ram: true } },

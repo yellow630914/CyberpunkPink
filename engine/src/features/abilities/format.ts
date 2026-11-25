@@ -570,7 +570,7 @@ function columnProblems(m: Record<string, unknown>, kind: unknown, k?: Pick<Kern
   }
   if (m.tease !== undefined) p.push(...teaseProblems(m, kind, k))
 
-  // ---- 戰鬥外（偽裝、我演得很像吧、入骨） ----
+  // ---- 戰鬥外（偽裝、演技派、入骨） ----
   if (m.out !== undefined) {
     if (kind !== 'stance') p.push('meat.out 只有姿態（kind 是 stance）用：戰鬥外也開得了的姿態')
     if (!isRec(m.out)) p.push('meat.out 要是 { check, on_start? }')

@@ -55,15 +55,15 @@ T.skill(m('dismantle'), '拆解', 1, 'front', 'active', 1, 1, SC,
   '每場一次，近身的構裝攻擊命中時，目標一個構裝停用一回合（干擾）。', 'done', '近戰構裝攻擊（when.wield melee、range 1–1）＋ net.jam（類別是玩家選的）；每場一次、照常花 RAM',
   { use: { net: { ap: 2, per_fight: 1, weapon_ram: true } }, net: { target: 'enemy', ...MELEE, picks: JAM_PICK, do: [{ op: 'attack' }], choose: jamChoose() } })
 
-T.skill(m('cool_down'), '呼呼不燙了', 1, 'front', 'active', 1, 1, SC,
+T.skill(m('cool_down'), '冷卻處理', 1, 'front', 'active', 1, 1, SC,
   '每場一次，花 1 行動點，替一名隊友消一層餘韻，讓他離倒下遠一步。', 'done', 'afterglow −1；target near',
   { use: { net: { ap: 1, per_fight: 1 } }, net: { target: 'near', do: [{ op: 'afterglow', amount: -1 }] } })
 
 T.skill(m('suture'), '縫合手', 1, 'back', 'passive', 2, 1, m('first_aid'),
-  '你的除錯排感載時多排 2 點。', 'approx', '修正 vent_dealt +2（tags skill）：技能做的排感載都吃得到，不只除錯（排好隊喔、全面翻修也多排 2 點）',
+  '你的除錯排感載時多排 2 點。', 'approx', '修正 vent_dealt +2（tags skill）：技能做的排感載都吃得到，不只除錯（排隊領藥、全面翻修也多排 2 點）',
   { net: { mods: [{ kind: 'vent_dealt', value: 2, tags: ['skill'] }] } })
 
-T.gap(m('painless'), '不痛不痛', 1, 'back', 'reaction', 1, 4, m('first_aid'), { use: { ap: 0, per_fight: 1 } })
+T.gap(m('painless'), '止痛針', 1, 'back', 'reaction', 1, 4, m('first_aid'), { use: { ap: 0, per_fight: 1 } })
 T.gap(m('surgery'), '手術', 1, 'back', 'daily', 1, 0, m('dismantle'), { use: { slot: 1 }, daily: { text: '自己動刀安裝、拆卸、修理義體（M4）。' } })
 
 // ================================ 2 階 ================================
@@ -79,7 +79,7 @@ T.skill(m('find_gap'), '找縫', 2, 'front', 'active', 1, 2, m('dismantle'),
   '每場一次，近身的構裝攻擊無視 1 點防護。', 'done', '近戰構裝攻擊 attack.pierce 1',
   { use: { net: { ap: 2, per_fight: 1, weapon_ram: true } }, net: { target: 'enemy', ...MELEE, do: [{ op: 'attack', pierce: 1 }] } })
 
-T.skill(m('dismantle_fun'), '拆拆好好玩', 2, 'back', 'passive', 3, 1.5, m('find_gap'),
+T.skill(m('dismantle_fun'), '拆解癖', 2, 'back', 'passive', 3, 1.5, m('find_gap'),
   '第一回合近身的構裝攻擊命中 +1。', 'done', '修正 hit +1（when first_round、wield melee）',
   { net: { mods: [{ kind: 'hit', value: 1, when: { first_round: true, wield: 'melee' } }] } })
 
@@ -90,7 +90,7 @@ T.skill(m('take_off'), '卸下', 3, 'front', 'active', 2, 6, m('find_gap'),
   '每場一次，近身的構裝攻擊命中時，目標一個構裝停用兩回合。', 'done', '同拆解，net.jam turns 2',
   { use: { net: { ap: 3, per_fight: 1, weapon_ram: true } }, net: { target: 'enemy', ...MELEE, picks: JAM_PICK, do: [{ op: 'attack' }], choose: jamChoose(2) } })
 
-T.skill(m('line_up'), '排好隊喔', 3, 'front', 'active', 2, 3, m('rounds'),
+T.skill(m('line_up'), '排隊領藥', 3, 'front', 'active', 2, 3, m('rounds'),
   '每場一次，花 2 行動點，你與相鄰兩格的隊友各排 4 點感載。', 'done', 'vent 4 落在 near（自己與相鄰）',
   { use: { net: { ap: 2, per_fight: 1 } }, net: { target: 'none', do: [{ op: 'vent', who: 'near', amount: 4 }] } })
 
@@ -143,6 +143,6 @@ T.skill(m('famed_doctor'), '名醫', 5, 'back', 'passive', 6, 3, m('overhaul'),
   '除錯每場可以用兩次。', 'done', '新鍵：修正 use_extra（tags 是技能 id，讓 per_fight 加一次）',
   { net: { mods: [{ kind: 'use_extra', value: 1, tags: [SC] }] } })
 
-T.gap(m('hands_off'), '手手拿開', 5, 'back', 'reaction', 3, 6, m('strip_all'), { use: { ap: 1, per_turn: 1 } })
+T.gap(m('hands_off'), '別碰我', 5, 'back', 'reaction', 3, 6, m('strip_all'), { use: { ap: 1, per_turn: 1 } })
 
 export const MEDIC: Tree = { path: T.path, abilities: T.abilities, notes: T.notes }

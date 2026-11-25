@@ -1,5 +1,5 @@
 // 驗收測試：dev/work/M1b-skill-gunner-broker.md（cpp-feature）。槍手與掮客兩棵樹裡通則寫不出來的那幾樣機制：
-// 戰鬥直覺（開戰分配、重分配、心流）、點放（alter 加 as_pick）、彈幕與火力牆（範圍的壓制）、壓制姿態（命中就壓制）、不准動喔（守著一格）、
+// 戰鬥直覺（開戰分配、重分配、心流）、點放（alter 加 as_pick）、彈幕與火力牆（範圍的壓制）、壓制姿態（命中就壓制）、不准動（守著一格）、
 // 叫人的加項（我有認識的人、派工網、人脈）、勸降與收買（branch 與 needs.any）、擋、大局、保釋與「被贖回」（戰敗的選項）、
 // 以及這兩棵樹現在標 pending 的三十八個技能（除了增援，E13）都用假資料寫得出來、動得起來。
 // 規格：SKILL_TREES「槍手：戰鬥直覺」「掮客：人面」兩節的「現實」欄；COMBAT_SYSTEM 第 5 節、8.3 節；dev/adr/0015 E1～E3、E7、E13。
@@ -50,7 +50,7 @@ const GUNNER: Rec[] = [
   g('sk_gunner_tap', 1, 'passive', { name: '點放', meat: { alter: [{ ability: 'sk_gunner_burst', as_pick: { key: 'tap', label: '點放：只花 2 格' }, set: { 'attack.spend': 2, 'attack.suppress.dc': 16 } }] } }),
   g('sk_gunner_suppress_stance', 2, 'stance', { name: '壓制姿態', use: { ap: 1 }, meat: { attack: { suppress: { auto: true, per_turn: 1 } } } }),
   g('sk_gunner_loadout_mastery', 2, 'passive', { name: '構裝精通', meat: { mods: [{ kind: 'action_ap', value: -1, tags: ['swap'], per_fight: 2 }] } }),
-  g('sk_gunner_back_off', 2, 'active', { name: '走開啦', use: { ap: 2 }, meat: { target: 'enemy', do: [{ op: 'attack', cover_mult_min: 1 }, { op: 'shift', dir: 'push', n: 1, if: 'hit' }] } }),
+  g('sk_gunner_back_off', 2, 'active', { name: '逼退', use: { ap: 2 }, meat: { target: 'enemy', do: [{ op: 'attack', cover_mult_min: 1 }, { op: 'shift', dir: 'push', n: 1, if: 'hit' }] } }),
   g('sk_gunner_pierce', 3, 'active', { name: '穿透', use: { ap: 2 }, meat: { target: 'enemy', do: [{ op: 'attack', cover_shift: 1, pierce: 1 }] } }),
   g('sk_gunner_run_and_gun', 3, 'active', {
     name: '跑位射擊', use: { ap: 2 },
@@ -85,8 +85,8 @@ const GUNNER: Rec[] = [
     name: '下一個！', use: { ap: 2 },
     meat: { target: 'enemy', picks: [{ key: 'next', label: '下一個目標', kind: 'foe', required: false, apart: true }], do: [{ op: 'attack' }, { op: 'attack', who: 'pick:next', if: 'downed' }] },
   }),
-  // 不准動喔：守著敵方的一格，站在那一格上的人第一次換位、補位或攻擊時，立刻朝他射一槍
-  g('sk_gunner_dont_move', 4, 'active', { name: '不准動喔', use: { ap: 1 }, meat: { target: 'foe_slot', do: [{ op: 'ward', slot: 'target', until: 'own_turn_start', on: ['move', 'compact', 'attack'], do: [{ op: 'attack' }] }] } }),
+  // 不准動：守著敵方的一格，站在那一格上的人第一次換位、補位或攻擊時，立刻朝他射一槍
+  g('sk_gunner_dont_move', 4, 'active', { name: '不准動', use: { ap: 1 }, meat: { target: 'foe_slot', do: [{ op: 'ward', slot: 'target', until: 'own_turn_start', on: ['move', 'compact', 'attack'], do: [{ op: 'attack' }] }] } }),
   g('sk_gunner_one_shot', 5, 'active', {
     name: '一槍定局', use: { ap: 3, per_fight: 1 },
     meat: { target: 'enemy', when: { wield: ['rifle', 'sniper'] }, range: [5, 7], do: [{ op: 'attack', aimed: true, hit: 6, auto_crit: true, label: '一槍定局' }] },
@@ -103,7 +103,7 @@ const GUNNER: Rec[] = [
     meat: { do: [{ op: 'buff', who: 'self', id: 'bullet_time', name: '子彈時間', turns: 2, until: 'own_turn_end', mods: [{ kind: 'ap_regen', value: 2 }, { kind: 'aim_all', value: 1 }], on_end: [{ op: 'load', exact: true, amount: 10 }] }] },
   }),
   g('sk_gunner_gun_unity', 5, 'passive', { name: '人槍合一', meat: { mods: [{ kind: 'hit', value: 1 }, { kind: 'pierce', value: 1 }, { kind: 'crit_margin', to: 3 }] } }),
-  g('sk_gunner_right_back', 5, 'reaction', { name: '還給你～', use: { ap: 1, per_turn: 1 }, meat: { trigger: { on: 'after', who: 'near', if: 'miss' }, do: [{ op: 'attack', who: 'attacker', hit: 2 }] } }),
+  g('sk_gunner_right_back', 5, 'reaction', { name: '原樣奉還', use: { ap: 1, per_turn: 1 }, meat: { trigger: { on: 'after', who: 'near', if: 'miss' }, do: [{ op: 'attack', who: 'attacker', hit: 2 }] } }),
 ]
 
 /** 掮客：現在標 pending 的十九個（增援留 pending：E13）。 */
@@ -642,7 +642,7 @@ describe('壓制姿態：開著時每回合第一次射擊命中的目標直接�
 
 // =====================================================================================
 
-describe('不准動喔：守著敵方的一格（ward）', () => {
+describe('不准動：守著敵方的一格（ward）', () => {
   const ids = ['sk_gunner_instinct', 'sk_gunner_dont_move']
   const tough = () => idle({ hp: { now: 300, max: 300 } })
   const mk = () => field(ids, { allies: [me(ids, { weapons: [mag(5, 5, 'pistol', 30)] }), one({ weapon: 'pistol' }, 2)], foes: [tough(), tough(), tough()] })
@@ -730,7 +730,7 @@ describe('不准動喔：守著敵方的一格（ward）', () => {
     const a = field(ids, { allies: [me(ids, { weapons: [mag(5, 5, 'pistol', 30)] }), one({ weapon: 'pistol' }, 2)], foes: [tough(), tough(), tough()] })
     const ward = (on: string[]) => ({ op: 'ward', slot: 'target', until: 'own_turn_start', on, do: [{ op: 'attack' }] })
     const run = a.run(dice(15, 3, 3, 3, 1, 1, 1, 1))
-    run.effects([ward(['move'])], { user: a.ally(1), target: { side: 'foe', slot: 2 }, source: { kind: 'ability', id: 'sk_gunner_dont_move', name: '不准動喔' } })
+    run.effects([ward(['move'])], { user: a.ally(1), target: { side: 'foe', slot: 2 }, source: { kind: 'ability', id: 'sk_gunner_dont_move', name: '不准動' } })
     run.setOut(a.foe(1), 'down', a.ally(2))
     expect(a.foe(2).slot).toBe(1)
     expect(attacksBy(run, 'a1')).toBe(0)
@@ -1288,7 +1288,7 @@ describe('其餘的技能只用通則：寫得出來、動得起來', () => {
   const tough = (o: Rec = {}) => idle({ hp: { now: 300, max: 300 }, ...o })
   const hitterFoe = { weapons: [testWeapon('pistol', 30)], hp: { now: 300, max: 300 }, ...quiet }
 
-  it('走開啦：射擊一次，命中的話把目標往後推一格；遮蔽的倍率至少算 ×1', () => {
+  it('逼退：射擊一次，命中的話把目標往後推一格；遮蔽的倍率至少算 ×1', () => {
     const ids = ['sk_gunner_instinct', 'sk_gunner_back_off']
     const a = field(ids, { allies: [me(ids, { weapons: [mag(3, 3, 'pistol', 30)] })], foes: [tough(), tough()], cover: { ally: [0, 0, 0, 0], foe: [2, 0, 0, 0] } })
     const coverBefore = a.battle.cover.foe[0]!.hp
@@ -1452,7 +1452,7 @@ describe('其餘的技能只用通則：寫得出來、動得起來', () => {
     expect(a1.load!.now).toBe(10)
   })
 
-  it('還給你～：敵人的攻擊沒有打中你或相鄰的隊友時，立刻朝他射擊（命中 +2、花彈匣）；打中了、離得遠的隊友都不觸發；每回合 1 次', () => {
+  it('原樣奉還：敵人的攻擊沒有打中你或相鄰的隊友時，立刻朝他射擊（命中 +2、花彈匣）；打中了、離得遠的隊友都不觸發；每回合 1 次', () => {
     const ids = ['sk_gunner_instinct', 'sk_gunner_right_back']
     const mk = () => field(ids, { allies: [me(ids, { weapons: [mag(5, 5, 'pistol', 30)] }), one({ weapon: 'pistol' }, 2), one({ weapon: 'pistol' }, 3)], foes: [foe('minion', hitterFoe as never), tough()] })
     const a = mk()

@@ -1,6 +1,6 @@
 // 驗收測試：dev/work/M1b-random-picks.md（cpp-feature）。使用者 2026-11-23 定案：開打前要選的東西一律隨機。
 // 戰鬥直覺（開戰分配）、黑市門路（隨機一名隊友）、戰前佈置（藏貨／安排人／打點隨機一種）、情報網（隨機一名敵人被標記）、
-// 幫槍槍保養（主武器彈匣容量 +1、最多 4）。用的是正式的示意資料（engine/data），一律走真的流程：載入內容 → 預備 → 開打。
+// 擦槍（主武器彈匣容量 +1、最多 4）。用的是正式的示意資料（engine/data），一律走真的流程：載入內容 → 預備 → 開打。
 // 每一項：同種子兩次結果相同、不同種子會出現不同結果、結果落在合法範圍。規格：SKILL_TREES 槍手與掮客；dev/adr/0015 的「隨機的指定」補記。
 
 import { describe, expect, it } from 'vitest'
@@ -208,7 +208,7 @@ describe('情報網：全隊先攻 +3，開場隨機一名敵人被標記到第�
   })
 })
 
-describe('幫槍槍保養：下一場主武器彈匣容量 +1（最多 4），再下一場沒有', () => {
+describe('擦槍：下一場主武器彈匣容量 +1（最多 4），再下一場沒有', () => {
   const ids = ['sk_gunner_instinct', 'sk_gunner_burst', 'sk_gunner_loadout_mastery', 'sk_gunner_gun_care']
   const rifle = (n: number) => ({ ...testWeapon('pistol', 10), mag: { now: n, max: n } })
   const setup = (n: number) => duel([me({ weapons: [rifle(n)] })], [minion()])

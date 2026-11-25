@@ -473,7 +473,7 @@ describe('槍手：瞄準過的攻擊、超頻、死線與只在第一回合的�
     expect(c.a(1).pools.ram!.now).toBe(3)
   })
 
-  it('構裝精通：每場 1 次換構裝不花行動點；穿透、跑位射擊、走開啦的每場一次照常', () => {
+  it('構裝精通：每場 1 次換構裝不花行動點；穿透、跑位射擊、逼退的每場一次照常', () => {
     const a = arena(setup([gunner(['sk_gunner_loadout_mastery', 'sk_gunner_pierce', 'sk_gunner_back_off'])], [lace()]))
     turnTo(a, 'a1')
     expect(opt(a, 'net_swap')?.cost?.ap ?? 0).toBe(0)
@@ -699,7 +699,7 @@ describe('潛網者：破冰、迴圈、靜默、逆流、多工、黑冰與其�
     expect((o.ext!.hack as Rec).taken).toMatchObject({ mode: 'takeover', by: 'a1', left: 3 })
   })
 
-  it('偷看是不行的喔：被攻擊時這一下的感載 −4（花 1 RAM，每回合 1 次）', () => {
+  it('非請勿看：被攻擊時這一下的感載 −4（花 1 RAM，每回合 1 次）', () => {
     const hit = (ids: string[]) => {
       const a = arena(setup([master(ids)], [lace()]))
       const run = a.run([15, ...FILL])
@@ -743,14 +743,14 @@ describe('潛網者：破冰、迴圈、靜默、逆流、多工、黑冰與其�
     expect(a.a(1).pools.ram!.now).toBe(0)
   })
 
-  it('這一棵樹的標籤、姿態與被動：過熱選干擾的類別、盯～閃斷時再 +1、謝謝招待回 RAM、群播整排少 1 點行動點', () => {
+  it('這一棵樹的標籤、姿態與被動：過熱選干擾的類別、盯上閃斷時再 +1、謝謝招待回 RAM、群播整排少 1 點行動點', () => {
     const a = arena(setup([master(['sk_netrunner_overheat', 'sk_netrunner_stare', 'sk_netrunner_thanks', 'sk_netrunner_broadcast'])], [lace(), lace()]))
     turnTo(a, 'a1')
     // 過熱：命中時停用的是玩家選的那一類
     doAct(a, 'a1', { action: 'sk_netrunner_overheat', target: { unit: 'f1' }, pick: { jam: 'defense' } }, [15])
     expect(statusIds(a.f(1))).toEqual(expect.arrayContaining(['jam_defense']))
     expect(statusIds(a.f(1))).not.toContain('jam_weapon')
-    // 盯～：+1，目標在閃斷時 +2
+    // 盯上：+1，目標在閃斷時 +2
     expect(modsOf(a, 'hit', 'a1', [], a.f(1))).toBe(1)
     a.run().applyStatus(a.f(1), 'flash', { quiet: true })
     expect(modsOf(a, 'hit', 'a1', [], a.f(1))).toBe(2)
@@ -860,7 +860,7 @@ describe('改造師：除錯（招牌）與每場一次的小招', () => {
     expect(opt(b, 'sk_medic_dismantle')!.blocks.join('')).toMatch(/melee/)
   })
 
-  it('短路暈眩、拆光兩個構裝、找縫無視 1 點防護；第一回合的拆拆好好玩與解鎖匠命中各 +1', () => {
+  it('短路暈眩、拆光兩個構裝、找縫無視 1 點防護；第一回合的拆解癖與解鎖匠命中各 +1', () => {
     const a = arena(setup([medic(['sk_medic_short_circuit', 'sk_medic_strip_all'], melee())], [lace(), lace()]))
     turnTo(a, 'a1')
     doAct(a, 'a1', { action: 'sk_medic_short_circuit', target: { unit: 'f1' } }, [15])
@@ -880,7 +880,7 @@ describe('改造師：除錯（招牌）與每場一次的小招', () => {
     expect(modsOf(c, 'hit', 'a1')).toBe(0)
   })
 
-  it('排好隊喔（自己與相鄰兩格各排 4）、呼呼不燙了（消一層餘韻）、戰場急救（解除干擾）、全面翻修（排 8 並消一層餘韻）、戰地手術（修好所有破損）', () => {
+  it('排隊領藥（自己與相鄰兩格各排 4）、冷卻處理（消一層餘韻）、戰場急救（解除干擾）、全面翻修（排 8 並消一層餘韻）、戰地手術（修好所有破損）', () => {
     const a = arena(setup([medic(['sk_medic_line_up', 'sk_medic_cool_down', 'sk_medic_first_aid', 'sk_medic_overhaul', 'sk_medic_field_surgery'], { load: { now: 12, max: 40 } }), mate({ load: { now: 12, max: 40 } }), avatar(3, {}, [], { load: { now: 12, max: 40 } })], [lace()]))
     turnTo(a, 'a1')
     doAct(a, 'a1', { action: 'sk_medic_line_up' })
@@ -1180,7 +1180,7 @@ describe('槍手與潛網者：其餘每場一次、只在第一回合的小招'
     expect(b.f(2).load!.now).toBe(0)
   })
 
-  it('還給你～：沒打中自己或相鄰的隊友時，花 1 行動點與 1 RAM 朝那個敵人攻擊一次；每場 1 次', () => {
+  it('原樣奉還：沒打中自己或相鄰的隊友時，花 1 行動點與 1 RAM 朝那個敵人攻擊一次；每場 1 次', () => {
     const a = arena(setup([gunner(['sk_gunner_right_back'])], [lace()]))
     const ram = a.a(1).pools.ram!.now
     const run = a.run([1, 15, ...FILL])

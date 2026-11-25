@@ -32,7 +32,7 @@ function qty(ctx: Pick<Ctx, 'run' | 'user' | 'n'>, v: unknown, fallback: number)
 /**
  * 快駭的檢定：變成核心 check 效果（features/combat 註冊）——1d20 ＋ mod(智識) ＋ 介面 ＋ 等級加值 ＋ 程式加值，對目標的防火牆
  * （vs: { firewall: true, elite: 2, boss: 4 }：控制類打精英 +2、首領 +4，ITEMS 11.9 節）。防火牆怎麼算、check.before 發不發都是核心 check 的事：
- * 被駭的人那一邊的反應（偷看是不行的喔）照 dev/adr/0015 補記的方向——unit 是丟程式的人、other 是被駭的人。
+ * 被駭的人那一邊的反應（非請勿看）照 dev/adr/0015 補記的方向——unit 是丟程式的人、other 是被駭的人。
  * 這裡只管快駭自己的東西：標籤、等級加值、控制節點的防火牆（節點自己的 ext.firewall，沒寫是 10，甲板的預設）、沒過的那一句。
  * 掛著的東西沒有甲板（它的迴避就是防火牆，核心 check 照算）；沒有對象（對自己、一格）沒有東西可以對，不必檢定。
  */

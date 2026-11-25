@@ -391,8 +391,8 @@ describe('白箱 戰鬥裡的技能：次數與條件（SKILL_TREES；dev/adr/00
     expect(a.battle.cover.ally[1]!.level).toBe(2)
   })
 
-  it('換個位子嘛：選的人不能是自己、不能是同一個人、要在我方場上且相鄰；run 的每一種壞選擇都擋下', () => {
-    const pack: ContentPack = { id: 'swap', content: { ability: [sk('sk_swap', '換個位子嘛', 'fixer', 1, 'active', 1, { after: 'sk_face', use: { ap: 1 }, meat: { target: 'ally', free_move: { swap_adjacent_pair: true } } })] } }
+  it('換位子：選的人不能是自己、不能是同一個人、要在我方場上且相鄰；run 的每一種壞選擇都擋下', () => {
+    const pack: ContentPack = { id: 'swap', content: { ability: [sk('sk_swap', '換位子', 'fixer', 1, 'active', 1, { after: 'sk_face', use: { ap: 1 }, meat: { target: 'ally', free_move: { swap_adjacent_pair: true } } })] } }
     const a = field([one({ weapon: 'pistol', ...equipped('sk_face', 'sk_swap') }), one({}, 2), one({}, 3)], undefined, undefined, [pack])
     const me = a.ally(1)
     const def = a.k.battle.getAction('sk_swap')!

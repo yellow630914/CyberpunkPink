@@ -308,7 +308,7 @@ export interface BattleHookMap {
    */
   'attack.cancel': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; weapon: BattleWeapon; opts: import('./run').AttackOpts; reason: string }
   /**
-   * 一次攻擊結算完（命中或沒中）：武器的特性與技能的後續（輕機槍的壓制、還給你～）。
+   * 一次攻擊結算完（命中或沒中）：武器的特性與技能的後續（輕機槍的壓制、原樣奉還）。
    * 打和人重疊的東西（run.attackOverlay）也發，target 是那一台的替身；改打（opts.redirect）的那一擊不發，它發 attack.redirected。attacker 可能是替身（見 attack.before）
    */
   'attack.after': { run: BattleRun; attacker: BattleUnit; target: BattleUnit; weapon: BattleWeapon; opts: import('./run').AttackOpts; result: import('./run').AttackResult }
@@ -355,7 +355,7 @@ export interface BattleHookMap {
   /**
    * 一個帶著 other（對誰擲的）的檢定（run.save）擲之前。**unit 是擲骰的人**（run.save 的 u：快駭與誘惑是丟程式、出手的人；
    * 對效果擲的豁免是被打的人），**other 是這個檢定對他擲的那個人**（拿 DC 的那一方：被快駭、被誘惑的人；豁免則是下手的人）。
-   * other 那一邊的反應（偷看是不行的喔）在這裡改這一次的 DC 與加值（opts.dc、opts.bonus；DC 加是讓擲骰的 unit 更難、bonus 加是讓他更容易）。
+   * other 那一邊的反應（非請勿看）在這裡改這一次的 DC 與加值（opts.dc、opts.bonus；DC 加是讓擲骰的 unit 更難、bonus 加是讓他更容易）。
    * 和 attack.before（attacker 擲命中、target 的反應）同一個方向。tags 是這個檢定的標籤（hack、seduce……）。沒有 other 的檢定不發（dev/adr/0015 補記）
    */
   'check.before': { run: BattleRun; unit: BattleUnit; other: BattleUnit; tags: string[]; opts: { dc: number; bonus: number } }
@@ -364,7 +364,7 @@ export interface BattleHookMap {
   /**
    * 補位（run.compact）做完了：unit 從 from 格往前遞補到 to 格（to < from；這一次 compact 裡的淨移動，同一次補了兩格就是一個事件、from 是原本的格）。
    * 發的時候這一方的站位、遮蔽、掛著的東西都已經整理好。每個往前移動的單位各發一次；沒動的不發。
-   * 「站在那一格的人往前補位」的反應（不准動喔）聽這個，不必每個動作做完去掃站位
+   * 「站在那一格的人往前補位」的反應（不准動）聽這個，不必每個動作做完去掃站位
    */
   'compacted': { run: BattleRun; side: BattleSide; unit: BattleUnit; from: number; to: number }
   /** 有人站上暴露的格子（換位、補位、被推拉、遮蔽被打成暴露）：監視之外的反應 */
