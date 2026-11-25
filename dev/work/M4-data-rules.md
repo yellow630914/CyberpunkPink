@@ -39,3 +39,5 @@
 - M4-data-rules：scene_rule 補 cost.move_circle、cost.call、multi_dice_minus、other_circle 四鍵，並拿掉 tests/data/M2-data-rules.test.ts 對這四鍵的排除（M4-scene-circles 回報）。
 
 - （M4-contract 回報）`event_scopes.json` 的 `contract` 那一筆 `triggers` 補 `{ "order": 1 }`。
+
+- （M4-lure 回報）範圍 `rogue_ai`：`triggers { login: 0.15, enter_floor: 0.1, rest: 0.15, kiss_choose }`、`cooldown_hours: 24`、`daily_cap: 1`；對一下進子網一層的觸發點真正的名字。蠱惑事件的 `tags` 一定要寫 `resist_lure`。
