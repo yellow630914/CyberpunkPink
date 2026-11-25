@@ -36,3 +36,5 @@ M4-cyberware～M4-cyber-lock、M4-medical、M4-drugs、M4-sink。
 ## 完成時回報
 
 改了哪些檔、測試結果、缺的圖示、UI 第 8 節因為引擎還沒有而沒顯示的東西（預期：生體件的成熟度、套裝加成、殘響的故事）。
+
+- 總指揮補記（2026-11-25）：見 M4-followups「M4-cyberware 回報」段，CYBERWARE 第 3 節有一件雙面效應歸這一張。
