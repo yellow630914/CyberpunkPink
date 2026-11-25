@@ -641,7 +641,9 @@ describe('誰來做', () => {
     stockParts(e)
     stand(e, 'F2')
     e.commit(withDice(0.1, () => assembleDraft(e.k, e.state, opts({ maker: 'doujin' }))))
-    expect(product(e)!.data).toMatchObject({ state: 'doujin', quirks: ['qx_club'] })
+    // 骰 0.1 連檢定也失敗（同人不是一定成功）：多一筆瑕疵的怪癖，再加社團自己的那一筆
+    expect(product(e)!.data).toMatchObject({ state: 'doujin', quality: 'flawed' })
+    expect(product(e)!.data!.quirks).toContain('qx_club')
   })
 
   it('原廠：混牌被擋、全套一定成功而且是精工；工錢暫定 150 × 等級；不做超規；只做自己牌子的', () => {

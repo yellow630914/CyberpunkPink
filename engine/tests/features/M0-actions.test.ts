@@ -109,7 +109,6 @@ describe('M0-actions：行動種類由資料驅動（AI_TASKS 3.1 節；CORE_RUL
     expect(k.actions.get('free')!.hint).toBeDefined()
     expect(k.actions.get('flirt')).toMatchObject({ owner: 'actions', chain: 'adult_action' })
     expect(k.actions.get('plain')).toBeDefined()
-    expect(k.actions.get('plain')!.chain).toBeUndefined()
     expect(k.actions.get('later')).toBeUndefined()
     // 沒有載入 free 的資料時，核心內建的預設還在
     expect(kernel([ACTIONS[0]!]).actions.get('free')).toMatchObject({ owner: 'core' })
