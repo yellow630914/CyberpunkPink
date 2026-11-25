@@ -36,3 +36,4 @@
 ## 完成時回報
 
 改了哪些檔、測試結果、`PROVISIONAL_M4` 的清單、和設計書不一樣而照設計書改的數字、要清掉的暫時資料清單、`unreg_rules.json` 的選項表（一種零件一行，給使用者與平衡看）與放不進去的項目。
+- M4-data-rules：scene_rule 補 cost.move_circle、cost.call、multi_dice_minus、other_circle 四鍵，並拿掉 tests/data/M2-data-rules.test.ts 對這四鍵的排除（M4-scene-circles 回報）。

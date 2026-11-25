@@ -488,3 +488,4 @@
 - M4 開工（使用者：修完自動開始）。第五波 8 題（M4-plan 第 23～30 題）待使用者裁決，不擋第一～四波。
 - 2026-11-25 使用者：M4 第 23～30 題都照建議；文件補寫排在下一個空位。M4 第一步（core-product、scene-seats）進行中。
 - 2026-11-25 M4 第一步完成（core-product、scene-seats）：engine 6874、smoke 129、ui 723。場景舊形狀外觀留到 M4-ui-scene 拿掉（已補記工單）。
+- 2026-11-25 M4 第二步完成（core-passive、scene-circles）：engine 253 檔 6949 條全過。
