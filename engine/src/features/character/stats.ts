@@ -25,7 +25,8 @@ export function installStats(k: Kernel): void {
   s.defineStat({ id: 'max_hp', owner: OWNER, name: '生命值上限', base: (st, a) => 20 + s.effectiveAttr(st, a, 'body') * 2 })
   s.defineStat({ id: 'load_cap', owner: OWNER, name: '感載上限', base: (st, a) => 20 + Math.floor(tolerance(st, a) / 2) + mod(st, a, 'resolve') * 3 })
   s.defineStat({ id: 'ap_max', owner: OWNER, name: '行動點上限', base: (st, a) => 4 + Math.floor((mod(st, a, 'reflex') + mod(st, a, 'charm')) / 2) })
-  s.defineStat({ id: 'ram_max', owner: OWNER, name: 'RAM 上限', min: 4, base: (st, a) => 4 + mod(st, a, 'intellect') })
+  // 「最少 4」只管公式那一行（max(4, 4 + mod(智識)))，甲板、技能、構裝的加值加在它上面（CYBERSPACE 6.3 節；B027），所以衍生數值自己不設 min
+  s.defineStat({ id: 'ram_max', owner: OWNER, name: 'RAM 上限', base: (st, a) => Math.max(4, 4 + mod(st, a, 'intellect')) })
   // 現在每個人都是 3；敵人的層數照位階，是 M1 的事
   s.defineStat({ id: 'afterglow_cap', owner: OWNER, name: '承受層數', base: () => 3 })
 

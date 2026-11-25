@@ -150,7 +150,7 @@ function locateRounds(run: BattleRun): number {
 
 /**
  * 開戰時已經在門檻上的：算「這座子網以前到過」，不再叫增援（使用者 2026-11-24：增援只在這一場裡跨過門檻才叫；M3 審查建議 3）。
- * 第一輪開頭做一次：追蹤度已經 ≥ 門檻的，把 field.t30／t60 記成叫過了、已經叫進的人數記成全部（之後每輪補空格也不會叫）。定位的倒數照舊（到了 90 就是到了）。
+ * 第一輪開頭做一次：追蹤度已經 ≥ 門檻的，把 field.t30／t60 記成叫過了、已經叫進的人數記成全部（之後每輪補空格也不會叫）。定位的倒數：開戰時 90～99 照舊（第一次變動才開始數）；已經在上限 100 的第一輪就開始數（B026）。
  */
 function markStarting(run: BattleRun): void {
   const b = run.battle
@@ -163,6 +163,16 @@ function markStarting(run: BattleRun): void {
       b.field[doneKey(key)] = reinforcements(b, key).length
     }
   }
+  // 開戰時追蹤度已經在上限（100）：之後每輪的 +3 加不上去，crossings 永遠不會被叫到，定位的倒數從第一輪就開始（B026；使用者 2026-11-25）。
+  // 90～99 開戰照舊：第一次變動（第 2 輪的 +3）跨過 100 之前那一次 crossings 才開始倒數
+  if (v >= TRACE_MAX && v >= rules.t3 && b.field.located === undefined) startLocate(run, v)
+}
+
+/** 定位的倒數開始：記 field.located（剩幾輪）、說一句話。crossings（追蹤度跨過 t3）與 markStarting（開戰時已經在上限）共用。 */
+function startLocate(run: BattleRun, v: number): void {
+  const n = locateRounds(run)
+  run.battle.field.located = n
+  run.say(`追蹤度到了 ${netcombatRules(run.k).trace.t3}：已經被定位，現實的增援在路上。${n} 輪之後全隊會被強制斷線，想辦法把追蹤度壓下去。`, 'located', { countdown: n, trace: v })
 }
 
 /** 跨過門檻的事（增援、定位的倒數開始與取消）。每次追蹤度變動之後問一次。 */
@@ -178,11 +188,8 @@ function crossings(run: BattleRun): void {
     }
   }
   const located = b.field.located
-  if (v >= rules.t3 && located === undefined) {
-    const n = locateRounds(run)
-    b.field.located = n
-    run.say(`追蹤度到了 ${rules.t3}：已經被定位，現實的增援在路上。${n} 輪之後全隊會被強制斷線，想辦法把追蹤度壓下去。`, 'located', { countdown: n, trace: v })
-  } else if (v < rules.t3 && typeof located === 'number') {
+  if (v >= rules.t3 && located === undefined) startLocate(run, v)
+  else if (v < rules.t3 && typeof located === 'number') {
     delete b.field.located
     run.say('追蹤度降下來了：定位被甩開了，強制斷線取消。', 'located', { cancelled: true, trace: v })
   }

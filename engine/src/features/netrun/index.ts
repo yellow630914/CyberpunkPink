@@ -22,6 +22,7 @@
 import type { Feature, Kernel } from '../../core'
 import { toMinutes } from '../../core'
 import { onDefeatAccepted, afterReport } from './close'
+import { runRegion } from './common'
 import { onBattleEnd } from './fight'
 import { expireDraft } from './dig'
 import { ACT_FACE, ACT_NET, AFFIX_KIND, FACILITY_KIND, OWNER, REGION_KIND, RULE_KIND, TRACE, affixProblems, facilityProblems, readRun, regionProblems, ruleProblems } from './model'
@@ -69,9 +70,12 @@ export const netrunFeature: Feature = {
     k.meters.define({
       kind: TRACE, owner: OWNER, name: '追蹤度', min: -30, max: 100, start: 0, keyed: 'map', cap: { down: 20, up: 20 },
       // 只收這一趟自己的地圖的追蹤度（自己去挖的子網離開後地圖留七天：別座還留著的圖不能被效果改，M3 審查建議 2）
+      // 區沒有追蹤度（pressure 是 none：迷宮館這類公開場館）的，AI 給的追蹤度整筆拿掉並提醒（B025；close.ts、fight.ts 也是這個判斷）
       accepts: (state, key) => {
         const run = readRun(state)
-        return run ? (key === run.map ? null : '追蹤度只能動這一趟的那座網。') : '追蹤度只在潛進網內的一趟裡有。'
+        if (!run) return '追蹤度只在潛進網內的一趟裡有。'
+        if (key !== run.map) return '追蹤度只能動這一趟的那座網。'
+        return runRegion(k, run).pressure === 'trace' ? null : '這裡沒有追蹤度。'
       },
       adjust: (state, _key, delta) => {
         const run = readRun(state)

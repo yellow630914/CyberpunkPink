@@ -39,7 +39,7 @@ export type { DeckSource, DiveDef, DiveState, NetSiteEntry, Need, OverKind, Site
  */
 export const DIVE_ALLOW: readonly string[] = [
   'commit:dive.', 'netrun.start', 'commit:netrun.', 'commit:maze.', 'battle.', 'commit:battle.', 'chain:battle_end', 'battle.retry',
-  'event.start', 'commit:event.', 'commit:defeat.', 'scene.start', 'commit:scene.', 'commit:deck.skin', 'chain:free_action',
+  'event.start', 'commit:event.', 'commit:defeat.', 'scene.start', 'commit:scene.', 'commit:deck.skin', 'commit:deck.scripts', 'chain:free_action',
 ]
 
 /**
