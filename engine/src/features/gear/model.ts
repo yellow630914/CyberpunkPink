@@ -1,33 +1,30 @@
-// L6 裝備：身上的四層怎麼記（actor.ext.gear）、內容的型別，以及讀它們的小工具（EQUIPMENT 第 1～4 節；DATA 7.1、7.2 節）。
+// L6 裝備：身上的四層怎麼記（actor.ext.gear），以及讀它們的小工具（EQUIPMENT 第 1～4 節）。
 // 穿上、帶上之後東西還在背包裡，Gear 只記哪一格放的是哪一件。
+// 設計圖、零件的格式與讀零件的小工具在核心（core/content/product.ts；M4-core-product，dev/adr/0019 第一節）：這裡只留 gear 自己的名字。
 
-import type { ActorId, ContentEntry, GameState, ItemEntry, ItemStack, Kernel } from '../../core'
-import { isRecord } from '../../core'
+import type { ActorId, BlueprintEntry, CarrySlot, FittedPart, GameState, ItemEntry, ItemStack, Kernel, PartEntry, PartNeed, WearSlot } from '../../core'
+import { BLUEPRINT_KINDS, CARRY_SLOTS, WEAR_SLOTS, WEIGHT_CLASSES, blueprintOf as blueprintOfContent, isRecord, partsOf as partsOfContent, stackOf } from '../../core'
+
+// 設計圖與零件的格式搬進核心之後，gear 照舊從這裡拿這些名字
+export { BLUEPRINT_KINDS, CARRY_SLOTS, WEAR_SLOTS, WEIGHT_CLASSES, stackOf }
+export type { BlueprintEntry, CarrySlot, PartEntry, PartNeed, WearSlot }
 
 export const OWNER = 'gear'
 
-/** 穿著 10 格（EQUIPMENT 第 2 節）。 */
-export const WEAR_SLOTS = ['head', 'face', 'upper', 'lower', 'outer', 'armor', 'hands', 'shoes', 'underwear_top', 'underwear_bottom'] as const
 /** 飾品 5 格（EQUIPMENT 第 3 節）：頸、腿、通用 ×3。 */
 export const ACCESSORY_SLOTS = ['neck', 'leg', 'any1', 'any2', 'any3'] as const
 /** 通用的三格（存檔規則可以多給的部分先不做：dev/adr/0013 D10）。 */
 export const GENERIC_ACCESSORY_SLOTS = ['any1', 'any2', 'any3'] as const
-/** 攜帶 3 格（EQUIPMENT 第 4 節）。 */
-export const CARRY_SLOTS = ['main', 'side', 'melee'] as const
 /** 快取格：每個人 2 格，上限 8（EQUIPMENT 4.1 節）。 */
 export const QUICK_BASE = 2
 export const QUICK_MAX = 8
 
-export type WearSlot = (typeof WEAR_SLOTS)[number]
 export type AccessorySlot = (typeof ACCESSORY_SLOTS)[number]
-export type CarrySlot = (typeof CARRY_SLOTS)[number]
 export type GearGroup = 'worn' | 'acc' | 'carry'
 
 export const GROUP_SLOTS: Record<GearGroup, readonly string[]> = { worn: WEAR_SLOTS, acc: ACCESSORY_SLOTS, carry: CARRY_SLOTS }
 /** 攜帶格的名字（給玩家看）。 */
 export const CARRY_NAMES: Record<CarrySlot, string> = { main: '主武器', side: '副武器', melee: '近戰' }
-export const WEIGHT_CLASSES = ['light', 'medium', 'heavy'] as const
-export const BLUEPRINT_KINDS = ['weapon', 'armor'] as const
 
 export interface Gear {
   worn: Partial<Record<WearSlot, string>>
@@ -35,56 +32,6 @@ export interface Gear {
   carry: Partial<Record<CarrySlot, string>>
   quick: Array<{ item: string; qty: number }>
   coat: 'open' | 'closed'
-}
-
-export interface PartNeed {
-  type: string
-  grade_min?: number
-}
-
-/** 設計圖（DATA 7.1 節）。武器與護甲各有自己的欄位。 */
-export interface BlueprintEntry extends ContentEntry {
-  kind: (typeof BLUEPRINT_KINDS)[number]
-  name: string
-  desc: string
-  brand: string
-  grade: number
-  legal: string
-  price: number
-  size: number
-  weight: number
-  require: PartNeed[]
-  optional: PartNeed[]
-  /** 武器：weapon_class 的 id */
-  class?: string
-  /** 武器：帶在哪一格 */
-  carry?: CarrySlot
-  /** 護甲：設計圖的基礎（0 或 1）、佔哪幾個穿著格、重量級 */
-  armor?: number
-  covers?: WearSlot[]
-  weight_class?: (typeof WEIGHT_CLASSES)[number]
-  /** 藏匿量：身上每一件的 conceal 取最大的那個（短外套 3、長外套 5；佔外套格的那一件敞開時減半） */
-  conceal?: number
-  /** 藏匿量：加在上面（裝甲制服的內藏槽 +2）；不取最大、敞開外套時也不減半（EQUIPMENT 6.1 節） */
-  conceal_add?: number
-  quick?: number
-}
-
-/** 零件（DATA 7.2 節）。 */
-export interface PartEntry extends ContentEntry {
-  name: string
-  type: string
-  material: string
-  brand: string
-  grade: number
-  price: number
-  legal: string
-  cells: number
-  stats: Record<string, number>
-  weight: number
-  size: number
-  state: string
-  traits?: string[]
 }
 
 export function emptyGear(): Gear {
@@ -123,33 +70,14 @@ export const num = (v: unknown): number => (typeof v === 'number' && Number.isFi
 const stat = (p: PartEntry, key: string): number => (typeof p.stats?.[key] === 'number' && Number.isFinite(p.stats[key]) ? p.stats[key]! : 0)
 export { stat as partStat }
 
-/** 背包裡 data.uid 是這個編號的那一格。 */
-export function stackOf(state: GameState, uid: string): ItemStack | undefined {
-  return state.inventory.find((s) => s.data?.uid === uid)
-}
-
+/** 這一疊的設計圖（stack.id 是設計圖的 id）。 */
 export function blueprintOf(k: Kernel, stack: ItemStack | undefined): BlueprintEntry | undefined {
-  return stack ? k.content.get<BlueprintEntry>('blueprint', stack.id) : undefined
+  return blueprintOfContent(k.content, stack)
 }
 
-export interface PartRef {
-  /** 裝在哪一類（parts 的鍵） */
-  type: string
-  part: PartEntry
-}
-
-/** 一件成品裝著的零件（找不到的零件 id 略過）。 */
-export function partsOf(k: Kernel, stack: ItemStack): PartRef[] {
-  const raw = stack.data?.parts
-  if (!isRecord(raw)) return []
-  const out: PartRef[] = []
-  for (const [type, v] of Object.entries(raw)) {
-    for (const id of Array.isArray(v) ? v : [v]) {
-      const part = typeof id === 'string' ? k.content.get<PartEntry>('part', id) : undefined
-      if (part) out.push({ type, part })
-    }
-  }
-  return out
+/** 一件成品裝著的零件（找不到的零件 id 略過；內嵌的零件也讀得到：經核心的 partOf）。type 是裝在哪一類（parts 的鍵）。 */
+export function partsOf(k: Kernel, stack: ItemStack): FittedPart[] {
+  return partsOfContent(k.content, stack.data)
 }
 
 export interface WornPiece {

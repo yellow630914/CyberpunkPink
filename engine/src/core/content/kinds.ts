@@ -16,6 +16,7 @@
 // | battle_mode、damage_type、battle_status | 在 core/battle/rules.ts | COMBAT_SYSTEM 第 1～7 節。M1 加 |
 // | special_map | 在 core/grid/model.ts | DATA 9.3 節；COMMISSION_MAPS。M1 加 |
 // | sync_rule | 在 core/rules/sync.ts | CORE_RULES 第 5 節；CYBERSPACE 6.4 節。M3 加（規則表） |
+// | blueprint、part、quirk | 在 core/content/product.ts | CRAFTING 第 1～6、14 節；DATA 7.1、7.2 節。M4 從 features/gear 搬進核心（dev/adr/0019 第一節） |
 
 import { ATTR_IDS } from '../types/ids'
 import { isId, isRecord } from '../util/sanitize'
@@ -128,8 +129,8 @@ export interface ActionKindEntry extends ContentEntry {
   hint_note?: Partial<Record<(typeof HINT_KEYS)[number], string>>
 }
 
-/** 物品的大類（ITEMS；EQUIPMENT 第 4 節）。設計圖與零件另有自己的內容種類（裝備的功能註冊）；這裡是目錄上的一件東西。 */
-export const ITEM_CATEGORIES = ['weapon', 'armor', 'clothing', 'accessory', 'consumable', 'ammo', 'tool', 'part', 'blueprint', 'cargo', 'misc'] as const
+/** 物品的大類（ITEMS；EQUIPMENT 第 4 節）。設計圖、零件與怪癖另有自己的內容種類（core/content/product.ts）；這裡是目錄上的一件東西。drug 是藥（M4；成癮與戒斷由 drugs 功能讀）。 */
+export const ITEM_CATEGORIES = ['weapon', 'armor', 'clothing', 'accessory', 'consumable', 'drug', 'ammo', 'tool', 'part', 'blueprint', 'cargo', 'misc'] as const
 /** 合法性（LIFE 3.1 節）：自由、登記、許可、違禁。 */
 export const LEGALITIES = ['free', 'register', 'permit', 'banned'] as const
 /** 戰鬥中用道具時可以選的對象。 */

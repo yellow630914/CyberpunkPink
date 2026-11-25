@@ -7,6 +7,7 @@ import { registerCoreActivities } from './action/coreActivities'
 import { registerCoreBattleActions } from './battle/actions'
 import { BattleRegistry } from './battle/registry'
 import { registerBattleKinds, registerWeaponClassKind } from './battle/rules'
+import { registerProductKinds } from './content/product'
 import { specialMapProblems } from './grid/model'
 import { GridRegistry } from './grid/registry'
 import { createRulesKernel } from './rules/kernel'
@@ -46,6 +47,8 @@ export function createKernel(features: Feature[] = []): Kernel {
   actions.register(FREE_ACTION)
   registerBattleKinds(base.content)
   registerWeaponClassKind(base.content)
+  // 設計圖、零件、怪癖（義體、組裝、交易、建角共用的格式；dev/adr/0019 第一節）
+  registerProductKinds(base.content)
   const battle = new BattleRegistry(base.probe)
   registerCoreBattleActions(battle)
   // 地圖的定義（DATA 9.3 節：一個模板一筆，裡面一到幾張圖）

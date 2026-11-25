@@ -1,12 +1,11 @@
-// L6 功能：裝備。設計圖與零件兩種內容、身上的四層（穿著 10 格、飾品 5 格、攜帶 3 格、快取格）、穿脫的規則、全身的護甲、
+// L6 功能：裝備。身上的四層（穿著 10 格、飾品 5 格、攜帶 3 格、快取格）、穿脫的規則、全身的護甲、
 // 一把組好的武器的數字、藏匿量與掃描，並把武器與快取格帶進戰鬥。
-// 規格：EQUIPMENT 第 1～4、6 節；COMBAT_SYSTEM 第 4、5 節；DATA 7.1、7.2 節。組裝的檢定、品質、拆解、染色、重量的懲罰是 M4。
+// 規格：EQUIPMENT 第 1～4、6 節；COMBAT_SYSTEM 第 4、5 節。設計圖與零件兩種內容的格式在核心（M4-core-product，core/content/product.ts）。組裝的檢定、品質、拆解、染色、重量的懲罰是 M4。
 // dev/work/M1-gear.md；暫定值見 dev/adr/0013（D9：護甲捨去；D10：沒有重量的懲罰、通用飾品格固定 3 格）。
 
 import type { Feature } from '../../core'
 import { installBattle } from './battle'
 import { installChanges } from './changes'
-import { installKinds } from './kinds'
 import { OWNER, blueprintOf, stackOf } from './model'
 import { armorOf, bodyArmorOf, scanFinds } from './numbers'
 
@@ -19,7 +18,6 @@ export { armorOf, bodyArmorOf, concealment, scanFinds, weaponOf } from './number
 export const gearFeature: Feature = {
   id: OWNER,
   install(k) {
-    installKinds(k)
     installChanges(k)
     // 戰鬥的單位與報告讀同一個數字：全身的護甲（義體上的板材值在 M4 加進來）
     k.stats.defineStat({ id: 'armor', owner: OWNER, name: '護甲值', base: (state, actor) => (state.actors[actor] ? armorOf(k, state, actor) : 0) })
