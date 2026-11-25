@@ -19,7 +19,7 @@ const slotChange = (id: string, group: GearGroup, slot: string, item: string | n
  * 換了裝備之後快取格可能變少：超出的東西收回背包（只是不再記在快取格上，東西還在背包裡）。
  * 先在 Gear 的複本上預演這一批變更，放不下就多加一筆 gear.quick。
  */
-function withQuickTrim(k: Kernel, state: GameState, actor: string, gear: Gear, changes: Change[]): { changes: Change[]; timeline: TimelineBeat[] } {
+export function withQuickTrim(k: Kernel, state: GameState, actor: string, gear: Gear, changes: Change[]): { changes: Change[]; timeline: TimelineBeat[] } {
   const next = clone(gear)
   for (const c of changes) if (c.op === 'gear.slot') setSlot(next, c.group as GearGroup, c.slot as string, c.item as string | null)
   const cap = quickCapacity(k, state, next)

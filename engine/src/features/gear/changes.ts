@@ -4,12 +4,14 @@
 import type { Change, GameState, ItemEntry, Kernel } from '../../core'
 import { clone, countItem, isRecord } from '../../core'
 import type { Gear, GearGroup } from './model'
+import { isColor } from './dye'
 import { GROUP_SLOTS, OWNER, blueprintOf, gearFromRaw, gearOf, quickCapacity, setSlot, stackOf, sumQty } from './model'
 import { quickBlock } from './quick'
 
 type SlotChange = Change & { id: string; group: GearGroup; slot: string; item: string | null }
 type QuickChange = Change & { id: string; items: Array<{ item: string; qty: number }> }
 type CoatChange = Change & { id: string; coat: 'open' | 'closed' }
+type DyeChange = Change & { uid: string; dye: { primary_color?: string | null; secondary_color?: string | null } }
 
 /** 取出（沒有就補上）角色身上 ext.gear 那份，之後直接改它。 */
 function ensureGear(state: GameState, id: string): Gear {
@@ -84,5 +86,32 @@ export function installChanges(k: Kernel): void {
       ensureGear(state, c.id).coat = c.coat
     },
     describe: (c) => (c.coat === 'closed' ? '外套扣上了。' : '外套敞開了。'),
+  })
+
+  // 染色：把顏色寫進那一件成品的 data.dye（字串是改成那個顏色，null 是換回預設）；東西還是同一件（uid 不變），穿著的格也不用動
+  k.changes.register<DyeChange>({
+    op: 'gear.dye', owner: OWNER,
+    validate(state, c) {
+      if (typeof c.uid !== 'string' || !c.uid || !stackOf(state, c.uid)) return ['背包裡沒有這一件。']
+      if (!isRecord(c.dye) || Object.keys(c.dye).length === 0) return ['dye 要寫 primary_color 或 secondary_color。']
+      const p: string[] = []
+      for (const [f, v] of Object.entries(c.dye)) {
+        if (f !== 'primary_color' && f !== 'secondary_color') p.push(`dye 沒有 ${f} 這個欄位。`)
+        else if (v !== null && !isColor(v)) p.push(`${f} 要是色票的 id（dye_ 開頭）、#RRGGBB 或 null。`)
+      }
+      return p
+    },
+    apply(state, c) {
+      const stack = stackOf(state, c.uid)!
+      const data = stack.data!
+      const dye: Record<string, string> = isRecord(data.dye) ? { ...(data.dye as Record<string, string>) } : {}
+      for (const [f, v] of Object.entries(c.dye)) {
+        if (v === null) delete dye[f]
+        else if (typeof v === 'string') dye[f] = v
+      }
+      if (Object.keys(dye).length === 0) delete data.dye
+      else data.dye = dye
+    },
+    describe: () => '染了色。',
   })
 }
