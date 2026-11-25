@@ -21,9 +21,9 @@ export const RULE_KIND = 'scene_rule'
 
 // ---- 名字與固定的清單 ----
 
-export const NATURES = ['mutual', 'trade', 'work', 'contract', 'forced', 'captive'] as const
+export const NATURES = ['mutual', 'trade', 'work', 'contract', 'forced', 'captive', 'solo'] as const
 export type Nature = (typeof NATURES)[number]
-export const NATURE_NAME: Record<Nature, string> = { mutual: '兩情相悅', trade: '交易', work: '工作', contract: '契約', forced: '被迫', captive: '俘虜' }
+export const NATURE_NAME: Record<Nature, string> = { mutual: '兩情相悅', trade: '交易', work: '工作', contract: '契約', forced: '被迫', captive: '俘虜', solo: '獨自' }
 export const isNature = (v: unknown): v is Nature => (NATURES as readonly unknown[]).includes(v)
 
 export const ROLES = ['guest', 'worker', 'holder', 'bound', 'none'] as const
@@ -74,12 +74,14 @@ export const NTR_FILTER = { tag: 'ntr', name: 'NTR' }
 
 /** 十種行動（LEWD_SYSTEM 3.5 節第五點；第十種「換檔」是 M3-scene-sync 加的）。end_turn 不是行動，是把回合交出去。 */
 export const ACTIONS = ['dominate', 'yield', 'tease', 'restrain', 'skill', 'talk', 'item', 'switch', 'gear', 'stop'] as const
+/** 單人才有的兩種行動（M4-scene-solo；LEWD_SYSTEM 3.5 節第九點）：加快、放慢，取代主導與迎合。 */
+export const SOLO_ACTIONS = ['faster', 'slower'] as const
 /** 多人才有的兩種行動（M4-scene-circles）：換圈、把別圈的一個人叫過來。 */
 export const CIRCLE_ACTIONS = ['move_circle', 'call'] as const
-export type ActionId = (typeof ACTIONS)[number] | (typeof CIRCLE_ACTIONS)[number]
+export type ActionId = (typeof ACTIONS)[number] | (typeof CIRCLE_ACTIONS)[number] | (typeof SOLO_ACTIONS)[number]
 export const ACTION_NAME: Record<ActionId | 'end_turn', string> = {
   dominate: '主導', yield: '迎合', tease: '挑逗', restrain: '克制', skill: '技能', talk: '說話', item: '道具', switch: '切換體位', gear: '換檔', stop: '停下', end_turn: '結束回合',
-  move_circle: '換圈', call: '叫人過來',
+  move_circle: '換圈', call: '叫人過來', faster: '加快', slower: '放慢',
 }
 
 // ---- 骰子 ----
@@ -161,7 +163,7 @@ export interface SceneRules {
   load_div: number
   /** 每一層餘韻讓自己造成的感載與契合增加的比例 */
   glow_bonus: number
-  cost: { dominate: number; yield: number; tease: number; restrain: number; talk: number; switch: number; move_circle: number; call: number }
+  cost: { dominate: number; yield: number; tease: number; restrain: number; talk: number; switch: number; move_circle: number; call: number; faster: number; slower: number }
   dominate: { their: number; mine: number; fit: number; init: number }
   yield: { their: number; mine: number; fit: number; init: number }
   tease: { their: number; mine: number; fit: number; init: number }
@@ -193,6 +195,23 @@ export interface SceneRules {
   multi_dice_minus: number
   /** 別的圈（不展開）每回合怎麼算：契合起點、每回合加的骰、圈裡有共同的標籤再加多少、每個人感載加的骰 */
   other_circle: { fit_start: number; fit_die: string; tag_bonus: number; load_die: string }
+  /**
+   * 單人（M4-scene-solo；LEWD_SYSTEM 3.5 節第九點，數字暫定）：節奏 0～100 取代契合。
+   * 加快、放慢：自己的感載（骰；放慢是負的）與節奏的變化；節奏掉的時候：這一回合沒有任何連接掉 idle_drop、自己高潮掉 climax_drop；
+   * 節奏掉到 quit_pace 以下而且過了 quit_rounds 回合就沒了興致；體悟打 insight_mult 折（進位）。
+   */
+  solo: {
+    pace_start: number
+    faster: { load: string; pace: number }
+    slower: { load: string; pace: number }
+    idle_drop: number
+    climax_drop: number
+    quit_pace: number
+    quit_rounds: number
+    insight_mult: number
+    /** 略過時的節奏 = base ＋ 0～(spread − 1) 的亂數 */
+    skip: { base: number; spread: number }
+  }
   /** 目的的進度到這裡算達成 */
   goal_done_at: number
   /** 拖住：每過一回合；取悅：對方每高潮一次 */
@@ -214,12 +233,12 @@ export const DEFAULT_SCENE_RULES: SceneRules = {
   fit_start: 20,
   init_base: 50,
   init_docility_div: 4,
-  nature_init: { mutual: 0, trade: 0, work: 0, contract: 0, forced: -35, captive: 30 },
+  nature_init: { mutual: 0, trade: 0, work: 0, contract: 0, forced: -35, captive: 30, solo: 0 },
   role_init: { guest: 20, holder: 20, worker: -20, bound: -20, none: 0 },
   load_base: 0.75,
   load_div: 200,
   glow_bonus: 0.1,
-  cost: { dominate: 2, yield: 2, tease: 1, restrain: 1, talk: 1, switch: 1, move_circle: 2, call: 1 },
+  cost: { dominate: 2, yield: 2, tease: 1, restrain: 1, talk: 1, switch: 1, move_circle: 2, call: 1, faster: 2, slower: 1 },
   dominate: { their: 2, mine: 1, fit: 2, init: 10 },
   yield: { their: 1, mine: 2, fit: 8, init: -10 },
   tease: { their: 1, mine: 1, fit: 4, init: 5 },
@@ -240,6 +259,7 @@ export const DEFAULT_SCENE_RULES: SceneRules = {
     contract: { dominate: 4, yield: 2, tease: 2 },
     forced: { dominate: 5, yield: 1, tease: 2 },
     captive: { dominate: 1, yield: 5, tease: 2 },
+    solo: { dominate: 1, yield: 1, tease: 1 },
   },
   quit_fit: 10,
   quit_rounds: 3,
@@ -253,6 +273,17 @@ export const DEFAULT_SCENE_RULES: SceneRules = {
   skip_mult: 0.7,
   multi_dice_minus: 1,
   other_circle: { fit_start: 20, fit_die: '1d6', tag_bonus: 2, load_die: '2d6' },
+  solo: {
+    pace_start: 30,
+    faster: { load: '2d6', pace: 8 },
+    slower: { load: '-1d6', pace: 3 },
+    idle_drop: 3,
+    climax_drop: 10,
+    quit_pace: 10,
+    quit_rounds: 3,
+    insight_mult: 0.5,
+    skip: { base: 35, spread: 21 },
+  },
   goal_done_at: 60,
   goal_stall_per_round: 8,
   goal_please_per_climax: 20,
@@ -524,9 +555,9 @@ export function sceneDefOf(k: Pick<Kernel, 'content'>, kind: 'skill' | 'item', i
 
 // ---- 場景狀態（state.ext.scene，第二版） ----
 
-export type EndReason = 'stop' | 'partner_quit' | 'pc_out' | 'partner_out' | 'interrupted' | 'skip'
+export type EndReason = 'stop' | 'partner_quit' | 'pc_out' | 'partner_out' | 'interrupted' | 'skip' | 'bored'
 export const END_NAME: Record<EndReason, string> = {
-  stop: '你停了下來', partner_quit: '對方不玩了', pc_out: '你失神了', partner_out: '對方失神了', interrupted: '被外面的事打斷了', skip: '略過',
+  stop: '你停了下來', partner_quit: '對方不玩了', pc_out: '你失神了', partner_out: '對方失神了', interrupted: '被外面的事打斷了', skip: '略過', bored: '你沒了興致',
 }
 
 export interface LinkRec {
@@ -613,10 +644,11 @@ export interface SceneRaw {
   touched: string[]
   lines: SceneLine[]
   origin: Origin
-  /** 先放著：別的圈、單人的節奏、最多幾回合 */
+  /** 別的圈（多人）、單人的節奏（0～100，單人才有）、最多幾回合、單人時有沒有人在看（直播開著；M5 之前沒有人會給 true） */
   circles: CircleRec[]
   pace?: number
   max_rounds?: number
+  audience?: boolean
 }
 
 export const MAX_LINES = 300
@@ -775,6 +807,97 @@ export function knownAll(k: Pick<Kernel, 'content'>, state: GameState, ids: read
   return [...list.filter((x) => (x.unlocked_by ?? null) === null), ...list.filter((x) => (x.unlocked_by ?? null) !== null)]
 }
 
+// ---- 單人姿勢（M4-scene-solo；LEWD_SYSTEM 3.5 節第九點「單人姿勢五個」，效果傾向暫定） ----
+
+export const SOLO_POSE_KIND = 'solo_pose'
+const HANDS: readonly string[] = ['hand_l', 'hand_r']
+
+/**
+ * 單人姿勢：只在單人模式用，一般的體位與體位技能在單人都不能用。每個人都會，不用學。
+ * reach：不必用手就碰得到的部位（雙手本來就碰得到）；hand_only：要用一隻手（或道具）才碰得到。兩邊都沒列的部位在這個姿勢碰不到。
+ * mult：受到的感載倍率；link_pace：這個部位有連接時，每回合節奏加多少（連接的哪一端是它都算）；
+ * upkeep：每回合固定的（load 是自己的感載、pace 是節奏、link 是它算不算一條連接，給「沒有連接節奏就掉」那條規則看）；
+ * faster_cut：加快時自己的感載減這顆骰的一半；slower_pace：放慢時節奏多加；drop_half：節奏掉的時候少掉一半；
+ * no_dice_minus：只是記著設計書的「連接不用減骰」，單人沒有連著好幾個人的減骰，所以沒有效果。
+ */
+export interface SoloPose {
+  id: string
+  name: string
+  reach: string[]
+  hand_only: string[]
+  mult: number
+  link_pace: Record<string, number>
+  upkeep?: { load?: string | number; pace?: number; link?: boolean }
+  faster_cut?: string
+  slower_pace?: number
+  drop_half?: boolean
+  no_dice_minus?: boolean
+}
+
+/** 內建的五個姿勢；資料（solo_pose 種類）寫同一個 id 就整筆換掉，寫新的 id 就多一個。 */
+export const DEFAULT_SOLO_POSES: readonly SoloPose[] = [
+  { id: 'solo_spread', name: '張腿仰躺', reach: ['front', 'chest', 'mouth', 'legs'], hand_only: [], mult: 1, link_pace: { front: 1 } },
+  { id: 'solo_kneel', name: '跪姿', reach: ['front', 'back', 'chest', 'mouth'], hand_only: [], mult: 1, link_pace: {}, upkeep: { load: 1 }, no_dice_minus: true },
+  { id: 'solo_prone', name: '趴伏翹臀', reach: ['back', 'legs'], hand_only: ['front'], mult: 1.1, link_pace: { back: 1 } },
+  { id: 'solo_straddle', name: '跨坐抱枕', reach: ['front', 'legs', 'chest'], hand_only: ['back'], mult: 1, link_pace: {}, upkeep: { load: '1d3', pace: 1, link: true } },
+  { id: 'solo_side', name: '側躺', reach: ['front', 'back', 'chest', 'mouth'], hand_only: [], mult: 1, link_pace: {}, faster_cut: '1d6', slower_pace: 1, drop_half: true },
+]
+
+const isNumberLike = (v: unknown): boolean => typeof v === 'number' && Number.isFinite(v)
+
+/** 單人姿勢的格式（資料的 solo_pose 種類）。 */
+export function soloPoseProblems(e: Record<string, unknown>): string[] {
+  const p: string[] = []
+  if (!isText(e.name)) p.push('要有 name')
+  if (!textList(e.reach)) p.push('reach 要是部位 id 的陣列')
+  if (e.hand_only !== undefined && !textList(e.hand_only)) p.push('hand_only 要是部位 id 的陣列')
+  if (!(typeof e.mult === 'number' && e.mult > 0 && Number.isFinite(e.mult))) p.push('mult 要是大於 0 的數字')
+  if (e.link_pace !== undefined && (!isRecord(e.link_pace) || !Object.values(e.link_pace).every(isNumberLike))) p.push('link_pace 要是 部位 → 數字 的物件')
+  if (e.upkeep !== undefined) {
+    const u = e.upkeep
+    if (!isRecord(u)) p.push('upkeep 要是物件：{ load?, pace?, link? }')
+    else {
+      if (u.load !== undefined && parseDie(u.load) === null) p.push('upkeep.load 要是骰（例：1d3）或整數')
+      if (u.pace !== undefined && !isNumberLike(u.pace)) p.push('upkeep.pace 要是數字')
+      if (u.link !== undefined && typeof u.link !== 'boolean') p.push('upkeep.link 要是布林')
+    }
+  }
+  if (e.faster_cut !== undefined && (parseDie(e.faster_cut) === null || isNoDie(parseDie(e.faster_cut)!))) p.push('faster_cut 要是骰（例：1d6）')
+  if (e.slower_pace !== undefined && !isNumberLike(e.slower_pace)) p.push('slower_pace 要是數字')
+  return p
+}
+
+function readPose(e: Record<string, unknown>): SoloPose {
+  return {
+    id: String(e.id), name: String(e.name), reach: textList(e.reach) ? [...e.reach] : [], hand_only: textList(e.hand_only) ? [...e.hand_only] : [], mult: e.mult as number,
+    link_pace: isRecord(e.link_pace) ? { ...(e.link_pace as Record<string, number>) } : {},
+    ...(isRecord(e.upkeep) ? { upkeep: clone(e.upkeep) as NonNullable<SoloPose['upkeep']> } : {}),
+    ...(typeof e.faster_cut === 'string' ? { faster_cut: e.faster_cut } : {}), ...(typeof e.slower_pace === 'number' ? { slower_pace: e.slower_pace } : {}),
+    ...(e.drop_half === true ? { drop_half: true } : {}), ...(e.no_dice_minus === true ? { no_dice_minus: true } : {}),
+  }
+}
+
+/** 現在有哪些單人姿勢：內建的五個，資料寫了同一個 id 的換掉、寫了新 id 的接在後面；內容篩選關掉的標籤不影響姿勢。 */
+export function soloPoses(k: Pick<Kernel, 'content'>): SoloPose[] {
+  const out = new Map<string, SoloPose>(DEFAULT_SOLO_POSES.map((x) => [x.id, clone(x)]))
+  for (const e of k.content.list(SOLO_POSE_KIND)) out.set(e.id, readPose(e as Record<string, unknown>))
+  return [...out.values()]
+}
+
+export const soloPoseOf = (k: Pick<Kernel, 'content'>, id: string): SoloPose | undefined => soloPoses(k).find((x) => x.id === id)
+
+/** 這個姿勢碰不碰得到「my 這個部位接 theirs 這個部位」（自己接自己；道具 asPart 算自己拿在手上的東西）。同一個部位不能接自己。 */
+export function poseReaches(pose: SoloPose, mine: string, theirs: string, asPart?: string): boolean {
+  if (mine === theirs) return false
+  const handed = HANDS.includes(mine) || asPart === mine
+  const source = handed || pose.reach.includes(mine)
+  const target = HANDS.includes(theirs) || pose.reach.includes(theirs) || (handed && pose.hand_only.includes(theirs))
+  return source && target
+}
+
+/** 這個姿勢上這個部位能不能碰到（畫面把部位分成碰得到與碰不到用）。 */
+export const poseHasPart = (pose: SoloPose, part: string): boolean => HANDS.includes(part) || pose.reach.includes(part) || pose.hand_only.includes(part)
+
 /** 開場的主動權：50 ＋（對方的馴化 − 自己的馴化）÷ 4，再照性質與身分調整（LEWD_SYSTEM 3.5 節第二點）。多人時主角對每個人各算一次。 */
 export function openingInit(k: Kernel, state: GameState, o: { pc: string; partner: string; nature: Nature; role: Role }): number {
   const r = sceneRules(k)
@@ -838,6 +961,22 @@ export function recordSceneWith(rec: SexRecord, o: { partners: Array<{ id: strin
   const next = first ? recordScene(rec, { partner: first.id, partnerName: first.name, service: o.service, positions: o.positions, tags: o.tags }) : clone(rec)
   for (const x of rest) next.people[x.id] = (next.people[x.id] ?? 0) + 1
   next.partners = Object.keys(next.people).length
+  return next
+}
+
+/** 這個人單人用過哪些姿勢（算「第一次用某個姿勢」）。 */
+export const soloPosesSeen = (rec: SexRecord): string[] => (textList(rec.solo_poses) ? rec.solo_poses : [])
+
+/**
+ * 單人的一場之後的性經歷（LEWD_SYSTEM 3.5 節第九點）：只加 solo_times、用過的姿勢與碰過的標籤；
+ * 次數（times）、對象的人數（partners、people）、服務次數、第一次都不動，所以不能靠它開共通分支的階。
+ */
+export function recordSolo(rec: SexRecord, o: { poses: string[]; tags: string[] }): SexRecord {
+  const next = clone(rec)
+  next.solo_times = (typeof rec.solo_times === 'number' && Number.isFinite(rec.solo_times) ? Math.max(0, Math.floor(rec.solo_times)) : 0) + 1
+  const seen = soloPosesSeen(rec)
+  next.solo_poses = [...seen, ...o.poses.filter((x) => !seen.includes(x))]
+  for (const t of o.tags) if (!next.tags.includes(t)) next.tags.push(t)
   return next
 }
 

@@ -4,10 +4,10 @@
 
 import type { ActorId, Condition, GameState, Kernel, RollPart, SyncGear, SyncRule, TimelineBeat } from '../../core'
 import { SYNC_GEARS, attrMod, checkParts, clone, deriveRng, isSyncGear, makeCheck, syncBlocks, syncRuleOf } from '../../core'
-import type { ActionId, BodyRec, CircleRec, Die, Dice, EndReason, LinkRec, PairRec, PositionEntry, SceneDef, SceneRaw, SceneRules, Seat } from './model'
+import type { ActionId, BodyRec, CircleRec, Die, Dice, EndReason, LinkRec, PairRec, PositionEntry, SceneDef, SceneRaw, SceneRules, Seat, SoloPose } from './model'
 import {
   ACTION_NAME, BASE_PARTS, NO_DIE, PARTNER_GEAR_DOWN_AT, POSITION_KIND, TALK_PARTS, beat, bodyOf, dieRange, gearCapOf, gearIndexOf, hasTendencyTag, isNoDie, knowOf, knownAll, knownPositions, knownSkills, normalizeSeats,
-  openingInit, parseDie, partName, rollDie, sceneDefOf, sceneRules, sensitivityOf, sexRecordOf, startGear, statOr, tendencyTagIds, MAX_LINES,
+  openingInit, parseDie, partName, poseHasPart, poseReaches, rollDie, sceneDefOf, sceneRules, sensitivityOf, sexRecordOf, soloPoses, startGear, statOr, tendencyTagIds, MAX_LINES,
 } from './model'
 
 // ---- 輸入 ----
@@ -19,7 +19,7 @@ export interface PartPick { my_part?: string; their_part?: string }
  * target 是對誰（角色的 id；一對一時沒給就是對方）。
  */
 export type SceneInput =
-  | { kind: 'dominate' | 'yield' | 'tease' | 'restrain' | 'stop' | 'end_turn'; target?: ActorId }
+  | { kind: 'dominate' | 'yield' | 'tease' | 'restrain' | 'stop' | 'end_turn' | 'faster' | 'slower'; target?: ActorId }
   | { kind: 'skill'; id: string; pick?: PartPick; target?: ActorId }
   | { kind: 'item'; id: string; pick?: PartPick; target?: ActorId }
   | { kind: 'talk'; text?: string; pick?: PartPick; target?: ActorId }
@@ -30,7 +30,7 @@ export type SceneInput =
   /** 把別圈的一個人叫過來（1 行動點）；who 是他的 id */
   | { kind: 'call'; who: ActorId }
 
-const KINDS: readonly string[] = ['dominate', 'yield', 'tease', 'restrain', 'stop', 'end_turn', 'skill', 'item', 'talk', 'switch', 'gear', 'move_circle', 'call']
+const KINDS: readonly string[] = ['dominate', 'yield', 'tease', 'restrain', 'stop', 'end_turn', 'skill', 'item', 'talk', 'switch', 'gear', 'move_circle', 'call', 'faster', 'slower']
 
 /** 輸入的格式問題（一句）；沒有問題是 null。 */
 export function inputProblem(input: unknown): string | null {
@@ -38,7 +38,7 @@ export function inputProblem(input: unknown): string | null {
   const i = input as Record<string, unknown>
   if (!KINDS.includes(i.kind as string)) return `沒有「${String(i.kind)}」這種行動。`
   if ((i.kind === 'skill' || i.kind === 'item') && (typeof i.id !== 'string' || !i.id)) return `${ACTION_NAME[i.kind]}要指明是哪一個（id）。`
-  if (i.kind === 'switch' && (typeof i.position !== 'string' || !i.position)) return '切換體位要指明換成哪個體位（position）。'
+  if (i.kind === 'switch' && (typeof i.position !== 'string' || !i.position)) return '切換體位（單人是切換姿勢）要指明換成哪一個（position）。'
   if (i.kind === 'gear' && !isSyncGear(i.gear)) return `換檔要指明換到哪一檔（gear：${SYNC_GEARS.join('、')}）。`
   if (i.kind === 'move_circle' && (typeof i.circle !== 'string' || !i.circle)) return '換圈要指明換到哪一圈（circle）。'
   if (i.kind === 'call' && (typeof i.who !== 'string' || !i.who)) return '叫人過來要指明叫誰（who）。'
@@ -53,7 +53,7 @@ export function inputProblem(input: unknown): string | null {
 /** 行動花幾點（技能與道具照自己的 scene.ap）。 */
 export function costOf(p: Play, input: SceneInput): number {
   switch (input.kind) {
-    case 'dominate': case 'yield': case 'tease': case 'restrain': case 'talk': case 'switch': case 'move_circle': case 'call':
+    case 'dominate': case 'yield': case 'tease': case 'restrain': case 'talk': case 'switch': case 'move_circle': case 'call': case 'faster': case 'slower':
       return p.rules.cost[input.kind]
     case 'skill': return sceneDefOf(p.k, 'skill', input.id)?.def.ap ?? 0
     case 'item': return sceneDefOf(p.k, 'item', input.id)?.def.ap ?? 0
@@ -107,10 +107,13 @@ export class Play {
   consumed: string | null = null
   /** 外面（AI 的 scene_talk）給的說話結果：有的話這一步的說話用它，不擲檢定 */
   talkEnv: TalkEnv | undefined
+  /** 單人的姿勢（內建的五個加資料的）；不是單人時是空的 */
+  readonly poses: SoloPose[]
 
   constructor(readonly k: Kernel, readonly state: GameState, scene: SceneRaw, readonly dice: Dice) {
     this.s = clone(scene)
     this.rules = sceneRules(k)
+    this.poses = this.s.kind === 'solo' ? soloPoses(k) : []
     this.everyone = [...new Set([...this.s.seats.map((x) => x.id), ...this.s.circles.flatMap((c) => [...c.people, ...(c.out ?? [])])])].filter((id) => !!state.actors[id])
     const per = <T>(f: (id: ActorId) => T): Record<ActorId, T> => Object.fromEntries(this.everyone.map((id) => [id, f(id)])) as Record<ActorId, T>
     const mod = (id: ActorId, attr: 'resolve' | 'reflex' | 'charm'): number => attrMod(k.stats.effectiveAttr(state, id, attr))
@@ -130,6 +133,14 @@ export class Play {
   // ---- 基本的讀 ----
 
   get pc(): ActorId { return this.s.pc }
+  /** 單人的一場（沒有對象、沒有主動權；契合換成節奏）。 */
+  get solo(): boolean { return this.s.kind === 'solo' }
+  /** 單人現在的姿勢（不是單人時是 null；姿勢的 id 查不到時退到第一個）。 */
+  get pose(): SoloPose | null { return this.solo ? this.poses.find((x) => x.id === this.s.position) ?? this.poses[0] ?? null : null }
+  /** 現在的體位（單人是姿勢）的名字。 */
+  positionName(): string { return this.solo ? this.pose?.name ?? '' : this.pos.name }
+  /** 一個體位或姿勢 id 的名字（查不到就是 id）。 */
+  posNameOf(id: string): string { return (this.k.content.get(POSITION_KIND, id)?.name as string | undefined) ?? this.poses.find((x) => x.id === id)?.name ?? id }
   /** 這一圈每個人的 id（座位的順序，第一個是主角；含失神退出的）。 */
   get ids(): ActorId[] { return this.s.seats.map((x) => x.id) }
   /** 這一圈現在還在的人（沒退出）。 */
@@ -183,8 +194,8 @@ export class Play {
   /** 一對一時的舊名字：主動權在誰手上（同 decider）。 */
   holder(): ActorId { return this.decider() }
   resolveMod(id: ActorId): number { return attrMod(this.k.stats.effectiveAttr(this.state, id, 'resolve')) }
-  mult(id: ActorId): number { return this.pos.mult[this.s.roles[id] ?? ''] ?? 1 }
-  isUpper(id: ActorId): boolean { return this.pos.roles.find((r) => r.id === this.s.roles[id])?.upper === true }
+  mult(id: ActorId): number { return this.solo ? this.pose?.mult ?? 1 : this.pos.mult[this.s.roles[id] ?? ''] ?? 1 }
+  isUpper(id: ActorId): boolean { return !this.solo && this.pos.roles.find((r) => r.id === this.s.roles[id])?.upper === true }
   tagName(tag: string): string { return (this.k.content.get('tendency_tag', tag)?.name as string | undefined) ?? tag }
   /** 這個人現在那一檔的規則（檢定加減、感載倍率、全檔的行動點與沉溺）。 */
   gearRule(id: ActorId): SyncRule['gears'][SyncGear] { return this.sync.gears[this.seat(id).gear] }
@@ -235,14 +246,38 @@ export class Play {
     return amount
   }
 
-  /** 契合 +n（主角對 x 那一份；x 沒給就是這一步在算的那一對）。沒有那一對（NPC 對 NPC）不算，回傳 0。 */
+  /**
+   * 契合 +n（主角對 x 那一份；x 沒給就是這一步在算的那一對）。沒有那一對（NPC 對 NPC）不算，回傳 0。
+   * 單人：任何寫「契合」的地方都讀成節奏（LEWD_SYSTEM 3.5 節第九點）。
+   */
   addFit(n: number, src: ActorId, x?: ActorId): number {
     if (this.ended) return 0
+    if (this.solo) return this.addPace(n)
     const pr = this.pairAt(x)
     if (!pr) return 0
     const v = n > 0 ? Math.round(n * this.boost(src)) : n
     pr.rec.fit = clamp(pr.rec.fit + v, 0, 100)
     return v
+  }
+
+  /** 節奏 +n（單人；正的照餘韻加成，0～100）；拿素材的目的看節奏到過哪裡（goal_progress 記最高的那一次）。回傳實際的變化。 */
+  addPace(n: number): number {
+    const v = n > 0 ? Math.round(n * this.boost(this.s.pc)) : n
+    this.setPace((this.s.pace ?? 0) + v)
+    return v
+  }
+
+  private setPace(to: number): void {
+    this.s.pace = clamp(to, 0, 100)
+    if (this.s.goal_progress !== null) this.s.goal_progress = Math.max(this.s.goal_progress, this.s.pace)
+  }
+
+  /** 節奏掉了（單人；側躺掉一半）。回傳掉了多少。 */
+  dropPace(n: number): number {
+    const lose = this.pose?.drop_half ? Math.round(n / 2) : n
+    const before = this.s.pace ?? 0
+    this.setPace(before - lose)
+    return before - (this.s.pace ?? 0)
   }
 
   /** n 是 w 這一邊的變化：主導 +10 就是 w 更有主動權（主角的主動權往上、對方的往下）。w 要是這一對裡的人（主角或 x）。 */
@@ -268,6 +303,8 @@ export class Play {
     }
     this.glow[target] = this.glow[target]! + 1
     seat.climax += 1
+    // 單人：自己高潮，節奏斷拍
+    if (this.solo && this.isPc(target)) this.dropPace(this.rules.solo.climax_drop)
     this.addInit(this.rules.climax_init_self, target)
     if (src !== target) this.addInit(this.rules.climax_init_cause, src)
     if (!this.isPc(target) && this.s.goal === 'please' && this.s.goal_progress !== null) this.s.goal_progress = Math.min(100, this.s.goal_progress + this.rules.goal_please_per_climax)
@@ -294,6 +331,7 @@ export class Play {
 
   /** 體位碰不碰得到（兩個方向都算）。道具自己算一個部位：它碰得到的是「這個位置碰得到的任何部位」。 */
   reaches(w: ActorId, mine: string, theirs: string, asPart?: string, t: ActorId = this.opp(w)): boolean {
+    if (this.solo) return !!this.pose && poseReaches(this.pose, mine, theirs, asPart)
     const a = this.s.roles[w]
     const b = this.s.roles[t]
     if (a === undefined || b === undefined) return false
@@ -304,6 +342,7 @@ export class Play {
 
   /** 這個位置上有沒有可以接的部位：畫面把部位分成「碰得到」與「碰不到」用。 */
   partReachable(w: ActorId, part: string): boolean {
+    if (this.solo) return !!this.pose && poseHasPart(this.pose, part)
     const a = this.s.roles[w]
     return this.pos.links.some((l) => sameEnd(l.from, a ?? '', part) || sameEnd(l.to, a ?? '', part))
   }
@@ -321,27 +360,29 @@ export class Play {
     const theirPick = given ? given.their_part : undefined
     const need = this.s.mode === 'full' && this.isPc(w) && !forceAuto
     const reasons: string[] = []
+    // 單人：兩端都是自己的部位
+    const them = this.solo ? '自己' : '對方'
     if (need && (myPick === undefined || theirPick === undefined)) {
       if (myPick === undefined) reasons.push('要選用你的哪個部位。')
-      if (theirPick === undefined) reasons.push('要選接對方的哪個部位。')
+      if (theirPick === undefined) reasons.push(`要選接${them}的哪個部位。`)
       return { reasons }
     }
     const mineOk = c.mine.filter((x) => (c.asPart !== undefined && x === c.asPart) || this.partsOf(w).includes(x))
     const theirsOk = c.theirs.filter((x) => this.partsOf(t).includes(x))
     if (myPick !== undefined && !c.mine.includes(myPick)) reasons.push(`這一個用不了你的「${partName(myPick)}」：只能用${c.mine.map(partName).join('、')}。`)
-    if (theirPick !== undefined && !c.theirs.includes(theirPick)) reasons.push(`這一個接不到對方的「${partName(theirPick)}」：只能接${c.theirs.map(partName).join('、')}。`)
+    if (theirPick !== undefined && !c.theirs.includes(theirPick)) reasons.push(`這一個接不到${them}的「${partName(theirPick)}」：只能接${c.theirs.map(partName).join('、')}。`)
     if (reasons.length > 0) return { reasons }
     if (myPick !== undefined && !mineOk.includes(myPick)) return { reasons: [`你沒有「${partName(myPick)}」這個部位。`] }
-    if (theirPick !== undefined && !theirsOk.includes(theirPick)) return { reasons: [`${this.name(t)}沒有「${partName(theirPick)}」這個部位。`] }
+    if (theirPick !== undefined && !theirsOk.includes(theirPick)) return { reasons: [this.solo ? `你沒有「${partName(theirPick)}」這個部位。` : `${this.name(t)}沒有「${partName(theirPick)}」這個部位。`] }
     const mines = myPick !== undefined ? [myPick] : mineOk
     const theirs = theirPick !== undefined ? [theirPick] : theirsOk
     const cands: Pair[] = []
     for (const m of mines) for (const th of theirs) if (this.reaches(w, m, th, c.asPart, t)) cands.push({ mine: m, theirs: th })
     if (cands.length === 0) {
-      if (mines.length === 0 || theirs.length === 0) return { reasons: ['你或對方沒有這一項要用的部位。'] }
+      if (mines.length === 0 || theirs.length === 0) return { reasons: [this.solo ? '你沒有這一項要用的部位。' : '你或對方沒有這一項要用的部位。'] }
       const m = mines[0]!
       const th = theirs[0]!
-      return { reasons: [myPick !== undefined && theirPick !== undefined ? `${this.pos.name}碰不到：你的${partName(m)}接不到對方的${partName(th)}，換一個體位。` : `${this.pos.name}碰不到這一項要用的部位：換一個體位。`] }
+      return { reasons: [this.solo ? (myPick !== undefined && theirPick !== undefined ? `${this.positionName()}碰不到：你的${partName(m)}接不到自己的${partName(th)}，換一個姿勢。` : `${this.positionName()}碰不到這一項要用的部位：換一個姿勢。`) : myPick !== undefined && theirPick !== undefined ? `${this.pos.name}碰不到：你的${partName(m)}接不到對方的${partName(th)}，換一個體位。` : `${this.pos.name}碰不到這一項要用的部位：換一個體位。`] }
     }
     if (myPick !== undefined && theirPick !== undefined) return cands[0]!
     return this.autoPick(w, t, cands, c.tag, c.double === true)
@@ -492,6 +533,12 @@ export class Play {
     const me = this.isPc(w) ? '你' : '對方'
     if (s.turn !== w) return [`還沒輪到${me}。`]
     if (input.kind === 'stop' || input.kind === 'end_turn') return this.isPc(w) ? [] : ['對方沒有這個行動。']
+    // 單人沒有對象：沒有主導、迎合、挑逗，也沒有圈；加快與放慢只有單人才有
+    if (this.solo) {
+      if (input.kind === 'dominate' || input.kind === 'yield') return ['單人沒有主導與迎合：用加快與放慢。']
+      if (input.kind === 'tease') return ['單人沒有對象可以挑逗。']
+      if (input.kind === 'move_circle' || input.kind === 'call') return ['單人沒有別的圈。']
+    } else if (input.kind === 'faster' || input.kind === 'slower') return ['只有單人的場景才有加快與放慢。']
     if (input.kind === 'move_circle' || input.kind === 'call') {
       if (!this.isPc(w)) return ['只有你能換圈與叫人。']
       const cost = costOf(this, input)
@@ -499,14 +546,14 @@ export class Play {
       out.push(...(input.kind === 'move_circle' ? this.circleBlocks(input.circle) : this.callBlocks(input.who)))
       return out
     }
-    const given = input.target
+    const given = this.solo ? undefined : input.target
     if (given !== undefined && (given === w || !this.inCircle(given))) return ['這一圈裡沒有這個人。']
     const cost = costOf(this, input)
     if (this.seat(w).ap < cost) out.push(`行動點不夠：這個行動要 ${cost} 點，${me}只剩 ${this.seat(w).ap} 點。`)
     // 作用在單一對象的行動（技能、道具、說話）：沒給對象時一對一是對方，好幾個人時照 targetOf
     const single = input.kind === 'skill' || input.kind === 'item' || input.kind === 'talk'
     let t = w
-    if (single) {
+    if (single && !this.solo) {
       const r = this.targetOf(w, input, probe)
       if ('reasons' in r) return [...out, ...r.reasons]
       t = r.id
@@ -519,7 +566,7 @@ export class Play {
         else if (given !== undefined && !linked.includes(given)) out.push(`和${this.name(given)}還沒有連接。`)
         break
       }
-      case 'restrain':
+      case 'restrain': case 'faster': case 'slower':
         break
       case 'gear': {
         const g = input.gear
@@ -530,11 +577,23 @@ export class Play {
         break
       }
       case 'talk': {
+        // 單人：只有直播開著（有觀眾）才能說話，對觀眾說，不建立連接
+        if (this.solo) {
+          if (this.s.audience !== true) out.push('沒有人在聽。')
+          break
+        }
         const r = this.pairFor(w, { mine: [...TALK_PARTS], theirs: this.partsOf(t), tag: null }, input.pick, probe, t)
         if ('reasons' in r) out.push(...r.reasons)
         break
       }
       case 'switch': {
+        // 單人：切換姿勢（1 點、不用主動權）
+        if (this.solo) {
+          const pose = this.poses.find((x) => x.id === input.position)
+          if (!pose) out.push('沒有這個姿勢。')
+          else if (pose.id === s.position) out.push('已經是這個姿勢了。')
+          break
+        }
         const n = this.activeIds().length
         const known = knownPositions(this.k, this.state, w, n)
         const target = this.k.content.get<PositionEntry>(POSITION_KIND, input.position)
@@ -554,7 +613,13 @@ export class Play {
         }
         if (input.kind === 'skill' && !knownSkills(this.k, this.state, w).includes(input.id)) out.push(`${me}還沒有學會「${info.name}」。`)
         if (input.kind === 'item' && !(this.isPc(w) && this.state.inventory.some((x) => x.id === input.id && x.qty > 0))) out.push(`你身上沒有「${info.name}」。`)
-        if (info.def.positions && !info.def.positions.includes(s.position)) out.push(`「${info.name}」要在${info.def.positions.map((id) => this.k.content.get(POSITION_KIND, id)?.name ?? id).join('、')}才用得出來，現在是${this.pos.name}。`)
+        // 單人：資料的 solo 欄位（沒寫：道具 ok、技能 no）；audience 要這一場有人在看
+        if (this.solo) {
+          const gate = soloGate(info.def, input.kind)
+          if (gate === 'no') return [...out, '這個要有對象。']
+          if (gate === 'audience' && this.s.audience !== true) return [...out, '這個要有人在看。']
+        }
+        if (info.def.positions && !info.def.positions.includes(s.position)) out.push(`「${info.name}」要在${info.def.positions.map((id) => this.posNameOf(id)).join('、')}才用得出來，現在是${this.positionName()}。`)
         if (info.tag && !hasTendencyTag(this.actor(w), info.tag)) out.push(`要有「${this.tagName(info.tag)}」的標籤（或對應的調校、道具、服裝）才用得出來。`)
         out.push(...this.needBlocks(w, info.def))
         const cand = candOf(info.def, info.tag)
