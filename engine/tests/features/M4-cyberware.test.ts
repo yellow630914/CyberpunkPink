@@ -758,10 +758,10 @@ describe('資料壞掉、規則表與設施格式', () => {
         { uid: 'ok', bp: 'bp_arm', slot: 'arm_l', sink: 6, at: 0 },
       ],
     }
-    expect(cyberOf(g.state, 'pc')).toEqual([{ uid: 'ok', parts: {}, quirks: ['cx_scar'], bp: 'bp_eye', slot: 'eye', sink: 3, at: 5 }])
+    expect(cyberOf(g.state, 'pc')).toEqual([{ uid: 'ok', parts: {}, quirks: ['cx_scar'], bp: 'bp_eye', kind_of: 'blueprint', slot: 'eye', sink: 3, at: 5 }])
     expect(floor(g)).toBe(3)
     expect(g.load(g.save())).toBeNull()
-    expect(cyberOf(g.state, 'pc')).toEqual([{ uid: 'ok', parts: {}, quirks: ['cx_scar'], bp: 'bp_eye', slot: 'eye', sink: 3, at: 5 }])
+    expect(cyberOf(g.state, 'pc')).toEqual([{ uid: 'ok', parts: {}, quirks: ['cx_scar'], bp: 'bp_eye', kind_of: 'blueprint', slot: 'eye', sink: 3, at: 5 }])
     expect(cyberView(g.k, g.state, 'ghost').parts.every((p) => p.used === 0)).toBe(true)
     expect(cyberOf(g.state, 'ghost')).toEqual([])
     // 壞掉之後照樣可以裝新的：寫回去的是整理過的

@@ -5,6 +5,7 @@ import type { ContentPack, Feature, Kernel } from '@engine/src'
 import { netWeapon } from '@engine/src/testkit'
 import { useEngine } from '../../src/stores/engine'
 import { DRAFT, PACK } from './fixtures'
+import { wearDeck } from '../helpers/wearDeck'
 
 export type Rec = Record<string, unknown>
 export const meat = (gives?: string, at = 'T1'): Rec => ({ map: 'ui_room_a', encounter: [], goal: { kind: 'reach', at }, ...(gives ? { gives } : {}), branches: [{ id: 'assault', kind: 'assault', entry: 'E1' }] })
@@ -64,7 +65,7 @@ export function start(seed = 7) {
   expect(e.createCharacter(DRAFT)).toEqual([])
   expect(e.commit({ summary: '給東西', changes: [give('dk_ii', { uid: 'D1' }), give('cs_rifle')] })).toBeNull()
   expect(e.commit({ summary: '練槍', changes: [{ op: 'actor.skill', id: e.state.pc!, skill: 'firearms', delta: 5 }, { op: 'actor.skill', id: e.state.pc!, skill: 'interface', delta: 3 }] as never })).toBeNull()
-  expect(e.deck.equip('D1')).toBeNull()
+  expect(wearDeck(e, 'D1')).toBeNull()
   expect(e.deck.install('cs_rifle')).toBeNull()
   return { e, pinia }
 }

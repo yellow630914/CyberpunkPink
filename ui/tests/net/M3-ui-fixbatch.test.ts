@@ -13,8 +13,8 @@ describe('M3 修正批：介面', () => {
 
   it('內海面的 block 逐字是引擎的原因（隊上沒有人有橋與甲板）', async () => {
     const { e } = start()
-    // 把主角的甲板拆掉：全隊都沒有甲板，內海面選不了
-    expect(e.commit({ summary: '拆甲板', changes: [{ op: 'actor.ext', id: e.state.pc!, key: 'deck', value: null }] as never })).toBeNull()
+    // 把主角腦裡的甲板拆掉（甲板是腦部的義體）：全隊都沒有甲板，內海面選不了
+    expect(e.commit({ summary: '拆甲板', changes: [{ op: 'actor.ext', id: e.state.pc!, key: 'cyber', value: { pieces: [] } }] as never })).toBeNull()
     await depart(e, 'of_net4')
     const net = e.commission.view()!.faces.find((f) => f.face === 'net')!
     expect(net.block).toContain('隊上沒有人有橋與甲板，進不了內海')

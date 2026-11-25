@@ -15,6 +15,7 @@ import NetTab from '../../src/dialogs/character/NetTab.vue'
 import { DEMO_DECK, DEMO_DECK_UID } from '../../src/data/demo'
 import src from '../../src/dialogs/character/NetTab.vue?raw'
 import gameSrc from '../../src/stores/game.ts?raw'
+import { wearDeck } from '../helpers/wearDeck'
 
 vi.mock('../../src/router', () => ({ FULL_PAGES: [{ path: '/', name: '主畫面' }], router: {} }))
 
@@ -67,7 +68,7 @@ function start(o: { bag?: unknown[]; wear?: boolean; seed?: number } = {}) {
   e.newGame({ seed: o.seed ?? 7, testContent: [PACK], testFeatures: [HELPER] })
   expect(e.createCharacter(DRAFT)).toEqual([])
   expect(e.commit({ summary: '給東西', changes: (o.bag ?? BAG) as never })).toBeNull()
-  if (o.wear !== false) expect(e.deck.equip('D1')).toBeNull()
+  if (o.wear !== false) expect(wearDeck(e, 'D1')).toBeNull()
   return { e, pinia }
 }
 const flag = (e: Eng, on: boolean) => expect(e.commit({ summary: '旗標', changes: [{ op: 'flag', key: 't.boost', value: on ? true : null }] as never })).toBeNull()
@@ -162,12 +163,14 @@ describe('有甲板：槽數與裝卸', () => {
     expect(row.note).toContain('甲板無法發揮這項構裝的所有性能')
   })
 
-  it('換甲板：槽裝不下的構裝退回背包（還在背包，不在槽上）', () => {
+  it('換甲板（腦裡換成槽比較少的一副）：槽裝不下的構裝不生效（還在背包，槽上的記錄留著，槽回來又算進去）', () => {
     const { e } = start()
     for (const id of ['cs_b', 'cs_c', 'cs_d']) expect(e.deck.install(id)).toBeNull()
-    expect(e.deck.equip('D2')).toBeNull()
+    expect(wearDeck(e, 'D2')).toBeNull()
     expect(e.deck.view()!.deck.name).toBe('小甲板')
-    expect(slotsOf(e)).toEqual(['cs_b', 'cs_c'])
+    expect(e.deck.view()!.deck.equipped.map((p) => p.id)).toEqual(['cs_b', 'cs_c'])
+    expect(e.deck.view()!.deck.inactive).toEqual(['cs_d'])
+    expect(slotsOf(e)).toEqual(['cs_b', 'cs_c', 'cs_d'])
   })
 })
 
@@ -175,7 +178,7 @@ describe('右邊的數字：全是引擎的衍生數值', () => {
   it('RAM、防火牆、槽數、感載與層數等於衍生數值；換上防護值更高的構裝之後防護跟著變', async () => {
     const { e, pinia } = start({ wear: false })
     const base = e.deck.numbers().ramMax
-    expect(e.deck.equip('D1')).toBeNull()
+    expect(wearDeck(e, 'D1')).toBeNull()
     const n = e.deck.numbers()
     expect(n).toMatchObject({ firewall: 12, slots: 4, ramRegen: 3, hasDeck: true })
     expect(n.ramMax).toBe(base + 2)
@@ -250,7 +253,7 @@ describe('潛入中（網內的行程進行中）：甲板與構裝唯讀，SKIN
     e.newGame({ seed: 7, testContent: [PACK], testFeatures: [HELPER, TEST_ACTIVITY, ALLOW] })
     expect(e.createCharacter(DRAFT)).toEqual([])
     expect(e.commit({ summary: '給東西', changes: BAG as never })).toBeNull()
-    expect(e.deck.equip('D1')).toBeNull()
+    expect(wearDeck(e, 'D1')).toBeNull()
     expect(e.commit({ summary: '潛入', action: 'toy.test', changes: [{ op: 'ext', key: 'toy', value: { id: 't1', steps: 0, goal: 1, origin: { by: 'test' } } }] as never })).toBeNull()
     expect(e.deck.lock()).toBeTruthy()
     const b = e.deck.view()!.skins.find((s) => !s.worn)!

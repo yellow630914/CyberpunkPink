@@ -12,8 +12,10 @@ import { blockIdOf, markerOfFacility } from './world'
  */
 type Rec = Record<string, unknown>
 
-/** 開局送的甲板在背包裡的編號（`actor.ext.deck.uid` 指向它） */
+/** 開局裝在腦部的甲板那一件的編號（`actor.ext.cyber.pieces` 的 uid） */
 export const DEMO_DECK_UID = 'D_START'
+/** 入門甲板裝進腦部的沉溺成本（cyber_rule.deck_sink_default 的預設） */
+export const DEMO_DECK_SINK = 6
 export const DEMO_DECK = 'dk_nightingale_2'
 export const DEMO_SCRIPT = 'it_script_refill'
 /** 潛艙店租給沒有甲板的客人的甲板 */
@@ -147,16 +149,18 @@ export function netContent(): Record<string, ContentEntry[]> {
 }
 
 /**
- * 開新局時送給主角的：一副甲板、各種構裝、兩套 SKIN、兩支腳本；裝好甲板、三個構裝（夜巡、客服窗、探針，留一個空槽）、
- * 穿著應援 T、帶著回填包。只給有主角的局（建角的開新局），跟在建角的報告後面。
+ * 開新局時送給主角的：各種構裝、兩套 SKIN、兩支腳本；入門甲板直接裝在腦部（甲板是腦部的義體，M4-cyber-deck；使用者 2026-11-25：示意世界包開局直接裝著，不經手術與休養），
+ * 裝好三個構裝（夜巡、客服窗、探針，留一個空槽）、穿著應援 T、帶著回填包。沉溺的下限照內容種類 deck 的預設成本（cyber_rule.deck_sink_default，6）算，
+ * 開局的沉溺補到下限。只給有主角的局（建角的開新局），跟在建角的報告後面。
  */
 export function demoNetChanges(pc = 'pc'): Change[] {
   const give = (id: string, qty = 1, data?: Rec): Change => ({ op: 'item', id, qty, ...(data ? { data } : {}) }) as unknown as Change
   return [
-    give(DEMO_DECK, 1, { uid: DEMO_DECK_UID }),
     ...construct.map((c) => give(c.id as string)),
     ...skin.map((s) => give(s.id as string)),
     give(DEMO_SCRIPT, 2),
-    { op: 'actor.ext', id: pc, key: 'deck', value: { uid: DEMO_DECK_UID, slots: ['cs_night_rifle', 'cs_window1', 'cs_probe2'], skin: 'it_d212f6', scripts: [{ item: DEMO_SCRIPT, qty: 2 }] } } as unknown as Change,
+    { op: 'actor.ext', id: pc, key: 'cyber', value: { pieces: [{ uid: DEMO_DECK_UID, bp: DEMO_DECK, kind_of: 'deck', slot: 'brain', parts: {}, sink: DEMO_DECK_SINK, at: 0, registered: true }] } } as unknown as Change,
+    { op: 'actor.track', id: pc, track: 'sink', delta: DEMO_DECK_SINK } as unknown as Change,
+    { op: 'actor.ext', id: pc, key: 'deck', value: { slots: ['cs_night_rifle', 'cs_window1', 'cs_probe2'], skin: 'it_d212f6', scripts: [{ item: DEMO_SCRIPT, qty: 2 }] } } as unknown as Change,
   ]
 }

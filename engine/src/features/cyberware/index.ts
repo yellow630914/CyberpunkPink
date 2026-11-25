@@ -1,7 +1,7 @@
 // L6 功能：義體（身上的義體；CYBERWARE 第 1～3 節；CRAFTING 8.1、10.2 節；TRADE 3.4 節；DATA 7.1、3.4 節；dev/adr/0019 第三節與 P1～P6；dev/work/M4-cyberware.md）。
 //
 // 部位與槽、把一件成品裝上去與拆下來的手術（四種人動刀）、沉溺成本墊高沉溺的下限、義體的效果（被動效果，來源 cyber 與 quirk）、休養與併發症。
-// 橋（換橋）、甲板、戰鬥、授權鎖是後面四張（M4-cyber-bridge、-deck、-battle、-lock）。生體件的成長、小手術（換零件）不在這裡。
+// 橋（換橋）與甲板（腦部的義體，deck.ts）已經做了；戰鬥、授權鎖是後面兩張（M4-cyber-battle、-lock）。生體件的成長、小手術（換零件）不在這裡。
 //
 // 接上核心的地方：
 //   內容  cyber_rule（規則表，overridable；id: default）：槽數、四種人動刀的費用與併發症、休養、自己動刀的條件（model.ts 的 DEFAULT_CYBER_RULES）；
@@ -15,7 +15,7 @@
 //         橋（bridge.ts）：衍生數值 bridge_cap_meat／net／social／media（晶片給總量、軟體分四類、加零件的親和；沒有橋是 0；abilities 讀它們）；
 //         規則表多 deck_sink_default（成品甲板裝進腦部的沉溺成本，6）、bridge_fee_mult、bridge_recovery_minutes、bridge_swap_sink、cap_min；換橋用效果 sink_floor（有人註冊才給）。
 // 報告（kind action）：cyber.install、cyber.remove、cyber.bridge。
-// 對外：cyberOf、pieceSink、surgeons、swapBridgeBlock／swapBridgeProblems／swapBridgeDraft／bridgeQuote／bridgeCapacityOf／isBridge、installBlock／installProblems／installDraft／installQuote、removeBlock／removeProblems／removeDraft／removeQuote、cyberView。
+// 對外：cyberOf、pieceSink、surgeons、swapBridgeBlock／swapBridgeProblems／swapBridgeDraft／bridgeQuote／bridgeCapacityOf／isBridge、installBlock／installProblems／installDraft／installQuote、removeBlock／removeProblems／removeDraft／removeQuote、cyberView、deckSourceOf／brainDeck／isDeckPiece。
 
 import type { Condition, ConditionCtx, ContentEntry, Feature, GameState, Kernel } from '../../core'
 import { ContentError, isRecord, isSafeInt } from '../../core'

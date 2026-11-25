@@ -16,6 +16,7 @@ import src from '../../src/screens/SubnetScreen.vue?raw'
 import { LINK_MARK, leaveTo, logoutFlow, patrolTokens, traceStages, watchRunEnd } from '../../src/lib/netrunView'
 import { pressE } from '../../src/lib/here'
 import { hereOptions } from '../../src/lib/netrunView'
+import { wearDeck } from '../helpers/wearDeck'
 
 vi.mock('../../src/router', () => ({ FULL_PAGES: [{ path: '/', name: '主畫面' }], router: {} }))
 
@@ -81,7 +82,7 @@ function start(o: Opts = {}) {
   e.newGame({ seed: o.seed ?? 7, testContent: [PACK], testFeatures: [HELPER, TEST_ACTIVITY] })
   expect(e.createCharacter(DRAFT)).toEqual([])
   expect(e.commit({ summary: '給東西', changes: [give('dk_ii', 1, { uid: 'D1' }), give('cs_rifle')] })).toBeNull()
-  expect(e.deck.equip('D1')).toBeNull()
+  expect(wearDeck(e, 'D1')).toBeNull()
   expect(e.deck.install('cs_rifle')).toBeNull()
   if (o.begin !== false) {
     if (o.kind === 'face.net') expect(e.commit({ summary: '假委託', action: 'toy.test', changes: [{ op: 'ext', key: 'toy', value: { id: 't1', steps: 0, goal: 1, origin: { by: 'test' } } }] as never })).toBeNull()
