@@ -102,3 +102,7 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 戰鬥裡治重創有兩個 op：`combat` 的 `wound { mode }` 與 `medical` 的 `wound_treat`。統一用 `medical` 的 `wound_treat`；`combat` 的 `wound` 改成轉呼叫同一套邏輯或標成舊的（不能 import 就由資料改用新的），M4-abilities-m4 的技能資料一律寫 `wound_treat`。
 - 肢體「接回還是直接換義肢」（TRADE 3.4）：重創手術的選項多一個「換義肢」，接到 cyberware 的安裝（用效果或掛點，不互相 import）。
 - 治療與重創手術的價錢乘區的物價倍率：M4-data-rules 一起看（和手術費同一件事）。
+
+## 總指揮補記（2026-11-25，M4-cyber-lock 回報）
+- bills 在 `bill.settled` 的行上多帶 `why: 'stopped' | 'grace'`，cyberware 讀到 `stopped` 的訂閱就鎖住（現在 skipped 一律不動，是一個繞法）。
+- 第三種解鎖法（請潛網者偽造授權）：出口是效果 `cyber_unlock`，流程做成一件可以請中間人或夥伴辦的事（看 M4-training 的「請教」能不能共用）。

@@ -501,3 +501,4 @@
 - 2026-11-25 M4 第五步完成（cyber-deck、craft，加 testkit wearDeck 修舊測試）：engine 7197、smoke 133、ui 723 全過。
 - 2026-11-25 M4 第六步完成（cyber-battle、craft-salvage）：engine 7274、smoke 133、ui 723 全過。新增工單 M4-core-gaps（第十九步甲欄先做）收核心的五個缺口。待使用者：藥泵每劑都不花行動點（照 EQUIPMENT 4.1、ITEMS 4.1）還是每場一次（ITEMS 藥泵-100 那列）。
 - 2026-11-25 使用者：藥泵每劑都不花行動點（ITEMS 藥泵-100 已改）。
+- 2026-11-25 M4 第七步完成（cyber-lock、medical）。

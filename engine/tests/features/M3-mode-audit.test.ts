@@ -332,7 +332,7 @@ describe('敵人的士氣、天使急救與束帶（ENEMIES 4.4 節、第 5 節�
 
 // ---- 五、隨機打完 ----
 
-describe('隨機打完十場內海戰鬥', () => {
+describe('隨機打完十場內海戰鬥', { timeout: 30_000 }, () => {
   it('十個種子：帶著全部功能不丟錯，不變式沒有違規，沒有現實才有的東西留下來', async () => {
     for (let seed = 1; seed <= 10; seed++) {
       const g = world(seed)

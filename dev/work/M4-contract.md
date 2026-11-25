@@ -50,3 +50,5 @@ M4-core-passive。`cyber_lock`（M4-cyber-lock）、`tuning`（M4-tuning）沒�
 ## 完成時回報
 
 改了哪些檔、測試結果、`work` 的結算報告實際的 `action` 名字（收入歸屬對的是哪一個）、七種指令裡「出借」目前只是一條指令的種類、P27～P30 的數字照表。
+
+- 總指揮補記（2026-11-25，M4-cyber-lock 回報）：契約鎖（`lock.kind: contract`）目前只讀得到、能被 `crackDraft` 破解；契約鎖要不要擋破解、遠端接管，歸這一張。
