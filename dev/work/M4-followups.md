@@ -161,3 +161,7 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 ## 總指揮補記（2026-11-25，M4-contract-holder 回報）
 - 持約人調整規矩的「能不能接別人的指令」（LEWD 7.5）：現在讀成 `person`（不准見某人）。照設計書再確認一次意思；若是「別人能不能對他下指令」，做成持有契約的一個開關（影響出借與 NTR 事件）。
 - `roster_add` 在真的名冊只放進候選：持約人取得契約時，對象直接成為成員（契約就是綁著他）。
+
+## 使用者裁決（2026-11-25）
+- 契約指令的抗拒：沉溺的懲罰只留 EVENTS 4.5 的 DC 加值（迷醉 +2、溺感邊緣 +4）；sink 分段的 `resist_control` −2 不套在契約指令上——契約發起的抗拒檢定不帶 `resist_control` 標籤，改帶 `resist_contract`（sink 不認），其他「抗拒控制」的檢定照舊帶 `resist_control`。
+- 持約人規矩「能不能接別人的指令」刪掉（LEWD 7.5 已改）；contract 的規矩種類 `person` 若是為它而設的就拿掉，`dress`、禁區、宵禁留著。
