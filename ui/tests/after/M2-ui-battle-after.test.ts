@@ -585,8 +585,12 @@ describe('打贏：俘虜的處置（事件視窗的選項嵌在面板裡）', (
     const h = await html(pinia, SceneGate)
     expect(clean(h)).toContain('data-scene-gate')
     expect(clean(h)).toContain('data-scene-skip')
-    expect(e.sceneGate.skip()).toBeNull()
+    expect(clean(h)).toContain('data-direction')
+    const skipped = await e.sceneGate.skip()
+    expect(skipped.status).toBe('applied')
+    expect(skipped.reason).toBeUndefined()
     expect(e.sceneGate.active()).toBe(false)
+    e.scene.clearEnded()
   })
 })
 

@@ -23,3 +23,4 @@
 14. （M4-malware 回報）戰鬥掛點：傀儡絲「義肢偶爾不聽使喚、被遠端操控一回合」——回合開始時問一次，可以讓單位這一回合由敵方 AI 操控。
 15. （M4-core-scene-ai 回報）features/scene 補三個接口，外殼改用它們：(a) 匯出「只走一個人的回合」，外殼拿掉用 `Play` 模擬 `groupRound` 的那段；(b) `SceneEnv.talk` 改成每人一份；(c) `SceneEnv.lines` 收 AI 的一句話（外殼不再直接改草稿的 timeline 與 `ext.scene.lines`）。
 16. （M4-lure 回報）自由行動與成人場景的視窗開掛點，讓妖精的吻擴散階段「替你做決定」插一個選項（現在只做到事件端 `kiss_choose`）。
+17. （M4-ui-scene 回報）features/scene：開場設定（或摘要）存進 `SceneRaw`／提供 `sceneGateSummary`；直接的 `canSkip`；`SceneView` 的 `position.mult`／`roles` 與 `lines[].who` 改成每個座位（角色 id），拿掉 `people.partner`；`sceneOptions` 的 `pairs` 收指定對象；director 的 `adult_scene` 可以開單人（不帶 `circles`）。ui 跟著改讀新欄位、拿掉 `setupOf` 與複本試跑。

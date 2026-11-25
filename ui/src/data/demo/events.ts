@@ -48,6 +48,16 @@ export function eventContent(): NonNullable<ContentPack['content']> {
         { id: 'pass', text: '點個頭，繼續等車。', outcomes: { any: [] } },
       ],
     },
+    {
+      // 三個人的成人場景（M4-ui-scene）：兩位登場角色加主角一圈（完整版才展開成一圈三個人；精簡版只展開一個、另一位收成旁邊的圈）
+      id: 'ev_street_trio', scope: 'street', triggers: ['enter_block'], category: 'favor', adult: true,
+      text: '二樓包廂的門半掩著，裡頭兩個你認識的人朝你招手：「別站著，進來坐。」',
+      cast: [{ role: 'a', gen: { kind: 'citizen', name: '兩位熟客之一' } }, { role: 'b', gen: { kind: 'citizen', name: '兩位熟客之二' } }],
+      options: [
+        { id: 'in', text: '推門進去。', outcomes: { any: [] }, adult_scene: { when: 'always', gate: 'fixed', nature: 'mutual', role: 'none', goal: 'none', circles: [['$pc', '$a', '$b']], tags: [] } },
+        { id: 'no', text: '笑著搖頭，往樓下走。', outcomes: { any: [] } },
+      ],
+    },
   ]
   return { event_scope, event } as unknown as NonNullable<ContentPack['content']>
 }

@@ -25,11 +25,22 @@ export const PACK: ContentPack = {
       { id: 'nt_hold', name: '牽著走', tag: 'tg_dom', tags: ['tg_dom'], scene: { ap: 2, my_part: ['hand_l', 'hand_r'], their_part: ['chest', 'back'], on_use: { their_load: '2d6', my_load: '1d6', fit: 4, initiative: 15 }, link: { their_load: '1d6', my_load: 0, fit: 1 }, match_bonus: 12 } },
       { id: 'nt_kiss', name: '慢慢靠近', scene: { ap: 1, my_part: ['mouth'], their_part: ['mouth'], on_use: { their_load: '1d6', fit: 2 }, link: { their_load: '1d6', fit: 0 }, positions: ['pos_face'] } },
       { id: 'nt_lap', name: '坐上來' },
+      // M4-ui-scene：夜課的學習與單人
+      { id: 'nt_c1', name: '學習一', branch: 'common', tier: 1, desc: '一個一階的共通技能。', scene: { ap: 1, my_part: ['mouth'], their_part: ['mouth'], on_use: { their_load: '1d6', fit: 2 } } },
+      { id: 'nt_c3', name: '學習三', branch: 'common', tier: 3, scene: { ap: 1, my_part: ['mouth'], their_part: ['mouth'], on_use: { their_load: '1d6', fit: 2 } } },
+      { id: 'nt_rich', name: '很貴的一招', branch: 'common', tier: 1, insight: 80, scene: { ap: 1, my_part: ['mouth'], their_part: ['mouth'], on_use: { their_load: '1d6', fit: 2 } } },
+      { id: 'nt_solo', name: '一個人也行', branch: 'body', tier: 1, scene: { ap: 1, my_part: ['hand_l'], their_part: ['chest'], on_use: { my_load: '1d6', fit: 2 }, solo: 'ok' } },
+      { id: 'nt_aud', name: '要有人看', branch: 'costume', tier: 1, scene: { ap: 1, my_part: ['hand_l'], their_part: ['chest'], on_use: { my_load: '1d6', fit: 2 }, solo: 'audience' } },
+    ],
+    night_resonance: [
+      { id: 'res_c1', name: '熟門熟路', branch: 'common', tier: 1, desc: '一句說明。', scene: { free_switch: 1 } },
+      { id: 'res_c4', name: '很深的功夫', branch: 'common', tier: 4, scene: { end_fit: 2 } },
     ],
     position: [
       { id: 'pos_face', name: '面對面', people: 2, roles, mult: { a: 1, b: 1.5 }, initiative_drift: 3, tags: [], unlocked_by: null, text: '兩個人面對面。', links: [link('mouth', 'mouth'), link('hand_l', 'chest'), link('hand_r', 'chest'), link('front', 'front'), link('hand_l', 'back')] },
       { id: 'pos_behind', name: '從後面', people: 2, roles, mult: { a: 1, b: 1.25 }, initiative_drift: 3, tags: [], unlocked_by: null, links: [link('front', 'back'), link('hand_l', 'chest'), link('hand_r', 'chest'), link('mouth', 'back')] },
       { id: 'pos_lie', name: '並躺', people: 2, roles: [{ id: 'a', upper: false }, { id: 'b', upper: false }], mult: { a: 1, b: 1 }, initiative_drift: 0, tags: [], unlocked_by: null, links: [link('hand_l', 'hand_l'), link('mouth', 'mouth'), link('hand_r', 'chest')] },
+      { id: 'pos_trio', name: '三個人', people: 3, roles: [{ id: 'a', upper: true }, { id: 'b', upper: false }, { id: 'c', upper: false }], mult: { a: 1, b: 1.2, c: 1.2 }, initiative_drift: 2, tags: [], unlocked_by: null, text: '三個人貼在一起。', links: [link('mouth', 'mouth'), { from: ['a', 'hand_l'], to: ['b', 'chest'] }, { from: ['a', 'hand_r'], to: ['c', 'chest'] }, { from: ['b', 'mouth'], to: ['c', 'mouth'] }] },
       { id: 'pos_lap', name: '腿上', people: 2, roles, mult: { a: 1, b: 1 }, initiative_drift: 3, tags: [], unlocked_by: 'nt_lap', links: [link('front', 'front'), link('hand_l', 'chest')] },
     ],
     item: [
@@ -46,13 +57,17 @@ export const ANN: Actor = {
   ext: { bridge: { sensitivity: 100, tolerance: 30, craving: 30, docility: 30 } },
 } as unknown as Actor
 
+const person = (id: string, name: string): Actor => ({ ...ANN, id, name } as Actor)
+export const BEA: Actor = person('npc_bea', '貝')
+export const CAT: Actor = person('npc_cat', '凱')
 export const SETUP = { with: ['npc_ann'], nature: 'mutual' }
+export const TRIO = { with: ['npc_ann', 'npc_bea'], nature: 'mutual', mode: 'full' }
 
 export type Eng = ReturnType<typeof useEngine>
 export interface Setup { pinia: ReturnType<typeof createPinia>; e: Eng }
 
 /** 開一局、建好角色、放好對象與主角會的招式；mode 是場景的操作（精簡或完整）。 */
-export function setup(o: { seed?: number; mode?: 'simple' | 'full'; rules?: object; pcDocility?: number; begin?: boolean; setup?: Record<string, unknown> } = {}): Setup {
+export async function setup(o: { seed?: number; mode?: 'simple' | 'full'; rules?: object; pcDocility?: number; begin?: boolean; setup?: Record<string, unknown>; people?: Actor[]; skills?: string[]; insight?: number; ext?: Record<string, unknown> } = {}): Promise<Setup> {
   const pinia = createPinia()
   setActivePinia(pinia)
   const e = useEngine()
@@ -63,15 +78,18 @@ export function setup(o: { seed?: number; mode?: 'simple' | 'full'; rules?: obje
   const pc = e.state.pc!
   const changes: Change[] = [
     { op: 'actor.add', actor: ANN },
+    ...(o.people ?? []).map((a) => ({ op: 'actor.add', actor: a })),
+    ...(o.insight ? [{ op: 'meter', kind: 'insight', key: '_', delta: o.insight }] : []),
     { op: 'actor.ext', id: pc, key: 'bridge', value: { sensitivity: 50, tolerance: 30, craving: 30, docility: o.pcDocility ?? 10 } },
     { op: 'actor.ext', id: pc, key: 'tendency', value: { axes: {}, points: {}, tags: { tg_dom: 'has' } } },
-    { op: 'actor.ext', id: pc, key: 'scene', value: { skills: ['nt_hold', 'nt_kiss'], positions: ['pos_lap'] } },
+    { op: 'actor.ext', id: pc, key: 'scene', value: { skills: o.skills ?? ['nt_hold', 'nt_kiss'], positions: ['pos_lap'] } },
+    ...Object.entries(o.ext ?? {}).map(([key, value]) => ({ op: 'actor.ext', id: pc, key, value })),
     { op: 'item', id: 'it_toy', qty: 1 }, { op: 'item', id: 'it_calm', qty: 2 },
   ] as unknown as Change[]
   const why = e.commit({ summary: '放好場景要用的東西', action: 'ui.test_scene', changes }, { attach: true })
   if (why) throw new Error(why)
   if (o.begin !== false) {
-    const w = e.scene.begin(o.setup ?? SETUP)
+    const w = await e.scene.begin(o.setup ?? SETUP)
     if (w) throw new Error(`場景開不起來：${w}`)
   }
   return { pinia, e }

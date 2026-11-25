@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { signed } from '../../lib/scene/sceneView'
 import type { Debrief } from '../../lib/scene/sceneView'
 
 /**
@@ -16,7 +17,7 @@ defineEmits<{ (e: 'leave'): void }>()
       <div v-if="debrief.solo && debrief.pace !== null" class="kv"><span>節奏</span><b data-report-pace>{{ debrief.pace }}・{{ debrief.rating || '—' }}</b></div>
       <div v-else-if="debrief.fit !== null" class="kv"><span>契合</span><b data-report-fit>{{ debrief.fit }}・{{ debrief.rating }}</b></div>
       <ul v-if="debrief.rows.length > 0" class="rows" data-report-rows>
-        <li v-for="r in debrief.rows" :key="r.id" :data-row="r.id"><b>{{ r.name }}</b><span class="mono">契合 {{ r.fit }}・{{ r.rating }}</span><span v-if="r.affinity !== null" class="mono" data-row-affinity>親密度 {{ r.affinity > 0 ? '+' : r.affinity < 0 ? '−' : '' }}{{ Math.abs(r.affinity) }}</span></li>
+        <li v-for="r in debrief.rows" :key="r.id" :data-row="r.id"><b>{{ r.name }}</b><span class="mono">契合 {{ r.fit }}・{{ r.rating }}</span><span v-if="r.affinity !== null" class="mono" data-row-affinity>親密度 {{ signed(r.affinity) }}</span></li>
       </ul>
       <div v-if="debrief.insight !== null" class="kv"><span>體悟</span><b data-report-insight>+{{ debrief.insight }}</b></div>
       <ul class="res" data-report-results><li v-for="(r, i) in debrief.results" :key="i">{{ r }}</li></ul>

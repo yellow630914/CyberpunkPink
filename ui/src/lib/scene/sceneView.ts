@@ -164,9 +164,9 @@ export function debriefOf(report: Report, describe: (c: Report['changes']) => st
   const solo = data.solo === true
   const changes = report.changes as Array<Record<string, unknown>>
   const affinityOf = (id: string): number | null => {
-    const hit = changes.find((c) => typeof c.op === 'string' && c.op.includes('affinity') && (c.key === id || c.id === id || c.npc === id))
-    const n = hit ? (hit.delta ?? hit.amount) : undefined
-    return typeof n === 'number' ? n : null
+    // 親密度是量表 affinity 的變更（key 是那個人）；這一份報告沒有改它（變化是 0 或被夾掉）就是沒有變
+    const hit = changes.find((c) => c.op === 'meter' && c.kind === 'affinity' && c.key === id)
+    return typeof hit?.delta === 'number' ? hit.delta : 0
   }
   const rows: DebriefRow[] = []
   if (!solo) {

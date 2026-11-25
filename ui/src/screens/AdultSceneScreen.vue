@@ -42,6 +42,8 @@ const group = computed(() => !!v.value && isGroup(v.value))
 const others = computed<PersonView[]>(() => (v.value ? othersOf(v.value) : []))
 const pc = computed<PersonView | null>(() => v.value?.seats[0] ?? null)
 const theirName = computed(() => (others.value.length > 0 ? others.value.map((x) => x.name).join('、') : '對方'))
+/** 行動列與預覽裡稱呼對象的字：多人時指定了對象就是他，沒指定就是「對象」（引擎挑的那一個預覽時寫對象） */
+const addressee = computed(() => (group.value ? (target.value ? nameOf(target.value) : '對象') : theirName.value))
 const hide = computed(() => hidesIntimate(e.scene.contentOff()))
 const wait = computed(() => (route.query.fast || st.s.reduceMotion ? 0 : 450))
 const nameOf = (id: string): string => (id === pc.value?.id ? '你' : e.state.actors[id]?.name ?? id)
@@ -323,7 +325,7 @@ function onKey(ev: KeyboardEvent): void {
         <span>{{ pickHint }}</span><button type="button" class="btn sm" data-pick-cancel @click="cancelPick">取消</button>
       </div>
 
-      <SceneActions ref="bar" :opts="opts" :playing="playing" :their-name="theirName" :selected="selected" :target="target" :focus="focus" @select="selected = $event" @choose="choose" @target="target = $event" @end-turn="perform({ kind: 'end_turn' })" />
+      <SceneActions ref="bar" :opts="opts" :playing="playing" :their-name="addressee" :selected="selected" :target="target" :focus="focus" @select="selected = $event" @choose="choose" @target="target = $event" @end-turn="perform({ kind: 'end_turn' })" />
 
       <aside class="side">
         <section class="panel cut pad log" data-lines>
@@ -390,7 +392,7 @@ function onKey(ev: KeyboardEvent): void {
 @media (max-width: 1100px) { .sc { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "stage" "circles" "links" "pick" "acts" "side"; } }
 @media (max-width: 720px) {
   .sc { padding: var(--space-3); gap: var(--space-3); }
-  .stage { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+  .stage, .stage.solo { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
   .stage > :nth-child(1) { order: 3; } .mid { order: 2; } .others { order: 1; }
   .lk-toggle { display: inline-block; }
   .lk-long { display: none; }

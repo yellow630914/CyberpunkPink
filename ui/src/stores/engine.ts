@@ -650,7 +650,7 @@ export const useEngine = defineStore('engine', () => {
       const pcId = game.state.pc
       if (pcId === null) return '還沒有主角：先去建角。'
       const pcActor = game.state.actors[pcId]!
-      const changes = demoSceneChanges(d, { actor: !!game.state.actors[d.partner.id], pc: pcId, ext: pcActor.ext, items: game.state.inventory.map((x) => x.id) })
+      const changes = demoSceneChanges(d, { actor: !!game.state.actors[d.partner.id], pc: pcId, ext: pcActor.ext, items: game.state.inventory.map((x) => x.id), known: Object.keys(game.state.actors) })
       const why = commit({ summary: '準備示範的場景', action: 'ui.demo_scene', changes }, { attach: true })
       return why ?? scene.begin(d.setup, { by: 'ui', ref: d.id })
     },
