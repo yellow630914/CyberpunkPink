@@ -4,6 +4,7 @@
 import type { Kernel } from '../../core'
 import { aiProblems, applySet, meatProblems, modsProblems, onlyKeys, poolProblems, prepProblems, useProblems } from './format'
 import { isActionCol } from './column'
+import { allAbilities, NIGHT_KIND, outsideProblems } from './outside'
 import type { AbilityEntry, MeatDef, PathEntry } from './types'
 import { CATEGORIES, DOMAIN_LEVELS, KINDS, LAYERS, OWNER } from './types'
 
@@ -120,13 +121,33 @@ function playerAbilityProblems(e: Record<string, unknown>, k: Pick<Kernel, 'batt
 
   for (const col of ['meat', 'net', 'opinion'] as const) {
     const v = e[col]
-    if (v === undefined) p.push(`要有 ${col}（沒有效果就寫 null）`)
-    else if (v !== null && !isRec(v)) p.push(`${col} 要是物件或 null`)
+    // 日常技能（kind 是 daily）可以完全不寫戰鬥的欄位
+    if (v === undefined) {
+      if (e.kind !== 'daily') p.push(`要有 ${col}（沒有效果就寫 null）`)
+    } else if (v !== null && !isRec(v)) p.push(`${col} 要是物件或 null`)
   }
   if (isRec(e.meat)) p.push(...meatProblems(e.meat, e.kind, k))
   if (isRec(e.net)) p.push(...meatProblems(e.net, e.kind, k, 'net', e.use))
   p.push(...prepProblems(e.prep, e.kind, k))
   if (e.daily !== undefined && e.daily !== null && !isRec(e.daily)) p.push('daily 要是物件或 null')
+  else if (isRec(e.daily) && e.daily.kind !== undefined && !isText(e.daily.kind)) p.push('daily.kind 要是日常的種類（字串，例如 surgery、dissect、workshop、unlock）')
+  p.push(...statsProblems(e.stats))
+  return p
+}
+
+/** stats：裝著時給衍生數值的加減，每一筆 { stat, amount?, per_tier?, min?, max? }。 */
+export function statsProblems(stats: unknown): string[] {
+  if (stats === undefined) return []
+  if (!Array.isArray(stats)) return ['stats 要是 [{ stat, amount?, per_tier?, min?, max? }]']
+  const p: string[] = []
+  stats.forEach((s, i) => {
+    const at = `stats[${i}]`
+    if (!isRec(s) || !isText(s.stat)) return void p.push(`${at} 要是 { stat, amount?, per_tier?, min?, max? }，stat 是衍生數值的 id`)
+    p.push(...onlyKeys(at, s, ['stat', 'amount', 'per_tier', 'min', 'max']))
+    for (const key of ['amount', 'per_tier', 'min', 'max'] as const) if (s[key] !== undefined && !isNum(s[key])) p.push(`${at}.${key} 要是數字`)
+    if (s.amount === undefined && s.per_tier === undefined) p.push(`${at} 要寫 amount 或 per_tier（至少一個）`)
+    if (isNum(s.min) && isNum(s.max) && s.min > s.max) p.push(`${at}.min 不能比 max 大`)
+  })
   return p
 }
 
@@ -149,7 +170,8 @@ const DOMAIN_COLUMNS = [['meat', '現實'], ['net', '內海'], ['opinion', '輿�
 export function checkAbilities(k: Pick<Kernel, 'content' | 'battle'>): void {
   const problems: string[] = []
   const paths = new Map(k.content.list<PathEntry>('path').map((x) => [x.id, x]))
-  const abilities = new Map(k.content.list<AbilityEntry>('ability').map((x) => [x.id, x]))
+  // 夜課延伸的技能（night:<id>）也在內：cost.ability、alter 可以指到它們
+  const abilities = new Map(allAbilities(k).map((x) => [x.id, x]))
 
   for (const path of paths.values()) {
     const sig = abilities.get(path.signature)
@@ -168,8 +190,8 @@ export function checkAbilities(k: Pick<Kernel, 'content' | 'battle'>): void {
 
   for (const a of abilities.values()) {
     // 敵人的招牌行動沒有樹：只查花費的引用與 alter
-    const path = a.enemy === true ? undefined : paths.get(a.path)
-    if (a.enemy !== true && !path) {
+    const path = a.enemy === true || a.night !== undefined ? undefined : paths.get(a.path)
+    if (a.enemy !== true && a.night === undefined && !path) {
       problems.push(`${a.id}：沒有 ${a.path} 這棵樹`)
       continue
     }
@@ -180,7 +202,7 @@ export function checkAbilities(k: Pick<Kernel, 'content' | 'battle'>): void {
       else if (pre.path !== a.path) problems.push(`${a.id}：前置 ${a.after} 不在同一棵樹（${a.id} 在 ${a.path}，${a.after} 在 ${pre.path}）`)
     }
     for (const [col, name] of DOMAIN_COLUMNS) {
-      if (path && path.domains[col] === 'none' && a[col] !== null) problems.push(`${a.id}：${path.tree}在${name}沒有效果（domains.${col} 是 none），${col} 要是 null`)
+      if (path && path.domains[col] === 'none' && a[col] !== null && a[col] !== undefined) problems.push(`${a.id}：${path.tree}在${name}沒有效果（domains.${col} 是 none），${col} 要是 null`)
     }
     // 兩欄各自的：cost 引用的技能要存在、alter 要改的技能要存在，而且改完的那一欄還要是合格的格式
     for (const col of ['meat', 'net'] as const) {
@@ -209,6 +231,8 @@ export function checkAbilities(k: Pick<Kernel, 'content' | 'battle'>): void {
       if (kindOf(a.meat) !== kindOf(a.net)) problems.push(`${a.id}：meat 與 net 兩欄都是主動的行動，目標的種類要一樣（meat 是 ${kindOf(a.meat)}、net 是 ${kindOf(a.net)}）；目標不同的寫成兩個技能`)
     }
   }
+  // 夜課的 outside（night_skill 這個內容種類由別的功能定義；沒有人定義就沒有這一段）
+  if (k.content.hasKind(NIGHT_KIND)) for (const e of k.content.list(NIGHT_KIND)) problems.push(...outsideProblems(e, k))
   if (problems.length) throw new Error(`技能內容的檢查沒過（${problems.length} 個）：\n${problems.slice(0, 20).join('\n')}`)
 }
 

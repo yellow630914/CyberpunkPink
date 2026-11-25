@@ -9,6 +9,7 @@ import { colIn } from './column'
 import type { AbilityEntry, SuppressDef } from './types'
 import { OWNER } from './types'
 import type { Kernel } from '../../core'
+import { abilityEntry } from './outside'
 
 /** 被這一次壓制打到的人（目標在最前面，其餘照站位）。 */
 function reach(run: BattleRun, target: BattleUnit, area: SuppressDef['area']): BattleUnit[] {
@@ -37,7 +38,7 @@ export function registerSuppress(k: Kernel): void {
   k.battle.on('attack.after', OWNER, ({ run, attacker, target, weapon, result }) => {
     if (!result.hit || run.isStandIn(attacker) || run.isStandIn(target) || target.out || !onField(target) || !attacker.stance) return
     if (weapon.traits.includes('melee')) return
-    const ab = run.k.content.get<AbilityEntry>('ability', attacker.stance)
+    const ab = abilityEntry(run.k, attacker.stance)
     const sup = (ab ? colIn(run, attacker, ab) : null)?.attack?.suppress
     if (!ab || !sup?.auto) return
     if (sup.first_round && run.battle.round !== 1) return

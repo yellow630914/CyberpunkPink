@@ -9,9 +9,10 @@
 import type { ActorId, BattleRun, BattleUnit, CheckCtx, GameState, Kernel, ReportDraft, RollPart } from '../../core'
 import { clone } from '../../core'
 import { abilitiesOf, reportOf } from './learn'
-import type { AbilityEntry, OutMod } from './types'
+import type { OutMod } from './types'
 import { OWNER } from './types'
 import { dataOf, isRec, tierIn, unitAbilities } from './unitdata'
+import { abilityEntry } from './outside'
 
 /** 這一筆戰鬥外的修正對不對得上這一次檢定：tags 全部都要有、skill 要一樣（沒寫的不限）。 */
 const matches = (m: OutMod, ctx: Pick<CheckCtx, 'tags' | 'skill'>): boolean =>
@@ -26,7 +27,7 @@ export function outParts(k: Pick<Kernel, 'content'>, state: GameState, actor: Ac
     if (matches(m, ctx)) out.push({ label, value: m.value, source: 'skill' })
   }
   for (const id of mine.equipped) {
-    const ab = k.content.get<AbilityEntry>('ability', id)
+    const ab = abilityEntry(k, id)
     const m = ab?.meat
     if (!ab || !m || m.pending) continue
     if (ab.kind === 'stance' && mine.stance === id && m.out) push(ab.name, m.out.check)
@@ -34,7 +35,7 @@ export function outParts(k: Pick<Kernel, 'content'>, state: GameState, actor: Ac
   }
   for (const p of mine.prepared ?? []) {
     if (p.target === undefined || ctx.target !== p.target) continue
-    const ab = k.content.get<AbilityEntry>('ability', p.id)
+    const ab = abilityEntry(k, p.id)
     for (const mod of ab?.prep?.out_mods ?? []) push(ab!.name, mod)
   }
   return out
@@ -44,7 +45,7 @@ export function outParts(k: Pick<Kernel, 'content'>, state: GameState, actor: Ac
 
 /** 現在開得了這個姿態嗎（戰鬥外）；開不了回傳第一個原因（給玩家看的完整句子）。關掉自己開著的不看條件。 */
 export function stanceBlock(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId, id: string): string | null {
-  const ab = k.content.get<AbilityEntry>('ability', id)
+  const ab = abilityEntry(k, id)
   if (!ab) return '沒有這個技能。'
   if (!state.actors[actor]) return '沒有這個角色。'
   if (state.battle) return '戰鬥中的姿態用戰鬥裡的行動開關。'
@@ -64,7 +65,7 @@ export function stance(k: Pick<Kernel, 'content'>, state: GameState, actor: Acto
   const why = stanceBlock(k, state, actor, id)
   if (why) throw new Error(why)
   const mine = abilitiesOf(state, actor)
-  const ab = k.content.get<AbilityEntry>('ability', id)!
+  const ab = abilityEntry(k, id)!
   const { stance: current, ...rest } = clone(mine)
   const turningOff = current === id
   const next = turningOff ? rest : { ...rest, stance: id }
@@ -82,7 +83,7 @@ export function carryStance(run: Pick<BattleRun, 'state' | 'battle' | 'k' | 'mod
   if (!unit.actor || run.mode.layer !== 'meat' || unit.stance) return
   const id = abilitiesOf(run.state, unit.actor).stance
   if (!id || !unitAbilities(unit).equipped.includes(id)) return
-  const ab = run.k.content.get<AbilityEntry>('ability', id)
+  const ab = abilityEntry(run.k, id)
   if (!ab || ab.kind !== 'stance' || !ab.meat?.out || ab.meat.pending) return
   unit.stance = id
   dataOf(unit).carried = id
@@ -95,7 +96,7 @@ export function startOutStance(run: BattleRun): void {
     const id = isRec(d) && typeof d.carried === 'string' ? d.carried : undefined
     if (!id) continue
     delete (d as Record<string, unknown>).carried
-    const ab = run.k.content.get<AbilityEntry>('ability', id)
+    const ab = abilityEntry(run.k, id)
     const list = ab?.meat?.out?.on_start
     if (!ab || u.stance !== id || !list?.length || u.out || u.slot < 1) continue
     run.say(`${u.name}：${ab.name}（開戰）。`, 'skill', { unit: u.id, ability: ab.id, start: true }, u)

@@ -9,9 +9,10 @@ import { STATUS_UNTILS, amount, onField, statusRuleOf, unitTag, unitsOf } from '
 import { colIn, gearOf, layerOf } from './column'
 import { whenBlocks } from './conditions'
 import { modsProblems } from './format'
-import type { AbilityEntry, AnyModKind, FeatureModKind, ModEntry, PathEntry, UnitBuff } from './types'
+import type { AnyModKind, FeatureModKind, ModEntry, PathEntry, UnitBuff } from './types'
 import { OWNER } from './types'
 import { broughtPrep, broughtTargets, equippedOf, isPerson, isRec, linkedIds, setBuffs, tierIn, unitAbilities, unitBuffs } from './unitdata'
+import { abilityEntry } from './outside'
 
 /** 一批修正的來源：哪個技能（或共鳴、預備、buff）、誰是給的人、這棵樹幾階。 */
 interface Source {
@@ -52,7 +53,7 @@ function sourcesOf(view: Pick<BattleView, 'k' | 'mode'>, holder: BattleUnit): So
   for (const b of unitBuffs(holder)) out.push({ key: `buff:${b.id}`, name: b.name, holder, tier: b.tier, mods: b.mods, by: b.by })
   const targets = broughtTargets(holder)
   for (const id of broughtPrep(holder)) {
-    const ab = view.k.content.get<AbilityEntry>('ability', id)
+    const ab = abilityEntry(view.k, id)
     const mods = layerOf(view) === 'net' ? ab?.prep?.net?.mods : ab?.prep?.meat?.mods
     if (ab && mods) out.push({ key: `prep:${id}`, name: ab.name, holder, tier: tierIn(holder, ab.path), mods, ...(ab.prep?.target === 'person' ? { vs: targets[id] ?? '' } : {}) })
   }
@@ -188,7 +189,7 @@ export function registerBuff(k: Kernel): void {
     const until = (typeof e.until === 'string' ? e.until : 'own_turn_end') as UnitBuff['until']
     const id = String(e.id)
     const source = ctx.source
-    const ab = source.kind === 'ability' ? ctx.run.k.content.get<AbilityEntry>('ability', source.id) : undefined
+    const ab = source.kind === 'ability' ? abilityEntry(ctx.run.k, source.id) : undefined
     const buff: UnitBuff = {
       id, name: typeof e.name === 'string' ? e.name : id, turns: typeof e.turns === 'number' ? e.turns : 1, until,
       of: until.startsWith('source') ? ctx.user.id : unit.id, by: ctx.user.id,

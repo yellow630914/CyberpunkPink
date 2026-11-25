@@ -13,6 +13,7 @@ import { IDOL } from './idol'
 
 export type { SkillNote, Status, Tree } from './util'
 export { GUNNER, MEDIC, NETRUNNER, PILOT, SOCIALITE, BROKER, STREAMER, IDOL }
+export { FIELD_SURGERY_M4, medicM4 } from './medic'
 
 export const NET_TREES: Record<string, Tree> = { gunner: GUNNER, netrunner: NETRUNNER, medic: MEDIC, pilot: PILOT }
 

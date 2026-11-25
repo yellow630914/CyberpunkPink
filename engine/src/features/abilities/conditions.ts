@@ -5,8 +5,9 @@ import type { BattleUnit, BattleView, ItemEntry, UnitRank } from '../../core'
 import { distance, hasStatus, isWounded, onField, statusRuleOf, syncGearIndex, wielded } from '../../core'
 import { gearName, gearOf } from './column'
 import { flowTierOf } from './stats'
-import type { AbilityEntry, NeedsDef, WhenDef } from './types'
+import type { NeedsDef, WhenDef } from './types'
 import { spotted } from './unitdata'
+import { abilityEntry } from './outside'
 
 /** 單位這一場發動過幾次攻擊（social.ts 的 attack.after 記；偽裝的「第一次攻擊」看它）。 */
 export const ATTACKS_MADE = 'attacks_made'
@@ -35,7 +36,7 @@ export function whenBlocks(view: BattleView, u: BattleUnit, w: WhenDef | undefin
   if (w.hull === true && !u.hull) out.push('要在機甲狀態才能用。')
   if (w.hull === false && u.hull) out.push('機甲狀態下不能用。')
   if (w.stance !== undefined && u.stance !== w.stance) {
-    const name = view.k.content.get<AbilityEntry>('ability', w.stance)?.name ?? w.stance
+    const name = abilityEntry(view.k, w.stance)?.name ?? w.stance
     out.push(`要先開著「${name}」姿態才能用。`)
   }
   if (w.slot !== undefined) {

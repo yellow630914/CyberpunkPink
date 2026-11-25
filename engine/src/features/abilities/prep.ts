@@ -16,6 +16,7 @@ import { abilitiesOf } from './learn'
 import type { AbilityEntry, AbilityState, PreparedEntry } from './types'
 import { commissionKeyOf, useOf } from './use'
 import { broughtPrep, dataOf, tierIn } from './unitdata'
+import { abilityEntry } from './outside'
 
 /** 預備的輸入：選的人（prep.target 是 person 的）、這件預備算在哪一件委託（有每件委託次數的）。 */
 export interface PrepInput {
@@ -65,7 +66,7 @@ function settle(k: PrepKernel, state: GameState, actor: ActorId, ab: AbilityEntr
 
 /** 現在預備得了這個技能嗎；預備不了就回傳第一個原因（給玩家看的完整句子），預備得了是 null。 */
 export function prepBlock(k: PrepKernel, state: GameState, actor: ActorId, id: string, input: PrepInput = {}): string | null {
-  const ab = k.content.get<AbilityEntry>('ability', id)
+  const ab = abilityEntry(k, id)
   if (!ab) return '沒有這個技能。'
   if (ab.kind !== 'prep') return `${ab.name}不是預備技能。`
   if (!state.actors[actor]) return '沒有這個角色。'
@@ -98,7 +99,7 @@ export function prepBlock(k: PrepKernel, state: GameState, actor: ActorId, id: s
 export function prep(k: PrepKernel, state: GameState, actor: ActorId, id: string, input: PrepInput = {}): ReportDraft {
   const why = prepBlock(k, state, actor, id, input)
   if (why) throw new Error(why)
-  const ab = k.content.get<AbilityEntry>('ability', id)!
+  const ab = abilityEntry(k, id)!
   const def = ab.prep!
   const mine = abilitiesOf(state, actor)
   // 帶 trace_start 的預備在預備時就綁在指定的那件委託上（內海階段開始前讀 net_trace_start，等不到第一場戰鬥結束才綁）
@@ -135,7 +136,7 @@ export function bringPrep(run: Pick<BattleRun, 'state' | 'battle' | 'mode' | 'k'
   const prepared = abilitiesOf(run.state, u.actor).prepared
   if (!prepared?.length) return
   const key = commissionKeyOf(run.battle)
-  const here = prepared.filter((p) => (p.scope === 'next_battle' || p.key === undefined || p.key === key) && bringsIn(run.k.content.get<AbilityEntry>('ability', p.id), layer))
+  const here = prepared.filter((p) => (p.scope === 'next_battle' || p.key === undefined || p.key === key) && bringsIn(abilityEntry(run.k, p.id), layer))
   if (!here.length) return
   dataOf(u).brought = here.map((p) => p.id)
   const read = Object.fromEntries(here.filter((p) => p.target !== undefined).map((p) => [p.id, p.target!]))
@@ -146,7 +147,7 @@ export function bringPrep(run: Pick<BattleRun, 'state' | 'battle' | 'mode' | 'k'
 export function startPrep(run: BattleRun): void {
   for (const u of Object.values(run.battle.units)) {
     for (const id of broughtPrep(u)) {
-      const ab = run.k.content.get<AbilityEntry>('ability', id)
+      const ab = abilityEntry(run.k, id)
       const list = (layerOf(run) === 'net' ? ab?.prep?.net : ab?.prep?.meat)?.do
       if (!ab || !list?.length) continue
       run.say(`${u.name}：${ab.name}（預備）。`, 'skill', { unit: u.id, ability: ab.id, prep: true }, u)

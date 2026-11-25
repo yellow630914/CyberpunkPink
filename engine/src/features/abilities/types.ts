@@ -482,8 +482,26 @@ export interface AbilityEntry {
   net: MeatDef | null
   opinion: Record<string, unknown> | null
   prep?: PrepDef | null
+  /**
+   * 日常的部分（DATA 第 2 節：預備與日常各寫一個物件）。`kind` 是這個技能帶哪一種日常（surgery、dissect、workshop、unlock……字串不限；條件 ability 的 daily 看它）；
+   * 其餘的鍵（text 等）只給玩家看。kind 是 daily 的技能可以不寫 meat、net、opinion。
+   */
   daily?: Record<string, unknown> | null
+  /** 裝著時給衍生數值的加減（手術刀：{ stat: 'surgery_sink_pct', per_tier: -5, min: -25 }） */
+  stats?: StatMod[]
   [field: string]: unknown
+}
+
+/**
+ * 技能給衍生數值的一筆加減：amount ＋ per_tier × 這棵樹現在的階，夾在 min～max 之間（夾的是這一筆的結果，不是衍生數值的總和）。
+ * 至少要寫 amount、per_tier 其中一個。
+ */
+export interface StatMod {
+  stat: string
+  amount?: number
+  per_tier?: number
+  min?: number
+  max?: number
 }
 
 /** 預備好、等著帶進戰鬥的一筆。key 是 commission 型的綁定的委託（第一次用到時才綁）。 */

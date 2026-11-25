@@ -20,6 +20,7 @@
 
 import type { Feature } from '../../core'
 import { registerActions, registerBattle } from './battle'
+import { registerCondition } from './daily'
 import { checkAbilities, registerKinds } from './kinds'
 import { registerLoadout } from './loadout'
 import { registerBuff, registerMods } from './mods'
@@ -27,16 +28,18 @@ import { registerOps } from './ops'
 import { registerOut } from './out'
 import { registerReactions } from './reactions'
 import { registerSocial } from './social'
-import { ensureSyncCapStat, registerStats } from './stats'
+import { ensureSyncCapStat, registerStatKeys, registerStats } from './stats'
 import { registerSuppress } from './suppress'
+import { registerCapacityWatch } from './warn'
 import { OWNER } from './types'
 import { registerWard } from './ward'
 import { registerXp } from './xp'
 
 export { TREE_XP } from './types'
 export type { AbilityEntry, AbilityState, AbilityUse, MeatDef, ModEntry, PathEntry, PrepDef, PreparedEntry, UnitAbilities } from './types'
-export { abilitiesOf, capacityOf, learn, learnBlock, resonanceOn, treeTier } from './learn'
-export { DEFAULT_ABILITY_RULES, MASKED, abilityRules, applyLoadout, equipAbilities, loadoutBlock, loadoutMinutes } from './loadout'
+export { CAP_FLEX_STAT, abilitiesOf, capDiscountStat, capacityBlock, capacityOf, capCostOf, learn, learnBlock, ramDiscountStat, resonanceOn, treeTier } from './learn'
+export type { Capacity } from './learn'
+export { DEFAULT_ABILITY_RULES, MASKED, abilityRules, applyLoadout, atTuningClinic, equipAbilities, loadoutBlock, loadoutMinutes } from './loadout'
 export type { AbilityRules } from './loadout'
 export { companionAbilities, pathRows } from './companion'
 export { stance, stanceBlock } from './out'
@@ -46,6 +49,12 @@ export { adminCap, adminLeft, usesOf } from './use'
 export { colIn, colOf, gearOf, layerOf } from './column'
 export type { Layer } from './column'
 export { FLOW_TIER_STAT, MASTER_PATH, MASTER_TIER_STAT, TRACE_START_STAT, masterTierOf, traceStartOf } from './stats'
+export { DISSECT_DAILY, DISSECT_TAG, dailyKindOf } from './daily'
+export { NIGHT_KIND, NIGHT_PREFIX, abilityEntry, allAbilities, isNightId, learnedOutside, liveEquipped, nightAbilities } from './outside'
+export { NEEDS_TEACHER, RESPEC_ACTION, SKILL_UP_ACTION, respecBlock, respecDraft, respecQuote, skillUpBlock, skillUpCost, skillUpDraft } from './train'
+export type { RespecQuote } from './train'
+export { CAPACITY_ACTION } from './warn'
+export { holdingOf, statValue } from './stats'
 export { prep, prepBlock } from './prep'
 export type { PrepInput } from './prep'
 export { defaultAlloc, fitAlloc, allocOf } from './instinct'
@@ -66,10 +75,13 @@ export const abilitiesFeature: Feature = {
     registerOut(k)
     registerXp(k)
     registerStats(k)
+    registerCondition(k)
+    registerCapacityWatch(k)
   },
   ready(k) {
     checkAbilities(k)
     registerActions(k)
     ensureSyncCapStat(k)
+    registerStatKeys(k)
   },
 }

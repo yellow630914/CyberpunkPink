@@ -3,8 +3,9 @@
 
 import type { ActorId, GameState, Kernel, ReportDraft } from '../../core'
 import { clone } from '../../core'
+import { abilityEntry, isNightId } from './outside'
 import type { AbilityEntry, AbilityState, Category, PathEntry, PreparedEntry } from './types'
-import { CATEGORIES, TREE_XP } from './types'
+import { CATEGORIES, CATEGORY_NAME, TREE_XP } from './types'
 
 const isRec = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
@@ -59,7 +60,8 @@ const NOT_LEARNABLE = '這不是學得到的技能。'
 
 /** 現在學不學得到這個技能；學不到就回傳第一個原因（給玩家看的完整句子），學得到是 null。 */
 export function learnBlock(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId, id: string): string | null {
-  const ab = k.content.get<AbilityEntry>('ability', id)
+  if (isNightId(id)) return abilityEntry(k, id) ? '夜課的技能要在夜課學，這裡只能裝上。' : '沒有這個技能。'
+  const ab = abilityEntry(k, id)
   if (!ab) return '沒有這個技能。'
   if (ab.enemy) return NOT_LEARNABLE
   const mine = abilitiesOf(state, actor)
@@ -69,7 +71,7 @@ export function learnBlock(k: Pick<Kernel, 'content'>, state: GameState, actor: 
     const name = k.content.get<PathEntry>('path', ab.path)?.name ?? ab.path
     return `${name}這棵樹還沒開到 ${ab.tier} 階（要在這棵樹累計花 ${TREE_XP[ab.tier - 1]} 點，現在 ${spent} 點）。`
   }
-  if (ab.after && !mine.learned.includes(ab.after)) return `要先學會${k.content.get<AbilityEntry>('ability', ab.after)?.name ?? ab.after}。`
+  if (ab.after && !mine.learned.includes(ab.after)) return `要先學會${abilityEntry(k, ab.after)?.name ?? ab.after}。`
   if (mine.xp < ab.xp) return `歷練點不夠（要 ${ab.xp} 點，現在 ${mine.xp} 點）。`
   return null
 }
@@ -113,18 +115,54 @@ function bridgeCapacity(k: Pick<Kernel, 'stats'>, state: GameState, actor: Actor
   return out
 }
 
-/** 每一類：裝著的技能照各自的 category 把 cap 加起來，以及橋的容量。 */
-export function capacityOf(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, actor: ActorId): Record<Category, { used: number; max: number }> {
+/** 一類容量一次最多挪用幾點、被動技能少佔幾點、主動技能少花幾點 RAM 的衍生數值（abilities 定義，橋與別的功能加）。 */
+export const capDiscountStat = (c: Category): string => `cap_discount_${c}`
+export const ramDiscountStat = (c: Category): string => `ram_discount_${c}`
+export const CAP_FLEX_STAT = 'cap_flex'
+
+const statInt = (k: Pick<Kernel, 'stats'>, state: GameState, actor: ActorId, id: string): number =>
+  k.stats.hasStat(id) ? Math.max(0, Math.floor(k.stats.stat(state, actor, id))) : 0
+
+/** 一個裝著的技能佔幾點：被動技能照那一類的 cap_discount_<類> 少佔（最少 1）；其餘照寫的 cap。 */
+export const capCostOf = (ab: Pick<AbilityEntry, 'kind' | 'cap'>, discount: number): number => (ab.kind === 'passive' && discount > 0 ? Math.max(1, ab.cap - discount) : ab.cap)
+
+/** 四類容量加上「四類之間可以挪用」的那一份（衍生數值 cap_flex；有才多這一欄）。 */
+export type Capacity = Record<Category, { used: number; max: number }> & { flex?: { used: number; max: number } }
+
+/** 每一類：裝著的技能照各自的 category 把 cap 加起來（被動技能照 cap_discount 少佔），以及橋的容量。cap_flex 大於 0 時多一欄 flex：超出的合計與最多能挪用的點數。 */
+export function capacityOf(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, actor: ActorId): Capacity {
   return capacityFor(k, state, actor, abilitiesOf(state, actor).equipped)
 }
 
-export function capacityFor(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, actor: ActorId, ids: string[]): Record<Category, { used: number; max: number }> {
+export function capacityFor(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, actor: ActorId, ids: string[]): Capacity {
   const max = bridgeCapacity(k, state, actor)
-  const out = {} as Record<Category, { used: number; max: number }>
-  for (const c of CATEGORIES) out[c] = { used: 0, max: max[c] }
-  for (const id of ids) {
-    const ab = k.content.get<AbilityEntry>('ability', id)
-    if (ab && out[ab.category]) out[ab.category].used += ab.cap
+  const out = {} as Capacity
+  const discount = {} as Record<Category, number>
+  for (const c of CATEGORIES) {
+    out[c] = { used: 0, max: max[c] }
+    discount[c] = statInt(k, state, actor, capDiscountStat(c))
   }
+  for (const id of ids) {
+    const ab = abilityEntry(k, id)
+    if (ab && out[ab.category]) out[ab.category].used += capCostOf(ab, discount[ab.category])
+  }
+  const flexMax = statInt(k, state, actor, CAP_FLEX_STAT)
+  if (flexMax > 0) out.flex = { used: CATEGORIES.reduce((n, c) => n + Math.max(0, out[c].used - out[c].max), 0), max: flexMax }
   return out
+}
+
+/**
+ * 這樣的配置裝得下嗎：每一類都不超過就行；超過的部分要在 cap_flex 以內，而且其他類要有空著的容量可以挪過來（挪用，不是憑空多出來）。
+ * 裝不下回傳第一個原因（給玩家看的完整句子）。
+ */
+export function capacityBlock(cap: Capacity): string | null {
+  const over = CATEGORIES.filter((c) => cap[c].used > cap[c].max)
+  if (over.length === 0) return null
+  const first = over[0]!
+  const plain = `${CATEGORY_NAME[first]}的容量不夠（要 ${cap[first].used}，橋只有 ${cap[first].max}）。`
+  if (!cap.flex) return plain
+  const spare = CATEGORIES.reduce((n, c) => n + Math.max(0, cap[c].max - cap[c].used), 0)
+  const allowed = Math.min(cap.flex.max, spare)
+  if (cap.flex.used <= allowed) return null
+  return `${plain.slice(0, -1)}；四類之間最多只能挪用 ${allowed} 點，現在超出 ${cap.flex.used} 點。`
 }

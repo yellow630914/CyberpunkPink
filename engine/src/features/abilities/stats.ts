@@ -10,10 +10,11 @@
 // 欄的 slots 與 sync_cap：內海欄優先、沒寫才看現實欄（兩欄都可以寫、同一個技能不會算兩次）；unique 兩欄任何一欄有就算一個。
 
 import type { ActorId, BattleUnit, BattleView, GameState, Kernel, RollPart } from '../../core'
-import { hasOwnRecord, pathRows } from './companion'
-import { abilitiesOf, treeTierOf } from './learn'
-import type { AbilityEntry, MeatDef, PathEntry } from './types'
-import { OWNER } from './types'
+import { companionAbilities, hasOwnRecord, pathRows } from './companion'
+import { CAP_FLEX_STAT, abilitiesOf, capDiscountStat, ramDiscountStat, treeTierOf } from './learn'
+import { abilityEntry, allAbilities, liveEquipped } from './outside'
+import type { AbilityEntry, MeatDef, PathEntry, StatMod } from './types'
+import { CATEGORIES, CATEGORY_NAME, OWNER } from './types'
 
 export const TRACE_START_STAT = 'net_trace_start'
 export const FLOW_TIER_STAT = 'flow_tier'
@@ -22,9 +23,30 @@ export const MASTER_TIER_STAT = 'master_tier'
 export const MASTER_PATH = 'netrunner'
 const SYNC_CAP_STAT = 'sync_cap_bonus'
 
-/** 角色裝著的技能（找不到內容的略過）。 */
+/** 角色裝著的技能（找不到內容的略過；夜課延伸的技能要還算數：標籤被篩選關掉的、不再學會的不在裡面）。 */
 function equippedAbilities(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId): AbilityEntry[] {
-  return abilitiesOf(state, actor).equipped.map((id) => k.content.get<AbilityEntry>('ability', id)).filter((a): a is AbilityEntry => !!a)
+  return liveEquipped(k, state, actor, abilitiesOf(state, actor).equipped).map((id) => abilityEntry(k, id)).filter((a): a is AbilityEntry => !!a)
+}
+
+/**
+ * 這個人現在算數的技能 id（條件 ability 與技能給的衍生數值用）：有自己學習紀錄的（主角）看自己裝著的；沒有紀錄、有 ext.paths 的夥伴，
+ * 路數那棵樹階數以內的全部算裝著（和戰鬥裡的算法一樣）。
+ */
+export function holdingOf(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId): { learned: string[]; equipped: string[] } {
+  if (!state.actors[actor]) return { learned: [], equipped: [] }
+  if (hasOwnRecord(state, actor)) {
+    const mine = abilitiesOf(state, actor)
+    const equipped = liveEquipped(k, state, actor, mine.equipped)
+    return { learned: [...mine.learned, ...equipped.filter((id) => !mine.learned.includes(id))], equipped }
+  }
+  const mate = companionAbilities(k, state, actor)
+  return mate ? { learned: [...mate.equipped], equipped: [...mate.equipped] } : { learned: [], equipped: [] }
+}
+
+/** 這棵樹現在的階：有自己學習紀錄的看累計花費，夥伴看 ext.paths 那一列，都沒有是 1。 */
+function treeTierFor(state: GameState, actor: ActorId, path: string): number {
+  if (hasOwnRecord(state, actor)) return treeTierOf(abilitiesOf(state, actor).spent[path] ?? 0)
+  return pathRows(state, actor).find((r) => r.path === path)?.tier ?? 1
 }
 
 /** 這一欄算不算（有欄、沒有 pending）。 */
@@ -43,7 +65,7 @@ export function traceStartOf(k: Pick<Kernel, 'content' | 'activity'>, state: Gam
   let sum = 0
   for (const p of abilitiesOf(state, actor).prepared ?? []) {
     if (p.scope !== 'commission' || p.key !== commission) continue
-    sum += k.content.get<AbilityEntry>('ability', p.id)?.prep?.net?.trace_start ?? 0
+    sum += abilityEntry(k, p.id)?.prep?.net?.trace_start ?? 0
   }
   return sum
 }
@@ -76,6 +98,46 @@ export function registerStats(k: Kernel): void {
   // 內海的感載消退（deck 定義 net_load_decay，基礎 0；甲板的散熱、技能、藥、狀態加上去）：技能的欄寫 decay 就多消退幾點，戰鬥與探索都算
   k.stats.addStatProvider('net_load_decay', OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, numberOf(ab, 'decay'))))
   k.stats.addStatProvider(SYNC_CAP_STAT, OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, numberOf(ab, 'sync_cap'))))
+
+  // 橋的三個數字（M4-abilities-m4；CYBERWARE 7.1 節：奉公、深水、蜜腺原型的機能）：這裡定義、基本是 0，橋的機能（義體的 effects）與別的功能加上去。
+  // cap_discount_<類>：那一類的被動技能少佔幾點（最少佔 1）；ram_discount_<類>：那一類的主動技能少花幾點 RAM（最少花 1）；cap_flex：四類之間可以挪用幾點容量。
+  for (const c of CATEGORIES) {
+    k.stats.defineStat({ id: capDiscountStat(c), owner: OWNER, name: `${CATEGORY_NAME[c]}被動技能少佔的容量`, base: () => 0, min: 0, max: 6 })
+    k.stats.defineStat({ id: ramDiscountStat(c), owner: OWNER, name: `${CATEGORY_NAME[c]}主動技能少花的 RAM`, base: () => 0, min: 0, max: 6 })
+  }
+  k.stats.defineStat({ id: CAP_FLEX_STAT, owner: OWNER, name: '四類之間可以挪用的容量', base: () => 0, min: 0, max: 24 })
+}
+
+/** 一個技能的一筆 stats 在這個人身上現在是多少：amount ＋ per_tier × 這棵樹的階，夾在 min～max。 */
+export function statValue(m: StatMod, tier: number): number {
+  let v = (m.amount ?? 0) + (m.per_tier ?? 0) * tier
+  if (m.min !== undefined) v = Math.max(m.min, v)
+  if (m.max !== undefined) v = Math.min(m.max, v)
+  return v
+}
+
+/**
+ * 技能的 stats 鍵：裝著時替那個衍生數值加減（手術刀的 surgery_sink_pct）。內容載入完、功能都裝好之後掃一遍，每一個用到的衍生數值掛一個 provider
+ * （衍生數值沒有人定義就沒有人問；ready 之後才疊上來的內容覆蓋用到新的衍生數值，要重新建 kernel 才掛得上）。
+ */
+export function registerStatKeys(k: Kernel): void {
+  const ids = new Set<string>()
+  for (const ab of allAbilities(k)) for (const m of ab.stats ?? []) ids.add(m.stat)
+  for (const id of ids) {
+    k.stats.addStatProvider(id, OWNER, (state, actor) => {
+      const held = holdingOf(k, state, actor).equipped
+      const out: RollPart[] = []
+      for (const abId of held) {
+        const ab = abilityEntry(k, abId)
+        for (const m of ab?.stats ?? []) {
+          if (m.stat !== id) continue
+          const value = statValue(m, treeTierFor(state, actor, ab!.path))
+          if (value !== 0) out.push({ label: ab!.name, value, source: 'skill' })
+        }
+      }
+      return out
+    })
+  }
 }
 
 /** 內容載入完、功能都裝好之後：沒有別人定義 sync_cap_bonus 時由這個功能定義（核心讀它；基本 0）。 */

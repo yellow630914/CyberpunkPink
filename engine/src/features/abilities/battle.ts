@@ -17,6 +17,7 @@ import { treeTierOf } from './learn'
 import { featureTotal } from './mods'
 import { startOnStart } from './onstart'
 import { ransomChanges, registerRansom } from './ransom'
+import { DISSECT_DAILY, DISSECT_TAG, dailyKindOf } from './daily'
 import { carryStance, startOutStance } from './out'
 import { startPrep, bringPrep } from './prep'
 import { suppressAfter } from './suppress'
@@ -28,6 +29,7 @@ import type { AbilityEntry, MeatDef, PathEntry, PickDecl, UnitAbilities } from '
 import { OWNER } from './types'
 import { equippedOf, hasAbility, isRec, tierIn, unitAbilities } from './unitdata'
 import { linkAction, registerLink } from './link'
+import { abilityEntry, allAbilities, liveEquipped } from './outside'
 
 export { unitAbilities }
 
@@ -478,7 +480,7 @@ function stanceAction(ab: AbilityEntry, order: number, layers: Layer[]): BattleA
         run1(run, u, m.do_off, ab)
         return
       }
-      const prev = u.stance ? run.k.content.get<AbilityEntry>('ability', u.stance) : undefined
+      const prev = u.stance ? abilityEntry(run.k, u.stance) : undefined
       if (prev) {
         run.say(`${u.name}：收起${prev.name}。`, 'skill', { unit: u.id, ability: prev.id, stance: 'off' }, u)
         run1(run, u, colOf(prev, layer)?.do_off, prev)
@@ -512,7 +514,7 @@ function giveApAction(ab: AbilityEntry, order: number, layer: Layer = 'meat'): B
       t.ap.now = Math.min(t.ap.max, t.ap.now + 1)
       run.say(`${u.name}：指揮，把 1 點行動點讓給 ${t.name}。`, 'skill', { unit: u.id, ability: ab.id, to: t.id }, u)
       // 開著的姿態有 on_give_ap（號令）：拿到行動點的人多一段修正
-      const stance = u.stance ? run.k.content.get<AbilityEntry>('ability', u.stance) : undefined
+      const stance = u.stance ? abilityEntry(run.k, u.stance) : undefined
       const list = stance ? colOf(stance, layerOf(run))?.on_give_ap : undefined
       if (stance && list?.length) run.effects(list, { user: u, target: { unit: t.id }, source: { kind: 'ability', id: stance.id, name: stance.name }, n: { tier: tierIn(u, stance.path) } })
     },
@@ -705,7 +707,8 @@ function remoteCallAction(ab: AbilityEntry, order: number): BattleActionDef {
 
 /** 內容載入之後：照內容註冊行動。 */
 export function registerActions(k: Kernel): void {
-  k.content.list<AbilityEntry>('ability').forEach((ab, order) => {
+  // 夜課延伸的技能（night:<id>）也要有行動（被動的沒有行動，照一般的技能處理）
+  allAbilities(k).forEach((ab, order) => {
     const m = ab.meat && !ab.meat.pending ? ab.meat : null
     // 誘惑攻擊：主動技能的行動就是一次誘惑攻擊；被動（入戲）多一個基本的誘惑攻擊行動（social.ts 把它們改寫成一般的技能行動）。
     // 現實欄寫 tease、內海欄寫 lure（兩欄各自改寫；M3-skill-net-b）
@@ -766,6 +769,8 @@ function applyPassives(run: BattleRun, unit: BattleUnit): void {
     for (const t of m.tags ?? []) if (t !== OVERCLOCK && !unit.tags.includes(t)) unit.tags.push(t)
     for (const [id, d] of Object.entries(m.pool ?? {})) bumpPool(unit, id, d)
   }
+  // 日常技能（daily.kind 是 dissect 的解剖）：現實與內海的戰場都有標籤 dissect（沒有 net.tags 的現實欄也一樣）
+  if (equippedOf(run, unit).some((ab) => dailyKindOf(ab) === DISSECT_DAILY) && !unit.tags.includes(DISSECT_TAG)) unit.tags.push(DISSECT_TAG)
   const d = unitAbilities(unit)
   if (!d.equipped.length) return
   for (const p of run.k.content.list<PathEntry>('path')) {
@@ -818,7 +823,9 @@ export function registerBattle(k: Kernel): void {
         const r = isRec(mine) ? mine : {}
         const tiers: Record<string, number> = {}
         if (isRec(r.spent)) for (const [path, v] of Object.entries(r.spent)) if (typeof v === 'number') tiers[path] = treeTierOf(v)
-        unit.ext.abilities = { equipped: Array.isArray(r.equipped) ? r.equipped.filter((x) => typeof x === 'string') : [], tiers } satisfies UnitAbilities
+        // 夜課延伸的技能要還算數（標籤沒被篩選關掉、還學會著）才帶進戰鬥
+        const equipped = Array.isArray(r.equipped) ? r.equipped.filter((x): x is string => typeof x === 'string') : []
+        unit.ext.abilities = { equipped: liveEquipped(run.k, run.state, unit.actor, equipped), tiers } satisfies UnitAbilities
       }
     }
     carryStance(run, unit)
@@ -864,7 +871,7 @@ export function registerBattle(k: Kernel): void {
 
   // 花掉全部 RAM 的技能：行動做完才知道實際花了多少（RAM 的減免之後的 cost.ram），效果在這裡做（skillAction 的 run 不做）
   k.battle.on('action.done', OWNER, ({ run, unit, action, target, input, cost }) => {
-    const ab = run.k.content.get<AbilityEntry>('ability', action)
+    const ab = abilityEntry(run.k, action)
     if (!ab || !colOf(ab, layerOf(run)) || useOf(ab, layerOf(run)).ram_all_min === undefined || !hasAbility(unit, ab.id) || run.over || unit.out) return
     const m = effectiveMeat(run, unit, ab, input)
     const spent = cost.ram ?? 0

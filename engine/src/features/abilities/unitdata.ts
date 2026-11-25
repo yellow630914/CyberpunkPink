@@ -3,6 +3,7 @@
 
 import type { BattleState, BattleUnit, Kernel } from '../../core'
 import type { AbilityEntry, UnitAbilities, UnitBuff } from './types'
+import { abilityEntry } from './outside'
 
 export const isRec = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
@@ -34,7 +35,7 @@ export const tierIn = (u: BattleUnit, path: string | undefined): number => (path
 export function equippedOf(view: { k: Pick<Kernel, 'content'> }, u: BattleUnit): AbilityEntry[] {
   const ids = unitAbilities(u).equipped
   if (!ids.length) return []
-  return ids.map((id) => view.k.content.get<AbilityEntry>('ability', id)).filter((a): a is AbilityEntry => !!a)
+  return ids.map((id) => abilityEntry(view.k, id)).filter((a): a is AbilityEntry => !!a)
 }
 
 export function unitBuffs(u: BattleUnit): UnitBuff[] {

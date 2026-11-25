@@ -22,6 +22,7 @@ import { bumpUses, costOf, usageBlocks } from './use'
 import type { AbilityEntry } from './types'
 import { OWNER } from './types'
 import { LINKED_TAG, equippedOf, hasAbility, isRec, linkOf, setLink, tierIn } from './unitdata'
+import { abilityEntry } from './outside'
 
 /** 脫鉤衝擊：感載 +10、暈眩一回合（NETRUNNING 第 3 節）。 */
 export const UNHOOK_LOAD = 10
@@ -34,7 +35,7 @@ const PACIFY_COST = 100
 /** 這個偶像現在開著的曲目（姿態；內海欄）。 */
 function songOf(view: Pick<BattleView, 'k' | 'mode'>, idol: BattleUnit): { ab: AbilityEntry } | undefined {
   if (!idol.stance) return undefined
-  const ab = view.k.content.get<AbilityEntry>('ability', idol.stance)
+  const ab = abilityEntry(view.k, idol.stance)
   return ab && colOf(ab, layerOf(view))?.song ? { ab } : undefined
 }
 

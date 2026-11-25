@@ -8,6 +8,7 @@ import { amount, wielded } from '../../core'
 import type { Layer } from './column'
 import { layerOf } from './column'
 import { FAVORS } from './format'
+import { ramDiscountStat } from './learn'
 import { featureTotal } from './mods'
 import { isRec, tierIn } from './unitdata'
 import { rememberPool } from './wallet'
@@ -33,11 +34,23 @@ const poolCost = (u: AbilityUse): boolean => u.ram !== undefined || u.ram_all_mi
 
 export type Cost = { ap: number; [pool: string]: number }
 
+/**
+ * 主動技能寫的 RAM 花費，扣掉這一類的 ram_discount_<類>（橋的機能；深水：內海型的主動技能 −1）：最少花 1。
+ * 只算技能自己寫的 use.ram；花掉全部 RAM（ram_all_min）與手上武器構裝的 RAM 不減。沒有角色的單位（敵人）不減。
+ */
+function ramAfterDiscount(view: BattleView, u: BattleUnit, ab: AbilityEntry, ram: number): number {
+  if (ab.kind !== 'active' || !u.actor || !view.state.actors[u.actor]) return ram
+  const id = ramDiscountStat(ab.category)
+  if (!view.k.stats.hasStat(id)) return ram
+  const d = Math.floor(view.k.stats.stat(view.state, u.actor, id))
+  return d > 0 ? Math.max(1, ram - d) : ram
+}
+
 /** 一個技能要花的：行動點（沒寫行動點、也沒寫別的池時是 1，和舊的一樣）、RAM、現金、人情。 */
 export function costOf(view: BattleView, u: BattleUnit, ab: AbilityEntry): Cost {
   const use = useOf(ab, layerOf(view))
   const cost: Cost = { ap: use.ap ?? (poolCost(use) ? 0 : 1) }
-  if (use.ram) cost.ram = use.ram
+  if (use.ram) cost.ram = ramAfterDiscount(view, u, ab, use.ram)
   if (use.ram_all_min !== undefined) {
     cost.ram = u.pools.ram?.now ?? 0
   }

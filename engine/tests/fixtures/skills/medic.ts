@@ -1,6 +1,8 @@
 // 改造師：手術刀（SKILL_TREES 改造師一節的內海欄）。id 照 M1b-skill-medic 的（sk_medic_<名字>）。
 // 內海的改造師只剩「除錯」（招牌：被動技能在內海欄多一個行動，新鍵 net.action）與每場一兩次的小招：近身的構裝攻擊加干擾（net.jam）、排感載、修破損（net.fix）；
 // 打完之後解剖倒下的蕾絲（解剖的 net 欄給標籤 dissect，M3-lace 的掉落 needs: dissect 看它）。
+// M4-abilities-m4：四個日常（手術、解剖、工坊，與解鎖匠的日常那一半）標上 daily.kind（條件 ability 的 daily 看它）；手術刀多 stats（沉溺成本的減免）；
+// 戰地手術的現實欄另外放在 FIELD_SURGERY_M4（M3 的測試要求這份資料的現實欄一律是 null，所以不直接寫進 MEDIC；medicM4() 給整棵加上它）。
 
 import type { Tree } from './util'
 import { buff, treeOf } from './util'
@@ -41,6 +43,8 @@ T.skill(SC, '手術刀', 1, 'sig', 'passive', 3, 0, undefined,
   '新鍵：net.action（被動技能在這一欄多一個主動的行動）；用法 choose：vent 4 或 net.fix；use.net.per_fight 1（名醫用修正 use_extra 加一次）',
   {
     use: { net: { ap: 1, per_fight: 1 } },
+    // 日常：自己動刀安裝義體時沉溺成本 −5%×樹階（最多 −25%；CYBERWARE 第 2 節）
+    stats: [{ stat: 'surgery_sink_pct', per_tier: -5, min: -25 }],
     net: {
       action: true, target: 'near',
       choose: [{ key: 'vent', label: '排 4 點感載', do: [{ op: 'vent', amount: 4 }] }, { key: 'fix', label: '修好一個破損的構裝槽', do: [{ op: 'net.fix' }] }],
@@ -64,7 +68,7 @@ T.skill(m('suture'), '縫合手', 1, 'back', 'passive', 2, 1, m('first_aid'),
   { net: { mods: [{ kind: 'vent_dealt', value: 2, tags: ['skill'] }] } })
 
 T.gap(m('painless'), '止痛針', 1, 'back', 'reaction', 1, 4, m('first_aid'), { use: { ap: 0, per_fight: 1 } })
-T.gap(m('surgery'), '手術', 1, 'back', 'daily', 1, 0, m('dismantle'), { use: { slot: 1 }, daily: { text: '自己動刀安裝、拆卸、修理義體（M4）。' } })
+T.gap(m('surgery'), '手術', 1, 'back', 'daily', 1, 0, m('dismantle'), { use: { slot: 1 }, daily: { kind: 'surgery', text: '自己動刀安裝、拆卸、修理義體（M4）。' } })
 
 // ================================ 2 階 ================================
 T.skill(m('overclock'), '超頻', 2, 'front', 'active', 1, 2, m('cool_down'),
@@ -101,11 +105,11 @@ T.skill(m('flash_freeze'), '急凍', 3, 'front', 'reaction', 2, 7, m('overclock'
 T.skill(m('dissection'), '解剖', 3, 'back', 'daily', 2, 0, m('take_off'),
   '被打倒的蕾絲二選一：取得它的一個構裝（和蕾絲同等級），或一份憑證，這次潛入的下一道閘門不必破解（戰後 1 小時；每場戰鬥只能解剖一次）。', 'approx',
   '只做了標籤 dissect（M3-lace 的掉落 needs: dissect 看它）；日常的「戰後解剖」是 netrun 與戰後流程的事，技能這邊沒有日常的行動',
-  { use: { slot: 1 }, daily: { text: '現實：戰後 1 小時，從被打倒的敵人身上拆下義體（M4）。內海：被打倒的蕾絲二選一，構裝或憑證。' }, net: { tags: ['dissect'] } })
+  { use: { slot: 1 }, daily: { kind: 'dissect', text: '現實：戰後 1 小時，從被打倒的敵人身上拆下義體（M4）。內海：被打倒的蕾絲二選一，構裝或憑證。' }, net: { tags: ['dissect'] } })
 
 T.skill(m('locksmith'), '解鎖匠', 3, 'back', 'passive', 4, 2, m('take_off'),
   '第一回合對蕾絲的近身構裝攻擊命中 +1。', 'approx', '修正 hit +1（when first_round、wield melee）；「對蕾絲」沒有條件可以寫（對手標籤不在 when 裡），內海的敵人幾乎都是蕾絲',
-  { net: { mods: [{ kind: 'hit', value: 1, when: { first_round: true, wield: 'melee' } }] } })
+  { daily: { kind: 'unlock', text: '解授權鎖的檢定 +2，失敗時不觸發回報（M4）。' }, net: { mods: [{ kind: 'hit', value: 1, when: { first_round: true, wield: 'melee' } }] } })
 
 // ================================ 4 階 ================================
 T.skill(m('short_circuit'), '短路', 4, 'front', 'active', 2, 4, m('take_off'),
@@ -124,7 +128,7 @@ T.skill(m('chief_surgeon'), '主刀', 4, 'back', 'passive', 5, 2.5, m('field_sur
   '相鄰隊友的破損一律算輕的。', 'none', '破損的輕重在 netcombat 的 breakOne 裡（本來就有破損再中一次是重的），沒有修正可以問（現實的 wound_grade 內海不問）',
   { net: { pending: true, text: '相鄰隊友的破損一律算輕的。' } })
 
-T.gap(m('workshop'), '工坊', 4, 'back', 'daily', 2, 0, m('short_circuit'), { use: { slot: 1 }, daily: { text: '組裝義體、武器、護甲時檢定 +2（M4）。' } })
+T.gap(m('workshop'), '工坊', 4, 'back', 'daily', 2, 0, m('short_circuit'), { use: { slot: 1 }, daily: { kind: 'workshop', text: '組裝義體、武器、護甲時檢定 +2（M4）。' } })
 
 // ================================ 5 階 ================================
 T.skill(m('strip_all'), '拆光', 5, 'front', 'active', 3, 10, m('short_circuit'),
@@ -146,3 +150,23 @@ T.skill(m('famed_doctor'), '名醫', 5, 'back', 'passive', 6, 3, m('overhaul'),
 T.gap(m('hands_off'), '別碰我', 5, 'back', 'reaction', 3, 6, m('strip_all'), { use: { ap: 1, per_turn: 1 } })
 
 export const MEDIC: Tree = { path: T.path, abilities: T.abilities, notes: T.notes }
+
+/**
+ * 戰地手術的現實欄（M4-abilities-m4；SKILL_TREES 改造師「戰地手術」）：相鄰一格的隊友二選一——處理重創（效果 wound_treat，medical 註冊；再回 2d6）、
+ * 或替他裝上快取格裡的一件義體（效果 implant_install，cyberware 註冊）。載入時兩個效果查不到（功能沒裝）就被擋下。
+ */
+export const FIELD_SURGERY_M4: Rec = {
+  use: { meat: { ap: 3 }, net: { ap: 3, per_fight: 1 } },
+  meat: {
+    target: 'near', action_tags: ['heal'],
+    choose: [
+      { key: 'wound', label: '處理重創', do: [{ op: 'wound_treat' }, { op: 'heal', amount: '2d6' }] },
+      { key: 'implant', label: '裝上快取格裡的義體', do: [{ op: 'implant_install' }] },
+    ],
+  },
+}
+
+/** 改造師整棵樹的技能（深拷貝），戰地手術多了現實欄。 */
+export function medicM4(): Rec[] {
+  return structuredClone(MEDIC.abilities).map((a) => (a.id === m('field_surgery') ? { ...a, ...structuredClone(FIELD_SURGERY_M4) } : a))
+}

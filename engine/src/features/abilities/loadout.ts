@@ -8,9 +8,10 @@
 
 import type { ActorId, Change, ContentEntry, GameState, Kernel, ReportDraft } from '../../core'
 import { isSafeInt } from '../../core'
-import { abilitiesOf, capacityFor, reportOf } from './learn'
-import type { AbilityEntry, AbilityState } from './types'
-import { CATEGORIES, CATEGORY_NAME, OWNER } from './types'
+import { abilitiesOf, capacityBlock, capacityFor, reportOf } from './learn'
+import { abilityEntry, filteredNight, isNightId, learnedOutside } from './outside'
+import type { AbilityState } from './types'
+import { OWNER } from './types'
 
 // ---- 規則 ----
 
@@ -22,15 +23,29 @@ export interface AbilityRules {
   loadout_facility_types: string[]
   /** 留在家的夥伴拿一份歷練點的幾成（CORE_RULES 7.1 節：三成） */
   xp_home_share: number
+  /** 基本功升到 N 級花 N × 這個數歷練點（CORE_RULES 7.2 節：10） */
+  skill_xp_per_level: number
+  /** 基本功直接花點數最多升到幾級（CORE_RULES 7.2 節：4；5 級與 6 級要有人教） */
+  skill_free_max: number
+  /** 洗點：每退回一點歷練點付多少錢（CORE_RULES 7.2 節：C$10） */
+  respec_price_per_xp: number
+  /** 洗點花的時間（分鐘；CORE_RULES 7.2 節：休養一天） */
+  respec_minutes: number
 }
 /** 半小時：UI 8.3 節的示意；CORE_RULES 6.4 節寫一小時，使用者 2026-11-23 定案統一半小時（dev/adr/0016 G1）。 */
-export const DEFAULT_ABILITY_RULES: AbilityRules = { loadout_minutes: 30, loadout_facility_types: ['tuning_clinic'], xp_home_share: 0.3 }
+export const DEFAULT_ABILITY_RULES: AbilityRules = {
+  loadout_minutes: 30, loadout_facility_types: ['tuning_clinic'], xp_home_share: 0.3, skill_xp_per_level: 10, skill_free_max: 4, respec_price_per_xp: 10, respec_minutes: 1440,
+}
 
 export function abilityRuleProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
   if (e.loadout_minutes !== undefined && !(isSafeInt(e.loadout_minutes) && e.loadout_minutes >= 0)) p.push('loadout_minutes 要是 0 以上的整數（換技能配置花幾分鐘）')
   if (e.loadout_facility_types !== undefined && !(Array.isArray(e.loadout_facility_types) && e.loadout_facility_types.every((t) => typeof t === 'string' && t.trim().length > 0))) p.push('loadout_facility_types 要是設施種類 id 的陣列（空的是任何設施都算調校診所）')
   if (e.xp_home_share !== undefined && !(typeof e.xp_home_share === 'number' && e.xp_home_share >= 0 && e.xp_home_share <= 1)) p.push('xp_home_share 要是 0～1 的數字（留在家的夥伴拿一份歷練點的幾成）')
+  if (e.skill_xp_per_level !== undefined && !(isSafeInt(e.skill_xp_per_level) && e.skill_xp_per_level >= 1)) p.push('skill_xp_per_level 要是 1 以上的整數（基本功升到 N 級花 N 乘這個數的歷練點）')
+  if (e.skill_free_max !== undefined && !(isSafeInt(e.skill_free_max) && e.skill_free_max >= 0 && e.skill_free_max <= 5)) p.push('skill_free_max 要是 0～5 的整數（基本功直接花點數最多升到幾級；再上去要有人教）')
+  if (e.respec_price_per_xp !== undefined && !(isSafeInt(e.respec_price_per_xp) && e.respec_price_per_xp >= 0)) p.push('respec_price_per_xp 要是 0 以上的整數（洗點每退回一點歷練點付多少錢）')
+  if (e.respec_minutes !== undefined && !(isSafeInt(e.respec_minutes) && e.respec_minutes >= 0)) p.push('respec_minutes 要是 0 以上的整數（洗點花幾分鐘）')
   return p
 }
 
@@ -41,6 +56,10 @@ export function abilityRules(k: Pick<Kernel, 'content'>): AbilityRules {
     loadout_minutes: e?.loadout_minutes ?? DEFAULT_ABILITY_RULES.loadout_minutes,
     loadout_facility_types: e?.loadout_facility_types ? [...e.loadout_facility_types] : [...DEFAULT_ABILITY_RULES.loadout_facility_types],
     xp_home_share: e?.xp_home_share ?? DEFAULT_ABILITY_RULES.xp_home_share,
+    skill_xp_per_level: e?.skill_xp_per_level ?? DEFAULT_ABILITY_RULES.skill_xp_per_level,
+    skill_free_max: e?.skill_free_max ?? DEFAULT_ABILITY_RULES.skill_free_max,
+    respec_price_per_xp: e?.respec_price_per_xp ?? DEFAULT_ABILITY_RULES.respec_price_per_xp,
+    respec_minutes: e?.respec_minutes ?? DEFAULT_ABILITY_RULES.respec_minutes,
   }
 }
 
@@ -74,11 +93,15 @@ export function loadoutBlock(k: LoadoutKernel, state: GameState, actor: ActorId)
   if (!home && !facility) return null
   const ctx = { state, actor, stats: k.stats, timeRules: k.timeRules }
   if (home && k.conditions.test({ kind: 'at_home' }, ctx)) return null
-  if (facility) {
-    const types = abilityRules(k).loadout_facility_types
-    if (k.conditions.test(types.length > 0 ? { kind: 'at_facility', types } : { kind: 'at_facility' }, ctx)) return null
-  }
+  if (facility && atTuningClinic(k, state, actor)) return null
   return home && facility ? '要在自己的住處或調校診所才能換技能配置。' : home ? '要在自己的住處才能換技能配置。' : '要在調校診所才能換技能配置。'
+}
+
+/** 站在調校診所嗎（ability_rule.loadout_facility_types 的設施種類；條件 at_facility 沒有人註冊時回 false）。 */
+export function atTuningClinic(k: Pick<Kernel, 'content' | 'conditions' | 'stats' | 'timeRules'>, state: GameState, actor: ActorId): boolean {
+  if (!k.conditions.kinds().includes('at_facility')) return false
+  const types = abilityRules(k).loadout_facility_types
+  return k.conditions.test(types.length > 0 ? { kind: 'at_facility', types } : { kind: 'at_facility' }, { state, actor, stats: k.stats, timeRules: k.timeRules })
 }
 
 /** 這一組換下去要花幾分鐘（衍生數值 loadout_minutes）。 */
@@ -92,12 +115,12 @@ export const MASKED = 'masked'
 /** 這幾個技能裡有沒有帶面具的（被動的 meat.mask，不是 pending）。 */
 const hasMask = (k: Pick<Kernel, 'content'>, ids: readonly string[]): boolean =>
   ids.some((id) => {
-    const ab = k.content.get<AbilityEntry>('ability', id)
+    const ab = abilityEntry(k, id)
     return !!ab && ab.kind === 'passive' && !!ab.meat && !ab.meat.pending && !!ab.meat.mask
   })
 
 /** 裝著入戲就掛上 masked，卸下來（原本裝著、現在沒有）就拿掉；沒變就沒有變更。 */
-function maskChanges(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId, before: readonly string[], after: readonly string[]): Change[] {
+export function maskChanges(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId, before: readonly string[], after: readonly string[]): Change[] {
   const has = state.actors[actor]!.conditions.some((c) => c.id === MASKED)
   if (hasMask(k, after)) return has ? [] : [{ op: 'actor.condition', id: actor, condition: MASKED }]
   return has && hasMask(k, before) ? [{ op: 'actor.condition', id: actor, condition: MASKED, remove: true }] : []
@@ -105,17 +128,23 @@ function maskChanges(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorI
 
 // ---- 裝與卸 ----
 
-/** 檢查這一組裝得了（沒學的、敵人的招牌行動、某一類裝不下就丟錯）。 */
+/** 檢查這一組裝得了（沒學的、敵人的招牌行動、某一類裝不下就丟錯）。夜課延伸的技能（night:<id>）要在 actor.ext.scene.skills 裡、標籤沒被篩選關掉。 */
 function checkSet(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, actor: ActorId, list: string[]): void {
   const mine = abilitiesOf(state, actor)
+  const outside = list.some(isNightId) ? new Set(learnedOutside(k, state, actor)) : undefined
   for (const id of list) {
-    if (k.content.get<AbilityEntry>('ability', id)?.enemy) throw new Error('這不是學得到的技能。')
-    if (!mine.learned.includes(id)) throw new Error(`還沒學會${k.content.get<AbilityEntry>('ability', id)?.name ?? id}。`)
+    const ab = abilityEntry(k, id)
+    if (ab?.enemy) throw new Error('這不是學得到的技能。')
+    if (isNightId(id)) {
+      if (!ab) throw new Error('沒有這個技能。')
+      if (filteredNight(state, ab)) throw new Error(`${ab.name}現在用不了（內容篩選關掉了這個題材）。`)
+      if (!outside!.has(id)) throw new Error(`還沒學會${ab.name}。`)
+      continue
+    }
+    if (!mine.learned.includes(id)) throw new Error(`還沒學會${ab?.name ?? id}。`)
   }
-  const cap = capacityFor(k, state, actor, list)
-  for (const c of CATEGORIES) {
-    if (cap[c].used > cap[c].max) throw new Error(`${CATEGORY_NAME[c]}的容量不夠（要 ${cap[c].used}，橋只有 ${cap[c].max}）。`)
-  }
+  const why = capacityBlock(capacityFor(k, state, actor, list))
+  if (why) throw new Error(why)
 }
 
 /** 換成這一組之後的角色資料：戰鬥外開著的姿態如果被卸下了，姿態也關掉（不然重新裝上時它會自己又開著）。 */
@@ -124,7 +153,7 @@ function withEquipped(mine: AbilityState, list: string[]): AbilityState {
   return stance !== undefined && list.includes(stance) ? { ...rest, stance, equipped: list } : { ...rest, equipped: list }
 }
 
-const namesOf = (k: Pick<Kernel, 'content'>, list: readonly string[]): string[] => list.map((id) => k.content.get<AbilityEntry>('ability', id)?.name ?? id)
+const namesOf = (k: Pick<Kernel, 'content'>, list: readonly string[]): string[] => list.map((id) => abilityEntry(k, id)?.name ?? id)
 
 /**
  * 整份換掉裝著的清單（逐一裝卸的入口：UI 勾選時用；時間在套用那一次，見 applyLoadout）。
