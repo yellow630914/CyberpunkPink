@@ -5,6 +5,8 @@ import type { ActorId, GameState, Kernel, PassiveEffect } from '../../core'
 import { productOf } from '../../core'
 import type { CyberOff, PartId } from './model'
 import { deckContentOf, isDeckPiece, pieceBlueprint } from './deck'
+import type { CyberLock } from './lock'
+import { readLock } from './lock'
 import { PART_IDS, PART_NAME, cyberLive, cyberRules, isReady, nowOf } from './model'
 import { quirkIdsOf } from './passive'
 
@@ -31,6 +33,10 @@ export interface ViewPiece {
   quality?: string
   /** 帶著的怪癖（併發症、殘響……） */
   quirks: Array<{ id: string; name: string }>
+  /** 授權鎖（沒有鎖的買斷件沒有這一欄） */
+  lock?: CyberLock
+  /** 光紋刺青（設計圖帶 tattoo 的；P45）：deco 裝飾、gang 幫派標記 */
+  tattoo?: { kind: string; faction?: string }
   /** 這一件好了之後給的效果（設計圖與零件的 effects；板材的護甲合計是一筆 { stat: 'armor' }）。休養中也列，畫面自己灰掉 */
   effects: PassiveEffect[]
 }
@@ -58,6 +64,11 @@ export interface CyberView {
   bridge: boolean
 }
 
+const tattooOf = (bp: unknown): { kind: string; faction?: string } | undefined => {
+  const t = (bp as { tattoo?: { kind?: unknown; faction?: unknown } } | undefined)?.tattoo
+  return t && typeof t.kind === 'string' ? { kind: t.kind, ...(typeof t.faction === 'string' ? { faction: t.faction } : {}) } : undefined
+}
+
 export function viewPiece(k: Kernel, state: GameState, actor: ActorId, uid: string): ViewPiece | undefined {
   const piece = cyberLive(state, actor).find((p) => p.uid === uid)
   if (!piece) return undefined
@@ -78,7 +89,7 @@ export function viewPiece(k: Kernel, state: GameState, actor: ActorId, uid: stri
     uid: piece.uid, bp: piece.bp, name: bp?.name ?? dk?.name ?? piece.bp, grade: bp?.grade ?? dk?.grade ?? 1, slot: piece.slot, sink: piece.sink,
     status: piece.off ? 'off' : ready ? 'ready' : 'recovering',
     ...(piece.ready_at !== undefined && !ready ? { ready_at: piece.ready_at } : {}), ...(piece.off ? { off: { ...piece.off } } : {}),
-    registered: piece.registered === true, ...(isDeckPiece(k, piece) ? { deck: true } : {}), bio: info?.allBio === true, ...(piece.quality ? { quality: piece.quality } : {}), quirks, effects,
+    registered: piece.registered === true, ...(readLock(piece.lock) ? { lock: readLock(piece.lock)! } : {}), ...(tattooOf(bp) ? { tattoo: tattooOf(bp)! } : {}), ...(isDeckPiece(k, piece) ? { deck: true } : {}), bio: info?.allBio === true, ...(piece.quality ? { quality: piece.quality } : {}), quirks, effects,
   }
 }
 

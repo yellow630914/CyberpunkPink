@@ -1,7 +1,7 @@
 // L6 功能：義體（身上的義體；CYBERWARE 第 1～3 節；CRAFTING 8.1、10.2 節；TRADE 3.4 節；DATA 7.1、3.4 節；dev/adr/0019 第三節與 P1～P6；dev/work/M4-cyberware.md）。
 //
 // 部位與槽、把一件成品裝上去與拆下來的手術（四種人動刀）、沉溺成本墊高沉溺的下限、義體的效果（被動效果，來源 cyber 與 quirk）、休養與併發症。
-// 橋（換橋）、甲板（腦部的義體，deck.ts）、戰鬥（battle.ts、battleDef.ts、pump.ts：義體進戰鬥、開關與修正、藥泵、戰地手術）已經做了；授權鎖是後面一張（M4-cyber-lock）。生體件的成長、小手術（換零件）不在這裡。
+// 橋（換橋）、甲板（腦部的義體，deck.ts）、戰鬥（battle.ts、battleDef.ts、pump.ts：義體進戰鬥、開關與修正、藥泵、戰地手術）已經做了；授權鎖、解鎖、修理、小手術（換零件）在 lock.ts、crack.ts、repair.ts、modify.ts（M4-cyber-lock）。生體件的成長不在這裡。
 //
 // 接上核心的地方：
 //   內容  cyber_rule（規則表，overridable；id: default）：槽數、四種人動刀的費用與併發症、休養、自己動刀的條件（model.ts 的 DEFAULT_CYBER_RULES）；
@@ -17,11 +17,16 @@
 //   戰鬥  loadout 的 implants（現實的戰場；不含橋）、衍生數值 cyber_count（不是橋的件數）、設計圖的 battle 欄位（actions、toggle、scaling、vs、pump；battleDef.ts）註冊成行動與修正、
 //         行動 cyber_pump、效果 op implant_install（戰地手術）、戰鬥結束時寫回（battle.ts）；重的重創（狀況 wound_head、wound_limb）讓眼／腦與手臂／腿的一件失效（cyberLive，讀的時候算）；
 //         規則表多 pump_doses（藥泵一座幾劑）、set_bonus（原廠全套的套裝加成：牌子 → 被動效果）；設計圖多讀 implant_kind（失效與超頻的種類）
-// 報告（kind action）：cyber.install、cyber.remove、cyber.bridge、cyber.pump（戰鬥外替藥泵裝藥）。
-// 對外：cyberOf、pieceSink、surgeons、swapBridgeBlock／swapBridgeProblems／swapBridgeDraft／bridgeQuote／bridgeCapacityOf／isBridge、installBlock／installProblems／installDraft／installQuote、removeBlock／removeProblems／removeDraft／removeQuote、cyberView、deckSourceOf／brainDeck／isDeckPiece、loadPumpDraft／pumpView／pumpProblems、battleImplants／cyberLive／defOf。
+//   授權鎖  成品資料的 lock { kind: 'subscription' | 'contract', holder?, weekly?, owed? }；鎖住是那一件的 off: { why: 'lock' }（有 until 的到時間自己解開）；
+//         掛點 bill.collect／bill.settled（訂閱的每週費用；沒付成就鎖、欠的記進 owed）、defeat.gear（三個效果回答 true）、scan.person（掃橋讀到的義體）；
+//         效果 cyber_install、cyber_take、cyber_lock、cyber_unlock（內建的來源才收，ai: false）；二手的義體裝上時加殘響、可能種下惡意韌體（效果 malware，有人註冊才）；
+//         規則表多 subscription_rate、crack_dc_bonus、crack_hostility、unlock_bonus、used_malware、repair_fee、repair_dc、repair_home_level；條件 cyber 多 tattoo、faction（光紋刺青）
+// 報告（kind action）：cyber.install、cyber.remove、cyber.bridge、cyber.pump（戰鬥外替藥泵裝藥）、cyber.pay（補繳）、cyber.crack（破解）、cyber.repair、cyber.modify（小手術）。
+// 對外：cyberOf、pieceSink、surgeons、swapBridgeBlock／swapBridgeProblems／swapBridgeDraft／bridgeQuote／bridgeCapacityOf／isBridge、installBlock／installProblems／installDraft／installQuote、removeBlock／removeProblems／removeDraft／removeQuote、cyberView、deckSourceOf／brainDeck／isDeckPiece、loadPumpDraft／pumpView／pumpProblems、battleImplants／cyberLive／defOf、
+// lockView／payLockBlock／payLockDraft、crackBlock／crackQuote／crackDraft、repairBlock／repairQuote／repairDraft、modifyBlock／modifyQuote／modifyDraft、readLock／scanAnswer。
 
 import type { Condition, ConditionCtx, ContentEntry, Feature, GameState, Kernel } from '../../core'
-import { ContentError, isRecord, isSafeInt } from '../../core'
+import { ContentError, TATTOO_KINDS, isRecord, isSafeInt } from '../../core'
 import {
   CLINIC_GRADES, FACILITY_TYPE_KIND, OWNER, PART_IDS, RULE_KIND, baseSlot, cyberOf, isBridge, ruleProblems,
 } from './model'
@@ -30,6 +35,7 @@ import { BRIDGE_CATS, bridgeCapacityOf, capStatId } from './bridge'
 import { cyberPassives, quirkPassives, sceneBody } from './passive'
 import { SURGERY_STAT } from './surgery'
 import { installBattle, readyBattle } from './battle'
+import { installEffects, installLockHooks } from './lock'
 
 export { cyberOf, cyberRules, DEFAULT_CYBER_RULES, hasBridge, isBridge, partIdOf, PART_IDS, PART_NAME, SURGEON_KINDS, SURGEON_NAME, isReady, isActive } from './model'
 export type { CyberPiece, CyberRules, PartId, Side, SurgeonKind, SurgeonRule, CyberOff } from './model'
@@ -51,10 +57,21 @@ export { PUMP_REPORT, loadPumpDraft, pumpBlock, pumpItemBlock, pumpProblems, pum
 export type { PumpOpts, PumpView } from './pump'
 export { WOUND_HEAD, WOUND_LIMB, cyberLive, woundedUids } from './model'
 export { DECK_FULL, brainDeck, deckSourceOf, isDeckPiece } from './deck'
+export {
+  BROKEN_OFF, GEAR_EFFECTS, INSTALL_EFFECT, LOCK_EFFECT, LOCK_KINDS, LOCK_OFF, SUBSCRIPTION_ORDER, SUBSCRIPTION_PREFIX, TAKE_EFFECT, UNLOCK_EFFECT, isLocked, readLock, scanAnswer, subscriptionLines, weeklyOf,
+} from './lock'
+export type { CyberLock, LockKind } from './lock'
+export { CRACK_ACTION, PAY_ACTION, crackBlock, crackDraft, crackProblems, crackQuote, lockView, payLockBlock, payLockDraft, payLockProblems } from './crack'
+export type { CrackOpts, CrackQuote, LockViewItem, PayLockOpts } from './crack'
+export { REPAIR_ACTION, repairBlock, repairDraft, repairProblems, repairQuote } from './repair'
+export type { RepairOpts, RepairQuote } from './repair'
+export { MODIFY_ACTION, modifyBlock, modifyDraft, modifyProblems, modifyQuote } from './modify'
+export type { ModifyOpts, ModifyQuote } from './modify'
+export { usedExtras } from './used'
 export type { DeckSourceAnswer } from './deck'
 
 const CAT_NAME = { meat: '現實', net: '內海', social: '社交', media: '媒體' } as const
-type CyberCondition = Condition & { slot?: string; bp?: string; tag?: string; min?: number }
+type CyberCondition = Condition & { slot?: string; bp?: string; tag?: string; min?: number; tattoo?: string; faction?: string }
 const SLOT_WORDS: readonly string[] = [...PART_IDS, 'arm', 'leg']
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
 /** 掛點 scene.body 是 features/scene 宣告的：這裡只認名字與格式，不 import（照 features/maze 掛 netrun.round 的做法）。 */
@@ -91,6 +108,8 @@ export const cyberwareFeature: Feature = {
         if (raw.bp !== undefined && !isText(raw.bp)) p.push('bp 要是設計圖的 id')
         if (raw.tag !== undefined && !isText(raw.tag)) p.push('tag 要是設計圖 tags 裡的字')
         if (raw.min !== undefined && !(isSafeInt(raw.min) && raw.min >= 1)) p.push('min 要是 1 以上的整數')
+        if (raw.tattoo !== undefined && !(typeof raw.tattoo === 'string' && (TATTOO_KINDS as readonly string[]).includes(raw.tattoo))) p.push(`tattoo 只能是 ${TATTOO_KINDS.join('、')}`)
+        if (raw.faction !== undefined && !isText(raw.faction)) p.push('faction 要是勢力的 id')
         return p
       },
       test(c, { state, actor }: ConditionCtx) {
@@ -102,6 +121,11 @@ export const cyberwareFeature: Feature = {
           if (c.tag !== undefined) {
             const tags = (pieceBlueprint(k, piece) as { tags?: unknown } | undefined)?.tags
             if (!Array.isArray(tags) || !tags.includes(c.tag)) return false
+          }
+          // 光紋刺青（P45）：設計圖的 tattoo { kind, faction? }；tattoo 與 faction 兩個鍵可以單寫或一起寫
+          if (c.tattoo !== undefined || c.faction !== undefined) {
+            const t = (pieceBlueprint(k, piece) as { tattoo?: { kind?: unknown; faction?: unknown } } | undefined)?.tattoo
+            if (!t || (c.tattoo !== undefined && t.kind !== c.tattoo) || (c.faction !== undefined && t.faction !== c.faction)) return false
           }
           return true
         }).length
@@ -117,6 +141,10 @@ export const cyberwareFeature: Feature = {
 
     // 戰鬥（M4-cyber-battle）：loadout 的 implants、開關與修正、藥泵、戰地手術的效果 op、戰鬥結束時寫回
     installBattle(k)
+
+    // 授權鎖（M4-cyber-lock）：四個效果（cyber_install、cyber_take、cyber_lock、cyber_unlock）、每週帳單的訂閱、defeat.gear、scan.person
+    installEffects(k)
+    installLockHooks(k)
   },
 
   ready(k) {

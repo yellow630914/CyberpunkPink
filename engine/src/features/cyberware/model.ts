@@ -97,6 +97,22 @@ export interface CyberRules {
    * 好了、沒有 off 時給。設計書只寫了方向（緋櫻：同步回灌 −10%、要害 +；星旗：不卡彈、耐久 +……），沒有逐項的數字，預設是空的，等資料補（M4-data-rules）
    */
   set_bonus: Record<string, PassiveEffect[]>
+  /** 訂閱的每週費用沒寫 weekly 時：成品價的幾成（CYBERWARE 第 5 節「每週付全額的 3%」；P11；M4-cyber-lock） */
+  subscription_rate: number
+  /** 破解授權鎖的 DC 比設計圖等級的標準 DC 高多少 */
+  crack_dc_bonus: number
+  /** 破解失敗而且鎖是勢力的：那個勢力的敵對值加多少 */
+  crack_hostility: number
+  /** 條件 ability（daily: 'unlock'）成立的人破解的檢定加值 */
+  unlock_bonus: number
+  /** 二手的義體裝上時種下惡意韌體的機率（P12） */
+  used_malware: number
+  /** 修理：診所收成品價的幾成（DOWNTIME 3.1 節：零件價的 20%） */
+  repair_fee: number
+  /** 修理：自己修的 DC（DOWNTIME 3.1 節：義體學 13） */
+  repair_dc: number
+  /** 修理：自己修要在住處的話，住處的等級至少多少（條件 at_home 的 level_min；有工作台的據點是二級以上） */
+  repair_home_level: number
 }
 
 export const DEFAULT_CYBER_RULES: CyberRules = {
@@ -122,6 +138,14 @@ export const DEFAULT_CYBER_RULES: CyberRules = {
   deck_sink_default: 6,
   pump_doses: 3,
   set_bonus: {},
+  subscription_rate: 0.03,
+  crack_dc_bonus: 3,
+  crack_hostility: 5,
+  unlock_bonus: 2,
+  used_malware: 0.1,
+  repair_fee: 0.2,
+  repair_dc: 13,
+  repair_home_level: 2,
 }
 
 const INV_IDS = ['surface', 'light', 'invasive', 'heavy', 'extreme']
@@ -174,6 +198,12 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
     if (!isRecord(e.set_bonus)) p.push('set_bonus 要是 { 牌子: 被動效果的陣列 }')
     else for (const [brand, list] of Object.entries(e.set_bonus)) if (!isText(brand) || !Array.isArray(list) || !list.every(isRecord)) p.push(`set_bonus.${brand} 要是被動效果的陣列`)
   }
+  for (const key of ['subscription_rate', 'used_malware', 'repair_fee'] as const) if (e[key] !== undefined && !isRatio(e[key])) p.push(`${key} 要是 0～1 的數字`)
+  if (e.crack_dc_bonus !== undefined && !(isSafeInt(e.crack_dc_bonus) && e.crack_dc_bonus >= 0 && e.crack_dc_bonus <= 20)) p.push('crack_dc_bonus 要是 0～20 的整數')
+  if (e.crack_hostility !== undefined && !(isSafeInt(e.crack_hostility) && e.crack_hostility >= 0 && e.crack_hostility <= 100)) p.push('crack_hostility 要是 0～100 的整數')
+  if (e.unlock_bonus !== undefined && !(isSafeInt(e.unlock_bonus) && e.unlock_bonus >= 0 && e.unlock_bonus <= 10)) p.push('unlock_bonus 要是 0～10 的整數')
+  if (e.repair_dc !== undefined && !(isSafeInt(e.repair_dc) && e.repair_dc >= 1 && e.repair_dc <= 40)) p.push('repair_dc 要是 1～40 的整數')
+  if (e.repair_home_level !== undefined && !(isSafeInt(e.repair_home_level) && e.repair_home_level >= 0 && e.repair_home_level <= 3)) p.push('repair_home_level 要是 0～3 的整數')
   return p
 }
 
@@ -211,6 +241,7 @@ export function cyberRules(k: Pick<Kernel, 'content'>): CyberRules {
   if (ok('deck_sink_default')) out.deck_sink_default = e.deck_sink_default as number
   if (ok('pump_doses')) out.pump_doses = e.pump_doses as number
   if (ok('set_bonus')) out.set_bonus = clone(e.set_bonus as Record<string, PassiveEffect[]>)
+  for (const key of ['subscription_rate', 'crack_dc_bonus', 'crack_hostility', 'unlock_bonus', 'used_malware', 'repair_fee', 'repair_dc', 'repair_home_level'] as const) if (ok(key)) out[key] = e[key] as number
   return out
 }
 
@@ -263,8 +294,11 @@ function readPiece(raw: unknown): CyberPiece | null {
   return piece
 }
 
-/** 讀一份 ext.cyber：壞掉的整理成沒有那一件（uid 重複的留第一件）。 */
-export function readPieces(raw: unknown): CyberPiece[] {
+/**
+ * 讀一份 ext.cyber：壞掉的整理成沒有那一件（uid 重複的留第一件）。
+ * 給了 now（總分鐘）時，off.until 到了的當成沒有 off（有期限的鎖與壞掉，M4-cyber-lock；下一次寫 pieces 時順手清掉，因為寫回的是整理過的）。
+ */
+export function readPieces(raw: unknown, now?: number): CyberPiece[] {
   if (!isRecord(raw) || !Array.isArray(raw.pieces)) return []
   const out: CyberPiece[] = []
   const seen = new Set<string>()
@@ -272,13 +306,15 @@ export function readPieces(raw: unknown): CyberPiece[] {
     const piece = readPiece(p)
     if (!piece || seen.has(piece.uid)) continue
     seen.add(piece.uid)
+    if (now !== undefined && piece.off?.until !== undefined && piece.off.until <= now) delete piece.off
     out.push(piece)
   }
   return out
 }
 
 /** 這個人身上的義體（整理過的複本；人不存在、資料壞掉是空的）。 */
-export const cyberOf = (state: Pick<GameState, 'actors'>, actor: ActorId): CyberPiece[] => readPieces(state.actors[actor]?.ext[EXT])
+export const cyberOf = (state: Pick<GameState, 'actors'> & Partial<Pick<GameState, 'time'>>, actor: ActorId): CyberPiece[] =>
+  readPieces(state.actors[actor]?.ext[EXT], state.time ? toMinutes(state.time) : undefined)
 
 /** 寫回 ext.cyber 的值：保留 ext.cyber 裡別人放的鍵，pieces 換成整理過的新清單。 */
 export function cyberExtValue(state: Pick<GameState, 'actors'>, actor: ActorId, pieces: CyberPiece[]): Record<string, unknown> {

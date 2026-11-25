@@ -13,6 +13,7 @@ import {
   ActionBlocked, DEGREE_NAME, blueprintOf, checkParts, clone, dcFor, deriveRng, formatAmount, formatDuration, partOf, partTypeName, productOf, productPrice, readProduct, rollCheck, stackOf,
 } from '../../core'
 import { DECK_FULL, brainDeck, deckContentOf, isDeckPiece, netActivityBlock, pieceBlueprint } from './deck'
+import { usedExtras } from './used'
 import type { CyberPiece, CyberRules, PartId, Side, SurgeonKind } from './model'
 import {
   EXT, FACILITY_TYPE_KIND, PART_NAME, RECOVERING, SURGEON_NAME, cyberExtValue, cyberOf, cyberRules, hasBridge, isSurgeonKind, nowOf, partIdOf,
@@ -168,7 +169,7 @@ export interface SelfCheck {
   bonus: number
 }
 
-function selfCheckOf(k: Kernel, state: GameState, by: ActorId, bp: Pick<BlueprintEntry, 'grade'>, rules: CyberRules): SelfCheck | undefined {
+export function selfCheckOf(k: Kernel, state: GameState, by: ActorId, bp: Pick<BlueprintEntry, 'grade'>, rules: CyberRules): SelfCheck | undefined {
   if (!state.actors[by]) return undefined
   const base = rules.self_dc[Math.min(5, Math.max(1, bp.grade)) - 1] ?? rules.self_dc[0] ?? 10
   const parts = checkParts(k.stats, state, by, { attr: SELF_ATTR, skill: rules.self_skill, tags: ['surgery'] })
@@ -381,6 +382,9 @@ export function installDraft(k: Kernel, state: GameState, o: InstallOpts): Repor
         quirkName = pick.name
       }
     }
+    // 二手的義體（M4-cyber-lock；P12）：殘響與可能的惡意韌體，掛在同一份報告
+    const used = usedExtras(k, state, o.actor, q.bp, { ...base, uid: q.uid, parts, ...(quirks.length > 0 ? { quirks } : {}) })
+    if (used.quirk) quirks.push(used.quirk.id)
     const piece: CyberPiece = {
       ...base, uid: q.uid, parts, ...(quirks.length > 0 ? { quirks } : {}),
       bp: q.bp, kind_of: found ? 'blueprint' : 'deck', slot: q.slot!, sink, at: now, ...(ready !== undefined ? { ready_at: ready } : {}), registered: q.registered,
@@ -390,14 +394,16 @@ export function installDraft(k: Kernel, state: GameState, o: InstallOpts): Repor
     changes.push({ op: 'item', id: q.bp, qty: -1, data: { uid: q.uid } })
     if (q.fee > 0) changes.push({ op: q.pay!, delta: -q.fee })
     changes.push({ op: 'time', minutes: q.minutes }, { op: 'actor.ext', id: o.actor, key: EXT, value: cyberExtValue(state, o.actor, pieces) })
+    changes.push(...used.changes)
     if (ready !== undefined) changes.push({ op: 'actor.condition', id: o.actor, condition: RECOVERING, until: Math.max(latestReady(pieces), ready) })
     if (patient.sink < floor) changes.push({ op: 'actor.track', id: o.actor, track: 'sink', delta: floor - patient.sink })
     lines.push(`${surgeonText}，${bp.name}裝進了${PART_NAME[q.slot!]}。`)
     if (great) lines.push('手術比想像中順利，神經幾乎沒有被驚動。')
     if (ready !== undefined) lines.push('新裝的部位還要養一陣子，這段時間不會生效。')
     if (complication) lines.push(quirkName ? `手術留下了併發症：${quirkName}。` : '手術不算乾淨，留下了一點後遺症。')
+    if (used.quirk) lines.push(`${bp.name}是二手的，前一個使用者的殘響還留在裡面：${used.quirk.name}。`)
     if (floor > 0 && patient.sink < floor) lines.push('身上的義體把沉溺墊高了。')
-    Object.assign(data, { at: now, ...(ready !== undefined ? { ready_at: ready } : {}), complication: quirkName ?? null })
+    Object.assign(data, { at: now, ...(ready !== undefined ? { ready_at: ready } : {}), complication: quirkName ?? null, echo: used.quirk?.id ?? null })
   }
   if (rolled) changes.push({ op: 'rng', advance: 1 })
 
