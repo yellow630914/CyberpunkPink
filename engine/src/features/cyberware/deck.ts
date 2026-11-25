@@ -8,7 +8,7 @@
 import type { ActorId, ContentEntry, GameState, Kernel } from '../../core'
 import { productOf } from '../../core'
 import type { CyberPiece } from './model'
-import { blueprintEntry, cyberOf, isReady, nowOf } from './model'
+import { blueprintEntry, cyberLive, cyberOf, isReady, nowOf } from './model'
 
 export const DECK_KIND = 'deck'
 export const DECK_FULL = '腦裡已經有一副甲板，要先拆掉。'
@@ -74,7 +74,8 @@ function answer(piece: CyberPiece, id: string, name: string, grade: number, n: {
  */
 export function deckSourceOf(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId): DeckSourceAnswer | undefined {
   const now = nowOf(state)
-  for (const piece of cyberOf(state, actor)) {
+  // 頭的重創讓腦裡的甲板損壞（COMBAT_SYSTEM 第 6 節；P46）：cyberLive 把它當成 off
+  for (const piece of cyberLive(state, actor)) {
     if (piece.slot !== 'brain' || piece.off) continue
     const ready = isReady(piece, now)
     if (piece.kind_of === 'deck') {

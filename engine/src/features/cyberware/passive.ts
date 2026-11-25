@@ -9,7 +9,7 @@ import type { ActorId, GameState, Kernel, PassiveEffect } from '../../core'
 import { isRecord, partOf, productOf } from '../../core'
 import type { CyberPiece } from './model'
 import { deckContentOf, pieceBlueprint } from './deck'
-import { cyberOf, isActive, nowOf } from './model'
+import { cyberLive, cyberRules, isActive, nowOf } from './model'
 
 /** 場景的基本部位（features/scene 的 BASE_PARTS；功能之間不互相 import，這裡認同一份名字）：scene_parts 的 sensitivity 寫 all 時展開到這些加上義體多出來的。 */
 export const BASE_SCENE_PARTS = ['mouth', 'hand_l', 'hand_r', 'chest', 'front', 'back', 'legs'] as const
@@ -19,9 +19,10 @@ const effectsOf = (raw: unknown, label: string): PassiveEffect[] =>
 
 /** 身上這個人現在給的（來源 cyber）：沉溺的下限與生效的義體的效果。 */
 export function cyberPassives(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId): PassiveEffect[] {
-  const pieces = cyberOf(state, actor)
+  const pieces = cyberLive(state, actor)
   if (pieces.length === 0) return []
   const now = nowOf(state)
+  const setBonus = cyberRules(k).set_bonus
   const out: PassiveEffect[] = []
   for (const piece of pieces) {
     const bp = pieceBlueprint(k, piece)
@@ -34,13 +35,15 @@ export function cyberPassives(k: Pick<Kernel, 'content'>, state: GameState, acto
     for (const { part } of info.parts) out.push(...effectsOf(part.effects, part.name))
     const armor = info.stats.armor
     if (typeof armor === 'number' && Number.isFinite(armor) && armor !== 0) out.push({ stat: 'armor', amount: armor, label: name })
+    // 原廠全套（設計圖與所有零件同一個牌子，而且真的裝著零件）的套裝加成（CRAFTING 第 6 節）：混搭沒有
+    if (info.brands.length === 1 && info.parts.length > 0) out.push(...effectsOf(setBonus[info.brands[0]!], `${name}（全套）`))
   }
   return out
 }
 
 /** 身上這些義體帶著的怪癖的 effects（來源 quirk）：好了、沒有 off 的那幾件。 */
 export function quirkPassives(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId): PassiveEffect[] {
-  const pieces = cyberOf(state, actor)
+  const pieces = cyberLive(state, actor)
   if (pieces.length === 0) return []
   const now = nowOf(state)
   const out: PassiveEffect[] = []
@@ -56,7 +59,7 @@ export function quirkPassives(k: Pick<Kernel, 'content'>, state: GameState, acto
 /** 這個人好了的義體（生效的）。 */
 export const activePieces = (state: GameState, actor: ActorId): CyberPiece[] => {
   const now = nowOf(state)
-  return cyberOf(state, actor).filter((p) => isActive(p, now))
+  return cyberLive(state, actor).filter((p) => isActive(p, now))
 }
 
 /** 場景問身體的回答：每一件生效的義體的 scene_parts。沒有就是 undefined。 */

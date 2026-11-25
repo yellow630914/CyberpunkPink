@@ -7,7 +7,7 @@
 // at（裝好的時間，總分鐘）、ready_at?（休養到什麼時候）、off?（不生效：{ why, until? }）、registered?（正規診所裝的，登記在橋 ID 上）。
 // 資料壞掉的（pieces 不是陣列、某一件沒有 bp、沒有合格的部位、uid 重複）讀成沒有那一件，不丟錯。
 
-import type { ActorId, BlueprintEntry, Condition, ContentEntry, GameState, Kernel, ProductData } from '../../core'
+import type { ActorId, BlueprintEntry, Condition, ContentEntry, GameState, Kernel, PassiveEffect, ProductData } from '../../core'
 import { clone, isRecord, isSafeInt, readProduct, toMinutes } from '../../core'
 
 export const OWNER = 'cyberware'
@@ -90,6 +90,13 @@ export interface CyberRules {
   cap_min: number
   /** 內容種類 deck 的成品裝進腦部時的沉溺成本，那一筆沒寫 sink_cost 時用（CYBERWARE 第 2 節「侵入：甲板 5～8」；P51） */
   deck_sink_default: number
+  /** 藥泵一座最多放幾劑（設計圖 battle.pump 寫 true 時用；暫定 3，dev/work/M4-cyber-battle.md） */
+  pump_doses: number
+  /**
+   * 原廠全套的套裝加成（CRAFTING 第 6 節）：牌子 → 被動效果（來源 cyber）。設計圖與所有零件同一個牌子（productOf 的 brands 只有一個）的那一件，
+   * 好了、沒有 off 時給。設計書只寫了方向（緋櫻：同步回灌 −10%、要害 +；星旗：不卡彈、耐久 +……），沒有逐項的數字，預設是空的，等資料補（M4-data-rules）
+   */
+  set_bonus: Record<string, PassiveEffect[]>
 }
 
 export const DEFAULT_CYBER_RULES: CyberRules = {
@@ -113,6 +120,8 @@ export const DEFAULT_CYBER_RULES: CyberRules = {
   bridge_swap_sink: { amount: 5, days: 7 },
   cap_min: 8,
   deck_sink_default: 6,
+  pump_doses: 3,
+  set_bonus: {},
 }
 
 const INV_IDS = ['surface', 'light', 'invasive', 'heavy', 'extreme']
@@ -160,6 +169,11 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
   if (e.bridge_swap_sink !== undefined && !swapSinkOk(e.bridge_swap_sink)) p.push('bridge_swap_sink 要是 { amount: 0～100 的整數, days: 1～365 的整數 }')
   if (e.cap_min !== undefined && !(isSafeInt(e.cap_min) && e.cap_min >= 0 && e.cap_min <= 64)) p.push('cap_min 要是 0～64 的整數')
   if (e.deck_sink_default !== undefined && !(isSafeInt(e.deck_sink_default) && e.deck_sink_default >= 0 && e.deck_sink_default <= 100)) p.push('deck_sink_default 要是 0～100 的整數')
+  if (e.pump_doses !== undefined && !(isSafeInt(e.pump_doses) && e.pump_doses >= 1 && e.pump_doses <= 9)) p.push('pump_doses 要是 1～9 的整數')
+  if (e.set_bonus !== undefined) {
+    if (!isRecord(e.set_bonus)) p.push('set_bonus 要是 { 牌子: 被動效果的陣列 }')
+    else for (const [brand, list] of Object.entries(e.set_bonus)) if (!isText(brand) || !Array.isArray(list) || !list.every(isRecord)) p.push(`set_bonus.${brand} 要是被動效果的陣列`)
+  }
   return p
 }
 
@@ -195,6 +209,8 @@ export function cyberRules(k: Pick<Kernel, 'content'>): CyberRules {
   if (ok('bridge_swap_sink')) out.bridge_swap_sink = { ...(e.bridge_swap_sink as { amount: number; days: number }) }
   if (ok('cap_min')) out.cap_min = e.cap_min as number
   if (ok('deck_sink_default')) out.deck_sink_default = e.deck_sink_default as number
+  if (ok('pump_doses')) out.pump_doses = e.pump_doses as number
+  if (ok('set_bonus')) out.set_bonus = clone(e.set_bonus as Record<string, PassiveEffect[]>)
   return out
 }
 
@@ -227,6 +243,8 @@ export interface CyberPiece extends ProductData {
   off?: CyberOff
   /** 正規診所裝的是 true（登記在橋 ID 上）；無照、黑診所、自己動刀是 false */
   registered?: boolean
+  /** 藥泵裡預裝的藥（設計圖 battle.pump 的那一種；M4-cyber-battle）：一種藥、幾劑 */
+  loaded?: { item: string; qty: number }
 }
 
 /** 把存檔裡的一件讀成合格的（壞掉回 null）。 */
@@ -241,6 +259,7 @@ function readPiece(raw: unknown): CyberPiece | null {
   if (isSafeInt(raw.ready_at)) piece.ready_at = raw.ready_at
   if (isRecord(raw.off) && isText(raw.off.why)) piece.off = { why: raw.off.why, ...(isSafeInt(raw.off.until) ? { until: raw.off.until } : {}) }
   if (typeof raw.registered === 'boolean') piece.registered = raw.registered
+  if (isRecord(raw.loaded) && isText(raw.loaded.item) && isSafeInt(raw.loaded.qty) && raw.loaded.qty > 0) piece.loaded = { item: raw.loaded.item, qty: raw.loaded.qty }
   return piece
 }
 
@@ -273,6 +292,56 @@ export const isReady = (piece: Pick<CyberPiece, 'ready_at'>, now: number): boole
 export const isActive = (piece: CyberPiece, now: number): boolean => isReady(piece, now) && !piece.off
 
 export const nowOf = (state: Pick<GameState, 'time'>): number => toMinutes(state.time)
+
+// ---- 重的重創（COMBAT_SYSTEM 第 6 節；dev/adr/0019 P46）：不寫進狀態，讀的時候算 ----
+
+/** 角色身上的狀況：頭的重創（義眼或甲板損壞）、肢體的重創（義肢失效）。治好了（狀況拿掉）就恢復。 */
+export const WOUND_HEAD = 'wound_head'
+export const WOUND_LIMB = 'wound_limb'
+/** 頭的重創打壞的順序：眼，然後腦（義眼或甲板）。肢體：左臂、右臂、左腿、右腿。同一個部位照身上的順序。 */
+const HEAD_ORDER: readonly PartId[] = ['eye', 'brain']
+const LIMB_ORDER: readonly PartId[] = ['arm_l', 'arm_r', 'leg_l', 'leg_r']
+
+const hasCondition = (state: Pick<GameState, 'actors' | 'time'>, actor: ActorId, id: string): boolean => {
+  const now = toMinutes(state.time)
+  return !!state.actors[actor]?.conditions.some((c) => c.id === id && (c.until === undefined || c.until > now))
+}
+
+/**
+ * 重的重創讓哪幾件失效（uid）：有 wound_head 就是照順序第一件眼或腦的義體，有 wound_limb 就是第一件手臂或腿的義體
+ * （沒有那種義體就沒事；已經 off 的照樣算那一件，不往下找，這樣鎖解開之後壞的還是同一件）。
+ */
+export function woundedUids(state: Pick<GameState, 'actors' | 'time'>, actor: ActorId, pieces: readonly CyberPiece[] = cyberOf(state, actor)): Set<string> {
+  const out = new Set<string>()
+  if (pieces.length === 0) return out
+  const first = (order: readonly PartId[]): CyberPiece | undefined => {
+    for (const part of order) {
+      const hit = pieces.find((p) => p.slot === part)
+      if (hit) return hit
+    }
+    return undefined
+  }
+  if (hasCondition(state, actor, WOUND_HEAD)) {
+    const p = first(HEAD_ORDER)
+    if (p) out.add(p.uid)
+  }
+  if (hasCondition(state, actor, WOUND_LIMB)) {
+    const p = first(LIMB_ORDER)
+    if (p) out.add(p.uid)
+  }
+  return out
+}
+
+/**
+ * 身上的義體，加上重創讓失效的那幾件（當成 off: { why: 'wound' }；已經有 off 的留原本的）。被動效果、載入戰鬥、甲板、畫面都讀這一份；
+ * 要的是「身上有什麼」（件數、手術、沉溺成本）仍然讀 cyberOf。
+ */
+export function cyberLive(state: Pick<GameState, 'actors' | 'time'>, actor: ActorId): CyberPiece[] {
+  const pieces = cyberOf(state, actor)
+  const hurt = woundedUids(state, actor, pieces)
+  if (hurt.size === 0) return pieces
+  return pieces.map((p) => (hurt.has(p.uid) && !p.off ? { ...p, off: { why: 'wound' } } : p))
+}
 
 /** 設計圖（義體）；查不到是 undefined。 */
 export const blueprintEntry = (k: Pick<Kernel, 'content'>, id: string): BlueprintEntry | undefined => k.content.get<BlueprintEntry>('blueprint', id)

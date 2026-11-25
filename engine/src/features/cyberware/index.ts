@@ -1,7 +1,7 @@
 // L6 功能：義體（身上的義體；CYBERWARE 第 1～3 節；CRAFTING 8.1、10.2 節；TRADE 3.4 節；DATA 7.1、3.4 節；dev/adr/0019 第三節與 P1～P6；dev/work/M4-cyberware.md）。
 //
 // 部位與槽、把一件成品裝上去與拆下來的手術（四種人動刀）、沉溺成本墊高沉溺的下限、義體的效果（被動效果，來源 cyber 與 quirk）、休養與併發症。
-// 橋（換橋）與甲板（腦部的義體，deck.ts）已經做了；戰鬥、授權鎖是後面兩張（M4-cyber-battle、-lock）。生體件的成長、小手術（換零件）不在這裡。
+// 橋（換橋）、甲板（腦部的義體，deck.ts）、戰鬥（battle.ts、battleDef.ts、pump.ts：義體進戰鬥、開關與修正、藥泵、戰地手術）已經做了；授權鎖是後面一張（M4-cyber-lock）。生體件的成長、小手術（換零件）不在這裡。
 //
 // 接上核心的地方：
 //   內容  cyber_rule（規則表，overridable；id: default）：槽數、四種人動刀的費用與併發症、休養、自己動刀的條件（model.ts 的 DEFAULT_CYBER_RULES）；
@@ -14,18 +14,22 @@
 //   狀態  actor.ext.cyber：{ pieces: CyberPiece[] }（形狀見 model.ts；只經由報告裡的 actor.ext 變更寫）；休養中掛角色狀況 recovering
 //         橋（bridge.ts）：衍生數值 bridge_cap_meat／net／social／media（晶片給總量、軟體分四類、加零件的親和；沒有橋是 0；abilities 讀它們）；
 //         規則表多 deck_sink_default（成品甲板裝進腦部的沉溺成本，6）、bridge_fee_mult、bridge_recovery_minutes、bridge_swap_sink、cap_min；換橋用效果 sink_floor（有人註冊才給）。
-// 報告（kind action）：cyber.install、cyber.remove、cyber.bridge。
-// 對外：cyberOf、pieceSink、surgeons、swapBridgeBlock／swapBridgeProblems／swapBridgeDraft／bridgeQuote／bridgeCapacityOf／isBridge、installBlock／installProblems／installDraft／installQuote、removeBlock／removeProblems／removeDraft／removeQuote、cyberView、deckSourceOf／brainDeck／isDeckPiece。
+//   戰鬥  loadout 的 implants（現實的戰場；不含橋）、衍生數值 cyber_count（不是橋的件數）、設計圖的 battle 欄位（actions、toggle、scaling、vs、pump；battleDef.ts）註冊成行動與修正、
+//         行動 cyber_pump、效果 op implant_install（戰地手術）、戰鬥結束時寫回（battle.ts）；重的重創（狀況 wound_head、wound_limb）讓眼／腦與手臂／腿的一件失效（cyberLive，讀的時候算）；
+//         規則表多 pump_doses（藥泵一座幾劑）、set_bonus（原廠全套的套裝加成：牌子 → 被動效果）；設計圖多讀 implant_kind（失效與超頻的種類）
+// 報告（kind action）：cyber.install、cyber.remove、cyber.bridge、cyber.pump（戰鬥外替藥泵裝藥）。
+// 對外：cyberOf、pieceSink、surgeons、swapBridgeBlock／swapBridgeProblems／swapBridgeDraft／bridgeQuote／bridgeCapacityOf／isBridge、installBlock／installProblems／installDraft／installQuote、removeBlock／removeProblems／removeDraft／removeQuote、cyberView、deckSourceOf／brainDeck／isDeckPiece、loadPumpDraft／pumpView／pumpProblems、battleImplants／cyberLive／defOf。
 
 import type { Condition, ConditionCtx, ContentEntry, Feature, GameState, Kernel } from '../../core'
 import { ContentError, isRecord, isSafeInt } from '../../core'
 import {
-  CLINIC_GRADES, FACILITY_TYPE_KIND, OWNER, PART_IDS, RULE_KIND, baseSlot, cyberOf, ruleProblems,
+  CLINIC_GRADES, FACILITY_TYPE_KIND, OWNER, PART_IDS, RULE_KIND, baseSlot, cyberOf, isBridge, ruleProblems,
 } from './model'
 import { deckSourceOf, pieceBlueprint } from './deck'
 import { BRIDGE_CATS, bridgeCapacityOf, capStatId } from './bridge'
 import { cyberPassives, quirkPassives, sceneBody } from './passive'
 import { SURGERY_STAT } from './surgery'
+import { installBattle, readyBattle } from './battle'
 
 export { cyberOf, cyberRules, DEFAULT_CYBER_RULES, hasBridge, isBridge, partIdOf, PART_IDS, PART_NAME, SURGEON_KINDS, SURGEON_NAME, isReady, isActive } from './model'
 export type { CyberPiece, CyberRules, PartId, Side, SurgeonKind, SurgeonRule, CyberOff } from './model'
@@ -40,6 +44,12 @@ export type { BridgeCapacity, BridgeCat, BridgeOpts, BridgeQuote, CapacityPart }
 export { cyberView, viewPiece } from './view'
 export type { CyberView, PieceStatus, ViewPart, ViewPiece } from './view'
 export { sceneBody } from './passive'
+export { INSTALL_OP, PUMP_ACTION, FIELD_ACTION, battleImplants, defOf, pieceKind, pumpCapacity } from './battle'
+export { SYNC_BACKLASH, battleProblems, kindOfBlueprint, readBattle } from './battleDef'
+export type { BattleAction, BattleDef, BattleMod, BattleScaling, BattleToggle, BattleVs } from './battleDef'
+export { PUMP_REPORT, loadPumpDraft, pumpBlock, pumpItemBlock, pumpProblems, pumpView } from './pump'
+export type { PumpOpts, PumpView } from './pump'
+export { WOUND_HEAD, WOUND_LIMB, cyberLive, woundedUids } from './model'
 export { DECK_FULL, brainDeck, deckSourceOf, isDeckPiece } from './deck'
 export type { DeckSourceAnswer } from './deck'
 
@@ -64,6 +74,9 @@ export const cyberwareFeature: Feature = {
     for (const cat of BRIDGE_CATS) {
       k.stats.defineStat({ id: capStatId(cat), owner: OWNER, name: `橋的容量（${CAT_NAME[cat]}）`, base: (state, actor) => bridgeCapacityOf(k, state, actor).split[cat], min: 0 })
     }
+
+    // 身上不是橋的義體件數（休養中、被鎖、重創讓失效的都算；敵人 AI 的 bridged 偏好看它：單位的 cyber）
+    k.stats.defineStat({ id: 'cyber_count', owner: OWNER, name: '義體件數（不含橋）', base: (state, actor) => cyberOf(state, actor).filter((p) => !isBridge(p)).length, min: 0 })
 
     // 被動效果：沉溺的下限與義體的效果（cyber）、帶著的怪癖（quirk）
     k.passives.register(OWNER, 'cyber', (state, actor) => cyberPassives(k, state, actor), '義體')
@@ -101,6 +114,9 @@ export const cyberwareFeature: Feature = {
     // 甲板是腦部的義體（M4-cyber-deck）：回答腦裡那一件的數字；有人掛這個掛點，features/deck 就不再看背包裡的甲板
     on('deck.source', OWNER, (({ state, actor }: { state: GameState; actor: string }) => deckSourceOf(k, state, actor)) as never)
     on('scene.body', OWNER, (({ state, actor, layer }: { state: GameState; actor: string; layer: string }) => sceneBody(k, state, actor, layer)) as never)
+
+    // 戰鬥（M4-cyber-battle）：loadout 的 implants、開關與修正、藥泵、戰地手術的效果 op、戰鬥結束時寫回
+    installBattle(k)
   },
 
   ready(k) {
@@ -113,6 +129,8 @@ export const cyberwareFeature: Feature = {
       }
     }
     if (problems.length) throw new ContentError(problems)
+    // 設計圖的 battle 欄位：查格式、註冊成戰鬥的行動（效果要等所有功能都裝好才查得出有沒有人註冊，所以在這裡）
+    readyBattle(k as Kernel)
   },
 }
 

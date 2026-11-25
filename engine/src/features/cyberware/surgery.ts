@@ -504,8 +504,8 @@ export function usedProduct(piece: CyberPiece, kept: Array<{ type: string; ref: 
     if (array) parts[type] = [...((parts[type] as unknown[] | undefined) ?? []), clone(ref)]
     else parts[type] = clone(ref)
   }
-  const { bp: _bp, kind_of: _kind, slot: _slot, sink: _sink, at: _at, ready_at: _ready, off: _off, registered: _reg, ...product } = piece
-  void _bp, void _kind, void _slot, void _sink, void _at, void _ready, void _off, void _reg
+  const { bp: _bp, kind_of: _kind, slot: _slot, sink: _sink, at: _at, ready_at: _ready, off: _off, registered: _reg, loaded: _loaded, ...product } = piece
+  void _bp, void _kind, void _slot, void _sink, void _at, void _ready, void _off, void _reg, void _loaded
   return { ...clone(product), parts: parts as ProductData['parts'], state: 'used' }
 }
 
@@ -567,6 +567,11 @@ export function removeDraft(k: Kernel, state: GameState, o: RemoveOpts): ReportD
     if (bioDied > 0) lines.push('活的那幾個零件離開身體就死了。')
   }
   if (lostPart) lines.push(`手上沒抓穩，${lostPart}在拆的時候報廢了。`)
+  // 藥泵裡預裝的藥：連同這一件拆出來，回到背包（M4-cyber-battle）
+  if (piece.loaded && piece.loaded.qty > 0) {
+    changes.push({ op: 'item', id: piece.loaded.item, qty: piece.loaded.qty })
+    lines.push('藥泵裡預裝的藥一併取了出來。')
+  }
   if (q.via === 'self') changes.push({ op: 'rng', advance: 1 })
 
   const beats: TimelineBeat[] = [{ layer: 'meat', actor: o.actor, text: lines[0]!, tag: REMOVE_ACTION, data: { uid: q.uid, bp: piece.bp, via: q.via, fee: q.fee, returned, lost: lostPart ?? null } }]

@@ -5,7 +5,7 @@ import type { ActorId, GameState, Kernel, PassiveEffect } from '../../core'
 import { productOf } from '../../core'
 import type { CyberOff, PartId } from './model'
 import { deckContentOf, isDeckPiece, pieceBlueprint } from './deck'
-import { PART_IDS, PART_NAME, cyberOf, cyberRules, isReady, nowOf } from './model'
+import { PART_IDS, PART_NAME, cyberLive, cyberRules, isReady, nowOf } from './model'
 import { quirkIdsOf } from './passive'
 
 /** 一件的狀態：ready 生效中、recovering 休養中、off 不生效（授權鎖、壞了……）。 */
@@ -59,7 +59,7 @@ export interface CyberView {
 }
 
 export function viewPiece(k: Kernel, state: GameState, actor: ActorId, uid: string): ViewPiece | undefined {
-  const piece = cyberOf(state, actor).find((p) => p.uid === uid)
+  const piece = cyberLive(state, actor).find((p) => p.uid === uid)
   if (!piece) return undefined
   const bp = pieceBlueprint(k, piece)
   const dk = piece.kind_of === 'deck' ? deckContentOf(k, piece.bp) : undefined
@@ -85,7 +85,7 @@ export function viewPiece(k: Kernel, state: GameState, actor: ActorId, uid: stri
 /** 這個人身上的義體：每個部位的每一槽。 */
 export function cyberView(k: Kernel, state: GameState, actor: ActorId): CyberView {
   const rules = cyberRules(k)
-  const pieces = cyberOf(state, actor)
+  const pieces = cyberLive(state, actor)
   const views = new Map(pieces.flatMap((p) => { const v = viewPiece(k, state, actor, p.uid); return v ? [[p.uid, v] as const] : [] }))
   const parts: ViewPart[] = PART_IDS.map((id) => {
     const here = pieces.filter((p) => p.slot === id).map((p) => views.get(p.uid)!)
