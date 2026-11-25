@@ -127,3 +127,9 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 ## 總指揮補記（2026-11-25，M4-abilities-m4 回報）
 - 容量變小的提醒現在由 abilities 自己接（`ability.capacity`）：拿掉 cyberware 換橋那句「容量比舊橋小」，連同 `M4-cyber-bridge.test.ts` 那條斷言一起改。
 - 橋機能「重傷時技能不失效」：COMBAT_SYSTEM 沒有重傷讓技能失效的規則，這句的意思要在匯入那座橋的資料時對設計書（CYBERWARE 7 節）確認；「駕機甲時同步上限 +1」等 M6 的機甲條件。
+
+## 總指揮補記（2026-11-25，M4-ui-craft 回報）
+- gear 匯出 `coveredSlots(k, state, actor)`（外套蓋住哪幾格），ui 的 store 改讀它、拿掉用 `styleOf().seen` 推的那段。
+- 內海 SKIN 染色：`dyeDraft` 收 SKIN（純外觀、免費），ui 的 `DyeDialog` 拿掉 `where: 'net'` 的舊分支與 `data/items.ts` 的依賴。
+- 組裝、換零件、拆解、解剖的「誰來做」：畫面加隊友選擇（引擎有 `by`）。
+- 舊假目錄 `ui/src/data/items.ts` 還有 game.ts、deckView.ts、HomeScreen、NewGameScreen、creation.test 在用：之後的介面工單逐步換掉。

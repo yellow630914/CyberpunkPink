@@ -9,6 +9,7 @@ import { lifeContent } from './life'
 import { peopleContent } from './people'
 import { netContent } from './net'
 import { bodyContent } from './body'
+import { craftContent } from './craft'
 
 /**
  * 示意世界包（dev/work/M2-plan.md 使用者定案第 5 項）：引擎不再匯入內容，畫面接上引擎之後城市是空的，
@@ -21,6 +22,7 @@ import { bodyContent } from './body'
  * net.ts 甲板、構裝、SKIN、腳本與開局送的那一份（M3-ui-deck）。
  * people.ts 固定 NPC（用 engine/data 已有的 id）、每區的生成規則與名字池、開局的名冊與候選人（M2-ui-people）。
  * body.ts 義體（橋、七件義體與零件、怪癖）、藥、開局的身體（M4-ui-body）。
+ * craft.ts 設計圖、零件、怪癖、授權書與三種做的地方（M4-ui-craft）。
  * 之後的介面工單往這裡加自己的檔。
  */
 export const DEMO_PACK_ID = 'demo_world'
@@ -30,7 +32,7 @@ export function demoPack(): ContentPack {
   // （內容種類的 overridable，dev/adr/0017）：示意包放在核心包後面，用自己的機率與公里數表
   // 同一種內容在好幾個檔裡有（物品：成人場景的道具與商店的貨）：把每個檔的接起來，不互相蓋掉
   const merged: Record<string, unknown[]> = {}
-  for (const part of [worldContent(), transitContent(), eventContent(), commissionContent(), sceneContent(), lifeContent(), peopleContent(), netContent(), bodyContent()] as Array<Record<string, unknown[]>>) {
+  for (const part of [worldContent(), transitContent(), eventContent(), commissionContent(), sceneContent(), lifeContent(), peopleContent(), netContent(), bodyContent(), craftContent()] as Array<Record<string, unknown[]>>) {
     for (const [kind, list] of Object.entries(part)) merged[kind] = [...(merged[kind] ?? []), ...list]
   }
   return { id: DEMO_PACK_ID, content: merged as unknown as ContentPack['content'] }
@@ -57,6 +59,7 @@ export function demoStartFeature(): Feature {
 export { demoPeopleChanges } from './people'
 export { demoNetChanges, DEMO_DECK, DEMO_DECK_UID, DEMO_SCRIPT } from './net'
 export { demoBodyChanges, DEMO_START_SINK } from './body'
+export { demoCraftChanges } from './craft'
 export { DEMO_SCENES, demoSceneChanges } from './scene'
 export type { DemoScene } from './scene'
 export { demoStart, legacyFacilityAt, blockIdOf, stationMarkerOf }

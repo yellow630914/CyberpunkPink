@@ -86,7 +86,16 @@ function optionsOf(f: Facility): HereOption[] {
 const hereOpts = computed<HereOption[]>(() => {
   const mine: HereOption[] = hereItems(grid.value).map(i => ({ id: i.id, name: i.name, reason: i.reason, run: () => runUse(i.id), ...(i.id.startsWith('trade.shop:') ? { auto: true } : {}) }))
   if (here.value?.open && g.facility) mine.push(...optionsOf(g.facility))
+  // 組裝：站的設施帶 craft（店家、同人社團、原廠）時多一項；誰能做、工錢是引擎的 makers
+  const craftHere = e.craft.here()
+  if (craftHere) mine.push({ id: 'craft', name: `組裝（${craftHere.name}）`, sub: '設計圖、零件、換零件、拆解', run: () => ui.openRoot('craft') })
   return mine
+})
+/** 戰後可以解剖的對象（引擎的 dissectOptions：打贏之後一小時內、一場一次）：不必站在設施上，所以另外列 */
+const dissectOpts = computed<HereOption[]>(() => {
+  const list = e.craft.dissectOptions()
+  if (!list.length) return []
+  return [{ id: 'dissect', name: '解剖', sub: list.map(o => o.name).join('、'), reason: list.every(o => o.block) ? list[0]!.block : null, run: () => ui.openRoot('craft', { tab: 'dissect' }) }]
 })
 function onEnter() {
   const msg = pressE(hereOpts.value)
@@ -247,6 +256,7 @@ const jobLine = computed(() => (run.value ? `第 ${Math.min(run.value.stage, run
               <HereOptions :options="hereOpts" data-here />
               <div v-if="!hereOpts.length" class="empty-note">這個設施沒有可以用的服務。</div>
             </template>
+            <template v-if="dissectOpts.length"><p class="h" style="margin-top: 10px">戰後<Hint>打贏之後一小時內，倒下的對象身上有義體可以拆。拆人要付沉溺與敵對值的代價。</Hint></p><HereOptions :options="dissectOpts" data-here-dissect /></template>
             <p class="h" style="margin-top: 10px">出口<Hint>走到出口那一格就會換到隔壁的街區；也可以點這裡，你會走過去。</Hint></p>
             <div class="exits"><button v-for="x in exits" :key="x.marker" type="button" class="svc" :data-exit="x.to" @click="goExit(x)"><span>往{{ x.toName }}</span><span aria-hidden="true">→</span></button></div>
           </template>

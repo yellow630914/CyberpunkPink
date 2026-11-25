@@ -3,6 +3,7 @@ import { DISTRICTS, BLOCK_TEMPLATE, blockSpec } from '../districts'
 import { LINES } from '../transit'
 import { DISTRICT_MARKET } from './market'
 import type { DistrictId, Facility } from '../types'
+import { CRAFT_FACILITY_TYPE } from './craft'
 
 /**
  * 示意世界包的城市部分：把 ui/src/data/districts.ts 的區、街區、設施整理成引擎的內容種類
@@ -46,7 +47,7 @@ const FAC_TYPES: Array<{ id: string; name: string; sleep?: { rate: number; cost:
 ]
 /** 有床位的舊設施（舊資料的 rest 服務裡睡一晚的那兩處）：種類換成有 sleep 的 */
 const SLEEP_TYPE: Record<string, string> = { noid: 'fac_inn', camp: 'fac_camp', divepod: 'fac_dive', qinghe: 'fac_clinic_reg', backalley: 'fac_black' }
-const typeOf = (f: Facility): string => SLEEP_TYPE[f.id] ?? `fac_${f.kind}`
+const typeOf = (f: Facility): string => SLEEP_TYPE[f.id] ?? CRAFT_FACILITY_TYPE[f.id] ?? `fac_${f.kind}`
 
 /** 營業時間（示意）：酒吧與俱樂部夜裡開、商店與診所白天到晚上，其餘一直開。 */
 const DAY = ['morning', 'noon', 'afternoon', 'prime']

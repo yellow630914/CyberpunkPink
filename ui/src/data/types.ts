@@ -46,7 +46,7 @@ export interface ItemDef {
   /** 家具 */
   furniture?: string
   gift?: { value: number; preview: string }
-  /** 目錄上的預設顏色（主色調、副色調；色票 id 或 #RRGGBB）。沒寫就照牌子（lib/dye.ts） */
+  /** 目錄上的預設顏色（主色調、副色調；色票 id 或 #RRGGBB）。沒寫就照牌子 */
   colors?: [string, string]
   /** 零件（CRAFTING 第 2、5 節）：類型、材質 */
   part?: { type: PartType; material: '機' | '生' }

@@ -5,7 +5,7 @@ import Icon from './Icon.vue'
 import GradeBadge from './GradeBadge.vue'
 import { gradeColorVar } from '../lib/grade'
 import { useUi } from '../stores/ui'
-import { hexOf, type Dye } from '../lib/dye'
+import { hexOf, type Dye } from '../lib/craftView'
 
 /**
  * 物品格（UI 規則 1）：有東西時，邊框與等級標用那個等級的顏色，裡面是物品自己的圖標（第 3 層，沒有就退回第 2 層）；

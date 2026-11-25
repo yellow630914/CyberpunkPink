@@ -6,7 +6,9 @@ import ItemSlot from '../../components/ItemSlot.vue'
 import ReasonButton from '../../components/ReasonButton.vue'
 import { useEngine } from '../../stores/engine'
 import { useUi } from '../../stores/ui'
-import { bagEntries, carriedItem, compositionOf, gearGroups, quickCells, quickClear, quickPut, slotCandidates, weaponLines } from '../../lib/gearView'
+import { partTypeName } from '@engine/src'
+import { weightText } from '../../lib/craftView'
+import { bagEntries, carriedItem, gearGroups, quickCells, quickClear, quickPut, slotCandidates, weaponLines } from '../../lib/gearView'
 import type { GearCell, GearGroupId } from '../../lib/gearView'
 
 /**
@@ -77,6 +79,10 @@ function clearQuick() {
 
 // ---- 右欄：外套、護甲、藏匿、掃描 ----
 const armor = computed(() => eng.gear.armor())
+/** 別人看到的樣子與負重：曝露度、風格、重量與上限、超重（全是引擎的 styleOf 與衍生數值） */
+const look2 = computed(() => eng.gear.style())
+const EXPOSURE_NAME = ['包得很緊', '稍微露', '很露', '幾乎沒穿']
+const selParts = computed(() => (selEntry.value?.crafted ? eng.craft.detail(selEntry.value.stack)?.info.parts ?? [] : []))
 const conceal = computed(() => eng.gear.concealment())
 const strength = ref(2)
 const STRENGTHS = [1, 2, 3]
@@ -144,7 +150,7 @@ function setCoat(coat: 'open' | 'closed') {
             </div>
           </div>
           <div v-for="l in selWeapon ? weaponLines(selWeapon) : []" :key="l.label" class="kv"><span>{{ l.label }}</span><b>{{ l.value }}</b></div>
-          <div v-for="(p, i) in compositionOf(look, selEntry.stack)" :key="i" class="kv"><span>{{ p.typeName }}</span><b :style="{ color: `var(--g${p.grade})` }">{{ p.name }}</b></div>
+          <div v-for="(p, i) in selParts" :key="i" class="kv" data-part><span>{{ partTypeName(p.type) }}</span><b :style="{ color: `var(--g${p.part.grade})` }">{{ p.part.name }}</b></div>
         </template>
         <div v-else class="empty-note">這一格是空的。</div>
         <div class="go"><ReasonButton sm :reason="lock ?? (selEntry ? null : '這一格沒有東西。')" @go="takeOff">脫下</ReasonButton></div>
@@ -163,6 +169,11 @@ function setCoat(coat: 'open' | 'closed') {
         <button type="button" :class="{ on: gear.coat === 'closed' }" data-coat="closed" @click="setCoat('closed')">扣上</button>
       </div>
       <div class="kv"><span>護甲</span><b data-armor>{{ armor }}</b></div>
+      <template v-if="look2">
+        <div class="kv"><span>曝露度<Hint title="曝露度">別人看到的露出程度，0～3：看得到的那幾件衣服決定，外套扣上時上身算 0。</Hint></span><b data-exposure>{{ look2.exposure }}／3・{{ EXPOSURE_NAME[look2.exposure] ?? '' }}</b></div>
+        <div class="kv"><span>風格<Hint title="風格">看得到的每一件的風格值合計；看得到的有風格的衣物 {{ look2.unifiedMin }} 件以上都是同一種，風格值再 +{{ look2.unifiedBonus }}。</Hint></span><b data-style><template v-if="look2.main">{{ look2.main }}{{ look2.unified ? '・一致' : '・不一致' }}・風格值 {{ look2.styleValue }}</template><template v-else>沒有主要的風格・風格值 {{ look2.styleValue }}</template></b></div>
+        <div class="kv"><span>重量<Hint title="重量">身上穿的、帶的、戴的與快取格的重量合計；超過上限就超重：迴避下降、潛行下降、換位多花行動點。</Hint></span><b data-weight :class="{ 'warn-t': look2.over }">{{ weightText(look2.load) }}／{{ weightText(look2.cap) }}<template v-if="look2.over">・超重</template></b></div>
+      </template>
       <div class="kv"><span>藏匿量</span><b data-conceal>{{ conceal.capacity }}</b></div>
       <div class="kv"><span>藏著</span><b data-hidden>{{ conceal.hidden.length ? conceal.hidden.map(nameOfUid).join('、') : '沒有' }}</b></div>
       <div class="kv"><span>露出來</span><b data-shown :class="{ 'warn-t': conceal.shown.length }">{{ conceal.shown.length ? conceal.shown.map(nameOfUid).join('、') : '沒有' }}</b></div>

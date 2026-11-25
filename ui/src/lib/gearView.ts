@@ -27,6 +27,8 @@ export interface GearLookup {
   part(id: string): PartEntry | undefined
   /** 這一件能不能放進快取格：不能就是引擎的原因（一句話），能是 null。規則在引擎（features/gear 的 quickBlock），這裡不留表 */
   quickBlock(id: string): string | null
+  /** 外套扣上時被蓋住的穿著格（引擎的 styleOf 說看不到的那幾格；沒給就是沒有被蓋住的） */
+  covered?(): readonly string[]
 }
 
 export type GearGroupId = 'worn' | 'acc' | 'carry'
@@ -52,12 +54,6 @@ export const SLOT_META: Record<string, SlotMeta> = {
   main: { name: '主武器', icon: 'ic-carry_main' }, side: { name: '副武器', icon: 'ic-carry_side' }, melee: { name: '近戰', icon: 'ic-carry_melee' },
 }
 export const slotName = (slot: string): string => SLOT_META[slot]?.name ?? slot
-
-/**
- * 外套扣上時看不到底下哪幾個穿著格（EQUIPMENT 第 5 節）。暫時放在這裡只為了顯示「被外套蓋住」；
- * 引擎還沒有這張表（回報給 cpp-architect：要的話由引擎給「外套扣上時被蓋住的格子」）。
- */
-export const COAT_COVERS: readonly string[] = ['upper', 'armor', 'underwear_top']
 
 export const GROUP_TITLES: Record<GearGroupId, string> = { worn: '穿著', acc: '飾品', carry: '攜帶' }
 const GROUP_SLOT_IDS: Record<GearGroupId, readonly string[]> = { worn: WEAR_SLOTS, acc: ACCESSORY_SLOTS, carry: CARRY_SLOTS }
@@ -86,7 +82,7 @@ export const BAG_FILTERS: Array<{ id: BagFilterId; name: string }> = [
   { id: 'consumable', name: '消耗品' }, { id: 'material', name: '素材' }, { id: 'cargo', name: '貨物' }, { id: 'misc', name: '雜物' },
 ]
 /** 現在還沒有東西的篩選（M4 之前）。 */
-export const EMPTY_FILTERS: readonly BagFilterId[] = ['cyberware', 'material']
+export const EMPTY_FILTERS: readonly BagFilterId[] = ['material']
 
 const CATEGORY_FILTER: Record<string, BagFilterId> = {
   weapon: 'gear', armor: 'gear', clothing: 'gear', accessory: 'gear', part: 'part', blueprint: 'blueprint',
@@ -140,7 +136,7 @@ export function bagEntry(look: GearLookup, stack: ItemStack): BagEntry {
   if (bp && uid) {
     const legal = legalName(bp.legal)
     return {
-      key: uid, what: uid, stack, qty: stack.qty, category: bp.kind, filter: 'gear', type: CATEGORY_NAMES[bp.kind] ?? bp.kind, name: bp.name, grade: clampGrade(bp.grade), brand: bp.brand, legal, size: bp.size, crafted: true, ...quick(look, stack),
+      key: uid, what: bp.kind === 'cyberware' ? null : uid, stack, qty: stack.qty, category: bp.kind, filter: bp.kind === 'cyberware' ? 'cyberware' : 'gear', type: CATEGORY_NAMES[bp.kind] ?? bp.kind, name: bp.name, grade: clampGrade(bp.grade), brand: bp.brand, legal, size: bp.size, crafted: true, ...quick(look, stack),
       slotItem: { id: uid, name: bp.name, grade: clampGrade(bp.grade), icon: iconOf(bp.kind, bp), legality: legal },
     }
   }
@@ -231,13 +227,9 @@ export function carriedItem(look: GearLookup, inventory: readonly ItemStack[], g
   return stack ? bagEntry(look, stack) : null
 }
 
-export function coveredSlots(gear: Gear): readonly string[] {
-  return gear.coat === 'closed' && gear.worn.outer ? COAT_COVERS : []
-}
-
 /** 穿著、飾品、攜帶三組格子。連身的衣服佔著的每一格都顯示它。 */
 export function gearGroups(look: GearLookup, inventory: readonly ItemStack[], gear: Gear): GearGroupRow[] {
-  const covered = coveredSlots(gear)
+  const covered = look.covered?.() ?? []
   return (['worn', 'acc', 'carry'] as const).map((group) => ({
     id: group,
     title: GROUP_TITLES[group],

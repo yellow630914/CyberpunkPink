@@ -1,12 +1,16 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
-import type { ActionInput, ContentEntry, Feature, ContentPack, ItemEntry, Actor, AttributeEntry, BattleInput, BattleMode, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, GridDir, GridView, Report, ReportDraft, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
-import { ActionBlocked, ChangeError, FakeProvider, Game, stackPart, partTypeName, productOf, NET_LEGEND, SYNC_GEARS, gridHere, meterOf, sightOf, syncBlocks, syncCapOf, syncRuleOf, modeOf, statusRuleOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
+import type { ActionInput, ContentEntry, ItemStack, Feature, ContentPack, ItemEntry, Actor, AttributeEntry, BattleInput, BattleMode, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, GridDir, GridView, Report, ReportDraft, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
+import { ActionBlocked, ChangeError, FakeProvider, Game, stackPart, partTypeName, productOf, productPrice, slotProblems, NET_LEGEND, SYNC_GEARS, gridHere, meterOf, sightOf, syncBlocks, syncCapOf, syncRuleOf, modeOf, statusRuleOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
 import type { ActStatus, StepActions } from '@engine/src'
 import type { StepRecord } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
 import { allFeatures } from '@engine/src/features'
-import { armorOf, concealment, equip as gearEquip, equipBlock as gearEquipBlock, gearOf, quickBlock, quickCapacity, scanFinds, unequip as gearUnequip, weaponOf } from '@engine/src/features/gear'
+import { WEAR_SLOTS, CAP_STAT, LOAD_STAT, armorOf, concealment, dyeBlock as gearDyeBlock, dyeDraft as gearDyeDraft, dyeOf as gearDyeOf, dyeShopHere, equip as gearEquip, equipBlock as gearEquipBlock, gearOf, gearRules, overweight as gearOverweight, quickBlock, quickCapacity, scanFinds, styleOf, unequip as gearUnequip, weaponOf } from '@engine/src/features/gear'
+import type { DyeOpts } from '@engine/src/features/gear'
+import * as craftFx from '@engine/src/features/craft'
+import { dissectDraft, dissectOptions } from '@engine/src/features/enemies'
+import type { DissectOption } from '@engine/src/features/enemies'
 import type { BlueprintEntry, PartEntry } from '@engine/src/features/gear'
 import type { GearLookup } from '../lib/gearView'
 import { abilitiesOf, usesOf as abilityUses, capacityOf, applyLoadout, loadoutMinutes, loadoutBlock as abilityLoadoutBlock, learn as abilityLearn, learnBlock as abilityLearnBlock, resonanceOn, treeTier, TREE_XP } from '@engine/src/features/abilities'
@@ -66,7 +70,7 @@ import type { RollPart } from '@engine/src'
 import { PAIN_TAG } from '../lib/bodyView'
 import type { BodyBag, BodyBagKind, BodyPassive } from '../lib/bodyView'
 import type { PartyMember } from '../data/types'
-import { DEMO_SCENES, demoBodyChanges, demoNetChanges, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature } from '../data/demo'
+import { DEMO_SCENES, demoBodyChanges, demoCraftChanges, demoNetChanges, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature } from '../data/demo'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
 import { ageBlock, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
 import { debriefOf } from '../lib/scene/sceneView'
@@ -235,7 +239,7 @@ export const useEngine = defineStore('engine', () => {
   }
 
   /** 建角的開新局：名冊的成員是引擎照出身的名冊放的，示意包只補候選人 */
-  const withPeople = (r: ReportDraft, state: GameState, on: boolean, origin: string): ReportDraft => (on && demoOn ? { ...r, changes: [...r.changes, ...demoNetChanges(), ...demoBodyChanges(), ...demoPeopleChanges(game.k, state, { origin: (originView(game.k, origin)?.roster ?? []).map((n) => n.id) })] } : r)
+  const withPeople = (r: ReportDraft, state: GameState, on: boolean, origin: string): ReportDraft => (on && demoOn ? { ...r, changes: [...r.changes, ...demoNetChanges(), ...demoBodyChanges(), ...demoCraftChanges(), ...demoPeopleChanges(game.k, state, { origin: (originView(game.k, origin)?.roster ?? []).map((n) => n.id) })] } : r)
   /** 先問引擎每一步行不行；有問題原樣回傳、狀態不動；沒問題才提交。 */
   function createCharacter(draft: CreationDraft): CreationBlock[] {
     const blocks = creationBlocks(game.k, game.state, draft)
@@ -558,6 +562,20 @@ export const useEngine = defineStore('engine', () => {
     item: (id) => game.k.content.get<ItemEntry>('item', id),
     part: (id) => game.k.content.get<PartEntry>('part', id),
     quickBlock: (id) => quickBlock(game.k, id),
+    // 外套扣上時被蓋住的穿著格：身上的每一件裡引擎的 styleOf 說「看不到」的那幾格（看不到的整件都算；連身的衣服只露出一部分時，露出的第一格之前的算被蓋住）。
+    // 引擎還沒有直接給「被蓋住的格子」（回報給 cpp-architect）；內衣不算看得到也不算被蓋住
+    covered: () => {
+      void state.value
+      const pc = game.state.pc
+      if (pc === null || !game.state.actors[pc]) return []
+      const seen = new Map(styleOf(game.k, game.state, pc).seen.filter((p) => p.group === 'worn').map((p) => [p.id, p.slot]))
+      const worn = gearOf(game.state, pc).worn as Record<string, string | undefined>
+      return Object.entries(worn).filter(([slot, uid]) => {
+        if (!uid || slot === 'underwear_top' || slot === 'underwear_bottom') return false
+        const first = seen.get(uid)
+        return first === undefined || WEAR_SLOTS.indexOf(slot as never) < WEAR_SLOTS.indexOf(first as never)
+      }).map(([slot]) => slot)
+    },
   }
   /** 引擎擋下的原因：ChangeError 的訊息前面有「changes[0]（gear.quick）：」，去掉它只留引擎寫的那一句 */
   const reasonOf = (e: unknown): string | null => {
@@ -614,6 +632,19 @@ export const useEngine = defineStore('engine', () => {
     setCoat: (coat: 'open' | 'closed'): string | null => commitGear((pc) => gearDraft('gear.coat', coat === 'closed' ? '外套扣上了。' : '外套敞開了。', [{ op: 'gear.coat', id: pc, coat }])),
     quickCapacity: (): number => { void state.value; return quickCapacity(game.k, game.state, gearOf(game.state, game.state.pc ?? '')) },
     armor: (): number => { void state.value; return game.state.pc === null ? 0 : armorOf(game.k, game.state, game.state.pc) },
+    /** 別人看到的樣子：曝露度、風格（主要的標籤、是不是一致）、風格值、威脅感，與身上的重量和上限（全是引擎的 styleOf 與衍生數值）；沒有主角是 null */
+    style: () => {
+      void state.value
+      const pc = game.state.pc
+      if (pc === null || !game.state.actors[pc]) return null
+      const info = styleOf(game.k, game.state, pc)
+      const stat = (id: string): number => game.k.stats.stat(game.state, pc, id)
+      return {
+        exposure: stat('exposure'), styleValue: stat('style_value'), main: info.main, unified: info.unified, tags: info.tags, threat: info.threat,
+        load: stat(LOAD_STAT), cap: stat(CAP_STAT), over: gearOverweight(game.k, game.state, pc),
+        unifiedMin: gearRules(game.k).unified_min, unifiedBonus: gearRules(game.k).unified_bonus,
+      }
+    },
     concealment: () => { void state.value; return game.state.pc === null ? { capacity: 0, hidden: [] as string[], shown: [] as string[] } : concealment(game.k, game.state, game.state.pc) },
     scanFinds: (strength: number): string[] => { void state.value; return game.state.pc === null ? [] : scanFinds(game.k, game.state, game.state.pc, strength) },
     /** 一件組好的武器在戰鬥裡的數字；不是武器或找不到是 null */
@@ -626,6 +657,95 @@ export const useEngine = defineStore('engine', () => {
         return null
       }
     },
+  }
+
+  // ---- 組裝、拆解、換零件、學設計圖、解剖、染色（CRAFTING 10；dev/work/M4-ui-craft.md）：全部轉接 features/craft、enemies 的解剖與 gear 的染色，畫面不自己判斷 ----
+  /** 提交一份引擎做好的草稿並把報告的結果交回去：被擋下回傳 why；成功時 result 是報告的結果、lines 是報告給玩家的句子（畫面照寫，不自己拼） */
+  interface Done { why: string | null; result: string; lines: string[] }
+  function commitDone(make: () => ReportDraft): Done {
+    let draft: ReportDraft
+    try {
+      draft = make()
+    } catch (e) {
+      const why = reasonOf(e)
+      if (why === null) throw e
+      return { why, result: '', lines: [] }
+    }
+    const why = commitMade(() => draft)
+    return { why, result: why ? '' : draft.outcome?.result ?? '', lines: why ? [] : [...(draft.narration?.results ?? [])] }
+  }
+  /** 背包裡一疊零件的資料：內嵌的零件（未登錄）是那一整筆，內容的零件是 id */
+  const refOfStack = (stack: ItemStack): unknown => (stack.data && typeof stack.data.part === 'object' && stack.data.part !== null ? stack.data.part : stack.id)
+  const craft = {
+    /** 會做的設計圖（照學會的順序） */
+    known: () => { void state.value; return craftFx.knownBlueprints(game.k, game.state) },
+    /** 這裡有誰可以做（自己動手一直列；站的設施帶 craft 的多一種）；每一種帶現在選它不行的原因 */
+    makers: (by?: string): craftFx.MakerOption[] => { void state.value; return craftFx.makers(game.k, game.state, by) },
+    /** 站的設施帶 craft 的話：是哪一種、叫什麼（沒有是 null） */
+    here: () => { void state.value; return craftFx.craftHere(game.k, game.state) },
+    /** 組裝的預覽：每一個數字都是引擎的 */
+    preview: (o: craftFx.PreviewOpts): craftFx.AssemblyPreview => { void state.value; return craftFx.assemblyPreview(game.k, game.state, o) },
+    assemble: (o: craftFx.AssembleOpts): Done => commitDone(() => craftFx.assembleDraft(game.k, game.state, o)),
+    /** 背包裡能拿來組的零件（有零件資料的那幾疊）：key 是指名用的 id 或 uid */
+    parts: () => {
+      void state.value
+      return game.state.inventory.filter((s) => s.qty > 0).flatMap((stack) => {
+        const part = stackPart(game.k.content, stack)
+        return part ? [{ key: typeof stack.data?.uid === 'string' ? stack.data.uid : stack.id, stack, part }] : []
+      })
+    },
+    /** 這個零件放進這張設計圖的這個槽行不行：原因（一條一句）與是不是超規（引擎的 slotProblems） */
+    slotCheck: (bp: string, type: string, stack: ItemStack): { problems: string[]; overspec: boolean } => slotProblems(game.k.content, bp, type, refOfStack(stack)),
+    /** 背包裡的成品（id 是設計圖、帶 uid 的那幾疊） */
+    products: (): ItemStack[] => { void state.value; return game.state.inventory.filter((s) => s.qty > 0 && typeof s.data?.uid === 'string' && game.k.content.has('blueprint', s.id)) },
+    /** 一件成品現在的樣子（零件、數值、品質、怪癖）與目錄價；查不到設計圖是 null */
+    detail: (stack: ItemStack) => {
+      void state.value
+      const info = productOf(game.k.content, stack.id, stack.data)
+      return info ? { info, price: productPrice(game.k.content, stack.id, stack.data) } : null
+    },
+    salvagePreview: (o: craftFx.SalvageOpts): craftFx.SalvagePreview => { void state.value; return craftFx.salvagePreview(game.k, game.state, o) },
+    salvage: (o: craftFx.SalvageOpts): Done => commitDone(() => craftFx.salvageDraft(game.k, game.state, o)),
+    swapPreview: (o: craftFx.SwapOpts): craftFx.SwapPreview => { void state.value; return craftFx.swapPreview(game.k, game.state, o) },
+    swap: (o: craftFx.SwapOpts): Done => commitDone(() => craftFx.swapDraft(game.k, game.state, o)),
+    /** 授權書：教哪一張設計圖、會不會了；不是授權書是 null */
+    licence: (itemId: string): { teaches: string; name: string; known: boolean } | null => {
+      void state.value
+      const it = game.k.content.get<craftFx.LicenceItem>('item', itemId)
+      if (!it || typeof it.teaches !== 'string') return null
+      return { teaches: it.teaches, name: game.k.content.get<BlueprintEntry>('blueprint', it.teaches)?.name ?? it.teaches, known: craftFx.isKnown(game.state, it.teaches) }
+    },
+    learnBlock: (o: craftFx.LearnOpts): string | null => { void state.value; return craftFx.learnBlock(game.k, game.state, o) },
+    learn: (o: craftFx.LearnOpts): Done => commitDone(() => craftFx.learnDraft(game.k, game.state, o)),
+    /** 戰後可以解剖的對象（一小時內、一場一次）；沒有是空的 */
+    dissectOptions: (): DissectOption[] => { void state.value; return dissectOptions(game.k, game.state) },
+    dissect: (target: string): Done => commitDone(() => dissectDraft(game.k, game.state, { target })),
+  }
+  const dye = {
+    /** 這一件現在的顏色（染過的，或設計圖的預設；都沒有是空的） */
+    colorsOf: (uid: string) => { void state.value; return gearDyeOf(game.k, game.state, uid) },
+    /** 店家代染的價錢與時間、自己染的時間（引擎的規則表；只給說明文字用） */
+    rules: () => { const r = gearRules(game.k); return { shopPrice: r.dye_shop_price, shopMinutes: r.dye_shop_minutes, selfMinutes: r.dye_self_minutes } },
+    shopHere: (): boolean => { void state.value; return dyeShopHere(game.k, game.state) },
+    block: (o: DyeOpts): string | null => { void state.value; return gearDyeBlock(game.k, game.state, o) },
+    /** 這樣染要付多少現金、花幾分鐘、用掉哪些染料（照引擎的草稿讀；染不了是 block 的原因） */
+    quote: (o: DyeOpts): { block: string | null; cash: number; minutes: number; uses: Array<{ item: string; qty: number }> } => {
+      void state.value
+      try {
+        const changes = gearDyeDraft(game.k, game.state, o).changes as Array<Record<string, unknown>>
+        return {
+          block: null,
+          cash: changes.filter((c) => c.op === 'cash').reduce((n, c) => n - Number(c.delta), 0),
+          minutes: changes.filter((c) => c.op === 'time').reduce((n, c) => n + Number(c.minutes), 0),
+          uses: changes.filter((c) => c.op === 'item').map((c) => ({ item: String(c.id), qty: -Number(c.qty) })),
+        }
+      } catch (e) {
+        const why = reasonOf(e)
+        if (why === null) throw e
+        return { block: why, cash: 0, minutes: 0, uses: [] }
+      }
+    },
+    apply: (o: DyeOpts): Done => commitDone(() => gearDyeDraft(game.k, game.state, o)),
   }
 
   // ---- 技能與橋（SKILLS 1.3、1.4；dev/work/M1b-ui-skills.md）：全部轉接 features/abilities，畫面不自己判斷 ----
@@ -1365,5 +1485,5 @@ export const useEngine = defineStore('engine', () => {
     sourceName: (source: string): string => (PASSIVE_SOURCE_NAMES as Record<string, string>)[source] ?? source,
   }
 
-  return { state, feed, body, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  return { state, feed, body, craft, dye, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

@@ -12,7 +12,6 @@ import { START_BASICS, START_LEARNED, START_NIGHT, START_PARAMS, START_TENDENCY,
 import { START_CHANNEL } from '../data/channel'
 import { HELD } from '../data/contracts'
 import { PENDING } from '../data/weekly'
-import { START_FILL } from '../data/crafting'
 import { SKILL_TREES } from '../data/content.generated'
 import { skillXp } from '../lib/skills'
 import { START_MEDIA } from '../data/media'
@@ -21,7 +20,7 @@ import { useHome } from './home'
 import { useEngine } from './engine'
 import { useUi } from './ui'
 import { packSave, rollbackKeeping, type Snapshot } from '../lib/save'
-import { sanitizeDyes, type Dye } from '../lib/dye'
+import { sanitizeDyes, type Dye } from '../lib/craftView'
 
 /**
  * 假存檔：主角、背包、裝備、所在地、時間、錢、紀錄（義體、沉溺、藥是引擎的：stores/engine.ts 的 body）。
@@ -39,7 +38,7 @@ export interface SaveShape {
   fame: Record<string, number>; sexRecord: typeof START_SEX; channel: typeof START_CHANNEL; contracts: { held: typeof HELD }
   /** 舊存檔的假帳單（帳單搬進引擎之後不再使用；讀到就略過） */
   bills?: unknown
-  pending: typeof PENDING; craftFill: Record<string, Record<string, string>>; guides: typeof START_GUIDES; dungeonSeed: number; vehicles?: string[]
+  pending: typeof PENDING; guides: typeof START_GUIDES; dungeonSeed: number; vehicles?: string[]
   media?: typeof START_MEDIA
   mech?: MechState
   /** 第 3 版：家園的 store（null 是 v2 升上來的存檔，讀的時候不動）。subnet 是舊存檔留下的欄位（子網搬進引擎之後不再使用，讀到就略過） */
@@ -101,7 +100,6 @@ export const useGame = defineStore('game', () => {
   const channel = reactive(structuredClone(START_CHANNEL))
   const contracts = reactive({ held: structuredClone(HELD) })
   const pending = ref(structuredClone(PENDING))
-  const craftFill = reactive<Record<string, Record<string, string>>>(structuredClone(START_FILL))
   const guides = reactive(structuredClone(START_GUIDES))
   const dungeonSeed = ref(1)
   /** 紀錄、素材、片（MEDIA 第 1～5 節） */
@@ -246,7 +244,7 @@ export const useGame = defineStore('game', () => {
       inventory: inventory.value, equip: { ...equip }, quick: quick.value, coatClosed: coatClosed.value, npcs: { ...npcs }, loc: { ...loc },
       basics: { ...basics }, learned: learned.value, nightLearned: nightLearned.value, params: { ...params }, tendency: { ...tendency },
       fame: { ...fame }, sexRecord: { ...sexRecord }, channel: { ...channel }, contracts: { ...contracts },
-      pending: pending.value, craftFill: { ...craftFill }, guides: { ...guides }, dungeonSeed: dungeonSeed.value, vehicles: vehicles.value, media: { ...media }, mech: { ...mech },
+      pending: pending.value, guides: { ...guides }, dungeonSeed: dungeonSeed.value, vehicles: vehicles.value, media: { ...media }, mech: { ...mech },
       home: useHome().serialize(), dyes: { ...dyes },
     })) as SaveShape
   }
@@ -275,7 +273,6 @@ export const useGame = defineStore('game', () => {
     if (d.channel) Object.assign(channel, structuredClone(d.channel))
     if (d.contracts) Object.assign(contracts, structuredClone(d.contracts))
     if (d.pending) pending.value = structuredClone(d.pending)
-    if (d.craftFill) put(craftFill, d.craftFill)
     if (d.guides) Object.assign(guides, structuredClone(d.guides))
     if (typeof d.dungeonSeed === 'number') dungeonSeed.value = d.dungeonSeed
     if (Array.isArray(d.vehicles)) vehicles.value = [...d.vehicles]
@@ -317,7 +314,7 @@ export const useGame = defineStore('game', () => {
     day, minutes, money, hostility, character, party, inventory, equip, quick, coatClosed, npcs, loc, log,
     timeLabel, weekday, billIn, district, facility, placeLabel, topHostility, carriedWeight, quickCap, coveredSlots,
     advance, addLog, addItem, removeItem, stackOf, equipItem, unequip, itemName,
-    basics, learned, nightLearned, params, tendency, fame, sexRecord, channel, contracts, pending, craftFill, guides, dungeonSeed, vehicles, media, mech, lastBattle, snapshots,
+    basics, learned, nightLearned, params, tendency, fame, sexRecord, channel, contracts, pending, guides, dungeonSeed, vehicles, media, mech, lastBattle, snapshots,
     dyes, setDye, learnSkill, syncTrees, learnNight, setQuick, serialize, hydrate, saveMeta, packed, takeSnapshot, rollback,
   }
 })
