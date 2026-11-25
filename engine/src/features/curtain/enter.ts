@@ -3,7 +3,7 @@
 // 一隊 1～4 人（會員本人加同伴），每個人都要有橋與自己的甲板；每晚最多兩場；報名時付保證金與同伴券（同伴沒有打賞）。
 // 選夜：給了 night 就要在這一週抽得到的夜裡；沒給就擲（同一個夜一天之內擲到兩次重擲）；選到主打記 feature: true。
 // 開一趟：launch 活動 netrun（setup.region 整筆放這一區的規則；origin.ext.curtain 記夜、席次、主打、純舞台）。
-// 這一張只到「開一趟」：一趟裡面的節點、場熱與結算是 M4-curtain-run。
+// 這一張只到「開一趟」：一趟裡面的節點、場熱與結算是 M4-curtain-run（curtain.patch、report.after 在那邊接手）。
 //
 // 報告（kind netrun）：curtain.enter。
 
@@ -127,7 +127,9 @@ export function enterDraft(k: Kernel, state: GameState, o: EnterOpts): ReportDra
   week.runs[String(day)] = (week.runs[String(day)] ?? 0) + 1
   week.drawn[String(day)] = [...(week.drawn[String(day)] ?? []), night.id]
   cur.week = week
-  cur.run = { id, night: night.id, tier: tier.id, grade: tier.grade, deposit: quote.deposit, feature: night.feature, pure_stage: pool.pure_stage, party, companions: quote.companions.filter((c) => party.includes(c)), at: nowOf(state), day }
+  cur.run = { id, night: night.id, tier: tier.id, grade: tier.grade, deposit: quote.deposit, feature: night.feature, pure_stage: pool.pure_stage, party, companions: quote.companions.filter((c) => party.includes(c)), at: nowOf(state), day, act: 0, orders: [], tips_mult: 1 }
+  // 上一趟留下的加演資格作廢（報了新的一趟）
+  delete cur.encore
   const changes: Change[] = [{ op: 'uid', advance: 1 }]
   if (quote.total > 0) changes.push({ op: 'cash', delta: -quote.total })
   if (rolled) changes.push({ op: 'rng', advance: 1 })
@@ -137,6 +139,8 @@ export function enterDraft(k: Kernel, state: GameState, o: EnterOpts): ReportDra
   const origin: Origin = { by: ORIGIN_BY, ref: night.id, ext: { curtain: extra } }
   const setup: Record<string, unknown> = {
     region: { ...clone(rules.region), id: REGION_ID, safe: true, pressure: 'none' }, grade: tier.grade, faction: 'none', layers: [...rules.acts], party,
+    // 散座的終幕由中頭目守（首領「主持」只在包廂與貴賓席）：每一層守閘門的都用精英的組合
+    ...(tier.id === 'floor' ? { encounter: ['elite', 'elite', 'minion'] } : {}),
     ...(o.seed !== undefined ? { seed: o.seed } : {}),
   }
   const lines = [

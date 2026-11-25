@@ -190,3 +190,9 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 
 ## 總指揮補記（2026-11-25，M4-curtain-entry 回報）
 - 簾口的位置（暗礁節點、領位員、設施欄位 `curtain_door`）：報名要站在簾口；面談花時間（暫定 1 小時）。
+
+## 總指揮補記（2026-11-25，M4-curtain-run 回報）
+- netrun 開 `setup.layer_counts`（每層一份 `LayerCounts`），curtain 改成每一幕各自的數量（第二幕三場遭遇、終幕不多賞箱、沒有近道的幕不放 `b`）。
+- netrun 開一個入口讓別的功能要求以 `done` 收掉這一趟（例：掛點 `netrun.finish_request`），curtain 場熱到 0 時自動落幕，拿掉 `run.cut` 的擋法。
+- enemies 的 `enemy_pick` 收 `culture` 欄位、netrun 讓單位來源可換：curtain 拿掉自己的 `curtain_pick` 與複製的 `netCapable`，遭遇恢復「潛行繞過」。
+- 加演 ENEMIES 的點數 ×1.75／×3。
