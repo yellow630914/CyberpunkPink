@@ -376,7 +376,7 @@ describe('夜課延伸的技能（outside）：night:<id>、社交類、佔 outs
   it('裝著才生效：被動的修正在戰鬥裡算（evade +1）；卸下之後沒有；標籤被篩選關掉時已經裝著的也不生效', () => {
     const scene = { skills: ['nt_a', 'nt_b', 'nt_c'] }
     const on = fight({ features: [NIGHT_KIND], packs: [NIGHT_PACK], scene, equipped: ['night:nt_a'] })
-    expect(on.ally(1).ext.abilities.equipped).toEqual(['night:nt_a'])
+    expect((on.ally(1).ext.abilities as Rec).equipped).toEqual(['night:nt_a'])
     expect(evadeOf(on)).toBe(1)
     const off = fight({ features: [NIGHT_KIND], packs: [NIGHT_PACK], scene, equipped: [] })
     expect(evadeOf(off)).toBe(0)
@@ -390,7 +390,7 @@ describe('夜課延伸的技能（outside）：night:<id>、社交類、佔 outs
       const battle = clone(setupBattle(k, state, setup).battle)
       return { k, state, battle, run: () => new BattleRun(k, state, battle), ally: (i: number) => battle.units[`a${i}`] } as unknown as World
     })()
-    expect(filtered.ally(1).ext.abilities.equipped).toEqual([])
+    expect((filtered.ally(1).ext.abilities as Rec).equipped).toEqual([])
     expect(evadeOf(filtered)).toBe(0)
   })
 
@@ -771,7 +771,7 @@ describe('改造師樹的測試資料（tests/fixtures/skills）：日常標 dai
     const k = load(FULL)()
     expect(k.battle.effectProblems([{ op: 'wound_treat' }])).toEqual([])
     expect(k.battle.effectProblems([{ op: 'implant_install' }])).toEqual([])
-    const fs = k.content.get<Rec>('ability', 'sk_medic_field_surgery')!
+    const fs = k.content.get<Rec & { id: string }>('ability', 'sk_medic_field_surgery')!
     expect(fs.meat.choose.map((c: Rec) => [c.key, c.do[0].op])).toEqual([['wound', 'wound_treat'], ['implant', 'implant_install']])
     expect(k.content.checkRefs()).toEqual([])
   })

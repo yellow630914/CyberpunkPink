@@ -123,3 +123,7 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 引擎匯出：沒有橋的那一組說明（P15：沒感載、沒 RAM、裝不了技能、潛不進去）；衍生數值的中文名（`statName`）與戰鬥修正的中文名（`MOD_NAMES`），介面改讀引擎、拿掉 `ui/src/lib/bodyView.ts` 的對照表。
 - 痛覺編輯器的設計圖 `tags` 要寫 `pain_editor`（M4-data-rules）。
 - 介面（交 cpp-ui，排進下一張介面工單）：MainScreen／HomeScreen 開診所前先問 `clinicGate()`；背包對話框的藥可以「使用」；藥泵圖示 `pump`、各件義體自己的圖示。
+
+## 總指揮補記（2026-11-25，M4-abilities-m4 回報）
+- 容量變小的提醒現在由 abilities 自己接（`ability.capacity`）：拿掉 cyberware 換橋那句「容量比舊橋小」，連同 `M4-cyber-bridge.test.ts` 那條斷言一起改。
+- 橋機能「重傷時技能不失效」：COMBAT_SYSTEM 沒有重傷讓技能失效的規則，這句的意思要在匯入那座橋的資料時對設計書（CYBERWARE 7 節）確認；「駕機甲時同步上限 +1」等 M6 的機甲條件。
