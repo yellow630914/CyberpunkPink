@@ -490,3 +490,5 @@
 - 2026-11-25 M4 第一步完成（core-product、scene-seats）：engine 6874、smoke 129、ui 723。場景舊形狀外觀留到 M4-ui-scene 拿掉（已補記工單）。
 - 2026-11-25 M4 第二步完成（core-passive、scene-circles）：engine 253 檔 6949 條全過。
 - 2026-11-25 使用者：略過場景照現在這樣（不加「一律略過」設定）；略過時允許玩家輸入指令引導經過與正文寫法（LEWD 3.1、AI_TASKS 3.7、M4-core-scene-ai、M4-ui-scene 已補）。
+- 2026-11-25 使用者：新增輸入欄做 2（戰鬥與戰敗的寫法指令）、3（稱呼）、4（送禮附一句話）、5（化身外觀描述）、6（片的標題與簡介）；1、7、8 不做。設計書已寫（COMBAT 8.3、NPC_SYSTEM 6.3／7.0、CYBERSPACE 4、MEDIA 剪輯）。標題畫面：主標題 CyberpunkPink、副標題緋夜城（ui 與 mockup 已改）。
+- 工單分配：2 → M4-core-scene-ai（外殼的戰鬥／戰敗正文同一套）與 M4-ui-scene 旁的戰鬥畫面；3、4 → M4-followups（人物）；5 → M4-followups（化身）；6 → M5-plan。

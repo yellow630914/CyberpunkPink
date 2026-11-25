@@ -35,8 +35,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
     <div class="bg" aria-hidden="true" />
     <main class="tm">
       <section class="hero">
-        <div class="brand"><Logo /><span>CYBERPUNK PINK</span></div>
-        <h1>緋　夜　城</h1>
+        <div class="brand"><Logo /></div>
+        <h1>CyberpunkPink</h1>
+        <p class="sub">緋　夜　城</p>
         <p class="yr mono">2069 · 自由市</p>
         <nav class="menu" aria-label="標題選單">
           <button type="button" class="mi pri" @click="router.push('/')"><b>繼續</b><small>夜班之後・第 {{ g.day }} 天 {{ g.timeLabel }}・{{ g.district.name }}</small><kbd>ENTER</kbd></button>
@@ -68,7 +69,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 70% 20%, color-mix(in srgb, var(--a) 22%, transparent), transparent 60%), radial-gradient(ellipse at 10% 90%, color-mix(in srgb, var(--b) 25%, transparent), transparent 55%); pointer-events: none; }
 .tm { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 32px; align-items: center; padding: 48px clamp(16px, 6vw, 96px); max-width: 1280px; margin: 0 auto; width: 100%; }
 .brand { display: flex; gap: 10px; align-items: center; font-weight: 900; letter-spacing: 3px; color: var(--ink-2); }
-h1 { font-size: clamp(40px, 7vw, 76px); margin: 12px 0 0; letter-spacing: 6px; color: var(--ink); text-shadow: 0 0 24px color-mix(in srgb, var(--a) 60%, transparent); }
+h1 { font-size: clamp(36px, 6.5vw, 72px); margin: 12px 0 0; letter-spacing: 2px; overflow-wrap: anywhere; color: var(--ink); text-shadow: 0 0 24px color-mix(in srgb, var(--a) 60%, transparent); }
+.sub { font-size: clamp(20px, 3vw, 30px); font-weight: 800; letter-spacing: 8px; color: var(--ink-2); margin: 6px 0 0; }
 .yr { color: var(--a-hi); margin: 4px 0 24px; letter-spacing: 4px; }
 .menu { display: grid; gap: 6px; max-width: 520px; }
 .mi { display: grid; grid-template-columns: 1fr auto; text-align: left; padding: 12px 16px; background: var(--bg-1); border: 0; color: var(--ink); cursor: pointer; box-shadow: inset 0 0 0 2px var(--line); clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px)); }

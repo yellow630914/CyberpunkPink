@@ -54,3 +54,9 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - `passiveProblems` 加選填的 `source`：來源是 `cyber`、`drug`、`gear` 時擋掉 `{ stat: 'ram_regen' }`（會繞過節奏資源 +1 上限），原因寫「每回合的 RAM 回復請用修正 `ram_regen`。」。
 - `sink_floor` 只擋掉一部分時也提醒一句（「身上的義體讓你只浮到 N。」）。
 - `gear_cap` 要不要拿掉、`passiveProblems` 查 `stat` id 是否存在：交 M4-data-rules／M4-smoke 一起看。
+
+## 使用者新增的輸入欄（2026-11-25）
+- 稱呼（NPC_SYSTEM 7.0）：`npc` 的人物狀態多 `call_them?`、`call_me?`（最多 12 字），正文與程式句子照用；介面在人物詳情加兩格。
+- 送禮附一句話（NPC_SYSTEM 6.3）：送禮的 env 多選填 `note`（最多 200 字），寫進共同記憶；親密度不變。
+- 化身外觀描述（CYBERSPACE 4）：`actor.ext.avatar.text`（最多 200 字），進 AI 的角色資料；介面在化身分頁。
+- 共同：內容篩選與底線由現有驗證擋，被擋時提示「這一部分沒有照寫。」。
