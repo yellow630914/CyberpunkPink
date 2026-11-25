@@ -136,3 +136,8 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 
 ## 總指揮補記（2026-11-25，M4-creation-lifepath 回報）
 - 設計書優先：生命軌跡條目的 `hostility` 也收 `result` 層（CHARACTER 第 6 節 `took_the_fall` 的寫法），和 `result.npc.hostility` 兩種都認。
+
+## 總指揮補記（2026-11-25，M4-tuning 回報）
+- 渴求「餘韻消不掉」：`character` 的每十分鐘消退與 `rest` 的消退讀 `no_load_decay`／餘韻開關，戰鬥外也成立。
+- 忠犬：條件「指定的人」（`bound_to`）與事件效果（替他擋傷害、對象死了或背叛）；共鳴「搭檔過載時自己也受一半」；冰后「餘韻沒有正面效果」「親密關係不降低沉溺」：能做的做，做不到的列給內容階段。
+- 聚光的「被注視」條件與觀眾人數：M5（直播）。

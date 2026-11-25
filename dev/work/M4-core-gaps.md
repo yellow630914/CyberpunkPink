@@ -16,3 +16,7 @@
 7. （M4-medical 回報）被動效果的 `check` 多一個依屬性比對的欄位（例 `attrs: ['body','reflex']`），讓重創「體格與反應的檢定 −4／−2」對直接用屬性的檢定也生效；medical 的預設效果改用它。
 8. （M4-sink 回報）沉溺 80～99「餘韻的正面效果加倍」：核心戰鬥規則讀每層餘韻的數字時，問一個被動效果或標籤（例 `afterglow_double`），sink 在 80～99 給。
 9. （M4-creation-body 回報）核心 `CreationRuleEntry` 補 `cyber_point_price`、`cyber_install_mult`、`gear_point_price`、`gear_grade_max`、`gear_kinds` 的格式檢查；設計圖與物品的 `available`、出身的 `kit_free` 進核心內容驗證。
+10. （M4-tuning 回報）同步上限「最高到深檔」：核心加修正 `sync_cap_max`（最高檔），`no_full_sync` 給它，不再借 `sync_cap_bonus` −1。
+11. （M4-tuning 回報）生命傷害結算的掛點：`hp_to_load` 開關把兩成生命傷害換成感載（痛覺轉譯）。
+12. （M4-tuning 回報）被動效果依軌道值縮放：例 `{ check, per: { track: 'load', every: 10, amount: 1 } }`（渴求的感載越高檢定越高）。
+13. （M4-tuning 回報）`sink_resist`：沉溺每次上升 −1、最少 1——在 `sink` 效果與 `actor.track` 往上加的路徑讀開關（sink 功能那邊加，這張給核心需要的介面）。第 8 項的 `afterglow_double` 也讀調校的同名開關。
