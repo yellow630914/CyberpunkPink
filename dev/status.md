@@ -486,3 +486,4 @@
 - 2026-11-25 M3 白箱修正批完成：engine 6779 條、smoke 129、pending 只剩 B009、ui 723；invariants 185～193；B025～B029 已修。付錢修構裝要等設施資料（repair_construct），介面未接，記進 M4-followups 第 7 項。
 - 2026-11-25 引擎技能改名完成（34 檔 182 處；id 未動）；engine 6779、smoke 129、ui 723。介面示意 v13 發布（https://claude.ai/artifact/68i6kPwEhCgJTxJLPZdg9z）。**M3 收尾。**
 - M4 開工（使用者：修完自動開始）。第五波 8 題（M4-plan 第 23～30 題）待使用者裁決，不擋第一～四波。
+- 2026-11-25 使用者：M4 第 23～30 題都照建議；文件補寫排在下一個空位。M4 第一步（core-product、scene-seats）進行中。
