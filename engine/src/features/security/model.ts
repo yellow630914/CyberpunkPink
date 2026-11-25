@@ -3,6 +3,8 @@
 
 import type { ContentEntry, GameState, Kernel } from '../../core'
 import { isRecord, meterOf } from '../../core'
+import { PERSON_READS, isPersonRead, personRuleProblems } from './personRules'
+import type { PersonRead } from './personRules'
 
 export const OWNER = 'security'
 /** state.ext 的鍵：每個勢力「這一週有沒有新的敵對值」的記號（消退用）。只有 report.before 與消退寫它。 */
@@ -59,6 +61,7 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
   if (e.hostility_bands !== undefined && !bandsOk(e.hostility_bands, 6)) p.push('hostility_bands 要是六個遞增的整數，第一個是 0、最後不超過 100')
   if (e.favor_bands !== undefined && !bandsOk(e.favor_bands, 5)) p.push('favor_bands 要是五個遞增的整數，第一個是 0、最後不超過 100')
   if (int(e.decay_weekly, 0) && int(e.decay_quiet, 0) && e.decay_quiet < e.decay_weekly) p.push('decay_quiet 不能比 decay_weekly 小（沒有新的敵對值只會消退得更多）')
+  p.push(...personRuleProblems(e))
   return p
 }
 
@@ -203,6 +206,8 @@ export interface ScanSetup {
   faction?: string
   /** 這個點要什麼身分才進得去 */
   need_class?: IdentityClass
+  /** 這個點讀這個人的哪幾樣（義體、沉溺、契約）；沒寫就照規則表 readers 查那個點的勢力，再沒有就只讀義體（M4-security-m4） */
+  reads?: PersonRead[]
 }
 
 /** 讀 setup：格式不對回傳一句話（給玩家看的完整句子）。faction 要在內容裡查得到。 */
@@ -213,8 +218,10 @@ export function readScanSetup(k: Pick<Kernel, 'content'>, raw: unknown): ScanSet
   if (typeof raw.strength !== 'number' || !Number.isInteger(raw.strength) || raw.strength < 0 || raw.strength > MAX_STRENGTH) return `掃描強度要是 0～${MAX_STRENGTH} 的整數。`
   if (raw.faction !== undefined && (typeof raw.faction !== 'string' || !k.content.has('faction', raw.faction))) return `掃橋的點寫的勢力 ${String(raw.faction)} 查不到。`
   if (raw.need_class !== undefined && !isIdentityClass(raw.need_class)) return `need_class 只能是 ${IDENTITY_CLASSES.join('、')}。`
+  if (raw.reads !== undefined && !(Array.isArray(raw.reads) && raw.reads.every(isPersonRead))) return `reads 只能寫 ${PERSON_READS.join('、')} 的陣列。`
   return {
     point: raw.point, name: raw.name, strength: raw.strength,
+    ...(raw.reads !== undefined ? { reads: [...new Set(raw.reads as PersonRead[])] } : {}),
     ...(raw.faction !== undefined ? { faction: raw.faction as string } : {}),
     ...(raw.need_class !== undefined ? { need_class: raw.need_class as IdentityClass } : {}),
   }

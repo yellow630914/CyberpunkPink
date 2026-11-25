@@ -13,11 +13,16 @@
 //   敵對值：記名（20）以上，用假身分的檢定 +2 難度；通緝（100）：照常過與假身分都不通，只有掉頭。
 //   假身分（ADR G17）：等級（一次性 1、淺層 2、深層 3）不低於強度就過；低一級擲表演對 13 ＋ 強度 × 2（記名以上再 +2）；更低不能用。
 //     一次性的用掉就沒了；擲失敗被識破：那一張被收走、那個勢力的敵對值上升、這次沒過。
+//   這個人（M4-security-m4，person.ts）：身上的東西之後問 scan.person，照 reads 讀義體、沉溺、契約；義體的罰金與鎖、沉溺的敵對值、看穿的那一擲都在 person.ts；
+//     沒有人回答又沒有沉溺可讀時（planPerson 回傳 null）這一段完全不存在。看穿的骰面在掃橋開始時定下來，記在 state.ext.security_scan.see。
 //   東西：照合法性（LIFE 3.1 節）：違禁的沒收；許可類沒有執照（帶 license 標籤的物品）也沒收；自由與登記類放行。被沒收：那個勢力敵對值上升、這次沒過（拘留不做）。
 
 import type { ActivityDef, Change, Condition, ContentEntry, GameState, Kernel, Origin, ReportDraft } from '../../core'
 import { ActionBlocked, ATTR_IDS, attachActivityEnd, checkParts, clone, computeDegree, dcFor, effectCtx, endActivity, isRecord, meterOf } from '../../core'
 import type { FakeId, IdentityClass, ScanSetup, TierView } from './model'
+import { applyPerson, personResult, personRulesOf, personView, planPerson, readsOf, seeNatural } from './person'
+import type { PersonPlan, PersonView } from './person'
+import type { PersonRead } from './personRules'
 import {
   CLASS_NAME, FAKE_ATTR, FAKE_SKILL, OWNER, SCAN_EXT, STRENGTH_NOTE, hasLicense, hostilityTierOf, identityOf, fakeIdsOf, rankOf, readScanSetup, securityRules,
 } from './model'
@@ -94,6 +99,10 @@ export interface ScanPlan {
   found: Carried[]
   fake: FakePlan
   rules: SecurityRules
+  /** 這個點讀這個人的哪幾樣 */
+  reads: PersonRead[]
+  /** 讀這個人（義體、沉溺、契約）；這個點不讀或什麼都沒讀到是 null（M4-security-m4） */
+  person: PersonPlan | null
 }
 
 const factionName = (k: Pick<Kernel, 'content'>, id: string): string => {
@@ -119,7 +128,14 @@ function chooseFake(rules: SecurityRules, fakes: FakeId[], strength: number, rec
   return { kind: 'low', id: fakes[fakes.length - 1]! }
 }
 
-export function planScan(k: Kernel, state: GameState, setup: ScanSetup): ScanPlan {
+/** 掃橋開著時記在 ext 的看穿那一擲的骰面（沒有就從狀態導出）。 */
+function seeOf(state: GameState, setup: ScanSetup): number {
+  const raw = state.ext[SCAN_EXT]
+  if (isRecord(raw) && isRecord(raw.setup) && raw.setup.point === setup.point && typeof raw.see === 'number') return raw.see
+  return seeNatural(state, setup.point)
+}
+
+export function planScan(k: Kernel, state: GameState, setup: ScanSetup, natural?: number): ScanPlan {
   const rules = securityRules(k)
   const actor = state.pc
   const cls = identityOf(state, actor)
@@ -132,15 +148,16 @@ export function planScan(k: Kernel, state: GameState, setup: ScanSetup): ScanPla
   return {
     setup, actor, cls, classOk: classReason === null, classReason, hostility, tier, recorded, wanted, found,
     fake: chooseFake(rules, fakeIdsOf(k, state), setup.strength, recorded), rules,
+    reads: readsOf(personRulesOf(k), setup), person: planPerson(k, state, actor, setup, natural ?? seeOf(state, setup)),
   }
 }
 
 /** 不用跳事件：強度 0，或什麼都沒掃到、身分沒問題、而且沒被認出來。 */
-const clearPass = (p: ScanPlan): boolean => p.setup.strength === 0 || (p.classOk && !p.recorded && p.found.length === 0)
+const clearPass = (p: ScanPlan): boolean => p.setup.strength === 0 || (p.classOk && !p.recorded && p.found.length === 0 && !p.person?.needsEvent)
 
 /** 每個選項現在走不走得通：null 是走得通，否則是一句話的原因。 */
 export function lockOf(k: Pick<Kernel, 'content'>, p: ScanPlan): { proceed: string | null; fake: string | null } {
-  const stop = p.classReason ?? (p.wanted ? `${factionName(k, p.setup.faction!)}通緝著你，它的檢查哨一律攔你，只有掉頭走得通。` : null)
+  const stop = p.classReason ?? (p.wanted ? `${factionName(k, p.setup.faction!)}通緝著你，它的檢查哨一律攔你，只有掉頭走得通。` : null) ?? p.person?.stop ?? null
   return {
     proceed: stop,
     fake: stop ?? (p.fake.kind === 'low' ? `身上最好的假身分（${p.fake.id.name}）等級太低，過不了這一級的掃描。` : p.fake.kind === 'none' ? '身上沒有假身分。' : null),
@@ -154,6 +171,8 @@ export interface Resolution {
   how: string
   changes: Change[]
   lines: string[]
+  /** 讀這個人讀到什麼（activity.end 的 result.person）；沒有讀就沒有這一格 */
+  person?: Record<string, unknown>
 }
 
 type Degree = 'critical' | 'success' | 'fail' | 'fumble'
@@ -165,16 +184,27 @@ function hostilityUp(k: Kernel, state: GameState, faction: string | undefined, a
   return res.errors.length > 0 ? { changes: [], lines: [] } : { changes: res.changes, lines: res.lines }
 }
 
-/** 東西那一關：沒收的拿走、那個勢力的敵對值上升（一次掃橋算一次事，取最重的那一件）。 */
+/**
+ * 東西那一關：沒收的拿走、那個勢力的敵對值上升（一次掃橋算一次事：身上的東西取最重的那一件，再加上這個人的：義體取最重的一件、沉溺的 +3）。
+ * 這個人的處罰（罰金、鎖違禁的義體）也在這裡：假身分蓋不掉身體上的東西，所以兩條路都算。
+ */
 function itemsStep(k: Kernel, state: GameState, p: ScanPlan, via: 'proceed' | 'fake', spent: Change[]): Resolution {
   const seized = p.found.filter((c) => c.seized)
-  if (seized.length === 0) return { passed: true, how: via, changes: spent, lines: [via === 'fake' ? `你用假身分過了${p.setup.name}` : `你過了${p.setup.name}`] }
-  const amount = Math.max(...seized.map((c) => (c.legal === 'banned' ? p.rules.found_banned : p.rules.found_permit)))
-  const up = hostilityUp(k, state, p.setup.faction, amount)
+  const person = p.person
+  if (seized.length === 0 && !person) return { passed: true, how: via, changes: spent, lines: [via === 'fake' ? `你用假身分過了${p.setup.name}` : `你過了${p.setup.name}`] }
+  const out = person ? applyPerson(k, state, person) : { changes: [], lines: [] as string[] }
+  const itemAmount = seized.length > 0 ? Math.max(...seized.map((c) => (c.legal === 'banned' ? p.rules.found_banned : p.rules.found_permit))) : 0
+  const up = hostilityUp(k, state, p.setup.faction, itemAmount + (person?.hostility ?? 0))
+  const bannedCyber = (person?.banned.length ?? 0) > 0
+  const extra = person ? { person: personResult(person, via) } : {}
+  if (seized.length === 0 && !bannedCyber) {
+    return { passed: true, how: via, changes: [...spent, ...out.changes, ...up.changes], lines: [via === 'fake' ? `你用假身分過了${p.setup.name}` : `你過了${p.setup.name}`, ...out.lines, ...up.lines], ...extra }
+  }
   return {
-    passed: false, how: 'confiscated',
-    changes: [...spent, ...seized.map((c): Change => ({ op: 'item', id: c.item, qty: -1 })), ...up.changes],
-    lines: [`${p.setup.name}的掃描器掃到了${seized.map((c) => c.name).join('、')}，被沒收了`, ...up.lines],
+    passed: false, how: seized.length > 0 ? 'confiscated' : 'cyber_banned',
+    changes: [...spent, ...seized.map((c): Change => ({ op: 'item', id: c.item, qty: -1 })), ...out.changes, ...up.changes],
+    lines: [...(seized.length > 0 ? [`${p.setup.name}的掃描器掃到了${seized.map((c) => c.name).join('、')}，被沒收了`] : []), ...out.lines, ...up.lines],
+    ...extra,
   }
 }
 
@@ -205,23 +235,26 @@ export function resolveScan(k: Kernel, state: GameState, p: ScanPlan, option: st
 
 // ---- 開始 ----
 
+/** activity.end 的 result：沒有讀這個人時只有 passed 與 how。 */
+const resultOf = (res: Resolution): Record<string, unknown> => ({ passed: res.passed, how: res.how, ...(res.person ? { person: res.person } : {}) })
+
 /** 掃橋的結果寫成一份報告（強度 0、沒掃到什麼的 scan.pass；沒有事件視窗時的直接結算），並發 activity.end 併進去。 */
-function finishDraft(k: Kernel, state: GameState, setup: ScanSetup, origin: Origin, res: Resolution): ReportDraft {
+function finishDraft(k: Kernel, state: GameState, setup: ScanSetup, origin: Origin, res: Resolution, rolled = false): ReportDraft {
   const id = `sc${state.seq.uid + 1}`
-  const end = endActivity(k, { state, kind: SCAN_ACTIVITY, id, origin, outcome: res.passed ? 'pass' : 'stop', result: { passed: res.passed, how: res.how } })
+  const end = endActivity(k, { state, kind: SCAN_ACTIVITY, id, origin, outcome: res.passed ? 'pass' : 'stop', result: resultOf(res) })
   const lines = [...res.lines, ...end.lines]
   const text = res.how === 'no_scan' ? `${setup.name}不掃橋，你直接過去了。` : res.how === 'clear' ? `${setup.name}的掃描器沒有發現什麼，你過去了。` : `${lines[0]}。`
   const draft: ReportDraft = {
     kind: 'action', action: res.passed ? 'scan.pass' : 'scan.stop', location: clone(state.location), ...(state.pc ? { actor: state.pc } : {}), party: [],
     timeline: [{ layer: 'meat', ...(state.pc ? { actor: state.pc } : {}), text, tag: res.passed ? 'scan.pass' : 'scan.stop', data: { point: setup.point, strength: setup.strength, how: res.how } }],
-    changes: [{ op: 'uid', advance: 1 }, ...res.changes, ...end.changes],
+    changes: [{ op: 'uid', advance: 1 }, ...(rolled ? [{ op: 'rng', advance: 1 } as Change] : []), ...res.changes, ...end.changes],
     outcome: { result: res.passed ? 'pass' : 'stop', summary: res.how === 'no_scan' || res.how === 'clear' ? text : `${lines.map((x) => `${x}。`).join('')}` },
     ...(lines.length > 0 ? { narration: { results: lines } } : {}),
   }
   return attachActivityEnd(draft, end)
 }
 
-const joinNames = (list: Carried[]): string => list.map((c) => c.name).join('、')
+const joinNames = (list: Array<{ name: string }>): string => list.map((c) => c.name).join('、')
 
 /** 事件的正文。 */
 function eventText(k: Kernel, p: ScanPlan): string {
@@ -231,7 +264,23 @@ function eventText(k: Kernel, p: ScanPlan): string {
   else if (p.recorded) parts.push(`${factionName(k, s.faction!)}的人認得你的臉。`)
   if (p.classReason) parts.push(p.classReason)
   if (p.found.length > 0) parts.push(`掃描器對你身上的${joinNames(p.found)}有反應。`)
+  if (p.person) parts.push(...p.person.sentences)
   return parts.join('')
+}
+
+/** 「照常過」的說明：身上的東西會被沒收、這個人的處罰（義體的罰金與鎖、沉溺的記一筆）、敵對值會上升。 */
+function proceedText(k: Kernel, p: ScanPlan, seized: Carried[]): string {
+  const parts: string[] = []
+  if (seized.length > 0) parts.push(`${joinNames(seized)}會被沒收`)
+  const person = p.person
+  if (person) {
+    if (person.banned.length > 0) parts.push(`${joinNames(person.banned)}會被鎖住 ${person.rules.cyber_lock_hours} 小時，這次過不了`)
+    if (person.fine > 0) parts.push(`義體要罰 ${person.fine} 元`)
+    if (person.sink?.notice) parts.push('讀到的沉溺會被記上一筆')
+  }
+  if (parts.length === 0) return '照常過。'
+  const up = seized.length > 0 || (person?.hostility ?? 0) > 0
+  return `照常過（${parts.join('，')}${p.setup.faction && up ? `，${factionName(k, p.setup.faction)}對你的敵對值會上升` : ''}）。`
 }
 
 /** 內嵌的事件：照常過、用假身分（身上有才列）、掉頭。能不能選照 scan_option 條件（讀 state.ext.security_scan），原因寫在 show_locked。 */
@@ -241,7 +290,7 @@ function buildEvent(k: Kernel, p: ScanPlan): Record<string, unknown> {
   const canRoll = k.content.list('skill').length === 0 || k.content.has('skill', FAKE_SKILL)
   const options: Array<Record<string, unknown>> = [{
     id: OPTION_PROCEED, need: { kind: 'scan_option', option: OPTION_PROCEED }, show_locked: lock.proceed ?? '現在不能這樣過。',
-    text: seized.length > 0 ? `照常過（${joinNames(seized)}會被沒收${p.setup.faction ? `，${factionName(k, p.setup.faction)}對你的敵對值會上升` : ''}）。` : '照常過。',
+    text: proceedText(k, p, seized),
     outcomes: { any: [] },
   }]
   if (p.fake.kind !== 'none') {
@@ -262,13 +311,17 @@ function startScan(k: Kernel, state: GameState, setup: unknown, origin: Origin):
   const s = readScanSetup(k, setup)
   if (typeof s === 'string') throw new ActionBlocked(s)
   if (!state.pc) throw new ActionBlocked('還沒有主角，沒有人可以掃。')
-  const plan = planScan(k, state, s)
-  if (clearPass(plan)) return [finishDraft(k, state, s, origin, { passed: true, how: s.strength === 0 ? 'no_scan' : 'clear', changes: [], lines: [] })]
+  // 看穿藏著的沉溺的那一擲：骰面一開始定下來，事件開著時每一次重算都讀同一顆
+  const see = seeNatural(state, s.point)
+  const plan = planScan(k, state, s, see)
+  const rolled = plan.person?.sink?.roll !== undefined
+  if (clearPass(plan)) return [finishDraft(k, state, s, origin, { passed: true, how: s.strength === 0 ? 'no_scan' : 'clear', changes: [], lines: [], ...(plan.person ? { person: personResult(plan.person, 'proceed') } : {}) }, rolled)]
   // 沒有事件視窗可以讓玩家選：當成照常過
-  if (!k.activity.get('event')) return [finishDraft(k, state, s, origin, resolveScan(k, state, plan, plan.classOk && !plan.wanted ? OPTION_PROCEED : OPTION_TURN_BACK))]
-  const drafts = k.activity.start(k, state, 'event', { inline: buildEvent(k, plan) }, { by: OWNER, ref: SCAN_REF, ext: { setup: clone(s), caller: clone(origin) } })
+  if (!k.activity.get('event')) return [finishDraft(k, state, s, origin, resolveScan(k, state, plan, plan.classOk && !plan.wanted && !plan.person?.stop ? OPTION_PROCEED : OPTION_TURN_BACK), rolled)]
+  const drafts = k.activity.start(k, state, 'event', { inline: buildEvent(k, plan) }, { by: OWNER, ref: SCAN_REF, ext: { setup: clone(s), caller: clone(origin), ...(rolled ? { see } : {}) } })
   if (drafts.length === 0) throw new Error('事件視窗沒有回傳開始的報告。')
-  drafts[0]!.changes.push({ op: 'ext', key: SCAN_EXT, value: { setup: clone(s) } })
+  drafts[0]!.changes.push({ op: 'ext', key: SCAN_EXT, value: { setup: clone(s), ...(rolled ? { see } : {}) } })
+  if (rolled) drafts[0]!.changes.push({ op: 'rng', advance: 1 })
   return drafts
 }
 
@@ -283,12 +336,12 @@ export const scanActivity: ActivityDef = {
 
 // ---- 事件做完：換成 scan 的 activity.end ----
 
-function scanOfOrigin(k: Kernel, origin: Origin): { setup: ScanSetup; caller: Origin } | null {
+function scanOfOrigin(k: Kernel, origin: Origin): { setup: ScanSetup; caller: Origin; see?: number } | null {
   if (origin.by !== OWNER || origin.ref !== SCAN_REF || !isRecord(origin.ext)) return null
   const setup = readScanSetup(k, origin.ext.setup)
   const c = origin.ext.caller
   if (typeof setup === 'string' || !isRecord(c) || typeof c.by !== 'string') return null
-  return { setup, caller: c as unknown as Origin }
+  return { setup, caller: c as unknown as Origin, ...(typeof origin.ext.see === 'number' ? { see: origin.ext.see } : {}) }
 }
 
 export function installScan(k: Kernel): void {
@@ -311,10 +364,10 @@ export function installScan(k: Kernel): void {
     if (p.kind !== 'event') return
     const found = scanOfOrigin(k, p.origin)
     if (!found) return
-    const plan = planScan(k, p.state, found.setup)
+    const plan = planScan(k, p.state, found.setup, found.see)
     const res = resolveScan(k, p.state, plan, String(p.result.option ?? ''), typeof p.result.degree === 'string' ? (p.result.degree as Degree) : undefined)
     // 把結果交回原本發起的人（kind 是 scan，id 沿用事件視窗的）
-    const end = endActivity(k, { state: p.state, kind: SCAN_ACTIVITY, id: p.id, origin: found.caller, outcome: res.passed ? 'pass' : 'stop', result: { passed: res.passed, how: res.how } })
+    const end = endActivity(k, { state: p.state, kind: SCAN_ACTIVITY, id: p.id, origin: found.caller, outcome: res.passed ? 'pass' : 'stop', result: resultOf(res) })
     return {
       changes: [{ op: 'ext', key: SCAN_EXT, value: null }, ...res.changes, ...end.changes],
       lines: [...res.lines, ...end.lines],
@@ -365,6 +418,19 @@ export interface ScanView {
   carried: ScanItemView[]
   /** 怎麼過：照常過、用假身分（身上有才列）、掉頭 */
   options: ScanOptionView[]
+  /** 讀這個人讀到的義體、沉溺、契約（一樣一句）；這個點不讀或什麼都沒讀到沒有這一段 */
+  person?: PersonView
+}
+
+/** 第四步「沉溺與契約」：這個點讀沉溺或契約才有東西可看。沒有人回答、這個點又只讀義體時維持原本那一句。 */
+function bridgeStep(p: ScanPlan): ScanStepView {
+  const base = { id: 'bridge', name: '沉溺與契約' } as const
+  const readsBridge = p.reads.includes('sink') || p.reads.includes('contract')
+  if (!readsBridge) return { ...base, state: 'na', note: p.person ? '這個點只讀義體，不讀沉溺與契約。' : '只有鎮溺隊、貞網局、伊甸園的掃描器會看這一步；沉溺與契約這一版還沒有開放。' }
+  const say = p.person?.say
+  const lines = [say?.sink, say?.contract, say?.rights].filter((x): x is string => x !== undefined)
+  if (lines.length === 0) return { ...base, state: 'pass', note: '掃描器讀了沉溺與契約，沒有發現什麼。' }
+  return { ...base, state: p.person!.stop || p.person!.hostility > 0 ? 'attention' : 'pass', note: lines.join('') }
 }
 
 function chanceOf(k: Kernel, state: GameState, actor: string, attr: string, dc: number): number {
@@ -403,7 +469,7 @@ export function scanView(k: Kernel, state: GameState): ScanView | null {
     : p.fake.kind === 'auto' ? { id: 'fake', name: '假身分', state: 'pass', note: `${p.fake.id.name}的等級夠，過得了這一級的掃描。` }
     : p.fake.kind === 'roll' ? { id: 'fake', name: '假身分', state: 'attention', note: `${p.fake.id.name}低一級，要擲表演，難度 ${p.fake.dc}。` }
     : { id: 'fake', name: '假身分', state: 'attention', note: `${p.fake.id.name}的等級太低，用不上。` }
-  const bridge: ScanStepView = { id: 'bridge', name: '沉溺與契約', state: 'na', note: '只有鎮溺隊、貞網局、伊甸園的掃描器會看這一步；沉溺與契約這一版還沒有開放。' }
+  const bridge = bridgeStep(p)
 
   const options: ScanOptionView[] = [{
     id: OPTION_PROCEED, locked: lock.proceed,
@@ -427,5 +493,6 @@ export function scanView(k: Kernel, state: GameState): ScanView | null {
     steps: [identity, hostility, fake, bridge],
     carried: p.found.map((c) => ({ item: c.item, name: c.name, legal: c.legal, seized: c.seized, note: c.note })),
     options,
+    ...(p.person ? { person: personView(p.person) } : {}),
   }
 }

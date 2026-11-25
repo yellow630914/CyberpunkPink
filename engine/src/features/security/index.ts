@@ -10,9 +10,11 @@
 //         同名的效果與條件核心自動有（hostility_floor 的效果自己註冊：多收 days，見 floor.ts）
 //   條件  hostility_tier、favor_tier（{ faction, min?, max? }，段寫 id 或第幾段）、scan_option（掃橋的事件裡選項走不走得通）
 //   活動  scan（setup: { point, name, strength, faction?, need_class? }；activity.end 的 result: { passed, how }）
-//   掛點  scan.carried（這個功能宣告；gear 回答）；report.before（記「那一週有新的敵對值」、下限抬高時讓敵對值跟上）；time.passed（順序 12，每週消退）；
+//   掛點  scan.carried（這個功能宣告；gear 回答）；scan.person（這個功能宣告；cyberware 回答義體、contract 回答契約與權利、藏沉溺的手段由別的功能報 hide；person.ts）；report.before（記「那一週有新的敵對值」、下限抬高時讓敵對值跟上）；time.passed（順序 12，每週消退）；
 //         activity.end（事件視窗做完，把結果換成 scan 的 activity.end）
 //   報告  scan.pass（掃橋直接通過）、security.bribe（收買）、security.decay（每週消退）；掃橋有事件時是事件視窗的 event.open／event.close
+// M4-security-m4：掃橋多讀「這個人」的義體、沉溺與契約（person.ts；掃橋設定的 reads，沒寫照規則表 security_rule 的 readers 查勢力，再沒有就只讀義體；
+//   規則數字 sink_notice、sink_see、cyber_fine、cyber_lock_hours、cyber_hostility 在 personRules.ts，和別的規則同一筆資料）。沒有人回答 scan.person 又沒有沉溺可讀時流程和以前完全一樣。
 // 對外：hostilityTier、favorTier、bribe／bribeBlock／bribePrice、scanView、hostilityView、favorView。
 
 import type { Condition, ContentEntry, Feature, Kernel } from '../../core'
@@ -33,6 +35,10 @@ export {
   favorTier, favorTierOf, hasLicense, hostilityTier, hostilityTierOf, identityOf, fakeIdsOf, readScanSetup, securityRules,
 } from './model'
 export type { FakeId, IdentityClass, ScanSetup, SecurityRules, TierView } from './model'
+export { DEFAULT_PERSON_RULES, PERSON_READS, personRulesFrom } from './personRules'
+export type { PersonRead, PersonRules } from './personRules'
+export { applyPerson, personRulesOf, personView, planPerson, readsOf } from './person'
+export type { CyberRead, CyberVerdict, PersonAnswer, PersonPlan, PersonView, SinkRead } from './person'
 
 const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined)
 

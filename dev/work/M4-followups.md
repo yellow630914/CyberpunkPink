@@ -178,3 +178,7 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 
 ## 總指揮補記（2026-11-25，M4-venues 回報）
 - `outcome.amnesia` 的報告：共同記憶、性經歷、傾向與沉溺累計、寫正文要略過（讀 `report.outcome.amnesia`）。
+
+## 使用者裁決（2026-11-25）打工
+- 一班可選 2、4、6、8 小時（`work_rules.json` 的 `hours` 已改）；人偶館一班 6 小時。
+- 升階改看累計時數：第二階段 30 小時、第三階段 72 小時（DOWNTIME 4.1a 已改）。work 的升階判斷由班數改成時數（`JobState` 記累計分鐘），模式的 `every` 也改成每 N 小時；M2-work、M4-venues 的測試跟著改。
