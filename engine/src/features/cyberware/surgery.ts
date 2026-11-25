@@ -24,7 +24,7 @@ export const SELF_ATTR = 'tech'
 export const INSTALL_ACTION = 'cyber.install'
 export const REMOVE_ACTION = 'cyber.remove'
 
-type Pool = 'cred' | 'cash'
+export type Pool = 'cred' | 'cash'
 
 // ---- 這裡有誰可以動刀 ----
 
@@ -80,7 +80,7 @@ function atHomeOrClinic(k: Kernel, state: GameState): boolean {
 }
 
 /** 這個人（by 動刀、替 actor 動）現在選這一種動刀的人不行的原因；行是 null。 */
-function surgeonBlock(k: Kernel, state: GameState, via: SurgeonKind, actor: ActorId, by: ActorId, rules: CyberRules): string | null {
+export function surgeonBlock(k: Kernel, state: GameState, via: SurgeonKind, actor: ActorId, by: ActorId, rules: CyberRules): string | null {
   if (via !== 'self') {
     const here = clinicHere(k, state)
     if (here?.grade === via) return null
@@ -167,15 +167,15 @@ function selfCheckOf(k: Kernel, state: GameState, by: ActorId, bp: Pick<Blueprin
 }
 
 /** 付一筆錢用哪一種：指定的就用指定的（不夠回 null）；沒指定先帳戶、不夠再現金。 */
-function payPool(money: GameState['money'], cost: number, want?: Pool): Pool | null {
+export function payPool(money: GameState['money'], cost: number, want?: Pool): Pool | null {
   if (cost <= 0) return want ?? 'cred'
   return (want ? [want] : (['cred', 'cash'] as Pool[])).find((p) => money[p] >= cost) ?? null
 }
 const POOL_NAME: Record<Pool, string> = { cred: '帳戶', cash: '現金' }
-const moneyProblem = (state: GameState, fee: number, pay: Pool | undefined, what: string): string | null =>
+export const moneyProblem = (state: GameState, fee: number, pay: Pool | undefined, what: string): string | null =>
   fee > 0 && payPool(state.money, fee, pay) === null ? `錢不夠：${what}要 ${formatAmount(fee)}，${pay ? POOL_NAME[pay] : '帳戶與現金'}付不起。` : null
 
-const missingText = (missing: string[]): string => {
+export const missingText = (missing: string[]): string => {
   const n = new Map<string, number>()
   for (const t of missing) n.set(t, (n.get(t) ?? 0) + 1)
   return [...n].map(([t, c]) => (c > 1 ? `${partTypeName(t)}×${c}` : partTypeName(t))).join('、')
@@ -282,19 +282,19 @@ export const installBlock = (k: Kernel, state: GameState, o: InstallOpts): strin
 /** 這一次手術的報價；背包裡找不到那件成品是 null。 */
 export const installQuote = (k: Kernel, state: GameState, o: InstallOpts): InstallQuote | null => planInstall(k, state, o).quote
 
-const nameOf = (state: GameState, id: ActorId): string => state.actors[id]?.name ?? id
+export const nameOf = (state: GameState, id: ActorId): string => state.actors[id]?.name ?? id
 
 /** 併發症的池：quirk 裡 pool 有 complication、而且適用義體的（照內容載入的順序）。 */
-function complicationPool(k: Kernel): QuirkEntry[] {
+export function complicationPool(k: Kernel): QuirkEntry[] {
   if (!k.content.hasKind('quirk')) return []
   return k.content.list<QuirkEntry>('quirk').filter((q) => Array.isArray(q.pool) && q.pool.includes('complication') && (!q.applies || q.applies.includes('cyberware')))
 }
 
 /** 最晚的休養結束時間（身上所有義體的 ready_at；沒有休養是 0）。 */
-const latestReady = (pieces: CyberPiece[]): number => pieces.reduce((n, p) => Math.max(n, p.ready_at ?? 0), 0)
+export const latestReady = (pieces: CyberPiece[]): number => pieces.reduce((n, p) => Math.max(n, p.ready_at ?? 0), 0)
 
 /** 新的下限：現在的 sink_floor 加這一件（沒有人定義 sink_floor 時照身上義體的成本加總）。 */
-function floorWith(k: Kernel, state: GameState, actor: ActorId, add: number): number {
+export function floorWith(k: Kernel, state: GameState, actor: ActorId, add: number): number {
   const now = k.stats.hasStat('sink_floor') ? k.stats.stat(state, actor, 'sink_floor') : cyberOf(state, actor).reduce((n, p) => n + p.sink, 0)
   return now + add
 }
@@ -453,7 +453,7 @@ export const removeBlock = (k: Kernel, state: GameState, o: RemoveOpts): string 
 export const removeQuote = (k: Kernel, state: GameState, o: RemoveOpts): RemoveQuote | null => planRemove(k, state, o).quote
 
 /** 拆下來之後剩下的零件：全生體整件沒有了（回傳 null）；混裝只留機械的，生體的死了；機械的全留。壞掉認不出的零件留著。 */
-function keptParts(k: Kernel, piece: CyberPiece, allBio: boolean): Array<{ type: string; ref: unknown; array: boolean }> | null {
+export function keptParts(k: Kernel, piece: CyberPiece, allBio: boolean): Array<{ type: string; ref: unknown; array: boolean }> | null {
   if (allBio) return null
   const out: Array<{ type: string; ref: unknown; array: boolean }> = []
   for (const [type, v] of Object.entries(piece.parts)) {
@@ -464,6 +464,18 @@ function keptParts(k: Kernel, piece: CyberPiece, allBio: boolean): Array<{ type:
     }
   }
   return out
+}
+
+/** 拆下來的一件變回背包裡的一疊（二手）：只留下沒死的零件，身上的欄位（部位、成本、時間、鎖）都拿掉。 */
+export function usedProduct(piece: CyberPiece, kept: Array<{ type: string; ref: unknown; array: boolean }>): ProductData {
+  const parts: Record<string, unknown> = {}
+  for (const { type, ref, array } of kept) {
+    if (array) parts[type] = [...((parts[type] as unknown[] | undefined) ?? []), clone(ref)]
+    else parts[type] = clone(ref)
+  }
+  const { bp: _bp, slot: _slot, sink: _sink, at: _at, ready_at: _ready, off: _off, registered: _reg, ...product } = piece
+  void _bp, void _slot, void _sink, void _at, void _ready, void _off, void _reg
+  return { ...clone(product), parts: parts as ProductData['parts'], state: 'used' }
 }
 
 /**
@@ -511,14 +523,7 @@ export function removeDraft(k: Kernel, state: GameState, o: RemoveOpts): ReportD
     lines.push('拆下來的零件全都壞了，什麼也沒有剩下。')
   } else {
     // 組回一疊成品：原樣的 uid、品質、怪癖，狀態變成二手，零件只留下沒死的（內嵌零件整筆照搬）
-    const parts: Record<string, unknown> = {}
-    for (const { type, ref, array } of kept) {
-      if (array) parts[type] = [...((parts[type] as unknown[] | undefined) ?? []), clone(ref)]
-      else parts[type] = clone(ref)
-    }
-    const { bp: _bp, slot: _slot, sink: _sink, at: _at, ready_at: _ready, off: _off, registered: _reg, ...product } = piece
-    void _bp, void _slot, void _sink, void _at, void _ready, void _off, void _reg
-    const data: ProductData = { ...clone(product), parts: parts as ProductData['parts'], state: 'used' }
+    const data = usedProduct(piece, kept)
     changes.push({ op: 'item', id: piece.bp, qty: 1, data: data as unknown as Record<string, unknown> })
     returned = true
     lines.push('拆下來的東西回到了背包，變成二手貨。')

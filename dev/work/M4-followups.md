@@ -71,3 +71,5 @@ M4-cyber-lock、M4-sink、M4-contract、M4-malware、M4-tuning、M4-medical。�
 - 成人場景的七個基本部位 `BASE_SCENE_PARTS` 現在 scene 與 cyberware 各抄一份：搬成核心常數，兩邊改 import。
 - CYBERWARE 第 3 節寫不成被動效果的三件，交給對應工單：痛覺編輯器「生命值顯示變模糊」（M4-ui-body 的顯示規則）；記憶庫「被駭時讀走」（M4-security-m4 的掃描掛點）；駭入接頭「不經無線、追蹤度不漲、裝置裡的蕾絲感載 ×1.5」（M4-cyber-battle 的條件式規則）。
 - 手術費暫不乘區的物價倍率：M4-data-rules 一起看。
+
+- （使用者 2026-11-25）跪姿：前後兩條連接都在時，這回合自己的感載 +1d4（LEWD 3.5 第九點已改）。scene 的 `solo_kneel` 把 `no_dice_minus` 換成這條規則。

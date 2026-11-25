@@ -106,7 +106,7 @@ function maskChanges(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorI
 // ---- 裝與卸 ----
 
 /** 檢查這一組裝得了（沒學的、敵人的招牌行動、某一類裝不下就丟錯）。 */
-function checkSet(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId, list: string[]): void {
+function checkSet(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, actor: ActorId, list: string[]): void {
   const mine = abilitiesOf(state, actor)
   for (const id of list) {
     if (k.content.get<AbilityEntry>('ability', id)?.enemy) throw new Error('這不是學得到的技能。')

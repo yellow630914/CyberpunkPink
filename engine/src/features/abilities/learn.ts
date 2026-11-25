@@ -1,5 +1,5 @@
 // 學技能與裝技能（SKILLS 1.3、1.4 節；CORE_RULES 6.4 節）：歷練點、前置、樹的階、橋的四類容量。
-// 狀態存在 actor.ext.abilities（AbilityState）；橋的容量讀 actor.ext.bridge.capacity。
+// 狀態存在 actor.ext.abilities（AbilityState）；橋的容量讀衍生數值 bridge_cap_<類>（features/cyberware 定義），沒有人定義時讀 actor.ext.bridge.capacity。
 
 import type { ActorId, GameState, Kernel, ReportDraft } from '../../core'
 import { clone } from '../../core'
@@ -93,12 +93,19 @@ export function learn(k: Pick<Kernel, 'content'>, state: GameState, actor: Actor
 /** 每一類容量的下限（CORE_RULES 6.4 節、CYBERWARE 7.1 節：任何一座橋的每一類最低 8）。 */
 export const BRIDGE_CAPACITY_MIN = 8
 
-/** 橋的容量。有橋（ext.bridge.capacity 是物件）的每一類至少 8，壞掉的數字當 8；沒有橋就是 0（沒有橋就沒有容量）。 */
-function bridgeCapacity(state: GameState, actor: ActorId): Record<Category, number> {
+/**
+ * 橋的容量。裝了 cyberware（有衍生數值 bridge_cap_meat）時四類都讀衍生數值（沒有橋是 0；義體功能照零件算，dev/adr/0019 P8）；
+ * 沒有人定義時照舊讀 ext.bridge.capacity：有橋（capacity 是物件）的每類至少 8，壞掉的數字當 8；沒有橋就是 0。
+ */
+function bridgeCapacity(k: Pick<Kernel, 'stats'>, state: GameState, actor: ActorId): Record<Category, number> {
+  const out = {} as Record<Category, number>
+  if (k.stats.hasStat(`bridge_cap_${CATEGORIES[0]}`)) {
+    for (const c of CATEGORIES) out[c] = k.stats.hasStat(`bridge_cap_${c}`) ? Math.max(0, Math.floor(k.stats.stat(state, actor, `bridge_cap_${c}`))) : 0
+    return out
+  }
   const raw = state.actors[actor]?.ext.bridge
   const hasBridge = isRec(raw) && isRec(raw.capacity)
   const cap = hasBridge ? raw.capacity as Record<string, unknown> : {}
-  const out = {} as Record<Category, number>
   for (const c of CATEGORIES) {
     const v = cap[c]
     out[c] = hasBridge ? Math.max(BRIDGE_CAPACITY_MIN, typeof v === 'number' && Number.isFinite(v) ? v : 0) : 0
@@ -107,12 +114,12 @@ function bridgeCapacity(state: GameState, actor: ActorId): Record<Category, numb
 }
 
 /** 每一類：裝著的技能照各自的 category 把 cap 加起來，以及橋的容量。 */
-export function capacityOf(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId): Record<Category, { used: number; max: number }> {
+export function capacityOf(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, actor: ActorId): Record<Category, { used: number; max: number }> {
   return capacityFor(k, state, actor, abilitiesOf(state, actor).equipped)
 }
 
-export function capacityFor(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId, ids: string[]): Record<Category, { used: number; max: number }> {
-  const max = bridgeCapacity(state, actor)
+export function capacityFor(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, actor: ActorId, ids: string[]): Record<Category, { used: number; max: number }> {
+  const max = bridgeCapacity(k, state, actor)
   const out = {} as Record<Category, { used: number; max: number }>
   for (const c of CATEGORIES) out[c] = { used: 0, max: max[c] }
   for (const id of ids) {

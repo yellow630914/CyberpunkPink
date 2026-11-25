@@ -11,27 +11,35 @@
 //   條件  cyber { slot?, bp?, tag?, min? }（身上有幾件符合的，預設至少 1）；用到別人登記的：at_facility（站在哪種診所）、at_home（住處）、ability（自己動刀；沒有人登記就沒有自己動刀）
 //   掛點  scene.body（features/scene 宣告）：現實層回答好了的義體的 scene_parts
 //   狀態  actor.ext.cyber：{ pieces: CyberPiece[] }（形狀見 model.ts；只經由報告裡的 actor.ext 變更寫）；休養中掛角色狀況 recovering
-// 報告（kind action）：cyber.install、cyber.remove。
-// 對外：cyberOf、pieceSink、surgeons、installBlock／installProblems／installDraft／installQuote、removeBlock／removeProblems／removeDraft／removeQuote、cyberView。
+//         橋（bridge.ts）：衍生數值 bridge_cap_meat／net／social／media（晶片給總量、軟體分四類、加零件的親和；沒有橋是 0；abilities 讀它們）；
+//         規則表多 bridge_fee_mult、bridge_recovery_minutes、bridge_swap_sink、cap_min；換橋用效果 sink_floor（有人註冊才給）。
+// 報告（kind action）：cyber.install、cyber.remove、cyber.bridge。
+// 對外：cyberOf、pieceSink、surgeons、swapBridgeBlock／swapBridgeProblems／swapBridgeDraft／bridgeQuote／bridgeCapacityOf／isBridge、installBlock／installProblems／installDraft／installQuote、removeBlock／removeProblems／removeDraft／removeQuote、cyberView。
 
 import type { Condition, ConditionCtx, ContentEntry, Feature, GameState, Kernel } from '../../core'
 import { ContentError, isRecord, isSafeInt } from '../../core'
 import {
   CLINIC_GRADES, FACILITY_TYPE_KIND, OWNER, PART_IDS, RULE_KIND, baseSlot, blueprintEntry, cyberOf, ruleProblems,
 } from './model'
+import { BRIDGE_CATS, bridgeCapacityOf, capStatId } from './bridge'
 import { cyberPassives, quirkPassives, sceneBody } from './passive'
 import { SURGERY_STAT } from './surgery'
 
-export { cyberOf, cyberRules, DEFAULT_CYBER_RULES, hasBridge, partIdOf, PART_IDS, PART_NAME, SURGEON_KINDS, SURGEON_NAME, isReady, isActive } from './model'
+export { cyberOf, cyberRules, DEFAULT_CYBER_RULES, hasBridge, isBridge, partIdOf, PART_IDS, PART_NAME, SURGEON_KINDS, SURGEON_NAME, isReady, isActive } from './model'
 export type { CyberPiece, CyberRules, PartId, Side, SurgeonKind, SurgeonRule, CyberOff } from './model'
 export {
   INSTALL_ACTION, REMOVE_ACTION, SURGERY_STAT, clinicHere, installBlock, installDraft, installProblems, installQuote, pieceSink, recoveryOf, removeBlock, removeDraft, removeProblems, removeQuote, selfListed, surgeons,
 } from './surgery'
 export type { InstallOpts, InstallQuote, RemoveOpts, RemoveQuote, SelfCheck, SurgeonOption } from './surgery'
+export {
+  BRIDGE_ACTION, BRIDGE_CATS, SINK_FLOOR_EFFECT, bridgeCapacityOf, bridgeOf, bridgeQuote, capStatId, capacityOfProduct, swapBridgeBlock, swapBridgeDraft, swapBridgeProblems,
+} from './bridge'
+export type { BridgeCapacity, BridgeCat, BridgeOpts, BridgeQuote, CapacityPart } from './bridge'
 export { cyberView, viewPiece } from './view'
 export type { CyberView, PieceStatus, ViewPart, ViewPiece } from './view'
 export { sceneBody } from './passive'
 
+const CAT_NAME = { meat: '現實', net: '內海', social: '社交', media: '媒體' } as const
 type CyberCondition = Condition & { slot?: string; bp?: string; tag?: string; min?: number }
 const SLOT_WORDS: readonly string[] = [...PART_IDS, 'arm', 'leg']
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
@@ -47,6 +55,11 @@ export const cyberwareFeature: Feature = {
 
     // 動刀的人讓沉溺成本加減百分之幾：基礎 0，手術刀的樹階等別的功能經 provider 加（負的是減）；夾在 −25～0（CYBERWARE 2.1 節）
     k.stats.defineStat({ id: SURGERY_STAT, owner: OWNER, name: '手術的沉溺成本加減（％）', base: () => 0, min: -25, max: 0 })
+
+    // 橋的四類容量（P8；沒有橋是 0）：abilities 有這幾個數值時讀它們，否則照舊讀 ext.bridge.capacity
+    for (const cat of BRIDGE_CATS) {
+      k.stats.defineStat({ id: capStatId(cat), owner: OWNER, name: `橋的容量（${CAT_NAME[cat]}）`, base: (state, actor) => bridgeCapacityOf(k, state, actor).split[cat], min: 0 })
+    }
 
     // 被動效果：沉溺的下限與義體的效果（cyber）、帶著的怪癖（quirk）
     k.passives.register(OWNER, 'cyber', (state, actor) => cyberPassives(k, state, actor), '義體')

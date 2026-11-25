@@ -80,6 +80,14 @@ export interface CyberRules {
   self_skill: string
   /** 自己動刀的標準 DC，照設計圖等級 I～V */
   self_dc: number[]
+  /** 換橋的費用是安裝費的幾倍（TRADE 3.4 節；沒有舊橋的第一座不乘） */
+  bridge_fee_mult: number
+  /** 裝橋之後休養多久（分鐘；CYBERWARE 2.1 節「換橋 3 天」；橋本身休養中照樣生效，只有機能的 effects 等好了才算） */
+  bridge_recovery_minutes: number
+  /** 換橋另外加的暫時沉溺（P7：+5，7 天後退回；效果 sink_floor 的 amount 與 days） */
+  bridge_swap_sink: { amount: number; days: number }
+  /** 橋的容量每一類最少多少（CYBERWARE 7.1 節） */
+  cap_min: number
 }
 
 export const DEFAULT_CYBER_RULES: CyberRules = {
@@ -98,6 +106,10 @@ export const DEFAULT_CYBER_RULES: CyberRules = {
   self_requires: [{ kind: 'ability', daily: 'surgery' }],
   self_skill: 'cyberware',
   self_dc: [10, 13, 16, 19, 22],
+  bridge_fee_mult: 2,
+  bridge_recovery_minutes: 4320,
+  bridge_swap_sink: { amount: 5, days: 7 },
+  cap_min: 8,
 }
 
 const INV_IDS = ['surface', 'light', 'invasive', 'heavy', 'extreme']
@@ -140,8 +152,15 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
   if (e.self_requires !== undefined && !(Array.isArray(e.self_requires) && e.self_requires.every((c) => isRecord(c) && isText(c.kind)))) p.push('self_requires 要是條件的陣列')
   if (e.self_skill !== undefined && !isText(e.self_skill)) p.push('self_skill 要是基本功的 id')
   if (e.self_dc !== undefined && !(Array.isArray(e.self_dc) && e.self_dc.length === 5 && e.self_dc.every((n) => isSafeInt(n) && n >= 1 && n <= 40))) p.push('self_dc 要是五個整數（設計圖等級 I～V 的 DC）')
+  if (e.bridge_fee_mult !== undefined && !isMult(e.bridge_fee_mult)) p.push('bridge_fee_mult 要是 0 以上的數字')
+  if (e.bridge_recovery_minutes !== undefined && !(isSafeInt(e.bridge_recovery_minutes) && e.bridge_recovery_minutes >= 0 && e.bridge_recovery_minutes <= 525_600)) p.push('bridge_recovery_minutes 要是 0～525600 的整數（分鐘）')
+  if (e.bridge_swap_sink !== undefined && !swapSinkOk(e.bridge_swap_sink)) p.push('bridge_swap_sink 要是 { amount: 0～100 的整數, days: 1～365 的整數 }')
+  if (e.cap_min !== undefined && !(isSafeInt(e.cap_min) && e.cap_min >= 0 && e.cap_min <= 64)) p.push('cap_min 要是 0～64 的整數')
   return p
 }
+
+const swapSinkOk = (v: unknown): v is { amount: number; days: number } =>
+  isRecord(v) && isSafeInt(v.amount) && v.amount >= 0 && v.amount <= 100 && isSafeInt(v.days) && v.days >= 1 && v.days <= 365
 
 /** 現在生效的規則：資料 cyber_rule/default 蓋掉內建的預設（格式不對的欄位忽略；slots 與 surgeons 逐項蓋）。 */
 export function cyberRules(k: Pick<Kernel, 'content'>): CyberRules {
@@ -167,6 +186,10 @@ export function cyberRules(k: Pick<Kernel, 'content'>): CyberRules {
   if (ok('self_requires')) out.self_requires = clone(e.self_requires as Condition[])
   if (ok('self_skill')) out.self_skill = e.self_skill as string
   if (ok('self_dc')) out.self_dc = [...(e.self_dc as number[])]
+  if (ok('bridge_fee_mult')) out.bridge_fee_mult = e.bridge_fee_mult as number
+  if (ok('bridge_recovery_minutes')) out.bridge_recovery_minutes = e.bridge_recovery_minutes as number
+  if (ok('bridge_swap_sink')) out.bridge_swap_sink = { ...(e.bridge_swap_sink as { amount: number; days: number }) }
+  if (ok('cap_min')) out.cap_min = e.cap_min as number
   return out
 }
 
@@ -243,6 +266,10 @@ export const nowOf = (state: Pick<GameState, 'time'>): number => toMinutes(state
 
 /** 設計圖（義體）；查不到是 undefined。 */
 export const blueprintEntry = (k: Pick<Kernel, 'content'>, id: string): BlueprintEntry | undefined => k.content.get<BlueprintEntry>('blueprint', id)
+
+/** 這一件（或這個部位 id）是橋。橋的判斷只有這一個函式（cyber_count 不含橋也用它）。 */
+export const isBridge = (pieceOrSlot: Pick<CyberPiece, 'slot'> | string | undefined): boolean =>
+  (typeof pieceOrSlot === 'string' ? pieceOrSlot : pieceOrSlot?.slot) === 'bridge'
 
 /** 身上的橋有沒有：ext.bridge 明寫 null 而且沒有橋那一件才是沒有橋（沒寫的當有，照舊）。 */
 export function hasBridge(state: Pick<GameState, 'actors'>, actor: ActorId): boolean {
