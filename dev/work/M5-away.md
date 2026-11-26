@@ -3,7 +3,7 @@
 - 交給：cpp-feature（sonnet）　（**第二波**）
 - 目標：新功能 `away`：簡化的派工——把名冊上沒帶出門的人派去做一件小事，每週結帳時擲一次、算錢、可能帶回東西或出事。順便把親衛隊的「出征」接上。
 - 規格出處：FIXER 第 5、6、7 節、第 4 節（收入那一列）；DOWNTIME 4.3 節、5.1 節（結算的順序）；COMMISSIONS 6.4 節（同一套算法）；NPC_SYSTEM 10.4、10.5 節（可靠度、出場費；只看欄位）；MEDIA 9.3 節（出征）；LEWD_SYSTEM 7.5 節與 DOWNTIME 4.3 節最後一句（契約人照契約的收入分法）；dev/adr/0020 第九節、V44、V45、D5 與文末「M4 對帳」（V62、V65）；dev/adr/0016 第六、七節（`bill.collect`、`bill.settled`、共用的狀況）。
-- 可以改的路徑：`engine/src/features/away/`（新）、`engine/src/features/idol/`（只加回答 `away.jobs` 的那一段：出征）、`engine/src/features/index.ts`、`engine/tests/features/M5-away.test.ts`。
+- 可以改的路徑：`engine/src/features/away/`（新）、`engine/src/features/idol/`（只加回答 `away.jobs` 的那一段：出征）、`engine/src/features/fixer/model.ts`（只有踩點清單裡灰著的「派名冊的人去踩點」那一句原因，見「M4 對帳」）、`engine/src/features/index.ts`、`engine/tests/features/M5-away.test.ts`。
 - 可以用的介面：掛點 `bill.collect`、`bill.settled`（`features/bills` 宣告的格式：收入是 `kind: 'income'`）；條件 `in_roster`、`in_party`（名冊註冊的）；衍生數值 `roster_fee`、`rep_grade`（先問 `hasStat`）；`actor.conditions`（`busy`、`injured`、`lying_low`、`arrested`）、`actor.skills`、`actor.ext.paths`；`meterOf`（`loyalty`）；`k.content`（`job`：打工的資料，有人定義才讀）；效果 `hostility`、`item`、`owed_to_pc`（先問）；核心的固定亂數（存檔種子＋週次＋角色 id，不推進游標）；報告的 `triggers`。
 - 不可以做的事：不 import `features/roster`、`features/work`、`features/fixer`、`features/bills`；不做成一個玩法（沒有地圖、沒有過程，只有派與結）；契約那一邊的條件與分帳不寫在這裡（這一張只宣告、問掛點 `away.terms`，由 M5-contract-link 讓 `contract` 回答）；自由的人去場所工作要「對方答應」，沒有那個機制，照舊灰掉；派工出事的事件內容不寫（只給狀況與觸發點）；共同的規定見 dev/work/M5-plan.md。
 
@@ -54,6 +54,7 @@ M5-idol（出征；沒有 idol 也跑得起來）。和 M5-home-base 可以同�
 - 主角持約的人經 `roster_add { direct: true }` 在名冊上（M4-contract-holder），所以「要在名冊上」這一條對他們本來就成立；契約那一邊的差別只有三件事：不拿出場費而是照契約分帳、可以派去場所工作、被借出去時不能派。前兩件與第三件都經 `away.terms` 與條件 `contract` 進來，這一張不讀 `state.ext.contract`。
 - 主角自己是契約人時，契約的收入歸屬只認 `work.` 開頭的報告：派工的收入併在帳單（`bill.`）裡，不會被抽成。
 - M4 多的共用狀況：`recovering`、`wound_*`、`fatigued`、`hungover`。只有 `recovering` 擋派工；其餘不擋（設計書沒寫）。
+- **盯梢與踩點**：`features/fixer` 的踩點清單裡有一項一直灰著的「派名冊的人去踩點」（`model.ts` 的 `LOCKED_METHODS`，`dispatch`，註解寫著等 M5 的派工）。這一張把它接上：盯梢（`stakeout`）的 `brings` 範本裡放 fixer 的效果 `scout_reveal { count: 1 }`（替手上最近接的那一件委託揭開一項未知；有人註冊才給，沒有接著的委託時那個效果自己不做事）；並把 `dispatch` 那一句原因從「還沒有開放。」改成「到名冊上派他去盯梢，週一帶回來。」（只改那一句；away 沒裝的局這一句會指到不存在的入口——要照有沒有人註冊條件 `away_out` 換句子的話，做法回報，不大改 fixer）。
 
 ## 完成時回報
 

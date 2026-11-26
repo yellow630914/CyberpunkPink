@@ -56,6 +56,10 @@ import { worldFeature } from './world'
 
 export const FEATURES: Record<string, Feature> = { [actionsFeature.id]: actionsFeature, [characterFeature.id]: characterFeature, [perksFeature.id]: perksFeature, [creationFeature.id]: creationFeature, [combatFeature.id]: combatFeature, [gearFeature.id]: gearFeature, [enemiesFeature.id]: enemiesFeature, [defeatFeature.id]: defeatFeature, [exploreFeature.id]: exploreFeature, [netrunFeature.id]: netrunFeature, [summonsFeature.id]: summonsFeature, [abilitiesFeature.id]: abilitiesFeature, [cyberwareFeature.id]: cyberwareFeature, [deckFeature.id]: deckFeature, [netcombatFeature.id]: netcombatFeature, [hackFeature.id]: hackFeature, [favorsFeature.id]: favorsFeature, [worldFeature.id]: worldFeature, [transitFeature.id]: transitFeature, [directorFeature.id]: directorFeature, [eventRunFeature.id]: eventRunFeature, [workFeature.id]: workFeature, [lewdFeature.id]: lewdFeature, [securityFeature.id]: securityFeature, [npcsFeature.id]: npcsFeature, [sinkFeature.id]: sinkFeature, [rosterFeature.id]: rosterFeature, [billsFeature.id]: billsFeature, [restFeature.id]: restFeature, [tradeFeature.id]: tradeFeature, [commissionFeature.id]: commissionFeature, [fixerFeature.id]: fixerFeature, [sceneFeature.id]: sceneFeature, [nightclassFeature.id]: nightclassFeature, [diveFeature.id]: diveFeature, [mazeFeature.id]: mazeFeature, [craftFeature.id]: craftFeature, [unregFeature.id]: unregFeature, [auctionFeature.id]: auctionFeature, [medicalFeature.id]: medicalFeature, [drugsFeature.id]: drugsFeature, [tuningFeature.id]: tuningFeature, [malwareFeature.id]: malwareFeature, [contractFeature.id]: contractFeature, [lureFeature.id]: lureFeature, [arenaFeature.id]: arenaFeature, [curtainFeature.id]: curtainFeature }
 
+// 建角畫面要的兩句說明（沒有橋）：畫面從這裡拿，不深路徑 import 功能的內部檔（M4 收尾修正批）
+export { NO_BRIDGE_ABILITY } from './abilities'
+export { NO_BRIDGE_NOTE } from './cyberware'
+
 export function allFeatures(): Feature[] {
   return Object.values(FEATURES)
 }

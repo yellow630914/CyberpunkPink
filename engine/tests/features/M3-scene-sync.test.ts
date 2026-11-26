@@ -171,6 +171,23 @@ describe('換檔：第十種行動', () => {
     expect(gear.choices!.map((c) => [c.id, c.name, c.ap])).toEqual([['shallow', '淺檔', 0], ['standard', '標準檔', 0], ['deep', '深檔', 0], ['full', '全檔', 0]])
   })
 
+  it('每個選項帶要送出去的輸入（ChoiceOption.input）：換檔、切換體位、技能；畫面直接送，不從 id 拆字串（M4 收尾修正批）', () => {
+    const g = game()
+    begin(g)
+    const o = sceneOptions(g.k, g.state)!
+    expect(gearOpt(g).choices!.map((c) => c.input)).toEqual([{ kind: 'gear', gear: 'shallow' }, { kind: 'gear', gear: 'standard' }, { kind: 'gear', gear: 'deep' }, { kind: 'gear', gear: 'full' }])
+    const sw = o.actions.find((a) => a.id === 'switch')!.choices!
+    expect(sw.length).toBeGreaterThan(0)
+    for (const c of sw) expect(c.input).toEqual({ kind: 'switch', position: c.id })
+    const sk = o.actions.find((a) => a.id === 'skill')!.choices!
+    expect(sk.length).toBeGreaterThan(0)
+    for (const c of sk) expect(c.input).toEqual({ kind: 'skill', id: c.id })
+    // 送出去：選項給的輸入就是引擎收的輸入
+    const [r] = act(g, gearOpt(g).choices!.find((c) => c.id === 'shallow')!.input)
+    expect(r).toBeDefined()
+    expect(seat(g, PC).gear).toBe('shallow')
+  })
+
   it('起始是標準；沒有同步的等級與夠高的敏感度時只能換淺、標準：深與全灰掉並寫出缺哪個條件', () => {
     const g = game()
     begin(g)

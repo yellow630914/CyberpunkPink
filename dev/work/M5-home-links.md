@@ -3,7 +3,7 @@
 - 交給：cpp-feature（sonnet）　（**第二波**；dev/adr/0020 第十四節 D6、D7 說「等 M4 做完再看」的那一張，2026-11-26 M4 對帳時開的）
 - 目標：讓 M4 的功能認得 M5 家園的房間用途與箱子——在家組裝與修義體看工作間、自己動刀看診療室、從家裡潛入看接入室、診療室睡一覺算傷口處理過、安穩的家每週多降一點沉溺、在家組裝時箱子算背包的延伸、剪片認自己的轉播站。每一處都是「家園有裝才換成看家具，沒裝照 M4 原樣」。
 - 規格出處：DOWNTIME 7.4 節「用途的條件與效果」那張表、7.6 節（安穩）、7.7 節（在家組裝時箱子算背包的延伸）；CRAFTING 第 10 節（工作台）；CYBERWARE 第 2 節（自己動刀的場地）；CYBERSPACE 2.2 節（據點的接入艙：二級以上、身體有鎖、可以多人一起潛）；MEDIA 第 3 節（剪片的地點）；dev/adr/0020 文末「M4 對帳」D6、D7；dev/work/M5-home-furnish.md（條件 `home_use`、`home_has_item`、效果 `home_take`、計數器 `snug:<週>`）、M5-shop.md（條件 `at_own_shop`）。
-- 可以改的路徑（每個功能只加下面列的那幾行）：`engine/src/features/craft/`、`engine/src/features/cyberware/`（`surgery.ts`、`repair.ts`、規則表的型別）、`engine/src/features/medical/`（`common.ts`）、`engine/src/features/dive/`、`engine/src/features/rest/`（`ops.ts`）、`engine/src/features/sink/`（`weekly.ts`、`model.ts`）、`engine/src/features/media/`（剪片地點的那一個判斷）、`engine/src/features/home/`（只加回答 `craft.stock`）、`engine/tests/features/M5-home-links.test.ts`。
+- 可以改的路徑（每個功能只加下面列的那幾行）：`engine/src/features/craft/`、`engine/src/features/cyberware/`（`surgery.ts`、`repair.ts`、規則表的型別）、`engine/src/features/medical/`（`common.ts`）、`engine/src/features/dive/`、`engine/src/features/rest/`（`ops.ts`）、`engine/src/features/sink/`（`weekly.ts`、`model.ts`）、`engine/src/features/media/`（剪片地點的那一個判斷）、`engine/src/features/home/`（只加回答 `craft.stock`、`home_take` 多收 `uid`）、`engine/tests/features/M5-home-links.test.ts`。
 - 可以用的介面：條件 `at_home { use }`、`home_use`、`home_has_item`、`at_own_shop`（都先看 `k.conditions.kinds()`）；效果 `home_take`（先問 `k.effects.has`）；計數器 `snug:<週>`；各功能自己的規則表（加欄位、`overridable`，預設寫在功能裡）。
 - 不可以做的事：功能之間不互相 import（全部經條件、效果、計數器與一個新掛點）；**沒有裝家園的局行為和這一張之前逐欄相同**（每個功能既有的測試原樣全過）；不改診所、店家、潛艙店那一半的判斷；不做車庫（機甲在 M6）、遊戲間的契約選項（內容）、玩家社團接訂做；共同的規定見 dev/work/M5-plan.md。
 
@@ -25,7 +25,7 @@
    - home 回答 `craft.stock`：人在自己住處的地圖裡（或站在那個設施上）而且那一處有工作間時，回那一處不在保險箱與暗格的箱子裡的每一疊；其餘不回。`home_take` 多收 `uid`（M5-home-furnish 的版本只收 `item`、`qty`；這一張補）。
    - 這一項做到一半發現 craft 挑零件的地方（`resolvePicks`、`partStatesRecord`）接不上，就停在「列得出來、用不了」並回報，不硬改 craft 的結構。
 
-## 驗收條件（`engine/tests/features/M5-home-links.test.ts`；測試裝全部功能，用 M5-smoke 之前的做法自己起一個二級的家，自帶工作台、手術椅、接入艙、一個箱子的家具物品）
+## 驗收條件（`engine/tests/features/M5-home-links.test.ts`；測試裝全部功能，照 M5-home-furnish 測試的做法自己起一個二級的家，自帶工作台、手術椅、接入艙、一個箱子的家具物品）
 
 - 沒有裝 `home` 的局：craft、cyberware、medical、dive、rest、sink、media 的既有測試原樣全過（這一條是整張工單的底線）。
 - 工作間：二級的家沒擺工作台 → 在家組裝被擋（原因對）；擺了 → 做得了、難度比在店裡自己做少 1、換零件的時間是一半；搬走工作台又被擋。自己修義體同理。

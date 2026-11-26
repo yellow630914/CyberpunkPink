@@ -4,7 +4,7 @@
 - 目標：直播接上三個「館」與 M4 留給 M5 的東西：(1) 簾後館的內場直播與內場帶；(2) 迷宮館的直播（觀看數算進評價、館方抽成）；(3) 成人時段直播接 M4 的單人場景；(4) 在內海開播時追蹤度持續上升。
 - 規格出處：CYBERSPACE 8.8 節（場熱的表裡「內場直播」那幾列、點單的「返場」、產出的「素材」那一列、「和別的系統」的媒體與直播那一列）、8.2 節（迷宮館的時間與評價、直播）、SITES 13.4 節裡迷宮館那一列（館方抽打賞的兩成）；MEDIA 第 6 節（在內海開播追蹤度持續上升）、1.3 節（成人種類）、11.2 節（內場帶賣進萬華鏡）；dev/adr/0020 第三節、第十四節 D2、D4、D9、V53 與文末「M4 對帳」（D2、D4、V56、V66）；dev/adr/0019 第九節（單人）、第十二節與 P57（沒有直播的簾後館留下什麼）；`engine/src/features/curtain/heat.ts` 的檔頭（M4-curtain-run 留下的三個接點）；dev/work/M5-live.md、M5-live-slot.md、M3-maze.md。
 - 可以改的路徑：
-  - 引擎：`engine/src/features/live/`、`engine/src/features/maze/`（只加進場那一拍、評價讀觀看數的級距）、`engine/src/features/curtain/`（只加下面列的五處）、`engine/src/features/media/`（只加帶館標籤的素材上架的那一段）、`engine/tests/features/M5-live-houses.test.ts`。
+  - 引擎：`engine/src/features/live/`、`engine/src/features/maze/`（只加進場那一拍、評價讀觀看數的級距）、`engine/src/features/curtain/`（只加下面列的六處）、`engine/src/features/media/`（只加帶館標籤的素材上架的那一段）、`engine/tests/features/M5-live-houses.test.ts`。
   - 畫面：簾後館的面板（M4-ui-curtain 做的 `ui/src/components/curtain/` 與 `dialogs/CurtainDialog.vue`）、迷宮館與簾後館一趟的畫面（`ui/src/screens/SubnetScreen.vue`）、`ui/src/dialogs/LiveDialog.vue`、`ui/src/screens/AdultSceneScreen.vue`（只放頂列）、`ui/src/dialogs/CutDialog.vue`（帶館標籤的素材上架多兩個選擇）、`ui/src/stores/engine.ts`（只加轉接）、`ui/tests/live/M5-ui-live-houses.test.ts`。
 - 可以用的介面：`live` 的 `Session.house`、`goLive`、`liveView`、`activity.end`（種類 `live`）、條件 `live_on`；掛點 `netrun.round`、`netrun.close`、`media.record`；`battle.field.trace`、量表 `trace`；M4 的場景（活動 `scene`，`setup.solo`、`audience`、`goal: 'footage'`、`max_rounds`）；簾後館的場熱量表 `stage_heat`（鍵是那一趟的地圖實例；只有內建的來源能動）、它的 `runPatch`（`curtain.patch`）。
 - 不可以做的事：功能之間不互相 import（`live`、`maze`、`curtain`、`scene`、`media` 只靠掛點、條件、`activity.end`、報告的一拍與 `launch` 相接）；不匯入簾後館的內容；內場直播不進頻道的訂閱與公信力（CYBERSPACE 8.8）；不動 M4 簾後館沒有直播時的行為（沒有裝 `live` 的局，M4 的測試原樣全過）；共同的規定見 dev/work/M5-plan.md。
@@ -12,7 +12,7 @@
 ## 新的格式與鍵
 
 - `Session.house`：`{ id: 'maze' | 'curtain' | string, viewers_mult: number, tips_mult: number, to_channel: boolean, cut: number（館方抽打賞的比例）, tags?: string[]（留下的那一則紀錄與素材帶的標籤，例：`house:curtain`） }`。
-- 館的參數怎麼到 `live`（資料慣例，不 import）：那一趟進場的報告（`maze.enter`、`curtain.enter`）多一拍 `tag: 'live.house'`、`data: { house }`；`live` 開播時從最近一份帶這一拍的報告讀（那一趟的 `netrun.enter` 之前的那一份）。沒有這一拍就是一般的子網，沒有 `house`。
+- 館的參數怎麼到 `live`（資料慣例，不 import）：那一趟進場的報告（`maze.enter`、`curtain.enter`）多一拍 `tag: 'live.house'`、`data: { house }`；`live` 開播時從最近一份帶這一拍的報告讀（那一趟的 `netrun.enter` 之前的那一份）。沒有這一拍就是一般的子網，沒有 `house`。`house.to_channel` 是 `false` 的館（內場直播是館方的機位）開播時不要求玩家開著頻道；其餘照 M5-live 的條件。
 - 內容種類 `stream_template` 加兩筆預設：`st_maze`（亮點照戰鬥的表，加「過一層」）、`st_curtain`（亮點照戰鬥的表；每場戰鬥結束 +1）；兩筆都帶 `trace_round`（在有追蹤度的地方每個探索回合與戰鬥回合多加的追蹤度，預設 1；迷宮館與簾後館沒有追蹤度，等於不作用，一般子網裡開播才有）。
 - 宿主多一種：`netrun`（一趟網內的行程）。它可能包在潛入（`dive`）裡面（簾口與迷宮館的入口都可以放在潛入之後的網內街區），`live` 認的是 `netrun`，外面那一層不管；放行 M5-live 已經用 `allowEverywhere`，不用再加。開播的時機照 V21：最近一份 `netrun.` 開頭的報告是 `netrun.enter`（進場帶出來的 `login` 事件、簾後館自己的 `curtain.stage` 都不是 `netrun.` 開頭，不影響）。
 - 條件 `live_on` 多收 `tier_min?: 'hot' | 'boom'`（觀看數的級距至少是熱或爆；MEDIA 1.2 的三段）。和 `viewers_min` 一樣只讀量表與自己的狀態。
@@ -28,7 +28,7 @@
    - `maze.enter` 多那一拍，`house` 是 `{ id: 'maze', to_channel: true, viewers_mult: 1, tips_mult: 1, cut: 0.2 }`。
    - 評價（它聽 `netrun.close` 結算的地方）：`netrun.close` 被問的那一刻直播還開著（`activity.end` 在它後面才發），所以直接問條件 `live_on { tier_min: 'hot' }`、`{ tier_min: 'boom' }`（有人註冊才問）；評價的第三項照 CYBERSPACE 8.2（熱或爆各往上修一級的門檻，數字放 `maze_rule`，暫定並回報）。
    - 館方抽成在 `live` 那一邊：結算時打賞 ×（1 − `cut`）。
-3. **簾後館**（改 `features/curtain`；M4-curtain-run 在 `heat.ts` 檔頭列的三處加上進場與內場帶，一共五處）：
+3. **簾後館**（改 `features/curtain`；M4-curtain-run 在 `heat.ts` 檔頭列的三處，加上進場那一拍、記下開過內場直播、內場帶，一共六處）：
    - **進場**（`enter.ts` 的 `curtain.enter`）：多那一拍，`house` 是 `{ id: 'curtain', to_channel: false, viewers_mult: 0.5, tips_mult: 0, cut: 0, tags: ['house:curtain'] }`。`tips_mult: 0`：內場直播收播時，直播自己的那一筆「熱度換打賞」不給——內場的打賞只有館方照場熱算的那一筆，加倍加在那裡（V56）。
    - **記下開過內場直播**：在它已經掛著的 `netrun.round` 與 `battle.ts` 的 `onBattleEnd` 裡，條件 `live_on` 有人註冊而且成立、而 `run.live` 還不是 `true` 時，補一筆 `runPatch({ set: { live: true } })`。之後提早收播也還算開過。
    - **場熱**（`battle.ts` 的 `onBattleEnd`）：`live_on` 成立時每場戰鬥結束再 +`rules.heat.live`，多一行「內場直播開著，場熱 +2。」（數字照規則）。
@@ -58,7 +58,7 @@
 
 - 迷宮館一趟開播：三層都算同一場；破關收播；打賞少兩成；評價在觀看數「爆」的時候比沒直播的高一級（門檻照規則）。
 - 自己去挖的子網裡開播：每個探索回合追蹤度多 1；迷宮館裡不加（沒有追蹤度）。
-- 簾後館，走街上的簾口與潛入裡的簾口各一次：都開得了播、收得了播（外面那一層 `dive` 不擋）。
+- 簾後館，走街上的簾口與潛入裡的簾口各一次：都開得了播、收得了播（外面那一層 `dive` 不擋）；沒有開頻道的主角也開得了內場直播，迷宮館的直播照舊要頻道。
 - 簾後館開播的一趟：觀看數是一般的一半；收播之後頻道的訂閱沒變、「這一週開過」不算、直播自己沒有給打賞；每場戰鬥結束場熱多 2；館方的打賞是沒開播時的兩倍（同一個種子比對）；落幕的那一筆也是兩倍；返場擲得到、接了之後多一則帶 `house:curtain` 的紀錄；破關拿到一段帶 `house:curtain` 的親密類素材、品質對場熱的段。
 - 開播之後馬上提早收播：`run.live` 還是 `true`、打賞照樣加倍；之後的戰鬥場熱不再多 2。
 - 帶館標籤的素材上架：沒選 `via` 被擋；`house` 只有打賞；`public` 的訂閱與打賞是一般的六成。

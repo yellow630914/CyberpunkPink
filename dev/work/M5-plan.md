@@ -2,7 +2,7 @@
 
 - 寫的人：cpp-architect（2026-11-24）。設計在 dev/adr/0020；這一份是工單的清單、相依、順序、收尾與要使用者先定的事。
 - 範圍（MIGRATION 第 6 節 M5 那一列，加上 dev/status.md 標了 M5 的待辦）：媒體的一條鏈（紀錄 → 素材 → 片、使用次數、發布）；頻道的經營層（MEDIA 第 4 節）；兩種直播；社交媒體；輿論戰（自己發起的戰役與委託副本的輿論面）；主播、偶像、名媛、掮客四棵樹的輿論欄與日常技能；偶像（人氣、親衛隊）與群眾；介面把舊的媒體示範換成引擎。第二波：派工、家園的格子地圖、店面。第三波：等 M4 的（簾後館的內場直播、迷宮館的直播、成人時段直播）與 AI 的文字和自訂輸入。
-- **排在 M4 之後執行**。M4 的規劃（dev/adr/0019、dev/work/M4-*）同時在寫：0019 已經對過一次，M4 的工單還沒寫完、也還沒實作；用到 M4 的地方寫成假設，集中在 0020 第十四節（D1～D10）。M4 做完、M5 開工之前，總指揮把那十項和 M4 實際的介面對一次，對不上的工單先交回 cpp-architect 改。**其中 D9（`heat` 撞名）要在 M4 開工前就定**（決定清單第 24 項）。0019 的解讀編號是 P，M5 的用 V。
+- **排在 M4 之後執行**。M4 已經做完（2026-11-26；收尾修正批在跑）。用到 M4 的地方原本寫成假設（0020 第十四節 D1～D10），**2026-11-26 已經和 M4 實際的介面對過一次**：結果在 0020 文末「M4 對帳」與這一份最後的同名段落；原本的 35 張工單照它改過，另外多了三張（第 36～38 張）。0019 的解讀編號是 P，M5 的用 V（V56～V67 是對帳時加的）。
 - 和 M2、M3 一樣：**只做機制，不匯入內容**；工單**沒有預先寫好的驗收測試**，每一張列的是驗收條件，做的人自己寫成測試（測試自帶最小假資料）。
 
 ## 每一張都適用的規定
@@ -17,6 +17,11 @@
 8. **任何一個入口都不給街頭信譽**（V54），不直接寫別人的量表以外的狀態。
 9. 給 AI 寫正文用的「結果」句子不帶機制數字（0017 第 12 項）；數字留在變更與那一拍的 `data`。這一批不加 AI 任務（第三波的兩張除外）：文字是程式照旗標與模板產生的。
 10. 核心的三張（M5-core-seams、M5-core-ai、M5-smoke）改的是 `coreDirs`：派 cpp-architect 角色、指定 sonnet，派工時明說可以改哪些核心路徑。它們回報「ADR 做不到」的地方，先回到 cpp-architect 改設計，再往下。
+11. **放行與白名單**（M4 對帳）：`k.activity.allowEverywhere` 放行的前綴（M4 的 `commit:contract.choose`、M5 的 `commit:live.`）每一個活動都有。驗收條件寫「進行中 X 被擋、Y 做得了」，不要寫成「只放行某幾個前綴」。新的活動不用為了契約登記任何東西（契約認「任何活動」）。
+12. **內容篩選只認標籤**：規則表的每一筆可以寫 `tags`，用核心的 `tagsAllowed(state.rules, tags)`；標籤只能是核心的 `CONTENT_TAGS` 或內容載入的題材標籤。沒有「成人檔」「成人直播」「成人貼文」這種開關（0020 V63）。
+13. **玩家打的字**（片的標題與簡介、時段直播的描述、剪輯的說法）：原樣存、原樣交給 AI，不篩選、不改寫、不提示；上限與截斷由引擎做（照「字」算），介面不用 `maxlength` 硬擋、不 `.trim()`。
+14. **示意模式**（介面的工單）：「開局就已經有」的東西是開新局的選項，只有示意模式開著才出現；世界上有的東西放 `ui/src/data/demo/`；示意包不整筆蓋掉 `engine/data` 的規則表。
+15. **條件的說明句**（引擎的工單）：新註冊的條件都寫 `describe`（M4 收尾修正批加的 `ConditionDef.describe?(cond, ctx)`：回一句「要什麼」、不帶句點；資料的 `requires` 不成立時用 `k.conditions.explain` 接成擋住的原因）。節目、住處、店面、派工這些資料的 `requires` 都照這個給原因，不自己另外拼句子。
 
 ## 工單
 
@@ -27,11 +32,11 @@
 | 3 | M5-media-cut | cpp-feature | 剪（七種角度）、三個數字、重剪、偽造、發布（上架、賣斷、談判、留著） | `features/media` |
 | 4 | M5-channel | cpp-feature | 開頻道、三張量表、預算與贊助、每週、`flow_tier` 的來源 | `features/channel`（新） |
 | 5 | M5-channel-shows | cpp-feature | 節目六種、成人檔、開一集、評價與結算、編制、設備 | `features/channel` |
-| 6 | M5-live | cpp-feature | 直播的容器、活動直播、模板與目標、亮點、收播、不回退 | `features/live`（新） |
+| 6 | M5-live | cpp-feature | 直播的容器、活動直播、模板與目標、亮點、收播、不回退；場景知道有人在看 | `features/live`（新）、`features/scene`（幾行） |
 | 7 | M5-live-slot | cpp-feature | 時段直播：四種、檢定、`live_mid`、`heat` 效果、自訂輸入的欄位 | `features/live` |
 | 8 | M5-social | cpp-feature | 追蹤、發文的算式、每週、動態牆 | `features/social`（新） |
 | 9 | M5-opinion | cpp-feature | 輿論戰的棋盤、回合、牌、佔領、對手、城市事件、四級結果 | `features/opinion`（新） |
-| 10 | M5-opinion-desk | cpp-feature | 誰坐編輯台、四個掛點與封閉清單、素材進牌庫、後果、自己發起、事件的指示 `start` | `features/opinion`、`features/director`（一個檔） |
+| 10 | M5-opinion-desk | cpp-feature | 誰坐編輯台、四個掛點與封閉清單、素材進牌庫、後果、自己發起、事件的指示 `start` | `features/opinion`、`features/director`（三個檔各幾行） |
 | 11 | M5-opinion-face | cpp-feature | 活動 `face.opinion`：開場表、交回、三選一、收買、找上門、外包 | `features/opinion` |
 | 12 | M5-commission-opinion | cpp-feature | 副本那一邊：給什麼、收什麼、決定性與否、`stream_goals` 與 `live_on` | `features/commission` |
 | 13 | M5-fixer-opinion | cpp-feature | 生成帶輿論面的委託、對手的強度、踩點對輿論 | `features/fixer` |
@@ -46,37 +51,40 @@
 | 22 | M5-ui-opinion | cpp-ui | 輿論戰畫面、開戰前的準備、副本頁的輿論面；舊的 `lib/combat/opinion.ts` 等拿掉 | `ui/` |
 | 23 | M5-ui-social | cpp-ui | 社群對話框：發文、動態牆 | `ui/` |
 | 24 | M5-away | cpp-feature | 第二波：派工 | `features/away`（新）、`features/idol`（出征） |
-| 25 | M5-home-base | cpp-feature | 第二波：`home` 接手住處、多處、買斷、搬家、升級、改裝、進出家門 | `features/home`（新）、`features/rest`、`features/explore` |
+| 25 | M5-home-base | cpp-feature | 第二波：`home` 接手住處（入口的名字不換）、多處、買斷、搬家、升級、改裝、進出家門 | `features/home`（新）、`features/rest`、`features/explore`；跟著換 import 的測試、testkit 兩行、`ui/` 的 import |
 | 26 | M5-home-furnish | cpp-feature | 第二波：家具、擺放、房間的用途、舒適度、儲物 | `features/home` |
 | 27 | M5-home-people | cpp-feature | 第二波：住戶、家務、訪客、居家的觸發點、上門、曝光 | `features/home` |
 | 28 | M5-shop | cpp-feature | 第二波：店面五種、營收、店長、在自己的店工作 | `features/home`、`features/work` |
 | 29 | M5-ui-home | cpp-ui | 第二波：家園地圖接引擎；舊的 `stores/home.ts` 等拿掉 | `ui/` |
 | 30 | M5-ui-away-shop | cpp-ui | 第二波：名冊的派工、帳單裡的派工與店面與頻道、店面分頁 | `ui/` |
-| 31 | M5-live-houses | cpp-feature | 第三波：簾後館的內場直播與內場帶、迷宮館的直播、成人時段直播接單人場景（依賴 M4） | `features/live`、`features/maze`、M4 的簾後館 |
+| 31 | M5-live-houses | cpp-feature、cpp-ui | 第三波：簾後館的內場直播與內場帶、迷宮館的直播、成人時段直播接單人場景；畫面 | `features/live`、`maze`、`curtain`、`media`、`ui/` |
 | 32 | M5-core-ai | cpp-architect，sonnet | 第三波：判讀（`k.intents`）與文字槽（`k.texts`）兩個接縫，外殼的通用任務 | `core/action`、`shell/` |
-| 33 | M5-ai-media | cpp-feature、cpp-ui | 第三波：media、live、social、opinion 宣告判讀與文字槽；畫面顯示 | 四個功能、`ui/` |
+| 33 | M5-ai-media | cpp-feature、cpp-ui | 第三波：media、live、social、opinion 宣告判讀與文字槽，拍賣的鑑定書與口白；畫面顯示 | 四個功能、`features/auction`、`ui/` |
 | 34 | M5-data-rules | cpp-data | M5 的規則表（不含內容） | `engine/data/rules/` |
 | 35 | M5-smoke | cpp-architect，sonnet | 具名的情境、M5 的冒煙主幹、種子重播、test-harness 與不變式 | `testkit/`、`tests/smoke` |
+| 36 | M5-contract-link | cpp-feature | 第二波（M4 對帳時開的）：契約人照契約分帳去派工、住在據點算住戶、做家務不用工錢 | `features/contract` |
+| 37 | M5-home-links | cpp-feature | 第二波（M4 對帳時開的）：M4 的組裝、動刀、潛入、睡覺、沉溺、剪片認得家園的房間用途與箱子 | `craft`、`cyberware`、`medical`、`dive`、`rest`、`sink`、`media`、`home` 各幾行 |
+| 38 | M5-curtain-board | cpp-feature、cpp-ui | 第三波（M4 對帳時開的）：簾後館的檔期榜與月榜 | `features/curtain`、`ui/` |
 
-dev/status.md 標了 M5 的待辦各落在哪一張：日常直播這種行動（7：它不進行動種類的資料，是 live 的入口）；`face.opinion` 要自己往副本的放行清單登記（11）；副本的直播目標（6、12）；`rest` 沒做的舒適度加成、欠繳後補繳開鎖、買斷與搬家、安全屋與家園地圖家具住戶（25～27）；`work` 沒做的自己的店面與派別人打工（28、24）；技能的日常與 M5 欄位（14～16）；群眾（18）；介面舊的媒體示範四個檔（19、20、22）與直播面板（21）；主播與偶像的導流階、聚光燈（4、14、15）；召集（18）；`flow_tier` 的來源（4）；「老粉都在」沒有頻道算不算（決定清單第 20 項，做在 15）；簾後館的內場直播與迷宮館的直播（31）；成人場景的單人模式是 M4 的（31 接）；SKIN 的風格與曝露度接到直播（6：讀 `exposure`，有人註冊才有）；test-harness 要加的情境（35）。
+dev/status.md 標了 M5 的待辦各落在哪一張：日常直播這種行動（7：它不進行動種類的資料，是 live 的入口）；`face.opinion` 要自己往副本的放行清單登記（11）；副本的直播目標（6、12）；`rest` 沒做的舒適度加成、欠繳後補繳開鎖、買斷與搬家、安全屋與家園地圖家具住戶（25～27）；`work` 沒做的自己的店面與派別人打工（28、24）；技能的日常與 M5 欄位（14～16）；群眾（18）；介面舊的媒體示範四個檔（19、20、22）與直播面板（21）；主播與偶像的導流階、聚光燈（4、14、15）；召集（18）；`flow_tier` 的來源（4）；「老粉都在」沒有頻道算不算（決定清單第 20 項，做在 15）；簾後館的內場直播與迷宮館的直播（31）；成人場景的單人模式是 M4 的（31 接）；SKIN 的風格與曝露度接到直播（6：讀 `exposure`，有人註冊才有）；test-harness 要加的情境（35）。M4 做完之後多出來的：契約人的派工與住戶（36）；名冊每週的「同住」（27）；橋「聚光」的「被注視時」與「編輯點 +1」（6 的條件 `live_on`、10 的 `ep_bonus`）；簾後館的內場直播、返場、內場帶（31）與檔期榜（38）；拍賣的鑑定書與口白等文字槽（33）；在家組裝、動刀、潛入看家具，沉溺的「安穩」（37）；片的標題與簡介（3、19、33）。
 
 ## 相依
 
 ```
-1 core-seams ─┬─ 6 live ─ 7 live-slot ─ 31 live-houses（要 M4）
-              └─ 25 home-base ─ 26 home-furnish ─ 27 home-people ─ 28 shop（要 24、4）
+1 core-seams ─┬─ 6 live ─ 7 live-slot ─ 31 live-houses（要 21 的頂列、3 的上架；M4 已經做完）─ 38 curtain-board
+              └─ 25 home-base ─ 26 home-furnish ─ 27 home-people ─ 28 shop（要 24、4）─ 37 home-links（要 26、28、3）
 2 media-chain ─┬─ 3 media-cut ─ 10
                ├─ 5、6、8
 4 channel ─ 5 channel-shows ─ 17 idol（要 10）─ 18 crowd（要 16）
 9 opinion ─ 10 opinion-desk ─ 11 opinion-face ─ 12 commission-opinion ─ 13 fixer-opinion
 10 ─ 14 abilities-opinion（要 5、7）─ 15 skill-opinion-a ─ 16 skill-opinion-b
-24 away（要 17：出征）
-介面：19（要 2、3）─ 20（要 4、5）─ 21（要 6、7）─ 23（要 8）─ 22（要 9～13）；29（要 25～27）─ 30（要 24、28）
-32 core-ai ─ 33 ai-media（要第一波的四個功能）
+24 away（要 17：出征）─ 36 contract-link（要 24、27）
+介面：19（要 2、3）─ 20（要 4、5）─ 21（要 6、7）─ 23（要 8）─ 22（要 9～13）；29（要 25～27）─ 30（要 24、28、36）；31 與 38 的畫面那一半排在各自的引擎之後
+32 core-ai ─ 33 ai-media（要第一波的四個功能；多改 `features/auction` 幾行）
 34 data-rules、35 smoke：引擎的功能都做完之後
 ```
 
-**不要同時做的**（改同一批檔）：2、3（`features/media`）；4、5（`features/channel`）；6、7、31（`features/live`）；9、10、11（`features/opinion`）；14、15、16（`features/abilities`），18 也改技能的測試資料，排在 16 之後；25、26、27、28（`features/home`）；介面的七張彼此，以及 33 的介面那一半（都改 `stores/engine.ts`）；12 與任何還在改 `features/commission` 的事；10 會改 `features/director/body.ts`（只加指示 `start`），那時候不要有別的工單在改 director；24 會改 `features/idol`（只加出征），排在 17 之後；25 會改 `features/rest`（住處搬走）與 `features/explore`（家的地圖上不作用），那時候不要有別的工單在改這兩個；28 會改 `features/work`（只加「在自己的店工作」的條件）；31 會改 `features/maze` 與 M4 的 `features/curtain`（各幾行），那時候不要有別的工單在改這兩個。`FEATURES` 的順序：`mediaFeature` 在 `channelFeature`、`liveFeature`、`socialFeature`、`opinionFeature` 前面（它們的 `ready` 不依賴順序，但掛點的回答者先裝比較好查）；`homeFeature` 排在 `restFeature` 前面（條件 `at_home`、`has_home` 由它註冊）。
+**不要同時做的**（改同一批檔）：2、3（`features/media`）；4、5（`features/channel`）；6、7、31（`features/live`）；6 會改 `features/scene`（幾行），那時候不要有別的工單在改它；9、10、11（`features/opinion`）；14、15、16（`features/abilities`），18 也改技能的測試資料，排在 16 之後；25、26、27、28（`features/home`）；介面的七張彼此，以及 33 的介面那一半（都改 `stores/engine.ts`）；12 與任何還在改 `features/commission` 的事；10 會改 `features/director`（`body.ts`、`run.ts`、`model.ts`，只加指示 `start`），那時候不要有別的工單在改 director；24 會改 `features/idol`（只加出征）與 `features/fixer/model.ts`（一句），排在 17 之後；25 會改 `features/rest`（住處搬走）與 `features/explore`（家的地圖上不作用），也會換一批測試、testkit 兩行與 `ui/src/stores/engine.ts` 的 import，那時候不要有別的工單在改這兩個功能、也不要有介面的工單在跑；28 會改 `features/work`（只加「在自己的店工作」的條件）；31 會改 `features/maze`、`features/curtain` 與 `features/media`（各幾行），38 也改 `features/curtain`：31、38 不同時做，那時候也不要有別的工單在改這幾個；33 的引擎那一半會改 `features/auction`（幾行）；36 改 `features/contract`；37 改 `craft`、`cyberware`、`medical`、`dive`、`rest`、`sink`、`media`、`home`（各幾行），排在 28 之後、而且那時候不要有別的工單在改這些功能（31 也改 `media`：37 在 31 之前做完）。`FEATURES` 的順序：`mediaFeature` 在 `channelFeature`、`liveFeature`、`socialFeature`、`opinionFeature` 前面（它們的 `ready` 不依賴順序，但掛點的回答者先裝比較好查）；`homeFeature` 排在 `restFeature` 前面（條件 `at_home`、`has_home` 由它註冊）。
 
 ## 建議的順序（同時最多兩張）
 
@@ -94,19 +102,20 @@ dev/status.md 標了 M5 的待辦各落在哪一張：日常直播這種行動�
 | 十 | 16 skill-opinion-b | 17 idol |
 | 十一 | 18 crowd | 22 ui-opinion |
 | 十二 | 23 ui-social | （第一波的引擎審查可以先開始） |
-| 十三 | 24 away | 25 home-base |
-| 十四 | 26 home-furnish | （空著，或第三波的 32 core-ai） |
-| 十五 | 27 home-people | （空著，或第三波的 33 的引擎那一半） |
-| 十六 | 28 shop | 29 ui-home |
-| 十七 | 30 ui-away-shop | 31 live-houses |
-| 十八 | 32 core-ai（還沒做的話） | — |
-| 十九 | 33 ai-media | — |
-| 二十 | 34 data-rules | — |
-| 二十一 | 35 smoke | — |
+| 十三 | 24 away | 25 home-base（這一步不要有介面的工單在跑） |
+| 十四 | 26 home-furnish | 32 core-ai |
+| 十五 | 27 home-people | 33 ai-media 的引擎那一半 |
+| 十六 | 28 shop | 36 contract-link |
+| 十七 | 37 home-links | 29 ui-home |
+| 十八 | 31 live-houses 的引擎那一半 | 30 ui-away-shop |
+| 十九 | 38 curtain-board 的引擎那一半 | 33 ai-media 的畫面那一半 |
+| 二十 | 31 的畫面那一半，接著 38 的畫面那一半（同一個代理接著做） | — |
+| 二十一 | 34 data-rules | — |
+| 二十二 | 35 smoke | — |
 
 - 第十二步做完是**第一波**：錄到一場戰鬥、轉成素材、剪成片、開一集節目、發一篇文、開一場時段直播、在一場戰鬥上開活動直播、自己發起一場輿論戰、接一件主面是輿論的委託打到做完入帳，引擎與介面都走得通。
-- 第十七步做完是**第二波**（派工、家園、店面）。使用者不要的話第十三～十七步跳過（31 留到第三波）；34 不寫第二波的表、35 不寫那幾條冒煙。
-- **第三波**（31、32、33）使用者不要的話整段跳過：直播只掛在戰鬥、成人場景、委託副本上，文字是模板的，自訂輸入只留給正文。31 另外要等 M4 的簾後館與單人場景做完。
+- 第十七步做完（加上第十八步的 30）是**第二波**（派工、家園、店面，與 M4 對帳時開的 36、37）。使用者不要的話這幾張跳過；34 不寫第二波的表、35 不寫那幾條冒煙。
+- **第三波**（31、32、33、38）使用者不要的話整段跳過：直播只掛在戰鬥、成人場景、委託副本上，文字是模板的，自訂輸入只留給正文。32、33 的引擎那一半不依賴第二波，所以排在第十四、十五步的空位先做。
 - 第一步做完時核心的介面就定了。第 1 張回報「ADR 做不到」的地方，先回到 cpp-architect 改設計，再往下。
 - 每一步兩張都回來、主套件全綠之後再開下一步。
 
@@ -125,7 +134,7 @@ dev/status.md 標了 M5 的待辦各落在哪一張：日常直播這種行動�
 
 - **使用次數**：三次的池子在每一種用法下都對（發文、節目的每一件、上架、進牌庫、剪成片取最小、賣斷與勒索扣光、留著不扣、剩 1 次剪不了、0 次什麼都不能做）；性質測試：任意順序的用法之後，一段素材與它剪出的片合計不會被用超過設計書允許的次數。
 - **用了沒扣、扣了沒用**：每一個吃料的入口（節目、發文、開戰、上架）不成立時（錢不夠、檢定之前被擋、戰役開不起來）素材的次數不變；成立時一定少。
-- **白名單**：`live`（時段）、`opinion`、`face.opinion` 進行中放行的清單；副本裡多放行的只有 `face.opinion.start`、`commit:opinion.`、`commit:live.`；活動直播不讓宿主多放行任何事。
+- **白名單**：`live`（時段）、`opinion`、`face.opinion` 進行中放行的清單；副本裡 `opinion` 多放行的只有 `face.opinion.start`、`commit:opinion.`；`commit:live.` 與 M4 的 `commit:contract.choose` 是 `allowEverywhere` 放行的（每一個活動都有，入口自己的條件要擋得住：沒有宿主開不了播、有活動開不了時段直播）；活動直播不讓宿主多放行任何事。
 - **直播不回退**：直播中回退步數被擋；撤退、委託失敗、戰敗後重來之後，訂閱、打賞、那一則紀錄都在，而且只算一次（重來同一場再收播不會算兩遍）。
 - **三條回去的路**：決定性的輿論戰沒贏的三選一（重來、回到階段開始、接受）；收買；被找上門帶走。各自留下什麼、帶進牌庫的料扣掉的次數回不回去。
 - **同一個階段不處理兩遍**：`face.opinion` 交回之後副本只接一次里程碑；接受失敗只回去一次。
@@ -133,7 +142,8 @@ dev/status.md 標了 M5 的待辦各落在哪一張：日常直播這種行動�
 - **夾值與邊界**：聲量 0～10、風向 −5～+5、防守最少 0、編輯點不累積、手牌上限；熱度（時段 12、觀看數算到 20）；公信力 0～100、推薦權重 −3～3；訂閱不會是負的；預算付不出來是做不成、不是扣成負的；可支領額度；舒適度三段；儲物的種數；上門的機率 0～100。
 - **AI 的對抗**：`heat`、`highlight` 只在直播中收、上限 ±3；`footage` 效果給的素材是 3 次、品質不超過區的等級；AI 不能給 `subs`、`credibility`、`popularity`、`standing` 超過量表的上限；第三波的判讀只收清單裡的值、文字槽改不了數字。
 - **拿掉一個功能照樣跑**：八個新功能各自拿掉一次，主套件的其餘測試全過。
-- **`home` 接手**：M2 的休息、帳單、打工的測試行為不變；舊存檔（有 `ext.rest.home`）讀進來住處還在、押金與欠繳都對。
+- **`home` 接手**：M2 的休息、帳單、打工的測試行為不變；M4 讀 `at_home`／`has_home` 的七個功能（組裝、自己動刀與修理、醫療、改化身、染色、技能配置、契約的宵禁與「他住在據點」）行為不變；舊存檔（有 `ext.rest.home`）讀進來住處還在、押金與欠繳都對。
+- **M4 對帳加的**：沒有裝家園的局，M5-home-links 動到的七個功能逐欄和之前一樣；內場直播的打賞只加倍一次、不進頻道；義體與藥給的編輯點合計最多 +1；場景「有沒有人在看」在收播之後變回去；契約人的住戶在解約、改住處、借出去之後立刻不在（`home` 的狀態裡本來就沒有他）；片的標題與簡介、文字槽都改不了任何數字。
 
 ## 這一批刻意不做的
 
@@ -143,9 +153,10 @@ dev/status.md 標了 M5 的待辦各落在哪一張：日常直播這種行動�
 - **輿論戰**：找上門真的切到戰鬥（V35）；進行中的城市大事固定影響棋盤；同一件事兩邊都有人接（`double_booked`）時對手換成另一隊行者的排程（對手資料的 `mimic` 會做）；區域狀態、NPC 的處境、之後的委託這三種後果（內容）。
 - **偶像**：簽約與畢業、公司的保全、橋權；親衛隊的隊長與他的關係線、和別的親衛隊競爭、親衛隊出事變成委託；握手會的事件內容；地下偶像的推薦權重偏移。
 - **社交媒體**：發文的敵對值與親密度後果（MEDIA 13.1 寫明之後再定）；傳聞（要線索池）。
-- **派工**：在場所工作（人偶館、片場；要契約或對方答應，等 M4）；契約人的派工；派工出事的事件內容。
+- **派工**：自由的人去場所工作（要「對方答應」，沒有那個機制；契約人可以，第 36 張）；替契約人每週自動派工；派工出事的事件內容。
 - **家園**：網內的房間（DOWNTIME 7.12）；假身分被拆穿、耳目、機娘被駭的後果；居家事件與上門的內容；機甲的車庫（M6：只留房間的 `garage` 旗標與「車庫」這個用途的條件）；生體件的培養槽與植物澆水；同床會不會走到成人場景（AI 判定；只發觸發點）；帳房自動付錢。
-- **AI**：前兩波不加任務。`pr_move`、彈幕、標題、貼文、目標的說法、自訂輸入的判讀都在第三波。
+- **AI**：前兩波不加任務。`pr_move`、彈幕、標題、貼文、目標的說法、自訂輸入的判讀都在第三波。M4 的 `design_part`（未登錄零件的名字）不併進文字槽（0020 V67）。
+- **M4 對帳之後確定不做的**：非義體的隨身錄影機（裝備這個來源不轉交穿戴物的效果，0020 V64）；玩家自己的社團接訂做（只給條件 `has_shop`）；成人檔、成人直播、成人貼文各自的內容篩選開關（V63）；主角是契約人時在自己的店工作算不算照做工作指令（不算：契約只認 `work.` 的報告）。
 - **內容**：議題、公關對手、直播目標、節目以外的任何名單、住處與家具、店面的事件、打工的階段，都不匯入。介面要看得到東西的，放 `ui/src/data/demo/` 的示意世界包。
 
 ## 要使用者先定的事（每一項附建議）
@@ -213,3 +224,74 @@ dev/status.md 標了 M5 的待辦各落在哪一張：日常直播這種行動�
 - （使用者 2026-11-25）片的標題（30 字）與簡介（100 字）由玩家自填，MEDIA 剪輯段已寫；排進上傳片的那張工單。
 
 - （M4-curtain-run 回報）開播時接三處：`curtain/battle.ts` 每場戰鬥結束場熱 +2（`heat.live`）、`settle.ts` 打賞加倍、`orders.ts` 返場不再重擲（見 `curtain/heat.ts` 檔頭）；內場帶與檔期榜上別隊的模擬。
+
+## M4 對帳（2026-11-26）
+
+- 做的人：cpp-architect。對的是 2026-11-26 的 `engine/src`、0019 末尾每一段實作補記、dev/work/M4-closing-notes.md、M4-fix-engine.md 與 M4-fix-ui.md 的裁決、dev/status.md 2026-11-25 之後的段落，以及上面「使用者裁決」後補的三條。設計的部分在 0020 文末「M4 對帳」（甲：D1～D10 的結果；乙：M4 多出來的十二件事；丙：接縫的增減；丁：V56～V67；戊：修正批落地後再看的）。這一段只列工單改了什麼。
+- 只改了文件：沒有動 `engine/`、`ui/`、`docs/`。
+
+### 每一張改了什麼
+
+| 工單 | 改了什麼 |
+|---|---|
+| 1 core-seams | 活動的清單補上 M4 的五種；`deny` 與 `allowEverywhere` 互不影響（多一條驗收） |
+| 2 media-chain | 錄影只認義體與零件的被動效果，拿掉「背包裡帶 `rec` 的物品」那個暫代 provider；`Material` 多 `tags`；場景的結果照座位版讀；失憶場景不留紀錄（V57）；多一條用真的義體的驗收 |
+| 3 media-cut | **片的標題與簡介**（30／100 字，玩家自填；`retitle`；引擎截斷並提醒）；`hostility_floor` 用永久的那一種；`defeat.options` 的現成範例 |
+| 4 channel | 每週延後只看 `commission`（和帳單一樣）；契約的抽成不碰頻道 |
+| 5 channel-shows | 內容篩選改成看 `tags`（成人檔本身不是開關）；料的 `tags` 被關掉放不進去 |
+| 6 live | 放行改用 `allowEverywhere`；`scene.start` 那一拍實際帶什麼（對象、單人）；**場景知道有人在看**（改 `features/scene` 五處，經條件 `live_on`）；`live_on` 多 `viewers_min`、可以寫進被動效果的 `if`；視窗換掉的行動只算一次；多四條驗收 |
+| 7 live-slot | 效果定名 `heat`；放行的清單加事件帶出來的戰鬥與場景；「沒有任何活動」包含 M4 的新活動；成人種類的內容篩選改成看 `tags`；`event_scopes.json` 還沒有直播那一列 |
+| 8 social | 內容篩選看 `Material.tags`；動態牆的來源是資料（M4 的擂台、拍賣可以由資料加） |
+| 9 opinion | 放行與契約、不發 `login` 的說明（沒有改介面） |
+| 10 opinion-desk | **編輯點的加值改走被動效果**（`ep_bonus`＋核心的 `regenTotal`；開場手牌的 `open_hand_bonus`），`OpPassive.source` 拿掉；指示 `start` 要改 director 的三個檔（不只 `body.ts`） |
+| 11 opinion-face | 等三選一時的白名單寫法；`recovering` 的人不能外包；委託人的來源 |
+| 12 commission-opinion | 確認 M4 沒有改它要照著寫的函式；內海面發 `login`、輿論面不發 |
+| 13 fixer-opinion | 守方的議題用 M4 寫進去的 `commission.employer`；新的抽籤各用自己的亂數用途 |
+| 14 abilities-opinion | `daily` 欄和 M4 的 `daily.kind` 並存；讀技能經 `abilityEntry`／`allAbilities`（夜課延伸的技能）；握握手與唱出來是 `daily.kind` |
+| 15 skill-opinion-a | 技能改名（剪接手、聽我唱）；握握手與唱出來的資料寫法 |
+| 16 skill-opinion-b | 技能改名的提醒 |
+| 17 idol | 用條件 `ability { daily }` 問握握手與唱出來；內場直播不算露面 |
+| 18 crowd | 敵方用核心的 `hostileSide`（M4 的遠端操控）；M4 在戰鬥核心多的幾樣 |
+| 19 ui-media | 錄影的示意改成開局裝著義眼（示意模式的選項）；片的標題與簡介的輸入 |
+| 20 ui-channel、22 ui-opinion、23 ui-social | 示意模式；契約的通知不要被擋；編輯點的來源 |
+| 21 ui-live | 場景的畫面是座位版、經 `Game.sceneStep`；單人場景開播之後說話會亮；頂列要做成簾後館放得進去 |
+| 24 away | 多掛點 `away.terms`；`venue` 對持約的人解開；`recovering` 擋；打工的資料是 `need.hours`；盯梢接上 fixer 灰著的「派名冊的人去踩點」（改 `fixer/model.ts` 一句） |
+| 25 home-base | **影響面變大**：M4 七個功能讀 `at_home`／`has_home`，跟著換 import 的測試約十一份、testkit 兩行、`ui/` 的 import；定了「入口的名字不換」；`at_home` 的語意寫死（任何一處、唯讀）；`rest` 怎麼問等級；`sleep_recover_pct` 改由 `rest` 定義；規則的三個鍵搬家 |
+| 26 home-furnish | 定力是基本功 `composure`（用檢定修正，不是衍生數值）；遊戲間的標籤 `contract_dom`（V59）；「安穩」寫計數器 `snug:<週>`；下游交給第 37 張 |
+| 27 home-people | 契約人的住戶改成從掛點 `home.people` 問（不存在 home 的狀態裡）、條件 `home_room`；名冊的「同住」（改 `roster/ops.ts` 一處） |
+| 28 shop | 一班改成 2／4／6／8 小時、階段看累計時數（V61）；和 `trade` 的 `shop_type` 分清楚；契約認不到 `shop.shift` |
+| 29 ui-home、30 ui-away-shop | 示意模式；`hereUses` 對到 M3、M4 既有的畫面；契約人的派工顯示 |
+| 31 live-houses | **重寫**：簾後館的六處照 M4 的實作點名（進場、記下開過、場熱、打賞加倍、返場、內場帶）；打賞加倍只加館方那一筆（V56）；宿主可能包在潛入裡；成人時段直播接單人場景的三步流程（V66）；`live_on` 多 `tier_min`（迷宮館的評價用它）；帶館標籤的素材上架；多了畫面的那一半 |
+| 32 core-ai | 照 M4 外殼的慣例：選填的設定、`softFail`、`adult`、固定前段、玩家的字原樣；`design_part` 不併（V67） |
+| 33 ai-media | 多一格 `clip_caption`（玩家沒寫標題時）；每一槽的成人路由；M4 留下的拍賣兩格 |
+| 34 data-rules | `event_scopes.json` 的現況（沒有直播與頻道、`home` 少 `weekly`）；`rest_rule` 的鍵搬家；`curtain_rule`、`maze_rule` 加欄位；`tags` 的檢查 |
+| 35 smoke | 用 M4-smoke 的 testkit；情境改成裝著義眼；白名單的寫法；多幾條第二、三波的主幹與不變式；`M5_ACTION_PREFIXES` |
+| 36 contract-link（新） | D5 留的那一張 |
+| 37 home-links（新） | D6、D7 留的那一張 |
+| 38 curtain-board（新） | P57 的檔期榜與月榜（上面後補的那一條寫了要做，原本沒有工單） |
+
+### 順序怎麼調
+
+- 第一波（第一～十二步）不變。
+- 第二波：32 core-ai 與 33 的引擎那一半不依賴第二波，移到第十四、十五步的空位；36 在 27 之後和 28 同時做；37 在 28 之後和 29 同時做；30 移到第十八步（它要 36）。
+- 第三波：31 分成引擎與畫面兩半；38 排在 31 的引擎之後（都改 `features/curtain`）；兩張的畫面那一半最後由同一個代理接著做。
+- 25 home-base 那一步不要有介面的工單在跑（它會換 `ui/src/stores/engine.ts` 的 import）。
+
+### 因此要使用者定的新問題（每一項附建議）
+
+27. **內場直播的「打賞加倍」加在哪一筆**（V56）：CYBERSPACE 8.8 兩處都寫「打賞加倍」。M4 的簾後館有一筆館方照場熱算的打賞；MEDIA 的直播收播另有一筆「熱度 × 8」。兩邊各自讀成自己的那一筆，照做會變成兩筆都拿、而且都加倍。
+    建議：內場直播只有館方那一筆，把它加倍（破關與落幕都算）；直播自己的那一筆在內場不給、也不進訂閱（「館方的機位、會員限定」）。熱度與觀看數照算，只用來顯示與決定那一則紀錄。不同意的話另一種做法是兩筆都給、只加倍館方的。
+28. **誰能錄影**（V64）：原本第 24 題的建議裡寫「示意世界包放一件能錄影的隨身裝備」。M4 做完之後，裝備這個來源只給超重的加減，穿戴物的效果不會變成被動效果；能錄影的只有義體（和裝在義體裡的感測器、軟體、橋）。
+    建議：照設計書，錄影只認義體；示意模式的開局選項給一隻帶「內建錄影」的義眼。要有隨身錄影機的話，得先讓 `gear` 把穿戴物的 `effects` 轉成被動效果（一張小工單，會連帶讓所有裝備的效果生效，要先看平衡），這一批不做。
+29. **M5 的成人內容要不要另外有開關**（V63）：原本幾張工單寫「成人檔、成人直播受內容篩選」，但 LEWD_SYSTEM 第 9 節的細項裡沒有這幾項，也寫明沒有成人內容的總開關；M4 介面審查的應修 3 也是同一類問題（畫面承諾了引擎沒有的開關）。
+    建議：不加。M5 的內容篩選只認標籤：對象的性別、題材、黑帶、失憶工作這些既有的開關照常作用（被關掉題材的素材不能放進節目、不能發文，人偶館只能開清醒的店）。要加「成人檔」「成人直播」這種開關的話，LEWD 第 9 節先補，再加進核心的清單。
+30. **家園做完之後，M4 用「住處等級」代替的那幾件事要不要改成看家具**（第 37 張）：自己組裝、自己修義體現在是「住處二級以上」就行；自己動刀是「人在住處」就行。DOWNTIME 7.4 寫的是工作間（有工作台）、診療室（有手術椅，而且在家只做得了侵入度一般以下的）。
+    建議：改，照 DOWNTIME 7.4；沒有裝家園的局照舊。示意模式開局擺一張工作台。這會讓「租了二級的家但沒買工作台」的玩家在家組裝不了，是設計書本來的意思。
+31. **檔期榜的數字**（V60；第 38 張）：設計書只有一句「其他隊由模擬補上」。
+    建議：照 0020 V60 的暫定（同席次七隊、每隊每週 1～3 場、前三名各一份破關獎金、四週一段的月榜前三升一席），做進規則表交給平衡的 session。月榜的「貴賓邀請」讀成「直接升到下一席、不必面談」。
+32. **其餘對帳時加的暫定與解讀**（V57 失憶場景不留紀錄、V58「被注視」＝直播開著、V59 遊戲間的標籤是契約支配、V61 自己的店累計每 8 小時算一班、V62 契約人的派工照 `split` 分帳且不自動派、V65 手術後休養的人不能派工、V66 成人時段直播接單人場景的三步、V67 `design_part` 不併進文字槽）。
+    建議：都先照表。
+
+### 開工前再看一眼的
+
+M4 收尾修正批落地（0019 末尾出現「實作補記：M4 收尾修正批」）之後，對兩樣就好：加演邀請的做法、testkit `dataRules` 濾勢力的做法（0020「M4 對帳」戊）。都不影響第一、二波，可以先開工。

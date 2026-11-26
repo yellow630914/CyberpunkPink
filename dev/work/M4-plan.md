@@ -195,7 +195,7 @@ dev/status.md 標了 M4 的待辦各落在哪一張：`cyber_count` 與 AI 偏�
 | D1 錄影義體替衍生數值 `rec_grade` 加 provider | 義體設計圖的 `effects` 可以寫任何衍生數值的 id（`{ stat: 'rec_grade', amount }`），經 `k.passives`（來源 `cyber`） | 對得上：是資料，不用另外寫程式；`rec_grade` 要先有人定義（M5） |
 | D2 單人模式是活動 `scene` 的一種 `setup` | `setup.solo: true`；有觀眾時給 `audience: true`；`goal: 'footage'` 的結果在 `scene.end` 的 `result.goal_done`（M4-scene-solo） | 對得上 |
 | D3 衍生數值 `exposure` | `features/gear` 定義 `exposure`、`style_value`；化身的是 `skin_exposure`（M4-gear-m4、M4-scene-net） | 對得上；內海的直播要讀 `skin_exposure` |
-| D4 簾後館是一個功能，有場熱與結束的掛點 | 功能 `curtain`；場熱是量表 `heat`（照那一趟的地圖）；一趟是活動 `netrun`，結束走 `netrun.close`；M4-curtain-run 的回報會列開播時要改的三處 | 對得上；M5-live-houses 開工前讀那一份回報 |
+| D4 簾後館是一個功能，有場熱與結束的掛點 | 功能 `curtain`；場熱是量表 `stage_heat`（照那一趟的地圖）；一趟是活動 `netrun`，結束走 `netrun.close`；M4-curtain-run 的回報會列開播時要改的三處 | 對得上；M5-live-houses 開工前讀那一份回報 |
 | D5 契約的功能知道主角持約的人與住處 | `features/contract` 匯出 `heldPeople(state)`（id 與 `home`）；條件 `contract`（`side: 'holder'`、`npc`） | 對得上；派工與住戶那一邊接上是 M5 的小工單 |
 | D6 組裝、手術、潛入各自有「在哪裡做」的判斷 | 都用條件：`at_home`（M4-craft 多收 `level_min`）與 `at_facility`（設施種類的 `clinic`、`craft`、`tuning`）；地點寫在各自的規則表（`craft_rule.self_home_level`、`cyber_rule.self_requires`） | 對得上：M5 的家園把 `home_use` 接進來時改的是規則表與條件，不是程式 |
 | D7 在家組裝時箱子算背包的延伸 | 組裝的零件只從背包拿（`assemblyPreview` 的 `parts`） | 沒有入口：M5 要的話開一張小工單，讓 `craft` 多問一個「材料還可以從哪裡拿」的掛點 |

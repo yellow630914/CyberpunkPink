@@ -9,7 +9,7 @@
 
 ## 新的格式與鍵
 
-- 量表 `heat`（場熱；照那一趟的地圖實例；0～100、起始 30；AI 不能給）。
+- 量表 `stage_heat`（場熱；原先叫 `heat`，M4 收尾修正批改名，`heat` 留給 M5 的直播熱度；照那一趟的地圖實例；0～100、起始 30；AI 不能給）。
 - 規則 `curtain_rule` 多：`acts`（四幕各自：`{ id, name, encounters, orders, chests, boss?: 'headliner' | 'director' | 'host', turns（標準回合數：12、15、15、12）, shortcut?: boolean }`；散座的終幕沒有 `host`）、`heat`（漲跌的每一項：亮點 +2 與每場上限 +10、點單完成 +8、拒絕 −5、倒下每人 −10、超過標準回合每 3 回合 −2、每 3 個探索回合 −1、場景的三級 +10／+5／−5、化妝室 +5、包場 +10；門檻 `sponsor: 70`、`encore: 90`）、`tips`（場熱對獎金的比例：20 以下 0、0.1、0.2、0.35、0.5）、`stub_value`（20）、`encore`（第 5、6 幕：敵人高幾級、獎金 ×2、×4）、`culture_own`（0.6）、`clause`（`{ tips_cut: 0.2, stubs: 5 }`）、`shortcut`（`{ deposit_cut: 0.1, heat: -5 }`）。
 - 內容種類 `curtain_table`（點單表、賞箱表、獎品表，各一筆 d6 的表；測試自帶）。
 - `state.ext.curtain.run`：`id`、`tier`、`night`、`deposit`、`act`、`orders: Array<{ kind, state: 'open' | 'done' | 'refused' }>`、`pending?`（等著完成的點單：下一場要守的規矩）、`sponsor?: boolean`、`tips_mult`（1；條文與包場會改）、`downed`、`over_turns`。票根是計數器 `curtain:stubs`。

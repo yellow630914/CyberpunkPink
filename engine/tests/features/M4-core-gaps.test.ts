@@ -236,9 +236,10 @@ describe('第 5 項：斷藥（狀態 pump_jam）：藥泵與標了 jammable 的
   const pieces = [BRIDGE, piece('p1', 'bp_pump', 'torso', { loaded: { item: 'it_stim', qty: 2 } }), piece('c1', 'bp_cooler', 'torso'), piece('h1', 'bp_heat', 'torso')]
   const jam = (g: G): void => { toTurn(g, 'a1'); unit(g, 'a1').statuses.push({ id: 'pump_jam', until: { at: 'battle_end' } }) }
 
-  it('沒有斷藥：藥泵與冷卻迴路都能用', () => {
+  it('沒有斷藥：藥泵與冷卻迴路都能用；藥泵的圖示是 pump（不再借 item）', () => {
     const g = fight({ pieces })
     toTurn(g, 'a1')
+    expect(g.k.battle.getAction(PUMP_ACTION)!.icon).toBe('pump')
     expect(optionOf(g, PUMP_ACTION)!.ok).toBe(true)
     expect(optionOf(g, 'cyber_cooler')!.ok).toBe(true)
   })

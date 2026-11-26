@@ -19,7 +19,7 @@
 
 ## 要做的
 
-1. **接手**：`rest` 裡住處的狀態、`residence` 這種內容、`home.rent`／`home.leave`、`bill.collect` 的房租、欠繳與換鎖、條件 `has_home`／`at_home`、開局送的住處，搬到 `home`。`rest` 留下喘口氣與睡一覺：它問條件 `at_home` 決定「睡在自己的住處」（`sleepOptions` 的 `home` 那一項），那一處的等級用 `at_home { level_min: 3 }`、`2`、`1` 由高往低問出來、照 `rest_rule.home_rates` 查回復率，名字用站著的設施的名字；`at_home` 沒有人註冊時就沒有 `home` 那一項。`rest` 另外定義衍生數值 `sleep_recover_pct`（基礎 0；睡一覺的回復率再加這麼多個百分點），讓 home 的舒適度與 M4 的被動效果（藥：`testkit/drugCatalog.ts` 的 `DRUG_GAPS` 列的「睡覺回復率」）都寫得進來。`FEATURES` 裡 `homeFeature` 排在 `restFeature` 前面。
+1. **接手**：`rest` 裡住處的狀態、`residence` 這種內容、`home.rent`／`home.leave`、`bill.collect` 的房租、欠繳與換鎖、條件 `has_home`／`at_home`、開局送的住處，搬到 `home`。`rest` 留下喘口氣與睡一覺：它問條件 `at_home` 決定「睡在自己的住處」（`sleepOptions` 的 `home` 那一項），那一處的等級用 `at_home { level_min: 3 }`、`2`、`1` 由高往低問出來（都不成立而 `at_home` 成立就是 0：舊存檔搬過來的零級住處）、照 `rest_rule.home_rates` 查回復率，名字用站著的設施的名字；`at_home` 沒有人註冊時就沒有 `home` 那一項。`rest` 另外定義衍生數值 `sleep_recover_pct`（基礎 0；睡一覺的回復率再加這麼多個百分點），讓 home 的舒適度與 M4 的被動效果（藥：`testkit/drugCatalog.ts` 的 `DRUG_GAPS` 列的「睡覺回復率」）都寫得進來。`FEATURES` 裡 `homeFeature` 排在 `restFeature` 前面。
    - **入口的名字不換**：`home` 匯出和 `rest` 現在同名的 `rentDraft`、`rentBlock`、`leaveDraft`、`leaveBlock`、`homeOf`、`depositOf`、`residencePools`、`standingAt`（下面「匯出」列的 `rent`、`leave` 是它們的別名），所以測試、testkit 與介面只要把 import 的路徑從 `features/rest` 換成 `features/home`、kernel 的功能清單加上 `homeFeature`。
 2. **舊存檔**（`save.loaded`）：狀態裡有 `ext.rest.home` 而 `ext.home` 還沒有時，把那一處搬成一個家（等級、押金、欠繳、鎖照舊），並把 `ext.rest.home` 清成 `null`。
 3. **多處**：一個家（`main`）加最多兩處安全屋；每一處各付房租（`bill.collect` 各一筆；買斷的付管理費）。安全屋的 `home` 是 `false`。`setMain` 把另一處設成家（自己搬 8 小時；請人搬的費用要看家具件數，這一張先當 0 件）。
@@ -57,7 +57,7 @@ M5-core-seams（家的地圖種類）。做的時候不要有別的工單在改 
 - **`dive` 不認住處**：它只認帶 `dive` 欄位的設施（`features/dive/ops.ts`）。「從家裡潛入」要等接入艙（M5-home-furnish 的 `home_use`）與 M5-home-links。同樣地，自己組裝、自己修義體現在是用「住處二級以上」代替「有工作台」（`craft_rule.self_home_level`、`cyber_rule.repair_home_level`）：這一張不改它們，換成看家具是 M5-home-links。
 - **睡一覺的計數器**：`rest` 在睡一覺的報告上寫 `sleeps:<週>`（`features/sink` 週一讀它算沉溺的自然下降）。這一條留在 `rest`，不要搬。
 - `rest` 睡在自己住處時帶的觸發點 `home`、長休醒來的 `rest`（M4 冒煙確認過蠱惑的事件靠它）照舊由 `rest` 發；進門的 `home` 是這一張發的，兩個是不同的時機。
-- 新註冊的條件，如果條件的登錄表已經有「說明句」的欄位（M4 收尾修正批；以 0019 末尾的補記為準），要一起寫。
+- 新註冊的條件都寫 `describe`（M4 收尾修正批加的 `ConditionDef.describe?(cond, ctx)`：回一句「要什麼」、不帶句點；資料的 `requires` 不成立時用 `k.conditions.explain` 接成擋住的原因）；住處的 `requires`（例：屋頂村要野良的好感）租不到的原因就用它。
 
 ## 完成時回報
 

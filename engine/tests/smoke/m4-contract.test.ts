@@ -11,6 +11,7 @@ import { toMinutes } from '../../src'
 import { chooseOption, eventView } from '../../src/features/director'
 import { adjustDraft, arriveDraft, boundView, chooseDraft, contractOf, heldIn, payoffDraft, payoffQuote, releaseDraft, triggerDraft } from '../../src/features/contract'
 import { lureView } from '../../src/features/lure'
+import { shift } from '../../src/features/work'
 import { cleanDraft, malwareOf, malwareView } from '../../src/features/malware'
 import { rentDraft, sleepDraft } from '../../src/features/rest'
 import type { Game } from '../../src/shell/game'
@@ -83,6 +84,28 @@ async function boundFlow(g: Game, f = flow('契約（契約人）'), checkpoint:
     expect(g.state.flags.tw_bound_errand).toBe(true)
   })
   checkpoint('after-errand')
+  await f.step('契約人打一班（真的 work 功能，不是合成的報告；M4 審查建議 4、5）：一條工作指令照做 → 到碼頭打一班 → 收入大部分抵了債、這一條自動做完、滿意往上', () => {
+    const r = applyEffects(g, [{ kind: 'order', order_kind: 'work', hours: 24 }])
+    expect(r.errors).toEqual([])
+    const work = contractOf(g.state)!.queue.filter((x) => x.kind === 'work').pop()!
+    g.commit(chooseDraft(k, g.state, { order: work.id, how: 'comply' }))
+    expect(contractOf(g.state)!.queue.find((x) => x.id === work.id)!.state).toBe('doing')
+    const sat0 = boundView(k, g.state)!.satisfaction
+    const debt0 = contractOf(g.state)!.debt!
+    const cash0 = g.state.money.cash
+    standAt(g, 'tw_market', 'F2')
+    const reports = g.commit(shift(k, g.state, 'j_tw_porter', 4))
+    expect(actions(reports)).toContain('work.shift')
+    const settle = reports.find((x) => x.action === 'work.shift')!
+    const paid = settle.changes.filter((c) => c.op === 'cash' && typeof c.delta === 'number' && c.delta > 0).reduce((n, c) => n + (c.delta as number), 0)
+    // 這一局的骰面：這一班有領到工錢（工錢 10 × 4 小時）；沒領到工錢的班不算打完一班
+    expect(paid).toBeGreaterThan(0)
+    expect(contractOf(g.state)!.queue.find((x) => x.id === work.id)!.state).toBe('done')
+    expect(boundView(k, g.state)!.satisfaction).toBeGreaterThan(sat0)
+    expect(contractOf(g.state)!.debt!).toBeLessThan(debt0)
+    expect(g.state.money.cash - cash0).toBeLessThan(paid)
+    expect(settle.narration?.results?.some((l) => /算你照做了/.test(l))).toBe(true)
+  })
   await f.step('一條逾期：一條很短的差事被強制之後不去做，期限一過就是 overdue、滿意往下、有一份 contract.overdue', () => {
     applyEffects(g, [{ kind: 'order', order_kind: 'errand', place: { district: 'tw_hive', block: 'tw_gate' }, hours: 2 }])
     const late = contractOf(g.state)!.queue.filter((x) => x.kind === 'errand').pop()!
@@ -95,7 +118,9 @@ async function boundFlow(g: Game, f = flow('契約（契約人）'), checkpoint:
   })
   await f.step('還清：付還清的價錢（債的 1.5 倍）→ 契約解除、身分回去、佇列清空；一份 contract.pay', () => {
     const quote = payoffQuote(k, g.state)!
-    expect(quote.debt).toBe(24000)
+    // 打過一班：債少了抵進去的那一份（不再是簽約時的 24,000）
+    expect(quote.debt).toBe(contractOf(g.state)!.debt)
+    expect(quote.debt).toBeLessThan(24000)
     // 錢不夠就付不了：先湊到夠（測試給的）
     if (g.state.money.cred + g.state.money.cash < quote.price) giveMoney(g, quote.price, 0)
     expect(g.state.money.cred + g.state.money.cash).toBeGreaterThanOrEqual(quote.price)

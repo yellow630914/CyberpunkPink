@@ -11,7 +11,7 @@
 
 - 內容種類 `staff_job`（`overridable`）：六筆（`maid` 派遣女僕、`robot` 家用機娘、`cook` 廚師、`guard` 看門的、`manager` 店長、`clerk` 帳房），各自的週薪或訂閱、效果的鍵（舒適 +2、看家、吃得好、上門 −15、店面營業、家務上限 +1）、要什麼家具（廚房組、充電座）、`spy_chance?`、`faction?`。
 - `home_rule` 多：各級的住戶上限（0、1、3、5）與家務上限（0、1、2、4）、留宿的忠誠門檻（40；低於 20 自己走）、同居的親密度門檻（80）與 DC 的式子、同居搬走的門檻（40）、請離開的親密度（−15）、帶人回來的 DC（16 − 親密度 ÷ 10；風格合 −2）、請認識的人做家務的 DC（14 − 親密度 ÷ 10）、訪客一次幾小時（2～4）與結束時的親密度（+1～+3）、主動上門的親密度（50）、上門的式子（7.10）、曝光的倍率（×2）與解除的條件（搬家或敵對值降到 30 以下）、居家觸發點帶的機率不在這裡（`event_scope`）。
-- `Base` 多：`residents: Array<{ npc, kind: 'lodger' | 'cohabit' | 'contract', since, room?: 區塊 }>`、`staff: Array<{ npc?: 角色 id, job, wage, spy?: boolean, since, unpaid?: number }>`、`visitors: Array<{ npc, until: 總分鐘, overnight?: boolean }>`、`asked: Record<npc, 這一週問過>`。
+- `Base` 多：`residents: Array<{ npc, kind: 'lodger' | 'cohabit', since, room?: 區塊 }>`（契約人的住戶不存在這裡：每次從掛點 `home.people` 問，`peopleView`、`roomOf` 與條件把兩邊合起來，種類是 `contract`）、`staff: Array<{ npc?: 角色 id, job, wage, spy?: boolean, since, unpaid?: number }>`、`visitors: Array<{ npc, until: 總分鐘, overnight?: boolean }>`、`asked: Record<npc, 這一週問過>`。
 - 效果：`home_burgle { n?: [最少, 最多] }`（拿走不在保險箱與暗格的 1～3 種；看家的機娘或加固門讓它先過一次檢定）、`home_expose { faction }`、`home_visitor { npc, hours? }`（事件帶一個人上門）。
 - 條件：`home_resident { npc?, kind? }`（含掛點回來的契約人）、`home_exposed { faction? }`、`home_room { for: 'resident' }`（家裡還住得下一個人：住戶上限與床位都還有）。
 - 掛點（這一張宣告、問）：`home.people`：`{ state }` → `Array<{ owner, npc: 角色 id, kind: 'contract', job?: staff_job 的 id }> | void`（「住在你的據點」的人；`job` 是他做的家務）。

@@ -327,8 +327,8 @@ function pumpEntries(u: BattleUnit): Array<{ uid: string; item: string; qty: num
 
 const pumpAction: BattleActionDef = {
   id: PUMP_ACTION, owner: OWNER, name: '藥泵', desc: '從身上的藥泵注射一劑預裝的藥：不花行動點，效果照那一種藥。',
-  // 圖示借用 item（注射一劑藥，和使用道具同一個意思）；要有專屬的圖，等介面畫了 pump 再換（dev/adr/0014 的表）
-  group: 'supply', icon: 'item', modes: ['meat'], target: 'none', order: 42,
+  // 圖示 pump（針筒；介面畫好了，M4 收尾修正批把原先借用的 item 換掉）
+  group: 'supply', icon: 'pump', modes: ['meat'], target: 'none', order: 42,
   has: (_v, u) => !!extOf(u)?.pump && Object.keys(extOf(u)!.pump!).length > 0,
   cost: () => ({ ap: 0 }),
   blocks: (_v, u) => [...(jammed(u) ? [JAM_TEXT('藥泵')] : []), ...(pumpEntries(u).length === 0 ? ['藥泵裡沒有藥了。'] : [])],

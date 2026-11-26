@@ -9,7 +9,7 @@ import { ActionBlocked, ContentError, effectCtx, stackOf, toMinutes } from '../.
 import type { SpecialMapEntry } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import {
-  DEFAULT_GEAR_RULES, armorOf, carryCapBase, carryLoadOf, dyeBlock, dyeDraft, dyeOf, equip, gearFeature, gearOf, gearRules, overweight, styleOf, unequip, weaponOf,
+  DEFAULT_GEAR_RULES, armorOf, carryCapBase, carryLoadOf, coveredSlots, dyeBlock, dyeDraft, dyeOf, equip, gearFeature, gearOf, gearRules, overweight, styleOf, unequip, weaponOf,
 } from '../../src/features/gear'
 import { arrive, worldFeature } from '../../src/features/world'
 import { makeGame, observed } from '../../src/testkit'
@@ -221,6 +221,24 @@ describe('外套敞開與扣上（EQUIPMENT 第 5 節）', () => {
     off(g, 'shorts')
     wear(g, 'pants')
     expect(stat(g, 'exposure')).toBe(0)
+  })
+
+  it('coveredSlots：外套扣上才有被蓋住的穿著格（上身、護甲；長外套再加下身）；敞開或沒穿外套是空的（M4 收尾修正批；畫面不自己列哪幾格）', () => {
+    const g = make()
+    const covered = () => [...coveredSlots(g.k, g.state, 'pc')].sort()
+    wear(g, 'shirt', 'pants', 'jacket', 'vest')
+    expect(covered()).toEqual([])
+    g.commit(draft([{ op: 'gear.coat', id: 'pc', coat: 'closed' }]))
+    expect(covered()).toEqual(['armor', 'upper'])
+    off(g, 'jacket')
+    expect(covered()).toEqual([])
+    wear(g, 'long')
+    expect(covered()).toEqual(['armor', 'lower', 'upper'])
+    g.commit(draft([{ op: 'gear.coat', id: 'pc', coat: 'open' }]))
+    expect(covered()).toEqual([])
+    // styleOf 看得到的格就是沒被蓋住的格：兩邊同一份算法
+    g.commit(draft([{ op: 'gear.coat', id: 'pc', coat: 'closed' }]))
+    expect(seenIds(g)).toEqual(['long'])
   })
 
   it('扣上或敞開的設定記在身上，換了外套之後還在；沒穿外套時扣上沒有作用', () => {

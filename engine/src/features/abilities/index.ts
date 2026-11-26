@@ -63,6 +63,7 @@ export { FACILITY_MAX, LESSON_ACTION, TUTOR_ACTION, lessonBlock, lessonDraft, ta
 export type { FacilityTeach, LessonOpts, TeachFrom, TeachOption, TeachPay, TeachPayView, TutorData, TutorOpts, TutorOption } from './training'
 export { CAPACITY_ACTION } from './warn'
 export { holdingOf, statValue } from './stats'
+export { NO_BRIDGE_ABILITY } from './creation'
 export { prep, prepBlock } from './prep'
 export type { PrepInput } from './prep'
 export { defaultAlloc, fitAlloc, allocOf } from './instinct'

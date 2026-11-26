@@ -159,7 +159,7 @@ describe('染 SKIN（gear 的 dyeDraft 收內海化身的 SKIN；M4 收尾修正
   it('亂寫的顏色被擋；背包裡沒有的 SKIN、內容種類 skin 沒登記的物品、一般飾品都不是 SKIN（照原來的擋法）', () => {
     const g = game()
     expect(() => dyeDraft(g.k, g.state, { uid: 'sk_a', primary_color: 'pink' } as never)).toThrow(/主色調的顏色不對/)
-    expect(() => dyeDraft(g.k, g.state, { uid: 'sk_b', primary_color: 'dye_black' } as never)).toThrow(/背包裡沒有這一件/)
+    expect(() => dyeDraft(g.k, g.state, { uid: 'sk_b', primary_color: 'dye_black', by: 'self' } as never)).toThrow(/背包裡沒有這一件/)
     expect(() => dyeDraft(g.k, g.state, { uid: 'sk_c', primary_color: 'dye_black', by: 'self' } as never)).toThrow(/現成的單件/)
     expect(gearOf(g.state, 'pc').skin_dye).toBeUndefined()
   })

@@ -54,6 +54,7 @@ export type { BridgeCapacity, BridgeCat, BridgeOpts, BridgeQuote, CapacityPart }
 export { cyberView, viewPiece } from './view'
 export type { CyberView, PieceStatus, ViewPart, ViewPiece } from './view'
 export { sceneBody } from './passive'
+export { NO_BRIDGE_NOTE } from './creation'
 export { INSTALL_OP, PUMP_ACTION, FIELD_ACTION, battleImplants, defOf, pieceKind, pumpCapacity } from './battle'
 export { SYNC_BACKLASH, battleProblems, kindOfBlueprint, readBattle } from './battleDef'
 export type { BattleAction, BattleDef, BattleMod, BattleScaling, BattleToggle, BattleVs } from './battleDef'

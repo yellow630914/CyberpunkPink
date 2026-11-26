@@ -252,8 +252,11 @@ describe('二十五個共鳴：每一個都有資料、每一個都有行為', (
     it('5 階：每場一次，0 點行動點，把主動權直接設成 70 或 30', () => {
       const g = at('relation', 5)
       const ap = raw(g).seats[0]!.ap
-      expect(sceneOptions(g.k, g.state)!.actions.find((a) => a.id === 'once')!.choices!.map((c) => c.id)).toEqual(['set_init:70', 'set_init:30'])
-      act(g, { kind: 'once', id: 'set_init', value: 30 })
+      const onceChoices = sceneOptions(g.k, g.state)!.actions.find((a) => a.id === 'once')!.choices!
+      expect(onceChoices.map((c) => c.id)).toEqual(['set_init:70', 'set_init:30'])
+      // 選項自己帶要送出去的輸入（M4 收尾修正批；畫面不從選項 id 拆字串）
+      expect(onceChoices.map((c) => c.input)).toEqual([{ kind: 'once', id: 'set_init', value: 70 }, { kind: 'once', id: 'set_init', value: 30 }])
+      act(g, onceChoices[1]!.input)
       expect(raw(g).pairs[ann]!.init).toBe(30)
       expect(raw(g).seats[0]!.ap).toBe(ap)
       const again = (v: number) => play(g).blocks('pc', { kind: 'once', id: 'set_init', value: v })
