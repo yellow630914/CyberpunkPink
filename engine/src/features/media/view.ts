@@ -1,7 +1,9 @@
 // L6 功能 media 給畫面的檢視：紀錄的清單（能不能轉、不能轉的原因）、素材庫、片。純函式，不改狀態。
 
 import type { GameState, Kernel } from '../../core'
-import { TYPE_NAME, materialOfFootage, mediaRules, qualityParts, readMedia, recorderOf } from './model'
+import { TYPE_NAME, materialOfClip, materialOfFootage, mediaRules, qualityParts, readMedia, recorderOf } from './model'
+import { angleOf } from './angles'
+import { recutReady } from './cut'
 import type { Footage, Material, Mark, MediaType, RecordEntry } from './model'
 import { convertBlock } from './chain'
 import { isRecording } from './record'
@@ -38,6 +40,23 @@ export interface FootageRow extends Material {
   from_record: string | null
 }
 
+export interface ClipRow extends Material {
+  /** 用完了（次數是 0）：只剩當紀念 */
+  spent: boolean
+  made_at: number
+  /** 來源素材的 id */
+  from: string[]
+  angle_name: string
+  /** 標題或簡介是玩家寫的 */
+  titled: boolean
+  recut: boolean
+  /** 現在能不能重剪（要換成哪一種角度另外看）；不能的原因是完整的一句 */
+  can_recut: boolean
+  recut_why: string | null
+  /** 抹黑把責任導向的勢力 */
+  blame: string | null
+}
+
 export interface MediaView {
   /** 錄影的開關 */
   rec: boolean
@@ -49,8 +68,8 @@ export interface MediaView {
   records: RecordRow[]
   /** 素材庫（用完的也列，標成 spent） */
   footage: FootageRow[]
-  /** 片（M5-media-cut 才有） */
-  clips: Material[]
+  /** 片（新的在前） */
+  clips: ClipRow[]
 }
 
 const seqOf = (id: string): number => Number(id.replace(/^\D+/, '')) || 0
@@ -75,6 +94,12 @@ export function mediaView(k: Kernel, state: GameState): MediaView {
     footage: Object.values(m.footage).sort((a, b) => b.made_at - a.made_at || seqOf(b.id) - seqOf(a.id)).map((f) => ({
       ...materialOfFootage(k, state, f, rules), spent: f.uses <= 0, made_at: f.made_at, origin: f.origin, authentic: f.authentic, from_record: f.from_record ?? null,
     })),
-    clips: [],
+    clips: Object.values(m.clips).sort((a, b) => b.made_at - a.made_at || seqOf(b.id) - seqOf(a.id)).map((c) => {
+      const why = recutReady(k, state, c.id)
+      return {
+        ...materialOfClip(k, state, c, rules), spent: c.uses <= 0, made_at: c.made_at, from: [...c.from], angle_name: angleOf(k, c.angle)?.name ?? c.angle, titled: c.titled === true,
+        recut: c.recut === true, can_recut: why === null, recut_why: why, blame: c.blame ?? null,
+      }
+    }),
   }
 }

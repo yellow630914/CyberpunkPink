@@ -1,10 +1,10 @@
-// L6 功能 media 的變更種類（model.ts 檔頭列了五種）。每一種只動 state.ext.media，而且彼此疊在同一份報告裡也不會互相蓋掉
+// L6 功能 media 的變更種類（model.ts 檔頭列了八種）。每一種只動 state.ext.media，而且彼此疊在同一份報告裡也不會互相蓋掉
 // （一份報告可以用掉好幾件素材、記好幾則紀錄；用整份 ext 換的寫法會被後面的蓋成舊的）。
 // 編號（rc…、ft…）在套用時從 seq 發：同一個狀態、同一串變更一定得到同一個結果。
 
 import type { Change, GameState, Kernel } from '../../core'
 import { isRecord, isSafeInt } from '../../core'
-import type { Footage, RecordEntry, StagePending } from './model'
+import type { CardInfo, Clip, Footage, RecordEntry, StagePending } from './model'
 import { EXT, MARKS, OWNER, isText, isType, mediaValue, readMedia } from './model'
 
 type Write = (state: GameState, fn: (m: ReturnType<typeof readMedia>) => void) => void
@@ -16,6 +16,9 @@ const write: Write = (state, fn) => {
 
 export type RecordInit = Omit<RecordEntry, 'id'>
 export type FootageInit = Omit<Footage, 'id' | 'from_record'>
+export type ClipInit = Omit<Clip, 'id'>
+/** 重剪改的欄位：角度、三個數字、card、假料、抹黑的對象（null 是拿掉）。 */
+export interface RecutPatch { angle: string; draw: number; trust: number; risk: number; card: CardInfo | null; forged: boolean; blame: string | null }
 
 const recordProblems = (r: unknown): string[] => {
   if (!isRecord(r)) return ['record 要是一則紀錄']
@@ -37,6 +40,20 @@ const footageProblems = (f: unknown): string[] => {
   if (!isSafeInt(f.quality) || f.quality < 1 || f.quality > 5) p.push('footage.quality 要是 1～5 的整數')
   if (!isSafeInt(f.uses) || f.uses < 1 || f.uses > 20) p.push('footage.uses 要是 1～20 的整數')
   if (!isSafeInt(f.made_at) || f.made_at < 0) p.push('footage.made_at 要是總分鐘（非負整數）')
+  return p
+}
+
+const clipProblems = (c: unknown): string[] => {
+  if (!isRecord(c)) return ['clip 要是一支片']
+  const p: string[] = []
+  if (!Array.isArray(c.from) || c.from.length < 1 || c.from.length > 3 || !c.from.every(isText)) p.push('clip.from 要是一到三段素材的 id')
+  if (!isText(c.angle)) p.push('clip.angle 要是角度的 id')
+  if (typeof c.title !== 'string' || typeof c.intro !== 'string') p.push('clip.title 與 clip.intro 要是字串')
+  if (!isSafeInt(c.quality) || c.quality < 1 || c.quality > 5) p.push('clip.quality 要是 1～5 的整數')
+  if (!Array.isArray(c.types) || c.types.length < 1 || !c.types.every(isType)) p.push('clip.types 要是類型的陣列')
+  for (const f of ['draw', 'trust', 'risk'] as const) if (!isSafeInt(c[f]) || (c[f] as number) < 0) p.push(`clip.${f} 要是 0 以上的整數`)
+  if (!isSafeInt(c.uses) || c.uses < 1 || c.uses > 20) p.push('clip.uses 要是 1～20 的整數（用完的片不會出生）')
+  if (!isSafeInt(c.made_at) || c.made_at < 0) p.push('clip.made_at 要是總分鐘（非負整數）')
   return p
 }
 
@@ -94,17 +111,66 @@ export function installOps(k: Kernel): void {
     }),
   })
 
+  // 素材（ft…）與片（cl…）各有各的次數：用片不動來源，用素材也不動剪出來的片
   k.changes.register<Change & { ref: string; take: number | 'all' }>({
     op: 'media.use', owner: OWNER,
     validate: (s, c) => {
-      const f = isText(c.ref) ? readMedia(s).footage[c.ref] : undefined
-      if (!f) return [`沒有 ${String(c.ref)} 這件素材`]
+      const m = isText(c.ref) ? readMedia(s) : undefined
+      const f = m ? m.footage[c.ref] ?? m.clips[c.ref] : undefined
+      if (!f) return [`沒有 ${String(c.ref)} 這件料`]
       if (c.take !== 'all' && !(isSafeInt(c.take) && c.take >= 1)) return ['take 要是 1 以上的整數，或 all']
       return f.uses > 0 ? [] : [`「${f.title}」已經用完了`]
     },
     apply: (s, c) => write(s, (m) => {
       const f = m.footage[c.ref]
-      if (f) m.footage[c.ref] = { ...f, uses: c.take === 'all' ? 0 : Math.max(0, f.uses - c.take) }
+      if (f) { m.footage[c.ref] = { ...f, uses: c.take === 'all' ? 0 : Math.max(0, f.uses - c.take) }; return }
+      const cl = m.clips[c.ref]
+      if (cl) m.clips[c.ref] = { ...cl, uses: c.take === 'all' ? 0 : Math.max(0, cl.uses - c.take) }
+    }),
+  })
+
+  k.changes.register<Change & { clip: ClipInit }>({
+    op: 'media.clip', owner: OWNER,
+    validate: (_s, c) => clipProblems(c.clip),
+    apply: (s, c) => write(s, (m) => {
+      m.seq += 1
+      const id = `cl${m.seq}`
+      m.clips[id] = { ...c.clip, id }
+    }),
+  })
+
+  k.changes.register<Change & { ref: string } & RecutPatch>({
+    op: 'media.recut', owner: OWNER,
+    validate(s, c) {
+      const cl = isText(c.ref) ? readMedia(s).clips[c.ref] : undefined
+      if (!cl) return [`沒有 ${String(c.ref)} 這支片`]
+      const p: string[] = []
+      if (cl.recut) p.push('這支片已經重剪過了')
+      if (!isText(c.angle)) p.push('angle 要是角度的 id')
+      for (const f of ['draw', 'trust', 'risk'] as const) if (!isSafeInt(c[f]) || c[f] < 0) p.push(`${f} 要是 0 以上的整數`)
+      if (typeof c.forged !== 'boolean') p.push('forged 要是 true 或 false')
+      return p
+    },
+    apply: (s, c) => write(s, (m) => {
+      const cl = m.clips[c.ref]
+      if (!cl) return
+      const { blame: _old, ...rest } = cl
+      m.clips[c.ref] = { ...rest, angle: c.angle, draw: c.draw, trust: c.trust, risk: c.risk, card: c.card ? { ...c.card } : null, forged: c.forged, recut: true, ...(c.blame ? { blame: c.blame } : {}) }
+    }),
+  })
+
+  k.changes.register<Change & { ref: string; title: string; intro: string; own_title: boolean; own_intro: boolean }>({
+    op: 'media.retitle', owner: OWNER,
+    validate: (s, c) => {
+      const cl = isText(c.ref) ? readMedia(s).clips[c.ref] : undefined
+      if (!cl) return [`沒有 ${String(c.ref)} 這支片`]
+      return typeof c.title === 'string' && typeof c.intro === 'string' ? [] : ['title 與 intro 要是字串']
+    },
+    apply: (s, c) => write(s, (m) => {
+      const cl = m.clips[c.ref]
+      if (!cl) return
+      const { titled: _t, own_title: _a, own_intro: _b, ...rest } = cl
+      m.clips[c.ref] = { ...rest, title: c.title, intro: c.intro, ...(c.own_title ? { own_title: true as const } : {}), ...(c.own_intro ? { own_intro: true as const } : {}), ...(c.own_title || c.own_intro ? { titled: true as const } : {}) }
     }),
   })
 }

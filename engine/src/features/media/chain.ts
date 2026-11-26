@@ -6,9 +6,9 @@ import type { Change, GameState, Kernel, ReportDraft, TimelineBeat } from '../..
 import { ActionBlocked, clone } from '../../core'
 import type { FootageInit } from './ops'
 import type { Mark, Material, Miss, RecordEntry, SpendAnswer } from './model'
-import { CONVERT_ACTION, REC_ACTION, TYPE_NAME, materialOfFootage, mediaRules, minutesNow, qualityParts, readMedia } from './model'
+import { CONVERT_ACTION, REC_ACTION, TYPE_NAME, materialOfClip, materialOfFootage, mediaRules, minutesNow, qualityParts, readMedia } from './model'
 
-const draftOf = (state: GameState, action: string, changes: Change[], result: string, summary: string, extra: Partial<ReportDraft> = {}): ReportDraft => ({
+export const draftOf = (state: GameState, action: string, changes: Change[], result: string, summary: string, extra: Partial<ReportDraft> = {}): ReportDraft => ({
   kind: 'broadcast', action, location: clone(state.location), ...(state.pc ? { actor: state.pc } : {}), party: [], timeline: [], changes, outcome: { result, summary }, ...extra,
 })
 
@@ -76,17 +76,23 @@ function footageFrom(rec: RecordEntry, quality: number, now: number, uses: numbe
 
 // ---- 素材庫 ----
 
-/** 一件料現在的樣子（用完的也回；不存在是 null）。 */
+/** 一件料（素材 ft… 或片 cl…）現在的樣子（用完的也回；不存在是 null）。 */
 export function materialOf(k: Kernel, state: GameState, ref: string): Material | null {
-  const f = readMedia(state).footage[ref]
-  return f ? materialOfFootage(k, state, f) : null
+  const m = readMedia(state)
+  const f = m.footage[ref]
+  if (f) return materialOfFootage(k, state, f)
+  const c = m.clips[ref]
+  return c ? materialOfClip(k, state, c) : null
 }
 
-/** 素材庫裡還能用的料（掛點 media.materials）：只列使用次數大於 0 的；kinds 沒給是素材與片都要。片是 M5-media-cut 才有。 */
+/** 素材庫裡還能用的料（掛點 media.materials）：只列使用次數大於 0 的；kinds 沒給是素材與片都要。 */
 export function materialsOf(k: Kernel, state: GameState, kinds?: Array<'footage' | 'clip'>): Material[] {
-  if (kinds && !kinds.includes('footage')) return []
   const rules = mediaRules(k)
-  return Object.values(readMedia(state).footage).filter((f) => f.uses > 0).map((f) => materialOfFootage(k, state, f, rules))
+  const m = readMedia(state)
+  return [
+    ...(!kinds || kinds.includes('footage') ? Object.values(m.footage).filter((f) => f.uses > 0).map((f) => materialOfFootage(k, state, f, rules)) : []),
+    ...(!kinds || kinds.includes('clip') ? Object.values(m.clips).filter((c) => c.uses > 0).map((c) => materialOfClip(k, state, c, rules)) : []),
+  ]
 }
 
 /**
@@ -94,9 +100,14 @@ export function materialsOf(k: Kernel, state: GameState, kinds?: Array<'footage'
  * 回傳的 material 是扣完之後的樣子（次數已經少了）；變更由問的人併進自己那一份報告，套用了次數才少。
  */
 export function spend(k: Kernel, state: GameState, o: { ref: string; how?: string; all?: boolean }): SpendAnswer {
-  const f = readMedia(state).footage[o.ref]
-  if (!f) return { block: '素材庫裡沒有這件料。' }
-  if (f.uses <= 0) return { block: `「${f.title}」已經用完了，只能留著當紀念。` }
-  const after = { ...f, uses: o.all === true ? 0 : f.uses - 1 }
-  return { changes: [{ op: 'media.use', ref: f.id, take: o.all === true ? 'all' : 1 }], material: materialOfFootage(k, state, after) }
+  const m = readMedia(state)
+  const f = m.footage[o.ref]
+  const c = f ? undefined : m.clips[o.ref]
+  const item = f ?? c
+  if (!item) return { block: '素材庫裡沒有這件料。' }
+  if (item.uses <= 0) return { block: `「${item.title}」已經用完了，只能留著當紀念。` }
+  const uses = o.all === true ? 0 : item.uses - 1
+  const change = { op: 'media.use', ref: item.id, take: o.all === true ? 'all' : 1 } as const
+  // 片和素材各算各的次數：用片不動來源、用素材也不動剪出來的片（MEDIA 2.1 節）
+  return { changes: [change], material: f ? materialOfFootage(k, state, { ...f, uses }) : materialOfClip(k, state, { ...c!, uses }) }
 }

@@ -9,7 +9,10 @@
 //   media.add { record }          記一則（id 套用時發）
 //   media.stage { add?, clear? }  委託階段的暫存：累加、或清掉
 //   media.make { footage, record? } 多一段素材（record 有寫就把那一則標成轉過了）
-//   media.use { ref, take }       用掉一件的次數（take 是 1，或 'all' 扣光）
+//   media.use { ref, take }       用掉一件的次數（take 是 1，或 'all' 扣光；ref 是素材 ft… 或片 cl…，片的次數和素材各算各的）
+//   media.clip { clip }           剪出一支片（id 套用時發 cl<seq>；M5-media-cut）
+//   media.recut { ref, … }        重剪：換角度、三個數字、card（每支片一次）
+//   media.retitle { ref, … }      改片的標題與簡介
 // 回到快照（rewind.keep）直接用 ext 變更整份換。
 
 import type { Change, ContentEntry, GameState, Kernel } from '../../core'
@@ -23,8 +26,25 @@ export const REC_STAT = 'rec_grade'
 export const QUALITY_STAT = 'footage_quality'
 export const CAP_STAT = 'footage_cap'
 
+export const ANGLE_KIND = 'footage_angle'
+export const CUT_PICK_STAT = 'cut_pick'
+export const FORGE_BONUS_STAT = 'forge_bonus'
+export const FORGE_QUALITY_STAT = 'forge_quality'
+export const FORGE_RISK_STAT = 'forge_risk'
+
 export const REC_ACTION = 'media.rec'
 export const CONVERT_ACTION = 'media.convert'
+export const CUT_ACTION = 'media.cut'
+export const RECUT_ACTION = 'media.recut'
+export const RETITLE_ACTION = 'media.retitle'
+export const FORGE_ACTION = 'media.forge'
+export const UPLOAD_ACTION = 'media.upload'
+export const SELL_ACTION = 'media.sell'
+export const DEAL_ACTION = 'media.deal'
+
+/** 片的標題與簡介的字數上限（照「字」算，Array.from；使用者 2026-11-25）。 */
+export const CLIP_TITLE_MAX = 30
+export const CLIP_INTRO_MAX = 100
 
 /** 類型的 id（MEDIA 第 2 節）與給玩家看的名字。 */
 export const TYPES = ['battle', 'scandal', 'crime', 'intimate', 'celebrity', 'daily'] as const
@@ -91,6 +111,29 @@ export interface MediaRules {
   fresh_days: { new: number; ok: number }
   /** 一段素材的使用次數 */
   uses: number
+  /** 剪片、偽造、發布、賣斷、談判、保命符的數字（M5-media-cut；MEDIA 第 3、5 節，dev/adr/0020 V7～V11 的暫定值） */
+  cut: { minutes: number }
+  forge: { minutes: number; dc: number; q_ok: number; q_crit: number; q_fail: number }
+  upload: {
+    /** 訂閱 +看點 × subs_pct %（最少看點 × subs_min 人） */
+    subs_pct: number
+    subs_min: number
+    /** 公信力 +（可信 − cred_base）÷ cred_div 往 0 捨去，夾在正負 cred_limit */
+    cred_base: number
+    cred_div: number
+    cred_limit: number
+    /** 風險擲中：涉及的每個勢力敵對值加多少；假料被拆穿公信力扣多少 */
+    hostility: number
+    exposed: number
+    /** 匿名：訂閱與公信力的增減乘多少（往 0 捨去）、風險少多少 */
+    anon_mult: number
+    anon_risk: number
+  }
+  sell: { price: number; exclusive: number }
+  deal: { dc: number; per_grade: number; cash_mult: number; fail_hostility: number; floor: number }
+  keep: { type: MediaType; quality_min: number; floor: number }
+  /** 勢力的資料沒寫等級時當幾級（V8） */
+  grade_default: number
 }
 
 export const DEFAULT_MEDIA_RULES: MediaRules = {
@@ -105,7 +148,25 @@ export const DEFAULT_MEDIA_RULES: MediaRules = {
   old_days: 7,
   fresh_days: { new: 3, ok: 7 },
   uses: 3,
+  cut: { minutes: 240 },
+  forge: { minutes: 240, dc: 15, q_ok: 2, q_crit: 3, q_fail: 1 },
+  upload: { subs_pct: 0.5, subs_min: 2, cred_base: 5, cred_div: 2, cred_limit: 2, hostility: 5, exposed: 8, anon_mult: 0.7, anon_risk: 5 },
+  sell: { price: 80, exclusive: 1.5 },
+  deal: { dc: 13, per_grade: 2, cash_mult: 2, fail_hostility: 5, floor: 5 },
+  keep: { type: 'crime', quality_min: 4, floor: 5 },
+  grade_default: 2,
 }
+
+/** 新加的幾組數字：每一格的合法範圍（有小數的）。 */
+const NEW_RULE_FIELDS: Record<string, Record<string, [number, number]>> = {
+  cut: { minutes: [1, 1440] },
+  forge: { minutes: [1, 1440], dc: [1, 40], q_ok: [1, 5], q_crit: [1, 5], q_fail: [1, 5] },
+  upload: { subs_pct: [0, 100], subs_min: [0, 1000], cred_base: [0, 10], cred_div: [1, 10], cred_limit: [0, 20], hostility: [0, 100], exposed: [0, 100], anon_mult: [0, 1], anon_risk: [0, 20] },
+  sell: { price: [0, 100000], exclusive: [1, 10] },
+  deal: { dc: [1, 40], per_grade: [0, 10], cash_mult: [0, 20], fail_hostility: [0, 100], floor: [0, 100] },
+  keep: { quality_min: [1, 5], floor: [0, 100] },
+}
+const finiteIn = (v: unknown, lo: number, hi: number): v is number => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi
 
 const isStep = (v: unknown): v is [number, number] => Array.isArray(v) && v.length === 2 && isSafeInt(v[0]) && v[0] >= 1 && isSafeInt(v[1]) && v[1] >= -5 && v[1] <= 5
 const steps = (v: unknown): Array<[number, number]> => (Array.isArray(v) ? v.filter(isStep).map((s) => [s[0], s[1]] as [number, number]) : [])
@@ -135,6 +196,14 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
   }
   for (const [key, lo, hi] of [['fame_step', 1, 1000], ['old_days', 1, 3650], ['uses', 1, 20]] as const) if (e[key] !== undefined && !smallInt(e[key], lo, hi)) p.push(`${key} 要是 ${lo}～${hi} 的整數`)
   if (isRecord(e.fresh_days) && smallInt(e.fresh_days.new, 0, 1000) && smallInt(e.fresh_days.ok, 0, 1000) && e.fresh_days.new > e.fresh_days.ok) p.push('fresh_days.new 不能大於 fresh_days.ok')
+  for (const [key, fields] of Object.entries(NEW_RULE_FIELDS)) {
+    const v = e[key]
+    if (v === undefined) continue
+    if (!isRecord(v)) { p.push(`${key} 要是物件`); continue }
+    for (const [f, [lo, hi]] of Object.entries(fields)) if (v[f] !== undefined && !finiteIn(v[f], lo, hi)) p.push(`${key}.${f} 要是 ${lo}～${hi} 的數字`)
+  }
+  if (isRecord(e.keep) && e.keep.type !== undefined && !isType(e.keep.type)) p.push(`keep.type 要是 ${TYPES.join('、')} 其中一個`)
+  if (e.grade_default !== undefined && !smallInt(e.grade_default, 1, 5)) p.push('grade_default 要是 1～5 的整數')
   return p
 }
 
@@ -144,6 +213,7 @@ export function mediaRules(k: Pick<Kernel, 'content'>): MediaRules {
   const out: MediaRules = {
     source_type: { ...d.source_type }, quality: { ...d.quality, rec_steps: d.quality.rec_steps.map((s) => [...s] as [number, number]), skill_steps: d.quality.skill_steps.map((s) => [...s] as [number, number]), skills: [...d.quality.skills] },
     draw: { ...d.draw }, trust: { ...d.trust }, risk: { ...d.risk }, fame_step: d.fame_step, old_days: d.old_days, fresh_days: { ...d.fresh_days }, uses: d.uses,
+    cut: { ...d.cut }, forge: { ...d.forge }, upload: { ...d.upload }, sell: { ...d.sell }, deal: { ...d.deal }, keep: { ...d.keep }, grade_default: d.grade_default,
   }
   const e = k.content.hasKind(RULE_KIND) ? k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default') : undefined
   if (!e) return out
@@ -162,6 +232,14 @@ export function mediaRules(k: Pick<Kernel, 'content'>): MediaRules {
     for (const f of fields) if (smallInt(v[f], 0, 1000)) dst[f] = v[f]
   }
   if (out.fresh_days.new > out.fresh_days.ok) out.fresh_days = { ...d.fresh_days }
+  for (const [key, fields] of Object.entries(NEW_RULE_FIELDS)) {
+    const v = e[key]
+    if (!isRecord(v)) continue
+    const dst = out[key as 'cut'] as unknown as Record<string, number>
+    for (const [f, [lo, hi]] of Object.entries(fields)) if (finiteIn(v[f], lo, hi)) dst[f] = v[f]
+  }
+  if (isRecord(e.keep) && isType(e.keep.type)) out.keep.type = e.keep.type
+  if (smallInt(e.grade_default, 1, 5)) out.grade_default = e.grade_default
   for (const [key, lo, hi] of [['fame_step', 1, 1000], ['old_days', 1, 3650], ['uses', 1, 20]] as const) if (smallInt(e[key], lo, hi)) out[key] = e[key]
   if (out.quality.cap_base > out.quality.cap_max) out.quality.cap_max = out.quality.cap_base
   return out
@@ -226,6 +304,48 @@ export interface Footage {
   tags?: string[]
 }
 
+/** 片進輿論戰牌庫時的樣子（DATA 第 11 節）：line 說法（數字是可信）、fuel 料（數字是看點）、decoy 轉移焦點的燃料（沒有數字，value 是 0）。 */
+export interface CardInfo {
+  kind: 'fuel' | 'line' | 'decoy'
+  value: number
+}
+
+/** 一支片（MEDIA 第 3 節；DATA 第 11 節）。三個數字與 card 在剪的時候算好存在這裡；片的次數自己算，用片不動來源。 */
+export interface Clip {
+  id: string
+  /** 來源素材的 id（一到三段） */
+  from: string[]
+  angle: string
+  title: string
+  intro: string
+  /** 標題或簡介是玩家寫的（給之後的 AI 看：玩家寫過的不被蓋掉） */
+  titled?: true
+  /** 各自是不是玩家寫的（retitle 單改一項時用來重算 titled） */
+  own_title?: true
+  own_intro?: true
+  quality: number
+  types: MediaType[]
+  involves: Involves
+  celebrity: boolean
+  self: boolean
+  adult: boolean
+  /** 假料：有一段來源是偽造的，或角度是抹黑 */
+  forged: boolean
+  exclusive: boolean
+  draw: number
+  trust: number
+  risk: number
+  uses: number
+  recut?: true
+  card: CardInfo | null
+  made_at: number
+  /** 剪的時候 cut_pick 讓哪一項 +1 */
+  pick?: 'draw' | 'trust'
+  /** 抹黑把責任導向的勢力 */
+  blame?: string
+  tags?: string[]
+}
+
 /** 委託階段的暫存：這個階段裡的戰鬥與事件各自不出紀錄，累加在這裡，里程碑一到才出一則。 */
 export interface StagePending {
   commission: string
@@ -239,8 +359,8 @@ export interface MediaState {
   seq: number
   records: Record<string, RecordEntry>
   footage: Record<string, Footage>
-  /** 片（下一張工單 M5-media-cut 才有；這一張只留位置） */
-  clips: Record<string, unknown>
+  /** 片（M5-media-cut） */
+  clips: Record<string, Clip>
   stage: StagePending | null
 }
 
@@ -281,6 +401,23 @@ function readFootage(id: string, v: unknown): Footage | null {
   }
 }
 
+const isCard = (v: unknown): v is CardInfo => isRecord(v) && (v.kind === 'fuel' || v.kind === 'line' || v.kind === 'decoy') && isSafeInt(v.value)
+
+function readClip(id: string, v: unknown): Clip | null {
+  if (!isRecord(v) || !Array.isArray(v.from) || !isText(v.angle) || !isSafeInt(v.made_at)) return null
+  const tags = texts(v.tags)
+  const types = [...new Set((Array.isArray(v.types) ? v.types : []).filter(isType))]
+  return {
+    id, from: v.from.filter(isText), angle: v.angle, title: typeof v.title === 'string' ? v.title : '', intro: typeof v.intro === 'string' ? v.intro : '',
+    ...(v.titled === true ? { titled: true as const } : {}), ...(v.own_title === true ? { own_title: true as const } : {}), ...(v.own_intro === true ? { own_intro: true as const } : {}),
+    quality: isSafeInt(v.quality) ? clamp(v.quality, 1, 5) : 1, types: types.length > 0 ? types : ['daily'], involves: involvesOf(v.involves),
+    celebrity: v.celebrity === true, self: v.self === true, adult: v.adult === true, forged: v.forged === true, exclusive: v.exclusive !== false,
+    draw: isSafeInt(v.draw) ? Math.max(0, v.draw) : 0, trust: isSafeInt(v.trust) ? clamp(v.trust, 0, 10) : 0, risk: isSafeInt(v.risk) ? Math.max(0, v.risk) : 0,
+    uses: isSafeInt(v.uses) ? clamp(v.uses, 0, 20) : 0, ...(v.recut === true ? { recut: true as const } : {}), card: isCard(v.card) ? { kind: v.card.kind, value: v.card.value } : null,
+    made_at: v.made_at, ...(v.pick === 'draw' || v.pick === 'trust' ? { pick: v.pick } : {}), ...(isText(v.blame) ? { blame: v.blame } : {}), ...(tags.length > 0 ? { tags } : {}),
+  }
+}
+
 function readStage(v: unknown): StagePending | null {
   if (!isRecord(v) || !isText(v.commission)) return null
   return { commission: v.commission, marks: [...new Set((Array.isArray(v.marks) ? v.marks : []).filter(isMark))], people: texts(v.people), factions: texts(v.factions) }
@@ -294,9 +431,10 @@ export function readMedia(state: Pick<GameState, 'ext'>): MediaState {
   if (isRecord(r.records)) for (const [id, v] of Object.entries(r.records)) if (own(r.records, id) && id !== '__proto__') { const e = readRecord(id, v); if (e) records[id] = e }
   const footage: Record<string, Footage> = {}
   if (isRecord(r.footage)) for (const [id, v] of Object.entries(r.footage)) if (own(r.footage, id) && id !== '__proto__') { const e = readFootage(id, v); if (e) footage[id] = e }
+  const clips: Record<string, Clip> = {}
+  if (isRecord(r.clips)) for (const [id, v] of Object.entries(r.clips)) if (own(r.clips, id) && id !== '__proto__') { const e = readClip(id, v); if (e) clips[id] = e }
   return {
-    rec: r.rec !== false, seq: isSafeInt(r.seq) && r.seq > 0 ? r.seq : 0, records, footage,
-    clips: isRecord(r.clips) ? { ...r.clips } : {}, stage: readStage(r.stage),
+    rec: r.rec !== false, seq: isSafeInt(r.seq) && r.seq > 0 ? r.seq : 0, records, footage, clips, stage: readStage(r.stage),
   }
 }
 
@@ -332,6 +470,19 @@ export function recorderOf(k: Kernel, state: GameState): { id: string; grade: nu
 /** 隊伍裡某個衍生數值最高的那個值。 */
 export function partyMax(k: Kernel, state: GameState, stat: string): number {
   return partyOf(state).reduce((m, id) => Math.max(m, statOf(k, state, id, stat)), 0)
+}
+
+/** 隊伍裡某個衍生數值最低的那個值（forge_risk 這種往負的方向才有用的）；沒有人比 0 低就是 0。 */
+export function partyMin(k: Kernel, state: GameState, stat: string): number {
+  return partyOf(state).reduce((m, id) => Math.min(m, statOf(k, state, id, stat)), 0)
+}
+
+/** 勢力的等級（資料的 grade：1～5 或 I～V；沒寫當 rules.grade_default，V8）。 */
+export function factionGrade(k: Pick<Kernel, 'content'>, id: string, rules: MediaRules): number {
+  const g = k.content.hasKind('faction') ? k.content.get<ContentEntry & Record<string, unknown>>('faction', id)?.grade : undefined
+  if (isSafeInt(g) && g >= 1 && g <= 5) return g
+  if (typeof g === 'string') { const i = ['I', 'II', 'III', 'IV', 'V'].indexOf(g); if (i >= 0) return i + 1 }
+  return rules.grade_default
 }
 
 /** 主角各區豔名最高的那一區的級數（每 fame_step 點一級；沒有豔名量表是 0）。 */
@@ -415,6 +566,15 @@ export function materialOfFootage(k: Kernel, state: GameState, f: Footage, rules
     trust: clamp(f.quality * rules.trust.mult - (forged ? rules.trust.forged : 0), 0, rules.trust.max), risk: rules.risk.base + (forged ? rules.risk.forged : 0),
     uses: f.uses, fresh: freshOf(f.made_at, minutesNow(state), rules), exclusive: f.exclusive, forged, celebrity: f.celebrity, self: f.self, adult: f.adult,
     involves: { factions: [...f.involves.factions], people: [...f.involves.people] }, card: { kind: 'fuel', value: draw }, tags: [...(f.tags ?? [])],
+  }
+}
+
+/** 一支片現在的樣子（數字用剪的時候存下的；新鮮度從剪的那天算起）。 */
+export function materialOfClip(k: Kernel, state: GameState, c: Clip, rules: MediaRules = mediaRules(k)): Material {
+  return {
+    ref: c.id, kind: 'clip', title: c.title, types: [...c.types], quality: c.quality, draw: c.draw, trust: c.trust, risk: c.risk, angle: c.angle,
+    uses: c.uses, fresh: freshOf(c.made_at, minutesNow(state), rules), exclusive: c.exclusive, forged: c.forged, celebrity: c.celebrity, self: c.self, adult: c.adult,
+    involves: { factions: [...c.involves.factions], people: [...c.involves.people] }, card: c.card ? { ...c.card } : null, tags: [...(c.tags ?? [])], intro: c.intro,
   }
 }
 
