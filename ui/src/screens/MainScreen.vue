@@ -80,7 +80,8 @@ async function runUse(id: string) {
 /** 還沒搬進引擎的舊服務（診所、家園……；示意資料）：設施開著才列。搭車、商店、睡覺與休息已經是引擎的（右欄由格子上的項目列出），不重複。 */
 const ENGINE_SERVICES = ['transit', 'shop', 'rest']
 function optionsOf(f: Facility): HereOption[] {
-  const svcs = (f.services ?? []).filter(s => !ENGINE_SERVICES.includes(s.action ?? '')).map((s, i) => ({ id: `svc${i}`, name: s.name, sub: s.price ? `現金 ${fmt(s.price)}` : undefined, run: () => service(s) }))
+  // 診所：開之前先問引擎（clinicGate：站在診所、或自己動得了刀）；開不了就灰掉並寫原因
+  const svcs = (f.services ?? []).filter(s => !ENGINE_SERVICES.includes(s.action ?? '')).map((s, i) => ({ id: `svc${i}`, name: s.name, sub: s.price ? `現金 ${fmt(s.price)}` : undefined, ...(s.action === 'clinic' ? { reason: e.body.clinicGate() } : {}), run: () => service(s) }))
   return svcs
 }
 const hereOpts = computed<HereOption[]>(() => {
@@ -123,7 +124,13 @@ function service(s: NonNullable<Facility['services']>[number]) {
   switch (s.action) {
     case 'home': router.push('/home'); break
     case 'dungeon': router.push('/dungeon'); break
-    case 'garage': case 'mech': case 'clinic': case 'fixer': case 'cut': case 'dye': ui.openRoot(s.action, s.props ?? {}); break
+    case 'clinic': {
+      const why = e.body.clinicGate()
+      if (why) ui.toast(why, 'warn')
+      else ui.openRoot('clinic', s.props ?? {})
+      break
+    }
+    case 'garage': case 'mech': case 'fixer': case 'cut': case 'dye': ui.openRoot(s.action, s.props ?? {}); break
     default: ui.toast(`「${s.name}」的畫面在第四版做。`)
   }
 }

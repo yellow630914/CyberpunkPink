@@ -24,9 +24,9 @@ export interface PeopleLook {
 export { CATEGORY_NAME, READ_CATEGORIES }
 export type { ReadCategory }
 
-/** 還沒有開放的（先灰掉並寫這一句）：關係線、傳訊息、送禮以外的邀約、採訪、請教 */
+/** 還沒有開放的（先灰掉並寫這一句）：關係線、傳訊息、送禮以外的邀約、採訪（請教已經接 npc_consult） */
 export const UNOPENED = '還沒有開放。'
-export const UNOPENED_ACTIONS: readonly string[] = ['關係線', '傳訊息', '邀約', '採訪', '請教']
+export const UNOPENED_ACTIONS: readonly string[] = ['關係線', '傳訊息', '邀約', '採訪']
 
 // ---- 一個人的抬頭 ----
 
@@ -106,12 +106,14 @@ export interface InteractRow {
   note: string | null
   /** 不是行動、交給別的畫面的一項（請教：引擎的 handoff）；沒有是 null */
   handoff: string | null
+  /** 請教的 handoff 帶 also: ['abilities.tutorOptions']：同時列向 NPC 學工藝的課 */
+  alsoTutor: boolean
 }
 const pct = (c: number | null): string => (c === null ? '' : `${Math.round(c * 100)}%`)
 
 export function interactRows(list: InteractionView[]): InteractRow[] {
   return list.map((v) => ({
-    kind: v.kind, name: v.name, ok: v.ok, reason: v.reason, needs: v.needs, note: v.note ?? null, handoff: v.handoff ? v.handoff.to : null,
+    kind: v.kind, name: v.name, ok: v.ok, reason: v.reason, needs: v.needs, note: v.note ?? null, handoff: v.handoff ? v.handoff.to : null, alsoTutor: !!v.handoff?.also?.includes('abilities.tutorOptions'),
     dcText: v.dc === null ? '' : `DC ${v.dc}`,
     dcTitle: v.mods.map((m) => `${m.label} ${signed(m.value)}`).join('；'),
     chanceText: pct(v.chance),

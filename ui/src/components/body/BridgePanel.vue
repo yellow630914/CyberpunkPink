@@ -47,7 +47,7 @@ const grade = (n: number): 1 | 2 | 3 | 4 | 5 => Math.min(5, Math.max(1, n)) as 1
         <span v-if="!bridge.effects.length" class="k">沒有機能。</span>
       </div>
     </template>
-    <p v-else class="empty-note" data-no-bridge>身上沒有橋。橋是一件義體，裝上之後才有技能的容量與橋參數。</p>
+    <p v-else class="empty-note" data-no-bridge>{{ eng.body.noBridgeNote }}橋是一件義體，裝上之後才有技能的容量與橋參數。</p>
     <div v-if="params" class="params" data-bridge-params>
       <div v-for="p in params" :key="p.id" class="param" :data-param="p.id">
         <b>{{ p.name }}</b>

@@ -46,6 +46,14 @@ function doLearn() {
   if (r.why) ui.toast(r.why, 'warn')
   else ui.toast(r.lines[0] ?? '學會了。')
 }
+/** 藥：引擎的 drugView.usable 有這一項才列「使用」，擋住的原因是引擎的 */
+const drugRow = computed(() => (sel.value && !sel.value.crafted ? eng.body.drugs()?.usable.find((u) => u.item === sel.value!.stack.id) ?? null : null))
+function doUse() {
+  if (!sel.value || !drugRow.value) return
+  const why = eng.body.useDrug(drugRow.value.item)
+  if (why) ui.toast(why, 'warn')
+  else ui.toast(eng.state.reports.at(-1)?.outcome.summary ?? `用了${sel.value.name}。`)
+}
 const openCraft = (tab: 'swap' | 'salvage') => ui.open('craft', { tab, uid: sel.value?.key })
 /** 裝上會佔哪幾格（問引擎的報告草稿） */
 const slots = computed(() => (sel.value?.what ? eng.gear.equipSlots(sel.value.what) : []))
@@ -127,6 +135,7 @@ function doQuick() {
         <div class="go">
           <ReasonButton v-if="sel.what" sm pri :reason="equipReason" data-act="equip" @go="doEquip">{{ equipLabel }}</ReasonButton>
           <ReasonButton v-if="sel.quickable" sm :reason="quickReason" data-act="quick" @go="doQuick">放進快取格</ReasonButton>
+          <ReasonButton v-if="drugRow" sm pri :reason="drugRow.block" data-act="use" @go="doUse">使用</ReasonButton>
           <ReasonButton v-if="licence" sm pri :reason="learnReason" data-act="learn" @go="doLearn">學會</ReasonButton>
           <template v-if="product">
             <ReasonButton sm data-act="swap" :reason="null" @go="openCraft('swap')">換零件</ReasonButton>

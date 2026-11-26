@@ -1,0 +1,22 @@
+[
+  {
+    "id": "default",
+    "slots": 2,
+    "install": {
+      "price": 300,
+      "minutes": 60
+    },
+    "remove": {
+      "price": 150,
+      "minutes": 60
+    },
+    "quiet": {
+      "step": 5,
+      "price": 500,
+      "per_week": 1,
+      "sink_up": 1,
+      "minutes": 120
+    },
+    "hp_to_load_pct": 20
+  }
+]

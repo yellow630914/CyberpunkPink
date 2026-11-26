@@ -1,0 +1,85 @@
+[
+  {
+    "id": "default",
+    "slots": {
+      "bridge": 1,
+      "brain": 3,
+      "eye": 2,
+      "ear_throat": 2,
+      "torso": 3,
+      "skin": 2,
+      "arm_l": 2,
+      "arm_r": 2,
+      "leg_l": 2,
+      "leg_r": 2,
+      "intimate": 2
+    },
+    "surgeons": {
+      "clinic": {
+        "fee": 0.5,
+        "sink_pct": -10,
+        "complication": 0
+      },
+      "unlicensed": {
+        "fee": 0.3,
+        "sink_pct": 0,
+        "complication": 0.1
+      },
+      "black": {
+        "fee": 0.4,
+        "sink_pct": 0,
+        "complication": 0.15
+      },
+      "self": {
+        "fee": 0,
+        "sink_pct": 0,
+        "complication": 0
+      }
+    },
+    "remove_fee_mult": 0.5,
+    "recovery_minutes": {
+      "surface": 0,
+      "light": 240,
+      "invasive": 1440,
+      "heavy": 2880,
+      "extreme": 5760
+    },
+    "bio_recovery_mult": 3,
+    "mixed_sink_mult": 0.5,
+    "surgery_minutes": 60,
+    "self_requires": [
+      {
+        "kind": "ability",
+        "daily": "surgery"
+      }
+    ],
+    "self_skill": "cyberware",
+    "self_dc": [
+      10,
+      13,
+      16,
+      19,
+      22
+    ],
+    "bridge_fee_mult": 2,
+    "bridge_recovery_minutes": 4320,
+    "bridge_swap_sink": {
+      "amount": 5,
+      "days": 7
+    },
+    "cap_min": 8,
+    "deck_sink_default": 6,
+    "pump_doses": 3,
+    "set_bonus": {},
+    "subscription_rate": 0.03,
+    "crack_dc_bonus": 3,
+    "crack_hostility": 5,
+    "unlock_bonus": 2,
+    "used_malware": 0.1,
+    "repair_fee": 0.2,
+    "repair_dc": 13,
+    "repair_home_level": 2,
+    "forge_dc_bonus": 2,
+    "forge_fee": 0.3
+  }
+]

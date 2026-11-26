@@ -26,6 +26,25 @@
       40,
       60,
       80
-    ]
+    ],
+    "readers": {},
+    "sink_notice": 60,
+    "sink_stop": 100,
+    "sink_hostility": 3,
+    "sink_see": {
+      "per_strength": 3,
+      "base": 10,
+      "per_hide": 2
+    },
+    "cyber_fine": {
+      "register": 200,
+      "permit": 800
+    },
+    "cyber_lock_hours": 24,
+    "cyber_hostility": {
+      "register": 2,
+      "permit": 5,
+      "banned": 10
+    }
   }
 ]

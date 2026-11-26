@@ -1,0 +1,133 @@
+[
+  {
+    "id": "default",
+    "bands": [
+      {
+        "min": 0,
+        "id": "clear",
+        "name": "清明",
+        "effects": []
+      },
+      {
+        "min": 20,
+        "id": "tipsy",
+        "name": "微醺",
+        "effects": [
+          {
+            "check": {
+              "skills": [
+                "investigate",
+                "streetwise"
+              ],
+              "tags": [
+                "perception"
+              ]
+            },
+            "amount": 1
+          },
+          {
+            "check": {
+              "tags": [
+                "resist_lure"
+              ]
+            },
+            "amount": -1
+          }
+        ]
+      },
+      {
+        "min": 40,
+        "id": "indulgent",
+        "name": "貪歡",
+        "effects": [
+          {
+            "stat": "afterglow_cap",
+            "amount": 1
+          },
+          {
+            "mod": "load_dealt_pct",
+            "amount": 10
+          },
+          {
+            "check": {
+              "skills": [
+                "composure"
+              ]
+            },
+            "amount": -1
+          }
+        ],
+        "weekly": {
+          "trigger": "impulse"
+        }
+      },
+      {
+        "min": 60,
+        "id": "drunk",
+        "name": "迷醉",
+        "effects": [
+          {
+            "check": {
+              "skills": [
+                "composure"
+              ]
+            },
+            "amount": -1
+          },
+          {
+            "check": {
+              "tags": [
+                "resist_control"
+              ]
+            },
+            "amount": -2
+          }
+        ],
+        "weekly": {
+          "hostility": 1
+        }
+      },
+      {
+        "min": 80,
+        "id": "edge",
+        "name": "溺感邊緣",
+        "effects": [],
+        "double": true
+      },
+      {
+        "min": 100,
+        "id": "sunk",
+        "name": "溺感",
+        "effects": [
+          {
+            "stat": "afterglow_cap",
+            "amount": 2
+          }
+        ]
+      }
+    ],
+    "over_step": 25,
+    "decay": {
+      "amount": 2,
+      "sleeps": 4
+    },
+    "watchers": [],
+    "therapy": {
+      "counsel": {
+        "amount": 5,
+        "minutes": 240,
+        "price": 1000,
+        "per_week": 1
+      },
+      "retreat": {
+        "amount": 6,
+        "days": 3
+      }
+    },
+    "hide_step": 20,
+    "afterglow_carry": {
+      "hours": 6,
+      "amount": 1
+    }
+  }
+]

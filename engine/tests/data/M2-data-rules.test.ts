@@ -21,6 +21,7 @@ import { DEFAULT_REST_RULES, restRules } from '../../src/features/rest/model'
 import { DEFAULT_ROSTER_RULES, rosterRules } from '../../src/features/roster/model'
 import { DEFAULT_SCENE_RULES, sceneRules } from '../../src/features/scene/model'
 import { DEFAULT_SECURITY_RULES, securityRules } from '../../src/features/security/model'
+import { DEFAULT_PERSON_RULES } from '../../src/features/security/personRules'
 import { DEFAULT_TRADE_RULES, tradeRules } from '../../src/features/trade/model'
 import { DEFAULT_TRANSIT_RULES, transitRules } from '../../src/features/transit/model'
 import { DEFAULT_WORK_RULES, workRules } from '../../src/features/work/model'
@@ -106,25 +107,11 @@ describe('M2-data-rules：資料和功能的預設一致（逐格）', () => {
   for (const [kind, def, resolved] of cases) {
     it(`${kind}：資料的每一格等於預設，功能讀出來的也一樣`, () => {
       // M3 加的內海欄位（fixer_rule 的 trace_start、net_layers、net_branch_skills）由 M3-data-rules.test.ts 對 DEFAULT_FIXER_NET_RULES 驗
+      // M4 的欄位（scene_rule 的多人／單人／結算、ability_rule 的 teach 與 tutor 等）已由 M4-data-rules 補進資料檔，逐格和預設比
       const { trace_start: _t, net_layers: _l, net_branch_skills: _b, ...own } = raw(g, kind)
-      // M4-scene-circles 加的多人欄位（cost.move_circle、cost.call、multi_dice_minus、other_circle）資料檔還沒有，等 M4-data-rules 補；功能讀出來的（下一行）照樣等於預設
-      let dataDef: Rec = def
-      if (kind === 'scene_rule') {
-        // M4-scene-solo 加的單人欄位（solo、cost.faster、cost.slower）也一樣
-        // M4-scene-close 加的結算欄位（sink、deep_chance、tendency_per_axis、relate_range）也一樣
-        const { multi_dice_minus: _m, other_circle: _o, solo: _s, sink: _sk, deep_chance: _dc, tendency_per_axis: _tp, relate_range: _rr, ...rest } = def as Rec & { cost: Rec }
-        // M4-night-resonance 加的 cost.dress（脫換衣服）也一樣
-        const { move_circle: _mc, call: _c, faster: _f, slower: _sl, dress: _dr, ...cost } = (def as Rec & { cost: Rec }).cost
-        dataDef = { ...rest, cost }
-      }
-      if (kind === 'ability_rule') {
-        // M4-abilities-m4 加的四個欄位（skill_xp_per_level、skill_free_max、respec_price_per_xp、respec_minutes）資料檔還沒有，等 M4-data-rules 補；功能讀出來的（下一行）照樣等於預設
-        // M4-training 加的 teach（請教與上課的親密度、學費、時段）也一樣
-        // M4-craft-teach 加的 tutor（向 NPC 學工藝）也一樣
-        const { skill_xp_per_level: _a, skill_free_max: _b, respec_price_per_xp: _c, respec_minutes: _d, teach: _t, tutor: _tu, ...rest } = def as Rec
-        dataDef = rest
-      }
-      expect(kind === 'fixer_rule' ? own : raw(g, kind)).toEqual(JSON.parse(JSON.stringify(dataDef)))
+      // security_rule 的 M4 欄位（掃橋讀人：readers、sink_*、cyber_*）和預設的另一半 DEFAULT_PERSON_RULES 在 M4-data-rules.test.ts 驗；這裡的預設合起來比
+      const expected = kind === 'security_rule' ? { ...def, ...(DEFAULT_PERSON_RULES as unknown as Rec) } : def
+      expect(kind === 'fixer_rule' ? own : raw(g, kind)).toEqual(JSON.parse(JSON.stringify(expected)))
       expect(JSON.parse(JSON.stringify(resolved))).toEqual(JSON.parse(JSON.stringify(def)))
     })
   }
@@ -247,7 +234,7 @@ describe('M2-data-rules：抽查設計書的數字', () => {
   })
 
   it('換配置統一半小時（使用者定案 2026-11-23）', () => {
-    expect(raw(g, 'ability_rule')).toEqual({ loadout_minutes: 30, loadout_facility_types: ['tuning_clinic'], xp_home_share: 0.3 })
+    expect(raw(g, 'ability_rule')).toMatchObject({ loadout_minutes: 30, loadout_facility_types: ['tuning_clinic'], xp_home_share: 0.3 })
     expect((facilityTypes as Array<{ id: string }>).some((f) => f.id === 'tuning_clinic')).toBe(true)
   })
 })
@@ -272,7 +259,8 @@ describe('M2-data-rules：商店與設施的種類', () => {
       expect(f.name).toMatch(/\S/)
       for (const fn of f.functions) expect(FUNCTIONS, `${f.id}.${fn}`).toContain(fn)
     }
-    expect(ids).toHaveLength(41)
+    // 41 種加 M4 補的無照診所與黑診所（clinic.grade：unlicensed、black；M4-data-rules）
+    expect(ids).toHaveLength(43)
   })
 })
 

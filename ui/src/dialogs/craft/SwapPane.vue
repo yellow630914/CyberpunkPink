@@ -6,6 +6,7 @@ import MoneyTag from '../../components/MoneyTag.vue'
 import ReasonButton from '../../components/ReasonButton.vue'
 import PartList from './PartList.vue'
 import MakerPicker from './MakerPicker.vue'
+import CrewPicker from './CrewPicker.vue'
 import ProductList from './ProductList.vue'
 import ResultNote from './ResultNote.vue'
 import { partTypeName } from '@engine/src'
@@ -47,10 +48,11 @@ const row = computed(() => rows.value.find((r) => r.key === rowKey.value) ?? nul
 const next = ref('')
 watch([uid, rowKey], () => { next.value = ''; done.value = null })
 
-const makers = computed(() => eng.craft.makers())
+const byId = ref('')
+const makers = computed(() => eng.craft.makers(byId.value || undefined))
 const makerId = ref<string>('self')
 const payWith = ref<'auto' | 'cred' | 'cash'>('auto')
-const opts = computed<SwapOpts | null>(() => (row.value && next.value ? { uid: uid.value, type: row.value.type, index: row.value.index, part: next.value, maker: makerId.value as SwapOpts['maker'], ...(payWith.value !== 'auto' ? { pay: payWith.value } : {}) } : null))
+const opts = computed<SwapOpts | null>(() => (row.value && next.value ? { uid: uid.value, type: row.value.type, index: row.value.index, part: next.value, maker: makerId.value as SwapOpts['maker'], ...(byId.value ? { by: byId.value } : {}), ...(payWith.value !== 'auto' ? { pay: payWith.value } : {}) } : null))
 const preview = computed(() => (opts.value ? eng.craft.swapPreview(opts.value) : null))
 const diff = computed(() => (preview.value?.before && preview.value.after ? statDiff(preview.value.before.stats, preview.value.after.stats) : []))
 
@@ -104,6 +106,7 @@ const reason = computed(() => (preview.value ? preview.value.block : '先選要�
         </div>
         <div>
           <p class="h">難度與誰來做</p>
+          <CrewPicker v-model="byId" />
           <MakerPicker v-model="makerId" :options="makers" :only="['self', 'shop']" />
           <template v-if="preview?.difficulty">
             <div class="kv"><span>難度</span><b class="mono" data-dc>DC {{ preview.difficulty.total }}</b></div>

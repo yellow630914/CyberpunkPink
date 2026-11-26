@@ -187,7 +187,9 @@ describe('對話畫面與互動選單（引擎的 interactions）', () => {
     expect(dom).toMatch(/data-do="npc_intimidate"[^>]*aria-disabled="true"|aria-disabled="true"[^>]*data-do="npc_intimidate"/)
     // 先擋住：還沒有開放的幾項灰掉並寫「還沒有開放。」
     expect(text).toContain('還沒有開放。')
-    for (const name of ['關係線', '傳訊息', '邀約', '採訪', '請教']) expect(text).toContain(name)
+    for (const name of ['關係線', '傳訊息', '邀約', '採訪']) expect(text).toContain(name)
+    // 請教改接引擎的 npc_consult（M4-ui-followups）：沒有東西可教的人不列，也不再有灰掉的假項目
+    expect(text).not.toContain('請教')
   })
 
   it('聊天成功之後親密度的數字與階段跟著變；同一天第二次聊天畫面提示不再加親密度，第二次的親密度不變', async () => {

@@ -1,0 +1,67 @@
+[
+  {
+    "id": "default",
+    "aid": {
+      "minutes": 10,
+      "dc": 13,
+      "kit_bonus": 2,
+      "kit_tag": "medkit"
+    },
+    "heal_price": {
+      "clinic": 8,
+      "unlicensed": 4,
+      "black": 5
+    },
+    "heal_minutes_per_10": 60,
+    "wound_price": 1200,
+    "wound_recovery_minutes": 4320,
+    "wound_effects": {
+      "wound_limb": [
+        {
+          "check": {
+            "attrs": [
+              "body",
+              "reflex"
+            ]
+          },
+          "amount": -4,
+          "label": "肢體重創"
+        }
+      ],
+      "wound_torso": [
+        {
+          "stat": "max_hp",
+          "amount": -5,
+          "label": "軀幹重創"
+        },
+        {
+          "stat": "armor_body",
+          "amount": -99,
+          "label": "軀幹重創"
+        }
+      ],
+      "wound_head": []
+    },
+    "recovery_effects": [
+      {
+        "check": {
+          "attrs": [
+            "body",
+            "reflex"
+          ]
+        },
+        "amount": -2,
+        "label": "手術後休養"
+      }
+    ],
+    "treated_minutes": 1440,
+    "surgery_minutes": 60,
+    "self_minutes": 240,
+    "self_requires": [
+      {
+        "kind": "ability",
+        "daily": "surgery"
+      }
+    ]
+  }
+]

@@ -29,7 +29,12 @@
       "tease": 1,
       "restrain": 1,
       "talk": 1,
-      "switch": 1
+      "switch": 1,
+      "move_circle": 2,
+      "call": 1,
+      "faster": 2,
+      "slower": 1,
+      "dress": 1
     },
     "dominate": {
       "their": 2,
@@ -151,6 +156,58 @@
     "skip_goal": {
       "base": 20,
       "cap": 70
+    },
+    "multi_dice_minus": 1,
+    "other_circle": {
+      "fit_start": 20,
+      "fit_die": "1d6",
+      "tag_bonus": 2,
+      "load_die": "2d6"
+    },
+    "solo": {
+      "pace_start": 30,
+      "faster": {
+        "load": "2d6",
+        "pace": 8
+      },
+      "slower": {
+        "load": "-1d6",
+        "pace": 3
+      },
+      "idle_drop": 3,
+      "climax_drop": 10,
+      "quit_pace": 10,
+      "quit_rounds": 3,
+      "insight_mult": 0.5,
+      "skip": {
+        "base": 35,
+        "spread": 21
+      }
+    },
+    "sink": {
+      "anchor": -2,
+      "forced": 2,
+      "anchor_affinity": 60
+    },
+    "deep_chance": 0.25,
+    "tendency_per_axis": 1,
+    "relate_range": {
+      "poor": [
+        -2,
+        0
+      ],
+      "fair": [
+        0,
+        3
+      ],
+      "fit": [
+        3,
+        6
+      ],
+      "unforgettable": [
+        6,
+        10
+      ]
     }
   }
 ]

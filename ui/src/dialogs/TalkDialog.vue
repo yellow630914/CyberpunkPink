@@ -40,10 +40,23 @@ const pane = ref<'talk' | 'gift' | 'read' | 'consult'>('talk')
 /** 主角持約的人：說話面板多一個「契約」鈕（M4-ui-contract） */
 const isHeld = computed(() => e.contract.held().some((h) => h.id === props.npcId))
 const gift = ref<string | null>(null)
+/** 送禮附的一句話：玩家寫的字原樣送出，不篩選、不提示（上限是引擎的 GIFT_NOTE_MAX） */
+const giftNote = ref('')
+/** 稱呼兩格：你怎麼叫他、他怎麼叫你（引擎的 callNamesDraft；字數上限是引擎的 CALL_MAX） */
+const callThem = ref(e.people.callNames(props.npcId).call_them)
+const callMe = ref(e.people.callNames(props.npcId).call_me)
+const callBlock = computed(() => e.people.callNamesBlock(props.npcId, { call_them: callThem.value, call_me: callMe.value }))
+const callSame = computed(() => { const c = e.people.callNames(props.npcId); return c.call_them === callThem.value && c.call_me === callMe.value })
+async function saveCalls() {
+  const r = await e.people.setCallNames(props.npcId, { call_them: callThem.value, call_me: callMe.value })
+  const why = failText(r, '現在改不了稱呼。')
+  if (why) ui.toast(why, 'warn')
+  else ui.toast('稱呼存好了。')
+}
 const category = ref<ReadCategory | null>(null)
 const free = ref('')
 
-async function send(kind: string, extra: { item?: string; category?: ReadCategory } = {}) {
+async function send(kind: string, extra: { item?: string; category?: ReadCategory; note?: string } = {}) {
   const r = await e.people.interact(kind as never, props.npcId, extra)
   const why = failText(r, '現在做不了。')
   if (why) ui.toast(why, 'warn')
@@ -57,8 +70,9 @@ function pick(r: InteractRow) {
 async function sendGift() {
   if (!gift.value) return
   const id = gift.value
-  await send('npc_gift', { item: id })
+  await send('npc_gift', { item: id, ...(giftNote.value !== '' ? { note: giftNote.value } : {}) })
   gift.value = null
+  giftNote.value = ''
 }
 async function sendRead() {
   if (!category.value) return
@@ -77,6 +91,7 @@ async function meet() {
   const why = failText(r, '現在認識不了他。')
   if (why) ui.toast(why, 'warn')
 }
+const alsoTutor = computed(() => rows.value.some((r) => r.handoff && r.alsoTutor))
 const giftRow = computed(() => rows.value.find((r) => r.needs === 'item'))
 const readRow = computed(() => rows.value.find((r) => r.needs === 'category'))
 </script>
@@ -91,6 +106,11 @@ const readRow = computed(() => rows.value.find((r) => r.needs === 'category'))
         <div class="chips mt"><span v-if="npc.faction" class="tag">{{ factionOf(npc, e.people.look) }}</span></div>
         <div v-if="isHeld" class="mt"><button type="button" class="btn sm pri" data-open-contract @click="ui.open('contract', { npcId, side: 'held' })">契約（你是持約人）</button></div>
         <div class="rel" data-relation>和你的關係：<span>{{ rel?.relation ?? '' }}</span> <Hint>這一句由 AI 提議，沒有時留空；到「關係」可以自己寫。</Hint></div>
+        <div v-if="known" class="calls" data-calls>
+          <label class="cl"><span>你怎麼叫他</span><input v-model="callThem" class="inp" type="text" :maxlength="e.people.callMax" autocomplete="off" data-call-them></label>
+          <label class="cl"><span>他怎麼叫你</span><input v-model="callMe" class="inp" type="text" :maxlength="e.people.callMax" autocomplete="off" data-call-me></label>
+          <ReasonButton sm :reason="callBlock ?? (callSame ? '稱呼沒有改。' : null)" data-call-save @go="saveCalls">存稱呼</ReasonButton>
+        </div>
         <div v-if="known" class="mtr">
           <div class="top"><span>親密度<Hint title="親密度">−100～100，0 是中線。階段：{{ stages.map((s) => `${s.name}（${s.min}）`).join('、') }}。</Hint></span><b data-affinity>{{ affinity }}<small data-stage>{{ stage.name }}</small></b></div>
           <div class="cbar"><b :class="bar.side" :style="bar.side === 'pos' ? { left: '50%', width: bar.pct + '%' } : { right: '50%', width: bar.pct + '%' }" /></div>
@@ -121,6 +141,7 @@ const readRow = computed(() => rows.value.find((r) => r.needs === 'category'))
               <b>{{ e.people.look.item(s.id) }}</b><span class="mono">×{{ s.qty }}</span>
             </div>
             <div v-if="!stack.length" class="empty-note">背包裡沒有東西可以送。</div>
+            <label class="note"><span>附一句話（最多 {{ e.people.giftNoteMax }} 字，不寫也行）</span><textarea v-model="giftNote" rows="2" :maxlength="e.people.giftNoteMax" data-gift-note /></label>
             <div class="go">
               <span v-if="giftRow" class="k"><template v-if="giftRow.dcText">{{ giftRow.dcText }}・</template>{{ giftRow.chanceText }}</span>
               <button type="button" class="btn sm" @click="pane = 'talk'">返回</button>
@@ -128,7 +149,7 @@ const readRow = computed(() => rows.value.find((r) => r.needs === 'category'))
             </div>
           </div>
           <div v-else-if="pane === 'consult'" class="gifts" data-consult>
-            <TeachPanel :npc="npcId" />
+            <TeachPanel :npc="npcId" :tutor="alsoTutor" />
             <div class="go"><button type="button" class="btn sm" @click="pane = 'talk'">返回</button></div>
           </div>
           <div v-else class="gifts" data-read>
@@ -168,6 +189,11 @@ const readRow = computed(() => rows.value.find((r) => r.needs === 'category'))
 .por svg { height: 130px; }
 .nm { font-size: var(--fs-section); }
 .mt { margin-top: 8px; }
+.calls { display: grid; gap: 6px; margin-top: 10px; }
+.cl { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 6px; align-items: center; font-size: var(--fs-sm); color: var(--ink-3); }
+.inp, .note textarea { background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 6px 8px; font: 500 var(--fs-md) var(--font); min-width: 0; width: 100%; box-sizing: border-box; }
+.note { display: grid; gap: 4px; font-size: var(--fs-sm); color: var(--ink-3); }
+.note textarea { resize: vertical; }
 .rel { font-size: var(--fs-sm); color: var(--ink-2); margin-top: 8px; }
 .mtr { margin-top: 12px; }
 .mtr .top { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-sm); color: var(--ink-3); font-weight: 800; }

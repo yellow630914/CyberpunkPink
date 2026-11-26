@@ -6,7 +6,8 @@
       "walk": 0.06,
       "enter_bridge": 0.25,
       "enter_facility": 0.08,
-      "transit_stop": 0.06
+      "transit_stop": 0.06,
+      "auction_done": 0.3
     },
     "cooldown_hours": 2,
     "repeat_days": 3,
@@ -66,7 +67,10 @@
   },
   {
     "id": "contract",
-    "triggers": {},
+    "triggers": {
+      "order": 1,
+      "holder_order": 1
+    },
     "priority": 2,
     "daily_roll": {
       "eden": 0.4,
@@ -110,13 +114,22 @@
   },
   {
     "id": "adult",
-    "triggers": {},
+    "triggers": {
+      "arena_result": 1,
+      "foe_sunk": 0.5,
+      "impulse": 0.3
+    },
     "cooldown_hours": 4,
     "repeat_days": 5
   },
   {
     "id": "rogue_ai",
-    "triggers": {},
+    "triggers": {
+      "login": 0.15,
+      "enter_floor": 0.1,
+      "rest": 0.15,
+      "kiss_choose": 1
+    },
     "cooldown_hours": 24,
     "daily_cap": 1,
     "lost": "defer"

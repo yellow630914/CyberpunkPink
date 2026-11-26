@@ -187,7 +187,7 @@ const ROOM_ACTS: Record<string, { name: string; run: () => void }> = {
 
   netroom: { name: '從家裡潛入', run: () => { if (e.net.view()) void router.push('/subnet'); else ui.openRoot('dive') } },
   studio: { name: '開直播', run: () => ui.openRoot('live') },
-  clinic: { name: '診療', run: () => ui.openRoot('clinic') },
+  clinic: { name: '診療', run: () => { const why = e.body.clinicGate(); if (why) ui.toast(why, 'warn'); else ui.openRoot('clinic') } },
   garage: { name: '機甲整備', run: () => ui.openRoot('mech') },
   storeroom: { name: '翻儲物', run: () => ui.openRoot('bag') },
   playroom: { name: '契約面板', run: () => ui.openRoot('contract') },
@@ -201,7 +201,8 @@ const hereOpts = computed<HereOption[]>(() => {
   const rid = h.map.roomAt(p.x, p.y)
   const room = rid ? h.rooms.find(r => r.id === rid) : null
   const act = room?.use ? ROOM_ACTS[room.use] : null
-  const out: HereOption[] = act ? [{ id: `use-${room!.use}`, name: act.name, run: act.run }] : []
+  // 診療室：開之前先問引擎的 clinicGate（住處裡自己動得了刀才開得了）；開不了就灰掉並寫原因
+  const out: HereOption[] = act ? [{ id: `use-${room!.use}`, name: act.name, ...(room!.use === 'clinic' ? { reason: e.body.clinicGate() } : {}), run: act.run }] : []
   // 臥室也是一個人待著的地方：開一場單人的成人場景（引擎的 features/scene；沒有橋、被篩選擋下時說引擎的原因）
   if (room?.use === 'bedroom') out.push({ id: 'solo', name: '獨處', sub: '一個人待一會（單人的成人場景）', run: () => { void soloAtHome() } })
   if (room?.use === 'workshop') out.push({ id: 'dye', name: '自己染色', sub: '每個顏色一份染料', run: () => ui.openRoot('dye', { where: 'home', place: '家・工作間' }) })

@@ -46,6 +46,21 @@ import netFacilities from './rules/net_facilities.json'
 import netEnemyRules from './rules/net_enemy_rules.json'
 import mazeRules from './rules/maze_rules.json'
 import mazeTables from './rules/maze_tables.json'
+import cyberRules from './rules/cyber_rules.json'
+import craftRules from './rules/craft_rules.json'
+import medicalRules from './rules/medical_rules.json'
+import drugRules from './rules/drug_rules.json'
+import sinkRules from './rules/sink_rules.json'
+import lureRules from './rules/lure_rules.json'
+import malwareRules from './rules/malware_rules.json'
+import tuningRules from './rules/tuning_rules.json'
+import contractRules from './rules/contract_rules.json'
+import nightRules from './rules/night_rules.json'
+import arenaRules from './rules/arena_rules.json'
+import curtainRules from './rules/curtain_rules.json'
+import gearRules from './rules/gear_rules.json'
+import unregRules from './rules/unreg_rules.json'
+import auctionRules from './rules/auction_rules.json'
 import maps from './world/maps.json'
 import factions from './world/factions.json'
 import npcs from './world/npcs.json'
@@ -71,6 +86,10 @@ export const CORE_PACK: ContentPack = {
     // M3 的規則表（dev/work/M3-data-rules.md）：只有數字與種類表；每一張的數字等於那個功能匯出的 DEFAULT_…，全部標暫定（見 PROVISIONAL_M3）
     sync_rule: syncRules, deck_rule: deckRules, netcombat_rule: netcombatRules, netrun_rule: netrunRules, net_region: netRegions, net_facility: netFacilities,
     net_enemy_rule: netEnemyRules, maze_rule: mazeRules, maze_table: mazeTables,
+    // M4 的規則表（dev/work/M4-data-rules.md）：只有數字與種類表，不含內容；每一張的數字等於那個功能匯出的 DEFAULT_…，暫定的格子見 PROVISIONAL_M4
+    cyber_rule: cyberRules, craft_rule: craftRules, medical_rule: medicalRules, drug_rule: drugRules, sink_rule: sinkRules, lure_rule: lureRules,
+    malware_rule: malwareRules, tuning_rule: tuningRules, contract_rule: contractRules, night_rule: nightRules, arena_rule: arenaRules,
+    curtain_rule: curtainRules, gear_rule: gearRules, unreg_rule: unregRules, auction_rule: auctionRules,
   },
 }
 
@@ -168,4 +187,111 @@ export const PROVISIONAL_M3: Record<string, string[]> = {
   commission_rule: ['net_alert', 'net_alert_at', 'net_hostility_step', 'net_hostility_max', 'net_located_hostility', 'net_watchers', 'net_watcher_hostility', 'rating_trace_peak'],
   fixer_rule: ['trace_start', 'net_layers', 'net_branch_skills'],
   battle_status: ['jam_weapon', 'jam_defense', 'jam_tool', 'focused', 'pacified', 'drowsy'],
+}
+
+/** M4 新增與補欄位的規則表的出處（dev/work/M4-data-rules.md）。每一張的數字等於那個功能匯出的 DEFAULT_…；設計書沒逐格寫死的見 PROVISIONAL_M4。 */
+export const SOURCES_M4: Record<string, string> = {
+  cyber_rule: 'CYBERWARE 2.1 節（手術費 ×0.5／×0.3／×0.4、併發症 10%／15%、正規診所沉溺 −10%、休養 0／4 小時／1 天／2 天／4 天、生體 ×3、混裝一半）、7.3 節（換橋 ×2、3 天）、第 5 節（訂閱 3%）；TRADE 3.4 節（拆 ×0.5）；dev/adr/0019 P1～P12、P51',
+  craft_rule: 'CRAFTING 10.1 節（標準 DC I 10～V 22、牌子與接面、超規每件 3、橋 +3）、10.3、10.4 節（換零件、拆解）；TRADE 3.4 節（組裝工錢、同人社團代工）；dev/adr/0019 P16；M4-followups-2 第 4 項',
+  medical_rule: 'DOWNTIME 3.1 節（急救、診所治療每點 8／4／5、每 10 點 1 小時）；COMBAT_SYSTEM 第 6 節（重創）；TRADE 3.4 節；dev/adr/0019 P46',
+  drug_rule: 'ITEMS 4.1 節（成癮與戒斷）；DOWNTIME 3.4、3.5 節（戒斷療程成癮 −40、3 天、600；抑制劑）；CYBERWARE 第 2 節（抑制劑下限 −10、停藥 +15 兩週）；dev/adr/0019 P13、P20',
+  sink_rule: 'CORE_RULES 4.3 節（沉溺分段）；DOWNTIME 3.2、3.3 節（心理治療 −5／1,000／4 小時、斷線靜修 −6／3 天、每週自然下降）；NPCS 8.3 節（藏）；dev/adr/0019 P17～P21',
+  lure_rule: 'EVENTS 4.8 節；LURE_EVENTS 開頭到「一、蠱惑」（權重 3、傾向相合 ×(1＋軸等級 ×0.2)、深 ×1.5）；CORE_RULES 4.3 節；dev/adr/0019 P22～P24',
+  malware_rule: 'CYBERWARE 第 5 節；TRADE 3.4 節（清除 500 × 階段）；DOWNTIME 3.1 節（診所 2 小時）；dev/adr/0019 P25、P26',
+  tuning_rule: 'LEWD_SYSTEM 第 1、4 節（調校、靜室）；dev/adr/0019 P48、P49、P65',
+  contract_rule: 'LEWD_SYSTEM 7.1～7.4、7.6、7.8 節；LIFE 3.4 節；EVENTS 4.5 節（佇列最多 3 條、每種持約人的機率）；DOWNTIME 4.2 節；dev/adr/0019 P27～P30',
+  night_rule: 'LEWD_SYSTEM 第 10 節；NIGHT_LESSONS「共通」的開階表（次數 8／20／40／80 或對象 5／8／12／20 人，換算成門檻）；dev/adr/0019 P31、P32',
+  arena_rule: 'LEWD_SYSTEM 第 6 節（感官擂台）；dev/adr/0019 P62',
+  curtain_rule: 'CYBERSPACE 8.8 節（簾後館：席次、保證金、會費、四幕、場熱、賞箱、落幕）；dev/adr/0018 第六、十三節；dev/adr/0019 P56～P60',
+  gear_rule: 'EQUIPMENT 第 5 節（風格一致四件以上）、第 7 節（超重迴避 −2、換位 +1 行動點）、第 9 節（店家代染每色 C$20、10 分鐘）；ElondiaRPG lewd.json（曝露度）',
+  unreg_rule: 'CRAFTING 2.1、2.2 節（十二種零件、有沒有生體版、用在哪幾種成品）、5.5 節（份量 0.5／1／1.5／2、條數 1／2／2／3、每種零件能帶什麼、I～II 級板材與纖維護甲最多 +1）、11.1 節；CORE_RULES 7.4 節（一格等於）；dev/adr/0019 P66～P75',
+  auction_rule: 'LEWD_SYSTEM 6.2 節（拍賣行「白槌」：底價 50%、佣金 10%、預展、仿品 15%／DC 16）；dev/adr/0019 P76～P84',
+}
+
+/** M4 補在既有規則表上的欄位的出處（接在 SOURCES 同一種類的出處後面看）。 */
+export const SOURCES_M4_SUPPLEMENT: Record<string, string> = {
+  scene_rule: 'M4：多人（cost.move_circle、call、multi_dice_minus、other_circle；LEWD_SYSTEM 3.5 節、P33～P37）、單人（solo、cost.faster、cost.slower；P38～P40）、脫換衣服（cost.dress）、結算（sink、deep_chance、tendency_per_axis、relate_range；CORE_RULES 4.3 節、P43、P44）',
+  ability_rule: 'M4：升基本功與洗點（skill_xp_per_level、skill_free_max、respec_*；SKILLS 1.7 節、CORE_RULES 7.1 節）、向人請教與上課（teach；CORE_RULES 7.3 節）、向 NPC 學工藝（tutor；CRAFTING 11.2 節、P85）',
+  creation_rule: 'M4：義體與裝備點數的算法與可以買的類別（CHARACTER 2.1、5.4 節；P52）：cyber_point_price 500、cyber_install_mult 1.5、gear_point_price 250、gear_grade_max 2、gear_kinds',
+  security_rule: 'M4：掃橋讀義體、沉溺、契約（readers 留空等內容、sink_notice／sink_stop／sink_hostility、sink_see、cyber_fine、cyber_lock_hours、cyber_hostility；EQUIPMENT 6.3 節、NPCS 8.3 節、P21）',
+  net_enemy_rule: 'M4：form_b_chance 0.6（CYBERSPACE 8.7 節「雙形象擲 60%」）',
+  event_scope: 'M4：rogue_ai 的 login 0.15、enter_floor 0.10、rest 0.15（P22）與 kiss_choose；contract 的 order、holder_order；adult 的 arena_result、foe_sunk、impulse；street 的 auction_done（機率都是暫定，見 PROVISIONAL_M4）',
+  battle_status: 'M4：縛的兩種 bind_ap、bind_move（CYBERSPACE 8.8 節〔縛〕、P61）、分心 distracted（〔挑〕下一次命中 −1）、斷藥 pump_jam（ITEMS 11.5 節、M4-core-gaps 第 5 項）',
+  facility_type: 'M4：clinic.grade（含新增的無照診所、黑診所兩種；SITES 16.2 節、TRADE 3.4 節）、tuning、therapy（DOWNTIME 3.3 節）、detox（DOWNTIME 3.5 節）、craft、dye、arena、unreg_desk（SITES 16.1、13.5 節；CRAFTING 11.1 節）',
+}
+
+/**
+ * M4 規則表裡設計書沒有逐格寫死、暫定的格子（平衡在另一個工作階段做）：種類 → { 欄位（點號是裡面一層）: 對到 dev/adr/0019 的哪一個 P 編號（或哪一張工單的回報） }。
+ * 數字都是功能內建的預設（DEFAULT_…）；這裡只列「設計書完全沒寫、或功能自己挑的」。
+ */
+export const PROVISIONAL_M4: Record<string, Record<string, string>> = {
+  cyber_rule: {
+    slots: 'P1', 'surgeons.clinic.sink_pct': 'P4', 'surgeons.unlicensed.complication': 'P5', 'surgeons.black.complication': 'P5', recovery_minutes: 'P6', surgery_minutes: 'P3',
+    self_dc: 'P5', bridge_swap_sink: 'P7', cap_min: 'P8', deck_sink_default: 'P51', pump_doses: 'M4-cyber-battle（暫定 3）', subscription_rate: 'P11', used_malware: 'P12',
+    crack_dc_bonus: 'M4-cyber-lock（暫定）', crack_hostility: 'M4-cyber-lock（暫定）', unlock_bonus: 'M4-cyber-lock（暫定）',
+    repair_fee: 'M4-cyber-lock（暫定）', repair_dc: 'M4-cyber-lock（暫定）', repair_home_level: 'M4-cyber-lock（暫定）', forge_dc_bonus: 'M4-followups-2（暫定）', forge_fee: 'M4-cyber-lock（暫定，成品價的三成）',
+  },
+  craft_rule: {
+    dc: 'P16', brand_step: 'P16', seam_step: 'P16', overspec_step: 'P16', bridge_step: 'P16', reject_sink: 'M4-followups-2 第 4 項（暫定 1）', minutes: 'M4-craft（暫定）', self_home_level: 'M4-craft（暫定）',
+    workshop_bonus: 'M4-craft（暫定）', 'makers.shop.fee_per_grade': 'M4-craft（暫定）', 'makers.doujin.fee_per_grade': 'M4-craft（暫定）', 'makers.doujin.dc_mod': 'M4-followups-2 第 4 項（暫定 −4）',
+    'makers.doujin.quirk_chance': 'M4-craft（暫定）', 'makers.factory.fee_per_grade': 'M4-craft 回報（原廠工錢暫定）', salvage_base: 'M4-craft-salvage（暫定）', salvage_per_skill: 'M4-craft-salvage（暫定）',
+    salvage_max: 'M4-craft-salvage（暫定）', salvage_minutes: 'M4-craft-salvage（暫定）', swap_minutes: 'M4-craft（暫定：一個時段）', swap_shop_ratio: 'M4-craft（暫定：一半）',
+  },
+  medical_rule: {
+    aid: 'M4-medical（暫定）', wound_price: 'P46', wound_recovery_minutes: 'P46', wound_effects: 'P46', recovery_effects: 'P46', treated_minutes: 'M4-medical（暫定：一天）',
+    surgery_minutes: 'M4-medical（暫定）', self_minutes: 'M4-medical（暫定）',
+  },
+  drug_rule: {
+    weekly_decay: 'P13', depend_at: 'M4-drugs（暫定）', depend_days: 'M4-drugs（暫定）', heavy_at: 'M4-drugs（暫定）', heavy_days: 'M4-drugs（暫定）', prebattle_minutes: 'M4-drugs（暫定）',
+    'suppressant.shown': 'P20', 'suppressant.price': 'P20', 'suppressant.rebound_days': 'P20',
+  },
+  sink_rule: {
+    bands: 'P17', over_step: 'P18', decay: 'P19', watchers: 'P17（勢力的清單是內容，留空）', hide_step: 'P21', afterglow_carry: 'M4-sink（暫定）', 'therapy.counsel.per_week': 'M4-sink（暫定）',
+  },
+  lure_rule: {
+    open_sink: 'P24', clue_at: 'P24', kiss_from: 'M4-lure（暫定）', kiss_chance: 'M4-lure（暫定）', service_sink: 'M4-lure（暫定）', weight: 'P23', axis_step: 'P23', deep_mult: 'P23',
+  },
+  malware_rule: {
+    clean_price: 'P25', clean_minutes: 'P25', self_minutes: 'P26', self_fail_sink: 'P26', push_days: 'P25',
+  },
+  tuning_rule: {
+    slots: 'P48', install: 'P48', remove: 'P48', quiet: 'P48', hp_to_load_pct: 'P65',
+  },
+  contract_rule: {
+    kind_weights: 'P27', person_weights: 'P27', deadline_hours: 'P27（暫定）', resist: 'P28', satisfaction: 'P28', docility_every: 'P28', overdue: 'P28（暫定）', income_keep: 'P28（暫定）',
+    debt_monthly: 'P29（暫定）', buyout: 'P29', crossed_out_mult: 'P27（EVENTS 4.5 節：權重減半）', keep_records: 'M4-contract（暫定）', holder: 'M4-contract-holder（暫定）',
+  },
+  night_rule: {
+    insight_per_tier: 'P31', axis_of: 'P31',
+  },
+  arena_rule: {
+    weapon: 'P62', odds: 'P62', fee: 'P62',
+  },
+  curtain_rule: {
+    heat: 'P57', tips: 'M4-curtain-run（暫定）', stub_value: 'M4-curtain-run（暫定）', encore: 'M4-curtain-run（暫定）', clause: 'M4-curtain-run（暫定）', shortcut: 'M4-curtain-run（暫定）',
+    order_stubs: 'M4-curtain-run（暫定）', book: 'P60', fall: 'P59、P60（補演、記帳、母帶）', culture_own: 'P58', region: 'P56', fee_grace_weeks: 'P60', invite_days: 'P56', interview_retry_days: 'P56',
+  },
+  gear_rule: {
+    carry_base: 'M4-gear-m4（暫定）', carry_per_body: 'M4-gear-m4（暫定）', over_move_ap: 'EQUIPMENT 第 7 節', unified_bonus: 'M4-gear-m4（暫定 2）', underwear_visible: 'M4-gear-m4（取自 ElondiaRPG）',
+    naked: 'M4-gear-m4（取自 ElondiaRPG）',
+  },
+  unreg_rule: {
+    options: 'P66', price: 'P68', legal: 'P68', shape: 'P68', 'types.chip.kinds': 'P67', refund: 'P67', sources: 'P69～P73', text: 'P74',
+  },
+  auction_rule: {
+    grades: 'P76', step_pct: 'P78', step_min: 'P78', budget: 'P77', fake: 'P79', preview: 'P77', ref: 'P81', ban_days: 'P81', rounds_max: 'P78', raise_max: 'P78', interest: 'P78', fee_pct: 'P82',
+    min_minutes: 'P80', cred_dirty: 'P82（勢力清單是內容，留空）',
+  },
+  event_scope: {
+    'adult.arena_result': 'M4-data-rules 工單（機率先給 1）', 'adult.foe_sunk': 'M4-data-rules 工單（機率先給 0.5）', 'adult.impulse': 'M4-data-rules 工單（機率先給 0.3）',
+    'street.auction_done': 'M4-data-rules 工單（機率先給 0.3）', 'rogue_ai.kiss_choose': 'P22（直接觸發，機率先給 1）', 'contract.order': 'M4-data-rules 工單（有人發就挑）',
+    'contract.holder_order': 'M4-data-rules 工單（有人發就挑）',
+  },
+  battle_status: { distracted: 'P61（狀態 id 與「下一次命中 −1」照 M4-enemies-m4 回報，id 是這一批挑的）', pump_jam: 'M4-core-gaps 第 5 項（持續兩回合；III 級三回合由效果給）' },
+  net_enemy_rule: { form_b_chance: 'CYBERSPACE 8.7 節暫定 60%' },
+  scene_rule: {
+    solo: 'P38～P40', multi_dice_minus: 'P35', other_circle: 'P35', sink: 'P43', deep_chance: 'P44', tendency_per_axis: 'P44', relate_range: 'M4-scene-close（暫定）',
+  },
+  ability_rule: { skill_xp_per_level: 'M4-abilities-m4（暫定）', skill_free_max: 'M4-abilities-m4（暫定）', respec_price_per_xp: 'M4-abilities-m4（暫定）', respec_minutes: 'M4-abilities-m4（暫定）', teach: 'M4-training（暫定）', tutor: 'P85' },
+  security_rule: { sink_notice: 'P17（暫定）', sink_stop: 'P17（暫定）', sink_hostility: 'P17（暫定）', sink_see: 'P21', cyber_fine: 'M4-security-m4（暫定）', cyber_lock_hours: 'M4-security-m4（暫定）', cyber_hostility: 'M4-security-m4（暫定）' },
 }

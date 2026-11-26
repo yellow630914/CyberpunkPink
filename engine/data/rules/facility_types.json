@@ -29,7 +29,10 @@
     "functions": [
       "buy",
       "sell"
-    ]
+    ],
+    "craft": {
+      "by": "shop"
+    }
   },
   {
     "id": "cyber_shop",
@@ -37,7 +40,10 @@
     "functions": [
       "buy",
       "sell"
-    ]
+    ],
+    "craft": {
+      "by": "shop"
+    }
   },
   {
     "id": "electronics_row",
@@ -54,7 +60,11 @@
     "functions": [
       "buy",
       "sell"
-    ]
+    ],
+    "craft": {
+      "by": "shop"
+    },
+    "dye": true
   },
   {
     "id": "maker_direct",
@@ -69,7 +79,13 @@
     "functions": [
       "buy",
       "sell"
-    ]
+    ],
+    "craft": {
+      "by": "doujin"
+    },
+    "unreg_desk": {
+      "faction": "doujin"
+    }
   },
   {
     "id": "black_market",
@@ -155,6 +171,45 @@
       "rate": 0.6,
       "cost": 50,
       "treated": true
+    },
+    "clinic": {
+      "grade": "clinic"
+    }
+  },
+  {
+    "id": "clinic_unlicensed",
+    "name": "無照診所",
+    "functions": [
+      "heal",
+      "modify",
+      "rest",
+      "sell"
+    ],
+    "sleep": {
+      "rate": 0.6,
+      "cost": 50,
+      "treated": true
+    },
+    "clinic": {
+      "grade": "unlicensed"
+    }
+  },
+  {
+    "id": "clinic_black",
+    "name": "黑診所",
+    "functions": [
+      "heal",
+      "modify",
+      "rest",
+      "sell"
+    ],
+    "sleep": {
+      "rate": 0.6,
+      "cost": 50,
+      "treated": true
+    },
+    "clinic": {
+      "grade": "black"
     }
   },
   {
@@ -162,7 +217,11 @@
     "name": "調校診所",
     "functions": [
       "modify"
-    ]
+    ],
+    "tuning": {
+      "install": true,
+      "quiet_room": true
+    }
   },
   {
     "id": "sanatorium",
@@ -170,7 +229,10 @@
     "functions": [
       "heal",
       "train"
-    ]
+    ],
+    "therapy": {
+      "kind": "counsel"
+    }
   },
   {
     "id": "mission",
@@ -178,14 +240,27 @@
     "functions": [
       "heal",
       "rest"
-    ]
+    ],
+    "therapy": {
+      "kind": "retreat",
+      "favor": {
+        "faction": "bare",
+        "min": 20
+      }
+    }
   },
   {
     "id": "aid_clinic",
     "name": "互助診所",
     "functions": [
       "heal"
-    ]
+    ],
+    "detox": {
+      "favor": {
+        "faction": "honey",
+        "min": 30
+      }
+    }
   },
   {
     "id": "pod_shop",
@@ -278,7 +353,14 @@
   {
     "id": "arena",
     "name": "感官擂台",
-    "functions": []
+    "functions": [],
+    "arena": {
+      "grades": [
+        1,
+        2,
+        3
+      ]
+    }
   },
   {
     "id": "fixer_shop",

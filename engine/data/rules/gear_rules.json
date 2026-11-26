@@ -1,0 +1,17 @@
+[
+  {
+    "id": "default",
+    "carry_base": 6,
+    "carry_per_body": 1,
+    "over_evade": -2,
+    "over_stealth": -2,
+    "over_move_ap": 1,
+    "unified_min": 4,
+    "unified_bonus": 2,
+    "underwear_visible": 2,
+    "naked": 3,
+    "dye_shop_price": 20,
+    "dye_shop_minutes": 10,
+    "dye_self_minutes": 10
+  }
+]

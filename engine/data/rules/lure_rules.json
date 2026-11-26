@@ -1,0 +1,13 @@
+[
+  {
+    "id": "default",
+    "open_sink": 65,
+    "clue_at": 3,
+    "kiss_from": 5,
+    "kiss_chance": 0.2,
+    "service_sink": 65,
+    "weight": 3,
+    "axis_step": 0.2,
+    "deep_mult": 1.5
+  }
+]

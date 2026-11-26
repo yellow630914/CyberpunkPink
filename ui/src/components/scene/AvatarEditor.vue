@@ -31,6 +31,11 @@ const toggle = (id: string): void => {
 }
 const setGender = (g: string | null): void => say(e.deck.avatar.set({ gender: g }), '化身的性別改好了。')
 const saveWhy = computed(() => (name.value.trim() ? e.deck.avatar.block({ save: name.value.trim() }) : '先替這一套取個名字。'))
+/** 外觀描述：玩家寫的字原樣送出，不篩選、不提示（上限是引擎的 AVATAR_TEXT_MAX）；空的是清掉 */
+const textDraft = ref<string | null>(null)
+const textNow = computed(() => textDraft.value ?? av.value?.text ?? '')
+const textWhy = computed(() => (textNow.value === (av.value?.text ?? '') ? '外觀描述沒有改。' : e.deck.avatar.block({ text: textNow.value })))
+const saveText = (): void => { say(e.deck.avatar.set({ text: textNow.value }), '外觀描述存好了。'); textDraft.value = null }
 const save = (): void => { say(e.deck.avatar.set({ save: name.value.trim() }), `存成「${name.value.trim()}」。`); name.value = '' }
 const load = (n: string): void => say(e.deck.avatar.set({ load: n }), `換上「${n}」。`)
 const labelOf = (id: string): string => (hidden.value && INTIMATE_PARTS.includes(id) ? `部位${e.deck.avatar.parts.indexOf(id) + 1}` : PART_NAME[id] ?? id)
@@ -46,6 +51,10 @@ const labelOf = (id: string): string => (hidden.value && INTIMATE_PARTS.includes
     <div class="grp"><span class="k">部位</span>
       <span class="seg"><button v-for="p in e.deck.avatar.parts" :key="p" type="button" :class="{ on: av.parts.includes(p as never), 'is-unavailable': !!toggleWhy(p) }" :title="toggleWhy(p) ?? undefined" :data-avatar-part="p" @click="toggle(p)">{{ labelOf(p) }}</button></span>
     </div>
+    <div class="grp txt"><span class="k">外觀描述</span>
+      <textarea :value="textNow" class="inp ta" rows="2" :maxlength="e.deck.avatar.textMax" :placeholder="`用一段話描述化身的樣子（最多 ${e.deck.avatar.textMax} 字）`" aria-label="化身的外觀描述" data-avatar-text @input="textDraft = ($event.target as HTMLTextAreaElement).value" />
+      <ReasonButton sm :reason="textWhy" data-avatar-text-save @go="saveText">存描述</ReasonButton>
+    </div>
     <div class="grp"><span class="k">存幾套（{{ av.saved.length }}／{{ e.deck.avatar.savesMax }}）</span>
       <span v-for="s in av.saved" :key="s.name" class="sv"><b>{{ s.name }}</b><button type="button" class="btn sm" :data-avatar-load="s.name" @click="load(s.name)">換上</button></span>
       <span class="sv"><input v-model="name" class="inp" maxlength="30" placeholder="這一套的名字" aria-label="這一套化身的名字" data-avatar-name><ReasonButton sm :reason="saveWhy" data-avatar-save @go="save">存起來</ReasonButton></span>
@@ -59,6 +68,7 @@ const labelOf = (id: string): string => (hidden.value && INTIMATE_PARTS.includes
 .seg { display: inline-flex; gap: 3px; flex-wrap: wrap; }
 .seg button { font-size: var(--fs-sm); font-weight: 800; padding: 6px 11px; background: var(--bg-term); color: var(--ink-3); border: 0; cursor: pointer; white-space: nowrap; }
 .seg button.on { background: var(--a); color: #fff; }
+.txt .ta { flex: 1 1 260px; width: auto; resize: vertical; }
 .sv { display: inline-flex; gap: var(--space-2); align-items: center; }
 .inp { background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 6px 8px; font: 600 var(--fs-md) var(--font); width: 160px; max-width: 100%; }
 </style>

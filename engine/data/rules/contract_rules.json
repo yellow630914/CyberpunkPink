@@ -1,0 +1,148 @@
+[
+  {
+    "id": "default",
+    "kind_weights": {
+      "eden": {
+        "errand": 2,
+        "modify": 1,
+        "serve": 2,
+        "work": 5,
+        "report": 4,
+        "lend": 1
+      },
+      "gang": {
+        "errand": 6,
+        "modify": 1,
+        "serve": 1,
+        "work": 2,
+        "report": 1,
+        "lend": 2
+      },
+      "corp": {
+        "errand": 5,
+        "modify": 2,
+        "serve": 1,
+        "work": 2,
+        "report": 4,
+        "lend": 1
+      },
+      "person": {
+        "errand": 4,
+        "modify": 2,
+        "serve": 3,
+        "work": 3,
+        "report": 3,
+        "lend": 2
+      }
+    },
+    "person_weights": {
+      "formal": {
+        "errand": 4,
+        "modify": 2,
+        "serve": 3,
+        "work": 3,
+        "report": 3,
+        "lend": 2
+      },
+      "partner": {
+        "errand": 2,
+        "modify": 1,
+        "serve": 1,
+        "work": 2,
+        "report": 2,
+        "lend": 1
+      },
+      "play": {
+        "errand": 2,
+        "modify": 2,
+        "serve": 5,
+        "work": 1,
+        "report": 2,
+        "lend": 2
+      },
+      "intense": {
+        "errand": 2,
+        "modify": 3,
+        "serve": 5,
+        "work": 1,
+        "report": 2,
+        "lend": 2
+      },
+      "lover": {
+        "errand": 2,
+        "modify": 1,
+        "serve": 4,
+        "work": 2,
+        "report": 3,
+        "lend": 0
+      }
+    },
+    "deadline_hours": {
+      "errand": [
+        24,
+        72
+      ],
+      "modify": 48,
+      "serve": [
+        4,
+        12
+      ],
+      "work": "segment",
+      "report": "day_end",
+      "lend": 24
+    },
+    "resist": {
+      "base": 12,
+      "manage": 4,
+      "docility_div": 10,
+      "sink": {
+        "60": 2,
+        "80": 4
+      },
+      "relation": -4
+    },
+    "satisfaction": {
+      "start": 50,
+      "comply": 5,
+      "asked": 8,
+      "resist": -5,
+      "overdue": -10,
+      "expire": -5,
+      "rule": -5
+    },
+    "docility_every": 3,
+    "overdue": {
+      "lock": {
+        "weight": 1,
+        "hours": 24
+      },
+      "load": {
+        "weight": 1,
+        "share": 0.5
+      },
+      "expose": {
+        "weight": 1,
+        "hostility": 10
+      }
+    },
+    "income_keep": 0.1,
+    "debt_monthly": 0.02,
+    "buyout": {
+      "mult": 1.5,
+      "talk_at": 80,
+      "talk_dc": 16,
+      "talk_mult": 1.2
+    },
+    "crossed_out_mult": 0.5,
+    "keep_records": 10,
+    "holder": {
+      "resist_below": 20,
+      "refuse_affinity": -2,
+      "refuse_loyalty": -5,
+      "relation_min": 60,
+      "relation_revert": 40,
+      "ntr_affinity": 60,
+      "default_split": 0.1
+    }
+  }
+]

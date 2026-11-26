@@ -1,0 +1,17 @@
+[
+  {
+    "id": "default",
+    "weapon": {
+      "class": "neural_melee",
+      "dice": 3,
+      "type": "neural"
+    },
+    "odds": {
+      "base": 1,
+      "per_cap_diff": 0.02,
+      "min": 0.5,
+      "max": 3
+    },
+    "fee": 0
+  }
+]

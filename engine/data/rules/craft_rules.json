@@ -1,0 +1,78 @@
+[
+  {
+    "id": "default",
+    "dc": [
+      10,
+      13,
+      16,
+      19,
+      22
+    ],
+    "brand_step": 1,
+    "seam_step": 1,
+    "overspec_step": 3,
+    "bridge_step": 3,
+    "reject_sink": 1,
+    "minutes": 240,
+    "self_home_level": 2,
+    "workshop_bonus": 2,
+    "attr": "tech",
+    "skills": {
+      "cyberware": "cyberware",
+      "mech": "mechanics",
+      "bio": "medicine"
+    },
+    "makers": {
+      "self": {
+        "fee_per_grade": 0,
+        "check": true,
+        "overspec": true,
+        "registers": false,
+        "full_set_only": false,
+        "fine": false,
+        "quirk_chance": 0,
+        "needs_known": true,
+        "dc_mod": 0
+      },
+      "shop": {
+        "fee_per_grade": 100,
+        "check": false,
+        "overspec": false,
+        "registers": true,
+        "full_set_only": false,
+        "fine": false,
+        "quirk_chance": 0,
+        "needs_known": false,
+        "dc_mod": 0
+      },
+      "doujin": {
+        "fee_per_grade": 60,
+        "check": true,
+        "overspec": true,
+        "registers": false,
+        "full_set_only": false,
+        "fine": false,
+        "quirk_chance": 0.25,
+        "needs_known": true,
+        "dc_mod": -4
+      },
+      "factory": {
+        "fee_per_grade": 150,
+        "check": false,
+        "overspec": false,
+        "registers": true,
+        "full_set_only": true,
+        "fine": true,
+        "quirk_chance": 0,
+        "needs_known": false,
+        "dc_mod": 0
+      }
+    },
+    "salvage_base": 0.7,
+    "salvage_per_skill": 0.05,
+    "salvage_max": 0.95,
+    "salvage_minutes": 60,
+    "swap_minutes": 60,
+    "swap_shop_ratio": 0.5
+  }
+]

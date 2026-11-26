@@ -114,3 +114,14 @@ npm run preview   # 在本機看建置結果
 - **內海分頁**：潛入中整頁鎖只套甲板、構裝、腳本；SKIN 用引擎 `deckView().skins[].block`（`skinBlock`）。
 - **說明文字**：不再寫死「1 分鐘」「甲板等級 ＋1」「七天內」「不限」這些會被資料蓋掉的數字；追蹤度三道刻度的說明照 NETRUNNING 第 5 節，內海戰鬥與子網頁同一份。副本頁讀檔後沒有「這一段拿到的東西」的記錄時只寫追蹤度，不寫「沒有帶東西出來」。
 - 測試：`tests/commission/M3-fix-ui.test.ts`（新）；`netFixtures.ts` 是委託內海面測試共用的假資料與開局。沒有 DOM 環境，「點」是呼叫 `useBattle` 與 lib 的流程函式。
+
+## M4 介面待辦（「二十之二」乙欄，2026-11-25）
+
+- **人物詳情**（`TalkDialog`）：認識之後左欄多「你怎麼叫他／他怎麼叫你」兩格（引擎的 `callNamesDraft`，上限 `CALL_MAX`）；送禮多「附一句話」（`note`，上限 `GIFT_NOTE_MAX`）；化身分頁（`scene/AvatarEditor`）多外觀描述（`avatar.text`，上限 `AVATAR_TEXT_MAX`）。玩家寫的字原樣送出，不篩選、不提示。
+- **請教**：拿掉 `peopleView.UNOPENED_ACTIONS` 灰掉的「請教」，`npc_consult` 的 handoff 打開 `TeachPanel`；handoff 帶 `also: ['abilities.tutorOptions']` 時同一頁多列向 NPC 學工藝的課（`training.tutorOptions`／`tutorLesson`）。
+- **診所與修理構裝**：主畫面與家園開診所之前先問 `body.clinicGate()`（開不了就灰掉並寫原因）；站在有 `repair_construct` 的設施上，引擎在格子上列「修理構裝」，打開新的 `RepairDialog`（`repair.rows`／`block`／`fix`，只收現金）。
+- **背包**：藥的詳情多「使用」（`drugView.usable`、`useDraft`）。
+- **成人場景**：行動列列出 `once`、`dress`（`once` 的選項 id 由 `lib/scene/sceneView.ts` 的 `onceInput` 拆成輸入），並列出 `SceneOptions.inserted`（視窗插進來的選項）。
+- **組裝的動手人**：組裝、換零件、拆解、解剖多「動手的人」（`craft/CrewPicker`，主角與隊友，送引擎的 `by`）。
+- **讀引擎**：沒有橋的說明改讀 `NO_BRIDGE_NOTE`；藥泵圖示 `pump` 進 `data/combatIcons.ts`。
+- 測試：`tests/followups/M4-ui-followups.test.ts`。

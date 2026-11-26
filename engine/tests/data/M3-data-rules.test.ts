@@ -88,8 +88,9 @@ describe('M3-data-rules：戰場與狀態（和核心的預設逐欄相同）', 
 
   it('舊的狀態沒動，新的九個以外沒有多的', () => {
     const ids = (statuses as Array<{ id: string }>).map((s) => s.id)
-    expect(ids.slice(-7)).toEqual(['flash', 'jam_weapon', 'jam_defense', 'jam_tool', 'focused', 'pacified', 'drowsy'])
-    expect(ids).toHaveLength(29)
+    // 後面 4 個是 M4-data-rules 加的（bind_ap、bind_move、distracted、pump_jam）
+    expect(ids.slice(-11, -4)).toEqual(['flash', 'jam_weapon', 'jam_defense', 'jam_tool', 'focused', 'pacified', 'drowsy'])
+    expect(ids).toHaveLength(29 + 4)
   })
 
   it('event_scope：net 加登入與登出各 0.1（EVENTS 3.3），原本的 enter_floor 0.2、open 0.1 不動', () => {

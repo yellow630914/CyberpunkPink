@@ -299,5 +299,42 @@
     "once": true,
     "until": "battle_end",
     "kind": "debuff"
+  },
+  {
+    "id": "bind_ap",
+    "name": "束縛（行動點）",
+    "desc": "被綁住了：每回合回復的行動點 −1，直到綁他的敵人退出戰鬥，或隊友花 1 點行動點替他解開。",
+    "mods": {
+      "ap_regen": -1
+    },
+    "until": "battle_end",
+    "kind": "debuff"
+  },
+  {
+    "id": "bind_move",
+    "name": "束縛（不能換位）",
+    "desc": "被綁住了：不能換位，直到綁他的敵人退出戰鬥，或隊友花 1 點行動點替他解開。",
+    "no_move": true,
+    "until": "battle_end",
+    "kind": "debuff"
+  },
+  {
+    "id": "distracted",
+    "name": "分心",
+    "desc": "被挑逗得恍神：他的下一次攻擊命中 −1，打完那一次就恢復。",
+    "mods": {
+      "hit": -1
+    },
+    "until": "next_attack",
+    "turns": 1,
+    "kind": "debuff"
+  },
+  {
+    "id": "pump_jam",
+    "name": "斷藥",
+    "desc": "藥泵與冷卻迴路停擺：這段時間排不掉感載，除錯與回復都沒有效果，藥泵與冷卻迴路不能用，這一場吃的藥的效果也暫停。",
+    "until": "own_turn_end",
+    "turns": 2,
+    "kind": "debuff"
   }
 ]

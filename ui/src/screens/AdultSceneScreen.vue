@@ -67,7 +67,7 @@ const target = ref<string | null>(null)
 const opts = computed(() => e.scene.options(target.value))
 watch(() => v.value?.id, () => { target.value = null })
 watch(() => others.value.map((x) => x.id + x.out).join(), () => { if (target.value && !others.value.some((x) => x.id === target.value && !x.out)) target.value = null })
-const TARGETED = new Set(['dominate', 'yield', 'tease', 'skill', 'item', 'talk'])
+const TARGETED = new Set(['dominate', 'yield', 'tease', 'skill', 'item', 'talk', 'once'])
 const withTarget = (input: SceneInput): SceneInput => (target.value && TARGETED.has(input.kind) ? ({ ...input, target: target.value } as SceneInput) : input)
 /** 指定對象之後選中的行動的預覽與原因：引擎 sceneView(selected) 的 selected */
 const focus = computed(() => {

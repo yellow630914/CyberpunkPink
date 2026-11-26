@@ -1,5 +1,5 @@
 import type { Report } from '@engine/src'
-import type { ActionOption, ChoiceOption, PartView, PersonView, Preview, PreviewLoad, ScenePair, ScenePick, SceneView } from '@engine/src/features/scene'
+import type { ActionOption, ChoiceOption, PartView, PersonView, Preview, PreviewLoad, SceneInput, ScenePair, ScenePick, SceneView } from '@engine/src/features/scene'
 import { END_NAME } from '@engine/src/features/scene'
 
 /**
@@ -189,4 +189,13 @@ export const DIRECTION_LIMIT = 200
 export const directionCount = (text: string): { used: number; left: number } => {
   const used = Array.from(text).length
   return { used, left: DIRECTION_LIMIT - used }
+}
+
+/**
+ * 夜課的功夫（行動 once）選項的 id 換成送出去的輸入：引擎列的選項 id 是 `fit_floor`，或 `set_init:<數字>`（SceneOptions.actions 裡 once 的 choices）。
+ * 只是把引擎給的字串拆開；能不能用、花幾點、原因都是引擎寫在那個選項上的。
+ */
+export function onceInput(choiceId: string): SceneInput {
+  const [id, value] = choiceId.split(':')
+  return (value !== undefined ? { kind: 'once', id, value: Number(value) } : { kind: 'once', id }) as SceneInput
 }

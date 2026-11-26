@@ -26,7 +26,7 @@ import { abandonRepOf, accept as fixerAccept, activeJobs, board as fixerBoard, b
 import type { AuxFace, BoardView, FixerEntry, HireInput, HireOption, IntelWith, Job, Offer, PayKind, ScoutView, Split } from '@engine/src/features/fixer'
 import { muster as rosterMuster, musterBlocks, rosterRules, rosterView, recruitBlock as rosterRecruitBlock, recruitDc, recruitInput, readRoster, leave as rosterLeave, isRunner as rosterIsRunner } from '@engine/src/features/roster'
 import type { Candidate as RosterCandidate } from '@engine/src/features/roster'
-import { affinityStage, editMemory, forgetMemory, interactInput, interactions, memoriesOf, meetNpc, newsOf, npcOf, npcsHere, readNpcs, recall, relationOf, successChance, watchNpc } from '@engine/src/features/npcs'
+import { CALL_MAX, GIFT_NOTE_MAX, callNamesBlock, callNamesDraft, callNamesOf, affinityStage, editMemory, forgetMemory, interactInput, interactions, memoriesOf, meetNpc, newsOf, npcOf, npcsHere, readNpcs, recall, relationOf, successChance, watchNpc } from '@engine/src/features/npcs'
 import type { InteractExtra, InteractKind, InteractionView, Memory, MemoryPatch, NewsItem, Npc, Relation, StageView } from '@engine/src/features/npcs'
 import { call as favorCall, favorsOf, spend as favorSpend, spendBlock as favorSpendBlock } from '@engine/src/features/favors'
 import type { FavorsState } from '@engine/src/features/favors'
@@ -38,11 +38,12 @@ import { diceOf as sceneDiceOf } from '@engine/src/features/scene/play'
 import { learnBlock as nightLearnBlock, learnDraft as nightLearnDraft, nightList, nightRules } from '@engine/src/features/nightclass'
 import type { NightListView } from '@engine/src/features/nightclass'
 import { AXIS_NAME, axisLevel, experienceOf as nightExperience } from '@engine/src/features/nightclass/model'
-import { AVATAR_GENDERS, AVATAR_PARTS, AVATAR_SAVES_MAX, avatarBlock, avatarDraft, avatarOf } from '@engine/src/features/deck'
+import { AVATAR_GENDERS, AVATAR_PARTS, AVATAR_SAVES_MAX, AVATAR_TEXT_MAX, avatarBlock, avatarDraft, avatarOf } from '@engine/src/features/deck'
 import type { Avatar, AvatarOpts } from '@engine/src/features/deck'
 import type { SceneResult } from '@engine/src'
 import { setupFromEncounter } from '@engine/src/features/enemies'
-import { netBattleView } from '@engine/src/features/netcombat'
+import { netBattleView, repairBlock as netRepairBlock, repairDraft as netRepairDraft, repairHere as netRepairHere, repairRows as netRepairRows } from '@engine/src/features/netcombat'
+import type { RepairRow as NetRepairRow } from '@engine/src/features/netcombat'
 import { deckOf, deckView, equipDraft as deckEquipDraft, installDraft as deckInstallDraft, removeDraft as deckRemoveDraft, scriptsBlock as deckScriptsBlock, scriptsDraft as deckScriptsDraft, skinDraft as deckSkinDraft, deckExtOf } from '@engine/src/features/deck'
 import type { ConstructEntry, DeckView, ScriptEntry } from '@engine/src/features/deck'
 import type { NetBattleView } from '@engine/src/features/netcombat'
@@ -77,8 +78,8 @@ import * as contractFx from '@engine/src/features/contract'
 import * as malwareFx from '@engine/src/features/malware'
 import * as tuningFx from '@engine/src/features/tuning'
 import * as lureFx from '@engine/src/features/lure'
-import { lessonBlock as trainBlock, lessonDraft as trainDraft, teachOptions as trainOptions } from '@engine/src/features/abilities'
-import type { LessonOpts as TrainOpts, TeachOption } from '@engine/src/features/abilities'
+import { lessonBlock as trainBlock, lessonDraft as trainDraft, teachOptions as trainOptions, tutorBlock as tutorBlockFx, tutorDraft as tutorDraftFx, tutorOptions as tutorOptionsFx } from '@engine/src/features/abilities'
+import type { LessonOpts as TrainOpts, TeachOption, TutorOpts, TutorOption } from '@engine/src/features/abilities'
 import { BRIDGE_PARAMS, PARAM_NAME, bridgeOf as lewdBridgeOf } from '@engine/src/features/lewd'
 import { paramStatId } from '@engine/src/features/lewd/model'
 import { PASSIVE_SOURCE_NAMES } from '@engine/src'
@@ -91,6 +92,7 @@ import type { CreationBlock, CreationDraft } from '@engine/src/features/creation
 import { MAX_KINKS, TABLE_NAME, abilitiesStepBlock, ageBlock, askStep, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, creationSummary, cyberStepBlock, gearStepBlock, kinkChoices, lifepathProblems, lifepathResults, lifepathRoll, lifepathTables, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
 import type { BodyStep, LifepathTable } from '@engine/src/features/creation'
 import { NO_BRIDGE_ABILITY } from '@engine/src/features/abilities/creation'
+import { NO_BRIDGE_NOTE } from '@engine/src/features/cyberware/creation'
 import { treeTierOf } from '@engine/src/features/abilities/learn'
 import { debriefOf } from '../lib/scene/sceneView'
 import type { Debrief } from '../lib/scene/sceneView'
@@ -820,6 +822,13 @@ export const useEngine = defineStore('engine', () => {
     /** 會做的設計圖（照學會的順序） */
     known: () => { void state.value; return craftFx.knownBlueprints(game.k, game.state) },
     /** 這裡有誰可以做（自己動手一直列；站的設施帶 craft 的多一種）；每一種帶現在選它不行的原因 */
+    /** 動手的人：主角在前，加上隊上的隊友（引擎的 by 收這幾個人） */
+    crew: (): Array<{ id: string; name: string; me: boolean }> => {
+      void state.value
+      const s = game.state
+      const ids = [...new Set([...(s.pc ? [s.pc] : []), ...s.party])]
+      return ids.flatMap((id) => (s.actors[id] ? [{ id, name: s.actors[id]!.name, me: id === s.pc }] : []))
+    },
     makers: (by?: string): craftFx.MakerOption[] => { void state.value; return craftFx.makers(game.k, game.state, by) },
     /** 站的設施帶 craft 的話：是哪一種、叫什麼（沒有是 null） */
     here: () => { void state.value; return craftFx.craftHere(game.k, game.state) },
@@ -858,8 +867,8 @@ export const useEngine = defineStore('engine', () => {
     learnBlock: (o: craftFx.LearnOpts): string | null => { void state.value; return craftFx.learnBlock(game.k, game.state, o) },
     learn: (o: craftFx.LearnOpts): Done => commitDone(() => craftFx.learnDraft(game.k, game.state, o)),
     /** 戰後可以解剖的對象（一小時內、一場一次）；沒有是空的 */
-    dissectOptions: (): DissectOption[] => { void state.value; return dissectOptions(game.k, game.state) },
-    dissect: (target: string): Done => commitDone(() => dissectDraft(game.k, game.state, { target })),
+    dissectOptions: (by?: string): DissectOption[] => { void state.value; return dissectOptions(game.k, game.state, by) },
+    dissect: (target: string, by?: string): Done => commitDone(() => dissectDraft(game.k, game.state, { target, ...(by ? { by } : {}) })),
   }
   const dye = {
     /** 這一件現在的顏色（染過的，或設計圖的預設；都沒有是空的） */
@@ -1363,6 +1372,14 @@ export const useEngine = defineStore('engine', () => {
         return Promise.resolve({ status: 'refused', reason: reasonOf(e) ?? '現在做不了。' })
       }
     },
+    /** 稱呼（NPC_SYSTEM 7.0）：你怎麼叫他、他怎麼叫你；沒填的是空字串。字數上限、能不能改與原因是引擎的 */
+    callNames: (id: string): { call_them: string; call_me: string } => { void state.value; const c = callNamesOf(game.state, id); return { call_them: c.call_them ?? '', call_me: c.call_me ?? '' } },
+    callMax: CALL_MAX,
+    callNamesBlock: (id: string, names: { call_them: string; call_me: string }): string | null => { void state.value; return callNamesBlock(game.state, id, names) },
+    /** 改稱呼：玩家寫的字原樣送出（空字串是清掉） */
+    setCallNames: (id: string, names: { call_them: string; call_me: string }) => commitDrafts(() => callNamesDraft(game.k, game.state, id, names), '改稱呼'),
+    /** 送禮附的一句話字數上限（引擎的 GIFT_NOTE_MAX） */
+    giftNoteMax: GIFT_NOTE_MAX,
     /** 還不認識的人在這裡：先認識他（引擎的 meetNpc） */
     meet: (id: string) => commitDrafts(() => meetNpc(game.k, game.state, id), '認識'),
     watch: (id: string, on: boolean) => commitDrafts(() => watchNpc(game.k, game.state, id, on), on ? '關注' : '取消關注'),
@@ -1493,6 +1510,8 @@ export const useEngine = defineStore('engine', () => {
       /** 可以開的部位的 id、五個性別值、最多存幾套（引擎的常數；名字是畫面的） */
       parts: AVATAR_PARTS as readonly string[],
       genders: AVATAR_GENDERS as readonly string[],
+      /** 外觀描述的字數上限（引擎的 AVATAR_TEXT_MAX） */
+      textMax: AVATAR_TEXT_MAX,
       savesMax: AVATAR_SAVES_MAX,
       /** 這樣改現在行不行：不行是引擎的原因，行是 null */
       block: (o: AvatarOpts): string | null => { void state.value; return game.state.pc === null ? '還沒有主角。' : avatarBlock(game.k, game.state, game.state.pc, o) },
@@ -1612,6 +1631,8 @@ export const useEngine = defineStore('engine', () => {
         parts: info.parts.map(({ type, part }) => ({ type, typeName: partTypeName(type), name: part.name, grade: part.grade, material: part.material, state: part.state })),
       }
     }, null),
+    /** 沒有橋的說明（引擎的 NO_BRIDGE_NOTE：沒感載、沒技能、不能潛入、不能再選接在橋上的義體） */
+    noBridgeNote: NO_BRIDGE_NOTE,
     /** 現在站的診所（沒有是 null） */
     clinic: (): { type: string; name: string; grade: 'clinic' | 'unlicensed' | 'black' } | null => { void state.value; return cyberware.clinicHere(game.k, game.state) },
     /** 這個人現在可以請誰動刀（引擎的 surgeons；站在診所是那一種診所，加上條件夠的話自己動刀） */
@@ -1771,7 +1792,23 @@ export const useEngine = defineStore('engine', () => {
     options: (o: { npc?: string; facility?: string } = {}): TeachOption[] => ask(() => trainOptions(game.k, game.state, o), []),
     block: (o: TrainOpts): string | null => ask(() => trainBlock(game.k, game.state, o), '現在上不了課。'),
     lesson: (o: TrainOpts): string | null => commitMade(() => trainDraft(game.k, game.state, o)),
+    /** 向 NPC 學工藝（M4-craft-teach；基本功 0～2 級）：互動選單「請教」的 handoff 帶 also 時兩邊都列。學費、時段、擋住的原因全是引擎的 */
+    tutorOptions: (npc: string): TutorOption[] => ask(() => tutorOptionsFx(game.k, game.state, { npc }), []),
+    tutorBlock: (o: TutorOpts): string | null => ask(() => tutorBlockFx(game.k, game.state, o), '現在上不了課。'),
+    tutorLesson: (o: TutorOpts): string | null => commitMade(() => tutorDraftFx(game.k, game.state, o)),
     skillName: (id: string): string => game.k.content.get<{ id: string; name?: string }>('skill', id)?.name ?? id,
+  }
+
+  // ---- 修理構裝（M4-ui-followups；features/netcombat 的 repairRows／repairBlock／repairDraft）：站在有 repair_construct 的設施上才列；價錢與原因全是引擎的 ----
+  const repair = {
+    /** 現在站的設施提供修理構裝嗎（設施種類的名字；不是 null） */
+    here: (): string | null => ask(() => netRepairHere(game.k, game.state), null),
+    /** 身上要修的構裝，一件一列（id、名字、價錢）；沒有帶重創的是空的 */
+    rows: (): NetRepairRow[] => ask(() => (game.state.pc === null ? [] : netRepairRows(game.k, game.state, game.state.pc)), []),
+    /** 修某一件（沒給是全修）現在行不行：不行是引擎的原因 */
+    block: (id?: string): string | null => ask(() => (game.state.pc === null ? NO_BODY : netRepairBlock(game.k, game.state, game.state.pc, id)), NO_BODY),
+    /** 付錢修；被擋下回傳引擎的原因，修好是 null */
+    fix: (id?: string): string | null => commitMade(() => netRepairDraft(game.k, game.state, game.state.pc ?? '', id)),
   }
 
   // ---- 簾後館（M4-ui-curtain）：全部轉接 features/curtain 與 enemies 的 unitFormView；入會、費用、場熱、打賞、三條路的數字與能不能做都是引擎的 ----
@@ -1846,5 +1883,5 @@ export const useEngine = defineStore('engine', () => {
     }),
   }
 
-  return { state, feed, curtain, body, contract, malware, tuning, lure, training, craft, dye, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, night, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  return { state, feed, curtain, repair, body, contract, malware, tuning, lure, training, craft, dye, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, night, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

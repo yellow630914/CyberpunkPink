@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { ActionOption, ChoiceOption, Preview, SceneInput, SceneOptions } from '@engine/src/features/scene'
-import { previewLines, reasonText } from '../../lib/scene/sceneView'
+import { onceInput, previewLines, reasonText } from '../../lib/scene/sceneView'
 import Hint from '../Hint.vue'
 import { useUi } from '../../stores/ui'
 
@@ -21,10 +21,10 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ (e: 'choose', input: SceneInput): void; (e: 'select', id: string): void; (e: 'end-turn'): void; (e: 'target', id: string | null): void }>()
 const ui = useUi()
-const open = ref<'' | 'skill' | 'item' | 'switch' | 'talk' | 'move_circle' | 'call'>('')
+const open = ref<'' | 'skill' | 'item' | 'switch' | 'talk' | 'move_circle' | 'call' | 'once'>('')
 const talkText = ref('')
 
-const GROUPS = ['skill', 'item', 'switch', 'move_circle', 'call'] as const
+const GROUPS = ['skill', 'item', 'switch', 'move_circle', 'call', 'once'] as const
 const isGroup = (id: string): id is (typeof GROUPS)[number] => (GROUPS as readonly string[]).includes(id)
 /** 換檔在畫面上方的「同步」按鈕，行動列不重複放 */
 const shown = computed(() => props.opts.actions.filter((a) => a.id !== 'gear'))
@@ -44,7 +44,13 @@ function pickChoice(a: ActionOption, c: ChoiceOption): void {
   if (props.playing) return
   if (c.blocks.length > 0) { why(c.blocks); return }
   open.value = ''
-  emit('choose', a.id === 'switch' ? { kind: 'switch', position: c.id } : a.id === 'move_circle' ? { kind: 'move_circle', circle: c.id } : a.id === 'call' ? { kind: 'call', who: c.id } : ({ kind: a.id, id: c.id } as SceneInput))
+  emit('choose', a.id === 'once' ? onceInput(c.id) : a.id === 'switch' ? { kind: 'switch', position: c.id } : a.id === 'move_circle' ? { kind: 'move_circle', circle: c.id } : a.id === 'call' ? { kind: 'call', who: c.id } : ({ kind: a.id, id: c.id } as SceneInput))
+}
+function pressInserted(o: SceneOptions['inserted'][number]): void {
+  if (props.playing) return
+  if (o.blocks.length > 0) { why(o.blocks); return }
+  open.value = ''
+  emit('choose', o.input)
 }
 function say(): void {
   if (props.playing) return
@@ -87,6 +93,13 @@ const choiceLines = (c: ChoiceOption): string => previewLines(c.preview, props.t
         :title="a.blocks.length ? reasonText(a.blocks) : undefined" :data-act="a.id" @click="press(a)"
       ><span class="kn mono">{{ i + 1 }}</span>{{ a.name }}<small>{{ a.id === 'stop' ? '' : a.ap > 0 || !isGroup(a.id) ? `${a.ap} 點` : '▾' }}</small></button>
     </div>
+<div v-if="opts.inserted.length" class="ins" data-inserted>
+      <span class="k">這一步多出來的選項<Hint>別的功能（例如妖精的吻）在這個時候插進來的選項。每一項的行動點與做不到的原因是引擎的。</Hint></span>
+      <button
+        v-for="o in opts.inserted" :key="o.id" type="button" class="opt" :class="{ 'is-unavailable': o.blocks.length > 0 || playing }"
+        :title="o.blocks.length ? reasonText(o.blocks) : undefined" :data-inserted-id="o.id" @click="pressInserted(o)"
+      ><b>{{ o.name }}</b><small>{{ o.ap }} 點<template v-if="o.blocks.length">・{{ reasonText(o.blocks) }}</template></small></button>
+    </div>
     <div v-if="group" class="pop" :data-pop="group.id">
       <button
         v-for="c in group.choices" :key="c.id" type="button" class="opt" :class="{ 'is-unavailable': c.blocks.length > 0 }"
@@ -116,6 +129,7 @@ const choiceLines = (c: ChoiceOption): string => previewLines(c.preview, props.t
 .ab small { font: 700 var(--fs-fine) var(--mono); color: var(--ink-3); min-height: 1em; }
 .ab.on { box-shadow: inset 0 0 0 2px var(--ink-2); }
 .ab .kn { position: absolute; left: 6px; top: 4px; font-size: var(--fs-tiny); color: var(--ink-3); }
+.ins { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
 .tg { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .pop { display: flex; flex-wrap: wrap; gap: var(--space-3); }
 .opt { display: grid; text-align: left; padding: 6px 10px; background: var(--bg-2); border: 0; cursor: pointer; color: var(--ink); max-width: 100%; }

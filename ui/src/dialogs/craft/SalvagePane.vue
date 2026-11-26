@@ -4,6 +4,7 @@ import Hint from '../../components/Hint.vue'
 import ReasonButton from '../../components/ReasonButton.vue'
 import ProductList from './ProductList.vue'
 import ResultNote from './ResultNote.vue'
+import CrewPicker from './CrewPicker.vue'
 import { partTypeName } from '@engine/src'
 import { useEngine } from '../../stores/engine'
 import { useUi } from '../../stores/ui'
@@ -18,11 +19,13 @@ const eng = useEngine()
 const ui = useUi()
 const uid = ref(props.uid ?? (eng.craft.products()[0]?.data?.uid as string | undefined) ?? '')
 watch(() => eng.craft.products().map((s) => s.data?.uid), (u) => { if (!u.includes(uid.value)) uid.value = (u[0] as string | undefined) ?? '' })
-const preview = computed(() => (uid.value ? eng.craft.salvagePreview({ uid: uid.value }) : null))
+const byId = ref('')
+const byArg = computed(() => (byId.value ? { by: byId.value } : {}))
+const preview = computed(() => (uid.value ? eng.craft.salvagePreview({ uid: uid.value, ...byArg.value }) : null))
 const done = ref<{ result: string; lines: string[] } | null>(null)
 watch(uid, () => { done.value = null })
 function salvage() {
-  const r = eng.craft.salvage({ uid: uid.value })
+  const r = eng.craft.salvage({ uid: uid.value, ...byArg.value })
   if (r.why) { ui.toast(r.why, 'warn'); return }
   done.value = { result: r.result, lines: r.lines }
 }
@@ -32,7 +35,7 @@ const FATE: Record<string, string> = { bio: '生體的零件，拆了就死', lo
 <template>
   <div class="slv">
     <div class="cr">
-      <aside class="panel cut pad"><p class="h">成品</p><ProductList v-model="uid" /></aside>
+      <aside class="panel cut pad"><p class="h">成品</p><CrewPicker v-model="byId" /><ProductList v-model="uid" /></aside>
       <section class="panel cut pad" data-salvage-preview>
         <template v-if="preview && preview.blueprint">
           <p class="h">拆{{ preview.blueprint.name }}<Hint title="拆解">每個零件各擲一次：完好的回背包（二手），沒過的報廢。機率是動手的人那一項基本功決定的。有授權鎖的要先解鎖，穿戴中的要先脫下來。</Hint></p>

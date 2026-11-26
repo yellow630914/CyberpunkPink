@@ -11,3 +11,6 @@
 - （M4-followups-2）斷線靜修改成進行中的活動，期間關橋、禁止潛入（等使用者同意）。
 - （M4-craft-teach）條件登錄表給條件一個說明句欄位，擋住的原因能寫成自然的句子（例：牆語者要你在回聲的好感 20 以上）。
 - （M4-core-part-ai）trade 的 `productSellBase` 走 `fittedPrice`（帶二手零件的成品照實際狀態算）；cyberware 的 `modify.ts` 小手術換零件同步 `part_states`（`setPartState`）。
+- （M4-ui-followups）引擎匯出：`statName`／`MOD_NAMES`（ui 拿掉 bodyView、craftView 的對照表）；gear 的 `coveredSlots`；features/index 匯出 `NO_BRIDGE_NOTE`、`NO_BRIDGE_ABILITY`；`ChoiceOption` 加 `input`（ui 拿掉 `onceInput` 拆字串）；`dyeDraft` 收 SKIN（ui 拿掉 `where: 'net'` 分支與 `data/items.ts`）；`cyber_pump` 圖示改 `pump`。
+- （M4-ui-followups）`ui/tests/craft/M4-ui-craft.test.ts` 的「三種做的地方」：data-rules 加了帶 craft 的設施種類後要對齊（改成看示意包的設施，或改期望）。
+- 美術：示意包 11 件義體設計圖沒有自己的圖示（現在用部位圖）。

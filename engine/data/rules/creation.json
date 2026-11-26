@@ -21,6 +21,21 @@
     "start_money": 1500,
     "gear_points": 12,
     "cyber_point_cash": 500,
-    "gear_point_cash": 250
+    "gear_point_cash": 250,
+    "cyber_point_price": 500,
+    "cyber_install_mult": 1.5,
+    "gear_point_price": 250,
+    "gear_grade_max": 2,
+    "gear_kinds": [
+      "weapon",
+      "armor",
+      "clothing",
+      "tool",
+      "consumable",
+      "ammo",
+      "construct",
+      "skin",
+      "deck"
+    ]
   }
 ]

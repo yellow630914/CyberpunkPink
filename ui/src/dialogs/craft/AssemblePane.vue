@@ -7,6 +7,7 @@ import MoneyTag from '../../components/MoneyTag.vue'
 import ReasonButton from '../../components/ReasonButton.vue'
 import PartList from './PartList.vue'
 import MakerPicker from './MakerPicker.vue'
+import CrewPicker from './CrewPicker.vue'
 import ResultNote from './ResultNote.vue'
 import { useEngine } from '../../stores/engine'
 import { useUi } from '../../stores/ui'
@@ -39,12 +40,14 @@ const step = ref<1 | 2 | 3>(1)
 const polish = ref('')
 const payWith = ref<'auto' | 'cred' | 'cash'>('auto')
 
-const makers = computed(() => eng.craft.makers())
+const byId = ref('')
+const makers = computed(() => eng.craft.makers(byId.value || undefined))
 const makerId = ref<string>(props.maker ?? makers.value.find((m) => !m.block)?.id ?? 'self')
 watch(makers, (ms) => { if (!ms.some((m) => m.id === makerId.value)) makerId.value = ms.find((m) => !m.block)?.id ?? 'self' })
 
 const opts = computed<AssembleOpts>(() => ({
   blueprint: bpId.value, parts: partsArg(picks.value), maker: makerId.value as AssembleOpts['maker'],
+  ...(byId.value ? { by: byId.value } : {}),
   ...(payWith.value !== 'auto' ? { pay: payWith.value } : {}),
   ...(polish.value ? { polish: polish.value } : {}),
 }))
@@ -184,6 +187,7 @@ const bpName = computed(() => known.value.find((b) => b.id === bpId.value)?.name
         </div>
         <div>
           <p class="h">難度與誰來做</p>
+          <CrewPicker v-model="byId" />
           <MakerPicker v-model="makerId" :options="makers" />
           <template v-if="preview.difficulty">
             <div class="kv"><span>難度<Hint title="難度的每一項">設計圖等級的標準 DC，加牌子數、機械接生體的接面、超規、橋與難度偏移。數字都是引擎算的。</Hint></span><b class="mono" data-dc>DC {{ preview.difficulty.total }}</b></div>

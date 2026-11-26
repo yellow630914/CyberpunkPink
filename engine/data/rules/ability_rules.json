@@ -5,6 +5,39 @@
     "loadout_facility_types": [
       "tuning_clinic"
     ],
-    "xp_home_share": 0.3
+    "xp_home_share": 0.3,
+    "skill_xp_per_level": 10,
+    "skill_free_max": 4,
+    "respec_price_per_xp": 10,
+    "respec_minutes": 1440,
+    "teach": {
+      "affinity": 40,
+      "tuition": {
+        "5": 1500,
+        "6": 5000
+      },
+      "slots_per_level": 2,
+      "slot_minutes": 240
+    },
+    "tutor": {
+      "skills": [
+        "mechanics",
+        "cyberware",
+        "medicine"
+      ],
+      "max_level": 2,
+      "steps": {
+        "1": {
+          "price": 300,
+          "slots": 2
+        },
+        "2": {
+          "price": 800,
+          "slots": 4
+        }
+      },
+      "slot_minutes": 240,
+      "district_price": true
+    }
   }
 ]

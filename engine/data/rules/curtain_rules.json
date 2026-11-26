@@ -1,0 +1,349 @@
+[
+  {
+    "id": "default",
+    "tiers": [
+      {
+        "id": "floor",
+        "name": "散座",
+        "grade": 2,
+        "rep_min": 2,
+        "deposit": 300,
+        "fee_weekly": 100,
+        "prize": 900,
+        "interview_dc": 13
+      },
+      {
+        "id": "box",
+        "name": "包廂",
+        "grade": 3,
+        "rep_min": 3,
+        "deposit": 1000,
+        "fee_weekly": 300,
+        "prize": 3000,
+        "interview_dc": 16
+      },
+      {
+        "id": "vip",
+        "name": "貴賓席",
+        "grade": 4,
+        "rep_min": 4,
+        "deposit": 3300,
+        "fee_weekly": 1000,
+        "prize": 9800,
+        "interview_dc": 19
+      }
+    ],
+    "invite_days": 3,
+    "interview_retry_days": 7,
+    "fee_grace_weeks": 2,
+    "runs_per_night": 2,
+    "companion_fee": 100,
+    "refuse": {
+      "sink": 80,
+      "hostility": 40,
+      "factions": []
+    },
+    "taste_min": 3,
+    "feature_bonus": 1.2,
+    "upgrade_clears": 5,
+    "max_party": 4,
+    "fee_order": 6,
+    "acts": [
+      "序幕・迎賓廳",
+      "第一幕・舞台",
+      "第二幕・後台",
+      "終幕・貴賓席"
+    ],
+    "act_defs": [
+      {
+        "id": "foyer",
+        "name": "序幕・迎賓廳",
+        "encounters": [
+          2,
+          2
+        ],
+        "orders": [
+          1,
+          1
+        ],
+        "chests": [
+          1,
+          2
+        ],
+        "turns": 12
+      },
+      {
+        "id": "stage",
+        "name": "第一幕・舞台",
+        "encounters": [
+          2,
+          2
+        ],
+        "orders": [
+          1,
+          1
+        ],
+        "chests": [
+          1,
+          2
+        ],
+        "boss": "headliner",
+        "turns": 15
+      },
+      {
+        "id": "backstage",
+        "name": "第二幕・後台",
+        "encounters": [
+          2,
+          3
+        ],
+        "orders": [
+          1,
+          1
+        ],
+        "chests": [
+          1,
+          2
+        ],
+        "boss": "director",
+        "turns": 15,
+        "shortcut": true
+      },
+      {
+        "id": "vip",
+        "name": "終幕・貴賓席",
+        "encounters": [
+          2,
+          2
+        ],
+        "orders": [
+          0,
+          0
+        ],
+        "chests": [
+          0,
+          0
+        ],
+        "boss": "host",
+        "turns": 12,
+        "prize_room": true
+      }
+    ],
+    "heat": {
+      "highlight": 2,
+      "highlight_cap": 10,
+      "order_done": 8,
+      "order_refuse": -5,
+      "down": -10,
+      "over_per": 3,
+      "over_pen": -2,
+      "explore_per": 3,
+      "explore_pen": -1,
+      "scene": [
+        {
+          "min": 60,
+          "delta": 10
+        },
+        {
+          "min": 30,
+          "delta": 5
+        },
+        {
+          "min": 0,
+          "delta": -5
+        }
+      ],
+      "rest": 5,
+      "book": 10,
+      "line_crit": 4,
+      "sponsor": 70,
+      "encore": 90
+    },
+    "tips": [
+      0,
+      0.1,
+      0.2,
+      0.35,
+      0.5
+    ],
+    "tips_edges": [
+      20,
+      40,
+      60,
+      80
+    ],
+    "stub_value": 20,
+    "encore": {
+      "names": [
+        "加演・第五幕",
+        "加演・第六幕"
+      ],
+      "grades": [
+        1,
+        2
+      ],
+      "prize": [
+        2,
+        4
+      ]
+    },
+    "culture_own": 0.6,
+    "clause": {
+      "tips_cut": 0.2,
+      "stubs": 5
+    },
+    "shortcut": {
+      "deposit_cut": 0.1,
+      "heat": -5,
+      "staff_style": "staff",
+      "staff_bonus": 4
+    },
+    "order_stubs": [
+      3,
+      8
+    ],
+    "book": {
+      "stubs": 10,
+      "tips_cut": 0.1
+    },
+    "tables": {},
+    "interview_minutes": 60,
+    "fall": {
+      "tips_mult": 0.5,
+      "replay": {
+        "bonus": 0.1,
+        "penalty": 0.1,
+        "good_min": 60,
+        "poor_below": 30
+      },
+      "sink_range": [
+        -2,
+        2
+      ],
+      "fine_mult": 0.5,
+      "tab": {
+        "weekly": 0.1,
+        "cap_mult": 2
+      },
+      "gig": {
+        "weeks": 4,
+        "shows_per_week": 1,
+        "split": 0.4,
+        "miss_hostility": 10,
+        "faction": "rouge"
+      },
+      "tape": {
+        "base": 0.15,
+        "raided": 0.15,
+        "in_debt": 0.15,
+        "backstage": 0.1,
+        "cap": 0.45,
+        "fame": 5,
+        "buyback_mult": 2
+      },
+      "events": {
+        "foyer": "df_stage_foyer",
+        "stage": "df_stage_headliner",
+        "backstage": "df_stage_backstage",
+        "vip": "df_stage_vip",
+        "encore1": "df_stage_encore",
+        "encore2": "df_stage_encore"
+      },
+      "plain": {
+        "foyer": "df_stage_foyer_plain",
+        "stage": "df_stage_headliner_plain",
+        "backstage": "df_stage_backstage_plain",
+        "vip": "df_stage_vip_plain",
+        "encore1": "df_stage_encore_plain",
+        "encore2": "df_stage_encore_plain"
+      }
+    },
+    "checks": {
+      "line": [
+        {
+          "attr": "charm",
+          "skill": "perform"
+        }
+      ],
+      "shortcut": [
+        {
+          "attr": "reflex",
+          "skill": "stealth"
+        }
+      ],
+      "clause": [
+        {
+          "attr": "resolve"
+        },
+        {
+          "attr": "intellect",
+          "skill": "investigate"
+        }
+      ]
+    },
+    "region": {
+      "id": "curtain",
+      "name": "簾後館",
+      "map_kind": "maze",
+      "size": [
+        9,
+        7
+      ],
+      "carve": [
+        20,
+        28
+      ],
+      "sight": 2,
+      "pressure": "none",
+      "safe": true,
+      "cover": "medium",
+      "dc": [
+        10,
+        13,
+        16,
+        19,
+        22
+      ],
+      "layer": {
+        "foe": [
+          2,
+          2
+        ],
+        "patrol": [
+          0,
+          0
+        ],
+        "archive": [
+          1,
+          2
+        ],
+        "trap": [
+          0,
+          0
+        ],
+        "rest": [
+          0,
+          0
+        ],
+        "safe": [
+          1,
+          1
+        ],
+        "control": [
+          0,
+          1
+        ],
+        "person": [
+          1,
+          1
+        ]
+      },
+      "handled": [
+        "a",
+        "b",
+        "c",
+        "p"
+      ]
+    }
+  }
+]

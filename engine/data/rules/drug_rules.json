@@ -1,0 +1,23 @@
+[
+  {
+    "id": "default",
+    "weekly_decay": 10,
+    "depend_at": 40,
+    "depend_days": 7,
+    "heavy_at": 80,
+    "heavy_days": 3,
+    "prebattle_minutes": 10,
+    "detox": {
+      "amount": 40,
+      "days": 3,
+      "price": 600
+    },
+    "suppressant": {
+      "floor": -10,
+      "shown": -20,
+      "rebound": 15,
+      "rebound_days": 14,
+      "price": 80
+    }
+  }
+]
