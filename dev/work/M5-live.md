@@ -66,3 +66,7 @@ M5-core-seams（`deny`）、M5-media-chain（`media.record`）。M4 已經做完
 ## 完成時回報
 
 改了哪些檔、測試結果、**事件對不對得出來**（哪幾種現在的標籤與 `action` 不夠，要哪個功能多帶什麼）、`features/scene` 改了哪幾行、V21～V26 對不上的地方。
+
+## core-seams 留下的（2026-11-26）
+- `deny` 擋下時 `reason(state, doing)` 的第二個參數是 `'undo'`，要分辨。
+- `deny` 只看現在的狀態：收播若獨立成一步，回退一次會回到直播中、再回退又被擋。決定收播用 `attach` 併進前一步，或接受（測試釘著現況）。

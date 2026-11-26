@@ -44,3 +44,6 @@ M5-live、M5-live-slot、M5-core-seams。排在 M5-ui-channel 之後。
 ## 完成時回報
 
 改了哪些檔、測試結果、成人場景與副本頁接上去時引擎少給了什麼、UI 6.3 節要跟著改的地方。
+
+## core-seams 留下的（2026-11-26）
+- 回退按鈕：`canUndo` 而且 `game.undoBlock() === null`；被擋時用 `undoBlock()` 的句子當按鈕說明。

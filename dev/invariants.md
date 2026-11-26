@@ -26,6 +26,7 @@ M4 的核心：成品的格式（2026-11-25；dev/adr/0019 第一節與第十七
 M4 核心缺口（2026-11-25；dev/adr/0019 實作補記：M4-core-gaps、dev/work/M4-core-gaps.md）加了第 374～393 條（單位標籤、重創讓義體當下失效、斷藥、追蹤度與被駭的掛點、被動效果的 attrs 與 per、餘韻加倍、同步最高檔、damage.hp、sink_resist、turn.control、until next_attack、建角規則進核心、場景的接口與視窗）。
 M4 的核心：未登錄零件的 AI（2026-11-25；dev/adr/0019 實作補記：M4-core-part-ai、dev/work/M4-core-part-ai.md）加了第 448～453 條（`design_part` 只交三段文字、AI 關著與失敗時逐欄相同、交貨不動亂數游標、`Game.unregDeliver` 的入口規矩、二手零件狀態進成品 `part_states`、生成的委託寫入 `commission.employer`）。
 M4-fix-2（2026-11-26；dev/adr/0019 實作補記：M4-fix-2、dev/work/M4-fix-2.md、使用者 2026-11-26 八條裁決）改了第 252、382、474 條（沉溺 100 以上照樣加倍；自動跟價改成逐回合）、加了第 487～507 條（內容的年齡底線、效果的上限看來源與引用要存在、傾向一個標籤一點、帳單不溢位與欠款轉成債、斷線靜修的結算與橋關著、結束活動的同一份報告推進的時間算在活動裡、簾後館記帳的上限、自動跟價逐回合可取消、NPC 加價機率只看緊接的前一手、穿戴物的 effects、報價的成功率、特質帶內容標籤、內容篩選的名字表、畫面要的欄位與根匯出）。
+M5 的核心接縫（2026-11-26；dev/adr/0020「實作補記：M5-core-seams」、dev/work/M5-core-seams.md）加了第 508、509 條（活動的 `deny`、家的地圖種類與 `furniture` 格）。
 
 ## 狀態與報告
 
@@ -615,3 +616,10 @@ M4-fix-2（2026-11-26；dev/adr/0019 實作補記：M4-fix-2、dev/work/M4-fix-2
 | 505 | **內容篩選的名字表 `CONTENT_TAG_INFO`**：`CONTENT_TAGS` 的每一個標籤都有名字與一句「關掉時會怎樣」，不多不少；`contentTagName` 對表外的標籤用 fallback 或標籤本身 | LEWD_SYSTEM 第 9 節 | `tests/core/M4-names.test.ts` |
 | 506 | **畫面要的欄位由引擎給**：`nightList` 的 `BranchView.basis`（開階的依據與每一階的條件）、`hidden`（掛在沒有的標籤上而不列的數量，不含被篩選關掉的）、`LearnView.deep`；`SceneView.simple_note`（精簡版遇到多人）；`ActionOption.targeted`；`Session.stage` 與 `inspectable`（`catalogOf` 的 `session` 仍只有時間）；`sellHere`（成品在這裡賣得到多少）；`bridgeParamEffect`（橋參數的效果句，數字讀規則）；`@engine/src` 根匯出 `INTERVIEW_SKILLS`、`paramStatId`、`treeTierOf`、`bridgeParamEffect`、`NO_BRIDGE_*`（`DIRECTION_MAX` 本來就在） | UI.md 8.4 節；dev/work/M4-fix-2.md | `tests/features/M4-nightclass.test.ts`、`tests/features/M4-scene-circles.test.ts`、`tests/features/M4-auction.test.ts`、`tests/features/M4-craft.test.ts`、`tests/core/M4-names.test.ts` |
 | 507 | **出身的建議組合不因為「還沒選橋」被裁光**：一件都不放也有的原因（草稿還沒選橋）不算要裁的理由；超過點數的照樣先裁裝備再裁義體，要接在橋上的裝備（甲板）沒橋時照樣被裁；`event_scopes` 的 `contract` 範圍有 `order`、`holder_order`、`released`、`home`、`daily` | CREATION；EVENTS 4.5 節 | `tests/features/M4-creation-body.test.ts`、`tests/data/M4-data-rules.test.ts` |
+
+## M5 的核心接縫（dev/work/M5-core-seams.md；dev/adr/0020 第三、十節與「實作補記：M5-core-seams」）
+
+| # | 不變式 | 出處 | 哪裡驗 |
+|---|---|---|---|
+| 508 | **活動的 `deny`（直播不回退）只擋清單裡的外殼動作，不碰放行的白名單**：`ActivityDef.deny` 只能寫 `SHELL_ACTS`（現在只有 `'undo'`）裡的字，`define` 對清單以外的字、不是陣列的 `deny` 丟錯（訊息寫出活動與那個字，沒有登記進去）；`k.activity.denied(state, act)` 照 `order` 回第一個「進行中而且 `deny` 含 `act`」的活動的 `reason(state, act)`，沒有就是 `null`，不改狀態；`Game.undoBlock()` 問 `denied(state, 'undo')`，`Game.undoSteps` 先問它，被擋回傳 `false`、狀態與回退的堆疊逐位元組不變（活動結束之後那幾步還在）；外層與內層同時進行中、只有外層寫 `deny` 照樣被擋；同一個活動寫不寫 `deny`，`blockOf` 對每一種 doing 的回答逐一相同，`allowEverywhere` 放行的前綴照樣放行；讀檔、回到快照（`rewindToKind`、報告帶的 `rewind`）、重試與重擲不歸它管；沒有任何活動寫 `deny` 時 `undoSteps` 與以前逐位元組相同（現有的每一種活動都沒寫，直播是第一個）。**收播那一步若獨立成一步回退，回退一次會回到「直播進行中」的狀態、再回退又被擋**（收播併進前一步就沒有這個狀況） | MEDIA 1.2、第 3 節「直播不回退」；dev/adr/0020 第三節；dev/adr/0016 第一節 | `tests/core/seams-m5.test.ts` |
+| 509 | **家的地圖種類與 `furniture` 格**：`HOME_MAP_KINDS = ['home']`、`isHomeMapKind` 和 `isStreetMapKind`、`isNetMapKind` 同一個做法；`kind: 'home'` 的地圖不要求遭遇點（`specialMapProblems` 給 `minSpots: 0`），其餘檢查（入口認 `E` 或連接格、每格走得到、連接格走得上去、標記與版面對得上）照舊，其他種類（`office_small`……）少遭遇點照舊被擋；`CELL_TRAITS.furniture = { walk: false, see: true }`（沒有標記、不是 `locked`）是唯一一種沒有圖例字元的格子種類：`Sheet` 讀到 `map.sheet` 的 `cells` 補丁把一格換成 `furniture` 時，那一格的 `walkable` 是 `false`、`findPath` 與 `reachable` 繞開、`visibleFrom` 照樣看穿，補丁拿掉（`null`）恢復版面原本的格子，補丁跟著存檔走；圖例把任何字元對到 `furniture` 被 `sheetProblems` 擋下（「furniture 只能是擺上去的家具，不能畫在版面上。」，版面沒用到那個字元也擋）。擺得下哪幾格（不壓在標記與門口上、不把房間堵死）是家園功能的擺放檢查，不是核心的事 | DOWNTIME 7.4 節；dev/adr/0020 第十節；dev/adr/0012、0018 第五節 | `tests/core/seams-m5.test.ts` |

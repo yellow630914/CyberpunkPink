@@ -59,3 +59,6 @@ M5-home-base。
 ## 完成時回報
 
 改了哪些檔、測試結果、和 `ui/src/lib/home.ts` 不一樣的地方（哪一邊照設計書）、擺設「不出報告」怎麼處理的、`home_use`、`home_has_item`、`home_take` 實際的格式（給 M5-home-links）。
+
+## core-seams 留下的（2026-11-26）
+- 擺放檢查要擋標記格、連接格與連接的著陸格：家具壓在著陸格上時 `gridWalk` 會丟普通 `Error`（不是 `GridBlocked`）。核心不檢查補丁的 `kind`，查不到的種類當牆。
