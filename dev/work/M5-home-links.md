@@ -17,7 +17,7 @@
 2. **cyberware：自己修與自己動刀**：`repair.ts` 的「自己修要在有工作台的住處」同樣改成 `at_home { use: 'workshop' }`。`surgery.ts` 自己動刀的地點，家園在時住處那一半改成 `at_home { use: 'surgery' }`（診療室），而且在家只能裝侵入度一般以下的——核心的 `INVASIVENESS` 是 `surface`、`light`、`invasive`、`heavy`、`extreme`，在家收前三種（上限放 `cyber_rule` 的 `home_surgery_max: 'invasive'`）；超過的原因：「家裡的診療室只做得了一般以下的手術。」診所不限。拆除照同一條。
 3. **medical：自己動刀**（`common.ts` 的 `atHomeOrClinic`）：家園在時住處那一半看 `at_home { use: 'surgery' }`。
 4. **rest：診療室睡一覺算處理過**（`ops.ts` 的 `sleepOptions`）：`home` 那一項的 `treated`，家園在而且 `at_home { use: 'surgery' }` 成立時是 `true`（現在固定是 `false`）；其餘照舊。
-5. **dive：從家裡潛入**（`ops.ts` 決定「這裡是不是接入點」的地方）：家園在而且 `at_home { use: 'netpod' }` 成立時，這裡算一個接入點——`access: { type: 'home', safe: 規則的值, name: '家裡的接入艙' }`，不收錢、不租甲板；`dive_rule`（或它現在放安全度的那張表）加一格 `home_safe`（暫定和最安全的那一種設施相同，回報實際用的數字）。站在帶 `dive` 欄位的設施上照舊優先。
+5. **dive：從家裡潛入**（`ops.ts` 決定「這裡是不是接入點」的地方）：家園在而且 `at_home { use: 'netpod' }` 成立時，這裡算一個接入點——`access: { type: 'home', safe: 3, name: '家裡的接入艙' }`，不收錢、不租甲板。`dive` 沒有自己的規則表：安全度本來是設施種類的 `dive.safe`（0～3），家裡的這一格先寫成功能裡的一個常數 `HOME_ACCESS_SAFE = 3`（「身體有鎖、有維生」＝最安全的那一級；暫定）。站在帶 `dive` 欄位的設施上照舊優先。
 6. **sink：安穩**（`weekly.ts` 的自然下降）：上一週的計數器 `snug:<週>` 大於 0 而且自然下降成立（睡滿 `decay.sleeps` 次、沉溺不到 100）時，多降 `decay.snug`（`sink_rule` 加這一格，預設 1）；一樣走 `sink` 效果（下限會擋）。沒有那個計數器就是 0，行為不變。
 7. **media：剪片認轉播站**：剪片與偽造的地點多一個「或條件 `at_own_shop { kind: 'relay' }` 成立」（有人註冊才問）。
 8. **在家組裝時箱子算背包的延伸**（D7；一個新掛點）：
@@ -43,4 +43,4 @@ M5-home-furnish（條件與計數器）、M5-shop（`at_own_shop`）、M5-media-
 
 ## 完成時回報
 
-每個功能改了哪幾行、測試結果、第 8 項做到哪裡、`dive` 的 `home_safe` 用了什麼數字、接入室「可以多人一起潛」現在的潛入是不是本來就全隊一起（不是的話差什麼）、示意包要不要開局擺一張工作台（不擺的話示意局在家組裝不了）。
+每個功能改了哪幾行、測試結果、第 8 項做到哪裡、接入室「可以多人一起潛」現在的潛入是不是本來就全隊一起（不是的話差什麼）、示意包要不要開局擺一張工作台（不擺的話示意局在家組裝不了）。

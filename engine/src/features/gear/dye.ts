@@ -3,16 +3,20 @@
 //   店家代染（by: 'shop'）：要站在設施種類帶 dye 欄位的地方；每改一個顏色 gear_rule.dye_shop_price（現金）、等 dye_shop_minutes 分鐘（不論改幾個）。
 //   自己染（by: 'self'）：要在住處（條件 at_home）；每改一個顏色用掉一份帶 dye 標籤的物品、花 dye_self_minutes 分鐘。
 //   換回預設（給 null）：不要錢、不花時間、哪裡都行。
+//   SKIN（內海化身的穿著；uid 寫 SKIN 的 id，內容種類 skin、背包裡要有一套）：純外觀的自己改，不要錢、不花時間、哪裡都行（化身編輯），顏色記在那個人的 ext.gear.skin_dye；
+//   by 可以不寫。穿上脫下、換了一套再換回來，顏色都還在。
 // 顏色的值是 dye_ 開頭的色票 id 或 #RRGGBB；其餘擋下。dyeBlock 回傳第一條原因（能染是 null），dyeProblems 回傳全部；dyeDraft 不成立丟 ActionBlocked。
 
-import type { ActorId, Change, GameState, ItemEntry, Kernel, ReportDraft } from '../../core'
-import { ActionBlocked, clone, formatAmount, formatDuration, stackOf } from '../../core'
-import { blueprintOf } from './model'
+import type { ActorId, Change, ContentEntry, GameState, ItemEntry, Kernel, ReportDraft } from '../../core'
+import { ActionBlocked, clone, countItem, formatAmount, formatDuration, stackOf } from '../../core'
+import { blueprintOf, gearOf } from './model'
 import { gearRules } from './rules'
 
 export const DYE_ACTION = 'gear.dye'
 export const DYE_TAG = 'dye'
 const FACILITY_TYPE_KIND = 'facility_type'
+/** 內容種類 skin（features/deck 的化身穿著）：這裡只讀它的名字與預設顏色，不 import deck */
+const SKIN_KIND = 'skin'
 
 export type DyeBy = 'shop' | 'self'
 export interface DyeColors {
@@ -29,6 +33,17 @@ export interface DyeOpts {
   actor?: ActorId
 }
 
+/** uid 不是背包裡的成品、而是背包裡有的一套 SKIN 的 id：回傳它的名字與預設顏色。 */
+function skinOf(k: Kernel, state: GameState, uid: unknown): { id: string; name: string; base: DyeColors } | undefined {
+  if (typeof uid !== 'string' || !uid || stackOf(state, uid) || !k.content.hasKind(SKIN_KIND) || countItem(state.inventory, uid) < 1) return undefined
+  const e = k.content.get<ContentEntry & { name?: string } & DyeColors>(SKIN_KIND, uid)
+  if (!e) return undefined
+  const base: DyeColors = {}
+  if (isColor(e.primary_color)) base.primary_color = e.primary_color
+  if (isColor(e.secondary_color)) base.secondary_color = e.secondary_color
+  return { id: uid, name: typeof e.name === 'string' ? e.name : uid, base }
+}
+
 const FIELDS = ['primary_color', 'secondary_color'] as const
 const COLOR_NAME: Record<(typeof FIELDS)[number], string> = { primary_color: '主色調', secondary_color: '副色調' }
 
@@ -37,8 +52,21 @@ export function isColor(v: unknown): v is string {
   return typeof v === 'string' && (/^dye_[a-z0-9_]{1,40}$/.test(v) || /^#[0-9a-fA-F]{6}$/.test(v))
 }
 
-/** 這一件現在的顏色：染過的，沒染的照設計圖的預設（目錄上的顏色；沒寫就沒有）。 */
-export function dyeOf(k: Kernel, state: GameState, uid: string): DyeColors | undefined {
+/**
+ * 這一件現在的顏色：染過的，沒染的照設計圖的預設（目錄上的顏色；沒寫就沒有）。
+ * uid 是 SKIN 的 id 時讀那個人（actor，預設主角）染過的，沒染的照 SKIN 內容的預設。
+ */
+export function dyeOf(k: Kernel, state: GameState, uid: string, actor?: ActorId): DyeColors | undefined {
+  const skin = skinOf(k, state, uid)
+  if (skin) {
+    const dye = gearOf(state, actor ?? state.pc ?? '').skin_dye?.[skin.id] ?? {}
+    const out: DyeColors = {}
+    const primary = isColor(dye.primary_color) ? dye.primary_color : skin.base.primary_color
+    const secondary = isColor(dye.secondary_color) ? dye.secondary_color : skin.base.secondary_color
+    if (primary) out.primary_color = primary
+    if (secondary) out.secondary_color = secondary
+    return out
+  }
   const stack = stackOf(state, uid)
   const bp = blueprintOf(k, stack)
   if (!stack || !bp) return undefined
@@ -92,26 +120,28 @@ function plan(k: Kernel, state: GameState, o: DyeOpts): DyePlan {
     out.problems.push(`沒有 ${String(actor)} 這個角色。`)
     return out
   }
-  if (o.by !== 'shop' && o.by !== 'self') out.problems.push('要說明是店家代染，還是自己染。')
+  const skin = skinOf(k, state, o.uid)
+  if (!skin && o.by !== 'shop' && o.by !== 'self') out.problems.push('要說明是店家代染，還是自己染。')
   const stack = typeof o.uid === 'string' ? stackOf(state, o.uid) : undefined
-  if (!stack) {
+  if (!stack && !skin) {
     out.problems.push(typeof o.uid === 'string' && state.inventory.some((s) => s.id === o.uid) ? '這一件是現成的單件，目前還不能染色。' : '背包裡沒有這一件。')
     return out
   }
-  const bp = blueprintOf(k, stack)
-  if (!bp || (bp.kind !== 'weapon' && bp.kind !== 'armor')) {
+  const bp = skin ? undefined : blueprintOf(k, stack)
+  if (!skin && (!bp || (bp.kind !== 'weapon' && bp.kind !== 'armor'))) {
     out.problems.push('這一件不是武器、衣服或護甲，不能染色。')
     return out
   }
-  out.name = bp.name
+  out.name = skin ? skin.name : bp!.name
+  const stored = (skin ? gearOf(state, actor).skin_dye?.[skin.id] : stack?.data?.dye) as DyeColors | undefined
 
-  const now = dyeOf(k, state, o.uid) ?? {}
+  const now = dyeOf(k, state, o.uid, actor) ?? {}
   for (const f of FIELDS) {
     const v = o[f]
     if (v === undefined) continue
     if (v === null) {
       // 換回預設：本來就是預設（沒染過）就不算變
-      if ((stack.data?.dye as DyeColors | undefined)?.[f] !== undefined) out.patch[f] = null
+      if (stored?.[f] !== undefined) out.patch[f] = null
       continue
     }
     if (!isColor(v)) {
@@ -128,6 +158,7 @@ function plan(k: Kernel, state: GameState, o: DyeOpts): DyePlan {
     return out
   }
   if (out.paid === 0) return out // 只是換回預設：不要錢、不花時間、哪裡都行
+  if (skin) return out // SKIN：化身編輯，改顏色也不要錢、不花時間
 
   if (o.by === 'shop') {
     if (!dyeShopHere(k, state)) out.problems.push('這裡沒有烤漆與染色的店家，要到槍店、修車廠或服飾店。')
@@ -165,7 +196,8 @@ export function dyeDraft(k: Kernel, state: GameState, o: DyeOpts): ReportDraft {
   const p = plan(k, state, o)
   if (p.problems.length > 0) throw new ActionBlocked(p.problems[0]!)
   const actor = o.actor ?? state.pc!
-  const changes: Change[] = [{ op: 'gear.dye', uid: o.uid, dye: clone(p.patch) }]
+  const isSkin = skinOf(k, state, o.uid) !== undefined
+  const changes: Change[] = [isSkin ? { op: 'gear.dye', skin: o.uid, actor, dye: clone(p.patch) } : { op: 'gear.dye', uid: o.uid, dye: clone(p.patch) }]
   if (p.cash > 0) changes.push({ op: 'cash', delta: -p.cash })
   for (const [id, qty] of p.uses) changes.push({ op: 'item', id, qty: -qty })
   if (p.minutes > 0 && p.paid > 0) changes.push({ op: 'time', minutes: p.minutes })
@@ -174,7 +206,9 @@ export function dyeDraft(k: Kernel, state: GameState, o: DyeOpts): ReportDraft {
     ? `${p.name}換回了出廠的顏色。`
     : p.cash > 0
       ? `${p.name}染好了，花了 ${formatAmount(p.cash)}、${formatDuration(p.minutes)}。`
-      : `${p.name}染好了，花了 ${formatDuration(p.minutes)}。`
+      : p.minutes > 0
+        ? `${p.name}染好了，花了 ${formatDuration(p.minutes)}。`
+        : `${p.name}染好了。`
   return {
     kind: 'action', action: DYE_ACTION, location: clone(state.location), actor, party: [], timeline: [], changes,
     outcome: { result: reset ? 'reset' : 'dyed', summary },

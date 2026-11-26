@@ -6,12 +6,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ContentPack, Report } from '../../src'
 import { characterFeature } from '../../src/features/character'
+import { dyeBlock, dyeDraft, dyeOf, gearOf } from '../../src/features/gear'
 import { productSellBase } from '../../src/features/trade'
 import { cyberwareFeature } from '../../src/features/cyberware'
 import { chooseBranch, chooseFace } from '../../src/features/commission'
 import { go } from '../../src/features/fixer'
 import {
-  CURTAIN_NIGHTS, curtainEnter, curtainPrelude, makeCurtainGame, makeGame, makeNetCommissionGame, sceneCast,
+  CURTAIN_NIGHTS, curtainEnter, curtainPrelude, makeCurtainGame, makeGame, makeNetBattleGame, makeNetCommissionGame, sceneCast,
 } from '../../src/testkit'
 
 vi.setConfig({ testTimeout: 120_000 })
@@ -101,5 +102,72 @@ describe('賣成品照零件的實際狀態算（trade 的 productSellBase；M4 
     expect(productSellBase(k, 'bp_vest', { uid: 'u4', parts: { plate: 'pt_a', fiber: 'pt_b' }, state: 'used' })).toBe(1000)
     expect(productSellBase(k, 'bp_vest', { uid: 'u5', parts: { plate: 'pt_a', fiber: 'pt_b_used' }, state: 'used' })).toBe(1000)
     expect(productSellBase(k, 'bp_vest', { uid: 'u6', parts: { plate: 'pt_a', fiber: 'pt_b' }, quality: 'flawed' })).toBe(1600)
+  })
+})
+
+describe('染 SKIN（gear 的 dyeDraft 收內海化身的 SKIN；M4 收尾修正批；dev/work/M4-closing-notes.md）', () => {
+  const SKIN_PACK: ContentPack = {
+    id: 'dye_skin',
+    content: {
+      skin: [
+        { id: 'sk_a', name: '見習騎士', style: 'knight', style_value: 2, exposure: 1, cut: 'female', primary_color: 'dye_pink' },
+        { id: 'sk_b', name: '女僕服', style: 'maid', style_value: 3, exposure: 0, cut: 'female' },
+      ],
+      item: [
+        { id: 'sk_a', name: '見習騎士', desc: 'SKIN。', category: 'misc', grade: 1, size: 0, legal: 'free' },
+        { id: 'sk_b', name: '女僕服', desc: 'SKIN。', category: 'misc', grade: 1, size: 0, legal: 'free' },
+        { id: 'sk_c', name: '沒有登記的一套', desc: '背包裡有、內容種類 skin 沒有。', category: 'misc', grade: 1, size: 0, legal: 'free' },
+      ],
+    } as never,
+  }
+  const game = () => {
+    const { game: g } = makeNetBattleGame({ noBattle: true, content: [SKIN_PACK] as never })
+    g.commit({
+      kind: 'system', action: 'test.set', location: {}, party: [], timeline: [],
+      changes: [{ op: 'item', id: 'sk_a', qty: 1 }, { op: 'item', id: 'sk_c', qty: 1 }] as never, outcome: { result: 'ok', summary: 't' },
+    })
+    return g
+  }
+
+  it('SKIN 的 id 當 uid：不要錢、不花時間、哪裡都行；顏色記在那個人身上，dyeOf 讀得到；沒染的照 SKIN 內容的預設色', () => {
+    const g = game()
+    expect(dyeOf(g.k, g.state, 'sk_a')).toEqual({ primary_color: 'dye_pink' })
+    const cash = g.state.money.cash
+    const t0 = g.state.time
+    expect(dyeBlock(g.k, g.state, { uid: 'sk_a', by: 'self', primary_color: 'dye_black' } as never)).toBeNull()
+    g.commit(dyeDraft(g.k, g.state, { uid: 'sk_a', primary_color: 'dye_black', secondary_color: '#1A1520' } as never))
+    expect(g.state.money.cash).toBe(cash)
+    expect(g.state.time).toEqual(t0)
+    expect(dyeOf(g.k, g.state, 'sk_a')).toEqual({ primary_color: 'dye_black', secondary_color: '#1A1520' })
+    expect(gearOf(g.state, 'pc').skin_dye).toEqual({ sk_a: { primary_color: 'dye_black', secondary_color: '#1A1520' } })
+    const r = g.state.reports.at(-1)!
+    expect(r).toMatchObject({ action: 'gear.dye', actor: 'pc' })
+    expect(r.narration?.results?.join('')).toBe('見習騎士染好了。')
+  })
+
+  it('換回預設（給 null）拿掉那一筆；沒染過就換回預設不算變，被擋；只改一個顏色不動另一個', () => {
+    const g = game()
+    expect(() => dyeDraft(g.k, g.state, { uid: 'sk_a', primary_color: null } as never)).toThrow(/沒有變/)
+    g.commit(dyeDraft(g.k, g.state, { uid: 'sk_a', primary_color: 'dye_black', secondary_color: 'dye_olive' } as never))
+    g.commit(dyeDraft(g.k, g.state, { uid: 'sk_a', secondary_color: 'dye_white' } as never))
+    expect(dyeOf(g.k, g.state, 'sk_a')).toEqual({ primary_color: 'dye_black', secondary_color: 'dye_white' })
+    g.commit(dyeDraft(g.k, g.state, { uid: 'sk_a', primary_color: null, secondary_color: null } as never))
+    expect(gearOf(g.state, 'pc').skin_dye).toBeUndefined()
+    expect(dyeOf(g.k, g.state, 'sk_a')).toEqual({ primary_color: 'dye_pink' })
+  })
+
+  it('亂寫的顏色被擋；背包裡沒有的 SKIN、內容種類 skin 沒登記的物品、一般飾品都不是 SKIN（照原來的擋法）', () => {
+    const g = game()
+    expect(() => dyeDraft(g.k, g.state, { uid: 'sk_a', primary_color: 'pink' } as never)).toThrow(/主色調的顏色不對/)
+    expect(() => dyeDraft(g.k, g.state, { uid: 'sk_b', primary_color: 'dye_black' } as never)).toThrow(/背包裡沒有這一件/)
+    expect(() => dyeDraft(g.k, g.state, { uid: 'sk_c', primary_color: 'dye_black', by: 'self' } as never)).toThrow(/現成的單件/)
+    expect(gearOf(g.state, 'pc').skin_dye).toBeUndefined()
+  })
+
+  it('染過的顏色不受穿脫、別的穿著格的變更影響（ext.gear 重整時 skin_dye 留著）', () => {
+    const g = game()
+    g.commit(dyeDraft(g.k, g.state, { uid: 'sk_a', primary_color: 'dye_black' } as never))
+    g.commit({ kind: 'system', action: 'test.coat', location: {}, party: [], timeline: [], changes: [{ op: 'gear.coat', id: 'pc', coat: 'closed' }] as never, outcome: { result: 'ok', summary: 't' } })
+    expect(dyeOf(g.k, g.state, 'sk_a')).toEqual({ primary_color: 'dye_black' })
   })
 })
