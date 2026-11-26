@@ -10,7 +10,7 @@
 ## 新的格式與鍵
 
 - 內容種類 `residence`（從 `rest` 接手；原本的欄位照收）多：`max_level`、`buy?: number | null`、`conceal`、`comfort?`（住處自帶）、`pay: 'cred' | 'cash' | 'either' | 'favor'`、`requires?: 條件`、`shop_ok?: string[]`（能開哪幾種店面）、`garage?: boolean`、`layouts: Record<'1' | '2' | '3', special_map 的 id>`。資料的檢查：每一級的版面要存在、`kind` 是 `home`、高一級的版面包含低一級的（左上角對齊、低一級的每一格在高一級是同一種格子；V47）、每張有一個 `E`（大門）。
-- 內容種類 `home_rule`（`overridable`，id `default`）：買斷 = 週租 × 60、管理費 10%、賣回 70%、押金兩週、搬家（自己 8 小時、請人每件 50 與半天）、升級的費用與工期（1→2：3,000、5 天；2→3：頂讓 10,000、10 天）、各級的住戶與家務上限（下一張用）、安全屋最多幾處（2）、欠繳幾週換鎖（照 `rest` 現在的 2）。
+- 內容種類 `home_rule`（`overridable`，id `default`）：買斷 = 週租 × 60、管理費 10%、賣回 70%、押金兩週、搬家（自己 8 小時、請人每件 50 與半天）、升級的費用與工期（1→2：3,000、5 天；2→3：頂讓 10,000、10 天）、各級的住戶與家務上限（下一張用）、安全屋最多幾處（2）、欠繳幾週換鎖（照 `rest` 現在的 2）。`rest_rule` 現在管住處的三個鍵（`deposit_weeks`、`lock_weeks`、`rent_order`）搬到這裡；`home_rates`（各級住處睡一覺的回復率）留在 `rest_rule`。
 - 內容種類 `home_mod`（`overridable`）：五筆（`hidden` 暗格、`shield` 訊號屏蔽、`power` 獨立電源、`door` 加固門、`camera` 監視器），各自的費用、工期、效果的鍵。
 - 狀態 `state.ext.home`：`{ bases: Record<id, Base>, main: id | null, seq, inside: { base, map: 地圖實例 id, back: GridPos | null } | null }`。`Base`（照 DOWNTIME 第 9 節的樣本）：`{ id, residence, district, block, facility?, level, max_level, home: boolean, owned, rent_weekly, deposit, pool, arrears, locked, conceal, mods: string[], exposed_to: string[], fake_id?: boolean, construction: { to: number | string, done_at: 總分鐘 } | null }`（家具、人、店面的欄位後三張加）。
 - 條件（從 `rest` 接手，行為不變）：`has_home`（有任何一處）、`at_home { level_min?, use?, base? }`（站在自己住處的設施上，或在那一處的地圖裡；**不寫 `base` 是任何一處，家或安全屋都算**，`base: 'main'` 只認家；`level_min` 是 M4 加的，看的是人所在那一處的等級，**要保留**；`use` 這一張先收格式、一律不成立，下一張實作）、`home_level { min?, max? }`（家的等級）。`test` 要是唯讀的純函式：M4 的契約會在一份推演的狀態上問它（宵禁，`features/contract/time.ts`）。

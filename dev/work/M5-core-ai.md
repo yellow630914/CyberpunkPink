@@ -4,7 +4,7 @@
 - 目標：兩個通用的接縫，讓功能不碰外殼也能用 AI 做兩件事：**判讀**（把玩家的一段文字判成功能宣告的封閉清單裡的值）與**文字槽**（把功能狀態裡一段程式寫的字，在背景換成 AI 寫的）。這一張只做機制與外殼的通用任務；哪些入口用它在下一張（M5-ai-media）。
 - 規格出處：dev/adr/0020 第十一節；AI_TASKS 第 1 節（原則：AI 只交結構化的結果、程式驗證）、2.4～2.6 節（重試、驗證與夾值、逾時與退路）、3.21、3.22 節、4.3 節（`pr_move`）、4.5 節（`stream_goal`、`stream_chat`、`footage_caption`：輸入、輸出、驗證、退路的寫法）、第 8 節；MEDIA 1.3 節（自訂輸入：「判定只能落在封閉的清單裡」「AI 寫彈幕與開場白，不給任何數字」）、第 3 節最後一條（剪輯的自由行動）、13.1 節；dev/adr/0006（AI 任務的管線）、0016 第二節（報告上的代辦）；dev/test-harness.md 第 3 節（假的服務商）。
 - 可以改的路徑：`engine/src/core/action/`（新增 `intents.ts`、`texts.ts`）、`engine/src/core/kernel.ts`、`engine/src/core/index.ts`、`engine/src/core/types/report.ts`（`Report.texts`）、`engine/src/shell/game.ts`、`engine/src/shell/ai/`（新增任務、設定的鍵、假的服務商認得這兩種任務）、`engine/tests/core/ai-m5.test.ts`、dev/invariants.md、dev/test-harness.md。
-- 可以用的介面：`TaskRegistry`、`runTask`、`ProviderHub`、`AiSettings`、假的服務商（劇本、自動、十種對抗）；`Game.commit`（不進回退步數的提交照 `turn: false` 的做法）；`ActivityRegistry` 的寫法當登錄表的範本。
+- 可以用的介面：`TaskRegistry`、`runTask`、`ProviderHub`、`AiSettings`、假的服務商（劇本、自動、十種對抗）；M4 在外殼加的幾樣（`shell/ai/tasks.ts`、`sceneTasks.ts`、`people.ts`）：`TaskDef.adult`、`TaskDef.retries`、`RunTaskOpts.softFail`、`TaskCtx.adult`、每個任務固定前段的 `worldRulesText()`、組人物資料的 `personFor`／`callsFor`；`Game.commit`（不進回退步數的提交照 `turn: false` 的做法）；`ActivityRegistry` 的寫法當登錄表的範本。
 - 不可以做的事：不替任何功能宣告判讀或文字槽（那是下一張）；兩個接縫都不能改任何數字——判讀只回「清單裡的值」，文字槽只回字串；AI 關著、逾時、被拒絕、驗證不過，一律走功能給的退路，玩家看不出差別以外的任何異常；不讓背景的任務擋住玩家的操作或改變亂數的游標；共同的規定見 dev/work/M5-plan.md。
 
 ## 新的型別與鍵
@@ -16,6 +16,7 @@
     describe: string                                   // 給 AI 的一句說明：這是在判什麼
     fields(state, ctx): Record<string, { name: string; from: Array<{ id: string; name: string; hint?: string }>; min: number; max: number }>
     fallback(state, ctx): Record<string, string[]>     // AI 不可用時的值
+    adult?(state, ctx): boolean                        // 這一次要不要走成人路由（沒寫是 false）
   }
   k.intents.define(def); k.intents.get(id); k.intents.list()
   k.intents.check(def, state, ctx, raw): { picks: Record<string, string[]>; problems: string[] }   // 純函式：每個值都要在那一欄的清單裡、數量在 min～max
@@ -28,12 +29,13 @@
     describe: string
     limits: Record<string, { max: number; lines?: [number, number] }>     // 每一欄的字數上限；lines 是「幾句」的範圍（彈幕）
     input(state, ref): { context: Record<string, unknown>; names: string[] } | null   // null：這一格已經不在了，不用寫
+    adult?(state, ref): boolean                                           // 這一格要不要走成人路由（例：親密類素材的標題、成人直播的彈幕）
     apply(state, ref, out: Record<string, string | string[]>): Change[]   // 只能回改自己那一格文字的變更
   }
   ```
   報告的代辦：`Report.texts?: Array<{ slot: string; ref: string }>`（功能在自己的草稿上寫）。另有一個不經報告的入口 `Game.fillTexts(slot, refs)`（給「純函式的畫面」用：畫面打開時請外殼替還沒有字的那幾格跑一次；規矩和報告的代辦一樣）。外殼在那一份提交成功之後，AI 開著而且這一槽沒有被設定關掉時，背景跑通用的任務；回來之後呼叫 `apply` 拿變更，用一份 `system` 的報告（`action: 'text.fill'`）提交：不進回退步數、不推進亂數、不帶觸發點、不算一個回合。那一刻被活動擋下或那一格不在了（`input` 回 `null`）就丟掉。
-- 外殼的兩個通用任務（`shell/ai/`）：`intent`（輸入：說明、每一欄的清單與數量、玩家的文字；輸出：`{ picks }`；驗證用 `k.intents.check`；重試帶錯誤一次；退路是 `fallback`）、`text`（輸入：說明、上下文、每一欄的上限、可以出現的名字；輸出：每一欄的字串或字串陣列；驗證：長度、句數、不含清單以外的具名角色——照 AI_TASKS 4.5 的寫法；退路是不寫回，原本的字留著）。
-- 設定：`AiSettings` 多 `intents: Record<id, boolean>`、`texts: Record<id, boolean>`（沒寫當開）；現有的 `bg_stream_goal`、`bg_stream_chat`、`bg_footage_caption` 當成同名文字槽（`stream_goal`、`stream_chat`、`footage_caption`）的開關。任務的來源照 `DEFAULT_TASK_SOURCE` 加兩筆（都用便宜的小模型）。
+- 外殼的兩個通用任務（`shell/ai/`）：`intent`（輸入：說明、每一欄的清單與數量、玩家的文字——**原樣**放進一個標籤（例 `<request>`），不篩選、不改寫、不加提示，和 M4 的寫法指令、訂做的描述同一條規矩；輸出：`{ picks }`；驗證用 `k.intents.check`；`retries: 1`（重試帶錯誤一次）；退路是 `fallback`）、`text`（輸入：說明、上下文、每一欄的上限、可以出現的名字；輸出：每一欄的字串或字串陣列；驗證：長度、句數、不含清單以外的具名角色——照 AI_TASKS 4.5 的寫法；退路是不寫回，原本的字留著）。
+- 設定：`AiSettings` 多兩個**選填**欄位 `intents?: Record<id, boolean>`、`texts?: Record<id, boolean>`，不放進 `DEFAULT_AI_SETTINGS`（`tests/core/settings.test.ts` 把預設物件的鍵鎖在 cpp-ai-v1 的形狀上；和 M4 的 `sceneAi`、`partAi` 同一個處理），用 `intentOn(settings, id)`、`textOn(settings, id)` 讀（沒寫當開），`sanitizeAiSettings` 收布林與 0／1、壞值當沒寫。現有的 `bg_stream_goal`、`bg_stream_chat`、`bg_footage_caption` 當成同名文字槽（`stream_goal`、`stream_chat`、`footage_caption`）的開關。任務的來源照 `DEFAULT_TASK_SOURCE` 加兩筆（都用便宜的小模型）；`adult` 回 `true` 的那一次走成人路由（`TaskCtx.adult`），沒有成人來源時走退路。
 
 ## 要做的
 
@@ -55,7 +57,23 @@
 - 超長的字被擋（不是截斷）並走退路；名字不在清單裡被擋。
 - 設定把這一槽關掉：不發請求。
 - 十種對抗至少八種有測試。
+- 被服務商拒絕：判讀回退路、文字槽不寫回，都不停下來等玩家、不留 `paused` 的鏈（一般任務被拒絕是停下來，這兩種用 `softFail`）。
+- `adult` 回 `true` 的文字槽走成人來源（假的服務商記下它被叫的是哪一條路由）；沒有成人來源時不發請求。
+- 預設的設定物件的鍵和這一張之前一樣（`tests/core/settings.test.ts` 原樣全過）；存檔裡沒有 `intents`、`texts` 的舊設定讀進來當全開。
 - 現有的任務鏈、`commitNarrated`、種子重播的測試原樣全過；`npm test`、`npx tsc --noEmit`、分層檢查全過。
+
+## M4 對帳（2026-11-26）
+
+M4 的三張外殼工單（M4-core-scene-ai、M4-followups-2、M4-core-part-ai）先做完了，這一張要照它們留下的慣例寫：
+
+- **失敗不擋人**：兩個通用任務都是「`onExhausted: 'fallback'` 加 `softFail`」——逾時、格式錯、驗證錯用盡重試走退路，被服務商拒絕也走退路。背景的文字槽連任務鏈列都不佔（它不是一條前景的鏈）。
+- **固定前段**：`system` 的最後接 `worldRulesText()`（世界的固定規則 H5、H16、H17；玩家之後在 AI 工坊改的是那個常數，這一張不加設定）。
+- **玩家的字原樣交出去**：判讀收的文字、文字槽的上下文裡玩家自己寫的字（片的標題與簡介、稱呼、化身描述）都不篩選、不改寫、不提示；不合服務商規範的由服務商擋，擋了就是上面的退路。
+- **人物的資料**：文字槽的上下文要提到人時，用 `shell/ai/people.ts` 的 `personFor`（它已經帶稱呼與化身描述），`names`（可以出現的名字）含稱呼。
+- **SillyTavern 預設**（PROMPTS 2.6，2026-11-26 寫進設計書）只套寫正文，不套這兩種任務。
+- **`design_part` 不併**（0020 V67）：M4 的交貨是一條前景的鏈（名字在交貨那一刻就寫進成品），使用者 2026-11-26 定了「AI 交貨時不鎖畫面、維持任務鏈列」；改成背景的文字槽會讓零件的名字在收下之後才變。這一張只要確保文字槽的格式做得到「一格多欄、各欄各驗」（`limits` 的每一欄各自過或不過；有一欄不過時整格不寫回），之後真要併不用再改核心。
+- **M4 留下、等這一張的兩格文字**（拍賣的鑑定書與主持人的口白，M4-plan「第五波留給 M5 的」）：宣告在 M5-ai-media 的第 6 項，這一張不做。
+- `Report.texts` 是報告上新的一種代辦：和 0016 的 `launch`、`rewind`、`triggers` 一樣由外殼在提交之後處理，功能只寫資料；`commit` 的 `turn: false`（不進回退步數）沿用現有的寫法。
 
 ## 完成時回報
 
