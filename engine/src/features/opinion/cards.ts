@@ -4,11 +4,11 @@
 import type { GameState, Kernel, ReportDraft } from '../../core'
 import { ActionBlocked } from '../../core'
 import { cellsOwnedBy } from './board'
-import type { Cell, CardEntry, OpinionRules, Seat, War } from './model'
+import type { Cell, OpinionRules, Seat, War, WarCard } from './model'
 import { CELL_NAME, CELLS, PLAY_ACTION, cardCatalog, isCell, opinionRules as opinionRulesOf, readWar } from './model'
 import { Run, credOf } from './run'
 
-export type ResolvedCard = Omit<CardEntry, 'basic'>
+export type ResolvedCard = WarCard
 
 export function cardOf(k: Pick<Kernel, 'content'>, war: War, id: string): ResolvedCard | null {
   const c = war.custom?.[id]

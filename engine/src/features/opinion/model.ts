@@ -135,7 +135,6 @@ export const DEFAULT_OPINION_RULES: OpinionRules = {
 
 export const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
 const intIn = (v: unknown, lo: number, hi: number): v is number => isSafeInt(v) && v >= lo && v <= hi
-const own = (o: object, key: string): boolean => Object.hasOwn(o, key)
 const gradeList = (v: unknown): v is number[] => Array.isArray(v) && v.length === 5 && v.every((n) => intIn(n, -20, 20))
 
 const INT_RULES = [['rounds', 1, 12], ['short_rounds', 1, 12], ['open_hand', 0, 10], ['draw', 0, 10], ['hand_max', 1, 10], ['ep_base', 0, 10], ['empty_def', 0, 10], ['foe_def_base', 0, 10], ['voice_max', 1, 30], ['wind_max', 1, 20], ['big_gap', 1, 50], ['mute', 0, 10], ['shift', 0, 10], ['sweeps', 1, 10]] as const
@@ -319,7 +318,7 @@ export type Means = (typeof MEANS)[number]
 export const CARD_TYPES = ['fuel', 'line', 'means'] as const
 export type CardType = (typeof CARD_TYPES)[number]
 
-export interface CardEntry extends ContentEntry {
+export interface CardFields {
   name: string
   kind: CardType
   cost: number
@@ -328,12 +327,15 @@ export interface CardEntry extends ContentEntry {
   /** 說法：風向（正的偏你） */
   wind?: number
   means?: Means
-  /** 基本牌：牌庫裡放幾張 */
-  basic?: number
   /** 內幕：不能被下架 */
   inside?: boolean
   /** 假料：打出去擲 d20，被拆穿就無效、風向與公信力反噬 */
   fake?: boolean
+}
+
+export interface CardEntry extends ContentEntry, CardFields {
+  /** 基本牌：牌庫裡放幾張 */
+  basic?: number
 }
 
 export const DEFAULT_CARDS: CardEntry[] = [
@@ -581,7 +583,7 @@ export interface WarFoe {
 }
 
 /** 這一場才有的牌（素材與片變成的牌放這裡；目錄裡的牌只存 id）。 */
-export type WarCard = Omit<CardEntry, 'basic'>
+export type WarCard = CardFields & { id: string }
 
 export type Outcome = 'major' | 'minor' | 'draw' | 'lost'
 export const OUTCOMES: Outcome[] = ['major', 'minor', 'draw', 'lost']

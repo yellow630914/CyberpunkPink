@@ -5,13 +5,16 @@
 // （和帳單一樣只看 commission；潛入、簾後館、拍賣裡照常結）。「上一次結算到哪裡」記在 state.ext.channel.mark。
 //
 // 結算寫成一串步驟（WEEK_STEPS）：每一步看「前面的步驟都套上去之後」的狀態（ctx.now），把變更與給玩家看的句子推進去。
-// 下一張（M5-channel-shows）要把「編制的薪水」插在贊助撥款與流失之間（MEDIA 4.8 節的順序），在這個陣列加一步就行。
+// 編制的薪水（wageStep）與線人帶回的素材（sourceStep）插在贊助撥款之後（MEDIA 4.8 節的順序：撥款、薪水、流失）：
+// 薪水從預算扣（payFromBudget）；扣不到的記 unpaid_weeks，那一份報告的觸發點 where 帶 unpaid: true；沒領到薪水的線人那一週不帶素材。
 
 import type { Change, GameState, GameTime, Kernel, ReportDraft, TimelineBeat } from '../../core'
-import { clone, fromMinutes, meterOf, toMinutes, weeklyCrossings } from '../../core'
-import type { ChannelRules, ChannelState } from './model'
-import { CREDIBILITY, RECO, SUBS, WEEKLY_ACTION, WEEK_TRIGGER, channelRules, readChannel } from './model'
-import { poolName } from './budget'
+import { clone, deriveRng, effectCtx, fromMinutes, meterOf, toMinutes, weeklyCrossings } from '../../core'
+import type { ChannelRules, ChannelState, Role } from './model'
+import { CREDIBILITY, RECO, ROLES, ROLE_NAME, SUBS, WEEKLY_ACTION, WEEK_TRIGGER, channelRules, readChannel } from './model'
+import { payFromBudget, poolName } from './budget'
+import { actorName } from './staff'
+import { MEDIA_TYPE_NAME } from './shows'
 
 const money = (n: number): string => n.toLocaleString('en-US')
 
@@ -29,6 +32,8 @@ export interface WeekCtx {
   beats: TimelineBeat[]
   /** 步驟留給報告用的數字（放進那一份報告的觸發點與 data） */
   data: Record<string, number>
+  /** 這一週領到薪水的位子（沒有薪水的位子也算領到） */
+  paid: Set<Role>
   /** 把一步的變更推進來：同時套在 now 上，下一步看得到 */
   push(changes: Change[], line?: string, tag?: string): void
 }
@@ -52,6 +57,46 @@ export const sponsorStep: WeekStep = (c) => {
     )
     c.data.sponsored = (c.data.sponsored ?? 0) + s.amount
   }
+}
+
+/**
+ * 編制的薪水（V15）：三個位子依序從預算扣（先公帳、再自有；payFromBudget）。扣不到的那一個記 unpaid_weeks +1、報告的觸發點帶 unpaid: true；
+ * 領到了的，欠的週數歸零。
+ */
+export const wageStep: WeekStep = (c) => {
+  for (const role of ROLES) {
+    const s = readChannel(c.now).staff[role]
+    if (!s) continue
+    const name = actorName(c.now, s.who)
+    const pay = payFromBudget(c.now, s.wage)
+    if ('block' in pay) {
+      c.push([{ op: 'channel.staff_set', role, unpaid_weeks: s.unpaid_weeks + 1 }], `預算不夠，付不出${name}（${ROLE_NAME[role]}）這一週的薪水。`, 'channel.unpaid')
+      c.data.unpaid = (c.data.unpaid ?? 0) + 1
+      continue
+    }
+    c.paid.add(role)
+    c.push([...pay.changes, ...(s.unpaid_weeks > 0 ? [{ op: 'channel.staff_set', role, unpaid_weeks: 0 }] : [])], s.wage > 0 ? `付了${name}（${ROLE_NAME[role]}）這一週的薪水 ${money(s.wage)}。` : undefined, 'channel.wage')
+    c.data.wages = (c.data.wages ?? 0) + s.wage
+  }
+}
+
+/**
+ * 線人每週帶回一段素材（MEDIA 4.5）：效果 footage，品質 q_min～q_max、類型從 source.types 照固定亂數挑（用這個週一的時間當用途，同一個狀態同一個結果）。
+ * 沒有素材庫（沒有人註冊 footage）、或這一週沒領到薪水就不帶。
+ */
+export const sourceStep: WeekStep = (c) => {
+  const s = readChannel(c.now).staff.source
+  if (!s || !c.paid.has('source') || !c.k.effects.has('footage')) return
+  const rng = deriveRng(c.now.rng, `channel.source/${c.at}`)
+  const type = rng.pick(c.rules.source.types)
+  const quality = rng.int(c.rules.source.q_min, c.rules.source.q_max)
+  const fx = { kind: 'footage', type, quality, title: `線人帶回來的${MEDIA_TYPE_NAME[type] ?? type}畫面`, origin: 'staff' }
+  const ctx = effectCtx(c.k, c.now, { source: 'builtin' })
+  if (c.k.effects.validate([fx], ctx).length > 0) return
+  const res = c.k.effects.resolve([fx], ctx)
+  if (res.errors.length > 0) return
+  c.data.source_quality = quality
+  c.push(res.changes, `${actorName(c.now, s.who)}（線人）帶回來一段素材：${fx.title}。`, 'channel.source')
 }
 
 /**
@@ -84,15 +129,15 @@ export const clearStep: WeekStep = (c) => {
   c.push([{ op: 'channel.week', reset: true, mark: c.at }])
 }
 
-/** 結算的順序（MEDIA 4.8 節：贊助撥款、薪水、流失、事件）。薪水是下一張的，插在 sponsorStep 後面。 */
-export const WEEK_STEPS: WeekStep[] = [sponsorStep, subsStep, recoStep, clearStep]
+/** 結算的順序（MEDIA 4.8 節：贊助撥款、薪水、流失、事件）。 */
+export const WEEK_STEPS: WeekStep[] = [sponsorStep, wageStep, sourceStep, subsStep, recoStep, clearStep]
 
 /** 一個週一的結算：回報告草稿；state 要是上一週都套完之後的狀態。 */
 export function settleWeek(k: Kernel, state: GameState, at: number): ReportDraft {
   const start = readChannel(state)
   const now = clone(state)
   const c: WeekCtx = {
-    k, rules: channelRules(k), at, start, now, changes: [], lines: [], beats: [], data: {},
+    k, rules: channelRules(k), at, start, now, changes: [], lines: [], beats: [], data: {}, paid: new Set<Role>(),
     push(changes, line, tag) {
       if (changes.length > 0) {
         k.changes.applyAll(now, changes)
@@ -114,7 +159,7 @@ export function settleWeek(k: Kernel, state: GameState, at: number): ReportDraft
   return {
     kind: 'downtime', action: WEEKLY_ACTION, location: clone(state.location), ...(state.pc ? { actor: state.pc } : {}), party: [], timeline: c.beats, changes: c.changes,
     outcome: { result: 'weekly', summary }, narration: { results: c.lines },
-    triggers: [{ point: WEEK_TRIGGER, where: { episodes, lives, subs: subsAfter, credibility } }],
+    triggers: [{ point: WEEK_TRIGGER, where: { episodes, lives, subs: subsAfter, credibility, ...((c.data.unpaid ?? 0) > 0 ? { unpaid: true } : {}) } }],
   }
 }
 

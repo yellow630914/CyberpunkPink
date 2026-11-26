@@ -7,7 +7,7 @@
 //           裝進頻道時同一類的棚內設備也不能超過 studio_slots 件
 // 衍生數值（這個功能定義）：studio_slots、episode_bonus（基礎 0，abilities 的技能加）、stream_gear_bonus（直播讀：收音、鏡頭、串流各取最高一件相加，最多 +3；算法和開一集的設備同一套）。
 
-import type { ActorId, Change, GameState, Kernel, ReportDraft } from '../../core'
+import type { ActorId, Change, ContentEntry, GameState, Kernel, ReportDraft } from '../../core'
 import { ActionBlocked, clone, countItem, isRecord, isSafeInt } from '../../core'
 import type { GearClass, GearRow } from './model'
 import { GEAR_CLASSES, GEAR_NAME, channelRules, readChannel } from './model'
@@ -35,14 +35,14 @@ export interface Studio {
 
 /** 物品的 studio 欄位（格式不對、不是設備回 null）。 */
 export function studioOf(k: Pick<Kernel, 'content'>, item: string): Studio | null {
-  const e = k.content.has('item', item) ? k.content.get<Record<string, unknown>>('item', item) : undefined
+  const e = k.content.has('item', item) ? k.content.get<ContentEntry & Record<string, unknown>>('item', item) : undefined
   const s = e?.studio
   if (!isRecord(s) || !(GEAR_CLASSES as readonly unknown[]).includes(s.cls) || !isSafeInt(s.grade) || s.grade < 1 || s.grade > 3 || typeof s.portable !== 'boolean') return null
   return { cls: s.cls as GearClass, grade: s.grade, portable: s.portable }
 }
 
 const nameOfItem = (k: Pick<Kernel, 'content'>, id: string): string => {
-  const n = k.content.has('item', id) ? k.content.get<Record<string, unknown>>('item', id)?.name : undefined
+  const n = k.content.has('item', id) ? k.content.get<ContentEntry & Record<string, unknown>>('item', id)?.name : undefined
   return typeof n === 'string' && n ? n : id
 }
 

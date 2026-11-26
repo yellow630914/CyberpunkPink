@@ -718,9 +718,9 @@ describe('只裝這個功能（沒有別的功能）', () => {
     for (const f of readdirSync(dir).filter((x) => x.endsWith('.ts'))) {
       const src = readFileSync(join(dir, f), 'utf8')
       for (const m of src.matchAll(/from '(\.[^']*)'/g)) expect(m[1], `${f}`).toMatch(/^(\.\.\/\.\.\/core|\.\/[a-z]+)$/)
-      // 去掉註解之後，碰 ext 的只有 [EXT] 這一個鍵（自己的）
+      // 去掉註解之後，碰 ext 的只有 [EXT] 這一個鍵（自己的）；例外：角色的 ext.paths（路數與階數，0020 第十三節「共用的資料慣例」，只在 staff.ts 讀）
       const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
-      for (const m of code.matchAll(/\.ext\??(\.[a-z_]+|\[[^\]]*\])/g)) expect(m[1], f).toBe('[EXT]')
+      for (const m of code.matchAll(/\.ext\??(\.[a-z_]+|\[[^\]]*\])/g)) expect(m[1], f).toBe(m[1] === '.paths' && f === 'staff.ts' ? '.paths' : '[EXT]')
     }
   })
 })

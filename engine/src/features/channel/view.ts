@@ -4,6 +4,10 @@
 import type { GameState, Kernel } from '../../core'
 import { meterOf } from '../../core'
 import { poolName, poolOrder } from './budget'
+import type { GearRowView } from './gear'
+import { gearView } from './gear'
+import type { StaffRow } from './staff'
+import { staffSlots } from './staff'
 import type { Episode } from './model'
 import { CREDIBILITY, RECO, SUBS, channelRules, flowTierOf, levelOf, readChannel, seatsOf } from './model'
 
@@ -54,9 +58,13 @@ export type ChannelView =
     week: { episodes: number; lives: number }
     /** 最近的集數（新的在前） */
     recent: Episode[]
+    /** 編制：位子數、坐了幾個、三個位子 */
+    staff: { seats: number; used: number; free: number; rows: StaffRow[] }
+    /** 裝著的設備（每一件現在在這裡能加多少） */
+    gear: GearRowView[]
   }
 
-export function channelView(k: Pick<Kernel, 'content' | 'meters'>, state: GameState): ChannelView {
+export function channelView(k: Kernel, state: GameState): ChannelView {
   const ch = readChannel(state)
   if (!ch.open) return { open: false, note: '還沒有頻道。' }
   const rules = channelRules(k)
@@ -84,5 +92,6 @@ export function channelView(k: Pick<Kernel, 'content' | 'meters'>, state: GameSt
     })),
     week: { episodes: ch.week.episodes, lives: ch.week.lives },
     recent: [...ch.log].reverse(),
+    staff: staffSlots(k, state), gear: gearView(k, state),
   }
 }

@@ -5,7 +5,7 @@
 import type { Change, GameState, Kernel, ReportDraft, TimelineBeat } from '../../core'
 import { clamp, clone, deriveRng, meterOf, type Rng } from '../../core'
 import { scoreOf, cellsOwnedBy } from './board'
-import type { Cell, CityEffect, Outcome, OpinionRules, EndBy, War, WarResult } from './model'
+import type { CityEffect, Outcome, OpinionRules, EndBy, War, WarResult } from './model'
 import { CELLS, CELL_NAME, SLOTS, WAR_OP, cardCatalog, cityCatalog, opinionRules } from './model'
 import type { Who } from './model'
 
@@ -20,9 +20,10 @@ export class Run {
   readonly plain: string[] = []
   readonly rng: Rng
 
-  constructor(readonly k: Kernel, readonly state: GameState, war: War | null, purpose: string, init?: () => War) {
+  constructor(readonly k: Kernel, readonly state: GameState, war: War | null, purpose: string) {
     this.rules = opinionRules(k)
-    this.w = war ? clone(war) : init!()
+    if (!war) throw new Error('Run 要一場戰役')
+    this.w = clone(war)
     this.rng = deriveRng(state.rng, `opinion/${this.w.id}/${purpose}/${this.w.round}`)
   }
 
@@ -110,7 +111,6 @@ export class Run {
     }
     const slot = SLOTS[w.round - 1] ?? `第 ${w.round} 回合`
     this.say(`—— 第 ${w.round} 回合・${slot} ——`, { tag: 'opinion.round', data: { round: w.round, rounds: w.rounds }, plain: `${slot}的時段開始了。` })
-    if (w.foe_state.last) delete w.foe_state.last
     this.flipCity()
     const got = this.draw(this.rules.draw)
     if (got.length > 0) this.say(`你抽了 ${got.length} 張牌：${got.map((id) => `「${this.cardName(id)}」`).join('、')}。`, { tag: 'opinion.draw', data: { cards: got } })
@@ -168,7 +168,7 @@ export function cityText(name: string, fx: CityEffect): string {
 const OUTCOME_NAME: Record<Outcome, string> = { major: '大勝', minor: '小勝', draw: '平手', lost: '敗' }
 export const outcomeName = (o: Outcome): string => OUTCOME_NAME[o]
 
-function resultText(r: WarResult, w: War): string {
+export function resultText(r: WarResult, w: War): string {
   const score = `${r.you} 分對 ${r.foe} 分`
   const head = `${OUTCOME_NAME[r.outcome]}：`
   const target = r.target_held === false ? `沒有佔著指定的「${CELL_NAME[w.topic.target_cell!]}」，贏不算數。` : ''
@@ -181,7 +181,7 @@ function resultText(r: WarResult, w: War): string {
   }
 }
 
-function resultPlain(r: WarResult): string {
+export function resultPlain(r: WarResult): string {
   return r.outcome === 'major' ? '你贏得漂亮，對手被壓得抬不起頭。' : r.outcome === 'minor' ? '你贏了，事情傳開了，但對方還撐得住。' : r.outcome === 'draw' ? '各說各話，沒有人佔到上風。' : '這件事被壓下去了。'
 }
 
