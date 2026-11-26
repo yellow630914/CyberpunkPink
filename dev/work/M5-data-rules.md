@@ -59,3 +59,6 @@
 ## 完成時回報
 
 寫了哪些檔、測試結果、資料與功能的預設不一樣的地方各是誰錯、設計書的數字和 0020 的暫定值衝突的地方、`PROVISIONAL_M5` 的清單（給平衡的 session）。
+
+## media-chain 留下的（2026-11-26）
+- 新資料慣例：事件 `event/<id>.record`、戰鬥 `encounter/<id>.record`（與 `origin.ext.record`），欄位 `type`、`involves`、`celebrity`、`hq`、`live`、`lost`、`adult`、`self`、`exclusive`、`no_rec`、`tags`；補格式說明與 schema。

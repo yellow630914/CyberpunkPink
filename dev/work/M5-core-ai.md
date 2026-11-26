@@ -78,3 +78,6 @@ M4 的三張外殼工單（M4-core-scene-ai、M4-followups-2、M4-core-part-ai�
 ## 完成時回報
 
 改了哪些檔、測試結果、「不能動數字」的檢查實際怎麼做的與它的成本、ADR 做不到的地方、給 M5-ai-media 的用法（一個判讀與一個文字槽的最小例子）。
+
+## media-chain 留下的（2026-11-26，順手做）
+- `ReportRewind`／`rewind.keep` 加選填 `reason`（撤退 `retreat`、失敗 `fail`），各自填。媒體現在讀報告文字分辨撤退（`features/media/record.ts` 的 `onRewind`），改完換成讀 `reason`，一行。

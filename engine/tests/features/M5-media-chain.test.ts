@@ -44,7 +44,7 @@ const TOY: Feature = {
 const PACK: ContentPack = {
   id: 'rec_toy_pack',
   content: {
-    district: [{ id: 'd_a', name: '甲區' }, { id: 'd_b', name: '乙區' }],
+    district: [{ id: 'd_a', name: '甲區' }, { id: 'd_b', name: '乙區' }, { id: 'd_nocam', name: '禁拍的區', no_rec: true }],
     facility_type: [{ id: 'fac_nocam', name: '禁拍的店', no_rec: true }, { id: 'fac_plain', name: '一般的店' }],
     block: [{ id: 'blk_nocam', name: '禁拍的街', no_rec: true }],
     npc: [{ id: 'npc_shy', name: '怕鏡頭的人', no_rec: true }, { id: 'npc_ok', name: '阿音' }],
@@ -158,6 +158,15 @@ describe('錄到一場戰鬥（MEDIA 1.1 節①；V2、V6）', () => {
     g.commit(setRecording(g.k, g.state, true))
     await fight(g, 'win')
     expect(lastRec(g).by).toBe('pc')
+  })
+
+  it('戰鬥或副本進行中不能轉素材、不能開關錄影：沒有登記放行，原因是活動的那一句', () => {
+    const g = make()
+    const id = addRec(g)
+    g.startBattle(BATTLE_SETUPS.encounter())
+    expect(convertBlock(g.k, g.state, id)).toBe('正在戰鬥，先把這一場打完。')
+    expect(reasonOf(() => setRecording(g.k, g.state, false))).toBe('正在戰鬥，先把這一場打完。')
+    expect(() => g.commit(convertDraft(g.k, g.state, id))).toThrow(ActionBlocked)
   })
 
   it('輸掉的戰鬥記 lost（戰敗的畫面）；脫離不記', async () => {
@@ -291,6 +300,17 @@ describe('不准錄的地方（V6）：no_rec', () => {
     const g = make({ patch: { location: { district: 'd_a', ...loc } } as Partial<GameState> })
     endOf(g, 'event', { result: { event: 'ev1' } })
     expect(lastRec(g)).toMatchObject({ by: null, grade: 0, miss: 'banned' })
+  })
+
+  it('區標了 no_rec、所在的地圖模板標了 no_rec（special_map）：也沒錄到；離開那張地圖又錄得到', () => {
+    const g = make({ patch: { location: { district: 'd_nocam' } } as Partial<GameState> })
+    endOf(g, 'event', { result: { event: 'ev1' } })
+    expect(lastRec(g)).toMatchObject({ by: null, miss: 'banned' })
+    const map = { id: 'map_nocam', kind: 'test', size: [5, 3], no_rec: true, sheets: [{ id: 'f1', name: '一樓', size: [5, 3], layout: ['#####', 'E12..', '#####'], cells: [{ id: 'E1', at: [0, 1], mark: 'E', name: '門' }], spots: [{ id: '!1', at: [1, 1], cover: 'medium' }, { id: '!2', at: [2, 1], cover: 'sparse' }] }] }
+    const g2 = make({ content: [{ id: 'maps', content: { special_map: [map] } }] })
+    g2.enterMap('map_nocam')
+    endOf(g2, 'event', { result: { event: 'ev1' } })
+    expect(lastRec(g2)).toMatchObject({ by: null, miss: 'banned' })
   })
 
   it('一般的設施照樣錄；hint 直接說 no_rec 也算（media.record）', () => {
