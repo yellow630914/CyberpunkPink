@@ -10,13 +10,17 @@
 
 import type { Change, GameState, Report, ReportDraft } from '../core'
 import { effectCtx } from '../core'
+import { enterDraft, interviewDraft, tasteDraft } from '../features/curtain'
+import { go as diveGo } from '../features/dive'
 import { cyberOf, installDraft } from '../features/cyberware'
 import { arrive } from '../features/world'
 import type { Game } from '../shell/game'
 import type { ActorOverrides } from './factory'
 import type { WorldGame, WorldGameSetup } from './scenarios'
 import { STRONG_PC, makeWorldGame } from './scenarios'
-import { bodyStock, bodyWorld, BODY_BLOCKS } from './worldBody'
+import { bodyStock, bodyWorld, BODY_BLOCKS, CURTAIN_SITE } from './worldBody'
+import { NET_PC, TEST_NET_ADMIN } from './scenariosNet'
+import { diveIn, equipParty, netInventory } from './scenariosNet'
 
 const BRIDGE = { sensitivity: 30, tolerance: 30, craving: 30, docility: 30 }
 
@@ -97,4 +101,40 @@ export function applyEffects(game: Game, effects: Array<Record<string, unknown>>
   const res = game.k.effects.resolve(effects as never, ctx)
   if (res.errors.length > 0) return { errors: res.errors, reports: [] }
   return { errors: [], reports: commit(game, res.changes, 'test.effect', res.lines.join('') || '測試用的效果。') }
+}
+
+/**
+ * 簾後館：站得到簾口的一局（給 makeBodyGame 的設定）。主角是 NET_PC（強、有介面與同步），背包有一副甲板與全套構裝（netInventory(1)）。
+ * 回傳的 setup 要整個交給 makeBodyGame；呼叫的人再用 curtainEntry(game) 走完邀請函、面談、口味單、穿甲板、潛入、走到簾口。
+ */
+export const CURTAIN_PRELUDE = ['邀請函', '面談', '口味單', '穿甲板', '潛入', '走到簾口'] as const
+
+/** 簾後館的一局：NET_PC、背包有甲板與全套構裝、站在塔下。features 要加上 TEST_NET_ADMIN（管理行動）。 */
+export function makeCurtainGame(o: BodyGameOptions = {}): WorldGame {
+  return makeBodyGame({ seed: 3, pc: NET_PC, ...o, features: [TEST_NET_ADMIN, ...(o.features ?? [])], patch: { inventory: netInventory(1) as never, ...o.patch }, at: o.at === undefined ? { block: 'tw_tower', marker: 'E1' } : o.at })
+}
+
+/**
+ * 簾後館的前奏：穿上甲板與構裝（面談要有自己的甲板）、街頭信譽 40、邀請函、面談（散座）、口味單三個、走到大廳的簾口（F4；街上的簾口，不經過潛入）。回傳每一步的報告。
+ * 暗礁裡的簾口（潛入之後選 ns_tw_curtain）報名會被潛入的活動擋下（B030），之後一趟的場熱與落幕也不啟動（B031）：那一條走法在 engine/tests/pending/。
+ */
+export function curtainPrelude(game: Game, o: { dive?: boolean } = {}): Report[] {
+  const out: Report[] = []
+  const { k } = game
+  equipParty(game, ['pc'])
+  out.push(...commit(game, [{ op: 'meter', kind: 'rep', key: '_', delta: 40 } as unknown as Change], 'test.rep', '測試給的街頭信譽。'))
+  out.push(...applyEffects(game, [{ kind: 'curtain_invite' }]).reports)
+  out.push(...game.commit(interviewDraft(k, game.state, { tier: 'floor', skill: 'negotiate' })))
+  out.push(...game.commit(tasteDraft(k, game.state, ['tg_tw_dom', 'tg_tw_sub', 'tg_tw_pamper'])))
+  if (o.dive) {
+    standAt(game, 'tw_tower', 'F3')
+    out.push(...diveIn(game))
+    out.push(...game.commit(diveGo(k, game.state, CURTAIN_SITE)))
+  } else out.push(...standAt(game, BODY_BLOCKS.hall, 'F4'))
+  return out
+}
+
+/** 報名（站在簾口；指定哪一夜才不看亂數）。 */
+export function curtainEnter(game: Game, night: string): Report[] {
+  return game.commit(enterDraft(game.k, game.state, { party: ['pc'], night }))
 }

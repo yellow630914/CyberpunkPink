@@ -3,6 +3,7 @@
 //
 // 每一種只放驗主幹用得到的最少幾筆：
 //   身體    橋兩座（tw 通用橋、偏內海的橋）、義體七件（義眼、義臂、皮下裝甲、反射加速器 III、藥泵、生體獸耳、光紋刺青）與它們的零件、手槍的設計圖與零件、兩筆併發症、一筆殘響
+//   簾口    兩個：大廳 F4（街上的簾口：走得到、報名不經過潛入）與暗礁的一個節點（net_site ns_tw_curtain：潛入之後選它；B030、B031 的重現用）
 //   診所街  街區 tw_clinics：正規診所、無照診所、黑診所、調校診所（四個設施 F1～F4）；店街 tw_shops：槍店（店家代工）、同人攤（同人社團，帶未登錄零件的委託台）、原廠櫃檯、互助診所（戒斷）；
 //           大廳 tw_hall：拍賣行、感官擂台、療養院；三條街用出口接在市場的西口後面：市場 ─E1/E2─ 診所街 ─E1/E2─ 店街 ─E1/E2─ 大廳
 //   藥      雲絲（成癮重）、鎮靜劑（緩和戒斷）、抑制劑
@@ -26,13 +27,16 @@ type Rec = Record<string, unknown>
 // ---- 識別字 ----
 
 export const BODY_DISTRICT = 'tw_ward'
-export const BODY_BLOCKS = { clinics: 'tw_clinics', shops: 'tw_shops', hall: 'tw_hall', curtain: 'tw_curtain_door' } as const
+export const BODY_BLOCKS = { clinics: 'tw_clinics', shops: 'tw_shops', hall: 'tw_hall', curtain: 'tw_curtain_door', vault: 'tw_vault_gate' } as const
+/** 金庫街（等級 3 的區）：中間人 fx_tw_vault 的委託都是 III 級，報酬欄帶未登錄零件（unreg_rule 的 sources.reward.chance 是 1） */
+export const VAULT_DISTRICT = 'tw_vault'
+export const VAULT_FIXER = 'fx_tw_vault'
 /** 診所街的四個設施標記（F1 正規診所、F2 無照診所、F3 黑診所、F4 調校診所） */
 export const CLINIC_MARKS = { clinic: 'F1', unlicensed: 'F2', black: 'F3', tuning: 'F4' } as const
 /** 店街的四個設施標記（F1 槍店、F2 同人攤、F3 原廠櫃檯、F4 互助診所） */
 export const SHOP_MARKS = { gun: 'F1', doujin: 'F2', factory: 'F3', detox: 'F4' } as const
-/** 大廳的三個設施標記（F1 拍賣行、F2 擂台、F3 療養院） */
-export const HALL_MARKS = { auction: 'F1', arena: 'F2', therapy: 'F3' } as const
+/** 大廳的四個設施標記（F1 拍賣行、F2 擂台、F3 療養院、F4 簾口） */
+export const HALL_MARKS = { auction: 'F1', arena: 'F2', therapy: 'F3', curtain: 'F4' } as const
 export const CURTAIN_SITE = 'ns_tw_curtain'
 export const CURTAIN_DOOR_MARKER = 'F1'
 export const CURTAIN_NIGHTS = { a: 'cn_tw_stage', b: 'cn_tw_honey' } as const
@@ -295,7 +299,8 @@ function street(id: string, name: string, facilities: Array<[string, string]>): 
 const SPECIAL_MAPS: Rec[] = [
   street('tw_clinics', '診所街', [['F1', '診所'], ['F2', '無照診所'], ['F3', '黑診所'], ['F4', '調校診所']]),
   street('tw_shops', '店街', [['F1', '槍店'], ['F2', '同人攤'], ['F3', '原廠櫃檯'], ['F4', '互助診所']]),
-  street('tw_hall', '大廳', [['F1', '拍賣行'], ['F2', '感官擂台'], ['F3', '療養院']]),
+  street('tw_vault', '金庫街', []),
+  street('tw_hall', '大廳', [['F1', '拍賣行'], ['F2', '感官擂台'], ['F3', '療養院'], ['F4', '簾口']]),
   // 簾口：暗礁的一個節點（站在上面才能報名）
   {
     id: 'm_tw_curtain_door', kind: 'block', size: [11, 5],
@@ -305,6 +310,7 @@ const SPECIAL_MAPS: Rec[] = [
 const DISTRICTS: Rec[] = [
   { id: BODY_DISTRICT, name: '診所區', grade: 1, price_mult: 1, blocks: [BODY_BLOCKS.clinics, BODY_BLOCKS.shops, BODY_BLOCKS.hall], factions: [] },
   { id: 'tw_under', name: '暗礁', grade: 1, price_mult: 1, blocks: [BODY_BLOCKS.curtain], factions: [] },
+  { id: VAULT_DISTRICT, name: '金庫街', grade: 3, price_mult: 1, blocks: [BODY_BLOCKS.vault], factions: ['f_gang', 'f_corp'] },
 ]
 const BLOCKS: Rec[] = [
   {
@@ -316,14 +322,18 @@ const BLOCKS: Rec[] = [
     facilities: { F1: { type: 'fac_tw_gunshop', name: '槍店' }, F2: { type: 'fac_tw_doujin', name: '同人攤' }, F3: { type: 'fac_tw_factory', name: '原廠櫃檯' }, F4: { type: 'fac_tw_detox', name: '互助診所' } },
   },
   {
-    id: BODY_BLOCKS.hall, district: BODY_DISTRICT, name: '大廳', kind: 'block', map: 'm_tw_hall', exits: { E2: { to: BODY_BLOCKS.shops, arrive: 'E1' } },
-    facilities: { F1: { type: 'fac_tw_auction', name: '拍賣行' }, F2: { type: 'fac_tw_arena', name: '感官擂台' }, F3: { type: 'fac_tw_therapy', name: '療養院' } },
+    id: BODY_BLOCKS.hall, district: BODY_DISTRICT, name: '大廳', kind: 'block', map: 'm_tw_hall', exits: { E2: { to: BODY_BLOCKS.shops, arrive: 'E1' }, E1: { to: BODY_BLOCKS.vault, arrive: 'E2' } },
+    facilities: { F1: { type: 'fac_tw_auction', name: '拍賣行' }, F2: { type: 'fac_tw_arena', name: '感官擂台' }, F3: { type: 'fac_tw_therapy', name: '療養院' }, F4: { type: 'fac_tw_curtain_door', name: '簾口' } },
   },
+  { id: BODY_BLOCKS.vault, district: VAULT_DISTRICT, name: '金庫街', kind: 'block', map: 'm_tw_vault', exits: { E2: { to: BODY_BLOCKS.hall, arrive: 'E1' } }, facilities: {} },
   { id: BODY_BLOCKS.curtain, district: 'tw_under', name: '斷線的後門', kind: 'block', map: 'm_tw_curtain_door', exits: {}, facilities: { [CURTAIN_DOOR_MARKER]: { type: 'fac_tw_curtain_door', name: '簾口' } } },
 ]
 const NET_SITES: Rec[] = [{ id: CURTAIN_SITE, name: '簾後館的簾口', kind: 'block', need: 'deck', desc: '暗礁裡會員制的地城。', block: BODY_BLOCKS.curtain, marker: CURTAIN_DOOR_MARKER }]
 
 // ---- 勢力與 NPC ----
+
+/** 診所區的街上人物生成規則（補演的對象由 director.cast 臨時生成，npcs 照這一區的規則做；蜂巢那一條是 world.ts 的 ng_tw_hive）。 */
+const NPC_GEN: Rec[] = [{ id: 'ng_tw_ward', district: BODY_DISTRICT, citizens: 3, runners: 2, occupations: [['攤販', 2], ['社畜', 1]], factions: [['none', 1]], names: ['np_tw'], haunts: [{ block: BODY_BLOCKS.clinics }, { block: BODY_BLOCKS.shops }, { block: BODY_BLOCKS.hall }] }]
 
 const FACTIONS: Rec[] = [
   { id: WINDOW_FACTION, name: '同人眾', short: '同人眾', class: 'street' },
@@ -333,7 +343,12 @@ const FACTIONS: Rec[] = [
   { id: 'f_tw_eden', name: '樂園', short: '樂園', class: 'corp' },
 ]
 const ALL_DAY = ['dawn', 'morning', 'noon', 'afternoon', 'prime', 'late']
+// 槍店的櫃檯（收購零件、武器、護甲；賣一把手槍）：未登錄零件與組出來的槍賣在這裡
+const SHOP_TYPES: Rec[] = [{ id: 'st_tw_gun', name: '槍店', catalog: ['weapon'], buys: ['weapon', 'part', 'armor'], grade_max: 5, cash: true, shop_mult: 1, temper: 0 }]
+const SHOPS: Rec[] = [{ id: 's_tw_gun', type: 'st_tw_gun', name: '槍店的櫃檯', district: BODY_DISTRICT, block: BODY_BLOCKS.shops, facility: 'F1', fixed_products: ['bp_tw_pistol'] }]
+
 const NPCS: Rec[] = [
+  { id: 'npc_tw_vaultfixer', name: '金庫街的帳房', kind: 'citizen', age: 48, gender: 'male', guard: 15, wealth: 4, haunts: [{ district: VAULT_DISTRICT, block: BODY_BLOCKS.vault }] },
   {
     id: HOLDER_NPC, name: '阿音', kind: 'citizen', age: 26, gender: 'female', occupation: '欠了債的駐唱歌手', guard: 12, wealth: 1, haunts: [{ district: 'tw_hive', block: 'tw_tower', time: ALL_DAY }],
     persona: { attrs: ['老派'], quadrants: ['按部就班', '護短'] }, bridge: { sensitivity: 40, tolerance: 25, craving: 30, docility: 35 }, sink: 10, attrs: { charm: 13, resolve: 9 }, skills: {},
@@ -353,7 +368,7 @@ const NPCS: Rec[] = [
 
 const program = (id: string, culture: string, rank: 'minion' | 'elite' | 'boss', a: [string, string], b: [string, string], neutral: [string, string]): Rec => ({
   id, name: a[0], desc: `簾後館的${rank === 'boss' ? '層主' : rank === 'elite' ? '熟面孔' : '演出者'}：只打感載，不打生命。`, faction: 'none', rank, grades: [1, 5], kind: 'program', culture,
-  position: { prefer: [2, 3], cover_use: 0.5 }, ai: { prefer: 'overloaded', focus: 1, flee_below: 0 }, mods: { load: 0.5, attack: -10, evade: -6 },
+  position: { prefer: [2, 3], cover_use: 0.5 }, ai: { prefer: 'overloaded', focus: 1, flee_below: 0 }, mods: { load: 0.5, attack: -20, evade: -10 },
   constructs: [{ id: `cs_${id}`, class: 'pistol', name: '聚光燈' }],
   forms: {
     a: { name: a[0], look: a[1], points_at: ['male'] },
@@ -370,17 +385,30 @@ const CURTAIN_ENEMIES: Rec[] = [
   program('cs_tw_honey_boss', CURTAIN_CULTURES.b, 'boss', ['蜜糖館長', '端著茶杯的女館長。'], ['老道', '拿著拂塵的男道長。'], ['茶席的輪廓', '一張擺好的茶席。']),
 ]
 const CURTAIN_NIGHT_ENTRIES: Rec[] = [
-  { id: CURTAIN_NIGHTS.a, name: '舞台之夜', faction: 'f_tw_kaleido', tags: ['tg_tw_dom'], culture: CURTAIN_CULTURES.a },
-  { id: CURTAIN_NIGHTS.b, name: '蜜糖之夜', faction: 'f_tw_honey', tags: ['tg_tw_sub'], culture: CURTAIN_CULTURES.b },
+  { id: CURTAIN_NIGHTS.a, name: '舞台之夜', faction: 'f_tw_kaleido', tags: ['tg_tw_dom', 'tg_tw_pamper'], culture: CURTAIN_CULTURES.a },
+  { id: CURTAIN_NIGHTS.b, name: '蜜糖之夜', faction: 'f_tw_honey', tags: ['tg_tw_sub', 'tg_tw_pamper'], culture: CURTAIN_CULTURES.b },
 ]
 const CURTAIN_TABLES: Rec[] = [
   { id: 'ct_tw_order', kind: 'order', rows: [{ weight: 3, name: '台詞', order: 'line' }, { weight: 2, name: '收尾', order: 'finish' }] },
   { id: 'ct_tw_chest', kind: 'chest', rows: [{ weight: 3, name: '票根箱', stubs: [3, 8] }, { weight: 1, name: '神祕的賞箱', prize: true }] },
   { id: 'ct_tw_prize', kind: 'prize', rows: [{ weight: 2, name: '紀念徽章', give: [{ kind: 'item', id: 'it_tw_curtain_pin', qty: 1 }] }, { weight: 1, name: '票根一把', stubs: [10, 20] }] },
 ]
-const STAGE_EVENT_IDS = ['df_tw_stage_foyer', 'df_tw_stage_headliner', 'df_tw_stage_backstage', 'df_tw_stage_vip', 'df_tw_stage_encore']
+/**
+ * 簾後館的規則表：只改每一幕的遭遇數（一幕一場，也就是守閘門的那一場）讓整趟走得快；其餘照預設（會費、保證金、場熱、打賞、三條路的數字是引擎的 DEFAULT）。
+ * 每一幕的名字、點單、賞箱與首領照預設的四幕。
+ */
+const CURTAIN_RULE: Rec[] = [{
+  id: 'default',
+  acts: [
+    { id: 'foyer', name: '序幕・迎賓廳', encounters: [1, 1], orders: [1, 1], chests: [1, 2], turns: 12 },
+    { id: 'stage', name: '第一幕・舞台', encounters: [1, 1], orders: [1, 1], chests: [1, 2], boss: 'headliner', turns: 15 },
+    { id: 'backstage', name: '第二幕・後台', encounters: [1, 1], orders: [1, 1], chests: [1, 2], boss: 'director', turns: 15, shortcut: true },
+    { id: 'vip', name: '終幕・貴賓席', encounters: [1, 1], orders: [0, 0], chests: [0, 0], boss: 'host', turns: 12, prize_room: true },
+  ],
+}]
+const STAGE_EVENT_IDS = ['df_stage_foyer', 'df_stage_headliner', 'df_stage_backstage', 'df_stage_vip', 'df_stage_encore']
 const stageEvent = (id: string): Rec => ({
-  id, name: '落幕', kind: 'stage', factions: [], fails_commission: false, cast: [{ role: 'a' }], fallback: `${id}_plain`,
+  id, name: '落幕', kind: 'stage', factions: [], fails_commission: false, cast: [{ role: 'a', gen: { kind: 'citizen' } }], fallback: `${id}_plain`,
   versions: {
     default: {
       text: '落幕了。館方派了補演。',
@@ -487,8 +515,10 @@ export function bodyContent(): Record<string, unknown[]> {
     skill: SKILLS, faction: FACTIONS, part: PARTS, blueprint: BLUEPRINTS, quirk: QUIRKS, item: ITEMS, tuning: TUNINGS, malware: MALWARES, rogue_ai: ROGUE_AIS,
     event_scope: EVENT_SCOPES, event: [...CONTRACT_EVENTS, ...LURE_EVENTS],
     position: POSITIONS, night_skill: NIGHT_SKILLS, night_resonance: RESONANCES, tendency_tag: TAGS,
-    facility_type: FACILITY_TYPES, special_map: SPECIAL_MAPS, district: DISTRICTS, block: BLOCKS, net_site: NET_SITES, npc: NPCS,
-    enemy: CURTAIN_ENEMIES, curtain_night: CURTAIN_NIGHT_ENTRIES, curtain_table: CURTAIN_TABLES, defeat_event: STAGE_EVENTS, curtain_rule: [{ id: 'default' }],
+    facility_type: FACILITY_TYPES, special_map: SPECIAL_MAPS, district: DISTRICTS, block: BLOCKS, net_site: NET_SITES, npc: NPCS, npc_gen: NPC_GEN,
+    shop_type: SHOP_TYPES, shop: SHOPS,
+    fixer: [{ id: VAULT_FIXER, name: '金庫街的中間人', npc: 'npc_tw_vaultfixer', district: VAULT_DISTRICT, block: BODY_BLOCKS.vault, kinds: ['t_tw_hit'], cut: 0.1 }],
+    enemy: CURTAIN_ENEMIES, curtain_night: CURTAIN_NIGHT_ENTRIES, curtain_table: CURTAIN_TABLES, defeat_event: STAGE_EVENTS, curtain_rule: CURTAIN_RULE,
     unreg_rule: UNREG_RULE, unreg_preset: UNREG_PRESETS,
     auction_house: AUCTION_HOUSES, auction_lot: AUCTION_LOTS, auction_bidder: AUCTION_BIDDERS,
     lifepath_entry: LIFEPATH, origin: ORIGINS, perk: PERKS, attribute: ATTRIBUTES,
@@ -505,5 +535,8 @@ export function bodyWorld(): ContentPack {
   const market = (pack.content.block ?? []).find((b) => b.id === 'tw_market') as unknown as { exits: Record<string, unknown> } | undefined
   if (!market) throw new Error('bodyWorld：TEST_WORLD 沒有 tw_market')
   market.exits.E1 = { to: BODY_BLOCKS.clinics, arrive: 'E2' }
+  // 暗殺類型的報酬零件只給槍管（未登錄零件的類型；沒裝 unreg 時這個欄位沒有人看）
+  const hit = (pack.content.commission_type ?? []).find((t) => t.id === 't_tw_hit') as unknown as Record<string, unknown> | undefined
+  if (hit) hit.part_types = ['barrel']
   return pack
 }

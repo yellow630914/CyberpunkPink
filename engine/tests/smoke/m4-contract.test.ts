@@ -215,9 +215,11 @@ async function lureFlow(g: Game, f = flow('長線：蠱惑')): Promise<{ g: Game
   })
   await follow('再睡一覺：順著牠（第 4 次）', sleep, 'rest')
   await follow('再睡一覺：順著牠（第 5 次）', sleep, 'rest')
-  await f.step('順著五次：lureView 累計 5 次、沉溺比 66 高（每次順著 +2）', () => {
+  await f.step('順著五次：lureView 累計 5 次、線索有了、牠的吻種在橋上；沉溺比 66 高（每次順著 +2）', () => {
     const v = lureView(k, g.state)
-    expect(JSON.stringify(v)).toContain('5')
+    expect(v).toMatchObject([{ id: 'ai_tw_mommy', follow: 5, refused: 0, clue: true, kiss: true }])
+    // 第五次順著牠：牠的吻（惡意韌體）種在橋上，潛伏中
+    expect(malwareOf(g.state, 'pc')).toMatchObject([{ id: 'mw_tw_kiss', stage: 0 }])
     expect(pc(g).sink).toBeGreaterThan(66)
   })
   return { g, seen }
