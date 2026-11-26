@@ -155,7 +155,6 @@ async function rewardFlow(g: Game, f = flow('市集：委託的報酬零件')): 
 /** 拍賣：週四預展看貨 → 週五進場 → 標到一件零件與一件義體、退出一件 → 結束。 */
 async function auctionFlow(g: Game, f = flow('市集：拍賣')): Promise<void> {
   const { k } = g
-  const cash0 = g.state.money.cash
   await f.step('站在拍賣行；玩家是白槌的會員（玻璃岸的好感 40）', () => {
     standAt(g, BODY_BLOCKS.hall, 'F1')
     g.commit({ kind: 'system', action: 'test.favor', location: {}, party: [], timeline: [], changes: [{ op: 'meter', kind: 'favor', key: 'f_tw_gallery', set: 40 }] as never, outcome: { result: 'ok', summary: '測試給的好感。' } })
@@ -175,8 +174,11 @@ async function auctionFlow(g: Game, f = flow('市集：拍賣')): Promise<void> 
       expect(actions(reports)).toContain('auction.inspect')
     }
   })
-  await f.step('週五進場（黃金時段、付現金）：開一場拍賣', () => {
+  let cash0 = 0
+  await f.step('週五進場（黃金時段、付現金；帶了一萬現金）：開一場拍賣', () => {
     passUntil(g, { day: 11, hour: 19, minute: 10 })
+    giveMoney(g, 0, 10000)
+    cash0 = g.state.money.cash
     const reports = g.commit(auctionEnter(k, g.state, { house: AUCTION_HOUSE, pay: 'cash' }))
     expect(actions(reports)).toContain('auction.enter')
     expect(auctionRunOf(g.state)).toBeTruthy()
@@ -195,7 +197,7 @@ async function auctionFlow(g: Game, f = flow('市集：拍賣')): Promise<void> 
       const want = (v.lot.kind === 'part' || v.lot.kind === 'cyberware') && !wonKinds.includes(v.lot.kind)
       let input: { act: 'raise' | 'wait' | 'fold'; steps?: number }
       if (want) {
-        const up = o.raise.find((r) => r.can)
+        const up = [...o.raise].reverse().find((r) => r.can)
         input = v.holder.id === 'pc' ? { act: 'wait' } : up ? { act: 'raise', steps: up.steps! } : o.wait.can ? { act: 'wait' } : { act: 'fold' }
       } else if (o.fold.can) {
         input = { act: 'fold' }
