@@ -30,3 +30,4 @@
 
 - （M4-smoke）B030、B031：簾後館在潛入裡的簾口報名被擋、一趟不開（見 dev/bugs）。
 - （M4-smoke）示意包簾後館戰敗事件的 `cast` 加 `gen: { kind: 'citizen' }`，診所區補 `npc_gen`，示意局補演才演得起來。
+- （使用者 2026-11-26）任何方式進入內海都發 `login` 觸發點：委託的內海面（face.net 開始）、netrun 開始、簾後館一趟進場，和 dive.enter 一樣。
