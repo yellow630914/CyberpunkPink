@@ -1,10 +1,10 @@
-// L6 功能 channel 的變更種類（model.ts 檔頭列了七種）。每一種只動 state.ext.channel，而且彼此疊在同一份報告裡也不會互相蓋掉
+// L6 功能 channel 的變更種類（model.ts 檔頭列了十一種）。每一種只動 state.ext.channel，而且彼此疊在同一份報告裡也不會互相蓋掉
 // （一份報告可以先付開銷、再記一集；用整份 ext 換的寫法會被後面的蓋成舊的）。預算的格子永遠不會被扣成負的：扣超過的整份報告不收。
 
 import type { Change, GameState, Kernel } from '../../core'
 import { isRecord, isSafeInt } from '../../core'
-import type { ChannelState, Episode, Sponsor } from './model'
-import { EXT, OPEN_ACTION, OWN, OWNER, channelRules, channelValue, isText, readChannel } from './model'
+import type { ChannelState, Episode, GearRow, Role, Sponsor, Staff } from './model'
+import { EXT, GEAR_CLASSES, OPEN_ACTION, OWN, OWNER, ROLES, channelRules, channelValue, isText, readChannel } from './model'
 
 const write = (state: GameState, fn: (c: ChannelState) => void): void => {
   const c = readChannel(state)
@@ -156,5 +156,65 @@ export function installOps(k: Kernel): void {
     op: 'channel.log', owner: OWNER,
     validate: (s, c) => (readChannel(s).open ? episodeProblems(c.entry) : [NOT_OPEN]),
     apply: (s, c) => write(s, (ch) => { ch.log = [...ch.log, c.entry].slice(-channelRules(k).log_keep) }),
+  })
+
+  // 編制：staff 給 null 是請他離開；同一個人不能坐兩個位子（位子的上限看頻道等級，入口自己擋：seatStaff）
+  k.changes.register<Change & { role: Role; staff: Pick<Staff, 'who' | 'hired' | 'wage'> | null }>({
+    op: 'channel.staff', owner: OWNER,
+    validate: (s, c) => {
+      const ch = readChannel(s)
+      if (!ch.open) return [NOT_OPEN]
+      if (!(ROLES as readonly unknown[]).includes(c.role)) return [`role 要是 ${ROLES.join('、')} 其中一個`]
+      if (c.staff === null) return ch.staff[c.role] ? [] : ['那個位子本來就沒有人']
+      if (!isRecord(c.staff) || !isText(c.staff.who)) return ['staff.who 要是角色的 id']
+      const p: string[] = []
+      if (typeof c.staff.hired !== 'boolean') p.push('staff.hired 要是 true 或 false')
+      if (!isSafeInt(c.staff.wage) || c.staff.wage < 0) p.push('staff.wage 要是 0 以上的整數')
+      const other = ROLES.find((r) => r !== c.role && ch.staff[r]?.who === c.staff!.who)
+      if (other) p.push(`${c.staff.who} 已經坐在別的位子上了`)
+      return p
+    },
+    apply: (s, c) => write(s, (ch) => {
+      if (c.staff === null) delete ch.staff[c.role]
+      else ch.staff[c.role] = { who: c.staff.who, hired: c.staff.hired, wage: c.staff.wage, unpaid_weeks: 0 }
+    }),
+    describe: (c) => (c.staff === null ? `${c.role} 的位子空了` : `${c.role} 的位子換成 ${c.staff.who}`),
+  })
+
+  k.changes.register<Change & { role: Role; unpaid_weeks: number }>({
+    op: 'channel.staff_set', owner: OWNER,
+    validate: (s, c) => {
+      const ch = readChannel(s)
+      if (!ch.open) return [NOT_OPEN]
+      if (!(ROLES as readonly unknown[]).includes(c.role) || !ch.staff[c.role]) return ['那個位子沒有人']
+      return isSafeInt(c.unpaid_weeks) && c.unpaid_weeks >= 0 ? [] : ['unpaid_weeks 要是 0 以上的整數']
+    },
+    apply: (s, c) => write(s, (ch) => { ch.staff[c.role]!.unpaid_weeks = c.unpaid_weeks }),
+  })
+
+  k.changes.register<Change & { gear: GearRow }>({
+    op: 'channel.gear_add', owner: OWNER,
+    validate: (s, c) => {
+      const ch = readChannel(s)
+      if (!ch.open) return [NOT_OPEN]
+      if (!isRecord(c.gear)) return ['gear 要是一件設備']
+      const g = c.gear
+      const p: string[] = []
+      if (!isText(g.uid)) p.push('gear.uid 要是流水號')
+      else if (ch.gear.some((x) => x.uid === g.uid)) p.push(`設備 ${g.uid} 已經裝著了`)
+      if (!isText(g.item)) p.push('gear.item 要是物品的 id')
+      if (!(GEAR_CLASSES as readonly unknown[]).includes(g.cls)) p.push(`gear.cls 要是 ${GEAR_CLASSES.join('、')} 其中一個`)
+      if (!isSafeInt(g.grade) || g.grade < 1 || g.grade > 3) p.push('gear.grade 要是 1～3（消費、專業、企業級）')
+      if (typeof g.portable !== 'boolean') p.push('gear.portable 要是 true 或 false')
+      return p
+    },
+    apply: (s, c) => write(s, (ch) => { ch.gear.push({ uid: c.gear.uid, item: c.gear.item, cls: c.gear.cls, grade: c.gear.grade, portable: c.gear.portable }); ch.seq += 1 }),
+    describe: (c) => `裝上設備 ${c.gear.item}`,
+  })
+
+  k.changes.register<Change & { uid: string }>({
+    op: 'channel.gear_remove', owner: OWNER,
+    validate: (s, c) => (!readChannel(s).open ? [NOT_OPEN] : readChannel(s).gear.some((x) => x.uid === c.uid) ? [] : [`沒有裝著設備 ${String(c.uid)}`]),
+    apply: (s, c) => write(s, (ch) => { ch.gear = ch.gear.filter((x) => x.uid !== c.uid) }),
   })
 }

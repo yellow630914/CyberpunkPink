@@ -13,6 +13,9 @@
 //   channel.sponsor_end { faction }                 終止贊助
 //   channel.week { episodes?, lives?, adult_reco?, reset?, mark? }   這一週的計數
 //   channel.log { entry }                           記一集（只留最近 log_keep 筆）
+//   channel.staff { role, staff }                   編制的一個位子坐上一個人（staff 是 null 就是請他離開）
+//   channel.staff_set { role, unpaid_weeks }        那個人連續幾週沒領到薪水
+//   channel.gear_add { gear }、channel.gear_remove { uid }   裝上、拆下一件設備
 
 import type { GameState, Kernel } from '../../core'
 import { isRecord, isSafeInt } from '../../core'
@@ -68,11 +71,92 @@ export interface ChannelRules {
   max_catch_up: number
   /** 最近的集數記幾筆 */
   log_keep: number
+  /** 成人檔三段（MEDIA 4.3）：訂閱與打賞的倍率、廣告單價的倍率、豔名、公信力的加減（現場、專題用 cred_hard）、推薦權重、各段的內容篩選標籤 */
+  tiers: Record<TierId, TierRule>
+  /** 四種評價（MEDIA 4.4）：觀看 = 訂閱 × views、訂閱 ±subs %、公信力（只有 cred_affected 的節目） */
+  grades: Record<Grade, GradeRule>
+  /** 廣告：每個觀看 C$ unit × 公信力 ÷ cred_div（MEDIA 4.4） */
+  ad: { unit: number; cred_div: number }
+  /** 打賞 = 觀看 × tip_rate × 成人檔的倍率 */
+  tip_rate: number
+  /** 料的加成：看點合計 ÷ div（捨去）最多 cap；可信平均 trust_hi 以上公信力 +1、trust_lo 以下 −1（只有 cred_affected 的節目） */
+  material: { div: number; cap: number; trust_hi: number; trust_lo: number }
+  /** 設備（MEDIA 4.6）：消費、專業、企業級各加幾；便攜的專業級以上少 portable_cut；一集合計最多 cap；直播讀的 stream_gear_bonus 最多 stream_cap */
+  gear: { bonus: number[]; portable_cut: number; cap: number; stream_cap: number }
+  /** 檢定的 DC：base − 推薦權重，沒有媒體型路數再加 no_media */
+  dc: { base: number; no_media: number }
+  /** 帶著製作：檢定 +bonus；那個人的路數是主播或偶像 +media_bonus（MEDIA 4.5） */
+  producer: { bonus: number; media_bonus: number }
+  /** 編制的週薪（V15）：雇來的 hired；名冊上的人是他出場費的 1 ÷ roster_div */
+  wage: { hired: number; roster_div: number }
+  /** 掛一則業配的公信力（MEDIA 4.3） */
+  plug_cred: number
+  /** 假料被拆穿時的公信力（扣這麼多；MEDIA 4.4） */
+  expose: number
+  /** 線人每週帶回的素材：品質 q_min～q_max、類型從 types 固定亂數挑 */
+  source: { q_min: number; q_max: number; types: string[] }
+  /** 一個時段幾分鐘 */
+  slot_minutes: number
+  /** 媒體型的路數（actor.ext.paths 的 path id） */
+  paths: { anchor: string; idol: string }
 }
 
 export const DEFAULT_CHANNEL_RULES: ChannelRules = {
   start_subs: 100, name_max: 20, churn: { active: 2, idle: 5 }, reco_growth: 1, over_step: 500, quota_pct: 20, level_at: [1000, 10000], seats: 2, flow_cred: 60,
   ai_subs: { pct: 2, min: 20 }, max_catch_up: 8, log_keep: 10,
+  // MEDIA 4.3 的成人檔表：擦邊 ×1.3／×1.5、豔名 +1、公信力 −1（現場與專題 −2）；成人 ×1.6／×2.5、豔名 +2、公信力 −2（−4）、推薦權重 −1；廣告單價成人檔減半
+  tiers: {
+    all: { subs: 1, tips: 1, ad: 1, fame: 0, cred: 0, cred_hard: 0, reco: 0, tags: [] },
+    edgy: { subs: 1.3, tips: 1.5, ad: 0.5, fame: 1, cred: -1, cred_hard: -2, reco: 0, tags: [] },
+    adult: { subs: 1.6, tips: 2.5, ad: 0.5, fame: 2, cred: -2, cred_hard: -4, reco: -1, tags: [] },
+  },
+  // MEDIA 4.4 的評價表：翻車 觀看 ×0.2、訂閱 −2%、公信力 −2；普通 ×0.5、+1%、0；好 ×1、+3%、+1；爆 ×3、+10%、+2
+  grades: {
+    flop: { views: 0.2, subs: -2, cred: -2 },
+    ok: { views: 0.5, subs: 1, cred: 0 },
+    good: { views: 1, subs: 3, cred: 1 },
+    hit: { views: 3, subs: 10, cred: 2 },
+  },
+  ad: { unit: 0.1, cred_div: 50 }, tip_rate: 0.02,
+  material: { div: 4, cap: 3, trust_hi: 8, trust_lo: 3 },
+  gear: { bonus: [1, 2, 3], portable_cut: 1, cap: 6, stream_cap: 3 },
+  dc: { base: 12, no_media: 3 }, producer: { bonus: 2, media_bonus: 4 }, wage: { hired: 250, roster_div: 2 },
+  plug_cred: -1, expose: 8, source: { q_min: 1, q_max: 2, types: ['scandal', 'crime', 'celebrity', 'daily', 'battle'] }, slot_minutes: 240,
+  paths: { anchor: 'streamer', idol: 'idol' },
+}
+
+// ---- 節目與成人檔的固定字彙 ----
+
+export const TIER_IDS = ['all', 'edgy', 'adult'] as const
+export type TierId = (typeof TIER_IDS)[number]
+export const TIER_NAME: Record<TierId, string> = { all: '全年齡', edgy: '擦邊', adult: '成人' }
+export const GRADES = ['flop', 'ok', 'good', 'hit'] as const
+export type Grade = (typeof GRADES)[number]
+export const GRADE_NAME: Record<Grade, string> = { flop: '翻車', ok: '普通', good: '好', hit: '爆' }
+export const ROLES = ['producer', 'source', 'pr'] as const
+export type Role = (typeof ROLES)[number]
+export const ROLE_NAME: Record<Role, string> = { producer: '製作', source: '線人', pr: '公關' }
+/** 設備五類（MEDIA 4.6）：鏡頭、收音、燈光、剪輯機、串流 */
+export const GEAR_CLASSES = ['lens', 'mic', 'light', 'edit', 'stream'] as const
+export type GearClass = (typeof GEAR_CLASSES)[number]
+export const GEAR_NAME: Record<GearClass, string> = { lens: '鏡頭', mic: '收音', light: '燈光', edit: '剪輯機', stream: '串流' }
+
+export interface TierRule {
+  subs: number
+  tips: number
+  ad: number
+  fame: number
+  cred: number
+  cred_hard: number
+  reco: number
+  /** 內容篩選的標籤（預設都沒有；被玩家關掉的標籤，那一檔開不出來） */
+  tags: string[]
+}
+
+export interface GradeRule {
+  views: number
+  subs: number
+  cred: number
 }
 
 const pct = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100
@@ -98,13 +182,99 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
       if (e.ai_subs.min !== undefined && !smallInt(e.ai_subs.min, 0, 1_000_000)) p.push('ai_subs.min 要是 0～1000000 的整數')
     }
   }
+  p.push(...episodeRuleProblems(e))
   return p
+}
+
+// ---- 開一集的規則（節目、成人檔、評價、設備、編制）：一格一格的數字用路徑寫表，驗證與讀取共用 ----
+
+type NumSpec = [path: string, lo: number, hi: number, int?: true]
+
+const NUM_SPECS: NumSpec[] = [
+  ...TIER_IDS.flatMap((t): NumSpec[] => [
+    [`tiers.${t}.subs`, 0, 100], [`tiers.${t}.tips`, 0, 100], [`tiers.${t}.ad`, 0, 100], [`tiers.${t}.fame`, 0, 10, true],
+    [`tiers.${t}.cred`, -50, 50, true], [`tiers.${t}.cred_hard`, -50, 50, true], [`tiers.${t}.reco`, -3, 3, true],
+  ]),
+  ...GRADES.flatMap((g): NumSpec[] => [[`grades.${g}.views`, 0, 100], [`grades.${g}.subs`, -100, 1000], [`grades.${g}.cred`, -50, 50, true]]),
+  ['ad.unit', 0, 1000], ['ad.cred_div', 1, 1000], ['tip_rate', 0, 100],
+  ['material.div', 1, 1000, true], ['material.cap', 0, 20, true], ['material.trust_hi', 0, 20, true], ['material.trust_lo', 0, 20, true],
+  ['gear.portable_cut', 0, 5, true], ['gear.cap', 0, 30, true], ['gear.stream_cap', 0, 30, true],
+  ['dc.base', 0, 40, true], ['dc.no_media', 0, 20, true], ['producer.bonus', 0, 10, true], ['producer.media_bonus', 0, 20, true],
+  ['wage.hired', 0, 1_000_000, true], ['wage.roster_div', 1, 100, true], ['plug_cred', -50, 50, true], ['expose', 0, 100, true],
+  ['source.q_min', 1, 5, true], ['source.q_max', 1, 5, true], ['slot_minutes', 1, 1440, true],
+]
+
+const GROUP_KEYS = ['tiers', 'grades', 'ad', 'material', 'gear', 'dc', 'producer', 'wage', 'source', 'paths'] as const
+
+const getPath = (o: unknown, path: string): unknown => path.split('.').reduce<unknown>((cur, key) => (isRecord(cur) && Object.hasOwn(cur, key) ? cur[key] : undefined), o)
+function setPath(o: Record<string, unknown>, path: string, v: unknown): void {
+  const keys = path.split('.')
+  let cur = o
+  for (const key of keys.slice(0, -1)) cur = cur[key] as Record<string, unknown>
+  cur[keys[keys.length - 1]!] = v
+}
+const specOk = (v: unknown, [, lo, hi, int]: NumSpec): v is number => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi && (!int || Number.isInteger(v))
+const textList = (v: unknown): v is string[] => Array.isArray(v) && v.length <= 40 && v.every((x) => isText(x))
+const gearBonusOk = (v: unknown): v is number[] => Array.isArray(v) && v.length === 3 && v.every((n) => isSafeInt(n) && n >= 0 && n <= 10)
+
+function episodeRuleProblems(e: Record<string, unknown>): string[] {
+  const p: string[] = []
+  for (const g of GROUP_KEYS) if (e[g] !== undefined && !isRecord(e[g])) p.push(`${g} 要是一組設定（物件）`)
+  for (const t of TIER_IDS) if (isRecord(e.tiers) && e.tiers[t] !== undefined && !isRecord(e.tiers[t])) p.push(`tiers.${t} 要是一組設定（物件）`)
+  for (const g of GRADES) if (isRecord(e.grades) && e.grades[g] !== undefined && !isRecord(e.grades[g])) p.push(`grades.${g} 要是一組設定（物件）`)
+  for (const spec of NUM_SPECS) {
+    const v = getPath(e, spec[0])
+    if (v !== undefined && !specOk(v, spec)) p.push(`${spec[0]} 要是 ${spec[1]}～${spec[2]} 的${spec[3] ? '整數' : '數字'}`)
+  }
+  for (const t of TIER_IDS) {
+    const tags = getPath(e, `tiers.${t}.tags`)
+    if (tags !== undefined && !textList(tags)) p.push(`tiers.${t}.tags 要是標籤的陣列`)
+  }
+  const bonus = getPath(e, 'gear.bonus')
+  if (bonus !== undefined && !gearBonusOk(bonus)) p.push('gear.bonus 要是三個 0～10 的整數（消費、專業、企業級）')
+  const types = getPath(e, 'source.types')
+  if (types !== undefined && !(textList(types) && types.length > 0)) p.push('source.types 要是素材類型的陣列（至少一個）')
+  for (const f of ['anchor', 'idol'] as const) {
+    const v = getPath(e, `paths.${f}`)
+    if (v !== undefined && !isText(v)) p.push(`paths.${f} 要是路數的 id`)
+  }
+  const qmin = getPath(e, 'source.q_min')
+  const qmax = getPath(e, 'source.q_max')
+  if (typeof qmin === 'number' && typeof qmax === 'number' && qmin > qmax) p.push('source.q_min 不能大於 source.q_max')
+  return p
+}
+
+/** 把資料裡合格的欄位蓋到規則上（格式不對的欄位忽略）。 */
+function readEpisodeRules(e: Record<string, unknown>, out: ChannelRules): void {
+  for (const spec of NUM_SPECS) {
+    const v = getPath(e, spec[0])
+    if (specOk(v, spec)) setPath(out as unknown as Record<string, unknown>, spec[0], v)
+  }
+  for (const t of TIER_IDS) {
+    const tags = getPath(e, `tiers.${t}.tags`)
+    if (textList(tags)) out.tiers[t].tags = [...tags]
+  }
+  const bonus = getPath(e, 'gear.bonus')
+  if (gearBonusOk(bonus)) out.gear.bonus = [...bonus]
+  const types = getPath(e, 'source.types')
+  if (textList(types) && types.length > 0) out.source.types = [...types]
+  for (const f of ['anchor', 'idol'] as const) {
+    const v = getPath(e, `paths.${f}`)
+    if (isText(v)) out.paths[f] = v
+  }
+  if (out.source.q_min > out.source.q_max) out.source.q_min = out.source.q_max
 }
 
 /** 現在生效的規則：資料 channel_rule/default 蓋掉內建的預設（格式不對的欄位忽略）。 */
 export function channelRules(k: Pick<Kernel, 'content'>): ChannelRules {
   const d = DEFAULT_CHANNEL_RULES
-  const out: ChannelRules = { ...d, churn: { ...d.churn }, level_at: [...d.level_at], ai_subs: { ...d.ai_subs } }
+  const out: ChannelRules = {
+    ...d, churn: { ...d.churn }, level_at: [...d.level_at], ai_subs: { ...d.ai_subs },
+    tiers: Object.fromEntries(TIER_IDS.map((t) => [t, { ...d.tiers[t], tags: [...d.tiers[t].tags] }])) as Record<TierId, TierRule>,
+    grades: Object.fromEntries(GRADES.map((g) => [g, { ...d.grades[g] }])) as Record<Grade, GradeRule>,
+    ad: { ...d.ad }, material: { ...d.material }, gear: { ...d.gear, bonus: [...d.gear.bonus] }, dc: { ...d.dc }, producer: { ...d.producer }, wage: { ...d.wage },
+    source: { ...d.source, types: [...d.source.types] }, paths: { ...d.paths },
+  }
   const e = k.content.hasKind(RULE_KIND) ? k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default') : undefined
   if (!e) return out
   for (const [key, lo, hi] of [['start_subs', 0, 1_000_000], ['name_max', 1, 100], ['over_step', 1, 1_000_000], ['seats', 1, 6], ['flow_cred', 0, 100], ['max_catch_up', 1, 520], ['log_keep', 1, 100]] as const) {
@@ -118,6 +288,7 @@ export function channelRules(k: Pick<Kernel, 'content'>): ChannelRules {
     if (pct(e.ai_subs.pct)) out.ai_subs.pct = e.ai_subs.pct
     if (smallInt(e.ai_subs.min, 0, 1_000_000)) out.ai_subs.min = e.ai_subs.min
   }
+  readEpisodeRules(e, out)
   return out
 }
 
@@ -177,6 +348,24 @@ export interface ChannelWeek {
   adult_reco: boolean
 }
 
+/** 編制的一個位子上的人（MEDIA 4.5；V15）：who 是角色 id；hired 是雇來的（不在名冊上）；wage 是每週薪水（坐上去那一刻定下）；unpaid_weeks 是連續幾週沒領到。 */
+export interface Staff {
+  who: string
+  hired: boolean
+  wage: number
+  unpaid_weeks: number
+}
+
+/** 裝進頻道的一件設備（V17）：從背包拿進來，可以拆回去。uid 是頻道自己發的流水號。 */
+export interface GearRow {
+  uid: string
+  item: string
+  cls: GearClass
+  /** 1 消費級、2 專業級、3 企業級 */
+  grade: number
+  portable: boolean
+}
+
 export interface ChannelState {
   open: boolean
   name: string
@@ -189,10 +378,17 @@ export interface ChannelState {
   week: ChannelWeek
   /** 最近的集數（舊的在前） */
   log: Episode[]
+  /** 編制三種位子（沒有人坐的沒有那一格） */
+  staff: Partial<Record<Role, Staff>>
+  /** 裝著的設備 */
+  gear: GearRow[]
+  /** 設備的流水號（發 uid 用，只增不減） */
+  seq: number
 }
 
 export const blankChannel = (): ChannelState => ({
   open: false, name: '', since: 0, mark: 0, budget: { own: { cred: 0, cash: 0 }, pools: {} }, sponsors: [], week: { episodes: 0, lives: 0, adult_reco: false }, log: [],
+  staff: {}, gear: [], seq: 0,
 })
 
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
@@ -221,6 +417,19 @@ function readEpisode(v: unknown): Episode | null {
   }
 }
 
+const isRole = (v: unknown): v is Role => (ROLES as readonly unknown[]).includes(v)
+const isGearClass = (v: unknown): v is GearClass => (GEAR_CLASSES as readonly unknown[]).includes(v)
+
+function readStaff(v: unknown): Staff | null {
+  if (!isRecord(v) || !isText(v.who)) return null
+  return { who: v.who, hired: v.hired === true, wage: nat(v.wage), unpaid_weeks: nat(v.unpaid_weeks) }
+}
+
+function readGear(v: unknown): GearRow | null {
+  if (!isRecord(v) || !isText(v.uid) || !isText(v.item) || !isGearClass(v.cls) || !isSafeInt(v.grade) || v.grade < 1 || v.grade > 3) return null
+  return { uid: v.uid, item: v.item, cls: v.cls, grade: v.grade, portable: v.portable === true }
+}
+
 /** 讀 state.ext.channel：沒有、或形狀不對的部分當成空的（回傳的是新物件，改它不會動到狀態）。 */
 export function readChannel(state: Pick<GameState, 'ext'>): ChannelState {
   const raw = state.ext?.[EXT]
@@ -236,7 +445,19 @@ export function readChannel(state: Pick<GameState, 'ext'>): ChannelState {
     budget: { own: { cred: nat(o.cred), cash: nat(o.cash) }, pools },
     sponsors, week: { episodes: nat(w.episodes), lives: nat(w.lives), adult_reco: w.adult_reco === true },
     log: (Array.isArray(r.log) ? r.log : []).map(readEpisode).filter((e): e is Episode => e !== null),
+    staff: readStaffMap(r.staff), gear: (Array.isArray(r.gear) ? r.gear : []).map(readGear).filter((g): g is GearRow => g !== null), seq: nat(r.seq),
   }
+}
+
+function readStaffMap(v: unknown): Partial<Record<Role, Staff>> {
+  const out: Partial<Record<Role, Staff>> = {}
+  if (!isRecord(v)) return out
+  const seen = new Set<string>()
+  for (const role of ROLES) {
+    const st = isRole(role) && Object.hasOwn(v, role) ? readStaff(v[role]) : null
+    if (st && !seen.has(st.who)) { out[role] = st; seen.add(st.who) }
+  }
+  return out
 }
 
 /** 寫回的值（ext 變更用）。 */
