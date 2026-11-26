@@ -1073,7 +1073,7 @@
 | `reef` | `reach`、`legs`、`chart` | 去哪一段（`near`、`mid`、`wall`）；每一段的檢定結果與過礁事件；水道圖的來源與失效的日子。這一區沒有格子圖，`layers` 與 `theme` 留空（8.4 節） |
 | `wreck` | `ship`、`reach`、`signal` | 船的種類；位置（`near`、`mid`、`wall`）；目前的追蹤度（8.5 節） |
 | `deep` | `biomes`、`depth`、`sea` | 走過的海域 id，照順序；現在的深度；每個海域擲到的海況（8.6 節） |
-| `curtain` | `seat`、`menu`、`heat`、`encore` | 席次（`stand`、`box`、`vip`）；口味單；場熱 0～100；加演開了沒有（8.8 節）；檔期主題寫在 `theme`。會員證與欠款不在這一筆，在存檔的勢力欄 |
+| `curtain` | `seat`、`menu`、`stage_heat`、`encore` | 席次（`stand`、`box`、`vip`）；口味單；場熱 0～100；加演開了沒有（8.8 節）；檔期主題寫在 `theme`。會員證與欠款不在這一筆，在存檔的勢力欄 |
 | `evergleam` | `zones`、`depth`、`gate` | 這一趟擲到的園區 id，照順序；現在的層；從哪個群落的門進來（`rel`、`sense`、`body`、`look`，8.9 節）。`theme` 留空，園區就是主題 |
 
 ## 11. 素材、片與直播模板
