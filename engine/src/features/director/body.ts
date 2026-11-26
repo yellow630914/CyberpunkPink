@@ -14,7 +14,7 @@
 
 import type { Condition, ContentEntry, Degree, GameState, Kernel } from '../../core'
 import { ATTR_IDS, DC_TIERS, effectCtx, isRecord, isSafeInt } from '../../core'
-import { eventRules } from './model'
+import { startableActivities } from './model'
 
 export const VERSION_IDS = ['default', 'masc', 'yuri'] as const
 export const OUTCOME_KEYS = ['critical', 'success', 'fail', 'fumble', 'any'] as const
@@ -249,7 +249,7 @@ function directiveProblems(k: Cx, e: Record<string, unknown>, path: string, phas
     // 登記過、而且列在 event_rule 的 startable 裡才能開（內容全部載入之後才查得到有哪些活動）
     if (phase !== 'load') {
       if (!k.activity.get(e.activity)) p.push(`${path}.activity：沒有「${e.activity}」這種活動（start 只能開登記過的活動）`)
-      else if (!eventRules(k).startable.includes(e.activity)) p.push(`${path}.activity：「${e.activity}」不在 event_rule 的 startable 裡（現在可以開的：${eventRules(k).startable.join('、') || '（沒有）'}）`)
+      else if (!startableActivities(k).includes(e.activity)) p.push(`${path}.activity：「${e.activity}」不在 event_rule 的 startable 裡（現在可以開的：${startableActivities(k).join('、') || '（沒有）'}）`)
     }
     return p
   }

@@ -85,11 +85,11 @@ export interface EventRules {
   city_daily_blocking: number
   category_recent: number
   category_penalty: number
-  /** 指示 start 可以開的活動（M5-opinion-desk；預設只有輿論戰） */
-  startable: string[]
 }
+/** 指示 start 可以開的活動的預設（M5-opinion-desk）：只有輿論戰。資料用 event_rule 的 startable 蓋掉（不放在 EventRules 裡：資料檔補上之前逐格對預設的測試不動）。 */
+export const DEFAULT_STARTABLE: readonly string[] = ['opinion']
 /** 照 EVENTS 第 7 節：每回合一件擋住的加兩則通知、城裡每天 8 件、記最近 6 件的類型、每次 ×0.35。 */
-export const DEFAULT_EVENT_RULES: EventRules = { per_turn: { blocking: 1, notices: 2 }, city_daily_blocking: 8, category_recent: 6, category_penalty: 0.35, startable: ['opinion'] }
+export const DEFAULT_EVENT_RULES: EventRules = { per_turn: { blocking: 1, notices: 2 }, city_daily_blocking: 8, category_recent: 6, category_penalty: 0.35 }
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
@@ -153,8 +153,13 @@ export function eventRules(k: Pick<Kernel, 'content'>): EventRules {
     city_daily_blocking: e?.city_daily_blocking ?? d.city_daily_blocking,
     category_recent: e?.category_recent ?? d.category_recent,
     category_penalty: e?.category_penalty ?? d.category_penalty,
-    startable: isTextList(e?.startable) ? [...e.startable] : [...d.startable],
   }
+}
+
+/** 指示 start 現在可以開哪些活動：資料 event_rule/default 的 startable，沒寫是預設（只有 opinion）。 */
+export function startableActivities(k: Pick<Kernel, 'content'>): string[] {
+  const e = k.content.get<ContentEntry & { startable?: unknown }>(RULE_KIND, 'default')
+  return isTextList(e?.startable) ? [...e.startable] : [...DEFAULT_STARTABLE]
 }
 
 const normalScope = (e: ScopeEntry): Scope => ({

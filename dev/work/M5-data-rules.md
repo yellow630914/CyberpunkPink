@@ -62,3 +62,4 @@
 
 ## media-chain 留下的（2026-11-26）
 - 新資料慣例：事件 `event/<id>.record`、戰鬥 `encounter/<id>.record`（與 `origin.ext.record`），欄位 `type`、`involves`、`celebrity`、`hq`、`live`、`lost`、`adult`、`self`、`exclusive`、`no_rec`、`tags`；補格式說明與 schema。
+- （opinion-desk）事件指示 `start` 的白名單是獨立的 `startableActivities(k)`（預設 `['opinion']`），資料檔要寫 `startable`；不要放進 `EventRules`（M2-data-rules 逐格比對）。

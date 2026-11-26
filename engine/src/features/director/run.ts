@@ -25,7 +25,7 @@ import {
 import type { CheckSpec, EventBodyFields, OptionDef, ResolvedBody, ResolvedStage, SceneSpec } from './body'
 import { eventBodyProblems, hasChain, isDirective, normalCheck, outcomeList, resolveBody, sceneWhenMatches, substitute } from './body'
 import type { ScopeEntry } from './model'
-import { EVENT_KIND, EXT, SCOPE_KIND, addEventBodyCheck, directorOf, eventRules } from './model'
+import { EVENT_KIND, EXT, SCOPE_KIND, addEventBodyCheck, directorOf, startableActivities } from './model'
 
 export const EVENT_RUN_OWNER = 'event_run'
 export const EVENT_ACTIVITY = 'event'
@@ -392,7 +392,7 @@ function launchesOf(k: Kernel, state: GameState, l: Loaded, o: OptionDef, list: 
     } else if (d.kind === 'start') {
       // 開一種登記過、而且列在 event_rule.startable 的活動（載入時已經擋了；這裡再看一次，之後才被改掉的當沒有）
       const kind = String(d.activity)
-      if (k.activity.get(kind) && eventRules(k).startable.includes(kind)) out.push({ kind, setup: clone(isRecord(d.setup) ? d.setup : {}), origin: from })
+      if (k.activity.get(kind) && startableActivities(k).includes(kind)) out.push({ kind, setup: clone(isRecord(d.setup) ? d.setup : {}), origin: from })
     } else out.push({ kind: EVENT_ACTIVITY, setup: { event: d.event, chained: true }, origin: { ...from, ext: { ...from.ext, chain: true } } })
   }
   // 成人場景：成功程度對得上 when，而且有人登記了 scene 這種活動才開（沒有就當沒有，不丟錯）

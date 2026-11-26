@@ -61,3 +61,8 @@ M5-opinion-desk。和 M5-live-slot 可以同時做。副本那一邊（真的給
 
 ## channel-shows 留下的（2026-11-26）
 - 獨家節目播完報告 `data.scoop`：給「直接開輿論戰」的入口。公演簽公司「製作費公司出一半」要的話在 `channel.episode` 加選填 `cost_mult`。
+
+## opinion-desk 留下的（2026-11-26）
+- 委託副本（face）只套了議題的 `on_end` 與戰役外的 `out`；V41 那一列與格子加成在這一張對 V38 做，避免敵對值重複。
+- defeat 的 `rewriteEffects` 只認 `fight`、`chain`，戰敗事件寫 `start` 會被當效果；一起看。
+- 預設規則下 `open_hand` 的加成看不出來（開場 3＋第一回合 2 已頂到手牌上限 5），要不要調 `hand_max` 或抽牌數回報。

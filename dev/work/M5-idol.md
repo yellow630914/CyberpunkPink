@@ -56,3 +56,4 @@ M5-channel-shows、M5-opinion-desk（掛點）。和 M5-skill-opinion-b 可以�
 ## channel-shows 留下的（2026-11-26）
 - `channel.episode` 回答多選填 `tips_mult`（握手會打賞 ×1.5 用它）；選項沒被選就不要回 `extra_slots`、`on_grade`、`tips_mult`。
 - 用 media 的 `media.materials`、`media.spend` 時用字串名字問，不要重複 `declare module`（型別會衝突）。
+- （opinion-desk）輿論戰的後果（訂閱、公信力、人氣、聲望、敵對值）由 opinion 自己用效果給，idol 不要再聽 `activity.end` 加一遍。
