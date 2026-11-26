@@ -8,7 +8,7 @@ import { learnDraft, nightList } from '../../src/features/nightclass'
 import { sceneRawOf } from '../../src/features/scene'
 import type { Game } from '../../src/shell/game'
 import {
-  BODY_BLOCKS, diveIn, flow, giveInsight, giveItem, makeBodyGame, observed, openScene, sceneCast, sceneDo, sceneEndTurn, sceneRounds, standAt, stopScene, wearDeck,
+  BODY_BLOCKS, M4_ACTION_PREFIXES, diveIn, flow, giveInsight, giveItem, makeBodyGame, observed, openScene, prefixProblems, roundTrip, sceneCast, sceneDo, sceneEndTurn, sceneRounds, standAt, stateHash, stopScene, wearDeck,
 } from '../../src/testkit'
 import type { SceneSettlement } from '../../src/testkit'
 
@@ -28,7 +28,7 @@ function expectInRange(s: SceneSettlement, label: string): void {
   }
 }
 
-async function sceneFlow(g: Game, f = flow('成人場景')): Promise<Game> {
+async function sceneFlow(g: Game, f = flow('成人場景'), checkpoint: (label: string) => void = () => undefined): Promise<Game> {
   const { k } = g
   const settlements: SceneSettlement[] = []
   await f.step('學一個夜課：給體悟、學「指腹游走」與「親吻」「慢慢摸索」（扣體悟、記進角色）', () => {
@@ -51,6 +51,7 @@ async function sceneFlow(g: Game, f = flow('成人場景')): Promise<Game> {
     const used = sceneDo(g, { kind: 'skill', id: 'nt_tw_stroke', target: 'npc_tw_ann', pick: parts('hand_l', 'chest') })
     expect(actions(used)).toEqual(['scene.act'])
     expect(sceneRawOf(g.state)!.links).toHaveLength(1)
+    checkpoint('mid-scene')
     sceneEndTurn(g)
     expect(sceneRawOf(g.state)).toMatchObject({ turn: 'pc', round: 2 })
     const s = stopScene(g)
@@ -114,11 +115,73 @@ async function sceneFlow(g: Game, f = flow('成人場景')): Promise<Game> {
     expectInRange(s, '潛入裡的一場')
     expect(g.k.activity.active(g.state).map((a) => a.kind)).toContain('dive')
   })
-  await f.step('每一場的結算都在範圍裡（五場都記下了）', () => {
+  await f.step('每一場的結算都在範圍裡（四場都記下了）；整條主幹的報告前綴都在 M4 的清單裡', () => {
     expect(settlements).toHaveLength(4)
+    expect(prefixProblems(g, M4_ACTION_PREFIXES)).toEqual([])
   })
   return g
 }
+
+/** 把第二版的一對一場景還原成 M2、M3 的兩格寫法（沒有 v；pc 與 partner 各一格；links 與 lines 的人寫 'pc'／'partner'）。 */
+function toLegacy(raw: Record<string, any>): Record<string, unknown> {
+  const pc: string = raw.pc
+  const partner: string = raw.seats[1].id
+  const side = (id: string): 'pc' | 'partner' => (id === pc ? 'pc' : 'partner')
+  const seatOf = (id: string) => raw.seats.find((x: { id: string }) => x.id === id)
+  const pick = (key: string): Record<string, unknown> => ({ pc: seatOf(pc)[key], partner: seatOf(partner)[key] })
+  const { v: _v, kind: _k, layer: _l, seats: _s, pairs, circles: _c, roles, links, lines, turn, ...keep } = raw
+  void [_v, _k, _l, _s, _c]
+  return {
+    ...keep, partner, turn: side(turn), ap: pick('ap'), gear: pick('gear'), max_gear: pick('max_gear'), shifted: pick('shifted'), sink_gain: pick('sink_gain'), climax: pick('climax'),
+    received: pick('received'), teased: pick('teased'), restrained: pick('restrained'), fit: pairs[partner].fit, init: pairs[partner].init, first_person: pairs[partner].first,
+    roles: { pc: roles[pc], partner: roles[partner] },
+    links: links.map((l: { by: string; to: string }) => { const { to: _to, ...rest } = l; void _to; return { ...rest, by: side(l.by) } }),
+    lines: lines.map((l: { who: string }) => ({ ...l, who: side(l.who) })),
+  }
+}
+
+describe('冒煙 M4：成人場景（舊存檔）', () => {
+  it('M2、M3 的兩格寫法的一對一場景（沒有 v）：存檔讀回來之後轉成第二版、接著玩（用夜課、結束回合、停下結算）不丟錯；沒有人學過的不丟', async () => {
+    const g = makeBodyGame({ actors: sceneCast('ann'), at: { block: 'tw_tower', marker: 'E1' } }).game
+    giveInsight(g, 40)
+    g.commit(learnDraft(g.k, g.state, 'pc', 'nt_tw_stroke'))
+    openScene(g, { with: ['npc_tw_ann'], nature: 'mutual', goal: 'please', mode: 'full' })
+    sceneDo(g, { kind: 'skill', id: 'nt_tw_stroke', target: 'npc_tw_ann', pick: parts('hand_l', 'chest') })
+    const now = JSON.parse(JSON.stringify(sceneRawOf(g.state))) as Record<string, any>
+    const legacy = toLegacy(now)
+    expect(legacy).not.toHaveProperty('v')
+    expect(legacy).toHaveProperty('partner', 'npc_tw_ann')
+    // 場景進行中不收別的報告：直接換成舊的寫法（測試的起點，不是一個行動）
+    g.state.ext.scene = legacy as never
+    expect(g.state.ext.scene).not.toHaveProperty('v')
+    // 存檔、讀檔、接著玩
+    expect(g.load(g.save('manual', '2026-11-26T00:00:00Z', 'legacy-scene'))).toBeNull()
+    const raw = sceneRawOf(g.state)!
+    expect(raw).toMatchObject({ v: 2, kind: 'pair', layer: 'meat', pc: 'pc', turn: 'pc' })
+    expect(raw.seats.map((x) => x.id)).toEqual(['pc', 'npc_tw_ann'])
+    expect(raw.links.map((l) => [l.by, l.to])).toEqual([['pc', 'npc_tw_ann']])
+    expect(raw.pairs.npc_tw_ann!.fit).toBe(now.pairs.npc_tw_ann.fit)
+    const { violations } = await observed(g, async () => {
+      sceneEndTurn(g)
+      const s = stopScene(g)
+      expectInRange(s, '舊的場景')
+    })
+    expect(violations).toEqual([])
+    expect(sceneRawOf(g.state)).toBeNull()
+  })
+})
+
+describe('冒煙 M4：成人場景（存讀）', () => {
+  it('一對一打到一半存讀一次，接著走；最後的狀態和不中斷的一遍逐欄相同', async () => {
+    const make = () => makeBodyGame({ actors: sceneCast('ann', 'bo', 'cy', 'di'), at: { block: BODY_BLOCKS.clinics, marker: 'E1' } }).game
+    const plain = make()
+    await sceneFlow(plain)
+    const saved = make()
+    const { violations } = await observed(saved, async () => sceneFlow(saved, flow('成人場景（存讀）'), (label) => roundTrip(saved, label)))
+    expect(violations).toEqual([])
+    expect(stateHash(saved.state)).toBe(stateHash(plain.state))
+  })
+})
 
 describe('冒煙 M4：成人場景', () => {
   it('學夜課 → 一對一 → 三個人的一圈加不展開的圈、換圈 → 單人 → 潛入裡的一場 → 結算都在範圍裡', async () => {

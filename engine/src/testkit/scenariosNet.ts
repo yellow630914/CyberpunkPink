@@ -40,8 +40,17 @@ export const M3_ACTION_PREFIXES: readonly string[] = [
   'deck', 'netrun', 'dive', 'maze',
 ]
 
-/** 這一局的報告裡，action 不是「功能的前綴.動詞」或前綴不在清單裡的（排序、不重複；rewind 那一份的 action 整個就是 rewind，不算）。 */
-export function prefixProblems(game: Game, allowed: readonly string[] = M3_ACTION_PREFIXES): string[] {
+/**
+ * M4 加的前綴（dev/adr/0019 第十四節與第五波）：cyber、craft（含 craft.assemble、craft.learn、craft.salvage、craft.swap）、medical、drug、sink、lure、malware、tuning、contract、nightclass、arena、curtain、
+ * unreg、auction；`enemies`（enemies.dissect：戰後的解剖，M4-craft-salvage）；`creation`（creation.commit：建角那一份報告，M0 就有、M2 與 M3 的冒煙不經過建角所以清單裡沒有它）。
+ */
+export const M4_ACTION_PREFIXES: readonly string[] = [
+  ...M3_ACTION_PREFIXES,
+  'cyber', 'craft', 'medical', 'drug', 'sink', 'lure', 'malware', 'tuning', 'contract', 'nightclass', 'arena', 'curtain', 'unreg', 'auction', 'enemies', 'creation',
+]
+
+/** 這一局的報告裡，action 不是「功能的前綴.動詞」或前綴不在清單裡的（排序、不重複；rewind 那一份的 action 整個就是 rewind，不算）。預設用 M4 的清單（M3 的清單加上 M4 的前綴）。 */
+export function prefixProblems(game: Game, allowed: readonly string[] = M4_ACTION_PREFIXES): string[] {
   return [...new Set(game.state.reports.map((r) => r.action ?? ''))].filter((a) => a !== 'rewind' && (!/^[a-z_]+\.[a-z_]+$/.test(a) || !allowed.includes(a.split('.')[0]!))).sort()
 }
 

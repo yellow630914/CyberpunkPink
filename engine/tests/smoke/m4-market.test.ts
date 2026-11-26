@@ -16,7 +16,7 @@ import { auctionRunOf, auctionView, bidDraft, bidOptions, catalogView, enterDraf
 import { deliverBlock, orderDraft, pendingParts } from '../../src/features/unreg'
 import type { Game } from '../../src/shell/game'
 import {
-  AUCTION_HOUSE, BODY_BLOCKS, STRONG_PC, TUTOR_NPC, VAULT_FIXER, flow, giveItem, giveMoney, makeBodyGame, observed, passTime, passUntil, playStage, standAt,
+  AUCTION_HOUSE, BODY_BLOCKS, M4_ACTION_PREFIXES, STRONG_PC, TUTOR_NPC, VAULT_FIXER, flow, giveItem, giveMoney, makeBodyGame, observed, passTime, passUntil, playStage, prefixProblems, roundTrip, standAt, stateHash,
 } from '../../src/testkit'
 
 vi.setConfig({ testTimeout: 120_000 })
@@ -61,7 +61,7 @@ async function teachFlow(g: Game, f = flow('市集：學工藝')): Promise<void>
 }
 
 /** 訂做：委託台訂做一件槍管（II 級）、付現金、三天後取貨。 */
-async function orderFlow(g: Game, f = flow('市集：訂做')): Promise<void> {
+async function orderFlow(g: Game, f = flow('市集：訂做'), checkpoint: (label: string) => void = () => undefined): Promise<void> {
   const { k } = g
   await f.step('站在同人攤的委託台：訂做一件機械的槍管（II 級）、指定方向「傷害」；付現金、多一筆等著交貨的訂單', () => {
     standAt(g, BODY_BLOCKS.shops, 'F2')
@@ -71,6 +71,7 @@ async function orderFlow(g: Game, f = flow('市集：訂做')): Promise<void> {
     expect(g.state.money.cash).toBe(cash0 - 900)
     expect(pendingParts(g.state)).toHaveLength(1)
     expect(pendingParts(g.state)[0]).toMatchObject({ hold: 'order', frame: { type: 'barrel', grade: 2 } })
+    checkpoint('after-order')
   })
   const id = pendingParts(g.state)[0]!.id
   await f.step('三天內取貨被擋（還要等）；過三天回到委託台：Game.unregDeliver 交貨，零件進背包（內嵌的、帶名字與怪癖）', async () => {
@@ -87,7 +88,7 @@ async function orderFlow(g: Game, f = flow('市集：訂做')): Promise<void> {
 }
 
 /** 委託的報酬：III 級委託（報酬欄多一件未登錄零件）→ 做完、結算 → 交貨 → 組進槍 → 拆下來還是同一件 → 賣掉。 */
-async function rewardFlow(g: Game, f = flow('市集：委託的報酬零件')): Promise<void> {
+async function rewardFlow(g: Game, f = flow('市集：委託的報酬零件'), checkpoint: (label: string) => void = () => undefined): Promise<void> {
   const { k } = g
   let jobId = ''
   await f.step('站在金庫街、街頭信譽 70：中間人桌上有 III 級、報酬欄帶「未登錄零件（槍管，III級）」的委託；接下它（付現金）', () => {
@@ -100,6 +101,7 @@ async function rewardFlow(g: Game, f = flow('市集：委託的報酬零件')): 
     expect(actions(reports)).toContain('fixer.accept')
     jobId = jobOf(g.state, row.id)!.id
     expect(jobOf(g.state, jobId)!.terms?.extra).toBeTruthy()
+    checkpoint('after-accept')
   })
   await f.step('出發、打完三個階段（強攻）：做完入帳；報酬多一筆等著交貨的零件（source: reward）、現金只有原本的六成', async () => {
     g.commit(go(k, g.state, jobId))
@@ -108,6 +110,7 @@ async function rewardFlow(g: Game, f = flow('市集：委託的報酬零件')): 
     const p = pendingParts(g.state).filter((x) => x.source === 'reward')
     expect(p).toHaveLength(1)
     expect(p[0]!.frame).toMatchObject({ type: 'barrel', grade: 3 })
+    checkpoint('after-payout')
   })
   let partUid = ''
   await f.step('Game.unregDeliver 交貨：零件（III 級槍管）進背包；等著交貨的那一筆沒了', async () => {
@@ -133,6 +136,7 @@ async function rewardFlow(g: Game, f = flow('市集：委託的報酬零件')): 
     const guns = g.state.inventory.filter((s) => s.id === 'bp_tw_pistol' && (s.data as { uid?: string })?.uid)
     gunUid = String((guns[guns.length - 1]!.data as { uid: string }).uid)
     expect(JSON.stringify(guns[guns.length - 1]!.data)).toContain(partUid)
+    checkpoint('after-assemble')
   })
   await f.step('拆下來還是同一件：拆解成品，內嵌的零件整筆回到背包、逐欄和交貨時一樣', () => {
     const reports = g.commit(salvageDraft(k, g.state, { uid: gunUid }))
@@ -148,6 +152,7 @@ async function rewardFlow(g: Game, f = flow('市集：委託的報酬零件')): 
     expect(actions(reports)).toContain('trade.checkout')
     expect(g.state.money.cash + g.state.money.cred).toBeGreaterThan(cash0)
     expect(unregStacks(g).find((s) => (s.data as { uid?: string })?.uid === partUid)).toBeUndefined()
+    expect(prefixProblems(g, M4_ACTION_PREFIXES)).toEqual([])
   })
   void toMinutes
 }
@@ -163,6 +168,7 @@ async function auctionFlow(g: Game, f = flow('市集：拍賣')): Promise<void> 
   await f.step('週四預展：目錄出來了（八件）、看兩件貨（零件與義體）', () => {
     passUntil(g, { day: 10, hour: 14 })
     const cat = catalogView(k, g.state, AUCTION_HOUSE)!
+    if (!cat.open) throw new Error('目錄還沒出來')
     expect(cat.lots).toHaveLength(8)
     const nowM = toMinutes(g.state.time)
     expect(cat.session.preview!.from).toBeLessThanOrEqual(nowM)
@@ -195,10 +201,10 @@ async function auctionFlow(g: Game, f = flow('市集：拍賣')): Promise<void> 
       lotKind.set(v.lot_no, v.lot.kind)
       expect(v.round).toBeLessThanOrEqual(8)
       const want = (v.lot.kind === 'part' || v.lot.kind === 'cyberware') && !wonKinds.includes(v.lot.kind)
-      let input: { act: 'raise' | 'wait' | 'fold'; steps?: number }
+      let input: Parameters<typeof bidDraft>[2]
       if (want) {
         const up = [...o.raise].reverse().find((r) => r.can)
-        input = v.holder.id === 'pc' ? { act: 'wait' } : up ? { act: 'raise', steps: up.steps! } : o.wait.can ? { act: 'wait' } : { act: 'fold' }
+        input = v.holder.id === 'pc' ? { act: 'wait' } : up ? { act: 'raise' as const, steps: up.steps! } : o.wait.can ? { act: 'wait' } : { act: 'fold' }
       } else if (o.fold.can) {
         input = { act: 'fold' }
         if (!folded.includes(String(v.lot_no))) folded.push(String(v.lot_no))
@@ -224,6 +230,21 @@ async function auctionFlow(g: Game, f = flow('市集：拍賣')): Promise<void> 
   })
   void leaveDraft
 }
+
+describe('冒煙 M4：市集與工藝（存讀）', () => {
+  it('訂做之後、報酬的零件組進槍之後各存讀一次，接著走；最後的狀態和不中斷的一遍逐欄相同', async () => {
+    const plain = setup()
+    await orderFlow(plain)
+    await rewardFlow(plain)
+    const saved = setup()
+    const { violations } = await observed(saved, async () => {
+      await orderFlow(saved, flow('市集訂做（存讀）'), (label) => roundTrip(saved, label))
+      await rewardFlow(saved, flow('市集報酬（存讀）'), (label) => roundTrip(saved, label))
+    })
+    expect(violations).toEqual([])
+    expect(stateHash(saved.state)).toBe(stateHash(plain.state))
+  })
+})
 
 describe('冒煙 M4：市集與工藝', () => {
   it('向 NPC 學義體學 0 → 2 級（歷練點沒動）', async () => {

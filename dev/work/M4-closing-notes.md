@@ -22,3 +22,11 @@
 - 美術：拍賣的槌、號牌、拍品種類圖示；委託台圖示。
 - （使用者 2026-11-26）拍賣的自動跟價（LEWD 6.2 第 6 點）：auction 的 `bidDraft` 收 `auto: { max }`，一次推進到這一件落槌或退出；ui 的拍賣廳加「自動跟到 C$___」。
 - （使用者 2026-11-26）AI 交貨時不鎖畫面，維持任務鏈列顯示。
+- （M4-smoke，2026-11-26）確認引擎在登入與長休醒來時真的發 `login`、`rest` 觸發點：**確認了**。`rest.sleep` 與 `rest.breath` 的報告帶 `rest`、`dive.enter` 帶 `login`，導演開出範圍 `rogue_ai` 的蠱惑事件（冒煙 `m4-contract`）。`login` 只有潛入（`features/dive`）發；委託的內海面、網內的行程、簾後館的一趟進場都不發 `login`（資料的事件範圍 `net` 與 `rogue_ai` 有 `login` 的機率，所以這幾條路上不會有登入事件）；要不要在這幾處也發要使用者定。
+- （M4-smoke）**B030、B031**：簾口放在潛入裡的網內街區時，簾後館報名被潛入擋下、放行後一趟的場熱與落幕不啟動（dev/bugs/B030-…、B031-…；`engine/tests/pending/`）。示意包（`ui/src/data/demo/curtain.ts`）的簾口就放在潛入裡，修正批要先修；修好之後把冒煙的簾後館補一條潛入的走法（`curtainPrelude(g, { dive: true })`）。
+- （M4-smoke）示意包的簾後館戰敗事件 `cast` 沒有寫 `gen`（`ui/src/data/demo/curtain.ts`），補演永遠略過：照冒煙假世界的寫法補 `gen: { kind: 'citizen' }` 與落幕當下那一區的 `npc_gen`（內容與 ui）。
+- （M4-smoke）拍賣進行中的放行清單目前整個 `auction.` 前綴都放行（`auction.inspect`、`auction.ref` 在場中也做得了）：上一條「只列 `auction.bid`、`auction.leave`、`auction.close`」還沒做；`m4-whitelist.test.ts` 有一條 `it.fails` 記著，修好之後拿掉 `.fails`。
+- （M4-smoke）`curtain` 的放行清單只掛在 `netrun`（`k.activity.allow(ACT_NETRUN, 'commit:curtain.', …)`）；`maze` 同一個清單也在網內的行程裡放行（簾後館一趟進行中 `commit:maze.` 也放行），不算 bug，但白名單測試把它記成預期的。
+
+- （M4-smoke）B030、B031：簾後館在潛入裡的簾口報名被擋、一趟不開（見 dev/bugs）。
+- （M4-smoke）示意包簾後館戰敗事件的 `cast` 加 `gen: { kind: 'citizen' }`，診所區補 `npc_gen`，示意局補演才演得起來。

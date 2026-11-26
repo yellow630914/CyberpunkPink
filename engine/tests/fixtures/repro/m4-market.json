@@ -1,0 +1,144 @@
+{
+  "id": "m4-market",
+  "seed": 6,
+  "note": "基準（不是 bug）：M4 第五波冒煙的訂做與學工藝（簡化）。委託台訂做一件槍管 → 存讀 → 過三天 → Game.unregDeliver 交貨 → 向 NPC 學義體學到 2 級。",
+  "setup": {
+    "named": "body_market"
+  },
+  "inputs": [
+    {
+      "type": "m4",
+      "do": "stand",
+      "block": "tw_shops",
+      "marker": "F2"
+    },
+    {
+      "type": "m4",
+      "do": "order",
+      "part_type": "barrel",
+      "grade": 2,
+      "want": [
+        "barrel_damage"
+      ]
+    },
+    {
+      "type": "save_load"
+    },
+    {
+      "type": "m4",
+      "do": "pass",
+      "minutes": 4320
+    },
+    {
+      "type": "m4",
+      "do": "deliver"
+    },
+    {
+      "type": "m4",
+      "do": "stand",
+      "block": "tw_market",
+      "marker": "E1"
+    },
+    {
+      "type": "m4",
+      "do": "tutor",
+      "npc": "npc_tw_tutor",
+      "skill": "cyberware"
+    },
+    {
+      "type": "m4",
+      "do": "tutor",
+      "npc": "npc_tw_tutor",
+      "skill": "cyberware"
+    },
+    {
+      "type": "m4",
+      "do": "tutor",
+      "npc": "npc_tw_tutor",
+      "skill": "cyberware"
+    },
+    {
+      "type": "m4",
+      "do": "tutor",
+      "npc": "npc_tw_tutor",
+      "skill": "cyberware"
+    }
+  ],
+  "expect": {
+    "paths": {
+      "time": {
+        "day": 7,
+        "hour": 2,
+        "minute": 10
+      },
+      "money": {
+        "cred": 18900,
+        "cash": 1100
+      },
+      "rng.cursor": 0,
+      "actors.pc.sink": 4,
+      "actors.pc.skills": {
+        "mechanics": 5,
+        "interface": 5,
+        "athletics": 5,
+        "stealth": 3,
+        "negotiate": 3,
+        "investigate": 3,
+        "streetwise": 3,
+        "firearms": 3,
+        "cyberware": 1
+      },
+      "actors.pc.ext.abilities": {
+        "xp": 0,
+        "learned": [],
+        "equipped": [],
+        "spent": {},
+        "tutored": {
+          "npc_tw_tutor": "cyberware"
+        },
+        "lessons": {
+          "cyberware": {
+            "level": 2,
+            "done": 2,
+            "need": 4,
+            "from": {
+              "tutor": "npc_tw_tutor"
+            }
+          }
+        }
+      },
+      "inventory": [
+        {
+          "id": "unreg_part",
+          "qty": 1,
+          "data": {
+            "uid": "up1",
+            "part": {
+              "unreg": true,
+              "uid": "up1",
+              "name": "短舌",
+              "desc": "切短過的槍管。",
+              "type": "barrel",
+              "material": "mech",
+              "brand": "f_tw_doujin",
+              "grade": 2,
+              "price": 600,
+              "legal": "free",
+              "cells": 1,
+              "stats": {
+                "damage": 1,
+                "range_far": 1
+              },
+              "weight": 0.2,
+              "size": 1,
+              "state": "doujin",
+              "quirk": "uq_tw_night",
+              "quirk_text": "擊發之後會在掌心留下一點餘溫。",
+              "from": "同人攤的訂做"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

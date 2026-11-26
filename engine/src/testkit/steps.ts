@@ -14,9 +14,21 @@ import { advance, alight, board as boardRide, wait } from '../features/transit'
 import { shift } from '../features/work'
 import { exit as diveExit, go as diveGo } from '../features/dive'
 import { logout as netLogout } from '../features/netrun'
+import { buildCreationReport } from '../features/creation'
+import type { CreationDraft } from '../features/creation'
+import { installDraft as cyberInstallDraft } from '../features/cyberware'
+import { chooseDraft as contractChooseDraft, contractOf } from '../features/contract'
+import { orderDraft as unregOrderDraft, pendingParts } from '../features/unreg'
+import { tutorDraft } from '../features/abilities'
+import { detoxDraft, useDraft as drugUseDraft } from '../features/drugs'
+import { learnDraft as nightLearnDraft } from '../features/nightclass'
+import { sceneAct } from '../features/scene'
+import type { SceneInput } from '../features/scene'
 import type { Game } from '../shell/game'
 import { FIXER, RUNNER, fightOut, passTime, passUntil, untilIdle, walkAcross, walkTo } from './scenarios'
 import { diveIn, mazeSignUp, netUse, netWalkTo, playMaze, playNetStage, refitForRookie } from './scenariosNet'
+import { applyEffects, giveItem, giveMoney, giveProduct, standAt } from './scenariosBody'
+import { giveInsight, openScene, sceneEndTurn, stopScene } from './scenePlay'
 
 type Cell = [number, number]
 
@@ -209,5 +221,57 @@ export const M3_STEPS: Record<string, (game: Game, a: Args) => void | Promise<vo
 export async function doStep3(game: Game, name: string, args: Args = {}): Promise<void> {
   const fn = M3_STEPS[name]
   if (!fn) throw new Error(`沒有「${name}」這個步驟（可以用的：${Object.keys(M3_STEPS).join('、')}）`)
+  await fn(game, args)
+}
+
+
+// ---- M4 的步驟（身體、成人場景、契約、市集；dev/work/M4-smoke.md 第 4 點） ----
+
+/**
+ * M4 的步驟：M3 的全部加上
+ *   create { draft }（建角：buildCreationReport）、give_product { bp, uid }、give_item { id, qty? }、give_money { cred, cash? }、stand { block, marker }、install { uid, via, side? }（裝義體）、
+ *   effect { effects, actor? }（內建的來源的一串效果：簽契約、染惡意韌體……）、drug_use { item }、detox { drug }、insight { n }、night_learn { id }、
+ *   scene_open { setup }、scene_do { input }、scene_end_turn、scene_stop、tutor { npc, skill }、order { part_type, grade, want?, quirk? }（訂做）、deliver { id? }（Game.unregDeliver；沒寫 id 是第一筆）、
+ *   contract_choose { how }（第一條 sent 的指令照做或抗拒）
+ */
+export const M4_STEPS: Record<string, (game: Game, a: Args) => void | Promise<void>> = {
+  ...M3_STEPS,
+  create: (g, a) => commit(g, buildCreationReport(g.k, g.state, a.draft as CreationDraft)),
+  give_product: (g, a) => void giveProduct(g, str(a, 'bp'), str(a, 'uid')),
+  give_item: (g, a) => void giveItem(g, str(a, 'id'), num(a, 'qty', 1)),
+  give_money: (g, a) => void giveMoney(g, num(a, 'cred'), num(a, 'cash', 0)),
+  stand: (g, a) => void standAt(g, str(a, 'block'), str(a, 'marker')),
+  install: (g, a) => commit(g, cyberInstallDraft(g.k, g.state, { actor: 'pc', uid: str(a, 'uid'), via: str(a, 'via') as 'clinic', ...(a.side === 'l' || a.side === 'r' ? { side: a.side } : {}) })),
+  effect: (g, a) => {
+    const r = applyEffects(g, a.effects as Array<Record<string, unknown>>, typeof a.actor === 'string' ? a.actor : 'pc')
+    if (r.errors.length > 0) throw new Error(`effect：${r.errors.join('；')}`)
+  },
+  drug_use: (g, a) => commit(g, drugUseDraft(g.k, g.state, { actor: 'pc', item: str(a, 'item') })),
+  detox: (g, a) => commit(g, detoxDraft(g.k, g.state, { actor: 'pc', drug: str(a, 'drug') })),
+  insight: (g, a) => void giveInsight(g, num(a, 'n')),
+  night_learn: (g, a) => commit(g, nightLearnDraft(g.k, g.state, 'pc', str(a, 'id'))),
+  scene_open: (g, a) => void openScene(g, a.setup as Record<string, unknown>),
+  scene_do: (g, a) => commit(g, sceneAct(g.k, g.state, a.input as SceneInput)),
+  scene_end_turn: (g) => void sceneEndTurn(g),
+  scene_stop: (g) => void stopScene(g),
+  tutor: (g, a) => commit(g, tutorDraft(g.k, g.state, { npc: str(a, 'npc'), skill: str(a, 'skill') })),
+  // 訂做：步驟的 type 已經是步驟種類（m4），零件的類型寫 part_type
+  order: (g, a) => commit(g, unregOrderDraft(g.k, g.state, { type: str(a, 'part_type'), grade: num(a, 'grade'), ...(Array.isArray(a.want) ? { want: a.want as string[] } : {}), ...(typeof a.quirk === 'string' ? { quirk: a.quirk } : {}) })),
+  deliver: async (g, a) => {
+    const id = typeof a.id === 'string' ? a.id : pendingParts(g.state)[0]?.id
+    if (!id) throw new Error('deliver：沒有等著交貨的零件')
+    await g.unregDeliver(id)
+  },
+  contract_choose: (g, a) => {
+    const o = contractOf(g.state)?.queue.find((x) => x.state === 'sent')
+    if (!o) throw new Error('contract_choose：沒有送達的指令')
+    commit(g, contractChooseDraft(g.k, g.state, { order: o.id, how: a.how === 'resist' ? 'resist' : 'comply' }))
+  },
+}
+
+/** 做一個 M4 的步驟（含 M3 與 M2 的）。 */
+export async function doStep4(game: Game, name: string, args: Args = {}): Promise<void> {
+  const fn = M4_STEPS[name]
+  if (!fn) throw new Error(`沒有「${name}」這個步驟（可以用的：${Object.keys(M4_STEPS).join('、')}）`)
   await fn(game, args)
 }

@@ -275,3 +275,33 @@ describe('M3 每一張都適用的規定', () => {
     expect(bad).toEqual([])
   })
 })
+
+// 規格：dev/work/M4-plan.md「每一張都適用的規定」第 3、4 條；dev/work/M4-smoke.md 驗收條件（新的十四個功能資料夾都在檢查範圍、彼此沒有互相 import）
+describe('M4 每一張都適用的規定', () => {
+  /** M4 新做的功能（整個資料夾是這一批寫的）：十二個加第五波的 unreg、auction。 */
+  const M4_FEATURES = ['cyberware', 'craft', 'medical', 'drugs', 'sink', 'lure', 'malware', 'tuning', 'contract', 'nightclass', 'arena', 'curtain', 'unreg', 'auction'] as const
+
+  it('第 3 條：十四個新功能都只 import 核心（自己的檔案與 core，不碰別的功能、外殼、測試基礎建設）、都有檔案可以掃、都在總表 FEATURES 裡', () => {
+    const files = readTree(SRC)
+    expect(M4_FEATURES).toHaveLength(14)
+    expect(checkCoreOnlyImports(files, M4_FEATURES).map((v) => v.message)).toEqual([])
+    for (const f of M4_FEATURES) {
+      expect(Object.keys(files).filter((p) => p.startsWith(`features/${f}/`)).length, f).toBeGreaterThan(2)
+      expect(Object.keys(FEATURES), f).toContain(f)
+    }
+  })
+
+  it('第 4 條：十四個新功能沒有一處讀或寫別的功能的 state.ext.<鍵>（只經由 meterOf、k.stats、k.conditions、內容與核心的狀態）', () => {
+    const files = readTree(SRC)
+    const mine = new Set<string>(M4_FEATURES)
+    expect(checkExtReads(files).filter((v) => mine.has(v.feature)).map((v) => v.message)).toEqual([])
+  })
+
+  it('十四個功能之間彼此沒有互相 import（分層檢查整體也是 0 個違規）', () => {
+    const files = readTree(SRC)
+    const mine = new Set<string>(M4_FEATURES)
+    const bad = checkLayers(files).filter((v) => v.file.startsWith('features/') && mine.has(v.file.split('/')[1]!))
+    expect(bad.map((v) => v.message)).toEqual([])
+  })
+})
+

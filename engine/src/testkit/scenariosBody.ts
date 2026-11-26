@@ -10,7 +10,12 @@
 
 import type { Change, GameState, Report, ReportDraft } from '../core'
 import { effectCtx } from '../core'
+import { auctionView, bidDraft, bidOptions, enterDraft as auctionEnterDraft } from '../features/auction'
 import { enterDraft, interviewDraft, tasteDraft } from '../features/curtain'
+import { useDraft as drugUseDraft, suppressantDraft } from '../features/drugs'
+import { learnDraft as nightLearnDraft } from '../features/nightclass'
+import { sceneRawOf } from '../features/scene'
+import { orderDraft as unregOrderDraft } from '../features/unreg'
 import { go as diveGo } from '../features/dive'
 import { cyberOf, installDraft } from '../features/cyberware'
 import { arrive } from '../features/world'
@@ -18,7 +23,11 @@ import type { Game } from '../shell/game'
 import type { ActorOverrides } from './factory'
 import type { WorldGame, WorldGameSetup } from './scenarios'
 import { STRONG_PC, makeWorldGame } from './scenarios'
-import { bodyStock, bodyWorld, BODY_BLOCKS, CURTAIN_SITE } from './worldBody'
+import { AUCTION_HOUSE, BODY_BLOCKS, CURTAIN_NIGHTS, CURTAIN_SITE, HOLDER_NPC, bodyStock, bodyWorld } from './worldBody'
+import { playCurtainRun } from './curtainPlay'
+import { giveInsight, openScene, sceneCast, sceneRounds } from './scenePlay'
+import { makeActor } from './factory'
+import { passUntil } from './scenarios'
 import { NET_PC, TEST_NET_ADMIN } from './scenariosNet'
 import { diveIn, equipParty, netInventory } from './scenariosNet'
 
@@ -137,4 +146,142 @@ export function curtainPrelude(game: Game, o: { dive?: boolean } = {}): Report[]
 /** 報名（站在簾口；指定哪一夜才不看亂數）。 */
 export function curtainEnter(game: Game, night: string): Report[] {
   return game.commit(enterDraft(game.k, game.state, { party: ['pc'], night }))
+}
+
+/** 種子重播用的 M4 具名情境（repro.setup.named）：body_creation 還沒建角；body_scene 帶四位 NPC（安、波、西、迪）；body_contract 是定力很低的主角；body_market 帶主角的武器、站在市場。 */
+export function makeM4Named(name: string, extra: { seed?: number; ai?: Record<string, unknown> }): WorldGame {
+  const base = { ...(extra.seed !== undefined ? { seed: extra.seed } : {}), ...(extra.ai ? { ai: extra.ai } : {}) }
+  if (name === 'body_creation') return makeBodyGame({ ...base, scenario: 'beforeCreation', at: null })
+  if (name === 'body_scene') return makeBodyGame({ ...base, actors: sceneCast('ann', 'bo', 'cy', 'di'), at: { block: 'tw_tower', marker: 'E1' } })
+  if (name === 'body_contract') return makeBodyGame({ ...base, pc: { attrs: { resolve: 4 }, skills: {}, ext: { bridge: { sensitivity: 30, tolerance: 30, craving: 30, docility: 40 } } }, at: { block: 'tw_tower', marker: 'E1' } })
+  if (name === 'body_market') return makeBodyGame({ ...base, noGear: false, pc: { ...STRONG_PC, skills: { ...STRONG_PC.skills, firearms: 3 }, ext: { bridge: BRIDGE } }, at: { block: 'tw_market', marker: 'E1' } })
+  throw new Error(`沒有「${name}」這個 M4 的具名情境`)
+}
+
+// ---- M4 的具名情境（dev/test-harness.md 第 1 節；每一個都用真的功能做出來，不是直接寫狀態） ----
+
+const BOUND_PC: ActorOverrides = { attrs: { resolve: 4 }, skills: {}, ext: { bridge: { sensitivity: 30, tolerance: 30, craving: 30, docility: 40 } } }
+const SINK_PC: ActorOverrides = { skills: { composure: 3 }, ext: { bridge: BRIDGE } }
+
+/** 「剛裝完義體在休養」：診所裝了一條義臂（左臂），還在休養、沒有生效；沉溺已經補到下限。 */
+export function makeRecoveringGame(o: BodyGameOptions = {}): WorldGame {
+  const t = makeBodyGame({ ...o, at: { block: BODY_BLOCKS.clinics, marker: 'F1' } })
+  giveProduct(t.game, 'bp_tw_arm', 'U_ARM')
+  t.game.commit(installDraft(t.game.k, t.game.state, { actor: 'pc', uid: 'U_ARM', side: 'l', via: 'clinic' }))
+  return t
+}
+
+/** 「沉溺 65 而且藏著」：沉溺 65、開了抑制劑的每週帳單（別人看到的沉溺比較低）。 */
+export function makeHiddenSinkGame(o: BodyGameOptions = {}): WorldGame {
+  const t = makeBodyGame({ pc: SINK_PC, ...o })
+  const g = t.game
+  commit(g, [{ op: 'actor.track', id: 'pc', track: 'sink', delta: 65 } as unknown as Change], 'test.sink', '測試用的沉溺。')
+  g.commit(suppressantDraft(g.k, g.state, { weekly: true }))
+  return t
+}
+
+/** 「依賴一種藥」：兩劑雲絲，成癮值到重度。 */
+export function makeDependentGame(o: BodyGameOptions = {}): WorldGame {
+  const t = makeBodyGame(o)
+  const g = t.game
+  giveItem(g, 'it_tw_cloud', 2)
+  g.commit(drugUseDraft(g.k, g.state, { actor: 'pc', item: 'it_tw_cloud' }))
+  commit(g, [{ op: 'time', minutes: 120 }], 'test.wait', '時間過去了。')
+  g.commit(drugUseDraft(g.k, g.state, { actor: 'pc', item: 'it_tw_cloud' }))
+  return t
+}
+
+/** 「身上有一份債務契約、佇列兩條」：簽了債務契約（C$24,000），佇列有一條差事（去塔下）、一條回報（不指定地點）。 */
+export function makeBoundGame(o: BodyGameOptions = {}): WorldGame {
+  const t = makeBodyGame({ pc: BOUND_PC, at: { block: 'tw_tower', marker: 'E1' }, ...o })
+  const g = t.game
+  applyEffects(g, [{ kind: 'contract_sign', type: 'debt', debt: 24000, orders: ['errand', 'work', 'report'], report_weekday: 0, holder: { kind: 'eden', name: '樂園', faction: 'f_tw_eden', place: { district: 'tw_hive', block: 'tw_tower' } }, rules: [] }])
+  applyEffects(g, [{ kind: 'order', order_kind: 'errand', place: { district: 'tw_hive', block: 'tw_tower' }, hours: 24 }])
+  applyEffects(g, [{ kind: 'order', order_kind: 'report', hours: 72 }])
+  return t
+}
+
+/** 「持有一個契約人」：主角持有阿音的契約（私人、債務）。 */
+export function makeHolderGame(o: BodyGameOptions = {}): WorldGame {
+  const t = makeBodyGame({ actors: [makeActor({ id: HOLDER_NPC, name: '阿音', role: 'npc', gender: 'female', age: 26, ext: { bridge: { sensitivity: 40, tolerance: 25, craving: 30, docility: 35 } } })], ...o })
+  applyEffects(t.game, [{ kind: 'contract_hold', npc: HOLDER_NPC, type: 'private' }])
+  return t
+}
+
+/** 「三個人的場景進行到第三回合」：主角、安、波一圈（西、迪不展開的一圈），已經過了兩回合。 */
+export function makeTrioSceneGame(o: BodyGameOptions = {}): WorldGame {
+  const t = makeBodyGame({ actors: sceneCast('ann', 'bo', 'cy', 'di'), at: { block: 'tw_tower', marker: 'E1' }, ...o })
+  const g = t.game
+  giveInsight(g, 40)
+  g.commit(nightLearnDraft(g.k, g.state, 'pc', 'nt_tw_kiss'))
+  openScene(g, { circles: [['pc', 'npc_tw_ann', 'npc_tw_bo'], ['npc_tw_cy', 'npc_tw_di']], nature: 'mutual', mode: 'full' })
+  sceneRounds(g, 2)
+  return t
+}
+
+/** 「簾後館第二幕、場熱 65」：報名、走完序幕與第一幕，站在第二幕（第三層）；場熱設成 65。 */
+export async function makeCurtainAct2Game(o: BodyGameOptions = {}): Promise<WorldGame> {
+  const t = makeCurtainGame(o)
+  const g = t.game
+  curtainPrelude(g)
+  curtainEnter(g, CURTAIN_NIGHTS.a)
+  await playCurtainRun(g, { stopAfterLayer: 2 })
+  const map = g.state.maps.at!.map
+  // 場熱：一趟進行中不收別的報告（網內的活動放行清單），直接把量表放到 65（測試的起點，不是一個行動）
+  const meters = g.state.meters as Record<string, Record<string, number>>
+  meters.heat = { ...(meters.heat ?? {}), [map]: 65 }
+  return t
+}
+
+/**
+ * 「M2、M3 的舊存檔」：一對一的場景進行中，寫成 M2、M3 的兩格寫法（沒有 v）。
+ * （M3 存檔的「甲板放在背包裡」那一半：使用者 2026-11-25 裁決不做舊存檔的甲板搬移，所以這個情境只有場景。）
+ */
+export function makeLegacySceneGame(o: BodyGameOptions = {}): WorldGame {
+  const t = makeBodyGame({ actors: sceneCast('ann'), at: { block: 'tw_tower', marker: 'E1' }, ...o })
+  const g = t.game
+  openScene(g, { with: ['npc_tw_ann'], nature: 'mutual', goal: 'please', mode: 'full' })
+  const raw = JSON.parse(JSON.stringify(sceneRawOf(g.state))) as Record<string, any>
+  const pc: string = raw.pc
+  const partner: string = raw.seats[1].id
+  const side = (id: string): 'pc' | 'partner' => (id === pc ? 'pc' : 'partner')
+  const seat = (id: string) => raw.seats.find((x: { id: string }) => x.id === id)
+  const pick = (key: string): Record<string, unknown> => ({ pc: seat(pc)[key], partner: seat(partner)[key] })
+  const { v: _v, kind: _k, layer: _l, seats: _s, pairs, circles: _c, roles, links, lines, turn, ...keep } = raw
+  void [_v, _k, _l, _s, _c]
+  g.state.ext.scene = {
+    ...keep, partner, turn: side(turn), ap: pick('ap'), gear: pick('gear'), max_gear: pick('max_gear'), shifted: pick('shifted'), sink_gain: pick('sink_gain'), climax: pick('climax'),
+    received: pick('received'), teased: pick('teased'), restrained: pick('restrained'), fit: pairs[partner].fit, init: pairs[partner].init, first_person: pairs[partner].first,
+    roles: { pc: roles[pc], partner: roles[partner] }, links: links.map((l: { by: string; to: string }) => { const { to: _to, ...rest } = l; void _to; return { ...rest, by: side(l.by) } }),
+    lines: lines.map((l: { who: string }) => ({ ...l, who: side(l.who) })),
+  } as never
+  return t
+}
+
+/** 「一件未登錄零件等著交貨、另一件訂做中」：報酬的零件（III 級槍管）等著交貨，委託台又訂做了一件（II 級槍管，三天後）。 */
+export function makePartsGame(o: BodyGameOptions = {}): WorldGame {
+  const t = makeBodyGame({ at: { block: BODY_BLOCKS.shops, marker: 'F2' }, ...o })
+  const g = t.game
+  applyEffects(g, [{ kind: 'part_unreg', source: 'reward', type: 'barrel', grade: 3, brand: 'hz', from: '委託的報酬' }])
+  g.commit(unregOrderDraft(g.k, g.state, { type: 'barrel', grade: 2, want: ['barrel_damage'] }))
+  return t
+}
+
+/** 「拍賣進行到第二件、主角是最高的人」：週五進場，第一件退出，第二件加價到自己是最高的出價人。 */
+export function makeAuctionSecondLotGame(o: BodyGameOptions = {}): WorldGame {
+  const t = makeBodyGame({ at: { block: BODY_BLOCKS.hall, marker: 'F1' }, ...o })
+  const g = t.game
+  commit(g, [{ op: 'meter', kind: 'favor', key: 'f_tw_gallery', set: 40 } as unknown as Change], 'test.favor', '測試給的好感。')
+  passUntil(g, { day: 11, hour: 19, minute: 10 })
+  giveMoney(g, 0, 10000)
+  g.commit(auctionEnterDraft(g.k, g.state, { house: AUCTION_HOUSE, pay: 'cash' }))
+  for (let i = 0; i < 100 && auctionView(g.k, g.state)?.lot_no === 1; i++) g.commit(bidDraft(g.k, g.state, { act: 'fold' }))
+  for (let i = 0; i < 20; i++) {
+    const v = auctionView(g.k, g.state)
+    if (!v || v.lot_no !== 2) throw new Error('makeAuctionSecondLotGame：第二件已經過了，主角沒有成為最高的人')
+    if (v.holder.id === 'pc') break
+    const raise = [...bidOptions(g.k, g.state)!.raise].reverse().find((r) => r.can)
+    g.commit(bidDraft(g.k, g.state, raise ? { act: 'raise', steps: raise.steps! } : { act: 'wait' }))
+  }
+  return t
 }

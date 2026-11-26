@@ -12,7 +12,8 @@ import { makeGame } from './factory'
 import { observed } from './invariants'
 import { makeCityGame, makeCommissionGame } from './scenarios'
 import { makeDiveGame, makeNetCommissionGame } from './scenariosNet'
-import { doStep, doStep3 } from './steps'
+import { doStep, doStep3, doStep4 } from './steps'
+import { makeM4Named } from './scenariosBody'
 
 export type ReproInput =
   | { type: 'act'; input: ActionInput; autoRules?: boolean }
@@ -28,6 +29,8 @@ export type ReproInput =
   | { type: 'm2'; do: string; [arg: string]: unknown }
   /** M3 的步驟（M2 的全部加上內海與竄網：net_stage、net_walk、net_use、net_logout、dive、maze）：名字與參數見 testkit/steps.ts 的 M3_STEPS */
   | { type: 'm3'; do: string; [arg: string]: unknown }
+  /** M4 的步驟（M3 的全部加上建角、裝義體、效果、夜課與場景、契約、訂做與交貨、學工藝）：名字與參數見 testkit/steps.ts 的 M4_STEPS */
+  | { type: 'm4'; do: string; [arg: string]: unknown }
 
 export interface Repro {
   id: string
@@ -38,7 +41,7 @@ export interface Repro {
     /** 工廠的情境（沒寫是空房間）；寫了 named 就不看它 */
     scenario?: ScenarioId
     /** 具名的情境（testkit/scenarios.ts、scenariosNet.ts）：city 是 makeCityGame、commission 是 makeCommissionGame、net_commission 是 makeNetCommissionGame、dive 是 makeDiveGame；帶假世界與全部功能，features 不用寫 */
-    named?: 'city' | 'commission' | 'net_commission' | 'dive'
+    named?: 'city' | 'commission' | 'net_commission' | 'dive' | 'body_creation' | 'body_scene' | 'body_contract' | 'body_market'
     overrides?: Omit<StateOverrides, 'seed'>
     /** AI 的設定；沒有就是 AI 關閉 */
     ai?: Record<string, unknown>
@@ -88,7 +91,7 @@ export async function runRepro(repro: Repro, features: Record<string, Feature> =
   }
   const extra = { seed: repro.seed, ...(repro.setup.ai ? { ai: repro.setup.ai } : {}), ...(repro.setup.fake ? { fake: repro.setup.fake } : {}) }
   const named = repro.setup.named
-  const test = named === 'city' ? makeCityGame(extra) : named === 'commission' ? makeCommissionGame(extra) : named === 'net_commission' ? makeNetCommissionGame(extra) : named === 'dive' ? makeDiveGame(extra) : makeGame(setup)
+  const test = named === 'city' ? makeCityGame(extra) : named === 'commission' ? makeCommissionGame(extra) : named === 'net_commission' ? makeNetCommissionGame(extra) : named === 'dive' ? makeDiveGame(extra) : named ? makeM4Named(named, extra) : makeGame(setup)
   const { game } = test
   let error: string | undefined
   const { violations } = await observed(game, async () => {
@@ -107,6 +110,7 @@ export async function runRepro(repro: Repro, features: Record<string, Feature> =
           game.commit({ kind: 'system', action: 'repro.commit', location: {}, party: [], timeline: [], changes: step.changes, outcome: { result: 'ok', summary: step.summary ?? '重現用的提交' } }, { attach: step.attach ?? false })
         } else if (step.type === 'm2') await doStep(game, step.do, step)
         else if (step.type === 'm3') await doStep3(game, step.do, step)
+        else if (step.type === 'm4') await doStep4(game, step.do, step)
       }
     } catch (e) {
       error = (e as Error).message

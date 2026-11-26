@@ -1,0 +1,12 @@
+# B031：從潛入裡報名簾後館之後，一趟的地圖實例、場熱、化妝室與落幕都不啟動
+- 發現者：cpp-architect 角色（M4-smoke，簾後館那兩條主幹；先排除了 B030 才看得到）
+- 嚴重度：阻斷（和 B030 同一條路：簾口放在潛入裡的網內街區時，就算 B030 修了，簾後館的場熱、輸了的落幕與補演、三條路與記帳都不會發生）
+- 規格出處：CYBERSPACE 8.8 節（一趟的結構、場熱、打輸會怎樣）；dev/adr/0019 第十二節；dev/work/M4-curtain-run.md、M4-curtain-fall.md。
+- 實際行為：
+  - 用一個測試的功能繞過 B030（把 `commit:curtain.` 加進 `dive` 的放行清單）報名之後，這一趟的 `curtain.run` 沒有 `map`：沒有任何 `curtain.stage` 報告（「簾後館的一晚開始了。場熱 …」）。
+  - 原因：`features/curtain/after.ts` 的 `afterReport` 在 `state.battle || k.activity.active(state).some((a) => a.kind !== 'netrun')` 時一律回傳 undefined（本意是「戰鬥、場景、戰敗的選擇進行中不插報告」）；潛入進行中時 `active` 裡有 `dive`，所以永遠不插：`stageDraft`（記 `run.map`、場熱起點、贊助人與加演的門檻、到 0 提早落幕）、往下一幕之後的 `restDraft`（化妝室）都不會發。
+  - 連帶：`features/curtain/battle.ts` 的 `onBattleStart` 要 `r.map` 才認得這一場是這一趟的（`!r.map` 就 return），所以戰鬥的 `origin.ext` 沒有 `curtain`、`defeat_event`、`defeat_play`。全隊投降或倒下之後 `defeat` 照一般戰敗挑事件（實測挑到通用的 `df_tw_generic`「你醒來的時候人在巷子裡」），沒有 `curtain.fall`、沒有補演、沒有三條路與記帳；`curtainView` 的場熱一直是預設的 30。
+  - 走街上的簾口（不在潛入裡，`dive` 沒有開）的同一條路全部正常：`curtain.stage` 在報名那一份提交裡就接上，落幕、補演、記帳都走得通（冒煙 `m4-curtain.test.ts` 的兩條）。
+- 重現：`engine/tests/pending/B031-curtain-stage-in-dive.test.ts`（目前會失敗：報名之後沒有 `curtain.stage`、`run.map` 沒有值）。
+- 可能的位置（只寫推測，不改）：`features/curtain/after.ts` 的 `afterReport`：放行清單把 `dive` 也算進去（或只在「戰鬥、場景、戰敗」這幾種真的會被打斷的活動進行中才略過；`dive` 本身不是）；`ctxOf` 在潛入裡站網內地圖時本來就成立（`gridHere` 看得到地圖）。一併檢查 `features/curtain` 裡其他寫 `a.kind !== 'netrun'` 的地方，和 `netrun/close.ts` 收尾之後回到潛入的情況（簾後館的一趟收掉之後人是在潛入裡的簾口，還是回到現實）。
+- 補充（不是引擎的 bug，給 ui 與內容）：`ui/src/data/demo/curtain.ts` 的戰敗事件 `cast: [{ role: 'a' }]` 沒有寫 `gen`，`npcs` 的 `director.cast` 只認 `npc`／`known`／`gen`，所以示意局的補演永遠「館方找不到願意補演的對象」（引擎這一邊的 `castOf` 回傳 null、直接進 choose）。冒煙的假世界寫成 `cast: [{ role: 'a', gen: { kind: 'citizen' } }]` 並補了診所區的 `npc_gen` 才補演得起來。

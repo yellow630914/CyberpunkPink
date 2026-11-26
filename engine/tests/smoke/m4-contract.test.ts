@@ -9,12 +9,12 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Report } from '../../src'
 import { toMinutes } from '../../src'
 import { chooseOption, eventView } from '../../src/features/director'
-import { adjustDraft, arriveDraft, boundView, chooseDraft, completeDraft, contractOf, heldIn, payoffDraft, payoffQuote, releaseDraft, triggerDraft } from '../../src/features/contract'
+import { adjustDraft, arriveDraft, boundView, chooseDraft, contractOf, heldIn, payoffDraft, payoffQuote, releaseDraft, triggerDraft } from '../../src/features/contract'
 import { lureView } from '../../src/features/lure'
 import { cleanDraft, malwareOf, malwareView } from '../../src/features/malware'
 import { rentDraft, sleepDraft } from '../../src/features/rest'
 import type { Game } from '../../src/shell/game'
-import { BODY_BLOCKS, applyEffects, diveIn, flow, giveItem, giveMoney, makeActor, wearDeck, makeBodyGame, observed, passTime, standAt, untilIdle } from '../../src/testkit'
+import { BODY_BLOCKS, M4_ACTION_PREFIXES, applyEffects, diveIn, flow, giveItem, giveMoney, makeActor, prefixProblems, roundTrip, stateHash, wearDeck, makeBodyGame, observed, passTime, standAt, untilIdle } from '../../src/testkit'
 
 vi.setConfig({ testTimeout: 60_000 })
 
@@ -105,6 +105,9 @@ async function boundFlow(g: Game, f = flow('契約（契約人）'), checkpoint:
     expect(contractOf(g.state)).toBeNull()
     expect((pc(g).ext.identity as { class?: string } | undefined)?.class).not.toBe('bound')
     expect(g.state.money.cred + g.state.money.cash).toBeLessThan(cash0)
+  })
+  await f.step('整條主幹的報告前綴都在 M4 的清單裡', () => {
+    expect(prefixProblems(g, M4_ACTION_PREFIXES)).toEqual([])
   })
   return g
 }
@@ -230,6 +233,18 @@ describe('冒煙 M4：契約（主角是契約人）', () => {
     const t = makeBodyGame({ pc: WEAK, at: { block: 'tw_tower', marker: 'E1' } })
     const { violations } = await observed(t.game, async () => boundFlow(t.game))
     expect(violations).toEqual([])
+  })
+})
+
+describe('冒煙 M4：契約（存讀）', () => {
+  it('簽下契約之後、差事做完之後各存讀一次，接著走；最後的狀態和不中斷的一遍逐欄相同', async () => {
+    const make = () => makeBodyGame({ pc: WEAK, at: { block: 'tw_tower', marker: 'E1' } }).game
+    const plain = make()
+    await boundFlow(plain)
+    const saved = make()
+    const { violations } = await observed(saved, async () => boundFlow(saved, flow('契約（存讀）'), (label) => roundTrip(saved, label)))
+    expect(violations).toEqual([])
+    expect(stateHash(saved.state)).toBe(stateHash(plain.state))
   })
 })
 

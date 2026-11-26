@@ -1,0 +1,169 @@
+{
+  "id": "m4-body",
+  "seed": 6,
+  "note": "基準（不是 bug）：M4 第一波冒煙的身體那一條（簡化）。建角（橋、義眼、手槍、生命軌跡）→ 診所裝一件義臂 → 休養過完 → 存讀 → 吃兩劑雲絲到重度 → 戒斷開始 → 存讀 → 互助診所戒斷療程 → 過完戒斷期。",
+  "setup": {
+    "named": "body_creation"
+  },
+  "inputs": [
+    {
+      "type": "m4",
+      "do": "create",
+      "draft": {
+        "name": "露",
+        "gender": "female",
+        "age": 22,
+        "origin": "tw_origin",
+        "originChoice": {
+          "favor": "f_gang"
+        },
+        "attrPick": {
+          "reflex": 15,
+          "tech": 14,
+          "body": 13,
+          "intellect": 12,
+          "resolve": 10,
+          "charm": 8
+        },
+        "attrBonus": {
+          "charm": -4,
+          "reflex": 3,
+          "resolve": 3
+        },
+        "skills": {
+          "mechanics": 3,
+          "firearms": 3,
+          "medicine": 2,
+          "streetwise": 2
+        },
+        "perks": [
+          "perk_tw_smooth",
+          "perk_tw_tough"
+        ],
+        "bridge": "bp_tw_bridge",
+        "cyber": [
+          {
+            "blueprint": "bp_tw_eye"
+          }
+        ],
+        "gear": [
+          {
+            "id": "bp_tw_pistol"
+          },
+          {
+            "id": "i_tw_medkit",
+            "qty": 2
+          }
+        ],
+        "lifepath": {
+          "family": "lp_tw_fam_tower",
+          "incident": "lp_tw_inc_cash",
+          "friend": "lp_tw_fr_old",
+          "enemy": "lp_tw_en_rival",
+          "ex": "lp_tw_ex_gone",
+          "want": "lp_tw_want_money",
+          "sex": "lp_tw_sex_some",
+          "kink": "lp_tw_kink_rope"
+        }
+      }
+    },
+    {
+      "type": "m4",
+      "do": "stand",
+      "block": "tw_clinics",
+      "marker": "F1"
+    },
+    {
+      "type": "m4",
+      "do": "give_product",
+      "bp": "bp_tw_arm",
+      "uid": "U1"
+    },
+    {
+      "type": "m4",
+      "do": "install",
+      "uid": "U1",
+      "via": "clinic",
+      "side": "l"
+    },
+    {
+      "type": "m4",
+      "do": "pass",
+      "minutes": 7200
+    },
+    {
+      "type": "save_load"
+    },
+    {
+      "type": "m4",
+      "do": "give_item",
+      "id": "it_tw_cloud",
+      "qty": 3
+    },
+    {
+      "type": "m4",
+      "do": "drug_use",
+      "item": "it_tw_cloud"
+    },
+    {
+      "type": "m4",
+      "do": "pass",
+      "minutes": 120
+    },
+    {
+      "type": "m4",
+      "do": "drug_use",
+      "item": "it_tw_cloud"
+    },
+    {
+      "type": "m4",
+      "do": "pass",
+      "minutes": 5760
+    },
+    {
+      "type": "save_load"
+    },
+    {
+      "type": "m4",
+      "do": "stand",
+      "block": "tw_shops",
+      "marker": "F4"
+    },
+    {
+      "type": "m4",
+      "do": "detox",
+      "drug": "it_tw_cloud"
+    },
+    {
+      "type": "m4",
+      "do": "pass",
+      "minutes": 20160
+    }
+  ],
+  "expect": {
+    "paths": {
+      "time": {
+        "day": 29,
+        "hour": 13,
+        "minute": 0
+      },
+      "money": {
+        "cred": 18710,
+        "cash": 6850
+      },
+      "rng.cursor": 0,
+      "location": {
+        "district": "tw_ward",
+        "block": "tw_shops",
+        "facility": "F4"
+      },
+      "actors.pc.sink": 12,
+      "actors.pc.hp": 51,
+      "actors.pc.perks": [
+        "perk_tw_origin",
+        "perk_tw_smooth",
+        "perk_tw_tough"
+      ]
+    }
+  }
+}

@@ -1,0 +1,130 @@
+{
+  "id": "m4-contract",
+  "seed": 6,
+  "note": "基準（不是 bug）：M4 第三波冒煙的契約（契約人）那一條（簡化）。效果簽下債務契約 → 過幾天收到指令 → 抗拒（定力很低的主角）→ 存讀 → 再過幾天 → 還清。",
+  "setup": {
+    "named": "body_contract"
+  },
+  "inputs": [
+    {
+      "type": "m4",
+      "do": "effect",
+      "effects": [
+        {
+          "kind": "contract_sign",
+          "type": "debt",
+          "debt": 24000,
+          "orders": [
+            "errand",
+            "work",
+            "report"
+          ],
+          "report_weekday": 0,
+          "holder": {
+            "kind": "eden",
+            "name": "樂園",
+            "faction": "f_tw_eden",
+            "place": {
+              "district": "tw_hive",
+              "block": "tw_tower"
+            }
+          },
+          "rules": []
+        }
+      ]
+    },
+    {
+      "type": "m4",
+      "do": "pass",
+      "minutes": 2880
+    },
+    {
+      "type": "m4",
+      "do": "contract_choose",
+      "how": "resist"
+    },
+    {
+      "type": "save_load"
+    },
+    {
+      "type": "m4",
+      "do": "pass",
+      "minutes": 4320
+    },
+    {
+      "type": "m4",
+      "do": "give_money",
+      "cred": 20000
+    }
+  ],
+  "expect": {
+    "paths": {
+      "time": {
+        "day": 8,
+        "hour": 10,
+        "minute": 0
+      },
+      "money": {
+        "cred": 40000,
+        "cash": 2000
+      },
+      "rng.cursor": 2,
+      "actors.pc.sink": 0,
+      "ext.contract": {
+        "mine": {
+          "id": "c1",
+          "holder": {
+            "kind": "eden",
+            "name": "樂園",
+            "faction": "f_tw_eden",
+            "place": {
+              "district": "tw_hive",
+              "block": "tw_tower"
+            }
+          },
+          "type": "debt",
+          "orders": [
+            "errand",
+            "work",
+            "report"
+          ],
+          "relation": "formal",
+          "rules": [],
+          "queue": [
+            {
+              "id": "o2",
+              "kind": "lend",
+              "from": "f_tw_eden",
+              "issued": 6240,
+              "deadline": 7680,
+              "state": "overdue",
+              "closed": 10680
+            },
+            {
+              "id": "o3",
+              "kind": "errand",
+              "from": "f_tw_eden",
+              "issued": 9120,
+              "deadline": 11760,
+              "state": "sent"
+            }
+          ],
+          "mark": {
+            "covered": false
+          },
+          "was_class": "citizen",
+          "complied": 0,
+          "signed": 3480,
+          "debt": 24000,
+          "report_weekday": 0,
+          "interest_at": 46680
+        },
+        "held": {},
+        "rights": [],
+        "seq": 3,
+        "notes": []
+      },
+      "flags": {}
+    }
+  }
+}

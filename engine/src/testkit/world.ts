@@ -23,6 +23,7 @@
 // 拿掉某個功能時，用 worldFor(features) 把「那個功能的內容種類」濾掉（見下面）。
 
 import type { ContentEntry, ContentPack } from '../core/content/registry'
+import { ContentError } from '../core/content/registry'
 import type { Feature } from '../core/kernel'
 import { createKernel, readyFeatures } from '../core/kernel'
 import { testWeapon } from './battle'
@@ -346,9 +347,11 @@ export function worldFor(features: Feature[], pack: ContentPack = testWorld()): 
       try {
         readyFeatures(k)
       } catch (e) {
-        const m = /^([a-z0-9_]+)\/([A-Za-z0-9_]+)：/.exec(e instanceof Error ? e.message : '')
-        if (!m) throw e
-        gone = [`${m[1]}/${m[2]}`]
+        // ContentError 有一串問題（每一條開頭是「種類/id：」）：把每一條指到的筆都濾掉；有一條指不到筆就是真的錯，照丟
+        const lines = e instanceof ContentError ? e.problems : [e instanceof Error ? e.message : '']
+        const hits = lines.map((l) => /^([a-z0-9_]+)\/([A-Za-z0-9_]+)：/.exec(l)).filter((m): m is RegExpExecArray => !!m)
+        if (hits.length === 0 || hits.length < lines.length) throw e
+        gone = [...new Set(hits.map((m) => `${m[1]}/${m[2]}`))]
       }
     }
     if (gone.length === 0) break

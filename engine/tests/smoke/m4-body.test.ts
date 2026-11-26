@@ -15,12 +15,11 @@ import { detoxDraft, drugView, useDraft } from '../../src/features/drugs'
 import { gearOf, equip } from '../../src/features/gear'
 import { clinicHealDraft, medicalView, woundSurgeryDraft, woundsOf } from '../../src/features/medical'
 import type { Game } from '../../src/shell/game'
-import { BODY_BLOCKS, flow, giveItem, giveMoney, giveProduct, makeBodyGame, observed, passTime, standAt, stateHash } from '../../src/testkit'
+import { BODY_BLOCKS, M4_ACTION_PREFIXES, flow, giveItem, giveMoney, giveProduct, makeBodyGame, observed, passTime, prefixProblems, roundTrip, standAt, stateHash } from '../../src/testkit'
 
 vi.setConfig({ testTimeout: 60_000 })
 
 const actions = (rs: Report[]): string[] => rs.map((r) => r.action ?? '')
-const NOW = '2026-11-26T00:00:00Z'
 const pc = (g: Game) => g.state.actors.pc!
 const floorOf = (g: Game): number => g.k.stats.stat(g.state, 'pc', 'sink_floor')
 const bodyParts = (g: Game) => g.k.stats.attrParts(g.state, 'pc', 'body')
@@ -178,6 +177,9 @@ async function bodyFlow(g: Game, f = flow('身體'), checkpoint: (label: string)
     expect(drugView(k, g.state, 'pc')!.addiction.find((x) => x.id === 'it_tw_cloud')?.value ?? 0).toBe(0)
     expect(g.k.stats.attrParts(g.state, 'pc', 'resolve').some((p) => p.source === 'withdrawal')).toBe(false)
   })
+  await f.step('整條主幹的報告前綴都在 M4 的清單裡', () => {
+    expect(prefixProblems(g, M4_ACTION_PREFIXES)).toEqual([])
+  })
   void gun
   return g
 }
@@ -187,5 +189,14 @@ describe('冒煙 M4：身體', () => {
     const t = makeBodyGame({ scenario: 'beforeCreation', at: null })
     const { violations } = await observed(t.game, async () => bodyFlow(t.game))
     expect(violations).toEqual([])
+  })
+
+  it('建角之後與裝完義體之後各存讀一次，接著走；最後的狀態和不中斷的一遍逐欄相同（stateHash）', async () => {
+    const plain = makeBodyGame({ scenario: 'beforeCreation', at: null }).game
+    await bodyFlow(plain)
+    const saved = makeBodyGame({ scenario: 'beforeCreation', at: null }).game
+    const { violations } = await observed(saved, async () => bodyFlow(saved, flow('身體（存讀）'), (label) => roundTrip(saved, label)))
+    expect(violations).toEqual([])
+    expect(stateHash(saved.state)).toBe(stateHash(plain.state))
   })
 })

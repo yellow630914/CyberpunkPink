@@ -10,12 +10,11 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Report } from '../../src'
 import { acceptDefeat, defeatOf } from '../../src/features/defeat'
 import { callOffDraft, curtainOf, curtainView, fallView, replayDraft, settleDraft } from '../../src/features/curtain'
-import { eventView } from '../../src/features/director'
 import { netrunView, readRun } from '../../src/features/netrun'
 import { sceneRawOf } from '../../src/features/scene'
 import type { Game } from '../../src/shell/game'
 import {
-  CURTAIN_NIGHTS, curtainEnter, curtainPrelude, flow, makeCurtainGame, netMarkers, netUse, observed, passTime, playCurtainRun, sceneCast, standBeside, stopScene,
+  CURTAIN_NIGHTS, M4_ACTION_PREFIXES, curtainEnter, curtainPrelude, flow, makeCurtainGame, netMarkers, netUse, observed, passTime, playCurtainRun, prefixProblems, roundTrip, sceneCast, standBeside, stateHash, stopScene,
 } from '../../src/testkit'
 
 vi.setConfig({ testTimeout: 120_000 })
@@ -25,7 +24,7 @@ const actions = (rs: Report[]): string[] => rs.map((r) => r.action ?? '')
 /** 一局簾後館（演出者要有橋：補演的對象由 director.cast 臨時生成，不用先放進狀態）。 */
 const setup = (seed = 3): Game => makeCurtainGame({ seed, actors: sceneCast('ann') }).game
 
-async function runFlow(g: Game, f = flow('簾後館：一趟走完')): Promise<Game> {
+async function runFlow(g: Game, f = flow('簾後館：一趟走完'), checkpoint: (label: string) => void = () => undefined): Promise<Game> {
   const { k } = g
   await f.step('前奏：邀請函、面談（領會員證，散座）、口味單、走到大廳的簾口', () => {
     curtainPrelude(g)
@@ -41,6 +40,7 @@ async function runFlow(g: Game, f = flow('簾後館：一趟走完')): Promise<G
     expect(readRun(g.state)).toMatchObject({ kind: 'netrun', layers: ['l1', 'l2', 'l3', 'l4'], layer: 0 })
     expect(netrunView(k, g.state)!.layer).toMatchObject({ total: 4 })
     expect(curtainView(k, g.state)).toMatchObject({ night: { id: CURTAIN_NIGHTS.a }, tier: 'floor', act: { number: 1, total: 4 } })
+    checkpoint('after-enter')
   })
   await f.step('走完四幕：每一層打贏遭遇、順手做點單與賞箱、走到閘門往下一幕、最後從出口離開', async () => {
     const res = await playCurtainRun(g, { extras: true })
@@ -58,11 +58,13 @@ async function runFlow(g: Game, f = flow('簾後館：一趟走完')): Promise<G
     expect(g.state.reports.some((r) => r.action === 'curtain.settle' || r.action === 'curtain.end' || (r.action ?? '').startsWith('curtain.'))).toBe(true)
     // 錢：保證金 300 退回、再加獎金 900 與賞箱的票根；現金一定比報名前多
     expect(g.state.money.cash).toBeGreaterThan(cash0)
+    expect(prefixProblems(g, M4_ACTION_PREFIXES)).toEqual([])
+    checkpoint('after-settle')
   })
   return g
 }
 
-async function fallFlow(g: Game, f = flow('簾後館：落幕、補演、記帳')): Promise<Game> {
+async function fallFlow(g: Game, f = flow('簾後館：落幕、補演、記帳'), checkpoint: (label: string) => void = () => undefined): Promise<Game> {
   const { k } = g
   await f.step('前奏與報名（蜜糖之夜）', () => {
     curtainPrelude(g)
@@ -97,6 +99,7 @@ async function fallFlow(g: Game, f = flow('簾後館：落幕、補演、記帳'
     expect(readRun(g.state)).toBeNull()
     expect(g.state.money.cash).toBeLessThanOrEqual(cash0)
     expect(fallView(k, g.state)).toMatchObject({ step: 'replay', deposit })
+    checkpoint('after-fall')
   })
   await f.step('補演：開一場（工作性質、layer net）的場景，演到結束；進到選路', () => {
     const reports = g.commit(replayDraft(k, g.state))
@@ -120,21 +123,30 @@ async function fallFlow(g: Game, f = flow('簾後館：落幕、補演、記帳'
     passTime(g, 8 * 24 * 60)
     const lines = g.k.hooks.run('bill.collect', { state: g.state, week: 1 } as never).flatMap((r) => r.result as Array<{ id?: string }>)
     expect(JSON.stringify(lines)).toMatch(/curtain|簾後館/)
+    expect(prefixProblems(g, M4_ACTION_PREFIXES)).toEqual([])
   })
   void callOffDraft
   return g
 }
 
 describe('冒煙 M4：簾後館', () => {
-  it('邀請函 → 面談 → 報名 → 走完四幕 → 結算', async () => {
+  it('邀請函 → 面談 → 報名 → 走完四幕 → 結算；報名之後、結算之後各存讀一次，接著走，最後的狀態和不中斷的一遍逐欄相同', async () => {
     const g = setup(3)
     const { violations } = await observed(g, async () => runFlow(g))
     expect(violations).toEqual([])
+    const saved = setup(3)
+    const again = await observed(saved, async () => runFlow(saved, flow('簾後館（存讀）'), (label) => roundTrip(saved, label)))
+    expect(again.violations).toEqual([])
+    expect(stateHash(saved.state)).toBe(stateHash(g.state))
   })
 
-  it('第二幕全隊倒下 → 落幕 → 補演 → 記帳', async () => {
+  it('第二幕全隊倒下 → 落幕 → 補演 → 記帳；落幕之後存讀一次，補演、記帳照樣走完，最後的狀態和不中斷的一遍逐欄相同', async () => {
     const g = setup(3)
     const { violations } = await observed(g, async () => fallFlow(g))
     expect(violations).toEqual([])
+    const saved = setup(3)
+    const again = await observed(saved, async () => fallFlow(saved, flow('簾後館落幕（存讀）'), (label) => roundTrip(saved, label)))
+    expect(again.violations).toEqual([])
+    expect(stateHash(saved.state)).toBe(stateHash(g.state))
   })
 })

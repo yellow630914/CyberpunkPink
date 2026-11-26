@@ -1,0 +1,183 @@
+{
+  "id": "m4-scene",
+  "seed": 6,
+  "note": "基準（不是 bug）：M4 第二波冒煙的成人場景那一條（簡化）。學夜課 → 一對一（用夜課、存讀、結束回合、停下）→ 三人一圈加不展開的圈（換圈、停下）→ 單人（停下）。",
+  "setup": {
+    "named": "body_scene"
+  },
+  "inputs": [
+    {
+      "type": "m4",
+      "do": "insight",
+      "n": 40
+    },
+    {
+      "type": "m4",
+      "do": "night_learn",
+      "id": "nt_tw_stroke"
+    },
+    {
+      "type": "m4",
+      "do": "night_learn",
+      "id": "nt_tw_kiss"
+    },
+    {
+      "type": "m4",
+      "do": "night_learn",
+      "id": "nt_tw_slow"
+    },
+    {
+      "type": "m4",
+      "do": "scene_open",
+      "setup": {
+        "with": [
+          "npc_tw_ann"
+        ],
+        "nature": "mutual",
+        "goal": "please",
+        "mode": "full"
+      }
+    },
+    {
+      "type": "m4",
+      "do": "scene_do",
+      "input": {
+        "kind": "skill",
+        "id": "nt_tw_stroke",
+        "target": "npc_tw_ann",
+        "pick": {
+          "my_part": "hand_l",
+          "their_part": "chest"
+        }
+      }
+    },
+    {
+      "type": "save_load"
+    },
+    {
+      "type": "m4",
+      "do": "scene_end_turn"
+    },
+    {
+      "type": "m4",
+      "do": "scene_stop"
+    },
+    {
+      "type": "m4",
+      "do": "scene_open",
+      "setup": {
+        "circles": [
+          [
+            "pc",
+            "npc_tw_ann",
+            "npc_tw_bo"
+          ],
+          [
+            "npc_tw_cy",
+            "npc_tw_di"
+          ]
+        ],
+        "nature": "mutual",
+        "mode": "full"
+      }
+    },
+    {
+      "type": "m4",
+      "do": "scene_do",
+      "input": {
+        "kind": "skill",
+        "id": "nt_tw_kiss",
+        "target": "npc_tw_ann",
+        "pick": {
+          "my_part": "mouth",
+          "their_part": "mouth"
+        }
+      }
+    },
+    {
+      "type": "m4",
+      "do": "scene_do",
+      "input": {
+        "kind": "skill",
+        "id": "nt_tw_stroke",
+        "target": "npc_tw_bo",
+        "pick": {
+          "my_part": "hand_r",
+          "their_part": "chest"
+        }
+      }
+    },
+    {
+      "type": "m4",
+      "do": "scene_end_turn"
+    },
+    {
+      "type": "m4",
+      "do": "scene_do",
+      "input": {
+        "kind": "move_circle",
+        "circle": "c1"
+      }
+    },
+    {
+      "type": "m4",
+      "do": "scene_stop"
+    },
+    {
+      "type": "m4",
+      "do": "scene_open",
+      "setup": {
+        "solo": true,
+        "mode": "full"
+      }
+    },
+    {
+      "type": "m4",
+      "do": "scene_do",
+      "input": {
+        "kind": "skill",
+        "id": "nt_tw_slow",
+        "pick": {
+          "my_part": "hand_l",
+          "their_part": "chest"
+        }
+      }
+    },
+    {
+      "type": "m4",
+      "do": "scene_end_turn"
+    },
+    {
+      "type": "m4",
+      "do": "scene_stop"
+    }
+  ],
+  "expect": {
+    "paths": {
+      "time": {
+        "day": 3,
+        "hour": 10,
+        "minute": 0
+      },
+      "rng.cursor": 0,
+      "actors.pc.sink": 0,
+      "actors.pc.ext.bridge": {
+        "sensitivity": 30,
+        "tolerance": 30,
+        "craving": 30,
+        "docility": 30
+      },
+      "actors.pc.ext.scene": {
+        "skills": [
+          "nt_tw_stroke",
+          "nt_tw_kiss",
+          "nt_tw_slow"
+        ],
+        "positions": []
+      },
+      "meters.insight": {
+        "_": 55
+      }
+    }
+  }
+}
