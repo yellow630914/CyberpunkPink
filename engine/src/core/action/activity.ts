@@ -8,6 +8,8 @@
 // - doing 的寫法：chain:<鏈的 id>、commit:<報告的 action>、<kind>.start、battle.retry、rewind:<快照的種類>、grid.enter、grid.move。
 //   報告的 action 一律是「功能的前綴.動詞」（event.choose、commission.face、trade.checkout）。
 // - 核心只登記戰鬥與等著選的戰敗（coreActivities.ts）；其餘由功能 k.activity.define。
+// - deny 是另一條線（dev/adr/0020 第三節；M5-core-seams）：活動進行中時，外殼自己的動作（SHELL_ACTS：現在只有回退步數 'undo'）不准做。
+//   它不看、也不改放行的白名單（allow、allowWhen、allows、allowEverywhere），只管外殼自己的入口（Game.undoSteps 先問 k.activity.denied）。
 
 import type { Change, GameState, Launch, Origin, ReportDraft, ReportRewind } from '../types'
 import { guardHooks } from '../state/commit'
@@ -17,6 +19,13 @@ import type { Kernel } from '../kernel'
 import { clone } from '../util/clone'
 import { isRecord } from '../util/sanitize'
 import { ActionBlocked } from './action'
+
+/**
+ * 外殼自己的動作（不是報告、不是活動的步驟）：活動的 deny 只能寫這張表裡的字，寫了別的 define 丟錯。之後要加再加。
+ * - undo：回退步數（Game.undoSteps；問的是 k.activity.denied(state, 'undo')）。讀檔、回到快照、重試最新一樓各有自己的 doing，不歸 deny 管。
+ */
+export const SHELL_ACTS = ['undo'] as const
+export type ShellAct = (typeof SHELL_ACTS)[number]
 
 /** 一段進行中的活動（active 的回答）。 */
 export interface ActivityInfo {
@@ -54,7 +63,13 @@ export interface ActivityDef {
    * 讀它的功能問 `k.activity.bridgeClosed(state)`，不必知道是哪一種活動關的。沒寫是不關。
    */
   bridgeOff?: boolean
-  /** 擋下時給玩家看的完整句子 */
+  /**
+   * 進行中時不准做的外殼動作（SHELL_ACTS：現在只有 'undo'，直播不回退）。寫了清單以外的字，define 丟錯。沒寫是不擋任何外殼動作。
+   * 和放行的白名單是兩條線：deny 不看也不改 allow、allowWhen、allows、allowEverywhere；`blockOf` 對 doing 的回答不受它影響。
+   * 擋下時問 reason，第二個參數是外殼動作的名字（例：'undo'），不是 doing。
+   */
+  deny?: string[]
+  /** 擋下時給玩家看的完整句子（doing 是被擋的那件事；deny 擋下外殼動作時是動作的名字，例：'undo'） */
   reason(state: GameState, doing: string): string
   /** 開始：純函式，回傳要提交的報告草稿；開不成丟 ActionBlocked（原因寫成一條一句） */
   start?(k: Kernel, state: GameState, setup: unknown, origin: Origin): ReportDraft[]
@@ -64,6 +79,15 @@ export interface ActivityDef {
 export interface ActiveActivity extends ActivityInfo {
   kind: string
   owner: string
+}
+
+/** deny 的格式檢查：要是一份只含 SHELL_ACTS 裡的字的陣列。沒問題回傳 null。 */
+function denyProblems(def: ActivityDef): string | null {
+  if (def.deny === undefined) return null
+  const at = `活動 ${def.kind}（${def.owner}）的 deny`
+  if (!Array.isArray(def.deny)) return `${at} 要是外殼動作的陣列（${SHELL_ACTS.join('、')}）`
+  const bad = def.deny.filter((x) => !(SHELL_ACTS as readonly unknown[]).includes(x))
+  return bad.length ? `${at} 只能寫外殼的動作（${SHELL_ACTS.join('、')}），拿到 ${bad.map((x) => JSON.stringify(x)).join('、')}` : null
 }
 
 export class ActivityRegistry {
@@ -82,14 +106,17 @@ export class ActivityRegistry {
   define(def: ActivityDef): void {
     const old = this.defs.get(def.kind)
     if (old) throw new Error(`活動重複登記：${def.kind}（已經由 ${old.owner} 登記）`)
+    const denyBad = denyProblems(def)
+    if (denyBad) throw new Error(denyBad)
     const extra = this.pending.get(def.kind) ?? []
     this.pending.delete(def.kind)
     this.defs.set(def.kind, {
       ...def,
       allow: [...def.allow, ...extra.filter((x) => !x.when).map((x) => x.prefix), ...this.everywhere.filter((e) => !e.except.includes(def.kind)).map((e) => e.prefix)],
       allowWhen: [...(def.allowWhen ?? []), ...extra.flatMap((x) => (x.when ? [{ prefix: x.prefix, when: x.when }] : []))],
+      ...(def.deny ? { deny: [...def.deny] } : {}),
     })
-    this.probe.emit('core/action/activity', 'registry.register', { registry: 'activity', id: def.kind, owner: def.owner })
+    this.probe.emit('core/action/activity', 'registry.register', { registry: 'activity', id: def.kind, owner: def.owner, ...(def.deny?.length ? { deny: [...def.deny] } : {}) })
   }
 
   /**
@@ -156,6 +183,19 @@ export class ActivityRegistry {
       if (!def.active(state)) continue
       if (this.lets(def, state, doing, draft, launch)) continue
       return def.reason(state, doing)
+    }
+    return null
+  }
+
+  /**
+   * 現在能不能做外殼自己的動作（SHELL_ACTS；deny）：照 order 找第一個「進行中、而且 deny 含這個動作」的活動，回它的 reason(state, act)
+   * （給玩家看的完整句子）；沒有就是 null。什麼都不改。表外的動作沒有活動能寫進 deny，所以一律是 null。
+   * 外層與內層同時進行中時，order 小的那個有寫 deny 就用它的原因；只有外層寫了也照樣擋（內層沒寫不影響）。
+   */
+  denied(state: GameState, act: string): string | null {
+    for (const def of this.list()) {
+      if (!def.deny?.includes(act) || !def.active(state)) continue
+      return def.reason(state, act)
     }
     return null
   }

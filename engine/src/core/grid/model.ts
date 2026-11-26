@@ -79,6 +79,10 @@ export const CELL_TRAITS: Record<CellKind, CellTraits> = {
   net_valve: { walk: false, see: true, locked: true, lockedReason: '這條鏈路是單向的，從這一邊過不去。' },
   // 走過一次就斷的鏈路：走得上去；走過之後由功能把那一格改成 wall。沒有標記（版面上用 NET_LEGEND 的 x）
   net_bridge: { walk: true, see: true },
+  // ---- 家園（M5；dev/adr/0020 第十節）：家具壓在家的地圖上的一格。走不上去（和掩體、水一樣繞過去）、看得穿（桌椅不擋視線）。沒有標記。
+  // 它不進預設圖例，版面上不能畫（sheetProblems 擋）：只當成「實例上被改過的一格」的種類用，也就是 map.sheet 的 cells 補丁（{ kind: 'furniture' }）；
+  // 拿掉補丁就恢復成版面原本的格子。哪幾格擺得了家具（不壓在標記與門口上、不把房間堵死）是家園功能的擺放檢查，不是這裡的事 ----
+  furniture: { walk: false, see: true },
 }
 
 /**
@@ -268,8 +272,17 @@ export const NET_MAP_KINDS: readonly string[] = ['subnet', 'maze', 'wreck', 'dee
 /** 這個種類的地圖是不是網內的地圖。 */
 export const isNetMapKind = (kind: unknown): boolean => typeof kind === 'string' && NET_MAP_KINDS.includes(kind)
 
+/**
+ * 家的地圖（M5；dev/adr/0020 第十節）：special_map 的 kind 是這一種，就是住處的版面（房間是 zones、大門是 E、三級的一樓店面用連接格接另一張圖），
+ * 不要求遭遇點。和街區地圖、網內的地圖同一個做法：現實的探索、城市、網內的行程在家的地圖上不作用（那些功能自己問 isHomeMapKind）。
+ */
+export const HOME_MAP_KINDS: readonly string[] = ['home']
+
+/** 這個種類的地圖是不是家的地圖。 */
+export const isHomeMapKind = (kind: unknown): boolean => typeof kind === 'string' && HOME_MAP_KINDS.includes(kind)
+
 export interface SheetCheckOpts {
-  /** 每一張至少要有幾個遭遇點；預設 2（COMMISSION_MAPS 第 1 節），街區地圖與網內的地圖是 0 */
+  /** 每一張至少要有幾個遭遇點；預設 2（COMMISSION_MAPS 第 1 節），街區地圖、網內的地圖與家的地圖是 0 */
   minSpots?: number
 }
 
@@ -317,6 +330,8 @@ export function sheetProblems(def: SheetDef, siblings: string[] = [], opts: Shee
   const [w, h] = def.size
   if (!Array.isArray(def.layout) || def.layout.length !== h) return [...p, `${at}：layout 要有 ${h} 列（拿到 ${Array.isArray(def.layout) ? def.layout.length : '不是陣列'}）`]
   const legend = { ...DEFAULT_LEGEND, ...(def.legend ?? {}) }
+  // furniture 只能是擺上去的家具（實例上的補丁），版面的圖例不能把任何字元對到它
+  for (const [ch, kind] of Object.entries(def.legend ?? {})) if (kind === 'furniture') p.push(`${at}：圖例的 ${JSON.stringify(ch)} 是 furniture。furniture 只能是擺上去的家具，不能畫在版面上。`)
   def.layout.forEach((row, y) => {
     if (typeof row !== 'string' || [...row].length !== w) p.push(`${at}：layout 第 ${y} 列的長度要是 ${w}`)
     else for (const ch of row) if (!legend[ch] || !CELL_TRAITS[legend[ch]!]) p.push(`${at}：layout 第 ${y} 列有圖例沒有的字元 ${JSON.stringify(ch)}`)
@@ -364,7 +379,7 @@ export function specialMapProblems(e: Record<string, unknown>): string[] {
   const sheets = e.sheets as SheetDef[]
   const ids = sheets.map((s) => s?.id)
   if (new Set(ids).size !== ids.length) p.push('sheets 的 id 不能重複')
-  const opts: SheetCheckOpts = isStreetMapKind(e.kind) || isNetMapKind(e.kind) ? { minSpots: 0 } : {}
+  const opts: SheetCheckOpts = isStreetMapKind(e.kind) || isNetMapKind(e.kind) || isHomeMapKind(e.kind) ? { minSpots: 0 } : {}
   for (const s of sheets) p.push(...sheetProblems(s, ids as string[], opts))
   return p
 }

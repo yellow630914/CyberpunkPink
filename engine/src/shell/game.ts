@@ -1075,8 +1075,22 @@ export class Game {
     }
   }
 
-  /** 回退 n 步。回退的時候進行中的鏈被取消，那一樓的任務鏈一起消失（它在狀態裡）。成功回傳 true；n 不是正整數或沒有那麼多步回傳 false。 */
+  /**
+   * 現在能不能回退步數（dev/adr/0020 第三節；M5-core-seams）：回傳擋住的原因（給玩家看的完整句子），可以回傳 null。什麼都不改。
+   * 問的是活動的登錄表 k.activity.denied(state, 'undo')：進行中的活動有哪一種寫了 deny: ['undo']（直播不回退），第一個（照 order）的原因。
+   * 只回答「被不被活動擋」，不管有沒有步數可以回（那是 undo.size）：介面決定按鈕能不能按時兩個都要問。
+   * 讀檔、回到快照（rewind、rewindToKind）、重試最新一樓不歸它管（各有自己的 doing）。
+   */
+  undoBlock(): string | null {
+    return this.k.activity.denied(this.state, 'undo')
+  }
+
+  /**
+   * 回退 n 步。回退的時候進行中的鏈被取消，那一樓的任務鏈一起消失（它在狀態裡）。成功回傳 true；n 不是正整數或沒有那麼多步回傳 false。
+   * 被活動擋下（undoBlock 不是 null）也回傳 false：什麼都不動，回退的堆疊原樣留著，活動結束之後那幾步還在。
+   */
   undoSteps(n = 1): boolean {
+    if (this.undoBlock() !== null) return false
     const restored = this.undo.pop(n)
     if (!restored) return false
     this.last?.run.cancel()
