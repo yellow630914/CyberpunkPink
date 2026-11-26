@@ -6,6 +6,7 @@ import Hint from '../components/Hint.vue'
 import ItemSlot from '../components/ItemSlot.vue'
 import ReasonButton from '../components/ReasonButton.vue'
 import MoneyTag from '../components/MoneyTag.vue'
+import PendingParts from '../components/PendingParts.vue'
 import { partTypeName } from '@engine/src'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
@@ -13,6 +14,7 @@ import { GRADE_COLOR_NAME, GRADE_LABEL } from '../lib/grade'
 import { BAG_FILTERS, EMPTY_FILTERS, bagEntries, legalName, quickCells, quickPut, slotName, weaponLines } from '../lib/gearView'
 import { MATERIAL_NAME, QUALITY_NAME, STATE_NAME, dyeOfColors, gradeOf, statLines, weightText } from '../lib/craftView'
 import type { BagFilterId } from '../lib/gearView'
+import { partStatRows, partTags, quirkLine } from '../lib/partsView'
 
 /**
  * 背包（UI.md 3.7 節）：篩選、物品格（等級色＋圖標）、右邊是詳情與操作。內容全部來自引擎的 state.inventory。
@@ -99,6 +101,7 @@ function doQuick() {
           <span v-for="n in [1, 2, 3, 4, 5] as const" :key="n"><i :style="{ borderColor: `var(--g${n})` }" />{{ GRADE_LABEL[n] }}</span>
           <Hint title="等級色">物品的邊框、名字與等級標用等級的顏色：I {{ GRADE_COLOR_NAME[1] }}、II {{ GRADE_COLOR_NAME[2] }}、III {{ GRADE_COLOR_NAME[3] }}、IV {{ GRADE_COLOR_NAME[4] }}、V {{ GRADE_COLOR_NAME[5] }}。等級色只用在物品上，金色的 IV 級不代表錢。</Hint>
         </div>
+        <PendingParts v-if="eng.unreg.pending().length" class="mt" data-bag-pending />
       </section>
       <aside v-if="sel" class="panel cut pad det" :style="{ '--gc': `var(--g${sel.grade})` }" data-detail>
         <div class="head">
@@ -125,11 +128,18 @@ function doQuick() {
           <div class="kv"><span>合法性</span><b>{{ legalName(product.info.legal) }}</b></div>
           <div v-if="statLines(product.info.stats).length" class="chips mt"><span v-for="l in statLines(product.info.stats)" :key="l.key" class="tag" :data-stat="l.key">{{ l.name }} {{ l.text }}</span></div>
           <p class="h mt">組成</p>
-          <div v-for="(p, i) in product.info.parts" :key="i" class="kv" data-part :data-part-id="p.part.id"><span>{{ partTypeName(p.type) }}</span><b :style="{ color: `var(--g${gradeOf(p.part.grade)})` }">{{ p.part.name }}<small class="sub">　{{ MATERIAL_NAME[p.part.material] ?? p.part.material }}<template v-if="p.part.unreg">・未登錄</template></small></b></div>
+          <div v-for="(p, i) in product.info.parts" :key="i" class="kv" data-part :data-part-id="p.part.id"><span>{{ partTypeName(p.type) }}</span><b :style="{ color: `var(--g${gradeOf(p.part.grade)})` }">{{ p.part.name }}<small class="sub">　{{ MATERIAL_NAME[p.part.material] ?? p.part.material }}<template v-if="p.part.state === 'used'">・二手</template><template v-if="p.part.unreg">・未登錄</template></small></b></div>
           <template v-if="product.info.quirks.length">
             <p class="h mt">怪癖與瑕疵</p>
             <div v-for="q in product.info.quirks" :key="q.id" class="kv" data-quirk><span>{{ q.name }}</span><b class="sub">{{ q.desc }}</b></div>
           </template>
+        </template>
+        <template v-else-if="sel.part">
+          <p v-if="sel.part.desc" class="desc" data-part-desc>{{ sel.part.desc }}</p>
+          <div class="chips"><span v-for="t in partTags(sel.part)" :key="t" class="tag" :class="{ hot: t === '未登錄' }" data-part-tag>{{ t }}</span></div>
+          <div v-if="sel.part.from" class="kv" data-part-from><span>來源</span><b>{{ sel.part.from }}</b></div>
+          <div v-for="l in partStatRows(sel.part)" :key="l.key" class="kv" data-part-stat :data-stat-key="l.key"><span>{{ l.name }}</span><b>{{ l.text }}</b></div>
+          <div v-if="sel.part.quirk" class="kv" data-part-quirk><span>怪癖</span><b>{{ quirkLine(eng.contentName('quirk', sel.part.quirk) ?? sel.part.quirk, sel.part.quirk_text) }}</b></div>
         </template>
         <div v-else-if="licence" class="kv" data-licence><span>授權書</span><b>教：{{ licence.name }}{{ licence.known ? '（已經會了）' : '' }}</b></div>
         <div class="go">
@@ -157,6 +167,7 @@ function doQuick() {
 .det h3 { margin: var(--space-1) 0 6px; font-size: var(--fs-section); color: var(--gc); }
 .head { display: grid; grid-template-columns: 72px 1fr; gap: var(--space-4); align-items: center; }
 .mt { margin-top: var(--space-4); }
+.desc { margin: 0 0 var(--space-3); color: var(--ink-2); font-size: var(--fs-sm); line-height: 1.6; }
 .sub { color: var(--ink-3); font-weight: 400; font-size: var(--fs-fine); }
 @media (max-width: 860px) { .bag { grid-template-columns: 1fr; } .items { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); } }
 </style>

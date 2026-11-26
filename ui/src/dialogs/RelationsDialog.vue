@@ -4,6 +4,7 @@ import Dialog from '../components/Dialog.vue'
 import Hint from '../components/Hint.vue'
 import ReasonButton from '../components/ReasonButton.vue'
 import TrackBar from '../components/TrackBar.vue'
+import PartWindow from '../components/PartWindow.vue'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
 import { failText } from '../lib/lifeView'
@@ -132,6 +133,8 @@ const answer = (id: string, a: 'do' | 'refuse') => run(e.people.favorAnswer(id, 
           </div>
         </div>
       </section>
+
+      <PartWindow />
 
       <section v-if="hostility.length" class="panel cut pad fav" data-hostility>
         <p class="h">敵對值<Hint title="敵對值">下限是永久的與有期限的取較高的那個；有期限的下限到期就掉，列在後面（剩幾天）。數字都是引擎的。</Hint></p>

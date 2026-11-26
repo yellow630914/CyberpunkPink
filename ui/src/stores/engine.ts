@@ -12,6 +12,8 @@ import * as craftFx from '@engine/src/features/craft'
 import { dissectDraft, dissectOptions, unitFormView } from '@engine/src/features/enemies'
 import type { UnitFormView } from '@engine/src/features/enemies'
 import * as curtainFx from '@engine/src/features/curtain'
+import * as unregFx from '@engine/src/features/unreg'
+import * as auctionFx from '@engine/src/features/auction'
 import { tabLine as curtainTabLine } from '@engine/src/features/curtain/fall'
 import type { DissectOption } from '@engine/src/features/enemies'
 import type { BlueprintEntry, PartEntry } from '@engine/src/features/gear'
@@ -59,7 +61,7 @@ import { advance as transitAdvance, advanceBlock as transitAdvanceBlock, alight 
 import type { BoardInput, TransitView } from '@engine/src/features/transit'
 import { chooseOption, directorView, eventView } from '@engine/src/features/director'
 import type { DirectorView, EventView } from '@engine/src/features/director'
-import { toMinutes } from '@engine/src/core/util/time'
+import { toMinutes, fromMinutes, formatTime, weekdayOf } from '@engine/src/core/util/time'
 import { hostilityView, scanView, timedFloors } from '@engine/src/features/security'
 import type { HostilityRow, ScanView } from '@engine/src/features/security'
 import { bargainByFavor, bargainInput, checkout as tradeCheckout, planCheckout, routesHint, shopView } from '@engine/src/features/trade'
@@ -96,6 +98,7 @@ import { NO_BRIDGE_NOTE } from '@engine/src/features/cyberware/creation'
 import { treeTierOf } from '@engine/src/features/abilities/learn'
 import { debriefOf } from '../lib/scene/sceneView'
 import type { Debrief } from '../lib/scene/sceneView'
+import { lastRound as auctionLastRound, settlementOf as auctionSettlementOf } from '../lib/auctionView'
 import { aiSettingsFromUi, logEntryOf, type EngineLogEntry, type UiAiFields } from '../lib/engineView'
 
 /**
@@ -144,6 +147,12 @@ export const useEngine = defineStore('engine', () => {
   const steps = shallowRef<StepRecord[]>([])
   const undoSize = ref(0)
   const busy = ref(false)
+  /** 交貨停在半路（寫正文被服務商拒絕，鏈停在 paused）的那幾筆：自動交貨不再碰它們，等玩家按「用規則代替」或重試（M4-ui-parts） */
+  const partPaused = ref<string[]>([])
+  /** 每一步之後看有沒有可以交的未登錄零件：有就排一次交貨（微任務；不在同一次提交裡再提交） */
+  function scheduleDeliver(): void {
+    if (unregFx.readyParts(game.k, game.state).some((p) => !partPaused.value.includes(p.id))) queueMicrotask(() => { void deliverReady() })
+  }
 
   function refreshSteps(): void {
     steps.value = structuredClone(game.lastRun?.steps ?? [])
@@ -206,6 +215,7 @@ export const useEngine = defineStore('engine', () => {
     rememberNetStage()
     recordEnd(reports)
     rememberRun()
+    scheduleDeliver()
   }
   game.subscribe(onCommit)
 
@@ -391,6 +401,7 @@ export const useEngine = defineStore('engine', () => {
       clearInterval(timer)
       busy.value = false
       refresh()
+      scheduleDeliver()
     }
   }
   const act = async (input: ActionInput): Promise<ActOutcome> => {
@@ -703,6 +714,7 @@ export const useEngine = defineStore('engine', () => {
     blueprint: (id) => game.k.content.get<BlueprintEntry>('blueprint', id),
     item: (id) => game.k.content.get<ItemEntry>('item', id),
     part: (id) => game.k.content.get<PartEntry>('part', id),
+    stackPart: (st) => stackPart(game.k.content, st),
     quickBlock: (id) => quickBlock(game.k, id),
     // 外套扣上時被蓋住的穿著格：身上的每一件裡引擎的 styleOf 說「看不到」的那幾格（看不到的整件都算；連身的衣服只露出一部分時，露出的第一格之前的算被蓋住）。
     // 引擎還沒有直接給「被蓋住的格子」（回報給 cpp-architect）；內衣不算看得到也不算被蓋住
@@ -960,7 +972,7 @@ export const useEngine = defineStore('engine', () => {
   interface Queued { action: string; make: () => ReportDraft }
   const queued: Queued[] = []
   /** 開新局、讀檔、回退、回到階段開始、重來戰鬥：狀態換了，留著的草稿都是舊的，全部丟掉 */
-  const clearQueued = (): void => { queued.length = 0; clearMemos() }
+  const clearQueued = (): void => { queued.length = 0; partPaused.value = []; clearMemos() }
   /**
    * 把一份（或幾份）報告草稿交給引擎提交（走 commitNarrated：AI 關著就是一般的提交）。草稿做不出來（被擋下）回傳原因。
    * remake(i)：第 i 份草稿（i ≥ 1）若要留著等放行，放行時用它照當下狀態重做；沒給就用原來那一份。
@@ -1811,6 +1823,124 @@ export const useEngine = defineStore('engine', () => {
     fix: (id?: string): string | null => commitMade(() => netRepairDraft(game.k, game.state, game.state.pc ?? '', id)),
   }
 
+
+  // ---- 未登錄零件（M4-ui-parts；features/unreg、Game.unregDeliver）：全部轉接引擎的匯出，畫面不算價錢、等級上限、能不能訂、能不能換、怪癖的候選 ----
+  /** 一筆等著交貨的零件給畫面看的樣子：框架的名字與數字是引擎的 frameView，現在交不交得了與原因是 deliverBlock */
+  interface PendingRow {
+    id: string
+    source: string
+    from: string
+    frame: unregFx.FrameView
+    /** 訂做的（時間到了還要到委託台取貨） */
+    order: boolean
+    /** 訂做的：滿了天數的那一刻（分鐘）；其餘沒有 */
+    readyAt: number | null
+    /** 現在交不了的原因（引擎的那一句）；交得了是 null */
+    block: string | null
+    /** 還在等天數（訂做的、還沒到時間） */
+    waiting: boolean
+    /** 交貨停在半路（寫正文被拒），等玩家處理 */
+    paused: boolean
+  }
+  const pendingRow = (p: unregFx.Pending): PendingRow | null => {
+    const frame = unregFx.frameView(game.k, game.state, p.id)
+    if (!frame) return null
+    const block = unregFx.deliverBlock(game.k, game.state, p.id)
+    const waiting = p.hold === 'order' && p.ready_at !== undefined && toMinutes(game.state.time) < p.ready_at
+    return { id: p.id, source: p.source, from: p.from ?? '', frame, order: p.hold === 'order', readyAt: p.ready_at ?? null, block, waiting, paused: partPaused.value.includes(p.id) }
+  }
+  /** 交一件貨：AI 開著走任務鏈（沿用現有的任務鏈列），否則直接提交。被擋下回傳 refused 與原因 */
+  async function deliver(id: string, opts: { autoRules?: boolean } = {}): Promise<ActOutcome> {
+    let r: ActOutcome
+    try {
+      r = await run(() => game.unregDeliver(id, opts))
+    } catch (e) {
+      const why = reasonOf(e)
+      if (why === null) throw e
+      return { status: 'refused', reason: why }
+    }
+    if (r.status === 'paused') { if (!partPaused.value.includes(id)) partPaused.value = [...partPaused.value, id] }
+    else if (r.status === 'applied') partPaused.value = partPaused.value.filter((x) => x !== id)
+    return r
+  }
+  let delivering = false
+  /** 每一步之後交掉可以交的（被活動擋住的留到下一步；停在半路的不再自動碰） */
+  async function deliverReady(): Promise<void> {
+    if (delivering || busy.value) return
+    delivering = true
+    try {
+      for (let guard = 0; guard < 20; guard++) {
+        const next = unregFx.readyParts(game.k, game.state).find((p) => !partPaused.value.includes(p.id) && unregFx.deliverBlock(game.k, game.state, p.id) === null)
+        if (!next) break
+        const r = await deliver(next.id)
+        if (r.status !== 'applied') break
+      }
+    } finally {
+      delivering = false
+    }
+  }
+  const unreg = {
+    /** 全部等著交貨的（背包的小區塊與委託台的訂單頁） */
+    pending: (): PendingRow[] => ask(() => unregFx.pendingParts(game.state).flatMap((p) => { const r = pendingRow(p); return r ? [r] : [] }), []),
+    /** 腳下的委託台（設施種類帶 unreg_desk）；不在是 null */
+    desk: (): unregFx.DeskHere | null => ask(() => unregFx.deskHere(game.k, game.state), null),
+    orderView: (): unregFx.OrderView => { void state.value; return unregFx.orderOptions(game.k, game.state) },
+    orderBlock: (o: unregFx.OrderInput): string | null => ask(() => unregFx.orderBlock(game.k, game.state, o), '現在訂不了。'),
+    order: (o: unregFx.OrderInput): Promise<ActOutcome> => commitDrafts(() => unregFx.orderDraft(game.k, game.state, o), '訂做零件'),
+    windowOptions: (): unregFx.WindowOption[] => ask(() => unregFx.windowOptions(game.k, game.state), []),
+    windowBlock: (o: unregFx.WindowInput): string | null => ask(() => unregFx.windowBlock(game.k, game.state, o), '現在換不了。'),
+    window: (o: unregFx.WindowInput): Promise<ActOutcome> => commitDrafts(() => unregFx.windowDraft(game.k, game.state, o), '換零件'),
+    deliver,
+    /** 這一件現在能交嗎（引擎的 deliverBlock）；能交是 null */
+    deliverBlock: (id: string): string | null => ask(() => unregFx.deliverBlock(game.k, game.state, id), '現在交不了貨。'),
+    /** 現在的分鐘數（訂做還要幾天的算式用） */
+    now: (): number => { void state.value; return toMinutes(game.state.time) },
+  }
+
+  // ---- 拍賣行（M4-ui-auction；features/auction）：全部轉接引擎的匯出；仿品的記號與競標者的預算不經過這裡（只用 catalogView、auctionView、bidOptions） ----
+  /** 拍賣的報告：一般的回合直接提交；落槌之後整場結束的那一份走 commitNarrated（結尾的正文） */
+  async function commitAuction(make: () => ReportDraft): Promise<ActOutcome> {
+    let d: ReportDraft
+    try {
+      d = make()
+    } catch (e) {
+      const why = reasonOf(e)
+      if (why === null) throw e
+      return { status: 'refused', reason: why }
+    }
+    if ((d.outcome as { closed?: boolean }).closed === true) return commitDrafts(() => d, '拍賣結束')
+    const why = commitMade(() => d)
+    return why ? { status: 'refused', reason: why } : { status: 'applied' }
+  }
+  const auction = {
+    /** 腳下的設施是哪幾家拍賣行（設施種類的欄位 auction.house） */
+    here: (): auctionFx.HouseHere[] => ask(() => auctionFx.housesHere(game.k, game.state), []),
+    session: (house: string): auctionFx.Session | null => ask(() => auctionFx.sessionOf(game.k, game.state, house), null),
+    catalog: (house: string): auctionFx.CatalogView | null => ask(() => auctionFx.catalogView(game.k, game.state, house), null),
+    member: (house: string): auctionFx.Membership => ask(() => auctionFx.memberOf(game.k, game.state, house), { house, member: false, blocks: ['現在查不到會員的資料。'], reason: '現在查不到會員的資料。' }),
+    refOptions: (house: string): auctionFx.RefOption[] => ask(() => auctionFx.refOptions(game.k, game.state, house), []),
+    refBlock: (o: auctionFx.RefInput): string | null => ask(() => auctionFx.refBlock(game.k, game.state, o), '現在請不了推薦函。'),
+    ref: (o: auctionFx.RefInput): Promise<ActOutcome> => commitDrafts(() => auctionFx.refDraft(game.k, game.state, o), '推薦函'),
+    inspectOptions: (house: string, by?: string): auctionFx.InspectOption[] => ask(() => auctionFx.inspectOptions(game.k, game.state, house, by), []),
+    inspectBlock: (o: auctionFx.InspectInput): string | null => ask(() => auctionFx.inspectBlock(game.k, game.state, o), '現在看不了貨。'),
+    inspect: (o: auctionFx.InspectInput): Promise<ActOutcome> => commitAuction(() => auctionFx.inspectDraft(game.k, game.state, o)),
+    enterBlocks: (house: string): string[] => ask(() => auctionFx.enterBlocks(game.k, game.state, house), ['現在進不了場。']),
+    enter: (house: string, pay: 'cash' | 'cred'): Promise<ActOutcome> => commitAuction(() => auctionFx.enterDraft(game.k, game.state, { house, pay })),
+    view: (): auctionFx.AuctionView | null => ask(() => auctionFx.auctionView(game.k, game.state), null),
+    bidOptions: (): auctionFx.BidOptions | null => ask(() => auctionFx.bidOptions(game.k, game.state), null),
+    bid: (input: auctionFx.BidInput): Promise<ActOutcome> => commitAuction(() => auctionFx.bidDraft(game.k, game.state, input)),
+    leaveBlock: (): string | null => ask(() => auctionFx.leaveBlock(game.k, game.state), '現在不在拍賣廳裡。'),
+    leave: (): Promise<ActOutcome> => commitAuction(() => auctionFx.leaveDraft(game.k, game.state)),
+    /** 引擎的分鐘數寫成「第 N 天 HH:MM（週幾）」（開槌與公布的時間） */
+    at: (minutes: number): string => { const t = fromMinutes(minutes); return `${formatTime(t)}（${unregFx.weekdaysText([weekdayOf(t, game.k.timeRules)])}）` },
+    /** 現在的分鐘數（階段是照它分的） */
+    now: (): number => { void state.value; return toMinutes(game.state.time) },
+    /** 最近一場結束了的拍賣（從報告讀：落槌的結果、玩家得標的、花了多少、結束時間）；進行中或沒有是 null */
+    settlement: () => auctionSettlementOf(state.value.reports),
+    /** 最近一份拍賣回合的報告（這一回合每個人的動作在它的 timeline） */
+    lastRound: () => auctionLastRound(state.value.reports),
+  }
+
   // ---- 簾後館（M4-ui-curtain）：全部轉接 features/curtain 與 enemies 的 unitFormView；入會、費用、場熱、打賞、三條路的數字與能不能做都是引擎的 ----
   const curtain = {
     /** 會員的全貌（邀請函、席次、會費、這一週的主打、今晚還能報幾場、每個席次能不能升與原因）；引擎的 memberView */
@@ -1883,5 +2013,5 @@ export const useEngine = defineStore('engine', () => {
     }),
   }
 
-  return { state, feed, curtain, repair, body, contract, malware, tuning, lure, training, craft, dye, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, night, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  return { state, feed, curtain, unreg, auction, partPaused, repair, body, contract, malware, tuning, lure, training, craft, dye, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, night, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

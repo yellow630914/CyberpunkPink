@@ -17,6 +17,8 @@ const defaults = {
   useAi: true, judgeFree: true, judgeShift: true, judgeEvent: true, narrate: true, polish: false, clampRequested: true, agentMode: false,
   /** 成人場景的 AI：off 只有整場的正文、closing 只有進場與收尾（預設）、full 每回合都問（花費高） */
   sceneAi: 'closing' as 'off' | 'closing' | 'full',
+  /** 未登錄零件交貨走不走 AI（寫名字、說明與怪癖那一句；關掉用預設清單） */
+  partAi: true,
   // 內容篩選（LEWD_SYSTEM 第 9 節的一部分）
   filterRestraint: true, filterDollChip: true, filterPublic: true, filterContract: true,
   /** 身體的私密描寫：建角的「私處」與角色的成人分頁（第三版） */

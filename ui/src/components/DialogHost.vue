@@ -32,6 +32,8 @@ import RestDialog from '../dialogs/RestDialog.vue'
 import DiveDialog from '../dialogs/DiveDialog.vue'
 import LessonDialog from '../dialogs/LessonDialog.vue'
 import CurtainDialog from '../dialogs/CurtainDialog.vue'
+import PartOrderDialog from '../dialogs/PartOrderDialog.vue'
+import AuctionDialog from '../dialogs/AuctionDialog.vue'
 import RepairDialog from '../dialogs/RepairDialog.vue'
 import EventDialog from '../dialogs/EventDialog.vue'
 
@@ -40,7 +42,7 @@ const REGISTRY: Record<DialogName, Component> = {
   bag: BagDialog, character: CharacterDialog, talk: TalkDialog, shop: ShopDialog, settings: SettingsDialog,
   roster: RosterDialog, relations: RelationsDialog, skills: SkillTreeDialog, craft: CraftDialog, channel: ChannelDialog, contract: ContractDialog,
   bills: BillsDialog, guide: GuideDialog, memo: MemoDialog, pending: PendingDialog, saves: SaveDialog, city: CityDialog, transit: TransitDialog,
-  fixer: FixerDialog, live: LiveDialog, cut: CutDialog, mech: MechDialog, clinic: ClinicDialog, garage: GarageDialog, difficulty: DifficultyDialog, dye: DyeDialog, work: WorkDialog, rest: RestDialog, dive: DiveDialog, lesson: LessonDialog, curtain: CurtainDialog, repair: RepairDialog,
+  fixer: FixerDialog, live: LiveDialog, cut: CutDialog, mech: MechDialog, clinic: ClinicDialog, garage: GarageDialog, difficulty: DifficultyDialog, dye: DyeDialog, work: WorkDialog, rest: RestDialog, dive: DiveDialog, lesson: LessonDialog, curtain: CurtainDialog, repair: RepairDialog, partorder: PartOrderDialog, auction: AuctionDialog,
 }
 const ui = useUi()
 </script>

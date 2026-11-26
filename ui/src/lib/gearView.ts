@@ -25,6 +25,8 @@ export interface GearLookup {
   blueprint(id: string): BlueprintEntry | undefined
   item(id: string): ItemEntry | undefined
   part(id: string): PartEntry | undefined
+  /** 背包裡這一疊是哪個零件（引擎的 stackPart：內嵌的未登錄零件、帶二手狀態的拆下來的件）；沒給就只查 part(id) */
+  stackPart?(stack: ItemStack): PartEntry | undefined
   /** 這一件能不能放進快取格：不能就是引擎的原因（一句話），能是 null。規則在引擎（features/gear 的 quickBlock），這裡不留表 */
   quickBlock(id: string): string | null
   /** 外套扣上時被蓋住的穿著格（引擎的 styleOf 說看不到的那幾格；沒給就是沒有被蓋住的） */
@@ -116,6 +118,8 @@ export interface BagEntry {
   size?: number
   /** 武器與護甲：組好的成品 */
   crafted: boolean
+  /** 零件那一疊的零件資料（內嵌的未登錄零件帶名字、說明、怪癖；二手件帶 state）；不是零件是 undefined */
+  part?: PartEntry
   /** 能放進快取格嗎（問引擎；不能的原因在 quickWhy） */
   quickable: boolean
   /** 不能放進快取格的原因（引擎的那一句）；能放是 null */
@@ -149,12 +153,13 @@ export function bagEntry(look: GearLookup, stack: ItemStack): BagEntry {
       slotItem: { id: stack.id, name: item.name, grade: clampGrade(item.grade), icon: iconOf(item.category, undefined, item), legality: legal },
     }
   }
-  const part = look.part(stack.id)
+  const part = look.stackPart?.(stack) ?? look.part(stack.id)
   if (part) {
     const legal = legalName(part.legal)
+    const key = typeof stack.data?.uid === 'string' ? stack.data.uid : stack.id
     return {
-      key: stack.id, what: null, stack, qty: stack.qty, category: 'part', filter: 'part', type: `零件・${PART_TYPE_NAMES[part.type] ?? part.type}`, name: part.name, grade: clampGrade(part.grade), brand: part.brand, legal, size: part.size, crafted: false, ...quick(look, stack),
-      slotItem: { id: stack.id, name: part.name, grade: clampGrade(part.grade), icon: iconOf('part'), legality: legal },
+      key, what: null, stack, qty: stack.qty, category: 'part', filter: 'part', type: `零件・${part.unreg ? '未登錄・' : ''}${PART_TYPE_NAMES[part.type] ?? part.type}`, name: part.name, grade: clampGrade(part.grade), brand: part.brand, legal, size: part.size, crafted: false, part, ...quick(look, stack),
+      slotItem: { id: key, name: part.name, grade: clampGrade(part.grade), icon: iconOf('part'), legality: legal, ...(part.unreg ? { unique: true } : {}) },
     }
   }
   const sheet = look.blueprint(stack.id)

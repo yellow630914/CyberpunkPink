@@ -39,6 +39,7 @@ const AI_ROWS: Array<{ k: BoolKey; name: string; hint: string }> = [
   { k: 'judgeEvent', name: '判定：事件的「我要做別的」', hint: '事件裡自己寫的選項交給 AI 判定。' },
   { k: 'narrate', name: '敘事', hint: '交易與戰鬥的正文。' },
   { k: 'polish', name: '潤色', hint: '正文寫完後再潤一次；比較慢。' },
+  { k: 'partAi', name: '未登錄零件的名字交給 AI', hint: '拿到未登錄零件時，名字、說明與怪癖那一句交給 AI 寫（框架與數字永遠是程式的）；關掉時用預設清單的文字，同樣的零件照樣能拿到。' },
   { k: 'clampRequested', name: '玩家要求的結果也夾值', hint: '你在自由行動裡要求的結果，也照規則夾在允許的範圍裡。' },
   { k: 'agentMode', name: 'Agent 模式', hint: 'AI 可以自己用查詢工具。預設關；細項在 AI 工坊。' },
 ]

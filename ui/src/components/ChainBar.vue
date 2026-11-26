@@ -7,7 +7,7 @@ import type { StepActions, StepRecord, StepStatus } from '@engine/src'
  */
 defineProps<{ steps: StepRecord[]; busy: boolean; actions: (stepId: string) => StepActions }>()
 const emit = defineEmits<{ (e: 'retry', id: string): void; (e: 'rules', id: string): void; (e: 'reroll'): void }>()
-const NAME: Record<string, string> = { roll: '擲骰', judge: '判定', hint: '提示', person: '人物', reward: '獎勵', relate: '關係', text: '正文', apply: '套用' }
+const NAME: Record<string, string> = { roll: '擲骰', judge: '判定', hint: '提示', person: '人物', reward: '獎勵', relate: '關係', text: '正文', apply: '套用', frame: '框架', design: '寫零件', deliver: '交貨' }
 const STATUS: Record<StepStatus, string> = { waiting: '等待', running: '進行中', done: '完成', failed: '出錯', fallback: '改用規則', skipped: '略過' }
 </script>
 

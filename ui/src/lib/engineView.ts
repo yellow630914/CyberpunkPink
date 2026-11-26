@@ -22,6 +22,8 @@ export interface UiAiFields {
   onlyQuery: boolean
   /** 成人場景的 AI：off 只有整場的正文、closing 進場與收尾、full 每回合都問（引擎 sceneAi；沒給用預設 closing） */
   sceneAi: string
+  /** 未登錄零件交貨走不走 AI（引擎 partAi；沒給是開）：關掉時名字、說明與怪癖那一句用預設清單的 */
+  partAi: boolean
   hooks: Record<string, boolean>
   hookLimits: { hook?: number; event?: number; other?: number }
   retries: number
@@ -47,6 +49,7 @@ export function aiSettingsFromUi(s: Partial<UiAiFields>): Record<string, unknown
   flag('clampRequested', 'clamp_asked')
   flag('narrate', 'narrate')
   flag('tradeProse', 'trade_text')
+  if (s.partAi !== undefined) out.partAi = Boolean(s.partAi)
   if (s.combatProse !== undefined) out.combat_text = s.combatProse === '每回合一小段' ? 1 : 0
   if (s.polish !== undefined) out.polish = { free: bit(s.polish) }
   flag('agentMode', 'agent')
@@ -153,6 +156,7 @@ export function uiFromAiSettings(raw: unknown): Partial<UiAiFields> {
   if (typeof r.chainbar === 'number') out.chainRow = (['出錯時展開', '一直展開', '隱藏'] as const)[r.chainbar] ?? '出錯時展開'
   if (r.src && typeof r.src === 'object') out.taskSource = r.src as Record<string, string>
   if (r.sceneAi === 'off' || r.sceneAi === 'closing' || r.sceneAi === 'full') out.sceneAi = r.sceneAi
+  if (typeof r.partAi === 'number' || typeof r.partAi === 'boolean') out.partAi = Boolean(r.partAi)
   return out
 }
 

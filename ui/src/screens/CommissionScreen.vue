@@ -99,6 +99,7 @@ const typeName = computed(() => (job.value ? e.contentName('commission_type', St
           <div v-if="settledPay.rating" class="kv"><span>評價</span><b data-settle-rating>{{ settledPay.rating }}</b></div>
           <div v-if="settledPay.outcome === 'done'" class="kv"><span>你實拿</span><b data-settle-net><MoneyTag :kind="settledPay.wallet === 'cred' ? 'acc' : 'cash'" :amount="settledPay.pc_net" :size="14" /></b></div>
           <div class="kv"><span>街頭信譽</span><b data-settle-rep>{{ repChangeText(settledPay.rep) }}</b></div>
+          <p v-for="(l, i) in settledPay.extra ?? []" :key="i" class="t-fine" data-settle-extra>{{ l }}</p>
           <div class="go left"><button type="button" class="btn" data-settle-close @click="settledId = null">知道了</button></div>
         </section>
         <!-- 1 接案：手上有這一件就看條件，沒有就是中間人的清單 -->
@@ -109,6 +110,7 @@ const typeName = computed(() => (job.value ? e.contentName('commission_type', St
               <b>{{ job.title }}</b>
               <blockquote class="says">「{{ job.brief }}」</blockquote>
               <div class="kv"><span>談好的報酬</span><b><MoneyTag kind="cash" :amount="job.terms.reward" :size="14" /></b></div>
+              <div v-if="job.terms.extra" class="kv" data-terms-extra><span>另外多一樣</span><b>{{ job.terms.extra.label }}</b></div>
               <div class="kv"><span>怎麼付</span><b>{{ PAY_NAME[job.terms.pay] }}</b></div>
               <div class="kv"><span>中間人抽成</span><b>{{ Math.round(job.terms.cut * 100) }}%</b></div>
               <div class="kv"><span>規模</span><b>{{ scaleName(String(job.commission.scale ?? '')) }}・{{ job.commission.stages.length }} 階段</b></div>

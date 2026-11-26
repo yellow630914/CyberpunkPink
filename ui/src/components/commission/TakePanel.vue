@@ -62,7 +62,7 @@ const acceptReason = computed(() => row.value?.block ?? payNow.value?.block ?? n
       <div class="row-list">
         <button v-for="o in board.offers" :key="o.id" type="button" class="lrow offer" :class="{ on: row?.id === o.id, 'is-unavailable': !!o.block }" :aria-disabled="!!o.block || undefined" :data-offer="o.id" @click="o.block ? ui.toast(o.block, 'warn') : (sel = o.id)">
           <span class="fc" :class="o.brief.main ? FACE_CLASS[o.brief.main as FaceId] : 'x'">{{ o.brief.main ? FACE_ICON[o.brief.main as FaceId] : '？' }}</span>
-          <span class="grow"><b>{{ o.offer.title }}</b><small>{{ gradeRoman(o.brief.grade) }}・{{ scaleName(o.brief.scale) }}・{{ o.brief.stages }} 階段<template v-if="o.brief.conditions.length">・{{ o.brief.conditions.join('、') }}</template></small><small v-if="o.block" class="warn-t">{{ o.block }}</small></span>
+          <span class="grow"><b>{{ o.offer.title }}</b><small>{{ gradeRoman(o.brief.grade) }}・{{ scaleName(o.brief.scale) }}・{{ o.brief.stages }} 階段<template v-if="o.brief.conditions.length">・{{ o.brief.conditions.join('、') }}</template></small><small v-if="o.brief.extra_label" data-extra-card>另外：{{ o.brief.extra_label }}</small><small v-if="o.block" class="warn-t">{{ o.block }}</small></span>
           <MoneyTag kind="cash" :amount="o.offer.reward" :size="13" />
         </button>
       </div>
@@ -92,6 +92,7 @@ const acceptReason = computed(() => row.value?.block ?? payNow.value?.block ?? n
         </div>
         <p class="h">談判<Hint title="談判">接案前可以再談一輪（交涉）：談成了報酬多一點，大失敗她今天不再給你這一件。每件委託一次。</Hint></p>
         <div class="kv"><span>報酬（她抽成 {{ Math.round((entry?.cut ?? 0) * 100) }}%）</span><b><MoneyTag kind="cash" :amount="row.offer.reward" :size="14" /></b></div>
+        <div v-if="row.brief.extra_label" class="kv" data-extra><span>另外多一樣<Hint title="報酬的另一樣東西">這件委託除了現金，還給一樣東西；現金已經是引擎算過的（報酬欄寫的就是談出來的數字），交涉與三種付法都算在這個數字上。東西在做完、結算的時候給。</Hint></span><b>{{ row.brief.extra_label }}</b></div>
         <p v-if="row.haggled" class="t-fine" data-haggled>這件委託已經談過一輪了。</p>
         <p v-if="note.length" class="roll" data-note>{{ note.join(' ') }}</p>
         <p class="h">怎麼付<Hint>三種付法各自到手多少、代價是什麼，都是引擎算的。</Hint></p>
