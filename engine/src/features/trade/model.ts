@@ -20,7 +20,7 @@
 //   closed   { [商店 id]: day }：施壓大失敗被趕出去，day 那天不做你的生意
 
 import type { ActorId, BlueprintEntry, Change, ContentEntry, Degree, GameState, ItemEntry, ItemStack, Kernel } from '../../core'
-import { QUALITY_PRICE_MULT, USED_PRICE_MULT, deriveRng, findByUid, isRecord, meterOf, productOf, productPrice, readProduct, stackPart } from '../../core'
+import { QUALITY_PRICE_MULT, USED_PRICE_MULT, deriveRng, findByUid, fittedPrice, isRecord, meterOf, productOf, productPrice, readProduct, stackPart } from '../../core'
 
 export const OWNER = 'trade'
 export const EXT = 'trade'
@@ -261,7 +261,8 @@ export function productSellBase(k: Pick<Kernel, 'content'>, id: string, data?: u
   const info = productOf(k.content, id, data)
   if (!info) return 0
   const d = readProduct(data, k.content)
-  const sum = info.parts.reduce((n, p) => n + (typeof p.part.price === 'number' ? p.part.price : 0), 0)
+  // 每個零件照實際狀態算（二手的零件 ×0.5：fittedPrice；整件是二手時不重複折）：帶二手零件的成品照實際狀態賣（M4 收尾修正批）
+  const sum = info.parts.reduce((n, p) => n + fittedPrice(p.part, d.state), 0)
   return Math.round(sum * (d.state === 'used' ? USED_PRICE_MULT : 1) * (QUALITY_PRICE_MULT[d.quality ?? 'standard'] ?? 1) + 1e-9)
 }
 

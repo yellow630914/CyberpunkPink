@@ -12,7 +12,7 @@ import {
 } from '../../src'
 import type { PartAdversary } from '../../src'
 import { characterFeature } from '../../src/features/character'
-import { deliverBlock, pendingParts, unregFeature, unregOf } from '../../src/features/unreg'
+import { deliverBlock, pendingParts, pendingView, unregFeature, unregOf } from '../../src/features/unreg'
 import { makeGame } from '../../src/testkit'
 
 type Rec = Record<string, any>
@@ -374,6 +374,22 @@ describe('partAi 關掉、被活動擋住、時間沒到', () => {
 })
 
 // ======================================================================
+describe('pendingView（M4 收尾修正批：訂做的剩幾天由引擎算）', () => {
+  it('每一筆等著交貨的有 days_left（進位）、waiting、block、外殼；沒有 hold 的是 0 天、交得了；時間過了天數變少，滿了之後是 0', () => {
+    const { game } = make({ fake: new FakeProvider(), give: [GIVE, { ...GIVE, hold: 'order', ready_minutes: 3 * 1440 }] })
+    const rows = pendingView(game.k, game.state)
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toMatchObject({ order: false, ready_at: null, days_left: 0, waiting: false, block: null })
+    expect(rows[1]).toMatchObject({ order: true, days_left: 3, waiting: true, block: '還要等 3 天。' })
+    expect(rows[1]!.frame).toMatchObject({ id: rows[1]!.id, type: 'barrel' })
+    game.commit({ kind: 'system', action: 'test.wait', location: {}, party: [], timeline: [], changes: [{ op: 'time', minutes: 1 * 1440 + 60 }], outcome: { result: 'ok', summary: '等了一天。' } })
+    expect(pendingView(game.k, game.state)[1]).toMatchObject({ days_left: 2, waiting: true })
+    game.commit({ kind: 'system', action: 'test.wait', location: {}, party: [], timeline: [], changes: [{ op: 'time', minutes: 3 * 1440 }], outcome: { result: 'ok', summary: '又等了。' } })
+    expect(pendingView(game.k, game.state)[1]).toMatchObject({ days_left: 0, waiting: false })
+  })
+})
+
+// ======================================================================
 describe('交貨不推進存檔亂數的游標；同一個存檔交貨兩次拿到的數字相同', () => {
   for (const mode of ['AI 開著', 'AI 關著'] as const) {
     it(`${mode}：交貨前後游標相同；讀檔重來、回退重來，數字（含文字）逐欄相同`, async () => {
@@ -467,6 +483,21 @@ describe('寫正文失敗：鏈停在半路、狀態沒變；再叫一次或用�
     expect(partOfBag(game)!.name).toBe('測試件一')
     expect(done.reports[0]!.narration?.text).toBeUndefined()
     expect(idsOf(game)).toEqual([])
+  })
+
+  it('Game.unregPaused：停在半路的那一筆的 id（畫面不用自己記哪一筆卡住）；用規則代替之後、沒有卡住時是空的', async () => {
+    const fake = new FakeProvider({ byTask: { narrate: Array.from({ length: 4 }, () => ({ refusal: true })) } })
+    const { game } = make({ fake })
+    expect(game.unregPaused()).toEqual([])
+    const id = idsOf(game)[0]!
+    const r = await game.unregDeliver(id)
+    expect(r.status).toBe('paused')
+    expect(game.unregPaused()).toEqual([id])
+    await game.useRules('text')
+    expect(game.unregPaused()).toEqual([])
+    // 別的鏈（不是交貨）停在半路不算
+    const { game: g2 } = make({ fake: new FakeProvider(), ai: { ai: 0 } })
+    expect(g2.unregPaused()).toEqual([])
   })
 
   it('opts.autoRules：停在半路時自動改用規則', async () => {

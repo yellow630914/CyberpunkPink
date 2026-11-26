@@ -8,7 +8,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Condition, ContentPack, Effect, Feature, ReportDraft } from '../../src'
-import { ActionBlocked, Rng, UNREG_STACK_ID, effectCtx, meterOf, slotProblems, toMinutes } from '../../src'
+import { ActionBlocked, Rng, UNREG_STACK_ID, effectCtx, meterOf, productOf, productPrice, slotProblems, toMinutes } from '../../src'
 import type { SpecialMapEntry } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import {
@@ -862,6 +862,25 @@ describe('小手術：換身上一件義體的零件', () => {
     expect(g.state.actors.pc!.conditions.some((c) => c.id === 'recovering')).toBe(false)
     expect(last(g)).toMatchObject({ action: 'cyber.modify', outcome: { result: 'modified' } })
     expect(last(g).narration?.results?.join('')).not.toMatch(/\d/)
+  })
+
+  it('換上去的是二手零件（背包的那一疊 data.state 是 used）：同一格的 part_states 記 used，成品的價錢照實際狀態算；換回全新的把那一格清掉（M4 收尾修正批）', () => {
+    const g = make()
+    put(g, [arm()])
+    g.state.inventory.push({ id: 'pt_plating', qty: 1, data: { state: 'used', uid: 'us1' } })
+    stand(g, 'F1')
+    const priceBefore = productPrice(g.k.content, 'bp_arm', cyberOf(g.state, 'pc')[0]!)
+    g.commit(modifyDraft(g.k, g.state, mod(g)))
+    const now1 = cyberOf(g.state, 'pc')[0]!
+    expect(now1.parts.plate).toEqual('pt_plating')
+    expect(now1.part_states).toEqual({ plate: ['used'] })
+    // 二手的板材（250）算 ×0.5：125，比全新的 250 便宜；舊的是 400 的全新板材
+    expect(productPrice(g.k.content, 'bp_arm', now1)).toBeLessThan(priceBefore)
+    expect(productOf(g.k.content, 'bp_arm', now1)!.parts.find((p) => p.type === 'plate')!.part.state).toBe('used')
+    // 再換回全新的（pt_plate）：那一格的 part_states 拿掉
+    g.state.inventory.push({ id: 'pt_plate', qty: 1 })
+    g.commit(modifyDraft(g.k, g.state, mod(g, { part: 'pt_plate' })))
+    expect(cyberOf(g.state, 'pc')[0]!.part_states).toBeUndefined()
   })
 
   it('類型不對的零件被擋，原因就是 slotProblems 那一句', () => {

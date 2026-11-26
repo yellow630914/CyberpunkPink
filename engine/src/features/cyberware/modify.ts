@@ -10,9 +10,9 @@
 //   下限跟著變，沉溺不到的補上；降下來的不動沉溺本身。
 // 報告 cyber.modify：outcome.result 是 modified、great、complication、botched。骰子用 deriveRng（用途帶 uid）；擲過骰的報告多一筆 rng 推進。
 
-import type { ActorId, BlueprintEntry, Change, CheckRoll, GameState, ItemStack, Kernel, PartEntry, PartRef, ProductData, ReportDraft, TimelineBeat } from '../../core'
+import type { ActorId, BlueprintEntry, Change, CheckRoll, GameState, ItemStack, Kernel, PartEntry, PartRef, PartState, ProductData, ReportDraft, TimelineBeat } from '../../core'
 import {
-  ActionBlocked, DEGREE_NAME, clone, deriveRng, isRecord, partOf, partStack, partTypeName, rollCheck, sinkUpChanges, slotProblems,
+  ActionBlocked, DEGREE_NAME, clone, deriveRng, isRecord, partOf, partStack, partTypeName, rollCheck, setPartState, sinkUpChanges, slotProblems,
 } from '../../core'
 import { pieceBlueprint } from './deck'
 import { pieceName } from './lock'
@@ -166,6 +166,11 @@ function planModify(k: Kernel, state: GameState, o: ModifyOpts): ModifyPlan {
   const list = nextBy[o.type] ?? (nextBy[o.type] = [])
   list[index] = clone(newRef)
   const next: CyberPiece = { ...clone(piece), parts: toPartsRecord(nextBy) }
+  // 換上去的零件和它自己的內容不同狀態（二手件）：寫進同一格的 part_states，成品的價錢照實際狀態算；換上全新的就把那一格清掉（M4 收尾修正批；和 features/craft 的換零件同一個做法）
+  const ownPart = typeof newRef === 'string' ? partOf(k.content, newRef) : undefined
+  const states = setPartState(piece.part_states, o.type, index, ownPart && ownPart.state !== newPart.state ? (newPart.state as PartState) : null)
+  if (states) next.part_states = states
+  else delete next.part_states
   const sinkAfter = Math.max(0, piece.sink + pieceSink(k, state, piece.bp, next, { via: o.via, by }) - calcBefore)
   return { problems, quote: baseQuote({ sink_after: sinkAfter }), piece, bp, next, taken, newPart, ...(oldRef !== undefined ? { oldRef } : {}), ...(oldPart ? { oldPart } : {}) }
 }

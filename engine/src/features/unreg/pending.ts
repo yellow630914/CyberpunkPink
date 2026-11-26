@@ -63,6 +63,38 @@ export function readyParts(_k: Pick<Kernel, 'content'>, state: GameState): Pendi
   return unregOf(state).pending.filter((p) => p.hold === undefined)
 }
 
+/** 等著交貨的一筆，給畫面的樣子（M4 收尾修正批：訂做的剩幾天由引擎算，畫面不自己算）。 */
+export interface PendingView {
+  id: string
+  source: string
+  from: string
+  /** 訂做的（hold: 'order'）等著取貨 */
+  order: boolean
+  /** 訂做的：滿了天數的那一刻（分鐘）；其餘是 null */
+  ready_at: number | null
+  /** 還要等幾天（進位；訂做的、還沒到時間才有，其餘是 0） */
+  days_left: number
+  /** 還在等天數 */
+  waiting: boolean
+  /** 現在交不了的原因（deliverBlock 的那一句）；交得了是 null */
+  block: string | null
+  frame: FrameView
+}
+
+/** 每一筆等著交貨的給畫面的樣子；查不到外殼（frame）的略過。 */
+export function pendingView(k: Kernel, state: GameState): PendingView[] {
+  const now = toMinutes(state.time)
+  return unregOf(state).pending.flatMap((p): PendingView[] => {
+    const frame = frameView(k, state, p.id)
+    if (!frame) return []
+    const waiting = p.hold === 'order' && p.ready_at !== undefined && now < p.ready_at
+    return [{
+      id: p.id, source: p.source, from: p.from ?? '', order: p.hold === 'order', ready_at: p.ready_at ?? null, days_left: waiting ? Math.ceil((p.ready_at! - now) / DAY) : 0,
+      waiting, block: deliverBlock(k, state, p.id), frame,
+    }]
+  })
+}
+
 /** 現在交不了的原因（一句）；能交是 null。 */
 export function deliverBlock(k: Kernel, state: GameState, id: string): string | null {
   const act = k.activity.blockOf(state, `commit:${DELIVER_ACTION}`)
