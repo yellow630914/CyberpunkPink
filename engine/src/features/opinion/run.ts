@@ -141,7 +141,6 @@ export class Run {
     for (const key of Object.keys(w.used)) if (key.startsWith('turn:')) delete w.used[key]
     for (const key of Object.keys(w.moves_used)) if (key.startsWith('turn:')) delete w.moves_used[key]
     w.xcap = []
-    w.base_used = false
     w.zero_def = []
     w.reserved = []
     w.defmods = w.defmods.filter((m) => m.scope === 'war')

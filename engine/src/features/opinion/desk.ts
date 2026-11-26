@@ -9,7 +9,7 @@ import { ActionBlocked, isRecord, isSafeInt, regenTotal } from '../../core'
 import { askPassives } from './hooks'
 import type { OpPassive } from './hooks'
 import type { OpinionRules, Seat } from './model'
-import { opinionRules } from './model'
+import { opinionRules, pathsOf } from './model'
 
 export const EP_BONUS_STAT = 'ep_bonus'
 export const OPEN_HAND_STAT = 'open_hand_bonus'
@@ -23,11 +23,8 @@ export interface EpPart {
 
 /** 這個人的路數裡編輯點加得最多的那一條：{ path, tier, bonus }；沒有媒體路數是 null。 */
 export function pathBonus(rules: OpinionRules, state: Pick<GameState, 'actors'>, actor: string): { path: string; tier: number; bonus: number } | null {
-  const raw = Object.hasOwn(state.actors, actor) ? state.actors[actor]!.ext.paths : undefined
-  if (!Array.isArray(raw)) return null
   let best: { path: string; tier: number; bonus: number } | null = null
-  for (const r of raw) {
-    if (!isRecord(r) || typeof r.path !== 'string' || !isSafeInt(r.tier) || r.tier < 1) continue
+  for (const r of pathsOf(state, actor)) {
     const how = Object.hasOwn(rules.ep_paths, r.path) ? rules.ep_paths[r.path] : undefined
     if (how === undefined) continue
     const bonus = how === 'up' ? Math.ceil(r.tier / 2) : Math.floor(r.tier / 2)

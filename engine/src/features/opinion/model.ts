@@ -830,9 +830,8 @@ export interface War {
   self: boolean
   /** 副本前面階段拿到的連動（M5-opinion-face 給；效果 link_voice 看） */
   links: string[]
-  /** 這回合多佔的次數還剩幾次：每一次的防守加減、能不能不相鄰；base_used 是原本那一次用掉了沒有 */
+  /** 這回合多佔的次數還剩幾次：每一次的防守加減、能不能不相鄰（原本那一次用掉了沒有，看 captured 與 captures 推得出來：board.ts 的 baseUsed） */
   xcap: Array<{ def: number; any: boolean }>
-  base_used: boolean
   /** 到整場結束都不必相鄰（效果 free_adjacency） */
   free_adj: boolean
   defmods: DefMod[]
@@ -854,10 +853,17 @@ export interface War {
 const finiteNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 
 /** 編輯台那一張加的欄位的預設（舊的戰役沒有這些欄位：讀的時候補上）。 */
-const warExtras = (): Pick<War, 'passives' | 'moves_used' | 'marks' | 'out' | 'brought' | 'fame' | 'self' | 'links' | 'xcap' | 'base_used' | 'free_adj' | 'defmods' | 'cardmods' | 'zero_def' | 'shield' | 'reserved'> => ({
-  passives: [], moves_used: {}, marks: {}, out: [], brought: [], fame: 0, self: false, links: [], xcap: [], base_used: false, free_adj: false, defmods: [], cardmods: [], zero_def: [], shield: [], reserved: [],
+const warExtras = (): Pick<War, 'passives' | 'moves_used' | 'marks' | 'out' | 'brought' | 'fame' | 'self' | 'links' | 'xcap' | 'free_adj' | 'defmods' | 'cardmods' | 'zero_def' | 'shield' | 'reserved'> => ({
+  passives: [], moves_used: {}, marks: {}, out: [], brought: [], fame: 0, self: false, links: [], xcap: [], free_adj: false, defmods: [], cardmods: [], zero_def: [], shield: [], reserved: [],
 })
 const EXTRA_KEYS = Object.keys(warExtras())
+
+/** 這個人的路數（actor.ext.paths，格式照 DATA 第 8 節：{ path, slot, tier }）：只認格式，不 import 別人。 */
+export function pathsOf(state: Pick<GameState, 'actors'>, actor: string): Array<{ path: string; tier: number }> {
+  const raw = Object.hasOwn(state.actors, actor) ? state.actors[actor]!.ext.paths : undefined
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((r) => (isRecord(r) && typeof r.path === 'string' && isSafeInt(r.tier) && r.tier >= 1 ? [{ path: r.path, tier: r.tier }] : []))
+}
 
 /** 讀 state.ext.opinion.war。沒有、或形狀不對回 null（唯讀；回傳的是狀態裡那一份，不要改它——要改先 clone）。 */
 export function readWar(state: Pick<GameState, 'ext'>): War | null {
@@ -896,7 +902,7 @@ export function warProblems(w: unknown): string[] {
   for (const f of ['passives', 'out', 'brought', 'links', 'xcap', 'defmods', 'cardmods', 'zero_def', 'shield', 'reserved']) if (w[f] !== undefined && !Array.isArray(w[f])) p.push(`${f} 要是陣列`)
   for (const f of ['moves_used', 'marks']) if (w[f] !== undefined && !isRecord(w[f])) p.push(`${f} 要是物件`)
   if (w.fame !== undefined && !isSafeInt(w.fame)) p.push('fame 要是整數')
-  for (const f of ['self', 'base_used', 'free_adj']) if (w[f] !== undefined && typeof w[f] !== 'boolean') p.push(`${f} 要是 true 或 false`)
+  for (const f of ['self', 'free_adj']) if (w[f] !== undefined && typeof w[f] !== 'boolean') p.push(`${f} 要是 true 或 false`)
   if (isRecord(w.topic) && isRecord(w.topic.scores) && !CELLS.every((c) => finiteNum((w.topic as Record<string, Record<string, unknown>>).scores![c]))) p.push('topic.scores 要有九個格子的分數')
   return p
 }

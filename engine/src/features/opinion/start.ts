@@ -128,7 +128,7 @@ export function skeleton(k: Kernel, state: GameState, setup: OpinionSetup, origi
     passives: [], moves_used: {}, marks: {}, out: [], brought: [], fame: fameOf(k, state), links: [...(setup.links ?? [])],
     // 自己發起：不是委託副本、也不是事件（導演）開的
     self: mode !== 'face' && origin.by !== 'director' && origin.by !== 'commission',
-    xcap: [], base_used: false, free_adj: false, defmods: [], cardmods: [], zero_def: [], shield: [], reserved: [],
+    xcap: [], free_adj: false, defmods: [], cardmods: [], zero_def: [], shield: [], reserved: [],
   }
   // 被動只在開戰時問一次（戰役中途不再問，免得中途換裝備改變規則）；編輯點要算進被動的 ep
   const asked = askPassives(k, state, war, war.desk.map((s) => s.actor))

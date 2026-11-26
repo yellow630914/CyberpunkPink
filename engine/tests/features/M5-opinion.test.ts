@@ -1401,11 +1401,11 @@ describe('給畫面看的整理（opinionView）', () => {
 
 // ===================================================================================================================
 describe('街頭信譽與分層', () => {
-  it('沒有新的效果與條件（B022 的清單不動）；報告沒有 rep 的變更', () => {
+  it('沒有新的效果與條件（B022 的清單不動）；報告沒有 rep 的變更。唯一多的是量表「聲望」（standing）自動有的同名效果與條件（M5-opinion-desk；AI 一件事 ±5，不是 ai:false）', () => {
     const bare = makeGame({ features: [], content: [] }).game
     const g = make()
-    expect(g.k.effects.kinds().sort()).toEqual(bare.k.effects.kinds().sort())
-    expect(g.k.conditions.kinds().sort()).toEqual(bare.k.conditions.kinds().sort())
+    expect(g.k.effects.kinds().sort()).toEqual([...bare.k.effects.kinds(), 'standing'].sort())
+    expect(g.k.conditions.kinds().sort()).toEqual([...bare.k.conditions.kinds(), 'standing'].sort())
     begin(g, { foe: 'pr_3' })
     for (let i = 0; i < 3; i++) turn(g)
     for (const r of g.state.reports.filter((x) => x.action?.startsWith('opinion.'))) expect(r.changes.some((c) => c.op === 'rep' || c.op === 'effect'), r.action).toBe(false)

@@ -44,8 +44,7 @@ export function captureDraft(k: Kernel, state: GameState, input: CaptureInput): 
   // 用掉的次數與加減：下一次的 def_mod 拿掉、這一次佔的是原本那一次還是多佔的、每場第一次佔沒人的格子、某一格只算一次的加減
   const spent = applicableDefMods(w, cell).filter((i) => w.defmods[i]!.scope === 'next')
   w.defmods = w.defmods.filter((_, i) => !spent.includes(i))
-  if (r.plan.slot === 'base') w.base_used = true
-  else w.xcap.splice(r.plan.slot, 1)
+  if (r.plan.slot !== 'base') w.xcap.splice(r.plan.slot, 1)
   if (was === null && modsOf(w, 'def_first_empty', run.env).length > 0) w.moves_used['war:first_empty'] = (w.moves_used['war:first_empty'] ?? 0) + 1
   if (modsOf(w, 'def_cell', run.env).some((m) => m.cell === cell && m.once === true)) w.moves_used[`war:def_cell:${cell}`] = (w.moves_used[`war:def_cell:${cell}`] ?? 0) + 1
   w.voice.you -= def

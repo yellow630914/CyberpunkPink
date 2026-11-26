@@ -130,6 +130,9 @@ export const capturable = (war: War, who: Who, rules: DefRules = DEFAULT_OPINION
 
 // ---- 你佔一格：用哪一次、花多少 ----
 
+/** 原本那一次佔領用掉了沒有：這回合佔過幾次，扣掉多佔的用掉了幾次（多佔的次數 − 還剩的）。 */
+export const baseUsed = (war: War): boolean => war.captured - (war.captures - 1 - war.xcap.length) >= 1
+
 export interface CapturePlan {
   /** base 是原本那一次，數字是 xcap 的第幾次（多佔的） */
   slot: 'base' | number
@@ -145,7 +148,7 @@ export function planCapture(war: War, c: Cell, rules: DefRules = DEFAULT_OPINION
   if (war.captured >= war.captures) return { why: '這一回合已經佔領過了。' }
   if (war.cells[c].owner === 'you') return { why: `「${name}」已經是你的了。` }
   const adj = war.free_adj || neighbors(c).some((n) => war.cells[n].owner === 'you')
-  let slot: 'base' | number | null = !war.base_used && adj ? 'base' : null
+  let slot: 'base' | number | null = !baseUsed(war) && adj ? 'base' : null
   if (slot === null) {
     const i = war.xcap.findIndex((x) => x.any || adj)
     if (i >= 0) slot = i
