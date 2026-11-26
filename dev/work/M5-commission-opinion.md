@@ -63,3 +63,8 @@ M5-opinion-face（`setup` 與 `result` 的格式定了）。做的時候不要�
 ## live 留下的（2026-11-26）
 - `commission.enter` 要帶那一拍的 `id`、`grade`、`faction`、`stream_goals`（副本直播的目標、等級、勢力讀它；現在真的副本沒帶）。
 - V26：副本直播期間每個階段的紀錄不算獨家——media 在 `commission.milestone` 記那一則時問 `live_on`。
+
+## opinion-face 留下的（2026-11-26）
+- 「重來這一場」：報告不能同時帶 `launch` 與 `rewind`，`retryWar` 回去後副本停在「選完分支、這一段還沒開」。這一張決定怎麼接：讀 `snapshots` 裡 `kind: 'opinion'` 的 `data.setup`、`data.origin`，回去後再 `Game.launch('face.opinion', setup, origin)`（或由介面做）。
+- `setup` 還缺：輿論面也要給 `employer`；`chooseBranch` 多收 `desk`、`bring`、`outsource`；放進 `opinion`（`opinion_setup` 蓋上這一面的 `rounds`、`opponent`）、`open`（分支的）、`decisive`、`links`。
+- V38 的連動、警戒 +10、敵對值 +3 由副本做；face 的 `activity.end` 只交 `outcome` 與 `result`（`decisive`、`stage`、`commission`、`bribed?`、`captured?`、`board?`、`outsourced?`）。face 模式不給 V41 的標準結果列（避免敵對值重複）。

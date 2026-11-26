@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import type { Change, ContentPack, Feature, GameState, Kernel, Launch, ReportDraft } from '../../src'
 import { ActionBlocked, meterOf } from '../../src'
+import { effectProblems, playSkipped, rewriteEffects } from '../../src/features/defeat/body'
 import { mediaFeature, readMedia } from '../../src/features/media'
 import type { FootageInit } from '../../src/features/media/ops'
 import {
@@ -958,6 +959,9 @@ describe('外包（OPINION 第 7 節）', () => {
     expect(g.state.snapshots.map((x) => x.kind)).toEqual(['entry', 'stage', 'opinion'])
     expect(lostChoices(g.k, g.state)).toEqual({ retry: null, back: null, accept: null })
     expect(playBlock(g.k, g.state, { index: 0 })).toContain('沒有贏下來')
+    const view = opinionView(g.k, g.state)
+    expect(view.active && view.choice).toEqual({ retry: null, back: null, accept: null })
+    expect(view.active && view.result?.outcome_name).toBe('敗')
     g.commit(retryWar(g.k, g.state))
     expect(readWar(g.state)).toBeNull()
     expect(g.state.rng.cursor).toBeGreaterThanOrEqual(cursor)
@@ -1144,5 +1148,22 @@ describe('獨家節目播完直接開輿論戰（channel-shows 留下的）', ()
     expect(scoopSetup(h.k, h.state, nof, { faction: 'f_beta' }).topic).toMatchObject({ faction: 'f_beta' })
     const none = make({ noMedia: true })
     expect(reason(() => scoopSetup(none.k, none.state, 'ft1'))).toBe('現在沒有素材庫可以帶料。')
+  })
+})
+
+// ===================================================================================================================
+describe('戰敗事件的結果寫 start（opinion-desk 留下的）', () => {
+  const entry = (outcomes: Rec) => ({ id: 'de_start', name: '戰敗後被拉上輿論戰', versions: { default: { text: '你被拉去對質。', options: [{ id: 'o1', text: '接受。', outcomes }] } } }) as never
+
+  it('start 是指示不是效果：載入時的檢查不擋、不演版的結算不把它當效果', () => {
+    const g = make()
+    const start = { kind: 'start', activity: 'opinion', setup: { topic: 'tp_x' } }
+    expect(effectProblems(g.k, entry({ any: [start] }))).toEqual([])
+    expect(effectProblems(g.k, entry({ any: [{ kind: 'nonsense' }] })).length).toBeGreaterThan(0)
+    const play = playSkipped(g.k, g.state, entry({ any: [start, { kind: 'cash', amount: -5 }] }), 'default', { roll: false, purpose: 'x' })
+    expect(typeof play).toBe('object')
+    expect((play as { effects: Array<{ kind: string }> }).effects.map((e) => e.kind)).toEqual(['cash'])
+    // 改寫只拿掉 gear 回答 true 的效果：start 原樣留著
+    expect(rewriteEffects([start as never, { kind: 'cash', amount: -5 } as never], { money: 100, gear: () => false }).map((e) => e.kind)).toEqual(['start', 'cash'])
   })
 })

@@ -32,15 +32,15 @@ export interface Rewrite {
   gear: ((e: Effect) => boolean) | null
 }
 
-/** 事件結果裡的指示（不是效果）：開一場戰鬥、接另一件事、開一種登記過的活動（M5-opinion-face 之後戰敗事件也可以寫 start）。 */
+/** 事件結果裡的指示（不是效果）：開一場戰鬥、接另一件事、開一種登記過的活動（start；M5-opinion-face）。rewriteEffects 本來就只把 gear 回答 true 的拿掉，start 不受影響，不用改。 */
 const isDirective = (kind: unknown): boolean => kind === 'fight' || kind === 'chain' || kind === 'start'
 
 const isLoss = (e: Effect | null): e is Effect & { amount: number } => !!e && e.kind === 'cash' && typeof e.amount === 'number' && e.amount < 0
 
 /** 一組效果照規定改寫：先拿掉要拿掉的裝備，再把扣現金的合計壓在上限以內（從後面往回減）。不改傳進來的。 */
 export function rewriteEffects(effects: Effect[], rw: Rewrite): Effect[] {
-  // 指示（fight、chain、start）不是效果：原樣留著，不問 gear
-  const kept = rw.gear ? effects.filter((e) => isDirective(e.kind) || !rw.gear!(e)) : effects
+  // 指示（fight、chain）不是效果：原樣留著，不問 gear
+  const kept = rw.gear ? effects.filter((e) => e.kind === 'fight' || e.kind === 'chain' || !rw.gear!(e)) : effects
   const out: Array<Effect | null> = kept.map((e) => ({ ...e }))
   let excess = -out.reduce((sum, e) => sum + (isLoss(e) ? e.amount : 0), 0) - Math.max(0, rw.money)
   for (let i = out.length - 1; i >= 0 && excess > 0; i--) {
