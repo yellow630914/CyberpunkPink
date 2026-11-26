@@ -14,7 +14,7 @@ import { lureView } from '../../src/features/lure'
 import { cleanDraft, malwareOf, malwareView } from '../../src/features/malware'
 import { rentDraft, sleepDraft } from '../../src/features/rest'
 import type { Game } from '../../src/shell/game'
-import { BODY_BLOCKS, applyEffects, diveIn, flow, giveItem, makeActor, makeBodyGame, observed, passTime, standAt, untilIdle } from '../../src/testkit'
+import { BODY_BLOCKS, applyEffects, diveIn, flow, giveItem, giveMoney, makeActor, wearDeck, makeBodyGame, observed, passTime, standAt, untilIdle } from '../../src/testkit'
 
 vi.setConfig({ testTimeout: 60_000 })
 
@@ -36,7 +36,8 @@ async function boundFlow(g: Game, f = flow('契約（契約人）'), checkpoint:
     const r = applyEffects(g, [{ kind: 'contract_sign', type: 'debt', debt: 24000, orders: ['errand', 'work', 'report'], report_weekday: 0, holder: { kind: 'eden', name: '樂園', faction: 'f_tw_eden', place: { district: 'tw_hive', block: 'tw_tower' } }, rules: [] }])
     expect(r.errors).toEqual([])
     expect(actions(r.reports)).toContain('contract.sign')
-    expect(contractOf(g.state)).toMatchObject({ type: 'debt', debt: 24000, satisfaction: 50 })
+    expect(contractOf(g.state)).toMatchObject({ type: 'debt', debt: 24000 })
+    expect(boundView(k, g.state)!.satisfaction).toBe(50)
     expect((pc(g).ext.identity as { class?: string }).class).toBe('bound')
     expect(contractOf(g.state)!.queue).toEqual([])
   })
@@ -95,6 +96,8 @@ async function boundFlow(g: Game, f = flow('契約（契約人）'), checkpoint:
   await f.step('還清：付還清的價錢（債的 1.5 倍）→ 契約解除、身分回去、佇列清空；一份 contract.pay', () => {
     const quote = payoffQuote(k, g.state)!
     expect(quote.debt).toBe(24000)
+    // 錢不夠就付不了：先湊到夠（測試給的）
+    if (g.state.money.cred + g.state.money.cash < quote.price) giveMoney(g, quote.price, 0)
     expect(g.state.money.cred + g.state.money.cash).toBeGreaterThanOrEqual(quote.price)
     const cash0 = g.state.money.cred + g.state.money.cash
     const reports = g.commit(payoffDraft(k, g.state))
@@ -128,6 +131,8 @@ async function holderFlow(g: Game, f = flow('契約（持約人）')): Promise<G
     }
   })
   await f.step('調整：把關係改成夥伴、加一條規矩（宵禁）', () => {
+    // 要對你的親密度 60 以上才能改成「實為夥伴」
+    g.commit({ kind: 'system', action: 'test.affinity', location: {}, party: [], timeline: [], changes: [{ op: 'meter', kind: 'affinity', key: AYIN, set: 65 } as never], outcome: { result: 'ok', summary: '測試用的親密度。' } })
     const r1 = g.commit(adjustDraft(k, g.state, { npc: AYIN, patch: { relation: 'partner' } }))
     expect(actions(r1)).toContain('contract.adjust')
     expect(heldIn(g.state, AYIN)!.relation).toBe('partner')
@@ -238,6 +243,29 @@ describe('冒煙 M4：長線', () => {
   it('染上惡意韌體 → 推進到發作 → 清除', async () => {
     const t = makeBodyGame({ at: { block: BODY_BLOCKS.clinics, marker: 'E1' } })
     const { violations } = await observed(t.game, async () => malwareFlow(t.game))
+    expect(violations).toEqual([])
+  })
+
+  it('沉溺到 66 → 潛入登入時 login 觸發點發出、蠱惑的事件來（M4-closing-notes：確認登入與長休醒來真的發 login、rest）', async () => {
+    const t = makeBodyGame({ pc: { skills: { composure: 3 }, ext: { bridge: { sensitivity: 30, tolerance: 30, craving: 30, docility: 40 } } }, at: { block: 'tw_tower', marker: 'E1' } })
+    const g = t.game
+    const f = flow('長線：登入')
+    const { violations } = await observed(g, async () => {
+      await f.step('穿上甲板、沉溺到 66、站到潛艙店', () => {
+        g.commit({ kind: 'system', action: 'test.deck', location: {}, party: [], timeline: [], changes: [{ op: 'item', id: 'dk_tw_ii', qty: 1, data: { uid: 'D1' } }] as never, outcome: { result: 'ok', summary: '測試。' } })
+        g.commit(wearDeck(g.k, g.state, 'pc', 'D1'))
+        setSink(g, 66)
+        standAt(g, 'tw_tower', 'F3')
+      })
+      await f.step('潛入：報告帶 login 觸發點、導演開出蠱惑的事件（登入那一件）、順著牠', () => {
+        const rs = diveIn(g)
+        expect(rs.some((r) => (r.triggers ?? []).some((x) => x.point === 'login'))).toBe(true)
+        expect(eventView(g.k, g.state)?.event).toBe('lu_tw_login')
+        g.commit(chooseOption(g.k, g.state, 'follow'))
+        expect(eventView(g.k, g.state)).toBeNull()
+        expect(g.k.activity.active(g.state).map((a) => a.kind)).toContain('dive')
+      })
+    })
     expect(violations).toEqual([])
   })
 
