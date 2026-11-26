@@ -230,7 +230,7 @@ export function startDraft(k: Kernel, state: GameState, setup: OpinionSetup, ori
   let hand = rules.open_hand + modSum(w, 'open_hand', run.env) + openHandBonus(k, state, deskIds)
   const fx = { voice: modSum(w, 'open_voice', run.env), wind: modSum(w, 'open_wind', run.env) }
   if (fx.voice !== 0 || fx.wind !== 0 || modSum(w, 'open_hand', run.env) !== 0) {
-    run.note(`開場的加成：${fx.voice !== 0 ? `聲量 ${fx.voice >= 0 ? '+' : '−'}${Math.abs(fx.voice)}。` : ''}${fx.wind !== 0 ? `風向 ${fx.wind >= 0 ? '+' : '−'}${Math.abs(fx.wind)}。` : ''}`, { tag: 'opinion.open', data: { owner: 'passives', ...fx } })
+    run.note(`開場的加成：${fx.voice !== 0 ? `聲量 ${fx.voice >= 0 ? '+' : '−'}${Math.abs(fx.voice)}。` : ''}${fx.wind !== 0 ? `風向 ${fx.wind >= 0 ? '+' : '−'}${Math.abs(fx.wind)}。` : ''}${modSum(w, 'open_hand', run.env) !== 0 ? `手牌 ${modSum(w, 'open_hand', run.env) >= 0 ? '+' : '−'}${Math.abs(modSum(w, 'open_hand', run.env))}。` : ''}`, { tag: 'opinion.open', data: { owner: 'passives', ...fx } })
   }
   run.addVoice('you', fx.voice)
   run.addWind(fx.wind)

@@ -1,14 +1,16 @@
 // L6 功能：輿論戰的本體（OPINION 第 3、4、5 節；DATA 6.3、9.1；dev/adr/0020 第五節、V31～V34、V39；dev/work/M5-opinion.md）。
 // 一場輿論戰：九個格子、聲量與風向、編輯點、料／說法／手段三種牌、佔領與防守、六個（或四個）回合、對手的公關點與行動表、城市事件、四級結果。
-// 這一張只用基本牌與「任何人」的編輯點；誰坐編輯台、技能、素材進牌庫、後果在下一張（M5-opinion-desk），委託副本的那一段在 M5-opinion-face。
+// 接上別的功能的那一半（M5-opinion-desk）：誰坐編輯台與編輯點（desk.ts）、四個掛點 opinion.moves／passives／open／check 與三張封閉清單（hooks.ts、fx.ts、moves.ts、mods.ts）、
+// 素材與片進牌庫（bring.ts）、豔名與公信力、結算的後果（after.ts）、自己發起（self.ts）；事件的指示 start 在 features/director。委託副本的那一段在 M5-opinion-face。
 //
 // 接上核心的地方：
 //   內容  opinion_rule（規則表，id: default）、topic_kind（五種議題類型＋四列預設的分數）、topic、pr_opponent、pr_action、opinion_card、city_card（model.ts）
 //   變更  opinion.war（整份換上一場戰役、或清掉；形狀見 War）
+//   量表  standing（勢力的聲望；V41）；衍生數值 ep_bonus、open_hand_bonus（義體、藥、裝備經被動效果加）
 //   活動  opinion（order 50；放行 commit:opinion.；原因「輿論戰進行中，要先打完（或認輸）。」）；也往 commission 的放行清單加 commit:opinion.
 //   狀態  state.ext.opinion.war；只經由 opinion.war 寫
 //   警告  資料裡寫 murmur 的（議題、對手、議題類型）：當 whisper 收，提醒改寫
-// 報告（kind broadcast）：opinion.start、opinion.play、opinion.capture、opinion.turn（對手的整個回合與下一回合的城市事件、抽牌都在這一份）、
+// 報告（kind broadcast）：opinion.start（setup 多 desk、bring、links）、opinion.play、opinion.move（用一招）、opinion.capture、opinion.turn（對手的整個回合與下一回合的城市事件、抽牌都在這一份）、
 //   opinion.bribe、opinion.concede、opinion.end（結算；發 activity.end：outcome 是 major、minor、draw、lost）。
 // 對外：opinionView、startDraft（開場的草稿；活動的 start 也用它）、playCard、capture、endTurn、answerBribe、concede、settle（各有一個 …Block 回答原因）、defenseOf、scoreOf、parseWhen。
 // 不碰別的功能：不用戰鬥引擎、不讀別的功能的 state.ext；公信力只問量表有沒有人定義（meterOf）。
