@@ -14,3 +14,6 @@
 - （M4-ui-followups）引擎匯出：`statName`／`MOD_NAMES`（ui 拿掉 bodyView、craftView 的對照表）；gear 的 `coveredSlots`；features/index 匯出 `NO_BRIDGE_NOTE`、`NO_BRIDGE_ABILITY`；`ChoiceOption` 加 `input`（ui 拿掉 `onceInput` 拆字串）；`dyeDraft` 收 SKIN（ui 拿掉 `where: 'net'` 分支與 `data/items.ts`）；`cyber_pump` 圖示改 `pump`。
 - （M4-ui-followups）`ui/tests/craft/M4-ui-craft.test.ts` 的「三種做的地方」：data-rules 加了帶 craft 的設施種類後要對齊（改成看示意包的設施，或改期望）。
 - 美術：示意包 11 件義體設計圖沒有自己的圖示（現在用部位圖）。
+- （M4-data-rules）乘區的物價倍率：medical 診所治療、sink 心理治療、drugs 戒斷療程（設計書寫了要乘），功能加規則欄位並乘上。
+- （M4-data-rules）勢力好感門檻：`therapy.favor`（素體教 20）、`detox.favor`（蜜糖會 30）、`unreg_desk.faction`（同人眾）——testkit 的 `dataRules` 要能濾掉引用不到的勢力，資料才放得進去。
+- （M4-data-rules）scene 的 `PARTNER_GEAR_DOWN_AT`、`SINK_CAP` 改讀規則；示意包與各功能測試自帶的規則表改用 engine/data 的正式版。
