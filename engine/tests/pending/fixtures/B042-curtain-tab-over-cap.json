@@ -1,0 +1,9 @@
+{
+  "id": "B042-curtain-tab-over-cap",
+  "note": "B042：簾後館記帳的欠款上限（保證金的兩倍）只擋報名，不夾欠款。欠 590 的人落幕再記帳 150，欠 740，超過上限 600。",
+  "seed": 3,
+  "owed_before": 590,
+  "setup": { "scenario": "makeCurtainGame({ seed: 3 })；前奏後把 state.ext.curtain.tab 設成 { owed: 590 }（散座保證金 300，上限 600）", "path": "報名蜜糖之夜 → 走到第二幕 → 全隊投降 → 接受結果 → 補演（停下）→ 選記帳" },
+  "actual": "accountView.tab = { owed: 740, cap: 600, weekly: 74 }",
+  "test": "engine/tests/pending/B042-curtain-tab-over-cap.test.ts"
+}

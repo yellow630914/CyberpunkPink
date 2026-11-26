@@ -135,7 +135,7 @@ describe('lure entryProblems（內容種類 rogue_ai 的格式）', () => {
 
 // ---- 藥（drug 欄位）：ITEMS 4.1／DOWNTIME 第 3 節；dev/work/M4-drugs.md ----
 
-const NOOP_CHECK = { passive: () => [] as string[], effects: () => [] as string[] }
+const NOOP_CHECK = { passive: (_v: unknown, _p: string) => [] as string[], effects: (_v: unknown, _p: string) => [] as string[] }
 describe('drugProblems（物品的 drug 欄位）', () => {
   const run = (raw: unknown, check = NOOP_CHECK) => drugProblems(raw, check)
   const base = { duration: { minutes: 30 } }
@@ -180,7 +180,7 @@ describe('drugProblems（物品的 drug 欄位）', () => {
   }
   it('被動效果與效果的檢查交給呼叫的人：他回的問題原樣帶出來（effects、side、after.effects、withdrawal.effects 各一條路徑）', () => {
     const seen: string[] = []
-    const check = { passive: (_v: unknown, path: string) => { seen.push(path); return [`${path}：不合格`] }, effects: () => [] }
+    const check = { passive: (_v: unknown, path: string) => { seen.push(path); return [`${path}：不合格`] }, effects: (_v: unknown, _p: string) => [] as string[] }
     const p = run({ ...base, effects: [], side: [], after: { minutes: 5, effects: [] }, addiction: { per_dose: 1, withdrawal: { days: 2, effects: [] } } }, check)
     expect(seen).toEqual(['drug.effects', 'drug.side', 'drug.after.effects', 'drug.addiction.withdrawal.effects'])
     expect(p).toHaveLength(4)

@@ -1,0 +1,10 @@
+{
+  "id": "B040-auction-leave-not-paused",
+  "note": "B040：拍賣離場那一份報告把時間從 19:10 推到時段結束 23:00，契約指令的期限沒有往後挪。規格 EVENTS 4.5：拍賣是獨佔的活動，期限暫停。",
+  "seed": 6,
+  "setup": { "scenario": "makeBodyGame({ at: 大廳 F1 })；伊甸園好感 40 以上（會員）；簽債務契約，塞一條 72 小時的差事並照做", "money": { "cash": 10000 } },
+  "order_hours": 72,
+  "enter_at": { "day": 4, "hour": 19, "minute": 10 },
+  "actual": "進場 5470、離場 5700（經過 230 分鐘）；差事期限 7800 → 7800（位移 0），預期 8030。",
+  "test": "engine/tests/pending/B040-auction-leave-not-paused.test.ts"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "B041-unreg-bio-without-type",
+  "note": "B041：part_unreg 效果寫 material: bio 不寫 type，frameOf 在 specProblems 之後才抽類型，抽到沒有生體版的類型（機構 action、槍管 barrel）就產出自己的格式檢查不過的框架；交貨被擋「機構沒有生體版。」，零件領不到。",
+  "seed": 2,
+  "bad_seed": 2,
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40],
+  "setup": { "scenario": "makeBodyGame({ seed })", "effects": [{ "kind": "part_unreg", "source": "gift", "material": "bio", "grade": 2 }] },
+  "actual": "40 個種子裡有 7 個（2、12、16、19、25……）抽到 action 或 barrel；種子 2 交貨被擋「機構沒有生體版。」，背包沒有零件。",
+  "test": "engine/tests/pending/B041-unreg-bio-without-type.test.ts"
+}
