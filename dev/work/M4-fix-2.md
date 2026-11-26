@@ -7,7 +7,7 @@
 2. 自己動刀、破解、急救的報價帶 `chance`（0～1）。
 3. `nightList` 的 `BranchView` 帶 `basis`、隱藏數量、「深」；`SceneView` 帶精簡版多人的 `simple_note`。
 4. `@engine/src` 匯出 `DIRECTION_MAX`、`INTERVIEW_SKILLS`、`paramStatId`、`treeTierOf`。
-5. 橋參數的效果說明句；內容篩選的名字表（`CONTENT_TAGS` 的名字與一句說明）；特質帶內容標籤（篩選關掉的特質不列）。
+5. 橋參數的效果說明句；內容篩選的名字表（`CONTENT_TAGS` 的名字與一句說明）；特質帶內容標籤，畫面據此把篩選關掉的特質**照樣列出但灰掉**並寫原因（使用者 2026-11-26：保留、disable）。
 6. `ActionOption.targeted`；拍賣 `Session.stage` 與 `inspectable`；成品在這裡賣得到多少。
 7. engine/data 的 `event_scopes` 的 `contract` 加 `released`、`home`、`daily`。
 8. `suggestedKit`：草稿還沒選橋時不要把裝備全部裁掉（只擋要橋的那幾件）。
@@ -16,3 +16,5 @@
 - 接上面的匯出（成功率、夜課 basis 與深、simple_note、拿掉三個深路徑、橋參數效果句、篩選名字表、特質依標籤藏、targeted、拍賣階段、賣價）。
 - 戰鬥畫面的生命值也照 `hp_blur` 模糊。
 - `data/items.ts`：game.ts 假 store 與 HomeScreen 家具還在用，M5 家園接引擎時拿掉（這批不做）。
+- （使用者 2026-11-26）示意模式：正式遊戲預設關；發布給使用者看的介面示意版預設開（建置參數或示意版的設定，例 `VITE_DEMO_DEFAULT=on`）。
+- （使用者 2026-11-26）建角特質：被內容篩選關掉的照樣列出、灰掉、寫原因，不能選。
