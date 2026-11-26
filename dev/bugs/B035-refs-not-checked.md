@@ -1,0 +1,13 @@
+# B035：效果引用不存在的 id 照收（grace.item、roster_add.who、memory.who）；grace 的結果行寫 id
+- 發現者：cpp-tester-boundary（AI_TASKS 2.5 的邊界：M2 後段到 M4 的效果）
+- 嚴重度：錯誤
+- 規格出處：AI_TASKS 2.5 節的表（設定關著也照驗：「引用的 id 要存在」）與第 1 節第 12 條（不論開關，格式錯誤一律擋：「引用不存在的東西」）；EVENTS 2.4 節（`meet`、`npc_known` 的寫法：對象不合的整筆拿掉並提醒——兩種「不收」都可以）；`core/rules/effects.ts` 的 `describe`（定案的結果是白話，「不寫欄位名稱」）。
+- 實際行為（四條路都一樣：內建、AI、開、關而且 `asked` 對得上）：
+  - `{ kind: 'grace', item: 'no_such_bill', days: 3 }`：這一週沒有這一項，照樣轉成 `bills.grace`，`errors` 空、沒有提醒。對照：`bill` 的加減一項對不存在的項目會整筆拿掉並提醒。
+  - `{ kind: 'roster_add', who: 'npc_ghost' }`：沒有這個人，照樣轉成 `roster.candidate`（名冊候選多了一個不存在的人；之後 `joinBlock` 才說「查不到這個角色」）。
+  - `{ kind: 'memory', text, who: ['npc_ghost'] }`：照樣轉成 `npcs.memory.add`。
+  - 對照：`owed`／`owed_to_pc` 的 `who` 查不到是格式錯誤；`meet`、`npc_known` 查不到是整筆拿掉並提醒。
+  - `grace` 的定案結果那一行是「帳單：rent 寬限 3 天」：寫的是帳單項目的 id，不是名字（`bill` 的加減一項有查名字）。這一行會進 `<results>` 與報告卡。
+- 重現：`engine/tests/pending/fixtures/B035-refs-not-checked.json`；會失敗的測試：`engine/tests/pending/B035-refs-not-checked.test.ts`（13 條）。
+- 可能的位置（只寫推測，不改）：`features/bills/index.ts` 的 `grace`（`validate` 只驗 `item` 是字串；可以照 `bill` 加減一項的 `clamp` 用 `currentLines` 查這一週有沒有那一項，`describe` 也用它的名字）；`features/roster/index.ts` 的 `roster_add` 的 `validate`（沒有查 `ctx.state.actors` 或 npc 內容）；`features/npcs/memory.ts` 的 `memory` 的 `validate`（`who` 只驗是字串的陣列）。`roster.candidate`、`npcs.memory.add` 變更自己的 `validate` 也沒有查。
+- 狀態：待修。

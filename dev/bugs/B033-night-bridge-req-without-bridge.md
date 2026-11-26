@@ -1,0 +1,11 @@
+# B033：夜課的橋參數條件把沒有橋的人讀成 0
+- 發現者：cpp-tester-whitebox（M4 白箱；`features/nightclass/learn.ts` 的「要看X，可是你現在沒有橋。」那一條在覆蓋率裡從來沒走到，追下去發現在正式的局裡走不到）
+- 嚴重度：小問題（無橋建角是可選的困難模式；內容裡寫了 `<參數>_max` 的夜課會被沒有橋的人學走）
+- 規格出處：LEWD_SYSTEM 第 1 節「沒有橋的人（部分車族）沒有這四項」；NIGHT_LESSONS「寫法的約定」的學習條件（`requires.bridge`）；CYBERWARE 7.4 節。
+- 實際行為：
+  - `bridgeValue`（learn.ts）註解寫「沒有橋是 null」，可是它先看衍生數值 `bridge_<參數>` 有沒有人註冊：lewd 裝著（正式的局一定裝）時直接回那個數值，沒有橋的人是 0。
+  - 結果 `tolerance_min: 40` 的原因寫成「耐受要有 40，你現在是 0。」，而不是「要看耐受，可是你現在沒有橋。」；`docility_max: 60` 的條件對沒有橋的人直接算過（原因是空的、學得了）。
+  - 對照：lewd 自己的條件 `bridge`（index.ts 第 160 行）是「看有效值；沒有橋的人不成立」，tuning 的靜室也先看 `hasBridge`。夜課這一處和別處不一致。
+- 重現：`engine/tests/whitebox/fixtures/B033-night-bridge-req-without-bridge.json`；會失敗的測試：`engine/tests/pending/B033-night-bridge-req-without-bridge.test.ts`（兩條都失敗）。
+- 可能的位置（只寫推測，不改）：`features/nightclass/learn.ts` 的 `bridgeValue`：先看 `actor.ext.bridge` 是不是 null（或問條件 `has_bridge`），沒有橋回 null，再去讀衍生數值。
+- 狀態：待修。

@@ -1,0 +1,11 @@
+{
+  "id": "B038-content-age-bypass",
+  "note": "B038：內容資料的年齡底線繞得過去。AI_TASKS 2.5（使用者 2026-11-25）：新的人、匯入與世界編輯器的人物，年齡欄位低於 18 一律擋下。世界包的匯入（loadPack 加 npcs 的 ready 檢查）擋得住；但 (1) 內容的覆蓋 applyOverlays 只跑內容種類自己的 validate（核心的 npc 只驗 id 與 name），16 歲的 npc 覆蓋進去照收；(2) 沒裝 npcs 功能時，整包匯入 12 歲的 npc 也照收。",
+  "seed": 7,
+  "cases": [
+    { "name": "覆蓋", "setup": "makeCityGame()", "do": "k.content.applyOverlays([{ id: 'ov', content: { npc: { set: [npc_tw_friend 的那一筆，age 改成 16] } } }])", "expect": "丟 ContentError，內容還原（npc_tw_friend 的 age 不是 16）", "actual": "沒有丟，k.content.get('npc', 'npc_tw_friend').age 是 16" },
+    { "name": "沒裝 npcs", "setup": "makeWorldGame({ without: ['npcs'], content: [{ npc: [{ id: 'npc_tw_young', name: '小孩', age: 12 }] }] })", "expect": "載入失敗（年齡低於 18）", "actual": "載入成功" }
+  ],
+  "after": "覆蓋之後 AI 的 meet 帶出這個人：reward 的驗證不過（actor.add 擋年齡），提交本身沒有壞；壞的是內容已經進去了。",
+  "test": "engine/tests/pending/B038-content-age-bypass.test.ts"
+}

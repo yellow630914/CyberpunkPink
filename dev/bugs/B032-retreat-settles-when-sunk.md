@@ -1,0 +1,11 @@
+# B032：斷線靜修期間沉溺漲到 100 以上，結算時照樣往下降
+- 發現者：cpp-tester-whitebox（M4 白箱；讀 `features/sink/retreat.ts` 的結算時對照 therapy.ts 的擋下）
+- 嚴重度：小問題（要先有事件在靜修期間把沉溺推過 100；斷線靜修放行事件與戰鬥，所以走得到）
+- 規格出處：DOWNTIME 3.3 節最後一條「沉溺 100 以上：不會自然下降，抑制劑無效，靜修沒用」；CORE_RULES 4.3 節（沉溺到 100 是溺感者）；使用者 2026-11-26（斷線靜修是進行中的活動，結束才結算）。
+- 實際行為：
+  - 進傳教所的那一刻有擋（`therapy.ts` 的 plan：`a.sink >= SUNK_AT` →「你已經不想回去了。」）。
+  - 進去之後是活動 retreat，放行 `commit:event.`、戰鬥；這段期間沉溺被推到 102。
+  - 時間到了，`retreatSettle`（`report.after`）照樣走 sink 效果 −6：沉溺 102 → 96，溺感者被拉回 100 以下。結算沒有再看一次沉溺是不是已經 100 以上。
+- 重現：`engine/tests/whitebox/fixtures/B032-retreat-settles-when-sunk.json`；會失敗的測試：`engine/tests/pending/B032-retreat-settles-when-sunk.test.ts`（預期 102，實際 96）。
+- 可能的位置（只寫推測，不改）：`features/sink/retreat.ts` 的 `retreatSettle`：結算時 `sink >= SUNK_AT` 就不降（記號照樣拿掉，句子換成「靜修沒用」之類），報告的 `dropped` 是 0。要不要另外寫一句給玩家看，由規格決定。
+- 狀態：待修。

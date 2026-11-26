@@ -1,0 +1,12 @@
+{
+  "id": "B033-night-bridge-req-without-bridge",
+  "note": "B033：夜課的橋參數條件（requires.bridge 的 <參數>_min／_max）對沒有橋的人讀成 0。LEWD_SYSTEM 第 1 節：沒有橋的人沒有這四項。nightclass/learn.ts 的 bridgeValue 在 bridge_<參數> 這個衍生數值存在時（lewd 裝著，正式的局一定裝）直接讀數值，沒有先看有沒有橋；lewd 自己的條件 bridge 是「沒有橋的人不成立」。",
+  "seed": 0,
+  "setup": { "scenario": "makeGame({ features: [characterFeature, lewdFeature, sceneFeature, nightclassFeature] })", "pc": { "ext": { "bridge": null } }, "meters": { "insight": { "_": 50 } }, "content": "兩個共通 1 階夜課：nt_tol（requires.bridge.tolerance_min 40）、nt_docile（requires.bridge.docility_max 60）" },
+  "inputs": [
+    { "type": "read", "call": "learnProblems(k, state, 'pc', 'nt_tol')" },
+    { "type": "read", "call": "learnProblems(k, state, 'pc', 'nt_docile')" }
+  ],
+  "expect": "nt_tol：['要看耐受，可是你現在沒有橋。']；nt_docile：['要看馴化，可是你現在沒有橋。']。實際：nt_tol 是 ['耐受要有 40，你現在是 0。']；nt_docile 是 []（沒有橋的人學得了要看馴化上限的夜課）。",
+  "test": "engine/tests/pending/B033-night-bridge-req-without-bridge.test.ts"
+}

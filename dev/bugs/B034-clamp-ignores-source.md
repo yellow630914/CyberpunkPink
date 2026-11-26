@@ -1,0 +1,11 @@
+# B034：grace 與 bill（加減一項）不看來源，內建的與「關著、asked 對得上」的也被夾
+- 發現者：cpp-tester-boundary（AI_TASKS 2.5 的邊界：M2 後段到 M4 的效果）
+- 嚴重度：錯誤
+- 規格出處：EVENTS 2.4 節開頭（「上限只管 AI 自己生成的事件……內建的事件，以及之後用世界編輯器做的事件，不受這張表的上限限制，寫多少就是多少；唯一的例外是錢」）；AI_TASKS 2.5 節的表（設定「玩家要求的結果也夾值」關著時，附上玩家原話而且對得上的那幾筆只驗格式，「不夾數值」）；GAME_DESIGN 第 3 節第 13 條。
+- 實際行為：
+  - `grace`：`{ item: 'rent', days: 30 }` 走內建的來源，或設定關著、`asked` 對得上，照樣夾成 7 天，留「有夾值」的記號與提醒「寬限最多 7 天。」。
+  - `bill` 加減一項：`{ item: 'rent', amount: 100 }`（房租 100）走內建，或關著、`asked` 對得上的 −100，照樣夾成 ±50，提醒「……這一週最多只能加減原本金額的一半（50）」。
+  - AI 自己生成的（以及開著時玩家要的、關著而 `asked` 對不上的）照夾是對的（對照組）。
+- 重現：`engine/tests/pending/fixtures/B034-clamp-ignores-source.json`；會失敗的測試：`engine/tests/pending/B034-clamp-ignores-source.test.ts`（四條失敗、一條對照通過）。
+- 可能的位置（只寫推測，不改）：`features/bills/index.ts` 的 `grace` 效果的 `clamp(e)` 沒有收 `ctx`、不看 `ctx.level`；`bill` 效果的 `clamp` 在 `e.item !== undefined` 時也沒看 `ctx.level`。照其他效果的寫法：`ctx.level !== 'cap'` 時照寫的算（`floor` 只擋格式的底線）。「這一週沒有那一項整筆拿掉」是對象存不存在的檢查，不屬於上限，四條路都該留著（見 B035）。
+- 狀態：待修。

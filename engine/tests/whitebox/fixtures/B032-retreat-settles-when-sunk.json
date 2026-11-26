@@ -1,0 +1,14 @@
+{
+  "id": "B032-retreat-settles-when-sunk",
+  "note": "B032：斷線靜修期間沉溺漲到 100 以上，結算時照樣降 6。DOWNTIME 3.3 節最後一條：沉溺 100 以上不會自然下降、抑制劑無效、靜修沒用。進傳教所時有擋（therapy.ts），結算（retreat.ts 的 retreatSettle）沒有再看一次。",
+  "seed": 7,
+  "setup": { "scenario": "makeGame({ features: [characterFeature, worldFeature, restFeature, sinkFeature] })，一條街一間 therapy.kind 是 retreat 的傳教所", "pc": { "hp": 40, "sink": 98 }, "time": { "day": 3, "hour": 10, "minute": 0 } },
+  "inputs": [
+    { "type": "commit", "draft": "arrive(b_street, F1)" },
+    { "type": "commit", "draft": "therapyDraft({ kind: 'retreat' })" },
+    { "type": "commit", "action": "event.test", "changes": [{ "op": "actor.track", "id": "pc", "track": "sink", "delta": 4 }] },
+    { "type": "commit", "action": "event.test", "changes": [{ "op": "time", "minutes": 4320 }] }
+  ],
+  "expect": "最後一份提交接著出 sink.retreat（結算）、靜修的記號拿掉，主角的 sink 停在 102。實際：96（照樣 −6，被拉回 100 以下）。",
+  "test": "engine/tests/pending/B032-retreat-settles-when-sunk.test.ts"
+}

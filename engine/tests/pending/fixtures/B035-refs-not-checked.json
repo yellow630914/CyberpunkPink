@@ -1,0 +1,16 @@
+{
+  "id": "B035-refs-not-checked",
+  "note": "B035：引用的 id 不存在照收。AI_TASKS 2.5：不論開關都要驗『引用的 id 要存在』。grace.item（這一週沒有這一項帳單）、roster_add.who（沒有這個人）、memory.who（沒有這個人）都照樣轉成變更、套得上去。另外 grace 的定案結果那一行寫出帳單項目的 id（rent），不是名字。",
+  "seed": 7,
+  "setup": { "scenario": "makeCityGame()（租了四號塔的單位：這一週只有 rent 一項）", "time": { "day": 6, "hour": 10, "minute": 0 } },
+  "player_input": "我拜託房東讓我晚點交租",
+  "cases": [
+    { "routes": ["builtin", "ai", "on", "off"], "effects": [{ "kind": "grace", "item": "no_such_bill", "days": 3 }], "ghost": "no_such_bill" },
+    { "routes": ["builtin", "ai", "on", "off"], "effects": [{ "kind": "roster_add", "who": "npc_ghost" }], "ghost": "npc_ghost" },
+    { "routes": ["builtin", "ai", "on", "off"], "effects": [{ "kind": "memory", "text": "一起在攤子前躲雨。", "who": ["npc_ghost"] }], "ghost": "npc_ghost" }
+  ],
+  "line_case": { "route": "ai", "effects": [{ "kind": "grace", "item": "rent", "days": 3 }], "expect_line_not_contains": "rent" },
+  "expect": "三種都不收（格式錯誤，或整筆拿掉並提醒），沒有任何一筆變更帶著不存在的 id；grace 那一行寫帳單項目的名字。",
+  "actual": "三種都轉成變更（bills.grace item no_such_bill、roster.candidate who npc_ghost、npcs.memory.add who [npc_ghost]），errors 是空的、沒有提醒；grace 的那一行是「帳單：rent 寬限 3 天」。",
+  "test": "engine/tests/pending/B035-refs-not-checked.test.ts"
+}

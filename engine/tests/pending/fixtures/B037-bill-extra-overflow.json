@@ -1,0 +1,16 @@
+{
+  "id": "B037-bill-extra-overflow",
+  "note": "B037：設定關著、asked 對得上，新的帳單項目金額是安全整數的最大值（格式的底線照收），之後每週結算把它累進欠款，第二個週一欠款就超出安全整數（不變式第 36 條：套用之後的值也要是安全整數）。AI 的那條路同一個金額：預算的合計（金額 × 週數）先溢位，結果整筆拿掉，沒有照 bills 自己寫的規則縮成上限、只收一期。",
+  "seed": 7,
+  "setup": { "scenario": "makeCityGame()（星期日 10:00；帳戶 500、現金 300；房租 100）" },
+  "player_input": "我拜託房東讓我晚點交租",
+  "inputs": [
+    { "type": "resolve+commit", "route": "off", "effects": [{ "kind": "bill", "name": "保護費", "amount": 9007199254740991, "weeks": 3, "pay": "cred", "asked": "讓我晚點交租" }] },
+    { "type": "passUntil", "to": { "day": 7, "hour": 12 } },
+    { "type": "passUntil", "to": { "day": 14, "hour": 12 } }
+  ],
+  "expect": "state.ext.bills 裡每一個數字都是安全整數（或一開始就因為格式的底線不收）。",
+  "actual": "第 14 天的 bills.arrears 是 18014398509481982（不是安全整數）；觀察到的不變式違規是空的，存讀檔也照過。",
+  "ai_case": { "route": "ai", "effects": [{ "kind": "bill", "name": "保護費", "amount": 9007199254740991, "weeks": 520, "pay": "cash" }], "expect": "一筆 bills.extra，amount 120、weeks 1（moneyCap I 級）", "actual": "changes 是空的、提醒說「這一筆沒有算」，from 是 4683743612465315000（溢位）" },
+  "test": "engine/tests/pending/B037-bill-extra-overflow.test.ts"
+}

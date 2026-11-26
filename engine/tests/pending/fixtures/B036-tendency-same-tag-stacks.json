@@ -1,0 +1,12 @@
+{
+  "id": "B036-tendency-same-tag-stacks",
+  "note": "B036：AI 一件事對同一個傾向標籤給幾筆 tendency，就長幾點。EVENTS 2.4 的上限是『一個標籤一點』（每件，一件事合計）。tendency 沒有 budget，拆成三筆就是三點。",
+  "seed": 7,
+  "setup": { "scenario": "makeCityGame()（傾向標籤 tg_tw_dom，軸 relation）" },
+  "cases": [
+    { "route": "ai", "effects": [{ "kind": "tendency", "tag": "tg_tw_dom" }, { "kind": "tendency", "tag": "tg_tw_dom" }, { "kind": "tendency", "tag": "tg_tw_dom" }], "expect_points": { "relation": 1 } },
+    { "route": "on", "effects": [{ "kind": "tendency", "tag": "tg_tw_dom", "asked": "想學" }, { "kind": "tendency", "tag": "tg_tw_dom", "asked": "想學" }], "expect_points": { "relation": 1 } }
+  ],
+  "actual": "relation 的點數 3（第一筆）、2（第二筆）：每一筆都算，沒有夾值、沒有提醒。",
+  "test": "engine/tests/pending/B036-tendency-same-tag-stacks.test.ts"
+}

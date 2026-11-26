@@ -1,0 +1,16 @@
+{
+  "id": "B034-clamp-ignores-source",
+  "note": "B034：grace（寬限）與 bill 的加減一項（item）不看這一筆是誰要的，一律照 EVENTS 2.4 的上限夾（寬限 7 天、加減不超過那一項金額的一半）。內建的事件照寫的算、設定關著而且 asked 對得上的只驗格式，這兩條路不該被夾。",
+  "seed": 7,
+  "setup": { "scenario": "makeCityGame()（租了四號塔的單位：這一週有房租 rent 100）", "time": { "day": 6, "hour": 10, "minute": 0 } },
+  "player_input": "我拜託房東讓我晚點交租",
+  "cases": [
+    { "route": "builtin", "effects": [{ "kind": "grace", "item": "rent", "days": 30 }], "expect": { "op": "bills.grace", "days": 30, "clamps": 0 } },
+    { "route": "off", "effects": [{ "kind": "grace", "item": "rent", "days": 30, "asked": "讓我晚點交租" }], "expect": { "op": "bills.grace", "days": 30, "clamps": 0 } },
+    { "route": "builtin", "effects": [{ "kind": "bill", "item": "rent", "amount": 100 }], "expect": { "op": "bills.tweak", "delta": 100, "clamps": 0 } },
+    { "route": "off", "effects": [{ "kind": "bill", "item": "rent", "amount": -100, "asked": "讓我晚點交租" }], "expect": { "op": "bills.tweak", "delta": -100, "clamps": 0 } },
+    { "route": "ai", "effects": [{ "kind": "grace", "item": "rent", "days": 30 }], "expect": { "op": "bills.grace", "days": 7, "clamps": 1 }, "control": true }
+  ],
+  "actual": "前四個都被夾：寬限變 7 天、加減變 ±50，留了「有夾值」的記號與提醒（第五個是對照，AI 的照夾是對的）。",
+  "test": "engine/tests/pending/B034-clamp-ignores-source.test.ts"
+}
