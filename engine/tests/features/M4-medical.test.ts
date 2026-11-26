@@ -307,8 +307,8 @@ describe('診所治療（DOWNTIME 3.1 節；TRADE 3.4 節）', () => {
     const odd = priced(1.15)
     stand(odd, 'F2')
     expect(clinicQuote(odd.k, odd.state, { target: 'pc' })).toMatchObject({ price: 5 })
-    expect(() => make({ pack: pack((c) => { c.medical_rule = [{ id: 'default', district_price: 'yes' }] }) })).not.toThrow()
-    expect(medicalRules(make({ pack: pack((c) => { c.medical_rule = [{ id: 'default', district_price: 'yes' }] }) }).k).district_price).toBe(true)
+    // 格式不對（不是布林）在載入時擋下
+    expect(() => make({ pack: pack((c) => { c.medical_rule = [{ id: 'default', district_price: 'yes' }] }) })).toThrow(/district_price/)
   })
 
   it('正規診所：缺 14 點扣 112、時間 +2 小時、回滿、掛 treated', () => {

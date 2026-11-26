@@ -731,6 +731,31 @@ describe('戒斷療程', () => {
     expect(reports(g, 'drug.detox')).toHaveLength(1)
   })
 
+  it('療程的價錢乘這一區的物價倍率（drug_rule.detox.district_price，預設乘；M4 收尾修正批）：倍率 2 時 600 變 1,200；關掉照舊；免費的設施不收；格式不對載入時擋下', () => {
+    const DISTRICT: Feature = { id: 'district_stub', install: (k) => k.content.defineKind({ kind: 'district', owner: 'district_stub', validate: () => [] }) }
+    const priced = (mult: number, detox?: Rec) => {
+      const g = make({
+        extra: [DISTRICT],
+        pack: pack((c) => { (c as Rec).district = [{ id: 'd_x', name: '某區', price_mult: mult }]; if (detox) (c as Rec).drug_rule = [{ id: 'default', detox }] }),
+      })
+      g.state.location = { district: 'd_x' }
+      fx(g, [{ kind: 'addiction', id: 'it_hard', amount: 60 }])
+      at(g, 'fac_clinic')
+      return g
+    }
+    const g = priced(2)
+    expect(detoxQuote(g.k, g.state, { actor: 'pc', drug: 'it_hard' })).toMatchObject({ price: 1200 })
+    g.commit(detoxDraft(g.k, g.state, { actor: 'pc', drug: 'it_hard' }))
+    expect(g.state.money.cred).toBe(5000 - 1200)
+    const off = priced(2, { district_price: false })
+    expect(detoxQuote(off.k, off.state, { actor: 'pc', drug: 'it_hard' })).toMatchObject({ price: 600 })
+    expect(detoxQuote(priced(1).k, priced(1).state, { actor: 'pc', drug: 'it_hard' })).toMatchObject({ price: 600 })
+    const free = priced(3)
+    at(free, 'fac_free')
+    expect(detoxQuote(free.k, free.state, { actor: 'pc', drug: 'it_hard' })).toMatchObject({ price: 0, free: true })
+    expect(() => priced(1, { district_price: 'x' })).toThrow(/district_price/)
+  })
+
   it('療程把成癮降到 0 就整筆拿掉（戒斷也結束）；設施種類寫 detox: { free: true } 的不收錢', () => {
     const g = make()
     fx(g, [{ kind: 'addiction', id: 'it_hard', amount: 30 }])

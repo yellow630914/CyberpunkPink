@@ -4,7 +4,7 @@
 - 目標：新功能 `idol`：人氣（每個人一條的量表）怎麼漲怎麼掉；親衛隊（人氣的四個門檻、每週可以動用幾次、做過頭）；握手會（公演那一集的加開）；輿論戰的開場與一次不花點的水軍。
 - 規格出處：MEDIA 第 9 節（9.2、9.3、9.4 的「唱出來」、9.5）、4.3a 節（公演與握手會）、第 10 節（人氣那一列）；OPINION 第 2、6 節（偶像的人氣與親衛隊在戰役層變成什麼）；SKILL_TREES 偶像的「預備與日常」（握握手、唱出來）；CORE_RULES 第 8 節（人氣）；dev/adr/0020 第八節、第十三節、V42、V43；dev/work/M5-channel-shows.md（`channel.episode`）、M5-opinion-desk.md（`opinion.open`、`opinion.passives`）。
 - 可以改的路徑：`engine/src/features/idol/`（新）、`engine/src/features/index.ts`、`engine/tests/features/M5-idol.test.ts`。
-- 可以用的介面：`k.meters.define`；掛點 `channel.episode`、`opinion.open`、`opinion.passives`、`media.spend`（直接掛或問，不 import）；掛鉤 `activity.end`（`live`、`opinion`、`face.opinion`）、`time.passed`（順序 11）、`game.new`；`actor.ext.paths`（只認格式）；條件 `ability`（0019 的；有人註冊才用，沒有就看 `actor.ext.paths` 有沒有偶像的路數）；效果 `load`、`hostility`、`cash`、`subs`、`credibility`（先問有沒有人註冊）；`k.effects.register`、`k.conditions.register`；報告的 `triggers`；核心的檢定與固定亂數。
+- 可以用的介面：`k.meters.define`；掛點 `channel.episode`、`opinion.open`、`opinion.passives`、`media.spend`（直接掛或問，不 import）；掛鉤 `activity.end`（`live`、`opinion`、`face.opinion`）、`time.passed`（順序 11）、`game.new`；`actor.ext.paths`（只認格式）；條件 `ability { daily, who }`（M4 的 `features/abilities/daily.ts`：`daily: 'handshake'`、`daily: 'sing'`，日常一定要裝著才算、夥伴照路數與樹階；沒有人註冊這個條件時握手會照基本的數字、唱出來灰掉）；效果 `load`、`hostility`、`cash`、`subs`、`credibility`（先問有沒有人註冊）；`k.effects.register`、`k.conditions.register`；報告的 `triggers`；核心的檢定與固定亂數。
 - 不可以做的事：不 import 別的功能；親衛隊不進現實戰鬥的公式（MEDIA 9.3）；聲援、動員、召集、公演、巨蛋是技能，不在這裡重做一次（V42）；簽約與畢業、隊長、和別的親衛隊競爭、握手會的事件內容都不寫；出征（派工）由 M5-away 來加；共同的規定見 dev/work/M5-plan.md。
 
 ## 新的格式與鍵
@@ -24,7 +24,7 @@
 3. **握手會**（回答 `channel.episode`）：節目是公演、上鏡的人是偶像時回一個選項 `handshake`（握握手這個技能裝著時數字照 SKILL_TREES：收入 +50%、人氣多 +1、承受的感載 −30%）；選了的那一集：多一個時段、人氣 +2、打賞 ×1.5、上鏡的人感載 +5、報告的觸發點多一個 `handshake`。打賞的倍率用 `on_grade` 表達不了時，回報並先只給固定的一筆。
 4. **人氣的漲跌**（V43）：直播收播（`activity.end` 的 `live`）熱度 10 以上、開播的人是偶像：+1；輿論戰結算時你佔著同人圈或應援圈（opinion 已經用效果給，這裡不重複）；公演的 +1／+3／+6／−2 是節目資料的 `on_grade`（channel 給，這裡不重複）；每週（週一）這個偶像這一週沒有開過公演、節目或直播（聽到 `live` 的 `activity.end`、或 `channel.episode` 被問到而且他上鏡，就記 `shown`）：−1。
 5. **輿論戰**：回答 `opinion.open`——坐編輯台的人裡有偶像而且親衛隊 2 級以上：開場佔應援圈（那一格沒人時）、風向 +1；回答 `opinion.passives`——1 級以上：`free_army`（每場一次不花點的水軍，拆穿的門檻 3；用了扣這一週的動用次數一次，沒有次數就不給）。
-6. **唱出來**（MEDIA 9.4；要裝著「唱出來」這個技能、旗標 `idol_signed` 不是真的）：花一個時段與一支片（`media.spend`，`how: 'sing'`）；結果等同一次直接上架，但把公信力的那一項換成人氣（訂閱照算；公信力不動）；唱過的片不再是獨家（media 那一邊在 `how: 'sing'` 時自己標；沒有做的話回報）。上架的算式在 media：這一張拿 `Material` 的看點自己照 `idol_rule` 的一張小表算（訂閱 +看點 × 0.5%、人氣 +看點 ÷ 2 進位，最多 +3），不呼叫 media 的入口。
+6. **唱出來**（MEDIA 9.4；要條件 `ability { daily: 'sing', who }` 成立——裝著「唱出來」，原因：「要會『唱出來』。」——而且旗標 `idol_signed` 不是真的）：花一個時段與一支片（`media.spend`，`how: 'sing'`）；結果等同一次直接上架，但把公信力的那一項換成人氣（訂閱照算；公信力不動）；唱過的片不再是獨家（media 那一邊在 `how: 'sing'` 時自己標；沒有做的話回報）。上架的算式在 media：這一張拿 `Material` 的看點自己照 `idol_rule` 的一張小表算（訂閱 +看點 × 0.5%、人氣 +看點 ÷ 2 進位，最多 +3），不呼叫 media 的入口。
 
 ## 驗收條件（`engine/tests/features/M5-idol.test.ts`；測試自帶一位偶像路數的角色、替身問三個掛點、玩具的 `activity.end`）
 
@@ -42,6 +42,12 @@
 ## 依賴
 
 M5-channel-shows、M5-opinion-desk（掛點）。和 M5-skill-opinion-b 可以同時做。
+
+## M4 對帳（2026-11-26）
+
+- 握手會的「握握手裝著時」同樣用條件 `ability { daily: 'handshake', who: 上鏡的人 }` 問；承受的感載是效果 `load`（M4 沒有改它的格式）。
+- 直播收播的 `activity.end`（種類 `live`）裡，內場直播（`result.to_channel === false`，第三波的簾後館）不算「這一週露過面」也不加人氣：那是會員限定的場子。
+- 親衛隊做過頭加的敵對值走 security 的效果 `hostility`（照區的倍率），和 M4 的 `sink` 每週替勢力加敵對值是同一條路，不會互相蓋掉。
 
 ## 完成時回報
 

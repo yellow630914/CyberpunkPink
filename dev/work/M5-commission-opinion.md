@@ -49,6 +49,13 @@
 
 M5-opinion-face（`setup` 與 `result` 的格式定了）。做的時候不要有別的工單在改 `features/commission`。
 
+## M4 對帳（2026-11-26）
+
+- M4 沒有改這一張要照著寫的三個地方，名字都在：`features/commission/run.ts` 的 `faceLaunch`、`close.ts` 的 `netEnd` 與 `onDefeatAccepted`、`model.ts` 的 `DEFAULT_NET_RULES`、`commissionProblems`。`setup.employer` 已經在給（生成的委託 M4 之後也有委託人）。
+- 內海面開始時 M4 多發一個觸發點 `login`（`features/netrun/common.ts`）；輿論面不發。
+- 主角是契約人時，契約的指令期限在副本裡暫停（`contract.pause`）是 contract 自己聽 `time.passed` 做的，這一張不用管；它的報告前綴是 `contract.`，不要被「同一個階段不處理兩遍」的測試誤認成副本的報告。
+- `fixer.reward`（M4 的報酬附加項）是 fixer 與 unreg 之間的事，結算流程沒有因此改。
+
 ## 完成時回報
 
 改了哪些檔、測試結果、改了哪些既有測試與為什麼、被帶走（`captured`）接不接得上戰敗事件、M3 留下的權宜（`defeat_event`、`employer` 放 `setup` 不放 `origin.ext` 等）這一張有沒有順手動到。

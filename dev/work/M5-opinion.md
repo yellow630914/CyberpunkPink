@@ -53,6 +53,12 @@
 
 沒有。和 M5-channel-shows 可以同時做。
 
+## M4 對帳（2026-11-26）
+
+- 活動 `opinion` 的 order 50 和 M3 的 `netrun`／`face.net` 相同（同一個 order 照登記的順序；兩者不會同時進行）。M4 多的活動（`scan`、`auction`、`retreat`、`ride`）都不放行 `commit:opinion.`：自己發起的戰役要在沒有別的活動時開，`opinion.start` 的原因照那個活動的句子。
+- 契約的 `commit:contract.choose` 是 M4 用 `allowEverywhere` 放行的，戰役進行中也回得了；驗收「進行中走路、休息被擋」不受影響，但不要寫成「只放行 `commit:opinion.`」。主角是契約人時，指令的期限在戰役進行中自動暫停。
+- 輿論戰不是進內海：`opinion.start` 不發 `login`、不動追蹤度與感載。
+
 ## 完成時回報
 
 改了哪些檔、測試結果、OPINION 5.2 性格表裡哪幾個對手用現在的 `actions`＋`signature` 寫得出來、哪幾個寫不出來（差什麼鍵）、V32、V34、V39 對不上的地方。

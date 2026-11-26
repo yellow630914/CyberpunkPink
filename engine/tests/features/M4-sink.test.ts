@@ -809,7 +809,7 @@ describe('其餘', () => {
     expect(rules.decay).toEqual({ amount: 2, sleeps: 4 })
     expect(rules.hide_step).toBe(20)
     expect(rules.over_step).toBe(25)
-    expect(rules.therapy.counsel).toEqual({ amount: 5, minutes: 240, price: 1000, per_week: 1 })
+    expect(rules.therapy.counsel).toEqual({ amount: 5, minutes: 240, price: 1000, per_week: 1, district_price: true })
     expect(rules.therapy.retreat).toEqual({ amount: 6, days: 3 })
     expect(rules.afterglow_carry).toEqual({ hours: 6, amount: 1 })
     expect(rules.watchers).toEqual([])

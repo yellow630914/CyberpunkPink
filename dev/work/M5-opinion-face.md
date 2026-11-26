@@ -36,7 +36,7 @@
 - 開場表：`links` 有 `inside_mail` → 牌庫多一張內幕；有 `live_footage` → 聲量 +3；有 `bought_slot` → 開場佔著那一格；有 `caught_lying` → 風向 −2；沒拿到的不套；`faceStartPreview` 和實際一樣。
 - `decisive` 沒寫回合數是 6、非決定性是 4。
 - 非決定性：四種結果各自直接交回對應的 `outcome`，沒有三選一。
-- 決定性小勝：交回 `minor`。決定性敗：不交回、進行中的活動還在、只放行三選一；`retryWar` 之後回到開戰前（素材的次數回來）；`backToStage` 之後這個活動不存在；`acceptLoss` 交回 `lost` 一次。
+- 決定性小勝：交回 `minor`。決定性敗：不交回、進行中的活動還在、出牌與佔領與走路都被擋而三選一做得了（契約的 `commit:contract.choose` 是 `allowEverywhere` 放行的，不算在內）；`retryWar` 之後回到開戰前（素材的次數回來）；`backToStage` 之後這個活動不存在；`acceptLoss` 交回 `lost` 一次。
 - 收買：拒絕照常；接受拿到錢、公信力 −5、交回 `lost` 帶 `bribed`；之後玩具副本做一次回到入口的 `rewind`：錢與公信力還在、只算一次。
 - 找上門：固定骰子擋住與擋不住各一；`capture` 的對手擋不住交回 `lost` 帶 `captured`；另一種下一回合編輯點是 0；沒有人留守直接擋不住；每場只來一次。`live_on` 的替身成立時擋住多一張料。
 - 外包：四種結果的門檻對；那個人 `busy` 被擋；`outsourceChance` 和擲一萬次的分佈對得上（寬鬆的誤差）。
@@ -47,6 +47,13 @@
 ## 依賴
 
 M5-opinion-desk。和 M5-live-slot 可以同時做。副本那一邊（真的給 `setup`、收 `activity.end`）是 M5-commission-opinion。
+
+## M4 對帳（2026-11-26）
+
+- `setup.employer`：副本本來就給（`features/commission/run.ts` 的 `faceLaunch`：`def.employer` 或 `terms.employer`）。M4 之後連生成的委託也有委託人（`features/fixer/gen.ts` 的 `pickEmployer`），所以收買的「委託人好感 −5」在生成的委託上也會生效。
+- 外包的人「有沒有空」：照舊看 `busy`、`injured`、`lying_low`、`arrested`；M4 的 `recovering`（手術後休養）也擋（暫定，0020 V65）。
+- 放行：這一張自己往 `commission` 加 `face.opinion.start` 與 `commit:opinion.` 的做法不變（副本是唯一會包住它的活動）。契約的 `commit:contract.choose` 經 `allowEverywhere` 自動放行，等三選一的時候也回得了（驗收條件已經照這個改寫）。
+- 這一段不發 `login`（不是進內海）。
 
 ## 完成時回報
 
