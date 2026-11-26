@@ -4502,11 +4502,11 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
    },
    {
     "tier": 2,
-    "effect": "你和對方之間有束縛的連接時，你每回合可以把主動權往你要的方向多推 3。"
+    "effect": "你和對方之間有束縛的連接時，主動權每回合往你這邊多推 3。"
    },
    {
     "tier": 3,
-    "effect": "和你有契約的對象在場時，你和他的契合每回合 +1。"
+    "effect": "和你有契約的對象在場時（你是持約人或契約人都算），你和他的契合每回合 +1。"
    },
    {
     "tier": 4,
@@ -4701,7 +4701,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "tier": 5,
     "how": "趁對方的伴不在旁邊，從側面擠進去把他拉過來，貼著他的耳朵說「借過一下」，接著換你來。",
     "tag": "奪與被奪〔NTR〕",
-    "need": "對方有固定的伴（交往、契約，或最喜歡的人不是你）",
+    "need": "對方最喜歡的人不是你，或對方是契約人（用的時候看對象）",
     "use": "主動，2 行，每場 1 次",
     "kind": "active",
     "parts": "手、口、前 → 前、胸、口",
@@ -4776,7 +4776,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
    },
    {
     "tier": 3,
-    "effect": "這一場有人在看時（第三個人、鏡頭或直播），你造成的感載 +1。"
+    "effect": "這一場有人在看時（第三個人、鏡頭或直播），每回合你連著的每個對象感載 +1。"
    },
    {
     "tier": 4,
@@ -5049,7 +5049,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "tier": 1,
     "how": "把對方的臉抱進胸口，雙手環住他抱緊，讓他整個人埋在裡面。",
     "tag": "豐滿",
-    "need": "自己或對方的外觀有豐滿的詞條",
+    "need": "學：自己的外觀有豐滿的詞條；用：自己或對方有（對方那一半看對象）",
     "use": "連接，1 行",
     "kind": "active",
     "parts": "胸、手、口 → 胸、前、加裝、腿足",
@@ -5065,7 +5065,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "tier": 2,
     "how": "用鼻尖從對方的背一路蹭到腰下面，邊聞邊蹭；對方有尾巴的話，就繞著尾巴根蹭。",
     "tag": "獸",
-    "need": "自己或對方有獸化改造",
+    "need": "學：自己有獸化改造；用：自己或對方有（對方那一半看對象）",
     "use": "連接，1 行",
     "kind": "active",
     "parts": "口、尾 → 後、胸、腿足、尾",
@@ -5081,7 +5081,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "tier": 2,
     "how": "用金屬義手貼上對方發熱的皮膚，讓他冰得縮一下，再把手掌的溫度慢慢調高。",
     "tag": "半機娘",
-    "need": "自己有手臂義體，或對方有義體部位",
+    "need": "學：自己有手臂義體；用：對方有義體部位時也可以（看對象）",
     "use": "連接，1 行",
     "kind": "active",
     "parts": "手 → 前、胸、後、對方的義體部位",
@@ -5252,7 +5252,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
    },
    {
     "tier": 3,
-    "effect": "每場一次，在場景裡脫下或換上一件衣服不花行動點。"
+    "effect": "每場一次，「換裝」（脫下或換上一件衣服，LEWD_SYSTEM 3.5）不花行動點。"
    },
    {
     "tier": 4,
@@ -5431,7 +5431,7 @@ export const NIGHT_BRANCHES: NightBranchDef[] = [
     "tier": 4,
     "how": "換上對方喜歡的那一套，學那個角色的口氣問他「這樣你喜歡嗎」。",
     "tag": "角色扮演",
-    "need": "身上帶著一套別的服裝",
+    "need": "背包裡另外帶著一件服裝",
     "use": "說話，2 行",
     "kind": "active",
     "parts": "口 → 口",

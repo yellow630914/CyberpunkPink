@@ -18,3 +18,5 @@
 - （M4-data-rules）勢力好感門檻：`therapy.favor`（素體教 20）、`detox.favor`（蜜糖會 30）、`unreg_desk.faction`（同人眾）——testkit 的 `dataRules` 要能濾掉引用不到的勢力，資料才放得進去。
 - （M4-data-rules）scene 的 `PARTNER_GEAR_DOWN_AT`、`SINK_CAP` 改讀規則；示意包與各功能測試自帶的規則表改用 engine/data 的正式版。
 - （使用者 2026-11-26 同意）斷線靜修改成進行中的活動（像打工）：期間關橋、禁止潛入，結束才結算；sink 的 therapy 與活動登錄表。
+- （M4-ui-parts／ui-auction）auction 匯出 `auctionSummary`（這一場結束了的讀法）；unreg 從 index 匯出 `REQUEST_MAX`、`partTypeName`，訂做給 `days_left` 數字欄位，查「哪一筆交貨鏈停在 paused」；ui 拿掉 `partPaused` 與自算天數、`PART_TYPE_NAMES`。
+- 美術：拍賣的槌、號牌、拍品種類圖示；委託台圖示。

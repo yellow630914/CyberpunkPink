@@ -42,6 +42,8 @@ export interface WorldGameSetup extends GameSetup {
    * 其餘種類（技能……）假世界裡 id 一樣的筆濾掉，用先載入的那一份。
    */
   base?: ContentPack[]
+  /** 用這一包當假世界（預設 TEST_WORLD；M4 的是 worldBody.ts 的 bodyWorld()）。每次要給新的複本 */
+  world?: ContentPack
 }
 
 export interface WorldGame extends TestGame {
@@ -71,14 +73,14 @@ export function dataRules(features: Feature[]): ContentPack {
 /** 帶著 TEST_WORLD 與全部功能的一局：只有工廠的狀態（空房間、一位主角），沒有任何情境的步驟。 */
 export function makeWorldGame(o: WorldGameSetup = {}): WorldGame {
   const features = worldFeatures(o.without, o.noGear !== true)
-  const { pack, dropped, droppedEntries } = worldFor(features, testWorld())
+  const { pack, dropped, droppedEntries } = worldFor(features, o.world ?? testWorld())
   const base = [...(o.noRules ? [] : [dataRules(features)]), ...(o.base ?? [])]
   if (base.length > 0) {
     const kernel = createKernel(features)
     const have = new Set(base.flatMap((p) => Object.entries(p.content).flatMap(([kind, es]) => (kernel.content.isOverridable(kind) ? [] : es.map((e) => `${kind}/${e.id}`)))))
     for (const [kind, es] of Object.entries(pack.content)) pack.content[kind] = es.filter((e) => !have.has(`${kind}/${e.id}`))
   }
-  const { without: _without, noGear: _noGear, noRules: _noRules, base: _base, ...rest } = o
+  const { without: _without, noGear: _noGear, noRules: _noRules, base: _base, world: _world, ...rest } = o
   const t = makeGame({ ...rest, features: [...features, ...(o.features ?? [])], content: [...base, pack, ...(o.content ?? [])] })
   return { ...t, dropped, droppedEntries }
 }
