@@ -519,3 +519,4 @@
 - 2026-11-25 M4-followups 完成（engine 8376、ui 793）；沒做的拆成 M4-followups-2（核心與功能）與 M4-ui-followups（介面），排在「二十之二」。
 - 2026-11-25 M4-curtain-fall 完成（含簾後館前兩張的缺口）：engine 8376、smoke 153、ui 793。待使用者（不急）：加演輸了的安可代價設計書沒寫。
 - 2026-11-25 M4 第二十步甲欄完成（training、night-resonance：二十五個共鳴全做出來）。待使用者：NIGHT_LESSONS 三處句子的意思。
+- 2026-11-26 使用者：NIGHT_LESSONS 三句照建議改；斷線靜修改成進行中的活動（收尾修正批）。LEWD 3.5 行動表加「換裝」。

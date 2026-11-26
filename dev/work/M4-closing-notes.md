@@ -17,3 +17,4 @@
 - （M4-data-rules）乘區的物價倍率：medical 診所治療、sink 心理治療、drugs 戒斷療程（設計書寫了要乘），功能加規則欄位並乘上。
 - （M4-data-rules）勢力好感門檻：`therapy.favor`（素體教 20）、`detox.favor`（蜜糖會 30）、`unreg_desk.faction`（同人眾）——testkit 的 `dataRules` 要能濾掉引用不到的勢力，資料才放得進去。
 - （M4-data-rules）scene 的 `PARTNER_GEAR_DOWN_AT`、`SINK_CAP` 改讀規則；示意包與各功能測試自帶的規則表改用 engine/data 的正式版。
+- （使用者 2026-11-26 同意）斷線靜修改成進行中的活動（像打工）：期間關橋、禁止潛入，結束才結算；sink 的 therapy 與活動登錄表。
