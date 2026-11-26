@@ -10,10 +10,10 @@
 ## 新的格式與鍵
 
 - 內容種類 `footage_angle`（`overridable`）：七筆（`documentary` 紀實、`daily` 日常、`fun` 娛樂、`hero` 英雄、`expose` 揭弊、`sensational` 煽情、`smear` 抹黑），每筆 `{ id, name, group: 'neutral' | 'positive' | 'dispute', types: 類型[] | 'any', draw, trust, risk, card: 'line' | 'fuel' | 'decoy' | null, upload: 效果的範本[] }`。預設照 MEDIA 第 3 節的兩張表寫在功能裡。
-- `Clip`：`{ id: 'cl…', from: 素材 id[], angle, title, quality, types, involves, celebrity, self, adult, forged, draw, trust, risk, uses, recut?: true, card, made_at, blame?: 勢力 id }`。`card` 照角度：`line` 的數字是可信、`fuel` 的是看點、`decoy` 沒有數字、日常是 `null`。
+- `Clip`：`{ id: 'cl…', from: 素材 id[], angle, title, intro, titled?: true（標題或簡介是玩家寫的）, quality, types, involves, celebrity, self, adult, forged, draw, trust, risk, uses, recut?: true, card, made_at, blame?: 勢力 id }`。`card` 照角度：`line` 的數字是可信、`fuel` 的是看點、`decoy` 沒有數字、日常是 `null`。
 - `media_rule` 多：剪片花的分鐘（240）、上架的算式（V9）、賣斷與談判的數字（V10）、保命符的門檻（V11）、偽造的 DC 與品質（V7）。
 - 報告（kind `broadcast`）：`media.cut`、`media.recut`、`media.forge`、`media.upload`、`media.sell`、`media.deal`。
-- 匯出：`angleOptions(k, state, parts)`（七種各自選不選得了、為什麼）、`cutPreview`（三個數字與片的次數）、`cut`、`recut`、`forge`、`upload`、`uploadPreview`（風險是 d20 擲到幾以下出事）、`sell`、`sellPrice`、`deal`、`dealTargets`。
+- 匯出：`angleOptions(k, state, parts)`（七種各自選不選得了、為什麼）、`cutPreview`（三個數字與片的次數）、`cut`、`recut`、`retitle`、`forge`、`upload`、`uploadPreview`（風險是 d20 擲到幾以下出事）、`sell`、`sellPrice`、`deal`、`dealTargets`、`CLIP_TITLE_MAX`（30）、`CLIP_INTRO_MAX`（100）。
 
 ## 要做的
 
@@ -22,7 +22,8 @@
 3. **偽造**（V7）：地點同剪片、花一個時段、擲介面；產生一段 `authentic: 'forged'` 的素材。
 4. **直接上架**：對象是片或不剪的素材，經 `spend` 扣 1。結果照 V9 的表從規則與角度的 `upload` 範本算成效果，每一筆先問有沒有人註冊；匿名照 V8。風險：擲一次 d20，擲出風險以下出事。親密類而且 `self` 的豔名 +1 記在現在這一區。
 5. **賣斷**：扣光；錢照 V10 進帳戶。**拿去談判**：扣光；對象從涉及的勢力與人裡選；一次檢定照 V10。
-6. **留著**：回答 `defeat.options`——贏的那一方的勢力（從 `pending` 讀）對得上一件符合 V11 的料時多一個選項，選了的變更是那一件次數歸零加 `hostility_floor`。
+6. **留著**：回答 `defeat.options`——贏的那一方的勢力（從 `pending` 讀）對得上一件符合 V11 的料時多一個選項，選了的變更是那一件次數歸零加 `hostility_floor`。`defeat.options` 的格式是 `features/defeat/flow.ts` 的 `DefeatOption[]`，`features/abilities/ransom.ts` 是現成的回答範例。
+7. **片的標題與簡介**（使用者 2026-11-25；MEDIA 第 3 節「片的標題與簡介」）：`cut` 的輸入多收選填的 `title`、`intro`；上架之前可以用 `retitle(k, state, clip, { title?, intro? })` 改（報告 `media.retitle`，kind `system`，不花時間）。字數照「字」算（`Array.from`，和外殼的寫法指令同一個算法）：標題最多 `CLIP_TITLE_MAX`、簡介最多 `CLIP_INTRO_MAX`，超過的截掉並在那一份報告的 `lines` 加一句「標題最多 30 字，超過的部分沒有留下。」（簡介同理）。空著就用程式的模板（角度的名字加第一段來源的標題；簡介是一句來源的說明）。玩家寫的原樣存、不篩選、不改寫。它們只用在顯示、`Material.title`／`Material.intro`（發文的留言與正文讀）與上架那一份報告的 `input`，**不影響任何數字**。重剪不動它們。
 
 ## 驗收條件（`engine/tests/features/M5-media-cut.test.ts`；測試自帶素材、一個勢力（`grade` 3）、玩具的 `channel_staff` 條件）
 
@@ -34,12 +35,19 @@
 - 上架：固定骰子下每一種角度的效果清單對 V9；匿名的那一份訂閱少三成、沒有敵對值、風險少 5；風險擲中而且是假料：公信力 −8。沒有註冊 `subs` 的一局照樣上架得了，只是沒有那一筆。
 - 賣斷與談判把次數扣光；談判失敗敵對值 +5；兩者都留下敵對值的下限。
 - 保命符：持有對得上的罪證時 `defeat.options` 多一條，選了之後那一件是 0 次；品質 3 的不算。
+- 片的標題與簡介：給 31 個字的標題只留 30 個、報告有那一句提醒；空著是模板的字；同一個種子有沒有寫標題，三個數字、上架的每一筆效果都一樣；`retitle` 之後 `Material.title` 跟著變。
 - 掃一遍這個功能產生的所有報告，沒有任何一筆 `rep` 的變更或效果。
 - `npm test`、`npx tsc --noEmit`、分層檢查全過。
 
 ## 依賴
 
-M5-media-chain。`channel_staff`、`at_home` 由別的功能註冊（測試用替身）。
+M5-media-chain。`at_home` 現在由 `rest` 註冊（M4；第二波換成 `home`，行為不變），`channel_staff` 由 M5-channel-shows 註冊；測試用替身。
+
+## M4 對帳（2026-11-26）
+
+- **敵對值的下限**：效果 `hostility_floor` 是 `features/security/floor.ts` 註冊的，有兩種——不寫 `days` 是永久的（加在量表 `hostility_floor` 上），寫 `days` 是有期限的（只有內建的來源收）。V10、V11 的「下限 +5」用永久的：`{ kind: 'hostility_floor', key: 勢力, amount: 5 }`。戰敗事件的資料裡不寫 `days` 會在載入時被擋（M4-followups），那是事件資料的規定，和這裡發的效果無關。
+- **剪片的地點**：`at_home` 不帶 `level_min`（任何一處自己的住處都能剪）；帶 `edit` 欄位的設施用 `at_facility` 問。第二波的轉播站（`at_own_shop { kind: 'relay' }`）由 M5-home-links 接。
+- 片的標題與簡介的文字槽（空著時讓 AI 起）在第三波（M5-ai-media）；`titled` 是給它看的：玩家寫過的那一支不被 AI 蓋掉。
 
 ## 完成時回報
 

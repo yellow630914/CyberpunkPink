@@ -20,7 +20,7 @@
 // 對外：sinkView、bandOf、nextBandOf、sinkRules、therapyBlock／therapyProblems／therapyQuote／therapyDraft、weeklyDrafts。
 //
 // 沒有做：過牆、群落、流竄 AI 的委託、溺感者的傳播（只留條件 sunk）；「聽得懂遺魂」「深海溫和」「牆外的接觸」「自由行動時 AI 把衝動寫進結果」「清明的人怕你」（內容與 M6、AI）；
-// 「餘韻的正面效果加倍」（餘韻的正面效果在核心的戰鬥規則裡，這裡只加倍檢定的加減）；夥伴離隊在 roster；抑制劑在 drugs；治療的價錢乘區的倍率另見 M4 收尾修正批。
+// 「餘韻的正面效果加倍」（餘韻的正面效果在核心的戰鬥規則裡，這裡只加倍檢定的加減）；夥伴離隊在 roster；抑制劑在 drugs。
 
 import type { Condition, ConditionCtx, ContentEntry, Feature, Kernel, ReportDraft } from '../../core'
 import { ContentError, isRecord, isSafeInt, passiveProblems } from '../../core'

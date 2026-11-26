@@ -1,11 +1,11 @@
 // L6 功能 drugs 的戒斷療程（DOWNTIME 3.5 節「診所的戒斷療程」；dev/work/M4-drugs.md 第 6 點）。
 // 腳下的設施有 clinic（和 medical、cyberware 讀同一欄 facility_type.clinic）或設施種類的 detox: { free?: true }：
 // 那一種藥的成癮值 −amount（預設 40）、時間過 days 天（預設 3）、收 price（預設 600；free 的設施不收）。
-// 價錢還沒有乘區的倍率（和 medical 一樣；TRADE 第 3 節說服務的價錢也乘，等一起處理）。
+// 價錢乘這一區的物價倍率（規則 detox.district_price，預設乘；TRADE 第 3 節）。
 // 免費：detox.free: true（一律免費）、或 detox.favor: { faction, min }（這個勢力對主角的好感 min 以上才免費，沒到照收；蜜糖會的互助診所：好感 30 以上，M4-followups-2 第 7 項）。
 
 import type { ActorId, Change, ContentEntry, GameState, Kernel, ReportDraft, TimelineBeat } from '../../core'
-import { ActionBlocked, clone, formatAmount, formatDuration, isRecord, meterOf } from '../../core'
+import { ActionBlocked, areaPriceMult, clone, formatAmount, formatDuration, isRecord, meterOf } from '../../core'
 import { DAY, DETOX_ACTION, FACILITY_TYPE_KIND, drugDef, drugRules, readDrugs, writeDrugs } from './model'
 
 type Pool = 'cred' | 'cash'
@@ -81,7 +81,8 @@ function plan(k: Kernel, state: GameState, o: DetoxOpts): Plan {
   if (!row || row.value <= 0) problems.push(`${a.name}沒有${def.name}的成癮。`)
   const rules = drugRules(k).detox
   const free = here?.free === true
-  const price = free ? 0 : rules.price
+  // 戒斷療程的價錢乘這一區的物價倍率（規則 detox.district_price，預設乘；免費的設施不收）
+  const price = free ? 0 : Math.max(0, Math.round(rules.price * (rules.district_price ? areaPriceMult(k, state) : 1)))
   const pay = payPool(state.money, price, o.pay)
   if (here && price > 0 && pay === null) problems.push(`錢不夠：戒斷療程要 ${formatAmount(price)}，${o.pay ? POOL_NAME[o.pay] : '帳戶與現金'}付不起。`)
   const value = row?.value ?? 0

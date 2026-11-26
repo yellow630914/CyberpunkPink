@@ -4,8 +4,8 @@
 - 目標：M5 要核心補的兩處小機制：(1) 活動可以宣告 `deny`，進行中時擋下外殼自己的動作（現在只有「回退步數」）；(2) 家的地圖種類與 `furniture` 這一種格子。
 - 規格出處：dev/adr/0020 第三節「直播不回退」、第十節；dev/adr/0016 第一節（活動的登錄表）；dev/adr/0012、0018 第五節（地圖的種類怎麼分世界）；MEDIA 1.2「直播中不能回退」；DOWNTIME 7.4 節；UI 1.1 節規則 3。
 - 可以改的路徑：`engine/src/core/action/activity.ts`、`engine/src/core/grid/model.ts`、`engine/src/core/grid/index.ts`、`engine/src/core/index.ts`（匯出）、`engine/src/shell/game.ts`（只有回退步數的那幾個方法）、`engine/tests/core/seams-m5.test.ts`、dev/invariants.md。
-- 可以用的介面：`ActivityDef`、`ActivityRegistry`（`define`、`active`、`blockOf`）、`Game.undoSteps` 與 `UndoStack`、`CELL_TRAITS`、`STREET_MAP_KINDS`／`NET_MAP_KINDS` 的做法、`specialMapProblems`、`sheetProblems`。
-- 不可以做的事：不改放行白名單的行為（`allow`、`allows`、`blockOf` 對既有的 `doing` 一律照舊）；不讓既有的活動（戰鬥、戰敗、場景、事件、副本、網內的行程、潛入）多擋任何事；不寫直播與家園的任何規則；不改現有格子種類的性質；共同的規定見 dev/work/M5-plan.md。
+- 可以用的介面：`ActivityDef`、`ActivityRegistry`（`define`、`allow`、`allowEverywhere`、`active`、`blockOf`）、`Game.undoSteps` 與 `UndoStack`、`CELL_TRAITS`、`STREET_MAP_KINDS`／`NET_MAP_KINDS` 的做法、`specialMapProblems`、`sheetProblems`。
+- 不可以做的事：不改放行白名單的行為（`allow`、`allows`、`blockOf` 對既有的 `doing` 一律照舊）；不讓既有的活動（戰鬥、戰敗、場景、事件、臨檢、拍賣、網內的行程、斷線靜修、搭車、潛入、副本）多擋任何事；不寫直播與家園的任何規則；不改現有格子種類的性質；共同的規定見 dev/work/M5-plan.md。
 
 ## 新的型別與鍵
 
@@ -32,7 +32,13 @@
 - `kind: 'home'` 的地圖沒有遭遇點可以載入；`kind: 'office_small'` 少遭遇點照舊被擋。
 - 在一格地板上打 `furniture` 的補丁：`walkable` 是 `false`、`findPath` 繞過它、被它堵死的房間 `reachable` 不包含；`visibleFrom` 看得到它後面的格子；拿掉補丁恢復原狀。
 - 版面的圖例用到 `furniture` 被擋，訊息對。
+- `deny` 和 M4 收尾加的 `allowEverywhere` 互不影響：一個前綴被 `allowEverywhere` 放行、同時有活動寫 `deny: ['undo']` 時，那個前綴照樣放行、回退照樣被擋。
 - `engine/tests/core/grid.test.ts`、`activity.test.ts` 與探索、網內行程的測試原樣全過；`npm test`、`npx tsc --noEmit`、分層檢查全過。
+
+## M4 對帳（2026-11-26）
+
+- 活動的登錄表在 M4 多了兩樣：`allowEverywhere(prefix, owner, except)`（每一種活動都放行的前綴；契約的 `commit:contract.choose` 用它）與幾種新的活動（`scan` 35、`auction` 40、`retreat` 70、`ride` 80、`dive` 85）。`deny` 是另一條線：它只管外殼自己的動作，不看、也不改放行的清單。
+- 這一張其餘的寫法不受 M4 影響（`Game.undoSteps`、`CELL_TRAITS`、`STREET_MAP_KINDS`／`NET_MAP_KINDS`、`specialMapProblems` 的 `minSpots` 都還在原處）。
 
 ## 完成時回報
 

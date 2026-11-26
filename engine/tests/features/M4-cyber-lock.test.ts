@@ -870,7 +870,7 @@ describe('小手術：換身上一件義體的零件', () => {
     g.state.inventory.push({ id: 'pt_plating', qty: 1, data: { state: 'used', uid: 'us1' } })
     stand(g, 'F1')
     const priceBefore = productPrice(g.k.content, 'bp_arm', cyberOf(g.state, 'pc')[0]!)
-    g.commit(modifyDraft(g.k, g.state, mod(g)))
+    g.commit(modifyDraft(g.k, g.state, mod(g, { part: 'us1' })))
     const now1 = cyberOf(g.state, 'pc')[0]!
     expect(now1.parts.plate).toEqual('pt_plating')
     expect(now1.part_states).toEqual({ plate: ['used'] })

@@ -42,3 +42,41 @@ describe('L4 條件：時段與星期', () => {
     expect(test({ kind: 'time', segment: ['dawn'] }, { day: 2, hour: 6, minute: 0 })).toBe(true)
   })
 })
+
+describe('條件的說明句（ConditionDef.describe、ConditionRegistry.explain；M4 收尾修正批）', () => {
+  const k = createKernel()
+  k.meters.define({ kind: 'favor', owner: 'test', name: '好感', min: 0, max: 100, start: 0, keyed: 'faction', cap: { down: 100, up: 100 } })
+  k.content.loadPack({ id: 'explain_pack', content: { faction: [{ id: 'f_echo', name: '回音會', short: '回音', class: 'street' }] } } as never)
+  const explain = (cond: Condition, patch: Record<string, unknown> = {}) => k.conditions.explain(cond, { state: makeState({ patch: patch as never }), stats: k.stats, timeRules: k.timeRules })
+
+  it('成立的條件沒有原因（null）', () => {
+    expect(explain({ kind: 'money', wallet: 'cash', max: 99999 })).toBeNull()
+    expect(explain({ kind: 'flag', key: 'x' }, { flags: { x: true } })).toBeNull()
+  })
+
+  it('量表的條件：「回音的好感要在 20 以上」（對象查得到名字用名字、查不到用 id；不分對象的量表不寫對象）', () => {
+    expect(explain({ kind: 'favor', key: 'f_echo', min: 20 })).toBe('回音的好感要在 20 以上')
+    expect(explain({ kind: 'favor', key: 'f_nobody', min: 20 })).toBe('f_nobody的好感要在 20 以上')
+    expect(explain({ kind: 'favor', key: 'f_echo', min: 30, max: 60 }, {})).toBe('回音的好感要在 30 到 60 之間')
+  })
+
+  it('核心的條件：屬性、基本功、錢、旗標、計數器、物品', () => {
+    expect(explain({ kind: 'money', wallet: 'cash', min: 5000 })).toBe('現金要在 5000 以上')
+    expect(explain({ kind: 'money', wallet: 'total', min: 10 ** 9 })).toBe('帳戶加現金要在 1000000000 以上')
+    expect(explain({ kind: 'flag', key: 'met_ayin' })).toBe('還沒有發生過「met_ayin」那件事')
+    expect(explain({ kind: 'counter', key: 'sleeps', min: 4 })).toBe('「sleeps」的次數要在 4 以上')
+    expect(explain({ kind: 'has_item', id: 'it_nothing', min: 3 })).toBe('要有 3 件it_nothing')
+    expect(explain({ kind: 'attr', attr: 'body', min: 99 })).toMatch(/要在 99 以上$/)
+    expect(explain({ kind: 'skill', skill: 'negotiate', min: 5 })).toMatch(/要在 5 以上$/)
+  })
+
+  it('all 取第一個不成立的那一條；any 都不成立時把每一條接起來（「，或」）；not 與沒有說明的種類是 null', () => {
+    const ok: Condition = { kind: 'money', wallet: 'cash', max: 10 ** 9 }
+    expect(explain({ kind: 'all', of: [ok, { kind: 'favor', key: 'f_echo', min: 20 }, { kind: 'money', wallet: 'cash', min: 10 ** 8 }] })).toBe('回音的好感要在 20 以上')
+    expect(explain({ kind: 'any', of: [{ kind: 'favor', key: 'f_echo', min: 20 }, { kind: 'flag', key: 'x' }] })).toBe('回音的好感要在 20 以上，或還沒有發生過「x」那件事')
+    // any 其中一條成立就整個成立
+    expect(explain({ kind: 'any', of: [{ kind: 'favor', key: 'f_echo', min: 20 }, ok] })).toBeNull()
+    expect(explain({ kind: 'not', of: ok })).toBeNull()
+    expect(explain({ kind: 'time', segment: ['dawn'] }, { time: { day: 2, hour: 12, minute: 0 } })).toBeNull()
+  })
+})

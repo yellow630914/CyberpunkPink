@@ -545,6 +545,27 @@ describe('治療：心理治療與斷線靜修', () => {
     expect(again.k.activity.active(again.state).map((a) => a.kind)).toEqual(['retreat'])
   })
 
+  it('心理治療的價錢乘這一區的物價倍率（sink_rule.therapy.counsel.district_price，預設乘；M4 收尾修正批；DOWNTIME 3.3 節「1,000 × 區倍率」）；靜修免費不受影響', () => {
+    const priced = (mult: number, counsel?: Rec) => make({ pc: { sink: 30 }, pack: pack((c) => { c.district![0]!.price_mult = mult; if (counsel) c.sink_rule = [{ id: 'default', watchers: ['f_alpha', 'f_beta'], therapy: { counsel } }] }) })
+    const g = priced(2)
+    stand(g, 'F1')
+    expect(therapyQuote(g.k, g.state)).toMatchObject({ price: 2000 })
+    g.commit(therapyDraft(g.k, g.state))
+    expect(g.state.money.cred).toBe(18000)
+    const off = priced(2, { district_price: false })
+    stand(off, 'F1')
+    expect(therapyQuote(off.k, off.state)).toMatchObject({ price: 1000 })
+    const plain = priced(1)
+    stand(plain, 'F1')
+    expect(therapyQuote(plain.k, plain.state)).toMatchObject({ price: 1000 })
+    // 免費的義診所不收；靜修本來就不收
+    const free = priced(3)
+    stand(free, 'F4')
+    expect(therapyQuote(free.k, free.state)).toMatchObject({ price: 0 })
+    stand(free, 'F2')
+    expect(therapyQuote(free.k, free.state, { kind: 'retreat' })).toMatchObject({ price: 0 })
+  })
+
   it('設施寫了 favor：那個勢力的好感要夠；查不到好感的量表當作不夠', () => {
     const g = make({ pc: { sink: 30 } })
     stand(g, 'F3')

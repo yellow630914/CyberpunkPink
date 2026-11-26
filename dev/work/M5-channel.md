@@ -46,6 +46,12 @@
 
 沒有。`flow_tier` 要 abilities 裝著才有（沒有就不加 provider）。
 
+## M4 對帳（2026-11-26）
+
+- 每週結算延後的條件和帳單現在的做法一樣，**只看 `commission`**（`features/bills/settle.ts` 的 `inCommission`）：人在潛入、簾後館的一趟、拍賣、斷線靜修裡跨過週一照常結。M4 沒有改這一條，這裡不自己多擋。
+- 贊助帶來的 `favor`、`hostility` 照舊是 security 的量表效果；這一張新註冊的條件（`channel_open`、`channel_level`）如果條件的登錄表已經有「說明句」的欄位（M4 收尾修正批；以 0019 末尾的補記為準），要一起寫。
+- 主角是契約人時，契約的收入歸屬只認 `work.` 開頭的報告（`features/contract/time.ts` 的 `isWorkSettle`）：頻道的廣告、打賞、補貼與支領都不會被抽成，這一張不用處理。
+
 ## 完成時回報
 
 改了哪些檔、測試結果、`subs` 的 AI 上限怎麼做的、V12～V15 做的時候和設計書對不上的地方。

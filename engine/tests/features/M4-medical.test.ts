@@ -289,6 +289,28 @@ describe('急救（DOWNTIME 3.1 節）', () => {
 })
 
 describe('診所治療（DOWNTIME 3.1 節；TRADE 3.4 節）', () => {
+  it('診所的價錢乘這一區的物價倍率（medical_rule.district_price，預設乘；M4 收尾修正批；TRADE 第 3 節）：倍率 1.5 時每點 8 變 12；district_price 關掉照舊 8；倍率 1 沒有差別', () => {
+    const priced = (mult: number, rule?: Rec) => make({ pc: { hp: 26 }, pack: pack((c) => { c.district![0]!.price_mult = mult; if (rule) c.medical_rule = [{ id: 'default', ...rule }] }) })
+    const g = priced(1.5)
+    stand(g, 'F1')
+    expect(clinicQuote(g.k, g.state, { target: 'pc' })).toMatchObject({ price: 12, points: 14, cost: 168 })
+    const before = g.state.money.cred
+    g.commit(clinicHealDraft(g.k, g.state, { target: 'pc' }))
+    expect(before - g.state.money.cred).toBe(168)
+    const off = priced(1.5, { district_price: false })
+    stand(off, 'F1')
+    expect(clinicQuote(off.k, off.state, { target: 'pc' })).toMatchObject({ price: 8, cost: 112 })
+    const plain = priced(1)
+    stand(plain, 'F1')
+    expect(clinicQuote(plain.k, plain.state, { target: 'pc' })).toMatchObject({ price: 8 })
+    // 四捨五入到整數：無照診所每點 4 × 1.1 = 4.4 → 4；× 1.15 = 4.6 → 5
+    const odd = priced(1.15)
+    stand(odd, 'F2')
+    expect(clinicQuote(odd.k, odd.state, { target: 'pc' })).toMatchObject({ price: 5 })
+    expect(() => make({ pack: pack((c) => { c.medical_rule = [{ id: 'default', district_price: 'yes' }] }) })).not.toThrow()
+    expect(medicalRules(make({ pack: pack((c) => { c.medical_rule = [{ id: 'default', district_price: 'yes' }] }) }).k).district_price).toBe(true)
+  })
+
   it('正規診所：缺 14 點扣 112、時間 +2 小時、回滿、掛 treated', () => {
     const g = make({ pc: { hp: 26 } })
     stand(g, 'F1')

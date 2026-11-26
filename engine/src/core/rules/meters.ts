@@ -133,6 +133,13 @@ export function anyKeysOf(def: Pick<MeterDef, 'kind' | 'keyed'>, state: GameStat
   }
 }
 
+/** 量表的對象的名字：勢力、角色、地區這類內容查得到就寫名字，查不到寫 id。 */
+function nameOfKey(def: MeterDef, content: ContentRegistry, key: string): string {
+  const kind = def.keyed === 'faction' ? 'faction' : def.keyed === 'npc' ? 'npc' : def.keyed === 'district' ? 'district' : undefined
+  const e = kind && content.hasKind(kind) ? (content.get(kind, key) as { name?: unknown; short?: unknown } | undefined) : undefined
+  return typeof e?.short === 'string' && e.short ? e.short : typeof e?.name === 'string' && e.name ? e.name : key
+}
+
 function conditionDef(def: MeterDef, content: ContentRegistry): ConditionDef<Condition & { key?: string; min?: number; max?: number }> {
   return {
     kind: def.kind, owner: def.owner,
@@ -146,6 +153,13 @@ function conditionDef(def: MeterDef, content: ContentRegistry): ConditionDef<Con
       const at = c.key ?? defaultMeterKey(def, state)
       if (at === undefined && meterKeyRequired(def)) throw new Error(`條件 ${def.kind}（${def.name}）要寫明 key`)
       return inRange(at === undefined ? def.start : meterValue(def, state, at), c)
+    },
+    // 說明句：「<對象的名字>的<量表的名字>要在 20 以上」（對象是 key 指的勢力、角色等，查得到名字就寫名字）
+    describe: (c) => {
+      const key = c.key === undefined || c.key === ANY_KEY || c.key === '_' ? undefined : c.key
+      const range = c.min !== undefined && c.max !== undefined ? `要在 ${c.min} 到 ${c.max} 之間` : c.min !== undefined ? `要在 ${c.min} 以上` : c.max !== undefined ? `要在 ${c.max} 以下` : '要符合條件'
+      const who = key === undefined ? '' : `${nameOfKey(def, content, key)}的`
+      return `${who}${def.name}${range}`
     },
   }
 }

@@ -310,8 +310,8 @@ describe('老師的條件與每堂的沉溺', () => {
     const g = make()
     const sink0 = pc(g).sink
     setFavor(g, 19)
-    expect(opt(g, 'npc_wall', 'cyberware')).toMatchObject({ ok: false, sink: 1, reason: '牆語者的課要符合條件「favor」才能上，現在還不符合。' })
-    expect(reasonOf(() => tutorDraft(g.k, g.state, { npc: 'npc_wall', skill: 'cyberware' }))).toBe('牆語者的課要符合條件「favor」才能上，現在還不符合。')
+    expect(opt(g, 'npc_wall', 'cyberware')).toMatchObject({ ok: false, sink: 1, reason: '牆語者的課：回聲的好感要在 20 以上才能上。' })
+    expect(reasonOf(() => tutorDraft(g.k, g.state, { npc: 'npc_wall', skill: 'cyberware' }))).toBe('牆語者的課：回聲的好感要在 20 以上才能上。')
     expect(pc(g).sink).toBe(sink0)
     expect(g.state.money.cred).toBe(5000)
 

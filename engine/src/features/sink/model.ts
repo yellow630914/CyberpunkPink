@@ -67,7 +67,8 @@ export interface SinkRules {
   /** 每週替這些勢力加敵對值（band.weekly.hostility） */
   watchers: string[]
   therapy: {
-    counsel: { amount: number; minutes: number; price: number; per_week: number }
+    /** price 乘這一區的物價倍率（district_price，預設乘；M4 收尾修正批） */
+    counsel: { amount: number; minutes: number; price: number; per_week: number; district_price: boolean }
     retreat: { amount: number; days: number }
   }
   /** 「一段」是幾點（藥、調校、面具讓別人看到的沉溺低一段時用） */
@@ -99,7 +100,7 @@ export const DEFAULT_SINK_RULES: SinkRules = {
   over_step: 25,
   decay: { amount: 2, sleeps: 4 },
   watchers: [],
-  therapy: { counsel: { amount: 5, minutes: 240, price: 1000, per_week: 1 }, retreat: { amount: 6, days: 3 } },
+  therapy: { counsel: { amount: 5, minutes: 240, price: 1000, per_week: 1, district_price: true }, retreat: { amount: 6, days: 3 } },
   hide_step: 20,
   afterglow_carry: { hours: 6, amount: 1 },
 }
@@ -164,6 +165,7 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
           if (c.minutes !== undefined && !isCount(c.minutes, 525_600)) p.push('therapy.counsel.minutes 要是 0～525600 的整數（分鐘）')
           if (c.price !== undefined && !isCount(c.price)) p.push('therapy.counsel.price 要是 0～1000000 的整數')
           if (c.per_week !== undefined && !isPositive(c.per_week, 100)) p.push('therapy.counsel.per_week 要是 1～100 的整數')
+          if (c.district_price !== undefined && typeof c.district_price !== 'boolean') p.push('therapy.counsel.district_price 要是 true 或 false（心理治療的價錢乘不乘這一區的物價倍率）')
         }
       }
       const r = t.retreat

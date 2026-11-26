@@ -12,6 +12,18 @@ export function areaGrade(k: RulesKernel, state: GameState): Grade {
   return (typeof g === 'number' && g >= 1 && g <= 5 ? g : 1) as Grade
 }
 
+/**
+ * 主角所在那一區的物價倍率（district 內容的 price_mult；沒有區、沒寫、不是大於 0 的數字是 1）。
+ * 服務的價錢（診所的治療、心理治療、戒斷療程、向人學工藝）乘它（TRADE 第 3 節；M4 收尾修正批）：各功能照自己的規則欄位 district_price 決定乘不乘，
+ * 不各自讀 district（功能之間不互相 import，倍率的讀法只有這一份）。
+ */
+export function areaPriceMult(k: Pick<RulesKernel, 'content'>, state: Pick<GameState, 'location'>): number {
+  const id = state.location.district
+  if (typeof id !== 'string' || !k.content.hasKind('district')) return 1
+  const m = (k.content.get('district', id) as { price_mult?: unknown } | undefined)?.price_mult
+  return typeof m === 'number' && Number.isFinite(m) && m > 0 ? m : 1
+}
+
 /** 衍生數值的 id：主角的街頭信譽那一階接得到的委託等級（1～5）。由街頭信譽的功能註冊（M2）。 */
 export const REP_GRADE_STAT = 'rep_grade'
 

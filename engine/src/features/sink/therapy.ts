@@ -3,11 +3,11 @@
 //   斷線靜修  要在 therapy.kind === 'retreat' 的地方；一次過 days 天，不收錢；沉溺 −amount；
 //             設施寫了 favor { faction, min } 時，那個勢力的好感要夠（查不到好感的量表當作不夠）。
 //   沉溺 100 以上兩種都擋下（「你已經不想回去了。」）。
-// 沉溺往下降一律走 sink 效果（下限會擋）。價錢還沒有乘區的倍率（和 features/medical 的診所一樣；乘區的倍率另見 M4 收尾修正批的規則欄位）。
+// 沉溺往下降一律走 sink 效果（下限會擋）。心理治療的價錢乘這一區的物價倍率（規則 therapy.counsel.district_price，預設乘）。
 // 斷線靜修是進行中的活動（M4 收尾修正批；retreat.ts）：這裡只是開始（記下進行中、不動時間與沉溺），之後待下去、結算在 retreat.ts；「黑泉記得你來過」是內容。
 
 import type { ActorId, Change, ContentEntry, GameState, Kernel, ReportDraft, TimelineBeat } from '../../core'
-import { ActionBlocked, clone, effectCtx, formatAmount, meterOf, isRecord } from '../../core'
+import { ActionBlocked, areaPriceMult, clone, effectCtx, formatAmount, meterOf, isRecord } from '../../core'
 import type { Pool, RetreatRec, TherapyKind } from './model'
 import { FACILITY_TYPE_KIND, EXT_OP, MINUTES_PER_DAY, POOL_NAME, SUNK_AT, THERAPY_ACTION, THERAPY_KINDS, nameOf, payPool, readExt, sinkRules, weekOf, nowOf } from './model'
 
@@ -95,7 +95,8 @@ function plan(k: Kernel, state: GameState, o: TherapyOpts): Plan {
   }
   const floor = k.stats.hasStat('sink_floor') ? k.stats.stat(state, actor, 'sink_floor') : 0
   if (a.sink <= floor) problems.push(floor > 0 ? '你已經浮在身上的義體撐著的最低處，治療幫不上忙。' : '你現在很清明，用不著治療。')
-  const price = kind === 'counsel' && !here.free ? rules.therapy.counsel.price : 0
+  // 心理治療的價錢乘這一區的物價倍率（規則 therapy.counsel.district_price，預設乘；DOWNTIME 3.3 節「1,000 × 區倍率」）
+  const price = kind === 'counsel' && !here.free ? Math.max(0, Math.round(rules.therapy.counsel.price * (rules.therapy.counsel.district_price ? areaPriceMult(k, state) : 1))) : 0
   const pay = price > 0 ? payPool(state.money, price, o.pay) : null
   if (price > 0 && pay === null) problems.push(`錢不夠：心理治療要 ${formatAmount(price)}，${o.pay ? POOL_NAME[o.pay] : '帳戶與現金'}付不起。`)
   const quote: TherapyQuote = {

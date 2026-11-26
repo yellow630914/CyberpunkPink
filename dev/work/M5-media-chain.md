@@ -14,8 +14,8 @@
   - `Footage`：DATA 第 11 節的欄位（`id: 'ft…'`、`from_record?`、`title`、`text`、`type`、`quality`、`authentic: 'real' | 'edited' | 'forged'`、`exclusive`、`involves`）加 `uses`（0～3）、`made_at`（總分鐘）、`origin: 'own' | 'bought' | 'stolen' | 'given' | 'staff' | 'event'`、`celebrity`、`self`、`adult`、`tags?: string[]`。
   - 類型的 id：`battle`、`scandal`、`crime`、`intimate`、`celebrity`、`daily`。
 - 內容種類 `media_rule`（`overridable`，id `default`）：來源對類型的預設表、品質算式的每一項、紀錄放多久算舊（7 天）、新鮮度的兩個門檻（3 天、7 天）、使用次數（3）。預設寫在功能裡（`DEFAULT_MEDIA_RULES`）。
-- 衍生數值（這個功能定義，預設 0）：`rec_grade`、`footage_quality`、`footage_cap`。義體與裝備照 0019 的被動效果在資料寫 `{ stat: 'rec_grade', amount: 等級 }`，這個功能不用管。只有核心沒有 `k.passives`（M4 還沒做完）時，才替 `rec_grade` 加一個暫代的 provider：這個人是主角、而且背包裡有帶 `rec` 欄位（1～5）的物品，取最高的（D1）。
-- 掛點（這個功能宣告並回答，型別用 `declare module '../../core'`；格式照 0020 第十三節）：`media.materials`（`{ state, kinds?: ('footage' | 'clip')[] }` → `Material[]`，只列 `uses > 0` 的）、`media.spend`（`{ state, ref, how, all?: boolean }` → `{ changes, material } | { block }`）、`media.record`（`{ state, source, label, hint? }` → `Change[]`；`hint` 可以帶 `type`、`involves`、`celebrity`、`hq`、`live`、`lost`、`adult`、`self`、`exclusive`）。
+- 衍生數值（這個功能定義，預設 0）：`rec_grade`、`footage_quality`、`footage_cap`。錄影是義體的事：義體設計圖、零件（感測器「錄影眼」、軟體「播報員」、橋「聚光」的「內建錄影」）在資料寫被動效果 `{ stat: 'rec_grade', amount: 等級 }`，M4 的 `k.passives`（來源 `cyber`、`quirk`）就會加上去；休養中、被關掉、被鎖的那一件算不算由那個來源自己管。**這個功能只定義衍生數值，不加任何 provider、不讀背包**。裝備這個來源（`gear`）目前只給超重的加減、不轉交穿戴物的 `effects`，所以「隨身錄影機」現在寫不出來（0020「M4 對帳」D1、V64）。
+- 掛點（這個功能宣告並回答，型別用 `declare module '../../core'`；格式照 0020 第十三節）：`media.materials`（`{ state, kinds?: ('footage' | 'clip')[] }` → `Material[]`，只列 `uses > 0` 的；`Material` 比 0020 第十三節多一欄 `tags: string[]`，就是素材的 `tags`，片取來源的聯集：內容篩選與館的授權讀它）、`media.spend`（`{ state, ref, how, all?: boolean }` → `{ changes, material } | { block }`）、`media.record`（`{ state, source, label, hint? }` → `Change[]`；`hint` 可以帶 `type`、`involves`、`celebrity`、`hq`、`live`、`lost`、`adult`、`self`、`exclusive`）。
 - 效果 `footage`：`{ kind: 'footage', type, quality?, title?, involves?, forged?, exclusive?, origin? }`，給一段 3 次的素材。AI 的來源：一件事最多一段、品質不超過所在那一區的等級。
 - 條件：`has_footage { faction?, type?, min_quality?, usable? }`、`rec_on`。
 - 報告（kind `broadcast`）：`media.rec`（開關錄影）、`media.convert`。
@@ -24,7 +24,7 @@
 ## 要做的
 
 1. **記一則**：
-   - `activity.end` 的 `battle`、`scene`、`event`：`origin.ext.commission` 有值的併進這個階段的暫存（`stage`：累加記號、涉及的人），不出一則；其餘各出一則。戰鬥的記號從這一場的報告數（`state.battle` 的步驟對到 `state.reports` 的每一拍：我方打出 `crit`、打倒首領位階的敵人記 `boss`）。場景記 `adult`、`self`。
+   - `activity.end` 的 `battle`、`scene`、`event`：`origin.ext.commission` 有值的併進這個階段的暫存（`stage`：累加記號、涉及的人），不出一則；其餘各出一則。戰鬥的記號從這一場的報告數（`state.battle` 的步驟對到 `state.reports` 的每一拍：我方打出 `crit`、打倒首領位階的敵人記 `boss`）。場景記 `adult`、`self`；涉及的人讀 `result.with`（多人的讀 `result.pairs` 的每一個對象；單人 `result.solo` 沒有對象）；`result.layer` 是 `net` 的照樣記。場景結束那一份報告的 `outcome.amnesia` 是 `true`（M4 的失憶場景）時不記：那段畫面不歸你（V57；`activity.end` 的 `result` 拿不到這個記號就回報，先照記）。
    - `report.before` 看到草稿有一拍 `tag: 'commission.milestone'`：照那一拍的 `data`（`id`、`stage`、`face`、`faction`、`record?`）加上暫存出一則，暫存清掉。輿論面的階段不出。
    - `media.record`：別的功能請它記（直播）。
    - 類型照 V4：`media_rule` 的來源預設，`hint.type` 或 `data.record.type` 蓋掉。
@@ -46,11 +46,12 @@
 - `media.record` 帶 `live`、`hq`：那一則 `exclusive` 是 `false`、轉出來的品質 +1。
 - 回到快照：快照之後記的兩則一則標 `retracted`、一則（直播的）標 `lost` 還能轉、品質少 1；快照之前轉好的素材與它被扣掉的次數都在。
 - `no_rec` 的設施上記的那一則沒錄到。
+- 用全部功能的局（testkit 的 `makeBodyGame`）：給主角裝一件 `effects` 寫 `{ stat: 'rec_grade', amount: 3 }` 的義體（照 `engine/tests/features/M4-*.test.ts` 裝義體的寫法），`rec_grade` 是 3、打完一場那一則的 `by` 是主角、`grade` 是 3；這個功能自己沒有往 `rec_grade` 掛任何 provider（掃原始碼）。
 - 只裝這個功能（沒有 channel、opinion、commission）主套件照樣過；`npm test`、`npx tsc --noEmit`、分層檢查全過。
 
 ## 依賴
 
-沒有（核心現有的介面就夠）。M5-commission-opinion 之後才會真的發 `commission.milestone` 那一拍；這一張用假的報告測。
+沒有（核心現有的介面就夠）。M4 已經做完：`k.passives` 在、場景是座位版（`scene.end` 的 `result` 見 `features/scene/end.ts`）。M5-commission-opinion 之後才會真的發 `commission.milestone` 那一拍；這一張用假的報告測。
 
 ## 完成時回報
 

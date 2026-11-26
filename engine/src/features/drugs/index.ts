@@ -16,7 +16,7 @@
 // 報告（kind action，time.passed 與休息補的是 downtime）：drug.use、drug.detox、drug.wear_off（藥效過了、進入戒斷、戒斷結束、成癮消退）、drug.suppressant（開關每週帳單付抑制劑）。
 // 對外：useBlock／useProblems／useDraft、drugView、detoxBlock／detoxProblems／detoxQuote／detoxDraft、suppressantBlock／suppressantDraft、drugRules、drugDef、readDrugs、addictionOf。
 // 沒做：藥泵（cyberware 的）、對別人用的藥（諦聽、睡蓮）、止痛劑的「生命值只看得到四段」與「高一段」這類顯示效果、牆灰的 10% 妖精的吻（要 malware 效果）、藥的內容；
-//       戒斷療程的價錢還沒有乘區的倍率。
+//       戒斷療程的價錢乘這一區的物價倍率（detox.district_price）。
 
 import type { ContentEntry, Feature, GameState, Kernel, ReportDraft } from '../../core'
 import { ContentError, blankState, isRecord, passiveProblems } from '../../core'

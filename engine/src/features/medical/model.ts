@@ -47,6 +47,8 @@ export interface MedicalRules {
   aid: AidRule
   /** 診所治療每點生命值多少錢（照診所的種類） */
   heal_price: Record<ClinicGrade, number>
+  /** 診所治療的價錢乘這一區的物價倍率（district.price_mult；M4 收尾修正批，TRADE 第 3 節）。預設乘 */
+  district_price: boolean
   /** 診所治療每 10 點花幾分鐘（不滿 10 點也算一次） */
   heal_minutes_per_10: number
   /** 重創的手術費（三種都一樣，P46） */
@@ -72,6 +74,7 @@ const physical = (amount: number, label: string): PassiveEffect => ({ check: { a
 export const DEFAULT_MEDICAL_RULES: MedicalRules = {
   aid: { minutes: 10, dc: 13, kit_bonus: 2, kit_tag: 'medkit' },
   heal_price: { clinic: 8, unlicensed: 4, black: 5 },
+  district_price: true,
   heal_minutes_per_10: 60,
   wound_price: 1200,
   wound_recovery_minutes: 4320,
@@ -111,6 +114,7 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
       else if (!isMoney(n)) p.push(`heal_price.${g} 要是 0～1000000 的整數`)
     }
   }
+  if (e.district_price !== undefined && typeof e.district_price !== 'boolean') p.push('district_price 要是 true 或 false（診所治療的價錢乘不乘這一區的物價倍率）')
   if (e.heal_minutes_per_10 !== undefined && !isMinutes(e.heal_minutes_per_10)) p.push('heal_minutes_per_10 要是 0～525600 的整數（分鐘）')
   if (e.wound_price !== undefined && !isMoney(e.wound_price)) p.push('wound_price 要是 0～1000000 的整數')
   if (e.wound_recovery_minutes !== undefined && !isMinutes(e.wound_recovery_minutes)) p.push('wound_recovery_minutes 要是 0～525600 的整數（分鐘）')
@@ -144,6 +148,7 @@ export function medicalRules(k: Pick<Kernel, 'content'>): MedicalRules {
     if (a.kit_tag !== undefined) out.aid.kit_tag = a.kit_tag as string
   }
   if (ok('heal_price')) for (const [g, n] of Object.entries(e.heal_price as Record<string, unknown>)) out.heal_price[g as ClinicGrade] = n as number
+  if (ok('district_price')) out.district_price = e.district_price as boolean
   if (ok('heal_minutes_per_10')) out.heal_minutes_per_10 = e.heal_minutes_per_10 as number
   if (ok('wound_price')) out.wound_price = e.wound_price as number
   if (ok('wound_recovery_minutes')) out.wound_recovery_minutes = e.wound_recovery_minutes as number

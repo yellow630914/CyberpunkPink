@@ -38,20 +38,21 @@ export interface DrugRules {
   heavy_days: number
   /** 持續「一場戰鬥」的藥：戰鬥外吃的話，開打前幾分鐘內吃才撐得到那一場（藥自己的 duration.minutes 優先） */
   prebattle_minutes: number
-  /** 診所的戒斷療程：成癮值 −amount、過 days 天、收 price（診所的戒斷療程 600，DOWNTIME 3.5 節） */
-  detox: { amount: number; days: number; price: number }
+  /** 診所的戒斷療程：成癮值 −amount、過 days 天、收 price（診所的戒斷療程 600，DOWNTIME 3.5 節；district_price：price 乘這一區的物價倍率，預設乘，M4 收尾修正批） */
+  detox: { amount: number; days: number; price: number; district_price: boolean }
   /** 抑制劑：生效中沉溺的下限加 floor（負的）、別人看到的沉溺加 shown（負的）；停藥反彈下限加 rebound、持續 rebound_days 天；一週份的價錢（LIFE 1.2 節的 80） */
   suppressant: { floor: number; shown: number; rebound: number; rebound_days: number; price: number }
 }
 
 export const DEFAULT_DRUG_RULES: DrugRules = {
   weekly_decay: 10, depend_at: 40, depend_days: 7, heavy_at: 80, heavy_days: 3, prebattle_minutes: 10,
-  detox: { amount: 40, days: 3, price: 600 },
+  detox: { amount: 40, days: 3, price: 600, district_price: true },
   suppressant: { floor: -10, shown: -20, rebound: 15, rebound_days: 14, price: 80 },
 }
 
 const isIntIn = (v: unknown, lo: number, hi: number): v is number => isSafeInt(v) && v >= lo && v <= hi
 const DETOX_FIELDS = ['amount', 'days', 'price'] as const
+const DETOX_BOOLS = ['district_price'] as const
 const SUPPRESSANT_FIELDS = ['floor', 'shown', 'rebound', 'rebound_days', 'price'] as const
 
 export function ruleProblems(e: Record<string, unknown>): string[] {
@@ -70,7 +71,8 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
     const d = e.detox
     if (!isRecord(d)) p.push('detox 要是 { amount, days, price }')
     else {
-      for (const f of Object.keys(d)) if (!(DETOX_FIELDS as readonly string[]).includes(f)) p.push(`detox.${f}：沒有這個欄位（${DETOX_FIELDS.join('、')}）`)
+      for (const f of Object.keys(d)) if (!(DETOX_FIELDS as readonly string[]).includes(f) && !(DETOX_BOOLS as readonly string[]).includes(f)) p.push(`detox.${f}：沒有這個欄位（${[...DETOX_FIELDS, ...DETOX_BOOLS].join('、')}）`)
+      if (d.district_price !== undefined && typeof d.district_price !== 'boolean') p.push('detox.district_price 要是 true 或 false（戒斷療程的價錢乘不乘這一區的物價倍率）')
       if (d.amount !== undefined && !isIntIn(d.amount, 1, 100)) p.push('detox.amount 要是 1～100 的整數')
       if (d.days !== undefined && !isIntIn(d.days, 0, 365)) p.push('detox.days 要是 0～365 的整數')
       if (d.price !== undefined && !isIntIn(d.price, 0, 1_000_000)) p.push('detox.price 要是 0～1000000 的整數')
@@ -101,6 +103,7 @@ export function drugRules(k: Pick<Kernel, 'content'>): DrugRules {
   if (ok('detox')) {
     const d = e.detox as Record<string, unknown>
     for (const f of DETOX_FIELDS) if (typeof d[f] === 'number') out.detox[f] = d[f] as number
+    if (typeof d.district_price === 'boolean') out.detox.district_price = d.district_price
   }
   if (ok('suppressant')) {
     const s = e.suppressant as Record<string, unknown>

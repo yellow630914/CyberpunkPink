@@ -1,9 +1,9 @@
 // L6 功能 medical 的診所治療（DOWNTIME 3.1 節；TRADE 3.4 節；dev/work/M4-medical.md 第 3 點）。
 // 腳下的設施有 clinic（和 cyberware 讀同一欄 facility_type.clinic.grade）：回到滿；錢＝缺的點數 × 那一種診所的單價；時間＝每 10 點一小時（進位）；掛 treated。
-// 錢不夠時治得起幾點就治幾點（至少 1 點才成立）。價錢還沒有乘區的倍率（TRADE 第 3 節說服務的價錢也乘；這一張先不乘）。
+// 錢不夠時治得起幾點就治幾點（至少 1 點才成立）。價錢乘這一區的物價倍率（規則 district_price，預設乘；TRADE 第 3 節）。
 
 import type { ActorId, Change, GameState, Kernel, ReportDraft } from '../../core'
-import { ActionBlocked, formatAmount, formatDuration } from '../../core'
+import { ActionBlocked, areaPriceMult, formatAmount, formatDuration } from '../../core'
 import { clinicHere, outOfBattleBlock, payPool, reportOf } from './common'
 import type { ClinicGrade, Pool } from './model'
 import { CLINIC_NAME, POOL_NAME, TREATED, maxHpOf, medicalRules, nowOf } from './model'
@@ -57,7 +57,8 @@ function planClinic(k: Kernel, state: GameState, o: ClinicOpts): ClinicPlan {
   const t = state.actors[o.target]!
   const missing = Math.max(0, maxHpOf(k, state, o.target) - t.hp)
   if (missing === 0) problems.push(`${t.name}的生命值已經是滿的。`)
-  const price = rules.heal_price[here.grade]
+  // 乘這一區的物價倍率（規則 district_price，預設乘；四捨五入到整數，不低於 0）
+  const price = Math.max(0, Math.round(rules.heal_price[here.grade] * (rules.district_price ? areaPriceMult(k, state) : 1)))
   // 付哪一種錢：指定的就用指定的；沒指定先找付得起全部的（帳戶優先），都付不起就挑治得起比較多的（一樣多取帳戶）
   const pools: Pool[] = o.pay ? [o.pay] : ['cred', 'cash']
   const whole = pools.find((p) => affordable(state.money, p, price, missing) >= missing)

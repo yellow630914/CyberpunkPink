@@ -6,6 +6,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ContentPack, Report } from '../../src'
 import { characterFeature } from '../../src/features/character'
+import { productSellBase } from '../../src/features/trade'
 import { cyberwareFeature } from '../../src/features/cyberware'
 import { chooseBranch, chooseFace } from '../../src/features/commission'
 import { go } from '../../src/features/fixer'
@@ -79,5 +80,26 @@ describe('怪癖的 effects 掛在武器或護甲上不會生效：載入時警�
       quirk('q_stats', { stats: { armor: 1 } }),
       quirk('q_empty', { effects: [] }),
     ])).toEqual([])
+  })
+})
+
+describe('賣成品照零件的實際狀態算（trade 的 productSellBase；M4 收尾修正批）', () => {
+  const part = (id: string, type: string, price: number, over: Record<string, unknown> = {}) => ({ id, name: id, type, material: 'mech', brand: 'hz', grade: 1, price, legal: 'free', cells: 1, stats: {}, weight: 1, size: 1, state: 'new', ...over })
+  const content = {
+    part: [part('pt_a', 'plate', 1000), part('pt_b', 'fiber', 1000), part('pt_b_used', 'fiber', 1000, { state: 'used' })],
+    blueprint: [{ id: 'bp_vest', kind: 'armor', name: '防彈衣', desc: '一件防彈衣。', brand: 'hz', grade: 1, legal: 'free', price: 100, size: 2, weight: 2, armor: 1, covers: ['armor'], weight_class: 'medium', require: [{ type: 'plate' }, { type: 'fiber' }], optional: [], stock: { plate: 'pt_a', fiber: 'pt_b' } }],
+  }
+  const k = makeGame({ features: [characterFeature], content: [{ id: 'sell_base', content } as unknown as ContentPack] }).game.k
+
+  it('全新的成品：零件目錄價的合計（不乘 1.2 與型係數）；其中一個零件是二手（part_states 或零件自己的 state）：那一個 ×0.5', () => {
+    expect(productSellBase(k, 'bp_vest', { uid: 'u1', parts: { plate: 'pt_a', fiber: 'pt_b' } })).toBe(2000)
+    expect(productSellBase(k, 'bp_vest', { uid: 'u2', parts: { plate: 'pt_a', fiber: 'pt_b' }, part_states: { fiber: ['used'] } })).toBe(1500)
+    expect(productSellBase(k, 'bp_vest', { uid: 'u3', parts: { plate: 'pt_a', fiber: 'pt_b_used' } })).toBe(1500)
+  })
+
+  it('整件是二手：每個零件不重複折，整件 ×0.5；品質照係數；帶二手零件的整件二手也只折一次', () => {
+    expect(productSellBase(k, 'bp_vest', { uid: 'u4', parts: { plate: 'pt_a', fiber: 'pt_b' }, state: 'used' })).toBe(1000)
+    expect(productSellBase(k, 'bp_vest', { uid: 'u5', parts: { plate: 'pt_a', fiber: 'pt_b_used' }, state: 'used' })).toBe(1000)
+    expect(productSellBase(k, 'bp_vest', { uid: 'u6', parts: { plate: 'pt_a', fiber: 'pt_b' }, quality: 'flawed' })).toBe(1600)
   })
 })

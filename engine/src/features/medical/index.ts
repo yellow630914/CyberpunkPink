@@ -13,7 +13,7 @@
 // 讀的：k.stats（max_hp、armor_body 只經由被動效果；檢定用 checkParts）、k.content（facility_type、item 的 tags）、k.activity.blockOf、actor.conditions。沒有 ext 狀態。
 // 報告（kind action）：medical.aid、medical.heal、medical.surgery、medical.reinjured（aided 與 treated 被拿掉的那一份）。
 // 對外：aidBlock／aidProblems／aidQuote／aidDraft、clinicQuote／clinicBlock／clinicProblems／clinicHealDraft、woundsOf、woundSurgeryBlock／woundSurgeryProblems／woundSurgeryQuote／woundSurgeryDraft、medicalView、medicalRules。
-// 沒有做：義體的修理（cyberware 的）、沉溺與成癮的治療、天使急救；治療的價錢還沒有乘區的倍率；「肢體接回還是直接換義肢」的選擇（TRADE 3.4 節）；treated 的一天是暫定。
+// 沒有做：義體的修理（cyberware 的）、沉溺與成癮的治療、天使急救；「肢體接回還是直接換義肢」的選擇（TRADE 3.4 節）；treated 的一天是暫定。
 
 import type { ContentEntry, Effect, EffectStepCtx, Feature, Kernel, ReportDraft } from '../../core'
 import { ContentError, clone, isRecord, passiveProblems } from '../../core'

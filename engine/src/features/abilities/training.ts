@@ -265,7 +265,7 @@ function plan(k: TrainKernel, state: GameState, o: LessonOpts): Plan {
   const paidAlready = continuing && base.done > 0
   if ('facility' in o.from && facilityRow) {
     const needs = (facilityRow.needs ?? []).find((c) => !k.conditions.test(c, condCtx(k, state, actor)))
-    if (needs) base.problems.push(`${base.fromName}的課要符合條件「${needs.kind}」才能上，現在還不符合。`)
+    if (needs) base.problems.push(`${base.fromName}的課${k.conditions.explain(needs, condCtx(k, state, actor)) ? `：${k.conditions.explain(needs, condCtx(k, state, actor))}才能上。` : `要符合條件「${needs.kind}」才能上，現在還不符合。`}`)
     const pool = paidAlready || price <= 0 ? null : payPool(state.money, price, o.pool)
     const why = paidAlready || price <= 0 || pool ? null : `錢不夠：學費要 C$${formatAmount(price)}，${o.pool ? POOL_NAME[o.pool] : '帳戶與現金'}付不起。`
     base.pays = [{ pay: 'tuition', price: paidAlready ? 0 : price, ok: why === null, reason: why }]
@@ -518,7 +518,7 @@ function planTutor(k: TrainKernel, state: GameState, o: TutorOpts): TutorPlan {
   if (taught !== undefined && taught !== o.skill) base.problems.push(`${base.npcName}只帶一個人一項。`)
 
   const unmet = (t.needs ?? []).find((c) => !k.conditions.test(c, condCtx(k, state, who)))
-  if (unmet) base.problems.push(`${base.npcName}的課要符合條件「${unmet.kind}」才能上，現在還不符合。`)
+  if (unmet) base.problems.push(`${base.npcName}的課${k.conditions.explain(unmet, condCtx(k, state, who)) ? `：${k.conditions.explain(unmet, condCtx(k, state, who))}才能上。` : `要符合條件「${unmet.kind}」才能上，現在還不符合。`}`)
 
   const here = k.conditions.kinds().includes('npc_here') ? k.conditions.test({ kind: 'npc_here', npc: o.npc }, condCtx(k, state, who)) : true
   if (!here) base.problems.push(`${base.npcName}不在這裡：要在他現在所在的地方才能上課。`)

@@ -28,6 +28,12 @@ export interface ConditionDef<C extends Condition = Condition> {
   owner: string
   validate(raw: Record<string, unknown>): string[]
   test(cond: C, ctx: ConditionCtx): boolean
+  /**
+   * 說明句（M4 收尾修正批；使用者 2026-11-26：擋住的原因能寫成自然的句子）：這個條件「要什麼」，一句完整的話（不帶句點）。
+   * 例：「回音的好感要在 20 以上」、「要有 3 件急救包」。條件不成立時畫面問 ConditionRegistry.explain，把它接成擋住的原因；
+   * 沒寫就沒有說明（explain 回 null，呼叫的人退回自己的句子）。唯讀，不改狀態。
+   */
+  describe?(cond: C, ctx: ConditionCtx): string | null
 }
 
 export class ConditionRegistry {
@@ -58,6 +64,27 @@ export class ConditionRegistry {
     return def.validate(raw).map((p) => `${path}：${p}`)
   }
 
+  /**
+   * 這個條件現在擋住的原因（一句自然的話）：成立回傳 null。
+   * all 取第一個不成立的那一條；any 把每一條要什麼用「，或」接起來（都不成立才擋）；not 與沒有 describe 的種類回傳 null（呼叫的人退回自己的句子）。
+   */
+  explain(cond: Condition | undefined | null, ctx: ConditionCtx): string | null {
+    if (!cond || this.test(cond, ctx)) return null
+    if (cond.kind === 'all') {
+      for (const c of cond.of as Condition[]) {
+        if (!this.test(c, ctx)) return this.explain(c, ctx)
+      }
+      return null
+    }
+    if (cond.kind === 'any') {
+      const parts = (cond.of as Condition[]).map((c) => this.explain(c, ctx))
+      return parts.every((p): p is string => p !== null) && parts.length > 0 ? `${parts.join('，或')}` : null
+    }
+    if (cond.kind === 'not') return null
+    const def = this.defs.get(cond.kind)
+    return def?.describe ? def.describe(cond, ctx) : null
+  }
+
   test(cond: Condition | undefined | null, ctx: ConditionCtx): boolean {
     if (!cond) return true
     if (cond.kind === 'all') return (cond.of as Condition[]).every((c) => this.test(c, ctx))
@@ -70,6 +97,10 @@ export class ConditionRegistry {
 }
 
 const inRange = (v: number, c: { min?: number; max?: number }) => (c.min === undefined || v >= c.min) && (c.max === undefined || v <= c.max)
+
+/** 「要在 min 以上」「要在 max 以下」「要在 min 到 max 之間」：條件說明句的尾巴（M4 收尾修正批；ConditionDef.describe）。 */
+export const rangeText = (c: { min?: number; max?: number }): string =>
+  c.min !== undefined && c.max !== undefined ? `要在 ${c.min} 到 ${c.max} 之間` : c.min !== undefined ? `要在 ${c.min} 以上` : c.max !== undefined ? `要在 ${c.max} 以下` : '要符合條件'
 const rangeOk = (raw: Record<string, unknown>) => (['min', 'max'] as const).every((k) => raw[k] === undefined || typeof raw[k] === 'number')
 
 export function registerCoreConditions(reg: ConditionRegistry, content?: Pick<ContentRegistry, 'get'>): void {
@@ -78,12 +109,14 @@ export function registerCoreConditions(reg: ConditionRegistry, content?: Pick<Co
     validate: (raw) => (typeof raw.key === 'string' && raw.key ? [] : ['key 要是字串']),
     // 沒寫 eq：旗標存在而且不是 false
     test: (c, { state }) => (c.eq === undefined ? state.flags[c.key] !== undefined && state.flags[c.key] !== false : state.flags[c.key] === c.eq),
+    describe: (c) => (c.eq === undefined || c.eq === true ? `還沒有發生過「${c.key}」那件事` : `「${c.key}」要是 ${String(c.eq)}`),
   })
 
   reg.register<Condition & { key: string; min?: number; max?: number }>({
     kind: 'counter', owner: 'core',
     validate: (raw) => (typeof raw.key === 'string' && rangeOk(raw) ? [] : ['要有 key；min、max 要是數字']),
     test: (c, { state }) => inRange(state.counters[c.key] ?? 0, c),
+    describe: (c) => `「${c.key}」的次數${rangeText(c)}`,
   })
 
   reg.register<Condition & { segment?: SegmentId[]; weekday?: Weekday[]; min_day?: number }>({
@@ -104,6 +137,7 @@ export function registerCoreConditions(reg: ConditionRegistry, content?: Pick<Co
       const id = actor ?? state.pc
       return !!id && !!state.actors[id] && inRange(stats.effectiveAttr(state, id, c.attr), c)
     },
+    describe: (c) => `${(content?.get('attribute', c.attr) as { name?: string } | undefined)?.name ?? c.attr}${rangeText(c)}`,
   })
 
   reg.register<Condition & { skill: string; min?: number; max?: number }>({
@@ -113,12 +147,14 @@ export function registerCoreConditions(reg: ConditionRegistry, content?: Pick<Co
       const a = state.actors[actor ?? state.pc ?? '']
       return !!a && inRange(a.skills[c.skill] ?? 0, c)
     },
+    describe: (c) => `${(content?.get('skill', c.skill) as { name?: string } | undefined)?.name ?? c.skill}${rangeText(c)}`,
   })
 
   reg.register<Condition & { wallet: 'cred' | 'cash' | 'total'; min?: number; max?: number }>({
     kind: 'money', owner: 'core',
     validate: (raw) => (['cred', 'cash', 'total'].includes(raw.wallet as string) && rangeOk(raw) ? [] : ['wallet 只能是 cred、cash、total；min、max 要是數字']),
     test: (c, { state }) => inRange(c.wallet === 'total' ? state.money.cred + state.money.cash : state.money[c.wallet], c),
+    describe: (c) => `${c.wallet === 'cred' ? '帳戶' : c.wallet === 'cash' ? '現金' : '帳戶加現金'}${rangeText(c)}`,
   })
 
   // has_item：id（那一種東西）或 tag（物品或設計圖的 tags 裡有這個字的任何東西；M4-followups-2 第 11 項）；兩個都寫要兩個都對上。min 是件數（沒寫 1）
@@ -139,6 +175,10 @@ export function registerCoreConditions(reg: ConditionRegistry, content?: Pick<Co
         return false
       }
       return state.inventory.reduce((n, s) => ((c.id === undefined || s.id === c.id) && tagged(s.id) ? n + s.qty : n), 0) >= (c.min ?? 1)
+    },
+    describe: (c) => {
+      const what = c.id !== undefined ? ((content?.get('item', c.id) ?? content?.get('blueprint', c.id)) as { name?: string } | undefined)?.name ?? c.id : `帶「${c.tag}」標籤的東西`
+      return `要有${c.min !== undefined && c.min > 1 ? ` ${c.min} 件` : ''}${what}`
     },
   })
 }
