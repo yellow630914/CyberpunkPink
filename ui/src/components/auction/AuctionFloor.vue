@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import type { AuctionView } from '@engine/src/features/auction'
 import Hint from '../Hint.vue'
 import MoneyTag from '../MoneyTag.vue'
@@ -8,6 +8,7 @@ import { useEngine } from '../../stores/engine'
 import { useUi } from '../../stores/ui'
 import { lookBadge, payKind, raiseLabel, roundLines } from '../../lib/auctionView'
 import { fmt } from '../../lib/price'
+import { createAutoBid } from '../../lib/autoBid'
 
 /**
  * 拍賣廳裡（M4-ui-auction 第 5、6 項）：左邊這一件、中間現價與誰最高與倒數、右邊在場的競標者（退出的劃掉）；底下加價 1～3 階、等、退出，與離場（要確認）。
@@ -15,7 +16,8 @@ import { fmt } from '../../lib/price'
  * 按鈕上的數字（加完的價錢、含佣金的總數）與灰掉的原因全是引擎的 bidOptions；這一回合每個人的動作照報告的順序一行一行出現（句子是引擎寫的）。
  * 看的是 auctionView 與 bidOptions：競標者的預算與拍品是不是仿品不在這裡。
  */
-const props = defineProps<{ view: AuctionView }>()
+/** autoDelay：自動跟價每一回合之間讓畫面更新的毫秒數（測試傳 0） */
+const props = withDefaults(defineProps<{ view: AuctionView; autoDelay?: number }>(), { autoDelay: 500 })
 const e = useEngine()
 const ui = useUi()
 
@@ -33,7 +35,7 @@ const autoWhy = computed(() => (options.value ? e.auction.bidBlock({ auto: { max
 const busy = ref(false)
 
 async function send(f: () => Promise<{ status: string; reason?: string }>, fallback: string) {
-  if (busy.value) return
+  if (busy.value || looping.value) return
   busy.value = true
   try {
     const r = await f()
@@ -44,7 +46,17 @@ async function send(f: () => Promise<{ status: string; reason?: string }>, fallb
 }
 const raise = (steps: number) => send(() => e.auction.bid({ act: 'raise', steps }), '現在不能加價。')
 const wait = () => send(() => e.auction.bid({ act: 'wait' }), '現在不能等。')
-const auto = () => send(() => e.auction.bid({ auto: { max: autoValue.value } }), '現在不能自動跟價。')
+/** 自動跟價：逐回合送 auto_next、可取消（lib/autoBid.ts）；何時停全是引擎的答案 */
+const autoBid = createAutoBid({
+  bid: (i) => e.auction.bid(i), view: () => e.auction.view(), delay: props.autoDelay,
+  onBlocked: (why) => ui.toast(why, 'warn'),
+})
+const looping = autoBid.looping
+const autoSet = computed(() => v.value.auto)
+onBeforeUnmount(() => autoBid.dispose())
+const auto = () => { if (!busy.value) void autoBid.run(autoValue.value) }
+const autoResume = () => { if (!busy.value) void autoBid.run() }
+const cancelAuto = () => autoBid.cancel()
 const fold = () => send(() => e.auction.bid({ act: 'fold' }), '現在不能退出。')
 async function leave() {
   confirming.value = false
@@ -103,8 +115,13 @@ const LINE_TONE: Record<string, string> = { 'auction.hammer': 'hammer', 'auction
       </div>
       <div class="auto" data-auto>
         <label class="af">自動跟到 C$<input v-model.number="autoMax" type="number" inputmode="numeric" class="inp" :min="options.auto.min" :placeholder="String(options.auto.min)" aria-label="自動跟價的上限（不含佣金）" data-auto-max></label>
-        <ReasonButton :reason="autoWhy" data-auto-go @go="auto">自動跟價</ReasonButton>
-        <Hint title="自動跟價">替你一回合一回合跟到這一件落槌：別人加價，再加一階不超過上限（而且付得起）就跟，超過就退出；落槌或退出就停。上限是不含佣金的價錢，最低是現價再加一階。</Hint>
+        <ReasonButton v-if="autoSet === null" :reason="autoWhy" data-auto-go @go="auto">自動跟價</ReasonButton>
+        <template v-else>
+          <span class="tag" data-auto-on>自動跟價中・上限 C${{ fmt(autoSet) }}</span>
+          <ReasonButton v-if="!looping" :reason="null" data-auto-resume @go="autoResume">照上限繼續</ReasonButton>
+          <button type="button" class="btn" data-auto-off @click="cancelAuto">取消自動跟價</button>
+        </template>
+        <Hint title="自動跟價">替你一回合一回合跟到這一件落槌（每一回合都是單獨送出的，隨時可以按「取消自動跟價」）：別人加價，再加一階不超過上限（而且付得起）就跟，超過就退出；落槌或退出就停。上限是不含佣金的價錢，最低是現價再加一階。</Hint>
       </div>
       <div v-if="confirming" class="warnbox" data-leave-confirm>
         <p><b>要離場嗎？</b>剩下的拍品你都不喊了：程式會把它們喊完，你這一場已經得標的照付，同一場不能再進。</p>

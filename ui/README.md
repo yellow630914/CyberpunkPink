@@ -13,6 +13,7 @@ npm run dev       # 開發伺服器，http://localhost:5173
 npm test          # Vitest：格子、家具、價格、技能樹、建角（點數、外觀推出來的三樣）、組裝、帳單、存檔（到第 4 版）、世界編輯器（檢查、用在哪）、街區、地下城、快捷鍵、到達的選單、搭車、三個戰場（第四版的技能、機甲、無人機、下載撐回合、城市事件、收買、找上門、片進牌庫）、成人場景、委託（模板、連動、直播目標）、診所、機甲（大修、升級、修車）、住處的地圖與搬家、商店的事件、染色、難度、世界書、任務鏈、未登錄零件（報酬欄與交貨、背包與組裝、委託台、勢力窗口、學工藝、partAi）、拍賣行（階段、會員、目錄與看貨、競價、結算）
 npm run build     # 從文件產生內容＋抽圖標＋型別檢查＋建置到 ui/dist/
 npm run content   # 只重新產生 src/data/content.generated.ts
+npm run build:preview  # 介面示意版：同 build，但用 preview 模式（.env.preview 的 VITE_DEMO_DEFAULT=on，開新局的示意模式預設開），輸出到 ui/dist-preview/
 npm run preview   # 在本機看建置結果
 ```
 

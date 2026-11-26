@@ -294,10 +294,13 @@ describe('5 夜課（成人分頁）', () => {
     expect(rich).toContain('aria-disabled="true"')
     expect(attrOf(rich, 'title')).toBe(s.e.night.learnBlock('nt_rich'))
     expect(attrOf(rich, 'title')).toContain('體悟')
-    expect(attrOf(tagOf(h, 'data-learn="nt_c3"'), 'title')).toBe(byId.nt_c3!.reason)
+    // UI 8.4：還沒開的階，下一階之後只顯示掛在你有的標籤上的技能；沒掛標籤的 3 階（現在開到 1 階）寫「…」，不列名字與按鈕（引擎的答案照樣是 tier_closed）
+    expect(h).not.toContain('data-learn="nt_c3"')
+    expect(h).toContain('data-masked="3"')
+    expect(byId.nt_c3!.reason).toContain('3 階還沒開')
     expect(tagOf(h, 'data-learn="nt_c1"')).not.toContain('aria-disabled')
     // 狀態字
-    expect(attrOf(tagOf(h, 'data-skill="nt_c3"'), 'data-status')).toBe('tier_closed')
+    expect(attrOf(tagOf(h, 'data-skill="nt_c1"'), 'data-status')).toBe('learnable')
     // 共鳴：開了的生效、沒開的寫還沒開
     expect(h).toContain('data-resonance="res_c1"')
     expect(attrOf(tagOf(h, 'data-resonance="res_c1"'), 'class')).toContain('on')

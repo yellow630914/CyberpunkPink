@@ -41,6 +41,8 @@ const dye = computed(() => (sel.value?.crafted ? dyeOfColors(eng.dye.colorsOf(se
 /** 授權書：用掉就學會它教的設計圖 */
 const licence = computed(() => (sel.value && !sel.value.crafted ? eng.craft.licence(sel.value.stack.id) : null))
 const uidOf = computed(() => (typeof sel.value?.stack.data?.uid === 'string' ? sel.value.stack.data.uid : undefined))
+/** 賣給腳下的店：每一間收這一類的店各一列（引擎的 sellHere：價錢與擋住的原因） */
+const sellRows = computed(() => (sel.value ? eng.trade.sellHere(sel.value.stack.id, uidOf.value) : []))
 const learnReason = computed(() => (sel.value ? eng.craft.learnBlock({ item: sel.value.stack.id, ...(uidOf.value ? { uid: uidOf.value } : {}) }) : null))
 function doLearn() {
   if (!sel.value) return
@@ -142,6 +144,10 @@ function doQuick() {
           <div v-if="sel.part.quirk" class="kv" data-part-quirk><span>怪癖</span><b>{{ quirkLine(eng.contentName('quirk', sel.part.quirk) ?? sel.part.quirk, sel.part.quirk_text) }}</b></div>
         </template>
         <div v-else-if="licence" class="kv" data-licence><span>授權書</span><b>教：{{ licence.name }}{{ licence.known ? '（已經會了）' : '' }}</b></div>
+        <template v-if="sellRows.length">
+          <p class="h mt">賣給這裡</p>
+          <div v-for="r in sellRows" :key="r.shop" class="kv" :class="{ 'is-unavailable': !!r.block }" :title="r.block ?? undefined" data-sell-here :data-shop="r.shop"><span>{{ r.name }}</span><b><MoneyTag kind="acc" :amount="r.price" /><small v-if="r.block" class="sub">　{{ r.block }}</small></b></div>
+        </template>
         <div class="go">
           <ReasonButton v-if="sel.what" sm pri :reason="equipReason" data-act="equip" @go="doEquip">{{ equipLabel }}</ReasonButton>
           <ReasonButton v-if="sel.quickable" sm :reason="quickReason" data-act="quick" @go="doQuick">放進快取格</ReasonButton>

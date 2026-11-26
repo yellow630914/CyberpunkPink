@@ -20,7 +20,7 @@ import ResultCard from '../../src/components/curtain/ResultCard.vue'
 import boardSrc from '../../src/components/combat/BattleBoard.vue?raw'
 import panelSrc from '../../src/components/curtain/CurtainPanel.vue?raw'
 import viewSrc from '../../src/lib/curtainView.ts?raw'
-import { INTERVIEW_SKILLS, bandLine, curtainOptions, curtainResultOf, heatMarks, interviewTier, resultTitle, sortPaths, tasteGroups, toggleParty, toggleTag } from '../../src/lib/curtainView'
+import { INTERVIEW_SKILL_LIST, bandLine, curtainOptions, curtainResultOf, heatMarks, interviewTier, resultTitle, sortPaths, tasteGroups, toggleParty, toggleTag } from '../../src/lib/curtainView'
 import { hereOptions } from '../../src/lib/netrunView'
 import { BRIDGE_PACK, giveBridge } from '../helpers/giveBridge'
 import { wearDeck } from '../helpers/wearDeck'
@@ -565,7 +565,7 @@ describe('lib/curtainView：只整理、不算', () => {
     expect(toggleParty(['pc'], 'pc', 'pc')).toEqual(['pc'])
     expect(toggleParty(['pc'], 'm1', 'pc')).toEqual(['pc', 'm1'])
     expect(toggleParty(['pc', 'm1'], 'm1', 'pc')).toEqual(['pc'])
-    expect(INTERVIEW_SKILLS.map((s) => s.id)).toEqual(['negotiate', 'perform'])
+    expect(INTERVIEW_SKILL_LIST.map((s) => s.id)).toEqual(['negotiate', 'perform'])
   })
 
   it('現在面談的席次：新入會是引擎說能談的那一席；沒有算式', async () => {

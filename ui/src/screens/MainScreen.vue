@@ -102,7 +102,7 @@ const hereOpts = computed<HereOption[]>(() => {
   // 拍賣行（設施種類帶 auction）：進行中的那一場照樣列、一直開得起來（回到拍賣廳）
   for (const h of e.auction.here()) {
     const s = e.auction.session(h.id)
-    mine.push(auctionOption(h, () => ui.openRoot('auction', { house: h.id }), e.auction.view() ? '正在拍賣中' : s ? stageOf(s, e.auction.now()).name : '近期沒有開槌'))
+    mine.push(auctionOption(h, () => ui.openRoot('auction', { house: h.id }), e.auction.view() ? '正在拍賣中' : s ? stageOf(s).name : '近期沒有開槌'))
   }
   // 契約：指令指定的地方就是這裡（引擎的 arriveBlock 成立）時多一項去做那一條；不在那裡的不列
   for (const o of e.contract.bound()?.queue ?? []) {

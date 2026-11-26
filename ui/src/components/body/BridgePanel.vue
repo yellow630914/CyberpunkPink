@@ -53,6 +53,7 @@ const grade = (n: number): 1 | 2 | 3 | 4 | 5 => Math.min(5, Math.max(1, n)) as 1
         <b>{{ p.name }}</b>
         <span class="mono" data-param-value>{{ p.value }}</span>
         <small class="k">基本 <span data-param-base>{{ p.base }}</span><template v-for="(x, i) in p.parts" :key="i">・{{ x.label }} {{ signed(x.value) }}</template></small>
+        <small class="k" data-param-effect>{{ p.effect }}</small>
       </div>
     </div>
   </section>

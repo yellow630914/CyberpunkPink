@@ -81,7 +81,7 @@ const choiceLines = (c: ChoiceOption): string => previewLines(c.preview, props.t
       <span class="grow" />
       <button type="button" class="btn sm" :class="{ 'is-unavailable': endWhy.length > 0 || playing }" :title="endWhy.length ? reasonText(endWhy) : undefined" data-end-turn @click="endTurn">結束回合</button>
     </div>
-    <div v-if="opts.targets.length > 1" class="tg" role="group" aria-label="行動的對象" data-targets>
+    <div v-if="opts.targets.length > 1 && shown.some((a) => a.targeted)" class="tg" role="group" aria-label="行動的對象" data-targets>
       <span class="k">對象<Hint>主導、迎合、挑逗、技能、道具、說話要作用在誰。選「自動」就由引擎挑（契合最低的、接得上的那一個）。</Hint></span>
       <button type="button" class="btn sm" :class="{ pri: !target }" data-target="auto" @click="emit('target', null)">自動</button>
       <button v-for="x in opts.targets" :key="x.id" type="button" class="btn sm" :class="{ pri: target === x.id }" :data-target="x.id" @click="emit('target', x.id)">{{ x.name }}</button>

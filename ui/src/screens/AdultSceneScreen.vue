@@ -67,8 +67,9 @@ const target = ref<string | null>(null)
 const opts = computed(() => e.scene.options(target.value))
 watch(() => v.value?.id, () => { target.value = null })
 watch(() => others.value.map((x) => x.id + x.out).join(), () => { if (target.value && !others.value.some((x) => x.id === target.value && !x.out)) target.value = null })
-const TARGETED = new Set(['dominate', 'yield', 'tease', 'skill', 'item', 'talk', 'once'])
-const withTarget = (input: SceneInput): SceneInput => (target.value && TARGETED.has(input.kind) ? ({ ...input, target: target.value } as SceneInput) : input)
+/** 哪些行動照「行動的對象」算：引擎的 ActionOption.targeted（多人才有，單人全部是 false） */
+const targetedKinds = computed(() => new Set((opts.value?.actions ?? []).filter((a) => a.targeted).map((a) => a.id as string)))
+const withTarget = (input: SceneInput): SceneInput => (target.value && targetedKinds.value.has(input.kind) ? ({ ...input, target: target.value } as SceneInput) : input)
 /** 指定對象之後選中的行動的預覽與原因：引擎 sceneView(selected) 的 selected */
 const focus = computed(() => {
   if (!target.value || !['dominate', 'yield', 'tease'].includes(selected.value)) return null
@@ -304,6 +305,7 @@ function onKey(ev: KeyboardEvent): void {
 
       <section class="panel cut pad links" data-links>
         <template v-if="simple">
+          <p v-if="v.simple_note" class="t-fine" data-simple-note>{{ v.simple_note }}</p>
           <p class="h" data-effects>持續效果：{{ v.effects.count }} 條<Hint>精簡版由系統挑部位、自動接線。持續效果每回合自動生效一次；數字是引擎算好的大概值。</Hint></p>
           <p v-if="v.effects.count === 0" class="empty-note">還沒有持續效果：用技能、道具或說話建立一條。</p>
           <p v-else class="t-fine">每回合約：{{ solo ? '自己' : `${theirName}的感載 +${v.effects.target_load}、你` }} +{{ v.effects.my_load }}、{{ solo ? '節奏' : '契合' }} {{ signed(v.effects.fit) }}。</p>

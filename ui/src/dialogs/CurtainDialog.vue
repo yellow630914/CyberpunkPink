@@ -9,7 +9,7 @@ import Tabs from '../components/Tabs.vue'
 import FallPanel from '../components/curtain/FallPanel.vue'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
-import { INTERVIEW_SKILLS, interviewTier, memberLine, roman, tasteGroups, tierRep, toggleParty, toggleTag, tapeLine } from '../lib/curtainView'
+import { INTERVIEW_SKILL_LIST, interviewTier, memberLine, roman, tasteGroups, tierRep, toggleParty, toggleTag, tapeLine } from '../lib/curtainView'
 
 /**
  * 簾後館（CYBERSPACE 8.8 節；dev/work/M4-ui-curtain.md 第 1、2 項）：沒有會員證時是面談（邀請函剩幾天、席次與檢定的 DC、不收的原因），有的時候是會員頁
@@ -96,7 +96,7 @@ const tabView = computed(() => account.value.tab)
         <div v-if="m.member?.suspended" class="blocking" data-suspended>{{ memberLine(m.member) }}</div>
         <div v-if="!m.invite && e.demoMode" class="go left" data-demo-only><button type="button" class="btn sm" data-demo-invite @click="giveInvite">（示意）領一張邀請函</button><small class="note">示意模式才有。誰給邀請函是內容：介紹人、試鏡、蚌殼市的老攤。</small></div>
         <label class="pick">用哪一項檢定
-          <select v-model="skill" data-skill><option v-for="s in INTERVIEW_SKILLS" :key="s.id" :value="s.id">{{ s.name }}</option></select>
+          <select v-model="skill" data-skill><option v-for="s in INTERVIEW_SKILL_LIST" :key="s.id" :value="s.id">{{ s.name }}</option></select>
         </label>
         <div class="grid2">
           <div v-for="t in m.tiers" :key="t.id" class="tier" :class="{ 'is-unavailable': !t.canInterview }" :data-tier="t.id">
@@ -125,7 +125,7 @@ const tabView = computed(() => account.value.tab)
         <section class="panel cut pad mt" data-upgrade>
           <p class="h">升席<Hint title="升席">在目前的席次破關滿次數、街頭信譽夠，再面談一次（不用邀請函）。一席一席升。</Hint></p>
           <label class="pick">用哪一項檢定
-            <select v-model="skill" data-skill><option v-for="s in INTERVIEW_SKILLS" :key="s.id" :value="s.id">{{ s.name }}</option></select>
+            <select v-model="skill" data-skill><option v-for="s in INTERVIEW_SKILL_LIST" :key="s.id" :value="s.id">{{ s.name }}</option></select>
           </label>
           <div class="grid2">
             <div v-for="t in m.tiers.filter((x) => !x.current)" :key="t.id" class="tier" :class="{ 'is-unavailable': !t.canInterview }" :data-tier="t.id">

@@ -19,6 +19,15 @@
 - （使用者 2026-11-26）示意模式：正式遊戲預設關；發布給使用者看的介面示意版預設開（建置參數或示意版的設定，例 `VITE_DEMO_DEFAULT=on`）。
 - （使用者 2026-11-26）建角特質：被內容篩選關掉的照樣列出、灰掉、寫原因，不能選。
 
+### 介面這一半做完了（2026-11-26，cpp-ui）
+
+- 接上引擎匯出：成功率（報價 `chance`，`bodyView.chanceText`）、夜課 `basis`／`hidden`／`deep`（`NightClassPanel` 與 `lib/nightView.ts`：還沒開的階，下一階之後沒掛標籤的技能同階合成一個「…」）、`simple_note` 與 `targeted`（對象一排只在有 targeted 行動時出現，送出時只有 targeted 的行動帶 target）、拿掉從引擎深路徑 import 的三處（`paramStatId`、`treeTierOf`、`DIRECTION_MAX`，連同面談技能 `INTERVIEW_SKILLS`）改用根匯出、橋參數效果句（橋分頁與成人分頁）、篩選名字表（`FILTER_ROWS` 讀 `CONTENT_TAG_INFO`）、拍賣 `stage`／`inspectable`、背包的「賣給這裡」（`sellHere`）、橋關著時靜修面板提一句（`k.activity.bridgeClosed`）；簾後館的記帳列本來就照 `pathsOf` 的 `can`／`why`（已有測試）。
+- 自動跟價改成逐回合：`lib/autoBid.ts` 設上限後逐回合送 `auto_next`（之間等一下讓畫面更新），「取消自動跟價」送 `auto_off`，落槌、上限到了、被擋、離開畫面就停。
+- 戰鬥畫面的生命值照 `hp_blur`（`BattleBoard`）。建角特質改成 `components/creation/PerkList.vue`，被篩掉的照樣列出、灰掉、寫 `perkFilterBlock` 的原因。
+- 示意模式：`lib/demoDefault.ts` 讀 `VITE_DEMO_DEFAULT`；正式 `npm run build` 預設關，`npm run build:preview`（`--mode preview`，`.env.preview`）預設開，輸出 `ui/dist-preview/`。
+- 沒做：`data/items.ts` 移除（M5）。測試：`ui/tests/fix/M4-fix-2-ui.test.ts`，拍賣自動跟價在 `ui/tests/auction/M4-ui-auction.test.ts`。
+- 回報引擎：夜課「…」的規則是介面自己用 `tier` 與 `tag === null` 判斷（沒有數字）；若要改成「沒掛標籤的也照顯示」只要改 `lib/nightView.ts`。
+
 ## 白箱的 bug（2026-11-26）：B032～B042 全修，pending 移到 features
 - B032 靜修期間沉溺過 100 結算不往下降；B033 沒有橋的人夜課橋參數條件不成立；B034 grace／bill 的夾值看來源（內建與關著且 asked 對得上的不夾）；B035 效果引用的 id 要存在、結果行不寫 id；B036 同一件事同一個傾向標籤只長一點；B037 帳單金額夾在合理上限、不溢位；B038 內容資料的年齡底線在內容覆蓋與沒裝 npcs 時也擋；B040 結束活動的同一份報告推進的時間也算在活動裡（期限暫停）；B041 指定生體不指定類型時只抽有生體版的類型。
 

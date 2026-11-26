@@ -23,8 +23,10 @@ import AuctionLobby from '../../src/components/auction/AuctionLobby.vue'
 import AuctionFloor from '../../src/components/auction/AuctionFloor.vue'
 import AuctionResult from '../../src/components/auction/AuctionResult.vue'
 import mainSrc from '../../src/screens/MainScreen.vue?raw'
+import { SESSION_STAGE_NAME } from '@engine/src/features/auction'
 import { settlementOf, stageOf } from '../../src/lib/auctionView'
 import { fmt } from '../../src/lib/price'
+import { createAutoBid } from '../../src/lib/autoBid'
 import { demoPack } from '../../src/data/demo'
 
 vi.mock('../../src/router', () => ({ FULL_PAGES: [{ path: '/', name: '主畫面' }], router: {} }))
@@ -134,8 +136,9 @@ describe('1 階段', () => {
     const h = await lobby(pinia)
     expect(text(after(h, 'data-start'))).toContain(e.auction.at(s.start))
     expect(text(after(h, 'data-catalog-at'))).toContain(e.auction.at(s.catalog_at))
-    expect(stageOf(s, s.start - 1).id).toBe('waiting')
-    expect(stageOf(s, s.end).id).toBe('ended')
+    expect(stageOf({ stage: 'waiting' }).id).toBe('waiting')
+    expect(stageOf({ stage: 'ended' }).id).toBe('ended')
+    expect(stageOf(s).name).toBe(SESSION_STAGE_NAME[s.stage])
   })
 })
 
@@ -351,13 +354,71 @@ describe('4 進場與競價', () => {
     expect(e.auction.bidBlock({ auto: { max: o.auto.min } })).toBeNull()
     // 上限不合格式：引擎的那一句
     expect(e.auction.bidBlock({ auto: { max: 0 } })).toContain('自動跟價要給一個大於 0 的上限')
-    // 送出：一次推進（報告的 rounds 不只一回合，或這一件已經落槌）
+    // 設上限只走這一回合（M4-fix-2：一回合一份報告）
     const lot = v.lot_no
     const before = e.state.reports.length
-    expect((await e.auction.bid({ auto: { max: o.auto.min + 5 * v.step } })).status).toBe('applied')
-    expect(e.state.reports.length).toBeGreaterThan(before)
+    expect((await e.auction.bid({ auto: { max: o.auto.min + 50 * v.step } })).status).toBe('applied')
+    expect(e.state.reports.length).toBe(before + 1)
+    expect(e.auction.view()?.auto ?? null).not.toBeNull()
+    expect(e.auction.view()!.lot_no).toBe(lot)
+  })
+
+  it('自動跟價逐回合送：每回合一份報告、之間讓畫面更新；落槌或上限到了就停（lib/autoBid）', async () => {
+    const { e } = await setup({ member: true })
+    await e.auction.enter(HOUSE, 'cash')
+    const v = e.auction.view()!
+    const lot = v.lot_no
+    const sent: string[] = []
+    const auto = createAutoBid({
+      bid: (i) => { sent.push('auto' in i ? 'auto' : i.act); return e.auction.bid(i) },
+      view: () => e.auction.view(), delay: 0,
+    })
+    const before = e.state.reports.length
+    await auto.run(v.price + 50 * v.step)
+    expect(auto.looping.value).toBe(false)
+    // 第一手設上限、之後每一手都是 auto_next，一手一份報告
+    expect(sent[0]).toBe('auto')
+    expect(sent.slice(1).every((x) => x === 'auto_next')).toBe(true)
+    expect(e.state.reports.length - before).toBe(sent.length)
+    // 停下來的原因是引擎說的：換了一件、整場結束，或上限已經被拿掉
     const now = e.auction.view()
-    expect(now === null || now.lot_no !== lot || now.round > v.round).toBe(true)
+    expect(now === null || now.lot_no !== lot || now.auto === null).toBe(true)
+  })
+
+  it('自動跟價可以取消：取消之後不再多走一回合，引擎的上限拿掉、報告 result 是 auto_off', async () => {
+    const { e } = await setup({ member: true })
+    await e.auction.enter(HOUSE, 'cash')
+    const v = e.auction.view()!
+    const sent: string[] = []
+    const auto = createAutoBid({
+      bid: (i) => { sent.push('auto' in i ? 'auto' : i.act); return e.auction.bid(i) },
+      view: () => e.auction.view(), delay: 20,
+    })
+    const run = auto.run(v.price + 50 * v.step)
+    await new Promise((r) => setTimeout(r, 5))
+    await auto.cancel()
+    await run
+    expect(sent.at(-1)).toBe('auto_off')
+    expect(sent.filter((x) => x === 'auto_off')).toHaveLength(1)
+    const now = e.auction.view()
+    expect(now === null || now.auto === null).toBe(true)
+    // 已經沒有上限：auto_off 再送一次引擎說不用取消
+    expect(e.auction.bidBlock({ act: 'auto_off' })).toContain('不用取消')
+  })
+
+  it('廳裡設著上限時顯示「取消自動跟價」；沒設時是「自動跟價」', async () => {
+    const { e, pinia } = await setup({ member: true })
+    await e.auction.enter(HOUSE, 'cash')
+    const v0 = e.auction.view()!
+    expect(await render(pinia, AuctionFloor, { view: v0 })).not.toContain('data-auto-off')
+    await e.auction.bid({ auto: { max: v0.price + 50 * v0.step } })
+    const v1 = e.auction.view()!
+    expect(v1.auto).not.toBeNull()
+    const h = await render(pinia, AuctionFloor, { view: v1 })
+    expect(h).toContain('data-auto-off')
+    expect(h).toContain('data-auto-on')
+    expect(h).not.toContain('data-auto-go')
+    expect(text(after(h, 'data-auto-on', 120))).toContain(fmt(v1.auto!))
   })
 
   it('落槌之後進到下一件；退出的競標者劃掉', async () => {

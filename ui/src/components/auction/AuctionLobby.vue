@@ -17,7 +17,7 @@ const e = useEngine()
 const ui = useUi()
 
 const session = computed(() => e.auction.session(props.house))
-const stage = computed(() => (session.value ? stageOf(session.value, e.auction.now()) : null))
+const stage = computed(() => (session.value ? stageOf(session.value) : null))
 const catalog = computed(() => e.auction.catalog(props.house))
 const member = computed(() => e.auction.member(props.house))
 const refs = computed(() => e.auction.refOptions(props.house))
@@ -87,6 +87,7 @@ const pct = (n: number): string => `${Math.round(n * 100)}%`
         <label v-if="crew.length > 1" class="pick">誰去看
           <select :value="inspector" data-by @change="by = ($event.target as HTMLSelectElement).value"><option v-for="c in crew" :key="c.id" :value="c.id">{{ c.name }}{{ c.me ? '（你）' : '' }}</option></select>
         </label>
+        <p v-if="session && !session.inspectable" class="note" data-no-inspect>現在不是預展的時段，看貨的按鈕是灰的。</p>
         <div class="lots">
           <div v-for="l in lots" :key="l.index" class="lot" :data-lot="l.index">
             <span class="no mono">{{ l.index + 1 }}</span>

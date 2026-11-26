@@ -1,6 +1,6 @@
 import type { Change, Report } from '@engine/src'
-import type { GenderId } from '@engine/src'
-import { DEGREE_NAME, GENDER_IDS, blankState, createKernel, formatTime } from '@engine/src'
+import type { ContentTag, GenderId } from '@engine/src'
+import { CONTENT_TAG_INFO, DEGREE_NAME, GENDER_IDS, blankState, contentTagName, createKernel, formatTime } from '@engine/src'
 
 /**
  * 把引擎的東西轉成畫面要的樣子（純函式，不寫規則）：
@@ -164,7 +164,7 @@ export function uiFromAiSettings(raw: unknown): Partial<UiAiFields> {
 /**
  * 內容篩選裡的題材（設定的欄位 → 存檔規則 contentOff 的標籤）。引擎的封閉清單是 CONTENT_TAGS（core/rules/versions）；
  * 另外四項（拘束、公開、契約）是內容自己的標籤，引擎只做「帶這個標籤的條目不出現」，所以說明只寫這件事。
- * 名字與說明是介面的字樣（引擎沒有給名字表：已回報）。
+ * 名字與說明讀引擎的 CONTENT_TAG_INFO，內容自己的標籤（拘束、公開、契約）才是介面的字樣。
  */
 export const FILTER_TAGS = {
   filterRestraint: ['restraint'], filterDollChip: ['puppet_amnesia'], filterPublic: ['public'], filterContract: ['contract'], filterIntimateBody: ['intimate_body'],
@@ -173,23 +173,19 @@ export const FILTER_TAGS = {
 } as const satisfies Record<string, readonly string[]>
 export type FilterKey = keyof typeof FILTER_TAGS
 /** 設定與建角的「內容篩選」列：每一項的名字與說明（開關關掉＝那個標籤進 contentOff）。 */
-export const FILTER_ROWS: ReadonlyArray<{ k: FilterKey; name: string; hint: string }> = [
-  { k: 'filterRestraint', name: '拘束', hint: '關掉時，標了「拘束」的事件、生命軌跡與傾向的選項不出現（只看內容有沒有寫這個標籤）。' },
-  { k: 'filterDollChip', name: '人偶晶片的失憶', hint: '關掉時，標了「人偶失憶」的場景與事件不出現。' },
-  { k: 'filterPublic', name: '公開場合', hint: '關掉時，標了「公開」的事件、生命軌跡與傾向的選項不出現。' },
-  { k: 'filterContract', name: '契約', hint: '關掉時，標了「契約」的事件、生命軌跡與傾向的選項不出現（契約本身的面板與經濟面不受影響；契約的支配面看下面的「契約支配」）。' },
-  { k: 'filterIntimateBody', name: '身體的私密描寫', hint: '關掉時建角不問私處的樣子，角色的成人分頁也不顯示；場景裡那幾個部位的名字收起來。' },
-  { k: 'filterPcUnwilling', name: '主角非自願', hint: '關掉時「被迫」性質的場景開不起來，標了主角非自願的分支改走替代的版本。' },
-  { k: 'filterTargetUnwilling', name: '對象非自願', hint: '關掉時「俘虜」性質的場景開不起來，對俘虜或被迫的對象用的夜課技能不出現。' },
-  { k: 'filterContractDom', name: '契約支配', hint: '關掉時「契約」性質的場景開不起來，契約只剩經濟與法律層面的效果。' },
-  { k: 'filterNtr', name: 'NTR', hint: '關掉時帶 NTR 標籤的場景開不起來，相關的夜課技能不出現。' },
-  { k: 'filterBlacktape', name: '黑帶相關的任務', hint: '關掉時黑帶相關的任務與事件不出現。' },
-  { k: 'filterMale', name: '男性對象', hint: '關掉時，對象是男性的成人場景開不起來（內海看化身的性別）。' },
-  { k: 'filterFemale', name: '女性對象', hint: '關掉時，對象是女性的成人場景開不起來（內海看化身的性別）。' },
-  { k: 'filterFemboy', name: '男娘與偽娘對象', hint: '關掉時，對象是這個性別的成人場景開不起來（內海看化身的性別）。' },
-  { k: 'filterTrans', name: 'TS 對象', hint: '關掉時，對象是這個性別的成人場景開不起來（內海看化身的性別）。' },
-  { k: 'filterFuta', name: '扶他對象', hint: '關掉時，對象是這個性別的成人場景開不起來（內海看化身的性別）。' },
-]
+/** 內容自己的標籤（引擎的名字表沒有）：名字與說明是介面的字樣 */
+const OWN_ROWS: Partial<Record<FilterKey, { name: string; hint: string }>> = {
+  filterRestraint: { name: '拘束', hint: '關掉時，標了「拘束」的事件、生命軌跡與傾向的選項不出現（只看內容有沒有寫這個標籤）。' },
+  filterPublic: { name: '公開場合', hint: '關掉時，標了「公開」的事件、生命軌跡與傾向的選項不出現。' },
+  filterContract: { name: '契約', hint: '關掉時，標了「契約」的事件、生命軌跡與傾向的選項不出現（契約本身的面板與經濟面不受影響；契約的支配面看下面的「契約支配」）。' },
+}
+const FILTER_ORDER: FilterKey[] = ['filterRestraint', 'filterDollChip', 'filterPublic', 'filterContract', 'filterIntimateBody', 'filterPcUnwilling', 'filterTargetUnwilling', 'filterContractDom', 'filterNtr', 'filterBlacktape', 'filterMale', 'filterFemale', 'filterFemboy', 'filterTrans', 'filterFuta']
+/** 引擎認得的標籤：名字與說明讀引擎的 CONTENT_TAG_INFO（contentTagName 查名字），沒有的才用 OWN_ROWS。 */
+export const FILTER_ROWS: ReadonlyArray<{ k: FilterKey; name: string; hint: string }> = FILTER_ORDER.map((k) => {
+  const tag = FILTER_TAGS[k][0]
+  const own = OWN_ROWS[k]
+  return { k, name: own?.name ?? contentTagName(tag), hint: own?.hint ?? CONTENT_TAG_INFO[tag as ContentTag]?.note ?? '' }
+})
 export type UiFilterFlags = { [K in FilterKey]?: boolean }
 
 export function rulesFromUi(s: { difficulty?: string; traitPoints?: number; customDiff?: { dc: number }; fastTravel?: boolean; rosterDeath?: boolean } & UiFilterFlags): Record<string, unknown> {

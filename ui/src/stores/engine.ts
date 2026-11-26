@@ -61,8 +61,8 @@ import type { DirectorView, EventView } from '@engine/src/features/director'
 import { toMinutes, fromMinutes, formatTime, weekdayOf } from '@engine/src'
 import { hostilityView, scanView, timedFloors } from '@engine/src/features/security'
 import type { HostilityRow, ScanView } from '@engine/src/features/security'
-import { bargainByFavor, bargainInput, checkout as tradeCheckout, planCheckout, routesHint, shopView } from '@engine/src/features/trade'
-import type { BargainMethod, Cart, CheckoutPlan, RoutesHint, ShopView } from '@engine/src/features/trade'
+import { bargainByFavor, bargainInput, checkout as tradeCheckout, planCheckout, routesHint, sellHere, shopView } from '@engine/src/features/trade'
+import type { BargainMethod, Cart, CheckoutPlan, RoutesHint, SellHere, ShopView } from '@engine/src/features/trade'
 import { billPreview, setBill } from '@engine/src/features/bills'
 import type { BillPreview, BillSetting } from '@engine/src/features/bills'
 import { jobsHere, shift as workShift } from '@engine/src/features/work'
@@ -81,18 +81,16 @@ import { lessonBlock as trainBlock, lessonDraft as trainDraft, teachOptions as t
 import type { LessonOpts as TrainOpts, TeachOption, TutorOpts, TutorOption } from '@engine/src/features/abilities'
 import { AXES, AXIS_NAME, BRIDGE_PARAMS, PARAM_NAME, TAG_KIND, bridgeOf as lewdBridgeOf, tendencyOf } from '@engine/src/features/lewd'
 import type { TagEntry } from '@engine/src/features/lewd'
-import { paramStatId } from '@engine/src/features/lewd/model'
 
-import { PASSIVE_SOURCE_NAMES } from '@engine/src'
+import { PASSIVE_SOURCE_NAMES, bridgeParamEffect, paramStatId, treeTierOf } from '@engine/src'
 import type { RollPart } from '@engine/src'
 import type { BodyBag, BodyBagKind, BodyPassive } from '../lib/bodyView'
 import type { PartyMember } from '../data/types'
 import { DEMO_SCENES, demoBoundChanges, demoBodyChanges, demoHolderChanges, demoCraftChanges, demoNetChanges, demoPack, demoPeopleChanges, demoPartsChanges, demoAuctionChanges, demoSceneChanges, demoStartFeature, withDemoOrigins, demoCurtainChanges } from '../data/demo'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
-import { MAX_KINKS, TABLE_NAME, abilitiesStepBlock, ageBlock, askStep, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationCatalog, creationLimits, creationLook, lookTexts, suggestedKit, creationSummary, cyberStepBlock, gearStepBlock, kinkChoices, lifepathProblems, lifepathResults, lifepathRoll, lifepathTables, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
+import { MAX_KINKS, TABLE_NAME, abilitiesStepBlock, ageBlock, askStep, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationCatalog, creationLimits, creationLook, lookTexts, suggestedKit, creationSummary, cyberStepBlock, gearStepBlock, kinkChoices, lifepathProblems, lifepathResults, lifepathRoll, lifepathTables, originView, perkBlock, perkFilterBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
 import type { BodyStep, LifepathTable } from '@engine/src/features/creation'
 import { NO_BRIDGE_ABILITY, NO_BRIDGE_NOTE } from '@engine/src/features'
-import { treeTierOf } from '@engine/src/features/abilities/learn'
 import { debriefOf } from '../lib/scene/sceneView'
 import type { Debrief } from '../lib/scene/sceneView'
 import { lastRound as auctionLastRound, settlementOf as auctionSettlementOf } from '../lib/auctionView'
@@ -317,6 +315,8 @@ export const useEngine = defineStore('engine', () => {
     skillBlock: (levels: Record<string, number>) => skillBlock(game.k, cstate(), levels),
     perkSummary: (picked: string[]) => perkSummary(game.k, cstate(), picked),
     perkBlock: (picked: string[]) => perkBlock(game.k, cstate(), picked),
+    /** 這個特質被內容篩選關掉的原因（沒關是 null）：照樣列出、灰掉、寫這句 */
+    perkFilterBlock: (id: string) => perkFilterBlock(game.k, cstate(), id),
     blocks: (draft: CreationDraft) => creationBlocks(game.k, cstate(), draft),
     /** 建角畫面開著的時候，把設定頁的存檔規則交給引擎預覽（rulesFromUi 的輸出）；newGame 之後清掉 */
     previewRules: (rules: object | null) => { previewRules.value = rules },
@@ -1301,6 +1301,8 @@ export const useEngine = defineStore('engine', () => {
     lock: (): string | null => { void state.value; return game.blockOf('commit:trade.checkout') },
     /** 這一車結不結得了：每一列的價錢、淨額與所有不成立的原因（引擎的 planCheckout）；不改任何東西 */
     plan: (id: string, cart: Cart): CheckoutPlan => { void state.value; return planCheckout(game.k, game.state, id, cart) },
+    /** 背包裡這一件在腳下的店賣得到多少（每一間收這一類的店各一列，價高的在前，附原因）；腳下沒有店是空的 */
+    sellHere: (item: string, uid?: string): SellHere[] => { void state.value; try { return sellHere(game.k, game.state, item, uid) } catch { return [] } },
     /** 這樣東西在哪幾區便宜、哪幾區貴（價差提示）；沒有定價是 null */
     routes: (item: string): RoutesHint | null => {
       void state.value
@@ -1706,12 +1708,12 @@ export const useEngine = defineStore('engine', () => {
       return piece ? cyberware.viewPiece(game.k, game.state, pc, piece.uid) ?? null : null
     }, null),
     /** 四項橋參數：基本值、有效值（引擎的衍生數值 bridge_*）與每個來源；沒有橋是 null */
-    bridgeParams: (): Array<{ id: string; name: string; base: number; value: number; band: number; parts: RollPart[] }> | null => onPc((pc) => {
+    bridgeParams: (): Array<{ id: string; name: string; /** 這一項的效果說明句（引擎的 bridgeParamEffect，數字讀現在的規則） */ effect: string; base: number; value: number; band: number; parts: RollPart[] }> | null => onPc((pc) => {
       const v = lewdBridgeOf(game.k, game.state, pc)
       if (!v) return null
       return BRIDGE_PARAMS.map((p) => {
         const sid = paramStatId(p)
-        return { id: p, name: PARAM_NAME[p], base: v[p].base, value: v[p].value, band: v[p].band, parts: game.k.stats.hasStat(sid) ? game.k.stats.statParts(game.state, pc, sid).filter((x) => x.source !== 'base') : [] }
+        return { id: p, name: PARAM_NAME[p], effect: bridgeParamEffect(game.k, p), base: v[p].base, value: v[p].value, band: v[p].band, parts: game.k.stats.hasStat(sid) ? game.k.stats.statParts(game.state, pc, sid).filter((x) => x.source !== 'base') : [] }
       })
     }, null),
     /** 授權鎖：身上有鎖的每一件 */
@@ -1758,6 +1760,8 @@ export const useEngine = defineStore('engine', () => {
     therapy: (o: sink.TherapyOpts = {}): string | null => commitMade(() => sink.therapyDraft(game.k, game.state, o)),
     /** 進行中的斷線靜修（哪一間、還剩幾天、結束時最多降多少、進去時的沉溺）；沒有是 null */
     retreat: (): sink.RetreatView | null => { void state.value; return sink.retreatView(game.state) },
+    /** 橋現在是關著的嗎（引擎的 k.activity.bridgeClosed：斷線靜修期間為真，技能不算數、容量 0） */
+    bridgeClosed: (): boolean => { void state.value; return game.k.activity.bridgeClosed(game.state) },
     stayBlock: (): string | null => ask(() => sink.retreatStayBlock(game.k, game.state), '現在待不下去。'),
     stay: (): string | null => commitMade(() => sink.retreatStayDraft(game.k, game.state)),
     leaveBlock: (): string | null => ask(() => sink.retreatLeaveBlock(game.k, game.state), '現在離不開。'),

@@ -450,6 +450,9 @@ describe('治療與痛覺編輯器', () => {
     expect(h).toContain('data-retreat-panel')
     expect(h).toContain('data-act="retreat-stay"')
     expect(h).toContain('data-act="retreat-leave"')
+    // 橋關著（引擎的 bridgeClosed）：面板提一句技能不算數、容量 0
+    expect(e.body.bridgeClosed()).toBe(true)
+    expect(h).toContain('data-bridge-closed')
     expect(text(h)).toContain(`${v.days_left} 天`)
     expect(e.body.stayBlock()).toBeNull()
     expect(e.body.leaveBlock()).toBeNull()
@@ -460,6 +463,7 @@ describe('治療與痛覺編輯器', () => {
     // 提早離開：記號拿掉、沉溺沒降
     expect(e.body.leave()).toBeNull()
     expect(e.body.retreat()).toBeNull()
+    expect(e.body.bridgeClosed()).toBe(false)
     expect(e.body.sink()!.value).toBe(sink0)
     expect(e.body.stayBlock()).toBeTruthy()
   })

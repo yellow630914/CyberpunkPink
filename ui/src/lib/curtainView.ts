@@ -1,5 +1,7 @@
+import { INTERVIEW_SKILLS } from '@engine/src'
 import type { CurtainView, FallView, MemberView, PathView, TierView } from '@engine/src/features/curtain'
 import type { HereOption } from './here'
+type InterviewSkill = (typeof INTERVIEW_SKILLS)[number]
 
 /**
  * 簾後館的檢視整理（M4-ui-curtain；CYBERSPACE 8.8 節）：把引擎的 memberView、curtainView、fallView 排成畫面要的樣子。
@@ -7,8 +9,9 @@ import type { HereOption } from './here'
  * 遭遇的開戰與潛行繞過不在這裡：讀 netrunView（lib/netrunView.ts 的 hereOptions），curtainView.near 不列遭遇。
  */
 
-/** 面談可以擲的兩項基本功（引擎的 INTERVIEW_SKILLS） */
-export const INTERVIEW_SKILLS: Array<{ id: 'negotiate' | 'perform'; name: string }> = [{ id: 'negotiate', name: '交涉' }, { id: 'perform', name: '表演' }]
+/** 面談可以擲的基本功（id 是引擎的 INTERVIEW_SKILLS，這裡只加名字） */
+const SKILL_NAME: Record<string, string> = { negotiate: '交涉', perform: '表演' }
+export const INTERVIEW_SKILL_LIST: Array<{ id: InterviewSkill; name: string }> = INTERVIEW_SKILLS.map(id => ({ id, name: SKILL_NAME[id] ?? id }))
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V']
 export const roman = (n: number): string => ROMAN[n] ?? String(n)
 

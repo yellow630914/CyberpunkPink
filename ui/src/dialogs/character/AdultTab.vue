@@ -50,6 +50,7 @@ const insight = computed(() => eng.night.list()?.insight ?? 0)
         <div v-for="p in params ?? []" :key="p.id" class="param" :data-param="p.id">
           <TrackBar :label="p.name" :value="p.value" :max="100" :color="PARAM_COLOR[p.id] ?? 'var(--a)'" />
           <small>有效值 <b data-param-value>{{ p.value }}</b>・基本 <span data-param-base>{{ p.base }}</span></small>
+          <small class="k" data-param-effect>{{ p.effect }}</small>
         </div>
       </div>
       <div v-if="st.s.filterIntimateBody" class="panel cut pad" data-privates>

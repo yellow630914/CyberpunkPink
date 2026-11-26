@@ -19,8 +19,10 @@ import {
   ORIGINS, LOOKS, LOOK_GROUPS, BUILD_FIGURE, QUICK_STARTS,
 } from '../data/creation'
 import { fmtMod } from '../lib/creation'
-import { FILTER_ROWS, GENDER_OPTIONS, PERK_CATEGORY_NAME, rulesFromUi } from '../lib/engineView'
+import { FILTER_ROWS, GENDER_OPTIONS, rulesFromUi } from '../lib/engineView'
 import { unavailable } from '../lib/unavailable'
+import PerkList from '../components/creation/PerkList.vue'
+import { demoDefault } from '../lib/demoDefault'
 import type { CreationDraft, CreationLook } from '@engine/src/features/creation'
 
 /**
@@ -142,7 +144,9 @@ const picks = reactive<{ perks: string[] }>({ perks: [] })
 const tr = computed(() => e.creation.perkSummary(picks.perks))
 // 特質的內容篩選由引擎擋（perkBlock 與 creationBlocks 照存檔規則的 contentOff）；這裡不另外藏
 const perkList = computed(() => ePerks)
-const perkAddBlock = (id: string) => (picks.perks.includes(id) ? null : e.creation.perkBlock([...picks.perks, id]))
+/** 被內容篩選關掉的特質：照樣列出、灰掉、寫原因（引擎的 perkFilterBlock），不能選 */
+const perkFilterWhy = (id: string) => e.creation.perkFilterBlock(id)
+const perkAddBlock = (id: string) => (picks.perks.includes(id) ? null : perkFilterWhy(id) ?? e.creation.perkBlock([...picks.perks, id]))
 function togglePerk(id: string) {
   if (picks.perks.includes(id)) { picks.perks = picks.perks.filter(x => x !== id); return }
   const b = perkAddBlock(id)
@@ -211,8 +215,8 @@ const START_KINDS: Array<{ id: StartKind; name: string; line: string }> = [
   { id: 'holder', name: '持約人開局', line: '你在拍賣會上買下了歌手阿音的債，成了她的持約人；她在你的名冊上。' },
 ]
 const startKind = ref<StartKind>('normal')
-/** 示意模式：開著才有上面的契約開局、簾後館邀請函與拍賣行常客的交情；關著時都不出現、也不給（預設關） */
-const demoOn = ref(false)
+/** 示意模式：開著才有上面的契約開局、簾後館邀請函與拍賣行常客的交情；關著時都不出現、也不給（正式遊戲預設關；介面示意版的建置 npm run build:preview 預設開，見 lib/demoDefault.ts） */
+const demoOn = ref(demoDefault())
 const demoInvite = ref(false)
 const demoAuction = ref(false)
 const demoOpts = computed(() => ({ on: demoOn.value, invite: demoOn.value && demoInvite.value, auction: demoOn.value && demoAuction.value }))
@@ -416,11 +420,7 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
         <template v-else-if="step === 7">
           <h2>特質與缺陷・剩 {{ tr.left }} 點</h2>
           <p class="setgrp">起始 {{ lim.perkPoints }} 點，另送出身特質「{{ origin.trait.name }}」<Hint>每個特質 1～3 點：一格（例如一項基本功 +2）是 2 點；最多 {{ lim.flawMax }} 個缺陷，每個退 1～3 點；特質總數上限 {{ lim.perkMax }} 個（不含出身特質與缺陷）。特質不佔橋的容量。</Hint></p>
-          <div class="grid2 traits">
-            <button v-for="t in perkList" :key="t.id" type="button" class="lrow pick" :class="{ on: picks.perks.includes(t.id), flaw: t.flaw }" v-bind="unavailable(perkAddBlock(t.id))" @click="togglePerk(t.id)">
-              <span class="grow"><b>{{ t.name }}</b><small>{{ PERK_CATEGORY_NAME[t.category] ?? t.category }}・{{ t.desc }}</small></span><b class="pt mono">{{ t.flaw ? '+' : '−' }}{{ t.cost }}</b>
-            </button>
-          </div>
+          <PerkList :perks="perkList" :picked="picks.perks" :add-block="perkAddBlock" :filter-why="perkFilterWhy" @toggle="togglePerk" />
           <div class="go"><button type="button" class="btn sm" v-bind="unavailable('自訂特質要引擎先有這種資料，這一版還不能用。')">自訂</button></div>
           <div v-if="block" class="blocking">{{ block }}</div>
         </template>
@@ -539,7 +539,6 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
 .lgrp h4 { margin: 0; display: flex; gap: var(--space-2); align-items: center; }
 .lgrp .form { grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: var(--space-4); }
 .pick.flaw b:first-child { color: var(--warn); }
-.pt { font-size: var(--fs-md); color: var(--ap); min-width: 26px; text-align: right; }
 .custom { margin-top: 8px; display: grid; gap: 8px; }
 .go.left { justify-content: flex-start; margin: 0 0 8px; }
 .body.wide { grid-template-columns: minmax(0, 1fr); max-width: 1600px; }

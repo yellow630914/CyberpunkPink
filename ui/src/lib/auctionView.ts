@@ -1,6 +1,7 @@
 import type { Report } from '@engine/src'
 import type { AuctionSummary, AuctionView, BidOption, CatalogLotView } from '@engine/src/features/auction'
-import { auctionSummary } from '@engine/src/features/auction'
+import { SESSION_STAGE_NAME, auctionSummary } from '@engine/src/features/auction'
+import type { SessionStage } from '@engine/src/features/auction'
 import type { HereOption } from './here'
 
 /**
@@ -22,13 +23,11 @@ const STAGES: Record<StageId, Stage> = {
 }
 export const stageById = (id: StageId): Stage => STAGES[id]
 
-/** 這一場（引擎的 sessionOf）現在在哪個階段：照目錄公布、預展起訖、開槌起訖與現在的分鐘數分段。結束的那一場引擎不再回傳，結束頁自己用 'ended' */
-export function stageOf(s: { catalog_at: number; preview: { from: number; to: number }; start: number; end: number }, now: number): Stage {
-  if (now < s.catalog_at) return STAGES.unannounced
-  if (now >= s.start && now < s.end) return STAGES.live
-  if (now >= s.end) return STAGES.ended
-  if (now >= s.preview.from && now < s.preview.to) return STAGES.preview
-  return STAGES.waiting
+/** 引擎的階段（sessionOf 的 stage：upcoming、preview、waiting、open；結束的那一場引擎不再回傳，結束頁自己用 'ended'）對到畫面的階段；名字是引擎的 SESSION_STAGE_NAME，說明是介面的字樣 */
+const STAGE_OF: Record<SessionStage, StageId> = { upcoming: 'unannounced', preview: 'preview', waiting: 'waiting', open: 'live', ended: 'ended' }
+export function stageOf(s: { stage: SessionStage }): Stage {
+  const st = STAGES[STAGE_OF[s.stage]]
+  return { ...st, name: SESSION_STAGE_NAME[s.stage] }
 }
 
 /** 預展的時段裡零件與義體旁邊才有「看貨」（引擎 inspectOptions 的 blocks 才是準的；這裡只決定欄位有沒有） */

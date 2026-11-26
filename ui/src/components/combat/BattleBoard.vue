@@ -17,6 +17,7 @@ import { COMBAT_ICONS } from '../../data/combatIcons'
 import { disabledReason, type CellUnit } from '../../lib/battleView'
 import { outLabel, unitMarks, type UnitMark } from '../../lib/netView'
 import { useBattle } from '../../lib/useBattle'
+import { hpBlur } from '../../lib/bodyView'
 
 /**
  * 戰鬥的畫面本體（現實戰鬥 CombatScreen 與內海戰鬥 NetCombatScreen 共用一組，COMBAT_SYSTEM 第 10 節、dev/adr/0018 第十二節）：
@@ -55,6 +56,8 @@ function plainStatuses(u: CellUnit): string[] {
  * 有雙形象的敵人（CYBERSPACE 8.7 節）：名牌與立繪的鍵讀引擎的 unitFormView（對它鎖定的目標是 A 還是擲到的那一個；沒鎖定照主角）。
  * 對它鎖定的目標是哪一個形象由引擎算（BattleUnit.lock 與 lockedTarget，store 的 unitForm 內部讀）；沒鎖定照主角。名字與外觀由引擎給，畫面不判斷性別。
  */
+/** 生命值要模糊顯示的單位（引擎的衍生數值 hp_blur；痛覺編輯器生效中）：只有分段、沒有數字 */
+const blurHp = (id: string): boolean => engine.body.painBlind(id)
 const formOf = (id: string) => (engine.inBattle ? engine.curtain.unitForm(id) : null)
 const nameOf = (u: { id: string; name: string; side: string }): string => (u.side === 'foe' ? formOf(u.id)?.current.name ?? u.name : u.name)
 const noBattle = computed(() => !engine.inBattle && !engine.pendingDefeat && !afterBattle.spoils.value)
@@ -121,11 +124,11 @@ const noBattle = computed(() => !engine.inBattle && !engine.pendingDefeat && !af
                 </div>
                 <div v-if="cellOf(p)!.unit" class="bt-u" :class="[{ e: p.side === 'foe', act: cellOf(p)!.unit!.id === options.current && !over }, stateOf(unitHit(cellOf(p)!)), { foc: isFocused(`u:${cellOf(p)!.unit!.id}`) }]"
                   :role="unitHit(cellOf(p)!) ? 'button' : undefined" :tabindex="unitHit(cellOf(p)!) ? 0 : undefined"
-                  :data-unit="cellOf(p)!.unit!.id" :data-form="formOf(cellOf(p)!.unit!.id)?.current.form" :title="formOf(cellOf(p)!.unit!.id)?.current.look" :aria-label="`${nameOf(cellOf(p)!.unit!)}，${cellOf(p)!.unit!.hp ? `生命 ${cellOf(p)!.unit!.hp!.now}，` : ''}感載 ${cellOf(p)!.unit!.load?.now ?? '無'}`"
+                  :data-unit="cellOf(p)!.unit!.id" :data-form="formOf(cellOf(p)!.unit!.id)?.current.form" :title="formOf(cellOf(p)!.unit!.id)?.current.look" :aria-label="`${nameOf(cellOf(p)!.unit!)}，${cellOf(p)!.unit!.hp ? (blurHp(cellOf(p)!.unit!.id) ? '生命（模糊），' : `生命 ${cellOf(p)!.unit!.hp!.now}，`) : ''}感載 ${cellOf(p)!.unit!.load?.now ?? '無'}`"
                   @click.stop="activate(unitHit(cellOf(p)!))"
                   @keydown.enter.stop.prevent="activate(unitHit(cellOf(p)!))">
                   <div class="bt-nm"><b data-nameplate>{{ nameOf(cellOf(p)!.unit!) }}</b><small><span v-if="chanceOf(unitHit(cellOf(p)!))" class="hc" data-chance>{{ chanceOf(unitHit(cellOf(p)!)) }}</span> {{ rankLabel(p.side, cellOf(p)!.unit!.rank) }}</small></div>
-                  <div v-if="cellOf(p)!.unit!.hp" class="bt-row" style="color: var(--hp)" data-row="hp"><svg class="bt-i" viewBox="0 0 512 512" aria-label="生命"><path :d="COMBAT_ICONS.hp" /></svg><span class="bt-bar"><i :style="{ width: pct(cellOf(p)!.unit!.hp!.now, cellOf(p)!.unit!.hp!.max), background: 'var(--hp)' }" /></span><span class="num">{{ cellOf(p)!.unit!.hp!.now }}</span></div>
+                  <div v-if="cellOf(p)!.unit!.hp" class="bt-row" style="color: var(--hp)" data-row="hp"><svg class="bt-i" viewBox="0 0 512 512" aria-label="生命"><path :d="COMBAT_ICONS.hp" /></svg><template v-if="blurHp(cellOf(p)!.unit!.id)"><span class="bt-blur" data-hp-blur role="img" aria-label="生命值（模糊）" title="生命值：痛覺編輯器讓你只感覺得到大概"><i v-for="n in hpBlur(cellOf(p)!.unit!.hp!.now, cellOf(p)!.unit!.hp!.max).segments" :key="n" :class="{ on: n <= hpBlur(cellOf(p)!.unit!.hp!.now, cellOf(p)!.unit!.hp!.max).filled }" /></span></template><template v-else><span class="bt-bar"><i :style="{ width: pct(cellOf(p)!.unit!.hp!.now, cellOf(p)!.unit!.hp!.max), background: 'var(--hp)' }" /></span><span class="num">{{ cellOf(p)!.unit!.hp!.now }}</span></template></div>
                   <div v-if="cellOf(p)!.unit!.load" class="bt-row" style="color: var(--load)" data-row="load"><svg class="bt-i" viewBox="0 0 512 512" aria-label="感載"><path :d="COMBAT_ICONS.load" /></svg><span class="bt-bar"><i :style="{ width: pct(cellOf(p)!.unit!.load!.now, cellOf(p)!.unit!.load!.max), background: 'var(--load)' }" /></span><span class="num">{{ cellOf(p)!.unit!.load!.now }}</span></div>
                   <div class="bt-row" :title="isNet ? '餘韻層數（每層檢定加成；疊滿之後再過載就斷線）' : '餘韻層數（疊滿之後再過載就倒下）'"><span class="bt-pips l"><i v-for="n in cellOf(p)!.unit!.layersMax" :key="n" :class="{ f: n <= cellOf(p)!.unit!.layers }" /></span></div>
                   <div class="bt-row" style="color: var(--ap)"><svg class="bt-i" viewBox="0 0 512 512" aria-label="行動點"><path :d="COMBAT_ICONS.ap" /></svg><span class="bt-pips"><i v-for="n in cellOf(p)!.unit!.ap.max" :key="n" :class="{ f: n <= cellOf(p)!.unit!.ap.now }" /></span></div>
@@ -203,6 +206,9 @@ const noBattle = computed(() => !engine.inBattle && !engine.pendingDefeat && !af
 </template>
 
 <style scoped>
+.bt-blur { display: flex; gap: 3px; flex: 1; min-width: 0; }
+.bt-blur i { flex: 1; height: 8px; background: var(--bg-3); border-radius: 3px; filter: blur(1.5px); }
+.bt-blur i.on { background: var(--hp); }
 .live { color: var(--hp); font-weight: 900; font-size: var(--fs-sm); }
 .bt-chip.gone { opacity: .45; text-decoration: line-through; }
 .bt-chip.pinned { opacity: .8; color: var(--warn); box-shadow: inset 0 0 0 2px var(--warn); }

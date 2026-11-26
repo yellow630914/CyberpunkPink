@@ -1,4 +1,4 @@
-import { DIRECTION_MAX } from '@engine/src/shell/ai/sceneChains'
+import { DIRECTION_MAX } from '@engine/src'
 import type { Report } from '@engine/src'
 import type { ActionOption, ChoiceOption, PartView, PersonView, Preview, PreviewLoad, ScenePair, ScenePick, SceneView } from '@engine/src/features/scene'
 import { END_NAME } from '@engine/src/features/scene'
@@ -184,7 +184,7 @@ export function debriefOf(report: Report, describe: (c: Report['changes']) => st
   }
 }
 
-/** 寫法指令欄的字數上限：引擎的 DIRECTION_MAX（還沒從 @engine/src 匯出，先走 shell/ai/sceneChains；已回報）。瀏覽器不擋，超過時只把字數標紅，照樣送出，由引擎截斷並顯示它的提醒。 */
+/** 寫法指令欄的字數上限：引擎的 DIRECTION_MAX。瀏覽器不擋，超過時只把字數標紅，照樣送出，由引擎截斷並顯示它的提醒。 */
 export const DIRECTION_LIMIT = DIRECTION_MAX
 /** 即時字數（用「字」數，和引擎一樣：一個全形字與一個半形字都算一個）；超過上限回傳負的剩餘 */
 export const directionCount = (text: string): { used: number; left: number } => {
