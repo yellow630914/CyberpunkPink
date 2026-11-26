@@ -119,27 +119,6 @@ export const LOOK_GROUPS: LookGroup[] = [
     { k: 'privates', name: '私處', adult: true, hint: '成人內容。場景的部位照 LEWD_SYSTEM 的 front（DATA 3.4 節的 scene_parts）；性別照第一格，扶他與做過的兩邊都可以選。', opts: ['（不寫）', '陰唇小而緊，顏色淺', '陰唇飽滿，顏色深', '陰蒂敏感、微微突起', '陰莖不大、包皮蓋著龜頭', '陰莖粗長，龜頭露在外面', '陰莖細長、微微上翹', '扶他：陰莖之下還有一道縫', '做過的（換了的）', '剃得乾乾淨淨', '修成一小撮', '自然、毛很多', '雷射除過毛、光滑', '私處有光紋刺青', '私密義體（感官強化）'] },
   ] },
 ]
-/**
- * 外露的義體的外觀，照牌子抽一句（NPC_SYSTEM 13.11 節）。建角的「改造與風格」不再自己選，
- * 由第 6 步裝的義體與獸化零件、第 9 步的穿著推出來（lib/creation.ts 的 derivedLooks）。
- */
-export const BRAND_LOOK: Record<string, string> = {
-  織女: '白色的樹脂外殼，接縫裡透著一條細細的藍光',
-  緋櫻: '櫻粉色的烤漆，關節旁邊印著一朵小小的櫻紋，表面亮得照得出人影',
-  星旗: '橄欖綠的外殼，序號與財產編號都打在看得見的地方，漆掉了一半',
-  蜜腺: '看起來是皮膚，摸起來比別處的皮膚涼一點，接縫是一圈淡粉色的疤',
-  伊甸園: '仿真的皮膚做得比原生的還細，關節的地方蝕刻著一圈蕾絲的花紋',
-  鉻娘子改: '鉻與液壓管全露在外面，焊痕沒有磨平，散熱孔一直在吐熱氣',
-  同人: '外殼貼滿了貼紙，螺絲有三種顏色，看得出是好幾台東西拼起來的',
-  二手: '上一任主人刻的字還在，有一塊外殼的顏色和其他地方不一樣',
-}
-/** 獸化的系（CULTURE 第 2 節）：機械派看外形與韌體、生體派看基因譜；在第 6 步跟著零件選。情緒與動作照系抽（NPC_SYSTEM 13.11 節）。 */
-export const BEAST_LINES: Record<string, { mood: string; move: string }> = {
-  貓: { mood: '不高興', move: '往後貼平' }, 狐: { mood: '在想事情', move: '慢慢轉向一邊' }, 兔: { mood: '緊張', move: '豎得筆直' }, 犬: { mood: '高興', move: '往兩邊垮下來' },
-}
-/** 每個出身白給的那一套日常服裝的風格（CHARACTER 5.4 節：一套出身那一區的日常服裝，風格對） */
-export const ORIGIN_STYLE: Record<string, string> = { hive: '工裝', corp: '企業', nomad: '荒地', pleasure: '歡場', oldport: '特攻', sakura: '櫻町系', under: '工裝' }
-
 /** 每個出身的兩個快速開始（CHARACTER 5.7 節，一個偏戰鬥、一個偏非戰鬥）。 */
 export const QUICK_STARTS: Array<{ origin: string; name: string; role: string; line: string }> = [
   { origin: 'hive', name: '凜', role: '槍手', line: '四號塔長大的槍手，欠阿蓮一筆。' },

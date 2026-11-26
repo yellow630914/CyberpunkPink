@@ -3,6 +3,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import StatusBar from '../components/StatusBar.vue'
+import RetreatPanel from '../components/body/RetreatPanel.vue'
 import GridMap, { type CellView, type MapToken } from '../components/GridMap.vue'
 import RidePanel from '../components/RidePanel.vue'
 import LogView from '../components/LogView.vue'
@@ -94,7 +95,7 @@ const hereOpts = computed<HereOption[]>(() => {
   // 進行中的活動（拍賣……）擋住的別的入口：灰掉、原因是引擎的那一句（blockOf）
   if (craftHere) mine.push({ id: 'craft', name: `組裝（${craftHere.name}）`, sub: '設計圖、零件、換零件、拆解', reason: e.blockOf('commit:craft.assemble'), run: () => ui.openRoot('craft') })
   // 機構的課（引擎的 teachOptions：腳下的設施教的基本功）：有課才多一項「上課」
-  if (e.training.options().length) mine.push({ id: 'lesson', name: '上課', sub: '基本功 5 級以內', reason: e.blockOf('commit:ability.lesson'), run: () => ui.openRoot('lesson') })
+  if (e.training.options().length) mine.push({ id: 'lesson', name: '上課', sub: `基本功 ${e.training.limits().facilityMax} 級以內`, reason: e.blockOf('commit:ability.lesson'), run: () => ui.openRoot('lesson') })
   // 同人社團的委託台（設施種類帶 unreg_desk）：訂做與取貨
   const desk = e.unreg.desk()
   if (desk) mine.push(deskOption(desk, () => ui.openRoot('partorder'), e.blockOf('commit:unreg.order')))
@@ -238,6 +239,7 @@ const jobLine = computed(() => (run.value ? `第 ${Math.min(run.value.stage, run
             <Icon :id="t.icon" :size="18" fit />{{ t.name }}<kbd v-if="KEY_OF[t.id]">{{ KEY_OF[t.id] }}</kbd><span v-if="t.badge" class="badge-n" data-badge>{{ t.badge }}</span><i v-if="t.dot" class="badge-dot" data-badge aria-label="有沒看過的指南" />
           </button>
         </nav>
+        <RetreatPanel />
         <section class="panel cut logp"><ChainBar v-if="showChain" :steps="e.chainSteps" :busy="e.busy" :actions="e.stepActions" @retry="e.retryStep" @rules="e.useRules" @reroll="e.reroll()" /><LogView :entries="g.log" /></section>
         <section class="panel cut act">
           <form class="input" @submit.prevent="freeAction">

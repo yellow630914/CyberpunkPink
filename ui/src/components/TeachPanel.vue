@@ -5,7 +5,7 @@ import Hint from './Hint.vue'
 import ReasonButton from './ReasonButton.vue'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
-import { fmt } from '../lib/price'
+import MoneyTag from './MoneyTag.vue'
 
 /**
  * 請教與上課（基本功 5、6 級；CORE_RULES 7.2、7.5 節；features/abilities 的 teachOptions、lessonDraft）：
@@ -21,9 +21,13 @@ const options = computed(() => eng.training.options({ ...(props.npc !== undefine
 const tutorRows = computed<TutorOption[]>(() => (props.tutor && props.npc !== undefined ? eng.training.tutorOptions(props.npc) : []))
 const tutorPay = reactive<Record<string, 'cred' | 'cash' | undefined>>({})
 const POOL_NAME = { cred: '帳戶', cash: '現金' } as const
+const limits = computed(() => eng.training.limits())
+/** 工藝課：按選的付法問引擎能不能上（先帳戶再現金是不指定）；付不起的付法灰掉、原因逐字是引擎的 */
+const tutorAsk = (o: TutorOption, pay?: 'cred' | 'cash') => ({ npc: o.npc, skill: o.skill, ...(pay ? { pay } : {}) })
+const tutorWhy = (o: TutorOption, pay?: 'cred' | 'cash'): string | null => eng.training.tutorBlock(tutorAsk(o, pay))
 function goTutor(o: TutorOption) {
   const pay = tutorPay[o.skill]
-  const why = eng.training.tutorLesson({ npc: o.npc, skill: o.skill, ...(pay ? { pay } : {}) })
+  const why = eng.training.tutorLesson(tutorAsk(o, pay))
   if (why) ui.toast(why, 'warn')
   else ui.toast(`上了一個時段的${o.name}課。`)
 }
@@ -42,7 +46,7 @@ function go(o: TeachOption) {
 
 <template>
   <div class="teach" data-teach>
-    <p class="h">{{ npc ? '請教' : '機構的課' }}<Hint>基本功到了 5、6 級要有人教：向比你高的人請教（他幾級就教到幾級），或去機構上課（只教到 5 級）。每升一級要上幾個時段，一個時段花幾個小時；上到一半換老師進度不留。上完之後到技能樹花歷練點升級。</Hint></p>
+    <p class="h">{{ npc ? '請教' : '機構的課' }}<Hint>基本功到了高階要有人教：向比你高的人請教（他幾級就教到幾級），或去機構上課（只教到 {{ limits.facilityMax }} 級）。每升一級要上幾個時段，一個時段花幾個小時；上到一半換老師進度不留。上完之後到技能樹花歷練點升級。</Hint></p>
     <div v-for="o in options" :key="keyOf(o)" class="panel pad opt" :data-lesson="o.skill" :data-ok="o.ok">
       <div class="top">
         <b data-skill>{{ o.name }}</b>
@@ -52,15 +56,15 @@ function go(o: TeachOption) {
       <div class="kv"><span>進度</span><b data-progress>{{ o.done }}／{{ o.need }} 個時段・一個時段 {{ Math.round(o.minutes / 60) }} 小時</b></div>
       <div class="kv"><span>上完之後升級</span><b>要 {{ o.xp }} 點歷練點</b></div>
       <div v-if="'npc' in o.from" class="pays" role="group" aria-label="怎麼付">
-        <ReasonButton v-for="p in o.pays" :key="p.pay" sm :pri="payOf(o) === p.pay" :reason="p.reason" :data-pay="p.pay" @go="chosen[keyOf(o)] = p.pay">{{ PAY_NAME[p.pay] }}<template v-if="p.pay === 'tuition'">（C${{ fmt(p.price) }}）</template></ReasonButton>
+        <ReasonButton v-for="p in o.pays" :key="p.pay" sm :pri="payOf(o) === p.pay" :reason="p.reason" :data-pay="p.pay" @go="chosen[keyOf(o)] = p.pay">{{ PAY_NAME[p.pay] }}<template v-if="p.pay === 'tuition'">（<MoneyTag kind="acc" :amount="p.price" :size="13" />）</template></ReasonButton>
       </div>
-      <div v-else class="kv"><span>學費</span><b data-tuition>C${{ fmt(o.pays[0]?.price ?? 0) }}（第一個時段付清）</b></div>
+      <div v-else class="kv"><span>學費</span><b data-tuition><MoneyTag kind="acc" :amount="o.pays[0]?.price ?? 0" :size="13" />（第一個時段付清）</b></div>
       <div v-if="o.reason" class="why" data-reason>{{ o.reason }}</div>
       <div v-else-if="payRow(o) && !payRow(o)!.ok" class="why" data-reason>{{ payRow(o)!.reason }}</div>
       <div class="go left"><ReasonButton sm pri :reason="o.reason ?? (payRow(o) && !payRow(o)!.ok ? payRow(o)!.reason : null)" data-lesson-go @go="go(o)">上一個時段</ReasonButton></div>
     </div>
     <template v-if="tutorRows.length">
-      <p class="h">工藝課<Hint>機械、義體學、醫療在 0、1 級時，可以付學費跟老師學到 2 級，不花歷練點。一位老師對一個人只教一項；上到一半換老師進度不留，學費不退。</Hint></p>
+      <p class="h">工藝課<Hint>機械、義體學、醫療剛起步時，可以付學費跟老師學，最多學到 {{ limits.tutorMax }} 級，不花歷練點。一位老師對一個人只教一項；上到一半換老師進度不留，學費不退。</Hint></p>
       <div v-for="o in tutorRows" :key="`tutor-${o.skill}`" class="panel pad opt" :data-tutor="o.skill" :data-ok="o.ok">
         <div class="top">
           <b data-skill>{{ o.name }}</b>
@@ -69,15 +73,15 @@ function go(o: TeachOption) {
           <span class="mono lv" data-level>升到 {{ o.level }} 級（這條路最多教到 {{ o.max }} 級）</span>
         </div>
         <div class="kv"><span>進度</span><b data-progress>{{ o.done }}／{{ o.need }} 個時段・一個時段 {{ Math.round(o.minutes / 60) }} 小時</b></div>
-        <div class="kv"><span>學費</span><b data-tuition>C${{ fmt(o.price) }}<template v-if="o.price === 0 && o.done > 0">（這一級已經付過）</template><template v-else>（第一個時段付清）</template></b></div>
+        <div class="kv"><span>學費</span><b data-tuition><MoneyTag kind="acc" :amount="o.price" :size="13" /><template v-if="o.price === 0 && o.done > 0">（這一級已經付過）</template><template v-else>（第一個時段付清）</template></b></div>
         <div v-if="o.sink > 0" class="kv"><span>每個時段</span><b>沉溺 +{{ o.sink }}</b></div>
         <div v-if="o.price > 0" class="pays" role="group" aria-label="學費從哪裡付">
-          <button type="button" class="btn sm" :class="{ pri: !tutorPay[o.skill] }" @click="tutorPay[o.skill] = undefined">先帳戶再現金</button>
-          <button v-for="(n, p) in POOL_NAME" :key="p" type="button" class="btn sm" :class="{ pri: tutorPay[o.skill] === p }" :data-tutor-pay="p" @click="tutorPay[o.skill] = p">{{ n }}</button>
+          <ReasonButton sm :pri="!tutorPay[o.skill]" :reason="tutorWhy(o)" data-tutor-pay="auto" @go="tutorPay[o.skill] = undefined">先帳戶再現金</ReasonButton>
+          <ReasonButton v-for="(n, p) in POOL_NAME" :key="p" sm :pri="tutorPay[o.skill] === p" :reason="tutorWhy(o, p)" :data-tutor-pay="p" @go="tutorPay[o.skill] = p">{{ n }}</ReasonButton>
         </div>
         <div v-if="o.note" class="note" data-note>{{ o.note }}</div>
         <div v-if="o.reason" class="why" data-reason>{{ o.reason }}</div>
-        <div class="go left"><ReasonButton sm pri :reason="o.reason" data-tutor-go @go="goTutor(o)">上一個時段</ReasonButton></div>
+        <div class="go left"><ReasonButton sm pri :reason="tutorWhy(o, tutorPay[o.skill])" data-tutor-go @go="goTutor(o)">上一個時段</ReasonButton></div>
       </div>
     </template>
     <div v-if="!options.length && !tutorRows.length" class="empty-note" data-none>{{ npc ? '他沒有什麼可以教你的。' : '這裡沒有開課。' }}</div>

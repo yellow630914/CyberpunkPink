@@ -97,7 +97,7 @@ export interface Character {
   attrs: Array<{ name: string; base: number; eff: number; src?: string }>
 }
 
-export interface PartyMember { id: string; name: string; role: string; sink: number; hp: [number, number]; load: [number, number]; afterglow: number; me?: boolean; hpBlur?: boolean }
+export interface PartyMember { id: string; name: string; role: string; sink: number; hp: [number, number]; load: [number, number]; afterglow: number; /** 承受層數（衍生數值 afterglow_cap） */ afterglowCap?: number; me?: boolean; hpBlur?: boolean }
 
 export interface Npc {
   id: string

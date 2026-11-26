@@ -4,12 +4,11 @@ import Hint from '../Hint.vue'
 import OwnedList from './OwnedList.vue'
 import { useEngine } from '../../stores/engine'
 import { useUi } from '../../stores/ui'
-import { BRIDGE_LIST, CYBER_LIST } from '../../data/demo'
 import { CATEGORY_NAME, CAT_COLOR } from '../../lib/skillView'
 import type { Category } from '../../lib/skillView'
 import { unavailable } from '../../lib/unavailable'
 import type { CreationDraft } from '@engine/src/features/creation'
-import { BEAST_LINES } from '../../data/creation'
+import type { CatalogRow } from '@engine/src/features/creation'
 
 /**
  * 建角第 6 步：橋與義體（CHARACTER 2.1 節）。列出買得到的橋（含「沒有橋」，選它之前先跳一個說明後果的確認）與義體，
@@ -29,16 +28,29 @@ const summary = computed(() => eng.creation.summary(props.draft))
 const blocks = computed(() => eng.creation.stepBlocks(props.draft, 'cyber'))
 const owned = computed(() => summary.value.owned)
 
-interface Card { id: string; name: string; brand: string; grade: number; desc: string; part: string; needsSide: boolean; points: number; sink: number }
+interface Card { id: string; name: string; brand: string; grade: number; desc: string; part: string; needsSide: boolean; points: number; sink: number; /** 這個出身現在買不得的原因（引擎的目錄） */ block: string | null }
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V']
-const cardOf = (id: string, isBridge: boolean): Card | null => {
-  const bp = eng.creation.blueprint(id)
+/** 買得到什麼是引擎的 creationCatalog（各功能回答、依等級與價錢排好）；沉溺成本與左右是引擎的報價與設計圖 */
+const catalog = computed(() => eng.creation.catalog(props.draft))
+const cardOf = (row: CatalogRow, isBridge: boolean): Card | null => {
+  const bp = eng.creation.blueprint(row.id)
   if (!bp) return null
-  const one = eng.creation.lone(props.draft, 'cyber', { blueprint: id, ...(bp.needsSide ? { side: 'l' as const } : {}), ...(isBridge ? { bridge: true } : {}) })
-  return { id, name: bp.name, brand: bp.brand ?? '', grade: bp.grade, desc: bp.desc ?? '', part: isBridge ? '橋' : eng.creation.partName(bp.slot, 'l').replace(/^左/, ''), needsSide: bp.needsSide, points: one.points, sink: one.sink }
+  const one = eng.creation.lone(props.draft, 'cyber', { blueprint: row.id, ...(bp.needsSide ? { side: 'l' as const } : {}), ...(isBridge ? { bridge: true } : {}) })
+  return { id: row.id, name: row.name, brand: row.brand, grade: row.grade, desc: row.desc, part: isBridge ? '橋' : eng.creation.partName(bp.slot, 'l').replace(/^左/, ''), needsSide: bp.needsSide, points: one.points, sink: one.sink, block: row.block }
 }
-const bridges = computed(() => BRIDGE_LIST.map((id) => cardOf(id, true)).filter((c): c is Card => c !== null))
-const others = computed(() => CYBER_LIST.map((id) => cardOf(id, false)).filter((c): c is Card => c !== null))
+const bridges = computed(() => catalog.value.bridges.map((r) => cardOf(r, true)).filter((c): c is Card => c !== null))
+const others = computed(() => catalog.value.cyber.map((r) => cardOf(r, false)).filter((c): c is Card => c !== null))
+/** 出身的建議組合（引擎的 suggestedKit）：換成建議的橋與義體；超過點數而裁掉的引擎說是哪幾件 */
+const kit = computed(() => eng.creation.suggested(props.draft))
+const trimmedNote = ref('')
+function useKit() {
+  const k = kit.value
+  if (!k.has) return
+  if (k.bridge !== undefined) emit('update:bridge', k.bridge)
+  emit('update:cyber', k.cyber.map((c) => ({ ...c })))
+  trimmedNote.value = k.trimmed.length ? `點數放不下，沒有放進去的：${k.trimmed.map((id) => eng.creation.blueprint(id)?.name ?? id).join('、')}。` : ''
+}
+const beastLines = computed(() => eng.creation.beastLines())
 
 const bridgeOn = (id: string) => props.bridge === id
 const sides = (c: Card): Array<'l' | 'r' | undefined> => (c.needsSide ? ['l', 'r'] : [undefined])
@@ -47,8 +59,8 @@ const cyberOn = (id: string, side?: 'l' | 'r') => props.cyber.some((c) => c.blue
 const pickOf = (id: string, side?: 'l' | 'r') => ({ blueprint: id, ...(side ? { side } : {}) })
 
 /** 選了或拿掉之後的草稿，問引擎這一次多了什麼原因（已經選的不問：點它是拿掉） */
-const bridgeBlock = (id: string) => (bridgeOn(id) ? null : eng.creation.addBlock(props.draft, { ...props.draft, bridge: id }, 'cyber'))
-const cyberBlock = (id: string, side?: 'l' | 'r') => (cyberOn(id, side) ? null : eng.creation.addBlock(props.draft, { ...props.draft, cyber: [...props.cyber, pickOf(id, side)] }, 'cyber'))
+const bridgeBlock = (id: string) => (bridgeOn(id) ? null : (bridges.value.find((c) => c.id === id)?.block ?? eng.creation.addBlock(props.draft, { ...props.draft, bridge: id }, 'cyber')))
+const cyberBlock = (id: string, side?: 'l' | 'r') => (cyberOn(id, side) ? null : (others.value.find((c) => c.id === id)?.block ?? eng.creation.addBlock(props.draft, { ...props.draft, cyber: [...props.cyber, pickOf(id, side)] }, 'cyber')))
 
 function pickBridge(id: string) {
   const why = bridgeBlock(id)
@@ -76,6 +88,7 @@ const capacity = computed(() => summary.value.capacity)
     <h2>橋與義體・剩 {{ summary.cyber.left }}／{{ summary.cyber.total }} 點</h2>
     <div class="cols">
       <div>
+        <div v-if="kit.has" class="go left"><button type="button" class="btn sm pri" data-act="suggest-cyber" @click="useKit">出身的建議組合</button><small v-if="trimmedNote" class="note-line" data-kit-trimmed>{{ trimmedNote }}</small></div>
         <p class="setgrp">橋・選一座<Hint>橋決定四類技能的容量（現實／內海／社交／媒體）。企業出身才選得到那家企業的橋；也可以不要橋，但要先看過後果。</Hint></p>
         <div class="grid2">
           <button v-for="c in bridges" :key="c.id" type="button" class="lrow pick" :class="{ on: bridgeOn(c.id), 'is-unavailable': !!bridgeBlock(c.id) }" :title="bridgeBlock(c.id) ?? undefined" :data-bridge="c.id" :aria-pressed="bridgeOn(c.id)" @click="pickBridge(c.id)">
@@ -102,7 +115,7 @@ const capacity = computed(() => summary.value.capacity)
             <b class="pt mono" data-points>{{ c.points }}</b>
           </div>
         </div>
-        <label v-if="hasBeast" class="fld beastline"><span>獸化的系<Hint>機械派的系看外形與韌體，生體派的系看基因譜（CULTURE 第 2 節）。寫進外觀，也決定耳朵在什麼情緒下怎麼動。</Hint></span><select :value="beastLine" class="inp" @change="emit('update:beastLine', ($event.target as HTMLSelectElement).value)"><option v-for="(_, k) in BEAST_LINES" :key="k" :value="k">{{ k }}</option></select></label>
+        <label v-if="hasBeast" class="fld beastline"><span>獸化的系<Hint>機械派的系看外形與韌體，生體派的系看基因譜（CULTURE 第 2 節）。寫進外觀，也決定耳朵在什麼情緒下怎麼動。</Hint></span><select :value="beastLine" class="inp" @change="emit('update:beastLine', ($event.target as HTMLSelectElement).value)"><option v-for="k in beastLines" :key="k" :value="k">{{ k }}</option></select></label>
         <div v-if="blocks.length" class="blocking" data-cyber-block>{{ blocks[0] }}</div>
       </div>
 

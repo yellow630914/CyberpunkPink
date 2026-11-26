@@ -70,7 +70,7 @@ function startDemo(start: 'normal' | 'bound' | 'holder') {
   const pinia = createPinia()
   setActivePinia(pinia)
   const e = useEngine()
-  expect(e.newGame({ seed: 7, rules: {}, draft: DRAFT as never, start })).toEqual([])
+  expect(e.newGame({ seed: 7, rules: {}, draft: DRAFT as never, start, demo: { on: true } })).toEqual([])
   return { e, pinia }
 }
 /** 另一個獨立的引擎讀同一份存檔：直接呼叫引擎函式，當標準答案、也拿來產生效果的變更。 */
@@ -153,11 +153,11 @@ describe('契約人這一面：契約、佇列、照做與抗拒', () => {
     wait(e, 13 * 60)
     const view = e.contract.bound()!.queue.find((o) => o.id === work.id)!
     expect(view.state).toBe('overdue')
-    const lines = e.contract.overdueLines()
-    expect(lines.length).toBeGreaterThan(0)
-    const row = orderRows(e.contract.bound()!, lines).find((r) => r.id === work.id)!
+    // 了結的那一條帶引擎給的處置（OrderView.outcome），不從報告的正文比對
+    expect(view.outcome?.text).toBeTruthy()
+    const row = orderRows(e.contract.bound()!).find((r) => r.id === work.id)!
     expect(row.overdue).toBe(true)
-    expect(row.penalty).toContain('交代的工作過了期限')
+    expect(row.penalty).toBe(view.outcome!.text)
     const h = clean(await render(pinia, BoundPanel))
     expect(h).toMatch(new RegExp(`data-order="${work.id}" data-state="逾期" data-overdue="true"`))
     expect(text(h)).toContain(`處置：${row.penalty}`)
@@ -379,7 +379,9 @@ describe('契約面板的兩面與原始碼', () => {
     expect(hh).toContain('阿音')
     expect(newGameSrc).toContain('data-start-kind')
     for (const id of ['normal', 'bound', 'holder']) expect(newGameSrc).toContain(`'${id}'`)
-    expect(newGameSrc).toContain('start: startKind.value')
+    // 契約開局只在示意模式（開新局的開關）才選得到；關著時送出去的永遠是一般開局
+    expect(newGameSrc).toContain('data-demo-on')
+    expect(newGameSrc).toContain("start: demoOn.value ? startKind.value : 'normal'")
     // 一般開局沒有契約
     const c = startDemo('normal')
     expect(c.e.contract.bound()).toBeNull()
@@ -492,7 +494,9 @@ describe('蠱惑：成人分頁列出找過主角的流竄 AI', () => {
     const pack = demoPack().content as Record<string, Array<Rec>>
     const lure = pack.event!.filter((x) => x.scope === 'rogue_ai')
     expect(lure.map((x) => (x.triggers as string[])[0]).sort()).toEqual(['login', 'rest'])
-    expect(pack.event_scope!.find((s) => s.id === 'rogue_ai')).toMatchObject({ triggers: { login: 0.15, rest: 0.15 }, cooldown_hours: 24, daily_cap: 1 })
+    // 範圍表（rogue_ai、contract）是引擎的正式表，示意包只加事件、不重寫
+    expect((pack.event_scope ?? []).find((s) => s.id === 'rogue_ai' || s.id === 'contract')).toBeUndefined()
+    expect(((CORE_PACK.content as Record<string, Array<Rec>>).event_scope!.find((s) => s.id === 'rogue_ai')!.triggers as Record<string, number>).login).toBe(0.15)
     expect(pack.rogue_ai).toHaveLength(1)
   })
 })

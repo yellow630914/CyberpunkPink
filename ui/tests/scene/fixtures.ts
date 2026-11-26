@@ -6,6 +6,7 @@ import { createSSRApp } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { renderToString } from 'vue/server-renderer'
 import type { Actor, Change, ContentPack } from '@engine/src'
+import type { FakeProvider } from '@engine/src'
 import { useEngine } from '../../src/stores/engine'
 
 export const DRAFT = {
@@ -67,12 +68,12 @@ export type Eng = ReturnType<typeof useEngine>
 export interface Setup { pinia: ReturnType<typeof createPinia>; e: Eng }
 
 /** 開一局、建好角色、放好對象與主角會的招式；mode 是場景的操作（精簡或完整）。 */
-export async function setup(o: { seed?: number; mode?: 'simple' | 'full'; rules?: object; pcDocility?: number; begin?: boolean; setup?: Record<string, unknown>; people?: Actor[]; skills?: string[]; insight?: number; ext?: Record<string, unknown> } = {}): Promise<Setup> {
+export async function setup(o: { seed?: number; mode?: 'simple' | 'full'; rules?: object; pcDocility?: number; begin?: boolean; setup?: Record<string, unknown>; people?: Actor[]; skills?: string[]; insight?: number; ext?: Record<string, unknown>; provider?: FakeProvider } = {}): Promise<Setup> {
   const pinia = createPinia()
   setActivePinia(pinia)
   const e = useEngine()
   e.scene.setMode(o.mode ?? 'simple')
-  e.newGame({ seed: o.seed ?? 7, ...(o.rules ? { rules: o.rules } : {}), testContent: [PACK] })
+  e.newGame({ seed: o.seed ?? 7, ...(o.rules ? { rules: o.rules } : {}), testContent: [PACK], ...(o.provider ? { testProvider: o.provider } : {}) })
   const blocks = e.createCharacter(DRAFT)
   if (blocks.length) throw new Error(`建角被擋：${blocks.map((b) => b.reason).join('；')}`)
   const pc = e.state.pc!

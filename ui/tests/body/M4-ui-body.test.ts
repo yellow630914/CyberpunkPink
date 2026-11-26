@@ -14,9 +14,10 @@ import { useEngine } from '../../src/stores/engine'
 import BodyTab from '../../src/dialogs/character/BodyTab.vue'
 import BridgeTab from '../../src/dialogs/character/BridgeTab.vue'
 import ClinicDialog from '../../src/dialogs/ClinicDialog.vue'
+import RetreatPanel from '../../src/components/body/RetreatPanel.vue'
 import HpBar from '../../src/components/body/HpBar.vue'
 import PartyRow from '../../src/components/PartyRow.vue'
-import { floorRows, floorSum, hpBlur, installRows, successPct } from '../../src/lib/bodyView'
+import { chanceText, floorRows, floorSum, hpBlur, installRows } from '../../src/lib/bodyView'
 import { DEMO_DECK_UID, blockIdOf } from '../../src/data/demo'
 import { markerOfFacility } from '../../src/data/demo/world'
 
@@ -68,10 +69,11 @@ const PACK = {
       { id: 'fac_clinic', name: '正規診所', clinic: { grade: 'clinic' }, therapy: { kind: 'counsel' } },
       { id: 'fac_black', name: '黑診所', clinic: { grade: 'black' } },
       { id: 'fac_shop', name: '雜貨店' },
+      { id: 'fac_retreat', name: '傳教所', therapy: { kind: 'retreat' } },
     ],
     district: [{ id: 'd_hive', name: '蜂巢', grade: 1, blocks: ['b_street', 'b_plain'] }],
     block: [
-      { id: 'b_street', district: 'd_hive', name: '診所街', kind: 'block', map: 'm_street', exits: {}, facilities: { F1: { type: 'fac_clinic', name: '清和診所' }, F2: { type: 'fac_black', name: '後巷' }, F3: { type: 'fac_shop', name: '雜貨店' } } },
+      { id: 'b_street', district: 'd_hive', name: '診所街', kind: 'block', map: 'm_street', exits: {}, facilities: { F1: { type: 'fac_clinic', name: '清和診所' }, F2: { type: 'fac_black', name: '後巷' }, F3: { type: 'fac_retreat', name: '傳教所' } } },
       { id: 'b_plain', district: 'd_hive', name: '雜貨街', kind: 'block', map: 'm_street', exits: {}, facilities: { F1: { type: 'fac_shop', name: '雜貨店' } } },
     ],
     part: PARTS, blueprint: BLUEPRINTS, item: ITEMS,
@@ -236,7 +238,10 @@ describe('診所：報價與擋住的原因', () => {
     expect(q.self).toBeTruthy()
     const h = clean(await render(pinia, ClinicDialog, { entryId: 1, tab: 'install', pick: 'U_EYE', via: 'self' }))
     expect(text(h)).toContain(`DC ${q.self!.dc}`)
-    expect(text(h)).toContain(`成功率 ${successPct(q.self!.bonus, q.self!.dc)}%`)
+    // 成功率是引擎的報價給的 chance；目前報價沒有給，畫面就不寫百分比（不自己擲骰算）
+    expect(text(h)).not.toContain('成功率')
+    expect(chanceText({ chance: 0.85 })).toBe('・成功率 85%')
+    expect(chanceText(q.self!)).toBe('')
   })
 
   it('錢不夠時按鈕灰掉，原因和引擎逐字相同', async () => {
@@ -296,7 +301,7 @@ describe('診所：報價與擋住的原因', () => {
     expect(lk).toHaveLength(1)
     const q = e.body.crackQuote(lk[0]!.uid)!
     expect(q.dc).toBeGreaterThan(0)
-    expect(successPct(q.bonus, q.dc)).toBeGreaterThanOrEqual(0)
+    expect(chanceText(q)).toBe('')
   })
 })
 
@@ -422,6 +427,48 @@ describe('治療與痛覺編輯器', () => {
     expect(e.body.therapyHere()?.kind).toBe('counsel')
     const q = e.body.therapyQuote({})
     expect(q?.amount).toBeGreaterThan(0)
+  })
+
+  it('斷線靜修是進行中的活動：進去之後多「待下去」與「提早離開」，數字與原因是引擎的；提早離開不結算', async () => {
+    const { e, pinia } = start()
+    expect(e.body.retreat()).toBeNull()
+    expect(clean(await render(pinia, RetreatPanel))).not.toContain('data-retreat-panel')
+    await stand(e, 'F3')
+    expect(e.body.therapyHere()?.kind).toBe('retreat')
+    expect(e.commit({ summary: '沉溺上來了', action: 'ui.test_sink', changes: [{ op: 'actor.track', id: e.pc!.id, track: 'sink', delta: 30 }] as never })).toBeNull()
+    const sink0 = e.body.sink()!.value
+    expect(e.body.therapy({ kind: 'retreat' })).toBeNull()
+    const v = e.body.retreat()!
+    expect(v.facility).toBe('傳教所')
+    expect(v.days_left).toBeGreaterThan(0)
+    // 進行中：面板在，兩個按鈕都亮；潛入被引擎擋（活動 retreat）
+    const h = clean(await render(pinia, RetreatPanel))
+    expect(h).toContain('data-retreat-panel')
+    expect(h).toContain('data-act="retreat-stay"')
+    expect(h).toContain('data-act="retreat-leave"')
+    expect(text(h)).toContain(`${v.days_left} 天`)
+    expect(e.body.stayBlock()).toBeNull()
+    expect(e.body.leaveBlock()).toBeNull()
+    expect(e.blockOf('commit:netrun.start')).toBeTruthy()
+    // 待下去：過一天，天數少一
+    expect(e.body.stay()).toBeNull()
+    expect(e.body.retreat()!.days_left).toBe(v.days_left - 1)
+    // 提早離開：記號拿掉、沉溺沒降
+    expect(e.body.leave()).toBeNull()
+    expect(e.body.retreat()).toBeNull()
+    expect(e.body.sink()!.value).toBe(sink0)
+    expect(e.body.stayBlock()).toBeTruthy()
+  })
+
+  it('斷線靜修待到最後一天：引擎自己結算，沉溺往下降、記號拿掉', async () => {
+    const { e } = start()
+    await stand(e, 'F3')
+    expect(e.commit({ summary: '沉溺上來了', action: 'ui.test_sink', changes: [{ op: 'actor.track', id: e.pc!.id, track: 'sink', delta: 30 }] as never })).toBeNull()
+    expect(e.body.therapy({ kind: 'retreat' })).toBeNull()
+    const v = e.body.retreat()!
+    for (let i = 0; i < v.days_left + 2 && e.body.retreat(); i++) expect(e.body.stay()).toBeNull()
+    expect(e.body.retreat()).toBeNull()
+    expect(e.state.reports.some((r) => r.action === 'sink.retreat' && (r.outcome as { result?: string }).result === 'done')).toBe(true)
   })
 
   it('痛覺編輯器：生命值只剩模糊的分段，沒有數字', async () => {

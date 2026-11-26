@@ -27,9 +27,6 @@ export function partTags(part: Pick<PartEntry, 'material' | 'state' | 'unreg'>):
 /** 怪癖的一行：種類的名字加寫出來的那一句 */
 export const quirkLine = (name: string, text?: string): string => (text ? `${name}：${text}` : name)
 
-const DAY = 1440
-/** 訂做還要幾天（照分鐘進位；和引擎 deliverBlock 的「還要等 N 天」同一個算法，只是給畫面分開寫） */
-export const daysLeft = (readyAt: number, now: number): number => Math.max(0, Math.ceil((readyAt - now) / DAY))
 
 /** 勾想要的方向：勾的順序就是排的順序（先勾的排前面）。再按一次拿掉 */
 export const toggleWant = (want: readonly string[], id: string): string[] => (want.includes(id) ? want.filter((x) => x !== id) : [...want, id])

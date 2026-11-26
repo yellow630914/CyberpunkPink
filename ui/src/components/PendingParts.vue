@@ -4,7 +4,6 @@ import Hint from './Hint.vue'
 import ReasonButton from './ReasonButton.vue'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
-import { daysLeft } from '../lib/partsView'
 
 /**
  * 等著交貨的未登錄零件（M4-ui-parts 第 2 項；CRAFTING 11.1 節）：每一筆寫類型、等級、來源；訂做的寫還要幾天，時間到了寫「到委託台取貨」，人在委託台就能取。
@@ -15,7 +14,6 @@ const props = defineProps<{ only?: 'orders' | 'rest' }>()
 const e = useEngine()
 const ui = useUi()
 const rows = computed(() => e.unreg.pending().filter((r) => (props.only === 'orders' ? r.order : props.only === 'rest' ? !r.order : true)))
-const now = computed(() => e.unreg.now())
 
 async function pick(id: string) {
   const r = await e.unreg.deliver(id)
@@ -39,7 +37,7 @@ async function byRules(id: string) {
         <b data-pending-name>{{ r.frame.typeName }}・{{ r.frame.gradeName }} 級<small class="sub">　{{ r.frame.materialName }}・{{ r.frame.brandName }}</small></b>
         <small data-pending-from>來源：{{ r.from || '不明' }}</small>
         <small v-if="r.frame.quirk" data-pending-quirk>怪癖：{{ r.frame.quirk.name }}</small>
-        <small v-if="r.order && r.waiting && r.readyAt !== null" class="eta" data-eta>還要 {{ daysLeft(r.readyAt, now) }} 天</small>
+        <small v-if="r.order && r.waiting" class="eta" data-eta>還要 {{ r.days_left }} 天</small>
         <small v-else-if="r.order && !r.block" class="eta" data-ready>到了，到委託台取貨</small>
         <small v-else-if="r.order" class="eta" data-ready>時間到了：{{ r.block }}</small>
         <small v-else-if="r.paused" class="why" data-paused>交貨停在寫正文那一步（服務商沒有接）。可以重試，或用規則代替（名字與說明用預設清單的）。</small>

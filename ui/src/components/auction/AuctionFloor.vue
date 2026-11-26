@@ -26,6 +26,10 @@ const round = computed(() => e.auction.lastRound())
 const lines = computed(() => roundLines(round.value))
 const look = computed(() => lookBadge(v.value.lot))
 const confirming = ref(false)
+/** 自動跟價的上限（玩家輸入；空的時候用引擎給的最低值當預設）：不含佣金的價錢 */
+const autoMax = ref<number | null>(null)
+const autoValue = computed(() => autoMax.value ?? options.value?.auto.min ?? 0)
+const autoWhy = computed(() => (options.value ? e.auction.bidBlock({ auto: { max: autoValue.value } }) ?? (options.value.auto.blocks.length ? options.value.auto.blocks.join('') : null) : null))
 const busy = ref(false)
 
 async function send(f: () => Promise<{ status: string; reason?: string }>, fallback: string) {
@@ -40,6 +44,7 @@ async function send(f: () => Promise<{ status: string; reason?: string }>, fallb
 }
 const raise = (steps: number) => send(() => e.auction.bid({ act: 'raise', steps }), '現在不能加價。')
 const wait = () => send(() => e.auction.bid({ act: 'wait' }), '現在不能等。')
+const auto = () => send(() => e.auction.bid({ auto: { max: autoValue.value } }), '現在不能自動跟價。')
 const fold = () => send(() => e.auction.bid({ act: 'fold' }), '現在不能退出。')
 async function leave() {
   confirming.value = false
@@ -96,6 +101,11 @@ const LINE_TONE: Record<string, string> = { 'auction.hammer': 'hammer', 'auction
         <ReasonButton :reason="options.fold.blocks.length ? options.fold.blocks.join('') : null" data-fold @go="fold">退出這一件</ReasonButton>
         <button type="button" class="btn" data-leave @click="confirming = true">離場</button>
       </div>
+      <div class="auto" data-auto>
+        <label class="af">自動跟到 C$<input v-model.number="autoMax" type="number" inputmode="numeric" class="inp" :min="options.auto.min" :placeholder="String(options.auto.min)" aria-label="自動跟價的上限（不含佣金）" data-auto-max></label>
+        <ReasonButton :reason="autoWhy" data-auto-go @go="auto">自動跟價</ReasonButton>
+        <Hint title="自動跟價">替你一回合一回合跟到這一件落槌：別人加價，再加一階不超過上限（而且付得起）就跟，超過就退出；落槌或退出就停。上限是不含佣金的價錢，最低是現價再加一階。</Hint>
+      </div>
       <div v-if="confirming" class="warnbox" data-leave-confirm>
         <p><b>要離場嗎？</b>剩下的拍品你都不喊了：程式會把它們喊完，你這一場已經得標的照付，同一場不能再進。</p>
         <div class="go"><button type="button" class="btn" @click="confirming = false">再想想</button><button type="button" class="btn pri" data-leave-yes @click="leave">離場</button></div>
@@ -138,6 +148,9 @@ const LINE_TONE: Record<string, string> = { 'auction.hammer': 'hammer', 'auction
 .btns { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: stretch; }
 .rl { display: grid; gap: 1px; justify-items: start; text-align: left; }
 .rl small { font-size: var(--fs-xs); font-weight: 600; opacity: .85; font-family: var(--mono); }
+.auto { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; margin-top: var(--space-3); }
+.af { display: inline-flex; gap: var(--space-2); align-items: center; font-weight: 800; font-size: var(--fs-sm); }
+.inp { width: 9em; background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 6px 10px; font: 600 var(--fs-sm) var(--mono); }
 .warnbox { margin-top: var(--space-3); padding: var(--space-3); background: var(--bg-1); box-shadow: inset 3px 0 0 var(--warn); display: grid; gap: var(--space-2); }
 .warnbox p { margin: 0; font-size: var(--fs-sm); }
 .go { display: flex; gap: var(--space-3); flex-wrap: wrap; }

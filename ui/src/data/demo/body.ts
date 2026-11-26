@@ -63,7 +63,7 @@ const blueprints: Rec[] = [
   bp('bp_tattoo', '光紋刺青「花信」I', 'skin', {
     grade: 1, brand: '生體屋', invasiveness: 'surface', sink_cost: 1, needs_bridge: false, tattoo: { kind: 'deco' }, require: [{ type: 'skin', material: 'bio' }], stock: { skin: 'pt_ink' },
   }),
-  // 痛覺編輯器：無視重傷懲罰；生命值的顯示變模糊（標籤 pain_editor 是介面讀的，lib/bodyView 的 PAIN_TAG）
+  // 痛覺編輯器：無視重傷懲罰；生命值的顯示變模糊（引擎的衍生數值 hp_blur 讀這個標籤，介面不認標籤名）
   bp('bp_pain', '痛覺編輯器 II', 'brain', { sink_cost: 3, tags: ['pain_editor'], effects: [{ unit_tag: 'ignore_wound_penalty' }], require: [{ type: 'neuron' }], stock: { neuron: 'pt_neuron' } }),
   // 訂閱的義體：付訂閱費才不會鎖住
   bp('bp_eye_sub', '織女訂閱義眼 II', 'eye', { sink_cost: 3, lock: 'subscription', effects: [{ check: { skills: ['firearms'] }, amount: 1 }], require: [{ type: 'sensor' }], stock: { sensor: 'pt_lens' }, price: 700 }),

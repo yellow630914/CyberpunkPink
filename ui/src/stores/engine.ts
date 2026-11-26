@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import type { ActionInput, ContentEntry, ItemStack, Feature, ContentPack, ItemEntry, Actor, AttributeEntry, BattleInput, BattleMode, BattleOptions, BattleSetup, BattleStepResult, Change, GameState, GridDir, GridView, Report, ReportDraft, SkillEntry, OriginEntry, PerkEntry } from '@engine/src'
-import { ActionBlocked, ChangeError, FakeProvider, Game, effectCtx, stackPart, partTypeName, productOf, productPrice, slotProblems, NET_LEGEND, SYNC_GEARS, gridHere, meterOf, sightOf, syncBlocks, syncCapOf, syncRuleOf, modeOf, statusRuleOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules } from '@engine/src'
+import { lockedTarget, ActionBlocked, ChangeError, FakeProvider, Game, stackPart, partTypeName, productOf, productPrice, slotProblems, NET_LEGEND, SYNC_GEARS, gridHere, meterOf, sightOf, syncBlocks, syncCapOf, syncRuleOf, modeOf, statusRuleOf, unpackSave, attrMod as engineAttrMod, blankState, sanitizeRules, contentAllowed } from '@engine/src'
 import type { ActStatus, StepActions } from '@engine/src'
 import type { StepRecord } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
 import { allFeatures } from '@engine/src/features'
-import { WEAR_SLOTS, CAP_STAT, LOAD_STAT, armorOf, concealment, dyeBlock as gearDyeBlock, dyeDraft as gearDyeDraft, dyeOf as gearDyeOf, dyeShopHere, equip as gearEquip, equipBlock as gearEquipBlock, gearOf, gearRules, overweight as gearOverweight, quickBlock, quickCapacity, scanFinds, styleOf, unequip as gearUnequip, weaponOf } from '@engine/src/features/gear'
+import { CAP_STAT, LOAD_STAT, armorOf, concealment, dyeBlock as gearDyeBlock, dyeDraft as gearDyeDraft, dyeOf as gearDyeOf, dyeShopHere, equip as gearEquip, equipBlock as gearEquipBlock, coveredSlots, gearOf, gearRules, overweight as gearOverweight, quickBlock, quickCapacity, scanFinds, styleOf, unequip as gearUnequip, weaponOf } from '@engine/src/features/gear'
 import type { DyeOpts } from '@engine/src/features/gear'
 import * as craftFx from '@engine/src/features/craft'
 import { dissectDraft, dissectOptions, unitFormView } from '@engine/src/features/enemies'
@@ -14,7 +14,6 @@ import type { UnitFormView } from '@engine/src/features/enemies'
 import * as curtainFx from '@engine/src/features/curtain'
 import * as unregFx from '@engine/src/features/unreg'
 import * as auctionFx from '@engine/src/features/auction'
-import { tabLine as curtainTabLine } from '@engine/src/features/curtain/fall'
 import type { DissectOption } from '@engine/src/features/enemies'
 import type { BlueprintEntry, PartEntry } from '@engine/src/features/gear'
 import type { GearLookup } from '../lib/gearView'
@@ -34,12 +33,10 @@ import { call as favorCall, favorsOf, spend as favorSpend, spendBlock as favorSp
 import type { FavorsState } from '@engine/src/features/favors'
 import { exploreFeature, unlock as exploreUnlock } from '@engine/src/features/explore'
 import type { GridKernel } from '@engine/src'
-import { Play, SKILL_KIND as NIGHT_SKILL_KIND, RESONANCE_KIND, ratingOf, sceneCanSkip, sceneGateSummary, sceneOptions, sceneRawOf, sceneRules, sceneView, setSceneMode, sceneModeOf } from '@engine/src/features/scene'
+import { SKILL_KIND as NIGHT_SKILL_KIND, RESONANCE_KIND, resonanceOf, sexRecordOf, ratingOf, sceneCanSkip, sceneGateSummary, sceneOptions, sceneRawOf, sceneRules, sceneView, setSceneMode, sceneModeOf } from '@engine/src/features/scene'
 import type { SceneInput, SceneMode, SceneOptions, SceneView, StartSummary } from '@engine/src/features/scene'
-import { diceOf as sceneDiceOf } from '@engine/src/features/scene/play'
-import { learnBlock as nightLearnBlock, learnDraft as nightLearnDraft, nightList, nightRules } from '@engine/src/features/nightclass'
+import { learnBlock as nightLearnBlock, learnDraft as nightLearnDraft, nightList } from '@engine/src/features/nightclass'
 import type { NightListView } from '@engine/src/features/nightclass'
-import { AXIS_NAME, axisLevel, experienceOf as nightExperience } from '@engine/src/features/nightclass/model'
 import { AVATAR_GENDERS, AVATAR_PARTS, AVATAR_SAVES_MAX, AVATAR_TEXT_MAX, avatarBlock, avatarDraft, avatarOf } from '@engine/src/features/deck'
 import type { Avatar, AvatarOpts } from '@engine/src/features/deck'
 import type { SceneResult } from '@engine/src'
@@ -61,7 +58,7 @@ import { advance as transitAdvance, advanceBlock as transitAdvanceBlock, alight 
 import type { BoardInput, TransitView } from '@engine/src/features/transit'
 import { chooseOption, directorView, eventView } from '@engine/src/features/director'
 import type { DirectorView, EventView } from '@engine/src/features/director'
-import { toMinutes, fromMinutes, formatTime, weekdayOf } from '@engine/src/core/util/time'
+import { toMinutes, fromMinutes, formatTime, weekdayOf } from '@engine/src'
 import { hostilityView, scanView, timedFloors } from '@engine/src/features/security'
 import type { HostilityRow, ScanView } from '@engine/src/features/security'
 import { bargainByFavor, bargainInput, checkout as tradeCheckout, planCheckout, routesHint, shopView } from '@engine/src/features/trade'
@@ -80,21 +77,21 @@ import * as contractFx from '@engine/src/features/contract'
 import * as malwareFx from '@engine/src/features/malware'
 import * as tuningFx from '@engine/src/features/tuning'
 import * as lureFx from '@engine/src/features/lure'
-import { lessonBlock as trainBlock, lessonDraft as trainDraft, teachOptions as trainOptions, tutorBlock as tutorBlockFx, tutorDraft as tutorDraftFx, tutorOptions as tutorOptionsFx } from '@engine/src/features/abilities'
+import { lessonBlock as trainBlock, lessonDraft as trainDraft, teachOptions as trainOptions, tutorBlock as tutorBlockFx, tutorDraft as tutorDraftFx, tutorMax, tutorOptions as tutorOptionsFx, FACILITY_MAX } from '@engine/src/features/abilities'
 import type { LessonOpts as TrainOpts, TeachOption, TutorOpts, TutorOption } from '@engine/src/features/abilities'
-import { BRIDGE_PARAMS, PARAM_NAME, bridgeOf as lewdBridgeOf } from '@engine/src/features/lewd'
+import { AXES, AXIS_NAME, BRIDGE_PARAMS, PARAM_NAME, TAG_KIND, bridgeOf as lewdBridgeOf, tendencyOf } from '@engine/src/features/lewd'
+import type { TagEntry } from '@engine/src/features/lewd'
 import { paramStatId } from '@engine/src/features/lewd/model'
+
 import { PASSIVE_SOURCE_NAMES } from '@engine/src'
 import type { RollPart } from '@engine/src'
-import { PAIN_TAG } from '../lib/bodyView'
 import type { BodyBag, BodyBagKind, BodyPassive } from '../lib/bodyView'
 import type { PartyMember } from '../data/types'
-import { DEMO_SCENES, demoBoundChanges, demoBodyChanges, demoHolderChanges, demoCraftChanges, demoNetChanges, demoPack, demoPeopleChanges, demoPartsChanges, demoAuctionChanges, demoSceneChanges, demoStartFeature, withDemoOrigins } from '../data/demo'
+import { DEMO_SCENES, demoBoundChanges, demoBodyChanges, demoHolderChanges, demoCraftChanges, demoNetChanges, demoPack, demoPeopleChanges, demoPartsChanges, demoAuctionChanges, demoSceneChanges, demoStartFeature, withDemoOrigins, demoCurtainChanges } from '../data/demo'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
-import { MAX_KINKS, TABLE_NAME, abilitiesStepBlock, ageBlock, askStep, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, creationSummary, cyberStepBlock, gearStepBlock, kinkChoices, lifepathProblems, lifepathResults, lifepathRoll, lifepathTables, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
+import { MAX_KINKS, TABLE_NAME, abilitiesStepBlock, ageBlock, askStep, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationCatalog, creationLimits, creationLook, lookTexts, suggestedKit, creationSummary, cyberStepBlock, gearStepBlock, kinkChoices, lifepathProblems, lifepathResults, lifepathRoll, lifepathTables, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
 import type { BodyStep, LifepathTable } from '@engine/src/features/creation'
-import { NO_BRIDGE_ABILITY } from '@engine/src/features/abilities/creation'
-import { NO_BRIDGE_NOTE } from '@engine/src/features/cyberware/creation'
+import { NO_BRIDGE_ABILITY, NO_BRIDGE_NOTE } from '@engine/src/features'
 import { treeTierOf } from '@engine/src/features/abilities/learn'
 import { debriefOf } from '../lib/scene/sceneView'
 import type { Debrief } from '../lib/scene/sceneView'
@@ -107,6 +104,8 @@ import { aiSettingsFromUi, logEntryOf, type EngineLogEntry, type UiAiFields } fr
  */
 /** 示意局的開局：一般、主角是契約人（欠伊甸園的債，佇列三條）、主角是持約人（買下阿音的債） */
 export type StartKind = 'normal' | 'bound' | 'holder'
+/** 開新局的「示意模式」：關著時沒有任何示意捷徑（契約開局、簾後館邀請函、拍賣行常客的交情）；開著才依選項給。 */
+export interface DemoOpts { on: boolean; /** 簾後館：開局給一張邀請函 */ invite?: boolean; /** 拍賣行：常客的交情夠寫推薦函 */ auction?: boolean }
 export interface ActOutcome { status: ActStatus | 'busy'; reason?: string; /** 提醒（玩家寫的寫法指令被截到 200 字、AI 關著指令用不到） */ notices?: string[] }
 /** 自己潛進去的一趟離開時的帳（見 store 的 lastEnd）：報告的句子、拿到的東西、迷宮館的結算 */
 export interface EndRecord {
@@ -136,9 +135,11 @@ export const useEngine = defineStore('engine', () => {
   // 開局站在哪（示意包的起點）是 game.new 掛點給的變更（demoStartFeature），不另開一份報告，所以紀錄一開始是空的。
   // 成人場景的模式（設定 scene_mode，預設精簡；下一場生效）：每個新建的引擎都套上現在的設定
   let sceneModeNow: SceneMode = 'simple'
-  const build = (extra: ContentPack[] = [], demo = true, features: Feature[] = []): Game => withSceneMode(new Game({ features: [...allFeatures(), ...(demo ? [demoStartFeature()] : []), ...features], content: [...(demo ? [withDemoOrigins(CORE_PACK), demoPack()] : [CORE_PACK]), ...extra], fakeProvider: new FakeProvider() }))
+  const build = (extra: ContentPack[] = [], demo = true, features: Feature[] = [], provider?: FakeProvider): Game => withSceneMode(new Game({ features: [...allFeatures(), ...(demo ? [demoStartFeature()] : []), ...features], content: [...(demo ? [withDemoOrigins(CORE_PACK), demoPack()] : [CORE_PACK]), ...extra], fakeProvider: provider ?? new FakeProvider() }))
   const withSceneMode = (g: Game): Game => { setSceneMode(g.k, sceneModeNow); return g }
   let game = build()
+  /** 這一局是用「示意模式」開的（開新局的開關；關著沒有任何示意捷徑）。讀檔、測試自帶內容時是 false */
+  const demoMode = ref(false)
   /** 這一局載的是示意世界包（測試自帶內容時不是）：開新局之後附上示意的名冊 */
   let demoOn = true
 
@@ -147,11 +148,9 @@ export const useEngine = defineStore('engine', () => {
   const steps = shallowRef<StepRecord[]>([])
   const undoSize = ref(0)
   const busy = ref(false)
-  /** 交貨停在半路（寫正文被服務商拒絕，鏈停在 paused）的那幾筆：自動交貨不再碰它們，等玩家按「用規則代替」或重試（M4-ui-parts） */
-  const partPaused = ref<string[]>([])
   /** 每一步之後看有沒有可以交的未登錄零件：有就排一次交貨（微任務；不在同一次提交裡再提交） */
   function scheduleDeliver(): void {
-    if (unregFx.readyParts(game.k, game.state).some((p) => !partPaused.value.includes(p.id))) queueMicrotask(() => { void deliverReady() })
+    if (unregFx.readyParts(game.k, game.state).some((p) => !game.unregPaused().includes(p.id))) queueMicrotask(() => { void deliverReady() })
   }
 
   function refreshSteps(): void {
@@ -250,12 +249,13 @@ export const useEngine = defineStore('engine', () => {
   }
 
   /** 開新局；有 draft 時開局與建角一起提交（被擋下就原樣回傳是哪一步，原本那一局完全不動）。 */
-  function newGame(opts: { seed: number; rules?: object; draft?: CreationDraft; testContent?: ContentPack[]; testFeatures?: Feature[]; people?: boolean; start?: StartKind }): CreationBlock[] {
-    const { draft, testContent, testFeatures, people, start, ...rest } = opts
+  function newGame(opts: { seed: number; rules?: object; draft?: CreationDraft; testContent?: ContentPack[]; testFeatures?: Feature[]; testProvider?: FakeProvider; people?: boolean; start?: StartKind; demo?: DemoOpts }): CreationBlock[] {
+    const { draft, testContent, testFeatures, testProvider, people, start, demo, ...rest } = opts
+    demoMode.value = demo?.on === true
     // 只給測試用：把測試自帶的最小內容接在核心的內容後面，換一個新的引擎（畫面與正式的流程不傳這個參數）
     if (testContent) {
       clearQueued()
-      game = build(testContent, false, testFeatures)
+      game = build(testContent, false, testFeatures, testProvider)
       demoOn = false
       game.subscribe(onCommit)
     }
@@ -266,7 +266,7 @@ export const useEngine = defineStore('engine', () => {
       if (blocks.length > 0) return blocks
       previewRules.value = null
       clearQueued()
-      game.newGame({ ...rest, setup: (state) => withPeople(buildCreationReport(game.k, state, draft), state, people !== false, draft, start ?? 'normal') })
+      game.newGame({ ...rest, setup: (state) => withPeople(buildCreationReport(game.k, state, draft), state, people !== false, draft, demo?.on ? start ?? 'normal' : 'normal', demo?.on ? demo : undefined) })
       return []
     }
     previewRules.value = null
@@ -279,16 +279,20 @@ export const useEngine = defineStore('engine', () => {
    * 建角的開新局：名冊的成員是引擎照出身的名冊放的，示意包只補候選人。
    * 草稿自己選了橋、義體或裝備（第 6、9 步）時，身上有什麼完全是引擎照選的給的：示意包不再送那一副橋、甲板、義眼與整包構裝（只補組裝的零件與候選人）。
    */
-  const withPeople = (r: ReportDraft, state: GameState, on: boolean, draft: CreationDraft, start: StartKind = 'normal'): ReportDraft => {
+  const withPeople = (r: ReportDraft, state: GameState, on: boolean, draft: CreationDraft, start: StartKind = 'normal', demo?: DemoOpts): ReportDraft => {
     if (!(on && demoOn)) return r
     const picked = draft.bridge !== undefined || draft.cyber !== undefined || draft.gear !== undefined
     const roster = { origin: (originView(game.k, draft.origin)?.roster ?? []).map((n) => n.id) }
-    const base: ReportDraft = { ...r, changes: [...r.changes, ...(picked ? [] : [...demoNetChanges(), ...demoBodyChanges()]), ...demoCraftChanges(), ...demoPartsChanges(), ...demoAuctionChanges(), ...demoPeopleChanges(game.k, state, roster)] }
-    if (start === 'normal') return base
-    // 契約的開局要看得到主角：先把前面的變更套在一份複本上，再問示意包「這一局的契約」是什麼（契約怎麼建、名冊怎麼進都是引擎自己的函式）
+    const base: ReportDraft = { ...r, changes: [...r.changes, ...(picked ? [] : [...demoNetChanges(), ...demoBodyChanges()]), ...demoCraftChanges(), ...demoPartsChanges(), ...(demo?.auction ? demoAuctionChanges() : []), ...demoPeopleChanges(game.k, state, roster)] }
+    if (start === 'normal' && !demo?.invite) return base
+    // 契約的開局與邀請函要看得到主角：先把前面的變更套在一份複本上，再問示意包（契約怎麼建、名冊怎麼進、效果怎麼算都是引擎自己的函式）
     const sim = structuredClone(state)
     game.k.changes.applyAll(sim, base.changes)
-    return { ...base, changes: [...base.changes, ...(start === 'holder' ? demoHolderChanges(game.k, sim) : demoBoundChanges(game.k, sim))] }
+    const extra: Change[] = [
+      ...(start === 'holder' ? demoHolderChanges(game.k, sim) : start === 'bound' ? demoBoundChanges(game.k, sim) : []),
+      ...(demo?.invite ? demoCurtainChanges(game.k, sim) : []),
+    ]
+    return { ...base, changes: [...base.changes, ...extra] }
   }
   /** 先問引擎每一步行不行；有問題原樣回傳、狀態不動；沒問題才提交。 */
   function createCharacter(draft: CreationDraft): CreationBlock[] {
@@ -320,6 +324,14 @@ export const useEngine = defineStore('engine', () => {
     get limits() { return creationLimits(game.k, cstate()) },
     /** 按一下屬性的 ± 會不會被擋（問引擎）；null 是可以 */
     attrStepBlock: (pick: Parameters<typeof attrTotals>[0], bonus: Parameters<typeof attrTotals>[1], a: string, delta: 1 | -1): string | null => attrStepBlock(game.k, pick, bonus, a as never, delta),
+    /** 建角買得到什麼（第 6 步的橋與義體、第 9 步的裝備，分四組）：引擎的 creationCatalog（各功能回答、出身買不買得到的原因在每一列的 block） */
+    catalog: (draft: CreationDraft) => creationCatalog(game.k, cstate(), draft),
+    /** 出身的建議組合（引擎的 suggestedKit：照點數裁過）；出身沒寫是 has: false */
+    suggested: (draft: CreationDraft) => suggestedKit(game.k, cstate(), draft),
+    /** 外觀裡推出來的三樣（外露的義體、獸化、風格與穿著）：引擎的 creationLook */
+    look: (draft: CreationDraft) => creationLook(game.k, cstate(), draft),
+    /** 獸化的系（引擎的外觀文字表：預設加上資料蓋掉的） */
+    beastLines: (): string[] => Object.keys(lookTexts(game.k).beast_lines),
     /** 出身給畫面顯示用的名字：勢力（id＋短名）、開場名冊（id＋名字） */
     originView: (id: string) => originView(game.k, id),
     /** 起始的錢（含沒花完的義體與裝備點數換的現金） */
@@ -606,13 +618,6 @@ export const useEngine = defineStore('engine', () => {
     skipBlock: (): string | null => { void state.value; return sceneCanSkip(game.state) },
     /** 評價的名字（引擎的評價表；契合條旁邊與別的圈用） */
     rating: (fit: number): string => ratingOf(sceneRules(game.k), fit).name,
-    /** 精簡版遇到多人的設定時，引擎給的那一句說明（只展開一個對象、其餘收成別的圈）；不是這種情形是 null */
-    simpleNote: (): string | null => {
-      void state.value
-      const raw = sceneRawOf(game.state)
-      if (!raw || raw.mode !== 'simple' || raw.circles.length === 0) return null
-      return new Play(game.k, game.state, structuredClone(raw), sceneDiceOf(game.state, raw)).circleBlocks(raw.circles[0]!.id)[0] ?? null
-    },
     /** 成人場景的 AI 走到哪裡（引擎的 sceneRoute）：pure 沒有 AI、text 只有整場的正文、closing 進場與收尾、full 每回合都問 */
     route: (): 'pure' | 'text' | 'closing' | 'full' => { void state.value; return game.sceneRoute() },
     /** 內容篩選關掉的題材（存檔規則的 contentOff） */
@@ -716,19 +721,12 @@ export const useEngine = defineStore('engine', () => {
     part: (id) => game.k.content.get<PartEntry>('part', id),
     stackPart: (st) => stackPart(game.k.content, st),
     quickBlock: (id) => quickBlock(game.k, id),
-    // 外套扣上時被蓋住的穿著格：身上的每一件裡引擎的 styleOf 說「看不到」的那幾格（看不到的整件都算；連身的衣服只露出一部分時，露出的第一格之前的算被蓋住）。
-    // 引擎還沒有直接給「被蓋住的格子」（回報給 cpp-architect）；內衣不算看得到也不算被蓋住
+    // 外套扣上時被蓋住的穿著格：引擎的 coveredSlots（M4 收尾修正批；介面不再自己從 styleOf 推）
     covered: () => {
       void state.value
       const pc = game.state.pc
       if (pc === null || !game.state.actors[pc]) return []
-      const seen = new Map(styleOf(game.k, game.state, pc).seen.filter((p) => p.group === 'worn').map((p) => [p.id, p.slot]))
-      const worn = gearOf(game.state, pc).worn as Record<string, string | undefined>
-      return Object.entries(worn).filter(([slot, uid]) => {
-        if (!uid || slot === 'underwear_top' || slot === 'underwear_bottom') return false
-        const first = seen.get(uid)
-        return first === undefined || WEAR_SLOTS.indexOf(slot as never) < WEAR_SLOTS.indexOf(first as never)
-      }).map(([slot]) => slot)
+      return [...coveredSlots(game.k, game.state, pc)]
     },
   }
   /** 引擎擋下的原因：ChangeError 的訊息前面有「changes[0]（gear.quick）：」，去掉它只留引擎寫的那一句 */
@@ -739,6 +737,22 @@ export const useEngine = defineStore('engine', () => {
     return null
   }
   const NO_PC = '還沒有主角。'
+  /**
+   * 問引擎時丟出例外的處理（不把引擎的原因換成介面自己的句子）：引擎擋下（ActionBlocked／ChangeError）時，答案是字串或字串陣列的就用引擎的那一句；
+   * 其他例外是引擎的程式錯誤，記到 console 再回 fallback（不悄悄吞掉）。
+   */
+  function failedAs<T>(e: unknown, fallback: T): T {
+    if (e instanceof ActionBlocked || e instanceof ChangeError) {
+      const why = reasonOf(e)
+      if (why) {
+        if (typeof fallback === 'string') return why as T
+        if (Array.isArray(fallback) && fallback.length > 0 && fallback.every((x) => typeof x === 'string')) return [why] as T
+      }
+      return fallback
+    }
+    console.error(e)
+    return fallback
+  }
   /** 提交一份裝備的報告；被擋下回傳原因，成功回傳 null */
   function commitGear(make: (pc: string) => Parameters<Game['commit']>[0]): string | null {
     const pcId = game.state.pc
@@ -972,7 +986,7 @@ export const useEngine = defineStore('engine', () => {
   interface Queued { action: string; make: () => ReportDraft }
   const queued: Queued[] = []
   /** 開新局、讀檔、回退、回到階段開始、重來戰鬥：狀態換了，留著的草稿都是舊的，全部丟掉 */
-  const clearQueued = (): void => { queued.length = 0; partPaused.value = []; clearMemos() }
+  const clearQueued = (): void => { queued.length = 0; clearMemos() }
   /**
    * 把一份（或幾份）報告草稿交給引擎提交（走 commitNarrated：AI 關著就是一般的提交）。草稿做不出來（被擋下）回傳原因。
    * remake(i)：第 i 份草稿（i ≥ 1）若要留著等放行，放行時用它照當下狀態重做；沒給就用原來那一份。
@@ -1456,7 +1470,7 @@ export const useEngine = defineStore('engine', () => {
       const a = s.actors[id]
       if (!a) return []
       const main = (Array.isArray(a.ext.paths) ? a.ext.paths as Array<{ path: string; slot: string }> : []).find((p) => p.slot === 'main')
-      return [{ id, name: a.name, role: main ? peopleLook.path(main.path) : '', sink: a.sink, hp: [a.hp, statOf(id, 'max_hp', Math.max(1, a.hp))], load: [a.load, statOf(id, 'load_cap', Math.max(1, a.load))], afterglow: a.afterglow, me: id === s.pc, ...(body.painBlind(id) ? { hpBlur: true } : {}) }]
+      return [{ id, name: a.name, role: main ? peopleLook.path(main.path) : '', sink: a.sink, hp: [a.hp, statOf(id, 'max_hp', Math.max(1, a.hp))], load: [a.load, statOf(id, 'load_cap', Math.max(1, a.load))], afterglow: a.afterglow, ...(game.k.stats.hasStat('afterglow_cap') ? { afterglowCap: game.k.stats.stat(game.state, id, 'afterglow_cap') } : {}), me: id === s.pc, ...(body.painBlind(id) ? { hpBlur: true } : {}) }]
     })
   }
   /** 敵對值清單（引擎的 hostilityView：floor 已是永久與有期限取較高）；timed 是還沒到期的有期限下限，days 是剩幾天（進位） */
@@ -1535,29 +1549,13 @@ export const useEngine = defineStore('engine', () => {
   const night = {
     /** 五個分支各自開到幾階、看得到的技能（狀態：學會了、能學、階沒開、條件不夠）、現在的體悟；沒有主角是 null */
     list: (): NightListView | null => { void state.value; return game.state.pc === null ? null : nightList(game.k, game.state, game.state.pc) },
-    /** 一個分支的階是怎麼來的（引擎的規則表與角色身上的數字；只列數字，開幾階以 list 的 tier 為準） */
-    basis: (branch: string): string => {
-      void state.value
-      const pc = game.state.pc
-      const a = pc === null ? undefined : game.state.actors[pc]
-      if (!a) return ''
-      const rules = nightRules(game.k)
-      if (branch === 'common') {
-        const x = nightExperience(a)
-        const tier = nightList(game.k, game.state, a.id).branches.find((b) => b.branch === 'common')?.tier ?? 0
-        const next = rules.common_gates[tier]
-        return `性經歷 ${x.times} 次、${x.partners} 人${next ? `；下一階要 ${next[0]} 次或 ${next[1]} 人` : '；已經開到頂'}`
-      }
-      const axis = rules.axis_of[branch as keyof typeof rules.axis_of]
-      return axis ? `傾向的「${AXIS_NAME[axis]}」軸 ${axisLevel(a, axis)} 級（一級開一階）` : ''
-    },
-    /** 共鳴的清單（night_resonance）：每一筆它的分支與階、有沒有生效（分支開到的階數夠了）、一句說明；照內容的順序 */
+    /** 共鳴的清單（night_resonance）：每一筆它的分支與階、有沒有生效、一句說明；照內容的順序。生不生效是引擎的 resonanceOf（不在場景裡，照雙人算） */
     resonances: (): Array<{ id: string; name: string; branch: string; tier: number; desc: string; on: boolean }> => {
       void state.value
-      const l = game.state.pc === null ? null : nightList(game.k, game.state, game.state.pc)
       if (!game.k.content.hasKind(RESONANCE_KIND)) return []
+      const on = game.state.pc === null ? [] : resonanceOf(game.k, game.state, game.state.pc, false).ids
       return game.k.content.list<{ id: string; name?: string; branch?: string; tier?: number; desc?: string }>(RESONANCE_KIND).map((r) => ({
-        id: r.id, name: r.name ?? r.id, branch: r.branch ?? '', tier: r.tier ?? 0, desc: r.desc ?? '', on: (l?.branches.find((b) => b.branch === r.branch)?.tier ?? 0) >= (r.tier ?? 99),
+        id: r.id, name: r.name ?? r.id, branch: r.branch ?? '', tier: r.tier ?? 0, desc: r.desc ?? '', on: on.includes(r.id),
       }))
     },
     /** 技能的內容（說明、掛的標籤的名字）；顯示用 */
@@ -1570,6 +1568,37 @@ export const useEngine = defineStore('engine', () => {
     learn: (id: string): string | null => commitGear((pc) => nightLearnDraft(game.k, game.state, pc, id)),
   }
 
+  // ---- 角色的成人分頁（UI 8.2 節）：傾向、性經歷、豔名都讀引擎（lewd 的 tendencyOf、scene 的 sexRecordOf、量表 fame）；只讀 ----
+  const adult = {
+    /** 傾向：四條軸（等級）與每條軸上「有」或「深」的標籤（潛在的、被內容篩選關掉的不列）；沒有主角是空的 */
+    tendency: (): Array<{ axis: string; name: string; level: number; tags: Array<{ id: string; name: string; deep: boolean }> }> => {
+      void state.value
+      const pc = game.state.pc
+      if (pc === null || !game.state.actors[pc]) return []
+      const t = tendencyOf(game.state, pc)
+      const entries = game.k.content.hasKind(TAG_KIND) ? game.k.content.list<TagEntry>(TAG_KIND) : []
+      return AXES.map((axis) => ({
+        axis, name: AXIS_NAME[axis], level: t.axes[axis],
+        tags: entries.filter((e) => e.axis === axis && (t.tags[e.id] === 'has' || t.tags[e.id] === 'deep') && contentAllowed(game.state.rules, e.id)).map((e) => ({ id: e.id, name: e.name, deep: t.tags[e.id] === 'deep' })),
+      }))
+    },
+    /** 性經歷：次數、對象的人數、第一次、最喜歡的人（名字）；引擎的 sexRecordOf */
+    sex: (): { times: number; partners: number; services: number; first: { who: string; note: string } | null; favorite: string | null } => {
+      void state.value
+      const pc = game.state.pc
+      const r = sexRecordOf(pc === null ? undefined : game.state.actors[pc])
+      const nm = (id: string): string => game.state.actors[id]?.name ?? id
+      return { times: r.times, partners: r.partners, services: r.service_times, first: r.first ? { who: nm(r.first.with), note: r.first.note } : null, favorite: r.favorite ? nm(r.favorite) : null }
+    },
+    /** 豔名：每一區各一格（引擎的量表 fame，照區）；在哪一區是引擎的世界視圖 */
+    fame: (): Array<{ id: string; name: string; value: number; here: boolean }> => {
+      void state.value
+      if (!game.k.meters.has('fame')) return []
+      const here = worldView(game.k, game.state).district?.id ?? null
+      return cityGraph(game.k).districts.map((d) => ({ id: d.id, name: d.name, value: meterOf(game.k, game.state, 'fame', d.id), here: d.id === here }))
+    },
+  }
+
   // ---- 義體、醫療、藥、沉溺（M4-ui-body）：全部轉接 features/cyberware、medical、drugs、sink、lewd，畫面不算費用、成本、機率與原因 ----
   // 每個入口都是「報價（quote）、擋住的原因（block）、送出（動作）」三件：報價與原因問引擎，送出就是提交引擎做好的報告草稿。
   const NO_BODY = '還沒有主角。'
@@ -1580,8 +1609,8 @@ export const useEngine = defineStore('engine', () => {
     if (pc === null || !game.state.actors[pc]) return none
     try {
       return f(pc)
-    } catch {
-      return none
+    } catch (e) {
+      return failedAs(e, none)
     }
   }
   /** 提交一份引擎做好的草稿（有主角才做）；被擋下回傳引擎的原因 */
@@ -1698,18 +1727,16 @@ export const useEngine = defineStore('engine', () => {
     modifyQuote: (o: Omit<cyberware.ModifyOpts, 'actor'>): cyberware.ModifyQuote | null => onPc((pc) => cyberware.modifyQuote(game.k, game.state, { ...o, actor: pc }), null),
     modifyBlock: (o: Omit<cyberware.ModifyOpts, 'actor'>): string | null => onPc((pc) => cyberware.modifyBlock(game.k, game.state, { ...o, actor: pc }), NO_BODY),
     modify: (o: Omit<cyberware.ModifyOpts, 'actor'>): string | null => doOnPc((pc) => cyberware.modifyDraft(game.k, game.state, { ...o, actor: pc })),
+    /** 這個部位要不要選左右（引擎的 partIdOf：部位 id 不是單一部位就要選）：建角用的 blueprint().needsSide 同一個判斷 */
+    needsSide: (slot: string | null): boolean => slot !== null && cyberware.partIdOf(slot) === null,
     /** 身上現在生效的被動效果（來源是義體、怪癖、藥、沉溺、戒斷、傷勢……）：引擎的 k.passives */
     passives: (): BodyPassive[] => onPc((pc) => game.k.passives.of(game.state, pc).map((e) => ({ ...e })), []),
-    /** 這個人是不是痛覺編輯器：身上有帶 pain_editor 標籤的義體（引擎的條件 cyber）；生命值顯示變模糊（CYBERWARE 第 3 節） */
+    /** 生命值要不要模糊顯示：引擎的衍生數值 hp_blur（痛覺編輯器生效中是 1；cyberView.hp_blur 的同一個答案），介面不認標籤名 */
     painBlind: (id?: string): boolean => {
       void state.value
       const who = id ?? game.state.pc
-      if (who === null || who === undefined || !game.state.actors[who]) return false
-      try {
-        return game.k.conditions.test({ kind: 'cyber', tag: PAIN_TAG }, { state: game.state, actor: who, stats: game.k.stats, timeRules: game.k.timeRules })
-      } catch {
-        return false
-      }
+      if (who === null || who === undefined || !game.state.actors[who] || !game.k.stats.hasStat(cyberware.HP_BLUR_STAT)) return false
+      return game.k.stats.stat(game.state, who, cyberware.HP_BLUR_STAT) > 0
     },
     // ---- 醫療 ----
     medical: (by?: string): medical.MedicalView | null => { void state.value; return game.state.pc === null ? null : medical.medicalView(game.k, game.state, by ? { by } : {}) },
@@ -1726,15 +1753,22 @@ export const useEngine = defineStore('engine', () => {
     sink: (): sink.SinkView | null => onPc((pc) => sink.sinkView(game.k, game.state, pc), null),
     therapyHere: (): sink.TherapyFacility | null => { void state.value; return sink.therapyHere(game.k, game.state) },
     therapyQuote: (o: sink.TherapyOpts = {}): sink.TherapyQuote | null => { void state.value; try { return sink.therapyQuote(game.k, game.state, o) } catch { return null } },
-    therapyBlock: (o: sink.TherapyOpts = {}): string | null => { void state.value; try { return sink.therapyBlock(game.k, game.state, o) } catch { return '現在不能做治療。' } },
+    therapyBlock: (o: sink.TherapyOpts = {}): string | null => ask(() => sink.therapyBlock(game.k, game.state, o), '現在不能做治療。'),
+    /** 進傳教所只是開始（引擎的活動 retreat）；之後在 RetreatPanel 待下去或提早離開 */
     therapy: (o: sink.TherapyOpts = {}): string | null => commitMade(() => sink.therapyDraft(game.k, game.state, o)),
+    /** 進行中的斷線靜修（哪一間、還剩幾天、結束時最多降多少、進去時的沉溺）；沒有是 null */
+    retreat: (): sink.RetreatView | null => { void state.value; return sink.retreatView(game.state) },
+    stayBlock: (): string | null => ask(() => sink.retreatStayBlock(game.k, game.state), '現在待不下去。'),
+    stay: (): string | null => commitMade(() => sink.retreatStayDraft(game.k, game.state)),
+    leaveBlock: (): string | null => ask(() => sink.retreatLeaveBlock(game.k, game.state), '現在離不開。'),
+    leave: (): string | null => commitMade(() => sink.retreatLeaveDraft(game.k, game.state)),
     /** 被動效果來源的名字（引擎的 PASSIVE_SOURCE_NAMES） */
     sourceName: (source: string): string => (PASSIVE_SOURCE_NAMES as Record<string, string>)[source] ?? source,
   }
 
   // ---- 契約、惡意韌體、調校、蠱惑、請教（M4-ui-contract）：全部轉接引擎的匯出，畫面不算 DC、成功率、價錢、能不能做 ----
-  /** 問引擎「現在做不做得了」：丟錯當成沒有答案（回傳 fallback） */
-  const ask = <T>(f: () => T, fallback: T): T => { void state.value; try { return f() } catch { return fallback } }
+  /** 問引擎「現在做不做得了」：引擎擋下就用它的原因（字串答案），其他例外記 console 後回 fallback */
+  const ask = <T>(f: () => T, fallback: T): T => { void state.value; try { return f() } catch (e) { return failedAs(e, fallback) } }
   const contract = {
     /** 主角是契約人時的面板（引擎的 boundView；沒有契約是 null） */
     bound: (): contractFx.BoundView | null => ask(() => contractFx.boundView(game.k, game.state), null),
@@ -1744,8 +1778,6 @@ export const useEngine = defineStore('engine', () => {
     holder: (npc: string): contractFx.HolderContractView | null => ask(() => contractFx.holderContractView(game.k, game.state, npc), null),
     /** 持約人那一面的事件頁：五種事各自能不能做、原因（引擎的 holderEvents） */
     events: (npc: string): contractFx.HolderEvent[] => ask(() => contractFx.holderEvents(game.k, game.state, npc), []),
-    /** 逾期的處置：引擎在紀錄裡寫的（contract.overdue 報告的正文，照時間）；boundView 的佇列只帶還沒了結的處置，已經逾期的那一條要看這裡 */
-    overdueLines: (): string[] => { void state.value; return game.state.reports.filter((r) => r.action === 'contract.overdue').map((r) => r.outcome.summary) },
     /** 他的名字（角色的名字） */
     nameOf: (id: string): string => { void state.value; return game.state.actors[id]?.name ?? id },
     /** 身上被裝了什麼（引擎的 cyberView；可以問任何一個角色） */
@@ -1809,6 +1841,8 @@ export const useEngine = defineStore('engine', () => {
     tutorBlock: (o: TutorOpts): string | null => ask(() => tutorBlockFx(game.k, game.state, o), '現在上不了課。'),
     tutorLesson: (o: TutorOpts): string | null => commitMade(() => tutorDraftFx(game.k, game.state, o)),
     skillName: (id: string): string => game.k.content.get<{ id: string; name?: string }>('skill', id)?.name ?? id,
+    /** 說明文字用的數字（引擎的常數與規則）：機構最多教到幾級、工藝課最多教到幾級 */
+    limits: (): { facilityMax: number; tutorMax: number } => ({ facilityMax: FACILITY_MAX, tutorMax: tutorMax(game.k) }),
   }
 
   // ---- 修理構裝（M4-ui-followups；features/netcombat 的 repairRows／repairBlock／repairDraft）：站在有 repair_construct 的設施上才列；價錢與原因全是引擎的 ----
@@ -1825,30 +1859,8 @@ export const useEngine = defineStore('engine', () => {
 
 
   // ---- 未登錄零件（M4-ui-parts；features/unreg、Game.unregDeliver）：全部轉接引擎的匯出，畫面不算價錢、等級上限、能不能訂、能不能換、怪癖的候選 ----
-  /** 一筆等著交貨的零件給畫面看的樣子：框架的名字與數字是引擎的 frameView，現在交不交得了與原因是 deliverBlock */
-  interface PendingRow {
-    id: string
-    source: string
-    from: string
-    frame: unregFx.FrameView
-    /** 訂做的（時間到了還要到委託台取貨） */
-    order: boolean
-    /** 訂做的：滿了天數的那一刻（分鐘）；其餘沒有 */
-    readyAt: number | null
-    /** 現在交不了的原因（引擎的那一句）；交得了是 null */
-    block: string | null
-    /** 還在等天數（訂做的、還沒到時間） */
-    waiting: boolean
-    /** 交貨停在半路（寫正文被拒），等玩家處理 */
-    paused: boolean
-  }
-  const pendingRow = (p: unregFx.Pending): PendingRow | null => {
-    const frame = unregFx.frameView(game.k, game.state, p.id)
-    if (!frame) return null
-    const block = unregFx.deliverBlock(game.k, game.state, p.id)
-    const waiting = p.hold === 'order' && p.ready_at !== undefined && toMinutes(game.state.time) < p.ready_at
-    return { id: p.id, source: p.source, from: p.from ?? '', frame, order: p.hold === 'order', readyAt: p.ready_at ?? null, block, waiting, paused: partPaused.value.includes(p.id) }
-  }
+  /** 一筆等著交貨的零件給畫面看的樣子：引擎的 pendingView（框架、還要幾天、交不交得了與原因）加上停在半路與否（引擎的 Game.unregPaused） */
+  type PendingRow = unregFx.PendingView & { /** 交貨停在半路（寫正文被拒），等玩家處理 */ paused: boolean }
   /** 交一件貨：AI 開著走任務鏈（沿用現有的任務鏈列），否則直接提交。被擋下回傳 refused 與原因 */
   async function deliver(id: string, opts: { autoRules?: boolean } = {}): Promise<ActOutcome> {
     let r: ActOutcome
@@ -1859,8 +1871,6 @@ export const useEngine = defineStore('engine', () => {
       if (why === null) throw e
       return { status: 'refused', reason: why }
     }
-    if (r.status === 'paused') { if (!partPaused.value.includes(id)) partPaused.value = [...partPaused.value, id] }
-    else if (r.status === 'applied') partPaused.value = partPaused.value.filter((x) => x !== id)
     return r
   }
   let delivering = false
@@ -1870,7 +1880,7 @@ export const useEngine = defineStore('engine', () => {
     delivering = true
     try {
       for (let guard = 0; guard < 20; guard++) {
-        const next = unregFx.readyParts(game.k, game.state).find((p) => !partPaused.value.includes(p.id) && unregFx.deliverBlock(game.k, game.state, p.id) === null)
+        const next = unregFx.readyParts(game.k, game.state).find((p) => !game.unregPaused().includes(p.id) && unregFx.deliverBlock(game.k, game.state, p.id) === null)
         if (!next) break
         const r = await deliver(next.id)
         if (r.status !== 'applied') break
@@ -1881,7 +1891,7 @@ export const useEngine = defineStore('engine', () => {
   }
   const unreg = {
     /** 全部等著交貨的（背包的小區塊與委託台的訂單頁） */
-    pending: (): PendingRow[] => ask(() => unregFx.pendingParts(game.state).flatMap((p) => { const r = pendingRow(p); return r ? [r] : [] }), []),
+    pending: (): PendingRow[] => ask(() => { const paused = game.unregPaused(); return unregFx.pendingView(game.k, game.state).map((p) => ({ ...p, paused: paused.includes(p.id) })) }, []),
     /** 腳下的委託台（設施種類帶 unreg_desk）；不在是 null */
     desk: (): unregFx.DeskHere | null => ask(() => unregFx.deskHere(game.k, game.state), null),
     orderView: (): unregFx.OrderView => { void state.value; return unregFx.orderOptions(game.k, game.state) },
@@ -1928,7 +1938,9 @@ export const useEngine = defineStore('engine', () => {
     enter: (house: string, pay: 'cash' | 'cred'): Promise<ActOutcome> => commitAuction(() => auctionFx.enterDraft(game.k, game.state, { house, pay })),
     view: (): auctionFx.AuctionView | null => ask(() => auctionFx.auctionView(game.k, game.state), null),
     bidOptions: (): auctionFx.BidOptions | null => ask(() => auctionFx.bidOptions(game.k, game.state), null),
-    bid: (input: auctionFx.BidInput): Promise<ActOutcome> => commitAuction(() => auctionFx.bidDraft(game.k, game.state, input)),
+    bid: (input: auctionFx.BidInput | auctionFx.AutoInput): Promise<ActOutcome> => commitAuction(() => auctionFx.bidDraft(game.k, game.state, input)),
+    /** 這樣喊現在行不行（含自動跟價 { auto: { max } }）：引擎的第一個原因，行是 null */
+    bidBlock: (input: auctionFx.BidInput | auctionFx.AutoInput): string | null => ask(() => auctionFx.bidBlock(game.k, game.state, input), '現在不能喊。'),
     leaveBlock: (): string | null => ask(() => auctionFx.leaveBlock(game.k, game.state), '現在不在拍賣廳裡。'),
     leave: (): Promise<ActOutcome> => commitAuction(() => auctionFx.leaveDraft(game.k, game.state)),
     /** 引擎的分鐘數寫成「第 N 天 HH:MM（週幾）」（開槌與公布的時間） */
@@ -1971,17 +1983,8 @@ export const useEngine = defineStore('engine', () => {
     encoreBlocks: (): string[] => ask(() => curtainFx.encoreBlocks(game.k, game.state), ['現在沒有加演。']),
     encoreOf: (): curtainFx.EncoreRec | null => ask(() => curtainFx.encoreOf(game.state), null),
     encore: (): Promise<ActOutcome> => commitDrafts(() => curtainFx.encoreDraft(game.k, game.state), '加演'),
-    /** 帳與母帶（不必在落幕之後也看得到）：欠款與上限與每週利息（引擎的 tabCap、tabLine）、簽著的檔期、每一支母帶；都沒有是 null 與空的 */
-    account: (): { tab: { owed: number; cap: number; weekly: number } | null; gig: { until: number; missed: number } | null; tapes: Array<{ id: string; leaked: boolean; price: number; bought: boolean }> } => ask(() => {
-      const c = curtainFx.curtainOf(game.state)
-      const rules = curtainFx.curtainRules(game.k)
-      const tier = rules.tiers.find((t) => t.id === (c.member?.tier ?? c.fall?.tier))
-      return {
-        tab: c.tab ? { owed: c.tab.owed, cap: tier ? curtainFx.tabCap(rules, tier) : 0, weekly: curtainTabLine(game.k, game.state, curtainFx.CURTAIN_TAB_BILL_ID, 'curtain', 0)?.amount ?? 0 } : null,
-        gig: c.gig ? { until: c.gig.until, missed: c.gig.missed } : null,
-        tapes: c.tapes.map((t) => ({ id: t.id, leaked: t.leaked, price: t.price, bought: t.bought === true })),
-      }
-    }, { tab: null, gig: null, tapes: [] }),
+    /** 帳與母帶（不必在落幕之後也看得到）：欠款與上限與每週利息、簽著的檔期、每一支母帶；全部是引擎的 accountView（沒有欠的是 null 與空的） */
+    account: (): curtainFx.AccountView => ask(() => curtainFx.accountView(game.k, game.state), { tab: null, gig: null, tapes: [] }),
     /** 落幕之後：現在在哪一步（補演或三條路）、數字與能不能選（引擎的 fallView）；沒有是 null */
     fall: (): curtainFx.FallView | null => ask(() => curtainFx.fallView(game.k, game.state), null),
     replay: (): Promise<ActOutcome> => commitDrafts(() => curtainFx.replayDraft(game.k, game.state), '補演'),
@@ -1993,25 +1996,21 @@ export const useEngine = defineStore('engine', () => {
     buybackBlock: (tape: string): string | null => ask(() => curtainFx.buybackBlock(game.k, game.state, { tape }), '現在買不回來。'),
     buyback: (tape: string): Promise<ActOutcome> => commitDrafts(() => curtainFx.buybackDraft(game.k, game.state, { tape }), '買回母帶'),
     /** 敵人的名牌與立繪：這個敵人現在對 target（它鎖定的目標；沒有就照主角）是哪一個形象，與兩種可能的樣子（引擎的 unitFormView）；沒有雙形象是 null */
-    unitForm: (unitId: string, targetId?: string | null): UnitFormView | null => ask(() => {
+    unitForm: (unitId: string): UnitFormView | null => ask(() => {
       const b = game.state.battle
       const u = b?.units[unitId]
       if (!b || !u) return null
-      return unitFormView(game.k, game.state, u, targetId ? b.units[targetId] ?? null : null) ?? null
+      return unitFormView(game.k, game.state, u, lockedTarget(b, u)) ?? null
     }, null),
     /** 內容裡的名字（夜、勢力、傾向標籤） */
     nameOf: (kind: string, id: string): string => game.k.content.get<{ id: string; name?: string }>(kind, id)?.name ?? id,
-    /** 示意用：直接給一張邀請函（引擎的效果 curtain_invite；誰給邀請函是內容）。被擋下回傳原因 */
-    invite: (days?: number): string | null => commitMade(() => {
-      const fx = [{ kind: curtainFx.CURTAIN_INVITE_EFFECT, ...(days ? { days } : {}) }]
-      const ctx = effectCtx(game.k, game.state, { source: 'builtin', actor: game.state.pc ?? undefined })
-      const errors = game.k.effects.validate(fx as never, ctx)
-      if (errors.length) throw new ActionBlocked(errors.join(''))
-      const res = game.k.effects.resolve(fx as never, ctx)
-      if (res.errors.length) throw new ActionBlocked(res.errors.join(''))
-      return { kind: 'system', action: 'curtain.invite_demo', location: {}, party: [], timeline: [], changes: res.changes, outcome: { result: 'ok', summary: '你拿到一張簾後館的邀請函。' } }
-    }),
+    /** 示意模式才有（開新局的開關）：再給一張邀請函（引擎的效果 curtain_invite；誰給邀請函是內容）。關著或被擋下回傳原因 */
+    invite: (days?: number): string | null => demoMode.value ? commitMade(() => {
+      const changes = demoCurtainChanges(game.k, game.state, days)
+      if (changes.length === 0) throw new ActionBlocked('現在給不了邀請函。')
+      return { kind: 'system', action: 'curtain.invite_demo', location: {}, party: [], timeline: [], changes, outcome: { result: 'ok', summary: '你拿到一張簾後館的邀請函。' } }
+    }) : '示意模式沒有開（開新局時的選項）。',
   }
 
-  return { state, feed, curtain, unreg, auction, partPaused, repair, body, contract, malware, tuning, lure, training, craft, dye, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, night, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
+  return { state, feed, demoMode, adult, curtain, unreg, auction, repair, body, contract, malware, tuning, lure, training, craft, dye, partyRows, hostilityTop, hostilityRows, world, net, dive, maze, transit, people, event, fixer, commission, scene, deck, trade, bills, work, rest, placeName, skills, gear, battle, inBattle, defeat, pendingDefeat, blockOf, battleOptions, battleMode, battleLayer, netBattle, statusName, skillAdminCost, night, startBattle, startEncounter, encounters, battleAct, battleNext, finishBattle, retryBattle, rewindToStage, acceptDefeat: acceptDefeatNow, defeatFlow, sceneGate, eventInline, hostEvent, contentName, hasCharacter, pc, money, timeLabel, log, busy, chainSteps, canUndo, clock, newGame, createCharacter, creation, act, retryStep, useRules, reroll, stepActions, rewind, setAi, save, checkSave, load, undo, commit, ledger }
 })

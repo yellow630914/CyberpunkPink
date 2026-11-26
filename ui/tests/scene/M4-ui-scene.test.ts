@@ -14,6 +14,7 @@ import NightClassPanel from '../../src/components/scene/NightClassPanel.vue'
 import AvatarEditor from '../../src/components/scene/AvatarEditor.vue'
 import SettingsDialog from '../../src/dialogs/SettingsDialog.vue'
 import { FILTER_ROWS, FILTER_TAGS, aiSettingsFromUi, rulesFromUi, uiFromAiSettings } from '../../src/lib/engineView'
+import { DIRECTION_MAX } from '@engine/src/shell/ai/sceneChains'
 import { DIRECTION_LIMIT, directionCount, isGroup, isSolo, othersOf, reasonText } from '../../src/lib/scene/sceneView'
 import { attrOf, html, setup, tagOf, text, BEA, CAT, SETUP, TRIO, type Setup } from './fixtures'
 import type { Actor } from '@engine/src'
@@ -150,16 +151,14 @@ describe('2 多人：一圈三個人、別的圈一行字、換圈與叫人', ()
     const t = s.e.scene.turn()
     expect(t === null || t.turn === t.pc).toBe(true)
   })
-  it('精簡版遇到多人設定：只展開第一個對象，其餘收成別的圈；畫面顯示引擎給的那一句', async () => {
+  it('精簡版遇到多人設定：只展開第一個對象，其餘收成別的圈；別的圈照引擎的 circles 列', async () => {
     const s = await setup({ mode: 'simple', people: [BEA], setup: { with: [ann, 'npc_bea'], nature: 'mutual', mode: 'simple' } })
     const v = s.e.scene.view()!
     expect(v.kind).toBe('pair')
     expect(v.seats.map((x) => x.id)).toEqual(['pc', ann])
     expect(v.circles[0]!.people).toEqual(['npc_bea'])
-    const note = s.e.scene.simpleNote()
-    expect(note).toBe('精簡版不分圈：要換圈請在設定裡切到完整版。')
     const h = await page(s)
-    expect(text(h.slice(h.indexOf('data-circles-note')))).toContain(note!)
+    expect(h).toContain('data-circle="')
     // 精簡版沒有換圈與叫人的行動
     expect(s.e.scene.options()!.actions.map((a) => a.id)).not.toContain('move_circle')
   })
@@ -289,7 +288,6 @@ describe('5 夜課（成人分頁）', () => {
     expect(byId.nt_c3!.status).toBe('tier_closed')
     const h = await html(s.pinia, NightClassPanel)
     for (const b of ['common', 'relation', 'sense', 'body', 'costume']) expect(h).toContain(`data-branch="${b}"`)
-    expect(h).toContain('data-basis')
     expect(text(h.slice(h.indexOf('data-insight')))).toContain('12')
     // 按鈕
     const rich = tagOf(h, 'data-learn="nt_rich"')
@@ -382,14 +380,19 @@ describe('6 設定', () => {
 
 describe('7 想怎麼發生（選填）：原樣送出', () => {
   it('字數即時、最多 200 字；AI 關著灰掉並說明；字原樣留在格子裡', async () => {
-    expect(DIRECTION_LIMIT).toBe(200)
+    expect(DIRECTION_LIMIT).toBe(DIRECTION_MAX)
     expect(directionCount('a'.repeat(250))).toEqual({ used: 250, left: -50 })
     expect(directionCount('你好嗎')).toEqual({ used: 3, left: 197 })
     const s = await setup({ begin: false })
     const live = await html(s.pinia, DirectionField, { modelValue: '想要慢一點', live: true })
     expect(live).toContain('data-direction-input')
-    expect(live).toContain('maxlength="200"')
-    expect(text(live)).toContain('5／200')
+    // 不在瀏覽器擋（沒有 maxlength）；超過時字數標紅、照樣送出，由引擎截斷並提醒
+    expect(live).not.toContain('maxlength')
+    expect(text(live)).toContain(`5／${DIRECTION_MAX}`)
+    expect(live).not.toContain('data-direction-over')
+    const over = await html(s.pinia, DirectionField, { modelValue: 'x'.repeat(DIRECTION_MAX + 5), live: true })
+    expect(over).toContain('data-direction-over')
+    expect(over).toContain('x'.repeat(DIRECTION_MAX + 5))
     expect(live).not.toContain('is-unavailable')
     expect(live).not.toContain('disabled')
     const off = await html(s.pinia, DirectionField, { modelValue: '想要慢一點', live: false })

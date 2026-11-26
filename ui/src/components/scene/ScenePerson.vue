@@ -48,7 +48,7 @@ const skills = computed(() => props.person.known?.skills.length ?? 0)
     <div v-if="pair" class="pm" :data-pair="person.id">
       <div class="mt"><span class="k">契合<Hint>你和這個人 0～100 的成績。刻度是評價的界線。</Hint></span><b class="mono" data-pair-fit>{{ pair.fit }}</b><span class="rate" data-pair-rating>{{ pair.rating.name }}</span></div>
       <div class="fit"><b :style="{ width: pair.fit + '%' }" /><i v-for="m in marks ?? []" :key="m" :style="{ left: m + '%' }" /></div>
-      <div class="mt"><span class="k">主動權<Hint>50 以上在你手上。體位由主動權最低的那個人決定。</Hint></span><b class="mono" data-pair-init>{{ pair.init }}</b><span class="rate" data-pair-holder>{{ holder }}</span></div>
+      <div class="mt"><span class="k">主動權<Hint>50 以上在你手上。誰決定體位是引擎照主動權算的，結果寫在場景畫面上。</Hint></span><b class="mono" data-pair-init>{{ pair.init }}</b><span class="rate" data-pair-holder>{{ holder }}</span></div>
       <div class="ini"><i :style="{ left: pair.init + '%' }" /></div>
     </div>
     <div v-if="!simple" class="parts" data-parts>

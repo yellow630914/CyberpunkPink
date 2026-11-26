@@ -13,12 +13,9 @@ export const MATERIAL_NAME: Record<string, string> = { mech: '機械', bio: '生
 export const KIND_NAME: Record<string, string> = { weapon: '武器', armor: '護甲', cyberware: '義體' }
 export const AFFINITY_NAME: Record<string, string> = { meat: '現實', net: '內海', social: '輿論', media: '媒體' }
 export const POOL_NAME: Record<string, string> = { cred: '帳戶', cash: '現金' }
-/** 成品的數值鍵的名字（顯示用；沒有的就寫鍵本身） */
-export const STAT_NAME: Record<string, string> = {
-  damage: '傷害', hit: '命中', range_far: '遠射程', range_near: '近射程', armor: '護甲', sink: '沉溺', style: '風格', exposure: '曝露度', weight: '重量',
-  mag: '彈匣', pierce: '穿透', conceal: '藏匿', evade: '迴避', capacity: '容量',
-}
-export const statName = (key: string): string => STAT_NAME[key] ?? key
+/** 成品的數值鍵的名字：引擎給（core/rules/names.ts） */
+export { statName } from '@engine/src'
+import { statName } from '@engine/src'
 export const signed = (n: number): string => (n > 0 ? `+${n}` : String(n))
 export const pct = (x: number): string => `${Math.round(x * 100)}%`
 /** 幾分鐘寫成「2 小時」「30 分鐘」（顯示用） */

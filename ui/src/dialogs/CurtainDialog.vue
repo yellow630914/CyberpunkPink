@@ -94,7 +94,7 @@ const tabView = computed(() => account.value.tab)
         <div class="kv"><span>邀請函</span><b data-invite>{{ m.invite ? `還有 ${m.invite.daysLeft} 天` : '沒有有效的邀請函' }}</b></div>
         <div v-if="m.retryDays > 0" class="kv"><span>再談</span><b data-retry>還要等 {{ m.retryDays }} 天</b></div>
         <div v-if="m.member?.suspended" class="blocking" data-suspended>{{ memberLine(m.member) }}</div>
-        <div v-if="!m.invite" class="go left"><button type="button" class="btn sm" data-demo-invite @click="giveInvite">（示意）領一張邀請函</button><small class="note">誰給邀請函是內容：介紹人、試鏡、蚌殼市的老攤。</small></div>
+        <div v-if="!m.invite && e.demoMode" class="go left" data-demo-only><button type="button" class="btn sm" data-demo-invite @click="giveInvite">（示意）領一張邀請函</button><small class="note">示意模式才有。誰給邀請函是內容：介紹人、試鏡、蚌殼市的老攤。</small></div>
         <label class="pick">用哪一項檢定
           <select v-model="skill" data-skill><option v-for="s in INTERVIEW_SKILLS" :key="s.id" :value="s.id">{{ s.name }}</option></select>
         </label>

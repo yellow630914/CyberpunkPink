@@ -1,4 +1,5 @@
-import type { ContentPack, Feature, GridKernel } from '@engine/src'
+import type { ContentEntry, ContentPack, Feature, GridKernel } from '@engine/src'
+import { CORE_PACK } from '@engine/data'
 import { planArrive } from '@engine/src/features/world'
 import { demoStart, legacyFacilityAt, blockIdOf, stationMarkerOf, worldContent } from './world'
 import { transitContent } from './transit'
@@ -10,7 +11,7 @@ import { peopleContent } from './people'
 import { netContent } from './net'
 import { bodyContent } from './body'
 import { craftContent } from './craft'
-import { creationContent } from './creation'
+import { creationContent, withDemoLooks } from './creation'
 import { contractContent } from './contract'
 import { curtainContent, CURTAIN_BLOCK, CURTAIN_DISTRICT } from './curtain'
 import { partsContent } from './parts'
@@ -43,9 +44,11 @@ export function demoPack(): ContentPack {
   // （內容種類的 overridable，dev/adr/0017）：示意包放在核心包後面，用自己的機率與公里數表
   // 同一種內容在好幾個檔裡有（物品：成人場景的道具與商店的貨）：把每個檔的接起來，不互相蓋掉
   const merged: Record<string, unknown[]> = {}
-  for (const part of [worldContent(), transitContent(), eventContent(), commissionContent(), sceneContent(), lifeContent(), peopleContent(), netContent(), bodyContent(), craftContent(), creationContent(), contractContent(), curtainContent(), partsContent(), auctionContent()] as Array<Record<string, unknown[]>>) {
+  for (const part of [worldContent(), transitContent(), eventContent(), commissionContent(), sceneContent(), lifeContent(), peopleContent(), netContent(), bodyContent(), craftContent(), creationContent(), contractContent(), curtainContent(), partsContent(CORE_PACK.content?.unreg_rule as ContentEntry[] | undefined), auctionContent()] as Array<Record<string, unknown[]>>) {
     for (const [kind, list] of Object.entries(part)) merged[kind] = [...(merged[kind] ?? []), ...list]
   }
+  // 外露的義體與風格寫在設計圖與物品自己的欄位上（引擎的建角外觀讀它們）
+  withDemoLooks(merged)
   // 簾口的街區放在「地下層」底下（區的內容是整筆的，這裡把它的街區清單接上一塊）
   merged.district = (merged.district ?? []).map(d => ((d as { id?: string }).id === CURTAIN_DISTRICT ? { ...(d as object), blocks: [...(((d as { blocks?: string[] }).blocks) ?? []), CURTAIN_BLOCK] } : d))
   return { id: DEMO_PACK_ID, content: merged as unknown as ContentPack['content'] }
@@ -74,10 +77,10 @@ export { demoHolderChanges, demoBoundChanges, DEMO_HOLDER_NPC, DEMO_TEACHER_NPC,
 export { demoNetChanges, DEMO_DECK, DEMO_DECK_UID, DEMO_SCRIPT } from './net'
 export { demoBodyChanges, DEMO_START_SINK } from './body'
 export { demoCraftChanges } from './craft'
-export { withDemoOrigins, BRIDGE_LIST, CYBER_LIST, GEAR_LIST, SUGGESTED_KITS, CYBER_LOOK, GEAR_STYLE, DAILY_WEAR } from './creation'
+export { withDemoOrigins, withDemoLooks, BLUEPRINT_LOOK, ITEM_STYLE, SUGGESTED, DAILY_WEAR } from './creation'
 export type { CyberLook } from './creation'
 export { DEMO_SCENES, demoSceneChanges } from './scene'
-export { CURTAIN_BLOCK, CURTAIN_SITE, CURTAIN_NIGHTS, CURTAIN_CULTURES } from './curtain'
+export { CURTAIN_BLOCK, CURTAIN_SITE, CURTAIN_NIGHTS, CURTAIN_CULTURES, demoCurtainChanges } from './curtain'
 export { demoPartsChanges, DEMO_TUTOR_NPC, DEMO_WINDOW_FACTION } from './parts'
 export { demoAuctionChanges, demoAuctionRefEffect, AUCTION_HOUSE, AUCTION_REF_NPC } from './auction'
 export type { DemoScene } from './scene'

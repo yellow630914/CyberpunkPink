@@ -16,7 +16,7 @@ import { orderRows, payoffRows, ruleText, termText } from '../../lib/contractVie
 const eng = useEngine()
 const ui = useUi()
 const v = computed(() => eng.contract.bound())
-const rows = computed(() => (v.value ? orderRows(v.value, eng.contract.overdueLines()) : []))
+const rows = computed(() => (v.value ? orderRows(v.value) : []))
 const quote = computed(() => eng.contract.payoffQuote())
 const askKind = ref<OrderKind | ''>('')
 const askKinds = computed(() => (v.value ? v.value.orders.filter((o) => o.ticked).map((o) => ({ kind: o.kind, name: o.name, block: eng.contract.askBlock(o.kind) })) : []))
@@ -68,12 +68,13 @@ const payoff = (talk: boolean) => done(eng.contract.payoff(talk ? { talk: true }
 
       <section class="panel cut pad" data-queue>
         <p class="h">指令佇列<Hint>抗拒要過定力檢定，DC 與成功率都是引擎算的（看馴化、沉溺與主僕關係）。抗拒失敗時，這條指令變成非做不可的事；過了期限還沒做，橋自己動手。</Hint></p>
-        <div class="empty-note" data-daily>每天 08:00 持約人會擲一次要不要下新指令，機率 {{ Math.round(v.daily_chance * 100) }}%（佇列最多 {{ v.queue_max }} 條）。</div>
+        <div class="empty-note" data-daily>每天持約人會擲一次要不要下新指令，機率 {{ Math.round(v.daily_chance * 100) }}%（佇列最多 {{ v.queue_max }} 條）。</div>
         <div v-for="o in rows" :key="o.id" class="order" :class="{ over: o.overdue, closed: !o.live }" :data-order="o.id" :data-state="o.stateName" :data-overdue="o.overdue">
           <span class="kc">{{ o.name }}</span>
           <span class="grow">
             <b>{{ o.stateName }}<template v-if="o.asked">・你要的</template></b>
             <small v-if="o.place" data-place>地點：{{ o.place }}<template v-if="o.arrived">・已經到過</template></small>
+            <small v-if="o.goto" data-goto>{{ o.goto.here ? `你已經站在${o.goto.name}。` : '' }}<button v-if="!o.goto.here && o.goto.block" type="button" class="lk" data-goto-btn @click="ui.open('city', { block: o.goto.block })">走過去：{{ o.goto.name }}</button></small>
             <small v-if="o.penalty" data-penalty>{{ o.live ? '逾期會：' : '處置：' }}{{ o.penalty }}</small>
           </span>
           <span v-if="o.live" class="mono lf" :class="{ 'warn-t': o.overdue }" data-left>{{ o.left }}</span>
@@ -120,6 +121,7 @@ const payoff = (talk: boolean) => done(eng.contract.payoff(talk ? { talk: true }
 .go.left { justify-content: flex-start; align-items: center; margin-top: var(--space-3); }
 .go .grow { flex: 1; min-width: 0; color: var(--ink-2); font-size: var(--fs-sm); }
 .order { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 8px; align-items: start; padding: 8px 10px; background: var(--bg-2); margin-top: 5px; font-size: var(--fs-sm); }
+.lk { background: none; border: 0; padding: 0; color: var(--a); font: 800 var(--fs-fine) var(--font); cursor: pointer; text-decoration: underline; }
 .order.over { box-shadow: inset 3px 0 0 var(--danger); }
 .order.closed { opacity: .6; }
 .order.over.closed { opacity: 1; }
@@ -131,5 +133,5 @@ const payoff = (talk: boolean) => done(eng.contract.payoff(talk ? { talk: true }
 .rs { display: block; font-weight: 600; font-size: var(--fs-fine); }
 .askrow { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; margin-top: var(--space-3); }
 .inp { background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 6px 10px; font: 600 var(--fs-sm) var(--font); min-width: 0; }
-@media (max-width: 720px) { .cols2 { grid-template-columns: minmax(0, 1fr); } .order { grid-template-columns: auto minmax(0, 1fr); } .lf { grid-column: 2; } }
+@media (max-width: 720px) { .cols2 { grid-template-columns: minmax(0, 1fr); } .cols2 > [data-queue] { order: -1; } .order { grid-template-columns: auto minmax(0, 1fr); } .lf { grid-column: 2; } }
 </style>

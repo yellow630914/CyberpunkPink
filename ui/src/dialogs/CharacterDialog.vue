@@ -56,6 +56,8 @@ function raiseBasic(id: string, name: string) {
 
 // ---- 角色卡的生命與沉溺：讀引擎（痛覺編輯器讓生命值只剩模糊的分段） ----
 const me = computed(() => eng.partyRows().find((m) => m.me) ?? null)
+/** 體悟：和成人分頁的夜課同一份（引擎的 nightList） */
+const insight = computed(() => eng.night.list()?.insight ?? 0)
 const sinkNow = computed(() => eng.body.sink())
 </script>
 
@@ -67,12 +69,12 @@ const sinkNow = computed(() => eng.body.sink())
       <aside class="panel cut pad card">
         <div class="who"><div class="ava" aria-hidden="true" /><div><b>{{ g.character.name }}</b><div class="k" data-trees>{{ openTrees.join('・') || '還沒有開的樹' }}</div></div></div>
         <div class="kv"><span>歷練點</span><b style="color: var(--ap)" data-xp>{{ myXp }}</b></div>
-        <div class="kv"><span>體悟</span><b style="color: var(--a)">{{ g.character.insight }}</b></div>
+        <div class="kv"><span>體悟</span><b style="color: var(--a)" data-card-insight>{{ insight }}</b></div>
         <div class="kv"><span>街頭信譽</span><b>{{ g.character.rep }}・{{ g.character.repTitle }}</b></div>
         <HpBar v-if="me" label="生命" :hp="me.hp[0]" :max="me.hp[1]" :blur="eng.body.painBlind()" class="mt" data-card-hp />
         <TrackBar v-else label="生命" :value="g.character.hp[0]" :max="g.character.hp[1]" color="var(--hp)" class="mt" />
-        <TrackBar label="感載" :value="g.character.load[0]" :max="g.character.load[1]" color="var(--load)" striped class="mt" />
-        <div class="layers"><span class="k">承受層數</span><i v-for="n in g.character.layers[1]" :key="n" :class="{ on: n <= g.character.layers[0] }" /><span class="k">餘韻 {{ g.character.afterglow }}</span></div>
+        <TrackBar label="感載" :value="me?.load[0] ?? 0" :max="me?.load[1] ?? 1" color="var(--load)" striped class="mt" data-card-load />
+        <div class="layers" data-card-layers><span class="k">承受層數</span><i v-for="n in (me?.afterglowCap ?? 0)" :key="n" :class="{ on: n <= (me?.afterglow ?? 0) }" /><span class="k" data-card-afterglow>餘韻 {{ me?.afterglow ?? 0 }}</span></div>
         <TrackBar label="沉溺" :value="sinkNow?.value ?? 0" :max="100" color="var(--sink)" :marks="[sinkNow?.floor ?? 0]" class="mt" data-card-sink />
         <div class="k sinkk" data-card-floor>下限 {{ sinkNow?.floor ?? 0 }}<Hint title="沉溺的下限">裝上的義體每一件都墊高下限（沉溺成本），拆掉拿回來。抑制劑讓下限暫時降低。下限左邊那一段是鎖住的。</Hint></div>
         <p class="h mt">特質</p>

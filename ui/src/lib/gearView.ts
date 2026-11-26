@@ -4,6 +4,7 @@
  * 這裡的表只有「名字」「圖標」「分類」這類顯示用的對照。
  */
 import type { ItemEntry, ItemStack } from '@engine/src'
+import { partTypeName } from '@engine/src'
 import type { BattleWeapon } from '@engine/src'
 import type { BlueprintEntry, Gear, PartEntry } from '@engine/src/features/gear'
 import { ACCESSORY_SLOTS, CARRY_SLOTS, WEAR_SLOTS } from '@engine/src/features/gear'
@@ -94,10 +95,6 @@ export const CATEGORY_NAMES: Record<string, string> = {
   weapon: '武器', armor: '護甲', clothing: '衣服', accessory: '飾品', part: '零件', blueprint: '設計圖',
   consumable: '消耗品', ammo: '彈藥', cargo: '貨物', tool: '工具', misc: '雜物',
 }
-export const PART_TYPE_NAMES: Record<string, string> = {
-  barrel: '槍管', action: '機構', plate: '板材', fiber: '纖維', blade: '刃', sensor: '感測器', chip: '晶片', actuator: '致動器', power: '電源',
-}
-
 /** 背包裡的一格（一疊）整理後的樣子。 */
 export interface BagEntry {
   /** 選取用的鍵：組好的成品用 data.uid，其他用物品的 id */
@@ -158,7 +155,7 @@ export function bagEntry(look: GearLookup, stack: ItemStack): BagEntry {
     const legal = legalName(part.legal)
     const key = typeof stack.data?.uid === 'string' ? stack.data.uid : stack.id
     return {
-      key, what: null, stack, qty: stack.qty, category: 'part', filter: 'part', type: `零件・${part.unreg ? '未登錄・' : ''}${PART_TYPE_NAMES[part.type] ?? part.type}`, name: part.name, grade: clampGrade(part.grade), brand: part.brand, legal, size: part.size, crafted: false, part, ...quick(look, stack),
+      key, what: null, stack, qty: stack.qty, category: 'part', filter: 'part', type: `零件・${part.unreg ? '未登錄・' : ''}${partTypeName(part.type)}`, name: part.name, grade: clampGrade(part.grade), brand: part.brand, legal, size: part.size, crafted: false, part, ...quick(look, stack),
       slotItem: { id: key, name: part.name, grade: clampGrade(part.grade), icon: iconOf('part'), legality: legal, ...(part.unreg ? { unique: true } : {}) },
     }
   }
@@ -188,7 +185,7 @@ export function compositionOf(look: GearLookup, stack: ItemStack): Array<{ type:
   for (const [type, v] of Object.entries(raw as Record<string, unknown>)) {
     for (const id of Array.isArray(v) ? v : [v]) {
       const part = typeof id === 'string' ? look.part(id) : undefined
-      if (part) out.push({ type, typeName: PART_TYPE_NAMES[type] ?? type, name: part.name, grade: clampGrade(part.grade) })
+      if (part) out.push({ type, typeName: partTypeName(type), name: part.name, grade: clampGrade(part.grade) })
     }
   }
   return out

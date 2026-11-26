@@ -128,7 +128,7 @@ async function start(o: Opts = {}) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const e = useEngine()
-  e.newGame({ seed: o.seed ?? 7, testContent: [pack(!!o.door), BRIDGE_PACK], testFeatures: [HELPER, CAST] })
+  e.newGame({ seed: o.seed ?? 7, testContent: [pack(!!o.door), BRIDGE_PACK], testFeatures: [HELPER, CAST], demo: { on: true } })
   expect(e.createCharacter(DRAFT)).toEqual([])
   expect(e.commit({ summary: '給甲板', changes: [give('dk_own', 1, { uid: 'D1' })] })).toBeNull()
   expect(wearDeck(e, 'D1')).toBeNull()
@@ -393,28 +393,22 @@ describe('雙形象：名牌讀 unitFormView', () => {
     expect((await e.net.use('fight', foe.id)).status).toBe('applied')
     const units = Object.values(e.state.battle!.units)
     const pcU = units.find((u) => u.actor === e.state.pc)!
-    const mateU = units.find((u) => u.actor === 'm1')!
     const foes = units.filter((u) => u.side === 'foe')
     expect(foes.length).toBeGreaterThan(0)
     for (const f of foes) {
-      const forMale = e.curtain.unitForm(f.id, mateU.id)!
-      const forPc = e.curtain.unitForm(f.id, pcU.id)!
-      expect(forMale.current.form).toBe('a')
-      expect(forMale.current.name).toBe(forMale.for_male.name)
-      expect(forMale.current.name).toMatch(/甲$/)
-      // 對主角：擲到的那一個（整場固定，a 或 b）
+      // 沒鎖定任何人（BattleUnit.lock 空）：照主角，擲到的那一個（整場固定，a 或 b）；鎖定誰是引擎的 lockedTarget，介面不傳
+      const forPc = e.curtain.unitForm(f.id)!
       expect(['a', 'b']).toContain(forPc.current.form)
       expect(forPc.current.name).toBe(forPc.for_other.name)
-      expect(forPc.for_male.name).toBe(forMale.for_male.name)
-      // 沒鎖定照主角
-      expect(e.curtain.unitForm(f.id)!.current.name).toBe(forPc.current.name)
+      expect(forPc.for_male.name).toMatch(/甲$/)
       // 固定種子：再問一次一樣
-      expect(e.curtain.unitForm(f.id, pcU.id)!.current.name).toBe(forPc.current.name)
+      expect(e.curtain.unitForm(f.id)!.current.name).toBe(forPc.current.name)
     }
     // 只有簾後館的敵人有雙形象的資料：我方單位沒有
     expect(e.curtain.unitForm(pcU.id)).toBeNull()
     // 戰鬥的畫面讀這個鍵（名牌與 data-form）
     expect(boardSrc).toContain('curtain.unitForm')
+    expect(boardSrc).not.toContain('lockOf')
     expect(boardSrc).toContain('data-nameplate')
     expect(boardSrc).toContain('data-form')
   })
@@ -590,7 +584,15 @@ describe('示意世界包的簾後館', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const e = useEngine()
-    e.newGame({ seed: 11, draft: DRAFT as never })
+    // 示意模式沒開：沒有邀請函、領邀請函的入口也是關的
+    expect(e.newGame({ seed: 11, draft: DRAFT as never })).toEqual([])
+    expect(e.demoMode).toBe(false)
+    expect(e.curtain.member()!.invite).toBeNull()
+    expect(e.curtain.invite()).toBe('示意模式沒有開（開新局時的選項）。')
+    expect(e.newGame({ seed: 11, draft: DRAFT as never, demo: { on: true, invite: true } })).toEqual([])
+    expect(e.curtain.member()!.invite!.daysLeft).toBe(3)
+    expect(e.newGame({ seed: 11, draft: DRAFT as never, demo: { on: true } })).toEqual([])
+    expect(e.curtain.member()!.invite).toBeNull()
     expect(e.world.entry('curtain_night', CURTAIN_NIGHTS.stage)).toBeTruthy()
     expect(e.world.entry<{ culture: string }>('curtain_night', CURTAIN_NIGHTS.stage)!.culture).toBe(CURTAIN_CULTURES.stage)
     expect(e.world.entry<{ culture: string }>('curtain_night', CURTAIN_NIGHTS.honey)!.culture).toBe(CURTAIN_CULTURES.honey)
@@ -602,7 +604,7 @@ describe('示意世界包的簾後館', () => {
     expect(e.world.entry('defeat_event', 'df_stage_foyer')).toBeTruthy()
     expect(e.world.entry('defeat_event', 'df_stage_foyer_plain')).toBeTruthy()
     expect(e.world.entry<{ curtain_door?: boolean }>('facility_type', 'fac_curtain_door')!.curtain_door).toBe(true)
-    // 開局直接給邀請函（引擎的效果 curtain_invite）
+    // 示意模式開著、再領一張（引擎的效果 curtain_invite）
     expect(e.curtain.invite()).toBeNull()
     expect(e.curtain.member()!.invite!.daysLeft).toBe(3)
     // 示意局的口味單：傾向標籤是示意包的，兩個夜都對得到

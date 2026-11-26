@@ -11,7 +11,7 @@ import { bandLine, heatMarks } from '../../lib/curtainView'
  */
 const props = defineProps<{ view: Pick<CurtainView, 'heat' | 'tips_mult' | 'signed'> }>()
 const marks = computed(() => heatMarks(props.view))
-const color = computed(() => (props.view.heat.value <= 15 ? 'var(--hp)' : props.view.heat.value >= props.view.heat.encore_at ? 'var(--ap)' : 'var(--load)'))
+const color = computed(() => (props.view.heat.ratio <= 0 ? 'var(--hp)' : props.view.heat.value >= props.view.heat.encore_at ? 'var(--ap)' : 'var(--load)'))
 </script>
 
 <template>

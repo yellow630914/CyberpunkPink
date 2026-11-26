@@ -3,8 +3,7 @@ import type { ContentEntry, ContentPack } from '@engine/src'
 /**
  * 示意世界包的「建角」部分（M4-ui-creation；CHARACTER 第 2、3、5 節；dev/adr/0019 第十一節）：
  * 生命軌跡八張表的條目與傾向標籤（每張表三四條，含一條被內容篩選擋住的、一條出身限定的）、出身白給的東西（kit_free）、
- * 星旗與夜鶯兩家企業才買得到的橋與便宜的二手橋、日常服裝與幾件起始裝備、第 6 與第 9 步的清單（買得到什麼）、
- * 外觀要用的牌子與風格（外露的義體、獸耳、穿著推出來的外觀由介面組字，見 lib/creation.ts 的 derivedLooks）。
+ * 星旗與夜鶯兩家企業才買得到的橋與便宜的二手橋、日常服裝與幾件起始裝備、 * 外觀要用的設計圖 look 與物品 style、出身的建議組合（suggested）；第 6、9 步買得到什麼與外觀的句子都是引擎的 creationCatalog、creationLook。
  * 整份是資料：沒有任何規則（點數、命中、價格、能不能選全是引擎的）。正式內容匯入之後整包換掉。不放進 engine/data。測試不用它。
  * 義體、零件、橋沿用 body.ts 與 craft.ts 的；這裡只補橋與衣服。
  */
@@ -72,8 +71,9 @@ export const LIFEPATH: Rec[] = [
 ]
 
 // ---- 衣服、彈藥、橋與零件 ----
-const wear = (id: string, name: string, desc: string, o: Rec = {}): Rec => ({ id, name, desc, category: 'clothing', grade: 1, size: 1, legal: 'free', price: 0, ...o })
-/** 每個出身白給的那一套日常服裝（CHARACTER 5.4 節）；風格在 GEAR_STYLE */
+/** 每個出身白給的日常服裝不用買（creation: false：建角的目錄不列）；街頭外套與企業風衣有價錢，可以買 */
+const wear = (id: string, name: string, desc: string, o: Rec = {}): Rec => ({ id, name, desc, category: 'clothing', grade: 1, size: 1, legal: 'free', price: 0, ...(o.price === undefined ? { creation: false } : {}), ...o })
+/** 每個出身白給的那一套日常服裝（CHARACTER 5.4 節）；風格寫在物品的 style 欄位（ITEM_STYLE） */
 export const DAILY_WEAR: Record<string, string> = {
   hive: 'it_wear_hive', corp: 'it_wear_corp', nomad: 'it_wear_nomad', pleasure: 'it_wear_pleasure', oldport: 'it_wear_oldport', sakura: 'it_wear_sakura', under: 'it_wear_under',
 }
@@ -126,28 +126,15 @@ export const KIT_FREE: Record<string, Array<{ id: string; qty?: number }>> = Obj
   Object.entries(DAILY_WEAR).map(([origin, wearId]) => [origin, [{ id: wearId }, ...KIT_BASE]]),
 )
 
-/** 核心包加上示意包要的幾個出身欄位（kit_free）。origin 不是可以被後載入的包蓋掉的內容種類，所以在載入前改。 */
+/** 核心包加上示意包要的幾個出身欄位（kit_free、suggested）。origin 不是可以被後載入的包蓋掉的內容種類，所以在載入前改。 */
 export function withDemoOrigins(pack: ContentPack): ContentPack {
   const origins = (pack.content as Record<string, Rec[] | undefined>).origin
   if (!origins) return pack
-  return { ...pack, content: { ...pack.content, origin: origins.map((o) => ({ ...o, kit_free: KIT_FREE[o.id as string] ?? [] })) } } as unknown as ContentPack
+  return { ...pack, content: { ...pack.content, origin: origins.map((o) => ({ ...o, kit_free: KIT_FREE[o.id as string] ?? [], ...(SUGGESTED[o.id as string] ? { suggested: SUGGESTED[o.id as string] } : {}) })) } } as unknown as ContentPack
 }
 
-// ---- 第 6、9 步的清單（買得到什麼；能不能選與點數是引擎的） ----
-
-/** 第 6 步的橋，照畫面上的順序 */
-export const BRIDGE_LIST = ['bp_bridge_used', 'bp_bridge_hive', 'bp_bridge_net', 'bp_bridge_field', 'bp_bridge_deep']
-/** 第 6 步的其他義體 */
-export const CYBER_LIST = ['bp_eye', 'bp_ears', 'bp_tattoo', 'bp_pump', 'bp_plating', 'bp_pain', 'bp_arm', 'bp_accel']
-/** 第 9 步的清單 */
-export const GEAR_LIST: Array<{ cat: string; ids: string[] }> = [
-  { cat: '武器', ids: ['it_f0db7d', 'it_e60505', 'it_6fa4e8', 'bp_pistol'] },
-  { cat: '護甲與服裝', ids: ['it_jacket_street', 'it_coat_corp', 'it_7d6ad2', 'bp_vest'] },
-  { cat: '工具與消耗品', ids: ['it_1ace6d', 'it_5e3de4', 'it_9da44a', 'it_3b3851', 'it_57e531', 'it_ammo_std'] },
-  { cat: '甲板、構裝與 SKIN', ids: ['dk_nightingale_2', 'cs_window1', 'cs_blade2', 'cs_probe2', 'it_d212f6'] },
-]
-/** 出身的建議組合（超過點數的由引擎擋，畫面拿掉最後一件再問一次） */
-export const SUGGESTED_KITS: Record<string, string[]> = {
+// ---- 出身的建議組合（origin.suggested；CHARACTER 5.4 節「每個出身一組建議」是內容）：超過點數的由引擎照順序裁掉 ----
+const SUGGESTED_GEAR: Record<string, string[]> = {
   hive: ['it_f0db7d', 'it_jacket_street', 'it_1ace6d', 'it_9da44a'],
   corp: ['it_f0db7d', 'it_coat_corp', 'cs_window1'],
   nomad: ['it_e60505', 'it_jacket_street', 'it_1ace6d'],
@@ -156,19 +143,30 @@ export const SUGGESTED_KITS: Record<string, string[]> = {
   sakura: ['it_jacket_street', 'it_d212f6', 'cs_window1'],
   under: ['it_f0db7d', 'it_jacket_street', 'cs_probe2', 'it_5e3de4'],
 }
+export const SUGGESTED: Record<string, { gear: Array<{ id: string }> }> = Object.fromEntries(Object.entries(SUGGESTED_GEAR).map(([o, ids]) => [o, { gear: ids.map((id) => ({ id })) }]))
 
-// ---- 外觀要用的（外露的義體與獸耳寫進外觀；風格由穿著推出來） ----
+// ---- 外觀要用的（外露的義體與獸耳；穿著的風格）：寫在設計圖與物品自己的欄位上（blueprint.look、item.style），引擎的 creationLook 讀 ----
 export interface CyberLook { at: string; line?: string; beast?: { school: 'mech' | 'bio'; part: 'ears' | 'tail' } }
 /** 設計圖 id → 看得見的部位（外露的義體）與獸化零件（NPC_SYSTEM 13.11 節的模板） */
-export const CYBER_LOOK: Record<string, CyberLook> = {
+export const BLUEPRINT_LOOK: Record<string, CyberLook> = {
   bp_bridge_used: { at: '後頸' }, bp_bridge_hive: { at: '後頸' }, bp_bridge_net: { at: '後頸' }, bp_bridge_field: { at: '後頸' }, bp_bridge_deep: { at: '後頸' },
   bp_eye: { at: '左眼' },
   bp_arm: { at: '左臂' },
   bp_plating: { at: '腰側', line: '皮膚底下摸得到一片一片的硬板，彎腰時看得到接縫' },
   bp_ears: { at: '頭側', beast: { school: 'bio', part: 'ears' } },
 }
-/** 物品 id → 風格標籤（穿著推出風格；格式同舊資料的 stats「風格」） */
-export const GEAR_STYLE: Record<string, string> = {
-  it_wear_hive: '工裝', it_wear_corp: '企業', it_wear_nomad: '荒地', it_wear_pleasure: '歡場', it_wear_oldport: '特攻', it_wear_sakura: '櫻町系', it_wear_under: '工裝',
-  it_jacket_street: '街頭 +1', it_coat_corp: '企業 +1', it_7d6ad2: '特攻 +1', bp_vest: '街頭 +1', it_d212f6: '偶像 +2',
+/** 物品與設計圖 id → 風格（標籤與值） */
+export const ITEM_STYLE: Record<string, { tag: string; value: number }> = {
+  it_wear_hive: { tag: '工裝', value: 1 }, it_wear_corp: { tag: '企業', value: 1 }, it_wear_nomad: { tag: '荒地', value: 1 }, it_wear_pleasure: { tag: '歡場', value: 1 },
+  it_wear_oldport: { tag: '特攻', value: 1 }, it_wear_sakura: { tag: '櫻町系', value: 1 }, it_wear_under: { tag: '工裝', value: 1 },
+  it_jacket_street: { tag: '街頭', value: 1 }, it_coat_corp: { tag: '企業', value: 1 }, it_7d6ad2: { tag: '特攻', value: 1 }, bp_vest: { tag: '街頭', value: 1 }, it_d212f6: { tag: '偶像', value: 2 },
+}
+/** 把 look 與 style 寫到對應的設計圖與物品上（示意包載入時用；已經有自己的就不蓋） */
+export function withDemoLooks(merged: Record<string, unknown[]>): void {
+  const patch = (kind: string, f: (e: Rec) => Rec): void => { if (merged[kind]) merged[kind] = merged[kind]!.map((e) => f(e as Rec)) }
+  patch('blueprint', (e) => {
+    const id = e.id as string
+    return { ...e, ...(BLUEPRINT_LOOK[id] && e.look === undefined ? { look: BLUEPRINT_LOOK[id] } : {}), ...(ITEM_STYLE[id] && e.style === undefined ? { style: ITEM_STYLE[id] } : {}) }
+  })
+  patch('item', (e) => (ITEM_STYLE[e.id as string] && e.style === undefined ? { ...e, style: ITEM_STYLE[e.id as string] } : e))
 }

@@ -5,7 +5,6 @@ import MoneyTag from '../MoneyTag.vue'
 import OwnedList from './OwnedList.vue'
 import { useEngine } from '../../stores/engine'
 import { useUi } from '../../stores/ui'
-import { GEAR_LIST, SUGGESTED_KITS } from '../../data/demo'
 import { unavailable } from '../../lib/unavailable'
 import type { CreationDraft, OwnedItem } from '@engine/src/features/creation'
 
@@ -22,21 +21,14 @@ const summary = computed(() => eng.creation.summary(props.draft))
 const blocks = computed(() => eng.creation.stepBlocks(props.draft, 'gear'))
 const owned = computed(() => summary.value.owned)
 
-interface Card { id: string; name: string; desc: string; grade: number; kind: string; points: number; slots: string[]; category: string }
+interface Card { id: string; name: string; desc: string; grade: number; kind: string; points: number; slots: string[]; category: string; /** 這個出身現在買不得的原因（引擎的目錄） */ block: string | null }
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V']
-const KIND_NAME: Record<string, string> = { weapon: '武器', armor: '護甲', clothing: '服裝', tool: '工具', consumable: '消耗品', ammo: '彈藥', construct: '構裝', skin: 'SKIN', deck: '甲板', cyberware: '甲板', blueprint: '設計圖' }
-function cardOf(id: string): Card | null {
-  const bp = eng.creation.blueprint(id)
-  const item = bp ? null : eng.creation.entryOf('item', id)
-  const other = bp || item ? null : (['deck', 'construct', 'skin'] as const).map((k) => ({ k, e: eng.creation.entryOf(k, id) })).find((x) => x.e)
-  const e = bp ?? item ?? other?.e
-  if (!e) return null
-  const category = bp ? (bp.deck !== undefined ? 'deck' : bp.kind) : item ? item.category ?? 'misc' : other!.k
-  const one = eng.creation.lone(props.draft, 'gear', { id })
-  const slots = bp ? (bp.kind === 'weapon' ? (bp.carry ? [bp.carry] : []) : [...(bp.covers ?? [])]) : []
-  return { id, name: e.name, desc: e.desc ?? '', grade: e.grade ?? 1, kind: KIND_NAME[category] ?? category, points: one.points, slots, category }
-}
-const groups = computed(() => GEAR_LIST.map((g) => ({ cat: g.cat, cards: g.ids.map(cardOf).filter((c): c is Card => c !== null) })))
+const KIND_NAME: Record<string, string> = { weapon: '武器', armor: '護甲', clothing: '服裝', accessory: '飾品', tool: '工具', consumable: '消耗品', ammo: '彈藥', construct: '構裝', skin: 'SKIN', deck: '甲板', cyberware: '甲板', blueprint: '設計圖', misc: '雜物' }
+/** 買得到什麼、分四組、依等級與價錢排好：引擎的 creationCatalog（各功能回答；GEAR_GROUPS 的順序） */
+const groups = computed(() => eng.creation.catalog(props.draft).gear.map((g) => ({
+  cat: g.group,
+  cards: g.rows.map((r): Card => ({ id: r.id, name: r.name, desc: r.desc, grade: r.grade, kind: KIND_NAME[r.category] ?? r.category, points: r.points, slots: r.slots ?? [], category: r.category, block: r.block })),
+})))
 
 const qtyOf = (id: string) => { const g = props.gear.find((x) => x.id === id); return g ? g.qty ?? 1 : 0 }
 /** 同類同位置已經有的（白給的或已選的）：服裝、護甲、甲板同類只穿一件；有部位的看部位重疊 */
@@ -52,7 +44,8 @@ function nextGear(id: string, d: 1 | -1): Array<{ id: string; qty?: number }> {
   if (now <= 0) return props.gear.filter((g) => g.id !== id)
   return props.gear.map((g) => (g.id === id ? { id, qty: now } : g))
 }
-const addBlock = (id: string) => eng.creation.addBlock(props.draft, addDraft(id), 'gear')
+const cardById = (id: string): Card | undefined => groups.value.flatMap((g) => g.cards).find((c) => c.id === id)
+const addBlock = (id: string) => cardById(id)?.block ?? eng.creation.addBlock(props.draft, addDraft(id), 'gear')
 function add(id: string) {
   const why = addBlock(id)
   if (why) { ui.toast(why, 'warn'); return }
@@ -60,24 +53,18 @@ function add(id: string) {
 }
 function remove(id: string) { emit('update:gear', nextGear(id, -1)) }
 
-/** 出身的建議組合：一件一件加，引擎擋下的（點數超過、買不到）跳過，不自己算點數 */
-function suggest() {
-  let list: Array<{ id: string; qty?: number }> = []
-  for (const id of SUGGESTED_KITS[props.draft.origin] ?? []) {
-    const have = list.find((g) => g.id === id)
-    const next = have ? list.map((g) => (g.id === id ? { id, qty: (g.qty ?? 1) + 1 } : g)) : [...list, { id }]
-    if (!eng.creation.addBlock({ ...props.draft, gear: list }, { ...props.draft, gear: next }, 'gear')) list = next
-  }
-  emit('update:gear', list)
-}
-const chosen = computed(() => props.gear.map((g) => ({ ...g, card: cardOf(g.id) })).filter((g) => g.card))
+/** 出身的建議組合：引擎的 suggestedKit（照點數裁過）；超過點數而裁掉的引擎說是哪幾件 */
+const kit = computed(() => eng.creation.suggested(props.draft))
+const trimmedNote = computed(() => (kit.value.trimmed.length ? `點數放不下，沒有放進去的：${kit.value.trimmed.map((id) => groups.value.flatMap((g) => g.cards).find((c) => c.id === id)?.name ?? id).join('、')}。` : ''))
+function suggest() { emit('update:gear', kit.value.gear.map((g) => ({ ...g }))) }
+const chosen = computed(() => props.gear.map((g) => ({ ...g, card: cardById(g.id) })).filter((g) => g.card))
 </script>
 
 <template>
   <div class="gr" data-gear-step>
     <h2>錢與裝備・剩 {{ summary.gear.left }}／{{ summary.gear.total }} 點</h2>
     <p class="setgrp">只能買 I～II 級<Hint>一件的點數、能買哪些類別、哪些出身才買得到，都由引擎算；不能買義體（義體走上一步的點數）、藥、成人道具。出身另外白給的列在右邊最上面。</Hint></p>
-    <div class="go left"><button type="button" class="btn sm pri" data-act="suggest" @click="suggest">出身的建議組合</button></div>
+    <div v-if="kit.has" class="go left"><button type="button" class="btn sm pri" data-act="suggest" @click="suggest">出身的建議組合</button><small v-if="trimmedNote" class="why" data-kit-trimmed>{{ trimmedNote }}</small></div>
     <div class="cols">
       <div>
         <template v-for="g in groups" :key="g.cat">

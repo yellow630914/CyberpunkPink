@@ -1,5 +1,6 @@
 import type { Report } from '@engine/src'
-import type { AuctionView, BidOption, CatalogLotView, Hammer, Won } from '@engine/src/features/auction'
+import type { AuctionSummary, AuctionView, BidOption, CatalogLotView } from '@engine/src/features/auction'
+import { auctionSummary } from '@engine/src/features/auction'
 import type { HereOption } from './here'
 
 /**
@@ -71,13 +72,13 @@ export const roundLines = (r: Report | null): RoundLine[] => (r ? r.timeline.fil
 
 // ---- 結算 ----
 
-export interface SettleRow { lot: number; name: string; result: 'sold' | 'passed'; winner: string | null; winnerName: string | null; price: number; won: boolean; fee: number }
+export interface SettleRow { lot: number; name: string; result: 'sold' | 'passed'; winner: string | null; winnerName: string | null; price: number; won: boolean; fee: number; /** 玩家標到了但交不出去（撤拍）的原因 */ withdrawn?: string }
 export interface Settlement {
   house: string
   rows: SettleRow[]
-  won: Won[]
+  won: AuctionSummary['won']
   spent: number
-  /** 這一場用哪種錢付（進場那一份報告記的） */
+  /** 這一場用哪種錢付（引擎的 recap.pay） */
   pay: 'cash' | 'cred'
   left: boolean
   /** 玩家得標拿到什麼：引擎寫的那幾句（仿品的那一句也在裡面） */
@@ -89,8 +90,8 @@ export interface Settlement {
 }
 
 /**
- * 最近一場結束了的拍賣（auction.close 或 auction.leave）：從那一場的進場（auction.enter）起，逐份報告收落槌的結果（outcome.hammers）；
- * 玩家得標的是 outcome.won（拍品、價錢、佣金）。不是進行中、也沒有結束的報告時是 null。這一頁的數字全是報告上的。
+ * 最近一場結束了的拍賣：結束整場的那一份報告（auction.close 或 auction.leave）的 recap（引擎的 auctionSummary）；每一件的結果、得標的、花的錢、用哪種錢全是它的。
+ * 玩家得標拿到什麼的句子是那一場的報告 timeline 上的（tag auction.settle），從進場那份往後收。最近一件拍賣的事是進場（還在進行中）、或沒有結束的報告是 null。
  */
 export function settlementOf(reports: readonly Report[]): Settlement | null {
   let close = -1
@@ -102,27 +103,18 @@ export function settlementOf(reports: readonly Report[]): Settlement | null {
   }
   if (close < 0) return null
   const last = reports[close]!
-  const out = last.outcome as unknown as { won?: Won[]; spent?: number; house?: string }
-  const hammers: Hammer[] = []
+  const sum = auctionSummary(last)
+  if (!sum) return null
   const gets: string[] = []
-  let pay: 'cash' | 'cred' = 'cash'
   for (let i = close; i >= 0; i--) {
     const r = reports[i]!
     if (r.retracted) continue
-    if (r.action === 'auction.enter') {
-      const p = r.timeline[0]?.data?.pay
-      if (p === 'cash' || p === 'cred') pay = p
-      break
-    }
-    if (r.action === 'auction.bid' || r.action === 'auction.leave' || r.action === 'auction.close') {
-      hammers.unshift(...((r.outcome as unknown as { hammers?: Hammer[] }).hammers ?? []))
-      gets.unshift(...r.timeline.filter((b) => b.tag === 'auction.settle').map((b) => b.text))
-    }
+    if (r.action === 'auction.enter') break
+    if (r.action === 'auction.bid' || r.action === 'auction.leave' || r.action === 'auction.close') gets.unshift(...r.timeline.filter((b) => b.tag === 'auction.settle').map((b) => b.text))
   }
-  const won = out.won ?? []
   return {
-    house: out.house ?? '', won, spent: out.spent ?? 0, pay, gets, left: last.action === 'auction.leave',
-    rows: hammers.map((h) => { const w = won.find((x) => x.lot === h.lot); return { lot: h.lot, name: h.name, result: h.result, winner: h.winner, winnerName: h.winner_name, price: h.price, won: h.winner === 'pc', fee: w?.fee ?? 0 } }),
+    house: sum.house, won: sum.won, spent: sum.spent, pay: sum.pay === 'cred' ? 'cred' : 'cash', gets, left: sum.left,
+    rows: sum.lots.map((l) => ({ lot: l.lot, name: l.name, result: l.result, winner: l.winner, winnerName: l.winner_name, price: l.price, won: l.mine, fee: sum.won.find((w) => w.lot === l.lot)?.fee ?? 0, ...(l.withdrawn !== undefined ? { withdrawn: l.withdrawn } : {}) })),
     tail: last.timeline.find((b) => b.tag === 'auction.close')?.text ?? last.outcome.summary, end: last.time.end,
     lines: last.narration?.results ?? [],
   }

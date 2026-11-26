@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { toMinutes } from '@engine/src'
-import { WOUND_NAME } from '@engine/src/features/medical/model'
+import { WOUND_NAME } from '@engine/src/features/medical'
 import Hint from '../Hint.vue'
 import HpBar from './HpBar.vue'
 import QuoteCard from './QuoteCard.vue'
 import type { QuoteRow } from './QuoteCard.vue'
 import { useEngine } from '../../stores/engine'
 import { useUi } from '../../stores/ui'
-import { spanText, successPct, signed } from '../../lib/bodyView'
+import { spanText, chanceText, signed } from '../../lib/bodyView'
 
 /**
  * 治療（DOWNTIME；ITEMS 4.3 節）：隊上每個人的生命值、急救（選誰來做、對誰）、診所治療、重創的清單與手術。clinic 為 true 時列診所治療與重創的手術（要站在診所才做得了；
@@ -33,7 +33,7 @@ function heal(id: string) { done(eng.body.heal(id), '治療做完了。') }
 function wound(target: string, part: 'limb' | 'head' | 'torso', via: 'clinic' | 'self', doer: string) { done(eng.body.woundSurgery({ target, part, via, ...(via === 'self' ? { by: doer } : {}) }), '手術做完了。') }
 function aidRows(q: NonNullable<NonNullable<typeof members.value[number]>['aid']['quote']>): QuoteRow[] {
   return [
-    { label: '對 DC', value: `${q.dc}・成功率 ${successPct(q.bonus, q.dc)}%` },
+    { label: '對 DC', value: `${q.dc}${chanceText(q)}` },
     { label: '加值', value: signed(q.bonus), note: q.parts.map((p) => `${p.label} ${signed(p.value)}`).join('、') },
     { label: '花的時間', value: spanText(q.minutes) },
     ...(q.kit ? [{ label: '用掉', value: '一份醫療包' }] : []),

@@ -79,23 +79,7 @@ const EVENTS: Rec[] = [
       { id: 'send', text: '說沒事了，讓她回去。', outcomes: { any: [] } },
     ],
   },
-  {
-    ...BASE, id: 'ct_demo_released', triggers: ['released'], category: 'favor',
-    text: '契約解除了。她站在原地，不太確定自己現在可以去哪裡。',
-    options: [
-      { id: 'stay', text: '告訴她：想留下的話，名冊上還有她的位子。', outcomes: { any: [flag('demo_holder_stay')] } },
-      { id: 'go', text: '告訴她：想走就走，路上小心。', outcomes: { any: [flag('demo_holder_go')] } },
-    ],
-  },
-  {
-    // 他主動找你（持約人的家、每天）：事件資料用條件挑；沒有契約的人看不到
-    scope: 'contract', repeat_days: 3, id: 'ct_demo_visit', triggers: ['home', 'daily'], category: 'favor', requires: { kind: 'contract', side: 'holder' },
-    text: '她主動來找你，說這幾天一直想跟你說一聲謝謝，雖然她也不確定該不該謝。',
-    options: [
-      { id: 'smile', text: '笑一笑，說不用客氣。', outcomes: { any: [flag('demo_holder_visit')] } },
-      { id: 'nod', text: '點點頭。', outcomes: { any: [] } },
-    ],
-  },
+  // 契約解除（released）、持約人的家的每天（home、daily）的示範事件先拿掉：engine/data 的範圍 contract 還沒有這三個觸發點（已回報），示意包不再自己重寫範圍
 ]
 
 const sink = (amount: number) => ({ kind: 'sink', amount })
@@ -161,18 +145,11 @@ const TUNINGS: Rec[] = [
   },
 ]
 
-/** 範圍 contract：和核心包同一個 id（後載入的取代）；核心的欄位照抄，加上持約人這一面要的觸發點。 */
-const SCOPE: Rec = {
-  id: 'contract', triggers: { order: 1, holder_order: 1, released: 1, home: 0.15, daily: 0.2 }, priority: 2,
-  daily_roll: { eden: 0.4, gang: 0.3, corp: 0.25, person: [0.15, 0.45] }, satisfaction_mult: [[0, 1.5], [30, 1.0], [70, 0.6]], queue_max: 3, repeat_days: 2, lost: 'defer',
-}
-
-/** 範圍 rogue_ai（EVENTS 4.8 節）：登入 15%、長休醒來 15%，冷卻 24 小時、一天一件 */
-const LURE_SCOPE: Rec = { id: 'rogue_ai', triggers: { login: 0.15, rest: 0.15 }, cooldown_hours: 24, daily_cap: 1, lost: 'defer' }
+/* 事件範圍（contract、rogue_ai）用引擎的正式表（engine/data/rules/event_scopes.json）：示意包只加事件，不重寫規則表。 */
 
 export function contractContent(): NonNullable<ContentPack['content']> {
   return {
-    npc: NPCS, event_scope: [SCOPE, LURE_SCOPE], event: [...EVENTS, ...ORDER_EVENTS, ...LURE_EVENTS], rogue_ai: ROGUE_AIS, malware: MALWARES, tuning: TUNINGS,
+    npc: NPCS, event: [...EVENTS, ...ORDER_EVENTS, ...LURE_EVENTS], rogue_ai: ROGUE_AIS, malware: MALWARES, tuning: TUNINGS,
   } as unknown as NonNullable<ContentPack['content']>
 }
 

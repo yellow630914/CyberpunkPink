@@ -16,11 +16,9 @@ import { useSettings } from '../stores/settings'
 import { useUi } from '../stores/ui'
 import type { AttrId } from '@engine/src'
 import {
-  ORIGINS, LOOKS, LOOK_GROUPS, BUILD_FIGURE, ORIGIN_STYLE, QUICK_STARTS,
+  ORIGINS, LOOKS, LOOK_GROUPS, BUILD_FIGURE, QUICK_STARTS,
 } from '../data/creation'
-import { CYBER_LOOK, GEAR_STYLE } from '../data/demo'
-import { fmtMod, derivedLooks } from '../lib/creation'
-import type { LookCyber } from '../lib/creation'
+import { fmtMod } from '../lib/creation'
 import { FILTER_ROWS, GENDER_OPTIONS, PERK_CATEGORY_NAME, rulesFromUi } from '../lib/engineView'
 import { unavailable } from '../lib/unavailable'
 import type { CreationDraft, CreationLook } from '@engine/src/features/creation'
@@ -142,7 +140,8 @@ const picks = reactive<{ perks: string[] }>({ perks: [] })
 
 // ---- 7 特質 ----
 const tr = computed(() => e.creation.perkSummary(picks.perks))
-const perkList = computed(() => ePerks.filter(t => !t.adult || st.s.filterPublic || st.s.filterRestraint))
+// 特質的內容篩選由引擎擋（perkBlock 與 creationBlocks 照存檔規則的 contentOff）；這裡不另外藏
+const perkList = computed(() => ePerks)
 const perkAddBlock = (id: string) => (picks.perks.includes(id) ? null : e.creation.perkBlock([...picks.perks, id]))
 function togglePerk(id: string) {
   if (picks.perks.includes(id)) { picks.perks = picks.perks.filter(x => x !== id); return }
@@ -156,18 +155,9 @@ const beastLine = ref('貓')
 const stepOf = (n: number) => STEPS.findIndex(x => x.id === n)
 const summary = computed(() => e.creation.summary(draft.value))
 const money = computed(() => summary.value.money.total)
-const lookCyber = computed<LookCyber[]>(() => {
-  const ids = [...(typeof bridge.value === 'string' ? [{ blueprint: bridge.value, bridge: true }] : []), ...cyber.value.map(c => ({ blueprint: c.blueprint, bridge: false }))]
-  return ids.flatMap(c => {
-    const bp = e.creation.blueprint(c.blueprint)
-    if (!bp) return []
-    return [{ name: bp.name, brand: bp.brand ?? '', ...(c.bridge ? { bridge: true } : {}), ...(CYBER_LOOK[c.blueprint]?.at ? { visible: { at: CYBER_LOOK[c.blueprint].at, ...(CYBER_LOOK[c.blueprint].line ? { line: CYBER_LOOK[c.blueprint].line } : {}) } } : {}), ...(CYBER_LOOK[c.blueprint]?.beast ? { beast: CYBER_LOOK[c.blueprint].beast } : {}) }]
-  })
-})
-const hasBeast = computed(() => lookCyber.value.some(c => c.beast))
-/** 穿著：這一次選的（白給的那一套已經算在出身的風格裡） */
-const wornGear = computed(() => summary.value.owned.filter(o => o.from === 'pick' && ['clothing', 'armor', 'accessory'].includes(o.category)).map(o => ({ name: o.name, kind: o.category, stats: GEAR_STYLE[o.id] ? [['風格', GEAR_STYLE[o.id]] as [string, string]] : [] })))
-const derived = computed(() => derivedLooks({ cyber: lookCyber.value, gear: wornGear.value, pronoun: basic.pronoun, baseStyle: ORIGIN_STYLE[originId.value] ?? '工裝', line: beastLine.value }))
+/** 外觀裡推出來的三樣：引擎的 creationLook（各功能回答：義體的 look、獸化、穿著的風格）；介面只顯示 */
+const derived = computed(() => e.creation.look(draft.value))
+const hasBeast = computed(() => derived.value.beast.length > 0)
 
 // ---- 外觀、私處與整份草稿（交給引擎的樣子） ----
 const LOOK_SKIP = new Set(['name', 'gender', 'pronoun', 'age', 'looks', 'background', 'privates', 'privatesNote'])
@@ -178,7 +168,7 @@ const draft = computed<CreationDraft>(() => {
   look.private = { options: basic.privates && basic.privates !== '（不寫）' ? [basic.privates] : [], text: String(basic.privatesNote ?? '').trim() }
   return {
     name: basic.name, gender: basic.gender, pronoun: basic.pronoun, age: basic.age, look, lookNote: basic.looks, background: basic.background,
-    origin: originId.value, originChoice: { favor: favor.value },
+    origin: originId.value, originChoice: { favor: favor.value }, beastLine: beastLine.value,
     attrPick: { ...attrs }, attrBonus: { ...attrBonus }, skills: { ...basics }, perks: [...picks.perks],
     lifepath: { ...lifepath.value }, kinks: kinks.value.map(k => ({ ...k })),
     ...(bridge.value !== undefined ? { bridge: bridge.value } : {}), cyber: cyber.value.map(c => ({ ...c })), abilities: [...abilities.value], gear: gear.value.map(x => ({ ...x })),
@@ -221,6 +211,11 @@ const START_KINDS: Array<{ id: StartKind; name: string; line: string }> = [
   { id: 'holder', name: '持約人開局', line: '你在拍賣會上買下了歌手阿音的債，成了她的持約人；她在你的名冊上。' },
 ]
 const startKind = ref<StartKind>('normal')
+/** 示意模式：開著才有上面的契約開局、簾後館邀請函與拍賣行常客的交情；關著時都不出現、也不給（預設關） */
+const demoOn = ref(false)
+const demoInvite = ref(false)
+const demoAuction = ref(false)
+const demoOpts = computed(() => ({ on: demoOn.value, invite: demoOn.value && demoInvite.value, auction: demoOn.value && demoAuction.value }))
 /** 快速開始的預設角色還沒有做（使用者 2026-11-25）：按鈕留著、灰掉，點了說明。 */
 const QUICK_REASON = '快速開始的預設角色還沒有做：這一版請從「基本資料」自己建角。'
 function quick() { ui.toast(QUICK_REASON, 'warn') }
@@ -228,7 +223,7 @@ function quick() { ui.toast(QUICK_REASON, 'warn') }
 /** 開始：引擎開新局並建角（規則都在引擎）；成功之後把引擎還沒有的假資料照原本的方式寫進 useGame。存檔格不受影響。 */
 function start() {
   if (firstBlocked.value) { stepIdx.value = firstBlocked.value[0]; ui.toast(firstBlocked.value[1]!, 'warn'); return }
-  const blocked = e.newGame({ seed: Date.now() % 2147483647, rules: rulesFromUi(st.s), draft: draft.value, start: startKind.value })
+  const blocked = e.newGame({ seed: Date.now() % 2147483647, rules: rulesFromUi(st.s), draft: draft.value, start: demoOn.value ? startKind.value : 'normal', demo: demoOpts.value })
   if (blocked.length) { stepIdx.value = stepOf(BLOCK_STEP[blocked[0].step]); ui.toast(blocked[0].reason, 'warn'); e.creation.previewRules(rulesFromUi(st.s)); return }
   g.character.name = basic.name.trim()
   const pv = (e.pc?.ext.profile as { look?: { private?: { options: string[]; text: string } } } | undefined)?.look?.private
@@ -273,11 +268,20 @@ const attrMods = computed(() => eAttrs.map(a => `${a.name} ${totals.value[a.id a
             <span v-else class="df">一定要開</span>
           </div>
           </div>
-          <p class="setgrp">開局的契約<Hint>示意世界包的選項：一開局就帶著一份契約，方便直接看契約面板的兩面。契約的內容與指令都由引擎建立。</Hint></p>
-          <div class="segs startkind" role="radiogroup" aria-label="開局的契約" data-start-kind>
-            <button v-for="k in START_KINDS" :key="k.id" type="button" role="radio" :aria-checked="startKind === k.id" :class="{ on: startKind === k.id }" :data-start="k.id" :title="k.line" @click="startKind = k.id">{{ k.name }}</button>
+          <p class="setgrp">示意模式<Hint>示意世界包附的捷徑：一開局就帶著契約、拿到簾後館的邀請函、拍賣行常客的交情夠寫推薦函，方便直接看對應的畫面。關著時這些選項與按鈕都不出現。內容都由引擎照它的規則建立。</Hint></p>
+          <div class="setrow" data-demo-switch>
+            <span class="nm">示意模式</span><span class="val">{{ demoOn ? '開著：下面的示意捷徑可以選' : '關著：沒有任何示意捷徑' }}</span>
+            <button type="button" class="switch" role="switch" aria-label="示意模式" :aria-checked="demoOn" :class="{ on: demoOn }" data-demo-on @click="demoOn = !demoOn" />
           </div>
-          <p class="k" data-start-line>{{ START_KINDS.find(k => k.id === startKind)!.line }}</p>
+          <template v-if="demoOn">
+            <p class="setgrp">開局的契約<Hint>一開局就帶著一份契約，方便直接看契約面板的兩面。契約的內容與指令都由引擎建立。</Hint></p>
+            <div class="segs startkind" role="radiogroup" aria-label="開局的契約" data-start-kind>
+              <button v-for="k in START_KINDS" :key="k.id" type="button" role="radio" :aria-checked="startKind === k.id" :class="{ on: startKind === k.id }" :data-start="k.id" :title="k.line" @click="startKind = k.id">{{ k.name }}</button>
+            </div>
+            <p class="k" data-start-line>{{ START_KINDS.find(k => k.id === startKind)!.line }}</p>
+            <div class="setrow"><span class="nm">簾後館的邀請函</span><span class="val">開局就有一張，可以直接去面談</span><button type="button" class="switch" role="switch" aria-label="簾後館的邀請函" :aria-checked="demoInvite" :class="{ on: demoInvite }" data-demo-invite @click="demoInvite = !demoInvite" /></div>
+            <div class="setrow"><span class="nm">拍賣行常客的交情</span><span class="val">交情夠寫推薦函（不是會員）</span><button type="button" class="switch" role="switch" aria-label="拍賣行常客的交情" :aria-checked="demoAuction" :class="{ on: demoAuction }" data-demo-auction @click="demoAuction = !demoAuction" /></div>
+          </template>
           <p class="setgrp">快速開始<Hint>每個出身準備兩個預設角色，一個偏戰鬥、一個偏非戰鬥。選了直接填好，最後一頁還能回頭改。</Hint></p>
           <div class="grid2 quick"><button v-for="q in QUICK_STARTS" :key="q.name" type="button" class="lrow is-unavailable" aria-disabled="true" :title="QUICK_REASON" data-quick @click="quick"><span class="grow"><b>{{ q.name }}・{{ ORIGINS.find(o => o.id === q.origin)!.name }}・{{ q.role }}</b><small>{{ q.line }}</small></span></button></div>
         </template>

@@ -5,7 +5,7 @@
  */
 import type { CyberView, PartId, PieceStatus, ViewPart, ViewPiece } from '@engine/src/features/cyberware'
 import type { PassiveEffect, PassiveEntry } from '@engine/src'
-import { computeDegree, formatDuration } from '@engine/src'
+import { formatDuration } from '@engine/src'
 import type { SlotItem } from './gearView'
 import type { Grade } from '../data/types'
 
@@ -14,9 +14,6 @@ export type BodyBagKind = 'cyber' | 'bridge' | 'deck'
 export interface BodyBag { uid: string; id: string; name: string; grade: number; kind: BodyBagKind; slot: string | null }
 /** 引擎的被動效果的一筆（k.passives.of） */
 export type BodyPassive = PassiveEntry
-
-/** 痛覺編輯器：身上有帶這個標籤的義體時，生命值只顯示模糊的分段（CYBERWARE 第 3 節；設計圖的 tags 寫它）。 */
-export const PAIN_TAG = 'pain_editor'
 
 // ---- 部位 ----
 
@@ -81,21 +78,9 @@ export function statusText(p: ViewPiece): string {
 
 // ---- 被動效果 ----
 
-/** 戰鬥修正的名字（只有名字）。沒有的用鍵本身。 */
-const MOD_NAME: Record<string, string> = {
-  hit: '命中', hit_against: '被命中', evade: '迴避', dice: '傷害骰', damage: '傷害', pierce: '穿甲', armor: '護甲', crit_margin: '要害門檻', save: '豁免', initiative: '先攻',
-  ap_regen: '行動點回復', ram_regen: 'RAM 回復', load_dealt_pct: '造成的感載％', load_taken_pct: '受到的感載％', decay: '感載消退', move_ap: '換位行動點', action_ap: '行動點花費',
-  action_ram: 'RAM 花費', heal_dealt: '造成的回復', vent_dealt: '造成的排感載', see_dark: '夜視', firewall: '防火牆', wound_grade: '重創級數', admin_uses: '管理行動次數',
-  refill: '回填', trace_round: '每回合追蹤度', trace_admin: '管理行動追蹤度', sync_cap: '同步檔位上限', sync_shifts: '換檔次數',
-}
-/** 衍生數值的名字（只有名字）。 */
-const STAT_NAME: Record<string, string> = {
-  max_hp: '生命上限', armor: '護甲', load_cap: '感載上限', sink_floor: '沉溺的下限', ap_max: '行動點上限', ram_max: 'RAM 上限', ram_regen: 'RAM 回復', afterglow_cap: '承受層數',
-  net_load_decay: '內海感載消退', cyber_count: '義體件數', bridge_sensitivity: '敏感度', bridge_tolerance: '耐受', bridge_craving: '慾求', bridge_docility: '馴化',
-  bridge_cap_meat: '現實容量', bridge_cap_net: '內海容量', bridge_cap_social: '社交容量', bridge_cap_media: '媒體容量', surgery_sink_pct: '手術的沉溺成本％', carry_cap: '負重',
-}
-export const statName = (id: string): string => STAT_NAME[id] ?? id
-export const modName = (id: string): string => MOD_NAME[id] ?? id
+/** 戰鬥修正與衍生數值的名字：引擎給（core/rules/names.ts），這裡只轉出去讓元件沿用同一個 import 路徑。 */
+export { statName, modName } from '@engine/src'
+import { statName, modName } from '@engine/src'
 
 export const signed = (n: number): string => (n > 0 ? `+${n}` : String(n))
 
@@ -152,17 +137,10 @@ export function floorRows(parts: ReadonlyArray<{ label: string; value: number; s
 }
 export const floorSum = (parts: ReadonlyArray<{ value: number }>): number => parts.reduce((n, p) => n + p.value, 0)
 
-// ---- 成功率與時間（引擎給 DC 與加值，這裡只套引擎的判定函式） ----
+// ---- 成功率與時間（機率是引擎的報價給的；報價沒有給就不寫，介面不自己擲骰算） ----
 
-/** 自己動刀、急救這類檢定的成功機率（0～100）：1d20 的每一面都用引擎的 computeDegree 判一次，成功與大成功都算。 */
-export function successPct(bonus: number, dc: number): number {
-  let wins = 0
-  for (let n = 1; n <= 20; n++) {
-    const d = computeDegree(n, n + bonus, dc)
-    if (d === 'critical' || d === 'success') wins++
-  }
-  return wins * 5
-}
+/** 引擎的報價帶 chance（0～1，和真正擲的同一組修正）時寫成「・成功率 85%」，沒有就空字串。 */
+export const chanceText = (q: object): string => ('chance' in q && typeof q.chance === 'number' ? `・成功率 ${Math.round(q.chance * 1000) / 10}%` : '')
 /** 機率（0～1）寫成百分比字。 */
 export const pctText = (p: number): string => `${Math.round(p * 1000) / 10}%`
 /** 分鐘寫成「4 小時」（引擎的 formatDuration）；0 是「不用」。 */
@@ -180,7 +158,6 @@ export function hpBlur(hp: number, max: number, segments = 4): HpBlur {
 // ---- 安裝時的左右 ----
 
 /** 設計圖的部位是 arm、leg 時要選左右（引擎的 side 欄位）；回傳要不要選。 */
-export const needsSide = (slot: string | null): boolean => slot === 'arm' || slot === 'leg'
 export const SIDE_NAME = { l: '左', r: '右' } as const
 
 // ---- 報價的列（引擎的報價 → 一行一行的字；數字都是引擎給的，這裡只套格式） ----
@@ -188,8 +165,8 @@ export const SIDE_NAME = { l: '左', r: '右' } as const
 export interface Row { label: string; value: string; tone?: 'warn' | 'ok' | 'minus' | 'plain'; note?: string }
 export const POOL_NAME: Record<string, string> = { cred: '帳戶', cash: '現金' }
 const money = (n: number, pay: string | null): string => (n > 0 ? `${n.toLocaleString('en-US')}（${pay ? POOL_NAME[pay] ?? pay : '付不起'}）` : '不收錢')
-const selfRow = (self: { skill: string; dc: number; bonus: number } | undefined, skillName: (id: string) => string): Row[] =>
-  self ? [{ label: '自己動刀', value: `${skillName(self.skill)}對 DC ${self.dc}・成功率 ${successPct(self.bonus, self.dc)}%`, note: `加值 ${signed(self.bonus)}` }] : []
+const selfRow = (self: { skill: string; dc: number; bonus: number; chance?: number } | undefined, skillName: (id: string) => string): Row[] =>
+  self ? [{ label: '自己動刀', value: `${skillName(self.skill)}對 DC ${self.dc}${chanceText(self)}`, note: `加值 ${signed(self.bonus)}` }] : []
 
 type InstallQ = { price: number; fee: number; pay: string | null; sink: number; minutes: number; recovery_minutes: number; complication: number; registered: boolean; via: string; self?: { skill: string; dc: number; bonus: number } }
 /** 安裝（也給換橋用）的報價列。 */
@@ -251,10 +228,10 @@ export function repairRows(q: RepairQ, skillName: (id: string) => string): Row[]
     ...selfRow(q.self, skillName),
   ]
 }
-type CrackQ = { dc: number; bonus: number; unlocker: boolean; holder?: string; faction?: string; minutes: number }
+type CrackQ = { dc: number; bonus: number; chance?: number; unlocker: boolean; holder?: string; faction?: string; minutes: number }
 export function crackRows(q: CrackQ, holderName: (id: string) => string): Row[] {
   return [
-    { label: '破解', value: `對 DC ${q.dc}・成功率 ${successPct(q.bonus, q.dc)}%`, note: `加值 ${signed(q.bonus)}${q.unlocker ? '（解鎖匠）' : ''}` },
+    { label: '破解', value: `對 DC ${q.dc}${chanceText(q)}`, note: `加值 ${signed(q.bonus)}${q.unlocker ? '（解鎖匠）' : ''}` },
     { label: '花的時間', value: spanText(q.minutes) },
     ...(q.faction ? [{ label: '失敗的代價', value: `${holderName(q.faction)}的敵對值上升`, tone: 'warn' as const }] : []),
   ]

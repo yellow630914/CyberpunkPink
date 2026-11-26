@@ -32,7 +32,6 @@ function learn(s: LearnView): void {
     <div v-else class="branches">
       <div v-for="b in list.branches" :key="b.branch" class="br" :data-branch="b.branch">
         <div class="bh"><b>{{ b.name }}</b><span class="pips" :aria-label="`開到 ${b.tier} 階`" data-tier><i v-for="n in 5" :key="n" :class="{ on: n <= b.tier }" /></span><span class="mono" data-tier-n>{{ b.tier }} 階</span></div>
-        <small class="why" data-basis>{{ e.night.basis(b.branch) }}</small>
         <ul class="sk">
           <li v-for="s in b.skills" :key="s.id" class="s" :class="[s.status]" :data-skill="s.id" :data-status="s.status" :title="s.reasons.join('')">
             <span class="nm"><b>{{ s.name }}</b><small>{{ s.tier }} 階・{{ s.cost }} 點體悟<template v-if="e.night.skill(s.id).tagName">・掛在「{{ e.night.skill(s.id).tagName }}」</template></small></span>

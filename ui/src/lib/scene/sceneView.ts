@@ -1,5 +1,6 @@
+import { DIRECTION_MAX } from '@engine/src/shell/ai/sceneChains'
 import type { Report } from '@engine/src'
-import type { ActionOption, ChoiceOption, PartView, PersonView, Preview, PreviewLoad, SceneInput, ScenePair, ScenePick, SceneView } from '@engine/src/features/scene'
+import type { ActionOption, ChoiceOption, PartView, PersonView, Preview, PreviewLoad, ScenePair, ScenePick, SceneView } from '@engine/src/features/scene'
 import { END_NAME } from '@engine/src/features/scene'
 
 /**
@@ -183,19 +184,11 @@ export function debriefOf(report: Report, describe: (c: Report['changes']) => st
   }
 }
 
-/** 寫法指令欄的字數上限（引擎的 DIRECTION_MAX；引擎自己也會截斷，這裡只是即時顯示） */
-export const DIRECTION_LIMIT = 200
+/** 寫法指令欄的字數上限：引擎的 DIRECTION_MAX（還沒從 @engine/src 匯出，先走 shell/ai/sceneChains；已回報）。瀏覽器不擋，超過時只把字數標紅，照樣送出，由引擎截斷並顯示它的提醒。 */
+export const DIRECTION_LIMIT = DIRECTION_MAX
 /** 即時字數（用「字」數，和引擎一樣：一個全形字與一個半形字都算一個）；超過上限回傳負的剩餘 */
 export const directionCount = (text: string): { used: number; left: number } => {
   const used = Array.from(text).length
   return { used, left: DIRECTION_LIMIT - used }
 }
 
-/**
- * 夜課的功夫（行動 once）選項的 id 換成送出去的輸入：引擎列的選項 id 是 `fit_floor`，或 `set_init:<數字>`（SceneOptions.actions 裡 once 的 choices）。
- * 只是把引擎給的字串拆開；能不能用、花幾點、原因都是引擎寫在那個選項上的。
- */
-export function onceInput(choiceId: string): SceneInput {
-  const [id, value] = choiceId.split(':')
-  return (value !== undefined ? { kind: 'once', id, value: Number(value) } : { kind: 'once', id }) as SceneInput
-}

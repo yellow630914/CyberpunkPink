@@ -15,7 +15,7 @@ import MalwarePanel from '../components/body/MalwarePanel.vue'
 import { useEngine } from '../stores/engine'
 import { useUi } from '../stores/ui'
 import { CATEGORY_NAME } from '../lib/skillView'
-import { bridgeRows, crackRows, detoxRows, installRows, modifyRows, needsSide, pctText, removeRows, repairRows, slotItemOf, spanText, SIDE_NAME, statusText, PART_UI } from '../lib/bodyView'
+import { bridgeRows, crackRows, detoxRows, installRows, modifyRows, pctText, removeRows, repairRows, slotItemOf, spanText, SIDE_NAME, statusText, PART_UI } from '../lib/bodyView'
 import type { PartId } from '@engine/src/features/cyberware'
 
 /**
@@ -60,7 +60,7 @@ const pickUid = ref<string | null>(props.pick ?? null)
 const picked = computed(() => bagAll.value.find((b) => b.uid === pickUid.value) ?? null)
 const side = ref<'l' | 'r'>('l')
 const keepOld = ref(true)
-const installOpts = computed(() => (picked.value ? { uid: picked.value.uid, via: viaId.value, ...(needsSide(picked.value.slot) ? { side: side.value } : {}) } : null))
+const installOpts = computed(() => (picked.value ? { uid: picked.value.uid, via: viaId.value, ...(eng.body.needsSide(picked.value.slot) ? { side: side.value } : {}) } : null))
 const installQ = computed(() => (installOpts.value && picked.value?.kind !== 'bridge' ? eng.body.installQuote(installOpts.value) : null))
 const bridgeQ = computed(() => (picked.value?.kind === 'bridge' ? eng.body.bridgeQuote({ uid: picked.value.uid, via: viaId.value, keep: keepOld.value }) : null))
 const installReason = computed(() => {
@@ -117,7 +117,8 @@ const crackReason = computed(() => (lkUid.value ? eng.body.crackBlock(lkUid.valu
 const payReason = computed(() => (lkUid.value ? eng.body.payBlock(lkUid.value) : '先選有鎖的那一件。'))
 function crack() { done(eng.body.crack(lkUid.value!), '破解的結果在紀錄裡。') }
 function pay() { done(eng.body.pay(lkUid.value!), '補繳了。') }
-const holderName = (id: string): string => id
+/** 勢力或人物的名字：勢力查內容、人物查角色（引擎給的是 id） */
+const holderName = (id: string): string => eng.contentName('faction', id) ?? eng.contract.nameOf(id)
 
 // ---- 洗點（技能；引擎的 respecQuote 與 respecBlock，要在調校診所） ----
 const respecTrees = computed(() => eng.skills.paths().map((p) => ({ id: p.id, name: p.name, quote: eng.skills.respecQuote(p.id) })).filter((t) => t.quote && t.quote.abilities.length > 0))
@@ -125,7 +126,7 @@ const respecAll = computed(() => eng.skills.respecQuote())
 const respecRows = (q: NonNullable<ReturnType<typeof eng.skills.respecQuote>>) => [
   { label: '洗掉的技能', value: `${q.abilities.length} 個` },
   { label: '退回的歷練點', value: `${q.xp} 點`, tone: 'ok' as const },
-  { label: '費用', value: `C$${q.price}` },
+  { label: '費用', value: '', money: { kind: 'acc' as const, amount: q.price } },
   { label: '花的時間', value: spanText(q.minutes) },
   ...(q.unequipped.length ? [{ label: '會從橋上卸下', value: `${q.unequipped.length} 個` }] : []),
 ]
@@ -165,7 +166,7 @@ function detox(id: string) { done(eng.body.detox(id), '療程做完了。') }
           </button>
         </section>
         <section class="stack">
-          <div v-if="picked && needsSide(picked.slot)" class="segs" data-side>
+          <div v-if="picked && eng.body.needsSide(picked.slot)" class="segs" data-side>
             <button v-for="s in (['l', 'r'] as const)" :key="s" type="button" :class="{ on: side === s }" :data-side-pick="s" @click="side = s">{{ SIDE_NAME[s] }}{{ picked.slot === 'arm' ? '臂' : '腿' }}</button>
           </div>
           <label v-if="picked?.kind === 'bridge'" class="chk"><input v-model="keepOld" type="checkbox" data-keep> 舊的那一座收回背包（二手）</label>
@@ -230,7 +231,7 @@ function detox(id: string) { done(eng.body.detox(id), '療程做完了。') }
           <p class="h">授權鎖<Hint>訂閱沒付就鎖住；補繳付清才解開，或破解（失敗會惹勢力生氣）。契約的鎖還要看持約人。</Hint></p>
           <div v-if="!locks.length" class="empty-note">身上沒有帶授權鎖的義體。</div>
           <button v-for="l in locks" :key="l.uid" type="button" class="lrow" :class="{ on: lkUid === l.uid }" :data-lock="l.uid" @click="lkUid = l.uid">
-            <span class="grow"><b>{{ l.name }}</b><small>{{ l.kind === 'subscription' ? '訂閱' : l.kind === 'contract' ? '契約' : '鎖' }}<template v-if="l.holder">・{{ l.holder }}</template>・每週 {{ l.weekly }}<template v-if="l.owed > 0">・欠 {{ l.owed }}</template>・{{ l.locked ? '鎖住了' : '沒鎖住' }}<template v-if="l.until !== undefined">・有期限</template></small></span>
+            <span class="grow"><b>{{ l.name }}</b><small>{{ l.kind === 'subscription' ? '訂閱' : l.kind === 'contract' ? '契約' : '鎖' }}<template v-if="l.holder">・{{ holderName(l.holder) }}</template>・每週 {{ l.weekly }}<template v-if="l.owed > 0">・欠 {{ l.owed }}</template>・{{ l.locked ? '鎖住了' : '沒鎖住' }}<template v-if="l.until !== undefined">・有期限</template></small></span>
           </button>
           <template v-if="lk">
             <div class="kv"><span>欠的</span><b><MoneyTag kind="acc" :amount="lk.owed" :size="12" /></b></div>

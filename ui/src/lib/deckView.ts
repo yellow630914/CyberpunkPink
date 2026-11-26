@@ -19,7 +19,7 @@ export function pieceSlot(p: { id: string; name: string; grade: number; class?: 
   return { id: p.id, name: p.name, grade: grade(p.grade), icon: ITEMS[p.id]?.icon, l2: p.kind === 'quickhack' ? 'ic-net_hack' : CLASS_ICON[p.class ?? ''] ?? 'ic-net_tool' }
 }
 export const deckSlot = (d: { item: string; name: string; grade: number }): SlotItem => ({ id: d.item, name: d.name, grade: grade(d.grade), l2: 'ic-cw_brain' })
-export const skinSlot = (s: { item: string; name: string }): SlotItem => ({ id: s.item, name: s.name, grade: grade(ITEMS[s.item]?.grade ?? 1), icon: ITEMS[s.item]?.icon, l2: 'ic-skin' })
+export const skinSlot = (s: { item: string; name: string }): SlotItem => ({ id: s.item, name: s.name, grade: grade(1), l2: 'ic-skin' })
 
 export interface CellRow { cell: DeckCell; item: SlotItem | null; label?: string }
 /** 構裝槽一排：有東西的格寫種類，佔兩槽以上的件後面的格標「接上一格」，被專屬構裝佔掉的格標出來。 */

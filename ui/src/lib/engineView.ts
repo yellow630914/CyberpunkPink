@@ -161,19 +161,23 @@ export function uiFromAiSettings(raw: unknown): Partial<UiAiFields> {
 }
 
 /** 設定頁的存檔規則轉成引擎的存檔規則（難度、特質點、自訂難度的 DC 偏移、關掉的內容標籤、快速移動、名冊 NPC 會死；其他用預設）。 */
-/** 內容篩選裡引擎認得的題材（設定的欄位 → 存檔規則 contentOff 的標籤）：每一項直接對到引擎的標籤（LEWD_SYSTEM 第 9 節、DATA 第 1 節 tags）。 */
+/**
+ * 內容篩選裡的題材（設定的欄位 → 存檔規則 contentOff 的標籤）。引擎的封閉清單是 CONTENT_TAGS（core/rules/versions）；
+ * 另外四項（拘束、公開、契約）是內容自己的標籤，引擎只做「帶這個標籤的條目不出現」，所以說明只寫這件事。
+ * 名字與說明是介面的字樣（引擎沒有給名字表：已回報）。
+ */
 export const FILTER_TAGS = {
-  filterRestraint: ['restraint'], filterDollChip: ['doll_chip', 'puppet_amnesia'], filterPublic: ['public'], filterContract: ['contract'], filterIntimateBody: ['intimate_body'],
+  filterRestraint: ['restraint'], filterDollChip: ['puppet_amnesia'], filterPublic: ['public'], filterContract: ['contract'], filterIntimateBody: ['intimate_body'],
   filterPcUnwilling: ['pc_unwilling'], filterTargetUnwilling: ['target_unwilling'], filterContractDom: ['contract_dom'], filterNtr: ['ntr'], filterBlacktape: ['blacktape'],
   filterMale: ['male_partner'], filterFemale: ['female_partner'], filterFemboy: ['femboy_partner'], filterTrans: ['trans_partner'], filterFuta: ['futa_partner'],
 } as const satisfies Record<string, readonly string[]>
 export type FilterKey = keyof typeof FILTER_TAGS
 /** 設定與建角的「內容篩選」列：每一項的名字與說明（開關關掉＝那個標籤進 contentOff）。 */
 export const FILTER_ROWS: ReadonlyArray<{ k: FilterKey; name: string; hint: string }> = [
-  { k: 'filterRestraint', name: '拘束', hint: '關掉時拘束類的事件與家具用途（遊戲間）不出現。' },
-  { k: 'filterDollChip', name: '人偶晶片的失憶工作', hint: '關掉時人偶館只能開清醒的店，相關打工的階段不顯示。' },
-  { k: 'filterPublic', name: '公開場合', hint: '關掉時發生在公開場合的成人事件不觸發。' },
-  { k: 'filterContract', name: '契約', hint: '關掉時契約面板與契約人的事件不出現。' },
+  { k: 'filterRestraint', name: '拘束', hint: '關掉時，標了「拘束」的事件、生命軌跡與傾向的選項不出現（只看內容有沒有寫這個標籤）。' },
+  { k: 'filterDollChip', name: '人偶晶片的失憶', hint: '關掉時，標了「人偶失憶」的場景與事件不出現。' },
+  { k: 'filterPublic', name: '公開場合', hint: '關掉時，標了「公開」的事件、生命軌跡與傾向的選項不出現。' },
+  { k: 'filterContract', name: '契約', hint: '關掉時，標了「契約」的事件、生命軌跡與傾向的選項不出現（契約本身的面板與經濟面不受影響；契約的支配面看下面的「契約支配」）。' },
   { k: 'filterIntimateBody', name: '身體的私密描寫', hint: '關掉時建角不問私處的樣子，角色的成人分頁也不顯示；場景裡那幾個部位的名字收起來。' },
   { k: 'filterPcUnwilling', name: '主角非自願', hint: '關掉時「被迫」性質的場景開不起來，標了主角非自願的分支改走替代的版本。' },
   { k: 'filterTargetUnwilling', name: '對象非自願', hint: '關掉時「俘虜」性質的場景開不起來，對俘虜或被迫的對象用的夜課技能不出現。' },

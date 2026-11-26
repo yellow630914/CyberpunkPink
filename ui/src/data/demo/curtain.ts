@@ -1,4 +1,6 @@
-import type { ContentEntry } from '@engine/src'
+import type { Change, ContentEntry, GameState, Kernel } from '@engine/src'
+import { effectCtx } from '@engine/src'
+import { CURTAIN_INVITE_EFFECT } from '@engine/src/features/curtain'
 
 /**
  * 示意世界包的簾後館（M4-ui-curtain；dev/adr/0019 第十二節、CYBERSPACE 8.7、8.8 節）：
@@ -85,9 +87,20 @@ const plainEvent = (id: string): Rec => ({
 })
 const defeat_event: Rec[] = [...EVENT_IDS.map(stageEvent), ...EVENT_IDS.map(plainEvent)]
 
-/** 規則表：只寫要改的（會費、保證金、場熱、打賞、三條路用引擎的預設）；示意包的簾後館不加別的規則 */
-const curtain_rule: Rec[] = [{ id: 'default' }]
+/* 規則表 curtain_rule 用引擎的正式表（engine/data/rules/curtain_rules.json）：示意包只放內容，不放規則表。 */
 
 export function curtainContent(): Record<string, ContentEntry[]> {
-  return { special_map, block, facility_type, net_site, curtain_night, enemy, curtain_table, item, defeat_event, curtain_rule } as unknown as Record<string, ContentEntry[]>
+  return { special_map, block, facility_type, net_site, curtain_night, enemy, curtain_table, item, defeat_event } as unknown as Record<string, ContentEntry[]>
+}
+
+/**
+ * 開新局的選項（示意模式）：一張簾後館的邀請函。誰給邀請函是內容；這裡只是照引擎的效果 curtain_invite 算出變更，給 game.new 的報告一起提交。
+ * 效果擋下（沒有主角、沒有這個功能）是空的。
+ */
+export function demoCurtainChanges(k: Kernel, state: GameState, days?: number): Change[] {
+  const fx = [{ kind: CURTAIN_INVITE_EFFECT, ...(days ? { days } : {}) }]
+  const ctx = effectCtx(k, state, { source: 'builtin', actor: state.pc ?? undefined })
+  if (k.effects.validate(fx as never, ctx).length > 0) return []
+  const res = k.effects.resolve(fx as never, ctx)
+  return res.errors.length > 0 ? [] : res.changes
 }

@@ -20,7 +20,7 @@ export function heatMarks(v: Pick<CurtainView, 'heat'>): HeatMark[] {
   return [
     { at: 0, name: '散場', text: '場熱掉到 0：觀眾散場，這一趟提早落幕，不算戰敗；沒有打賞，票根照算。' },
     { at: v.heat.sponsor_at, name: '贊助人', text: '贊助人現身：化妝室多一個「包場」的選擇。' },
-    { at: v.heat.encore_at, name: '安可', text: '觀眾喊安可：走完終幕之後可以加演第 5、6 幕。' },
+    { at: v.heat.encore_at, name: '安可', text: '觀眾喊安可：走完終幕之後可以加演。' },
   ]
 }
 /** 打賞比例的段（現在在哪一段標起來）：下限與比例都是引擎給的 */
@@ -32,8 +32,8 @@ export const bandLine = (b: CurtainView['heat']['bands'][number]): string => `${
 export const actLine = (v: Pick<CurtainView, 'act' | 'encore'>): string => `${v.encore ? '加演・' : ''}第 ${v.act.number}／${v.act.total} 幕・${v.act.name}`
 /** 這一幕用了幾回合對標準回合數；超過標準的罰是引擎在化妝室算（restDraft） */
 export const turnsLine = (v: Pick<CurtainView, 'act'>): string => `回合 ${v.act.used}／標準 ${v.act.standard}`
-/** 這一幕的標準回合數對用掉的比例條（0～1.5 夾在 0～100%） */
-export const turnsWidth = (v: Pick<CurtainView, 'act'>): number => Math.max(0, Math.min(100, Math.round((v.act.used / Math.max(1, v.act.standard) / 1.5) * 100)))
+/** 這一幕用掉的回合對標準回合數的比例條（夾在 0～100%） */
+export const turnsWidth = (v: Pick<CurtainView, 'act'>): number => Math.max(0, Math.min(100, Math.round((v.act.used / Math.max(1, v.act.standard)) * 100)))
 
 export const ORDER_STATE: Record<string, string> = { open: '進行中', done: '完成', refused: '拒絕' }
 

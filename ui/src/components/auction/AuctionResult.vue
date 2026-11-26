@@ -28,7 +28,8 @@ const kind = computed(() => payKind(s.value.pay))
       <div v-for="r in s.rows" :key="r.lot" class="row" :class="{ mine: r.won, passed: r.result === 'passed' }" :data-row="r.lot">
         <span class="no mono">{{ r.lot + 1 }}</span>
         <b>{{ r.name }}</b>
-        <span v-if="r.result === 'passed'" class="who" data-winner>流標</span>
+        <span v-if="r.withdrawn" class="who" data-winner data-withdrawn>撤拍：{{ r.withdrawn }}</span>
+        <span v-else-if="r.result === 'passed'" class="who" data-winner>流標</span>
         <span v-else class="who" data-winner>{{ r.won ? '你' : r.winnerName }}得標<MoneyTag :kind="kind" :amount="r.price" /></span>
       </div>
       <p v-if="!s.rows.length" class="empty-note">沒有落槌的紀錄。</p>

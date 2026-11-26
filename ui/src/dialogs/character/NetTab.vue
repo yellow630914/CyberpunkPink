@@ -6,8 +6,8 @@ import Hint from '../../components/Hint.vue'
 import ReasonButton from '../../components/ReasonButton.vue'
 import AvatarEditor from '../../components/scene/AvatarEditor.vue'
 import { useEngine } from '../../stores/engine'
-import { useGame } from '../../stores/game'
 import { useUi } from '../../stores/ui'
+import { dyeOfColors } from '../../lib/craftView'
 import { LEGAL_NAME, grade, bumpScript, candidateLine, constructLines, deckSlot, pieceSlot, skinSlot, slotRows, slotsText } from '../../lib/deckView'
 
 /**
@@ -16,7 +16,6 @@ import { LEGAL_NAME, grade, bumpScript, candidateLine, constructLines, deckSlot,
  * RAM 與防護都是引擎的答案，原因直接顯示引擎寫的那一句；裝與卸各花時間（引擎的 deck_rule），戰鬥中與網內的行程進行中整頁唯讀。
  */
 const eng = useEngine()
-const g = useGame()
 const ui = useUi()
 
 const lock = computed(() => eng.deck.lock())
@@ -128,9 +127,9 @@ const legal = computed(() => (view.value?.equipped ?? []).map((e) => ({ name: e.
       <p class="h mt">SKIN・{{ view?.skins.length ?? 0 }} 套<Hint>化身的穿著，只是外觀；背包裡有才穿得上。戰鬥中不能換。</Hint></p>
       <div v-if="!view?.skins.length" class="empty-note">背包裡沒有 SKIN。</div>
       <div class="cgrid" data-testid="skins">
-        <ItemSlot v-for="s in view?.skins" :key="s.item" :item="skinSlot(s)" slot-icon="ic-skin" show-name :selected="s.worn" :label="s.worn ? '穿著' : undefined" :dye="g.dyes[`skin:${s.item}`] ?? null" :unavailable="s.worn ? null : s.block" @select="s.worn ? null : say(eng.deck.skin(s.item), '換好 SKIN 了。')" />
+        <ItemSlot v-for="s in view?.skins" :key="s.item" :item="skinSlot(s)" slot-icon="ic-skin" show-name :selected="s.worn" :label="s.worn ? '穿著' : undefined" :dye="dyeOfColors(eng.dye.colorsOf(s.item))" :unavailable="s.worn ? null : s.block" @select="s.worn ? null : say(eng.deck.skin(s.item), '換好 SKIN 了。')" />
       </div>
-      <div class="go left"><ReasonButton sm :reason="worn ? null : '沒有穿著的 SKIN。'" data-open-dye @go="ui.open('dye', { dyeKey: `skin:${worn!.item}`, where: 'net', place: '化身編輯' })">染 SKIN 的顏色</ReasonButton></div>
+      <div class="go left"><ReasonButton sm :reason="worn ? null : '沒有穿著的 SKIN。'" data-open-dye @go="ui.open('dye', { uid: worn!.item, where: 'net', place: '化身編輯' })">染 SKIN 的顏色</ReasonButton></div>
     </div>
     <AvatarEditor />
     </div>

@@ -27,7 +27,7 @@ import PartWindow from '../../src/components/PartWindow.vue'
 import TeachPanel from '../../src/components/TeachPanel.vue'
 import mainSrc from '../../src/screens/MainScreen.vue?raw'
 import { aiSettingsFromUi, uiFromAiSettings } from '../../src/lib/engineView'
-import { deskOption, daysLeft, moveWant, partStatRows, toggleWant } from '../../src/lib/partsView'
+import { deskOption, moveWant, partStatRows, toggleWant } from '../../src/lib/partsView'
 import { fmt } from '../../src/lib/price'
 import { demoPack } from '../../src/data/demo'
 
@@ -283,7 +283,7 @@ describe('3 委託台', () => {
     const h = await render(pinia, PartOrderDialog)
     expect(h).toContain('data-orders')
     expect(text(after(h, 'data-eta'))).toContain('還要 3 天')
-    expect(daysLeft(pend[0]!.readyAt!, e.unreg.now())).toBe(3)
+    expect(pend[0]!.days_left).toBe(3) // 還要幾天是引擎的 pendingView 給的
     // 取貨按鈕灰掉、原因是引擎的
     expect(tagOf(h, 'data-pickup')).toContain('aria-disabled="true"')
     // 同時只能有一張：再下一張被擋下（引擎的那一句）
@@ -394,7 +394,7 @@ describe('5 學工藝', () => {
     expect(row.ok).toBe(true)
     const h = await render(pinia, TeachPanel, { npc: 'npc_p_tutor', tutor: true })
     expect(h).toContain('data-tutor="mechanics"')
-    expect(text(after(h, 'data-tuition'))).toContain(fmt(row.price))
+    expect(text(after(h, 'data-tuition', 2500))).toContain(fmt(row.price))
     expect(text(h)).toContain('沉溺 +1')
     expect(row.level).toBe(1)
     const lv = () => e.state.actors[e.state.pc!]!.skills.mechanics ?? 0
@@ -439,19 +439,31 @@ describe('6 設定與交貨', () => {
     expect(off.e.chainSteps.some((s) => s.id === 'design')).toBe(false)
   })
 
-  it('停在半路的那一筆不再自動碰；畫面提供「用規則代替」，按下去就交了', async () => {
-    const { e, pinia } = await setup()
+  it('停在半路的那一筆不再自動碰（引擎的 Game.unregPaused 說哪一筆）；畫面提供「用規則代替」，按下去就交了', async () => {
+    // 寫正文被服務商拒絕：鏈停在半路。哪一筆卡住是引擎記的，介面不自己記
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const e = useEngine()
+    const fake = new FakeProvider({ byTask: { narrate: Array.from({ length: 12 }, () => ({ refusal: true })) } })
+    e.newGame({ seed: 7, testContent: [CM_PACK, PACK], testProvider: fake })
+    e.setAi({ useAi: false })
+    expect(e.createCharacter(DRAFT)).toEqual([])
+    expect((await e.world.arrive('b_p', 'F1')).status).toBe('applied')
+    e.setAi({ useAi: true })
     expect(e.commit({ summary: '給一件', changes: [gift('plate', 2)] })).toBeNull()
-    const id = e.unreg.pending()[0]!.id
-    e.partPaused = [id]
     await flush()
-    expect(e.unreg.pending()).toHaveLength(1) // 自動交貨沒有碰它
+    const rows = e.unreg.pending()
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.paused).toBe(true)
+    const id = rows[0]!.id
+    await flush()
+    expect(e.unreg.pending()).toHaveLength(1) // 自動交貨沒有再碰它
     const h = await render(pinia, PendingParts)
     expect(h).toContain('data-paused')
     expect(h).toContain('data-rules')
-    expect((await e.unreg.deliver(id, { autoRules: true })).status).toBe('applied')
+    const rr = await e.unreg.deliver(id, { autoRules: true })
+    expect(rr.status).toBe('applied')
     expect(e.unreg.pending()).toEqual([])
-    expect(e.partPaused).toEqual([])
   })
 
   it('每一步之後可以交的會自動交（被活動擋住的留到下一步）', async () => {
@@ -473,9 +485,11 @@ describe('7 示意世界包與不自己算規則', () => {
     expect(c.list('facility_type').some((t) => (t as Rec).unreg_desk !== undefined)).toBe(true)
     expect((c.get('npc', 'npc_arbo') as Rec).tutor).toBeDefined()
     const rule = c.get('unreg_rule', 'default') as unknown as Rec & { options: Record<string, unknown[]>; sources: { reward: { chance: number } } }
-    expect(Object.keys(rule.options).sort()).toEqual(['barrel', 'plate', 'skin'])
-    for (const k of Object.keys(rule.options)) expect(rule.options[k]!.length).toBeGreaterThanOrEqual(2)
+    // 規則表是引擎的正式表（示意包不放自己的）：只有委託報酬的機率蓋成 1，其餘照正式的
+    const core = (CORE_PACK.content as Record<string, Rec[]>).unreg_rule!.find((r) => r.id === 'default') as unknown as typeof rule
+    expect(rule.options).toEqual(core.options)
     expect(rule.sources.reward.chance).toBe(1)
+    expect({ ...rule.sources.reward, chance: core.sources.reward.chance }).toEqual(core.sources.reward)
     expect(g.contentWarnings().filter((w) => /unreg|auction|tutor/.test(w))).toEqual([])
   })
 
@@ -484,6 +498,9 @@ describe('7 示意世界包與不自己算規則', () => {
     setActivePinia(pinia)
     const e = useEngine()
     expect(e.newGame({ seed: 3, draft: DRAFT as never })).toEqual([])
+    // 示意模式沒開：常客的交情不給
+    expect(e.state.meters.affinity?.npc_regular).toBeUndefined()
+    expect(e.newGame({ seed: 3, draft: DRAFT as never, demo: { on: true, auction: true } })).toEqual([])
     e.setAi({ useAi: false })
     const mine = e.unreg.windowOptions().find((r) => r.faction === 'doujin')!
     expect(mine.blocks).toEqual([])

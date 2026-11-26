@@ -53,10 +53,9 @@ function plainStatuses(u: CellUnit): string[] {
 }
 /**
  * 有雙形象的敵人（CYBERSPACE 8.7 節）：名牌與立繪的鍵讀引擎的 unitFormView（對它鎖定的目標是 A 還是擲到的那一個；沒鎖定照主角）。
- * 引擎的戰鬥單位沒有「現在鎖定誰」這個欄位（已回報），所以目前一律沒有鎖定：照主角；有了欄位之後把它回在 lockOf。名字與外觀由引擎給，畫面不判斷性別。
+ * 對它鎖定的目標是哪一個形象由引擎算（BattleUnit.lock 與 lockedTarget，store 的 unitForm 內部讀）；沒鎖定照主角。名字與外觀由引擎給，畫面不判斷性別。
  */
-const lockOf = (_foeId: string): string | null => null
-const formOf = (id: string) => (engine.inBattle ? engine.curtain.unitForm(id, lockOf(id)) : null)
+const formOf = (id: string) => (engine.inBattle ? engine.curtain.unitForm(id) : null)
 const nameOf = (u: { id: string; name: string; side: string }): string => (u.side === 'foe' ? formOf(u.id)?.current.name ?? u.name : u.name)
 const noBattle = computed(() => !engine.inBattle && !engine.pendingDefeat && !afterBattle.spoils.value)
 </script>
@@ -152,7 +151,7 @@ const noBattle = computed(() => !engine.inBattle && !engine.pendingDefeat && !af
       <section v-if="over" class="panel cut bt-end" :class="{ lose: lost }" :data-end="retreat ? 'retreat' : isNet ? 'net' : 'real'">
         <h3>{{ resultName }}</h3>
         <p data-end-text>{{ battle.result?.text }}</p>
-        <DirectionField v-if="!retreat" v-model="direction" :live="engine.scene.route() !== 'pure'" label="想怎麼寫這一場（選填）" placeholder="想怎麼寫就怎麼寫，最多 200 字" hint="寫給 AI 的寫法指令：照它寫這一場的經過與文風。它不會改變戰鬥的結果與任何數字。" />
+        <DirectionField v-if="!retreat" v-model="direction" :live="engine.scene.route() !== 'pure'" label="想怎麼寫這一場（選填）" hint="寫給 AI 的寫法指令：照它寫這一場的經過與文風。它不會改變戰鬥的結果與任何數字。" />
         <div class="bt-btns">
           <button type="button" class="btn pri" :disabled="settling" data-settle @click="settle(direction)">{{ retreat ? '回去' : '結算' }}</button>
         </div>

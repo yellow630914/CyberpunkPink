@@ -3,7 +3,7 @@ import { blockIdOf } from './world'
 
 /**
  * 示意世界包的「未登錄零件」部分（M4-ui-parts；dev/adr/0019 第十七、十九節、CRAFTING 11.1、11.2 節）：
- * 一張小的規則表 unreg_rule（外皮、槍管、板材各兩三項方向；並把委託報酬的機率 sources.reward.chance 蓋成 1，讓第一件 III 級委託一定帶零件）、
+ * 委託報酬的機率 sources.reward.chance 蓋成 1（讓第一件 III 級委託一定帶零件；規則表本身用引擎的正式表）、
  * 六筆預設清單（AI 關著或失敗時的名字與說明）、三筆怪癖（同人的池）、一個帶 unreg_desk 的攤位（天井市場的零件攤，同人眾的委託台）、
  * 一位教機械的 NPC（阿鉚，帶 tutor；每個時段沉溺 +1）、和開局用效果給到好感 100 與一個大人情的勢力（同人眾；`demoPartsChanges`）。
  * 整份是資料：沒有任何規則（價錢、等級上限、天數、怪癖的候選、學費與時段都是引擎的預設）。文字中性。數字是示意的。正式內容匯入之後整包換掉。
@@ -17,29 +17,16 @@ export const DEMO_WINDOW_FACTION = 'doujin'
 export const DEMO_TUTOR_NPC = 'npc_arbo'
 export { PARTS_FACILITY_TYPE } from './facilityTypes'
 
-const opt = (id: string, name: string, put: 'stats' | 'affinity', key: string, amount: number, cost: number, max: number, o: Rec = {}): Rec => ({ id, name, put, key, amount, cost, max, ...o })
-const unreg_rule: Rec[] = [{
-  id: 'default',
-  options: {
-    skin: [
-      opt('skin_social', '社交親和', 'affinity', 'social', 1, 0.5, 3, { tags: ['社交'] }),
-      opt('skin_conceal', '藏匿', 'stats', 'conceal', 1, 0.5, 2, { tags: ['隱蔽'] }),
-      opt('skin_style', '風格', 'stats', 'style', 1, 0.5, 3, { tags: ['風格'] }),
-    ],
-    barrel: [
-      opt('barrel_damage', '傷害', 'stats', 'damage', 1, 1, 2, { tags: ['火力'] }),
-      opt('barrel_range', '射程', 'stats', 'range_far', 1, 0.5, 2, { tags: ['射程'] }),
-      opt('barrel_pierce', '穿透', 'stats', 'pierce', 1, 1, 1, { grade_min: 2, tags: ['火力'] }),
-    ],
-    plate: [
-      opt('plate_armor', '護甲', 'stats', 'armor', 1, 0.5, 3, { max_at: { 1: 1, 2: 2 }, tags: ['防護'] }),
-      opt('plate_light', '減重', 'stats', 'weight', -0.2, 0.5, 2, { tags: ['輕量'] }),
-      opt('plate_conceal', '藏匿', 'stats', 'conceal', 1, 0.5, 2, { tags: ['隱蔽'] }),
-    ],
-  },
-  // 委託報酬：III 級以上的委託一定多一件（正式的規則是 0.1）
-  sources: { reward: { chance: 1 } },
-}]
+/**
+ * 規則表 unreg_rule 用引擎的正式表（engine/data/rules/unreg_rules.json）：示意包不放自己的規則表。
+ * 只有一格不一樣：委託報酬的機率 sources.reward.chance 蓋成 1（讓第一件 III 級委託一定帶零件）；
+ * 載入時拿正式那一筆淺複製後改這一格（`unregRuleForDemo`，demoPack 呼叫），其餘照正式的。
+ */
+export function unregRuleForDemo(core: ReadonlyArray<ContentEntry> | undefined): ContentEntry[] {
+  const base = core?.find((e) => e.id === 'default') as (ContentEntry & { sources?: Record<string, Record<string, unknown>> }) | undefined
+  if (!base) return []
+  return [{ ...base, sources: { ...(base.sources ?? {}), reward: { ...(base.sources?.reward ?? {}), chance: 1 } } } as ContentEntry]
+}
 
 const preset = (id: string, type: string, name: string, desc: string, quirk_text: string, o: Rec = {}): Rec => ({ id, type, name, desc, quirk_text, ...o })
 const unreg_preset: Rec[] = [
@@ -72,7 +59,8 @@ const npc: Rec[] = [{
   tutor: { skills: ['mechanics'], sink: 1, where: '四號塔的晾衣場' },
 }]
 
-export function partsContent(): Record<string, ContentEntry[]> {
+export function partsContent(coreUnregRule?: ReadonlyArray<ContentEntry>): Record<string, ContentEntry[]> {
+  const unreg_rule = unregRuleForDemo(coreUnregRule)
   return { unreg_rule, unreg_preset, quirk, facility_type, npc } as unknown as Record<string, ContentEntry[]>
 }
 

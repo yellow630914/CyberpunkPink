@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { ActionOption, ChoiceOption, Preview, SceneInput, SceneOptions } from '@engine/src/features/scene'
-import { onceInput, previewLines, reasonText } from '../../lib/scene/sceneView'
+import { previewLines, reasonText } from '../../lib/scene/sceneView'
 import Hint from '../Hint.vue'
 import { useUi } from '../../stores/ui'
 
@@ -40,11 +40,11 @@ function press(a: ActionOption): void {
   open.value = ''
   emit('choose', { kind: a.id } as SceneInput)
 }
-function pickChoice(a: ActionOption, c: ChoiceOption): void {
+function pickChoice(_a: ActionOption, c: ChoiceOption): void {
   if (props.playing) return
   if (c.blocks.length > 0) { why(c.blocks); return }
   open.value = ''
-  emit('choose', a.id === 'once' ? onceInput(c.id) : a.id === 'switch' ? { kind: 'switch', position: c.id } : a.id === 'move_circle' ? { kind: 'move_circle', circle: c.id } : a.id === 'call' ? { kind: 'call', who: c.id } : ({ kind: a.id, id: c.id } as SceneInput))
+  emit('choose', c.input)
 }
 function pressInserted(o: SceneOptions['inserted'][number]): void {
   if (props.playing) return

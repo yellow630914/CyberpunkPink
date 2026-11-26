@@ -36,6 +36,8 @@ export interface OrderRow {
   /** 逾期會怎樣：沒了結的才有 */
   penalty: string
   place: string
+  /** 走過去：引擎給的目的地（還沒了結、還沒到過、有指定地方的才有）；here 是人已經站在那裡 */
+  goto: { name: string; here: boolean; block?: string } | null
   asked: boolean
   arrived: boolean
   /** 還沒回應：可以選照做或抗拒 */
@@ -48,32 +50,12 @@ export interface OrderRow {
 
 const pct = (c: number): string => `${Math.round(c * 100)}%`
 
-/**
- * 已經逾期（了結）的那一條的處置：引擎寫在 contract.overdue 報告的正文裡（「交代的〈種類〉過了期限……」）。報告沒有帶指令的編號，所以照種類的名字從最近的往回認，一份報告只認一條。
- * （boundView 的佇列只有還沒了結的處置；已了結的逾期沒有欄位，見回報：缺的匯出。）
- */
-function overdueNotes(view: BoundView, lines: readonly string[]): Map<string, string> {
-  const out = new Map<string, string>()
-  const used = new Set<number>()
-  for (const o of [...view.queue].reverse()) {
-    if (o.state !== 'overdue') continue
-    for (let i = lines.length - 1; i >= 0; i--) {
-      if (used.has(i) || !lines[i]!.includes(`交代的${o.name}過了期限`)) continue
-      used.add(i)
-      out.set(o.id, lines[i]!)
-      break
-    }
-  }
-  return out
-}
-
-export function orderRows(view: BoundView, overdueLines: readonly string[] = []): OrderRow[] {
-  const notes = overdueNotes(view, overdueLines)
+export function orderRows(view: BoundView): OrderRow[] {
   return view.queue.map((o: OrderView): OrderRow => {
     const live = o.state === 'sent' || o.state === 'doing' || o.state === 'forced'
     return {
       id: o.id, name: o.name, stateName: o.state_name, live, overdue: o.state === 'overdue' || (live && o.minutes_left !== null && o.minutes_left < 0), left: live ? leftText(o.minutes_left) : '',
-      penalty: o.state === 'overdue' ? notes.get(o.id) ?? '' : (o.on_overdue ?? []).join('、'), place: o.place_name ?? '', asked: o.asked, arrived: o.arrived, sent: o.state === 'sent',
+      penalty: o.state === 'overdue' || o.outcome ? o.outcome?.text ?? '' : (o.on_overdue ?? []).join('、'), place: o.place_name ?? '', goto: o.goto ? { name: o.goto.name, here: o.goto.here, ...(o.goto.block ? { block: o.goto.block } : {}) } : null, asked: o.asked, arrived: o.arrived, sent: o.state === 'sent',
       resistText: o.resist ? `DC ${o.resist.dc}・成功率 ${pct(o.resist.chance)}` : '',
       resistTitle: o.resist ? o.resist.breakdown.map((b) => `${b.label} ${b.value >= 0 ? '+' : ''}${b.value}`).join('；') : '', forceable: o.resist?.forceable ?? true,
     }

@@ -27,7 +27,6 @@ import mainSrc from '../../src/screens/MainScreen.vue?raw'
 import homeSrc from '../../src/screens/HomeScreen.vue?raw'
 import { UNOPENED_ACTIONS, interactRows } from '../../src/lib/peopleView'
 import { lifeDialogOf } from '../../src/lib/lifeView'
-import { onceInput } from '../../src/lib/scene/sceneView'
 import { COMBAT_ICONS } from '../../src/data/combatIcons'
 
 // ---- 假資料 ----
@@ -303,12 +302,6 @@ describe('成人場景：視窗插進來的選項與兩種新行動', () => {
     // 沒有插進來的選項就沒有那一排
     const none = await html(pinia, SceneActions, { opts: { ...OPTS, inserted: [] }, playing: false, theirName: '對方', selected: 'dominate' })
     expect(none).not.toContain('data-inserted')
-  })
-
-  it('once 的選項 id 換成送出去的輸入', () => {
-    expect(onceInput('fit_floor')).toEqual({ kind: 'once', id: 'fit_floor' })
-    expect(onceInput('set_init:70')).toEqual({ kind: 'once', id: 'set_init', value: 70 })
-    expect(onceInput('set_init:30')).toEqual({ kind: 'once', id: 'set_init', value: 30 })
   })
 })
 

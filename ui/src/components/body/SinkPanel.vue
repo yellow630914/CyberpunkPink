@@ -4,6 +4,7 @@ import Hint from '../Hint.vue'
 import TrackBar from '../TrackBar.vue'
 import MoneyTag from '../MoneyTag.vue'
 import ReasonButton from '../ReasonButton.vue'
+import RetreatPanel from './RetreatPanel.vue'
 import { useEngine } from '../../stores/engine'
 import { useUi } from '../../stores/ui'
 import { effectText, floorRows, signed, spanText } from '../../lib/bodyView'
@@ -24,7 +25,7 @@ const block = computed(() => (here.value ? eng.body.therapyBlock({}) : null))
 function treat() {
   const why = eng.body.therapy({})
   if (why) ui.toast(why, 'warn')
-  else ui.toast('做完了。')
+  else ui.toast(eng.body.retreat() ? '進去了：橋關著，到靜修那一塊待下去或提早離開。' : '做完了。')
 }
 </script>
 
@@ -45,7 +46,8 @@ function treat() {
     </div>
     <div class="kv" data-shown><span>別人看到的<Hint>藥、調校與面具能讓別人看到的沉溺比真正的低。</Hint></span><b class="mono">{{ v.shown }}<small v-if="v.shown !== v.value" class="k">（{{ v.shownBand.name }}）</small></b></div>
     <div class="kv" data-week><span>這一週</span><b>睡了 {{ v.sleeps }} 次／要 {{ v.sleepsNeeded }} 次<small class="k">{{ v.decaysNextMonday ? '・下個週一會下降' : '' }}</small></b></div>
-    <template v-if="here">
+    <RetreatPanel v-if="eng.body.retreat()" />
+    <template v-else-if="here">
       <p class="h mt">治療<Hint>在提供治療的設施上才做得了；能降多少、花多少錢與時間都是引擎的報價。</Hint></p>
       <div class="kv"><span>地方</span><b>{{ here.name }}</b></div>
       <template v-if="quote">

@@ -300,7 +300,7 @@ function onKey(ev: KeyboardEvent): void {
         </div>
       </section>
 
-      <SceneCircles :circles="v.circles" :name-of="nameOf" :rating-of="e.scene.rating" :note="e.scene.simpleNote()" />
+      <SceneCircles :circles="v.circles" :name-of="nameOf" :rating-of="e.scene.rating" />
 
       <section class="panel cut pad links" data-links>
         <template v-if="simple">
