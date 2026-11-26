@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import type { Change, ContentPack, Feature, GameState, Kernel, Report, ReportDraft } from '../../src'
 import { ActionBlocked, Game, effectCtx, meterOf, toMinutes } from '../../src'
+import { CORE_PACK } from '../../data'
 import { allFeatures } from '../../src/features'
 import { chooseOption, directorFeature, eventRunFeature } from '../../src/features/director'
 import {
@@ -461,7 +462,7 @@ describe('能不能開', () => {
     const dir = join(fileURLToPath(new URL('.', import.meta.url)), '../../data/rules')
     const text = readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => readFileSync(join(dir, f), 'utf8')).join('\n')
     expect(text).not.toContain('stream_daily')
-    const g = new Game({ features: allFeatures(), strict: true })
+    const g = new Game({ features: allFeatures(), content: [CORE_PACK], strict: true })
     g.newGame({ seed: 3 })
     const ids = g.k.actions.list().map((a) => a.id)
     expect(ids.length).toBeGreaterThan(5)
@@ -880,6 +881,8 @@ describe('回到快照、存檔、一般守則', () => {
     expect(slotOptions(g.k, g.state)).toHaveLength(4)
     expect(slotPreview(g.k, g.state, START).ok).toBe(false)
     expect(g.k.activity.get('live')).toMatchObject({ order: 40, deny: ['undo'] })
+    // 頻道（owner channel）聽 activity.end 就記這一週開過：收播不再另外發 aired
+    expect((g.k.hooks.owners as unknown as (n: string) => string[]).call(g.k.hooks, 'activity.end')).toContain('channel')
   })
 
   const FILES = ((): Record<string, string> => {
