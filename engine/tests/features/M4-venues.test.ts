@@ -347,7 +347,12 @@ describe('打工和契約一起裝：收入歸屬照舊（九成被拿走）', (
     expect(contractOf(g.state)!.debt).toBe(1000 - 162)
     expect((r!.outcome as Rec).amnesia).toBe(true)
     expect(r!.narration!.results![0]).toMatch(/180/)
-    expect(r!.narration!.results!.slice(-1)[0]).toMatch(/抵了債/)
+    // 抽成那一句還在；現在這一班同時算照做那一條工作指令（使用者 2026-11-26 裁決 3），結果多兩句，所以「抵了債」不再是最後一句
+    const lines = r!.narration!.results!
+    expect(lines.some((l) => /抵了債/.test(l))).toBe(true)
+    expect(lines.some((l) => /算你照做了伊甸園交代的這一條工作/.test(l))).toBe(true)
+    expect(contractOf(g.state)!.complied).toBe(1)
+    expect(contractOf(g.state)!.queue.find((o) => o.id === 'o2')!.state).toBe('done')
   })
 })
 

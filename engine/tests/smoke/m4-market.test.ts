@@ -11,12 +11,13 @@ import { UNREG_STACK_ID, toMinutes } from '../../src'
 import { abilitiesOf, tutorBlock, tutorDraft, tutorOptions } from '../../src/features/abilities'
 import { assembleDraft, learnDraft, salvageDraft } from '../../src/features/craft'
 import { accept, board, go, jobOf } from '../../src/features/fixer'
+import { actorOf as npcActorOf } from '../../src/features/npcs'
 import { checkout } from '../../src/features/trade'
 import { auctionRunOf, auctionView, bidDraft, bidOptions, catalogView, enterDraft as auctionEnter, inspectDraft, leaveDraft, memberOf } from '../../src/features/auction'
 import { deliverBlock, orderDraft, pendingParts } from '../../src/features/unreg'
 import type { Game } from '../../src/shell/game'
 import {
-  AUCTION_HOUSE, BODY_BLOCKS, M4_ACTION_PREFIXES, STRONG_PC, TUTOR_NPC, VAULT_FIXER, flow, giveItem, giveMoney, makeBodyGame, observed, passTime, passUntil, playStage, prefixProblems, roundTrip, standAt, stateHash,
+  AUCTION_HOUSE, BODY_BLOCKS, HOLDER_NPC, M4_ACTION_PREFIXES, STRONG_PC, TUTOR_NPC, VAULT_FIXER, flow, giveItem, giveMoney, makeBodyGame, observed, passTime, passUntil, playStage, prefixProblems, roundTrip, standAt, stateHash,
 } from '../../src/testkit'
 
 vi.setConfig({ testTimeout: 120_000 })
@@ -165,12 +166,18 @@ async function auctionFlow(g: Game, f = flow('市集：拍賣')): Promise<void> 
     g.commit({ kind: 'system', action: 'test.favor', location: {}, party: [], timeline: [], changes: [{ op: 'meter', kind: 'favor', key: 'f_tw_gallery', set: 40 }] as never, outcome: { result: 'ok', summary: '測試給的好感。' } })
     expect(memberOf(k, g.state, AUCTION_HOUSE)).toBeTruthy()
   })
-  await f.step('週四預展：目錄出來了（七件；阿音的契約不在：阿音不是場上的角色，交不出去的拍品不抽）、看兩件貨（零件與義體）', () => {
+  await f.step('週四預展：阿音要先是場上的角色（見過面），她的契約才交得出去、目錄才抽得到；目錄出來了（八件，含那一份契約）、看兩件貨（零件與義體）', () => {
+    // 交不出去的拍品不抽（M4 收尾修正批 必修 2）：阿音沒見過面時目錄只有七件、沒有契約
     passUntil(g, { day: 10, hour: 14 })
+    const without = catalogView(k, g.state, AUCTION_HOUSE)!
+    if (!without.open) throw new Error('目錄還沒出來')
+    expect(without.lots).toHaveLength(7)
+    expect(without.lots.some((l) => l.kind === 'contract')).toBe(false)
+    g.commit({ kind: 'system', action: 'test.npc', location: {}, party: [], timeline: [], changes: npcActorOf(k, g.state, HOLDER_NPC), outcome: { result: 'ok', summary: '阿音在場上。' } })
     const cat = catalogView(k, g.state, AUCTION_HOUSE)!
     if (!cat.open) throw new Error('目錄還沒出來')
-    expect(cat.lots).toHaveLength(7)
-    expect(cat.lots.some((l) => l.kind === 'contract')).toBe(false)
+    expect(cat.lots).toHaveLength(8)
+    expect(cat.lots.some((l) => l.kind === 'contract')).toBe(true)
     const nowM = toMinutes(g.state.time)
     expect(cat.session.preview!.from).toBeLessThanOrEqual(nowM)
     expect(cat.session.preview!.to).toBeGreaterThanOrEqual(nowM)

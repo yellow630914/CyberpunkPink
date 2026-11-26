@@ -186,7 +186,9 @@ describe('契約人這一面：契約、佇列、照做與抗拒', () => {
     // 導演從範圍 contract 挑了示範的指令事件：開著，擋住別的操作；選完之後那一條由事件的 order_done 收尾
     const ev = e.event.view()!
     expect(ev).not.toBeNull()
-    expect(e.contract.choose(e.contract.bound()!.queue.find((o) => o.kind === 'report')!.id, 'resist')).toMatch(/眼前有一件事要先回應/)
+    // 契約的回話在任何活動裡都能做（使用者 2026-11-26 裁決 2）；別的事（睡覺之類）仍然被事件擋住
+    expect(e.contract.chooseBlock(e.contract.bound()!.queue.find((o) => o.kind === 'report')!.id, 'resist')).toBeNull()
+    expect(e.blockOf('commit:rest.sleep')).toMatch(/眼前有一件事要先回應/)
     expect((await e.event.choose(ev.options[0]!.id)).status).toBe('applied')
     expect(e.event.view()).toBeNull()
     expect(e.contract.bound()!.queue.find((o) => o.id === work.id)!.state).toBe('done')

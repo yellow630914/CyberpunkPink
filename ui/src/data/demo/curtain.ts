@@ -68,9 +68,10 @@ const curtain_table: Rec[] = [
 const item: Rec[] = [{ id: 'it_curtain_pin', name: '簾後館的紀念徽章', desc: '獎品室發的：館方的紀念品。', category: 'misc', grade: 2, size: 0, legal: 'free', price: 300 }]
 
 // ---- 戰敗事件：落幕。五件都接同一份骨架（輸在哪一幕走哪一件）；_plain 是純舞台的版本（後台的一段訓話與帳，沒有場景） ----
+// cast 要寫 gen（npcs 的 director.cast 只認 npc、known、gen）：沒寫的話補演永遠略過。落幕那一區（簾口在 under）已有 npc_gen（people.ts）
 const EVENT_IDS = ['df_stage_foyer', 'df_stage_headliner', 'df_stage_backstage', 'df_stage_vip', 'df_stage_encore']
 const stageEvent = (id: string): Rec => ({
-  id, name: '落幕', kind: 'stage', factions: [], fails_commission: false, cast: [{ role: 'a' }], fallback: `${id}_plain`,
+  id, name: '落幕', kind: 'stage', factions: [], fails_commission: false, cast: [{ role: 'a', gen: { kind: 'citizen' } }], fallback: `${id}_plain`,
   versions: {
     default: {
       text: '落幕了。館方派了補演。',

@@ -71,8 +71,8 @@ const blueprints: Rec[] = [
 
 // ---- 怪癖：兩筆併發症、兩筆殘響 ----
 const quirks: Rec[] = [
-  { id: 'cx_scar', name: '疤痕組織', desc: '縫合的地方留了疤，動作偶爾卡一下。', kind: 'complication', pool: ['complication'], effects: [{ attr: 'reflex', amount: -1 }] },
-  { id: 'cx_ache', name: '陰雨會痛', desc: '下雨天接口會痛，撐不了太久。', kind: 'complication', pool: ['complication'], effects: [{ stat: 'max_hp', amount: -2 }] },
+  { id: 'cx_scar', name: '疤痕組織', desc: '縫合的地方留了疤，動作偶爾卡一下。', kind: 'complication', pool: ['complication'], applies: ['cyberware'], effects: [{ attr: 'reflex', amount: -1 }] },
+  { id: 'cx_ache', name: '陰雨會痛', desc: '下雨天接口會痛，撐不了太久。', kind: 'complication', pool: ['complication'], applies: ['cyberware'], effects: [{ stat: 'max_hp', amount: -2 }] },
   { id: 'cx_echo_1', name: '殘響：舊主人的手', desc: '前一個主人用慣的力道，還留在這隻手上。', kind: 'echo', pool: ['used'] },
   { id: 'cx_echo_2', name: '殘響：夜班的眼睛', desc: '這雙眼睛看過太多夜班，一到凌晨就自己對焦。', kind: 'echo', pool: ['used'] },
 ]

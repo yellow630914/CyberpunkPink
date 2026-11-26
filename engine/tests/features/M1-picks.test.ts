@@ -146,7 +146,7 @@ describe('每個行動都有圖示的鍵（COMBAT_SYSTEM 第 10 節；dev/adr/00
     // 還沒有圖的鍵列在這裡：多了一個就要在 dev/adr/0014 的表補上、並通知介面
     const DRAWN = ['aim', 'burst', 'cover', 'flee', 'item', 'melee', 'move', 'reload', 'shoot', 'skill', 'subdue', 'swap', 'watch']
     const missing = [...new Set(defs.map((d) => d.icon!))].filter((key) => !DRAWN.includes(key)).sort()
-    expect(missing).toEqual(['drone_command', 'drone_deploy', 'drone_move', 'drone_recall', 'end', 'node', 'surrender', 'vehicle'])
+    expect(missing).toEqual(['drone_command', 'drone_deploy', 'drone_move', 'drone_recall', 'end', 'node', 'pump', 'surrender', 'vehicle'])
   })
 })
 

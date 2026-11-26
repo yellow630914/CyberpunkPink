@@ -13,6 +13,8 @@ import { FakeProvider, Game, weekdayOf } from '@engine/src'
 import { CORE_PACK } from '@engine/data'
 import { allFeatures } from '@engine/src/features'
 import { auctionView, bidDraft, bidOptions, catalogView } from '@engine/src/features/auction'
+import { actorOf as npcActorOf } from '@engine/src/features/npcs'
+import { buildCreationReport } from '@engine/src/features/creation'
 import { formatTime, toMinutes } from '@engine/src/core/util/time'
 import { useEngine } from '../../src/stores/engine'
 import { DRAFT } from '../commission/fixtures'
@@ -475,7 +477,9 @@ describe('6 進行中主畫面別的入口', () => {
     expect(c.list('npc').some((n) => (n as Rec).auction_ref !== undefined)).toBe(true)
     expect(g.contentWarnings().filter((w) => /auction|拍賣/.test(w))).toEqual([])
     // 預展那一天（週四中午）目錄公布：六件、至少一件契約
-    g.newGame({ seed: 5 })
+    // 契約拍品只抽得到現在交得出去的（要有主角、債務人要是場上的角色；M4 收尾修正批，使用者 2026-11-26 裁決 5）：建一個主角，再讓兩位債務人在場上
+    g.newGame({ seed: 5, setup: (state) => buildCreationReport(g.k, state, DRAFT as never) })
+    g.commit({ kind: 'system', action: 'test.npcs', location: {}, party: [], timeline: [], changes: [...npcActorOf(g.k, g.state, 'npc_nana'), ...npcActorOf(g.k, g.state, 'npc_jo')], outcome: { result: 'ok', summary: '兩位債務人在場上。' } })
     const now = toMinutes(g.state.time)
     let target = now
     for (let d = g.state.time.day; d <= g.state.time.day + 8; d++) {
