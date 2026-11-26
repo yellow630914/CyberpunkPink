@@ -137,27 +137,27 @@ export function playDraft(k: Kernel, state: GameState, input: PlayInput): Report
   if (c.kind === 'fuel') {
     const n = fuelVoice(rules, w, c)
     run.addVoice('you', n)
-    run.say(`${head}：聲量 +${n}（你現在 ${w.voice.you}）。`, { tag: 'opinion.play', data: { ...data, voice: n }, plain: `你打出「${c.name}」，聲勢起來了。`, ...(who ? { actor: who } : {}) })
+    run.note(`${head}：聲量 +${n}（你現在 ${w.voice.you}）。`, { tag: 'opinion.play', data: { ...data, voice: n }, plain: `你打出「${c.name}」，聲勢起來了。`, ...(who ? { actor: who } : {}) })
   } else if (c.kind === 'line') {
     const n = lineWind(rules, w, c, credOf(k, state))
     run.addWind(n)
-    run.say(`${head}：風向 ${n >= 0 ? '+' : '−'}${Math.abs(n)}（風向現在 ${w.wind >= 0 ? '+' : ''}${w.wind}）。`, { tag: 'opinion.play', data: { ...data, wind: n }, plain: `你打出「${c.name}」，風向偏了過來。`, ...(who ? { actor: who } : {}) })
+    run.note(`${head}：風向 ${n >= 0 ? '+' : '−'}${Math.abs(n)}（風向現在 ${w.wind >= 0 ? '+' : ''}${w.wind}）。`, { tag: 'opinion.play', data: { ...data, wind: n }, plain: `你打出「${c.name}」，風向偏了過來。`, ...(who ? { actor: who } : {}) })
   } else if (c.means === 'guard') {
     const cell = input.cell as Cell
     w.cells[cell].guard = w.round
-    run.say(`${head}：替「${CELL_NAME[cell]}」設防，這一回合對手搶不了。`, { tag: 'opinion.play', data: { ...data, cell }, plain: `你替一格設了防。`, ...(who ? { actor: who } : {}) })
+    run.note(`${head}：替「${CELL_NAME[cell]}」設防，這一回合對手搶不了。`, { tag: 'opinion.play', data: { ...data, cell }, plain: `你替一格設了防。`, ...(who ? { actor: who } : {}) })
   } else if (c.means === 'mute') {
     run.addVoice('foe', -rules.mute)
-    run.say(`${head}：對手的聲量 −${rules.mute}（對手現在 ${w.voice.foe}）。`, { tag: 'opinion.play', data: { ...data, foe_voice: -rules.mute }, plain: `你壓住了對手的流量。`, ...(who ? { actor: who } : {}) })
+    run.note(`${head}：對手的聲量 −${rules.mute}（對手現在 ${w.voice.foe}）。`, { tag: 'opinion.play', data: { ...data, foe_voice: -rules.mute }, plain: `你壓住了對手的流量。`, ...(who ? { actor: who } : {}) })
   } else if (c.means === 'shift') {
     run.addVoice('you', -rules.shift)
     run.addVoice('foe', -rules.shift)
-    run.say(`${head}：雙方的聲量各 −${rules.shift}（你 ${w.voice.you}、對手 ${w.voice.foe}）。`, { tag: 'opinion.play', data: { ...data, you_voice: -rules.shift, foe_voice: -rules.shift }, plain: `你把大家的目光引到別處。`, ...(who ? { actor: who } : {}) })
+    run.note(`${head}：雙方的聲量各 −${rules.shift}（你 ${w.voice.you}、對手 ${w.voice.foe}）。`, { tag: 'opinion.play', data: { ...data, you_voice: -rules.shift, foe_voice: -rules.shift }, plain: `你把大家的目光引到別處。`, ...(who ? { actor: who } : {}) })
   } else {
     // 水軍：聲量 +3，擲一次 d20，5 以下被拆穿（風向 −1、公信力 −3）
     run.addVoice('you', rules.army.voice)
     const roll = run.rng.int(1, 20)
-    run.say(`${head}：聲量 +${rules.army.voice}。擲 d20：${roll}。`, { tag: 'opinion.play', data: { ...data, voice: rules.army.voice, roll, risk: rules.army.risk }, plain: `你放出了水軍。`, ...(who ? { actor: who } : {}) })
+    run.note(`${head}：聲量 +${rules.army.voice}。擲 d20：${roll}。`, { tag: 'opinion.play', data: { ...data, voice: rules.army.voice, roll, risk: rules.army.risk }, plain: `你放出了水軍。`, ...(who ? { actor: who } : {}) })
     if (roll <= rules.army.risk) {
       busted = true
       bust(run, `水軍被拆穿了`, rules.army.wind, rules.army.cred)
@@ -167,7 +167,7 @@ export function playDraft(k: Kernel, state: GameState, input: PlayInput): Report
   // 假料：牌面照打，擲 d20，被拆穿這張牌無效（聲量收回）、風向與公信力反噬
   if (c.fake && c.kind === 'fuel') {
     const roll = run.rng.int(1, 20)
-    run.say(`假料的真假：擲 d20：${roll}。`, { tag: 'opinion.roll', data: { card: id, roll, risk: rules.fake.risk } })
+    run.note(`假料的真假：擲 d20：${roll}。`, { tag: 'opinion.roll', data: { card: id, roll, risk: rules.fake.risk } })
     if (roll <= rules.fake.risk) {
       busted = true
       run.addVoice('you', -fuelVoice(rules, w, c))
@@ -184,5 +184,5 @@ function bust(run: Run, what: string, wind: number, cred: number): void {
   run.addWind(-wind)
   const has = run.k.meters.has('credibility')
   if (has) run.changes.push({ op: 'meter', kind: 'credibility', key: '_', delta: -cred })
-  run.say(`${what}：風向 −${wind}${has ? `、公信力 −${cred}` : ''}。`, { tag: 'opinion.bust', data: { wind: -wind, ...(has ? { cred: -cred } : {}) }, plain: `${what}，風向跟著轉了。` })
+  run.note(`${what}：風向 −${wind}${has ? `、公信力 −${cred}` : ''}。`, { tag: 'opinion.bust', data: { wind: -wind, ...(has ? { cred: -cred } : {}) }, plain: `${what}，風向跟著轉了。` })
 }

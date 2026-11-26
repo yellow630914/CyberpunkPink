@@ -40,7 +40,7 @@ export function captureDraft(k: Kernel, state: GameState, input: CaptureInput): 
   w.voice.you -= def
   w.cells[cell] = { owner: 'you' }
   w.captured++
-  run.say(`你${was === 'foe' ? '從對手手上搶下' : '佔領'}「${CELL_NAME[cell]}」（花聲量 ${def}，${w.topic.scores[cell] + (w.bonus[cell] ?? 0)} 分；聲量剩 ${w.voice.you}）。`, {
+  run.note(`你${was === 'foe' ? '從對手手上搶下' : '佔領'}「${CELL_NAME[cell]}」（花聲量 ${def}，${w.topic.scores[cell] + (w.bonus[cell] ?? 0)} 分；聲量剩 ${w.voice.you}）。`, {
     tag: 'opinion.capture', data: { cell, def, from: was, voice: w.voice.you }, plain: was === 'foe' ? '你從對手手上搶下了一格。' : '你佔下了一格。',
   })
   let result = 'captured'
@@ -76,13 +76,13 @@ export function endTurnDraft(k: Kernel, state: GameState): ReportDraft {
   if (block) throw new ActionBlocked(block)
   const run = new Run(k, state, readWar(state), 'turn')
   const w = run.w
-  run.say(`你結束了第 ${w.round} 回合。`, { tag: 'opinion.end_turn', data: { round: w.round } })
+  run.note(`你結束了第 ${w.round} 回合。`, { tag: 'opinion.end_turn', data: { round: w.round } })
   const once = checkOnce(run)
   if (once && once.rule.do === 'bribe') {
     w.pending = 'bribe'
     w.offer = once.price!
     w.foe_state.bribes++
-    run.say(`對手開價收買：C$${w.offer.toLocaleString('en-US')}，條件是你撤稿。收下，戰役就算你敗；回絕，照常打下去。`, {
+    run.note(`對手開價收買：C$${w.offer.toLocaleString('en-US')}，條件是你撤稿。收下，戰役就算你敗；回絕，照常打下去。`, {
       tag: 'opinion.foe.bribe', data: { price: w.offer, times: w.foe_state.bribes }, plain: '對手開出了價碼，要你收手。',
     })
     return run.draft(TURN_ACTION, 'bribe_offer', run.beats.map((b) => b.text).join(''))
@@ -90,7 +90,7 @@ export function endTurnDraft(k: Kernel, state: GameState): ReportDraft {
   if (once && once.rule.do === 'visit') {
     w.pending = 'visit'
     w.foe_state.visited = true
-    run.say(`對手找上門了：${once.rule.squad ?? '一隊人'}往編輯台去。`, { tag: 'opinion.foe.visit', data: { squad: once.rule.squad ?? null }, plain: '對手的人找上門來了。' })
+    run.note(`對手找上門了：${once.rule.squad ?? '一隊人'}往編輯台去。`, { tag: 'opinion.foe.visit', data: { squad: once.rule.squad ?? null }, plain: '對手的人找上門來了。' })
     return run.draft(TURN_ACTION, 'visit', run.beats.map((b) => b.text).join(''))
   }
   advance(run)
@@ -117,13 +117,13 @@ export function bribeDraft(k: Kernel, state: GameState, input: BribeInput): Repo
   const w = run.w
   const price = w.offer ?? 0
   if (input.accept) {
-    run.say(`你收下了 C$${price.toLocaleString('en-US')}。`, { tag: 'opinion.bribe', data: { accept: true, price }, plain: '你收下了對手的錢。' })
+    run.note(`你收下了 C$${price.toLocaleString('en-US')}。`, { tag: 'opinion.bribe', data: { accept: true, price }, plain: '你收下了對手的錢。' })
     run.finish('bribe', price)
     return closeDraft(run, BRIBE_ACTION)
   }
   delete w.pending
   delete w.offer
-  run.say(`你回絕了 C$${price.toLocaleString('en-US')}。`, { tag: 'opinion.bribe', data: { accept: false, price }, plain: '你回絕了對手的價碼。' })
+  run.note(`你回絕了 C$${price.toLocaleString('en-US')}。`, { tag: 'opinion.bribe', data: { accept: false, price }, plain: '你回絕了對手的價碼。' })
   advance(run)
   return run.draft(BRIBE_ACTION, w.turn === 'ended' ? 'ended' : 'declined', run.beats.map((b) => b.text).join(''))
 }
@@ -141,7 +141,7 @@ export function concedeDraft(k: Kernel, state: GameState): ReportDraft {
   const block = concedeBlock(k, state)
   if (block) throw new ActionBlocked(block)
   const run = new Run(k, state, readWar(state), 'concede')
-  run.say('你認輸了。', { tag: 'opinion.concede', plain: '你認輸了。' })
+  run.note('你認輸了。', { tag: 'opinion.concede', plain: '你認輸了。' })
   run.finish('concede')
   return closeDraft(run, CONCEDE_ACTION)
 }
@@ -171,8 +171,8 @@ export function closeDraft(run: Run, action: string): ReportDraft {
   }
   const end = endActivity(run.k, { state: run.state, kind: w.mode === 'face' ? 'face.opinion' : ACTIVITY, id: w.id, origin: w.origin, outcome: r.outcome, result: payload })
   run.changes.push(...end.changes)
-  for (const line of end.lines) run.say(line.replace(/。?$/, '。'), { plain: line })
-  if (action === END_ACTION) run.say(resultText(r, w), { tag: 'opinion.end', data: { outcome: r.outcome }, plain: resultPlain(r) })
+  for (const line of end.lines) run.note(line.replace(/。?$/, '。'), { plain: line })
+  if (action === END_ACTION) run.note(resultText(r, w), { tag: 'opinion.end', data: { outcome: r.outcome }, plain: resultPlain(r) })
   const d = run.draft(action, r.outcome, run.beats.map((b) => b.text).join(''), { war: null })
   return attachActivityEnd(d, end)
 }

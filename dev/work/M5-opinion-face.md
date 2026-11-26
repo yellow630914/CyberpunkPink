@@ -58,3 +58,6 @@ M5-opinion-desk。和 M5-live-slot 可以同時做。副本那一邊（真的給
 ## 完成時回報
 
 改了哪些檔、測試結果、`setup` 還缺什麼（給 M5-commission-opinion）、三選一的「重來」用 `rewind` 做有沒有做不到的地方、V35～V38 對不上的地方。
+
+## channel-shows 留下的（2026-11-26）
+- 獨家節目播完報告 `data.scoop`：給「直接開輿論戰」的入口。公演簽公司「製作費公司出一半」要的話在 `channel.episode` 加選填 `cost_mult`。

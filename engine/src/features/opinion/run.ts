@@ -27,7 +27,7 @@ export class Run {
     this.rng = deriveRng(state.rng, `opinion/${this.w.id}/${purpose}/${this.w.round}`)
   }
 
-  say(text: string, o: { tag?: string; data?: Record<string, unknown>; plain?: string; actor?: string } = {}): void {
+  note(text: string, o: { tag?: string; data?: Record<string, unknown>; plain?: string; actor?: string } = {}): void {
     this.beats.push({ layer: 'meat', text, ...(o.actor ? { actor: o.actor } : {}), ...(o.tag ? { tag: o.tag } : {}), ...(o.data ? { data: o.data } : {}) })
     if (o.plain) this.plain.push(o.plain)
   }
@@ -62,7 +62,7 @@ export class Run {
         if (this.w.discard.length === 0) break
         this.w.deck = this.shuffle(this.w.discard)
         this.w.discard = []
-        this.say('牌庫抽完了：棄牌洗回去。', { tag: 'opinion.reshuffle', data: { deck: this.w.deck.length }, plain: '牌庫抽完了，棄牌洗了回去。' })
+        this.note('牌庫抽完了：棄牌洗回去。', { tag: 'opinion.reshuffle', data: { deck: this.w.deck.length }, plain: '牌庫抽完了，棄牌洗了回去。' })
       }
       const id = this.w.deck.pop()!
       this.w.hand.push(id)
@@ -92,7 +92,7 @@ export class Run {
       this.addVoice('you', fx.you)
       this.addVoice('foe', fx.foe)
     } else if (fx.kind === 'score') this.w.bonus[fx.cell] = Math.max(this.w.bonus[fx.cell] ?? 0, fx.amount)
-    this.say(`城市事件：${card.name}。${text}`, { tag: 'opinion.city', data: { id: card.id, effect: fx }, plain: `城市裡出了一件事：${card.name}。` })
+    this.note(`城市事件：${card.name}。${text}`, { tag: 'opinion.city', data: { id: card.id, effect: fx }, plain: `城市裡出了一件事：${card.name}。` })
   }
 
   /** 新的一回合：城市事件、編輯點補滿（律師函扣掉）、抽牌、這回合的佔領次數。 */
@@ -110,12 +110,12 @@ export class Run {
       pen -= cut
     }
     const slot = SLOTS[w.round - 1] ?? `第 ${w.round} 回合`
-    this.say(`—— 第 ${w.round} 回合・${slot} ——`, { tag: 'opinion.round', data: { round: w.round, rounds: w.rounds }, plain: `${slot}的時段開始了。` })
+    this.note(`—— 第 ${w.round} 回合・${slot} ——`, { tag: 'opinion.round', data: { round: w.round, rounds: w.rounds }, plain: `${slot}的時段開始了。` })
     this.flipCity()
     const got = this.draw(this.rules.draw)
-    if (got.length > 0) this.say(`你抽了 ${got.length} 張牌：${got.map((id) => `「${this.cardName(id)}」`).join('、')}。`, { tag: 'opinion.draw', data: { cards: got } })
+    if (got.length > 0) this.note(`你抽了 ${got.length} 張牌：${got.map((id) => `「${this.cardName(id)}」`).join('、')}。`, { tag: 'opinion.draw', data: { cards: got } })
     const total = w.desk.reduce((s, x) => s + x.ep, 0)
-    this.say(`編輯點 ${total}。`, { tag: 'opinion.ep', data: { ep: total } })
+    this.note(`編輯點 ${total}。`, { tag: 'opinion.ep', data: { ep: total } })
   }
 
   // ---- 結束 ----
@@ -139,7 +139,7 @@ export class Run {
     w.turn = 'ended'
     delete w.pending
     delete w.offer
-    this.say(resultText(result, w), { tag: 'opinion.result', data: { ...result }, plain: resultPlain(result) })
+    this.note(resultText(result, w), { tag: 'opinion.result', data: { ...result }, plain: resultPlain(result) })
     return result
   }
 

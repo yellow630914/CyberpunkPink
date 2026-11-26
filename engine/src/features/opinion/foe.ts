@@ -52,7 +52,7 @@ function openSet(run: Run): Set<string> | null {
   const n = Math.min(all.length, run.rng.int(m.open[0], m.open[1]))
   const open = run.shuffle(all).slice(0, n)
   run.w.foe_state.open = open
-  run.say(`對手這回合能用的招：${open.map((id) => actionName(run, id as ActionId)).join('、')}。`, { tag: 'opinion.foe.open', data: { open } })
+  run.note(`對手這回合能用的招：${open.map((id) => actionName(run, id as ActionId)).join('、')}。`, { tag: 'opinion.foe.open', data: { open } })
   return new Set(open)
 }
 
@@ -69,7 +69,7 @@ export function foeTurn(run: Run): void {
   const start = run.beats.length
   const defs = new Map(prActions(run.k).map((d) => [d.id, d]))
   let pts = prPoints(run)
-  run.say(`對手的回合：${pts} 點公關點。`, { tag: 'opinion.foe.start', data: { pts, strength: w.foe.strength } })
+  run.note(`對手的回合：${pts} 點公關點。`, { tag: 'opinion.foe.start', data: { pts, strength: w.foe.strength } })
   const open = openSet(run)
   const used: Record<string, number> = {}
   let extraCaps = 0
@@ -100,7 +100,7 @@ export function foeTurn(run: Run): void {
   for (let i = 0; i < 1 + extraCaps; i++) {
     const list = capturable(w, 'foe', run.rules)
     if (list.length === 0) {
-      if (i === 0) run.say('對手這一回合搶不到格子。', { tag: 'opinion.foe.capture', data: { cell: null } })
+      if (i === 0) run.note('對手這一回合搶不到格子。', { tag: 'opinion.foe.capture', data: { cell: null } })
       break
     }
     const weight = (c: Cell): number => (w.foe.cell_priority[c] ?? 1) * (cellScore(w, c) + 1)
@@ -111,7 +111,7 @@ export function foeTurn(run: Run): void {
     const def = defenseOf(w, cell, 'foe', run.rules)
     w.voice.foe -= def
     w.cells[cell] = { owner: 'foe' }
-    run.say(`對手${was === 'you' ? '搶走你的' : '佔領'}「${CELL_NAME[cell]}」（花聲量 ${def}，${cellScore(w, cell)} 分）。`, { tag: 'opinion.foe.capture', data: { cell, def, score: cellScore(w, cell), from: was }, plain: was === 'you' ? '對手搶走了你的一格。' : '對手佔下了一格。' })
+    run.note(`對手${was === 'you' ? '搶走你的' : '佔領'}「${CELL_NAME[cell]}」（花聲量 ${def}，${cellScore(w, cell)} 分）。`, { tag: 'opinion.foe.capture', data: { cell, def, score: cellScore(w, cell), from: was }, plain: was === 'you' ? '對手搶走了你的一格。' : '對手佔下了一格。' })
     if (cellsOwnedBy(w, 'you').length === 0) {
       run.finish('wipe')
       break
@@ -128,25 +128,25 @@ function perform(run: Run, id: ActionId, def: PrActionEntry, cost: number): bool
   switch (id) {
     case 'release':
       run.addVoice('foe', n)
-      run.say(`對手發稿：聲量 +${n}（對手現在 ${w.voice.foe}）。`, { tag: 'opinion.foe.release', data: { ...data, voice: n }, plain: '對手發了新聞稿。' })
+      run.note(`對手發稿：聲量 +${n}（對手現在 ${w.voice.foe}）。`, { tag: 'opinion.foe.release', data: { ...data, voice: n }, plain: '對手發了新聞稿。' })
       return true
     case 'deny':
       run.addWind(-n)
-      run.say(`對手否認：風向往它那邊 ${n}。`, { tag: 'opinion.foe.deny', data: { ...data, wind: -n }, plain: '對手出面否認。' })
+      run.note(`對手否認：風向往它那邊 ${n}。`, { tag: 'opinion.foe.deny', data: { ...data, wind: -n }, plain: '對手出面否認。' })
       return true
     case 'mute':
       run.addVoice('you', -n)
-      run.say(`對手降流：你的聲量 −${n}（你現在 ${w.voice.you}）。`, { tag: 'opinion.foe.mute', data: { ...data, voice: -n }, plain: '對手壓低了你這邊的流量。' })
+      run.note(`對手降流：你的聲量 −${n}（你現在 ${w.voice.you}）。`, { tag: 'opinion.foe.mute', data: { ...data, voice: -n }, plain: '對手壓低了你這邊的流量。' })
       return true
     case 'counter':
       run.addWind(-n)
-      run.say(`對手反爆料：風向往它那邊 ${n}。`, { tag: 'opinion.foe.counter', data: { ...data, wind: -n }, plain: '對手丟出了反爆料。' })
+      run.note(`對手反爆料：風向往它那邊 ${n}。`, { tag: 'opinion.foe.counter', data: { ...data, wind: -n }, plain: '對手丟出了反爆料。' })
       return true
     case 'lawyer': {
       if (w.round >= w.rounds) return false
       const cut = w.foe.signature?.effect.lawyer_ep ?? n
       w.foe_state.ep_penalty = (w.foe_state.ep_penalty ?? 0) + cut
-      run.say(`對手寄律師函：你下一回合的編輯點 −${cut}。`, { tag: 'opinion.foe.lawyer', data: { ...data, ep: -cut }, plain: '對手寄來了律師函。' })
+      run.note(`對手寄律師函：你下一回合的編輯點 −${cut}。`, { tag: 'opinion.foe.lawyer', data: { ...data, ep: -cut }, plain: '對手寄來了律師函。' })
       return true
     }
     case 'takedown': {
@@ -155,11 +155,11 @@ function perform(run: Run, id: ActionId, def: PrActionEntry, cost: number): bool
       const i = pick[run.rng.int(0, pick.length - 1)]!
       const [card] = w.hand.splice(i, 1)
       w.discard.push(card!)
-      run.say(`對手下架：你丟掉一張「${run.cardName(card!)}」。`, { tag: 'opinion.foe.takedown', data: { ...data, card }, plain: '對手檢舉下架了你的一張牌。' })
+      run.note(`對手下架：你丟掉一張「${run.cardName(card!)}」。`, { tag: 'opinion.foe.takedown', data: { ...data, card }, plain: '對手檢舉下架了你的一張牌。' })
       return true
     }
     case 'chase':
-      run.say('對手追擊：這一回合多佔一格。', { tag: 'opinion.foe.chase', data, plain: '對手加緊了攻勢。' })
+      run.note('對手追擊：這一回合多佔一格。', { tag: 'opinion.foe.chase', data, plain: '對手加緊了攻勢。' })
       return true
     default:
       return false

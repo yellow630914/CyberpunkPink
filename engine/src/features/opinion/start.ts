@@ -163,15 +163,15 @@ export function startDraft(k: Kernel, state: GameState, setup: OpinionSetup, ori
   w.deck = run.shuffle(basics)
   const kindName = kindEntry.name ?? kindEntry.id
   const pr = prPoints(run)
-  run.say(`輿論戰開始：議題「${w.topic.name}」（${kindName}），${w.rounds} 回合。對手「${w.foe.name}」，強度 ${w.foe.strength}，每回合 ${pr} 點公關點。`, {
+  run.note(`輿論戰開始：議題「${w.topic.name}」（${kindName}），${w.rounds} 回合。對手「${w.foe.name}」，強度 ${w.foe.strength}，每回合 ${pr} 點公關點。`, {
     tag: 'opinion.start', data: { topic: w.topic.id, kind: w.topic.kind, foe: w.foe.id, strength: w.foe.strength, pr, grade: w.grade, rounds: w.rounds, mode: w.mode },
     plain: `一場輿論戰開打了，議題是「${w.topic.name}」，對手是「${w.foe.name}」。`,
   })
-  run.say(`你從${pos.you.map((c) => `「${CELL_NAME[c]}」`).join('、')}開場；對手從${pos.foe.map((c) => `「${CELL_NAME[c]}」`).join('、')}開場。${w.wind !== 0 ? `風向 ${w.wind}。` : ''}`, {
+  run.note(`你從${pos.you.map((c) => `「${CELL_NAME[c]}」`).join('、')}開場；對手從${pos.foe.map((c) => `「${CELL_NAME[c]}」`).join('、')}開場。${w.wind !== 0 ? `風向 ${w.wind}。` : ''}`, {
     tag: 'opinion.layout', data: { you: pos.you, foe: pos.foe, wind: w.wind, scores: w.topic.scores },
   })
   const open = run.draw(rules.open_hand)
-  run.say(`開場的手牌：${open.map((id) => `「${run.cardName(id)}」`).join('、') || '（沒有牌）'}。`, { tag: 'opinion.draw', data: { cards: open } })
+  run.note(`開場的手牌：${open.map((id) => `「${run.cardName(id)}」`).join('、') || '（沒有牌）'}。`, { tag: 'opinion.draw', data: { cards: open } })
   run.startRound()
   return run.draft(START_ACTION, 'started', run.beats.map((b) => b.text).join(''), { extra: [{ op: 'uid', advance: 1 }] })
 }
