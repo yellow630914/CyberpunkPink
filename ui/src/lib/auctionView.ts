@@ -5,7 +5,7 @@ import type { HereOption } from './here'
 /**
  * 拍賣行的檢視整理（M4-ui-auction；LEWD_SYSTEM 6.2 節）：把引擎的 sessionOf、catalogView、auctionView、bidOptions 與報告排成畫面要的樣子。
  * 只做整理與字樣：底價、一階、佣金、能不能加價、誰退出、誰得標、看貨的成功率與 DC 一律是引擎給的。
- * 這個檔不讀 state.ext.auction（仿品的記號與競標者的預算記在那裡，給引擎算用的）：畫面只經 catalogView、auctionView、bidOptions，與報告上寫給玩家看的句子。
+ * 這個檔不讀引擎記在狀態裡的拍賣紀錄（仿品的記號與競標者的預算記在那裡，給引擎算用的）：畫面只經 catalogView、auctionView、bidOptions，與報告上寫給玩家看的句子。
  */
 
 // ---- 階段 ----

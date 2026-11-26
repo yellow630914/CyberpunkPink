@@ -21,6 +21,8 @@ import type { Point, Facility } from '../data/types'
 import { KEY_OF } from '../lib/keys'
 import HereOptions from '../components/HereOptions.vue'
 import { pressE, type HereOption } from '../lib/here'
+import { deskOption } from '../lib/partsView'
+import { auctionOption, stageOf } from '../lib/auctionView'
 import { cellInfo, exitList, facilityIcons, fogOf, hereItems } from '../lib/worldView'
 import { factionOf, favorTotals, identityOf } from '../lib/peopleView'
 
@@ -89,9 +91,18 @@ const hereOpts = computed<HereOption[]>(() => {
   if (here.value?.open && g.facility) mine.push(...optionsOf(g.facility))
   // 組裝：站的設施帶 craft（店家、同人社團、原廠）時多一項；誰能做、工錢是引擎的 makers
   const craftHere = e.craft.here()
-  if (craftHere) mine.push({ id: 'craft', name: `組裝（${craftHere.name}）`, sub: '設計圖、零件、換零件、拆解', run: () => ui.openRoot('craft') })
+  // 進行中的活動（拍賣……）擋住的別的入口：灰掉、原因是引擎的那一句（blockOf）
+  if (craftHere) mine.push({ id: 'craft', name: `組裝（${craftHere.name}）`, sub: '設計圖、零件、換零件、拆解', reason: e.blockOf('commit:craft.assemble'), run: () => ui.openRoot('craft') })
   // 機構的課（引擎的 teachOptions：腳下的設施教的基本功）：有課才多一項「上課」
-  if (e.training.options().length) mine.push({ id: 'lesson', name: '上課', sub: '基本功 5 級以內', run: () => ui.openRoot('lesson') })
+  if (e.training.options().length) mine.push({ id: 'lesson', name: '上課', sub: '基本功 5 級以內', reason: e.blockOf('commit:ability.lesson'), run: () => ui.openRoot('lesson') })
+  // 同人社團的委託台（設施種類帶 unreg_desk）：訂做與取貨
+  const desk = e.unreg.desk()
+  if (desk) mine.push(deskOption(desk, () => ui.openRoot('partorder'), e.blockOf('commit:unreg.order')))
+  // 拍賣行（設施種類帶 auction）：進行中的那一場照樣列、一直開得起來（回到拍賣廳）
+  for (const h of e.auction.here()) {
+    const s = e.auction.session(h.id)
+    mine.push(auctionOption(h, () => ui.openRoot('auction', { house: h.id }), e.auction.view() ? '正在拍賣中' : s ? stageOf(s, e.auction.now()).name : '近期沒有開槌'))
+  }
   // 契約：指令指定的地方就是這裡（引擎的 arriveBlock 成立）時多一項去做那一條；不在那裡的不列
   for (const o of e.contract.bound()?.queue ?? []) {
     if ((o.state === 'doing' || o.state === 'forced') && o.place && !o.arrived && e.contract.arriveBlock(o.id) === null) {

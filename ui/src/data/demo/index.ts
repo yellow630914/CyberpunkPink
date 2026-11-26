@@ -13,6 +13,8 @@ import { craftContent } from './craft'
 import { creationContent } from './creation'
 import { contractContent } from './contract'
 import { curtainContent, CURTAIN_BLOCK, CURTAIN_DISTRICT } from './curtain'
+import { partsContent } from './parts'
+import { auctionContent } from './auction'
 
 /**
  * 示意世界包（dev/work/M2-plan.md 使用者定案第 5 項）：引擎不再匯入內容，畫面接上引擎之後城市是空的，
@@ -30,6 +32,8 @@ import { curtainContent, CURTAIN_BLOCK, CURTAIN_DISTRICT } from './curtain'
  * contract.ts 阿音、範圍 contract 的觸發點與幾件示意事件、「主角是持約人」的開局 demoHolderChanges（M4-contract-holder）；
  *   M4-ui-contract 補：「主角是契約人」的開局 demoBoundChanges、三件指令事件、流竄 AI 與兩件蠱惑事件、牠的吻、調校靜水與聚光、可以請教的老何。
  * curtain.ts 簾後館：簾口設施與去處、兩個夜（兩種文化）、雙形象的敵人與層主、三張表、落幕的戰敗事件（M4-ui-curtain）。
+ * parts.ts 未登錄零件：一張小規則表、六筆預設清單、三筆怪癖、委託台的設施種類、教機械的 NPC、開局的好感與大人情（M4-ui-parts）。
+ * auction.ts 拍賣行：白槌、十件拍品、五位競標者、寫推薦函的常客、設施種類（M4-ui-auction）。
  * 之後的介面工單往這裡加自己的檔。
  */
 export const DEMO_PACK_ID = 'demo_world'
@@ -39,7 +43,7 @@ export function demoPack(): ContentPack {
   // （內容種類的 overridable，dev/adr/0017）：示意包放在核心包後面，用自己的機率與公里數表
   // 同一種內容在好幾個檔裡有（物品：成人場景的道具與商店的貨）：把每個檔的接起來，不互相蓋掉
   const merged: Record<string, unknown[]> = {}
-  for (const part of [worldContent(), transitContent(), eventContent(), commissionContent(), sceneContent(), lifeContent(), peopleContent(), netContent(), bodyContent(), craftContent(), creationContent(), contractContent(), curtainContent()] as Array<Record<string, unknown[]>>) {
+  for (const part of [worldContent(), transitContent(), eventContent(), commissionContent(), sceneContent(), lifeContent(), peopleContent(), netContent(), bodyContent(), craftContent(), creationContent(), contractContent(), curtainContent(), partsContent(), auctionContent()] as Array<Record<string, unknown[]>>) {
     for (const [kind, list] of Object.entries(part)) merged[kind] = [...(merged[kind] ?? []), ...list]
   }
   // 簾口的街區放在「地下層」底下（區的內容是整筆的，這裡把它的街區清單接上一塊）
@@ -74,5 +78,7 @@ export { withDemoOrigins, BRIDGE_LIST, CYBER_LIST, GEAR_LIST, SUGGESTED_KITS, CY
 export type { CyberLook } from './creation'
 export { DEMO_SCENES, demoSceneChanges } from './scene'
 export { CURTAIN_BLOCK, CURTAIN_SITE, CURTAIN_NIGHTS, CURTAIN_CULTURES } from './curtain'
+export { demoPartsChanges, DEMO_TUTOR_NPC, DEMO_WINDOW_FACTION } from './parts'
+export { demoAuctionChanges, demoAuctionRefEffect, AUCTION_HOUSE, AUCTION_REF_NPC } from './auction'
 export type { DemoScene } from './scene'
 export { demoStart, legacyFacilityAt, blockIdOf, stationMarkerOf }

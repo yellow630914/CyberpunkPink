@@ -89,7 +89,7 @@ import type { RollPart } from '@engine/src'
 import { PAIN_TAG } from '../lib/bodyView'
 import type { BodyBag, BodyBagKind, BodyPassive } from '../lib/bodyView'
 import type { PartyMember } from '../data/types'
-import { DEMO_SCENES, demoBoundChanges, demoBodyChanges, demoHolderChanges, demoCraftChanges, demoNetChanges, demoPack, demoPeopleChanges, demoSceneChanges, demoStartFeature, withDemoOrigins } from '../data/demo'
+import { DEMO_SCENES, demoBoundChanges, demoBodyChanges, demoHolderChanges, demoCraftChanges, demoNetChanges, demoPack, demoPeopleChanges, demoPartsChanges, demoAuctionChanges, demoSceneChanges, demoStartFeature, withDemoOrigins } from '../data/demo'
 import type { CreationBlock, CreationDraft } from '@engine/src/features/creation'
 import { MAX_KINKS, TABLE_NAME, abilitiesStepBlock, ageBlock, askStep, attrBlock, attrBudget, attrStepBlock, attrTotals, buildCreationReport, creationBlocks, creationLimits, creationSummary, cyberStepBlock, gearStepBlock, kinkChoices, lifepathProblems, lifepathResults, lifepathRoll, lifepathTables, originView, perkBlock, perkSummary, skillBlock, skillLeft, startMoney } from '@engine/src/features/creation'
 import type { BodyStep, LifepathTable } from '@engine/src/features/creation'
@@ -283,7 +283,7 @@ export const useEngine = defineStore('engine', () => {
     if (!(on && demoOn)) return r
     const picked = draft.bridge !== undefined || draft.cyber !== undefined || draft.gear !== undefined
     const roster = { origin: (originView(game.k, draft.origin)?.roster ?? []).map((n) => n.id) }
-    const base: ReportDraft = { ...r, changes: [...r.changes, ...(picked ? [] : [...demoNetChanges(), ...demoBodyChanges()]), ...demoCraftChanges(), ...demoPeopleChanges(game.k, state, roster)] }
+    const base: ReportDraft = { ...r, changes: [...r.changes, ...(picked ? [] : [...demoNetChanges(), ...demoBodyChanges()]), ...demoCraftChanges(), ...demoPartsChanges(), ...demoAuctionChanges(), ...demoPeopleChanges(game.k, state, roster)] }
     if (start === 'normal') return base
     // 契約的開局要看得到主角：先把前面的變更套在一份複本上，再問示意包「這一局的契約」是什麼（契約怎麼建、名冊怎麼進都是引擎自己的函式）
     const sim = structuredClone(state)

@@ -461,7 +461,8 @@ describe('不自己算規則、舊的檔案拿掉（M4-ui-craft）', () => {
     const g = new Game({ features: allFeatures(), content: [CORE_PACK, demoPack()], fakeProvider: new FakeProvider() })
     for (const id of ['bp_pistol', 'bp_vest', 'bp_arm']) expect(g.k.content.has('blueprint', id)).toBe(true)
     expect(g.k.content.get<ContentEntry & { teaches: string }>('item', 'it_lic_vest')!.teaches).toBe('bp_vest')
-    const by = g.k.content.list<ContentEntry & { craft?: { by: string } }>('facility_type').filter((t) => t.craft).map((t) => t.craft!.by).sort()
+    // 引擎的核心包（M4-data-rules）也帶了幾種做的地方（槍店、義體店、衣店、同人攤位）：這裡只數示意包自己的（id 以 fac_ 開頭）
+    const by = g.k.content.list<ContentEntry & { craft?: { by: string } }>('facility_type').filter((t) => t.craft && t.id.startsWith('fac_')).map((t) => t.craft!.by).sort()
     expect(by).toEqual(['doujin', 'factory', 'shop'])
     expect(g.k.content.list<ContentEntry & { pool?: string[] }>('quirk').filter((q) => q.pool?.includes('flaw') || q.pool?.includes('doujin')).length).toBeGreaterThanOrEqual(3)
   })

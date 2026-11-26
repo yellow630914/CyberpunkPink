@@ -74,7 +74,8 @@ export const BLOCKS: Record<string, BlockSpec> = {
     facilities: [
       { id: 'alian', name: '阿蓮雜貨', icon: 'ic-fac_conv', kind: 'shop', shopId: 'alian', npcIds: ['npc_lian'], services: [{ name: '買賣', action: 'shop' }, { name: '中間人的店', action: 'fixer', props: { fixerId: 'fx_alian' } }] },
       svc('peach', '桃子屋蜂巢店', 'ic-fac_food', [{ name: '便當', price: 12, action: 'none' }]),
-      svc('parts', '零件攤', 'ic-fac_scrapyard'),
+      // 同人社團的委託台（未登錄零件的訂做與取貨；設施種類 fac_unreg_desk 在 data/demo/parts.ts，world.ts 的 typeOf 指過去）
+      svc('parts', '零件攤（同人社團的委託台）', 'ic-fac_scrapyard'),
       svc('gacha', '義體扭蛋攤', 'ic-fac_gacha', [{ name: '轉一次', price: 30, action: 'none' }]),
       svc('noodle', '麵攤', 'ic-fac_food', [{ name: '街邊的麵', price: 5, action: 'none' }]),
       svc('board', '牆報板', 'ic-fac_tapes'),
@@ -189,6 +190,7 @@ export const BLOCKS: Record<string, BlockSpec> = {
     ],
     facilities: [
       svc('mirror', '鏡廳', 'ic-fac_bar', [{ name: '進去（會員）', action: 'none' }]),
+      // 拍賣行：設施種類 fac_auction 帶 auction: { house }（data/demo/auction.ts），站上去「這裡」多一項進場；不是假的設施了
       svc('auction', '拍賣行「白槌」', 'ic-fac_barter'),
       svc('blackspring', '黑泉俱樂部', 'ic-fac_bar'),
       svc('couture', '高級訂製店', 'ic-fac_clothes'),
