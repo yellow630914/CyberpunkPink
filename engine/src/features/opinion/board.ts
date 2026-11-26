@@ -145,6 +145,7 @@ export interface CapturePlan {
  */
 export function planCapture(war: War, c: Cell, rules: DefRules = DEFAULT_OPINION_RULES, env: Env = DEFAULT_ENV): { plan: CapturePlan } | { why: string } {
   const name = CELL_NAME[c]
+  if (war.stun) return { why: '對手的人把你的人手牽制住了，這一回合不能佔領。' }
   if (war.captured >= war.captures) return { why: '這一回合已經佔領過了。' }
   if (war.cells[c].owner === 'you') return { why: `「${name}」已經是你的了。` }
   const adj = war.free_adj || neighbors(c).some((n) => war.cells[n].owner === 'you')

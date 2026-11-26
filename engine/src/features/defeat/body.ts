@@ -32,12 +32,15 @@ export interface Rewrite {
   gear: ((e: Effect) => boolean) | null
 }
 
+/** 事件結果裡的指示（不是效果）：開一場戰鬥、接另一件事、開一種登記過的活動（M5-opinion-face 之後戰敗事件也可以寫 start）。 */
+const isDirective = (kind: unknown): boolean => kind === 'fight' || kind === 'chain' || kind === 'start'
+
 const isLoss = (e: Effect | null): e is Effect & { amount: number } => !!e && e.kind === 'cash' && typeof e.amount === 'number' && e.amount < 0
 
 /** 一組效果照規定改寫：先拿掉要拿掉的裝備，再把扣現金的合計壓在上限以內（從後面往回減）。不改傳進來的。 */
 export function rewriteEffects(effects: Effect[], rw: Rewrite): Effect[] {
-  // 指示（fight、chain）不是效果：原樣留著，不問 gear
-  const kept = rw.gear ? effects.filter((e) => e.kind === 'fight' || e.kind === 'chain' || !rw.gear!(e)) : effects
+  // 指示（fight、chain、start）不是效果：原樣留著，不問 gear
+  const kept = rw.gear ? effects.filter((e) => isDirective(e.kind) || !rw.gear!(e)) : effects
   const out: Array<Effect | null> = kept.map((e) => ({ ...e }))
   let excess = -out.reduce((sum, e) => sum + (isLoss(e) ? e.amount : 0), 0) - Math.max(0, rw.money)
   for (let i = out.length - 1; i >= 0 && excess > 0; i--) {
@@ -228,7 +231,7 @@ export function playSkipped(k: Kernel, state: GameState, entry: DefeatEventEntry
         out.timeline.push({ layer: 'meat', actor: pc, text: `${chosen.text}（${DEGREE_NAME[roll.degree]}：骰 ${roll.natural}，合計 ${roll.total}，對 DC ${roll.dc}）`, roll, tag: 'defeat.roll', data: { event: entry.id, option: chosen.id, stage: i } })
       }
     }
-    const list = outcomeList(chosen, degree).filter((e) => e.kind !== 'fight' && e.kind !== 'chain')
+    const list = outcomeList(chosen, degree).filter((e) => !isDirective(e.kind))
     for (const item of list) {
       const e = pc ? substitutePc(item, pc) : item
       if (hasToken(e)) out.notes.push(`第 ${i + 1} 段有一筆要等登場角色才定得下來的結果，沒有算進去。`)
@@ -258,7 +261,7 @@ function fakeCtx(k: Pick<Kernel, 'content'>): Parameters<Kernel['effects']['vali
 
 /**
  * 一件戰敗事件裡每一筆效果的問題（種類沒有人註冊、格式不對），訊息帶事件的 id 與位置：對應的功能沒裝（義體、調校、惡意韌體、契約……）時，
- * 用到它們的事件在載入之後（ready）就被擋下，不等到玩家輸了才發現。指示（fight、chain）不是效果；含 $a、$b 的只查種類。
+ * 用到它們的事件在載入之後（ready）就被擋下，不等到玩家輸了才發現。指示（fight、chain、start）不是效果；含 $a、$b 的只查種類。
  */
 export function effectProblems(k: Pick<Kernel, 'content' | 'effects'>, entry: DefeatEventEntry): string[] {
   const out: string[] = []
@@ -271,7 +274,7 @@ export function effectProblems(k: Pick<Kernel, 'content' | 'effects'>, entry: De
         for (const [key, list] of Object.entries(o.outcomes)) {
           if (!Array.isArray(list)) continue
           list.forEach((item, ei) => {
-            if (!isRec(item) || typeof item.kind !== 'string' || item.kind === 'fight' || item.kind === 'chain') return
+            if (!isRec(item) || typeof item.kind !== 'string' || isDirective(item.kind)) return
             const at = `defeat_event/${entry.id}：versions.${vid}.stages[${si}].options[${oi}].outcomes.${key}[${ei}]`
             if (hasToken(item)) {
               if (!k.effects.has(item.kind)) out.push(`${at}.kind：${JSON.stringify(item.kind)} 不在封閉清單裡（沒有裝提供這個效果的功能）`)

@@ -3,7 +3,9 @@
 
 import type { GameState, Kernel } from '../../core'
 import { cellScore, defenseOf, lockedCells, planCapture, scoreOf } from './board'
-import { cardBlock, cardOf, cardText, costOf, guardable, warBlock } from './cards'
+import { LOST_CHOICE_TEXT, cardBlock, cardOf, cardText, costOf, guardable, warBlock } from './cards'
+import { lostChoices } from './lost'
+import { visitBlock } from './visit'
 import { prPoints } from './foe'
 import type { Reservable } from './fx'
 import { reservables } from './fx'
@@ -94,6 +96,15 @@ export type OpinionView =
     brought: Array<{ ref: string; name: string }>
     /** 這回合還能多佔幾格、能不能不相鄰 */
     extra_captures: number
+    /** 委託副本的輿論面（mode 是 face）：哪件委託、第幾個階段、是不是決定性的；其餘是 null */
+    face: { commission: string; stage: number; decisive: boolean } | null
+    /** 找上門的結算（擲過才有）與現在能不能結算（原因是 null 就是可以） */
+    visit: { roll: number; total: number; dc: number; held: boolean; stay: string[] } | null
+    visit_block: string | null
+    /** 這一回合被找上門牽制住：編輯點 0、不能佔領 */
+    stunned: boolean
+    /** 決定性的一步沒贏、等三選一時：重來、回到階段開始、接受結果各自能不能選（原因是 null 就是可以）；其餘是 null */
+    choice: { retry: string | null; back: string | null; accept: string | null } | null
   }
 
 export function opinionView(k: Kernel, state: GameState): OpinionView {
@@ -141,10 +152,13 @@ export function opinionView(k: Kernel, state: GameState): OpinionView {
     ep_penalty: w.foe_state.ep_penalty ?? 0,
     city: w.city ? { id: w.city, name: city?.name ?? w.city, text: city ? (city.text ?? cityText(city.name, w.city_fx ?? city.effect)) : '' } : null,
     pending: w.pending ?? null, offer: w.offer ?? null,
-    end_turn: end, concede: w.turn === 'ended' ? '這場輿論戰已經分出勝負了，先結算。' : null,
-    settle: w.turn === 'ended' ? null : '這場輿論戰還沒分出勝負。',
+    end_turn: end, concede: w.pending === 'lost' ? LOST_CHOICE_TEXT : w.turn === 'ended' ? '這場輿論戰已經分出勝負了，先結算。' : null,
+    settle: w.pending === 'lost' ? LOST_CHOICE_TEXT : w.turn === 'ended' ? null : '這場輿論戰還沒分出勝負。',
     result: w.result ? { ...w.result, outcome_name: outcomeName(w.result.outcome as Outcome) } : null,
     moves: mv.moves, moves_skipped: mv.skipped, reserve: reservables(run), passives: w.passives.map((p) => ({ id: p.id, name: p.name, owner: p.owner })),
     brought: w.brought.map((b) => ({ ref: b.ref, name: run.cardName(b.card) })), extra_captures: w.xcap.length,
+    face: w.face ? { commission: w.face.commission, stage: w.face.stage, decisive: w.face.decisive } : null,
+    visit: w.visit ? { ...w.visit, stay: [...w.visit.stay] } : null, visit_block: w.pending === 'visit' ? visitBlock(k, state) : '現在沒有人找上門。',
+    stunned: w.stun === true, choice: w.pending === 'lost' ? lostChoices(k, state) : null,
   }
 }

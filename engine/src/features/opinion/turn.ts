@@ -6,12 +6,13 @@
 import type { GameState, Kernel, ReportDraft } from '../../core'
 import { ActionBlocked, attachActivityEnd, endActivity } from '../../core'
 import { applicableDefMods, cellsOwnedBy, planCapture } from './board'
-import { warBlock } from './cards'
+import { LOST_CHOICE_TEXT, warBlock } from './cards'
 import { consequences } from './after'
+import { acceptedChanges } from './bribe'
 import { beginTurn, reservables } from './fx'
 import { checkOnce, foeTurn } from './foe'
-import type { Cell } from './model'
-import { ACTIVITY, BRIBE_ACTION, CAPTURE_ACTION, CELLS, CELL_NAME, CONCEDE_ACTION, END_ACTION, TURN_ACTION, isCell, opinionRules, readWar } from './model'
+import type { Cell, Outcome } from './model'
+import { ACTIVITY, FACE_ACTIVITY, BRIBE_ACTION, CAPTURE_ACTION, CELLS, CELL_NAME, CONCEDE_ACTION, END_ACTION, TURN_ACTION, isCell, opinionRules, readWar } from './model'
 import { modsOf } from './mods'
 import { Run, credOf, resultPlain, resultText } from './run'
 
@@ -96,7 +97,7 @@ export function endTurnBlock(k: Kernel, state: GameState, input: EndTurnInput = 
 }
 
 /** 對手的回合做完之後：最後一回合就結算，不然開下一回合。 */
-function advance(run: Run): void {
+export function advance(run: Run): void {
   const w = run.w
   foeTurn(run)
   if (w.turn === 'ended') return
@@ -161,7 +162,12 @@ export function bribeDraft(k: Kernel, state: GameState, input: BribeInput): Repo
   const w = run.w
   const price = w.offer ?? 0
   if (input.accept) {
-    run.note(`你收下了 C$${price.toLocaleString('en-US')}。`, { tag: 'opinion.bribe', data: { accept: true, price }, plain: '你收下了對手的錢。' })
+    // 錢進帳、公信力掉、委託副本裡委託人的好感也掉（V36）；委託副本多記一筆帳，回到快照之後這幾筆還在（bribe.ts）
+    const got = acceptedChanges(run, price)
+    run.changes.push(...got.changes)
+    run.note(`你收下了 C$${price.toLocaleString('en-US')}${got.line ? `（${got.line}）` : ''}。`, {
+      tag: 'opinion.bribe', data: { accept: true, price, cred: got.cred, favor: got.favor }, plain: '你收下了對手的錢。',
+    })
     run.finish('bribe', price)
     return closeDraft(run, BRIBE_ACTION)
   }
@@ -177,6 +183,7 @@ export function bribeDraft(k: Kernel, state: GameState, input: BribeInput): Repo
 export function concedeBlock(k: Kernel, state: GameState): string | null {
   const w = readWar(state)
   if (!w) return '現在沒有輿論戰。'
+  if (w.pending === 'lost') return LOST_CHOICE_TEXT
   if (w.turn === 'ended') return '這場輿論戰已經分出勝負了，先結算。'
   return k.activity.blockOf(state, `commit:${CONCEDE_ACTION}`)
 }
@@ -187,12 +194,15 @@ export function concedeDraft(k: Kernel, state: GameState): ReportDraft {
   const run = new Run(k, state, readWar(state), 'concede')
   run.note('你認輸了。', { tag: 'opinion.concede', plain: '你認輸了。' })
   run.finish('concede')
+  // 委託副本決定性的一場：認輸也算沒贏，先不交回，等玩家三選一（V37）
+  if (run.w.pending === 'lost') return run.draft(CONCEDE_ACTION, 'lost_choice', run.beats.map((b) => b.text).join(''))
   return closeDraft(run, CONCEDE_ACTION)
 }
 
 export function settleBlock(k: Kernel, state: GameState): string | null {
   const w = readWar(state)
   if (!w) return '現在沒有輿論戰。'
+  if (w.pending === 'lost') return LOST_CHOICE_TEXT
   if (w.turn !== 'ended') return '這場輿論戰還沒分出勝負。'
   return k.activity.blockOf(state, `commit:${END_ACTION}`)
 }
@@ -204,17 +214,27 @@ export function settleDraft(k: Kernel, state: GameState): ReportDraft {
   return closeDraft(run, END_ACTION)
 }
 
-/** 結算：發 activity.end（kind opinion；face 模式是 face.opinion），後果由聽的人加；戰役清掉。 */
-export function closeDraft(run: Run, action: string): ReportDraft {
+/**
+ * 結算：發 activity.end（kind opinion；face 模式是 face.opinion），後果由聽的人加；戰役清掉。
+ * o.outcome：交回的結果蓋掉棋盤上的（委託副本決定性的一場平手或敗、玩家選了「接受結果」：交回 lost；棋盤上的結果記在 result.board）。
+ */
+export function closeDraft(run: Run, action: string, o: { outcome?: Outcome } = {}): ReportDraft {
   const w = run.w
+  const board = w.result!.outcome
+  const outcome = o.outcome ?? board
+  // 交回的結果和棋盤上的不同（接受平手或敗）：後果照交回的那一級算，棋盤上的記在 result.board
+  if (outcome !== board) w.result = { ...w.result!, outcome }
   const r = w.result!
   const cells = Object.fromEntries(CELLS.map((c) => [c, w.cells[c].owner]))
   const payload = {
     topic: w.topic.id, kind: w.topic.kind, side: w.topic.side, you: r.you, foe: r.foe, cells, rounds: w.round, grade: w.grade, faction: w.foe.faction ?? null,
     by: r.by, mode: w.mode, foe_id: w.foe.id, strength: w.foe.strength, target_held: r.target_held, ...(r.bribed !== undefined ? { bribed: r.bribed } : {}),
+    ...(r.captured ? { captured: true } : {}), ...(r.outsourced ? { outsourced: { ...r.outsourced } } : {}), ...(outcome !== board ? { board } : {}),
+    // 委託副本的輿論面：副本照這幾欄對到那一個階段（M5-commission-opinion）
+    ...(w.face ? { decisive: w.face.decisive, stage: w.face.stage, commission: w.face.commission } : {}),
     brought: w.brought.map((b) => b.ref), desk: w.desk.map((s) => s.actor),
   }
-  const end = endActivity(run.k, { state: run.state, kind: w.mode === 'face' ? 'face.opinion' : ACTIVITY, id: w.id, origin: w.origin, outcome: r.outcome, result: payload })
+  const end = endActivity(run.k, { state: run.state, kind: w.mode === 'face' ? FACE_ACTIVITY : ACTIVITY, id: w.id, origin: w.origin, outcome, result: payload })
   run.changes.push(...end.changes)
   for (const line of end.lines) run.note(line.replace(/。?$/, '。'), { plain: line })
   // 結算的後果：目標勢力的聲望與敵對值、訂閱與公信力、佔著的格子的加成、議題的 on_end、戰役外的效果（一次交給 k.effects）
@@ -223,7 +243,7 @@ export function closeDraft(run: Run, action: string): ReportDraft {
   if (after.lines.length > 0 || after.effects.length > 0) {
     run.note(`後果：${after.lines.map((l) => l.replace(/。+$/, '')).join('；')}。`, { tag: 'opinion.after', data: { effects: after.effects, ...(after.skipped.length > 0 ? { skipped: after.skipped } : {}) }, plain: '這場輿論戰的餘波傳開了。' })
   }
-  if (action === END_ACTION) run.note(resultText(r, w), { tag: 'opinion.end', data: { outcome: r.outcome }, plain: resultPlain(r) })
-  const d = run.draft(action, r.outcome, run.beats.map((b) => b.text).join(''), { war: null })
+  if (action === END_ACTION) run.note(resultText(r, w), { tag: 'opinion.end', data: { outcome }, plain: resultPlain(r) })
+  const d = run.draft(action, outcome, run.beats.map((b) => b.text).join(''), { war: null })
   return attachActivityEnd(d, end)
 }

@@ -99,11 +99,16 @@ export function cardText(k: Kernel, state: GameState, war: War, c: ResolvedCard)
 
 // ---- 能不能出 ----
 
+/** 委託副本決定性的一場沒贏：等玩家三選一（重來、回到階段開始、接受結果）。 */
+export const LOST_CHOICE_TEXT = '這一場沒有贏下來：先決定重來這一場、回到這個階段開始，還是接受結果。'
+
 /** 戰役現在能不能動作：沒有戰役、已經分出勝負、等著回應。 */
 export function warBlock(war: War | null): string | null {
   if (!war) return '現在沒有輿論戰。'
+  if (war.pending === 'lost') return LOST_CHOICE_TEXT
   if (war.turn === 'ended') return '這場輿論戰已經分出勝負了，先結算。'
   if (war.pending === 'bribe') return `對手開了價（C$${(war.offer ?? 0).toLocaleString('en-US')}），先決定收不收。`
+  if (war.pending === 'visit') return '對手的人找上門了，先看你留守的人擋不擋得住。'
   if (war.pending !== undefined) return '還有事情等你回應。'
   return null
 }

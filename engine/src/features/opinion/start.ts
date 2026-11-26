@@ -13,6 +13,7 @@ import { planBring } from './bring'
 import { openHandBonus, seatsOf } from './desk'
 import { beginTurn } from './fx'
 import { prPoints } from './foe'
+import type { OpOpen } from './hooks'
 import { askOpen, askPassives } from './hooks'
 import type { Cell, KindId, TopicEntry, TopicKindEntry, War, WarCard, WarFoe, WarTopic } from './model'
 import {
@@ -41,6 +42,13 @@ export interface OpinionSetup {
   mode?: 'solo' | 'face'
   /** 副本前面階段拿到的連動（M5-opinion-face 給；效果 link_voice 看） */
   links?: string[]
+  /** 委託副本的輿論面（face.ts 給）：哪件委託、第幾個階段、是不是決定性的、委託人 */
+  commission?: string
+  stage?: number
+  decisive?: boolean
+  employer?: string
+  /** 開場表（face.ts 照 opinion_setup 的 base、from_links 與分支的 open 算好的）：排在 opinion.open 掛點的回答前面 */
+  opens?: OpOpen[]
 }
 
 const fail = (msg: string): never => {
@@ -105,6 +113,7 @@ export function skeleton(k: Kernel, state: GameState, setup: OpinionSetup, origi
   if (!isSafeInt(rounds) || rounds < 1 || rounds > 12) fail('回合數要是 1～12 的整數。')
   if (setup.mode !== undefined && setup.mode !== 'solo' && setup.mode !== 'face') fail('mode 要是 solo 或 face。')
   if (setup.links !== undefined && !(Array.isArray(setup.links) && setup.links.every((l) => typeof l === 'string'))) fail('links 要是連動的 id 的陣列。')
+  if (setup.opens !== undefined && !(Array.isArray(setup.opens) && setup.opens.every((o) => isRecord(o) && typeof o.line === 'string' && typeof o.owner === 'string'))) fail('opens 要是開場表的陣列（每一筆有 owner 與 line）。')
   const target = topic.target_cell === undefined ? undefined : (cellKey(topic.target_cell) as Cell)
   const wTopic: WarTopic = {
     id: topic.id, name: topic.name, kind: topic.kind as KindId, side: kindEntry.side ?? 'attack', scores,
@@ -128,6 +137,7 @@ export function skeleton(k: Kernel, state: GameState, setup: OpinionSetup, origi
     passives: [], moves_used: {}, marks: {}, out: [], brought: [], fame: fameOf(k, state), links: [...(setup.links ?? [])],
     // 自己發起：不是委託副本、也不是事件（導演）開的
     self: mode !== 'face' && origin.by !== 'director' && origin.by !== 'commission',
+    ...(mode === 'face' ? { face: { commission: setup.commission ?? '', stage: setup.stage ?? 0, decisive: setup.decisive === true, ...(setup.employer !== undefined ? { employer: setup.employer } : {}) } } : {}),
     xcap: [], free_adj: false, defmods: [], cardmods: [], zero_def: [], shield: [], reserved: [],
   }
   // 被動只在開戰時問一次（戰役中途不再問，免得中途換裝備改變規則）；編輯點要算進被動的 ep
@@ -193,7 +203,9 @@ export function startDraft(k: Kernel, state: GameState, setup: OpinionSetup, ori
 
   // 牌庫：目錄裡每一種基本牌放 basic 張，加上帶進來的料與開場多給的牌，洗牌
   const deskIds = w.desk.map((s) => s.actor)
-  const opens = askOpen(k, state, w.topic, w.foe, deskIds)
+  const asked = askOpen(k, state, w.topic, w.foe, deskIds)
+  // 開場表：副本給的（底子、拿到的連動、分支的加減）排在前面，最後才是 opinion.open 掛點的回答
+  const opens = { ...asked, items: [...(setup.opens ?? []), ...asked.items] }
   const basics = cardCatalog(k).flatMap((c) => Array.from({ length: c.basic ?? 0 }, () => c.id))
   const extra: string[] = []
   const notes: string[] = [...skipped, ...opens.skipped]

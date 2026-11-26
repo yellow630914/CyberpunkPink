@@ -143,6 +143,7 @@ export class Run {
     w.xcap = []
     w.zero_def = []
     w.reserved = []
+    delete w.stun
     w.defmods = w.defmods.filter((m) => m.scope === 'war')
     w.cardmods = []
     let pen = w.foe_state.ep_penalty ?? 0
@@ -152,6 +153,12 @@ export class Run {
       const cut = Math.min(pen, s.ep)
       s.ep -= cut
       pen -= cut
+    }
+    // 找上門擋不住（V35）：這一回合你的人手被牽制住，編輯點 0、不能佔領
+    if (w.foe_state.visit_stun) {
+      delete w.foe_state.visit_stun
+      w.stun = true
+      for (const s of w.desk) s.ep = 0
     }
     const slot = SLOTS[w.round - 1] ?? `第 ${w.round} 回合`
     this.note(`—— 第 ${w.round} 回合・${slot} ——`, { tag: 'opinion.round', data: { round: w.round, rounds: w.rounds }, plain: `${slot}的時段開始了。` })
@@ -167,12 +174,13 @@ export class Run {
     }
     const total = w.desk.reduce((s, x) => s + x.ep, 0)
     this.note(`編輯點 ${total}。`, { tag: 'opinion.ep', data: { ep: total } })
+    if (w.stun) this.note('對手的人把你的人手牽制住了，這一回合你動不了：編輯點是 0，也不能佔領。', { tag: 'opinion.stun', plain: '編輯台被牽制住，這一個時段什麼也做不了。' })
   }
 
   // ---- 結束 ----
 
   /** 戰役分出勝負：算結果、標成結束（還要 opinion.end 結算才交回活動；認輸與收買直接結算）。 */
-  finish(by: EndBy, bribed?: number): WarResult {
+  finish(by: EndBy, bribed?: number, captured?: boolean): WarResult {
     const w = this.w
     const you = scoreOf(w, 'you')
     const foe = scoreOf(w, 'foe')
@@ -185,20 +193,22 @@ export class Run {
     else outcome = you > foe ? (you - foe >= this.rules.big_gap ? 'major' : 'minor') : you < foe ? 'lost' : 'draw'
     // 嫁禍：分數高但沒佔著指定的那一格，算沒贏
     if (held === false && (outcome === 'major' || outcome === 'minor')) outcome = 'draw'
-    const result: WarResult = { outcome, by, you, foe, target_held: held, ...(bribed !== undefined ? { bribed } : {}) }
+    const result: WarResult = { outcome, by, you, foe, target_held: held, ...(bribed !== undefined ? { bribed } : {}), ...(captured ? { captured: true } : {}) }
     w.result = result
     w.turn = 'ended'
     delete w.pending
     delete w.offer
+    // 委託副本決定性的一場沒贏（V37）：先不交回，等玩家三選一（重來、回到階段開始、接受結果）；收買與被帶走直接是敗
+    if (w.mode === 'face' && w.face?.decisive === true && (outcome === 'draw' || outcome === 'lost') && (by === 'rounds' || by === 'wipe' || by === 'concede')) w.pending = 'lost'
     this.note(resultText(result, w), { tag: 'opinion.result', data: { ...result }, plain: resultPlain(result) })
     return result
   }
 
   // ---- 草稿 ----
 
-  draft(action: string, result: string, summary: string, o: { war?: War | null; extra?: Change[] } = {}): ReportDraft {
+  draft(action: string, result: string, summary: string, o: { war?: War | null; extra?: Change[]; first?: Change[] } = {}): ReportDraft {
     const war = o.war === undefined ? this.w : o.war
-    const changes: Change[] = [...this.changes, { op: WAR_OP, war: war === null ? null : clone(war) }, ...(o.extra ?? []), { op: 'rng', advance: 1 }]
+    const changes: Change[] = [...(o.first ?? []), ...this.changes, { op: WAR_OP, war: war === null ? null : clone(war) }, ...(o.extra ?? []), { op: 'rng', advance: 1 }]
     return {
       kind: 'broadcast', action, location: clone(this.state.location), ...(this.state.pc ? { actor: this.state.pc } : {}), party: [], timeline: this.beats, changes,
       outcome: { result, summary }, ...(this.plain.length > 0 ? { narration: { results: this.plain } } : {}),
@@ -226,7 +236,8 @@ export function resultText(r: WarResult, w: War): string {
   switch (r.by) {
     case 'concede': return `${head}你認輸了（${score}）。`
     case 'bribe': return `${head}你收下了對手開的價，戰役結束（${score}）。`
-    case 'visit': return `${head}對手的人找上門了，戰役結束（${score}）。`
+    case 'visit': return `${head}對手的人找上門了，你被帶走了，戰役結束（${score}）。`
+    case 'outsource': return `${head}你把這一場外包給記者，沒有開棋盤，結果看他的本事。`
     case 'wipe': return `${head}${r.outcome === 'major' ? '對手的格子被清空' : '你的格子被清空'}，戰役提前結束（${score}）。${target}`
     default: return `${head}打完了，${score}。${target}`
   }

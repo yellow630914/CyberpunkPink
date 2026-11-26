@@ -540,3 +540,4 @@
 - 2026-11-26 M5 第一步完成：core-seams（活動 deny、家的地圖與 furniture）、media-chain（紀錄、錄影、素材、使用次數、footage）。engine 9765、smoke 249、ui 918。撤退收回照使用者 11-24 裁決可轉素材（品質 −1），V3 文字待改；V64 前提已過時（gear 轉交穿戴物 effects），照「錄影只認義體」不加裝備來源。
 - 2026-11-26 M5 第二步完成：media-cut、channel（engine 9903、smoke 252）。使用者：賣斷不留敵對值下限（只有談判留）；煽情的豔名限親密類而且你在畫面裡；保命符只保住人，委託照樣失敗。MEDIA 已註。
 - 2026-11-26 M5 第三步完成（channel-shows、opinion），第四步 live 完成。使用者要求暫停省額度：第四步的 opinion-desk 與第五步的 live-slot 做到一半停下，半成品以「進行中」提交（測試可能紅）。下次接手：重派這兩張，告訴代理先讀工作區現有的半成品接著做；之後是 11 opinion-face，再照 M5-plan 往下。
+- 2026-11-26 M5 第四步完成（live、opinion-desk），第五步 live-slot 完成。使用者：時段直播的 aired 照現況（有頻道就不發，避免重複記）；成人時段直播的紀錄標 adult。「有人鬧場」打賞減半要另加 tips_mult 效果，之後再補。

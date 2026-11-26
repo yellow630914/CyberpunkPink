@@ -834,21 +834,17 @@ describe('收買與找上門（這一張只做到停下來；V35、V36）', () =
     expect(r!.outcome.result).not.toBe('bribe_offer')
   })
 
-  it('找上門：solo 當作沒有這個行動（照常打）；face 模式才停下來記 pending', () => {
+  it('找上門：solo 與 face 模式一樣，停下來記 pending，結算在 M5-opinion-face（visit.ts）', () => {
     const foe = { id: 'pr_visit', name: '找上門的', strength: 1, start: 'opposite', cell_priority: {}, actions: [{ do: 'release', when: 'round > 99' }], once: [{ do: 'visit', when: 'always', squad: 'en_squad' }] }
-    const g = make()
-    begin(g, { foe })
-    const [r] = turn(g)
-    expect(r!.outcome.result).toBe('turn')
-    expect(W(g).pending).toBeUndefined()
-    expect(W(g).foe_state.visited).toBe(false)
-    const f = make()
-    begin(f, { foe, mode: 'face' })
-    expect(W(f).mode).toBe('face')
-    const [r2] = turn(f)
-    expect(r2!.outcome.result).toBe('visit')
-    expect(W(f).pending).toBe('visit')
-    expect(W(f).foe_state.visited).toBe(true)
+    for (const mode of [undefined, 'face']) {
+      const g = make()
+      begin(g, { foe, ...(mode ? { mode } : {}) })
+      expect(W(g).foe_state.visited).toBe(false)
+      const [r] = turn(g)
+      expect(r!.outcome.result).toBe('visit')
+      expect(W(g).pending).toBe('visit')
+      expect(W(g).foe_state.visited).toBe(true)
+    }
   })
 })
 

@@ -64,7 +64,8 @@ export function consequences(run: Run): AfterResult {
     if (t.standing && faction) list.push({ kind: 'standing', key: faction, amount: w.topic.side === 'defend' ? -t.standing : t.standing })
     if (t.hostility && w.foe.faction) list.push({ kind: 'hostility', key: w.foe.faction, amount: t.hostility })
     if (t.subs_pct && pct(t.subs_pct) !== 0) list.push({ kind: 'subs', amount: pct(t.subs_pct) })
-    if (t.cred) list.push({ kind: 'credibility', amount: t.cred })
+    // 收下收買的公信力損失是 bribe.ts 的 −5（V36），不再加敗那一列的 −3
+    if (t.cred && r.by !== 'bribe') list.push({ kind: 'credibility', amount: t.cred })
     // 佔著的格子另給（認輸、收買、被找上門不算）
     if (r.by === 'rounds' || r.by === 'wipe') {
       const mine = cellsOwnedBy(w, 'you')

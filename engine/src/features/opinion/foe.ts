@@ -30,7 +30,7 @@ export function whenVars(run: Run): WhenVars {
 
 const amountOf = (def: PrActionEntry, grade: number): number => (Array.isArray(def.amount) ? (def.amount[grade - 1] ?? 0) : (def.amount ?? 0))
 
-/** 每場一次的行動：條件成立的第一個（收買要還沒用完；找上門只有 face 模式才有，solo 當作沒有這個行動）。 */
+/** 每場一次的行動：條件成立的第一個（收買要還沒用完；找上門每場一次，委託副本與自己發起的都有，V35）。 */
 export function checkOnce(run: Run): { rule: OnceRule; price?: number } | null {
   const w = run.w
   const vars = whenVars(run)
@@ -41,7 +41,7 @@ export function checkOnce(run: Run): { rule: OnceRule; price?: number } | null {
       const base = (rule.offer_per_grade ?? 0) * w.grade
       return { rule, price: Math.round(w.foe_state.bribes >= 1 ? base * 1.5 : base) }
     }
-    if (rule.do === 'visit' && w.mode === 'face' && !w.foe_state.visited && whenHolds(rule.when, vars)) return { rule }
+    if (rule.do === 'visit' && !w.foe_state.visited && whenHolds(rule.when, vars)) return { rule }
   }
   return null
 }

@@ -12,17 +12,22 @@
 //   警告  資料裡寫 murmur 的（議題、對手、議題類型）：當 whisper 收，提醒改寫
 // 報告（kind broadcast）：opinion.start（setup 多 desk、bring、links）、opinion.play、opinion.move（用一招）、opinion.capture、opinion.turn（對手的整個回合與下一回合的城市事件、抽牌都在這一份）、
 //   opinion.bribe、opinion.concede、opinion.end（結算；發 activity.end：outcome 是 major、minor、draw、lost）。
+// M5-opinion-face：活動 face.opinion（委託副本開的那一段；同一份狀態，war.mode 是 face）：開場表（faceopen.ts）、收買的錢與公信力與好感（bribe.ts；回到快照之後還在）、
+//   找上門的數值結算（visit.ts）、決定性的一步沒贏時的三選一（lost.ts）、外包給名冊上的記者（outsource.ts）。報告 opinion.visit、.retry、.back、.accept、.outsource。
 // 對外：opinionView、startDraft（開場的草稿；活動的 start 也用它）、playCard、capture、endTurn、answerBribe、concede、settle（各有一個 …Block 回答原因）、defenseOf、scoreOf、parseWhen。
 // 不碰別的功能：不用戰鬥引擎、不讀別的功能的 state.ext；公信力只問量表有沒有人定義（meterOf）。
 
 import type { Feature, Kernel, Origin, ReportDraft } from '../../core'
 import type { ContentEntry } from '../../core'
 import { clone } from '../../core'
+import { keepBribes } from './bribe'
 import { EP_BONUS_STAT, OPEN_HAND_STAT } from './desk'
+import { faceStartDraft } from './face'
 import { answerCheck } from './hooks'
 import type { War } from './model'
+import { LOST_CHOICE_TEXT } from './cards'
 import {
-  ACTION_KIND, ACTIVITY, BUSY_REASON, CARD_KIND, CITY_KIND, EXT, OPPONENT_KIND, OWNER, RULE_KIND, TOPIC_KIND, TOPIC_KIND_KIND, WAR_OP, actionProblems, cardProblems, cityProblems,
+  ACTION_KIND, ACTIVITY, BUSY_REASON, CARD_KIND, FACE_ACTIVITY, CITY_KIND, EXT, OPPONENT_KIND, OWNER, RULE_KIND, TOPIC_KIND, TOPIC_KIND_KIND, WAR_OP, actionProblems, cardProblems, cityProblems,
   opponentProblems, readWar, ruleProblems, topicKindProblems, topicProblems, warProblems,
 } from './model'
 import type { OpinionSetup } from './start'
@@ -31,6 +36,13 @@ import { startDraft } from './start'
 export { cardBlock, cardOf, cardText, costOf, faceOf, fuelVoice, guardable, lineWind, playBlock, playDraft as playCard, warBlock } from './cards'
 export type { Face, PlayInput } from './cards'
 export { startDraft, skeleton } from './start'
+export { faceOpens, faceOpenSetup, faceRounds, faceStartPreview } from './faceopen'
+export type { FaceLinkSpec, FaceOpenItem, FaceOpenSpec, FaceOpinion, FaceSetup, FaceStartPreview } from './faceopen'
+export { faceStartDraft } from './face'
+export { VISIT_LIVE_CARD, combatSkill, resolveVisit, stayOf, visitBlock } from './visit'
+export { acceptBlock, acceptLoss, backBlock, backToStage, lostChoices, retryBlock, retryWar } from './lost'
+export { outsourceBlock, outsourceChance, outsourceDraft as outsource, outsourceOutcome } from './outsource'
+export type { OutsourceOdds } from './outsource'
 export type { DeskSetup, OpinionSetup, Skeleton } from './start'
 export {
   bribeBlock, bribeDraft as answerBribe, captureBlockOf, captureDraft as capture, closeDraft, concedeBlock, concedeDraft as concede, endTurnBlock, endTurnDraft as endTurn, settleBlock, settleDraft as settle,
@@ -54,17 +66,17 @@ export { bringOptions, cardOfMaterial, isFake, planBring, relationOf } from './b
 export type { BringCard, BringOption, BringPlan, BroughtMaterial, Relation } from './bring'
 export { consequences, standingFaction } from './after'
 export type { AfterResult } from './after'
-export { factionGrade, foeFor, isSelfTopic, selfTopic } from './self'
+export { factionGrade, foeFor, isSelfTopic, scoopSetup, selfTopic } from './self'
 export { WHEN_OPS, WHEN_VARS, evalWhen, parseWhen, whenHolds } from './when'
 export type { When, WhenOp, WhenTerm, WhenVar, WhenVars } from './when'
 export { Run, credOf, outcomeName } from './run'
 export { checkOnce, foeTurn, prPoints, whenVars } from './foe'
 export {
   ACTION_IDS, CELLS as OPINION_CELLS, CELL_NAME as OPINION_CELL_NAME, DEFAULT_CARDS, DEFAULT_CITY_CARDS, DEFAULT_OPINION_RULES, DEFAULT_PR_ACTIONS, DEFAULT_TOPIC_KINDS, EXT as OPINION_EXT,
-  ACTIVITY as OPINION_ACTIVITY, adjacent, cardCatalog, cityCatalog, neighbors, normalizeCellMap, opinionRules, oppositeOf, prActions, readWar, topicKinds,
+  ACTIVITY as OPINION_ACTIVITY, adjacent, cardCatalog, cityCatalog, neighbors, normalizeCellMap, opinionRules, oppositeOf, prActions, readBribes, readWar, topicKinds,
 } from './model'
 export type {
-  ActionId, Cell, CardEntry, CityEffect, CityEntry, Means, OnceRule, OpinionRules, OpponentEntry, Outcome, PrActionEntry, Seat, Signature, TopicEntry, TopicKindEntry, War, WarCard, WarCell, WarFoe,
+  ActionId, BribeEntry, Cell, CardEntry, CityEffect, CityEntry, Means, OnceRule, OpinionRules, OpponentEntry, Outcome, PrActionEntry, Seat, Signature, TopicEntry, TopicKindEntry, War, WarCard, WarCell, WarFoe,
   WarResult, WarTopic, Who,
 } from './model'
 
@@ -111,8 +123,21 @@ export const opinionFeature: Feature = {
       reason: () => BUSY_REASON,
       start: (k2, state, setup, origin) => [startDraft(k2 as Kernel, state, setup as Parameters<typeof startDraft>[2], origin)],
     })
-    // 委託副本的輿論面（face.opinion，M5-opinion-face）跑起來時，它的報告要放得進副本
+    // 委託副本的輿論面：和 opinion 同一份狀態，只認 mode 是 face 的戰役；副本沒裝就先記著（allow 登記到副本定義時才生效）
+    k.activity.define({
+      kind: FACE_ACTIVITY, owner: OWNER, order: 50,
+      active(state) {
+        const w = readWar(state)
+        return w && w.mode === 'face' ? { id: w.id, label: `輿論戰進行中（${w.topic.name}）` } : null
+      },
+      allow: ['commit:opinion.'],
+      reason: (state) => (readWar(state)?.pending === 'lost' ? LOST_CHOICE_TEXT : BUSY_REASON),
+      start: (k2, state, setup, origin) => [faceStartDraft(k2 as Kernel, state, setup, origin)],
+    })
     k.activity.allow('commission', 'commit:opinion.', OWNER)
+    k.activity.allow('commission', `${FACE_ACTIVITY}.start`, OWNER)
+    // 收買被接受之後回到快照（委託失敗、撤退、重來）：錢、公信力與委託人的好感留著，各套一次（bribe.ts）
+    k.hooks.on('rewind.keep', OWNER, ({ current, restored }) => keepBribes(current, restored))
   },
 
   // 資料裡寫 murmur 的：載入時當 whisper 收，這裡提醒（不擋）

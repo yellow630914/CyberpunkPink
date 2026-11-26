@@ -71,7 +71,7 @@ export function settleSession(k: Kernel, state: GameState, s: Session, o: Settle
     const slotTags = s.mode === 'slot' && s.kind ? rules.slot.kinds[s.kind].tags : []
     const hint = {
       live: true, hq: true, ...(o.lost ? { lost: true } : {}), ...(kind ? { type: TYPE_OF_HOST[kind] } : {}), ...(kind === 'scene' ? { adult: true } : {}),
-      ...(s.mode === 'slot' ? { type: s.kind === 'adult' ? 'intimate' : 'daily' } : {}), ...(slotTags.length > 0 ? { tags: [...slotTags] } : {}),
+      ...(s.mode === 'slot' ? (s.kind === 'adult' ? { type: 'intimate', adult: true } : { type: 'daily' }) : {}), ...(slotTags.length > 0 ? { tags: [...slotTags] } : {}),
       ...(s.faction ? { involves: { factions: [s.faction] } } : {}), ...(quality > 0 ? { quality } : {}),
     }
     const label = s.mode === 'slot' && s.kind ? `${SLOT_KIND_NAME[s.kind]}時段直播` : `${tpl?.name ?? '直播'}${kind ? `（${HOST_NAME[kind]}）` : ''}`

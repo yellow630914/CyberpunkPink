@@ -603,6 +603,8 @@ describe('live.end：收播', () => {
       expect(stubRec(g)).toHaveLength(1)
       expect(stubRec(g)[0]).toMatchObject({ source: { kind: 'live', ref: 'lv1' }, hint: { live: true, hq: true, type } })
       expect(stubRec(g)[0]!.hint.lost).toBeUndefined()
+      // 使用者 2026-11-26：成人種類的紀錄標成人（剪片、上架的內容篩選認得出來）
+      expect(stubRec(g)[0]!.hint.adult).toBe(kind === 'adult' ? true : undefined)
       expect(stubEnds(g)).toHaveLength(1)
       expect(stubEnds(g)[0]).toMatchObject({ id: 'lv1', mode: 'slot', kind, hours: 2, to_channel: true })
     }

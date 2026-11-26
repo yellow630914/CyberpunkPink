@@ -2,9 +2,11 @@
 // 從預設的分數表組一個議題（開場時隨機挑一列），等級照那個勢力的 grade；沒指定對手就找 pr_opponent 裡 faction 對得上的，沒有就用規則表的通用公關（強度照等級）。
 // 沒有委託人、沒有報酬——得到的是訂閱、公信力，以及對世界的改變（後果在 after.ts）。
 
-import type { Kernel } from '../../core'
+import type { GameState, Kernel } from '../../core'
 import { ActionBlocked, isRecord, isSafeInt } from '../../core'
+import { libraryOf } from './bring'
 import type { OpponentEntry, TopicEntry } from './model'
+import type { OpinionSetup } from './start'
 import { KIND_IDS, OPPONENT_KIND, isCellKey, opinionRules, opponentProblems, topicKinds } from './model'
 
 const ROMAN: Record<string, number> = { I: 1, II: 2, III: 3, IV: 4, V: 5 }
@@ -56,4 +58,22 @@ export function foeFor(k: Kernel, faction: string | undefined, grade: number): O
   const problems = opponentProblems(generic)
   if (problems.length > 0) throw new ActionBlocked(`通用公關的資料不合格：${problems.join('；')}。`)
   return generic as unknown as OpponentEntry
+}
+
+/**
+ * 獨家節目播完之後直接開輿論戰的入口（channel 的 scoop：播完報告的 data.scoop 是那一件料的編號；M5-channel-shows 留下的）：
+ * 拿那件料自己發起一場（類型預設爆料 ignite，也可以抹黑或嫁禍；目標勢力預設是料涉及的第一個勢力），那件料帶進牌庫。
+ * 純函式：回傳 startWar 吃的 setup；料不在素材庫（用完了）、沒有涉及任何勢力又沒指定，丟 ActionBlocked。
+ */
+export function scoopSetup(k: Kernel, state: GameState, ref: string, o: { kind?: 'ignite' | 'smear' | 'frame'; faction?: string; target_cell?: string } = {}): OpinionSetup {
+  const lib = libraryOf(k, state)
+  if (!lib) throw new ActionBlocked('現在沒有素材庫可以帶料。')
+  const m = lib.find((x) => x.ref === ref)
+  if (!m) throw new ActionBlocked(`素材庫裡沒有「${ref}」這件料，或它的使用次數已經用完了。`)
+  const faction = o.faction ?? m.involves.factions[0]
+  if (faction === undefined) throw new ActionBlocked(`「${m.title}」沒有涉及任何勢力，要自己指定目標勢力才開得了輿論戰。`)
+  return {
+    topic: { kind: o.kind ?? 'ignite', faction, people: [...m.involves.people], types: [...m.types], ...(o.target_cell !== undefined ? { target_cell: o.target_cell } : {}) },
+    bring: [ref],
+  }
 }
