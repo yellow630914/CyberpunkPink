@@ -10,7 +10,8 @@
     "detox": {
       "amount": 40,
       "days": 3,
-      "price": 600
+      "price": 600,
+      "district_price": true
     },
     "suppressant": {
       "floor": -10,

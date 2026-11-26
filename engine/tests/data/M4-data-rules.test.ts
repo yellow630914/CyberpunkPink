@@ -173,11 +173,11 @@ describe('M4-data-rules：設施種類的 M4 欄位', () => {
     expect(f('clinic_black').clinic).toEqual({ grade: 'black' })
     expect(f('tuning_clinic').tuning).toEqual({ install: true, quiet_room: true })
     expect(f('sanatorium').therapy).toEqual({ kind: 'counsel' })
-    // 勢力的好感門檻（素體教 20、蜜糖會 30、同人眾）要引用勢力的 id，而規則表載進只有假勢力的測試世界會斷引用；留給內容匯入補（回報）
-    expect(f('mission').therapy).toEqual({ kind: 'retreat' })
-    expect(f('aid_clinic').detox).toEqual({})
+    // 勢力的好感門檻（M4 收尾修正批補上）：傳教所要素體教好感 20、互助診所蜜糖會好感 30 免費、同人攤的訂做桌是同人眾的
+    expect(f('mission').therapy).toEqual({ kind: 'retreat', favor: { faction: 'bare', min: 20 } })
+    expect(f('aid_clinic').detox).toEqual({ favor: { faction: 'honey', min: 30 } })
     expect(f('apparel_shop').dye).toBe(true)
-    expect(f('fan_stall').unreg_desk).toEqual({})
+    expect(f('fan_stall').unreg_desk).toEqual({ faction: 'doujin' })
   })
 
   it('craft、arena、unreg_desk 通過各自功能的格式檢查', () => {

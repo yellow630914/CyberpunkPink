@@ -70,6 +70,26 @@ export function dataRules(features: Feature[]): ContentPack {
   return worldFor(features, { id: 'data_rules', content }).pack
 }
 
+/**
+ * 資料的規則表裡引用勢力的欄位（設施種類的好感門檻 therapy.favor、detox.favor，訂做桌的勢力 unreg_desk.faction；M4 收尾修正批補進 engine/data）：
+ * 測試世界只有假勢力，引用不到的那幾個欄位拿掉（其餘照載；整筆濾掉會連數字一起丟）。回傳全新的包，不改傳進來的。known 是這一局所有的勢力 id。
+ */
+export function pruneUnknownFactions(pack: ContentPack, known: ReadonlySet<string>): ContentPack {
+  const types = pack.content.facility_type
+  if (!types) return pack
+  const content = { ...pack.content, facility_type: types.map((t) => {
+    const e = structuredClone(t) as unknown as Record<string, Record<string, unknown> | undefined> & { id: string }
+    for (const key of ['therapy', 'detox'] as const) {
+      const favor = e[key]?.favor as { faction?: unknown } | undefined
+      if (e[key] && favor && typeof favor.faction === 'string' && !known.has(favor.faction)) delete e[key]!.favor
+    }
+    const desk = e.unreg_desk
+    if (desk && typeof desk.faction === 'string' && !known.has(desk.faction)) delete desk.faction
+    return e as never
+  }) }
+  return { ...pack, content }
+}
+
 /** 帶著 TEST_WORLD 與全部功能的一局：只有工廠的狀態（空房間、一位主角），沒有任何情境的步驟。 */
 export function makeWorldGame(o: WorldGameSetup = {}): WorldGame {
   const features = worldFeatures(o.without, o.noGear !== true)
@@ -81,7 +101,9 @@ export function makeWorldGame(o: WorldGameSetup = {}): WorldGame {
     for (const [kind, es] of Object.entries(pack.content)) pack.content[kind] = es.filter((e) => !have.has(`${kind}/${e.id}`))
   }
   const { without: _without, noGear: _noGear, noRules: _noRules, base: _base, world: _world, ...rest } = o
-  const t = makeGame({ ...rest, features: [...features, ...(o.features ?? [])], content: [...base, pack, ...(o.content ?? [])] })
+  // 資料的規則表引用的勢力（好感門檻、訂做桌）在假世界裡不一定有：引用不到的欄位拿掉
+  const factions = new Set([pack, ...base, ...(o.content ?? [])].flatMap((p) => (p.content.faction ?? []).map((f) => f.id)))
+  const t = makeGame({ ...rest, features: [...features, ...(o.features ?? [])], content: [...base.map((p) => pruneUnknownFactions(p, factions)), pack, ...(o.content ?? [])] })
   return { ...t, dropped, droppedEntries }
 }
 

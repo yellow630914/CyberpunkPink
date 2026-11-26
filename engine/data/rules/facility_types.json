@@ -83,7 +83,9 @@
     "craft": {
       "by": "doujin"
     },
-    "unreg_desk": {}
+    "unreg_desk": {
+      "faction": "doujin"
+    }
   },
   {
     "id": "black_market",
@@ -240,7 +242,11 @@
       "rest"
     ],
     "therapy": {
-      "kind": "retreat"
+      "kind": "retreat",
+      "favor": {
+        "faction": "bare",
+        "min": 20
+      }
     }
   },
   {
@@ -249,7 +255,12 @@
     "functions": [
       "heal"
     ],
-    "detox": {}
+    "detox": {
+      "favor": {
+        "faction": "honey",
+        "min": 30
+      }
+    }
   },
   {
     "id": "pod_shop",

@@ -62,6 +62,7 @@
         "kind": "ability",
         "daily": "surgery"
       }
-    ]
+    ],
+    "district_price": true
   }
 ]

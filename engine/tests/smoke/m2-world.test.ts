@@ -12,7 +12,7 @@ import { arrive } from '../../src/features/world'
 import { latestJob, jobOf } from '../../src/features/fixer'
 import { ActionBlocked } from '../../src'
 import { go } from '../../src/features/fixer'
-import { TEST_NET_ADMIN, NET_PC, TEST_WORLD, doStep, equipParty, makeCommissionGame, makeNetCommissionGame, makeWorldGame, netInventory, passTime, testWorld, walkAcross, worldFeatures, worldFor } from '../../src/testkit'
+import { TEST_NET_ADMIN, NET_PC, TEST_WORLD, doStep, equipParty, makeCommissionGame, makeNetCommissionGame, makeWorldGame, netInventory, passTime, pruneUnknownFactions, testWorld, walkAcross, worldFeatures, worldFor } from '../../src/testkit'
 
 /** 拿掉這個功能時，TEST_WORLD 濾掉的內容種類（kinds）與跟著斷掉的幾筆（entries）。沒寫的功能什麼都不濾。 */
 const DROPS: Record<string, { kinds: string[]; entries?: string[] }> = {
@@ -99,7 +99,10 @@ describe('TEST_WORLD：帶著全部功能載入沒有錯', () => {
     expect(Object.keys(TEST_WORLD.content).filter((kind) => kind.endsWith('_rule'))).toEqual(['maze_rule'])
     const k = createKernel(worldFeatures())
     const rules = Object.fromEntries(Object.entries(CORE_PACK.content).filter(([kind]) => k.content.isOverridable(kind)))
-    const game = new Game({ features: worldFeatures(), content: [{ id: 'core_skill', content: { skill: CORE_PACK.content.skill! } }, { id: 'core_rules', content: rules }, withoutSkills(testWorld())], strict: true })
+    // 資料的設施種類帶勢力的好感門檻（素體教、蜜糖會、同人眾），假世界只有假勢力：引用不到的欄位拿掉（testkit 的 pruneUnknownFactions）
+    const world = withoutSkills(testWorld())
+    const known = new Set((world.content.faction ?? []).map((f) => f.id))
+    const game = new Game({ features: worldFeatures(), content: [{ id: 'core_skill', content: { skill: CORE_PACK.content.skill! } }, pruneUnknownFactions({ id: 'core_rules', content: rules }, known), world], strict: true })
     expect(game.k.content.checkRefs()).toEqual([])
     // 假世界的 street 事件範圍蓋掉了資料的那一筆（多了 enter_bridge）
     expect(game.k.content.get('event_scope', 'street')!.triggers).toMatchObject({ enter_bridge: 1 })
