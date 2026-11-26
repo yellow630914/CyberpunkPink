@@ -5,6 +5,6 @@
 - 實際行為：
   - 設定關著、`asked` 對得上：`{ kind: 'bill', name: '保護費', amount: 9007199254740991, weeks: 3, pay: 'cred' }` 照收（金額本身是安全整數）。第一個週一付不出來，欠款 `bills.arrears` = 9007199254740991；第二個週一再累加，變成 18014398509481982，不是安全整數。`observed` 沒有報違規，存讀檔也照過，所以這個值會一直留在存檔裡。
   - AI 的那條路同一個金額、520 週：預算的合計（金額 × 週數 ≈ 4.68e18）先溢位，往回扣的算術失真，結果整筆拿掉（提醒「這一筆沒有算」、`from` 是 4683743612465315000），不是照 bills 的規則縮成 120、只收一期。
-- 重現：`engine/tests/pending/fixtures/B037-bill-extra-overflow.json`；會失敗的測試：`engine/tests/pending/B037-bill-extra-overflow.test.ts`（兩條）。
+- 重現：`engine/tests/features/fixtures/B037-bill-extra-overflow.json`；會失敗的測試：`engine/tests/features/B037-bill-extra-overflow.test.ts`（兩條）。
 - 可能的位置（只寫推測，不改）：`features/bills/index.ts` 的 `bill` 效果：`validate` 可以多擋「金額 × 週數不是安全整數」（格式的底線，四條路都擋），或 `budget` 的 `amount` 先夾在安全範圍；每週結算累加欠款的地方（`features/bills/settle.ts` 一類）沒有檢查加完還是安全整數。哪一種是對的修法由 cpp-architect 決定（底線擋在入口最省事）。
-- 狀態：待修。
+- 狀態：已修（M4-fix-2，2026-11-26）。擋在入口：`bill`（新的項目）的 `validate` 對不是 `cap` 級的來源擋「金額 × 週數不是安全整數」（格式的底線，內建、關著且 asked 對得上的都擋）；AI 的那一條路由 `budget` 把合計夾在安全範圍（`Number.MAX_SAFE_INTEGER`），縮成上限、只收一期，不再整筆拿掉。`planWeek` 累加欠款、應付的合計也夾在 `Number.MAX_SAFE_INTEGER`，存檔裡不會出現不是安全整數的數字。測試：`engine/tests/features/B037-bill-extra-overflow.test.ts`。

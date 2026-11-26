@@ -31,6 +31,19 @@ export function computeDegree(natural: number, total: number, dc: number): Degre
   return total >= dc ? 'success' : 'fail'
 }
 
+/**
+ * 一次檢定過關（成功或大成功）的機率：加值（擲骰面以外的合計）已定，1d20 每一面各 1/20，自然 20 一定過、自然 1 一定不過（報價的 chance 用；
+ * 和 rollCheck 真的擲出來的是同一套 computeDegree）。
+ */
+export function checkPassChance(bonus: number, dc: number): number {
+  let ok = 0
+  for (let natural = 1; natural <= 20; natural++) {
+    const degree = computeDegree(natural, natural + bonus, dc)
+    if (degree === 'success' || degree === 'critical') ok++
+  }
+  return ok / 20
+}
+
 /** 主持人的走向：大成功＝是，而且；成功差距 3 以上＝是；不到 3＝是，但是；失敗＝不，但是；大失敗＝不，而且。 */
 export function verdictOf(degree: Degree, margin: number): Verdict {
   if (degree === 'critical') return 'yes_and'

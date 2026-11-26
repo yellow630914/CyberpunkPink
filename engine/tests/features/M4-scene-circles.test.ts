@@ -1245,3 +1245,49 @@ describe('第 17 項：開場摘要、略過、座位為鍵的畫面資料、指
     expect(JSON.stringify(sceneOptions(g.k, g.state, {}))).toBe(JSON.stringify(def))
   })
 })
+
+// ======================================================================
+describe('M4-fix-2：精簡版遇到多人設定的說明（SceneView.simple_note）與行動會不會照對象算（ActionOption.targeted）', () => {
+  it('精簡版 with 三個人：只展開安，波與西收在旁邊；view.simple_note 是引擎給畫面的一句說明（寫出展開的是誰、收在旁邊的是誰、怎麼切完整版）', () => {
+    const g = game()
+    begin(g, { with: ['npc_ann', 'npc_bo', 'npc_cy'], nature: 'mutual', mode: 'simple' })
+    const note = sceneView(g.k, g.state)!.simple_note!
+    expect(note).toContain('只展開一個對象（安）')
+    expect(note).toContain('波、西')
+    expect(note).toContain('完整版')
+    // 別的圈（circles 設定）也一樣：收在旁邊的人全部列出
+    const h = game()
+    begin(h, { circles: [['pc', 'npc_ann'], ['npc_cy', 'npc_di']], nature: 'mutual', mode: 'simple' })
+    expect(sceneView(h.k, h.state)!.simple_note).toContain('西、迪')
+  })
+
+  it('沒有這一句的情形：精簡版一對一、完整版（多人也是）、單人', () => {
+    const one = game()
+    begin(one, { with: ['npc_ann'], nature: 'mutual', mode: 'simple' })
+    expect(sceneView(one.k, one.state)!.simple_note).toBeUndefined()
+    const full = game()
+    begin(full, setup(['npc_ann', 'npc_bo', 'npc_cy']))
+    expect(sceneView(full.k, full.state)!.simple_note).toBeUndefined()
+    const solo = game()
+    begin(solo, { solo: true, nature: 'solo', mode: 'simple' })
+    expect(sceneView(solo.k, solo.state)!.simple_note).toBeUndefined()
+  })
+
+  it('targeted：主導、迎合、挑逗、克制、技能、說話、道具會照對象算；停下、換檔、換體位、換圈、叫人不會；單人全部是 false', () => {
+    const g = game()
+    begin(g, setup(['npc_ann', 'npc_bo', 'npc_cy']))
+    const actions = sceneOptions(g.k, g.state)!.actions
+    const targeted = Object.fromEntries(actions.map((a) => [a.id, a.targeted]))
+    for (const id of ['dominate', 'yield', 'tease', 'restrain', 'skill', 'talk', 'item']) expect(targeted[id], id).toBe(true)
+    for (const id of ['stop', 'gear', 'switch']) expect(targeted[id], id).toBe(false)
+    if (actions.some((a) => a.id === 'move_circle')) for (const id of ['move_circle', 'call']) expect(targeted[id], id).toBe(false)
+    expect(actions.every((a) => typeof a.targeted === 'boolean')).toBe(true)
+    // targeted 的行動，sceneOptions 的 target 才有作用：指定對象之後預覽和原因照他算
+    const aimed = sceneOptions(g.k, g.state, { target: 'npc_bo' })!.actions
+    expect(aimed.map((a) => a.targeted)).toEqual(actions.map((a) => a.targeted))
+    const solo = game()
+    begin(solo, { solo: true, nature: 'solo', mode: 'simple' })
+    expect(sceneOptions(solo.k, solo.state)!.actions.every((a) => a.targeted === false)).toBe(true)
+  })
+})
+

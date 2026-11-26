@@ -29,7 +29,7 @@ import {
 
 export {
   AXES, AXIS_NAME, BRIDGE_EFFECTIVE_MAX, BRIDGE_PARAMS, DEFAULT_LEWD_RULES, INFILTRATE_TAG, MASKED, PARAM_NAME, RULE_KIND, TAG_KIND, TAG_STATES,
-  baseBridge, bridgeOf, emptyTendency, hasCondition, hasTag, lewdRules, powerOf, readBridge, stepTendency, stepTendencyFree, tagStateOf, tendencyOf,
+  baseBridge, bridgeOf, bridgeParamEffect, emptyTendency, hasCondition, hasTag, lewdRules, paramStatId, powerOf, readBridge, stepTendency, stepTendencyFree, tagStateOf, tendencyOf,
 } from './model'
 export type { Axis, BridgeParam, BridgeParamView, BridgeRecord, BridgeView, LewdRules, TagEntry, TagState, TendencyRecord, TendencyStep } from './model'
 
@@ -123,6 +123,10 @@ export const lewdFeature: Feature = {
         ...(isText(raw.tag) ? (ctx.content.has(TAG_KIND, raw.tag) ? [] : [`tag：查不到 ${raw.tag} 這個傾向標籤`]) : ['tag 要是傾向標籤的 id']),
         ...(raw.to === undefined || raw.to === 'deep' ? [] : ["to 只能是 'deep'（沒寫就是一般的累積）"]),
       ],
+      // 一件事同一個標籤最多長一點（EVENTS 2.4 節「一個標籤一點」；每個標籤各一組，拆成幾筆給也一樣；B036）。內建的照寫的算
+      budget: (e, ctx) => (ctx.level === 'cap'
+        ? { group: `tendency:${e.tag}`, amount: 1, min: -Infinity, max: 1, resize: () => e, notice: () => `同一件事裡「${tagName(e.tag)}」這個傾向最多長一點，多的沒有算。` }
+        : null),
       clamp(e, ctx) {
         const drop = (notice: string) => ({ effect: null, note: { from: e.tag, to: null, limit: 'tendency', notice } })
         // 內容篩選關掉的標籤不會長（LEWD_SYSTEM 1.1、第 9 節）

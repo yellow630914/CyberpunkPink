@@ -43,7 +43,7 @@ import { registerXp } from './xp'
 
 export { TREE_XP } from './types'
 export type { AbilityEntry, AbilityState, AbilityUse, Lesson, LessonFrom, MeatDef, ModEntry, PathEntry, PrepDef, PreparedEntry, UnitAbilities } from './types'
-export { CAP_FLEX_STAT, abilitiesOf, capDiscountStat, capacityBlock, capacityOf, capCostOf, learn, learnBlock, ramDiscountStat, resonanceOn, treeTier } from './learn'
+export { CAP_FLEX_STAT, abilitiesOf, capDiscountStat, capacityBlock, capacityOf, capCostOf, learn, learnBlock, ramDiscountStat, resonanceOn, treeTier, treeTierOf } from './learn'
 export type { Capacity } from './learn'
 export { DEFAULT_ABILITY_RULES, MASKED, abilityRules, applyLoadout, atTuningClinic, equipAbilities, loadoutBlock, loadoutMinutes } from './loadout'
 export type { AbilityRules, TeachRules } from './loadout'

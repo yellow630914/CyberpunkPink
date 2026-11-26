@@ -9,14 +9,14 @@
 //         設計圖（護甲與服裝）多讀 style、exposure、long；外皮零件多讀 style_tag 與 stats.style、stats.exposure；設施種類多讀 dye（店家代染）；物品（飾品）多讀 style
 //   數值  exposure（0～3）、style_value、carry_load、carry_cap（look.ts、weight.ts；義體的致動器之後用被動效果加 carry_cap）
 //   條件  exposure { min?, max? }、style { tag, min? }（看得到的那幾件裡這個標籤的風格值合計，沒寫 min 是至少 1）；用到別人登記的：at_facility、at_home
-//   被動  k.passives.register 來源 gear：超重時迴避 −2、stealth 檢定 −2、換位 +1 點（現實的戰場）
+//   被動  k.passives.register 來源 gear：超重時迴避 −2、stealth 檢定 −2、換位 +1 點（現實的戰場）；身上穿著的護甲與服裝（設計圖與零件的 effects）和戴著的飾品（物品的 effects）一直生效（passive.ts）
 //   掛點  creation.step（features/creation 宣告）：建角第 9 步的物品與武器、護甲（點數、等級、類別、出身）與出身白給的 kit_free（creation.ts）
 //   效果  gear_take（拿走身上的裝備；內建的來源才收，ai: false）；掛點 defeat.gear 對它回答 true
 //   變更  gear.dye（染色）；報告 gear.dye（dyeDraft）
 // 對外：styleOf、carryLoadOf、carryCapBase、overweight、dyeBlock、dyeDraft、dyeOf、gearRules。
 
 import type { Condition, ConditionCtx, ContentEntry, Feature, Kernel } from '../../core'
-import { ContentError, isRecord, isSafeInt } from '../../core'
+import { ContentError, isRecord, isSafeInt, passiveProblems } from '../../core'
 import { installBattle } from './battle'
 import { installChanges } from './changes'
 import { answerCreation, catalogAnswer, lookAnswer } from './creation'
@@ -24,6 +24,7 @@ import { isColor } from './dye'
 import { exposureSpec, styleOf, styleSpec, styleTagValue, styleValueOf } from './look'
 import { OWNER, blueprintOf, stackOf } from './model'
 import { armorOf, bodyArmorOf, scanFinds } from './numbers'
+import { wornPassives } from './passive'
 import { RULE_KIND, ruleProblems } from './rules'
 import { installTake } from './take'
 import { CAP_STAT, LOAD_STAT, carryCapBase, carryLoadOf, weightPassives } from './weight'
@@ -38,6 +39,7 @@ export type { GearRules } from './rules'
 export { coveredSlots, exposureSpec, pieceLook, styleOf, styleSpec, styleTagValue, styleValueOf } from './look'
 export type { SeenKind, SeenPiece, StyleInfo } from './look'
 export { CAP_STAT, LOAD_STAT, carryCapBase, carryLoadOf, overweight, weightPassives } from './weight'
+export { wornPassives } from './passive'
 export { DYE_ACTION, DYE_TAG, dyeBlock, dyeDraft, dyeOf, dyeProblems, dyeShopHere, isColor } from './dye'
 export type { DyeBy, DyeColors, DyeOpts } from './dye'
 export { TAKE_KIND } from './take'
@@ -64,8 +66,8 @@ export const gearFeature: Feature = {
     k.stats.defineStat({ id: 'style_value', owner: OWNER, name: '風格值', base: (state, actor) => (state.actors[actor] ? styleValueOf(k, state, actor) : 0) })
     k.stats.defineStat({ id: LOAD_STAT, owner: OWNER, name: '身上的重量', base: (state, actor) => carryLoadOf(k, state, actor) })
     k.stats.defineStat({ id: CAP_STAT, owner: OWNER, name: '負重的上限', base: (state, actor) => carryCapBase(k, state, actor) })
-    // 超重（來源 gear）：迴避、潛行、換位
-    k.passives.register(OWNER, 'gear', (state, actor) => weightPassives(k, state, actor), '裝備')
+    // 來源 gear：超重的迴避、潛行、換位，加上身上穿著與戴著的東西的 effects（passive.ts）
+    k.passives.register(OWNER, 'gear', (state, actor) => [...weightPassives(k, state, actor), ...wornPassives(k, state, actor)], '裝備')
     k.conditions.register<ExposureCondition>({
       kind: 'exposure', owner: OWNER,
       validate(raw) {
@@ -132,6 +134,8 @@ export const gearFeature: Feature = {
     }
     for (const e of k.content.list<ContentEntry & Rec>('item')) {
       if (e.style !== undefined && (styleSpec(e.style) === null || e.style === 'from_skin')) problems.push(`item/${e.id}：style 要是 { tag, value }`)
+      // 飾品的 effects 是來源 gear 的被動效果：格式、條件、每回合回復只能寫戰鬥的修正
+      if (e.effects !== undefined) problems.push(...passiveProblems(k, e.effects, 'effects', 'gear').map((m) => `item/${e.id}：${m}`))
     }
     if (k.content.hasKind('facility_type')) {
       for (const e of k.content.list<ContentEntry & Rec>('facility_type')) {

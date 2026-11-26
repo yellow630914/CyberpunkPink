@@ -56,12 +56,19 @@ export function specProblems(k: Pick<Kernel, 'content'>, spec: FrameSpec, rules:
   } else if (types.length === 0) p.push('沒有可以抽的零件類型。')
   if (spec.material !== undefined && !(MATERIALS as readonly unknown[]).includes(spec.material)) p.push('材質只有機械與生體兩種。')
   if (spec.material === 'bio' && typeof spec.type === 'string' && rules.types[spec.type]?.bio === false) p.push(`${typeName(rules, spec.type)}沒有生體版。`)
+  // 生體沒指定類型：要至少有一個類型有生體版才抽得出來（B041）
+  if (spec.material === 'bio' && spec.type === undefined && types.length > 0 && drawableTypes(rules, 'bio').length === 0) p.push('沒有哪一類零件有生體版，抽不出生體的零件。')
   return p
+}
+
+/** 沒指定類型時抽得到的類型（照 id 排）：生體只抽有生體版的（types.<id>.bio 不是 false）。 */
+export function drawableTypes(rules: UnregRules, material: Material): string[] {
+  return Object.keys(rules.types).filter((id) => material !== 'bio' || rules.types[id]!.bio !== false).sort()
 }
 
 /**
  * 定框架（純函式）。
- * 等級＝min(spec.grade ?? 上限, 來源的上限, IV)，最少 I；類型沒給就照種子抽；材質沒給是機械，沒有生體版的類型給了生體丟 ActionBlocked；牌子沒給是 doujin。
+ * 等級＝min(spec.grade ?? 上限, 來源的上限, IV)，最少 I；類型沒給就照種子抽（生體只抽有生體版的）；材質沒給是機械，沒有生體版的類型給了生體丟 ActionBlocked；牌子沒給是 doujin。
  * 怪癖從 quirkCandidates 抽一筆（spec.quirk 在範圍裡就用它）；預算＝份量＋退格；屬性照 want 的順序排前面、其餘照種子洗牌，
  * 第一輪每一項放一份、第二輪起從頭每一項再加一份（預算、條數、份數上限都夠才放），到一整輪都放不進為止，用不完的預算不補。
  */
@@ -74,8 +81,8 @@ export function frameOf(k: Pick<Kernel, 'content'>, state: Pick<GameState, 'rng'
   const stream = (purpose: string): Rng => new Rng(hash32(seed, `unreg/${purpose}`, seq))
 
   const grade = Math.max(1, Math.min(Math.floor(typeof spec.grade === 'number' && Number.isFinite(spec.grade) ? spec.grade : MAX_GRADE), gradeCap(rules, spec.source), MAX_GRADE))
-  const type = spec.type ?? stream('type').pick(Object.keys(rules.types).sort())
   const material: Material = spec.material === 'bio' ? 'bio' : 'mech'
+  const type = spec.type ?? stream('type').pick(drawableTypes(rules, material))
   const brand = typeof spec.brand === 'string' && spec.brand ? spec.brand : 'doujin'
 
   const pool = quirkCandidates(k, state, rules, type)

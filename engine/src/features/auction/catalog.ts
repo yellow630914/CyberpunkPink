@@ -8,8 +8,8 @@ import { contentAllowed, deriveRng, partOf, productPrice, toMinutes } from '../.
 import type { BidderEntry, HouseEntry, LookResult, LotEntry, LotKind } from './model'
 import { BIDDER_KIND, DEFAULT_CERT, FAKEABLE, LOT_KIND, LOT_KINDS, auctionOf, auctionRules, kindName, lotKey } from './model'
 import { undeliverable } from './give'
-import type { Session } from './session'
-import { sessionOf } from './session'
+import type { SessionTimes } from './session'
+import { sessionAt, sessionOf } from './session'
 
 export interface CatalogLot {
   /** 第幾件（0 起算） */
@@ -49,7 +49,8 @@ export interface CatalogBidder {
 
 export interface Catalog {
   house: string
-  session: Session
+  /** 這一場的時間（不看現在幾點：目錄與競標者同一場問幾次都一樣；現在在哪一階看 sessionOf 的 stage） */
+  session: SessionTimes
   lots: CatalogLot[]
   bidders: CatalogBidder[]
 }
@@ -146,9 +147,10 @@ function drawBidders(k: Pick<Kernel, 'content'>, state: GameState, house: HouseE
 
 /** 這一場的目錄與競標者。沒有這家拍賣行是 null。 */
 export function catalogOf(k: Kernel, state: GameState, houseId: string): Catalog | null {
-  const session = sessionOf(k, state, houseId)
+  const found = sessionOf(k, state, houseId)
   const house = k.content.hasKind('auction_house') ? k.content.get<HouseEntry>('auction_house', houseId) : undefined
-  if (!session || !house) return null
+  if (!found || !house) return null
+  const session = sessionAt(k, house, found.day)
   const rules = auctionRules(k)
   const lots: CatalogLot[] = drawLots(k, state, house, session.day).map((lot, index) => {
     const market = marketOf(k, lot)

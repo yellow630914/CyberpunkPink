@@ -294,7 +294,16 @@ const poolOf = (line: BillLine, bills: BillsState): Pool => (line.pay === 'eithe
 function amountOf(line: BillLine, bills: BillsState, mult: number): { base: number; amount: number } {
   if (line.kind === 'income') return { base: line.amount, amount: line.amount }
   const base = Math.max(0, line.amount + (bills.tweaks[line.id] ?? 0))
-  return { base, amount: Math.max(0, Math.round(base * mult)) }
+  return { base, amount: Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.round(base * mult))) }
+}
+
+/** 把還沒併成債的欠款併成一筆（照規則的債主與利率）：加進 next.debts、欠款歸零。 */
+function mergeArrears(next: BillsState, rules: BillRules): Debt {
+  const debt: Debt = { id: `d${next.seq + 1}`, to: rules.debt_faction, principal: next.arrears, rate: rateOf(rules, rules.debt_faction), pay: debtPayOf(rules, rules.debt_faction) }
+  next.seq += 1
+  next.debts.push(debt)
+  next.arrears = 0
+  return debt
 }
 
 /**
@@ -355,7 +364,10 @@ export function planWeek(k: Pick<Kernel, 'hooks' | 'content' | 'meters' | 'timeR
     lines.push(row)
   }
 
-  // 欠繳週數、欠款、債
+  // 欠繳週數、欠款、債（金額累加不超過安全整數：B037）
+  const safe = (n: number): number => Math.min(Number.MAX_SAFE_INTEGER, n)
+  unpaid.cred = safe(unpaid.cred)
+  unpaid.cash = safe(unpaid.cash)
   const short = lines.some((l) => l.unpaid > 0)
   const next: BillsState = clone(bills)
   next.tweaks = {}
@@ -365,14 +377,11 @@ export function planWeek(k: Pick<Kernel, 'hooks' | 'content' | 'meters' | 'timeR
   let merged: Debt | null = null
   if (short) {
     next.overdue = bills.overdue + 1
-    next.arrears = bills.arrears + unpaid.cred + unpaid.cash
-    if (next.overdue === rules.debt_week && next.arrears > 0) {
-      merged = { id: `d${next.seq + 1}`, to: rules.debt_faction, principal: next.arrears, rate: rateOf(rules, rules.debt_faction), pay: debtPayOf(rules, rules.debt_faction) }
-      next.seq += 1
-      next.debts.push(merged)
-      next.arrears = 0
-    }
+    next.arrears = safe(bills.arrears + unpaid.cred + unpaid.cash)
+    if (next.overdue === rules.debt_week && next.arrears > 0) merged = mergeArrears(next, rules)
   } else {
+    // 這一週付清了，可是之前累積的欠款沒補：不一筆勾銷，轉成債（B039；使用者 2026-11-26），欠繳歸零、鎖住的東西解開
+    if (bills.arrears > 0) merged = mergeArrears(next, rules)
     next.overdue = 0
     next.arrears = 0
   }

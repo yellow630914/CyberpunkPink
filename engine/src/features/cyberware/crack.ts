@@ -9,7 +9,7 @@
 // 骰子一律 deriveRng（用途帶 uid）；擲過骰的報告多一筆 rng 推進游標。
 
 import type { ActorId, Change, CheckRoll, GameState, Kernel, ReportDraft, RollPart, TimelineBeat } from '../../core'
-import { ActionBlocked, DEGREE_NAME, checkParts, clone, dcFor, effectCtx, rollCheck } from '../../core'
+import { ActionBlocked, DEGREE_NAME, checkParts, checkPassChance, clone, dcFor, effectCtx, rollCheck } from '../../core'
 import type { CyberLock } from './lock'
 import { BROKEN_OFF, isLocked, pieceName, readLock, weeklyOf, writePieces } from './lock'
 import type { CyberPiece } from './model'
@@ -135,6 +135,8 @@ export interface CrackQuote {
   dc: number
   /** 擲骰面以外的加值合計（含解鎖匠） */
   bonus: number
+  /** 破解成功（成功或大成功）的機率，0～1 */
+  chance: number
   /** 動刀的人通過條件 ability（daily: 'unlock'） */
   unlocker: boolean
   holder?: string
@@ -184,7 +186,7 @@ function planCrack(k: Kernel, state: GameState, o: CrackOpts): CrackPlan {
   const parts = state.actors[by] ? checkParts(k.stats, state, by, { attr: SELF_ATTR, skill: rules.self_skill, tags: ['crack'] }, situation) : []
   const isFaction = !!lock?.holder && k.content.hasKind('faction') && k.content.has('faction', lock.holder)
   const quote: CrackQuote = {
-    uid: o.uid, bp: piece.bp, name, by, dc, bonus: parts.reduce((s, p) => s + p.value, 0), unlocker, ...(lock?.holder ? { holder: lock.holder } : {}),
+    uid: o.uid, bp: piece.bp, name, by, dc, bonus: parts.reduce((s, p) => s + p.value, 0), chance: checkPassChance(parts.reduce((s, p) => s + p.value, 0), dc), unlocker, ...(lock?.holder ? { holder: lock.holder } : {}),
     ...(isFaction && !unlocker ? { faction: lock!.holder! } : {}), minutes: rules.surgery_minutes,
   }
   return { problems, quote, piece, ...(lock ? { lock } : {}), parts: situation }

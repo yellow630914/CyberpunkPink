@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { Condition, ContentPack, Feature, ItemStack, ReportDraft } from '../../src'
-import { ActionBlocked, ContentError, effectCtx, stackOf, toMinutes } from '../../src'
+import { ActionBlocked, ContentError, effectCtx, regenTotal, stackOf, toMinutes } from '../../src'
 import type { SpecialMapEntry } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import {
@@ -712,5 +712,88 @@ describe('沒有裝這個功能的東西時，M1 的行為不變', () => {
     expect(look(g).seen.map((p) => p.id)).toEqual(['vest'])
     // 護甲穿在上身那一格沒人佔著時，當作上身那一層（曝露度 0）；下身沒穿是全裸
     expect(stat(g, 'exposure')).toBe(3)
+  })
+})
+
+// ---- 穿戴物的 effects 交給被動效果來源 gear（M4-fix-2；使用者 2026-11-26；dev/adr/0019 第二節） ----
+
+describe('穿戴物的 effects 是來源 gear 的被動效果', () => {
+  const gearEntries = (g: G) => g.k.passives.of(g.state, 'pc').filter((e) => e.source === 'gear')
+  /** 帶 effects 的假裝備：外套（設計圖寫迴避 +1）、帶零件效果的上衣、戴著的飾品（負重 +5）、一把帶效果的槍（攜帶，不算穿戴） */
+  const withEffects = pack((c) => {
+    const find = (list: Rec[], id: string): Rec => list.find((x) => x.id === id)!
+    find(c.blueprint!, 'bp_jacket').effects = [{ mod: 'evade', amount: 1, layer: 'meat' }]
+    find(c.blueprint!, 'bp_pistol').effects = [{ mod: 'evade', amount: 5, layer: 'meat' }]
+    find(c.blueprint!, 'bp_cap').effects = [{ mod: 'evade', amount: 1, layer: 'meat' }]
+    find(c.part!, 'pt_fiber0').effects = []
+    c.part!.push(part('pt_lining', 'fiber', {}, { weight: 0, effects: [{ check: { tags: ['stealth'] }, amount: 1 }] }))
+    c.item!.push({ id: 'it_exo', name: '外骨骼腰帶', desc: '一條幫忙扛重量的腰帶。', category: 'accessory', grade: 1, size: 0, legal: 'free', tags: ['acc:any'], weight: 0, effects: [{ stat: 'carry_cap', amount: 5 }] })
+  })
+  const ownWith = (g: G): void => {
+    g.state.inventory.push(made('liner', 'bp_shirt', { fiber: 'pt_lining' }), { id: 'it_exo', qty: 1 })
+  }
+
+  it('穿著的護甲與服裝：設計圖的 effects 與裝著的零件的 effects 都算；脫下來、放在背包裡的不算；來源是 gear', () => {
+    const g = make({ pack: withEffects })
+    ownWith(g)
+    expect(gearEntries(g)).toEqual([])
+    wear(g, 'jacket')
+    expect(mod(g, 'evade')).toBe(1)
+    expect(gearEntries(g)).toEqual([expect.objectContaining({ mod: 'evade', amount: 1, source: 'gear', label: 'bp_jacket' })])
+    // 零件的效果：帶 stealth 標籤的檢定 +1
+    expect(g.k.passives.checkParts(g.state, 'pc', { skill: 'stealth', tags: ['stealth'] })).toEqual([])
+    wear(g, 'liner')
+    expect(g.k.passives.checkParts(g.state, 'pc', { skill: 'stealth', tags: ['stealth'] })).toEqual([expect.objectContaining({ value: 1, source: 'gear' })])
+    off(g, 'jacket')
+    off(g, 'liner')
+    expect(gearEntries(g)).toEqual([])
+    expect(mod(g, 'evade')).toBe(0)
+  })
+
+  it('戴著的飾品：物品的 effects 算（{ stat: carry_cap } 加負重上限）；摘下就沒有', () => {
+    const g = make({ pack: withEffects })
+    ownWith(g)
+    const base = stat(g, 'carry_cap')
+    g.commit(equip(g.k, g.state, 'pc', 'it_exo'))
+    expect(stat(g, 'carry_cap')).toBe(base + 5)
+    expect(gearEntries(g)).toEqual([expect.objectContaining({ stat: 'carry_cap', amount: 5, source: 'gear', label: '外骨骼腰帶' })])
+    g.commit(unequip(g.k, g.state, 'pc', 'it_exo'))
+    expect(stat(g, 'carry_cap')).toBe(base)
+  })
+
+  it('攜帶的武器不是穿戴物：它的 effects 不算；超重的加減與穿戴物的效果在同一個來源裡並存', () => {
+    const g = make({ pack: withEffects })
+    g.commit(equip(g.k, g.state, 'pc', 'p1'))
+    expect(mod(g, 'evade')).toBe(0)
+    expect(gearEntries(g)).toEqual([])
+    wear(g, 'cap', 'heavy')
+    expect(overweight(g.k, g.state, 'pc')).toBe(true)
+    const entries = gearEntries(g)
+    expect(entries.some((e) => 'mod' in e && e.mod === 'evade' && e.amount === 1)).toBe(true)
+    expect(entries.some((e) => 'mod' in e && e.mod === 'evade' && e.amount === -2 && e.label === '超重')).toBe(true)
+  })
+
+  it('每回合回復只能寫戰鬥的修正：飾品的 effects 寫 { stat: ram_regen } 載入就擋下，寫 { mod: ap_regen } 可以；effects 只有飾品能寫', () => {
+    const exo = (effects: Rec[]) => pack((c) => c.item!.push({ id: 'it_x', name: 'X', desc: 'X。', category: 'accessory', grade: 1, size: 0, legal: 'free', effects }))
+    expect(() => make({ pack: exo([{ stat: 'ram_regen', amount: 1 }]) })).toThrow(ContentError)
+    expect(() => make({ pack: exo([{ mod: 'ap_regen', amount: 1 }]) })).not.toThrow()
+    expect(() => make({ pack: exo([{ mod: 'no_such_mod', amount: 1 }]) })).toThrow(ContentError)
+    expect(() => make({ pack: pack((c) => c.item!.push({ id: 'it_y', name: 'Y', desc: 'Y。', category: 'consumable', grade: 1, size: 0, legal: 'free', effects: [{ mod: 'evade', amount: 1 }] })) })).toThrow(/effects 只有飾品能寫/)
+    expect(() => make({ pack: pack((c) => c.item!.push({ id: 'it_z', name: 'Z', desc: 'Z。', category: 'accessory', grade: 1, size: 0, legal: 'free', effects: 'x' })) })).toThrow(ContentError)
+  })
+
+  it('節奏資源的來源 gear 全身正值合計最多 +1：兩件飾品各給 ap_regen +1，只算 1 點', () => {
+    const two = pack((c) => {
+      c.item!.push({ id: 'it_r1', name: '甲', desc: '甲。', category: 'accessory', grade: 1, size: 0, legal: 'free', tags: ['acc:any'], effects: [{ mod: 'ap_regen', amount: 1 }] })
+      c.item!.push({ id: 'it_r2', name: '乙', desc: '乙。', category: 'accessory', grade: 1, size: 0, legal: 'free', tags: ['acc:any'], effects: [{ mod: 'ap_regen', amount: 1 }] })
+    })
+    const g = make({ pack: two })
+    g.state.inventory.push({ id: 'it_r1', qty: 1 }, { id: 'it_r2', qty: 1 })
+    g.commit(equip(g.k, g.state, 'pc', 'it_r1'))
+    g.commit(equip(g.k, g.state, 'pc', 'it_r2'))
+    expect(gearEntries(g).filter((e) => 'mod' in e && e.mod === 'ap_regen')).toHaveLength(2)
+    const parts = g.k.battle.modifiers({ kind: 'ap_regen' as never, unit: { actor: 'pc', tags: [] } as never, tags: [], view: { mode: { layer: 'meat' }, k: g.k, state: g.state } as never })
+    expect(parts.filter((p) => p.source === 'gear')).toHaveLength(2)
+    expect(regenTotal(parts)).toBe(1 + parts.filter((p) => p.source !== 'gear').reduce((n, p) => n + p.value, 0))
   })
 })

@@ -6,7 +6,7 @@
 // 檢查回傳 string | null：null 是沒問題，字串是擋住的原因（給玩家看的完整句子）。
 
 import type { Actor, AttrId, FactionEntry, Feature, GameState, Kernel, NpcEntry, OriginEntry, PerkEntry, ReportDraft, SkillId } from '../../core'
-import { ATTR_IDS, CONTENT_TAG_INTIMATE_BODY, ContentError, blankState, GENDER_IDS, MIN_AGE, SKILL_MAX, attrMod, clone, contentAllowed, isRecord } from '../../core'
+import { ATTR_IDS, CONTENT_TAG_INTIMATE_BODY, ContentError, blankState, GENDER_IDS, MIN_AGE, SKILL_MAX, attrMod, clone, contentAllowed, contentTagName, isRecord } from '../../core'
 import { abilitiesStepBlock, askStep, cyberStepBlock, dedupeExt, gearStepBlock, leftoverCash, pointsSpent } from './body'
 import type { BodyStep } from './body'
 import { LIFEPATH_KIND, TENDENCY_TAG_KIND, askLifepath, entryProblems, lifepathBlock, lifepathEffects, lifepathRefs, lifepathSummary } from './lifepath'
@@ -113,12 +113,28 @@ export function perkSummary(k: Kernel, state: GameState, picked: string[]): { le
   return { left: state.rules.startPerkPoints + sum(flaws.map((p) => p.cost)) - sum(perks.map((p) => p.cost)), perks: perks.length, flaws: flaws.length }
 }
 
+/**
+ * 這個特質現在被內容篩選擋住的原因（一句）；沒擋是 null。特質的 tags 裡有哪個被玩家關掉就擋：照樣列在清單上，畫面灰掉並寫這句，選不了（使用者 2026-11-26：保留、disable）。
+ * 查不到這個特質也是 null（那是別的原因）。
+ */
+export function perkFilterBlock(k: Kernel, state: GameState, id: string): string | null {
+  const perk = k.content.get<PerkEntry>('perk', id)
+  const off = (perk?.tags ?? []).filter((t) => !contentAllowed(state.rules, t))
+  if (!perk || off.length === 0) return null
+  const names = off.map((t) => contentTagName(t, k.content.get('tendency_tag', t)?.name as string | undefined)).map((n) => `「${n}」`).join('、')
+  return `「${perk.name}」屬於${names}，被你的內容篩選關掉了，選不了。`
+}
+
 export function perkBlock(k: Kernel, state: GameState, picked: string[]): string | null {
   const r = rule(k)
   if (new Set(picked).size !== picked.length) return '同一個特質不能選兩次。'
   const missing = picked.find((id) => !k.content.has('perk', id))
   if (missing !== undefined) return `沒有「${missing}」這個特質。`
   if (picked.some((id) => k.content.get<PerkEntry>('perk', id)!.category === 'origin')) return '出身特質是出身送的，不能用點數買。'
+  for (const id of picked) {
+    const why = perkFilterBlock(k, state, id)
+    if (why) return why
+  }
   const s = perkSummary(k, state, picked)
   if (s.flaws > r.flaw_max) return `缺陷最多 ${r.flaw_max} 個。`
   if (s.perks > r.perk_max) return `特質最多 ${r.perk_max} 個。`

@@ -3,7 +3,7 @@
 // 分段、有效值、超過 100 的邊際遞減參考 ElondiaRPG 的 src/engine/lewd.ts（只參考做法）。
 
 import type { Actor, ActorId, ContentEntry, GameState, Kernel } from '../../core'
-import { clone, isRecord, toMinutes } from '../../core'
+import { clone, isRecord, syncRuleOf, toMinutes } from '../../core'
 
 export const OWNER = 'lewd'
 
@@ -24,6 +24,8 @@ export const paramStatId = (p: BridgeParam): string => `bridge_${p}`
 export const BRIDGE_EFFECTIVE_MAX = 200
 
 export interface BridgeParamView {
+  /** 這一項在做什麼的一句話（LEWD_SYSTEM 第 1 節：高的好處與壞處；數字照現在的規則與同步表）。畫面不自己寫 */
+  effect: string
   /** 存在 ext.bridge 裡的基本值（0～100） */
   base: number
   /** 有效值：衍生數值 bridge_<參數>（基本值加所有來源，夾在 0～200；P14）。畫面顯示與故事條件用這個 */
@@ -152,6 +154,25 @@ export function powerOf(value: number, overScale: number): number {
 }
 
 /**
+ * 一項橋參數在做什麼的一句話（LEWD_SYSTEM 第 1 節那張表：是什麼、高的好處、高的壞處）。數字讀現在的規則：同步檔位的敏感度門檻讀同步表（sync_rule）、
+ * 耐受每幾點一層與慾求的門檻讀 lewd_rule。畫面照這一句顯示，不自己寫。
+ */
+export function bridgeParamEffect(k: Pick<Kernel, 'content'>, param: BridgeParam): string {
+  const r = lewdRules(k)
+  const gears = syncRuleOf(k.content).gears
+  switch (param) {
+    case 'sensitivity':
+      return `橋的增益：能開更深的同步（${gears.deep.name}檔要 ${gears.deep.needSensitivity}、${gears.full.name}檔要 ${gears.full.needSensitivity}），感知與素材的感官品質更好；代價是受到的感載乘上（0.75 ＋ 敏感度 ÷ 200）。`
+    case 'tolerance':
+      return `橋的容量：感載上限加上耐受的一半，每 ${r.tolerance_per_layer} 點承受層數 ＋1；代價幾乎沒有，只是高耐受的人要更強的刺激，娛樂與藥的開銷變高。`
+    case 'craving':
+      return `獎賞迴路的基準線：熱驅動這類把感載轉成力量的義體更有效；代價是感載自然消退變慢，高於 ${r.craving_threshold} 時戰鬥一開始就帶著感載。`
+    case 'docility':
+      return '橋對外來指令的接受度：人偶晶片與人格面具切換更快、副作用小，帶潛與機甲同步更快適應；代價是抵抗控制類快駭、粉蕾絲的勸降與契約指令的能力變差。'
+  }
+}
+
+/**
  * 四項橋參數的有效值、效力與所在的那一段（M2-lewd 的 bridgeOf）。沒有橋（或沒有這個角色）是 null。
  * 有效值直接讀衍生數值 bridge_<參數>（基本值加所有來源的合計，0～200；P14）；沒有人定義那個數值時（沒裝 lewd 的核心測試）用基本值。
  */
@@ -165,7 +186,7 @@ export function bridgeOf(k: Pick<Kernel, 'content' | 'stats'>, state: GameState,
     const value = k.stats.hasStat(id) ? k.stats.stat(state, actor, id) : base[p]
     const last = Math.ceil(100 / r.band_size) - 1
     const band = Math.min(Math.floor(value / r.band_size), last)
-    out[p] = { base: base[p], value, power: powerOf(value, r.over_scale), band, range: [band * r.band_size, band === last ? 100 + r.gear_cap : band * r.band_size + r.band_size - 1] }
+    out[p] = { effect: bridgeParamEffect(k, p), base: base[p], value, power: powerOf(value, r.over_scale), band, range: [band * r.band_size, band === last ? 100 + r.gear_cap : band * r.band_size + r.band_size - 1] }
   }
   return out
 }

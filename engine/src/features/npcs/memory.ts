@@ -11,7 +11,7 @@ import { ActionBlocked, clone, isRecord, isSafeInt, isValidTime, toMinutes } fro
 import type { MemoryRules } from './lifeRules'
 import { lifeRules } from './lifeRules'
 import type { Memory, MemoryWhere } from './model'
-import { AFFINITY, OWNER, affinityStage, ensureNpcs, knows, readNpcs } from './model'
+import { AFFINITY, OWNER, affinityStage, ensureNpcs, knows, npcOf, readNpcs } from './model'
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
 const WEIGHTS = [1, 2, 3] as const
@@ -390,6 +390,11 @@ export function registerMemory(k: Kernel): void {
       ...(raw.who === undefined || (Array.isArray(raw.who) && raw.who.every(isText)) ? [] : ['who 要是人的 id 的陣列']),
       ...(raw.pinned === undefined || typeof raw.pinned === 'boolean' ? [] : ['pinned 要是 true 或 false']),
     ],
+    // 參與人查不到的整筆拿掉並提醒（引用的 id 要存在，四條路都一樣；B035）：角色、這一局的 NPC（生成的或內容的）都算
+    clamp(e, ctx) {
+      const ghosts = sortedUnique(e.who).filter((id) => id !== ctx.state.pc && !Object.hasOwn(ctx.state.actors, id) && !npcOf(k, ctx.state, id))
+      return ghosts.length === 0 ? { effect: e } : { effect: null, note: { from: ghosts.join('、'), to: null, limit: 'memory', notice: `查不到 ${ghosts.join('、')} 這個人，這件事沒有記下來。` } }
+    },
     toChanges: (e, ctx): Change[] => [{
       op: 'npcs.memory.add', where: whereOf(ctx.state.location), who: sortedUnique(e.who), text: e.text.trim(), weight: e.weight ?? 2, ...(e.pinned ? { pinned: true } : {}),
     }],

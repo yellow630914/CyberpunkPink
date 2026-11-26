@@ -129,8 +129,15 @@ export function learnedOutside(k: Pick<Kernel, 'content'>, state: GameState, act
   return out
 }
 
-/** 裝著而且現在算數的技能：夜課延伸的那幾個要還學得會著（learnedOutside 裡）才算，被篩選關掉的、不再學會的不生效。 */
-export function liveEquipped(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId, equipped: readonly string[]): string[] {
+/** 這個人的橋現在關著嗎：主角在橋關著的活動裡（斷線靜修，ActivityDef.bridgeOff）。 */
+export const bridgeClosedFor = (k: Pick<Kernel, 'activity'>, state: GameState, actor: ActorId): boolean => actor === state.pc && k.activity.bridgeClosed(state)
+
+/**
+ * 裝著而且現在算數的技能：夜課延伸的那幾個要還學得會著（learnedOutside 裡）才算，被篩選關掉的、不再學會的不生效。
+ * 橋關著（斷線靜修）時一個都不算：技能失效（DOWNTIME 3.3 節；使用者 2026-11-26）。
+ */
+export function liveEquipped(k: Pick<Kernel, 'content' | 'activity'>, state: GameState, actor: ActorId, equipped: readonly string[]): string[] {
+  if (bridgeClosedFor(k, state, actor)) return []
   if (!equipped.some(isNightId)) return [...equipped]
   const ok = new Set(learnedOutside(k, state, actor))
   return equipped.filter((id) => !isNightId(id) || ok.has(id))

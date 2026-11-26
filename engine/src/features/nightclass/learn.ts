@@ -5,12 +5,12 @@
 //   學會    扣體悟、actor.ext.scene.skills 多一筆，技能開放的體位加進 actor.ext.scene.positions（變更 nightclass.learn）；名冊上的人照同一條（體悟是全隊共用的那一個量表）
 // 不成立時回傳原因（給玩家看的完整句子，一條一個條件）；草稿函式丟 ActionBlocked。
 
-import type { ActorId, Condition, GameState, Kernel, ReportDraft } from '../../core'
+import type { Actor, ActorId, Condition, GameState, Kernel, ReportDraft } from '../../core'
 import { ActionBlocked, clone, isRecord, meterOf } from '../../core'
 import type { Branch, NightSkill } from './model'
 import {
   BRANCHES, BRANCH_NAME, INSIGHT_KEY, INSIGHT_METER, LEARN_ACTION, LEARN_OP, PARAM_NAME, TIER_STAT,
-  computeTier, costOf, experienceOf, hiddenReason, learnedOf, nightRules, skillOf, skillsOf, unlockedPositions,
+  AXIS_NAME, TIER_MAX, axisLevel, computeTier, costOf, experienceOf, hiddenBy, hiddenReason, isDeepOf, learnedOf, nightRules, skillOf, skillsOf, unlockedPositions,
 } from './model'
 
 /** 一個分支開到幾階（0～5）：衍生數值 night_tier_<分支>（別的功能可以加 provider；沒有註冊時照規則算）。 */
@@ -25,13 +25,16 @@ export const insightOf = (k: Pick<Kernel, 'meters'>, state: GameState): number =
 
 type Ctx = Pick<Kernel, 'stats' | 'content' | 'conditions' | 'meters' | 'timeRules'>
 
-/** 橋參數的有效值（衍生數值 bridge_<參數>；沒有人註冊時讀 actor.ext.bridge）；沒有橋是 null。 */
+/**
+ * 橋參數的有效值（衍生數值 bridge_<參數>；沒有人註冊時讀 actor.ext.bridge）；沒有橋是 null。
+ * 沒有橋先看 actor.ext.bridge（lewd 的 `has_bridge`、dive 的 `hasBridge` 同一個讀法）：衍生數值對沒有橋的人是 0，不能拿來判斷（B033）。
+ */
 function bridgeValue(k: Pick<Kernel, 'stats'>, state: GameState, actor: ActorId, param: keyof typeof PARAM_NAME): number | null {
   const a = state.actors[actor]
-  const raw = a && isRecord(a.ext.bridge) ? a.ext.bridge[param] : undefined
-  if (!a || (typeof raw !== 'number' && !k.stats.hasStat(`bridge_${param}`))) return null
+  if (!a || !isRecord(a.ext.bridge)) return null
   if (k.stats.hasStat(`bridge_${param}`)) return k.stats.stat(state, actor, `bridge_${param}`)
-  return Number.isFinite(raw) ? (raw as number) : null
+  const raw = a.ext.bridge[param]
+  return typeof raw === 'number' && Number.isFinite(raw) ? raw : null
 }
 
 /** 一個條件現在判斷得了嗎：種類有人註冊（all、any、not 看裡面）。 */
@@ -107,6 +110,25 @@ export interface LearnView {
   reasons: string[]
   /** 這個技能開放的體位（id） */
   positions: string[]
+  /** 標籤是「深」：掛在一個標籤上、而這個人的那個標籤現在是「深」（效果多一級；NIGHT_LESSONS 寫法的約定）。共通與只掛軸的是 false */
+  deep: boolean
+}
+
+/** 一個分支怎麼開階（UI 8.4 節：欄名旁邊寫你的數字、每一階最上面寫開階的條件、開了的加框）。 */
+export interface BranchBasis {
+  /** 共通看性經歷（次數或對象的人數擇一），其餘四支看軸的等級 */
+  kind: 'experience' | 'axis'
+  /** 你現在的數字（一句）：「性經歷：16 次、和 4 個人有過」「關係軸 2 級」 */
+  text: string
+  /** experience 才有：次數與對象的人數 */
+  times?: number
+  partners?: number
+  /** axis 才有：軸的 id、名字與現在的等級 */
+  axis?: string
+  axis_name?: string
+  level?: number
+  /** 每一階開階的條件（一句）與開了沒有 */
+  tiers: Array<{ tier: number; need: string; open: boolean }>
 }
 
 export interface BranchView {
@@ -114,6 +136,10 @@ export interface BranchView {
   name: string
   /** 這個分支開到幾階 */
   tier: number
+  /** 開階的依據：你現在的數字與每一階的條件 */
+  basis: BranchBasis
+  /** 掛在這個人沒有的標籤上而不列出的技能有幾個（畫面寫「N 個掛在你沒有的標籤上」）；被內容篩選關掉的整個不出現，也不算進這個數字 */
+  hidden: number
   skills: LearnView[]
 }
 
@@ -128,7 +154,7 @@ export interface NightListView {
 function viewOf(k: Ctx, state: GameState, actor: ActorId, s: NightSkill, tiers: Record<Branch, number>, insight: number): LearnView {
   const rules = nightRules(k)
   const cost = costOf(rules, s)
-  const base = { id: s.id, name: s.name, branch: s.branch, tier: s.tier, cost, tag: s.tag, positions: unlockedPositions(k, s.id) }
+  const base = { id: s.id, name: s.name, branch: s.branch, tier: s.tier, cost, tag: s.tag, positions: unlockedPositions(k, s.id), deep: isDeepOf(state.actors[actor], s) }
   if (learnedOf(state.actors[actor]).includes(s.id)) return { ...base, status: 'learned', reason: null, reasons: [] }
   if (s.tier > tiers[s.branch]) {
     const why = tierBlock(s, tiers[s.branch])
@@ -139,8 +165,30 @@ function viewOf(k: Ctx, state: GameState, actor: ActorId, s: NightSkill, tiers: 
   return reasons.length > 0 ? { ...base, status: 'unmet', reason: reasons[0]!, reasons } : { ...base, status: 'learnable', reason: null, reasons: [] }
 }
 
+/** 一個分支的開階依據：現在的數字，加上每一階的條件（共通照 common_gates，其餘是軸的等級）。 */
+function basisOf(k: Ctx, actor: Actor | undefined, branch: Branch, tier: number): BranchBasis {
+  const rules = nightRules(k)
+  const tiers = Array.from({ length: TIER_MAX }, (_, i) => i + 1)
+  if (branch === 'common') {
+    const x = experienceOf(actor)
+    return {
+      kind: 'experience', text: `性經歷：${x.times} 次、和 ${x.partners} 個人有過`, times: x.times, partners: x.partners,
+      tiers: tiers.map((t) => {
+        const [times, partners] = rules.common_gates[t - 1] ?? [0, 0]
+        return { tier: t, need: times === 0 && partners === 0 ? '不限' : `次數 ${times}，或對象 ${partners} 人`, open: tier >= t }
+      }),
+    }
+  }
+  const axis = rules.axis_of[branch]
+  const level = axisLevel(actor, axis)
+  return {
+    kind: 'axis', text: `${AXIS_NAME[axis]}軸 ${level} 級`, axis, axis_name: AXIS_NAME[axis], level,
+    tiers: tiers.map((t) => ({ tier: t, need: `${AXIS_NAME[axis]}軸 ${t} 級`, open: tier >= t })),
+  }
+}
+
 /**
- * 夜課列表：每個分支開到幾階、這個人看得到的每個技能（標籤被內容篩選關掉的、掛在他沒有的標籤上的整個不列）。
+ * 夜課列表：每個分支開到幾階、開階的依據、這個人看得到的每個技能（標籤被內容篩選關掉的、掛在他沒有的標籤上的整個不列）。
  * 技能照內容的順序，分支與階分組。沒有這個角色回傳空的。
  */
 export function nightList(k: Ctx, state: GameState, actor: ActorId): NightListView {
@@ -151,7 +199,8 @@ export function nightList(k: Ctx, state: GameState, actor: ActorId): NightListVi
   return {
     actor, insight,
     branches: BRANCHES.map((branch) => ({
-      branch, name: BRANCH_NAME[branch], tier: tiers[branch],
+      branch, name: BRANCH_NAME[branch], tier: tiers[branch], basis: basisOf(k, a, branch, tiers[branch]),
+      hidden: a ? skillsOf(k).filter((s) => s.branch === branch && hiddenBy(state.rules.contentOff, a, s) === 'tag').length : 0,
       skills: all.filter((s) => s.branch === branch).sort((x, y) => x.tier - y.tier).map((s) => viewOf(k, state, actor, s, tiers, insight)),
     })),
   }

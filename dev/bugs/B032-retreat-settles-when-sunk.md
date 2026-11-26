@@ -6,6 +6,6 @@
   - 進傳教所的那一刻有擋（`therapy.ts` 的 plan：`a.sink >= SUNK_AT` →「你已經不想回去了。」）。
   - 進去之後是活動 retreat，放行 `commit:event.`、戰鬥；這段期間沉溺被推到 102。
   - 時間到了，`retreatSettle`（`report.after`）照樣走 sink 效果 −6：沉溺 102 → 96，溺感者被拉回 100 以下。結算沒有再看一次沉溺是不是已經 100 以上。
-- 重現：`engine/tests/whitebox/fixtures/B032-retreat-settles-when-sunk.json`；會失敗的測試：`engine/tests/pending/B032-retreat-settles-when-sunk.test.ts`（預期 102，實際 96）。
+- 重現：`engine/tests/whitebox/fixtures/B032-retreat-settles-when-sunk.json`；會失敗的測試：`engine/tests/features/B032-retreat-settles-when-sunk.test.ts`（預期 102，實際 96）。
 - 可能的位置（只寫推測，不改）：`features/sink/retreat.ts` 的 `retreatSettle`：結算時 `sink >= SUNK_AT` 就不降（記號照樣拿掉，句子換成「靜修沒用」之類），報告的 `dropped` 是 0。要不要另外寫一句給玩家看，由規格決定。
-- 狀態：待修。
+- 狀態：已修（M4-fix-2，2026-11-26）。`features/sink/retreat.ts` 的 `retreatSettle`：結算時沉溺已經 ≥ 100（`SUNK_AT`）就不降（記號照樣拿掉；報告寫「你已經不想回去了：靜修沒有用」，`dropped` 是 0）。測試：`engine/tests/features/B032-retreat-settles-when-sunk.test.ts`（已從 pending 搬進主套件）。

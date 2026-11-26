@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import type { ContentPack, Feature, Kernel, ReportDraft } from '../../src'
 import { ActionBlocked, deriveRng, effectCtx, productPrice, toMinutes } from '../../src'
 import {
-  DEFAULT_AUCTION_RULES, auctionFeature, auctionOf, auctionRules, catalogOf, catalogView, housesHere, inspectBlock, inspectDraft, inspectOptions, memberOf, refBlock, refDraft, refOptions, sessionOf,
+  DEFAULT_AUCTION_RULES, auctionFeature, auctionOf, auctionRules, catalogOf, catalogView, SESSION_STAGE_NAME, housesHere, inspectBlock, inspectDraft, inspectOptions, memberOf, refBlock, refDraft, refOptions, sessionOf, stageOf,
 } from '../../src/features/auction'
 import { favorsFeature, favorsOf } from '../../src/features/favors'
 import { worldFeature } from '../../src/features/world'
@@ -284,6 +284,44 @@ describe('sessionOf：場次', () => {
     const s = sessionOf(g.k, g.state, 'h_white')!
     expect(s.day).toBe(11)
     expect(now(g)).toBeGreaterThan(s.preview.to)
+  })
+
+  it('stage 與 inspectable（M4-fix-2）：目錄公布之前 upcoming；預展中 preview（可以看貨）；預展結束到開槌 waiting；開槌的時段 open；其餘不能看貨', () => {
+    const g = make()
+    const at = (day: number, hour: number, minute = 0) => { setTime(g, day, hour, minute); return sessionOf(g.k, g.state, 'h_white')! }
+    expect(at(8, 12)).toMatchObject({ day: 11, stage: 'upcoming', inspectable: false })
+    expect(at(10, 7, 59)).toMatchObject({ stage: 'upcoming', inspectable: false })
+    expect(at(10, 8)).toMatchObject({ stage: 'preview', inspectable: true })
+    expect(at(10, 17, 59)).toMatchObject({ stage: 'preview', inspectable: true })
+    expect(at(10, 18)).toMatchObject({ stage: 'waiting', inspectable: false })
+    expect(at(11, 12)).toMatchObject({ stage: 'waiting', inspectable: false })
+    expect(at(11, 19)).toMatchObject({ stage: 'open', inspectable: false })
+    expect(at(11, 22, 59)).toMatchObject({ stage: 'open', inspectable: false })
+    // 開槌時段過了問的是下一場：又回到 upcoming
+    expect(at(11, 23, 30)).toMatchObject({ day: 18, stage: 'upcoming', inspectable: false })
+    // stageOf 是純函式；名字表每一階都有
+    const s = sessionOf(g.k, g.state, 'h_white')!
+    expect(stageOf(s, s.preview.from)).toBe('preview')
+    expect(stageOf(s, s.end)).toBe('ended')
+    expect(Object.keys(SESSION_STAGE_NAME).sort()).toEqual(['ended', 'open', 'preview', 'upcoming', 'waiting'])
+  })
+
+  it('目錄（catalogOf）的 session 只有時間、不帶 stage：同一場什麼時候問都逐欄相同', () => {
+    const g = make()
+    setTime(g, 10, 9)
+    const c = catalogOf(g.k, g.state, 'h_white')!
+    expect(c.session).not.toHaveProperty('stage')
+    expect(c.session).not.toHaveProperty('inspectable')
+  })
+
+  it('預展看貨的條件和 stage 對得上：preview 才看得了貨（inspectOptions 的原因還有人要站在拍賣行裡、一件一次）', () => {
+    const g = make()
+    setTime(g, 10, 9)
+    expect(sessionOf(g.k, g.state, 'h_white')!.inspectable).toBe(true)
+    expect(inspectOptions(g.k, g.state, 'h_white').some((o) => o.can)).toBe(true)
+    setTime(g, 10, 19)
+    expect(sessionOf(g.k, g.state, 'h_white')!.inspectable).toBe(false)
+    expect(inspectOptions(g.k, g.state, 'h_white').every((o) => !o.can)).toBe(true)
   })
 
   it('深夜那一段跨過午夜：午夜之後、清晨 3 點之前還是前一天開的那一場', () => {

@@ -16,7 +16,7 @@ import {
 } from '../../src/features/craft'
 import { characterFeature } from '../../src/features/character'
 import { gearFeature, weaponOf } from '../../src/features/gear'
-import { buyBlock, checkout, planCheckout, quote, sellBlock, shopView, stockOf, tradeFeature } from '../../src/features/trade'
+import { buyBlock, checkout, planCheckout, quote, sellBlock, sellHere, shopView, stockOf, tradeFeature } from '../../src/features/trade'
 import { breathDraft, rentDraft, restFeature } from '../../src/features/rest'
 import { arrive, worldFeature } from '../../src/features/world'
 import { makeActor, makeGame, observed } from '../../src/testkit'
@@ -788,6 +788,42 @@ describe('成品在交易裡買得到、賣得掉', () => {
     g.commit(checkout(g.k, g.state, 's_gun', { sell: [{ item: 'bp_pistol', qty: 1, uid }], pay: 'cred' }))
     expect(g.state.money.cred).toBe(cred + 160)
     expect(product(g)).toBeUndefined()
+  })
+
+  it('sellHere（M4-fix-2）：站在店門口，背包裡這一件成品「在這裡賣得到多少」——照這間店現在的行情與收購比例；不在店門口、這間店不收的是空的；穿著的有原因', () => {
+    const withCounter = pack((c) => {
+      c.shop = [
+        { id: 's_gun', type: 't_gun', name: '槍店的櫃檯', district: 'd_hive', fixed_products: ['bp_pistol'], block: 'b_shops', facility: 'F1' },
+        { id: 's_junk', type: 't_junk', name: '舊貨攤', district: 'd_hive', block: 'b_shops', facility: 'F1' },
+        { id: 's_far', type: 't_gun', name: '別條街的店', district: 'd_hive', block: 'b_shops', facility: 'F4' },
+      ]
+      c.shop_type!.push({ id: 't_junk', name: '舊貨攤', catalog: ['part'], buys: ['part'], grade_max: 3, cash: true, shop_mult: 1, temper: 0 })
+    })
+    const g = make({ pack: withCounter })
+    asSelf(g)
+    g.commit(withDice(NAT10, () => assembleDraft(g.k, g.state, opts())))
+    const uid = product(g)!.data!.uid as string
+    // 不在任何店的門口：空的
+    expect(sellHere(g.k, g.state, 'bp_pistol', uid)).toEqual([])
+    stand(g, 'F1')
+    const rows = sellHere(g.k, g.state, 'bp_pistol', uid)
+    // 同一個設施上兩間店：只有槍店收武器；價錢和 shopView 的收購列、報價是同一個數字
+    expect(rows.map((r) => r.shop)).toEqual(['s_gun'])
+    expect(rows[0]).toMatchObject({ name: '槍店的櫃檯', price: 160, block: null })
+    expect(rows[0]!.price).toBe(quote(g.k, g.state, 's_gun', 'bp_pistol', 'sell', { uid }).price)
+    expect(rows[0]!.price).toBe(sellRow(g, uid)!.price)
+    // 站在另一間（也收武器）的門口：那裡的價錢
+    stand(g, 'F4')
+    expect(sellHere(g.k, g.state, 'bp_pistol', uid).map((r) => r.shop)).toEqual(['s_far'])
+    // 一般的物品也能問（授權書是物品、有定價）：槍店的 buys 不收授權書這一類，所以是空的；店收的零件（帶實例資料的二手零件）舊貨攤有價
+    stand(g, 'F1')
+    expect(sellHere(g.k, g.state, 'it_lic')).toEqual([])
+    g.state.inventory.push({ id: 'pt_barrel', qty: 1, data: { uid: 'u9', state: 'used' } })
+    expect(sellHere(g.k, g.state, 'pt_barrel', 'u9').map((r) => r.shop).sort()).toEqual(['s_gun', 's_junk'])
+    expect(sellHere(g.k, g.state, 'pt_barrel', 'u9').every((r) => r.price > 0)).toBe(true)
+    // 穿在身上的賣不了：原因照 sellBlock，價錢仍然算給畫面寫「脫下來才能賣」
+    pc(g).ext.gear = { worn: {}, acc: {}, carry: { main: uid }, quick: [], coat: 'open' }
+    expect(sellHere(g.k, g.state, 'bp_pistol', uid)[0]!.block).toBeTypeOf('string')
   })
 
   it('精工、帶瑕疵、二手的價錢照核心的係數（精工 ×1.1、瑕疵 ×0.8、二手 ×0.5）；穿戴中的不能賣', () => {

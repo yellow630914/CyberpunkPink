@@ -24,7 +24,7 @@ export const MASTER_PATH = 'netrunner'
 const SYNC_CAP_STAT = 'sync_cap_bonus'
 
 /** 角色裝著的技能（找不到內容的略過；夜課延伸的技能要還算數：標籤被篩選關掉的、不再學會的不在裡面）。 */
-function equippedAbilities(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId): AbilityEntry[] {
+function equippedAbilities(k: Pick<Kernel, 'content' | 'activity'>, state: GameState, actor: ActorId): AbilityEntry[] {
   return liveEquipped(k, state, actor, abilitiesOf(state, actor).equipped).map((id) => abilityEntry(k, id)).filter((a): a is AbilityEntry => !!a)
 }
 
@@ -32,7 +32,7 @@ function equippedAbilities(k: Pick<Kernel, 'content'>, state: GameState, actor: 
  * 這個人現在算數的技能 id（條件 ability 與技能給的衍生數值用）：有自己學習紀錄的（主角）看自己裝著的；沒有紀錄、有 ext.paths 的夥伴，
  * 路數那棵樹階數以內的全部算裝著（和戰鬥裡的算法一樣）。
  */
-export function holdingOf(k: Pick<Kernel, 'content'>, state: GameState, actor: ActorId): { learned: string[]; equipped: string[] } {
+export function holdingOf(k: Pick<Kernel, 'content' | 'activity'>, state: GameState, actor: ActorId): { learned: string[]; equipped: string[] } {
   if (!state.actors[actor]) return { learned: [], equipped: [] }
   if (hasOwnRecord(state, actor)) {
     const mine = abilitiesOf(state, actor)

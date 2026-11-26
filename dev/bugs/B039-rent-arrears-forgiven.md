@@ -7,4 +7,4 @@
 - 對照：義體訂閱的欠款是記在那一件上的 `owed`，要補繳（`payLockDraft`）才解鎖（dev/invariants.md 第 245 條）；房租沒有同樣的欠款記錄，所以兩者的「付清」意思不一樣。
 - 重現：`engine/tests/probe/rest.probe.test.ts`（「7.5 另一局」那一段；`PROBE_OUT=<路徑>` 會把結果寫進紀錄）。
 - 可能的位置（只寫推測，不改）：`engine/src/features/bills/model.ts` 約 369～378 行（沒有欠的那一週把 `arrears` 設成 0）；`engine/src/features/rest/ops.ts` 的 `rentSettled`（只看這一週的 `unpaid`）。
-- 狀態：待決定（規格先定「付清」的意思，再決定要不要改）。
+- 狀態：已修（M4-fix-2，2026-11-26；使用者裁決 2：欠的房租沒補齊時轉成債，房間可以解鎖）。`features/bills/model.ts` 的 `planWeek`：這一週付清了、可是之前累積的欠款（`arrears`）沒補，就併成一筆債（債主與利率照 `bill_rule`，和第 3 週併債同一個做法、敵對值也照加），欠繳歸零、欠款歸零；`rest` 的 `rentSettled` 看到這一週沒欠就解鎖。測試：`engine/tests/features/B039-rent-arrears-to-debt.test.ts`（欠兩週、欠四週、預覽一致）。

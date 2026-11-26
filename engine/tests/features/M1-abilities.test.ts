@@ -4,10 +4,10 @@
 // 整棵樹的資料是另一張工單（dev/work/M1-data-abilities.md）。
 
 import { describe, expect, it } from 'vitest'
-import type { BattleSetup, BattleUnit, ContentPack } from '../../src'
+import type { BattleSetup, BattleUnit, ContentPack, Feature } from '../../src'
 import { END_TURN, MOVE } from '../../src'
-import { TREE_XP, abilitiesFeature, abilitiesOf, capacityOf, equipAbilities, learn, learnBlock, treeTier } from '../../src/features/abilities'
-import { BATTLE_SETUPS, TEST_ACTIONS, TEST_COMBAT, makeBattleGame, makeGame } from '../../src/testkit'
+import { TREE_XP, abilitiesFeature, abilitiesOf, capacityOf, equipAbilities, holdingOf, learn, learnBlock, treeTier } from '../../src/features/abilities'
+import { BATTLE_SETUPS, TEST_ACTIONS, TEST_COMBAT, makeActor, makeBattleGame, makeGame } from '../../src/testkit'
 import { TEST_STATUSES, duel, foe, one } from '../helpers/battle'
 
 const sk = (id: string, name: string, path: string, tier: number, kind: string, cap: number, more: Record<string, unknown>) => ({
@@ -312,3 +312,60 @@ describe('戰鬥裡的技能（SKILL_TREES 槍手、掮客 1～2 階）', () => 
     expect(g.battle!.units.a1!.ext.abilities).toEqual({ equipped: ['sk_fixer_face', 'sk_fixer_focus_fire'], tiers: { fixer: 2 } })
   })
 })
+
+// ---- 橋關著（ActivityDef.bridgeOff；斷線靜修；M4-fix-2，使用者 2026-11-26 裁決 6：期間技能失效、橋的容量是 0） ----
+
+describe('橋關著：技能失效、橋的容量是 0；橋回來就恢復（學會與裝著的紀錄都沒動）', () => {
+  /** 替身的活動：旗標 bridge_off 在就是橋關著（真的靜修的活動在 features/sink，這裡只測 abilities 對「橋關著」的讀法） */
+  const CLOSER: Feature = {
+    id: 'test_bridge_off',
+    install(k) {
+      k.activity.define({
+        kind: 'stub_off', owner: 'test_bridge_off', order: 70, bridgeOff: true,
+        active: (state) => (state.flags.bridge_off === true ? { id: 'stub', label: '橋關著' } : null),
+        allow: [], reason: () => '橋關著。',
+      })
+    },
+  }
+  const setup = () => {
+    const g = makeGame({ features: [abilitiesFeature, TEST_COMBAT, CLOSER], content: [PACK], pc: { ext: { bridge: BRIDGE, abilities: { xp: 200, learned: [], equipped: [], spent: {} } } } }).game
+    g.commit(learn(g.k, g.state, 'pc', 'sk_gunner_instinct'))
+    g.commit(learn(g.k, g.state, 'pc', 'sk_gunner_aimed_shot'))
+    g.commit(equipAbilities(g.k, g.state, 'pc', ['sk_gunner_instinct', 'sk_gunner_aimed_shot']))
+    return g
+  }
+
+  it('橋開著：容量是 8、裝著的技能算數；橋關著：四類容量都是 0、技能一個都不算數（holdingOf 的 equipped 是空的）；橋回來又恢復', () => {
+    const g = setup()
+    expect(g.k.activity.bridgeClosed(g.state)).toBe(false)
+    expect(capacityOf(g.k, g.state, 'pc')).toMatchObject({ meat: { used: 4, max: 8 }, net: { max: 8 }, social: { max: 8 }, media: { max: 8 } })
+    expect(holdingOf(g.k, g.state, 'pc').equipped).toEqual(['sk_gunner_instinct', 'sk_gunner_aimed_shot'])
+    g.state.flags.bridge_off = true
+    expect(g.k.activity.bridgeClosed(g.state)).toBe(true)
+    expect(capacityOf(g.k, g.state, 'pc')).toMatchObject({ meat: { used: 4, max: 0 }, net: { max: 0 }, social: { max: 0 }, media: { max: 0 } })
+    expect(holdingOf(g.k, g.state, 'pc').equipped).toEqual([])
+    // 學會的與裝著的紀錄沒動：橋回來就恢復
+    expect(abilitiesOf(g.state, 'pc').equipped).toEqual(['sk_gunner_instinct', 'sk_gunner_aimed_shot'])
+    delete g.state.flags.bridge_off
+    expect(capacityOf(g.k, g.state, 'pc').meat.max).toBe(8)
+    expect(holdingOf(g.k, g.state, 'pc').equipped).toEqual(['sk_gunner_instinct', 'sk_gunner_aimed_shot'])
+  })
+
+  it('只管主角：夥伴有自己的橋，主角的橋關著時照常', () => {
+    const g = makeGame({
+      features: [abilitiesFeature, TEST_COMBAT, CLOSER], content: [PACK],
+      pc: { ext: { bridge: BRIDGE, abilities: { xp: 0, learned: [], equipped: [], spent: {} } } },
+      actors: [makeActor({ id: 'npc_mate', name: '夥伴', role: 'npc', ext: { bridge: BRIDGE, abilities: { xp: 0, learned: ['sk_gunner_instinct'], equipped: ['sk_gunner_instinct'], spent: {} } } })],
+    }).game
+    g.state.flags.bridge_off = true
+    expect(capacityOf(g.k, g.state, 'pc').meat.max).toBe(0)
+    expect(capacityOf(g.k, g.state, 'npc_mate').meat.max).toBe(8)
+    expect(holdingOf(g.k, g.state, 'npc_mate').equipped).toEqual(['sk_gunner_instinct'])
+  })
+
+  it('沒有活動把橋關著（沒有裝任何標了 bridgeOff 的活動）：bridgeClosed 永遠是 false', () => {
+    const g = makeGame({ features: [abilitiesFeature, TEST_COMBAT], content: [PACK], pc: { ext: { bridge: BRIDGE } } }).game
+    expect(g.k.activity.bridgeClosed(g.state)).toBe(false)
+  })
+})
+

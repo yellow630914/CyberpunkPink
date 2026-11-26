@@ -6,7 +6,7 @@
 // 修好把 off 拿掉；訂閱還欠著錢（lock.owed > 0）的修好之後仍然是鎖住的（不能靠修理繞過補繳）。報告 cyber.repair。
 
 import type { ActorId, Change, CheckRoll, GameState, Kernel, ReportDraft, TimelineBeat } from '../../core'
-import { ActionBlocked, DEGREE_NAME, checkParts, clone, dcFor, rollCheck } from '../../core'
+import { ActionBlocked, DEGREE_NAME, checkParts, checkPassChance, clone, dcFor, rollCheck } from '../../core'
 import { BROKEN_OFF, LOCK_OFF, pieceName, piecePrice, readLock, writePieces } from './lock'
 import type { CyberPiece, SurgeonKind } from './model'
 import { SURGEON_NAME, cyberOf, cyberRules, isSurgeonKind } from './model'
@@ -38,7 +38,7 @@ export interface RepairQuote {
   pay: Pool | null
   minutes: number
   /** 自己修的 DC 與加值 */
-  self?: { by: ActorId; skill: string; dc: number; bonus: number }
+  self?: { by: ActorId; skill: string; dc: number; bonus: number; /** 修好（成功或大成功）的機率，0～1 */ chance: number }
 }
 
 interface RepairPlan {
@@ -83,7 +83,9 @@ function planRepair(k: Kernel, state: GameState, o: RepairOpts): RepairPlan {
   const quote: RepairQuote = { uid: o.uid, bp: piece.bp, name, via: o.via, price, fee, pay: payPool(state.money, fee, o.pay), minutes: rules.surgery_minutes }
   if (o.via === 'self' && state.actors[by]) {
     const parts = checkParts(k.stats, state, by, { attr: SELF_ATTR, skill: rules.self_skill, tags: ['repair'] })
-    quote.self = { by, skill: rules.self_skill, dc: dcFor(rules.repair_dc, state.rules), bonus: parts.reduce((s, p) => s + p.value, 0) }
+    const bonus = parts.reduce((s, p) => s + p.value, 0)
+    const dc = dcFor(rules.repair_dc, state.rules)
+    quote.self = { by, skill: rules.self_skill, dc, bonus, chance: checkPassChance(bonus, dc) }
   }
   return { problems, quote, piece }
 }

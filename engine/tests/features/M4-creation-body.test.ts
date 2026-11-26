@@ -631,6 +631,47 @@ describe('出身的建議組合（origin.suggested；suggestedKit）', () => {
     expect(gearStepBlock(g.k, g.state, d)).toBeNull()
   })
 
+  // M4-fix-2：草稿還沒選橋、建議也沒寫橋時，第 6 步一定有「要選一座橋，或選沒有橋」這一條，和建議的東西無關：以前這條讓裝備與義體被裁得一件都不剩
+  describe('草稿還沒選橋、建議沒寫橋：不把裝備與義體全裁掉（M4-fix-2）', () => {
+    const NOBRIDGE = (suggested: Rec): ContentPack => ({ id: 'nobridge_origin', content: { origin: [{ ...(PACK.content as Rec).origin[1], id: 'drifter', name: '流浪', suggested }] } } as unknown as ContentPack)
+    const kitOf = (suggested: Rec, d: Partial<CreationDraft> = {}) => {
+      const g = setup(ALL, [NOBRIDGE(suggested)])
+      return { g, kit: suggestedKit(g.k, g.state, draft({ origin: 'drifter', originChoice: { favor: 'lonestar' }, ...d })) }
+    }
+
+    it('沒選橋、建議沒寫橋：義體與裝備原樣留著，沒有裁掉任何一件；選橋的那一條照樣在（那是玩家要做的事，不是這份建議的錯）', () => {
+      const { g, kit } = kitOf({ cyber: [{ blueprint: 'bp_eye' }], gear: [{ id: 'it_jacket' }, { id: 'it_gel', qty: 2 }] })
+      expect(kit).toMatchObject({ has: true, bridge: undefined, trimmed: [] })
+      expect(kit.cyber).toEqual([{ blueprint: 'bp_eye' }])
+      expect(kit.gear).toEqual([{ id: 'it_jacket' }, { id: 'it_gel', qty: 2 }])
+      const d = draft({ origin: 'drifter', originChoice: { favor: 'lonestar' }, cyber: kit.cyber, gear: kit.gear })
+      expect(cyberStepBlock(g.k, g.state, d)?.reason).toBe('要選一座橋，或選「沒有橋」。')
+      expect(gearStepBlock(g.k, g.state, d)).toBeNull()
+    })
+
+    it('真的超過點數的照樣裁（先裁裝備、再裁義體）：裝備點數只有 12，放不下的從後面裁，留下的第 9 步不擋', () => {
+      const { g, kit } = kitOf({ gear: [{ id: 'it_jacket' }, { id: 'bp_vest' }, { id: 'it_gel', qty: 3 }, { id: 'bp_rifle2' }, { id: 'bp_rifle2' }, { id: 'bp_rifle2' }] })
+      expect(kit.trimmed.length).toBeGreaterThan(0)
+      expect(kit.gear.length).toBeGreaterThan(0)
+      expect(kit.gear.length).toBeLessThan(6)
+      const d = draft({ origin: 'drifter', originChoice: { favor: 'lonestar' }, gear: kit.gear })
+      expect(gearStepBlock(g.k, g.state, d)).toBeNull()
+    })
+
+    it('要接在橋上的裝備（甲板）沒橋的時候照樣被擋：只有它被裁，同組的別的裝備留著', () => {
+      const { kit } = kitOf({ gear: [{ id: 'it_jacket' }, { id: 'bp_deck' }] })
+      expect(kit.trimmed).toContain('bp_deck')
+      expect(kit.gear.map((x) => x.id)).toContain('it_jacket')
+    })
+
+    it('草稿已經選了橋：不受影響，和以前一樣', () => {
+      const { kit } = kitOf({ cyber: [{ blueprint: 'bp_eye' }], gear: [{ id: 'it_jacket' }] }, { bridge: 'bp_bridge_a' })
+      expect(kit.trimmed).toEqual([])
+      expect(kit.cyber).toEqual([{ blueprint: 'bp_eye' }])
+      expect(kit.gear).toEqual([{ id: 'it_jacket' }])
+    })
+  })
+
   it('suggested 的格式不對在載入時擋下', () => {
     for (const bad of [{ bridge: 7 }, { cyber: 'x' }, { cyber: [{ blueprint: 'bp_eye', side: 'up' }] }, { gear: [{ id: 'it_gel', qty: 0 }] }, 'x']) {
       const pack = { id: 'bad_suggested', content: { origin: [{ ...(PACK.content as Rec).origin[0], id: 'bad', suggested: bad }] } } as unknown as ContentPack

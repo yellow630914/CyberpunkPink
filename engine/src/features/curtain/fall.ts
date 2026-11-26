@@ -342,6 +342,11 @@ export function settleBlock(k: Kernel, state: GameState, how: HowSettle): string
     if (cur.gig && nowOf(state) < cur.gig.until) return '你已經簽著檔期了，先把它做完。'
     return null
   }
+  // 記帳：欠款加上這一筆不能超過上限（保證金的 cap_mult 倍；CYBERSPACE 8.8 節；使用者 2026-11-26，B042）：超過這一條路就灰掉，只剩付清與簽檔期
+  const cap = currentTabCap(rules, cur)
+  const owed = cur.tab?.owed ?? 0
+  const fine = fineOf(rules, fall.deposit)
+  if (cap > 0 && owed + fine > cap) return `記帳會超過欠款的上限（${money(cap)}）：你已經欠 ${money(owed)}，再記 ${money(fine)} 就是 ${money(owed + fine)}。只能付清，或簽檔期。`
   return null
 }
 
@@ -398,6 +403,12 @@ export function settleDraft(k: Kernel, state: GameState, o: { how: HowSettle }):
 /** 欠款的上限：席次的保證金 × cap_mult。 */
 export const tabCap = (rules: Pick<CurtainRules, 'fall'>, tier: Pick<TierDef, 'deposit'>): number => Math.round(tier.deposit * rules.fall.tab.cap_mult)
 
+/** 現在的欠款上限：看會員的席次，沒有會員看落幕那一筆的席次；查不到席次是 0（沒有上限可比）。accountView 與記帳的擋下用同一個。 */
+function currentTabCap(rules: CurtainRules, c: Pick<ReturnType<typeof readCurtain>, 'member' | 'fall'>): number {
+  const tier = rules.tiers.find((t) => t.id === (c.member?.tier ?? c.fall?.tier))
+  return tier ? tabCap(rules, tier) : 0
+}
+
 /** 每週帳單裡記帳的利息那一行（掛點 bill.collect）；沒有欠款沒有。 */
 export function tabLine(k: Kernel, state: GameState, id: string, owner: string, order: number): { id: string; owner: string; name: string; kind: 'due'; amount: number; order: number; pay: 'either' } | null {
   const tab = readCurtain(state).tab
@@ -422,9 +433,8 @@ export interface AccountView {
 export function accountView(k: Kernel, state: GameState): AccountView {
   const c = readCurtain(state)
   const rules = curtainRules(k)
-  const tier = rules.tiers.find((t) => t.id === (c.member?.tier ?? c.fall?.tier))
   return {
-    tab: c.tab ? { owed: c.tab.owed, cap: tier ? tabCap(rules, tier) : 0, weekly: tabLine(k, state, TAB_BILL_ID, 'curtain', 0)?.amount ?? 0 } : null,
+    tab: c.tab ? { owed: c.tab.owed, cap: currentTabCap(rules, c), weekly: tabLine(k, state, TAB_BILL_ID, 'curtain', 0)?.amount ?? 0 } : null,
     gig: c.gig ? { until: c.gig.until, missed: c.gig.missed } : null,
     tapes: c.tapes.map((t) => ({ id: t.id, leaked: t.leaked, price: t.price, bought: t.bought === true })),
   }
@@ -501,7 +511,6 @@ export function fallView(k: Kernel, state: GameState): FallView | null {
   const fall = cur.fall
   if (!fall) return null
   const rules = curtainRules(k)
-  const tier = tierOf(rules, fall.tier)
   const start = replayBlock(k, state)
   const off = callOffBlock(k, state)
   return {
@@ -509,7 +518,7 @@ export function fallView(k: Kernel, state: GameState): FallView | null {
     fine: fineOf(rules, fall.deposit), called_off: fall.called_off === true,
     replay: { can_start: start === null, start_block: start, can_call_off: off === null, call_off_block: off, started: fall.started === true },
     replayed: fall.replayed ? clone(fall.replayed) : null, paths: fall.stage === 'choose' ? pathsOf(k, state) : [],
-    tab: cur.tab ? { owed: cur.tab.owed, cap: tier ? tabCap(rules, tier) : 0, weekly: Math.round(cur.tab.owed * rules.fall.tab.weekly) } : null,
+    tab: cur.tab ? { owed: cur.tab.owed, cap: currentTabCap(rules, cur), weekly: Math.round(cur.tab.owed * rules.fall.tab.weekly) } : null,
     gig: cur.gig ? { until: cur.gig.until, shows: { ...cur.gig.shows }, missed: cur.gig.missed } : null,
     tapes: cur.tapes.map((t) => ({ id: t.id, leaked: t.leaked, price: t.price, bought: t.bought === true })),
   }

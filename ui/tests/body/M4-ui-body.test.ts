@@ -238,10 +238,12 @@ describe('診所：報價與擋住的原因', () => {
     expect(q.self).toBeTruthy()
     const h = clean(await render(pinia, ClinicDialog, { entryId: 1, tab: 'install', pick: 'U_EYE', via: 'self' }))
     expect(text(h)).toContain(`DC ${q.self!.dc}`)
-    // 成功率是引擎的報價給的 chance；目前報價沒有給，畫面就不寫百分比（不自己擲骰算）
-    expect(text(h)).not.toContain('成功率')
+    // 成功率是引擎的報價給的 chance（M4-fix-2 起自己動刀的報價帶 chance：0～1）；畫面照寫百分比，不自己擲骰算
+    expect(q.self!.chance).toBeGreaterThan(0)
+    expect(q.self!.chance).toBeLessThanOrEqual(1)
+    expect(text(h)).toContain(`成功率 ${Math.round(q.self!.chance * 100)}%`)
     expect(chanceText({ chance: 0.85 })).toBe('・成功率 85%')
-    expect(chanceText(q.self!)).toBe('')
+    expect(chanceText(q.self!)).toBe(`・成功率 ${Math.round(q.self!.chance * 100)}%`)
   })
 
   it('錢不夠時按鈕灰掉，原因和引擎逐字相同', async () => {
@@ -301,7 +303,9 @@ describe('診所：報價與擋住的原因', () => {
     expect(lk).toHaveLength(1)
     const q = e.body.crackQuote(lk[0]!.uid)!
     expect(q.dc).toBeGreaterThan(0)
-    expect(chanceText(q)).toBe('')
+    // 破解的報價帶 chance（M4-fix-2）
+    expect(q.chance).toBeGreaterThan(0)
+    expect(chanceText(q)).toBe(`・成功率 ${Math.round(q.chance * 100)}%`)
   })
 })
 

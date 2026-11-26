@@ -3,6 +3,7 @@
 // 格式錯誤一律擋下：欄位不對、id 重複、引用不存在的東西（GAME_DESIGN 第 3 節第 13 條）。
 // 覆蓋（模組、世界包）照「快照 → 還原 → 套用」：每次都從乾淨的基底重新套，不會越疊越髒。
 
+import { MIN_AGE, underageAt } from '../util/age'
 import { isId, isRecord } from '../util/sanitize'
 import { clone } from '../util/clone'
 
@@ -95,6 +96,9 @@ export class ContentRegistry {
       if (seen.has(e.id)) problems.push(`${at}.id：${e.id} 重複`)
       seen.add(e.id)
       for (const p of def.validate(e)) problems.push(`${kind}/${e.id}：${p}`)
+      // 年齡的底線（AI_TASKS 2.5 節；使用者 2026-11-25「一律擋下」）：任何內容種類、任何深度的 age 欄位低於 18 都不收。
+      // 載入、整包匯入、覆蓋都走這裡，不靠哪個功能裝了沒裝（B038）
+      for (const at of underageAt(e)) problems.push(`${kind}/${e.id}：${at} 不能低於 ${MIN_AGE}：所有人物都是成年人`)
     })
     return problems
   }

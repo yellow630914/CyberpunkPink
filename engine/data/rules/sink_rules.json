@@ -103,7 +103,8 @@
             "stat": "afterglow_cap",
             "amount": 2
           }
-        ]
+        ],
+        "double": true
       }
     ],
     "over_step": 25,

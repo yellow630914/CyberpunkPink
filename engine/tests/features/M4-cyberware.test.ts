@@ -789,6 +789,9 @@ describe('資料壞掉、規則表與設施格式', () => {
     give(g, 'bp_arm', ARM_PARTS, 'a1')
     expect(installQuote(g.k, g.state, { actor: 'pc', uid: 'a1', side: 'l', via: 'clinic' })).toMatchObject({ fee: 300, sink: 6, minutes: 30, recovery_minutes: 60 })
     expect(installQuote(g.k, g.state, { actor: 'pc', uid: 'a1', side: 'l', via: 'self' })!.self!.dc).toBe(10)
+    // 自己動刀的報價帶成功率（M4-fix-2）：自然 20 一定過、自然 1 一定不過，其餘看加值有沒有到 DC；其他人動刀沒有 self
+    const self = installQuote(g.k, g.state, { actor: 'pc', uid: 'a1', side: 'l', via: 'self' })!.self!
+    expect(self.chance).toBe([...Array(20).keys()].map((i) => i + 1).filter((n) => n === 20 || (n !== 1 && n + self.bonus >= self.dc)).length / 20)
     g.commit(inst(g, { uid: 'a1', side: 'l' }))
     expect(removeQuote(g.k, g.state, { actor: 'pc', uid: 'a1', via: 'clinic' })!.fee).toBe(300)
     give(g, 'bp_eye', { sensor: 'pt_lens' }, 'e1')

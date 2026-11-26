@@ -140,24 +140,25 @@ describe('分段的得失（來源 sink）', () => {
     }
   }
 
-  it('沉溺 0、25、45、65、85、105、130 的人：定力、承受層數、自己造成的感載各是對的數字（85 的定力是 −4；105 是基礎 +3；130 是 +4）', () => {
+  it('沉溺 0、25、45、65、85、105、130 的人：定力、承受層數、自己造成的感載各是對的數字（85 與 100 以上的定力都是 −4：100 以上照樣加倍；承受層數不加倍，105 是基礎 +3、130 是 +4）', () => {
     expect(at(0)).toMatchObject({ composure: 0, cap: 0, dealt: 0 })
     expect(at(25)).toMatchObject({ composure: 0, cap: 0, dealt: 0 })
     expect(at(45)).toMatchObject({ composure: -1, cap: 1, dealt: 10 })
     expect(at(65)).toMatchObject({ composure: -2, cap: 1, dealt: 10 })
     expect(at(85)).toMatchObject({ composure: -4, cap: 1, dealt: 10 })
-    expect(at(105)).toMatchObject({ composure: -2, cap: 3, dealt: 10 })
-    expect(at(130)).toMatchObject({ composure: -2, cap: 4, dealt: 10 })
+    expect(at(105)).toMatchObject({ composure: -4, cap: 3, dealt: 10 })
+    expect(at(130)).toMatchObject({ composure: -4, cap: 4, dealt: 10 })
   })
 
-  it('每一段都往上累加；帶標籤的檢定：感知 +1、抵抗誘惑 −1、抵抗控制 −2；80～99 檢定類的加減再算一次', () => {
+  it('每一段都往上累加；帶標籤的檢定：感知 +1、抵抗誘惑 −1、抵抗控制 −2；80～99 與 100 以上檢定類的加減再算一次', () => {
     expect(at(10)).toMatchObject({ perception: 0, lure: 0, control: 0 })
     expect(at(25)).toMatchObject({ perception: 1, lure: -1, control: 0 })
     expect(at(45)).toMatchObject({ perception: 1, lure: -1, control: 0 })
     expect(at(65)).toMatchObject({ perception: 1, lure: -1, control: -2 })
     expect(at(85)).toMatchObject({ perception: 2, lure: -2, control: -4 })
-    // 80～99 以外不加倍（P18：檢定的加減只在這一段加倍；承受層數與同步上限的加成不加倍）
-    expect(at(105)).toMatchObject({ perception: 1, lure: -1, control: -2 })
+    // 100 以上照樣加倍，和 80～99 一致（CORE_RULES 4.3 節；使用者 2026-11-26）；承受層數與同步上限的加成不加倍（P18）
+    expect(at(105)).toMatchObject({ perception: 2, lure: -2, control: -4 })
+    expect(at(130)).toMatchObject({ perception: 2, lure: -2, control: -4 })
   })
 
   it('被動效果的來源標著 sink；畫面列得失用 k.passives.of，名字是分段的名字', () => {
@@ -460,6 +461,9 @@ describe('治療：心理治療與斷線靜修', () => {
     expect(g.state.money).toMatchObject({ cred: 20000, cash: 1000 })
     expect(retreatOf(g.state)).toEqual({ facility: '傳教所', since: before, until: before + 3 * 1440, amount: 6, from: 30 })
     expect(g.k.activity.active(g.state).map((a) => a.kind)).toEqual(['retreat'])
+    // 橋關著（ActivityDef.bridgeOff）：技能失效、橋的容量是 0——讀的功能問 k.activity.bridgeClosed，不必知道是哪一種活動（M4-fix-2；使用者 2026-11-26 裁決 6）
+    expect(g.k.activity.get('retreat')!.bridgeOff).toBe(true)
+    expect(g.k.activity.bridgeClosed(g.state)).toBe(true)
     expect(retreatView(g.state)).toMatchObject({ facility: '傳教所', days_left: 3, minutes_left: 3 * 1440, amount: 6, from: 30, step: 1440 })
   })
 
@@ -490,6 +494,7 @@ describe('治療：心理治療與斷線靜修', () => {
     expect(pc(g).sink).toBe(30)
     const done = g.commit(retreatStayDraft(g.k, g.state))
     expect(done.map((r) => r.outcome.result)).toEqual(['last_day', 'done'])
+    expect(g.k.activity.bridgeClosed(g.state)).toBe(false)
     expect(toMinutes(g.state.time) - start).toBe(3 * 1440)
     expect(pc(g).sink).toBe(24)
     expect(retreatOf(g.state)).toBeNull()
@@ -511,6 +516,7 @@ describe('治療：心理治療與斷線靜修', () => {
     g.commit(retreatStayDraft(g.k, g.state))
     const [r] = g.commit(retreatLeaveDraft(g.k, g.state))
     expect(r!.outcome.result).toBe('left')
+    expect(g.k.activity.bridgeClosed(g.state)).toBe(false)
     expect(pc(g).sink).toBe(30)
     expect(toMinutes(g.state.time) - start).toBe(1440)
     expect(retreatOf(g.state)).toBeNull()
@@ -829,14 +835,14 @@ describe('其餘', () => {
   })
 })
 
-describe('M4-core-gaps 第 8 項：80～99 給核心的標籤 afterglow_double（餘韻的正面效果加倍）', () => {
+describe('M4-core-gaps 第 8 項：80 以上給核心的標籤 afterglow_double（餘韻的正面效果加倍；100 以上照樣，使用者 2026-11-26）', () => {
   const tagged = (sink: number): boolean => {
     const g = make({ pc: { sink } })
     return g.k.passives.unitTags(g.state, 'pc').includes('afterglow_double')
   }
 
-  it('沉溺 80、99 有；79、100、130 沒有（80～99 才加倍，溺感者不是）', () => {
-    expect([79, 80, 99, 100, 130].map(tagged)).toEqual([false, true, true, false, false])
+  it('沉溺 80、99、100、130 都有；79 沒有（100 以上照樣加倍，和 80～99 一致）', () => {
+    expect([79, 80, 99, 100, 130].map(tagged)).toEqual([false, true, true, true, true])
   })
 
   it('標籤來自 sink 這個來源（畫面看得到「溺感邊緣：餘韻的正面效果加倍」）', () => {

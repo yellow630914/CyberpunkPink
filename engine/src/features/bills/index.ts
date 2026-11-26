@@ -23,7 +23,7 @@
 // 帳戶被凍結、洗錢補差額、債的還款。
 
 import type { Change, Condition, Effect, EffectCtx, EffectStepCtx, Feature, GameState, Kernel } from '../../core'
-import { clone, formatAmount, isSafeInt, moneyCap, toMinutes } from '../../core'
+import { clone, effectLevel, formatAmount, isSafeInt, moneyCap, toMinutes } from '../../core'
 import type { Debt, ExtraItem, PayWith, Pool } from './model'
 import { EXT, OWNER, PAY_WITH, RULE_KIND, billRules, currentLines, debtPayOf, isText, readBills, ruleProblems } from './model'
 import { weeklyDrafts } from './settle'
@@ -104,7 +104,7 @@ export const billsFeature: Feature = {
     // ---- 效果 ----
     k.effects.register<BillEffect>({
       kind: 'bill', owner: OWNER,
-      validate(raw) {
+      validate(raw, ctx: EffectCtx) {
         const p: string[] = []
         if (!isSafeInt(raw.amount)) p.push('amount 要是整數')
         if (raw.item !== undefined) {
@@ -116,6 +116,8 @@ export const billsFeature: Feature = {
         if (isSafeInt(raw.amount) && raw.amount <= 0) p.push('新的項目的 amount 要大於 0')
         if (!(isSafeInt(raw.weeks) && raw.weeks >= 1 && raw.weeks <= 520)) p.push('新的項目的 weeks 要是 1～520 的整數')
         if (!(PAY_WITH as readonly unknown[]).includes(raw.pay)) p.push('新的項目的 pay 只能是 cred、cash 或 either')
+        // 格式的底線（B037）：金額乘週數也要是安全整數，不然之後累進欠款會溢位。AI 與開著時玩家要的那條路由 budget 把金額縮成上限，所以不在這裡擋
+        if (isSafeInt(raw.amount) && isSafeInt(raw.weeks) && !Number.isSafeInteger(raw.amount * raw.weeks) && effectLevel({ ...raw, kind: 'bill' }, ctx) !== 'cap') p.push('新的項目的 amount 乘上 weeks 太大了，要是安全整數')
         return p
       },
       // AI 與設定開著時玩家要的新項目（EVENTS 2.4 節沒寫上限，照 cred 那一格：dev/adr/0017 第 17 項）：一件事裡新項目的總額（每週的金額 × 週數）合計
@@ -123,17 +125,21 @@ export const billsFeature: Feature = {
       budget(e, ctx) {
         if (e.item !== undefined || ctx.level !== 'cap') return null
         const cap = moneyCap({ content: ctx.content, grade: ctx.repGrade ?? 1 })
+        // 金額乘週數可能大到不是安全整數（B037）：合計照最大的安全整數算，縮減才不失真
+        const total = e.amount * (e.weeks ?? 1)
         return {
-          group: 'bill_new', amount: e.amount * (e.weeks ?? 1), min: -Infinity, max: cap,
+          group: 'bill_new', amount: Number.isSafeInteger(total) ? total : Number.MAX_SAFE_INTEGER, min: -Infinity, max: cap,
           resize: (to) => (to < e.amount ? { ...e, amount: to, weeks: 1 } : { ...e, weeks: Math.floor(to / e.amount) }),
           notice: (to) => (to === 0 ? `新的帳單項目一次最多加起來 ${formatAmount(cap)}（每週的金額乘上週數），這一筆沒有算。` : `新的帳單項目一次最多加起來 ${formatAmount(cap)}（每週的金額乘上週數），這一筆縮短了。`),
         }
       },
-      // 加減不超過那一項金額的一半（連同這一週已經加減的合計）；這一週沒有那一項整筆拿掉
+      // 這一週沒有那一項整筆拿掉（引用的 id 要存在，四條路都一樣）；
+      // 加減不超過那一項金額的一半（連同這一週已經加減的合計）只管 AI 與開著時玩家要的（ctx.level 是 cap）：內建的與關著且 asked 對得上的照寫的算（B034）
       clamp(e, ctx: EffectStepCtx) {
         if (e.item === undefined) return { effect: e }
         const line = currentLines(k, ctx.state).find((l) => l.id === e.item && l.kind === 'due')
         if (!line) return { effect: null, note: { from: e.amount, to: 0, notice: `這一週沒有「${e.item}」這一項帳單，沒有算。` } }
+        if (ctx.level !== 'cap') return { effect: e }
         const half = Math.floor(line.raw * billRules(k).tweak_ratio)
         const current = readBills(ctx.state).tweaks[e.item] ?? 0
         const target = Math.max(-half, Math.min(half, current + e.amount))
@@ -155,12 +161,15 @@ export const billsFeature: Feature = {
     k.effects.register<GraceEffect>({
       kind: 'grace', owner: OWNER,
       validate: (raw) => [...(isText(raw.item) ? [] : ['item 要是帳單項目的 id']), ...(isSafeInt(raw.days) && raw.days >= 1 ? [] : ['days 要是大於 0 的整數'])],
-      clamp(e) {
+      // 這一週沒有那一項整筆拿掉（B035，四條路都一樣）；寬限最多幾天只管 AI 與開著時玩家要的（ctx.level 是 cap；B034）
+      clamp(e, ctx: EffectStepCtx) {
+        if (!currentLines(k, ctx.state).some((l) => l.id === e.item && l.kind === 'due')) return { effect: null, note: { from: e.days, to: 0, notice: `這一週沒有「${e.item}」這一項帳單，沒有算。` } }
+        if (ctx.level !== 'cap') return { effect: e }
         const max = billRules(k).grace_max_days
         return e.days > max ? { effect: { ...e, days: max }, note: { from: e.days, to: max, limit: max, notice: `寬限最多 ${max} 天。` } } : { effect: e }
       },
       toChanges: (e, ctx) => [{ op: 'bills.grace', item: e.item, until: toMinutes(ctx.state.time) + e.days * 1440 }],
-      describe: (e) => `帳單：${e.item} 寬限 ${e.days} 天`,
+      describe: (e, ctx) => `帳單：${currentLines(k, ctx.state).find((l) => l.id === e.item)?.name ?? e.item} 寬限 ${e.days} 天`,
     })
 
     // debt 是併債與事件資料用的內部效果，不在 EVENTS 2.4 的清單裡：AI 與玩家要的結果不能用（ai: false）

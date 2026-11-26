@@ -6,7 +6,7 @@
 // aided 在對象再受傷（生命往下）的時候由 index.ts 的 report.after 拿掉。骰子一律用 deriveRng（用途帶對象）：重新讀檔重擲、結果不變。
 
 import type { ActorId, Change, CheckRoll, ContentEntry, GameState, Kernel, ReportDraft, RollPart, TimelineBeat } from '../../core'
-import { ActionBlocked, DEGREE_NAME, checkParts, dcFor, deriveRng, formatDuration, rollCheck, roll as rollDice } from '../../core'
+import { ActionBlocked, DEGREE_NAME, checkParts, checkPassChance, dcFor, deriveRng, formatDuration, rollCheck, roll as rollDice } from '../../core'
 import { outOfBattleBlock, reportOf } from './common'
 import { AIDED, AID_ATTR, AID_SKILL, TREATED, maxHpOf, medicalRules, nameOf, nowOf, hasCond } from './model'
 
@@ -28,6 +28,8 @@ export interface AidQuote {
   dc: number
   /** 擲骰面以外的加值合計（屬性、醫療、醫療包、別的修正） */
   bonus: number
+  /** 急救成功（成功或大成功）的機率，0～1 */
+  chance: number
   /** 每一筆加值（畫面列「這個數字是哪些加起來的」） */
   parts: RollPart[]
   /** 用到的醫療包是哪一種物品；沒有是 null */
@@ -68,8 +70,10 @@ function planAid(k: Kernel, state: GameState, o: AidOpts): AidPlan {
   const kit = kitIn(k, state, rules.aid.kit_tag)
   const situation: RollPart[] = kit && rules.aid.kit_bonus !== 0 ? [{ label: KIT_LABEL, value: rules.aid.kit_bonus, source: 'situation' }] : []
   const parts = checkParts(k.stats, state, o.by, { attr: AID_ATTR, skill: AID_SKILL, tags: ['medical', 'first_aid'], target: o.target }, situation).filter((p) => p.value !== 0)
+  const bonus = parts.reduce((s, p) => s + p.value, 0)
+  const dc = dcFor(rules.aid.dc, state.rules)
   const quote: AidQuote = {
-    by: o.by, target: o.target, minutes: rules.aid.minutes, dc: dcFor(rules.aid.dc, state.rules), parts, bonus: parts.reduce((s, p) => s + p.value, 0), kit,
+    by: o.by, target: o.target, minutes: rules.aid.minutes, dc, parts, bonus, chance: checkPassChance(bonus, dc), kit,
     medicine: state.actors[o.by]!.skills[AID_SKILL] ?? 0,
   }
   return { problems, quote }

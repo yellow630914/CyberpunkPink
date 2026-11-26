@@ -7,7 +7,7 @@ import type { BargainView } from './bargain'
 import { bargainView, temperOf } from './bargain'
 import { buyBlock, payBlock, sellBlock, sellPrices, shopBlock } from './checkout'
 import {
-  PAYS, categoryName, decayMult, discountOf, goodsOf, hostilityMarkup, hostilityOf, intakeCount, isCargo, itemOf, marketMult, marketOf, matches, plainCount, priced, quote, shopEntry, shopTypeOf, stockOf,
+  PAYS, categoryName, decayMult, discountOf, goodsOf, hostilityMarkup, hostilityOf, intakeCount, isCargo, itemOf, marketMult, marketOf, matches, plainCount, priced, quote, shopEntry, shopTypeOf, shopsAt, stockOf,
   tradeCategoryOf, tradeRules, wornCount,
 } from './model'
 
@@ -151,4 +151,34 @@ export function shopView(k: Kernel, state: GameState, shop: string | ShopEntry):
     markup: hostilityMarkup(rules, hostility),
     shelf, sell,
   }
+}
+
+/** 腳下的設施上、這一間店收這一件的價錢。 */
+export interface SellHere {
+  shop: string
+  name: string
+  /** 賣掉第一件拿到多少（照這間店現在的行情、收購遞減與折扣；拆解在 quote） */
+  price: number
+  quote: Quote
+  /** 現在賣不成的原因（整間店不做生意、穿在身上……）；賣得成是 null */
+  block: string | null
+}
+
+/**
+ * 背包裡這一件東西（組裝的成品、零件要給 uid）站在這裡（腳下的設施）能賣多少：腳下設施上對得到的每一間會收這一類東西的店各一列，價錢高的在前。
+ * 腳下沒有店、沒有一間店收這一類（全生體的成品、這種店不收的類別）是空的。畫面在製作與背包的成品旁邊寫「賣給這裡：C$…」用它（M4-fix-2）。
+ */
+export function sellHere(k: Kernel, state: GameState, item: string, uid?: string): SellHere[] {
+  const { block, facility } = state.location
+  if (!facility) return []
+  const it = goodsOf(k, state, item, 'sell', uid)
+  if (!priced(it) || it.no_sell === true) return []
+  const out: SellHere[] = []
+  for (const shop of shopsAt(k, block, facility)) {
+    const type = shopTypeOf(k, shop)
+    if (!type || !matches(it, type.buys)) continue
+    const q = quote(k, state, shop, item, 'sell', uid !== undefined ? { uid } : {})
+    out.push({ shop: shop.id, name: shop.name, price: q.price, quote: q, block: sellBlock(k, state, shop, item, 1, uid) })
+  }
+  return out.sort((a, b) => b.price - a.price)
 }

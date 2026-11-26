@@ -85,6 +85,7 @@ export {
   REPLAY_ACTION as CURTAIN_REPLAY_ACTION, REST_ACTION as CURTAIN_REST_ACTION, SETTLE_ACTION as CURTAIN_SETTLE_ACTION, TAB_BILL_ID as CURTAIN_TAB_BILL_ID, TAPE_ACTION as CURTAIN_TAPE_ACTION,
   RESULT_ACTION as CURTAIN_RESULT_ACTION, STAGE_ACTION as CURTAIN_STAGE_ACTION, STUBS as CURTAIN_STUBS, TABLE_KIND as CURTAIN_TABLE_KIND, USE_ACTION as CURTAIN_USE_ACTION, tableProblems as curtainTableProblems,
 } from './model'
+export { INTERVIEW_SKILLS } from './model'
 export type {
   ActDef, CurtainRules, CurtainState, CurtainTable, EncoreRec, FallRecord, FallRules, GigRecord, MemberRecord, NightEntry, OfferRec, OrderKind, OrderRec, PendingRec, RunRecord, SettleResult, TableRow, TabRecord, TapeRecord, TierDef, TierId, WeekRecord,
 } from './model'

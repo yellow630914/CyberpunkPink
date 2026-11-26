@@ -1,7 +1,7 @@
 // 驗收測試：M4 收尾修正批・拍賣（dev/work/M4-fix-engine.md；dev/reviews/2026-11-26-M4.md 必修 2；使用者 2026-11-26 裁決 5、9）。
 //   交不出去    標到的契約（與機密的效果）交不出去：不收錢，改由出價第二高的 NPC 得標（沒有就流標），結果「這一件撤拍」；目錄抽籤先排除；ready 時驗拍品的 contract、effects 格式
 //   once        once 的拍品被 NPC 買走也記進 sold
-//   自動跟價    bidDraft 收 { auto: { max } }，一次推進到這一件落槌或退出
+//   自動跟價    bidDraft 收 { auto: { max } }，一回合一份報告（M4-fix-2 改成可以中途取消：auto_next、auto_off）
 //   放行        進行中只放行 auction.bid、auction.leave、auction.close
 //   型別與回顧  AuctionOutcome（不用轉型）、auctionSummary
 // 契約用真的 contractFeature（不是假效果：審查指出原本的測試換了一個 validate: () => [] 的假貨，所以抓不到「已經持有」與「debt 沒寫」兩種落空）。
@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest'
 import type { ContentPack, Feature, Kernel, ReportDraft } from '../../src'
 import { ActionBlocked, ContentError, effectCtx } from '../../src'
 import {
-  auctionFeature, auctionOf, auctionOutcome, auctionRunOf, auctionSummary, autoChoice, bidDraft, bidOptions, catalogOf, enterDraft, undeliverable,
+  auctionFeature, auctionOf, auctionOutcome, auctionRunOf, auctionSummary, auctionView, autoChoice, bidDraft, bidOptions, catalogOf, enterDraft, undeliverable,
 } from '../../src/features/auction'
 import type { Run } from '../../src/features/auction'
 import { auctionRules, leaveDraft } from '../../src/features/auction'
@@ -241,45 +241,113 @@ describe('載入時驗拍品的 contract、effects 格式', () => {
 })
 
 // ===================================================================================================================
-describe('自動跟價（bidDraft 收 { auto: { max } }）', () => {
+// 自動跟價（LEWD_SYSTEM 6.2 節第 6 點；使用者 2026-11-26「中途隨時可以取消，改回手動」）：一份報告一個回合，和手動一樣；上限記在這一件上（LotRun.auto）。
+//   { auto: { max } } 設上限並走這一回合；{ act: 'auto_next' } 照上限再走一回合；{ act: 'auto_off' } 取消；手動的一手、落槌、退出之後上限自動拿掉。
+describe('自動跟價（bidDraft 收 { auto: { max } }；一回合一份報告，可以隨時取消）', () => {
   const rules = auctionRules
+  /** 設上限、一直 auto_next 到這一件（第 0 件）落槌或玩家退出；回傳每一份報告的 outcome */
+  function autoToEnd(g: G, max: number): Array<NonNullable<ReturnType<typeof auctionOutcome>>> {
+    const out: Array<NonNullable<ReturnType<typeof auctionOutcome>>> = []
+    const [first] = g.commit(bidDraft(g.k, g.state, { auto: { max } }))
+    out.push(auctionOutcome(first!)!)
+    for (let guard = 0; guard < 50 && run(g).at === 0 && run(g).lots[0]!.auto !== undefined; guard++) {
+      const [r] = g.commit(bidDraft(g.k, g.state, { act: 'auto_next' }))
+      out.push(auctionOutcome(r!)!)
+    }
+    return out
+  }
+  const chase = (): G => scene([{ kind: 'part', price: 1000 }, { kind: 'part', name: '第二件' }], [bidder('a', { mult: 1.2, interests: ['part'] })], { mod: (c) => { c.auction_rule = [{ id: 'default', interest: { yes: 1, no: 1, after_raise: 0 } }] } })
 
-  it('別人加價就跟一階、超過上限就退出這一件：一次推進到這一件落槌；規則和手動一樣（回合、付錢、佣金）', () => {
+  it('別人加價就跟一階、超過上限就退出這一件：一回合一份報告、一路走到這一件落槌；規則和手動一樣（回合、付錢、佣金）', () => {
     // 競標者 a 每回合加一階直到預算（mult 1.2 × 市價 2000 = 2400）；玩家上限 1700 → 跟到 1700 為止，再下一階 1800 超過就退出
-    const g = scene([{ kind: 'part', price: 1000 }, { kind: 'part', name: '第二件' }], [bidder('a', { mult: 1.2, interests: ['part'] })], { mod: (c) => { c.auction_rule = [{ id: 'default', interest: { yes: 1, no: 1, after_raise: 0 } }] } })
+    const g = chase()
     const cash0 = g.state.money.cash
-    const [r] = g.commit(bidDraft(g.k, g.state, { auto: { max: 1700 } }))
-    const o = auctionOutcome(r!)!
-    // 一個報告裡好幾個回合；落槌的是 a
-    expect(o.rounds.length).toBeGreaterThan(2)
-    expect(o.hammers).toHaveLength(1)
-    expect(o.hammers[0]).toMatchObject({ lot: 0, result: 'sold', winner: 'a' })
-    expect(run(g).lots[0]!.pc_out).toBe(true)
+    const outcomes = autoToEnd(g, 1700)
+    // 每一份只有一個回合（沒落槌的）；最後一份帶落槌
+    expect(outcomes.length).toBeGreaterThan(2)
+    expect(outcomes.slice(0, -1).every((o) => o.rounds.length === 1 && o.hammers.length === 0)).toBe(true)
+    const hammers = outcomes.flatMap((o) => o.hammers)
+    expect(hammers).toHaveLength(1)
+    expect(hammers[0]).toMatchObject({ lot: 0, result: 'sold', winner: 'a' })
     expect(g.state.money.cash).toBe(cash0)
-    // 玩家加過價的每一手都不超過上限
-    const pcRaises = o.rounds.flatMap((x) => x.acts).filter((a) => a.who === 'pc' && a.act === 'raise')
+    // 玩家加過價的每一手都不超過上限、一次一階
+    const pcRaises = outcomes.flatMap((o) => o.rounds).flatMap((x) => x.acts).filter((a) => a.who === 'pc' && a.act === 'raise')
     expect(pcRaises.length).toBeGreaterThan(0)
     expect(Math.max(...pcRaises.map((a) => a.price))).toBeLessThanOrEqual(1700)
     expect(pcRaises.every((a) => a.steps === 1)).toBe(true)
-    // 第二件由玩家自己接著喊（自動跟價只管這一件）
+    // 落槌之後上限拿掉；第二件由玩家自己接著喊（自動跟價只管這一件）
     expect(run(g).at).toBe(1)
+    expect(run(g).lots[0]!.auto).toBeUndefined()
+    expect(run(g).lots[1]!.auto).toBeUndefined()
+  })
+
+  it('一回合一份報告：設上限的那一份就走一回合、上限記在這一件上；auctionView.auto 與 bidOptions.auto.current 讀得到', () => {
+    const g = chase()
+    expect(auctionView(g.k, g.state)!.auto).toBeNull()
+    expect(bidOptions(g.k, g.state)!.auto.current).toBeNull()
+    const [r] = g.commit(bidDraft(g.k, g.state, { auto: { max: 1700 } }))
+    const o = auctionOutcome(r!)!
+    expect(o.rounds).toHaveLength(1)
+    expect(o.hammers).toHaveLength(0)
+    expect(run(g).lots[0]!.auto).toBe(1700)
+    expect(auctionView(g.k, g.state)!.auto).toBe(1700)
+    expect(bidOptions(g.k, g.state)!.auto).toMatchObject({ can: true, current: 1700 })
+    expect(bidOptions(g.k, g.state)!.auto_next.can).toBe(true)
+    expect(bidOptions(g.k, g.state)!.auto_off.can).toBe(true)
+  })
+
+  it('中途取消（auto_off）：上限拿掉、不走回合、沒有時間；之後自己手動喊；沒設的時候取消與 auto_next 都擋下並說原因', () => {
+    const g = chase()
+    expect(reasonOf(() => bidDraft(g.k, g.state, { act: 'auto_off' }))).toContain('沒有設自動跟價')
+    expect(reasonOf(() => bidDraft(g.k, g.state, { act: 'auto_next' }))).toContain('沒有設自動跟價')
+    g.commit(bidDraft(g.k, g.state, { auto: { max: 1700 } }))
+    g.commit(bidDraft(g.k, g.state, { act: 'auto_next' }))
+    const lot0 = run(g).lots[0]!
+    const round0 = lot0.round
+    const price0 = lot0.price
+    const cash0 = g.state.money.cash
+    const time0 = structuredClone(g.state.time)
+    const [r] = g.commit(bidDraft(g.k, g.state, { act: 'auto_off' }))
+    expect(auctionOutcome(r!)!.result).toBe('auto_off')
+    expect(auctionOutcome(r!)!.rounds).toEqual([])
+    expect(r!.timeline.map((b) => b.text).join('')).toContain('取消了自動跟價')
+    expect(run(g).lots[0]!.auto).toBeUndefined()
+    expect(run(g).lots[0]!.round).toBe(round0)
+    expect(run(g).lots[0]!.price).toBe(price0)
+    expect(g.state.money.cash).toBe(cash0)
+    expect(g.state.time).toEqual(time0)
+    expect(reasonOf(() => bidDraft(g.k, g.state, { act: 'auto_next' }))).toContain('沒有設自動跟價')
+    // 改回手動：一樣的規則（不是最高的人時能加價）
+    expect(bidOptions(g.k, g.state)!.raise[0]!.can).toBe(true)
+    g.commit(bidDraft(g.k, g.state, { act: 'fold' }))
+  })
+
+  it('手動的一手（加價、等、退出）接手：上限自動拿掉', () => {
+    for (const manual of [{ act: 'raise', steps: 1 }, { act: 'fold' }] as const) {
+      const g = chase()
+      g.commit(bidDraft(g.k, g.state, { auto: { max: 1700 } }))
+      expect(run(g).lots[0]!.auto).toBe(1700)
+      g.commit(bidDraft(g.k, g.state, manual))
+      expect(run(g).lots[0]?.auto).toBeUndefined()
+    }
   })
 
   it('玩家已經是最高的人時自動等；沒有別人加價就落槌、玩家得標，照付價錢加佣金', () => {
     const g = scene([{ kind: 'part', price: 1000, holder: 'pc', bids: { pc: 1000 } }, { kind: 'part' }], [bidder('a', { interests: ['art'] })])
     const cash0 = g.state.money.cash
-    const [r] = g.commit(bidDraft(g.k, g.state, { auto: { max: 5000 } }))
-    const o = auctionOutcome(r!)!
-    expect(o.hammers[0]).toMatchObject({ result: 'sold', winner: 'pc', price: 1000 })
-    expect(o.rounds.flatMap((x) => x.acts).filter((a) => a.who === 'pc').every((a) => a.act === 'wait')).toBe(true)
+    const outcomes = autoToEnd(g, 5000)
+    const hammers = outcomes.flatMap((o) => o.hammers)
+    expect(hammers[0]).toMatchObject({ result: 'sold', winner: 'pc', price: 1000 })
+    expect(outcomes.flatMap((o) => o.rounds).flatMap((x) => x.acts).filter((a) => a.who === 'pc').every((a) => a.act === 'wait')).toBe(true)
     expect(cash0 - g.state.money.cash).toBe(1100)
   })
 
-  it('上限低於再加一階：一開始就退出（等於 fold）；付不起也退出', () => {
+  it('上限低於再加一階：這一回合就退出（等於 fold，由程式算完這一件）；付不起也退出', () => {
     const g = scene([{ kind: 'part', price: 1000 }, { kind: 'part' }], [bidder('a', { interests: ['art'] })])
     const [r] = g.commit(bidDraft(g.k, g.state, { auto: { max: 1050 } }))
     expect(auctionOutcome(r!)!.hammers[0]).toMatchObject({ result: 'passed' })
     expect(run(g).lots[0]!.pc_out).toBe(true)
+    expect(run(g).lots[0]!.auto).toBeUndefined()
     // 付不起
     const poor = scene([{ kind: 'part', price: 1000 }, { kind: 'part' }], [bidder('a', { interests: ['art'] })])
     poor.state.money.cash = 1000
@@ -291,15 +359,20 @@ describe('自動跟價（bidDraft 收 { auto: { max } }）', () => {
     expect(reasonOf(() => bidDraft(g.k, g.state, { auto: { max: 0 } }))).toContain('大於 0')
     expect(reasonOf(() => bidDraft(g.k, g.state, { auto: { max: 10.5 } }))).toContain('大於 0')
     const o = bidOptions(g.k, g.state)!
-    expect(o.auto).toMatchObject({ act: 'auto', can: true, min: 1100 })
+    expect(o.auto).toMatchObject({ act: 'auto', can: true, min: 1100, current: null })
+    expect(o.auto_next.can).toBe(false)
+    expect(o.auto_off.can).toBe(false)
     g.commit(bidDraft(g.k, g.state, { act: 'fold' }))
     const after = bidOptions(g.k, g.state)!
     expect(after.auto.can).toBe(true)
   })
 
-  it('同一個狀態、同一個上限跑兩次逐欄相同；讀檔重來一樣', () => {
+  it('同一個狀態、同一個上限跑兩次逐欄相同；離場時上限也拿掉', () => {
     const g = scene([{ kind: 'part', price: 1000 }, { kind: 'part' }], [bidder('a', { mult: 1.5, interests: ['part'] })], { mod: (c) => { c.auction_rule = [{ id: 'default', interest: { yes: 0.6, no: 0.6, after_raise: 0.1 } }] } })
     expect(bidDraft(g.k, g.state, { auto: { max: 1600 } })).toEqual(bidDraft(g.k, g.state, { auto: { max: 1600 } }))
+    g.commit(bidDraft(g.k, g.state, { auto: { max: 1600 } }))
+    g.commit(leaveDraft(g.k, g.state))
+    expect(auctionRunOf(g.state)).toBeNull()
   })
 })
 

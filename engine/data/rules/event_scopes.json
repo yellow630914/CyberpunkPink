@@ -69,7 +69,10 @@
     "id": "contract",
     "triggers": {
       "order": 1,
-      "holder_order": 1
+      "holder_order": 1,
+      "released": 1,
+      "home": 0.1,
+      "daily": 0.1
     },
     "priority": 2,
     "daily_roll": {

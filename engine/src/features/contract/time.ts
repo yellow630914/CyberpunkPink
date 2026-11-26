@@ -1,5 +1,5 @@
 // L6 功能 contract 隨時間與別的報告發生的事（dev/work/M4-contract.md 第 2、6、7、8、9 點；EVENTS 4.5 節；DOWNTIME 4.2 節；dev/adr/0019 P27～P30）。
-//   time.passed     這一刻玩家處在任何活動裡（委託副本、潛入、簾後館的一趟與網內的行程、拍賣、成人場景、事件……人走不開）：每一條還沒了結的指令的期限往後挪經過的時間（報告 contract.pause）；沒在活動裡才計時：
+//   time.passed     這一刻（或這份報告開始的那一刻：結束活動的同一份報告推進的時間也算）玩家處在任何活動裡（委託副本、潛入、簾後館的一趟與網內的行程、拍賣、成人場景、事件……人走不開）：每一條還沒了結的指令的期限往後挪經過的時間（報告 contract.pause）；沒在活動裡才計時：
 //                   期滿 → 解約（contract.end）；強制的過了期限 → overdue、滿意 −10、抽一種處置（鎖義體、感載、報位置），沒有效果可用的那一種不抽；
 //                   送達或作廢的過了期限 → 作廢、滿意 −5（contract.overdue）；
 //                   每天 08:00：每週回報那一天排一條 report（不擲）、佇列不到 queue_max 就擲要不要下指令、下哪一種（contract.order）；
@@ -104,7 +104,7 @@ function overdueDraft(k: Kernel, sim: GameState, pc: ActorId, orderId: string): 
 // ---- time.passed ----
 
 /** 沒事回 []。每一份草稿都接在前一份之後（sim 是一路套下去的複製）。 */
-export function timeDrafts(k: Kernel, state: GameState, from: GameTime, to: GameTime): ReportDraft[] {
+export function timeDrafts(k: Kernel, state: GameState, from: GameTime, to: GameTime, before?: GameState): ReportDraft[] {
   const pc = pcOf(state)
   if (!pc || (!contractOf(state) && Object.keys(extOf(state).held).length === 0)) return []
   const sim = clone(state)
@@ -114,17 +114,18 @@ export function timeDrafts(k: Kernel, state: GameState, from: GameTime, to: Game
     k.changes.applyAll(sim, d.changes)
   }
   // 兩個方向共用一份 ext：先做主角是契約人的（有契約才做），再做主角是持約人的（M4-contract-holder）
-  if (contractOf(sim)) mineDrafts(k, sim, emit, pc, from, to)
+  if (contractOf(sim)) mineDrafts(k, sim, emit, pc, from, to, before)
   holderDrafts(k, sim, emit, from, to)
   return out
 }
 
 /** 主角是契約人那一面隨時間發生的事。 */
-function mineDrafts(k: Kernel, sim: GameState, emit: (d: ReportDraft) => void, pc: ActorId, from: GameTime, to: GameTime): void {
+function mineDrafts(k: Kernel, sim: GameState, emit: (d: ReportDraft) => void, pc: ActorId, from: GameTime, to: GameTime, before?: GameState): void {
   const state = sim
   const nowTo = toMinutes(to)
   const span = nowTo - toMinutes(from)
-  const paused = inActivity(k, state)
+  // 這段時間開始的那一刻在活動裡也算：結束活動的同一份報告（拍賣離場、成人場景結算……）推進的時間是在活動裡過的（B040）
+  const paused = inActivity(k, state) || (before !== undefined && inActivity(k, before))
   const rules = contractRules(k)
 
   // 活動裡不計時：期限往後挪經過的時間

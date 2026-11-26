@@ -75,6 +75,8 @@ export interface PerkEntry extends ContentEntry {
   stats?: Record<string, number>
   /** 受內容篩選控制的成人特質 */
   adult?: boolean
+  /** 內容篩選的標籤（CONTENT_TAGS 或內容自己的標籤）：其中任何一個被玩家關掉，這個特質建角時照樣列出但灰掉、選不了（使用者 2026-11-26：保留、不選） */
+  tags?: string[]
   /** 設計書裡沒有、先借來讓遊戲能跑的示意資料 */
   provisional?: boolean
 }
@@ -198,6 +200,8 @@ export interface ItemEntry extends ContentEntry {
    *（heal、vent、afterglow、cleanse、status、soft_cover、attack……）；不認得的 op 在功能載入內容時擋下。
    */
   use?: { ap: number; ap_other?: number; target: (typeof ITEM_USE_TARGETS)[number]; /** 對一個敵人用（target: foe）時，目標要在這個距離裡 [近, 遠]；沒寫不限 */ range?: [number, number]; modes?: string[]; effects: Array<Record<string, unknown>> }
+  /** 飾品戴著的時候一直生效的被動效果（來源 gear；格式見 rules/passive.ts，features/gear 載入時檢查）。只有飾品能寫 */
+  effects?: Array<Record<string, unknown>>
 }
 
 function lookRuleProblems(v: unknown): string[] {
@@ -241,6 +245,7 @@ export function registerCoreKinds(content: ContentRegistry): void {
         }
       }
       if (e.stats !== undefined && !(isRecord(e.stats) && Object.values(e.stats).every((v) => typeof v === 'number' && v !== 0))) p.push('stats 的值要是不為 0 的數字')
+      if (e.tags !== undefined && !(Array.isArray(e.tags) && e.tags.every(isText))) p.push('tags 要是內容篩選標籤的陣列')
       return p
     },
     refs: (e) => (e.checks?.skills ?? []).map((s) => ['skill', s]),
@@ -317,6 +322,8 @@ export function registerCoreKinds(content: ContentRegistry): void {
       if (e.tags !== undefined && !(Array.isArray(e.tags) && e.tags.every(isText))) p.push('tags 要是標籤的陣列')
       if (e.consumable !== undefined && typeof e.consumable !== 'boolean') p.push('consumable 要是布林值')
       if (e.available !== undefined) p.push(...availableProblems(e.available))
+      if (e.effects !== undefined && !Array.isArray(e.effects)) p.push('effects 要是陣列')
+      else if (e.effects !== undefined && e.category !== 'accessory') p.push('effects 只有飾品能寫（戴著才一直生效）；武器與護甲的 effects 寫在設計圖與零件上')
       if (e.use !== undefined) {
         const u = e.use
         if (!isRecord(u) || !isInt(u.ap) || u.ap < 0 || u.ap > 3) p.push('use.ap 要是 0～3 的整數')

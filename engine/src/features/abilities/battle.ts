@@ -825,7 +825,7 @@ export function registerBattle(k: Kernel): void {
         if (isRec(r.spent)) for (const [path, v] of Object.entries(r.spent)) if (typeof v === 'number') tiers[path] = treeTierOf(v)
         // 夜課延伸的技能要還算數（標籤沒被篩選關掉、還學會著）才帶進戰鬥
         const equipped = Array.isArray(r.equipped) ? r.equipped.filter((x): x is string => typeof x === 'string') : []
-        unit.ext.abilities = { equipped: liveEquipped(run.k, run.state, unit.actor, equipped), tiers } satisfies UnitAbilities
+        unit.ext.abilities = { equipped: liveEquipped(k, run.state, unit.actor, equipped), tiers } satisfies UnitAbilities
       }
     }
     carryStance(run, unit)

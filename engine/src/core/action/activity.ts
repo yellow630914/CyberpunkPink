@@ -49,6 +49,11 @@ export interface ActivityDef {
   allowWhen?: Array<{ prefix: string; when: AllowWhen }>
   /** 前綴之外的特例（戰敗：帶 snapshot.drop 的報告）。launch 見 AllowWhen */
   allows?(state: GameState, doing: string, draft?: ReportDraft, launch?: Launch): boolean
+  /**
+   * 進行中時主角的橋是關著的（斷線靜修）：技能失效、橋的容量是 0、無線功能關閉（DOWNTIME 3.3 節；使用者 2026-11-26）。
+   * 讀它的功能問 `k.activity.bridgeClosed(state)`，不必知道是哪一種活動關的。沒寫是不關。
+   */
+  bridgeOff?: boolean
   /** 擋下時給玩家看的完整句子 */
   reason(state: GameState, doing: string): string
   /** 開始：純函式，回傳要提交的報告草稿；開不成丟 ActionBlocked（原因寫成一條一句） */
@@ -128,6 +133,12 @@ export class ActivityRegistry {
       if (info) out.push({ kind: def.kind, owner: def.owner, id: info.id, label: info.label })
     }
     return out
+  }
+
+  /** 主角的橋現在是關著的嗎：進行中的活動有哪一種標了 bridgeOff（斷線靜修）。 */
+  bridgeClosed(state: GameState): boolean {
+    for (const def of this.defs.values()) if (def.bridgeOff === true && def.active(state)) return true
+    return false
   }
 
   private lets(def: ActivityDef, state: GameState, doing: string, draft?: ReportDraft, launch?: Launch): boolean {

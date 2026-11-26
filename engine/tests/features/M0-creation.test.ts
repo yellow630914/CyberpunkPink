@@ -3,10 +3,10 @@
 // 完成後：git mv engine/tests/pending/M0-creation.test.ts engine/tests/features/M0-creation.test.ts，主套件要全過。
 
 import { describe, expect, it } from 'vitest'
-import type { Game } from '../../src'
+import type { ContentPack, Game } from '../../src'
 import { clone } from '../../src'
 import type { CreationDraft } from '../../src/features/creation'
-import { ageBlock, attrBlock, attrBudget, attrTotals, buildCreationReport, creationBlocks, creationFeature, perkBlock, perkSummary, skillBlock, skillLeft } from '../../src/features/creation'
+import { ageBlock, attrBlock, attrBudget, attrTotals, buildCreationReport, creationBlocks, creationFeature, perkBlock, perkFilterBlock, perkSummary, skillBlock, skillLeft } from '../../src/features/creation'
 import { commitViolations, makeGame } from '../../src/testkit'
 import { MINI_PACK } from '../helpers/miniContent'
 
@@ -91,6 +91,36 @@ describe('M0-creation：每一步的檢查（CHARACTER 第 1、5 節；UI 第 14
     expect(perkBlock(k, state, ['tough', 'tough'])).not.toBeNull()
     const rich = setup({ startPerkPoints: 6 })
     expect(perkSummary(rich.k, rich.state, ['corp_reader'])).toEqual({ left: 3, perks: 1, flaws: 0 })
+  })
+
+  it('特質帶內容標籤（M4-fix-2；使用者 2026-11-26：保留、disable）：標籤被篩選關掉的特質照樣在目錄裡，perkFilterBlock 回原因、perkBlock 與整份檢查擋下，選不了', () => {
+    const pack = { id: 'tagged_perks', content: { perk: [
+      { id: 'night_regular', name: '暗室熟客', category: 'social', cost: 1, flaw: false, desc: '熟門熟路。', tags: ['ntr'] },
+      { id: 'two_tags', name: '兩個標籤', category: 'social', cost: 1, flaw: false, desc: '兩個標籤。', tags: ['ntr', 'blacktape'] },
+      { id: 'plain_perk', name: '一般的特質', category: 'social', cost: 1, flaw: false, desc: '沒有標籤。' },
+    ] } } as unknown as ContentPack
+    const open = makeGame({ scenario: 'beforeCreation', features: [creationFeature], content: [MINI_PACK, pack] }).game
+    const closed = makeGame({ scenario: 'beforeCreation', features: [creationFeature], content: [MINI_PACK, pack], patch: { rules: { contentOff: ['ntr'] } as never } }).game
+    // 篩選開著：沒有原因、選得了
+    expect(perkFilterBlock(open.k, open.state, 'night_regular')).toBeNull()
+    expect(perkBlock(open.k, open.state, ['night_regular'])).toBeNull()
+    // 篩選關掉：特質照樣在內容裡（畫面照樣列、灰掉寫這句）；原因是完整的一句，寫出特質的名字與題材的名字
+    expect(closed.k.content.has('perk', 'night_regular')).toBe(true)
+    const why = perkFilterBlock(closed.k, closed.state, 'night_regular')!
+    expect(why).toBe('「暗室熟客」屬於「NTR」，被你的內容篩選關掉了，選不了。')
+    expect(perkBlock(closed.k, closed.state, ['night_regular'])).toBe(why)
+    expect(perkBlock(closed.k, closed.state, ['tough', 'night_regular'])).toBe(why)
+    // 兩個標籤只關一個也算；沒有標籤的、查不到的特質沒有這個原因
+    expect(perkFilterBlock(closed.k, closed.state, 'two_tags')).toContain('「NTR」')
+    expect(perkFilterBlock(closed.k, closed.state, 'plain_perk')).toBeNull()
+    expect(perkFilterBlock(closed.k, closed.state, 'tough')).toBeNull()
+    expect(perkFilterBlock(closed.k, closed.state, 'no_such_perk')).toBeNull()
+    expect(perkBlock(closed.k, closed.state, ['plain_perk'])).toBeNull()
+    // 整份檢查：草稿帶著被關掉的特質，第 7 步（perks）擋下
+    expect(creationBlocks(closed.k, closed.state, draft({ perks: ['smooth_talker', 'night_regular'] })).filter((b) => b.step === 'perks').map((b) => b.reason)).toEqual([why])
+    expect(creationBlocks(open.k, open.state, draft({ perks: ['smooth_talker', 'night_regular'] }))).toEqual([])
+    // 標籤的格式：要是字串的陣列
+    expect(() => makeGame({ scenario: 'beforeCreation', features: [creationFeature], content: [MINI_PACK, { id: 'bad_tags', content: { perk: [{ id: 'bad', name: '壞的', category: 'social', cost: 1, flaw: false, desc: '壞的。', tags: 'ntr' }] } } as unknown as ContentPack] })).toThrow(/tags 要是內容篩選標籤的陣列/)
   })
 
   it('整份檢查：沒有問題是空的；有問題列出是哪一步、為什麼', () => {

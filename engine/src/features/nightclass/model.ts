@@ -228,12 +228,24 @@ export function readyProblems(k: Pick<Kernel, 'content'>): string[] {
   return p
 }
 
+/** 這個技能為什麼看不到：filter 是標籤被內容篩選關掉的（整個不列，也不算進隱藏的數量）；tag 是掛在一個標籤上（不是共通、不是只掛軸）而這個人沒有。看得到是 null。 */
+export function hiddenBy(rulesOff: readonly string[], actor: Actor | undefined, s: NightSkill): 'filter' | 'tag' | null {
+  if (s.filterTags.some((t) => rulesOff.includes(t))) return 'filter'
+  if (s.branch === 'common' || s.tag === null || AXIS_TAGS.includes(s.tag)) return null
+  return hasTag(actor, s.tag) ? null : 'tag'
+}
+
 /** 這個人看得到這個技能嗎：標籤被內容篩選關掉的整個不列；掛在一個標籤上（不是共通、不是只掛軸）而這個人沒有的不列。回傳看不到的原因（看得到是 null）。 */
 export function hiddenReason(rulesOff: readonly string[], actor: Actor | undefined, s: NightSkill): string | null {
-  const off = s.filterTags.find((t) => rulesOff.includes(t))
-  if (off !== undefined) return '這個技能被你的內容篩選關掉了。'
-  if (s.branch === 'common' || s.tag === null || AXIS_TAGS.includes(s.tag)) return null
-  return hasTag(actor, s.tag) ? null : '你還沒有這個技能掛的傾向標籤。'
+  const why = hiddenBy(rulesOff, actor, s)
+  return why === 'filter' ? '這個技能被你的內容篩選關掉了。' : why === 'tag' ? '你還沒有這個技能掛的傾向標籤。' : null
+}
+
+/** 這一招掛的標籤是「深」（只有掛在一個標籤上的技能才有；共通與只掛軸的沒有）。 */
+export function isDeepOf(actor: Actor | undefined, s: NightSkill): boolean {
+  if (s.tag === null || s.branch === 'common' || AXIS_TAGS.includes(s.tag)) return false
+  const t = actor && isRecord(actor.ext.tendency) && isRecord(actor.ext.tendency.tags) ? actor.ext.tendency.tags[s.tag] : undefined
+  return t === 'deep'
 }
 
 /** 技能開放的體位（內容種類 position 裡 unlocked_by 是它的每一筆）。 */

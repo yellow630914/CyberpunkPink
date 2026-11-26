@@ -6,6 +6,6 @@
   - `grace`：`{ item: 'rent', days: 30 }` 走內建的來源，或設定關著、`asked` 對得上，照樣夾成 7 天，留「有夾值」的記號與提醒「寬限最多 7 天。」。
   - `bill` 加減一項：`{ item: 'rent', amount: 100 }`（房租 100）走內建，或關著、`asked` 對得上的 −100，照樣夾成 ±50，提醒「……這一週最多只能加減原本金額的一半（50）」。
   - AI 自己生成的（以及開著時玩家要的、關著而 `asked` 對不上的）照夾是對的（對照組）。
-- 重現：`engine/tests/pending/fixtures/B034-clamp-ignores-source.json`；會失敗的測試：`engine/tests/pending/B034-clamp-ignores-source.test.ts`（四條失敗、一條對照通過）。
+- 重現：`engine/tests/features/fixtures/B034-clamp-ignores-source.json`；會失敗的測試：`engine/tests/features/B034-clamp-ignores-source.test.ts`（四條失敗、一條對照通過）。
 - 可能的位置（只寫推測，不改）：`features/bills/index.ts` 的 `grace` 效果的 `clamp(e)` 沒有收 `ctx`、不看 `ctx.level`；`bill` 效果的 `clamp` 在 `e.item !== undefined` 時也沒看 `ctx.level`。照其他效果的寫法：`ctx.level !== 'cap'` 時照寫的算（`floor` 只擋格式的底線）。「這一週沒有那一項整筆拿掉」是對象存不存在的檢查，不屬於上限，四條路都該留著（見 B035）。
-- 狀態：待修。
+- 狀態：已修（M4-fix-2，2026-11-26）。`features/bills/index.ts`：`grace` 的 `clamp` 與 `bill`（加減一項）的 `clamp` 都看 `ctx.level`，只有 `cap`（AI 自己生成的、開著時玩家要的）才夾 7 天與一半；內建的與「關著且 asked 對得上」照寫的算；「這一週沒有那一項」整筆拿掉四條路都留著（見 B035）。`M2-bills` 裡原本拿內建的來源測夾值的三條改用 `ai`，另加內建不夾的對照。測試：`engine/tests/features/B034-clamp-ignores-source.test.ts`、`engine/tests/features/M2-bills.test.ts`。

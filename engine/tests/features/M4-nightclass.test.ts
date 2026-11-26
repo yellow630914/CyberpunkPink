@@ -754,3 +754,66 @@ describe('只裝 scene 不裝 nightclass', () => {
     expect(mk({ branch: 'zzz', tier: 99 })).not.toThrow()
   })
 })
+
+// ======================================================================
+describe('夜課列表給畫面的三樣：開階的依據（basis）、掛在沒有的標籤上而不列的數量（hidden）、標籤是「深」（deep）（M4-fix-2；UI 8.4 節）', () => {
+  const tend = (axes: Record<string, number>, tags: Record<string, string> = {}): ActorOverrides => ({ ext: { tendency: { axes, points: {}, tags } } })
+  const branch = (g: Game, id: string) => nightList(g.k, g.state, 'pc').branches.find((b) => b.branch === id)!
+
+  it('共通：依據是性經歷（次數與對象的人數）；每一階寫門檻（第 1 階不限）、開了的標 open', () => {
+    const g = game({ pc: { ext: { ...record({ times: 12, partners: 4 }) } } })
+    const b = branch(g, 'common')
+    expect(b.tier).toBe(2)
+    expect(b.basis).toMatchObject({ kind: 'experience', times: 12, partners: 4, text: '性經歷：12 次、和 4 個人有過' })
+    expect(b.basis.tiers).toEqual([
+      { tier: 1, need: '不限', open: true }, { tier: 2, need: '次數 8，或對象 5 人', open: true }, { tier: 3, need: '次數 20，或對象 8 人', open: false },
+      { tier: 4, need: '次數 40，或對象 12 人', open: false }, { tier: 5, need: '次數 80，或對象 20 人', open: false },
+    ])
+  })
+
+  it('其餘四支：依據是那一條軸的等級；每一階寫「<軸>軸 N 級」；開階的數字和 tier 一致（軸 3 級開到 3 階）', () => {
+    const g = game({ pc: tend({ relation: 3, sense: 1, body: 0, costume: 9 }) })
+    const rel = branch(g, 'relation')
+    expect(rel.basis).toMatchObject({ kind: 'axis', axis: 'relation', axis_name: '關係', level: 3, text: '關係軸 3 級' })
+    expect(rel.basis.tiers.map((t) => [t.tier, t.need, t.open])).toEqual([[1, '關係軸 1 級', true], [2, '關係軸 2 級', true], [3, '關係軸 3 級', true], [4, '關係軸 4 級', false], [5, '關係軸 5 級', false]])
+    for (const b of nightList(g.k, g.state, 'pc').branches) expect(b.basis.tiers.filter((t) => t.open)).toHaveLength(b.tier)
+    // 軸的等級超過 5 時開階最多到 5（和 tier 一樣）；0 級一階都沒開
+    expect(branch(g, 'costume').basis).toMatchObject({ level: 9, text: '扮相軸 9 級' })
+    expect(branch(g, 'costume').tier).toBe(5)
+    expect(branch(g, 'body').basis.tiers.every((t) => !t.open)).toBe(true)
+  })
+
+  it('沒有這個角色：每一支都是空的依據（不丟錯）', () => {
+    const g = game()
+    const v = nightList(g.k, g.state, 'nobody')
+    expect(v.branches.every((b) => b.hidden === 0 && b.skills.length === 0 && b.basis.tiers.every((t) => !t.open))).toBe(true)
+  })
+
+  it('hidden：掛在這個人沒有的標籤上而不列的技能數；被內容篩選關掉的整個不出現，也不算進這個數字；有了標籤就不再算', () => {
+    const none = game({ pc: tend({ relation: 3 }) })
+    expect(ids(none)).not.toContain('nt_dom3')
+    expect(branch(none, 'relation').hidden).toBe(1)
+    expect(branch(none, 'common').hidden).toBe(0)
+    // 潛在不算有
+    expect(branch(game({ pc: tend({ relation: 3 }, { tg_dom: 'latent' }) }), 'relation').hidden).toBe(1)
+    const has = game({ pc: tend({ relation: 3 }, { tg_dom: 'has' }) })
+    expect(ids(has)).toContain('nt_dom3')
+    expect(branch(has, 'relation').hidden).toBe(0)
+    // 篩選關掉：整個不出現，也不算進「N 個掛在你沒有的標籤上」
+    const off = game({ pc: tend({ relation: 3 }), contentOff: ['tg_dom'] })
+    expect(ids(off)).not.toContain('nt_dom3')
+    expect(branch(off, 'relation').hidden).toBe(0)
+    // 「只掛軸」的技能（nt_ntr 掛 relation 這條軸、跟 ntr 的篩選）不算標籤的限制：關掉 ntr 時整個不出現，開著時列出
+    expect(branch(game({ pc: tend({ sense: 1 }) }), 'sense').hidden).toBe(0)
+  })
+
+  it('deep：掛在標籤上而那個標籤是「深」的技能才是 true；有、潛在、共通與只掛軸的都是 false；內容有沒有寫 deep 數字不影響這一欄', () => {
+    const deepOf = (g: Game, id: string) => nightList(g.k, g.state, 'pc').branches.flatMap((b) => b.skills).find((s) => s.id === id)!.deep
+    expect(deepOf(game({ pc: tend({ relation: 3 }, { tg_dom: 'deep' }) }), 'nt_dom3')).toBe(true)
+    expect(deepOf(game({ pc: tend({ relation: 3 }, { tg_dom: 'has' }) }), 'nt_dom3')).toBe(false)
+    const g = game({ pc: tend({ relation: 3, sense: 1 }, { tg_dom: 'deep' }) })
+    expect(deepOf(g, 'nt_c1')).toBe(false)
+    expect(deepOf(g, 'nt_ntr')).toBe(false)
+  })
+})
+

@@ -8,6 +8,6 @@
   - `{ kind: 'memory', text, who: ['npc_ghost'] }`：照樣轉成 `npcs.memory.add`。
   - 對照：`owed`／`owed_to_pc` 的 `who` 查不到是格式錯誤；`meet`、`npc_known` 查不到是整筆拿掉並提醒。
   - `grace` 的定案結果那一行是「帳單：rent 寬限 3 天」：寫的是帳單項目的 id，不是名字（`bill` 的加減一項有查名字）。這一行會進 `<results>` 與報告卡。
-- 重現：`engine/tests/pending/fixtures/B035-refs-not-checked.json`；會失敗的測試：`engine/tests/pending/B035-refs-not-checked.test.ts`（13 條）。
+- 重現：`engine/tests/features/fixtures/B035-refs-not-checked.json`；會失敗的測試：`engine/tests/features/B035-refs-not-checked.test.ts`（13 條）。
 - 可能的位置（只寫推測，不改）：`features/bills/index.ts` 的 `grace`（`validate` 只驗 `item` 是字串；可以照 `bill` 加減一項的 `clamp` 用 `currentLines` 查這一週有沒有那一項，`describe` 也用它的名字）；`features/roster/index.ts` 的 `roster_add` 的 `validate`（沒有查 `ctx.state.actors` 或 npc 內容）；`features/npcs/memory.ts` 的 `memory` 的 `validate`（`who` 只驗是字串的陣列）。`roster.candidate`、`npcs.memory.add` 變更自己的 `validate` 也沒有查。
-- 狀態：待修。
+- 狀態：已修（M4-fix-2，2026-11-26）。引用的 id 要存在，四條路（內建、AI、開、關而且 asked 對得上）都一樣：效果的 `clamp` 把查不到的整筆拿掉並提醒（`resolve` 的 `clamps` 有一則白話，`errors` 空、不留變更）——`grace`（這一週沒有那一項帳單）、`roster_add`（不是角色、內容裡也沒有那個 npc；還沒認識的內容 npc 照舊先記著）、`memory`（`who` 裡有查不到的人）。`grace` 的結果那一行寫帳單項目的名字，不寫 id。`roster.candidate`、`npcs.memory.add` 這兩個變更自己的 `validate` 沒有加查（效果入口已經擋；變更是存檔重放與測試的低階入口）。測試：`engine/tests/features/B035-refs-not-checked.test.ts`。

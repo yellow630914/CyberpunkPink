@@ -239,6 +239,11 @@ export function shopProblems(e: Record<string, unknown>): string[] {
   return p
 }
 
+/** 站在這一塊街區的這個設施標記上對得到哪幾間店（shop.block 與 shop.facility 都對得上）。 */
+export function shopsAt(k: Pick<Kernel, 'content'>, block: string | undefined, marker: string): ShopEntry[] {
+  if (!block) return []
+  return k.content.list<ShopEntry>(SHOP_KIND).filter((s) => s.block === block && s.facility === marker)
+}
 export const shopEntry = (k: Pick<Kernel, 'content'>, shop: string | ShopEntry): ShopEntry | undefined => (typeof shop === 'string' ? k.content.get<ShopEntry>(SHOP_KIND, shop) : shop)
 export const shopTypeOf = (k: Pick<Kernel, 'content'>, shop: ShopEntry): ShopTypeEntry | undefined => k.content.get<ShopTypeEntry>(SHOP_TYPE_KIND, shop.type)
 

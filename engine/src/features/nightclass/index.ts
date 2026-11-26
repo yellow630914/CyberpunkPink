@@ -24,7 +24,7 @@ import { learnedOf, BRANCHES, BRANCH_NAME, LEARN_OP, OWNER, RULE_KIND, SKILL_KIN
 import { nightTier } from './learn'
 
 export { learnBlock, learnDraft, learnProblems, insightOf, nightList, nightTier } from './learn'
-export type { BranchView, LearnStatus, LearnView, NightListView } from './learn'
+export type { BranchBasis, BranchView, LearnStatus, LearnView, NightListView } from './learn'
 export { DEFAULT_NIGHT_RULES, LEARN_ACTION as NIGHT_LEARN_ACTION, nightRules, computeTier } from './model'
 export type { NightRules } from './model'
 

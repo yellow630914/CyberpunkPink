@@ -41,6 +41,7 @@
 import type { Actor, BattleState, CellPatch, ChainRecordSlot, Change, FlagValue, GameState, GridPos, MapInstance, MoverState, ReportLocation, SaveRules, SnapshotSlot } from '../types'
 import { ATTR_IDS, BATTLE_SIDES, BATTLE_SLOTS } from '../types'
 import type { ContentRegistry } from '../content/registry'
+import { MIN_AGE } from '../util/age'
 import { clone, deepEqual } from '../util/clone'
 import { formatAmount } from '../util/money'
 import { isId, isRecord, isSafeInt } from '../util/sanitize'
@@ -67,8 +68,8 @@ export function genShapeProblems(gen: unknown, def: string): string[] {
 
 /** 只保留最近幾樓的任務鏈細節（AI_TASKS 5.5 節）。 */
 export const CHAIN_FLOORS_KEPT = 5
-/** 所有角色 18 歲以上（AI_TASKS 3.19 節；PROMPTS H5）。 */
-export const MIN_AGE = 18
+/** 所有角色 18 歲以上（AI_TASKS 3.19 節；PROMPTS H5）。定義與掃描在 L1（內容載入也要用同一條：B038）。 */
+export { MIN_AGE, underageAt } from '../util/age'
 export const SKILL_MAX = 6
 export const TRACKS = ['hp', 'load', 'sink', 'afterglow'] as const
 export type TrackId = (typeof TRACKS)[number]
@@ -618,20 +619,6 @@ export function battleProblems(b: unknown): string[] {
   }
   if (!b.result && b.order.length === 0) p.push('order 是空的：沒有人可以行動')
   return p
-}
-
-/** 狀態裡任何深度的 age 欄位，低於 18 的位置（讀檔與匯入時整筆拒絕，不自動改成 18）。 */
-export function underageAt(v: unknown, path = ''): string[] {
-  if (Array.isArray(v)) return v.flatMap((x, i) => underageAt(x, `${path}[${i}]`))
-  if (isRecord(v)) {
-    const out: string[] = []
-    for (const [k, x] of Object.entries(v)) {
-      if (k === 'age' && typeof x === 'number' && x < MIN_AGE) out.push(path ? `${path}.age` : 'age')
-      else out.push(...underageAt(x, path ? `${path}.${k}` : k))
-    }
-    return out
-  }
-  return []
 }
 
 export { isValidTime }

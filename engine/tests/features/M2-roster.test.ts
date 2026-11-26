@@ -912,7 +912,7 @@ describe('效果 roster_add：進候選', () => {
     expect(loyalty(g, 'r_ann')).toBe(50)
   })
 
-  it('direct: true（持約人取得契約；M4-followups-2 第 7 項）：直接成為成員（忠誠起始值照來源、離開候選）、報告一行寫「進了名冊」；已經是成員的落空；名冊滿了退成候選；不是角色的人退成候選', () => {
+  it('direct: true（持約人取得契約；M4-followups-2 第 7 項）：直接成為成員（忠誠起始值照來源、離開候選）、報告一行寫「進了名冊」；已經是成員的落空；名冊滿了退成候選；查不到的人整筆拿掉', () => {
     const g = make()
     // 先是候選，再直接進：候選拿掉、成為成員、忠誠 30（沒有來源）
     give(g, [{ kind: 'roster_add', who: 'r_ann' }])
@@ -935,12 +935,13 @@ describe('效果 roster_add：進候選', () => {
     expect(members(g)).not.toContain('r_fay')
     expect(candidatesOf(g.state).map((c) => c.who)).toEqual(['r_fay'])
     expect(full.lines).toEqual(['名冊候選：菲'])
-    // 不是角色的人：退成候選
+    // 查不到這個人（不是角色、內容裡也沒有）：整筆拿掉並提醒，名冊與候選都沒有（B035：引用的 id 要存在）
     const h = make()
     const r2 = give(h, [{ kind: 'roster_add', who: 'ghost', direct: true }])
     expect(members(h)).toEqual([])
-    expect(candidatesOf(h.state).map((c) => c.who)).toEqual(['ghost'])
-    expect(r2.lines).toEqual(['名冊候選：ghost'])
+    expect(candidatesOf(h.state)).toEqual([])
+    expect(r2.lines).toEqual([])
+    expect(r2.clamps[0]!.notice).toContain('查不到 ghost')
     // 格式：direct 要是布林
     expect(h.k.effects.resolve([{ kind: 'roster_add', who: 'r_ann', direct: 'yes' }], effectCtx(h.k, h.state, { source: 'builtin' })).errors.join()).toContain('direct')
   })

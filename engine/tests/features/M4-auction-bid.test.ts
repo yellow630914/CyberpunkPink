@@ -245,6 +245,42 @@ describe('一回合', () => {
     expect(r!.timeline.map((b) => b.text).join('')).toContain('加了 2 階')
   })
 
+  // LEWD_SYSTEM 6.2 節第 3 點「緊接的前一手剛被人加價時，機率 +10」（使用者 2026-11-26：緊接的前一手，不是這一回合裡任何一個更早的加價）
+  describe('NPC 加價機率的 +10：只看緊接的前一手', () => {
+    const only = { interest: { yes: 0, no: 0, after_raise: 1 } } // 底機率 0、前一手被加價時 100%：誰加價、誰不加價完全看緊接的前一手
+    const acts = (r: { outcome: unknown }) => (r.outcome as Rec).rounds[0].acts.map((a: Rec) => [a.who, a.act])
+
+    it('前一手是加價：一路接下去（玩家加價 → 甲跟 → 乙跟 → 丙跟）', () => {
+      const g = scene(LOTS2, [bidder('a', { mult: 3 }), bidder('b', { mult: 3 }), bidder('c', { mult: 3 })], { mod: rules(only) })
+      const [r] = raise(g)
+      expect(acts(r!)).toEqual([['pc', 'raise'], ['a', 'raise'], ['b', 'raise'], ['c', 'raise']])
+    })
+
+    it('前一手不是加價（甲預算不夠退出）：乙與丙拿不到 +10，即使玩家這一回合稍早加過價（舊的寫法是這一回合任何一個加價都算）', () => {
+      const g = scene(LOTS2, [bidder('a', { mult: 0.5 }), bidder('b', { mult: 3 }), bidder('c', { mult: 3 })], { mod: rules(only) })
+      const [r] = raise(g)
+      expect(acts(r!)).toEqual([['pc', 'raise'], ['a', 'out'], ['b', 'pass'], ['c', 'pass']])
+      expect(run(g).lots[0]!.holder).toBe('pc')
+    })
+
+    it('玩家這一回合沒加價（退出之後由程式算）：第一位 NPC 沒有「前一手」；前一位 NPC 加價了，下一位才拿到', () => {
+      // 玩家退出之後這一件由程式算完：每回合第一位 NPC 前面沒有任何一手，底機率 0 → 沒有人加價 → 倒數、落槌，流標
+      const g = scene(LOTS2, [bidder('a', { mult: 3 }), bidder('b', { mult: 3 })], { mod: rules(only) })
+      const [r] = bid(g, { act: 'fold' })
+      const o = r!.outcome as Rec
+      expect(o.rounds.every((x: Rec) => x.acts.every((a: Rec) => a.act !== 'raise'))).toBe(true)
+      expect(o.hammers[0]).toMatchObject({ result: 'passed' })
+      // 持有人自己那一手（hold）也不算加價：玩家加價之後甲持有、下一回合輪到玩家等；乙的前一手是甲的 hold，沒有 +10
+      const h = scene(LOTS2, [bidder('a', { mult: 3, interests: ['part'] }), bidder('b', { mult: 3 })], { mod: rules(only) })
+      const lot = run(h).lots[0]!
+      lot.holder = 'a'
+      lot.bids = { a: 1000 }
+      writeRun(h, { ...run(h), lots: [lot, ...run(h).lots.slice(1)] } as Run)
+      const [w] = bid(h, { act: 'fold' })
+      expect(acts(w!)).toEqual([['pc', 'fold'], ['a', 'hold'], ['b', 'pass']])
+    })
+  })
+
   it('同一個狀態、同一個選擇跑兩次逐欄相同；不動存檔亂數的游標；讀檔重來一樣', () => {
     const g = scene(LOTS2, [bidder('a', { mult: 3 }), bidder('b', { mult: 3 })], { mod: rules({ interest: { yes: 0.5, no: 0.5, after_raise: 0.1 } }) })
     const d1 = bidDraft(g.k, g.state, { act: 'raise', steps: 1 })

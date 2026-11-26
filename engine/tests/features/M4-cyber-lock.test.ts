@@ -298,7 +298,7 @@ describe('破解授權鎖', () => {
   it('報價：DC ＝ 設計圖等級 II 的 13 ＋ 3 = 16；沒有鎖的、身上沒有的、動刀的人不在隊上都被擋', () => {
     const g = make()
     put(g, [locked(), piece('e2', 'bp_eye', 'eye', { parts: { sensor: 'pt_lens' } })])
-    expect(crackQuote(g.k, g.state, { actor: 'pc', uid: 's1' })).toMatchObject({ dc: 16, bonus: 2, unlocker: false, faction: 'f1', minutes: 60 })
+    expect(crackQuote(g.k, g.state, { actor: 'pc', uid: 's1' })).toMatchObject({ dc: 16, bonus: 2, chance: 0.35, unlocker: false, faction: 'f1', minutes: 60 })
     expect(crackBlock(g.k, g.state, { actor: 'pc', uid: 'e2' })).toBe('義眼沒有授權鎖可以破解。')
     expect(crackBlock(g.k, g.state, { actor: 'pc', uid: 'zz' })).toBe('身上沒有這一件義體。')
     expect(crackBlock(g.k, g.state, { actor: 'pc', uid: 's1', by: 'ghost' })).toBe('找不到動刀的人。')
@@ -357,7 +357,7 @@ describe('破解授權鎖', () => {
     g.commit(withDice(NAT12, () => crackDraft(g.k, g.state, { actor: 'pc', uid: 's1' })))
     expect(hostility(g)).toBe(5)
     g.state.flags.unlocker = true
-    expect(crackQuote(g.k, g.state, { actor: 'pc', uid: 's1' })).toMatchObject({ unlocker: true, bonus: 4 })
+    expect(crackQuote(g.k, g.state, { actor: 'pc', uid: 's1' })).toMatchObject({ unlocker: true, bonus: 4, chance: 0.45 })
     expect(crackQuote(g.k, g.state, { actor: 'pc', uid: 's1' })!.faction).toBeUndefined()
     // 骰 12 ＋ 4 ＝ 16 剛好成功
     g.commit(withDice(NAT12, () => crackDraft(g.k, g.state, { actor: 'pc', uid: 's1' })))
@@ -398,8 +398,8 @@ describe('偽造授權（第三種解鎖法：請夥伴辦或請中間人辦；�
 
   it('報價：請夥伴辦 DC ＝ 設計圖等級 II 的 13 ＋ 2 = 15、不收錢；請中間人辦收成品價 1,000 的 3 成 = 300、不擲；都花 60 分鐘', () => {
     const g = makeForge()
-    expect(forgeQuote(g.k, g.state, { actor: 'pc', uid: 's1', via: 'partner', by: 'pc' })).toMatchObject({ dc: 15, bonus: 3, fee: 0, pay: null, minutes: 60, faction: 'f1' })
-    expect(forgeQuote(g.k, g.state, { actor: 'pc', uid: 's1', via: 'broker' })).toMatchObject({ dc: null, bonus: null, fee: 300, pay: 'cred', minutes: 60 })
+    expect(forgeQuote(g.k, g.state, { actor: 'pc', uid: 's1', via: 'partner', by: 'pc' })).toMatchObject({ dc: 15, bonus: 3, chance: 0.45, fee: 0, pay: null, minutes: 60, faction: 'f1' })
+    expect(forgeQuote(g.k, g.state, { actor: 'pc', uid: 's1', via: 'broker' })).toMatchObject({ dc: null, bonus: null, chance: null, fee: 300, pay: 'cred', minutes: 60 })
     expect(forgeBlock(g.k, g.state, { actor: 'pc', uid: 's1', via: 'partner', by: 'pc' })).toBeNull()
     expect(forgeBlock(g.k, g.state, { actor: 'pc', uid: 's1', via: 'broker' })).toBeNull()
   })
@@ -787,6 +787,11 @@ describe('修理壞掉的義體', () => {
     put(g, [broken()])
     expect(repairBlock(g.k, g.state, { actor: 'pc', uid: 'a1', via: 'self' })).toBe('自己修要在有工作台的住處（二級以上）或診所。')
     g.state.flags.home = true
+    // 報價帶成功率（M4-fix-2）：和 dc、加值算出來的一樣（自然 20 一定過、自然 1 一定不過）
+    const sq = repairQuote(g.k, g.state, { actor: 'pc', uid: 'a1', via: 'self' })!.self!
+    const odds = [...Array(20).keys()].map((i) => i + 1).filter((n) => n === 20 || (n !== 1 && n + sq.bonus >= sq.dc)).length / 20
+    expect(sq.chance).toBe(odds)
+    expect(sq.chance).toBeGreaterThan(0)
     const t0 = now(g)
     g.commit(withDice(NAT12, () => repairDraft(g.k, g.state, { actor: 'pc', uid: 'a1', via: 'self' })))
     expect(g.state.money.cred).toBe(20000)
@@ -950,7 +955,7 @@ describe('小手術：換身上一件義體的零件', () => {
     gift(g, 'pt_plating')
     expect(modifyBlock(g.k, g.state, mod(g, { via: 'self' }))).toBe('自己動刀要在住處或診所。')
     g.state.flags.home = true
-    expect(modifyQuote(g.k, g.state, mod(g, { via: 'self' }))).toMatchObject({ fee: 0, self: { dc: 16 } })
+    expect(modifyQuote(g.k, g.state, mod(g, { via: 'self' }))).toMatchObject({ fee: 0, self: { dc: 16, chance: expect.any(Number) } })
     const t0 = now(g)
     g.commit(withDice(NAT1, () => modifyDraft(g.k, g.state, mod(g, { via: 'self' }))))
     expect(cyberOf(g.state, 'pc')[0]!.parts.plate).toBe('pt_plate')

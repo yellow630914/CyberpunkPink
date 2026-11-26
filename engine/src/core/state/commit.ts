@@ -121,6 +121,8 @@ function commitInto(k: StateKernel, work: GameState, draft: ReportDraft, depth: 
   const trial = clone(work)
   k.changes.applyAll(trial, d.changes)
   const report: Report = { ...d, id, time: d.time ?? { start, end: clone(trial.time) } }
+  // 這份報告讓時間往前走的話，記下開始之前的狀態給 time.passed 的掛鉤看（唯讀的複製；不走時間的報告不複製）
+  const before = toMinutes(report.time.end) > toMinutes(start) ? clone(work) : undefined
   applyReport(k, work, report)
   if (k.probe.active) {
     const after = clone(work)
@@ -132,7 +134,7 @@ function commitInto(k: StateKernel, work: GameState, draft: ReportDraft, depth: 
   guardHooks(k, work, 'report.after／time.passed', () => {
     for (const { result } of k.hooks.run('report.after', { state: work, report })) followUps.push(...result)
     if (toMinutes(report.time.end) > toMinutes(start)) {
-      for (const { result } of k.hooks.run('time.passed', { state: work, from: start, to: report.time.end })) followUps.push(...result)
+      for (const { result } of k.hooks.run('time.passed', { state: work, from: start, to: report.time.end, ...(before ? { before } : {}) })) followUps.push(...result)
     }
   })
   for (const f of followUps) out.push(...commitInto(k, work, f, depth + 1, events))

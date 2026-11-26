@@ -7,7 +7,15 @@ import { MINUTES_PER_DAY, SEGMENT_HOURS, SEGMENT_IDS, isRecord, toMinutes, weekd
 import type { HouseEntry } from './model'
 import { BLOCK_KIND, DAY_MINUTES, FACILITY_TYPE_KIND, HOUSE_KIND, auctionOf, auctionRules, facilityProblems, houseOf, isText } from './model'
 
-export interface Session {
+/**
+ * 現在在這一場的哪一個階段（LEWD_SYSTEM 6.2 節「一場拍賣」）：upcoming 目錄還沒公布；preview 預展中（目錄已公布，可以看貨）；
+ * waiting 預展結束、還沒開槌；open 開槌的時段裡（可以進場）；ended 這一場過了（sessionOf 不會回傳）。
+ */
+export type SessionStage = 'upcoming' | 'preview' | 'waiting' | 'open' | 'ended'
+export const SESSION_STAGE_NAME: Record<SessionStage, string> = { upcoming: '目錄還沒公布', preview: '預展中', waiting: '等開槌', open: '開槌中', ended: '已經結束' }
+
+/** 一場的時間（不看現在幾點）。 */
+export interface SessionTimes {
   house: string
   /** 這一場開槌日的天數（`day`；也是場次的編號） */
   day: number
@@ -20,6 +28,21 @@ export interface Session {
   end: number
 }
 
+export interface Session extends SessionTimes {
+  /** 現在在哪一個階段 */
+  stage: SessionStage
+  /** 現在可以看貨嗎：預展中。畫面據此決定「看貨」鈕亮不亮（還要站在拍賣行裡、這一件看過沒有，各件的原因在 inspectOptions） */
+  inspectable: boolean
+}
+
+/** 這一場在 now 這一刻是哪一個階段。 */
+export function stageOf(s: SessionTimes, now: number): SessionStage {
+  if (now < s.preview.from) return 'upcoming'
+  if (now < s.preview.to) return 'preview'
+  if (now < s.start) return 'waiting'
+  return now < s.end ? 'open' : 'ended'
+}
+
 /** 這個時段從幾點開始（清晨從 dawnHour 起，每 4 小時一段）。 */
 export const segmentStartHour = (k: Pick<Kernel, 'timeRules'>, segment: HouseEntry['segment']): number => (k.timeRules.dawnHour + SEGMENT_IDS.indexOf(segment) * SEGMENT_HOURS) % 24
 
@@ -27,7 +50,7 @@ export const segmentStartHour = (k: Pick<Kernel, 'timeRules'>, segment: HouseEnt
 const at = (day: number, hour: number): number => (day - 1) * MINUTES_PER_DAY + hour * 60
 
 /** 開槌日是 day 的那一場。 */
-export function sessionAt(k: Pick<Kernel, 'content' | 'timeRules'>, house: HouseEntry, day: number): Session {
+export function sessionAt(k: Pick<Kernel, 'content' | 'timeRules'>, house: HouseEntry, day: number): SessionTimes {
   const rule = auctionRules(k)
   const start = at(day, segmentStartHour(k, house.segment))
   const before = day - rule.preview.days_before
@@ -54,13 +77,16 @@ export function sessionOf(k: Pick<Kernel, 'content' | 'timeRules'>, state: Pick<
     if (weekdayOf({ day, hour: 0, minute: 0 }, k.timeRules) !== house.weekday) continue
     if (done !== undefined && day <= done) continue
     const s = sessionAt(k, house, day)
-    if (s.end > now) return s
+    if (s.end > now) {
+      const stage = stageOf(s, now)
+      return { ...s, stage, inspectable: stage === 'preview' }
+    }
   }
   return null
 }
 
 /** 現在在預展的起訖裡嗎。 */
-export const inPreview = (s: Session, now: number): boolean => now >= s.preview.from && now < s.preview.to
+export const inPreview = (s: SessionTimes, now: number): boolean => now >= s.preview.from && now < s.preview.to
 
 export interface HouseHere {
   id: string

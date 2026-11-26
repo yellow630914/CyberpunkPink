@@ -284,7 +284,7 @@ describe('急救（DOWNTIME 3.1 節）', () => {
 
   it('規則表可以蓋掉：DC、時間、醫療包的加值、標籤', () => {
     const g = make({ pc: { hp: 20 }, inventory: [{ id: 'it_rock', qty: 1 }], pack: pack((c) => { c.medical_rule = [{ id: 'default', aid: { dc: 15, minutes: 20, kit_bonus: 3, kit_tag: 'rock' } }]; c.item![1]!.tags = ['rock'] }) })
-    expect(aidQuote(g.k, g.state, { by: 'pc', target: 'pc' })).toMatchObject({ dc: 15, minutes: 20, bonus: 5, kit: 'it_rock' })
+    expect(aidQuote(g.k, g.state, { by: 'pc', target: 'pc' })).toMatchObject({ dc: 15, minutes: 20, bonus: 5, chance: 0.55, kit: 'it_rock' })
   })
 })
 

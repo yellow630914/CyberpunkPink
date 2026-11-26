@@ -241,6 +241,11 @@ export const rosterFeature: Feature = {
       },
       // 一件事最多帶進一位候選人（AI 給的才算）
       budget: (e, ctx) => (ctx.level === 'cap' ? { group: 'roster_add', amount: 1, min: -Infinity, max: 1, resize: () => e, notice: () => '一件事最多只會帶出一位名冊候選人，多的沒有算。' } : null),
+      // 查不到這個人的整筆拿掉並提醒（引用的 id 要存在，四條路都一樣；B035）：已經是角色的、內容裡有的 npc（還沒認識，先記著，認識了才進得了名冊）算有；
+      // 前面幾筆已經讓他變成角色的也算（ctx.state 是邊走邊更新的）
+      clamp: (e, ctx) => (own(ctx.state.actors, e.who) || (ctx.content.hasKind('npc') && ctx.content.has('npc', e.who))
+        ? { effect: e }
+        : { effect: null, note: { from: e.who, to: null, limit: 'roster_add', notice: `查不到 ${e.who} 這個人，沒有算進名冊候選。` } }),
       // 已經是成員或已經在候選名單的不重複加（也不留空的變更）
       // direct: true（持約人取得契約：契約就是綁著他，不必再問他願不願意；M4-followups-2 第 7 項）直接成為成員；名冊滿了或放不進去就退成候選
       toChanges(e, ctx): Change[] {

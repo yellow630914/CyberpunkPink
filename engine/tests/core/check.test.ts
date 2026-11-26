@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
-import { DC_LADDER, DC_TIERS, attrMod, computeDegree, createKernel, dcFor, makeCheck, rollCheck, sanitizeRules, snapToLadder, verdictOf } from '../../src/core'
+import { DC_LADDER, DC_TIERS, attrMod, checkPassChance, computeDegree, createKernel, dcFor, makeCheck, rollCheck, sanitizeRules, snapToLadder, verdictOf } from '../../src/core'
 import { makeState } from '../../src/testkit'
 
 // 規格：CORE_RULES 第 3 節
@@ -93,3 +93,31 @@ describe('L4 檢定', () => {
     expect(k.stats.checkModifiers(state, 'pc', { attr: 'charm', tags: [] })).toEqual([])
   })
 })
+
+describe('checkPassChance（報價的成功率；M4-fix-2）', () => {
+  /** 獨立的算法：自然 20 一定過、自然 1 一定不過，其餘看合計有沒有到 DC */
+  const brute = (bonus: number, dc: number): number => {
+    let ok = 0
+    for (let n = 1; n <= 20; n++) if (n === 20 || (n !== 1 && n + bonus >= dc)) ok++
+    return ok / 20
+  }
+
+  it('幾個算好的數字：加值 0 對 DC 13 是 8/20（自然 13～20）；加值 5 對 DC 15 是 11/20；DC 很低也只到 19/20（自然 1 一定失敗）；DC 很高還有自然 20 的 1/20', () => {
+    expect(checkPassChance(0, 13)).toBe(0.4)
+    expect(checkPassChance(5, 15)).toBe(0.55)
+    expect(checkPassChance(20, 10)).toBe(0.95)
+    expect(checkPassChance(0, 40)).toBe(0.05)
+  })
+
+  it('和 computeDegree 逐面一致：任何加值與 DC 都等於「成功或大成功的骰面數 ÷ 20」；加值越高機率不降、DC 越高不升', () => {
+    fc.assert(fc.property(fc.integer({ min: -30, max: 30 }), fc.integer({ min: 1, max: 40 }), (bonus, dc) => {
+      expect(checkPassChance(bonus, dc)).toBe(brute(bonus, dc))
+      expect(checkPassChance(bonus + 1, dc)).toBeGreaterThanOrEqual(checkPassChance(bonus, dc))
+      expect(checkPassChance(bonus, dc + 1)).toBeLessThanOrEqual(checkPassChance(bonus, dc))
+      const p = checkPassChance(bonus, dc)
+      expect(p).toBeGreaterThanOrEqual(0.05)
+      expect(p).toBeLessThanOrEqual(0.95)
+    }))
+  })
+})
+

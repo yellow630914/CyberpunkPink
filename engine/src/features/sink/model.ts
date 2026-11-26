@@ -95,7 +95,8 @@ export const DEFAULT_SINK_RULES: SinkRules = {
     },
     { min: 60, id: 'drunk', name: '迷醉', effects: [skillCheck(['composure'], -1), tagCheck(['resist_control'], -2)], weekly: { hostility: 1 } },
     { min: 80, id: 'edge', name: '溺感邊緣', effects: [], double: true },
-    { min: 100, id: 'sunk', name: '溺感', effects: [{ stat: 'afterglow_cap', amount: 2 }] },
+    // 100 以上照樣加倍，和 80～99 一致（CORE_RULES 4.3 節；使用者 2026-11-26）：檢定的加減與餘韻的正面效果加倍，承受層數的加成不加倍
+    { min: 100, id: 'sunk', name: '溺感', effects: [{ stat: 'afterglow_cap', amount: 2 }], double: true },
   ],
   over_step: 25,
   decay: { amount: 2, sleeps: 4 },

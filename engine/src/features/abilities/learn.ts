@@ -3,7 +3,7 @@
 
 import type { ActorId, GameState, Kernel, ReportDraft } from '../../core'
 import { clone } from '../../core'
-import { abilityEntry, isNightId } from './outside'
+import { abilityEntry, bridgeClosedFor, isNightId } from './outside'
 import type { AbilityEntry, AbilityState, Category, Lesson, LessonFrom, PathEntry, PreparedEntry } from './types'
 import { CATEGORIES, CATEGORY_NAME, TREE_XP } from './types'
 
@@ -114,8 +114,13 @@ export const BRIDGE_CAPACITY_MIN = 8
  * 橋的容量。裝了 cyberware（有衍生數值 bridge_cap_meat）時四類都讀衍生數值（沒有橋是 0；義體功能照零件算，dev/adr/0019 P8）；
  * 沒有人定義時照舊讀 ext.bridge.capacity：有橋（capacity 是物件）的每類至少 8，壞掉的數字當 8；沒有橋就是 0。
  */
-function bridgeCapacity(k: Pick<Kernel, 'stats'>, state: GameState, actor: ActorId): Record<Category, number> {
+function bridgeCapacity(k: Pick<Kernel, 'stats' | 'activity'>, state: GameState, actor: ActorId): Record<Category, number> {
   const out = {} as Record<Category, number>
+  // 橋關著（斷線靜修）：四類容量都是 0
+  if (bridgeClosedFor(k, state, actor)) {
+    for (const c of CATEGORIES) out[c] = 0
+    return out
+  }
   if (k.stats.hasStat(`bridge_cap_${CATEGORIES[0]}`)) {
     for (const c of CATEGORIES) out[c] = k.stats.hasStat(`bridge_cap_${c}`) ? Math.max(0, Math.floor(k.stats.stat(state, actor, `bridge_cap_${c}`))) : 0
     return out
@@ -145,11 +150,11 @@ export const capCostOf = (ab: Pick<AbilityEntry, 'kind' | 'cap'>, discount: numb
 export type Capacity = Record<Category, { used: number; max: number }> & { flex?: { used: number; max: number } }
 
 /** 每一類：裝著的技能照各自的 category 把 cap 加起來（被動技能照 cap_discount 少佔），以及橋的容量。cap_flex 大於 0 時多一欄 flex：超出的合計與最多能挪用的點數。 */
-export function capacityOf(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, actor: ActorId): Capacity {
+export function capacityOf(k: Pick<Kernel, 'content' | 'stats' | 'activity'>, state: GameState, actor: ActorId): Capacity {
   return capacityFor(k, state, actor, abilitiesOf(state, actor).equipped)
 }
 
-export function capacityFor(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, actor: ActorId, ids: string[]): Capacity {
+export function capacityFor(k: Pick<Kernel, 'content' | 'stats' | 'activity'>, state: GameState, actor: ActorId, ids: string[]): Capacity {
   const max = bridgeCapacity(k, state, actor)
   const out = {} as Capacity
   const discount = {} as Record<Category, number>

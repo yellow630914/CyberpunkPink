@@ -27,7 +27,7 @@ import { ContentError, isRecord } from '../../core'
 import { registerBargainEffect, registerBargainKind } from './bargain'
 import { shopBlock } from './checkout'
 import type { ShopEntry, ShopTypeEntry, TradeItem } from './model'
-import { OWNER, RULE_KIND, SHOP_KIND, SHOP_TYPE_KIND, productItem, ruleProblems, shopProblems, shopTypeProblems, tradeRules } from './model'
+import { OWNER, RULE_KIND, SHOP_KIND, SHOP_TYPE_KIND, productItem, ruleProblems, shopProblems, shopTypeProblems, shopsAt, tradeRules } from './model'
 
 export {
   BARGAIN_EFFECT, BARGAIN_KIND, BARGAIN_METHODS, METHOD_IDS, bargainBlock, bargainByFavor, bargainDc, bargainInput, bargainOutcome, bargainView, routesHint, temperOf,
@@ -40,14 +40,10 @@ export {
   goodsOf, hostilityMarkup, intakeCount, isCargo, isProductId, marketMult, marketOf, matches, plainCount, productItem, productSellBase, quote, round, soldToday, stockOf, tradeCategoryOf, tradeOf, tradeRules, wornCount,
 } from './model'
 export type { BargainRec, Discount, Intake, Pay, Quote, QuoteOpts, QuoteStep, ShopEntry, ShopTypeEntry, StockRow, TradeItem, TradeRules, TradeState } from './model'
-export { shopView } from './view'
-export type { SellRow, ShelfRow, ShopView } from './view'
+export { sellHere, shopView } from './view'
+export type { SellHere, SellRow, ShelfRow, ShopView } from './view'
 
-/** 站在這一塊街區的這個設施標記上對得到哪幾間店（shop.block 與 shop.facility 都對得上）。 */
-export function shopsAt(k: Pick<Kernel, 'content'>, block: string | undefined, marker: string): ShopEntry[] {
-  if (!block) return []
-  return k.content.list<ShopEntry>(SHOP_KIND).filter((s) => s.block === block && s.facility === marker)
-}
+export { shopsAt } from './model'
 
 export const tradeFeature: Feature = {
   id: OWNER,

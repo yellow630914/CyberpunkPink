@@ -1,7 +1,7 @@
 // L6 auction 的進場與競價（LEWD_SYSTEM 6.2 節「競價的回合」「成交」；dev/adr/0019 第十八節與 P78～P80、P82、P83；dev/work/M4-auction-bid.md）。
 //
 // 一場拍賣是活動 auction：進場把目錄與競標者抄進 state.ext.auction.run（形狀見 Run），之後一份報告一個回合：
-//   玩家先動（加價 raise／等 wait／退出 fold），還在場的 NPC 照 bidders 的順序各決定一次（預算、興趣、這一回合有沒有人先加價；一次只加一階），
+//   玩家先動（加價 raise／等 wait／退出 fold），還在場的 NPC 照 bidders 的順序各決定一次（預算、興趣、緊接的前一手剛被人加價；一次只加一階；使用者 2026-11-26），
 //   一整回合沒有人加價 quiet 加 1（1 是倒數一次、2 落槌），最多 rounds_max 回合；落槌時沒人持有就流標。
 // 玩家退出之後這一件由程式照同一套規則在同一份報告裡算到落槌；全部落槌（或離場）時發 activity.end、時間推到時段結束（至少從進場算起 min_minutes）。
 // NPC 的亂數用 deriveRng（游標固定 0，鍵：auction、拍賣行、場次、第幾件、第幾回合，第幾位當重擲次數）：不動存檔亂數的游標，同一個選擇重來結果一樣。
@@ -9,7 +9,9 @@
 //
 // 玩家付的錢：得標當場扣（現價加佣金），所以「價錢＋佣金＋這一場已經花掉的 ≤ 進場時身上的錢」等於「價錢＋佣金 ≤ 現在身上的錢」。
 // 交不出去（M4 收尾修正批；LEWD_SYSTEM 6.2 節）：玩家標到契約或機密，落槌時先試跑要給的效果（give.ts）；交不出去就不收錢，改由出價第二高的 NPC 得標（沒有人就流標），結果寫「這一件撤拍」。
-// 自動跟價（同上）：bidDraft 收 { auto: { max } }：替玩家一回合一回合按到這一件落槌或退出——別人加價而再加一階不超過上限（而且付得起）就跟、超過就退出、自己已經最高就等。
+// 自動跟價（同上；LEWD_SYSTEM 6.2 節第 6 點）：玩家替這一件設一個上限（LotRun.auto），之後每一回合替玩家按——別人加價而再加一階不超過上限（而且付得起）就跟、超過就退出、自己已經最高就等。
+//   一份報告一個回合，和手動一樣（所以中途隨時可以取消）：bidDraft { auto: { max } } 設上限並走這一回合、{ act: 'auto_next' } 照著上限再走一回合、{ act: 'auto_off' } 取消（改回手動）；
+//   手動加價、等、退出、這一件落槌或退出之後，上限自動拿掉（只管當下這一件）。
 // 進行中的放行只有 auction.bid、auction.leave、auction.close（index.ts）。
 // 離場時玩家若正是這一件最高的出價人：出價不能收回，這一件照樣算到落槌（沒人加價就是玩家得標、照付）；之後的拍品玩家都不喊。
 
@@ -67,6 +69,8 @@ export interface LotRun {
   /** 退出這一件的競標者 */
   out: string[]
   pc_out: boolean
+  /** 自動跟價的上限（價錢，不含佣金）；沒設是沒有這一格。只管這一件：手動喊、取消、落槌、退出都拿掉 */
+  auto?: number
   /** 每個人（'pc'、競標者的 id）出過的最高價（交不出去時找出價第二高的 NPC 用；舊存檔沒有） */
   bids?: Record<string, number>
   state: 'open' | 'sold' | 'passed'
@@ -200,7 +204,10 @@ function announce(state: GameState, lot: LotRun): string {
 
 // ---- 一回合 ----
 
-export type BidInput = { act: 'raise'; steps: number } | { act: 'wait' } | { act: 'fold' } | { act: 'auto'; max: number }
+/** 玩家自己出的一手：加價、等、退出。 */
+export type Move = { act: 'raise'; steps: number } | { act: 'wait' } | { act: 'fold' }
+/** auto：設上限並走這一回合；auto_next：照已經設的上限再走一回合；auto_off：取消自動跟價（不走回合）。 */
+export type BidInput = Move | { act: 'auto'; max: number } | { act: 'auto_next' } | { act: 'auto_off' }
 /** 自動跟價的簡寫：bidDraft 與 bidBlock 收 { auto: { max } }（max 是願意出到的價錢，不含佣金）。 */
 export type AutoInput = { auto: { max: number } }
 type Plan = BidInput | { act: 'leave' }
@@ -208,7 +215,7 @@ type Plan = BidInput | { act: 'leave' }
 const planOf = (input: BidInput | AutoInput): BidInput => ('auto' in input ? { act: 'auto', max: input.auto.max } : input)
 
 export interface BidOption {
-  act: 'raise' | 'wait' | 'fold' | 'auto'
+  act: 'raise' | 'wait' | 'fold' | 'auto' | 'auto_next' | 'auto_off'
   /** 加價才有：加幾階、加完的現價、佣金、價錢加佣金 */
   steps?: number
   price?: number
@@ -223,8 +230,12 @@ export interface BidOptions {
   raise: BidOption[]
   wait: BidOption
   fold: BidOption
-  /** 自動跟價（要給上限 max）：能不能用、最低要給多少（現價再加一階才有意義） */
-  auto: BidOption & { min: number }
+  /** 自動跟價（要給上限 max）：能不能用、最低要給多少（現價再加一階才有意義）；current 是這一件現在設著的上限（沒設是 null） */
+  auto: BidOption & { min: number; current: number | null }
+  /** 照設著的上限再走一回合（沒設不能用） */
+  auto_next: BidOption
+  /** 取消自動跟價，改回手動（沒設不能用；不走回合） */
+  auto_off: BidOption
 }
 
 function blocksOf(k: Kernel, state: GameState, run: Run, rules: AuctionRules, input: BidInput): string[] {
@@ -247,6 +258,10 @@ function blocksOf(k: Kernel, state: GameState, run: Run, rules: AuctionRules, in
     if (lot.holder === PC) p.push('你是目前最高的出價人，不能退出；只能等。')
   } else if (input.act === 'auto') {
     if (!(isSafeInt(input.max) && input.max > 0)) p.push('自動跟價要給一個大於 0 的上限。')
+  } else if (input.act === 'auto_next') {
+    if (lot.auto === undefined) p.push('這一件沒有設自動跟價。')
+  } else if (input.act === 'auto_off') {
+    if (lot.auto === undefined) p.push('這一件沒有設自動跟價，不用取消。')
   } else p.push('不認得這個動作：要加價、等、退出或自動跟價。')
   return [...new Set(p)]
 }
@@ -270,7 +285,9 @@ export function bidOptions(k: Kernel, state: GameState): BidOptions | null {
     }),
     wait: one({ act: 'wait' }),
     fold: one({ act: 'fold' }),
-    auto: { ...one({ act: 'auto', max: (lot?.price ?? 0) + (lot?.step ?? 0) }), min: (lot?.price ?? 0) + (lot?.step ?? 0) },
+    auto: { ...one({ act: 'auto', max: (lot?.price ?? 0) + (lot?.step ?? 0) }), min: (lot?.price ?? 0) + (lot?.step ?? 0), current: lot?.auto ?? null },
+    auto_next: one({ act: 'auto_next' }),
+    auto_off: one({ act: 'auto_off' }),
   }
 }
 
@@ -317,11 +334,16 @@ export interface RoundLog {
 }
 
 /** 玩家（或沒有玩家）動完，NPC 照順序各決定一次；回合結束更新 quiet，到了該落槌的時候回傳 hammered。 */
-function playRound(state: GameState, run: Run, rules: AuctionRules, lot: LotRun, pc: Exclude<BidInput, { act: 'auto' }> | null): { log: RoundLog; hammered: boolean } {
+function playRound(state: GameState, run: Run, rules: AuctionRules, lot: LotRun, pc: Move | null): { log: RoundLog; hammered: boolean } {
   lot.round += 1
   const acts: ActRecord[] = []
   let raised = false
-  const act = (who: string, a: ActRecord['act'], steps?: number): void => void acts.push({ who, name: nameOfBidder(run, who), act: a, ...(steps !== undefined ? { steps } : {}), price: lot.price })
+  // 緊接的前一手是不是剛被人加價（LEWD_SYSTEM 6.2 節第 3 點：NPC 的加價機率 +10；使用者 2026-11-26：是緊接的前一手，不是這一回合裡任何一個更早的加價）
+  let prevRaised = false
+  const act = (who: string, a: ActRecord['act'], steps?: number): void => {
+    acts.push({ who, name: nameOfBidder(run, who), act: a, ...(steps !== undefined ? { steps } : {}), price: lot.price })
+    prevRaised = a === 'raise'
+  }
   const bid = (who: string): void => void ((lot.bids ??= {})[who] = lot.price)
   if (pc?.act === 'raise') {
     lot.price += pc.steps * lot.step
@@ -343,7 +365,7 @@ function playRound(state: GameState, run: Run, rules: AuctionRules, lot: LotRun,
       return void act(b.id, 'out')
     }
     const base = b.interests.includes(lot.kind) ? rules.interest.yes : rules.interest.no
-    const chance = Math.min(1, base + (raised ? rules.interest.after_raise : 0))
+    const chance = Math.min(1, base + (prevRaised ? rules.interest.after_raise : 0))
     if (deriveRng({ seed: state.rng.seed, cursor: 0 }, purpose, i).chance(chance)) {
       lot.price += lot.step
       lot.holder = b.id
@@ -624,7 +646,7 @@ interface Step {
  * 自動跟價替玩家選這一回合的動作（LEWD_SYSTEM 6.2 節第 6 點；規則和手動喊價完全一樣）：自己已經是最高的人就等；
  * 不是的時候，再加一階（最小的一步）不超過上限、而且付得起（含佣金）就跟，否則退出這一件。
  */
-export function autoChoice(state: GameState, run: Run, rules: AuctionRules, lot: LotRun, max: number): Exclude<BidInput, { act: 'auto' }> {
+export function autoChoice(state: GameState, run: Run, rules: AuctionRules, lot: LotRun, max: number): Move {
   if (lot.holder === PC) return { act: 'wait' }
   const price = lot.price + lot.step
   const affordable = price + feeOf(rules, price) <= state.money[run.pay]
@@ -636,6 +658,7 @@ function runStep(k: Kernel, state: GameState, work: GameState, run: Run, rules: 
   const st: Step = { rounds: [], hammers: [], changes: [], lines: [], plain: [], beats: [], closed: false }
   const finish = (lot: LotRun): void => {
     const s = settle(k, work, run, lot, rules, lot.round)
+    delete lot.auto
     st.changes.push(...s.changes)
     st.hammers.push(s.hammer)
     st.lines.push(...s.lines)
@@ -646,7 +669,7 @@ function runStep(k: Kernel, state: GameState, work: GameState, run: Run, rules: 
     const next = lotOf(run)
     if (next) st.beats.push(beat(state, announce(state, next), 'auction.announce', { lot: next.lot }))
   }
-  const round = (lot: LotRun, pc: Exclude<BidInput, { act: 'auto' }> | null): boolean => {
+  const round = (lot: LotRun, pc: Move | null): boolean => {
     const r = playRound(state, run, rules, lot, pc)
     st.rounds.push(r.log)
     for (const a of r.log.acts) {
@@ -673,23 +696,29 @@ function runStep(k: Kernel, state: GameState, work: GameState, run: Run, rules: 
       if (lot.holder !== PC) lot.pc_out = true
       toHammer(lot)
     }
-  } else if (plan.act === 'auto') {
-    // 自動跟價：替玩家一回合一回合按，到這一件落槌或玩家退出（退出之後和手動退出一樣，由程式算完這一件）
+  } else if (plan.act === 'auto_off') {
+    // 取消自動跟價：不走回合，改回手動
     const lot = lotOf(run)!
-    for (let guard = 0; lot.state === 'open' && guard < 200; guard++) {
-      const choice = autoChoice(state, run, rules, lot, plan.max)
-      const hammered = round(lot, choice)
-      const last = st.rounds[st.rounds.length - 1]!
-      if (hammered) {
-        finish(lot)
-        last.hammer = st.hammers[st.hammers.length - 1]!
-      } else if (choice.act === 'fold') {
-        toHammer(lot)
-        break
-      }
+    delete lot.auto
+    st.beats.push(beat(state, '你取消了自動跟價，這一件改回自己喊。', 'auction.auto_off', { lot: lot.lot }, true))
+  } else if (plan.act === 'auto' || plan.act === 'auto_next') {
+    // 自動跟價：替玩家按這一回合（上限記在這一件上；落槌或玩家退出就拿掉。退出之後和手動退出一樣，由程式算完這一件）
+    const lot = lotOf(run)!
+    if (plan.act === 'auto') lot.auto = plan.max
+    const choice = autoChoice(state, run, rules, lot, lot.auto!)
+    const hammered = round(lot, choice)
+    const last = st.rounds[st.rounds.length - 1]!
+    if (hammered) {
+      finish(lot)
+      last.hammer = st.hammers[st.hammers.length - 1]!
+    } else if (choice.act === 'fold') {
+      delete lot.auto
+      toHammer(lot)
     }
   } else {
+    // 手動：玩家自己接手，自動跟價的上限拿掉
     const lot = lotOf(run)!
+    delete lot.auto
     const hammered = round(lot, plan)
     const last = st.rounds[st.rounds.length - 1]!
     if (hammered) {
@@ -734,6 +763,7 @@ function draftOf(k: Kernel, state: GameState, action: string, plan: Plan): Repor
     if (action === BID_ACTION) actionName = CLOSE_ACTION
     if (plan.act === 'leave') result = 'left'
   } else changes.push({ op: PATCH_OP, run: run as unknown as Record<string, unknown> })
+  if (plan.act === 'auto_off') result = 'auto_off'
   const outcome: AuctionOutcome = {
     result, summary: beats.map((b) => b.text).join(''), house: run.house, lot: lotAt, rounds: st.rounds, hammers: st.hammers, closed: st.closed,
     ...(st.closed ? { won: run.won, spent: run.spent, recap: summaryOf(k, state, run, plan.act === 'leave', recapText) } : {}),
@@ -747,7 +777,8 @@ function draftOf(k: Kernel, state: GameState, action: string, plan: Plan): Repor
 
 /**
  * 一個回合：報告 auction.bid（這一回合結束整場時是 auction.close）。outcome 帶這一回合每個人的動作、倒數的狀態、落槌的結果。
- * { auto: { max } } 是自動跟價：一次推進到這一件落槌或退出（outcome.rounds 有每一回合）。
+ * 自動跟價（LEWD_SYSTEM 6.2 節第 6 點）也是一回合一份報告：{ auto: { max } } 設上限並走這一回合，{ act: 'auto_next' } 照上限再走一回合，
+ * { act: 'auto_off' } 取消（不走回合；result 是 auto_off）。要看到這一件落槌為止就一直送 auto_next，隨時可以改送 auto_off 或手動的一手。
  */
 export function bidDraft(k: Kernel, state: GameState, input: BidInput | AutoInput): ReportDraft {
   const block = bidBlock(k, state, input)
@@ -791,6 +822,8 @@ export interface AuctionView {
   step: number
   /** 現在最高的人：id 是 'pc'、競標者的 id 或 null；name 是「你」或他的名字 */
   holder: { id: Holder; name: string | null }
+  /** 這一件設著的自動跟價上限（價錢，不含佣金）；沒設是 null */
+  auto: number | null
   /** 第幾回合（下一個要喊的回合）與上限；已經喊完幾回合 */
   round: number
   rounds_done: number
@@ -823,6 +856,7 @@ export function auctionView(k: Kernel, state: GameState): AuctionView | null {
     },
     reserve: lot.reserve, price: lot.price, step: lot.step,
     holder: { id: lot.holder, name: lot.holder === null ? null : nameOfBidder(run, lot.holder) },
+    auto: lot.auto ?? null,
     round: lot.round + 1, rounds_done: lot.round, rounds_max: auctionRules(k).rounds_max, quiet: lot.quiet, countdown: lot.quiet === 1,
     bidders: run.bidders.map((b) => ({ id: b.id, name: b.name, out: lot.out.includes(b.id) })),
     host: announce(state, lot),

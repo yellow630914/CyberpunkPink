@@ -10,7 +10,7 @@
 import type { ActorId, Change, GameState, Kernel, Report, ReportDraft, TimelineBeat } from '../../core'
 import { ActionBlocked, clone, effectCtx } from '../../core'
 import type { RetreatRec } from './model'
-import { EXT_OP, MINUTES_PER_DAY, RETREAT_ACTION, nameOf, nowOf, readExt } from './model'
+import { EXT_OP, MINUTES_PER_DAY, RETREAT_ACTION, SUNK_AT, nameOf, nowOf, readExt } from './model'
 
 /** 進行中的斷線靜修（主角的）；沒有是 null。 */
 export function retreatOf(state: GameState): RetreatRec | null {
@@ -99,6 +99,7 @@ export function retreatLeaveDraft(k: Kernel, state: GameState): ReportDraft {
 /**
  * 掛點 report.after：時間到了（now ≥ until）而且手上除了斷線靜修沒有別的活動（戰鬥、事件打完了才算）：結算。
  * 沉溺走 sink 效果往下降（下限會擋）；沒有人註冊 sink 效果時略過沉溺（記號照樣拿掉）。
+ * 待在裡面的時候沉溺被推到 100 以上（事件、戰鬥放行）：DOWNTIME 3.3 節「沉溺 100 以上……靜修沒用」，結算不降（B032）。
  */
 export function retreatSettle(k: Kernel, state: GameState, report: Report): ReportDraft[] | undefined {
   if (report.rewind || report.action === 'rewind') return undefined
@@ -108,7 +109,8 @@ export function retreatSettle(k: Kernel, state: GameState, report: Report): Repo
   const who = state.pc!
   const changes: Change[] = []
   let dropped = 0
-  if (k.effects.has('sink')) {
+  const sunk = (state.actors[who]?.sink ?? 0) >= SUNK_AT
+  if (!sunk && k.effects.has('sink')) {
     const fx = [{ kind: 'sink', amount: -r.amount }]
     const ctx = effectCtx(k, state, { source: 'builtin', actor: who })
     if (k.effects.validate(fx, ctx).length === 0) {
@@ -121,6 +123,7 @@ export function retreatSettle(k: Kernel, state: GameState, report: Report): Repo
   }
   changes.push({ op: EXT_OP, id: who, retreat: null } as Change)
   const lines = [`${nameOf(state, who)}在${r.facility}斷了線，安安靜靜待了好幾天，回來的時候腦子清楚了一些。`]
-  if (dropped === 0) lines.push('不過身上的義體還是把你墊在原來的地方。')
+  if (sunk) lines[0] = `${nameOf(state, who)}在${r.facility}斷了線，安安靜靜待了好幾天。可是你已經不想回去了：靜修沒有用。`
+  else if (dropped === 0) lines.push('不過身上的義體還是把你墊在原來的地方。')
   return [draftOf(state, who, 'done', lines, changes, { facility: r.facility, from: r.from, dropped, minutes: r.until - r.since })]
 }

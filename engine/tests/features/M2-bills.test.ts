@@ -425,7 +425,9 @@ describe('連三週沒付清：第三週併成債、債主敵對值 +10；之後
     goTo(g, 29)
     goTo(g, 36)
     expect(overdueWeeks(g.state)).toBe(2)
-    expect(readBills(g.state).debts).toEqual([])
+    // 中間補清那一週，之前累積的欠款（600）沒補齊：併成一筆債（B039；使用者 2026-11-26），欠繳重新數、不會第三週又併一筆
+    expect(readBills(g.state).debts).toHaveLength(1)
+    expect(readBills(g.state).debts[0]).toMatchObject({ id: 'd1', principal: 600 })
   })
 
   it('規則可以蓋：債主、利率、第幾週併債、敵對值加多少、利息付現金', () => {
@@ -471,19 +473,23 @@ describe('連三週沒付清：第三週併成債、債主敵對值 +10；之後
 // ---- 效果 ----
 
 describe('效果 bill、grace、debt', () => {
-  it('bill：加到超過那一項金額的一半時被夾（連同這一週已經加的），減免也一樣；夾值有白話提醒', () => {
+  it('bill：AI 給的加到超過那一項金額的一半時被夾（連同這一週已經加的），減免也一樣；夾值有白話提醒；內建的照寫的算（EVENTS 2.4；B034）', () => {
+    const builtin = make({ cred: 1000, lines: [line('rent', 150)] })
+    const free = give(builtin, [{ kind: 'bill', item: 'rent', amount: 100 }])
+    expect(free.effects).toEqual([{ kind: 'bill', item: 'rent', amount: 100 }])
+    expect(free.clamps).toEqual([])
     const g = make({ cred: 1000, lines: [line('rent', 150)] })
-    const r = give(g, [{ kind: 'bill', item: 'rent', amount: 100 }])
+    const r = give(g, [{ kind: 'bill', item: 'rent', amount: 100 }], 'ai')
     expect(r.effects).toEqual([{ kind: 'bill', item: 'rent', amount: 75 }])
     expect(r.clamps).toHaveLength(1)
     expect(r.clamps[0]!.notice).toContain('一半')
     expect(readBills(g.state).tweaks).toEqual({ rent: 75 })
     // 已經加滿，再加整筆拿掉
-    const again = give(g, [{ kind: 'bill', item: 'rent', amount: 10 }])
+    const again = give(g, [{ kind: 'bill', item: 'rent', amount: 10 }], 'ai')
     expect(again.effects).toEqual([])
     expect(readBills(g.state).tweaks).toEqual({ rent: 75 })
     // 減免從 +75 走到 −75 最多 150
-    const cut = give(g, [{ kind: 'bill', item: 'rent', amount: -500 }])
+    const cut = give(g, [{ kind: 'bill', item: 'rent', amount: -500 }], 'ai')
     expect(cut.effects).toEqual([{ kind: 'bill', item: 'rent', amount: -150 }])
     expect(readBills(g.state).tweaks).toEqual({ rent: -75 })
   })
@@ -500,9 +506,9 @@ describe('效果 bill、grace、debt', () => {
     expect(g.box.settled[1]!.lines.find((l) => l.id === 'rent')).toMatchObject({ amount: 200 })
   })
 
-  it('bill：減免可以把一項減到一半、預覽看得到', () => {
+  it('bill：AI 給的減免可以把一項減到一半、預覽看得到', () => {
     const g = make({ cred: 1000, lines: [line('rent', 100)] })
-    give(g, [{ kind: 'bill', item: 'rent', amount: -80 }])
+    give(g, [{ kind: 'bill', item: 'rent', amount: -80 }], 'ai')
     expect(billPreview(g.k, g.state).lines.find((l) => l.id === 'rent')!.amount).toBe(50)
   })
 
@@ -531,10 +537,10 @@ describe('效果 bill、grace、debt', () => {
     expect(bad({ kind: 'bill', amount: 5 })).toBeGreaterThan(0)
   })
 
-  it('grace：寬限的那一項這週不算欠（也不擋後面）；過期之後照常；最多 7 天', () => {
+  it('grace：寬限的那一項這週不算欠（也不擋後面）；過期之後照常；AI 給的最多 7 天、內建的照寫的算（B034）', () => {
     const g = make({ cred: 100, lines: [line('rent', 150, { order: 1 }), line('sub', 60, { order: 2 })] })
     goTo(g, 6, 12)
-    const r = give(g, [{ kind: 'grace', item: 'rent', days: 30 }])
+    const r = give(g, [{ kind: 'grace', item: 'rent', days: 30 }], 'ai')
     expect(r.effects).toEqual([{ kind: 'grace', item: 'rent', days: 7 }])
     expect(r.clamps[0]!.notice).toContain('7')
     expect(readBills(g.state).grace).toEqual({ rent: toMinutes({ day: 13, hour: 12, minute: 0 }) })

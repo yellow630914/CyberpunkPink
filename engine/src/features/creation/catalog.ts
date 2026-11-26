@@ -97,7 +97,7 @@ export interface SuggestedKit {
 
 /**
  * 出身的建議組合（origin.suggested）：把草稿換成建議的橋、義體、裝備，超過點數或擋住的照順序從後面裁掉（先裁裝備、再裁義體），
- * 直到第 6、9 步都不擋。出身沒寫建議（或查不到出身）has 是 false。不改傳進來的草稿。
+ * 直到第 6、9 步都不擋（一件都不放也照樣有的原因，例如草稿還沒選橋，不算）。出身沒寫建議（或查不到出身）has 是 false。不改傳進來的草稿。
  */
 export function suggestedKit(k: Pick<Kernel, 'hooks' | 'content'>, state: GameState, draft: CreationDraft): SuggestedKit {
   const origin = k.content.get<OriginEntry>('origin', draft.origin)
@@ -106,9 +106,16 @@ export function suggestedKit(k: Pick<Kernel, 'hooks' | 'content'>, state: GameSt
   const cyber = (sg.cyber ?? []).map((c) => ({ ...c }))
   const gear = (sg.gear ?? []).map((g) => ({ ...g }))
   const trimmed: string[] = []
+  const draftWith = (c: typeof cyber, g: typeof gear): CreationDraft => ({ ...draft, ...(sg.bridge !== undefined ? { bridge: sg.bridge } : {}), cyber: c, gear: g })
+  // 一件都不放也照樣擋的原因（草稿還沒選橋：「要選一座橋，或選沒有橋」）不是這份建議的錯，不當成要裁的理由；
+  // 不然草稿沒選橋、建議也沒寫橋的時候，裝備與義體會被裁得一件都不剩（M4-fix-2）。裝備裡要接在橋上的（甲板）照樣擋，會被裁掉
+  const bare = draftWith([], [])
+  const baseline = { cyber: cyberStepBlock(k, state, bare)?.reason ?? null, gear: gearStepBlock(k, state, bare)?.reason ?? null }
   const test = (): boolean => {
-    const d: CreationDraft = { ...draft, ...(sg.bridge !== undefined ? { bridge: sg.bridge } : {}), cyber, gear }
-    return !cyberStepBlock(k, state, d) && !gearStepBlock(k, state, d)
+    const d = draftWith(cyber, gear)
+    const c = cyberStepBlock(k, state, d)?.reason ?? null
+    const g = gearStepBlock(k, state, d)?.reason ?? null
+    return (c === null || c === baseline.cyber) && (g === null || g === baseline.gear)
   }
   while (!test() && (gear.length > 0 || cyber.length > 0)) {
     if (gear.length > 0) trimmed.push(gear.pop()!.id)

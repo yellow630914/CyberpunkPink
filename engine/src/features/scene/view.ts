@@ -136,6 +136,8 @@ export interface SceneView {
   audience?: boolean
   /** 每一回合的那一句 */
   lines: LineView[]
+  /** 精簡版遇到多人的設定：只展開一個對象，其餘的人收在旁邊照規則算；這一句是引擎給畫面的說明（不是這種情形沒有這個欄位） */
+  simple_note?: string
   /** 選中行動的預覽與原因（sceneView 的第三個參數給了才有） */
   selected?: { input: SceneInput; blocks: string[]; preview: Preview }
 }
@@ -228,6 +230,11 @@ export function sceneView(k: Kernel, state: GameState, selected?: SceneInput): S
     lines: s.lines.map((l) => ({ round: l.round, who: l.who, text: l.text })),
     ...(solo ? { pace: s.pace ?? 0, audience: s.audience === true } : {}),
   }
+  const folded = s.circles.flatMap((c) => c.people)
+  if (s.mode === 'simple' && !solo && folded.length > 0) {
+    const names = (ids: string[]): string => ids.map((id) => state.actors[id]?.name ?? id).join('、')
+    view.simple_note = `精簡版一次只展開一個對象（${names(seats.slice(1).map((x) => x.id))}）：其他的人（${names(folded)}）收在旁邊照規則算，叫不過來、也不能換過去。要和大家一起玩，請在設定裡把成人場景切到完整版（下一場開始時生效）。`
+  }
   if (selected) view.selected = { input: selected, blocks: p.blocks(pcId, selected, true), preview: p.preview(pcId, selected) }
   return view
 }
@@ -277,7 +284,7 @@ export interface ChoiceOption {
   input: SceneInput
 }
 
-export interface ActionOption {
+interface ActionOptionRaw {
   id: ActionId
   name: string
   ap: number
@@ -289,6 +296,17 @@ export interface ActionOption {
   choices?: ChoiceOption[]
   preview: Preview | null
 }
+
+export interface ActionOption extends ActionOptionRaw {
+  /**
+   * 這個行動會照「行動的對象」算：多人時畫面要列「對象」那一排的行動才是 true（主導、迎合、挑逗、克制、技能、說話、道具、夜課的功夫）。
+   * 停下、換圈、叫人、換檔、換體位、脫換衣服與單人場景（沒有對象）都是 false。sceneOptions 的第二個參數 target 對 true 的行動才有作用。
+   */
+  targeted: boolean
+}
+
+/** 行動的輸入帶 target 的種類（sceneOptions 的 aimed 對這些才加）。 */
+const TARGETED_ACTIONS: ReadonlySet<ActionId> = new Set<ActionId>(['dominate', 'yield', 'tease', 'restrain', 'skill', 'talk', 'item', 'once'])
 
 export interface SceneOptions {
   turn: Who
@@ -340,7 +358,7 @@ export function sceneOptions(k: Kernel, state: GameState, o: { target?: string }
   // 指定對象（M4-core-gaps 第 17 項）：多人時玩家先選了對象，每個行動的原因、部位的組合與預覽都照他算；沒給（或不在這一圈）一對一是對方、多人是引擎挑的那一個
   const at = o.target !== undefined && p.activeOthers(w).includes(o.target) ? o.target : undefined
   const aimed = <T extends SceneInput>(input: T): T => (at !== undefined && input.kind !== 'stop' && input.kind !== 'end_turn' && input.kind !== 'move_circle' && input.kind !== 'call' && input.kind !== 'gear' && input.kind !== 'switch' ? { ...input, target: at } : input)
-  const simple = (id: 'dominate' | 'yield' | 'tease' | 'restrain' | 'stop' | 'faster' | 'slower'): ActionOption => {
+  const simple = (id: 'dominate' | 'yield' | 'tease' | 'restrain' | 'stop' | 'faster' | 'slower'): ActionOptionRaw => {
     const input: SceneInput = aimed({ kind: id })
     return { id, name: ACTION_NAME[id], ap: id === 'stop' ? 0 : costOf(p, input, w), blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: id === 'stop' ? null : p.preview(w, input) }
   }
@@ -385,22 +403,22 @@ export function sceneOptions(k: Kernel, state: GameState, o: { target?: string }
   const names = (ids: string[]): string => ids.map((x) => state.actors[x]?.name ?? x).join('、')
   const moves = s.circles.map((c) => plain({ kind: 'move_circle', circle: c.id }, c.id, names(c.people), p.rulesFor(w).cost.move_circle))
   const calls = s.circles.flatMap((c) => c.people.map((id) => plain({ kind: 'call', who: id }, id, state.actors[id]?.name ?? id, p.rulesFor(w).cost.call)))
-  const circleActions: ActionOption[] = s.mode === 'full' && s.circles.length > 0
+  const circleActions: ActionOptionRaw[] = s.mode === 'full' && s.circles.length > 0
     ? [
       { id: 'move_circle', name: ACTION_NAME.move_circle, ap: p.rulesFor(w).cost.move_circle, blocks: group(moves, '沒有別的圈可以去。'), picks: [], pairs: [], choices: moves, preview: null },
       { id: 'call', name: ACTION_NAME.call, ap: p.rulesFor(w).cost.call, blocks: group(calls, '別的圈裡沒有人可以叫。'), picks: [], pairs: [], choices: calls, preview: null },
     ]
     : []
-  const talkAction: ActionOption = {
+  const talkAction: ActionOptionRaw = {
     id: 'talk', name: ACTION_NAME.talk, ap: p.rulesFor(w).cost.talk, blocks: p.blocks(w, talkInput, true), picks: solo ? [] : picksOf(p, [...TALK_PARTS], talkTheirs, talkPairs), pairs: talkPairs,
     preview: p.preview(w, talkInput),
   }
-  const skillAction: ActionOption = { id: 'skill', name: ACTION_NAME.skill, ap: minAp(skills), blocks: group(skills, '你還沒有學會任何在場景裡用得出來的技能。'), picks: [], pairs: [], choices: skills, preview: null }
-  const itemAction: ActionOption = { id: 'item', name: ACTION_NAME.item, ap: minAp(items), blocks: group(items, '你身上沒有在場景裡用得出來的東西。'), picks: [], pairs: [], choices: items, preview: null }
-  const switchAction: ActionOption = { id: 'switch', name: ACTION_NAME.switch, ap: costOf(p, { kind: 'switch', position: '' }, w), blocks: group(switches.filter((x) => x.id !== s.position), solo ? '沒有別的姿勢可以換。' : '沒有別的體位可以換。'), picks: [], pairs: [], choices: switches, preview: null }
-  const gearAction: ActionOption = { id: 'gear', name: ACTION_NAME.gear, ap: 0, blocks: group(gears.filter((x) => x.id !== p.seat(w).gear), '沒有別的檔位可以換。'), picks: [], pairs: [], choices: gears, preview: null }
+  const skillAction: ActionOptionRaw = { id: 'skill', name: ACTION_NAME.skill, ap: minAp(skills), blocks: group(skills, '你還沒有學會任何在場景裡用得出來的技能。'), picks: [], pairs: [], choices: skills, preview: null }
+  const itemAction: ActionOptionRaw = { id: 'item', name: ACTION_NAME.item, ap: minAp(items), blocks: group(items, '你身上沒有在場景裡用得出來的東西。'), picks: [], pairs: [], choices: items, preview: null }
+  const switchAction: ActionOptionRaw = { id: 'switch', name: ACTION_NAME.switch, ap: costOf(p, { kind: 'switch', position: '' }, w), blocks: group(switches.filter((x) => x.id !== s.position), solo ? '沒有別的姿勢可以換。' : '沒有別的體位可以換。'), picks: [], pairs: [], choices: switches, preview: null }
+  const gearAction: ActionOptionRaw = { id: 'gear', name: ACTION_NAME.gear, ap: 0, blocks: group(gears.filter((x) => x.id !== p.seat(w).gear), '沒有別的檔位可以換。'), picks: [], pairs: [], choices: gears, preview: null }
   // 共鳴給的行動（M4-night-resonance）：有那個共鳴才列。夜課的功夫（每場一次：主動權設成共鳴寫的數、契合拉到共鳴寫的數）、脫換衣服
-  const granted: ActionOption[] = []
+  const granted: ActionOptionRaw[] = []
   const dressCost = costOf(p, { kind: 'dress' }, w)
   if (p.onceOf(w, 'free_dress') !== null) granted.push({ id: 'dress', name: ACTION_NAME.dress, ap: dressCost, blocks: p.blocks(w, { kind: 'dress' }, true), picks: [], pairs: [], preview: p.preview(w, { kind: 'dress' }) })
   const oncePicks: ChoiceOption[] = []
@@ -416,8 +434,8 @@ export function sceneOptions(k: Kernel, state: GameState, o: { target?: string }
   }
   if (!solo && oncePicks.length > 0) granted.push({ id: 'once', name: ACTION_NAME.once, ap: Math.min(...oncePicks.map((x) => x.ap)), blocks: group(oncePicks, '現在沒有夜課的功夫可以用。'), picks: [], pairs: [], choices: oncePicks, preview: null })
   // 單人：加快、放慢取代主導、迎合，沒有挑逗、沒有圈；切換的是姿勢
-  const soloActions: ActionOption[] = [simple('faster'), simple('slower'), simple('restrain'), skillAction, talkAction, itemAction, switchAction, gearAction, ...granted, simple('stop')]
-  const actions: ActionOption[] = solo ? soloActions : [
+  const soloActions: ActionOptionRaw[] = [simple('faster'), simple('slower'), simple('restrain'), skillAction, talkAction, itemAction, switchAction, gearAction, ...granted, simple('stop')]
+  const actions: ActionOptionRaw[] = solo ? soloActions : [
     simple('dominate'), simple('yield'), simple('tease'), simple('restrain'),
     { id: 'skill', name: ACTION_NAME.skill, ap: minAp(skills), blocks: group(skills, '你還沒有學會任何在場景裡用得出來的技能。'), picks: [], pairs: [], choices: skills, preview: null },
     {
@@ -433,5 +451,6 @@ export function sceneOptions(k: Kernel, state: GameState, o: { target?: string }
   ]
   // 別的功能插進來的選項（掛點 scene.window）：每一個帶現在做不做得到的原因
   const inserted = sceneWindow(k, state, p).options.map((o) => ({ id: o.id, owner: o.owner, name: o.label, ap: costOf(p, o.input, w), blocks: p.blocks(w, o.input, true), input: o.input }))
-  return { turn: p.who(s.turn), round: s.round, targets: p.activeOthers(w).map((id) => ({ id, name: state.actors[id]?.name ?? id })), ap: { now: p.seat(w).ap, max: p.apMax[w]! }, actions, end_turn: { blocks: turn }, inserted }
+  const listed: ActionOption[] = actions.map((a) => ({ ...a, targeted: !solo && TARGETED_ACTIONS.has(a.id) }))
+  return { turn: p.who(s.turn), round: s.round, targets: p.activeOthers(w).map((id) => ({ id, name: state.actors[id]?.name ?? id })), ap: { now: p.seat(w).ap, max: p.apMax[w]! }, actions: listed, end_turn: { blocks: turn }, inserted }
 }

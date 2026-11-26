@@ -6,6 +6,6 @@
   - `bridgeValue`（learn.ts）註解寫「沒有橋是 null」，可是它先看衍生數值 `bridge_<參數>` 有沒有人註冊：lewd 裝著（正式的局一定裝）時直接回那個數值，沒有橋的人是 0。
   - 結果 `tolerance_min: 40` 的原因寫成「耐受要有 40，你現在是 0。」，而不是「要看耐受，可是你現在沒有橋。」；`docility_max: 60` 的條件對沒有橋的人直接算過（原因是空的、學得了）。
   - 對照：lewd 自己的條件 `bridge`（index.ts 第 160 行）是「看有效值；沒有橋的人不成立」，tuning 的靜室也先看 `hasBridge`。夜課這一處和別處不一致。
-- 重現：`engine/tests/whitebox/fixtures/B033-night-bridge-req-without-bridge.json`；會失敗的測試：`engine/tests/pending/B033-night-bridge-req-without-bridge.test.ts`（兩條都失敗）。
+- 重現：`engine/tests/whitebox/fixtures/B033-night-bridge-req-without-bridge.json`；會失敗的測試：`engine/tests/features/B033-night-bridge-req-without-bridge.test.ts`（兩條都失敗）。
 - 可能的位置（只寫推測，不改）：`features/nightclass/learn.ts` 的 `bridgeValue`：先看 `actor.ext.bridge` 是不是 null（或問條件 `has_bridge`），沒有橋回 null，再去讀衍生數值。
-- 狀態：待修。
+- 狀態：已修（M4-fix-2，2026-11-26）。`features/nightclass/learn.ts` 的 `bridgeValue`：先看 `actor.ext.bridge` 是不是一座橋（lewd 的 `has_bridge`、dive 的 `hasBridge` 同一個讀法），沒有橋回 null，才去讀衍生數值 `bridge_<參數>`；沒有橋的人 `_min`、`_max` 的條件都不成立（「要看X，可是你現在沒有橋。」）。測試：`engine/tests/features/B033-night-bridge-req-without-bridge.test.ts`。

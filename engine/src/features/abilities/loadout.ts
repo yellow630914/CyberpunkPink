@@ -228,7 +228,7 @@ export function maskChanges(k: Pick<Kernel, 'content'>, state: GameState, actor:
 // ---- 裝與卸 ----
 
 /** 檢查這一組裝得了（沒學的、敵人的招牌行動、某一類裝不下就丟錯）。夜課延伸的技能（night:<id>）要在 actor.ext.scene.skills 裡、標籤沒被篩選關掉。 */
-function checkSet(k: Pick<Kernel, 'content' | 'stats'>, state: GameState, actor: ActorId, list: string[]): void {
+function checkSet(k: Pick<Kernel, 'content' | 'stats' | 'activity'>, state: GameState, actor: ActorId, list: string[]): void {
   const mine = abilitiesOf(state, actor)
   const outside = list.some(isNightId) ? new Set(learnedOutside(k, state, actor)) : undefined
   for (const id of list) {

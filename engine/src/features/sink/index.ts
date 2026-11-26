@@ -69,7 +69,7 @@ export const sinkFeature: Feature = {
 
     // 活動 retreat：斷線靜修進行中（使用者 2026-11-26）。橋關著、不能潛入、不能做別的事；放行的只有自己的報告與意外的事（事件、戰鬥）
     k.activity.define({
-      kind: RETREAT_ACTIVITY, owner: OWNER, order: 70,
+      kind: RETREAT_ACTIVITY, owner: OWNER, order: 70, bridgeOff: true,
       active: (state) => {
         const r = retreatOf(state)
         return r ? { id: RETREAT_ACTIVITY, label: `斷線靜修中（${r.facility}）` } : null

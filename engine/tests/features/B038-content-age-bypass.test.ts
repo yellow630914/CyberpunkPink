@@ -13,9 +13,9 @@ const NPC = 'npc_tw_friend'
 describe('B038：內容裡低於 18 的年齡一律擋下', () => {
   it('覆蓋（applyOverlays）：把 npc 的 age 改成 16 → 丟錯、內容還原', () => {
     const { game: g } = makeCityGame()
-    const base = clone(g.k.content.get<Record<string, unknown>>('npc', NPC)!)
+    const base = clone(g.k.content.get('npc', NPC)!)
     expect(() => g.k.content.applyOverlays([{ id: 'ov', content: { npc: { set: [{ ...base, age: 16 } as never] } } }])).toThrow(/18|age/)
-    expect(g.k.content.get<Record<string, unknown>>('npc', NPC)!.age).not.toBe(16)
+    expect(g.k.content.get('npc', NPC)!.age).not.toBe(16)
   })
 
   it('沒裝 npcs 功能：匯入 12 歲的 npc → 載入失敗', () => {

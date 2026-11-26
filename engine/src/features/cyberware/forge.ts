@@ -8,7 +8,7 @@
 // 沒有人註冊 cyber_unlock 時整件事做不了（原因寫在 forgeProblems）。
 
 import type { ActorId, Change, CheckRoll, GameState, Kernel, ReportDraft, TimelineBeat } from '../../core'
-import { ActionBlocked, DEGREE_NAME, checkParts, clone, dcFor, effectCtx, rollCheck } from '../../core'
+import { ActionBlocked, DEGREE_NAME, checkParts, checkPassChance, clone, dcFor, effectCtx, rollCheck } from '../../core'
 import { HOSTILITY_EFFECT } from './crack'
 import { BROKEN_OFF, UNLOCK_EFFECT, pieceName, piecePrice, readLock, writePieces } from './lock'
 import type { CyberPiece } from './model'
@@ -46,6 +46,8 @@ export interface ForgeQuote {
   /** 請夥伴辦的 DC 與加值（中間人是 null） */
   dc: number | null
   bonus: number | null
+  /** 請夥伴辦成功（成功或大成功）的機率，0～1（中間人是 null） */
+  chance: number | null
   /** 中間人的價錢（夥伴是 0） */
   fee: number
   pay: Pool | null
@@ -79,7 +81,7 @@ function plan(k: Kernel, state: GameState, o: ForgeOpts): Plan {
   const grade = bp?.grade ?? deckContentOf(k, piece.bp)?.grade ?? 1
   const isFaction = !!lock?.holder && k.content.hasKind('faction') && k.content.has('faction', lock.holder)
   const quote: ForgeQuote = {
-    uid: o.uid, bp: piece.bp, name, via: o.via, dc: null, bonus: null, fee: 0, pay: null, minutes: rules.surgery_minutes,
+    uid: o.uid, bp: piece.bp, name, via: o.via, dc: null, bonus: null, chance: null, fee: 0, pay: null, minutes: rules.surgery_minutes,
     ...(lock?.holder ? { holder: lock.holder } : {}), ...(isFaction && o.via === 'partner' ? { faction: lock!.holder! } : {}),
   }
   if (o.via === 'partner') {
@@ -90,6 +92,7 @@ function plan(k: Kernel, state: GameState, o: ForgeOpts): Plan {
       quote.by = by
       quote.dc = dcFor((rules.self_dc[Math.min(5, Math.max(1, grade)) - 1] ?? rules.self_dc[0] ?? 10) + rules.forge_dc_bonus, state.rules)
       quote.bonus = checkParts(k.stats, state, by, { attr: FORGE_ATTR, skill: FORGE_SKILL, tags: ['forge'] }).reduce((s, p) => s + p.value, 0)
+      quote.chance = checkPassChance(quote.bonus, quote.dc)
     }
   } else {
     quote.fee = Math.max(0, Math.round(piecePrice(k, piece) * rules.forge_fee + 1e-9))

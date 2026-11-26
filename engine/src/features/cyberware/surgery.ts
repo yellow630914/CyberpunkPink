@@ -10,7 +10,7 @@
 
 import type { ActorId, BlueprintEntry, Change, CheckRoll, GameState, Kernel, ProductData, QuirkEntry, ReportDraft, TimelineBeat } from '../../core'
 import {
-  ActionBlocked, DEGREE_NAME, blueprintOf, checkParts, clone, dcFor, deriveRng, formatAmount, formatDuration, partOf, partTypeName, productOf, productPrice, readProduct, rollCheck, sinkUpChanges, stackOf,
+  ActionBlocked, DEGREE_NAME, blueprintOf, checkParts, checkPassChance, clone, dcFor, deriveRng, formatAmount, formatDuration, partOf, partTypeName, productOf, productPrice, readProduct, rollCheck, sinkUpChanges, stackOf,
 } from '../../core'
 import { DECK_FULL, brainDeck, deckContentOf, isDeckPiece, netActivityBlock, pieceBlueprint } from './deck'
 import { usedExtras } from './used'
@@ -167,13 +167,17 @@ export interface SelfCheck {
   dc: number
   /** 擲骰面以外的加值合計 */
   bonus: number
+  /** 過關（成功或大成功）的機率，0～1（畫面寫「成功率」用；使用者 2026-11-26） */
+  chance: number
 }
 
 export function selfCheckOf(k: Kernel, state: GameState, by: ActorId, bp: Pick<BlueprintEntry, 'grade'>, rules: CyberRules): SelfCheck | undefined {
   if (!state.actors[by]) return undefined
   const base = rules.self_dc[Math.min(5, Math.max(1, bp.grade)) - 1] ?? rules.self_dc[0] ?? 10
   const parts = checkParts(k.stats, state, by, { attr: SELF_ATTR, skill: rules.self_skill, tags: ['surgery'] })
-  return { by, skill: rules.self_skill, dc: dcFor(base, state.rules), bonus: parts.reduce((s, p) => s + p.value, 0) }
+  const bonus = parts.reduce((s, p) => s + p.value, 0)
+  const dc = dcFor(base, state.rules)
+  return { by, skill: rules.self_skill, dc, bonus, chance: checkPassChance(bonus, dc) }
 }
 
 /** 付一筆錢用哪一種：指定的就用指定的（不夠回 null）；沒指定先帳戶、不夠再現金。 */

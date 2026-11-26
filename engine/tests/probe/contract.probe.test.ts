@@ -144,7 +144,8 @@ describe('探針：契約人的一週', () => {
       const spent = toMinutes(g.state.time) - tIn
       notes.push(`拍賣：進場 → 離場經過 ${spent} 分鐘；指令期限 ${dIn} → ${dl()}（位移 ${dl() - dIn} 分鐘）`)
       if (dl() - dIn !== spent) known.push(`B040：拍賣經過 ${spent} 分鐘，指令期限位移 ${dl() - dIn} 分鐘（規格 EVENTS 4.5：拍賣是獨佔的活動，期限暫停）；離場那份報告推進時間時活動已經結束，time.passed 看到的是離場之後的狀態`)
-      expect(dl() - dIn, '現況（B040）：離場的那一段時間沒有算暫停').toBe(0)
+      // B040 已修（M4-fix-2）：結束活動的同一份報告推進的時間，也算在活動裡（time.passed 的 before）
+      expect(dl() - dIn, '離場那一段時間要算暫停（期限往後挪經過的分鐘）').toBe(spent)
     }
 
     // ---- 把剩下的時間走到下一個週一（回報日）以後 ----

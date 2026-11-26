@@ -137,7 +137,7 @@ describe('M4-data-rules：兩邊各有一份的數字', () => {
   it('contract_rule.resist 與 event_scopes.contract 的機率不重複定義', () => {
     const g = game()
     const scope = g.k.content.get('event_scope', 'contract') as Rec
-    expect(Object.keys(scope.triggers as Rec).sort()).toEqual(['holder_order', 'order'])
+    expect(Object.keys(scope.triggers as Rec).sort()).toEqual(['daily', 'holder_order', 'home', 'order', 'released'])
     expect(Object.keys(raw(g, 'contract_rule')).filter((k) => k === 'triggers' || k === 'daily_roll')).toEqual([])
     // 每天擲不擲、下哪一種的機率只在 scope（daily_roll）；rule 只有抗拒的 DC 與滿意
     expect(scope.daily_roll).toEqual(plain({ eden: 0.4, gang: 0.3, corp: 0.25, person: [0.15, 0.45] }))
@@ -149,7 +149,8 @@ describe('M4-data-rules：event_scopes 與 battle_statuses', () => {
   it('新的觸發點在各自範圍的表裡', () => {
     expect(scope('rogue_ai').triggers).toEqual({ login: 0.15, enter_floor: 0.1, rest: 0.15, kiss_choose: 1 })
     expect(scope('rogue_ai')).toMatchObject({ cooldown_hours: 24, daily_cap: 1 })
-    expect(scope('contract').triggers).toEqual({ order: 1, holder_order: 1 })
+    // 契約的範圍（M4-fix-2）：指令與持約人那一方的 order、holder_order，解約之後的 released，契約人主動找你的 home 與 daily（EVENTS 4.5 節）
+    expect(scope('contract').triggers).toEqual({ order: 1, holder_order: 1, released: 1, home: 0.1, daily: 0.1 })
     expect(scope('adult').triggers).toEqual({ arena_result: 1, foe_sunk: 0.5, impulse: 0.3 })
     expect((scope('street').triggers as Rec).auction_done).toBe(0.3)
   })

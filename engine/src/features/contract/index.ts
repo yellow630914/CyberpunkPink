@@ -87,10 +87,10 @@ export const contractFeature: Feature = {
     // 掃橋（M4-security-m4 宣告的掛點；沒有人問也不會壞）：主角的契約人身分與橋權、被掃的是主角持有的人時他的
     ;(k.hooks.on.bind(k.hooks) as unknown as (name: string, owner: string, fn: (payload: never) => unknown) => void)('scan.person', OWNER, (({ state, actor }: { state: GameState; actor: string }) => scanPerson(state, actor)) as never)
 
-    k.hooks.on('time.passed', OWNER, ({ state, from, to }): ReportDraft[] | void => {
+    k.hooks.on('time.passed', OWNER, ({ state, from, to, before }): ReportDraft[] | void => {
       const last = state.reports[state.reports.length - 1]
       if (!last || last.rewind) return
-      const drafts = timeDrafts(k, state, from, to)
+      const drafts = timeDrafts(k, state, from, to, before)
       return drafts.length > 0 ? drafts : undefined
     })
   },

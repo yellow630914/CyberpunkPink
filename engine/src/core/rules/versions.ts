@@ -15,6 +15,31 @@ export const CONTENT_TAGS = [
 ] as const
 export type ContentTag = (typeof CONTENT_TAGS)[number]
 
+/**
+ * 內容篩選的名字與一句說明（LEWD_SYSTEM 第 9 節；設定與建角的「內容篩選」列、特質被篩選關掉時的原因用同一份）。
+ * 只有 CONTENT_TAGS 這十二個；流竄 AI 的題材與內容自己的標籤（拘束、公開……）名字在內容裡（傾向標籤的 name），查不到的用標籤的 id（contentTagName）。
+ * 說明寫的是「關掉時會怎樣」。
+ */
+export const CONTENT_TAG_INFO: Record<ContentTag, { name: string; note: string }> = {
+  pc_unwilling: { name: '主角非自願', note: '關掉時「被迫」性質的場景開不起來，標了主角非自願的分支改走替代的版本。' },
+  target_unwilling: { name: '對象非自願', note: '關掉時「俘虜」性質的場景開不起來，對俘虜或被迫的對象用的夜課技能不出現。' },
+  contract_dom: { name: '契約支配', note: '關掉時「契約」性質的場景開不起來，契約只剩經濟與法律層面的效果。' },
+  ntr: { name: 'NTR', note: '關掉時帶 NTR 標籤的場景開不起來，相關的夜課技能不出現。' },
+  puppet_amnesia: { name: '人偶晶片的失憶', note: '關掉時，標了「人偶失憶」的場景與事件不出現，人偶館只開清醒的店。' },
+  blacktape: { name: '黑帶相關的任務', note: '關掉時黑帶相關的任務與事件不出現。' },
+  intimate_body: { name: '身體的私密描寫', note: '關掉時建角不問私處的樣子，角色的成人分頁也不顯示；場景裡那幾個部位的名字收起來。' },
+  male_partner: { name: '男性對象', note: '關掉時，對象是男性的成人場景開不起來（內海看化身的性別）。' },
+  female_partner: { name: '女性對象', note: '關掉時，對象是女性的成人場景開不起來（內海看化身的性別）。' },
+  femboy_partner: { name: '男娘與偽娘對象', note: '關掉時，對象是這個性別的成人場景開不起來（內海看化身的性別）。' },
+  trans_partner: { name: 'TS 對象', note: '關掉時，對象是這個性別的成人場景開不起來（內海看化身的性別）。' },
+  futa_partner: { name: '扶他對象', note: '關掉時，對象是這個性別的成人場景開不起來（內海看化身的性別）。' },
+}
+
+/** 一個內容篩選標籤的名字：CONTENT_TAGS 裡的用名字表，其他（內容自己的標籤）用 fallback，再沒有就是標籤的 id。 */
+export function contentTagName(tag: string, fallback?: string): string {
+  return (CONTENT_TAGS as readonly string[]).includes(tag) ? CONTENT_TAG_INFO[tag as ContentTag].name : fallback ?? tag
+}
+
 export const VERSIONS = ['default', 'masc', 'yuri'] as const
 export type VersionId = (typeof VERSIONS)[number]
 

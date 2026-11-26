@@ -49,8 +49,12 @@ export interface HookMap {
   'report.before': [{ state: GameState; draft: ReportDraft }, Change[] | ReportBeforeAnswer | void]
   /** 報告套用之後：可以回傳接著要提交的報告（例：跨過週一時的帳單）。 */
   'report.after': [{ state: GameState; report: Report }, ReportDraft[] | void]
-  /** 時間往前走了：from 到 to。可以回傳接著要提交的報告。 */
-  'time.passed': [{ state: GameState; from: GameTime; to: GameTime }, ReportDraft[] | void]
+  /**
+   * 時間往前走了：from 到 to。可以回傳接著要提交的報告。
+   * state 是這份報告套用之後的狀態；before 是這份報告開始之前的狀態（唯讀的複製；只有這份報告真的讓時間往前走時才有）：
+   * 「這段時間是在什麼狀況下過的」要看開始的那一刻（例：結束活動的同一份報告推進了時間，期限暫停要算那段時間：B040）。
+   */
+  'time.passed': [{ state: GameState; from: GameTime; to: GameTime; before?: GameState }, ReportDraft[] | void]
   /** 開新遊戲：狀態骨架建好之後。可以回傳變更（功能放自己的初始狀態）。 */
   'game.new': [{ state: GameState }, Change[] | void]
   /** 讀檔之後、交給遊戲之前：讀檔修復。可以回傳變更。 */
