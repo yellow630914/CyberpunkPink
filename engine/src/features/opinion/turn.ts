@@ -5,12 +5,15 @@
 
 import type { GameState, Kernel, ReportDraft } from '../../core'
 import { ActionBlocked, attachActivityEnd, endActivity } from '../../core'
-import { captureBlock, cellsOwnedBy, defenseOf } from './board'
+import { applicableDefMods, cellsOwnedBy, planCapture } from './board'
 import { warBlock } from './cards'
+import { consequences } from './after'
+import { beginTurn, reservables } from './fx'
 import { checkOnce, foeTurn } from './foe'
 import type { Cell } from './model'
 import { ACTIVITY, BRIBE_ACTION, CAPTURE_ACTION, CELLS, CELL_NAME, CONCEDE_ACTION, END_ACTION, TURN_ACTION, isCell, opinionRules, readWar } from './model'
-import { Run, resultPlain, resultText } from './run'
+import { modsOf } from './mods'
+import { Run, credOf, resultPlain, resultText } from './run'
 
 // ---- 佔領 ----
 
@@ -24,9 +27,8 @@ export function captureBlockOf(k: Kernel, state: GameState, input: CaptureInput)
   if (b) return b
   const w = war!
   if (!isCell(input.cell)) return `「${input.cell}」不是格子的 id（${CELLS.join('、')}）。`
-  if (w.captured >= w.captures) return '這一回合已經佔領過了。'
-  const why = captureBlock(w, input.cell, 'you', opinionRules(k))
-  return why ?? k.activity.blockOf(state, `commit:${CAPTURE_ACTION}`)
+  const r = planCapture(w, input.cell, opinionRules(k), { cred: credOf(k, state) })
+  return 'why' in r ? r.why : k.activity.blockOf(state, `commit:${CAPTURE_ACTION}`)
 }
 
 export function captureDraft(k: Kernel, state: GameState, input: CaptureInput): ReportDraft {
@@ -36,7 +38,16 @@ export function captureDraft(k: Kernel, state: GameState, input: CaptureInput): 
   const w = run.w
   const cell = input.cell as Cell
   const was = w.cells[cell].owner
-  const def = captureNeed(run, cell)
+  const r = planCapture(w, cell, run.rules, run.env)
+  if ('why' in r) throw new ActionBlocked(r.why)
+  const def = r.plan.def
+  // 用掉的次數與加減：下一次的 def_mod 拿掉、這一次佔的是原本那一次還是多佔的、每場第一次佔沒人的格子、某一格只算一次的加減
+  const spent = applicableDefMods(w, cell).filter((i) => w.defmods[i]!.scope === 'next')
+  w.defmods = w.defmods.filter((_, i) => !spent.includes(i))
+  if (r.plan.slot === 'base') w.base_used = true
+  else w.xcap.splice(r.plan.slot, 1)
+  if (was === null && modsOf(w, 'def_first_empty', run.env).length > 0) w.moves_used['war:first_empty'] = (w.moves_used['war:first_empty'] ?? 0) + 1
+  if (modsOf(w, 'def_cell', run.env).some((m) => m.cell === cell && m.once === true)) w.moves_used[`war:def_cell:${cell}`] = (w.moves_used[`war:def_cell:${cell}`] ?? 0) + 1
   w.voice.you -= def
   w.cells[cell] = { owner: 'you' }
   w.captured++
@@ -51,12 +62,38 @@ export function captureDraft(k: Kernel, state: GameState, input: CaptureInput): 
   return run.draft(CAPTURE_ACTION, result, run.beats.map((b) => b.text).join(''))
 }
 
-const captureNeed = (run: Run, cell: Cell): number => defenseOf(run.w, cell, 'you', run.rules)
-
 // ---- 結束回合 ----
 
-export function endTurnBlock(k: Kernel, state: GameState): string | null {
-  return warBlock(readWar(state)) ?? k.activity.blockOf(state, `commit:${TURN_ACTION}`)
+export interface EndTurnInput {
+  /** 預留給反應的編輯點（reservables 列出的 key）：有 cost 的反應從這回合沒用完的編輯點扣 */
+  reserve?: string[]
+}
+
+export function endTurnBlock(k: Kernel, state: GameState, input: EndTurnInput = {}): string | null {
+  const war = readWar(state)
+  const b = warBlock(war)
+  if (b) return b
+  if (input.reserve !== undefined && input.reserve.length > 0) {
+    const run = new Run(k, state, war, 'turn')
+    const left = reservables(run)
+    const seen = new Set<string>()
+    for (const key of input.reserve) {
+      const r = left.find((x) => x.key === key)
+      if (!r) return `沒有這個可以預留的反應「${key}」。`
+      if (seen.has(key)) return `「${r.name}」只能預留一次。`
+      seen.add(key)
+    }
+    // 一個一個扣：兩個反應不能共用同一點編輯點
+    const seats = run.w.desk.map((s) => ({ ...s }))
+    for (const key of input.reserve) {
+      const r = left.find((x) => x.key === key)!
+      if (r.reason && !r.can) return r.reason
+      const seat = seats.find((s) => s.actor === r.seat && s.ep >= r.cost) ?? seats.find((s) => s.ep >= r.cost)
+      if (!seat) return `編輯點不夠：「${r.name}」要預留 ${r.cost} 點，剩下的不夠了。`
+      seat.ep -= r.cost
+    }
+  }
+  return k.activity.blockOf(state, `commit:${TURN_ACTION}`)
 }
 
 /** 對手的回合做完之後：最後一回合就結算，不然開下一回合。 */
@@ -67,16 +104,24 @@ function advance(run: Run): void {
   if (w.round >= w.rounds) run.finish('rounds')
   else {
     w.round++
-    run.startRound()
+    beginTurn(run)
   }
 }
 
-export function endTurnDraft(k: Kernel, state: GameState): ReportDraft {
-  const block = endTurnBlock(k, state)
+export function endTurnDraft(k: Kernel, state: GameState, input: EndTurnInput = {}): ReportDraft {
+  const block = endTurnBlock(k, state, input)
   if (block) throw new ActionBlocked(block)
   const run = new Run(k, state, readWar(state), 'turn')
   const w = run.w
   run.note(`你結束了第 ${w.round} 回合。`, { tag: 'opinion.end_turn', data: { round: w.round } })
+  // 預留編輯點給有 cost 的反應（從這回合沒用完的編輯點扣；預留了沒發動就白白浪費）
+  for (const key of input.reserve ?? []) {
+    const r = reservables(run).find((x) => x.key === key)!
+    const seat = w.desk.find((s) => s.actor === r.seat && s.ep >= r.cost) ?? w.desk.find((s) => s.ep >= r.cost)!
+    seat.ep -= r.cost
+    w.reserved.push({ key, seat: seat.actor, cost: r.cost })
+    run.note(`你替「${r.name}」預留了 ${r.cost} 點編輯點。`, { tag: 'opinion.reserve', data: { key, cost: r.cost, seat: seat.actor }, plain: `你替「${r.name}」留了一手。` })
+  }
   const once = checkOnce(run)
   if (once && once.rule.do === 'bribe') {
     w.pending = 'bribe'
@@ -168,10 +213,17 @@ export function closeDraft(run: Run, action: string): ReportDraft {
   const payload = {
     topic: w.topic.id, kind: w.topic.kind, side: w.topic.side, you: r.you, foe: r.foe, cells, rounds: w.round, grade: w.grade, faction: w.foe.faction ?? null,
     by: r.by, mode: w.mode, foe_id: w.foe.id, strength: w.foe.strength, target_held: r.target_held, ...(r.bribed !== undefined ? { bribed: r.bribed } : {}),
+    brought: w.brought.map((b) => b.ref), desk: w.desk.map((s) => s.actor),
   }
   const end = endActivity(run.k, { state: run.state, kind: w.mode === 'face' ? 'face.opinion' : ACTIVITY, id: w.id, origin: w.origin, outcome: r.outcome, result: payload })
   run.changes.push(...end.changes)
   for (const line of end.lines) run.note(line.replace(/。?$/, '。'), { plain: line })
+  // 結算的後果：目標勢力的聲望與敵對值、訂閱與公信力、佔著的格子的加成、議題的 on_end、戰役外的效果（一次交給 k.effects）
+  const after = consequences(run)
+  run.changes.push(...after.changes)
+  if (after.lines.length > 0 || after.effects.length > 0) {
+    run.note(`後果：${after.lines.map((l) => l.replace(/。+$/, '')).join('；')}。`, { tag: 'opinion.after', data: { effects: after.effects, ...(after.skipped.length > 0 ? { skipped: after.skipped } : {}) }, plain: '這場輿論戰的餘波傳開了。' })
+  }
   if (action === END_ACTION) run.note(resultText(r, w), { tag: 'opinion.end', data: { outcome: r.outcome }, plain: resultPlain(r) })
   const d = run.draft(action, r.outcome, run.beats.map((b) => b.text).join(''), { war: null })
   return attachActivityEnd(d, end)

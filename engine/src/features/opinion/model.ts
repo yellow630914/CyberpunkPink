@@ -16,6 +16,7 @@
 import type { GameState, Kernel, Origin } from '../../core'
 import { isRecord, isSafeInt } from '../../core'
 import type { ContentEntry } from '../../core'
+import type { OpEffect, OpPassive } from './hooks'
 import { parseWhen } from './when'
 
 export const OWNER = 'opinion'
@@ -34,6 +35,7 @@ export const CITY_KIND = 'city_card'
 export const START_ACTION = 'opinion.start'
 export const PLAY_ACTION = 'opinion.play'
 export const CAPTURE_ACTION = 'opinion.capture'
+export const MOVE_ACTION = 'opinion.move'
 export const TURN_ACTION = 'opinion.turn'
 export const CONCEDE_ACTION = 'opinion.concede'
 export const BRIBE_ACTION = 'opinion.bribe'
@@ -124,6 +126,31 @@ export interface OpinionRules {
   sweeps: number
   /** 難度對對手公關點的加減（BALANCE 7.2；公關點最少 1） */
   pr_by_difficulty: Record<string, number>
+  /** 各路數的編輯點照階數的一半：up 進位、down 捨去（OPINION 4.3b；路數 id 照 actor.ext.paths） */
+  ep_paths: Record<string, 'up' | 'down'>
+  /** 被動的 ep_cap 合計最多算幾點 */
+  ep_cap_max: number
+  /** 一場最多帶幾件料進牌庫（牌庫大約 12～15 張，基本牌九張） */
+  bring_max: number
+  /** 素材與片換成牌面的算式（V33）：料 = 看點 ÷ div 進位、夾在 1～max，達 fuel_two_at 花 2 點；說法 = 可信達 line_two_at 風向 2（花 2 點）否則 1；假料牌面再加 fake_plus */
+  deck: { fuel_div: number; fuel_max: number; fuel_two_at: number; line_two_at: number; fake_plus: number }
+  /** 豔名（OPINION 4.3c）：每 step 點算一級，看臉三格的防守最多減 max；counter_at 以上對手的反爆料多推 counter_plus */
+  fame: { step: number; max: number; counter_at: number; counter_plus: number }
+  /** 自己發起的戰役：訂閱到 subs_at 以上，採訪的聲量 +interview_plus（V34） */
+  self: { subs_at: number; interview_plus: number }
+  /** 戰役的後果（V41）：目標勢力的聲望與敵對值、訂閱（現有的百分之幾）、公信力 */
+  after: Record<Outcome, AfterRule>
+  /** 結算時佔著的格子另給：主流三格各訂閱 +main_subs_pct%；同人圈與應援圈各人氣 +circle_pop、打賞（分數 × circle_tip）；街頭三格合計公信力 +street_cred */
+  cells: { main_subs_pct: number; circle_pop: number; circle_tip: number; street_cred: number }
+  /** 自己發起而沒指定對手、也沒有對得上勢力的對手資料時用的通用公關：強度照戰役等級（I～V）、行動表 */
+  generic: { strength: number[]; actions: ActionRule[] }
+}
+
+export interface AfterRule {
+  standing?: number
+  hostility?: number
+  subs_pct?: number
+  cred?: number
 }
 
 export const DEFAULT_OPINION_RULES: OpinionRules = {
@@ -131,6 +158,17 @@ export const DEFAULT_OPINION_RULES: OpinionRules = {
   grade_fuel: [0, 0, 1, 1, 2], line_cred: { high: 60, low: 30 },
   army: { voice: 3, risk: 5, wind: 1, cred: 3 }, fake: { risk: 6, wind: 2, cred: 8 }, mute: 2, shift: 2, sweeps: 3,
   pr_by_difficulty: { story: -1, easy: -1, normal: 0, hard: 1, legend: 2, custom: 0 },
+  ep_paths: { streamer: 'up', idol: 'up', socialite: 'down', fixer: 'down' }, ep_cap_max: 3, bring_max: 6,
+  deck: { fuel_div: 2, fuel_max: 4, fuel_two_at: 3, line_two_at: 6, fake_plus: 1 },
+  fame: { step: 30, max: 2, counter_at: 60, counter_plus: 1 },
+  self: { subs_at: 10000, interview_plus: 1 },
+  // OPINION 第 9 節沒有數字：V41 的暫定。大勝目標勢力聲望 −10、敵對值 +10、訂閱 +10%、公信力 +5；小勝 −5、+6、+5%、+2；平手敵對值 +3；敗敵對值 +5、公信力 −3
+  after: { major: { standing: -10, hostility: 10, subs_pct: 10, cred: 5 }, minor: { standing: -5, hostility: 6, subs_pct: 5, cred: 2 }, draw: { hostility: 3 }, lost: { hostility: 5, cred: -3 } },
+  cells: { main_subs_pct: 2, circle_pop: 1, circle_tip: 50, street_cred: 1 },
+  generic: {
+    strength: [1, 1, 2, 2, 3],
+    actions: [{ do: 'release', when: 'always' }, { do: 'deny', when: 'wind > 0' }, { do: 'mute', when: 'your_voice >= 3' }, { do: 'counter', when: 'wind > 1' }, { do: 'takedown', when: 'hand >= 4' }],
+  },
 }
 
 export const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
@@ -157,13 +195,72 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
     if (!isRecord(e.pr_by_difficulty)) p.push('pr_by_difficulty 要是「難度 → 加減」')
     else for (const [d, n] of Object.entries(e.pr_by_difficulty)) if (!intIn(n, -6, 6)) p.push(`pr_by_difficulty.${d} 要是 −6～6 的整數`)
   }
+  p.push(...extraRuleProblems(e))
+  return p
+}
+
+/** 編輯台那一張加的規則欄位。 */
+const EXTRA_GROUPS = [
+  ['deck', [['fuel_div', 1, 4], ['fuel_max', 1, 10], ['fuel_two_at', 1, 10], ['line_two_at', 1, 10], ['fake_plus', 0, 3]]],
+  ['fame', [['step', 1, 100], ['max', 0, 5], ['counter_at', 0, 100], ['counter_plus', 0, 3]]],
+  ['self', [['subs_at', 0, 100_000_000], ['interview_plus', 0, 3]]],
+  ['cells', [['main_subs_pct', 0, 50], ['circle_pop', 0, 20], ['circle_tip', 0, 10_000], ['street_cred', 0, 20]]],
+] as const
+const AFTER_FIELDS = [['standing', -100, 100], ['hostility', -100, 100], ['subs_pct', -100, 1000], ['cred', -100, 100]] as const
+
+function extraRuleProblems(e: Record<string, unknown>): string[] {
+  const p: string[] = []
+  if (e.ep_paths !== undefined) {
+    if (!isRecord(e.ep_paths)) p.push('ep_paths 要是「路數 id → up 或 down」')
+    else for (const [path, v] of Object.entries(e.ep_paths)) if (v !== 'up' && v !== 'down') p.push(`ep_paths.${path} 要是 up（進位）或 down（捨去）`)
+  }
+  if (e.ep_cap_max !== undefined && !intIn(e.ep_cap_max, 0, 6)) p.push('ep_cap_max 要是 0～6 的整數')
+  if (e.bring_max !== undefined && !intIn(e.bring_max, 0, 15)) p.push('bring_max 要是 0～15 的整數')
+  for (const [key, fields] of EXTRA_GROUPS) {
+    const v = e[key]
+    if (v === undefined) continue
+    if (!isRecord(v)) p.push(`${key} 要是 { ${fields.map((f) => f[0]).join(', ')} }`)
+    else for (const [f, lo, hi] of fields) if (v[f] !== undefined && !intIn(v[f], lo, hi)) p.push(`${key}.${f} 要是 ${lo}～${hi} 的整數`)
+  }
+  if (e.after !== undefined) {
+    if (!isRecord(e.after)) p.push('after 要是「結果 → { standing, hostility, subs_pct, cred }」')
+    else {
+      for (const [o, v] of Object.entries(e.after)) {
+        if (!(OUTCOMES as readonly string[]).includes(o)) p.push(`after.${o} 不是結果（${OUTCOMES.join('、')}）`)
+        else if (!isRecord(v)) p.push(`after.${o} 要是 { standing, hostility, subs_pct, cred }`)
+        else for (const [f, lo, hi] of AFTER_FIELDS) if (v[f] !== undefined && !intIn(v[f], lo, hi)) p.push(`after.${o}.${f} 要是 ${lo}～${hi} 的整數`)
+      }
+    }
+  }
+  if (e.generic !== undefined) {
+    const g = e.generic
+    if (!isRecord(g)) p.push('generic 要是 { strength, actions }')
+    else {
+      if (g.strength !== undefined && !(Array.isArray(g.strength) && g.strength.length === 5 && g.strength.every((n) => intIn(n, 1, 3)))) p.push('generic.strength 要是五個 1～3 的整數（戰役等級 I～V 各一個）')
+      if (g.actions !== undefined) {
+        if (!Array.isArray(g.actions) || g.actions.length === 0) p.push('generic.actions 要是行動的陣列（由上往下，每個 { do, when }）')
+        else {
+          g.actions.forEach((a, i) => {
+            if (!isRecord(a)) return void p.push(`generic.actions[${i}] 要是 { do, when }`)
+            if (!(SWEEP_IDS as readonly unknown[]).includes(a.do)) p.push(`generic.actions[${i}].do 要是 ${SWEEP_IDS.join('、')} 之一`)
+            const w = whenProblem(a.when, `generic.actions[${i}]`)
+            if (w) p.push(w)
+          })
+        }
+      }
+    }
+  }
   return p
 }
 
 /** 現在生效的規則：資料 opinion_rule/default 蓋掉內建的預設（格式不對的欄位忽略）。 */
 export function opinionRules(k: Pick<Kernel, 'content'>): OpinionRules {
   const d = DEFAULT_OPINION_RULES
-  const out: OpinionRules = { ...d, grade_fuel: [...d.grade_fuel], line_cred: { ...d.line_cred }, army: { ...d.army }, fake: { ...d.fake }, pr_by_difficulty: { ...d.pr_by_difficulty } }
+  const out: OpinionRules = {
+    ...d, grade_fuel: [...d.grade_fuel], line_cred: { ...d.line_cred }, army: { ...d.army }, fake: { ...d.fake }, pr_by_difficulty: { ...d.pr_by_difficulty },
+    ep_paths: { ...d.ep_paths }, deck: { ...d.deck }, fame: { ...d.fame }, self: { ...d.self }, cells: { ...d.cells },
+    after: Object.fromEntries(OUTCOMES.map((o) => [o, { ...d.after[o] }])) as Record<Outcome, AfterRule>, generic: { strength: [...d.generic.strength], actions: d.generic.actions.map((a) => ({ ...a })) },
+  }
   const e = k.content.hasKind(RULE_KIND) ? k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default') : undefined
   if (!e) return out
   for (const [key, lo, hi] of INT_RULES) if (intIn(e[key], lo, hi)) out[key] = e[key]
@@ -174,7 +271,34 @@ export function opinionRules(k: Pick<Kernel, 'content'>): OpinionRules {
     if (isRecord(v)) for (const f of fields) if (intIn(v[f], 0, 20)) (out[key] as unknown as Record<string, number>)[f] = v[f] as number
   }
   if (isRecord(e.pr_by_difficulty)) for (const [dif, n] of Object.entries(e.pr_by_difficulty)) if (intIn(n, -6, 6) && dif !== '__proto__') out.pr_by_difficulty[dif] = n
+  mergeExtra(out, e)
   return out
+}
+
+function mergeExtra(out: OpinionRules, e: Record<string, unknown>): void {
+  if (isRecord(e.ep_paths)) for (const [path, v] of Object.entries(e.ep_paths)) if ((v === 'up' || v === 'down') && path !== '__proto__') out.ep_paths[path] = v
+  if (intIn(e.ep_cap_max, 0, 6)) out.ep_cap_max = e.ep_cap_max
+  if (intIn(e.bring_max, 0, 15)) out.bring_max = e.bring_max
+  for (const [key, fields] of EXTRA_GROUPS) {
+    const v = e[key]
+    if (isRecord(v)) for (const [f, lo, hi] of fields) if (intIn(v[f], lo, hi)) (out[key] as unknown as Record<string, number>)[f] = v[f] as number
+  }
+  if (isRecord(e.after)) {
+    for (const o of OUTCOMES) {
+      const v = e.after[o]
+      if (!isRecord(v)) continue
+      const rule: AfterRule = { ...out.after[o] }
+      for (const [f, lo, hi] of AFTER_FIELDS) if (intIn(v[f], lo, hi)) rule[f] = v[f]
+      out.after[o] = rule
+    }
+  }
+  if (isRecord(e.generic)) {
+    const g = e.generic
+    if (Array.isArray(g.strength) && g.strength.length === 5 && g.strength.every((n) => intIn(n, 1, 3))) out.generic.strength = [...(g.strength as number[])]
+    if (Array.isArray(g.actions) && g.actions.length > 0 && g.actions.every((a) => isRecord(a) && (SWEEP_IDS as readonly unknown[]).includes(a.do) && whenProblem(a.when, 'x') === null)) {
+      out.generic.actions = (g.actions as Array<Record<string, unknown>>).map((a) => ({ do: a.do as ActionId, when: a.when as string }))
+    }
+  }
 }
 
 // ---- 議題類型（topic_kind） ----
@@ -247,6 +371,8 @@ export interface TopicEntry extends ContentEntry {
   target_cell?: string
   your_start?: string
   category?: string
+  /** 結束時多給的效果（內容用；k.effects 的格式，'$foe_faction' 換成對手的勢力、'$pc' 換成主角；有人註冊才給） */
+  on_end?: Partial<Record<Outcome, OpEffect[]>>
 }
 
 const strList = (v: unknown): v is string[] => Array.isArray(v) && v.every(isText)
@@ -264,15 +390,28 @@ export function topicProblems(e: Record<string, unknown>): string[] {
   if (e.kind === 'frame' && e.target_cell === undefined) p.push('嫁禍（frame）要指定一格（target_cell）')
   if (e.your_start !== undefined && !isCellKey(e.your_start)) p.push(`your_start 要是格子的 id（${CELLS.join('、')}）`)
   if (e.category !== undefined && !isText(e.category)) p.push('category 要是題材的名字')
+  if (e.on_end !== undefined) {
+    if (!isRecord(e.on_end)) p.push('on_end 要是「結果 → 效果的陣列」')
+    else {
+      for (const [o, list] of Object.entries(e.on_end)) {
+        if (!(OUTCOMES as readonly string[]).includes(o)) p.push(`on_end.${o} 不是結果（${OUTCOMES.join('、')}）`)
+        else if (!Array.isArray(list) || !list.every((x) => isRecord(x) && isText(x.kind))) p.push(`on_end.${o} 要是效果的陣列（每一筆 { kind, … }）`)
+      }
+    }
+  }
   return p
 }
 
 // ---- 對手的行動（pr_action） ----
 
-export const ACTION_IDS = ['release', 'deny', 'mute', 'counter', 'lawyer', 'takedown', 'chase', 'bribe', 'visit'] as const
+/** 鏡像對手（mimic）多出來的六個行動：玩家這邊的料、說法、手段（設防、轉移焦點、水軍）與主播的技能（造勢）；只有寫了 mimic 的對手能用 */
+export const MIMIC_IDS = ['fuel', 'line', 'guard', 'shift', 'army', 'host'] as const
+export const ACTION_IDS = ['release', 'deny', 'mute', 'counter', 'lawyer', 'takedown', 'chase', 'bribe', 'visit', ...MIMIC_IDS] as const
 export type ActionId = (typeof ACTION_IDS)[number]
 /** 掃行動表時會用的七個（收買與找上門是每場一次的，寫在 once） */
 export const SWEEP_IDS: ActionId[] = ['release', 'deny', 'mute', 'counter', 'lawyer', 'takedown', 'chase']
+/** 行動表（actions）裡可以寫的 do：七個掃描行動加鏡像對手的六個 */
+export const TABLE_IDS: ActionId[] = [...SWEEP_IDS, ...MIMIC_IDS]
 
 export interface PrActionEntry extends ContentEntry {
   name?: string
@@ -296,6 +435,13 @@ export const DEFAULT_PR_ACTIONS: PrActionEntry[] = [
   { id: 'chase', name: '追擊', cost: 2, amount: 1, limit: { per: 'turn', n: 1 }, min_strength: 3 },
   { id: 'bribe', name: '收買', cost: 0, limit: { per: 'war', n: 1 } },
   { id: 'visit', name: '找上門', cost: 0, limit: { per: 'war', n: 1 } },
+  // 鏡像對手（另一個主播）多出來的：照玩家那邊的料、說法、手段、主播技能做成對手的行動（OPINION 5.2 最後一列）
+  { id: 'fuel', name: '料', cost: 1, amount: [2, 2, 3, 3, 3] },
+  { id: 'line', name: '說法', cost: 1, amount: [1, 1, 1, 1, 2] },
+  { id: 'guard', name: '設防', cost: 1, amount: 1, limit: { per: 'turn', n: 1 } },
+  { id: 'shift', name: '轉移焦點', cost: 1, amount: 2, limit: { per: 'turn', n: 1 } },
+  { id: 'army', name: '水軍', cost: 1, amount: 3, limit: { per: 'turn', n: 1 } },
+  { id: 'host', name: '造勢', cost: 2, amount: 3, limit: { per: 'turn', n: 1 } },
 ]
 
 export function actionProblems(e: Record<string, unknown>): string[] {
@@ -434,6 +580,8 @@ export type SignatureEffect = {
   def_minus?: { cells: Cell[]; amount?: number }
   /** 收買可以用幾次 */
   bribe_times?: number
+  /** 你搶它的格子時，防守照你的公信力加減：每一階 lt（低於）與 gte（以上）都成立才算，amount 合計（蜜腺：公信力低的對手幾乎搶不動它） */
+  cred_def?: Array<{ lt?: number; gte?: number; amount: number }>
 }
 export interface Signature { id: string; text: string; effect: SignatureEffect }
 
@@ -448,10 +596,14 @@ export interface OpponentEntry extends ContentEntry {
   once?: OnceRule[]
   mimic?: { open: [number, number] }
   capture?: boolean
+  /** 這回合佔不佔（和行動的 when 同一套文法；不成立就不佔，聲量存著；緋櫻前三回合只發稿存聲量） */
+  capture_when?: string
+  /** 第一回合的第一次佔領：一定搶這一格（any_adjacent：不看相鄰；不看聲量夠不夠，扣到 0 為止；潔絲的推薦位） */
+  first_capture?: { cell: string; any_adjacent?: boolean }
   desc?: string
 }
 
-const SIGNATURE_KEYS = ['cost', 'lawyer_ep', 'weak_line', 'def_minus', 'bribe_times']
+const SIGNATURE_KEYS = ['cost', 'lawyer_ep', 'weak_line', 'def_minus', 'bribe_times', 'cred_def']
 
 function signatureProblems(v: unknown): string[] {
   if (!isRecord(v)) return ['signature 要是 { id, text, effect }']
@@ -472,6 +624,11 @@ function signatureProblems(v: unknown): string[] {
     if (!isRecord(d) || !Array.isArray(d.cells) || d.cells.length === 0 || !d.cells.every(isCellKey) || (d.amount !== undefined && !intIn(d.amount, 1, 3))) p.push('signature.effect.def_minus 要是 { cells: 格子的 id, amount?: 1～3 }')
   }
   if (e.bribe_times !== undefined && !intIn(e.bribe_times, 1, 3)) p.push('signature.effect.bribe_times 要是 1～3 的整數')
+  if (e.cred_def !== undefined) {
+    const d = e.cred_def
+    const ok = Array.isArray(d) && d.length > 0 && d.every((t) => isRecord(t) && intIn(t.amount, -6, 6) && t.amount !== 0 && (t.lt === undefined || intIn(t.lt, 1, 101)) && (t.gte === undefined || intIn(t.gte, 0, 100)) && (t.lt !== undefined || t.gte !== undefined))
+    if (!ok) p.push('signature.effect.cred_def 要是階的陣列：每一階 { lt?, gte?, amount }（lt 與 gte 至少寫一個；amount 是 −6～6 的整數，不是 0）')
+  }
   return p
 }
 
@@ -499,7 +656,8 @@ export function opponentProblems(e: Record<string, unknown>): string[] {
     e.actions.forEach((a, i) => {
       const at = `actions[${i}]`
       if (!isRecord(a)) return void p.push(`${at} 要是 { do, when }`)
-      if (!(SWEEP_IDS as readonly unknown[]).includes(a.do)) p.push(`${at}.do 要是 ${SWEEP_IDS.join('、')} 之一（收買與找上門寫在 once）`)
+      if (!(TABLE_IDS as readonly unknown[]).includes(a.do)) p.push(`${at}.do 要是 ${TABLE_IDS.join('、')} 之一（收買與找上門寫在 once）`)
+      else if ((MIMIC_IDS as readonly unknown[]).includes(a.do) && e.mimic === undefined) p.push(`${at}.do「${String(a.do)}」是鏡像對手的行動：要寫 mimic`)
       const w = whenProblem(a.when, at)
       if (w) p.push(w)
     })
@@ -525,6 +683,14 @@ export function opponentProblems(e: Record<string, unknown>): string[] {
     if (!isRecord(m) || !Array.isArray(m.open) || m.open.length !== 2 || !intIn(m.open[0], 1, 9) || !intIn(m.open[1], 1, 9) || (m.open[0] as number) > (m.open[1] as number)) p.push('mimic 要是 { open: [最少, 最多] }（1～9，最少不大於最多）')
   }
   if (e.capture !== undefined && typeof e.capture !== 'boolean') p.push('capture 要是 true 或 false')
+  if (e.capture_when !== undefined) {
+    const w = whenProblem(e.capture_when, 'capture')
+    if (w) p.push(w)
+  }
+  if (e.first_capture !== undefined) {
+    const f = e.first_capture
+    if (!isRecord(f) || !isCellKey(f.cell) || (f.any_adjacent !== undefined && typeof f.any_adjacent !== 'boolean')) p.push(`first_capture 要是 { cell: 格子的 id（${CELLS.join('、')}）, any_adjacent?: true 或 false }`)
+  }
   return p
 }
 
@@ -566,6 +732,7 @@ export interface WarTopic {
   involves: { factions: string[]; people: string[]; types: string[] }
   target_cell?: Cell
   category?: string
+  on_end?: Partial<Record<Outcome, OpEffect[]>>
 }
 
 export interface WarFoe {
@@ -580,6 +747,8 @@ export interface WarFoe {
   once: OnceRule[]
   mimic?: { open: [number, number] }
   capture?: boolean
+  capture_when?: string
+  first_capture?: { cell: Cell; any_adjacent: boolean }
 }
 
 /** 這一場才有的牌（素材與片變成的牌放這裡；目錄裡的牌只存 id）。 */
@@ -598,6 +767,24 @@ export interface WarResult {
   target_held: boolean | null
   /** 收買：接受的價錢 */
   bribed?: number
+}
+
+/** 效果 def_mod 留在戰役裡的防守加減（只算你搶格子的時候）。 */
+export interface DefMod {
+  amount: number
+  scope: 'next' | 'turn' | 'war'
+  vs?: 'empty' | 'foe'
+  cells?: Cell[]
+  first?: boolean
+}
+
+/** 效果 card_mod 留在戰役裡的牌面加減。 */
+export interface CardMod {
+  card: 'fuel' | 'line'
+  amount?: number
+  mult?: number
+  cap?: number
+  scope: 'next' | 'turn'
 }
 
 export interface War {
@@ -626,7 +813,36 @@ export interface War {
   city_fx?: CityEffect
   /** 這一場某一格的分數加成（偶像的畢業公演） */
   bonus: Partial<Record<Cell, number>>
-  foe_state: { bribes: number; visited: boolean; ep_penalty?: number; open?: string[]; last?: string[] }
+  foe_state: { bribes: number; visited: boolean; ep_penalty?: number; open?: string[]; last?: string[]; pr_mod?: number; guard?: number; first_done?: boolean }
+  /** 開戰時問回來的被動（修正與反應；戰役中途不再問，免得中途換裝備改變規則） */
+  passives: OpPassive[]
+  /** 招與反應用過幾次：turn:<id> 每回合清掉、war:<id> 整場 */
+  moves_used: Record<string, number>
+  /** 效果 mark 記下的旗標：旗標 → 記在第幾回合 */
+  marks: Record<string, number>
+  /** 戰役外的效果（k.effects 的格式）：先存著，結算時一起套 */
+  out: Array<Record<string, unknown>>
+  /** 帶進牌庫的素材與片：ref 是素材庫裡的編號、card 是 custom 裡那張牌的 id */
+  brought: Array<{ ref: string; card: string }>
+  /** 主角的豔名（各區最高的那一個，開戰時記；沒有豔名量表是 0） */
+  fame: number
+  /** 自己發起的（不是委託副本、也不是事件開的）：訂閱一萬以上採訪 +1（V34） */
+  self: boolean
+  /** 副本前面階段拿到的連動（M5-opinion-face 給；效果 link_voice 看） */
+  links: string[]
+  /** 這回合多佔的次數還剩幾次：每一次的防守加減、能不能不相鄰；base_used 是原本那一次用掉了沒有 */
+  xcap: Array<{ def: number; any: boolean }>
+  base_used: boolean
+  /** 到整場結束都不必相鄰（效果 free_adjacency） */
+  free_adj: boolean
+  defmods: DefMod[]
+  cardmods: CardMod[]
+  /** 這回合防守當作 0 的對手的格子（效果 take 的 foe_def_zero） */
+  zero_def: Cell[]
+  /** 抵銷對手的律師函、下架、降流：each 是一個共用的次數 */
+  shield: Array<{ what: string[]; left: number }>
+  /** 結束回合時預留的編輯點（有 cost 的反應）：key 是 <被動 id>:<第幾個反應> */
+  reserved: Array<{ key: string; seat: string; cost: number }>
   pending?: 'bribe' | 'visit' | 'lost'
   /** 收買的價錢（pending 是 bribe 時） */
   offer?: number
@@ -637,11 +853,18 @@ export interface War {
 
 const finiteNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 
+/** 編輯台那一張加的欄位的預設（舊的戰役沒有這些欄位：讀的時候補上）。 */
+const warExtras = (): Pick<War, 'passives' | 'moves_used' | 'marks' | 'out' | 'brought' | 'fame' | 'self' | 'links' | 'xcap' | 'base_used' | 'free_adj' | 'defmods' | 'cardmods' | 'zero_def' | 'shield' | 'reserved'> => ({
+  passives: [], moves_used: {}, marks: {}, out: [], brought: [], fame: 0, self: false, links: [], xcap: [], base_used: false, free_adj: false, defmods: [], cardmods: [], zero_def: [], shield: [], reserved: [],
+})
+const EXTRA_KEYS = Object.keys(warExtras())
+
 /** 讀 state.ext.opinion.war。沒有、或形狀不對回 null（唯讀；回傳的是狀態裡那一份，不要改它——要改先 clone）。 */
 export function readWar(state: Pick<GameState, 'ext'>): War | null {
   const raw = state.ext?.[EXT]
   if (!isRecord(raw) || !isRecord(raw.war)) return null
-  return raw.war as unknown as War
+  const war = raw.war as unknown as War
+  return EXTRA_KEYS.every((key) => Object.hasOwn(war, key)) ? war : ({ ...warExtras(), ...war } as War)
 }
 
 /** state.ext.opinion 整份的新值（換上這一場、或清掉）。 */
@@ -670,6 +893,10 @@ export function warProblems(w: unknown): string[] {
   if (w.result !== undefined && !(isRecord(w.result) && (OUTCOMES as unknown[]).includes(w.result.outcome))) p.push('result 要是 { outcome, … }')
   if (w.turn === 'ended' && w.result === undefined) p.push('turn 是 ended 就要有 result')
   if (w.pending !== undefined && !['bribe', 'visit', 'lost'].includes(w.pending as string)) p.push('pending 要是 bribe、visit、lost 之一')
+  for (const f of ['passives', 'out', 'brought', 'links', 'xcap', 'defmods', 'cardmods', 'zero_def', 'shield', 'reserved']) if (w[f] !== undefined && !Array.isArray(w[f])) p.push(`${f} 要是陣列`)
+  for (const f of ['moves_used', 'marks']) if (w[f] !== undefined && !isRecord(w[f])) p.push(`${f} 要是物件`)
+  if (w.fame !== undefined && !isSafeInt(w.fame)) p.push('fame 要是整數')
+  for (const f of ['self', 'base_used', 'free_adj']) if (w[f] !== undefined && typeof w[f] !== 'boolean') p.push(`${f} 要是 true 或 false`)
   if (isRecord(w.topic) && isRecord(w.topic.scores) && !CELLS.every((c) => finiteNum((w.topic as Record<string, Record<string, unknown>>).scores![c]))) p.push('topic.scores 要有九個格子的分數')
   return p
 }

@@ -9,10 +9,12 @@
 //   cast            [{ role, npc? | known? | gen? }]，最多 2 位；role 是 $a、$b 的 a、b
 //   選項            { id?, text, need?, show_locked?, check?: [基本功, 屬性?, 難度], outcomes: { critical?, success?, fail?, fumble?, any? }, adult_scene?, flags?, ends? }
 //   難度            階梯的名字（easy、normal、hard、extreme、legendary、mythic）或一個整數的 DC（問話 10 ＋ 等級 × 2 這類）
-//   結果的每一筆    效果 { kind, ... }（由 k.effects 管），或指示 { kind: 'fight', foes, cover?, faction? }、{ kind: 'chain', event }
+//   結果的每一筆    效果 { kind, ... }（由 k.effects 管），或指示 { kind: 'fight', foes, cover?, faction? }、{ kind: 'chain', event }、{ kind: 'start', activity, setup? }
+//                   start 開一種登記過、而且列在 event_rule 的 startable 的活動（預設只有輿論戰 opinion；M5-opinion-desk）
 
 import type { Condition, ContentEntry, Degree, GameState, Kernel } from '../../core'
 import { ATTR_IDS, DC_TIERS, effectCtx, isRecord, isSafeInt } from '../../core'
+import { eventRules } from './model'
 
 export const VERSION_IDS = ['default', 'masc', 'yuri'] as const
 export const OUTCOME_KEYS = ['critical', 'success', 'fail', 'fumble', 'any'] as const
@@ -26,7 +28,7 @@ export const MAX_CAST = 2
 export const DC_MIN = 1
 export const DC_MAX = 40
 /** 指示：不是效果，由執行器變成 launch。 */
-export const DIRECTIVES = ['fight', 'chain'] as const
+export const DIRECTIVES = ['fight', 'chain', 'start'] as const
 /** inherit 一路追下去最多幾層（防止互相指）。 */
 const MAX_INHERIT = 8
 
@@ -239,7 +241,18 @@ function sceneProblems(raw: unknown, path: string): string[] {
   return p
 }
 
-function directiveProblems(e: Record<string, unknown>, path: string): string[] {
+function directiveProblems(k: Cx, e: Record<string, unknown>, path: string, phase: BodyPhase): string[] {
+  if (e.kind === 'start') {
+    const p: string[] = []
+    if (!isText(e.activity)) return [`${path}.activity 要是活動的種類（例：opinion）`]
+    if (e.setup !== undefined && !isRecord(e.setup)) p.push(`${path}.setup 要是這種活動的設定（物件）`)
+    // 登記過、而且列在 event_rule 的 startable 裡才能開（內容全部載入之後才查得到有哪些活動）
+    if (phase !== 'load') {
+      if (!k.activity.get(e.activity)) p.push(`${path}.activity：沒有「${e.activity}」這種活動（start 只能開登記過的活動）`)
+      else if (!eventRules(k).startable.includes(e.activity)) p.push(`${path}.activity：「${e.activity}」不在 event_rule 的 startable 裡（現在可以開的：${eventRules(k).startable.join('、') || '（沒有）'}）`)
+    }
+    return p
+  }
   if (e.kind === 'fight') {
     const p: string[] = []
     if (!(Array.isArray(e.foes) && e.foes.length > 0 && e.foes.every((f) => isRecord(f) && isText(f.from)))) p.push(`${path}.foes 要是敵人的陣列（每一筆 { from, ... }）`)
@@ -273,11 +286,11 @@ function outcomesProblems(k: Cx, o: OptionDef, path: string, phase: BodyPhase, s
       continue
     }
     const ds = list.filter(isDirective)
-    if (ds.length > 1) p.push(`${at}：指示（fight、chain）一組最多一個（同一時間只開一段活動）`)
+    if (ds.length > 1) p.push(`${at}：指示（fight、chain、start）一組最多一個（同一時間只開一段活動）`)
     directives += ds.length
     list.forEach((item, i) => {
       const here = `${at}[${i}]`
-      if (isDirective(item)) return void p.push(...directiveProblems(item, here))
+      if (isDirective(item)) return void p.push(...directiveProblems(k, item, here, phase))
       if (typeof item.kind !== 'string') return void p.push(`${here}.kind：要寫效果的種類`)
       if (phase === 'load') return
       if (hasToken(item)) {
@@ -288,7 +301,7 @@ function outcomesProblems(k: Cx, o: OptionDef, path: string, phase: BodyPhase, s
       p.push(...k.effects.validate([item], ctx, here).map((m) => m.replace(`${here}[0]`, here)))
     })
   }
-  if (directives > 0 && o.adult_scene !== undefined) p.push(`${path}：指示（fight、chain）與 adult_scene 不能放在同一個選項（同一時間只開一段活動）`)
+  if (directives > 0 && o.adult_scene !== undefined) p.push(`${path}：指示（fight、chain、start）與 adult_scene 不能放在同一個選項（同一時間只開一段活動）`)
   return p
 }
 

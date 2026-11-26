@@ -81,3 +81,8 @@ M4 的三張外殼工單（M4-core-scene-ai、M4-followups-2、M4-core-part-ai�
 
 ## media-chain 留下的（2026-11-26，順手做）
 - `ReportRewind`／`rewind.keep` 加選填 `reason`（撤退 `retreat`、失敗 `fail`），各自填。媒體現在讀報告文字分辨撤退（`features/media/record.ts` 的 `onRewind`），改完換成讀 `reason`，一行。
+
+## live 留下的（2026-11-26，核心的小補，順手做）
+- `ActivityEndReturn` 多選填 `beats?: TimelineBeat[]`，`endActivity` 併進結束報告的 timeline（宿主結束時收播要有 `live.end` 那一拍）。
+- `undoSteps(n)` n > 1 時每一步都問 `denied`（現在只問現在的狀態，一次回退多步能越過直播中）。
+- `RecordHint` 多 `quality?: number`，media 的 `qualityParts` 多一項（live 的 `live_record_quality` 才有效果）。

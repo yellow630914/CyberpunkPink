@@ -11,7 +11,7 @@
 //
 // 接上核心的地方：
 //   活動  event（order 30；放行 commit:event.、chain:free_action；別的功能要在事件開著時照常做的事用 k.activity.allow('event', 前綴, 自己的 id) 加進來）
-//   內容  事件的內文檢查（addEventBodyCheck；body.ts）：效果的種類要有人註冊、指示只能是 fight 與 chain、inherit 指得到、版本至少有 default、chain 只連一層
+//   內容  事件的內文檢查（addEventBodyCheck；body.ts）：效果的種類要有人註冊、指示只能是 fight、chain、start、inherit 指得到、版本至少有 default、chain 只連一層
 //   掛點  director.cast（這個功能宣告）：開的時候對每個 cast 問一次，npcs 之類的功能回答是誰；沒有人答的用一個只有名字的臨時角色（ext.event_temp: true）
 //   狀態  state.ext.director.open（OpenEvent）：和導演的狀態在同一個 ext 鍵，導演改寫自己的部分時原樣帶著（flow.ts 的 takeOpen）
 // 報告：event.open、event.choose、event.close（kind 都是 event）；activity.end 的 result：{ event, option, degree?, flags, stage, version }。
@@ -25,7 +25,7 @@ import {
 import type { CheckSpec, EventBodyFields, OptionDef, ResolvedBody, ResolvedStage, SceneSpec } from './body'
 import { eventBodyProblems, hasChain, isDirective, normalCheck, outcomeList, resolveBody, sceneWhenMatches, substitute } from './body'
 import type { ScopeEntry } from './model'
-import { EVENT_KIND, EXT, SCOPE_KIND, addEventBodyCheck, directorOf } from './model'
+import { EVENT_KIND, EXT, SCOPE_KIND, addEventBodyCheck, directorOf, eventRules } from './model'
 
 export const EVENT_RUN_OWNER = 'event_run'
 export const EVENT_ACTIVITY = 'event'
@@ -389,6 +389,10 @@ function launchesOf(k: Kernel, state: GameState, l: Loaded, o: OptionDef, list: 
         },
         origin: from,
       })
+    } else if (d.kind === 'start') {
+      // 開一種登記過、而且列在 event_rule.startable 的活動（載入時已經擋了；這裡再看一次，之後才被改掉的當沒有）
+      const kind = String(d.activity)
+      if (k.activity.get(kind) && eventRules(k).startable.includes(kind)) out.push({ kind, setup: clone(isRecord(d.setup) ? d.setup : {}), origin: from })
     } else out.push({ kind: EVENT_ACTIVITY, setup: { event: d.event, chained: true }, origin: { ...from, ext: { ...from.ext, chain: true } } })
   }
   // 成人場景：成功程度對得上 when，而且有人登記了 scene 這種活動才開（沒有就當沒有，不丟錯）
@@ -442,7 +446,7 @@ function closeDraft(k: Kernel, state: GameState, l: Loaded, base: CloseBase, fin
  * 選一個選項：回傳報告草稿（純函式）。有檢定的先擲（誰擲、DC 見 planCheck；骰面從存檔的亂數導出，同一個狀態一定一樣），
  * 照成功程度結算那一組效果（內建的事件：照寫的算，錢照區的等級；結算不成立，例如付不出錢，丟 ActionBlocked 並寫出原因）。
  * 還有下一段就換段（event.choose）；最後一段、選項寫了 ends、或結果裡有指示，就收尾（event.close）：發 activity.end、清掉 open、
- * 把指示變成報告的 launch（fight 開戰鬥、chain 開另一件、adult_scene 在成功程度對得上 when 而且有人登記 scene 時開場景）。
+ * 把指示變成報告的 launch（fight 開戰鬥、chain 開另一件、start 開登記過而且在 startable 裡的活動、adult_scene 在成功程度對得上 when 而且有人登記 scene 時開場景）。
  */
 export function chooseOption(k: Kernel, state: GameState, id: string): ReportDraft {
   const l = load(k, state)

@@ -2,9 +2,13 @@
 // 手牌每一張能不能出與原因、回合、對手與它上一步、城市事件、結果。純函式、唯讀。
 
 import type { GameState, Kernel } from '../../core'
-import { captureBlock, cellScore, defenseOf, lockedCells, scoreOf } from './board'
-import { cardBlock, cardOf, cardText, guardable, warBlock } from './cards'
+import { cellScore, defenseOf, lockedCells, planCapture, scoreOf } from './board'
+import { cardBlock, cardOf, cardText, costOf, guardable, warBlock } from './cards'
 import { prPoints } from './foe'
+import type { Reservable } from './fx'
+import { reservables } from './fx'
+import type { MoveView } from './moves'
+import { movesView } from './moves'
 import type { Cell, Outcome, Row, WarResult } from './model'
 import { CELLS, CELL_NAME, ROW_NAME, SLOTS, cityCatalog, readWar, rowOf, topicKinds } from './model'
 import { Run, cityText, outcomeName } from './run'
@@ -79,6 +83,17 @@ export type OpinionView =
     concede: string | null
     settle: string | null
     result: (WarResult & { outcome_name: string }) | null
+    /** 這一招一招的清單（opinion.moves 問回來的）與格式不對略過的幾筆 */
+    moves: MoveView[]
+    moves_skipped: string[]
+    /** 有 cost 的反應：結束回合時可以預留編輯點給它們（endTurn 的輸入 reserve） */
+    reserve: Reservable[]
+    /** 開戰時問回來的被動（名字與來源） */
+    passives: Array<{ id: string; name: string; owner: string }>
+    /** 帶進牌庫的料 */
+    brought: Array<{ ref: string; name: string }>
+    /** 這回合還能多佔幾格、能不能不相鄰 */
+    extra_captures: number
   }
 
 export function opinionView(k: Kernel, state: GameState): OpinionView {
@@ -91,18 +106,19 @@ export function opinionView(k: Kernel, state: GameState): OpinionView {
   const capped = w.captured >= w.captures
   const cells: CellView[] = CELLS.map((c) => {
     const owner = w.cells[c].owner
-    const why = owner === 'you' ? `「${CELL_NAME[c]}」已經是你的了。` : (phase ?? (capped ? '這一回合已經佔領過了。' : captureBlock(w, c, 'you', rules)))
+    const plan = owner === 'you' ? null : planCapture(w, c, rules, run.env)
+    const why = owner === 'you' ? `「${CELL_NAME[c]}」已經是你的了。` : (phase ?? (capped ? '這一回合已經佔領過了。' : plan && 'why' in plan ? plan.why : null))
     return {
       id: c, name: CELL_NAME[c], row: rowOf(c), row_name: ROW_NAME[rowOf(c)], score: cellScore(w, c), owner,
       guarded: owner === 'you' && (w.cells[c].guard ?? 0) >= w.round, locked: lock.includes(c), target: w.topic.target_cell === c,
-      need: owner === 'you' ? null : defenseOf(w, c, 'you', rules), can: why === null, reason: why,
+      need: owner === 'you' ? null : defenseOf(w, c, 'you', rules, run.env), can: why === null, reason: why,
     }
   })
   const hand: HandView[] = w.hand.map((id, index) => {
     const c = cardOf(k, w, id)
-    const why = phase ?? cardBlock(k, w, index)
+    const why = phase ?? cardBlock(k, w, index, undefined, run.env)
     return {
-      index, id, name: c?.name ?? id, kind: c?.kind ?? 'means', cost: c?.cost ?? 0, text: c ? cardText(k, state, w, c) : '（這張牌的資料找不到）',
+      index, id, name: c?.name ?? id, kind: c?.kind ?? 'means', cost: c ? costOf(w, c, run.env) : 0, text: c ? cardText(k, state, w, c) : '（這張牌的資料找不到）',
       can: why === null, reason: why, pick: c?.kind === 'means' && c.means === 'guard' ? guardable(w) : null,
     }
   })
@@ -111,6 +127,7 @@ export function opinionView(k: Kernel, state: GameState): OpinionView {
   const sig = w.foe.signature
   const ep = w.desk.reduce((s, x) => s + x.ep, 0)
   const end = phase ?? null
+  const mv = movesView(k, state)
   return {
     active: true, id: w.id, mode: w.mode,
     topic: { id: w.topic.id, name: w.topic.name, kind: w.topic.kind, kind_name: kind?.name ?? w.topic.kind, side: w.topic.side, target_cell: w.topic.target_cell ?? null, category: w.topic.category ?? null },
@@ -127,5 +144,7 @@ export function opinionView(k: Kernel, state: GameState): OpinionView {
     end_turn: end, concede: w.turn === 'ended' ? '這場輿論戰已經分出勝負了，先結算。' : null,
     settle: w.turn === 'ended' ? null : '這場輿論戰還沒分出勝負。',
     result: w.result ? { ...w.result, outcome_name: outcomeName(w.result.outcome as Outcome) } : null,
+    moves: mv.moves, moves_skipped: mv.skipped, reserve: reservables(run), passives: w.passives.map((p) => ({ id: p.id, name: p.name, owner: p.owner })),
+    brought: w.brought.map((b) => ({ ref: b.ref, name: run.cardName(b.card) })), extra_captures: w.xcap.length,
   }
 }

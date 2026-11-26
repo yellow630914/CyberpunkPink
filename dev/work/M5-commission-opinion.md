@@ -59,3 +59,7 @@ M5-opinion-face（`setup` 與 `result` 的格式定了）。做的時候不要�
 ## 完成時回報
 
 改了哪些檔、測試結果、改了哪些既有測試與為什麼、被帶走（`captured`）接不接得上戰敗事件、M3 留下的權宜（`defeat_event`、`employer` 放 `setup` 不放 `origin.ext` 等）這一張有沒有順手動到。
+
+## live 留下的（2026-11-26）
+- `commission.enter` 要帶那一拍的 `id`、`grade`、`faction`、`stream_goals`（副本直播的目標、等級、勢力讀它；現在真的副本沒帶）。
+- V26：副本直播期間每個階段的紀錄不算獨家——media 在 `commission.milestone` 記那一則時問 `live_on`。

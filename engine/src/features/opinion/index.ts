@@ -13,27 +13,46 @@
 // 對外：opinionView、startDraft（開場的草稿；活動的 start 也用它）、playCard、capture、endTurn、answerBribe、concede、settle（各有一個 …Block 回答原因）、defenseOf、scoreOf、parseWhen。
 // 不碰別的功能：不用戰鬥引擎、不讀別的功能的 state.ext；公信力只問量表有沒有人定義（meterOf）。
 
-import type { Feature, Kernel } from '../../core'
+import type { Feature, Kernel, Origin, ReportDraft } from '../../core'
 import type { ContentEntry } from '../../core'
 import { clone } from '../../core'
+import { EP_BONUS_STAT, OPEN_HAND_STAT } from './desk'
+import { answerCheck } from './hooks'
 import type { War } from './model'
 import {
   ACTION_KIND, ACTIVITY, BUSY_REASON, CARD_KIND, CITY_KIND, EXT, OPPONENT_KIND, OWNER, RULE_KIND, TOPIC_KIND, TOPIC_KIND_KIND, WAR_OP, actionProblems, cardProblems, cityProblems,
   opponentProblems, readWar, ruleProblems, topicKindProblems, topicProblems, warProblems,
 } from './model'
+import type { OpinionSetup } from './start'
 import { startDraft } from './start'
 
-export { cardBlock, cardOf, cardText, fuelVoice, guardable, lineWind, playBlock, playDraft as playCard, warBlock } from './cards'
-export type { PlayInput } from './cards'
+export { cardBlock, cardOf, cardText, costOf, faceOf, fuelVoice, guardable, lineWind, playBlock, playDraft as playCard, warBlock } from './cards'
+export type { Face, PlayInput } from './cards'
 export { startDraft, skeleton } from './start'
-export type { DeskSetup, OpinionSetup } from './start'
+export type { DeskSetup, OpinionSetup, Skeleton } from './start'
 export {
   bribeBlock, bribeDraft as answerBribe, captureBlockOf, captureDraft as capture, closeDraft, concedeBlock, concedeDraft as concede, endTurnBlock, endTurnDraft as endTurn, settleBlock, settleDraft as settle,
 } from './turn'
-export type { BribeInput, CaptureInput } from './turn'
+export type { BribeInput, CaptureInput, EndTurnInput } from './turn'
 export { opinionView } from './view'
 export type { CellView, HandView, OpinionView } from './view'
-export { capturable, captureBlock, cellBlock, cellScore, cellsOwnedBy, defenseOf, frontier, lockedCells, scoreOf } from './board'
+export { FAME_CELLS, applicableDefMods, capturable, captureBlock, cellBlock, cellScore, cellsOwnedBy, defenseOf, fameLevel, frontier, lockedCells, planCapture, scoreOf } from './board'
+export type { CapturePlan } from './board'
+export { OP_EFFECTS, OP_MODS, OP_TRIGGERS, REACTION_ONLY, SHIELD_WHAT, askMoves, askOpen, askPassives, effectProblems, moveProblems, openProblems, passiveProblems } from './hooks'
+export type { Asked, OpEffect, OpEffectKind, OpMod, OpModKind, OpMove, OpOpen, OpPassive, OpReact, OpTrigger } from './hooks'
+export { moveBlock, moveDraft as useMove, movesView } from './moves'
+export type { MoveInput, MoveView } from './moves'
+export { applyEffects, fireReactions, reservables } from './fx'
+export type { FxCtx, FxFlags, FxInput, Reservable } from './fx'
+export { DEFAULT_ENV, modHas, modSum, modsOf } from './mods'
+export type { Env } from './mods'
+export { EP_BONUS_STAT, OPEN_HAND_STAT, deskOptions, epBonusOf, epOf, openHandBonus, pathBonus } from './desk'
+export type { DeskOption, EpPart } from './desk'
+export { bringOptions, cardOfMaterial, isFake, planBring, relationOf } from './bring'
+export type { BringCard, BringOption, BringPlan, BroughtMaterial, Relation } from './bring'
+export { consequences, standingFaction } from './after'
+export type { AfterResult } from './after'
+export { factionGrade, foeFor, isSelfTopic, selfTopic } from './self'
 export { WHEN_OPS, WHEN_VARS, evalWhen, parseWhen, whenHolds } from './when'
 export type { When, WhenOp, WhenTerm, WhenVar, WhenVars } from './when'
 export { Run, credOf, outcomeName } from './run'
@@ -47,10 +66,22 @@ export type {
   WarResult, WarTopic, Who,
 } from './model'
 
+/** 開一場輿論戰（編輯台的入口）：topic 可以是議題的 id、整筆議題、或只給類型與目標勢力（自己發起）；foe 沒給就找對得上勢力的對手；desk 是坐編輯台的人；bring 是要帶進牌庫的料。回傳 opinion.start 的報告草稿。 */
+export function startWar(k: Kernel, state: Parameters<typeof startDraft>[1], setup: OpinionSetup, origin: Origin = { by: 'shell' }): ReportDraft {
+  return startDraft(k, state, setup, origin)
+}
+
 export const opinionFeature: Feature = {
   id: OWNER,
   install(kernel) {
     const k = kernel as Kernel
+    // 勢力的聲望（V41）：每個勢力一條，0～100、起始 50；M5 只記、顯示、給事件與委託的條件讀。同名的效果與條件自動有（AI 一件事 ±5）
+    k.meters.define({ kind: 'standing', owner: OWNER, name: '聲望', min: 0, max: 100, start: 50, keyed: 'faction', cap: { down: 5, up: 5 } })
+    // 義體、藥、裝備給的編輯點與開場手牌（M4 對帳 D8）：資料用被動效果 { stat: 'ep_bonus', amount: 1 } 寫；編輯點的合計夾法在 desk.ts（regenTotal）
+    k.stats.defineStat({ id: EP_BONUS_STAT, owner: OWNER, name: '輿論戰每回合的編輯點加值', base: () => 0, min: -6, max: 6 })
+    k.stats.defineStat({ id: OPEN_HAND_STAT, owner: OWNER, name: '輿論戰的開場手牌加值', base: () => 0, min: -3, max: 5 })
+    // 一筆招、被動或開場的格式問題：opinion 自己回答（abilities 在內容載入之後把每個技能的輿論欄交過來）
+    k.hooks.on('opinion.check', OWNER, ({ what, data }) => answerCheck(k, what, data))
     k.content.defineKind({ kind: RULE_KIND, owner: OWNER, overridable: true, validate: ruleProblems })
     k.content.defineKind({ kind: TOPIC_KIND_KIND, owner: OWNER, overridable: true, validate: topicKindProblems })
     k.content.defineKind({ kind: TOPIC_KIND, owner: OWNER, validate: topicProblems })

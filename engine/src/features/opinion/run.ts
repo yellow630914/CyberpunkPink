@@ -8,6 +8,8 @@ import { scoreOf, cellsOwnedBy } from './board'
 import type { CityEffect, Outcome, OpinionRules, EndBy, War, WarResult } from './model'
 import { CELLS, CELL_NAME, SLOTS, WAR_OP, cardCatalog, cityCatalog, opinionRules } from './model'
 import type { Who } from './model'
+import type { Env } from './mods'
+import { modSum } from './mods'
 
 export const credOf = (k: Pick<Kernel, 'meters'>, state: GameState): number => (k.meters.has('credibility') ? meterOf(k, state, 'credibility') : 50)
 
@@ -19,12 +21,19 @@ export class Run {
   /** 給 AI 寫正文用的句子：不帶機制的數字（0017 第 12 項） */
   readonly plain: string[] = []
   readonly rng: Rng
+  /** 現在的公信力（沒有量表是 50）：這份報告裡被拆穿扣了就跟著少，修正的 when 看它 */
+  cred: number
 
   constructor(readonly k: Kernel, readonly state: GameState, war: War | null, purpose: string) {
     this.rules = opinionRules(k)
     if (!war) throw new Error('Run 要一場戰役')
     this.w = clone(war)
     this.rng = deriveRng(state.rng, `opinion/${this.w.id}/${purpose}/${this.w.round}`)
+    this.cred = credOf(k, state)
+  }
+
+  get env(): Env {
+    return { cred: this.cred }
   }
 
   note(text: string, o: { tag?: string; data?: Record<string, unknown>; plain?: string; actor?: string } = {}): void {
@@ -41,6 +50,18 @@ export class Run {
   /** 風向：正的偏你。 */
   addWind(n: number): void {
     this.w.wind = clamp(this.w.wind + n, -this.rules.wind_max, this.rules.wind_max)
+  }
+
+  /** 你這邊推風向（牌、招、反應）：每回合第一次往你這邊推時，被動 wind_first 多推幾格。回傳實際推的格數。 */
+  pushWind(n: number): number {
+    let amount = n
+    if (n > 0) {
+      const first = (this.w.moves_used['turn:wind_first'] ?? 0) === 0
+      this.w.moves_used['turn:wind_first'] = (this.w.moves_used['turn:wind_first'] ?? 0) + 1
+      if (first) amount += modSum(this.w, 'wind_first', this.env)
+    }
+    this.addWind(amount)
+    return amount
   }
 
   // ---- 牌庫 ----
@@ -75,6 +96,23 @@ export class Run {
     return this.w.custom?.[id]?.name ?? cardCatalog(this.k).find((c) => c.id === id)?.name ?? id
   }
 
+  cardCost(id: string): number {
+    return this.w.custom?.[id]?.cost ?? cardCatalog(this.k).find((c) => c.id === id)?.cost ?? 0
+  }
+
+  /** 手上棄掉 n 張：先棄花費最低的（同樣便宜的棄比較早拿到的）。回傳棄掉的牌 id。 */
+  discardCheapest(n: number): string[] {
+    const gone: string[] = []
+    for (let i = 0; i < n && this.w.hand.length > 0; i++) {
+      let pick = 0
+      this.w.hand.forEach((id, j) => { if (this.cardCost(id) < this.cardCost(this.w.hand[pick]!)) pick = j })
+      const [id] = this.w.hand.splice(pick, 1)
+      this.w.discard.push(id!)
+      gone.push(id!)
+    }
+    return gone
+  }
+
   // ---- 回合開始 ----
 
   /** 翻一張城市事件（只影響這一回合；偶像的畢業公演是整場）。 */
@@ -101,6 +139,13 @@ export class Run {
     w.captured = 0
     w.captures = 1
     for (const key of Object.keys(w.used)) if (key.startsWith('turn:')) delete w.used[key]
+    for (const key of Object.keys(w.moves_used)) if (key.startsWith('turn:')) delete w.moves_used[key]
+    w.xcap = []
+    w.base_used = false
+    w.zero_def = []
+    w.reserved = []
+    w.defmods = w.defmods.filter((m) => m.scope === 'war')
+    w.cardmods = []
     let pen = w.foe_state.ep_penalty ?? 0
     delete w.foe_state.ep_penalty
     for (const s of w.desk) {
@@ -114,6 +159,13 @@ export class Run {
     this.flipCity()
     const got = this.draw(this.rules.draw)
     if (got.length > 0) this.note(`你抽了 ${got.length} 張牌：${got.map((id) => `「${this.cardName(id)}」`).join('、')}。`, { tag: 'opinion.draw', data: { cards: got } })
+    // 每回合多抽 n 張、再棄 n 張（被動 draw_extra）
+    const extra = modSum(w, 'draw_extra', this.env)
+    if (extra > 0) {
+      const more = this.draw(extra)
+      const gone = this.discardCheapest(extra)
+      this.note(`你多抽了 ${more.length} 張，再棄掉 ${gone.length} 張：${gone.map((id) => `「${this.cardName(id)}」`).join('、') || '（沒有）'}。`, { tag: 'opinion.draw', data: { cards: more, discarded: gone } })
+    }
     const total = w.desk.reduce((s, x) => s + x.ep, 0)
     this.note(`編輯點 ${total}。`, { tag: 'opinion.ep', data: { ep: total } })
   }
