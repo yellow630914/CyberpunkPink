@@ -59,3 +59,7 @@ M5-channel、M5-media-chain（`media.spend`）。和 M5-opinion 可以同時做�
 ## 完成時回報
 
 改了哪些檔、測試結果、`show` 的欄位夠不夠表達六種節目（不夠的列出來）、MEDIA 4.6「用在」表做的時候對不上的地方。
+
+## channel 留下的（2026-11-26）
+- 廣告收入在每一集結算時算（MEDIA 4.4）：觀看 × C$0.1 × 公信力 ÷ 50，成人檔減半，進預算的自有帳戶。channel 每週不算廣告。
+- 薪水插在 `WEEK_STEPS` 贊助撥款之後。記集數用 `channel.log`；付開銷用 `payFromBudget` 回的變更；`eps_since_plug` 用 `channel.sponsor_set`。
