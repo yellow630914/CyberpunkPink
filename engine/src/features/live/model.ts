@@ -10,6 +10,8 @@
 
 import type { ContentEntry, GameState, Kernel, ReportLocation } from '../../core'
 import { isRecord, isSafeInt, meterOf } from '../../core'
+import type { SlotDirection, SlotKind, SlotRules } from './slotrules'
+import { DEFAULT_SLOT, SLOT_DIRECTIONS, SLOT_KINDS, cloneSlot, readSlot, slotProblems } from './slotrules'
 
 export const OWNER = 'live'
 export const EXT = 'live'
@@ -76,12 +78,15 @@ export interface LiveRules {
   /** 亮點清單留最近幾筆（畫面用；上限另有 from 記著）、收播的結果留最近幾筆 */
   highlight_keep: number
   log_keep: number
+  /** 時段直播的規則表（slotrules.ts；M5-live-slot） */
+  slot: SlotRules
 }
 
 export const DEFAULT_LIVE_RULES: LiveRules = {
   goal_heat: 3, heat_subs: 6, heat_tips: 8, views_div: 400,
   viewers: { base_pct: 5, base_min: 20, per_heat: 0.1, heat_cap: 20 },
   tiers: [1.5, 2.5], adult_cap: 10, consent: 60, fame_step: 30, exposure_step: 2, highlight_keep: 100, log_keep: 20,
+  slot: DEFAULT_SLOT,
 }
 
 const RULE_SPECS: Array<[path: string, lo: number, hi: number, int: boolean]> = [
@@ -102,13 +107,14 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
     if (v !== undefined && !specOk(v, spec)) p.push(`${spec[0]} 要是 ${spec[1]}～${spec[2]} 的${spec[3] ? '整數' : '數字'}`)
   }
   if (e.tiers !== undefined && !tiersOk(e.tiers)) p.push('tiers 要是兩個由小到大、1 以上的數字（冷清與爆的界線）')
+  if (e.slot !== undefined) p.push(...slotProblems(e.slot))
   return p
 }
 
 /** 現在生效的規則：資料 live_rule/default 蓋掉內建的預設（格式不對的欄位忽略）。 */
 export function liveRules(k: Pick<Kernel, 'content'>): LiveRules {
   const d = DEFAULT_LIVE_RULES
-  const out: LiveRules = { ...d, viewers: { ...d.viewers }, tiers: [...d.tiers] }
+  const out: LiveRules = { ...d, viewers: { ...d.viewers }, tiers: [...d.tiers], slot: cloneSlot(d.slot) }
   const e = k.content.hasKind(RULE_KIND) ? k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default') : undefined
   if (!e) return out
   for (const spec of RULE_SPECS) {
@@ -119,6 +125,7 @@ export function liveRules(k: Pick<Kernel, 'content'>): LiveRules {
     else (out.viewers as unknown as Record<string, number>)[keys[1]!] = v
   }
   if (tiersOk(e.tiers)) out.tiers = [e.tiers[0], e.tiers[1]]
+  if (e.slot !== undefined) out.slot = readSlot(e.slot)
   return out
 }
 
@@ -316,7 +323,22 @@ export interface Session {
   house?: House
   faction?: string
   grade?: number
+  // 以下只有時段直播（mode: 'slot'）有（M5-live-slot）
+  /** 種類與時長（小時） */
+  kind?: SlotKind
+  hours?: number
+  /** 玩家選的標籤（最多兩個）與表演的方向；沒給就是空的、沒有方向 */
+  plan?: SlotPlan
+  /** 開播那一擲：骰面、合計、難度、成功程度、檢定換的熱度 */
+  roll?: SlotRoll
+  /** 這一場熱度的上限（12；穩著播是 6） */
+  cap?: number
+  /** 前一半的時間已經過了（開播那一份推進一半、收播推進另一半） */
+  half_done?: boolean
 }
+
+export interface SlotPlan { tags: string[]; direction?: SlotDirection }
+export interface SlotRoll { natural: number; total: number; dc: number; degree: string; gain: number }
 
 export interface Settled {
   id: string
@@ -380,7 +402,25 @@ function readSession(v: unknown): Session | null {
     counts: numRecord(v.counts), from: numRecord(v.from), tips: nat(v.tips),
     ...(v.secret === true ? { secret: true as const } : {}), ...(house ? { house } : {}),
     ...(isText(v.faction) ? { faction: v.faction } : {}), ...(isSafeInt(v.grade) && v.grade >= 1 ? { grade: v.grade } : {}),
+    ...readSlotFields(v),
   }
+}
+
+/** 時段直播的欄位（種類、時長、plan、擲骰、上限、前一半）：形狀不對的欄位當沒有。 */
+function readSlotFields(v: Record<string, unknown>): Partial<Session> {
+  const out: Partial<Session> = {}
+  if ((SLOT_KINDS as readonly unknown[]).includes(v.kind)) out.kind = v.kind as SlotKind
+  if (isSafeInt(v.hours) && v.hours >= 1 && v.hours <= 9) out.hours = v.hours
+  if (isRecord(v.plan)) {
+    const dir = (SLOT_DIRECTIONS as readonly unknown[]).includes(v.plan.direction) ? (v.plan.direction as SlotDirection) : undefined
+    out.plan = { tags: Array.isArray(v.plan.tags) ? v.plan.tags.filter(isText) : [], ...(dir ? { direction: dir } : {}) }
+  }
+  if (isRecord(v.roll) && finite(v.roll.natural) && finite(v.roll.total) && finite(v.roll.dc) && isText(v.roll.degree)) {
+    out.roll = { natural: v.roll.natural, total: v.roll.total, dc: v.roll.dc, degree: v.roll.degree, gain: finite(v.roll.gain) ? v.roll.gain : 0 }
+  }
+  if (isSafeInt(v.cap) && v.cap >= 0) out.cap = v.cap
+  if (typeof v.half_done === 'boolean') out.half_done = v.half_done
+  return out
 }
 
 function readSettled(v: unknown): Settled | null {

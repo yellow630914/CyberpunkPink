@@ -9,6 +9,7 @@ import type { ActivityEndReturn, Change, GameState, Kernel, ReportDraft } from '
 import { ActionBlocked, clone, endActivity, meterOf, toMinutes } from '../../core'
 import type { GoalRow, HostKind, Session, Settled, Viewers } from './model'
 import { CUT_ACTION, HOST_NAME, LOST_OUTCOMES, OWNER, RECORD_QUALITY_STAT, capOnly, goalMet, liveRules, liveSession, partyMax, subsOfHeat, templateById, viewersFrom } from './model'
+import { SLOT_KIND_NAME } from './slotrules'
 
 // media 的掛點用字串名字問（media 已經用 declare module 宣告了型別，這裡不 import 別的功能、也不重複宣告）
 type AnyHook = (name: string, payload: unknown) => Array<{ owner: string; result: unknown }>
@@ -51,7 +52,9 @@ export function settleSession(k: Kernel, state: GameState, s: Session, o: Settle
   const goalTips = done.reduce((n, g) => n + g.tip, 0)
   const viewers = viewersFrom(rules, meterOf(k, num, 'subs'), heat, s.house?.views_mult ?? 1)
   const toChannel = s.house?.to_channel !== false
-  const subs = toChannel && k.meters.has('subs') ? subsOfHeat(rules, heat, viewers.viewers) : 0
+  // 冷門題材（時段直播的方向 niche）：訂閱換算 ×subs_mult
+  const nicheMult = s.mode === 'slot' && s.plan?.direction === 'niche' ? rules.slot.niche.subs_mult : 1
+  const subs = toChannel && k.meters.has('subs') ? Math.floor(subsOfHeat(rules, heat, viewers.viewers) * nicheMult + 1e-9) : 0
   const tips = Math.floor((heat * rules.heat_tips + goalTips) * (s.house?.tips_mult ?? 1) + 1e-9)
 
   const changes: Change[] = []
@@ -64,11 +67,14 @@ export function settleSession(k: Kernel, state: GameState, s: Session, o: Settle
     const tpl = templateById(k, s.template)
     const kind = s.host?.kind
     const quality = partyMax(k, num, RECORD_QUALITY_STAT)
+    // 時段直播：成人種類記親密、其餘記日常（MEDIA 1.3；內容篩選的標籤跟著那一種的規則走）
+    const slotTags = s.mode === 'slot' && s.kind ? rules.slot.kinds[s.kind].tags : []
     const hint = {
       live: true, hq: true, ...(o.lost ? { lost: true } : {}), ...(kind ? { type: TYPE_OF_HOST[kind] } : {}), ...(kind === 'scene' ? { adult: true } : {}),
+      ...(s.mode === 'slot' ? { type: s.kind === 'adult' ? 'intimate' : 'daily' } : {}), ...(slotTags.length > 0 ? { tags: [...slotTags] } : {}),
       ...(s.faction ? { involves: { factions: [s.faction] } } : {}), ...(quality > 0 ? { quality } : {}),
     }
-    const label = `${tpl?.name ?? '直播'}${kind ? `（${HOST_NAME[kind]}）` : ''}`
+    const label = s.mode === 'slot' && s.kind ? `${SLOT_KIND_NAME[s.kind]}時段直播` : `${tpl?.name ?? '直播'}${kind ? `（${HOST_NAME[kind]}）` : ''}`
     for (const a of askHook(k, 'media.record', { state, source: { kind: 'live', ref: s.id }, label, hint })) {
       if (Array.isArray(a.result) && a.result.length > 0) { changes.push(...(clone(a.result) as Change[])); recorded = true }
     }
@@ -81,7 +87,7 @@ export function settleSession(k: Kernel, state: GameState, s: Session, o: Settle
   }
   const result: Record<string, unknown> = {
     mode: s.mode, template: s.template, heat, viewers: viewers.viewers, subs, tips, goals_done: done.length, to_channel: toChannel,
-    ...(s.host ? { host: { kind: s.host.kind, id: s.host.id } } : {}), tier: viewers.tier, ...(s.grade !== undefined ? { grade: s.grade } : {}),
+    ...(s.host ? { host: { kind: s.host.kind, id: s.host.id } } : {}), ...(s.kind ? { kind: s.kind } : {}), ...(s.hours ? { hours: s.hours } : {}), tier: viewers.tier, ...(s.grade !== undefined ? { grade: s.grade } : {}),
     ...(o.lost ? { lost: true } : {}), ...(s.secret ? { secret: true } : {}),
   }
   const end = endActivity(k, { state, kind: 'live', id: s.id, origin: { by: OWNER, ...(s.host ? { ref: s.host.id } : {}) }, outcome: o.early ? 'cut' : o.lost ? 'lost' : 'done', result })

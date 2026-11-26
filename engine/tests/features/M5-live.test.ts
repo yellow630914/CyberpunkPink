@@ -1341,8 +1341,9 @@ describe('一般守則', () => {
     expect(Object.values(FILES).join('\n')).not.toMatch(/ext\??\.\[?'(?!live)/)
   })
 
-  it('沒有註冊任何效果（B022 的清單不動）、沒有街頭信譽（rep）的變更', () => {
-    expect(code(Object.values(FILES).join('\n'))).not.toMatch(/effects\.register|op: 'rep'|kind: 'rep'/)
+  it('活動直播的檔案沒有註冊任何效果（B022 的清單不動；時段直播的 heat、highlight 在 slotfx.ts，見 M5-live-slot）、沒有街頭信譽（rep）的變更', () => {
+    expect(code(Object.entries(FILES).filter(([f]) => f !== 'slotfx.ts').map(([, src]) => src).join('\n'))).not.toMatch(/effects\.register/)
+    expect(code(Object.values(FILES).join('\n'))).not.toMatch(/op: 'rep'|kind: 'rep'/)
     const g = liveB()
     g.commit(step(crit()))
     cut(g)

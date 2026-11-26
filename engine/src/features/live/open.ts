@@ -58,7 +58,7 @@ function sceneStart(state: GameState): { solo: boolean; people: string[]; net: b
 
 const flagged = (k: Pick<Kernel, 'content'>, kind: string, id: unknown): boolean => isText(id) && k.content.hasKind(kind) && k.content.get(kind, id)?.no_rec === true
 
-function noRecHere(k: Pick<Kernel, 'content'>, state: GameState, people: string[]): boolean {
+export function noRecHere(k: Pick<Kernel, 'content'>, state: GameState, people: string[]): boolean {
   const loc = state.location
   if (flagged(k, 'facility_type', loc.facility) || flagged(k, 'block', loc.block) || flagged(k, 'district', loc.district)) return true
   const at = state.maps?.at
@@ -82,7 +82,7 @@ function firstStepBlock(state: GameState, host: HostInfo): string | null {
 }
 
 /** 條件 channel_open 有人註冊才問。 */
-function channelBlock(k: Kernel, state: GameState): string | null {
+export function channelBlock(k: Kernel, state: GameState): string | null {
   if (!k.conditions.kinds().includes('channel_open')) return null
   return k.conditions.test({ kind: 'channel_open' }, { state, stats: k.stats, timeRules: k.timeRules }) ? null : '還沒有開頻道，不能直播。'
 }

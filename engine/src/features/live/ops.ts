@@ -2,12 +2,14 @@
 //   live.open  { session }              開播（id 套用時發 lv<seq+1>，要和 session.id 一樣）
 //   live.add   { events, heat, tips }   這一份報告裡聽到的事件：次數、亮點、熱度與打賞（熱度與打賞已經照模板與上限算好）
 //   live.close { entry }                收播：清掉 session、記一筆結果（最近 log_keep 筆）
+//   live.heat  { delta, highlight? }    直接加減這一場的熱度（效果 heat、highlight；M5-live-slot）：時段直播夾在 0～這一場的上限、其餘最少 0；打賞跟著熱度走
 // 回到快照時（rewind.keep）用整份 ext 換（rewind.ts）。
 
 import type { Change, GameState, Kernel } from '../../core'
 import { isRecord, isSafeInt } from '../../core'
 import type { Highlight, LiveState, Session, Settled } from './model'
 import { EXT, MODES, OWNER, isText, liveRules, liveValue, readLive } from './model'
+import { SLOT_KINDS } from './slotrules'
 
 const write = (state: GameState, fn: (l: LiveState) => void): void => {
   const l = readLive(state)
@@ -29,6 +31,12 @@ export function sessionProblems(s: unknown): string[] {
   if (!Array.isArray(s.goals)) p.push('session.goals 要是陣列')
   if (!isRecord(s.counts) || !isRecord(s.from)) p.push('session.counts 與 session.from 要是物件')
   if (s.mode === 'activity' && !isRecord(s.host)) p.push('活動直播要有 host（宿主的種類與 id）')
+  if (s.mode === 'slot') {
+    if (!(SLOT_KINDS as readonly unknown[]).includes(s.kind)) p.push(`時段直播的 kind 要是 ${SLOT_KINDS.join('、')} 其中一個`)
+    if (!isSafeInt(s.hours) || s.hours < 1 || s.hours > 9) p.push('時段直播的 hours 要是 1 以上的整數')
+    if (!isSafeInt(s.cap) || s.cap < 0 || (isSafeInt(s.heat) && s.heat > s.cap)) p.push('時段直播的 cap 要是 0 以上的整數，而且不小於 heat')
+    if (!isRecord(s.plan) || !Array.isArray(s.plan.tags)) p.push('時段直播的 plan 要是 { tags, direction? }')
+  }
   return p
 }
 
@@ -83,6 +91,28 @@ export function installOps(k: Kernel): void {
       if (ses.highlights.length > keep) ses.highlights = ses.highlights.slice(-keep)
       ses.heat += c.heat
       ses.tips += c.tips
+    }),
+  })
+
+  k.changes.register<Change & { delta: number; highlight?: boolean }>({
+    op: 'live.heat', owner: OWNER,
+    validate: (s, c) => {
+      if (!readLive(s).session) return [NO_SESSION]
+      return isSafeInt(c.delta) && c.delta !== 0 && (c.highlight === undefined || typeof c.highlight === 'boolean') ? [] : ['delta 要是不為 0 的整數']
+    },
+    apply: (s, c) => write(s, (l) => {
+      const ses = l.session!
+      const before = ses.heat
+      ses.heat = Math.min(ses.cap ?? Infinity, Math.max(0, ses.heat + c.delta))
+      const real = ses.heat - before
+      ses.tips = Math.max(0, ses.tips + real * liveRules(k).heat_tips)
+      if (c.highlight === true && real > 0) {
+        ses.counts.highlight = (ses.counts.highlight ?? 0) + 1
+        ses.from.highlight = (ses.from.highlight ?? 0) + real
+        ses.highlights.push({ event: 'highlight', heat: real, report: '' } satisfies Highlight)
+        const keep = liveRules(k).highlight_keep
+        if (ses.highlights.length > keep) ses.highlights = ses.highlights.slice(-keep)
+      }
     }),
   })
 

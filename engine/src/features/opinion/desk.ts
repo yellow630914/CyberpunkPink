@@ -1,8 +1,8 @@
 // 誰坐編輯台、每個人每回合的編輯點（OPINION 4.3b、第 7 節；dev/adr/0020 第五節、「M4 對帳」D8；V40）。
-// 編輯點 = 基礎 2 ＋ 路數（actor.ext.paths：主播、偶像 2 ＋ 階數的一半進位；名媛、掮客捨去）＋ 被動的 ep ＋ 被動的 ep_cap（合計最多 ep_cap_max）
+// 編輯點 = 基礎 2 ＋ 路數（角色的路數欄位 paths：主播、偶像 2 ＋ 階數的一半進位；名媛、掮客捨去）＋ 被動的 ep ＋ 被動的 ep_cap（合計最多 ep_cap_max）
 //   ＋ 衍生數值 ep_bonus（義體、藥、裝備給的：交給核心的 regenTotal，來源屬於 TEMPO_SOURCES 的正值合計最多 +1，負值與其他來源照算）。
 // 被動回的 ep 不限（技能、編制、親衛隊）；沒寫 actor 的被動（製作 +1 這類整張編輯台的）加在第一個座位。
-// 讀別的功能的東西只經由 actor.ext.paths（格式）、衍生數值（k.stats）與掛點 opinion.passives。
+// 讀別的功能的東西只經由 角色的路數欄位 paths（格式）、衍生數值（k.stats）與掛點 opinion.passives。
 
 import type { GameState, Kernel } from '../../core'
 import { ActionBlocked, isRecord, isSafeInt, regenTotal } from '../../core'
