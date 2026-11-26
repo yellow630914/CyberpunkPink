@@ -6,7 +6,7 @@ import type { ActorId, Condition, GameState, Kernel, RollPart, SyncGear, SyncRul
 import { SYNC_GEARS, attrMod, checkParts, clone, deriveRng, isRecord, isSyncGear, makeCheck, syncBlocks, syncRuleOf } from '../../core'
 import type { ActionId, BodyRec, CircleRec, Die, Dice, EndReason, LinkRec, PairNature, PairRec, PositionEntry, SceneDef, SceneRaw, SceneRules, Seat, SoloPose } from './model'
 import {
-  ACTION_NAME, BASE_PARTS, NO_DIE, PARTNER_GEAR_DOWN_AT, POSITION_KIND, TALK_PARTS, beat, bodyOf, dieRange, gearCapOf, gearIndexOf, hasTendencyTag, isNoDie, knowOf, knownAll, knownPositions, knownSkills, normalizeSeats,
+  ACTION_NAME, BASE_PARTS, NO_DIE, POSITION_KIND, TALK_PARTS, beat, bodyOf, dieRange, gearCapOf, gearIndexOf, hasTendencyTag, isNoDie, knowOf, knownAll, knownPositions, knownSkills, normalizeSeats,
   openingFit, openingInit, parseDie, partName, poseHasPart, poseReaches, rollDie, sceneDefOf, sceneRules, sensitivityOf, sexRecordOf, soloPoses, startGear, statOr, tendencyTagIds, MAX_LINES,
 } from './model'
 import type { OnceEntry, OnceKind, PerRoundEntry, Resonance } from './night'
@@ -1238,7 +1238,7 @@ export class Play {
     const seat = this.seat(w)
     let to: SyncGear = seat.gear
     if (want !== undefined && isSyncGear(want)) to = want
-    else if (this.load[w]! >= PARTNER_GEAR_DOWN_AT * this.loadMax[w]!) to = SYNC_GEARS[Math.max(0, gearIndexOf(seat.gear) - 1)]!
+    else if (this.load[w]! >= this.rules.partner_gear_down_at * this.loadMax[w]!) to = SYNC_GEARS[Math.max(0, gearIndexOf(seat.gear) - 1)]!
     if (to !== seat.gear && this.blocks(w, { kind: 'gear', gear: to }).length === 0) this.perform(w, { kind: 'gear', gear: to })
   }
 

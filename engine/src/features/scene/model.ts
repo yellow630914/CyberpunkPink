@@ -205,6 +205,10 @@ export interface SceneRules {
   match_bonus: number
   /** 對方的感載達到上限的這個比例以上，他就想克制 */
   partner_restrain_at: number
+  /** 對方的回合開始時，感載達到上限的這個比例以上，他退一檔（同步檔位；LEWD_SYSTEM 3.5 節第五點「換檔」） */
+  partner_gear_down_at: number
+  /** 全檔過載加的沉溺、AI 給的沉溺變化，一場結算時最多動這麼多（CORE_RULES 4.3 節：每場 −4～+4） */
+  sink_cap: number
   /** 對方的一步裡主導、迎合、挑逗的權重，照性質 */
   partner_weights: Record<PairNature, { dominate: number; yield: number; tease: number }>
   /** 契合 ≤ quit_fit 而且過了 quit_rounds 回合：對方不玩了 */
@@ -255,10 +259,6 @@ export interface SceneRules {
   skip_goal: { base: number; cap: number }
 }
 
-/** 對方的回合開始時，感載達到上限的這個比例以上，他退一檔（同步檔位；LEWD_SYSTEM 3.5 節第五點「換檔」）。 */
-export const PARTNER_GEAR_DOWN_AT = 0.7
-/** 全檔過載加的沉溺，一場結算時最多加這麼多（CORE_RULES 4.3 節：每場 −4～+4）。 */
-export const SINK_CAP = 4
 
 export const DEFAULT_SCENE_RULES: SceneRules = {
   ap_regen: 3,
@@ -284,6 +284,8 @@ export const DEFAULT_SCENE_RULES: SceneRules = {
   position_tag_fit: 2,
   match_bonus: 12,
   partner_restrain_at: 0.7,
+  partner_gear_down_at: 0.7,
+  sink_cap: 4,
   partner_weights: {
     mutual: { dominate: 3, yield: 3, tease: 2 },
     trade: { dominate: 2, yield: 4, tease: 2 },

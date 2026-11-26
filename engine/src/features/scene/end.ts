@@ -7,7 +7,7 @@ import { attachActivityEnd, clone, contentAllowed, effectCtx, endActivity, meter
 import { SINK_KIND_NAME, planGrowth, planSink, readClosing, relateAmount, relateStrays, sexNotes } from './close'
 import type { Fx } from './close'
 import type { EndReason, PartnerLook } from './model'
-import { ACTIVITY, END_NAME, SINK_CAP, EXT, GOAL_NAME, beat, ratingOf, recordSceneWith, recordSolo, sexRecordOf, sceneRawOf, soloPosesSeen } from './model'
+import { ACTIVITY, END_NAME, EXT, GOAL_NAME, beat, ratingOf, recordSceneWith, recordSolo, sexRecordOf, sceneRawOf, soloPosesSeen } from './model'
 import type { Play } from './play'
 
 const signed = (n: number): string => (n > 0 ? `+${n}` : `${n}`)
@@ -160,7 +160,7 @@ export function endDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBe
   const sinkLines: string[] = []
   const sinkChanges: Change[] = [...sinkSet.changes]
   for (const seat of amnesia ? [] : s.seats) {
-    const n = Math.min(SINK_CAP, seat.sink_gain)
+    const n = Math.min(rules.sink_cap, seat.sink_gain)
     if (n <= 0) continue
     if (seat.id !== s.pc) sinkChanges.push({ op: 'actor.track', id: seat.id, track: 'sink', delta: n })
     sinkLines.push(`${seat.id === s.pc ? '你' : state.actors[seat.id]!.name}在${p.sync.gears.full.name}檔過載：沉溺 +${n}。`)

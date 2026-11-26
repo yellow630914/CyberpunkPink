@@ -74,6 +74,8 @@
     "position_tag_fit": 2,
     "match_bonus": 12,
     "partner_restrain_at": 0.7,
+    "partner_gear_down_at": 0.7,
+    "sink_cap": 4,
     "partner_weights": {
       "mutual": {
         "dominate": 3,

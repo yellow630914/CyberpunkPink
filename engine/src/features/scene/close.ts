@@ -5,7 +5,7 @@
 import type { ActorId, ClampNote, Kernel } from '../../core'
 import { contentAllowed, isRecord, meterOf } from '../../core'
 import type { Nature, RatingBand, SceneRules } from './model'
-import { NATURE_NAME, NOTE_LEN, SINK_CAP, gearIndexOf, isNature } from './model'
+import { NATURE_NAME, NOTE_LEN, gearIndexOf, isNature } from './model'
 import type { Play } from './play'
 
 export type Fx = Record<string, unknown>
@@ -79,7 +79,7 @@ export interface SinkPlan {
 /**
  * 主角這一場的沉溺（P43）。有 closing.sink 用它的數字（被迫要性質是被迫才收，readClosing 已經看過）；沒有就照退路：
  * 兩情相悅而且主角對（平均的）對象親密度到 anchor_affinity 以上 → anchor；交易、工作、契約 → 0；被迫 → forced；俘虜與其餘 → 0；單人 → 0。
- * 再加上全檔過載累積的那一份，合計夾在 −SINK_CAP～+SINK_CAP。
+ * 再加上全檔過載累積的那一份，合計夾在 −sink_cap～+sink_cap（規則表 sink_cap，預設 4）。
  */
 export function planSink(k: Kernel, p: Play, pairIds: readonly ActorId[], closing: Closing, notes: ClampNote[]): SinkPlan {
   const { nature } = p.s
@@ -106,10 +106,11 @@ export function planSink(k: Kernel, p: Play, pairIds: readonly ActorId[], closin
     base = 0
   }
   const seat = p.s.seats.find((x) => x.id === p.s.pc)
-  const gain = Math.min(SINK_CAP, seat?.sink_gain ?? 0)
+  const cap = rules.sink_cap
+  const gain = Math.min(cap, seat?.sink_gain ?? 0)
   const sum = base + gain
-  const total = Math.max(-SINK_CAP, Math.min(SINK_CAP, sum))
-  if (total !== sum) notes.push(clampNote('closing.sink', sum, total, `一場最多讓沉溺動 ${SINK_CAP} 點，這一場實際只算了 ${Math.abs(total)} 點。`, total > 0 ? SINK_CAP : -SINK_CAP))
+  const total = Math.max(-cap, Math.min(cap, sum))
+  if (total !== sum) notes.push(clampNote('closing.sink', sum, total, `一場最多讓沉溺動 ${cap} 點，這一場實際只算了 ${Math.abs(total)} 點。`, total > 0 ? cap : -cap))
   return { kind, base, gain, total }
 }
 
