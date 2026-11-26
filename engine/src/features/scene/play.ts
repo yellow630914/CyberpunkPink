@@ -11,6 +11,7 @@ import {
 } from './model'
 import type { OnceEntry, OnceKind, PerRoundEntry, Resonance } from './night'
 import { BIND_TAG, ONCE_SCOPE, resonanceOf, styleMatches, withRules } from './night'
+import { watchedNow } from './watch'
 
 // ---- 輸入 ----
 
@@ -694,7 +695,7 @@ export class Play {
       case 'talk': {
         // 單人：只有直播開著（有觀眾）才能說話，對觀眾說，不建立連接
         if (this.solo) {
-          if (this.s.audience !== true) out.push('沒有人在聽。')
+          if (!watchedNow(this.k, this.state, this.s)) out.push('沒有人在聽。')
           break
         }
         const r = this.pairFor(w, { mine: [...TALK_PARTS], theirs: this.partsOf(t), tag: null }, input.pick, probe, t)
@@ -732,7 +733,7 @@ export class Play {
         if (this.solo) {
           const gate = soloGate(info.def, input.kind)
           if (gate === 'no') return [...out, '這個要有對象。']
-          if (gate === 'audience' && this.s.audience !== true) return [...out, '這個要有人在看。']
+          if (gate === 'audience' && !watchedNow(this.k, this.state, this.s)) return [...out, '這個要有人在看。']
         }
         if (info.def.positions && !info.def.positions.includes(s.position)) out.push(`「${info.name}」要在${info.def.positions.map((id) => this.posNameOf(id)).join('、')}才用得出來，現在是${this.positionName()}。`)
         if (info.tag && !hasTendencyTag(this.actor(w), info.tag)) out.push(`要有「${this.tagName(info.tag)}」的標籤（或對應的調校、道具、服裝）才用得出來。`)
@@ -1380,7 +1381,7 @@ export class Play {
   private perRoundHolds(w: ActorId, x: ActorId | null, cond: PerRoundEntry['if'][number], tag?: string): boolean {
     const s = this.s
     switch (cond) {
-      case 'watched': return s.audience === true || (!this.solo && this.activeIds().length >= 3)
+      case 'watched': return watchedNow(this.k, this.state, s) || (!this.solo && this.activeIds().length >= 3)
       case 'bind_link': {
         const want = tag ?? BIND_TAG
         return x !== null && s.links.some((l) => ((l.by === w && l.to === x) || (l.by === x && l.to === w)) && l.kind !== 'talk' && sceneDefOf(this.k, l.kind === 'skill' ? 'skill' : 'item', l.source)?.tag === want)

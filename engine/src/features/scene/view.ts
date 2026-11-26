@@ -8,6 +8,7 @@ import type { ActionId, CircleRec, LinkRec, PositionEntry, SceneKind, SceneLayer
 import { SYNC_GEARS, ACTION_NAME, GOAL_NAME, NATURE_NAME, ROLE_NAME, TALK_PARTS, dieRange, knownPositions, knownSkills, parseDie, partName, ratingOf, sceneDefOf, sceneRawOf, tendencyTagIds } from './model'
 import type { Preview, SceneInput } from './play'
 import { Play, candOf, costOf, diceOf } from './play'
+import { watchedNow } from './watch'
 import { sceneWindow } from './window'
 
 export interface PartView {
@@ -228,7 +229,7 @@ export function sceneView(k: Kernel, state: GameState, selected?: SceneInput): S
       ? p.poses.map((x) => ({ id: x.id, name: x.name, blocks: p.blocks(pcId, { kind: 'switch', position: x.id }, true) }))
       : knownPositions(k, state, s.pc, p.activeIds().length).map((x) => ({ id: x.id, name: x.name, blocks: p.blocks(pcId, { kind: 'switch', position: x.id }, true) })),
     lines: s.lines.map((l) => ({ round: l.round, who: l.who, text: l.text })),
-    ...(solo ? { pace: s.pace ?? 0, audience: s.audience === true } : {}),
+    ...(solo ? { pace: s.pace ?? 0, audience: watchedNow(k, state, s) } : {}),
   }
   const folded = s.circles.flatMap((c) => c.people)
   if (s.mode === 'simple' && !solo && folded.length > 0) {

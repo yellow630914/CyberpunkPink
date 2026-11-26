@@ -9,6 +9,7 @@ import type { Fx } from './close'
 import type { EndReason, PartnerLook } from './model'
 import { ACTIVITY, END_NAME, EXT, GOAL_NAME, beat, ratingOf, recordSceneWith, recordSolo, sexRecordOf, sceneRawOf, soloPosesSeen } from './model'
 import type { Play } from './play'
+import { watchedNow } from './watch'
 
 const signed = (n: number): string => (n > 0 ? `+${n}` : `${n}`)
 
@@ -304,7 +305,7 @@ function soloEndDraft(k: Kernel, p: Play, reason: EndReason, lead: TimelineBeat[
   if (!amnesia && (sink.total !== 0 || sinkSet.actual !== 0)) sinkLines.push(`這一場的沉溺：${SINK_KIND_NAME[sink.kind]}，${signed(sinkSet.actual)}。`)
   const maxGear = { pc: p.seat(s.pc).max_gear }
   const result = {
-    solo: true, pace, rating: band.name, goal: s.goal, goal_done: goalDone, reason, ...(s.layer === 'net' ? { layer: s.layer } : {}), max_gear: maxGear, audience: s.audience === true,
+    solo: true, pace, rating: band.name, goal: s.goal, goal_done: goalDone, reason, ...(s.layer === 'net' ? { layer: s.layer } : {}), max_gear: maxGear, audience: watchedNow(k, state, s),
     sink: sinkSet.actual, sink_kind: sink.kind, touched: touched.filter((t) => contentAllowed(state.rules, t)), tendency: amnesia ? [] : growth.tags, ...(bridgeGain ? { bridge_gain: bridgeGain } : {}), ...(growth.deep && !amnesia ? { deep: growth.deep } : {}),
     ...(amnesia ? { amnesia: true } : {}),
   }
