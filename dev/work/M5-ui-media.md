@@ -4,7 +4,7 @@
 - 目標：媒體鏈的畫面接上引擎：紀錄的「做成素材」、素材庫、剪片（七種角度）、發布（上架、賣斷、談判）、錄影的開關；舊的 `data/media.ts` 裡的假資料與規則拿掉。
 - 規格出處：docs/art/UI.md 6.4 節（照 MEDIA 讀，V55）、1.1 節（對話框、「做不到的一律灰掉」、「說明收進 ?」）、3.2 節（紀錄的細節）；MEDIA 1.1、2.1、第 3、5 節；dev/adr/0020 第一、十二節、V1～V11、V55；dev/work/M5-media-chain.md、M5-media-cut.md 的「新的格式與鍵」與匯出。
 - 可以改的路徑：`ui/src/dialogs/CutDialog.vue`（重寫成「素材與剪片」）、`ui/src/lib/`（新增 `mediaView.ts`）、`ui/src/stores/engine.ts`（只加轉接）、`ui/src/stores/game.ts`（拿掉 `media` 那一塊假狀態）、`ui/src/screens/MainScreen.vue`（紀錄上的錄影記號與入口）、`ui/src/data/demo/`（示意包）、`ui/tests/media/`；刪 `ui/src/data/media.ts` 裡紀錄、素材、片、發布的部分（直播與彈幕的部分留給 M5-ui-live 處理，這一張先搬到 `ui/src/lib/liveLegacy.ts` 讓畫面不壞）。
-- 可以用的介面：`@engine/src/features/media` 的 `mediaView`、`setRecording`、`convert`、`angleOptions`、`cutPreview`、`cut`、`recut`、`forge`、`upload`、`uploadPreview`、`sell`、`sellPrice`、`deal`、`dealTargets`；`Game.commit`／`commitNarrated`；共用元件 `Dialog`、`Hint`、`ReasonButton`、`GradeBadge`、`Tabs`。
+- 可以用的介面：`@engine/src/features/media` 的 `mediaView`、`setRecording`、`convert`、`angleOptions`、`cutPreview`、`cut`、`recut`、`retitle`、`CLIP_TITLE_MAX`、`CLIP_INTRO_MAX`、`forge`、`upload`、`uploadPreview`、`sell`、`sellPrice`、`deal`、`dealTargets`；`Game.commit`／`commitNarrated`；共用元件 `Dialog`、`Hint`、`ReasonButton`、`GradeBadge`、`Tabs`。
 - 不可以做的事：不改 `engine/`；畫面沒有任何一條規則（品質、三個數字、次數、能不能剪都讀引擎）；不做「開一集」「帶進輿論戰」「發文」的按鈕邏輯（只放入口：各自打開頻道、輿論戰的準備、社群對話框，那幾個入口還沒做的先灰掉並寫「還沒有開放。」）；不加街頭信譽的任何顯示；共同的規定見 dev/work/M5-plan.md。
 
 ## 要做的
@@ -13,7 +13,8 @@
 2. **素材庫**（第二個分頁）：每段一列——類型的色塊、標題、拍到的勢力與人、真實性（偽造的只有自己看得到的記號）、獨家、品質五格、**使用次數三格**（用掉的變淡）、新鮮度的小標；0 次的排在最後、整列變淡。片另一區：角度、三個數字（看點、可信、風險寫「d20 擲到幾以下出事」）、次數、是哪一種牌（料、說法、燃料、不能當牌）。
 3. **剪片**（第三個分頁）：三格放素材（剩 1 次的放不進去、原因直接顯示）；七個角度的卡，分中性、正面、爭議三組，每張寫傾向與「進輿論戰是哪一種牌」，選不了的灰掉、原因寫出是哪一段的類型對不上；即時預覽三個數字與片的次數（讀 `cutPreview`）；地點不對時（不在住處或可以剪片的設施）整個分頁上方一句原因、按鈕灰掉；「剪（花一個時段）」。重剪：片的列上一顆，沒有製作時灰掉。偽造：一個小表單（類型、勢力），寫清楚會擲什麼。
 4. **發布**（選了一件素材或片之後的右欄）：直接上架（可以勾匿名；預覽訂閱、公信力、風險）、賣斷（價錢）、拿去談判（選對象）、留著（一句說明：什麼時候派得上用場）。另外三個入口「開一集」「帶進輿論戰」「發一篇文」只是連過去。每一種寫清楚扣幾次。
-5. **示意包**：一件能錄影的隨身裝備（照 0020 D1 的寫法）、兩則會成紀錄的事（開局的假報告或一場可以打的小戰鬥）、一段現成的素材。
+5. **示意包**：一張帶「內建錄影」的義眼設計圖（`effects: [{ stat: 'rec_grade', amount: 2 }]`；錄影只認義體，0020「M4 對帳」D1）、一場可以打的小戰鬥；示意模式的開新局選項：開局就裝著那隻義眼（和示意包的甲板一樣直接在身上、不經手術）、素材庫裡一段現成的素材。
+7. **片的標題與簡介**（使用者 2026-11-25）：剪片的分頁多兩格選填的輸入（標題、簡介），片的列上可以再改（`retitle`）。上限讀引擎的常數；超過時字數變紅、照樣送出，由引擎截斷並顯示它回的那一句提醒（和寫法指令的 `components/scene/DirectionField.vue` 同一個做法，不用瀏覽器的 `maxlength` 硬擋）。不 `.trim()`、不過濾、不加內容提示；空著就顯示引擎給的模板字。
 6. 拿掉 `stores/game.ts` 的 `media` 假狀態與所有引用；`CutDialog` 不再 import `data/media`。
 
 ## 驗收條件（`ui/tests/media/M5-ui-media.test.ts`；用引擎真的 `media`，測試自帶紀錄與素材）
@@ -24,12 +25,20 @@
 - 上架：勾匿名時預覽的數字變了；送出之後那一件少一格。
 - 賣斷之後那一件三格全空、排到最後。
 - 關掉錄影：抬頭顯示關著；引擎的 `rec` 是 `false`。
+- 標題打 31 個字：計數變紅、送得出去、片上留的是 30 個字、畫面顯示引擎的提醒；貼上含表情符號的字，計數照「字」算（和引擎一樣）。
+- 一般的新局（示意模式關著）身上沒有錄影的義眼、素材庫是空的；示意模式的選項勾了才有。
 - 掃原始碼：`ui/src` 沒有任何檔 import `data/media` 裡的 `START_MEDIA`、`ANGLES`、`cutStats`、`footageQuality`、`PUBLISH`；`CutDialog.vue` 沒有自己算品質或三個數字的函式；整個 `ui/src` 的媒體畫面沒有「街頭信譽」四個字。
 - `npm test` 與 `vue-tsc` 全過。
 
 ## 依賴
 
 M5-media-chain、M5-media-cut。
+
+## M4 對帳（2026-11-26）
+
+- **示意模式**（使用者 2026-11-26；M4-fix-ui 第 2 題）：示意世界包裡「世界上有的東西」（模板、目標、議題、住處的版面、物品）照舊放 `ui/src/data/demo/`；「開局就已經有」的東西是示意捷徑，一律做成開新局的選項，而且只有示意模式開著才出現——不放進一般的新局、不在對話框裡另外給按鈕。照 M4-fix-ui 做好的那一套接（`demo…Changes` 在 `game.new` 給一次）。
+- 義眼裝在身上之後，角色頁的「橋與義體」分頁（M4-ui-body）本來就會列它；這一張不另外做「錄影裝備」的畫面，紀錄上的紅點讀引擎那一則的 `by`。
+- 這一張裡所有玩家打字的地方（片的標題、簡介）照 M4 的規矩：原樣送出，上限與截斷都是引擎的。
 
 ## 完成時回報
 
