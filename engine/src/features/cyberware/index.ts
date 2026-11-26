@@ -204,6 +204,20 @@ export const cyberwareFeature: Feature = {
     installLockHooks(k)
   },
 
+  // 資料檢查的警告（不擋載入）：怪癖寫了 effects、卻是會掛在武器或護甲上的（applies 沒寫或含 weapon、armor）。
+  // 被動效果的來源 quirk 只給「裝在身上的義體」的怪癖；武器與護甲上的怪癖只有 stats 會算進成品，effects 悄悄不生效（M4 收尾修正批 建議 2）
+  warnings(k) {
+    if (!k.content.hasKind('quirk')) return []
+    const out: string[] = []
+    for (const q of k.content.list<ContentEntry & { name?: string; applies?: unknown; effects?: unknown }>('quirk')) {
+      if (!Array.isArray(q.effects) || q.effects.length === 0) continue
+      const hits = q.applies === undefined ? ['weapon', 'armor'] : Array.isArray(q.applies) ? q.applies.filter((a) => a === 'weapon' || a === 'armor') : []
+      if (hits.length === 0) continue
+      out.push(`quirk/${q.id}（${q.name ?? q.id}）：寫了 effects，但它會掛在${hits.map((h) => (h === 'weapon' ? '武器' : '護甲')).join('、')}上；武器與護甲的怪癖只有 stats 會算進成品，effects 不會生效。要給效果就把 applies 限定在 cyberware，或改寫成 stats。`)
+    }
+    return out
+  },
+
   ready(k) {
     const problems: string[] = []
     if (k.content.hasKind(FACILITY_TYPE_KIND)) {

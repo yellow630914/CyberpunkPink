@@ -579,6 +579,17 @@ export class Game {
     return run
   }
 
+  /**
+   * 哪一筆未登錄零件的交貨鏈現在停在 paused（寫正文那一步失敗，鏈留著等玩家重試或用規則代替）：最新一條鏈是 part_unreg、狀態 paused 時是那一筆的 id，否則是空的。
+   * 畫面據此顯示「卡住了：重試或用規則代替」，不用自己記哪一筆（M4 收尾修正批）。
+   */
+  unregPaused(): string[] {
+    const run = this.last?.run
+    if (!run || run.template.chain !== PART_CHAIN || run.status !== 'paused') return []
+    const id = (run.input as PartChainInput | undefined)?.id
+    return typeof id === 'string' ? [id] : []
+  }
+
   /** 這一局交貨走不走 AI：總開關開、partAi 沒關、有人接得住 design_part。 */
   private partLive(): boolean {
     return this.settings.ai && partAiOf(this.settings) && this.hub.resolve(this.settings, PART_TASK) !== null

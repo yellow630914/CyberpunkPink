@@ -57,7 +57,7 @@ export interface ActionWindow {
 
 /**
  * 問掛點 action.window：玩家要做 input 這個行動時，有沒有功能要插一個選項、或替他選（妖精的吻擴散階段）。
- * options 給畫面列出來；replace 只收行動種類存在、沒有被 block 擋住、而且和原本的不一樣的（第一個合格的算數）。純函式，不改狀態。
+ * options 給畫面列出來；replace 只收和原本同一種行動（kind 一樣）、沒有被 block 擋住、而且和原本的不一樣的（第一個合格的算數）。純函式，不改狀態。
  */
 export function actionWindow(k: Pick<ActionKernel, 'hooks' | 'actions'>, state: GameState, input: ActionInput): ActionWindow {
   const out: ActionWindow = { options: [] }
@@ -72,7 +72,8 @@ export function actionWindow(k: Pick<ActionKernel, 'hooks' | 'actions'>, state: 
     if (!out.replace && isRecord(r) && typeof r.why === 'string' && r.why && isRecord(r.input) && typeof r.input.kind === 'string') {
       const to = r.input as unknown as ActionInput
       const def = k.actions.get(to.kind)
-      if (def && !def.block?.(state, to) && JSON.stringify(to) !== JSON.stringify(input)) out.replace = { input: clone(to), why: r.why, owner: h.owner }
+      // 只能換成同一種行動（M4 收尾修正批 應修 2）：Game.act 照原本的種類選任務鏈（adult_action 的路由、活動的放行不會再問一次），換種類會繞過它們
+      if (def && to.kind === input.kind && !def.block?.(state, to) && JSON.stringify(to) !== JSON.stringify(input)) out.replace = { input: clone(to), why: r.why, owner: h.owner }
     }
   }
   return out
@@ -137,7 +138,14 @@ function naturalOf(state: GameState, input: ActionInput, reroll: number): number
 
 /** 重擲：換一顆骰子，舊的骰面記進 history（玩家不能藏起來）。 */
 export function rerollAction(k: ActionKernel, state: GameState, pending: ActionPending): ActionPending {
-  return prepareAction(k, state, pending.input, pending.reroll + 1, [...pending.history, pending.roll.natural])
+  const history = [...pending.history, pending.roll.natural]
+  // 被「替你選」換過的：從原本送出的那一個再問一次視窗（回答由狀態導出，換法不變），換不出來才用換過的那一個；兩種都把原因與原本的行動帶下去（M4 收尾修正批 應修 2）
+  if (pending.replaced) {
+    const again = prepareAction(k, state, pending.replaced.from, pending.reroll + 1, history)
+    if (again.replaced) return again
+    return { ...prepareAction(k, state, pending.input, pending.reroll + 1, history), replaced: clone(pending.replaced) }
+  }
+  return prepareAction(k, state, pending.input, pending.reroll + 1, history)
 }
 
 /** 退路的判定：照骰值與參考 DC，轉折留空（AI_TASKS 4.1 節）。 */
@@ -307,7 +315,9 @@ export function buildActionReport(k: ActionKernel, state: GameState, r: ActionRe
   const changes: Change[] = [...actionPrelude(k, state, r.pending.input).changes, ...r.reward.changes, ...(r.extraChanges ?? []), ...actionTailChanges(j)]
   const after = clone(state)
   k.changes.applyAll(after, changes)
-  const lines = [...r.reward.lines, ...(r.extraLines ?? [])]
+  // 這一次的行動是被「替你選」換過的（掛點 action.window 的 replace；例：妖精的吻擴散）：原因進報告，玩家看得到發生了什麼（M4 收尾修正批 應修 2）
+  const override = r.pending.replaced ? r.pending.replaced.why.replace(/。$/, '') : null
+  const lines = [...(override ? [override] : []), ...r.reward.lines, ...(r.extraLines ?? [])]
   const rollLine = `骰 ${j.roll.natural}，合計 ${j.roll.total}，對 DC ${j.roll.dc}`
   const summary = [`${actor.name}：${def.name}，${DEGREE_NAME[j.degree]}（${rollLine}）。`, j.twist, ...lines.map((l) => `${l}。`)].filter(Boolean).join('')
   const clamps = [...(r.judgeClamps ?? []), ...r.reward.clamps]
@@ -316,7 +326,10 @@ export function buildActionReport(k: ActionKernel, state: GameState, r: ActionRe
     ...(r.pending.input.text ? { input: r.pending.input.text } : {}),
     args: clone(r.pending.input),
     party: partySnapshot(k, state, after),
-    timeline: [{ layer: 'meat', actor: r.pending.actor, text: j.reason || def.name, roll: j.roll, ...(j.twist ? { twist: j.twist } : {}) }],
+    timeline: [
+      ...(r.pending.replaced ? [{ layer: 'meat' as const, actor: r.pending.actor, text: r.pending.replaced.why, tag: 'action.override', data: { from: clone(r.pending.replaced.from), owner: r.pending.replaced.owner } }] : []),
+      { layer: 'meat', actor: r.pending.actor, text: j.reason || def.name, roll: j.roll, ...(j.twist ? { twist: j.twist } : {}) },
+    ],
     changes,
     outcome: { result: j.degree, summary },
     ...(clamps.length ? { clamps } : {}),

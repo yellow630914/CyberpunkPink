@@ -53,10 +53,20 @@ const sum = (parts: Array<{ value: number }>) => parts.reduce((s, p) => s + p.va
 
 // ---- 登錄表與接線 ----
 
+describe('M4 收尾修正批 建議 1：怪癖的節奏資源也算進全身合計最多 +1', () => {
+  it('來源 quirk 的 ap_regen、ram_regen 正值與義體、藥、裝備、構裝合計，全身最多 +1；負值照算', () => {
+    expect(regenTotal([{ value: 1, source: 'quirk' }, { value: 1, source: 'cyber' }])).toBe(1)
+    expect(regenTotal([{ value: 1, source: 'quirk' }])).toBe(1)
+    expect(regenTotal([{ value: 1, source: 'quirk' }, { value: 1, source: 'quirk' }, { value: -1, source: 'quirk' }])).toBe(0)
+    // 不在節奏來源裡的（技能）照舊不限
+    expect(regenTotal([{ value: 1, source: 'quirk' }, { value: 1, source: 'skill' }])).toBe(2)
+  })
+})
+
 describe('M4-core-passive：來源登記與五種效果', () => {
   it('來源是封閉的十種；登記不在清單裡的來源丟錯；同一個來源可以由不同的人各登記一個', () => {
     expect([...PASSIVE_SOURCES]).toEqual(['cyber', 'drug', 'tuning', 'quirk', 'malware', 'sink', 'withdrawal', 'wound', 'contract', 'gear', 'night'])
-    expect([...TEMPO_SOURCES]).toEqual(['cyber', 'drug', 'gear', 'construct'])
+    expect([...TEMPO_SOURCES]).toEqual(['cyber', 'drug', 'gear', 'construct', 'quirk'])
     const k = createKernel([])
     expect(() => k.passives.register('test', 'nope' as never, () => [])).toThrow(/不在清單裡/)
     k.passives.register('a', 'cyber', () => [{ attr: 'body', amount: 1 }])

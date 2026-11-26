@@ -645,7 +645,7 @@ describe('外觀裡推出來的三樣（creationLook；掛點 creation.look）',
     const look = creationLook(g.k, g.state, draft({ pronoun: '她', bridge: 'bp_bridge_a', cyber: [{ blueprint: 'bp_eye' }] }))
     expect(look.cyber).toEqual(['她的左眼是hz的義眼，外殼沒有什麼特別。'])
     // 牌子的描寫（織女）與設計圖自己的 line
-    const g2 = setup(ALL, [{ id: 'look_rule', content: { creation_rule: [{ id: 'default', look: { brand_lines: { hz: '一圈很淡的刻痕' } } }] } } as unknown as ContentPack])
+    const g2 = setup(ALL, [{ id: 'look_rule', content: { creation_rule: [{ ...(MINI_PACK.content as Rec).creation_rule[0], look: { brand_lines: { hz: '一圈很淡的刻痕' } } }] } } as unknown as ContentPack])
     expect(creationLook(g2.k, g2.state, draft({ pronoun: '她', cyber: [{ blueprint: 'bp_eye' }], bridge: null })).cyber[0]).toBe('她的左眼是hz的義眼，一圈很淡的刻痕。')
   })
 
@@ -689,7 +689,7 @@ describe('外觀裡推出來的三樣（creationLook；掛點 creation.look）',
   })
 
   it('look 的格式不對（設計圖與 creation_rule）在載入時擋下', () => {
-    expect(() => setup(ALL, [{ id: 'bad_look', content: { creation_rule: [{ id: 'default', look: { brand_lines: { x: 5 } } }] } } as unknown as ContentPack])).toThrow(ContentError)
+    expect(() => setup(ALL, [{ id: 'bad_look', content: { creation_rule: [{ ...(MINI_PACK.content as Rec).creation_rule[0], look: { brand_lines: { x: 5 } } }] } } as unknown as ContentPack])).toThrow(ContentError)
     const bad = { id: 'bad_bp_look', content: { blueprint: [bp('bp_badlook', { slot: 'eye', invasiveness: 'light', sink_cost: 1, require: [{ type: 'sensor' }], stock: { sensor: 'pt_eye' }, look: { at: '左眼', beast: { school: 'x', part: 'ears' } } })] } } as unknown as ContentPack
     expect(() => setup(ALL, [bad])).toThrow(ContentError)
   })

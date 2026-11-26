@@ -41,6 +41,12 @@ export function hostiles(b: BattleState, u: BattleUnit): BattleUnit[] {
   return unitsOf(b, hostileSide(u)).filter((x) => x.id !== u.id)
 }
 
+/** 這個單位現在鎖定的那個單位（BattleUnit.lock）；沒有鎖定、目標已經退出或不在這一場裡是 null。給畫面換敵人的名牌與形象用（unitFormView 的 target）。 */
+export function lockedTarget(b: BattleState, u: BattleUnit): BattleUnit | null {
+  const t = u.lock !== undefined ? b.units[u.lock] : undefined
+  return t && !t.out ? t : null
+}
+
 export function unitAt(b: BattleState, side: BattleSide, slot: number): BattleUnit | undefined {
   return Object.values(b.units).find((u) => u.side === side && u.slot === slot && onField(u))
 }

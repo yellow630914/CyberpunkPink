@@ -18,7 +18,7 @@ import { ActionBlocked, clone, contentAllowed, deriveRng, effectCtx, formatAmoun
 import { defOf } from './ctx'
 import { tipsRatio } from './heat'
 import type { CurtainRules, FallRecord, RunRecord, TierDef } from './model'
-import { FALL_ACTION, FLAG_RAIDED, FLAG_TAPE, ORIGIN_BY, REPLAY_ACTION, SETTLE_ACTION, TAPE_ACTION, curtainRules, isText, nowOf, readCurtain, tierOf, weekMinutes } from './model'
+import { FALL_ACTION, FLAG_RAIDED, FLAG_TAPE, ORIGIN_BY, REPLAY_ACTION, SETTLE_ACTION, TAB_BILL_ID, TAPE_ACTION, curtainRules, isText, nowOf, readCurtain, tierOf, weekMinutes } from './model'
 import { patch } from './patch'
 import { draftOf, nameOf } from './util'
 
@@ -404,6 +404,30 @@ export function tabLine(k: Kernel, state: GameState, id: string, owner: string, 
   if (!tab) return null
   const amount = Math.round(tab.owed * curtainRules(k).fall.tab.weekly)
   return amount > 0 ? { id, owner, name: '簾後館的欠款利息', kind: 'due', amount, order, pay: 'either' } : null
+}
+
+export interface AccountView {
+  /** 記帳欠的：欠多少、上限（保證金的幾倍）、每週利息；沒有欠款是 null */
+  tab: { owed: number; cap: number; weekly: number } | null
+  /** 簽著的檔期：到什麼時候、漏了幾週；沒有是 null */
+  gig: { until: number; missed: number } | null
+  /** 每一支母帶：流出去了沒、買回的價錢、買回了沒 */
+  tapes: Array<{ id: string; leaked: boolean; price: number; bought: boolean }>
+}
+
+/**
+ * 帳與母帶（不必在落幕之後也看得到；M4 收尾修正批：畫面不自己算欠款上限與每週利息）：欠款與上限（tabCap）與每週利息（tabLine）、簽著的檔期、每一支母帶。
+ * 上限看會員的席次（沒有會員看落幕那一筆的席次）。都沒有是 { tab: null, gig: null, tapes: [] }。
+ */
+export function accountView(k: Kernel, state: GameState): AccountView {
+  const c = readCurtain(state)
+  const rules = curtainRules(k)
+  const tier = rules.tiers.find((t) => t.id === (c.member?.tier ?? c.fall?.tier))
+  return {
+    tab: c.tab ? { owed: c.tab.owed, cap: tier ? tabCap(rules, tier) : 0, weekly: tabLine(k, state, TAB_BILL_ID, 'curtain', 0)?.amount ?? 0 } : null,
+    gig: c.gig ? { until: c.gig.until, missed: c.gig.missed } : null,
+    tapes: c.tapes.map((t) => ({ id: t.id, leaked: t.leaked, price: t.price, bought: t.bought === true })),
+  }
 }
 
 /** 現在還不了款的原因（一句）；能還是 null。amount 沒寫是全部（現金不夠就還現金有的那麼多不行：要先有錢）。 */

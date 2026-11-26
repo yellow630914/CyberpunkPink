@@ -208,6 +208,11 @@ export class ChainRun {
     return this.ctx.draft
   }
 
+  /** 這條鏈開始時收到的輸入（複本）：問「這條鏈是替哪一筆做的」用（例：Game.unregPaused）。 */
+  get input(): unknown {
+    return clone(this.ctx.input)
+  }
+
   step(id: string): StepRecord {
     const s = this.steps.find((x) => x.id === id)
     if (!s) throw new Error(`任務鏈 ${this.template.chain} 沒有 ${id} 這一步`)

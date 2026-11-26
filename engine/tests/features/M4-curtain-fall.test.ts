@@ -18,7 +18,7 @@ import { logout as netrunLogout, netExt, netrunFeature, parseSetup, readRun, use
 import { sceneAct, sceneFeature, sceneRawOf } from '../../src/features/scene'
 import {
   CURTAIN_DEFAULT_RULES, CURTAIN_FLAG_RAIDED, CURTAIN_HEAT, curtainFeature, featureOf, curtainOf, curtainRuleProblems, curtainRules, doorBlock, enterBlocks, enterDraft, fallEventFor, fallView,
-  buybackDraft, callOffDraft, payTabDraft, replayDraft, settleBlock, settleDraft, tapeChance, tipsRatio, pathsOf, curtainView,
+  accountView, buybackDraft, callOffDraft, curtainTabLine, payTabDraft, replayDraft, settleBlock, settleDraft, tapeChance, tipsRatio, pathsOf, curtainView,
 } from '../../src/features/curtain'
 import { TEST_NET_COMBAT, makeActor, makeGame, meterFeature, testMeter } from '../../src/testkit'
 
@@ -572,6 +572,18 @@ describe('之後的三條路（付清、記帳、簽檔期）', () => {
     expect(g.state.flags.contract_signed).toBeUndefined()
     expect(reasonOf(() => payTabDraft(g.k, g.state))).toMatch(/沒有欠/)
     expect(collect(2).find((l) => l.id === 'curtain_tab')).toBeUndefined()
+  })
+
+  it('accountView（M4 收尾修正批：畫面不自己算欠款的上限與每週利息）：記帳之後有欠款、上限、每週利息；沒有欠款、檔期、母帶是 null 與空的', async () => {
+    const g = await choose()
+    expect(accountView(g.k, g.state).tab).toBeNull()
+    g.commit(settleDraft(g.k, g.state, { how: 'tab' }))
+    const v = accountView(g.k, g.state)
+    expect(v.tab).toEqual({ owed: FINE, cap: 600, weekly: 15 })
+    expect(v.gig).toBeNull()
+    expect(curtainTabLine(g.k, g.state, 'curtain_tab', 'curtain', 0)).toMatchObject({ amount: 15 })
+    g.commit(payTabDraft(g.k, g.state))
+    expect(accountView(g.k, g.state)).toEqual({ tab: null, gig: null, tapes: v.tapes })
   })
 
   it('簽檔期：contract_dom 關掉時不列；簽了之後這一趟的結算只拿四成（獎金與打賞，保證金退回不受影響）', async () => {

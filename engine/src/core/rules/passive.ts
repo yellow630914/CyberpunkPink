@@ -43,9 +43,10 @@ export const PASSIVE_SOURCE_NAMES: Record<PassiveSource, string> = {
 
 /**
  * 節奏資源的來源（RollPart.source）：每回合回復的行動點（ap_regen）與 RAM（ram_regen）這兩種修正，這幾個來源的正值合計全身最多算 +1
- * （CRAFTING 5.5 節、ITEMS 4.1 節；dev/adr/0019 P13）。其餘來源（技能、同步檔位、機甲、掮客讓出來的）照舊不限。construct 是甲板裡的工具構裝（features/deck）。
+ * （CRAFTING 5.5 節、ITEMS 4.1 節；dev/adr/0019 P13）。其餘來源（技能、同步檔位、機甲、掮客讓出來的）照舊不限。construct 是甲板裡的工具構裝（features/deck）；
+ * quirk 是義體與成品帶著的怪癖（M4 收尾修正批 建議 1：怪癖掛在義體上，一筆 ap_regen +1 的怪癖不能繞過全身合計）。
  */
-export const TEMPO_SOURCES = ['cyber', 'drug', 'gear', 'construct'] as const
+export const TEMPO_SOURCES = ['cyber', 'drug', 'gear', 'construct', 'quirk'] as const
 /** 節奏資源的正值合計最多算幾點。 */
 export const TEMPO_CAP = 1
 /**

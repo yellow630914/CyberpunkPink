@@ -178,6 +178,11 @@ export interface BattleUnit {
    * 目標挑的是自己這一方的別人（不是對面），做完回合結束時 control 還原、這個欄位拿掉
    */
   puppet?: { control: 'player' | 'ai'; why?: string }
+  /**
+   * 現在鎖定誰（M4 收尾修正批）：AI 這一步挑的目標的單位 id（先挑要打誰，再挑做什麼；真的送出的行動有指定單位時以那個為準）。玩家的單位不寫。
+   * 敵人的雙形象看它：名牌與形象跟著鎖定的人換（features/enemies 的 unitFormView）。目標退出之後這個欄位還留著，讀的人自己看那個單位還在不在。
+   */
+  lock?: string
   grade: Grade
   rank: UnitRank
   /** 開打時的有效屬性與基本功等級（豁免與戰鬥中的檢定用） */

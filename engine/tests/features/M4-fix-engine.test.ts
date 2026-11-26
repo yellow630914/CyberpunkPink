@@ -4,11 +4,13 @@
 // 內容一律是 testkit 的假世界（bodyWorld、city）；功能是全部；走的是真的功能與真的提交。
 
 import { describe, expect, it, vi } from 'vitest'
-import type { Report } from '../../src'
+import type { ContentPack, Report } from '../../src'
+import { characterFeature } from '../../src/features/character'
+import { cyberwareFeature } from '../../src/features/cyberware'
 import { chooseBranch, chooseFace } from '../../src/features/commission'
 import { go } from '../../src/features/fixer'
 import {
-  CURTAIN_NIGHTS, curtainEnter, curtainPrelude, makeCurtainGame, makeNetCommissionGame, sceneCast,
+  CURTAIN_NIGHTS, curtainEnter, curtainPrelude, makeCurtainGame, makeGame, makeNetCommissionGame, sceneCast,
 } from '../../src/testkit'
 
 vi.setConfig({ testTimeout: 120_000 })
@@ -49,5 +51,33 @@ describe('任何方式進入內海都算一次登入（使用者 2026-11-26；EV
     curtainPrelude(g, { dive: true })
     curtainEnter(g, CURTAIN_NIGHTS.a)
     expect(logins(g.state.reports).map((x) => x.action)).toEqual(['dive.enter'])
+  })
+})
+
+describe('怪癖的 effects 掛在武器或護甲上不會生效：載入時警告（M4 收尾修正批 建議 2）', () => {
+  const quirk = (id: string, over: Record<string, unknown>) => ({ id, name: `怪癖${id}`, desc: '一個怪癖。', kind: 'flaw', ...over })
+  const warnings = (quirks: Array<Record<string, unknown>>): string[] => {
+    const pack = { id: 'quirk_warn', content: { quirk: quirks } } as unknown as ContentPack
+    return makeGame({ features: [characterFeature, cyberwareFeature], content: [pack] }).game.contentWarnings()
+  }
+
+  it('applies 沒寫或含 weapon、armor、而且寫了 effects 的怪癖：一句警告，寫出是哪一個、會掛在什麼上', () => {
+    const w = warnings([
+      quirk('q_any', { effects: [{ mod: 'hit', amount: 1 }] }),
+      quirk('q_weapon', { applies: ['weapon'], effects: [{ mod: 'hit', amount: 1 }] }),
+      quirk('q_both', { applies: ['cyberware', 'armor'], effects: [{ mod: 'hit', amount: 1 }] }),
+    ])
+    expect(w).toHaveLength(3)
+    expect(w[0]).toMatch(/quirk\/q_any.*武器、護甲/)
+    expect(w[1]).toMatch(/quirk\/q_weapon.*武器上/)
+    expect(w[2]).toMatch(/quirk\/q_both.*護甲上/)
+  })
+
+  it('只掛在義體的、只有 stats 的、effects 是空的：沒有警告', () => {
+    expect(warnings([
+      quirk('q_cyber', { applies: ['cyberware'], effects: [{ mod: 'hit', amount: 1 }] }),
+      quirk('q_stats', { stats: { armor: 1 } }),
+      quirk('q_empty', { effects: [] }),
+    ])).toEqual([])
   })
 })

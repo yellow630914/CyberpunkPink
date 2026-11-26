@@ -23,7 +23,8 @@ export interface ActivityEndReturn {
 
 /**
  * 自由行動的視窗（掛點 action.window）一個回答：插一個選項，或替玩家選（妖精的吻擴散階段；CYBERWARE 第 5 節；M4-core-gaps 第 16 項）。
- * 兩個鍵都選填、可以一起給：option 是多一個選項（玩家選了就送出 input）；replace 是玩家這一次送出的行動直接換成別的（why 是給玩家看的一句話，進報告）。
+ * 兩個鍵都選填、可以一起給：option 是多一個選項（玩家選了就送出 input）；replace 是玩家這一次送出的行動直接換成別的（只能換成同一種行動——kind 一樣；why 是給玩家看的一句話，進報告 action.override 那一拍與結果）。
+ * 回答要從狀態導出（不能用 Math.random）：重擲與讀檔重來要得到同一個答案，種子重播才不會壞（M4 審查建議 3）。
  */
 export interface ActionWindowAnswer {
   option?: { id: string; label: string; input: ActionInput }

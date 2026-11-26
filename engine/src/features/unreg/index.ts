@@ -43,7 +43,7 @@ export { DEFAULT_BRAND as UNREG_DEFAULT_BRAND, deskHere, deskProblems, weekdaysT
 export type { DeskDef, DeskHere } from './desk'
 export { ORDER_ACTION, ORDER_MINUTES, WINDOW_ACTION, answerReward, openOrders, orderBlock, orderDraft, orderOptions, orderProblems, orderQuirks, typeChoices, windowBlock, windowDraft, windowOptions, windowProblems } from './sources'
 export type { DirectionChoice, OrderGradeRow, OrderInput, OrderQuirk, OrderType, OrderView, RewardAnswer, RewardAsk, TypeChoice, WindowInput, WindowOption } from './sources'
-export { orderRule, rewardRule, windowRule } from './model'
+export { REQUEST_MAX, orderRule, rewardRule, windowRule } from './model'
 
 interface PartUnregEffect extends Effect, FrameSpec {
   from?: string

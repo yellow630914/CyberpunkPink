@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { BattleSetup, BattleUnit, ContentPack, Feature, GameState, Kernel } from '../../src'
-import { BattleBlocked, BattleRun, aiStep, beginTurn, clone, createKernel, deriveRng, performAction, readyFeatures, setupBattle } from '../../src'
+import { BattleBlocked, BattleRun, aiStep, beginTurn, clone, createKernel, deriveRng, lockedTarget, performAction, readyFeatures, setupBattle } from '../../src'
 import { abilitiesFeature } from '../../src/features/abilities'
 import { combatFeature } from '../../src/features/combat'
 import { deckFeature } from '../../src/features/deck'
@@ -363,6 +363,37 @@ describe('看誰：男性用 A，其餘用擲到的；範圍攻擊與沒鎖定�
     expect(unitFormView(w.k, w.state, f)!.current.form).toBe('b')
     // 招牌行動的名字跟著形象
     expect(v.for_other.moves.ab_single!.name).toBe('乙的招式')
+  })
+})
+
+describe('現在鎖定誰（BattleUnit.lock；M4 收尾修正批）：AI 這一步挑的目標，畫面照它換名牌與形象', () => {
+  it('敵人做一步：lock 是他挑的我方單位（挑主角是 a1、挑隊友是 a2）；沒挑過之前沒有 lock', () => {
+    const w = world(['en_single'], { pack: ALWAYS_B })
+    expect(w.foe(1).lock).toBeUndefined()
+    foeStep(w, 'pc')
+    expect(w.state.battle!.units.f1!.lock).toBe('a1')
+    const v = world(['en_single'], { pack: ALWAYS_B })
+    foeStep(v, 'mate')
+    expect(v.state.battle!.units.f1!.lock).toBe('a2')
+  })
+
+  it('lockedTarget 回那個單位；目標退出、沒有鎖定時是 null；unitFormView 照鎖定的人換名牌（隊友是 male 看到形象甲、主角看到形象乙）', () => {
+    const w = world(['en_single'], { pack: ALWAYS_B })
+    const f = w.foe(1)
+    expect(lockedTarget(w.state.battle!, f)).toBeNull()
+    foeStep(w, 'mate')
+    const b = w.state.battle!
+    expect(lockedTarget(b, b.units.f1!)?.id).toBe('a2')
+    expect(unitFormView(w.k, w.state, b.units.f1!, lockedTarget(b, b.units.f1!))!.current.form).toBe('a')
+    b.units.a2!.out = 'down'
+    expect(lockedTarget(b, b.units.f1!)).toBeNull()
+    expect(unitFormView(w.k, w.state, b.units.f1!, lockedTarget(b, b.units.f1!))!.current.form).toBe('b')
+  })
+
+  it('lock 存進存檔、讀回來還在（單位的欄位）', () => {
+    const w = world(['en_single'], { pack: ALWAYS_B })
+    foeStep(w, 'mate')
+    expect(clone(w.state.battle!).units.f1!.lock).toBe('a2')
   })
 })
 

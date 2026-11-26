@@ -165,6 +165,9 @@ export function aiStep(run: BattleRun, u: BattleUnit): boolean {
   }
   const choice = run.pick(options, (o) => o.score * o.score)
   if (!choice) return false
+  // 現在鎖定誰：這一步行動指定的單位，沒有指定（不針對誰的行動）就是剛挑的那個
+  const locked = choice.target && 'unit' in choice.target ? choice.target.unit : enemy?.id
+  if (locked !== undefined) u.lock = locked
   performAction(run, u, choice.def, choice.target, choice.input)
   return true
 }

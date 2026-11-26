@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest'
 import type { BattleSetup, BattleUnit, ContentPack, Feature, GameState, Kernel, PassiveEffect, PassiveSource, ReportOutcome } from '../../src'
 import {
   AFTERGLOW_DOUBLE, BattleRun, ContentError, IGNORE_WOUND_PENALTY, IMPLANT_HARDENED, PASSIVE_SOURCES, PUMP_JAM, SINK_RESIST, STATUS_UNTILS, SYNC_CAP_MAX_STAT,
-  actionWindow, advance, aiStep, beginTurn, clone, createKernel, effectCtx, hostileSide, hostiles, passiveAmount, passiveProblems, prepareAction, setupBattle, sinkRise, syncCapOf,
+  actionWindow, advance, aiStep, beginTurn, buildActionReport, clone, createKernel, effectCtx, fallbackJudgment, hostileSide, hostiles, passiveAmount, passiveProblems, prepareAction, rerollAction, setupBattle, sinkRise, syncCapOf,
 } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { combatFeature } from '../../src/features/combat'
@@ -26,6 +26,7 @@ const sources = (box: Box): Feature => ({
   },
 })
 const sum = (parts: Array<{ value: number }>) => parts.reduce((s, p) => s + p.value, 0)
+const noReward = { effects: [], changes: [], lines: [], clamps: [] } as never
 
 const STATUS = (id: string, name: string, over: Record<string, unknown> = {}) => ({ id, name, desc: `${name}。`, until: 'own_turn_end', turns: 1, kind: 'debuff', ...over })
 const PACK: ContentPack = {
@@ -572,5 +573,44 @@ describe('第 16 項：自由行動的視窗（核心的掛點 action.window）'
     expect(prepareAction(h.k, h.state, FREE).replaced).toBeUndefined()
     const same = make(() => ({ replace: { input: FREE, why: '沒換。' } }))
     expect(prepareAction(same.k, same.state, FREE).replaced).toBeUndefined()
+  })
+
+  it('替玩家選只能換成同一種行動（M4 收尾修正批 應修 2）：換成別種（就算存在、沒被擋）不收，免得繞過原本的任務鏈與放行', () => {
+    const g = makeGame({ features: [characterFeature] }).game
+    g.k.actions.register({ id: 'other_kind', name: '別的行動', owner: 'test', reportKind: 'action', attr: 'charm', dc: 10, minutes: 5, maxMinutes: 30 } as never)
+    g.k.hooks.on('action.window', 'test', (() => ({ replace: { input: { kind: 'other_kind' }, why: '換成別的。' } })) as never)
+    expect(actionWindow(g.k, g.state, FREE).replace).toBeUndefined()
+    expect(prepareAction(g.k, g.state, FREE).replaced).toBeUndefined()
+  })
+
+  it('替玩家選的原因進報告：timeline 多一拍 action.override（帶原本的 input 與是誰換的）、結果與摘要多一句原因；沒有被換的行動沒有這一拍', () => {
+    const g = make(() => ({ replace: { input: { kind: 'free', text: '好' }, why: '那個聲音搶在你前面開了口。' } }))
+    const p = prepareAction(g.k, g.state, FREE)
+    const d = buildActionReport(g.k, g.state, { pending: p, judgment: fallbackJudgment(p), reward: noReward, uncovered: [] })
+    expect(d.timeline[0]).toMatchObject({ tag: 'action.override', text: '那個聲音搶在你前面開了口。', data: { from: FREE, owner: 'test' } })
+    expect(d.narration?.results?.[0]).toBe('那個聲音搶在你前面開了口')
+    expect(d.outcome.summary).toContain('那個聲音搶在你前面開了口。')
+    expect(d.args).toMatchObject({ kind: 'free', text: '好' })
+    const plain = make()
+    const q = prepareAction(plain.k, plain.state, FREE)
+    const e = buildActionReport(plain.k, plain.state, { pending: q, judgment: fallbackJudgment(q), reward: noReward, uncovered: [] })
+    expect(e.timeline.map((b) => b.tag)).not.toContain('action.override')
+  })
+
+  it('重擲：換過的行動還是換過的、原因與原本的行動原樣帶下去（原本只剩換過的那一句、記號丟了）；骰面換一顆、舊的記進 history', () => {
+    const g = make(() => ({ replace: { input: { kind: 'free', text: '好' }, why: '那個聲音搶在你前面開了口。' } }))
+    const p = prepareAction(g.k, g.state, FREE)
+    const again = rerollAction(g.k, g.state, p)
+    expect(again.replaced).toEqual(p.replaced)
+    expect(again.input).toEqual(p.input)
+    expect(again.reroll).toBe(1)
+    expect(again.history).toEqual([p.roll.natural])
+    const third = rerollAction(g.k, g.state, again)
+    expect(third.replaced).toEqual(p.replaced)
+    // 視窗這一次不再回答換（回答不是從狀態導出的）：用換過的那一個，記號照樣帶著
+    let calls = 0
+    const h = make(() => (calls++ === 0 ? { replace: { input: { kind: 'free', text: '好' }, why: '那個聲音搶在你前面開了口。' } } : undefined))
+    const q = prepareAction(h.k, h.state, FREE)
+    expect(rerollAction(h.k, h.state, q).replaced).toEqual(q.replaced)
   })
 })
