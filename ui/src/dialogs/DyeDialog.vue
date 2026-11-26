@@ -136,5 +136,5 @@ const dyeShown = computed<Dye | null>(() => dyeOfColors(current.value))
 .swatch.on { box-shadow: 0 0 0 2px var(--bg-1), 0 0 0 4px var(--a); }
 .custom { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-label); font-weight: 800; color: var(--ink-2); cursor: pointer; }
 .custom input { width: 34px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer; }
-@media (max-width: 900px) { .dye { grid-template-columns: 1fr; } }
+@media (max-width: 960px) { .dye { grid-template-columns: 1fr; } }
 </style>

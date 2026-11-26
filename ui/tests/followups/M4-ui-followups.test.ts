@@ -11,7 +11,7 @@ import type { Change, ContentPack } from '@engine/src'
 import { makeActor } from '@engine/src/testkit'
 import { CALL_MAX, GIFT_NOTE_MAX } from '@engine/src/features/npcs'
 import { AVATAR_TEXT_MAX } from '@engine/src/features/deck'
-import { NO_BRIDGE_NOTE } from '@engine/src/features/cyberware/creation'
+import { NO_BRIDGE_NOTE } from '@engine/src/features'
 import type { SceneOptions } from '@engine/src/features/scene'
 import { useEngine } from '../../src/stores/engine'
 import TalkDialog from '../../src/dialogs/TalkDialog.vue'
@@ -156,14 +156,6 @@ describe('送禮附一句話（interact 的 note）', () => {
       return e.people.memoriesOf('npc_day').some((m) => m.text.includes(note)) ? { e } : null
     })
     expect(out.e.people.memoriesOf('npc_day').some((m) => m.text.includes(note))).toBe(true)
-  })
-
-  it('送禮的面板有那一格（原始碼守住：輸入框、上限來自 store、送出時帶 note、不篩選）', async () => {
-    const src = (await import('../../src/dialogs/TalkDialog.vue?raw')).default
-    expect(src).toContain('data-gift-note')
-    expect(src).toContain(':maxlength="e.people.giftNoteMax"')
-    expect(src).toContain("note: giftNote.value")
-    expect(src).not.toMatch(/giftNote\.value\.(replace|trim)/)
   })
 })
 

@@ -421,15 +421,7 @@ describe('7 想怎麼發生（選填）：原樣送出', () => {
     expect(r.notices ?? []).toEqual([])
     expect(s.e.scene.debrief()).not.toBeNull()
   })
-  it('戰鬥結束與戰敗事件各一格：原始碼裡有，戰鬥的結算把字交給 finishBattle', () => {
-    const src = import.meta.glob(['../../src/components/combat/BattleBoard.vue', '../../src/components/combat/DefeatPanel.vue', '../../src/components/combat/SceneGate.vue', '../../src/stores/engine.ts', '../../src/lib/useBattle.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>
-    const by = (n: string) => Object.entries(src).find(([k]) => k.endsWith(n))![1]
-    for (const f of ['BattleBoard.vue', 'DefeatPanel.vue', 'SceneGate.vue']) expect(by(f)).toContain('<DirectionField')
-    expect(by('BattleBoard.vue')).toContain('settle(direction)')
-    expect(by('useBattle.ts')).toContain('engine.finishBattle(')
-    expect(by('engine.ts')).toContain('game.finishBattle(direction ? { direction } : {})')
-    expect(by('engine.ts')).toContain('direction: extra.direction')
-  })
+  // 戰鬥結束與戰敗事件的寫法指令是行為測試：tests/after/M2-ui-battle-after.test.ts 的「寫法指令」（假的服務商記下請求、逐字相同）
 })
 
 describe('8 原始碼：畫面不自己判斷、用的是引擎的三個入口', () => {

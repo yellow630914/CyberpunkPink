@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { REQUEST_MAX } from '@engine/src/features/unreg/model'
+import { REQUEST_MAX } from '@engine/src/features/unreg'
 import type { OrderInput } from '@engine/src/features/unreg'
 import Dialog from '../components/Dialog.vue'
 import Hint from '../components/Hint.vue'
@@ -152,5 +152,5 @@ async function order() {
 .qc.on { box-shadow: inset 0 0 0 2px var(--a); }
 .qc small { color: var(--ink-3); font-size: var(--fs-xs); line-height: 1.5; }
 .go { display: flex; gap: var(--space-3); }
-@media (max-width: 860px) { .od { grid-template-columns: 1fr; } }
+@media (max-width: 960px) { .od { grid-template-columns: 1fr; } }
 </style>

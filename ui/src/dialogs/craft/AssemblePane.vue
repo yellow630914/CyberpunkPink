@@ -248,7 +248,7 @@ const bpName = computed(() => known.value.find((b) => b.id === bpId.value)?.name
 .problems { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: 4px; }
 .sel { background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 5px 8px; font: 700 var(--fs-sm) var(--font); max-width: 100%; }
 .warn-t { color: var(--warn); }
-@media (max-width: 1100px) { .cr { grid-template-columns: 240px minmax(0, 1fr); } .parts { grid-column: 1 / -1; } }
+@media (max-width: 1180px) { .cr { grid-template-columns: 240px minmax(0, 1fr); } .parts { grid-column: 1 / -1; } }
 @media (max-width: 720px) {
   .steps { display: flex; }
   .cr { grid-template-columns: minmax(0, 1fr); }

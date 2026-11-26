@@ -122,6 +122,12 @@ describe('契約人這一面：契約、佇列、照做與抗拒', () => {
       expect(h).toContain(`data-order="${o.id}"`)
       expect(h).toContain(`data-state="${o.state_name}"`)
       if (o.place_name) expect(text(h)).toContain(`地點：${o.place_name}`)
+      // 走過去：引擎的 goto（不是介面自己從地點算的）；人已經在那裡就寫「已經站在」，不然有按鈕
+      if (o.goto) {
+        expect(h).toContain('data-goto')
+        if (o.goto.here) expect(text(h)).toContain(`你已經站在${o.goto.name}`)
+        else if (o.goto.block) expect(text(h)).toContain(`走過去：${o.goto.name}`)
+      }
       expect(text(h)).toContain(o.on_overdue!.join('、'))
     }
     // 還沒回應的那三條都有「照做」與「抗拒」，抗拒的旁邊是引擎的 DC 與成功率

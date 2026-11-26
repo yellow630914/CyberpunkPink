@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { fromMinutes } from '@engine/src/core/util/time'
+import { fromMinutes } from '@engine/src'
 import Dialog from '../components/Dialog.vue'
 import Hint from '../components/Hint.vue'
 import MoneyTag from '../components/MoneyTag.vue'

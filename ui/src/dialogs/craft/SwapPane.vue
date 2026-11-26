@@ -142,6 +142,6 @@ const reason = computed(() => (preview.value ? preview.value.block : '先選要�
 .odds { display: flex; gap: 5px; flex-wrap: wrap; margin: 4px 0; }
 .problems { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: 4px; }
 .sel { background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 5px 8px; font: 700 var(--fs-sm) var(--font); max-width: 100%; }
-@media (max-width: 1100px) { .cr { grid-template-columns: 240px minmax(0, 1fr); } .cr > :last-child { grid-column: 1 / -1; } }
+@media (max-width: 1180px) { .cr { grid-template-columns: 240px minmax(0, 1fr); } .cr > :last-child { grid-column: 1 / -1; } }
 @media (max-width: 720px) { .cr { grid-template-columns: minmax(0, 1fr); } .pvg { grid-template-columns: 1fr; } }
 </style>

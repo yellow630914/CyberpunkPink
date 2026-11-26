@@ -133,12 +133,12 @@ const badge = (status: string): string | null => (status === 'recovering' ? '休
 .tag.dim { opacity: .55; }
 .tag small { color: var(--ink-3); margin-right: var(--space-2); }
 .pg { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; margin-bottom: var(--space-3); }
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .bodygrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .figure { grid-column: 1 / -1; grid-row: 1; max-height: 340px; }
   .figure :deep(.fig) { max-height: 320px; }
   .parts.left { grid-column: 1; grid-row: 2; }
   .parts.right { grid-column: 2; grid-row: 2; }
 }
-@media (max-width: 480px) { .slots { grid-template-columns: repeat(3, minmax(0, 44px)); } .lower { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 720px) { .slots { grid-template-columns: repeat(3, minmax(0, 44px)); } .lower { grid-template-columns: minmax(0, 1fr); } }
 </style>

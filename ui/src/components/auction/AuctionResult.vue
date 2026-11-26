@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatTime } from '@engine/src/core/util/time'
+import { formatTime } from '@engine/src'
 import MoneyTag from '../MoneyTag.vue'
 import type { Settlement } from '../../lib/auctionView'
 import { payKind } from '../../lib/auctionView'

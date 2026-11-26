@@ -7,6 +7,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createSSRApp } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import type { BattleSetup, ContentPack, Feature, Report } from '@engine/src'
+import { FakeProvider } from '@engine/src'
 import { BATTLE_SETUPS, enemyUnit } from '@engine/src/testkit'
 import { useEngine } from '../../src/stores/engine'
 import DefeatPanel from '../../src/components/combat/DefeatPanel.vue'
@@ -87,7 +88,7 @@ const DRAFT = {
 }
 type Eng = ReturnType<typeof useEngine>
 
-interface Opts { seed?: number; rules?: object; cash?: number; features?: Feature[] }
+interface Opts { seed?: number; rules?: object; cash?: number; features?: Feature[]; provider?: FakeProvider }
 const WITH_RANSOM = [caller, ransom]
 /** 開一局：測試自帶的內容、建好角色、現金 2000；入口的快照留一份（回退用），入口之後再花 100 */
 function setup(o: Opts = {}) {
@@ -96,7 +97,7 @@ function setup(o: Opts = {}) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const e = useEngine()
-  e.newGame({ seed: o.seed ?? 7, ...(o.rules ? { rules: o.rules } : {}), testContent: [PACK], testFeatures: o.features ?? [caller] })
+  e.newGame({ seed: o.seed ?? 7, ...(o.rules ? { rules: o.rules } : {}), testContent: [PACK], testFeatures: o.features ?? [caller], ...(o.provider ? { testProvider: o.provider } : {}) })
   expect(e.createCharacter(DRAFT)).toEqual([])
   e.ledger([{ op: 'cash', delta: (o.cash ?? 2000) - e.money.cash }])
   return { pinia, e }
@@ -631,5 +632,33 @@ describe('手機版：面板直向排、三選一固定在底部', () => {
     expect(media![1]).toMatch(/\.da-final \{[^}]*position: sticky; bottom: 0/)
     expect(deathSrc).toMatch(/\.da \{ min-width: 0; \}/)
     expect(deathSrc).toMatch(/overflow-wrap: anywhere/)
+  })
+})
+
+describe('寫法指令：戰鬥結束與戰敗事件原樣送出（假的服務商記下請求）', () => {
+  const DIR = '  慢慢寫，別太快！　（全形）😊 —— 完 '
+  const promptsOf = (fake: FakeProvider): string[] => fake.requests.map((q) => q.messages.map((m) => m.content).join('\n'))
+
+  it('戰鬥結束：結算帶的字逐字進寫正文的 <direction>；超過上限由引擎截斷並提醒（介面不篩、不截）', async () => {
+    const fake = new FakeProvider()
+    const { e } = setup({ provider: fake })
+    const base = BATTLE_SETUPS.hopeless()
+    e.startBattle({ ...base, origin: { ...base.origin, ext: { by: 'caller', defeat_event: 'df_ui_two' } } })
+    for (let i = 0; i < 500 && e.battleOptions()?.waiting !== 'over'; i++) {
+      if (e.battleOptions()?.waiting === 'ai') e.battleNext()
+      else e.battleAct({ action: 'surrender' })
+    }
+    const r = await e.finishBattle(DIR)
+    expect(r.status).toBe('applied')
+    expect(promptsOf(fake).some((m) => m.includes(`<direction>\n${DIR}\n</direction>`))).toBe(true)
+  })
+
+  it('戰敗事件：「想怎麼發生」帶的字逐字進事件正文的 <direction>', async () => {
+    const fake = new FakeProvider()
+    const { e } = setup({ provider: fake })
+    await lose(e)
+    e.defeatFlow.direction = DIR
+    await pick(e)
+    expect(promptsOf(fake).some((m) => m.includes(`<direction>\n${DIR}\n</direction>`))).toBe(true)
   })
 })

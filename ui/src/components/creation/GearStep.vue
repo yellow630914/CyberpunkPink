@@ -102,5 +102,5 @@ const chosen = computed(() => props.gear.map((g) => ({ ...g, card: cardById(g.id
 .pt { font-size: var(--fs-sm); color: var(--ap); white-space: nowrap; }
 .side { display: grid; gap: var(--space-2); align-content: start; }
 .go.left { justify-content: flex-start; margin: 0 0 var(--space-3); }
-@media (max-width: 900px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 960px) { .cols { grid-template-columns: minmax(0, 1fr); } }
 </style>

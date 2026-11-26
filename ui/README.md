@@ -125,3 +125,17 @@ npm run preview   # 在本機看建置結果
 - **組裝的動手人**：組裝、換零件、拆解、解剖多「動手的人」（`craft/CrewPicker`，主角與隊友，送引擎的 `by`）。
 - **讀引擎**：沒有橋的說明改讀 `NO_BRIDGE_NOTE`；藥泵圖示 `pump` 進 `data/combatIcons.ts`。
 - 測試：`tests/followups/M4-ui-followups.test.ts`。
+
+## M4 收尾修正批・介面（2026-11-26）
+
+依據 dev/work/M4-fix-ui.md、dev/reviews/2026-11-26-M4-ui.md、dev/work/M4-closing-notes.md。元件只編排；規則一律問引擎。
+
+- **示意模式**（開新局的開關，預設關）：契約開局（契約人／持約人）、簾後館的邀請函、拍賣行常客的交情都只在開著時出現；關著時沒有任何示意捷徑。`stores/engine.ts` 的 `newGame({ demo: { on, invite, auction }, start })`、`demoMode`；簾後館對話框的「領一張邀請函」只在示意模式開著時顯示。示意包不再放規則表（`unreg_rule` 用正式表只蓋報酬機率一格，`curtain_rule`、事件範圍 `contract`／`rogue_ai` 用正式表）。
+- **斷線靜修**是進行中的活動：`components/body/RetreatPanel.vue`（待下去、提早離開；主畫面中欄與沉溺面板都有）。
+- **角色的成人分頁與角色卡**：橋參數、傾向、性經歷、豔名、體悟全讀引擎（`adult`、`night`、`bridgeParams`、`partyRows`）；沒有介面自己的公式。
+- **建角**：第 6、9 步買得到什麼、出身的建議組合、外觀裡推出來的三樣都是引擎的 `creationCatalog`、`suggestedKit`、`creationLook`（示意包把 `look`、`style`、`suggested` 寫在設計圖、物品與出身自己的欄位上）。
+- **拍賣**：廳裡有「自動跟到 C$___」（`bidDraft({ auto: { max } })`）；結算頁讀引擎的 `auctionSummary`；進行中其他入口灰掉（引擎的 `blockOf`）。
+- **契約**：了結的逾期那一條的處置讀 `OrderView.outcome`、「走過去」讀 `goto`；契約人面板在手機版指令佇列排第一。
+- **寫法指令**：不在瀏覽器擋字數（沒有 `maxlength`）；超過上限字數變紅、照樣送出，由引擎截斷並提醒（上限是引擎的 `DIRECTION_MAX`）。玩家寫的字原樣送出。
+- **其他讀引擎**：名字表（`statName`、`modName`、`partTypeName`）、`coveredSlots`、SKIN 染色（`dyeDraft` 收 SKIN id，拿掉 `where: 'net'` 舊做法）、鎖定目標的名牌（`lockedTarget`）、痛覺編輯器的模糊（衍生數值 `hp_blur`）、未登錄零件（`pendingView`、`Game.unregPaused`）、帳與母帶（`accountView`）。
+- 測試：`tests/fix/M4-fix-ui.test.ts`（新）；寫法指令的行為測試在 `tests/after/M2-ui-battle-after.test.ts`。

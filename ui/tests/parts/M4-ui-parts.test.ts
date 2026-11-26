@@ -412,6 +412,26 @@ describe('5 學工藝', () => {
   })
 })
 
+describe('5b 學工藝的付法：每一種各問引擎', () => {
+  it('現金不夠、選現金：按鈕灰掉，原因逐字等於引擎的 tutorBlock；帳戶付得起的照樣亮著', async () => {
+    const { e, pinia } = await setup({ at: 'street' })
+    expect((await e.people.meet('npc_p_tutor')).status).toBe('applied')
+    e.ledger([{ op: 'cash', delta: -e.money.cash }])
+    const row = e.training.tutorOptions('npc_p_tutor').find((r) => r.skill === 'mechanics')!
+    expect(row.price).toBeGreaterThan(0)
+    const asCash = e.training.tutorBlock({ npc: 'npc_p_tutor', skill: 'mechanics', pay: 'cash' })
+    expect(asCash).toBeTruthy()
+    expect(e.training.tutorBlock({ npc: 'npc_p_tutor', skill: 'mechanics', pay: 'cred' })).toBeNull()
+    const h = await render(pinia, TeachPanel, { npc: 'npc_p_tutor', tutor: true })
+    const cash = tagOf(h, 'data-tutor-pay="cash"')
+    expect(cash).toContain('aria-disabled="true"')
+    expect(cash).toContain(`title="${asCash}"`)
+    expect(tagOf(h, 'data-tutor-pay="cred"')).not.toContain('aria-disabled')
+    // 上課的按鈕在沒指定付法時（先帳戶再現金）亮著
+    expect(tagOf(h, 'data-tutor-go')).not.toContain('aria-disabled')
+  })
+})
+
 describe('6 設定與交貨', () => {
   it('設定頁有 partAi 的開關；轉成引擎的 partAi，存回來還原', async () => {
     expect(aiSettingsFromUi({ partAi: false }).partAi).toBe(false)

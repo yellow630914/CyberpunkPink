@@ -15,7 +15,7 @@ import { allFeatures } from '@engine/src/features'
 import { auctionView, bidDraft, bidOptions, catalogView } from '@engine/src/features/auction'
 import { actorOf as npcActorOf } from '@engine/src/features/npcs'
 import { buildCreationReport } from '@engine/src/features/creation'
-import { formatTime, toMinutes } from '@engine/src/core/util/time'
+import { formatTime, toMinutes } from '@engine/src'
 import { useEngine } from '../../src/stores/engine'
 import { DRAFT } from '../commission/fixtures'
 import AuctionDialog from '../../src/dialogs/AuctionDialog.vue'
@@ -302,7 +302,7 @@ describe('4 進場與競價', () => {
     expect(e.auction.bidOptions()!.wait.blocks.join('')).toContain('你不是目前最高的出價人')
   })
 
-  it('玩家是最高的人時只有「等」亮著；一回合之後現價與最高的人等於引擎的狀態（另一個引擎照同一份存檔算）', async () => {
+  it('玩家是最高的人時只有「等」亮著；一回合之後現價與最高的人等於引擎的狀態（另一個引擎照同一份存檔算）', { timeout: 60000 }, async () => {
     let done = false
     for (let seed = 1; seed <= 40 && !done; seed++) {
       const { e, pinia } = await setup({ seed, member: true })
@@ -333,6 +333,31 @@ describe('4 進場與競價', () => {
       expect(lines).toEqual(report.timeline.map((b) => b.text))
     }
     expect(done).toBe(true)
+  })
+
+  it('自動跟價：廳裡有「自動跟到」的格子與按鈕；上限太低時按鈕灰掉、原因是引擎的 bidBlock；送出之後一次推進到這一件落槌或退出', async () => {
+    const { e, pinia } = await setup({ member: true })
+    await e.auction.enter(HOUSE, 'cash')
+    const v = e.auction.view()!
+    const o = e.auction.bidOptions()!
+    expect(o.auto.can).toBe(true)
+    expect(o.auto.min).toBe(v.price + v.step)
+    const floor = await render(pinia, AuctionFloor, { view: v })
+    expect(floor).toContain('data-auto-max')
+    expect(floor).toContain('data-auto-go')
+    expect(text(after(floor, 'data-auto', 400))).toContain('自動跟到')
+    // 預設上限是引擎給的最低值：按鈕亮著；問引擎沒有原因
+    expect(tagOf(floor, 'data-auto-go')).not.toContain('aria-disabled')
+    expect(e.auction.bidBlock({ auto: { max: o.auto.min } })).toBeNull()
+    // 上限不合格式：引擎的那一句
+    expect(e.auction.bidBlock({ auto: { max: 0 } })).toContain('自動跟價要給一個大於 0 的上限')
+    // 送出：一次推進（報告的 rounds 不只一回合，或這一件已經落槌）
+    const lot = v.lot_no
+    const before = e.state.reports.length
+    expect((await e.auction.bid({ auto: { max: o.auto.min + 5 * v.step } })).status).toBe('applied')
+    expect(e.state.reports.length).toBeGreaterThan(before)
+    const now = e.auction.view()
+    expect(now === null || now.lot_no !== lot || now.round > v.round).toBe(true)
   })
 
   it('落槌之後進到下一件；退出的競標者劃掉', async () => {

@@ -290,5 +290,5 @@ function detox(id: string) { done(eng.body.detox(id), '療程做完了。') }
 .item { display: grid; gap: var(--space-2); }
 .chk { display: flex; gap: var(--space-3); align-items: center; font-size: var(--fs-sm); }
 .go.left { justify-content: flex-start; margin-top: 0; }
-@media (max-width: 900px) { .cl { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 960px) { .cl { grid-template-columns: minmax(0, 1fr); } }
 </style>

@@ -157,5 +157,5 @@ const LINE_TONE: Record<string, string> = { 'auction.hammer': 'hammer', 'auction
 .line { margin: 0 0 var(--space-2); font-size: var(--fs-sm); line-height: 1.6; animation: rise var(--dur) both; animation-delay: calc(var(--i) * var(--dur)); }
 .line.hammer { color: var(--ap); font-weight: 800; } .line.settle { color: var(--ok); } .line.count { color: var(--warn); } .line.host { color: var(--ink-2); }
 @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-@media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+@media (max-width: 960px) { .cols { grid-template-columns: 1fr; } }
 </style>

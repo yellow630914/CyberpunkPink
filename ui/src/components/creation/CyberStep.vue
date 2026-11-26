@@ -148,5 +148,5 @@ const capacity = computed(() => summary.value.capacity)
 .fld { display: grid; gap: 4px; font-size: var(--fs-sm); font-weight: 800; color: var(--ink-2); }
 .beastline { max-width: 320px; margin: var(--space-4) 0; }
 .inp { width: 100%; min-width: 0; background: var(--bg-term); color: var(--ink); border: 0; box-shadow: inset 0 0 0 2px var(--line); padding: 8px 10px; font: 600 var(--fs-md) var(--font); }
-@media (max-width: 900px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 960px) { .cols { grid-template-columns: minmax(0, 1fr); } }
 </style>
