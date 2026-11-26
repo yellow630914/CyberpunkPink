@@ -33,6 +33,8 @@ export interface Gear {
   carry: Partial<Record<CarrySlot, string>>
   quick: Array<{ item: string; qty: number }>
   coat: 'open' | 'closed'
+  /** 內海化身的 SKIN 染過的顏色（SKIN 的 id → 顏色；SKIN 是沒有實例資料的疊，顏色記在人身上；M4 收尾修正批）。沒染過的 SKIN 沒有這一筆 */
+  skin_dye?: Record<string, { primary_color?: string; secondary_color?: string }>
 }
 
 export function emptyGear(): Gear {
@@ -52,6 +54,17 @@ export function gearFromRaw(raw: unknown): Gear {
     for (const q of raw.quick) if (isRecord(q) && typeof q.item === 'string' && Number.isSafeInteger(q.qty) && (q.qty as number) > 0) g.quick.push({ item: q.item, qty: q.qty as number })
   }
   if (raw.coat === 'closed') g.coat = 'closed'
+  if (isRecord(raw.skin_dye)) {
+    const out: NonNullable<Gear['skin_dye']> = {}
+    for (const [id, v] of Object.entries(raw.skin_dye)) {
+      if (!isRecord(v)) continue
+      const one: { primary_color?: string; secondary_color?: string } = {}
+      if (typeof v.primary_color === 'string' && v.primary_color) one.primary_color = v.primary_color
+      if (typeof v.secondary_color === 'string' && v.secondary_color) one.secondary_color = v.secondary_color
+      if (Object.keys(one).length > 0) out[id] = one
+    }
+    if (Object.keys(out).length > 0) g.skin_dye = out
+  }
   return g
 }
 

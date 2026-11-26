@@ -83,6 +83,8 @@ interface Opts {
   more?: ContentPack[]
   /** 安的 ext 多寫的東西（傾向軸等級決定夜課的階數） */
   ann?: ActorOverrides
+  /** 場景規則表（scene_rule/default）要蓋的欄位 */
+  sceneRule?: Record<string, unknown>
 }
 
 function game(o: Opts = {}): G {
@@ -90,7 +92,7 @@ function game(o: Opts = {}): G {
   return makeGame({
     seed: o.seed,
     features: [characterFeature, lewdFeature, meterFeature(AFFINITY), sceneFeature, flirtFeature, ...(o.extra ?? [])],
-    content: [PACK, METER_CONTENT, ...(o.more ?? [])],
+    content: [PACK, METER_CONTENT, ...(o.more ?? []), ...(o.sceneRule ? [{ id: 'scene_rule_over', content: { scene_rule: [{ id: 'default', ...o.sceneRule }] } } as ContentPack] : [])],
     pc: { ...o.pc, ext: { bridge, scene: { skills: ['nt_a', 'nt_b', 'nt_hit', 'nt_reach'], positions: [] }, tendency: TENDENCY, ...(o.pc?.ext ?? {}) } },
     actors: npcs,
     ...(o.fake ? { fake: o.fake, ai: { ai: 1, ...(o.ai ?? {}) } } : { ai: o.ai ?? { ai: 0 } }),
@@ -773,6 +775,17 @@ describe('對抗：每一個都被驗證擋下或被功能丟掉，自動重試�
     const end = lastReport(g)
     expect(end.clamps!.some((c) => c.path === 'sink.amount' && c.to === 4)).toBe(true)
     expect(by(fake, 'sink')).toHaveLength(1)
+  })
+
+  it('規則表 sink_cap 改成 2：任務的輸入範圍是 ±2，sink 交 +9 夾在 +2（M4 收尾修正批；上限不再寫死 4）', async () => {
+    const fake = new FakeProvider({ byTask: { sink: sceneScript('sink_over') } })
+    const g = game({ fake, pc: { sink: 20 }, sceneRule: { sink_cap: 2 } })
+    await g.sceneBegin(mutual())
+    await g.sceneFinish()
+    expect(pcOf(g).sink).toBe(22)
+    expect(textOf(by(fake, 'sink')[0]!)).toMatch(/"range": \[\s*-2,\s*2\s*\]/)
+    expect(textOf(by(fake, 'sink')[0]!)).toContain('-2～+2')
+    expect(lastReport(g).clamps!.some((c) => c.path === 'sink.amount' && c.to === 2)).toBe(true)
   })
 
   it('sink 交「被迫」而這一場不是被迫：被驗證擋下（種類的清單裡沒有它）', async () => {

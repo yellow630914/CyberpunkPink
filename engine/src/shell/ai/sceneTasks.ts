@@ -17,7 +17,7 @@ import { effectCtx as makeEffectCtx } from '../../core/rules/grades'
 import type { Effect, ResolvedEffects } from '../../core/rules/effects'
 import { isRecord } from '../../core/util/sanitize'
 import type { Goal, Nature, Role, SceneInput, SinkKind, TalkEnv } from '../../features/scene'
-import { MAX_MOVES, NOTE_LEN, SINK_CAP, SYNC_GEARS } from '../../features/scene'
+import { MAX_MOVES, NOTE_LEN, SYNC_GEARS } from '../../features/scene'
 import type { CallNames } from './people'
 import type { TaskCheck, TaskDef, TaskRegistry } from './tasks'
 
@@ -466,8 +466,9 @@ function sinkCheck(raw: unknown, input: SinkInput): TaskCheck<SinkOutput> {
   if (errors.length > 0) return fail(errors)
   const clamps: ClampNote[] = []
   const a0 = Math.round(raw.amount as number)
-  const amount = Math.max(-SINK_CAP, Math.min(SINK_CAP, a0))
-  if (amount !== a0) clamps.push(note('sink.amount', a0, amount, `一場最多讓沉溺動 ${SINK_CAP} 點，這一場實際只算了 ${Math.abs(amount)} 點。`, amount > 0 ? SINK_CAP : -SINK_CAP))
+  const [lo, hi] = input.range
+  const amount = Math.max(lo, Math.min(hi, a0))
+  if (amount !== a0) clamps.push(note('sink.amount', a0, amount, `一場最多讓沉溺動 ${hi} 點，這一場實際只算了 ${Math.abs(amount)} 點。`, amount > 0 ? hi : lo))
   return { ok: true, value: { kind: raw.kind as SinkKind, amount, reason: text(raw.reason, 300) }, ...(clamps.length > 0 ? { clamps } : {}) }
 }
 
@@ -479,7 +480,7 @@ function sinkTask(): TaskDef<SinkInput, SinkOutput | null> {
       system: system([
         '你判斷這一場成人場景對主角的沉溺是哪一種（用 submit_sink 的格式）。種類只能從 <kinds> 選：',
         ...input.kinds.map((k) => SINK_NAME[k]),
-        `變化在 ${-SINK_CAP}～+${SINK_CAP} 之間，給一句理由。看的是這段關係與這一場的經過，不看契合的高低。`,
+        `變化在 ${input.range[0]}～+${input.range[1]} 之間，給一句理由。看的是這段關係與這一場的經過，不看契合的高低。`,
       ]),
       sections: [['kinds', input.kinds.join('、')], ['log', input.log.join('\n') || '（沒有紀錄）'], ...(input.direction ? [['direction', input.direction] as [string, string]] : []), ['input', json(input)]],
     }),

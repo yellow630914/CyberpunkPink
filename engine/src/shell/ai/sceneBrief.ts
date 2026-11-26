@@ -157,6 +157,8 @@ export interface Settled {
   relations: Array<{ id: string; name: string; affinity: number }>
   sink_now: number
   sink_rule: { kind: SinkKind; amount: number }
+  /** 一場最多讓沉溺動幾點（規則表 sink_cap） */
+  sink_cap: number
   /** 功能結算的白話結果（不含成人的細節；給收尾的算回報與算關係的摘要用） */
   results: string[]
 }
@@ -216,7 +218,7 @@ export function settledOf(k: Kernel, state: GameState, scene: SceneRaw, d: Repor
       tags: touchedList(k, state, skip ? scene.tags : [...scene.tags, ...touched]).map((t) => t.id).filter((t) => !rec.tags.includes(t)),
     },
     log: logOf(d.timeline), relations: pairIds.map((id) => ({ id, name: nameOf(state, id), affinity: meterOf(k, state, 'affinity', id) })), sink_now: state.actors[scene.pc]?.sink ?? 0,
-    sink_rule: sinkRuleOf(k, state, scene, pairIds), results,
+    sink_rule: sinkRuleOf(k, state, scene, pairIds), sink_cap: rules.sink_cap, results,
   }
 }
 
@@ -236,7 +238,7 @@ export function digestOf(scene: SceneRaw, st: Settled): SceneDigest {
 /** 算沉溺的輸入：玩家的寫法指令不給它（沉溺不受指令影響）。「被迫」這一種只在這一場的性質是被迫時才列。 */
 export function sinkInputOf(st: Settled): SinkInput {
   return {
-    nature: st.nature, nature_name: st.nature_name, kinds: st.nature === 'forced' ? ['anchor', 'trade', 'forced', 'other'] : ['anchor', 'trade', 'other'], rule: st.sink_rule, range: [-4, 4],
+    nature: st.nature, nature_name: st.nature_name, kinds: st.nature === 'forced' ? ['anchor', 'trade', 'forced', 'other'] : ['anchor', 'trade', 'other'], rule: st.sink_rule, range: [-st.sink_cap, st.sink_cap],
     sink_now: st.sink_now, relations: st.relations, log: st.log,
   }
 }

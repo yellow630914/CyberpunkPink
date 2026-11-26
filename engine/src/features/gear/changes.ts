@@ -11,7 +11,7 @@ import { quickBlock } from './quick'
 type SlotChange = Change & { id: string; group: GearGroup; slot: string; item: string | null }
 type QuickChange = Change & { id: string; items: Array<{ item: string; qty: number }> }
 type CoatChange = Change & { id: string; coat: 'open' | 'closed' }
-type DyeChange = Change & { uid: string; dye: { primary_color?: string | null; secondary_color?: string | null } }
+type DyeChange = Change & { uid?: string; skin?: string; actor?: string; dye: { primary_color?: string | null; secondary_color?: string | null } }
 
 /** 取出（沒有就補上）角色身上 ext.gear 那份，之後直接改它。 */
 function ensureGear(state: GameState, id: string): Gear {
@@ -88,11 +88,15 @@ export function installChanges(k: Kernel): void {
     describe: (c) => (c.coat === 'closed' ? '外套扣上了。' : '外套敞開了。'),
   })
 
-  // 染色：把顏色寫進那一件成品的 data.dye（字串是改成那個顏色，null 是換回預設）；東西還是同一件（uid 不變），穿著的格也不用動
+  // 染色：把顏色寫進那一件成品的 data.dye（字串是改成那個顏色，null 是換回預設）；東西還是同一件（uid 不變），穿著的格也不用動。
+  // SKIN（內海化身的穿著）是沒有實例資料的疊：寫 skin（SKIN 的 id）與 actor，顏色記在那個人的 ext.gear.skin_dye
   k.changes.register<DyeChange>({
     op: 'gear.dye', owner: OWNER,
     validate(state, c) {
-      if (typeof c.uid !== 'string' || !c.uid || !stackOf(state, c.uid)) return ['背包裡沒有這一件。']
+      if (c.skin !== undefined) {
+        if (typeof c.skin !== 'string' || !c.skin || countItem(state.inventory, c.skin) < 1) return ['背包裡沒有這一套 SKIN。']
+        if (typeof c.actor !== 'string' || !state.actors[c.actor]) return [`沒有 ${String(c.actor)} 這個角色。`]
+      } else if (typeof c.uid !== 'string' || !c.uid || !stackOf(state, c.uid)) return ['背包裡沒有這一件。']
       if (!isRecord(c.dye) || Object.keys(c.dye).length === 0) return ['dye 要寫 primary_color 或 secondary_color。']
       const p: string[] = []
       for (const [f, v] of Object.entries(c.dye)) {
@@ -102,7 +106,21 @@ export function installChanges(k: Kernel): void {
       return p
     },
     apply(state, c) {
-      const stack = stackOf(state, c.uid)!
+      if (c.skin !== undefined) {
+        const g = ensureGear(state, c.actor!)
+        const dye: Record<string, string> = { ...(g.skin_dye?.[c.skin] ?? {}) }
+        for (const [f, v] of Object.entries(c.dye)) {
+          if (v === null) delete dye[f]
+          else if (typeof v === 'string') dye[f] = v
+        }
+        const all = { ...(g.skin_dye ?? {}) }
+        if (Object.keys(dye).length === 0) delete all[c.skin]
+        else all[c.skin] = dye
+        if (Object.keys(all).length === 0) delete g.skin_dye
+        else g.skin_dye = all
+        return
+      }
+      const stack = stackOf(state, c.uid!)!
       const data = stack.data!
       const dye: Record<string, string> = isRecord(data.dye) ? { ...(data.dye as Record<string, string>) } : {}
       for (const [f, v] of Object.entries(c.dye)) {

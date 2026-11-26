@@ -269,6 +269,12 @@ export interface ChoiceOption {
   picks: ScenePick[]
   pairs: ScenePair[]
   preview: Preview
+  /**
+   * 選了它要送出去的輸入（不含部位的選擇：需要選部位的技能與道具，畫面把選好的 pick 加在這一份上）。
+   * 技能、道具是 { kind, id }；體位、姿勢是 { kind: 'switch', position }；換圈、叫人、換檔、夜課的功夫各自是它們的樣子（once 帶 value）；
+   * 有指定對象的場景（target）已經加在上面。畫面直接送這一份，不從選項 id 拆字串（M4 收尾修正批）。
+   */
+  input: SceneInput
 }
 
 export interface ActionOption {
@@ -341,7 +347,7 @@ export function sceneOptions(k: Kernel, state: GameState, o: { target?: string }
   const choice = (raw: SceneInput, id: string, name: string, ap: number, mine: string[], theirs: string[]): ChoiceOption => {
     const input = aimed(raw)
     const pairs = mine.length > 0 ? pairsOf(p, w, input, mine, theirs) : []
-    return { id, name, ap, blocks: p.blocks(w, input, true), picks: mine.length > 0 ? picksOf(p, mine, theirs, pairs) : [], pairs, preview: p.preview(w, input) }
+    return { id, name, ap, blocks: p.blocks(w, input, true), picks: mine.length > 0 ? picksOf(p, mine, theirs, pairs) : [], pairs, preview: p.preview(w, input), input }
   }
   const talkInput: SceneInput = aimed({ kind: 'talk' })
   const solo = p.solo
@@ -363,19 +369,19 @@ export function sceneOptions(k: Kernel, state: GameState, o: { target?: string }
   }
   const switchOf = (pos: { id: string; name: string }): ChoiceOption => {
     const input: SceneInput = { kind: 'switch', position: pos.id }
-    return { id: pos.id, name: pos.name, ap: costOf(p, { kind: 'switch', position: '' }, w), blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input) }
+    return { id: pos.id, name: pos.name, ap: costOf(p, { kind: 'switch', position: '' }, w), blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input), input }
   }
   // 單人：換的是五個單人姿勢
   const switches = solo ? p.poses.map(switchOf) : knownPositions(k, state, s.pc, p.activeIds().length).map((pos: PositionEntry) => switchOf(pos))
   const gears = SYNC_GEARS.map((g: SyncGear): ChoiceOption => {
     const input: SceneInput = { kind: 'gear', gear: g }
-    return { id: g, name: `${p.sync.gears[g].name}檔`, ap: 0, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input) }
+    return { id: g, name: `${p.sync.gears[g].name}檔`, ap: 0, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input), input }
   })
   const turn = p.blocks(w, { kind: 'restrain' }, true).filter((x) => x.startsWith('還沒輪到'))
   const minAp = (list: ChoiceOption[]): number => (list.length > 0 ? Math.min(...list.map((x) => x.ap)) : 0)
   const group = (list: ChoiceOption[], none: string): string[] => (turn.length > 0 ? turn : list.length === 0 ? [none] : list.every((x) => x.blocks.length > 0) ? [list[0]!.blocks[0]!] : [])
   // 換圈與叫人過來：有別的圈的時候才列（精簡版與沒有別的圈的場景不列）
-  const plain = (input: SceneInput, id: string, name: string, ap: number): ChoiceOption => ({ id, name, ap, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input) })
+  const plain = (input: SceneInput, id: string, name: string, ap: number): ChoiceOption => ({ id, name, ap, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input), input })
   const names = (ids: string[]): string => ids.map((x) => state.actors[x]?.name ?? x).join('、')
   const moves = s.circles.map((c) => plain({ kind: 'move_circle', circle: c.id }, c.id, names(c.people), p.rulesFor(w).cost.move_circle))
   const calls = s.circles.flatMap((c) => c.people.map((id) => plain({ kind: 'call', who: id }, id, state.actors[id]?.name ?? id, p.rulesFor(w).cost.call)))
@@ -401,12 +407,12 @@ export function sceneOptions(k: Kernel, state: GameState, o: { target?: string }
   const initOnce = p.onceOf(w, 'set_init')
   for (const v of initOnce?.values ?? []) {
     const input = aimed({ kind: 'once', id: 'set_init', value: v } as SceneInput)
-    oncePicks.push({ id: `set_init:${v}`, name: `主動權設成 ${v}`, ap: initOnce!.ap, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input) })
+    oncePicks.push({ id: `set_init:${v}`, name: `主動權設成 ${v}`, ap: initOnce!.ap, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input), input })
   }
   const floorOnce = p.onceOf(w, 'fit_floor')
   if (floorOnce) {
     const input = aimed({ kind: 'once', id: 'fit_floor' } as SceneInput)
-    oncePicks.push({ id: 'fit_floor', name: `契合拉到 ${floorOnce.value}`, ap: floorOnce.ap, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input) })
+    oncePicks.push({ id: 'fit_floor', name: `契合拉到 ${floorOnce.value}`, ap: floorOnce.ap, blocks: p.blocks(w, input, true), picks: [], pairs: [], preview: p.preview(w, input), input })
   }
   if (!solo && oncePicks.length > 0) granted.push({ id: 'once', name: ACTION_NAME.once, ap: Math.min(...oncePicks.map((x) => x.ap)), blocks: group(oncePicks, '現在沒有夜課的功夫可以用。'), picks: [], pairs: [], choices: oncePicks, preview: null })
   // 單人：加快、放慢取代主導、迎合，沒有挑逗、沒有圈；切換的是姿勢

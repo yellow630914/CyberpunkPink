@@ -35,7 +35,7 @@ export { ACCESSORY_SLOTS, CARRY_SLOTS, QUICK_BASE, QUICK_MAX, WEAR_SLOTS, gearOf
 export { armorOf, bodyArmorOf, concealment, pieceArmor, scanFinds, weaponOf } from './numbers'
 export { DEFAULT_GEAR_RULES, RULE_KIND as GEAR_RULE_KIND, gearRules } from './rules'
 export type { GearRules } from './rules'
-export { exposureSpec, pieceLook, styleOf, styleSpec, styleTagValue, styleValueOf } from './look'
+export { coveredSlots, exposureSpec, pieceLook, styleOf, styleSpec, styleTagValue, styleValueOf } from './look'
 export type { SeenKind, SeenPiece, StyleInfo } from './look'
 export { CAP_STAT, LOAD_STAT, carryCapBase, carryLoadOf, overweight, weightPassives } from './weight'
 export { DYE_ACTION, DYE_TAG, dyeBlock, dyeDraft, dyeOf, dyeProblems, dyeShopHere, isColor } from './dye'

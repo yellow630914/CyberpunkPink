@@ -327,12 +327,17 @@ describe('檔位的效果', () => {
     expect(run('full')).toEqual({ sink: 2, climaxed: 1 })
   })
 
-  it('過載累積的沉溺一場最多加 4（SINK_CAP）', () => {
+  it('過載累積的沉溺一場最多加 4（規則表 sink_cap 的預設）；規則表改成 2：這一場只加 2（M4 收尾修正批）', () => {
     const g = game(FULL_PC)
     begin(g)
     seat(g, PC).sink_gain = 10
     act(g, { kind: 'stop' })
     expect(pc(g).sink).toBe(4)
+    const h = game({ ...FULL_PC, rules: { sink_cap: 2 } })
+    begin(h)
+    seat(h, PC).sink_gain = 10
+    act(h, { kind: 'stop' })
+    expect(pc(h).sink).toBe(2)
   })
 
   it('自己擲的檢定照那一檔的 check：說話的檢定多一項來源 sync（深 +2、淺 −2、標準沒有）', () => {
@@ -387,6 +392,20 @@ describe('對方的檔位（走規則、不呼叫 AI）', () => {
     const [again] = next(g, dice(1, 1, 1, 1, 1))
     expect(tags(again!)).not.toContain('gear')
     expect(seat(g, ANN).gear).toBe('shallow')
+  })
+
+  it('退檔的門檻是規則表 partner_gear_down_at（預設 0.7）：改成 0.9，感載 26／35 不退；改成 0.5，感載 20 就退（M4 收尾修正批）', () => {
+    const run = (at: number, load: number) => {
+      const g = game({ ann: { load }, rules: { partner_gear_down_at: at } })
+      begin(g)
+      talk(g)
+      act(g, { kind: 'end_turn' })
+      next(g)
+      return seat(g, ANN).gear
+    }
+    expect(run(0.9, 26)).toBe('standard')
+    expect(run(0.5, 20)).toBe('shallow')
+    expect(run(0.7, 26)).toBe('shallow')
   })
 
   it('七成以下維持；已經是淺檔不再退', () => {

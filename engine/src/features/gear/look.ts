@@ -115,6 +115,21 @@ function layersOf(pieces: WornPiece[], worn: Record<string, string | undefined>)
   return out
 }
 
+/** 外套扣上：上身與護甲看不到；長外套連下身也看不到（腿和鞋還是看得到）。外套敞開或沒有外套：沒有被蓋住的格。 */
+function coveredOf(layers: Layers, coat: 'open' | 'closed'): Set<string> {
+  const closed = !!layers.coat && coat === 'closed'
+  return new Set<string>(closed ? ['upper', 'armor', ...(isLong(layers.coat!) ? ['lower'] : [])] : [])
+}
+
+/**
+ * 這個人現在被外套蓋住（別人看不到）的穿著格 id（WEAR_SLOTS 的 id）：外套扣上才有；上身（upper）、護甲（armor），長外套再加下身（lower）。
+ * 畫面的「被蓋住」標示問這裡，不自己列哪幾格（M4 收尾修正批；ui 拿掉 coveredByCoat 表）。
+ */
+export function coveredSlots(k: Kernel, state: GameState, actor: ActorId): ReadonlySet<string> {
+  const gear = gearOf(state, actor)
+  return coveredOf(layersOf(wornPieces(k, state, gear), gear.worn), gear.coat)
+}
+
 /** 曝露度（ElondiaRPG 的算法加外套）。 */
 function exposureLevel(k: Kernel, layers: Layers, coat: 'open' | 'closed'): number {
   const rules = gearRules(k)
@@ -142,9 +157,7 @@ export function styleOf(k: Kernel, state: GameState, actor: ActorId): StyleInfo 
   const rules = gearRules(k)
   const pieces = wornPieces(k, state, gear)
   const layers = layersOf(pieces, gear.worn)
-  const closed = !!layers.coat && gear.coat === 'closed'
-  // 外套扣上：上身與護甲看不到；長外套連下身也看不到（腿和鞋還是看得到）
-  const covered = new Set<string>(closed ? ['upper', 'armor', ...(isLong(layers.coat!) ? ['lower'] : [])] : [])
+  const covered = coveredOf(layers, gear.coat)
 
   const seen: SeenPiece[] = []
   let threat = 0
