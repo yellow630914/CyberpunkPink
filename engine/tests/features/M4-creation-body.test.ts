@@ -9,7 +9,7 @@ import { ContentError, createKernel } from '../../src'
 import { abilitiesFeature, abilitiesOf, capacityOf } from '../../src/features/abilities'
 import { characterFeature } from '../../src/features/character'
 import type { CreationDraft } from '../../src/features/creation'
-import { buildCreationReport, creationBlocks, creationFeature, creationLimits, creationSummary, cyberStepBlock, gearStepBlock, startMoney } from '../../src/features/creation'
+import { buildCreationReport, creationBlocks, creationCatalog, creationFeature, creationLimits, creationLook, creationSummary, cyberStepBlock, gearStepBlock, startMoney, suggestedKit } from '../../src/features/creation'
 import { bridgeCapacityOf, cyberOf, cyberwareFeature, hasBridge } from '../../src/features/cyberware'
 import { deckFeature, deckOf } from '../../src/features/deck'
 import { gearFeature } from '../../src/features/gear'
@@ -48,7 +48,10 @@ const BLUEPRINTS = [
   // 企業限定的橋
   bp('bp_bridge_corp', { name: '企業橋', slot: 'bridge', invasiveness: 'invasive', sink_cost: 5, bridge: { tuning_slots: 2 }, require: BRIDGE_REQ, creation_points: 2, available: { origins: ['corp'], faction: 'hz' }, stock: { chip: 'pt_chip52', neuron: 'pt_neuron', software: 'pt_sw_even' } }),
   // 義眼：成品價 480 → 720 ÷ 500 = 1.44 進位 2 點；要橋
-  bp('bp_eye', { name: '義眼', slot: 'eye', invasiveness: 'light', sink_cost: 3, require: [{ type: 'sensor' }], stock: { sensor: 'pt_eye' } }),
+  bp('bp_eye', { name: '義眼', slot: 'eye', invasiveness: 'light', sink_cost: 3, require: [{ type: 'sensor' }], stock: { sensor: 'pt_eye' }, look: { at: '左眼' } }),
+  // 獸耳（獸化零件）：看得見的部位在頭側，生體派；機械派的另外一件
+  bp('bp_ears', { name: '獸耳', slot: 'eye', invasiveness: 'light', sink_cost: 2, creation_points: 1, require: [{ type: 'sensor' }], stock: { sensor: 'pt_eye' }, look: { at: '頭側', beast: { school: 'bio', part: 'ears' } } }),
+  bp('bp_tail_mech', { name: '機械尾', brand: '織女', slot: 'leg', invasiveness: 'light', sink_cost: 2, creation_points: 1, needs_bridge: false, require: [{ type: 'actuator' }], stock: { actuator: 'pt_arm' }, look: { at: '尾椎', line: '尾根有一圈金屬的接縫', beast: { school: 'mech', part: 'tail' } } }),
   // 義臂：4 點、不用橋；一邊兩槽
   bp('bp_arm', { name: '義臂', slot: 'arm', invasiveness: 'invasive', sink_cost: 6, needs_bridge: false, creation_points: 4, require: [{ type: 'actuator' }], stock: { actuator: 'pt_arm' } }),
   // 甲板（設計圖帶 deck 欄位）：成品價 1,200 → 裝備點數 5；腦部
@@ -67,7 +70,10 @@ const ITEMS = [
   { id: 'it_toy', name: '成人玩具', desc: '一件成人道具。', category: 'tool', adult: true, grade: 1, size: 1, legal: 'free', price: 250 },
   { id: 'it_cargo', name: '貨箱', desc: '一個貨箱。', category: 'cargo', grade: 1, size: 3, legal: 'free', price: 250 },
   { id: 'it_corp_suit', name: '企業套裝', desc: '一套企業套裝。', category: 'clothing', grade: 2, size: 2, legal: 'free', price: 750, available: { origins: ['corp'], faction: 'hz' } },
-  { id: 'it_coat', name: '舊外套', desc: '一件舊外套。', category: 'clothing', grade: 1, size: 2, legal: 'free', price: 0 },
+  { id: 'it_coat', name: '舊外套', desc: '一件舊外套。', category: 'clothing', grade: 1, size: 2, legal: 'free', price: 0, style: { tag: '荒地', value: 1 } },
+  { id: 'it_jacket', name: '街頭夾克', desc: '一件夾克。', category: 'clothing', grade: 1, size: 2, legal: 'free', price: 250, style: { tag: '街頭', value: 1 } },
+  { id: 'it_idol', name: '打歌服', desc: '一套打歌服。', category: 'clothing', grade: 1, size: 2, legal: 'free', price: 250, style: { tag: '偶像', value: 2 } },
+  { id: 'it_hidden', name: '不上架的東西', desc: '建角不賣。', category: 'tool', grade: 1, size: 0, legal: 'free', price: 250, creation: false },
 ]
 const CONSTRUCTS = [
   { id: 'cs_lines', class: 'tool', name: '客服專線', grade: 1, legal: 'free', ap: 1, ram: 1, price: 500 },
@@ -95,6 +101,7 @@ const PACK: ContentPack = {
       {
         id: 'nomad', name: '車族', line: '荒地上的人', skill_bonus: { stealth: 1 }, status: 'citizen', home: '車隊', favor: { choose_one: ['lonestar'], value: 25 }, perk: 'origin_oldport', roster: ['npc_ray'],
         kit_free: [{ id: 'it_gel', qty: 2 }, { id: 'cs_cheap' }, { id: 'bp_pistol' }, { id: 'it_coat' }, { id: 'no_such_thing' }],
+        suggested: { bridge: 'bp_bridge_b', cyber: [{ blueprint: 'bp_eye' }, { blueprint: 'bp_arm', side: 'l' }], gear: [{ id: 'it_jacket' }, { id: 'bp_vest' }, { id: 'it_gel', qty: 3 }, { id: 'bp_rifle2' }] },
       },
     ],
     part: PARTS, blueprint: BLUEPRINTS, item: ITEMS,
@@ -529,3 +536,162 @@ describe('性質：點數與現金', () => {
     }
   })
 })
+
+// ===================================================================================================================
+// M4 收尾修正批（使用者 2026-11-26 裁決 11）：建角的目錄、出身的建議組合、外觀的推導搬進引擎
+// ===================================================================================================================
+
+describe('建角的目錄（creationCatalog；掛點 creation.catalog）', () => {
+  it('第 6 步的橋與其他義體：每一件有名字、等級、價錢、點數、部位；缺零件的、甲板不列；依等級與價錢排', () => {
+    const g = setup()
+    const c = creationCatalog(g.k, g.state, draft({ origin: 'nomad', originChoice: { favor: 'lonestar' } }))
+    expect(c.bridges.map((r) => r.id)).toEqual(['bp_bridge_b', 'bp_bridge_corp', 'bp_bridge_a'].sort((a, b) => c.bridges.findIndex((r) => r.id === a) - c.bridges.findIndex((r) => r.id === b)))
+    expect(c.bridges.find((r) => r.id === 'bp_bridge_a')).toMatchObject({ name: '入門橋甲', points: 3, category: 'cyberware', slots: ['bridge'], block: null })
+    expect(c.bridges.find((r) => r.id === 'bp_bridge_b')).toMatchObject({ points: 4 })
+    expect(c.cyber.map((r) => r.id)).toEqual(expect.arrayContaining(['bp_eye', 'bp_arm', 'bp_ears']))
+    expect(c.cyber.map((r) => r.id)).not.toContain('bp_junk')
+    expect(c.cyber.map((r) => r.id)).not.toContain('bp_deck')
+    expect(c.cyber.find((r) => r.id === 'bp_eye')).toMatchObject({ points: 2, slots: ['eye'] })
+    // 排序：等級再價錢
+    const keys = c.cyber.map((r) => [r.grade, r.price])
+    expect(keys).toEqual([...keys].sort((a, b) => a[0]! - b[0]! || a[1]! - b[1]!))
+  })
+
+  it('出身限定的：這個出身買不到的 block 寫原因，買得到的是 null', () => {
+    const g = setup()
+    const nomad = creationCatalog(g.k, g.state, draft({ origin: 'nomad', originChoice: { favor: 'lonestar' } }))
+    expect(nomad.bridges.find((r) => r.id === 'bp_bridge_corp')!.block).toBe('企業出身、而且是緋櫻才選得到。')
+    const corp = creationCatalog(g.k, g.state, draft({ origin: 'corp', originChoice: { favor: 'hz' } }))
+    expect(corp.bridges.find((r) => r.id === 'bp_bridge_corp')!.block).toBeNull()
+  })
+
+  it('第 9 步的裝備照四組（武器、護甲與服裝、工具與消耗品、甲板構裝與 SKIN）；藥、成人道具、creation: false、超過等級上限的不列；點數是價錢 ÷ 250 進位', () => {
+    const g = setup()
+    const c = creationCatalog(g.k, g.state, draft({ origin: 'nomad', originChoice: { favor: 'lonestar' } }))
+    expect(c.gear.map((x) => x.group)).toEqual(['武器', '護甲與服裝', '工具與消耗品', '甲板、構裝與 SKIN'])
+    const all = c.gear.flatMap((x) => x.rows)
+    expect(all.map((r) => r.id)).not.toContain('it_stim')
+    expect(all.map((r) => r.id)).not.toContain('it_toy')
+    expect(all.map((r) => r.id)).not.toContain('it_hidden')
+    expect(all.map((r) => r.id)).not.toContain('bp_pistol3')
+    expect(all.map((r) => r.id)).not.toContain('cs_grade3')
+    expect(all.find((r) => r.id === 'it_gel')).toMatchObject({ name: '急救凝膠', points: 1, category: 'consumable', block: null })
+    expect(all.find((r) => r.id === 'bp_pistol')).toMatchObject({ category: 'weapon', slots: ['side'] })
+    expect(all.find((r) => r.id === 'bp_vest')).toMatchObject({ category: 'armor', slots: ['armor'] })
+    expect(all.find((r) => r.id === 'it_corp_suit')!.block).toBe('企業出身、而且是緋櫻才選得到。')
+    // 甲板（內容種類 deck 的成品與設計圖帶 deck）在最後一組
+    const decks = c.gear.find((x) => x.group === '甲板、構裝與 SKIN')!.rows
+    expect(decks.map((r) => r.id)).toEqual(expect.arrayContaining(['dk_small']))
+    expect(decks.find((r) => r.id === 'dk_small')).toMatchObject({ category: 'deck', slots: ['brain'] })
+  })
+
+  it('沒有人回答的類別是空的（只裝 creation）', () => {
+    const g = setup([characterFeature, creationFeature])
+    expect(creationCatalog(g.k, g.state, draft())).toEqual({ bridges: [], cyber: [], gear: [] })
+  })
+
+  it('目錄上選得到的每一件，拿去問第 6、9 步都不擋（目錄與規則是同一套）', () => {
+    const g = setup()
+    const base = draft({ origin: 'corp', originChoice: { favor: 'hz' } })
+    const c = creationCatalog(g.k, g.state, base)
+    for (const r of c.bridges.filter((x) => x.block === null)) expect(cyberStepBlock(g.k, g.state, { ...base, bridge: r.id, cyber: [] }), r.id).toBeNull()
+    for (const r of c.gear.flatMap((x) => x.rows).filter((x) => x.block === null && x.points <= 12)) {
+      if (r.category === 'deck') continue
+      expect(gearStepBlock(g.k, g.state, { ...base, bridge: 'bp_bridge_a', gear: [{ id: r.id }] }), r.id).toBeNull()
+    }
+  })
+})
+
+describe('出身的建議組合（origin.suggested；suggestedKit）', () => {
+  it('沒寫建議的出身：has 是 false', () => {
+    const g = setup()
+    expect(suggestedKit(g.k, g.state, draft({ origin: 'corp', originChoice: { favor: 'hz' } }))).toMatchObject({ has: false, gear: [], cyber: [], trimmed: [] })
+  })
+
+  it('超過點數的照順序從後面裁掉（先裁裝備再裁義體）：這個建議的裝備 1 + 2 + 1×3 + 步槍，點數 12 放不下的先裁', () => {
+    const g = setup()
+    const kit = suggestedKit(g.k, g.state, draft({ origin: 'nomad', originChoice: { favor: 'lonestar' } }))
+    expect(kit.has).toBe(true)
+    expect(kit.bridge).toBe('bp_bridge_b')
+    expect(kit.cyber).toEqual([{ blueprint: 'bp_eye' }, { blueprint: 'bp_arm', side: 'l' }])
+    // 裁完的草稿第 6、9 步都不擋
+    const d = draft({ origin: 'nomad', originChoice: { favor: 'lonestar' }, bridge: kit.bridge, cyber: kit.cyber, gear: kit.gear })
+    expect(cyberStepBlock(g.k, g.state, d)).toBeNull()
+    expect(gearStepBlock(g.k, g.state, d)).toBeNull()
+    expect(kit.gear.map((x) => x.id)).toEqual(expect.arrayContaining(['it_jacket']))
+  })
+
+  it('點數很少時一直裁：先裁完裝備再裁義體；trimmed 是裁掉的 id（照裁掉的順序）；裁到放得下為止', () => {
+    const g = makeGame({ scenario: 'beforeCreation', features: ALL, content: [MINI_PACK, PACK, FEATURE_PACK], seed: 11, patch: { rules: { startCyberPoints: 4 } as never } }).game
+    const kit = suggestedKit(g.k, g.state, draft({ origin: 'nomad', originChoice: { favor: 'lonestar' } }))
+    expect(kit.cyber).toEqual([])
+    expect(kit.trimmed.slice(0, kit.trimmed.length)).toEqual(expect.arrayContaining(['bp_arm', 'bp_eye']))
+    const d = draft({ origin: 'nomad', originChoice: { favor: 'lonestar' }, bridge: kit.bridge, cyber: kit.cyber, gear: kit.gear })
+    expect(cyberStepBlock(g.k, g.state, d)).toBeNull()
+    expect(gearStepBlock(g.k, g.state, d)).toBeNull()
+  })
+
+  it('suggested 的格式不對在載入時擋下', () => {
+    for (const bad of [{ bridge: 7 }, { cyber: 'x' }, { cyber: [{ blueprint: 'bp_eye', side: 'up' }] }, { gear: [{ id: 'it_gel', qty: 0 }] }, 'x']) {
+      const pack = { id: 'bad_suggested', content: { origin: [{ ...(PACK.content as Rec).origin[0], id: 'bad', suggested: bad }] } } as unknown as ContentPack
+      expect(() => setup(ALL, [pack]), JSON.stringify(bad)).toThrow(ContentError)
+    }
+  })
+})
+
+describe('外觀裡推出來的三樣（creationLook；掛點 creation.look）', () => {
+  it('外露的義體：設計圖有 look.at 的列一句「<他>的<部位>是<牌子的名字>，<外殼的描寫>。」；橋寫成橋接口；牌子的描寫在 creation_rule 的預設加資料蓋掉', () => {
+    const g = setup()
+    const look = creationLook(g.k, g.state, draft({ pronoun: '她', bridge: 'bp_bridge_a', cyber: [{ blueprint: 'bp_eye' }] }))
+    expect(look.cyber).toEqual(['她的左眼是hz的義眼，外殼沒有什麼特別。'])
+    // 牌子的描寫（織女）與設計圖自己的 line
+    const g2 = setup(ALL, [{ id: 'look_rule', content: { creation_rule: [{ id: 'default', look: { brand_lines: { hz: '一圈很淡的刻痕' } } }] } } as unknown as ContentPack])
+    expect(creationLook(g2.k, g2.state, draft({ pronoun: '她', cyber: [{ blueprint: 'bp_eye' }], bridge: null })).cyber[0]).toBe('她的左眼是hz的義眼，一圈很淡的刻痕。')
+  })
+
+  it('二手與同人另外認；沒有 look 的義體不出現；自訂的人稱用「你」', () => {
+    const g = setup()
+    const look = creationLook(g.k, g.state, draft({ pronoun: '自訂', bridge: null, cyber: [{ blueprint: 'bp_arm', side: 'l' }, { blueprint: 'bp_eye' }] }))
+    expect(look.cyber).toHaveLength(1)
+    expect(look.cyber[0]).toContain('你的左眼')
+  })
+
+  it('獸化：設計圖 look.beast；系由草稿的 beastLine（沒寫是貓）；機械派與生體派的句子不同；耳與尾各一句', () => {
+    const g = setup()
+    const cat = creationLook(g.k, g.state, draft({ pronoun: '她', bridge: null, cyber: [{ blueprint: 'bp_ears' }, { blueprint: 'bp_tail_mech', side: 'l' }] }))
+    expect(cat.beast).toEqual([
+      '她的頭上有一對貓耳，毛是真的，摸得到底下的軟骨，她不高興的時候耳朵會往後貼平。',
+      '她的身後拖著一條貓尾，外殼是霧面的黑色，尾根有一圈金屬的接縫。',
+    ])
+    const fox = creationLook(g.k, g.state, draft({ pronoun: '她', beastLine: '狐', bridge: null, cyber: [{ blueprint: 'bp_ears' }] }))
+    expect(fox.beast[0]).toBe('她的頭上有一對狐耳，毛是真的，摸得到底下的軟骨，她在想事情的時候耳朵會慢慢轉向一邊。')
+    // 機械尾：外觀的 line 與外殼的描寫（設計圖寫了 line）
+    expect(cat.cyber.some((l) => l.includes('機械尾') || l.includes('織女的機械尾'))).toBe(true)
+  })
+
+  it('穿著的風格：出身白給的衣服加上這一次選的衣服、護甲、飾品的風格合計；最高的是 main；句子寫出白給那一套與外加的衣服', () => {
+    const g = setup()
+    const look = creationLook(g.k, g.state, draft({ pronoun: '她', origin: 'nomad', originChoice: { favor: 'lonestar' }, bridge: null, cyber: [], gear: [{ id: 'it_jacket' }, { id: 'it_idol' }, { id: 'it_gel' }] }))
+    expect(look.style.tags).toEqual([['偶像', 2], ['荒地', 1], ['街頭', 1]].sort((a, b) => (b[1] as number) - (a[1] as number)))
+    expect(look.style.main).toBe('偶像')
+    expect(look.style.line).toBe('她今天穿著出身那一區的荒地日常服裝，外面加上街頭夾克、打歌服。')
+  })
+
+  it('沒選衣服：只有白給的那一套；什麼都沒有（沒有白給、沒有選）：沒有風格、main 是 null', () => {
+    const g = setup()
+    const only = creationLook(g.k, g.state, draft({ pronoun: '她', origin: 'nomad', originChoice: { favor: 'lonestar' }, bridge: null, cyber: [], gear: [] }))
+    expect(only.style.tags).toEqual([['荒地', 1]])
+    expect(only.style.line).toBe('她今天穿著出身那一區的荒地日常服裝。')
+    const none = creationLook(g.k, g.state, draft({ pronoun: '她', bridge: null, cyber: [], gear: [] }))
+    expect(none.style).toEqual({ tags: [], main: null, line: '' })
+    expect(none.cyber).toEqual([])
+    expect(none.beast).toEqual([])
+  })
+
+  it('look 的格式不對（設計圖與 creation_rule）在載入時擋下', () => {
+    expect(() => setup(ALL, [{ id: 'bad_look', content: { creation_rule: [{ id: 'default', look: { brand_lines: { x: 5 } } }] } } as unknown as ContentPack])).toThrow(ContentError)
+    const bad = { id: 'bad_bp_look', content: { blueprint: [bp('bp_badlook', { slot: 'eye', invasiveness: 'light', sink_cost: 1, require: [{ type: 'sensor' }], stock: { sensor: 'pt_eye' }, look: { at: '左眼', beast: { school: 'x', part: 'ears' } } })] } } as unknown as ContentPack
+    expect(() => setup(ALL, [bad])).toThrow(ContentError)
+  })
+})
+

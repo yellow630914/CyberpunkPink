@@ -372,5 +372,5 @@ export function lookAnswer(k: Kernel, p: LookPayloadLike): { cyber: string[]; be
     if (look.beast?.part === 'ears') beast.push(`${he}的頭上有一對${line}耳，${look.beast.school === 'mech' ? '外殼是霧面的黑色，耳根有一圈金屬的接縫' : '毛是真的，摸得到底下的軟骨'}，${he}${L.mood}的時候耳朵會${L.move}。`)
     else if (look.beast?.part === 'tail') beast.push(`${he}的身後拖著一條${line}尾，${look.beast.school === 'mech' ? '外殼是霧面的黑色，尾根有一圈金屬的接縫' : '毛是真的，摸得到底下的骨節'}。`)
   }
-  return { cyber: cyber.filter(() => true), beast }
+  return { cyber, beast }
 }

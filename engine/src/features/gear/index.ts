@@ -19,7 +19,7 @@ import type { Condition, ConditionCtx, ContentEntry, Feature, Kernel } from '../
 import { ContentError, isRecord, isSafeInt } from '../../core'
 import { installBattle } from './battle'
 import { installChanges } from './changes'
-import { answerCreation } from './creation'
+import { answerCreation, catalogAnswer, lookAnswer } from './creation'
 import { isColor } from './dye'
 import { exposureSpec, styleOf, styleSpec, styleTagValue, styleValueOf } from './look'
 import { OWNER, blueprintOf, stackOf } from './model'
@@ -99,6 +99,9 @@ export const gearFeature: Feature = {
     installBattle(k)
     // 建角的第 9 步（M4-creation-body）：物品與武器、護甲的設計圖（掛點 creation.step 由 features/creation 宣告，這裡只認名字）
     ;(k.hooks.on.bind(k.hooks) as unknown as AnyHook)('creation.step', OWNER, ((p: Parameters<typeof answerCreation>[1]) => answerCreation(k, p)) as never)
+    // 建角的目錄（物品與武器、護甲）與外觀（穿著的風格）：features/creation 宣告掛點，這裡只認名字（M4 收尾修正批）
+    ;(k.hooks.on.bind(k.hooks) as unknown as AnyHook)('creation.catalog', OWNER, ((p: Parameters<typeof catalogAnswer>[1]) => catalogAnswer(k, p)) as never)
+    ;(k.hooks.on.bind(k.hooks) as unknown as AnyHook)('creation.look', OWNER, ((p: Parameters<typeof lookAnswer>[1]) => lookAnswer(k, p)) as never)
     // 掃橋（EQUIPMENT 6.3 節）：身上攜帶格裡這一級掃得到的武器（掛點 scan.carried 由 security 宣告；兩邊不互相 import）
     k.hooks.on('scan.carried', OWNER, ({ state, actor, strength }) => {
       const out: Array<{ item: string; name: string; legal: string; uid: string }> = []
