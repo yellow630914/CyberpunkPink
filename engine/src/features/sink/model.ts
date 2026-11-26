@@ -20,6 +20,9 @@ export const SHOWN_STAT = 'sink_shown'
 /** 報告的 action。 */
 export const WEEK_ACTION = 'sink.week'
 export const THERAPY_ACTION = 'sink.therapy'
+/** 斷線靜修進行中的報告（待下去、提早離開）；活動的名字。 */
+export const RETREAT_ACTION = 'sink.retreat'
+export const RETREAT_ACTIVITY = 'retreat'
 
 /** 沉溺到這個數字就是溺感者（CORE_RULES 4.3 節）。 */
 export const SUNK_AT = 100
@@ -230,8 +233,19 @@ export interface FloorMod {
   why?: string
 }
 
+/** 進行中的斷線靜修（M4 收尾修正批；使用者 2026-11-26）：facility 是設施的名字，since／until 是開始與結束的時間（總分鐘），amount 是結束時沉溺最多降多少，from 是進去時的沉溺。 */
+export interface RetreatRec {
+  facility: string
+  since: number
+  until: number
+  amount: number
+  from: number
+}
+
 export interface SinkExt {
   floor_mods: FloorMod[]
+  /** 進行中的斷線靜修（活動 retreat）；沒有是不在靜修 */
+  retreat?: RetreatRec
   /** 最近一次心理治療在第幾週，與那一週做了幾次 */
   therapy_week?: number
   therapy_n?: number
@@ -256,6 +270,8 @@ export function readExt(state: Pick<GameState, 'actors'>, actor: ActorId): SinkE
   if (isSafeInt(raw.therapy_n)) out.therapy_n = raw.therapy_n
   if (isSafeInt(raw.carry_from)) out.carry_from = raw.carry_from
   if (isSafeInt(raw.carry_paid)) out.carry_paid = raw.carry_paid
+  const r = raw.retreat
+  if (isRecord(r) && isText(r.facility) && isSafeInt(r.since) && isSafeInt(r.until) && isSafeInt(r.amount) && isSafeInt(r.from)) out.retreat = { facility: r.facility, since: r.since, until: r.until, amount: r.amount, from: r.from }
   return out
 }
 

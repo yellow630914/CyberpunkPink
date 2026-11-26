@@ -8,7 +8,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import type { BattleState, Change, ContentPack, Feature, Report } from '../../src'
-import { ActionBlocked, Sheet, deriveRng, gridHere, meterOf } from '../../src'
+import { ActionBlocked, Sheet, createKernel, deriveRng, gridHere, meterOf } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { deckFeature } from '../../src/features/deck'
 import { enemiesFeature } from '../../src/features/enemies'
@@ -452,15 +452,15 @@ describe('場熱（CYBERSPACE 8.8 節「場熱」；沒有直播，P57）', () =
   it('一場戰鬥有三次要害只 +6、十次也只 +10（每場上限 +10）', () => {
     const g = entered()
     const run3 = onBattleEnd(g.k, withReports(g, [{ id: 'r1', timeline: crits(3) }]), battle(g, ['r1']), 'win')!
-    expect(run3.changes.filter((c) => c.op === 'meter')).toEqual([{ op: 'meter', kind: 'heat', key: nrun(g).map, delta: 6 }])
+    expect(run3.changes.filter((c) => c.op === 'meter')).toEqual([{ op: 'meter', kind: 'stage_heat', key: nrun(g).map, delta: 6 }])
     const run10 = onBattleEnd(g.k, withReports(g, [{ id: 'r1', timeline: crits(10) }]), battle(g, ['r1']), 'win')!
-    expect(run10.changes.filter((c) => c.op === 'meter')).toEqual([{ op: 'meter', kind: 'heat', key: nrun(g).map, delta: 10 }])
+    expect(run10.changes.filter((c) => c.op === 'meter')).toEqual([{ op: 'meter', kind: 'stage_heat', key: nrun(g).map, delta: 10 }])
   })
 
   it('倒下的人每個 −10（也算進這一趟倒下的人次）；亮點與倒下同時有就各算各的', () => {
     const g = entered()
     const lost = onBattleEnd(g.k, withReports(g, []), battle(g, [], { a1: { side: 'ally', out: 'down' }, a2: { side: 'ally', out: 'burnout' } }), 'lose')!
-    expect(lost.changes.filter((c) => c.op === 'meter')).toEqual([{ op: 'meter', kind: 'heat', key: nrun(g).map, delta: -20 }])
+    expect(lost.changes.filter((c) => c.op === 'meter')).toEqual([{ op: 'meter', kind: 'stage_heat', key: nrun(g).map, delta: -20 }])
     expect(lost.changes.find((c) => c.op === 'curtain.patch')).toMatchObject({ run: { inc: { downed: 2 } } })
     const both = onBattleEnd(g.k, withReports(g, [{ id: 'r1', timeline: crits(2) }]), battle(g, ['r1'], { a2: { side: 'ally', out: 'down' } }), 'win')!
     expect(both.changes.filter((c) => c.op === 'meter').map((c) => c.delta)).toEqual([4, -10])
@@ -481,7 +481,7 @@ describe('場熱（CYBERSPACE 8.8 節「場熱」；沒有直播，P57）', () =
     const hook = (round: number) => g.k.hooks.run('netrun.round', { state: g.state, run: { ...clone(nrun(g)), round } as never }).flatMap((h) => (h.result as Change[] | undefined) ?? [])
     expect(hook(1).filter((c) => c.op === 'meter')).toEqual([])
     expect(hook(2).filter((c) => c.op === 'meter')).toEqual([])
-    expect(hook(3).filter((c) => c.op === 'meter')).toEqual([{ op: 'meter', kind: 'heat', key: nrun(g).map, delta: -1 }])
+    expect(hook(3).filter((c) => c.op === 'meter')).toEqual([{ op: 'meter', kind: 'stage_heat', key: nrun(g).map, delta: -1 }])
     expect(hook(6).filter((c) => c.op === 'meter')).toHaveLength(1)
     expect(hook(3).filter((c) => c.op === 'counter').map((c) => c.key)).toEqual([`curtain:${run(g).id}:r0`, `curtain:${run(g).id}:x0`])
   })
@@ -1199,6 +1199,115 @@ describe('加演（第 5、6 幕；CYBERSPACE 8.8 節、8.2 節延長賽）', ()
     expect(cur(g).encore).toBeTruthy()
     g.commit(enterDraft(g.k, g.state, { party: ['pc'], night: 'n_b', seed: 12 }))
     expect(cur(g).encore).toBeUndefined()
+  })
+})
+
+describe('加演的邀請只在今晚、人還在簾口（M4 收尾修正批；使用者 2026-11-26 裁決 4）', () => {
+  /** 結算出加演邀請（人站在 blockA 的簾口 F1）。 */
+  function invited(): G {
+    const g = entered({ rule: QUIET })
+    commit(g, [{ op: 'location', to: { block: 'door', facility: 'F1' } as never }])
+    setHeat(g, 95)
+    reachEnd(g)
+    return g
+  }
+
+  it('邀請記著結算那一晚與站的位置；同一晚、站在原處接得了', () => {
+    const g = invited()
+    expect(cur(g).encore).toMatchObject({ day: 8, at: { block: 'door', facility: 'F1' } })
+    expect(encoreBlocks(g.k, g.state)).toEqual([])
+    expect(() => encoreDraft(g.k, g.state, { seed: 21 })).not.toThrow()
+  })
+
+  it('離開簾口：下一份報告發 curtain.encore_void（館方收回了加演的邀請），邀請沒有了、接不了', () => {
+    const g = invited()
+    const reports = commit(g, [{ op: 'location', to: { block: 'street' } as never }])
+    expect(reports.map((r) => r.action)).toEqual(['netrun.test', 'curtain.encore_void'])
+    expect(reports[1]!.outcome.summary).toBe('館方收回了加演的邀請。')
+    expect(cur(g).encore).toBeUndefined()
+    expect(encoreBlocks(g.k, g.state)[0]).toMatch(/沒有加演的邀請/)
+    expect(() => encoreDraft(g.k, g.state)).toThrow(ActionBlocked)
+  })
+
+  it('過了這一晚（隔天清晨之後）：同一個地點也作廢，同一句話', () => {
+    const g = invited()
+    expect(encoreBlocks(g.k, g.state)).toEqual([])
+    commit(g, [{ op: 'time', minutes: 12 * 60 }])
+    expect(cur(g).encore).toBeUndefined()
+    expect(reportsOf(g, 'curtain.encore_void').at(-1)!.outcome.summary).toBe('館方收回了加演的邀請。')
+  })
+
+  it('午夜之後、清晨三點以前還是同一晚：邀請照樣有效', () => {
+    const g = invited()
+    commit(g, [{ op: 'time', minutes: 4 * 60 }])
+    expect(g.state.time.hour).toBeLessThan(3)
+    expect(cur(g).encore).toBeTruthy()
+    expect(encoreBlocks(g.k, g.state)).toEqual([])
+  })
+
+  it('報名新的一趟之後邀請不留（原有）；沒有記位置與晚的舊邀請當成沒有作廢', () => {
+    const g = invited()
+    const old = { ...cur(g).encore!, day: undefined, at: undefined }
+    commit(g, [{ op: 'ext', key: 'curtain', value: { ...cur(g), encore: old } as never }])
+    commit(g, [{ op: 'location', to: { block: 'street' } as never }])
+    expect(cur(g).encore).toBeTruthy()
+    expect(encoreBlocks(g.k, g.state)).toEqual([])
+  })
+})
+
+describe('加演中途觀眾散場：走完的幕的獎金照算（M4 收尾修正批 應修 4；CYBERSPACE 8.8 節）', () => {
+  it('加演走完第 5 幕、在第 6 幕場熱掉到 0：獎金 ×2、沒有打賞，不比自己登出少', async () => {
+    const g = entered({ rule: QUIET })
+    setHeat(g, 95)
+    reachEnd(g)
+    g.commit(encoreDraft(g.k, g.state, { seed: 21 }))
+    toLayer(g, 1)
+    commit(g, [{ op: 'ext', key: 'netrun', value: { ...nrun(g), layer: 1 } as never }])
+    const before = cash(g)
+    // 場熱到 0：這份報告套用完，stage 記下 cut，接著 netrun.finish_request 收場（同一次提交裡接著發）
+    setHeat(g, 0)
+    expect(resultOf(g)).toMatchObject({ outcome: 'done', early: true, encore: 1, prize: 1800, tips: 0, refund: 0 })
+    expect(cash(g) - before).toBe(1800)
+  })
+
+  it('加演第 5 幕就散場：還沒有走完的幕，沒有獎金', () => {
+    const g = entered({ rule: QUIET })
+    setHeat(g, 95)
+    reachEnd(g)
+    g.commit(encoreDraft(g.k, g.state, { seed: 21 }))
+    setHeat(g, 0)
+    expect(resultOf(g)).toMatchObject({ early: true, prize: 0, tips: 0 })
+  })
+
+  it('基本的四幕散場：照舊沒有獎金、保證金退回', () => {
+    const g = entered({ rule: QUIET })
+    toLayer(g, 2)
+    setHeat(g, 0)
+    expect(resultOf(g)).toMatchObject({ early: true, prize: 0, refund: 300 })
+  })
+})
+
+describe('場熱的量表叫 stage_heat（M4 收尾修正批 必修 1；使用者裁決 2026-11-24）', () => {
+  const LIVE: Feature = {
+    id: 'live_stub', install: (k) => k.effects.register({ kind: 'heat', owner: 'live_stub', validate: () => [], toChanges: () => [], describe: () => '直播的熱度' } as never),
+  }
+
+  it('簾後館的量表與它自動註冊的效果、條件都叫 stage_heat，不叫 heat', () => {
+    const g = setup()
+    expect(CURTAIN_HEAT).toBe('stage_heat')
+    expect(g.k.meters.has('stage_heat')).toBe(true)
+    expect(g.k.meters.has('heat')).toBe(false)
+    expect(g.k.effects.has('stage_heat')).toBe(true)
+    expect(g.k.effects.has('heat')).toBe(false)
+  })
+
+  it('另一個功能再註冊效果 heat（M5 的直播熱度）：先裝或後裝簾後館都不撞名', () => {
+    const base = [characterFeature, lewdFeature, enemiesFeature, deckFeature, netrunFeature, sceneFeature, TEST_NET_COMBAT]
+    expect(() => createKernel([...base, curtainFeature, LIVE])).not.toThrow()
+    expect(() => createKernel([...base, LIVE, curtainFeature])).not.toThrow()
+    const k = createKernel([...base, LIVE, curtainFeature])
+    expect(k.effects.has('heat')).toBe(true)
+    expect(k.effects.has('stage_heat')).toBe(true)
   })
 })
 

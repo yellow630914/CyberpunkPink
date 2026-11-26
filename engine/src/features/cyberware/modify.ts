@@ -12,7 +12,7 @@
 
 import type { ActorId, BlueprintEntry, Change, CheckRoll, GameState, ItemStack, Kernel, PartEntry, PartRef, ProductData, ReportDraft, TimelineBeat } from '../../core'
 import {
-  ActionBlocked, DEGREE_NAME, clone, deriveRng, isRecord, partOf, partStack, partTypeName, rollCheck, slotProblems,
+  ActionBlocked, DEGREE_NAME, clone, deriveRng, isRecord, partOf, partStack, partTypeName, rollCheck, sinkUpChanges, slotProblems,
 } from '../../core'
 import { pieceBlueprint } from './deck'
 import { pieceName } from './lock'
@@ -212,7 +212,7 @@ export function modifyDraft(k: Kernel, state: GameState, o: ModifyOpts): ReportD
   let result: string
 
   if (!swapped) {
-    changes.push({ op: 'time', minutes: q.minutes }, { op: 'actor.track', id: o.actor, track: 'sink', delta: 1 })
+    changes.push({ op: 'time', minutes: q.minutes }, ...sinkUpChanges(k, state, o.actor, 1))
     lines.push(`${who}，換${q.name}的${partTypeName(q.type)}時失了手：沒有換成，神經被扯得很痛，新的零件還留在背包裡。`, `${patient.name}又往深處滑了一點。`)
     result = 'botched'
   } else {

@@ -12,6 +12,7 @@ import { makePatrol, moverChanges, nextPatrolId } from './patrol'
 import { countsOf, netrunRules, regionOf } from './rules'
 import { traceMod } from './tracemod'
 import { applyHot, digCounts, digPlan, digTraceStart, extraWhite, markTraps, markedTrapChanges, reviveDig, tintColor } from './dig'
+import { loginTriggers } from './common'
 
 /** 層的名字（資料的 layer 欄位）→ 給玩家看的。 */
 export const LAYER_NAME: Record<string, string> = { guest: '訪客層', staff: '員工層', control: '管理層', core: '核心層' }
@@ -491,7 +492,7 @@ export function startRun(k: Kernel, state: GameState, kind: RunKind, rawSetup: u
   const summary = `你潛進了「${region.name}」：${label}${genParsed.layers.length > 1 ? `（共 ${genParsed.layers.length} 層）` : ''}。${notes.join('')}`
   return [{
     kind: 'netrun', action: 'netrun.enter', location: { ...clone(state.location), subnet: { id: region.id, layer: 1 } }, ...(state.pc ? { actor: state.pc } : {}), party: [], timeline: [],
-    changes, outcome: { result: 'entered', summary }, ...(notes.length ? { narration: { results: notes } } : {}),
+    changes, outcome: { result: 'entered', summary }, ...(notes.length ? { narration: { results: notes } } : {}), triggers: loginTriggers(k, state),
   }]
 }
 

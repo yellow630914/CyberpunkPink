@@ -27,12 +27,14 @@ export const NIGHT_KIND = 'curtain_night'
 /** 點單表、賞箱表、獎品表（各一筆 d6 的表；M4-curtain-run）。 */
 export const TABLE_KIND = 'curtain_table'
 /** 場熱的量表：一趟一條，鍵是那一趟的地圖實例（和追蹤度同一個做法）。 */
-export const HEAT = 'heat'
+export const HEAT = 'stage_heat'
 /** 票根：核心的計數器。 */
 export const STUBS = 'curtain:stubs'
 export const FLAG_SPONSOR = 'curtain_sponsor'
 /** 一趟網內的行程的活動名字（features/netrun 的）：只用名字，不 import。 */
 export const ACT_NETRUN = 'netrun'
+/** 潛入的活動名字（features/dive 的）：簾口放在潛入裡的網內街區時，一趟的外框；只用名字，不 import。 */
+export const ACT_DIVE = 'dive'
 /** 開那一趟時 origin.by 寫這個，掛點收到的 run.origin.by 用它認得「這是簾後館開的」。 */
 export const ORIGIN_BY = 'curtain'
 /** 這一區的 id（DATA 第 10 節：region 的 curtain）。 */
@@ -49,6 +51,8 @@ export const REST_ACTION = 'curtain.rest'
 export const RESULT_ACTION = 'curtain.result'
 export const STAGE_ACTION = 'curtain.stage'
 export const ENCORE_ACTION = 'curtain.encore'
+/** 加演的邀請作廢（離開簾口或過了這一晚）。 */
+export const ENCORE_VOID_ACTION = 'curtain.encore_void'
 export const FALL_ACTION = 'curtain.fall'
 export const REPLAY_ACTION = 'curtain.replay'
 export const SETTLE_ACTION = 'curtain.settle'
@@ -719,6 +723,10 @@ export interface EncoreRec {
   pure_stage: boolean
   heat: number
   tips_mult: number
+  /** 結算那一晚（nightOf）：過了這一晚邀請作廢（使用者 2026-11-26 裁決 4） */
+  day?: number
+  /** 結算時人站的位置（簾口）：離開簾口邀請作廢（簾口在潛入裡時就是潛入中的那一格） */
+  at?: { block?: string; facility?: string }
 }
 
 export interface CurtainState {
@@ -847,6 +855,8 @@ function readEncore(raw: unknown): EncoreRec | undefined {
   return {
     from: raw.from, night: raw.night, tier: raw.tier as TierId, grade: raw.grade, party: Array.isArray(raw.party) ? raw.party.filter(isText) : [], feature: raw.feature === true, pure_stage: raw.pure_stage === true,
     heat: isInt(raw.heat) ? raw.heat : 0, tips_mult: isNum(raw.tips_mult) ? raw.tips_mult : 1,
+    ...(isInt(raw.day) ? { day: raw.day } : {}),
+    ...(isRecord(raw.at) ? { at: { ...(isText(raw.at.block) ? { block: raw.at.block } : {}), ...(isText(raw.at.facility) ? { facility: raw.at.facility } : {}) } } : {}),
   }
 }
 

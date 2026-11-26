@@ -7,6 +7,7 @@ import type { Condition, GameState, Kernel, Rng } from '../../core'
 import { contentAllowed, deriveRng, partOf, productPrice, toMinutes } from '../../core'
 import type { BidderEntry, HouseEntry, LookResult, LotEntry, LotKind } from './model'
 import { BIDDER_KIND, DEFAULT_CERT, FAKEABLE, LOT_KIND, LOT_KINDS, auctionOf, auctionRules, kindName, lotKey } from './model'
+import { undeliverable } from './give'
 import type { Session } from './session'
 import { sessionOf } from './session'
 
@@ -71,6 +72,8 @@ function eligible(k: Kernel, state: GameState, house: HouseEntry, lot: LotEntry,
     const ctx = { state, stats: k.stats, timeRules: k.timeRules }
     if (!lot.needs.every((c) => k.conditions.test(c as unknown as Condition, ctx))) return false
   }
+  // 契約與機密：現在交不出去的先不抽（已經持有他的契約、人還不在場上、效果落空……；LEWD_SYSTEM 6.2 節「交不出去」）
+  if ((lot.kind === 'contract' || lot.kind === 'secret') && undeliverable(k, state, lot, house.name) !== null) return false
   // 零件與義體：資料要查得到（格式檢查在載入時擋過；這裡是不 import 別的功能的最後一道）
   if (lot.kind === 'part' && !(lot.part !== undefined && partOf(k.content, lot.part))) return false
   if (lot.kind === 'cyberware' && !(lot.blueprint !== undefined && k.content.get('blueprint', lot.blueprint))) return false

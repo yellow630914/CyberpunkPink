@@ -101,7 +101,8 @@ const METERS: Feature = {
 const HOLD: Feature = {
   id: 'test_hold',
   install(k: Kernel) {
-    k.effects.register({ kind: 'contract_hold', owner: 'test_hold', ai: false, validate: () => [], toChanges: () => [], describe: () => '持約。' })
+    // 假的 contract_hold：把整筆參數記在旗標上（要有變更，目錄才認為交得出去；真的 contract_hold 的整合測試在 M4-fix-auction.test.ts）
+    k.effects.register({ kind: 'contract_hold', owner: 'test_hold', ai: false, validate: () => [], toChanges: (e: Rec) => [{ op: 'flag', key: `held:${String(e.npc)}`, value: true }], describe: () => '持約。' })
   },
 }
 

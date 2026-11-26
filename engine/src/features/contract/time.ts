@@ -1,32 +1,34 @@
 // L6 功能 contract 隨時間與別的報告發生的事（dev/work/M4-contract.md 第 2、6、7、8、9 點；EVENTS 4.5 節；DOWNTIME 4.2 節；dev/adr/0019 P27～P30）。
-//   time.passed     這一刻在委託副本裡：每一條還沒了結的指令的期限往後挪經過的時間（報告 contract.pause）；沒在副本裡才計時：
+//   time.passed     這一刻玩家處在任何活動裡（委託副本、潛入、簾後館的一趟與網內的行程、拍賣、成人場景、事件……人走不開）：每一條還沒了結的指令的期限往後挪經過的時間（報告 contract.pause）；沒在活動裡才計時：
 //                   期滿 → 解約（contract.end）；強制的過了期限 → overdue、滿意 −10、抽一種處置（鎖義體、感載、報位置），沒有效果可用的那一種不抽；
 //                   送達或作廢的過了期限 → 作廢、滿意 −5（contract.overdue）；
 //                   每天 08:00：每週回報那一天排一條 report（不擲）、佇列不到 queue_max 就擲要不要下指令、下哪一種（contract.order）；
 //                   債務契約每 30 天加一期月息（contract.pay）；
 //                   每天 05:00：有宵禁就查人在不在住處（條件 at_home；沒有人註冊就不查），不在記一次違規（contract.rule）。
-//   report.before   指令裡有照做中或被強制的工作，而且這份報告是打工結算（action 以 work. 開頭）：往上的錢 (1 − income_keep) 改成不給，
-//                   債務契約把那些記成還債；債還完就解約。並在這份報告的結果加一句。
+//   report.before   指令裡有照做中或被強制的工作，而且這份報告是打工結算（action 以 work. 開頭、一班）：這一班在期限內打完就自動照做（那一條工作 done：滿意 +5、照做次數 +1，
+//                   每 docility_every 次馴化 +1），往上的錢 (1 − income_keep) 改成不給（抽成只算這一班；之後的班照拿），債務契約把那些記成還債；債還完就解約。
+//                   結果的那一句話走掛點的 { changes, lines }（核心接到報告的結果與摘要，掛點不自己改草稿）。
 //   report.after    把記著的通知（簽下、解約、事件塞進來的指令）寫成報告（contract.sign、contract.end、contract.order）；
 //                   一份讓主角走進禁區的報告之後接一份違規（contract.rule、滿意 −5）。
 // 骰子一律 deriveRng（用途帶時間或 id）；一次跨很多天，每一種最多補最近三次。
 
-import type { ActorId, Change, Effect, GameState, GameTime, Kernel, Report, ReportDraft } from '../../core'
+import type { ActorId, Change, Effect, GameState, GameTime, Kernel, Report, ReportBeforeAnswer, ReportDraft } from '../../core'
 import { MINUTES_PER_DAY, clone, compareNatural, crossings, dailyCrossings, deriveRng, toMinutes, weekdayOf } from '../../core'
 import { draftOf } from './draft'
 import type { Contract, ContractExt, Order } from './model'
 import {
-  COMMISSION, DEBT_PERIOD_DAYS, END_ACTION, HOLD_ACTION, RELEASE_ACTION, LOAD_CAP_STAT, METER_KEY, ORDER_ACTION, ORDER_NAME, OVERDUE_ACTION, PAUSE_ACTION, PAY_ACTION, RULE_ACTION, SATISFACTION, SIGN_ACTION,
+  DEBT_PERIOD_DAYS, END_ACTION, HOLD_ACTION, RELEASE_ACTION, LOAD_CAP_STAT, METER_KEY, ORDER_ACTION, ORDER_NAME, OVERDUE_ACTION, PAUSE_ACTION, PAY_ACTION, RULE_ACTION, SATISFACTION, SIGN_ACTION,
   activeCount, contractOf, contractRules, dailyChance, extAfter, extChange, extOf, isActive, kindWeights, meterNow, nowOf, pcOf, scopeData, trimRecords,
 } from './model'
-import { builtinFx, endPlan, makeOrder, orderText } from './plans'
+import { builtinFx, completePlan, endPlan, makeOrder, orderText } from './plans'
 import { holderDrafts, releasedTrigger } from './held'
 
 /** 一次跨過很多天，每一種最多補最近幾次。 */
 const MAX_CATCH_UP = 3
 const CURFEW_RULE = { every: 1440, offset: 5 * 60 }
 
-const inCommission = (k: Kernel, state: GameState): boolean => k.activity.active(state).some((a) => a.kind === COMMISSION)
+/** 玩家現在處在任何一段活動裡（委託副本、潛入、簾後館的一趟、網內的行程、拍賣、成人場景、事件……）：人走不開，指令的期限暫停（使用者 2026-11-26 裁決 2）。 */
+const inActivity = (k: Kernel, state: GameState): boolean => k.activity.active(state).length > 0
 
 // ---- 逾期的處置 ----
 
@@ -76,19 +78,27 @@ function overdueDraft(k: Kernel, sim: GameState, pc: ActorId, orderId: string): 
   o.closed = nowOf(sim)
   if (!forced) o.lapsed = true
   trimRecords(c, rules.keep_records)
-  const changes: Change[] = [extChange(ext), { op: 'meter', kind: SATISFACTION, key: METER_KEY, delta: forced ? rules.satisfaction.overdue : rules.satisfaction.expire }]
+  const satisfaction: Change = { op: 'meter', kind: SATISFACTION, key: METER_KEY, delta: forced ? rules.satisfaction.overdue : rules.satisfaction.expire }
   const name = ORDER_NAME[o.kind]
-  if (!forced) return draftOf(sim, 'downtime', OVERDUE_ACTION, changes, [`${c.holder.name}交代的${name}過了期限，沒有人理它，指令作廢了，${c.holder.name}的滿意掉了一點。`], 'lapsed')
+  // 報告帶這一條的編號與種類（畫面不用比對正文）；了結的這一條也記著處置（OrderView.outcome）
+  const data = { order: o.id, kind: o.kind }
+  if (!forced) {
+    const text = `${c.holder.name}交代的${name}過了期限，沒有人理它，指令作廢了，${c.holder.name}的滿意掉了一點。`
+    o.outcome = { result: 'lapsed', text }
+    return draftOf(sim, 'downtime', OVERDUE_ACTION, [extChange(ext), satisfaction], [text], 'lapsed', { data })
+  }
   const avail = overdueOptions(k, sim, pc, c).filter((x) => x.available)
   const lines = [`${c.holder.name}交代的${name}過了期限，你還是沒有做，滿意掉了一大截。`]
   let result = 'overdue'
+  const extra: Change[] = []
   if (avail.length > 0) {
     const pick = deriveRng(sim.rng, `${OVERDUE_ACTION}/${o.id}`).weighted(avail, (x) => x.weight)
-    changes.push({ op: 'rng', advance: 1 }, ...pick.changes)
+    extra.push({ op: 'rng', advance: 1 }, ...pick.changes)
     lines.push(pick.text)
     result = `overdue_${pick.id}`
   }
-  return draftOf(sim, 'downtime', OVERDUE_ACTION, changes, lines, result)
+  o.outcome = { result, text: lines.join('') }
+  return draftOf(sim, 'downtime', OVERDUE_ACTION, [extChange(ext), satisfaction, ...extra], lines, result, { data: { ...data, penalty: result } })
 }
 
 // ---- time.passed ----
@@ -114,10 +124,10 @@ function mineDrafts(k: Kernel, sim: GameState, emit: (d: ReportDraft) => void, p
   const state = sim
   const nowTo = toMinutes(to)
   const span = nowTo - toMinutes(from)
-  const paused = inCommission(k, state)
+  const paused = inActivity(k, state)
   const rules = contractRules(k)
 
-  // 委託副本裡不計時：期限往後挪經過的時間
+  // 活動裡不計時：期限往後挪經過的時間
   if (paused && span > 0 && extOf(sim).mine!.queue.some(isActive)) {
     const ext = extOf(sim)
     for (const o of ext.mine!.queue) if (isActive(o)) o.deadline += span
@@ -132,7 +142,7 @@ function mineDrafts(k: Kernel, sim: GameState, emit: (d: ReportDraft) => void, p
     return
   }
 
-  // 逾期（副本裡不計）
+  // 逾期（活動裡不計）
   if (!paused) {
     const due = contractOf(sim)!.queue.filter((o) => isActive(o) && o.deadline <= nowTo).sort((a, b) => a.deadline - b.deadline || compareNatural(a.id, b.id))
     for (const o of due) {
@@ -197,36 +207,55 @@ function mineDrafts(k: Kernel, sim: GameState, emit: (d: ReportDraft) => void, p
 
 // ---- report.before：收入歸屬 ----
 
-/** 這份報告是打工的結算：action 以 work. 開頭（features/work 的是 work.shift）。 */
-export const isWorkSettle = (draft: Pick<ReportDraft, 'action'>): boolean => typeof draft.action === 'string' && draft.action.startsWith('work.')
+/** 這份報告是打工的結算：action 以 work. 開頭（features/work 的是 work.shift；升職 work.promote 不算）。 */
+export const isWorkSettle = (draft: Pick<ReportDraft, 'action'>): boolean => typeof draft.action === 'string' && draft.action.startsWith('work.') && draft.action !== 'work.promote'
 
-export function incomeBefore(k: Kernel, state: GameState, draft: ReportDraft): Change[] | undefined {
+/** 這份報告自己讓時間走了幾分鐘（一班的時間）。 */
+const spanOf = (draft: Pick<ReportDraft, 'changes'>): number => draft.changes.reduce((s, c) => (c.op === 'time' && typeof c.minutes === 'number' ? s + c.minutes : s), 0)
+
+/**
+ * 打一班（使用者 2026-11-26 裁決 3）：期限內打完一班就自動照做那一條工作（滿意 +5、照做次數 +1，每 docility_every 次馴化 +1）；抽成只算這一班（往上的錢 (1 − income_keep) 歸持約人，
+ * 債務契約記成還債）；之後的班照拿。指令的期限在這一班結束之前就過了（或這一班打完之後才過）的不算：不抽成、不自動照做，留給逾期去處理。
+ * 同時有好幾條工作時，一班只收期限最近的那一條。結果的句子回傳 lines，不自己改草稿。
+ */
+export function incomeBefore(k: Kernel, state: GameState, draft: ReportDraft): ReportBeforeAnswer | undefined {
   if (!isWorkSettle(draft)) return undefined
   const pc = pcOf(state)
   const ext: ContractExt = extAfter(state, draft.changes)
   const c = ext.mine
-  if (!pc || !c || !c.queue.some((o) => o.kind === 'work' && (o.state === 'doing' || o.state === 'forced'))) return undefined
+  if (!pc || !c) return undefined
+  const end = nowOf(state) + spanOf(draft)
+  const order = c.queue
+    .filter((o) => o.kind === 'work' && (o.state === 'doing' || o.state === 'forced') && o.deadline >= end)
+    .sort((a, b) => a.deadline - b.deadline || compareNatural(a.id, b.id))[0]
+  if (!order) return undefined
   const keep = contractRules(k).income_keep
-  const out: Change[] = []
+  const cuts: Change[] = []
   let taken = 0
+  let paid = 0
   for (const ch of draft.changes) {
     if ((ch.op !== 'cash' && ch.op !== 'cred') || typeof ch.delta !== 'number' || ch.delta <= 0) continue
+    paid += ch.delta
     const cut = Math.floor(ch.delta * (1 - keep) + 1e-9)
     if (cut <= 0) continue
     taken += cut
-    out.push({ op: ch.op, delta: -cut })
+    cuts.push({ op: ch.op, delta: -cut })
   }
-  if (taken <= 0) return undefined
-  let line: string
-  if (c.type === 'debt') {
-    c.debt = Math.max(0, (c.debt ?? 0) - taken)
-    line = '工作的收入大部分直接抵了債，只有一點零用錢到了你手上。'
-  } else line = '工作的收入大部分歸了持約人，你只拿到一點零頭。'
-  if (c.type === 'debt' && c.debt === 0) out.push(...endPlan(state, pc, 'paid_off', { base: ext })!.changes)
-  else out.push(extChange(ext))
-  draft.narration = { ...(draft.narration ?? {}), results: [...(draft.narration?.results ?? []), line] }
-  draft.outcome = { ...draft.outcome, summary: `${draft.outcome.summary}${line}` }
-  return out
+  // 沒有錢進帳的報告不是打完一班：不動
+  if (paid <= 0) return undefined
+  const lines: string[] = []
+  if (taken > 0) {
+    if (c.type === 'debt') {
+      c.debt = Math.max(0, (c.debt ?? 0) - taken)
+      lines.push('工作的收入大部分直接抵了債，只有一點零用錢到了你手上。')
+    } else lines.push('工作的收入大部分歸了持約人，你只拿到一點零頭。')
+  }
+  // 債還完：解約（沒有契約了，也就沒有指令要收）
+  if (c.type === 'debt' && c.debt === 0 && taken > 0) return { changes: [...cuts, ...endPlan(state, pc, 'paid_off', { base: ext })!.changes], lines }
+  // 這一班就是照做：收成 done（滿意、照做次數、馴化）
+  const done = completePlan(k, state, pc, order.id, ext)!
+  lines.push(`這一班在期限之內打完了，算你照做了${c.holder.name}交代的這一條工作。`, ...done.lines)
+  return { changes: [...cuts, ...done.changes], lines }
 }
 
 // ---- report.after：通知與禁區 ----

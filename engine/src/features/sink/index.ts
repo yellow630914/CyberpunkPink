@@ -11,15 +11,16 @@
 //   條件  sunk（沉溺 100 以上；看 ctx.actor ?? 主角）
 //   效果  sink_floor { amount, days?, why? }（暫時或永久的下限加減，只有內建的來源能用；沉溺不到新的下限時同一份報告補上去）
 //   變更  sink.ext（合併著寫 actor.ext.sink：下限加減、心理治療做過幾次、餘韻的起點）
+//   活動  retreat（order 70）：斷線靜修進行中（retreat.ts）；放行只有 sink.retreat 與事件、戰鬥；時間到了的結算掛 report.after
 //   掛鉤  time.passed 順序 13：每週一的自然下降與每週的事（weekly.ts）；順序 20：長時間帶著餘韻（carry.ts）；report.before：維護餘韻的起點
 //   計數器 state.counters 的 sleeps:<週>：features/rest 在睡一覺的報告上加 1，這裡週一讀上一週的（週的編號是第一個週一 06:00 起算第 1 週）
 // 讀的：k.stats（sink_floor、composure 的檢定 provider 都經由 k.passives）、k.effects（sink、hostility；hostility 沒有人註冊或查不到勢力就略過）、k.conditions（at_facility）、k.meters（favor）、k.content。
 // 狀態  actor.ext.sink：{ floor_mods: [{ amount, until?, why? }], therapy_week?, therapy_n?, carry_from?, carry_paid? }（形狀見 model.ts；只經由 sink.ext 變更寫）
-// 報告  sink.week（每週的那一份；帶觸發點，例如 impulse）、sink.therapy、sink.carry（長時間帶著餘韻的沉溺，與記號的整理）
+// 報告  sink.week（每週的那一份；帶觸發點，例如 impulse）、sink.therapy（心理治療；斷線靜修是開始）、sink.retreat（待下去、提早離開、結算）、sink.carry（長時間帶著餘韻的沉溺，與記號的整理）
 // 對外：sinkView、bandOf、nextBandOf、sinkRules、therapyBlock／therapyProblems／therapyQuote／therapyDraft、weeklyDrafts。
 //
 // 沒有做：過牆、群落、流竄 AI 的委託、溺感者的傳播（只留條件 sunk）；「聽得懂遺魂」「深海溫和」「牆外的接觸」「自由行動時 AI 把衝動寫進結果」「清明的人怕你」（內容與 M6、AI）；
-// 「餘韻的正面效果加倍」（餘韻的正面效果在核心的戰鬥規則裡，這裡只加倍檢定的加減）；夥伴離隊在 roster；抑制劑在 drugs；斷線靜修期間的關橋與禁止潛入；治療的價錢沒有乘區的倍率。
+// 「餘韻的正面效果加倍」（餘韻的正面效果在核心的戰鬥規則裡，這裡只加倍檢定的加減）；夥伴離隊在 roster；抑制劑在 drugs；治療的價錢乘區的倍率另見 M4 收尾修正批。
 
 import type { Condition, ConditionCtx, ContentEntry, Feature, Kernel, ReportDraft } from '../../core'
 import { ContentError, isRecord, isSafeInt, passiveProblems } from '../../core'
@@ -27,19 +28,22 @@ import { carryBefore, carryDrafts } from './carry'
 import { registerFloor } from './floor'
 import { sinkPassives } from './passive'
 import { weeklyDrafts } from './weekly'
-import { FACILITY_TYPE_KIND, OWNER, RULE_KIND, SHOWN_STAT, SUNK_AT, SUNK_CONDITION, THERAPY_KINDS, ruleProblems, sinkRules } from './model'
+import { retreatOf, retreatReason, retreatSettle } from './retreat'
+import { FACILITY_TYPE_KIND, OWNER, RETREAT_ACTION, RETREAT_ACTIVITY, RULE_KIND, SHOWN_STAT, SUNK_AT, SUNK_CONDITION, THERAPY_KINDS, ruleProblems, sinkRules } from './model'
 
 export { CARRY_ACTION } from './carry'
 export { weeklyDrafts } from './weekly'
 export { therapyBlock, therapyDraft, therapyHere, therapyProblems, therapyQuote } from './therapy'
+export { retreatLeaveBlock, retreatLeaveDraft, retreatOf, retreatReason, retreatSettle, retreatStayBlock, retreatStayDraft, retreatView } from './retreat'
+export type { RetreatView } from './retreat'
 export type { TherapyFacility, TherapyOpts, TherapyQuote } from './therapy'
 export { sinkView } from './view'
 export type { BandView, SinkView } from './view'
 export {
-  DEFAULT_SINK_RULES, EXT as SINK_EXT, PERCEPTION_SKILLS, FLOOR_EFFECT as SINK_FLOOR_EFFECT, SHOWN_STAT as SINK_SHOWN_STAT, SUNK_AT, THERAPY_ACTION, WEEK_ACTION as SINK_WEEK_ACTION,
+  DEFAULT_SINK_RULES, EXT as SINK_EXT, PERCEPTION_SKILLS, FLOOR_EFFECT as SINK_FLOOR_EFFECT, RETREAT_ACTION as SINK_RETREAT_ACTION, RETREAT_ACTIVITY as SINK_RETREAT_ACTIVITY, SHOWN_STAT as SINK_SHOWN_STAT, SUNK_AT, THERAPY_ACTION, WEEK_ACTION as SINK_WEEK_ACTION,
   bandOf, nextBandOf, readExt as readSinkExt, sinkRules, sleepKey, weekOf as sinkWeekOf,
 } from './model'
-export type { BandWeekly, FloorMod, SinkBand, SinkExt, SinkRules, TherapyKind } from './model'
+export type { BandWeekly, FloorMod, RetreatRec, SinkBand, SinkExt, SinkRules, TherapyKind } from './model'
 
 export const sinkFeature: Feature = {
   id: OWNER,
@@ -62,6 +66,19 @@ export const sinkFeature: Feature = {
 
     // 效果 sink_floor 與變更 sink.ext
     registerFloor(k)
+
+    // 活動 retreat：斷線靜修進行中（使用者 2026-11-26）。橋關著、不能潛入、不能做別的事；放行的只有自己的報告與意外的事（事件、戰鬥）
+    k.activity.define({
+      kind: RETREAT_ACTIVITY, owner: OWNER, order: 70,
+      active: (state) => {
+        const r = retreatOf(state)
+        return r ? { id: RETREAT_ACTIVITY, label: `斷線靜修中（${r.facility}）` } : null
+      },
+      allow: [`commit:${RETREAT_ACTION}`, 'commit:event.', 'event.start', 'battle.', 'commit:battle.', 'chain:battle_end', 'battle.retry', 'commit:defeat.'],
+      reason: retreatReason,
+    })
+    // 時間到了而且手上沒有別的活動：結算
+    k.hooks.on('report.after', OWNER, ({ state, report }) => retreatSettle(k, state, report))
 
     // 每週一
     k.hooks.on('time.passed', OWNER, ({ state, from, to }): ReportDraft[] | void => {

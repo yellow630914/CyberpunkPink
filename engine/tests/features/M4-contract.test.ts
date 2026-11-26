@@ -623,14 +623,34 @@ describe('照做或抗拒', () => {
     expect(q(g2, O(1)).state).toBe('forced')
   })
 
-  it('沒有契約、副本裡都不能選', () => {
+  it('沒有契約不能選；委託副本裡照樣能回（使用者 2026-11-26 裁決 2：回一句話不用走動）', () => {
     const g = make()
     expect(chooseBlock(g.k, g.state, { order: O(1), how: 'comply' })).toMatch(/沒有管理級/)
     sign(g)
     order(g, 'errand')
     flag(g, 'in_comm')
-    expect(chooseBlock(g.k, g.state, { order: O(1), how: 'comply' })).toMatch(/副本/)
-    expect(reasonOf(() => g.commit(chooseDraft(g.k, g.state, { order: O(1), how: 'comply' })))).toMatch(/副本/)
+    expect(chooseBlock(g.k, g.state, { order: O(1), how: 'comply' })).toBeNull()
+    g.commit(chooseDraft(g.k, g.state, { order: O(1), how: 'comply' }))
+    expect(q(g, O(1)).state).toBe('doing')
+  })
+
+  it('任何活動裡都能回（allowEverywhere），戰鬥與等著選的戰敗除外；走到了、做完仍然要在活動外', () => {
+    const g = make()
+    sign(g)
+    order(g, 'errand')
+    flag(g, 'in_comm')
+    expect(g.blockOf('commit:contract.choose')).toBeNull()
+    expect(g.blockOf('commit:contract.arrive')).toMatch(/副本/)
+    expect(g.blockOf('commit:contract.done')).toMatch(/副本/)
+    // 之後才登記的活動也一樣放行
+    g.k.activity.define({ kind: 'late_act', owner: 'test', order: 95, active: (s) => (s.flags.late === true ? { id: 'l1', label: '晚來的活動' } : null), allow: [], reason: () => '晚來的活動進行中。' })
+    flag(g, 'late')
+    expect(g.blockOf('commit:contract.choose')).toBeNull()
+    // 核心的戰鬥與戰敗只收自己的事
+    const battle = g.k.activity.get('battle')
+    expect(battle).toBeTruthy()
+    expect(battle!.allow).not.toContain('commit:contract.choose')
+    expect(g.k.activity.get('defeat')!.allow).not.toContain('commit:contract.choose')
   })
 })
 
@@ -842,6 +862,52 @@ describe('逾期', () => {
     expect(reports(g, 'contract.overdue').map((r) => r.outcome.result)).toEqual(['lapsed', 'lapsed'])
   })
 
+  it('逾期的報告帶指令的編號與種類；boundView 的佇列帶 closed 與處置（畫面不用比對正文）', () => {
+    const g = make({ pack: lockOnly() })
+    sign(g)
+    order(g, 'errand', { hours: 10 })
+    order(g, 'work', { hours: 1 })
+    g.commit(withDice(NAT10, () => chooseDraft(g.k, g.state, { order: O(1), how: 'resist' })))
+    advance(g, 120)
+    // 第二條（sent）作廢；第一條（forced）還沒到期
+    const lapsed = reports(g, 'contract.overdue')[0]!
+    expect(lapsed.timeline[0]!.data).toMatchObject({ order: O(2), kind: 'work' })
+    expect(view(g).queue.find((o) => o.id === O(2))).toMatchObject({ state: 'overdue', closed: expect.any(Number), outcome: { result: 'lapsed', text: expect.stringMatching(/作廢/) } })
+    advance(g, 10 * 60)
+    const forced = reports(g, 'contract.overdue')[1]!
+    expect(forced.timeline[0]!.data).toMatchObject({ order: O(1), kind: 'errand', penalty: 'overdue_lock' })
+    const row = view(g).queue.find((o) => o.id === O(1))!
+    expect(row.state).toBe('overdue')
+    expect(row.closed).toBeTypeOf('number')
+    expect(row.outcome).toMatchObject({ result: 'overdue_lock' })
+    expect(row.outcome!.text).toMatch(/鎖住/)
+    // 還沒了結的沒有 closed、outcome
+    order(g, 'serve', { hours: 40 })
+    const live = view(g).queue.find((o) => o.id === O(3))!
+    expect(live.closed).toBeUndefined()
+    expect(live.outcome).toBeUndefined()
+  })
+
+  it('任何活動裡期限都暫停：潛入、簾後館的一趟、拍賣、成人場景……（不只委託副本）；活動結束之後才繼續算', () => {
+    const g = make({ pack: lockOnly() })
+    g.k.activity.define({ kind: 'dive', owner: 'test', order: 85, active: (s) => (s.flags.in_dive === true ? { id: 'd1', label: '潛入中' } : null), allow: ['commit:test.'], reason: () => '潛入中。' })
+    sign(g, { holder: { ...WHITE, freq: 0 }, report_weekday: 6 })
+    order(g, 'errand', { hours: 48 })
+    g.commit(withDice(NAT10, () => chooseDraft(g.k, g.state, { order: O(1), how: 'resist' })))
+    const before = q(g, O(1)).deadline
+    flag(g, 'in_dive')
+    advance(g, 100 * 60)
+    expect(q(g, O(1)).deadline).toBe(before + 100 * 60)
+    expect(q(g, O(1)).state).toBe('forced')
+    // 潛入裡照樣回得了話
+    order(g, 'work', { hours: 20 })
+    g.commit(chooseDraft(g.k, g.state, { order: O(2), how: 'comply' }))
+    expect(q(g, O(2)).state).toBe('doing')
+    flag(g, 'in_dive', false)
+    advance(g, 100 * 60)
+    expect(q(g, O(1)).state).toBe('overdue')
+  })
+
   it('委託副本進行中不計時：副本裡過 100 小時，期限沒有少；出來之後才繼續算', () => {
     const g = make({ pack: lockOnly() })
     sign(g, { holder: { ...WHITE, freq: 0 }, report_weekday: 6 })
@@ -872,7 +938,7 @@ describe('逾期', () => {
 describe('收入歸屬', () => {
   const settle = (g: G, delta = 200, action = 'work.settle', op = 'cash') => g.commit(draft([{ op, delta }], action))
 
-  it('work 指令進行中：work.settle 給 200 現金的報告實際只進 20、債少 180、結果多一句；沒有指令時照拿', () => {
+  it('work 指令進行中：打完一班（work.settle 給 200 現金）實際只進 20、債少 180、這一條自動算照做（滿意 +5、照做 +1）；之後的班照拿；沒有指令時照拿', () => {
     const g = make({ money: { cred: 0, cash: 1000 } })
     sign(g, { holder: EDEN, type: 'debt', debt: 1000 })
     settle(g)
@@ -881,17 +947,55 @@ describe('收入歸屬', () => {
     order(g, 'work', { hours: 100 })
     settle(g)
     expect(g.state.money.cash).toBe(1400) // 還沒答應照做，照拿
+    expect(q(g, O(1)).state).toBe('sent')
     g.commit(chooseDraft(g.k, g.state, { order: O(1), how: 'comply' }))
+    const sat0 = sat(g)
     settle(g)
     expect(g.state.money.cash).toBe(1420)
     expect(mine(g).debt).toBe(820)
+    // 這一班就是照做：done、滿意 +5、照做次數 +1
+    expect(q(g, O(1)).state).toBe('done')
+    expect(sat(g)).toBe(sat0 + 5)
+    expect(mine(g).complied).toBe(1)
     const last = g.state.reports.filter((r) => r.action === 'work.settle').slice(-1)[0]!
     expect(last.outcome.summary).toMatch(/抵了債/)
-    expect(last.narration?.results?.slice(-1)[0]).toMatch(/抵了債/)
-    expect(last.changes).toEqual([{ op: 'cash', delta: 200 }, { op: 'cash', delta: -180 }, expect.objectContaining({ op: 'ext', key: 'contract' })])
+    expect(last.outcome.summary).toMatch(/算你照做了/)
+    expect(last.narration?.results?.some((l) => /抵了債/.test(l))).toBe(true)
+    expect(last.changes).toEqual([{ op: 'cash', delta: 200 }, { op: 'cash', delta: -180 }, expect.objectContaining({ op: 'ext', key: 'contract' }), { op: 'meter', kind: 'satisfaction', key: expect.anything(), delta: 5 }])
+    // 抽成只算那一班：之後的班照拿
+    settle(g)
+    expect(g.state.money.cash).toBe(1620)
+    expect(mine(g).debt).toBe(820)
   })
 
-  it('真的打工的結算報告 work.shift 也一樣；強制的 work 也算；其他種類的報告與其他種類的指令不動', () => {
+  it('一班的期限：打完那一班就過了期限的不算（不抽成、不自動照做）；一次只收期限最近的那一條', () => {
+    const g = make({ money: { cred: 0, cash: 1000 } })
+    sign(g, { holder: WHITE, type: 'work' })
+    order(g, 'work', { hours: 1 })
+    g.commit(chooseDraft(g.k, g.state, { order: O(1), how: 'comply' }))
+    // 一班八個小時，期限只剩一小時：打完時已經過了期限
+    g.commit(draft([{ op: 'time', minutes: 8 * 60 }, { op: 'cash', delta: 100 }], 'work.shift'))
+    expect(g.state.money.cash).toBe(1100)
+    expect(q(g, O(1)).state).not.toBe('done')
+    // 兩條工作：一班只收期限近的那一條
+    const g2 = make({ money: { cred: 0, cash: 1000 } })
+    sign(g2, { holder: WHITE, type: 'work' })
+    order(g2, 'work', { hours: 50 })
+    order(g2, 'work', { hours: 20 })
+    g2.commit(chooseDraft(g2.k, g2.state, { order: O(1), how: 'comply' }))
+    g2.commit(chooseDraft(g2.k, g2.state, { order: O(2), how: 'comply' }))
+    settle(g2, 100, 'work.shift')
+    expect(q(g2, O(2)).state).toBe('done')
+    expect(q(g2, O(1)).state).toBe('doing')
+    expect(g2.state.money.cash).toBe(1010)
+    settle(g2, 100, 'work.shift')
+    expect(q(g2, O(1)).state).toBe('done')
+    expect(g2.state.money.cash).toBe(1020)
+    settle(g2, 100, 'work.shift')
+    expect(g2.state.money.cash).toBe(1120)
+  })
+
+  it('真的打工的結算報告 work.shift 也一樣；強制的 work 也算；其他種類的報告與其他種類的指令不動；升職不算一班', () => {
     const g = make({ money: { cred: 0, cash: 1000 } })
     sign(g, { holder: WHITE, type: 'work' })
     order(g, 'errand')
@@ -901,14 +1005,34 @@ describe('收入歸屬', () => {
     order(g, 'work', { hours: 100 })
     g.commit(withDice(NAT10, () => chooseDraft(g.k, g.state, { order: O(2), how: 'resist' })))
     expect(q(g, O(2)).state).toBe('forced')
+    settle(g, 100, 'work.promote')
+    expect(g.state.money.cash).toBe(1200)
+    expect(q(g, O(2)).state).toBe('forced')
     settle(g, 100, 'work.shift')
-    expect(g.state.money.cash).toBe(1110)
+    expect(g.state.money.cash).toBe(1210)
+    expect(q(g, O(2)).state).toBe('done')
     expect(mine(g).debt).toBeUndefined()
     expect(g.state.reports.filter((r) => r.action === 'work.shift').slice(-1)[0]!.outcome.summary).toMatch(/歸了持約人/)
     settle(g, 100, 'trade.sell')
-    expect(g.state.money.cash).toBe(1210)
+    expect(g.state.money.cash).toBe(1310)
+    // 那一條做完了：之後的班（不論帳戶或現金）照拿
     settle(g, 100, 'work.shift', 'cred')
-    expect(g.state.money.cred).toBe(10)
+    expect(g.state.money.cred).toBe(100)
+  })
+
+  it('掛點 report.before 回傳 { changes, lines }：核心把句子接到報告的結果與摘要，掛點沒有改草稿', () => {
+    const g = make({ money: { cred: 0, cash: 1000 } })
+    sign(g, { holder: WHITE, type: 'work' })
+    order(g, 'work', { hours: 100 })
+    g.commit(chooseDraft(g.k, g.state, { order: O(1), how: 'comply' }))
+    const d = draft([{ op: 'cash', delta: 100 }], 'work.shift')
+    const before = JSON.stringify(d)
+    const answer = g.k.hooks.run('report.before', { state: g.state, draft: d }).map((h) => h.result)
+    expect(JSON.stringify(d)).toBe(before)
+    expect(answer.some((a) => !Array.isArray(a) && a.lines!.length > 0)).toBe(true)
+    const r = g.commit(d)[0]!
+    expect(r.narration?.results?.length).toBeGreaterThan(0)
+    expect(r.outcome.summary).toMatch(/歸了持約人/)
   })
 
   it('債務契約收入還完債：契約解除（contract.end）；沒有錢進帳的報告不動', () => {
@@ -918,6 +1042,7 @@ describe('收入歸屬', () => {
     g.commit(chooseDraft(g.k, g.state, { order: O(1), how: 'comply' }))
     g.commit(draft([{ op: 'time', minutes: 60 }], 'work.shift'))
     expect(mine(g).debt).toBe(150)
+    expect(q(g, O(1)).state).toBe('doing')
     settle(g, 200)
     expect(g.state.money.cash).toBe(20)
     expect(contractOf(g.state)).toBeNull()
@@ -1143,6 +1268,25 @@ describe('boundView', () => {
     expect(sent.resist).toMatchObject({ dc: 16 + 0, forceable: true })
     expect(sent.resist!.chance).toBeGreaterThan(0)
     expect(sent.on_overdue).toEqual(['作廢，滿意下降'])
+  })
+})
+
+describe('boundView 的走過去（goto）', () => {
+  it('指定了地方、還沒了結也沒到過的指令帶 goto（district、block、名字、人是不是已經站在那裡）；到了、了結、沒有指定地方的沒有', () => {
+    const g = make()
+    sign(g)
+    order(g, 'errand', { place: { district: 'test', block: 'far_block' } })
+    order(g, 'work')
+    g.commit(chooseDraft(g.k, g.state, { order: O(1), how: 'comply' }))
+    const row = (id: string) => view(g).queue.find((o) => o.id === id)!
+    expect(row(O(1)).goto).toMatchObject({ district: 'test', block: 'far_block', here: false })
+    expect(typeof row(O(1)).goto!.name).toBe('string')
+    expect(row(O(2)).goto).toBeUndefined()
+    // 站到那裡：here 變 true，到了之後（arrive）就沒有了
+    g.commit(draft([{ op: 'location', to: { district: 'test', block: 'far_block' } }], 'test.walk'))
+    expect(row(O(1)).goto!.here).toBe(true)
+    g.commit(arriveDraft(g.k, g.state, { order: O(1) }))
+    expect(row(O(1)).goto).toBeUndefined()
   })
 })
 

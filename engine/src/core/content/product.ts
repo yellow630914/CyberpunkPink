@@ -143,6 +143,8 @@ export interface BlueprintEntry extends ContentEntry {
   /** 建角買不買得到的限制（出身、勢力）；沒寫不限 */
   available?: { origins?: string[]; faction?: string }
   tattoo?: { kind: (typeof TATTOO_KINDS)[number]; faction?: string }
+  /** 義體：外觀（建角外觀的句子用；M4 收尾修正批）：看得見的部位 at、外殼的描寫 line（沒寫用牌子的）、獸化零件 beast（school：機械派 mech 或生體派 bio；part：耳 ears 或尾 tail） */
+  look?: { at: string; line?: string; beast?: { school: 'mech' | 'bio'; part: 'ears' | 'tail' } }
 }
 
 /** 零件的欄位（內容的一筆與內嵌的一筆共用；DATA 7.2 節）。 */
@@ -338,6 +340,14 @@ export function blueprintProblems(e: Record<string, unknown>): string[] {
   }
   if (e.available !== undefined) p.push(...availableProblems(e.available))
   if (cyber) cyberwareProblems(e, p)
+  if (e.look !== undefined) {
+    const l = e.look
+    if (!isRecord(l) || !isText(l.at)) p.push('look 要是 { at（看得見的部位）, line?, beast? }')
+    else {
+      if (l.line !== undefined && !isText(l.line)) p.push('look.line 要是一句話')
+      if (l.beast !== undefined && !(isRecord(l.beast) && (l.beast.school === 'mech' || l.beast.school === 'bio') && (l.beast.part === 'ears' || l.beast.part === 'tail'))) p.push("look.beast 要是 { school: 'mech' | 'bio', part: 'ears' | 'tail' }")
+    }
+  }
   return p
 }
 

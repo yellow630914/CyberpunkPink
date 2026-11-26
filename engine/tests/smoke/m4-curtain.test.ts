@@ -3,13 +3,14 @@
 //   落幕      報名 → 走到第二幕（第三層）→ 開戰、全隊投降 → 接受結果（落幕、保證金不退）→ 補演（場景）→ 選記帳 → 一週後帳上有利息
 // 內容一律是 testkit 的 bodyWorld()；功能是全部；走的是真正的功能與真正的提交；內海戰鬥的玩家是 playNetSmart（curtainPlay.ts）。
 //
-// 簾口：大廳的 F4（街上的簾口，不經過潛入）。暗礁裡的簾口（潛入之後選 ns_tw_curtain）有兩個毛病：B030 報名被潛入的活動擋下、B031 即使放行一趟的場熱與落幕也不啟動
-// （report.after 看到進行中的 dive 就不插報告）；重現在 engine/tests/pending/B030-curtain-enter-in-dive.test.ts 與 B031-curtain-stage-in-dive.test.ts（目前會失敗）。
+// 簾口：大廳的 F4（街上的簾口，不經過潛入），或暗礁裡的簾口（潛入之後選 ns_tw_curtain，人站在潛入裡的網內街區；M4 收尾修正批修好 B030、B031 之後，
+// 一趟走完與落幕兩條主幹都有走潛入的版本：`dive: true`）。
 
 import { describe, expect, it, vi } from 'vitest'
 import type { Report } from '../../src'
 import { acceptDefeat, defeatOf } from '../../src/features/defeat'
 import { callOffDraft, curtainOf, curtainView, fallView, replayDraft, settleDraft } from '../../src/features/curtain'
+import { exit as diveExit } from '../../src/features/dive'
 import { netrunView, readRun } from '../../src/features/netrun'
 import { sceneRawOf } from '../../src/features/scene'
 import type { Game } from '../../src/shell/game'
@@ -24,18 +25,22 @@ const actions = (rs: Report[]): string[] => rs.map((r) => r.action ?? '')
 /** 一局簾後館（演出者要有橋：補演的對象由 director.cast 臨時生成，不用先放進狀態）。 */
 const setup = (seed = 3): Game => makeCurtainGame({ seed, actors: sceneCast('ann') }).game
 
-async function runFlow(g: Game, f = flow('簾後館：一趟走完'), checkpoint: (label: string) => void = () => undefined): Promise<Game> {
+async function runFlow(g: Game, f = flow('簾後館：一趟走完'), checkpoint: (label: string) => void = () => undefined, dive = false): Promise<Game> {
   const { k } = g
-  await f.step('前奏：邀請函、面談（領會員證，散座）、口味單、走到大廳的簾口', () => {
-    curtainPrelude(g)
+  await f.step(`前奏：邀請函、面談（領會員證，散座）、口味單、走到${dive ? '暗礁裡的簾口（潛入）' : '大廳的簾口'}`, () => {
+    curtainPrelude(g, { dive })
     expect(curtainOf(g.state).member).toMatchObject({ tier: 'floor', clears: 0 })
     expect(curtainOf(g.state).taste).toEqual(['tg_tw_dom', 'tg_tw_sub', 'tg_tw_pamper'])
-    expect(g.state.location).toMatchObject({ block: 'tw_hall', facility: 'F4' })
+    if (dive) {
+      expect(g.k.activity.active(g.state).map((a) => a.kind)).toContain('dive')
+      expect(g.state.location).toMatchObject({ block: 'tw_curtain_door', facility: 'F1' })
+    } else expect(g.state.location).toMatchObject({ block: 'tw_hall', facility: 'F4' })
   })
   const cash0 = g.state.money.cash
   await f.step('報名（舞台之夜、散座）：付保證金、開一趟網內的行程（四幕）', () => {
     const reports = curtainEnter(g, CURTAIN_NIGHTS.a)
     expect(actions(reports)).toEqual(['curtain.enter', 'netrun.enter', 'curtain.stage'])
+    // 簾口在潛入裡時，一趟的外框是潛入（dive）與這一趟（netrun）同時進行
     expect(cash0 - g.state.money.cash).toBe(300)
     expect(readRun(g.state)).toMatchObject({ kind: 'netrun', layers: ['l1', 'l2', 'l3', 'l4'], layer: 0 })
     expect(netrunView(k, g.state)!.layer).toMatchObject({ total: 4 })
@@ -64,10 +69,10 @@ async function runFlow(g: Game, f = flow('簾後館：一趟走完'), checkpoint
   return g
 }
 
-async function fallFlow(g: Game, f = flow('簾後館：落幕、補演、記帳'), checkpoint: (label: string) => void = () => undefined): Promise<Game> {
+async function fallFlow(g: Game, f = flow('簾後館：落幕、補演、記帳'), checkpoint: (label: string) => void = () => undefined, dive = false): Promise<Game> {
   const { k } = g
   await f.step('前奏與報名（蜜糖之夜）', () => {
-    curtainPrelude(g)
+    curtainPrelude(g, { dive })
     curtainEnter(g, CURTAIN_NIGHTS.b)
     expect(readRun(g.state)).toBeTruthy()
   })
@@ -99,6 +104,8 @@ async function fallFlow(g: Game, f = flow('簾後館：落幕、補演、記帳'
     expect(readRun(g.state)).toBeNull()
     expect(g.state.money.cash).toBeLessThanOrEqual(cash0)
     expect(fallView(k, g.state)).toMatchObject({ step: 'replay', deposit })
+    // 館方演的戰敗事件不強制斷線：潛入中的人還在潛入裡（補演與選路在簾口接著做）
+    if (dive) expect(k.activity.active(g.state).map((x) => x.kind)).toEqual(['dive'])
     checkpoint('after-fall')
   })
   await f.step('補演：開一場（工作性質、layer net）的場景，演到結束；進到選路', () => {
@@ -119,6 +126,8 @@ async function fallFlow(g: Game, f = flow('簾後館：落幕、補演、記帳'
     const cur = curtainOf(g.state)
     expect(cur.fall).toBeUndefined()
     expect(cur.tab?.owed).toBeGreaterThan(0)
+    // 潛入中（暗礁的簾口）：先登出，時間才走得動（潛入的放行清單不放休息與等待）
+    if (dive) g.commit(diveExit(g.k, g.state))
     // 一週之後：帳單的掛點 bill.collect 出一行簾後館的帳
     passTime(g, 8 * 24 * 60)
     const lines = g.k.hooks.run('bill.collect', { state: g.state, week: 1 } as never).flatMap((r) => r.result as Array<{ id?: string }>)
@@ -128,6 +137,30 @@ async function fallFlow(g: Game, f = flow('簾後館：落幕、補演、記帳'
   void callOffDraft
   return g
 }
+
+describe('冒煙 M4：簾後館（暗礁裡的簾口，潛入中走完）', () => {
+  it('潛入、選簾口、報名 → 走完四幕 → 結算；結算之後人還在潛入裡的簾口，登出回到身體（B030、B031）', async () => {
+    const g = setup(3)
+    const { violations } = await observed(g, async () => {
+      await runFlow(g, flow('簾後館（潛入）：一趟走完'), () => undefined, true)
+      // 一趟收掉之後潛入還在、人還站在簾口：不用再潛一次，登出就回到現實
+      expect(g.k.activity.active(g.state).map((a) => a.kind)).toEqual(['dive'])
+      expect(g.state.location).toMatchObject({ block: 'tw_curtain_door', facility: 'F1' })
+      expect(g.blockOf('commit:dive.exit')).toBeNull()
+      g.commit(diveExit(g.k, g.state))
+      expect(g.k.activity.active(g.state)).toEqual([])
+    })
+    expect(violations).toEqual([])
+  })
+
+  it('潛入裡第二幕全隊倒下 → 落幕 → 補演 → 記帳（潛入的外框不擋落幕；館方演的戰敗事件不強制斷線，人還在簾口）', async () => {
+    const g = setup(3)
+    const { violations } = await observed(g, async () => fallFlow(g, flow('簾後館落幕（潛入）'), () => undefined, true))
+    expect(violations).toEqual([])
+    // 記帳那一步之後人登出了（fallFlow 的最後）
+    expect(g.k.activity.active(g.state)).toEqual([])
+  })
+})
 
 describe('冒煙 M4：簾後館', () => {
   it('邀請函 → 面談 → 報名 → 走完四幕 → 結算；報名之後、結算之後各存讀一次，接著走，最後的狀態和不中斷的一遍逐欄相同', async () => {

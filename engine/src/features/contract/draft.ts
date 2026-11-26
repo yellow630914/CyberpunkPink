@@ -10,11 +10,12 @@ export const pcName = (state: GameState): string => state.actors[state.pc ?? '']
 /** 一份報告的骨架。text 空的是 system（不給玩家看）。 */
 export function draftOf(
   state: GameState, kind: ReportDraft['kind'], action: string, changes: Change[], lines: string[], result: string,
-  extra: { triggers?: ReportDraft['triggers']; beats?: TimelineBeat[] } = {},
+  extra: { triggers?: ReportDraft['triggers']; beats?: TimelineBeat[]; data?: Record<string, unknown> } = {},
 ): ReportDraft {
   const pc = pcOf(state)
   const text = lines.join('')
-  const beats: TimelineBeat[] = [...lines.map((t): TimelineBeat => ({ layer: 'meat', ...(pc ? { actor: pc } : {}), text: t, tag: action })), ...(extra.beats ?? [])]
+  // data：這份報告的資料（例：逾期的那一條指令的編號），放在第一拍上，畫面不必比對正文
+  const beats: TimelineBeat[] = [...lines.map((t, i): TimelineBeat => ({ layer: 'meat', ...(pc ? { actor: pc } : {}), text: t, tag: action, ...(i === 0 && extra.data ? { data: clone(extra.data) } : {}) })), ...(extra.beats ?? [])]
   return {
     kind: text ? kind : 'system', action, location: clone(state.location), ...(pc ? { actor: pc } : {}), party: [], timeline: text ? beats : [], changes,
     outcome: { result, summary: text || '時間又過了一些。' }, ...(text ? { narration: { results: lines } } : {}),

@@ -8,13 +8,17 @@
 // 讀別人的（不 import）：核心的 productOf／partOf／readProduct；內容種類 quirk（pool 含 flaw）；登錄表的效果 contract_hold、hostility（查不到略過；hostility 沒有效果時退而求其次直接改量表）。
 //
 // 玩家付的錢：得標當場扣（現價加佣金），所以「價錢＋佣金＋這一場已經花掉的 ≤ 進場時身上的錢」等於「價錢＋佣金 ≤ 現在身上的錢」。
+// 交不出去（M4 收尾修正批；LEWD_SYSTEM 6.2 節）：玩家標到契約或機密，落槌時先試跑要給的效果（give.ts）；交不出去就不收錢，改由出價第二高的 NPC 得標（沒有人就流標），結果寫「這一件撤拍」。
+// 自動跟價（同上）：bidDraft 收 { auto: { max } }：替玩家一回合一回合按到這一件落槌或退出——別人加價而再加一階不超過上限（而且付得起）就跟、超過就退出、自己已經最高就等。
+// 進行中的放行只有 auction.bid、auction.leave、auction.close（index.ts）。
 // 離場時玩家若正是這一件最高的出價人：出價不能收回，這一件照樣算到落槌（沒人加價就是玩家得標、照付）；之後的拍品玩家都不喊。
 
-import type { ActivityEndMerged, Change, GameState, Kernel, ProductData, ReportDraft, ReportOutcome, ReportTrigger, TimelineBeat } from '../../core'
+import type { ActivityEndMerged, Change, GameState, Kernel, ProductData, Report, ReportDraft, ReportTrigger, TimelineBeat } from '../../core'
 import {
   ActionBlocked, attachActivityEnd, clone, deriveRng, effectCtx, endActivity, formatAmount, formatTime, fromMinutes, isRecord, isSafeInt, partOf, productOf, toMinutes,
 } from '../../core'
 import type { CatalogLot } from './catalog'
+import { giveEffects, undeliverable } from './give'
 import { LOOK_TEXT, catalogOf } from './catalog'
 import type { AuctionRules, LotKind } from './model'
 import { ACTIVITY, BID_ACTION, CLOSE_ACTION, DONE_POINT, ENTER_ACTION, LEAVE_ACTION, PATCH_OP, auctionOf, auctionRules, houseOf, isText, kindName } from './model'
@@ -63,6 +67,8 @@ export interface LotRun {
   /** 退出這一件的競標者 */
   out: string[]
   pc_out: boolean
+  /** 每個人（'pc'、競標者的 id）出過的最高價（交不出去時找出價第二高的 NPC 用；舊存檔沒有） */
+  bids?: Record<string, number>
   state: 'open' | 'sold' | 'passed'
 }
 
@@ -75,7 +81,7 @@ export interface RunBidder {
 }
 
 export interface Won { lot: number; price: number; fee: number }
-export interface LogEntry { lot: number; winner: Holder; price: number; rounds: number }
+export interface LogEntry { lot: number; winner: Holder; price: number; rounds: number; withdrawn?: string }
 
 export interface Run {
   house: string
@@ -122,9 +128,11 @@ export function enterBlocks(k: Kernel, state: GameState, houseId: string): strin
   const house = houseOf(k, houseId)
   if (!house) return ['沒有這一家拍賣行。']
   const p: string[] = []
-  const act = k.activity.blockOf(state, `commit:${ENTER_ACTION}`)
-  if (act) p.push(act)
-  else if (readRun(state)) p.push('你已經在拍賣廳裡了。')
+  if (readRun(state)) p.push('你已經在拍賣廳裡了。')
+  else {
+    const act = k.activity.blockOf(state, `commit:${ENTER_ACTION}`)
+    if (act) p.push(act)
+  }
   if (!state.pc) p.push('還沒有主角。')
   if (!housesHere(k, state).some((h) => h.id === houseId)) p.push(`要站在${house.name}裡才進得了場。`)
   const m = memberOf(k, state, houseId)
@@ -177,7 +185,7 @@ function lotRunOf(l: CatalogLot): LotRun {
     market: l.market, reserve: l.reserve, step: l.step, fake: l.fake,
     ...(l.part !== undefined ? { part: l.part } : {}), ...(l.blueprint !== undefined ? { blueprint: l.blueprint } : {}), ...(l.item !== undefined ? { item: l.item } : {}),
     ...(l.npc !== undefined ? { npc: l.npc } : {}), ...(l.contract !== undefined ? { contract: clone(l.contract) } : {}), ...(l.effects !== undefined ? { effects: clone(l.effects) } : {}),
-    once: l.once, price: l.reserve, holder: null, round: 0, quiet: 0, out: [], pc_out: false, state: 'open',
+    once: l.once, price: l.reserve, holder: null, round: 0, quiet: 0, out: [], pc_out: false, bids: {}, state: 'open',
   }
 }
 
@@ -192,11 +200,15 @@ function announce(state: GameState, lot: LotRun): string {
 
 // ---- 一回合 ----
 
-export type BidInput = { act: 'raise'; steps: number } | { act: 'wait' } | { act: 'fold' }
+export type BidInput = { act: 'raise'; steps: number } | { act: 'wait' } | { act: 'fold' } | { act: 'auto'; max: number }
+/** 自動跟價的簡寫：bidDraft 與 bidBlock 收 { auto: { max } }（max 是願意出到的價錢，不含佣金）。 */
+export type AutoInput = { auto: { max: number } }
 type Plan = BidInput | { act: 'leave' }
 
+const planOf = (input: BidInput | AutoInput): BidInput => ('auto' in input ? { act: 'auto', max: input.auto.max } : input)
+
 export interface BidOption {
-  act: 'raise' | 'wait' | 'fold'
+  act: 'raise' | 'wait' | 'fold' | 'auto'
   /** 加價才有：加幾階、加完的現價、佣金、價錢加佣金 */
   steps?: number
   price?: number
@@ -211,6 +223,8 @@ export interface BidOptions {
   raise: BidOption[]
   wait: BidOption
   fold: BidOption
+  /** 自動跟價（要給上限 max）：能不能用、最低要給多少（現價再加一階才有意義） */
+  auto: BidOption & { min: number }
 }
 
 function blocksOf(k: Kernel, state: GameState, run: Run, rules: AuctionRules, input: BidInput): string[] {
@@ -231,7 +245,9 @@ function blocksOf(k: Kernel, state: GameState, run: Run, rules: AuctionRules, in
     if (lot.holder !== PC) p.push('你不是目前最高的出價人，只能加價或退出。')
   } else if (input.act === 'fold') {
     if (lot.holder === PC) p.push('你是目前最高的出價人，不能退出；只能等。')
-  } else p.push('不認得這個動作：要加價、等或退出。')
+  } else if (input.act === 'auto') {
+    if (!(isSafeInt(input.max) && input.max > 0)) p.push('自動跟價要給一個大於 0 的上限。')
+  } else p.push('不認得這個動作：要加價、等、退出或自動跟價。')
   return [...new Set(p)]
 }
 
@@ -254,14 +270,15 @@ export function bidOptions(k: Kernel, state: GameState): BidOptions | null {
     }),
     wait: one({ act: 'wait' }),
     fold: one({ act: 'fold' }),
+    auto: { ...one({ act: 'auto', max: (lot?.price ?? 0) + (lot?.step ?? 0) }), min: (lot?.price ?? 0) + (lot?.step ?? 0) },
   }
 }
 
 /** 現在這個動作做不成的原因（接起來的一句）；成立是 null。 */
-export function bidBlock(k: Kernel, state: GameState, input: BidInput): string | null {
+export function bidBlock(k: Kernel, state: GameState, input: BidInput | AutoInput): string | null {
   const run = readRun(state)
   if (!run) return '現在不在拍賣廳裡。'
-  const p = blocksOf(k, state, run, auctionRules(k), input)
+  const p = blocksOf(k, state, run, auctionRules(k), planOf(input))
   return p.length > 0 ? p.join('') : null
 }
 
@@ -282,6 +299,8 @@ export interface Hammer {
   winner_name: string | null
   price: number
   rounds: number
+  /** 玩家標到了，但這一件交不出去（不收錢；改由出價第二高的 NPC 得標，沒有就流標）：原因是給玩家看的一句話 */
+  withdrawn?: string
 }
 
 export interface RoundLog {
@@ -298,14 +317,16 @@ export interface RoundLog {
 }
 
 /** 玩家（或沒有玩家）動完，NPC 照順序各決定一次；回合結束更新 quiet，到了該落槌的時候回傳 hammered。 */
-function playRound(state: GameState, run: Run, rules: AuctionRules, lot: LotRun, pc: BidInput | null): { log: RoundLog; hammered: boolean } {
+function playRound(state: GameState, run: Run, rules: AuctionRules, lot: LotRun, pc: Exclude<BidInput, { act: 'auto' }> | null): { log: RoundLog; hammered: boolean } {
   lot.round += 1
   const acts: ActRecord[] = []
   let raised = false
   const act = (who: string, a: ActRecord['act'], steps?: number): void => void acts.push({ who, name: nameOfBidder(run, who), act: a, ...(steps !== undefined ? { steps } : {}), price: lot.price })
+  const bid = (who: string): void => void ((lot.bids ??= {})[who] = lot.price)
   if (pc?.act === 'raise') {
     lot.price += pc.steps * lot.step
     lot.holder = PC
+    bid(PC)
     raised = true
     act(PC, 'raise', pc.steps)
   } else if (pc?.act === 'wait') act(PC, 'wait')
@@ -326,6 +347,7 @@ function playRound(state: GameState, run: Run, rules: AuctionRules, lot: LotRun,
     if (deriveRng({ seed: state.rng.seed, cursor: 0 }, purpose, i).chance(chance)) {
       lot.price += lot.step
       lot.holder = b.id
+      bid(b.id)
       raised = true
       act(b.id, 'raise', 1)
     } else act(b.id, 'pass')
@@ -403,13 +425,14 @@ function deliver(k: Kernel, work: GameState, run: Run, lot: LotRun): { changes: 
     if (lot.fake) surprise()
   } else if (lot.kind === 'contract') {
     banned = true
-    const r = runEffects(k, work, [{ kind: 'contract_hold', ...clone(lot.contract ?? {}), ...(lot.npc !== undefined ? { npc: lot.npc } : {}), origin: houseName }])
+    const r = runEffects(k, work, giveEffects(lot, houseName))
     changes.push(...r.changes)
     lines.push(...r.lines.map((x) => `${x.replace(/。$/, '')}。`))
   } else {
     if (lot.item !== undefined) changes.push({ op: 'item', id: lot.item, qty: 1 })
-    if (lot.effects?.length) {
-      const r = runEffects(k, work, lot.effects)
+    const fx = giveEffects(lot, houseName)
+    if (fx.length > 0) {
+      const r = runEffects(k, work, fx)
       changes.push(...r.changes)
       lines.push(...r.lines.map((x) => `${x.replace(/。$/, '')}。`))
     }
@@ -417,16 +440,52 @@ function deliver(k: Kernel, work: GameState, run: Run, lot: LotRun): { changes: 
   return { changes, lines, plain, banned }
 }
 
-/** 落槌：這一件結清。玩家得標就付錢、取貨、記 once、算帳戶的紀錄；work 跟著套上去。 */
+/** 出價第二高的 NPC（玩家以外、出過價的人裡價最高的；同價的先在名單上的）。沒有人出過價是 null。 */
+function secondBidder(run: Run, lot: LotRun): { id: string; price: number } | null {
+  let best: { id: string; price: number } | null = null
+  for (const b of run.bidders) {
+    const price = lot.bids?.[b.id]
+    if (price !== undefined && (best === null || price > best.price)) best = { id: b.id, price }
+  }
+  return best
+}
+
+/**
+ * 落槌：這一件結清。玩家得標就先試跑要交的東西（契約與機密）：交不出去不收錢、改由出價第二高的 NPC 得標（沒有就流標），結果寫「這一件撤拍」；
+ * 交得出去就付錢、取貨、算帳戶的紀錄；work 跟著套上去。once 的拍品不管被誰買走都記進 sold（世界上只有一件）。
+ */
 function settle(k: Kernel, work: GameState, run: Run, lot: LotRun, rules: AuctionRules, rounds: number): Settled {
+  const houseName = houseOf(k, run.house)?.name ?? run.house
+  let withdrawn: string | undefined
+  if (lot.holder === PC && (lot.kind === 'contract' || lot.kind === 'secret')) {
+    const why = undeliverable(k, work, lot, houseName)
+    if (why !== null) {
+      withdrawn = why
+      const second = secondBidder(run, lot)
+      lot.holder = second ? second.id : null
+      if (second) lot.price = second.price
+    }
+  }
   const sold = lot.holder !== null
   lot.state = sold ? 'sold' : 'passed'
-  run.log.push({ lot: lot.lot, winner: lot.holder, price: lot.price, rounds })
+  run.log.push({ lot: lot.lot, winner: lot.holder, price: lot.price, rounds, ...(withdrawn !== undefined ? { withdrawn } : {}) })
   const winnerName = lot.holder === null ? null : nameOfBidder(run, lot.holder)
-  const hammer: Hammer = { lot: lot.lot, name: lot.name, result: sold ? 'sold' : 'passed', winner: lot.holder, winner_name: winnerName, price: lot.price, rounds }
+  const hammer: Hammer = { lot: lot.lot, name: lot.name, result: sold ? 'sold' : 'passed', winner: lot.holder, winner_name: winnerName, price: lot.price, rounds, ...(withdrawn !== undefined ? { withdrawn } : {}) }
   const changes: Change[] = []
   const lines: string[] = []
   const plain: string[] = []
+  const markSold = (): void => {
+    if (!lot.once) return
+    const c: Change = { op: PATCH_OP, sold: [lot.id] }
+    changes.push(c)
+    k.changes.applyAll(work, [c])
+  }
+  if (withdrawn !== undefined) {
+    lines.push(`第 ${lot.lot + 1} 件「${lot.name}」你標到了，可是${withdrawn.replace(/。$/, '')}：不收你的錢，這一件撤拍。${sold ? `館方改由${winnerName}以 ${formatAmount(lot.price)} 得標。` : '沒有別的人出過價，流標。'}`)
+    plain.push(`「${lot.name}」交不出去，這一件撤拍了。`)
+    if (sold) markSold()
+    return { changes, lines, plain, hammer }
+  }
   if (!sold) {
     lines.push(`第 ${lot.lot + 1} 件「${lot.name}」沒有人出價，流標。`)
     plain.push(`「${lot.name}」流標了。`)
@@ -442,8 +501,8 @@ function settle(k: Kernel, work: GameState, run: Run, lot: LotRun, rules: Auctio
     k.changes.applyAll(work, changes)
     const d = deliver(k, work, run, lot)
     changes.push(...d.changes)
-    if (lot.once) changes.push({ op: PATCH_OP, sold: [lot.id] })
-    k.changes.applyAll(work, [...d.changes, ...(lot.once ? [{ op: PATCH_OP, sold: [lot.id] } as Change] : [])])
+    k.changes.applyAll(work, d.changes)
+    markSold()
     if (run.pay === 'cred' && d.banned) {
       const dirty = dirtyChanges(k, work, rules)
       changes.push(...dirty)
@@ -451,7 +510,7 @@ function settle(k: Kernel, work: GameState, run: Run, lot: LotRun, rules: Auctio
     }
     lines.push(`你付了 ${formatAmount(lot.price)}，加佣金 ${formatAmount(fee)}（${PAY_NAME[run.pay]}）。`, ...d.lines)
     plain.push(...d.plain)
-  }
+  } else markSold()
   return { changes, lines, plain, hammer }
 }
 
@@ -468,6 +527,89 @@ const actText = (a: ActRecord): string | null => {
   }
 }
 
+// ---- 報告的 outcome（正式的型別：畫面不用轉型）與整場的回顧 ----
+
+/** 這一場結束後的回顧（auction.close／auction.leave 的 outcome.recap；用 auctionSummary 讀）。 */
+export interface AuctionSummary {
+  house: string
+  house_name: string
+  /** 場次（開槌日的天數） */
+  session: number
+  pay: AuctionPay
+  pay_name: string
+  /** 中途離場（剩下的拍品都不喊了） */
+  left: boolean
+  /** 每一件的結果，照拍賣的順序；mine 是玩家得標（付了錢、拿到貨）的那一件 */
+  lots: Array<{
+    lot: number
+    name: string
+    kind: LotKind
+    kind_name: string
+    result: 'sold' | 'passed'
+    winner: Holder
+    winner_name: string | null
+    price: number
+    mine: boolean
+    /** 玩家標到了但交不出去（撤拍）的原因 */
+    withdrawn?: string
+  }>
+  /** 玩家得標的（價錢與佣金） */
+  won: Array<{ lot: number; name: string; price: number; fee: number }>
+  /** 一共付了多少（價錢加佣金，用 pay 那一種錢） */
+  spent: number
+  /** 流標的件數、別人得標的件數、撤拍的件數 */
+  passed: number
+  lost: number
+  withdrawn: number
+  /** 一句結語（程式的句子） */
+  text: string
+}
+
+/** 拍賣報告（auction.enter、auction.bid、auction.close、auction.leave）的 outcome。 */
+export interface AuctionOutcome {
+  result: string
+  summary: string
+  house: string
+  /** 這一份報告開始時的是第幾件（0 起算） */
+  lot: number
+  rounds: RoundLog[]
+  hammers: Hammer[]
+  closed: boolean
+  /** 整場結束的才有 */
+  won?: Won[]
+  spent?: number
+  recap?: AuctionSummary
+}
+
+const isOutcome = (o: unknown): o is AuctionOutcome => isRecord(o) && isText(o.house) && Array.isArray(o.rounds) && Array.isArray(o.hammers) && typeof o.closed === 'boolean'
+
+/** 讀一份拍賣報告的 outcome（不是拍賣的回合報告是 null）。 */
+export function auctionOutcome(report: Pick<Report, 'action' | 'outcome'>): AuctionOutcome | null {
+  return typeof report.action === 'string' && report.action.startsWith('auction.') && isOutcome(report.outcome) ? report.outcome : null
+}
+
+/** 這一場結束了的讀法：auction.close／auction.leave（結束整場的那一份）的 outcome.recap；其他報告、沒有結束的是 null。 */
+export function auctionSummary(report: Pick<Report, 'action' | 'outcome'>): AuctionSummary | null {
+  return auctionOutcome(report)?.recap ?? null
+}
+
+function summaryOf(k: Kernel, state: GameState, run: Run, left: boolean, text: string): AuctionSummary {
+  const lots = run.lots.map((l, i) => {
+    const log = run.log.find((x) => x.lot === i)
+    const winner: Holder = log?.winner ?? null
+    return {
+      lot: i, name: l.name, kind: l.kind, kind_name: kindName(l.kind, state), result: (winner === null ? 'passed' : 'sold') as 'sold' | 'passed', winner,
+      winner_name: winner === null ? null : nameOfBidder(run, winner), price: log?.price ?? l.price, mine: winner === PC, ...(log?.withdrawn !== undefined ? { withdrawn: log.withdrawn } : {}),
+    }
+  })
+  return {
+    house: run.house, house_name: houseOf(k, run.house)?.name ?? run.house, session: run.session, pay: run.pay, pay_name: PAY_NAME[run.pay], left, lots,
+    won: run.won.map((w) => ({ lot: w.lot, name: run.lots[w.lot]?.name ?? '', price: w.price, fee: w.fee })), spent: run.spent,
+    passed: lots.filter((l) => l.result === 'passed' && l.withdrawn === undefined).length, lost: lots.filter((l) => l.result === 'sold' && !l.mine).length,
+    withdrawn: lots.filter((l) => l.withdrawn !== undefined).length, text,
+  }
+}
+
 interface Step {
   rounds: RoundLog[]
   hammers: Hammer[]
@@ -476,6 +618,17 @@ interface Step {
   plain: string[]
   beats: TimelineBeat[]
   closed: boolean
+}
+
+/**
+ * 自動跟價替玩家選這一回合的動作（LEWD_SYSTEM 6.2 節第 6 點；規則和手動喊價完全一樣）：自己已經是最高的人就等；
+ * 不是的時候，再加一階（最小的一步）不超過上限、而且付得起（含佣金）就跟，否則退出這一件。
+ */
+export function autoChoice(state: GameState, run: Run, rules: AuctionRules, lot: LotRun, max: number): Exclude<BidInput, { act: 'auto' }> {
+  if (lot.holder === PC) return { act: 'wait' }
+  const price = lot.price + lot.step
+  const affordable = price + feeOf(rules, price) <= state.money[run.pay]
+  return price <= max && affordable ? { act: 'raise', steps: 1 } : { act: 'fold' }
 }
 
 /** 算一份報告：玩家的一個動作（或離場），連同這一件之後由程式算完的部分。run 與 work 都是複本，會被改。 */
@@ -493,7 +646,7 @@ function runStep(k: Kernel, state: GameState, work: GameState, run: Run, rules: 
     const next = lotOf(run)
     if (next) st.beats.push(beat(state, announce(state, next), 'auction.announce', { lot: next.lot }))
   }
-  const round = (lot: LotRun, pc: BidInput | null): boolean => {
+  const round = (lot: LotRun, pc: Exclude<BidInput, { act: 'auto' }> | null): boolean => {
     const r = playRound(state, run, rules, lot, pc)
     st.rounds.push(r.log)
     for (const a of r.log.acts) {
@@ -519,6 +672,21 @@ function runStep(k: Kernel, state: GameState, work: GameState, run: Run, rules: 
       const lot = lotOf(run)!
       if (lot.holder !== PC) lot.pc_out = true
       toHammer(lot)
+    }
+  } else if (plan.act === 'auto') {
+    // 自動跟價：替玩家一回合一回合按，到這一件落槌或玩家退出（退出之後和手動退出一樣，由程式算完這一件）
+    const lot = lotOf(run)!
+    for (let guard = 0; lot.state === 'open' && guard < 200; guard++) {
+      const choice = autoChoice(state, run, rules, lot, plan.max)
+      const hammered = round(lot, choice)
+      const last = st.rounds[st.rounds.length - 1]!
+      if (hammered) {
+        finish(lot)
+        last.hammer = st.hammers[st.hammers.length - 1]!
+      } else if (choice.act === 'fold') {
+        toHammer(lot)
+        break
+      }
     }
   } else {
     const lot = lotOf(run)!
@@ -549,6 +717,7 @@ function draftOf(k: Kernel, state: GameState, action: string, plan: Plan): Repor
   const lines = st.lines.slice()
   const plain = st.plain.slice()
   let end: ActivityEndMerged | null = null
+  let recapText = ''
   if (st.closed) {
     const now = toMinutes(state.time)
     const target = Math.max(run.end, run.entered + rules.min_minutes)
@@ -557,6 +726,7 @@ function draftOf(k: Kernel, state: GameState, action: string, plan: Plan): Repor
     end = endActivity(k, { state, kind: ACTIVITY, id: `${run.house}:${run.session}`, origin: { by: ACTIVITY, ref: run.house }, outcome: 'done', result: resultData })
     changes.push({ op: PATCH_OP, run: null, done: { [run.house]: run.session } }, ...(minutes > 0 ? [{ op: 'time', minutes } as Change] : []), ...end.changes)
     const tail = `這一場結束了：你得標了 ${run.won.length} 件，一共付了 ${formatAmount(run.spent)}（${PAY_NAME[run.pay]}）。時間到了${formatTime(fromMinutes(now + minutes))}。`
+    recapText = tail
     lines.push(tail, ...end.lines.map((x) => `${x.replace(/。$/, '')}。`))
     beats.push(beat(state, tail, CLOSE_ACTION, { house: run.house, won: run.won.length, spent: run.spent }))
     plain.push(`這一場在${house?.name ?? run.house}結束了。`, ...end.lines)
@@ -564,10 +734,10 @@ function draftOf(k: Kernel, state: GameState, action: string, plan: Plan): Repor
     if (action === BID_ACTION) actionName = CLOSE_ACTION
     if (plan.act === 'leave') result = 'left'
   } else changes.push({ op: PATCH_OP, run: run as unknown as Record<string, unknown> })
-  const outcome = {
+  const outcome: AuctionOutcome = {
     result, summary: beats.map((b) => b.text).join(''), house: run.house, lot: lotAt, rounds: st.rounds, hammers: st.hammers, closed: st.closed,
-    ...(st.closed ? { won: run.won, spent: run.spent } : {}),
-  } as ReportOutcome
+    ...(st.closed ? { won: run.won, spent: run.spent, recap: summaryOf(k, state, run, plan.act === 'leave', recapText) } : {}),
+  }
   const d: ReportDraft = {
     kind: 'action', action: actionName, location: clone(state.location), ...(state.pc ? { actor: state.pc } : {}), party: [], timeline: beats, changes,
     outcome, ...(triggers.length > 0 ? { triggers } : {}), narration: { results: plain },
@@ -575,11 +745,14 @@ function draftOf(k: Kernel, state: GameState, action: string, plan: Plan): Repor
   return end ? attachActivityEnd(d, end) : d
 }
 
-/** 一個回合：報告 auction.bid（這一回合結束整場時是 auction.close）。outcome 帶這一回合每個人的動作、倒數的狀態、落槌的結果。 */
-export function bidDraft(k: Kernel, state: GameState, input: BidInput): ReportDraft {
+/**
+ * 一個回合：報告 auction.bid（這一回合結束整場時是 auction.close）。outcome 帶這一回合每個人的動作、倒數的狀態、落槌的結果。
+ * { auto: { max } } 是自動跟價：一次推進到這一件落槌或退出（outcome.rounds 有每一回合）。
+ */
+export function bidDraft(k: Kernel, state: GameState, input: BidInput | AutoInput): ReportDraft {
   const block = bidBlock(k, state, input)
   if (block) throw new ActionBlocked(block)
-  return draftOf(k, state, BID_ACTION, input)
+  return draftOf(k, state, BID_ACTION, planOf(input))
 }
 
 /** 離場：剩下的每一件都當成玩家退出，由程式算完（報告 auction.leave；結束的流程和喊完一樣）。 */

@@ -25,6 +25,7 @@ import {
 } from './model'
 import { memberOf } from './member'
 import { readRun } from './bid'
+import { giveProblems } from './give'
 
 export { DEFAULT_AUCTION_RULES, auctionOf, auctionRules, auctionRuleProblems, kindName, lotKey, KIND_NAME, LOT_KINDS, DEFAULT_CERT } from './model'
 export type { AuctionRules, AuctionState, BidderEntry, HouseEntry, LookResult, LotEntry, LotKind, MemberRecord } from './model'
@@ -32,12 +33,14 @@ export { housesHere, inPreview, sessionAt, sessionOf } from './session'
 export type { HouseHere, Session } from './session'
 export { LOOK_TEXT, catalogOf, catalogView, lotName, marketOf } from './catalog'
 export type { Catalog, CatalogBidder, CatalogLot, CatalogLotView, CatalogView } from './catalog'
+export { giveEffects, giveProblems, undeliverable } from './give'
+export type { GiveSpec } from './give'
 export { memberOf, refBlock, refDraft, refNpcs, refOptions, refProblems } from './member'
 export type { Membership, RefInput, RefOption, RefPay, RefPayOption } from './member'
 export { inspectBlock, inspectDraft, inspectOptions, inspectProblems } from './inspect'
 export type { InspectInput, InspectOption } from './inspect'
-export { auctionView, bidBlock, bidDraft, bidOptions, enterBlocks, enterDraft, leaveBlock, leaveDraft, readRun as auctionRunOf, PAY_NAME as AUCTION_PAY_NAME } from './bid'
-export type { ActRecord, AuctionPay, AuctionView, BidInput, BidOption, BidOptions, EnterInput, Hammer, LogEntry, LotRun, RoundLog, Run, RunBidder, Won } from './bid'
+export { auctionOutcome, auctionSummary, auctionView, autoChoice, bidBlock, bidDraft, bidOptions, enterBlocks, enterDraft, leaveBlock, leaveDraft, readRun as auctionRunOf, PAY_NAME as AUCTION_PAY_NAME } from './bid'
+export type { ActRecord, AuctionOutcome, AuctionPay, AuctionSummary, AuctionView, AutoInput, BidInput, BidOption, BidOptions, EnterInput, Hammer, LogEntry, LotRun, RoundLog, Run, RunBidder, Won } from './bid'
 export {
   INSPECT_ACTION as AUCTION_INSPECT_ACTION, REF_ACTION as AUCTION_REF_ACTION, ENTER_ACTION as AUCTION_ENTER_ACTION, BID_ACTION as AUCTION_BID_ACTION,
   LEAVE_ACTION as AUCTION_LEAVE_ACTION, CLOSE_ACTION as AUCTION_CLOSE_ACTION, DONE_POINT as AUCTION_DONE_POINT, ACTIVITY as AUCTION_ACTIVITY,
@@ -129,7 +132,8 @@ export const auctionFeature: Feature = {
         const run = readRun(state)
         return run ? { id: `${run.house}:${run.session}`, label: `拍賣進行中（${houseOf(k, run.house)?.name ?? run.house}）` } : null
       },
-      allow: ['commit:auction.'],
+      // 進行中只放行喊價、離場、整場收尾；預展看貨（auction.inspect）、換推薦函（auction.ref）、再進場（auction.enter）都要等這一場結束（M4 收尾修正批）
+      allow: ['commit:auction.bid', 'commit:auction.leave', 'commit:auction.close'],
       reason: () => '拍賣還在進行：先把這一場喊完，或是離場。',
     })
 
@@ -191,6 +195,8 @@ export const auctionFeature: Feature = {
         }
       }
       for (const [i, c] of (l.needs ?? []).entries()) problems.push(...k.conditions.validate(c, `needs[${i}]`).map((m) => `${at}：${m}`))
+      // 契約與機密得標時要跑的效果：格式不合格的在載入時擋下（不要等到有人標到、付了錢才落空）
+      if (l.kind === 'contract' || l.kind === 'secret') problems.push(...giveProblems(k, l, 'x').map((m) => `${at}：${m}`))
     }
     for (const n of k.content.list('npc')) {
       if (n.auction_ref === undefined) continue

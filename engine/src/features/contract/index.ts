@@ -37,7 +37,7 @@ export {
   HOLDER_EVENTS, HOLDER_EVENT_NAME, HOLDER_POINT as CONTRACT_HOLDER_POINT, HOMES as CONTRACT_HOMES, ORDER_STATES, RELATIONS, RULE_KIND as CONTRACT_RULE_KIND, SATISFACTION as CONTRACT_SATISFACTION, contractOf, contractRules, dailyChance, extOf as contractExt, scopeData as contractScope,
 } from './model'
 export type {
-  Contract, ContractExt, ContractRule, ContractRules, ContractType, DeadlineSpec, Held, Holder, HolderEventKind, HolderKind, Home as ContractHome, Note, Order, OrderKind, OrderState, Place, Relation, Right,
+  Contract, ContractExt, ContractRule, ContractRules, ContractType, DeadlineSpec, Held, Holder, HolderEventKind, HolderKind, Home as ContractHome, Note, Order, OrderKind, OrderOutcome, OrderState, Place, Relation, Right,
   RightLevel, RuleType,
 } from './model'
 export { resistPlan } from './draft'
@@ -74,6 +74,10 @@ export const contractFeature: Feature = {
     k.passives.register(OWNER, 'contract', () => [], '契約')
 
     installEffects(k)
+
+    // 回一句話不用走動：契約指令的「照做／抗拒」在任何活動裡都能回（使用者 2026-11-26 裁決 2；戰鬥與等著選的戰敗只收自己的事，核心規定）。
+    // 期限在玩家處於任何活動裡時暫停（time.ts）
+    k.activity.allowEverywhere('commit:contract.choose', OWNER, ['battle', 'defeat'])
 
     k.hooks.on('report.before', OWNER, ({ state, draft }) => incomeBefore(k, state, draft))
     k.hooks.on('report.after', OWNER, ({ state, report }): ReportDraft[] | void => {

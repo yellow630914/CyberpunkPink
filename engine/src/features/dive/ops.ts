@@ -211,13 +211,14 @@ export function afterReport(k: Kernel, state: GameState, reportAction: string | 
 }
 
 /** 一趟網內的行程結束了（掛點 activity.end）：被定位或戰敗被接受之後標成被強制斷線（等著自動登出）。 */
-export function onEnd(state: GameState, kind: string, origin: { by: string }, outcome: string, result: Record<string, unknown>): { changes: Change[] } | undefined {
+export function onEnd(state: GameState, kind: string, origin: { by: string; ext?: Record<string, unknown> }, outcome: string, result: Record<string, unknown>): { changes: Change[] } | undefined {
   const d = readDive(state)
   if (!d || d.over) return undefined
   let over: OverKind | null = null
   // 這一趟是從這裡開的、被定位
   if (kind === ACT_NETRUN && origin.by === ACT && outcome === 'located') over = 'located'
   // 網內的戰敗被接受（戰敗是核心的活動，origin 是開戰的人，認不出是哪裡開的：潛入中網內倒下都算）
-  else if (kind === 'defeat' && outcome === 'accept' && result.net === true) over = result.located === true ? 'located' : 'defeat'
+  // 館方演的戰敗事件（origin.ext.defeat_play：簾後館的落幕，熔斷的場地沒有人真的倒下）不強制斷線：人還在潛入裡，之後的補演與選路在簾口接著做（M4 收尾修正批，B031）
+  else if (kind === 'defeat' && outcome === 'accept' && result.net === true && origin.ext?.defeat_play !== true) over = result.located === true ? 'located' : 'defeat'
   return over ? { changes: [diveChange({ ...d, over })] } : undefined
 }

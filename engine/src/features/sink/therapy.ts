@@ -3,12 +3,12 @@
 //   斷線靜修  要在 therapy.kind === 'retreat' 的地方；一次過 days 天，不收錢；沉溺 −amount；
 //             設施寫了 favor { faction, min } 時，那個勢力的好感要夠（查不到好感的量表當作不夠）。
 //   沉溺 100 以上兩種都擋下（「你已經不想回去了。」）。
-// 沉溺往下降一律走 sink 效果（下限會擋）。價錢還沒有乘區的倍率（和 features/medical 的診所一樣）。
-// 斷線靜修期間「橋的無線功能關閉、技能失效、不能潛入」這一批沒有做（只有時間過去）；「黑泉記得你來過」是內容。
+// 沉溺往下降一律走 sink 效果（下限會擋）。價錢還沒有乘區的倍率（和 features/medical 的診所一樣；乘區的倍率另見 M4 收尾修正批的規則欄位）。
+// 斷線靜修是進行中的活動（M4 收尾修正批；retreat.ts）：這裡只是開始（記下進行中、不動時間與沉溺），之後待下去、結算在 retreat.ts；「黑泉記得你來過」是內容。
 
 import type { ActorId, Change, ContentEntry, GameState, Kernel, ReportDraft, TimelineBeat } from '../../core'
 import { ActionBlocked, clone, effectCtx, formatAmount, meterOf, isRecord } from '../../core'
-import type { Pool, TherapyKind } from './model'
+import type { Pool, RetreatRec, TherapyKind } from './model'
 import { FACILITY_TYPE_KIND, EXT_OP, MINUTES_PER_DAY, POOL_NAME, SUNK_AT, THERAPY_ACTION, THERAPY_KINDS, nameOf, payPool, readExt, sinkRules, weekOf, nowOf } from './model'
 
 export interface TherapyFacility {
@@ -73,11 +73,13 @@ function plan(k: Kernel, state: GameState, o: TherapyOpts): Plan {
   const act = k.activity.blockOf(state, `commit:${THERAPY_ACTION}`)
   if (act) return { problems: [act], quote: null }
   if (a.sink >= SUNK_AT) return { problems: ['你已經不想回去了。'], quote: null }
+  if (readExt(state, actor).retreat) return { problems: ['你已經在斷線靜修了。'], quote: null }
   const here = therapyHere(k, state)
   if (!here) return { problems: [o.kind === 'retreat' ? '這裡沒有可以斷線靜修的地方。' : o.kind === 'counsel' ? '這裡沒有做心理治療的地方。' : '這裡沒有做沉溺治療的地方。'], quote: null }
   if (o.kind && o.kind !== here.kind) return { problems: [here.kind === 'counsel' ? '這裡只做心理治療，不能斷線靜修。' : '這裡只做斷線靜修，不做心理治療。'], quote: null }
   const rules = sinkRules(k)
   const kind = here.kind
+  if (kind === 'retreat' && actor !== state.pc) return { problems: ['斷線靜修只能自己去。'], quote: null }
   if (kind === 'retreat' && here.favor) {
     const have = k.meters.has('favor') ? meterOf(k, state, 'favor', here.favor.faction) : -1
     if (have < here.favor.min) {
@@ -112,13 +114,25 @@ export const therapyQuote = (k: Kernel, state: GameState, o: TherapyOpts = {}): 
 
 /**
  * 做一次治療。不成立丟 ActionBlocked（therapyProblems 的第一條）。
- * 報告 sink.therapy：outcome.result 是 counsel 或 retreat；時間加 minutes、付錢、沉溺降（下限會擋）、心理治療記下這一週做了幾次。
+ * 報告 sink.therapy：心理治療的 outcome.result 是 counsel（時間加 minutes、付錢、沉溺降、記下這一週做了幾次）；斷線靜修是 retreat_begin（只記下進行中的，結算見 retreat.ts）。
  */
 export function therapyDraft(k: Kernel, state: GameState, o: TherapyOpts = {}): ReportDraft {
   const p = plan(k, state, o)
   if (p.problems.length > 0 || !p.quote) throw new ActionBlocked(p.problems[0] ?? '現在做不了治療。')
   const q = p.quote
   const a = state.actors[q.actor]!
+  // 斷線靜修只是開始：記下進行中的，之後待下去、結算在 retreat.ts（時間、沉溺都還沒動，不收錢）
+  if (q.kind === 'retreat') {
+    const now = nowOf(state)
+    const rec: RetreatRec = { facility: q.facility, since: now, until: now + q.minutes, amount: q.amount, from: a.sink }
+    const days = Math.round(q.minutes / MINUTES_PER_DAY)
+    const text = `${nameOf(state, q.actor)}進了${q.facility}，斷了線：接下來 ${days} 天橋是關著的，不能潛入，也做不了別的事；待滿了才算數，提早離開就白來了。`
+    return {
+      kind: 'downtime', action: THERAPY_ACTION, location: clone(state.location), actor: q.actor, party: [],
+      timeline: [{ layer: 'meat', actor: q.actor, text, tag: THERAPY_ACTION, data: { kind: q.kind, facility: q.facility, minutes: q.minutes, price: 0, from: a.sink, begin: true } }],
+      changes: [{ op: EXT_OP, id: q.actor, retreat: rec } as Change], outcome: { result: 'retreat_begin', summary: text }, narration: { results: [text] },
+    }
+  }
   const fx = [{ kind: 'sink', amount: -q.amount }]
   const ctx = effectCtx(k, state, { source: 'builtin', actor: q.actor })
   const errors = k.effects.validate(fx, ctx)

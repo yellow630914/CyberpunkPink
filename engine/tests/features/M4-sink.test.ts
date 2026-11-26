@@ -7,12 +7,12 @@
 
 import { describe, expect, it } from 'vitest'
 import type { Condition, ContentPack, Feature, ReportDraft } from '../../src'
-import { ActionBlocked, ContentError, effectCtx, meterOf, toMinutes } from '../../src'
+import { ActionBlocked, ContentError, SINK_RESIST, effectCtx, meterOf, sinkUpChanges, toMinutes } from '../../src'
 import type { SpecialMapEntry } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { restFeature, sleepDraft } from '../../src/features/rest'
 import {
-  bandOf, sinkFeature, sinkRules, sinkView, therapyBlock, therapyDraft, therapyQuote,
+  bandOf, retreatLeaveDraft, retreatOf, retreatStayDraft, retreatView, sinkFeature, sinkRules, sinkView, therapyBlock, therapyDraft, therapyQuote,
 } from '../../src/features/sink'
 import { arrive, worldFeature } from '../../src/features/world'
 import { METER_CONTENT, makeActor, makeGame, meterFeature, testMeter } from '../../src/testkit'
@@ -51,6 +51,24 @@ const pack = (patch: (c: Record<string, Rec[]>) => void = () => {}): ContentPack
   }
   patch(c)
   return { id: 'sink_test', content: c as unknown as ContentPack['content'] }
+}
+
+/** 一個替身的被動效果來源：給 pc 一個 sink_resist 單位標籤（真的來源是 features/tuning 的調校）。 */
+const RESIST: Feature = {
+  id: 'test_resist',
+  install(k) {
+    k.passives.register('test_resist', 'tuning', () => [{ unit_tag: SINK_RESIST, label: '測試的調校' }], '調校')
+  },
+}
+/** 替身的 sink 效果（沒有裝 character 的局用：餘韻才不會自己消退）：往上的那一邊少 1、最少 1，證明走過了效果。 */
+const RESIST_FX: Feature = {
+  id: 'test_resist_fx',
+  install(k) {
+    k.effects.register<{ kind: string; amount: number }>({
+      kind: 'sink', owner: 'test_resist_fx', ai: false, validate: (raw) => (Number.isInteger(raw.amount) ? [] : ['amount 要是整數']),
+      toChanges: (e) => [{ op: 'actor.track', id: 'pc', track: 'sink', delta: e.amount > 1 ? e.amount - 1 : e.amount }], describe: () => '沉溺',
+    })
+  },
 }
 
 interface Opts {
@@ -430,18 +448,101 @@ describe('治療：心理治療與斷線靜修', () => {
     expect(g.state.money.cred).toBe(20000)
   })
 
-  it('斷線靜修：過三天、−6、不收錢', () => {
+  it('斷線靜修只是開始：記下進行中的（哪一間、什麼時候結束、結束時降多少），時間沒動、沉溺沒降、不收錢；之後是活動 retreat', () => {
     const g = make({ pc: { sink: 30 } })
     stand(g, 'F2')
     const before = toMinutes(g.state.time)
-    g.commit(therapyDraft(g.k, g.state, { kind: 'retreat' }))
-    expect(pc(g).sink).toBe(24)
-    expect(toMinutes(g.state.time) - before).toBe(3 * 1440)
+    const [r] = g.commit(therapyDraft(g.k, g.state, { kind: 'retreat' }))
+    expect(r!.action).toBe('sink.therapy')
+    expect(r!.outcome.result).toBe('retreat_begin')
+    expect(pc(g).sink).toBe(30)
+    expect(toMinutes(g.state.time)).toBe(before)
     expect(g.state.money).toMatchObject({ cred: 20000, cash: 1000 })
-    expect(g.state.reports.at(-1)!.outcome.result).toBe('retreat')
-    // 靜修沒有每週一次的限制
+    expect(retreatOf(g.state)).toEqual({ facility: '傳教所', since: before, until: before + 3 * 1440, amount: 6, from: 30 })
+    expect(g.k.activity.active(g.state).map((a) => a.kind)).toEqual(['retreat'])
+    expect(retreatView(g.state)).toMatchObject({ facility: '傳教所', days_left: 3, minutes_left: 3 * 1440, amount: 6, from: 30, step: 1440 })
+  })
+
+  it('進行中：橋關著、不能潛入、不能做別的事（連再開一次治療也不行），放行的只有 sink.retreat 與事件、戰鬥', () => {
+    const g = make({ pc: { sink: 30 } })
+    stand(g, 'F2')
+    g.commit(therapyDraft(g.k, g.state, { kind: 'retreat' }))
+    for (const a of ['dive.enter', 'rest.sleep', 'trade.checkout', 'commission.go', 'curtain.enter', 'sink.therapy', 'world.move']) expect(g.blockOf(`commit:${a}`), a).toMatch(/斷線靜修/)
+    expect(g.blockOf('commit:sink.retreat')).toBeNull()
+    for (const a of ['commit:event.choose', 'event.start', 'battle.start', 'commit:battle.end']) expect(g.blockOf(a), a).toBeNull()
+    expect(therapyBlock(g.k, g.state)).toBeTruthy()
+    expect(reasonOf(() => therapyDraft(g.k, g.state, { kind: 'retreat' }))).toBeTruthy()
+    expect(g.blockOf('commit:dive.enter')).toContain('不能潛入')
+  })
+
+  it('待下去：一天一天過；最後一天結算（沉溺 −6、進行中的記號拿掉、活動結束）；結算之前沉溺都沒有動', () => {
+    const g = make({ pc: { sink: 30 } })
+    stand(g, 'F2')
+    g.commit(therapyDraft(g.k, g.state, { kind: 'retreat' }))
+    const start = toMinutes(g.state.time)
+    const [d1] = g.commit(retreatStayDraft(g.k, g.state))
+    expect(d1!.action).toBe('sink.retreat')
+    expect(d1!.outcome.result).toBe('stay')
+    expect(toMinutes(g.state.time) - start).toBe(1440)
+    expect(pc(g).sink).toBe(30)
+    expect(retreatView(g.state)).toMatchObject({ days_left: 2 })
+    g.commit(retreatStayDraft(g.k, g.state))
+    expect(pc(g).sink).toBe(30)
+    const done = g.commit(retreatStayDraft(g.k, g.state))
+    expect(done.map((r) => r.outcome.result)).toEqual(['last_day', 'done'])
+    expect(toMinutes(g.state.time) - start).toBe(3 * 1440)
+    expect(pc(g).sink).toBe(24)
+    expect(retreatOf(g.state)).toBeNull()
+    expect(g.k.activity.active(g.state)).toEqual([])
+    expect(g.state.money).toMatchObject({ cred: 20000, cash: 1000 })
+    expect(done[1]!.timeline[0]!.data).toMatchObject({ from: 30, dropped: 6 })
+    // 靜修沒有每週一次的限制；結算之後什麼都能做
+    expect(g.blockOf('commit:rest.sleep')).toBeNull()
+    expect(therapyBlock(g.k, g.state)).toBeNull()
     g.commit(therapyDraft(g.k, g.state))
-    expect(pc(g).sink).toBe(18)
+    expect(retreatOf(g.state)).toBeTruthy()
+  })
+
+  it('提早離開：不結算（沉溺不降），已經過去的時間不退，橋回來了、活動結束', () => {
+    const g = make({ pc: { sink: 30 } })
+    stand(g, 'F2')
+    g.commit(therapyDraft(g.k, g.state, { kind: 'retreat' }))
+    const start = toMinutes(g.state.time)
+    g.commit(retreatStayDraft(g.k, g.state))
+    const [r] = g.commit(retreatLeaveDraft(g.k, g.state))
+    expect(r!.outcome.result).toBe('left')
+    expect(pc(g).sink).toBe(30)
+    expect(toMinutes(g.state.time) - start).toBe(1440)
+    expect(retreatOf(g.state)).toBeNull()
+    expect(g.k.activity.active(g.state)).toEqual([])
+    // 沒有在靜修時待不下去、離不開
+    expect(reasonOf(() => retreatStayDraft(g.k, g.state))).toContain('不在斷線靜修')
+    expect(reasonOf(() => retreatLeaveDraft(g.k, g.state))).toContain('不在斷線靜修')
+  })
+
+  it('時間被別的事推過了結束：下一份報告就結算（不用再待）；結算時被下限擋住的照實際降的算', () => {
+    const g = make({ pc: { sink: 12 } })
+    applyFx(g, [{ kind: 'sink_floor', amount: 10 }])
+    stand(g, 'F2')
+    g.commit(therapyDraft(g.k, g.state, { kind: 'retreat' }))
+    // 一件意外的事讓時間一下子過了四天（事件的結果之類）：放行的 commit:event.
+    const rs = g.commit(draft([{ op: 'time', minutes: 4 * 1440 }], 'event.test'))
+    expect(rs.map((r) => r.action)).toEqual(['event.test', 'sink.retreat'])
+    expect(rs[1]!.outcome.result).toBe('done')
+    expect(pc(g).sink).toBe(10)
+    expect(retreatOf(g.state)).toBeNull()
+  })
+
+  it('斷線靜修只能自己去（別人代做被擋）；存檔再讀進行中的還在；回到快照（撤退）時跟著回去', () => {
+    const g = make({ pc: { sink: 30 }, extra: [] })
+    g.state.actors.mate = makeActor({ id: 'mate', name: '同伴', sink: 40 })
+    stand(g, 'F2')
+    expect(therapyBlock(g.k, g.state, { kind: 'retreat', actor: 'mate' })).toBe('斷線靜修只能自己去。')
+    g.commit(therapyDraft(g.k, g.state, { kind: 'retreat' }))
+    const again = make({ pc: { sink: 30 } })
+    expect(again.load(g.save())).toBeNull()
+    expect(retreatOf(again.state)).toEqual(retreatOf(g.state))
+    expect(again.k.activity.active(again.state).map((a) => a.kind)).toEqual(['retreat'])
   })
 
   it('設施寫了 favor：那個勢力的好感要夠；查不到好感的量表當作不夠', () => {
@@ -451,7 +552,7 @@ describe('治療：心理治療與斷線靜修', () => {
     g.commit(draft([{ op: 'meter', kind: 'favor', key: 'f_alpha', delta: 20 }]))
     expect(therapyBlock(g.k, g.state)).toBeNull()
     g.commit(therapyDraft(g.k, g.state))
-    expect(pc(g).sink).toBe(24)
+    expect(retreatOf(g.state)).toBeTruthy()
     const h = make({ pc: { sink: 30 }, noFavor: true })
     stand(h, 'F3')
     expect(therapyBlock(h.k, h.state)).toContain('好感還不夠')
@@ -607,6 +708,25 @@ describe('長時間帶著餘韻（DOWNTIME 3.2 節）', () => {
     expect(pc(g).sink).toBe(8)
   })
 
+  it('帶著 sink_resist 的人，餘韻帶久了的沉溺每一次少 1、最少 1（M4 收尾修正批 應修 5）：每次 +2 的規則表，+2 變 +1；沒帶的照舊 +2；每次 +1 的不變', () => {
+    const carryPack = (amount: number) => pack((c) => { c.sink_rule = [{ id: 'default', watchers: ['f_alpha', 'f_beta'], afterglow_carry: { hours: 6, amount } }] })
+    const after13h = (o: Opts): number => {
+      const g = make({ bare: true, pc: { sink: 5 }, ...o })
+      glow(g, 1)
+      advance(g, 13 * 60)
+      advance(g, 1)
+      return pc(g).sink
+    }
+    // 13 小時是兩次
+    expect(after13h({ pack: carryPack(2), extra: [RESIST_FX] })).toBe(7)
+    expect(after13h({ pack: carryPack(2) })).toBe(9)
+    expect(after13h({ pack: carryPack(3), extra: [RESIST_FX] })).toBe(9)
+    expect(after13h({ pack: carryPack(3) })).toBe(11)
+    // 預設每次 +1：最少 1，帶著與沒帶一樣
+    expect(after13h({ extra: [RESIST_FX] })).toBe(7)
+    expect(after13h({})).toBe(7)
+  })
+
   it('中間餘韻消過的重新算（消完清掉記號；消了一部分重新起算）', () => {
     const g = make({ bare: true, pc: { sink: 5 } })
     glow(g, 1)
@@ -703,5 +823,40 @@ describe('M4-core-gaps 第 8 項：80～99 給核心的標籤 afterglow_double�
     const e = g.k.passives.of(g.state, 'pc').find((x) => 'unit_tag' in x && x.unit_tag === 'afterglow_double')!
     expect(e.source).toBe('sink')
     expect(e.label).toContain('餘韻的正面效果加倍')
+  })
+})
+
+describe('往上加沉溺的共用路（sinkUpChanges；M4 收尾修正批 應修 5、裁決 6）', () => {
+  const up = (g: G, amount: number, times = 1) => {
+    const changes = sinkUpChanges(g.k, g.state, 'pc', amount, times)
+    const before = g.state.actors.pc!.sink
+    g.commit(draft(changes, 'test.up'))
+    return g.state.actors.pc!.sink - before
+  }
+
+  it('沒帶 sink_resist：照原本的量；amount、times 不是正整數沒有變更', () => {
+    const g = make({ bare: true, pc: { sink: 5 } })
+    expect(up(g, 1)).toBe(1)
+    expect(up(g, 4)).toBe(4)
+    expect(up(g, 2, 3)).toBe(6)
+    expect(sinkUpChanges(g.k, g.state, 'pc', 0)).toEqual([])
+    expect(sinkUpChanges(g.k, g.state, 'pc', -2)).toEqual([])
+    expect(sinkUpChanges(g.k, g.state, 'pc', 1.5)).toEqual([])
+    expect(sinkUpChanges(g.k, g.state, 'pc', 2, 0)).toEqual([])
+  })
+
+  it('帶 sink_resist：每一次少 1、最少 1（+1 還是 +1、+2 變 +1、+5 變 +4）；三次各算一次', () => {
+    const g = make({ pc: { sink: 5 }, extra: [RESIST] })
+    expect(g.k.effects.has('sink')).toBe(true)
+    expect(up(g, 1)).toBe(1)
+    expect(up(g, 2)).toBe(1)
+    expect(up(g, 5)).toBe(4)
+    expect(up(g, 2, 3)).toBe(3)
+  })
+
+  it('沒有人註冊 sink 效果（沒裝 character）：直接寫 actor.track，不看 sink_resist', () => {
+    const g = make({ bare: true, pc: { sink: 5 }, extra: [RESIST] })
+    expect(g.k.effects.has('sink')).toBe(false)
+    expect(up(g, 2)).toBe(2)
   })
 })

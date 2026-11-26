@@ -125,7 +125,7 @@ export function makeCurtainGame(o: BodyGameOptions = {}): WorldGame {
 
 /**
  * 簾後館的前奏：穿上甲板與構裝（面談要有自己的甲板）、街頭信譽 40、邀請函、面談（散座）、口味單三個、走到大廳的簾口（F4；街上的簾口，不經過潛入）。回傳每一步的報告。
- * 暗礁裡的簾口（潛入之後選 ns_tw_curtain）報名會被潛入的活動擋下（B030），之後一趟的場熱與落幕也不啟動（B031）：那一條走法在 engine/tests/pending/。
+ * dive: true 走暗礁裡的簾口：在潛艙店潛入、選去處 ns_tw_curtain，站在潛入裡的網內街區的簾口（B030、B031 修好之後和街上的簾口一樣走得完）。
  */
 export function curtainPrelude(game: Game, o: { dive?: boolean } = {}): Report[] {
   const out: Report[] = []
@@ -229,7 +229,7 @@ export async function makeCurtainAct2Game(o: BodyGameOptions = {}): Promise<Worl
   const map = g.state.maps.at!.map
   // 場熱：一趟進行中不收別的報告（網內的活動放行清單），直接把量表放到 65（測試的起點，不是一個行動）
   const meters = g.state.meters as Record<string, Record<string, number>>
-  meters.heat = { ...(meters.heat ?? {}), [map]: 65 }
+  meters.stage_heat = { ...(meters.stage_heat ?? {}), [map]: 65 }
   return t
 }
 

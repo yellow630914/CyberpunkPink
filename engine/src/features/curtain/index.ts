@@ -9,7 +9,7 @@
 //   效果  curtain_invite { days? }（ai: false，只有內建的來源收）：邀請函三天有效
 //   條件  curtain_member { tier? }（主角有會員證、沒停權，席次不低於 tier）；用到別人登記的：has_bridge（沒有橋進不來；沒有人註冊就當沒有）
 //   掛點  bill.collect（每週一行會費）、bill.settled（付了 paid_until 往後一週；連續 fee_grace_weeks 週沒付停權）
-//   放行  netrun 進行中放行 commit:curtain.（和迷宮館同一個做法）
+//   放行  netrun 進行中放行 commit:curtain.（和迷宮館同一個做法）；潛入（dive）進行中也放行（簾口放在潛入裡的網內街區，B030），面談、口味單、買回母帶除外
 //   狀態  state.ext.curtain：形狀見 model.ts
 // 衍生數值與量表只讀：街頭信譽 rep（meterOf）、敵對值 hostility、deck_grade（有沒有甲板）、角色的沉溺（actor.sink）。
 // 報告：curtain.interview（action）、curtain.taste（action）、curtain.enter（netrun，帶 launch 開一趟）。
@@ -17,7 +17,7 @@
 //
 // M4-curtain-run 補的（一趟裡的四幕；dev/work/M4-curtain-run.md）：
 //   內容  curtain_table（點單表、賞箱表、獎品表，各一筆 d6 的表）
-//   量表  heat（場熱，0～100、起算 30、鍵是那一趟的地圖實例；AI 與玩家要的效果一律不收）；票根是核心的計數器 curtain:stubs
+//   量表  stage_heat（場熱，0～100、起算 30、鍵是那一趟的地圖實例；AI 與玩家要的效果一律不收）；票根是核心的計數器 curtain:stubs
 //   變更  curtain.patch（改 state.ext.curtain 的一小塊，在套用的那一刻讀現在的狀態，同一份報告裡好幾個掛點各改各的不會互相蓋掉）
 //   遭遇  netrun 放的（開戰與潛行繞過都是它的）：生成時問掛點 netrun.foe_ref，這個功能回答每場遭遇擲到的文化與這一幕的等級（單位來源 enemy_pick 帶 culture）
 //   掛點  netrun.round（回合數、每 3 個探索回合場熱 −1）、netrun.close（結算）；battle.onEnd（亮點、倒下、點單的驗收、首領的獎品）；
@@ -41,7 +41,7 @@
 import type { ActorId, Condition, ConditionCtx, ContentEntry, Effect, Feature, GameState, Kernel } from '../../core'
 import { ActionBlocked, ContentError } from '../../core'
 import {
-  ACT_NETRUN, DAY_MINUTES, HEAT, INVITE_EFFECT, MEMBER_CONDITION, NIGHT_KIND, ORIGIN_BY, OWNER, RULE_KIND, TABLE_KIND, TAB_BILL_ID, TIER_IDS, curtainChange, curtainRules, isInt, nightProblems, nowOf, readCurtain, ruleProblems, tableProblems, tierIndex,
+  ACT_DIVE, ACT_NETRUN, DAY_MINUTES, HEAT, INTERVIEW_ACTION, INVITE_EFFECT, MEMBER_CONDITION, NIGHT_KIND, ORIGIN_BY, OWNER, RULE_KIND, TABLE_KIND, TAB_BILL_ID, TAPE_ACTION, TASTE_ACTION, TIER_IDS, curtainChange, curtainRules, isInt, nightProblems, nowOf, readCurtain, ruleProblems, tableProblems, tierIndex,
 } from './model'
 import type { CurtainTable, NightEntry, TierId } from './model'
 import { feeLine, feeSettled } from './member'
@@ -64,7 +64,7 @@ export { FLAG_LEAD_PREFIX as CURTAIN_FLAG_LEAD_PREFIX, GIG_EFFECT as CURTAIN_GIG
 export { foeGradeOf } from './culture'
 export { curtainView } from './view'
 export type { CurtainView, HeatBand } from './view'
-export { encoreBlocks, encoreDraft, encoreOf } from './settle'
+export { ENCORE_WITHDRAWN as CURTAIN_ENCORE_WITHDRAWN, encoreBlocks, encoreDraft, encoreOf, encoreStale } from './settle'
 export { cultureFor, cultures, encounterCulture } from './culture'
 export { heatBand, heatOf as curtainHeat, highlightHeat, highlightsOf, overshoot as curtainOvershoot, sceneHeat, tipsRatio } from './heat'
 export { exploreOf as curtainExplored, roundsOf as curtainRounds } from './nodes'
@@ -81,7 +81,7 @@ export {
   INTERVIEW_ACTION as CURTAIN_INTERVIEW_ACTION, INVITE_EFFECT as CURTAIN_INVITE_EFFECT, MEMBER_CONDITION as CURTAIN_MEMBER_CONDITION, NIGHT_KIND as CURTAIN_NIGHT_KIND,
   ORIGIN_BY as CURTAIN_ORIGIN, REGION_ID as CURTAIN_REGION, RULE_KIND as CURTAIN_RULE_KIND, TASTE_ACTION as CURTAIN_TASTE_ACTION, TIER_IDS as CURTAIN_TIERS,
   curtainChange, curtainRules, mondayOf as curtainMondayOf, nightProblems, readCurtain as curtainOf, ruleProblems as curtainRuleProblems, weekIndexOf as curtainWeekIndex,
-  ENCORE_ACTION as CURTAIN_ENCORE_ACTION, FALL_ACTION as CURTAIN_FALL_ACTION, FLAG_RAIDED as CURTAIN_FLAG_RAIDED, FLAG_SPONSOR as CURTAIN_FLAG_SPONSOR, FLAG_TAPE as CURTAIN_FLAG_TAPE, HEAT as CURTAIN_HEAT, ORDER_KINDS as CURTAIN_ORDER_KINDS,
+  ENCORE_ACTION as CURTAIN_ENCORE_ACTION, ENCORE_VOID_ACTION as CURTAIN_ENCORE_VOID_ACTION, FALL_ACTION as CURTAIN_FALL_ACTION, FLAG_RAIDED as CURTAIN_FLAG_RAIDED, FLAG_SPONSOR as CURTAIN_FLAG_SPONSOR, FLAG_TAPE as CURTAIN_FLAG_TAPE, HEAT as CURTAIN_HEAT, ORDER_KINDS as CURTAIN_ORDER_KINDS,
   REPLAY_ACTION as CURTAIN_REPLAY_ACTION, REST_ACTION as CURTAIN_REST_ACTION, SETTLE_ACTION as CURTAIN_SETTLE_ACTION, TAB_BILL_ID as CURTAIN_TAB_BILL_ID, TAPE_ACTION as CURTAIN_TAPE_ACTION,
   RESULT_ACTION as CURTAIN_RESULT_ACTION, STAGE_ACTION as CURTAIN_STAGE_ACTION, STUBS as CURTAIN_STUBS, TABLE_KIND as CURTAIN_TABLE_KIND, USE_ACTION as CURTAIN_USE_ACTION, tableProblems as curtainTableProblems,
 } from './model'
@@ -108,6 +108,9 @@ export function restDraft(k: Kernel, state: GameState, o: { book?: boolean } = {
   if (!c) throw new ActionBlocked('現在不在簾後館的一趟裡。')
   return restDraftAt(c, o)
 }
+
+/** 潛入中不放行的簾後館報告：入會與口味單、母帶是在現實辦的事。 */
+const DIVE_BLOCKED = [`commit:${INTERVIEW_ACTION}`, `commit:${TASTE_ACTION}`, `commit:${TAPE_ACTION}`]
 
 type AnyHook = (name: string, owner: string, fn: (payload: never) => unknown) => void
 
@@ -217,6 +220,8 @@ export const curtainFeature: Feature = {
 
     // ---- netrun 進行中放行簾後館自己的報告 ----
     k.activity.allow(ACT_NETRUN, 'commit:curtain.', OWNER)
+    // ---- 潛入（dive）進行中：簾口放在潛入裡的網內街區（暗礁），報名、一趟裡的報告、加演、落幕都要放行（B030）。面談、口味單、買回母帶是現實的事，不放行 ----
+    k.activity.allow(ACT_DIVE, 'commit:curtain.', OWNER, (_state, doing) => !DIVE_BLOCKED.includes(doing))
   },
 
   ready(kernel) {

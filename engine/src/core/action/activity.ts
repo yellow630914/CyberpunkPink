@@ -65,6 +65,8 @@ export class ActivityRegistry {
   private defs = new Map<string, ActivityDef>()
   /** allow 加在還沒登記的活動上：先記著，登記時併進去（始終沒有人登記就當沒這回事） */
   private pending = new Map<string, Array<{ prefix: string; owner: string; when?: AllowWhen }>>()
+  /** 每一種活動（包含之後才登記的）都放行的前綴：except 列出不放行的活動（allowEverywhere） */
+  private everywhere: Array<{ prefix: string; owner: string; except: readonly string[] }> = []
 
   constructor(private probe: Probe) {}
 
@@ -79,7 +81,7 @@ export class ActivityRegistry {
     this.pending.delete(def.kind)
     this.defs.set(def.kind, {
       ...def,
-      allow: [...def.allow, ...extra.filter((x) => !x.when).map((x) => x.prefix)],
+      allow: [...def.allow, ...extra.filter((x) => !x.when).map((x) => x.prefix), ...this.everywhere.filter((e) => !e.except.includes(def.kind)).map((e) => e.prefix)],
       allowWhen: [...(def.allowWhen ?? []), ...extra.flatMap((x) => (x.when ? [{ prefix: x.prefix, when: x.when }] : []))],
     })
     this.probe.emit('core/action/activity', 'registry.register', { registry: 'activity', id: def.kind, owner: def.owner })
@@ -97,6 +99,16 @@ export class ActivityRegistry {
       else def.allow.push(prefix)
     } else this.pending.set(kind, [...(this.pending.get(kind) ?? []), { prefix, owner, ...(when ? { when } : {}) }])
     this.probe.emit('core/action/activity', 'registry.register', { registry: 'activity.allow', id: kind, owner, prefix, ...(when ? { conditional: true } : {}) })
+  }
+
+  /**
+   * 把一個 doing 的前綴加進「每一種活動」的放行清單：現在登記了的、和之後才登記的都算（例：契約的回話在任何活動裡都能做）。
+   * except 是不放行的活動（核心規定戰鬥與等著選的戰敗只收自己的事，例：['battle', 'defeat']）。
+   */
+  allowEverywhere(prefix: string, owner: string, except: readonly string[] = []): void {
+    this.everywhere.push({ prefix, owner, except })
+    for (const def of this.defs.values()) if (!except.includes(def.kind) && !def.allow.includes(prefix)) def.allow.push(prefix)
+    this.probe.emit('core/action/activity', 'registry.register', { registry: 'activity.allow', id: '*', owner, prefix })
   }
 
   get(kind: string): ActivityDef | undefined {

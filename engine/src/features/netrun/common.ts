@@ -1,6 +1,6 @@
 // L6 功能 netrun 的共用小工具：報告草稿、這一趟用的區、探索回合（感載消退、倒數、問 netrun.round）。
 
-import type { Change, GameState, Kernel, ReportDraft, TimelineBeat } from '../../core'
+import type { Change, GameState, Kernel, ReportDraft, ReportTrigger, TimelineBeat } from '../../core'
 import { clone, modeOf } from '../../core'
 import type { NetRegion, NetRun } from './model'
 import { DEFAULT_REGIONS, NET_MODE } from './model'
@@ -22,6 +22,16 @@ export function traceDelta(run: NetRun, delta: number): number {
  */
 export function traceRise(k: Pick<Kernel, 'hooks'>, state: GameState, run: NetRun, delta: number): number {
   return traceDelta(run, delta > 0 ? traceMod(k, state, partyOf(state), run.faction, 'rise', delta) : delta)
+}
+
+/**
+ * 進內海算一次登入（使用者 2026-11-26；EVENTS 4.5 節「蠱惑多常來」）：委託的內海面（face.net）、自己去的一趟（netrun）、簾後館的一趟都是從現實進內海，開始那一份 netrun.enter 帶觸發點 login
+ * （和 dive.enter 一樣；where 是身體所在的區、街區與設施）。從潛入裡開的（潛入的活動還在進行）不再發：潛入的時候 dive.enter 已經發過。
+ */
+export function loginTriggers(k: Pick<Kernel, 'activity'>, state: GameState): ReportTrigger[] {
+  if (k.activity.active(state).some((a) => a.kind === 'dive')) return []
+  const { district, block, facility } = state.location
+  return [{ point: 'login', where: { ...(district ? { district } : {}), ...(block ? { block } : {}), ...(facility ? { facility } : {}) } }]
 }
 
 /** 一份網內的報告草稿（kind netrun；location 帶子網的 id 與第幾層）。 */

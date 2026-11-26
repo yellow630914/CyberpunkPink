@@ -62,6 +62,8 @@ export interface CyberView {
   recovering_until?: number
   /** 有沒有橋 */
   bridge: boolean
+  /** 生命值要模糊顯示（身上有生效的痛覺編輯器；衍生數值 hp_blur 的布林版，畫面不再認標籤名） */
+  hp_blur: boolean
 }
 
 const tattooOf = (bp: unknown): { kind: string; faction?: string } | undefined => {
@@ -113,5 +115,6 @@ export function cyberView(k: Kernel, state: GameState, actor: ActorId): CyberVie
     sink: state.actors[actor]?.sink ?? 0,
     ...(waiting.length > 0 ? { recovering_until: Math.max(...waiting.map((p) => p.ready_at!)) } : {}),
     bridge: pieces.some((p) => p.slot === 'bridge') || (state.actors[actor] ? state.actors[actor]!.ext.bridge !== null : false),
+    hp_blur: k.stats.hasStat('hp_blur') && state.actors[actor] ? k.stats.stat(state, actor, 'hp_blur') > 0 : false,
   }
 }

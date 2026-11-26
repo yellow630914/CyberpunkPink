@@ -8,7 +8,7 @@ import type { BattleSetup, ContentPack, ReportDraft } from '../../src'
 import { BattleRun, ContentError, clone, currentUnit } from '../../src'
 import { characterFeature } from '../../src/features/character'
 import { combatFeature } from '../../src/features/combat'
-import { PUMP_ACTION, cyberLive, cyberOf, cyberwareFeature, deckSourceOf, woundedUids } from '../../src/features/cyberware'
+import { PUMP_ACTION, cyberLive, cyberOf, cyberView, cyberwareFeature, deckSourceOf, woundedUids } from '../../src/features/cyberware'
 import { hackedAnswer, hackTraceAnswer, netTraceAnswer } from '../../src/features/cyberware/trace'
 import { enemyUnit, makeActor, makeGame } from '../../src/testkit'
 
@@ -34,7 +34,7 @@ const BLUEPRINTS = [
   bp('bp_backdoor', 'brain', { name: '夜曲', trace_mod: [{ faction: 'f_nightingale', start: 5, rise: 1 }] }),
   // 皮下裝甲：不會被特殊效果打壞（只保護它自己那一種）；痛覺編輯器：無視重傷懲罰
   bp('bp_subdermal', 'torso', { name: '皮下裝甲', effects: [{ unit_tag: 'implant_hardened:torso', label: '皮下裝甲' }] }),
-  bp('bp_pain_editor', 'brain', { name: '痛覺編輯器', effects: [{ unit_tag: 'ignore_wound_penalty', label: '痛覺編輯器' }] }),
+  bp('bp_pain_editor', 'brain', { name: '痛覺編輯器', tags: ['pain_editor'], effects: [{ unit_tag: 'ignore_wound_penalty', label: '痛覺編輯器' }] }),
   // 記憶庫：被駭時被讀走
   bp('bp_memory', 'brain', { name: '記憶庫', readable: { what: 'memory' } }),
 ]
@@ -197,6 +197,36 @@ describe('第 1、2 項的資料端：痛覺編輯器與皮下裝甲用被動效
     }
     expect(hurt([BRIDGE])).toEqual({ hit: true, check: true })
     expect(hurt([BRIDGE, piece('p1', 'bp_pain_editor', 'brain')])).toEqual({ hit: false, check: false })
+  })
+})
+
+describe('痛覺編輯器給畫面的旗標：衍生數值 hp_blur 與 cyberView.hp_blur（M4 收尾修正批 使用者 2026-11-26 裁決 10）', () => {
+  const blurred = (g: G): number => g.k.stats.stat(g.state, 'pc', 'hp_blur')
+
+  it('設計圖 tags 有 pain_editor 的義體生效中：hp_blur 是 1、cyberView.hp_blur 是 true；沒有裝是 0 與 false；畫面不用認標籤名', () => {
+    const tagged = (over: Rec = {}) => piece('p1', 'bp_pain_editor', 'brain', over)
+    const plain = make()
+    expect(blurred(plain)).toBe(0)
+    expect(cyberView(plain.k, plain.state, 'pc').hp_blur).toBe(false)
+    const withPain = make({ pieces: [BRIDGE, tagged()] })
+    expect(blurred(withPain)).toBe(1)
+    expect(cyberView(withPain.k, withPain.state, 'pc').hp_blur).toBe(true)
+    // 別的腦部義體不算
+    const other = make({ pieces: [BRIDGE, piece('p2', 'bp_memory', 'brain')] })
+    expect(blurred(other)).toBe(0)
+    // 還在休養（ready_at 在未來）或被鎖住（off）的不算：和它的效果同時生效
+    const waiting = make({ pieces: [BRIDGE, tagged({ ready_at: 10 ** 9 })] })
+    expect(blurred(waiting)).toBe(0)
+    const off = make({ pieces: [BRIDGE, tagged({ off: { why: 'lock' } })] })
+    expect(blurred(off)).toBe(0)
+    expect(cyberView(off.k, off.state, 'pc').hp_blur).toBe(false)
+  })
+
+  it('別人的痛覺編輯器看他自己：夥伴有、主角沒有', () => {
+    const g = make({ mate: true })
+    g.state.actors.mate!.ext.cyber = { pieces: [BRIDGE, piece('p9', 'bp_pain_editor', 'brain')] }
+    expect(g.k.stats.stat(g.state, 'mate', 'hp_blur')).toBe(1)
+    expect(g.k.stats.stat(g.state, 'pc', 'hp_blur')).toBe(0)
   })
 })
 

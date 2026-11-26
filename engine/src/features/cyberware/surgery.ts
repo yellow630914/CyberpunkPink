@@ -10,7 +10,7 @@
 
 import type { ActorId, BlueprintEntry, Change, CheckRoll, GameState, Kernel, ProductData, QuirkEntry, ReportDraft, TimelineBeat } from '../../core'
 import {
-  ActionBlocked, DEGREE_NAME, blueprintOf, checkParts, clone, dcFor, deriveRng, formatAmount, formatDuration, partOf, partTypeName, productOf, productPrice, readProduct, rollCheck, stackOf,
+  ActionBlocked, DEGREE_NAME, blueprintOf, checkParts, clone, dcFor, deriveRng, formatAmount, formatDuration, partOf, partTypeName, productOf, productPrice, readProduct, rollCheck, sinkUpChanges, stackOf,
 } from '../../core'
 import { DECK_FULL, brainDeck, deckContentOf, isDeckPiece, netActivityBlock, pieceBlueprint } from './deck'
 import { usedExtras } from './used'
@@ -364,7 +364,7 @@ export function installDraft(k: Kernel, state: GameState, o: InstallOpts): Repor
 
   if (!installed) {
     // 大失敗：沒裝上、東西還在背包、被裝的人沉溺 +1；時間照花
-    changes.push({ op: 'time', minutes: q.minutes }, { op: 'actor.track', id: o.actor, track: 'sink', delta: 1 })
+    changes.push({ op: 'time', minutes: q.minutes }, ...sinkUpChanges(k, state, o.actor, 1))
     lines.push(`${surgeonText}，這一刀失手了：${bp.name}沒有裝上，神經被扯得很痛，東西還留在背包裡。`, `${patient.name}又往深處滑了一點。`)
   } else {
     const now = nowOf(state) + q.minutes

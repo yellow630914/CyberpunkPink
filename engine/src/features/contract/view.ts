@@ -5,7 +5,7 @@ import { contentAllowed } from '../../core'
 import { resistPlan } from './draft'
 import type { Contract, ContractRule, Holder, OrderKind, OrderState, Place, Relation, Right } from './model'
 import {
-  DOCILITY_STAT, ORDER_KINDS, ORDER_NAME, ORDER_STATE_NAME, RELATION_NAME, TYPE_NAME, activeCount, dailyChance, extOf, forceable, isActive, meterNow, nowOf, pcOf, placeName, scopeData,
+  DOCILITY_STAT, ORDER_KINDS, ORDER_NAME, ORDER_STATE_NAME, RELATION_NAME, TYPE_NAME, activeCount, dailyChance, extOf, forceable, isActive, meterNow, nowOf, pcOf, placeMatches, placeName, scopeData,
 } from './model'
 import { payoffQuote } from './play'
 import type { PayoffQuote } from './play'
@@ -22,8 +22,17 @@ export interface OrderView {
   deadline: number
   /** 離期限還有幾分鐘（過了是負的；已經了結的沒有） */
   minutes_left: number | null
+  /** 了結的時間（總分鐘；done、resisted、overdue 才有） */
+  closed?: number
+  /** 逾期了結的那一條的處置：result 是 lapsed／overdue／overdue_lock／overdue_load／overdue_expose，text 是給玩家看的那一句（不用比對報告的正文） */
+  outcome?: { result: string; text: string }
   place?: Place
   place_name?: string
+  /**
+   * 走過去（畫面設目的地用）：還沒了結、還沒到過、有指定地方的指令。district、block 是世界的移動要的目的地；here 是人已經站在那裡（可以直接回報走到了）。
+   * 不指定地方的指令沒有這一項。
+   */
+  goto?: { district?: string; block?: string; facility?: string; name: string; here: boolean }
   arrived: boolean
   /** 逾期會怎樣（只有還沒了結的）：強制的列現在抽得到的處置，送達與照做中的是作廢 */
   on_overdue?: string[]
@@ -71,7 +80,9 @@ export function boundView(k: Kernel, state: GameState): BoundView | null {
     const plan = o.state === 'sent' ? resistPlan(k, state, pc, c) : undefined
     return {
       id: o.id, kind: o.kind, name: ORDER_NAME[o.kind], state: o.state, state_name: ORDER_STATE_NAME[o.state], asked: o.asked === true, issued: o.issued, deadline: o.deadline,
-      minutes_left: live ? o.deadline - now : null, ...(o.place ? { place: o.place, place_name: placeName(k, o.place) } : {}), arrived: o.arrived === true,
+      minutes_left: live ? o.deadline - now : null, ...(o.closed !== undefined ? { closed: o.closed } : {}), ...(o.outcome ? { outcome: { ...o.outcome } } : {}), ...(o.place ? { place: o.place, place_name: placeName(k, o.place) } : {}),
+      ...(o.place && live && o.arrived !== true ? { goto: { ...(o.place.district ? { district: o.place.district } : {}), ...(o.place.block ? { block: o.place.block } : {}), ...(o.place.facility ? { facility: o.place.facility } : {}), name: placeName(k, o.place), here: placeMatches(k, state, o.place) } } : {}),
+      arrived: o.arrived === true,
       ...(live ? { on_overdue: o.state === 'forced' ? (options.length > 0 ? options : ['滿意下降']) : ['作廢，滿意下降'] } : {}),
       ...(plan ? { resist: { dc: plan.dc, breakdown: plan.breakdown, chance: plan.chance, forceable: forceable(o.kind, unwilling) } } : {}),
     }

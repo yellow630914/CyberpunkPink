@@ -90,7 +90,14 @@ function commitInto(k: StateKernel, work: GameState, draft: ReportDraft, depth: 
   guardHooks(k, work, 'report.before', () => {
     for (const { result } of k.hooks.run('report.before', { state: work, draft: d })) {
       notFinite(result)
-      d.changes.push(...clone(result))
+      // 回傳變更的陣列，或 { changes, lines }：lines 接在這份報告的結果與摘要後面（掛點不可以自己改草稿的正文）
+      const answer = Array.isArray(result) ? { changes: result } : result
+      d.changes.push(...clone(answer.changes ?? []))
+      const lines = (answer as { lines?: string[] }).lines?.filter((l) => typeof l === 'string' && l.length > 0) ?? []
+      if (lines.length > 0) {
+        d.narration = { ...(d.narration ?? {}), results: [...(d.narration?.results ?? []), ...lines] }
+        d.outcome = { ...d.outcome, summary: `${d.outcome.summary}${lines.join('')}` }
+      }
     }
   })
   // 所有角色都是成年人：報告裡任何深度有低於 18 的年齡，整份不收（和讀檔同一條底線，所以提交得進去的一定讀得回來）

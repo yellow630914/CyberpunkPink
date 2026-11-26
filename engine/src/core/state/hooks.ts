@@ -30,13 +30,22 @@ export interface ActionWindowAnswer {
   replace?: { input: ActionInput; why: string }
 }
 
+/** 掛點 report.before 的回答：要加進這份報告的變更，和接在結果後面的句子（給玩家看的完整句子）。 */
+export interface ReportBeforeAnswer {
+  changes: Change[]
+  lines?: string[]
+}
+
 /**
  * 核心定義的掛點。功能可以用 declare module 擴充這張表，加上自己的掛點（例如戰鬥結束）。
  * 每一項是 [收到的東西, 可以回傳的東西]。
  */
 export interface HookMap {
-  /** 報告套用之前：可以回傳要加進這份報告的變更（例：契約的收益歸屬）。 */
-  'report.before': [{ state: GameState; draft: ReportDraft }, Change[] | void]
+  /**
+   * 報告套用之前：可以回傳要加進這份報告的變更（例：契約的收益歸屬）；要在這份報告的結果多說一句話，回傳 { changes, lines }（M4 收尾修正批）：
+   * 核心把 lines 接到 narration.results 與 outcome.summary 後面。處理函式拿到的 draft 是唯讀的：不要直接改它的正文與摘要。
+   */
+  'report.before': [{ state: GameState; draft: ReportDraft }, Change[] | ReportBeforeAnswer | void]
   /** 報告套用之後：可以回傳接著要提交的報告（例：跨過週一時的帳單）。 */
   'report.after': [{ state: GameState; report: Report }, ReportDraft[] | void]
   /** 時間往前走了：from 到 to。可以回傳接著要提交的報告。 */

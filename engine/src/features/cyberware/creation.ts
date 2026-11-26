@@ -283,3 +283,94 @@ export function answerCreation(k: Kernel, p: Payload): Answer | void {
   if (p.step === 'cyber') return cyberAnswer(k, p)
   if (p.step === 'gear') return gearAnswer(k, p)
 }
+
+// ---- 目錄與外觀（M4 收尾修正批；使用者 2026-11-26 裁決 11；掛點 creation.catalog、creation.look） ----
+
+interface CatalogRowLike {
+  id: string
+  name: string
+  desc: string
+  grade: number
+  brand: string
+  price: number
+  points: number
+  category: string
+  slots?: string[]
+  block: string | null
+}
+interface CatalogPayloadLike { state: GameState; draft: DraftLike; limits: LimitsLike }
+
+/**
+ * 掛點 creation.catalog 的回答：橋（設計圖的部位是 bridge）、其他義體（要有完整的原廠組合、不是甲板）、甲板（內容種類 deck 的成品或設計圖帶 deck；用裝備點數，只列 gear_grade_max 級以內）。
+ * block 是這個出身買不買得到（available）；點數照第 6 步與第 9 步一樣的算法。
+ */
+export function catalogAnswer(k: Kernel, p: CatalogPayloadLike): { bridges: CatalogRowLike[]; cyber: CatalogRowLike[]; gear: CatalogRowLike[] } | void {
+  const bridges: CatalogRowLike[] = []
+  const cyber: CatalogRowLike[] = []
+  const gear: CatalogRowLike[] = []
+  if (k.content.hasKind('blueprint')) {
+    for (const bp of k.content.list<BlueprintEntry>('blueprint')) {
+      if (bp.kind !== 'cyberware') continue
+      const stock = stockOf(k, bp)
+      if (bp.deck !== undefined) {
+        if (!stock || bp.grade > p.limits.gearGradeMax) continue
+        const price = productPrice(k.content, bp.id)
+        gear.push({ id: bp.id, name: bp.name, desc: bp.desc, grade: bp.grade, brand: bp.brand, price, points: gearPointsOf(price, p.limits), category: 'deck', slots: ['brain'], block: availableBlock(k, p.draft, bp as { available?: unknown }) })
+        continue
+      }
+      if (!stock) continue
+      const row: CatalogRowLike = {
+        id: bp.id, name: bp.name, desc: bp.desc, grade: bp.grade, brand: bp.brand, price: productPrice(k.content, bp.id), points: creationPointsOf(k, bp, p.limits), category: 'cyberware',
+        slots: bp.slot ? [bp.slot] : [], block: availableBlock(k, p.draft, bp as { available?: unknown }),
+      }
+      if (bp.slot === 'bridge') bridges.push(row)
+      else cyber.push(row)
+    }
+  }
+  if (p.limits.gearKinds.includes('deck')) {
+    for (const d of k.content.hasKind('deck') ? k.content.list('deck') : []) {
+      const deck = deckContentOf(k, d.id)
+      if (!deck || deck.grade > p.limits.gearGradeMax) continue
+      const price = deck.price ?? 0
+      gear.push({ id: deck.id, name: deck.name, desc: typeof deck.desc === 'string' ? deck.desc : '', grade: deck.grade, brand: typeof deck.brand === 'string' ? deck.brand : '', price, points: gearPointsOf(price, p.limits), category: 'deck', slots: ['brain'], block: availableBlock(k, p.draft, deck as { available?: unknown }) })
+    }
+  }
+  return { bridges, cyber, gear: p.limits.gearKinds.includes('deck') ? gear : [] }
+}
+
+interface LookPayloadLike { draft: DraftLike; he: string; texts: { brand_lines: Record<string, string>; beast_lines: Record<string, { mood: string; move: string }> } }
+
+const brandKey = (brand: string): string => (brand.includes('二手') ? '二手' : brand.includes('同人') ? '同人' : brand)
+
+/**
+ * 掛點 creation.look 的回答：外露的義體（設計圖 look.at）與獸化（設計圖 look.beast；系由草稿的 beastLine，沒寫是貓）。
+ * 句子的模板是 NPC_SYSTEM 13.11 節：「<他>的<部位>是<牌子的名字>，<外殼的描寫>。」外殼的描寫是設計圖 look.line，沒寫用牌子的（creation_rule 的 look.brand_lines 蓋掉預設）。
+ */
+export function lookAnswer(k: Kernel, p: LookPayloadLike): { cyber: string[]; beast: string[] } | void {
+  const d = p.draft
+  const picks: Array<{ bp: BlueprintEntry; bridge: boolean }> = []
+  for (const x of [...(typeof d.bridge === 'string' ? [{ blueprint: d.bridge, bridge: true }] : []), ...(Array.isArray(d.cyber) ? d.cyber.map((c) => ({ blueprint: c.blueprint, bridge: false })) : [])]) {
+    const bp = cyberwareOf(k, x.blueprint)
+    if (bp) picks.push({ bp, bridge: x.bridge || bp.slot === 'bridge' })
+  }
+  if (picks.length === 0) return
+  const he = p.he
+  const lineName = (d as { beastLine?: unknown }).beastLine
+  const line = typeof lineName === 'string' && lineName ? lineName : '貓'
+  const L = p.texts.beast_lines[line] ?? p.texts.beast_lines['貓'] ?? { mood: '不高興', move: '往後貼平' }
+  const what = (bp: BlueprintEntry, bridge: boolean): string => {
+    const b = bp.brand.replace('（二手）', '').split('／')[0]!
+    const n = bp.name.includes(b) ? bp.name : `${b}的${bp.name}`
+    return bridge ? `${n}的橋接口` : n
+  }
+  const cyber: string[] = []
+  const beast: string[] = []
+  for (const { bp, bridge } of picks) {
+    const look = bp.look
+    if (!look) continue
+    cyber.push(`${he}的${look.at}是${what(bp, bridge)}，${look.line ?? p.texts.brand_lines[brandKey(bp.brand)] ?? '外殼沒有什麼特別'}。`)
+    if (look.beast?.part === 'ears') beast.push(`${he}的頭上有一對${line}耳，${look.beast.school === 'mech' ? '外殼是霧面的黑色，耳根有一圈金屬的接縫' : '毛是真的，摸得到底下的軟骨'}，${he}${L.mood}的時候耳朵會${L.move}。`)
+    else if (look.beast?.part === 'tail') beast.push(`${he}的身後拖著一條${line}尾，${look.beast.school === 'mech' ? '外殼是霧面的黑色，尾根有一圈金屬的接縫' : '毛是真的，摸得到底下的骨節'}。`)
+  }
+  return { cyber: cyber.filter(() => true), beast }
+}

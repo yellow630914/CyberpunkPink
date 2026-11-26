@@ -14,7 +14,7 @@ import { ActionBlocked, clone, formatAmount } from '../../core'
 import { defOf } from './ctx'
 import { heatDelta, heatOf, overshoot, tipsRatio } from './heat'
 import type { CurtainRules, EncoreRec, RunRecord, SettleResult } from './model'
-import { ENCORE_ACTION, ORIGIN_BY, REGION_ID, RESULT_ACTION, curtainChange, curtainRules, nowOf, readCurtain, tierOf } from './model'
+import { ENCORE_ACTION, ENCORE_VOID_ACTION, ORIGIN_BY, REGION_ID, RESULT_ACTION, curtainChange, curtainRules, nowOf, readCurtain, tierOf } from './model'
 import { allActs, resetTally, roundsOf } from './nodes'
 import { actOf } from './battle'
 import { allOrdersDone } from './orders'
@@ -26,6 +26,7 @@ import { layerCountsOf } from './enter'
 import { nightOf } from './nights'
 import { gigMult } from './fall'
 import { hasBridge, hasDeck } from './member'
+import { doorBlock } from './door'
 
 interface RunLike {
   id: string
@@ -71,7 +72,9 @@ export function closeRun(k: Kernel, state: GameState, run: RunLike, outcome: str
   let mult = 0
   if (early) {
     refund = kept
-    lines.push('觀眾散場了：提早落幕，不算戰敗。保證金退回，票根留著，沒有破關獎金，也沒有打賞。')
+    // 加演中途散場：已經走完的那幾幕的獎金照算（和自己登出同一個算法；CYBERSPACE 8.8 節「已經拿到的獎金與票根照算，沒有打賞」）
+    if (r.encore && run.layer >= 1) prize = Math.round(tier.prize * (rules.encore.prize[Math.min(run.layer - 1, rules.encore.prize.length - 1)] ?? 1))
+    lines.push(`觀眾散場了：提早落幕，不算戰敗。保證金退回，票根留著，${prize > 0 ? `加演已經走完的那幾幕獎金 ${money(prize)} 照算，` : '沒有破關獎金，'}沒有打賞。`)
   } else if (done) {
     mult = r.encore ? (rules.encore.prize[Math.min(run.layer, rules.encore.prize.length - 1)] ?? 1) : 1
     prize = Math.round(tier.prize * mult)
@@ -101,8 +104,11 @@ export function closeRun(k: Kernel, state: GameState, run: RunLike, outcome: str
   // 加演的資格
   let encore: EncoreRec | undefined
   if (done && !early && !r.encore && (r.encore_open === true || heat >= rules.heat.encore || allOrdersDone(r))) {
-    encore = { from: r.id, night: r.night, tier: r.tier, grade: r.grade, party: [...r.party], feature: r.feature, pure_stage: r.pure_stage, heat, tips_mult: r.tips_mult ?? 1 }
-    lines.push('場熱夠高（或點單全部完成）：館方開口邀加演，可以接著進第 5、6 幕。')
+    encore = {
+      from: r.id, night: r.night, tier: r.tier, grade: r.grade, party: [...r.party], feature: r.feature, pure_stage: r.pure_stage, heat, tips_mult: r.tips_mult ?? 1,
+      day: nightOf(k, state), at: { ...(state.location.block ? { block: state.location.block } : {}), ...(state.location.facility ? { facility: state.location.facility } : {}) },
+    }
+    lines.push('場熱夠高（或點單全部完成）：館方開口邀加演，可以接著進第 5、6 幕。邀請只在今晚、你還站在簾口的時候有效。')
   }
   changes.push(patch({ ...(clears ? { clears } : {}), ...(tips > 0 ? { tips } : {}), ...(encore ? { encore } : {}), run: { set: { over: result } } }))
   return { changes, lines }
@@ -115,7 +121,7 @@ export function resultDraft(state: GameState, r: RunRecord): ReportDraft {
   const early = o.early === true
   const done = o.outcome === 'done' && !early
   const summary = early
-    ? `簾後館結算：提早落幕。保證金 ${money2(o.refund)} 退回，票根 ${o.stubs} 枚留著。`
+    ? `簾後館結算：提早落幕。${o.prize > 0 ? `獎金 ${money2(o.prize)}、` : ''}保證金 ${money2(o.refund)} 退回，票根 ${o.stubs} 枚留著。`
     : done
       ? `簾後館結算：場熱 ${o.heat}。獎金 ${money2(o.prize)}、打賞 ${money2(o.tips)}（×${o.tips_ratio}）、保證金 ${money2(o.refund)} 退回，票根 ${o.stubs} 枚。`
       : `簾後館結算：中途離場。保證金 ${money2(o.refund)} 退回、${money2(o.forfeited)} 沒收，票根 ${o.stubs} 枚留著。`
@@ -127,11 +133,33 @@ export function resultDraft(state: GameState, r: RunRecord): ReportDraft {
 
 // ---- 加演 ----
 
+/** 加演的邀請收回的那一句（離開簾口、或過了這一晚）。 */
+export const ENCORE_WITHDRAWN = '館方收回了加演的邀請。'
+
+/**
+ * 加演的邀請作廢了嗎（使用者 2026-11-26 裁決 4）：只在結算之後的同一晚、人還站在簾口（簾口在潛入裡時就是潛入中的那一格）接得了；
+ * 過了這一晚（nightOf 換了）、或站的位置不是結算時的那一格，就作廢。舊存檔的邀請沒有記晚與位置的，當成沒有作廢。
+ */
+export function encoreStale(k: Kernel, state: GameState, rec: EncoreRec): boolean {
+  if (rec.day !== undefined && nightOf(k, state) !== rec.day) return true
+  if (rec.at && ((rec.at.block ?? undefined) !== (state.location.block ?? undefined) || (rec.at.facility ?? undefined) !== (state.location.facility ?? undefined))) return true
+  return false
+}
+
+/** 作廢的那一份報告（curtain.encore_void）：拿掉邀請、一句「館方收回了加演的邀請」。 */
+export function encoreVoidDraft(state: GameState): ReportDraft {
+  return draftOf(state, ENCORE_VOID_ACTION, 'void', ENCORE_WITHDRAWN, [patch({ encore: null })], { lines: [ENCORE_WITHDRAWN] })
+}
+
 /** 現在加演不了的原因（一條一句）；能是空的。 */
 export function encoreBlocks(k: Kernel, state: GameState): string[] {
   const cur = readCurtain(state)
   const p: string[] = []
   if (!cur.encore) return ['現在沒有加演的邀請：場熱要到過 90，或這一趟的點單全部接受而且完成。']
+  if (encoreStale(k, state, cur.encore)) return [ENCORE_WITHDRAWN]
+  if (cur.fall) p.push('落幕之後的事還沒有處理完。')
+  const door = doorBlock(k, state)
+  if (door) p.push(door)
   if (!k.activity.get(ACT_NETRUN)) p.push('簾後館現在沒有開放。')
   if (cur.run) p.push('這一趟還沒有收場。')
   else if (k.activity.active(state).some((a) => a.kind === ACT_NETRUN)) p.push('已經有一趟網內的行程在進行，先把它做完。')

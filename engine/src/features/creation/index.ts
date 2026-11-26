@@ -18,6 +18,8 @@ export type { CreationBlock, CreationDraft, CreationLimits, CreationLook, Creati
 export { DEFAULT_GEAR_KINDS, LIFEPATH_TABLES, creationLimits } from './model'
 export { BRIDGE_TWEAK_MAX, LIFEPATH_KIND, MAX_KINKS, NPC_ROLES, ROLE_NAME, TABLE_NAME, kinkChoices, lifepathBlock, lifepathProblems, lifepathRoll, lifepathTables, textOf } from './lifepath'
 export type { LifepathEntry, LifepathNpc, LifepathOption, LifepathOutcome, LifepathResult, LifepathSummaryRow, LifepathTableView, LifepathTendency, NpcRole } from './lifepath'
+export { DEFAULT_BEAST_LINE, DEFAULT_BEAST_LINES, DEFAULT_BRAND_LINES, GEAR_GROUPS, creationCatalog, creationLook, lookTexts, suggestedKit } from './catalog'
+export type { CatalogAnswer, CatalogPayload, CatalogRow, CreationCatalog, DerivedLook, LookAnswer, LookPayload, LookTexts, SuggestedKit } from './catalog'
 export { BODY_STEPS, abilitiesStepBlock, askStep, creationSummary, cyberStepBlock, gearStepBlock, leftoverCash, pointsSpent } from './body'
 export type { BodyStep, CapacitySplit, CreationSummary, OwnedItem, PointSummary, StepAnswer, StepPayload, StepResult } from './body'
 

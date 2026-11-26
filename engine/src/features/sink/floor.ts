@@ -8,10 +8,10 @@
 
 import type { Change, Effect, EffectCtx, EffectStepCtx, Kernel } from '../../core'
 import { isRecord, isSafeInt } from '../../core'
-import type { FloorMod } from './model'
+import type { FloorMod, RetreatRec } from './model'
 import { EXT, EXT_OP, FLOOR_EFFECT, MAX_FLOOR_DAYS, MINUTES_PER_DAY, OWNER, liveMods, nowOf, readExt } from './model'
 
-type ExtChange = Change & { id: string; patch?: Record<string, number | null>; floor_add?: FloorMod; prune?: boolean }
+type ExtChange = Change & { id: string; patch?: Record<string, number | null>; floor_add?: FloorMod; prune?: boolean; retreat?: RetreatRec | null }
 interface FloorEffect extends Effect { amount: number; days?: number; why?: string }
 
 const PATCH_KEYS = ['therapy_week', 'therapy_n', 'carry_from', 'carry_paid']
@@ -27,6 +27,12 @@ export function registerFloor(k: Kernel): void {
         else for (const [key, v] of Object.entries(c.patch)) {
           if (!PATCH_KEYS.includes(key)) p.push(`patch.${key}：只能寫 ${PATCH_KEYS.join('、')}`)
           else if (v !== null && !isSafeInt(v)) p.push(`patch.${key} 要是整數或 null`)
+        }
+      }
+      if (c.retreat !== undefined && c.retreat !== null) {
+        const r = c.retreat
+        if (!isRecord(r) || typeof r.facility !== 'string' || !r.facility || !isSafeInt(r.since) || !isSafeInt(r.until) || !isSafeInt(r.amount) || !isSafeInt(r.from) || r.until <= r.since) {
+          p.push('retreat 要是 { facility, since, until（比 since 晚）, amount, from } 或 null')
         }
       }
       if (c.floor_add !== undefined) {
@@ -48,6 +54,8 @@ export function registerFloor(k: Kernel): void {
         if (v === null) delete next[key]
         else next[key] = v
       }
+      if (c.retreat === null) delete next.retreat
+      else if (c.retreat !== undefined) next.retreat = { ...c.retreat }
       if (mods.length === 0 && Object.keys(next).length === 1) delete a.ext[EXT]
       else a.ext[EXT] = next
     },

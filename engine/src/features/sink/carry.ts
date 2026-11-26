@@ -8,10 +8,10 @@
 //                  為什麼只算到這一次的起點、不算這一次經過的時間：time.passed 跑的時候餘韻的自然消退（character）還沒有套上去，
 //                  這一次經過的時間裡餘韻是不是真的沒有消，要到下一次才看得出來；先算進去的話，每一次長時間的行動（打工、等待）都會誤加。
 //                  只差一次時間經過，所以「過 13 小時」是在那之後的下一次時間經過時補上 +2。
-// 加沉溺直接寫 actor.track（往上加的照舊，不走 sink 效果）；句子不帶機制數字。
+// 往上加沉溺走 sinkUpChanges（有人註冊 sink 效果就走它：帶著 sink_resist 的人每一次 +2 變 +1；M4 收尾修正批 應修 5）；句子不帶機制數字。
 
 import type { Change, GameState, GameTime, Kernel, ReportDraft } from '../../core'
-import { clone, toMinutes } from '../../core'
+import { clone, sinkUpChanges, toMinutes } from '../../core'
 import { EXT_OP, nowOf, readExt, sinkRules } from './model'
 
 export const CARRY_ACTION = 'sink.carry'
@@ -55,7 +55,7 @@ export function carryDrafts(k: Kernel, state: GameState, from: GameTime): Report
   if (due <= 0) return []
   const text = '餘韻一直沒有退下去，沉溺悄悄往下陷了一點。'
   return [draftOf(state, pc, [
-    { op: 'actor.track', id: pc, track: 'sink', delta: due * rule.amount } as Change,
+    ...sinkUpChanges(k, state, pc, rule.amount, due),
     { op: EXT_OP, id: pc, patch: { carry_paid: total } } as Change,
   ], 'carried', text)]
 }

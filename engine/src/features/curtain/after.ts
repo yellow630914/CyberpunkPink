@@ -13,7 +13,7 @@ import { FLAG_SPONSOR, STAGE_ACTION, readCurtain } from './model'
 import { restDraft } from './nodes'
 import { runPatch } from './patch'
 import { fallDraft, replayReport } from './fall'
-import { resultDraft } from './settle'
+import { encoreStale, encoreVoidDraft, resultDraft } from './settle'
 import { draftOf } from './util'
 
 /** 場熱跨過門檻、剛開地圖的那一份記錄；沒有要記的是 null。 */
@@ -55,6 +55,8 @@ export function afterReport(k: Kernel, state: GameState, report: Report): Report
   if (report.rewind || report.action === 'rewind') return undefined
   const cur = readCurtain(state)
   const run = cur.run
+  // 加演的邀請：離開簾口、或過了這一晚就收回（使用者 2026-11-26 裁決 4）
+  if (!run && cur.encore && encoreStale(k, state, cur.encore)) return [encoreVoidDraft(state)]
   // 補演剛結束：發 curtain.replay（只發一次）
   if (!run && cur.fall?.replayed && !cur.fall.replayed.reported && !k.activity.active(state).some((a) => a.kind === 'scene')) {
     const d = replayReport(state)
@@ -62,10 +64,12 @@ export function afterReport(k: Kernel, state: GameState, report: Report): Report
   }
   if (!run) return undefined
   if (run.over) return [resultDraft(state, run)]
-  // 全隊倒下、戰敗也被接受了（netrun 收掉這一趟之後）：落幕
-  if (run.lost && !state.battle && !k.activity.active(state).length) return [fallDraft(k, state, run)]
+  // 潛入（dive）是簾口放在潛入裡的網內街區時一趟的外框，不算打斷（B030、B031）；netrun 是這一趟自己
+  const busy = k.activity.active(state).filter((a) => a.kind !== 'netrun' && a.kind !== 'dive')
+  // 全隊倒下、戰敗也被接受了（netrun 收掉這一趟之後；潛入的外框還在不算）：落幕
+  if (run.lost && !state.battle && k.activity.active(state).every((a) => a.kind === 'dive')) return [fallDraft(k, state, run)]
   // 戰鬥、場景、戰敗的選擇進行中不插報告（戰鬥結束與場景結束那一份套用之後才問）
-  if (state.battle || k.activity.active(state).some((a) => a.kind !== 'netrun')) return undefined
+  if (state.battle || busy.length) return undefined
   const c = ctxOf(k, state)
   if (!c) return undefined
   const out: ReportDraft[] = []

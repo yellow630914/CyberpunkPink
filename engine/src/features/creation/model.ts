@@ -60,6 +60,8 @@ export interface CreationDraft {
   perks: string[]
   /** 第 5 步：每張表選的條目（lifepath_entry 的 id）；'skip' 或沒寫是跳過（M4-creation-lifepath） */
   lifepath?: Partial<Record<LifepathTable, string>>
+  /** 獸化的系（貓、狐、兔、犬……；建角外觀的句子用，沒寫是貓；M4 收尾修正批） */
+  beastLine?: string
   /** 第 5 步：自己挑的潛在性癖，最多 2 個；latent 為真的標成「潛在」（建角時只記下來，第一次碰到時才揭開），否則直接是「有」 */
   kinks?: Array<{ tag: string; latent?: boolean }>
 }

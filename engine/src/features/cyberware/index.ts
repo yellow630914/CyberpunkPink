@@ -27,11 +27,11 @@
 // lockView／payLockBlock／payLockDraft、crackBlock／crackQuote／crackDraft、repairBlock／repairQuote／repairDraft、modifyBlock／modifyQuote／modifyDraft、readLock／scanAnswer。
 
 import type { Condition, ConditionCtx, ContentEntry, Feature, GameState, Kernel } from '../../core'
-import { ContentError, TATTOO_KINDS, isRecord, isSafeInt } from '../../core'
+import { ContentError, TATTOO_KINDS, isRecord, isSafeInt, toMinutes } from '../../core'
 import {
-  CLINIC_GRADES, FACILITY_TYPE_KIND, OWNER, PART_IDS, RULE_KIND, baseSlot, cyberOf, isBridge, ruleProblems,
+  CLINIC_GRADES, FACILITY_TYPE_KIND, OWNER, PART_IDS, RULE_KIND, baseSlot, cyberLive, cyberOf, isActive, isBridge, ruleProblems,
 } from './model'
-import { answerCreation } from './creation'
+import { answerCreation, catalogAnswer, lookAnswer } from './creation'
 import { deckSourceOf, pieceBlueprint } from './deck'
 import { BRIDGE_CATS, bridgeCapacityOf, capStatId } from './bridge'
 import { recallDrafts, recallProblems } from './recall'
@@ -79,6 +79,21 @@ export type { DeckSourceAnswer } from './deck'
 
 /** 獸化改造的設計圖標籤（條件 beast 看它）。 */
 export const BEAST_TAG = 'beast'
+/** 痛覺編輯器的設計圖標籤（CYBERWARE 第 3 節）：身上有生效的這種義體，生命值的顯示變模糊（衍生數值 hp_blur、cyberView.hp_blur；畫面不再認標籤名）。 */
+export const PAIN_TAG = 'pain_editor'
+/** 衍生數值 hp_blur：1 是生命值要模糊顯示（痛覺編輯器生效中），0 是照常顯示。 */
+export const HP_BLUR_STAT = 'hp_blur'
+
+/** 身上有沒有生效的痛覺編輯器（設計圖 tags 有 pain_editor，好了而且沒有被鎖、沒有壞）。 */
+export function hpBlurred(k: Kernel, state: GameState, actor: string): boolean {
+  if (!state.actors[actor]) return false
+  const now = toMinutes(state.time)
+  return cyberLive(state, actor).some((piece) => {
+    if (!isActive(piece, now)) return false
+    const tags = (pieceBlueprint(k, piece) as { tags?: unknown } | undefined)?.tags
+    return Array.isArray(tags) && tags.includes(PAIN_TAG)
+  })
+}
 const CAT_NAME = { meat: '現實', net: '內海', social: '社交', media: '媒體' } as const
 type CyberCondition = Condition & { slot?: string; bp?: string; tag?: string; min?: number; tattoo?: string; faction?: string }
 const SLOT_WORDS: readonly string[] = [...PART_IDS, 'arm', 'leg']
@@ -103,6 +118,9 @@ export const cyberwareFeature: Feature = {
 
     // 身上不是橋的義體件數（休養中、被鎖、重創讓失效的都算；敵人 AI 的 bridged 偏好看它：單位的 cyber）
     k.stats.defineStat({ id: 'cyber_count', owner: OWNER, name: '義體件數（不含橋）', base: (state, actor) => cyberOf(state, actor).filter((p) => !isBridge(p)).length, min: 0 })
+
+    // 生命值顯示模糊（M4 收尾修正批 使用者 2026-11-26 裁決 10）：身上有生效的痛覺編輯器（設計圖 tags 有 pain_editor）時是 1。畫面讀它，不再自己認標籤名
+    k.stats.defineStat({ id: HP_BLUR_STAT, owner: OWNER, name: '生命值顯示模糊', base: (state, actor) => (hpBlurred(k, state, actor) ? 1 : 0), min: 0 })
 
     // 被動效果：沉溺的下限與義體的效果（cyber）、帶著的怪癖（quirk）
     k.passives.register(OWNER, 'cyber', (state, actor) => cyberPassives(k, state, actor), '義體')
@@ -162,6 +180,9 @@ export const cyberwareFeature: Feature = {
     on('deck.source', OWNER, (({ state, actor }: { state: GameState; actor: string }) => deckSourceOf(k, state, actor)) as never)
     // 建角的第 6 步（橋與義體）與第 9 步的甲板（M4-creation-body）：features/creation 宣告掛點，這裡只認名字
     on('creation.step', OWNER, ((p: Parameters<typeof answerCreation>[1]) => answerCreation(k, p)) as never)
+    // 建角的目錄（橋、其他義體、甲板）與外觀（外露的義體、獸化）：features/creation 宣告掛點，這裡只認名字（M4 收尾修正批 使用者 2026-11-26 裁決 11）
+    on('creation.catalog', OWNER, ((p: Parameters<typeof catalogAnswer>[1]) => catalogAnswer(k, p)) as never)
+    on('creation.look', OWNER, ((p: Parameters<typeof lookAnswer>[1]) => lookAnswer(k, p)) as never)
     on('scene.body', OWNER, (({ state, actor, layer }: { state: GameState; actor: string; layer: string }) => sceneBody(k, state, actor, layer)) as never)
 
     // 戰鬥（M4-cyber-battle）：loadout 的 implants、開關與修正、藥泵、戰地手術的效果 op、戰鬥結束時寫回

@@ -102,6 +102,11 @@ export interface OriginEntry extends ContentEntry {
   lifepath_extra?: string[]
   /** 出身白給的東西（建角第 9 步照單給、不花點數、不檢查等級與類別；CHARACTER 5.4 節）：物品、設計圖、甲板的 id 與數量（沒寫是 1）；認不得的 id 由各功能略過 */
   kit_free?: Array<{ id: string; qty?: number }>
+  /**
+   * 出身的建議組合（M4 收尾修正批；使用者 2026-11-26 裁決 11）：建角第 6、9 步「用建議組合」填進草稿的東西。bridge 是橋的設計圖 id（null 是不要橋）、
+   * cyber 是其他義體（部位是左右的要寫 side）、gear 是裝備的 id 與數量。超過點數的由引擎照順序裁到放得下（features/creation 的 suggestedKit）。
+   */
+  suggested?: { bridge?: string | null; cyber?: Array<{ blueprint: string; side?: 'l' | 'r' }>; gear?: Array<{ id: string; qty?: number }> }
 }
 export interface CreationRuleEntry extends ContentEntry {
   attr_array: number[]
@@ -130,6 +135,8 @@ export interface CreationRuleEntry extends ContentEntry {
   gear_grade_max?: number
   /** 建角第 9 步收哪些類別（預設見 features/creation） */
   gear_kinds?: string[]
+  /** 建角外觀的句子用的文字（features/creation 的 creationLook；沒寫用內建的預設）：牌子的外殼描寫（鍵是牌子的名字，二手與同人另外認）、獸化的系的情緒與耳朵的動作 */
+  look?: { brand_lines?: Record<string, string>; beast_lines?: Record<string, { mood: string; move: string }> }
 }
 export type ActionHint = Partial<Record<(typeof HINT_KEYS)[number], Array<Record<string, unknown>>>>
 export interface ActionKindEntry extends ContentEntry {
@@ -193,6 +200,14 @@ export interface ItemEntry extends ContentEntry {
   use?: { ap: number; ap_other?: number; target: (typeof ITEM_USE_TARGETS)[number]; /** 對一個敵人用（target: foe）時，目標要在這個距離裡 [近, 遠]；沒寫不限 */ range?: [number, number]; modes?: string[]; effects: Array<Record<string, unknown>> }
 }
 
+function lookRuleProblems(v: unknown): string[] {
+  if (!isRecord(v)) return ['look 要是 { brand_lines?, beast_lines? }']
+  const p: string[] = []
+  if (v.brand_lines !== undefined && !(isRecord(v.brand_lines) && Object.values(v.brand_lines).every(isText))) p.push('look.brand_lines 要是「牌子 → 一句外殼的描寫」')
+  if (v.beast_lines !== undefined && !(isRecord(v.beast_lines) && Object.values(v.beast_lines).every((x) => isRecord(x) && isText(x.mood) && isText(x.move)))) p.push('look.beast_lines 要是「系 → { mood, move }」')
+  return p
+}
+
 export function registerCoreKinds(content: ContentRegistry): void {
   content.defineKind<AttributeEntry>({
     kind: 'attribute', owner: 'core',
@@ -249,6 +264,21 @@ export function registerCoreKinds(content: ContentRegistry): void {
           if (!isRecord(x) || !isText(x.id)) p.push(`kit_free[${i}] 要是 { id, qty? }，id 是東西的 id`)
           else if (x.qty !== undefined && !(isInt(x.qty) && x.qty >= 1 && x.qty <= 99)) p.push(`kit_free[${i}].qty 要是 1～99 的整數`)
         })
+      }
+      if (e.suggested !== undefined) {
+        const sg = e.suggested
+        if (!isRecord(sg)) p.push('suggested 要是 { bridge?, cyber?, gear? }')
+        else {
+          if (sg.bridge !== undefined && sg.bridge !== null && !isText(sg.bridge)) p.push('suggested.bridge 要是橋的設計圖 id，或 null（不要橋）')
+          if (sg.cyber !== undefined) {
+            if (!Array.isArray(sg.cyber)) p.push('suggested.cyber 要是 { blueprint, side? } 的陣列')
+            else sg.cyber.forEach((x, i) => { if (!isRecord(x) || !isText(x.blueprint) || (x.side !== undefined && x.side !== 'l' && x.side !== 'r')) p.push(`suggested.cyber[${i}] 要是 { blueprint, side?: 'l' | 'r' }`) })
+          }
+          if (sg.gear !== undefined) {
+            if (!Array.isArray(sg.gear)) p.push('suggested.gear 要是 { id, qty? } 的陣列')
+            else sg.gear.forEach((x, i) => { if (!isRecord(x) || !isText(x.id) || (x.qty !== undefined && !(isInt(x.qty) && x.qty >= 1 && x.qty <= 99))) p.push(`suggested.gear[${i}] 要是 { id, qty?（1～99） }`) })
+          }
+        }
       }
       return p
     },
@@ -315,6 +345,7 @@ export function registerCoreKinds(content: ContentRegistry): void {
       ...(['cyber_point_price', 'cyber_install_mult', 'gear_point_price'] as const).filter((f) => e[f] !== undefined && !(typeof e[f] === 'number' && Number.isFinite(e[f]) && (e[f] as number) > 0)).map((f) => `${f} 要是大於 0 的數字`),
       ...(e.gear_grade_max !== undefined && !(isInt(e.gear_grade_max) && e.gear_grade_max >= 1 && e.gear_grade_max <= 5) ? ['gear_grade_max 要是 1～5 的整數'] : []),
       ...(e.gear_kinds !== undefined && !(Array.isArray(e.gear_kinds) && e.gear_kinds.every(isText)) ? ['gear_kinds 要是類別的字串陣列'] : []),
+      ...(e.look === undefined ? [] : lookRuleProblems(e.look)),
     ],
   })
 

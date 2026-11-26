@@ -14,7 +14,7 @@
 import type { Change, GameState, GridUse, Kernel, MapInstance, Origin, ReportDraft, UnitRef } from '../../core'
 import { ActionBlocked, Sheet, clone, closeMap, effectCtx, isRecord, seedRand, sightOf, toMinutes } from '../../core'
 import { bestTier } from './checks'
-import { draft } from './common'
+import { draft, loginTriggers } from './common'
 import type { AffixFx, DigInfo, NetAffix, NetExt, NetFacility, NetRegion, NetRun, NetrunRules } from './model'
 import { ACT_NET, AFFIX_KIND, FACILITY_KIND, NET_MODE, OWNER, TRACE, netExt, netExtChange, nodeAt, readRun, runChange } from './model'
 import { moverChanges } from './patrol'
@@ -334,7 +334,7 @@ export function reviveDig(k: Kernel, state: GameState, parsed: Parsed, origin: O
   if (wasLocated && added.length) notes.push('上次被定位之後，這裡的守衛加強了。')
   const summary = `你又潛進了「${region.name}」：${layerLabel(dig.names[layer], layer)}（共 ${layers.length} 層）。${notes.join('')}`
   return [draft(state, run, 'netrun.enter', 'entered', summary, changes, {
-    location: { ...clone(state.location), subnet: { id: region.id, layer: layer + 1 } }, ...(notes.length ? { narration: { results: notes } } : {}),
+    location: { ...clone(state.location), subnet: { id: region.id, layer: layer + 1 } }, ...(notes.length ? { narration: { results: notes } } : {}), triggers: loginTriggers(k, state),
   })]
 }
 

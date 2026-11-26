@@ -143,6 +143,13 @@ export interface Order {
   closed?: number
   /** sent、doing 過期作廢（不是被強制之後逾期） */
   lapsed?: true
+  /** 逾期了結時的處置（M4 收尾修正批）：result 是 lapsed（作廢）、overdue（強制的逾期，沒有處置可抽）、overdue_lock／overdue_load／overdue_expose；text 是給玩家看的那一句 */
+  outcome?: OrderOutcome
+}
+
+export interface OrderOutcome {
+  result: string
+  text: string
 }
 
 export interface Contract {
@@ -471,6 +478,7 @@ function readOrder(v: unknown): Order | undefined {
   if (v.arrived === true) out.arrived = true
   if (isSafeInt(v.closed)) out.closed = v.closed
   if (v.lapsed === true) out.lapsed = true
+  if (isRecord(v.outcome) && isText(v.outcome.result) && isText(v.outcome.text)) out.outcome = { result: v.outcome.result, text: v.outcome.text }
   return out
 }
 

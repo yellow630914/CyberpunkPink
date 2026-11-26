@@ -165,11 +165,12 @@ async function auctionFlow(g: Game, f = flow('市集：拍賣')): Promise<void> 
     g.commit({ kind: 'system', action: 'test.favor', location: {}, party: [], timeline: [], changes: [{ op: 'meter', kind: 'favor', key: 'f_tw_gallery', set: 40 }] as never, outcome: { result: 'ok', summary: '測試給的好感。' } })
     expect(memberOf(k, g.state, AUCTION_HOUSE)).toBeTruthy()
   })
-  await f.step('週四預展：目錄出來了（八件）、看兩件貨（零件與義體）', () => {
+  await f.step('週四預展：目錄出來了（七件；阿音的契約不在：阿音不是場上的角色，交不出去的拍品不抽）、看兩件貨（零件與義體）', () => {
     passUntil(g, { day: 10, hour: 14 })
     const cat = catalogView(k, g.state, AUCTION_HOUSE)!
     if (!cat.open) throw new Error('目錄還沒出來')
-    expect(cat.lots).toHaveLength(8)
+    expect(cat.lots).toHaveLength(7)
+    expect(cat.lots.some((l) => l.kind === 'contract')).toBe(false)
     const nowM = toMinutes(g.state.time)
     expect(cat.session.preview!.from).toBeLessThanOrEqual(nowM)
     expect(cat.session.preview!.to).toBeGreaterThanOrEqual(nowM)
