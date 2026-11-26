@@ -20,3 +20,5 @@
 - （使用者 2026-11-26 同意）斷線靜修改成進行中的活動（像打工）：期間關橋、禁止潛入，結束才結算；sink 的 therapy 與活動登錄表。
 - （M4-ui-parts／ui-auction）auction 匯出 `auctionSummary`（這一場結束了的讀法）；unreg 從 index 匯出 `REQUEST_MAX`、`partTypeName`，訂做給 `days_left` 數字欄位，查「哪一筆交貨鏈停在 paused」；ui 拿掉 `partPaused` 與自算天數、`PART_TYPE_NAMES`。
 - 美術：拍賣的槌、號牌、拍品種類圖示；委託台圖示。
+- （使用者 2026-11-26）拍賣的自動跟價（LEWD 6.2 第 6 點）：auction 的 `bidDraft` 收 `auto: { max }`，一次推進到這一件落槌或退出；ui 的拍賣廳加「自動跟到 C$___」。
+- （使用者 2026-11-26）AI 交貨時不鎖畫面，維持任務鏈列顯示。
