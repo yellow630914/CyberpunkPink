@@ -542,3 +542,9 @@
 - 2026-11-26 M5 第三步完成（channel-shows、opinion），第四步 live 完成。使用者要求暫停省額度：第四步的 opinion-desk 與第五步的 live-slot 做到一半停下，半成品以「進行中」提交（測試可能紅）。下次接手：重派這兩張，告訴代理先讀工作區現有的半成品接著做；之後是 11 opinion-face，再照 M5-plan 往下。
 - 2026-11-26 M5 第四步完成（live、opinion-desk），第五步 live-slot 完成。使用者：時段直播的 aired 照現況（有頻道就不發，避免重複記）；成人時段直播的紀錄標 adult。「有人鬧場」打賞減半要另加 tips_mult 效果，之後再補。
 - 2026-11-26 **M5 第五步完成**（live-slot、opinion-face）；不變式重排連號到 640。engine 10367、smoke 258 全綠。使用者要求停在這裡。下一步：第六步 8 social ＋ 12 commission-opinion（commission-opinion 工單檔尾累積了 live、opinion-face 留下的事）。
+- 2026-11-27 使用者：測試準則改了——步驟之間不跑全套把關、紅燈只記不擋，全套集中在 M 級收尾（冒煙 → 審查 → 修正批 → 白箱、邊界、探針）。寫進 dev/project.md「測試準則」、M5-plan、cpp-lead.md。這台 Windows 機器全套用預設逾時會有約 18 檔逾時（放寬 `--testTimeout=300000` 全過），收尾跑全套時要放寬。
+- 2026-11-27 **M5 第六步完成**（social、commission-opinion）；不變式 641～663 連號。紅燈：social 紅 0（全套中途停掉前看到 battle-m1-followups 紅 1、M2-scene 紅 1，疑似逾時，收尾查）；commission-opinion 紅 0。
+- 2026-11-27 使用者：事件收尾的報告不帶題材標籤（動態牆篩不掉被關的題材）先不管；頻道沒開時發文的訂閱維持先累積。
+- 留給後面：V26（副本直播期間的階段紀錄不算獨家）是 media 的事，media 的 `onMilestone` 要問 `live_on`，還沒做；真副本現在會發 `commission.milestone`，media 會開始記階段紀錄。M5-fixer-opinion 要給生成的輿論面補 `opinion_setup`、拿掉輿論面的潛行分支，之後 commission 的 `opinionSetupRequired` 條件可以拿掉（在那之前，裝了 opinion 的局裡生成的輿論面委託會被資料檢查擋）。「重來這一場」由介面在 `opinion.retry` 後呼叫 `replay`（M5-ui-opinion）。
+- 待使用者：被帶走（captured）要先開戰敗事件，defeat 沒有不從戰鬥來的入口（暫時只回到入口；要架構師加入口）；收買與被帶走在非最後階段也算委託失敗（代理的解讀）。
+- 下一步：第七步 14 abilities-opinion ＋ 19 ui-media。
