@@ -77,7 +77,7 @@ export const contractFeature: Feature = {
 
     // 回一句話不用走動：契約指令的「照做／抗拒」在任何活動裡都能回（使用者 2026-11-26 裁決 2；戰鬥與等著選的戰敗只收自己的事，核心規定）。
     // 期限在玩家處於任何活動裡時暫停（time.ts）
-    k.activity.allowEverywhere('commit:contract.choose', OWNER, ['battle', 'defeat'])
+    k.activity.allowEverywhere('commit:contract.choose', OWNER, ['battle', 'defeat', 'defeat.entry'])
 
     k.hooks.on('report.before', OWNER, ({ state, draft }) => incomeBefore(k, state, draft))
     k.hooks.on('report.after', OWNER, ({ state, report }): ReportDraft[] | void => {
