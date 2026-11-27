@@ -18,8 +18,8 @@
 | 文字欄位 | `name`、`desc`、`text` 是給玩家與 AI 看的中文，都要寫成完整的句子 |
 | 基本功與屬性 | 用英文 id。屬性：`body` 體格、`reflex` 反應、`tech` 技術、`intellect` 智識、`resolve` 意志、`charm` 魅力。屬性、基本功、勢力與具名 NPC 的 id 表在 1.1 節 |
 | 身體的部位 | `mouth` 口、`hand_l` 左手、`hand_r` 右手、`chest` 胸、`front` 前、`back` 後、`legs` 腿足；義體與化身多出來的部位自己取 id（`tail`、`tentacle_1`） |
-| 體型 | `masc` 陽剛、`fem` 陰柔、`andro` 中性 |
-| 性別 | `female`、`male`、`femboy` 偽娘與男娘、`trans_f`（TS，只有男跨女一種）、`futa` 扶他。版本照性別分：`male` 只走 `masc`；`female` 走 `default` 與 `yuri`；其他完全不限 |
+| 體型 | `masc` 陽剛、`fem` 陰柔、`andro` 中性。這是身體的樣子，和戰敗事件版本 `masc`（男性主角的寫法）是兩回事，版本不看體型 |
+| 性別 | `female`、`male`、`femboy` 偽娘與男娘、`trans_f`（TS，只有男跨女一種）、`futa` 扶他。版本照性別分：`male` 只走 `masc`；`female` 走 `default` 與 `yuri`；其他完全不限。版本只決定登場角色的性別與寫法；主被動由 `adult_scene` 的 `nature`、`role`、`start_position` 與開場主動權公式決定（[LEWD_SYSTEM](LEWD_SYSTEM.md) 3.5 節） |
 
 ### 1.1 id 表
 
@@ -476,7 +476,7 @@
 | `kind` | 二十九種預設裡的哪一種（[ENEMIES](ENEMIES.md) 第 6 節） |
 | `factions` | 哪些勢力用它 |
 | `fails_commission` | 預設值：戰敗算不算委託失敗。委託副本可以蓋掉它 |
-| `versions` | 三個版本：`default` 一般的寫法；`masc` 男性處於被動；`yuri` 主角被動、由女性主導。照主角的**性別**抽（[ENEMIES](ENEMIES.md) 第 6 節）：男只走 `masc`，女七成 `default` 三成 `yuri`，偽娘、TS、扶他三個都會抽到。每個版本各有自己的 `text` 與 `stages`。設定裡手動指定版本時，照設定 |
+| `versions` | 三個版本：`default` 一般的寫法；`masc` 男性主角的寫法（對象的性別與身體的描寫照男性主角）；`yuri` 女性對象的寫法（女性主角與女性對象）。版本不決定主被動。照主角的**性別**抽（[ENEMIES](ENEMIES.md) 第 6 節）：男只走 `masc`，女七成 `default` 三成 `yuri`，偽娘、TS、扶他三個都會抽到。每個版本各有自己的 `text` 與 `stages`。設定裡手動指定版本時，照設定 |
 | `stages` | 戰敗事件可以有幾段，每一段的寫法和事件的選項相同 |
 | `fallback` | 這個版本用到的標籤被關掉時，改走哪一個不含它的版本 |
 
@@ -505,14 +505,13 @@
     "masc": {
       "text": "你在一間白色的房間裡醒來，手腕上多了一圈伊甸園的識別環，兩位女性回收員站在床邊低頭看著你。",
       "stages": [ { "inherit": "default.stages.0",
-                    "adult_scene": { "nature": "forced", "role": "bound", "goal": "obey",
-                                     "circles": [["$pc", "$a", "$b"]], "start_position": "pos_pinned_under" } } ]
+                    "adult_scene": { "circles": [["$pc", "$a", "$b"]] } } ]
     }
   }
 }
 ```
 
-- `inherit` 表示這一段的選項和另一個版本相同，只換掉寫出來的欄位。
+- `inherit` 表示這一段的選項和另一個版本相同，只換掉寫出來的欄位。上例的 `masc` 只換登場的人；`nature`、`role`、`start_position` 與選項照 `default` 的，主被動不寫在版本裡。
 - 資料檢查：每一種 `kind` 至少要有一筆兩個版本都齊全的戰敗事件；成人向的要佔多數。
 
 ## 6. 敵人
