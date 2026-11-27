@@ -37,11 +37,18 @@ L0 型別 → L1 純工具 → L2 內容 → L3 狀態核心 → L4 規則核心
 ## engine/ 怎麼跑（2026-11-21，M0）
 
 - 都在 `engine/` 底下跑。第一次先 `npm install`。
-- `npm test`：主套件（核心、功能、冒煙、分層檢查、種子重播），要全過。`npx tsc --noEmit`：型別檢查，要沒有錯。
+- `npm test`：主套件（核心、功能、冒煙、分層檢查、種子重播），收尾時要全過（什麼時候跑見下面「測試準則」）。`npx tsc --noEmit`：型別檢查，要沒有錯。
 - `npm run test:pending`：給下游的驗收測試（`engine/tests/pending/`），工單做完之前照預期失敗。只跑一張的：`npx vitest run --config vitest.pending.config.ts <工單名>`。工單完成後把測試檔搬到 `engine/tests/features/`（資料的搬到 `engine/tests/data/`），它就進主套件。
 - 資料夾與層的對照：`.claude/cpp/project.json` 的 `layers`。功能寫在 `engine/src/features/<功能>/`，做完在 `engine/src/features/index.ts` 的 `FEATURES` 加一行。
 - 功能只從 `engine/src/core`（寫成 `'../../core'`）import；測試可以另外 import `engine/src/testkit`（狀態工廠 `makeState`、`makeGame`，不變式檢查 `observed`）。
 - 介面的驗收測試在 `ui/tests/pending/`，跑法：在 `ui/` 跑 `npx vitest run --config vitest.pending.config.ts`。
+
+## 測試準則（使用者 2026-11-27）
+
+- **步驟之間不跑全套把關**：總指揮不在步驟之間跑全套測試，下一步不必等上一步全綠。
+- **每張工單**：做的代理照舊跑自己工單的測試與 `npx tsc --noEmit`（介面的跑自己的測試與 `vue-tsc`）。回報的紅燈只記下來、不擋進度。
+- **記紅燈**：每張工單提交時，在提交訊息或 dev/status.md 記一句代理回報的紅燈（例：「紅 2：xxx 測試，疑似 yyy 造成」；沒有就寫「紅 0」）。不為此花額外的測試時間，收尾時好回頭找。
+- **全套集中在每個 M 級的收尾**（engine 的 `npm test`、`npm run test:smoke`，ui 的 `npm test`），順序：冒煙 → 審查 → 修正批 → 白箱、邊界、探針。
 
 ## 戰鬥與格子地圖（2026-11-22，M1）
 
