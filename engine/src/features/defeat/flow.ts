@@ -10,6 +10,8 @@
 //
 // 報告：defeat.pending（戰敗的開頭）、defeat.view（選了要看）、defeat.skip（選了不看）、defeat.accept、defeat.option。
 // 沒有事件視窗可用（沒有人登記活動 event）時照 M1：只列出結果，一律是不演。
+// 不從戰鬥來的入口（entry.ts；dev/work/M5-defeat-entry.md）：等待中的戰敗帶 entry 欄位，沒有開打前的快照（接受、選項不帶 snapshot.drop）；
+// 事件怎麼開、演不演、接受怎麼結算都和戰鬥打輸同一套（openPending、settleSkipped 兩邊共用）。
 
 import type { ActivityEndReturn, Change, Effect, GameState, Kernel, Launch, Origin, ReportDraft, TimelineBeat } from '../../core'
 import { ActionBlocked, attachActivityEnd, clone, deriveRng, effectCtx, endActivity, isRecord, modeOf, originOfBattle } from '../../core'
@@ -37,7 +39,9 @@ declare module '../../core' {
 }
 
 const DROP: Change = { op: 'snapshot.drop', kind: 'battle' }
-const extChange = (value: PendingDefeat | null): Change => ({ op: 'ext', key: EXT, value: value as unknown as Record<string, unknown> | null })
+/** 戰敗結算時一起做的收尾：清掉等待中的戰敗，戰鬥來的再丟開打前的快照（入口沒有）。 */
+const closing = (pending: PendingDefeat): Change[] => [extChange(null), ...(pending.entry ? [] : [DROP])]
+export const extChange = (value: PendingDefeat | null): Change => ({ op: 'ext', key: EXT, value: value as unknown as Record<string, unknown> | null })
 
 // ---- 存檔規則的改寫 ----
 
@@ -61,7 +65,7 @@ interface Settled {
 }
 
 /** 不演版：每一段走第一個選項，改寫之後一次結算。roll 是 false 時只做預覽（有檢定的不擲）。 */
-function settleSkipped(k: Kernel, state: GameState, entry: DefeatEventEntry, version: string, battle: string, roll: boolean): Settled {
+export function settleSkipped(k: Kernel, state: GameState, entry: DefeatEventEntry, version: string, battle: string, roll: boolean): Settled {
   const play = playSkipped(k, state, entry, version, { roll, purpose: `defeat/${battle}/skip` })
   if (typeof play === 'string') return { changes: [], lines: [], timeline: [], flags: [], notes: [], errors: [`戰敗事件 ${entry.id} 的內文解不開：${play}`] }
   const res = k.effects.resolve(rewriteEffects(play.effects, rewriteOf(k, state)), effectCtx(k, state, { source: 'builtin' }))
@@ -161,27 +165,39 @@ const draft = (state: GameState, action: string, summary: string, result: string
 })
 
 /**
+ * 戰敗開頭的那一份報告草稿：defeat.pending（敘事加上接受的話會發生什麼）。
+ * always 而且沒有別的選項時帶 launch：事件視窗自己開起來；開不起來就改成只列出結果（不能讓這一步整個回滾）。
+ * 回傳草稿與之後的等待中的戰敗（開起來是 playing、開不起來是 skipped；沒有改就是原本那一份）：戰鬥那一條等它改了才寫變更，入口一定要寫。
+ */
+export function openPending(k: Kernel, state: GameState, pending: PendingDefeat): { out: ReportDraft; next: PendingDefeat } {
+  const entry = k.content.get<DefeatEventEntry>(KIND, pending.event)
+  const v = entry?.versions[pending.version] ?? entry?.versions.default
+  let lines = pending.lines
+  const out = draft(state, 'defeat.pending', v?.text ?? '你輸了。', 'defeat', [], { narration: { results: lines } })
+  let next = pending
+  if (!pending.skipped && stageOf(pending) === 'ask' && pending.view === 'always' && optionsFor(k, state, pending).length === 0) {
+    const t = tryLaunch(k, state, pending)
+    if ('launch' in t) {
+      next = { ...pending, stage: 'playing' }
+      out.launch = [t.launch]
+    } else {
+      lines = [...lines, `戰敗事件開不起來（${t.why}），這一次只列出結果。`]
+      next = { ...pending, skipped: true, stage: 'played', lines }
+      out.narration = { results: lines }
+    }
+  }
+  return { out, next }
+}
+
+/**
  * 打輸的報告（battle.end）之後接著提交的報告：defeat.pending（敘事加上接受的話會發生什麼）。
  * always 而且沒有別的選項時，同一份帶 launch：事件視窗自己開起來；開不起來就改成只列出結果（不能讓這一步整個回滾）。
  */
 export function afterBattleEnd(k: Kernel, state: GameState): ReportDraft | undefined {
   const pending = defeatOf(state)
   if (!pending) return undefined
-  const entry = k.content.get<DefeatEventEntry>(KIND, pending.event)
-  const v = entry?.versions[pending.version] ?? entry?.versions.default
-  let lines = pending.lines
-  const out = draft(state, 'defeat.pending', v?.text ?? '你輸了。', 'defeat', [], { narration: { results: lines } })
-  if (!pending.skipped && stageOf(pending) === 'ask' && pending.view === 'always' && defeatOptions(k, state).length === 0) {
-    const t = tryLaunch(k, state, pending)
-    if ('launch' in t) {
-      out.changes.push(extChange({ ...pending, stage: 'playing' }))
-      out.launch = [t.launch]
-    } else {
-      lines = [...lines, `戰敗事件開不起來（${t.why}），這一次只列出結果。`]
-      out.changes.push(extChange({ ...pending, skipped: true, stage: 'played', lines }))
-      out.narration = { results: lines }
-    }
-  }
+  const { out, next } = openPending(k, state, pending)
+  if (next !== pending) out.changes.push(extChange(next))
   return out
 }
 
@@ -229,12 +245,16 @@ export function onEventEnd(state: GameState, origin: Origin, result: Record<stri
 
 // ---- 別的功能多給的選項 ----
 
+/** 這一份等待中的戰敗現在多出來哪些選項（入口開頭還沒寫進狀態時也問得了）；事件已經真的演過了（它的效果已經發生）是空的。 */
+function optionsFor(k: Pick<Kernel, 'hooks'>, state: GameState, pending: PendingDefeat): DefeatOption[] {
+  if (pending.played && !pending.skipped) return []
+  return k.hooks.run('defeat.options', { state, pending }).flatMap((r) => r.result)
+}
+
 /** 等待中的戰敗現在多出來哪些選項（接受、重來、回到這個階段開始時以外的）；沒有等待中的戰敗、或事件已經真的演過了（它的效果已經發生）是空的。 */
 export function defeatOptions(k: Pick<Kernel, 'hooks'>, state: GameState): DefeatOption[] {
   const pending = defeatOf(state)
-  if (!pending) return []
-  if (pending.played && !pending.skipped) return []
-  return k.hooks.run('defeat.options', { state, pending }).flatMap((r) => r.result)
+  return pending ? optionsFor(k, state, pending) : []
 }
 
 const dropDraft = (): ReportDraft => ({ changes: [DROP] }) as unknown as ReportDraft
@@ -268,14 +288,17 @@ export function chooseDefeatOption(k: Kernel, state: GameState, id: string): Rep
   if (block) throw new ActionBlocked(block)
   const end = endActivity(k, {
     state, kind: 'defeat', id: pending.battle, origin: pending.origin ?? { by: 'core' }, outcome: 'accept',
-    result: { battle: pending.battle, event: pending.event, kind: kindOf(k, pending), version: pending.version, fails_commission: pending.fails_commission, option: option.id, ...netResult(pending) },
+    result: { battle: pending.battle, event: pending.event, kind: kindOf(k, pending), version: pending.version, fails_commission: pending.fails_commission, option: option.id, ...netResult(pending), ...entryResult(pending) },
   })
   const lines = [...option.lines, ...end.lines]
-  return attachActivityEnd(draft(state, 'defeat.option', option.summary, option.id, [...option.changes, ...end.changes, extChange(null), DROP], { narration: { results: lines } }), end)
+  return attachActivityEnd(draft(state, 'defeat.option', option.summary, option.id, [...option.changes, ...end.changes, ...closing(pending)], { narration: { results: lines } }), end)
 }
 
 /** 內海的戰敗多交回去的三個欄位（現實的不帶，結果照舊）：發起的人（netrun）照這個收一趟。 */
 const netResult = (p: PendingDefeat): Record<string, unknown> => (p.net ? { net: true, tethered: p.tethered === true, located: p.located === true } : {})
+
+/** 入口來的戰敗多交回去的一個欄位（戰鬥來的不帶，結果照舊）。 */
+export const entryResult = (p: PendingDefeat): Record<string, unknown> => (p.entry ? { entry: { reason: p.entry.reason, who: p.entry.who, ...(p.entry.where !== undefined ? { where: p.entry.where } : {}) } } : {})
 
 const kindOf = (k: Pick<Kernel, 'content'>, pending: PendingDefeat): string => k.content.get<DefeatEventEntry>(KIND, pending.event)?.kind ?? 'generic'
 
@@ -311,16 +334,70 @@ export function acceptDefeat(k: Kernel, state: GameState): ReportDraft {
   const fails = played ? pending.fails_commission : failsAfter(pending.fails_commission, flags)
   const end = endActivity(k, {
     state, kind: 'defeat', id: pending.battle, origin: pending.origin ?? { by: 'core' }, outcome: 'accept',
-    result: { battle: pending.battle, event: pending.event, kind: entry.kind, version: pending.version, fails_commission: fails, option: played ? played.option : 'skip', ...netResult(pending) },
+    result: { battle: pending.battle, event: pending.event, kind: entry.kind, version: pending.version, fails_commission: fails, option: played ? played.option : 'skip', ...netResult(pending), ...entryResult(pending) },
   })
   const results = [...lines, ...companionLine(k, state, pending), ...end.lines]
   const out: ReportDraft = {
     kind: 'event', action: 'defeat.accept', location: clone(state.location), party: [], timeline,
-    changes: [...changes, ...end.changes, extChange(null), DROP],
+    changes: [...changes, ...end.changes, ...closing(pending)],
     outcome: { result: 'accepted', summary: fails ? '你接受了這個結果。這一趟的委託算失敗。' : '你接受了這個結果。這一趟的委託還在。' },
     narration: { results },
   }
   return attachActivityEnd(out, end)
+}
+
+// ---- 入口來的戰敗：重來與回到階段（沒有戰鬥的快照，回到發起的人指定的快照） ----
+
+const hasSnapshot = (state: Pick<GameState, 'snapshots'>, kind: string): boolean => state.snapshots.some((x) => x.kind === kind)
+
+/** 入口來的戰敗現在不能「重來這一場」的原因（完整的一句）；做得了是 null。 */
+function entryRetryWhy(state: GameState, pending: PendingDefeat): string | null {
+  const kind = pending.entry?.retry
+  if (kind === undefined) return '這一次沒有可以重來的那一場。'
+  return hasSnapshot(state, kind) ? null : '這一場開戰前沒有留快照，不能重來。'
+}
+
+/** 入口來的戰敗現在不能「回到這個階段開始時」的原因；沒有階段的快照就退而用「重來」的那一種（等於重來這一場）。 */
+function entryStageWhy(state: GameState, pending: PendingDefeat): string | null {
+  if (hasSnapshot(state, 'stage')) return null
+  const kind = pending.entry?.retry
+  return kind !== undefined && hasSnapshot(state, kind) ? null : '這個階段開始時沒有留快照，不能回去。'
+}
+
+function rewindReport(state: GameState, action: string, kind: string, summary: string, fresh: boolean): ReportDraft {
+  return {
+    kind: 'event', action, location: clone(state.location), ...(state.pc ? { actor: state.pc } : {}), party: [],
+    timeline: [{ layer: 'meat', text: summary, tag: action, data: { kind } }], changes: [],
+    outcome: { result: 'rewound', summary }, rewind: { kind, summary, ...(fresh ? { fresh: true } : {}) },
+    narration: { results: [summary] },
+  }
+}
+
+function entryPending(state: GameState): PendingDefeat {
+  const pending = defeatOf(state)
+  if (!pending) throw new Error('沒有等待中的戰敗。')
+  if (!pending.entry) throw new ActionBlocked('這一場戰敗是戰鬥打輸的：重來與回到階段走 Game.retryBattle、Game.rewindToStage。')
+  return pending
+}
+
+/**
+ * 入口來的戰敗，選「重來這一場」：回到發起的人指定的快照（entry.retry；輿論面是 opinion），回去之後骰子換一批（fresh）。
+ * 回去之後這一段還沒開，由發起的人或介面再開一次（輿論面：副本的 replay）。沒有那種快照丟 ActionBlocked。
+ */
+export function retryDefeat(_k: Kernel, state: GameState): ReportDraft {
+  const pending = entryPending(state)
+  const why = entryRetryWhy(state, pending)
+  if (why) throw new ActionBlocked(why)
+  return rewindReport(state, 'defeat.retry', pending.entry!.retry!, '你回到這一場開打之前。剛才那一切像一段太真的預演。', true)
+}
+
+/** 入口來的戰敗，選「回到這個階段開始時」：回到階段開始的快照；沒有就退而用重來的那一種（骰子換一批）。 */
+export function stageDefeat(_k: Kernel, state: GameState): ReportDraft {
+  const pending = entryPending(state)
+  const why = entryStageWhy(state, pending)
+  if (why) throw new ActionBlocked(why)
+  const stage = hasSnapshot(state, 'stage')
+  return rewindReport(state, 'defeat.stage', stage ? 'stage' : pending.entry!.retry!, '你回到這個階段開始的時候。', !stage)
 }
 
 // ---- 給畫面的檢視 ----
@@ -344,6 +421,8 @@ export interface DefeatViewInfo {
   /** 走不演版 */
   skipped: boolean
   event: { id: string; name: string; kind: string; version: string; adult: boolean; tier: string | null; angel: boolean }
+  /** 不從戰鬥來的入口（沒有戰鬥）：誰、為什麼、在哪裡；戰鬥來的是 null。重來與回到階段走 retryDefeat／stageDefeat，不走 Game.retryBattle／rewindToStage */
+  entry: { reason: string; who: string; where: string | null } | null
   /** 這一場是內海的戰鬥 */
   net: boolean
   /** 內海：被扣線（意識留在網內）；現實的戰鬥一定是 false */
@@ -369,6 +448,9 @@ export function defeatView(k: Kernel, state: GameState): DefeatViewInfo | null {
   const watchWhy = pending.skipped ? '這一次不演戰敗事件（存檔規則設成不看，或事件演不了），只列出結果。' : stage === 'playing' ? '戰敗事件已經在演了。' : stage === 'played' ? '戰敗事件已經看過了。' : null
   const skipWhy = pending.view === 'always' ? '存檔規則設成一律要看戰敗事件。' : pending.view === 'never' ? '存檔規則設成不看戰敗事件，這一次本來就只列出結果。' : stage !== 'ask' || pending.skipped ? '現在不用決定要不要看戰敗事件。' : null
   const acceptWhy = acceptBlock(k, state, pending)
+  // 入口來的沒有戰鬥的快照：重來與回到階段看發起的人指定的快照（entryRetryWhy、entryStageWhy）；戰鬥來的永遠可以（Game.retryBattle、rewindToStage）
+  const retryWhy = pending.entry ? entryRetryWhy(state, pending) : null
+  const stageWhy = pending.entry ? entryStageWhy(state, pending) : null
   const choices: DefeatChoice[] = [
     { id: 'watch', name: '看戰敗事件', can: watchWhy === null, why: watchWhy },
     { id: 'skip', name: '不看，直接看結果', can: skipWhy === null, why: skipWhy },
@@ -377,13 +459,14 @@ export function defeatView(k: Kernel, state: GameState): DefeatViewInfo | null {
       const why = o.blocks.length > 0 ? o.blocks.join('') : innerBlock
       return { id: o.id, name: o.name, can: why === null, why, desc: o.desc }
     }),
-    { id: 'retry', name: '重來這場戰鬥', can: true, why: null },
-    { id: 'stage', name: '回到這個階段開始時', can: true, why: null },
+    { id: 'retry', name: pending.entry ? '重來這一場' : '重來這場戰鬥', can: retryWhy === null, why: retryWhy },
+    { id: 'stage', name: '回到這個階段開始時', can: stageWhy === null, why: stageWhy },
   ]
   const played = pending.played && !pending.skipped
   return {
     battle: pending.battle, outcome: pending.outcome, step: inner && stage === 'played' ? 'playing' : stage, setting: pending.view, skipped: pending.skipped,
     event: { id: pending.event, name: entry?.name ?? pending.event, kind: entry?.kind ?? 'generic', version: pending.version, adult: entry?.adult === true, tier: pending.tier ?? null, angel: entry?.angel === true },
+    entry: pending.entry ? { reason: pending.entry.reason, who: pending.entry.who, where: pending.entry.where ?? null } : null,
     net: pending.net === true, tethered: pending.tethered === true, located: pending.located === true,
     inner, choices,
     accept: {

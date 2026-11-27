@@ -87,3 +87,4 @@ M4 的三張外殼工單（M4-core-scene-ai、M4-followups-2、M4-core-part-ai�
 - `undoSteps(n)` n > 1 時每一步都問 `denied`（現在只問現在的狀態，一次回退多步能越過直播中）。
 - `RecordHint` 多 `quality?: number`，media 的 `qualityParts` 多一項（live 的 `live_record_quality` 才有效果）。
 - （opinion-face）media 的 `rewind.keep`（`features/media/record.ts` 的 `onRewind`）用 `...now` 保留素材庫，重來一場時用掉的次數回不來；把快照那一刻已存在的素材與片的 `uses` 換回 `before` 的。
+- （media-pov）無人機錄影要做準：`DroneDef` 加選填 `rec`，summons 放出時複製到 `overlay.ext.rec`；craft 的 `BLUEPRINT_KINDS` 加 `drone`（核心）。現在用衍生數值 `drone_rec` 代替，被擊落時分不出是哪一台。手持攝影機「要雙手的事得先放下」要核心加雙手標籤。

@@ -9,6 +9,8 @@ export const EXT = 'defeat'
 export const VERSION_KEYS: readonly VersionId[] = ['default', 'masc', 'yuri']
 /** 戰敗事件開在事件視窗的那一種活動。 */
 export const EVENT_ACTIVITY = 'event'
+/** 戰敗的入口（不從戰鬥來；dev/work/M5-defeat-entry.md）：別的功能在報告上帶 launch { kind: 'defeat.entry', setup, origin } 就開，不必 import 戰敗。 */
+export const ENTRY_ACTIVITY = 'defeat.entry'
 /** 簾後館落幕的戰敗事件的種類（CYBERSPACE 8.8 節；M4-curtain-fall）：不開事件視窗，主線場景由簾後館的補演接手。 */
 export const STAGE_KIND = 'stage'
 
@@ -75,6 +77,17 @@ export interface PlayedResult {
   chained?: string
 }
 
+/** 等待中的戰敗是從入口進來的（不是戰鬥打輸）：誰、為什麼、在哪裡，與「重來」要回到哪一種快照。 */
+export interface DefeatEntryInfo {
+  /** 為什麼進戰敗（呼叫的人給的標籤，例：opinion_captured） */
+  reason: string
+  /** 被帶走的人 */
+  who: string
+  where?: string
+  /** 「重來這一場」回到哪一種快照；沒有就沒有「重來」 */
+  retry?: string
+}
+
 export interface PendingDefeat {
   /** 戰敗事件的 id */
   event: string
@@ -107,6 +120,8 @@ export interface PendingDefeat {
   tethered?: boolean
   /** 內海的戰鬥：是被定位而結束的（選事件時走「被定位」的順序） */
   located?: boolean
+  /** 從入口進來的（沒有戰鬥）：battle 是合成的 id，沒有開打前的快照 */
+  entry?: DefeatEntryInfo
 }
 
 export const isRec = (v: unknown): v is Raw => typeof v === 'object' && v !== null && !Array.isArray(v)
