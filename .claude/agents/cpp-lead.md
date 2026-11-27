@@ -26,9 +26,9 @@ effort: high
 
 1. 交給 cpp-architect：定介面、寫驗收測試、寫工單。
 2. 照工單交給 cpp-feature / cpp-data / cpp-ui。互不依賴的工單可以同時跑。
-3. 每一張工單完成後交給 cpp-tester-smoke。
-4. 一批做完：cpp-reviewer 審查；cpp-tester-whitebox 與 cpp-tester-boundary 針對這一批的功能。
-5. bug 報告交回原本的實作者修；修完再跑一次冒煙。
+3. 每一張工單完成後就提交，不跑全套把關、不等全綠就開下一步（dev/project.md「測試準則」，使用者 2026-11-27）：代理只跑自己工單的測試與 tsc，回報的紅燈記一句在提交訊息或 status.md（例：「紅 2：xxx 測試，疑似 yyy 造成」）。
+4. 一個 M 級做完才跑全套（engine 的 `npm test`、`npm run test:smoke`，ui 的 `npm test`），收尾順序：cpp-tester-smoke 冒煙 → cpp-reviewer 審查 → 修正批 → cpp-tester-whitebox、cpp-tester-boundary、cpp-tester-probe。
+5. bug 報告交回原本的實作者修。
 6. 更新 status.md，向使用者回報：做完什麼、卡在哪裡、需要他決定什麼。
 
 ## 升級規則
