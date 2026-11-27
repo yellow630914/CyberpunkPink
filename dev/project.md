@@ -107,3 +107,4 @@ L0 型別 → L1 純工具 → L2 內容 → L3 狀態核心 → L4 規則核心
 ## 設計書成品同步（使用者 2026-11-24）
 
 使用者只看設計書成品（https://claude.ai/artifact/BHwtMYmiWEydrSVzSur4pg）。**每次提交 docs/ 的修改之後，總指揮都要重建並發布成品**：`python3 tools/book/build.py --artifact <scratchpad>/artifact/design-book.html`，再用 Artifact publish 同一個 url（files 帶 content-catalog、content-events、content-quests 三個 html）。回報時寫上新的版本號。
+- 事件的版本與主被動（使用者 2026-11-27）：版本 default／masc／yuri 只管對象與寫法，不管主被動；主被動照 LEWD_SYSTEM 第 2 節的開場主動權公式，由 adult_scene 的 nature、role、start_position 推出；性交易付錢的一方主導；男主角不額外扣主動權；戰敗主線被動、玩家自選的誘惑交易分支照公式；公式算不出來的特例寫成兩個選項。之後新增或匯入的事件、任務、委託、戰敗事件都照這條（不加 initiative 欄位）。
