@@ -8,14 +8,14 @@
 
 import type { Change, GameState, Kernel, Launch, MarkerDef, Origin, ReportDraft, UnitRef } from '../../core'
 import {
-  ActionBlocked, DEGREE_NAME, attachActivityEnd, clone, endActivity, formatAmount, gridHere, mapDef, meterOf, openMap, pointKey, restDone, rollCheck, Sheet,
+  ActionBlocked, DEGREE_NAME, attachActivityEnd, clone, endActivity, formatAmount, gridHere, isRecord, mapDef, meterOf, openMap, pointKey, restDone, rollCheck, Sheet,
 } from '../../core'
 import { netTeam, settleAux } from './assist'
 import { RETREAT_REWIND, resultOf, retreatEnd, settleDone } from './close'
-import type { BranchDef, BranchKind, CommissionEntry, Face, FaceDef, GoalDef, Rank, Run, RouteEntry } from './model'
+import type { BranchDef, BranchKind, CommissionEntry, Face, FaceDef, GoalDef, Rank, Run, RunPick, RouteEntry } from './model'
 import {
   ACTIVITY, FAILED_EXT, FACE_ACTIVITY, FACE_NAME, KIND, branchName, clamp, commissionMapProblems, commissionProblems, commissionRules, dcBaseOf, effectsFor, encounterAfter, faceOf, gradeOf,
-  isLast, netFx, normalSetup, readRun, runChange, stageName, stagesOf,
+  isLast, netFx, normalSetup, opinionSetupRequired, readRun, runChange, stageName, stagesOf,
 } from './model'
 
 declare module '../../core' {
@@ -113,7 +113,12 @@ const scoutedBranch = (run: Run, b: BranchDef): boolean => {
 /** 沒踩到的 scouted 分支不列（連名字都不給看）。 */
 const listed = (run: Run, b: BranchDef): boolean => b.kind !== 'scouted' || scoutedBranch(run, b)
 
+/** 直播中沒辦法悄悄進去（M5-commission-opinion）：條件 live_on 有人註冊而且成立時，潛行的分支選不了。 */
+export const LIVE_STEALTH_TEXT = '正在直播，沒辦法悄悄進去。'
+const liveOn = (k: Kernel, state: GameState): boolean => k.conditions.kinds().includes('live_on') && k.conditions.test({ kind: 'live_on' }, { state, stats: k.stats, timeRules: k.timeRules })
+
 function branchBlock(k: Kernel, state: GameState, run: Run, b: BranchDef): string | null {
+  if (b.kind === 'stealth' && liveOn(k, state)) return LIVE_STEALTH_TEXT
   const need = b.need
   if (!need) return null
   if ('basic' in need) {
@@ -149,7 +154,8 @@ function resolveDef(k: Kernel, raw: unknown): CommissionEntry {
   }
   const e = raw as Record<string, unknown>
   if (!isText(e.id)) throw new ActionBlocked('整筆副本的資料要有 id。')
-  const problems = [...commissionProblems(e), ...(commissionProblems(e).length === 0 ? commissionMapProblems(k, e as unknown as CommissionEntry) : [])]
+  const own = commissionProblems(e, opinionSetupRequired(k))
+  const problems = [...own, ...(own.length === 0 ? commissionMapProblems(k, e as unknown as CommissionEntry) : [])]
   if (problems.length > 0) throw new ActionBlocked(`這件副本的資料有問題：${problems.slice(0, 3).join('；')}。`)
   return clone(e) as unknown as CommissionEntry
 }
@@ -178,12 +184,17 @@ export function enterDraft(k: Kernel, state: GameState, setup: unknown, origin: 
   }
   const needsPick = def.stages.some((st) => st.faces.meat && (st.faces.meat.encounter?.length ?? 0) > 0)
   if (needsPick && !k.battle.getUnitSource('enemy_pick')) throw new ActionBlocked('這件副本的遭遇要照勢力挑敵人，但還沒有「enemy_pick」這種單位來源（敵人的功能沒有裝）。')
+  // 進副本那一拍（資料慣例，0020 第十三節）：副本直播讀目標、等級與勢力
+  const beat: ReportDraft['timeline'][number] = {
+    layer: 'meat', ...(state.pc ? { actor: state.pc } : {}), tag: 'commission.enter', text: `進了「${def.name ?? def.id}」。`,
+    data: { id: def.id, grade: gradeOf(def.grade), faction: def.target_faction, stream_goals: [...(def.stream_goals ?? [])] },
+  }
   return [draft(state, 'commission.enter', 'entered', `你進了「${def.name ?? def.id}」，共 ${stagesOf(run)} 個階段。`, [
     { op: 'snapshot.take', kind: 'entry', label: '進入副本前', owner: def.id },
     // 上一趟失敗留下的記號到這裡就沒有用了（回退之後它由 rewind.keep 帶過去，不是從快照來的）
     ...(state.ext[FAILED_EXT] !== undefined ? [{ op: 'ext', key: FAILED_EXT, value: null } as Change] : []),
     runChange(run),
-  ])]
+  ], { timeline: [beat] })]
 }
 
 // ---- 選面 ----
@@ -349,11 +360,33 @@ function planMeat(k: Kernel, state: GameState, run: Run, b: BranchDef, extraAler
  * 內海面多給（dev/adr/0018 第九節）：fx（連動對這一段的效果，副本算好了給）、trace（整趟到目前為止的追蹤度）、decisive、where、defeat_event、employer；
  * 面的資料（layer、encounter、lace、facility、objective、controls）原樣帶過去。
  */
+/**
+ * 輿論面的 setup.opinion：副本的 opinion_setup 蓋上這一面的 rounds、opponent（對手的欄位一個一個蓋）。
+ * 一樣東西都沒有（副本沒寫 opinion_setup，這一面也沒寫 rounds、opponent）整步不成立；資料檢查先擋，這裡是保險。
+ */
+function opinionOf(run: Run, face: FaceDef): Record<string, unknown> {
+  const base = run.def.opinion_setup
+  if (!base && face.rounds === undefined && face.opponent === undefined) throw new ActionBlocked('這件委託沒有寫輿論戰的設定。')
+  const out: Record<string, unknown> = base ? clone(base) as unknown as Record<string, unknown> : {}
+  if (face.rounds !== undefined) out.rounds = face.rounds
+  if (face.opponent !== undefined) {
+    const mine = typeof face.opponent === 'string' ? { id: face.opponent } : face.opponent
+    const was = typeof out.opponent === 'string' ? { id: out.opponent } : isRecord(out.opponent) ? out.opponent : {}
+    out.opponent = { ...was, ...clone(mine) }
+  }
+  return out
+}
+
 function faceLaunch(run: Run, b: BranchDef, stealth: boolean, team?: string[]): Launch {
   const face = faceOf(run)!
   const { branches: _b, gives: _g, goal: _goal, locked_by: _l, ...rest } = face
   const net = run.face === 'net'
+  const opinion = run.face === 'opinion'
+  // 輿論面的 rounds、opponent 已經併進 opinion，record 是給里程碑那一拍的：都不再當面的資料原樣帶過去
+  if (opinion) { delete rest.rounds; delete rest.opponent }
+  delete rest.record
   const terms = run.setup.terms as { employer?: unknown } | undefined
+  const employer = typeof run.def.employer === 'string' ? run.def.employer : isText(terms?.employer) ? terms.employer : undefined
   return {
     kind: FACE_ACTIVITY[run.face as Exclude<Face, 'meat'>],
     setup: {
@@ -366,14 +399,46 @@ function faceLaunch(run: Run, b: BranchDef, stealth: boolean, team?: string[]): 
         // 進網內的人：有橋、有甲板的；沒有的留在現實當輔助（M3 審查應修 5）。沒有甲板功能的世界不給（整隊）
         ...(team ? { party: team } : {}),
         ...(run.def.defeat_event !== undefined ? { defeat_event: run.def.defeat_event } : {}),
-        ...(typeof run.def.employer === 'string' ? { employer: run.def.employer } : isText(terms?.employer) ? { employer: terms.employer } : {}),
+        ...(employer !== undefined ? { employer } : {}),
+      } : {}),
+      // 輿論面（dev/adr/0020 第六節）：副本的 opinion_setup 蓋上這一面的設定、前面階段走過的路、是不是決定性的一步、導演篩事件用的 where、委託人、分支的開場加減、編輯台與帶的料
+      ...(opinion ? {
+        opinion: opinionOf(run, face), route: clone(run.route.filter((r) => r.stage < run.stage)), decisive: isLast(run), where: stageWhere(run, 'opinion'),
+        ...(employer !== undefined ? { employer } : {}),
+        ...(b.open ? { open: clone(b.open) } : {}),
+        ...(run.pick?.desk ? { desk: clone(run.pick.desk) } : {}), ...(run.pick?.bring ? { bring: [...run.pick.bring] } : {}), ...(run.pick?.outsource !== undefined ? { outsource: run.pick.outsource } : {}),
       } : {}),
     },
     origin: { by: 'commission', ref: run.def.id, ext: { commission: run.def.id, stage: run.stage, face: run.face } },
   }
 }
 
-export function chooseBranch(k: Kernel, state: GameState, branchId: string): ReportDraft {
+/** 選輿論面時帶的編輯台與料（原樣放進 setup，介面在選分支之前先問好）：格式不對整步不成立。 */
+function pickOf(input: BranchInput): RunPick | undefined {
+  const out: RunPick = {}
+  if (input.desk !== undefined) {
+    if (!Array.isArray(input.desk)) throw new ActionBlocked('坐編輯台的人要是名單（desk 是陣列）。')
+    out.desk = clone(input.desk)
+  }
+  if (input.bring !== undefined) {
+    if (!Array.isArray(input.bring) || input.bring.some((x) => !isText(x))) throw new ActionBlocked('帶進牌庫的料要是素材 id 的名單（bring 是字串的陣列）。')
+    out.bring = [...input.bring]
+  }
+  if (input.outsource !== undefined) {
+    if (!isText(input.outsource)) throw new ActionBlocked('外包要寫是名冊上的誰（outsource 是角色的 id）。')
+    out.outsource = input.outsource
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/** 選分支時選填的輸入：選了輿論面時 desk（坐編輯台的人）、bring（帶進牌庫的料）、outsource（外包給誰）原樣放進 face.opinion 的 setup。 */
+export interface BranchInput {
+  desk?: unknown[]
+  bring?: string[]
+  outsource?: string
+}
+
+export function chooseBranch(k: Kernel, state: GameState, branchId: string, input: BranchInput = {}): ReportDraft {
   const run = needRun(state)
   if (run.step !== 'branch' || !run.face) throw new ActionBlocked(STEP_TEXT[run.step])
   const face = faceOf(run)!
@@ -405,6 +470,9 @@ export function chooseBranch(k: Kernel, state: GameState, branchId: string): Rep
   const next: Run = { ...run, step: 'play', branch: b.id, route: [...run.route, entry], won: false, checked: false, done: false }
   delete next.scene
   delete next.no_gives
+  delete next.pick
+  const pick = run.face === 'opinion' ? pickOf(input) : undefined
+  if (pick) next.pick = pick
   const how = roll === 'pass' ? '成功了，這一段是悄悄進去的。' : roll === 'fail' ? `沒有成功，警戒 +${rules.stealth_fail_alert}，只好照強攻走。` : ''
   const launch: Launch[] = []
   if (run.face === 'meat') {
@@ -417,7 +485,7 @@ export function chooseBranch(k: Kernel, state: GameState, branchId: string): Rep
     lines.push(...plan.notes)
   } else {
     // 別的面：把它的玩法開起來，等它的 activity.end（M3、M5）
-    launch.push(faceLaunch(run, b, roll === 'pass', run.face === 'net' && k.stats.hasStat('deck_grade') ? netTeam(k, state) : undefined))
+    launch.push(faceLaunch({ ...run, ...(pick ? { pick } : {}) }, b, roll === 'pass', run.face === 'net' && k.stats.hasStat('deck_grade') ? netTeam(k, state) : undefined))
     delete next.map
   }
   changes.push(runChange(next))
@@ -515,6 +583,8 @@ export function milestone(k: Kernel, state: GameState): ReportDraft {
   const changes: Change[] = []
   const lines: string[] = []
   if (rules.stage_minutes > 0) changes.push({ op: 'time', minutes: rules.stage_minutes })
+  // 輿論戰開打前的快照（face.opinion 存的，重來這一場用）：這一場已經交回，留著只是佔地方
+  for (const sn of state.snapshots) if (sn.kind === 'opinion' && sn.owner === run.def.id) changes.push({ op: 'snapshot.drop', id: sn.id })
 
   // 警戒：收回這張地圖的；連動「警戒不漲」是回到這一段開始的樣子
   let alert = run.alert
@@ -524,16 +594,24 @@ export function milestone(k: Kernel, state: GameState): ReportDraft {
     if (state.maps.instances[run.map]) changes.push({ op: 'map.close', id: run.map })
   }
   const links = [...run.links]
-  if (face?.gives && run.no_gives) lines.push(`內海那一段沒有接管任何控制節點，連動「${run.def.links[face.gives]?.name ?? face.gives}」沒有拿到。`)
+  if (face?.gives && run.no_gives) lines.push(run.face === 'opinion' ? `這場輿論戰沒有贏，連動「${run.def.links[face.gives]?.name ?? face.gives}」沒有拿到。` : `內海那一段沒有接管任何控制節點，連動「${run.def.links[face.gives]?.name ?? face.gives}」沒有拿到。`)
   else if (face?.gives && !links.some((l) => l.id === face.gives)) {
     links.push({ id: face.gives, from: n, face: run.face! })
     lines.push(`拿到連動「${run.def.links[face.gives]?.name ?? face.gives}」。`)
   }
   const last = isLast(run)
   const next: Run = { ...run, stage: n + 1, step: last ? 'done' : 'face', links, alert, peak: Math.max(run.peak, alert), breathed: false }
-  for (const key of ['face', 'branch', 'map', 'start_alert', 'frozen', 'won', 'checked', 'scene', 'done', 'pressured', 'no_gives'] as const) delete next[key]
+  for (const key of ['face', 'branch', 'map', 'start_alert', 'frozen', 'won', 'checked', 'scene', 'done', 'pressured', 'no_gives', 'pick'] as const) delete next[key]
   changes.push(runChange(next))
-  return draft(state, 'commission.milestone', last ? 'decisive' : 'milestone', `${stageName(run.def, n)}完成，城裡過了 ${rules.stage_minutes / 60} 小時。${last ? '決定性的一步做到了。' : ''}`, changes, { narration: { results: lines } })
+  // 里程碑那一拍（資料慣例，0020 第十三節）：媒體記這一個階段的那一則、副本直播算亮點；record 是這個階段的資料寫的紀錄類型與涉及的人
+  const beat: ReportDraft['timeline'][number] = {
+    layer: 'meat', ...(state.pc ? { actor: state.pc } : {}), tag: 'commission.milestone', text: `${stageName(run.def, n)}完成。`,
+    data: {
+      id: run.def.id, stage: n, face: run.face, faction: run.def.target_faction, grade: gradeOf(run.def.grade),
+      ...(isRecord(face?.record) ? { record: clone(face.record) } : {}),
+    },
+  }
+  return draft(state, 'commission.milestone', last ? 'decisive' : 'milestone', `${stageName(run.def, n)}完成，城裡過了 ${rules.stage_minutes / 60} 小時。${last ? '決定性的一步做到了。' : ''}`, changes, { narration: { results: lines }, timeline: [beat] })
 }
 
 // ---- 一次動手的檢定、場景、再來一次 ----
@@ -632,7 +710,7 @@ export function finish(k: Kernel, state: GameState): ReportDraft {
   // 評價、路線留下的後果（敵對值）、歷練點（close.ts）：變更接在清掉狀態的後面，結果（rating、xp、terms……）交給 activity.end
   const settled = settleDone(k, state, run)
   const end = endActivity(k, { state, kind: ACTIVITY, id: run.def.id, origin: run.origin, outcome: 'done', result: resultOf(run, settled.result) })
-  const mine = state.snapshots.filter((s) => s.owner === run.def.id && (s.kind === 'entry' || s.kind === 'stage'))
+  const mine = state.snapshots.filter((s) => s.owner === run.def.id && (s.kind === 'entry' || s.kind === 'stage' || s.kind === 'opinion'))
   const changes: Change[] = [{ op: 'ext', key: 'commission', value: null }, ...mine.map((s) => ({ op: 'snapshot.drop', id: s.id }) as Change), ...settled.changes, ...end.changes]
   return attachActivityEnd(draft(state, 'commission.finish', 'done', `「${run.def.name ?? run.def.id}」做完了。`, changes, { narration: { results: [...settled.lines, ...end.lines] } }), end)
 }

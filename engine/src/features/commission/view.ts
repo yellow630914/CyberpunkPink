@@ -7,8 +7,8 @@ import type { AuxChance } from './assist'
 import type { CloseForecast } from './close'
 import { forecast } from './close'
 import { auxChance, auxPeople, openFaces, peopleAt, resting } from './assist'
-import type { AuxResult, Face, LinkEffect, RouteEntry, Step } from './model'
-import { FACES, FACE_NAME, commissionRules, effectsFor, gradeOf, netRules, readRun, stageName, stagesOf } from './model'
+import type { AuxResult, Face, LinkEffect, OpinionRecord, RouteEntry, Step } from './model'
+import { FACES, FACE_NAME, commissionRules, effectsFor, gradeOf, netRules, opinionFaceRules, readRun, stageName, stagesOf } from './model'
 import type { BranchView, FaceView, GoalView } from './run'
 import { branchViews, breatheBlock, faceViews, goalView } from './run'
 
@@ -92,6 +92,8 @@ export interface CommissionView {
   /** 三個面各自的輔助狀況（沒有派人的面也列出來） */
   aux: AuxFaceView[]
   route: RouteEntry[]
+  /** 每一場輿論戰的結果（階段、major／minor／draw／lost、你與對手的分數；交回之後才有） */
+  opinion: OpinionRecord[]
   alert: { value: number; reinforce: number; hard: number; peak: number }
   /** 整趟的追蹤度（內海）：到目前為止的值（內海的階段做完才收回來）、畫面的刻度、到過的最高值 */
   trace: { value: number; marks: number[]; peak: number }
@@ -157,12 +159,12 @@ export function commissionView(k: Kernel, state: GameState): CommissionView | nu
     faces: done ? [] : faceViews(k, run, false, state),
     branches: run.step === 'branch' || play ? branchViews(k, state, run) : [],
     ...(play ? { goal: goalView(k, state, run) } : {}),
-    links, aux: done ? [] : auxViews(k, state, run, alertNow), route: run.route.map((r) => ({ ...r })),
+    links, aux: done ? [] : auxViews(k, state, run, alertNow), route: run.route.map((r) => ({ ...r })), opinion: (run.opinion ?? []).map((o) => ({ ...o })),
     alert: { value: alertNow, reinforce: REINFORCE_MARK, hard: rules.hard_alert, peak: Math.max(run.peak, alertNow) },
     trace: { value: run.trace, marks: [...TRACE_MARKS], peak: Math.max(run.net_peak, run.trace) },
     breathe: { can: breatheWhy === null, reason: breatheWhy },
     retreat: { can: retreatWhy === null, reason: retreatWhy },
-    close: forecast(state, run, rules, alertNow, Math.max(run.peak, alertNow), netRules(k)),
+    close: forecast(state, run, rules, alertNow, Math.max(run.peak, alertNow), netRules(k), opinionFaceRules(k)),
   }
 }
 

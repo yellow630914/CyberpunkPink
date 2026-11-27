@@ -1,4 +1,5 @@
 // L6 功能 commission 的結算：評價、路線留下的後果、歷練點；戰敗被接受之後的委託失敗（回到入口）與不算失敗（留在這個階段的開頭）。
+// 輿論面（M5-commission-opinion）：face.opinion 交回之後記進 Run.opinion、給連動與警戒與敵對值（V38）、決定性的一場沒贏就失敗（V37）；贏了的輿論階段算一個「交涉成功的階段」，走了輿論的路線留下「公開的敵人」。
 // 規格：COMMISSIONS 2.3 節的表（規模與歷練點）、第 8 節；COMBAT_SYSTEM 8.4、8.5 節；SERIES 第 6 節；FACTIONS 6.2 節；CORE_RULES 7.1 節；
 // dev/adr/0016 第一、二節與 G16；dev/work/M2-commission-close.md。
 //
@@ -14,8 +15,8 @@
 
 import type { ActivityEndMerged, ActivityEndReturn, Change, GameState, Kernel, Origin, ReportDraft, ReportRewind } from '../../core'
 import { clone, effectCtx, endActivity, isRecord, meterOf } from '../../core'
-import type { Run } from './model'
-import { ACTIVITY, DEFAULT_NET_RULES, FAILED_EXT, SCALE_STAGES, TRACE_MIN, clamp, commissionRules, gradeOf, netRules, readRun, runChange } from './model'
+import type { OpinionFaceRules, OpinionRecord, Run } from './model'
+import { ACTIVITY, DEFAULT_NET_RULES, DEFAULT_OPINION_RULES, FAILED_EXT, OPINION_LINKS, SCALE_STAGES, TRACE_MIN, clamp, commissionRules, gradeOf, isLast, netRules, opinionFaceRules, readRun, runChange } from './model'
 import type { CommissionRules, NetRules } from './model'
 
 /** 評價的四級，由低到高 */
@@ -49,7 +50,9 @@ export interface RatingParts {
  * 內海面（M3-commission-net）的壓力條照同一個門檻看追蹤度：最後在 60 以上 −1（和警戒同一項，兩條都過了也只扣一次）、到過 90 再 −1（同樣是那一項）。
  */
 export function rate(run: Run, rules: CommissionRules, alert: number, peak: number, net: NetRules = DEFAULT_NET_RULES): { rating: Rating; parts: RatingParts } {
-  const stealth = new Set(run.route.filter((r) => r.roll === 'pass').map((r) => r.stage)).size
+  // 潛行或交涉成功的階段，加上走了輿論而且贏了的階段（大勝、小勝；同一個階段只算一次）
+  const won = (run.opinion ?? []).filter((o) => o.outcome === 'major' || o.outcome === 'minor').map((o) => o.stage)
+  const stealth = new Set([...run.route.filter((r) => r.roll === 'pass').map((r) => r.stage), ...won]).size
   const links = run.links.length >= rules.rating_links ? 1 : 0
   const high = alert >= rules.rating_alert || (run.trace ?? 0) >= rules.rating_alert ? -1 : 0
   const top = peak >= rules.rating_peak || (run.net_peak ?? 0) >= net.rating_trace_peak ? -1 : 0
@@ -72,6 +75,8 @@ export interface Fallout {
   net?: { stages: number; trace: number; located: number; delta: number }
   /** 管網路的勢力各加多少（net_watchers；有階段走了內海才有這個欄位） */
   watchers?: Array<{ faction: string; delta: number }>
+  /** 有階段走了輿論留下的那一份（一個公開的敵人；有階段走了輿論才有這個欄位）：走了幾個輿論的階段、目標勢力的敵對值加多少（delta 已經包含它） */
+  opinion?: { stages: number; delta: number }
 }
 
 /**
@@ -79,18 +84,22 @@ export interface Fallout {
  * 有階段走了內海（N34）：每 20 點追蹤度（做完時整趟最後的值）目標勢力的敵對值 +1（進位、最多 5），不算被定位的那一次（不算失敗的戰敗而且是被定位：另外 +5）；
  * 管網路的勢力（規則表 net_watchers）各 +2。
  */
-export function fallout(run: Run, rules: CommissionRules, netR: NetRules = DEFAULT_NET_RULES): Fallout {
+export function fallout(run: Run, rules: CommissionRules, netR: NetRules = DEFAULT_NET_RULES, opR: OpinionFaceRules = DEFAULT_OPINION_RULES): Fallout {
   const faction = run.def.target_faction !== 'none' && run.def.target_faction.trim() ? run.def.target_faction : null
   const real = run.route.filter((r) => r.face === 'meat' && r.roll !== 'pass')
   const assault = real.filter((r) => r.kind === 'assault' || r.roll === 'fail').length
   const meat = faction !== null && real.length > 0 ? Math.min(rules.hostility_max, rules.hostility_base + rules.hostility_per_assault * assault) : 0
   const stages = new Set(run.route.filter((r) => r.face === 'net').map((r) => r.stage)).size
-  if (stages === 0) return { faction, delta: meat, reality: real.length, assault }
+  // 有階段走了輿論：一個公開的敵人（一件委託一次，不看輸贏）
+  const opStages = new Set(run.route.filter((r) => r.face === 'opinion').map((r) => r.stage)).size
+  const opinion = faction !== null && opStages > 0 ? opR.op_enemy_hostility : 0
+  const tail = opStages > 0 ? { opinion: { stages: opStages, delta: opinion } } : {}
+  if (stages === 0) return { faction, delta: meat + opinion, reality: real.length, assault, ...tail }
   const trace = run.trace ?? 0
   const located = run.net_located === true ? netR.net_located_hostility : 0
   const net = faction !== null ? Math.min(netR.net_hostility_max, Math.ceil(Math.max(0, trace) / netR.net_hostility_step)) + located : 0
   const watchers = netR.net_watcher_hostility > 0 ? netR.net_watchers.map((f) => ({ faction: f, delta: netR.net_watcher_hostility })) : []
-  return { faction, delta: meat + net, reality: real.length, assault, net: { stages, trace, located, delta: net }, watchers }
+  return { faction, delta: meat + net + opinion, reality: real.length, assault, net: { stages, trace, located, delta: net }, watchers, ...tail }
 }
 
 // ---- 歷練點 ----
@@ -115,9 +124,9 @@ export interface CloseForecast {
 }
 
 /** 預估：照現在的路線、連動與警戒（alert 是現在的、peak 是到過的最高）算做完的話會是什麼。 */
-export function forecast(state: GameState, run: Run, rules: CommissionRules, alert: number, peak: number, net: NetRules = DEFAULT_NET_RULES): CloseForecast {
+export function forecast(state: GameState, run: Run, rules: CommissionRules, alert: number, peak: number, net: NetRules = DEFAULT_NET_RULES, op: OpinionFaceRules = DEFAULT_OPINION_RULES): CloseForecast {
   const r = rate(run, rules, alert, peak, net)
-  return { rating: r.rating, parts: r.parts, fallout: fallout(run, rules, net), xp: xpFor(state, rules, run.def.scale) }
+  return { rating: r.rating, parts: r.parts, fallout: fallout(run, rules, net, op), xp: xpFor(state, rules, run.def.scale) }
 }
 
 // ---- 結果 ----
@@ -132,6 +141,7 @@ export function resultOf(run: Run, extra: Record<string, unknown> = {}): Record<
     ...(run.def.conditions ? { conditions: clone(run.def.conditions) } : {}),
     ...(run.setup.terms !== undefined ? { terms: clone(run.setup.terms) } : {}), ...(run.setup.aux !== undefined ? { aux: clone(run.setup.aux) } : {}),
     ...(run.aux && run.aux.log.length > 0 ? { aux_log: clone(run.aux.log) } : {}),
+    ...(run.opinion && run.opinion.length > 0 ? { opinion: clone(run.opinion) } : {}),
     ...clone(extra),
   }
 }
@@ -141,7 +151,7 @@ export function settleDone(k: Kernel, state: GameState, run: Run): { changes: Ch
   const rules = commissionRules(k)
   const nr = netRules(k)
   const { rating, parts } = rate(run, rules, run.alert, run.peak, nr)
-  const fall = fallout(run, rules, nr)
+  const fall = fallout(run, rules, nr, opinionFaceRules(k))
   const xp = xpFor(state, rules, run.def.scale)
   const changes: Change[] = []
   const lines: string[] = [`評價 ${rating}。`]
@@ -168,7 +178,7 @@ export function settleDone(k: Kernel, state: GameState, run: Run): { changes: Ch
   }
   return {
     changes, lines,
-    result: { rating, rating_parts: parts, xp, hostility: { faction: fall.faction, delta: fall.delta, reality: fall.reality, assault: fall.assault, ...(fall.net ? { net: fall.net, watchers: fall.watchers } : {}) } },
+    result: { rating, rating_parts: parts, xp, hostility: { faction: fall.faction, delta: fall.delta, reality: fall.reality, assault: fall.assault, ...(fall.net ? { net: fall.net, watchers: fall.watchers } : {}), ...(fall.opinion ? { opinion: fall.opinion } : {}) } },
   }
 }
 
@@ -221,6 +231,63 @@ export function netEnd(k: Kernel, state: GameState, run: Run, outcome: string, r
   if (Array.isArray(wanted) && wanted.length > 0 && taken === 0) next.no_gives = true
   else delete next.no_gives
   return { changes: [runChange(next)], lines }
+}
+
+// ---- 輿論面交回（活動 face.opinion 的 activity.end；dev/adr/0020 第六節、V36～V38） ----
+
+const scoreOf = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : 0)
+
+/** 這一場是被收買、或被帶走：不論是不是最後一個階段，都算委託失敗（V36：接受收買 ＝ 委託失敗、回到入口；被帶走照戰敗） */
+const forcedLoss = (result: Record<string, unknown>): boolean => result.bribed !== undefined || result.captured === true
+
+/**
+ * face.opinion 交回了（outcome 是 major、minor、draw、lost 之一；其餘當作這一段沒有完成、可以再來一次）：
+ *   記進 Run.opinion（階段、結果、你的分數、對手的分數）。
+ *   不是最後一個階段（V38）：四種都把這個階段標成做完、接里程碑。
+ *     major  給 op_major（副本有寫才給）；小勝以上的 gives 由里程碑給。
+ *     minor  給 op_minor；同上。
+ *     draw   什麼都不給（連這一面的 gives 也不給）。
+ *     lost   給 op_lost（有寫才給）、警戒 +op_lost_alert、目標勢力的敵對值 +op_lost_hostility；不給 gives。
+ *   最後一個階段（V37）：major、minor 標成做完（接里程碑與 finish）；其餘（opinion 先給過三選一，交回來的就是被接受的）照「戰敗被接受而且算失敗」：留記號、回到入口。
+ *   被收買、被帶走（result.bribed、result.captured）：不論哪個階段都照上一條失敗；被帶走本來還要先開戰敗事件，做不到（要 defeat 開一個不是從戰鬥來的入口），先只回到入口。
+ */
+export function opinionEnd(k: Kernel, state: GameState, run: Run, outcome: string, result: Record<string, unknown>): ActivityEndReturn {
+  if (!(['major', 'minor', 'draw', 'lost'] as readonly string[]).includes(outcome)) return { changes: [runChange({ ...run, done: false })], lines: ['這一段沒有完成，可以再來一次。'] }
+  const rec: OpinionRecord = { stage: run.stage, outcome, you: scoreOf(result.you), foe: scoreOf(result.foe) }
+  const opinion = [...(run.opinion ?? []).filter((o) => o.stage !== run.stage), rec]
+  const won = outcome === 'major' || outcome === 'minor'
+  if (forcedLoss(result) || (isLast(run) && !won)) {
+    const defeat = { opinion: true, outcome, you: rec.you, foe: rec.foe, ...(result.bribed !== undefined ? { bribed: result.bribed } : {}), ...(result.captured === true ? { captured: true } : {}) }
+    return failReturn(k, { ...run, opinion }, defeat, false)
+  }
+  const rules = opinionFaceRules(k)
+  const next: Run = { ...run, done: true, opinion }
+  const lines: string[] = []
+  const changes: Change[] = []
+  const linkId = outcome === 'major' ? OPINION_LINKS[0] : outcome === 'minor' ? OPINION_LINKS[1] : outcome === 'lost' ? OPINION_LINKS[2] : undefined
+  if (linkId !== undefined && run.def.links[linkId] && !next.links.some((l) => l.id === linkId)) {
+    next.links = [...next.links, { id: linkId, from: run.stage, face: 'opinion' }]
+    lines.push(`拿到連動「${run.def.links[linkId]!.name}」。`)
+  }
+  // 小勝以上才給這一面的 gives（里程碑看 no_gives）
+  if (won) delete next.no_gives
+  else next.no_gives = true
+  lines.unshift({ major: '這一場輿論戰大勝。', minor: '這一場輿論戰小勝。', draw: '這一場輿論戰平手。', lost: '這一場輿論戰輸了。' }[outcome as 'major'])
+  if (outcome === 'lost') {
+    const before = next.alert
+    next.alert = clamp(before + rules.op_lost_alert, 0, 100)
+    next.peak = Math.max(next.peak, next.alert)
+    if (next.alert > before) lines.push(`委託的警戒 +${next.alert - before}。`)
+    const faction = run.def.target_faction !== 'none' && run.def.target_faction.trim() ? run.def.target_faction : null
+    if (faction !== null && rules.op_lost_hostility > 0 && k.effects.has(HOSTILITY_EFFECT)) {
+      const res = k.effects.resolve([{ kind: HOSTILITY_EFFECT, key: faction, amount: rules.op_lost_hostility }], effectCtx(k, state, { source: 'builtin' }))
+      if (res.errors.length === 0) {
+        changes.push(...res.changes)
+        lines.push(...res.lines)
+      }
+    }
+  }
+  return { changes: [...changes, runChange(next)], lines }
 }
 
 // ---- 失敗的記號 ----
@@ -303,7 +370,7 @@ function continueChanges(k: Kernel, state: GameState, run: Run, located = false)
   }
   // 內海的階段：netrun 已經自己收掉了；Run.trace 維持這一段開始前的值（這一段的追蹤度不收）。被定位的記下來，做完時敵對值另外加
   const next: Run = { ...run, step: 'branch', alert, peak: Math.max(run.peak, alert), route: run.route.filter((r) => r.stage !== run.stage), ...(located && run.face === 'net' ? { net_located: true as const } : {}) }
-  for (const key of ['branch', 'map', 'start_alert', 'frozen', 'won', 'checked', 'scene', 'done', 'pressured', 'no_gives'] as const) delete next[key]
+  for (const key of ['branch', 'map', 'start_alert', 'frozen', 'won', 'checked', 'scene', 'done', 'pressured', 'no_gives', 'pick'] as const) delete next[key]
   changes.push(runChange(next))
   return changes
 }

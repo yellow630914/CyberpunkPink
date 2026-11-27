@@ -14,6 +14,12 @@
 //   內海面（M3-commission-net）：face.net 交回 done（Run.trace、net_peak 記下來；第一次到過 60 警戒 +10；寫了 controls 而沒有接管就不給 gives）、
 //     retreat（和 retreat 一樣：發 commission 的 retreat 再回到進去之前）、located（照戰敗被接受而且算失敗：留記號、回到進去之前，被定位另外加敵對值）；
 //     隔離區（locked_by）、連動多六種（trace_start、trace_half、lace_down、gate_open、near_core、controls）、commissionView().trace
+//   輿論面（M5-commission-opinion）：opinion_setup（DATA 9.1）加這一面的 rounds、opponent、分支的 open 交給 face.opinion（setup 還有 route、decisive、where、employer、desk、bring、outsource）；
+//     face.opinion 交回照 V38：非最後一個階段不論輸贏都過（major 給 op_major、minor 給 op_minor、draw 什麼都沒有、lost 給 op_lost 並警戒 +10、目標勢力敵對值 +3；小勝以上才給這一面的 gives）；
+//     最後一個階段（V37）小勝以上做完、其餘（opinion 的三選一已經選了接受）失敗回到入口；被收買、被帶走不論哪個階段都失敗；每一場記在 Run.opinion；贏了的輿論階段評價 +1、走了輿論留下「公開的敵人」；
+//     重來這一場：回去之後副本停在「選完分支、這一段還沒開」，用 replay 再開一次（Run.pick 記著 desk、bring、outsource）。
+//   資料慣例的兩拍：commission.enter（data: id、grade、faction、stream_goals）、commission.milestone（data: id、stage、face、faction、grade、record?）；
+//     直播中（條件 live_on 成立）潛行的分支選不了。
 // 對外：commissionView、chooseFace、chooseBranch、breathe、retreat、checkGoal、playScene、replay、milestone、finish。
 // 輔助面每個階段的結算（assist.ts，M2-commission-aux）寫在 commission.face 那一份報告裡（每個擲了的面一拍，標籤 aux）；
 // 做完之後的結算（M2-commission-close）聽 activity.end（result.aux_log 有每一次輔助結算）。
@@ -26,21 +32,21 @@
 import type { Feature, Kernel, ReportDraft } from '../../core'
 import { ContentError } from '../../core'
 import type { CommissionEntry } from './model'
-import { ACTIVITY, FACE_ACTIVITY, KIND, OWNER, RULE_KIND, commissionMapProblems, commissionProblems, readRun, ruleProblems, runChange } from './model'
-import { failedDraft, keepFailed, mineOf, netEnd, onDefeatAccepted } from './close'
+import { ACTIVITY, FACE_ACTIVITY, KIND, OWNER, RULE_KIND, commissionMapProblems, commissionProblems, opinionSetupRequired, readRun, ruleProblems, runChange } from './model'
+import { failedDraft, keepFailed, mineOf, netEnd, onDefeatAccepted, opinionEnd } from './close'
 import { achieved, enterDraft, finish, milestone, pressureDraft } from './run'
 
 export {
-  ACTIVITY, BRANCH_KINDS, DEFAULT_COMMISSION_RULES, DEFAULT_NET_RULES, EXT, FACES, FAILED_EXT, FACE_ACTIVITY, FACE_NAME, GOAL_KINDS, KIND, LINK_TYPES, NET_LACES, NET_LAYERS, NET_OBJECTIVES, OWNER, RULE_KIND, SCALE_STAGES, TRACE_MIN,
-  commissionMapProblems, commissionProblems, commissionRules, dcBaseOf, effectsFor, encounterAfter, gradeOf, netFx, netRules, readRun, ruleProblems, stageName,
+  ACTIVITY, BRANCH_KINDS, DEFAULT_COMMISSION_RULES, DEFAULT_NET_RULES, DEFAULT_OPINION_RULES, EXT, FACES, FAILED_EXT, FACE_ACTIVITY, FACE_NAME, GOAL_KINDS, KIND, LINK_TYPES, NET_LACES, NET_LAYERS, NET_OBJECTIVES, OPINION_BRANCH_KINDS, OPINION_LINKS, OPINION_OUTCOMES, OWNER, RULE_KIND, SCALE_STAGES, TRACE_MIN,
+  commissionMapProblems, commissionProblems, commissionRules, dcBaseOf, effectsFor, encounterAfter, gradeOf, netFx, netRules, opinionFaceRules, readRun, ruleProblems, stageName,
 } from './model'
 export type {
-  AuxOutcome, AuxResult, AuxState, BranchDef, BranchKind, CommissionEntry, CommissionRules, NetRules, Face, FaceDef, GoalDef, LinkDef, LinkEffect, Need, Rank, RouteEntry, Run, RunLink, RunSetup, StageDef, StageEffects, Step,
+  AuxOutcome, AuxResult, AuxState, BranchDef, BranchKind, CommissionEntry, CommissionRules, NetRules, OpenSpec, OpinionFaceRules, OpinionRecord, OpinionSetupDef, RunPick, Face, FaceDef, GoalDef, LinkDef, LinkEffect, Need, Rank, RouteEntry, Run, RunLink, RunSetup, StageDef, StageEffects, Step,
 } from './model'
-export { RATINGS, XP_EFFECT, HOSTILITY_EFFECT, RETREAT_REWIND, failedOf, fallout, forecast, netEnd, rate, retreatEnd, xpFor } from './close'
+export { RATINGS, XP_EFFECT, HOSTILITY_EFFECT, RETREAT_REWIND, failedOf, fallout, forecast, netEnd, opinionEnd, rate, retreatEnd, xpFor } from './close'
 export type { CloseForecast, FailedMark, Fallout, Rating, RatingParts } from './close'
-export { AIRGAP_TEXT, achieved, branchViews, breathe, breatheBlock, checkGoal, chooseBranch, chooseFace, enterDraft, faceViews, finish, goalView, milestone, playScene, replay, retreat } from './run'
-export type { BranchView, FaceView, GoalView } from './run'
+export { AIRGAP_TEXT, LIVE_STEALTH_TEXT, achieved, branchViews, breathe, breatheBlock, checkGoal, chooseBranch, chooseFace, enterDraft, faceViews, finish, goalView, milestone, playScene, replay, retreat } from './run'
+export type { BranchInput, BranchView, FaceView, GoalView } from './run'
 export { REINFORCE_MARK, TRACE_MARKS, commissionView, stageEffects } from './view'
 export type { AuxFaceView, CommissionView, LinkRow, TrackNode } from './view'
 export { auxChance, auxPeople, auxSum, classify as classifyAux, pathBonus, settleAux } from './assist'
@@ -65,7 +71,7 @@ export const commissionFeature: Feature = {
   install(k: Kernel) {
     k.content.defineKind<CommissionEntry>({
       kind: KIND, owner: OWNER,
-      validate: commissionProblems,
+      validate: (e) => commissionProblems(e, opinionSetupRequired(k)),
       refs: (e) => [
         ...(typeof e.target_faction === 'string' && e.target_faction !== 'none' ? [['faction', e.target_faction] as [string, string]] : []),
         ...(typeof e.employer === 'string' ? [['faction', e.employer] as [string, string]] : []),
@@ -103,6 +109,7 @@ export const commissionFeature: Feature = {
         return { changes: [runChange({ ...run, scene: ok ? 'done' : 'failed' })], lines: [ok ? '這一場達成了目的。' : '這一場沒有達成目的。'] }
       }
       if (kind === FACE_ACTIVITY.net) return netEnd(k, state, run, outcome, result)
+      if (kind === FACE_ACTIVITY.opinion) return opinionEnd(k, state, run, outcome, result)
       if (FACE_KINDS.includes(kind)) {
         const ok = outcome === 'done' || outcome === 'win'
         return { changes: [runChange({ ...run, done: ok })], lines: [ok ? '這一段完成了。' : '這一段沒有完成，可以再來一次。'] }

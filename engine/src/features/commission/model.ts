@@ -3,6 +3,7 @@
 //
 // 這個功能不 import 別的功能：警戒只經由量表 alert（meterOf）、敵人只經由單位來源 enemy_pick 的 UnitRef、探索只經由地圖實例的 ext。
 // 內海面（M3-commission-net）：整趟的追蹤度是 Run.trace（副本帶著；每個內海階段開始時交給 face.net，做完收回來）。
+// 輿論面（M5-commission-opinion）：副本的 opinion_setup 加上這一面的 rounds、opponent、分支的 open 交給 face.opinion；每一場的結果記在 Run.opinion。
 
 import type { CheckRoll, ContentEntry, GameState, GameTime, Kernel, Origin } from '../../core'
 import { UNIT_RANKS, clone, isRecord, isSafeInt } from '../../core'
@@ -29,6 +30,11 @@ export const FACE_ACTIVITY: Record<Exclude<Face, 'meat'>, string> = { net: 'face
 export const SCALE_STAGES: Record<string, number> = { small: 3, medium: 4, large: 5 }
 export const BRANCH_KINDS = ['assault', 'stealth', 'talk', 'linked', 'scouted'] as const
 export type BranchKind = (typeof BRANCH_KINDS)[number]
+/** 輿論面的分支種類：沒有潛行（dev/adr/0020 第六節） */
+export const OPINION_BRANCH_KINDS: readonly BranchKind[] = ['assault', 'talk', 'linked', 'scouted']
+/** 輿論戰的結果連動（保留的鍵）：副本的 links 有寫才給；from_links 也可以指到它們（COMMISSION_TEMPLATES「opinion_setup 的骨架」） */
+export const OPINION_LINKS = ['op_major', 'op_minor', 'op_lost'] as const
+export const OPINION_OUTCOMES = ['major', 'minor', 'draw', 'lost'] as const
 export const LINK_TYPES = ['skip', 'ease', 'open'] as const
 export const GOAL_KINDS = ['fight', 'reach', 'take', 'check', 'scene'] as const
 /** 內海面的資料（M3-commission-net）：層、蕾絲的顏色、目標的種類 */
@@ -53,6 +59,25 @@ export interface BranchDef {
   /** 入口的標記（現實面）：從哪裡進這一段 */
   entry?: string
   need?: Need
+  /** 輿論面：這條分支的開場加減（交給 face.opinion 的 setup.open） */
+  open?: OpenSpec
+}
+
+/** 輿論戰的開場加減（聲量、風向、多佔的格子） */
+export interface OpenSpec {
+  voice?: number
+  wind?: number
+  cells?: string[]
+}
+
+/** DATA 9.1 的 opinion_setup：副本整件寫一份；每個輿論面可以用自己的 rounds、opponent 蓋上去。from_flags、cells_by_flag、opponent.named、topic.category 只收格式、原樣帶過去。 */
+export interface OpinionSetupDef {
+  topic: string | Record<string, unknown>
+  opponent: string | (Record<string, unknown> & { id?: string; strength?: number; named?: string })
+  base?: OpenSpec
+  from_links?: Array<OpenSpec & { link: string; add_card?: string; opponent_pr_first_round?: number }>
+  rounds?: number
+  [extra: string]: unknown
 }
 
 export type GoalDef =
@@ -71,8 +96,15 @@ export interface FaceDef {
   /** 遭遇放在哪個保全崗（G 標記的 id）；沒寫是版面上第一個 G */
   post?: string
   goal?: GoalDef
-  /** 做完給哪個連動（links 的鍵） */
+  /** 做完給哪個連動（links 的鍵）；輿論面：小勝以上才給 */
   gives?: string
+  // ---- 輿論面（face.opinion；dev/adr/0020 第六節） ----
+  /** 輿論面：回合數（蓋掉 opinion_setup 與議題自己寫的） */
+  rounds?: number
+  /** 輿論面：對手（蓋掉 opinion_setup.opponent 的欄位） */
+  opponent?: string | Record<string, unknown>
+  /** 這個階段留下的紀錄的類型與涉及的人（里程碑那一拍的 data.record；格式是 media 的 RecordHint） */
+  record?: Record<string, unknown>
   // ---- 內海面（face.net；資料原樣交給那一段，見 dev/adr/0018 第九節） ----
   /** 內海：這一段打哪一層（guest、staff、control、core） */
   layer?: string
@@ -145,6 +177,10 @@ export interface CommissionEntry extends ContentEntry {
   links: Record<string, LinkDef>
   /** 詞條（EVENTS 4.4 節的篩選用） */
   modifiers?: string[]
+  /** 輿論戰的設定（DATA 9.1）：有階段開了輿論面就要有 */
+  opinion_setup?: OpinionSetupDef
+  /** 副本直播的目標（COMMISSIONS 第 11 節；stream_goal 的 id，進副本那一拍帶給直播） */
+  stream_goals?: string[]
 }
 
 // ---- 規則 ----
@@ -214,6 +250,23 @@ export interface NetRules {
 export const DEFAULT_NET_RULES: NetRules = {
   net_alert: 10, net_alert_at: 60, net_hostility_step: 20, net_hostility_max: 5, net_located_hostility: 5, net_watchers: [], net_watcher_hostility: 2, rating_trace_peak: 90,
 }
+/**
+ * 輿論面的數字（M5-commission-opinion）。和 NetRules 一樣另放一組：資料 commission_rule/default 寫了才蓋掉，沒寫照這裡的預設（資料檔由 M5-data-rules 補）。
+ */
+export interface OpinionFaceRules {
+  /** 輿論階段打輸（不是最後一個階段，V38）：委託的警戒 +op_lost_alert（10）、目標勢力的敵對值 +op_lost_hostility（3） */
+  op_lost_alert: number
+  op_lost_hostility: number
+  /** 路線的後果：有階段走了輿論，目標勢力多一個公開的敵人，敵對值 +op_enemy_hostility（3），一件委託一次 */
+  op_enemy_hostility: number
+  /** 收買被接受時委託人的好感（−5）：opinion 那一邊已經扣，這裡不重複，只留欄位給評價與畫面看 */
+  op_bribe_favor: number
+}
+
+export const DEFAULT_OPINION_RULES: OpinionFaceRules = { op_lost_alert: 10, op_lost_hostility: 3, op_enemy_hostility: 3, op_bribe_favor: 5 }
+const OPINION_RULE_FIELDS: Array<[keyof OpinionFaceRules, number, number]> = [
+  ['op_lost_alert', 0, 100], ['op_lost_hostility', 0, 100], ['op_enemy_hostility', 0, 100], ['op_bribe_favor', 0, 100],
+]
 type NetNumeric = Exclude<keyof NetRules, 'net_watchers'>
 const NET_RULE_FIELDS: Array<[NetNumeric, number, number]> = [
   ['net_alert', 0, 100], ['net_alert_at', 1, 100], ['net_hostility_step', 1, 100], ['net_hostility_max', 0, 100], ['net_located_hostility', 0, 100], ['net_watcher_hostility', 0, 100], ['rating_trace_peak', 1, 100],
@@ -240,7 +293,7 @@ const AUX_BONUS_KEYS = ['strong', 'mid', 'weak', 'none'] as const
 
 export function ruleProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
-  for (const [key, lo, hi] of [...RULE_FIELDS, ...NET_RULE_FIELDS]) if (e[key] !== undefined && !(isSafeInt(e[key]) && e[key] >= lo && e[key] <= hi)) p.push(`${key} 要是 ${lo}～${hi} 的整數`)
+  for (const [key, lo, hi] of [...RULE_FIELDS, ...NET_RULE_FIELDS, ...OPINION_RULE_FIELDS]) if (e[key] !== undefined && !(isSafeInt(e[key]) && e[key] >= lo && e[key] <= hi)) p.push(`${key} 要是 ${lo}～${hi} 的整數`)
   if (e.aux_skills !== undefined) {
     const sk = e.aux_skills
     if (!isRecord(sk) || Object.keys(sk).some((f) => !(AUX_FACES as readonly string[]).includes(f)) || Object.values(sk).some((v) => !isTextList(v) || v.length === 0)) p.push('aux_skills 要是 { meat?, net?, opinion? }，每一面是至少一個基本功 id 的陣列')
@@ -279,6 +332,16 @@ export function netRules(k: Pick<Kernel, 'content'>): NetRules {
   const bad = new Set(ruleProblems(e).map((m) => m.split(' ')[0]))
   for (const [key] of NET_RULE_FIELDS) if (e[key] !== undefined && !bad.has(key)) out[key] = e[key] as number
   if (e.net_watchers !== undefined && !bad.has('net_watchers')) out.net_watchers = [...new Set(e.net_watchers as string[])]
+  return out
+}
+
+/** 輿論面的數字：資料 commission_rule/default 寫了的蓋掉預設（格式不對的欄位忽略）。 */
+export function opinionFaceRules(k: Pick<Kernel, 'content'>): OpinionFaceRules {
+  const e = k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default')
+  const out: OpinionFaceRules = { ...DEFAULT_OPINION_RULES }
+  if (!e) return out
+  const bad = new Set(ruleProblems(e).map((m) => m.split(' ')[0]))
+  for (const [key] of OPINION_RULE_FIELDS) if (e[key] !== undefined && !bad.has(key)) out[key] = e[key] as number
   return out
 }
 
@@ -338,7 +401,65 @@ function goalProblems(g: unknown, at: string, face: FaceDef): string[] {
   return p
 }
 
-function faceProblems(f: unknown, at: string, face: Face, links: Record<string, unknown>): string[] {
+/** 輿論戰的開場加減 { voice?, wind?, cells? } 的格式。 */
+function openSpecProblems(o: unknown, at: string): string[] {
+  if (!isRecord(o)) return [`${at} 要是 { voice?, wind?, cells? }`]
+  const p: string[] = []
+  for (const key of ['voice', 'wind'] as const) if (o[key] !== undefined && !isSafeInt(o[key])) p.push(`${at}.${key} 要是整數`)
+  if (o.cells !== undefined && !isTextList(o.cells)) p.push(`${at}.cells 要是格子 id 的陣列`)
+  return p
+}
+
+/** 對手：內容的 id，或 { id, strength?, named? }（整筆的要有 actions）；partial 是這一面蓋上去的那一份，欄位都可以不寫（id 沿用 opinion_setup 的）。 */
+function opponentProblems(o: unknown, at: string, partial = false): string[] {
+  if (isText(o)) return []
+  if (!isRecord(o)) return [`${at} 要是對手的 id，或 { id, strength?, named? }`]
+  const p: string[] = []
+  if (!partial && !isText(o.id) && !Array.isArray(o.actions)) p.push(`${at}.id 要是對手的 id`)
+  if (o.strength !== undefined && !(isSafeInt(o.strength) && o.strength >= 1 && o.strength <= 9)) p.push(`${at}.strength 要是 1～9 的整數`)
+  if (o.id !== undefined && !isText(o.id)) p.push(`${at}.id 要是對手的 id`)
+  if (o.named !== undefined && !isText(o.named)) p.push(`${at}.named 要是文字`)
+  return p
+}
+
+/** DATA 9.1 的 opinion_setup：topic、opponent 一定要有；from_links 指到的連動要在 links 裡，或是三個保留的鍵（op_major、op_minor、op_lost）。 */
+function opinionSetupProblems(s: unknown, links: Record<string, unknown>): string[] {
+  if (!isRecord(s)) return ['opinion_setup 要是 { topic, opponent, base?, from_links? }']
+  const p: string[] = []
+  if (!(isText(s.topic) || (isRecord(s.topic) && Object.keys(s.topic).length > 0))) p.push('opinion_setup.topic 要寫（議題的 id，或整筆的議題）')
+  if (s.opponent === undefined) p.push('opinion_setup.opponent 要寫（對手的 id，或 { id, strength? }）')
+  else p.push(...opponentProblems(s.opponent, 'opinion_setup.opponent'))
+  if (s.rounds !== undefined && !(isSafeInt(s.rounds) && s.rounds >= 1 && s.rounds <= 20)) p.push('opinion_setup.rounds 要是 1～20 的整數')
+  if (s.base !== undefined) p.push(...openSpecProblems(s.base, 'opinion_setup.base'))
+  if (s.from_links !== undefined) {
+    if (!Array.isArray(s.from_links)) p.push('opinion_setup.from_links 要是陣列')
+    else s.from_links.forEach((l: unknown, i: number) => {
+      const at = `opinion_setup.from_links[${i}]`
+      if (!isRecord(l)) return void p.push(`${at} 要是 { link, voice?, wind?, cells?, add_card?, opponent_pr_first_round? }`)
+      if (!isText(l.link)) p.push(`${at}.link 要是連動的 id`)
+      else if (!own(links, l.link) && !(OPINION_LINKS as readonly string[]).includes(l.link)) p.push(`${at}.link 寫了 ${l.link}，links 裡沒有這個連動（結果連動 ${OPINION_LINKS.join('、')} 也可以寫）`)
+      p.push(...openSpecProblems(l, at))
+      if (l.add_card !== undefined && !isText(l.add_card)) p.push(`${at}.add_card 要是牌的 id`)
+      if (l.opponent_pr_first_round !== undefined && !isSafeInt(l.opponent_pr_first_round)) p.push(`${at}.opponent_pr_first_round 要是整數`)
+    })
+  }
+  return p
+}
+
+/** 輿論面的資料：分支沒有潛行（strict 才擋）、分支的 open、回合數與對手。 */
+function opinionFaceProblems(f: Record<string, unknown>, at: string, strict: boolean): string[] {
+  const p: string[] = []
+  if (f.rounds !== undefined && !(isSafeInt(f.rounds) && f.rounds >= 1 && f.rounds <= 20)) p.push(`${at}.rounds 要是 1～20 的整數`)
+  if (f.opponent !== undefined) p.push(...opponentProblems(f.opponent, `${at}.opponent`, true))
+  if (Array.isArray(f.branches)) f.branches.forEach((b: unknown, i: number) => {
+    if (!isRecord(b)) return
+    if (b.kind === 'stealth' && strict) p.push(`${at}.branches[${i}].kind：輿論面沒有潛行，只能是 ${OPINION_BRANCH_KINDS.join('、')}`)
+    if (b.open !== undefined) p.push(...openSpecProblems(b.open, `${at}.branches[${i}].open`))
+  })
+  return p
+}
+
+function faceProblems(f: unknown, at: string, face: Face, links: Record<string, unknown>, strictOpinion: boolean): string[] {
   if (!isRecord(f)) return [`${at} 要是物件`]
   const p: string[] = []
   const meat = face === 'meat'
@@ -376,6 +497,7 @@ function faceProblems(f: unknown, at: string, face: Face, links: Record<string, 
   }
   if (f.goal !== undefined) p.push(...goalProblems(f.goal, `${at}.goal`, f as FaceDef))
   if (face === 'net') p.push(...netFaceProblems(f, at, links))
+  if (face === 'opinion') p.push(...opinionFaceProblems(f, at, strictOpinion))
   return p
 }
 
@@ -401,8 +523,18 @@ function netFaceProblems(f: Record<string, unknown>, at: string, links: Record<s
   return p
 }
 
-/** 一件副本的格式問題（不查地圖與勢力在不在，那是引用檢查與 ready 的事）。一條一句。 */
-export function commissionProblems(e: Record<string, unknown>): string[] {
+/**
+ * 輿論戰的內容種類（opinion 功能定義的對手）：世界裡有它，才有人看得懂 opinion_setup，副本的輿論面才照新的規矩檢查（一定要寫 opinion_setup、分支沒有潛行）；
+ * 沒有 opinion 功能的世界輿論面本來就選不了，資料照舊寫法也收（M2 的中間人生成還沒有輿論戰的設定，M5-fixer-opinion 補上之後這個條件可以拿掉）。
+ */
+export const OPINION_CONTENT_KIND = 'pr_opponent'
+export const opinionSetupRequired = (k: Pick<Kernel, 'content'>): boolean => k.content.hasKind(OPINION_CONTENT_KIND)
+
+/**
+ * 一件副本的格式問題（不查地圖與勢力在不在，那是引用檢查與 ready 的事）。一條一句。
+ * requireOpinionSetup：有階段開了輿論面而沒有 opinion_setup 就不收、輿論面的分支寫潛行也不收（預設要；載入與開副本時由世界有沒有輿論戰的內容決定，見 opinionSetupRequired）。
+ */
+export function commissionProblems(e: Record<string, unknown>, requireOpinionSetup = true): string[] {
   const p: string[] = []
   if (e.name !== undefined && !isText(e.name)) p.push('name 要是文字')
   if (!isText(e.kind)) p.push('kind 要是類型的 id（暗殺、竊密……）')
@@ -413,7 +545,7 @@ export function commissionProblems(e: Record<string, unknown>): string[] {
   if (!isText(e.target_faction)) p.push('target_faction 要是勢力的 id')
   if (!isText(e.district)) p.push('district 要是區的 id')
   for (const key of ['employer', 'client', 'defeat_event'] as const) if (e[key] !== undefined && !isText(e[key])) p.push(`${key} 要是 id（字串）`)
-  for (const key of ['conditions', 'modifiers'] as const) if (e[key] !== undefined && !isTextList(e[key])) p.push(`${key} 要是字串的陣列`)
+  for (const key of ['conditions', 'modifiers', 'stream_goals'] as const) if (e[key] !== undefined && !isTextList(e[key])) p.push(`${key} 要是字串的陣列`)
 
   const links = isRecord(e.links) ? e.links : {}
   if (!isRecord(e.links)) p.push('links 要是 { 連動的 id: { type, name, effect? } }（沒有連動就寫空物件）')
@@ -438,6 +570,11 @@ export function commissionProblems(e: Record<string, unknown>): string[] {
     }
   }
 
+  // 輿論戰的設定：有階段開了輿論面就一定要有 opinion_setup（topic、opponent）；寫了就查格式
+  const opinionOpen = Array.isArray(e.stages) && e.stages.some((s: unknown) => isRecord(s) && isRecord(s.faces) && own(s.faces, 'opinion'))
+  if (e.opinion_setup !== undefined) p.push(...opinionSetupProblems(e.opinion_setup, links))
+  else if (opinionOpen && requireOpinionSetup) p.push('opinion_setup 要寫：有階段開了輿論面，要有輿論戰的設定（topic、opponent；DATA 9.1 節）')
+
   if (!Array.isArray(e.stages) || e.stages.length === 0) p.push('stages 要有至少一個階段')
   else {
     const stageList: unknown[] = e.stages
@@ -449,7 +586,7 @@ export function commissionProblems(e: Record<string, unknown>): string[] {
       if (!isRecord(s.faces) || Object.keys(s.faces).length === 0) return void p.push(`${at}.faces 要有至少一個面`)
       for (const [face, f] of Object.entries(s.faces)) {
         if (!(FACES as readonly string[]).includes(face)) p.push(`${at}.faces 的鍵只能是 ${FACES.join('、')}（拿到 ${face}）`)
-        else p.push(...faceProblems(f, `${at}.faces.${face}`, face as Face, links))
+        else p.push(...faceProblems(f, `${at}.faces.${face}`, face as Face, links, requireOpinionSetup))
       }
       // 隔離區：locked_by 的連動要有某個更早的階段會給（任何一面的 gives；沒拿到時玩家永遠進不去這一面）
       const netFace = (s.faces as Record<string, unknown>).net
@@ -552,6 +689,23 @@ export interface RouteEntry {
   stealth?: boolean
 }
 
+/** 一場輿論戰的結果（face.opinion 交回之後記一筆；評價與後果用） */
+export interface OpinionRecord {
+  stage: number
+  /** major、minor、draw、lost */
+  outcome: string
+  /** 你的分數與對手的分數 */
+  you: number
+  foe: number
+}
+
+/** 玩家選輿論面時帶的（desk、bring、outsource）：原樣交給 face.opinion；記在這裡是為了「重來這一場」回來之後 replay 能再給一次 */
+export interface RunPick {
+  desk?: unknown[]
+  bring?: string[]
+  outsource?: string
+}
+
 export interface RunSetup {
   scouted?: { stages?: number[]; branches?: string[]; guards?: number[] }
   aux?: unknown
@@ -602,6 +756,10 @@ export interface Run {
   pressured?: boolean
   /** 輔助面的狀態（第一次有人擲了才有） */
   aux?: AuxState
+  /** 每一場輿論戰的結果（M5-commission-opinion；第一場交回之後才有） */
+  opinion?: OpinionRecord[]
+  /** 這一段輿論面選的編輯台與帶的料（選了輿論面的分支才有） */
+  pick?: RunPick
   started: GameTime
 }
 
