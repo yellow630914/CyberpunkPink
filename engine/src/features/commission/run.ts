@@ -10,7 +10,7 @@ import type { Change, GameState, Kernel, Launch, MarkerDef, Origin, ReportDraft,
 import {
   ActionBlocked, DEGREE_NAME, attachActivityEnd, clone, endActivity, formatAmount, gridHere, mapDef, meterOf, openMap, pointKey, restDone, rollCheck, Sheet,
 } from '../../core'
-import { netTeam, settleAux } from './aux'
+import { netTeam, settleAux } from './assist'
 import { RETREAT_REWIND, resultOf, retreatEnd, settleDone } from './close'
 import type { BranchDef, BranchKind, CommissionEntry, Face, FaceDef, GoalDef, Rank, Run, RouteEntry } from './model'
 import {

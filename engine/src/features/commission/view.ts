@@ -3,10 +3,10 @@
 
 import type { GameState, Kernel } from '../../core'
 import { meterOf } from '../../core'
-import type { AuxChance } from './aux'
+import type { AuxChance } from './assist'
 import type { CloseForecast } from './close'
 import { forecast } from './close'
-import { auxChance, auxPeople, openFaces, peopleAt, resting } from './aux'
+import { auxChance, auxPeople, openFaces, peopleAt, resting } from './assist'
 import type { AuxResult, Face, LinkEffect, RouteEntry, Step } from './model'
 import { FACES, FACE_NAME, commissionRules, effectsFor, gradeOf, netRules, readRun, stageName, stagesOf } from './model'
 import type { BranchView, FaceView, GoalView } from './run'

@@ -15,12 +15,12 @@
 //     retreat（和 retreat 一樣：發 commission 的 retreat 再回到進去之前）、located（照戰敗被接受而且算失敗：留記號、回到進去之前，被定位另外加敵對值）；
 //     隔離區（locked_by）、連動多六種（trace_start、trace_half、lace_down、gate_open、near_core、controls）、commissionView().trace
 // 對外：commissionView、chooseFace、chooseBranch、breathe、retreat、checkGoal、playScene、replay、milestone、finish。
-// 輔助面每個階段的結算（aux.ts，M2-commission-aux）寫在 commission.face 那一份報告裡（每個擲了的面一拍，標籤 aux）；
+// 輔助面每個階段的結算（assist.ts，M2-commission-aux）寫在 commission.face 那一份報告裡（每個擲了的面一拍，標籤 aux）；
 // 做完之後的結算（M2-commission-close）聽 activity.end（result.aux_log 有每一次輔助結算）。
 // 做完與做不完的結算（close.ts，M2-commission-close）：finish 算評價、路線的後果（目標勢力的敵對值）、歷練點，交給 activity.end（outcome done；result 多 rating、xp、hostility）；
 //   聽戰敗被接受（activity.end kind defeat，那一場是這件委託的）：fails_commission 是 true → 留失敗的記號（state.ext.commission_failed）並回到入口（rewind entry），
 //   回去之後那份 rewind 報告套用之後接一份 commission.failed 發 activity.end（outcome failed）；是 false → 不回退，留在這個階段、回到選分支之前。
-// 輔助面（aux.ts）：setup.aux 是 { meat?, net?, opinion?, borrowed? }；規則 commission_rule 多 aux_skills、aux_bonus、aux_pressure、aux_rest、aux_injured_days；
+// 輔助面（assist.ts）：setup.aux 是 { meat?, net?, opinion?, borrowed? }；規則 commission_rule 多 aux_skills、aux_bonus、aux_pressure、aux_rest、aux_injured_days；
 //   對外 auxChance（還沒進副本也能問成功率）、commissionView().aux。
 
 import type { Feature, Kernel, ReportDraft } from '../../core'
@@ -43,8 +43,8 @@ export { AIRGAP_TEXT, achieved, branchViews, breathe, breatheBlock, checkGoal, c
 export type { BranchView, FaceView, GoalView } from './run'
 export { REINFORCE_MARK, TRACE_MARKS, commissionView, stageEffects } from './view'
 export type { AuxFaceView, CommissionView, LinkRow, TrackNode } from './view'
-export { auxChance, auxPeople, auxSum, classify as classifyAux, pathBonus, settleAux } from './aux'
-export type { AuxChance, AuxPeople, AuxSettlement, AuxSum } from './aux'
+export { auxChance, auxPeople, auxSum, classify as classifyAux, pathBonus, settleAux } from './assist'
+export type { AuxChance, AuxPeople, AuxSettlement, AuxSum } from './assist'
 
 /**
  * 進行中放行的 doing 前綴（工單 M2-commission-run 的驗收條件）。探索的 grid.、commit:grid. 由探索自己再登記一次（沒裝探索也一樣放行）。
