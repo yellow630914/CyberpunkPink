@@ -38,6 +38,8 @@ declare module '../../core' {
   }
 }
 
+/** 三選一要等它做完的內層活動（defeatView 的 inner）。 */
+const INNER_KINDS: readonly string[] = [EVENT_ACTIVITY, 'scene']
 const DROP: Change = { op: 'snapshot.drop', kind: 'battle' }
 /** 戰敗結算時一起做的收尾：清掉等待中的戰敗，戰鬥來的再丟開打前的快照（入口沒有）。 */
 const closing = (pending: PendingDefeat): Change[] => [extChange(null), ...(pending.entry ? [] : [DROP])]
@@ -443,7 +445,8 @@ export function defeatView(k: Kernel, state: GameState): DefeatViewInfo | null {
   if (!pending) return null
   const entry = k.content.get<DefeatEventEntry>(KIND, pending.event)
   const stage = stageOf(pending)
-  const inner = k.activity.active(state).find((a) => a.kind !== 'defeat') ?? null
+  // 等它做完才能三選一的活動：事件視窗與場景（外面包著的委託副本、直播之類不算：它們一直開著，不能讓 step 永遠是 playing）
+  const inner = k.activity.active(state).find((a) => INNER_KINDS.includes(a.kind)) ?? null
   const innerBlock = inner ? k.activity.blockOf(state, 'commit:defeat.option', dropDraft()) : null
   const watchWhy = pending.skipped ? '這一次不演戰敗事件（存檔規則設成不看，或事件演不了），只列出結果。' : stage === 'playing' ? '戰敗事件已經在演了。' : stage === 'played' ? '戰敗事件已經看過了。' : null
   const skipWhy = pending.view === 'always' ? '存檔規則設成一律要看戰敗事件。' : pending.view === 'never' ? '存檔規則設成不看戰敗事件，這一次本來就只列出結果。' : stage !== 'ask' || pending.skipped ? '現在不用決定要不要看戰敗事件。' : null
