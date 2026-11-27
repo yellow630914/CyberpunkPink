@@ -548,3 +548,4 @@
 - 留給後面：V26（副本直播期間的階段紀錄不算獨家）是 media 的事，media 的 `onMilestone` 要問 `live_on`，還沒做；真副本現在會發 `commission.milestone`，media 會開始記階段紀錄。M5-fixer-opinion 要給生成的輿論面補 `opinion_setup`、拿掉輿論面的潛行分支，之後 commission 的 `opinionSetupRequired` 條件可以拿掉（在那之前，裝了 opinion 的局裡生成的輿論面委託會被資料檢查擋）。「重來這一場」由介面在 `opinion.retry` 後呼叫 `replay`（M5-ui-opinion）。
 - 待使用者：被帶走（captured）要先開戰敗事件，defeat 沒有不從戰鬥來的入口（暫時只回到入口；要架構師加入口）；收買與被帶走在非最後階段也算委託失敗（代理的解讀）。
 - 下一步：第七步 14 abilities-opinion ＋ 19 ui-media。
+- 2026-11-27 使用者：被帶走要先開戰敗事件——照建議由 cpp-architect 給 defeat 加不從戰鬥來的入口，排進工單；收買與被帶走在任何階段都算委託失敗（照代理的解讀）。第七步開工。
