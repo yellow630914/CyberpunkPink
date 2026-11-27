@@ -890,7 +890,7 @@ function makeReal(def: Rec = {}) {
 }
 
 describe('真的 commission：被帶走的整條路', () => {
-  it('輿論面（決定性的一步）被帶走：戰敗事件是副本自訂的、接受之後委託失敗回到入口、發 commission.failed；defeat 的結果帶 entry', async () => {
+  it('三個階段的第一段（不是最後一個）被帶走：戰敗事件是副本自訂的、接受之後委託失敗回到入口、發 commission.failed；defeat 的結果帶 entry', async () => {
     const g = makeReal()
     g.launch('commission', { def: 'capt' }, { by: 'fixer', ref: 'fx_1' })
     g.commit(chooseFace(g.k, g.state, 'opinion'))
@@ -935,7 +935,7 @@ describe('真的 commission：被帶走的整條路', () => {
     expect(g.state.snapshots.map((s) => s.kind)).toEqual(['entry', 'stage', 'opinion'])
   })
 
-  it('不是最後一個階段也一樣被帶走：失敗回到入口（使用者 2026-11-27：任何階段都算失敗）；事件寫「繼續」（fails_commission: false）時留在這一段、回到選分支之前', async () => {
+  it('事件寫「繼續」（fails_commission: false）：不失敗，委託留在這一段、回到選分支之前（COMBAT_SYSTEM 8.4：結果由事件決定）', async () => {
     const free = makeReal({ defeat_event: 'df_free' })
     free.launch('commission', { def: 'capt' }, { by: 'fixer', ref: 'fx_1' })
     free.commit(chooseFace(free.k, free.state, 'opinion'))

@@ -66,10 +66,14 @@
 
 `features/opinion/visit.ts`：找上門擋不住、對手 `capture: true` 時，只要世界裡有人登記了活動 `defeat.entry`（`k.activity.get('defeat.entry')`；沒有就和以前一樣交回 `lost` 帶 `captured`）：
 
-- `face` 模式：戰役清掉、**不發 face.opinion 的 `activity.end`**（結算的交回由戰敗的接受接手；副本聽 `activity.end` 的 kind `defeat` 已經會失敗回到入口），報告帶 `launch: [{ kind: 'defeat.entry', setup, origin: war.origin }]`。`setup`：`reason: 'opinion_captured'`、`who` 是主角、`faction` 是對手的勢力、`where` 是現在所在的區、`retry: 'opinion'`。
+- `face` 模式：戰役清掉、**不發 face.opinion 的 `activity.end`**（結算的交回由戰敗的接受接手；副本聽 `activity.end` 的 kind `defeat` 已經會失敗回到入口），報告 `opinion.visit` 的 `outcome.result` 是 `captured`，並帶 `launch: [{ kind: 'defeat.entry', setup, origin: war.origin }]`。`setup`：`reason: 'opinion_captured'`、`who` 是主角、`faction` 是對手的勢力、`where` 是現在所在的區、`retry: 'opinion'`。
 - `solo` 模式：設計書沒有另外寫（OPINION 第 6 節：「幫派與星旗是主播被抓（進戰敗事件）」沒分模式），走同一個入口；照舊結算（`closeDraft`，標準結果列的敗與議題的 `on_end` 照給），同一份報告多帶 `launch`；沒有 `opinion` 快照所以沒有「重來」，三選一只剩接受（與「回到階段」的退路也沒有）。
 - 副本的自訂戰敗事件：commission 的 `faceLaunch` 在輿論面的 `origin.ext` 多帶 `defeat_event`（副本有寫才帶；和戰鬥、內海面同一個慣例），入口讀 `origin.ext.defeat_event`。
 - 收買（voluntary）不走這個入口。
+
+### 順手修的一處
+
+`defeatView` 的 `inner`（等它做完才能三選一的活動）原本取「第一個不是 `defeat` 的進行中活動」，在委託副本裡事件做完之後會取到 `commission`，`step` 永遠是 `playing`；改成只認事件視窗與場景（`INNER_KINDS`）。既有的測試只期待事件與場景，不變。
 
 ## 驗收條件（`engine/tests/features/M5-defeat-entry.test.ts`）
 

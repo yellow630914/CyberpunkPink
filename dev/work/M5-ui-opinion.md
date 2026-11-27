@@ -46,3 +46,6 @@ M5-opinion、M5-opinion-desk、M5-opinion-face、M5-commission-opinion、M5-fixe
 ## 完成時回報
 
 改了哪些檔、測試結果、`opinionView` 少給了什麼、刪 `field.ts` 與 `rng.ts` 時還有誰在用、UI 6.1 節要跟著改的地方。
+
+## defeat-entry 留下的（2026-11-27）
+- `defeatView().entry` 不是 null 時（不從戰鬥來的戰敗，例如輿論戰被帶走），重來與回到階段走 `retryDefeat`／`stageDefeat`，不能叫 `Game.retryBattle()`／`rewindToStage()`；回去之後輿論面要呼叫副本的 `replay`。
