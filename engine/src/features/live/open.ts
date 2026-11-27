@@ -6,6 +6,8 @@
 
 import type { ContentEntry, GameState, Kernel, Report, ReportDraft, TimelineBeat } from '../../core'
 import { ActionBlocked, areaGrade, clone, deriveRng, isRecord, meterOf } from '../../core'
+import type { CameraChoice } from './camera'
+import { cameraPlan } from './camera'
 import type { GoalRow, HostKind, LiveRules, Session, TemplateEntry } from './model'
 import {
   GOAL_EXTRA_STAT, GOAL_KIND, GO_ACTION, HOST_NAME, SCOPE_OF_HOST, fameLevel, isText, liveRules, liveSession, partyMax, readGoal, readLive, templateFor,
@@ -186,11 +188,18 @@ export interface LivePreview {
   consent: ConsentRow[]
   secret: boolean
   risk: string[]
+  /** 隊上現在有的鏡頭（義體、無人機、攝影機；沒裝 media 是空的）與選用的那一個（開播時選；沒選用預設）：視角就是這場直播的視角 */
+  cameras: CameraChoice[]
+  camera: CameraChoice | null
+  /** 只用主角自己的錄影義體開播：第一人稱直播（成人場景的熱度 +1、一般內容收播的訂閱 ×0.8；起始熱度已經含了這一點） */
+  first_person: boolean
 }
 
 export interface GoInput {
   /** 玩家挑掉的目標 id（live_goal_extra 讓抽到的比平常多時，要剛好挑掉 drop 個） */
   drop?: string[]
+  /** 選用哪個鏡頭（掛點 media.cameras 回的 id）；沒給就用預設：有第三人稱的用第一個第三人稱的，否則第一個 */
+  camera?: string
 }
 
 interface Plan {
@@ -200,7 +209,7 @@ interface Plan {
   rules: LiveRules
 }
 
-function plan(k: Kernel, state: GameState): Plan {
+function plan(k: Kernel, state: GameState, camera?: string): Plan {
   const rules = liveRules(k)
   const blocks: string[] = []
   const host = hostOf(k, state)
@@ -208,6 +217,8 @@ function plan(k: Kernel, state: GameState): Plan {
   if (liveSession(state)) blocks.push('已經在直播了：先收播。')
   const ch = channelBlock(k, state)
   if (ch) blocks.push(ch)
+  const cam = cameraPlan(k, state, camera)
+  blocks.push(...cam.blocks)
   let tpl: TemplateEntry | null = null
   let drawn: DrawnGoals = { goals: [], drop: 0 }
   let consent: ConsentRow[] = []
@@ -225,6 +236,8 @@ function plan(k: Kernel, state: GameState): Plan {
     if (tpl) {
       drawn = drawGoals(k, state, host, tpl, rules, grade)
       heat = startHeat(k, state, rules, tpl, host)
+      // 第一人稱直播：宿主是成人場景時熱度 +1（MEDIA 第 6 節；使用者 2026-11-27）
+      if (cam.first_person && host.kind === 'scene') heat += rules.first_person.adult_heat
     }
   }
   // 別的活動擋不擋（例：事件視窗開著）：開播的報告要過每一個進行中的活動的放行
@@ -236,7 +249,7 @@ function plan(k: Kernel, state: GameState): Plan {
   const preview: LivePreview = {
     ok: blocks.length === 0, blocks, host, template: tpl ? { id: tpl.id, name: tpl.name, scope: tpl.scope } : null,
     goals: drawn.goals.map((g) => ({ id: g.id, text: g.text, heat: g.heat, tip: g.tip })), drop: drawn.drop, start_heat: heat, grade, consent, secret,
-    risk: tpl ? riskLines(tpl, secret) : [],
+    risk: tpl ? riskLines(tpl, secret) : [], cameras: cam.list, camera: cam.chosen, first_person: cam.first_person,
   }
   return { preview, tpl, rows: drawn.goals, rules }
 }
@@ -244,14 +257,14 @@ function plan(k: Kernel, state: GameState): Plan {
 const GO_ACTION_DOING = `commit:${GO_ACTION}`
 
 /** 現在能不能開播、為什麼、會抽到哪些目標（純函式）。 */
-export const livePreview = (k: Kernel, state: GameState): LivePreview => plan(k, state).preview
+export const livePreview = (k: Kernel, state: GameState, camera?: string): LivePreview => plan(k, state, camera).preview
 
 /**
  * 開播：宿主還沒做第一步時，把這一場直播掛上去。回傳報告草稿（live.go，kind broadcast）。
  * 不成立（沒有宿主、宿主做過第一步、沒開頻道、有別的直播、不准錄……）丟 ActionBlocked；live_goal_extra 讓抽到的比平常多時，input.drop 要剛好挑掉那麼多個。
  */
 export function goLive(k: Kernel, state: GameState, input: GoInput = {}): ReportDraft {
-  const { preview, tpl, rows, rules } = plan(k, state)
+  const { preview, tpl, rows, rules } = plan(k, state, input.camera)
   if (!preview.ok || !tpl || !preview.host || !state.pc) throw new ActionBlocked(preview.blocks.join('') || '現在開不了直播。')
   const dropped = input.drop ?? []
   if (dropped.length !== preview.drop || new Set(dropped).size !== dropped.length) throw new ActionBlocked(preview.drop > 0 ? `這一場抽到的目標多了 ${preview.drop} 個：要挑掉剛好 ${preview.drop} 個才能開播。` : '這一場沒有要挑掉的目標。')
@@ -262,7 +275,7 @@ export function goLive(k: Kernel, state: GameState, input: GoInput = {}): Report
   const session: Session = {
     id: `lv${readLive(state).seq + 1}`, mode: 'activity', template: tpl.id, host: { kind: host.kind, id: host.id }, by: state.pc, where: clone(state.location),
     heat: preview.start_heat, goals, highlights: [], counts: {}, from: {}, tips: preview.start_heat * rules.heat_tips,
-    ...(preview.secret ? { secret: true as const } : {}), ...(faction ? { faction } : {}), grade: preview.grade,
+    ...(preview.secret ? { secret: true as const } : {}), ...(faction ? { faction } : {}), grade: preview.grade, ...(preview.camera ? { camera: { ...preview.camera } } : {}),
   }
   const net = host.kind === 'scene' && sceneStart(state).net
   const text = `你開了${tpl.name}${host.kind === 'scene' ? '' : `（${HOST_NAME[host.kind]}）`}：${goals.length > 0 ? `這一場有 ${goals.length} 個直播目標。` : '這一場沒有直播目標。'}${preview.secret ? '對象不知道你在播。' : ''}`
@@ -270,7 +283,9 @@ export function goLive(k: Kernel, state: GameState, input: GoInput = {}): Report
     kind: 'broadcast', action: GO_ACTION, location: clone(state.location), actor: state.pc, party: [],
     timeline: [{
       layer: net ? 'net' : 'meat', actor: state.pc, text, tag: 'live.go',
-      data: { id: session.id, mode: 'activity', template: tpl.id, host: { kind: host.kind, id: host.id }, goals: goals.map((g) => g.id), start_heat: preview.start_heat, ...(preview.secret ? { secret: true } : {}) },
+      data: { id: session.id, mode: 'activity', template: tpl.id, host: { kind: host.kind, id: host.id }, goals: goals.map((g) => g.id), start_heat: preview.start_heat, ...(preview.secret ? { secret: true } : {}),
+        ...(preview.camera ? { camera: preview.camera.id, pov: preview.camera.pov, first_person: preview.first_person } : {}),
+      },
     }],
     changes: [{ op: 'live.open', session }],
     outcome: { result: 'go', summary: text },

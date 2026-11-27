@@ -11,6 +11,8 @@ import type { ActorId, AttrId, Change, ContentEntry, Effect, GameState, Kernel, 
 import {
   ATTR_IDS, ActionBlocked, addMinutes, checkParts, clone, computeDegree, dcFor, deriveRng, effectCtx, gridHere, isRecord, isStreetMapKind, makeCheck, meterOf, tagsAllowed,
 } from '../../core'
+import { cameraPlan } from './camera'
+import type { CameraChoice } from './camera'
 import type { LiveRules, Session } from './model'
 import { liveRules, liveSession, readLive, viewersFrom } from './model'
 import { channelBlock, noRecHere } from './open'
@@ -127,9 +129,10 @@ export function startHeat(k: Kernel, state: GameState, rules: LiveRules, kind: S
 }
 
 /** 總熱度 = 起始 ＋ 結果 ＋（時長 − 1）× hour_heat ＋ 搏出位成功的加成，夾在 0～上限。 */
-export function totalHeat(slot: SlotRules, mods: DirectionMods, start: number, result: SlotResult, hours: number): number {
+export function totalHeat(slot: SlotRules, mods: DirectionMods, start: number, result: SlotResult, hours: number, extra = 0): number {
   const bold = result === 'success' || result === 'critical' ? mods.success_heat : 0
-  return clamp(start + slot.gain[result] + (hours - 1) * slot.hour_heat + bold, 0, mods.cap)
+  // extra：第一人稱直播的成人那一種 +1（MEDIA 1.3；算進總熱度，所以仍然不超過上限）
+  return clamp(start + slot.gain[result] + (hours - 1) * slot.hour_heat + bold + extra, 0, mods.cap)
 }
 
 // ---- 能不能開 ----
@@ -211,6 +214,8 @@ export interface SlotInput {
   text?: string
   /** 標籤與方向（選填，封閉清單）：由呼叫的人給，沒給就是預設 */
   plan?: { tags?: string[]; direction?: string }
+  /** 選用哪個鏡頭（掛點 media.cameras 回的 id）；沒給就用預設：有第三人稱的用第一個第三人稱的，否則第一個 */
+  camera?: string
 }
 
 interface RollPlan {
@@ -233,6 +238,10 @@ interface Plan {
   mods: DirectionMods
   roll: RollPlan | null
   start: { value: number; parts: Array<{ label: string; value: number }> } | null
+  cameras: CameraChoice[]
+  camera: CameraChoice | null
+  /** 第一人稱的成人種類：總熱度 +first_person.adult_heat（其餘是 0） */
+  fp_heat: number
 }
 
 const TAG_LIST = SLOT_TAGS.map((t) => SLOT_TAG_NAME[t]).join('、')
@@ -265,6 +274,8 @@ function planSlot(k: Kernel, state: GameState, input: SlotInput): Plan {
   const rules = liveRules(k)
   const slot = rules.slot
   const blocks = commonBlocks(k, state, `commit:${START_ACTION}`)
+  const cam = cameraPlan(k, state, input?.camera)
+  blocks.push(...cam.blocks)
   const kind = (SLOT_KINDS as readonly string[]).includes(input?.kind) ? (input.kind as SlotKind) : null
   if (!kind) blocks.push(`沒有「${String(input?.kind)}」這種時段直播（可以選：${SLOT_KINDS.map((x) => SLOT_KIND_NAME[x]).join('、')}）。`)
   const hours = (SLOT_HOURS as readonly number[]).includes(input?.hours) ? input.hours : null
@@ -273,7 +284,7 @@ function planSlot(k: Kernel, state: GameState, input: SlotInput): Plan {
   const p = planProblems(input?.plan)
   blocks.push(...p.blocks)
   const mods = directionMods(slot, p.direction)
-  const base: Plan = { blocks, rules, kind, hours, tags: p.tags, direction: p.direction, mods, roll: null, start: null }
+  const base: Plan = { blocks, rules, kind, hours, tags: p.tags, direction: p.direction, mods, roll: null, start: null, cameras: cam.list, camera: cam.chosen, fp_heat: cam.first_person && kind === 'adult' ? rules.first_person.adult_heat : 0 }
   if (!kind) return base
 
   const start = startHeat(k, state, rules, kind, p.direction)
@@ -326,6 +337,11 @@ export interface SlotPreview {
   /** 這一場花幾分鐘（開播推進一半、收播另一半） */
   minutes: { start: number; end: number } | null
   text_max: number
+  /** 隊上現在有的鏡頭與選用的那一個（沒裝 media 是空的）：視角就是這場直播的視角 */
+  cameras: CameraChoice[]
+  camera: CameraChoice | null
+  /** 只用主角自己的錄影義體開播：第一人稱直播（成人種類總熱度 +1；一般內容收播的訂閱 ×0.8） */
+  first_person: boolean
 }
 
 /** 開播之前先看（純函式，不改狀態）。 */
@@ -336,8 +352,9 @@ export function slotPreview(k: Kernel, state: GameState, input: SlotInput): Slot
   return {
     ok: p.blocks.length === 0, blocks: [...p.blocks], kind: p.kind ? { id: p.kind, name: SLOT_KIND_NAME[p.kind] } : null, hours: p.hours, tags: [...p.tags], direction: p.direction,
     roll: p.roll, start: p.start, cap: p.mods.cap, chance: ready ? slotChances(p.roll!.bonus, p.roll!.dc) : null, gain: { ...slot.gain },
-    heat: ready ? (Object.fromEntries(SLOT_RESULTS.map((r) => [r, totalHeat(slot, p.mods, p.start!.value, r, p.hours!)])) as Record<SlotResult, number>) : null,
+    heat: ready ? (Object.fromEntries(SLOT_RESULTS.map((r) => [r, totalHeat(slot, p.mods, p.start!.value, r, p.hours!, p.fp_heat)])) as Record<SlotResult, number>) : null,
     minutes: p.hours !== null ? { start: Math.floor((p.hours * 60) / 2), end: p.hours * 60 - Math.floor((p.hours * 60) / 2) } : null, text_max: slot.text_max,
+    cameras: p.cameras, camera: p.camera, first_person: p.camera?.first_person === true,
   }
 }
 
@@ -358,13 +375,14 @@ export function slotStart(k: Kernel, state: GameState, input: SlotInput): Report
   const natural = deriveRng(state.rng, `${START_ACTION}/${kind}`).int(1, 20)
   const roll = makeCheck({ natural, parts: p.roll.parts, dc: p.roll.dc, attr: p.roll.attr, skill: p.roll.skill })
   const result = roll.degree as SlotResult
-  const heat = totalHeat(slot, p.mods, p.start.value, result, hours)
+  const heat = totalHeat(slot, p.mods, p.start.value, result, hours, p.fp_heat)
   const half = Math.floor((hours * 60) / 2)
   const id = `lv${readLive(state).seq + 1}`
   const session: Session = {
     id, mode: 'slot', template: SLOT_TEMPLATE, by: state.pc, where: clone(state.location), heat, goals: [], highlights: [], counts: {}, from: {},
     tips: heat * p.rules.heat_tips, kind, hours, plan: { tags: [...p.tags], ...(p.direction ? { direction: p.direction } : {}) },
     roll: { natural, total: roll.total, dc: roll.dc, degree: roll.degree, gain: slot.gain[result] }, cap: p.mods.cap, half_done: true,
+    ...(p.camera ? { camera: { ...p.camera } } : {}),
   }
 
   const text = typeof input.text === 'string' ? input.text : undefined
@@ -382,7 +400,9 @@ export function slotStart(k: Kernel, state: GameState, input: SlotInput): Report
     ...(shown !== undefined && shown.length > 0 ? { input: shown } : {}),
     timeline: [{
       layer: 'meat', actor: state.pc, text: line, roll, tag: 'live.start',
-      data: { id, mode: 'slot', kind, hours, plan: session.plan, heat, cap: session.cap, start_heat: p.start.value, gain: slot.gain[result], degree: roll.degree, minutes: half },
+      data: { id, mode: 'slot', kind, hours, plan: session.plan, heat, cap: session.cap, start_heat: p.start.value, gain: slot.gain[result], degree: roll.degree, minutes: half,
+        ...(p.camera ? { camera: p.camera.id, pov: p.camera.pov, first_person: p.camera.first_person } : {}),
+      },
     }],
     changes: [{ op: 'live.open', session }, { op: 'time', minutes: half }, { op: 'rng', advance: 1 }],
     outcome: { result: roll.degree, summary: line },

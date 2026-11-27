@@ -7,6 +7,8 @@
 
 import type { Condition, ConditionCtx, Effect, EffectStepCtx, Kernel } from '../../core'
 import { isRecord, isSafeInt, toMinutes } from '../../core'
+import type { Pov } from './pov'
+import { POV_KINDS, readPov } from './pov'
 import type { FootageInit } from './ops'
 import type { MediaType, Origin } from './model'
 import { OWNER, ORIGINS, TYPES, TYPE_NAME, isOrigin, isText, isType, mediaRules, readMedia } from './model'
@@ -27,6 +29,8 @@ interface FootageEffect extends Effect {
   forged?: boolean
   exclusive?: boolean
   origin?: Origin
+  /** 視角（事件給監視器、別人的 POV 的入口；沒寫是「某人的 POV」，MEDIA 2.2） */
+  pov?: Pov
 }
 
 interface HasFootage extends Condition { faction?: string; type?: MediaType; min_quality?: number; usable?: boolean }
@@ -43,7 +47,7 @@ function init(k: Kernel, e: FootageEffect, ctx: EffectStepCtx): FootageInit {
   return {
     title, text: `${title}。`, type: e.type, quality, authentic: e.forged === true ? 'forged' : 'real', exclusive: e.exclusive !== false,
     involves: { factions: [...(e.involves?.factions ?? [])], people: [...(e.involves?.people ?? [])] }, uses: rules.uses, made_at: toMinutes(ctx.state.time),
-    origin: e.origin ?? 'event', celebrity: e.type === 'celebrity', self: false, adult: false,
+    origin: e.origin ?? 'event', celebrity: e.type === 'celebrity', self: false, adult: false, ...(e.pov ? { pov: e.pov } : {}),
   }
 }
 
@@ -51,7 +55,8 @@ export function installEffects(k: Kernel): void {
   k.effects.register<FootageEffect>({
     kind: FOOTAGE, owner: OWNER,
     validate(raw, ctx) {
-      const p = unknownFields(raw, ['type', 'quality', 'title', 'involves', 'forged', 'exclusive', 'origin'])
+      const p = unknownFields(raw, ['type', 'quality', 'title', 'involves', 'forged', 'exclusive', 'origin', 'pov'])
+      if (raw.pov !== undefined && readPov(raw.pov) === null) p.push(`pov 要是 { kind, who? }（kind 是 ${POV_KINDS.join('、')} 其中一個）`)
       if (!isType(raw.type)) p.push(`type 要是 ${TYPES.join('、')} 其中一個`)
       if (raw.quality !== undefined && !(isSafeInt(raw.quality) && raw.quality >= 1 && raw.quality <= 5)) p.push('quality 要是 1～5 的整數')
       if (raw.title !== undefined && !(isText(raw.title) && Array.from(raw.title).length <= TITLE_MAX)) p.push(`title 要是 ${TITLE_MAX} 字以內的一句話`)
@@ -102,6 +107,6 @@ export function installEffects(k: Kernel): void {
     kind: REC_ON, owner: OWNER,
     validate: (raw) => unknownFields(raw, []),
     test: (_c, ctx: ConditionCtx) => isRecording(k, ctx.state),
-    describe: () => '要正在錄影（錄影開著、隊伍裡有人裝著錄影義體、這個地方准錄）',
+    describe: () => '要正在錄影（錄影開著、在場有鏡頭：錄影義體、錄影無人機或架好的攝影機，這個地方准錄）',
   })
 }

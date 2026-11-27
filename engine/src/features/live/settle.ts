@@ -10,6 +10,7 @@ import { ActionBlocked, clone, endActivity, meterOf, toMinutes } from '../../cor
 import type { GoalRow, HostKind, Session, Settled, Viewers } from './model'
 import { CUT_ACTION, HOST_NAME, LOST_OUTCOMES, OWNER, RECORD_QUALITY_STAT, capOnly, goalMet, liveRules, liveSession, partyMax, subsOfHeat, templateById, viewersFrom } from './model'
 import { SLOT_KIND_NAME } from './slotrules'
+import { isAdultSession } from './camera'
 
 // media 的掛點用字串名字問（media 已經用 declare module 宣告了型別，這裡不 import 別的功能、也不重複宣告）
 type AnyHook = (name: string, payload: unknown) => Array<{ owner: string; result: unknown }>
@@ -54,7 +55,9 @@ export function settleSession(k: Kernel, state: GameState, s: Session, o: Settle
   const toChannel = s.house?.to_channel !== false
   // 冷門題材（時段直播的方向 niche）：訂閱換算 ×subs_mult
   const nicheMult = s.mode === 'slot' && s.plan?.direction === 'niche' ? rules.slot.niche.subs_mult : 1
-  const subs = toChannel && k.meters.has('subs') ? Math.floor(subsOfHeat(rules, heat, viewers.viewers) * nicheMult + 1e-9) : 0
+  // 第一人稱直播（主角自己的錄影義體）：一般內容收播的訂閱 ×first_person.subs_mult（成人的是熱度 +1，開播時已經加了）
+  const fpMult = s.camera?.first_person === true && !isAdultSession(s) ? rules.first_person.subs_mult : 1
+  const subs = toChannel && k.meters.has('subs') ? Math.floor(subsOfHeat(rules, heat, viewers.viewers) * nicheMult * fpMult + 1e-9) : 0
   const tips = Math.floor((heat * rules.heat_tips + goalTips) * (s.house?.tips_mult ?? 1) + 1e-9)
 
   const changes: Change[] = []
@@ -73,6 +76,8 @@ export function settleSession(k: Kernel, state: GameState, s: Session, o: Settle
       live: true, hq: true, ...(o.lost ? { lost: true } : {}), ...(kind ? { type: TYPE_OF_HOST[kind] } : {}), ...(kind === 'scene' ? { adult: true } : {}),
       ...(s.mode === 'slot' ? (s.kind === 'adult' ? { type: 'intimate', adult: true } : { type: 'daily' }) : {}), ...(slotTags.length > 0 ? { tags: [...slotTags] } : {}),
       ...(s.faction ? { involves: { factions: [s.faction] } } : {}), ...(quality > 0 ? { quality } : {}),
+      // 開播時選的鏡頭：這一則紀錄的視角、拍的人與等級（media 讀 pov、by、grade）
+      ...(s.camera ? { pov: { ...s.camera.pov }, by: s.camera.by, grade: s.camera.grade } : {}),
     }
     const label = s.mode === 'slot' && s.kind ? `${SLOT_KIND_NAME[s.kind]}時段直播` : `${tpl?.name ?? '直播'}${kind ? `（${HOST_NAME[kind]}）` : ''}`
     for (const a of askHook(k, 'media.record', { state, source: { kind: 'live', ref: s.id }, label, hint })) {

@@ -17,12 +17,16 @@
 
 import type { Change, ContentEntry, GameState, Kernel } from '../../core'
 import { clamp, isRecord, isSafeInt, meterOf, toMinutes } from '../../core'
+import type { Pov } from './pov'
+import { legacyPov, povParts, povText, readPov } from './pov'
 
 export const OWNER = 'media'
 export const EXT = 'media'
 export const RULE_KIND = 'media_rule'
 
 export const REC_STAT = 'rec_grade'
+/** 隊上帶著的錄影無人機（感測器帶內建錄影）的等級 0～5：只定義、預設 0，由裝備或組裝成品的效果 { stat: 'drone_rec' } 給（M5-media-pov） */
+export const DRONE_REC_STAT = 'drone_rec'
 export const QUALITY_STAT = 'footage_quality'
 export const CAP_STAT = 'footage_cap'
 
@@ -33,6 +37,7 @@ export const FORGE_QUALITY_STAT = 'forge_quality'
 export const FORGE_RISK_STAT = 'forge_risk'
 
 export const REC_ACTION = 'media.rec'
+export const CAM_ACTION = 'media.cam'
 export const CONVERT_ACTION = 'media.convert'
 export const CUT_ACTION = 'media.cut'
 export const RECUT_ACTION = 'media.recut'
@@ -50,8 +55,8 @@ export const CLIP_INTRO_MAX = 100
 export const TYPES = ['battle', 'scandal', 'crime', 'intimate', 'celebrity', 'daily'] as const
 export type MediaType = (typeof TYPES)[number]
 export const TYPE_NAME: Record<MediaType, string> = { battle: '戰鬥', scandal: '醜聞', crime: '罪證', intimate: '親密', celebrity: '名人', daily: '日常' }
-/** 記號的字彙（RecordEntry.marks）：crit 要害、boss 首領倒下、celebrity 名人、hq 高品質、live 直播、lost 戰敗的畫面、adult 成人場景、self 畫面裡有你。 */
-export const MARKS = ['crit', 'boss', 'celebrity', 'hq', 'live', 'lost', 'adult', 'self'] as const
+/** 記號的字彙（RecordEntry.marks）：crit 要害、boss 首領倒下、celebrity 名人、hq 高品質、live 直播、lost 戰敗的畫面、adult 成人場景、self 畫面裡有你（由視角決定，MEDIA 2.2）、cut_short 無人機被擊落、斷錄。 */
+export const MARKS = ['crit', 'boss', 'celebrity', 'hq', 'live', 'lost', 'adult', 'self', 'cut_short'] as const
 export type Mark = (typeof MARKS)[number]
 /** 素材的來歷。 */
 export const ORIGINS = ['own', 'bought', 'stolen', 'given', 'staff', 'event'] as const
@@ -134,6 +139,10 @@ export interface MediaRules {
   keep: { type: MediaType; quality_min: number; floor: number }
   /** 勢力的資料沒寫等級時當幾級（V8） */
   grade_default: number
+  /** 視角（MEDIA 2.2、第 3 節；M5-media-pov）：看點與可信的加減（POV 的親密與戰鬥 +1、無人機的戰鬥 +1、監視器看點 −1 與可信 +2、別人的 POV 可信 +2、多機位 +1）、監視器與別人的 POV 的等級（品質的上限） */
+  pov: { pov_draw: number; drone_draw: number; cctv_draw: number; cctv_trust: number; other_trust: number; multi_draw: number; cctv_grade: number; other_grade: number }
+  /** 攝影機（ITEMS 第 6 節）：腳架重架花的分鐘、針孔留下花的分鐘、手持的人戰鬥中每回合少回的行動點 */
+  cam: { tripod_minutes: number; pinhole_minutes: number; hand_ap: number }
 }
 
 export const DEFAULT_MEDIA_RULES: MediaRules = {
@@ -155,6 +164,8 @@ export const DEFAULT_MEDIA_RULES: MediaRules = {
   deal: { dc: 13, per_grade: 2, cash_mult: 2, fail_hostility: 5, floor: 5 },
   keep: { type: 'crime', quality_min: 4, floor: 5 },
   grade_default: 2,
+  pov: { pov_draw: 1, drone_draw: 1, cctv_draw: -1, cctv_trust: 2, other_trust: 2, multi_draw: 1, cctv_grade: 2, other_grade: 3 },
+  cam: { tripod_minutes: 240, pinhole_minutes: 10, hand_ap: 1 },
 }
 
 /** 新加的幾組數字：每一格的合法範圍（有小數的）。 */
@@ -165,8 +176,12 @@ const NEW_RULE_FIELDS: Record<string, Record<string, [number, number]>> = {
   sell: { price: [0, 100000], exclusive: [1, 10] },
   deal: { dc: [1, 40], per_grade: [0, 10], cash_mult: [0, 20], fail_hostility: [0, 100], floor: [0, 100] },
   keep: { quality_min: [1, 5], floor: [0, 100] },
+  pov: { pov_draw: [0, 5], drone_draw: [0, 5], cctv_draw: [-5, 0], cctv_trust: [0, 10], other_trust: [0, 10], multi_draw: [0, 5], cctv_grade: [1, 5], other_grade: [1, 5] },
+  cam: { tripod_minutes: [0, 1440], pinhole_minutes: [0, 1440], hand_ap: [0, 3] },
 }
-const finiteIn = (v: unknown, lo: number, hi: number): v is number => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi
+const finiteIn = (v: unknown, lo: number, hi: number, int = false): v is number => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi && (!int || Number.isInteger(v))
+/** 這幾組的數字都是整數（看點、分鐘、行動點） */
+const INT_GROUPS: readonly string[] = ['pov', 'cam']
 
 const isStep = (v: unknown): v is [number, number] => Array.isArray(v) && v.length === 2 && isSafeInt(v[0]) && v[0] >= 1 && isSafeInt(v[1]) && v[1] >= -5 && v[1] <= 5
 const steps = (v: unknown): Array<[number, number]> => (Array.isArray(v) ? v.filter(isStep).map((s) => [s[0], s[1]] as [number, number]) : [])
@@ -200,7 +215,7 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
     const v = e[key]
     if (v === undefined) continue
     if (!isRecord(v)) { p.push(`${key} 要是物件`); continue }
-    for (const [f, [lo, hi]] of Object.entries(fields)) if (v[f] !== undefined && !finiteIn(v[f], lo, hi)) p.push(`${key}.${f} 要是 ${lo}～${hi} 的數字`)
+    for (const [f, [lo, hi]] of Object.entries(fields)) if (v[f] !== undefined && !finiteIn(v[f], lo, hi, INT_GROUPS.includes(key))) p.push(`${key}.${f} 要是 ${lo}～${hi} 的${INT_GROUPS.includes(key) ? '整數' : '數字'}`)
   }
   if (isRecord(e.keep) && e.keep.type !== undefined && !isType(e.keep.type)) p.push(`keep.type 要是 ${TYPES.join('、')} 其中一個`)
   if (e.grade_default !== undefined && !smallInt(e.grade_default, 1, 5)) p.push('grade_default 要是 1～5 的整數')
@@ -213,7 +228,7 @@ export function mediaRules(k: Pick<Kernel, 'content'>): MediaRules {
   const out: MediaRules = {
     source_type: { ...d.source_type }, quality: { ...d.quality, rec_steps: d.quality.rec_steps.map((s) => [...s] as [number, number]), skill_steps: d.quality.skill_steps.map((s) => [...s] as [number, number]), skills: [...d.quality.skills] },
     draw: { ...d.draw }, trust: { ...d.trust }, risk: { ...d.risk }, fame_step: d.fame_step, old_days: d.old_days, fresh_days: { ...d.fresh_days }, uses: d.uses,
-    cut: { ...d.cut }, forge: { ...d.forge }, upload: { ...d.upload }, sell: { ...d.sell }, deal: { ...d.deal }, keep: { ...d.keep }, grade_default: d.grade_default,
+    cut: { ...d.cut }, forge: { ...d.forge }, upload: { ...d.upload }, sell: { ...d.sell }, deal: { ...d.deal }, keep: { ...d.keep }, grade_default: d.grade_default, pov: { ...d.pov }, cam: { ...d.cam },
   }
   const e = k.content.hasKind(RULE_KIND) ? k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default') : undefined
   if (!e) return out
@@ -236,7 +251,7 @@ export function mediaRules(k: Pick<Kernel, 'content'>): MediaRules {
     const v = e[key]
     if (!isRecord(v)) continue
     const dst = out[key as 'cut'] as unknown as Record<string, number>
-    for (const [f, [lo, hi]] of Object.entries(fields)) if (finiteIn(v[f], lo, hi)) dst[f] = v[f]
+    for (const [f, [lo, hi]] of Object.entries(fields)) if (finiteIn(v[f], lo, hi, INT_GROUPS.includes(key))) dst[f] = v[f]
   }
   if (isRecord(e.keep) && isType(e.keep.type)) out.keep.type = e.keep.type
   if (smallInt(e.grade_default, 1, 5)) out.grade_default = e.grade_default
@@ -283,6 +298,12 @@ export interface RecordEntry {
   tags?: string[]
   /** 轉成了哪一段素材 */
   made?: string
+  /** 視角（這一則是從哪個鏡頭看出去的；MEDIA 2.2）。舊存檔沒有的當「某人的 POV」（不帶人） */
+  pov: Pov
+  /** 沒有寫視角的舊寫法（舊存檔、media.add 不帶 pov）：鏡頭等級不當品質的上限，照舊 */
+  legacy?: true
+  /** 同一件事的鍵：同一件事有幾個鏡頭就各記一則，共用同一個鍵（多機位看它）。舊存檔沒有的由來源推 */
+  event: string
 }
 
 export interface Footage {
@@ -302,6 +323,9 @@ export interface Footage {
   self: boolean
   adult: boolean
   tags?: string[]
+  /** 視角（從紀錄帶過來，之後不變）與同一件事的鍵；沒有的當「某人的 POV」、沒有鍵 */
+  pov: Pov
+  event?: string
 }
 
 /** 片進輿論戰牌庫時的樣子（DATA 第 11 節）：line 說法（數字是可信）、fuel 料（數字是看點）、decoy 轉移焦點的燃料（沒有數字，value 是 0）。 */
@@ -344,6 +368,9 @@ export interface Clip {
   /** 抹黑把責任導向的勢力 */
   blame?: string
   tags?: string[]
+  /** 來源素材的視角（不重複）與視角給看點、可信的修正（剪的時候算好，重剪沿用）；舊存檔沒有的當沒有修正 */
+  povs?: Pov[]
+  pov_parts?: { draw: Array<{ label: string; value: number }>; trust: Array<{ label: string; value: number }> }
 }
 
 /** 委託階段的暫存：這個階段裡的戰鬥與事件各自不出紀錄，累加在這裡，里程碑一到才出一則。 */
@@ -352,6 +379,26 @@ export interface StagePending {
   marks: Mark[]
   people: string[]
   factions: string[]
+  /** 這個階段裡被擊落的無人機（鏡頭的鍵 drone:<角色>）：里程碑出紀錄時那一則標 cut_short */
+  cut?: string[]
+}
+
+/** 一台攝影機的架設（ITEMS 第 6 節；M5-media-pov）：hand 手持（要有人拿）、worn 運動（別在身上）、tripod 腳架（架在這個地點）、pinhole 針孔（留在現場） */
+export const CAM_KINDS = ['hand', 'worn', 'tripod', 'pinhole'] as const
+export type CamKind = (typeof CAM_KINDS)[number]
+export const CAM_NAME: Record<CamKind, string> = { hand: '手持攝影機', worn: '運動攝影機', tripod: '腳架攝影機', pinhole: '針孔攝影機' }
+export const isCamKind = (v: unknown): v is CamKind => (CAM_KINDS as readonly unknown[]).includes(v)
+/** 架在哪裡（和 state.location 比：每一欄都一樣才算在這個地點） */
+export interface CamPlace { district?: string; block?: string; facility?: string }
+export interface Cam {
+  uid: string
+  /** 背包裡那一件攝影機的物品 id */
+  item: string
+  kind: CamKind
+  /** hand 拿著的人（角色 id，或 'producer'：頻道編制的製作）、worn 戴著的人 */
+  holder?: string
+  /** tripod、pinhole 架在哪裡 */
+  place?: CamPlace
 }
 
 export interface MediaState {
@@ -362,9 +409,11 @@ export interface MediaState {
   /** 片（M5-media-cut） */
   clips: Record<string, Clip>
   stage: StagePending | null
+  /** 攝影機的架設（拿著、別著、架著；M5-media-pov） */
+  cams: Cam[]
 }
 
-export const blankMedia = (): MediaState => ({ rec: true, seq: 0, records: {}, footage: {}, clips: {}, stage: null })
+export const blankMedia = (): MediaState => ({ rec: true, seq: 0, records: {}, footage: {}, clips: {}, stage: null, cams: [] })
 
 const own = (o: Record<string, unknown>, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k)
 
@@ -372,6 +421,9 @@ function involvesOf(v: unknown): Involves {
   const r = isRecord(v) ? v : {}
   return { factions: texts(r.factions), people: texts(r.people) }
 }
+
+/** 一件事的預設鍵：來源的種類加上它的 ref（同一件事的每一則紀錄共用）。 */
+export const eventOfSource = (s: RecordSource): string => `${s.kind}:${s.ref ?? ''}`
 
 function readRecord(id: string, v: unknown): RecordEntry | null {
   if (!isRecord(v) || !isSafeInt(v.at) || !isText(v.label) || !isRecord(v.source) || !isText(v.source.kind)) return null
@@ -386,6 +438,8 @@ function readRecord(id: string, v: unknown): RecordEntry | null {
     ...((MISSES as readonly unknown[]).includes(v.miss) ? { miss: v.miss as Miss } : {}),
     ...(v.retracted === true ? { retracted: true as const } : {}), ...(v.retreat === true ? { retreat: true as const } : {}),
     ...(tags.length > 0 ? { tags } : {}), ...(isText(v.made) ? { made: v.made } : {}),
+    pov: readPov(v.pov) ?? legacyPov(), ...(v.legacy === true || v.pov === undefined ? { legacy: true as const } : {}),
+    event: isText(v.event) ? v.event : eventOfSource({ kind: v.source.kind, ...(isText(v.source.ref) ? { ref: v.source.ref } : {}) }),
   }
 }
 
@@ -398,6 +452,7 @@ function readFootage(id: string, v: unknown): Footage | null {
     authentic: (AUTHENTIC as readonly unknown[]).includes(v.authentic) ? (v.authentic as Authentic) : 'real', exclusive: v.exclusive !== false, involves: involvesOf(v.involves),
     uses: isSafeInt(v.uses) ? clamp(v.uses, 0, 20) : 0, made_at: v.made_at, origin: isOrigin(v.origin) ? v.origin : 'own',
     celebrity: v.celebrity === true, self: v.self === true, adult: v.adult === true, ...(tags.length > 0 ? { tags } : {}),
+    pov: readPov(v.pov) ?? legacyPov(), ...(isText(v.event) ? { event: v.event } : {}),
   }
 }
 
@@ -415,12 +470,27 @@ function readClip(id: string, v: unknown): Clip | null {
     draw: isSafeInt(v.draw) ? Math.max(0, v.draw) : 0, trust: isSafeInt(v.trust) ? clamp(v.trust, 0, 10) : 0, risk: isSafeInt(v.risk) ? Math.max(0, v.risk) : 0,
     uses: isSafeInt(v.uses) ? clamp(v.uses, 0, 20) : 0, ...(v.recut === true ? { recut: true as const } : {}), card: isCard(v.card) ? { kind: v.card.kind, value: v.card.value } : null,
     made_at: v.made_at, ...(v.pick === 'draw' || v.pick === 'trust' ? { pick: v.pick } : {}), ...(isText(v.blame) ? { blame: v.blame } : {}), ...(tags.length > 0 ? { tags } : {}),
+    ...(Array.isArray(v.povs) ? { povs: v.povs.flatMap((p): Pov[] => { const x = readPov(p); return x ? [x] : [] }) } : {}), ...(isRecord(v.pov_parts) ? { pov_parts: { draw: partList(v.pov_parts.draw), trust: partList(v.pov_parts.trust) } } : {}),
   }
 }
 
+const partList = (v: unknown): Array<{ label: string; value: number }> => (Array.isArray(v) ? v.flatMap((p) => (isRecord(p) && typeof p.label === 'string' && isSafeInt(p.value) ? [{ label: p.label, value: p.value }] : [])) : [])
+
 function readStage(v: unknown): StagePending | null {
   if (!isRecord(v) || !isText(v.commission)) return null
-  return { commission: v.commission, marks: [...new Set((Array.isArray(v.marks) ? v.marks : []).filter(isMark))], people: texts(v.people), factions: texts(v.factions) }
+  const cut = texts(v.cut)
+  return { commission: v.commission, marks: [...new Set((Array.isArray(v.marks) ? v.marks : []).filter(isMark))], people: texts(v.people), factions: texts(v.factions), ...(cut.length > 0 ? { cut } : {}) }
+}
+
+function readCams(v: unknown): Cam[] {
+  if (!Array.isArray(v)) return []
+  const out: Cam[] = []
+  for (const c of v) {
+    if (!isRecord(c) || !isText(c.uid) || !isText(c.item) || !isCamKind(c.kind) || out.some((x) => x.uid === c.uid)) continue
+    const place = isRecord(c.place) ? { ...(isText(c.place.district) ? { district: c.place.district } : {}), ...(isText(c.place.block) ? { block: c.place.block } : {}), ...(isText(c.place.facility) ? { facility: c.place.facility } : {}) } : undefined
+    out.push({ uid: c.uid, item: c.item, kind: c.kind, ...(isText(c.holder) ? { holder: c.holder } : {}), ...(place ? { place } : {}) })
+  }
+  return out
 }
 
 /** 讀 state.ext.media：沒有、或形狀不對的部分當成空的（回傳的是新物件，改它不會動到狀態）。 */
@@ -434,7 +504,7 @@ export function readMedia(state: Pick<GameState, 'ext'>): MediaState {
   const clips: Record<string, Clip> = {}
   if (isRecord(r.clips)) for (const [id, v] of Object.entries(r.clips)) if (own(r.clips, id) && id !== '__proto__') { const e = readClip(id, v); if (e) clips[id] = e }
   return {
-    rec: r.rec !== false, seq: isSafeInt(r.seq) && r.seq > 0 ? r.seq : 0, records, footage, clips, stage: readStage(r.stage),
+    rec: r.rec !== false, seq: isSafeInt(r.seq) && r.seq > 0 ? r.seq : 0, records, footage, clips, stage: readStage(r.stage), cams: readCams(r.cams),
   }
 }
 
@@ -502,12 +572,15 @@ function stepBonus(table: Array<[number, number]>, n: number): number {
   return out
 }
 
-/** 一則紀錄現在轉成素材的品質與每一項（V5）。 */
+const LENS_NAME: Record<Pov['kind'], string> = { self_pov: '錄影義體', follow: '錄影義體', drone: '無人機感測器', camera: '攝影機', cctv: '監視器', other_pov: '別人的義眼' }
+const sum = (ps: Array<{ value: number }>): number => ps.reduce((n, p) => n + p.value, 0)
+
+/** 一則紀錄現在轉成素材的品質與每一項（V5；上限看那個鏡頭的等級，MEDIA 2.2 節）。 */
 export function qualityParts(k: Kernel, state: GameState, rec: RecordEntry, rules: MediaRules = mediaRules(k)): { value: number; cap: number; parts: Array<{ label: string; value: number }> } {
   const q = rules.quality
   const parts: Array<{ label: string; value: number }> = [{ label: '基本', value: q.base }]
   const add = (label: string, value: number): void => { if (value !== 0) parts.push({ label, value }) }
-  add('錄影義體', stepBonus(q.rec_steps, rec.grade))
+  add(LENS_NAME[rec.pov.kind], stepBonus(q.rec_steps, rec.grade))
   if (rec.marks.some((m) => m === 'crit' || m === 'boss' || m === 'celebrity')) add('有亮點', q.highlight)
   const skill = partyOf(state).reduce((m, id) => Math.max(m, ...q.skills.map((s) => state.actors[id]?.skills[s] ?? 0)), 0)
   add('基本功', stepBonus(q.skill_steps, skill))
@@ -516,9 +589,10 @@ export function qualityParts(k: Kernel, state: GameState, rec: RecordEntry, rule
   if (minutesNow(state) - rec.at > rules.old_days * DAY) add('紀錄放太久', q.old)
   if (rec.marks.includes('lost')) add('戰敗的畫面', q.lost)
   if (rec.retreat) add('撤退收回的', q.retreat)
-  const cap = clamp(q.cap_base + partyMax(k, state, CAP_STAT), 1, q.cap_max)
-  const sum = parts.reduce((s, p) => s + p.value, 0)
-  return { value: clamp(sum, 1, cap), cap, parts }
+  // 品質最高等於鏡頭的等級（I 級最高 1、V 級最高 5）；聚光燈（footage_cap）讓沒有主播的隊伍最高 3 的那個上限再往上
+  const base = clamp(q.cap_base + partyMax(k, state, CAP_STAT), 1, q.cap_max)
+  const cap = rec.legacy === true ? base : Math.min(base, clamp(rec.grade, 1, 5))
+  return { value: clamp(sum(parts), 1, cap), cap, parts }
 }
 
 /** 新鮮度：從轉成素材那天算起（3 天內新、7 天內尚可，之後舊貨）。 */
@@ -555,17 +629,22 @@ export interface Material {
   tags: string[]
   /** 片的簡介（M5-media-cut） */
   intro?: string
+  /** 視角（素材是它自己的；片是來源的視角，不重複）與給玩家看、也給 AI 寫素材描述用的一句話 */
+  povs: Pov[]
+  pov_text: string
 }
 
 /** 一段素材算成「沒有角度的單段片」（MEDIA 第 2 節）。 */
 export function materialOfFootage(k: Kernel, state: GameState, f: Footage, rules: MediaRules = mediaRules(k)): Material {
   const forged = f.authentic === 'forged'
-  const draw = f.quality + (f.celebrity ? rules.draw.celebrity : 0) + (f.type === 'intimate' ? fameLevel(k, state, rules) : 0)
+  const pp = povParts(rules, [{ type: f.type, pov: f.pov, ...(f.event ? { event: f.event } : {}) }])
+  const draw = Math.max(0, f.quality + (f.celebrity ? rules.draw.celebrity : 0) + (f.type === 'intimate' ? fameLevel(k, state, rules) : 0) + sum(pp.draw))
   return {
     ref: f.id, kind: 'footage', title: f.title, types: [f.type], quality: f.quality, draw,
-    trust: clamp(f.quality * rules.trust.mult - (forged ? rules.trust.forged : 0), 0, rules.trust.max), risk: rules.risk.base + (forged ? rules.risk.forged : 0),
+    trust: clamp(f.quality * rules.trust.mult - (forged ? rules.trust.forged : 0) + sum(pp.trust), 0, rules.trust.max), risk: rules.risk.base + (forged ? rules.risk.forged : 0),
     uses: f.uses, fresh: freshOf(f.made_at, minutesNow(state), rules), exclusive: f.exclusive, forged, celebrity: f.celebrity, self: f.self, adult: f.adult,
     involves: { factions: [...f.involves.factions], people: [...f.involves.people] }, card: { kind: 'fuel', value: draw }, tags: [...(f.tags ?? [])],
+    povs: [{ ...f.pov }], pov_text: povText(state, f.pov),
   }
 }
 
@@ -575,6 +654,7 @@ export function materialOfClip(k: Kernel, state: GameState, c: Clip, rules: Medi
     ref: c.id, kind: 'clip', title: c.title, types: [...c.types], quality: c.quality, draw: c.draw, trust: c.trust, risk: c.risk, angle: c.angle,
     uses: c.uses, fresh: freshOf(c.made_at, minutesNow(state), rules), exclusive: c.exclusive, forged: c.forged, celebrity: c.celebrity, self: c.self, adult: c.adult,
     involves: { factions: [...c.involves.factions], people: [...c.involves.people] }, card: c.card ? { ...c.card } : null, tags: [...(c.tags ?? [])], intro: c.intro,
+    povs: (c.povs ?? []).map((p) => ({ ...p })), pov_text: [...new Set((c.povs ?? []).map((p) => povText(state, p)))].join('、'),
   }
 }
 
@@ -591,6 +671,24 @@ export interface RecordHint {
   /** 這個地方不准錄 */
   no_rec?: boolean
   tags?: string[]
+  /**
+   * 事件或副本給的視角（監視器、別人的 POV 的入口；MEDIA 2.2）：經 recordInit 的事件資料（record.pov）時，多出一個鏡頭（等級 grade、沒寫照規則表），不看錄影的開關與「不准錄」；
+   * 直接請 media 記（掛點 media.record，直播用）時，這一則就是這個視角：by、grade 是那個鏡頭的人與等級
+   */
+  pov?: { kind: string; who?: string }
+  by?: string
+  grade?: number
+}
+
+/** 一個鏡頭（掛點 media.cameras；格式給直播用）：id 是鏡頭的鍵、pov 是它的視角、by 是持有的人、grade 是等級；first_person 是主角自己的錄影義體（第一人稱直播）。 */
+export interface LensInfo {
+  id: string
+  label: string
+  pov: Pov
+  pov_text: string
+  by: string
+  grade: number
+  first_person: boolean
 }
 
 export type SpendAnswer = { changes: Change[]; material: Material } | { block: string }
@@ -603,5 +701,7 @@ declare module '../../core' {
     'media.spend': [{ state: GameState; ref: string; how: string; all?: boolean }, SpendAnswer | void]
     /** 這裡有一件事留下紀錄（media 回答；直播的收播之類）：回傳要併進報告的變更。 */
     'media.record': [{ state: GameState; source: RecordSource; label: string; hint?: RecordHint }, Change[] | void]
+    /** 現在有哪些鏡頭可以用（media 回答；直播開播時選用哪一個）：義體、無人機、攝影機，各一筆；沒有人回答就是沒有裝 media */
+    'media.cameras': [{ state: GameState }, LensInfo[] | void]
   }
 }

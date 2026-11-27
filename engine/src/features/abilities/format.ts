@@ -40,7 +40,7 @@ export const CALL_OPTIONS = ['shot', 'cover_up', 'cover_down', 'heal', 'vent'] a
 const CALL_AMOUNT = ['heal', 'vent'] as const
 export const SUPPRESS_AREAS = ['adjacent', 'row'] as const
 const LEGACY_TRIGGERS = ['ally_attacked', 'ally_attacked_adjacent'] as const
-export const USE_KEYS = ['ap', 'ram', 'admin', 'ram_all_min', 'cash', 'favor', 'per_turn', 'per_fight', 'per_commission', 'first_round', 'not_first_round', 'group', 'slot', 'note', 'weapon_ram'] as const
+export const USE_KEYS = ['ap', 'ram', 'admin', 'ram_all_min', 'cash', 'favor', 'per_turn', 'per_fight', 'per_commission', 'first_round', 'not_first_round', 'group', 'slot', 'note', 'weapon_ram', 'edit', 'per_war'] as const
 export const FAVORS = ['small', 'mid', 'big'] as const
 export const WHEN_MEAT = ['wield', 'mag_min', 'hull', 'stance', 'slot', 'node_taken', 'wounded', 'sync_min', 'sync_max', 'flow_min'] as const
 export const WHEN_MODS = [...WHEN_MEAT, 'first_round', 'in_cover', 'other_exposed', 'other_cyber', 'other_status', 'other_contract', 'target_near', 'first_attack', 'not_spotted'] as const
@@ -115,6 +115,8 @@ function useSetProblems(at: string, u: Record<string, unknown>, kind: unknown): 
   }
   if (u.note !== undefined && typeof u.note !== 'string') p.push(`${at}.note 要是字串`)
   if (u.weapon_ram !== undefined && u.weapon_ram !== true) p.push(`${at}.weapon_ram 只能是 true（再加上手上武器構裝自己的 RAM 花費）`)
+  if (u.edit !== undefined && !(isInt(u.edit) && u.edit >= 0 && u.edit <= 6)) p.push(`${at}.edit 要是 0～6 的整數（輿論戰的編輯點）`)
+  if (u.per_war !== undefined && !(isInt(u.per_war) && u.per_war >= 1)) p.push(`${at}.per_war 要是 1 以上的整數`)
   return p
 }
 
@@ -132,6 +134,8 @@ export function useProblems(u: unknown, kind: unknown): string[] {
         // 管理行動是內海的消耗：現實與輿論那一組不能寫
         if (col !== 'net' && (u[col] as Record<string, unknown>).admin !== undefined) p.push(`use.${col}.admin 只有內海用（寫在 use.net，或直接寫的那一組）`)
         if (col !== 'net' && (u[col] as Record<string, unknown>).weapon_ram !== undefined) p.push(`use.${col}.weapon_ram 只有內海用（寫在 use.net，或直接寫的那一組）`)
+        // 編輯點與每場次數是輿論戰的消耗：現實與內海那一組不能寫
+        if (col !== 'opinion') for (const key of ['edit', 'per_war'] as const) if ((u[col] as Record<string, unknown>)[key] !== undefined) p.push(`use.${col}.${key} 只有輿論用（寫在 use.opinion）`)
       }
     }
     return p

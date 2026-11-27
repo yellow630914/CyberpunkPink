@@ -18,6 +18,8 @@ import {
   factionGrade, fameLevel, mediaRules, minutesNow, partyMax, readMedia,
 } from './model'
 import type { ClipInit } from './ops'
+import type { Pov } from './pov'
+import { povKey, povParts } from './pov'
 
 const FACILITY_TYPE_KIND = 'facility_type'
 const FORGE_ATTR = 'intellect'
@@ -120,7 +122,7 @@ export function topGrade(k: Kernel, factions: string[], rules: MediaRules): numb
 }
 
 /** MEDIA 第 3 節的算式：看點、可信、風險（和每一項）。 */
-export function clipNumbers(k: Kernel, state: GameState, o: { quality: number; angle: AngleEntry; types: MediaType[]; factions: string[]; celebrity: boolean; forged: boolean; pick?: 'draw' | 'trust' | null }, rules: MediaRules = mediaRules(k)): Numbers {
+export function clipNumbers(k: Kernel, state: GameState, o: { quality: number; angle: AngleEntry; types: MediaType[]; factions: string[]; celebrity: boolean; forged: boolean; pick?: 'draw' | 'trust' | null; pov?: { draw: Part[]; trust: Part[] } }, rules: MediaRules = mediaRules(k)): Numbers {
   const a = o.angle
   const sum = (ps: Part[]): number => ps.reduce((s, p) => s + p.value, 0)
   const add = (ps: Part[], label: string, value: number): void => { if (value !== 0) ps.push({ label, value }) }
@@ -128,10 +130,13 @@ export function clipNumbers(k: Kernel, state: GameState, o: { quality: number; a
   add(draw, `${a.name}角度`, a.draw)
   if (o.celebrity) add(draw, '涉及名人', rules.draw.celebrity)
   if (o.types.includes('intimate')) add(draw, '豔名', fameLevel(k, state, rules))
+  // 視角的加成（某人的 POV、無人機、監視器）與多機位：一支片只要有一段來源符合就加一次（MEDIA 2.2、第 3 節）
+  for (const p of o.pov?.draw ?? []) add(draw, p.label, p.value)
   if (o.pick === 'draw') add(draw, '剪輯的巧思', 1)
   const trust: Part[] = [{ label: '品質 × ' + rules.trust.mult, value: o.quality * rules.trust.mult }]
   add(trust, `${a.name}角度`, a.trust)
   if (o.forged) add(trust, '假料', -rules.trust.forged)
+  for (const p of o.pov?.trust ?? []) add(trust, p.label, p.value)
   if (o.pick === 'trust') add(trust, '剪輯的巧思', 1)
   const risk: Part[] = [{ label: o.factions.length > 0 ? '涉及的勢力裡最高的等級' : '沒有涉及的勢力', value: topGrade(k, o.factions, rules) }]
   add(risk, `${a.name}角度`, a.risk)
@@ -253,7 +258,9 @@ function planCut(k: Kernel, state: GameState, o: CutInput): CutPlan {
   const celebrity = got.footage.some((f) => f.celebrity)
   const pickCan = partyMax(k, state, CUT_PICK_STAT) > 0
   const pick = pickCan && (o.pick === 'draw' || o.pick === 'trust') ? o.pick : null
-  const nums = clipNumbers(k, state, { quality, angle, types, factions: involves.factions, celebrity, forged, pick }, rules)
+  const pp = povParts(rules, got.footage.map((f) => ({ type: f.type, pov: f.pov, ...(f.event ? { event: f.event } : {}) })))
+  const povs = got.footage.map((f) => f.pov).filter((p, i, all) => all.findIndex((q) => povKey(q) === povKey(p)) === i)
+  const nums = clipNumbers(k, state, { quality, angle, types, factions: involves.factions, celebrity, forged, pick, pov: pp }, rules)
   const txt = textsOf({ title: `${angle.name}：${got.footage[0]!.title}`, intro: got.footage[0]!.text }, o)
   const uses = Math.min(...got.footage.map((f) => f.uses - 1))
   const tags = unionOf(got.footage.map((f) => f.tags ?? []))
@@ -268,6 +275,7 @@ function planCut(k: Kernel, state: GameState, o: CutInput): CutPlan {
     ...(txt.own_title ? { own_title: true as const } : {}), ...(txt.own_intro ? { own_intro: true as const } : {}),
     quality, types, involves, celebrity, self: detail.self, adult: detail.adult, forged, exclusive: detail.exclusive, draw: nums.draw, trust: nums.trust, risk: nums.risk, uses, card: nums.card,
     made_at: minutesNow(state), ...(pick ? { pick } : {}), ...(detail.blame ? { blame: detail.blame } : {}), ...(tags.length > 0 ? { tags } : {}),
+    povs: povs as Pov[], pov_parts: pp,
   }
   return { block: env, detail, footage: got.footage, init }
 }
@@ -350,7 +358,7 @@ function planRecut(k: Kernel, state: GameState, o: RecutInput): RecutPlan {
   if (bp) return none(bp)
   const sourceForged = sources.length > 0 ? sources.some((f) => f.authentic === 'forged') : clip.forged && clip.angle !== 'smear'
   const forged = sourceForged || angle.id === 'smear'
-  const nums = clipNumbers(k, state, { quality: clip.quality, angle, types: clip.types, factions: clip.involves.factions, celebrity: clip.celebrity, forged, pick: clip.pick ?? null })
+  const nums = clipNumbers(k, state, { quality: clip.quality, angle, types: clip.types, factions: clip.involves.factions, celebrity: clip.celebrity, forged, pick: clip.pick ?? null, pov: clip.pov_parts ?? { draw: [], trust: [] } })
   return { block: null, patch: { angle: angle.id, draw: nums.draw, trust: nums.trust, risk: nums.risk, card: nums.card, forged, blame: angle.id === 'smear' ? (o.blame as string) : null }, clip, angle }
 }
 

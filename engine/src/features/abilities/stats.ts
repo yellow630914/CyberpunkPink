@@ -44,7 +44,7 @@ export function holdingOf(k: Pick<Kernel, 'content' | 'activity'>, state: GameSt
 }
 
 /** 這棵樹現在的階：有自己學習紀錄的看累計花費，夥伴看 ext.paths 那一列，都沒有是 1。 */
-function treeTierFor(state: GameState, actor: ActorId, path: string): number {
+export function treeTierFor(state: GameState, actor: ActorId, path: string): number {
   if (hasOwnRecord(state, actor)) return treeTierOf(abilitiesOf(state, actor).spent[path] ?? 0)
   return pathRows(state, actor).find((r) => r.path === path)?.tier ?? 1
 }
@@ -94,7 +94,22 @@ export function registerStats(k: Kernel): void {
   const part = (ab: AbilityEntry, value: number): RollPart[] => (value === 0 ? [] : [{ label: ab.name, value, source: 'skill' }])
   k.stats.addStatProvider('deck_slots', OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, numberOf(ab, 'slots'))))
   k.stats.addStatProvider('deck_slots_reserved', OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, [ab.net, ab.meat].some((m) => live(m) && m.unique === true) ? 1 : 0)))
-  k.stats.addStatProvider(FLOW_TIER_STAT, OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, live(ab.net) && typeof ab.net.flow_bonus === 'number' ? ab.net.flow_bonus : 0)))
+  // 導流階的加值（老粉都在）：這個人的導流階本來就大於 0（有頻道、訂閱一千以上；別的功能加的）才加；沒有頻道是 0（決定清單第 20 項、SKILL_TREES 聚光燈）。
+  // 負的加值不受這個限制。「本來的導流階」是別的來源加起來的（問自己時回空陣列，避免無限遞迴）
+  let askingFlow = false
+  k.stats.addStatProvider(FLOW_TIER_STAT, OWNER, (state, actor) => {
+    if (askingFlow) return []
+    const bonuses = equippedAbilities(k, state, actor).flatMap((ab) => part(ab, live(ab.net) && typeof ab.net.flow_bonus === 'number' ? ab.net.flow_bonus : 0))
+    if (!bonuses.some((b) => b.value > 0)) return bonuses
+    askingFlow = true
+    let others = 0
+    try {
+      others = k.stats.statParts(state, actor, FLOW_TIER_STAT).reduce((sum, b) => sum + b.value, 0)
+    } finally {
+      askingFlow = false
+    }
+    return others > 0 ? bonuses : bonuses.filter((b) => b.value < 0)
+  })
   // 內海的感載消退（deck 定義 net_load_decay，基礎 0；甲板的散熱、技能、藥、狀態加上去）：技能的欄寫 decay 就多消退幾點，戰鬥與探索都算
   k.stats.addStatProvider('net_load_decay', OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, numberOf(ab, 'decay'))))
   k.stats.addStatProvider(SYNC_CAP_STAT, OWNER, (state, actor) => equippedAbilities(k, state, actor).flatMap((ab) => part(ab, numberOf(ab, 'sync_cap'))))

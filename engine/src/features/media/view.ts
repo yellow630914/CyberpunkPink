@@ -1,6 +1,12 @@
 // L6 功能 media 給畫面的檢視：紀錄的清單（能不能轉、不能轉的原因）、素材庫、片。純函式，不改狀態。
 
 import type { GameState, Kernel } from '../../core'
+import { povText } from './pov'
+import type { Pov } from './pov'
+import { camRows } from './cams'
+import type { CamRow } from './cams'
+import { lensInfos } from './lens'
+import type { LensInfo } from './model'
 import { TYPE_NAME, materialOfClip, materialOfFootage, mediaRules, qualityParts, readMedia, recorderOf } from './model'
 import { angleOf } from './angles'
 import { recutReady } from './cut'
@@ -23,6 +29,10 @@ export interface RecordRow {
   exclusive: boolean
   retracted: boolean
   made: string | null
+  /** 視角與給玩家看的一句話（「〇〇的 POV」「跟拍」「無人機跟拍」……）、同一件事的鍵 */
+  pov: Pov
+  pov_text: string
+  event: string
   /** 現在轉得了嗎；轉不了 why 是完整的一句原因 */
   can: boolean
   why: string | null
@@ -64,6 +74,10 @@ export interface MediaView {
   recording: boolean
   /** 隊伍裡錄影等級最高的人；沒有是 null */
   recorder: { id: string; name: string; grade: number } | null
+  /** 現在在場的每一個鏡頭（義體、無人機、攝影機）：一件事結束時各記一則紀錄 */
+  lenses: LensInfo[]
+  /** 架好的攝影機（拿著、別著、架著） */
+  cams: CamRow[]
   /** 新的在前 */
   records: RecordRow[]
   /** 素材庫（用完的也列，標成 spent） */
@@ -79,7 +93,7 @@ function rowOf(k: Kernel, state: GameState, r: RecordEntry): RecordRow {
   const q = why === null ? qualityParts(k, state, r) : null
   return {
     id: r.id, at: r.at, label: r.label, type: r.type, type_name: TYPE_NAME[r.type], marks: [...r.marks], by: r.by, by_name: r.by ? state.actors[r.by]?.name ?? r.by : null, grade: r.grade,
-    exclusive: r.exclusive, retracted: r.retracted === true, made: r.made ?? null, can: why === null, why, quality: q?.value ?? null, cap: q?.cap ?? null,
+    pov: { ...r.pov }, pov_text: povText(state, r.pov), event: r.event, exclusive: r.exclusive, retracted: r.retracted === true, made: r.made ?? null, can: why === null, why, quality: q?.value ?? null, cap: q?.cap ?? null,
   }
 }
 
@@ -89,7 +103,7 @@ export function mediaView(k: Kernel, state: GameState): MediaView {
   const rules = mediaRules(k)
   const who = recorderOf(k, state)
   return {
-    rec: m.rec, recording: isRecording(k, state), recorder: who ? { id: who.id, name: state.actors[who.id]?.name ?? who.id, grade: who.grade } : null,
+    lenses: lensInfos(k, state), cams: camRows(k, state), rec: m.rec, recording: isRecording(k, state), recorder: who ? { id: who.id, name: state.actors[who.id]?.name ?? who.id, grade: who.grade } : null,
     records: Object.values(m.records).sort((a, b) => b.at - a.at || seqOf(b.id) - seqOf(a.id)).map((r) => rowOf(k, state, r)),
     footage: Object.values(m.footage).sort((a, b) => b.made_at - a.made_at || seqOf(b.id) - seqOf(a.id)).map((f) => ({
       ...materialOfFootage(k, state, f, rules), spent: f.uses <= 0, made_at: f.made_at, origin: f.origin, authentic: f.authentic, from_record: f.from_record ?? null,

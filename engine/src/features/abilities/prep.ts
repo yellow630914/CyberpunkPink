@@ -1,3 +1,4 @@
+// 只有輿論的預備（opinion.open，M5-abilities-opinion）：預備的動作照舊（花時段、記進 prepared），但不帶進現實與內海戰鬥，輿論戰開場時才用（opinion.ts）。
 // 預備（SKILLS 1.11 節；dev/adr/0015 E4；dev/adr/0016 G10 之後 M2）：戰鬥外的一個動作。報告 ability.prep：時間加 prep.slot 個時段，
 // 預備好的記在 actor.ext.abilities.prepared；下一場現實戰鬥開打時帶進來（mods 整場有效、do 在開打時做一次），
 // next_battle 的用掉就清，commission 的在同一件委託（origin.ext.commission，沒有就是那一場自己）裡一直有效。
@@ -17,6 +18,7 @@ import type { AbilityEntry, AbilityState, PreparedEntry } from './types'
 import { commissionKeyOf, useOf } from './use'
 import { broughtPrep, dataOf, tierIn } from './unitdata'
 import { abilityEntry } from './outside'
+import { openOf } from './opinion'
 
 /** 預備的輸入：選的人（prep.target 是 person 的）、這件預備算在哪一件委託（有每件委託次數的）。 */
 export interface PrepInput {
@@ -75,7 +77,7 @@ export function prepBlock(k: PrepKernel, state: GameState, actor: ActorId, id: s
   if (!mine.learned.includes(id)) return `還沒學會${ab.name}。`
   if (!mine.equipped.includes(id)) return `要先裝上${ab.name}。`
   const def = ab.prep
-  if (!def || def.slot === undefined || !def.scope || (!def.meat && !def.net && !def.effects && !def.out_mods)) return `${ab.name}還沒有可以帶進戰鬥的效果。`
+  if (!def || def.slot === undefined || !def.scope || (!def.meat && !def.net && !def.effects && !def.out_mods && !openOf(ab))) return `${ab.name}還沒有可以帶進戰鬥的效果。`
   if (def.target === 'person' && !(typeof input.target === 'string' && input.target.length > 0)) return `${ab.name}要先選一個人。`
   if (def.target === 'person' && input.target === actor) return `${ab.name}要選別人，不能選自己。`
   // 每件委託的次數：照輸入的委託記，沒給就擋下
@@ -127,7 +129,11 @@ export function prep(k: PrepKernel, state: GameState, actor: ActorId, id: string
  * 這一筆預備這一層帶不帶：內海只帶有 prep.net 的；現實帶除了「只有 prep.net」之外的全部（和以前一樣：只有 effects 或 out_mods 的預備也算用掉）。
  * 找不到內容的預備（技能已經不在）當成現實的。
  */
-const bringsIn = (ab: AbilityEntry | undefined, layer: Layer): boolean => (layer === 'net' ? !!ab?.prep?.net : !(ab?.prep?.net && !ab.prep.meat))
+const bringsIn = (ab: AbilityEntry | undefined, layer: Layer): boolean => {
+  // 只有輿論的預備（opinion.open）不進戰鬥：留給輿論戰開場用（opinion.ts 的 usedPrep 清掉）
+  if (ab?.prep && openOf(ab) && !ab.prep.meat && !ab.prep.net && !ab.prep.effects && !ab.prep.out_mods) return false
+  return layer === 'net' ? !!ab?.prep?.net : !(ab?.prep?.net && !ab.prep.meat)
+}
 
 /** 單位剛組好：這個角色預備好的、這一場（照戰場的層）用得上的，記進單位（unit.ext.abilities.brought；選了人的另記 read）。 */
 export function bringPrep(run: Pick<BattleRun, 'state' | 'battle' | 'mode' | 'k'>, u: BattleUnit): void {

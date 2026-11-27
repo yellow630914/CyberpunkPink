@@ -5,6 +5,8 @@ import type { Kernel } from '../../core'
 import { aiProblems, applySet, meatProblems, modsProblems, onlyKeys, poolProblems, prepProblems, useProblems } from './format'
 import { isActionCol } from './column'
 import { allAbilities, NIGHT_KIND, outsideProblems } from './outside'
+import { dailyStatProblems } from './dailystat'
+import { opinionColumnProblems, resonanceProblems } from './opinion'
 import type { AbilityEntry, MeatDef, PathEntry } from './types'
 import { CATEGORIES, DOMAIN_LEVELS, KINDS, LAYERS, OWNER } from './types'
 
@@ -131,6 +133,7 @@ function playerAbilityProblems(e: Record<string, unknown>, k: Pick<Kernel, 'batt
   p.push(...prepProblems(e.prep, e.kind, k))
   if (e.daily !== undefined && e.daily !== null && !isRec(e.daily)) p.push('daily 要是物件或 null')
   else if (isRec(e.daily) && e.daily.kind !== undefined && !isText(e.daily.kind)) p.push('daily.kind 要是日常的種類（字串，例如 surgery、dissect、workshop、unlock）')
+  p.push(...dailyStatProblems(e.daily))
   p.push(...statsProblems(e.stats))
   return p
 }
@@ -167,7 +170,7 @@ export function registerKinds(k: Pick<Kernel, 'content' | 'battle'>): void {
 const DOMAIN_COLUMNS = [['meat', '現實'], ['net', '內海'], ['opinion', '輿論']] as const
 
 /** 內容載入之後跑一次：要看別筆才知道對不對的檢查。有錯就丟，訊息一條一條列。 */
-export function checkAbilities(k: Pick<Kernel, 'content' | 'battle'>): void {
+export function checkAbilities(k: Pick<Kernel, 'content' | 'battle' | 'hooks'>): void {
   const problems: string[] = []
   const paths = new Map(k.content.list<PathEntry>('path').map((x) => [x.id, x]))
   // 夜課延伸的技能（night:<id>）也在內：cost.ability、alter 可以指到它們
@@ -178,6 +181,9 @@ export function checkAbilities(k: Pick<Kernel, 'content' | 'battle'>): void {
     if (!sig) problems.push(`${path.id}：招牌技能 ${path.signature} 不存在`)
     else if (sig.path !== path.id) problems.push(`${path.id}：招牌技能 ${path.signature} 不在這棵樹（它屬於 ${sig.path}）`)
   }
+
+  // 共鳴的輿論欄（路數 resonance[i].opinion）
+  for (const path of paths.values()) problems.push(...resonanceProblems(k, path))
 
   // 現實裡沒有效果的樹（媒體型：主播、偶像；SKILLS 1.6 節「無：不生效，裝著也一樣」）：共鳴也不能有現實的效果，不然會變成戰鬥裡的修正與池
   for (const path of paths.values()) {
@@ -204,6 +210,8 @@ export function checkAbilities(k: Pick<Kernel, 'content' | 'battle'>): void {
     for (const [col, name] of DOMAIN_COLUMNS) {
       if (path && path.domains[col] === 'none' && a[col] !== null && a[col] !== undefined) problems.push(`${a.id}：${path.tree}在${name}沒有效果（domains.${col} 是 none），${col} 要是 null`)
     }
+    // 輿論欄（M5-abilities-opinion）：形狀、經 opinion.check 驗內容；樹在輿論戰沒有效果的上面已經擋下
+    if (path && path.domains.opinion !== 'none') problems.push(...opinionColumnProblems(k, a))
     // 兩欄各自的：cost 引用的技能要存在、alter 要改的技能要存在，而且改完的那一欄還要是合格的格式
     for (const col of ['meat', 'net'] as const) {
       const m = a[col]

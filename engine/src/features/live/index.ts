@@ -38,6 +38,8 @@ export {
   DEFAULT_SLOT, SLOT_DIRECTIONS, SLOT_DIRECTION_NAME, SLOT_HOURS, SLOT_KINDS, SLOT_KIND_NAME, SLOT_MAX_TAGS, SLOT_RESULTS, SLOT_RESULT_NAME, SLOT_TAGS, SLOT_TAG_NAME,
 } from './slotrules'
 export type { SlotDirection, SlotKind, SlotKindRule, SlotResult, SlotRules, SlotTag } from './slotrules'
+export { camerasOf, cameraPlan, isAdultSession } from './camera'
+export type { CameraChoice, CameraPlan } from './camera'
 export { liveView } from './view'
 export type { LiveGoalView, LiveSessionView, LiveView } from './view'
 export { eventsOf, hostilityExtra } from './events'
@@ -46,7 +48,7 @@ export {
   GO_ACTION as LIVE_GO_ACTION, GOAL_KIND as LIVE_GOAL_KIND, OWNER as LIVE_OWNER, RECORD_QUALITY_STAT as LIVE_RECORD_QUALITY_STAT, RULE_KIND as LIVE_RULE_KIND, TEMPLATE_KIND as LIVE_TEMPLATE_KIND,
   VIEWER_TIER_NAME as LIVE_VIEWER_TIER_NAME, blankLive, liveRules, liveSession, readLive, subsOfHeat, templateFor, templatesOf, viewersFrom, viewersOf,
 } from './model'
-export type { GoalCheck, GoalEntry, GoalRow, Highlight, House, LiveEvent, LiveRules, LiveState, Mode as LiveMode, SlotPlan, SlotRoll, Scope as LiveScope, Session as LiveSession, Settled as LiveSettled, TemplateEntry, Viewers, ViewerTier } from './model'
+export type { SessionCamera as LiveSessionCamera, GoalCheck, GoalEntry, GoalRow, Highlight, House, LiveEvent, LiveRules, LiveState, Mode as LiveMode, SlotPlan, SlotRoll, Scope as LiveScope, Session as LiveSession, Settled as LiveSettled, TemplateEntry, Viewers, ViewerTier } from './model'
 
 export const liveFeature: Feature = {
   id: OWNER,

@@ -680,7 +680,7 @@ describe('主播：導流階（衍生數值 flow_tier）與導流技能', () => 
     expect(a.run().state.actors.pc).toBeDefined()
   })
 
-  it('灌流：傷害加上導流階（最多 +3）；0 階加 0、老粉都在 +1（導流階 +1，灌流的上限仍是 +3）', () => {
+  it('灌流：傷害加上導流階（最多 +3）；0 階加 0、老粉都在在本來大於 0 時 +1（導流階 +1，灌流的上限仍是 +3）', () => {
     const dealt = (flow: number, withFans: boolean): number => {
       const a = arena(setup([streamer([SP, ST('expose'), ST('flood'), ...(withFans ? [ST('old_fans')] : [])])], [lace({ load: { now: 0, max: 200 } })]), { extra: flow ? [FLOW(flow)] : [] })
       // 導流階的 provider 看角色身上裝著什麼（state），不看單位：把裝著的寫進主角
@@ -694,17 +694,20 @@ describe('主播：導流階（衍生數值 flow_tier）與導流技能', () => 
     expect(base).toBeGreaterThan(0)
     expect(dealt(2, false) - base).toBe(2)
     expect(dealt(5, false) - base).toBe(3)
-    // 老粉都在：0 階變 1 階；2 階變 3 階；5 階變 6 階，灌流還是最多 +3
-    expect(dealt(0, true) - base).toBe(1)
+    // 老粉都在：本來是 0 階（沒有頻道）不加；2 階變 3 階；5 階變 6 階，灌流還是最多 +3
+    expect(dealt(0, true) - base).toBe(0)
     expect(dealt(2, true) - base).toBe(3)
     expect(dealt(5, true) - base).toBe(3)
   })
 
-  it('老粉都在是衍生數值 flow_tier 的 provider（沒有頻道也加 1）；沒有裝時是 0', () => {
+  it('老粉都在是衍生數值 flow_tier 的 provider：本來的導流階大於 0 才 +1（沒有頻道是 0，M5-abilities-opinion）；沒有裝時是 0', () => {
     const a = arena(setup([streamer([SP, ST('old_fans')])], [lace()]))
     expect(a.k.stats.stat(a.state, 'pc', FLOW_TIER_STAT)).toBe(0)
     a.state.actors.pc!.ext.abilities = { xp: 0, learned: [], equipped: [SP, ST('old_fans')], spent: {} }
-    expect(a.k.stats.stat(a.state, 'pc', FLOW_TIER_STAT)).toBe(1)
+    expect(a.k.stats.stat(a.state, 'pc', FLOW_TIER_STAT)).toBe(0)
+    const b = arena(setup([streamer([SP, ST('old_fans')])], [lace()]), { extra: [FLOW(1)] })
+    b.state.actors.pc!.ext.abilities = { xp: 0, learned: [], equipped: [SP, ST('old_fans')], spent: {} }
+    expect(b.k.stats.stat(b.state, 'pc', FLOW_TIER_STAT)).toBe(2)
   })
 
   it('曝光：標記敵人到我方的下個回合（全隊打他命中 +1）；我查查看：解除隊友的標記與干擾；直擊：只打被標記的，骰多 1 顆、無視 2 點防護', () => {

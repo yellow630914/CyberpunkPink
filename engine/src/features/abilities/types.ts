@@ -59,6 +59,8 @@ export interface Resonance {
   effect?: ResonanceEffect
   /** 只在內海戰鬥生效的效果（M3-skill-net-b：媒體型現實沒有效果，effect 寫不了；內海戰鬥時 effect 與 net 兩份都算） */
   net?: ResonanceEffect
+  /** 輿論戰的共鳴（M5-abilities-opinion）：{ mods }，格式同被動技能的輿論欄；經掛點 opinion.passives 回答 */
+  opinion?: { mods: Array<Record<string, unknown>> }
 }
 
 export interface PathEntry {
@@ -404,6 +406,10 @@ export interface AbilityUse {
   /** 現金（公式，例 'grade*500'） */
   cash?: number | string
   favor?: 'small' | 'mid' | 'big'
+  /** 編輯點（只有輿論欄用：寫在 use.opinion；主動的招每次花幾點、反應從沒用完的編輯點扣幾點；M5-abilities-opinion） */
+  edit?: number
+  /** 輿論欄的每場次數（和 per_fight 同義，輿論戰沒有「戰鬥」；只寫在 use.opinion） */
+  per_war?: number
   per_turn?: number
   per_fight?: number
   per_commission?: number

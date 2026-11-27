@@ -80,6 +80,8 @@ export interface LiveRules {
   log_keep: number
   /** 時段直播的規則表（slotrules.ts；M5-live-slot） */
   slot: SlotRules
+  /** 第一人稱直播（只用主角自己的錄影義體開播；MEDIA 第 6 節，待平衡）：一般內容收播的訂閱乘 subs_mult、成人的熱度加 adult_heat */
+  first_person: { subs_mult: number; adult_heat: number }
 }
 
 export const DEFAULT_LIVE_RULES: LiveRules = {
@@ -87,12 +89,13 @@ export const DEFAULT_LIVE_RULES: LiveRules = {
   viewers: { base_pct: 5, base_min: 20, per_heat: 0.1, heat_cap: 20 },
   tiers: [1.5, 2.5], adult_cap: 10, consent: 60, fame_step: 30, exposure_step: 2, highlight_keep: 100, log_keep: 20,
   slot: DEFAULT_SLOT,
+  first_person: { subs_mult: 0.8, adult_heat: 1 },
 }
 
 const RULE_SPECS: Array<[path: string, lo: number, hi: number, int: boolean]> = [
   ['goal_heat', 0, 100, true], ['heat_subs', 0, 1000, true], ['heat_tips', 0, 100000, true], ['views_div', 1, 1_000_000, true],
   ['viewers.base_pct', 0, 100, false], ['viewers.base_min', 0, 100000, true], ['viewers.per_heat', 0, 10, false], ['viewers.heat_cap', 1, 1000, true],
-  ['adult_cap', 0, 1000, true], ['consent', -100, 100, true], ['fame_step', 1, 1000, true], ['exposure_step', 1, 100, true], ['highlight_keep', 1, 1000, true], ['log_keep', 1, 200, true],
+  ['first_person.subs_mult', 0, 1, false], ['first_person.adult_heat', 0, 10, true], ['adult_cap', 0, 1000, true], ['consent', -100, 100, true], ['fame_step', 1, 1000, true], ['exposure_step', 1, 100, true], ['highlight_keep', 1, 1000, true], ['log_keep', 1, 200, true],
 ]
 
 const getPath = (o: unknown, path: string): unknown => path.split('.').reduce<unknown>((cur, key) => (isRecord(cur) && own(cur, key) ? cur[key] : undefined), o)
@@ -102,6 +105,7 @@ const tiersOk = (v: unknown): v is [number, number] => Array.isArray(v) && v.len
 export function ruleProblems(e: Record<string, unknown>): string[] {
   const p: string[] = []
   if (e.viewers !== undefined && !isRecord(e.viewers)) p.push('viewers 要是一組設定（物件）')
+  if (e.first_person !== undefined && !isRecord(e.first_person)) p.push('first_person 要是一組設定（物件）')
   for (const spec of RULE_SPECS) {
     const v = getPath(e, spec[0])
     if (v !== undefined && !specOk(v, spec)) p.push(`${spec[0]} 要是 ${spec[1]}～${spec[2]} 的${spec[3] ? '整數' : '數字'}`)
@@ -114,7 +118,7 @@ export function ruleProblems(e: Record<string, unknown>): string[] {
 /** 現在生效的規則：資料 live_rule/default 蓋掉內建的預設（格式不對的欄位忽略）。 */
 export function liveRules(k: Pick<Kernel, 'content'>): LiveRules {
   const d = DEFAULT_LIVE_RULES
-  const out: LiveRules = { ...d, viewers: { ...d.viewers }, tiers: [...d.tiers], slot: cloneSlot(d.slot) }
+  const out: LiveRules = { ...d, viewers: { ...d.viewers }, tiers: [...d.tiers], slot: cloneSlot(d.slot), first_person: { ...d.first_person } }
   const e = k.content.hasKind(RULE_KIND) ? k.content.get<ContentEntry & Record<string, unknown>>(RULE_KIND, 'default') : undefined
   if (!e) return out
   for (const spec of RULE_SPECS) {
@@ -122,6 +126,7 @@ export function liveRules(k: Pick<Kernel, 'content'>): LiveRules {
     if (!specOk(v, spec)) continue
     const keys = spec[0].split('.')
     if (keys.length === 1) (out as unknown as Record<string, number>)[keys[0]!] = v
+    else if (keys[0] === 'first_person') (out.first_person as unknown as Record<string, number>)[keys[1]!] = v
     else (out.viewers as unknown as Record<string, number>)[keys[1]!] = v
   }
   if (tiersOk(e.tiers)) out.tiers = [e.tiers[0], e.tiers[1]]
@@ -304,6 +309,18 @@ export interface Highlight { event: string; heat: number; report: string }
 /** 內場、迷宮館的參數（第三波才有人給）：觀看數的倍率、打賞的倍率、進不進頻道。 */
 export interface House { views_mult: number; tips_mult: number; to_channel: boolean }
 
+/** 開播時選用的鏡頭（掛點 media.cameras 回的一筆）：視角就是這場直播的視角 */
+export interface SessionCamera {
+  id: string
+  label: string
+  pov: { kind: string; who?: string }
+  pov_text: string
+  by: string
+  grade: number
+  /** 主角自己的錄影義體：第一人稱直播 */
+  first_person: boolean
+}
+
 export interface Session {
   id: string
   mode: Mode
@@ -323,6 +340,8 @@ export interface Session {
   house?: House
   faction?: string
   grade?: number
+  /** 選用的鏡頭（沒裝 media 就沒有） */
+  camera?: SessionCamera
   // 以下只有時段直播（mode: 'slot'）有（M5-live-slot）
   /** 種類與時長（小時） */
   kind?: SlotKind
@@ -402,7 +421,18 @@ function readSession(v: unknown): Session | null {
     counts: numRecord(v.counts), from: numRecord(v.from), tips: nat(v.tips),
     ...(v.secret === true ? { secret: true as const } : {}), ...(house ? { house } : {}),
     ...(isText(v.faction) ? { faction: v.faction } : {}), ...(isSafeInt(v.grade) && v.grade >= 1 ? { grade: v.grade } : {}),
+    ...readCamera(v.camera),
     ...readSlotFields(v),
+  }
+}
+
+function readCamera(v: unknown): { camera?: SessionCamera } {
+  if (!isRecord(v) || !isText(v.id) || !isText(v.by) || !isRecord(v.pov) || !isText(v.pov.kind)) return {}
+  return {
+    camera: {
+      id: v.id, label: typeof v.label === 'string' ? v.label : v.id, pov: { kind: v.pov.kind, ...(isText(v.pov.who) ? { who: v.pov.who } : {}) },
+      pov_text: typeof v.pov_text === 'string' ? v.pov_text : v.pov.kind, by: v.by, grade: finite(v.grade) ? v.grade : 1, first_person: v.first_person === true,
+    },
   }
 }
 

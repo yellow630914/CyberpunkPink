@@ -58,7 +58,7 @@ T.skill(s('spam'), '洗版', 2, 'front', 'active', 1, 2, s('live_link'),
 T.gap(s('exclusive'), '獨家', 2, 'back', 'active', 1, 2, s('flood'), { use: { ap: 0 } })
 
 T.skill(s('old_fans'), '老粉都在', 2, 'back', 'passive', 3, 1.5, s('host'),
-  '導流階 +1（灌流的上限仍是 +3）。', 'done', '新鍵 net.flow_bonus 1（衍生數值 flow_tier 的 provider）；沒有頻道時也加（M5 要決定沒有頻道算不算）',
+  '導流階 +1（灌流的上限仍是 +3）。', 'done', '新鍵 net.flow_bonus 1（衍生數值 flow_tier 的 provider）；本來的導流階大於 0（有頻道、訂閱一千以上）才加（M5-abilities-opinion 定案）',
   { net: { flow_bonus: 1 } })
 
 // ================================ 3 階 ================================

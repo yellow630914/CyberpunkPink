@@ -6,6 +6,7 @@
 // 被內容篩選關掉標籤的夜課：不列、裝不上，已經裝著的也不生效（機制照舊在別處）。
 
 import type { ActorId, ContentEntry, GameState, Kernel } from '../../core'
+import { dailyStatProblems } from './dailystat'
 import { isRec, meatProblems, onlyKeys, prepProblems, useProblems } from './format'
 import type { AbilityEntry } from './types'
 import { DOMAIN_LEVELS, KINDS } from './types'
@@ -53,6 +54,7 @@ export function outsideProblems(e: NightRaw, k: Pick<Kernel, 'battle'>): string[
   if (o.opinion !== undefined && o.opinion !== null && !isRec(o.opinion)) p.push(`${at}.opinion 要是物件或 null`)
   p.push(...prepProblems(o.prep, kind, k).map((m) => `${at}.${m}`))
   if (o.daily !== undefined && o.daily !== null && !isRec(o.daily)) p.push(`${at}.daily 要是物件或 null`)
+  p.push(...dailyStatProblems(o.daily).map((m) => `${at}.${m}`))
   return p
 }
 

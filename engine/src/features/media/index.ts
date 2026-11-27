@@ -20,13 +20,25 @@
 // 不碰別的功能：不讀別的功能的 state.ext；副本、場景、事件的資訊只從 activity.end 的 origin 與 result、報告的那一拍、核心的狀態拿。
 
 import type { Feature, Kernel } from '../../core'
-import { ANGLE_KIND, blankMedia, CAP_STAT, CUT_PICK_STAT, EXT, FORGE_BONUS_STAT, FORGE_QUALITY_STAT, FORGE_RISK_STAT, OWNER, QUALITY_STAT, REC_STAT, RULE_KIND, mediaValue, ruleProblems } from './model'
+import { modeOf } from '../../core'
+import { ANGLE_KIND, blankMedia, CAP_STAT, DRONE_REC_STAT, CUT_PICK_STAT, EXT, FORGE_BONUS_STAT, FORGE_QUALITY_STAT, FORGE_RISK_STAT, OWNER, QUALITY_STAT, REC_STAT, RULE_KIND, mediaValue, ruleProblems } from './model'
 import { angleProblems } from './angles'
 import { keepOptions } from './publish'
 import { installOps } from './ops'
 import { installEffects } from './effects'
 import { onActivityEnd, onMilestone, onRecord, onRewind } from './record'
 import { materialsOf, spend } from './chain'
+import { lensInfos, lensesOf } from './lens'
+import { mediaRules } from './model'
+
+export { camBlock, camRows, dropCamera, setCamera } from './cams'
+export type { CamInput, CamPlan, CamRow } from './cams'
+export { camItem, defaultLens, downedDrones, lensInfos, lensesOf } from './lens'
+export type { Lens } from './lens'
+export { POV_KINDS, isPovKind, legacyPov, multiAngle, povKey, povParts, povSelf, povText, readPov } from './pov'
+export type { Pov, PovKind } from './pov'
+export { CAM_ACTION as MEDIA_CAM_ACTION, CAM_KINDS as MEDIA_CAM_KINDS, CAM_NAME as MEDIA_CAM_NAME, DRONE_REC_STAT as MEDIA_DRONE_REC_STAT } from './model'
+export type { Cam, CamKind, LensInfo } from './model'
 
 export { convertBlock, convertDraft, materialOf, materialsOf, recordingBlock, setRecording, spend } from './chain'
 export { mediaView } from './view'
@@ -37,8 +49,8 @@ export { angleOptions, clipNumbers, cut, cutBlock, cutPreview, editPlace, forge,
 export type { AngleOption, CutDetail, CutInput, CutPreview, EditPlace, ForgeInput, ForgeQuote, Numbers, Part, RecutInput } from './cut'
 export { deal, dealBlock, dealTargets, keepMaterial, sell, sellBlock, sellPrice, upload, uploadBlock, uploadPreview } from './publish'
 export type { DealOpts, DealSkill, DealTarget, UploadOpts, UploadPreview } from './publish'
-export { battleMarks, hintOf, isRecording, noRecHere, recStatus, recordInit } from './record'
-export type { RecordInput } from './record'
+export { battleMarks, hintOf, isRecording, lensStatus, noRecHere, recStatus, recordInits } from './record'
+export type { RecLens, RecordInput, RecordOpts } from './record'
 export {
   ANGLE_KIND as MEDIA_ANGLE_KIND, AUTHENTIC, CAP_STAT as MEDIA_CAP_STAT, CLIP_INTRO_MAX, CLIP_TITLE_MAX, CONVERT_ACTION as MEDIA_CONVERT_ACTION, CUT_ACTION as MEDIA_CUT_ACTION, CUT_PICK_STAT as MEDIA_CUT_PICK_STAT,
   DEAL_ACTION as MEDIA_DEAL_ACTION, FORGE_ACTION as MEDIA_FORGE_ACTION, FORGE_BONUS_STAT as MEDIA_FORGE_BONUS_STAT, FORGE_QUALITY_STAT as MEDIA_FORGE_QUALITY_STAT, FORGE_RISK_STAT as MEDIA_FORGE_RISK_STAT,
@@ -60,6 +72,8 @@ export const mediaFeature: Feature = {
     k.stats.defineStat({ id: REC_STAT, owner: OWNER, name: '錄影等級', base: () => 0, min: 0, max: 5 })
     k.stats.defineStat({ id: QUALITY_STAT, owner: OWNER, name: '剪輯的功夫', base: () => 0, min: 0, max: 3 })
     k.stats.defineStat({ id: CAP_STAT, owner: OWNER, name: '素材品質的上限加成', base: () => 0, min: 0, max: 2 })
+    // 隊上帶著的錄影無人機（感測器帶內建錄影）的等級：只定義、預設 0，由裝備或組裝成品的效果 { stat: 'drone_rec' } 給（M5-media-pov；組裝成品還沒有無人機這一類，見實作補記）
+    k.stats.defineStat({ id: DRONE_REC_STAT, owner: OWNER, name: '錄影無人機的等級', base: () => 0, min: 0, max: 5 })
     // 剪與偽造的衍生數值：技能（假料工坊、聚光燈）的日常寫它們；只定義、預設 0，不加任何 provider
     k.stats.defineStat({ id: CUT_PICK_STAT, owner: OWNER, name: '剪輯的巧思', base: () => 0, min: 0, max: 1 })
     k.stats.defineStat({ id: FORGE_BONUS_STAT, owner: OWNER, name: '偽造的手藝', base: () => 0, min: 0, max: 5 })
@@ -75,6 +89,13 @@ export const mediaFeature: Feature = {
     k.hooks.on('media.materials', OWNER, ({ state, kinds }) => materialsOf(k, state, kinds))
     k.hooks.on('media.spend', OWNER, ({ state, ref, how, all }) => spend(k, state, { ref, how, ...(all !== undefined ? { all } : {}) }))
     k.hooks.on('media.record', OWNER, (p) => onRecord(k, p))
+    k.hooks.on('media.cameras', OWNER, ({ state }) => lensInfos(k, state))
+    // 手持攝影機：拿的人手上一直是它，戰鬥中每回合先給鏡頭 cam.hand_ap 點行動點（少回那麼多；放下就不錄）
+    k.battle.loadout(OWNER, (state, actor, mode) => {
+      if (modeOf(k.content, mode)?.layer !== 'meat') return
+      return lensesOf(k, state).some((l) => l.hand === true && l.by === actor) ? { tags: ['holding_camera'] } : undefined
+    })
+    k.battle.modifier(OWNER, (q) => (q.kind === 'ap_regen' && q.unit.tags.includes('holding_camera') ? [{ label: '手持攝影機', value: -mediaRules(q.view.k).cam.hand_ap, source: 'media' }] : []))
     // 留著當保命符：被贏的那一方的勢力俘虜時，手上有對得上的罪證就多一個選項（V11）
     k.hooks.on('defeat.options', OWNER, ({ state, pending }) => keepOptions(k, state, pending.faction))
   },

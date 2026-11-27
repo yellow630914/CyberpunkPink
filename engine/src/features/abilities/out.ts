@@ -52,7 +52,9 @@ export function stanceBlock(k: Pick<Kernel, 'content'>, state: GameState, actor:
   const mine = abilitiesOf(state, actor)
   if (mine.stance === id) return null
   if (ab.kind !== 'stance') return `${ab.name}不是姿態。`
-  if (!ab.meat?.out || ab.meat.pending) return `${ab.name}只能在戰鬥裡開。`
+  // 輿論的姿態（opinion.stance: true；M5-abilities-opinion）在開戰前開：開著的記在這裡，輿論戰開場問 opinion.passives 時才算
+  const opinionStance = ab.opinion?.stance === true && ab.opinion.pending !== true
+  if (!opinionStance && (!ab.meat?.out || ab.meat.pending)) return `${ab.name}只能在戰鬥裡開。`
   if (!mine.equipped.includes(id)) return `要先裝上${ab.name}。`
   return null
 }

@@ -20,16 +20,20 @@
 // M4-training（dev/work/M4-training.md；training.ts）：基本功 5、6 級的請教（向人，三種付法：親密度、學費、旗標 taught:<npc>:<skill>）與去機構上課（設施種類的 teach）；每升一級上幾個時段，
 //   上完立下記號（actor.ext.abilities.lessons），skillUpDraft 看到就不擋；條件 can_teach；報告 ability.lesson；匯出 teachOptions、lessonBlock、lessonDraft。他在不在場問條件 npc_here（features/npcs 註冊）。
 // M4-craft-teach（dev/work/M4-craft-teach.md；training.ts 的另一段）：向 NPC 學工藝基本功 0～2 級（npc 內容的 tutor、規則 ability_rule.tutor、actor.ext.abilities.tutored）；條件 can_tutor；報告 ability.tutor；匯出 tutorOptions、tutorBlock、tutorDraft。
+// M5-abilities-opinion（dev/work/M5-abilities-opinion.md；opinion.ts、dailystat.ts）：技能的輿論欄翻成輿論戰的掛點 opinion.moves／passives／open 的回答（主動、被動、共鳴 resonance[i].opinion、反應、
+//   開著的姿態、預備）、經 opinion.check 驗；use.opinion 多 edit、per_war；日常的 daily.stat／tier_min 變成衍生數值的 provider（十個，DAILY_STATS）；導流階的加值（老粉都在）只在本來的導流階大於 0 時才加。
 // 不 import 別的功能（射擊、換彈在 features/combat；技能自己用 run.attack）。
 
 import type { Feature, GameState } from '../../core'
 import { registerActions, registerBattle } from './battle'
 import { registerCreation } from './creation'
 import { registerCondition } from './daily'
+import { registerDailyStats } from './dailystat'
 import { checkAbilities, registerKinds } from './kinds'
 import { hideAnswer, registerLoadout } from './loadout'
 import { registerBuff, registerMods } from './mods'
 import { registerOps } from './ops'
+import { registerOpinion } from './opinion'
 import { registerOut } from './out'
 import { registerReactions } from './reactions'
 import { registerSocial } from './social'
@@ -56,6 +60,8 @@ export { colIn, colOf, gearOf, layerOf } from './column'
 export type { Layer } from './column'
 export { FLOW_TIER_STAT, MASTER_PATH, MASTER_TIER_STAT, TRACE_START_STAT, masterTierOf, traceStartOf } from './stats'
 export { DISSECT_DAILY, DISSECT_TAG, dailyKindOf } from './daily'
+export { DAILY_STATS } from './dailystat'
+export { movesFor, opensFor, passivesFor, opinionUse } from './opinion'
 export { NIGHT_KIND, NIGHT_PREFIX, abilityEntry, allAbilities, isNightId, learnedOutside, liveEquipped, nightAbilities } from './outside'
 export { NEEDS_TEACHER, RESPEC_ACTION, SKILL_UP_ACTION, respecBlock, respecDraft, respecQuote, skillUpBlock, skillUpCost, skillUpDraft } from './train'
 export type { RespecQuote } from './train'
@@ -82,6 +88,7 @@ export const abilitiesFeature: Feature = {
     registerSocial(k)
     registerLoadout(k)
     registerOut(k)
+    registerOpinion(k)
     registerXp(k)
     registerStats(k)
     registerCondition(k)
@@ -98,5 +105,6 @@ export const abilitiesFeature: Feature = {
     registerActions(k)
     ensureSyncCapStat(k)
     registerStatKeys(k)
+    registerDailyStats(k)
   },
 }

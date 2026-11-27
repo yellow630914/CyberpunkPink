@@ -218,7 +218,8 @@ describe('委託副本：階段的暫存與里程碑（V2）', () => {
     expect(recs(g)).toHaveLength(1)
     const r = lastRec(g)
     expect(r).toMatchObject({ source: { kind: 'stage', ref: 'cm1' }, type: 'battle', by: 'pc' })
-    expect([...r.marks].sort()).toEqual(['celebrity', 'hq', 'self'])
+    // 畫面裡有沒有你由視角決定（M5-media-pov）：主角自己的錄影義體是主角的 POV，那一則沒有 self（暫存裡的記號照舊是聯集）
+    expect([...r.marks].sort()).toEqual(['celebrity', 'hq'])
     expect([...r.involves.factions].sort()).toEqual(['f_a', 'f_b'])
     expect(media(g).stage).toBeNull()
   })
@@ -263,7 +264,7 @@ describe('成人場景的紀錄（V4、V57）', () => {
   it('場景記 adult、self；一對一涉及的人是對象，多人讀 pairs 的每一個；單人沒有對象；類型是親密；碰過的標籤帶進紀錄', () => {
     const g = make()
     endOf(g, 'scene', { result: { with: 'npc_ok', touched: ['x_tag'] } })
-    expect(lastRec(g)).toMatchObject({ type: 'intimate', marks: ['adult', 'self'], involves: { people: ['npc_ok'] }, tags: ['x_tag'] })
+    expect(lastRec(g)).toMatchObject({ type: 'intimate', marks: ['adult'], pov: { kind: 'self_pov', who: 'pc' }, involves: { people: ['npc_ok'] }, tags: ['x_tag'] })
     expect(lastRec(g).label).toContain('阿音')
     endOf(g, 'scene', { result: { with: 'npc_ok', pairs: { npc_ok: {}, npc_b: {} } } })
     expect(lastRec(g).involves.people.sort()).toEqual(['npc_b', 'npc_ok'])
@@ -674,7 +675,8 @@ describe('掛點 media.record（直播之類請它記）', () => {
     give(g, g.k.hooks.run('media.record', { state: g.state, source: source as never, label: '一場直播', ...(hint ? { hint } : {}) }).flatMap((r) => r.result))
 
   it('帶 live、hq：那一則 exclusive 是 false、類型照來源的預設（日常）；轉出來的品質 +1', () => {
-    const g = make()
+    // 義體 III（品質上限看鏡頭的等級，MEDIA 2.2）：高品質 +1 才不被 I 級的上限吃掉
+    const g = make({ pc: { ext: { rec: 3 } } })
     rec(g, { live: true, hq: true })
     const a = lastRec(g)
     expect(a).toMatchObject({ source: { kind: 'live', ref: 'lv1' }, type: 'daily', exclusive: false, by: 'pc' })
@@ -689,7 +691,8 @@ describe('掛點 media.record（直播之類請它記）', () => {
     const g = make()
     rec(g, { type: 'scandal', involves: { factions: ['f_a'], people: ['npc_ok'] }, celebrity: true, exclusive: false, adult: true, self: true })
     expect(lastRec(g)).toMatchObject({ type: 'scandal', exclusive: false, involves: { factions: ['f_a'], people: ['npc_ok'] } })
-    expect(lastRec(g).marks.sort()).toEqual(['adult', 'celebrity', 'self'])
+    // self 由視角決定：主角自己的 POV 沒有（hint 寫 self: true 也一樣）
+    expect(lastRec(g).marks.sort()).toEqual(['adult', 'celebrity'])
     rec(g, undefined)
     expect(lastRec(g)).toMatchObject({ type: 'daily', exclusive: true })
   })
@@ -881,7 +884,8 @@ describe('用全部功能的局：錄影等級由義體的被動效果給，medi
       const text = readFileSync(join(dir, f), 'utf8')
       const code = text.split('\n').filter((l) => !l.trim().startsWith('//') && !l.trim().startsWith('*') && !l.trim().startsWith('/*')).join('\n')
       expect(code, f).not.toMatch(/addStatProvider|addAttrProvider/)
-      expect(code, f).not.toMatch(/state\.inventory|\.inventory\b/)
+      // 攝影機是背包裡的物品（ITEMS 第 6 節）：lens.ts 與 cams.ts 讀背包（核心的狀態，不是別的功能的 ext）；其餘的檔不讀
+      if (f !== 'lens.ts' && f !== 'cams.ts') expect(code, f).not.toMatch(/state\.inventory|\.inventory\b/)
       expect(code, f).not.toMatch(/from '\.\.\/(?!\.\.\/core)[a-z]/)
       expect(code, f).not.toMatch(/state\.ext\??\.(?!media)\w+|ext\[(?!EXT)/)
     }

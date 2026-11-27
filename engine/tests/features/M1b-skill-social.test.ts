@@ -154,11 +154,11 @@ const media = (path: string, id: string, name: string, tier: number, layer: 'sig
   id: `sk_${path}_${id}`, name, path, category: 'media', tier, layer, kind, cap, xp: tier * 20, cells: 1, ...(layer === 'signature' ? {} : { after: `sk_${path}_${after}` }), text: `${name}。`, meat: null, net: null, opinion: null, ...more,
 })
 const MEDIA: Rec[] = [
-  media('streamer', 'sig', '聚光燈', 1, 'signature', 'passive', 3, undefined, { opinion: { ep_max: 1 } }),
+  media('streamer', 'sig', '聚光燈', 1, 'signature', 'passive', 3, undefined, { opinion: null }),
   media('streamer', 'expose', '曝光', 1, 'front', 'active', 1, 'sig', { use: { ap: 2, ram: 2 }, net: { pending: true, text: '內海的寫法還沒有做成機制（目標是敵人或節點，擲表演）。' } }),
   media('streamer', 'flood', '灌流', 2, 'front', 'active', 1, 'expose', { use: { ap: 2, ram: 2 }, net: { pending: true, text: '內海的寫法還沒有做成機制（目標是敵人或節點，擲表演）。' }, opinion: { pending: true } }),
   media('streamer', 'viral', '爆紅', 3, 'back', 'reaction', 1, 'flood', { opinion: { pending: true } }),
-  media('idol', 'sig', '應援', 1, 'signature', 'passive', 3, undefined, { net: { pending: true, text: '內海的寫法還沒有做成機制（連結的人數、分擔、追蹤度）。' }, opinion: { ep_max: 1 } }),
+  media('idol', 'sig', '應援', 1, 'signature', 'passive', 3, undefined, { net: { pending: true, text: '內海的寫法還沒有做成機制（連結的人數、分擔、追蹤度）。' }, opinion: null }),
   media('idol', 'cheer', '加油', 1, 'front', 'stance', 1, 'sig', { use: { ap: 1 }, opinion: { pending: true } }),
   media('idol', 'encore', '安可', 2, 'back', 'passive', 2, 'cheer', { net: { pending: true } }),
 ]

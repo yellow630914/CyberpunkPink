@@ -43,3 +43,7 @@ M5-abilities-opinion、M5-opinion-desk。人氣要 `popularity` 這張量表（M
 ## 完成時回報
 
 每棵樹：做了幾條、近似幾條（近似在哪）、寫不出來幾條（照三類）；`features/abilities` 加了哪些鍵；要 opinion 那一邊加的鍵與觸發點（給 M5 的審查或修正批）。
+
+## abilities-opinion 留下的（2026-11-27）
+- fixtures/skills 裡的技能沒有任何輿論欄（全是 null），這一張要從零寫。
+- opinion 這邊缺的介面（寫到才補）：效果 `stance { id }` 與 `War.stances`（切換姿態的招；姿態類被動照它篩）；`OpReact` 的 `need`／`out`（反應花錢或人情）；`OpMove.limit` 放寬成可同時有 `per_turn` 與 `per_war`。

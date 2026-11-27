@@ -6,6 +6,7 @@ import type { Change, GameState, Kernel, ReportDraft, TimelineBeat } from '../..
 import { ActionBlocked, clone } from '../../core'
 import type { FootageInit } from './ops'
 import type { Mark, Material, Miss, RecordEntry, SpendAnswer } from './model'
+import { povText } from './pov'
 import { CONVERT_ACTION, REC_ACTION, TYPE_NAME, materialOfClip, materialOfFootage, mediaRules, minutesNow, qualityParts, readMedia } from './model'
 
 export const draftOf = (state: GameState, action: string, changes: Change[], result: string, summary: string, extra: Partial<ReportDraft> = {}): ReportDraft => ({
@@ -36,7 +37,7 @@ const MISS_TEXT: Record<Miss, string> = {
 }
 
 const MARK_TEXT: Record<Mark, string> = {
-  crit: '拍到了要害的一擊', boss: '拍到首領倒下的那一刻', celebrity: '畫面裡有名人', hq: '畫面很清楚', live: '這一段直播過', lost: '是一段戰敗的畫面', adult: '是成人的畫面', self: '畫面裡有你自己',
+  crit: '拍到了要害的一擊', boss: '拍到首領倒下的那一刻', celebrity: '畫面裡有名人', hq: '畫面很清楚', live: '這一段直播過', lost: '是一段戰敗的畫面', adult: '是成人的畫面', self: '畫面裡有你自己', cut_short: '無人機被擊落，只錄到那一刻為止',
 }
 
 /** 這則紀錄現在能不能轉成素材：回傳完整的一句原因（轉得了是 null）。撤退或失敗收回的紀錄照樣能轉（使用者 2026-11-24）。 */
@@ -55,20 +56,21 @@ export function convertDraft(k: Kernel, state: GameState, id: string): ReportDra
   const rec = readMedia(state).records[id]!
   const rules = mediaRules(k)
   const q = qualityParts(k, state, rec, rules)
-  const footage = footageFrom(rec, q.value, minutesNow(state), rules.uses)
+  const footage = footageFrom(state, rec, q.value, minutesNow(state), rules.uses)
   const beat: TimelineBeat = {
     layer: 'meat', ...(state.pc ? { actor: state.pc } : {}), text: `你把「${rec.label}」做成了一段素材。`, tag: 'media.convert',
-    data: { record: rec.id, type: rec.type, quality: q.value, cap: q.cap, uses: rules.uses, parts: q.parts },
+    data: { record: rec.id, type: rec.type, quality: q.value, cap: q.cap, uses: rules.uses, parts: q.parts, pov: rec.pov.kind, event: rec.event },
   }
   return draftOf(state, CONVERT_ACTION, [{ op: 'media.make', record: rec.id, footage }], 'converted', `你把「${rec.label}」做成了素材。`, {
     timeline: [beat], narration: { results: [`「${rec.label}」做成了一段${TYPE_NAME[rec.type]}類的素材。`] },
   })
 }
 
-function footageFrom(rec: RecordEntry, quality: number, now: number, uses: number): FootageInit {
+function footageFrom(state: GameState, rec: RecordEntry, quality: number, now: number, uses: number): FootageInit {
   const notes = rec.marks.map((m) => MARK_TEXT[m])
+  // 視角那一句也寫進說明：交給 AI 寫正文與生圖時，POV 是第一人稱的鏡頭、其他視角是第三人稱（MEDIA 2.2 節）
   return {
-    title: rec.label, text: `${rec.label}。${notes.length > 0 ? `${notes.join('，')}。` : ''}`, type: rec.type, quality, authentic: 'real', exclusive: rec.exclusive,
+    title: rec.label, text: `${rec.label}。${notes.length > 0 ? `${notes.join('，')}。` : ''}視角：${povText(state, rec.pov)}。`, pov: { ...rec.pov }, event: rec.event, type: rec.type, quality, authentic: 'real', exclusive: rec.exclusive,
     involves: { factions: [...rec.involves.factions], people: [...rec.involves.people] }, uses, made_at: now, origin: 'own',
     celebrity: rec.marks.includes('celebrity'), self: rec.marks.includes('self'), adult: rec.marks.includes('adult'), ...(rec.tags && rec.tags.length > 0 ? { tags: [...rec.tags] } : {}),
   }
