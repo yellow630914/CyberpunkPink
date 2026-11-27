@@ -2134,7 +2134,7 @@
 - **tags**：`pc_unwilling`★、`female_partner`、`male_partner`、`tendency:窺視`、`tendency:暴露`、扮相 `哥德`
 - **fails_commission**：true
 - **fallback**：`df_drained_sweet_teaparty_plain`：被留下來參加一場茶會，被吸走一段感覺，帶子賣掉；客人只是在旁邊喝茶。
-- **登場**：`$a` 茶會主人（`en_bnq_hostess`）；`$b` 甜派茶會客（兩到三位）；`$c`（default）黑派侍從（男性）。茶會的人全部是成年人，蓬裙、蝴蝶結與熊玩偶只是打扮。
+- **登場**：`$a` 茶會主人（`en_bnq_hostess`，照顧與寵愛的調性，有支配傾向，習慣由她安排節奏：「說你要當主人，不當主客」之類主角自己選的場景（`gate: ai`、`nature` mutual）照公式開場，她的支配傾向讓主動權偏向她）；`$b` 甜派茶會客（兩到三位）；`$c`（default）黑派侍從（男性）。茶會的人全部是成年人，蓬裙、蝴蝶結與熊玩偶只是打扮。
 - **被吸的規則**：同 `df_drained_banquet_tasting`。
 
 ##### default
@@ -2268,7 +2268,7 @@
 - **tags**：`female_partner`、`male_partner`、`tendency:獸`、`tendency:藥`
 - **fails_commission**：false
 - **fallback**：`df_robbed_nora_roof_plain`：醒在屋頂上，現金晶片與快取格被拿光，追或不追。
-- **登場**：`$a` 發情的貓（`en_nora_heatcat`，女性）；`$b`（default）一位留下來的野良，男性，地下層的野犬（`en_nora_hound`）。
+- **登場**：`$a` 發情的貓（`en_nora_heatcat`，女性，習慣坐在人身上，有支配傾向：「讓他們留下來」是主角自己選的場景，`nature` mutual、`role` none 照 default，開場主動權照公式，貓的支配傾向讓主動權偏向她，起始體位是她在上面；主角想翻過來時，用「主導」接過來）；`$b`（default）一位留下來的野良，男性，地下層的野犬（`en_nora_hound`）。
 - **被扒**：`cash −（全部的現金晶片）`、`item −（快取格裡的全部）`；帳戶裡的錢、裝在身上的東西不動。這一筆沒有非自願的分支。
 
 ##### default
