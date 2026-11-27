@@ -409,7 +409,8 @@ function faceLaunch(run: Run, b: BranchDef, stealth: boolean, team?: string[]): 
         ...(run.pick?.desk ? { desk: clone(run.pick.desk) } : {}), ...(run.pick?.bring ? { bring: [...run.pick.bring] } : {}), ...(run.pick?.outsource !== undefined ? { outsource: run.pick.outsource } : {}),
       } : {}),
     },
-    origin: { by: 'commission', ref: run.def.id, ext: { commission: run.def.id, stage: run.stage, face: run.face } },
+    // 輿論面被帶走時先開戰敗事件（M5-defeat-entry）：副本自訂的戰敗事件放在 origin.ext（和戰鬥同一個慣例），戰敗的入口讀得到
+    origin: { by: 'commission', ref: run.def.id, ext: { commission: run.def.id, stage: run.stage, face: run.face, ...(opinion && run.def.defeat_event !== undefined ? { defeat_event: run.def.defeat_event } : {}) } },
   }
 }
 

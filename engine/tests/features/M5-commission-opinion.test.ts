@@ -227,7 +227,8 @@ describe('開這一段（faceLaunch）', () => {
     expect(s.opinion).toEqual({ ...OPINION_SETUP, rounds: 3, opponent: { id: 'pr_x', strength: 2, named: '某人' } })
     // 面自己的 rounds、opponent、gives、branches 不再當面的資料帶過去；record 是給里程碑那一拍的
     for (const key of ['rounds', 'opponent', 'gives', 'branches', 'record']) expect(s).not.toHaveProperty(key)
-    expect(o).toEqual({ by: 'commission', ref: 'op3', ext: { commission: 'op3', stage: 2, face: 'opinion' } })
+    // 副本自訂的戰敗事件跟著 origin.ext（被帶走時戰敗的入口讀它；M5-defeat-entry）
+    expect(o).toEqual({ by: 'commission', ref: 'op3', ext: { commission: 'op3', stage: 2, face: 'opinion', defeat_event: 'df_custom' } })
     expect(runOf(g)).toMatchObject({ step: 'play', face: 'opinion', pick: { desk: ['a', { actor: 'b', ep: 1 }], bring: ['ft1', 'ft2'], outsource: 'a' } })
     expect(view(g).goal).toMatchObject({ kind: 'face', done: false })
   })

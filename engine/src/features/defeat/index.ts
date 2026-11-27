@@ -7,6 +7,8 @@
 // 等玩家三選一的期間不能做別的事，是核心擋的（活動 defeat：打輸之後開打前的快照還在，就是在等）；
 // 事件視窗、場景在演的時候放行它們自己的報告（k.activity.allow），接受要等它們做完。
 //
+// 不從戰鬥來的入口（entry.ts；dev/work/M5-defeat-entry.md）：活動 defeat.entry，別的功能帶 launch 開，照同樣的規則抽事件、走同一個流程；等著三選一的期間由這個活動擋住別的事。
+//
 // 不替任何一種 kind 寫專屬的程式（dev/adr/0016 G5）：kind 只是資料上的標籤，每一種都用通用的事件格式加封閉的效果清單寫。
 // 不 import features/director 與 features/commission：事件視窗只經 k.activity 開，委託失敗只把 fails_commission 交出去。
 
@@ -14,20 +16,23 @@ import type { Condition, Feature, Launch } from '../../core'
 import { ContentError } from '../../core'
 import type { RulesKernel, GameState } from '../../core'
 import { effectProblems } from './body'
+import { entryActivity } from './entry'
 import { afterBattleEnd, onBattleEnd, onEventEnd } from './flow'
 import { pick as pickEntry } from './choose'
 import type { PickOpts } from './choose'
-import { EVENT_ACTIVITY, KIND, OWNER, defeatOf, entryProblems } from './model'
+import { ENTRY_ACTIVITY, EVENT_ACTIVITY, KIND, OWNER, defeatOf, entryProblems } from './model'
 import type { DefeatEventEntry } from './model'
 
-export { acceptDefeat, chooseDefeatOption, companionNames, defeatOptions, defeatView, failsAfter, rewriteOf, skipDefeat, watchDefeat } from './flow'
+export { acceptDefeat, chooseDefeatOption, companionNames, defeatOptions, defeatView, failsAfter, retryDefeat, rewriteOf, skipDefeat, stageDefeat, watchDefeat } from './flow'
 export type { DefeatChoice, DefeatViewInfo } from './flow'
+export { defeatEntryLaunch, enterDefeat, entryProblem } from './entry'
+export type { DefeatEntrySetup } from './entry'
 export { hasAngel, locatedEventOf, locatedOf, winnersOf } from './choose'
 export type { PickOpts } from './choose'
 export { inlineEvent, playSkipped, rewriteEffects } from './body'
 export type { Rewrite, SkipPlay } from './body'
-export { STAGE_KIND as DEFEAT_STAGE_KIND, defeatOf, moneyLimit, stageOf } from './model'
-export type { DefeatEventEntry, DefeatOption, DefeatStage, DefeatVersion, PendingDefeat, PickTier, PlayedResult } from './model'
+export { ENTRY_ACTIVITY as DEFEAT_ENTRY, STAGE_KIND as DEFEAT_STAGE_KIND, defeatOf, moneyLimit, stageOf } from './model'
+export type { DefeatEntryInfo, DefeatEventEntry, DefeatOption, DefeatStage, DefeatVersion, PendingDefeat, PickTier, PlayedResult } from './model'
 
 /** 選事件與版本（純函式，測試與介面問「會選到哪一件」用）。沒有任何可用的事件丟錯。 */
 export function pickDefeat(k: RulesKernel, state: GameState, o: PickOpts): { event: string; version: string; fails_commission: boolean; tier: string } {
@@ -84,8 +89,14 @@ export const defeatFeature: Feature = {
     // 事件視窗做完：記下選了什麼與算不算委託失敗
     k.hooks.on('activity.end', OWNER, ({ state, kind, origin, result }) => (kind === EVENT_ACTIVITY ? onEventEnd(state, origin, result) : undefined))
 
-    // 三選一的報告：等待中的戰敗只放行自己的報告（defeat.view、defeat.skip、defeat.accept、defeat.option）
+    // 三選一的報告：等待中的戰敗只放行自己的報告（defeat.view、defeat.skip、defeat.accept、defeat.option；入口來的另有 defeat.retry、defeat.stage）
     k.activity.allow('defeat', 'commit:defeat.', OWNER)
+
+    // 入口（M5-defeat-entry）：別的功能帶 launch { kind: 'defeat.entry' } 開；從任何一種活動裡都開得了（發起的人自己就在某個活動裡，例：委託副本），
+    // 只有戰鬥中與已經在等三選一時不行（開了也只會被這一條擋成「先處理完」）
+    k.activity.define(entryActivity)
+    k.activity.allow(ENTRY_ACTIVITY, 'commit:defeat.', OWNER)
+    k.activity.allowEverywhere(`${ENTRY_ACTIVITY}.start`, OWNER, ['battle', 'defeat', ENTRY_ACTIVITY])
   },
 
   ready(k) {
@@ -100,13 +111,21 @@ export const defeatFeature: Feature = {
     // - 事件視窗：只放戰敗自己的流程開的（不放別的功能開的；導演也因此把等待中的戰敗當成「另一個活動進行中」）；
     // - 自由行動：只在事件視窗開著時放行（回應事件）；問要不要看（ask）與三選一（played）的期間不放行；
     // - 戰鬥：只放事件的 fight 結果開的（劫囚之類），玩家自己開戰仍然擋住。
+    // 入口（defeat.entry）等三選一的期間放行同一組
     const eventWindow = k.activity.get(EVENT_ACTIVITY)
-    if (eventWindow) {
-      k.activity.allow('defeat', 'commit:event.', OWNER)
-      k.activity.allow('defeat', 'event.start', OWNER, (_s, _doing, _draft, launch) => fromDefeatFlow(launch))
-      k.activity.allow('defeat', 'chain:free_action', OWNER, (s) => eventWindow.active(s) !== null)
-      k.activity.allow('defeat', 'battle.start', OWNER, (_s, _doing, _draft, launch) => fromDefeatFlow(launch))
+    for (const kind of ['defeat', ENTRY_ACTIVITY]) {
+      if (eventWindow) {
+        k.activity.allow(kind, 'commit:event.', OWNER)
+        k.activity.allow(kind, 'event.start', OWNER, (_s, _doing, _draft, launch) => fromDefeatFlow(launch))
+        k.activity.allow(kind, 'chain:free_action', OWNER, (s) => eventWindow.active(s) !== null)
+        k.activity.allow(kind, 'battle.start', OWNER, (_s, _doing, _draft, launch) => fromDefeatFlow(launch))
+      }
+      if (k.activity.get('scene')) for (const prefix of ['scene.start', 'commit:scene.']) k.activity.allow(kind, prefix, OWNER)
     }
-    if (k.activity.get('scene')) for (const prefix of ['scene.start', 'commit:scene.']) k.activity.allow('defeat', prefix, OWNER)
+    // 入口來的戰敗，重來與回到階段在事件視窗或場景開著時也放行（回到快照時整個狀態換掉，開著的視窗一起沒有）；接受不放行（要先演完）
+    for (const kind of [EVENT_ACTIVITY, 'scene']) {
+      if (!k.activity.get(kind)) continue
+      for (const prefix of ['commit:defeat.retry', 'commit:defeat.stage']) k.activity.allow(kind, prefix, OWNER, (s) => defeatOf(s)?.entry !== undefined)
+    }
   },
 }

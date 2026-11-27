@@ -27,6 +27,8 @@ export const FACE_ACTIVITY = 'face.opinion'
 /** 收買被接受時的記帳（rewind.keep 用）：state.ext.opinion_bribes */
 export const BRIBES_EXT = 'opinion_bribes'
 export const WAR_OP = 'opinion.war'
+/** 戰敗的入口（features/defeat 登記的活動；M5-defeat-entry）：被帶走時帶 launch 開，不 import 戰敗；沒有人登記就照舊交回 lost */
+export const DEFEAT_ENTRY = 'defeat.entry'
 
 export const RULE_KIND = 'opinion_rule'
 export const TOPIC_KIND_KIND = 'topic_kind'

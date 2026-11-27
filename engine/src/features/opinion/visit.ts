@@ -2,13 +2,14 @@
 // 玩家按「結算」（opinion.visit，沒有選擇）：留守的人（隊伍裡沒坐編輯台的）擲 d20 ＋ 他們裡最高的戰鬥基本功（槍械、格鬥）＋（人數 − 1）對 DC（12 ＋ 強度 × 2）；
 // 沒有人留守直接擋不住。畫面不切到戰鬥。
 //   擋住：照常打完對手的回合；這一場正在直播（條件 live_on，有人註冊才問）時牌庫多一張「找上門的直播」（料 +4）。
-//   擋不住：對手資料寫 capture 的（幫派、星旗）戰役立刻結束算敗，result.captured；其餘你下一回合不能行動（編輯點 0、不能佔領）。
-// 自己發起的戰役與委託副本同一套（solo 的 captured 沒有人接，之後有戰敗事件再說）。
+//   擋不住：對手資料寫 capture 的（幫派、星旗）戰役立刻結束算敗，被帶走——先開戰敗事件（takenDraft；M5-defeat-entry）；其餘你下一回合不能行動（編輯點 0、不能佔領）。
+// 自己發起的戰役與委託副本同一套。
 
-import type { GameState, Kernel, ReportDraft } from '../../core'
-import { ActionBlocked } from '../../core'
+import type { GameState, Kernel, Launch, ReportDraft } from '../../core'
+import { ActionBlocked, clone } from '../../core'
 import { warBlock } from './cards'
-import { VISIT_ACTION, readWar } from './model'
+import { OPINION_SNAPSHOT } from './faceopen'
+import { DEFEAT_ENTRY, VISIT_ACTION, readWar } from './model'
 import type { War, WarCard } from './model'
 import { Run } from './run'
 import { advance, closeDraft } from './turn'
@@ -35,6 +36,28 @@ export function visitBlock(k: Kernel, state: GameState): string | null {
 }
 
 const isLive = (k: Kernel, state: GameState): boolean => k.conditions.kinds().includes('live_on') && k.conditions.test({ kind: 'live_on' } as never, { state, stats: k.stats, timeRules: k.timeRules })
+
+/**
+ * 被帶走（對手 capture）：世界裡有戰敗的入口（活動 defeat.entry）就先開戰敗事件；沒有就像以前，交回 lost 帶 captured。
+ *   face：戰役清掉、不發這一場的 activity.end——交回由戰敗的接受接手（副本聽 kind defeat，算失敗就回到入口）；「重來」回到開戰前的 opinion 快照。
+ *   solo：照舊結算（標準結果列的敗、議題的 on_end），同一份報告多帶 launch；沒有開戰前的快照，沒有「重來」。
+ * origin 是這一場的發起人（副本的 origin 帶 commission 與 stage，副本認得）。
+ */
+function takenDraft(run: Run): ReportDraft {
+  const { k, state, w } = run
+  if (!k.activity.get(DEFEAT_ENTRY)) return closeDraft(run, VISIT_ACTION)
+  const face = w.mode === 'face'
+  const launch: Launch = {
+    kind: DEFEAT_ENTRY, origin: clone(w.origin),
+    setup: {
+      reason: 'opinion_captured', ...(state.pc ? { who: state.pc } : {}), ...(w.foe.faction !== undefined ? { faction: w.foe.faction } : {}),
+      ...(state.location.district ? { where: state.location.district } : {}), ...(face ? { retry: OPINION_SNAPSHOT } : {}),
+    },
+  }
+  const d = face ? run.draft(VISIT_ACTION, 'captured', run.beats.map((b) => b.text).join(''), { war: null }) : closeDraft(run, VISIT_ACTION)
+  d.launch = [...(d.launch ?? []), launch]
+  return d
+}
 
 /** 結算找上門。 */
 export function resolveVisit(k: Kernel, state: GameState): ReportDraft {
@@ -76,7 +99,7 @@ export function resolveVisit(k: Kernel, state: GameState): ReportDraft {
   if (w.foe.capture === true) {
     run.note('對手的人闖進編輯台，把你帶走了。', { tag: 'opinion.visit.captured', plain: '對手的人闖進編輯台，把你帶走了。' })
     run.finish('visit', undefined, true)
-    return closeDraft(run, VISIT_ACTION)
+    return takenDraft(run)
   }
   w.foe_state.visit_stun = true
   run.note('留守的人沒擋住，編輯台被牽制了一陣：你下一回合動不了。', { tag: 'opinion.visit.stunned', plain: '對手的人鬧了進來，編輯台被攪得動彈不得。' })
