@@ -18,6 +18,7 @@
 | `kind` | `story` 劇情、`check` 檢定、`combat` 現實戰鬥、`netfight` 網內戰鬥、`opinion` 腳本化的輿論戰（一張固定的棋盤，[OPINION](../systems/OPINION.md) 第 3 節）、`choice` 選擇 |
 | 條件 | `flags`、`flags_none`、`flags_any`、`counters`，加上這個世界的：`rep`（街頭信譽的階）、`immersion`（沉溺）、`intimacy`（個人的親密度，[NPC_SYSTEM](../systems/NPC_SYSTEM.md) 7.1 節）、`favor`／`hostility`（勢力的好感與敵對值）、`city_event`（正在發生的城市大事，[LIFE](LIFE.md) 8.2 節）、`weekday`、`hours` |
 
+- 任務點可以帶選填欄位 `feed`（動態牆的貼文）：格式與觸發規則照 [DATA](../systems/DATA.md) 第 4 節；寫在任務點上的貼文，玩家走完那一點才出現。
 - 任務點可以要求**隊友在場**（`allies`）：夥伴在隊上時才出現的選項，是關係線與主線交會的地方。
 - 戰鬥與檢定失敗時，沒寫 `fail` 的可以再試；寫了 `fail` 的照分支走。
 - 需要的固定 NPC 在任務完成前不能被攻擊；和他們的戰鬥用替身敵人。
