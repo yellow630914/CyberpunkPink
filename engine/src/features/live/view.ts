@@ -5,6 +5,8 @@ import type { Kernel } from '../../core'
 import type { GoalCheck, Highlight, HostKind, Mode, Settled, ViewerTier } from './model'
 import { EVENT_NAME, HOST_NAME, VIEWER_TIER_NAME, capOnly, goalMet, liveRules, readLive, subsOfHeat, templateById, viewersFrom } from './model'
 import { riskLines } from './open'
+import { isAdultSession } from './camera'
+import type { SessionCamera } from './model'
 import type { SlotDirection, SlotKind, SlotResult } from './slotrules'
 import { SLOT_DIRECTION_NAME, SLOT_KIND_NAME } from './slotrules'
 import { meterOf } from '../../core'
@@ -36,6 +38,10 @@ export interface LiveSessionView {
   counts: Record<string, number>
   secret: boolean
   risk: string[]
+  /** 選用的鏡頭（視角就是這場直播的視角）；沒有是 null（沒裝 media） */
+  camera: SessionCamera | null
+  /** 第一人稱直播 */
+  first_person: boolean
   /** 現在收播的話會得到多少（目標照現在的次數算、「最多幾次」的不算） */
   projection: { heat: number; subs: number; tips: number }
   /** 時段直播才有：種類、時長、標籤與方向、開播那一擲、這一場熱度的上限（M5-live-slot） */
@@ -83,9 +89,9 @@ export function liveView(k: Kernel, state: GameState): LiveView {
       host: s.host ? { ...s.host, name: HOST_NAME[s.host.kind] } : null,
       heat: s.heat, viewers: { count: v.viewers, base: v.base, mult: v.mult, tier: v.tier, tier_name: VIEWER_TIER_NAME[v.tier] },
       tips: s.tips, goals, highlights: s.highlights.map((h) => ({ ...h, name: h.event === 'highlight' ? '亮點' : (EVENT_NAME[h.event as keyof typeof EVENT_NAME] ?? h.event) })), counts: { ...s.counts },
-      secret: s.secret === true, risk: tpl ? riskLines(tpl, s.secret === true) : [],
+      secret: s.secret === true, risk: tpl ? riskLines(tpl, s.secret === true) : [], camera: s.camera ? { ...s.camera, pov: { ...s.camera.pov } } : null, first_person: s.camera?.first_person === true,
       projection: {
-        heat, subs: toChannel && k.meters.has('subs') ? subsOfHeat(rules, heat, pv.viewers) : 0,
+        heat, subs: toChannel && k.meters.has('subs') ? Math.floor(subsOfHeat(rules, heat, pv.viewers) * (s.camera?.first_person === true && !isAdultSession(s) ? rules.first_person.subs_mult : 1) + 1e-9) : 0,
         tips: Math.floor((heat * rules.heat_tips + done.reduce((n, g) => n + g.tip, 0)) * (s.house?.tips_mult ?? 1) + 1e-9),
       },
       slot: s.mode === 'slot' && s.kind
