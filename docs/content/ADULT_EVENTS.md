@@ -17,7 +17,7 @@
    - `stream`：成人直播或日常直播開著的時候，每一個時段擲一次，機率 20%；戰鬥直播在戰鬥結束時擲一次。
    - 4.7 節的「藥」寫成觸發點 `drug`：用了催情劑（蜜）、牆灰、蜜腺的試用品，或狀態「被下藥」上身之後的下一個回合。
 2. **效果**：直播中的事件多一個效果 `highlight`（亮點）：照那一場直播的模板加熱度，一件最多 +3，只在 `stream` 觸發的事件裡用。熱度只指這個數字。
-3. **體型的版本**：帶 `adult_scene` 的事件照戰敗事件的寫法（DATA 第 5 節）分版本。沒寫的照 `default`。寫了「陽剛（masc）」的，陽剛的主角改用那一行的登場角色與起始體位，主角在那一場是被動的一方；寫了「百合（yuri）」的，陰柔與中性的主角有 30% 走那一行，由女性主導。事件的 `requires` 可以只收某一種體型。
+3. **性別的版本**：帶 `adult_scene` 的事件照戰敗事件的寫法（DATA 第 5 節）分版本，版本照主角的性別抽（不是體型；版本 id 的 `masc` 和體型的「陽剛」是兩回事）：男性主角走 `masc`，女性主角七成 `default`、三成 `yuri`，偽娘、TS、扶他三個都會抽到。沒寫的照 `default`。寫了「男性主角（masc）」的，男性主角改用那一行的登場角色與描寫；寫了「百合（yuri）」的，是女性對象的寫法。**版本只管對象是誰與怎麼寫，不管主被動。**主被動照 `adult_scene` 的 `nature`、`role` 與 LEWD 3.5 節的開場主動權公式（客人或持約人 +20、俘虜 +30、工作或契約人 −20、被迫 −35，對男主角不另扣），開場體位寫在 `start_position`；性交易由付錢的一方主導，主角是客人就主動，主角在打工、被買就被動。公式算不出來的情況寫成兩個選項，或標「玩家選」（兩條路：主角帶、讓對方帶，進場景前由玩家選一次）；標「看對方」的，對方的 `tendency` 或性格有支配、引導時由對方帶，沒有時照公式。事件的 `requires` 可以只收某一種體型。
 4. **對象的性別**：DATA 第 1 節的五個值。偽娘沒有自己的值，寫成 `femboy` 加上 `look: crossdress`（穿女裝的男性，身體沒有改造）；男娘是 `femboy` 本身（照 CULTURE 10.6 節，身體與打扮都往女性調過）。
 5. **篩選標籤**：照 SPEC 與 EVENTS 第 6 節用 `pc_unwilling`、`contract_dom`、`ntr`、`puppet_amnesia`、`blacktape`、`male_partner`、`female_partner`、`ai:<自稱>`、`tendency:<標籤>`。另外補四個：`target_unwilling`（對象非自願，LEWD 第 9 節有這一項但 EVENTS 第 6 節沒有標籤）、`femboy_partner`、`trans_partner`、`futa_partner`（男娘與偽娘、TS、扶他當對象）。對象的性別標籤被關掉時，生成的登場角色改抽沒被關掉的性別；指定的固定 NPC 被關掉時整件不出現。
 6. **夜課的對照**：開場與選項寫明的體位、道具、風格都是夜課（NIGHT_LESSONS）裡有的，`start_position` 用那裡的體位名。事件的選項可以寫「會某個夜課技能的人 +2」，那是技能延伸到日常的那一部分（每個分支三階與五階的延伸技能），要裝進橋才算。
@@ -41,7 +41,7 @@
   2. 問他在哪裡買到那捲帶子（街頭直覺 13）。成功：一則傳聞（誰在轉賣你的帶子），旗標 `tape_reseller`；失敗：他以為你在調情，親密度 +2，事件照選項 3 再問一次。
   3. 答應他（誘惑 10）。大成功：現金 +200、豔名 +2、這個人 `roster_add` 候選；成功：豔名 +2、親密度 +5；失敗：他臨陣退縮，跑掉了；大失敗：他帶了朋友來，`chain` 到 `ev_ad_recog_honey_sister` 的「三個人」版本。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
-     百合（yuri）：$a 改成女性。陽剛（masc）：$a 改成女性或扶他，`start_position`=騎乘（她在上面）。
+     百合（yuri）：$a 改成女性。男性主角（masc）：$a 改成女性或扶他，`start_position`=面對面（主角是 A）。
 - **篩選**：對象的性別照第 5 條改抽。
 
 ### 帶子街的常客（`ev_ad_recog_tape_buyer`）
@@ -55,7 +55,7 @@
   2. 開一個高價讓他知難而退（交涉 16）。大成功：他照付，現金 +600，之後再談錄帶；成功：現金 +300 的訂金、旗標 `private_tape_order`（之後在片場做）；失敗：他把價錢壓回一般行情，現金 +150；大失敗：他記住你，豔名 +2。
   3. 跟他去試聽間後面的錄音室（誘惑 13）。成功：現金 +400、素材一段（親密，品質照鏡頭的等級）；失敗：現金 +150、他嫌你不夠投入，親密度 −2。
      `adult_scene`：when=always、gate=ai、nature=work、role=worker、goal=footage、circles=[[$pc,$a]]。
-     陽剛（masc）：$a 改成扶他或女性收藏家，`start_position`=跪姿（你是被看的那一個）。
+     男性主角（masc）：$a 改成扶他或女性收藏家，`start_position`=跪姿（你是被看的那一個）。
   4. （要有：`blacktape` 開著）他壓低聲音說要一捲「不能上架的」。答應：現金 +900、沉溺 +2、旗標 `blacktape_made`，伊甸園與貞網局之後可以從這捲帶找到你。
 - **篩選**：選項 4 帶 `blacktape`，關掉時不出現。夜課：會「對著鏡頭笑」的人，選項 3 拿到的素材品質 +1。
 
@@ -70,7 +70,7 @@
   2. 收下，查她是誰（調查 13）。大成功：她的名字、部門與一個會讓她丟工作的把柄（旗標 `exec_leverage`）；成功：她的名字與部門；失敗：沒查到；大失敗：她的保全注意到你，hizakura 敵對值 +3。
   3. 週五赴約（誘惑 13）。成功：一張一次性的冠冕區憑證（`item` `pass_crown_once`）、親密度 +5；失敗：她只請你喝了一杯，現金 0，親密度 +1。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
-     百合（yuri）：照常（她本來就是女性），主動權開場 −10。陽剛（masc）：`start_position`=騎乘，她在上面，主動權開場 −20。
+     百合（yuri）：照常（她本來就是女性）。男性主角（masc）：照常，`start_position`=騎乘（她在上面）。看對方：她有支配傾向（企業主管，習慣由她安排）時主動權開場 −10、由她帶；沒有這個傾向時照開場公式。
 - **篩選**：`female_partner` 關掉時 $a 改成男性主管。
 
 ### 隔壁的大學生（`ev_ad_recog_neighbor`）
@@ -84,7 +84,7 @@
   2. 笑一笑，把話題岔開（表演 10）。成功：沒事，親密度 +1；失敗：消息在樓裡傳開，蜂巢豔名 +2、鄰里 −1。
   3. 問他要不要進來喝杯茶（誘惑 10）。成功：親密度 +6；失敗：他落荒而逃，親密度 −2。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：照常，他主動，`start_position`=騎乘。
+     男性主角（masc）：照常。玩家選：主角帶（`start_position`=面對面，主角是 A），或讓他帶（`start_position`=騎乘，他在上面）。
 - **篩選**：`femboy_partner` 關掉時 $a 改成女大學生。`tendency:性別流動` 有的主角權重 ×(1 ＋ 等級 × 0.2)；夜課的「讓我看看你」在這一場用得到。
 
 ### 地下二階的同行（`ev_ad_recog_rival_idol`）
@@ -98,7 +98,7 @@
   2. 給她看你在台上怎麼做（表演 16）。大成功：她拜你當前輩，親密度 +8、櫻町豔名 +2；成功：親密度 +4；失敗：她說你也不過如此；大失敗：她拍下來發到應援圈，櫻町豔名 +2、她的親密度 −3。
   3. 讓她自己來試（誘惑 13）。成功：親密度 +6、體悟 +3；失敗：她先親了你，然後罵自己，親密度 +2。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
-     百合（yuri）：這一件本來就是女性對象，陰柔與中性的主角 30% 由她主導（主動權開場 −20）。陽剛（masc）：她主導，`start_position`=面對面，她是 A。
+     百合（yuri）、男性主角（masc）：照常（她本來就是女性）。玩家選：主角帶（`start_position`=面對面，主角是 A），或讓她帶（她是 A）。
 - **篩選**：`female_partner` 關掉時整件不出現。`tendency:偶像`（扮相）相合時權重加成；夜課「要看好喔」的人選項 2 +2。
 
 ### 蜜糖會的姐姐們（`ev_ad_recog_honey_sister`）
@@ -112,7 +112,7 @@
   2. 向她們打聽伊甸園最近在找誰（街頭直覺 13）。成功：一則情報、蜜糖會好感 +1；失敗：她們說休假不談公事，親密度 −1。
   3. 跟她們走（誘惑 13）。大成功：蜜糖會好感 +3、四十二番街豔名 +2、體悟 +3；成功：蜜糖會好感 +2；失敗：只有一位跟你上樓，另外兩位先走了（circles 縮成兩人）。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a,$b]]（三人版本再加一圈 [[$c]] 或併進同一圈，最多四人）、`start_position`=夾在中間。
-     百合（yuri）：陰柔與中性的主角在中間，由她們主導。陽剛（masc）：主角在中間被動，`start_position`=夾在中間（主角是 B）。
+     百合（yuri）：照常（她們本來就是女性）。男性主角（masc）：照常，`start_position`=夾在中間（主角是 B）。看對方：蜜糖會的姐姐們是帶人、寵人的引導型，由她們帶；$c 是生成的人時，沒有支配傾向就照開場公式。
 - **篩選**：`tendency:群與融合` 關掉時只剩一位，circles 是兩人。`futa_partner`、`femboy_partner` 關掉時 $c 不登場。夜課的「三王一后」「一手一個」在這一場用得到。
 
 ### 伊甸園的星探（`ev_ad_recog_eden_scout`）
@@ -132,14 +132,14 @@
 
 - **在哪、條件**：成人事件；舊港倉庫區、南門，夜晚與深夜；`enter_block`、`enter_bridge`；requires 舊港豔名 40 以上。
 - **類型**：麻煩；權重 3；重複間隔 5 天。
-- **登場**：$a、$b 鉻娘子的兩個人（女性，半機娘，II～III 級），陽剛版本裡 $a 換成一位兩公尺高的鉻娘子打手。
+- **登場**：$a、$b 鉻娘子的兩個人（女性，半機娘，II～III 級），男性主角版本裡 $a 換成一位兩公尺高的鉻娘子打手。
 - **開場**：倉庫的捲門底下透出焊槍的藍光，兩個手臂換成液壓臂的女人靠在一輛改裝機車上吹口哨。其中一個用金屬手指敲了敲油箱，說熔爐今晚有黑拳，帶子裡的人來看一場，她們請客。
 - **選項**：
   1. 推說有事，快步走開（運動 13）。成功：沒事；失敗：她們跟上來，`chain` 到選項 2 再擲一次；大失敗：開一場戰鬥（chrome，II 級）。
   2. 盯回去，叫她們讓路（威嚇 16）。成功：chrome 好感 +2（她們欣賞有膽的人）；失敗：chrome 敵對值 +3，她們拿走你的現金晶片的一半（`cash` −50%，上限 C$300）。
   3. 跟她們去看黑拳（交涉 10）。成功：`move` 到熔爐的黑拳場、chrome 好感 +3、可以下注；之後一位請客的人約你去車廠後面。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：$a 是那位打手，她主導，`start_position`=抱起來（她把你抱起來）。
+     男性主角（masc）：$a 是那位打手。玩家選：讓她把你抱起來（`start_position`=抱起來，她是 A），或主角帶（`start_position`=靠牆，主角是 A）。
 - **篩選**：選項 2 的大失敗原本是「她們把你架上車」，標 `pc_unwilling`；關掉時改成上面寫的現金被拿走。`tendency:半機娘` 相合時權重加成；夜課「冰涼的手」「插槽」道具在這一場用得到。
 
 ### 車廂裡貼過來的人（`ev_ad_recog_train`）
@@ -168,7 +168,7 @@
   3. 跟她談分成（交涉 16）。成功：之後每週帳單 −C$40（分成，持續四週，旗標 `doujin_royalty`）；失敗：她說同人本沒有分成這回事。
   4. 說你可以照本子裡的內容演一次給她看（誘惑 13）。成功：親密度 +6、doujin 好感 +2、體悟 +3；失敗：她笑到把本子掉在地上，親密度 +2。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：她主導，`start_position`=從後面（她是 A）。
+     男性主角（masc）：照常（她本來就是扶他）。玩家選：讓她帶（`start_position`=從後面，她是 A），或主角帶（照本子演，主角是 A）。
 - **篩選**：`futa_partner` 關掉時 $a 改成女性作者。選項 4 帶 `tendency:妄想`；夜課「照那本來演」在這一場用得到。
 
 ### 鏡廳外的名片（`ev_ad_recog_glass_lady`）
@@ -182,7 +182,7 @@
   2. 問她要什麼（交涉 13）。成功：知道她要的是有人陪她說話，親密度 +4，現金 +300（陪她吃一頓晚餐）；失敗：她嫌你問太多，關上車窗。
   3. 上車（誘惑 13）。大成功：現金 +1200、一件玻璃岸的高訂服裝（`item`，等級不超過 III）、親密度 +6；成功：現金 +800、時間 +12；失敗：現金 +300，她說下次再說。
      `adult_scene`：when=success、gate=ai、nature=trade、role=worker、goal=please、circles=[[$pc,$a]]、`start_position`=膝上（她是 A）。
-     百合（yuri）：照常。陽剛（masc）：照常，她主導。
+     百合（yuri）：照常。男性主角（masc）：照常。
 - **篩選**：`tendency:溺愛` 相合時權重加成；`female_partner` 關掉時 $a 改成男性富人。
 
 ### 狗仔的長鏡頭（`ev_ad_recog_paparazzi`）
@@ -215,7 +215,7 @@
   2. 不戴，用清醒模式陪他（表演 13，需要名媛的清醒模式或琉璃宮的許可）。大成功：收入 ×0.7、一則情報（他公司的事，旗標 `ruri_intel`）、親密度 +5；成功：收入 ×0.7、一則傳聞；失敗：他發現你在套話，eden 好感 −2。
   3. 跟領班說你不接指名（交涉 13）。成功：換一位客人，收入照常；失敗：eden 好感 −3、這一班的收入 −50%。
   `adult_scene`（選項 1、2）：when=success、gate=fixed、nature=work、role=worker、goal=please（選項 2 是 info）、circles=[[$pc,$a]]。
-  陽剛（masc）：$a 改成女性主管，`start_position`=跪姿（她坐著，你跪著）。
+  男性主角（masc）：$a 改成女性主管，`start_position`=跪姿（她坐著，你跪著）。
 - **篩選**：選項 1 帶 `puppet_amnesia`，關掉時不出現，晶片的規則改成「戴著但記得」。夜課的「今晚的客人」穿歡場風格時這一班收入 +15%；「說悄悄話」在選項 2 讓情報多一條。
 
 ### 喝醉的主管說漏嘴（`ev_ad_venue_ruri_exec`）
@@ -230,7 +230,7 @@
   3. 塞錢給人偶的領班，換她今晚的錄音（交涉 16）。成功：素材一段（醜聞類，品質 2）、現金 −400；失敗：領班報給園方，eden 敵對值 +3。
   4. 留下來陪他（誘惑 13）。成功：一則情報、現金 +200；失敗：他睡著了，一則傳聞。
      `adult_scene`：when=success、gate=ai、nature=trade、role=guest、goal=info、circles=[[$pc,$a,$b]]。
-     百合（yuri）：$a 改成女性主管。陽剛（masc）：$a 改成女性主管，$b 照常，`start_position`=夾在中間（主角是 B）。
+     百合（yuri）：$a 改成女性主管。男性主角（masc）：$a 改成女性主管，$b 照常，`start_position`=夾在中間（主角是 A，$b 在中間）。
 - **篩選**：$b 是戴著晶片的人偶，`puppet_amnesia` 關掉時她改成清醒模式的人偶，circles 不變。
 
 ### 逃出來的人偶（`ev_ad_venue_hanmu_runaway`）
@@ -258,7 +258,7 @@
   2. 按下床頭的呼叫鈴（定力 10）。成功：領班進來結束這一班，收入 ×0.5；失敗：鈴沒有響，`chain` 回選項 1。
   3. 跟他們說你醒了，問他們要不要繼續（誘惑 13）。成功：收入 ×1.5、親密度各 +3；失敗：他們嚇到，收入 ×0.5。
      `adult_scene`：when=success、gate=ai、nature=work、role=worker、goal=please、circles=[[$pc,$a,$b]]、`start_position`=夾在中間。
-     百合（yuri）：$a、$b 改成女性客人。陽剛（masc）：$a 改成女性，$b 改成扶他，主角是 B。
+     百合（yuri）：$a、$b 改成女性客人。男性主角（masc）：$a 改成女性，$b 改成扶他，主角是 B。
 - **篩選**：整件帶 `puppet_amnesia`，關掉時整件不出現。
 
 ### 包廂的雙人指名（`ev_ad_venue_overload_vip`）
@@ -270,7 +270,7 @@
 - **選項**：
   1. 進去陪她們（誘惑 13）。大成功：現金 +600、四十二番街豔名 +3、兩人親密度各 +3；成功：現金 +400；失敗：現金 +100，她們嫌你太緊張。
      `adult_scene`：when=success、gate=ai、nature=work、role=worker、goal=please、circles=[[$pc,$a,$b]]、`start_position`=夾在中間。
-     陽剛（masc）：照常，主角是 B，她們主導。
+     男性主角（masc）：照常，`start_position`=夾在中間（主角是 B）。
   2. 只陪她們喝酒跳舞（表演 13）。成功：現金 +200；失敗：現金 +80、領班的親密度 −2。
   3. 找另一位同事一起進去（交涉 13）。成功：現金 +300、circles 分成兩圈；失敗：同事不肯，照選項 1 或 2 再選。
 - **篩選**：`femboy_partner` 關掉時 $b 改成女性；`tendency:群與融合` 關掉時 $b 不登場。夜課的「今晚的客人」穿歡場風格時收入 +15%。
@@ -286,7 +286,7 @@
   2. 順著音樂一直跳到天亮（運動 13）。成功：感載 +15、四十二番街豔名 +2、時間 +4；失敗：感載 +20、餘韻 +1。
   3. 跟那個人到樓上的休息區（誘惑 10）。成功：親密度 +4、感載 +10。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]、`start_position`=靠牆。
-     百合（yuri）：$a 改成女性。陽剛（masc）：$a 改成女性或扶他，她主導。
+     百合（yuri）：$a 改成女性。男性主角（masc）：$a 改成女性或扶他，`start_position`=靠牆（主角是 A）。
 - **篩選**：選項 3 帶 `tendency:野外`。
 
 ### 後台的女 DJ（`ev_ad_venue_overload_dj`）
@@ -300,7 +300,7 @@
   2. 說你明天還要上班（交涉 10）。成功：她把那段音檔傳給你，素材一段（日常，品質 1）；失敗：她不高興，親密度 −2。
   3. 把耳機戴到她頭上，換你來放（誘惑 13）。成功：親密度 +6、體悟 +3。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]、`start_position`=面對面。
-     百合（yuri）：她主導（選項 1 成功時直接進）。陽剛（masc）：她主導，`start_position`=騎乘。
+     百合（yuri）、男性主角（masc）：照常（她本來就是女性）。選項 3 成功時由主角帶，`start_position`=面對面（主角是 A）；選項 1 成功時直接進場景，由她帶（`start_position`=騎乘，她在上面）。
 - **篩選**：`female_partner` 關掉時 $a 改成男性 DJ。選項 1 帶 `tendency:聲音`；夜課「咬耳朵」與道具「只給你聽」在這一場用得到。
 
 ### 對手演員沒來（`ev_ad_venue_studio_costar`）
@@ -312,7 +312,7 @@
 - **選項**：
   1. 照拍（表演 13）。大成功：現金 +500、豔名 +3、素材一段（親密，品質 3）；成功：現金 +350、豔名 +2；失敗：現金 +150，導演說要重拍。
      `adult_scene`：when=always、gate=fixed、nature=work、role=worker、goal=footage、circles=[[$pc,$b]]。
-     陽剛（masc）：$b 改成扶他或女性，她主導，`start_position`=從後面（她是 A）。百合（yuri）：$b 改成女性。
+     男性主角（masc）：$b 改成扶他或女性，`start_position`=從後面（她是 A）。百合（yuri）：$b 改成女性。
   2. 要求換一位你認識的演員（交涉 13）。成功：`roster_add` 一位你名冊上的人代替 $b，現金照選項 1；失敗：導演說今天不拍了，現金 0。
   3. 叫導演自己下來演（誘惑 16）。成功：導演的親密度 +6，現金 +450，素材一段。
      `adult_scene`：when=success、gate=ai、nature=work、role=worker、goal=footage、circles=[[$pc,$a]]。
@@ -342,7 +342,7 @@
   1. 自己錄完（定力 13，撐得越久收入越高）。大成功：現金 +600、素材一段（品質 4）；成功：現金 +400；失敗：太快就過載了，現金 +200、餘韻 +1。
   2. 叫錄音師一起進錄音間（誘惑 13）。成功：現金 +500、親密度 +4。
      `adult_scene`：when=success、gate=ai、nature=work、role=worker、goal=footage、circles=[[$pc,$a]]。
-     陽剛（masc）：他主導，`start_position`=並躺。
+     男性主角（masc）：照常（錄音師本來就是男娘），`start_position`=並躺。
   3. 只錄一段說話（表演 10）。成功：現金 +150；失敗：現金 +80。
 - **篩選**：`femboy_partner` 關掉時 $a 改成女性。整件帶 `tendency:聲音`；夜課的「整夜開麥」在這一場不生效（這裡沒有直播），「說悄悄話」讓選項 3 的現金 ×1.5。
 
@@ -355,7 +355,7 @@
 - **選項**：
   1. 上場（開一場感官擂台：感載對感載，LEWD 第 6 節）。贏：現金 +400（加上自己押的注）、四十二番街豔名 +3；輸：現金 0、餘韻照擂台。輸的一方的後續：
      `adult_scene`：when=fail（主角輸）或 success（主角贏，對方輸），gate=ai，nature=trade，role=guest（贏）或 worker（輸），goal=none，circles=[[$pc,$a]]。
-     陽剛（masc）且輸：$a 是女性或扶他時她主導，`start_position`=騎乘。百合（yuri）：$a 改成女性。
+     男性主角（masc）且輸：$a 是女性或扶他時，`start_position`=騎乘（贏的她在上面）。百合（yuri）：$a 改成女性。
   2. 押別人（街頭直覺 13）。大成功：現金 +300；成功：現金 +150；失敗：現金 −100；大失敗：現金 −200。
   3. 拒絕，留下來看（定力 10）。成功：一則傳聞（誰最近常來）；失敗：觀眾的低頻讓你感載 +10。
 - **篩選**：對象照第 5 條改抽。輸了之後的場景是上場前說好的賭約（nature=trade），所以不標 `pc_unwilling`；上場前可以把賭約改成只賭錢，那時輸贏都不帶 `adult_scene`。
@@ -384,7 +384,7 @@
   2. 用針孔把鏡子後面的人錄下來（隱匿 19）。成功：素材一段（醜聞，品質 4）；失敗：被會員的保全請出去，旗標 `mirrorhall_banned`。
   3. 戴上面具走進去（誘惑 13）。大成功：兩位都選你，玻璃岸豔名 +2、一則情報；成功：一位選你；失敗：沒有人選你，你在旁邊看完全場（`tendency` 窺視 +1）。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none（大成功時 info）、circles=[[$pc,$a,$b]]（成功時只有 [[$pc,$a]]）。
-     陽剛（masc）：$a 主導，主角在中間，`start_position`=夾在中間。百合（yuri）：$b 改成女性。
+     男性主角（masc）：照常，`start_position`=夾在中間。玩家選：主角在中間（B，兩人都帶他），或主角在前面（A，$a 在中間）。百合（yuri）：$b 改成女性。
 - **篩選**：選項 2 偷錄標 `target_unwilling`，關掉時不出現。選項 3 帶 `tendency:窺視`；夜課「有人在看」「全場都看過來」在這一場用得到。
 
 ### 隔壁的牆很薄（`ev_ad_venue_lovehotel`）
@@ -398,7 +398,7 @@
   2. 拿枕頭塞住冷氣孔，繼續睡（機械 10）。成功：照常休息；失敗：冷氣孔掉下來，`bill` 旅館的賠償 C$40。
   3. 過去喝一杯（誘惑 13）。成功：$c 的親密度 +3、兩位鄰客的親密度 +4。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a],[$c,$b]]（兩圈，玩家可以換圈）。
-     陽剛（masc）：$a 改成女性，她主導。
+     男性主角（masc）：$a 改成女性。
   4. 只有你一個人過去（誘惑 13）。成功：兩位鄰客的親密度 +4；$c 的親密度 −3（他是戀人時 −6）。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a,$b]]、`start_position`=夾在中間。
 - **篩選**：選項 3 在 $c 是主角的戀人時標 `ntr`（交換對象），關掉時改成四個人同一圈、各自只和自己的伴侶連接（circles=[[$pc,$c],[$a,$b]]，兩圈在同一個房間）。`tendency:群與融合`、`tendency:窺視` 相合時權重加成。
@@ -420,7 +420,7 @@
     1. 讓她帶你回糖罐（交涉 10）。成功：生命值回到一半、honey 好感 +2、`move` 糖罐；失敗：照樣帶回去，欠一個小人情。
     2. 自己站起來走（運動 13）。成功：沒事；失敗：又倒了一次，時間 +2。
     3. 跟她說謝謝，問她今晚有沒有事（誘惑 13）。成功：親密度 +5。
-       `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]、`start_position`=並躺。百合（yuri）：照常。陽剛（masc）：她主導。
+       `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]、`start_position`=並躺。百合（yuri）：照常。男性主角（masc）：照常（她本來就是女性）。玩家選：主角帶，或讓她帶。
   - 好心人：
     1. 讓他扶你去旅館坡休息（交涉 10）。成功：時間 +4、短休、親密度 +3；失敗：他扶你進旅館後拿走了你的現金（`cash` −50%，上限 C$300）。
     2. 謝謝他，叫一台浮空計程車（現金 −C$40）。
@@ -443,7 +443,7 @@
   2. 跟她說你是被誰打倒的（街頭直覺 13）。成功：她要去討回來，tokko 好感 +3、`start_commission` 小型（一起去教訓那個人）；失敗：她不信。
   3. 說你沒錢，問她要怎麼還（誘惑 13）。成功：她把你扛回神社後面的小屋，親密度 +5。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]、`start_position`=面對面（她是 A）。
-     百合（yuri）：她主導（揪領子）。陽剛（masc）：她主導，`start_position`=騎乘。
+     百合（yuri）：照常（她本來就是女性，揪領子）。男性主角（masc）：照常，`start_position`=騎乘（她在上面）。看對方：特攻姬是強勢型，有支配傾向，兩個版本都由她帶。
 - **篩選**：`female_partner` 關掉時整件不出現。`tendency:特攻`（扮相）相合時權重加成；夜課「揪領子」「立正」在這一場用得到。
 
 ### 鄰居把你拖進門（`ev_ad_downed_hive`）
@@ -457,7 +457,7 @@
   2. 讓他替你處理傷口（醫療 13，由鄰居擲）。成功：生命值 +一半、親密度 +3；失敗：他的手抖得太厲害，親密度 +3。
   3. 留下來，跟他擠一張床（誘惑 10）。成功：親密度 +5、鄰里 +1。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]、`start_position`=並躺。
-     佐伯遙：`start_position`=膝上（她是 A）。陽剛（masc）：她主導。
+     佐伯遙：`start_position`=膝上（主角是 A；她很少主導，同 `ev_ad_bond_haruka`）。男性主角（masc）：照常（鄰居本來就是男娘或女性）。看對方：鄰居有支配傾向時由他帶，否則照開場公式。
 - **篩選**：`femboy_partner` 關掉時鄰居是女性；`tendency:溺愛` 相合時權重加成，夜課「膝上」用得到。
 
 ### 野良的毛毯（`ev_ad_downed_rooftop`）
@@ -471,7 +471,7 @@
   2. 跟她講道理（交涉 13）。成功：她放你走，親密度 +3；失敗：她把你的鞋子藏起來，時間 +2。
   3. 讓她「收養」你一晚（誘惑 10）。成功：親密度 +6、nora 好感 +2。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]、`start_position`=交纏。
-     陽剛（masc）：她主導，`start_position`=騎乘。
+     男性主角（masc）：照常，`start_position`=騎乘。看對方：野良有支配傾向（撿到的東西歸撿到的人）時由她在上面，否則照開場公式。
 - **篩選**：`tendency:獸` 帶在選項 3，關掉時選項 3 改成「讓她陪你睡到天亮」（不進場景，親密度 +3）。夜課「蹭蹭」「喵尾」道具在這一場用得到。
 
 ### 白銀車的出勤（`ev_ad_downed_angel`）
@@ -485,7 +485,7 @@
   2. 升級（現金 −C$200）。生命值全滿、餘韻全消、親密度 +3。
   3. 問她全套照護包括什麼（誘惑 13）。成功：生命值全滿、`bill` +C$150、親密度 +5。
      `adult_scene`：when=success、gate=ai、nature=trade、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：她主導（聽診）。百合（yuri）：照常。
+     男性主角（masc）：照常，描寫帶聽診（護理員用聽診器替主角做全套檢查）。百合（yuri）：照常。
 - **篩選**：`tendency:護士`（扮相）相合時權重加成；夜課「聽診」與道具「心音」在這一場用得到。$a 是男娘時跟著 `femboy_partner`。
 
 ### 燈籠巷的醉客（`ev_ad_downed_lantern`）
@@ -498,7 +498,7 @@
   1. 用最後的力氣推開他（格鬥 13）。成功：他跌坐在地上，你走掉；失敗：他壓住你的手腕，`chain` 到選項 3 的處置。
   2. 叫居酒屋的老闆（表演 10）。成功：老闆拿著掃帚出來，他跑了；失敗：沒人聽見。
   3. 等你的人找過來（只有隊伍或同行裡有人時）。$b 擲街頭直覺 13：成功：$b 找到你，$a 被趕走，$b 的親密度 +3；失敗：$b 晚到，你的現金晶片不見了（`cash` −50%）。
-- **篩選**：選項 1 的失敗原本進一場 `adult_scene`（nature=forced、role=none、circles=[[$pc,$a]]），標 `pc_unwilling`；關掉時改成「他翻走你的錢包就跑了」（`cash` −50%，上限 C$300），開場的「解你外套的扣子」改成「翻你外套的口袋」。陽剛（masc）的 forced 分支：$a 改成扶他。
+- **篩選**：選項 1 的失敗原本進一場 `adult_scene`（nature=forced、role=none、circles=[[$pc,$a]]），標 `pc_unwilling`；關掉時改成「他翻走你的錢包就跑了」（`cash` −50%，上限 C$300），開場的「解你外套的扣子」改成「翻你外套的口袋」。男性主角（masc）的 forced 分支：$a 改成扶他。
 
 ### 胭脂堂的人情（`ev_ad_downed_oldport`）
 
@@ -511,7 +511,7 @@
   2. 記帳（`owed` 欠胭脂堂一個小人情）。
   3. 問她能不能用別的還（誘惑 13）。成功：帳一筆勾銷、親密度 +5。
      `adult_scene`：when=success、gate=ai、nature=trade、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：她主導，`start_position`=騎乘。百合（yuri）：照常。
+     男性主角（masc）：照常，`start_position`=騎乘。百合（yuri）：照常。看對方：$a 是奈奈時她有支配傾向（算好的人情，由她帶，同 `ev_ad_bond_nana`）；是跑腿的人時照開場公式。
 - **篩選**：`tendency:恩與債` 相合時權重加成；夜課「這次算我的」在這一場用得到。$a 是奈奈時，奈奈的親密度要 40 以上才有選項 3。
 
 ---
@@ -544,7 +544,7 @@
   3. 忍到它過去（定力 16）。成功：感載 +10，十二小時後退回潛伏；失敗：感載加到上限的一半、餘韻 +1。
   4. 找一個人（誘惑 10）。成功：感載歸零、蠕蟲退回潛伏；對象是夥伴時親密度 +3。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：$a 是女性或扶他時她主導。百合（yuri）：$a 是女性時她主導。
+     百合（yuri）、男性主角（masc）：$a 照原本的性別，不另改。玩家選：主角帶，或讓 $a 帶（主角在發情，兩條都說得通）；$a 是夥伴時，看那位的支配傾向。
 - **篩選**：選項 4 的對象照性別篩選改抽。
 
 ### 蠕蟲傳到你身邊的人（`ev_ad_mw_worm_spread`）
@@ -570,8 +570,8 @@
   1. 用另一隻手把它扳回來（運動 13）。成功：沒事；失敗：他給你一巴掌，狀態「受驚」，這一區豔名 +1。
   2. 道歉，說是義體故障（交涉 13）。成功：他半信半疑地走開；失敗：他叫保全，時間 +1。
   3. 把錯就錯，跟他搭話（誘惑 16）。成功：親密度 +4，他約你在附近的旅館；失敗：他躲開。
-     `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：$a 改成女性，她主導。
+     `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]，主動權開場 −35（義肢被傀儡絲帶著走，照被迫算）。
+     男性主角（masc）：$a 改成女性。
   4. 當場關掉那件義肢的電源（義體學 13）。成功：義肢鎖 6 小時（`lock`），沒事；失敗：鎖 12 小時。
 - **篩選**：對象照性別篩選改抽。
 
@@ -585,8 +585,8 @@
   1. 搶下遙控器（格鬥 16，腿不聽使喚，所以 DC 照寫）。成功：`item` 傀儡絲的遙控器（之後清除的 DC −3）；失敗：開一場戰鬥（chrome，II～III 級），你這一場的移動 −1。
   2. 跟她談，要她放了你（交涉 16）。成功：她拔掉你的絲，要你欠熔爐一個中人情；失敗：她讓你在巷子裡站了一個小時，時間 +1、感載 +10。
   3. 問她想看什麼（誘惑 13）。成功：她拔掉你的絲，親密度 +5，chrome 好感 +2。
-     `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：她主導，`start_position`=綁縛（她是 A，主角的手是被絲鎖住的）。
+     `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]、`start_position`=綁縛（她是 A，主角的手是被絲鎖住的），主動權開場 −35（照被迫算）。
+     男性主角（masc）：照常（她本來就是女性）。
 - **篩選**：開場「被遙控走進巷子」之後如果直接被她用絲擺布，那個分支標 `pc_unwilling`（選項 2 的失敗原本是 forced 的 `adult_scene`）；關掉時改成上面寫的「站了一個小時」。`tendency:半機娘`、`tendency:束縛` 相合時權重加成。
 
 ### 竊聽花：有人拿著你的紀錄來（`ev_ad_mw_bug_blackmail`）
@@ -600,8 +600,8 @@
   2. 叫她滾，起身離開（定力 10）。成功：沒事，但那段紀錄被放到帶子街，豔名 +3；失敗：同上，並且狀態「受驚」。
   3. 答應當她的內線（交涉 13）。成功：每週一筆現金 +C$300（旗標 `corp_informant`），那家企業的好感 +3；失敗：她開的條件更差。
   4. 問她自己要什麼（誘惑 16）。成功：她把那段紀錄刪掉，親密度 +4，一則情報。
-     `adult_scene`：when=success、gate=ai、nature=trade、role=guest、goal=info、circles=[[$pc,$a]]。
-     陽剛（masc）：她主導。百合（yuri）：照常。
+     `adult_scene`：when=success、gate=ai、nature=trade、role=worker、goal=info、circles=[[$pc,$a]]。
+     男性主角（masc）：照常（她本來就是女性）。百合（yuri）：照常。
 - **篩選**：選項 3 原本是「簽一份刑事契約當內線」，標 `contract_dom`；這裡寫的版本不帶契約，所以不標。`female_partner` 關掉時 $a 改成男性。
 
 ### 竊聽花：反過來用（`ev_ad_mw_bug_reverse`）
@@ -637,7 +637,7 @@
 - **狀態「蜜」之後的分支**：
   - 隊友先到：隊友帶你回據點。可以進場景：`adult_scene` when=always、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$b]]；略過時隊友陪你到藥效退掉，親密度 +3。
   - 店家先到：保全把你帶到後門，你在一張摺疊椅上醒來，錢包少了一半（`cash` −50%，上限 C$300）。
-  - 陌生人先到：$a 扶你出門。標 `pc_unwilling` 的分支：`adult_scene` when=always、gate=ai、nature=forced、role=none、goal=none、circles=[[$pc,$a]]；陽剛（masc）時 $a 改成女性或扶他。
+  - 陌生人先到：$a 扶你出門。標 `pc_unwilling` 的分支：`adult_scene` when=always、gate=ai、nature=forced、role=none、goal=none、circles=[[$pc,$a]]；男性主角（masc）時 $a 改成女性或扶他。
 - **篩選**：「陌生人先到」標 `pc_unwilling`；關掉時改成店家的分支。`tendency:藥` 不加權重（被下藥和喜歡藥是兩回事）。
 
 ### 蜜的高峰（`ev_ad_drug_honey_peak`）
@@ -651,7 +651,7 @@
   2. 去過載跳到藥效退掉（運動 13）。成功：感載 +10、四十二番街豔名 +1、時間 +4；失敗：在舞池被人帶走，`chain` 到 `ev_ad_venue_overload_floor` 的選項 3。
   3. 叫他過來（誘惑 10）。成功：親密度 +3、`tendency` 藥 +1。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：$a 是女性或扶他時她主導。百合（yuri）：$a 是女性時她主導。
+     百合（yuri）、男性主角（masc）：$a 照原本的性別，不另改。玩家選：主角帶，或讓 $a 帶（藥是主角自己用的，兩條都說得通）；$a 是夥伴時，看那位的支配傾向。
 - **篩選**：`tendency:藥` 相合時權重加成；關掉時選項 3 不寫進傾向。夜課「媚香」在這一場用得到。
 
 ### 蜜的戒斷（`ev_ad_drug_honey_withdrawal`）
@@ -665,7 +665,7 @@
   2. 不買，去糖罐的互助診所（定力 13）。成功：honey 好感 +2、戒斷的效果減半一週；失敗：你在半路又折回來，照選項 1 或 3。
   3. 用別的付（誘惑 13）。成功：拿到一瓶蜜（`item`）、親密度 +3。
      `adult_scene`：when=success、gate=ai、nature=trade、role=worker、goal=please、circles=[[$pc,$a]]、`start_position`=靠牆。
-     陽剛（masc）：他主導。
+     男性主角（masc）：照常（藥頭本來就是男娘）。
   4. 搶走（格鬥 13）。成功：一瓶蜜，honey 敵對值 +2；失敗：他的朋友從樓梯上下來，開一場戰鬥（honey，I 級）。
 - **篩選**：`femboy_partner` 關掉時 $a 改成女性藥頭。
 
@@ -680,7 +680,7 @@
   2. 吐掉吸管，在旁邊看（定力 13）。成功：一則傳聞；失敗：泡泡太多了，照選項 1 的失敗。
   3. 跟她們上屋頂（誘惑 10）。成功：festival 好感 +3、體悟 +3。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a,$b,$c]]、`start_position`=三王一后・騎乘。
-     陽剛（masc）：$c 換成女性，主角被動。百合（yuri）：$b、$c 換成女性。
+     男性主角（masc）：$c 換成女性。玩家選：主角在中間（三人圍著他），或主角是圍著的三人之一（$a 在中間）。百合（yuri）：$b、$c 換成女性。
   4. 趁亂找人（街頭直覺 13）。成功：找到一個你在找的人，一則情報；失敗：時間 +4。
 - **篩選**：`tendency:群與融合` 關掉時 circles 只剩 [[$pc,$a]]；`tendency:藥` 相合時權重加成。
 
@@ -709,7 +709,7 @@
   3. 搶一瓶回去給澄或縫縫分析（隱匿 13）。成功：`item` 試用品一瓶、nectar 敵對值 +1；失敗：nectar 敵對值 +3。
   4. 試用，然後和另一位試用者一起留下來觀察（誘惑 10）。成功：一項橋參數 +1、現金 +300、nectar 好感 +2。
      `adult_scene`：when=success、gate=ai、nature=work、role=worker、goal=none、circles=[[$pc,$a,$b]]。
-     陽剛（masc）：$b 是扶他，主角被動。
+     男性主角（masc）：$b 是扶他。
 - **篩選**：`femboy_partner` 關掉時 $a 改成女性推廣員。選項 4 帶 `tendency:藥` 與 `tendency:變形`（試用品是生體的），任一被關掉時選項 4 不出現。
 
 ### 鎮靜劑和蜜一起吃了（`ev_ad_drug_mixup`）
@@ -735,15 +735,15 @@
 
 - **在哪、條件**：成人事件；冠冕區，白天；`outfit`；requires 曝露度 1 以上。
 - **類型**：麻煩；權重 4；重複間隔 3 天。
-- **登場**：$a 企業保全的禮儀官（女性，hizakura 或 kaleido），陽剛版本也是她。
+- **登場**：$a 企業保全的禮儀官（女性，hizakura 或 kaleido），男性主角版本也是她。
 - **開場**：你走出冠冕門不到五十公尺，一個戴白手套的保全擋在你面前，她的視線從你的領口慢慢移到你的鞋尖。她說冠冕區的公共空間有服裝規範，你可以選擇罰款，或跟她到旁邊的更衣室換一件。
 - **選項**：
   1. 付罰款（現金 −C$150）。沒事。
   2. 披上外套，扣好（要有外套）。曝露度照扣上的算，沒事。
   3. 跟她爭（交涉 16）。成功：她讓你走，記下你的橋 ID（hizakura 敵對值 +1）；失敗：罰款加倍，hizakura 敵對值 +3。
   4. 跟她去更衣室（誘惑 13）。成功：她不開罰單，親密度 +4，一張一次性的冠冕區憑證（`item`）。
-     `adult_scene`：when=success、gate=ai、nature=trade、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：她主導，`start_position`=靠牆（她是 A）。百合（yuri）：照常。
+     `adult_scene`：when=success、gate=ai、nature=trade、role=worker、goal=none、circles=[[$pc,$a]]、`start_position`=靠牆（她是 A）。
+     男性主角（masc）：照常（她本來就是女性）。百合（yuri）：照常。
 - **篩選**：`female_partner` 關掉時 $a 改成男性保全。`tendency:畫報系` 相合時權重加成（制服）。
 
 ### 舊港的挑釁（`ev_ad_out_oldport_provoke`）
@@ -758,7 +758,7 @@
   3. 跑（運動 13）。成功：甩掉；失敗：被追進貨櫃城，時間 +1、狀態「受驚」。
   4. 問他們有什麼好玩的（誘惑 13）。成功：舊港豔名 +2、兩人的親密度 +3。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a,$b]]、`start_position`=夾在中間。
-     陽剛（masc）：$a、$b 換成女性與扶他，主角被動，主角是 B。
+     男性主角（masc）：$a、$b 換成女性與扶他，`start_position`=夾在中間。玩家選：主角在中間（B，兩人帶他），或主角在前面（A，$a 在中間）。
 - **篩選**：`tendency:野外` 相合時權重加成；兩位都被性別篩選關掉時選項 4 不出現。選項 1 的失敗是戰鬥，戰敗照那個勢力的戰敗事件。
 
 ### 蜂巢的阿姨們（`ev_ad_out_hive_aunties`）
@@ -773,7 +773,7 @@
   3. 披上外套快步走（隱匿 10）。成功：沒事；失敗：蜂巢豔名 +1。
   4. 晚上收攤時再來找她兒子（誘惑 13）。成功：$b 的親密度 +5；鄰里 −1（阿姨發現了）。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$b]]。
-     陽剛（masc）：$b 換成阿姨的女兒（女性，26 歲），她主導。
+     男性主角（masc）：$b 換成阿姨的女兒（女性，26 歲）。玩家選：主角帶，或讓她帶。
 - **篩選**：`male_partner` 關掉時 $b 是女兒。
 
 ### 被當成從業者（`ev_ad_out_mistaken_worker`）
@@ -786,7 +786,7 @@
   1. 跟他說你不是（交涉 10）。成功：他道歉走開；失敗：他以為你在抬價，加了一張鈔票。
   2. 開一個價（交涉 13）。大成功：現金 +400；成功：現金 +250；失敗：現金 +120；大失敗：他付了錢之後說要先去領錢，再也沒回來，時間 +2。
      `adult_scene`（選項 2 的大成功、成功、失敗都會）：when=success、gate=ai、nature=trade、role=worker、goal=please、circles=[[$pc,$a]]。
-     陽剛（masc）：$a 改成女性客人，她主導。百合（yuri）：$a 改成女性客人。
+     男性主角（masc）：$a 改成女性客人。百合（yuri）：$a 改成女性客人。
   3. 把他介紹給半夢（街頭直覺 13）。成功：夢露的親密度 +2、現金 +50 的介紹費；失敗：他嫌麻煩走了。
 - **篩選**：夜課的「今晚的客人」穿歡場風格時選項 2 的現金 +15%。`tendency:歡場` 相合時權重加成。蜜糖會好感 20 以下時，選項 2 之後有 20% `chain` 到蜜糖會的人來問你是哪一家的（交涉 13，失敗 honey 敵對值 +2）。
 
@@ -826,7 +826,7 @@
 - **選項**：
   1. 照時間去（定力 10）。成功：$a 檢查完把鎖打開一次，親密度 +3（是持約人時滿意 +3）。
      `adult_scene`：when=success、gate=ai、nature=mutual（持約人時 contract）、role=guest（持約人時 bound）、goal=none（持約人時 obey）、circles=[[$pc,$a]]。
-     陽剛（masc）：$a 是女性或扶他時她主導。
+     男性主角（masc）：照常（$a 是女性或扶他時不另改）。看對方：$a 是持約人時照 role=bound 由 $a 帶；是戀人或夥伴時，$a 有支配傾向就由 $a 帶，否則照開場公式。
   2. 要求今天就解開，不要再鎖（交涉 13）。成功：解開，定力的懲罰消掉；失敗：再鎖一週，親密度 −2（持約人時滿意 −3）。
   3. 自己撬開（機械，DC 照鎖寫：I 級 13、II 級 16、III 級以上 19）。成功：解開，$a 知道了，親密度 −5（持約人時滿意 −10）；失敗：鎖觸發警報，感載 +1d6。
 - **篩選**：整件帶 `tendency:禁慾`。$a 是持約人時帶 `contract_dom`，關掉時這一件只在鑰匙在戀人或夥伴手上時出現。
@@ -855,7 +855,7 @@
   2. 讓 $a 跟她打招呼（交涉 10）。成功：nora 好感 +2、一則傳聞；失敗：她以為你們在笑她，nora 好感 −1。
   3. 在步道盡頭的牆邊停下來（誘惑 10）。成功：親密度 +4、`tendency` 野外 +1。
      `adult_scene`：when=success、gate=ai、nature=mutual（契約時 contract）、role=guest（主角被牽時 bound，主角牽人時 holder）、goal=none、circles=[[$pc,$a]]、`start_position`=靠牆。
-     陽剛（masc）且被牽：$a 主導。
+     男性主角（masc）：照常；牽與被牽照上面的 role（bound、holder）。
   4. 邀她一起（誘惑 13）。成功：nora 好感 +3、三人的親密度各 +2。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a,$b]]。
 - **篩選**：整件帶 `tendency:支配` 或 `tendency:服從`（看誰牽誰）；選項 3 另帶 `tendency:野外`；選項 4 另帶 `tendency:群與融合` 與 `tendency:獸`。$a 是契約人或持約人時帶 `contract_dom`，關掉時只在戀人或夥伴之間出現。夜課「牽著走」「靠牆」在這一場用得到。
@@ -871,7 +871,7 @@
   2. 婉拒，自己跑回去（運動 13）。成功：沒事；失敗：狀態「著涼」，生命值 −5。
   3. 跟他回他住的地方等雨停（誘惑 10）。成功：親密度 +5、時間 +4。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：$a 改成女性，她主導。百合（yuri）：$a 改成女性。
+     男性主角（masc）：$a 改成女性。百合（yuri）：$a 改成女性。
 - **篩選**：對象照性別篩選改抽。`tendency:歡場` 相合時權重加成。
 
 ---
@@ -890,9 +890,9 @@
   1. 問他退路是什麼（交涉 13）。成功：雷的親密度 +5、他說出一件他「想要」的事（旗標，推進關係線）；失敗：他又開始說笑，親密度 +1。
   2. 跟他說今晚不用退路（誘惑 10）。成功：親密度 +6。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$雷]]。
-     陽剛（masc）：雷主導，`start_position`=從後面（雷是 A）。陰柔與中性：`start_position`=抱起來（雷是 A）。
+     男性主角（masc）：`start_position`=從後面（雷是 A）。其他版本：`start_position`=抱起來（雷是 A）。看對方：雷有支配傾向，每個版本都由雷帶。
   3. 舉杯，說你們是最好的朋友（表演 10）。成功：忠誠 +3；失敗：他笑得有點勉強，親密度不變。
-- **篩選**：`male_partner` 關掉時整件不出現。陽剛的主角也照常出現（男性對男性），玩家可以在選項 3 走開。
+- **篩選**：`male_partner` 關掉時整件不出現。男性主角也照常出現（男性對男性），玩家可以在選項 3 走開。
 
 ### 柚：「前輩，可以教我嗎」（`ev_ad_bond_yuzu`）
 
@@ -905,7 +905,7 @@
   2. 教他在台上怎麼保護自己（表演 13）。成功：柚的親密度 +4、他的表演 +1 的訓練旗標。
   3. 照他問的，教他（誘惑 10）。成功：親密度 +6、體悟 +3。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$柚]]、`start_position`=膝上（主角是 A）。
-     陽剛（masc）：照常，主角帶。想讓柚帶的玩家在場景裡用「換我在上面」。
+     男性主角（masc）：照常。想讓柚帶的玩家用夜課「交給你」把主動權交出去。
 - **篩選**：`femboy_partner` 關掉時整件不出現。`tendency:御姐`（主角是教人的那一方）相合時權重加成；夜課「我來教你」在這一場用得到。
 
 ### 澄：義體檢查超時（`ev_ad_bond_sumi`）
@@ -918,7 +918,7 @@
   1. 說你感覺得到，問他還要多久（交涉 10）。成功：生命值 +5、親密度 +2。
   2. 叫他順便看看別的地方（誘惑 10）。成功：親密度 +6、敏感度 +1（`bridge`）。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$澄]]、`start_position`=並躺。
-     陽剛（masc）：照常；百合（yuri）不適用（他是男性）。
+     男性主角（masc）：照常；百合（yuri）不適用（他是男性）。玩家選：主角帶，或讓澄帶。
   3. 問他接過的義體裡最喜歡哪一件（調查 13）。成功：一則情報（縫縫診所的某一件二手貨來歷不明）；失敗：他講了四十分鐘，時間 +1。
 - **篩選**：`femboy_partner` 關掉時整件不出現。`tendency:半機娘` 相合時權重加成；夜課「冰涼的手」「插槽」道具用得到。
 
@@ -933,7 +933,7 @@
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$琥珀]]。
   2. 挑一張（誘惑 10）。成功：親密度 +4、`tendency` 角色扮演 +1。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$琥珀]]。
-     百合（yuri）：她挑「女教師」那一張，她主導。陽剛（masc）：同上。
+     百合（yuri）、男性主角（masc）：她挑「女教師」那一張。看對方：那一張是她的劇本，她有支配傾向時由她帶，否則照開場公式。
   3. 問她第一張面具是誰替她寫的（調查 16）。成功：一則情報（她的秘密的一角）；失敗：她把晶片收起來。
 - **篩選**：`female_partner` 關掉時整件不出現。選項 2 帶 `tendency:角色扮演`；夜課「換成你喜歡的」用得到。
 
@@ -948,7 +948,7 @@
   2. 問她肩膀是怎麼傷的（交涉 16）。成功：她說了 2046 年的一段（旗標，推進關係線）；失敗：她說「睡吧」。
   3. 綁完之後沒有把手拿開（誘惑 13）。成功：親密度 +6。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$喬]]、`start_position`=騎乘（喬是 A）。
-     陽剛（masc）：喬主導。百合（yuri）：喬主導。
+     男性主角（masc）、百合（yuri）：照常。看對方：喬習慣由她帶，有支配傾向時開場由喬帶（`start_position` 已寫喬是 A）。
 - **篩選**：`female_partner` 關掉時整件不出現。`tendency:御姐` 相合時權重加成。
 
 ### 小麥：屋頂上的星星（`ev_ad_bond_mugi`）
@@ -961,7 +961,7 @@
   1. 叫她的名字，叫到那個聲音停下來（交涉 10）。成功：親密度 +5、推進她的關係線（旗標）。
   2. 抱緊她，貼著她說話（誘惑 10）。成功：親密度 +6。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$小麥]]、`start_position`=交纏。
-     陽剛（masc）：照常；小麥撒嬌（她主導時用「貼貼」）。百合（yuri）：照常。
+     男性主角（masc）：照常。玩家選：主角帶，或讓小麥帶（小麥帶的時候用「貼貼」撒嬌）。百合（yuri）：照常。
   3. 拍下這一晚的夜景（表演 10）。成功：素材一段（日常，品質 2）、親密度 +2。
 - **篩選**：`female_partner` 關掉時整件不出現。`tendency:妹系`、`tendency:野外` 相合時權重加成；夜課「貼貼」「靠牆」用得到。
 
@@ -975,7 +975,7 @@
   1. 對著麥克風說一句真心話（表演 13）。成功：燈的親密度 +5；失敗：她說「吵死了」，親密度 +2。
   2. 貼著她的耳朵說（誘惑 10）。成功：親密度 +6。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$燈]]、`start_position`=靠牆。
-     百合（yuri）：燈主導。陽剛（masc）：燈主導。
+     男性主角（masc）、百合（yuri）：照常。看對方：燈習慣由她帶，有支配傾向時由燈帶，否則照開場公式。
   3. 提醒她喝水休息，明天還有公演（醫療 10）。成功：她的一層餘韻消掉、忠誠 +2。
 - **篩選**：`female_partner` 關掉時整件不出現。`tendency:聲音` 相合時權重加成；夜課「咬耳朵」「整夜開麥」用得到。
 
@@ -989,7 +989,7 @@
   1. 接上同步線，只測同步（同步 13）。成功：真白的親密度 +4、旗標 `mashiro_sync`（之後協同動作 +1）；失敗：感載 +10。
   2. 跟她一起擠進去（誘惑 10）。成功：親密度 +6、感載 +10。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$真白]]、`start_position`=騎乘。
-     陽剛（masc）：真白在上面，她不會主動換體位，但主動權開場在她手上。百合（yuri）：照常。
+     男性主角（masc）：照常，真白在上面，她不會主動換體位。百合（yuri）：照常。看對方：真白有支配傾向時主動權開場在她手上，否則照開場公式。
   3. 問她為什麼逃出來（交涉 16）。成功：她說了一段戰姬訓練所的事（旗標，推進關係線）；失敗：她說「可以」，然後不再說話。
 - **篩選**：`female_partner` 關掉時整件不出現。夜課「騎乘」「抱起來」用得到。
 
@@ -1003,7 +1003,7 @@
   1. 聽她說完（定力 10）。成功：親密度 +5、推進她的關係線（旗標）。
   2. 回她一句，也只在這裡說（交涉 10）。成功：親密度 +6。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$零]]（化身之間，感載是真的）。
-     陽剛（masc）：照常。玩家的化身照內海那一份外觀。
+     男性主角（masc）：照常。玩家的化身照內海那一份外觀。
   3. 要她下線之後在現實裡再說一次（交涉 16）。成功：她在現實裡說了，親密度 +8；失敗：她登出之後一整天不理你，親密度 −2。
 - **篩選**：`female_partner` 關掉時整件不出現。內海裡沒有 `fight`。
 
@@ -1016,7 +1016,7 @@
 - **選項**：
   1. 跟她說你也不會錄（定力 10）。成功：親密度 +6、忠誠 +3。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$潘妮]]。
-     百合（yuri）：潘妮主導（她問題太多，一路問到你答不出來）。陽剛（masc）：同上。
+     百合（yuri）、男性主角（masc）：照常（她問題太多，一路問到你答不出來）。看對方：潘妮有支配傾向時由她帶，否則照開場公式。
   2. 偷偷開著錄（隱匿 16）。成功：素材一段（親密，品質 4，獨家）；之後每週結帳時潘妮擲調查對你的隱匿，看穿時親密度 −15、忠誠 −15。
   3. 問她以前播過最後悔的一段（交涉 13）。成功：一則情報（她被開除的真正原因）。
 - **篩選**：選項 2 偷錄帶 `target_unwilling`（偷錄跟著對象非自願的篩選，ITEMS 7.3 節規則 9），關掉時不出現。`female_partner` 關掉時整件不出現。
@@ -1033,7 +1033,7 @@
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$奈奈]]。
   3. 照她的意思（誘惑 10）。成功：親密度 +5、`tendency` 恩與債 +1。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$奈奈]]、`start_position`=面對面。
-     陽剛（masc）：奈奈主導。百合（yuri）：奈奈主導。
+     男性主角（masc）、百合（yuri）：照常。看對方：奈奈有支配傾向（算好的人情，她要先把帳算平）時由她帶，否則照開場公式。
 - **篩選**：`female_partner` 關掉時整件不出現。選項 3 帶 `tendency:恩與債`；夜課「這次算我的」用得到。
 
 ### K：新刊的參考資料（`ev_ad_bond_k`）
@@ -1046,7 +1046,7 @@
   1. 只當模特兒擺姿勢（表演 13）。成功：K 的親密度 +4、doujin 好感 +2；失敗：你的腳抽筋了，她笑了五分鐘，親密度 +2。
   2. 一起示範（誘惑 10）。成功：親密度 +6、`tendency` 妄想 +1。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$K]]、`start_position`=交纏。
-     陽剛（masc）：K 主導，她一邊畫一邊下指令。
+     男性主角（masc）：照常。看對方：K 有支配傾向時由她帶，她一邊畫一邊下指令；否則照開場公式。
   3. 幫她趕稿（機械 13，貼網點與印刷機）。成功：她的新刊準時，旗標 `k_book_done`（推進她「想要」的事）。
 - **篩選**：`trans_partner` 關掉時整件不出現。選項 2 帶 `tendency:妄想`；夜課「照那本來演」「讓我看看你」用得到。
 
@@ -1060,7 +1060,7 @@
   1. 勸她先去靜室拆掉調校（交涉 16）。成功：她答應考慮，親密度 +5、旗標 `eliza_tuning_talk`；失敗：她說她不敢，親密度 +1。
   2. 試試看（誘惑 16，冰后讓她抵抗誘惑 +4，DC 已經算進去）。成功：親密度 +8。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$伊萊莎]]、`start_position`=面對面。
-     陽剛（masc）：照常（主動權開場 50）。百合（yuri）：伊萊莎主導。
+     男性主角（masc）、百合（yuri）：照常（主動權開場 50）。看對方：伊萊莎有支配傾向時由她帶；沒有時照開場公式。
   3. 陪她坐到天亮，聊牆（同步 13）。成功：一則指向粉牆的線索、沉溺 +1、親密度 +4。
 - **篩選**：`trans_partner` 關掉時整件不出現。
 
@@ -1075,7 +1075,7 @@
   2. 幫她修熱水器（機械 13）。成功：親密度 +3、鄰里 +1；失敗：越修越壞，`bill` 她的修理費你出一半（C$30）。
   3. 跟她說浴缸夠兩個人（誘惑 10）。成功：親密度 +6。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$遙]]、`start_position`=膝上（主角是 A）。
-     陽剛（masc）：照常；她很少主導，但「交給你」那一類的迎合用得多。百合（yuri）：主角主導。
+     男性主角（masc）：照常；她很少主導，但「交給你」那一類的迎合用得多。百合（yuri）：主角主導。
 - **篩選**：`female_partner` 關掉時整件不出現。`tendency:溺愛` 相合時權重加成。
 
 ### 戀人吃醋（`ev_ad_bond_lover_jealous`）
@@ -1089,7 +1089,7 @@
   2. 說那只是工作（表演 13）。成功：親密度不變；失敗：他看穿了，親密度 −8。
   3. 讓他在你身上留個記號（誘惑 10）。成功：親密度 +5、`tendency` 標記 +1、狀態「吻痕」（三天，冠冕區的社交檢定 −1）。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：$a 主導。百合（yuri）：$a 是女性時她主導。
+     男性主角（masc）、百合（yuri）：$a 照原本的性別，不另改。看對方：吃醋的戀人想把人留在身邊，$a 有支配傾向時由 $a 帶，否則照開場公式。
 - **篩選**：選項 3 帶 `tendency:標記`，關掉時選項 3 沒有狀態與傾向，只有親密度。夜課「落款」「朱印」道具用得到。
 
 ### 有人看上你的戀人（`ev_ad_bond_rival_suitor`）
@@ -1103,7 +1103,7 @@
   2. 讓戀人自己決定（交涉 10）。成功：戀人選你，親密度 +5；失敗：戀人說他只是喝一杯，親密度 −2。
   3. 說要借就三個人一起（誘惑 13）。成功：三人的親密度各 +3、honey 好感 +2。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a,$b]]。
-     陽剛（masc）：$b 主導。
+     男性主角（masc）：$b 照常。玩家選：主角帶，或讓 $b 帶。
   4. 答應她的價錢（現金 +C$360）。戀人跟她走，`adult_scene` 不展開（主角不在那一場裡），旗標 `lover_lent`，戀人的親密度 −5、忠誠 −5；主角可以選擇在隔壁看（`tendency` 奪與被奪 +1）。
 - **篩選**：選項 4 標 `ntr`，關掉時不出現；整件在 `ntr` 關掉時照樣出現，只是沒有選項 4。`female_partner` 關掉時 $b 改成男性。
 
@@ -1122,7 +1122,7 @@
 - **選項**：
   1. 帶走（沒有檢定）。進場景，之後放人。
      `adult_scene`：when=always、gate=fixed、nature=forced、role=guest、goal=none、circles=[[$pc,$a]]（主動權開場照 6.1 節）。
-     陽剛（masc）：照常，主角是主導的一方（俘虜的版本不分男性被動）。
+     男性主角（masc）：照常（俘虜的主動權開場照 6.1 節，每個版本一樣）。
   2. 問她話（威嚇 13 或誘惑 13，二選一）。大成功：兩則情報（那個勢力的委託、她的上司是誰）；成功：一則情報；失敗：她什麼都不說；大失敗：她咬斷了耳機線上的求救鍵，那個勢力的敵對值再 +2。
   3. 跟她談條件：放她走，換她欠你（交涉 13）。成功：`owed` 她欠你一個小人情、旗標 `captive_owes_<id>`（之後 `ev_ad_cap_returns` 的條件）；失敗：她說她不欠敵人東西，放走。
   4. 放走（沒有檢定）。那個勢力的敵對值不加 6.1 節的 +1，旗標 `captive_released_<id>`。
@@ -1139,7 +1139,7 @@
   2. 問她要不要換邊（交涉 16）。成功：`roster_add` 候選（她是行者時），那個勢力的敵對值 +3；失敗：她說她還沒想好，旗標留著。
   3. 請她去喝一杯（誘惑 10）。成功：親密度 +6、旗標清掉。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：這一次她主導（主動權開場 −10）。百合（yuri）：同上。
+     男性主角（masc）、百合（yuri）：照常。看對方：她這次是自己找上門的，帶著報恩或報復的意思，有支配傾向時主動權開場 −10、由她帶；沒有時照開場公式。
 - **篩選**：$a 的性別照原本的兵種；那個性別被關掉時整件不出現。
 
 ### 她的同伴來討人（`ev_ad_cap_retaliation`）
@@ -1154,7 +1154,7 @@
   3. 說是她自己情願的（表演 16）。成功：她們半信半疑地走了，敵對值 −2；失敗：照選項 1。
   4. 跟帶頭的人單獨談（誘惑 16）。成功：那個勢力的敵對值 −5、$a 的親密度 +3。
      `adult_scene`：when=success、gate=ai、nature=trade、role=guest、goal=none、circles=[[$pc,$a]]。
-     陽剛（masc）：$a 主導。
+     男性主角（masc）：$a 照原本的性別，不另改。玩家選：主角帶，或讓 $a 帶。
 - **篩選**：選項 4 的對象照性別篩選，被關掉時選項 4 不出現。選項 3 的「她自己情願」在 `target_unwilling` 關掉時是事實（俘虜的那一場是交易），DC 降到 13。
 
 ### 那一段被錄下來了（`ev_ad_cap_footage`）
@@ -1188,17 +1188,17 @@
 
 - **在哪、條件**：成人事件；委託副本裡（女僕公會受雇當保全時），或櫻町；`captive`；requires 俘虜是女僕公會的人。
 - **類型**：慾望；權重 3；重複間隔 7 天。
-- **登場**：$a 女僕公會的女僕（女性，29 歲）；陽剛的主角時是同一位。
+- **登場**：$a 女僕公會的女僕（女性，29 歲）；男性主角時是同一位。
 - **開場**：女僕的白手套破了一隻，頭飾歪在一邊，她被制伏之後第一件事是把裙襬拉平。她抬頭看你，說公會的規矩是受雇期間不能被別人使喚，可是雇主已經付清了，從現在開始她不屬於任何人。
 - **選項**：
   1. 問她雇主是誰（交涉 13）。成功：一則情報（`link`：下一個階段的保全少一隊）；失敗：她說公會不出賣雇主。
   2. 讓她走，說你會跟公會說是你放的（交涉 10）。成功：maids 好感 +3，敵對值不加。
   3. 帶走（照 `ev_ad_cap_choice` 的選項 1）。
      `adult_scene`：when=always、gate=fixed、nature=forced、role=holder、goal=obey、circles=[[$pc,$a]]。
-     陽剛（masc）：照常，主角主導，她的風格是女僕，她會用「歡迎回來主人」。
+     男性主角（masc）：照常，她的風格是女僕，她會用「歡迎回來主人」。
   4. 請她「服務」一次當作報答（誘惑 13）。成功：maids 好感 +1、親密度 +4。
      `adult_scene`：when=success、gate=ai、nature=trade、role=guest、goal=please、circles=[[$pc,$a]]。
-     陽剛（masc）：照常（她是服務的那一方，主動權 50）。百合（yuri）：她主導（公會的職人侍奉）。
+     男性主角（masc）、百合（yuri）：照常（她是服務的那一方，公會的職人侍奉）。
 - **篩選**：選項 3 照 `ev_ad_cap_choice` 的篩選。`tendency:女僕` 相合時權重加成；夜課「歡迎回來主人」「搖鈴」道具用得到。
 
 ---
@@ -1266,7 +1266,7 @@
   1. 只連線聊天（表演 13）。成功：`highlight` +2、他的親密度 +3；失敗：`highlight` +1，他的觀眾說你很普通。
   2. 約他今晚過來一起播（誘惑 13）。成功：`highlight` +3、親密度 +5、`move` 到你的據點或他的。
      `adult_scene`：when=success、gate=ai、nature=work、role=guest、goal=footage、circles=[[$pc,$a]]。
-     陽剛（masc）：他主導。百合（yuri）：$a 改成女性主播。
+     男性主角（masc）：照常（他本來就是男娘）。玩家選：主角帶，或讓他帶（觀眾也可以用投票或打賞指定）。百合（yuri）：$a 改成女性主播。
   3. 搶他的觀眾（交涉 16，在連線裡挑釁）。成功：`highlight` +3、他的親密度 −5；失敗：`highlight` +1，他的觀眾湧進你的彈幕罵人。
 - **篩選**：`femboy_partner` 關掉時 $a 改成女性主播。
 
@@ -1281,7 +1281,7 @@
   2. 把攝影師的鏡頭擋下來（威嚇 13）。成功：`highlight` +1，她悻悻地走了；失敗：kaleido 敵對值 +3、你的畫面被她的保鑣遮住。
   3. 當場邀她一起（誘惑 16）。成功：`highlight` +3、她的親密度 +4、kaleido 好感 +1。
      `adult_scene`：when=success、gate=ai、nature=work、role=guest、goal=footage、circles=[[$pc,$a]]。
-     陽剛（masc）：她主導。百合（yuri）：她主導。
+     男性主角（masc）、百合（yuri）：照常。看對方：萬華鏡的名媛是來搶台的強勢型，有支配傾向時由她帶，否則照開場公式。
 - **篩選**：`female_partner` 關掉時 $a 改成男性藝人。
 
 ### 過載的那一下被播出去了（`ev_ad_live_combat_overload`）
@@ -1313,7 +1313,7 @@
   2. 大聲說出來（威嚇 14）。成功：旁邊的人圍過來，他在下一站逃下車，狀態不變；失敗：沒有人理你，他也沒停手，狀態「受驚」。
   3. 在下一站下車：時間 +1，換下一班車，這一趟的搭車事件結束。
   4. 不作聲。`adult_scene`：when=always、gate=ai、nature=forced、role=none、goal=none、circles=[[$pc,$a]]、`start_position`=靠牆。場景結束後狀態「受驚」，除非主角有「野外」的標籤。
-- **篩選**：整件標 `pc_unwilling`，關掉時這件不觸發（EVENTS 4.10 節第 6 條）。帶 `tendency:野外`。陽剛（masc）：$a 改成女性或扶他。
+- **篩選**：整件標 `pc_unwilling`，關掉時這件不觸發（EVENTS 4.10 節第 6 條）。帶 `tendency:野外`。男性主角（masc）：$a 改成女性或扶他。
 
 ### 擠過來的那個人（`ev_ad_transit_reach`）
 
@@ -1338,7 +1338,7 @@
   1. 順著他，靠過去（誘惑 10）：成功，親密度 +5。`adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]、`start_position`=膝上。失敗：他睡著了，靠在你肩上到終點站，親密度 +2。
   2. 拉開距離，看窗外（定力 10）：成功，什麼都沒發生；失敗，你一直想著剛才那一下，狀態「心不在焉」到明天早上。
   3. 叫他看車廂盡頭的監視器（街頭直覺 13）：成功，你發現監視器是壞的，豔名不會漲，之後選項 1 的檢定 +2；失敗，沒有效果。
-- **篩選**：帶 `tendency:野外`。$a 是夥伴時照那位夥伴的設定；是生成的乘客時，百合（yuri）改成女性、陽剛（masc）改成女性或扶他。
+- **篩選**：帶 `tendency:野外`。$a 是夥伴時照那位夥伴的設定；是生成的乘客時，百合（yuri）改成女性、男性主角（masc）改成女性或扶他。
 
 ### 一起被擠到門邊（`ev_ad_transit_squeeze`）
 
@@ -1368,7 +1368,7 @@
   2. 上台參加濕T恤比賽（表演 13；比賽的時候上身的曝露度算 2）。大成功：贏了，現金 +150（獎金是那一晚的酒錢）、蜂巢豔名 +2、$a 的親密度 +4；成功：第二名，現金 +50、蜂巢豔名 +1；失敗：你只得到一桶冰水和一陣口哨，感載 +5。
   3. 和 $a 在吧台上比腕力，輸的人今晚聽贏的人的（格鬥 13）。成功：你把她的手壓到桌面，全場吹口哨，$a 的親密度 +5；失敗：她把你的手壓下去，笑著把啤酒推給你，親密度 +3。兩個人都點了頭才上樓。
      `adult_scene`：when=always、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。比贏時你主導，`start_position`=騎乘（你在上面）；比輸時她主導。
-     陽剛（masc）：照常，比輸時她在上面。百合（yuri）：照常（她本來就是女性）。
+     男性主角（masc）、百合（yuri）：照常（她本來就是女性）。
   4. 只坐在吧台看（不擲）：感載 −5、一則傳聞（孤星連最近在搬什麼）。
 - **篩選**：選項 2 帶 `tendency:暴露`。`female_partner` 關掉時 $a 改成常來喝酒的男性退伍兵。
 
@@ -1382,7 +1382,7 @@
   1. 照規矩擺姿勢，讓瑪姬畫（表演 13）。大成功：現金 +400、$a 的親密度 +3、旗標 `nose_art_nude`（那架機會帶著你的樣子飛過前進基地）；成功：現金 +300；失敗：現金 +150，瑪姬說你太緊張，畫出來的線條是硬的。
   2. 讓機師走近一點看（誘惑 13）。成功：現金 +300、$a 的親密度 +5、人情：$a 欠你（小，前進基地的換班時間表）；失敗：她看完就走，現金 +150。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=worker、goal=none、circles=[[$pc,$a]]、`start_position`=面對面。
-     百合（yuri）：$a 改成女性。陽剛（masc）：$a 改成女性機師，她主導，`start_position`=騎乘。
+     百合（yuri）：$a 改成女性。男性主角（masc）：$a 改成女性機師，`start_position`=騎乘。
   3. 先講好只准畫、不准拍（交涉 13）。成功：照選項 1 擲，另外這張畫不會外流；失敗：她還是偷拍了一張，旗標 `nose_art_leak`，三天後蜂巢的豔名 +2。
 - **篩選**：選項 1、2 帶 `tendency:暴露`；選項 2 另帶 `tendency:畫報系`。
 
@@ -1397,7 +1397,7 @@
   2. 坐下來陪他們喝（交涉 13）。成功：一則情報、現金 +100；失敗：他們整晚只談那場戰爭，感載 +5。
   3. 跳完不走（誘惑 13）。成功：現金 +400、星旗好感 +2、兩位的親密度各 +4。
      `adult_scene`：when=success、gate=ai、nature=work、role=worker、goal=please、circles=[[$pc,$a,$b]]、`start_position`=夾在中間。
-     百合（yuri）：$a、$b 改成女性。陽剛（masc）：$a、$b 改成女性軍官，她們主導。
+     百合（yuri）：$a、$b 改成女性。男性主角（masc）：$a、$b 改成女性軍官。
   4. 請憲兵送你回去（不擲）：雇主的親密度 −2。
 - **篩選**：任一位的性別被篩掉時改抽另一種；`tendency:群與融合` 關掉時只來一位，circles=[[$pc,$a]]。
 
@@ -1411,11 +1411,11 @@
   1. （主角是舞者）上包廂替她跳一首（表演 13）。大成功：現金 +500（全是塞進腰帶的小費）、上城段的豔名 +3、$a 的親密度 +4；成功：現金 +300、上城段的豔名 +2；失敗：現金 +80，伴娘們嫌你太拘謹。
   2. （主角是舞者）她拉著你的手，說要去後台（誘惑 13）。成功：現金 +400、$a 的親密度 +5；大成功時伴娘也跟過來。
      `adult_scene`：when=success、gate=ai、nature=work、role=worker、goal=please、circles=[[$pc,$a]]（大成功時 [[$pc,$a,$b]]）。
-     百合（yuri）：照常。陽剛（masc）：照常，$a 主導，`start_position`=騎乘。
+     百合（yuri）：照常。男性主角（masc）：照常，`start_position`=騎乘。
   3. （主角是客人）幫準新娘塞錢給「警長」，跟著伴娘們一起起鬨（交涉 10）。成功：$a 的親密度 +3、一則傳聞（新郎家是哪一家企業的人）；失敗：你被當成隔壁派對的人，時間 +1。
   4. （主角是客人）讓「警長」把你拉上台當道具（表演 10）。成功：上城段的豔名 +1、$c 的親密度 +3，散場後他在後台等你。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$c]]。
-     陽剛（masc）：照常，$c 主導。
+     男性主角（masc）：照常（$c 本來就是男性）。
 - **篩選**：選項 1、2、4 帶 `tendency:暴露`。`male_partner` 關掉時選項 4 不出現；`female_partner` 關掉時 $a、$b 改成準新郎與他的朋友，派對改成單身漢派對，帝國座照樣接。
 
 ### 起霧的車窗（`ev_ad_am_drive_in`）
@@ -1427,7 +1427,7 @@
 - **選項**：
   1. 也把座椅放倒（誘惑 10）。成功：$a 的親密度 +5。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]、`start_position`=膝上。
-     百合（yuri）、陽剛（masc）：$a 是夥伴時照那位的設定；生成的觀眾照第 5 條改抽，陽剛的主角改成女性或扶他主導。
+     百合（yuri）、男性主角（masc）：$a 是夥伴時照那位的設定，看那位的支配傾向；生成的觀眾照第 5 條改抽，男性主角（masc）改成女性或扶他，由玩家選主角帶或讓對方帶。
   2. 換到皮卡的車斗上，蓋同一條毯子看完（交涉 10）。成功：$a 的親密度 +4、感載 −10；失敗：起風了，你們只好回車裡，親密度 +2。
   3. 專心看電影（定力 10）。成功：一則傳聞（片子裡拍到舊星旗機場的跑道，旗標 `drive_in_newsreel`）；失敗：你睡著了，$a 把外套蓋在你身上，親密度 +2。
   4. （要有：旗標 `drive_in_pass`）午夜場放的是舊時代的成人片，老闆只在這一場開，全停車場的車燈都關了（誘惑 13）。成功：$a 的親密度 +5、`tendency` 窺視 +1。
@@ -1443,7 +1443,7 @@
 - **選項**：
   1. 進去坐（誘惑 10）。成功：$a 的親密度 +5、一則傳聞（外環哪一段最近有人攔車）。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]、`start_position`=並躺。
-     百合（yuri）：$a 改成女性。陽剛（masc）：$a 改成女性，她主導。
+     百合（yuri）：$a 改成女性。男性主角（masc）：$a 改成女性。玩家選：主角帶，或讓她帶。
   2. 喝完啤酒，聽她講荒地（交涉 10）。成功：野薔薇好感 +1、一則傳聞；失敗：她說城裡人聽不懂荒地的事。
   3. 先看一眼十二號房的牆（街頭直覺 13）。成功：你在冷氣口裡找到一台針孔攝影機，當著她的面拆下來，$a 的親密度 +4、旗標 `motel_cam`（藍月的老闆有事瞞著你），接選項 1 或 2；失敗：沒有發現，照選項 1 或 2。
   4. 回自己的房間（不擲）：照常休息。
@@ -1458,7 +1458,7 @@
 - **選項**：
   1. 下坑（三回合的對抗：每回合格鬥或運動對 $a 的 13，先拿下兩回合的人贏；泥裡義體的加值不算，神經武器也沒有用）。贏：現金 +300（加上自己押的注）、野薔薇好感 +2、旗標 `mud_won`；輸：現金 0。串珠夜的果凍坑，贏的現金 ×1.5。輸的一方照賭約：
      `adult_scene`：when=fail（主角輸，對方主導）或 success（主角贏，主角主導）、gate=ai、nature=trade、role=guest、goal=none、circles=[[$pc,$a]]、`start_position`=交纏。
-     百合（yuri）：$a 改成女性。陽剛（masc）且輸：$a 是女性或扶他時她主導，`start_position`=騎乘。
+     百合（yuri）：$a 改成女性。男性主角（masc）且輸：$a 是女性或扶他時，`start_position`=騎乘（贏的她在上面）。
   2. 下坑，但先說服開盤的人讓你只賭錢（交涉 10）。贏：現金 +200；輸：現金 −100。沒有場景。
   3. 押別人（街頭直覺 13）。大成功：現金 +250；成功：現金 +120；失敗：現金 −80；大失敗：現金 −160。
   4. 坐在輪胎上看（不擲）：感載 −5、一則傳聞（車隊這一趟在荒地看到了什麼）。
@@ -1474,7 +1474,7 @@
   1. 掀一下（表演 10）。大成功：車上丟下那串最大的金珠串（物品：金色的大珠串）、蜂巢豔名 +2；成功：物品：串珠、蜂巢豔名 +1；失敗：珠子打在你的額頭上，被旁邊的人搶走了。
   2. 爬上花車，換你來丟（運動 13）。成功：孤星連或野薔薇的好感 +2、$a 的親密度 +3；遊行結束時，$a 問你要不要一起去彈殼續攤。
      `adult_scene`：when=success、gate=ai、nature=mutual、role=guest、goal=none、circles=[[$pc,$a]]。
-     百合（yuri）：$a 改成女性。陽剛（masc）：$a 改成女性或扶他，她主導。
+     百合（yuri）：$a 改成女性。男性主角（masc）：$a 改成女性或扶他。
   3. 拿自己的珠子去換別人的（交涉 10）。成功：物品：串珠，換珠子的人留下了聯絡方式（`roster_add` 候選）；失敗：沒有效果。
   4. 只看，不掀：感載 −5。
 - **篩選**：選項 1 帶 `tendency:暴露`。串珠夜的兩天東側的曝露度容忍 +1（[LIFE](../world/LIFE.md) 8.2 節），所以掀上衣這一下不會觸發「穿出門」那一組的事件。
@@ -1483,7 +1483,7 @@
 
 **這一節的數量與分配**（給檢查用）
 
-| 組 | 件數 | 有陽剛版本 | 有百合版本 | 帶 `pc_unwilling` 的分支 | 其他特殊標籤（件數） |
+| 組 | 件數 | 有男性主角版本 | 有百合版本 | 帶 `pc_unwilling` 的分支 | 其他特殊標籤（件數） |
 |---|---|---|---|---|---|
 | 被認出來 | 12 | 9 | 5 | 2（熔爐的口哨、車廂） | `blacktape` 1、`contract_dom` 1 |
 | 場所 | 14 | 11 | 7 | 0 | `puppet_amnesia` 3、`blacktape` 1、`ntr` 1、`target_unwilling` 1 |
@@ -1498,4 +1498,4 @@
 | 城市邊緣的美式場所 | 8 | 8 | 8 | 0 | — |
 | **合計** | **98** | **75** | **48** | **9** | |
 
-對象的性別：指定或寫明的主要對象以女性最多，男性（雷、生成的客人、主管、副導與狗仔）、男娘（柚、隔壁的大學生、藥頭、錄音師、包廂的客人、連線的主播）、偽娘（澄、蜜腺的推廣員與警衛）、TS（K、伊萊莎）、扶他（同人作者、收藏家、陽剛版本的替補與試用者）各有幾件；沒寫明的照區的比例生成，被篩選關掉的改抽。陽剛的主角在有陽剛版本的事件裡是被動的一方（女性或扶他主導），俘虜之後的事件例外。
+對象的性別：指定或寫明的主要對象以女性最多，男性（雷、生成的客人、主管、副導與狗仔）、男娘（柚、隔壁的大學生、藥頭、錄音師、包廂的客人、連線的主播）、偽娘（澄、蜜腺的推廣員與警衛）、TS（K、伊萊莎）、扶他（同人作者、收藏家、男性主角版本的替補與試用者）各有幾件；沒寫明的照區的比例生成，被篩選關掉的改抽。男性主角版本只換對象與描寫，主被動照各件的 `nature`、`role`、`start_position` 與選項：被迫、打工被買、藥與惡意韌體失控的分支是被動，主角是客人或自己發起的分支是主動，其餘由玩家選或看對方的支配傾向。俘虜之後的事件照 ENEMIES 6.1 節，主角從主動開場。
